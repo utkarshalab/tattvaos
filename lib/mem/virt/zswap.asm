@@ -75,6 +75,22 @@ zswap_compress_and_store:
 
     mov r12, rdi                    ; R12 = src_phys
 
+    ; Dynamic zpool balancing limit check
+    extern zpool_balance
+    extern zswap_max_slots
+    call zpool_balance
+    mov rax, [zswap_compressed_pages]
+    cmp rax, [zswap_max_slots]
+    jb .under_limit
+
+    ; Limit hit! Trigger physical writeback to evict oldest block
+    extern zswap_writeback
+    call zswap_writeback
+    test rax, rax
+    jz .failed                      ; if writeback fails, reject store
+
+.under_limit:
+
     ; 1. Compress the page into the scratch buffer
     mov rdi, r12                    ; src
     lea rsi, [zswap_scratch]        ; dest
