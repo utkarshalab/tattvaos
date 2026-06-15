@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/zpool.asm
 ; =============================================================================
-; Dynamic Zpool Balancing (Subfeature 28.2).
+; Dynamic Zpool Balancing and Compaction (Section 28.2 & 28.3).
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -12,10 +12,19 @@
 
 [BITS 64]
 
+; Zpool/Zswap limits
+ZRAM_MAX_SLOTS    equ 256
+ZRAM_SLOT_SIZE    equ 2048
+ZSWAP_MAX_SLOTS   equ 256
+ZSWAP_SLOT_SIZE   equ 2048
+
 section .text
 
-; External VMM and physical memory symbols
+; External helper functions
 extern phys_state
+extern phys_alloc_page
+extern phys_free_page
+extern memcpy
 
 ; -----------------------------------------------------------------------------
 ; zpool_balance — dynamically scales zswap and zram maximum slots
@@ -66,6 +75,432 @@ zpool_balance:
     pop rdx
     pop rcx
     pop rax
+    ret
+
+; -----------------------------------------------------------------------------
+; zpool_update_pte — scans page tables to update slot index for swapped pages
+; Input:
+;   RDI = slot_src
+;   RSI = slot_dest
+;   RDX = is_zswap (1 = zswap, 0 = zram)
+; Output: none
+; -----------------------------------------------------------------------------
+global zpool_update_pte
+zpool_update_pte:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 64                     ; reserve stack space
+
+    ; Save inputs
+    mov [rbp - 8], rdi              ; slot_src
+    mov [rbp - 16], rsi             ; slot_dest
+    mov [rbp - 24], rdx             ; is_zswap
+
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; Get PML4 physical base from CR3
+    mov rax, cr3
+    mov rbx, 0xFFFFFFFFFFFFF000
+    and rax, rbx
+    mov [rbp - 32], rax             ; PML4 base
+
+    ; Loop PML4 index (0..511)
+    xor r12, r12
+.pml4_loop:
+    cmp r12, 512
+    jge .done
+    
+    mov rax, [rbp - 32]
+    mov rax, [rax + r12 * 8]        ; PML4 entry
+    test rax, 1                     ; PAGE_PRESENT
+    jz .pml4_next
+
+    and rax, 0xFFFFFFFFFFFFF000
+    mov [rbp - 40], rax             ; PDPT base
+
+    ; Loop PDPT index (0..511)
+    xor r13, r13
+.pdpt_loop:
+    cmp r13, 512
+    jge .pml4_next
+
+    mov rax, [rbp - 40]
+    mov rax, [rax + r13 * 8]        ; PDPT entry
+    test rax, 1                     ; PAGE_PRESENT
+    jz .pdpt_next
+    test rax, 0x80                  ; PAGE_HUGE
+    jnz .pdpt_next
+
+    and rax, 0xFFFFFFFFFFFFF000
+    mov [rbp - 48], rax             ; PD base
+
+    ; Loop PD index (0..511)
+    xor r14, r14
+.pd_loop:
+    cmp r14, 512
+    jge .pdpt_next
+
+    mov rax, [rbp - 48]
+    mov rax, [rax + r14 * 8]        ; PD entry
+    test rax, 1                     ; PAGE_PRESENT
+    jz .pd_next
+    test rax, 0x80                  ; PAGE_HUGE
+    jnz .pd_next
+
+    and rax, 0xFFFFFFFFFFFFF000
+    mov [rbp - 56], rax             ; PT base
+
+    ; Loop PT index (0..511)
+    xor r15, r15
+.pt_loop:
+    cmp r15, 512
+    jge .pd_next
+
+    mov rax, [rbp - 56]
+    lea rdx, [rax + r15 * 8]        ; RDX = PTE pointer
+    mov rax, [rdx]                  ; RAX = PTE value
+    test rax, 1                     ; PAGE_PRESENT (must be non-present)
+    jnz .pt_next
+
+    ; Check PAGE_SWAPPED (bit 10)
+    test rax, 0x400
+    jz .pt_next
+
+    ; Check is_zswap flag (bit 11)
+    mov rcx, rax
+    shr rcx, 11
+    and rcx, 1                      ; RCX = is_zswap in PTE
+    cmp rcx, [rbp - 24]
+    jne .pt_next
+
+    ; Extract slot index (bits 12-51)
+    mov rcx, rax
+    shr rcx, 12
+    mov r8, 0xFFFFFFFFFF
+    and rcx, r8                     ; RCX = slot index in PTE
+    cmp rcx, [rbp - 8]
+    jne .pt_next
+
+    ; Match found! Update PTE with slot_dest
+    mov r8, 0xFFFFFFFFFF
+    shl r8, 12
+    not r8
+    and rax, r8                     ; clear old slot bits 12-51
+
+    mov rcx, [rbp - 16]             ; slot_dest
+    shl rcx, 12
+    or rax, rcx                     ; merge new slot index
+
+    mov [rdx], rax                  ; write new PTE
+    
+    ; Flush TLB
+    mov rcx, cr3
+    mov cr3, rcx
+    jmp .done                       ; slot index is unique, we are done!
+
+.pt_next:
+    inc r15
+    jmp .pt_loop
+
+.pd_next:
+    inc r14
+    jmp .pd_loop
+
+.pdpt_next:
+    inc r13
+    jmp .pdpt_loop
+
+.pml4_next:
+    inc r12
+    jmp .pml4_loop
+
+.done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    leave
+    ret
+
+; -----------------------------------------------------------------------------
+; zram_compact — eliminates memory fragmentation in ZRAM pool
+; -----------------------------------------------------------------------------
+global zram_compact
+zram_compact:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    push r15
+
+    xor r12, r12                    ; r12 = L (left index)
+    mov r13, ZRAM_MAX_SLOTS
+    dec r13                         ; r13 = R (right index)
+
+.compact_loop:
+    cmp r12, r13
+    jge .done
+
+    ; Find first free slot from left
+    lea rcx, [zram_in_use]
+    mov al, [rcx + r12]
+    test al, al
+    jz .found_free
+    inc r12
+    jmp .compact_loop
+
+.found_free:
+    ; Find first in-use slot from right
+    lea rcx, [zram_in_use]
+    mov al, [rcx + r13]
+    test al, al
+    jnz .found_in_use
+    dec r13
+    jmp .compact_loop
+
+.found_in_use:
+    cmp r12, r13
+    jge .done
+
+    ; Migrate slot R (r13) to L (r12)
+    ; 1. Resolve source address
+    mov rax, r13
+    shr rax, 1                      ; F_src
+    lea rcx, [zram_frames]
+    mov rbx, [rcx + rax * 8]
+    
+    mov rdx, r13
+    and rdx, 1
+    shl rdx, 11                     ; O_src offset
+    add rbx, rdx                    ; RBX = source pointer
+
+    ; 2. Resolve destination address. Allocate frame if needed
+    mov rax, r12
+    shr rax, 1                      ; F_dest
+    lea rcx, [zram_frames]
+    mov rbp, [rcx + rax * 8]
+    test rbp, rbp
+    jnz .dest_frame_ok
+
+    push rcx
+    push rax
+    call phys_alloc_page
+    pop rax
+    pop rcx
+    test rax, rax
+    jz .done                        ; abort if OOM
+
+    mov [rcx + rax * 8], rax
+    mov rbp, rax
+
+.dest_frame_ok:
+    mov rdx, r12
+    and rdx, 1
+    shl rdx, 11
+    add rbp, rdx                    ; RBP = destination pointer
+
+    ; 3. Copy slot contents (2048 bytes)
+    mov rdi, rbp
+    mov rsi, rbx
+    mov rdx, ZRAM_SLOT_SIZE
+    call memcpy
+
+    ; 4. Copy metadata
+    lea rcx, [zram_in_use]
+    mov byte [rcx + r12], 1         ; mark L in use
+    
+    lea rcx, [zram_sizes]
+    mov dx, [rcx + r13 * 2]         ; get size of R
+    mov [rcx + r12 * 2], dx         ; set size of L
+
+    ; 5. Update PTE mapping from R to L
+    mov rdi, r13                    ; slot_src
+    mov rsi, r12                    ; slot_dest
+    mov rdx, 0                      ; is_zswap = 0
+    call zpool_update_pte
+
+    ; 6. Free source slot R (r13)
+    lea rcx, [zram_in_use]
+    mov byte [rcx + r13], 0
+    lea rcx, [zram_sizes]
+    mov word [rcx + r13 * 2], 0
+
+    ; Check companion slot of R (R ^ 1)
+    mov rax, r13
+    xor rax, 1
+    lea rcx, [zram_in_use]
+    mov dl, [rcx + rax]
+    test dl, dl
+    jnz .skip_free_source_frame
+
+    ; Companion is free, release physical frame
+    mov rax, r13
+    shr rax, 1                      ; F_src
+    lea rcx, [zram_frames]
+    mov rdi, [rcx + rax * 8]
+    test rdi, rdi
+    jz .skip_free_source_frame
+
+    call phys_free_page
+    lea rcx, [zram_frames]
+    mov qword [rcx + rax * 8], 0
+
+.skip_free_source_frame:
+    inc r12
+    dec r13
+    jmp .compact_loop
+
+.done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; zswap_compact — eliminates memory fragmentation in Zswap pool
+; -----------------------------------------------------------------------------
+global zswap_compact
+zswap_compact:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    push r15
+
+    xor r12, r12                    ; r12 = L (left index)
+    mov r13, ZSWAP_MAX_SLOTS
+    dec r13                         ; r13 = R (right index)
+
+.compact_loop:
+    cmp r12, r13
+    jge .done
+
+    ; Find first free slot from left
+    lea rcx, [zswap_in_use]
+    mov al, [rcx + r12]
+    test al, al
+    jz .found_free
+    inc r12
+    jmp .compact_loop
+
+.found_free:
+    ; Find first in-use slot from right
+    lea rcx, [zswap_in_use]
+    mov al, [rcx + r13]
+    test al, al
+    jnz .found_in_use
+    dec r13
+    jmp .compact_loop
+
+.found_in_use:
+    cmp r12, r13
+    jge .done
+
+    ; Migrate slot R (r13) to L (r12)
+    ; 1. Resolve source address
+    mov rax, r13
+    shr rax, 1                      ; F_src
+    lea rcx, [zswap_frames]
+    mov rbx, [rcx + rax * 8]
+    
+    mov rdx, r13
+    and rdx, 1
+    shl rdx, 11                     ; O_src offset
+    add rbx, rdx                    ; RBX = source pointer
+
+    ; 2. Resolve destination address. Allocate frame if needed
+    mov rax, r12
+    shr rax, 1                      ; F_dest
+    lea rcx, [zswap_frames]
+    mov rbp, [rcx + rax * 8]
+    test rbp, rbp
+    jnz .dest_frame_ok
+
+    push rcx
+    push rax
+    call phys_alloc_page
+    pop rax
+    pop rcx
+    test rax, rax
+    jz .done                        ; abort if OOM
+
+    mov [rcx + rax * 8], rax
+    mov rbp, rax
+
+.dest_frame_ok:
+    mov rdx, r12
+    and rdx, 1
+    shl rdx, 11
+    add rbp, rdx                    ; RBP = destination pointer
+
+    ; 3. Copy slot contents (2048 bytes)
+    mov rdi, rbp
+    mov rsi, rbx
+    mov rdx, ZSWAP_SLOT_SIZE
+    call memcpy
+
+    ; 4. Copy metadata
+    lea rcx, [zswap_in_use]
+    mov byte [rcx + r12], 1         ; mark L in use
+    
+    lea rcx, [zswap_sizes]
+    mov dx, [rcx + r13 * 2]         ; get size of R
+    mov [rcx + r12 * 2], dx         ; set size of L
+
+    ; 5. Update PTE mapping from R to L
+    mov rdi, r13                    ; slot_src
+    mov rsi, r12                    ; slot_dest
+    mov rdx, 1                      ; is_zswap = 1
+    call zpool_update_pte
+
+    ; 6. Free source slot R (r13)
+    lea rcx, [zswap_in_use]
+    mov byte [rcx + r13], 0
+    lea rcx, [zswap_sizes]
+    mov word [rcx + r13 * 2], 0
+
+    ; Check companion slot of R (R ^ 1)
+    mov rax, r13
+    xor rax, 1
+    lea rcx, [zswap_in_use]
+    mov dl, [rcx + rax]
+    test dl, dl
+    jnz .skip_free_source_frame
+
+    ; Companion is free, release physical frame
+    mov rax, r13
+    shr rax, 1                      ; F_src
+    lea rcx, [zswap_frames]
+    mov rdi, [rcx + rax * 8]
+    test rdi, rdi
+    jz .skip_free_source_frame
+
+    call phys_free_page
+    lea rcx, [zswap_frames]
+    mov qword [rcx + rax * 8], 0
+
+.skip_free_source_frame:
+    inc r12
+    dec r13
+    jmp .compact_loop
+
+.done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
     ret
 
 section .data
