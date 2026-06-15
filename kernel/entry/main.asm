@@ -45,6 +45,10 @@ extern zswap_compressed_pages
 extern zram_compressed_pages
 extern zram_swap_dev
 extern zram_init
+extern zpool_balance
+extern zswap_max_slots
+extern zram_max_slots
+extern zswap_compress_and_store
 extern numa_ranges
 extern numa_range_count
 extern numa_node_count
@@ -1314,7 +1318,154 @@ kernel_main:
     pop r14
     pop r13
     pop r12
+    jmp .zpool_balance_test_start
+
+.zpool_balance_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_zpool_balance_test_start
+    call uart_print_str
+
+    ; 1. Preserve original free_pages and total_pages
+    mov r14, [phys_state + phys_state_t.free_pages]
+    mov r15, [phys_state + phys_state_t.total_pages]
+
+    ; Configure simulated physical state base: total_pages = 1000
+    mov qword [phys_state + phys_state_t.total_pages], 1000
+
+    ; --- Case 1: High Memory (> 50%) ---
+    mov qword [phys_state + phys_state_t.free_pages], 600       ; 60% free
+    call zpool_balance
+    cmp qword [zswap_max_slots], 256
+    jne .fail_high
+    cmp qword [zram_max_slots], 256
+    jne .fail_high
+
+    ; --- Case 2: Moderate Memory (20% < free memory <= 50%) ---
+    mov qword [phys_state + phys_state_t.free_pages], 350       ; 35% free
+    call zpool_balance
+    cmp qword [zswap_max_slots], 128
+    jne .fail_mid
+    cmp qword [zram_max_slots], 128
+    jne .fail_mid
+
+    ; --- Case 3: Low Memory (<= 20%) ---
+    mov qword [phys_state + phys_state_t.free_pages], 150       ; 15% free
+    call zpool_balance
+    cmp qword [zswap_max_slots], 64
+    jne .fail_low
+    cmp qword [zram_max_slots], 64
+    jne .fail_low
+
+    ; --- Case 4: Rejection Verification (ZRAM) ---
+    ; Manually set limit to 64 and telemetry to 64
+    mov qword [zram_max_slots], 64
+    mov qword [zram_compressed_pages], 64
+
+    ; Allocate a source page for compression input
+    call phys_alloc_page
+    test rax, rax
+    jz .fail_reject_zram_alloc
+    mov r12, rax                    ; save page address
+
+    ; Call zram_write_page with a valid slot index (e.g., 64)
+    mov rdi, 64                     ; slot index
+    mov rsi, r12                    ; source physical page
+    call zram_write_page
+    test rax, rax                   ; should return 0 (rejection)
+    jnz .fail_reject_zram
+
+    ; Free the page we allocated
+    mov rdi, r12
+    call phys_free_page
+
+    ; --- Case 5: Rejection Verification (Zswap) ---
+    ; Manually set limit to 64 and telemetry to 64
+    mov qword [zswap_max_slots], 64
+    mov qword [zswap_compressed_pages], 64
+
+    ; Allocate source page
+    call phys_alloc_page
+    test rax, rax
+    jz .fail_reject_zswap_alloc
+    mov r12, rax
+
+    ; Call zswap_compress_and_store
+    mov rdi, r12
+    call zswap_compress_and_store
+    cmp rax, -1                     ; should return -1 (rejection)
+    jne .fail_reject_zswap
+
+    ; Free the page
+    mov rdi, r12
+    call phys_free_page
+
+    ; 2. Restore original physical state
+    mov [phys_state + phys_state_t.free_pages], r14
+    mov [phys_state + phys_state_t.total_pages], r15
+
+    ; Success!
+    mov rsi, msg_zpool_balance_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     jmp .mtrr_test_start
+
+.fail_high:
+    mov rsi, msg_zpool_balance_fail_high_str
+    call uart_print_str
+    jmp .panic_balance
+
+.fail_mid:
+    mov rsi, msg_zpool_balance_fail_mid_str
+    call uart_print_str
+    jmp .panic_balance
+
+.fail_low:
+    mov rsi, msg_zpool_balance_fail_low_str
+    call uart_print_str
+    jmp .panic_balance
+
+.fail_reject_zram_alloc:
+    mov rsi, msg_zram_fail_alloc_str
+    call uart_print_str
+    jmp .panic_balance
+
+.fail_reject_zram:
+    ; Clean up page if it succeeded or failed but allocated
+    mov rdi, r12
+    call phys_free_page
+    mov rsi, msg_zpool_balance_fail_reject_zram_str
+    call uart_print_str
+    jmp .panic_balance
+
+.fail_reject_zswap_alloc:
+    mov rsi, msg_zram_fail_alloc_str
+    call uart_print_str
+    jmp .panic_balance
+
+.fail_reject_zswap:
+    mov rdi, r12
+    call phys_free_page
+    mov rsi, msg_zpool_balance_fail_reject_zswap_str
+    call uart_print_str
+    jmp .panic_balance
+
+.panic_balance:
+    ; Restore original state
+    mov [phys_state + phys_state_t.free_pages], r14
+    mov [phys_state + phys_state_t.total_pages], r15
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .zram_fail_init_telemetry:
     pop r15
@@ -8023,6 +8174,15 @@ msg_zram_fail_not_swapped_str:   db "Failure: ZRAM page does not have PAGE_SWAPP
 msg_zram_fail_telemetry_str:     db "Failure: ZRAM compressed pages telemetry is not 1 after eviction.", 0x0D, 0x0A, 0
 msg_zram_fail_data_corrupt_str:  db "Failure: Decompressed LZ4 data is corrupt or signature mismatch.", 0x0D, 0x0A, 0
 msg_zram_fail_telemetry_res_str: db "Failure: ZRAM compressed pages telemetry did not return to 0.", 0x0D, 0x0A, 0
+
+; Zpool Balance Test messages
+msg_zpool_balance_test_start:   db "Running VMM Dynamic Zpool Balancing Tests...", 0x0D, 0x0A, 0
+msg_zpool_balance_test_passed:  db "VMM Dynamic Zpool Balancing Tests PASSED!", 0x0D, 0x0A, 0
+msg_zpool_balance_fail_high_str: db "Failure: Dynamic zpool balancing did not scale limits to 256 for >50% free memory.", 0x0D, 0x0A, 0
+msg_zpool_balance_fail_mid_str:  db "Failure: Dynamic zpool balancing did not scale limits to 128 for 20% < free memory <= 50%.", 0x0D, 0x0A, 0
+msg_zpool_balance_fail_low_str:  db "Failure: Dynamic zpool balancing did not scale limits to 64 for <=20% free memory.", 0x0D, 0x0A, 0
+msg_zpool_balance_fail_reject_zram_str: db "Failure: ZRAM did not reject store allocation when slots usage met scaled limit.", 0x0D, 0x0A, 0
+msg_zpool_balance_fail_reject_zswap_str: db "Failure: Zswap did not reject store allocation when slots usage met scaled limit.", 0x0D, 0x0A, 0
 
 msg_mtrr_test_start:         db "Running VMM MTRR Cache Programming Test...", 0x0D, 0x0A, 0
 msg_mtrr_vcnt_str:            db "MTRR supported. Count of variable registers: ", 0
