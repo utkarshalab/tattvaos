@@ -41,6 +41,7 @@ PAGE_XO         equ (1 << 9)        ; Execute-Only software tracking flag
 PAGE_KEY_1      equ (1 << 59)       ; Protection Key 1 (bits 62:59 = 0001)
 PAGE_SWAPPED    equ (1 << 10)
 PAGE_ZSWAPPED   equ (1 << 11)
+PAGE_ZRAM       equ (1 << 8)
 PAGE_NX         equ (1 << 63)
 
 ; External symbols
@@ -63,6 +64,7 @@ extern swap_free_slot
 extern page_list_add_active
 extern phys_state
 extern zswap_decompress_and_free
+extern zram_decompress_and_free
 extern kernel_stack_guard
 extern kernel_panic
 extern virt_handle_file_map
@@ -1158,7 +1160,10 @@ virt_handle_swap_fault:
     jz .oom
     mov rbx, rax                    ; RBX = new physical address
 
-    ; Check if this is a Zswap page or regular disk swap page
+    ; Check if this is a ZRAM page, Zswap page, or regular disk swap page
+    test r14, PAGE_ZRAM
+    jnz .decompress_zram
+
     test r14, PAGE_ZSWAPPED
     jnz .decompress_zswap
 
@@ -1173,6 +1178,16 @@ virt_handle_swap_fault:
     call swap_free_slot
     jmp .update_pte
 
+.decompress_zram:
+    ; --- ZRAM Path ---
+    ; 3. Decompress from ZRAM slot directly to new page
+    mov rdi, r15                    ; ZRAM slot index
+    mov rsi, rbx                    ; dest physical address
+    call zram_decompress_and_free
+    test rax, rax
+    jz .zram_fail
+    jmp .update_pte
+
 .decompress_zswap:
     ; --- Zswap Path ---
     ; 3. Decompress from Zswap slot directly to new page
@@ -1185,7 +1200,7 @@ virt_handle_swap_fault:
 .update_pte:
     ; 5. Update the page table entry
     ; Keep original lower 12 flags and NX flag from old PTE (r14)
-    ; Clear PAGE_SWAPPED, Clear PAGE_ZSWAPPED, set PAGE_PRESENT, set PAGE_ACCESSED
+    ; Clear PAGE_SWAPPED, Clear PAGE_ZSWAPPED, Clear PAGE_ZRAM, set PAGE_PRESENT, set PAGE_ACCESSED
     mov rcx, r14
     and rcx, 0xFFF                  ; preserve lower 12 flags
     mov r10, (1 << 63)
@@ -1194,6 +1209,7 @@ virt_handle_swap_fault:
     
     and rcx, ~PAGE_SWAPPED          ; clear Swapped
     and rcx, ~PAGE_ZSWAPPED         ; clear Zswapped
+    and rcx, ~PAGE_ZRAM             ; clear Zram
     or rcx, PAGE_PRESENT            ; set Present
     or rcx, PAGE_ACCESSED           ; set Accessed
     or rcx, rbx                     ; set new physical page frame address
@@ -1205,6 +1221,11 @@ virt_handle_swap_fault:
     jmp .skip_tracking_ok           ; jump past failure handler
 
 .zswap_fail:
+    mov rdi, rbx
+    call phys_free_page
+    jmp .oom
+
+.zram_fail:
     mov rdi, rbx
     call phys_free_page
     jmp .oom
