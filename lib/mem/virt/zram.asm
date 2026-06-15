@@ -195,7 +195,16 @@ zram_write_page:
     call zpool_balance
     mov rax, [zram_compressed_pages]
     cmp rax, [zram_max_slots]
-    jae .failed
+    jb .under_limit
+
+    ; Limit hit! Trigger physical writeback to evict oldest block (skipping current slot)
+    mov rdi, rbx                    ; current slot to skip
+    extern zram_writeback
+    call zram_writeback
+    test rax, rax
+    jz .failed                      ; if writeback fails, reject store
+
+.under_limit:
 
     ; 1. Compress page using lz4_compress to scratch buffer
     mov rdi, r12                    ; src
