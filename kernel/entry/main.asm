@@ -50,11 +50,11 @@ extern zswap_max_slots
 extern zram_max_slots
 extern zswap_compress_and_store
 extern zswap_in_use
-extern zram_in_use
 extern zswap_compact
 extern zram_compact
 extern zswap_writeback
 extern zram_writeback
+extern zpool_batch_decompress_submit
 extern numa_ranges
 extern numa_range_count
 extern numa_node_count
@@ -2049,11 +2049,208 @@ kernel_main:
     mov rsi, msg_zpool_writeback_test_passed
     call uart_print_str
 
+    jmp .zpool_decomp_test_start
+
+.zpool_decomp_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_zpool_decomp_test_start
+    call uart_print_str
+
+    ; Allocate Page A (pattern 0xAA)
+    call phys_alloc_page
+    test rax, rax
+    jz .decomp_fail_alloc
+    mov r12, rax                    ; r12 = Page A physical address
+
+    mov rdi, r12
+    mov al, 0xAA
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    ; Set signature in Page A
+    mov rdi, r12
+    mov rsi, msg_zram_sig           ; use existing ZRAM test sig
+    mov rdx, 30
+    call memcpy
+
+    ; Allocate Page B (pattern 0xBB)
+    call phys_alloc_page
+    test rax, rax
+    jz .decomp_fail_alloc
+    mov r13, rax                    ; r13 = Page B physical address
+
+    mov rdi, r13
+    mov al, 0xBB
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    ; Set signature in Page B
+    mov rdi, r13
+    mov qword [rdi], 0x4242424242424242
+    mov qword [rdi + 8], 0x4242424242424242
+
+    ; Allocate temporary compression destinations
+    call phys_alloc_page
+    test rax, rax
+    jz .decomp_fail_alloc
+    mov r14, rax                    ; r14 = comp_A_page
+
+    call phys_alloc_page
+    test rax, rax
+    jz .decomp_fail_alloc
+    mov r15, rax                    ; r15 = comp_B_page
+
+    ; Compress Page A (ZRAM LZ4)
+    extern lz4_compress
+    mov rdi, r12                    ; src
+    mov rsi, r14                    ; dest (scratch page)
+    mov rdx, 2048                   ; max size
+    call lz4_compress
+    test rax, rax
+    jz .decomp_fail_comp
+    mov r8, rax                     ; r8 = comp_size_A
+
+    ; Compress Page B (ZRAM LZ4)
+    push r8                         ; preserve comp_size_A
+    mov rdi, r13                    ; src
+    mov rsi, r15                    ; dest
+    mov rdx, 2048
+    call lz4_compress
+    pop r8                          ; restore comp_size_A
+    test rax, rax
+    jz .decomp_fail_comp
+    mov r9, rax                     ; r9 = comp_size_B
+
+    ; Allocate destination uncompressed page frames
+    call phys_alloc_page
+    test rax, rax
+    jz .decomp_fail_alloc
+    mov [dest_phys_A], rax
+
+    call phys_alloc_page
+    test rax, rax
+    jz .decomp_fail_alloc
+    mov [dest_phys_B], rax
+
+    ; --- Setup Request A (in BSS) ---
+    lea rdx, [req_A]
+    mov [rdx + zpool_decomp_req_t.src_addr], r14
+    mov rax, [dest_phys_A]
+    mov [rdx + zpool_decomp_req_t.dest_addr], rax
+    mov [rdx + zpool_decomp_req_t.comp_size], r8
+    mov qword [rdx + zpool_decomp_req_t.pool_type], 0 ; 0 = ZRAM (LZ4)
+    mov qword [rdx + zpool_decomp_req_t.status], 0
+
+    ; --- Setup Request B (in BSS) ---
+    lea rdx, [req_B]
+    mov [rdx + zpool_decomp_req_t.src_addr], r15
+    mov rax, [dest_phys_B]
+    mov [rdx + zpool_decomp_req_t.dest_addr], rax
+    mov [rdx + zpool_decomp_req_t.comp_size], r9
+    mov qword [rdx + zpool_decomp_req_t.pool_type], 0 ; 0 = ZRAM (LZ4)
+    mov qword [rdx + zpool_decomp_req_t.status], 0
+
+    ; --- Setup pointer array ---
+    lea rdx, [req_ptrs]
+    lea rax, [req_A]
+    mov [rdx], rax
+    lea rax, [req_B]
+    mov [rdx + 8], rax
+
+    ; Submit batch decompression
+    mov rdi, rdx                    ; ptrs array
+    mov rsi, 2                      ; count
+    call zpool_batch_decompress_submit
+    cmp rax, 2                      ; should successfully process 2 requests
+    jne .decomp_fail_submit
+
+    ; Verify status
+    lea rdx, [req_A]
+    mov rax, [rdx + zpool_decomp_req_t.status]
+    cmp rax, 1
+    jne .decomp_fail_status
+
+    lea rdx, [req_B]
+    mov rax, [rdx + zpool_decomp_req_t.status]
+    cmp rax, 1
+    jne .decomp_fail_status
+
+    ; Verify decompressed data integrity
+    mov rsi, [dest_phys_A]
+    mov rdi, msg_zram_sig
+    mov rdx, 30
+    call memcmp
+    test rax, rax
+    jnz .decomp_fail_data
+
+    mov rsi, [dest_phys_B]
+    mov rax, [rsi]
+    mov rbx, 0x4242424242424242
+    cmp rax, rbx
+    jne .decomp_fail_data
+
+    ; Clean up all allocated pages
+    mov rdi, r12
+    call phys_free_page
+    mov rdi, r13
+    call phys_free_page
+    mov rdi, r14
+    call phys_free_page
+    mov rdi, r15
+    call phys_free_page
+
+    mov rdi, [dest_phys_A]
+    call phys_free_page
+    mov rdi, [dest_phys_B]
+    call phys_free_page
+
+    ; Success!
+    mov rsi, msg_zpool_decomp_test_passed
+    call uart_print_str
+
     pop r15
     pop r14
     pop r13
     pop r12
     jmp .mtrr_test_start
+
+.decomp_fail_alloc:
+    mov rsi, msg_zram_fail_alloc_str
+    call uart_print_str
+    jmp .panic_decomp
+
+.decomp_fail_comp:
+    mov rsi, msg_zpool_decomp_fail_comp_str
+    call uart_print_str
+    jmp .panic_decomp
+
+.decomp_fail_submit:
+    mov rsi, msg_zpool_decomp_fail_submit_str
+    call uart_print_str
+    jmp .panic_decomp
+
+.decomp_fail_status:
+    mov rsi, msg_zpool_decomp_fail_status_str
+    call uart_print_str
+    jmp .panic_decomp
+
+.decomp_fail_data:
+    mov rsi, msg_zpool_decomp_fail_data_str
+    call uart_print_str
+    jmp .panic_decomp
+
+.panic_decomp:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .wb_fail_alloc:
     mov rsi, msg_zram_fail_alloc_str
@@ -8932,6 +9129,14 @@ msg_zpool_writeback_fail_zswap_data_str:  db "Failure: Zswap writeback page A da
 msg_zpool_writeback_fail_zram_flags_str:  db "Failure: ZRAM writeback PTE swap cache flags not correctly updated.", 0x0D, 0x0A, 0
 msg_zpool_writeback_fail_zram_data_str:   db "Failure: ZRAM writeback page A data corruption or mismatch after disk swap-in.", 0x0D, 0x0A, 0
 
+; Zpool Batch Decompression Test messages
+msg_zpool_decomp_test_start:   db "Running VMM Parallel Batch Decompression Rings Tests...", 0x0D, 0x0A, 0
+msg_zpool_decomp_test_passed:  db "VMM Parallel Batch Decompression Rings Tests PASSED!", 0x0D, 0x0A, 0
+msg_zpool_decomp_fail_comp_str: db "Failure: Could not compress testing pages for batch decompression.", 0x0D, 0x0A, 0
+msg_zpool_decomp_fail_submit_str: db "Failure: zpool_batch_decompress_submit did not return success count 2.", 0x0D, 0x0A, 0
+msg_zpool_decomp_fail_status_str: db "Failure: Batch request completion status is not set to completed (1).", 0x0D, 0x0A, 0
+msg_zpool_decomp_fail_data_str:  db "Failure: Batch decompressed page contents are corrupt or mismatch.", 0x0D, 0x0A, 0
+
 msg_mtrr_test_start:         db "Running VMM MTRR Cache Programming Test...", 0x0D, 0x0A, 0
 msg_mtrr_vcnt_str:            db "MTRR supported. Count of variable registers: ", 0
 msg_mtrr_test_passed:         db "VMM MTRR Cache Programming Test PASSED!", 0x0D, 0x0A, 0
@@ -9375,6 +9580,12 @@ msg_xo_fail_trap:             db "Failure: Read access to Execute-Only page did 
 section .bss
 align 8
 smep_smap_test_buf:            resb 32
+align 8
+req_A: resb 40
+req_B: resb 40
+req_ptrs: resq 2
+dest_phys_A: resq 1
+dest_phys_B: resq 1
 
 
 
