@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/zpool.asm
 ; =============================================================================
-; Dynamic Zpool Balancing and Compaction (Section 28.2 & 28.3).
+; Dynamic Zpool Balancing, Compaction, and Writeback (Section 28.2 - 28.4).
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -25,6 +25,15 @@ extern phys_state
 extern phys_alloc_page
 extern phys_free_page
 extern memcpy
+
+; Physical disk swap functions (mock RAM swap helpers)
+extern ram_swap_alloc_slot
+extern ram_swap_free_slot
+extern ram_swap_write_page
+
+; Pool specific decompressors/readers
+extern zswap_decompress_and_free
+extern zram_read_page
 
 ; -----------------------------------------------------------------------------
 ; zpool_balance — dynamically scales zswap and zram maximum slots
@@ -190,6 +199,9 @@ zpool_update_pte:
     shl r8, 12
     not r8
     and rax, r8                     ; clear old slot bits 12-51
+
+    ; Clear PAGE_ZSWAPPED (bit 11) and PAGE_ZRAM (bit 8) to convert to disk swap format
+    and rax, ~(0x800 | 0x100)
 
     mov rcx, [rbp - 16]             ; slot_dest
     shl rcx, 12
@@ -493,6 +505,183 @@ zswap_compact:
     inc r12
     dec r13
     jmp .compact_loop
+
+.done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; zswap_writeback — evicts the oldest Zswap page to physical disk swap
+; Output: RAX = 1 on success, 0 on failure
+; -----------------------------------------------------------------------------
+global zswap_writeback
+zswap_writeback:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; 1. Find the oldest in-use slot in Zswap (scan zswap_in_use from 0)
+    xor r12, r12                    ; r12 = slot index
+.find_loop:
+    cmp r12, ZSWAP_MAX_SLOTS
+    jge .failed
+    lea rcx, [zswap_in_use]
+    mov al, [rcx + r12]
+    test al, al
+    jnz .found_slot                 ; found oldest in-use slot!
+    inc r12
+    jmp .find_loop
+
+.found_slot:
+    ; r12 = S_old (source slot index)
+
+    ; 2. Allocate a physical swap slot
+    call ram_swap_alloc_slot        ; RAX = physical disk slot, or -1
+    cmp rax, -1
+    je .failed
+    mov r13, rax                    ; r13 = physical disk slot
+
+    ; 3. Allocate a temporary page frame
+    call phys_alloc_page            ; RAX = temp physical page, or 0
+    test rax, rax
+    jz .free_disk_slot
+    mov r14, rax                    ; r14 = temp physical page
+
+    ; 4. Decompress Zswap slot r12 into temp page r14
+    ; zswap_decompress_and_free(slot_index=r12, dest_phys=r14)
+    mov rdi, r12
+    mov rsi, r14
+    call zswap_decompress_and_free  ; RAX = 1 on success, 0 on failure
+    test rax, rax
+    jz .free_temp_page
+
+    ; 5. Write data from temp page to physical swap slot r13
+    ; ram_swap_write_page(src_phys=r14, slot=r13)
+    mov rdi, r14
+    mov rsi, r13
+    call ram_swap_write_page
+
+    ; 6. Update PTE to point from Zswap slot r12 to physical disk slot r13
+    ; zpool_update_pte(slot_src=r12, slot_dest=r13, is_zswap=1)
+    mov rdi, r12
+    mov rsi, r13
+    mov rdx, 1                      ; is_zswap = 1
+    call zpool_update_pte
+
+    ; Free temporary page
+    mov rdi, r14
+    call phys_free_page
+
+    mov rax, 1                      ; success!
+    jmp .done
+
+.free_temp_page:
+    mov rdi, r14
+    call phys_free_page
+.free_disk_slot:
+    mov rdi, r13
+    call ram_swap_free_slot
+.failed:
+    xor rax, rax                    ; fail
+
+.done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; zram_writeback — evicts the oldest ZRAM page to physical disk swap
+; Input: RDI = current slot index (to skip / avoid evicting same slot)
+; Output: RAX = 1 on success, 0 on failure
+; -----------------------------------------------------------------------------
+global zram_writeback
+zram_writeback:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov r15, rdi                    ; r15 = current slot index to skip
+
+    ; 1. Find oldest in-use slot in ZRAM
+    xor r12, r12
+.find_loop:
+    cmp r12, ZRAM_MAX_SLOTS
+    jge .failed
+    cmp r12, r15                    ; skip current slot index
+    je .skip_current
+    lea rcx, [zram_in_use]
+    mov al, [rcx + r12]
+    test al, al
+    jnz .found_slot
+.skip_current:
+    inc r12
+    jmp .find_loop
+
+.found_slot:
+    ; r12 = S_old
+
+    ; 2. Allocate a physical swap slot
+    call ram_swap_alloc_slot        ; RAX = physical disk slot
+    cmp rax, -1
+    je .failed
+    mov r13, rax                    ; r13 = physical disk slot
+
+    ; 3. Allocate temporary page frame
+    call phys_alloc_page
+    test rax, rax
+    jz .free_disk_slot
+    mov r14, rax                    ; r14 = temp physical page
+
+    ; 4. Decompress ZRAM slot r12 into temp page r14
+    ; zram_read_page(slot_index=r12, dest_phys=r14)
+    mov rdi, r12
+    mov rsi, r14
+    call zram_read_page             ; RAX = 1 on success, 0 on failure
+    test rax, rax
+    jz .free_temp_page
+
+    ; 5. Write to physical swap slot r13
+    mov rdi, r14
+    mov rsi, r13
+    call ram_swap_write_page
+
+    ; 6. Update PTE from ZRAM slot r12 to physical disk slot r13
+    ; zpool_update_pte(slot_src=r12, slot_dest=r13, is_zswap=0)
+    mov rdi, r12
+    mov rsi, r13
+    mov rdx, 0                      ; is_zswap = 0 (ZRAM)
+    call zpool_update_pte
+
+    ; Free temporary page
+    mov rdi, r14
+    call phys_free_page
+
+    mov rax, 1                      ; success!
+    jmp .done
+
+.free_temp_page:
+    mov rdi, r14
+    call phys_free_page
+.free_disk_slot:
+    mov rdi, r13
+    call ram_swap_free_slot
+.failed:
+    xor rax, rax                    ; fail
 
 .done:
     pop r15
