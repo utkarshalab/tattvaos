@@ -49,6 +49,10 @@ extern zpool_balance
 extern zswap_max_slots
 extern zram_max_slots
 extern zswap_compress_and_store
+extern zswap_in_use
+extern zram_in_use
+extern zswap_compact
+extern zram_compact
 extern numa_ranges
 extern numa_range_count
 extern numa_node_count
@@ -1415,7 +1419,372 @@ kernel_main:
     pop r14
     pop r13
     pop r12
+    jmp .zpool_compact_test_start
+
+.zpool_compact_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_zpool_compact_test_start
+    call uart_print_str
+
+    ; -------------------------------------------------------------
+    ; Part 1: Zswap Compaction Test
+    ; -------------------------------------------------------------
+    ; Register clean mock RAM swap device
+    lea rdi, [mock_swap_dev]
+    call swap_register_device
+
+    ; Set zswap max slots to 256 and clear telemetry
+    mov qword [zswap_max_slots], 256
+    mov qword [zswap_compressed_pages], 0
+
+    ; --- Step A: Setup Page A (Virtual: 0x30000000, Pattern: 0xAA) ---
+    call phys_alloc_page
+    test rax, rax
+    jz .compact_fail_alloc
+    mov r12, rax                    ; r12 = Page A physical address
+
+    mov rdi, r12
+    mov al, 0xAA
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    ; Set signature in Page A
+    mov rdi, r12
+    mov rsi, msg_zswap_comp_sig
+    mov rdx, 17
+    call memcpy
+
+    mov rdi, 0x30000000
+    mov rsi, 4096
+    mov rdx, 0x0B                   ; VMA_READ | VMA_WRITE | VMA_USER
+    call vma_create
+    test rax, rax
+    jz .compact_fail_vma
+    mov r14, rax                    ; r14 = VMA A pointer
+
+    mov rdi, 0x30000000
+    mov rsi, r12
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .compact_fail_map
+
+    mov rdi, r12
+    call page_list_move_to_inactive
+
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    and qword [rax], ~0x20          ; clear ACCESSED
+
+    call page_replace_clock_evict
+    test rax, rax
+    jz .compact_fail_evict
+
+    ; --- Step B: Setup Page B (Virtual: 0x40000000, Pattern: 0xBB) ---
+    call phys_alloc_page
+    test rax, rax
+    jz .compact_fail_alloc
+    mov r13, rax                    ; r13 = Page B physical address
+
+    mov rdi, r13
+    mov al, 0xBB
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    ; Set signature in Page B
+    mov rdi, r13
+    mov qword [rdi], 0x4242424242424242 ; "BBBBBBBB"
+    mov qword [rdi + 8], 0x4242424242424242
+
+    mov rdi, 0x40000000
+    mov rsi, 4096
+    mov rdx, 0x0B                   ; VMA_READ | VMA_WRITE | VMA_USER
+    call vma_create
+    test rax, rax
+    jz .compact_fail_vma
+    mov r15, rax                    ; r15 = VMA B pointer
+
+    mov rdi, 0x40000000
+    mov rsi, r13
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .compact_fail_map
+
+    mov rdi, r13
+    call page_list_move_to_inactive
+
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    and qword [rax], ~0x20          ; clear ACCESSED
+
+    call page_replace_clock_evict
+    test rax, rax
+    jz .compact_fail_evict
+
+    ; --- Step C: Read/Swap-in Page A (frees slot 0) ---
+    mov rax, [0x30000000]
+
+    ; --- Step D: Run Zswap Compaction (migrates slot 1 to slot 0) ---
+    call zswap_compact
+
+    ; --- Step E: Verify metadata ---
+    ; slot 0 must be in-use (1), slot 1 must be free (0)
+    lea rcx, [zswap_in_use]
+    mov al, [rcx + 0]
+    cmp al, 1
+    jne .fail_zswap_inuse
+    mov al, [rcx + 1]
+    cmp al, 0
+    jne .fail_zswap_inuse
+
+    ; --- Step F: Read/Swap-in Page B (decompresses from slot 0) ---
+    mov rax, [0x40000000]
+
+    ; Verify Page B data integrity
+    mov rdi, 0x40000000
+    mov rax, [rdi]
+    mov rbx, 0x4242424242424242
+    cmp rax, rbx
+    jne .fail_zswap_data
+
+    ; Clean up Part 1
+    mov rdi, 0x30000000
+    call virt_translate
+    mov r12, rax
+    mov rdi, 0x30000000
+    call virt_unmap
+    mov rdi, r12
+    call phys_free_page
+    mov rdi, r14
+    call vma_destroy
+
+    mov rdi, 0x40000000
+    call virt_translate
+    mov r13, rax
+    mov rdi, 0x40000000
+    call virt_unmap
+    mov rdi, r13
+    call phys_free_page
+    mov rdi, r15
+    call vma_destroy
+
+
+    ; -------------------------------------------------------------
+    ; Part 2: ZRAM Compaction Test
+    ; -------------------------------------------------------------
+    ; Register ZRAM swap device
+    call zram_init
+    lea rdi, [zram_swap_dev]
+    call swap_register_device
+
+    ; Set zram max slots and clear telemetry
+    mov qword [zram_max_slots], 256
+    mov qword [zram_compressed_pages], 0
+
+    ; --- Step A: Setup Page A (Virtual: 0x30000000, Pattern: 0xAA) ---
+    call phys_alloc_page
+    test rax, rax
+    jz .compact_fail_alloc
+    mov r12, rax
+
+    mov rdi, r12
+    mov al, 0xAA
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    ; Set signature in Page A
+    mov rdi, r12
+    mov rsi, msg_zram_sig
+    mov rdx, 30
+    call memcpy
+
+    mov rdi, 0x30000000
+    mov rsi, 4096
+    mov rdx, 0x0B
+    call vma_create
+    test rax, rax
+    jz .compact_fail_vma
+    mov r14, rax
+
+    mov rdi, 0x30000000
+    mov rsi, r12
+    mov rdx, 0x07
+    call virt_map
+    test rax, rax
+    jz .compact_fail_map
+
+    mov rdi, r12
+    call page_list_move_to_inactive
+
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    and qword [rax], ~0x20
+
+    call page_replace_clock_evict
+    test rax, rax
+    jz .compact_fail_evict
+
+    ; --- Step B: Setup Page B (Virtual: 0x40000000, Pattern: 0xBB) ---
+    call phys_alloc_page
+    test rax, rax
+    jz .compact_fail_alloc
+    mov r13, rax
+
+    mov rdi, r13
+    mov al, 0xBB
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    ; Set signature in Page B
+    mov rdi, r13
+    mov qword [rdi], 0x4242424242424242
+    mov qword [rdi + 8], 0x4242424242424242
+
+    mov rdi, 0x40000000
+    mov rsi, 4096
+    mov rdx, 0x0B
+    call vma_create
+    test rax, rax
+    jz .compact_fail_vma
+    mov r15, rax
+
+    mov rdi, 0x40000000
+    mov rsi, r13
+    mov rdx, 0x07
+    call virt_map
+    test rax, rax
+    jz .compact_fail_map
+
+    mov rdi, r13
+    call page_list_move_to_inactive
+
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    and qword [rax], ~0x20
+
+    call page_replace_clock_evict
+    test rax, rax
+    jz .compact_fail_evict
+
+    ; --- Step C: Read/Swap-in Page A ---
+    mov rax, [0x30000000]
+
+    ; --- Step D: Run ZRAM Compaction ---
+    call zram_compact
+
+    ; --- Step E: Verify metadata ---
+    lea rcx, [zram_in_use]
+    mov al, [rcx + 0]
+    cmp al, 1
+    jne .fail_zram_inuse
+    mov al, [rcx + 1]
+    cmp al, 0
+    jne .fail_zram_inuse
+
+    ; --- Step F: Read/Swap-in Page B ---
+    mov rax, [0x40000000]
+
+    ; Verify Page B data integrity
+    mov rdi, 0x40000000
+    mov rax, [rdi]
+    mov rbx, 0x4242424242424242
+    cmp rax, rbx
+    jne .fail_zram_data
+
+    ; Clean up Part 2
+    mov rdi, 0x30000000
+    call virt_translate
+    mov r12, rax
+    mov rdi, 0x30000000
+    call virt_unmap
+    mov rdi, r12
+    call phys_free_page
+    mov rdi, r14
+    call vma_destroy
+
+    mov rdi, 0x40000000
+    call virt_translate
+    mov r13, rax
+    mov rdi, 0x40000000
+    call virt_unmap
+    mov rdi, r13
+    call phys_free_page
+    mov rdi, r15
+    call vma_destroy
+
+    ; Register back mock RAM device
+    lea rdi, [mock_swap_dev]
+    call swap_register_device
+
+    ; Success!
+    mov rsi, msg_zpool_compact_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     jmp .mtrr_test_start
+
+.compact_fail_alloc:
+    mov rsi, msg_zram_fail_alloc_str
+    call uart_print_str
+    jmp .panic_compact
+
+.compact_fail_vma:
+    mov rsi, msg_zram_fail_vma_str
+    call uart_print_str
+    jmp .panic_compact
+
+.compact_fail_map:
+    mov rsi, msg_zram_fail_map_str
+    call uart_print_str
+    jmp .panic_compact
+
+.compact_fail_evict:
+    mov rsi, msg_zram_fail_evict_str
+    call uart_print_str
+    jmp .panic_compact
+
+.fail_zswap_inuse:
+    mov rsi, msg_zpool_compact_fail_zswap_inuse_str
+    call uart_print_str
+    jmp .panic_compact
+
+.fail_zswap_data:
+    mov rsi, msg_zpool_compact_fail_zswap_data_str
+    call uart_print_str
+    jmp .panic_compact
+
+.fail_zram_inuse:
+    mov rsi, msg_zpool_compact_fail_zram_inuse_str
+    call uart_print_str
+    jmp .panic_compact
+
+.fail_zram_data:
+    mov rsi, msg_zpool_compact_fail_zram_data_str
+    call uart_print_str
+    jmp .panic_compact
+
+.panic_compact:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .fail_high:
     mov rsi, msg_zpool_balance_fail_high_str
@@ -8183,6 +8552,14 @@ msg_zpool_balance_fail_mid_str:  db "Failure: Dynamic zpool balancing did not sc
 msg_zpool_balance_fail_low_str:  db "Failure: Dynamic zpool balancing did not scale limits to 64 for <=20% free memory.", 0x0D, 0x0A, 0
 msg_zpool_balance_fail_reject_zram_str: db "Failure: ZRAM did not reject store allocation when slots usage met scaled limit.", 0x0D, 0x0A, 0
 msg_zpool_balance_fail_reject_zswap_str: db "Failure: Zswap did not reject store allocation when slots usage met scaled limit.", 0x0D, 0x0A, 0
+
+; Zpool Compaction Test messages
+msg_zpool_compact_test_start:   db "Running VMM Compressed Block Compaction Tests...", 0x0D, 0x0A, 0
+msg_zpool_compact_test_passed:  db "VMM Compressed Block Compaction Tests PASSED!", 0x0D, 0x0A, 0
+msg_zpool_compact_fail_zswap_inuse_str: db "Failure: Zswap slot in_use metadata incorrect after compaction.", 0x0D, 0x0A, 0
+msg_zpool_compact_fail_zswap_data_str:  db "Failure: Zswap compacted page data corruption or mismatch after swap-in.", 0x0D, 0x0A, 0
+msg_zpool_compact_fail_zram_inuse_str:  db "Failure: ZRAM slot in_use metadata incorrect after compaction.", 0x0D, 0x0A, 0
+msg_zpool_compact_fail_zram_data_str:   db "Failure: ZRAM compacted page data corruption or mismatch after swap-in.", 0x0D, 0x0A, 0
 
 msg_mtrr_test_start:         db "Running VMM MTRR Cache Programming Test...", 0x0D, 0x0A, 0
 msg_mtrr_vcnt_str:            db "MTRR supported. Count of variable registers: ", 0
