@@ -42,6 +42,9 @@ extern kswapd_low_watermark
 extern kswapd_high_watermark
 extern kswapd_check_and_reclaim
 extern zswap_compressed_pages
+extern zram_compressed_pages
+extern zram_swap_dev
+extern zram_init
 extern numa_ranges
 extern numa_range_count
 extern numa_node_count
@@ -1169,6 +1172,257 @@ kernel_main:
     ; Zswap Test Suite PASSED!
     mov rsi, msg_zswap_test_passed
     call uart_print_str
+
+    jmp .zram_test_start
+
+.zram_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_zram_test_start
+    call uart_print_str
+
+    ; 1. Initialize ZRAM and register zram_swap_dev
+    call zram_init
+
+    lea rdi, [zram_swap_dev]
+    call swap_register_device
+
+    ; Verify that initial zram compressed pages telemetry is 0
+    mov rax, [zram_compressed_pages]
+    test rax, rax
+    jnz .zram_fail_init_telemetry
+
+    ; 2. Allocate a physical page
+    call phys_alloc_page
+    test rax, rax
+    jz .zram_fail_alloc
+    mov r14, rax                    ; R14 = physical address
+
+    ; 3. Fill with compressible data (repeated 0x55) and signature "ZRAM_LZ4_COMPRESSIBLE_PATTERN"
+    mov rdi, r14
+    mov al, 0x55
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    mov rdi, r14
+    mov rsi, msg_zram_sig
+    mov rdx, 30                     ; length of "ZRAM_LZ4_COMPRESSIBLE_PATTERN"
+    call memcpy
+
+    ; 4. Create VMA at 0x30000000 and map
+    mov rdi, 0x30000000
+    mov rsi, 4096
+    mov rdx, 0x0B                   ; VMA_READ | VMA_WRITE | VMA_USER
+    call vma_create
+    test rax, rax
+    jz .zram_fail_vma
+    mov r15, rax                    ; R15 = VMA pointer
+
+    mov rdi, 0x30000000
+    mov rsi, r14
+    mov rdx, 0x07                   ; PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER
+    call virt_map
+    test rax, rax
+    jz .zram_fail_map
+
+    ; Move page to inactive list
+    mov rdi, r14
+    call page_list_move_to_inactive
+
+    ; Clear Accessed in PTE
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .zram_fail_walk
+    and qword [rax], ~0x20          ; clear Accessed
+
+    ; 5. Trigger Clock Eviction (which will try current_swap_device, i.e., ZRAM)
+    call page_replace_clock_evict
+    test rax, rax
+    jz .zram_fail_evict
+
+    ; 6. Verify that page is swapped to ZRAM
+    ; PTE Present should be 0
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .zram_fail_walk_ev
+    
+    mov rcx, [rax]
+    test rcx, 1                     ; present?
+    jnz .zram_fail_still_present
+
+    ; PTE PAGE_SWAPPED should be 1
+    test rcx, 0x400                 ; PAGE_SWAPPED
+    jz .zram_fail_not_swapped
+
+    ; Telemetry should be 1
+    mov rax, [zram_compressed_pages]
+    cmp rax, 1
+    jne .zram_fail_telemetry
+
+    mov rsi, msg_zram_evicted_ok
+    call uart_print_str
+
+    ; 7. Access page to trigger page fault (decompression)
+    mov rax, [0x30000000]
+
+    ; 8. Verify decompressed data integrity
+    mov rsi, 0x30000000
+    mov rbx, 0x5F345A4C5F4D4152     ; "RAM_LZ4_"
+    cmp [rsi], rbx
+    jne .zram_fail_data_corrupt
+    
+    mov rbx, 0x504D4F435F454C42     ; "BLE_PATT"
+    cmp [rsi + 8], rbx
+    jne .zram_fail_data_corrupt
+
+    ; Telemetry should return to 0
+    mov rax, [zram_compressed_pages]
+    test rax, rax
+    jnz .zram_fail_telemetry_res
+
+    ; Clean up
+    mov rdi, 0x30000000
+    call virt_translate
+    mov r14, rax                    ; get new physical frame
+
+    mov rdi, 0x30000000
+    call virt_unmap
+
+    mov rdi, r14
+    call phys_free_page
+
+    mov rdi, r15
+    call vma_destroy
+
+    ; Register back mock_swap_dev to restore default
+    lea rdi, [mock_swap_dev]
+    call swap_register_device
+
+    ; ZRAM Test Suite PASSED!
+    mov rsi, msg_zram_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .mtrr_test_start
+
+.zram_fail_init_telemetry:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_init_telemetry_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_alloc:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_alloc_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_vma:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_vma_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_map:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_map_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_walk:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_walk_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_evict:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_evict_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_walk_ev:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_walk_ev_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_still_present:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_still_present_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_not_swapped:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_not_swapped_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_telemetry:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_telemetry_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_data_corrupt:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_data_corrupt_str
+    call uart_print_str
+    jmp .panic
+
+.zram_fail_telemetry_res:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    mov rsi, msg_zram_fail_telemetry_res_str
+    call uart_print_str
+    jmp .panic
 
     ; -------------------------------------------------------------
     ; 10. Run VMM MTRR Cache Programming Test
@@ -7752,6 +8006,23 @@ msg_zswap_fail_not_swap2_str:  db "Failure: Page does not have PAGE_SWAPPED set 
 msg_zswap_fail_is_zswap2_str:  db "Failure: Page has PAGE_ZSWAPPED set but should have bypassed Zswap.", 0x0D, 0x0A, 0
 msg_zswap_fail_telemetry2_str: db "Failure: Zswap telemetry non-zero for uncompressible page.", 0x0D, 0x0A, 0
 msg_zswap_fail_data2_str:      db "Failure: Swapped-in data from disk bypass is corrupt or mismatch.", 0x0D, 0x0A, 0
+
+msg_zram_test_start:             db "Running VMM ZRAM LZ4 Compression & Decompression Tests...", 0x0D, 0x0A, 0
+msg_zram_test_passed:            db "VMM ZRAM LZ4 Compression & Decompression Tests PASSED!", 0x0D, 0x0A, 0
+msg_zram_evicted_ok:             db "  ZRAM eviction successful: page compressed with LZ4 and stored in RAM cache.", 0x0D, 0x0A, 0
+msg_zram_sig:                    db "ZRAM_LZ4_COMPRESSIBLE_PATTERN", 0
+msg_zram_fail_init_telemetry_str: db "Failure: Initial ZRAM telemetry is not 0.", 0x0D, 0x0A, 0
+msg_zram_fail_alloc_str:         db "Failure: Could not allocate physical page for ZRAM test.", 0x0D, 0x0A, 0
+msg_zram_fail_vma_str:           db "Failure: Could not create VMA for ZRAM test.", 0x0D, 0x0A, 0
+msg_zram_fail_map_str:           db "Failure: Could not map page for ZRAM test.", 0x0D, 0x0A, 0
+msg_zram_fail_walk_str:          db "Failure: Could not walk page table for ZRAM test.", 0x0D, 0x0A, 0
+msg_zram_fail_evict_str:         db "Failure: clock eviction failed for ZRAM test.", 0x0D, 0x0A, 0
+msg_zram_fail_walk_ev_str:       db "Failure: walk failed after eviction for ZRAM test.", 0x0D, 0x0A, 0
+msg_zram_fail_still_present_str: db "Failure: ZRAM page still present after clock eviction.", 0x0D, 0x0A, 0
+msg_zram_fail_not_swapped_str:   db "Failure: ZRAM page does not have PAGE_SWAPPED set.", 0x0D, 0x0A, 0
+msg_zram_fail_telemetry_str:     db "Failure: ZRAM compressed pages telemetry is not 1 after eviction.", 0x0D, 0x0A, 0
+msg_zram_fail_data_corrupt_str:  db "Failure: Decompressed LZ4 data is corrupt or signature mismatch.", 0x0D, 0x0A, 0
+msg_zram_fail_telemetry_res_str: db "Failure: ZRAM compressed pages telemetry did not return to 0.", 0x0D, 0x0A, 0
 
 msg_mtrr_test_start:         db "Running VMM MTRR Cache Programming Test...", 0x0D, 0x0A, 0
 msg_mtrr_vcnt_str:            db "MTRR supported. Count of variable registers: ", 0
