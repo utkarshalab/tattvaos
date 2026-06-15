@@ -131,8 +131,17 @@ zram_free_slot:
     jz .exit                        ; already free
 
     mov byte [rcx + rbx], 0         ; mark free
-    dec qword [zram_compressed_pages] ; decrement telemetry
 
+    ; Only decrement telemetry if the page was actually compressed/written
+    lea rcx, [zram_sizes]
+    mov dx, [rcx + rbx * 2]
+    test dx, dx
+    jz .skip_telemetry_dec
+
+    dec qword [zram_compressed_pages] ; decrement telemetry
+    mov word [rcx + rbx * 2], 0     ; clear size
+
+.skip_telemetry_dec:
     ; Frame index = slot / 2
     mov r12, rbx
     shr r12, 1
@@ -179,6 +188,14 @@ zram_write_page:
 
     mov rbx, rdi                    ; rbx = slot
     mov r12, rsi                    ; r12 = src_phys
+
+    ; Dynamic zpool balancing limit check
+    extern zpool_balance
+    extern zram_max_slots
+    call zpool_balance
+    mov rax, [zram_compressed_pages]
+    cmp rax, [zram_max_slots]
+    jae .failed
 
     ; 1. Compress page using lz4_compress to scratch buffer
     mov rdi, r12                    ; src
