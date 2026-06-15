@@ -53,6 +53,8 @@ extern zswap_in_use
 extern zram_in_use
 extern zswap_compact
 extern zram_compact
+extern zswap_writeback
+extern zram_writeback
 extern numa_ranges
 extern numa_range_count
 extern numa_node_count
@@ -1737,7 +1739,368 @@ kernel_main:
     pop r14
     pop r13
     pop r12
+    jmp .zpool_writeback_test_start
+
+.zpool_writeback_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_zpool_writeback_test_start
+    call uart_print_str
+
+    ; -------------------------------------------------------------
+    ; Part 1: Zswap Writeback Pipeline Test
+    ; -------------------------------------------------------------
+    ; Register clean mock RAM swap device
+    lea rdi, [mock_swap_dev]
+    call swap_register_device
+
+    ; Set zswap max slots to 1 (simulate immediate limit) and clear telemetry
+    mov qword [zswap_max_slots], 1
+    mov qword [zswap_compressed_pages], 0
+
+    ; --- Step A: Evict Page A (goes to Zswap slot 0) ---
+    call phys_alloc_page
+    test rax, rax
+    jz .wb_fail_alloc
+    mov r12, rax                    ; r12 = Page A physical address
+
+    mov rdi, r12
+    mov al, 0xAA
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    mov rdi, r12
+    mov rsi, msg_zswap_comp_sig
+    mov rdx, 17
+    call memcpy
+
+    mov rdi, 0x30000000
+    mov rsi, 4096
+    mov rdx, 0x0B
+    call vma_create
+    test rax, rax
+    jz .wb_fail_vma
+    mov r14, rax                    ; r14 = VMA A pointer
+
+    mov rdi, 0x30000000
+    mov rsi, r12
+    mov rdx, 0x07
+    call virt_map
+    test rax, rax
+    jz .wb_fail_map
+
+    mov rdi, r12
+    call page_list_move_to_inactive
+
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    and qword [rax], ~0x20          ; clear ACCESSED
+
+    call page_replace_clock_evict
+    test rax, rax
+    jz .wb_fail_evict
+
+    ; --- Step B: Evict Page B (hits limit 1, triggers writeback of Page A) ---
+    call phys_alloc_page
+    test rax, rax
+    jz .wb_fail_alloc
+    mov r13, rax                    ; r13 = Page B physical address
+
+    mov rdi, r13
+    mov al, 0xBB
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    ; Set recognizable data for Page B
+    mov rdi, r13
+    mov qword [rdi], 0x5555555555555555
+    mov qword [rdi + 8], 0x5555555555555555
+
+    mov rdi, 0x40000000
+    mov rsi, 4096
+    mov rdx, 0x0B
+    call vma_create
+    test rax, rax
+    jz .wb_fail_vma
+    mov r15, rax                    ; r15 = VMA B pointer
+
+    mov rdi, 0x40000000
+    mov rsi, r13
+    mov rdx, 0x07
+    call virt_map
+    test rax, rax
+    jz .wb_fail_map
+
+    mov rdi, r13
+    call page_list_move_to_inactive
+
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    and qword [rax], ~0x20
+
+    call page_replace_clock_evict
+    test rax, rax
+    jz .wb_fail_evict
+
+    ; --- Step C: Verify Page A PTE updated (should be Swapped, not Zswapped) ---
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rcx, [rax]
+    test rcx, 0x800                 ; PAGE_ZSWAPPED (bit 11) should be 0!
+    jnz .fail_zswap_flags
+
+    ; --- Step D: Read Page A (swaps-in from physical swap) ---
+    mov rax, [0x30000000]
+
+    ; Verify Page A contents
+    mov rdi, 0x30000000
+    mov rsi, msg_zswap_comp_sig
+    mov rdx, 16                     ; compare 16 bytes signature
+    call memcmp
+    test rax, rax
+    jnz .fail_zswap_data
+
+    ; --- Step E: Read Page B (swaps-in from Zswap) ---
+    mov rax, [0x40000000]
+
+    ; Verify Page B data
+    mov rdi, 0x40000000
+    mov rax, [rdi]
+    mov rbx, 0x5555555555555555
+    cmp rax, rbx
+    jne .fail_zswap_data
+
+    ; Clean up Part 1
+    mov rdi, 0x30000000
+    call virt_translate
+    mov r12, rax
+    mov rdi, 0x30000000
+    call virt_unmap
+    mov rdi, r12
+    call phys_free_page
+    mov rdi, r14
+    call vma_destroy
+
+    mov rdi, 0x40000000
+    call virt_translate
+    mov r13, rax
+    mov rdi, 0x40000000
+    call virt_unmap
+    mov rdi, r13
+    call phys_free_page
+    mov rdi, r15
+    call vma_destroy
+
+
+    ; -------------------------------------------------------------
+    ; Part 2: ZRAM Writeback Pipeline Test
+    ; -------------------------------------------------------------
+    ; Register ZRAM swap device
+    call zram_init
+    lea rdi, [zram_swap_dev]
+    call swap_register_device
+
+    ; Set zram max slots to 1 and clear telemetry
+    mov qword [zram_max_slots], 1
+    mov qword [zram_compressed_pages], 0
+
+    ; --- Step A: Evict Page A (goes to ZRAM slot 0) ---
+    call phys_alloc_page
+    test rax, rax
+    jz .wb_fail_alloc
+    mov r12, rax
+
+    mov rdi, r12
+    mov al, 0xAA
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    mov rdi, r12
+    mov rsi, msg_zram_sig
+    mov rdx, 30
+    call memcpy
+
+    mov rdi, 0x30000000
+    mov rsi, 4096
+    mov rdx, 0x0B
+    call vma_create
+    test rax, rax
+    jz .wb_fail_vma
+    mov r14, rax
+
+    mov rdi, 0x30000000
+    mov rsi, r12
+    mov rdx, 0x07
+    call virt_map
+    test rax, rax
+    jz .wb_fail_map
+
+    mov rdi, r12
+    call page_list_move_to_inactive
+
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    and qword [rax], ~0x20
+
+    call page_replace_clock_evict
+    test rax, rax
+    jz .wb_fail_evict
+
+    ; --- Step B: Evict Page B (hits limit 1, triggers writeback of Page A) ---
+    call phys_alloc_page
+    test rax, rax
+    jz .wb_fail_alloc
+    mov r13, rax
+
+    mov rdi, r13
+    mov al, 0xBB
+    mov rcx, 4096
+    cld
+    rep stosb
+
+    mov rdi, r13
+    mov qword [rdi], 0x5555555555555555
+    mov qword [rdi + 8], 0x5555555555555555
+
+    mov rdi, 0x40000000
+    mov rsi, r13
+    mov rdx, 0x07
+    call virt_map
+    test rax, rax
+    jz .wb_fail_map
+
+    mov rdi, r13
+    call page_list_move_to_inactive
+
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    and qword [rax], ~0x20
+
+    call page_replace_clock_evict
+    test rax, rax
+    jz .wb_fail_evict
+
+    ; --- Step C: Verify Page A PTE updated (should have PAGE_ZRAM cleared) ---
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rcx, [rax]
+    test rcx, 0x100                 ; PAGE_ZRAM (bit 8) should be 0!
+    jnz .fail_zram_flags
+
+    ; --- Step D: Read Page A (swaps-in from physical swap) ---
+    mov rax, [0x30000000]
+
+    ; Verify Page A contents
+    mov rdi, 0x30000000
+    mov rsi, msg_zram_sig
+    mov rdx, 29
+    call memcmp
+    test rax, rax
+    jnz .fail_zram_data
+
+    ; --- Step E: Read Page B (swaps-in from ZRAM) ---
+    mov rax, [0x40000000]
+
+    ; Verify Page B data
+    mov rdi, 0x40000000
+    mov rax, [rdi]
+    mov rbx, 0x5555555555555555
+    cmp rax, rbx
+    jne .fail_zram_data
+
+    ; Clean up Part 2
+    mov rdi, 0x30000000
+    call virt_translate
+    mov r12, rax
+    mov rdi, 0x30000000
+    call virt_unmap
+    mov rdi, r12
+    call phys_free_page
+    mov rdi, r14
+    call vma_destroy
+
+    mov rdi, 0x40000000
+    call virt_translate
+    mov r13, rax
+    mov rdi, 0x40000000
+    call virt_unmap
+    mov rdi, r13
+    call phys_free_page
+    mov rdi, r15
+    call vma_destroy
+
+    ; Restore clean mock swap device
+    lea rdi, [mock_swap_dev]
+    call swap_register_device
+
+    ; Success!
+    mov rsi, msg_zpool_writeback_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     jmp .mtrr_test_start
+
+.wb_fail_alloc:
+    mov rsi, msg_zram_fail_alloc_str
+    call uart_print_str
+    jmp .panic_wb
+
+.wb_fail_vma:
+    mov rsi, msg_zram_fail_vma_str
+    call uart_print_str
+    jmp .panic_wb
+
+.wb_fail_map:
+    mov rsi, msg_zram_fail_map_str
+    call uart_print_str
+    jmp .panic_wb
+
+.wb_fail_evict:
+    mov rsi, msg_zram_fail_evict_str
+    call uart_print_str
+    jmp .panic_wb
+
+.fail_zswap_flags:
+    mov rsi, msg_zpool_writeback_fail_zswap_flags_str
+    call uart_print_str
+    jmp .panic_wb
+
+.fail_zswap_data:
+    mov rsi, msg_zpool_writeback_fail_zswap_data_str
+    call uart_print_str
+    jmp .panic_wb
+
+.fail_zram_flags:
+    mov rsi, msg_zpool_writeback_fail_zram_flags_str
+    call uart_print_str
+    jmp .panic_wb
+
+.fail_zram_data:
+    mov rsi, msg_zpool_writeback_fail_zram_data_str
+    call uart_print_str
+    jmp .panic_wb
+
+.panic_wb:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .compact_fail_alloc:
     mov rsi, msg_zram_fail_alloc_str
@@ -8560,6 +8923,14 @@ msg_zpool_compact_fail_zswap_inuse_str: db "Failure: Zswap slot in_use metadata 
 msg_zpool_compact_fail_zswap_data_str:  db "Failure: Zswap compacted page data corruption or mismatch after swap-in.", 0x0D, 0x0A, 0
 msg_zpool_compact_fail_zram_inuse_str:  db "Failure: ZRAM slot in_use metadata incorrect after compaction.", 0x0D, 0x0A, 0
 msg_zpool_compact_fail_zram_data_str:   db "Failure: ZRAM compacted page data corruption or mismatch after swap-in.", 0x0D, 0x0A, 0
+
+; Zpool Writeback Test messages
+msg_zpool_writeback_test_start:   db "Running VMM Physical Swap Writeback Pipeline Tests...", 0x0D, 0x0A, 0
+msg_zpool_writeback_test_passed:  db "VMM Physical Swap Writeback Pipeline Tests PASSED!", 0x0D, 0x0A, 0
+msg_zpool_writeback_fail_zswap_flags_str: db "Failure: Zswap writeback PTE swap cache flags not correctly updated.", 0x0D, 0x0A, 0
+msg_zpool_writeback_fail_zswap_data_str:  db "Failure: Zswap writeback page A data corruption or mismatch after disk swap-in.", 0x0D, 0x0A, 0
+msg_zpool_writeback_fail_zram_flags_str:  db "Failure: ZRAM writeback PTE swap cache flags not correctly updated.", 0x0D, 0x0A, 0
+msg_zpool_writeback_fail_zram_data_str:   db "Failure: ZRAM writeback page A data corruption or mismatch after disk swap-in.", 0x0D, 0x0A, 0
 
 msg_mtrr_test_start:         db "Running VMM MTRR Cache Programming Test...", 0x0D, 0x0A, 0
 msg_mtrr_vcnt_str:            db "MTRR supported. Count of variable registers: ", 0
