@@ -71,6 +71,7 @@ extern virt_handle_file_map
 extern virt_handle_dax_map
 extern virt_handle_pmem_map
 extern virt_handle_pmem_window_map
+extern dbg_dirty_trace_handle_fault
 
 
 ; -----------------------------------------------------------------------------
@@ -453,6 +454,17 @@ virt_page_fault_handler:
     test r13, 2                     ; bit 1 set?
     jz .do_diagnostics              ; read access protection fault -> panic
 
+    ; Emulated Dirty Bit Tracing hook: Check if fault is on a tracked page
+    mov rdi, r12                    ; faulting address
+    mov rsi, [r15]                  ; faulting RIP
+    call dbg_dirty_trace_handle_fault
+    test rax, rax
+    jz .not_dirty_trace
+
+    mov rax, 1                      ; successfully handled
+    jmp .exit
+
+.not_dirty_trace:
     ; Check if VMA is writable
     test rbx, VMA_WRITE
     jz .do_diagnostics              ; write to non-writable VMA -> panic
