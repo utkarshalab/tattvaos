@@ -63,6 +63,7 @@
 %include "lib/mem/virt/swap.asm"
 %include "lib/mem/virt/kswapd.asm"
 %include "lib/mem/virt/uaf.asm"
+%include "lib/mem/virt/dbg_watch.asm"
 %include "lib/mem/virt/stack.asm"
 %include "lib/mem/virt/pf.asm"
 %include "lib/mem/virt/ept.asm"
