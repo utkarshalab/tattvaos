@@ -55,6 +55,12 @@ extern zram_compact
 extern zswap_writeback
 extern zram_writeback
 extern zpool_batch_decompress_submit
+extern dbg_dirty_trace_init
+extern dbg_dirty_trace_register
+extern dbg_dirty_trace_is_dirty
+extern dbg_dirty_trace_get_rip
+extern dbg_dirty_trace_clear_dirty
+extern dbg_dirty_trace_deregister
 extern numa_ranges
 extern numa_range_count
 extern numa_node_count
@@ -2212,6 +2218,147 @@ kernel_main:
 
     ; Success!
     mov rsi, msg_zpool_decomp_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .dbg_watch_test_start
+
+.dbg_watch_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_dbg_watch_test_start
+    call uart_print_str
+
+    ; 1. Initialize dirty tracing
+    call dbg_dirty_trace_init
+
+    ; 2. Allocate a physical page
+    call phys_alloc_page
+    test rax, rax
+    jz .dbg_watch_fail_alloc
+    mov [dbg_watch_phys_page], rax
+
+    ; 3. Create a writable user VMA at 0x30000000
+    mov rdi, 0x30000000
+    mov rsi, 4096
+    mov rdx, 0x0B                   ; VMA_READ | VMA_WRITE | VMA_USER
+    call vma_create
+    test rax, rax
+    jz .dbg_watch_fail_vma
+    mov [dbg_watch_vma_ptr], rax
+
+    ; 4. Map the physical page at 0x30000000
+    mov rdi, 0x30000000
+    mov rsi, [dbg_watch_phys_page]
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .dbg_watch_fail_map
+
+    ; 5. Register page for dirty tracing
+    mov rdi, 0x30000000
+    call dbg_dirty_trace_register
+    cmp rax, 1
+    jne .dbg_watch_fail_register
+
+    ; 6. Verify that page has been write-protected in PTE (PAGE_WRITABLE cleared)
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .dbg_watch_fail_walk
+    mov rbx, [rax]
+    test rbx, 2                     ; PAGE_WRITABLE (bit 1) should be 0!
+    jnz .dbg_watch_fail_protected
+
+    ; 7. Check that page is NOT dirty initially
+    mov rdi, 0x30000000
+    call dbg_dirty_trace_is_dirty
+    test rax, rax
+    jnz .dbg_watch_fail_dirty_init
+
+    ; 8. Perform a write to the page to trigger the emulated dirty tracing page fault!
+.dbg_write_ip:
+    mov qword [0x30000000], 0x123456789ABCDEF0
+
+    ; 9. Verify that the write succeeded
+    mov rax, [0x30000000]
+    mov rbx, 0x123456789ABCDEF0
+    cmp rax, rbx
+    jne .dbg_watch_fail_dirty_post
+
+    ; 10. Check that page is now marked dirty
+    mov rdi, 0x30000000
+    call dbg_dirty_trace_is_dirty
+    cmp rax, 1
+    jne .dbg_watch_fail_dirty_post
+
+    ; 11. Check that the logged RIP matches the instruction that did the write
+    mov rdi, 0x30000000
+    call dbg_dirty_trace_get_rip
+    lea rdx, [.dbg_write_ip]
+    cmp rax, rdx
+    jne .dbg_watch_fail_rip_mismatch
+
+    ; 12. Check that PAGE_WRITABLE was restored in the PTE
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .dbg_watch_fail_walk
+    mov rbx, [rax]
+    test rbx, 2                     ; PAGE_WRITABLE (bit 1) should be 1 now!
+    jz .dbg_watch_fail_writable_post
+
+    ; 13. Clear the dirty status
+    mov rdi, 0x30000000
+    call dbg_dirty_trace_clear_dirty
+    cmp rax, 1
+    jne .dbg_watch_fail_clear
+
+    ; 14. Verify that page is clean, RIP is 0, and PAGE_WRITABLE is cleared again
+    mov rdi, 0x30000000
+    call dbg_dirty_trace_is_dirty
+    test rax, rax
+    jnz .dbg_watch_fail_dirty_clear
+
+    mov rdi, 0x30000000
+    call dbg_dirty_trace_get_rip
+    test rax, rax
+    jnz .dbg_watch_fail_rip_clear
+
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .dbg_watch_fail_walk
+    mov rbx, [rax]
+    test rbx, 2                     ; PAGE_WRITABLE (bit 1) should be 0 again!
+    jnz .dbg_watch_fail_protected_clear
+
+    ; 15. Deregister, unmap, and free resources
+    mov rdi, 0x30000000
+    call dbg_dirty_trace_deregister
+    cmp rax, 1
+    jne .dbg_watch_fail_clear
+
+    mov rdi, 0x30000000
+    call virt_unmap
+
+    mov rdi, [dbg_watch_phys_page]
+    call phys_free_page
+
+    mov rdi, [dbg_watch_vma_ptr]
+    call vma_destroy
+
+    ; Success!
+    mov rsi, msg_dbg_watch_test_passed
     call uart_print_str
 
     pop r15
@@ -9573,9 +9720,24 @@ msg_xo_fail_pte_absent_str:   db "Failure: Software fallback mapped page is pres
 msg_xo_fail_pte_xo_str:       db "Failure: Software fallback mapped page does not have PAGE_XO bit set.", 0x0D, 0x0A, 0
 msg_xo_fail_trap:             db "Failure: Read access to Execute-Only page did not trigger page fault violation.", 0x0D, 0x0A, 0
 
+; Section 29.1 Dirty Tracing Test messages
+msg_dbg_watch_test_start:          db "Running VMM Page-Granular Hardware Debugging & Watchpoints Tests...", 0x0D, 0x0A, 0
+msg_dbg_watch_test_passed:         db "VMM Page-Granular Hardware Debugging & Watchpoints Tests PASSED!", 0x0D, 0x0A, 0
 
-
-
+msg_dbg_watch_fail_alloc_str:      db "Failure: Could not allocate physical page for dirty tracing test.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_vma_str:        db "Failure: Could not create VMA for dirty tracing test.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_map_str:        db "Failure: Could not map page for dirty tracing test.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_register_str:   db "Failure: dbg_dirty_trace_register returned 0.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_walk_str:       db "Failure: Could not walk page table for registered page.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_protected_str:  db "Failure: Registered page was not write-protected in PTE.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_dirty_init_str: db "Failure: Tracked page reported dirty before write.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_dirty_post_str: db "Failure: Tracked page did not report dirty after write.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_rip_mismatch_str: db "Failure: Logged RIP does not match instruction RIP.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_writable_post_str: db "Failure: PAGE_WRITABLE not restored in PTE after fault.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_clear_str:      db "Failure: Clear dirty status returned 0.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_dirty_clear_str: db "Failure: Tracked page reported dirty after clearing.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_rip_clear_str:   db "Failure: Logged RIP not cleared to 0 after clearing.", 0x0D, 0x0A, 0
+msg_dbg_watch_fail_protected_clear_str: db "Failure: Page not write-protected again after clearing.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
@@ -9586,6 +9748,11 @@ req_B: resb 40
 req_ptrs: resq 2
 dest_phys_A: resq 1
 dest_phys_B: resq 1
+
+; BSS variables for dirty tracing test
+align 8
+dbg_watch_phys_page: resq 1
+dbg_watch_vma_ptr:   resq 1
 
 
 
