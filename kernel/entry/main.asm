@@ -97,6 +97,7 @@ extern thread_count
 extern sched_register_thread
 extern virt_oom_calculate_score
 extern virt_oom_select_victim
+extern virt_oom_kill_process
 extern numa_ranges
 
 
@@ -3329,7 +3330,7 @@ kernel_main:
     mov rsi, msg_oom_score_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .oom_killer_test_start
 
 .oom_score_fail_register:
     mov rsi, msg_oom_score_fail_register_str
@@ -3366,6 +3367,108 @@ kernel_main:
     jz .skip_b
     mov qword [r13 + thread_t.flags], 0
 .skip_b:
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+    ; =========================================================================
+    ; OOM Killer Test
+    ; =========================================================================
+.oom_killer_test_start:
+    mov rsi, msg_oom_killer_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+
+    ; 1. Switch overcommit to strict mode (0)
+    mov qword [overcommit_mode], 0
+
+    ; 2. Register Thread V (Victim to be killed first)
+    mov rdi, 300
+    mov rsi, 0x0001
+    mov rdx, 0
+    call sched_register_thread
+    cmp rax, -1
+    je .oom_kill_fail_register
+    
+    ; Get Thread V pointer
+    imul rax, thread_t_size
+    lea r12, [thread_table + rax]   ; R12 = Thread V pointer
+
+    ; Set Thread V parameters
+    mov qword [r12 + thread_t.mem_usage], 100
+    mov qword [r12 + thread_t.time_alive], 2
+    mov qword [r12 + thread_t.priority_weight], 1
+
+    ; 3. Setup system reservations
+    mov rax, [phys_state + phys_state_t.total_pages]
+    mov r13, rax                    ; R13 = total_pages
+    
+    mov rax, r13
+    sub rax, 50
+    mov [virt_reserved_pages], rax  ; reserved = total_pages - 50
+
+    ; 4. Try creating a VMA of size 80 pages
+    mov rdi, 0x1000000000
+    mov rsi, 80
+    shl rsi, 12                     ; size in bytes
+    mov rdx, 0x83                   ; VMA_READ | VMA_WRITE | VMA_ONDEMAND
+    call vma_create
+    test rax, rax
+    jz .oom_kill_fail_alloc
+    mov r14, rax                    ; R14 = VMA pointer
+
+    ; 5. Verify Thread V is terminated
+    mov rax, [r12 + thread_t.flags]
+    test rax, 1
+    jnz .oom_kill_fail_not_terminated
+
+    ; Clean up
+    mov rdi, r14
+    call vma_destroy
+    
+    ; Restore overcommit default mode and settings
+    mov qword [overcommit_mode], 2  ; heuristic
+    mov qword [virt_reserved_pages], 0
+
+    pop r14
+    pop r13
+    pop r12
+
+    ; Success!
+    mov rsi, msg_oom_killer_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.oom_kill_fail_register:
+    mov rsi, msg_oom_kill_fail_register_str
+    call uart_print_str
+    jmp .panic_oom_kill
+
+.oom_kill_fail_alloc:
+    mov rsi, msg_oom_kill_fail_alloc_str
+    call uart_print_str
+    jmp .panic_oom_kill
+
+.oom_kill_fail_not_terminated:
+    mov rdi, r14
+    call vma_destroy
+    mov rsi, msg_oom_kill_fail_not_terminated_str
+    call uart_print_str
+    jmp .panic_oom_kill
+
+.panic_oom_kill:
+    ; Clean up thread flags and reservations before panic
+    test r12, r12
+    jz .skip_v
+    mov qword [r12 + thread_t.flags], 0
+.skip_v:
+    mov qword [overcommit_mode], 2  ; restore heuristic
+    mov qword [virt_reserved_pages], 0
     pop r14
     pop r13
     pop r12
@@ -11231,6 +11334,13 @@ msg_oom_score_fail_calc_a_str:             db "Failure: Incorrect OOM score calc
 msg_oom_score_fail_calc_b_str:             db "Failure: Incorrect OOM score calculated for Thread B.", 0x0D, 0x0A, 0
 msg_oom_score_fail_select_b_str:           db "Failure: OOM select victim did not return Thread B.", 0x0D, 0x0A, 0
 msg_oom_score_fail_select_a_str:           db "Failure: OOM select victim did not return Thread A after weight adjustment.", 0x0D, 0x0A, 0
+
+; OOM Killer Test messages
+msg_oom_killer_test_start:                 db "Running VMM OOM Killer Test...", 0x0D, 0x0A, 0
+msg_oom_killer_test_passed:                db "VMM OOM Killer Test PASSED!", 0x0D, 0x0A, 0
+msg_oom_kill_fail_register_str:            db "Failure: Could not register Thread V (victim) for OOM Killer test.", 0x0D, 0x0A, 0
+msg_oom_kill_fail_alloc_str:               db "Failure: VMA allocation failed to allocate after OOM Killer execution.", 0x0D, 0x0A, 0
+msg_oom_kill_fail_not_terminated_str:      db "Failure: Thread V (victim) was not terminated by OOM Killer.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
