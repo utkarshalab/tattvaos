@@ -35,6 +35,9 @@ extern virt_unmap
 extern phys_free_page
 extern page_replace_clock_evict
 extern phys_state
+extern overcommit_mode
+extern overcommit_ratio
+extern virt_reserved_pages
 extern swap_register_device
 extern ata_swap_dev
 extern nvme_swap_dev
@@ -3092,7 +3095,151 @@ kernel_main:
     pop r14
     pop r13
     pop r12
+    jmp .overcommit_test_start
+
+    ; =========================================================================
+    ; Overcommit Policy Engine Test
+    ; =========================================================================
+.overcommit_test_start:
+    mov rsi, msg_overcommit_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+
+    ; Let's get total physical pages from phys_state
+    mov rax, [phys_state + phys_state_t.total_pages]
+    mov r12, rax                    ; R12 = total_pages
+
+    ; 1. Test OVERCOMMIT_ALWAYS (1)
+    mov qword [overcommit_mode], 1
+    
+    ; Allocate a huge VMA: total_pages * 10 * 4096 bytes
+    mov rdi, 0x1000000000           ; some high virtual address
+    mov rsi, r12
+    imul rsi, 10
+    shl rsi, 12                     ; size in bytes = total_pages * 10 * 4096
+    mov rdx, 0x83                   ; VMA_READ | VMA_WRITE | VMA_ONDEMAND
+    call vma_create
+    test rax, rax
+    jz .overcommit_fail_always
+    
+    ; Success. Destroy it.
+    mov rdi, rax
+    call vma_destroy
+
+    ; 2. Test OVERCOMMIT_NEVER (0)
+    mov qword [overcommit_mode], 0
+    
+    ; Allocate VMA of size total_pages - 10 pages (should succeed)
+    mov rdi, 0x1000000000
+    mov rsi, r12
+    sub rsi, 10
+    shl rsi, 12                     ; (total_pages - 10) * 4096 bytes
+    mov rdx, 0x83
+    call vma_create
+    test rax, rax
+    jz .overcommit_fail_never_succeed
+    mov r13, rax                    ; R13 = VMA pointer
+
+    ; Try allocating another 20 pages (should fail since it exceeds total physical pages)
+    mov rdi, 0x2000000000
+    mov rsi, 20
+    shl rsi, 12
+    mov rdx, 0x83
+    call vma_create
+    test rax, rax
+    jnz .overcommit_fail_never_fail
+
+    ; Destroy the first VMA
+    mov rdi, r13
+    call vma_destroy
+    xor r13, r13
+
+    ; 3. Test OVERCOMMIT_HEURISTIC (2)
+    mov qword [overcommit_mode], 2
+    mov qword [overcommit_ratio], 150 ; 150% of physical RAM
+    
+    ; Allowance is 1.5 * total_pages = (total_pages * 150) / 100
+    ; Let's allocate VMA of size total_pages * 120 / 100 (1.2x physical RAM, should succeed)
+    mov rax, r12
+    imul rax, 120
+    mov rcx, 100
+    xor rdx, rdx
+    div rcx                         ; RAX = total_pages * 1.2
+    
+    mov rdi, 0x1000000000
+    mov rsi, rax
+    shl rsi, 12                     ; size in bytes
+    mov rdx, 0x83
+    call vma_create
+    test rax, rax
+    jz .overcommit_fail_heuristic_succeed
+    mov r13, rax
+
+    ; Try allocating VMA of size total_pages * 180 / 100 (1.8x physical RAM, should fail)
+    mov rax, r12
+    imul rax, 5
+    mov rdi, 0x3000000000
+    mov rsi, rax
+    shl rsi, 12
+    mov rdx, 0x83
+    call vma_create
+    test rax, rax
+    jnz .overcommit_fail_heuristic_fail
+
+    ; Clean up
+    mov rdi, r13
+    call vma_destroy
+
+    ; Restore default mode to HEURISTIC (2)
+    mov qword [overcommit_mode], 2
+
+    pop r14
+    pop r13
+    pop r12
+
+    ; Success!
+    mov rsi, msg_overcommit_test_passed
+    call uart_print_str
+
     jmp .mtrr_test_start
+
+.overcommit_fail_always:
+    mov rsi, msg_overcommit_fail_always_str
+    call uart_print_str
+    jmp .panic_overcommit
+
+.overcommit_fail_never_succeed:
+    mov rsi, msg_overcommit_fail_never_succeed_str
+    call uart_print_str
+    jmp .panic_overcommit
+
+.overcommit_fail_never_fail:
+    mov rdi, r13
+    call vma_destroy
+    mov rsi, msg_overcommit_fail_never_fail_str
+    call uart_print_str
+    jmp .panic_overcommit
+
+.overcommit_fail_heuristic_succeed:
+    mov rsi, msg_overcommit_fail_heuristic_succeed_str
+    call uart_print_str
+    jmp .panic_overcommit
+
+.overcommit_fail_heuristic_fail:
+    mov rdi, r13
+    call vma_destroy
+    mov rsi, msg_overcommit_fail_heuristic_fail_str
+    call uart_print_str
+    jmp .panic_overcommit
+
+.panic_overcommit:
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .dbg_phys_wp_fail_alloc:
     mov rsi, msg_dbg_phys_wp_fail_alloc_str
@@ -10936,6 +11083,15 @@ msg_dbg_phys_wp_fail_rip_write_str:    db "Failure: Logged RIP after write does 
 msg_dbg_phys_wp_fail_vaddr_write_str:   db "Failure: Logged virtual address alias does not match 0x40000000.", 0x0D, 0x0A, 0
 msg_dbg_phys_wp_fail_type_write_str:   db "Failure: Logged type after write is not 1 (write).", 0x0D, 0x0A, 0
 msg_dbg_phys_wp_fail_deregister_str:   db "Failure: dbg_phys_wp_deregister returned 0.", 0x0D, 0x0A, 0
+
+; Overcommit Policy Engine Test messages
+msg_overcommit_test_start:                 db "Running VMM Overcommit Policy Engine Test...", 0x0D, 0x0A, 0
+msg_overcommit_test_passed:                db "VMM Overcommit Policy Engine Test PASSED!", 0x0D, 0x0A, 0
+msg_overcommit_fail_always_str:            db "Failure: VMA allocation denied in OVERCOMMIT_ALWAYS mode.", 0x0D, 0x0A, 0
+msg_overcommit_fail_never_succeed_str:     db "Failure: VMA allocation denied within physical limits in OVERCOMMIT_NEVER mode.", 0x0D, 0x0A, 0
+msg_overcommit_fail_never_fail_str:        db "Failure: VMA allocation allowed beyond physical limits in OVERCOMMIT_NEVER mode.", 0x0D, 0x0A, 0
+msg_overcommit_fail_heuristic_succeed_str: db "Failure: VMA allocation denied within heuristic limit in OVERCOMMIT_HEURISTIC mode.", 0x0D, 0x0A, 0
+msg_overcommit_fail_heuristic_fail_str:    db "Failure: VMA allocation allowed beyond heuristic limit in OVERCOMMIT_HEURISTIC mode.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
