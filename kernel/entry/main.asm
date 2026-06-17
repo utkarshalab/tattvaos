@@ -74,7 +74,15 @@ extern dbg_ift_is_hit
 extern dbg_ift_get_last_rip
 extern dbg_ift_rearm
 extern dbg_ift_deregister
+extern dbg_hist_init
+extern dbg_hist_register
+extern dbg_hist_get_read_count
+extern dbg_hist_get_write_count
+extern dbg_hist_get_total_count
+extern dbg_hist_rearm
+extern dbg_hist_deregister
 extern numa_ranges
+
 extern numa_range_count
 extern numa_node_count
 extern numa_get_node_by_phys
@@ -2685,7 +2693,291 @@ kernel_main:
     pop r14
     pop r13
     pop r12
+    jmp .dbg_hist_test_start
+
+.dbg_hist_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_dbg_hist_test_start
+    call uart_print_str
+
+    ; 1. Initialize access pattern histogram recorder
+    call dbg_hist_init
+
+    ; 2. Allocate physical page
+    call phys_alloc_page
+    test rax, rax
+    jz .dbg_hist_fail_alloc
+    mov [dbg_hist_phys_page], rax
+
+    ; 3. Create a writable user VMA at 0x30000000
+    ; Flags: VMA_READ | VMA_WRITE | VMA_USER (0x0B)
+    mov rdi, 0x30000000
+    mov rsi, 4096
+    mov rdx, 0x0B
+    call vma_create
+    test rax, rax
+    jz .dbg_hist_fail_vma
+    mov [dbg_hist_vma_ptr], rax
+
+    ; 4. Map the physical page at 0x30000000
+    ; Flags: PRESENT | WRITE | USER (0x07)
+    mov rdi, 0x30000000
+    mov rsi, [dbg_hist_phys_page]
+    mov rdx, 0x07
+    call virt_map
+    test rax, rax
+    jz .dbg_hist_fail_map
+
+    ; 5. Register page for access tracking
+    mov rdi, 0x30000000
+    call dbg_hist_register
+    cmp rax, 1
+    jne .dbg_hist_fail_register
+
+    ; 6. Verify that page has been marked non-present in PTE
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .dbg_hist_fail_walk
+    mov rbx, [rax]
+    test rbx, 1                     ; PAGE_PRESENT (bit 0) should be 0
+    jnz .dbg_hist_fail_non_present
+
+    ; 7. Check initial counters are 0
+    mov rdi, 0x30000000
+    call dbg_hist_get_read_count
+    test rax, rax
+    jnz .dbg_hist_fail_count_init
+
+    mov rdi, 0x30000000
+    call dbg_hist_get_write_count
+    test rax, rax
+    jnz .dbg_hist_fail_count_init
+
+    mov rdi, 0x30000000
+    call dbg_hist_get_total_count
+    test rax, rax
+    jnz .dbg_hist_fail_count_init
+
+    ; 8. Perform a READ access to trigger page fault!
+    mov rax, [0x30000000]
+
+    ; 9. Verify hit count updates (Read=1, Write=0, Total=1)
+    mov rdi, 0x30000000
+    call dbg_hist_get_read_count
+    cmp rax, 1
+    jne .dbg_hist_fail_read_count
+
+    mov rdi, 0x30000000
+    call dbg_hist_get_write_count
+    test rax, rax
+    jnz .dbg_hist_fail_write_count
+
+    mov rdi, 0x30000000
+    call dbg_hist_get_total_count
+    cmp rax, 1
+    jne .dbg_hist_fail_total_count
+
+    ; 10. Verify that PTE has PRESENT restored to 1
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .dbg_hist_fail_walk
+    mov rbx, [rax]
+    test rbx, 1                     ; PAGE_PRESENT (bit 0) should be 1
+    jz .dbg_hist_fail_present_restored
+
+    ; 11. Rearm the histogram recorder
+    mov rdi, 0x30000000
+    call dbg_hist_rearm
+    cmp rax, 1
+    jne .dbg_hist_fail_rearm
+
+    ; Verify non-present again
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rbx, [rax]
+    test rbx, 1
+    jnz .dbg_hist_fail_non_present
+
+    ; 12. Perform a WRITE access to trigger page fault!
+    mov qword [0x30000000], 0x12345678ABCD
+
+    ; 13. Verify hit count updates (Read=1, Write=1, Total=2)
+    mov rdi, 0x30000000
+    call dbg_hist_get_read_count
+    cmp rax, 1
+    jne .dbg_hist_fail_read_count2
+
+    mov rdi, 0x30000000
+    call dbg_hist_get_write_count
+    cmp rax, 1
+    jne .dbg_hist_fail_write_count2
+
+    mov rdi, 0x30000000
+    call dbg_hist_get_total_count
+    cmp rax, 2
+    jne .dbg_hist_fail_total_count2
+
+    ; 14. Rearm again
+    mov rdi, 0x30000000
+    call dbg_hist_rearm
+    cmp rax, 1
+    jne .dbg_hist_fail_rearm
+
+    ; 15. Perform another READ access
+    mov rax, [0x30000000]
+
+    ; 16. Verify hit count updates (Read=2, Write=1, Total=3)
+    mov rdi, 0x30000000
+    call dbg_hist_get_read_count
+    cmp rax, 2
+    jne .dbg_hist_fail_read_count3
+
+    mov rdi, 0x30000000
+    call dbg_hist_get_write_count
+    cmp rax, 1
+    jne .dbg_hist_fail_write_count3
+
+    mov rdi, 0x30000000
+    call dbg_hist_get_total_count
+    cmp rax, 3
+    jne .dbg_hist_fail_total_count3
+
+    ; 17. Deregister, unmap and free
+    mov rdi, 0x30000000
+    call dbg_hist_deregister
+    cmp rax, 1
+    jne .dbg_hist_fail_deregister
+
+    mov rdi, 0x30000000
+    call virt_unmap
+
+    mov rdi, [dbg_hist_phys_page]
+    call phys_free_page
+
+    mov rdi, [dbg_hist_vma_ptr]
+    call vma_destroy
+
+    ; Success!
+    mov rsi, msg_dbg_hist_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     jmp .mtrr_test_start
+
+.dbg_hist_fail_alloc:
+    mov rsi, msg_dbg_hist_fail_alloc_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_vma:
+    mov rsi, msg_dbg_hist_fail_vma_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_map:
+    mov rsi, msg_dbg_hist_fail_map_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_register:
+    mov rsi, msg_dbg_hist_fail_register_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_walk:
+    mov rsi, msg_dbg_hist_fail_walk_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_non_present:
+    mov rsi, msg_dbg_hist_fail_non_present_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_count_init:
+    mov rsi, msg_dbg_hist_fail_count_init_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_read_count:
+    mov rsi, msg_dbg_hist_fail_read_count_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_write_count:
+    mov rsi, msg_dbg_hist_fail_write_count_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_total_count:
+    mov rsi, msg_dbg_hist_fail_total_count_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_present_restored:
+    mov rsi, msg_dbg_hist_fail_present_restored_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_rearm:
+    mov rsi, msg_dbg_hist_fail_rearm_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_read_count2:
+    mov rsi, msg_dbg_hist_fail_read_count2_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_write_count2:
+    mov rsi, msg_dbg_hist_fail_write_count2_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_total_count2:
+    mov rsi, msg_dbg_hist_fail_total_count2_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_read_count3:
+    mov rsi, msg_dbg_hist_fail_read_count3_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_write_count3:
+    mov rsi, msg_dbg_hist_fail_write_count3_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_total_count3:
+    mov rsi, msg_dbg_hist_fail_total_count3_str
+    call uart_print_str
+    jmp .panic_hist
+
+.dbg_hist_fail_deregister:
+    mov rsi, msg_dbg_hist_fail_deregister_str
+    call uart_print_str
+    jmp .panic_hist
+
+.panic_hist:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 
 .dbg_ift_fail_alloc:
     mov rsi, msg_dbg_ift_fail_alloc_str
@@ -10270,6 +10562,30 @@ msg_dbg_ift_fail_hit_exec2_str:    db "Failure: IFT watched page did not increme
 msg_dbg_ift_fail_rip_exec2_str:    db "Failure: Logged IFT RIP after second execution does not match 0x40000000.", 0x0D, 0x0A, 0
 msg_dbg_ift_fail_deregister_str:   db "Failure: dbg_ift_deregister returned 0.", 0x0D, 0x0A, 0
 
+; Access Pattern Histogram Test messages
+msg_dbg_hist_test_start:            db "Running VMM Access Pattern Histogram Recorder Tests...", 0x0D, 0x0A, 0
+msg_dbg_hist_test_passed:           db "VMM Access Pattern Histogram Recorder Tests PASSED!", 0x0D, 0x0A, 0
+
+msg_dbg_hist_fail_alloc_str:        db "Failure: Could not allocate physical page for access histogram test.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_vma_str:          db "Failure: Could not create VMA for access histogram test.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_map_str:          db "Failure: Could not map page for access histogram test.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_register_str:     db "Failure: dbg_hist_register returned 0.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_walk_str:         db "Failure: Could not walk page table for access histogram page.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_non_present_str:  db "Failure: Access histogram monitored page is still present in PTE.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_count_init_str:   db "Failure: Access histogram reported non-zero hits before access.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_read_count_str:   db "Failure: Read count did not increment to 1 after read access.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_write_count_str:  db "Failure: Write count incremented on read access.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_total_count_str:  db "Failure: Total count did not increment to 1 after read access.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_present_restored_str: db "Failure: Monitored page was not restored to present after fault.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_rearm_str:        db "Failure: dbg_hist_rearm returned 0.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_read_count2_str:  db "Failure: Read count modified on write access.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_write_count2_str: db "Failure: Write count did not increment to 1 after write access.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_total_count2_str: db "Failure: Total count did not increment to 2 after write access.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_read_count3_str:  db "Failure: Read count did not increment to 2 after second read.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_write_count3_str: db "Failure: Write count modified on second read access.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_total_count3_str: db "Failure: Total count did not increment to 3 after second read.", 0x0D, 0x0A, 0
+msg_dbg_hist_fail_deregister_str:   db "Failure: dbg_hist_deregister returned 0.", 0x0D, 0x0A, 0
+
 section .bss
 align 8
 smep_smap_test_buf:            resb 32
@@ -10294,6 +10610,13 @@ dbg_wp_vma_ptr:   resq 1
 align 8
 dbg_ift_phys_page: resq 1
 dbg_ift_vma_ptr:   resq 1
+
+; BSS variables for access histogram test
+align 8
+dbg_hist_phys_page: resq 1
+dbg_hist_vma_ptr:   resq 1
+
+%endif ; LIB_MEM_VIRT_DBG_WATCH_ASM
 
 
 
