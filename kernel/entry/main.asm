@@ -99,6 +99,10 @@ extern virt_oom_calculate_score
 extern virt_oom_select_victim
 extern virt_oom_kill_process
 extern virt_oom_register_notifier
+extern virt_memcg_create
+extern virt_memcg_destroy
+extern virt_memcg_attach
+extern virt_oom_select_victim_in_cgroup
 extern numa_ranges
 
 
@@ -3558,7 +3562,243 @@ kernel_main:
     mov rsi, msg_oom_notifier_test_passed
     call uart_print_str
 
+    jmp .oom_cgroup_test_start
+
+    ; =========================================================================
+    ; Memory Cgroup Limits Test
+    ; =========================================================================
+.oom_cgroup_test_start:
+    mov rsi, msg_oom_cgroup_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; 1. Create Memory Cgroup 500
+    mov rdi, 500                    ; ID
+    mov rsi, 150                    ; Hard Limit (pages)
+    mov rdx, 100                    ; Soft Limit (pages)
+    call virt_memcg_create
+    test rax, rax
+    jz .oom_cgroup_fail_create
+    mov r12, rax                    ; R12 = cgroup pointer
+
+    ; 2. Register Thread A (ID = 501)
+    mov rdi, 501
+    mov rsi, 0x0001
+    mov rdx, 0
+    call sched_register_thread
+    cmp rax, -1
+    je .oom_cgroup_fail_register
+    imul rax, thread_t_size
+    lea r13, [thread_table + rax]   ; R13 = Thread A pointer
+
+    ; Set Thread A attributes
+    mov qword [r13 + thread_t.mem_usage], 100
+    mov qword [r13 + thread_t.time_alive], 2
+    mov qword [r13 + thread_t.priority_weight], 2
+
+    ; Attach Thread A to cgroup
+    mov rdi, r13
+    mov rsi, r12
+    call virt_memcg_attach
+
+    ; 3. Register Thread B (ID = 502) (victim)
+    mov rdi, 502
+    mov rsi, 0x0001
+    mov rdx, 0
+    call sched_register_thread
+    cmp rax, -1
+    je .oom_cgroup_fail_register
+    imul rax, thread_t_size
+    lea r14, [thread_table + rax]   ; R14 = Thread B pointer
+
+    ; Set Thread B attributes
+    mov qword [r14 + thread_t.mem_usage], 20
+    mov qword [r14 + thread_t.time_alive], 5
+    mov qword [r14 + thread_t.priority_weight], 1
+
+    ; Attach Thread B to cgroup
+    mov rdi, r14
+    mov rsi, r12
+    call virt_memcg_attach
+
+    ; 4. Attach current thread (Thread 100, index 0) to cgroup
+    lea rdi, [thread_table]
+    mov rsi, r12
+    call virt_memcg_attach
+
+    ; Setup thread 100 attributes so it doesn't get killed
+    lea rdi, [thread_table]
+    mov qword [rdi + thread_t.mem_usage], 10
+    mov qword [rdi + thread_t.time_alive], 1000
+    mov qword [rdi + thread_t.priority_weight], 1000
+
+    ; Set initial cgroup usage to 10 + 100 + 20 = 130 pages
+    mov qword [r12 + mem_cgroup_t.usage], 130
+
+    ; 5. Test Soft Limit Reclaim (Usage 130 + 10 = 140 pages, exceeds soft limit 100 but <= hard limit 150)
+    ; This should trigger kswapd reclaim, print warning, but succeed.
+    mov rdi, 0x1000000000
+    mov rsi, 10
+    shl rsi, 12                     ; 10 pages in bytes
+    mov rdx, 0x83                   ; VMA flags
+    call vma_create
+    test rax, rax
+    jz .oom_cgroup_fail_soft_alloc
+    mov r15, rax                    ; R15 = first VMA pointer
+
+    ; Verify usage was charged (130 + 10 = 140 pages)
+    mov rax, [r12 + mem_cgroup_t.usage]
+    cmp rax, 140
+    jne .oom_cgroup_fail_soft_charge
+
+    ; 6. Test Hard Limit localized OOM (Usage 140 + 30 = 170 pages, exceeds hard limit 150)
+    ; This must run cgroup OOM killer, target and kill Thread B (lowest score 100),
+    ; reclaim its 20 pages (usage drops to 120), then succeed and allocate VMA.
+    mov rdi, 0x2000000000
+    mov rsi, 30
+    shl rsi, 12                     ; 30 pages in bytes
+    mov rdx, 0x83                   ; VMA flags
+    call vma_create
+    test rax, rax
+    jz .oom_cgroup_fail_hard_alloc
+    mov r13, rax                    ; R13 = second VMA pointer
+
+    ; Verify Thread B is terminated
+    mov rax, [r14 + thread_t.flags]
+    test rax, 1
+    jnz .oom_cgroup_fail_not_killed
+
+    ; Verify Thread A is NOT terminated
+    mov rax, 4
+    imul rax, thread_t_size
+    lea rax, [thread_table + rax]
+    mov rcx, [rax + thread_t.flags]
+    test rcx, 1
+    jz .oom_cgroup_fail_killed_wrong
+
+    ; Verify final cgroup usage is (140 - 20) + 30 = 150 pages
+    mov rax, [r12 + mem_cgroup_t.usage]
+    cmp rax, 150
+    jne .oom_cgroup_fail_final_charge
+
+    ; 7. Clean up
+    ; Destroy VMAs
+    mov rdi, r15
+    call vma_destroy
+    mov rdi, r13                    ; second VMA
+    call vma_destroy
+
+    ; Detach current thread
+    lea rdi, [thread_table]
+    mov rsi, 0
+    call virt_memcg_attach
+
+    ; Destroy cgroup
+    mov rdi, r12
+    call virt_memcg_destroy
+
+    ; Deactivate Thread A
+    mov rax, 4
+    imul rax, thread_t_size
+    lea rax, [thread_table + rax]
+    mov qword [rax + thread_t.flags], 0
+
+    ; Reset thread count to 4 (Thread 100, 101, 102, and 400 from notifier test)
+    mov qword [thread_count], 4
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    ; Success!
+    mov rsi, msg_oom_cgroup_test_passed
+    call uart_print_str
+
     jmp .mtrr_test_start
+
+.oom_cgroup_fail_create:
+    mov rsi, msg_oom_cgroup_fail_create_str
+    call uart_print_str
+    jmp .panic_oom_cgroup
+
+.oom_cgroup_fail_register:
+    mov rsi, msg_oom_cgroup_fail_register_str
+    call uart_print_str
+    jmp .panic_oom_cgroup
+
+.oom_cgroup_fail_soft_alloc:
+    mov rsi, msg_oom_cgroup_fail_soft_alloc_str
+    call uart_print_str
+    jmp .panic_oom_cgroup
+
+.oom_cgroup_fail_soft_charge:
+    mov rdi, r15
+    call vma_destroy
+    mov rsi, msg_oom_cgroup_fail_soft_charge_str
+    call uart_print_str
+    jmp .panic_oom_cgroup
+
+.oom_cgroup_fail_hard_alloc:
+    mov rdi, r15
+    call vma_destroy
+    mov rsi, msg_oom_cgroup_fail_hard_alloc_str
+    call uart_print_str
+    jmp .panic_oom_cgroup
+
+.oom_cgroup_fail_not_killed:
+    mov rdi, r15
+    call vma_destroy
+    mov rdi, r13
+    call vma_destroy
+    mov rsi, msg_oom_cgroup_fail_not_killed_str
+    call uart_print_str
+    jmp .panic_oom_cgroup
+
+.oom_cgroup_fail_killed_wrong:
+    mov rdi, r15
+    call vma_destroy
+    mov rdi, r13
+    call vma_destroy
+    mov rsi, msg_oom_cgroup_fail_killed_wrong_str
+    call uart_print_str
+    jmp .panic_oom_cgroup
+
+.oom_cgroup_fail_final_charge:
+    mov rdi, r15
+    call vma_destroy
+    mov rdi, r13
+    call vma_destroy
+    mov rsi, msg_oom_cgroup_fail_final_charge_str
+    call uart_print_str
+    jmp .panic_oom_cgroup
+
+.panic_oom_cgroup:
+    ; Detach cgroup from thread 100
+    lea rdi, [thread_table]
+    mov rsi, 0
+    call virt_memcg_attach
+    
+    ; Deactivate Thread A and B if possible
+    mov rax, 4
+    imul rax, thread_t_size
+    lea rax, [thread_table + rax]
+    mov qword [rax + thread_t.flags], 0
+    mov rax, 5
+    imul rax, thread_t_size
+    lea rax, [thread_table + rax]
+    mov qword [rax + thread_t.flags], 0
+    
+    mov qword [thread_count], 4
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .oom_notify_fail_register:
     mov rsi, msg_oom_notify_fail_register_str
@@ -11482,6 +11722,18 @@ msg_oom_notify_fail_register_str:          db "Failure: Could not register Threa
 msg_oom_notify_fail_alloc_str:             db "Failure: VMA allocation failed to allocate after OOM Notifier execution.", 0x0D, 0x0A, 0
 msg_oom_notify_fail_not_terminated_str:     db "Failure: Thread N (victim) was not terminated by OOM Killer after notification.", 0x0D, 0x0A, 0
 msg_oom_notify_fail_callback_not_run_str:  db "Failure: Graceful shutdown callback was not executed before process termination.", 0x0D, 0x0A, 0
+
+; OOM Cgroup Test messages
+msg_oom_cgroup_test_start:                 db "Running VMM Memory Cgroup Limits Test...", 0x0D, 0x0A, 0
+msg_oom_cgroup_test_passed:                db "VMM Memory Cgroup Limits Test PASSED!", 0x0D, 0x0A, 0
+msg_oom_cgroup_fail_create_str:            db "Failure: Could not create memory cgroup 500.", 0x0D, 0x0A, 0
+msg_oom_cgroup_fail_register_str:          db "Failure: Could not register threads for Memory Cgroup Limits test.", 0x0D, 0x0A, 0
+msg_oom_cgroup_fail_soft_alloc_str:        db "Failure: VMA allocation failed under soft limit check.", 0x0D, 0x0A, 0
+msg_oom_cgroup_fail_soft_charge_str:       db "Failure: Memory Cgroup usage was not charged correctly under soft limit.", 0x0D, 0x0A, 0
+msg_oom_cgroup_fail_hard_alloc_str:        db "Failure: VMA allocation failed under hard limit check.", 0x0D, 0x0A, 0
+msg_oom_cgroup_fail_not_killed_str:        db "Failure: Localized OOM killer did not terminate victim Thread B.", 0x0D, 0x0A, 0
+msg_oom_cgroup_fail_killed_wrong_str:      db "Failure: Localized OOM killer terminated wrong thread (Thread A).", 0x0D, 0x0A, 0
+msg_oom_cgroup_fail_final_charge_str:      db "Failure: Memory Cgroup usage was not correctly charged or released.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
