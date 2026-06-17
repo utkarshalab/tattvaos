@@ -73,6 +73,7 @@ extern virt_handle_pmem_map
 extern virt_handle_pmem_window_map
 extern dbg_dirty_trace_handle_fault
 extern dbg_watchpoint_handle_fault
+extern dbg_ift_handle_fault
 
 
 ; -----------------------------------------------------------------------------
@@ -467,6 +468,22 @@ virt_page_fault_handler:
 
 .present_fault:
     ; --- Present Fault (Protection Violation) ---
+    ; Check if this is an instruction fetch fault (bit 4 of error code is set)
+    test r13, 16                    ; bit 4 set?
+    jz .present_not_exec            ; no, check for write violations
+
+    ; Yes, this is an instruction fetch fault. Call dbg_ift_handle_fault.
+    mov rdi, r12                    ; faulting virtual address
+    mov rsi, r13                    ; error code
+    mov rdx, [r15]                  ; faulting RIP
+    call dbg_ift_handle_fault
+    test rax, rax
+    jz .do_diagnostics              ; not tracked instruction watchpoint, go to diagnostics
+
+    mov rax, 1                      ; successfully handled
+    jmp .exit
+
+.present_not_exec:
     ; Check if it is a write fault (bit 1 of error_code)
     test r13, 2                     ; bit 1 set?
     jz .do_diagnostics              ; read access protection fault -> panic
