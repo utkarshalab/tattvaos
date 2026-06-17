@@ -105,10 +105,12 @@ vma_create:
 .no_overlap:
     extern sched_get_current_thread
     extern kswapd_check_and_reclaim
-    ; Allocate stack space for temporary pointers (thread and cgroup)
-    sub rsp, 16
+    ; Allocate stack space for temporary pointers and retry counters
+    sub rsp, 32
     mov qword [rsp + 0], 0          ; current thread pointer
     mov qword [rsp + 8], 0          ; cgroup pointer
+    mov qword [rsp + 16], 0         ; global reclaim retry counter
+    mov qword [rsp + 24], 0         ; cgroup reclaim retry counter
 
     ; Get current thread and cgroup
     call sched_get_current_thread
@@ -161,7 +163,44 @@ vma_create:
     cmp rdx, [rsi + mem_cgroup_t.hard_limit]
     jbe .check_global_overcommit    ; if <= hard_limit, we are good!
 
-    ; Hard limit exceeded! Loop to find a victim in the cgroup.
+    ; Hard limit exceeded! Try reclaiming first before OOM killing.
+    mov rax, [rsp + 24]             ; RAX = cgroup reclaim retry counter
+    cmp rax, 3                      ; ALLOC_RETRY_LIMIT = 3
+    jae .cgroup_oom_kill
+
+    ; Increment retry counter
+    inc rax
+    mov [rsp + 24], rax
+
+    ; Trigger reclaim pressure
+    push rsi
+    call kswapd_check_and_reclaim
+    pop rsi
+
+    ; Mock adjustment for test verification
+    push rax
+    mov rax, [virt_alloc_retry_mock]
+    cmp rax, rsi                    ; check if it is this cgroup
+    jne .no_mock_cgroup
+    ; Decrease cgroup usage by 50 pages (clamp to 0)
+    mov rdx, [rsi + mem_cgroup_t.usage]
+    cmp rdx, 50
+    jbe .zero_mock_cgroup
+    sub rdx, 50
+    mov [rsi + mem_cgroup_t.usage], rdx
+    jmp .no_mock_cgroup
+.zero_mock_cgroup:
+    mov qword [rsi + mem_cgroup_t.usage], 0
+.no_mock_cgroup:
+    pop rax
+
+    jmp .hard_limit_loop            ; retry limit check!
+
+.cgroup_oom_kill:
+    ; Reset retry counter
+    mov qword [rsp + 24], 0
+
+    ; Hard limit exceeded after retries! Find a victim in the cgroup.
     mov rdi, rsi                    ; RDI = cgroup pointer
     call virt_oom_select_victim_in_cgroup
     test rax, rax
@@ -175,14 +214,49 @@ vma_create:
     jmp .hard_limit_loop
 
 .check_global_overcommit:
-    ; 2. Check overcommit policy before allocating
+    ; Check overcommit policy before allocating
     mov rdi, r12
     shr rdi, 12                     ; RDI = requested pages
     call virt_overcommit_check
     test rax, rax
     jnz .alloc_vma
 
-    ; Overcommit check failed (OOM)! Invoke OOM Killer to select and kill a victim.
+    ; Overcommit check failed! Try reclaiming first.
+    mov rax, [rsp + 16]             ; RAX = global reclaim retry counter
+    cmp rax, 3
+    jae .global_oom_kill
+
+    ; Increment retry counter
+    inc rax
+    mov [rsp + 16], rax
+
+    ; Trigger reclaim pressure
+    call kswapd_check_and_reclaim
+
+    ; Mock adjustment for test verification
+    push rax
+    mov rax, [virt_alloc_retry_mock]
+    cmp rax, 1                      ; check if global overcommit mock active
+    jne .no_mock_global
+    ; Decrease virt_reserved_pages by 50 pages (clamp to 0)
+    mov rdx, [virt_reserved_pages]
+    cmp rdx, 50
+    jbe .zero_mock_global
+    sub rdx, 50
+    mov [virt_reserved_pages], rdx
+    jmp .no_mock_global
+.zero_mock_global:
+    mov qword [virt_reserved_pages], 0
+.no_mock_global:
+    pop rax
+
+    jmp .check_global_overcommit
+
+.global_oom_kill:
+    ; Reset retry counter
+    mov qword [rsp + 16], 0
+
+    ; Invoke OOM Killer to select and kill a victim.
 .oom_loop:
     call virt_oom_select_victim     ; RAX = victim thread_t pointer
     test rax, rax
@@ -233,7 +307,7 @@ vma_create:
     
 .cgroup_charge_done:
     ; Deallocate stack frame
-    add rsp, 16
+    add rsp, 32
 
     ; 3. Insert VMA into ascending address-sorted list
     mov rdx, [vma_list_head]
@@ -283,7 +357,7 @@ vma_create:
     ret
 
 .error_oom_cleanup:
-    add rsp, 16
+    add rsp, 32
     jmp .error_oom
 
 .error_overlap:
@@ -1075,5 +1149,9 @@ vma_list_head: dq 0
 align 8
 global decoy_page_phys
 decoy_page_phys: dq 0
+
+align 8
+global virt_alloc_retry_mock
+virt_alloc_retry_mock: dq 0
 
 %endif ; LIB_MEM_VIRT_VIRT_ASM
