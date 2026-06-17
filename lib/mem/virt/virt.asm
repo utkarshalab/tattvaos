@@ -22,6 +22,13 @@ struc vma_t
     .file_size  resq 1          ; Original mapped size of the file
 endstruc
 
+struc mem_cgroup_t
+    .id             resq 1      ; Unique cgroup ID
+    .hard_limit     resq 1      ; Hard limit (in pages)
+    .soft_limit     resq 1      ; Soft limit (in pages)
+    .usage          resq 1      ; Current usage (in pages)
+endstruc
+
 VMA_FILE        equ (1 << 8)    ; Bind storage file directly to VMA
 VMA_HMM         equ (1 << 9)    ; VMA flag for HMM Unified Memory
 VMA_DAX         equ (1 << 10)   ; DAX Zero-Cache mapping flag
@@ -96,6 +103,78 @@ vma_create:
     jmp .overlap_loop
 
 .no_overlap:
+    extern sched_get_current_thread
+    extern kswapd_check_and_reclaim
+    ; Allocate stack space for temporary pointers (thread and cgroup)
+    sub rsp, 16
+    mov qword [rsp + 0], 0          ; current thread pointer
+    mov qword [rsp + 8], 0          ; cgroup pointer
+
+    ; Get current thread and cgroup
+    call sched_get_current_thread
+    test rax, rax
+    jz .cgroup_done_init
+    mov [rsp + 0], rax              ; save thread pointer
+    
+    mov rsi, [rax + thread_t.cgroup_ptr]
+    mov [rsp + 8], rsi              ; save cgroup pointer
+.cgroup_done_init:
+
+    ; Check if cgroup exists
+    mov rsi, [rsp + 8]
+    test rsi, rsi
+    jz .check_global_overcommit
+
+    ; Soft limit check
+    mov rdi, r12
+    shr rdi, 12                     ; RDI = requested pages
+    mov rdx, [rsi + mem_cgroup_t.usage]
+    add rdx, rdi                    ; RDX = usage + requested_pages
+    cmp rdx, [rsi + mem_cgroup_t.soft_limit]
+    jbe .check_hard_limit
+
+    ; Soft limit exceeded! Trigger reclaim pressure.
+    push rdi
+    push rsi
+    push rdx
+    mov rsi, msg_cgroup_soft_limit_exceeded
+    call uart_print_str
+
+    mov r8, [rsp + 8]               ; reload cgroup pointer
+    mov rax, [r8 + mem_cgroup_t.id]
+    call uart_print_dec
+    mov rsi, msg_cgroup_reclaim_trigger
+    call uart_print_str
+    pop rdx
+    pop rsi
+    pop rdi
+
+    call kswapd_check_and_reclaim
+
+.check_hard_limit:
+    mov rsi, [rsp + 8]              ; RSI = cgroup pointer
+.hard_limit_loop:
+    mov rdi, r12
+    shr rdi, 12                     ; RDI = requested pages
+    mov rdx, [rsi + mem_cgroup_t.usage]
+    add rdx, rdi                    ; RDX = usage + requested_pages
+    cmp rdx, [rsi + mem_cgroup_t.hard_limit]
+    jbe .check_global_overcommit    ; if <= hard_limit, we are good!
+
+    ; Hard limit exceeded! Loop to find a victim in the cgroup.
+    mov rdi, rsi                    ; RDI = cgroup pointer
+    call virt_oom_select_victim_in_cgroup
+    test rax, rax
+    jz .error_oom_cleanup           ; if no victim inside cgroup, fail allocation (OOM)
+
+    ; Kill the victim thread inside cgroup
+    mov rdi, rax
+    call virt_oom_kill_process
+
+    mov rsi, [rsp + 8]              ; reload cgroup pointer
+    jmp .hard_limit_loop
+
+.check_global_overcommit:
     ; 2. Check overcommit policy before allocating
     mov rdi, r12
     shr rdi, 12                     ; RDI = requested pages
@@ -107,12 +186,12 @@ vma_create:
 .oom_loop:
     call virt_oom_select_victim     ; RAX = victim thread_t pointer
     test rax, rax
-    jz .error_oom                   ; if no victim found, fail allocation
+    jz .error_oom_cleanup           ; if no victim found, fail allocation
 
     ; Kill the victim process to reclaim its memory
     mov rdi, rax
     call virt_oom_kill_process
-    
+
     ; Try allocation check again
     mov rdi, r12
     shr rdi, 12                     ; RDI = requested pages
@@ -126,7 +205,7 @@ vma_create:
     mov rdi, vma_t_size
     call heap_alloc
     test rax, rax
-    jz .error_oom
+    jz .error_oom_cleanup
     
     ; Populate the VMA structure
     mov [rax + vma_t.start], rbx
@@ -137,6 +216,24 @@ vma_create:
     mov qword [rax + vma_t.file_off], 0
     mov qword [rax + vma_t.file_size], 0
 
+    ; Charge allocation to thread and cgroup usage
+    mov rcx, r12
+    shr rcx, 12                     ; RCX = requested pages
+    
+    mov rdx, [rsp + 0]              ; RDX = current thread pointer
+    test rdx, rdx
+    jz .cgroup_charge_done
+    
+    add [rdx + thread_t.mem_usage], rcx
+    
+    mov rsi, [rsp + 8]              ; RSI = cgroup pointer
+    test rsi, rsi
+    jz .cgroup_charge_done
+    add [rsi + mem_cgroup_t.usage], rcx
+    
+.cgroup_charge_done:
+    ; Deallocate stack frame
+    add rsp, 16
 
     ; 3. Insert VMA into ascending address-sorted list
     mov rdx, [vma_list_head]
@@ -184,6 +281,10 @@ vma_create:
     pop r12
     pop rbx
     ret
+
+.error_oom_cleanup:
+    add rsp, 16
+    jmp .error_oom
 
 .error_overlap:
 .error_oom:
@@ -276,6 +377,39 @@ vma_destroy:
     sub rcx, [rbx + vma_t.start]
     shr rcx, 12
     sub [virt_reserved_pages], rcx
+
+    ; Release charge from thread and cgroup
+    push rcx                        ; save page count
+    call sched_get_current_thread
+    pop rcx                         ; restore page count
+    test rax, rax
+    jz .skip_cgroup_release
+    
+    ; Release thread usage (clamp to 0)
+    mov rdx, [rax + thread_t.mem_usage]
+    cmp rdx, rcx
+    jbe .zero_thread_usage
+    sub rdx, rcx
+    mov [rax + thread_t.mem_usage], rdx
+    jmp .thread_release_done
+.zero_thread_usage:
+    mov qword [rax + thread_t.mem_usage], 0
+.thread_release_done:
+
+    ; Release cgroup usage
+    mov rsi, [rax + thread_t.cgroup_ptr]
+    test rsi, rsi
+    jz .skip_cgroup_release
+    
+    mov rdx, [rsi + mem_cgroup_t.usage]
+    cmp rdx, rcx
+    jbe .zero_cgroup_usage
+    sub rdx, rcx
+    mov [rsi + mem_cgroup_t.usage], rdx
+    jmp .skip_cgroup_release
+.zero_cgroup_usage:
+    mov qword [rsi + mem_cgroup_t.usage], 0
+.skip_cgroup_release:
 
     ; Free VMA structure back to heap
     mov rdi, rbx
@@ -711,6 +845,21 @@ virt_oom_kill_process:
     ; Update virtual reserved pages tracking
     sub [virt_reserved_pages], rcx
     
+    ; If thread has cgroup, release its charge
+    mov rsi, [rbx + thread_t.cgroup_ptr]
+    test rsi, rsi
+    jz .skip_cgroup_reclaim
+    
+    mov rdx, [rsi + mem_cgroup_t.usage]
+    cmp rdx, rcx
+    jbe .zero_usage
+    sub rdx, rcx
+    mov [rsi + mem_cgroup_t.usage], rdx
+    jmp .skip_cgroup_reclaim
+.zero_usage:
+    mov qword [rsi + mem_cgroup_t.usage], 0
+.skip_cgroup_reclaim:
+
     ; Clear thread's memory usage
     mov qword [rbx + thread_t.mem_usage], 0
 
@@ -735,6 +884,152 @@ virt_oom_register_notifier:
 .done:
     ret
 
+; -----------------------------------------------------------------------------
+; virt_memcg_create — initializes a memory cgroup
+; Input:
+;   RDI = cgroup ID
+;   RSI = hard limit (pages)
+;   RDX = soft limit (pages)
+; Output: RAX = pointer to allocated and initialized mem_cgroup_t, or 0 if OOM
+; Clobbers: RAX, RCX, RDX, RSI, RDI
+; -----------------------------------------------------------------------------
+global virt_memcg_create
+virt_memcg_create:
+    push rbx
+    push r12
+    push r13
+    
+    mov rbx, rdi                    ; RBX = cgroup ID
+    mov r12, rsi                    ; R12 = hard limit
+    mov r13, rdx                    ; R13 = soft limit
+    
+    mov rdi, mem_cgroup_t_size
+    call heap_alloc
+    test rax, rax
+    jz .exit
+    
+    mov [rax + mem_cgroup_t.id], rbx
+    mov [rax + mem_cgroup_t.hard_limit], r12
+    mov [rax + mem_cgroup_t.soft_limit], r13
+    mov qword [rax + mem_cgroup_t.usage], 0
+
+.exit:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_memcg_destroy — destroys a memory cgroup
+; Input: RDI = pointer to mem_cgroup_t
+; Output: none
+; Clobbers: RAX, RCX, RDX, RSI, RDI
+; -----------------------------------------------------------------------------
+global virt_memcg_destroy
+virt_memcg_destroy:
+    test rdi, rdi
+    jz .done
+    call heap_free
+.done:
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_memcg_attach — attaches a thread to a memory cgroup
+; Input:
+;   RDI = pointer to thread_t
+;   RSI = pointer to mem_cgroup_t (or 0 to detach)
+; Output: none
+; Clobbers: none
+; -----------------------------------------------------------------------------
+global virt_memcg_attach
+virt_memcg_attach:
+    test rdi, rdi
+    jz .done
+    mov [rdi + thread_t.cgroup_ptr], rsi
+.done:
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_oom_select_victim_in_cgroup — selects the active thread in the cgroup with the lowest score
+; Input:
+;   RDI = pointer to mem_cgroup_t
+; Output:
+;   RAX = pointer to thread_t of selected victim, or 0 if none
+; Clobbers: RAX, RCX, RDX, RDI
+; -----------------------------------------------------------------------------
+extern thread_count
+extern thread_table
+global virt_oom_select_victim_in_cgroup
+virt_oom_select_victim_in_cgroup:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    
+    mov r12, [thread_count]
+    test r12, r12
+    jz .no_victim
+    
+    mov r15, rdi                    ; R15 = target cgroup pointer
+    xor r13, r13                    ; R13 = current index i = 0
+    mov r14, -1                     ; R14 = lowest score (initialize to max uint64)
+    xor rbx, rbx                    ; best victim pointer (0)
+    
+.loop:
+    cmp r13, r12
+    jae .done
+    
+    ; Calculate thread pointer
+    mov rax, r13
+    imul rax, thread_t_size
+    lea rcx, [thread_table + rax]   ; RCX = current thread pointer
+    
+    ; Check if active
+    mov rax, [rcx + thread_t.flags]
+    test rax, 1
+    jz .next
+    
+    ; Check if thread belongs to target cgroup
+    mov rax, [rcx + thread_t.cgroup_ptr]
+    cmp rax, r15
+    jne .next
+    
+    ; Calculate score
+    push rcx
+    mov rdi, rcx
+    call virt_oom_calculate_score   ; RAX = score
+    pop rcx
+    
+    ; Compare with lowest score
+    cmp rax, r14
+    jae .next                       ; if current score >= lowest score, skip
+    
+    mov r14, rax                    ; update lowest score
+    mov rbx, rcx                    ; update best victim pointer
+    
+.next:
+    inc r13
+    jmp .loop
+    
+.done:
+    mov rax, rbx                    ; RAX = victim thread pointer (or 0)
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+    
+.no_victim:
+    xor rax, rax
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 section .data
 
 align 8
@@ -752,6 +1047,14 @@ msg_oom_kill_prefix: db "[OOM Killer] Sending SIGKILL to thread ", 0
 align 8
 global msg_oom_kill_suffix
 msg_oom_kill_suffix: db " to reclaim memory.", 0x0D, 0x0A, 0
+
+align 8
+global msg_cgroup_soft_limit_exceeded
+msg_cgroup_soft_limit_exceeded: db "[cgroup] Warning: Soft limit exceeded for cgroup ", 0
+
+align 8
+global msg_cgroup_reclaim_trigger
+msg_cgroup_reclaim_trigger: db ". Triggering reclaim...", 0x0D, 0x0A, 0
 
 align 8
 global overcommit_mode
