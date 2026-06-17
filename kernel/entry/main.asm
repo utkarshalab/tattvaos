@@ -92,6 +92,11 @@ extern dbg_phys_wp_get_last_vaddr
 extern dbg_phys_wp_get_last_type
 extern dbg_phys_wp_rearm
 extern dbg_phys_wp_deregister
+extern thread_table
+extern thread_count
+extern sched_register_thread
+extern virt_oom_calculate_score
+extern virt_oom_select_victim
 extern numa_ranges
 
 
@@ -3204,7 +3209,7 @@ kernel_main:
     mov rsi, msg_overcommit_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .oom_score_test_start
 
 .overcommit_fail_always:
     mov rsi, msg_overcommit_fail_always_str
@@ -3236,6 +3241,131 @@ kernel_main:
     jmp .panic_overcommit
 
 .panic_overcommit:
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+    ; =========================================================================
+    ; OOM Score Calculator Test
+    ; =========================================================================
+.oom_score_test_start:
+    mov rsi, msg_oom_score_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+
+    ; Register Thread A
+    mov rdi, 200
+    mov rsi, 0x0001
+    mov rdx, 0
+    call sched_register_thread
+    cmp rax, -1
+    je .oom_score_fail_register
+    
+    ; Calculate Thread A address inside thread_table
+    imul rax, thread_t_size
+    lea r12, [thread_table + rax]   ; R12 = Thread A pointer
+    
+    ; Set Thread A attributes
+    mov qword [r12 + thread_t.mem_usage], 100
+    mov qword [r12 + thread_t.time_alive], 10
+    mov qword [r12 + thread_t.priority_weight], 5
+
+    ; Register Thread B
+    mov rdi, 201
+    mov rsi, 0x0001
+    mov rdx, 0
+    call sched_register_thread
+    cmp rax, -1
+    je .oom_score_fail_register
+    
+    ; Calculate Thread B address inside thread_table
+    imul rax, thread_t_size
+    lea r13, [thread_table + rax]   ; R13 = Thread B pointer
+    
+    ; Set Thread B attributes
+    mov qword [r13 + thread_t.mem_usage], 50
+    mov qword [r13 + thread_t.time_alive], 4
+    mov qword [r13 + thread_t.priority_weight], 2
+
+    ; 1. Calculate OOM Score for Thread A: should be 100 * 10 * 5 = 5000
+    mov rdi, r12
+    call virt_oom_calculate_score
+    cmp rax, 5000
+    jne .oom_score_fail_calc_a
+
+    ; 2. Calculate OOM Score for Thread B: should be 50 * 4 * 2 = 400
+    mov rdi, r13
+    call virt_oom_calculate_score
+    cmp rax, 400
+    jne .oom_score_fail_calc_b
+
+    ; 3. Select Victim: lowest score should be Thread B (400 < 5000)
+    call virt_oom_select_victim     ; RAX = selected victim pointer
+    cmp rax, r13
+    jne .oom_score_fail_select_b
+
+    ; 4. Increase Thread B's priority weight to 50
+    ; Score B = 50 * 4 * 50 = 10000
+    mov qword [r13 + thread_t.priority_weight], 50
+
+    ; 5. Select Victim: lowest score should now be Thread A (5000 < 10000)
+    call virt_oom_select_victim
+    cmp rax, r12
+    jne .oom_score_fail_select_a
+
+    ; Deactivate the mock threads so they do not interfere with scheduling
+    mov qword [r12 + thread_t.flags], 0
+    mov qword [r13 + thread_t.flags], 0
+
+    pop r14
+    pop r13
+    pop r12
+
+    ; OOM Score Calculator Test Passed!
+    mov rsi, msg_oom_score_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.oom_score_fail_register:
+    mov rsi, msg_oom_score_fail_register_str
+    call uart_print_str
+    jmp .panic_oom_score
+
+.oom_score_fail_calc_a:
+    mov rsi, msg_oom_score_fail_calc_a_str
+    call uart_print_str
+    jmp .panic_oom_score
+
+.oom_score_fail_calc_b:
+    mov rsi, msg_oom_score_fail_calc_b_str
+    call uart_print_str
+    jmp .panic_oom_score
+
+.oom_score_fail_select_b:
+    mov rsi, msg_oom_score_fail_select_b_str
+    call uart_print_str
+    jmp .panic_oom_score
+
+.oom_score_fail_select_a:
+    mov rsi, msg_oom_score_fail_select_a_str
+    call uart_print_str
+    jmp .panic_oom_score
+
+.panic_oom_score:
+    ; Clean up flags before panic
+    test r12, r12
+    jz .skip_a
+    mov qword [r12 + thread_t.flags], 0
+.skip_a:
+    test r13, r13
+    jz .skip_b
+    mov qword [r13 + thread_t.flags], 0
+.skip_b:
     pop r14
     pop r13
     pop r12
@@ -11092,6 +11222,15 @@ msg_overcommit_fail_never_succeed_str:     db "Failure: VMA allocation denied wi
 msg_overcommit_fail_never_fail_str:        db "Failure: VMA allocation allowed beyond physical limits in OVERCOMMIT_NEVER mode.", 0x0D, 0x0A, 0
 msg_overcommit_fail_heuristic_succeed_str: db "Failure: VMA allocation denied within heuristic limit in OVERCOMMIT_HEURISTIC mode.", 0x0D, 0x0A, 0
 msg_overcommit_fail_heuristic_fail_str:    db "Failure: VMA allocation allowed beyond heuristic limit in OVERCOMMIT_HEURISTIC mode.", 0x0D, 0x0A, 0
+
+; OOM Score Calculator Test messages
+msg_oom_score_test_start:                  db "Running VMM OOM Score Calculator Test...", 0x0D, 0x0A, 0
+msg_oom_score_test_passed:                 db "VMM OOM Score Calculator Test PASSED!", 0x0D, 0x0A, 0
+msg_oom_score_fail_register_str:           db "Failure: Could not register thread for OOM score test.", 0x0D, 0x0A, 0
+msg_oom_score_fail_calc_a_str:             db "Failure: Incorrect OOM score calculated for Thread A.", 0x0D, 0x0A, 0
+msg_oom_score_fail_calc_b_str:             db "Failure: Incorrect OOM score calculated for Thread B.", 0x0D, 0x0A, 0
+msg_oom_score_fail_select_b_str:           db "Failure: OOM select victim did not return Thread B.", 0x0D, 0x0A, 0
+msg_oom_score_fail_select_a_str:           db "Failure: OOM select victim did not return Thread A after weight adjustment.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
