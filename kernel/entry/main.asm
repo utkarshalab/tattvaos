@@ -103,6 +103,7 @@ extern virt_memcg_create
 extern virt_memcg_destroy
 extern virt_memcg_attach
 extern virt_oom_select_victim_in_cgroup
+extern virt_alloc_retry_mock
 extern numa_ranges
 
 
@@ -3719,7 +3720,119 @@ kernel_main:
     mov rsi, msg_oom_cgroup_test_passed
     call uart_print_str
 
+    jmp .oom_retry_test_start
+
+    ; =========================================================================
+    ; Allocation Retry with Reclaim Test
+    ; =========================================================================
+.oom_retry_test_start:
+    mov rsi, msg_oom_retry_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+
+    ; 1. Switch overcommit to strict mode (0)
+    mov qword [overcommit_mode], 0
+
+    ; 2. Register Thread V (ID = 601)
+    mov rdi, 601
+    mov rsi, 0x0001
+    mov rdx, 0
+    call sched_register_thread
+    cmp rax, -1
+    je .oom_retry_fail_register
+    imul rax, thread_t_size
+    lea r12, [thread_table + rax]   ; R12 = Thread V pointer
+
+    ; Set Thread V attributes
+    mov qword [r12 + thread_t.mem_usage], 50
+    mov qword [r12 + thread_t.time_alive], 2
+    mov qword [r12 + thread_t.priority_weight], 1
+
+    ; 3. Setup system reservations
+    mov rax, [phys_state + phys_state_t.total_pages]
+    mov r13, rax                    ; R13 = total_pages
+    
+    mov rax, r13
+    sub rax, 30
+    mov [virt_reserved_pages], rax  ; reserved = total_pages - 30
+
+    ; Enable mock retry trigger: set virt_alloc_retry_mock = 1
+    mov qword [virt_alloc_retry_mock], 1
+
+    ; 4. Try allocating VMA of size 50 pages (triggers reclaim -> mock subtracts 50 pages -> succeeds)
+    mov rdi, 0x1000000000
+    mov rsi, 50
+    shl rsi, 12                     ; 50 pages
+    mov rdx, 0x83                   ; VMA flags
+    call vma_create
+    test rax, rax
+    jz .oom_retry_fail_alloc
+    mov r14, rax                    ; R14 = VMA pointer
+
+    ; Reset mock trigger
+    mov qword [virt_alloc_retry_mock], 0
+
+    ; 5. Verify Thread V is still active
+    mov rax, [r12 + thread_t.flags]
+    test rax, 1
+    jz .oom_retry_fail_killed
+
+    ; 6. Clean up
+    mov rdi, r14
+    call vma_destroy
+
+    ; Restore overcommit defaults
+    mov qword [overcommit_mode], 2  ; heuristic
+    mov qword [virt_reserved_pages], 0
+
+    ; Deactivate Thread V
+    mov qword [r12 + thread_t.flags], 0
+    mov qword [thread_count], 4     ; restore thread_count
+
+    pop r14
+    pop r13
+    pop r12
+
+    ; Success!
+    mov rsi, msg_oom_retry_test_passed
+    call uart_print_str
+
     jmp .mtrr_test_start
+
+.oom_retry_fail_register:
+    mov rsi, msg_oom_retry_fail_register_str
+    call uart_print_str
+    jmp .panic_oom_retry
+
+.oom_retry_fail_alloc:
+    mov qword [virt_alloc_retry_mock], 0
+    mov rsi, msg_oom_retry_fail_alloc_str
+    call uart_print_str
+    jmp .panic_oom_retry
+
+.oom_retry_fail_killed:
+    mov qword [virt_alloc_retry_mock], 0
+    mov rdi, r14
+    call vma_destroy
+    mov rsi, msg_oom_retry_fail_killed_str
+    call uart_print_str
+    jmp .panic_oom_retry
+
+.panic_oom_retry:
+    mov qword [overcommit_mode], 2  ; restore heuristic
+    mov qword [virt_reserved_pages], 0
+    test r12, r12
+    jz .skip_retry_thread
+    mov qword [r12 + thread_t.flags], 0
+.skip_retry_thread:
+    mov qword [thread_count], 4
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .oom_cgroup_fail_create:
     mov rsi, msg_oom_cgroup_fail_create_str
@@ -11734,6 +11847,13 @@ msg_oom_cgroup_fail_hard_alloc_str:        db "Failure: VMA allocation failed un
 msg_oom_cgroup_fail_not_killed_str:        db "Failure: Localized OOM killer did not terminate victim Thread B.", 0x0D, 0x0A, 0
 msg_oom_cgroup_fail_killed_wrong_str:      db "Failure: Localized OOM killer terminated wrong thread (Thread A).", 0x0D, 0x0A, 0
 msg_oom_cgroup_fail_final_charge_str:      db "Failure: Memory Cgroup usage was not correctly charged or released.", 0x0D, 0x0A, 0
+
+; Allocation Retry with Reclaim Test messages
+msg_oom_retry_test_start:                 db "Running VMM Allocation Retry with Reclaim Test...", 0x0D, 0x0A, 0
+msg_oom_retry_test_passed:                db "VMM Allocation Retry with Reclaim Test PASSED!", 0x0D, 0x0A, 0
+msg_oom_retry_fail_register_str:          db "Failure: Could not register Thread V for allocation retry test.", 0x0D, 0x0A, 0
+msg_oom_retry_fail_alloc_str:             db "Failure: VMA allocation failed despite mock reclaim resolving pressure.", 0x0D, 0x0A, 0
+msg_oom_retry_fail_killed_str:            db "Failure: Candidate Thread V was prematurely killed during retry sweeps.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
