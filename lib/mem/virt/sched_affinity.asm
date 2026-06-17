@@ -21,7 +21,7 @@ extern uart_print_str
 extern uart_print_hex64
 extern uart_print_dec
 
-; Thread Structure Definition (now 88 bytes)
+; Thread Structure Definition (now 96 bytes)
 struc thread_t
     .thread_id          resq 1      ; Unique thread ID
     .cpu_affinity_mask  resq 1      ; Bitmask of allowed CPUs
@@ -35,6 +35,7 @@ struc thread_t
     .mem_usage          resq 1      ; Memory usage (pages)
     .time_alive         resq 1      ; Time alive (ticks)
     .priority_weight    resq 1      ; Priority weight
+    .oom_notifier       resq 1      ; Registered OOM notification callback
 endstruc
 
 section .text
@@ -143,6 +144,7 @@ sched_register_thread:
     mov qword [rbx + thread_t.mem_usage], 0
     mov qword [rbx + thread_t.time_alive], 1
     mov qword [rbx + thread_t.priority_weight], 1
+    mov qword [rbx + thread_t.oom_notifier], 0
 
     inc qword [thread_count]
     mov rax, rcx
