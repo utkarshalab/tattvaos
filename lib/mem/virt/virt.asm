@@ -535,6 +535,103 @@ virt_overcommit_check:
     pop rbx
     ret
 
+; -----------------------------------------------------------------------------
+; virt_oom_calculate_score — calculates OOM score for a given thread
+; Input:
+;   RDI = pointer to thread_t
+; Output:
+;   RAX = OOM score (mem_usage * time_alive * priority_weight)
+; Clobbers: RAX, RDX
+; -----------------------------------------------------------------------------
+global virt_oom_calculate_score
+virt_oom_calculate_score:
+    test rdi, rdi
+    jz .err
+    
+    mov rax, [rdi + thread_t.mem_usage]
+    mov rdx, [rdi + thread_t.time_alive]
+    mul rdx                         ; RDX:RAX = mem_usage * time_alive
+    
+    mov rdx, [rdi + thread_t.priority_weight]
+    mul rdx                         ; RDX:RAX = (mem_usage * time_alive) * priority_weight
+    
+    ret
+    
+.err:
+    xor rax, rax
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_oom_select_victim — selects the active thread with the lowest OOM score
+; Output:
+;   RAX = pointer to thread_t of selected victim, or 0 if none
+; Clobbers: RAX, RCX, RDX, RDI
+; -----------------------------------------------------------------------------
+extern thread_count
+extern thread_table
+global virt_oom_select_victim
+virt_oom_select_victim:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    
+    mov r12, [thread_count]
+    test r12, r12
+    jz .no_victim
+    
+    xor r13, r13                    ; R13 = current index i = 0
+    mov r14, -1                     ; R14 = lowest score (initialize to max uint64)
+    xor r15, r15                    ; R15 = pointer to best victim thread_t (0)
+    
+.loop:
+    cmp r13, r12
+    jae .done
+    
+    ; Calculate thread pointer
+    mov rax, r13
+    imul rax, thread_t_size
+    lea rbx, [thread_table + rax]   ; RBX = current thread pointer
+    
+    ; Check if active
+    mov rax, [rbx + thread_t.flags]
+    test rax, 1
+    jz .next
+    
+    ; Calculate score
+    mov rdi, rbx
+    call virt_oom_calculate_score   ; RAX = score
+    
+    ; Compare with lowest score
+    cmp rax, r14
+    jae .next                       ; if current score >= lowest score, skip
+    
+    mov r14, rax                    ; update lowest score
+    mov r15, rbx                    ; update best victim pointer
+    
+.next:
+    inc r13
+    jmp .loop
+    
+.done:
+    mov rax, r15                    ; RAX = victim thread pointer (or 0)
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+    
+.no_victim:
+    xor rax, rax
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 section .data
 
 align 8
