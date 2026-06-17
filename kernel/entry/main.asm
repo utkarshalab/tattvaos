@@ -81,7 +81,16 @@ extern dbg_hist_get_write_count
 extern dbg_hist_get_total_count
 extern dbg_hist_rearm
 extern dbg_hist_deregister
+extern dbg_phys_wp_init
+extern dbg_phys_wp_register
+extern dbg_phys_wp_get_hit_count
+extern dbg_phys_wp_get_last_rip
+extern dbg_phys_wp_get_last_vaddr
+extern dbg_phys_wp_get_last_type
+extern dbg_phys_wp_rearm
+extern dbg_phys_wp_deregister
 extern numa_ranges
+
 
 extern numa_range_count
 extern numa_node_count
@@ -2874,7 +2883,324 @@ kernel_main:
     pop r14
     pop r13
     pop r12
+    jmp .dbg_phys_wp_test_start
+
+.dbg_phys_wp_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_dbg_phys_wp_test_start
+    call uart_print_str
+
+    ; 1. Initialize physical watchpoints
+    call dbg_phys_wp_init
+
+    ; 2. Allocate physical page
+    call phys_alloc_page
+    test rax, rax
+    jz .dbg_phys_wp_fail_alloc
+    mov [dbg_phys_wp_phys_page], rax
+    mov r12, rax                    ; r12 = physical page frame address
+
+    ; 3. Create Alias 1 VMA at 0x30000000
+    mov rdi, 0x30000000
+    mov rsi, 4096
+    mov rdx, 0x0B                   ; VMA_READ | VMA_WRITE | VMA_USER
+    call vma_create
+    test rax, rax
+    jz .dbg_phys_wp_fail_vma1
+    mov [dbg_phys_wp_vma1_ptr], rax
+
+    ; 4. Create Alias 2 VMA at 0x40000000
+    mov rdi, 0x40000000
+    mov rsi, 4096
+    mov rdx, 0x0B                   ; VMA_READ | VMA_WRITE | VMA_USER
+    call vma_create
+    test rax, rax
+    jz .dbg_phys_wp_fail_vma2
+    mov [dbg_phys_wp_vma2_ptr], rax
+
+    ; 5. Map Alias 1
+    mov rdi, 0x30000000
+    mov rsi, r12
+    mov rdx, 0x07                   ; P | W | U
+    call virt_map
+    test rax, rax
+    jz .dbg_phys_wp_fail_map1
+
+    ; 6. Map Alias 2
+    mov rdi, 0x40000000
+    mov rsi, r12
+    mov rdx, 0x07                   ; P | W | U
+    call virt_map
+    test rax, rax
+    jz .dbg_phys_wp_fail_map2
+
+    ; 7. Register physical watchpoint
+    mov rdi, r12
+    call dbg_phys_wp_register
+    cmp rax, 1
+    jne .dbg_phys_wp_fail_register
+
+    ; 8. Verify that PRESENT is 0 in BOTH page table entries
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .dbg_phys_wp_fail_walk
+    mov rbx, [rax]
+    test rbx, 1                     ; PRESENT should be 0
+    jnz .dbg_phys_wp_fail_non_present
+
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .dbg_phys_wp_fail_walk
+    mov rbx, [rax]
+    test rbx, 1                     ; PRESENT should be 0
+    jnz .dbg_phys_wp_fail_non_present
+
+    ; 9. Check initial hit count is 0
+    mov rdi, r12
+    call dbg_phys_wp_get_hit_count
+    test rax, rax
+    jnz .dbg_phys_wp_fail_hit_init
+
+    ; 10. Perform a READ access to Alias 1 to trigger fault!
+.phys_read_ip:
+    mov rax, [0x30000000]
+
+    ; 11. Verify hit count is 1
+    mov rdi, r12
+    call dbg_phys_wp_get_hit_count
+    cmp rax, 1
+    jne .dbg_phys_wp_fail_hit_read
+
+    ; 12. Verify last RIP matches .phys_read_ip
+    mov rdi, r12
+    call dbg_phys_wp_get_last_rip
+    lea rdx, [.phys_read_ip]
+    cmp rax, rdx
+    jne .dbg_phys_wp_fail_rip_read
+
+    ; 13. Verify last vaddr is 0x30000000
+    mov rdi, r12
+    call dbg_phys_wp_get_last_vaddr
+    mov rdx, 0x30000000
+    cmp rax, rdx
+    jne .dbg_phys_wp_fail_vaddr_read
+
+    ; 14. Verify access type is 0 (read)
+    mov rdi, r12
+    call dbg_phys_wp_get_last_type
+    test rax, rax
+    jnz .dbg_phys_wp_fail_type_read
+
+    ; 15. Verify that PRESENT is restored to 1 in BOTH page table entries
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rbx, [rax]
+    test rbx, 1
+    jz .dbg_phys_wp_fail_present_restored
+
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rbx, [rax]
+    test rbx, 1
+    jz .dbg_phys_wp_fail_present_restored
+
+    ; 16. Rearm the physical watchpoint
+    mov rdi, r12
+    call dbg_phys_wp_rearm
+    cmp rax, 1
+    jne .dbg_phys_wp_fail_rearm
+
+    ; Verify PRESENT is 0 in BOTH entries again
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rbx, [rax]
+    test rbx, 1
+    jnz .dbg_phys_wp_fail_non_present
+
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rbx, [rax]
+    test rbx, 1
+    jnz .dbg_phys_wp_fail_non_present
+
+    ; 17. Perform a WRITE access to Alias 2 to trigger fault!
+.phys_write_ip:
+    mov qword [0x40000000], 0x12345678DEADBEEF
+
+    ; 18. Verify hit count is 2
+    mov rdi, r12
+    call dbg_phys_wp_get_hit_count
+    cmp rax, 2
+    jne .dbg_phys_wp_fail_hit_write
+
+    ; 19. Verify last RIP matches .phys_write_ip
+    mov rdi, r12
+    call dbg_phys_wp_get_last_rip
+    lea rdx, [.phys_write_ip]
+    cmp rax, rdx
+    jne .dbg_phys_wp_fail_rip_write
+
+    ; 20. Verify last vaddr is 0x40000000
+    mov rdi, r12
+    call dbg_phys_wp_get_last_vaddr
+    mov rdx, 0x40000000
+    cmp rax, rdx
+    jne .dbg_phys_wp_fail_vaddr_write
+
+    ; 21. Verify access type is 1 (write)
+    mov rdi, r12
+    call dbg_phys_wp_get_last_type
+    cmp rax, 1
+    jne .dbg_phys_wp_fail_type_write
+
+    ; 22. Deregister watchpoint, unmap and free
+    mov rdi, r12
+    call dbg_phys_wp_deregister
+    cmp rax, 1
+    jne .dbg_phys_wp_fail_deregister
+
+    mov rdi, 0x30000000
+    call virt_unmap
+    mov rdi, 0x40000000
+    call virt_unmap
+
+    mov rdi, [dbg_phys_wp_phys_page]
+    call phys_free_page
+
+    mov rdi, [dbg_phys_wp_vma1_ptr]
+    call vma_destroy
+    mov rdi, [dbg_phys_wp_vma2_ptr]
+    call vma_destroy
+
+    ; Success!
+    mov rsi, msg_dbg_phys_wp_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     jmp .mtrr_test_start
+
+.dbg_phys_wp_fail_alloc:
+    mov rsi, msg_dbg_phys_wp_fail_alloc_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_vma1:
+    mov rsi, msg_dbg_phys_wp_fail_vma1_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_vma2:
+    mov rsi, msg_dbg_phys_wp_fail_vma2_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_map1:
+    mov rsi, msg_dbg_phys_wp_fail_map1_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_map2:
+    mov rsi, msg_dbg_phys_wp_fail_map2_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_register:
+    mov rsi, msg_dbg_phys_wp_fail_register_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_walk:
+    mov rsi, msg_dbg_phys_wp_fail_walk_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_non_present:
+    mov rsi, msg_dbg_phys_wp_fail_non_present_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_hit_init:
+    mov rsi, msg_dbg_phys_wp_fail_hit_init_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_hit_read:
+    mov rsi, msg_dbg_phys_wp_fail_hit_read_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_rip_read:
+    mov rsi, msg_dbg_phys_wp_fail_rip_read_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_vaddr_read:
+    mov rsi, msg_dbg_phys_wp_fail_vaddr_read_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_type_read:
+    mov rsi, msg_dbg_phys_wp_fail_type_read_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_present_restored:
+    mov rsi, msg_dbg_phys_wp_fail_present_restored_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_rearm:
+    mov rsi, msg_dbg_phys_wp_fail_rearm_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_hit_write:
+    mov rsi, msg_dbg_phys_wp_fail_hit_write_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_rip_write:
+    mov rsi, msg_dbg_phys_wp_fail_rip_write_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_vaddr_write:
+    mov rsi, msg_dbg_phys_wp_fail_vaddr_write_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_type_write:
+    mov rsi, msg_dbg_phys_wp_fail_type_write_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.dbg_phys_wp_fail_deregister:
+    mov rsi, msg_dbg_phys_wp_fail_deregister_str
+    call uart_print_str
+    jmp .panic_phys_wp
+
+.panic_phys_wp:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 
 .dbg_hist_fail_alloc:
     mov rsi, msg_dbg_hist_fail_alloc_str
@@ -10586,6 +10912,31 @@ msg_dbg_hist_fail_write_count3_str: db "Failure: Write count modified on second 
 msg_dbg_hist_fail_total_count3_str: db "Failure: Total count did not increment to 3 after second read.", 0x0D, 0x0A, 0
 msg_dbg_hist_fail_deregister_str:   db "Failure: dbg_hist_deregister returned 0.", 0x0D, 0x0A, 0
 
+; Physical Address Watch Trap Test messages
+msg_dbg_phys_wp_test_start:            db "Running VMM Physical Address Watch Trap Tests...", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_test_passed:           db "VMM Physical Address Watch Trap Tests PASSED!", 0x0D, 0x0A, 0
+
+msg_dbg_phys_wp_fail_alloc_str:        db "Failure: Could not allocate physical page for physical watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_vma1_str:          db "Failure: Could not create VMA 1 for physical watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_vma2_str:          db "Failure: Could not create VMA 2 for physical watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_map1_str:          db "Failure: Could not map VMA 1 for physical watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_map2_str:          db "Failure: Could not map VMA 2 for physical watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_register_str:     db "Failure: dbg_phys_wp_register returned 0.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_walk_str:         db "Failure: Could not walk page table for physical watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_non_present_str:  db "Failure: Physical watchpoint mapped page is still present in PTE.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_hit_init_str:     db "Failure: Physical watchpoint reported hit count > 0 before access.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_hit_read_str:     db "Failure: Physical watchpoint did not increment hit count after read access.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_rip_read_str:     db "Failure: Logged RIP after read does not match read instruction RIP.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_vaddr_read_str:    db "Failure: Logged virtual address alias does not match 0x30000000.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_type_read_str:    db "Failure: Logged type after read is not 0 (read).", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_present_restored_str: db "Failure: Monitored alias page not restored to present in PTE.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_rearm_str:        db "Failure: dbg_phys_wp_rearm returned 0.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_hit_write_str:    db "Failure: Physical watchpoint did not increment hit count after write access.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_rip_write_str:    db "Failure: Logged RIP after write does not match write instruction RIP.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_vaddr_write_str:   db "Failure: Logged virtual address alias does not match 0x40000000.", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_type_write_str:   db "Failure: Logged type after write is not 1 (write).", 0x0D, 0x0A, 0
+msg_dbg_phys_wp_fail_deregister_str:   db "Failure: dbg_phys_wp_deregister returned 0.", 0x0D, 0x0A, 0
+
 section .bss
 align 8
 smep_smap_test_buf:            resb 32
@@ -10615,6 +10966,12 @@ dbg_ift_vma_ptr:   resq 1
 align 8
 dbg_hist_phys_page: resq 1
 dbg_hist_vma_ptr:   resq 1
+
+; BSS variables for physical watchpoint test
+align 8
+dbg_phys_wp_phys_page: resq 1
+dbg_phys_wp_vma1_ptr:  resq 1
+dbg_phys_wp_vma2_ptr:  resq 1
 
 %endif ; LIB_MEM_VIRT_DBG_WATCH_ASM
 
