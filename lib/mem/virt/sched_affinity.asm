@@ -21,7 +21,7 @@ extern uart_print_str
 extern uart_print_hex64
 extern uart_print_dec
 
-; Thread Structure Definition (now 64 bytes)
+; Thread Structure Definition (now 88 bytes)
 struc thread_t
     .thread_id          resq 1      ; Unique thread ID
     .cpu_affinity_mask  resq 1      ; Bitmask of allowed CPUs
@@ -32,6 +32,9 @@ struc thread_t
     .tsx_xbegin_rip     resq 1      ; RIP of XBEGIN checkpoint
     .tsx_fallback_rip   resq 1      ; RIP of fallback path
     .tsx_retries        resq 1      ; TSX retry counter
+    .mem_usage          resq 1      ; Memory usage (pages)
+    .time_alive         resq 1      ; Time alive (ticks)
+    .priority_weight    resq 1      ; Priority weight
 endstruc
 
 section .text
@@ -137,6 +140,9 @@ sched_register_thread:
     mov qword [rbx + thread_t.tsx_xbegin_rip], 0
     mov qword [rbx + thread_t.tsx_fallback_rip], 0
     mov qword [rbx + thread_t.tsx_retries], 0
+    mov qword [rbx + thread_t.mem_usage], 0
+    mov qword [rbx + thread_t.time_alive], 1
+    mov qword [rbx + thread_t.priority_weight], 1
 
     inc qword [thread_count]
     mov rax, rcx
