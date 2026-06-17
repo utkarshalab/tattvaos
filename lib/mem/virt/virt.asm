@@ -666,6 +666,26 @@ virt_oom_kill_process:
     push rbx
     mov rbx, rdi                    ; RBX = thread pointer
     
+    ; Check if OOM notifier callback is registered
+    mov rax, [rbx + thread_t.oom_notifier]
+    test rax, rax
+    jz .do_kill
+    
+    ; Print notifier notification
+    mov rsi, msg_oom_notify_prefix
+    call uart_print_str
+    
+    mov rax, [rbx + thread_t.thread_id]
+    call uart_print_dec
+    
+    mov rsi, msg_oom_notify_suffix
+    call uart_print_str
+    
+    ; Invoke callback
+    mov rdi, rbx                    ; pass thread pointer in RDI
+    call qword [rbx + thread_t.oom_notifier]
+
+.do_kill:
     ; 1. Print kill log message
     mov rsi, msg_oom_kill_prefix
     call uart_print_str
@@ -699,7 +719,31 @@ virt_oom_kill_process:
 .done:
     ret
 
+; -----------------------------------------------------------------------------
+; virt_oom_register_notifier — registers an OOM callback for a thread
+; Input:
+;   RDI = pointer to thread_t
+;   RSI = pointer to callback function
+; Output: none
+; Clobbers: none
+; -----------------------------------------------------------------------------
+global virt_oom_register_notifier
+virt_oom_register_notifier:
+    test rdi, rdi
+    jz .done
+    mov [rdi + thread_t.oom_notifier], rsi
+.done:
+    ret
+
 section .data
+
+align 8
+global msg_oom_notify_prefix
+msg_oom_notify_prefix: db "[OOM Notifier] Invoking graceful shutdown callback for thread ", 0
+
+align 8
+global msg_oom_notify_suffix
+msg_oom_notify_suffix: db " before termination.", 0x0D, 0x0A, 0
 
 align 8
 global msg_oom_kill_prefix
