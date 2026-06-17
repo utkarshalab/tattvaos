@@ -101,7 +101,26 @@ vma_create:
     shr rdi, 12                     ; RDI = requested pages
     call virt_overcommit_check
     test rax, rax
-    jz .error_oom
+    jnz .alloc_vma
+
+    ; Overcommit check failed (OOM)! Invoke OOM Killer to select and kill a victim.
+.oom_loop:
+    call virt_oom_select_victim     ; RAX = victim thread_t pointer
+    test rax, rax
+    jz .error_oom                   ; if no victim found, fail allocation
+
+    ; Kill the victim process to reclaim its memory
+    mov rdi, rax
+    call virt_oom_kill_process
+    
+    ; Try allocation check again
+    mov rdi, r12
+    shr rdi, 12                     ; RDI = requested pages
+    call virt_overcommit_check
+    test rax, rax
+    jz .oom_loop                    ; if it still fails, try killing another victim!
+
+.alloc_vma:
 
     ; 3. Allocate VMA node from the heap
     mov rdi, vma_t_size
@@ -632,7 +651,63 @@ virt_oom_select_victim:
     pop rbx
     ret
 
+; -----------------------------------------------------------------------------
+; virt_oom_kill_process — sends SIGKILL to a thread and reclaims its memory
+; Input:
+;   RDI = pointer to thread_t to kill
+; Output: none
+; Clobbers: RAX, RCX, RDX, RSI, RDI
+; -----------------------------------------------------------------------------
+global virt_oom_kill_process
+virt_oom_kill_process:
+    test rdi, rdi
+    jz .done
+    
+    push rbx
+    mov rbx, rdi                    ; RBX = thread pointer
+    
+    ; 1. Print kill log message
+    mov rsi, msg_oom_kill_prefix
+    call uart_print_str
+    
+    mov rax, [rbx + thread_t.thread_id]
+    call uart_print_dec
+    
+    mov rsi, msg_oom_kill_suffix
+    call uart_print_str
+    
+    ; 2. Deactivate the thread
+    mov qword [rbx + thread_t.flags], 0
+    
+    ; 3. Reclaim physical memory pages from its mem_usage
+    mov rcx, [rbx + thread_t.mem_usage]
+    test rcx, rcx
+    jz .skip_mem
+    
+    ; Update physical allocator statistics
+    add [phys_state + phys_state_t.free_pages], rcx
+    sub [phys_state + phys_state_t.reserved_pages], rcx
+    
+    ; Update virtual reserved pages tracking
+    sub [virt_reserved_pages], rcx
+    
+    ; Clear thread's memory usage
+    mov qword [rbx + thread_t.mem_usage], 0
+
+.skip_mem:
+    pop rbx
+.done:
+    ret
+
 section .data
+
+align 8
+global msg_oom_kill_prefix
+msg_oom_kill_prefix: db "[OOM Killer] Sending SIGKILL to thread ", 0
+
+align 8
+global msg_oom_kill_suffix
+msg_oom_kill_suffix: db " to reclaim memory.", 0x0D, 0x0A, 0
 
 align 8
 global overcommit_mode
