@@ -61,6 +61,13 @@ extern dbg_dirty_trace_is_dirty
 extern dbg_dirty_trace_get_rip
 extern dbg_dirty_trace_clear_dirty
 extern dbg_dirty_trace_deregister
+extern dbg_watchpoint_init
+extern dbg_watchpoint_register
+extern dbg_watchpoint_is_hit
+extern dbg_watchpoint_get_last_rip
+extern dbg_watchpoint_get_last_type
+extern dbg_watchpoint_rearm
+extern dbg_watchpoint_deregister
 extern numa_ranges
 extern numa_range_count
 extern numa_node_count
@@ -2365,7 +2372,252 @@ kernel_main:
     pop r14
     pop r13
     pop r12
+    jmp .dbg_wp_test_start
+
+.dbg_wp_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_dbg_wp_test_start
+    call uart_print_str
+
+    ; 1. Initialize watchpoints
+    call dbg_watchpoint_init
+
+    ; 2. Allocate a physical page
+    call phys_alloc_page
+    test rax, rax
+    jz .dbg_wp_fail_alloc
+    mov [dbg_wp_phys_page], rax
+
+    ; 3. Create a writable user VMA at 0x30000000
+    mov rdi, 0x30000000
+    mov rsi, 4096
+    mov rdx, 0x0B                   ; VMA_READ | VMA_WRITE | VMA_USER
+    call vma_create
+    test rax, rax
+    jz .dbg_wp_fail_vma
+    mov [dbg_wp_vma_ptr], rax
+
+    ; 4. Map the physical page at 0x30000000
+    mov rdi, 0x30000000
+    mov rsi, [dbg_wp_phys_page]
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .dbg_wp_fail_map
+
+    ; 5. Register page for watchpoint
+    mov rdi, 0x30000000
+    call dbg_watchpoint_register
+    cmp rax, 1
+    jne .dbg_wp_fail_register
+
+    ; 6. Verify that page has been marked non-present in PTE (PAGE_PRESENT cleared)
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .dbg_wp_fail_walk
+    mov rbx, [rax]
+    test rbx, 1                     ; PAGE_PRESENT (bit 0) should be 0!
+    jnz .dbg_wp_fail_non_present
+
+    ; 7. Check that watchpoint has 0 hits initially
+    mov rdi, 0x30000000
+    call dbg_watchpoint_is_hit
+    test rax, rax
+    jnz .dbg_wp_fail_hit_init
+
+    ; 8. Perform a READ access to trigger the watchpoint page fault!
+.wp_read_ip:
+    mov rax, [0x30000000]
+
+    ; 9. Verify hit count incremented to 1
+    mov rdi, 0x30000000
+    call dbg_watchpoint_is_hit
+    cmp rax, 1
+    jne .dbg_wp_fail_hit_read
+
+    ; 10. Verify recorded instruction pointer matches .wp_read_ip
+    mov rdi, 0x30000000
+    call dbg_watchpoint_get_last_rip
+    lea rdx, [.wp_read_ip]
+    cmp rax, rdx
+    jne .dbg_wp_fail_rip_read
+
+    ; 11. Verify transaction type is 0 (read)
+    mov rdi, 0x30000000
+    call dbg_watchpoint_get_last_type
+    test rax, rax
+    jnz .dbg_wp_fail_type_read
+
+    ; 12. Verify that PTE has PRESENT set back to 1
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .dbg_wp_fail_walk
+    mov rbx, [rax]
+    test rbx, 1                     ; PAGE_PRESENT (bit 0) should be 1 now!
+    jz .dbg_wp_fail_present_read
+
+    ; 13. Rearm the watchpoint
+    mov rdi, 0x30000000
+    call dbg_watchpoint_rearm
+    cmp rax, 1
+    jne .dbg_wp_fail_rearm
+
+    ; Verify it became non-present again
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rbx, [rax]
+    test rbx, 1
+    jnz .dbg_wp_fail_non_present
+
+    ; 14. Perform a WRITE access to trigger watchpoint page fault again!
+.wp_write_ip:
+    mov qword [0x30000000], 0xDEADBEEFCAFEBAB1
+
+    ; Verify the write completed
+    mov rax, [0x30000000]
+    mov rbx, 0xDEADBEEFCAFEBAB1
+    cmp rax, rbx
+    jne .dbg_wp_fail_hit_write
+
+    ; 15. Verify hit count incremented to 2
+    mov rdi, 0x30000000
+    call dbg_watchpoint_is_hit
+    cmp rax, 2
+    jne .dbg_wp_fail_hit_write
+
+    ; 16. Verify recorded instruction pointer matches .wp_write_ip
+    mov rdi, 0x30000000
+    call dbg_watchpoint_get_last_rip
+    lea rdx, [.wp_write_ip]
+    cmp rax, rdx
+    jne .dbg_wp_fail_rip_write
+
+    ; 17. Verify transaction type is 1 (write)
+    mov rdi, 0x30000000
+    call dbg_watchpoint_get_last_type
+    cmp rax, 1
+    jne .dbg_wp_fail_type_write
+
+    ; 18. Deregister watchpoint, unmap and free resources
+    mov rdi, 0x30000000
+    call dbg_watchpoint_deregister
+    cmp rax, 1
+    jne .dbg_wp_fail_deregister
+
+    mov rdi, 0x30000000
+    call virt_unmap
+
+    mov rdi, [dbg_wp_phys_page]
+    call phys_free_page
+
+    mov rdi, [dbg_wp_vma_ptr]
+    call vma_destroy
+
+    ; Success!
+    mov rsi, msg_dbg_wp_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     jmp .mtrr_test_start
+
+.dbg_wp_fail_alloc:
+    mov rsi, msg_dbg_wp_fail_alloc_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_vma:
+    mov rsi, msg_dbg_wp_fail_vma_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_map:
+    mov rsi, msg_dbg_wp_fail_map_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_register:
+    mov rsi, msg_dbg_wp_fail_register_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_walk:
+    mov rsi, msg_dbg_wp_fail_walk_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_non_present:
+    mov rsi, msg_dbg_wp_fail_non_present_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_hit_init:
+    mov rsi, msg_dbg_wp_fail_hit_init_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_hit_read:
+    mov rsi, msg_dbg_wp_fail_hit_read_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_rip_read:
+    mov rsi, msg_dbg_wp_fail_rip_read_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_type_read:
+    mov rsi, msg_dbg_wp_fail_type_read_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_present_read:
+    mov rsi, msg_dbg_wp_fail_present_read_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_rearm:
+    mov rsi, msg_dbg_wp_fail_rearm_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_hit_write:
+    mov rsi, msg_dbg_wp_fail_hit_write_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_rip_write:
+    mov rsi, msg_dbg_wp_fail_rip_write_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_type_write:
+    mov rsi, msg_dbg_wp_fail_type_write_str
+    call uart_print_str
+    jmp .panic_wp
+
+.dbg_wp_fail_deregister:
+    mov rsi, msg_dbg_wp_fail_deregister_str
+    call uart_print_str
+    jmp .panic_wp
+
+.panic_wp:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .decomp_fail_alloc:
     mov rsi, msg_zram_fail_alloc_str
@@ -9720,7 +9972,7 @@ msg_xo_fail_pte_absent_str:   db "Failure: Software fallback mapped page is pres
 msg_xo_fail_pte_xo_str:       db "Failure: Software fallback mapped page does not have PAGE_XO bit set.", 0x0D, 0x0A, 0
 msg_xo_fail_trap:             db "Failure: Read access to Execute-Only page did not trigger page fault violation.", 0x0D, 0x0A, 0
 
-; Section 29.1 Dirty Tracing Test messages
+; Dirty Tracing Test messages
 msg_dbg_watch_test_start:          db "Running VMM Page-Granular Hardware Debugging & Watchpoints Tests...", 0x0D, 0x0A, 0
 msg_dbg_watch_test_passed:         db "VMM Page-Granular Hardware Debugging & Watchpoints Tests PASSED!", 0x0D, 0x0A, 0
 
@@ -9739,6 +9991,27 @@ msg_dbg_watch_fail_dirty_clear_str: db "Failure: Tracked page reported dirty aft
 msg_dbg_watch_fail_rip_clear_str:   db "Failure: Logged RIP not cleared to 0 after clearing.", 0x0D, 0x0A, 0
 msg_dbg_watch_fail_protected_clear_str: db "Failure: Page not write-protected again after clearing.", 0x0D, 0x0A, 0
 
+; Page Watchpoint Test messages
+msg_dbg_wp_test_start:            db "Running VMM Page Watchpoint Tests...", 0x0D, 0x0A, 0
+msg_dbg_wp_test_passed:           db "VMM Page Watchpoint Tests PASSED!", 0x0D, 0x0A, 0
+
+msg_dbg_wp_fail_alloc_str:        db "Failure: Could not allocate physical page for watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_vma_str:          db "Failure: Could not create VMA for watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_map_str:          db "Failure: Could not map page for watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_register_str:     db "Failure: dbg_watchpoint_register returned 0.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_walk_str:         db "Failure: Could not walk page table for watched page.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_non_present_str:  db "Failure: Watched page is still marked present in PTE.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_hit_init_str:     db "Failure: Watched page reported hit count > 0 before access.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_hit_read_str:     db "Failure: Watched page did not increment hit count after read access.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_rip_read_str:     db "Failure: Logged RIP after read does not match read instruction RIP.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_type_read_str:    db "Failure: Logged type after read is not 0 (read).", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_present_read_str: db "Failure: Watched page not restored to present in PTE after read.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_rearm_str:        db "Failure: dbg_watchpoint_rearm returned 0.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_hit_write_str:    db "Failure: Watched page did not increment hit count after write access.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_rip_write_str:    db "Failure: Logged RIP after write does not match write instruction RIP.", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_type_write_str:   db "Failure: Logged type after write is not 1 (write).", 0x0D, 0x0A, 0
+msg_dbg_wp_fail_deregister_str:   db "Failure: dbg_watchpoint_deregister returned 0.", 0x0D, 0x0A, 0
+
 section .bss
 align 8
 smep_smap_test_buf:            resb 32
@@ -9753,6 +10026,11 @@ dest_phys_B: resq 1
 align 8
 dbg_watch_phys_page: resq 1
 dbg_watch_vma_ptr:   resq 1
+
+; BSS variables for watchpoint test
+align 8
+dbg_wp_phys_page: resq 1
+dbg_wp_vma_ptr:   resq 1
 
 
 
