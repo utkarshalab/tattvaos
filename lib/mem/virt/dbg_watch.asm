@@ -16,6 +16,8 @@
 DBG_MAX_TRACED_PAGES    equ 128
 DBG_MAX_WATCHPOINTS     equ 128
 DBG_MAX_IFT_WATCHPOINTS equ 128
+DBG_MAX_HIST_PAGES      equ 128
+
 
 section .text
 
@@ -1305,6 +1307,455 @@ dbg_ift_deregister:
     pop rbx
     ret
 
+; =============================================================================
+; Access Pattern Histogram Recorder APIs
+; =============================================================================
+
+; -----------------------------------------------------------------------------
+; dbg_hist_init — initializes the access pattern histogram subsystem metadata
+; -----------------------------------------------------------------------------
+global dbg_hist_init
+dbg_hist_init:
+    push rdi
+    push rcx
+    push rax
+
+    lea rdi, [dbg_hist_table]
+    mov rcx, DBG_MAX_HIST_PAGES
+    xor rax, rax
+    cld
+    rep stosq
+
+    lea rdi, [dbg_hist_flags]
+    mov rcx, DBG_MAX_HIST_PAGES
+    rep stosq
+
+    lea rdi, [dbg_hist_orig_pte]
+    mov rcx, DBG_MAX_HIST_PAGES
+    rep stosq
+
+    lea rdi, [dbg_hist_read_count]
+    mov rcx, DBG_MAX_HIST_PAGES
+    rep stosq
+
+    lea rdi, [dbg_hist_write_count]
+    mov rcx, DBG_MAX_HIST_PAGES
+    rep stosq
+
+    pop rax
+    pop rcx
+    pop rdi
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_hist_register — registers page for access monitoring and clears PRESENT flag
+; Input:
+;   RDI = virtual address to monitor
+; Output:
+;   RAX = 1 on success, 0 on failure
+; -----------------------------------------------------------------------------
+global dbg_hist_register
+dbg_hist_register:
+    push rbx
+    push rcx
+    push rsi
+    push rdi
+
+    mov rbx, rdi                    ; rbx = virtual address
+    and rbx, -4096                  ; align to page boundary
+
+    ; 1. Walk page table to check if page is mapped and present
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .fail
+    mov rcx, [rax]
+    test rcx, 1                     ; PAGE_PRESENT
+    jz .fail
+
+    ; 2. Check if already registered
+    lea rdi, [dbg_hist_table]
+    xor rcx, rcx
+.dup_check:
+    cmp rcx, DBG_MAX_HIST_PAGES
+    jge .find_free
+    cmp qword [dbg_hist_flags + rcx * 8], 1
+    jne .dup_next
+    cmp qword [rdi + rcx * 8], rbx
+    je .success
+.dup_next:
+    inc rcx
+    jmp .dup_check
+
+.find_free:
+    ; 3. Find free slot
+    xor rcx, rcx
+.find_loop:
+    cmp rcx, DBG_MAX_HIST_PAGES
+    jge .fail
+    cmp qword [dbg_hist_flags + rcx * 8], 0
+    jz .found_free
+    inc rcx
+    jmp .find_loop
+
+.found_free:
+    ; Store metadata
+    mov [rdi + rcx * 8], rbx
+    mov qword [dbg_hist_flags + rcx * 8], 1
+    
+    ; Walk page table again to read current PTE state, and store it
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table
+    mov rdx, [rax]                  ; RDX = original PTE value
+    mov [dbg_hist_orig_pte + rcx * 8], rdx
+
+    mov qword [dbg_hist_read_count + rcx * 8], 0
+    mov qword [dbg_hist_write_count + rcx * 8], 0
+
+    ; 4. Clear PAGE_PRESENT to revoke permissions and intercept accesses
+    and qword [rax], ~1             ; clear PAGE_PRESENT (bit 0)
+
+    ; 5. Invalidate TLB
+    invlpg [rbx]
+
+.success:
+    mov rax, 1
+    jmp .exit
+
+.fail:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_hist_handle_fault — checks if fault is on registered page, logs read/write, and makes present
+; Input:
+;   RDI = faulting virtual address
+;   RSI = exception error code
+;   RDX = exception RIP
+; Output:
+;   RAX = 1 if fault handled, 0 if not tracked
+; -----------------------------------------------------------------------------
+global dbg_hist_handle_fault
+dbg_hist_handle_fault:
+    push rbx
+    push rcx
+    push rsi
+    push rdi
+
+    mov rbx, rdi                    ; rbx = aligned address
+    and rbx, -4096
+    mov r8, rsi                     ; r8 = error code
+    mov r9, rdx                     ; r9 = RIP
+
+    ; Search for address in access pattern table
+    lea rdi, [dbg_hist_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_HIST_PAGES
+    jge .not_found
+    cmp qword [dbg_hist_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    ; Increment either read or write count
+    test r8, 2                      ; bit 1 is Write
+    jz .is_read
+    inc qword [dbg_hist_write_count + rcx * 8]
+    jmp .restore_pte
+
+.is_read:
+    inc qword [dbg_hist_read_count + rcx * 8]
+
+.restore_pte:
+    ; Restore original PTE (making it present again)
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .error_restore
+    mov r8, [dbg_hist_orig_pte + rcx * 8]
+    mov [rax], r8                   ; write original present PTE back
+
+    ; Invalidate TLB
+    invlpg [rbx]
+
+    mov rax, 1                      ; return 1 (handled)
+    jmp .exit
+
+.not_found:
+.error_restore:
+    xor rax, rax                    ; return 0 (not handled)
+
+.exit:
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_hist_get_read_count — returns read hit count for a registered page
+; Input:
+;   RDI = virtual address
+; Output:
+;   RAX = read count, or 0 if not tracked
+; -----------------------------------------------------------------------------
+global dbg_hist_get_read_count
+dbg_hist_get_read_count:
+    push rbx
+    push rcx
+    push rdi
+
+    mov rbx, rdi
+    and rbx, -4096
+
+    lea rdi, [dbg_hist_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_HIST_PAGES
+    jge .not_found
+    cmp qword [dbg_hist_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    mov rax, [dbg_hist_read_count + rcx * 8]
+    jmp .exit
+
+.not_found:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_hist_get_write_count — returns write hit count for a registered page
+; Input:
+;   RDI = virtual address
+; Output:
+;   RAX = write count, or 0 if not tracked
+; -----------------------------------------------------------------------------
+global dbg_hist_get_write_count
+dbg_hist_get_write_count:
+    push rbx
+    push rcx
+    push rdi
+
+    mov rbx, rdi
+    and rbx, -4096
+
+    lea rdi, [dbg_hist_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_HIST_PAGES
+    jge .not_found
+    cmp qword [dbg_hist_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    mov rax, [dbg_hist_write_count + rcx * 8]
+    jmp .exit
+
+.not_found:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_hist_get_total_count — returns sum of read and write counts for a registered page
+; Input:
+;   RDI = virtual address
+; Output:
+;   RAX = total count, or 0 if not tracked
+; -----------------------------------------------------------------------------
+global dbg_hist_get_total_count
+dbg_hist_get_total_count:
+    push rbx
+    push rcx
+    push rdi
+
+    mov rbx, rdi
+    and rbx, -4096
+
+    lea rdi, [dbg_hist_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_HIST_PAGES
+    jge .not_found
+    cmp qword [dbg_hist_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    mov rax, [dbg_hist_read_count + rcx * 8]
+    add rax, [dbg_hist_write_count + rcx * 8]
+    jmp .exit
+
+.not_found:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_hist_rearm — revokes present permission again to intercept next access
+; Input:
+;   RDI = virtual address
+; Output:
+;   RAX = 1 on success, 0 on failure
+; -----------------------------------------------------------------------------
+global dbg_hist_rearm
+dbg_hist_rearm:
+    push rbx
+    push rcx
+    push rsi
+    push rdi
+
+    mov rbx, rdi
+    and rbx, -4096
+
+    lea rdi, [dbg_hist_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_HIST_PAGES
+    jge .not_found
+    cmp qword [dbg_hist_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    ; Read current PTE, update saved original PTE value
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .fail
+    mov r8, [rax]
+    test r8, 1                      ; check if currently present
+    jz .already_armed
+    mov [dbg_hist_orig_pte + rcx * 8], r8
+
+.already_armed:
+    ; Revoke presence (clear bit 0)
+    and qword [rax], ~1
+
+    ; Invalidate TLB
+    invlpg [rbx]
+
+    mov rax, 1
+    jmp .exit
+
+.not_found:
+.fail:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_hist_deregister — restores present flag and unregisters page
+; Input:
+;   RDI = virtual address
+; Output:
+;   RAX = 1 on success, 0 on failure
+; -----------------------------------------------------------------------------
+global dbg_hist_deregister
+dbg_hist_deregister:
+    push rbx
+    push rcx
+    push rsi
+    push rdi
+
+    mov rbx, rdi
+    and rbx, -4096
+
+    lea rdi, [dbg_hist_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_HIST_PAGES
+    jge .not_found
+    cmp qword [dbg_hist_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    ; Restore original present PTE value
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .clear_slot
+    mov r8, [dbg_hist_orig_pte + rcx * 8]
+    mov [rax], r8
+    invlpg [rbx]
+
+.clear_slot:
+    mov qword [dbg_hist_flags + rcx * 8], 0
+    mov qword [dbg_hist_table + rcx * 8], 0
+    mov qword [dbg_hist_orig_pte + rcx * 8], 0
+    mov qword [dbg_hist_read_count + rcx * 8], 0
+    mov qword [dbg_hist_write_count + rcx * 8], 0
+    mov rax, 1
+    jmp .exit
+
+.not_found:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
+    ret
+
 
 section .bss
 
@@ -1329,4 +1780,12 @@ dbg_ift_orig_nx:    resq DBG_MAX_IFT_WATCHPOINTS
 dbg_ift_hit_count:  resq DBG_MAX_IFT_WATCHPOINTS
 dbg_ift_last_rip:   resq DBG_MAX_IFT_WATCHPOINTS
 
+align 8
+dbg_hist_table:       resq DBG_MAX_HIST_PAGES
+dbg_hist_flags:       resq DBG_MAX_HIST_PAGES
+dbg_hist_orig_pte:    resq DBG_MAX_HIST_PAGES
+dbg_hist_read_count:  resq DBG_MAX_HIST_PAGES
+dbg_hist_write_count: resq DBG_MAX_HIST_PAGES
+
 %endif ; LIB_MEM_VIRT_DBG_WATCH_ASM
+
