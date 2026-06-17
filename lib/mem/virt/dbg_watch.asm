@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/dbg_watch.asm
 ; =============================================================================
-; Emulated Page-Granular Dirty Bit Tracing & Watchpoints.
+; Emulated Page-Granular Dirty Bit Tracing, Watchpoints, and Instruction Fetch Tracing.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -13,8 +13,9 @@
 [BITS 64]
 
 ; Table limits
-DBG_MAX_TRACED_PAGES equ 128
-DBG_MAX_WATCHPOINTS  equ 128
+DBG_MAX_TRACED_PAGES    equ 128
+DBG_MAX_WATCHPOINTS     equ 128
+DBG_MAX_IFT_WATCHPOINTS equ 128
 
 section .text
 
@@ -862,20 +863,470 @@ dbg_watchpoint_deregister:
     ret
 
 
+; =============================================================================
+; Instruction Fetch Trace Watchpoint APIs
+; =============================================================================
+
+; -----------------------------------------------------------------------------
+; dbg_ift_init — initializes the instruction fetch trace subsystem metadata
+; -----------------------------------------------------------------------------
+global dbg_ift_init
+dbg_ift_init:
+    push rdi
+    push rcx
+    push rax
+
+    lea rdi, [dbg_ift_table]
+    mov rcx, DBG_MAX_IFT_WATCHPOINTS
+    xor rax, rax
+    cld
+    rep stosq
+
+    lea rdi, [dbg_ift_flags]
+    mov rcx, DBG_MAX_IFT_WATCHPOINTS
+    rep stosq
+
+    lea rdi, [dbg_ift_orig_nx]
+    mov rcx, DBG_MAX_IFT_WATCHPOINTS
+    rep stosq
+
+    lea rdi, [dbg_ift_hit_count]
+    mov rcx, DBG_MAX_IFT_WATCHPOINTS
+    rep stosq
+
+    lea rdi, [dbg_ift_last_rip]
+    mov rcx, DBG_MAX_IFT_WATCHPOINTS
+    rep stosq
+
+    pop rax
+    pop rcx
+    pop rdi
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_ift_register — write-protects/exec-protects page and registers it for tracing
+; Input:
+;   RDI = virtual address of instruction to watch
+; Output:
+;   RAX = 1 on success, 0 on failure
+; -----------------------------------------------------------------------------
+global dbg_ift_register
+dbg_ift_register:
+    push rbx
+    push rcx
+    push rsi
+    push rdi
+
+    mov rbx, rdi                    ; rbx = virtual address
+    and rbx, -4096                  ; align to page boundary
+
+    ; 1. Walk page table to check if page is mapped and present
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .fail
+    mov rcx, [rax]
+    test rcx, 1                     ; PAGE_PRESENT
+    jz .fail
+
+    ; 2. Check if already registered
+    lea rdi, [dbg_ift_table]
+    xor rcx, rcx
+.dup_check:
+    cmp rcx, DBG_MAX_IFT_WATCHPOINTS
+    jge .find_free
+    cmp qword [dbg_ift_flags + rcx * 8], 1
+    jne .dup_next
+    cmp qword [rdi + rcx * 8], rbx
+    je .success
+.dup_next:
+    inc rcx
+    jmp .dup_check
+
+.find_free:
+    ; 3. Find free slot
+    xor rcx, rcx
+.find_loop:
+    cmp rcx, DBG_MAX_IFT_WATCHPOINTS
+    jge .fail
+    cmp qword [dbg_ift_flags + rcx * 8], 0
+    jz .found_free
+    inc rcx
+    jmp .find_loop
+
+.found_free:
+    ; Store metadata
+    mov [rdi + rcx * 8], rbx
+    mov qword [dbg_ift_flags + rcx * 8], 1
+    
+    ; Walk page table again to read current PTE state, and save original NX flag (bit 63)
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table
+    mov rdx, [rax]                  ; RDX = original PTE value
+    
+    ; Extract bit 63 (NX)
+    mov rsi, rdx
+    shr rsi, 63
+    and rsi, 1
+    mov [dbg_ift_orig_nx + rcx * 8], rsi
+
+    mov qword [dbg_ift_hit_count + rcx * 8], 0
+    mov qword [dbg_ift_last_rip + rcx * 8], 0
+
+    ; 4. Set PAGE_NX (bit 63) to 1 to revoke execution permission
+    mov rsi, 1
+    shl rsi, 63
+    or rdx, rsi                     ; force bit 63 to 1
+    mov [rax], rdx
+
+    ; 5. Invalidate TLB
+    invlpg [rbx]
+
+.success:
+    mov rax, 1
+    jmp .exit
+
+.fail:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_ift_handle_fault — checks if execution fault is on watched page, logs and makes executable
+; Input:
+;   RDI = faulting virtual address
+;   RSI = exception error code
+;   RDX = exception RIP
+; Output:
+;   RAX = 1 if fault handled, 0 if not tracked
+; -----------------------------------------------------------------------------
+global dbg_ift_handle_fault
+dbg_ift_handle_fault:
+    push rbx
+    push rcx
+    push rsi
+    push rdi
+
+    mov rbx, rdi                    ; rbx = aligned address
+    and rbx, -4096
+    mov r8, rsi                     ; r8 = error code
+    mov r9, rdx                     ; r9 = RIP of access instruction
+
+    ; Search for address in IFT table
+    lea rdi, [dbg_ift_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_IFT_WATCHPOINTS
+    jge .not_found
+    cmp qword [dbg_ift_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    ; Increment hit count and record RIP
+    inc qword [dbg_ift_hit_count + rcx * 8]
+    mov [dbg_ift_last_rip + rcx * 8], r9
+
+    ; Restore original NX state in PTE
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .error_restore
+    
+    mov rdx, [rax]                  ; RDX = current PTE
+    mov r8, [dbg_ift_orig_nx + rcx * 8] ; R8 = original NX (0 or 1)
+    
+    ; Clear/set bit 63 depending on original NX state
+    mov rsi, 1
+    shl rsi, 63
+    test r8, r8
+    jnz .restore_non_exec
+    
+    ; original was executable: clear bit 63
+    not rsi
+    and rdx, rsi
+    jmp .write_pte
+
+.restore_non_exec:
+    ; original was non-executable: set bit 63
+    or rdx, rsi
+
+.write_pte:
+    mov [rax], rdx                  ; update PTE
+
+    ; Invalidate TLB
+    invlpg [rbx]
+
+    mov rax, 1                      ; return 1 (handled)
+    jmp .exit
+
+.not_found:
+.error_restore:
+    xor rax, rax                    ; return 0 (not handled)
+
+.exit:
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_ift_is_hit — returns the number of times this execution watchpoint has hit
+; Input:
+;   RDI = virtual address
+; Output:
+;   RAX = hit count, or 0 if not tracked
+; -----------------------------------------------------------------------------
+global dbg_ift_is_hit
+dbg_ift_is_hit:
+    push rbx
+    push rcx
+    push rdi
+
+    mov rbx, rdi
+    and rbx, -4096
+
+    lea rdi, [dbg_ift_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_IFT_WATCHPOINTS
+    jge .not_found
+    cmp qword [dbg_ift_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    mov rax, [dbg_ift_hit_count + rcx * 8]
+    jmp .exit
+
+.not_found:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_ift_get_last_rip — gets RIP of the instruction execution caught
+; Input:
+;   RDI = virtual address
+; Output:
+;   RAX = RIP, or 0 if not hit/not tracked
+; -----------------------------------------------------------------------------
+global dbg_ift_get_last_rip
+dbg_ift_get_last_rip:
+    push rbx
+    push rcx
+    push rdi
+
+    mov rbx, rdi
+    and rbx, -4096
+
+    lea rdi, [dbg_ift_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_IFT_WATCHPOINTS
+    jge .not_found
+    cmp qword [dbg_ift_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    mov rax, [dbg_ift_last_rip + rcx * 8]
+    jmp .exit
+
+.not_found:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_ift_rearm — execution-protects page again for watchpoint
+; Input:
+;   RDI = virtual address
+; Output:
+;   RAX = 1 on success, 0 on failure
+; -----------------------------------------------------------------------------
+global dbg_ift_rearm
+dbg_ift_rearm:
+    push rbx
+    push rcx
+    push rsi
+    push rdi
+
+    mov rbx, rdi
+    and rbx, -4096
+
+    lea rdi, [dbg_ift_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_IFT_WATCHPOINTS
+    jge .not_found
+    cmp qword [dbg_ift_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    ; Set bit 63 (PAGE_NX) to 1
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .fail
+    
+    mov rdx, [rax]
+    mov rsi, 1
+    shl rsi, 63
+    or rdx, rsi                     ; set bit 63
+    mov [rax], rdx
+
+    ; Invalidate TLB
+    invlpg [rbx]
+
+    mov rax, 1
+    jmp .exit
+
+.not_found:
+.fail:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; dbg_ift_deregister — restores original execution permission and unregisters IFT
+; Input:
+;   RDI = virtual address
+; Output:
+;   RAX = 1 on success, 0 on failure
+; -----------------------------------------------------------------------------
+global dbg_ift_deregister
+dbg_ift_deregister:
+    push rbx
+    push rcx
+    push rsi
+    push rdi
+
+    mov rbx, rdi
+    and rbx, -4096
+
+    lea rdi, [dbg_ift_table]
+    xor rcx, rcx
+.loop:
+    cmp rcx, DBG_MAX_IFT_WATCHPOINTS
+    jge .not_found
+    cmp qword [dbg_ift_flags + rcx * 8], 1
+    jne .next
+    cmp qword [rdi + rcx * 8], rbx
+    je .found
+.next:
+    inc rcx
+    jmp .loop
+
+.found:
+    ; Restore original NX state
+    mov rdi, rbx
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .clear_slot
+    
+    mov rdx, [rax]
+    mov r8, [dbg_ift_orig_nx + rcx * 8]
+    mov rsi, 1
+    shl rsi, 63
+    test r8, r8
+    jnz .restore_nx
+    
+    ; restore as executable (clear bit 63)
+    not rsi
+    and rdx, rsi
+    jmp .write_back
+
+.restore_nx:
+    ; restore as non-executable (set bit 63)
+    or rdx, rsi
+
+.write_back:
+    mov [rax], rdx
+    invlpg [rbx]
+
+.clear_slot:
+    mov qword [dbg_ift_flags + rcx * 8], 0
+    mov qword [dbg_ift_table + rcx * 8], 0
+    mov qword [dbg_ift_orig_nx + rcx * 8], 0
+    mov qword [dbg_ift_hit_count + rcx * 8], 0
+    mov qword [dbg_ift_last_rip + rcx * 8], 0
+    mov rax, 1
+    jmp .exit
+
+.not_found:
+    xor rax, rax
+
+.exit:
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
+    ret
+
+
 section .bss
 
 align 8
-dbg_trace_table: resq DBG_MAX_TRACED_PAGES
-dbg_trace_flags: resq DBG_MAX_TRACED_PAGES
-dbg_trace_dirty: resq DBG_MAX_TRACED_PAGES
-dbg_trace_rip:   resq DBG_MAX_TRACED_PAGES
+dbg_trace_table:    resq DBG_MAX_TRACED_PAGES
+dbg_trace_flags:    resq DBG_MAX_TRACED_PAGES
+dbg_trace_dirty:    resq DBG_MAX_TRACED_PAGES
+dbg_trace_rip:      resq DBG_MAX_TRACED_PAGES
 
 align 8
-dbg_wp_table:      resq DBG_MAX_WATCHPOINTS
-dbg_wp_flags:      resq DBG_MAX_WATCHPOINTS
-dbg_wp_orig_pte:   resq DBG_MAX_WATCHPOINTS
-dbg_wp_hit_count:  resq DBG_MAX_WATCHPOINTS
-dbg_wp_last_rip:   resq DBG_MAX_WATCHPOINTS
-dbg_wp_last_type:  resq DBG_MAX_WATCHPOINTS
+dbg_wp_table:       resq DBG_MAX_WATCHPOINTS
+dbg_wp_flags:       resq DBG_MAX_WATCHPOINTS
+dbg_wp_orig_pte:    resq DBG_MAX_WATCHPOINTS
+dbg_wp_hit_count:   resq DBG_MAX_WATCHPOINTS
+dbg_wp_last_rip:    resq DBG_MAX_WATCHPOINTS
+dbg_wp_last_type:   resq DBG_MAX_WATCHPOINTS
+
+align 8
+dbg_ift_table:      resq DBG_MAX_IFT_WATCHPOINTS
+dbg_ift_flags:      resq DBG_MAX_IFT_WATCHPOINTS
+dbg_ift_orig_nx:    resq DBG_MAX_IFT_WATCHPOINTS
+dbg_ift_hit_count:  resq DBG_MAX_IFT_WATCHPOINTS
+dbg_ift_last_rip:   resq DBG_MAX_IFT_WATCHPOINTS
 
 %endif ; LIB_MEM_VIRT_DBG_WATCH_ASM
