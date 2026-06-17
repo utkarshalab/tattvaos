@@ -68,6 +68,12 @@ extern dbg_watchpoint_get_last_rip
 extern dbg_watchpoint_get_last_type
 extern dbg_watchpoint_rearm
 extern dbg_watchpoint_deregister
+extern dbg_ift_init
+extern dbg_ift_register
+extern dbg_ift_is_hit
+extern dbg_ift_get_last_rip
+extern dbg_ift_rearm
+extern dbg_ift_deregister
 extern numa_ranges
 extern numa_range_count
 extern numa_node_count
@@ -2530,7 +2536,239 @@ kernel_main:
     pop r14
     pop r13
     pop r12
+    jmp .dbg_ift_test_start
+
+.dbg_ift_test_start:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_dbg_ift_test_start
+    call uart_print_str
+
+    ; 1. Initialize IFT watchpoints
+    call dbg_ift_init
+
+    ; 2. Allocate a physical page
+    call phys_alloc_page
+    test rax, rax
+    jz .dbg_ift_fail_alloc
+    mov [dbg_ift_phys_page], rax
+
+    ; 3. Write ret (0xC3) to the start of the page
+    mov rdi, rax
+    mov byte [rdi], 0xC3
+
+    ; 4. Create an executable user VMA at 0x40000000
+    ; Flags: VMA_READ | VMA_EXEC | VMA_USER (0x0D)
+    mov rdi, 0x40000000
+    mov rsi, 4096
+    mov rdx, 0x0D
+    call vma_create
+    test rax, rax
+    jz .dbg_ift_fail_vma
+    mov [dbg_ift_vma_ptr], rax
+
+    ; 5. Map the physical page at 0x40000000
+    ; Flags: PAGE_PRESENT | PAGE_USER (0x05)
+    mov rdi, 0x40000000
+    mov rsi, [dbg_ift_phys_page]
+    mov rdx, 0x05
+    call virt_map
+    test rax, rax
+    jz .dbg_ift_fail_map
+
+    ; 6. Register page for IFT watchpoint
+    mov rdi, 0x40000000
+    call dbg_ift_register
+    cmp rax, 1
+    jne .dbg_ift_fail_register
+
+    ; 7. Verify that page has been marked NX in PTE
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .dbg_ift_fail_walk
+    mov rbx, [rax]
+    mov rcx, PAGE_NX
+    test rbx, rcx                   ; PAGE_NX (bit 63) should be 1
+    jz .dbg_ift_fail_nx_set
+
+    ; 8. Check that IFT has 0 hits initially
+    mov rdi, 0x40000000
+    call dbg_ift_is_hit
+    test rax, rax
+    jnz .dbg_ift_fail_hit_init
+
+    ; 9. Attempt to call 0x40000000 to trigger instruction fetch fault!
+    mov rax, 0x40000000
+    call rax
+
+    ; 10. Verify hit count incremented to 1
+    mov rdi, 0x40000000
+    call dbg_ift_is_hit
+    cmp rax, 1
+    jne .dbg_ift_fail_hit_exec
+
+    ; 11. Verify recorded RIP matches 0x40000000
+    mov rdi, 0x40000000
+    call dbg_ift_get_last_rip
+    mov rbx, 0x40000000
+    cmp rax, rbx
+    jne .dbg_ift_fail_rip_exec
+
+    ; 12. Verify that PTE has NX set to 0 (executable again)
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address
+    test rax, rax
+    jz .dbg_ift_fail_walk
+    mov rbx, [rax]
+    mov rcx, PAGE_NX
+    test rbx, rcx                   ; PAGE_NX should be 0 now!
+    jnz .dbg_ift_fail_nx_cleared
+
+    ; 13. Rearm the IFT watchpoint
+    mov rdi, 0x40000000
+    call dbg_ift_rearm
+    cmp rax, 1
+    jne .dbg_ift_fail_rearm
+
+    ; Verify NX is set back to 1
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rbx, [rax]
+    mov rcx, PAGE_NX
+    test rbx, rcx
+    jz .dbg_ift_fail_nx_rearmed
+
+    ; 14. Attempt to call 0x40000000 again!
+    mov rax, 0x40000000
+    call rax
+
+    ; 15. Verify hit count incremented to 2
+    mov rdi, 0x40000000
+    call dbg_ift_is_hit
+    cmp rax, 2
+    jne .dbg_ift_fail_hit_exec2
+
+    ; 16. Verify recorded RIP is still 0x40000000
+    mov rdi, 0x40000000
+    call dbg_ift_get_last_rip
+    mov rbx, 0x40000000
+    cmp rax, rbx
+    jne .dbg_ift_fail_rip_exec2
+
+    ; 17. Deregister watchpoint, unmap and free resources
+    mov rdi, 0x40000000
+    call dbg_ift_deregister
+    cmp rax, 1
+    jne .dbg_ift_fail_deregister
+
+    mov rdi, 0x40000000
+    call virt_unmap
+
+    mov rdi, [dbg_ift_phys_page]
+    call phys_free_page
+
+    mov rdi, [dbg_ift_vma_ptr]
+    call vma_destroy
+
+    ; Success!
+    mov rsi, msg_dbg_ift_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     jmp .mtrr_test_start
+
+.dbg_ift_fail_alloc:
+    mov rsi, msg_dbg_ift_fail_alloc_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_vma:
+    mov rsi, msg_dbg_ift_fail_vma_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_map:
+    mov rsi, msg_dbg_ift_fail_map_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_register:
+    mov rsi, msg_dbg_ift_fail_register_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_walk:
+    mov rsi, msg_dbg_ift_fail_walk_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_nx_set:
+    mov rsi, msg_dbg_ift_fail_nx_set_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_hit_init:
+    mov rsi, msg_dbg_ift_fail_hit_init_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_hit_exec:
+    mov rsi, msg_dbg_ift_fail_hit_exec_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_rip_exec:
+    mov rsi, msg_dbg_ift_fail_rip_exec_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_nx_cleared:
+    mov rsi, msg_dbg_ift_fail_nx_cleared_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_rearm:
+    mov rsi, msg_dbg_ift_fail_rearm_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_nx_rearmed:
+    mov rsi, msg_dbg_ift_fail_nx_rearmed_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_hit_exec2:
+    mov rsi, msg_dbg_ift_fail_hit_exec2_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_rip_exec2:
+    mov rsi, msg_dbg_ift_fail_rip_exec2_str
+    call uart_print_str
+    jmp .panic_ift
+
+.dbg_ift_fail_deregister:
+    mov rsi, msg_dbg_ift_fail_deregister_str
+    call uart_print_str
+    jmp .panic_ift
+
+.panic_ift:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 
 .dbg_wp_fail_alloc:
     mov rsi, msg_dbg_wp_fail_alloc_str
@@ -10012,6 +10250,26 @@ msg_dbg_wp_fail_rip_write_str:    db "Failure: Logged RIP after write does not m
 msg_dbg_wp_fail_type_write_str:   db "Failure: Logged type after write is not 1 (write).", 0x0D, 0x0A, 0
 msg_dbg_wp_fail_deregister_str:   db "Failure: dbg_watchpoint_deregister returned 0.", 0x0D, 0x0A, 0
 
+; Instruction Fetch Trace Test messages
+msg_dbg_ift_test_start:            db "Running VMM Instruction Fetch Trace Watchpoint Tests...", 0x0D, 0x0A, 0
+msg_dbg_ift_test_passed:           db "VMM Instruction Fetch Trace Watchpoint Tests PASSED!", 0x0D, 0x0A, 0
+
+msg_dbg_ift_fail_alloc_str:        db "Failure: Could not allocate physical page for IFT watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_vma_str:          db "Failure: Could not create VMA for IFT watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_map_str:          db "Failure: Could not map page for IFT watchpoint test.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_register_str:     db "Failure: dbg_ift_register returned 0.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_walk_str:         db "Failure: Could not walk page table for IFT watched page.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_nx_set_str:       db "Failure: IFT watched page does not have NX bit set in PTE.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_hit_init_str:     db "Failure: IFT watched page reported hit count > 0 before access.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_hit_exec_str:     db "Failure: IFT watched page did not increment hit count after execution.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_rip_exec_str:     db "Failure: Logged IFT RIP does not match execution RIP (0x40000000).", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_nx_cleared_str:   db "Failure: IFT watched page still has NX set in PTE after execution.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_rearm_str:        db "Failure: dbg_ift_rearm returned 0.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_nx_rearmed_str:   db "Failure: IFT watched page does not have NX bit set in PTE after rearm.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_hit_exec2_str:    db "Failure: IFT watched page did not increment hit count to 2 after second execution.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_rip_exec2_str:    db "Failure: Logged IFT RIP after second execution does not match 0x40000000.", 0x0D, 0x0A, 0
+msg_dbg_ift_fail_deregister_str:   db "Failure: dbg_ift_deregister returned 0.", 0x0D, 0x0A, 0
+
 section .bss
 align 8
 smep_smap_test_buf:            resb 32
@@ -10031,6 +10289,12 @@ dbg_watch_vma_ptr:   resq 1
 align 8
 dbg_wp_phys_page: resq 1
 dbg_wp_vma_ptr:   resq 1
+
+; BSS variables for IFT watchpoint test
+align 8
+dbg_ift_phys_page: resq 1
+dbg_ift_vma_ptr:   resq 1
+
 
 
 
