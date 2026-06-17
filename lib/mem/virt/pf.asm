@@ -74,6 +74,8 @@ extern virt_handle_pmem_window_map
 extern dbg_dirty_trace_handle_fault
 extern dbg_watchpoint_handle_fault
 extern dbg_ift_handle_fault
+extern dbg_hist_handle_fault
+
 
 
 ; -----------------------------------------------------------------------------
@@ -198,8 +200,17 @@ virt_page_fault_handler:
     mov rdx, [r15]                  ; faulting RIP
     call dbg_watchpoint_handle_fault
     test rax, rax
+    jnz .exit_handled
+
+    ; Access Pattern Histogram Recorder hook
+    mov rdi, r12                    ; virtual address
+    mov rsi, r13                    ; error code
+    mov rdx, [r15]                  ; faulting RIP
+    call dbg_hist_handle_fault
+    test rax, rax
     jz .not_watchpoint_fault
 
+.exit_handled:
     mov rax, 1                      ; successfully handled
     jmp .exit
 
