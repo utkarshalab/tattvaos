@@ -72,6 +72,7 @@ extern virt_handle_dax_map
 extern virt_handle_pmem_map
 extern virt_handle_pmem_window_map
 extern dbg_dirty_trace_handle_fault
+extern dbg_watchpoint_handle_fault
 
 
 ; -----------------------------------------------------------------------------
@@ -180,12 +181,28 @@ virt_page_fault_handler:
     mov r14, rdx                    ; R14 = original RSP
     mov r15, rcx                    ; R15 = pointer to return RIP on exception stack
 
-    ; Check if faulting address is within the kernel stack guard page
+     ; Check if faulting address is within the kernel stack guard page
     mov rax, r12
     and rax, -4096
     mov rcx, kernel_stack_guard
     cmp rax, rcx
     je .kernel_stack_overflow
+
+    ; Watchpoint hook: check if this is a registered watchpoint page fault (present == 0)
+    test r13, 1                     ; bit 0 set (present)?
+    jnz .not_watchpoint_fault       ; yes, cannot be watchpoint fault (which is non-present)
+
+    mov rdi, r12                    ; virtual address
+    mov rsi, r13                    ; error code
+    mov rdx, [r15]                  ; faulting RIP
+    call dbg_watchpoint_handle_fault
+    test rax, rax
+    jz .not_watchpoint_fault
+
+    mov rax, 1                      ; successfully handled
+    jmp .exit
+
+.not_watchpoint_fault:
 
     ; Check if this is an XO page violation
     mov rdi, r12
