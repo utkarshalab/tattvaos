@@ -21,7 +21,7 @@ extern uart_print_str
 extern uart_print_hex64
 extern uart_print_dec
 
-; Thread Structure Definition (now 96 bytes)
+; Thread Structure Definition (now 104 bytes)
 struc thread_t
     .thread_id          resq 1      ; Unique thread ID
     .cpu_affinity_mask  resq 1      ; Bitmask of allowed CPUs
@@ -36,6 +36,7 @@ struc thread_t
     .time_alive         resq 1      ; Time alive (ticks)
     .priority_weight    resq 1      ; Priority weight
     .oom_notifier       resq 1      ; Registered OOM notification callback
+    .cgroup_ptr         resq 1      ; Pointer to thread's memory cgroup
 endstruc
 
 section .text
@@ -145,6 +146,7 @@ sched_register_thread:
     mov qword [rbx + thread_t.time_alive], 1
     mov qword [rbx + thread_t.priority_weight], 1
     mov qword [rbx + thread_t.oom_notifier], 0
+    mov qword [rbx + thread_t.cgroup_ptr], 0
 
     inc qword [thread_count]
     mov rax, rcx
