@@ -75,6 +75,8 @@ extern dbg_dirty_trace_handle_fault
 extern dbg_watchpoint_handle_fault
 extern dbg_ift_handle_fault
 extern dbg_hist_handle_fault
+extern dbg_phys_wp_handle_fault
+
 
 
 
@@ -207,6 +209,14 @@ virt_page_fault_handler:
     mov rsi, r13                    ; error code
     mov rdx, [r15]                  ; faulting RIP
     call dbg_hist_handle_fault
+    test rax, rax
+    jnz .exit_handled
+
+    ; Physical Address Watch Trap hook
+    mov rdi, r12                    ; virtual address
+    mov rsi, r13                    ; error code
+    mov rdx, [r15]                  ; faulting RIP
+    call dbg_phys_wp_handle_fault
     test rax, rax
     jz .not_watchpoint_fault
 
