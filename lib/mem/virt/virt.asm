@@ -96,7 +96,14 @@ vma_create:
     jmp .overlap_loop
 
 .no_overlap:
-    ; 2. Allocate VMA node from the heap
+    ; 2. Check overcommit policy before allocating
+    mov rdi, r12
+    shr rdi, 12                     ; RDI = requested pages
+    call virt_overcommit_check
+    test rax, rax
+    jz .error_oom
+
+    ; 3. Allocate VMA node from the heap
     mov rdi, vma_t_size
     call heap_alloc
     test rax, rax
@@ -148,6 +155,11 @@ vma_create:
     mov [vma_list_head], rax
 
 .done:
+    ; Update virt_reserved_pages count
+    mov rcx, r12
+    shr rcx, 12
+    add [virt_reserved_pages], rcx
+
     pop r14
     pop r13
     pop r12
@@ -240,6 +252,12 @@ vma_destroy:
     mov [vma_list_head], rdx
 
 .free_node:
+    ; Calculate page count of VMA to destroy and update virt_reserved_pages count
+    mov rcx, [rbx + vma_t.end]
+    sub rcx, [rbx + vma_t.start]
+    shr rcx, 12
+    sub [virt_reserved_pages], rcx
+
     ; Free VMA structure back to heap
     mov rdi, rbx
     call heap_free
@@ -426,7 +444,110 @@ virt_logical_to_physical_vaddr:
     or rax, rcx                     ; merge back offset
     ret
 
+; -----------------------------------------------------------------------------
+; virt_overcommit_check — checks if page allocation violates overcommit policy
+; Input:
+;   RDI = number of virtual pages requested
+; Output:
+;   RAX = 1 if reservation is allowed, 0 if denied
+; Clobbers: RAX, RCX, RDX
+; -----------------------------------------------------------------------------
+extern current_swap_device
+extern phys_state
+global virt_overcommit_check
+virt_overcommit_check:
+    push rbx
+    
+    ; Load requested pages
+    mov rbx, rdi                    ; RBX = requested pages
+    
+    ; Read current overcommit mode
+    mov rcx, [overcommit_mode]
+    
+    ; Mode 1: always overcommit
+    cmp rcx, 1
+    je .allow
+    
+    ; Mode 0: never overcommit (strict limit)
+    cmp rcx, 0
+    je .check_never
+    
+    ; Mode 2: heuristic overcommit
+    cmp rcx, 2
+    je .check_heuristic
+    
+    ; Fallback: allow if mode is unrecognized
+    jmp .allow
+
+.check_never:
+    ; Strict limit: total VMA pages cannot exceed physical RAM
+    mov rax, [virt_reserved_pages]
+    add rax, rbx                    ; RAX = potential new reservation
+    
+    ; Load total physical pages from phys_state
+    mov rcx, [phys_state + phys_state_t.total_pages]
+    
+    cmp rax, rcx
+    jbe .allow
+    jmp .deny
+
+.check_heuristic:
+    ; Heuristic limit: total VMA pages cannot exceed physical RAM * overcommit_ratio / 100 + swap capacity
+    mov rax, [virt_reserved_pages]
+    add rax, rbx                    ; RAX = potential new reservation
+    
+    ; Calculate physical RAM allowance = total_pages * overcommit_ratio / 100
+    push rax
+    push rsi
+    mov rax, [phys_state + phys_state_t.total_pages]
+    mov rsi, [overcommit_ratio]
+    mul rsi                         ; RDX:RAX = total_pages * overcommit_ratio
+    mov rsi, 100
+    div rsi                         ; RAX = (total_pages * overcommit_ratio) / 100
+    mov rcx, rax                    ; RCX = physical RAM allowance
+    pop rsi
+    pop rax
+    
+    ; Check if a swap device is active and add its capacity
+    push rax
+    mov rdx, [current_swap_device]
+    test rdx, rdx
+    jz .no_swap
+    
+    ; Add swap capacity (max_slots)
+    add rcx, [rdx + swap_device_t.max_slots]
+
+.no_swap:
+    pop rax
+    
+    cmp rax, rcx
+    jbe .allow
+    jmp .deny
+
+.allow:
+    mov rax, 1
+    jmp .exit
+
+.deny:
+    xor rax, rax
+
+.exit:
+    pop rbx
+    ret
+
 section .data
+
+align 8
+global overcommit_mode
+overcommit_mode: dq 2 ; default: heuristic
+
+align 8
+global virt_reserved_pages
+virt_reserved_pages: dq 0
+
+align 8
+global overcommit_ratio
+overcommit_ratio: dq 150 ; default: 150%
 
 align 8
 global vma_list_head
