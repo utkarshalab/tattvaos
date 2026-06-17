@@ -98,6 +98,7 @@ extern sched_register_thread
 extern virt_oom_calculate_score
 extern virt_oom_select_victim
 extern virt_oom_kill_process
+extern virt_oom_register_notifier
 extern numa_ranges
 
 
@@ -3442,7 +3443,7 @@ kernel_main:
     mov rsi, msg_oom_killer_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .oom_notifier_test_start
 
 .oom_kill_fail_register:
     mov rsi, msg_oom_kill_fail_register_str
@@ -3473,6 +3474,137 @@ kernel_main:
     pop r13
     pop r12
     jmp .panic
+
+    ; =========================================================================
+    ; OOM Notifier Test
+    ; =========================================================================
+.oom_notifier_test_start:
+    mov rsi, msg_oom_notifier_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+
+    ; Clear the callback verification flag
+    mov qword [oom_callback_flag], 0
+
+    ; 1. Switch overcommit to strict mode (0)
+    mov qword [overcommit_mode], 0
+
+    ; 2. Register Thread N (Victim with notifier callback)
+    mov rdi, 400
+    mov rsi, 0x0001
+    mov rdx, 0
+    call sched_register_thread
+    cmp rax, -1
+    je .oom_notify_fail_register
+    
+    ; Get Thread N pointer
+    imul rax, thread_t_size
+    lea r12, [thread_table + rax]   ; R12 = Thread N pointer
+
+    ; Set Thread N parameters (mem_usage = 100 pages, score = 200)
+    mov qword [r12 + thread_t.mem_usage], 100
+    mov qword [r12 + thread_t.time_alive], 2
+    mov qword [r12 + thread_t.priority_weight], 1
+
+    ; 3. Register OOM notifier callback for Thread N
+    mov rdi, r12
+    lea rsi, [oom_notifier_callback]
+    call virt_oom_register_notifier
+
+    ; 4. Setup system reservations
+    mov rax, [phys_state + phys_state_t.total_pages]
+    mov r13, rax                    ; R13 = total_pages
+    
+    mov rax, r13
+    sub rax, 50
+    mov [virt_reserved_pages], rax  ; reserved = total_pages - 50
+
+    ; 5. Try creating a VMA of size 80 pages (triggers OOM -> calls callback -> kills Thread N)
+    mov rdi, 0x1000000000
+    mov rsi, 80
+    shl rsi, 12                     ; size in bytes
+    mov rdx, 0x83                   ; VMA_READ | VMA_WRITE | VMA_ONDEMAND
+    call vma_create
+    test rax, rax
+    jz .oom_notify_fail_alloc
+    mov r14, rax                    ; R14 = VMA pointer
+
+    ; 6. Verify Thread N is terminated
+    mov rax, [r12 + thread_t.flags]
+    test rax, 1
+    jnz .oom_notify_fail_not_terminated
+
+    ; 7. Verify that the OOM notifier callback was executed (oom_callback_flag == 1)
+    mov rax, [oom_callback_flag]
+    cmp rax, 1
+    jne .oom_notify_fail_callback_not_run
+
+    ; Clean up VMA
+    mov rdi, r14
+    call vma_destroy
+    
+    ; Restore overcommit default mode and settings
+    mov qword [overcommit_mode], 2  ; heuristic
+    mov qword [virt_reserved_pages], 0
+
+    pop r14
+    pop r13
+    pop r12
+
+    ; Success!
+    mov rsi, msg_oom_notifier_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.oom_notify_fail_register:
+    mov rsi, msg_oom_notify_fail_register_str
+    call uart_print_str
+    jmp .panic_oom_notify
+
+.oom_notify_fail_alloc:
+    mov rsi, msg_oom_notify_fail_alloc_str
+    call uart_print_str
+    jmp .panic_oom_notify
+
+.oom_notify_fail_not_terminated:
+    mov rdi, r14
+    call vma_destroy
+    mov rsi, msg_oom_notify_fail_not_terminated_str
+    call uart_print_str
+    jmp .panic_oom_notify
+
+.oom_notify_fail_callback_not_run:
+    mov rdi, r14
+    call vma_destroy
+    mov rsi, msg_oom_notify_fail_callback_not_run_str
+    call uart_print_str
+    jmp .panic_oom_notify
+
+.panic_oom_notify:
+    ; Clean up thread flags and reservations before panic
+    test r12, r12
+    jz .skip_n
+    mov qword [r12 + thread_t.flags], 0
+.skip_n:
+    mov qword [overcommit_mode], 2  ; restore heuristic
+    mov qword [virt_reserved_pages], 0
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+; -----------------------------------------------------------------------------
+; oom_notifier_callback — Graceful shutdown callback executed by OOM Notifier
+; -----------------------------------------------------------------------------
+oom_notifier_callback:
+    mov rsi, msg_oom_callback_executed
+    call uart_print_str
+    mov qword [oom_callback_flag], 1
+    ret
 
 .dbg_phys_wp_fail_alloc:
     mov rsi, msg_dbg_phys_wp_fail_alloc_str
@@ -11342,6 +11474,15 @@ msg_oom_kill_fail_register_str:            db "Failure: Could not register Threa
 msg_oom_kill_fail_alloc_str:               db "Failure: VMA allocation failed to allocate after OOM Killer execution.", 0x0D, 0x0A, 0
 msg_oom_kill_fail_not_terminated_str:      db "Failure: Thread V (victim) was not terminated by OOM Killer.", 0x0D, 0x0A, 0
 
+; OOM Notifier Test messages
+msg_oom_notifier_test_start:               db "Running VMM OOM Notifier Test...", 0x0D, 0x0A, 0
+msg_oom_notifier_test_passed:              db "VMM OOM Notifier Test PASSED!", 0x0D, 0x0A, 0
+msg_oom_callback_executed:                 db "[OOM Callback] Graceful shutdown callback executed successfully.", 0x0D, 0x0A, 0
+msg_oom_notify_fail_register_str:          db "Failure: Could not register Thread N (victim) for OOM Notifier test.", 0x0D, 0x0A, 0
+msg_oom_notify_fail_alloc_str:             db "Failure: VMA allocation failed to allocate after OOM Notifier execution.", 0x0D, 0x0A, 0
+msg_oom_notify_fail_not_terminated_str:     db "Failure: Thread N (victim) was not terminated by OOM Killer after notification.", 0x0D, 0x0A, 0
+msg_oom_notify_fail_callback_not_run_str:  db "Failure: Graceful shutdown callback was not executed before process termination.", 0x0D, 0x0A, 0
+
 section .bss
 align 8
 smep_smap_test_buf:            resb 32
@@ -11377,6 +11518,9 @@ align 8
 dbg_phys_wp_phys_page: resq 1
 dbg_phys_wp_vma1_ptr:  resq 1
 dbg_phys_wp_vma2_ptr:  resq 1
+
+align 8
+oom_callback_flag:     resq 1
 
 %endif ; LIB_MEM_VIRT_DBG_WATCH_ASM
 
