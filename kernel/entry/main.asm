@@ -104,6 +104,10 @@ extern virt_memcg_destroy
 extern virt_memcg_attach
 extern virt_oom_select_victim_in_cgroup
 extern virt_alloc_retry_mock
+extern virt_psi_update_thread_state
+extern virt_psi_get_sys_metrics
+extern virt_psi_get_cgroup_metrics
+extern sys_psi_active_count
 extern numa_ranges
 
 
@@ -3796,11 +3800,241 @@ kernel_main:
     pop r13
     pop r12
 
+    jmp .oom_psi_test_start
+
+    ; =========================================================================
+    ; Pressure Stall Information (PSI) Test
+    ; =========================================================================
+.oom_psi_test_start:
+    mov rsi, msg_oom_psi_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; --- PART A: System-Wide PSI test ---
+    ; 1. Get current thread (Thread 100, index 0)
+    call sched_get_current_thread
+    test rax, rax
+    jz .oom_psi_fail_init
+    mov r12, rax                    ; R12 = current thread pointer
+
+    ; 2. Verify initial sys PSI values (should be 0 or small)
+    call virt_psi_get_sys_metrics   ; RAX = some, RDX = full
+    mov r13, rax                    ; R13 = initial sys some
+    mov r14, rdx                    ; R14 = initial sys full
+
+    ; 3. Stall current thread on memory
+    mov rdi, r12
+    mov rsi, 1                      ; stalled
+    call virt_psi_update_thread_state
+
+    ; 4. Spin to accumulate cycle delta
+    mov rcx, 100000
+.spin_sys:
+    dec rcx
+    jnz .spin_sys
+
+    ; 5. Unstall current thread
+    mov rdi, r12
+    mov rsi, 0                      ; unstalled
+    call virt_psi_update_thread_state
+
+    ; 6. Query sys PSI metrics and verify they increased
+    call virt_psi_get_sys_metrics
+    cmp rax, r13
+    jbe .oom_psi_fail_sys_some
+    cmp rdx, r14
+    jbe .oom_psi_fail_sys_full
+
+    ; --- PART B: Per-Cgroup PSI test ---
+    ; 1. Create cgroup 600
+    mov rdi, 600                    ; ID
+    mov rsi, 150                    ; hard limit
+    mov rdx, 100                    ; soft limit
+    call virt_memcg_create
+    test rax, rax
+    jz .oom_psi_fail_cgroup_create
+    mov r15, rax                    ; R15 = cgroup pointer
+
+    ; 2. Register Thread A (ID = 650)
+    mov rdi, 650
+    mov rsi, 0x0001
+    mov rdx, 0
+    call sched_register_thread
+    cmp rax, -1
+    je .oom_psi_fail_register
+    imul rax, thread_t_size
+    lea r13, [thread_table + rax]   ; R13 = Thread A pointer
+
+    ; Set active & attach Thread A
+    mov qword [r13 + thread_t.mem_usage], 10
+    mov qword [r13 + thread_t.time_alive], 2
+    mov qword [r13 + thread_t.priority_weight], 1
+    mov rdi, r13
+    mov rsi, r15
+    call virt_memcg_attach
+
+    ; 3. Register Thread B (ID = 651)
+    mov rdi, 651
+    mov rsi, 0x0001
+    mov rdx, 0
+    call sched_register_thread
+    cmp rax, -1
+    je .oom_psi_fail_register
+    imul rax, thread_t_size
+    lea r14, [thread_table + rax]   ; R14 = Thread B pointer
+
+    ; Set active & attach Thread B
+    mov qword [r14 + thread_t.mem_usage], 10
+    mov qword [r14 + thread_t.time_alive], 2
+    mov qword [r14 + thread_t.priority_weight], 1
+    mov rdi, r14
+    mov rsi, r15
+    call virt_memcg_attach
+
+    ; 4. Stall Thread A (now 1 out of 2 active threads in cgroup 600 is stalled -> SOME pressure)
+    mov rdi, r13
+    mov rsi, 1                      ; stalled
+    call virt_psi_update_thread_state
+
+    ; Spin
+    mov rcx, 100000
+.spin_cg_some:
+    dec rcx
+    jnz .spin_cg_some
+
+    ; Query and verify SOME > 0 and FULL == 0
+    mov rdi, r15
+    call virt_psi_get_cgroup_metrics ; RAX = some, RDX = full
+    test rax, rax
+    jz .oom_psi_fail_cg_some_zero
+    test rdx, rdx
+    jnz .oom_psi_fail_cg_full_nonzero
+
+    ; Save current SOME total
+    mov r12, rax
+
+    ; 5. Stall Thread B (now both active threads in cgroup are stalled -> FULL pressure)
+    mov rdi, r14
+    mov rsi, 1                      ; stalled
+    call virt_psi_update_thread_state
+
+    ; Spin
+    mov rcx, 100000
+.spin_cg_full:
+    dec rcx
+    jnz .spin_cg_full
+
+    ; Query and verify SOME increased, and FULL > 0
+    mov rdi, r15
+    call virt_psi_get_cgroup_metrics ; RAX = some, RDX = full
+    cmp rax, r12
+    jbe .oom_psi_fail_cg_some_noinc
+    test rdx, rdx
+    jz .oom_psi_fail_cg_full_zero
+
+    ; 6. Unstall both threads
+    mov rdi, r13
+    mov rsi, 0
+    call virt_psi_update_thread_state
+    mov rdi, r14
+    mov rsi, 0
+    call virt_psi_update_thread_state
+
+    ; 7. Clean up
+    ; Detach threads from cgroup
+    mov rdi, r13
+    mov rsi, 0
+    call virt_memcg_attach
+    mov rdi, r14
+    mov rsi, 0
+    call virt_memcg_attach
+
+    ; Deactivate Thread A and B
+    mov qword [r13 + thread_t.flags], 0
+    mov qword [r14 + thread_t.flags], 0
+
+    ; Destroy cgroup
+    mov rdi, r15
+    call virt_memcg_destroy
+
+    ; Reset thread count
+    mov qword [thread_count], 4
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
     ; Success!
-    mov rsi, msg_oom_retry_test_passed
+    mov rsi, msg_oom_psi_test_passed
     call uart_print_str
 
     jmp .mtrr_test_start
+
+.oom_psi_fail_init:
+    mov rsi, msg_oom_psi_fail_init_str
+    call uart_print_str
+    jmp .panic_oom_psi
+
+.oom_psi_fail_sys_some:
+    mov rsi, msg_oom_psi_fail_sys_some_str
+    call uart_print_str
+    jmp .panic_oom_psi
+
+.oom_psi_fail_sys_full:
+    mov rsi, msg_oom_psi_fail_sys_full_str
+    call uart_print_str
+    jmp .panic_oom_psi
+
+.oom_psi_fail_cgroup_create:
+    mov rsi, msg_oom_psi_fail_cgroup_create_str
+    call uart_print_str
+    jmp .panic_oom_psi
+
+.oom_psi_fail_register:
+    mov rsi, msg_oom_psi_fail_register_str
+    call uart_print_str
+    jmp .panic_oom_psi
+
+.oom_psi_fail_cg_some_zero:
+    mov rdi, r15
+    call virt_memcg_destroy
+    mov rsi, msg_oom_psi_fail_cg_some_zero_str
+    call uart_print_str
+    jmp .panic_oom_psi
+
+.oom_psi_fail_cg_full_nonzero:
+    mov rdi, r15
+    call virt_memcg_destroy
+    mov rsi, msg_oom_psi_fail_cg_full_nonzero_str
+    call uart_print_str
+    jmp .panic_oom_psi
+
+.oom_psi_fail_cg_some_noinc:
+    mov rdi, r15
+    call virt_memcg_destroy
+    mov rsi, msg_oom_psi_fail_cg_some_noinc_str
+    call uart_print_str
+    jmp .panic_oom_psi
+
+.oom_psi_fail_cg_full_zero:
+    mov rdi, r15
+    call virt_memcg_destroy
+    mov rsi, msg_oom_psi_fail_cg_full_zero_str
+    call uart_print_str
+    jmp .panic_oom_psi
+
+.panic_oom_psi:
+    mov qword [thread_count], 4
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .oom_retry_fail_register:
     mov rsi, msg_oom_retry_fail_register_str
@@ -11854,6 +12088,19 @@ msg_oom_retry_test_passed:                db "VMM Allocation Retry with Reclaim 
 msg_oom_retry_fail_register_str:          db "Failure: Could not register Thread V for allocation retry test.", 0x0D, 0x0A, 0
 msg_oom_retry_fail_alloc_str:             db "Failure: VMA allocation failed despite mock reclaim resolving pressure.", 0x0D, 0x0A, 0
 msg_oom_retry_fail_killed_str:            db "Failure: Candidate Thread V was prematurely killed during retry sweeps.", 0x0D, 0x0A, 0
+
+; PSI Test messages
+msg_oom_psi_test_start:                 db "Running VMM Pressure Stall Information (PSI) Test...", 0x0D, 0x0A, 0
+msg_oom_psi_test_passed:                db "VMM Pressure Stall Information (PSI) Test PASSED!", 0x0D, 0x0A, 0
+msg_oom_psi_fail_init_str:              db "Failure: Could not retrieve current thread for PSI test.", 0x0D, 0x0A, 0
+msg_oom_psi_fail_sys_some_str:          db "Failure: System-wide PSI some_total did not increase.", 0x0D, 0x0A, 0
+msg_oom_psi_fail_sys_full_str:          db "Failure: System-wide PSI full_total did not increase.", 0x0D, 0x0A, 0
+msg_oom_psi_fail_cgroup_create_str:     db "Failure: Could not create memory cgroup for PSI test.", 0x0D, 0x0A, 0
+msg_oom_psi_fail_register_str:          db "Failure: Could not register threads for PSI test.", 0x0D, 0x0A, 0
+msg_oom_psi_fail_cg_some_zero_str:      db "Failure: Cgroup PSI some_total was zero under memory pressure.", 0x0D, 0x0A, 0
+msg_oom_psi_fail_cg_full_nonzero_str:   db "Failure: Cgroup PSI full_total was non-zero when only some threads stalled.", 0x0D, 0x0A, 0
+msg_oom_psi_fail_cg_some_noinc_str:     db "Failure: Cgroup PSI some_total did not increase when all threads stalled.", 0x0D, 0x0A, 0
+msg_oom_psi_fail_cg_full_zero_str:      db "Failure: Cgroup PSI full_total was zero when all threads stalled.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
