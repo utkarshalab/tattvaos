@@ -27,6 +27,11 @@ struc mem_cgroup_t
     .hard_limit     resq 1      ; Hard limit (in pages)
     .soft_limit     resq 1      ; Soft limit (in pages)
     .usage          resq 1      ; Current usage (in pages)
+    .psi_some_total         resq 1      ; Cumulative some pressure (cycles)
+    .psi_full_total         resq 1      ; Cumulative full pressure (cycles)
+    .psi_last_update_tsc    resq 1      ; TSC of last cgroup PSI update
+    .psi_stalled_count      resq 1      ; Count of stalled active threads in cgroup
+    .psi_active_count       resq 1      ; Count of active threads in cgroup
 endstruc
 
 VMA_FILE        equ (1 << 8)    ; Bind storage file directly to VMA
@@ -46,6 +51,7 @@ section .text
 global vma_init
 vma_init:
     mov qword [vma_list_head], 0
+    call virt_psi_init
     ret
 
 ; -----------------------------------------------------------------------------
@@ -136,6 +142,14 @@ vma_create:
     jbe .check_hard_limit
 
     ; Soft limit exceeded! Trigger reclaim pressure.
+    ; Mark thread as stalled
+    mov rdi, [rsp + 0]
+    test rdi, rdi
+    jz .no_soft_stall
+    mov rsi, 1                      ; stalled
+    call virt_psi_update_thread_state
+.no_soft_stall:
+
     push rdi
     push rsi
     push rdx
@@ -164,6 +178,14 @@ vma_create:
     jbe .check_global_overcommit    ; if <= hard_limit, we are good!
 
     ; Hard limit exceeded! Try reclaiming first before OOM killing.
+    ; Mark thread as stalled
+    mov rdi, [rsp + 0]
+    test rdi, rdi
+    jz .no_hard_stall
+    mov rsi, 1                      ; stalled
+    call virt_psi_update_thread_state
+.no_hard_stall:
+
     mov rax, [rsp + 24]             ; RAX = cgroup reclaim retry counter
     cmp rax, 3                      ; ALLOC_RETRY_LIMIT = 3
     jae .cgroup_oom_kill
@@ -222,6 +244,14 @@ vma_create:
     jnz .alloc_vma
 
     ; Overcommit check failed! Try reclaiming first.
+    ; Mark thread as stalled
+    mov rdi, [rsp + 0]
+    test rdi, rdi
+    jz .no_global_stall
+    mov rsi, 1                      ; stalled
+    call virt_psi_update_thread_state
+.no_global_stall:
+
     mov rax, [rsp + 16]             ; RAX = global reclaim retry counter
     cmp rax, 3
     jae .global_oom_kill
@@ -306,6 +336,13 @@ vma_create:
     add [rsi + mem_cgroup_t.usage], rcx
     
 .cgroup_charge_done:
+    ; Mark thread as unstalled
+    mov rdi, [rsp + 0]
+    test rdi, rdi
+    jz .cgroup_unstall_done
+    mov rsi, 0                      ; unstalled
+    call virt_psi_update_thread_state
+.cgroup_unstall_done:
     ; Deallocate stack frame
     add rsp, 32
 
@@ -357,6 +394,13 @@ vma_create:
     ret
 
 .error_oom_cleanup:
+    ; Mark thread as unstalled
+    mov rdi, [rsp + 0]
+    test rdi, rdi
+    jz .error_unstall_done
+    mov rsi, 0                      ; unstalled
+    call virt_psi_update_thread_state
+.error_unstall_done:
     add rsp, 32
     jmp .error_oom
 
@@ -904,6 +948,23 @@ virt_oom_kill_process:
     mov rsi, msg_oom_kill_suffix
     call uart_print_str
     
+    ; --- PSI INTEGRATION ON DEACTIVATION ---
+    ; Mark thread as unstalled first (updates stalled count)
+    mov rdi, rbx
+    mov rsi, 0                      ; unstalled
+    call virt_psi_update_thread_state
+    
+    ; Decrement system active count
+    dec qword [sys_psi_active_count]
+    
+    ; Decrement cgroup active count if it belongs to a cgroup
+    mov rsi, [rbx + thread_t.cgroup_ptr]
+    test rsi, rsi
+    jz .cgroup_deact_done
+    dec qword [rsi + mem_cgroup_t.psi_active_count]
+.cgroup_deact_done:
+    ; --------------------------------------
+
     ; 2. Deactivate the thread
     mov qword [rbx + thread_t.flags], 0
     
@@ -987,6 +1048,20 @@ virt_memcg_create:
     mov [rax + mem_cgroup_t.soft_limit], r13
     mov qword [rax + mem_cgroup_t.usage], 0
 
+    ; Initialize cgroup PSI variables
+    mov qword [rax + mem_cgroup_t.psi_some_total], 0
+    mov qword [rax + mem_cgroup_t.psi_full_total], 0
+    mov qword [rax + mem_cgroup_t.psi_stalled_count], 0
+    mov qword [rax + mem_cgroup_t.psi_active_count], 0
+
+    push rax
+    rdtsc
+    shl rdx, 32
+    or rax, rdx
+    mov rcx, rax
+    pop rax
+    mov [rax + mem_cgroup_t.psi_last_update_tsc], rcx
+
 .exit:
     pop r13
     pop r12
@@ -1019,7 +1094,46 @@ global virt_memcg_attach
 virt_memcg_attach:
     test rdi, rdi
     jz .done
-    mov [rdi + thread_t.cgroup_ptr], rsi
+    
+    push rbx
+    push r12
+    mov rbx, rdi                    ; RBX = thread_ptr
+    mov r12, rsi                    ; R12 = new_cgroup_ptr
+    
+    ; Check if thread is active
+    mov rax, [rbx + thread_t.flags]
+    test rax, 1
+    jz .set_cgroup                  ; if thread is inactive, just change pointer
+    
+    ; Thread is active! If it had an old cgroup, decrement active count there
+    mov rcx, [rbx + thread_t.cgroup_ptr]
+    test rcx, rcx
+    jz .add_new_active
+    
+    ; Decrement old cgroup active_count
+    dec qword [rcx + mem_cgroup_t.psi_active_count]
+    
+    ; If old cgroup had this thread stalled, decrement its stalled count too
+    test rax, 2                     ; bit 1 = stalled
+    jz .add_new_active
+    dec qword [rcx + mem_cgroup_t.psi_stalled_count]
+
+.add_new_active:
+    test r12, r12
+    jz .set_cgroup
+    
+    ; Increment new cgroup active_count
+    inc qword [r12 + mem_cgroup_t.psi_active_count]
+    
+    ; If thread is currently stalled, increment new cgroup stalled count too
+    test rax, 2
+    jz .set_cgroup
+    inc qword [r12 + mem_cgroup_t.psi_stalled_count]
+
+.set_cgroup:
+    mov [rbx + thread_t.cgroup_ptr], r12
+    pop r12
+    pop rbx
 .done:
     ret
 
@@ -1104,6 +1218,299 @@ virt_oom_select_victim_in_cgroup:
     pop rbx
     ret
 
+; -----------------------------------------------------------------------------
+; virt_psi_init — initializes system-wide PSI
+; -----------------------------------------------------------------------------
+global virt_psi_init
+virt_psi_init:
+    push rax
+    push rdx
+    rdtsc
+    shl rdx, 32
+    or rax, rdx
+    mov [sys_psi_last_update_tsc], rax
+    mov qword [sys_psi_some_total], 0
+    mov qword [sys_psi_full_total], 0
+    mov qword [sys_psi_stalled_count], 0
+    
+    ; Count existing active threads
+    mov rax, [thread_count]
+    mov [sys_psi_active_count], rax
+    
+    pop rdx
+    pop rax
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_psi_update_thread_state — updates PSI counters when a thread's stall state changes
+; Input:
+;   RDI = pointer to thread_t
+;   RSI = new stalled state (0 = not stalled, 1 = stalled)
+; Output: none
+; Clobbers: RAX, RCX, RDX, R8, R9, R10, R11
+; -----------------------------------------------------------------------------
+global virt_psi_update_thread_state
+virt_psi_update_thread_state:
+    push rbx
+    push r12
+    push r13
+    
+    mov rbx, rdi                    ; RBX = thread_ptr
+    mov r12, rsi                    ; R12 = new_stalled_state (0 or 1)
+    
+    ; Get current TSC
+    rdtsc                           ; EDX:EAX = TSC
+    shl rdx, 32
+    or rax, rdx                     ; RAX = current_tsc
+    mov r13, rax                    ; R13 = current_tsc
+    
+    ; --- SYSTEM-WIDE UPDATE ---
+    mov rcx, [sys_psi_last_update_tsc]
+    test rcx, rcx
+    jz .sys_init_tsc
+    
+    mov r8, r13
+    sub r8, rcx                     ; R8 = delta = current_tsc - last_update_tsc
+    jbe .sys_update_counters        ; if delta <= 0, skip accumulator
+    
+    ; Check if stalled_count > 0
+    mov r9, [sys_psi_stalled_count]
+    test r9, r9
+    jz .sys_update_counters
+    
+    ; Add delta to sys_psi_some_total
+    add [sys_psi_some_total], r8
+    
+    ; Check if stalled_count == active_count
+    mov r10, [sys_psi_active_count]
+    cmp r9, r10
+    jne .sys_update_counters
+    
+    ; Add delta to sys_psi_full_total
+    add [sys_psi_full_total], r8
+    
+    jmp .sys_update_counters
+
+.sys_init_tsc:
+    mov [sys_psi_last_update_tsc], r13
+
+.sys_update_counters:
+    mov [sys_psi_last_update_tsc], r13
+    
+    ; Get current stall state of thread (flags bit 1)
+    mov rax, [rbx + thread_t.flags]
+    test rax, 2                     ; bit 1 = stalled
+    setnz al
+    movzx eax, al
+    
+    cmp eax, r12d
+    je .cgroup_update
+    
+    test r12, r12
+    jz .sys_unstalled
+    inc qword [sys_psi_stalled_count]
+    jmp .cgroup_update
+.sys_unstalled:
+    dec qword [sys_psi_stalled_count]
+    
+    ; --- CGROUP UPDATE ---
+.cgroup_update:
+    mov rsi, [rbx + thread_t.cgroup_ptr]
+    test rsi, rsi
+    jz .commit_state
+    
+    mov rcx, [rsi + mem_cgroup_t.psi_last_update_tsc]
+    test rcx, rcx
+    jz .cg_init_tsc
+    
+    mov r8, r13
+    sub r8, rcx
+    jbe .cg_update_counters
+    
+    mov r9, [rsi + mem_cgroup_t.psi_stalled_count]
+    test r9, r9
+    jz .cg_update_counters
+    
+    add [rsi + mem_cgroup_t.psi_some_total], r8
+    
+    mov r10, [rsi + mem_cgroup_t.psi_active_count]
+    cmp r9, r10
+    jne .cg_update_counters
+    add [rsi + mem_cgroup_t.psi_full_total], r8
+    jmp .cg_update_counters
+
+.cg_init_tsc:
+    mov [rsi + mem_cgroup_t.psi_last_update_tsc], r13
+
+.cg_update_counters:
+    mov [rsi + mem_cgroup_t.psi_last_update_tsc], r13
+    
+    mov rax, [rbx + thread_t.flags]
+    test rax, 2
+    setnz al
+    movzx eax, al
+    
+    cmp eax, r12d
+    je .commit_state
+    
+    test r12, r12
+    jz .cg_unstalled
+    inc qword [rsi + mem_cgroup_t.psi_stalled_count]
+    jmp .commit_state
+.cg_unstalled:
+    dec qword [rsi + mem_cgroup_t.psi_stalled_count]
+
+.commit_state:
+    test r12, r12
+    jz .clear_stalled_bit
+    or qword [rbx + thread_t.flags], 2
+    jmp .exit
+.clear_stalled_bit:
+    and qword [rbx + thread_t.flags], ~2
+
+.exit:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_psi_sys_accumulate — internal helper to accumulate system PSI
+; -----------------------------------------------------------------------------
+virt_psi_sys_accumulate:
+    push rax
+    push rdx
+    push rcx
+    push r8
+    push r9
+    push r10
+    
+    rdtsc
+    shl rdx, 32
+    or rax, rdx
+    
+    mov rcx, [sys_psi_last_update_tsc]
+    test rcx, rcx
+    jz .done
+    
+    mov r8, rax
+    sub r8, rcx
+    jbe .done
+    
+    mov [sys_psi_last_update_tsc], rax
+    
+    mov r9, [sys_psi_stalled_count]
+    test r9, r9
+    jz .done
+    
+    add [sys_psi_some_total], r8
+    
+    mov r10, [sys_psi_active_count]
+    cmp r9, r10
+    jne .done
+    add [sys_psi_full_total], r8
+.done:
+    pop r10
+    pop r9
+    pop r8
+    pop rcx
+    pop rdx
+    pop rax
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_psi_cgroup_accumulate — internal helper to accumulate cgroup PSI
+; -----------------------------------------------------------------------------
+virt_psi_cgroup_accumulate:
+    ; Input: RBX = pointer to mem_cgroup_t
+    push rax
+    push rdx
+    push rcx
+    push r8
+    push r9
+    push r10
+    
+    rdtsc
+    shl rdx, 32
+    or rax, rdx
+    
+    mov rcx, [rbx + mem_cgroup_t.psi_last_update_tsc]
+    test rcx, rcx
+    jz .done
+    
+    mov r8, rax
+    sub r8, rcx
+    jbe .done
+    
+    mov [rbx + mem_cgroup_t.psi_last_update_tsc], rax
+    
+    mov r9, [rbx + mem_cgroup_t.psi_stalled_count]
+    test r9, r9
+    jz .done
+    
+    add [rbx + mem_cgroup_t.psi_some_total], r8
+    
+    mov r10, [rbx + mem_cgroup_t.psi_active_count]
+    cmp r9, r10
+    jne .done
+    add [rbx + mem_cgroup_t.psi_full_total], r8
+.done:
+    pop r10
+    pop r9
+    pop r8
+    pop rcx
+    pop rdx
+    pop rax
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_psi_get_sys_metrics — retrieves system-wide PSI totals
+; Output:
+;   RAX = some_total (cycles)
+;   RDX = full_total (cycles)
+; Clobbers: none
+; -----------------------------------------------------------------------------
+global virt_psi_get_sys_metrics
+virt_psi_get_sys_metrics:
+    push rbx
+    push rdi
+    push rsi
+    call virt_psi_sys_accumulate
+    mov rax, [sys_psi_some_total]
+    mov rdx, [sys_psi_full_total]
+    pop rsi
+    pop rdi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_psi_get_cgroup_metrics — retrieves cgroup PSI totals
+; Input: RDI = pointer to mem_cgroup_t
+; Output:
+;   RAX = some_total (cycles)
+;   RDX = full_total (cycles)
+; Clobbers: none
+; -----------------------------------------------------------------------------
+global virt_psi_get_cgroup_metrics
+virt_psi_get_cgroup_metrics:
+    test rdi, rdi
+    jz .err
+    push rbx
+    push rdi
+    push rsi
+    mov rbx, rdi
+    call virt_psi_cgroup_accumulate
+    mov rax, [rbx + mem_cgroup_t.psi_some_total]
+    mov rdx, [rbx + mem_cgroup_t.psi_full_total]
+    pop rsi
+    pop rdi
+    pop rbx
+    ret
+.err:
+    xor rax, rax
+    xor rdx, rdx
+    ret
+
 section .data
 
 align 8
@@ -1153,5 +1560,25 @@ decoy_page_phys: dq 0
 align 8
 global virt_alloc_retry_mock
 virt_alloc_retry_mock: dq 0
+
+align 8
+global sys_psi_some_total
+sys_psi_some_total: dq 0
+
+align 8
+global sys_psi_full_total
+sys_psi_full_total: dq 0
+
+align 8
+global sys_psi_last_update_tsc
+sys_psi_last_update_tsc: dq 0
+
+align 8
+global sys_psi_stalled_count
+sys_psi_stalled_count: dq 0
+
+align 8
+global sys_psi_active_count
+sys_psi_active_count: dq 0
 
 %endif ; LIB_MEM_VIRT_VIRT_ASM
