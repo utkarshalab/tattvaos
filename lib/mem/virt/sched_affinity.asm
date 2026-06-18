@@ -27,7 +27,7 @@ struc thread_t
     .cpu_affinity_mask  resq 1      ; Bitmask of allowed CPUs
     .preferred_node     resd 1      ; Target NUMA node ID
     .current_cpu        resd 1      ; Current execution CPU ID
-    .flags              resq 1      ; Thread flags (bit 0 = Active)
+    .flags              resq 1      ; Thread flags (bit 0 = Active, bit 1 = Stalled)
     .tsx_active         resq 1      ; 1 if inside TSX transaction, 0 otherwise
     .tsx_xbegin_rip     resq 1      ; RIP of XBEGIN checkpoint
     .tsx_fallback_rip   resq 1      ; RIP of fallback path
@@ -149,6 +149,8 @@ sched_register_thread:
     mov qword [rbx + thread_t.cgroup_ptr], 0
 
     inc qword [thread_count]
+    extern sys_psi_active_count
+    inc qword [sys_psi_active_count]
     mov rax, rcx
     jmp .exit
 
