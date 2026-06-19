@@ -301,6 +301,9 @@ numa_init_local_bitmaps:
     mov qword [r12 + numa_node_t.total_pages], 0
     mov qword [r12 + numa_node_t.free_pages], 0
     mov qword [r12 + numa_node_t.reserved_pages], 0
+    mov qword [r12 + numa_node_t.pages_min], 128
+    mov qword [r12 + numa_node_t.pages_low], 256
+    mov qword [r12 + numa_node_t.pages_high], 512
 
     ; Scan numa_ranges to find boundaries
     xor rbx, rbx                    ; rbx = range index = 0
@@ -528,6 +531,47 @@ numa_init_local_bitmaps:
 .halt_loop:
     hlt
     jmp .halt_loop
+
+; -----------------------------------------------------------------------------
+; numa_set_watermarks — configures watermarks for a specific node
+; Input:
+;   RDI = node_id
+;   RSI = pages_min
+;   RDX = pages_low
+;   RCX = pages_high
+; Output:
+;   RAX = 1 (success), 0 (invalid node_id or inactive node)
+; -----------------------------------------------------------------------------
+global numa_set_watermarks
+numa_set_watermarks:
+    push rbx
+    
+    ; Check if node_id < numa_node_count
+    mov rax, [numa_node_count]
+    cmp rdi, rax
+    jae .err
+    
+    ; Get node descriptor
+    imul rdi, numa_node_t_size
+    lea rbx, [numa_nodes + rdi]
+    
+    ; Check if active
+    mov eax, [rbx + numa_node_t.flags]
+    test al, 1
+    jz .err
+    
+    ; Set watermarks
+    mov [rbx + numa_node_t.pages_min], rsi
+    mov [rbx + numa_node_t.pages_low], rdx
+    mov [rbx + numa_node_t.pages_high], rcx
+    
+    mov rax, 1
+    pop rbx
+    ret
+.err:
+    xor rax, rax
+    pop rbx
+    ret
 
 ; -----------------------------------------------------------------------------
 ; Data Section — NUMA ranges array and count
