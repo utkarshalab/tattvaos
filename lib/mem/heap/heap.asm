@@ -29,6 +29,9 @@ extern leak_tracker_init
 extern leak_track_alloc
 extern leak_track_free
 extern leak_track_update_size
+extern sys_kmem_cgroup_charge
+extern sys_kmem_cgroup_uncharge
+
 
 ; -----------------------------------------------------------------------------
 ; heap_init — initializes the early heap using the bump allocator
@@ -120,6 +123,9 @@ heap_alloc:
     mov rdx, rax
     add rdx, rbx                    ; RDX = offsetted_ptr
     mov [rdx - 8], rbx              ; store gap_size
+    
+    mov rsi, [rsp + 0]              ; RSI = original requested size (saved RDI on stack)
+    mov [rdx - 16], rsi             ; store original requested size inside gap
 
     ; Prepare RAX as returned pointer (offsetted_ptr)
     mov rax, rdx
@@ -130,6 +136,12 @@ heap_alloc:
     mov rdx, [rsp + 24]             ; RDX = return address of caller (saved rax + rdi + rbx + call = 24 bytes)
     mov rdi, rax                    ; RDI = offsetted_ptr
     call leak_track_alloc
+    pop rax
+
+    ; 5. Charge kernel memory to cgroup
+    push rax
+    mov rdi, [rax - 16]             ; original size
+    call sys_kmem_cgroup_charge
     pop rax
 
 .done:
@@ -149,18 +161,24 @@ heap_free:
     jz .done
 
     push rbx
-    push rdi                        ; preserve offsetted_ptr for leak_track_free
+    push rdi                        ; preserve offsetted_ptr
 
-    ; 1. Untrack the offsetted pointer
+    ; 1. Uncharge kernel memory from cgroup
+    mov rdi, [rdi - 16]             ; RDI = original requested size
+    call sys_kmem_cgroup_uncharge
+
+    mov rdi, [rsp + 0]              ; restore offsetted_ptr
+
+    ; 2. Untrack the offsetted pointer
     call leak_track_free
     pop rdi                         ; RDI = offsetted_ptr
 
-    ; 2. Decode the original pointer and gap size
+    ; 3. Decode the original pointer and gap size
     ; original_ptr = offsetted_ptr - [offsetted_ptr - 8]
     mov rbx, [rdi - 8]              ; RBX = gap_size
     sub rdi, rbx                    ; RDI = original_ptr
 
-    ; 3. Call active allocator
+    ; 4. Call active allocator
     cmp byte [heap_active_allocator], 0
     jne .free_list
     call early_bump_free
