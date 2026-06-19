@@ -92,6 +92,7 @@
 %include "lib/mem/virt/ipc.asm"
 %include "lib/mem/virt/balloon.asm"
 %include "lib/mem/virt/page_cache.asm"
+%include "lib/mem/virt/readahead.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
