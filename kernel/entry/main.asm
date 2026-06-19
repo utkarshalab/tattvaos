@@ -109,6 +109,10 @@ extern virt_psi_get_sys_metrics
 extern virt_psi_get_cgroup_metrics
 extern sys_psi_active_count
 extern numa_set_watermarks
+extern sys_proactive_reclaim_headroom
+extern virt_proactive_reclaim
+extern virt_proactive_reclaim_node
+extern numa_set_proactive_headroom
 extern kswapd_check_and_reclaim_node
 extern page_replace_clock_evict_node
 extern kswapd_min_watermark
@@ -4180,7 +4184,7 @@ kernel_main:
     mov rsi, msg_watermark_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .proactive_reclaim_test_start
 
 .watermark_fail_config:
     mov rsi, msg_watermark_fail_config_str
@@ -4238,6 +4242,293 @@ kernel_main:
     jmp .panic_watermark
 
 .panic_watermark:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.proactive_reclaim_test_start:
+    mov rsi, msg_proactive_reclaim_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; Register mock swap device
+    lea rdi, [mock_swap_dev]
+    call swap_register_device
+
+    ; Allocate physical page 1
+    call phys_alloc_page
+    test rax, rax
+    jz .proactive_fail_alloc_setup
+    mov r13, rax                    ; R13 = physical page 1 address
+
+    ; Map page 1 at 0x20000000
+    mov rdi, 0x20000000
+    mov rsi, r13
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .proactive_fail_map_setup
+
+    ; Move page 1 to inactive list & clear Accessed bit
+    mov rdi, r13
+    call page_list_move_to_inactive
+
+    mov rdi, 0x20000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .proactive_fail_walk_setup
+    and qword [rax], ~0x20          ; clear Accessed
+
+    ; Allocate physical page 2
+    call phys_alloc_page
+    test rax, rax
+    jz .proactive_fail_alloc_setup
+    mov r14, rax                    ; R14 = physical page 2 address
+
+    ; Map page 2 at 0x30000000
+    mov rdi, 0x30000000
+    mov rsi, r14
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .proactive_fail_map_setup
+
+    ; Move page 2 to inactive list & clear Accessed bit
+    mov rdi, r14
+    call page_list_move_to_inactive
+
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .proactive_fail_walk_setup
+    and qword [rax], ~0x20          ; clear Accessed
+
+    ; Test virt_proactive_reclaim(1)
+    mov rdi, 1                      ; target_pages = 1
+    call virt_proactive_reclaim
+    cmp rax, 1                      ; should return actual page count reclaimed (1)
+    jne .proactive_fail_direct_reclaim
+
+    ; Verify that page 1 (0x20000000) was successfully evicted!
+    mov rdi, 0x20000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .proactive_fail_pte
+    mov rcx, [rax]
+    test rcx, 1                     ; present?
+    jnz .proactive_fail_present     ; must NOT be present
+    test rcx, 0x400                 ; swapped?
+    jz .proactive_fail_swapped
+
+    ; Test virt_proactive_reclaim_node(0, 1)
+    mov rdi, 0                      ; node_id = 0
+    mov rsi, 1                      ; target_pages = 1
+    call virt_proactive_reclaim_node
+    cmp rax, 1                      ; should return 1 page reclaimed
+    jne .proactive_fail_direct_reclaim_node
+
+    ; Verify that page 2 (0x30000000) was successfully evicted!
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .proactive_fail_pte
+    mov rcx, [rax]
+    test rcx, 1                     ; present?
+    jnz .proactive_fail_present     ; must NOT be present
+    test rcx, 0x400                 ; swapped?
+    jz .proactive_fail_swapped
+
+    ; Clean up virt mappings for first 2 test pages
+    mov rdi, 0x20000000
+    call virt_unmap
+    mov rdi, 0x30000000
+    call virt_unmap
+
+    ; Test allocator check for proactive reclaim
+    ; Allocate a physical page for user mapping
+    call phys_alloc_page
+    test rax, rax
+    jz .proactive_fail_alloc_setup
+    mov r13, rax                    ; R13 = physical page address
+
+    ; Map it at 0x40000000
+    mov rdi, 0x40000000
+    mov rsi, r13
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .proactive_fail_map_setup
+
+    ; Move to inactive list & clear Accessed bit
+    mov rdi, r13
+    call page_list_move_to_inactive
+    
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .proactive_fail_walk_setup
+    and qword [rax], ~0x20          ; clear Accessed
+
+    ; Configure watermarks: Node 0 watermarks: min = 5, low = 10, high = 20
+    mov rdi, 0                      ; Node 0
+    mov rsi, 5
+    mov rdx, 10
+    mov rcx, 20
+    call numa_set_watermarks
+    cmp rax, 1
+    jne .proactive_fail_config
+
+    ; Set Node 0 proactive headroom to 15 pages
+    mov rdi, 0                      ; Node 0
+    mov rsi, 15                     ; headroom = 15 pages
+    call numa_set_proactive_headroom
+    cmp rax, 1
+    jne .proactive_fail_config
+
+    ; Get Node 0 descriptor
+    mov rax, 0
+    imul rax, numa_node_t_size
+    lea r12, [numa_nodes + rax]     ; R12 = Node 0 descriptor
+
+    ; Set free_pages to 14 (below proactive headroom 15, above pages_low 10)
+    mov qword [r12 + numa_node_t.free_pages], 14
+
+    ; Trigger page allocation (requires 1 page). Drops free pages to 13,
+    ; breaching proactive headroom (13 < 15), triggers background proactive reclaim,
+    ; which evicts page at 0x40000000.
+    mov rdi, 0                      ; Node 0
+    mov rsi, 1                      ; 1 page
+    call phys_alloc_pages_node
+    test rax, rax
+    jz .proactive_fail_kswapd_alloc
+    mov r15, rax                    ; R15 = allocated page
+
+    ; Verify that the inactive page at 0x40000000 was successfully evicted!
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .proactive_fail_pte
+    mov rcx, [rax]
+    test rcx, 1                     ; present?
+    jnz .proactive_fail_present     ; must NOT be present
+    test rcx, 0x400                 ; swapped?
+    jz .proactive_fail_swapped
+
+    ; Free the page allocated for proactive trigger
+    mov rdi, r15
+    call phys_free_page
+
+    ; Clean up virt mapping
+    mov rdi, 0x40000000
+    call virt_unmap
+
+    ; Reset Node 0 watermarks and proactive headroom back to default
+    mov rdi, 0
+    mov rsi, 128
+    mov rdx, 256
+    mov rcx, 512
+    call numa_set_watermarks
+
+    mov rdi, 0
+    mov rsi, 0                      ; clear proactive headroom
+    call numa_set_proactive_headroom
+
+    ; Restore actual free page count from global bitmap recount
+    mov rsi, [r12 + numa_node_t.bitmap_addr]
+    mov rax, [r12 + numa_node_t.end_page]
+    sub rax, [r12 + numa_node_t.start_page]
+    mov rcx, rax
+    xor r8, r8
+    xor r9, r9
+.proactive_recount:
+    cmp r9, rcx
+    jae .proactive_recount_done
+    mov rax, r9
+    shr rax, 3
+    mov rbx, r9
+    and rbx, 7
+    bt [rsi + rax], rbx
+    jc .proactive_recount_next
+    inc r8
+.proactive_recount_next:
+    inc r9
+    jmp .proactive_recount
+.proactive_recount_done:
+    mov [r12 + numa_node_t.free_pages], r8
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_proactive_reclaim_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.proactive_fail_config:
+    mov rsi, msg_proactive_fail_config_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.proactive_fail_alloc_setup:
+    mov rsi, msg_proactive_fail_alloc_setup_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.proactive_fail_map_setup:
+    mov rsi, msg_proactive_fail_map_setup_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.proactive_fail_walk_setup:
+    mov rsi, msg_proactive_fail_walk_setup_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.proactive_fail_direct_reclaim:
+    mov rsi, msg_proactive_fail_direct_reclaim_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.proactive_fail_direct_reclaim_node:
+    mov rsi, msg_proactive_fail_direct_reclaim_node_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.proactive_fail_kswapd_alloc:
+    mov rsi, msg_proactive_fail_kswapd_alloc_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.proactive_fail_pte:
+    mov rsi, msg_proactive_fail_pte_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.proactive_fail_present:
+    mov rsi, msg_proactive_fail_present_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.proactive_fail_swapped:
+    mov rsi, msg_proactive_fail_swapped_str
+    call uart_print_str
+    jmp .panic_proactive
+
+.panic_proactive:
     pop r15
     pop r14
     pop r13
@@ -12386,6 +12677,20 @@ msg_watermark_fail_swapped_str:      db "Failure: Candidate page not swapped (PA
 msg_watermark_fail_direct_alloc_str: db "Failure: Allocation from Node 0 failed under direct reclaim pressure.", 0x0D, 0x0A, 0
 msg_watermark_fail_reject_str:       db "Failure: Allocation succeeded when free pages dropped below pages_min and reclaim failed.", 0x0D, 0x0A, 0
  
+; Proactive Reclaim Test messages
+msg_proactive_reclaim_test_start:            db "Running VMM Proactive Reclaim Test...", 0x0D, 0x0A, 0
+msg_proactive_reclaim_test_passed:           db "VMM Proactive Reclaim Test PASSED!", 0x0D, 0x0A, 0
+msg_proactive_fail_config_str:       db "Failure: Could not configure NUMA Node 0 watermarks/headroom for proactive reclaim.", 0x0D, 0x0A, 0
+msg_proactive_fail_alloc_setup_str:  db "Failure: Could not allocate setup page frame for proactive reclaim.", 0x0D, 0x0A, 0
+msg_proactive_fail_map_setup_str:    db "Failure: Could not map test VMA for proactive reclaim.", 0x0D, 0x0A, 0
+msg_proactive_fail_walk_setup_str:   db "Failure: Walk table failed for test VMA address under proactive reclaim.", 0x0D, 0x0A, 0
+msg_proactive_fail_direct_reclaim_str: db "Failure: virt_proactive_reclaim returned unexpected page count.", 0x0D, 0x0A, 0
+msg_proactive_fail_direct_reclaim_node_str: db "Failure: virt_proactive_reclaim_node returned unexpected page count.", 0x0D, 0x0A, 0
+msg_proactive_fail_kswapd_alloc_str: db "Failure: Allocation failed under proactive reclaim test.", 0x0D, 0x0A, 0
+msg_proactive_fail_pte_str:          db "Failure: PTE missing for test address after proactive reclaim.", 0x0D, 0x0A, 0
+msg_proactive_fail_present_str:      db "Failure: Proactive reclaim candidate page not evicted (PTE is still marked present).", 0x0D, 0x0A, 0
+msg_proactive_fail_swapped_str:      db "Failure: Proactive reclaim candidate page not swapped (PAGE_SWAPPED bit is 0).", 0x0D, 0x0A, 0
+
 section .bss
 align 8
 smep_smap_test_buf:            resb 32
