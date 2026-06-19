@@ -14,6 +14,9 @@
 [BITS 64]
 
 extern kswapd_check_and_reclaim
+extern kswapd_check_and_reclaim_node
+extern kswapd_min_watermark
+extern kswapd_low_watermark
 extern numa_local_bitmaps_active
 extern numa_nodes
 extern numa_node_count
@@ -401,66 +404,8 @@ phys_alloc_page:
     ret
 
 .use_uma:
-    push rbx
-    push rcx
-    push rdx
-    push rsi
-    push rdi
-    push r8
-    push r9
-    push r10
-    push r11
-
-    ; Check watermarks and trigger page reclamation if needed
-    call kswapd_check_and_reclaim
-
-    ; Find 1 free page
     mov rdi, 1
-    call bitmap_find_free
-    cmp rax, -1
-    je .oom
-
-    ; Save the page index in RDI
-    mov rdi, rax
-
-    ; Set the bit to 1
-    call bitmap_set_bit
-
-    ; Decrement free_pages count
-    dec qword [phys_state + phys_state_t.free_pages]
-    ; Increment reserved_pages count
-    inc qword [phys_state + phys_state_t.reserved_pages]
-
-    ; Calculate physical address: page_index * 4096 (shl 12)
-    mov rax, rdi
-    shl rax, 12
-    jmp .done
-
-.oom:
-    xor rax, rax                    ; return 0 on OOM
-
-.done:
-    pop r11
-    pop r10
-    pop r9
-    pop r8
-    pop rdi
-    pop rsi
-    pop rdx
-    pop rcx
-    pop rbx
-    ret
-
-; -----------------------------------------------------------------------------
-; phys_free_page — frees a single 4KB physical page
-; Input:  RDI = physical address of the page to free
-; Output: none
-; Clobbers: none (preserves all registers)
-; -----------------------------------------------------------------------------
-global phys_free_page
-phys_free_page:
-    mov rsi, 1                      ; count = 1
-    jmp phys_free_pages             ; tail call
+    jmp phys_alloc_pages            ; tail call
 
 ; -----------------------------------------------------------------------------
 ; phys_alloc_pages — allocates N contiguous 4KB physical pages
@@ -492,10 +437,31 @@ phys_alloc_pages:
     push r10
     push r11
 
-    ; Check watermarks and trigger page reclamation if needed (preserve RDI)
+    ; Calculate remaining free pages
+    mov rax, [phys_state + phys_state_t.free_pages]
+    mov rbx, rdi                    ; RDI = requested count
+    cmp rax, rbx
+    jb .oom                         ; not enough pages
+    
+    sub rax, rbx                    ; RAX = free pages after allocation
+    cmp rax, [kswapd_low_watermark]
+    jae .skip_reclaim               ; healthy, skip reclaim check
+
+    ; Free pages would drop below pages_low. Wake kswapd / direct reclaim.
     push rdi
     call kswapd_check_and_reclaim
     pop rdi
+
+.skip_reclaim:
+    ; Re-check if we are below min watermark
+    mov rax, [phys_state + phys_state_t.free_pages]
+    cmp rax, rdi
+    jb .oom                         ; not enough free pages
+    
+    mov rbx, rax
+    sub rbx, rdi                    ; free pages after allocation
+    cmp rbx, [kswapd_min_watermark]
+    jb .oom                         ; below min, fail allocation!
 
     ; Save count in R8
     mov r8, rdi
@@ -595,6 +561,45 @@ phys_alloc_pages_node:
     test al, 1                      ; active?
     jz .fallback_init
 
+    ; Check node watermarks!
+    mov rax, [rbx + numa_node_t.free_pages]
+    cmp rax, r13
+    jb .fallback_init               ; not enough free pages
+
+    mov rcx, rax
+    sub rcx, r13                    ; remaining free pages after allocation
+    cmp rcx, [rbx + numa_node_t.pages_low]
+    jae .skip_node_reclaim
+
+    ; Free pages would drop below pages_low. Wake kswapd for this node!
+    mov rdi, rbx                    ; pointer to numa_node_t
+    mov rsi, 0                      ; background reclaim flag
+    call kswapd_check_and_reclaim_node
+
+.skip_node_reclaim:
+    mov rax, [rbx + numa_node_t.free_pages]
+    cmp rax, r13
+    jb .fallback_init
+    mov rcx, rax
+    sub rcx, r13
+    cmp rcx, [rbx + numa_node_t.pages_min]
+    jae .try_alloc_node             ; above min, proceed
+
+    ; Remaining pages below min. Run direct reclaim sweeps on this node.
+    mov rdi, rbx
+    mov rsi, 1                      ; direct reclaim flag
+    call kswapd_check_and_reclaim_node
+
+    ; Re-check if we are above min now
+    mov rax, [rbx + numa_node_t.free_pages]
+    cmp rax, r13
+    jb .fallback_init
+    mov rcx, rax
+    sub rcx, r13
+    cmp rcx, [rbx + numa_node_t.pages_min]
+    jb .fallback_init               ; still below min after reclaim, fail and fallback
+
+.try_alloc_node:
     ; Try allocating from the requested node
     mov rdi, rbx
     mov rsi, r13
@@ -607,14 +612,14 @@ phys_alloc_pages_node:
     jmp .perform_alloc
 
 .fallback_init:
-    ; Fallback initialization: set tried mask (bitmask)
+    ; Fallback initialization: set tried mask
     xor r15, r15
     cmp r12, 64
-    jae .fallback_loop              ; safe guard
+    jae .fallback_loop
     mov rax, 1
     mov rcx, r12
     shl rax, cl
-    mov r15, rax                    ; R15 = tried mask (bit for requested node set)
+    mov r15, rax                    ; R15 = tried mask
 
 .fallback_loop:
     ; Find untried active node with minimum distance
@@ -639,17 +644,17 @@ phys_alloc_pages_node:
     mov rcx, r9
     shl rax, cl
     test r15, rax
-    jnz .next_fallback_search       ; already tried
+    jnz .next_fallback_search
 
-    ; Get distance from r12 (requested node) to r9 (node J)
+    ; Get distance from r12 to r9
     mov rdi, r12
     mov rsi, r9
-    call numa_get_distance          ; RAX = distance
+    call numa_get_distance
     cmp rax, 255
-    je .next_fallback_search        ; unreachable node
+    je .next_fallback_search
 
     cmp rax, r8
-    jae .next_fallback_search       ; not closer
+    jae .next_fallback_search
 
     mov r8, rax                     ; new minimum distance
     mov rbp, r9                     ; new best node index
@@ -660,7 +665,7 @@ phys_alloc_pages_node:
 
 .fallback_search_done:
     cmp rbp, -1
-    je .oom                         ; no more candidate nodes found
+    je .oom
 
     ; Mark rbp as tried
     mov rax, 1
@@ -673,11 +678,46 @@ phys_alloc_pages_node:
     imul rax, numa_node_t_size
     lea rbx, [numa_nodes + rax]     ; RBX = candidate node_ptr
 
+    ; CHECK watermarks for candidate node
+    mov rax, [rbx + numa_node_t.free_pages]
+    cmp rax, r13
+    jb .fallback_loop
+    mov rcx, rax
+    sub rcx, r13
+    cmp rcx, [rbx + numa_node_t.pages_low]
+    jae .skip_candidate_reclaim
+
+    mov rdi, rbx
+    mov rsi, 0
+    call kswapd_check_and_reclaim_node
+
+.skip_candidate_reclaim:
+    mov rax, [rbx + numa_node_t.free_pages]
+    cmp rax, r13
+    jb .fallback_loop
+    mov rcx, rax
+    sub rcx, r13
+    cmp rcx, [rbx + numa_node_t.pages_min]
+    jae .try_alloc_candidate
+
+    mov rdi, rbx
+    mov rsi, 1
+    call kswapd_check_and_reclaim_node
+
+    mov rax, [rbx + numa_node_t.free_pages]
+    cmp rax, r13
+    jb .fallback_loop
+    mov rcx, rax
+    sub rcx, r13
+    cmp rcx, [rbx + numa_node_t.pages_min]
+    jb .fallback_loop               ; candidate still below min after direct reclaim
+
+.try_alloc_candidate:
     mov rdi, rbx
     mov rsi, r13
     call bitmap_find_free_local
     cmp rax, -1
-    je .fallback_loop               ; failed, try next closest node
+    je .fallback_loop               ; failed, try next node
 
     ; Allocation succeeded on candidate node rbp!
     mov rdx, rax                    ; RDX = relative start page index
@@ -699,30 +739,23 @@ phys_alloc_pages_node:
     mov rsi, msg_numa_fallback_suffix
     call uart_print_str
     pop rdx
-    jmp .perform_alloc
 
 .perform_alloc:
-    ; RBX = node_ptr
-    ; RDX = relative start page index
-    ; R13 = page_count
-    
-    ; Mark bits in the node's local bitmap
-    xor rcx, rcx                    ; RCX = index offset = 0
+    ; Mark bits in local bitmap
+    xor rcx, rcx
 .set_bits_loop:
     cmp rcx, r13
     jae .update_counters
 
     mov rsi, rdx
-    add rsi, rcx                    ; relative page to set
-
+    add rsi, rcx
     mov rdi, rbx
     call bitmap_set_bit_local
-
     inc rcx
     jmp .set_bits_loop
 
 .update_counters:
-    ; Update node-local counters
+    ; Update local counters
     sub [rbx + numa_node_t.free_pages], r13
     add [rbx + numa_node_t.reserved_pages], r13
 
@@ -730,14 +763,14 @@ phys_alloc_pages_node:
     sub [phys_state + phys_state_t.free_pages], r13
     add [phys_state + phys_state_t.reserved_pages], r13
 
-    ; Calculate physical address: (node.start_page + relative_page) * 4096
+    ; Calculate physical address
     mov rax, [rbx + numa_node_t.start_page]
     add rax, rdx
-    shl rax, 12                     ; physical address
+    shl rax, 12
     jmp .exit
 
 .oom:
-    xor rax, rax                    ; return 0
+    xor rax, rax
 
 .exit:
     pop r15
