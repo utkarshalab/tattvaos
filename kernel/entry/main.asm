@@ -113,6 +113,9 @@ extern sys_proactive_reclaim_headroom
 extern virt_proactive_reclaim
 extern virt_proactive_reclaim_node
 extern numa_set_proactive_headroom
+extern sys_balloon_target_pages
+extern sys_balloon_current_pages
+extern virt_balloon_set_target
 extern kswapd_check_and_reclaim_node
 extern page_replace_clock_evict_node
 extern kswapd_min_watermark
@@ -4476,7 +4479,7 @@ kernel_main:
     mov rsi, msg_proactive_reclaim_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .balloon_test_start
 
 .proactive_fail_config:
     mov rsi, msg_proactive_fail_config_str
@@ -4533,6 +4536,86 @@ kernel_main:
     pop r14
     pop r13
     pop r12
+    jmp .panic
+
+.balloon_test_start:
+    mov rsi, msg_balloon_test_start
+    call uart_print_str
+
+    ; Assert initial telemetry is zero
+    mov rax, [sys_balloon_target_pages]
+    test rax, rax
+    jnz .balloon_fail_init
+
+    mov rax, [sys_balloon_current_pages]
+    test rax, rax
+    jnz .balloon_fail_init
+
+    ; Set target to 4 pages (forces inflation of 4 pages)
+    mov rdi, 4
+    call virt_balloon_set_target
+
+    ; Assert target is 4
+    mov rax, [sys_balloon_target_pages]
+    cmp rax, 4
+    jne .balloon_fail_inflate
+
+    ; Assert current is 4
+    mov rax, [sys_balloon_current_pages]
+    cmp rax, 4
+    jne .balloon_fail_inflate
+
+    ; Set target to 2 pages (forces deflation of 2 pages)
+    mov rdi, 2
+    call virt_balloon_set_target
+
+    ; Assert target is 2
+    mov rax, [sys_balloon_target_pages]
+    cmp rax, 2
+    jne .balloon_fail_deflate
+
+    ; Assert current is 2
+    mov rax, [sys_balloon_current_pages]
+    cmp rax, 2
+    jne .balloon_fail_deflate
+
+    ; Set target to 0 pages (deflates remaining pages)
+    mov rdi, 0
+    call virt_balloon_set_target
+
+    ; Assert target is 0
+    mov rax, [sys_balloon_target_pages]
+    test rax, rax
+    jnz .balloon_fail_deflate_all
+
+    ; Assert current is 0
+    mov rax, [sys_balloon_current_pages]
+    test rax, rax
+    jnz .balloon_fail_deflate_all
+
+    mov rsi, msg_balloon_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.balloon_fail_init:
+    mov rsi, msg_balloon_fail_init_str
+    call uart_print_str
+    jmp .panic
+
+.balloon_fail_inflate:
+    mov rsi, msg_balloon_fail_inflate_str
+    call uart_print_str
+    jmp .panic
+
+.balloon_fail_deflate:
+    mov rsi, msg_balloon_fail_deflate_str
+    call uart_print_str
+    jmp .panic
+
+.balloon_fail_deflate_all:
+    mov rsi, msg_balloon_fail_deflate_all_str
+    call uart_print_str
     jmp .panic
 
 .oom_psi_fail_init:
@@ -12690,6 +12773,14 @@ msg_proactive_fail_kswapd_alloc_str: db "Failure: Allocation failed under proact
 msg_proactive_fail_pte_str:          db "Failure: PTE missing for test address after proactive reclaim.", 0x0D, 0x0A, 0
 msg_proactive_fail_present_str:      db "Failure: Proactive reclaim candidate page not evicted (PTE is still marked present).", 0x0D, 0x0A, 0
 msg_proactive_fail_swapped_str:      db "Failure: Proactive reclaim candidate page not swapped (PAGE_SWAPPED bit is 0).", 0x0D, 0x0A, 0
+
+; Memory Balloon Driver Test messages
+msg_balloon_test_start:             db "Running VMM Memory Balloon Driver Test...", 0x0D, 0x0A, 0
+msg_balloon_test_passed:            db "VMM Memory Balloon Driver Test PASSED!", 0x0D, 0x0A, 0
+msg_balloon_fail_init_str:          db "Failure: Balloon initial size/target is not zero.", 0x0D, 0x0A, 0
+msg_balloon_fail_inflate_str:       db "Failure: Balloon inflation target or current size mismatch.", 0x0D, 0x0A, 0
+msg_balloon_fail_deflate_str:       db "Failure: Balloon deflation target or current size mismatch.", 0x0D, 0x0A, 0
+msg_balloon_fail_deflate_all_str:   db "Failure: Balloon complete deflation target or current size mismatch.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
