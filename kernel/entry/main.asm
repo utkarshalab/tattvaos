@@ -244,6 +244,16 @@ extern pml4_shuffle_map
 extern virt_temporal_obfuscation_init
 extern virt_temporal_obfuscation_tick
 extern temporal_code_vaddr
+extern percpu_stat_init
+extern percpu_stat_inc
+extern percpu_stat_dec
+extern percpu_event_inc
+extern percpu_sync
+extern percpu_stat_read
+extern percpu_event_read
+extern percpu_stat_delta_read
+extern percpu_event_delta_read
+extern sys_percpu_sync_count
 
 
 
@@ -12538,7 +12548,7 @@ test_ctor:
 .pat_skip_test:
     mov rsi, msg_pat_skipped_str
     call uart_print_str
-    jmp .idle
+    jmp .percpu_stat_test
 
 .pat_fail_get:
     mov rsi, msg_pat_fail_get_str
@@ -13114,6 +13124,280 @@ test_ctor:
     mov rsi, msg_kswapd_fail_data_str
     call uart_print_str
     jmp .panic
+
+    ; =========================================================================
+    ; 34.2 Per-CPU Memory Counters Test
+    ; =========================================================================
+.percpu_stat_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_percpu_stat_test_start
+    call uart_print_str
+
+    ; --- Step 1: Initialise the per-CPU counter subsystem ---
+    call percpu_stat_init
+
+    ; Verify: after init, the global vm_stat nr_free counter should be 0
+    ; (index 0 = VM_STAT_NR_FREE)
+    mov rdi, 0
+    call percpu_stat_read
+    test rax, rax
+    jnz .percpu_fail_init_nonzero
+
+    ; Verify: global vm_event pgalloc counter should also be 0
+    ; (index 0 = VM_EVENT_PGALLOC)
+    mov rdi, 0
+    call percpu_event_read
+    test rax, rax
+    jnz .percpu_fail_init_nonzero
+
+    ; Verify: sync count telemetry starts at 0
+    mov rax, [sys_percpu_sync_count]
+    test rax, rax
+    jnz .percpu_fail_init_nonzero
+
+    ; --- Step 2: Lock-free per-CPU stat increments (CPU 0) ---
+    ; Increment nr_free (idx 0) three times from CPU 0
+    mov rdi, 0          ; cpu_id = 0
+    mov rsi, 0          ; stat_idx = VM_STAT_NR_FREE
+    call percpu_stat_inc
+    call percpu_stat_inc
+    call percpu_stat_inc
+
+    ; Increment nr_anon (idx 1) once from CPU 0
+    mov rdi, 0
+    mov rsi, 1          ; VM_STAT_NR_ANON
+    call percpu_stat_inc
+
+    ; Decrement nr_anon once (net = 0)
+    mov rdi, 0
+    mov rsi, 1
+    call percpu_stat_dec
+
+    ; --- Step 3: Lock-free per-CPU event increments (CPU 0) ---
+    ; Increment pgalloc (idx 0) twice
+    mov rdi, 0
+    mov rsi, 0          ; VM_EVENT_PGALLOC
+    call percpu_event_inc
+    call percpu_event_inc
+
+    ; Increment pgfault (idx 2) once
+    mov rdi, 0
+    mov rsi, 2          ; VM_EVENT_PGFAULT
+    call percpu_event_inc
+
+    ; --- Step 4: Verify pending per-CPU deltas BEFORE sync ---
+    ; nr_free delta for CPU 0 must be 3
+    mov rdi, 0          ; cpu_id
+    mov rsi, 0          ; stat_idx = VM_STAT_NR_FREE
+    call percpu_stat_delta_read
+    cmp rax, 3
+    jne .percpu_fail_delta_stat
+
+    ; nr_anon delta for CPU 0 must be 0 (incremented once, decremented once)
+    mov rdi, 0
+    mov rsi, 1          ; VM_STAT_NR_ANON
+    call percpu_stat_delta_read
+    test rax, rax
+    jnz .percpu_fail_delta_anon
+
+    ; pgalloc delta for CPU 0 must be 2
+    mov rdi, 0
+    mov rsi, 0          ; VM_EVENT_PGALLOC
+    call percpu_event_delta_read
+    cmp rax, 2
+    jne .percpu_fail_delta_event
+
+    ; pgfault delta for CPU 0 must be 1
+    mov rdi, 0
+    mov rsi, 2          ; VM_EVENT_PGFAULT
+    call percpu_event_delta_read
+    cmp rax, 1
+    jne .percpu_fail_delta_event
+
+    ; Global counters must still be 0 (not yet synced)
+    mov rdi, 0          ; VM_STAT_NR_FREE
+    call percpu_stat_read
+    test rax, rax
+    jnz .percpu_fail_presync_nonzero
+
+    mov rdi, 0          ; VM_EVENT_PGALLOC
+    call percpu_event_read
+    test rax, rax
+    jnz .percpu_fail_presync_nonzero
+
+    ; --- Step 5: Periodic sync — flush per-CPU deltas to globals ---
+    call percpu_sync
+
+    ; After sync, per-CPU deltas for CPU 0 must be reset to 0
+    mov rdi, 0
+    mov rsi, 0          ; VM_STAT_NR_FREE
+    call percpu_stat_delta_read
+    test rax, rax
+    jnz .percpu_fail_postsync_delta
+
+    ; --- Step 6: Verify global vm_stat counters after sync ---
+    ; sys_vm_stat[VM_STAT_NR_FREE] must be 3
+    mov rdi, 0
+    call percpu_stat_read
+    cmp rax, 3
+    jne .percpu_fail_global_stat
+
+    ; sys_vm_stat[VM_STAT_NR_ANON] must be 0
+    mov rdi, 1
+    call percpu_stat_read
+    test rax, rax
+    jnz .percpu_fail_global_stat
+
+    ; --- Step 7: Verify global vm_event counters after sync ---
+    ; sys_vm_event[VM_EVENT_PGALLOC] must be 2
+    mov rdi, 0
+    call percpu_event_read
+    cmp rax, 2
+    jne .percpu_fail_global_event
+
+    ; sys_vm_event[VM_EVENT_PGFAULT] must be 1
+    mov rdi, 2
+    call percpu_event_read
+    cmp rax, 1
+    jne .percpu_fail_global_event
+
+    ; sys_vm_event[VM_EVENT_PGSWAPOUT] must be 0 (never incremented)
+    mov rdi, 3
+    call percpu_event_read
+    test rax, rax
+    jnz .percpu_fail_global_event
+
+    ; --- Step 8: Verify sync telemetry counter is now 1 ---
+    mov rax, [sys_percpu_sync_count]
+    cmp rax, 1
+    jne .percpu_fail_sync_count
+
+    ; --- Step 9: Second sync should be a no-op (no new deltas) ---
+    call percpu_sync
+
+    ; sys_vm_stat[VM_STAT_NR_FREE] must still be 3
+    mov rdi, 0
+    call percpu_stat_read
+    cmp rax, 3
+    jne .percpu_fail_idempotent
+
+    ; sync count telemetry must now be 2
+    mov rax, [sys_percpu_sync_count]
+    cmp rax, 2
+    jne .percpu_fail_sync_count
+
+    ; --- Step 10: Multi-CPU simulation — add deltas for CPU 1 ---
+    ; Increment nr_slab (idx 3) twice from CPU 1
+    mov rdi, 1          ; cpu_id = 1
+    mov rsi, 3          ; VM_STAT_NR_SLAB
+    call percpu_stat_inc
+    call percpu_stat_inc
+
+    ; Increment pgswapout (idx 3) once from CPU 1
+    mov rdi, 1
+    mov rsi, 3          ; VM_EVENT_PGSWAPOUT
+    call percpu_event_inc
+
+    ; Sync to aggregate CPU 1 deltas
+    call percpu_sync
+
+    ; sys_vm_stat[VM_STAT_NR_SLAB] must be 2
+    mov rdi, 3
+    call percpu_stat_read
+    cmp rax, 2
+    jne .percpu_fail_multicpu_stat
+
+    ; sys_vm_event[VM_EVENT_PGSWAPOUT] must be 1
+    mov rdi, 3
+    call percpu_event_read
+    cmp rax, 1
+    jne .percpu_fail_multicpu_event
+
+    ; sys_vm_stat[VM_STAT_NR_FREE] must still be 3 (CPU 0 delta, not changed)
+    mov rdi, 0
+    call percpu_stat_read
+    cmp rax, 3
+    jne .percpu_fail_multicpu_stat
+
+    ; PASSED!
+    mov rsi, msg_percpu_stat_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .idle
+
+.percpu_fail_init_nonzero:
+    mov rsi, msg_percpu_fail_init_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_delta_stat:
+    mov rsi, msg_percpu_fail_delta_stat_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_delta_anon:
+    mov rsi, msg_percpu_fail_delta_anon_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_delta_event:
+    mov rsi, msg_percpu_fail_delta_event_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_presync_nonzero:
+    mov rsi, msg_percpu_fail_presync_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_postsync_delta:
+    mov rsi, msg_percpu_fail_postsync_delta_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_global_stat:
+    mov rsi, msg_percpu_fail_global_stat_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_global_event:
+    mov rsi, msg_percpu_fail_global_event_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_sync_count:
+    mov rsi, msg_percpu_fail_sync_count_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_idempotent:
+    mov rsi, msg_percpu_fail_idempotent_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_multicpu_stat:
+    mov rsi, msg_percpu_fail_multicpu_stat_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_fail_multicpu_event:
+    mov rsi, msg_percpu_fail_multicpu_event_str
+    call uart_print_str
+    jmp .percpu_panic
+
+.percpu_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
 
 .panic:
     mov rsi, msg_test_failed
@@ -14081,8 +14365,21 @@ msg_kmem_acc_fail_pgtable_charge_str: db "Failure: Cgroup was not charged for in
 msg_kmem_acc_fail_uncharge_val_str:   db "Failure: Cgroup kmem_usage not uncharged correctly on heap free.", 0x0D, 0x0A, 0
 msg_kmem_acc_fail_uncharge_pages_str: db "Failure: Cgroup pages usage not uncharged correctly on heap free.", 0x0D, 0x0A, 0
 
-
-
+; Per-CPU Memory Counters Test messages (Subfeature 34.2)
+msg_percpu_stat_test_start:         db "Running VMM Per-CPU Memory Counters Test...", 0x0D, 0x0A, 0
+msg_percpu_stat_test_passed:        db "VMM Per-CPU Memory Counters Test PASSED!", 0x0D, 0x0A, 0
+msg_percpu_fail_init_str:           db "Failure: Global counter non-zero after percpu_stat_init.", 0x0D, 0x0A, 0
+msg_percpu_fail_delta_stat_str:     db "Failure: Per-CPU vm_stat delta incorrect before sync.", 0x0D, 0x0A, 0
+msg_percpu_fail_delta_anon_str:     db "Failure: Per-CPU vm_stat anon delta not zero after inc+dec.", 0x0D, 0x0A, 0
+msg_percpu_fail_delta_event_str:    db "Failure: Per-CPU vm_event delta incorrect before sync.", 0x0D, 0x0A, 0
+msg_percpu_fail_presync_str:        db "Failure: Global counter non-zero before percpu_sync was called.", 0x0D, 0x0A, 0
+msg_percpu_fail_postsync_delta_str: db "Failure: Per-CPU delta not reset to zero after percpu_sync.", 0x0D, 0x0A, 0
+msg_percpu_fail_global_stat_str:    db "Failure: Global vm_stat counter incorrect after percpu_sync.", 0x0D, 0x0A, 0
+msg_percpu_fail_global_event_str:   db "Failure: Global vm_event counter incorrect after percpu_sync.", 0x0D, 0x0A, 0
+msg_percpu_fail_sync_count_str:     db "Failure: sys_percpu_sync_count telemetry counter incorrect.", 0x0D, 0x0A, 0
+msg_percpu_fail_idempotent_str:     db "Failure: Global vm_stat changed on second no-delta sync.", 0x0D, 0x0A, 0
+msg_percpu_fail_multicpu_stat_str:  db "Failure: vm_stat global counter incorrect after multi-CPU simulation sync.", 0x0D, 0x0A, 0
+msg_percpu_fail_multicpu_event_str: db "Failure: vm_event global counter incorrect after multi-CPU simulation sync.", 0x0D, 0x0A, 0
 
 
 
