@@ -100,6 +100,9 @@ struc numa_node_t
     .total_pages     resq 1          ; Usable page count in this node
     .free_pages      resq 1          ; Free page count in this node
     .reserved_pages  resq 1          ; Reserved page count in this node
+    .pages_min       resq 1          ; Min pages threshold for direct reclaim
+    .pages_low       resq 1          ; Low pages threshold for kswapd wakeup
+    .pages_high      resq 1          ; High pages threshold for kswapd sleeps
 endstruc
 
 ; Heap block signatures (Subfeature 19.3: Double-Free Verifier)
