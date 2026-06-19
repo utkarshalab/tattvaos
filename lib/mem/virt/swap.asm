@@ -51,6 +51,7 @@ extern virt_walk_table
 extern heap_free
 extern memcpy
 extern phys_state
+extern numa_get_node_by_phys
 extern active_list_head
 extern active_list_tail
 extern inactive_list_head
@@ -651,6 +652,376 @@ page_replace_clock_evict:
 .fail_swap_full:
     call replacement_lock_acquire
     jmp .fail_unlock
+
+.fail_unlock:
+    call replacement_lock_release
+    xor rax, rax                    ; return 0 (failure)
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; page_replace_clock_evict_node — Second-Chance / Clock Eviction for a specific node
+; Finds an untouched page mapping (Accessed = 0) belonging to the target node,
+; evicts it to active swap, and frees its physical frame.
+; Input:
+;   RDI = target_node_id
+; Output:
+;   RAX = 1 on success, 0 on failure
+; Clobbers: RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11
+; -----------------------------------------------------------------------------
+global page_replace_clock_evict_node
+page_replace_clock_evict_node:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov r15, rdi                    ; R15 = target_node_id
+
+    ; Acquire replacement list spinlock
+    call replacement_lock_acquire
+
+    ; Check if inactive list is empty. If so, populate it from active list.
+    mov rbx, [inactive_list_head]
+    test rbx, rbx
+    jnz .scan_inactive
+
+    ; Populate inactive list by scanning active list from tail to head
+    mov rbx, [active_list_tail]
+    test rbx, rbx
+    jz .fail_unlock                 ; no tracked pages at all!
+
+.populate_loop:
+    test rbx, rbx
+    jz .scan_inactive
+
+    mov r12, [rbx + page_node_t.prev] ; save prev pointer for tail->head traversal
+
+    ; Check if this user page's Accessed bit is 0
+    mov rdi, [rbx + page_node_t.virt_addr]
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE address, RDX = level
+    test rax, rax
+    jz .pop_unmapped
+
+    mov rcx, [rax]
+    test rcx, PAGE_ACCESSED
+    jnz .pop_has_accessed
+
+    ; Accessed is 0! Move this page to the inactive list
+    ; Unlink from active list
+    mov r8, [rbx + page_node_t.prev]
+    mov r9, [rbx + page_node_t.next]
+    test r8, r8
+    jz .active_head
+    mov [r8 + page_node_t.next], r9
+    jmp .active_check_tail
+.active_head:
+    mov [active_list_head], r9
+.active_check_tail:
+    test r9, r9
+    jz .active_tail
+    mov [r9 + page_node_t.prev], r8
+    jmp .active_unlinked
+.active_tail:
+    mov [active_list_tail], r8
+.active_unlinked:
+    dec qword [active_count]
+
+    ; Prepend to inactive list
+    mov qword [rbx + page_node_t.flags], 0 ; Inactive
+    mov qword [rbx + page_node_t.prev], 0
+    mov rcx, [inactive_list_head]
+    mov [rbx + page_node_t.next], rcx
+    test rcx, rcx
+    jz .inactive_first
+    mov [rcx + page_node_t.prev], rbx
+    mov [inactive_list_head], rbx
+    jmp .inactive_linked
+.inactive_first:
+    mov [inactive_list_head], rbx
+    mov [inactive_list_tail], rbx
+.inactive_linked:
+    inc qword [inactive_count]
+    jmp .pop_next
+
+.pop_has_accessed:
+    ; Accessed is 1: clear Accessed bit in PTE
+    and qword [rax], ~PAGE_ACCESSED
+    invlpg [rdi]                    ; flush TLB
+    jmp .pop_next
+
+.pop_unmapped:
+    ; Node is no longer mapped, let's unlink and free it
+    mov r8, [rbx + page_node_t.prev]
+    mov r9, [rbx + page_node_t.next]
+    test r8, r8
+    jz .pop_unmap_head
+    mov [r8 + page_node_t.next], r9
+    jmp .pop_unmap_tail
+.pop_unmap_head:
+    mov [active_list_head], r9
+.pop_unmap_tail:
+    test r9, r9
+    jz .pop_unmap_tail_done
+    mov [r9 + page_node_t.prev], r8
+    jmp .pop_unmap_done
+.pop_unmap_tail_done:
+    mov [active_list_tail], r8
+.pop_unmap_done:
+    dec qword [active_count]
+    
+    ; Free the node structure
+    call replacement_lock_release
+    mov rdi, rbx
+    call heap_free
+    call replacement_lock_acquire
+
+.pop_next:
+    mov rbx, r12
+    jmp .populate_loop
+
+.scan_inactive:
+    ; Scan inactive list from tail to head (oldest first)
+    mov rbx, [inactive_list_tail]
+
+.scan_loop:
+    test rbx, rbx
+    jz .fail_unlock                 ; traversed the entire inactive list and found nothing
+
+    mov r12, [rbx + page_node_t.prev] ; save prev pointer for tail-to-head traversal
+
+    ; Check if page belongs to target node
+    mov rdi, [rbx + page_node_t.phys_addr]
+    push rbx
+    push r12
+    call numa_get_node_by_phys      ; RAX = Node ID
+    pop r12
+    pop rbx
+    cmp rax, r15                    ; match target_node_id?
+    jne .skip_node_scan             ; if not, skip this page
+
+    mov rdi, [rbx + page_node_t.virt_addr]
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE, RDX = level
+    test rax, rax
+    jz .scan_unmapped
+
+    mov rcx, [rax]
+    test rcx, PAGE_ACCESSED
+    jnz .scan_second_chance
+
+    ; Found untouched page belonging to target node! Let's evict it.
+    mov r13, rax                    ; R13 = PTE address
+    mov r14, rcx                    ; R14 = PTE value
+    mov r15, [rbx + page_node_t.phys_addr] ; R15 = physical page address
+
+    ; Release lock for memory allocation and copying
+    call replacement_lock_release
+
+    ; 1. Try Zswap compression first
+    mov rdi, r15                    ; source physical address
+    call zswap_compress_and_store   ; RAX = slot index / -1
+    cmp rax, -1
+    je .fallback_disk_swap          ; compression failed, fallback to disk swap
+
+    mov r10, rax                    ; R10 = Zswap slot index
+    mov r8, 1                       ; R8 = 1 indicates Zswap page
+    jmp .lock_and_commit
+
+.fallback_disk_swap:
+    ; 1. Allocate a disk swap slot
+    call swap_alloc_slot            ; RAX = slot index, or -1
+    cmp rax, -1
+    je .fail_swap_full
+
+    mov r10, rax                    ; R10 = swap slot index
+
+    ; 2. Copy page contents to the active swap device
+    mov rdi, r15                    ; source physical address
+    mov rsi, r10                    ; slot index
+    call swap_write_page
+    mov r8, 0                       ; R8 = 0 indicates regular disk swap
+
+.lock_and_commit:
+    ; Re-acquire lock to commit the changes to PTE and list
+    call replacement_lock_acquire
+
+    ; Verify PTE is still present and matches
+    mov rdi, [rbx + page_node_t.virt_addr]
+    xor rsi, rsi
+    push r8                         ; preserve Zswap indicator flag
+    push r10                        ; preserve swap slot index (R10)
+    call virt_walk_table
+    pop r10                         ; restore swap slot index
+    pop r8                          ; restore Zswap indicator flag
+    cmp rax, r13
+    jne .abort_evict                ; PTE changed, abort!
+
+    ; 3. Update the page table entry
+    mov rcx, r14
+    and rcx, 0xFFF                  ; preserve lower 12 flags
+    mov r11, (1 << 63)
+    and r11, r14
+    or rcx, r11                     ; preserve NX flag
+    
+    and rcx, ~PAGE_PRESENT          ; clear Present
+    and rcx, ~PAGE_ACCESSED         ; clear Accessed
+    or rcx, PAGE_SWAPPED            ; set Swapped
+    
+    test r8, r8
+    jz .pte_flags_done
+    or rcx, PAGE_ZSWAPPED           ; set Zswapped flag
+.pte_flags_done:
+
+    ; Shift swap slot index (R10) to bits 12-51
+    mov r9, r10
+    shl r9, 12
+    or rcx, r9                      ; merge swap slot index into PTE
+
+    mov [r13], rcx                  ; write new PTE value
+
+    ; 4. Flush TLB
+    invlpg [rdi]
+
+    ; 5. Unlink from inactive list
+    mov r8, [rbx + page_node_t.prev]
+    mov r9, [rbx + page_node_t.next]
+    test r8, r8
+    jz .inactive_head_evict
+    mov [r8 + page_node_t.next], r9
+    jmp .inactive_check_tail_evict
+.inactive_head_evict:
+    mov [inactive_list_head], r9
+.inactive_check_tail_evict:
+    test r9, r9
+    jz .inactive_tail_evict
+    mov [r9 + page_node_t.prev], r8
+    jmp .inactive_unlinked_evict
+.inactive_tail_evict:
+    mov [inactive_list_tail], r8
+.inactive_unlinked_evict:
+    dec qword [inactive_count]
+
+    call replacement_lock_release
+
+    ; 6. Free the physical page frame
+    mov rdi, r15
+    call phys_free_page
+
+    ; 7. Free the node structure
+    mov rdi, rbx
+    call heap_free
+
+    ; 8. Update telemetry
+    inc qword [phys_state + phys_state_t.swap_pages]
+
+    mov rax, 1                      ; return 1 (success)
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+.skip_node_scan:
+    mov rbx, r12
+    jmp .scan_loop
+
+.scan_second_chance:
+    ; Give second chance: clear Accessed, move back to active list
+    and qword [rax], ~PAGE_ACCESSED
+    invlpg [rdi]
+
+    ; Unlink from inactive list
+    mov r8, [rbx + page_node_t.prev]
+    mov r9, [rbx + page_node_t.next]
+    test r8, r8
+    jz .second_head
+    mov [r8 + page_node_t.next], r9
+    jmp .second_check_tail
+.second_head:
+    mov [inactive_list_head], r9
+.second_check_tail:
+    test r9, r9
+    jz .second_tail
+    mov [r9 + page_node_t.prev], r8
+    jmp .second_unlinked
+.second_tail:
+    mov [inactive_list_tail], r8
+.second_unlinked:
+    dec qword [inactive_count]
+
+    ; Prepend to active list (head)
+    mov qword [rbx + page_node_t.flags], 1 ; Active
+    mov qword [rbx + page_node_t.prev], 0
+    mov rcx, [active_list_head]
+    mov [rbx + page_node_t.next], rcx
+    test rcx, rcx
+    jz .second_active_first
+    mov [rcx + page_node_t.prev], rbx
+    mov [active_list_head], rbx
+    jmp .second_active_linked
+.second_active_first:
+    mov [active_list_head], rbx
+    mov [active_list_tail], rbx
+.second_active_linked:
+    inc qword [active_count]
+
+    mov rbx, r12
+    jmp .scan_loop
+
+.scan_unmapped:
+    ; Node is no longer mapped, let's unlink and free it
+    mov r8, [rbx + page_node_t.prev]
+    mov r9, [rbx + page_node_t.next]
+    test r8, r8
+    jz .scan_unmap_head
+    mov [r8 + page_node_t.next], r9
+    jmp .scan_unmap_tail
+.scan_unmap_head:
+    mov [inactive_list_head], r9
+.scan_unmap_tail:
+    test r9, r9
+    jz .scan_unmap_tail_done
+    mov [r9 + page_node_t.prev], r8
+    jmp .scan_unmap_done
+.scan_unmap_tail_done:
+    mov [inactive_list_tail], r8
+.scan_unmap_done:
+    dec qword [inactive_count]
+
+    ; Free the node structure
+    call replacement_lock_release
+    mov rdi, rbx
+    call heap_free
+    call replacement_lock_acquire
+
+    mov rbx, r12
+    jmp .scan_loop
+
+.fail_swap_full:
+    call replacement_lock_acquire
+    jmp .fail_unlock
+
+.abort_evict:
+    call replacement_lock_release
+    mov rdi, r10
+    test r8, r8
+    jz .abort_disk_swap
+    call zswap_free_slot
+    jmp .abort_done
+.abort_disk_swap:
+    call swap_free_slot
+.abort_done:
+    call replacement_lock_acquire
+    mov rbx, r12
+    jmp .scan_loop
 
 .fail_unlock:
     call replacement_lock_release
