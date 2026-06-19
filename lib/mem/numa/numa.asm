@@ -304,6 +304,7 @@ numa_init_local_bitmaps:
     mov qword [r12 + numa_node_t.pages_min], 128
     mov qword [r12 + numa_node_t.pages_low], 256
     mov qword [r12 + numa_node_t.pages_high], 512
+    mov qword [r12 + numa_node_t.proactive_reclaim_headroom], 0
 
     ; Scan numa_ranges to find boundaries
     xor rbx, rbx                    ; rbx = range index = 0
@@ -564,6 +565,43 @@ numa_set_watermarks:
     mov [rbx + numa_node_t.pages_min], rsi
     mov [rbx + numa_node_t.pages_low], rdx
     mov [rbx + numa_node_t.pages_high], rcx
+    
+    mov rax, 1
+    pop rbx
+    ret
+.err:
+    xor rax, rax
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; numa_set_proactive_headroom — configures proactive reclaim headroom for a node
+; Input:
+;   RDI = node_id
+;   RSI = headroom_pages
+; Output:
+;   RAX = 1 (success), 0 (invalid node_id or inactive node)
+; -----------------------------------------------------------------------------
+global numa_set_proactive_headroom
+numa_set_proactive_headroom:
+    push rbx
+    
+    ; Check if node_id < numa_node_count
+    mov rax, [numa_node_count]
+    cmp rdi, rax
+    jae .err
+    
+    ; Get node descriptor
+    imul rdi, numa_node_t_size
+    lea rbx, [numa_nodes + rdi]
+    
+    ; Check if active
+    mov eax, [rbx + numa_node_t.flags]
+    test al, 1
+    jz .err
+    
+    ; Set headroom
+    mov [rbx + numa_node_t.proactive_reclaim_headroom], rsi
     
     mov rax, 1
     pop rbx
