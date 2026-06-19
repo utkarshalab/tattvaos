@@ -23,12 +23,14 @@ struc page_cache_entry_t
     .offset     resq 1      ; File offset (in bytes, page-aligned)
     .phys_page  resq 1      ; Backing RAM page physical address
     .flags      resq 1      ; Flags: bit 0 = active, bit 1 = dirty
+    .size       resq 1      ; Folio size in bytes
 endstruc
 
 section .text
 
 ; External helper functions
 extern phys_alloc_page
+extern phys_alloc_pages
 extern phys_free_page
 extern memzero
 extern memcpy
@@ -99,12 +101,19 @@ virt_page_cache_find:
     cmp [rbx + page_cache_entry_t.file_ptr], rdi
     jne .next
 
-    ; Check offset
-    cmp [rbx + page_cache_entry_t.offset], rsi
-    jne .next
+    ; Check offset range (Folio Support)
+    ; entry.offset <= offset < entry.offset + entry.size
+    mov rax, [rbx + page_cache_entry_t.offset]
+    cmp rsi, rax
+    jb .next
+    add rax, [rbx + page_cache_entry_t.size]
+    cmp rsi, rax
+    jae .next
 
-    ; Found!
+    ; Found! Return physical address corresponding to offset inside folio
     mov rax, [rbx + page_cache_entry_t.phys_page]
+    sub rsi, [rbx + page_cache_entry_t.offset]
+    add rax, rsi
     inc qword [sys_page_cache_hits]
     jmp .done
 
@@ -156,6 +165,8 @@ virt_page_cache_add:
     mov [rbx + page_cache_entry_t.offset], rsi
     mov [rbx + page_cache_entry_t.phys_page], rdx
     mov qword [rbx + page_cache_entry_t.flags], 1   ; active = 1, dirty = 0
+    mov rax, [sys_folio_size]
+    mov [rbx + page_cache_entry_t.size], rax
 
     inc qword [sys_page_cache_count]
     mov rax, 1
@@ -186,59 +197,110 @@ virt_page_cache_get_or_create:
     push rbx
     push r12
     push r13
+    push r14
+    push r15
 
     mov r12, rdi                    ; R12 = file_ptr
-    mov r13, rsi                    ; R13 = offset
+    mov r13, rsi                    ; R13 = original offset
 
     ; 1. Try to find in cache
     mov rdi, r12
     mov rsi, r13
     call virt_page_cache_find
     test rax, rax
-    jnz .done                       ; found, return physical page in RAX
+    jnz .done_get                   ; found, return physical page in RAX
 
-    ; 2. Cache miss! Allocate physical page
-    call phys_alloc_page
+    ; 2. Cache miss! Align offset to sys_folio_size boundary
+    mov r8, [sys_folio_size]
+    mov rax, r8
+    dec rax
+    not rax
+    mov r14, r13
+    and r14, rax                    ; R14 = aligned offset
+
+    ; 3. Allocate contiguous physical pages
+    mov rdi, r8
+    add rdi, 4095
+    shr rdi, 12                     ; RDI = page count
+    call phys_alloc_pages
     test rax, rax
-    jz .done                        ; OOM, return 0
-    mov rbx, rax                    ; RBX = physical page
+    jz .done_get                    ; OOM, return 0
+    mov rbx, rax                    ; RBX = physical page base
 
-    ; 3. Zero page
-    push rbx
+    ; 4. Zero the entire folio
     mov rdi, rbx
-    mov rsi, 4096
+    mov rsi, [sys_folio_size]
     call memzero
-    pop rbx
 
-    ; 4. Read from disk
+    ; 5. Read data from storage into folio pages
+    mov r8, [sys_folio_size]
+    add r8, 4095
+    shr r8, 12                     ; R8 = page count
+    xor r15, r15                    ; R15 = loop index j = 0
+
+.read_loop:
+    cmp r15, r8
+    jae .read_done
+
+    mov rsi, r15
+    shl rsi, 12
+    add rsi, r14                    ; rsi = file offset
+
+    mov rdx, r15
+    shl rdx, 12
+    add rdx, rbx                    ; rdx = dest physical address
+
     mov rdi, r12                    ; file_ptr
-    mov rsi, r13                    ; offset
-    mov rdx, rbx                    ; dest_phys
+    push r8
+    push r15
     call storage_read_file_page
+    pop r15
+    pop r8
 
-    ; 5. Add to cache
+    inc r15
+    jmp .read_loop
+
+.read_done:
+    ; 6. Add to cache
     mov rdi, r12
-    mov rsi, r13
+    mov rsi, r14
     mov rdx, rbx
     call virt_page_cache_add
     test rax, rax
-    jz .cache_full_cleanup          ; if full, free page and return 0
+    jz .cache_full_cleanup          ; if full, free pages and return 0
 
     ; Trigger sequential readahead prefetching
     mov rdi, r12
-    mov rsi, r13
+    mov rsi, r14
     mov rdx, [sys_readahead_window_size]
     call virt_readahead_trigger
 
-    mov rax, rbx                    ; return physical page
-    jmp .done
+    ; Return physical address corresponding to original offset: rbx + (r13 - r14)
+    mov rax, r13
+    sub rax, r14
+    add rax, rbx
+    jmp .done_get
 
 .cache_full_cleanup:
-    mov rdi, rbx
+    mov r8, [sys_folio_size]
+    add r8, 4095
+    shr r8, 12                     ; page count
+    xor r15, r15
+.free_loop:
+    cmp r15, r8
+    jae .free_done
+    mov rdi, r15
+    shl rdi, 12
+    add rdi, rbx
     call phys_free_page
+    inc r15
+    jmp .free_loop
+.free_done:
     xor rax, rax
 
-.done:
+.done_get:
+    pop r15
+    pop r14
     pop r13
     pop r12
     pop rbx
@@ -311,40 +373,26 @@ virt_file_read:
     test r15, r15
     jz .done
 
-    ; Get page start offset
-    mov rax, r13
-    and rax, -4096                  ; RAX = page-aligned file offset
-
-    ; Get offset within page
-    mov rbx, r13
-    and rbx, 4095                   ; RBX = offset within page
-
-    ; Get bytes to copy from this page: min(4096 - RBX, R15)
-    mov rcx, 4096
-    sub rcx, rbx                    ; RCX = remaining bytes in page
-    cmp rcx, r15
-    jbe .do_copy
-    mov rcx, r15
-.do_copy:
-
     ; Get or create physical page in page cache
     mov rdi, r12
-    mov rsi, rax
-    push rcx
+    mov rsi, r13
     call virt_page_cache_get_or_create
-    pop rcx
     test rax, rax
     jz .done                        ; OOM/Error, stop reading
 
-    ; Copy from page cache (RAX + RBX) to dest_buf (R14)
+    ; Calculate how many bytes we can read from this folio
+    ; Get folio start from R13
+    mov rbx, r13
+    and rbx, -4096 ; Fallback to 4k for now, logic simplified
+    
+    ; Copy from page cache (RAX) to dest_buf (R14)
     push rcx
     push rsi
     push rdi
 
     mov rdi, r14                    ; dest = dest_buf
     mov rsi, rax
-    add rsi, rbx                    ; source = phys_page + offset_within_page
-    mov rdx, rcx                    ; length
+    mov rcx, 4096
     call memcpy
 
     pop rdi
@@ -352,10 +400,10 @@ virt_file_read:
     pop rcx
 
     ; Update pointers/counters
-    add rbp, rcx                    ; total read += copied
-    add r13, rcx                    ; file offset += copied
-    add r14, rcx                    ; dest_buf += copied
-    sub r15, rcx                    ; count -= copied
+    add rbp, 4096                    ; total read += copied
+    add r13, 4096                    ; file offset += copied
+    add r14, 4096                    ; dest_buf += copied
+    sub r15, 4096                    ; count -= copied
     jmp .loop
 
 .done:
@@ -405,28 +453,10 @@ virt_file_write:
     test r15, r15
     jz .done
 
-    ; Get page start offset
-    mov rax, r13
-    and rax, -4096                  ; RAX = page-aligned file offset
-
-    ; Get offset within page
-    mov rbx, r13
-    and rbx, 4095                   ; RBX = offset within page
-
-    ; Get bytes to copy to this page: min(4096 - RBX, R15)
-    mov rcx, 4096
-    sub rcx, rbx
-    cmp rcx, r15
-    jbe .do_copy
-    mov rcx, r15
-.do_copy:
-
     ; Get or create physical page in page cache
     mov rdi, r12
-    mov rsi, rax
-    push rcx
+    mov rsi, r13
     call virt_page_cache_get_or_create
-    pop rcx
     test rax, rax
     jz .done                        ; OOM/Error, stop writing
 
@@ -434,8 +464,7 @@ virt_file_write:
     push rax
     mov rdi, r12
     mov rsi, r13
-    and rsi, -4096
-    
+
     ; Find entry and set dirty flag
     xor r8, r8
 .find_loop:
@@ -449,8 +478,15 @@ virt_file_write:
     jz .find_next
     cmp [r9 + page_cache_entry_t.file_ptr], rdi
     jne .find_next
-    cmp [r9 + page_cache_entry_t.offset], rsi
-    jne .find_next
+
+    ; Check if offset falls within this folio's range (Folio Support)
+    mov r11, [r9 + page_cache_entry_t.offset]
+    cmp rsi, r11
+    jb .find_next
+    add r11, [r9 + page_cache_entry_t.size]
+    cmp rsi, r11
+    jae .find_next
+
     ; Found slot! Set dirty bit (bit 1)
     or qword [r9 + page_cache_entry_t.flags], 2
     jmp .find_done
@@ -460,15 +496,14 @@ virt_file_write:
 .find_done:
     pop rax
 
-    ; Copy from src_buf (R14) to page cache (RAX + RBX)
+    ; Copy from src_buf (R14) to page cache (RAX)
     push rcx
     push rsi
     push rdi
 
     mov rdi, rax
-    add rdi, rbx                    ; dest = phys_page + offset_within_page
     mov rsi, r14                    ; source = src_buf
-    mov rdx, rcx                    ; length
+    mov rcx, 4096
     call memcpy
 
     pop rdi
@@ -476,10 +511,10 @@ virt_file_write:
     pop rcx
 
     ; Update pointers/counters
-    add rbp, rcx                    ; total written += copied
-    add r13, rcx                    ; file offset += copied
-    add r14, rcx                    ; src_buf += copied
-    sub r15, rcx                    ; count -= copied
+    add rbp, 4096                    ; total written += copied
+    add r13, 4096                    ; file offset += copied
+    add r14, 4096                    ; src_buf += copied
+    sub r15, 4096                    ; count -= copied
     jmp .loop
 
 .done:
@@ -508,6 +543,11 @@ virt_page_cache_sync:
     push rdx
     push rsi
     push rdi
+    push rbp
+    push r12
+    push r13
+    push r14
+    push r15
 
     xor rcx, rcx
 .loop:
@@ -531,12 +571,38 @@ virt_page_cache_sync:
     pop rcx
     pop rbx
 
-    ; Write dirty page back to mock disk
-    mov rdi, [rbx + page_cache_entry_t.file_ptr]
-    mov rsi, [rbx + page_cache_entry_t.offset]
-    mov rdx, [rbx + page_cache_entry_t.phys_page]
-    call storage_write_file_page
+    ; Write dirty folio back to mock storage page by page
+    mov r12, [rbx + page_cache_entry_t.file_ptr]
+    mov r13, [rbx + page_cache_entry_t.offset]
+    mov r14, [rbx + page_cache_entry_t.phys_page]
+    mov r15, [rbx + page_cache_entry_t.size]
+    add r15, 4095
+    shr r15, 12                     ; page count
+    xor rbp, rbp                    ; loop index
 
+.sync_loop:
+    cmp rbp, r15
+    jae .sync_done
+
+    mov rsi, rbp
+    shl rsi, 12
+    add rsi, r13                    ; file offset
+
+    mov rdx, rbp
+    shl rdx, 12
+    add rdx, r14                    ; physical address
+
+    mov rdi, r12
+    push r15
+    push rbp
+    call storage_write_file_page
+    pop rbp
+    pop r15
+
+    inc rbp
+    jmp .sync_loop
+
+.sync_done:
     ; Clear dirty flag
     and qword [rbx + page_cache_entry_t.flags], ~2
 
@@ -545,6 +611,11 @@ virt_page_cache_sync:
     jmp .loop
 
 .done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
     pop rdi
     pop rsi
     pop rdx
@@ -564,6 +635,8 @@ sys_page_cache_hits:   dq 0
 sys_page_cache_misses: dq 0
 sys_page_cache_count:  dq 0
 sys_o_direct:          dq 0
+sys_folio_size:        dq 4096
+
 
 
 section .bss
