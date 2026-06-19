@@ -17,6 +17,9 @@ extern kswapd_check_and_reclaim
 extern kswapd_check_and_reclaim_node
 extern kswapd_min_watermark
 extern kswapd_low_watermark
+extern sys_proactive_reclaim_headroom
+extern kswapd_proactive_reclaim
+extern kswapd_proactive_reclaim_node
 extern numa_local_bitmaps_active
 extern numa_nodes
 extern numa_node_count
@@ -445,11 +448,23 @@ phys_alloc_pages:
     
     sub rax, rbx                    ; RAX = free pages after allocation
     cmp rax, [kswapd_low_watermark]
-    jae .skip_reclaim               ; healthy, skip reclaim check
+    jae .check_proactive            ; If >= low_watermark, check proactive
 
     ; Free pages would drop below pages_low. Wake kswapd / direct reclaim.
     push rdi
     call kswapd_check_and_reclaim
+    pop rdi
+    jmp .skip_reclaim
+
+.check_proactive:
+    mov rcx, [sys_proactive_reclaim_headroom]
+    test rcx, rcx
+    jz .skip_reclaim
+    cmp rax, rcx
+    jae .skip_reclaim
+
+    push rdi
+    call kswapd_proactive_reclaim
     pop rdi
 
 .skip_reclaim:
@@ -569,12 +584,23 @@ phys_alloc_pages_node:
     mov rcx, rax
     sub rcx, r13                    ; remaining free pages after allocation
     cmp rcx, [rbx + numa_node_t.pages_low]
-    jae .skip_node_reclaim
+    jae .check_node_proactive
 
     ; Free pages would drop below pages_low. Wake kswapd for this node!
     mov rdi, rbx                    ; pointer to numa_node_t
     mov rsi, 0                      ; background reclaim flag
     call kswapd_check_and_reclaim_node
+    jmp .skip_node_reclaim
+
+.check_node_proactive:
+    mov rdx, [rbx + numa_node_t.proactive_reclaim_headroom]
+    test rdx, rdx
+    jz .skip_node_reclaim
+    cmp rcx, rdx
+    jae .skip_node_reclaim
+
+    mov rdi, rbx
+    call kswapd_proactive_reclaim_node
 
 .skip_node_reclaim:
     mov rax, [rbx + numa_node_t.free_pages]
@@ -685,11 +711,22 @@ phys_alloc_pages_node:
     mov rcx, rax
     sub rcx, r13
     cmp rcx, [rbx + numa_node_t.pages_low]
-    jae .skip_candidate_reclaim
+    jae .check_candidate_proactive
 
     mov rdi, rbx
     mov rsi, 0
     call kswapd_check_and_reclaim_node
+    jmp .skip_candidate_reclaim
+
+.check_candidate_proactive:
+    mov rdx, [rbx + numa_node_t.proactive_reclaim_headroom]
+    test rdx, rdx
+    jz .skip_candidate_reclaim
+    cmp rcx, rdx
+    jae .skip_candidate_reclaim
+
+    mov rdi, rbx
+    call kswapd_proactive_reclaim_node
 
 .skip_candidate_reclaim:
     mov rax, [rbx + numa_node_t.free_pages]
