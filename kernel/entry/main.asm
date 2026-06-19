@@ -129,6 +129,7 @@ extern sys_writeback_throttle_delay
 extern sys_writeback_dirty_limit
 extern sys_writeback_throttled_pages
 extern sys_o_direct
+extern sys_folio_size
 extern sys_mglru_enabled
 extern sys_mglru_head
 extern sys_mglru_count
@@ -5436,7 +5437,7 @@ kernel_main:
     mov rsi, msg_mglru_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .folio_test_start
 
 .mglru_fail_vma:
     mov rsi, msg_mglru_fail_vma_str
@@ -5505,6 +5506,153 @@ kernel_main:
     pop r13
     pop r12
     jmp .panic
+
+.folio_test_start:
+    mov rsi, msg_folio_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; 1. Initialize page cache
+    call virt_page_cache_init
+
+    ; 2. Configure sys_folio_size to 16384 (16KB, 4 pages)
+    mov qword [sys_folio_size], 16384
+
+    ; Reset telemetry
+    mov qword [sys_page_cache_hits], 0
+    mov qword [sys_page_cache_misses], 0
+    mov qword [sys_page_cache_count], 0
+
+    ; 3. Create mock file of size 16384 bytes
+    mov rdi, 16384
+    call mock_file_create
+    test rax, rax
+    jz .folio_fail_create
+    mov r12, rax                    ; r12 = mock file pointer
+
+    ; Prepare temporary stack buffer for reading/writing
+    sub rsp, 16
+    mov r13, rsp                    ; r13 = buffer
+
+    ; 4. Read 8 bytes from offset 0
+    mov rdi, r12
+    mov rsi, 0
+    mov rdx, r13
+    mov rcx, 8
+    call virt_file_read
+    cmp rax, 8
+    jne .folio_fail_read
+
+    ; Cache misses must be 1 (first read allocates folio)
+    cmp qword [sys_page_cache_misses], 1
+    jne .folio_fail_misses_init
+    ; Cache count must be 1 (only 1 folio allocated)
+    cmp qword [sys_page_cache_count], 1
+    jne .folio_fail_count_init
+
+    ; 5. Read 8 bytes from offset 4096 (second page inside folio)
+    mov rdi, r12
+    mov rsi, 4096
+    mov rdx, r13
+    mov rcx, 8
+    call virt_file_read
+    cmp rax, 8
+    jne .folio_fail_read
+
+    ; Cache hits must be 1
+    cmp qword [sys_page_cache_hits], 1
+    jne .folio_fail_hits
+
+    ; 6. Read 8 bytes from offset 8192 (third page inside folio)
+    mov rdi, r12
+    mov rsi, 8192
+    mov rdx, r13
+    mov rcx, 8
+    call virt_file_read
+    cmp rax, 8
+    jne .folio_fail_read
+
+    ; Cache hits must be 2
+    cmp qword [sys_page_cache_hits], 2
+    jne .folio_fail_hits
+
+    ; 7. Write 8 bytes to offset 12288 (fourth page inside folio)
+    mov qword [r13], 0x8877665544332211
+    mov rdi, r12
+    mov rsi, 12288
+    mov rdx, r13
+    mov rcx, 8
+    call virt_file_write
+    cmp rax, 8
+    jne .folio_fail_write
+
+    ; 8. Synchronize dirty folio back to mock disk
+    call virt_page_cache_sync
+
+    ; 9. Clean up and restore sys_folio_size
+    mov qword [sys_folio_size], 4096 ; restore default
+
+    add rsp, 16
+    mov rdi, r12
+    call mock_file_destroy
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_folio_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.folio_fail_create:
+    mov rsi, msg_folio_fail_create_str
+    call uart_print_str
+    jmp .panic_folio
+
+.folio_fail_read:
+    add rsp, 16
+    mov rsi, msg_folio_fail_read_str
+    call uart_print_str
+    jmp .panic_folio
+
+.folio_fail_misses_init:
+    add rsp, 16
+    mov rsi, msg_folio_fail_misses_init_str
+    call uart_print_str
+    jmp .panic_folio
+
+.folio_fail_count_init:
+    add rsp, 16
+    mov rsi, msg_folio_fail_count_init_str
+    call uart_print_str
+    jmp .panic_folio
+
+.folio_fail_hits:
+    add rsp, 16
+    mov rsi, msg_folio_fail_hits_str
+    call uart_print_str
+    jmp .panic_folio
+
+.folio_fail_write:
+    add rsp, 16
+    mov rsi, msg_folio_fail_write_str
+    call uart_print_str
+    jmp .panic_folio
+
+.panic_folio:
+    mov qword [sys_folio_size], 4096
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 
 
 
@@ -13736,6 +13884,17 @@ msg_mglru_fail_present_evicted_str: db "Failure: Evicted page present bit is not
 msg_mglru_fail_not_swapped_str:   db "Failure: Evicted page swapped bit is not set.", 0x0D, 0x0A, 0
 msg_mglru_fail_not_present_promoted_str: db "Failure: Promoted page present bit is zero.", 0x0D, 0x0A, 0
 msg_mglru_fail_final_count_str:   db "Failure: MGLRU counts not correct after eviction & promotion.", 0x0D, 0x0A, 0
+
+; Folio Support Test messages
+msg_folio_test_start:             db "Running VMM Folio Support Test...", 0x0D, 0x0A, 0
+msg_folio_test_passed:            db "VMM Folio Support Test PASSED!", 0x0D, 0x0A, 0
+msg_folio_fail_create_str:        db "Failure: Could not create mock file for folio test.", 0x0D, 0x0A, 0
+msg_folio_fail_read_str:          db "Failure: virt_file_read failed in folio test.", 0x0D, 0x0A, 0
+msg_folio_fail_misses_init_str:   db "Failure: sys_page_cache_misses is not 1 after initial folio load.", 0x0D, 0x0A, 0
+msg_folio_fail_count_init_str:    db "Failure: sys_page_cache_count is not 1 after initial folio load.", 0x0D, 0x0A, 0
+msg_folio_fail_hits_str:           db "Failure: sys_page_cache_hits mismatch in folio test.", 0x0D, 0x0A, 0
+msg_folio_fail_write_str:          db "Failure: virt_file_write failed in folio test.", 0x0D, 0x0A, 0
+
 
 
 
