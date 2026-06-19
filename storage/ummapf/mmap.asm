@@ -329,22 +329,14 @@ virt_handle_file_map:
     sub rbx, [r13 + vma_t.start]
     add rbx, [r13 + vma_t.file_off] ; RBX = file offset
 
-    ; 3. Allocate a physical RAM page
-    call phys_alloc_page
+    ; 3. Get or create page in Unified Page Cache
+    mov rdi, [r13 + vma_t.file_ptr] ; file_ptr
+    mov rsi, rbx                    ; file offset
+    extern virt_page_cache_get_or_create
+    call virt_page_cache_get_or_create
     test rax, rax
     jz .err
     mov r15, rax                    ; R15 = physical page address
-
-    ; 4. Zero the page
-    mov rdi, r15
-    mov rsi, 4096
-    call memzero
-
-    ; 5. Load file page from mock storage
-    mov rdi, [r13 + vma_t.file_ptr] ; file_ptr
-    mov rsi, rbx                    ; file offset
-    mov rdx, r15                    ; dest physical address
-    call storage_read_file_page
 
     ; 6. Map the physical page with VMA permissions
     mov rdx, [r13 + vma_t.flags]    ; RDX = vma->flags
