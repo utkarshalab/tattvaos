@@ -125,6 +125,9 @@ extern sys_page_cache_hits
 extern sys_page_cache_misses
 extern sys_readahead_window_size
 extern sys_readahead_prefetched_pages
+extern sys_writeback_throttle_delay
+extern sys_writeback_dirty_limit
+extern sys_writeback_throttled_pages
 extern kswapd_check_and_reclaim_node
 extern page_replace_clock_evict_node
 extern kswapd_min_watermark
@@ -4955,7 +4958,7 @@ kernel_main:
     mov rsi, msg_readahead_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .writeback_test_start
 
 .readahead_fail_create:
     mov rsi, msg_readahead_fail_create_str
@@ -4992,6 +4995,124 @@ kernel_main:
     pop r13
     pop r12
     jmp .panic
+
+.writeback_test_start:
+    mov rsi, msg_writeback_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; 1. Initialize page cache (clears old contents and stats)
+    call virt_page_cache_init
+
+    ; 2. Configure writeback throttling parameters
+    mov qword [sys_writeback_dirty_limit], 2
+    mov qword [sys_writeback_throttle_delay], 1000      ; Fast delay for testing
+    mov qword [sys_writeback_throttled_pages], 0
+
+    ; 3. Create mock file of size 16384 bytes (4 pages)
+    mov rdi, 16384
+    call mock_file_create
+    test rax, rax
+    jz .writeback_fail_create
+    mov r12, rax                    ; r12 = mock file pointer
+
+    ; Prepare temporary stack buffer for writing
+    sub rsp, 16
+    mov r13, rsp                    ; r13 = buffer pointer
+    mov qword [r13], 0x1122334455667788
+
+    ; 4. Perform 3 writes to different offsets to create 3 dirty pages
+    ; Write page 0 (offset 0)
+    mov rdi, r12
+    mov rsi, 0
+    mov rdx, r13
+    mov rcx, 8
+    call virt_file_write
+    cmp rax, 8
+    jne .writeback_fail_write
+
+    ; Write page 1 (offset 4096)
+    mov rdi, r12
+    mov rsi, 4096
+    mov rdx, r13
+    mov rcx, 8
+    call virt_file_write
+    cmp rax, 8
+    jne .writeback_fail_write
+
+    ; Write page 2 (offset 8192)
+    mov rdi, r12
+    mov rsi, 8192
+    mov rdx, r13
+    mov rcx, 8
+    call virt_file_write
+    cmp rax, 8
+    jne .writeback_fail_write
+
+    ; 5. Verify throttled counter is 0 before sync
+    cmp qword [sys_writeback_throttled_pages], 0
+    jne .writeback_fail_throttled_init
+
+    ; 6. Call virt_page_cache_sync
+    ; Flushes 3 pages.
+    ; Page 1: 3 dirty pages remaining > 2 limit -> throttled. (throttled_pages becomes 1)
+    ; Page 2: 2 dirty pages remaining <= 2 limit -> not throttled.
+    ; Page 3: 1 dirty page remaining <= 2 limit -> not throttled.
+    call virt_page_cache_sync
+
+    ; 7. Assert that exactly 1 page was throttled
+    cmp qword [sys_writeback_throttled_pages], 1
+    jne .writeback_fail_throttled_post
+
+    ; Clean up mock file and stack
+    add rsp, 16
+    mov rdi, r12
+    call mock_file_destroy
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_writeback_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.writeback_fail_create:
+    mov rsi, msg_writeback_fail_create_str
+    call uart_print_str
+    jmp .panic_writeback
+
+.writeback_fail_write:
+    add rsp, 16
+    mov rsi, msg_writeback_fail_write_str
+    call uart_print_str
+    jmp .panic_writeback
+
+.writeback_fail_throttled_init:
+    add rsp, 16
+    mov rsi, msg_writeback_fail_throttled_init_str
+    call uart_print_str
+    jmp .panic_writeback
+
+.writeback_fail_throttled_post:
+    add rsp, 16
+    mov rsi, msg_writeback_fail_throttled_post_str
+    call uart_print_str
+    jmp .panic_writeback
+
+.panic_writeback:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 
 
 .oom_psi_fail_init:
@@ -13185,6 +13306,15 @@ msg_readahead_fail_read_str:          db "Failure: virt_file_read returned unexp
 msg_readahead_fail_prefetched_str:    db "Failure: sys_readahead_prefetched_pages mismatch.", 0x0D, 0x0A, 0
 msg_readahead_fail_hits_str:          db "Failure: sys_page_cache_hits mismatch.", 0x0D, 0x0A, 0
 msg_readahead_fail_misses_str:        db "Failure: sys_page_cache_misses mismatch.", 0x0D, 0x0A, 0
+
+; Writeback Throttling Test messages
+msg_writeback_test_start:             db "Running VMM Writeback Throttling Test...", 0x0D, 0x0A, 0
+msg_writeback_test_passed:            db "VMM Writeback Throttling Test PASSED!", 0x0D, 0x0A, 0
+msg_writeback_fail_create_str:        db "Failure: Could not create mock file for writeback test.", 0x0D, 0x0A, 0
+msg_writeback_fail_write_str:         db "Failure: virt_file_write failed during writeback test.", 0x0D, 0x0A, 0
+msg_writeback_fail_throttled_init_str: db "Failure: sys_writeback_throttled_pages is not zero initially.", 0x0D, 0x0A, 0
+msg_writeback_fail_throttled_post_str: db "Failure: sys_writeback_throttled_pages mismatch after sync.", 0x0D, 0x0A, 0
+
 
 
 section .bss
