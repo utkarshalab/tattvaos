@@ -34,6 +34,8 @@ extern memzero
 extern memcpy
 extern storage_read_file_page
 extern storage_write_file_page
+extern virt_readahead_trigger
+extern sys_readahead_window_size
 
 ; -----------------------------------------------------------------------------
 ; virt_page_cache_init — initializes the page cache and resets counters
@@ -219,6 +221,12 @@ virt_page_cache_get_or_create:
     call virt_page_cache_add
     test rax, rax
     jz .cache_full_cleanup          ; if full, free page and return 0
+
+    ; Trigger sequential readahead prefetching
+    mov rdi, r12
+    mov rsi, r13
+    mov rdx, [sys_readahead_window_size]
+    call virt_readahead_trigger
 
     mov rax, rbx                    ; return physical page
     jmp .done
