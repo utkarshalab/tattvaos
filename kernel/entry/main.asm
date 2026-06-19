@@ -137,6 +137,8 @@ extern sys_mglru_promotions
 extern sys_mglru_reclaims
 extern virt_mglru_init
 extern virt_mglru_age
+extern sys_kmem_cgroup_charge
+extern sys_kmem_cgroup_uncharge
 extern kswapd_check_and_reclaim_node
 extern page_replace_clock_evict_node
 extern kswapd_min_watermark
@@ -5608,7 +5610,7 @@ kernel_main:
     mov rsi, msg_folio_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .kmem_acc_test_start
 
 .folio_fail_create:
     mov rsi, msg_folio_fail_create_str
@@ -5652,6 +5654,178 @@ kernel_main:
     pop r13
     pop r12
     jmp .panic
+
+.kmem_acc_test_start:
+    mov rsi, msg_kmem_acc_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; 1. Create a cgroup with ID = 2, hard_limit = 1000 pages, soft_limit = 500 pages
+    mov rdi, 2                      ; ID
+    mov rsi, 1000                   ; hard limit
+    mov rdx, 500                    ; soft limit
+    extern virt_memcg_create
+    call virt_memcg_create
+    test rax, rax
+    jz .kmem_acc_fail_create_cg
+    mov r12, rax                    ; R12 = cgroup pointer
+
+    ; 2. Attach current thread to this cgroup
+    lea rdi, [thread_table]
+    mov rsi, r12
+    extern virt_memcg_attach
+    call virt_memcg_attach
+
+    ; Reset kmem statistics of mock cgroup (in case of garbage)
+    mov qword [r12 + mem_cgroup_t.kmem_usage], 0
+    mov qword [r12 + mem_cgroup_t.kmem_pages], 0
+    mov qword [r12 + mem_cgroup_t.usage], 0
+
+    ; 3. Allocate heap slab block of 8192 bytes
+    mov rdi, 8192
+    call heap_alloc
+    test rax, rax
+    jz .kmem_acc_fail_alloc_heap
+    mov r13, rax                    ; R13 = offsetted heap pointer
+
+    ; 4. Assert that cgroup kmem_usage is 8192 bytes
+    mov rax, [r12 + mem_cgroup_t.kmem_usage]
+    cmp rax, 8192
+    jne .kmem_acc_fail_usage_val
+
+    ; Assert that cgroup usage is 2 pages (8192 / 4096)
+    mov rax, [r12 + mem_cgroup_t.usage]
+    cmp rax, 2
+    jne .kmem_acc_fail_pages_val
+
+    ; 5. Map a virtual address at 0x90000000 to trigger a page table allocation
+    ; Note: this will map virtual address 0x90000000 to physical frame 0x10000000 with user/writable flags.
+    ; This will invoke pgtable allocation.
+    mov rdi, 0x90000000
+    mov rsi, 0x10000000
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .kmem_acc_fail_map
+
+    ; Assert that cgroup kmem_usage has increased by at least one page table page (4096 bytes)
+    ; New kmem_usage = 8192 + 4096 = 12288 bytes (or more if multiple page table levels are allocated).
+    mov rax, [r12 + mem_cgroup_t.kmem_usage]
+    cmp rax, 12288
+    jb .kmem_acc_fail_pgtable_charge
+
+    ; Assert that cgroup usage is at least 3 pages (8192 + 4096 = 12288 bytes -> 3 pages)
+    mov rax, [r12 + mem_cgroup_t.usage]
+    cmp rax, 3
+    jb .kmem_acc_fail_pgtable_charge
+
+    ; 6. Free the heap memory
+    mov rdi, r13
+    call heap_free
+
+    ; Assert that cgroup kmem_usage dropped back by 8192 bytes
+    ; It should be kmem_usage_after_map - 8192.
+    ; Let's verify that it is exactly kmem_usage_after_map - 8192.
+    ; Since pgtable allocation is 4096 (1 page), kmem_usage should now be 4096 bytes.
+    mov rax, [r12 + mem_cgroup_t.kmem_usage]
+    cmp rax, 4096
+    jne .kmem_acc_fail_uncharge_val
+
+    ; Assert that cgroup usage is now 1 page
+    mov rax, [r12 + mem_cgroup_t.usage]
+    cmp rax, 1
+    jne .kmem_acc_fail_uncharge_pages
+
+    ; 7. Unmap the virtual page to prevent leaks and cleanup
+    mov rdi, 0x90000000
+    call virt_unmap
+
+    ; Dissociate current thread from cgroup
+    lea rdi, [thread_table]
+    mov qword [rdi + thread_t.cgroup_ptr], 0
+
+    ; Free mock cgroup structure using heap_free
+    ; (Since heap_free uncharges, it will uncharge the remaining 4096 bytes of page table frame, dropping kmem to 0).
+    mov rdi, r12
+    call heap_free
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_kmem_acc_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.kmem_acc_fail_create_cg:
+    mov rsi, msg_kmem_acc_fail_create_cg_str
+    call uart_print_str
+    jmp .panic_kmem_acc
+
+.kmem_acc_fail_alloc_heap:
+    mov rsi, msg_kmem_acc_fail_alloc_heap_str
+    call uart_print_str
+    jmp .panic_kmem_acc
+
+.kmem_acc_fail_usage_val:
+    mov rdi, r13
+    call heap_free
+    mov rsi, msg_kmem_acc_fail_usage_val_str
+    call uart_print_str
+    jmp .panic_kmem_acc
+
+.kmem_acc_fail_pages_val:
+    mov rdi, r13
+    call heap_free
+    mov rsi, msg_kmem_acc_fail_pages_val_str
+    call uart_print_str
+    jmp .panic_kmem_acc
+
+.kmem_acc_fail_map:
+    mov rdi, r13
+    call heap_free
+    mov rsi, msg_kmem_acc_fail_map_str
+    call uart_print_str
+    jmp .panic_kmem_acc
+
+.kmem_acc_fail_pgtable_charge:
+    mov rdi, 0x90000000
+    call virt_unmap
+    mov rdi, r13
+    call heap_free
+    mov rsi, msg_kmem_acc_fail_pgtable_charge_str
+    call uart_print_str
+    jmp .panic_kmem_acc
+
+.kmem_acc_fail_uncharge_val:
+    mov rdi, 0x90000000
+    call virt_unmap
+    mov rsi, msg_kmem_acc_fail_uncharge_val_str
+    call uart_print_str
+    jmp .panic_kmem_acc
+
+.kmem_acc_fail_uncharge_pages:
+    mov rdi, 0x90000000
+    call virt_unmap
+    mov rsi, msg_kmem_acc_fail_uncharge_pages_str
+    call uart_print_str
+    jmp .panic_kmem_acc
+
+.panic_kmem_acc:
+    lea rdi, [thread_table]
+    mov qword [rdi + thread_t.cgroup_ptr], 0
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 
 
 
@@ -13894,6 +14068,19 @@ msg_folio_fail_misses_init_str:   db "Failure: sys_page_cache_misses is not 1 af
 msg_folio_fail_count_init_str:    db "Failure: sys_page_cache_count is not 1 after initial folio load.", 0x0D, 0x0A, 0
 msg_folio_fail_hits_str:           db "Failure: sys_page_cache_hits mismatch in folio test.", 0x0D, 0x0A, 0
 msg_folio_fail_write_str:          db "Failure: virt_file_write failed in folio test.", 0x0D, 0x0A, 0
+
+; Kernel Memory Accounting Test messages
+msg_kmem_acc_test_start:             db "Running VMM Kernel Memory Accounting Test...", 0x0D, 0x0A, 0
+msg_kmem_acc_test_passed:            db "VMM Kernel Memory Accounting Test PASSED!", 0x0D, 0x0A, 0
+msg_kmem_acc_fail_create_cg_str:      db "Failure: Could not create mock cgroup for kmem test.", 0x0D, 0x0A, 0
+msg_kmem_acc_fail_alloc_heap_str:     db "Failure: Could not allocate heap block for kmem test.", 0x0D, 0x0A, 0
+msg_kmem_acc_fail_usage_val_str:      db "Failure: Cgroup kmem_usage was not charged correctly on heap alloc.", 0x0D, 0x0A, 0
+msg_kmem_acc_fail_pages_val_str:      db "Failure: Cgroup pages usage was not charged correctly on heap alloc.", 0x0D, 0x0A, 0
+msg_kmem_acc_fail_map_str:            db "Failure: Could not map page for kmem test.", 0x0D, 0x0A, 0
+msg_kmem_acc_fail_pgtable_charge_str: db "Failure: Cgroup was not charged for intermediate page tables.", 0x0D, 0x0A, 0
+msg_kmem_acc_fail_uncharge_val_str:   db "Failure: Cgroup kmem_usage not uncharged correctly on heap free.", 0x0D, 0x0A, 0
+msg_kmem_acc_fail_uncharge_pages_str: db "Failure: Cgroup pages usage not uncharged correctly on heap free.", 0x0D, 0x0A, 0
+
 
 
 
