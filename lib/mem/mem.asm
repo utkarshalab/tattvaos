@@ -90,6 +90,7 @@
 %include "storage/ummapf/bypass.asm"
 %include "storage/ummapf/barrier.asm"
 %include "lib/mem/virt/ipc.asm"
+%include "lib/mem/virt/balloon.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
