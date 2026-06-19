@@ -116,6 +116,8 @@ extern numa_set_proactive_headroom
 extern sys_balloon_target_pages
 extern sys_balloon_current_pages
 extern virt_balloon_set_target
+extern virt_memcg_set_high_limit
+extern sched_get_current_thread
 extern kswapd_check_and_reclaim_node
 extern page_replace_clock_evict_node
 extern kswapd_min_watermark
@@ -4596,7 +4598,7 @@ kernel_main:
     mov rsi, msg_balloon_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .throttling_test_start
 
 .balloon_fail_init:
     mov rsi, msg_balloon_fail_init_str
@@ -4616,6 +4618,114 @@ kernel_main:
 .balloon_fail_deflate_all:
     mov rsi, msg_balloon_fail_deflate_all_str
     call uart_print_str
+    jmp .panic
+
+.throttling_test_start:
+    mov rsi, msg_throttling_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; 1. Create cgroup
+    ; ID = 50, hard_limit = 100, soft_limit = 50
+    mov rdi, 50
+    mov rsi, 100
+    mov rdx, 50
+    call virt_memcg_create
+    test rax, rax
+    jz .throttling_fail_create
+    mov r12, rax                    ; R12 = cgroup pointer
+
+    ; 2. Set high_limit to 5 pages
+    mov rdi, r12
+    mov rsi, 5
+    call virt_memcg_set_high_limit
+
+    ; 3. Attach current thread
+    call sched_get_current_thread
+    test rax, rax
+    jz .throttling_fail_thread
+    mov r13, rax                    ; R13 = thread pointer
+
+    mov rdi, r13
+    mov rsi, r12
+    call virt_memcg_attach
+
+    ; 4. Allocate VMA 1: 4 pages (16384 bytes) at 0x80000000.
+    ; This should NOT trigger the throttle.
+    mov rdi, 0x80000000
+    mov rsi, 16384
+    mov rdx, 0x03                   ; VMA_READ | VMA_WRITE
+    call vma_create
+    test rax, rax
+    jz .throttling_fail_vma1
+    mov r14, rax                    ; R14 = VMA 1 pointer
+
+    ; 5. Allocate VMA 2: 2 pages (8192 bytes) at 0x80004000.
+    ; Total usage becomes 6 pages, which exceeds high_limit of 5 pages.
+    ; This MUST trigger the warning and throttling.
+    mov rdi, 0x80004000
+    mov rsi, 8192
+    mov rdx, 0x03                   ; VMA_READ | VMA_WRITE
+    call vma_create
+    test rax, rax
+    jz .throttling_fail_vma2
+    mov r15, rax                    ; R15 = VMA 2 pointer
+
+    ; 6. Clean up
+    ; Detach thread
+    mov rdi, r13
+    mov rsi, 0
+    call virt_memcg_attach
+
+    ; Destroy VMAs
+    mov rdi, r14
+    call vma_destroy
+    mov rdi, r15
+    call vma_destroy
+
+    ; Destroy cgroup
+    mov rdi, r12
+    call virt_memcg_destroy
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_throttling_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.throttling_fail_create:
+    mov rsi, msg_throttling_fail_create_str
+    call uart_print_str
+    jmp .panic_throttling
+
+.throttling_fail_thread:
+    mov rsi, msg_throttling_fail_thread_str
+    call uart_print_str
+    jmp .panic_throttling
+
+.throttling_fail_vma1:
+    mov rsi, msg_throttling_fail_vma1_str
+    call uart_print_str
+    jmp .panic_throttling
+
+.throttling_fail_vma2:
+    mov rsi, msg_throttling_fail_vma2_str
+    call uart_print_str
+    jmp .panic_throttling
+
+.panic_throttling:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     jmp .panic
 
 .oom_psi_fail_init:
@@ -12781,6 +12891,14 @@ msg_balloon_fail_init_str:          db "Failure: Balloon initial size/target is 
 msg_balloon_fail_inflate_str:       db "Failure: Balloon inflation target or current size mismatch.", 0x0D, 0x0A, 0
 msg_balloon_fail_deflate_str:       db "Failure: Balloon deflation target or current size mismatch.", 0x0D, 0x0A, 0
 msg_balloon_fail_deflate_all_str:   db "Failure: Balloon complete deflation target or current size mismatch.", 0x0D, 0x0A, 0
+
+; cgroup memory.high Throttling Test messages
+msg_throttling_test_start:             db "Running VMM cgroup memory.high Throttling Test...", 0x0D, 0x0A, 0
+msg_throttling_test_passed:            db "VMM cgroup memory.high Throttling Test PASSED!", 0x0D, 0x0A, 0
+msg_throttling_fail_create_str:        db "Failure: Could not create memory cgroup for throttling test.", 0x0D, 0x0A, 0
+msg_throttling_fail_thread_str:        db "Failure: Could not retrieve current thread pointer.", 0x0D, 0x0A, 0
+msg_throttling_fail_vma1_str:          db "Failure: Could not allocate non-throttled VMA 1.", 0x0D, 0x0A, 0
+msg_throttling_fail_vma2_str:          db "Failure: Could not allocate throttled VMA 2.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
