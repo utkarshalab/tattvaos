@@ -129,6 +129,13 @@ extern sys_writeback_throttle_delay
 extern sys_writeback_dirty_limit
 extern sys_writeback_throttled_pages
 extern sys_o_direct
+extern sys_mglru_enabled
+extern sys_mglru_head
+extern sys_mglru_count
+extern sys_mglru_promotions
+extern sys_mglru_reclaims
+extern virt_mglru_init
+extern virt_mglru_age
 extern kswapd_check_and_reclaim_node
 extern page_replace_clock_evict_node
 extern kswapd_min_watermark
@@ -5216,7 +5223,7 @@ kernel_main:
     mov rsi, msg_direct_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .mglru_test_start
 
 .direct_fail_create:
     mov rsi, msg_direct_fail_create_str
@@ -5283,6 +5290,222 @@ kernel_main:
     pop r13
     pop r12
     jmp .panic
+
+.mglru_test_start:
+    mov rsi, msg_mglru_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; 1. Reset MGLRU system
+    call virt_mglru_init
+
+    ; Enable MGLRU
+    mov qword [sys_mglru_enabled], 1
+
+    ; 2. Create VMA at 0x30000000 (size 8192, 2 pages)
+    mov rdi, 0x30000000
+    mov rsi, 8192
+    mov rdx, 0x03                   ; VMA_READ | VMA_WRITE
+    call vma_create
+    test rax, rax
+    jz .mglru_fail_vma
+    mov r12, rax                    ; r12 = VMA pointer
+
+    ; 3. Map Page A (0x30000000) and Page B (0x30001000)
+    ; Alloc & Map Page A
+    call phys_alloc_page
+    test rax, rax
+    jz .mglru_fail_alloc
+    mov r13, rax                    ; r13 = Page A phys
+    mov rdi, 0x30000000
+    mov rsi, r13
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .mglru_fail_map
+
+    ; Alloc & Map Page B
+    call phys_alloc_page
+    test rax, rax
+    jz .mglru_fail_alloc
+    mov r14, rax                    ; r14 = Page B phys
+    mov rdi, 0x30001000
+    mov rsi, r14
+    mov rdx, 0x07
+    call virt_map
+    test rax, rax
+    jz .mglru_fail_map
+
+    ; 4. Verify both pages are added to the youngest Gen 3 initially
+    ; Gen 3 count should be 2, Gen 0 count should be 0
+    cmp qword [sys_mglru_count + 3 * 8], 2
+    jne .mglru_fail_init_count
+    cmp qword [sys_mglru_count + 0 * 8], 0
+    jne .mglru_fail_init_count
+
+    ; 5. Access Page A to set Accessed bit in PTE
+    mov al, [0x30000000]
+
+    ; 6. Age the pages 3 times (Gen 3 -> 2 -> 1 -> 0)
+    call virt_mglru_age
+    call virt_mglru_age
+    call virt_mglru_age
+
+    ; Verify both pages shifted to Gen 0
+    ; Gen 3 count should be 0, Gen 0 count should be 2
+    cmp qword [sys_mglru_count + 3 * 8], 0
+    jne .mglru_fail_age_count
+    cmp qword [sys_mglru_count + 0 * 8], 2
+    jne .mglru_fail_age_count
+
+    ; Register clean mock RAM swap device for eviction
+    lea rdi, [mock_swap_dev]
+    call swap_register_device
+
+    ; Reset telemetry
+    mov qword [sys_mglru_promotions], 0
+    mov qword [sys_mglru_reclaims], 0
+
+    ; 7. Trigger eviction (invokes MGLRU reclamation)
+    ; Page B (Accessed=0) is evicted. Page A (Accessed=1) is promoted to Gen 3.
+    call page_replace_clock_evict
+    test rax, rax
+    jz .mglru_fail_evict
+
+    ; 8. Verify outcomes
+    ; Reclaims telemetry should be 1
+    cmp qword [sys_mglru_reclaims], 1
+    jne .mglru_fail_telemetry
+    ; Promotions telemetry should be 1
+    cmp qword [sys_mglru_promotions], 1
+    jne .mglru_fail_telemetry
+
+    ; Page B must be evicted (PTE not present, swapped is 1)
+    mov rdi, 0x30001000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .mglru_fail_pte
+    mov rcx, [rax]
+    test rcx, 1                     ; present bit (bit 0)
+    jnz .mglru_fail_present_evicted
+    test rcx, 0x400                 ; swapped bit (bit 10)
+    jz .mglru_fail_not_swapped
+
+    ; Page A must be promoted (PTE present, Gen 3 count = 1, Gen 0 count = 0)
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .mglru_fail_pte
+    mov rcx, [rax]
+    test rcx, 1
+    jz .mglru_fail_not_present_promoted
+
+    cmp qword [sys_mglru_count + 3 * 8], 1
+    jne .mglru_fail_final_count
+    cmp qword [sys_mglru_count + 0 * 8], 0
+    jne .mglru_fail_final_count
+
+    ; 9. Clean up resources
+    ; Disable MGLRU
+    mov qword [sys_mglru_enabled], 0
+
+    ; Unmap and free Page A
+    mov rdi, 0x30000000
+    call virt_unmap
+    mov rdi, r13
+    call phys_free_page
+
+    ; Since Page B was evicted and freed, its PTE contains slot. We unmap virtual address.
+    mov rdi, 0x30001000
+    call virt_unmap
+
+    mov rdi, r12
+    call vma_destroy
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_mglru_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.mglru_fail_vma:
+    mov rsi, msg_mglru_fail_vma_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_alloc:
+    mov rsi, msg_mglru_fail_alloc_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_map:
+    mov rsi, msg_mglru_fail_map_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_init_count:
+    mov rsi, msg_mglru_fail_init_count_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_age_count:
+    mov rsi, msg_mglru_fail_age_count_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_evict:
+    mov rsi, msg_mglru_fail_evict_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_telemetry:
+    mov rsi, msg_mglru_fail_telemetry_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_pte:
+    mov rsi, msg_mglru_fail_pte_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_present_evicted:
+    mov rsi, msg_mglru_fail_present_evicted_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_not_swapped:
+    mov rsi, msg_mglru_fail_not_swapped_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_not_present_promoted:
+    mov rsi, msg_mglru_fail_not_present_promoted_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.mglru_fail_final_count:
+    mov rsi, msg_mglru_fail_final_count_str
+    call uart_print_str
+    jmp .panic_mglru
+
+.panic_mglru:
+    mov qword [sys_mglru_enabled], 0
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 
 
 
@@ -13497,6 +13720,23 @@ msg_direct_fail_map_str:           db "Failure: Could not map page for direct te
 msg_direct_fail_read_str:          db "Failure: virt_file_read failed in direct test.", 0x0D, 0x0A, 0
 msg_direct_fail_bypass_str:        db "Failure: Cache was not bypassed in direct test (hit/miss counter changed).", 0x0D, 0x0A, 0
 msg_direct_fail_populate_str:      db "Failure: Cache was populated during direct read (subsequent cached read did not miss).", 0x0D, 0x0A, 0
+
+; Multi-Gen LRU (MGLRU) Test messages
+msg_mglru_test_start:             db "Running VMM Multi-Gen LRU (MGLRU) Test...", 0x0D, 0x0A, 0
+msg_mglru_test_passed:            db "VMM Multi-Gen LRU (MGLRU) Test PASSED!", 0x0D, 0x0A, 0
+msg_mglru_fail_vma_str:           db "Failure: Could not create VMA for MGLRU test.", 0x0D, 0x0A, 0
+msg_mglru_fail_alloc_str:         db "Failure: Could not allocate physical page for MGLRU test.", 0x0D, 0x0A, 0
+msg_mglru_fail_map_str:           db "Failure: Could not map page for MGLRU test.", 0x0D, 0x0A, 0
+msg_mglru_fail_init_count_str:    db "Failure: Generation counts not correct after initial mapping.", 0x0D, 0x0A, 0
+msg_mglru_fail_age_count_str:     db "Failure: Generation counts not correct after aging pages.", 0x0D, 0x0A, 0
+msg_mglru_fail_evict_str:         db "Failure: page_replace_clock_evict returned 0 under MGLRU.", 0x0D, 0x0A, 0
+msg_mglru_fail_telemetry_str:     db "Failure: MGLRU reclaim or promotion counter incorrect.", 0x0D, 0x0A, 0
+msg_mglru_fail_pte_str:           db "Failure: PTE not found after eviction.", 0x0D, 0x0A, 0
+msg_mglru_fail_present_evicted_str: db "Failure: Evicted page present bit is not zero.", 0x0D, 0x0A, 0
+msg_mglru_fail_not_swapped_str:   db "Failure: Evicted page swapped bit is not set.", 0x0D, 0x0A, 0
+msg_mglru_fail_not_present_promoted_str: db "Failure: Promoted page present bit is zero.", 0x0D, 0x0A, 0
+msg_mglru_fail_final_count_str:   db "Failure: MGLRU counts not correct after eviction & promotion.", 0x0D, 0x0A, 0
+
 
 
 
