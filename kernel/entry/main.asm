@@ -123,6 +123,8 @@ extern virt_file_read
 extern virt_file_write
 extern sys_page_cache_hits
 extern sys_page_cache_misses
+extern sys_readahead_window_size
+extern sys_readahead_prefetched_pages
 extern kswapd_check_and_reclaim_node
 extern page_replace_clock_evict_node
 extern kswapd_min_watermark
@@ -4828,7 +4830,7 @@ kernel_main:
     mov rsi, msg_page_cache_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .readahead_test_start
 
 .page_cache_fail_read:
     add rsp, 16
@@ -4878,6 +4880,119 @@ kernel_main:
     pop r13
     pop r12
     jmp .panic
+
+.readahead_test_start:
+    mov rsi, msg_readahead_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; Initialize page cache (clears old contents and stats)
+    call virt_page_cache_init
+
+    ; Create mock file of size 16384 bytes (4 pages)
+    mov rdi, 16384
+    call mock_file_create
+    test rax, rax
+    jz .readahead_fail_create
+    mov r12, rax                    ; r12 = mock file pointer
+
+    ; Prepare temporary stack buffer for reading
+    sub rsp, 16
+    mov r13, rsp                    ; r13 = buffer pointer
+
+    ; Set configurable readahead window size to 2 pages
+    mov qword [sys_readahead_window_size], 2
+
+    ; Reset prefetch counter
+    mov qword [sys_readahead_prefetched_pages], 0
+
+    ; Read 16 bytes at offset 0 (triggers page fault & readahead prefetching)
+    mov rdi, r12
+    mov rsi, 0
+    mov rdx, r13
+    mov rcx, 16
+    call virt_file_read
+    cmp rax, 16
+    jne .readahead_fail_read
+
+    ; Assert that exactly 2 pages (at offsets 4096 and 8192) were prefetched
+    cmp qword [sys_readahead_prefetched_pages], 2
+    jne .readahead_fail_prefetched
+
+    ; Reset page cache statistics to verify sequential read hits
+    mov qword [sys_page_cache_hits], 0
+    mov qword [sys_page_cache_misses], 0
+
+    ; Read 16 bytes from offset 4096 (which should be in cache due to prefetch)
+    mov rdi, r12
+    mov rsi, 4096
+    mov rdx, r13
+    mov rcx, 16
+    call virt_file_read
+    cmp rax, 16
+    jne .readahead_fail_read
+
+    ; Assert hit count is 1 and miss count is 0
+    cmp qword [sys_page_cache_hits], 1
+    jne .readahead_fail_hits
+    cmp qword [sys_page_cache_misses], 0
+    jne .readahead_fail_misses
+
+    ; Clean up mock file and stack
+    add rsp, 16
+    mov rdi, r12
+    call mock_file_destroy
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_readahead_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.readahead_fail_create:
+    mov rsi, msg_readahead_fail_create_str
+    call uart_print_str
+    jmp .panic_readahead
+
+.readahead_fail_read:
+    add rsp, 16
+    mov rsi, msg_readahead_fail_read_str
+    call uart_print_str
+    jmp .panic_readahead
+
+.readahead_fail_prefetched:
+    add rsp, 16
+    mov rsi, msg_readahead_fail_prefetched_str
+    call uart_print_str
+    jmp .panic_readahead
+
+.readahead_fail_hits:
+    add rsp, 16
+    mov rsi, msg_readahead_fail_hits_str
+    call uart_print_str
+    jmp .panic_readahead
+
+.readahead_fail_misses:
+    add rsp, 16
+    mov rsi, msg_readahead_fail_misses_str
+    call uart_print_str
+    jmp .panic_readahead
+
+.panic_readahead:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 
 .oom_psi_fail_init:
     mov rsi, msg_oom_psi_fail_init_str
@@ -13061,6 +13176,16 @@ msg_page_cache_fail_write_str:         db "Failure: virt_file_write did not retu
 msg_page_cache_fail_counters3_str:     db "Failure: Page cache hit/miss counters incorrect after write.", 0x0D, 0x0A, 0
 msg_page_cache_fail_sync_str:          db "Failure: Block page not allocated on sync target.", 0x0D, 0x0A, 0
 msg_page_cache_fail_sync_data_str:     db "Failure: Written data did not match content in storage after sync.", 0x0D, 0x0A, 0
+
+; Readahead Engine Test messages
+msg_readahead_test_start:             db "Running VMM Readahead Engine Test...", 0x0D, 0x0A, 0
+msg_readahead_test_passed:            db "VMM Readahead Engine Test PASSED!", 0x0D, 0x0A, 0
+msg_readahead_fail_create_str:        db "Failure: Could not create mock file for readahead test.", 0x0D, 0x0A, 0
+msg_readahead_fail_read_str:          db "Failure: virt_file_read returned unexpected bytes.", 0x0D, 0x0A, 0
+msg_readahead_fail_prefetched_str:    db "Failure: sys_readahead_prefetched_pages mismatch.", 0x0D, 0x0A, 0
+msg_readahead_fail_hits_str:          db "Failure: sys_page_cache_hits mismatch.", 0x0D, 0x0A, 0
+msg_readahead_fail_misses_str:        db "Failure: sys_page_cache_misses mismatch.", 0x0D, 0x0A, 0
+
 
 section .bss
 align 8
