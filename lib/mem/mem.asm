@@ -95,6 +95,7 @@
 %include "lib/mem/virt/readahead.asm"
 %include "lib/mem/virt/writeback.asm"
 %include "lib/mem/virt/mglru.asm"
+%include "lib/mem/virt/percpu_stat.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
