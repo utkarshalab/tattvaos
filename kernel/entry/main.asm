@@ -118,6 +118,11 @@ extern sys_balloon_current_pages
 extern virt_balloon_set_target
 extern virt_memcg_set_high_limit
 extern sched_get_current_thread
+extern virt_page_cache_init
+extern virt_file_read
+extern virt_file_write
+extern sys_page_cache_hits
+extern sys_page_cache_misses
 extern kswapd_check_and_reclaim_node
 extern page_replace_clock_evict_node
 extern kswapd_min_watermark
@@ -4699,7 +4704,7 @@ kernel_main:
     mov rsi, msg_throttling_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .page_cache_test_start
 
 .throttling_fail_create:
     mov rsi, msg_throttling_fail_create_str
@@ -4722,6 +4727,152 @@ kernel_main:
     jmp .panic_throttling
 
 .panic_throttling:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.page_cache_test_start:
+    mov rsi, msg_page_cache_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; Initialize Page Cache
+    call virt_page_cache_init
+
+    ; Create a mock file: size = 8192 bytes (2 pages)
+    mov rdi, 8192
+    extern mock_file_create
+    call mock_file_create
+    test rax, rax
+    jz .page_cache_fail_read        ; treat as read failure/alloc failure
+    mov r12, rax                    ; R12 = file pointer
+
+    ; Prepare temporary stack buffer for reading
+    sub rsp, 16
+    mov r13, rsp                    ; R13 = buffer pointer
+
+    ; Test 1: Page Cache Miss (First Read)
+    mov rdi, r12                    ; file_ptr
+    mov rsi, 0                      ; offset
+    mov rdx, r13                    ; dest_buf
+    mov rcx, 16                     ; count = 16 bytes
+    call virt_file_read
+    cmp rax, 16
+    jne .page_cache_fail_read
+
+    ; Assert counters: hits = 0, misses = 1
+    cmp qword [sys_page_cache_hits], 0
+    jne .page_cache_fail_counters1
+    cmp qword [sys_page_cache_misses], 1
+    jne .page_cache_fail_counters1
+
+    ; Test 2: Page Cache Hit (Second Read)
+    mov rdi, r12
+    mov rsi, 0
+    mov rdx, r13
+    mov rcx, 16
+    call virt_file_read
+    cmp rax, 16
+    jne .page_cache_fail_read
+
+    ; Assert counters: hits = 1, misses = 1
+    cmp qword [sys_page_cache_hits], 1
+    jne .page_cache_fail_counters2
+    cmp qword [sys_page_cache_misses], 1
+    jne .page_cache_fail_counters2
+
+    ; Test 3: Write and Page Cache Miss (Offset 4096, page 2)
+    mov qword [r13], 0xAA55AA55AA55AA55
+    mov rdi, r12
+    mov rsi, 4096
+    mov rdx, r13
+    mov rcx, 8
+    call virt_file_write
+    cmp rax, 8
+    jne .page_cache_fail_write
+
+    ; Assert counters: hits = 1, misses = 2 (page 2 lookup miss)
+    cmp qword [sys_page_cache_hits], 1
+    jne .page_cache_fail_counters3
+    cmp qword [sys_page_cache_misses], 2
+    jne .page_cache_fail_counters3
+
+    ; Test 4: Write sync back to storage
+    extern virt_page_cache_sync
+    call virt_page_cache_sync
+
+    ; Verify that the block page at index 1 is not null and has our data synced
+    mov rax, [r12 + mock_file_t.blocks + 8]  ; block 1 (offset 4096)
+    test rax, rax
+    jz .page_cache_fail_sync
+    cmp qword [rax], 0xAA55AA55AA55AA55
+    jne .page_cache_fail_sync_data
+
+    ; Clean up
+    add rsp, 16
+    mov rdi, r12
+    extern mock_file_destroy
+    call mock_file_destroy
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_page_cache_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.page_cache_fail_read:
+    add rsp, 16
+    mov rsi, msg_page_cache_fail_read_str
+    call uart_print_str
+    jmp .panic_page_cache
+
+.page_cache_fail_counters1:
+    add rsp, 16
+    mov rsi, msg_page_cache_fail_counters1_str
+    call uart_print_str
+    jmp .panic_page_cache
+
+.page_cache_fail_counters2:
+    add rsp, 16
+    mov rsi, msg_page_cache_fail_counters2_str
+    call uart_print_str
+    jmp .panic_page_cache
+
+.page_cache_fail_write:
+    add rsp, 16
+    mov rsi, msg_page_cache_fail_write_str
+    call uart_print_str
+    jmp .panic_page_cache
+
+.page_cache_fail_counters3:
+    add rsp, 16
+    mov rsi, msg_page_cache_fail_counters3_str
+    call uart_print_str
+    jmp .panic_page_cache
+
+.page_cache_fail_sync:
+    add rsp, 16
+    mov rsi, msg_page_cache_fail_sync_str
+    call uart_print_str
+    jmp .panic_page_cache
+
+.page_cache_fail_sync_data:
+    add rsp, 16
+    mov rsi, msg_page_cache_fail_sync_data_str
+    call uart_print_str
+    jmp .panic_page_cache
+
+.panic_page_cache:
     pop r15
     pop r14
     pop r13
@@ -12899,6 +13050,17 @@ msg_throttling_fail_create_str:        db "Failure: Could not create memory cgro
 msg_throttling_fail_thread_str:        db "Failure: Could not retrieve current thread pointer.", 0x0D, 0x0A, 0
 msg_throttling_fail_vma1_str:          db "Failure: Could not allocate non-throttled VMA 1.", 0x0D, 0x0A, 0
 msg_throttling_fail_vma2_str:          db "Failure: Could not allocate throttled VMA 2.", 0x0D, 0x0A, 0
+
+; Unified Page Cache Test messages
+msg_page_cache_test_start:             db "Running VMM Unified Page Cache Test...", 0x0D, 0x0A, 0
+msg_page_cache_test_passed:            db "VMM Unified Page Cache Test PASSED!", 0x0D, 0x0A, 0
+msg_page_cache_fail_read_str:          db "Failure: virt_file_read did not return expected byte count.", 0x0D, 0x0A, 0
+msg_page_cache_fail_counters1_str:     db "Failure: Page cache hit/miss counters incorrect after first read.", 0x0D, 0x0A, 0
+msg_page_cache_fail_counters2_str:     db "Failure: Page cache hit/miss counters incorrect after second read.", 0x0D, 0x0A, 0
+msg_page_cache_fail_write_str:         db "Failure: virt_file_write did not return expected byte count.", 0x0D, 0x0A, 0
+msg_page_cache_fail_counters3_str:     db "Failure: Page cache hit/miss counters incorrect after write.", 0x0D, 0x0A, 0
+msg_page_cache_fail_sync_str:          db "Failure: Block page not allocated on sync target.", 0x0D, 0x0A, 0
+msg_page_cache_fail_sync_data_str:     db "Failure: Written data did not match content in storage after sync.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
