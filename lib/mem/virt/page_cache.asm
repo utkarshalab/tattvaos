@@ -36,6 +36,7 @@ extern storage_read_file_page
 extern storage_write_file_page
 extern virt_readahead_trigger
 extern sys_readahead_window_size
+extern virt_writeback_throttle_check
 
 ; -----------------------------------------------------------------------------
 ; virt_page_cache_init — initializes the page cache and resets counters
@@ -487,6 +488,13 @@ virt_page_cache_sync:
     jz .next
     test rax, 2                     ; dirty?
     jz .next
+
+    ; Apply writeback throttling check (forces delay if dirty pages exceed limit)
+    push rbx
+    push rcx
+    call virt_writeback_throttle_check
+    pop rcx
+    pop rbx
 
     ; Write dirty page back to mock disk
     mov rdi, [rbx + page_cache_entry_t.file_ptr]
