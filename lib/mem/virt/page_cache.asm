@@ -37,6 +37,7 @@ extern storage_write_file_page
 extern virt_readahead_trigger
 extern sys_readahead_window_size
 extern virt_writeback_throttle_check
+extern virt_translate
 
 ; -----------------------------------------------------------------------------
 ; virt_page_cache_init — initializes the page cache and resets counters
@@ -271,6 +272,40 @@ virt_file_read:
     mov r14, rdx                    ; R14 = dest_buf pointer
     mov r15, rcx                    ; R15 = count of bytes to read
     xor rbp, rbp                    ; RBP = total bytes read
+
+    ; Check if O_DIRECT cache bypass is active
+    cmp qword [sys_o_direct], 0
+    jz .loop                        ; if 0, use standard cached path
+
+    ; Check alignment: offset (R13), dest_buf (R14), and count (R15) must be 4KB page aligned
+    mov rax, r13
+    or rax, r14
+    or rax, r15
+    test rax, 4095
+    jnz .loop                       ; if any is not page-aligned, fallback to cached path
+
+.direct_loop:
+    test r15, r15
+    jz .done
+
+    ; Translate destination virtual address R14 to physical page address
+    mov rdi, r14
+    call virt_translate
+    test rax, rax
+    jz .done                        ; translation error, exit
+
+    ; Read directly from storage into destination physical page
+    mov rdi, r12                    ; file_ptr
+    mov rsi, r13                    ; file offset
+    mov rdx, rax                    ; physical page address
+    call storage_read_file_page
+
+    ; Update pointers/counters
+    add rbp, 4096
+    add r13, 4096
+    add r14, 4096
+    sub r15, 4096
+    jmp .direct_loop
 
 .loop:
     test r15, r15
@@ -523,10 +558,13 @@ align 8
 global sys_page_cache_hits
 global sys_page_cache_misses
 global sys_page_cache_count
+global sys_o_direct
 
 sys_page_cache_hits:   dq 0
 sys_page_cache_misses: dq 0
 sys_page_cache_count:  dq 0
+sys_o_direct:          dq 0
+
 
 section .bss
 
