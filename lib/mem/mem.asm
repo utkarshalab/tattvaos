@@ -91,6 +91,7 @@
 %include "storage/ummapf/barrier.asm"
 %include "lib/mem/virt/ipc.asm"
 %include "lib/mem/virt/balloon.asm"
+%include "lib/mem/virt/page_cache.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
