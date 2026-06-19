@@ -94,6 +94,7 @@
 %include "lib/mem/virt/page_cache.asm"
 %include "lib/mem/virt/readahead.asm"
 %include "lib/mem/virt/writeback.asm"
+%include "lib/mem/virt/mglru.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
