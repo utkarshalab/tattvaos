@@ -33,6 +33,8 @@ struc mem_cgroup_t
     .psi_last_update_tsc    resq 1      ; TSC of last cgroup PSI update
     .psi_stalled_count      resq 1      ; Count of stalled active threads in cgroup
     .psi_active_count       resq 1      ; Count of active threads in cgroup
+    .kmem_usage             resq 1      ; Kernel memory usage in bytes
+    .kmem_pages             resq 1      ; Pages charged to usage for kernel memory
 endstruc
 
 VMA_FILE        equ (1 << 8)    ; Bind storage file directly to VMA
@@ -1636,5 +1638,120 @@ sys_psi_stalled_count: dq 0
 align 8
 global sys_psi_active_count
 sys_psi_active_count: dq 0
+
+; -----------------------------------------------------------------------------
+; sys_kmem_cgroup_charge — charges kernel memory allocation to current thread's cgroup
+; Input:
+;   RDI = allocation size in bytes
+; Output: none
+; Clobbers: RAX, RCX, RDX, Rsi
+; -----------------------------------------------------------------------------
+global sys_kmem_cgroup_charge
+sys_kmem_cgroup_charge:
+    push rbx
+    push rdi
+    
+    ; Get current thread
+    extern sched_get_current_thread
+    call sched_get_current_thread
+    test rax, rax
+    jz .done
+    
+    ; Get thread's cgroup
+    mov rbx, [rax + thread_t.cgroup_ptr]
+    test rbx, rbx
+    jz .done
+    
+    pop rdi
+    push rdi
+    
+    ; Increment kmem_usage (bytes)
+    add [rbx + mem_cgroup_t.kmem_usage], rdi
+    
+    ; Compute new total page charge = (kmem_usage + 4095) / 4096
+    mov rax, [rbx + mem_cgroup_t.kmem_usage]
+    add rax, 4095
+    shr rax, 12                     ; RAX = new target pages count
+    
+    ; Compute difference relative to kmem_pages
+    mov rcx, [rbx + mem_cgroup_t.kmem_pages] ; RCX = current page charge
+    cmp rax, rcx
+    jbe .done                       ; if new target <= current, no additional page charge
+    
+    ; Increment cgroup usage & kmem_pages by the difference
+    mov rdx, rax
+    sub rdx, rcx                    ; RDX = pages delta
+    add [rbx + mem_cgroup_t.usage], rdx
+    add [rbx + mem_cgroup_t.kmem_pages], rdx
+    
+.done:
+    pop rdi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; sys_kmem_cgroup_uncharge — uncharges kernel memory from current thread's cgroup
+; Input:
+;   RDI = allocation size in bytes
+; Output: none
+; Clobbers: RAX, RCX, RDX, Rsi
+; -----------------------------------------------------------------------------
+global sys_kmem_cgroup_uncharge
+sys_kmem_cgroup_uncharge:
+    push rbx
+    push rdi
+    
+    ; Get current thread
+    call sched_get_current_thread
+    test rax, rax
+    jz .done
+    
+    ; Get thread's cgroup
+    mov rbx, [rax + thread_t.cgroup_ptr]
+    test rbx, rbx
+    jz .done
+    
+    pop rdi
+    push rdi
+    
+    ; Check if kmem_usage >= RDI
+    mov rax, [rbx + mem_cgroup_t.kmem_usage]
+    cmp rax, rdi
+    jae .do_sub
+    mov rdi, rax                    ; clamp sub to current usage
+.do_sub:
+    sub [rbx + mem_cgroup_t.kmem_usage], rdi
+    
+    ; Compute new total page charge = (kmem_usage + 4095) / 4096
+    mov rax, [rbx + mem_cgroup_t.kmem_usage]
+    add rax, 4095
+    shr rax, 12                     ; RAX = new target pages count
+    
+    ; Compute difference relative to kmem_pages
+    mov rcx, [rbx + mem_cgroup_t.kmem_pages]
+    cmp rcx, rax
+    jbe .done                       ; if current charge <= target, no uncharge
+    
+    ; Decrement cgroup usage & kmem_pages by the difference
+    mov rdx, rcx
+    sub rdx, rax                    ; RDX = pages delta
+    
+    ; Decrement cgroup usage (clamp to 0)
+    mov rsi, [rbx + mem_cgroup_t.usage]
+    cmp rsi, rdx
+    jbe .zero_usage
+    sub rsi, rdx
+    mov [rbx + mem_cgroup_t.usage], rsi
+    jmp .dec_kmem_pages
+.zero_usage:
+    mov qword [rbx + mem_cgroup_t.usage], 0
+    
+.dec_kmem_pages:
+    sub [rbx + mem_cgroup_t.kmem_pages], rdx
+    
+.done:
+    pop rdi
+    pop rbx
+    ret
 
 %endif ; LIB_MEM_VIRT_VIRT_ASM
