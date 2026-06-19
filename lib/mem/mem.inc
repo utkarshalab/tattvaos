@@ -103,6 +103,7 @@ struc numa_node_t
     .pages_min       resq 1          ; Min pages threshold for direct reclaim
     .pages_low       resq 1          ; Low pages threshold for kswapd wakeup
     .pages_high      resq 1          ; High pages threshold for kswapd sleeps
+    .proactive_reclaim_headroom resq 1  ; Proactive reclaim target headroom
 endstruc
 
 ; Heap block signatures (Subfeature 19.3: Double-Free Verifier)
