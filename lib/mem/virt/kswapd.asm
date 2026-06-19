@@ -301,9 +301,218 @@ kswapd_check_and_reclaim_node:
     pop rbx
     ret
 
+; -----------------------------------------------------------------------------
+; virt_proactive_reclaim — proactively reclaims a target number of pages
+; Input:
+;   RDI = target_pages to reclaim
+; Output:
+;   RAX = actual pages reclaimed
+; -----------------------------------------------------------------------------
+global virt_proactive_reclaim
+virt_proactive_reclaim:
+    push rbx
+    push r12
+    push r13
+    
+    mov r12, rdi                    ; R12 = target_pages
+    xor r13, r13                    ; R13 = actual reclaimed count
+    
+.loop:
+    cmp r13, r12
+    jae .done
+    
+    call page_replace_clock_evict
+    test rax, rax
+    jz .done
+    
+    inc r13
+    jmp .loop
+    
+.done:
+    mov rax, r13
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_proactive_reclaim_node — proactively reclaims target pages from specific node
+; Input:
+;   RDI = node_id
+;   RSI = target_pages to reclaim
+; Output:
+;   RAX = actual pages reclaimed
+; -----------------------------------------------------------------------------
+global virt_proactive_reclaim_node
+virt_proactive_reclaim_node:
+    push rbx
+    push r12
+    push r13
+    push r14
+    
+    mov r12, rdi                    ; R12 = node_id
+    mov r13, rsi                    ; R13 = target_pages
+    xor r14, r14                    ; R14 = actual reclaimed count
+    
+.loop:
+    cmp r14, r13
+    jae .done
+    
+    mov rdi, r12
+    call page_replace_clock_evict_node
+    test rax, rax
+    jz .done
+    
+    inc r14
+    jmp .loop
+    
+.done:
+    mov rax, r14
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; kswapd_proactive_reclaim — runs proactive sweeps if free RAM below headroom
+; -----------------------------------------------------------------------------
+global kswapd_proactive_reclaim
+kswapd_proactive_reclaim:
+    push rbx
+    push r12
+    push r13
+
+    mov al, [kswapd_running]
+    test al, al
+    jnz .no_run
+
+    mov rax, [sys_proactive_reclaim_headroom]
+    test rax, rax
+    jz .no_run
+
+    mov byte [kswapd_running], 1
+
+    ; Check if free pages < headroom
+    mov rax, phys_state
+    mov r12, [rax + phys_state_t_free_pages_offset]
+    cmp r12, [sys_proactive_reclaim_headroom]
+    jae .done_reclaim
+
+    mov rsi, msg_kswapd_proactive
+    call uart_print_str
+
+    xor r13, r13
+.sweep_loop:
+    ; Check if we hit headroom + 256
+    mov rax, phys_state
+    mov rcx, [rax + phys_state_t_free_pages_offset]
+    mov rdx, [sys_proactive_reclaim_headroom]
+    add rdx, 256
+    cmp rcx, rdx
+    jae .sweep_done
+
+    call page_replace_clock_evict
+    test rax, rax
+    jz .sweep_done
+
+    inc r13
+    jmp .sweep_loop
+
+.sweep_done:
+    test r13, r13
+    jz .done_reclaim
+    mov rsi, msg_kswapd_done
+    call uart_print_str
+
+.done_reclaim:
+    mov byte [kswapd_running], 0
+.no_run:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; kswapd_proactive_reclaim_node — runs proactive sweeps on node if below headroom
+; Input:
+;   RDI = pointer to numa_node_t
+; -----------------------------------------------------------------------------
+global kswapd_proactive_reclaim_node
+kswapd_proactive_reclaim_node:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov r12, rdi                    ; R12 = numa_node_t pointer
+    movzx r14d, dword [r12 + numa_node_t.node_id] ; R14 = node_id
+
+    mov al, [kswapd_running]
+    test al, al
+    jnz .no_run
+
+    mov rax, [r12 + numa_node_t.proactive_reclaim_headroom]
+    test rax, rax
+    jz .no_run
+
+    mov byte [kswapd_running], 1
+
+    ; Check if free pages < headroom
+    mov r8, [r12 + numa_node_t.free_pages]
+    cmp r8, [r12 + numa_node_t.proactive_reclaim_headroom]
+    jae .done_reclaim
+
+    mov rsi, msg_kswapd_node_wake
+    call uart_print_str
+    mov rax, r14
+    call uart_print_dec
+    mov rsi, msg_kswapd_node_proactive_suffix
+    call uart_print_str
+
+    xor r15, r15
+.sweep_loop:
+    ; Check if node hit headroom + 256
+    mov rax, [r12 + numa_node_t.free_pages]
+    mov rcx, [r12 + numa_node_t.proactive_reclaim_headroom]
+    add rcx, 256
+    cmp rax, rcx
+    jae .sweep_done
+
+    mov rdi, r14
+    call page_replace_clock_evict_node
+    test rax, rax
+    jz .sweep_done
+
+    inc r15
+    jmp .sweep_loop
+
+.sweep_done:
+    test r15, r15
+    jz .done_reclaim
+    mov rsi, msg_kswapd_node_done
+    call uart_print_str
+    mov rax, r14
+    call uart_print_dec
+    mov rsi, msg_kswapd_node_done_suffix
+    call uart_print_str
+
+.done_reclaim:
+    mov byte [kswapd_running], 0
+.no_run:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 section .data
 
 align 8
+global sys_proactive_reclaim_headroom
+sys_proactive_reclaim_headroom: dq 0
 kswapd_min_watermark:  dq 0
 kswapd_low_watermark:  dq 0
 kswapd_high_watermark: dq 0
@@ -311,12 +520,14 @@ kswapd_running:        db 0
 
 msg_kswapd_wake:    db "[kswapd] Free RAM below low watermark. Running page-out sweeps...", 0x0D, 0x0A, 0
 msg_kswapd_direct:  db "[kswapd] Free RAM below min watermark. Running direct reclaim...", 0x0D, 0x0A, 0
+msg_kswapd_proactive: db "[kswapd] Free RAM below proactive headroom. Running proactive reclaim sweeps...", 0x0D, 0x0A, 0
 msg_kswapd_stuck:   db "[kswapd] Sweeps halted: no more eviction candidates or swap is full.", 0x0D, 0x0A, 0
 msg_kswapd_done:    db "[kswapd] Sweeps complete. Free RAM restored above high watermark.", 0x0D, 0x0A, 0
 
 msg_kswapd_node_wake:          db "[kswapd] Node ", 0
 msg_kswapd_node_wake_low:      db " Free RAM below low watermark. Running page-out sweeps...", 0x0D, 0x0A, 0
 msg_kswapd_node_wake_min:      db " Free RAM below min watermark. Running direct reclaim...", 0x0D, 0x0A, 0
+msg_kswapd_node_proactive_suffix: db " Free RAM below proactive headroom. Running proactive reclaim sweeps...", 0x0D, 0x0A, 0
 msg_kswapd_node_stuck:         db "[kswapd] Node ", 0
 msg_kswapd_node_stuck_suffix:  db " sweeps halted: no more eviction candidates or swap is full.", 0x0D, 0x0A, 0
 msg_kswapd_node_done:          db "[kswapd] Node ", 0
