@@ -465,6 +465,16 @@ virt_map_huge_2mb:
     
     push rax
     push rcx
+    push rdx
+    mov rdi, 4096
+    extern sys_kmem_cgroup_uncharge
+    call sys_kmem_cgroup_uncharge
+    pop rdx
+    pop rcx
+    pop rax
+
+    push rax
+    push rcx
     mov rdi, rdx
     call pgtable_cache_free
     test rax, rax
@@ -631,6 +641,15 @@ virt_map_super_1gb:
     
     push rdx
     push r8
+    push r9
+    mov rdi, 4096
+    call sys_kmem_cgroup_uncharge
+    pop r9
+    pop r8
+    pop rdx
+
+    push rdx
+    push r8
     mov rdi, r9
     call pgtable_cache_free
     test rax, rax
@@ -646,6 +665,11 @@ virt_map_super_1gb:
 
 .pd_clean_done:
     ; Free the PD itself!
+    push rdx
+    mov rdi, 4096
+    call sys_kmem_cgroup_uncharge
+    pop rdx
+
     mov rdi, rdx
     call pgtable_cache_free
     test rax, rax
@@ -697,7 +721,7 @@ virt_map_super_1gb:
     ; Fast path: try the recycling pool
     call pgtable_cache_alloc
     test rax, rax
-    jnz .alloc_done                 ; got a pre-zeroed page, return it
+    jnz .charge_kmem                 ; got a pre-zeroed page, return it
 
     ; Slow path: allocate from PMM and zero it
     call phys_alloc_page
@@ -709,6 +733,13 @@ virt_map_super_1gb:
     mov rdi, rax
     mov rsi, 4096
     call memzero
+    pop rax
+
+.charge_kmem:
+    push rax
+    mov rdi, 4096
+    extern sys_kmem_cgroup_charge
+    call sys_kmem_cgroup_charge
     pop rax
 
 .alloc_done:
