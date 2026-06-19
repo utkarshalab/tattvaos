@@ -108,6 +108,10 @@ extern virt_psi_update_thread_state
 extern virt_psi_get_sys_metrics
 extern virt_psi_get_cgroup_metrics
 extern sys_psi_active_count
+extern numa_set_watermarks
+extern kswapd_check_and_reclaim_node
+extern page_replace_clock_evict_node
+extern kswapd_min_watermark
 extern numa_ranges
 
 
@@ -3973,7 +3977,272 @@ kernel_main:
     mov rsi, msg_oom_psi_test_passed
     call uart_print_str
 
+    jmp .watermark_test_start
+
+    ; =========================================================================
+    ; Memory Watermarks Test
+    ; =========================================================================
+.watermark_test_start:
+    mov rsi, msg_watermark_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; Ensure NUMA local bitmaps are active
+    mov rax, [numa_local_bitmaps_active]
+    test rax, rax
+    jnz .numa_already_active
+    call numa_init_local_bitmaps
+.numa_already_active:
+
+    ; 1. Configure watermarks for Node 0
+    mov rdi, 0                      ; Node 0
+    mov rsi, 10                     ; min = 10 pages
+    mov rdx, 20                     ; low = 20 pages
+    mov rcx, 30                     ; high = 30 pages
+    call numa_set_watermarks
+    cmp rax, 1
+    jne .watermark_fail_config
+
+    ; Verify watermarks are set correctly
+    mov rax, 0
+    imul rax, numa_node_t_size
+    lea r12, [numa_nodes + rax]     ; R12 = Node 0 descriptor
+    cmp qword [r12 + numa_node_t.pages_min], 10
+    jne .watermark_fail_val
+    cmp qword [r12 + numa_node_t.pages_low], 20
+    jne .watermark_fail_val
+    cmp qword [r12 + numa_node_t.pages_high], 30
+    jne .watermark_fail_val
+
+    ; 2. Setup mock swap device & inactive page candidate for Node 0 clock eviction
+    lea rdi, [mock_swap_dev]
+    call swap_register_device
+
+    ; Allocate a physical page for user mapping
+    call phys_alloc_page
+    test rax, rax
+    jz .watermark_fail_alloc_setup
+    mov r13, rax                    ; R13 = physical page address
+
+    ; Map it at 0x20000000
+    mov rdi, 0x20000000
+    mov rsi, r13
+    mov rdx, 0x07                   ; PRESENT | WRITE | USER
+    call virt_map
+    test rax, rax
+    jz .watermark_fail_map_setup
+
+    ; Move to inactive list & clear Accessed bit to make it evictable
+    mov rdi, r13
+    call page_list_move_to_inactive
+    
+    mov rdi, 0x20000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .watermark_fail_walk_setup
+    and qword [rax], ~0x20          ; clear Accessed
+
+    ; 3. Test kswapd wakeup (background reclaim)
+    ; Set free_pages to 15 (below low watermark 20, above min watermark 10)
+    mov qword [r12 + numa_node_t.free_pages], 15
+
+    ; Trigger page allocation (requires 1 page). This should drop it to 14, 
+    ; triggering kswapd background reclaim sweep on Node 0 which evicts 0x20000000.
+    mov rdi, 0                      ; Node 0
+    mov rsi, 1                      ; 1 page
+    call phys_alloc_pages_node
+    test rax, rax
+    jz .watermark_fail_kswapd_alloc
+    mov r14, rax                    ; R14 = allocated page
+
+    ; Verify that the inactive page at 0x20000000 was successfully evicted!
+    mov rdi, 0x20000000
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jz .watermark_fail_pte
+    mov rcx, [rax]
+    test rcx, 1                     ; present?
+    jnz .watermark_fail_present     ; must NOT be present
+    test rcx, 0x400                 ; swapped?
+    jz .watermark_fail_swapped
+
+    ; Free the page allocated for kswapd trigger
+    mov rdi, r14
+    call phys_free_page
+
+    ; 4. Test direct reclaim
+    ; Set up another page for clock eviction
+    call phys_alloc_page
+    test rax, rax
+    jz .watermark_fail_alloc_setup
+    mov r13, rax
+
+    mov rdi, 0x30000000
+    mov rsi, r13
+    mov rdx, 0x07
+    call virt_map
+    test rax, rax
+    jz .watermark_fail_map_setup
+
+    mov rdi, r13
+    call page_list_move_to_inactive
+    
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    and qword [rax], ~0x20          ; clear Accessed
+
+    ; Set Node 0 free pages to 5 (below min watermark 10)
+    mov qword [r12 + numa_node_t.free_pages], 5
+    ; Trigger allocation of 1 page. This should drop it to 4 (below min 10),
+    ; triggering direct reclaim, which evicts 0x30000000.
+    mov rdi, 0                      ; Node 0
+    mov rsi, 1                      ; 1 page
+    call phys_alloc_pages_node
+    test rax, rax
+    jz .watermark_fail_direct_alloc
+    mov r14, rax
+
+    ; Verify page at 0x30000000 was evicted
+    mov rdi, 0x30000000
+    xor rsi, rsi
+    call virt_walk_table
+    mov rcx, [rax]
+    test rcx, 1
+    jnz .watermark_fail_present
+    test rcx, 0x400
+    jz .watermark_fail_swapped
+
+    ; Free allocated page
+    mov rdi, r14
+    call phys_free_page
+
+    ; 5. Test allocation rejection
+    ; Set Node 0 free pages to 5 (below min 10) and ensure replacement list is empty
+    ; so direct reclaim fails to free anything.
+    mov qword [r12 + numa_node_t.free_pages], 5
+    
+    ; Allocate page should fail (return 0)
+    mov rdi, 0                      ; Node 0
+    mov rsi, 1
+    call phys_alloc_pages_node
+    test rax, rax
+    jnz .watermark_fail_reject      ; should have been rejected!
+
+    ; 6. Clean up
+    ; Reset Node 0 watermarks back to default
+    mov rdi, 0
+    mov rsi, 128
+    mov rdx, 256
+    mov rcx, 512
+    call numa_set_watermarks
+
+    ; Restore actual free page count from global bitmap recount
+    mov rsi, [r12 + numa_node_t.bitmap_addr]
+    mov rax, [r12 + numa_node_t.end_page]
+    sub rax, [r12 + numa_node_t.start_page]
+    mov rcx, rax
+    xor r8, r8
+    xor r9, r9
+.recount:
+    cmp r9, rcx
+    jae .recount_done
+    mov rax, r9
+    shr rax, 3
+    mov rbx, r9
+    and rbx, 7
+    bt [rsi + rax], rbx
+    jc .recount_next
+    inc r8
+.recount_next:
+    inc r9
+    jmp .recount
+.recount_done:
+    mov [r12 + numa_node_t.free_pages], r8
+
+    ; Unmap test VMAs if any
+    mov rdi, 0x20000000
+    call virt_unmap
+    mov rdi, 0x30000000
+    call virt_unmap
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_watermark_test_passed
+    call uart_print_str
+
     jmp .mtrr_test_start
+
+.watermark_fail_config:
+    mov rsi, msg_watermark_fail_config_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_val:
+    mov rsi, msg_watermark_fail_val_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_alloc_setup:
+    mov rsi, msg_watermark_fail_alloc_setup_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_map_setup:
+    mov rsi, msg_watermark_fail_map_setup_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_walk_setup:
+    mov rsi, msg_watermark_fail_walk_setup_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_kswapd_alloc:
+    mov rsi, msg_watermark_fail_kswapd_alloc_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_pte:
+    mov rsi, msg_watermark_fail_pte_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_present:
+    mov rsi, msg_watermark_fail_present_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_swapped:
+    mov rsi, msg_watermark_fail_swapped_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_direct_alloc:
+    mov rsi, msg_watermark_fail_direct_alloc_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.watermark_fail_reject:
+    mov rsi, msg_watermark_fail_reject_str
+    call uart_print_str
+    jmp .panic_watermark
+
+.panic_watermark:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .oom_psi_fail_init:
     mov rsi, msg_oom_psi_fail_init_str
@@ -12102,6 +12371,21 @@ msg_oom_psi_fail_cg_full_nonzero_str:   db "Failure: Cgroup PSI full_total was n
 msg_oom_psi_fail_cg_some_noinc_str:     db "Failure: Cgroup PSI some_total did not increase when all threads stalled.", 0x0D, 0x0A, 0
 msg_oom_psi_fail_cg_full_zero_str:      db "Failure: Cgroup PSI full_total was zero when all threads stalled.", 0x0D, 0x0A, 0
 
+; Watermark Test messages
+msg_watermark_test_start:            db "Running VMM Memory Watermarks Test...", 0x0D, 0x0A, 0
+msg_watermark_test_passed:           db "VMM Memory Watermarks Test PASSED!", 0x0D, 0x0A, 0
+msg_watermark_fail_config_str:       db "Failure: Could not configure NUMA Node 0 watermarks.", 0x0D, 0x0A, 0
+msg_watermark_fail_val_str:          db "Failure: Watermark thresholds not updated correctly in numa_node_t.", 0x0D, 0x0A, 0
+msg_watermark_fail_alloc_setup_str:  db "Failure: Could not allocate setup page frame.", 0x0D, 0x0A, 0
+msg_watermark_fail_map_setup_str:    db "Failure: Could not map test VMA.", 0x0D, 0x0A, 0
+msg_watermark_fail_walk_setup_str:   db "Failure: Walk table failed for test VMA address.", 0x0D, 0x0A, 0
+msg_watermark_fail_kswapd_alloc_str: db "Failure: Allocation from Node 0 failed under kswapd pressure.", 0x0D, 0x0A, 0
+msg_watermark_fail_pte_str:          db "Failure: PTE missing for test address after reclaim.", 0x0D, 0x0A, 0
+msg_watermark_fail_present_str:      db "Failure: Candidate page not evicted (PTE is still marked present).", 0x0D, 0x0A, 0
+msg_watermark_fail_swapped_str:      db "Failure: Candidate page not swapped (PAGE_SWAPPED bit is 0).", 0x0D, 0x0A, 0
+msg_watermark_fail_direct_alloc_str: db "Failure: Allocation from Node 0 failed under direct reclaim pressure.", 0x0D, 0x0A, 0
+msg_watermark_fail_reject_str:       db "Failure: Allocation succeeded when free pages dropped below pages_min and reclaim failed.", 0x0D, 0x0A, 0
+ 
 section .bss
 align 8
 smep_smap_test_buf:            resb 32
