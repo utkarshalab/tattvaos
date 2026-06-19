@@ -128,6 +128,7 @@ extern sys_readahead_prefetched_pages
 extern sys_writeback_throttle_delay
 extern sys_writeback_dirty_limit
 extern sys_writeback_throttled_pages
+extern sys_o_direct
 extern kswapd_check_and_reclaim_node
 extern page_replace_clock_evict_node
 extern kswapd_min_watermark
@@ -5081,7 +5082,7 @@ kernel_main:
     mov rsi, msg_writeback_test_passed
     call uart_print_str
 
-    jmp .mtrr_test_start
+    jmp .direct_test_start
 
 .writeback_fail_create:
     mov rsi, msg_writeback_fail_create_str
@@ -5112,6 +5113,177 @@ kernel_main:
     pop r13
     pop r12
     jmp .panic
+
+.direct_test_start:
+    mov rsi, msg_direct_test_start
+    call uart_print_str
+
+    push r12
+    push r13
+    push r14
+    push r15
+
+    ; 1. Initialize page cache
+    call virt_page_cache_init
+
+    ; 2. Create mock file of size 16384 bytes
+    mov rdi, 16384
+    call mock_file_create
+    test rax, rax
+    jz .direct_fail_create
+    mov r12, rax                    ; r12 = mock file pointer
+
+    ; 3. Allocate and map page-aligned virtual buffer at 0x80000000
+    ; Create VMA at 0x80000000 (size 4096, flags = VMA_READ | VMA_WRITE)
+    mov rdi, 0x80000000
+    mov rsi, 4096
+    mov rdx, 0x03                   ; VMA_READ | VMA_WRITE
+    call vma_create
+    test rax, rax
+    jz .direct_fail_vma
+    mov r14, rax                    ; r14 = VMA pointer
+
+    ; Allocate physical page frame
+    call phys_alloc_page
+    test rax, rax
+    jz .direct_fail_alloc
+    mov r15, rax                    ; r15 = physical page
+
+    ; Map virtual address 0x80000000 to physical page
+    mov rdi, 0x80000000
+    mov rsi, r15
+    mov rdx, 0x07                   ; PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER
+    call virt_map
+    test rax, rax
+    jz .direct_fail_map
+
+    ; 4. Enable sys_o_direct
+    mov qword [sys_o_direct], 1
+
+    ; Reset telemetry counters
+    mov qword [sys_page_cache_hits], 0
+    mov qword [sys_page_cache_misses], 0
+
+    ; 5. Read 4096 bytes at offset 0 directly to 0x80000000
+    mov rdi, r12
+    mov rsi, 0
+    mov rdx, 0x80000000
+    mov rcx, 4096
+    call virt_file_read
+    cmp rax, 4096
+    jne .direct_fail_read
+
+    ; 6. Assert that cache hits and misses are both 0 (completely bypassed)
+    cmp qword [sys_page_cache_hits], 0
+    jne .direct_fail_bypass
+    cmp qword [sys_page_cache_misses], 0
+    jne .direct_fail_bypass
+
+    ; 7. Disable sys_o_direct to test cached mode
+    mov qword [sys_o_direct], 0
+
+    ; Read 4096 bytes at offset 0 (cached mode)
+    mov rdi, r12
+    mov rsi, 0
+    mov rdx, 0x80000000
+    mov rcx, 4096
+    call virt_file_read
+    cmp rax, 4096
+    jne .direct_fail_read
+
+    ; Assert that it results in a cache miss (proving that direct read did not populate the cache)
+    cmp qword [sys_page_cache_misses], 1
+    jne .direct_fail_populate
+
+    ; 8. Clean up resources
+    mov rdi, 0x80000000
+    call virt_unmap
+
+    mov rdi, r15
+    call phys_free_page
+
+    mov rdi, r14
+    call vma_destroy
+
+    mov rdi, r12
+    call mock_file_destroy
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
+    mov rsi, msg_direct_test_passed
+    call uart_print_str
+
+    jmp .mtrr_test_start
+
+.direct_fail_create:
+    mov rsi, msg_direct_fail_create_str
+    call uart_print_str
+    jmp .panic_direct
+
+.direct_fail_vma:
+    mov rsi, msg_direct_fail_vma_str
+    call uart_print_str
+    jmp .panic_direct
+
+.direct_fail_alloc:
+    mov rsi, msg_direct_fail_alloc_str
+    call uart_print_str
+    jmp .panic_direct
+
+.direct_fail_map:
+    mov rsi, msg_direct_fail_map_str
+    call uart_print_str
+    jmp .panic_direct
+
+.direct_fail_read:
+    mov rdi, 0x80000000
+    call virt_unmap
+    mov rdi, r15
+    call phys_free_page
+    mov rdi, r14
+    call vma_destroy
+    mov rdi, r12
+    call mock_file_destroy
+    mov rsi, msg_direct_fail_read_str
+    call uart_print_str
+    jmp .panic_direct
+
+.direct_fail_bypass:
+    mov rdi, 0x80000000
+    call virt_unmap
+    mov rdi, r15
+    call phys_free_page
+    mov rdi, r14
+    call vma_destroy
+    mov rdi, r12
+    call mock_file_destroy
+    mov rsi, msg_direct_fail_bypass_str
+    call uart_print_str
+    jmp .panic_direct
+
+.direct_fail_populate:
+    mov rdi, 0x80000000
+    call virt_unmap
+    mov rdi, r15
+    call phys_free_page
+    mov rdi, r14
+    call vma_destroy
+    mov rdi, r12
+    call mock_file_destroy
+    mov rsi, msg_direct_fail_populate_str
+    call uart_print_str
+    jmp .panic_direct
+
+.panic_direct:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 
 
 
@@ -13314,6 +13486,18 @@ msg_writeback_fail_create_str:        db "Failure: Could not create mock file fo
 msg_writeback_fail_write_str:         db "Failure: virt_file_write failed during writeback test.", 0x0D, 0x0A, 0
 msg_writeback_fail_throttled_init_str: db "Failure: sys_writeback_throttled_pages is not zero initially.", 0x0D, 0x0A, 0
 msg_writeback_fail_throttled_post_str: db "Failure: sys_writeback_throttled_pages mismatch after sync.", 0x0D, 0x0A, 0
+
+; Page Cache Bypass (O_DIRECT) Test messages
+msg_direct_test_start:             db "Running VMM Page Cache Bypass (O_DIRECT) Test...", 0x0D, 0x0A, 0
+msg_direct_test_passed:            db "VMM Page Cache Bypass (O_DIRECT) Test PASSED!", 0x0D, 0x0A, 0
+msg_direct_fail_create_str:        db "Failure: Could not create mock file for direct test.", 0x0D, 0x0A, 0
+msg_direct_fail_vma_str:           db "Failure: Could not create VMA for direct test.", 0x0D, 0x0A, 0
+msg_direct_fail_alloc_str:         db "Failure: Could not allocate physical page for direct test.", 0x0D, 0x0A, 0
+msg_direct_fail_map_str:           db "Failure: Could not map page for direct test.", 0x0D, 0x0A, 0
+msg_direct_fail_read_str:          db "Failure: virt_file_read failed in direct test.", 0x0D, 0x0A, 0
+msg_direct_fail_bypass_str:        db "Failure: Cache was not bypassed in direct test (hit/miss counter changed).", 0x0D, 0x0A, 0
+msg_direct_fail_populate_str:      db "Failure: Cache was populated during direct read (subsequent cached read did not miss).", 0x0D, 0x0A, 0
+
 
 
 
