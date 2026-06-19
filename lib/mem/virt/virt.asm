@@ -25,6 +25,7 @@ endstruc
 struc mem_cgroup_t
     .id             resq 1      ; Unique cgroup ID
     .hard_limit     resq 1      ; Hard limit (in pages)
+    .high_limit     resq 1      ; High limit/throttling threshold (in pages)
     .soft_limit     resq 1      ; Soft limit (in pages)
     .usage          resq 1      ; Current usage (in pages)
     .psi_some_total         resq 1      ; Cumulative some pressure (cycles)
@@ -334,7 +335,41 @@ vma_create:
     test rsi, rsi
     jz .cgroup_charge_done
     add [rsi + mem_cgroup_t.usage], rcx
-    
+
+    ; Check high limit throttling
+    mov rax, [rsi + mem_cgroup_t.high_limit]
+    test rax, rax
+    jz .cgroup_charge_done          ; high limit not configured
+
+    mov rdx, [rsi + mem_cgroup_t.usage]
+    cmp rdx, rax
+    jbe .cgroup_charge_done         ; usage <= high_limit, no throttle
+
+    ; Throttling threshold hit! Print warning message
+    push rsi
+    push rdi
+    push rcx
+    push rdx
+    mov rsi, msg_cgroup_high_limit_throttling
+    call uart_print_str
+    pop rdx
+    pop rcx
+    pop rdi
+    pop rsi
+
+    ; Calculate busy delay loops: (usage - high_limit) * 1000
+    sub rdx, rax                    ; RDX = usage - high_limit
+    imul rdx, 1000
+    cmp rdx, 1000000
+    jbe .do_throttle
+    mov rdx, 1000000                ; cap at 1,000,000 loops
+.do_throttle:
+    test rdx, rdx
+    jz .cgroup_charge_done
+.throttle_loop:
+    dec rdx
+    jnz .throttle_loop
+
 .cgroup_charge_done:
     ; Mark thread as unstalled
     mov rdi, [rsp + 0]
@@ -1045,6 +1080,7 @@ virt_memcg_create:
     
     mov [rax + mem_cgroup_t.id], rbx
     mov [rax + mem_cgroup_t.hard_limit], r12
+    mov qword [rax + mem_cgroup_t.high_limit], 0 ; Initialize high limit to 0 (disabled)
     mov [rax + mem_cgroup_t.soft_limit], r13
     mov qword [rax + mem_cgroup_t.usage], 0
 
@@ -1134,6 +1170,22 @@ virt_memcg_attach:
     mov [rbx + thread_t.cgroup_ptr], r12
     pop r12
     pop rbx
+.done:
+    ret
+
+; -----------------------------------------------------------------------------
+; virt_memcg_set_high_limit — sets the high limit/throttling threshold for a cgroup
+; Input:
+;   RDI = pointer to mem_cgroup_t
+;   RSI = high limit (pages)
+; Output: none
+; Clobbers: none
+; -----------------------------------------------------------------------------
+global virt_memcg_set_high_limit
+virt_memcg_set_high_limit:
+    test rdi, rdi
+    jz .done
+    mov [rdi + mem_cgroup_t.high_limit], rsi
 .done:
     ret
 
@@ -1536,6 +1588,10 @@ msg_cgroup_soft_limit_exceeded: db "[cgroup] Warning: Soft limit exceeded for cg
 align 8
 global msg_cgroup_reclaim_trigger
 msg_cgroup_reclaim_trigger: db ". Triggering reclaim...", 0x0D, 0x0A, 0
+
+align 8
+global msg_cgroup_high_limit_throttling
+msg_cgroup_high_limit_throttling: db "[cgroup] Warning: High limit exceeded. Throttling allocation...", 0x0D, 0x0A, 0
 
 align 8
 global overcommit_mode
