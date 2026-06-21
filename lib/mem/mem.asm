@@ -125,6 +125,12 @@
 %include "lib/mem/virt/cxl_tier.asm"
 %include "lib/mem/virt/cxl_pmem.asm"
 %include "lib/mem/virt/cxl_fabric.asm"
+%include "lib/mem/virt/hw_perf.asm"
+%include "lib/mem/virt/alloc_site.asm"
+%include "lib/mem/virt/timeline.asm"
+%include "lib/mem/virt/numa_stat.asm"
+%include "lib/mem/virt/bw_sat.asm"
+%include "lib/mem/virt/inf_prof.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
