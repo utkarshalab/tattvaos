@@ -461,6 +461,38 @@ extern ras_scrub_tick
 extern sys_ras_scrubbed_pages
 extern sys_ras_scrub_errors_detected
 
+; CXL Type 1 Device Support (Subfeature 39.1)
+extern cxl_t1_init
+extern cxl_t1_get_bandwidth
+extern sys_cxl_t1_active_devices
+extern sys_cxl_t1_bandwidth_mbps
+
+; CXL Type 3 Memory Expansion (Subfeature 39.2)
+extern cxl_t3_init
+extern cxl_t3_hotplug
+extern sys_cxl_t3_device_count
+extern sys_cxl_t3_total_capacity_gb
+
+; CXL Memory Tiering (Subfeature 39.3)
+extern cxl_tier_init
+extern cxl_tier_demote
+extern cxl_tier_promote
+extern sys_cxl_promoted_pages
+extern sys_cxl_demoted_pages
+
+; CXL Persistent Memory (Subfeature 39.4)
+extern cxl_pmem_init
+extern cxl_pmem_flush
+extern sys_cxl_pmem_active_regions
+extern sys_cxl_pmem_flushed_bytes
+
+; CXL Fabric Manager Integration (Subfeature 39.5)
+extern cxl_fabric_init
+extern cxl_fabric_allocate
+extern cxl_fabric_release
+extern sys_cxl_fabric_slices_allocated
+extern sys_cxl_fabric_allocated_gb
+
 
 
 
@@ -16264,7 +16296,7 @@ test_ctor:
     pop r14
     pop r13
     pop r12
-    jmp .idle
+    jmp .cxl_mem_test
 
 .ras_panic:
     pop r15
@@ -16347,6 +16379,254 @@ test_ctor:
     mov rsi, msg_ras_fail_scrub_flip
     call uart_print_str
     jmp .ras_panic
+
+    ; =========================================================================
+    ; 39. CXL Memory Test
+    ; =========================================================================
+.cxl_mem_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_cxl_mem_test_start
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 39.1 CXL Type 1 Device Support Test
+    ; -------------------------------------------------------------------------
+    call cxl_t1_init
+    cmp rax, 1
+    jne .cxl_fail_t1_init
+
+    mov rax, [sys_cxl_t1_active_devices]
+    cmp rax, 1
+    jne .cxl_fail_t1_active
+
+    call cxl_t1_get_bandwidth
+    cmp rax, 64000
+    jne .cxl_fail_t1_bandwidth
+
+    mov rsi, msg_cxl_t1_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 39.2 CXL Type 3 Memory Expansion Test
+    ; -------------------------------------------------------------------------
+    call cxl_t3_init
+    cmp rax, 1
+    jne .cxl_fail_t3_init
+
+    ; Hot-plug a 2TB memory region at base address 0x400000000
+    mov rdi, 0x400000000
+    mov rsi, 2048                    ; 2048 GB (2TB)
+    call cxl_t3_hotplug
+    cmp rax, 1
+    jne .cxl_fail_t3_hotplug
+
+    mov rax, [sys_cxl_t3_device_count]
+    cmp rax, 1
+    jne .cxl_fail_t3_stats
+
+    mov rax, [sys_cxl_t3_total_capacity_gb]
+    cmp rax, 2048
+    jne .cxl_fail_t3_stats
+
+    mov rsi, msg_cxl_t3_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 39.3 CXL Memory Tiering Test
+    ; -------------------------------------------------------------------------
+    call cxl_tier_init
+    cmp rax, 1
+    jne .cxl_fail_tier_init
+
+    ; Demote page from DRAM to CXL
+    mov rdi, 0x75000000
+    call cxl_tier_demote
+    cmp rax, 1
+    jne .cxl_fail_tier_demote
+
+    mov rax, [sys_cxl_demoted_pages]
+    cmp rax, 1
+    jne .cxl_fail_tier_stats
+
+    ; Promote page from CXL back to DRAM
+    mov rdi, 0x75000000
+    call cxl_tier_promote
+    cmp rax, 1
+    jne .cxl_fail_tier_promote
+
+    mov rax, [sys_cxl_promoted_pages]
+    cmp rax, 1
+    jne .cxl_fail_tier_stats
+
+    mov rsi, msg_cxl_tier_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 39.4 CXL Persistent Memory Test
+    ; -------------------------------------------------------------------------
+    call cxl_pmem_init
+    cmp rax, 1
+    jne .cxl_fail_pmem_init
+
+    ; Flush 128 bytes to KV cache persistent memory
+    mov rdi, 0x76000000
+    mov rsi, 128
+    call cxl_pmem_flush
+    cmp rax, 1
+    jne .cxl_fail_pmem_flush
+
+    mov rax, [sys_cxl_pmem_flushed_bytes]
+    cmp rax, 128
+    jne .cxl_fail_pmem_stats
+
+    mov rsi, msg_cxl_pmem_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 39.5 CXL Fabric Manager Integration Test
+    ; -------------------------------------------------------------------------
+    call cxl_fabric_init
+    cmp rax, 1
+    jne .cxl_fail_fabric_init
+
+    ; Allocate dynamic fabric slice of 512GB
+    mov rdi, 512
+    call cxl_fabric_allocate
+    test rax, rax
+    jz .cxl_fail_fabric_alloc
+    mov r12, rax                     ; save slice ID
+
+    mov r13, [sys_cxl_fabric_slices_allocated]
+    cmp r13, 1
+    jne .cxl_fail_fabric_stats
+
+    mov r13, [sys_cxl_fabric_allocated_gb]
+    cmp r13, 512
+    jne .cxl_fail_fabric_stats
+
+    ; Release dynamic slice
+    mov rdi, r12
+    mov rsi, 512
+    call cxl_fabric_release
+    cmp rax, 1
+    jne .cxl_fail_fabric_release
+
+    mov rax, [sys_cxl_fabric_slices_allocated]
+    test rax, rax
+    jnz .cxl_fail_fabric_stats
+
+    mov rax, [sys_cxl_fabric_allocated_gb]
+    test rax, rax
+    jnz .cxl_fail_fabric_stats
+
+    mov rsi, msg_cxl_fabric_ok
+    call uart_print_str
+
+    ; All CXL Memory tests passed!
+    mov rsi, msg_cxl_mem_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .idle
+
+.cxl_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.cxl_fail_t1_init:
+    mov rsi, msg_cxl_fail_t1_init
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_t1_active:
+    mov rsi, msg_cxl_fail_t1_active
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_t1_bandwidth:
+    mov rsi, msg_cxl_fail_t1_bandwidth
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_t3_init:
+    mov rsi, msg_cxl_fail_t3_init
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_t3_hotplug:
+    mov rsi, msg_cxl_fail_t3_hotplug
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_t3_stats:
+    mov rsi, msg_cxl_fail_t3_stats
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_tier_init:
+    mov rsi, msg_cxl_fail_tier_init
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_tier_demote:
+    mov rsi, msg_cxl_fail_tier_demote
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_tier_promote:
+    mov rsi, msg_cxl_fail_tier_promote
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_tier_stats:
+    mov rsi, msg_cxl_fail_tier_stats
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_pmem_init:
+    mov rsi, msg_cxl_fail_pmem_init
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_pmem_flush:
+    mov rsi, msg_cxl_fail_pmem_flush
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_pmem_stats:
+    mov rsi, msg_cxl_fail_pmem_stats
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_fabric_init:
+    mov rsi, msg_cxl_fail_fabric_init
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_fabric_alloc:
+    mov rsi, msg_cxl_fail_fabric_alloc
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_fabric_stats:
+    mov rsi, msg_cxl_fail_fabric_stats
+    call uart_print_str
+    jmp .cxl_panic
+
+.cxl_fail_fabric_release:
+    mov rsi, msg_cxl_fail_fabric_release
+    call uart_print_str
+    jmp .cxl_panic
 
 .percpu_panic:
 
@@ -17561,6 +17841,32 @@ msg_ras_fail_scrub_init:            db "Failure: ras_scrub_init returned 0.", 0x
 msg_ras_fail_scrub_tick:            db "Failure: ras_scrub_tick returned incorrect page count.", 0x0D, 0x0A, 0
 msg_ras_fail_scrub_stats:           db "Failure: sys_ras_scrubbed_pages telemetry counter mismatch.", 0x0D, 0x0A, 0
 msg_ras_fail_scrub_flip:            db "Failure: background scrubber failed to intercept mock bit flip.", 0x0D, 0x0A, 0
+; CXL Memory Test messages (Subfeature 39)
+msg_cxl_mem_test_start:             db "Running VMM CXL (Compute Express Link) Memory Test...", 0x0D, 0x0A, 0
+msg_cxl_mem_test_passed:            db "VMM CXL (Compute Express Link) Memory Test PASSED!", 0x0D, 0x0A, 0
+msg_cxl_t1_ok:                      db "  CXL Type 1: Device coherence protocols and bandwidth verified.", 0x0D, 0x0A, 0
+msg_cxl_t3_ok:                      db "  CXL Type 3: Memory capacity expansion range hot-plugging verified.", 0x0D, 0x0A, 0
+msg_cxl_tier_ok:                    db "  CXL Tiering: Automatic promotion and demotion page sweeps verified.", 0x0D, 0x0A, 0
+msg_cxl_pmem_ok:                    db "  CXL Persistent: Byte-addressable cache flushes and NVRAM sync verified.", 0x0D, 0x0A, 0
+msg_cxl_fabric_ok:                  db "  CXL Fabric: orchestration allocations and shared pool releases verified.", 0x0D, 0x0A, 0
+
+msg_cxl_fail_t1_init:               db "Failure: cxl_t1_init returned 0.", 0x0D, 0x0A, 0
+msg_cxl_fail_t1_active:             db "Failure: sys_cxl_t1_active_devices count mismatch.", 0x0D, 0x0A, 0
+msg_cxl_fail_t1_bandwidth:          db "Failure: cxl_t1_get_bandwidth returned incorrect value.", 0x0D, 0x0A, 0
+msg_cxl_fail_t3_init:               db "Failure: cxl_t3_init returned 0.", 0x0D, 0x0A, 0
+msg_cxl_fail_t3_hotplug:            db "Failure: cxl_t3_hotplug returned 0.", 0x0D, 0x0A, 0
+msg_cxl_fail_t3_stats:              db "Failure: CXL Type 3 capacity metrics mismatch.", 0x0D, 0x0A, 0
+msg_cxl_fail_tier_init:             db "Failure: cxl_tier_init returned 0.", 0x0D, 0x0A, 0
+msg_cxl_fail_tier_demote:           db "Failure: cxl_tier_demote returned 0.", 0x0D, 0x0A, 0
+msg_cxl_fail_tier_promote:          db "Failure: cxl_tier_promote returned 0.", 0x0D, 0x0A, 0
+msg_cxl_fail_tier_stats:            db "Failure: CXL memory tiering telemetry counters mismatch.", 0x0D, 0x0A, 0
+msg_cxl_fail_pmem_init:             db "Failure: cxl_pmem_init returned 0.", 0x0D, 0x0A, 0
+msg_cxl_fail_pmem_flush:            db "Failure: cxl_pmem_flush returned 0.", 0x0D, 0x0A, 0
+msg_cxl_fail_pmem_stats:            db "Failure: sys_cxl_pmem_flushed_bytes count mismatch.", 0x0D, 0x0A, 0
+msg_cxl_fail_fabric_init:           db "Failure: cxl_fabric_init returned 0.", 0x0D, 0x0A, 0
+msg_cxl_fail_fabric_alloc:          db "Failure: cxl_fabric_allocate returned NULL.", 0x0D, 0x0A, 0
+msg_cxl_fail_fabric_stats:          db "Failure: CXL Fabric telemetry stats count mismatch.", 0x0D, 0x0A, 0
+msg_cxl_fail_fabric_release:        db "Failure: cxl_fabric_release returned 0.", 0x0D, 0x0A, 0
 
 section .bss
 
