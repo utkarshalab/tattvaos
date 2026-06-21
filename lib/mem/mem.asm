@@ -101,6 +101,9 @@
 %include "lib/mem/virt/mbm.asm"
 %include "lib/mem/virt/sev.asm"
 %include "lib/mem/virt/tdx.asm"
+%include "lib/mem/virt/cca.asm"
+%include "lib/mem/virt/enc_swap.asm"
+%include "lib/mem/virt/mte.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
