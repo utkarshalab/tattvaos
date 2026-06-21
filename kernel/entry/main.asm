@@ -394,6 +394,43 @@ extern quant_layout_unpack_int4
 extern sys_quant_packed_weights
 extern sys_quant_avx2_alignments
 
+; Real-Time Memory Locking (Subfeature 37.1)
+extern rt_mlockall
+extern rt_munlockall
+extern rt_is_locked
+extern sys_rt_mlockall_active
+extern sys_rt_mlockall_flags
+extern sys_rt_locked_pages
+
+; Real-Time Memory Pre-faulting (Subfeature 37.2)
+extern rt_prefault_range
+extern rt_prefault_vma
+extern sys_rt_prefaulted_pages
+
+; Deterministic Allocator (Subfeature 37.3)
+extern rt_det_alloc_init
+extern rt_det_alloc
+extern rt_det_free
+extern sys_rt_det_allocated_bytes
+extern sys_rt_det_free_blocks
+
+; Interrupt-Safe Allocator (Subfeature 37.4)
+extern rt_isr_alloc_init
+extern rt_isr_alloc
+extern rt_isr_free
+extern sys_rt_isr_head
+extern sys_rt_isr_tail
+extern sys_rt_isr_allocations
+extern sys_rt_isr_freed
+
+; Memory Reservation (Subfeature 37.5)
+extern rt_reserve_boot_memory
+extern rt_reserve_alloc
+extern rt_reserve_free
+extern rt_reserve_backup
+extern sys_rt_reserved_total_bytes
+extern sys_rt_reserved_used_bytes
+
 
 
 
@@ -15476,7 +15513,7 @@ test_ctor:
     pop r14
     pop r13
     pop r12
-    jmp .idle
+    jmp .rt_mem_test
 
 .ai_panic:
     pop r15
@@ -15660,7 +15697,393 @@ test_ctor:
     call uart_print_str
     jmp .ai_panic
 
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+    ; =========================================================================
+    ; 37. Real-Time Memory Management Test
+    ; =========================================================================
+.rt_mem_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_rt_mem_test_start
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 37.1 & 37.2 mlockall & Pre-fault Memory Test
+    ; -------------------------------------------------------------------------
+    ; Create a test VMA: start=0x70200000, size=8192, flags=VMA_READ|VMA_WRITE
+    mov rdi, 0x70200000
+    mov rsi, 8192
+    mov rdx, 0x03                   ; normal mapped flags
+    call vma_create
+    test rax, rax
+    jz .rt_fail_vma
+    mov r12, rax                    ; R12 = VMA ptr
+
+    ; Pre-fault the VMA (write mode)
+    mov rdi, r12
+    mov rsi, 1
+    call rt_prefault_vma
+    cmp rax, 1
+    jne .rt_fail_prefault
+
+    ; Verify pre-faulted count is at least 2 (the VMA range is 2 pages)
+    mov rax, [sys_rt_prefaulted_pages]
+    cmp rax, 2
+    jb .rt_fail_prefault_count
+
+    ; Verify virtual address is mapped (present in tables)
+    mov rdi, 0x70200000
+    call virt_translate
+    test rax, rax
+    jz .rt_fail_prefault_map
+
+    ; Lock all mappings
+    mov rdi, 1                      ; MCL_CURRENT
+    call rt_mlockall
+    cmp rax, 1
+    jne .rt_fail_mlockall
+
+    ; Verify active flag & locked pages count
+    mov rax, [sys_rt_mlockall_active]
+    cmp rax, 1
+    jne .rt_fail_mlock_active
+    mov rax, [sys_rt_locked_pages]
+    cmp rax, 2
+    jb .rt_fail_locked_count
+
+    ; Verify specific page locked query
+    mov rdi, 0x70200000
+    call rt_is_locked
+    cmp rax, 1
+    jne .rt_fail_locked_verify
+    mov rdi, 0x70500000
+    call rt_is_locked
+    test rax, rax
+    jnz .rt_fail_locked_verify
+
+    ; Unlock mappings
+    call rt_munlockall
+    cmp rax, 1
+    jne .rt_fail_munlockall
+
+    ; Verify cleared state
+    mov rax, [sys_rt_mlockall_active]
+    test rax, rax
+    jnz .rt_fail_mlock_active
+    mov rax, [sys_rt_locked_pages]
+    test rax, rax
+    jnz .rt_fail_locked_count
+
+    ; Clean up VMA
+    mov rdi, r12
+    call vma_destroy
+
+    mov rsi, msg_rt_mlock_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 37.3 Deterministic Allocator Test (TLSF-like)
+    ; -------------------------------------------------------------------------
+    lea rdi, [sys_rt_det_test_pool]
+    mov rsi, 65536                  ; 64KB pool
+    call rt_det_alloc_init
+    cmp rax, 1
+    jne .rt_fail_det_init
+
+    ; Allocate Block A: 40 bytes (maps to class 2, 64-byte size)
+    mov rdi, 40
+    call rt_det_alloc
+    test rax, rax
+    jz .rt_fail_det_alloc
+    mov r12, rax                    ; R12 = Block A ptr
+
+    ; Verify stats
+    mov rax, [sys_rt_det_allocated_bytes]
+    cmp rax, 64
+    jne .rt_fail_det_stats
+
+    ; Allocate Block B: 120 bytes (maps to class 3, 128-byte size)
+    mov rdi, 120
+    call rt_det_alloc
+    test rax, rax
+    jz .rt_fail_det_alloc
+    mov r13, rax                    ; R13 = Block B ptr
+
+    ; Verify stats
+    mov rax, [sys_rt_det_allocated_bytes]
+    cmp rax, 192                    ; 64 + 128
+    jne .rt_fail_det_stats
+
+    ; Free Block A
+    mov rdi, r12
+    call rt_det_free
+    cmp rax, 1
+    jne .rt_fail_det_free
+
+    ; Verify stats
+    mov rax, [sys_rt_det_allocated_bytes]
+    cmp rax, 128
+    jne .rt_fail_det_stats
+    mov rax, [sys_rt_det_free_blocks]
+    cmp rax, 1
+    jne .rt_fail_det_stats
+
+    ; Allocate Block C: 30 bytes (maps to class 1, 32-byte size)
+    mov rdi, 30
+    call rt_det_alloc
+    test rax, rax
+    jz .rt_fail_det_alloc
+    mov r14, rax                    ; R14 = Block C ptr
+
+    ; Verify stats
+    mov rax, [sys_rt_det_allocated_bytes]
+    cmp rax, 160                    ; 128 + 32
+    jne .rt_fail_det_stats
+
+    ; Free Block B and C
+    mov rdi, r13
+    call rt_det_free
+    cmp rax, 1
+    jne .rt_fail_det_free
+
+    mov rdi, r14
+    call rt_det_free
+    cmp rax, 1
+    jne .rt_fail_det_free
+
+    ; Verify final stats are 0
+    mov rax, [sys_rt_det_allocated_bytes]
+    test rax, rax
+    jnz .rt_fail_det_stats
+
+    mov rsi, msg_rt_det_alloc_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 37.4 Interrupt-Safe Allocator Test (Lock-Free Ring)
+    ; -------------------------------------------------------------------------
+    call rt_isr_alloc_init
+    cmp rax, 1
+    jne .rt_fail_isr_init
+
+    ; Verify head/tail are 0/16
+    mov rax, [sys_rt_isr_head]
+    test rax, rax
+    jnz .rt_fail_isr_stats
+    mov rax, [sys_rt_isr_tail]
+    cmp rax, 16
+    jne .rt_fail_isr_stats
+
+    ; Lock-free pop a page from interrupt context
+    call rt_isr_alloc
+    test rax, rax
+    jz .rt_fail_isr_alloc
+    mov r12, rax                    ; R12 = physical page frame address
+
+    ; Verify updated head & stats
+    mov rax, [sys_rt_isr_head]
+    cmp rax, 1
+    jne .rt_fail_isr_stats
+    mov rax, [sys_rt_isr_allocations]
+    cmp rax, 1
+    jne .rt_fail_isr_stats
+
+    ; Lock-free push page back to pool
+    mov rdi, r12
+    call rt_isr_free
+    cmp rax, 1
+    jne .rt_fail_isr_free
+
+    ; Verify updated tail & stats
+    mov rax, [sys_rt_isr_tail]
+    cmp rax, 17
+    jne .rt_fail_isr_stats
+    mov rax, [sys_rt_isr_freed]
+    cmp rax, 1
+    jne .rt_fail_isr_stats
+
+    mov rsi, msg_rt_isr_alloc_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 37.5 Memory Reservation Test
+    ; -------------------------------------------------------------------------
+    ; Reserve 4 Megabytes at boot
+    mov rdi, 4
+    call rt_reserve_boot_memory
+    test rax, rax
+    jz .rt_fail_reserve_boot
+
+    ; Backup array for indexing free operations
+    call rt_reserve_backup
+
+    ; Verify stats
+    mov rax, [sys_rt_reserved_total_bytes]
+    cmp rax, 4194304
+    jne .rt_fail_reserve_stats
+    mov rax, [sys_rt_reserved_used_bytes]
+    test rax, rax
+    jnz .rt_fail_reserve_stats
+
+    ; Slice 2 pages (8KB) from reserve
+    mov rdi, 2
+    call rt_reserve_alloc
+    test rax, rax
+    jz .rt_fail_reserve_alloc
+    mov r12, rax                    ; R12 = physical address base
+
+    ; Verify stats
+    mov rax, [sys_rt_reserved_used_bytes]
+    cmp rax, 8192
+    jne .rt_fail_reserve_stats
+
+    ; Release back to reserve
+    mov rdi, r12
+    mov rsi, 2
+    call rt_reserve_free
+    cmp rax, 1
+    jne .rt_fail_reserve_free
+
+    ; Verify final stats
+    mov rax, [sys_rt_reserved_used_bytes]
+    test rax, rax
+    jnz .rt_fail_reserve_stats
+
+    mov rsi, msg_rt_reserve_ok
+    call uart_print_str
+
+    ; All Real-Time Memory tests passed!
+    mov rsi, msg_rt_mem_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .idle
+
+.rt_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.rt_fail_vma:
+    mov rsi, msg_rt_fail_vma
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_prefault:
+    mov rsi, msg_rt_fail_prefault
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_prefault_count:
+    mov rsi, msg_rt_fail_prefault_count
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_prefault_map:
+    mov rsi, msg_rt_fail_prefault_map
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_mlockall:
+    mov rsi, msg_rt_fail_mlockall
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_mlock_active:
+    mov rsi, msg_rt_fail_mlock_active
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_locked_count:
+    mov rsi, msg_rt_fail_locked_count
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_locked_verify:
+    mov rsi, msg_rt_fail_locked_verify
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_munlockall:
+    mov rsi, msg_rt_fail_munlockall
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_det_init:
+    mov rsi, msg_rt_fail_det_init
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_det_alloc:
+    mov rsi, msg_rt_fail_det_alloc
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_det_stats:
+    mov rsi, msg_rt_fail_det_stats
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_det_free:
+    mov rsi, msg_rt_fail_det_free
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_isr_init:
+    mov rsi, msg_rt_fail_isr_init
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_isr_stats:
+    mov rsi, msg_rt_fail_isr_stats
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_isr_alloc:
+    mov rsi, msg_rt_fail_isr_alloc
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_isr_free:
+    mov rsi, msg_rt_fail_isr_free
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_reserve_boot:
+    mov rsi, msg_rt_fail_reserve_boot
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_reserve_stats:
+    mov rsi, msg_rt_fail_reserve_stats
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_reserve_alloc:
+    mov rsi, msg_rt_fail_reserve_alloc
+    call uart_print_str
+    jmp .rt_panic
+
+.rt_fail_reserve_free:
+    mov rsi, msg_rt_fail_reserve_free
+    call uart_print_str
+    jmp .rt_panic
+
 .percpu_panic:
+
 
 
 .panic:
@@ -16817,6 +17240,38 @@ msg_ai_fail_quant_pack:             db "Failure: quant_layout_pack_int4 returned
 msg_ai_fail_quant_stats:            db "Failure: quantized layout telemetry counts mismatch.", 0x0D, 0x0A, 0
 msg_ai_fail_quant_unpack:           db "Failure: quant_layout_unpack_int4 returned incorrect count.", 0x0D, 0x0A, 0
 msg_ai_fail_quant_mismatch:         db "Failure: unpacked INT4 data does not match original bytes.", 0x0D, 0x0A, 0
+; Real-Time Memory Test messages (Subfeature 37)
+msg_rt_mem_test_start:              db "Running VMM Real-Time Memory Management Test...", 0x0D, 0x0A, 0
+msg_rt_mem_test_passed:             db "VMM Real-Time Memory Management Test PASSED!", 0x0D, 0x0A, 0
+msg_rt_mlock_ok:                    db "  mlockall & Pre-fault: locking and warm up allocations verified.", 0x0D, 0x0A, 0
+msg_rt_det_alloc_ok:                db "  Deterministic Alloc: O(1) TLSF-like constant-time segregated allocations verified.", 0x0D, 0x0A, 0
+msg_rt_isr_alloc_ok:                db "  Interrupt-Safe Alloc: lock-free CAS popped/pushed pages verified.", 0x0D, 0x0A, 0
+msg_rt_reserve_ok:                  db "  Memory Reservation: boot-time reserve pool allocations verified.", 0x0D, 0x0A, 0
+
+msg_rt_fail_vma:                    db "Failure: Could not create Real-Time test VMA.", 0x0D, 0x0A, 0
+msg_rt_fail_prefault:               db "Failure: rt_prefault_vma returned 0.", 0x0D, 0x0A, 0
+msg_rt_fail_prefault_count:         db "Failure: sys_rt_prefaulted_pages count mismatch.", 0x0D, 0x0A, 0
+msg_rt_fail_prefault_map:           db "Failure: pre-faulted page not present in translation tables.", 0x0D, 0x0A, 0
+msg_rt_fail_mlockall:               db "Failure: rt_mlockall returned 0.", 0x0D, 0x0A, 0
+msg_rt_fail_mlock_active:           db "Failure: sys_rt_mlockall_active status mismatch.", 0x0D, 0x0A, 0
+msg_rt_fail_locked_count:           db "Failure: sys_rt_locked_pages counter mismatch.", 0x0D, 0x0A, 0
+msg_rt_fail_locked_verify:          db "Failure: rt_is_locked query returned incorrect result.", 0x0D, 0x0A, 0
+msg_rt_fail_munlockall:             db "Failure: rt_munlockall returned 0.", 0x0D, 0x0A, 0
+
+msg_rt_fail_det_init:               db "Failure: rt_det_alloc_init returned 0.", 0x0D, 0x0A, 0
+msg_rt_fail_det_alloc:              db "Failure: rt_det_alloc returned NULL.", 0x0D, 0x0A, 0
+msg_rt_fail_det_stats:              db "Failure: rt deterministic allocator stats mismatch.", 0x0D, 0x0A, 0
+msg_rt_fail_det_free:               db "Failure: rt_det_free returned 0.", 0x0D, 0x0A, 0
+
+msg_rt_fail_isr_init:               db "Failure: rt_isr_alloc_init returned 0.", 0x0D, 0x0A, 0
+msg_rt_fail_isr_stats:              db "Failure: rt isr allocator ring pointers/telemetry mismatch.", 0x0D, 0x0A, 0
+msg_rt_fail_isr_alloc:              db "Failure: rt_isr_alloc returned NULL.", 0x0D, 0x0A, 0
+msg_rt_fail_isr_free:               db "Failure: rt_isr_free returned 0.", 0x0D, 0x0A, 0
+
+msg_rt_fail_reserve_boot:           db "Failure: rt_reserve_boot_memory returned 0.", 0x0D, 0x0A, 0
+msg_rt_fail_reserve_stats:          db "Failure: rt reservation telemetry stats mismatch.", 0x0D, 0x0A, 0
+msg_rt_fail_reserve_alloc:          db "Failure: rt_reserve_alloc returned NULL.", 0x0D, 0x0A, 0
+msg_rt_fail_reserve_free:           db "Failure: rt_reserve_free returned 0.", 0x0D, 0x0A, 0
 
 section .bss
 
@@ -16846,6 +17301,9 @@ align 32
 sys_quant_packed_bytes:     resb 4
 align 32
 sys_quant_unpacked_bytes:   resb 8
+
+align 64
+sys_rt_det_test_pool:       resb 65536
 
 ; BSS variables for dirty tracing test
 align 8
