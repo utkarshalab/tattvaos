@@ -279,6 +279,34 @@ extern sys_mbm_supported
 extern sys_mbm_scale
 extern sys_mbm_active_rmids
 extern mbm_bw_snapshot
+extern sev_detect
+extern sev_is_active
+extern sev_init
+extern sev_encrypt_gpa
+extern sev_decrypt_gpa
+extern sev_is_encrypted
+extern sev_vmgexit
+extern sev_validate_page
+extern sys_sev_supported
+extern sys_sev_active
+extern sys_sev_cbit
+extern sys_sev_encrypted_pages
+extern sys_sev_init_count
+extern sev_enc_bitmap
+extern tdx_detect
+extern tdx_is_active
+extern tdx_init
+extern tdx_share_gpa
+extern tdx_private_gpa
+extern tdx_is_shared
+extern tdx_accept_page
+extern tdx_vmcall
+extern tdx_report
+extern sys_tdx_supported
+extern sys_tdx_active
+extern sys_tdx_shared_pages
+extern sys_tdx_init_count
+extern tdx_shared_bitmap
 
 
 
@@ -13827,7 +13855,7 @@ test_ctor:
     pop r14
     pop r13
     pop r12
-    jmp .idle
+    jmp .sev_test
 
 .mbm_fail_init:
     mov rsi, msg_mbm_fail_init_str
@@ -13895,6 +13923,435 @@ test_ctor:
     jmp .mbm_panic
 
 .mbm_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+    ; =========================================================================
+    ; 35.1 AMD SEV (Secure Encrypted Virtualization) Test
+    ; =========================================================================
+.sev_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_sev_test_start
+    call uart_print_str
+
+    ; --- Step 1: sev_detect() — probe CPUID.8000001Fh ---
+    call sev_detect
+    ; Accept both paths: SEV capable or not
+    mov r12, rax                ; R12 = sys_sev_supported value
+
+    ; Verify sys_sev_supported matches return value
+    mov rax, [sys_sev_supported]
+    cmp rax, r12
+    jne .sev_fail_flag
+
+    ; --- Step 2: sev_init() — combined init (always succeeds if CPU is capable) ---
+    call sev_init
+    test rax, rax
+    jz   .sev_not_capable       ; CPU doesn't have SEV at all
+
+    ; --- Hardware-capable path ---
+    mov rsi, msg_sev_capable
+    call uart_print_str
+
+    ; sys_sev_init_count must be 1
+    mov rax, [sys_sev_init_count]
+    cmp rax, 1
+    jne .sev_fail_init_count
+
+    ; --- Step 3: sev_encrypt_gpa for page at GPA 0x1000 ---
+    mov rdi, 0x1000
+    call sev_encrypt_gpa
+    cmp rax, 1
+    jne .sev_fail_encrypt
+
+    ; sys_sev_encrypted_pages must now be 1
+    mov rax, [sys_sev_encrypted_pages]
+    cmp rax, 1
+    jne .sev_fail_count
+
+    ; --- Step 4: sev_is_encrypted must return 1 for 0x1000 ---
+    mov rdi, 0x1000
+    call sev_is_encrypted
+    cmp rax, 1
+    jne .sev_fail_is_encrypted
+
+    ; --- Step 5: sev_is_encrypted must return 0 for 0x2000 (not encrypted) ---
+    mov rdi, 0x2000
+    call sev_is_encrypted
+    test rax, rax
+    jnz .sev_fail_is_not_encrypted
+
+    ; --- Step 6: sev_encrypt_gpa for two more pages (0x2000, 0x3000) ---
+    mov rdi, 0x2000
+    call sev_encrypt_gpa
+    mov rdi, 0x3000
+    call sev_encrypt_gpa
+
+    ; sys_sev_encrypted_pages must now be 3
+    mov rax, [sys_sev_encrypted_pages]
+    cmp rax, 3
+    jne .sev_fail_count
+
+    ; --- Step 7: sev_decrypt_gpa for 0x2000 — unshare one page ---
+    mov rdi, 0x2000
+    call sev_decrypt_gpa
+    cmp rax, 1
+    jne .sev_fail_decrypt
+
+    ; encrypted_pages must drop to 2
+    mov rax, [sys_sev_encrypted_pages]
+    cmp rax, 2
+    jne .sev_fail_count
+
+    ; sev_is_encrypted(0x2000) must now return 0
+    mov rdi, 0x2000
+    call sev_is_encrypted
+    test rax, rax
+    jnz .sev_fail_decrypt_verify
+
+    ; --- Step 8: sev_decrypt_gpa idempotent — decrypt already-clear page ---
+    mov rdi, 0x2000
+    call sev_decrypt_gpa    ; already clear; should still return 1
+    cmp rax, 1
+    jne .sev_fail_decrypt
+
+    ; count must not change (still 2)
+    mov rax, [sys_sev_encrypted_pages]
+    cmp rax, 2
+    jne .sev_fail_count
+
+    ; --- Step 9: sev_vmgexit — must not fault on bare metal ---
+    mov rdi, 0x002          ; SEV_GHCB_PAGE_SHARE
+    mov rsi, 0x1000         ; GPA
+    call sev_vmgexit        ; returns 0 on bare metal (nop)
+    ; No assertion on return value; just must not crash
+
+    ; --- Step 10: sev_validate_page (SEV-SNP simulation) ---
+    mov rdi, 0x4000
+    mov rsi, 1              ; validate (encrypt)
+    call sev_validate_page
+    mov rdi, 0x4000
+    call sev_is_encrypted
+    cmp rax, 1
+    jne .sev_fail_validate
+
+    jmp .sev_passed
+
+.sev_not_capable:
+    ; CPU doesn't have SEV — verify flag is 0
+    mov rax, [sys_sev_supported]
+    test rax, rax
+    jnz .sev_fail_flag
+
+    mov rsi, msg_sev_not_capable
+    call uart_print_str
+
+    ; Verify encrypt/decrypt return 1 (bitmap ops work regardless of HW)
+    mov rdi, 0x5000
+    call sev_encrypt_gpa
+    cmp rax, 1
+    jne .sev_fail_encrypt
+
+    mov rdi, 0x5000
+    call sev_is_encrypted
+    cmp rax, 1
+    jne .sev_fail_is_encrypted
+
+.sev_passed:
+    mov rsi, msg_sev_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .tdx_test
+
+.sev_fail_flag:
+    mov rsi, msg_sev_fail_flag_str
+    call uart_print_str
+    jmp .sev_panic
+
+.sev_fail_init_count:
+    mov rsi, msg_sev_fail_init_count_str
+    call uart_print_str
+    jmp .sev_panic
+
+.sev_fail_encrypt:
+    mov rsi, msg_sev_fail_encrypt_str
+    call uart_print_str
+    jmp .sev_panic
+
+.sev_fail_count:
+    mov rsi, msg_sev_fail_count_str
+    call uart_print_str
+    jmp .sev_panic
+
+.sev_fail_is_encrypted:
+    mov rsi, msg_sev_fail_is_encrypted_str
+    call uart_print_str
+    jmp .sev_panic
+
+.sev_fail_is_not_encrypted:
+    mov rsi, msg_sev_fail_is_not_encrypted_str
+    call uart_print_str
+    jmp .sev_panic
+
+.sev_fail_decrypt:
+    mov rsi, msg_sev_fail_decrypt_str
+    call uart_print_str
+    jmp .sev_panic
+
+.sev_fail_decrypt_verify:
+    mov rsi, msg_sev_fail_decrypt_verify_str
+    call uart_print_str
+    jmp .sev_panic
+
+.sev_fail_validate:
+    mov rsi, msg_sev_fail_validate_str
+    call uart_print_str
+    jmp .sev_panic
+
+.sev_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+    ; =========================================================================
+    ; 35.2 Intel TDX (Trust Domain Extensions) Test
+    ; =========================================================================
+.tdx_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_tdx_test_start
+    call uart_print_str
+
+    ; --- Step 1: tdx_detect() — CPUID signature + feature bit probe ---
+    call tdx_detect
+    mov r12, rax                ; R12 = 1 if TDX capable
+
+    ; Verify sys_tdx_supported matches return value
+    mov rax, [sys_tdx_supported]
+    cmp rax, r12
+    jne .tdx_fail_flag
+
+    ; --- Step 2: tdx_init() ---
+    call tdx_init
+    test rax, rax
+    jz   .tdx_not_capable
+
+    ; --- Hardware-capable path ---
+    mov rsi, msg_tdx_capable
+    call uart_print_str
+
+    ; sys_tdx_init_count must be 1
+    mov rax, [sys_tdx_init_count]
+    cmp rax, 1
+    jne .tdx_fail_init_count
+
+    ; --- Step 3: tdx_share_gpa for GPA 0x10000 ---
+    mov rdi, 0x10000
+    call tdx_share_gpa
+    cmp rax, 1
+    jne .tdx_fail_share
+
+    ; sys_tdx_shared_pages must be 1
+    mov rax, [sys_tdx_shared_pages]
+    cmp rax, 1
+    jne .tdx_fail_count
+
+    ; --- Step 4: tdx_is_shared(0x10000) must return 1 ---
+    mov rdi, 0x10000
+    call tdx_is_shared
+    cmp rax, 1
+    jne .tdx_fail_is_shared
+
+    ; --- Step 5: tdx_is_shared(0x20000) must return 0 (not shared) ---
+    mov rdi, 0x20000
+    call tdx_is_shared
+    test rax, rax
+    jnz .tdx_fail_is_not_shared
+
+    ; --- Step 6: tdx_private_gpa — convert 0x10000 back to private ---
+    mov rdi, 0x10000
+    call tdx_private_gpa
+    cmp rax, 1
+    jne .tdx_fail_private
+
+    ; shared_pages must drop to 0
+    mov rax, [sys_tdx_shared_pages]
+    test rax, rax
+    jnz .tdx_fail_count
+
+    ; tdx_is_shared(0x10000) must now return 0
+    mov rdi, 0x10000
+    call tdx_is_shared
+    test rax, rax
+    jnz .tdx_fail_private_verify
+
+    ; --- Step 7: tdx_private_gpa idempotent ---
+    mov rdi, 0x10000
+    call tdx_private_gpa    ; already private; still returns 1
+    cmp rax, 1
+    jne .tdx_fail_private
+    ; count must still be 0
+    mov rax, [sys_tdx_shared_pages]
+    test rax, rax
+    jnz .tdx_fail_count
+
+    ; --- Step 8: tdx_accept_page simulation ---
+    mov rdi, 0x30000
+    call tdx_accept_page    ; 0 = success
+    test rax, rax
+    jnz .tdx_fail_accept
+
+    ; accepted page must be private (not shared)
+    mov rdi, 0x30000
+    call tdx_is_shared
+    test rax, rax
+    jnz .tdx_fail_accept_verify
+
+    ; --- Step 9: tdx_vmcall — must not fault on bare metal ---
+    mov rdi, 0x0001         ; TDX_VMCALL_HALT (just a safe function number)
+    xor rsi, rsi
+    xor rdx, rdx
+    xor rcx, rcx
+    call tdx_vmcall         ; returns 0 in simulation
+
+    ; --- Step 10: tdx_report — fill attestation report buffer ---
+    sub  rsp, 1024          ; stack-allocate 1024-byte report buffer
+    mov  rdi, rsp
+    xor  rsi, rsi           ; no additional data
+    call tdx_report
+    test rax, rax
+    jnz  .tdx_fail_report
+
+    ; Verify the "TDXREP" marker at offset 0
+    mov  rax, [rsp]
+    mov  rbx, 0x545245504558445F54     ; "T_TDXREP"
+    cmp  rax, rbx
+    jne  .tdx_fail_report_marker
+
+    add  rsp, 1024          ; restore stack
+
+    jmp .tdx_passed
+
+.tdx_not_capable:
+    ; CPU doesn't enumerate TDX — verify flag is 0
+    mov rax, [sys_tdx_supported]
+    test rax, rax
+    jnz .tdx_fail_flag
+
+    mov rsi, msg_tdx_not_capable
+    call uart_print_str
+
+    ; Bitmap ops still work on bare metal
+    mov rdi, 0x40000
+    call tdx_share_gpa
+    cmp rax, 1
+    jne .tdx_fail_share
+
+    mov rdi, 0x40000
+    call tdx_is_shared
+    cmp rax, 1
+    jne .tdx_fail_is_shared
+
+    ; tdx_report with null buf must return error
+    xor rdi, rdi
+    call tdx_report
+    test rax, rax
+    jz   .tdx_fail_report_null
+
+.tdx_passed:
+    mov rsi, msg_tdx_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .idle
+
+.tdx_fail_flag:
+    mov rsi, msg_tdx_fail_flag_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_init_count:
+    mov rsi, msg_tdx_fail_init_count_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_share:
+    mov rsi, msg_tdx_fail_share_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_count:
+    mov rsi, msg_tdx_fail_count_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_is_shared:
+    mov rsi, msg_tdx_fail_is_shared_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_is_not_shared:
+    mov rsi, msg_tdx_fail_is_not_shared_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_private:
+    mov rsi, msg_tdx_fail_private_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_private_verify:
+    mov rsi, msg_tdx_fail_private_verify_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_accept:
+    mov rsi, msg_tdx_fail_accept_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_accept_verify:
+    mov rsi, msg_tdx_fail_accept_verify_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_report:
+    add  rsp, 1024
+    mov rsi, msg_tdx_fail_report_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_report_marker:
+    add  rsp, 1024
+    mov rsi, msg_tdx_fail_report_marker_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_fail_report_null:
+    mov rsi, msg_tdx_fail_report_null_str
+    call uart_print_str
+    jmp .tdx_panic
+
+.tdx_panic:
     pop r15
     pop r14
     pop r13
@@ -14931,6 +15388,40 @@ msg_mbm_fail_saturated_high_str:    db "Failure: mbm_is_saturated returned 1 for
 msg_mbm_fail_flag_str:              db "Failure: sys_mbm_supported is non-zero after detect reported unsupported.", 0x0D, 0x0A, 0
 msg_mbm_fail_init_notsup_str:       db "Failure: mbm_init returned non-zero on unsupported hardware.", 0x0D, 0x0A, 0
 msg_mbm_fail_bw_notsup_str:         db "Failure: mbm_read_bw returned non-zero when MBM is not supported.", 0x0D, 0x0A, 0
+
+; AMD SEV Test messages (Subfeature 35.1)
+msg_sev_test_start:                 db "Running VMM AMD SEV (Secure Encrypted Virtualization) Test...", 0x0D, 0x0A, 0
+msg_sev_test_passed:                db "VMM AMD SEV Test PASSED!", 0x0D, 0x0A, 0
+msg_sev_capable:                    db "SEV: AMD SEV capable CPU detected.", 0x0D, 0x0A, 0
+msg_sev_not_capable:                db "SEV: AMD SEV not available; running simulation path.", 0x0D, 0x0A, 0
+msg_sev_fail_flag_str:              db "Failure: sys_sev_supported does not match sev_detect() return value.", 0x0D, 0x0A, 0
+msg_sev_fail_init_count_str:        db "Failure: sys_sev_init_count is not 1 after sev_init().", 0x0D, 0x0A, 0
+msg_sev_fail_encrypt_str:           db "Failure: sev_encrypt_gpa did not return 1 for valid GPA.", 0x0D, 0x0A, 0
+msg_sev_fail_count_str:             db "Failure: sys_sev_encrypted_pages counter does not match expected value.", 0x0D, 0x0A, 0
+msg_sev_fail_is_encrypted_str:      db "Failure: sev_is_encrypted returned 0 for a page that was encrypted.", 0x0D, 0x0A, 0
+msg_sev_fail_is_not_encrypted_str:  db "Failure: sev_is_encrypted returned 1 for a page that was never encrypted.", 0x0D, 0x0A, 0
+msg_sev_fail_decrypt_str:           db "Failure: sev_decrypt_gpa did not return 1 for valid GPA.", 0x0D, 0x0A, 0
+msg_sev_fail_decrypt_verify_str:    db "Failure: sev_is_encrypted returned 1 after sev_decrypt_gpa (still encrypted).", 0x0D, 0x0A, 0
+msg_sev_fail_validate_str:          db "Failure: sev_validate_page did not set encryption bit for GPA.", 0x0D, 0x0A, 0
+
+; Intel TDX Test messages (Subfeature 35.2)
+msg_tdx_test_start:                 db "Running VMM Intel TDX (Trust Domain Extensions) Test...", 0x0D, 0x0A, 0
+msg_tdx_test_passed:                db "VMM Intel TDX Test PASSED!", 0x0D, 0x0A, 0
+msg_tdx_capable:                    db "TDX: Intel TDX capable platform detected.", 0x0D, 0x0A, 0
+msg_tdx_not_capable:                db "TDX: Intel TDX not available; running simulation path.", 0x0D, 0x0A, 0
+msg_tdx_fail_flag_str:              db "Failure: sys_tdx_supported does not match tdx_detect() return value.", 0x0D, 0x0A, 0
+msg_tdx_fail_init_count_str:        db "Failure: sys_tdx_init_count is not 1 after tdx_init().", 0x0D, 0x0A, 0
+msg_tdx_fail_share_str:             db "Failure: tdx_share_gpa did not return 1 for valid GPA.", 0x0D, 0x0A, 0
+msg_tdx_fail_count_str:             db "Failure: sys_tdx_shared_pages counter does not match expected value.", 0x0D, 0x0A, 0
+msg_tdx_fail_is_shared_str:         db "Failure: tdx_is_shared returned 0 for a GPA that was shared.", 0x0D, 0x0A, 0
+msg_tdx_fail_is_not_shared_str:     db "Failure: tdx_is_shared returned 1 for a GPA that was never shared.", 0x0D, 0x0A, 0
+msg_tdx_fail_private_str:           db "Failure: tdx_private_gpa did not return 1 for valid GPA.", 0x0D, 0x0A, 0
+msg_tdx_fail_private_verify_str:    db "Failure: tdx_is_shared returned 1 after tdx_private_gpa (still shared).", 0x0D, 0x0A, 0
+msg_tdx_fail_accept_str:            db "Failure: tdx_accept_page returned non-zero (accept failed).", 0x0D, 0x0A, 0
+msg_tdx_fail_accept_verify_str:     db "Failure: tdx_is_shared returned 1 for an accepted (private) page.", 0x0D, 0x0A, 0
+msg_tdx_fail_report_str:            db "Failure: tdx_report returned non-zero for a valid 1024-byte buffer.", 0x0D, 0x0A, 0
+msg_tdx_fail_report_marker_str:     db "Failure: tdx_report marker at offset 0 does not match expected signature.", 0x0D, 0x0A, 0
+msg_tdx_fail_report_null_str:       db "Failure: tdx_report returned 0 for a null buffer (should be error).", 0x0D, 0x0A, 0
 
 section .bss
 align 8
