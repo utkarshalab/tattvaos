@@ -115,6 +115,11 @@
 %include "lib/mem/virt/rt_det_alloc.asm"
 %include "lib/mem/virt/rt_isr_alloc.asm"
 %include "lib/mem/virt/rt_reserve.asm"
+%include "lib/mem/virt/ras_ecc.asm"
+%include "lib/mem/virt/ras_mce.asm"
+%include "lib/mem/virt/ras_poison.asm"
+%include "lib/mem/virt/ras_dimm.asm"
+%include "lib/mem/virt/ras_scrub.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
