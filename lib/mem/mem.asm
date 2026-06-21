@@ -110,6 +110,11 @@
 %include "lib/mem/virt/activation_recycler.asm"
 %include "lib/mem/virt/prefetch_alloc.asm"
 %include "lib/mem/virt/quant_layout.asm"
+%include "lib/mem/virt/mlock.asm"
+%include "lib/mem/virt/prefault.asm"
+%include "lib/mem/virt/rt_det_alloc.asm"
+%include "lib/mem/virt/rt_isr_alloc.asm"
+%include "lib/mem/virt/rt_reserve.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
