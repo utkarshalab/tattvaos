@@ -96,6 +96,9 @@
 %include "lib/mem/virt/writeback.asm"
 %include "lib/mem/virt/mglru.asm"
 %include "lib/mem/virt/percpu_stat.asm"
+%include "lib/mem/virt/meminfo.asm"
+%include "lib/mem/virt/proc_memstat.asm"
+%include "lib/mem/virt/mbm.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
