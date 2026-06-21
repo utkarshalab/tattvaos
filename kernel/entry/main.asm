@@ -348,6 +348,52 @@ extern sys_mte_active
 extern sys_mte_tagged_pages
 extern sys_mte_tag_faults
 
+; Tensor Memory Pool (Subfeature 36.1)
+extern tensor_pool_init
+extern tensor_pool_alloc
+extern tensor_pool_free
+extern sys_tensor_pool_allocated_blocks
+extern sys_tensor_pool_total_blocks
+
+; Weight Cache Manager (Subfeature 36.2)
+extern weight_cache_init
+extern weight_cache_pin
+extern weight_cache_unpin
+extern weight_cache_evict_lru
+extern weight_cache_access
+extern sys_weight_cache_max_bytes
+extern sys_weight_cache_total_bytes
+extern sys_weight_cache_pinned_bytes
+extern sys_weight_cache_resident_models
+
+; KV Cache Physical Allocator (Subfeature 36.3)
+extern kv_cache_init
+extern kv_cache_alloc_block
+extern kv_cache_free_block
+extern kv_cache_pack_turboquant
+extern kv_cache_unpack_turboquant
+extern sys_kv_cache_allocated_blocks
+extern sys_kv_cache_contiguous_pages
+
+; Activation Memory Recycler (Subfeature 36.4)
+extern activation_recycler_init
+extern activation_recycler_register
+extern activation_recycler_map
+extern activation_recycler_unmap
+extern sys_activation_page_count
+extern sys_activation_mapped_buffers
+
+; Prefetch-Aware Allocator (Subfeature 36.5)
+extern prefetch_alloc_aligned
+extern prefetch_alloc_hint
+extern sys_prefetch_aligned_allocations
+
+; Quantized Memory Layout Manager (Subfeature 36.6)
+extern quant_layout_pack_int4
+extern quant_layout_unpack_int4
+extern sys_quant_packed_weights
+extern sys_quant_avx2_alignments
+
 
 
 
@@ -14881,7 +14927,7 @@ test_ctor:
     pop r14
     pop r13
     pop r12
-    jmp .idle
+    jmp .ai_mem_test
 
 .mte_panic:
     pop r15
@@ -14960,12 +15006,662 @@ test_ctor:
     call uart_print_str
     jmp .mte_panic
 
-.percpu_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+    ; =========================================================================
+    ; 36. AI/Inference Specific Memory Features Test
+    ; =========================================================================
+.ai_mem_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_ai_mem_test_start
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 36.1 Tensor Memory Pool Test
+    ; -------------------------------------------------------------------------
+    lea rdi, [sys_tensor_pool_test_buf]
+    mov rsi, 16384
+    mov rdx, 2048
+    call tensor_pool_init
+    test rax, rax
+    jz .ai_fail_tensor_init
+
+    mov r12, rax                ; R12 = pool context pointer
+
+    ; Verify sys_tensor_pool_total_blocks
+    mov rax, [sys_tensor_pool_total_blocks]
+    test rax, rax
+    jz .ai_fail_tensor_count
+
+    ; Allocate block 1
+    mov rdi, r12
+    call tensor_pool_alloc
+    test rax, rax
+    jz .ai_fail_tensor_alloc
+    mov r13, rax                ; R13 = block 1 ptr
+
+    ; Verify sys_tensor_pool_allocated_blocks is 1
+    mov rax, [sys_tensor_pool_allocated_blocks]
+    cmp rax, 1
+    jne .ai_fail_tensor_allocated_count
+
+    ; Allocate block 2
+    mov rdi, r12
+    call tensor_pool_alloc
+    test rax, rax
+    jz .ai_fail_tensor_alloc
+    mov r14, rax                ; R14 = block 2 ptr
+
+    ; Verify block 1 != block 2
+    cmp r13, r14
+    je .ai_fail_tensor_distinct
+
+    ; Verify sys_tensor_pool_allocated_blocks is 2
+    mov rax, [sys_tensor_pool_allocated_blocks]
+    cmp rax, 2
+    jne .ai_fail_tensor_allocated_count
+
+    ; Free block 1
+    mov rdi, r12
+    mov rsi, r13
+    call tensor_pool_free
+    cmp rax, 1
+    jne .ai_fail_tensor_free
+
+    ; Verify allocated count is 1
+    mov rax, [sys_tensor_pool_allocated_blocks]
+    cmp rax, 1
+    jne .ai_fail_tensor_allocated_count
+
+    ; Free block 2
+    mov rdi, r12
+    mov rsi, r14
+    call tensor_pool_free
+    cmp rax, 1
+    jne .ai_fail_tensor_free
+
+    ; Verify allocated count is 0
+    mov rax, [sys_tensor_pool_allocated_blocks]
+    test rax, rax
+    jnz .ai_fail_tensor_allocated_count
+
+    mov rsi, msg_ai_tensor_pool_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 36.2 Weight Cache Manager Test
+    ; -------------------------------------------------------------------------
+    mov rdi, 1000000
+    call weight_cache_init
+    cmp rax, 1
+    jne .ai_fail_weight_init
+
+    ; Verify sys_weight_cache_max_bytes is 1000000
+    mov rax, [sys_weight_cache_max_bytes]
+    cmp rax, 1000000
+    jne .ai_fail_weight_config
+
+    ; Pin Model 1: size = 400,000, ptr = 0x50000000
+    mov rdi, 0x50000000
+    mov rsi, 400000
+    mov rdx, 1
+    call weight_cache_pin
+    cmp rax, 1
+    jne .ai_fail_weight_pin
+
+    ; Verify stats
+    mov rax, [sys_weight_cache_pinned_bytes]
+    cmp rax, 400000
+    jne .ai_fail_weight_stats
+    mov rax, [sys_weight_cache_total_bytes]
+    cmp rax, 400000
+    jne .ai_fail_weight_stats
+    mov rax, [sys_weight_cache_resident_models]
+    cmp rax, 1
+    jne .ai_fail_weight_stats
+
+    ; Pin Model 2: size = 400,000, ptr = 0x50000000 + 400000
+    mov rdi, 0x50000000 + 400000
+    mov rsi, 400000
+    mov rdx, 2
+    call weight_cache_pin
+    cmp rax, 1
+    jne .ai_fail_weight_pin
+
+    ; Verify stats
+    mov rax, [sys_weight_cache_pinned_bytes]
+    cmp rax, 800000
+    jne .ai_fail_weight_stats
+    mov rax, [sys_weight_cache_total_bytes]
+    cmp rax, 800000
+    jne .ai_fail_weight_stats
+    mov rax, [sys_weight_cache_resident_models]
+    cmp rax, 2
+    jne .ai_fail_weight_stats
+
+    ; Unpin Model 1
+    mov rdi, 1
+    call weight_cache_unpin
+    cmp rax, 1
+    jne .ai_fail_weight_unpin
+
+    ; Verify stats
+    mov rax, [sys_weight_cache_pinned_bytes]
+    cmp rax, 400000
+    jne .ai_fail_weight_stats
+    mov rax, [sys_weight_cache_total_bytes]
+    cmp rax, 800000
+    jne .ai_fail_weight_stats
+
+    ; Pin Model 3
+    mov rdi, 0x50000000 + 800000
+    mov rsi, 300000
+    mov rdx, 3
+    call weight_cache_pin
+    cmp rax, 1
+    jne .ai_fail_weight_pin
+
+    ; Verify Model 1 is evicted (touch/access fails)
+    mov rdi, 1
+    call weight_cache_access
+    test rax, rax
+    jnz .ai_fail_weight_evicted
+
+    ; Verify Model 2 and 3 are resident
+    mov rdi, 2
+    call weight_cache_access
+    cmp rax, 1
+    jne .ai_fail_weight_access
+    mov rdi, 3
+    call weight_cache_access
+    cmp rax, 1
+    jne .ai_fail_weight_access
+
+    ; Verify stats
+    mov rax, [sys_weight_cache_pinned_bytes]
+    cmp rax, 700000
+    jne .ai_fail_weight_stats
+    mov rax, [sys_weight_cache_total_bytes]
+    cmp rax, 700000
+    jne .ai_fail_weight_stats
+    mov rax, [sys_weight_cache_resident_models]
+    cmp rax, 2
+    jne .ai_fail_weight_stats
+
+    mov rsi, msg_ai_weight_cache_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 36.3 KV Cache Physical Allocator Test
+    ; -------------------------------------------------------------------------
+    call kv_cache_init
+    cmp rax, 1
+    jne .ai_fail_kv_init
+
+    ; Allocate contiguous 4 pages
+    mov rdi, 4
+    call kv_cache_alloc_block
+    test rax, rax
+    jz .ai_fail_kv_alloc
+    mov r12, rax                ; R12 = physical block 1 (0x20000000)
+
+    ; Verify stats
+    mov rax, [sys_kv_cache_allocated_blocks]
+    cmp rax, 1
+    jne .ai_fail_kv_stats
+    mov rax, [sys_kv_cache_contiguous_pages]
+    cmp rax, 4
+    jne .ai_fail_kv_stats
+
+    ; Allocate contiguous 2 pages
+    mov rdi, 2
+    call kv_cache_alloc_block
+    test rax, rax
+    jz .ai_fail_kv_alloc
+    mov r13, rax                ; R13 = physical block 2 (0x20004000)
+
+    ; Verify stats
+    mov rax, [sys_kv_cache_allocated_blocks]
+    cmp rax, 2
+    jne .ai_fail_kv_stats
+    mov rax, [sys_kv_cache_contiguous_pages]
+    cmp rax, 6
+    jne .ai_fail_kv_stats
+
+    ; Free block 1
+    mov rdi, r12
+    mov rsi, 4
+    call kv_cache_free_block
+    cmp rax, 1
+    jne .ai_fail_kv_free
+
+    ; Verify stats
+    mov rax, [sys_kv_cache_allocated_blocks]
+    cmp rax, 1
+    jne .ai_fail_kv_stats
+    mov rax, [sys_kv_cache_contiguous_pages]
+    cmp rax, 2
+    jne .ai_fail_kv_stats
+
+    ; Free block 2
+    mov rdi, r13
+    mov rsi, 2
+    call kv_cache_free_block
+    cmp rax, 1
+    jne .ai_fail_kv_free
+
+    ; Verify stats
+    mov rax, [sys_kv_cache_allocated_blocks]
+    test rax, rax
+    jnz .ai_fail_kv_stats
+    mov rax, [sys_kv_cache_contiguous_pages]
+    test rax, rax
+    jnz .ai_fail_kv_stats
+
+    ; Test TurboQuant Packing
+    lea rdi, [sys_kv_src_bytes]
+    mov byte [rdi], 5
+    mov byte [rdi + 1], 11
+    mov byte [rdi + 2], 2
+    mov byte [rdi + 3], 8
+    mov byte [rdi + 4], 0
+    mov byte [rdi + 5], 7
+    mov byte [rdi + 6], 10
+    mov byte [rdi + 7], 4
+
+    ; Pack 8 elements into packed dword
+    lea rdi, [sys_kv_src_bytes]
+    lea rsi, [sys_kv_packed_dword]
+    mov rdx, 8
+    call kv_cache_pack_turboquant
+    cmp rax, 1
+    jne .ai_fail_turboquant_pack
+
+    ; Unpack packed dword back to bytes
+    lea rdi, [sys_kv_packed_dword]
+    lea rsi, [sys_kv_unpacked_bytes]
+    mov rdx, 8
+    call kv_cache_unpack_turboquant
+    cmp rax, 8
+    jne .ai_fail_turboquant_unpack
+
+    ; Verify unpacked matches source
+    lea rdi, [sys_kv_src_bytes]
+    lea rsi, [sys_kv_unpacked_bytes]
+    mov rcx, 8
+.verify_kv_bytes:
+    mov al, [rdi]
+    mov bl, [rsi]
+    cmp al, bl
+    jne .ai_fail_turboquant_mismatch
+    inc rdi
+    inc rsi
+    loop .verify_kv_bytes
+
+    mov rsi, msg_ai_kv_alloc_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 36.4 Activation Memory Recycler Test
+    ; -------------------------------------------------------------------------
+    call activation_recycler_init
+    cmp rax, 1
+    jne .ai_fail_act_init
+
+    ; Register 4 pages
+    mov rdi, 4
+    call activation_recycler_register
+    cmp rax, 4
+    jne .ai_fail_act_register
+
+    ; Verify page count
+    mov rax, [sys_activation_page_count]
+    cmp rax, 4
+    jne .ai_fail_act_stats
+
+    ; Map to virtual address 0x70000000 for Layer 1
+    mov rdi, 1
+    mov rsi, 0x70000000
+    call activation_recycler_map
+    cmp rax, 1
+    jne .ai_fail_act_map
+
+    ; Get physical translation
+    mov rdi, 0x70000000
+    call virt_translate
+    test rax, rax
+    jz .ai_fail_act_translate
+    mov r12, rax                ; R12 = physical frame base
+
+    ; Map to virtual address 0x70100000 for Layer 2
+    mov rdi, 2
+    mov rsi, 0x70100000
+    call activation_recycler_map
+    cmp rax, 1
+    jne .ai_fail_act_map
+
+    ; Get physical translation
+    mov rdi, 0x70100000
+    call virt_translate
+    test rax, rax
+    jz .ai_fail_act_translate
+    mov r13, rax                ; R13 = physical frame base (Layer 2)
+
+    ; Assert both layers map to the exact same physical frame
+    cmp r12, r13
+    jne .ai_fail_act_distinct
+
+    ; Verify mapped buffers count
+    mov rax, [sys_activation_mapped_buffers]
+    cmp rax, 2
+    jne .ai_fail_act_stats
+
+    ; Unmap virtual ranges
+    mov rdi, 0x70000000
+    call activation_recycler_unmap
+    cmp rax, 1
+    jne .ai_fail_act_unmap
+
+    mov rdi, 0x70100000
+    call activation_recycler_unmap
+    cmp rax, 1
+    jne .ai_fail_act_unmap
+
+    ; Verify mapped count is 0
+    mov rax, [sys_activation_mapped_buffers]
+    test rax, rax
+    jnz .ai_fail_act_stats
+
+    mov rsi, msg_ai_act_recycler_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 36.5 Prefetch-Aware Allocator Test
+    ; -------------------------------------------------------------------------
+    ; Allocate 8192 bytes aligned on NUMA Node 0
+    mov rdi, 8192
+    mov rsi, 0
+    call prefetch_alloc_aligned
+    test rax, rax
+    jz .ai_fail_prefetch_alloc
+    mov r12, rax                ; R12 = allocated virtual base
+
+    ; Verify aligned allocations stat
+    mov rax, [sys_prefetch_aligned_allocations]
+    cmp rax, 1
+    jne .ai_fail_prefetch_stats
+
+    ; Verify virtual address is 64-byte aligned
+    mov rax, r12
+    test rax, 63
+    jnz .ai_fail_prefetch_align
+
+    ; Test hint function
+    mov rdi, r12
+    mov rsi, 8192
+    call prefetch_alloc_hint
+    cmp rax, 1
+    jne .ai_fail_prefetch_hint
+
+    mov rsi, msg_ai_prefetch_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 36.6 Quantized Memory Layout Manager Test
+    ; -------------------------------------------------------------------------
+    ; Populate source byte buffer
+    lea rdi, [sys_quant_src_bytes]
+    mov byte [rdi], 3
+    mov byte [rdi + 1], 14
+    mov byte [rdi + 2], 0
+    mov byte [rdi + 3], 9
+    mov byte [rdi + 4], 12
+    mov byte [rdi + 5], 1
+    mov byte [rdi + 6], 15
+    mov byte [rdi + 7], 6
+
+    ; Pack 8 bytes into 4 bytes (AVX2-aligned BSS destination)
+    lea rdi, [sys_quant_src_bytes]
+    lea rsi, [sys_quant_packed_bytes]
+    mov rdx, 8
+    call quant_layout_pack_int4
+    cmp rax, 4
+    jne .ai_fail_quant_pack
+
+    ; Verify telemetry counters
+    mov rax, [sys_quant_packed_weights]
+    cmp rax, 1
+    jne .ai_fail_quant_stats
+    mov rax, [sys_quant_avx2_alignments]
+    cmp rax, 1
+    jne .ai_fail_quant_stats
+
+    ; Unpack 4 bytes back to 8 bytes
+    lea rdi, [sys_quant_packed_bytes]
+    lea rsi, [sys_quant_unpacked_bytes]
+    mov rdx, 8
+    call quant_layout_unpack_int4
+    cmp rax, 8
+    jne .ai_fail_quant_unpack
+
+    ; Verify unpacked weights match original source
+    lea rdi, [sys_quant_src_bytes]
+    lea rsi, [sys_quant_unpacked_bytes]
+    mov rcx, 8
+.verify_quant_bytes:
+    mov al, [rdi]
+    mov bl, [rsi]
+    cmp al, bl
+    jne .ai_fail_quant_mismatch
+    inc rdi
+    inc rsi
+    loop .verify_quant_bytes
+
+    mov rsi, msg_ai_quant_ok
+    call uart_print_str
+
+    ; All AI/Inference memory tests passed!
+    mov rsi, msg_ai_mem_test_passed
+    call uart_print_str
 
     pop r15
     pop r14
     pop r13
     pop r12
+    jmp .idle
+
+.ai_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.ai_fail_tensor_init:
+    mov rsi, msg_ai_fail_tensor_init
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_tensor_count:
+    mov rsi, msg_ai_fail_tensor_count
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_tensor_alloc:
+    mov rsi, msg_ai_fail_tensor_alloc
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_tensor_allocated_count:
+    mov rsi, msg_ai_fail_tensor_allocated_count
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_tensor_distinct:
+    mov rsi, msg_ai_fail_tensor_distinct
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_tensor_free:
+    mov rsi, msg_ai_fail_tensor_free
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_weight_init:
+    mov rsi, msg_ai_fail_weight_init
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_weight_config:
+    mov rsi, msg_ai_fail_weight_config
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_weight_pin:
+    mov rsi, msg_ai_fail_weight_pin
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_weight_stats:
+    mov rsi, msg_ai_fail_weight_stats
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_weight_unpin:
+    mov rsi, msg_ai_fail_weight_unpin
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_weight_evicted:
+    mov rsi, msg_ai_fail_weight_evicted
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_weight_access:
+    mov rsi, msg_ai_fail_weight_access
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_kv_init:
+    mov rsi, msg_ai_fail_kv_init
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_kv_alloc:
+    mov rsi, msg_ai_fail_kv_alloc
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_kv_stats:
+    mov rsi, msg_ai_fail_kv_stats
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_kv_free:
+    mov rsi, msg_ai_fail_kv_free
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_turboquant_pack:
+    mov rsi, msg_ai_fail_turboquant_pack
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_turboquant_unpack:
+    mov rsi, msg_ai_fail_turboquant_unpack
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_turboquant_mismatch:
+    mov rsi, msg_ai_fail_turboquant_mismatch
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_act_init:
+    mov rsi, msg_ai_fail_act_init
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_act_register:
+    mov rsi, msg_ai_fail_act_register
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_act_stats:
+    mov rsi, msg_ai_fail_act_stats
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_act_map:
+    mov rsi, msg_ai_fail_act_map
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_act_translate:
+    mov rsi, msg_ai_fail_act_translate
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_act_distinct:
+    mov rsi, msg_ai_fail_act_distinct
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_act_unmap:
+    mov rsi, msg_ai_fail_act_unmap
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_prefetch_alloc:
+    mov rsi, msg_ai_fail_prefetch_alloc
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_prefetch_stats:
+    mov rsi, msg_ai_fail_prefetch_stats
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_prefetch_align:
+    mov rsi, msg_ai_fail_prefetch_align
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_prefetch_hint:
+    mov rsi, msg_ai_fail_prefetch_hint
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_quant_pack:
+    mov rsi, msg_ai_fail_quant_pack
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_quant_stats:
+    mov rsi, msg_ai_fail_quant_stats
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_quant_unpack:
+    mov rsi, msg_ai_fail_quant_unpack
+    call uart_print_str
+    jmp .ai_panic
+
+.ai_fail_quant_mismatch:
+    mov rsi, msg_ai_fail_quant_mismatch
+    call uart_print_str
+    jmp .ai_panic
+
+.percpu_panic:
+
 
 .panic:
     mov rsi, msg_test_failed
@@ -16071,6 +16767,56 @@ msg_mte_fail_page_tag_verify:       db "Failure: page granule verification faile
 msg_mte_fail_tagged_pages_count:    db "Failure: sys_mte_tagged_pages counter does not match expected value.", 0x0D, 0x0A, 0
 msg_mte_fail_tag_free_page:         db "Failure: mte_tag_free_page returned 0.", 0x0D, 0x0A, 0
 msg_mte_fail_free_tag_verify:       db "Failure: granule verification failed after tagging free page.", 0x0D, 0x0A, 0
+; AI/Inference Specific Memory Test messages (Subfeature 36)
+msg_ai_mem_test_start:              db "Running VMM AI/Inference Specific Memory Features Test...", 0x0D, 0x0A, 0
+msg_ai_mem_test_passed:             db "VMM AI/Inference Specific Memory Features Test PASSED!", 0x0D, 0x0A, 0
+msg_ai_tensor_pool_ok:              db "  Tensor Memory Pool: Alloc and O(1) dealloc verified.", 0x0D, 0x0A, 0
+msg_ai_weight_cache_ok:             db "  Weight Cache: Pinning, LRU eviction and access tracking verified.", 0x0D, 0x0A, 0
+msg_ai_kv_alloc_ok:                 db "  KV Cache: Contiguous page allocator and TurboQuant 3.5-bit packing verified.", 0x0D, 0x0A, 0
+msg_ai_act_recycler_ok:             db "  Activation Recycler: Page-table physical page sharing verified.", 0x0D, 0x0A, 0
+msg_ai_prefetch_ok:                 db "  Prefetch-Aware Allocator: 64-byte alignment and hardware prefetch hints verified.", 0x0D, 0x0A, 0
+msg_ai_quant_ok:                    db "  Quantized Layout: INT4 AVX2 32-byte alignment packing/unpacking verified.", 0x0D, 0x0A, 0
+
+msg_ai_fail_tensor_init:            db "Failure: tensor_pool_init returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_tensor_count:           db "Failure: sys_tensor_pool_total_blocks is 0 after init.", 0x0D, 0x0A, 0
+msg_ai_fail_tensor_alloc:           db "Failure: tensor_pool_alloc returned NULL.", 0x0D, 0x0A, 0
+msg_ai_fail_tensor_allocated_count: db "Failure: sys_tensor_pool_allocated_blocks counter mismatch.", 0x0D, 0x0A, 0
+msg_ai_fail_tensor_distinct:        db "Failure: consecutive tensor_pool_alloc returned identical pointer.", 0x0D, 0x0A, 0
+msg_ai_fail_tensor_free:            db "Failure: tensor_pool_free returned 0.", 0x0D, 0x0A, 0
+
+msg_ai_fail_weight_init:            db "Failure: weight_cache_init returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_weight_config:          db "Failure: sys_weight_cache_max_bytes is incorrect.", 0x0D, 0x0A, 0
+msg_ai_fail_weight_pin:             db "Failure: weight_cache_pin returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_weight_stats:           db "Failure: weight cache telemetry count/bytes mismatch.", 0x0D, 0x0A, 0
+msg_ai_fail_weight_unpin:           db "Failure: weight_cache_unpin returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_weight_evicted:         db "Failure: unpinned LRU model weights were not evicted under pressure.", 0x0D, 0x0A, 0
+msg_ai_fail_weight_access:          db "Failure: weight_cache_access failed for resident model.", 0x0D, 0x0A, 0
+
+msg_ai_fail_kv_init:                db "Failure: kv_cache_init returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_kv_alloc:               db "Failure: kv_cache_alloc_block returned NULL.", 0x0D, 0x0A, 0
+msg_ai_fail_kv_stats:               db "Failure: KV cache page stats/counters mismatch.", 0x0D, 0x0A, 0
+msg_ai_fail_kv_free:                db "Failure: kv_cache_free_block returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_turboquant_pack:        db "Failure: kv_cache_pack_turboquant returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_turboquant_unpack:      db "Failure: kv_cache_unpack_turboquant returned incorrect element count.", 0x0D, 0x0A, 0
+msg_ai_fail_turboquant_mismatch:    db "Failure: unpacked TurboQuant data does not match original bytes.", 0x0D, 0x0A, 0
+
+msg_ai_fail_act_init:               db "Failure: activation_recycler_init returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_act_register:           db "Failure: activation_recycler_register returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_act_stats:              db "Failure: activation recycler counts mismatch.", 0x0D, 0x0A, 0
+msg_ai_fail_act_map:                db "Failure: activation_recycler_map returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_act_translate:          db "Failure: virt_translate returned 0 for activation virtual address.", 0x0D, 0x0A, 0
+msg_ai_fail_act_distinct:           db "Failure: layers mapped to different physical frames (recycler fail).", 0x0D, 0x0A, 0
+msg_ai_fail_act_unmap:              db "Failure: activation_recycler_unmap returned 0.", 0x0D, 0x0A, 0
+
+msg_ai_fail_prefetch_alloc:         db "Failure: prefetch_alloc_aligned returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_prefetch_stats:         db "Failure: sys_prefetch_aligned_allocations count mismatch.", 0x0D, 0x0A, 0
+msg_ai_fail_prefetch_align:         db "Failure: prefetch allocator returned address that is not 64-byte aligned.", 0x0D, 0x0A, 0
+msg_ai_fail_prefetch_hint:          db "Failure: prefetch_alloc_hint returned 0.", 0x0D, 0x0A, 0
+
+msg_ai_fail_quant_pack:             db "Failure: quant_layout_pack_int4 returned 0.", 0x0D, 0x0A, 0
+msg_ai_fail_quant_stats:            db "Failure: quantized layout telemetry counts mismatch.", 0x0D, 0x0A, 0
+msg_ai_fail_quant_unpack:           db "Failure: quant_layout_unpack_int4 returned incorrect count.", 0x0D, 0x0A, 0
+msg_ai_fail_quant_mismatch:         db "Failure: unpacked INT4 data does not match original bytes.", 0x0D, 0x0A, 0
 
 section .bss
 
@@ -16082,6 +16828,24 @@ req_B: resb 40
 req_ptrs: resq 2
 dest_phys_A: resq 1
 dest_phys_B: resq 1
+
+; AI/Inference Specific Memory Test buffers
+align 64
+sys_tensor_pool_test_buf:   resb 16384
+
+align 32
+sys_kv_src_bytes:           resb 8
+align 32
+sys_kv_packed_dword:        resd 1
+align 32
+sys_kv_unpacked_bytes:      resb 8
+
+align 32
+sys_quant_src_bytes:        resb 8
+align 32
+sys_quant_packed_bytes:     resb 4
+align 32
+sys_quant_unpacked_bytes:   resb 8
 
 ; BSS variables for dirty tracing test
 align 8
