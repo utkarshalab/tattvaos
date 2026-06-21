@@ -15,6 +15,10 @@ PAGE_XO         equ (1 << 9)
 PAGE_KEY_1      equ (1 << 59)
 PAGE_NX         equ (1 << 63)
 
+; SMC RMM simulation constants
+SMC_RMI_VERSION             equ 0xC4000150
+SMC_RMI_RTT_MAP_UNPROTECTED equ 0xC400015F
+
 section .text
 
 ; External VMM functions
@@ -307,6 +311,42 @@ extern sys_tdx_active
 extern sys_tdx_shared_pages
 extern sys_tdx_init_count
 extern tdx_shared_bitmap
+
+; ARM CCA (Subfeature 35.3)
+extern cca_detect
+extern cca_init
+extern cca_realm_create
+extern cca_realm_destroy
+extern cca_map_gpa
+extern cca_unmap_gpa
+extern cca_is_realm_page
+extern cca_smc_call
+extern sys_cca_supported
+extern sys_cca_realm_count
+extern sys_cca_mapped_pages
+extern sys_cca_init_count
+
+; Encrypted Memory Swapping (Subfeature 35.4)
+extern enc_swap_init
+extern enc_swap_encrypt_page
+extern enc_swap_decrypt_page
+extern sys_enc_swap_enabled
+extern sys_enc_swap_key
+extern sys_enc_swap_pages_encrypted
+extern sys_enc_swap_pages_decrypted
+
+; Memory Tagging Extension (Subfeature 35.5)
+extern mte_detect
+extern mte_init
+extern mte_set_granule_tag
+extern mte_get_granule_tag
+extern mte_validate_ptr
+extern mte_tag_page
+extern mte_tag_free_page
+extern sys_mte_supported
+extern sys_mte_active
+extern sys_mte_tagged_pages
+extern sys_mte_tag_faults
 
 
 
@@ -14282,7 +14322,7 @@ test_ctor:
     pop r14
     pop r13
     pop r12
-    jmp .idle
+    jmp .cca_test
 
 .tdx_fail_flag:
     mov rsi, msg_tdx_fail_flag_str
@@ -14351,14 +14391,577 @@ test_ctor:
     call uart_print_str
     jmp .tdx_panic
 
-.tdx_panic:
     pop r15
     pop r14
     pop r13
     pop r12
     jmp .panic
 
+    ; =========================================================================
+    ; 35.3 ARM CCA (Confidential Compute Architecture) Test
+    ; =========================================================================
+.cca_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_cca_test_start
+    call uart_print_str
+
+    ; 1. cca_detect (returns 0 because sys_cca_supported is initially 0)
+    call cca_detect
+    test rax, rax
+    jz .cca_not_capable
+
+    ; (If it somehow returned 1, just fail or handle it, but it should return 0)
+    jmp .cca_panic
+
+.cca_not_capable:
+    ; Verify sys_cca_supported is 0
+    mov rax, [sys_cca_supported]
+    test rax, rax
+    jnz .cca_fail_flag
+
+    mov rsi, msg_cca_not_capable
+    call uart_print_str
+
+    ; 2. Initialize simulation explicitly
+    call cca_init
+    cmp rax, 1
+    jne .cca_fail_init
+
+    ; Verify sys_cca_supported is now 1
+    mov rax, [sys_cca_supported]
+    cmp rax, 1
+    jne .cca_fail_flag
+
+    ; Verify sys_cca_init_count is 1
+    mov rax, [sys_cca_init_count]
+    cmp rax, 1
+    jne .cca_fail_init_count
+
+    ; Verify sys_cca_realm_count is 0
+    mov rax, [sys_cca_realm_count]
+    test rax, rax
+    jnz .cca_fail_count
+
+    ; 3. Create Realm 1
+    mov rdi, 1
+    call cca_realm_create
+    cmp rax, 1
+    jne .cca_fail_create
+
+    ; Verify realm_count is 1
+    mov rax, [sys_cca_realm_count]
+    cmp rax, 1
+    jne .cca_fail_count
+
+    ; 4. Map GPA 0x10000 -> IPA 0x10000 in Realm 1
+    mov rdi, 1
+    mov rsi, 0x10000
+    mov rdx, 0x10000
+    call cca_map_gpa
+    cmp rax, 1
+    jne .cca_fail_map
+
+    ; Verify is_realm_page
+    mov rdi, 0x10000
+    call cca_is_realm_page
+    cmp rax, 1              ; should return Realm ID (1)
+    jne .cca_fail_is_realm_page
+
+    ; Check adjacent/unmapped GPA 0x20000
+    mov rdi, 0x20000
+    call cca_is_realm_page
+    test rax, rax
+    jnz .cca_fail_is_not_realm_page
+
+    ; 5. Test SMC calls
+    ; version check
+    mov rdi, SMC_RMI_VERSION
+    call cca_smc_call
+    cmp rax, 0x00010000
+    jne .cca_fail_smc_version
+
+    ; map unprotected via SMC
+    mov rdi, SMC_RMI_RTT_MAP_UNPROTECTED
+    mov rsi, 1
+    mov rdx, 0x30000
+    mov rcx, 0x30000
+    call cca_smc_call
+    test rax, rax
+    jnz .cca_fail_smc_map
+
+    ; verify GPA 0x30000 is now owned by Realm 1
+    mov rdi, 0x30000
+    call cca_is_realm_page
+    cmp rax, 1
+    jne .cca_fail_is_realm_page
+
+    ; 6. Unmap GPA 0x10000
+    mov rdi, 1
+    mov rsi, 0x10000
+    call cca_unmap_gpa
+    cmp rax, 1
+    jne .cca_fail_unmap
+
+    mov rdi, 0x10000
+    call cca_is_realm_page
+    test rax, rax
+    jnz .cca_fail_is_not_realm_page
+
+    ; 7. Destroy Realm 1 (should unmap 0x30000 too)
+    mov rdi, 1
+    call cca_realm_destroy
+    cmp rax, 1
+    jne .cca_fail_destroy
+
+    ; Verify counts are 0
+    mov rax, [sys_cca_realm_count]
+    test rax, rax
+    jnz .cca_fail_count
+    mov rax, [sys_cca_mapped_pages]
+    test rax, rax
+    jnz .cca_fail_count
+
+    ; Verify 0x30000 is now free
+    mov rdi, 0x30000
+    call cca_is_realm_page
+    test rax, rax
+    jnz .cca_fail_is_not_realm_page
+
+    mov rsi, msg_cca_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .enc_swap_test
+
+.cca_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.cca_fail_flag:
+    mov rsi, msg_cca_fail_flag
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_init:
+    mov rsi, msg_cca_fail_init
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_init_count:
+    mov rsi, msg_cca_fail_init_count
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_count:
+    mov rsi, msg_cca_fail_count
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_create:
+    mov rsi, msg_cca_fail_create
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_map:
+    mov rsi, msg_cca_fail_map
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_unmap:
+    mov rsi, msg_cca_fail_unmap
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_destroy:
+    mov rsi, msg_cca_fail_destroy
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_is_realm_page:
+    mov rsi, msg_cca_fail_is_realm_page
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_is_not_realm_page:
+    mov rsi, msg_cca_fail_is_not_realm_page
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_smc_version:
+    mov rsi, msg_cca_fail_smc_version
+    call uart_print_str
+    jmp .cca_panic
+
+.cca_fail_smc_map:
+    mov rsi, msg_cca_fail_smc_map
+    call uart_print_str
+    jmp .cca_panic
+
+
+    ; =========================================================================
+    ; 35.4 Encrypted Memory Swapping Test
+    ; =========================================================================
+.enc_swap_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_enc_swap_test_start
+    call uart_print_str
+
+    call enc_swap_init
+    cmp rax, 1
+    jne .enc_swap_fail_init
+
+    mov rax, [sys_enc_swap_enabled]
+    cmp rax, 1
+    jne .enc_swap_fail_enabled
+
+    mov rax, [sys_enc_swap_pages_encrypted]
+    test rax, rax
+    jnz .enc_swap_fail_counters
+    mov rax, [sys_enc_swap_pages_decrypted]
+    test rax, rax
+    jnz .enc_swap_fail_counters
+
+    ; stack buffer allocation for testing page encryption/decryption
+    sub rsp, 8192
+
+    ; fill Page A with pattern
+    mov rdi, rsp
+    mov rax, 0x0102030405060708
+    mov rcx, 512
+    rep stosq
+
+    ; zero Page B
+    lea rdi, [rsp + 4096]
+    xor rax, rax
+    mov rcx, 512
+    rep stosq
+
+    ; Encrypt Page A to Page B
+    mov rdi, rsp
+    lea rsi, [rsp + 4096]
+    mov rdx, 4096
+    call enc_swap_encrypt_page
+    cmp rax, 1
+    jne .enc_swap_fail_encrypt_stack
+
+    ; Verify Page B != Page A
+    mov rax, [rsp]
+    mov rbx, [rsp + 4096]
+    cmp rax, rbx
+    je .enc_swap_fail_verify_enc_stack
+
+    ; Verify stats count
+    mov rax, [sys_enc_swap_pages_encrypted]
+    cmp rax, 1
+    jne .enc_swap_fail_counters_stack
+
+    ; Clear Page A
+    mov rdi, rsp
+    xor rax, rax
+    mov rcx, 512
+    rep stosq
+
+    ; Decrypt Page B to Page A
+    lea rdi, [rsp + 4096]
+    mov rsi, rsp
+    mov rdx, 4096
+    call enc_swap_decrypt_page
+    cmp rax, 1
+    jne .enc_swap_fail_decrypt_stack
+
+    ; Verify Page A has original pattern
+    mov rdi, rsp
+    mov rax, 0x0102030405060708
+    mov rcx, 512
+.verify_dec_loop:
+    cmp [rdi], rax
+    jne .enc_swap_fail_verify_dec_stack
+    add rdi, 8
+    loop .verify_dec_loop
+
+    ; Verify stats count
+    mov rax, [sys_enc_swap_pages_decrypted]
+    cmp rax, 1
+    jne .enc_swap_fail_counters_stack
+
+    add rsp, 8192
+
+    mov rsi, msg_enc_swap_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .mte_test
+
+.enc_swap_fail_encrypt_stack:
+    add rsp, 8192
+    jmp .enc_swap_fail_encrypt
+
+.enc_swap_fail_verify_enc_stack:
+    add rsp, 8192
+    jmp .enc_swap_fail_verify_encryption
+
+.enc_swap_fail_counters_stack:
+    add rsp, 8192
+    jmp .enc_swap_fail_counters
+
+.enc_swap_fail_decrypt_stack:
+    add rsp, 8192
+    jmp .enc_swap_fail_decrypt
+
+.enc_swap_fail_verify_dec_stack:
+    add rsp, 8192
+    jmp .enc_swap_fail_verify_decryption
+
+.enc_swap_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.enc_swap_fail_init:
+    mov rsi, msg_enc_swap_fail_init
+    call uart_print_str
+    jmp .enc_swap_panic
+
+.enc_swap_fail_enabled:
+    mov rsi, msg_enc_swap_fail_enabled
+    call uart_print_str
+    jmp .enc_swap_panic
+
+.enc_swap_fail_counters:
+    mov rsi, msg_enc_swap_fail_counters
+    call uart_print_str
+    jmp .enc_swap_panic
+
+.enc_swap_fail_encrypt:
+    mov rsi, msg_enc_swap_fail_encrypt
+    call uart_print_str
+    jmp .enc_swap_panic
+
+.enc_swap_fail_decrypt:
+    mov rsi, msg_enc_swap_fail_decrypt
+    call uart_print_str
+    jmp .enc_swap_panic
+
+.enc_swap_fail_verify_encryption:
+    mov rsi, msg_enc_swap_fail_verify_encryption
+    call uart_print_str
+    jmp .enc_swap_panic
+
+.enc_swap_fail_verify_decryption:
+    mov rsi, msg_enc_swap_fail_verify_decryption
+    call uart_print_str
+    jmp .enc_swap_panic
+
+
+    ; =========================================================================
+    ; 35.5 Memory Tagging (MTE) Test
+    ; =========================================================================
+.mte_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_mte_test_start
+    call uart_print_str
+
+    call mte_detect
+    test rax, rax
+    jnz .mte_fail_detect
+
+    call mte_init
+    cmp rax, 1
+    jne .mte_fail_init
+
+    call mte_detect
+    cmp rax, 1
+    jne .mte_fail_detect
+
+    mov rax, [sys_mte_active]
+    cmp rax, 1
+    jne .mte_fail_active
+
+    mov rax, [sys_mte_tag_faults]
+    test rax, rax
+    jnz .mte_fail_fault_count
+
+    ; Granule test
+    mov rdi, 0x1000
+    mov rsi, 0x9
+    call mte_set_granule_tag
+    cmp rax, 1
+    jne .mte_fail_set_tag
+
+    mov rdi, 0x1000
+    call mte_get_granule_tag
+    cmp rax, 0x9
+    jne .mte_fail_get_tag
+
+    mov rdi, 0x1010
+    call mte_get_granule_tag
+    test rax, rax
+    jnz .mte_fail_adjacent_tag
+
+    ; Pointer validation (bits 59:56 = tag 9)
+    mov rdi, 0x0900000000001000
+    call mte_validate_ptr
+    cmp rax, 1
+    jne .mte_fail_validation
+
+    ; Mismatch validation (bits 59:56 = tag A)
+    mov rdi, 0x0A00000000001000
+    call mte_validate_ptr
+    test rax, rax
+    jnz .mte_fail_validation_mismatch
+
+    mov rax, [sys_mte_tag_faults]
+    cmp rax, 1
+    jne .mte_fail_fault_count
+
+    ; Page-level test
+    mov rdi, 0x5000
+    mov rsi, 0xC
+    call mte_tag_page
+    cmp rax, 1
+    jne .mte_fail_tag_page
+
+    mov rdi, 0x5000
+    call mte_get_granule_tag
+    cmp rax, 0xC
+    jne .mte_fail_page_tag_verify
+
+    mov rdi, 0x5FF0
+    call mte_get_granule_tag
+    cmp rax, 0xC
+    jne .mte_fail_page_tag_verify
+
+    mov rax, [sys_mte_tagged_pages]
+    cmp rax, 1
+    jne .mte_fail_tagged_pages_count
+
+    ; Free page tagging (UAF detection)
+    mov rdi, 0x5000
+    call mte_tag_free_page
+    cmp rax, 1
+    jne .mte_fail_tag_free_page
+
+    mov rdi, 0x5000
+    call mte_get_granule_tag
+    cmp rax, 0xF
+    jne .mte_fail_free_tag_verify
+
+    mov rdi, 0x5FF0
+    call mte_get_granule_tag
+    cmp rax, 0xF
+    jne .mte_fail_free_tag_verify
+
+    mov rsi, msg_mte_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .idle
+
+.mte_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.mte_fail_detect:
+    mov rsi, msg_mte_fail_detect
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_init:
+    mov rsi, msg_mte_fail_init
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_active:
+    mov rsi, msg_mte_fail_active
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_fault_count:
+    mov rsi, msg_mte_fail_fault_count
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_set_tag:
+    mov rsi, msg_mte_fail_set_tag
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_get_tag:
+    mov rsi, msg_mte_fail_get_tag
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_adjacent_tag:
+    mov rsi, msg_mte_fail_adjacent_tag
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_validation:
+    mov rsi, msg_mte_fail_validation
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_validation_mismatch:
+    mov rsi, msg_mte_fail_validation_mismatch
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_tag_page:
+    mov rsi, msg_mte_fail_tag_page
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_page_tag_verify:
+    mov rsi, msg_mte_fail_page_tag_verify
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_tagged_pages_count:
+    mov rsi, msg_mte_fail_tagged_pages_count
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_tag_free_page:
+    mov rsi, msg_mte_fail_tag_free_page
+    call uart_print_str
+    jmp .mte_panic
+
+.mte_fail_free_tag_verify:
+    mov rsi, msg_mte_fail_free_tag_verify
+    call uart_print_str
+    jmp .mte_panic
+
 .percpu_panic:
+
     pop r15
     pop r14
     pop r13
@@ -15423,7 +16026,54 @@ msg_tdx_fail_report_str:            db "Failure: tdx_report returned non-zero fo
 msg_tdx_fail_report_marker_str:     db "Failure: tdx_report marker at offset 0 does not match expected signature.", 0x0D, 0x0A, 0
 msg_tdx_fail_report_null_str:       db "Failure: tdx_report returned 0 for a null buffer (should be error).", 0x0D, 0x0A, 0
 
+; ARM CCA Test messages (Subfeature 35.3)
+msg_cca_test_start:                 db "Running VMM ARM CCA (Confidential Compute Architecture) Test...", 0x0D, 0x0A, 0
+msg_cca_test_passed:                db "VMM ARM CCA Test PASSED!", 0x0D, 0x0A, 0
+msg_cca_not_capable:                db "CCA: ARM CCA not available; running simulation path.", 0x0D, 0x0A, 0
+msg_cca_fail_flag:                  db "Failure: sys_cca_supported does not match expected state.", 0x0D, 0x0A, 0
+msg_cca_fail_init:                  db "Failure: cca_init returned 0 (init failed).", 0x0D, 0x0A, 0
+msg_cca_fail_init_count:            db "Failure: sys_cca_init_count is not 1 after cca_init().", 0x0D, 0x0A, 0
+msg_cca_fail_count:                 db "Failure: CCA counts (realm/page) do not match expected value.", 0x0D, 0x0A, 0
+msg_cca_fail_create:                db "Failure: cca_realm_create returned 0.", 0x0D, 0x0A, 0
+msg_cca_fail_map:                   db "Failure: cca_map_gpa returned 0.", 0x0D, 0x0A, 0
+msg_cca_fail_unmap:                 db "Failure: cca_unmap_gpa returned 0.", 0x0D, 0x0A, 0
+msg_cca_fail_destroy:               db "Failure: cca_realm_destroy returned 0.", 0x0D, 0x0A, 0
+msg_cca_fail_is_realm_page:         db "Failure: cca_is_realm_page returned incorrect value for mapped page.", 0x0D, 0x0A, 0
+msg_cca_fail_is_not_realm_page:     db "Failure: cca_is_realm_page returned non-zero for unmapped page.", 0x0D, 0x0A, 0
+msg_cca_fail_smc_version:           db "Failure: SMC Version call returned incorrect version.", 0x0D, 0x0A, 0
+msg_cca_fail_smc_map:               db "Failure: SMC Map call returned error code.", 0x0D, 0x0A, 0
+
+; Encrypted Swapping Test messages (Subfeature 35.4)
+msg_enc_swap_test_start:            db "Running VMM Encrypted Swap Test...", 0x0D, 0x0A, 0
+msg_enc_swap_test_passed:           db "VMM Encrypted Swap Test PASSED!", 0x0D, 0x0A, 0
+msg_enc_swap_fail_init:             db "Failure: enc_swap_init returned 0 (init failed).", 0x0D, 0x0A, 0
+msg_enc_swap_fail_enabled:          db "Failure: sys_enc_swap_enabled is not 1 after init.", 0x0D, 0x0A, 0
+msg_enc_swap_fail_counters:         db "Failure: Encrypted swap stats/counters do not match expected.", 0x0D, 0x0A, 0
+msg_enc_swap_fail_encrypt:          db "Failure: enc_swap_encrypt_page returned 0.", 0x0D, 0x0A, 0
+msg_enc_swap_fail_decrypt:          db "Failure: enc_swap_decrypt_page returned 0.", 0x0D, 0x0A, 0
+msg_enc_swap_fail_verify_encryption:db "Failure: Encrypted destination page matches source (no encryption occurred).", 0x0D, 0x0A, 0
+msg_enc_swap_fail_verify_decryption:db "Failure: Decrypted destination page does not match original plaintext.", 0x0D, 0x0A, 0
+
+; Memory Tagging Test messages (Subfeature 35.5)
+msg_mte_test_start:                 db "Running VMM Memory Tagging Extension (MTE) Test...", 0x0D, 0x0A, 0
+msg_mte_test_passed:                db "VMM MTE Test PASSED!", 0x0D, 0x0A, 0
+msg_mte_fail_detect:                db "Failure: sys_mte_supported does not match expected state.", 0x0D, 0x0A, 0
+msg_mte_fail_init:                  db "Failure: mte_init returned 0 (init failed).", 0x0D, 0x0A, 0
+msg_mte_fail_active:                db "Failure: sys_mte_active is not 1 after init.", 0x0D, 0x0A, 0
+msg_mte_fail_fault_count:           db "Failure: MTE fault counter does not match expected value.", 0x0D, 0x0A, 0
+msg_mte_fail_set_tag:               db "Failure: mte_set_granule_tag returned 0.", 0x0D, 0x0A, 0
+msg_mte_fail_get_tag:               db "Failure: mte_get_granule_tag returned incorrect tag.", 0x0D, 0x0A, 0
+msg_mte_fail_adjacent_tag:          db "Failure: adjacent granule tag was unexpectedly modified.", 0x0D, 0x0A, 0
+msg_mte_fail_validation:            db "Failure: mte_validate_ptr returned invalid for matching tag.", 0x0D, 0x0A, 0
+msg_mte_fail_validation_mismatch:   db "Failure: mte_validate_ptr returned valid for mismatched tag.", 0x0D, 0x0A, 0
+msg_mte_fail_tag_page:              db "Failure: mte_tag_page returned 0.", 0x0D, 0x0A, 0
+msg_mte_fail_page_tag_verify:       db "Failure: page granule verification failed after page tag.", 0x0D, 0x0A, 0
+msg_mte_fail_tagged_pages_count:    db "Failure: sys_mte_tagged_pages counter does not match expected value.", 0x0D, 0x0A, 0
+msg_mte_fail_tag_free_page:         db "Failure: mte_tag_free_page returned 0.", 0x0D, 0x0A, 0
+msg_mte_fail_free_tag_verify:       db "Failure: granule verification failed after tagging free page.", 0x0D, 0x0A, 0
+
 section .bss
+
 align 8
 smep_smap_test_buf:            resb 32
 align 8
