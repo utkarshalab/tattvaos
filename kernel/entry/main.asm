@@ -254,6 +254,31 @@ extern percpu_event_read
 extern percpu_stat_delta_read
 extern percpu_event_delta_read
 extern sys_percpu_sync_count
+extern meminfo_snapshot
+extern meminfo_get_field
+extern meminfo_get_snapshot_ptr
+extern sys_meminfo_snap_count
+extern sys_mapped_pages
+extern sys_buf_pages
+extern sys_shmem_pages
+extern proc_memstat_compute
+extern proc_memstat_get_vsz
+extern proc_memstat_get_rss
+extern proc_memstat_get_pss
+extern proc_memstat_get_uss
+extern mbm_detect
+extern mbm_init
+extern mbm_assign_rmid
+extern mbm_set_sim_counter
+extern mbm_read_bw
+extern mbm_read_total_bw
+extern mbm_read_local_bw
+extern mbm_poll_all
+extern mbm_is_saturated
+extern sys_mbm_supported
+extern sys_mbm_scale
+extern sys_mbm_active_rmids
+extern mbm_bw_snapshot
 
 
 
@@ -13331,7 +13356,7 @@ test_ctor:
     pop r14
     pop r13
     pop r12
-    jmp .idle
+    jmp .meminfo_test
 
 .percpu_fail_init_nonzero:
     mov rsi, msg_percpu_fail_init_str
@@ -13392,6 +13417,489 @@ test_ctor:
     mov rsi, msg_percpu_fail_multicpu_event_str
     call uart_print_str
     jmp .percpu_panic
+
+    ; =========================================================================
+    ; 34.3 Memory Map Statistics Test (meminfo / /proc/meminfo equivalent)
+    ; =========================================================================
+.meminfo_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_meminfo_test_start
+    call uart_print_str
+
+    ; --- Step 1: Take a snapshot ---
+    call meminfo_snapshot
+
+    ; Verify snap count is now 1
+    mov rax, [sys_meminfo_snap_count]
+    cmp rax, 1
+    jne .meminfo_fail_snap_count
+
+    ; --- Step 2: MemTotal must be non-zero ---
+    mov rdi, 0          ; MEMINFO_TOTAL
+    call meminfo_get_field
+    test rax, rax
+    jz   .meminfo_fail_total_zero
+    mov r12, rax        ; R12 = MemTotal
+
+    ; --- Step 3: MemFree must be non-zero and <= MemTotal ---
+    mov rdi, 1          ; MEMINFO_FREE
+    call meminfo_get_field
+    test rax, rax
+    jz   .meminfo_fail_free_zero
+    cmp rax, r12
+    ja   .meminfo_fail_free_exceeds ; free > total is impossible
+
+    ; --- Step 4: Inject a buf page, re-snapshot, verify Buffers field ---
+    ; Manually increment buf counter to simulate a buffer-cache allocation
+    lock inc qword [sys_buf_pages]
+    call meminfo_snapshot
+
+    mov rdi, 2          ; MEMINFO_BUFFERS
+    call meminfo_get_field
+    ; Buffers must now be >= 4096 (at least 1 page)
+    cmp rax, 4096
+    jb   .meminfo_fail_buffers
+
+    ; Undo: decrement buf counter
+    lock dec qword [sys_buf_pages]
+
+    ; --- Step 5: Inject a shmem page, re-snapshot, verify Shmem field ---
+    lock inc qword [sys_shmem_pages]
+    call meminfo_snapshot
+
+    mov rdi, 5          ; MEMINFO_SHMEM
+    call meminfo_get_field
+    cmp rax, 4096
+    jb   .meminfo_fail_shmem
+
+    ; Undo
+    lock dec qword [sys_shmem_pages]
+
+    ; --- Step 6: Verify get_snapshot_ptr returns a non-null pointer ---
+    call meminfo_get_snapshot_ptr
+    test rax, rax
+    jz   .meminfo_fail_ptr
+
+    ; Verify MemTotal in struct matches what get_field returns
+    mov rbx, rax        ; RBX = snapshot ptr
+    mov rax, [rbx]      ; .mem_total = first field
+    cmp rax, r12
+    jne .meminfo_fail_struct
+
+    ; PASSED!
+    mov rsi, msg_meminfo_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .proc_memstat_test
+
+.meminfo_fail_snap_count:
+    mov rsi, msg_meminfo_fail_snap_count_str
+    call uart_print_str
+    jmp .meminfo_panic
+
+.meminfo_fail_total_zero:
+    mov rsi, msg_meminfo_fail_total_str
+    call uart_print_str
+    jmp .meminfo_panic
+
+.meminfo_fail_free_zero:
+    mov rsi, msg_meminfo_fail_free_str
+    call uart_print_str
+    jmp .meminfo_panic
+
+.meminfo_fail_free_exceeds:
+    mov rsi, msg_meminfo_fail_free_exceeds_str
+    call uart_print_str
+    jmp .meminfo_panic
+
+.meminfo_fail_buffers:
+    mov rsi, msg_meminfo_fail_buffers_str
+    call uart_print_str
+    jmp .meminfo_panic
+
+.meminfo_fail_shmem:
+    mov rsi, msg_meminfo_fail_shmem_str
+    call uart_print_str
+    jmp .meminfo_panic
+
+.meminfo_fail_ptr:
+    mov rsi, msg_meminfo_fail_ptr_str
+    call uart_print_str
+    jmp .meminfo_panic
+
+.meminfo_fail_struct:
+    mov rsi, msg_meminfo_fail_struct_str
+    call uart_print_str
+    jmp .meminfo_panic
+
+.meminfo_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+    ; =========================================================================
+    ; 34.4 Per-Process Memory Stats Test (VSZ / RSS / PSS / USS)
+    ; =========================================================================
+.proc_memstat_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_proc_memstat_test_start
+    call uart_print_str
+
+    ; Allocate a proc_memstat_t result struct on the heap (32 bytes)
+    mov rdi, 32
+    call heap_alloc
+    test rax, rax
+    jz   .proc_memstat_fail_alloc
+    mov r12, rax        ; R12 = output struct ptr
+
+    ; Allocate a physical page and map it at 0xB0000000 with a VMA
+    call phys_alloc_page
+    test rax, rax
+    jz   .proc_memstat_fail_page
+    mov r13, rax        ; R13 = physical page
+
+    ; Create VMA for [0xB0000000, 0xB0001000)
+    mov rdi, 0xB0000000
+    mov rsi, 4096
+    mov rdx, 3          ; VMA_READ | VMA_WRITE
+    call vma_create
+    test rax, rax
+    jz   .proc_memstat_fail_vma
+    mov r14, rax        ; R14 = VMA pointer
+
+    ; Map the physical page into the VMA
+    mov rdi, 0xB0000000
+    mov rsi, r13
+    mov rdx, 3          ; PAGE_PRESENT | PAGE_WRITABLE
+    call virt_map
+    test rax, rax
+    jz   .proc_memstat_fail_map
+
+    ; Run proc_memstat_compute — use thread_table[0] as the thread
+    lea  rdi, [thread_table]
+    mov  rsi, r12       ; output struct
+    call proc_memstat_compute
+
+    ; --- VSZ must be >= 4096 (at minimum the VMA we just created) ---
+    mov rdi, r12
+    call proc_memstat_get_vsz
+    cmp rax, 4096
+    jb   .proc_memstat_fail_vsz
+    mov r15, rax        ; R15 = VSZ
+
+    ; --- RSS must be >= 4096 (the one mapped page) ---
+    mov rdi, r12
+    call proc_memstat_get_rss
+    cmp rax, 4096
+    jb   .proc_memstat_fail_rss
+
+    ; --- For a single VMA with no sharing, PSS == RSS ---
+    mov rbx, rax        ; RBX = RSS
+    mov rdi, r12
+    call proc_memstat_get_pss
+    ; PSS should equal RSS when share_count = 1
+    cmp rax, rbx
+    jne  .proc_memstat_fail_pss
+
+    ; --- USS must equal RSS (unique, no sharing) ---
+    mov rdi, r12
+    call proc_memstat_get_uss
+    cmp rax, rbx
+    jne  .proc_memstat_fail_uss
+
+    ; --- VSZ >= RSS (virtual space always >= resident) ---
+    cmp r15, rbx
+    jb   .proc_memstat_fail_vsz
+
+    ; Clean up
+    mov rdi, 0xB0000000
+    call virt_unmap
+
+    mov rdi, r14
+    call vma_destroy
+
+    mov rdi, r13
+    call phys_free_page
+
+    mov rdi, r12
+    call heap_free
+
+    ; PASSED!
+    mov rsi, msg_proc_memstat_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .mbm_test
+
+.proc_memstat_fail_alloc:
+    mov rsi, msg_proc_memstat_fail_alloc_str
+    call uart_print_str
+    jmp .proc_memstat_panic
+
+.proc_memstat_fail_page:
+    mov rsi, msg_proc_memstat_fail_page_str
+    call uart_print_str
+    jmp .proc_memstat_panic
+
+.proc_memstat_fail_vma:
+    mov rsi, msg_proc_memstat_fail_vma_str
+    call uart_print_str
+    jmp .proc_memstat_panic
+
+.proc_memstat_fail_map:
+    mov rsi, msg_proc_memstat_fail_map_str
+    call uart_print_str
+    jmp .proc_memstat_panic
+
+.proc_memstat_fail_vsz:
+    mov rsi, msg_proc_memstat_fail_vsz_str
+    call uart_print_str
+    jmp .proc_memstat_panic
+
+.proc_memstat_fail_rss:
+    mov rsi, msg_proc_memstat_fail_rss_str
+    call uart_print_str
+    jmp .proc_memstat_panic
+
+.proc_memstat_fail_pss:
+    mov rsi, msg_proc_memstat_fail_pss_str
+    call uart_print_str
+    jmp .proc_memstat_panic
+
+.proc_memstat_fail_uss:
+    mov rsi, msg_proc_memstat_fail_uss_str
+    call uart_print_str
+    jmp .proc_memstat_panic
+
+.proc_memstat_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+    ; =========================================================================
+    ; 34.5 Memory Bandwidth Monitoring (MBM / Intel RDT) Test
+    ; =========================================================================
+.mbm_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_mbm_test_start
+    call uart_print_str
+
+    ; --- Step 1: Detect RDT/MBM hardware ---
+    call mbm_detect
+    ; We accept both supported and unsupported hardware paths:
+    ;   if supported: run full test
+    ;   if not:       verify sys_mbm_supported == 0 and skip to PASSED
+    test rax, rax
+    jz   .mbm_no_hardware
+
+    ; --- Hardware detected path ---
+    mov rsi, msg_mbm_hw_detected
+    call uart_print_str
+
+    ; --- Step 2: Init MBM subsystem ---
+    call mbm_init
+    test rax, rax
+    jz   .mbm_fail_init
+
+    ; Verify scale factor is set (non-zero)
+    mov rax, [sys_mbm_scale]
+    test rax, rax
+    jz   .mbm_fail_scale
+
+    ; --- Step 3: Assign RMID 1 to CPU 0 ---
+    mov rdi, 0
+    call mbm_assign_rmid
+    test rax, rax
+    jz   .mbm_fail_assign
+    mov r12, rax        ; R12 = RMID
+
+    ; Verify active RMID count = 1
+    mov rax, [sys_mbm_active_rmids]
+    cmp rax, 1
+    jne .mbm_fail_rmid_count
+
+    ; --- Step 4: Inject synthetic bandwidth counters ---
+    ; Inject 1000 raw units for total BW on RMID 1
+    mov rdi, r12        ; RMID
+    mov rsi, 0x2        ; MBM_EVT_TOTAL_BW
+    mov rdx, 1000
+    call mbm_set_sim_counter
+
+    ; Inject 750 raw units for local BW on RMID 1
+    mov rdi, r12
+    mov rsi, 0x3        ; MBM_EVT_LOCAL_BW
+    mov rdx, 750
+    call mbm_set_sim_counter
+
+    ; --- Step 5: Read bandwidth (raw × scale) ---
+    mov rdi, r12
+    mov rsi, 0x2        ; total BW
+    call mbm_read_bw
+    ; RAX = 1000 × scale_factor; must be >= 1000 (scale >= 1)
+    cmp rax, 1000
+    jb   .mbm_fail_total_bw
+    mov r13, rax        ; R13 = total BW bytes
+
+    mov rdi, r12
+    mov rsi, 0x3        ; local BW
+    call mbm_read_bw
+    cmp rax, 750
+    jb   .mbm_fail_local_bw
+    mov r14, rax        ; R14 = local BW bytes
+
+    ; Local BW must be <= total BW
+    cmp r14, r13
+    ja   .mbm_fail_local_exceeds_total
+
+    ; --- Step 6: mbm_poll_all --- snapshot into mbm_bw_snapshot ---
+    call mbm_poll_all
+    ; Verify snapshot[0] (RMID 1 total) matches R13
+    mov rax, [mbm_bw_snapshot]
+    cmp rax, r13
+    jne .mbm_fail_snapshot
+
+    ; --- Step 7: mbm_is_saturated with low threshold (should be saturated) ---
+    ; threshold = 0 MB → any BW will trigger saturation
+    mov rdi, 0
+    call mbm_is_saturated
+    cmp rax, 1
+    jne .mbm_fail_saturated_low
+
+    ; threshold = very high (1 TB) → should NOT be saturated
+    mov rdi, (1024 * 1024)  ; 1 TB in MB
+    call mbm_is_saturated
+    test rax, rax
+    jnz .mbm_fail_saturated_high
+
+    jmp .mbm_passed
+
+.mbm_no_hardware:
+    ; Verify flag was set to 0
+    mov rax, [sys_mbm_supported]
+    test rax, rax
+    jnz .mbm_fail_flag
+
+    mov rsi, msg_mbm_hw_unsupported
+    call uart_print_str
+
+    ; Verify that mbm_init returns 0 (graceful no-op)
+    call mbm_init
+    test rax, rax
+    jnz .mbm_fail_init_notsup
+
+    ; Verify read_bw returns 0 when not supported
+    mov rdi, 1
+    mov rsi, 0x2
+    call mbm_read_bw
+    test rax, rax
+    jnz .mbm_fail_bw_notsup
+
+    jmp .mbm_passed
+
+.mbm_passed:
+    mov rsi, msg_mbm_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .idle
+
+.mbm_fail_init:
+    mov rsi, msg_mbm_fail_init_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_scale:
+    mov rsi, msg_mbm_fail_scale_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_assign:
+    mov rsi, msg_mbm_fail_assign_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_rmid_count:
+    mov rsi, msg_mbm_fail_rmid_count_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_total_bw:
+    mov rsi, msg_mbm_fail_total_bw_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_local_bw:
+    mov rsi, msg_mbm_fail_local_bw_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_local_exceeds_total:
+    mov rsi, msg_mbm_fail_local_exceeds_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_snapshot:
+    mov rsi, msg_mbm_fail_snapshot_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_saturated_low:
+    mov rsi, msg_mbm_fail_saturated_low_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_saturated_high:
+    mov rsi, msg_mbm_fail_saturated_high_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_flag:
+    mov rsi, msg_mbm_fail_flag_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_init_notsup:
+    mov rsi, msg_mbm_fail_init_notsup_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_fail_bw_notsup:
+    mov rsi, msg_mbm_fail_bw_notsup_str
+    call uart_print_str
+    jmp .mbm_panic
+
+.mbm_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
 
 .percpu_panic:
     pop r15
@@ -14381,8 +14889,48 @@ msg_percpu_fail_idempotent_str:     db "Failure: Global vm_stat changed on secon
 msg_percpu_fail_multicpu_stat_str:  db "Failure: vm_stat global counter incorrect after multi-CPU simulation sync.", 0x0D, 0x0A, 0
 msg_percpu_fail_multicpu_event_str: db "Failure: vm_event global counter incorrect after multi-CPU simulation sync.", 0x0D, 0x0A, 0
 
+; Memory Map Statistics Test messages (Subfeature 34.3)
+msg_meminfo_test_start:             db "Running VMM Memory Map Statistics Test (meminfo)...", 0x0D, 0x0A, 0
+msg_meminfo_test_passed:            db "VMM Memory Map Statistics Test PASSED!", 0x0D, 0x0A, 0
+msg_meminfo_fail_snap_count_str:    db "Failure: sys_meminfo_snap_count not 1 after first snapshot.", 0x0D, 0x0A, 0
+msg_meminfo_fail_total_str:         db "Failure: MemTotal is zero after meminfo_snapshot.", 0x0D, 0x0A, 0
+msg_meminfo_fail_free_str:          db "Failure: MemFree is zero after meminfo_snapshot.", 0x0D, 0x0A, 0
+msg_meminfo_fail_free_exceeds_str:  db "Failure: MemFree exceeds MemTotal (impossible).", 0x0D, 0x0A, 0
+msg_meminfo_fail_buffers_str:       db "Failure: Buffers field did not reflect sys_buf_pages increment.", 0x0D, 0x0A, 0
+msg_meminfo_fail_shmem_str:         db "Failure: Shmem field did not reflect sys_shmem_pages increment.", 0x0D, 0x0A, 0
+msg_meminfo_fail_ptr_str:           db "Failure: meminfo_get_snapshot_ptr returned null.", 0x0D, 0x0A, 0
+msg_meminfo_fail_struct_str:        db "Failure: MemTotal in snapshot struct does not match get_field value.", 0x0D, 0x0A, 0
 
+; Per-Process Memory Stats Test messages (Subfeature 34.4)
+msg_proc_memstat_test_start:        db "Running VMM Per-Process Memory Stats Test (VSZ/RSS/PSS/USS)...", 0x0D, 0x0A, 0
+msg_proc_memstat_test_passed:       db "VMM Per-Process Memory Stats Test PASSED!", 0x0D, 0x0A, 0
+msg_proc_memstat_fail_alloc_str:    db "Failure: heap_alloc failed for proc_memstat_t output struct.", 0x0D, 0x0A, 0
+msg_proc_memstat_fail_page_str:     db "Failure: phys_alloc_page failed for proc_memstat test.", 0x0D, 0x0A, 0
+msg_proc_memstat_fail_vma_str:      db "Failure: vma_create failed for 0xB0000000 in proc_memstat test.", 0x0D, 0x0A, 0
+msg_proc_memstat_fail_map_str:      db "Failure: virt_map failed for 0xB0000000 in proc_memstat test.", 0x0D, 0x0A, 0
+msg_proc_memstat_fail_vsz_str:      db "Failure: VSZ is less than 4096 after mapping one page.", 0x0D, 0x0A, 0
+msg_proc_memstat_fail_rss_str:      db "Failure: RSS is less than 4096 after mapping one resident page.", 0x0D, 0x0A, 0
+msg_proc_memstat_fail_pss_str:      db "Failure: PSS does not equal RSS for a single unshared mapping.", 0x0D, 0x0A, 0
+msg_proc_memstat_fail_uss_str:      db "Failure: USS does not equal RSS for a uniquely owned mapping.", 0x0D, 0x0A, 0
 
+; Memory Bandwidth Monitoring Test messages (Subfeature 34.5)
+msg_mbm_test_start:                 db "Running VMM Memory Bandwidth Monitoring (MBM/RDT) Test...", 0x0D, 0x0A, 0
+msg_mbm_test_passed:                db "VMM Memory Bandwidth Monitoring Test PASSED!", 0x0D, 0x0A, 0
+msg_mbm_hw_detected:                db "MBM: Intel RDT hardware detected.", 0x0D, 0x0A, 0
+msg_mbm_hw_unsupported:             db "MBM: Intel RDT not available; running graceful-degradation path.", 0x0D, 0x0A, 0
+msg_mbm_fail_init_str:              db "Failure: mbm_init returned 0 on hardware-supported system.", 0x0D, 0x0A, 0
+msg_mbm_fail_scale_str:             db "Failure: sys_mbm_scale is zero after mbm_init.", 0x0D, 0x0A, 0
+msg_mbm_fail_assign_str:            db "Failure: mbm_assign_rmid returned 0 (no free RMID).", 0x0D, 0x0A, 0
+msg_mbm_fail_rmid_count_str:        db "Failure: sys_mbm_active_rmids is not 1 after first assignment.", 0x0D, 0x0A, 0
+msg_mbm_fail_total_bw_str:          db "Failure: mbm_read_bw total returned less than injected raw value.", 0x0D, 0x0A, 0
+msg_mbm_fail_local_bw_str:          db "Failure: mbm_read_bw local returned less than injected raw value.", 0x0D, 0x0A, 0
+msg_mbm_fail_local_exceeds_str:     db "Failure: Local memory bandwidth exceeds total bandwidth (impossible).", 0x0D, 0x0A, 0
+msg_mbm_fail_snapshot_str:          db "Failure: mbm_bw_snapshot does not match mbm_read_bw result.", 0x0D, 0x0A, 0
+msg_mbm_fail_saturated_low_str:     db "Failure: mbm_is_saturated returned 0 for threshold=0 MB (always saturated).", 0x0D, 0x0A, 0
+msg_mbm_fail_saturated_high_str:    db "Failure: mbm_is_saturated returned 1 for 1TB threshold (should never saturate).", 0x0D, 0x0A, 0
+msg_mbm_fail_flag_str:              db "Failure: sys_mbm_supported is non-zero after detect reported unsupported.", 0x0D, 0x0A, 0
+msg_mbm_fail_init_notsup_str:       db "Failure: mbm_init returned non-zero on unsupported hardware.", 0x0D, 0x0A, 0
+msg_mbm_fail_bw_notsup_str:         db "Failure: mbm_read_bw returned non-zero when MBM is not supported.", 0x0D, 0x0A, 0
 
 section .bss
 align 8
