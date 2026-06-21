@@ -104,6 +104,12 @@
 %include "lib/mem/virt/cca.asm"
 %include "lib/mem/virt/enc_swap.asm"
 %include "lib/mem/virt/mte.asm"
+%include "lib/mem/virt/tensor_pool.asm"
+%include "lib/mem/virt/weight_cache.asm"
+%include "lib/mem/virt/kv_cache.asm"
+%include "lib/mem/virt/activation_recycler.asm"
+%include "lib/mem/virt/prefetch_alloc.asm"
+%include "lib/mem/virt/quant_layout.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
