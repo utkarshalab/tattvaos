@@ -120,6 +120,11 @@
 %include "lib/mem/virt/ras_poison.asm"
 %include "lib/mem/virt/ras_dimm.asm"
 %include "lib/mem/virt/ras_scrub.asm"
+%include "lib/mem/virt/cxl_t1.asm"
+%include "lib/mem/virt/cxl_t3.asm"
+%include "lib/mem/virt/cxl_tier.asm"
+%include "lib/mem/virt/cxl_pmem.asm"
+%include "lib/mem/virt/cxl_fabric.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
