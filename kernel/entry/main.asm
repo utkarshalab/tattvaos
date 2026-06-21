@@ -431,6 +431,36 @@ extern rt_reserve_backup
 extern sys_rt_reserved_total_bytes
 extern sys_rt_reserved_used_bytes
 
+; ECC Memory Error Detection (Subfeature 38.1)
+extern ras_ecc_init
+extern ras_ecc_report
+extern sys_ras_ecc_single_bit_errors
+extern sys_ras_ecc_double_bit_errors
+
+; MCE Handler (Subfeature 38.2)
+extern ras_mce_init
+extern ras_mce_handler
+extern sys_ras_mce_occurred
+extern sys_ras_mce_recovered
+
+; Poison Page Handling (Subfeature 38.3)
+extern ras_poison_page
+extern ras_is_poisoned
+extern sys_ras_poisoned_pages
+
+; DIMM Failure Prediction (Subfeature 38.4)
+extern ras_dimm_log_error
+extern ras_dimm_predict_failure
+extern sys_ras_dimm_errors_dimm0
+extern sys_ras_dimm_errors_dimm1
+extern sys_ras_dimm_migrated_pages
+
+; Memory Scrubbing (Subfeature 38.5)
+extern ras_scrub_init
+extern ras_scrub_tick
+extern sys_ras_scrubbed_pages
+extern sys_ras_scrub_errors_detected
+
 
 
 
@@ -15968,7 +15998,7 @@ test_ctor:
     pop r14
     pop r13
     pop r12
-    jmp .idle
+    jmp .ras_mem_test
 
 .rt_panic:
     pop r15
@@ -16077,10 +16107,246 @@ test_ctor:
     call uart_print_str
     jmp .rt_panic
 
-.rt_fail_reserve_free:
-    mov rsi, msg_rt_fail_reserve_free
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+    ; =========================================================================
+    ; 38. Memory Error Handling (RAS) Test
+    ; =========================================================================
+.ras_mem_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_ras_mem_test_start
     call uart_print_str
-    jmp .rt_panic
+
+    ; -------------------------------------------------------------------------
+    ; 38.1 ECC Memory Error Detection Test
+    ; -------------------------------------------------------------------------
+    call ras_ecc_init
+    cmp rax, 1
+    jne .ras_fail_ecc_init
+
+    ; Report correctable single-bit error at DIMM 1 range
+    mov rdi, 0x15004000
+    mov rsi, 1                      ; single-bit error
+    call ras_ecc_report
+    cmp rax, 1
+    jne .ras_fail_ecc_report
+
+    ; Verify counters
+    mov rax, [sys_ras_ecc_single_bit_errors]
+    cmp rax, 1
+    jne .ras_fail_ecc_counters
+
+    mov rsi, msg_ras_ecc_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 38.2 & 38.3 MCE Handler & Poison Page Handling Test
+    ; -------------------------------------------------------------------------
+    call ras_mce_init
+    cmp rax, 1
+    jne .ras_fail_mce_init
+
+    ; Report uncorrectable double-bit MCE in user address space (0x15004000)
+    mov rdi, 0x15004000
+    mov rsi, 1                      ; uncorrectable
+    call ras_mce_handler
+    cmp rax, 1
+    jne .ras_fail_mce_recover
+
+    ; Verify MCE stats
+    mov rax, [sys_ras_mce_occurred]
+    cmp rax, 1
+    jne .ras_fail_mce_stats
+    mov rax, [sys_ras_mce_recovered]
+    cmp rax, 1
+    jne .ras_fail_mce_stats
+
+    ; Verify page is poisoned
+    mov rdi, 0x15004000
+    call ras_is_poisoned
+    cmp rax, 1
+    jne .ras_fail_poison_verify
+
+    mov rax, [sys_ras_poisoned_pages]
+    cmp rax, 1
+    jne .ras_fail_poison_verify
+
+    ; Verify healthy page is not poisoned
+    mov rdi, 0x18000000
+    call ras_is_poisoned
+    test rax, rax
+    jnz .ras_fail_poison_verify
+
+    ; Verify uncorrectable error in kernel space (0x00500000) is fatal (returns 0)
+    mov rdi, 0x00500000
+    mov rsi, 1                      ; uncorrectable
+    call ras_mce_handler
+    test rax, rax
+    jnz .ras_fail_mce_fatal
+
+    mov rsi, msg_ras_mce_poison_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 38.4 DIMM Failure Prediction Test
+    ; -------------------------------------------------------------------------
+    ; DIMM 1 currently has 1 single-bit error + 1 poisoned event = 2 total.
+    ; Report 3 more correctable errors to trigger threshold (5) failure prediction.
+    mov r12, 3
+.log_dimm_loop:
+    mov rdi, 0x15004000
+    mov rsi, 1                      ; correctable
+    call ras_ecc_report
+    cmp rax, 1
+    jne .ras_fail_dimm_log
+    dec r12
+    jnz .log_dimm_loop
+
+    ; Verify migration occurred
+    mov rax, [sys_ras_dimm_migrated_pages]
+    cmp rax, 1
+    jne .ras_fail_dimm_migrate
+
+    ; Verify DIMM 1 errors were reset after migration
+    mov rax, [sys_ras_dimm_errors_dimm1]
+    test rax, rax
+    jnz .ras_fail_dimm_stats
+
+    mov rsi, msg_ras_dimm_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 38.5 Memory Scrubbing Test
+    ; -------------------------------------------------------------------------
+    call ras_scrub_init
+    cmp rax, 1
+    jne .ras_fail_scrub_init
+
+    ; Scrub first 10 pages
+    mov rdi, 10
+    call ras_scrub_tick
+    cmp rax, 10
+    jne .ras_fail_scrub_tick
+
+    mov rax, [sys_ras_scrubbed_pages]
+    cmp rax, 10
+    jne .ras_fail_scrub_stats
+
+    ; Scrub deep to reach the mock faulty address 0x15004000.
+    ; Next addr starts at 0x1000A000 (after 10 pages).
+    ; Address 0x15004000 is 0x4FFA000 bytes away = 20474 pages.
+    mov rdi, 20474
+    call ras_scrub_tick
+    cmp rax, 20474
+    jne .ras_fail_scrub_tick
+
+    ; Verify scrubber intercepted the bit flip and reported it
+    mov rax, [sys_ras_scrub_errors_detected]
+    cmp rax, 1
+    jne .ras_fail_scrub_flip
+
+    mov rsi, msg_ras_scrub_ok
+    call uart_print_str
+
+    ; All RAS Memory tests passed!
+    mov rsi, msg_ras_mem_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .idle
+
+.ras_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.ras_fail_ecc_init:
+    mov rsi, msg_ras_fail_ecc_init
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_ecc_report:
+    mov rsi, msg_ras_fail_ecc_report
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_ecc_counters:
+    mov rsi, msg_ras_fail_ecc_counters
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_mce_init:
+    mov rsi, msg_ras_fail_mce_init
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_mce_recover:
+    mov rsi, msg_ras_fail_mce_recover
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_mce_stats:
+    mov rsi, msg_ras_fail_mce_stats
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_poison_verify:
+    mov rsi, msg_ras_fail_poison_verify
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_mce_fatal:
+    mov rsi, msg_ras_fail_mce_fatal
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_dimm_log:
+    mov rsi, msg_ras_fail_dimm_log
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_dimm_migrate:
+    mov rsi, msg_ras_fail_dimm_migrate
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_dimm_stats:
+    mov rsi, msg_ras_fail_dimm_stats
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_scrub_init:
+    mov rsi, msg_ras_fail_scrub_init
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_scrub_tick:
+    mov rsi, msg_ras_fail_scrub_tick
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_scrub_stats:
+    mov rsi, msg_ras_fail_scrub_stats
+    call uart_print_str
+    jmp .ras_panic
+
+.ras_fail_scrub_flip:
+    mov rsi, msg_ras_fail_scrub_flip
+    call uart_print_str
+    jmp .ras_panic
 
 .percpu_panic:
 
@@ -17272,6 +17538,29 @@ msg_rt_fail_reserve_boot:           db "Failure: rt_reserve_boot_memory returned
 msg_rt_fail_reserve_stats:          db "Failure: rt reservation telemetry stats mismatch.", 0x0D, 0x0A, 0
 msg_rt_fail_reserve_alloc:          db "Failure: rt_reserve_alloc returned NULL.", 0x0D, 0x0A, 0
 msg_rt_fail_reserve_free:           db "Failure: rt_reserve_free returned 0.", 0x0D, 0x0A, 0
+; RAS Memory Test messages (Subfeature 38)
+msg_ras_mem_test_start:             db "Running VMM Memory Error Handling (RAS) Test...", 0x0D, 0x0A, 0
+msg_ras_mem_test_passed:            db "VMM Memory Error Handling (RAS) Test PASSED!", 0x0D, 0x0A, 0
+msg_ras_ecc_ok:                     db "  ECC Detection: Correctable single-bit error logging verified.", 0x0D, 0x0A, 0
+msg_ras_mce_poison_ok:              db "  MCE & Poison: MCE intercept, graceful user recovery & page poisoning verified.", 0x0D, 0x0A, 0
+msg_ras_dimm_ok:                    db "  DIMM Health: ECC error counters & pre-emptive page migration verified.", 0x0D, 0x0A, 0
+msg_ras_scrub_ok:                     db "  Memory Scrubbing: background scanner ticks & bit flip intercept verified.", 0x0D, 0x0A, 0
+
+msg_ras_fail_ecc_init:              db "Failure: ras_ecc_init returned 0.", 0x0D, 0x0A, 0
+msg_ras_fail_ecc_report:            db "Failure: ras_ecc_report returned 0.", 0x0D, 0x0A, 0
+msg_ras_fail_ecc_counters:          db "Failure: sys_ras_ecc_single_bit_errors count mismatch.", 0x0D, 0x0A, 0
+msg_ras_fail_mce_init:              db "Failure: ras_mce_init returned 0.", 0x0D, 0x0A, 0
+msg_ras_fail_mce_recover:           db "Failure: ras_mce_handler failed to recover user space error.", 0x0D, 0x0A, 0
+msg_ras_fail_mce_stats:             db "Failure: MCE telemetry statistics counters mismatch.", 0x0D, 0x0A, 0
+msg_ras_fail_poison_verify:         db "Failure: Poison bitmap tracking verification mismatch.", 0x0D, 0x0A, 0
+msg_ras_fail_mce_fatal:             db "Failure: ras_mce_handler recovered a kernel error instead of panicking.", 0x0D, 0x0A, 0
+msg_ras_fail_dimm_log:              db "Failure: ras_ecc_report logging DIMM errors failed.", 0x0D, 0x0A, 0
+msg_ras_fail_dimm_migrate:          db "Failure: DIMM failure prediction did not trigger page migration.", 0x0D, 0x0A, 0
+msg_ras_fail_dimm_stats:            db "Failure: DIMM error rates were not reset after page migration.", 0x0D, 0x0A, 0
+msg_ras_fail_scrub_init:            db "Failure: ras_scrub_init returned 0.", 0x0D, 0x0A, 0
+msg_ras_fail_scrub_tick:            db "Failure: ras_scrub_tick returned incorrect page count.", 0x0D, 0x0A, 0
+msg_ras_fail_scrub_stats:           db "Failure: sys_ras_scrubbed_pages telemetry counter mismatch.", 0x0D, 0x0A, 0
+msg_ras_fail_scrub_flip:            db "Failure: background scrubber failed to intercept mock bit flip.", 0x0D, 0x0A, 0
 
 section .bss
 
