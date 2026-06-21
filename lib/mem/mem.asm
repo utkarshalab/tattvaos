@@ -99,6 +99,8 @@
 %include "lib/mem/virt/meminfo.asm"
 %include "lib/mem/virt/proc_memstat.asm"
 %include "lib/mem/virt/mbm.asm"
+%include "lib/mem/virt/sev.asm"
+%include "lib/mem/virt/tdx.asm"
 
 %endif ; LIB_MEM_MEM_ASM
 
