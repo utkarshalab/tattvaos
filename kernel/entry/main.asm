@@ -493,6 +493,42 @@ extern cxl_fabric_release
 extern sys_cxl_fabric_slices_allocated
 extern sys_cxl_fabric_allocated_gb
 
+; Hardware Performance Counters for Memory (Subfeature 40.1)
+extern hw_perf_init
+extern hw_perf_sample
+extern sys_hw_perf_llc_miss_rate
+extern sys_hw_perf_dram_bw_mbps
+extern sys_hw_perf_latency_ns
+
+; Allocation Site Tracking (Subfeature 40.2)
+extern alloc_site_init
+extern alloc_site_record
+extern sys_alloc_site_count
+extern sys_alloc_site_total_bytes
+
+; Memory Timeline Recorder (Subfeature 40.3)
+extern timeline_init
+extern timeline_log
+extern sys_timeline_event_count
+
+; NUMA Hit/Miss Counters (Subfeature 40.4)
+extern numa_stat_init
+extern numa_stat_record
+extern sys_numa_local_hits
+extern sys_numa_remote_misses
+
+; Memory Bandwidth Saturation Detector (Subfeature 40.5)
+extern bw_sat_init
+extern bw_sat_check
+extern sys_bw_sat_alerts
+
+; Inference Memory Profiler (Subfeature 40.6)
+extern inf_prof_init
+extern inf_prof_record_layer
+extern sys_inf_prof_peak_activation_bytes
+extern sys_inf_prof_weight_bytes
+extern sys_inf_prof_kv_cache_bytes
+
 
 
 
@@ -16534,7 +16570,7 @@ test_ctor:
     pop r14
     pop r13
     pop r12
-    jmp .idle
+    jmp .prof_mem_test
 
 .cxl_panic:
     pop r15
@@ -16627,6 +16663,290 @@ test_ctor:
     mov rsi, msg_cxl_fail_fabric_release
     call uart_print_str
     jmp .cxl_panic
+
+    ; =========================================================================
+    ; 40. Memory Profiling & Telemetry Test
+    ; =========================================================================
+.prof_mem_test:
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_prof_test_start
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 40.1 Hardware Performance Counters Test
+    ; -------------------------------------------------------------------------
+    call hw_perf_init
+    cmp rax, 1
+    jne .prof_fail_hw_init
+
+    call hw_perf_sample
+    cmp rax, 1
+    jne .prof_fail_hw_sample
+
+    mov rax, [sys_hw_perf_llc_miss_rate]
+    cmp rax, 12
+    jne .prof_fail_hw_stats
+
+    mov rax, [sys_hw_perf_dram_bw_mbps]
+    cmp rax, 45000
+    jne .prof_fail_hw_stats
+
+    mov rax, [sys_hw_perf_latency_ns]
+    cmp rax, 85
+    jne .prof_fail_hw_stats
+
+    mov rsi, msg_prof_hw_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 40.2 Allocation Site Tracking Test
+    ; -------------------------------------------------------------------------
+    call alloc_site_init
+    cmp rax, 1
+    jne .prof_fail_site_init
+
+    mov rdi, 0x100080                ; Call site instruction pointer
+    mov rsi, 4096                    ; 4KB allocation
+    call alloc_site_record
+    cmp rax, 1
+    jne .prof_fail_site_record
+
+    mov rax, [sys_alloc_site_count]
+    cmp rax, 1
+    jne .prof_fail_site_stats
+
+    mov rax, [sys_alloc_site_total_bytes]
+    cmp rax, 4096
+    jne .prof_fail_site_stats
+
+    mov rsi, msg_prof_site_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 40.3 Memory Timeline Recorder Test
+    ; -------------------------------------------------------------------------
+    call timeline_init
+    cmp rax, 1
+    jne .prof_fail_time_init
+
+    mov rdi, 1                       ; Event type: Alloc
+    mov rsi, 0x2000000               ; Virtual Address
+    mov rdx, 8192                    ; 8KB
+    call timeline_log
+    cmp rax, 1
+    jne .prof_fail_time_log
+
+    mov rax, [sys_timeline_event_count]
+    cmp rax, 1
+    jne .prof_fail_time_stats
+
+    mov rsi, msg_prof_time_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 40.4 NUMA Hit/Miss Counters Test
+    ; -------------------------------------------------------------------------
+    call numa_stat_init
+    cmp rax, 1
+    jne .prof_fail_numa_init
+
+    mov rdi, 0                       ; Node 0
+    mov rsi, 1                       ; Local Hit
+    call numa_stat_record
+    cmp rax, 1
+    jne .prof_fail_numa_record
+
+    mov rdi, 1                       ; Node 1
+    mov rsi, 0                       ; Remote Miss
+    call numa_stat_record
+    cmp rax, 1
+    jne .prof_fail_numa_record
+
+    mov rax, [sys_numa_local_hits]
+    cmp rax, 1
+    jne .prof_fail_numa_stats
+
+    mov rax, [sys_numa_remote_misses]
+    cmp rax, 1
+    jne .prof_fail_numa_stats
+
+    mov rsi, msg_prof_numa_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 40.5 Memory Bandwidth Saturation Detector Test
+    ; -------------------------------------------------------------------------
+    call bw_sat_init
+    cmp rax, 1
+    jne .prof_fail_sat_init
+
+    mov rdi, 45000                   ; 45 GB/s (below threshold)
+    call bw_sat_check
+    test rax, rax
+    jnz .prof_fail_sat_check
+
+    mov rdi, 55000                   ; 55 GB/s (above threshold)
+    call bw_sat_check
+    cmp rax, 1
+    jne .prof_fail_sat_check
+
+    mov rax, [sys_bw_sat_alerts]
+    cmp rax, 1
+    jne .prof_fail_sat_stats
+
+    mov rsi, msg_prof_sat_ok
+    call uart_print_str
+
+    ; -------------------------------------------------------------------------
+    ; 40.6 Inference Memory Profiler Test
+    ; -------------------------------------------------------------------------
+    call inf_prof_init
+    cmp rax, 1
+    jne .prof_fail_inf_init
+
+    ; Record Layer 1: weights=1MB, activations=2MB, kv_cache=512KB
+    mov rdi, 1
+    mov rsi, 1048576
+    mov rdx, 2097152
+    mov rcx, 524288
+    call inf_prof_record_layer
+    cmp rax, 1
+    jne .prof_fail_inf_record
+
+    ; Record Layer 2: weights=1MB, activations=1MB, kv_cache=512KB
+    mov rdi, 2
+    mov rsi, 1048576
+    mov rdx, 1048576
+    mov rcx, 524288
+    call inf_prof_record_layer
+    cmp rax, 1
+    jne .prof_fail_inf_record
+
+    mov rax, [sys_inf_prof_weight_bytes]
+    cmp rax, 2097152
+    jne .prof_fail_inf_stats
+
+    mov rax, [sys_inf_prof_kv_cache_bytes]
+    cmp rax, 1048576
+    jne .prof_fail_inf_stats
+
+    mov rax, [sys_inf_prof_peak_activation_bytes]
+    cmp rax, 2097152
+    jne .prof_fail_inf_stats
+
+    mov rsi, msg_prof_inf_ok
+    call uart_print_str
+
+    ; All profiling tests passed!
+    mov rsi, msg_prof_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .idle
+
+.prof_panic:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
+.prof_fail_hw_init:
+    mov rsi, msg_prof_fail_hw_init
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_hw_sample:
+    mov rsi, msg_prof_fail_hw_sample
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_hw_stats:
+    mov rsi, msg_prof_fail_hw_stats
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_site_init:
+    mov rsi, msg_prof_fail_site_init
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_site_record:
+    mov rsi, msg_prof_fail_site_record
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_site_stats:
+    mov rsi, msg_prof_fail_site_stats
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_time_init:
+    mov rsi, msg_prof_fail_time_init
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_time_log:
+    mov rsi, msg_prof_fail_time_log
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_time_stats:
+    mov rsi, msg_prof_fail_time_stats
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_numa_init:
+    mov rsi, msg_prof_fail_numa_init
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_numa_record:
+    mov rsi, msg_prof_fail_numa_record
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_numa_stats:
+    mov rsi, msg_prof_fail_numa_stats
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_sat_init:
+    mov rsi, msg_prof_fail_sat_init
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_sat_check:
+    mov rsi, msg_prof_fail_sat_check
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_sat_stats:
+    mov rsi, msg_prof_fail_sat_stats
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_inf_init:
+    mov rsi, msg_prof_fail_inf_init
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_inf_record:
+    mov rsi, msg_prof_fail_inf_record
+    call uart_print_str
+    jmp .prof_panic
+
+.prof_fail_inf_stats:
+    mov rsi, msg_prof_fail_inf_stats
+    call uart_print_str
+    jmp .prof_panic
 
 .percpu_panic:
 
@@ -17867,6 +18187,33 @@ msg_cxl_fail_fabric_init:           db "Failure: cxl_fabric_init returned 0.", 0
 msg_cxl_fail_fabric_alloc:          db "Failure: cxl_fabric_allocate returned NULL.", 0x0D, 0x0A, 0
 msg_cxl_fail_fabric_stats:          db "Failure: CXL Fabric telemetry stats count mismatch.", 0x0D, 0x0A, 0
 msg_cxl_fail_fabric_release:        db "Failure: cxl_fabric_release returned 0.", 0x0D, 0x0A, 0
+; Memory Profiling & Telemetry Test messages (Subfeature 40)
+msg_prof_test_start:                db "Running VMM Memory Profiling & Telemetry Test...", 0x0D, 0x0A, 0
+msg_prof_test_passed:               db "VMM Memory Profiling & Telemetry Test PASSED!", 0x0D, 0x0A, 0
+msg_prof_hw_ok:                     db "  Perf Counters: LLC misses, bus bandwidth and latencies verified.", 0x0D, 0x0A, 0
+msg_prof_site_ok:                   db "  Alloc Sites: Call site instruction pointers and byte counts verified.", 0x0D, 0x0A, 0
+msg_prof_time_ok:                   db "  Timeline: Alloc/free flight recorders and TSC logs verified.", 0x0D, 0x0A, 0
+msg_prof_numa_ok:                   db "  NUMA Stats: Node-local hits and node-remote misses verified.", 0x0D, 0x0A, 0
+msg_prof_sat_ok:                    db "  Saturation Det: Bandwidth thresholds and saturation alerts verified.", 0x0D, 0x0A, 0
+msg_prof_inf_ok:                    db "  Inference Prof: Layer parameter, activation and KV cache verified.", 0x0D, 0x0A, 0
+msg_prof_fail_hw_init:              db "Failure: hw_perf_init returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_hw_sample:            db "Failure: hw_perf_sample returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_hw_stats:             db "Failure: LLC miss, bandwidth or latency stats mismatch.", 0x0D, 0x0A, 0
+msg_prof_fail_site_init:            db "Failure: alloc_site_init returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_site_record:          db "Failure: alloc_site_record returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_site_stats:           db "Failure: Call site stats count or byte metrics mismatch.", 0x0D, 0x0A, 0
+msg_prof_fail_time_init:            db "Failure: timeline_init returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_time_log:             db "Failure: timeline_log returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_time_stats:           db "Failure: Timeline recorder event counts mismatch.", 0x0D, 0x0A, 0
+msg_prof_fail_numa_init:            db "Failure: numa_stat_init returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_numa_record:          db "Failure: numa_stat_record returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_numa_stats:           db "Failure: NUMA hits or misses count mismatch.", 0x0D, 0x0A, 0
+msg_prof_fail_sat_init:             db "Failure: bw_sat_init returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_sat_check:            db "Failure: bw_sat_check returned incorrect saturation state.", 0x0D, 0x0A, 0
+msg_prof_fail_sat_stats:            db "Failure: Bandwidth saturation alerts count mismatch.", 0x0D, 0x0A, 0
+msg_prof_fail_inf_init:             db "Failure: inf_prof_init returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_inf_record:           db "Failure: inf_prof_record_layer returned 0.", 0x0D, 0x0A, 0
+msg_prof_fail_inf_stats:            db "Failure: Inference weights, activations or cache metrics mismatch.", 0x0D, 0x0A, 0
 
 section .bss
 
