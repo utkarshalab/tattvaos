@@ -51,6 +51,7 @@
 %include "lib/mem/virt/paging/tlb.asm"
 %include "lib/mem/virt/paging/tlb_shootdown.asm"
 %include "lib/mem/virt/paging/thp.asm"
+%include "lib/mem/virt/paging/pgtable_share.asm"
 
 ; 2. Reclaim Subdirectory
 %include "lib/mem/virt/reclaim/swap.asm"
