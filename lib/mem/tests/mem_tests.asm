@@ -1,4 +1,4 @@
-﻿; =============================================================================
+; =============================================================================
 ; Tattva OS -- lib/mem/tests/mem_tests.asm
 ; =============================================================================
 ; Dedicated memory verification test suite extracted from main.asm.
@@ -222,6 +222,14 @@ extern virt_create_user_pml4
 extern ipc_share_frame
 extern ipc_create_ring_buffer
 extern ipc_destroy_ring_buffer
+extern virt_share_page_directories
+extern virt_shared_page_release
+extern shared_dir_table
+
+shared_dir_desc_t.phys_addr equ 0
+shared_dir_desc_t.ref_count equ 8
+shared_dir_desc_t.lock     equ 16
+shared_dir_desc_t_size     equ 24
 extern leak_tracker_init
 extern heap_leak_report
 extern leak_table
@@ -540,6 +548,246 @@ extern sys_inf_prof_kv_cache_bytes
 global run_all_memory_tests
 
 run_all_memory_tests:
+.share_test_start:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rsi, msg_share_test_start
+    call uart_print_str
+
+    ; Save original CR3 to r15
+    mov r15, cr3
+
+    ; 1. Create source PML4
+    xor rdi, rdi
+    call virt_create_user_pml4
+    test rax, rax
+    jz .share_fail_alloc_src_pml4
+    mov r12, rax                    ; R12 = physical base of source PML4
+
+    ; 2. Create destination PML4
+    xor rdi, rdi
+    call virt_create_user_pml4
+    test rax, rax
+    jz .share_fail_alloc_dest_pml4
+    mov r13, rax                    ; R13 = physical base of dest PML4
+
+    ; 3. Switch CR3 to source PML4 to map pages in it
+    mov cr3, r12
+
+    ; Allocate physical page 1
+    call phys_alloc_page
+    test rax, rax
+    jz .share_fail_alloc_page1
+    mov r14, rax                    ; R14 = physical page 1
+
+    ; Map physical page 1 to 0x80000000
+    mov rdi, 0x80000000
+    mov rsi, r14
+    mov rdx, 0x07                   ; PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER
+    call virt_map
+    test rax, rax
+    jz .share_fail_map1
+
+    ; Write test signature to page 1
+    mov rdi, 0x80000000
+    mov qword [rdi], 0x5348415245445F31 ; "SHARED_1"
+
+    ; Allocate physical page 2
+    call phys_alloc_page
+    test rax, rax
+    jz .share_fail_alloc_page2
+    mov rbp, rax                    ; RBP = physical page 2
+
+    ; Map physical page 2 to 0x80001000
+    mov rdi, 0x80001000
+    mov rsi, rbp
+    mov rdx, 0x07                   ; PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER
+    call virt_map
+    test rax, rax
+    jz .share_fail_map2
+
+    ; Write test signature to page 2
+    mov rdi, 0x80001000
+    mov qword [rdi], 0x5348415245445F32 ; "SHARED_2"
+
+    ; Restore original CR3
+    mov cr3, r15
+
+    ; 4. Call virt_share_page_directories to share directory from source to dest
+    mov rdi, r13                    ; destination PML4
+    mov rsi, r12                    ; source PML4
+    mov rdx, 0x80000000             ; start_vaddr (2MB aligned)
+    mov rcx, 0x200000               ; size (2MB)
+    call virt_share_page_directories
+    test rax, rax
+    jz .share_fail_call
+
+    ; 5. Switch to destination PML4 to verify sharing
+    mov cr3, r13
+
+    ; Verify signature 1 at 0x80000000
+    mov rdi, 0x80000000
+    mov rax, [rdi]
+    cmp rax, 0x5348415245445F31     ; "SHARED_1"
+    jne .share_fail_verify_val1
+
+    ; Verify signature 2 at 0x80001000
+    mov rdi, 0x80001000
+    mov rax, [rdi]
+    cmp rax, 0x5348415245445F32     ; "SHARED_2"
+    jne .share_fail_verify_val2
+
+    ; Restore original CR3
+    mov cr3, r15
+
+    ; Verify read-only enforcement in destination PML4
+    ; PML4 logical index for 0x80000000
+    mov rax, 0x80000000
+    shr rax, 39
+    and rax, 0x1FF
+    lea rcx, [pml4_shuffle_map]
+    movzx rax, word [rcx + rax * 2]
+    mov rbx, [r13 + rax * 8]
+    test rbx, 0x01
+    jz .share_fail_ro_check
+    and rbx, 0xFFFFFFFFFFFFF000     ; PDPT physical address
+
+    ; PDPT index for 0x80000000
+    mov rax, 0x80000000
+    shr rax, 30
+    and rax, 0x1FF
+    mov rdx, [rbx + rax * 8]
+    test rdx, 0x01
+    jz .share_fail_ro_check
+    and rdx, 0xFFFFFFFFFFFFF000     ; PD physical address
+
+    ; PD index for 0x80000000
+    mov rax, 0x80000000
+    shr rax, 21
+    and rax, 0x1FF
+    mov rsi, [rdx + rax * 8]        ; rsi = PD entry (pointing to PT)
+    test rsi, 0x01
+    jz .share_fail_ro_check
+    test rsi, 0x02                  ; Check Writable (bit 1)
+    jnz .share_fail_ro_check        ; Should NOT be writable!
+
+    ; 6. Verify shared descriptor in shared_dir_table
+    lea rbx, [shared_dir_table]
+    xor rcx, rcx
+.find_desc_loop:
+    cmp rcx, 128
+    jge .share_fail_desc_not_found
+    lea rdx, [rbx + rcx * shared_dir_desc_t_size]
+    cmp qword [rdx + shared_dir_desc_t.phys_addr], 0
+    jne .found_desc
+    inc rcx
+    jmp .find_desc_loop
+
+.found_desc:
+    ; Verify reference count is 2
+    mov rax, [rdx + shared_dir_desc_t.ref_count]
+    cmp rax, 2
+    jne .share_fail_refcount
+    
+    ; Save the physical address of the shared PT page to rsi
+    mov rsi, [rdx + shared_dir_desc_t.phys_addr]
+
+    ; 7. Test virt_shared_page_release
+    ; First release (decrements from 2 to 1) -> returns 1 (still shared)
+    push rdx                        ; save descriptor pointer
+    push rsi                        ; save PT page physical address
+    mov rdi, rsi
+    call virt_shared_page_release
+    pop rsi
+    pop rdx
+    cmp rax, 1
+    jne .share_fail_release_1
+
+    ; Verify reference count is now 1
+    mov rax, [rdx + shared_dir_desc_t.ref_count]
+    cmp rax, 1
+    jne .share_fail_refcount_1
+
+    ; Second release (decrements from 1 to 0) -> returns 0 (safe to free)
+    push rdx
+    push rsi
+    mov rdi, rsi
+    call virt_shared_page_release
+    pop rsi
+    pop rdx
+    test rax, rax
+    jnz .share_fail_release_2
+
+    ; Verify descriptor has been cleared (phys_addr = 0)
+    cmp qword [rdx + shared_dir_desc_t.phys_addr], 0
+    jne .share_fail_desc_not_cleared
+
+    ; 8. Clean up allocated PML4s & physical pages
+    ; Clean up mappings in source PML4
+    mov cr3, r12
+    mov rdi, 0x80000000
+    call virt_unmap
+    mov rdi, 0x80001000
+    call virt_unmap
+
+    ; Switch to dest PML4 and clean up its PDPT/PD directories manually
+    mov cr3, r13
+    
+    ; PML4 logical index for 0x80000000
+    mov rax, 0x80000000
+    shr rax, 39
+    and rax, 0x1FF
+    lea rcx, [pml4_shuffle_map]
+    movzx rax, word [rcx + rax * 2]
+    mov rbx, [r13 + rax * 8]
+    and rbx, 0xFFFFFFFFFFFFF000     ; PDPT physical address
+
+    ; PDPT index for 0x80000000
+    mov rax, 0x80000000
+    shr rax, 30
+    and rax, 0x1FF
+    mov rdx, [rbx + rax * 8]
+    and rdx, 0xFFFFFFFFFFFFF000     ; PD physical address
+
+    ; Switch to original CR3
+    mov cr3, r15
+
+    ; Free the dest PML4's PDPT and PD pages
+    mov rdi, rbx
+    call phys_free_page
+    mov rdi, rdx
+    call phys_free_page
+
+    ; Free the allocated physical pages
+    ; Physical page 1
+    mov rdi, r14
+    call phys_free_page
+    ; Physical page 2
+    mov rdi, rbp
+    call phys_free_page
+
+    ; Free PML4 pages
+    mov rdi, r12
+    call phys_free_page
+    mov rdi, r13
+    call phys_free_page
+
+    ; Test PASSED!
+    mov rsi, msg_share_test_passed
+    call uart_print_str
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+
     ; 2. Run VMM Page Fault On-Demand Paging Test
     mov rsi, msg_test_start
     call uart_print_str
@@ -16947,6 +17195,86 @@ test_ctor:
     call uart_print_str
     jmp .prof_panic
 
+.share_fail_alloc_src_pml4:
+    mov rsi, msg_share_fail_alloc_src_pml4
+    jmp .share_panic
+
+.share_fail_alloc_dest_pml4:
+    mov rsi, msg_share_fail_alloc_dest_pml4
+    jmp .share_panic
+
+.share_fail_alloc_page1:
+    mov cr3, r15
+    mov rsi, msg_share_fail_alloc_page1
+    jmp .share_panic
+
+.share_fail_map1:
+    mov cr3, r15
+    mov rsi, msg_share_fail_map1
+    jmp .share_panic
+
+.share_fail_alloc_page2:
+    mov cr3, r15
+    mov rsi, msg_share_fail_alloc_page2
+    jmp .share_panic
+
+.share_fail_map2:
+    mov cr3, r15
+    mov rsi, msg_share_fail_map2
+    jmp .share_panic
+
+.share_fail_call:
+    mov rsi, msg_share_fail_call
+    jmp .share_panic
+
+.share_fail_verify_val1:
+    mov cr3, r15
+    mov rsi, msg_share_fail_verify_val1
+    jmp .share_panic
+
+.share_fail_verify_val2:
+    mov cr3, r15
+    mov rsi, msg_share_fail_verify_val2
+    jmp .share_panic
+
+.share_fail_ro_check:
+    mov rsi, msg_share_fail_ro_check
+    jmp .share_panic
+
+.share_fail_desc_not_found:
+    mov rsi, msg_share_fail_desc_not_found
+    jmp .share_panic
+
+.share_fail_refcount:
+    mov rsi, msg_share_fail_refcount
+    jmp .share_panic
+
+.share_fail_release_1:
+    mov rsi, msg_share_fail_release_1
+    jmp .share_panic
+
+.share_fail_refcount_1:
+    mov rsi, msg_share_fail_refcount_1
+    jmp .share_panic
+
+.share_fail_release_2:
+    mov rsi, msg_share_fail_release_2
+    jmp .share_panic
+
+.share_fail_desc_not_cleared:
+    mov rsi, msg_share_fail_desc_not_cleared
+    jmp .share_panic
+
+.share_panic:
+    call uart_print_str
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+    jmp .panic
+
 .percpu_panic:
 
 
@@ -16960,6 +17288,26 @@ test_ctor:
     jmp .hlt_loop
 
 section .data
+
+msg_share_test_start:            db "Running Multi-Process Page Table Sharing Test...", 0x0D, 0x0A, 0
+msg_share_test_passed:           db "Multi-Process Page Table Sharing Test PASSED!", 0x0D, 0x0A, 0
+
+msg_share_fail_alloc_src_pml4:   db "Failure: Could not allocate source PML4.", 0x0D, 0x0A, 0
+msg_share_fail_alloc_dest_pml4:  db "Failure: Could not allocate destination PML4.", 0x0D, 0x0A, 0
+msg_share_fail_alloc_page1:      db "Failure: Could not allocate physical page 1.", 0x0D, 0x0A, 0
+msg_share_fail_map1:             db "Failure: Could not map physical page 1 in source PML4.", 0x0D, 0x0A, 0
+msg_share_fail_alloc_page2:      db "Failure: Could not allocate physical page 2.", 0x0D, 0x0A, 0
+msg_share_fail_map2:             db "Failure: Could not map physical page 2 in source PML4.", 0x0D, 0x0A, 0
+msg_share_fail_call:             db "Failure: virt_share_page_directories call returned 0.", 0x0D, 0x0A, 0
+msg_share_fail_verify_val1:      db "Failure: Shared page 1 verification signature mismatch in destination PML4.", 0x0D, 0x0A, 0
+msg_share_fail_verify_val2:      db "Failure: Shared page 2 verification signature mismatch in destination PML4.", 0x0D, 0x0A, 0
+msg_share_fail_ro_check:         db "Failure: Read-only enforcement check failed (PD entry is writable or not present).", 0x0D, 0x0A, 0
+msg_share_fail_desc_not_found:   db "Failure: Shared descriptor not found in shared_dir_table.", 0x0D, 0x0A, 0
+msg_share_fail_refcount:         db "Failure: Shared descriptor ref_count is not 2.", 0x0D, 0x0A, 0
+msg_share_fail_release_1:        db "Failure: virt_shared_page_release 1st call did not return 1.", 0x0D, 0x0A, 0
+msg_share_fail_refcount_1:       db "Failure: Shared descriptor ref_count is not 1 after first release.", 0x0D, 0x0A, 0
+msg_share_fail_release_2:        db "Failure: virt_shared_page_release 2nd call did not return 0.", 0x0D, 0x0A, 0
+msg_share_fail_desc_not_cleared: db "Failure: Shared descriptor not cleared after second release.", 0x0D, 0x0A, 0
 
 msg_test_start:       db "Running VMM On-Demand Paging Exception Test...", 0x0D, 0x0A, 0
 msg_vma_ok:           db "VMA created at 0x70000000. Triggering read/write page fault...", 0x0D, 0x0A, 0
