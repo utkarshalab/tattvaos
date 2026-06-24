@@ -300,6 +300,13 @@ virt_unmap:
 ; Clobbers: RAX, RCX
 ; -----------------------------------------------------------------------------
 ._recycle_table:
+    extern virt_shared_page_release
+    push rdi
+    call virt_shared_page_release
+    test rax, rax
+    pop rdi
+    jnz .recycled                   ; if still shared (rax=1), do not free/recycle, just exit
+
     call pgtable_cache_free
     test rax, rax
     jnz .recycled                   ; accepted into pool
