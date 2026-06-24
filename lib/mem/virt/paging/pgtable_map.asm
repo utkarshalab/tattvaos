@@ -473,14 +473,20 @@ virt_map_huge_2mb:
     pop rcx
     pop rax
 
+    extern virt_shared_page_release
     push rax
     push rcx
+    mov rdi, rdx
+    call virt_shared_page_release
+    test rax, rax
+    jnz .recycle_done_shared
     mov rdi, rdx
     call pgtable_cache_free
     test rax, rax
     jnz .recycle_done
     call phys_free_page
 .recycle_done:
+.recycle_done_shared:
     pop rcx
     pop rax
 
@@ -651,11 +657,16 @@ virt_map_super_1gb:
     push rdx
     push r8
     mov rdi, r9
+    call virt_shared_page_release
+    test rax, rax
+    jnz .pt_free_done_shared
+    mov rdi, r9
     call pgtable_cache_free
     test rax, rax
     jnz .pt_free_done
     call phys_free_page
 .pt_free_done:
+.pt_free_done_shared:
     pop r8
     pop rdx
 
@@ -671,11 +682,16 @@ virt_map_super_1gb:
     pop rdx
 
     mov rdi, rdx
+    call virt_shared_page_release
+    test rax, rax
+    jnz .pd_free_done_shared
+    mov rdi, rdx
     call pgtable_cache_free
     test rax, rax
     jnz .pd_free_done
     call phys_free_page
 .pd_free_done:
+.pd_free_done_shared:
 
     pop rcx
     pop rax
