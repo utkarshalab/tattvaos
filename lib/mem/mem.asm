@@ -57,6 +57,8 @@
 %include "lib/mem/virt/paging/sys_madvise.asm"
 %include "lib/mem/virt/paging/userfaultfd.asm"
 %include "lib/mem/virt/paging/kpti.asm"
+%include "lib/mem/virt/paging/coredump.asm"
+%include "lib/mem/virt/paging/hotpatch.asm"
 
 
 ; 2. Reclaim Subdirectory
@@ -78,6 +80,7 @@
 %include "lib/mem/virt/reclaim/migration.asm"
 %include "lib/mem/virt/reclaim/cgroup.asm"
 %include "lib/mem/virt/reclaim/psi.asm"
+%include "lib/mem/virt/reclaim/compaction.asm"
 
 ; 3. Coco Subdirectory
 %include "lib/mem/virt/coco/sev.asm"
@@ -101,6 +104,7 @@
 %include "lib/mem/virt/profile/bw_sat.asm"
 %include "lib/mem/virt/profile/inf_prof.asm"
 %include "lib/mem/virt/profile/dbg_watch.asm"
+%include "lib/mem/virt/profile/damon.asm"
 
 ; 6. Hardware Subdirectory
 %include "lib/mem/virt/hardware/ept.asm"
@@ -125,6 +129,7 @@
 %include "lib/mem/virt/hardware/svm.asm"
 %include "lib/mem/virt/hardware/rowhammer.asm"
 %include "lib/mem/virt/hardware/mktme.asm"
+%include "lib/mem/virt/hardware/kasan.asm"
 
 
 ; 7. RT Safe Subdirectory
