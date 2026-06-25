@@ -53,6 +53,8 @@
 %include "lib/mem/virt/paging/thp.asm"
 %include "lib/mem/virt/paging/pgtable_share.asm"
 %include "lib/mem/virt/paging/pgtable_reap.asm"
+%include "lib/mem/virt/paging/khugepaged.asm"
+%include "lib/mem/virt/paging/sys_madvise.asm"
 
 
 ; 2. Reclaim Subdirectory
@@ -67,6 +69,9 @@
 %include "lib/mem/virt/reclaim/writeback.asm"
 %include "lib/mem/virt/reclaim/mglru.asm"
 %include "lib/mem/virt/reclaim/lz4.asm"
+%include "lib/mem/virt/reclaim/ksm.asm"
+%include "lib/mem/virt/reclaim/numa_balance.asm"
+%include "lib/mem/virt/reclaim/process_madvise.asm"
 
 ; 3. Coco Subdirectory
 %include "lib/mem/virt/coco/sev.asm"
