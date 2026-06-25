@@ -113,9 +113,38 @@ buddy_alloc_internal:
 .scan_loop:
     lea rax, [buddy_free_heads]
     mov r14, [rax + r13 * 8]        ; R14 = buddy_free_heads[O]
-    test r14, r14
-    jnz .found_block                ; we found a free block at order O!
 
+.check_block_loop:
+    test r14, r14
+    jz .next_order                  ; if list is empty, try next order
+
+    ; Check if we need to avoid ZONE_MOVABLE
+    extern buddy_alloc_mask
+    test qword [buddy_alloc_mask], 1
+    jz .found_block                 ; mask is 0, allow any block
+
+    ; Calculate relative page index of R14
+    mov rax, r14
+    sub rax, [buddy_start_addr]
+    shr rax, 12                     ; PFN relative to node
+
+    ; Check pages_array descriptor
+    extern pages_array
+    mov rdx, [pages_array]
+    test rdx, rdx
+    jz .found_block                 ; if no descriptors array, allow block
+
+    ; Each descriptor is 16 bytes: 8 bytes flags, 8 bytes lock
+    imul rax, 16                    ; page_t_size
+    mov rsi, [rdx + rax]            ; RSI = page_t.flags
+    test rsi, (1 << 12)             ; bit 12 = PAGE_MOVABLE
+    jz .found_block                 ; if not marked PAGE_MOVABLE, we can take it!
+
+    ; It is PAGE_MOVABLE! Skip it and get the next block in the doubly linked list
+    mov r14, [r14 + buddy_block_t.next]
+    jmp .check_block_loop
+
+.next_order:
     inc r13
     cmp r13, 11
     jbe .scan_loop
