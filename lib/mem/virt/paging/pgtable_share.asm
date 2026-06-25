@@ -169,7 +169,7 @@ virt_share_page_directories:
     
     ; Write the shared page table pointer to the destination's PMD entry
     ; Enforce read-only sharing: Present=1, R/W=0, User=1, Global=1
-    mov rdx, r9                     ; shared PT page physical address
+    mov rdx, [rbp + shared_dir_desc_t.phys_addr] ; shared PT page physical address (r9 may be clobbered by allocations)
     or rdx, 0x105                   ; Present | User | Global (No R/W)
     mov [r8 + rax * 8], rdx         ; Write PMD entry
 
