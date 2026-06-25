@@ -35,8 +35,9 @@ kmem_cache_create_in_place:
     test rdi, rdi
     jz .done
 
-    ; Align object size to alignment boundary
+    ; Align object size to alignment boundary, adding 8 bytes for Slab Redzones
     mov rax, rdx
+    add rax, 8                      ; 8-byte Redzone padding
     dec rcx
     add rax, rcx
     not rcx

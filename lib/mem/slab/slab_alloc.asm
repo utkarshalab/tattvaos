@@ -274,7 +274,153 @@ kmem_slab_grow:
 ; -----------------------------------------------------------------------------
 global kmem_cache_alloc
 kmem_cache_alloc:
-    ; Stub: returns 0 (OOM) for initial cache definitions phase
+    ; 1. Acquire cache spinlock
+.lock_spin:
+    lock bts qword [rdi + kmem_cache_t.lock], 0
+    jc .lock_pause
+    jmp .lock_acquired
+
+.lock_pause:
+    pause
+    test qword [rdi + kmem_cache_t.lock], 1
+    jnz .lock_pause
+    jmp .lock_spin
+
+.lock_acquired:
+    ; 2. Try allocating from partial slabs list
+    mov rbx, [rdi + kmem_cache_t.slabs_part]
+    test rbx, rbx
+    jnz .alloc_from_slab
+
+    ; 3. Try allocating from free slabs list
+    mov rbx, [rdi + kmem_cache_t.slabs_free]
+    test rbx, rbx
+    jnz .move_free_to_part
+
+    ; 4. No free objects, grow the cache (release spinlock first)
+    mov qword [rdi + kmem_cache_t.lock], 0
+
+    push r12
+    mov r12, rdi                    ; Save cache pointer
+    call kmem_slab_grow             ; Grow cache, returns new slab_t*
+    mov rdi, r12
+    pop r12
+
+    test rax, rax
+    jz .oom                         ; Grow failed
+
+    ; Reacquire spinlock after grow
+.lock_reacquire:
+    lock bts qword [rdi + kmem_cache_t.lock], 0
+    jc .lock_reacquire_pause
+    jmp .lock_reacquired_post_grow
+
+.lock_reacquire_pause:
+    pause
+    test qword [rdi + kmem_cache_t.lock], 1
+    jnz .lock_reacquire_pause
+    jmp .lock_reacquire
+
+.lock_reacquired_post_grow:
+    mov rbx, [rdi + kmem_cache_t.slabs_free]
+    test rbx, rbx
+    jz .oom_with_lock
+
+.move_free_to_part:
+    ; Unlink slab from slabs_free list
+    push rdi
+    push rbx
+    mov rsi, kmem_cache_t.slabs_free
+    mov rdx, rbx                    ; Slab pointer
+    call kmem_slab_unlink
+    pop rbx
+    pop rdi
+
+    ; Check if it becomes full immediately (capacity == 1)
+    mov rax, [rbx + slab_t.used_count]
+    inc rax
+    cmp rax, [rbx + slab_t.obj_count]
+    jae .move_free_to_full
+
+    ; Link to slabs_part
+    push rdi
+    push rbx
+    mov rsi, kmem_cache_t.slabs_part
+    mov rdx, rbx
+    call kmem_slab_link
+    pop rbx
+    pop rdi
+    jmp .alloc_from_slab
+
+.move_free_to_full:
+    ; Link to slabs_full
+    push rdi
+    push rbx
+    mov rsi, kmem_cache_t.slabs_full
+    mov rdx, rbx
+    call kmem_slab_link
+    pop rbx
+    pop rdi
+
+.alloc_from_slab:
+    ; RBX = slab_t pointer
+    mov rax, [rbx + slab_t.free_head] ; RAX = allocated object ptr
+    test rax, rax
+    jz .oom_with_lock
+
+    ; Pop object from free list
+    mov r8, [rax]                   ; R8 = next free object
+    mov [rbx + slab_t.free_head], r8
+
+    inc qword [rbx + slab_t.used_count]
+
+    ; Check if the slab became full
+    mov r9, [rbx + slab_t.used_count]
+    cmp r9, [rbx + slab_t.obj_count]
+    jb .alloc_done
+
+    ; Slab is now full. If it was in slabs_part, move it to slabs_full
+    push rdi
+    push rsi
+    push rdx
+    push rbx
+    push rax
+    mov rsi, kmem_cache_t.slabs_part
+    mov rdx, rbx
+    call kmem_slab_unlink
+    pop rax
+    pop rbx
+    pop rdx
+    pop rsi
+    pop rdi
+
+    push rdi
+    push rsi
+    push rdx
+    push rbx
+    push rax
+    mov rsi, kmem_cache_t.slabs_full
+    mov rdx, rbx
+    call kmem_slab_link
+    pop rax
+    pop rbx
+    pop rdx
+    pop rsi
+    pop rdi
+
+.alloc_done:
+    ; Stamp Slab Redzone signature 0xDEADC0DE at the end of the object
+    mov r10, [rdi + kmem_cache_t.obj_size]
+    sub r10, 8                      ; Redzone offset
+    mov qword [rax + r10], 0xDEADC0DE
+
+    ; Release spinlock
+    mov qword [rdi + kmem_cache_t.lock], 0
+    ret
+
+.oom_with_lock:
+    mov qword [rdi + kmem_cache_t.lock], 0
+.oom:
     xor rax, rax
     ret
 
