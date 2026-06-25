@@ -33,6 +33,10 @@ buddy_save_context:
     push rsi
     push rdi
 
+    ; Save pages_array context (RAX = raw node index 0-7)
+    mov rcx, [pages_array]
+    mov [buddy_pages_arrays + rax * 8], rcx
+
     ; Index is in RAX (0-7)
     imul rax, buddy_node_t_size
     lea rdi, [buddy_nodes + rax]
@@ -83,6 +87,11 @@ buddy_load_context:
 
 .load_new:
     mov [buddy_active_node_index], rax
+
+    ; Load pages_array context (RAX = raw node index 0-7)
+    mov rcx, [buddy_pages_arrays + rax * 8]
+    mov [pages_array], rcx
+
     imul rax, buddy_node_t_size
     lea rsi, [buddy_nodes + rax]
 
@@ -120,12 +129,16 @@ global buddy_end_addr
 global buddy_metadata
 global buddy_node_count
 global buddy_active_node_index
+global pages_array
+global buddy_pages_arrays
 
 buddy_start_addr: dq 0
 buddy_end_addr:   dq 0
 buddy_metadata:   dq 0
 buddy_node_count: dq 0
 buddy_active_node_index: dq -1
+pages_array:      dq 0
+buddy_pages_arrays: times 8 dq 0
 
 section .bss
 
