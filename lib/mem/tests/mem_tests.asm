@@ -781,6 +781,359 @@ run_all_memory_tests:
     mov rsi, msg_share_test_passed
     call uart_print_str
 
+    ; =========================================================================
+    ; 1.2 Page Table Reaping Test
+    ; =========================================================================
+    mov rsi, msg_reap_test_start
+    call uart_print_str
+
+    ; Create dummy PML4
+    xor rdi, rdi
+    call virt_create_user_pml4
+    test rax, rax
+    jz .reap_fail_pml4
+    mov r12, rax                    ; R12 = dummy PML4
+
+    ; Switch CR3 to dummy PML4
+    mov cr3, r12
+
+    ; Allocate physical page 1
+    call phys_alloc_page
+    test rax, rax
+    jz .reap_fail_alloc1
+    mov r13, rax                    ; R13 = physical page 1
+
+    ; Map physical page 1 to 0x40000000 (allocates PDPT, PD, and PT)
+    mov rdi, 0x40000000
+    mov rsi, r13
+    mov rdx, 0x07                   ; Present | Writable | User
+    call virt_map
+    test rax, rax
+    jz .reap_fail_map1
+
+    ; Switch to original CR3 to perform reaping check
+    mov cr3, r15
+
+    ; Call virt_reap_empty_page_tables. Since PT contains mapped page, reap count must be 0!
+    mov rdi, r12
+    call virt_reap_empty_page_tables
+    test rax, rax
+    jnz .reap_fail_count1
+
+    ; Switch to dummy PML4 to clear PTE manually
+    mov cr3, r12
+
+    ; Walk page table to find PTE for 0x40000000
+    mov rdi, 0x40000000
+    xor rsi, rsi
+    call virt_walk_table            ; RAX = PTE physical/virtual pointer
+    test rax, rax
+    jz .reap_fail_walk
+    mov qword [rax], 0              ; Clear PTE manually to simulate page unmap without directory free
+
+    ; Switch to original CR3
+    mov cr3, r15
+
+    ; Call virt_reap_empty_page_tables. PT is now empty, must reap it (count = 1)
+    mov rdi, r12
+    call virt_reap_empty_page_tables
+    cmp rax, 1
+    jne .reap_fail_count2
+
+    ; Verify that PMD entry in dummy PML4 is indeed cleared (0)
+    ; PML4 logical index for 0x40000000
+    mov rax, 0x40000000
+    shr rax, 39
+    and rax, 0x1FF
+    lea rcx, [pml4_shuffle_map]
+    movzx rax, word [rcx + rax * 2]
+    mov rbx, [r12 + rax * 8]
+    and rbx, 0xFFFFFFFFFFFFF000     ; RBP = PDPT physical address
+    mov rbp, rbx
+
+    ; PDPT index for 0x40000000
+    mov rax, 0x40000000
+    shr rax, 30
+    and rax, 0x1FF
+    mov rdx, [rbp + rax * 8]
+    and rdx, 0xFFFFFFFFFFFFF000     ; RBP = PD physical address
+    mov rbp, rdx
+
+    ; PD index for 0x40000000
+    mov rax, 0x40000000
+    shr rax, 21
+    and rax, 0x1FF
+    mov rsi, [rbp + rax * 8]        ; RSI = PMD entry
+    test rsi, rsi                   ; Must be 0 (reaped)!
+    jnz .reap_fail_pmd_not_cleared
+
+    ; Free allocated physical page 1
+    mov rdi, r13
+    call phys_free_page
+
+    ; Free remaining tables (PDPT, PD) of dummy PML4 manually
+    mov rax, 0x40000000
+    shr rax, 39
+    and rax, 0x1FF
+    lea rcx, [pml4_shuffle_map]
+    movzx rax, word [rcx + rax * 2]
+    mov rbx, [r12 + rax * 8]
+    and rbx, 0xFFFFFFFFFFFFF000     ; rbx = PDPT physical address
+
+    mov rax, 0x40000000
+    shr rax, 30
+    and rax, 0x1FF
+    mov rdx, [rbx + rax * 8]
+    and rdx, 0xFFFFFFFFFFFFF000     ; rdx = PD physical address
+
+    ; Free PD and PDPT
+    mov rdi, rdx
+    call phys_free_page
+    mov rdi, rbx
+    call phys_free_page
+
+    ; Free dummy PML4
+    mov rdi, r12
+    call phys_free_page
+
+    ; Reap Test PASSED!
+    mov rsi, msg_reap_test_passed
+    call uart_print_str
+
+
+    ; =========================================================================
+    ; 1.3 Cooperative Lockless Allocator Test
+    ; =========================================================================
+    mov rsi, msg_coop_test_start
+    call uart_print_str
+
+    ; Allocate memory for coop queue (4120 bytes)
+    mov rdi, 4120
+    call heap_alloc
+    test rax, rax
+    jz .coop_fail_queue_alloc
+    mov r12, rax                    ; R12 = coop_queue_t virtual pointer
+
+    ; Initialize coop queue
+    mov qword [r12 + coop_queue_t.head], 0
+    mov qword [r12 + coop_queue_t.tail], 0
+    mov qword [r12 + coop_queue_t.capacity], 512
+
+    ; Enable coop test mode (bypass spinning)
+    extern coop_test_mode
+    mov qword [coop_test_mode], 1
+
+    ; Request 4 pages (order 2) via coop_alloc_pages
+    mov rdi, r12
+    mov rsi, 4                      ; 4 pages
+    call coop_alloc_pages           ; RAX = slot index (0)
+    cmp rax, 0
+    jne .coop_fail_slot             ; should return slot 0
+
+    ; Verify request is written in the slot
+    mov rax, [r12 + coop_queue_t.ring + 0 * 8]
+    cmp rax, 4
+    jne .coop_fail_request_val
+
+    ; Run kernel processing routine
+    mov rdi, r12
+    call coop_process_requests
+
+    ; Disable test mode
+    mov qword [coop_test_mode], 0
+
+    ; Verify that head and tail are both 1
+    mov rax, [r12 + coop_queue_t.head]
+    cmp rax, 1
+    jne .coop_fail_head
+    mov rax, [r12 + coop_queue_t.tail]
+    cmp rax, 1
+    jne .coop_fail_tail
+
+    ; Read the allocated physical address from slot 0
+    mov r13, [r12 + coop_queue_t.ring + 0 * 8]
+    test r13, r13
+    jz .coop_fail_phys_val
+
+    ; Free allocated pages back (order 2 block)
+    extern buddy_free
+    mov rdi, r13
+    mov rsi, 2                      ; order 2
+    call buddy_free
+
+    ; Free the queue memory
+    mov rdi, r12
+    call heap_free
+
+    ; Coop Test PASSED!
+    mov rsi, msg_coop_test_passed
+    call uart_print_str
+
+
+    ; =========================================================================
+    ; 1.4 Memory Compact Hot-Plug Zones Test (ZONE_MOVABLE)
+    ; =========================================================================
+    mov rsi, msg_zone_test_start
+    call uart_print_str
+
+    ; Mark range [100, 200) as movable
+    mov rdi, 100
+    mov rsi, 200
+    call zone_mark_movable
+
+    ; Verify pages_array is initialized
+    extern pages_array
+    mov r12, [pages_array]
+    test r12, r12
+    jz .zone_fail_init
+
+    ; Verify PFN 150 flags has PAGE_MOVABLE set (bit 12)
+    imul rax, 150, 16               ; PFN 150 descriptor offset
+    mov rdx, [r12 + rax]            ; RDX = page_t.flags
+    test rdx, (1 << 12)
+    jz .zone_fail_flag
+
+    ; Verify Buddy Allocator bypass logic:
+    ; Enable buddy_alloc_mask (avoid ZONE_MOVABLE)
+    extern buddy_alloc_mask
+    mov qword [buddy_alloc_mask], 1
+
+    ; Request order 0 allocation
+    mov rdi, 0
+    call buddy_alloc                ; RAX = physical address
+    mov qword [buddy_alloc_mask], 0 ; restore mask
+
+    test rax, rax
+    jz .zone_fail_alloc
+
+    ; Assert that allocated frame does NOT fall inside movable PFN zone [100, 200)
+    ; Movable zone address boundary: [buddy_start_addr + 100 * 4096, buddy_start_addr + 200 * 4096)
+    mov rcx, [buddy_start_addr]
+    lea rdx, [rcx + 100 * 4096]
+    cmp rax, rdx
+    jb .zone_alloc_ok
+    lea rdx, [rcx + 200 * 4096]
+    cmp rax, rdx
+    jb .zone_fail_movable_alloc     ; allocated page is inside the movable zone!
+
+.zone_alloc_ok:
+    ; Free allocated page
+    mov rdi, rax
+    mov rsi, 0                      ; order 0
+    call buddy_free
+
+    ; Zone Test PASSED!
+    mov rsi, msg_zone_test_passed
+    call uart_print_str
+
+
+    ; =========================================================================
+    ; 1.5 Live Kernel ASLR Re-Shuffling Test
+    ; =========================================================================
+    mov rsi, msg_aslr_test_start
+    call uart_print_str
+
+    ; Allocate physical page 1 (old)
+    call phys_alloc_page
+    test rax, rax
+    jz .aslr_fail_alloc1
+    mov r12, rax                    ; R12 = old physical frame address
+
+    ; Allocate physical page 2 (new)
+    call phys_alloc_page
+    test rax, rax
+    jz .aslr_fail_alloc2
+    mov r13, rax                    ; R13 = new physical frame address
+
+    ; Write signature to old page using identity mapping
+    mov rdi, r12
+    mov qword [rdi], 0x41534C525F4F4B3F ; "ASLR_OK?"
+
+    ; Map old page to virtual address 0x30000000 in current address space (CR3)
+    mov rdi, 0x30000000
+    mov rsi, r12
+    mov rdx, 0x07                   ; Present | Writable | User
+    call virt_map
+    test rax, rax
+    jz .aslr_fail_map1
+
+    ; Verify virtual address reads correctly
+    mov rax, [0x30000000]
+    cmp rax, 0x41534C525F4F4B3F
+    jne .aslr_fail_sig1
+
+    ; Trigger Live ASLR Migration
+    mov rdi, r12                    ; target_old_paddr
+    mov rsi, r13                    ; target_new_paddr
+    mov rdx, 4096                   ; size
+    call kernel_live_aslr_migrate
+
+    ; Verify that 0x30000000 now translates to new physical address r13
+    mov rdi, 0x30000000
+    call virt_translate
+    cmp rax, r13
+    jne .aslr_fail_translate
+
+    ; Verify that virtual address still reads correct data (copied successfully)
+    mov rax, [0x30000000]
+    cmp rax, 0x41534C525F4F4B3F
+    jne .aslr_fail_sig2
+
+    ; Unmap virtual address 0x30000000
+    mov rdi, 0x30000000
+    call virt_unmap
+
+    ; Free physical page frames
+    mov rdi, r12
+    call phys_free_page
+    mov rdi, r13
+    call phys_free_page
+
+    ; ASLR Test PASSED!
+    mov rsi, msg_aslr_test_passed
+    call uart_print_str
+
+
+    ; =========================================================================
+    ; 1.6 PASID Table Binding Test
+    ; =========================================================================
+    mov rsi, msg_pasid_test_start
+    call uart_print_str
+
+    ; Allocate memory for mock PASID table (512 entries * 64 bytes = 32,768 bytes)
+    mov rdi, 32768
+    call heap_alloc
+    test rax, rax
+    jz .pasid_fail_alloc
+    mov r12, rax                    ; R12 = PASID table pointer
+
+    extern pasid_table_base
+    mov [pasid_table_base], r12     ; Register base
+
+    ; Zero out table
+    mov rdi, r12
+    mov rsi, 32768
+    call memzero
+
+    ; Bind PASID entry 123 to dummy physical PML4 0x900000
+    mov rdi, 123                    ; PASID index
+    mov rsi, 0x900000               ; PML4 physical base
+    call iommu_bind_pasid_table
+
+    ; Verify entry at offset 123 * 64 bytes
+    mov rax, [r12 + 123 * 64]
+    cmp rax, 0x900003               ; Address + Present (1) + PRI (2)
+    jne .pasid_fail_entry
+
+    ; Unbind and free table
+    mov qword [pasid_table_base], 0
+    mov rdi, r12
+    call heap_free
+
+    ; PASID Test PASSED!
+    mov rsi, msg_pasid_test_passed
+    call uart_print_str
+
     pop r15
     pop r14
     pop r13
@@ -17265,6 +17618,106 @@ test_ctor:
     mov rsi, msg_share_fail_desc_not_cleared
     jmp .share_panic
 
+.reap_fail_pml4:
+    mov rsi, msg_reap_fail_pml4
+    jmp .share_panic
+
+.reap_fail_alloc1:
+    mov rsi, msg_reap_fail_alloc1
+    jmp .share_panic
+
+.reap_fail_map1:
+    mov rsi, msg_reap_fail_map1
+    jmp .share_panic
+
+.reap_fail_count1:
+    mov rsi, msg_reap_fail_count1
+    jmp .share_panic
+
+.reap_fail_walk:
+    mov rsi, msg_reap_fail_walk
+    jmp .share_panic
+
+.reap_fail_count2:
+    mov rsi, msg_reap_fail_count2
+    jmp .share_panic
+
+.reap_fail_pmd_not_cleared:
+    mov rsi, msg_reap_fail_pmd_not_cleared
+    jmp .share_panic
+
+.coop_fail_queue_alloc:
+    mov rsi, msg_coop_fail_queue_alloc
+    jmp .share_panic
+
+.coop_fail_slot:
+    mov rsi, msg_coop_fail_slot
+    jmp .share_panic
+
+.coop_fail_request_val:
+    mov rsi, msg_coop_fail_request_val
+    jmp .share_panic
+
+.coop_fail_head:
+    mov rsi, msg_coop_fail_head
+    jmp .share_panic
+
+.coop_fail_tail:
+    mov rsi, msg_coop_fail_tail
+    jmp .share_panic
+
+.coop_fail_phys_val:
+    mov rsi, msg_coop_fail_phys_val
+    jmp .share_panic
+
+.zone_fail_init:
+    mov rsi, msg_zone_fail_init
+    jmp .share_panic
+
+.zone_fail_flag:
+    mov rsi, msg_zone_fail_flag
+    jmp .share_panic
+
+.zone_fail_alloc:
+    mov rsi, msg_zone_fail_alloc
+    jmp .share_panic
+
+.zone_fail_movable_alloc:
+    mov rsi, msg_zone_fail_movable_alloc
+    jmp .share_panic
+
+.aslr_fail_alloc1:
+    mov rsi, msg_aslr_fail_alloc1
+    jmp .share_panic
+
+.aslr_fail_alloc2:
+    mov rsi, msg_aslr_fail_alloc2
+    jmp .share_panic
+
+.aslr_fail_map1:
+    mov rsi, msg_aslr_fail_map1
+    jmp .share_panic
+
+.aslr_fail_sig1:
+    mov rsi, msg_aslr_fail_sig1
+    jmp .share_panic
+
+.aslr_fail_translate:
+    mov rsi, msg_aslr_fail_translate
+    jmp .share_panic
+
+.aslr_fail_sig2:
+    mov rsi, msg_aslr_fail_sig2
+    jmp .share_panic
+
+.pasid_fail_alloc:
+    mov rsi, msg_pasid_fail_alloc
+    jmp .share_panic
+
+.pasid_fail_entry:
+    mov rsi, msg_pasid_fail_entry
+    jmp .share_panic
+
 .share_panic:
     call uart_print_str
     pop r15
@@ -17308,6 +17761,45 @@ msg_share_fail_release_1:        db "Failure: virt_shared_page_release 1st call 
 msg_share_fail_refcount_1:       db "Failure: Shared descriptor ref_count is not 1 after first release.", 0x0D, 0x0A, 0
 msg_share_fail_release_2:        db "Failure: virt_shared_page_release 2nd call did not return 0.", 0x0D, 0x0A, 0
 msg_share_fail_desc_not_cleared: db "Failure: Shared descriptor not cleared after second release.", 0x0D, 0x0A, 0
+msg_reap_test_start:            db "Running Intermediate Page Table Reaping Test...", 0x0D, 0x0A, 0
+msg_reap_test_passed:           db "Intermediate Page Table Reaping Test PASSED!", 0x0D, 0x0A, 0
+msg_reap_fail_pml4:             db "Failure: Could not allocate dummy PML4 for reaping.", 0x0D, 0x0A, 0
+msg_reap_fail_alloc1:           db "Failure: Could not allocate physical page 1 for reaping.", 0x0D, 0x0A, 0
+msg_reap_fail_map1:             db "Failure: Could not map physical page 1 in dummy PML4.", 0x0D, 0x0A, 0
+msg_reap_fail_count1:           db "Failure: Empty page table reaping executed on non-empty table (count != 0).", 0x0D, 0x0A, 0
+msg_reap_fail_walk:             db "Failure: Could not walk table to locate leaf PTE for reaping.", 0x0D, 0x0A, 0
+msg_reap_fail_count2:           db "Failure: Empty page table reaping did not reap empty table (count != 1).", 0x0D, 0x0A, 0
+msg_reap_fail_pmd_not_cleared:   db "Failure: Parent PMD entry pointing to reaped table was not cleared.", 0x0D, 0x0A, 0
+
+msg_coop_test_start:            db "Running Cooperative Lockless Allocator Test...", 0x0D, 0x0A, 0
+msg_coop_test_passed:           db "Cooperative Lockless Allocator Test PASSED!", 0x0D, 0x0A, 0
+msg_coop_fail_queue_alloc:      db "Failure: Could not allocate shared queue buffer.", 0x0D, 0x0A, 0
+msg_coop_fail_slot:             db "Failure: Claimed queue slot is not 0.", 0x0D, 0x0A, 0
+msg_coop_fail_request_val:      db "Failure: Request page count value not stored in queue ring.", 0x0D, 0x0A, 0
+msg_coop_fail_head:             db "Failure: head index not incremented to 1 after process.", 0x0D, 0x0A, 0
+msg_coop_fail_tail:             db "Failure: tail index mismatch (not 1).", 0x0D, 0x0A, 0
+msg_coop_fail_phys_val:         db "Failure: Processed queue slot contains NULL physical address.", 0x0D, 0x0A, 0
+
+msg_zone_test_start:            db "Running Memory Compact Hot-Plug Zones Test (ZONE_MOVABLE)...", 0x0D, 0x0A, 0
+msg_zone_test_passed:           db "Memory Compact Hot-Plug Zones Test PASSED!", 0x0D, 0x0A, 0
+msg_zone_fail_init:             db "Failure: pages_array was not initialized after zone marking.", 0x0D, 0x0A, 0
+msg_zone_fail_flag:             db "Failure: PFN descriptor flag PAGE_MOVABLE was not set.", 0x0D, 0x0A, 0
+msg_zone_fail_alloc:            db "Failure: Buddy allocator returned NULL under allocations mask.", 0x0D, 0x0A, 0
+msg_zone_fail_movable_alloc:    db "Failure: Buddy allocator returned page inside ZONE_MOVABLE under mask.", 0x0D, 0x0A, 0
+
+msg_aslr_test_start:            db "Running Live Kernel ASLR Re-Shuffling Test...", 0x0D, 0x0A, 0
+msg_aslr_test_passed:           db "Live Kernel ASLR Re-Shuffling Test PASSED!", 0x0D, 0x0A, 0
+msg_aslr_fail_alloc1:           db "Failure: Could not allocate old physical frame for ASLR migration.", 0x0D, 0x0A, 0
+msg_aslr_fail_alloc2:           db "Failure: Could not allocate new physical frame for ASLR migration.", 0x0D, 0x0A, 0
+msg_aslr_fail_map1:             db "Failure: Could not map old page in current PML4.", 0x0D, 0x0A, 0
+msg_aslr_fail_sig1:             db "Failure: Virtual address reads incorrect signature before ASLR migration.", 0x0D, 0x0A, 0
+msg_aslr_fail_translate:        db "Failure: Virtual address translation did not redirect to new page after ASLR migration.", 0x0D, 0x0A, 0
+msg_aslr_fail_sig2:             db "Failure: Virtual address reads incorrect signature after ASLR migration.", 0x0D, 0x0A, 0
+
+msg_pasid_test_start:           db "Running PASID Table Binding Test...", 0x0D, 0x0A, 0
+msg_pasid_test_passed:          db "PASID Table Binding Test PASSED!", 0x0D, 0x0A, 0
+msg_pasid_fail_alloc:           db "Failure: Could not allocate mock PASID table.", 0x0D, 0x0A, 0
+msg_pasid_fail_entry:           db "Failure: PASID table entry value is incorrect after binding.", 0x0D, 0x0A, 0
 
 msg_test_start:       db "Running VMM On-Demand Paging Exception Test...", 0x0D, 0x0A, 0
 msg_vma_ok:           db "VMA created at 0x70000000. Triggering read/write page fault...", 0x0D, 0x0A, 0
