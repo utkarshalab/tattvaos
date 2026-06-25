@@ -52,6 +52,8 @@
 %include "lib/mem/virt/paging/tlb_shootdown.asm"
 %include "lib/mem/virt/paging/thp.asm"
 %include "lib/mem/virt/paging/pgtable_share.asm"
+%include "lib/mem/virt/paging/pgtable_reap.asm"
+
 
 ; 2. Reclaim Subdirectory
 %include "lib/mem/virt/reclaim/swap.asm"
@@ -107,6 +109,10 @@
 %include "lib/mem/virt/hardware/kernel_relocator.asm"
 %include "lib/mem/virt/hardware/zone_transition.asm"
 %include "lib/mem/virt/hardware/locality_scorer.asm"
+%include "lib/mem/virt/hardware/zone_movable.asm"
+%include "lib/mem/virt/hardware/kernel_aslr.asm"
+%include "lib/mem/virt/hardware/svm.asm"
+
 
 ; 7. RT Safe Subdirectory
 %include "lib/mem/virt/rt_safe/mlock.asm"
@@ -119,6 +125,8 @@
 %include "lib/mem/virt/rt_safe/temporal.asm"
 %include "lib/mem/virt/rt_safe/uaf.asm"
 %include "lib/mem/virt/rt_safe/sched_affinity.asm"
+%include "lib/mem/virt/rt_safe/coop_alloc.asm"
+
 
 ; 8. RAS Subdirectory
 %include "lib/mem/virt/ras/ras_ecc.asm"
