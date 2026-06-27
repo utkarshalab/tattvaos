@@ -378,6 +378,7 @@ STR_FUNC str_word_next
     guard_null rdx, STR_ERR_NULL
 
     push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, [rdi + StrSlice.ptr]
     mov     r12, [rdi + StrSlice.len]
@@ -389,14 +390,11 @@ STR_FUNC str_word_next
 
     ; decode first cp
     lea     r15, [rbx + r13]
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, r15
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     mov     r9, [rsp]
-    mov     rsp, rbp
 
     add     r13, r9
 
@@ -409,17 +407,14 @@ STR_FUNC str_word_next
     jae     .wn_found
 
     lea     r15, [rbx + r13]
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, r15
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     mov     r9, [rsp]
-    mov     rsp, rbp
 
     mov     edi, r8d
-    push    r8
+    push    r8                  ; preserve registers (stack kept 16-byte aligned)
     push    r9
     call    _wbp
     pop     r9
@@ -428,12 +423,14 @@ STR_FUNC str_word_next
 
     movzx   edi, r10b
     movzx   esi, cl
-    push    r8
+    push    r8                  ; dummy push for alignment (4 registers pushed = 32 bytes)
+    push    r8                  ; preserve
     push    r9
     push    rcx
     call    _is_word_boundary
     pop     rcx
     pop     r9
+    pop     r8
     pop     r8
 
     test    al, al
@@ -445,12 +442,14 @@ STR_FUNC str_word_next
 
 .wn_found:
     mov     [r14], r13
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
     ret
 
 .wn_end:
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     mov     rax, STR_ERR_ITER_END
     pop     rbp
@@ -473,6 +472,7 @@ STR_FUNC str_word_count
     guard_null rsi, STR_ERR_NULL
 
     push_regs rbx, r12, r13, r14
+    sub     rsp, 16             ; pre-allocate 16 bytes for out_next/decode
 
     mov     rbx, rdi            ; src
     mov     r13, rsi            ; out_count
@@ -491,37 +491,34 @@ STR_FUNC str_word_count
 
     ; check if segment at r12 begins a word (contains letter/digit)
     ; find next boundary
-    sub     rsp, 8
-    and     rsp, -8
-
     mov     rdi, rbx
     mov     rsi, r12
-    mov     rdx, rsp
-    push    r14
+    lea     rdx, [rsp]          ; out_next is at [rsp]
+    push    r14                 ; dummy push for alignment (2 registers pushed = 16 bytes)
+    push    r14                 ; preserve
     call    str_word_next
+    pop     r14
     pop     r14
 
     test    rax, rax
     jnz     .wc_done
 
     mov     r9, [rsp]           ; next boundary
-    add     rsp, 8
 
     ; check if the segment [r12, r9) contains a word character
     ; decode first codepoint of segment
     mov     r8, [rbx + StrSlice.ptr]
     add     r8, r12
 
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, r8
-    lea     rsi, [rsp]
+    lea     rsi, [rsp + 8]      ; decode at [rsp+8]
     call    str_utf8_decode_unchecked
     mov     edi, eax
-    mov     rsp, rbp
 
-    push    r9
+    push    r9                  ; dummy push for alignment (2 registers pushed)
+    push    r9                  ; preserve
     call    _wbp
+    pop     r9
     pop     r9
 
     ; count as word if ALetter/Hebrew/Numeric/Katakana
@@ -545,6 +542,7 @@ STR_FUNC str_word_count
 
 .wc_done:
     mov     [r13], r14
+    add     rsp, 16             ; deallocate
     pop_regs r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
