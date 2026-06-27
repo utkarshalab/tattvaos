@@ -32,6 +32,22 @@ ASM_FILES=(
     "$LIB_DIR/unicode/wordbreak.asm"
     "$LIB_DIR/unicode/grapheme.asm"
     "$LIB_DIR/unicode/sentence.asm"
+    "$LIB_DIR/unicode/special_case.asm"
+    "$LIB_DIR/unicode/casing_tailoring.asm"
+    "$LIB_DIR/unicode/emoji_modifiers.asm"
+    "$LIB_DIR/unicode/security_spoof.asm"
+    "$LIB_DIR/convert/case.asm"
+    "$LIB_DIR/convert/punycode.asm"
+    "$LIB_DIR/buf/builder.asm"
+    "$LIB_DIR/buf/simd_utf8.asm"
+    "$LIB_DIR/rope.asm"
+    "$LIB_DIR/net/url_parser.asm"
+    "$LIB_DIR/locale/locale.asm"
+    "$LIB_DIR/encoding/stateful_codecs.asm"
+    "$LIB_DIR/diff/fuzzy_match.asm"
+    "$LIB_DIR/diff/diff.asm"
+    "$LIB_DIR/parse/json.asm"
+    "$LIB_DIR/sort/collate_tailoring.asm"
 )
 
 # Object files output directory
