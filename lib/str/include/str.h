@@ -112,6 +112,9 @@ int64_t str_count_occurrences(const StrSlice *haystack, const StrSlice *needle, 
 
 int64_t str_to_upper(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
 int64_t str_to_lower(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_to_upper_tailored(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len, const char *locale);
+int64_t str_to_lower_tailored(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len, const char *locale);
+int64_t str_to_title_tailored(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len, const char *locale);
 int64_t str_to_u64(const StrSlice *src, uint64_t *out);
 int64_t str_to_i64(const StrSlice *src, int64_t *out);
 int64_t str_u64_to_str(uint64_t val, uint8_t *dst, uint64_t cap, uint64_t *out_len);
@@ -143,6 +146,8 @@ int64_t  str_edit_distance(const StrSlice *a, const StrSlice *b, uint64_t *out_d
 int64_t  str_lcs_length(const StrSlice *a, const StrSlice *b, uint64_t *out_len);
 int64_t  str_jaro(const StrSlice *a, const StrSlice *b, uint64_t *out_score);
 int64_t  str_jaro_winkler(const StrSlice *a, const StrSlice *b, uint64_t *out_score);
+int64_t  str_diff_myers(const StrSlice *a, const StrSlice *b, int64_t *out_distance);
+int64_t  str_soundex(const StrSlice *src, uint8_t *dst, uint64_t dst_cap, uint64_t *out_len);
 
 /* ---- parse/ ---- */
 
@@ -153,6 +158,17 @@ int64_t str_parse_version(const StrSlice *src, void *out_version);
 int64_t str_parse_color(const StrSlice *src, uint32_t *out_rgba);
 int64_t str_parse_uuid(const StrSlice *src, uint8_t out_uuid[16]);
 int64_t str_parse_csv_line(const StrSlice *src, StrSlice *fields, uint64_t max_fields, uint64_t *out_count);
+
+#define JSON_NULL   1
+#define JSON_BOOL   2
+#define JSON_NUMBER 3
+#define JSON_STRING 4
+#define JSON_ARRAY  5
+#define JSON_OBJECT 6
+
+int64_t str_json_parse(const StrSlice *json,
+                       int64_t (*callback)(const StrSlice *key, const StrSlice *value, uint8_t type, void *ctx),
+                       void *ctx);
 
 /* ---- mem/ ---- */
 
@@ -183,6 +199,18 @@ int64_t str_buf_push_cstr(StrBuf *buf, const char *cstr);
 int64_t str_buf_push_u64(StrBuf *buf, uint64_t value);
 int64_t str_buf_push_newline(StrBuf *buf);
 
+typedef struct {
+    uint8_t  *ptr;
+    uint64_t  len;
+    uint64_t  cap;
+} StrBuilder;
+
+int64_t str_builder_init(StrBuilder *builder, uint8_t *buf, uint64_t cap);
+int64_t str_builder_append(StrBuilder *builder, const StrSlice *slice);
+int64_t str_builder_append_char(StrBuilder *builder, uint32_t cp);
+int64_t str_builder_clear(StrBuilder *builder);
+int64_t str_builder_build(const StrBuilder *builder, StrSlice *out);
+
 /* ---- escape/ ---- */
 
 int64_t str_html_escape(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
@@ -204,6 +232,7 @@ int64_t str_sort(void *arr, uint64_t count, uint64_t elem_size,
 int64_t str_sort_slices(StrSlice *arr, uint64_t count);
 int64_t str_sort_slices_natural(StrSlice *arr, uint64_t count);
 int64_t str_collate(const StrSlice *a, const StrSlice *b);
+int64_t str_collate_tailored(const StrSlice *a, const StrSlice *b, const char *locale, uint64_t strength);
 
 /* ---- interp/ ---- */
 
@@ -296,6 +325,8 @@ int64_t  str_is_mixed_script_confusable(const StrSlice *src);
 uint8_t  str_cp_identifier_status(uint32_t cp);
 uint8_t  str_cp_identifier_type(uint32_t cp);
 int64_t  str_cp_is_do_not_emit(uint32_t cp);
+int64_t  str_is_highly_restrictive(const StrSlice *src);
+int64_t  str_has_mixed_number_systems(const StrSlice *src);
 
 /* named sequences (named_sequences.asm) */
 uint64_t str_named_sequence_count(void);
@@ -321,6 +352,9 @@ int64_t  str_emoji_is_tag_seq(const StrSlice *src, uint64_t offset, uint64_t *ou
 int64_t  str_emoji_is_zwj_seq(const StrSlice *src, uint64_t offset, uint64_t *out_end);
 uint8_t  str_emoji_presentation_style(uint32_t base_cp, uint32_t next_cp);
 uint8_t  str_emoji_sequence_type(const StrSlice *src, uint64_t offset);
+int64_t  str_emoji_has_modifier(uint32_t cp);
+int64_t  str_emoji_resolve_modifiers(const StrSlice *src, uint64_t offset, uint64_t *out_advance, uint32_t *out_mod);
+int64_t  str_emoji_is_multi_person(const StrSlice *src, uint64_t offset);
 
 /* equivalent ideograph (equivalent_ideograph.asm) */
 uint32_t str_cp_equivalent_unified(uint32_t cp);
@@ -388,6 +422,10 @@ void    *str_rope_concat(void *left, void *right, void *arena);
 uint64_t str_rope_len(const void *rope);
 int64_t  str_rope_index(const void *rope, uint64_t idx, uint8_t *out);
 int64_t  str_rope_to_slice(const void *rope, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t  str_rope_split(void *rope, uint64_t idx, void *arena, void **out_left, void **out_right);
+int64_t  str_rope_insert(void *rope, uint64_t idx, const StrSlice *slice, void *arena);
+int64_t  str_rope_delete(void *rope, uint64_t idx, uint64_t len, void *arena);
+int64_t  str_simd_utf8_validate(const StrSlice *src);
 
 /* trie */
 int64_t str_trie_init(void *trie, void *arena);
@@ -411,10 +449,39 @@ int64_t  str_deva_akshar_count(const StrSlice *src, uint64_t *out_count);
 int64_t  str_deva_to_digits(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
 int64_t  str_deva_from_digits(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
 
+/* locale */
+typedef struct {
+    StrSlice lang;
+    StrSlice script;
+    StrSlice region;
+    StrSlice variant;
+} ParsedLocale;
+
+int64_t str_locale_parse(const StrSlice *tag, ParsedLocale *out);
+int64_t str_locale_canonicalize(const StrSlice *tag, uint8_t *dst, uint64_t dst_cap, uint64_t *out_len);
+int64_t str_locale_match_fallback(const StrSlice *locale, const StrSlice *target_list, uint64_t target_count, uint64_t *out_index);
+
+/* net */
+typedef struct {
+    StrSlice scheme;
+    StrSlice user;
+    StrSlice pass;
+    StrSlice host;
+    StrSlice port;
+    StrSlice path;
+    StrSlice query;
+    StrSlice fragment;
+} ParsedURL;
+
+int64_t str_url_parse(const StrSlice *url, ParsedURL *out);
+int64_t str_url_to_idn(const StrSlice *host, uint8_t *dst, uint64_t dst_cap, uint64_t *out_len);
+
 /* ---- encoding/ ---- */
 
 int64_t str_detect_encoding(const StrSlice *src, uint8_t *out_encoding);
 int64_t str_detect_bom(const StrSlice *src, uint8_t *out_encoding, uint64_t *out_bom_len);
+int64_t str_iso2022jp_to_utf8(const uint8_t *src, uint64_t len, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_gb18030_decode_one(const uint8_t *src, uint64_t len, uint32_t *out_cp, uint64_t *out_advance);
 
 /* Individual codec decode_one / to_utf8 functions follow the same pattern:
  *   int64_t str_<codec>_decode_one(const uint8_t *src, uint64_t len,
