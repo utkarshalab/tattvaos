@@ -401,9 +401,12 @@ STR_FUNC str_emoji_is_tag_seq
 
     guard_null rdi, STR_ERR_NULL
 
+    mov     r11, [rdi + StrSlice.ptr]
     push_regs rbx, r12, r13, r14, r15
+    push    r11                 ; stack is now 16-byte aligned
+    sub     rsp, 16             ; pre-allocate 16 bytes for out_advance
 
-    mov     r12, [rdi + StrSlice.ptr]
+    mov     r12, r11
     mov     r13, r12
     add     r13, [rdi + StrSlice.len]
     add     r12, rsi
@@ -414,14 +417,11 @@ STR_FUNC str_emoji_is_tag_seq
     jae     .ts_no
 
     ; decode first: must be BLACK_FLAG (U+1F3F4)
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, r12
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     add     r12, [rsp]
-    mov     rsp, rbp
 
     cmp     r8d, BLACK_FLAG
     jne     .ts_no
@@ -431,14 +431,11 @@ STR_FUNC str_emoji_is_tag_seq
     cmp     r12, r13
     jae     .ts_no              ; ran out of input without cancel tag
 
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, r12
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     mov     rbx, [rsp]
-    mov     rsp, rbp
 
     ; check for cancel tag
     cmp     r8d, TAG_CANCEL
@@ -464,21 +461,22 @@ STR_FUNC str_emoji_is_tag_seq
     add     r12, rbx            ; advance past cancel tag
     test    r14, r14
     jz      .ts_yes
-    ; compute end offset from original string ptr
-    ; r12 now points past cancel tag
-    ; original start was at [rdi+StrSlice.ptr] + rsi
-    sub     r12, [rsp]          ; can't do this — we lost the original ptr
-    ; simplified: store current r12 as absolute end ptr
-    ; (caller would need to subtract src.ptr to get byte offset)
-    mov     [r14], r12
+    ; compute end offset: r12 - original src->ptr
+    mov     rax, r12
+    sub     rax, [rsp + 16]     ; original src->ptr was pushed before allocating 16 bytes, so it's at [rsp + 16]
+    mov     [r14], rax
 
 .ts_yes:
+    add     rsp, 16             ; deallocate local
+    pop     r11                 ; discard original src->ptr
     pop_regs r15, r14, r13, r12, rbx
     mov     eax, 1
     pop     rbp
     ret
 
 .ts_no:
+    add     rsp, 16             ; deallocate local
+    pop     r11                 ; discard original src->ptr
     pop_regs r15, r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
@@ -512,9 +510,12 @@ STR_FUNC str_emoji_is_zwj_seq
 
     guard_null rdi, STR_ERR_NULL
 
+    mov     r11, [rdi + StrSlice.ptr]
     push_regs rbx, r12, r13, r14, r15
+    push    r11                 ; stack is now 16-byte aligned
+    sub     rsp, 16             ; pre-allocate 16 bytes for out_advance
 
-    mov     r12, [rdi + StrSlice.ptr]
+    mov     r12, r11
     mov     r13, r12
     add     r13, [rdi + StrSlice.len]
     add     r12, rsi
@@ -525,18 +526,23 @@ STR_FUNC str_emoji_is_zwj_seq
     jae     .zs_no
 
     ; decode first: must be emoji
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, r12
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     add     r12, [rsp]
-    mov     rsp, rbp
 
     ; check if emoji
+    push    rax                 ; dummy push for alignment (4 registers pushed = 32 bytes)
+    push    rcx
+    push    rdx
+    push    rsi
     mov     edi, r8d
     call    str_cp_is_emoji
+    pop     rsi
+    pop     rdx
+    pop     rcx
+    pop     rax
     test    eax, eax
     jz      .zs_no
 
@@ -545,14 +551,11 @@ STR_FUNC str_emoji_is_zwj_seq
     cmp     r12, r13
     jae     .zs_check_zwj_count
 
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, r12
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     mov     rbx, [rsp]
-    mov     rsp, rbp
 
     ; skip skin tone modifiers
     cmp     r8d, 0x1F3FB
@@ -577,17 +580,22 @@ STR_FUNC str_emoji_is_zwj_seq
     cmp     r12, r13
     jae     .zs_check_zwj_count
 
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, r12
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     add     r12, [rsp]
-    mov     rsp, rbp
 
+    push    rax                 ; dummy push for alignment
+    push    rcx
+    push    rdx
+    push    rsi
     mov     edi, r8d
     call    str_cp_is_emoji
+    pop     rsi
+    pop     rdx
+    pop     rcx
+    pop     rax
     test    eax, eax
     jz      .zs_check_zwj_count
 
@@ -604,15 +612,22 @@ STR_FUNC str_emoji_is_zwj_seq
 
     test    r14, r14
     jz      .zs_yes
-    mov     [r14], r12          ; end position
+    ; compute end offset: r12 - original src->ptr
+    mov     rax, r12
+    sub     rax, [rsp + 16]     ; original src->ptr is at [rsp + 16]
+    mov     [r14], rax
 
 .zs_yes:
+    add     rsp, 16             ; deallocate local
+    pop     r11                 ; discard original src->ptr
     pop_regs r15, r14, r13, r12, rbx
     mov     eax, 1
     pop     rbp
     ret
 
 .zs_no:
+    add     rsp, 16             ; deallocate local
+    pop     r11                 ; discard original src->ptr
     pop_regs r15, r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
