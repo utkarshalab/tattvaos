@@ -244,6 +244,7 @@ STR_FUNC str_to_upper
     guard_null rcx, STR_ERR_NULL
 
     push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, rdi            ; src
     mov     r12, rsi            ; buf
@@ -261,20 +262,15 @@ STR_FUNC str_to_upper
     jae     .tu_done
 
     ; decode codepoint
-    sub     rsp, 16
-    and     rsp, -16
-
     mov     rdi, r15
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
-
     mov     r8, [rsp]           ; advance
-    mov     rsp, rbp
-
     add     r15, r8
 
     ; convert to upper
     mov     edi, eax
+    push    rax                 ; dummy push for alignment (4 registers pushed)
     push    r15
     push    r10
     push    r11
@@ -282,6 +278,7 @@ STR_FUNC str_to_upper
     pop     r11
     pop     r10
     pop     r15
+    pop     rcx
 
     ; encode result
     ; check we have room (worst case 4 bytes)
@@ -294,11 +291,15 @@ STR_FUNC str_to_upper
 
     mov     edi, eax
     mov     rsi, r11
+    push    rax                 ; dummy push for alignment (4 registers pushed)
+    push    rax
     push    r15
     push    r10
     call    str_utf8_encode_unchecked
     pop     r10
     pop     r15
+    pop     rcx
+    pop     rcx
     ; rax = bytes written
 
     add     r11, rax
@@ -311,12 +312,14 @@ STR_FUNC str_to_upper
     sub     rax, r12
     mov     [r14 + StrSlice.len], rax
 
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
     ret
 
 .tu_too_small:
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     mov     rax, STR_ERR_BUF_TOO_SMALL
     pop     rbp
@@ -341,6 +344,7 @@ STR_FUNC str_to_lower
     guard_null rcx, STR_ERR_NULL
 
     push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, rdi
     mov     r12, rsi
@@ -357,18 +361,14 @@ STR_FUNC str_to_lower
     cmp     r15, r10
     jae     .tl_done
 
-    sub     rsp, 16
-    and     rsp, -16
-
     mov     rdi, r15
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
-
     mov     r8, [rsp]
-    mov     rsp, rbp
     add     r15, r8
 
     mov     edi, eax
+    push    rax                 ; dummy push for alignment
     push    r15
     push    r10
     push    r11
@@ -376,6 +376,7 @@ STR_FUNC str_to_lower
     pop     r11
     pop     r10
     pop     r15
+    pop     rcx
 
     mov     rcx, r11
     sub     rcx, r12
@@ -386,11 +387,15 @@ STR_FUNC str_to_lower
 
     mov     edi, eax
     mov     rsi, r11
+    push    rax                 ; dummy push for alignment
+    push    rax
     push    r15
     push    r10
     call    str_utf8_encode_unchecked
     pop     r10
     pop     r15
+    pop     rcx
+    pop     rcx
 
     add     r11, rax
     jmp     .tl_loop
@@ -401,12 +406,14 @@ STR_FUNC str_to_lower
     sub     rax, r12
     mov     [r14 + StrSlice.len], rax
 
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
     ret
 
 .tl_too_small:
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     mov     rax, STR_ERR_BUF_TOO_SMALL
     pop     rbp
@@ -434,6 +441,7 @@ STR_FUNC str_to_title
     guard_null rcx, STR_ERR_NULL
 
     push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, rdi
     mov     r12, rsi
@@ -452,15 +460,10 @@ STR_FUNC str_to_title
     cmp     r15, r10
     jae     .tt_done
 
-    sub     rsp, 16
-    and     rsp, -16
-
     mov     rdi, r15
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
-
     mov     rcx, [rsp]          ; advance
-    mov     rsp, rbp
     add     r15, rcx
 
     ; check if space
@@ -470,7 +473,9 @@ STR_FUNC str_to_title
     push    r10
     push    r11
     push    r8
+    push    rax                 ; dummy push for alignment (6 registers total pushed = 48 bytes)
     call    str_is_space_cp
+    pop     rcx
     pop     r8
     pop     r11
     pop     r10
@@ -489,7 +494,7 @@ STR_FUNC str_to_title
     push    r15
     push    r10
     push    r11
-    push    r8
+    push    r8                  ; (4 registers pushed = 32 bytes)
     call    str_cp_to_lower
     pop     r8
     pop     r11
@@ -503,7 +508,7 @@ STR_FUNC str_to_title
     push    r15
     push    r10
     push    r11
-    push    r8
+    push    r8                  ; (4 registers pushed = 32 bytes)
     call    str_cp_to_upper
     pop     r8
     pop     r11
@@ -527,6 +532,7 @@ STR_FUNC str_to_title
 
     mov     edi, eax
     mov     rsi, r11
+    push    rax                 ; dummy push for alignment (4 registers pushed)
     push    r15
     push    r10
     push    r8
@@ -534,6 +540,7 @@ STR_FUNC str_to_title
     pop     r8
     pop     r10
     pop     r15
+    pop     rcx
 
     add     r11, rax
     jmp     .tt_loop
@@ -544,12 +551,14 @@ STR_FUNC str_to_title
     sub     rax, r12
     mov     [r14 + StrSlice.len], rax
 
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
     ret
 
 .tt_too_small:
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     mov     rax, STR_ERR_BUF_TOO_SMALL
     pop     rbp
