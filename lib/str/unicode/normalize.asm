@@ -55,7 +55,7 @@ extern str_utf8_encode_unchecked
 extern _ucd_decomp_index    ; lookup: cp → (offset, len, is_compat)
 extern _ucd_decomp_data     ; flat array of decomposition codepoints
 extern _ucd_compose_index   ; (starter, combining) → composed cp
-extern _ucd_ccc_table       ; cp → canonical combining class
+extern str_cp_ccc
 
 ; Hangul constants (algorithmic decomposition — no table needed)
 HANGUL_SBASE    equ 0xAC00
@@ -70,49 +70,6 @@ HANGUL_SCOUNT   equ 11172    ; LCOUNT * NCOUNT
 HANGUL_SLAST    equ 0xD7A3   ; SBASE + SCOUNT - 1
 
 section .text
-
-; -----------------------------------------------------------------------------
-; str_cp_ccc
-;
-; Get the canonical combining class of a codepoint.
-; 0 = starter (not a combining mark).
-; 1-254 = combining mark with that class.
-;
-; Signature:
-;   uint8_t str_cp_ccc(uint32_t cp)
-;
-; Arguments:
-;   EDI  — codepoint
-;
-; Returns:
-;   AL   — combining class (0 for most characters)
-; -----------------------------------------------------------------------------
-
-STR_FUNC str_cp_ccc
-
-    cmp     edi, 0x10FFFF
-    ja      .ccc_zero
-
-    ; two-stage lookup like category table
-    mov     eax, edi
-    shr     eax, 8
-
-    lea     r8, [rel _ucd_ccc_table]
-    ; simplified: direct table for BMP, default 0 elsewhere
-    ; (real table is two-stage trie)
-    cmp     edi, 0x10000
-    jae     .ccc_zero           ; most combining marks are in BMP
-
-    movzx   eax, byte [r8 + rdi]
-    pop     rbp
-    ret
-
-.ccc_zero:
-    xor     eax, eax
-    pop     rbp
-    ret
-
-STR_ENDFUNC str_cp_ccc
 
 ; -----------------------------------------------------------------------------
 ; _hangul_decompose  (internal)
