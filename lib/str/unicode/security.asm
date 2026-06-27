@@ -402,6 +402,7 @@ STR_FUNC str_is_mixed_script_confusable
     guard_null rdi, STR_ERR_NULL
 
     push_regs rbx, r12, r13, r14
+    sub     rsp, 16             ; pre-allocate 16 bytes for out_advance
 
     mov     rbx, [rdi + StrSlice.ptr]
     mov     r12, rbx
@@ -415,20 +416,19 @@ STR_FUNC str_is_mixed_script_confusable
     jae     .msc_check
 
     ; decode codepoint
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, rbx
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax            ; codepoint
     add     rbx, [rsp]
-    mov     rsp, rbp
 
     ; get script
+    push    rax                 ; dummy push for alignment
+    push    r8                  ; preserve r8
     mov     edi, r8d
-    push    r8
     call    str_cp_script
     pop     r8
+    pop     rax
     movzx   ecx, al             ; script id
 
     ; skip Common (0) and Inherited (1)
@@ -460,12 +460,14 @@ STR_FUNC str_is_mixed_script_confusable
     ;   Latin + Armenian (some chars)
     ; For robustness, any 2+ scripts = potential concern
 
+    add     rsp, 16             ; deallocate
     pop_regs r14, r13, r12, rbx
     mov     eax, 1
     pop     rbp
     ret
 
 .msc_safe:
+    add     rsp, 16             ; deallocate
     pop_regs r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
