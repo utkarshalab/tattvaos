@@ -218,6 +218,7 @@ STR_FUNC str_normalize_nfd
     guard_null rsi, STR_ERR_NULL
 
     push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, [rdi + StrSlice.ptr]   ; src ptr
     mov     r12, rbx
@@ -233,27 +234,20 @@ STR_FUNC str_normalize_nfd
     jae     .nfd_reorder
 
     ; decode codepoint
-    sub     rsp, 16
-    and     rsp, -16
-
     mov     rdi, rbx
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r10d, eax           ; codepoint
     add     rbx, [rsp]
-    mov     rsp, rbp
 
     ; try Hangul decomposition first
-    sub     rsp, 16
-    and     rsp, -16
-
     mov     edi, r10d
-    lea     rsi, [rsp]
+    lea     rsi, [rsp + 8]      ; pass pointer to a safe scratch space on stack
     call    _hangul_decompose
     test    rax, rax
     jz      .nfd_table_decomp
 
-    ; Hangul: write rax codepoints from [rsp]
+    ; Hangul: write rax codepoints from [rsp+8]
     mov     r11, rax            ; count
     xor     ecx, ecx
 
@@ -261,36 +255,45 @@ STR_FUNC str_normalize_nfd
     cmp     rcx, r11
     jae     .nfd_hangul_done
 
-    mov     edi, [rsp + rcx * 4]
+    mov     edi, [rsp + 8 + rcx * 4]
+    push    rax                 ; dummy push for alignment (4 registers pushed = 32 bytes)
     push    rcx
     push    r11
+    push    rsi
     mov     rsi, r13
     add     rsi, r9
     call    str_utf8_encode_unchecked
     add     r9, rax
+    pop     rsi
     pop     r11
     pop     rcx
+    pop     rax
     inc     rcx
     jmp     .nfd_hangul_write
 
 .nfd_hangul_done:
-    mov     rsp, rbp
     jmp     .nfd_loop
 
 .nfd_table_decomp:
-    mov     rsp, rbp
-
     ; look up canonical decomposition in table
     ; _ucd_decomp_index[cp] → (offset:24, len:7, compat:1)
     ; For codepoints with no decomposition, write as-is.
 
     ; simplified: encode the codepoint as-is (full table lookup omitted
     ; pending generated decomp_table.s)
+    push    rax                 ; dummy push for alignment
+    push    rcx
+    push    rdx
+    push    rsi
     mov     edi, r10d
     mov     rsi, r13
     add     rsi, r9
     call    str_utf8_encode_unchecked
     add     r9, rax
+    pop     rsi
+    pop     rdx
+    pop     rcx
+    pop     rax
     jmp     .nfd_loop
 
 .nfd_reorder:
@@ -307,6 +310,7 @@ STR_FUNC str_normalize_nfd
     mov     [r15], r9
 
 .nfd_ok:
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
@@ -394,6 +398,7 @@ STR_FUNC str_normalize_nfkd
     guard_null rsi, STR_ERR_NULL
 
     push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, [rdi + StrSlice.ptr]   ; src ptr
     mov     r12, rbx
@@ -409,27 +414,20 @@ STR_FUNC str_normalize_nfkd
     jae     .nfkd_reorder
 
     ; decode codepoint
-    sub     rsp, 16
-    and     rsp, -16
-
     mov     rdi, rbx
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r10d, eax           ; codepoint
     add     rbx, [rsp]
-    mov     rsp, rbp
 
     ; try Hangul decomposition first (Hangul is always canonical)
-    sub     rsp, 16
-    and     rsp, -16
-
     mov     edi, r10d
-    lea     rsi, [rsp]
+    lea     rsi, [rsp + 8]      ; pass pointer to a safe scratch space on stack
     call    _hangul_decompose
     test    rax, rax
     jz      .nfkd_table_decomp
 
-    ; Hangul: write rax codepoints from [rsp]
+    ; Hangul: write rax codepoints from [rsp+8]
     mov     r11, rax
     xor     ecx, ecx
 
@@ -437,25 +435,26 @@ STR_FUNC str_normalize_nfkd
     cmp     rcx, r11
     jae     .nfkd_hangul_done
 
-    mov     edi, [rsp + rcx * 4]
+    mov     edi, [rsp + 8 + rcx * 4]
+    push    rax                 ; dummy push for alignment (4 registers pushed = 32 bytes)
     push    rcx
     push    r11
+    push    rsi
     mov     rsi, r13
     add     rsi, r9
     call    str_utf8_encode_unchecked
     add     r9, rax
+    pop     rsi
     pop     r11
     pop     rcx
+    pop     rax
     inc     rcx
     jmp     .nfkd_hangul_write
 
 .nfkd_hangul_done:
-    mov     rsp, rbp
     jmp     .nfkd_loop
 
 .nfkd_table_decomp:
-    mov     rsp, rbp
-
     ; Look up decomposition in table — NFKD uses ALL decompositions
     ; (both canonical and compatibility), unlike NFD which only uses canonical.
     ;
@@ -496,6 +495,7 @@ STR_FUNC str_normalize_nfkd
     cmp     ecx, edx
     jae     .nfkd_loop
 
+    push    rax                 ; dummy push for alignment (4 registers pushed = 32 bytes)
     push    rcx
     push    rdx
     push    rsi
@@ -509,16 +509,25 @@ STR_FUNC str_normalize_nfkd
     pop     rsi
     pop     rdx
     pop     rcx
+    pop     rax
     inc     ecx
     jmp     .nfkd_write_decomp
 
 .nfkd_passthrough:
     ; no decomposition — encode as-is
+    push    rax                 ; dummy push for alignment
+    push    rcx
+    push    rdx
+    push    rsi
     mov     edi, r10d
     mov     rsi, r13
     add     rsi, r9
     call    str_utf8_encode_unchecked
     add     r9, rax
+    pop     rsi
+    pop     rdx
+    pop     rcx
+    pop     rax
     jmp     .nfkd_loop
 
 .nfkd_reorder:
@@ -531,6 +540,7 @@ STR_FUNC str_normalize_nfkd
     mov     [r15], r9
 
 .nfkd_ok:
+    add     rsp, 24             ; deallocate
     pop_regs r15, r14, r13, r12, rbx
     xor     eax, eax
     pop     rbp
@@ -628,6 +638,7 @@ STR_FUNC str_is_nfc
     guard_null rdi, STR_ERR_NULL
 
     push_regs rbx, r12, r13
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, [rdi + StrSlice.ptr]
     mov     r12, rbx
@@ -639,24 +650,23 @@ STR_FUNC str_is_nfc
     cmp     rbx, r12
     jae     .isnfc_yes
 
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, rbx
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     add     rbx, [rsp]
-    mov     rsp, rbp
 
     ; check for canonical decomposition (NFC_QC=No for chars with canonical decomp
     ; that are not composition exclusions — simplified: check if has decomp)
     ; Hangul syllables that decompose are NFC_QC=Yes (they're composed forms)
 
     ; get CCC
+    push    rax                 ; dummy push for alignment (16 bytes aligned)
+    push    r8                  ; preserve r8
     mov     edi, r8d
-    push    r8
     call    str_cp_ccc
     pop     r8
+    pop     rax
     movzx   ecx, al
 
     ; if ccc != 0 and ccc < last_ccc → ordering violation → not NFC
@@ -671,12 +681,14 @@ STR_FUNC str_is_nfc
     jmp     .isnfc_loop
 
 .isnfc_yes:
+    add     rsp, 24             ; deallocate
     pop_regs r13, r12, rbx
     mov     eax, 1
     pop     rbp
     ret
 
 .isnfc_no:
+    add     rsp, 24             ; deallocate
     pop_regs r13, r12, rbx
     xor     eax, eax
     pop     rbp
@@ -705,6 +717,7 @@ STR_FUNC str_is_nfd
     guard_null rdi, STR_ERR_NULL
 
     push_regs rbx, r12, r13
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, [rdi + StrSlice.ptr]
     mov     r12, rbx
@@ -716,14 +729,11 @@ STR_FUNC str_is_nfd
     cmp     rbx, r12
     jae     .isnfd_yes
 
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, rbx
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     add     rbx, [rsp]
-    mov     rsp, rbp
 
     ; check if codepoint has canonical decomposition → not NFD
     ; Hangul syllables decompose → not NFD
@@ -737,21 +747,25 @@ STR_FUNC str_is_nfd
     cmp     r8d, 0x10000
     jae     .isnfd_chk_ccc      ; SMP: simplified — assume no canonical decomp
 
+    push    rax                 ; dummy push for alignment
     push    r8
     lea     rax, [rel _ucd_decomp_index]
     mov     eax, [rax + r8 * 4]
     mov     ecx, eax
     and     ecx, 0x0F
     pop     r8
+    pop     rax
     cmp     ecx, 1              ; DECOMP_CANONICAL
     je      .isnfd_no           ; has canonical decomposition → not NFD
 
 .isnfd_chk_ccc:
     ; get CCC and check ordering
-    mov     edi, r8d
+    push    rax                 ; dummy push for alignment
     push    r8
+    mov     edi, r8d
     call    str_cp_ccc
     pop     r8
+    pop     rax
     movzx   ecx, al
 
     test    ecx, ecx
@@ -765,12 +779,14 @@ STR_FUNC str_is_nfd
     jmp     .isnfd_loop
 
 .isnfd_yes:
+    add     rsp, 24             ; deallocate
     pop_regs r13, r12, rbx
     mov     eax, 1
     pop     rbp
     ret
 
 .isnfd_no:
+    add     rsp, 24             ; deallocate
     pop_regs r13, r12, rbx
     xor     eax, eax
     pop     rbp
@@ -798,6 +814,7 @@ STR_FUNC str_is_nfkc
     guard_null rdi, STR_ERR_NULL
 
     push_regs rbx, r12, r13
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, [rdi + StrSlice.ptr]
     mov     r12, rbx
@@ -809,26 +826,25 @@ STR_FUNC str_is_nfkc
     cmp     rbx, r12
     jae     .isnfkc_yes
 
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, rbx
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     add     rbx, [rsp]
-    mov     rsp, rbp
 
     ; check if codepoint has ANY decomposition (canonical or compat)
     ; If it has a compat decomposition, it's not NFKC
     cmp     r8d, 0x10000
     jae     .isnfkc_chk_smp
 
+    push    rax                 ; dummy push for alignment
     push    r8
     lea     rax, [rel _ucd_decomp_index]
     mov     eax, [rax + r8 * 4]
     mov     ecx, eax
     and     ecx, 0x0F
     pop     r8
+    pop     rax
 
     ; type > 1 means compatibility decomposition → not NFKC
     cmp     ecx, 2
@@ -846,10 +862,12 @@ STR_FUNC str_is_nfkc
 
 .isnfkc_chk_ccc:
     ; get CCC and check ordering
-    mov     edi, r8d
+    push    rax                 ; dummy push for alignment
     push    r8
+    mov     edi, r8d
     call    str_cp_ccc
     pop     r8
+    pop     rax
     movzx   ecx, al
 
     test    ecx, ecx
@@ -863,12 +881,14 @@ STR_FUNC str_is_nfkc
     jmp     .isnfkc_loop
 
 .isnfkc_yes:
+    add     rsp, 24             ; deallocate
     pop_regs r13, r12, rbx
     mov     eax, 1
     pop     rbp
     ret
 
 .isnfkc_no:
+    add     rsp, 24             ; deallocate
     pop_regs r13, r12, rbx
     xor     eax, eax
     pop     rbp
@@ -896,6 +916,7 @@ STR_FUNC str_is_nfkd
     guard_null rdi, STR_ERR_NULL
 
     push_regs rbx, r12, r13
+    sub     rsp, 24             ; pre-allocate 16 bytes for out_advance + 8 bytes padding
 
     mov     rbx, [rdi + StrSlice.ptr]
     mov     r12, rbx
@@ -907,14 +928,11 @@ STR_FUNC str_is_nfkd
     cmp     rbx, r12
     jae     .isnfkd_yes
 
-    sub     rsp, 16
-    and     rsp, -16
     mov     rdi, rbx
-    lea     rsi, [rsp]
+    lea     rsi, [rsp]          ; out_advance is at [rsp]
     call    str_utf8_decode_unchecked
     mov     r8d, eax
     add     rbx, [rsp]
-    mov     rsp, rbp
 
     ; Hangul syllables → decomposable → not NFKD
     cmp     r8d, 0xAC00
@@ -927,12 +945,14 @@ STR_FUNC str_is_nfkd
     cmp     r8d, 0x10000
     jae     .isnfkd_chk_smp
 
+    push    rax                 ; dummy push for alignment
     push    r8
     lea     rax, [rel _ucd_decomp_index]
     mov     eax, [rax + r8 * 4]
     mov     ecx, eax
     and     ecx, 0x0F
     pop     r8
+    pop     rax
     test    ecx, ecx
     jnz     .isnfkd_no          ; ANY decomposition → not NFKD
 
@@ -953,10 +973,12 @@ STR_FUNC str_is_nfkd
 
 .isnfkd_chk_ccc:
     ; get CCC and check ordering
-    mov     edi, r8d
+    push    rax                 ; dummy push for alignment
     push    r8
+    mov     edi, r8d
     call    str_cp_ccc
     pop     r8
+    pop     rax
     movzx   ecx, al
 
     test    ecx, ecx
@@ -970,12 +992,14 @@ STR_FUNC str_is_nfkd
     jmp     .isnfkd_loop
 
 .isnfkd_yes:
+    add     rsp, 24             ; deallocate
     pop_regs r13, r12, rbx
     mov     eax, 1
     pop     rbp
     ret
 
 .isnfkd_no:
+    add     rsp, 24             ; deallocate
     pop_regs r13, r12, rbx
     xor     eax, eax
     pop     rbp
