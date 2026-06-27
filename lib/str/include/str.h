@@ -232,6 +232,7 @@ uint64_t str_regex_count(const void *regex, const StrSlice *input);
 
 /* ---- unicode/ ---- */
 
+/* category, normalization, grapheme, word, sentence, linebreak, fold, block, name */
 uint8_t  str_cp_category(uint32_t cp);
 int64_t  str_cp_category_str(uint32_t cp, uint8_t *out2);
 uint8_t  str_cp_category_group(uint32_t cp);
@@ -242,7 +243,12 @@ int64_t  str_cp_is_punct(uint32_t cp);
 uint8_t  str_cp_ccc(uint32_t cp);
 int64_t  str_normalize_nfd(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
 int64_t  str_normalize_nfc(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t  str_normalize_nfkd(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t  str_normalize_nfkc(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
 int64_t  str_is_nfc(const StrSlice *src);
+int64_t  str_is_nfd(const StrSlice *src);
+int64_t  str_is_nfkc(const StrSlice *src);
+int64_t  str_is_nfkd(const StrSlice *src);
 int64_t  str_grapheme_count(const StrSlice *src, uint64_t *out_count);
 int64_t  str_grapheme_next(const StrSlice *src, uint64_t offset, uint64_t *out_next);
 int64_t  str_grapheme_truncate(const StrSlice *src, uint64_t max_graphemes, uint64_t *out_byte_len);
@@ -269,6 +275,83 @@ int64_t  str_bidi_resolve(const StrSlice *src, uint8_t base_level,
                           uint8_t *levels, uint64_t cap, uint64_t *out_count);
 int64_t  str_bidi_reorder(const uint8_t *levels, uint64_t count, uint32_t *visual_order);
 int64_t  str_bidi_is_rtl(const StrSlice *src);
+
+/* decomposition type queries (decomposition.asm) */
+uint8_t  str_cp_decomp_type(uint32_t cp);
+int64_t  str_cp_has_decomp(uint32_t cp);
+int64_t  str_cp_is_compat_decomp(uint32_t cp);
+int64_t  str_cp_decomp_mapping(uint32_t cp, uint32_t *out_buf, uint64_t cap, uint64_t *out_count);
+uint64_t str_cp_decomp_length(uint32_t cp);
+
+/* composition exclusion (composition_exclusion.asm) */
+int64_t  str_cp_is_composition_exclusion(uint32_t cp);
+int64_t  str_cp_is_full_composition_exclusion(uint32_t cp);
+int64_t  str_cp_is_singleton_decomp(uint32_t cp);
+int64_t  str_cp_is_nonstarter_decomp(uint32_t cp);
+
+/* security / confusable detection (security.asm) */
+uint32_t str_cp_skeleton(uint32_t cp);
+int64_t  str_cp_is_confusable_with(uint32_t cp1, uint32_t cp2);
+int64_t  str_is_mixed_script_confusable(const StrSlice *src);
+uint8_t  str_cp_identifier_status(uint32_t cp);
+uint8_t  str_cp_identifier_type(uint32_t cp);
+int64_t  str_cp_is_do_not_emit(uint32_t cp);
+
+/* named sequences (named_sequences.asm) */
+uint64_t str_named_sequence_count(void);
+int64_t  str_named_sequence_lookup(const StrSlice *name, uint32_t *out_cps,
+                                    uint64_t cap, uint64_t *out_count);
+int64_t  str_named_sequence_by_index(uint64_t index, uint32_t *out_cps,
+                                      uint64_t cap, uint64_t *out_count);
+int64_t  str_named_sequence_name(uint64_t index, StrSlice *out);
+
+/* standardized variants (standardized_variants.asm) */
+int64_t  str_cp_is_variation_selector(uint32_t cp);
+int64_t  str_cp_variation_selector_num(uint32_t cp);
+int64_t  str_cp_has_standardized_variant(uint32_t cp);
+uint64_t str_cp_variant_count(uint32_t cp);
+int64_t  str_is_text_presentation(uint32_t cp);
+int64_t  str_is_emoji_presentation_vs(uint32_t cp);
+
+/* emoji sequences (emoji_sequences.asm) */
+int64_t  str_emoji_is_keycap_seq(const StrSlice *src, uint64_t offset, uint64_t *out_end);
+int64_t  str_emoji_is_flag_seq(const StrSlice *src, uint64_t offset, uint64_t *out_end);
+int64_t  str_emoji_is_modifier_seq(const StrSlice *src, uint64_t offset, uint64_t *out_end);
+int64_t  str_emoji_is_tag_seq(const StrSlice *src, uint64_t offset, uint64_t *out_end);
+int64_t  str_emoji_is_zwj_seq(const StrSlice *src, uint64_t offset, uint64_t *out_end);
+uint8_t  str_emoji_presentation_style(uint32_t base_cp, uint32_t next_cp);
+uint8_t  str_emoji_sequence_type(const StrSlice *src, uint64_t offset);
+
+/* equivalent ideograph (equivalent_ideograph.asm) */
+uint32_t str_cp_equivalent_unified(uint32_t cp);
+int64_t  str_cp_is_compat_ideograph(uint32_t cp);
+int64_t  str_cp_is_cjk_unified(uint32_t cp);
+
+/* do-not-emit (do_not_emit.asm) */
+uint8_t  str_cp_do_not_emit_reason(uint32_t cp);
+int64_t  str_cp_is_deprecated(uint32_t cp);
+
+/* property aliases (property_aliases.asm) */
+int64_t  str_property_from_alias(const StrSlice *alias, uint8_t *out_prop_id);
+int64_t  str_property_value_from_alias(uint8_t prop_id, const StrSlice *alias,
+                                        uint8_t *out_value_id);
+int64_t  str_property_short_name(uint8_t prop_id, StrSlice *out);
+int64_t  str_property_long_name(uint8_t prop_id, StrSlice *out);
+
+/* normalization corrections (normalization_corrections.asm) */
+int64_t  str_cp_has_norm_correction(uint32_t cp);
+uint32_t str_cp_norm_correction_old(uint32_t cp);
+uint32_t str_cp_norm_correction_new(uint32_t cp);
+uint16_t str_cp_norm_correction_ver(uint32_t cp);
+
+/* nushu / tangut (nushu_tangut.asm) */
+int64_t  str_cp_is_nushu(uint32_t cp);
+int64_t  str_cp_is_tangut(uint32_t cp);
+int64_t  str_cp_is_tangut_component(uint32_t cp);
+int64_t  str_cp_nushu_radical(uint32_t cp, uint8_t *out_radical);
+int64_t  str_cp_nushu_strokes(uint32_t cp, uint8_t *out_strokes);
+int64_t  str_cp_tangut_radical(uint32_t cp, uint16_t *out_radical);
+int64_t  str_cp_tangut_strokes(uint32_t cp, uint8_t *out_strokes);
 
 /* ---- path/ ---- */
 
