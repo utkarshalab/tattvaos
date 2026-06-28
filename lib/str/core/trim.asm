@@ -363,3 +363,20 @@ STR_FUNC str_trim_byte
     ret
 
 STR_ENDFUNC str_trim_byte
+
+; -----------------------------------------------------------------------------
+; str_normalize_whitespace
+;
+; Trim leading/trailing whitespace and collapse intermediate run to single space.
+; Equivalent to str_squeeze_whitespace.
+;
+; Signature:
+;   int64_t str_normalize_whitespace(const StrSlice *src, uint8_t *dst,
+;                                    uint64_t cap, uint64_t *out_len)
+; -----------------------------------------------------------------------------
+extern str_squeeze_whitespace
+
+STR_FUNC str_normalize_whitespace
+    jmp     str_squeeze_whitespace
+STR_ENDFUNC str_normalize_whitespace
+
