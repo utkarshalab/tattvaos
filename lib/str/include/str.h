@@ -483,7 +483,7 @@ int64_t str_detect_bom(const StrSlice *src, uint8_t *out_encoding, uint64_t *out
 int64_t str_iso2022jp_to_utf8(const uint8_t *src, uint64_t len, uint8_t *dst, uint64_t cap, uint64_t *out_len);
 int64_t str_gb18030_decode_one(const uint8_t *src, uint64_t len, uint32_t *out_cp, uint64_t *out_advance);
 
-/* Individual codec decode_one / to_utf8 functions follow the same pattern:
+#Individual codec decode_one / to_utf8 functions follow the same pattern:
  *   int64_t str_<codec>_decode_one(const uint8_t *src, uint64_t len,
  *                                   uint32_t *out_cp, uint64_t *out_advance);
  *   int64_t str_<codec>_to_utf8(const uint8_t *src, uint64_t len,
@@ -493,6 +493,82 @@ int64_t str_gb18030_decode_one(const uint8_t *src, uint64_t len, uint32_t *out_c
  *         gb2312, gbk, gb18030, big5, shiftjis, euc_jp, euc_kr,
  *         iso2022, utf7, utf16le, utf16be, utf32le, utf32be
  */
+
+/* ---- Newly implemented functions ---- */
+int64_t str_replace(const StrSlice *src, const StrSlice *target, const StrSlice *repl, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_replace_all(const StrSlice *src, const StrSlice *target, const StrSlice *repl, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_replace_n(const StrSlice *src, const StrSlice *target, const StrSlice *repl, uint64_t n, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_join(const StrSlice *parts, uint64_t count, const StrSlice *delim, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_lines_next(const StrSlice *src, uint64_t *offset, StrSlice *out_line);
+int64_t str_lines_count(const StrSlice *src, uint64_t *out_count);
+int64_t str_nth_line(const StrSlice *src, uint64_t n, StrSlice *out_line);
+int64_t str_squeeze_whitespace(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_squeeze_char(const StrSlice *src, uint8_t ch, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_insert_at(const StrSlice *src, uint64_t offset, const StrSlice *val, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_remove_range(const StrSlice *src, uint64_t offset, uint64_t len, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_remove_char(const StrSlice *src, uint8_t ch, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_remove_chars(const StrSlice *src, const StrSlice *chars, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_partition(const StrSlice *src, const StrSlice *sep, StrSlice *left, StrSlice *middle, StrSlice *right);
+int64_t str_rpartition(const StrSlice *src, const StrSlice *sep, StrSlice *left, StrSlice *middle, StrSlice *right);
+int64_t str_strip_prefix(const StrSlice *src, const StrSlice *prefix, StrSlice *out);
+int64_t str_strip_suffix(const StrSlice *src, const StrSlice *suffix, StrSlice *out);
+int64_t str_common_prefix_len(const StrSlice *a, const StrSlice *b, uint64_t *out_len);
+int64_t str_common_suffix_len(const StrSlice *a, const StrSlice *b, uint64_t *out_len);
+int64_t str_translate(const StrSlice *src, const StrSlice *from, const StrSlice *to, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_delete_chars(const StrSlice *src, const StrSlice *chars, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_expandtabs(const StrSlice *src, uint64_t tab_size, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_chomp(const StrSlice *src, StrSlice *out);
+int64_t str_chop(const StrSlice *src, StrSlice *out);
+int64_t str_count_lines(const StrSlice *src, uint64_t *out_count);
+int64_t str_rfind(const StrSlice *src, const StrSlice *sub, uint64_t *out_offset);
+int64_t str_rcontains(const StrSlice *src, const StrSlice *sub);
+int64_t str_last_index_of(const StrSlice *src, uint8_t ch, uint64_t *out_offset);
+int64_t str_find_any_of(const StrSlice *src, const StrSlice *chars, uint64_t *out_offset);
+int64_t str_find_none_of(const StrSlice *src, const StrSlice *chars, uint64_t *out_offset);
+int64_t str_bmh_replace_all(const StrSlice *src, const StrSlice *target, const StrSlice *repl, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_is_all_ascii(const StrSlice *src);
+int64_t str_is_all_upper(const StrSlice *src);
+int64_t str_is_all_lower(const StrSlice *src);
+int64_t str_is_all_digits(const StrSlice *src);
+int64_t str_is_all_space(const StrSlice *src);
+int64_t str_is_identifier(const StrSlice *src);
+int64_t str_is_printable_str(const StrSlice *src);
+int64_t str_is_palindrome(const StrSlice *src);
+int64_t str_to_title_case(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_capitalize(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_swap_case(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_rot13(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_caesar(const StrSlice *src, int64_t shift, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_slugify(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_to_snake_case(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_to_kebab_case(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_to_camel_case(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_to_pascal_case(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_indent(const StrSlice *src, uint64_t spaces, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_dedent(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_word_wrap(const StrSlice *src, uint64_t width, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_format_thousands(int64_t val, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_format_ordinal(uint64_t val, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_format_bytesize(uint64_t val, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_format_duration(uint64_t seconds, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_format_relative_time(int64_t seconds_diff, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_regex_replace(const StrSlice *src, const StrSlice *pattern, const StrSlice *replacement, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_uri_encode(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_uri_decode(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+uint64_t str_ngram_count(const StrSlice *src, uint64_t n);
+int64_t str_ngram_extract(const StrSlice *src, uint64_t n, StrSlice *out_grams, uint64_t max_count, uint64_t *out_count);
+int64_t str_jaccard_similarity(const StrSlice *a, const StrSlice *b, uint64_t n, double *out_sim);
+int64_t str_metaphone(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+
+int64_t str_strip_bom(const StrSlice *src, StrSlice *out);
+int64_t str_center(const StrSlice *src, uint64_t width, uint8_t fill_char, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_zfill(const StrSlice *src, uint64_t width, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_truncate_ellipsis(const StrSlice *src, uint64_t max_graphemes, const StrSlice *ellipsis, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_display_truncate(const StrSlice *src, uint64_t max_columns, uint64_t *out_byte_len);
+int64_t str_normalize_whitespace(const StrSlice *src, uint8_t *dst, uint64_t cap, uint64_t *out_len);
+int64_t str_levenshtein_ratio(const StrSlice *a, const StrSlice *b, double *out_ratio);
+int64_t str_dice_coefficient(const StrSlice *a, const StrSlice *b, double *out_coeff);
+int64_t str_collation_key(const StrSlice *src, uint8_t *dst, uint64_t dst_cap, uint64_t *out_len);
 
 #ifdef __cplusplus
 }
