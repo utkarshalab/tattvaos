@@ -535,3 +535,128 @@ STR_FUNC str_grapheme_truncate
     ret
 
 STR_ENDFUNC str_grapheme_truncate
+
+; -----------------------------------------------------------------------------
+; str_truncate_ellipsis
+;
+; Truncate a string to max graphemes, appending ellipsis if truncated.
+;
+; Signature:
+;   int64_t str_truncate_ellipsis(const StrSlice *src, uint64_t max_graphemes,
+;                                 const StrSlice *ellipsis, uint8_t *dst,
+;                                 uint64_t cap, uint64_t *out_len)
+; -----------------------------------------------------------------------------
+STR_FUNC str_truncate_ellipsis
+    guard_null rdi, STR_ERR_NULL
+    guard_null rcx, STR_ERR_NULL
+    guard_null r9,  STR_ERR_NULL
+
+    push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 24             ; count [rsp], truncated_len [rsp+8], out_len ptr [rsp+16]
+
+    mov     rbx, rdi            ; src
+    mov     r12, rsi            ; max_graphemes
+    mov     r13, rdx            ; ellipsis (StrSlice*, can be null)
+    mov     r14, rcx            ; dst
+    mov     r15, r8             ; cap
+    mov     [rsp + 16], r9      ; out_len ptr
+
+    ; get grapheme count of src
+    mov     rdi, rbx
+    mov     rsi, rsp            ; count is at [rsp]
+    call    str_grapheme_count
+    test    rax, rax
+    jnz     .err
+
+    mov     rax, [rsp]          ; count
+    cmp     rax, r12
+    jbe     .no_truncate
+
+    ; Truncation needed!
+    mov     rdi, rbx
+    mov     rsi, r12
+    lea     rdx, [rsp + 8]      ; truncated_len
+    call    str_grapheme_truncate
+    test    rax, rax
+    jnz     .err
+
+    ; total_len = truncated_len + ellipsis.len
+    mov     rax, [rsp + 8]      ; truncated_len
+    xor     rcx, rcx            ; ellipsis.len
+    test    r13, r13
+    jz      .calc_total
+    mov     rcx, [r13 + StrSlice.len]
+
+.calc_total:
+    add     rax, rcx            ; total_len
+    cmp     rax, r15            ; cap check
+    ja      .too_small
+
+    ; save total_len in r15 (not needed as cap anymore)
+    mov     r15, rax
+
+    ; 1. Copy prefix: src.ptr (length truncated_len)
+    mov     rdi, r14
+    mov     rsi, [rbx + StrSlice.ptr]
+    mov     rdx, [rsp + 8]
+    test    rdx, rdx
+    jz      .prefix_copied
+    call    str_copy_bytes
+    test    rax, rax
+    js      .err
+
+.prefix_copied:
+    ; 2. Copy ellipsis
+    test    r13, r13
+    jz      .ellipsis_copied
+    mov     rdx, [r13 + StrSlice.len]
+    test    rdx, rdx
+    jz      .ellipsis_copied
+
+    mov     rdi, r14
+    add     rdi, [rsp + 8]      ; dst + truncated_len
+    mov     rsi, [r13 + StrSlice.ptr]
+    call    str_copy_bytes
+    test    rax, rax
+    js      .err
+
+.ellipsis_copied:
+    mov     rax, [rsp + 16]
+    mov     [rax], r15
+    add     rsp, 24
+    pop_regs r15, r14, r13, r12, rbx
+    ret_ok
+
+.no_truncate:
+    ; copy full src
+    mov     rax, [rbx + StrSlice.len]
+    cmp     rax, r15
+    ja      .too_small
+
+    mov     rdi, r14
+    mov     rsi, [rbx + StrSlice.ptr]
+    mov     rdx, rax
+    test    rdx, rdx
+    jz      .no_trunc_done
+    call    str_copy_bytes
+    test    rax, rax
+    js      .err
+
+.no_trunc_done:
+    mov     rax, [rsp + 16]
+    mov     rcx, [rbx + StrSlice.len]
+    mov     [rax], rcx
+    add     rsp, 24
+    pop_regs r15, r14, r13, r12, rbx
+    ret_ok
+
+.too_small:
+    add     rsp, 24
+    pop_regs r15, r14, r13, r12, rbx
+    ret_err STR_ERR_BUF_TOO_SMALL
+
+.err:
+    add     rsp, 24
+    pop_regs r15, r14, r13, r12, rbx
+    ret_err STR_ERR_INVALID
+STR_ENDFUNC str_grapheme_truncate
