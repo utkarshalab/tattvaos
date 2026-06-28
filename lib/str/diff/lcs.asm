@@ -580,3 +580,144 @@ STR_FUNC str_lcs_similarity
     ret
 
 STR_ENDFUNC str_lcs_similarity
+
+; -----------------------------------------------------------------------------
+; str_dice_coefficient
+;
+; Sørensen-Dice similarity coefficient based on character bigrams.
+;
+; Signature:
+;   int64_t str_dice_coefficient(const StrSlice *a, const StrSlice *b,
+;                                double *out_coeff)
+; -----------------------------------------------------------------------------
+STR_FUNC str_dice_coefficient
+    guard_null rdi, STR_ERR_NULL
+    guard_null rsi, STR_ERR_NULL
+    guard_null rdx, STR_ERR_NULL
+
+    push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 280            ; 256 bytes for b_used + 24 bytes padding/locals
+
+    mov     rbx, rdi            ; a
+    mov     r12, rsi            ; b
+    mov     [rsp + 256], rdx    ; save out_coeff ptr
+
+    mov     r14, [rbx + StrSlice.len]
+    mov     r15, [r12 + StrSlice.len]
+
+    ; bigram count = len - 1
+    test    r14, r14
+    jz      .check_zero
+    dec     r14                 ; len_a = a.len - 1
+
+.check_zero:
+    test    r15, r15
+    jz      .check_both_zero
+    dec     r15                 ; len_b = b.len - 1
+
+.check_both_zero:
+    test    r14, r14
+    jnz     .check_limits
+    test    r15, r15
+    jnz     .check_limits
+
+    ; both empty/too short -> coefficient = 1.0 if identical length
+    mov     rax, [rbx + StrSlice.len]
+    cmp     rax, [r12 + StrSlice.len]
+    jne     .zero_coeff
+
+    mov     rax, [rsp + 256]
+    mov     rcx, 0x3FF0000000000000     ; 1.0
+    mov     [rax], rcx
+    jmp     .done
+
+.zero_coeff:
+    mov     rax, [rsp + 256]
+    mov     qword [rax], 0      ; 0.0
+    jmp     .done
+
+.check_limits:
+    ; if either is too short for bigrams but not both empty, similarity is 0.0
+    test    r14, r14
+    jz      .zero_coeff
+    test    r15, r15
+    jz      .zero_coeff
+
+    cmp     r15, 256
+    ja      .too_large
+
+    ; Zero-initialize b_used [rsp .. rsp+255]
+    mov     rdi, rsp
+    xor     eax, eax
+    mov     ecx, 32             ; 32 * 8 = 256 bytes
+    rep stosq
+
+    ; Count bigram intersection
+    mov     rsi, [rbx + StrSlice.ptr]   ; a.ptr
+    mov     r8,  [r12 + StrSlice.ptr]   ; b.ptr
+    xor     r9,  r9                     ; intersection = 0
+    xor     rcx, rcx                    ; i = 0
+
+.a_loop:
+    cmp     rcx, r14
+    je      .calculate
+
+    movzx   eax, byte [rsi + rcx]       ; char1 = a.ptr[i]
+    movzx   edi, byte [rsi + rcx + 1]   ; char2 = a.ptr[i+1]
+
+    xor     r10, r10                    ; j = 0
+.b_loop:
+    cmp     r10, r15
+    je      .a_next
+
+    ; check if already used
+    movzx   r11d, byte [rsp + r10]
+    test    r11d, r11d
+    jnz     .b_next
+
+    ; compare bigram
+    movzx   r11d, byte [r8 + r10]
+    cmp     r11b, al
+    jne     .b_next
+
+    movzx   r11d, byte [r8 + r10 + 1]
+    cmp     r11b, dil
+    jne     .b_next
+
+    ; matched!
+    mov     byte [rsp + r10], 1         ; b_used[j] = 1
+    inc     r9                          ; intersection++
+    jmp     .a_next                     ; break to next i
+
+.b_next:
+    inc     r10
+    jmp     .b_loop
+
+.a_next:
+    inc     rcx
+    jmp     .a_loop
+
+.calculate:
+    ; Dice(A, B) = 2.0 * intersection / (len_a + len_b)
+    shl     r9, 1                       ; 2 * intersection
+    cvtsi2sd xmm0, r9
+    
+    mov     rax, r14
+    add     rax, r15                    ; len_a + len_b
+    cvtsi2sd xmm1, rax
+
+    divsd    xmm0, xmm1
+
+    mov     rax, [rsp + 256]            ; out_coeff ptr
+    movsd   [rax], xmm0
+
+.done:
+    add     rsp, 280
+    pop_regs r15, r14, r13, r12, rbx
+    ret_ok
+
+.too_large:
+    add     rsp, 280
+    pop_regs r15, r14, r13, r12, rbx
+    ret_err STR_ERR_BUF_TOO_SMALL
+STR_ENDFUNC str_dice_coefficient
