@@ -352,3 +352,12 @@ STR_FUNC str_collate_key
     ret
 
 STR_ENDFUNC str_collate_key
+
+; -----------------------------------------------------------------------------
+; str_collation_key
+;
+; Alias/wrapper for str_collate_key.
+; -----------------------------------------------------------------------------
+STR_FUNC str_collation_key
+    jmp     str_collate_key
+STR_ENDFUNC str_collation_key
