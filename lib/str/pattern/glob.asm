@@ -166,7 +166,7 @@ STR_FUNC str_glob_match
 
 .gm_bracket_scan:
     ; scan until ] or end
-    xor     r10d, r10d          ; matched_in_set = 0
+    xor     esi, esi            ; matched_in_set = 0
 
 .gm_bracket_loop:
     cmp     r9, r12
@@ -198,7 +198,7 @@ STR_FUNC str_glob_match
     jb      .gm_bracket_no_range
     cmp     cl, al
     ja      .gm_bracket_no_range
-    mov     r10d, 1             ; matched
+    mov     esi, 1              ; matched
 
 .gm_bracket_no_range:
     add     r9, 3               ; skip a-z
@@ -207,7 +207,7 @@ STR_FUNC str_glob_match
 .gm_bracket_single:
     cmp     cl, dl
     jne     .gm_bracket_no_single
-    mov     r10d, 1
+    mov     esi, 1
 
 .gm_bracket_no_single:
     inc     r9
@@ -217,17 +217,13 @@ STR_FUNC str_glob_match
     inc     r9                  ; skip ]
 
     ; match if: (matched_in_set && !negate) || (!matched_in_set && negate)
-    mov     eax, r10d
+    mov     eax, esi
     xor     eax, r8d            ; matched XOR negate
     test    eax, eax
     jz      .gm_bracket_backtrack
 
-    ; matched
-    ; restore str index (r10 was used as flag — original str index was saved)
-    ; BUG: r10 overwritten above — needs redesign to save str_idx
-    ; Fix: use a different register for bracket matching
-    ; For now: reload str_idx from r10 (which was the flag — need stack save)
-    ; This is a register allocation issue. Would use dedicated stack slots.
+    ; matched: advance string index r10 by 1 and continue matching
+    inc     r10
     jmp     .gm_loop
 
 .gm_bracket_backtrack:
@@ -259,9 +255,7 @@ STR_FUNC str_glob_match
 
 .gm_no_match:
     pop_regs r15, r14, r13, r12, rbx
-    xor     eax, eax
-    pop     rbp
-    ret
+    ret_ok
 
 STR_ENDFUNC str_glob_match
 
@@ -363,8 +357,6 @@ STR_FUNC str_glob_match_icase
 
 .gmi_no_match:
     pop_regs r15, r14, r13, r12, rbx
-    xor     eax, eax
-    pop     rbp
-    ret
+    ret_ok
 
 STR_ENDFUNC str_glob_match_icase
