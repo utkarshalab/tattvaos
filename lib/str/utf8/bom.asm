@@ -295,3 +295,42 @@ STR_FUNC str_utf8_bom_len
     ret
 
 STR_ENDFUNC str_utf8_bom_len
+
+; -----------------------------------------------------------------------------
+; str_strip_bom
+;
+; Strip UTF-8 BOM from a StrSlice if present, returning a view.
+;
+; Signature:
+;   int64_t str_strip_bom(const StrSlice *src, StrSlice *out)
+; -----------------------------------------------------------------------------
+STR_FUNC str_strip_bom
+    guard_null rdi, STR_ERR_NULL
+    guard_null rsi, STR_ERR_NULL
+
+    mov     rax, [rdi + StrSlice.ptr]
+    mov     rcx, [rdi + StrSlice.len]
+
+    cmp     rcx, 3
+    jb      .no_bom
+
+    movzx   edx, byte [rax]
+    cmp     dl, UTF8_BOM_B0
+    jne     .no_bom
+
+    movzx   edx, byte [rax + 1]
+    cmp     dl, UTF8_BOM_B1
+    jne     .no_bom
+
+    movzx   edx, byte [rax + 2]
+    cmp     dl, UTF8_BOM_B2
+    jne     .no_bom
+
+    add     rax, 3              ; skip BOM
+    sub     rcx, 3
+
+.no_bom:
+    mov     [rsi + StrSlice.ptr], rax
+    mov     [rsi + StrSlice.len], rcx
+    ret_ok
+STR_ENDFUNC str_strip_bom
