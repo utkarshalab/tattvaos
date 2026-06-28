@@ -97,15 +97,7 @@ STR_FUNC str_glob_match
     je      .gm_advance
 
     ; mismatch — try to backtrack to last *
-    cmp     r11, -1
-    je      .gm_no_match
-
-    ; backtrack: reset pattern to star+1, advance str position
-    mov     r9, r11
-    inc     r9                  ; one past the star
-    inc     r15                 ; advance star's string position
-    mov     r10, r15
-    jmp     .gm_loop
+    jmp     .gm_backtrack
 
 .gm_advance:
     inc     r9
@@ -129,17 +121,61 @@ STR_FUNC str_glob_match
 .gm_backtrack:
     cmp     r11, -1
     je      .gm_no_match
+
+    ; Check if single * (rbx[r11 + 1] != '*')
+    mov     rax, r11
+    inc     rax
+    cmp     rax, r12
+    jae     .gm_backtrack_single
+    movzx   edx, byte [rbx + rax]
+    cmp     dl, '*'
+    je      .gm_backtrack_globstar
+
+.gm_backtrack_single:
+    cmp     r15, r14
+    jae     .gm_backtrack_globstar
+    movzx   edx, byte [r13 + r15]
+    cmp     dl, '/'
+    je      .gm_no_match        ; single * cannot cross '/'
+
+.gm_backtrack_globstar:
+    ; calculate correct pattern advance
+    mov     rax, r11
+    inc     rax
+    cmp     rax, r12
+    jae     .gm_bt_single_adv
+    movzx   edx, byte [rbx + rax]
+    cmp     dl, '*'
+    je      .gm_bt_double_adv
+.gm_bt_single_adv:
     mov     r9, r11
     inc     r9
+    jmp     .gm_bt_continue
+.gm_bt_double_adv:
+    mov     r9, r11
+    add     r9, 2
+.gm_bt_continue:
     inc     r15
     mov     r10, r15
     jmp     .gm_loop
 
 .gm_star:
-    ; save star position
     mov     r11, r9             ; star_pat
     mov     r15, r10            ; star_str
-    inc     r9                  ; advance past *
+    
+    ; check if globstar (**)
+    lea     rax, [r9 + 1]
+    cmp     rax, r12
+    jae     .gm_single_star
+    movzx   edx, byte [rbx + rax]
+    cmp     dl, '*'
+    jne     .gm_single_star
+
+    add     r9, 2               ; advance past both *
+    jmp     .gm_loop
+
+.gm_single_star:
+    inc     r9                  ; advance past single *
     jmp     .gm_loop
 
 .gm_question:
@@ -315,23 +351,71 @@ STR_FUNC str_glob_match_icase
     cmp     al, cl
     je      .gmi_advance_both
 
-    cmp     r11, -1
-    je      .gmi_no_match
-    mov     r9, r11
-    inc     r9
-    inc     r15
-    mov     r10, r15
-    jmp     .gmi_loop
+    jmp     .gmi_backtrack
 
 .gmi_advance_both:
     inc     r9
     inc     r10
     jmp     .gmi_loop
 
-.gmi_star:
-    mov     r11, r9
-    mov     r15, r10
+.gmi_backtrack:
+    cmp     r11, -1
+    je      .gmi_no_match
+
+    ; Check if single * (rbx[r11 + 1] != '*')
+    mov     rax, r11
+    inc     rax
+    cmp     rax, r12
+    jae     .gmi_backtrack_single
+    movzx   edx, byte [rbx + rax]
+    cmp     dl, '*'
+    je      .gmi_backtrack_globstar
+
+.gmi_backtrack_single:
+    cmp     r15, r14
+    jae     .gmi_backtrack_globstar
+    movzx   edx, byte [r13 + r15]
+    cmp     dl, '/'
+    je      .gmi_no_match        ; single * cannot cross '/'
+
+.gmi_backtrack_globstar:
+    ; calculate correct pattern advance
+    mov     rax, r11
+    inc     rax
+    cmp     rax, r12
+    jae     .gmi_bt_single_adv
+    movzx   edx, byte [rbx + rax]
+    cmp     dl, '*'
+    je      .gmi_bt_double_adv
+.gmi_bt_single_adv:
+    mov     r9, r11
     inc     r9
+    jmp     .gmi_bt_continue
+.gmi_bt_double_adv:
+    mov     r9, r11
+    add     r9, 2
+.gmi_bt_continue:
+    inc     r15
+    mov     r10, r15
+    jmp     .gmi_loop
+
+.gmi_star:
+    mov     r11, r9             ; star_pat
+    mov     r15, r10            ; star_str
+    
+    ; check if globstar (**)
+    lea     rax, [r9 + 1]
+    cmp     rax, r12
+    jae     .gmi_single_star
+    movzx   edx, byte [rbx + rax]
+    cmp     dl, '*'
+    jne     .gmi_single_star
+
+    add     r9, 2               ; advance past both *
+    jmp     .gmi_loop
+
+.gmi_single_star:
+    inc     r9                  ; advance past single *
     jmp     .gmi_loop
 
 .gmi_question:
