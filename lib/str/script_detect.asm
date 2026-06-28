@@ -414,39 +414,42 @@ STR_ENDFUNC str_cp_script
 ; -----------------------------------------------------------------------------
 
 STR_FUNC str_script_detect
+    guard_null rdi, SCRIPT_COMMON
 
-    guard_null rdi, STR_ERR_NULL
-
-    push_regs rbx, r12, r13
+    push_regs rbx, r12, r13, r14, r15
+    ; Local variables in stack frame relative to RBP:
+    ;   [rbp - 208] to [rbp - 1]   = counters (26 * 8 = 208 bytes)
+    ;   [rbp - 224] to [rbp - 209] = local advance/padding (16 bytes)
+    ; Total RSP offset = 224 (keeps 16-byte alignment)
+    sub     rsp, 224
 
     mov     rbx, [rdi + StrSlice.ptr]
     mov     r12, rbx
     add     r12, [rdi + StrSlice.len]
 
-    ; counters array on stack: NUM_SCRIPTS × 8 bytes
-    sub     rsp, NUM_SCRIPTS * 8 + 16
-    and     rsp, -16
-
-    ; zero counters
+    ; zero counters array
+    mov     rdi, rbp
+    sub     rdi, 208
     xor     eax, eax
     mov     ecx, NUM_SCRIPTS
-    lea     rdi, [rsp]
     rep stosq
 
 .sd_loop:
     cmp     rbx, r12
     jae     .sd_find_max
 
-    sub     rsp, 16
-    and     rsp, -16
+    ; decode codepoint
     mov     rdi, rbx
-    lea     rsi, [rsp]
+    lea     rsi, [rbp - 224]    ; &advance
     call    str_utf8_decode_unchecked
-    mov     r8d, eax
-    add     rbx, [rsp]
-    add     rsp, 16
+    mov     r13d, eax           ; cp
 
-    mov     edi, r8d
+    ; advance rbx
+    mov     rax, [rbp - 224]    ; advance size
+    add     rbx, rax
+
+    ; get script
+    mov     edi, r13d
     call    str_cp_script
     movzx   eax, al
 
@@ -456,34 +459,35 @@ STR_FUNC str_script_detect
     cmp     eax, SCRIPT_INHERITED
     je      .sd_loop
 
-    ; increment counter
+    ; increment counter if valid
     cmp     eax, NUM_SCRIPTS
     jae     .sd_loop
 
-    ; careful with stack offset: counters are at the base of our frame
-    ; after the push_regs. Use rbp-relative addressing.
-    mov     rcx, rbp
-    sub     rcx, NUM_SCRIPTS * 8 + 16  ; approximate — actually rsp points here
-    ; Simpler: just use rsp-relative from the outer frame
-    ; The counters are below the inner sub rsp... this is messy.
-    ; Fix: use a fixed offset from rbp instead.
+    inc     qword [rbp - 208 + rax * 8]
     jmp     .sd_loop
 
 .sd_find_max:
-    ; find script with highest count
-    xor     r9, r9              ; best_script = 0
-    xor     r10, r10            ; best_count = 0
+    xor     r9, r9              ; best_count = 0
+    mov     al, SCRIPT_COMMON   ; best_script = SCRIPT_COMMON
+    mov     rcx, 2              ; check starting from SCRIPT_LATIN = 2
 
-    ; the counters got clobbered by the decode sub rsp... 
-    ; This needs a register redesign. For now: return SCRIPT_COMMON
-    ; as placeholder until the stack layout is fixed.
+.max_loop:
+    cmp     rcx, NUM_SCRIPTS
+    jae     .done
 
-    mov     al, SCRIPT_COMMON
+    mov     rdx, [rbp - 208 + rcx * 8]
+    cmp     rdx, r9
+    jbe     .max_next
 
-    mov     rsp, rbp
-    pop_regs r13, r12, rbx
-    pop     rbp
-    ret
+    mov     r9, rdx             ; best_count = rdx
+    mov     al, cl              ; best_script = rcx
+.max_next:
+    inc     rcx
+    jmp     .max_loop
+
+.done:
+    add     rsp, 224
+    pop_regs r15, r14, r13, r12, rbx
 
 STR_ENDFUNC str_script_detect
 
