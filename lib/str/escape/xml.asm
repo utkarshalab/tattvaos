@@ -275,6 +275,12 @@ STR_FUNC str_xml_unescape
 .xu_find_semi:
     cmp     r11, r12
     jae     .xu_pass_amp
+
+    mov     rax, r11
+    sub     rax, r9
+    cmp     rax, 16
+    ja      .xu_pass_amp        ; entity name too long -> treat '&' as literal
+
     movzx   ecx, byte [rbx + r11]
     cmp     cl, ';'
     je      .xu_parse_entity
@@ -388,8 +394,17 @@ STR_FUNC str_xml_unescape
     sub     edx, '0'
     cmp     edx, 9
     ja      .xu_pass_amp
-    imul    r8d, r8d, 10
-    add     r8d, edx
+    
+    ; check overflow: r8 * 10 + edx > 0x10FFFF
+    mov     rax, r8
+    imul    rax, rax, 10
+    jc      .xu_pass_amp
+    add     rax, rdx
+    jc      .xu_pass_amp
+    cmp     rax, 0x10FFFF
+    ja      .xu_pass_amp
+    mov     r8, rax
+
     inc     rcx
     jmp     .xu_dec_ref
 
@@ -418,8 +433,15 @@ STR_FUNC str_xml_unescape
     sub     dl, '0'
 
 .xu_hex_acc:
-    shl     r8d, 4
-    or      r8d, edx
+    ; check overflow: (r8 << 4) | edx > 0x10FFFF
+    mov     rax, r8
+    shl     rax, 4
+    jc      .xu_pass_amp
+    or      rax, rdx
+    cmp     rax, 0x10FFFF
+    ja      .xu_pass_amp
+    mov     r8, rax
+
     inc     rcx
     jmp     .xu_hex_ref_loop
 
