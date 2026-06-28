@@ -507,3 +507,239 @@ STR_FUNC str_pad_center
     ret
 
 STR_ENDFUNC str_pad_center
+
+; -----------------------------------------------------------------------------
+; str_center
+;
+; Center pad a StrSlice to target width using an ASCII fill character.
+;
+; Signature:
+;   int64_t str_center(const StrSlice *src, uint64_t width, uint8_t fill_char,
+;                      uint8_t *dst, uint64_t cap, uint64_t *out_len)
+; -----------------------------------------------------------------------------
+STR_FUNC str_center
+    guard_null rdi, STR_ERR_NULL
+    guard_null rcx, STR_ERR_NULL
+    guard_null r9,  STR_ERR_NULL
+
+    push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 8              ; align
+
+    mov     rbx, rdi            ; src
+    mov     r12, rsi            ; width
+    mov     r13d, edx           ; fill_char (wait! fill_char is 3rd arg RDX, passed as byte/dword)
+    ; Ah, in AMD64 System V:
+    ;   RDI = src
+    ;   RSI = width
+    ;   RDX = fill_char
+    ;   RCX = dst
+    ;   R8  = cap
+    ;   R9  = out_len
+    mov     r14, rcx            ; dst
+    mov     r15, r8             ; cap
+    mov     rax, r9             ; out_len ptr
+    ; Let's write RAX to a safe register or stack
+    push    rax                 ; push out_len ptr
+
+    mov     rax, [rbx + StrSlice.len]
+    cmp     rax, r12
+    jae     .center_no_pad
+
+    ; total_pad = width - len
+    mov     rcx, r12
+    sub     rcx, rax            ; total_pad
+    
+    ; check cap: width <= cap
+    cmp     r12, r15
+    ja      .center_too_small
+
+    ; left_pad = total_pad / 2
+    mov     rax, rcx
+    shr     rax, 1              ; left_pad
+    mov     r10, rax            ; r10 = left_pad
+    sub     rcx, rax            ; rcx = right_pad (total_pad - left_pad)
+    push    rcx                 ; save right_pad
+
+    ; write left_pad fill_char
+    test    r10, r10
+    jz      .center_copy_src
+
+    mov     rdi, r14
+    movzx   esi, r13b
+    mov     rdx, r10
+    call    str_fill
+
+.center_copy_src:
+    ; copy src to dst + left_pad
+    mov     rdi, r14
+    add     rdi, r10            ; dst + left_pad
+    mov     rsi, [rbx + StrSlice.ptr]
+    mov     rdx, [rbx + StrSlice.len]
+    call    str_copy_bytes
+
+    pop     rcx                 ; restore right_pad
+    ; write right_pad fill_char
+    test    rcx, rcx
+    jz      .center_done
+
+    mov     rdi, r14
+    add     rdi, r10
+    add     rdi, [rbx + StrSlice.len] ; dst + left_pad + src.len
+    movzx   esi, r13b
+    mov     rdx, rcx
+    call    str_fill
+
+.center_done:
+    pop     rax                 ; pop out_len ptr
+    mov     [rax], r12          ; out_len = width
+    add     rsp, 8
+    pop_regs r15, r14, r13, r12, rbx
+    ret_ok
+
+.center_no_pad:
+    ; if src.len >= width, copy src as-is
+    cmp     rax, r15
+    ja      .center_too_small_pop
+
+    mov     rdi, r14
+    mov     rsi, [rbx + StrSlice.ptr]
+    mov     rdx, rax
+    call    str_copy_bytes
+
+    pop     rcx                 ; pop out_len ptr
+    mov     [rcx], rax
+    add     rsp, 8
+    pop_regs r15, r14, r13, r12, rbx
+    ret_ok
+
+.center_too_small_pop:
+    pop     rax                 ; discard out_len ptr
+.center_too_small:
+    add     rsp, 8
+    pop_regs r15, r14, r13, r12, rbx
+    ret_err STR_ERR_BUF_TOO_SMALL
+STR_ENDFUNC str_center
+
+; -----------------------------------------------------------------------------
+; str_zfill
+;
+; Zero-fill pad a StrSlice on the left, keeping optional sign (+/-) at the start.
+;
+; Signature:
+;   int64_t str_zfill(const StrSlice *src, uint64_t width,
+;                     uint8_t *dst, uint64_t cap, uint64_t *out_len)
+;
+; Arguments:
+;   RDI  — src (StrSlice*)
+;   RSI  — width (uint64_t)
+;   RDX  — dst (uint8_t*)
+;   RCX  — cap (uint64_t)
+;   R8   — out_len (uint64_t*)
+; -----------------------------------------------------------------------------
+STR_FUNC str_zfill
+    guard_null rdi, STR_ERR_NULL
+    guard_null rdx, STR_ERR_NULL
+    guard_null r8,  STR_ERR_NULL
+
+    push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 8              ; align
+
+    mov     rbx, rdi            ; src
+    mov     r12, rsi            ; width
+    mov     r13, rdx            ; dst
+    mov     r14, rcx            ; cap
+    mov     r15, r8             ; out_len ptr
+
+    mov     rax, [rbx + StrSlice.len]
+    cmp     rax, r12
+    jae     .zfill_no_pad
+
+    ; check cap: width <= cap
+    cmp     r12, r14
+    ja      .zfill_too_small
+
+    ; check sign
+    xor     r10d, r10d          ; sign_char = 0
+    xor     r11, r11            ; src_start = 0
+    test    rax, rax
+    jz      .no_sign
+
+    mov     rsi, [rbx + StrSlice.ptr]
+    movzx   r9d, byte [rsi]
+    cmp     r9b, '+'
+    je      .has_sign
+    cmp     r9b, '-'
+    jne     .no_sign
+
+.has_sign:
+    mov     r10d, r9d           ; sign_char
+    mov     r11, 1              ; src_start = 1
+
+.no_sign:
+    ; total_pad = width - len
+    mov     rcx, r12
+    sub     rcx, rax            ; total_pad
+
+    xor     rdx, rdx            ; dst_offset = 0
+    test    r10d, r10d
+    jz      .write_zeros
+
+    ; write sign
+    mov     [r13], r10b
+    mov     rdx, 1
+
+.write_zeros:
+    ; write total_pad '0' characters
+    push    rcx
+    push    rdx
+    push    r11
+    mov     rdi, r13
+    add     rdi, rdx            ; dst + dst_offset
+    mov     rsi, '0'
+    mov     rdx, rcx            ; total_pad
+    call    str_fill
+    pop     r11
+    pop     rdx
+    pop     rcx
+
+    add     rdx, rcx            ; dst_offset += total_pad
+
+    ; copy rest of src
+    mov     rax, [rbx + StrSlice.len]
+    sub     rax, r11            ; remaining length = len - src_start
+    test    rax, rax
+    jz      .zfill_done
+
+    mov     rdi, r13
+    add     rdi, rdx
+    mov     rsi, [rbx + StrSlice.ptr]
+    add     rsi, r11
+    mov     rdx, rax
+    call    str_copy_bytes
+
+.zfill_done:
+    mov     [r15], r12          ; out_len = width
+    add     rsp, 8
+    pop_regs r15, r14, r13, r12, rbx
+    ret_ok
+
+.zfill_no_pad:
+    cmp     rax, r14
+    ja      .zfill_too_small
+
+    mov     rdi, r13
+    mov     rsi, [rbx + StrSlice.ptr]
+    mov     rdx, rax
+    call    str_copy_bytes
+    mov     [r15], rax          ; out_len = len
+
+    add     rsp, 8
+    pop_regs r15, r14, r13, r12, rbx
+    ret_ok
+
+.zfill_too_small:
+    add     rsp, 8
+    pop_regs r15, r14, r13, r12, rbx
+    ret_err STR_ERR_BUF_TOO_SMALL
+STR_ENDFUNC str_zfill
+
