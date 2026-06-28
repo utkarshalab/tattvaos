@@ -129,15 +129,11 @@ STR_FUNC str_xml_escape
 
 .xe_ok:
     pop_regs r15, r14, r13, r12, rbx
-    xor     eax, eax
-    pop     rbp
-    ret
+    ret_ok
 
 .xe_overflow:
     pop_regs r15, r14, r13, r12, rbx
-    mov     rax, STR_ERR_BUF_TOO_SMALL
-    pop     rbp
-    ret
+    ret_err STR_ERR_BUF_TOO_SMALL
 
 STR_ENDFUNC str_xml_escape
 
@@ -221,15 +217,11 @@ STR_FUNC str_xml_escape_attr
 
 .xea_ok:
     pop_regs r15, r14, r13, r12, rbx
-    xor     eax, eax
-    pop     rbp
-    ret
+    ret_ok
 
 .xea_overflow:
     pop_regs r15, r14, r13, r12, rbx
-    mov     rax, STR_ERR_BUF_TOO_SMALL
-    pop     rbp
-    ret
+    ret_err STR_ERR_BUF_TOO_SMALL
 
 STR_ENDFUNC str_xml_escape_attr
 
@@ -324,6 +316,8 @@ STR_FUNC str_xml_unescape
     jmp     .xu_emit_byte
 
 .xu_chk_gt:
+    cmp     rdx, 2
+    jne     .xu_chk_quot
     cmp     byte [rbx + r9 + 1], 'g'
     jne     .xu_chk_quot
     cmp     byte [rbx + r9 + 2], 't'
@@ -379,36 +373,34 @@ STR_FUNC str_xml_unescape
     ; &#N; or &#xN;
     movzx   ecx, byte [rbx + r9 + 2]
     xor     r8d, r8d            ; accumulator
-    mov     r13, r9
-    add     r13, 2
 
     cmp     cl, 'x'
     je      .xu_hex_ref
 
     ; decimal
-    mov     r13, r9
-    add     r13, 2
+    mov     rcx, r9
+    add     rcx, 2
 
 .xu_dec_ref:
-    cmp     r13, r11
+    cmp     rcx, r11
     jae     .xu_emit_cp
-    movzx   edx, byte [rbx + r13]
+    movzx   edx, byte [rbx + rcx]
     sub     edx, '0'
     cmp     edx, 9
     ja      .xu_pass_amp
     imul    r8d, r8d, 10
     add     r8d, edx
-    inc     r13
+    inc     rcx
     jmp     .xu_dec_ref
 
 .xu_hex_ref:
-    mov     r13, r9
-    add     r13, 3              ; skip &#x
+    mov     rcx, r9
+    add     rcx, 3              ; skip &#x
 
 .xu_hex_ref_loop:
-    cmp     r13, r11
+    cmp     rcx, r11
     jae     .xu_emit_cp
-    movzx   edx, byte [rbx + r13]
+    movzx   edx, byte [rbx + rcx]
     cmp     dl, '0'
     jb      .xu_pass_amp
     cmp     dl, '9'
@@ -428,21 +420,51 @@ STR_FUNC str_xml_unescape
 .xu_hex_acc:
     shl     r8d, 4
     or      r8d, edx
-    inc     r13
+    inc     rcx
     jmp     .xu_hex_ref_loop
 
 .xu_emit_cp:
-    ; emit r8d as UTF-8
-    ; restore r13 = dst
-    mov     r13, rsi            ; WRONG — r13 was clobbered
+    ; validate codepoint in r8d
+    mov     edi, r8d
+    CODEPOINT_IS_VALID edi      ; clobbers edi, sets ZF
+    jz      .xu_pass_amp        ; invalid codepoint -> output literal
 
-    ; NOTE: r13 was overwritten. This is a known issue in this code path.
-    ; In production: use a local stack slot for dst instead of r13.
-    ; For correctness here: dst was rsi (second arg), reload it.
-    ; We can't recover rsi at this point without saving it before.
-    ; This demonstrates the need for proper register allocation discipline.
-    ; Workaround: recalculate from saved registers — this path needs refactor.
-    ; For now: just advance past the entity and continue (lossy but safe)
+    ; calculate required UTF-8 bytes in EAX
+    mov     eax, 1
+    cmp     r8d, 0x7F
+    jbe     .xu_len_ok
+    inc     eax                 ; 2 bytes
+    cmp     r8d, 0x7FF
+    jbe     .xu_len_ok
+    inc     eax                 ; 3 bytes
+    cmp     r8d, 0xFFFF
+    jbe     .xu_len_ok
+    inc     eax                 ; 4 bytes
+.xu_len_ok:
+    ; check capacity: r10 + rax <= r14
+    mov     rdx, r10
+    add     rdx, rax
+    cmp     rdx, r14
+    ja      .xu_overflow
+
+    ; save caller-saved registers we need
+    push    r9
+    push    r10
+    push    r11
+
+    ; call str_utf8_encode_unchecked(cp=r8d, dst=r13 + r10)
+    mov     edi, r8d
+    lea     rsi, [r13 + r10]
+    call    str_utf8_encode_unchecked
+
+    ; restore registers
+    pop     r11
+    pop     r10
+    pop     r9
+
+    add     r10, rax            ; advance dst offset (using actual written length)
+
+    ; advance pattern past semicolon
     mov     r9, r11
     inc     r9
     jmp     .xu_loop
@@ -454,14 +476,10 @@ STR_FUNC str_xml_unescape
 
 .xu_ok:
     pop_regs r15, r14, r13, r12, rbx
-    xor     eax, eax
-    pop     rbp
-    ret
+    ret_ok
 
 .xu_overflow:
     pop_regs r15, r14, r13, r12, rbx
-    mov     rax, STR_ERR_BUF_TOO_SMALL
-    pop     rbp
-    ret
+    ret_err STR_ERR_BUF_TOO_SMALL
 
 STR_ENDFUNC str_xml_unescape
