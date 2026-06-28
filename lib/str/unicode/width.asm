@@ -300,3 +300,67 @@ STR_FUNC str_display_width
     ret
 
 STR_ENDFUNC str_display_width
+
+; -----------------------------------------------------------------------------
+; str_display_truncate
+;
+; Truncate a string to at most max_columns display width.
+; Returns the byte length of the prefix that fits in *out_byte_len.
+;
+; Signature:
+;   int64_t str_display_truncate(const StrSlice *src, uint64_t max_columns,
+;                                uint64_t *out_byte_len)
+; -----------------------------------------------------------------------------
+STR_FUNC str_display_truncate
+    guard_null rdi, STR_ERR_NULL
+    guard_null rdx, STR_ERR_NULL
+
+    push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 24             ; advance [rsp], cols [rsp+8], out_byte_len [rsp+16]
+
+    mov     rbx, [rdi + StrSlice.ptr]   ; current ptr
+    mov     r12, rbx
+    add     r12, [rdi + StrSlice.len]   ; end ptr
+    mov     r13, rsi                    ; max_columns
+    mov     [rsp + 16], rdx             ; save out_byte_len ptr
+    mov     r14, [rdi + StrSlice.ptr]   ; original src.ptr
+
+    mov     qword [rsp + 8], 0          ; current_columns = 0
+
+.loop:
+    cmp     rbx, r12
+    jae     .done
+
+    ; decode next codepoint
+    mov     rdi, rbx
+    mov     rsi, rsp                    ; &advance
+    call    str_utf8_decode_unchecked
+    mov     r15d, eax                   ; cp
+
+    ; get display width
+    mov     edi, eax
+    call    str_cp_display_width
+    ; eax = width (0, 1, or 2)
+
+    ; check if it fits
+    mov     rcx, [rsp + 8]              ; current_columns
+    add     rcx, rax                    ; new_columns
+    cmp     rcx, r13
+    ja      .done                       ; doesn't fit -> truncate before this char
+
+    ; fits: advance
+    mov     [rsp + 8], rcx              ; update current_columns
+    mov     rax, [rsp]                  ; advance size
+    add     rbx, rax
+    jmp     .loop
+
+.done:
+    mov     rax, rbx
+    sub     rax, r14                    ; byte_len = rbx - original_ptr
+    mov     rcx, [rsp + 16]             ; out_byte_len ptr
+    mov     [rcx], rax
+
+    add     rsp, 24
+    pop_regs r15, r14, r13, r12, rbx
+    ret_ok
+STR_ENDFUNC str_display_truncate
