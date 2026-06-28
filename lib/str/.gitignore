@@ -1,0 +1,9 @@
+# Raw Unicode Character Database — downloaded on demand for table generation
+data/
+
+# Table generation scripts (not pushed until generation pipeline is ready)
+tools/
+
+# Build artifacts
+*.o
+*.bin
