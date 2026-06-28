@@ -345,3 +345,83 @@ STR_FUNC str_edit_distance_max
     jmp     str_edit_distance   ; approximate: ignores max_dist
 
 STR_ENDFUNC str_edit_distance_max
+
+; -----------------------------------------------------------------------------
+; str_levenshtein_ratio
+;
+; Compute Levenshtein similarity ratio between two StrSlices.
+;
+; Signature:
+;   int64_t str_levenshtein_ratio(const StrSlice *a, const StrSlice *b,
+;                                 double *out_ratio)
+; -----------------------------------------------------------------------------
+extern str_edit_distance_slice
+
+STR_FUNC str_levenshtein_ratio
+    guard_null rdi, STR_ERR_NULL
+    guard_null rsi, STR_ERR_NULL
+    guard_null rdx, STR_ERR_NULL
+
+    push_regs rbx, r12, r13, r14, r15
+    sub     rsp, 24             ; distance [rsp], out_ratio [rsp+8]
+
+    mov     rbx, rdi            ; a
+    mov     r12, rsi            ; b
+    mov     [rsp + 8], rdx      ; save out_ratio ptr
+
+    mov     r14, [rbx + StrSlice.len]
+    mov     r15, [r12 + StrSlice.len]
+
+    ; if both are empty
+    test    r14, r14
+    jnz     .compute
+    test    r15, r15
+    jnz     .compute
+
+    ; both empty -> similarity = 1.0
+    mov     rax, [rsp + 8]
+    mov     rcx, 0x3FF0000000000000     ; 1.0 in double
+    mov     [rax], rcx
+    jmp     .done
+
+.compute:
+    ; max_len = max(a.len, b.len)
+    mov     rcx, r14
+    cmp     rcx, r15
+    jae     .max_ok
+    mov     rcx, r15
+.max_ok:
+    ; save max_len in r15 (not needed as b.len anymore)
+    mov     r15, rcx
+
+    ; call str_edit_distance_slice
+    mov     rdi, rbx
+    mov     rsi, r12
+    mov     rdx, rsp            ; &distance
+    call    str_edit_distance_slice
+    test    rax, rax
+    jnz     .err
+
+    ; ratio = 1.0 - (double)distance / (double)max_len
+    mov     rax, [rsp]          ; distance
+    cvtsi2sd xmm0, rax
+    cvtsi2sd xmm1, r15          ; max_len
+    divsd    xmm0, xmm1         ; xmm0 = distance / max_len
+
+    mov     rcx, 0x3FF0000000000000
+    movq    xmm1, rcx           ; xmm1 = 1.0
+    subsd   xmm1, xmm0          ; xmm1 = 1.0 - xmm0
+
+    mov     rax, [rsp + 8]      ; out_ratio ptr
+    movsd   [rax], xmm1
+
+.done:
+    add     rsp, 24
+    pop_regs r15, r14, r13, r12, rbx
+    ret_ok
+
+.err:
+    add     rsp, 24
+    pop_regs r15, r14, r13, r12, rbx
+    ret_err STR_ERR_INVALID
+STR_ENDFUNC str_levenshtein_ratio
