@@ -15,8 +15,8 @@
 
 section .text
 
-extern pci_config_read
-extern pci_config_write
+;extern pci_config_read
+;extern pci_config_write
 
 ; =============================================================================
 ; pci_bar_size — Size a PCI Base Address Register (BAR)
@@ -35,6 +35,7 @@ IO_FUNC pci_bar_size
     push    rdi
     push    r8
     push    r9
+    push    r12
 
     mov     rbx, rcx                ; RBX = BAR index (0-5)
 
@@ -50,7 +51,7 @@ IO_FUNC pci_bar_size
     ; 1. Save original BAR value
     mov     r8, 4                   ; size = 4 bytes
     call    pci_config_read
-    mov     r9, rax                 ; R9 = original BAR value
+    mov     r12, rax                ; R12 = original BAR value
 
     ; 2. Write all 1s (0xFFFFFFFF) to configure sizing mode
     push    rdi
@@ -76,7 +77,7 @@ IO_FUNC pci_bar_size
     push    rdx
     push    rcx
     mov     r8, 4
-    mov     r9, r9                  ; original BAR value
+    mov     r9, r12                 ; original BAR value
     call    pci_config_write
     pop     rcx
     pop     rdx
@@ -116,6 +117,7 @@ IO_FUNC pci_bar_size
     jmp     .done
 
 .done:
+    pop     r12
     pop     r9
     pop     r8
     pop     rdi
@@ -123,7 +125,6 @@ IO_FUNC pci_bar_size
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC pci_bar_size
 
 ; =============================================================================
@@ -161,7 +162,6 @@ IO_FUNC pci_bar_map
 .done:
     pop     r8
     pop     rcx
-    ret
 IO_ENDFUNC pci_bar_map
 
 %endif ; IO_PCI_BAR_ASM
