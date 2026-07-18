@@ -83,7 +83,6 @@ IO_FUNC percpu_init
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC percpu_init
 
 ; =============================================================================
@@ -95,7 +94,6 @@ IO_ENDFUNC percpu_init
 IO_FUNC percpu_get
     ; Reads the 'self' pointer at offset 0 of GS segment directly
     mov     rax, [gs:0]
-    ret
 IO_ENDFUNC percpu_get
 
 %endif ; IO_CORE_PERCPU_ASM
