@@ -82,7 +82,6 @@ IO_FUNC driver_register
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC driver_register
 
 ; =============================================================================
@@ -154,7 +153,6 @@ IO_FUNC pci_match_driver
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC pci_match_driver
 
 %endif ; IO_PCI_MATCH_ASM
