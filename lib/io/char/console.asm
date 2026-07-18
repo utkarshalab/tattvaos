@@ -19,7 +19,7 @@ milestone_newline:  db 13, 10, 0
 
 section .text
 
-extern serial_putc
+;extern serial_putc
 
 ; =============================================================================
 ; console_milestone — Emit a prefixed milestone string to the COM1 serial port.
@@ -49,7 +49,7 @@ IO_FUNC console_milestone
     pop     rdi                     ; Restore RDI
     pop     r12
     pop     rbx
-    ret
+IO_ENDFUNC console_milestone
 
 ; -----------------------------------------------------------------------------
 ; Helper: .print_str
@@ -57,8 +57,6 @@ IO_FUNC console_milestone
 ; In: RDI = pointer to string
 ; -----------------------------------------------------------------------------
 .print_str:
-    push    rbp
-    mov     rbp, rsp
     push    r12
     mov     r12, rdi                ; R12 = string pointer
 
@@ -75,8 +73,6 @@ IO_FUNC console_milestone
 
 .done:
     pop     r12
-    pop     rbp
     ret
-IO_ENDFUNC console_milestone
 
 %endif ; IO_CHAR_CONSOLE_ASM
