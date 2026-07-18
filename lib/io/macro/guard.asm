@@ -15,6 +15,9 @@
 ; guard_null reg
 ; Asserts that the specified register is non-null. If null, returns
 ; IO_ERR_NULL (-1) immediately, cleaning up the stack frame.
+; WARNING: This macro assumes ONLY RBP has been pushed to the stack (e.g. from
+; the IO_FUNC prologue). It MUST appear BEFORE any other callee-saved pushes 
+; in the function body; otherwise, the ret path will cause stack corruption.
 ; -----------------------------------------------------------------------------
 %macro guard_null 1
     test    %1, %1
@@ -29,6 +32,9 @@
 ; guard_bar reg, min, max
 ; Asserts that the value in the specified register is within range [min, max].
 ; If outside bounds, returns IO_ERR_BADARG (-2) immediately.
+; WARNING: This macro assumes ONLY RBP has been pushed to the stack (e.g. from
+; the IO_FUNC prologue). It MUST appear BEFORE any other callee-saved pushes 
+; in the function body; otherwise, the ret path will cause stack corruption.
 ; -----------------------------------------------------------------------------
 %macro guard_bar 3
     cmp     %1, %2
