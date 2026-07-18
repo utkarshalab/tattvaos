@@ -15,7 +15,7 @@
 
 section .text
 
-extern io_lapic_base
+;extern io_lapic_base
 
 ; =============================================================================
 ; lapic_init — Initialize the Local APIC for the current core
@@ -40,7 +40,6 @@ IO_FUNC lapic_init
 .done:
     pop     rcx
     pop     rax
-    ret
 IO_ENDFUNC lapic_init
 
 ; =============================================================================
@@ -60,7 +59,6 @@ IO_FUNC lapic_send_eoi
 
 .done:
     pop     rcx
-    ret
 IO_ENDFUNC lapic_send_eoi
 
 ; =============================================================================
@@ -97,7 +95,6 @@ IO_FUNC lapic_timer_start
     pop     rdx
     pop     rcx
     pop     rax
-    ret
 IO_ENDFUNC lapic_timer_start
 
 %endif ; IO_INTR_LAPIC_ASM
