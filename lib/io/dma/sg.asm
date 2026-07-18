@@ -132,13 +132,14 @@ IO_FUNC dma_sg_init
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC dma_sg_init
 
 ; =============================================================================
 ; virt_to_phys — Walk x86-64 page tables to resolve virtual address to physical.
 ; In : RDI = Virtual Address
 ; Out: RAX = Physical Address (or 0 if not mapped)
+; NOTE: This routine assumes physical memory is identity-mapped (1:1 physical-to-virtual)
+; during early boot to allow direct physical table dereferencing without page faults.
 ; =============================================================================
 global virt_to_phys
 virt_to_phys:
