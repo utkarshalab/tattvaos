@@ -69,7 +69,6 @@ IO_FUNC spsc_ring_push
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC spsc_ring_push
 
 %endif ; IO_ASYNC_SUBMIT_ASM
