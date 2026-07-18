@@ -18,13 +18,13 @@ PCI_CONFIG_DATA     equ 0xCFC
 
 section .text
 
-extern port_in8
-extern port_out8
+;extern port_in8
+;extern port_out8
 
 ; These low-level port helpers are defined in portio.asm but we can use direct in/out or call port_in/out
 ; To make it faster and self-contained, we can write in/out directly or call them. Let's call our port routines.
-extern port_in8
-extern port_out8
+;extern port_in8
+;extern port_out8
 
 ; =============================================================================
 ; pci_config_read — Read from PCI configuration space
@@ -119,7 +119,6 @@ IO_FUNC pci_config_read
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC pci_config_read
 
 ; =============================================================================
@@ -144,7 +143,7 @@ IO_FUNC pci_config_write
     ; 1. Construct Address
     mov     rax, 1
     shl     rax, 31
-
+ 
     and     rdi, 0xFF
     shl     rdi, 16
     or      rax, rdi
@@ -200,7 +199,6 @@ IO_FUNC pci_config_write
     pop     rcx
     pop     rbx
     pop     rax
-    ret
 IO_ENDFUNC pci_config_write
 
 %endif ; IO_PCI_CONFIG_ASM
