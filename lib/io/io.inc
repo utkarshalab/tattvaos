@@ -46,6 +46,8 @@ struc io_request_t
     .status      resq 1      ; final result code (§3 band on error)
     .pin_token   resq 1      ; DMA pin handle; released on completion
     .submit_tsc  resq 1      ; rdtsc at submit (latency histogram)
+    .complete_tsc resq 1     ; rdtsc at completion
+    .result      resq 1      ; bytes transferred / device-specific
     .waiter      resq 1      ; -> waitq entry, or 0
 endstruc
 
