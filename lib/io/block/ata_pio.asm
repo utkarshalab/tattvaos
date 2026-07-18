@@ -353,6 +353,11 @@ IO_ENDFUNC ata_pio_write
 .ready_loop:
     mov     rdi, ATA_PORT_CMD_STAT
     call    port_in8
+    
+    ; Check for error or device fault bits
+    test    al, ATA_STAT_ERR | ATA_STAT_DF
+    jnz     .ready_fail
+
     test    al, ATA_STAT_BSY
     jnz     .ready_retry
     test    al, ATA_STAT_DRDY
@@ -361,7 +366,8 @@ IO_ENDFUNC ata_pio_write
 .ready_retry:
     dec     rcx
     jnz     .ready_loop
-    mov     rax, -1                 ; Timeout failure
+.ready_fail:
+    mov     rax, -1                 ; Timeout/Fault failure
     jmp     .ready_done
 
 .ready_ok:
@@ -383,6 +389,11 @@ IO_ENDFUNC ata_pio_write
 .drq_loop:
     mov     rdi, ATA_PORT_CMD_STAT
     call    port_in8
+
+    ; Check for error or device fault bits
+    test    al, ATA_STAT_ERR | ATA_STAT_DF
+    jnz     .drq_fail
+
     test    al, ATA_STAT_BSY
     jnz     .drq_retry
     test    al, ATA_STAT_DRQ
@@ -391,7 +402,8 @@ IO_ENDFUNC ata_pio_write
 .drq_retry:
     dec     rcx
     jnz     .drq_loop
-    mov     rax, -1                 ; Timeout failure
+.drq_fail:
+    mov     rax, -1                 ; Timeout/Fault failure
     jmp     .drq_done
 
 .drq_ok:
