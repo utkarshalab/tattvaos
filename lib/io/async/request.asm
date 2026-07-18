@@ -72,7 +72,6 @@ IO_FUNC io_request_init
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC io_request_init
 
 ; =============================================================================
@@ -147,7 +146,6 @@ IO_FUNC io_request_transition
 
 .done:
     pop     rbx
-    ret
 IO_ENDFUNC io_request_transition
 
 %endif ; IO_ASYNC_REQUEST_ASM
