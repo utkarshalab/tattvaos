@@ -27,6 +27,16 @@
 %include "lib/io/core/fd.asm"
 %include "lib/io/core/handle.asm"
 
+; Interrupt infrastructure
+%include "lib/io/intr/idt.asm"
+%include "lib/io/intr/isr.asm"
+%include "lib/io/intr/exception.asm"
+%include "lib/io/intr/pic.asm"
+%include "lib/io/intr/lapic.asm"
+%include "lib/io/intr/ioapic.asm"
+%include "lib/io/intr/spurious.asm"
+%include "lib/io/intr/vector.asm"
+
 ; Character devices (Serial and Console)
 %include "lib/io/char/serial.asm"
 %include "lib/io/char/console.asm"
