@@ -37,6 +37,20 @@
 %include "lib/io/intr/spurious.asm"
 %include "lib/io/intr/vector.asm"
 
+; PCI/PCIe bus configuration
+%include "lib/io/pci/config.asm"
+%include "lib/io/pci/match.asm"
+%include "lib/io/pci/bar.asm"
+%include "lib/io/pci/caps.asm"
+%include "lib/io/pci/enum.asm"
+
+; Direct Memory Access (DMA)
+%include "lib/io/dma/alloc.asm"
+%include "lib/io/dma/map.asm"
+%include "lib/io/dma/sg.asm"
+%include "lib/io/dma/sync.asm"
+%include "lib/io/dma/barrier.asm"
+
 ; Character devices (Serial and Console)
 %include "lib/io/char/serial.asm"
 %include "lib/io/char/console.asm"
