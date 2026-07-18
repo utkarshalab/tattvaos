@@ -20,7 +20,7 @@ PIC2_DATA           equ 0xA1
 
 section .text
 
-extern port_out8
+;extern port_out8
 
 ; =============================================================================
 ; pic_remap — Remap the legacy 8259 PIC vectors to 0x20-0x2F
@@ -46,7 +46,7 @@ IO_FUNC pic_remap
     mov     rsi, 0x28               ; Slave offset = 0x28
     call    port_out8
 
-    ; 3. ICW3: Cascade setup
+    ; 3. Cascade setup
     mov     rdi, PIC1_DATA
     mov     rsi, 0x04               ; Master has slave on IRQ2 (0b00000100)
     call    port_out8
@@ -72,8 +72,6 @@ IO_FUNC pic_remap
     mov     rdi, PIC2_DATA
     mov     rsi, 0xFF               ; Mask all slave interrupts
     call    port_out8
-
-    ret
 IO_ENDFUNC pic_remap
 
 %endif ; IO_INTR_PIC_ASM
