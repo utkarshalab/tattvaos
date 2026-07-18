@@ -20,9 +20,9 @@ global_device_count: resq 1
 
 section .text
 
-extern pci_config_read
-extern pci_match_driver
-extern console_milestone
+;extern pci_config_read
+;extern pci_match_driver
+;extern console_milestone
 
 ; =============================================================================
 ; pci_enumerate — Walks PCI buses to detect and probe compatible devices
@@ -41,7 +41,7 @@ IO_FUNC pci_enumerate
     push    r14
     push    r15
 
-    xor     r12, r12                ; R12 = bus iterator (0-7 for early bring-up)
+    xor     r12, r12                ; R12 = bus iterator (0-255)
     xor     r13, r13                ; R13 = device iterator (0-31)
     xor     r14, r14                ; R14 = function iterator (0-7)
     xor     r15, r15                ; R15 = count of matched devices
@@ -145,7 +145,7 @@ IO_FUNC pci_enumerate
     jl      .dev_loop
 
     inc     r12
-    cmp     r12, 8                  ; Scan first 8 buses
+    cmp     r12, 256                ; Scan all 256 buses
     jl      .bus_loop
 
     mov     rax, r15                ; Return matched count
@@ -159,7 +159,6 @@ IO_FUNC pci_enumerate
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC pci_enumerate
 
 %endif ; IO_PCI_ENUM_ASM
