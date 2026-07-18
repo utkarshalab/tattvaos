@@ -37,7 +37,6 @@ IO_FUNC io_fd_init
     pop     rax
     pop     rcx
     pop     rdi
-    ret
 IO_ENDFUNC io_fd_init
 
 %endif ; IO_CORE_FD_ASM
