@@ -343,10 +343,12 @@ IO_FUNC virtio_blk_submit
     lea     rdx, [rax + 4 + rcx * 2] ; RDX = &avail.ring[idx]
     mov     word [rdx], 0           ; Write head descriptor index (0)
 
+    sfence                          ; Fence 1: Ensure descriptor writes and avail ring entry are visible
+
     ; Increment avail.idx
     inc     word [rax + 2]
 
-    sfence                          ; Ensure writes are visible before device notification
+    sfence                          ; Fence 2: Ensure index update is visible before device notification
 
     ; 3. Notify device
     movzx   rdx, word [rel virtio_device_io_base]
@@ -354,14 +356,28 @@ IO_FUNC virtio_blk_submit
     xor     eax, eax                ; Notify queue 0
     out     dx, ax
 
-    ; 4. Polling wait for completion (until status updated to non-0xFF)
+    ; 4. Polling wait for completion (until status updated to non-0xFF or timeout)
     mov     rcx, [rel virtio_active_status_virt]
+    mov     rsi, 50000000           ; Timeout counter
 
 .wait_loop:
     movzx   rax, byte [rcx]
     cmp     al, 0xFF
-    je      .wait_loop              ; Spin until device writes status
+    jne     .check_status
 
+    dec     rsi
+    jz      .err_timeout
+
+    pause                           ; Hint to CPU for spinning loop efficiency
+    jmp     .wait_loop
+
+.err_timeout:
+    mov     qword [r12 + io_request_t.state], IO_REQ_TIMEOUT
+    mov     qword [r12 + io_request_t.status], IO_ERR_TIMEOUT
+    mov     rax, IO_ERR_TIMEOUT
+    jmp     .done
+
+.check_status:
     ; Handle final result
     test    al, al
     jnz     .err_io
@@ -373,8 +389,8 @@ IO_FUNC virtio_blk_submit
 
 .err_io:
     mov     qword [r12 + io_request_t.state], IO_REQ_ERROR
-    mov     qword [r12 + io_request_t.status], IO_ERR_PCI_BAR
-    mov     rax, IO_ERR_PCI_BAR
+    mov     qword [r12 + io_request_t.status], IO_ERR_MEDIA
+    mov     rax, IO_ERR_MEDIA
 
 .done:
     add     rsp, 16
