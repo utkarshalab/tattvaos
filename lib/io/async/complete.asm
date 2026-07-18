@@ -70,7 +70,6 @@ IO_FUNC spsc_ring_pop
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC spsc_ring_pop
 
 ; =============================================================================
@@ -130,7 +129,6 @@ IO_FUNC io_complete_request
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC io_complete_request
 
 %endif ; IO_ASYNC_COMPLETE_ASM
