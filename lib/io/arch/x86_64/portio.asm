@@ -26,7 +26,6 @@ IO_FUNC port_in8
     xor     rax, rax
     in      al, dx
     pop     rdx
-    ret
 IO_ENDFUNC port_in8
 
 ; =============================================================================
@@ -42,7 +41,6 @@ IO_FUNC port_out8
     out     dx, al
     pop     rax
     pop     rdx
-    ret
 IO_ENDFUNC port_out8
 
 %endif ; IO_ARCH_PORTIO_ASM
