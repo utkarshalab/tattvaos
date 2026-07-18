@@ -43,7 +43,6 @@ IO_FUNC ioapic_read
 
 .done:
     pop     rcx
-    ret
 IO_ENDFUNC ioapic_read
 
 ; =============================================================================
@@ -67,7 +66,6 @@ IO_FUNC ioapic_write
 
 .done:
     pop     rcx
-    ret
 IO_ENDFUNC ioapic_write
 
 ; =============================================================================
@@ -120,7 +118,6 @@ IO_FUNC ioapic_route_irq
     pop     r8
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC ioapic_route_irq
 
 %endif ; IO_INTR_IOAPIC_ASM
