@@ -56,6 +56,11 @@
 %include "lib/io/block/ata_pio.asm"
 %include "lib/io/block/virtio_blk.asm"
 
+; Async execution rings and request management
+%include "lib/io/async/submit.asm"
+%include "lib/io/async/complete.asm"
+%include "lib/io/async/request.asm"
+
 ; Character devices (Serial and Console)
 %include "lib/io/char/serial.asm"
 %include "lib/io/char/console.asm"
