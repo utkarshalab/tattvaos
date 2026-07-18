@@ -13,7 +13,7 @@ SRC = io.asm
 
 all: $(TARGET)
 
-$(TARGET): $(SRC) io.inc error/codes.asm macro/func.asm macro/guard.asm arch/x86_64/portio.asm core/percpu.asm core/fd.asm core/handle.asm char/serial.asm char/console.asm
+$(TARGET): $(SRC) io.inc error/codes.asm macro/func.asm macro/guard.asm arch/x86_64/portio.asm core/percpu.asm core/fd.asm core/handle.asm intr/idt.asm intr/isr.asm intr/exception.asm intr/pic.asm intr/lapic.asm intr/ioapic.asm intr/spurious.asm intr/vector.asm char/serial.asm char/console.asm
 	$(ASM) $(ASMFLAGS) -o $(TARGET) $(SRC)
 
 clean:
