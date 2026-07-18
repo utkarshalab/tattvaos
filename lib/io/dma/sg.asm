@@ -146,10 +146,12 @@ virt_to_phys:
     push    rcx
     push    rdx
 
+    ; Load mask to strip NX (bit 63) and reserved bits
+    mov     rbx, 0x000FFFFFFFFFF000
+
     ; 1. Load CR3 physical base address
     mov     rdx, cr3
-    mov     rax, 0xFFFFFFFFFFFFF000
-    and     rdx, rax                ; RDX = PML4 physical base address
+    and     rdx, rbx                ; RDX = PML4 physical base address
 
     ; 2. Traverse PML4 (bits 39-47)
     mov     rcx, rdi
@@ -158,7 +160,7 @@ virt_to_phys:
     mov     rax, [rdx + rcx * 8]    ; RAX = PML4 Entry
     test    al, 0x01                ; Present bit
     jz      .not_mapped
-    and     rax, 0xFFFFFFFFFFFFF000
+    and     rax, rbx
     mov     rdx, rax                ; RDX = PDPT physical base address
 
     ; 3. Traverse PDPT (bits 30-38)
@@ -173,7 +175,7 @@ virt_to_phys:
     test    al, 0x80
     jnz     .huge_1gb
     
-    and     rax, 0xFFFFFFFFFFFFF000
+    and     rax, rbx
     mov     rdx, rax                ; RDX = PD physical base address
 
     ; 4. Traverse PD (bits 21-29)
@@ -188,7 +190,7 @@ virt_to_phys:
     test    al, 0x80
     jnz     .huge_2mb
 
-    and     rax, 0xFFFFFFFFFFFFF000
+    and     rax, rbx
     mov     rdx, rax                ; RDX = PT physical base address
 
     ; 5. Traverse PT (bits 12-20)
@@ -200,7 +202,7 @@ virt_to_phys:
     jz      .not_mapped
 
     ; 4KB Page resolve: physical page address + offset in page
-    and     rax, 0xFFFFFFFFFFFFF000
+    and     rax, rbx
     mov     rcx, rdi
     and     rcx, 0xFFF              ; Offset in 4KB page
     add     rax, rcx
@@ -208,7 +210,8 @@ virt_to_phys:
 
 .huge_1gb:
     ; 1GB Page resolve: physical page address + offset in 1GB
-    and     rax, 0xFFFFFC0000000    ; 1GB alignment mask
+    and     rax, rbx
+    and     rax, ~0x3FFFFFFF        ; Clear lower 30 bits
     mov     rcx, rdi
     mov     rdx, 0x3FFFFFFF         ; 1GB offset mask
     and     rcx, rdx
@@ -217,7 +220,8 @@ virt_to_phys:
 
 .huge_2mb:
     ; 2MB Page resolve: physical page address + offset in 2MB
-    and     rax, 0xFFFFFFFE00000    ; 2MB alignment mask
+    and     rax, rbx
+    and     rax, ~0x1FFFFF          ; Clear lower 21 bits
     mov     rcx, rdi
     mov     rdx, 0x1FFFFF           ; 2MB offset mask
     and     rcx, rdx
