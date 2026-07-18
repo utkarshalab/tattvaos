@@ -40,8 +40,9 @@ drv_name_ata:       db "ata_pio", 0
 
 section .text
 
-extern port_in8
-extern port_out8
+; These will be resolved during compilation/linking (either same unit or extern)
+;extern port_in8
+;extern port_out8
 
 ; =============================================================================
 ; ata_pio_probe — Probe for Primary Master IDE/ATA drive presence
@@ -118,7 +119,6 @@ IO_FUNC ata_pio_probe
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC ata_pio_probe
 
 ; =============================================================================
@@ -219,7 +219,7 @@ IO_FUNC ata_pio_read
     jmp     .done
 
 .err_fault:
-    mov     rax, IO_ERR_PCI_BAR     ; General I/O fault
+    mov     rax, IO_ERR_TIMEOUT     ; Timeout / command error
 
 .done:
     pop     r14
@@ -230,7 +230,6 @@ IO_FUNC ata_pio_read
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC ata_pio_read
 
 ; =============================================================================
@@ -327,7 +326,7 @@ IO_FUNC ata_pio_write
     jmp     .done
 
 .err_fault:
-    mov     rax, IO_ERR_PCI_BAR
+    mov     rax, IO_ERR_TIMEOUT     ; Timeout / command error
 
 .done:
     pop     r14
@@ -338,7 +337,6 @@ IO_FUNC ata_pio_write
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC ata_pio_write
 
 ; -----------------------------------------------------------------------------
