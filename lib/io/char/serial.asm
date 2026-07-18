@@ -16,8 +16,8 @@
 section .text
 
 ; These will be resolved during compilation/linking (either same unit or extern)
-extern port_in8
-extern port_out8
+;extern port_in8
+;extern port_out8
 
 ; =============================================================================
 ; serial_init — Initialize 16550 COM port to 115200 8N1 with loopback test.
@@ -98,7 +98,6 @@ IO_FUNC serial_init
 
 .done:
     pop     rbx
-    ret
 IO_ENDFUNC serial_init
 
 ; =============================================================================
@@ -125,7 +124,6 @@ IO_FUNC serial_putc
 
     pop     r12
     pop     rbx
-    ret
 IO_ENDFUNC serial_putc
 
 %endif ; IO_CHAR_SERIAL_ASM
