@@ -131,7 +131,6 @@ IO_FUNC bdev_read
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC bdev_read
 
 ; =============================================================================
@@ -205,7 +204,6 @@ IO_FUNC bdev_write
     mov     rax, [rbx + io_request_t.state]
     cmp     rax, IO_REQ_COMPLETE
     je      .complete
-    cmp     rax, io_request_t.state
     cmp     rax, IO_REQ_ERROR
     je      .err_status
     cmp     rax, IO_REQ_CANCELLED
@@ -240,7 +238,6 @@ IO_FUNC bdev_write
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC bdev_write
 
 %endif ; IO_BLOCK_BDEV_ASM
