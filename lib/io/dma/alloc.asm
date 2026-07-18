@@ -129,7 +129,6 @@ IO_FUNC dma_alloc
     pop     rsi
     pop     rdx
     pop     rcx
-    ret
 IO_ENDFUNC dma_alloc
 
 %endif ; IO_DMA_ALLOC_ASM
