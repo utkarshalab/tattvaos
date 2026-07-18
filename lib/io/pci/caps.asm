@@ -14,7 +14,7 @@
 
 section .text
 
-extern pci_config_read
+;extern pci_config_read
 
 ; =============================================================================
 ; pci_find_cap — Search capability chain of a PCI function for target capability
@@ -34,7 +34,7 @@ IO_FUNC pci_find_cap
     push    r8
     push    r9
 
-    mov     r8, rcx                 ; R8 = target Cap ID
+    mov     r9, rcx                 ; R9 = target Cap ID
 
     ; 1. Check if status register (offset 0x06) indicates capabilities exist (bit 4 = 1)
     push    rdi
@@ -80,7 +80,7 @@ IO_FUNC pci_find_cap
     pop     rdi
     and     rax, 0xFF
 
-    cmp     rax, r8                 ; Compare with target Cap ID
+    cmp     rax, r9                 ; Compare with target Cap ID
     je      .found                  ; Found it!
 
     ; Read Next pointer (byte at current pointer + 1)
@@ -112,7 +112,6 @@ IO_FUNC pci_find_cap
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC pci_find_cap
 
 %endif ; IO_PCI_CAPS_ASM
