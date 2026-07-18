@@ -40,7 +40,7 @@ IO_FUNC vector_alloc
 
     inc     rcx
     cmp     rcx, 0xF0               ; Up to 0xEF (0xF0 is excluded)
-    jl      .loop
+    jb      .loop
 
     ; Dynamic vectors are exhausted
     mov     rax, IO_ERR_VEC_LIMIT   ; Return vector limit error
@@ -52,7 +52,6 @@ IO_FUNC vector_alloc
 .done:
     pop     rdx
     pop     rcx
-    ret
 IO_ENDFUNC vector_alloc
 
 ; =============================================================================
@@ -72,7 +71,6 @@ IO_FUNC vector_free
     lock btr [rel global_vector_bitmap], rdi
 
 .done:
-    ret
 IO_ENDFUNC vector_free
 
 %endif ; IO_INTR_VECTOR_ASM
