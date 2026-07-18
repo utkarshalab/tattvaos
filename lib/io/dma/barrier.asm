@@ -20,7 +20,6 @@ section .text
 ; =============================================================================
 IO_FUNC dma_barrier
     mfence                          ; Standard memory fence instruction
-    ret
 IO_ENDFUNC dma_barrier
 
 %endif ; IO_DMA_BARRIER_ASM
