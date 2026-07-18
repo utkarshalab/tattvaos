@@ -13,6 +13,7 @@
 %include "lib/io/macro/guard.asm"
 %include "lib/io/io.inc"
 %include "lib/io/error/codes.asm"
+%include "lib/io/intr/isr.asm"
 
 ; Virtio Legacy PCI Register Offsets
 VIRTIO_PCI_HOST_FEATURES    equ 0x00    ; 32-bit R
@@ -28,6 +29,7 @@ VIRTIO_PCI_ISR               equ 0x13    ; 8-bit R
 VIRTIO_STATUS_ACKNOWLEDGE   equ 1
 VIRTIO_STATUS_DRIVER        equ 2
 VIRTIO_STATUS_DRIVER_OK     equ 4
+VIRTIO_STATUS_FEATURES_OK   equ 8
 VIRTIO_STATUS_FAILED        equ 128
 
 ; Virtqueue Descriptor Flags
@@ -59,13 +61,14 @@ drv_name_virtio:    db "virtio_blk", 0
 
 section .text
 
-extern pci_config_read
-extern pci_config_write
-extern dma_alloc
-extern idt_register_handler
-extern lapic_send_eoi
-extern port_in8
-extern port_out8
+; These will be resolved during compilation/linking (same unit)
+;extern pci_config_read
+;extern pci_config_write
+;extern dma_alloc
+;extern idt_register_handler
+;extern lapic_send_eoi
+;extern port_in8
+;extern port_out8
 
 ; =============================================================================
 ; virtio_blk_probe — Probe and initialize Virtio-Blk legacy PCI device
@@ -136,7 +139,7 @@ IO_FUNC virtio_blk_probe
     xor     rdx, rdx                ; No flags
     call    dma_alloc
     IS_ERR  rax
-    jbe     .err_nomem
+    jae     .err_nomem
 
     mov     [rel virtio_desc_table_phys], rax
     mov     [rel virtio_desc_table_virt], rbx
@@ -149,13 +152,32 @@ IO_FUNC virtio_blk_probe
     mov     eax, ecx
     out     dx, eax                 ; Write Queue PFN
 
+    ; Feature negotiation and FEATURES_OK step
+    mov     rdx, r13
+    add     rdx, VIRTIO_PCI_HOST_FEATURES
+    in      eax, dx                 ; Read host features
+
+    mov     rdx, r13
+    add     rdx, VIRTIO_PCI_GUEST_FEATURES
+    out     dx, eax                 ; Write guest features
+
+    mov     rdx, r13
+    add     rdx, VIRTIO_PCI_STATUS
+    mov     al, VIRTIO_STATUS_ACKNOWLEDGE | VIRTIO_STATUS_DRIVER | VIRTIO_STATUS_FEATURES_OK
+    out     dx, al                  ; Set FEATURES_OK status
+
+    ; Verify device accepted features
+    in      al, dx
+    test    al, VIRTIO_STATUS_FEATURES_OK
+    jz      .err_no_device
+
     ; 7. Allocate status byte in DMA space
     mov     rdi, 64
     mov     rsi, 64
     xor     rdx, rdx
     call    dma_alloc
     IS_ERR  rax
-    jbe     .err_nomem
+    jae     .err_nomem
     mov     [rel virtio_active_status_phys], rax
     mov     [rel virtio_active_status_virt], rbx
 
@@ -200,7 +222,7 @@ IO_FUNC virtio_blk_probe
     ; Set DRIVER_OK status
     mov     rdx, r13
     add     rdx, VIRTIO_PCI_STATUS
-    mov     al, VIRTIO_STATUS_ACKNOWLEDGE | VIRTIO_STATUS_DRIVER | VIRTIO_STATUS_DRIVER_OK
+    mov     al, VIRTIO_STATUS_ACKNOWLEDGE | VIRTIO_STATUS_DRIVER | VIRTIO_STATUS_FEATURES_OK | VIRTIO_STATUS_DRIVER_OK
     out     dx, al
 
     xor     rax, rax                ; Return 0 (Success)
@@ -221,7 +243,6 @@ IO_FUNC virtio_blk_probe
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC virtio_blk_probe
 
 ; =============================================================================
@@ -325,6 +346,8 @@ IO_FUNC virtio_blk_submit
     ; Increment avail.idx
     inc     word [rax + 2]
 
+    sfence                          ; Ensure writes are visible before device notification
+
     ; 3. Notify device
     movzx   rdx, word [rel virtio_device_io_base]
     add     rdx, VIRTIO_PCI_QUEUE_NOTIFY
@@ -346,14 +369,14 @@ IO_FUNC virtio_blk_submit
     mov     qword [r12 + io_request_t.state], IO_REQ_COMPLETE
     mov     qword [r12 + io_request_t.status], 0
     xor     rax, rax
-    jmp     .cleanup
+    jmp     .done
 
 .err_io:
     mov     qword [r12 + io_request_t.state], IO_REQ_ERROR
     mov     qword [r12 + io_request_t.status], IO_ERR_PCI_BAR
     mov     rax, IO_ERR_PCI_BAR
 
-.cleanup:
+.done:
     add     rsp, 16
     pop     r14
     pop     r13
@@ -363,7 +386,6 @@ IO_FUNC virtio_blk_submit
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC virtio_blk_submit
 
 ; =============================================================================
@@ -371,11 +393,7 @@ IO_ENDFUNC virtio_blk_submit
 ; =============================================================================
 global virtio_blk_isr
 virtio_blk_isr:
-    push    rax
-    push    rcx
-    push    rdx
-    push    rsi
-    push    rdi
+    ISR_ENTRY
 
     ; 1. Acknowledge interrupt in ISR register (reading it clears it)
     movzx   rdx, word [rel virtio_device_io_base]
@@ -390,16 +408,8 @@ virtio_blk_isr:
     test    rax, rax
     jz      .done
 
-    ; Update status byte from used ring if needed, but the status block mapped 
-    ; in DMA space gets written by device before interrupt fires.
-
 .done:
     call    lapic_send_eoi          ; Acknowledge vector in LAPIC
-    pop     rdi
-    pop     rsi
-    pop     rdx
-    pop     rcx
-    pop     rax
-    iretq
+    ISR_EXIT
 
 %endif ; IO_BLOCK_VIRTIO_BLK_ASM
