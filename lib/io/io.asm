@@ -51,6 +51,11 @@
 %include "lib/io/dma/sync.asm"
 %include "lib/io/dma/barrier.asm"
 
+; Block devices
+%include "lib/io/block/bdev.asm"
+%include "lib/io/block/ata_pio.asm"
+%include "lib/io/block/virtio_blk.asm"
+
 ; Character devices (Serial and Console)
 %include "lib/io/char/serial.asm"
 %include "lib/io/char/console.asm"
