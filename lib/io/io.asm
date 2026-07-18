@@ -22,6 +22,11 @@
 ; Architectural abstraction (x86_64)
 %include "lib/io/arch/x86_64/portio.asm"
 
+; Core descriptor tables and per-CPU state
+%include "lib/io/core/percpu.asm"
+%include "lib/io/core/fd.asm"
+%include "lib/io/core/handle.asm"
+
 ; Character devices (Serial and Console)
 %include "lib/io/char/serial.asm"
 %include "lib/io/char/console.asm"
