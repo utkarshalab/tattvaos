@@ -12,6 +12,10 @@
 %include "lib/io/macro/func.asm"
 %include "lib/io/macro/guard.asm"
 
+section .data
+global dma_coherency_flag
+dma_coherency_flag: dq 1             ; 1 = coherent (default on x86_64), 0 = non-coherent
+
 section .text
 
 ; =============================================================================
@@ -23,6 +27,11 @@ section .text
 ; =============================================================================
 IO_FUNC dma_sync_for_cpu
     guard_null rdi
+
+    mov     rax, [rel dma_coherency_flag]
+    test    rax, rax
+    jnz     .done_coherent
+
     push    rax
     push    rcx
     push    rdi
@@ -36,7 +45,7 @@ IO_FUNC dma_sync_for_cpu
     cmp     rax, rsi
     jae     .done
 
-    clflush [rax]                   ; Flush target cache line
+    clflush [rax]                   ; Invalidate cache line (clflush does writeback+invalidate)
 
     add     rax, 64                 ; Advance by one cache line stride
     jmp     .loop
@@ -47,7 +56,7 @@ IO_FUNC dma_sync_for_cpu
     pop     rdi
     pop     rcx
     pop     rax
-    ret
+.done_coherent:
 IO_ENDFUNC dma_sync_for_cpu
 
 ; =============================================================================
@@ -59,6 +68,11 @@ IO_ENDFUNC dma_sync_for_cpu
 ; =============================================================================
 IO_FUNC dma_sync_for_device
     guard_null rdi
+
+    mov     rax, [rel dma_coherency_flag]
+    test    rax, rax
+    jnz     .done_coherent
+
     push    rax
     push    rcx
     push    rdi
@@ -83,7 +97,7 @@ IO_FUNC dma_sync_for_device
     pop     rdi
     pop     rcx
     pop     rax
-    ret
+.done_coherent:
 IO_ENDFUNC dma_sync_for_device
 
 %endif ; IO_DMA_SYNC_ASM
