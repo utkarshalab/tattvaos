@@ -29,7 +29,6 @@ IO_FUNC idt_register_handler
     guard_null rsi
     ; Forward the call directly to kernel's IDT registrar
     call    register_idt_handler
-    ret
 IO_ENDFUNC idt_register_handler
 
 %endif ; IO_INTR_IDT_ASM
