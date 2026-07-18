@@ -31,6 +31,7 @@ IO_ERR_PCI_BAR      equ -0x401      ; PCI BAR configuration or mapping conflict
 
 ; ---- Block Device Band (Base 0x500) ----
 IO_ERR_QFULL        equ -0x501      ; Submission queue or request block ring full
+IO_ERR_MEDIA        equ -0x502      ; Media / hardware I/O transfer error
 
 ; ---- Async Subsystem Band (Base 0x600) ----
 IO_ERR_TIMEOUT      equ -0x601      ; Controller command timeout expired
