@@ -21,7 +21,7 @@ FD_STALE            equ 2
 
 section .text
 
-extern io_fd_table
+;extern io_fd_table
 
 ; =============================================================================
 ; io_handle_alloc — Register an active descriptor; return an encoded handle.
@@ -95,7 +95,6 @@ IO_FUNC io_handle_alloc
     pop     rdx
     pop     rcx
     pop     rbx
-    ret
 IO_ENDFUNC io_handle_alloc
 
 ; =============================================================================
@@ -150,7 +149,6 @@ IO_FUNC io_handle_lookup
     pop     r8
     pop     rdx
     pop     rcx
-    ret
 IO_ENDFUNC io_handle_lookup
 
 %endif ; IO_CORE_HANDLE_ASM
