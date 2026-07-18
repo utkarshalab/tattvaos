@@ -27,6 +27,10 @@
 %include "lib/io/core/fd.asm"
 %include "lib/io/core/handle.asm"
 
+; Character devices (Serial and Console)
+%include "lib/io/char/serial.asm"
+%include "lib/io/char/console.asm"
+
 ; Interrupt infrastructure
 %include "lib/io/intr/idt.asm"
 %include "lib/io/intr/isr.asm"
@@ -60,9 +64,5 @@
 %include "lib/io/async/submit.asm"
 %include "lib/io/async/complete.asm"
 %include "lib/io/async/request.asm"
-
-; Character devices (Serial and Console)
-%include "lib/io/char/serial.asm"
-%include "lib/io/char/console.asm"
 
 %endif ; LIB_IO_IO_ASM
