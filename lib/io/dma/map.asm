@@ -94,7 +94,6 @@ IO_FUNC dma_map_virtual
     pop     rsi
     pop     rdx
     pop     rcx
-    ret
 IO_ENDFUNC dma_map_virtual
 
 ; =============================================================================
@@ -106,7 +105,6 @@ IO_ENDFUNC dma_map_virtual
 IO_FUNC dma_unmap_virtual
     ; Standard unmapping involves walking page tables and clearing PTE present bit,
     ; followed by TLB invalidation. Stubbed for bring-up.
-    ret
 IO_ENDFUNC dma_unmap_virtual
 
 %endif ; IO_DMA_MAP_ASM
