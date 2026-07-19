@@ -23,6 +23,7 @@ str_align_pass:    db "TEST:ALIGN_OK", 0
 str_smap_pass:     db "TEST:SMAP_OK", 0
 str_pin_pass:      db "TEST:PIN_OK", 0
 str_fixed_pass:    db "TEST:FIXED_BUF_OK", 0
+str_fadt_pass:     db "TEST:FADT_OK", 0
 str_all_pass:      db "TEST:ALL_PASS", 0
 
 section .text
@@ -39,6 +40,7 @@ extern buffer_is_pinned
 extern fixed_buf_register
 extern fixed_buf_resolve
 extern fixed_buf_unregister
+extern fadt_smi_cmd
 
 ; =============================================================================
 ; io_run_unit_tests — Main unit test runner entry point
@@ -152,6 +154,16 @@ IO_FUNC io_run_unit_tests
     jne     .fail
 
     lea     rdi, [rel str_fixed_pass]
+    call    console_milestone
+
+    ; =========================================================================
+    ; Test Case 5: ACPI FADT table parser validation
+    ; =========================================================================
+    mov     eax, [rel fadt_smi_cmd]
+    test    eax, eax
+    jz      .fail                   ; Fail if SMI port was not parsed/configured
+
+    lea     rdi, [rel str_fadt_pass]
     call    console_milestone
 
     ; 2. Broadcast overall test suite success milestone
