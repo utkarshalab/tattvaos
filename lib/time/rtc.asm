@@ -66,12 +66,12 @@ IO_FUNC rtc_read_time
     mov     al, CMOS_REG_MINUTES
     out     CMOS_PORT_INDEX, al
     in      al, CMOS_PORT_DATA
-    movzx   r14, al                 ; r14 = raw minutes
-
+    movzx   r14, al                 ; r14 = raw minutes    
     mov     al, CMOS_REG_HOURS
     out     CMOS_PORT_INDEX, al
     in      al, CMOS_PORT_DATA
     movzx   r15, al                 ; r15 = raw hours
+    mov     r8, r15                 ; r8 = original raw hours for PM checks
 
     mov     al, CMOS_REG_DAY_MONTH
     out     CMOS_PORT_INDEX, al
@@ -139,32 +139,20 @@ IO_FUNC rtc_read_time
     test    r12b, CMOS_STATUS_B_24H
     jnz     .decode_year            ; 24-hour format, proceed to year
 
-    ; 12-hour format: PM bit is bit 7 (0x80) of original raw register r15
-    mov     rax, [rsp + 8]          ; Fetch original r15 (raw hours was saved in register frame)
-    ; Wait, raw hour is in r15 before conversion. Wait, we read it to r15.
-    ; Original raw hour is still in raw register format. Let's look at r15's raw state:
-    ; We had saved raw r15 value, but we ran: test r12b, CMOS_STATUS_B_BIN.
-    ; Wait, we can test original raw hours (which had bit 7 set if PM).
-    ; Since r15 contains the binary hours now, we need to inspect the original PM bit.
-    ; We can read raw hours again or just extract PM bit from the original register.
-    ; Ah! We loaded raw hours into r15. In BCD conversion:
-    ;   mov al, r15b
-    ;   test r12b, CMOS_STATUS_B_24H
-    ;   jnz .bcd_hours_24
-    ;   and al, 0x7F
-    ; So we cleared it. But r15 still contains the original BCD hours!
-    ; Ah! Let's check:
-    ; PM bit is raw_hours & 0x80. If set, it's PM.
-    ; Let's retrieve the PM state from the original raw register.
-    ; Let's write the logic:
-    ; We can save the raw hour value in another register or memory before conversion.
-    ; Yes, we had raw hours in r15. In the BCD step, we overwrote r15.
-    ; Let's rewrite BCD conversion to preserve raw hours.
-    ; Actually, let's look at it: BCD hours PM check is simple.
-    ; If bit 7 of raw hours is set, we need to add 12 (if hours != 12) or set hours to 12.
-    ; If bit 7 is clear, it's AM. If hours == 12, set to 0.
-    ; Let's write the logic in BCD hours conversion step:
-    ; We can do BCD conversions directly in BCD step.
+    ; 12-hour format: PM bit is bit 7 (0x80) of original raw register hours (in r8)
+    test    r8b, 0x80
+    jz      .hours_am
+
+    ; PM mode
+    cmp     r15, 12                 ; 12 PM is 12
+    je      .decode_year
+    add     r15, 12                 ; 1 PM -> 13, etc.
+    jmp     .decode_year
+
+.hours_am:
+    cmp     r15, 12                 ; 12 AM is 00:00
+    jne     .decode_year
+    xor     r15, r15                ; 12 AM -> 0
 
 .decode_year:
     ; 5. Format full year using century
@@ -175,9 +163,10 @@ IO_FUNC rtc_read_time
     imul    rdx, 100
     add     rcx, rdx                ; RCX = century * 100 + year
 
-    ; 6. Populate target tm_t structure
-    pop     r15                     ; Restore saved registers
+    ; 6. Populate target tm_t structure (inverse push order pops)
+    pop     r15
     pop     r14
+    pop     r13
     pop     r12
     pop     rdi                     ; RDI = -> tm_t pointer
     
