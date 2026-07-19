@@ -47,6 +47,7 @@
 %include "lib/io/core/buffer.asm"
 %include "lib/io/core/fixed_buf.asm"
 %include "lib/io/core/align.asm"
+%include "lib/io/core/smap.asm"
 
 ; Character devices (Serial and Console)
 %include "lib/io/char/serial.asm"
@@ -64,6 +65,8 @@
 %include "lib/io/intr/ioapic.asm"
 %include "lib/io/intr/spurious.asm"
 %include "lib/io/intr/vector.asm"
+%include "lib/io/intr/ipi.asm"
+%include "lib/io/intr/timer.asm"
 
 ; PCI/PCIe bus configuration
 %include "lib/io/pci/config.asm"
@@ -72,6 +75,7 @@
 %include "lib/io/pci/bar.asm"
 %include "lib/io/pci/caps.asm"
 %include "lib/io/pci/enum.asm"
+%include "lib/io/pci/acs.asm"
 
 ; Direct Memory Access (DMA)
 %include "lib/io/dma/alloc.asm"
