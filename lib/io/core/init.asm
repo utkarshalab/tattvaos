@@ -38,6 +38,7 @@ extern bounce_init
 extern dma_alloc
 extern io_exception_df_handler
 extern io_spurious_handler
+extern global_serial_port
 
 ; Static driver bindings registered at probe time
 section .data
@@ -75,11 +76,26 @@ IO_FUNC io_init
     test    rax, rax
     jnz     .fail
 
-    ; 2. Initialize debug serial port (COM1 = 0x3F8)
+    ; 2. Initialize debug serial port (Try COM1 first, fallback to COM2 if COM1 is missing)
     mov     rdi, 0x3F8
     call    serial_init
     test    rax, rax
-    jnz     .fail
+    jz      .serial_ok              ; COM1 succeeded!
+
+    ; COM1 failed. Attempt COM2 (0x2F8)
+    mov     rdi, 0x2F8
+    call    serial_init
+    test    rax, rax
+    jz      .serial_ok              ; COM2 succeeded!
+
+    ; Both failed. Set global_serial_port to 0 to disable milestones
+    mov     word [rel global_serial_port], 0
+    jmp     .serial_done
+
+.serial_ok:
+    mov     [rel global_serial_port], di ; Write the working port base to the redirector
+
+.serial_done:
 
     ; 3. Emit early initialization milestone
     lea     rdi, [rel .msg_init]

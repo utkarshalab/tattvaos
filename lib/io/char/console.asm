@@ -13,6 +13,10 @@
 %include "lib/io/macro/guard.asm"
 %include "lib/io/io.inc"
 
+section .data
+global global_serial_port
+global_serial_port: dw 0x3F8        ; Active serial port base address, default COM1
+
 section .rodata
 milestone_prefix:   db "[Milestone] ", 0
 milestone_newline:  db 13, 10, 0
@@ -65,7 +69,9 @@ IO_ENDFUNC console_milestone
     test    sil, sil
     jz      .done                   ; Stop on null terminator
 
-    mov     rdi, PORT_UART_COM1     ; COM1 UART base port
+    movzx   rdi, word [rel global_serial_port] ; Active serial base port
+    test    rdi, rdi
+    jz      .done                   ; Skip write if no serial port is active
     call    serial_putc
 
     inc     r12
