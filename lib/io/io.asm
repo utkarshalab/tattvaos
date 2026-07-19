@@ -105,4 +105,7 @@
 %include "lib/io/sched/waitq.asm"
 %include "lib/io/sched/poll.asm"
 
+; Subsystem Test Suite
+%include "lib/io/tests/run_tests.asm"
+
 %endif ; LIB_IO_IO_ASM

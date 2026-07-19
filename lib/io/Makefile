@@ -24,7 +24,8 @@ $(TARGET): $(SRC) io.inc error/codes.asm error/strerror.asm \
             dma/alloc.asm dma/map.asm dma/sg.asm dma/sync.asm dma/barrier.asm \
             block/bdev.asm block/ata_pio.asm block/virtio_blk.asm block/gpt.asm block/merge.asm block/readahead.asm \
             async/submit.asm async/complete.asm async/request.asm async/timeout.asm async/batch.asm \
-            sched/wake.asm sched/wait.asm sched/waitq.asm sched/poll.asm
+            sched/wake.asm sched/wait.asm sched/waitq.asm sched/poll.asm \
+            tests/run_tests.asm
 	$(ASM) $(ASMFLAGS) -o $(TARGET) $(SRC)
 
 clean:
