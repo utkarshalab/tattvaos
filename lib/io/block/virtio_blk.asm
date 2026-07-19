@@ -75,6 +75,7 @@ extern idt_register_handler
 extern lapic_send_eoi
 extern port_in8
 extern port_out8
+extern port_in32
 extern vector_alloc
 extern ioapic_route_irq
 extern virt_to_phys
@@ -256,8 +257,28 @@ IO_FUNC virtio_blk_probe
 
     mov     qword [rbx + device_t.type], FD_TYPE_BLOCK
     mov     qword [rbx + device_t.state], DEV_STATE_ONLINE
-    mov     qword [rbx + device_t.sector_size], 512
-    mov     qword [rbx + device_t.capacity], 0x800000 ; 8M sectors (4GB)
+    ; Auto-negotiate block capacity (offset 20 of Virtio config BAR space)
+    movzx   rdi, word [rel virtio_device_io_base]
+    add     rdi, 20                 ; Offset of low 32-bits of capacity
+    call    port_in32
+    mov     r8, rax                 ; R8 = low dword of capacity
+
+    movzx   rdi, word [rel virtio_device_io_base]
+    add     rdi, 24                 ; Offset of high 32-bits of capacity
+    call    port_in32
+    shl     rax, 32
+    or      r8, rax                 ; R8 = 64-bit capacity (in sectors)
+    mov     [rbx + device_t.capacity], r8
+
+    ; Auto-negotiate block/sector size (offset 40 of Virtio config BAR space)
+    movzx   rdi, word [rel virtio_device_io_base]
+    add     rdi, 40
+    call    port_in32
+    test    rax, rax
+    jnz     .set_sector_size
+    mov     rax, 512                ; Default fallback to 512 bytes
+.set_sector_size:
+    mov     [rbx + device_t.sector_size], rax
 
     ; Map submit function hook
     lea     rax, [rel virtio_blk_submit]
