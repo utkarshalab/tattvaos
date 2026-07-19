@@ -17,7 +17,33 @@ section .text
 ; In-Service Register (ISR) bit, hence they must return immediately WITHOUT EOI.
 ; =============================================================================
 global io_spurious_handler
+extern spurious_telemetry_tick
+
 io_spurious_handler:
-    iretq                           ; Simply return from interrupt
+    ; 1. Preserve caller-saved registers (interrupt context safety)
+    push    rax
+    push    rcx
+    push    rdx
+    push    rsi
+    push    rdi
+    push    r8
+    push    r9
+    push    r10
+    push    r11
+
+    ; 2. Call telemetry tick handler
+    call    spurious_telemetry_tick
+
+    ; 3. Restore registers and return from interrupt
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    pop     rdi
+    pop     rsi
+    pop     rdx
+    pop     rcx
+    pop     rax
+    iretq
 
 %endif ; IO_INTR_SPURIOUS_ASM
