@@ -20,10 +20,14 @@ str_test_start:     db "TEST:STARTING_CAL_UNIT_TESTS", 0
 str_greg_pass:      db "TEST:CAL:GREGORIAN_OK", 0
 str_epoch_pass:     db "TEST:CAL:EPOCH_OK", 0
 str_iso_pass:       db "TEST:CAL:ISO8601_OK", 0
+str_jdn_pass:       db "TEST:CAL:JDN_OK", 0
+str_tai_pass:       db "TEST:CAL:TAI_OK", 0
+str_bs_pass:        db "TEST:CAL:BS_OK", 0
 str_all_pass:       db "TEST:CAL:ALL_PASS", 0
 
 ; Expected ISO string for test datetime: 2026-07-19T11:15:53Z
 str_expected_iso:   db "2026-07-19T11:15:53Z", 0
+str_expected_iso_tz: db "2026-07-19T17:00:53+05:45", 0
 
 section .bss
 align 8
@@ -44,6 +48,11 @@ extern cal_to_epoch
 extern cal_from_epoch
 extern cal_format_iso8601
 extern cal_parse_iso8601
+extern cal_to_jdn
+extern cal_from_jdn
+extern cal_epoch_to_tai
+extern cal_ad_to_bs
+extern cal_bs_to_ad
 
 ; =============================================================================
 ; cal_run_unit_tests — Run diagnostics for the Calendar library
@@ -217,6 +226,124 @@ IO_FUNC cal_run_unit_tests
     jne     .fail
 
     lea     rdi, [rel str_iso_pass]
+    call    console_milestone
+
+    ; =========================================================================
+    ; Test Case 4: Julian Day Number (JDN) Conversions
+    ; =========================================================================
+    ; Convert 2026-07-19 to JDN. Expect 2451545 was 2000-01-01.
+    ; Let's check: cal_to_jdn(2026, 7, 19)
+    mov     rdi, 2026
+    mov     rsi, 7
+    mov     rdx, 19
+    call    cal_to_jdn
+    mov     rcx, rax                ; RCX = JDN
+
+    ; Convert JDN back to test_tm2
+    mov     rdi, rcx
+    lea     rsi, [rel test_tm2]
+    call    cal_from_jdn
+
+    ; Verify matching
+    mov     rax, [rel test_tm2 + tm_t.year]
+    cmp     rax, 2026
+    jne     .fail
+    mov     rax, [rel test_tm2 + tm_t.month]
+    cmp     rax, 7
+    jne     .fail
+    mov     rax, [rel test_tm2 + tm_t.day]
+    cmp     rax, 19
+    jne     .fail
+
+    lea     rdi, [rel str_jdn_pass]
+    call    console_milestone
+
+    ; =========================================================================
+    ; Test Case 5: TAI / Leap Seconds Offset
+    ; =========================================================================
+    ; Unix timestamp for 2026-07-19 11:15:53 is greater than 2017 boundary.
+    ; Expect leap second offset of exactly 37 seconds.
+    lea     rdi, [rel test_tm1]
+    call    cal_to_epoch            ; RAX = epoch seconds
+    mov     rbx, rax                ; RBX = epoch seconds
+    
+    mov     rdi, rax
+    call    cal_epoch_to_tai        ; RAX = TAI seconds
+    sub     rax, rbx                ; RAX = difference
+    cmp     rax, 37                 ; Must be 37 seconds offset
+    jne     .fail
+
+    lea     rdi, [rel str_tai_pass]
+    call    console_milestone
+
+    ; =========================================================================
+    ; Test Case 6: Bikram Sambat (BS) Conversions
+    ; =========================================================================
+    ; Convert AD 2026-07-19 to BS. Expect BS 2083-04-03.
+    lea     rdi, [rel test_tm1]
+    lea     rsi, [rel test_tm2]     ; test_tm2 will hold BS date
+    call    cal_ad_to_bs
+    test    rax, rax
+    jnz     .fail
+
+    mov     rax, [rel test_tm2 + tm_t.year]
+    cmp     rax, 2083
+    jne     .fail
+    mov     rax, [rel test_tm2 + tm_t.month]
+    cmp     rax, 4
+    jne     .fail
+    mov     rax, [rel test_tm2 + tm_t.day]
+    cmp     rax, 3
+    jne     .fail
+
+    ; Convert BS back to AD. Expect AD 2026-07-19.
+    lea     rdi, [rel test_tm2]
+    lea     rsi, [rel test_tm3]     ; test_tm3 will hold AD date
+    call    cal_bs_to_ad
+    test    rax, rax
+    jnz     .fail
+
+    mov     rax, [rel test_tm3 + tm_t.year]
+    cmp     rax, 2026
+    jne     .fail
+    mov     rax, [rel test_tm3 + tm_t.month]
+    cmp     rax, 7
+    jne     .fail
+    mov     rax, [rel test_tm3 + tm_t.day]
+    cmp     rax, 19
+    jne     .fail
+
+    ; =========================================================================
+    ; Test Case 7: ISO 8601 Timezone Offset parsing (+05:45 Nepali Offset)
+    ; =========================================================================
+    ; Parse "2026-07-19T17:00:53+05:45"
+    lea     rdi, [rel str_expected_iso_tz]
+    lea     rsi, [rel test_tm2]     ; test_tm2 will hold parsed UTC date
+    call    cal_parse_iso8601
+    test    rax, rax
+    jnz     .fail
+
+    ; Verify it normalized back to UTC time: 2026-07-19 11:15:53
+    mov     rax, [rel test_tm2 + tm_t.year]
+    cmp     rax, 2026
+    jne     .fail
+    mov     rax, [rel test_tm2 + tm_t.month]
+    cmp     rax, 7
+    jne     .fail
+    mov     rax, [rel test_tm2 + tm_t.day]
+    cmp     rax, 19
+    jne     .fail
+    mov     rax, [rel test_tm2 + tm_t.hour]
+    cmp     rax, 11
+    jne     .fail
+    mov     rax, [rel test_tm2 + tm_t.minute]
+    cmp     rax, 15
+    jne     .fail
+    mov     rax, [rel test_tm2 + tm_t.second]
+    cmp     rax, 53
+    jne     .fail
+
+    lea     rdi, [rel str_bs_pass]
     call    console_milestone
 
     ; =========================================================================
