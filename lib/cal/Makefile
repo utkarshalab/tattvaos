@@ -13,7 +13,7 @@ SRC = cal.asm
 
 all: $(TARGET)
 
-$(TARGET): $(SRC) cal.inc gregorian.asm unix.asm iso8601.asm
+$(TARGET): $(SRC) cal.inc gregorian.asm unix.asm iso8601.asm jdn.asm tai.asm bs.asm
 	$(ASM) $(ASMFLAGS) -o $(TARGET) $(SRC)
 
 clean:
