@@ -78,6 +78,7 @@ extern port_out8
 extern vector_alloc
 extern ioapic_route_irq
 extern virt_to_phys
+extern global_plug_depth
 
 ; =============================================================================
 ; virtio_blk_probe — Probe and initialize Virtio-Blk legacy PCI device
@@ -262,6 +263,10 @@ IO_FUNC virtio_blk_probe
     lea     rax, [rel virtio_blk_submit]
     mov     [rbx + device_t.submit], rax
 
+    ; Map flush function hook for batching
+    lea     rax, [rel virtio_blk_flush]
+    mov     [rbx + device_t.flush], rax
+
     ; Set DRIVER_OK status — device is fully initialized
     mov     rdx, r13
     add     rdx, VIRTIO_PCI_STATUS
@@ -383,7 +388,11 @@ IO_FUNC virtio_blk_submit
 
     sfence                          ; Fence 2: index visible before notify
 
-    ; 3. Notify device
+    ; 3. Notify device (unless doorbell is plugged/batched)
+    mov     rax, [rel global_plug_depth]
+    test    rax, rax
+    jnz     .plugged                ; Skip notify and wait
+
     movzx   rdx, word [rel virtio_device_io_base]
     add     rdx, VIRTIO_PCI_QUEUE_NOTIFY
     xor     eax, eax
@@ -424,6 +433,11 @@ IO_FUNC virtio_blk_submit
     mov     qword [r12 + io_request_t.status], IO_ERR_MEDIA
     mov     rax, IO_ERR_MEDIA
 
+.plugged:
+    mov     qword [r12 + io_request_t.state], IO_REQ_PENDING
+    xor     rax, rax
+    jmp     .done
+
 .done:
     add     rsp, 16
     pop     r14
@@ -435,6 +449,23 @@ IO_FUNC virtio_blk_submit
     pop     rcx
     pop     rbx
 IO_ENDFUNC virtio_blk_submit
+
+; =============================================================================
+; virtio_blk_flush — Flush pending descriptors (write doorbell notification)
+; In : RDI = -> device_t
+; =============================================================================
+global virtio_blk_flush
+IO_FUNC virtio_blk_flush
+    push    rdx
+    push    rax
+    movzx   rdx, word [rel virtio_device_io_base]
+    add     rdx, VIRTIO_PCI_QUEUE_NOTIFY
+    xor     eax, eax
+    out     dx, ax                  ; Trigger MMIO notification
+    pop     rax
+    pop     rdx
+IO_ENDFUNC virtio_blk_flush
+
 
 ; =============================================================================
 ; virtio_blk_isr — Interrupt Service Routine for Virtio-Blk completions
