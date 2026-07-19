@@ -42,6 +42,7 @@
 %include "lib/io/core/bounce.asm"
 %include "lib/io/core/buffer.asm"
 %include "lib/io/core/fixed_buf.asm"
+%include "lib/io/core/align.asm"
 
 ; Character devices (Serial and Console)
 %include "lib/io/char/serial.asm"
