@@ -14,6 +14,10 @@
 ; Shared structures and constants
 %include "lib/io/io.inc"
 %include "lib/io/error/codes.asm"
+%include "lib/io/const/apic.asm"
+%include "lib/io/const/uart.asm"
+%include "lib/io/const/pci.asm"
+%include "lib/io/const/virtio.asm"
 
 ; Subsystem macros
 %include "lib/io/macro/func.asm"
@@ -81,12 +85,15 @@
 %include "lib/io/block/ata_pio.asm"
 %include "lib/io/block/virtio_blk.asm"
 %include "lib/io/block/gpt.asm"
+%include "lib/io/block/merge.asm"
+%include "lib/io/block/readahead.asm"
 
 ; Async execution rings and request management
 %include "lib/io/async/submit.asm"
 %include "lib/io/async/complete.asm"
 %include "lib/io/async/request.asm"
 %include "lib/io/async/timeout.asm"
+%include "lib/io/async/batch.asm"
 
 ; Scheduler interfacing
 %include "lib/io/sched/wake.asm"
