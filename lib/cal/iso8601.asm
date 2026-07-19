@@ -22,6 +22,9 @@ section .text
 global cal_format_iso8601
 global cal_parse_iso8601
 
+extern cal_to_epoch
+extern cal_from_epoch
+
 ; =============================================================================
 ; cal_format_iso8601 — Format tm_t structure into standard ISO 8601 string
 ; In : RDI = -> tm_t input structure
@@ -257,6 +260,67 @@ IO_FUNC cal_parse_iso8601
     ; Clear nanoseconds
     mov     qword [r13 + tm_t.nanosecond], 0
 
+    ; Check for timezone offset at offset 19
+    movzx   r8d, byte [r12 + 19]
+    cmp     r8b, 'Z'
+    je      .done_ok
+    cmp     r8b, 'z'
+    je      .done_ok
+    test    r8b, r8b
+    jz      .done_ok                ; Allow no offset suffix as UTC
+
+    ; Must be '+' or '-'
+    cmp     r8b, '+'
+    je      .parse_offset
+    cmp     r8b, '-'
+    jne     .err_format
+
+.parse_offset:
+    ; Parse hours at offset 20 (2 digits)
+    lea     rsi, [r12 + 20]
+    mov     rcx, 2
+    call    .parse_int_digits
+    cmp     rax, 0
+    jl      .done
+    mov     r9, rax                 ; r9 = hours
+
+    ; Separator at offset 22 must be ':'
+    cmp     byte [r12 + 22], ':'
+    jne     .err_format
+
+    ; Parse minutes at offset 23 (2 digits)
+    lea     rsi, [r12 + 23]
+    mov     rcx, 2
+    call    .parse_int_digits
+    cmp     rax, 0
+    jl      .done
+    mov     r10, rax                ; r10 = minutes
+
+    ; Calculate offset in seconds: (hours * 3600) + (minutes * 60)
+    imul    r9, 3600
+    imul    r10, 60
+    add     r9, r10                 ; r9 = offset_seconds
+
+    ; Convert current local tm_t to epoch
+    mov     rdi, r13
+    call    cal_to_epoch            ; RAX = local epoch seconds
+
+    ; Adjust based on offset sign (+ means UTC = local - offset, - means UTC = local + offset)
+    cmp     r8b, '+'
+    jne     .add_offset
+    sub     rax, r9
+    jmp     .reconstruct
+
+.add_offset:
+    add     rax, r9
+
+.reconstruct:
+    ; Re-populate tm_t with corrected UTC epoch
+    mov     rdi, rax
+    mov     rsi, r13
+    call    cal_from_epoch
+
+.done_ok:
     xor     rax, rax                ; Return 0 (Success)
     jmp     .done
 
