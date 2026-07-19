@@ -2,6 +2,11 @@
 ; lib/io/block/virtio_blk.asm
 ; Virtio-Blk asynchronous block device driver using legacy PCI.
 ;
+; Implements dynamic interrupt vector allocation and IO-APIC routing per §1.E.
+; The probe path allocates a vector via intr/vector.asm, programs the IO-APIC
+; redirection entry via intr/ioapic.asm, and registers the ISR handler. This
+; replaces the previous static PCI interrupt line approach.
+;
 ; Part of Utkarsha Labs / Tattva OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
@@ -41,6 +46,8 @@ global virtio_device_io_base
 virtio_device_io_base: resw 1       ; Mapped I/O BAR0 base address
 global virtio_queue_size
 virtio_queue_size: resw 1
+global virtio_allocated_vector
+virtio_allocated_vector: resq 1     ; Dynamically allocated interrupt vector
 
 ; Pointers to our allocated virtqueue rings
 global virtio_desc_table_phys
@@ -61,17 +68,27 @@ drv_name_virtio:    db "virtio_blk", 0
 
 section .text
 
-; These will be resolved during compilation/linking (same unit)
-;extern pci_config_read
-;extern pci_config_write
-;extern dma_alloc
-;extern idt_register_handler
-;extern lapic_send_eoi
-;extern port_in8
-;extern port_out8
+extern pci_config_read
+extern pci_config_write
+extern dma_alloc
+extern idt_register_handler
+extern lapic_send_eoi
+extern port_in8
+extern port_out8
+extern vector_alloc
+extern ioapic_route_irq
+extern virt_to_phys
 
 ; =============================================================================
 ; virtio_blk_probe — Probe and initialize Virtio-Blk legacy PCI device
+;
+; Dynamic Interrupt Routing (§1.E):
+;   1. Read the PCI interrupt pin to determine which legacy IRQ pin is wired
+;   2. Allocate a dynamic vector in range [0x40, 0xEF] via vector_alloc
+;   3. Program the IO-APIC redirection table entry for the IRQ pin with
+;      the allocated vector, target APIC ID, edge trigger, active high
+;   4. Register the ISR handler at the allocated vector via idt_register_handler
+;
 ; In : RDI = -> device_t object to populate
 ;      RSI = PCI address location (bus << 16 | dev << 8 | func)
 ; Out: RAX = 0 on success, or a negative error code on failure
@@ -85,6 +102,7 @@ IO_FUNC virtio_blk_probe
     push    rdi
     push    r12
     push    r13
+    push    r14
 
     mov     rbx, rdi                ; RBX = -> device_t
     mov     r12, rsi                ; R12 = PCI Address Location
@@ -100,7 +118,7 @@ IO_FUNC virtio_blk_probe
     mov     rcx, 0x10               ; BAR0 offset
     mov     r8, 4                   ; Read 32 bits
     call    pci_config_read
-    
+
     ; BAR0 is I/O if bit 0 is 1. Check it.
     test    al, 0x01
     jz      .err_no_device          ; Not an I/O BAR, fail probe
@@ -132,8 +150,7 @@ IO_FUNC virtio_blk_probe
     test    ax, ax
     jz      .err_no_device          ; Queue 0 not active, fail
 
-    ; 5. Allocate Virtqueue rings (we allocate a single contiguous page)
-    ; Descriptors (2048 bytes) + Avail Ring (262 bytes) + Used Ring (1030 bytes)
+    ; 5. Allocate Virtqueue rings (single contiguous page)
     mov     rdi, 4096               ; Size = 4KB
     mov     rsi, 4096               ; Alignment = 4KB page aligned
     xor     rdx, rdx                ; No flags
@@ -146,32 +163,32 @@ IO_FUNC virtio_blk_probe
 
     ; 6. Write physical PFN to Queue PFN register
     mov     rcx, rax
-    shr     rcx, 12                 ; Convert physical address to PFN (page number)
+    shr     rcx, 12                 ; Convert physical address to PFN
     mov     rdx, r13
     add     rdx, VIRTIO_PCI_QUEUE_PFN
     mov     eax, ecx
-    out     dx, eax                 ; Write Queue PFN
+    out     dx, eax
 
-    ; Feature negotiation and FEATURES_OK step
+    ; 7. Feature negotiation and FEATURES_OK step
     mov     rdx, r13
     add     rdx, VIRTIO_PCI_HOST_FEATURES
     in      eax, dx                 ; Read host features
 
     mov     rdx, r13
     add     rdx, VIRTIO_PCI_GUEST_FEATURES
-    out     dx, eax                 ; Write guest features
+    out     dx, eax                 ; Echo back as guest features
 
     mov     rdx, r13
     add     rdx, VIRTIO_PCI_STATUS
     mov     al, VIRTIO_STATUS_ACKNOWLEDGE | VIRTIO_STATUS_DRIVER | VIRTIO_STATUS_FEATURES_OK
-    out     dx, al                  ; Set FEATURES_OK status
+    out     dx, al
 
     ; Verify device accepted features
     in      al, dx
     test    al, VIRTIO_STATUS_FEATURES_OK
     jz      .err_no_device
 
-    ; 7. Allocate status byte in DMA space
+    ; 8. Allocate status byte in DMA space
     mov     rdi, 64
     mov     rsi, 64
     xor     rdx, rdx
@@ -181,8 +198,17 @@ IO_FUNC virtio_blk_probe
     mov     [rel virtio_active_status_phys], rax
     mov     [rel virtio_active_status_virt], rbx
 
-    ; 8. Register IDT handler for Virtio Interrupt
-    ; Read interrupt pin/line from PCI configuration
+    ; =========================================================================
+    ; 9. Dynamic Interrupt Routing (§1.E / §6 Vector Map)
+    ;
+    ; Instead of using the raw PCI interrupt line directly:
+    ;   a) Read the PCI interrupt pin (0x3D) to get the IRQ pin identity
+    ;   b) Allocate a dynamic vector in [0x40, 0xEF] from the vector pool
+    ;   c) Program IO-APIC redirection: map the IRQ pin -> allocated vector
+    ;   d) Register the ISR handler at the allocated vector in the IDT
+    ; =========================================================================
+
+    ; 9a. Read PCI interrupt line (IRQ) from config space offset 0x3C
     mov     rdi, r12
     shr     rdi, 16                 ; Bus
     mov     rsi, r12
@@ -191,20 +217,37 @@ IO_FUNC virtio_blk_probe
     mov     rdx, r12
     and     rdx, 0x07               ; Function
     mov     rcx, 0x3C               ; Interrupt Line/Pin offset
-    mov     r8, 2                   ; 2 bytes
+    mov     r8, 2                   ; 2 bytes (line + pin)
     call    pci_config_read
-    and     rax, 0xFF               ; AL = interrupt line (IRQ)
 
-    test    al, al
-    jz      .skip_irq
+    mov     r14, rax                ; R14[7:0] = IRQ line, R14[15:8] = IRQ pin
+    and     r14, 0xFF               ; R14 = IRQ line number (IO-APIC input pin)
+    test    r14, r14
+    jz      .skip_irq               ; IRQ line 0 = not wired
 
-    mov     rdi, rax                ; RDI = IRQ
-    lea     rsi, [rel virtio_blk_isr] ; RSI = handler
-    xor     rdx, rdx                ; No IST
+    ; 9b. Allocate a dynamic vector from the vector pool
+    call    vector_alloc
+    test    rax, rax
+    js      .skip_irq               ; Negative = allocation failed, skip IRQ setup
+    mov     [rel virtio_allocated_vector], rax
+    push    rax                     ; Save allocated vector on stack
+
+    ; 9c. Program IO-APIC: route IRQ pin -> allocated vector on BSP (APIC ID 0)
+    ;     ioapic_route_irq(irq_pin, vector, target_apic_id)
+    mov     rdi, r14                ; RDI = IRQ pin (from PCI config)
+    mov     rsi, rax                ; RSI = allocated vector number
+    xor     rdx, rdx                ; RDX = target APIC ID (0 = BSP)
+    call    ioapic_route_irq
+
+    ; 9d. Register ISR handler in the IDT at the allocated vector
+    ;     idt_register_handler(vector, handler_addr, ist_index)
+    pop     rdi                     ; RDI = allocated vector (restore from stack)
+    lea     rsi, [rel virtio_blk_isr] ; RSI = ISR handler address
+    xor     rdx, rdx                ; RDX = IST index 0 (normal stack)
     call    idt_register_handler
 
 .skip_irq:
-    ; 9. Setup device_t metadata
+    ; 10. Setup device_t metadata
     lea     rdi, [rbx + device_t.name]
     lea     rsi, [rel drv_name_virtio]
     mov     rcx, 11
@@ -219,7 +262,7 @@ IO_FUNC virtio_blk_probe
     lea     rax, [rel virtio_blk_submit]
     mov     [rbx + device_t.submit], rax
 
-    ; Set DRIVER_OK status
+    ; Set DRIVER_OK status — device is fully initialized
     mov     rdx, r13
     add     rdx, VIRTIO_PCI_STATUS
     mov     al, VIRTIO_STATUS_ACKNOWLEDGE | VIRTIO_STATUS_DRIVER | VIRTIO_STATUS_FEATURES_OK | VIRTIO_STATUS_DRIVER_OK
@@ -236,6 +279,7 @@ IO_FUNC virtio_blk_probe
     mov     rax, IO_ERR_NO_DEVICE
 
 .done:
+    pop     r14
     pop     r13
     pop     r12
     pop     rdi
@@ -267,8 +311,7 @@ IO_FUNC virtio_blk_submit
     mov     rbx, rdi                ; RBX = dev
     mov     r12, rsi                ; R12 = req
 
-    ; Allocate virtio request header on stack
-    ; virtio_blk_req_t is 16 bytes. Align RSP.
+    ; Allocate virtio request header on stack (16 bytes, aligned)
     sub     rsp, 16
     mov     r13, rsp                ; R13 = &blk_req
 
@@ -293,29 +336,24 @@ IO_FUNC virtio_blk_submit
     mov     rcx, [rel virtio_active_status_virt]
     mov     byte [rcx], 0xFF
 
-    ; 1. Build descriptors table:
-    ; Desc 0: Header (R13), Read-Only
-    ; Desc 1: Data buffer, Read or Write depending on opcode
-    ; Desc 2: Status byte (active_status_phys), Write-Only by device
+    ; 1. Build descriptors table
     mov     r14, [rel virtio_desc_table_virt]
 
-    ; Desc 0
-    ; Convert stack R13 address to physical (we can assume stack is physically contiguous for 16-byte block)
+    ; Desc 0: Header (R13), Read-Only by device
     mov     rdi, r13
     call    virt_to_phys
     mov     [r14 + 0], rax          ; addr
     mov     dword [r14 + 8], 16     ; len = 16
-    mov     word [r14 + 12], VRING_DESC_F_NEXT ; flags (next = 1, read-only)
+    mov     word [r14 + 12], VRING_DESC_F_NEXT
     mov     word [r14 + 14], 1      ; next = 1
 
-    ; Desc 1
+    ; Desc 1: Data buffer
     mov     rax, [r12 + io_request_t.iov]
     mov     rcx, [rax + iovec_t.phys]
     mov     rdx, [rax + iovec_t.len]
     mov     [r14 + 16], rcx         ; addr
     mov     [r14 + 24], edx         ; len
-    mov     word [r14 + 28], VRING_DESC_F_NEXT ; flags
-    ; Set write flag if READ operation
+    mov     word [r14 + 28], VRING_DESC_F_NEXT
     mov     rax, [r12 + io_request_t.opcode]
     cmp     rax, IO_OP_READ
     jne     .desc1_next
@@ -323,40 +361,35 @@ IO_FUNC virtio_blk_submit
 .desc1_next:
     mov     word [r14 + 30], 2      ; next = 2
 
-    ; Desc 2
+    ; Desc 2: Status byte, Write-Only by device
     mov     rax, [rel virtio_active_status_phys]
     mov     [r14 + 32], rax         ; addr
     mov     dword [r14 + 40], 1     ; len = 1
-    mov     word [r14 + 44], VRING_DESC_F_WRITE ; flags (write-only, no next)
+    mov     word [r14 + 44], VRING_DESC_F_WRITE
     mov     word [r14 + 46], 0
 
     ; 2. Add descriptor chain to Avail Ring
-    ; Avail Ring structure layout:
-    ; offset 2048: flags (2 bytes)
-    ; offset 2050: idx (2 bytes)
-    ; offset 2052: ring (array of 128 words)
     mov     r14, [rel virtio_desc_table_virt]
     lea     rax, [r14 + 2048]       ; RAX = -> avail ring
 
     movzx   rcx, word [rax + 2]     ; RCX = avail.idx
-    and     rcx, 127                ; mask by size (128)
-    lea     rdx, [rax + 4 + rcx * 2] ; RDX = &avail.ring[idx]
-    mov     word [rdx], 0           ; Write head descriptor index (0)
+    and     rcx, 127                ; mask by queue size
+    lea     rdx, [rax + 4 + rcx * 2]
+    mov     word [rdx], 0           ; head descriptor index
 
-    sfence                          ; Fence 1: Ensure descriptor writes and avail ring entry are visible
+    sfence                          ; Fence 1: descriptors + avail entry visible
 
-    ; Increment avail.idx
-    inc     word [rax + 2]
+    inc     word [rax + 2]          ; Bump avail.idx
 
-    sfence                          ; Fence 2: Ensure index update is visible before device notification
+    sfence                          ; Fence 2: index visible before notify
 
     ; 3. Notify device
     movzx   rdx, word [rel virtio_device_io_base]
     add     rdx, VIRTIO_PCI_QUEUE_NOTIFY
-    xor     eax, eax                ; Notify queue 0
+    xor     eax, eax
     out     dx, ax
 
-    ; 4. Polling wait for completion (until status updated to non-0xFF or timeout)
+    ; 4. Polling wait with timeout
     mov     rcx, [rel virtio_active_status_virt]
     mov     rsi, 50000000           ; Timeout counter
 
@@ -368,7 +401,7 @@ IO_FUNC virtio_blk_submit
     dec     rsi
     jz      .err_timeout
 
-    pause                           ; Hint to CPU for spinning loop efficiency
+    pause
     jmp     .wait_loop
 
 .err_timeout:
@@ -378,7 +411,6 @@ IO_FUNC virtio_blk_submit
     jmp     .done
 
 .check_status:
-    ; Handle final result
     test    al, al
     jnz     .err_io
 
@@ -411,21 +443,25 @@ global virtio_blk_isr
 virtio_blk_isr:
     ISR_ENTRY
 
-    ; 1. Acknowledge interrupt in ISR register (reading it clears it)
+    ; 1. Acknowledge interrupt in device ISR register (read clears it)
     movzx   rdx, word [rel virtio_device_io_base]
     add     rdx, VIRTIO_PCI_ISR
     in      al, dx
-    test    al, 0x01                ; Check queue completion interrupt
-    jz      .done                   ; Not for us
+    test    al, 0x01
+    jz      .done
 
-    ; 2. Complete active request (in polling bring-up, wait loop handles state,
-    ; but ISR confirms used ring update and clears the interrupt signal)
+    ; 2. The status byte in DMA space is already written by the device before
+    ;    the interrupt fires. The polling loop in virtio_blk_submit will observe
+    ;    the updated byte and exit. In future async mode, we would push a
+    ;    completion entry into the per-core SPSC completion ring here.
     mov     rax, [rel virtio_active_request]
     test    rax, rax
     jz      .done
 
+    ; Future: spsc_ring_push(percpu->complete_ring, completion_entry)
+
 .done:
-    call    lapic_send_eoi          ; Acknowledge vector in LAPIC
+    call    lapic_send_eoi          ; MANDATORY LAPIC EOI (§13.5.2)
     ISR_EXIT
 
 %endif ; IO_BLOCK_VIRTIO_BLK_ASM
