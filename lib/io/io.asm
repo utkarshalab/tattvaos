@@ -21,6 +21,8 @@
 
 ; Architectural abstraction (x86_64)
 %include "lib/io/arch/x86_64/portio.asm"
+%include "lib/io/arch/x86_64/barrier.asm"
+%include "lib/io/arch/x86_64/cache.asm"
 
 ; Bootloader interface
 %include "lib/io/boot/handoff.asm"

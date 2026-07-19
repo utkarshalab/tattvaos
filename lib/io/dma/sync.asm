@@ -1,6 +1,6 @@
 ; =============================================================================
 ; lib/io/dma/sync.asm
-; DMA Cache Sync (for CPU and Device access) implementing clflush loops.
+; DMA Cache Sync (for CPU and Device access) using cache abstractions.
 ;
 ; Part of Utkarsha Labs / Tattva OS
 ; Arch: x86_64 | Assembler: NASM
@@ -18,6 +18,9 @@ dma_coherency_flag: dq 1             ; 1 = coherent (default on x86_64), 0 = non
 
 section .text
 
+extern io_cache_invalidate
+extern io_cache_writeback
+
 ; =============================================================================
 ; dma_sync_for_cpu — Invalidate CPU cache lines before reading device DMA updates
 ; In : RDI = Virtual Address pointer
@@ -32,30 +35,8 @@ IO_FUNC dma_sync_for_cpu
     test    rax, rax
     jnz     .done_coherent
 
-    push    rax
-    push    rcx
-    push    rdi
-    push    rsi
+    call    io_cache_invalidate     ; Decoupled cache invalidation loop
 
-    mov     rax, rdi                ; RAX = current address pointer
-    add     rsi, rax                ; RSI = end boundary address
-    and     rax, ~63                ; Align to 64-byte cache line
-
-.loop:
-    cmp     rax, rsi
-    jae     .done
-
-    clflush [rax]                   ; Invalidate cache line (clflush does writeback+invalidate)
-
-    add     rax, 64                 ; Advance by one cache line stride
-    jmp     .loop
-
-.done:
-    mfence                          ; Wait for all flushes to complete in memory
-    pop     rsi
-    pop     rdi
-    pop     rcx
-    pop     rax
 .done_coherent:
 IO_ENDFUNC dma_sync_for_cpu
 
@@ -73,30 +54,8 @@ IO_FUNC dma_sync_for_device
     test    rax, rax
     jnz     .done_coherent
 
-    push    rax
-    push    rcx
-    push    rdi
-    push    rsi
+    call    io_cache_writeback      ; Decoupled cache writeback loop
 
-    mov     rax, rdi
-    add     rsi, rax
-    and     rax, ~63
-
-.loop:
-    cmp     rax, rsi
-    jae     .done
-
-    clflush [rax]
-
-    add     rax, 64
-    jmp     .loop
-
-.done:
-    mfence
-    pop     rsi
-    pop     rdi
-    pop     rcx
-    pop     rax
 .done_coherent:
 IO_ENDFUNC dma_sync_for_device
 

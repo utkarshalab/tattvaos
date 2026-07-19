@@ -14,7 +14,7 @@ SRC = io.asm
 all: $(TARGET)
 
 $(TARGET): $(SRC) io.inc error/codes.asm error/strerror.asm \
-            macro/func.asm macro/guard.asm arch/x86_64/portio.asm \
+            macro/func.asm macro/guard.asm arch/x86_64/portio.asm arch/x86_64/barrier.asm arch/x86_64/cache.asm \
             boot/handoff.asm acpi/acpi.asm acpi/mcfg.asm acpi/madt.asm acpi/fadt.asm \
             core/init.asm core/percpu.asm core/fd.asm core/handle.asm core/iovec.asm core/bounce.asm core/buffer.asm core/fixed_buf.asm \
             char/serial.asm char/console.asm \
