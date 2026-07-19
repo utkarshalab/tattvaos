@@ -67,6 +67,9 @@
 %include "lib/io/intr/vector.asm"
 %include "lib/io/intr/ipi.asm"
 %include "lib/io/intr/timer.asm"
+%include "lib/io/intr/ioapic_mask.asm"
+%include "lib/io/intr/tss.asm"
+%include "lib/io/intr/spurious_stats.asm"
 
 ; PCI/PCIe bus configuration
 %include "lib/io/pci/config.asm"
@@ -76,6 +79,10 @@
 %include "lib/io/pci/caps.asm"
 %include "lib/io/pci/enum.asm"
 %include "lib/io/pci/acs.asm"
+%include "lib/io/pci/msix.asm"
+%include "lib/io/pci/mps.asm"
+%include "lib/io/pci/link.asm"
+%include "lib/io/pci/ext_tag.asm"
 
 ; Direct Memory Access (DMA)
 %include "lib/io/dma/alloc.asm"
@@ -83,6 +90,7 @@
 %include "lib/io/dma/sg.asm"
 %include "lib/io/dma/sync.asm"
 %include "lib/io/dma/barrier.asm"
+%include "lib/io/dma/iommu.asm"
 
 ; Block devices
 %include "lib/io/block/bdev.asm"
@@ -91,6 +99,7 @@
 %include "lib/io/block/gpt.asm"
 %include "lib/io/block/merge.asm"
 %include "lib/io/block/readahead.asm"
+%include "lib/io/block/nvme_diag.asm"
 
 ; Async execution rings and request management
 %include "lib/io/async/submit.asm"
