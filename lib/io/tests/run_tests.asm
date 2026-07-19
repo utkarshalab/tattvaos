@@ -24,6 +24,7 @@ str_smap_pass:     db "TEST:SMAP_OK", 0
 str_pin_pass:      db "TEST:PIN_OK", 0
 str_fixed_pass:    db "TEST:FIXED_BUF_OK", 0
 str_fadt_pass:     db "TEST:FADT_OK", 0
+str_fd_pass:       db "TEST:FD_PRIMITIVES_OK", 0
 str_all_pass:      db "TEST:ALL_PASS", 0
 
 section .text
@@ -41,6 +42,11 @@ extern fixed_buf_register
 extern fixed_buf_resolve
 extern fixed_buf_unregister
 extern fadt_smi_cmd
+extern io_fd_alloc
+extern io_fd_free
+extern io_fd_get
+extern io_fd_dup
+extern gpt_partition_table
 
 ; =============================================================================
 ; io_run_unit_tests — Main unit test runner entry point
@@ -164,6 +170,39 @@ IO_FUNC io_run_unit_tests
     jz      .fail                   ; Fail if SMI port was not parsed/configured
 
     lea     rdi, [rel str_fadt_pass]
+    call    console_milestone
+
+    ; =========================================================================
+    ; Test Case 6: File Descriptor Table Primitives
+    ; =========================================================================
+    lea     rdi, [rel gpt_partition_table] ; Use partition table base as mock device_t
+    call    io_fd_alloc
+    cmp     rax, 0
+    jl      .fail
+    mov     rbx, rax                ; RBX = allocated FD index
+
+    mov     rdi, rbx
+    call    io_fd_get
+    test    rax, rax
+    jz      .fail                   ; Get must return valid pointer
+
+    mov     rdi, rbx
+    call    io_fd_dup
+    cmp     rax, 0
+    jl      .fail
+    mov     rsi, rax                ; RSI = duplicated FD index
+
+    mov     rdi, rbx
+    call    io_fd_free
+    cmp     rax, 0
+    jne     .fail
+
+    mov     rdi, rsi
+    call    io_fd_free
+    cmp     rax, 0
+    jne     .fail
+
+    lea     rdi, [rel str_fd_pass]
     call    console_milestone
 
     ; 2. Broadcast overall test suite success milestone
