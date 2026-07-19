@@ -18,6 +18,7 @@ section .text
 
 ; Declared in kernel scheduler
 extern sched_wakeup
+extern bdev_complete_merged_children
 
 ; =============================================================================
 ; spsc_ring_pop — Pop a 64-bit pointer from an SPSC ring buffer
@@ -113,6 +114,12 @@ IO_FUNC io_complete_request
 
 .set_result:
     mov     [rbx + io_request_t.result], r8
+
+    ; Complete any merged child requests
+    mov     rdi, rbx
+    mov     rsi, [rbx + io_request_t.status]
+    mov     rdx, [rbx + io_request_t.result]
+    call    bdev_complete_merged_children
 
     ; 3. Wake up scheduler waiter task if registered
     mov     rdi, [rbx + io_request_t.waiter]
