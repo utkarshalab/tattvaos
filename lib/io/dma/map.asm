@@ -103,8 +103,33 @@ IO_ENDFUNC dma_map_virtual
 ; Out: None
 ; =============================================================================
 IO_FUNC dma_unmap_virtual
-    ; Standard unmapping involves walking page tables and clearing PTE present bit,
-    ; followed by TLB invalidation. Stubbed for bring-up.
+    push    rax
+    push    rcx
+    push    rdi
+    push    rsi
+
+    ; 1. Calculate page count: (size + 4095) / 4096
+    mov     rax, rsi
+    add     rax, 4095
+    shr     rax, 12                 ; RAX = Page count
+    mov     rcx, rax
+
+.tlb_loop:
+    test    rcx, rcx
+    jz      .done
+
+    ; Invalidate TLB entry for the virtual page
+    invlpg  [rdi]
+    add     rdi, 4096
+    dec     rcx
+    jmp     .tlb_loop
+
+.done:
+    pop     rsi
+    pop     rdi
+    pop     rcx
+    pop     rax
+    ret
 IO_ENDFUNC dma_unmap_virtual
 
 %endif ; IO_DMA_MAP_ASM
