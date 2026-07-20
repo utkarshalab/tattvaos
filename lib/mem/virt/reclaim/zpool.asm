@@ -827,10 +827,11 @@ zpool_batch_decompress_submit:
     mov eax, [smp_active_cores]
     cmp eax, 1
     jle .local_only
-    
+
     ; Send fixed vector IPI 0xFA to all excluding self
     mov eax, 0x000C4000 | ZPOOL_DECOMP_VEC
-    mov dword [ZPOOL_LAPIC_BASE + ZPOOL_LAPIC_ICR_LOW], eax
+    mov r11, ZPOOL_LAPIC_BASE
+    mov dword [r11 + ZPOOL_LAPIC_ICR_LOW], eax
 
 .local_only:
     ; BSP also participates in processing work
@@ -912,7 +913,8 @@ zpool_decomp_isr:
     call zpool_decomp_worker_loop
 
     ; Send EOI to LAPIC
-    mov dword [ZPOOL_LAPIC_BASE + ZPOOL_LAPIC_EOI], 0
+    mov r11, ZPOOL_LAPIC_BASE
+    mov dword [r11 + ZPOOL_LAPIC_EOI], 0
 
     pop r11
     pop r10
