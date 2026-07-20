@@ -15,14 +15,10 @@
 
 [BITS 64]
 
-; Page Cache flags
-PAGE_PWT        equ (1 << 3)        ; Write-through caching
-PAGE_PCD        equ (1 << 4)        ; Page Cache Disable
+PAGE_PWT equ (1 << 3)
+PAGE_PCD equ (1 << 4)
 
 section .text
-
-; External symbol
-extern virt_walk_table
 
 ; -----------------------------------------------------------------------------
 ; hle_protect_range — enforces Write-Back caching on a virtual address range
