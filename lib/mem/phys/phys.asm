@@ -13,26 +13,7 @@
 
 [BITS 64]
 
-extern kswapd_check_and_reclaim
-extern kswapd_check_and_reclaim_node
-extern kswapd_min_watermark
-extern kswapd_low_watermark
-extern sys_proactive_reclaim_headroom
-extern kswapd_proactive_reclaim
-extern kswapd_proactive_reclaim_node
-extern numa_local_bitmaps_active
-extern numa_nodes
-extern numa_node_count
-extern numa_get_distance
-extern numa_get_node_by_phys
-extern bitmap_set_bit_local
-extern bitmap_clear_bit_local
-extern bitmap_find_free_local
-extern uart_print_dec
-extern msg_numa_fallback_prefix
-extern msg_numa_fallback_middle
-extern msg_numa_fallback_dist
-extern msg_numa_fallback_suffix
+
 
 section .text
 

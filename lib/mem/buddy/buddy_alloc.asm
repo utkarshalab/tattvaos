@@ -16,13 +16,8 @@
 
 section .text
 
-extern buddy_free_heads
-extern buddy_start_addr
-extern buddy_metadata
 extern buddy_link_block
 extern buddy_unlink_block
-extern buddy_nodes
-extern buddy_node_count
 extern buddy_load_context
 
 ; -----------------------------------------------------------------------------
@@ -118,8 +113,6 @@ buddy_alloc_internal:
     test r14, r14
     jz .next_order                  ; if list is empty, try next order
 
-    ; Check if we need to avoid ZONE_MOVABLE
-    extern buddy_alloc_mask
     test qword [buddy_alloc_mask], 1
     jz .found_block                 ; mask is 0, allow any block
 
@@ -129,7 +122,6 @@ buddy_alloc_internal:
     shr rax, 12                     ; PFN relative to node
 
     ; Check pages_array descriptor
-    extern pages_array
     mov rdx, [pages_array]
     test rdx, rdx
     jz .found_block                 ; if no descriptors array, allow block

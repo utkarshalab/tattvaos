@@ -220,7 +220,6 @@ heap_leak_report:
     mov rax, [rbx + r13 * leak_entry_t_size + leak_entry_t.caller]
     call uart_print_hex64
 
-    extern msg_crlf
     mov rsi, msg_crlf
     call uart_print_str
 

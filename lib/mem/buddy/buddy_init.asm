@@ -18,15 +18,8 @@ section .text
 
 extern heap_alloc
 extern memset
-extern buddy_free_heads
-extern buddy_start_addr
-extern buddy_end_addr
-extern buddy_metadata
 extern buddy_save_context
 extern buddy_load_context
-extern buddy_nodes
-extern buddy_node_count
-extern buddy_active_node_index
 
 ; -----------------------------------------------------------------------------
 ; buddy_link_block — links a block into the free list of a specific order

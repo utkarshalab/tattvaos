@@ -16,8 +16,7 @@
 
 section .text
 
-; External functions from other slab allocator parts
-extern kmem_cache_create_in_place
+
 
 ; -----------------------------------------------------------------------------
 ; kmem_cache_init_all — initializes the fixed slab caches during system boot

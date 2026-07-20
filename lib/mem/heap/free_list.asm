@@ -21,9 +21,7 @@ endstruc
 
 section .text
 
-extern uart_print_str
-extern uart_print_hex64
-extern kernel_panic
+
 
 ; -----------------------------------------------------------------------------
 ; free_list_init — initializes the free list heap allocator in a given region

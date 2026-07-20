@@ -495,7 +495,6 @@ msg_r14_r15_label:     db "R14 / R15:   ", 0
 msg_cr2_cr3_label:     db "CR2 / CR3:   ", 0
 msg_unknown_exception: db "Unknown Exception", 0
 msg_panic_fallback:    db "!!! FATAL PANIC: Survive system not available. Halting.", 0x0D, 0x0A, 0
-msg_crlf:              db 0x0D, 0x0A, 0
 msg_space:             db "   ", 0
 
 ; -----------------------------------------------------------------------------
