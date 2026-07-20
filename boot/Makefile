@@ -25,101 +25,102 @@ stage2/stage2.bin: stage2/entry.asm
 		-o stage2/stage2.bin
 
 # Kernel
-$(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm $(KERNEL_DIR)/entry/init.asm $(KERNEL_DIR)/entry/main.asm $(KERNEL_DIR)/drivers/serial/uart.asm $(KERNEL_DIR)/arch/x86_64/interrupts.asm $(KERNEL_DIR)/arch/x86_64/gdt.asm $(KERNEL_DIR)/arch/x86_64/cpu.asm \
-                          $(KERNEL_DIR)/../lib/mem/mem.asm $(KERNEL_DIR)/../lib/mem/mem.inc $(KERNEL_DIR)/../lib/mem/phys/map.asm $(KERNEL_DIR)/../lib/mem/phys/bitmap.asm $(KERNEL_DIR)/../lib/mem/phys/phys.asm \
-                          $(KERNEL_DIR)/../lib/mem/ops/memcpy.asm $(KERNEL_DIR)/../lib/mem/ops/memset.asm $(KERNEL_DIR)/../lib/mem/ops/memzero.asm $(KERNEL_DIR)/../lib/mem/ops/memcmp.asm $(KERNEL_DIR)/../lib/mem/ops/memmove.asm \
-                          $(KERNEL_DIR)/../lib/mem/heap/bump.asm \
-                          $(KERNEL_DIR)/../lib/mem/heap/free_list.asm \
-                          $(KERNEL_DIR)/../lib/mem/heap/leak_tracker.asm \
-                          $(KERNEL_DIR)/../lib/mem/heap/heap.asm \
-                          $(KERNEL_DIR)/../lib/mem/heap/defrag.asm \
-                          $(KERNEL_DIR)/../lib/mem/slab/slab.asm \
-                          $(KERNEL_DIR)/../lib/mem/slab/slab_create.asm \
-                          $(KERNEL_DIR)/../lib/mem/slab/slab_alloc.asm \
-                          $(KERNEL_DIR)/../lib/mem/slab/slab_free.asm \
-                          $(KERNEL_DIR)/../lib/mem/slab/slab_reap.asm \
-                          $(KERNEL_DIR)/../lib/mem/buddy/buddy.asm \
-                          $(KERNEL_DIR)/../lib/mem/buddy/buddy_init.asm \
-                          $(KERNEL_DIR)/../lib/mem/buddy/buddy_alloc.asm \
-                          $(KERNEL_DIR)/../lib/mem/buddy/buddy_free.asm \
-                          $(KERNEL_DIR)/../lib/mem/arena/arena.asm \
-                          $(KERNEL_DIR)/../lib/mem/arena/arena_create.asm \
-                          $(KERNEL_DIR)/../lib/mem/arena/arena_alloc.asm \
-                          $(KERNEL_DIR)/../lib/mem/arena/arena_reset.asm \
-                          $(KERNEL_DIR)/../lib/mem/arena/arena_destroy.asm \
-                          $(KERNEL_DIR)/../lib/mem/arena/arena_checkpoint.asm \
-                          $(KERNEL_DIR)/../lib/mem/arena/arena_local.asm \
-                          $(KERNEL_DIR)/../lib/mem/pool/pool.asm \
-                          $(KERNEL_DIR)/../lib/mem/pool/pool_create.asm \
-                          $(KERNEL_DIR)/../lib/mem/pool/pool_grow.asm \
-                          $(KERNEL_DIR)/../lib/mem/pool/pool_alloc.asm \
-                          $(KERNEL_DIR)/../lib/mem/pool/pool_free.asm \
-                          $(KERNEL_DIR)/../lib/mem/pool/pool_destroy.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/virt.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_walk.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_map.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_unmap.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_cache.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_lock.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_split.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/tlb.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/tlb_shootdown.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/paging/thp.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/swap_device.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/zswap.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/swap.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/kswapd.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/ept.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/spt.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/vtlb.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/eve.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/pml.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/nested.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/hmm.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/dmabuf.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/gpummu.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/p2pdma.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/hmm_metrics.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/acpi_hotplug.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/uaf.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/stack.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/sched_affinity.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/pf.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/kernel_relocator.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/zone_transition.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hardware/locality_scorer.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/replacement.asm \
-                          $(KERNEL_DIR)/../storage/ummapf/mmap.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/ipc.asm \
-                          $(KERNEL_DIR)/../lib/mem/numa/numa.asm $(KERNEL_DIR)/../lib/mem/numa/numa_detect.asm \
-                          $(KERNEL_DIR)/../lib/hw/ucpu/mtrr.asm \
-                          $(KERNEL_DIR)/../lib/hw/ucpu/pat.asm \
-                          $(KERNEL_DIR)/drivers/gpu/fb.asm \
-                          $(KERNEL_DIR)/../unet/core/link/net_link.asm \
-                          $(KERNEL_DIR)/../unet/core/link/net_ring.inc \
-                          $(KERNEL_DIR)/../unet/core/link/net_ring.asm \
-                          $(KERNEL_DIR)/../unet/core/link/ring.asm \
-                          $(KERNEL_DIR)/../unet/core/link/pci.asm \
-                          $(KERNEL_DIR)/../unet/core/link/loan.asm \
-                          $(KERNEL_DIR)/../unet/core/link/sbuf.asm \
-                          $(KERNEL_DIR)/../unet/core/link/recycle.asm \
-                          $(KERNEL_DIR)/../unet/core/link/rss.asm
-
-	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
-		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
-		-o $(KERNEL_DIR)/kernel.bin
-	python3 -c "import struct; f='$(KERNEL_DIR)/kernel.bin'; d=bytearray(open(f,'rb').read()); struct.pack_into('<Q',d,16,0); s=sum(struct.unpack('<Q',d[i:i+8].ljust(8,b'\0'))[0] for i in range(0,len(d),8))&0xFFFFFFFFFFFFFFFF; struct.pack_into('<Q',d,16,s); open(f,'wb').write(d)"
+#$(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm $(KERNEL_DIR)/entry/init.asm $(KERNEL_DIR)/entry/main.asm $(KERNEL_DIR)/drivers/serial/uart.asm $(KERNEL_DIR)/arch/x86_64/interrupts.asm $(KERNEL_DIR)/arch/x86_64/gdt.asm $(KERNEL_DIR)/arch/x86_64/cpu.asm \
+#                          $(KERNEL_DIR)/../lib/mem/mem.asm $(KERNEL_DIR)/../lib/mem/mem.inc $(KERNEL_DIR)/../lib/mem/phys/map.asm $(KERNEL_DIR)/../lib/mem/phys/bitmap.asm $(KERNEL_DIR)/../lib/mem/phys/phys.asm \
+#                          $(KERNEL_DIR)/../lib/mem/ops/memcpy.asm $(KERNEL_DIR)/../lib/mem/ops/memset.asm $(KERNEL_DIR)/../lib/mem/ops/memzero.asm $(KERNEL_DIR)/../lib/mem/ops/memcmp.asm $(KERNEL_DIR)/../lib/mem/ops/memmove.asm \
+#                          $(KERNEL_DIR)/../lib/mem/heap/bump.asm \
+#                          $(KERNEL_DIR)/../lib/mem/heap/free_list.asm \
+#                          $(KERNEL_DIR)/../lib/mem/heap/leak_tracker.asm \
+#                          $(KERNEL_DIR)/../lib/mem/heap/heap.asm \
+#                          $(KERNEL_DIR)/../lib/mem/heap/defrag.asm \
+#                          $(KERNEL_DIR)/../lib/mem/slab/slab.asm \
+#                          $(KERNEL_DIR)/../lib/mem/slab/slab_create.asm \
+#                          $(KERNEL_DIR)/../lib/mem/slab/slab_alloc.asm \
+#                          $(KERNEL_DIR)/../lib/mem/slab/slab_free.asm \
+#                          $(KERNEL_DIR)/../lib/mem/slab/slab_reap.asm \
+#                          $(KERNEL_DIR)/../lib/mem/buddy/buddy.asm \
+#                          $(KERNEL_DIR)/../lib/mem/buddy/buddy_init.asm \
+#                          $(KERNEL_DIR)/../lib/mem/buddy/buddy_alloc.asm \
+#                          $(KERNEL_DIR)/../lib/mem/buddy/buddy_free.asm \
+#                          $(KERNEL_DIR)/../lib/mem/arena/arena.asm \
+#                          $(KERNEL_DIR)/../lib/mem/arena/arena_create.asm \
+#                          $(KERNEL_DIR)/../lib/mem/arena/arena_alloc.asm \
+#                          $(KERNEL_DIR)/../lib/mem/arena/arena_reset.asm \
+#                          $(KERNEL_DIR)/../lib/mem/arena/arena_destroy.asm \
+#                          $(KERNEL_DIR)/../lib/mem/arena/arena_checkpoint.asm \
+#                          $(KERNEL_DIR)/../lib/mem/arena/arena_local.asm \
+#                          $(KERNEL_DIR)/../lib/mem/pool/pool.asm \
+#                          $(KERNEL_DIR)/../lib/mem/pool/pool_create.asm \
+#                          $(KERNEL_DIR)/../lib/mem/pool/pool_grow.asm \
+#                          $(KERNEL_DIR)/../lib/mem/pool/pool_alloc.asm \
+#                          $(KERNEL_DIR)/../lib/mem/pool/pool_free.asm \
+#                          $(KERNEL_DIR)/../lib/mem/pool/pool_destroy.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/virt.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_walk.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_map.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_unmap.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_cache.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_lock.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_split.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/tlb.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/tlb_shootdown.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/paging/thp.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/swap_device.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/zswap.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/swap.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/kswapd.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/ept.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/spt.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/vtlb.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/eve.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/pml.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/nested.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/hmm.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/dmabuf.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/gpummu.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/p2pdma.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/hmm_metrics.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/acpi_hotplug.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/uaf.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/stack.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/sched_affinity.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/pf.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/kernel_relocator.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/zone_transition.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/hardware/locality_scorer.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/replacement.asm \
+#                          $(KERNEL_DIR)/../storage/ummapf/mmap.asm \
+#                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/ipc.asm \
+#                          $(KERNEL_DIR)/../lib/mem/numa/numa.asm $(KERNEL_DIR)/../lib/mem/numa/numa_detect.asm \
+#                          $(KERNEL_DIR)/../lib/hw/ucpu/mtrr.asm \
+#                          $(KERNEL_DIR)/../lib/hw/ucpu/pat.asm \
+#                          $(KERNEL_DIR)/drivers/gpu/fb.asm \
+#                          $(KERNEL_DIR)/../unet/core/link/net_link.asm \
+#                          $(KERNEL_DIR)/../unet/core/link/net_ring.inc \
+#                          $(KERNEL_DIR)/../unet/core/link/net_ring.asm \
+#                          $(KERNEL_DIR)/../unet/core/link/ring.asm \
+#                          $(KERNEL_DIR)/../unet/core/link/pci.asm \
+#                          $(KERNEL_DIR)/../unet/core/link/loan.asm \
+#                          $(KERNEL_DIR)/../unet/core/link/sbuf.asm \
+#                          $(KERNEL_DIR)/../unet/core/link/recycle.asm \
+#                          $(KERNEL_DIR)/../unet/core/link/rss.asm
+#
+#	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
+#		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
+#		-o $(KERNEL_DIR)/kernel.bin
+#	python3 -c "import struct; f='$(KERNEL_DIR)/kernel.bin'; d=bytearray(open(f,'rb').read()); struct.pack_into('<Q',d,16,0); s=sum(struct.unpack('<Q',d[i:i+8].ljust(8,b'\0'))[0] for i in range(0,len(d),8))&0xFFFFFFFFFFFFFFFF; struct.pack_into('<Q',d,16,s); open(f,'wb').write(d)"
 
 # Disk image layout:
 #   Sector 0       = stage1 (MBR, 512 bytes)
 #   Sector 1-64    = stage2 (up to 32KB)
-#   Sector 65+     = kernel (seek=65 = CHS sector 66)
-boot.img: stage1/stage1.bin stage2/stage2.bin $(KERNEL_DIR)/kernel.bin
+#   Sector 65+     = dummy kernel
+boot.img: stage1/stage1.bin stage2/stage2.bin
 	dd if=/dev/zero of=boot.img bs=512 count=2880
 	dd if=stage1/stage1.bin of=boot.img conv=notrunc
 	dd if=stage2/stage2.bin of=boot.img bs=512 seek=1 conv=notrunc
-	dd if=$(KERNEL_DIR)/kernel.bin of=boot.img bs=512 seek=65 conv=notrunc
+	# Bypass actual kernel segment using dummy zeroes for bootloader-only testing
+	dd if=/dev/zero of=boot.img bs=512 seek=65 count=1 conv=notrunc
 
 # Enforce 512 byte MBR size — never disable this
 check: stage1/stage1.bin
