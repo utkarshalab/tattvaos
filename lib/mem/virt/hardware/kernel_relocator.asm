@@ -16,18 +16,7 @@
 [BITS 64]
 
 ; External symbols
-extern numa_ranges
-extern numa_range_count
-extern virt_walk_table
-extern virt_unmap
-extern virt_map
-extern phys_alloc_page_node
-extern phys_free_page
-extern buddy_metadata
-extern buddy_start_addr
-extern buddy_end_addr
-extern uart_print_str
-extern uart_print_hex64
+
 
 section .text
 
