@@ -20,16 +20,8 @@ numa_node_t.end_page   equ 16
 
 section .text
 
-extern numa_nodes
-extern numa_node_t_size
-extern buddy_start_addr
-extern buddy_end_addr
-extern vma_list_head
-extern virt_walk_table
-extern phys_alloc_page_node
-extern phys_free_page
-extern heap_alloc
-extern memzero
+
+
 
 ; -----------------------------------------------------------------------------
 ; numa_balance_tiers — scans processes, identifies cold pages, migrates Node 0 -> Node 1
