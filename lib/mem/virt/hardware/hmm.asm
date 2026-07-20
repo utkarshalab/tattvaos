@@ -48,19 +48,8 @@ GPU_BAR_VIRT_START      equ 0x9000000000    ; 576GB mark
 section .text
 
 ; External VM allocations and page table routines
-extern vma_create
-extern vma_destroy
-extern vma_find
-extern virt_find_free_range
-extern virt_map
-extern virt_unmap
-extern pat_find_entry
-extern kernel_end
-extern phys_state
-extern virt_walk_table
-extern phys_alloc_page
-extern phys_free_page
-extern memzero
+
+
 
 ; -----------------------------------------------------------------------------
 ; is_valid_bar_phys_addr — Verifies target physical address does not overlap kernel
