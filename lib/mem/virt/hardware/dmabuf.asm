@@ -208,7 +208,6 @@ dmabuf_direct_route_nvme_read:
     ; Call NVMe driver read directly (RDI = slot, RSI = dest_phys)
     ; This triggers peer-to-peer DMA over PCIe, bypassing host CPU RAM entirely!
     push rbx
-    extern nvme_read_page
     call nvme_read_page
     pop rbx
     test rax, rax
