@@ -16,8 +16,7 @@
 
 section .text
 
-extern heap_alloc
-extern heap_free
+
 
 ; -----------------------------------------------------------------------------
 ; pool_create — creates a new fixed-size object pool allocator
@@ -85,7 +84,7 @@ pool_create:
     ; Store configuration
     mov [r14 + pool_t.obj_size], r12
     mov [r14 + pool_t.capacity], r13
-    mov [r14 + pool_t.count], qword 0
+    mov qword [r14 + pool_t.count], 0
     
     mov rbx, rax
     add rbx, 16                     ; RBX = pointer to the first slot
