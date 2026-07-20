@@ -30,11 +30,7 @@ endstruc
 section .text
 
 ; External symbols
-extern phys_alloc_page
-extern phys_free_page
-extern memcpy
-extern lz4_compress
-extern lz4_decompress
+
 
 ; -----------------------------------------------------------------------------
 ; zram_init — clears all metadata and telemetry counts
