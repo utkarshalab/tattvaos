@@ -21,15 +21,7 @@ phys_state_t_reserved_pages_offset equ 40
 section .text
 
 ; External symbols
-extern phys_state
-extern page_replace_clock_evict
-extern page_replace_clock_evict_node
-extern uart_print_str
-extern uart_print_dec
-extern kmem_cache_reap
-extern kmem_cache_file
-extern kmem_cache_task
-extern kmem_cache_vma
+
 
 ; Watermarks
 global kswapd_min_watermark
