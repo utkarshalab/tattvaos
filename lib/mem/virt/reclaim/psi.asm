@@ -33,8 +33,7 @@ endstruc
 ; -----------------------------------------------------------------------------
 section .text
 
-extern thread_table
-extern thread_count
+
 
 ; -----------------------------------------------------------------------------
 ; psi_update_stalls — scans all threads to update PSI stall telemetry
