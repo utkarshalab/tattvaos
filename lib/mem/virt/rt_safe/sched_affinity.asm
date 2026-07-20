@@ -15,11 +15,7 @@
 [BITS 64]
 
 ; External symbols
-extern numa_get_distance
-extern smp_active_cores
-extern uart_print_str
-extern uart_print_hex64
-extern uart_print_dec
+
 
 ; Thread Structure Definition (now 104 bytes)
 struc thread_t
@@ -401,6 +397,5 @@ msg_migrate_msg_prefix: db "  Affinity Migrator: Thread ", 0
 msg_migrate_msg_mid1:   db " migrated to CPU ", 0
 msg_migrate_msg_mid2:   db " (Distance = ", 0
 msg_migrate_msg_suffix: db ")", 0x0D, 0x0A, 0
-msg_crlf:               db 0x0D, 0x0A, 0
 
 %endif ; LIB_MEM_VIRT_SCHED_AFFINITY_ASM
