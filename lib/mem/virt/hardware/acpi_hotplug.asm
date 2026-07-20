@@ -15,13 +15,7 @@
 [BITS 64]
 
 ; External symbols
-extern boot_info_ptr
-extern register_idt_handler
-extern numa_ranges
-extern numa_range_count
-extern uart_print_str
-extern uart_print_hex64
-extern uart_print_dec
+
 
 ; Structure for ACPI memory device update (for namespace parsing)
 struc acpi_mem_device_t
@@ -385,12 +379,10 @@ acpi_handle_hotplug_event:
     ; 1. Dynamic Buddy Node Generation (Subfeature 24.2)
     mov rdi, [acpi_parsed_device + acpi_mem_device_t.phys_addr]
     mov rsi, [acpi_parsed_device + acpi_mem_device_t.length]
-    extern buddy_generate_node
     call buddy_generate_node
 
     ; 2. Thread CPU Affinity Migration (Subfeature 24.3)
     mov edi, [acpi_parsed_device + acpi_mem_device_t.proximity_domain]
-    extern sched_migrate_threads_for_node
     call sched_migrate_threads_for_node
 
     jmp .done
