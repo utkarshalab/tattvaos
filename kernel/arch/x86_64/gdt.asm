@@ -133,16 +133,16 @@ kernel_gdt:
 
 section .bss
 
-align 16
+alignb 16
 kernel_tss:
     resb 104                        ; 64-bit TSS structure space
 
-align 16
+alignb 16
 double_fault_stack_bottom:
     resb 4096                       ; 4KB Emergency Stack for IST 1 (Double Fault)
 double_fault_stack_top:
 
-align 16
+alignb 16
 page_fault_stack_bottom:
     resb 4096                       ; 4KB Emergency Stack for IST 2 (Page Fault)
 page_fault_stack_top:
