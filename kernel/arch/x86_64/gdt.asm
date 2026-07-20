@@ -94,7 +94,7 @@ gdt_init:
 
     ; 5. Reload CS register via lretq (64-bit far return)
     push qword 0x08                 ; new CS selector (SEL_CODE64 = 0x08)
-    lea rax, [rel .reload_cs]       ; reload destination address
+    lea rax, [.reload_cs]       ; reload destination address
     push rax
     lretq                           ; far return to reload CS
 .reload_cs:
