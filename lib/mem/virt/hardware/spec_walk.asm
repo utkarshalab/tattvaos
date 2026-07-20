@@ -263,11 +263,11 @@ tsx_spec_walk_engine:
 ; Speculative Walk Structures storage
 ; -----------------------------------------------------------------------------
 section .bss
-align 8
+alignb 8
 global tsx_log
 tsx_log:     resb tsx_log_t_size
 
-align 64
+alignb 64
 global trans_cache
 trans_cache: resb 64 * trans_cache_entry_t_size
 
