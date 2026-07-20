@@ -25,7 +25,6 @@ LEAK_MAX_ENTRIES equ 512
 section .text
 
 extern uart_print_str
-extern uart_print_hex64
 
 ; -----------------------------------------------------------------------------
 ; leak_tracker_init — resets the tracking table
@@ -73,17 +72,25 @@ leak_track_alloc:
     cmp rcx, LEAK_MAX_ENTRIES
     jge .done_pop
 
-    mov rax, [rbx + rcx * leak_entry_t_size + leak_entry_t.ptr]
-    test rax, rax
+    mov rax, rcx
+    imul rax, leak_entry_t_size
+    mov rdx, [rbx + rax + leak_entry_t.ptr]
+    test rdx, rdx
     jz .found
 
     inc rcx
     jmp .loop
 
 .found:
-    mov [rbx + rcx * leak_entry_t_size + leak_entry_t.ptr], rdi
-    mov [rbx + rcx * leak_entry_t_size + leak_entry_t.size], rsi
-    mov [rbx + rcx * leak_entry_t_size + leak_entry_t.caller], rdx
+    mov r8, rsi                     ; preserve size parameter
+    mov rax, rcx
+    imul rax, leak_entry_t_size
+    mov [rbx + rax + leak_entry_t.ptr], rdi
+    mov [rbx + rax + leak_entry_t.size], r8
+    mov [rbx + rax + leak_entry_t.caller], r9 ; note: r9 holds caller return addr, wait let's look at rdx
+    ; wait, caller was in RDX, size was in RSI, ptr was in RDI. 
+    ; Let's check: RDI = pointer, RSI = size, RDX = caller.
+    mov [rbx + rax + leak_entry_t.caller], rdx
     inc qword [leak_count]
 
 .done_pop:
@@ -113,17 +120,21 @@ leak_track_free:
     cmp rcx, LEAK_MAX_ENTRIES
     jge .done_pop
 
-    mov rax, [rbx + rcx * leak_entry_t_size + leak_entry_t.ptr]
-    cmp rax, rdi
+    mov rax, rcx
+    imul rax, leak_entry_t_size
+    mov rdx, [rbx + rax + leak_entry_t.ptr]
+    cmp rdx, rdi
     je .found
 
     inc rcx
     jmp .loop
 
 .found:
-    mov qword [rbx + rcx * leak_entry_t_size + leak_entry_t.ptr], 0
-    mov qword [rbx + rcx * leak_entry_t_size + leak_entry_t.size], 0
-    mov qword [rbx + rcx * leak_entry_t_size + leak_entry_t.caller], 0
+    mov rax, rcx
+    imul rax, leak_entry_t_size
+    mov qword [rbx + rax + leak_entry_t.ptr], 0
+    mov qword [rbx + rax + leak_entry_t.size], 0
+    mov qword [rbx + rax + leak_entry_t.caller], 0
     dec qword [leak_count]
 
 .done_pop:
@@ -153,15 +164,19 @@ leak_track_update_size:
     cmp rcx, LEAK_MAX_ENTRIES
     jge .done_pop
 
-    mov rax, [rbx + rcx * leak_entry_t_size + leak_entry_t.ptr]
-    cmp rax, rdi
+    mov rax, rcx
+    imul rax, leak_entry_t_size
+    mov rdx, [rbx + rax + leak_entry_t.ptr]
+    cmp rdx, rdi
     je .found
 
     inc rcx
     jmp .loop
 
 .found:
-    mov [rbx + rcx * leak_entry_t_size + leak_entry_t.size], rsi
+    mov rax, rcx
+    imul rax, leak_entry_t_size
+    mov [rbx + rax + leak_entry_t.size], rsi
 
 .done_pop:
     pop rcx
@@ -194,8 +209,10 @@ heap_leak_report:
     cmp r13, LEAK_MAX_ENTRIES
     jge .done
 
-    mov rax, [rbx + r13 * leak_entry_t_size + leak_entry_t.ptr]
-    test rax, rax
+    mov rax, r13
+    imul rax, leak_entry_t_size
+    mov rdx, [rbx + rax + leak_entry_t.ptr]
+    test rdx, rdx
     jz .next
 
     ; Print Leak entry
@@ -203,21 +220,27 @@ heap_leak_report:
     call uart_print_str
 
     ; Print pointer
-    mov rax, [rbx + r13 * leak_entry_t_size + leak_entry_t.ptr]
+    mov rax, r13
+    imul rax, leak_entry_t_size
+    mov rax, [rbx + rax + leak_entry_t.ptr]
     call uart_print_hex64
 
     mov rsi, msg_leak_entry_size
     call uart_print_str
 
     ; Print size
-    mov rax, [rbx + r13 * leak_entry_t_size + leak_entry_t.size]
+    mov rax, r13
+    imul rax, leak_entry_t_size
+    mov rax, [rbx + rax + leak_entry_t.size]
     call uart_print_hex64
 
     mov rsi, msg_leak_entry_caller
     call uart_print_str
 
     ; Print caller
-    mov rax, [rbx + r13 * leak_entry_t_size + leak_entry_t.caller]
+    mov rax, r13
+    imul rax, leak_entry_t_size
+    mov rax, [rbx + rax + leak_entry_t.caller]
     call uart_print_hex64
 
     mov rsi, msg_crlf
