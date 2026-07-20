@@ -554,13 +554,13 @@ section .bss
 
 ; Slot Allocation Metadata
 zswap_in_use:  resb ZSWAP_MAX_SLOTS
-align 2
+alignb 2
 zswap_sizes:   resw ZSWAP_MAX_SLOTS
-align 8
+alignb 8
 zswap_frames:  resq ZSWAP_MAX_FRAMES
 
 ; Thread-safe static scratch buffer for compression (page size limit is 2048 for zswap)
-align 16
+alignb 16
 zswap_scratch: resb ZSWAP_SLOT_SIZE
 
 %endif ; LIB_MEM_VIRT_ZSWAP_ASM
