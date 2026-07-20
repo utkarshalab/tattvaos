@@ -28,18 +28,6 @@ endstruc
 
 section .text
 
-; External helper functions
-extern phys_alloc_page
-extern phys_alloc_pages
-extern phys_free_page
-extern memzero
-extern memcpy
-extern storage_read_file_page
-extern storage_write_file_page
-extern virt_readahead_trigger
-extern sys_readahead_window_size
-extern virt_writeback_throttle_check
-extern virt_translate
 
 ; -----------------------------------------------------------------------------
 ; virt_page_cache_init — initializes the page cache and resets counters
