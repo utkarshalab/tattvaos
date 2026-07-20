@@ -33,19 +33,7 @@ endstruc
 section .text
 
 ; External references
-extern heap_alloc
-extern heap_free
-extern virt_walk_table
-extern phys_free_page
-extern swap_alloc_slot
-extern swap_write_page
-extern swap_free_slot
-extern zswap_compress_and_store
-extern zswap_free_slot
-extern replacement_lock_acquire
-extern replacement_lock_release
-extern phys_state
-extern phys_state_t
+
 
 ; -----------------------------------------------------------------------------
 ; virt_mglru_init — initializes the MGLRU page tracking structures
