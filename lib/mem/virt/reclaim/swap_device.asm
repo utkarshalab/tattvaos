@@ -506,7 +506,8 @@ nvme_write_page:
     imul rax, NVME_CQE_SIZE
     lea rdi, [nvme_cq + rax]        ; RDI = CQE slot
     mov dword [rdi + 0], 0          ; Status = 0 (Success)
-    mov word [rdi + 8], word [nvme_sq_tail] ; matching SQ entry index
+    mov ax, word [nvme_sq_tail]
+    mov [rdi + 8], ax ; matching SQ entry index
     
     mov rax, [nvme_cq_head]
     inc rax
