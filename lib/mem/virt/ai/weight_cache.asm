@@ -351,7 +351,7 @@ sys_weight_cache_tick:          dq 0
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 sys_weight_models_table:        resb (WEIGHT_MAX_MODELS * 40)
 
 section .text
