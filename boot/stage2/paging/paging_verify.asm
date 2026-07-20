@@ -128,7 +128,7 @@ paging_verify:
     ; -------------------------------------------------------------------------
     ; Check 4: PD0[1] maps physical 0x200000
     ; -------------------------------------------------------------------------
-    mov eax, [edi + 8]              ; PD0[1]
+    mov eax, [PAGING_PD0 + 8]              ; PD0[1]
     test eax, PAGE_PRESENT
     jz .fail_pd_present
 
