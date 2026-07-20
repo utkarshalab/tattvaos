@@ -22,10 +22,7 @@ KASAN_MAPPED_END        equ 0x600002000000 + (512 * 4096)
 ; -----------------------------------------------------------------------------
 section .text
 
-extern phys_alloc_page
-extern virt_map
-extern memzero
-extern kernel_panic
+
 
 ; -----------------------------------------------------------------------------
 ; kasan_init — maps the system's KASAN shadow memory region and zeroes it
