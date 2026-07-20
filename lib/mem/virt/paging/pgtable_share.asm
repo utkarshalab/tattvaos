@@ -222,7 +222,9 @@ virt_share_page_directories:
     cmp rcx, 128
     jge .find_empty_slot
     
-    lea rax, [rdx + rcx * shared_dir_desc_t_size]
+    mov rax, rcx
+    imul rax, shared_dir_desc_t_size
+    add rax, rdx
     cmp [rax + shared_dir_desc_t.phys_addr], r9
     jne .next_existing
 
@@ -259,7 +261,9 @@ virt_share_page_directories:
     cmp rcx, 128
     jge .table_full
     
-    lea rax, [rdx + rcx * shared_dir_desc_t_size]
+    mov rax, rcx
+    imul rax, shared_dir_desc_t_size
+    add rax, rdx
     cmp qword [rax + shared_dir_desc_t.phys_addr], 0
     jne .next_empty
 
@@ -307,7 +311,9 @@ virt_shared_page_release:
     cmp rcx, 128
     jge .not_found
     
-    lea rax, [rdx + rcx * shared_dir_desc_t_size]
+    mov rax, rcx
+    imul rax, shared_dir_desc_t_size
+    add rax, rdx
     cmp [rax + shared_dir_desc_t.phys_addr], rdi
     je .lock_found
     
