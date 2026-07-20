@@ -110,4 +110,21 @@ endstruc
 HEAP_BLOCK_FREE_SIG equ 0x54415454414C4F40 ; "TATTALO0" (bit 0 = 0)
 HEAP_BLOCK_USED_SIG equ 0x54415454414C4F41 ; "TATTALO1" (bit 0 = 1)
 
+; VMA Flags
+VMA_READ        equ (1 << 0)
+VMA_WRITE       equ (1 << 1)
+VMA_EXEC        equ (1 << 2)
+VMA_USER        equ (1 << 3)
+VMA_COW         equ (1 << 4)
+VMA_ZFOD        equ (1 << 5)
+VMA_STACK       equ (1 << 6)
+VMA_ONDEMAND    equ (1 << 7)
+VMA_FILE        equ (1 << 8)
+VMA_HMM         equ (1 << 9)
+VMA_DAX         equ (1 << 10)
+VMA_PMEM        equ (1 << 11)
+VMA_PMEM_WINDOW equ (1 << 12)
+
+PAGE_GPU_VRAM   equ (1 << 58)
+
 %endif ; LIB_MEM_MEM_INC
