@@ -26,11 +26,11 @@ VMA_PMEM_WINDOW equ (1 << 12)
 
 
 ; Page Table Flags (matching pgtable.asm)
-PAGE_PRESENT    equ (1 << 0)
-PAGE_WRITABLE   equ (1 << 1)
-PAGE_USER       equ (1 << 2)
-PAGE_DIRTY      equ (1 << 6)
-PAGE_NX         equ (1 << 63)
+PAGE_PRESENT equ (1 << 0)
+PAGE_WRITABLE equ (1 << 1)
+PAGE_USER equ (1 << 2)
+PAGE_DIRTY equ (1 << 6)
+PAGE_NX equ (1 << 63)
 
 ; Mock file structure (representing a file in our NVMe/extent log-structured filesystem)
 struc mock_file_t
@@ -39,20 +39,6 @@ struc mock_file_t
 endstruc
 
 section .text
-
-; External symbols
-extern vma_create
-extern vma_destroy
-extern vma_find
-extern phys_alloc_page
-extern phys_free_page
-extern memzero
-extern memcpy
-extern virt_map
-extern virt_unmap
-extern virt_walk_table
-extern heap_alloc
-extern heap_free
 
 ; -----------------------------------------------------------------------------
 ; mock_file_create — allocates and initializes a mock file structure
