@@ -33,14 +33,7 @@ endstruc
 
 section .text
 
-extern sched_get_current_thread
-extern thread_count
-extern thread_table
-extern virt_walk_table
-extern swap_alloc_slot
-extern swap_write_page
-extern swap_free_slot
-extern phys_free_page
+
 
 ; -----------------------------------------------------------------------------
 ; sys_process_madvise — advises and reclaims memory of a remote target process
