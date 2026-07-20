@@ -467,13 +467,11 @@ virt_map_huge_2mb:
     push rcx
     push rdx
     mov rdi, 4096
-    extern sys_kmem_cgroup_uncharge
     call sys_kmem_cgroup_uncharge
     pop rdx
     pop rcx
     pop rax
 
-    extern virt_shared_page_release
     push rax
     push rcx
     mov rdi, rdx
