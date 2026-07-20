@@ -15,8 +15,7 @@
 
 [BITS 64]
 
-PAGE_PWT equ (1 << 3)
-PAGE_PCD equ (1 << 4)
+
 
 section .text
 
