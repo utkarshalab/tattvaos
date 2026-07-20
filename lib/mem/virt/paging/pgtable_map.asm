@@ -81,9 +81,7 @@ virt_map:
     or r14, PAGE_PRESENT            ; always present when mapped for normal pages
 .xo_map_done:
 
-    ; Clear address from UAF quarantine list if it was previously freed
     mov rdi, r12
-    extern uaf_quarantine_remove
     call uaf_quarantine_remove
 
     ; Acquire per-PML4 spinlock for this virtual address (3.4)
