@@ -112,8 +112,6 @@ vma_create:
     jmp .overlap_loop
 
 .no_overlap:
-    extern sched_get_current_thread
-    extern kswapd_check_and_reclaim
     ; Allocate stack space for temporary pointers and retry counters
     sub rsp, 32
     mov qword [rsp + 0], 0          ; current thread pointer
@@ -760,8 +758,6 @@ virt_logical_to_physical_vaddr:
 ;   RAX = 1 if reservation is allowed, 0 if denied
 ; Clobbers: RAX, RCX, RDX
 ; -----------------------------------------------------------------------------
-extern current_swap_device
-extern phys_state
 global virt_overcommit_check
 virt_overcommit_check:
     push rbx
@@ -875,8 +871,6 @@ virt_oom_calculate_score:
 ;   RAX = pointer to thread_t of selected victim, or 0 if none
 ; Clobbers: RAX, RCX, RDX, RDI
 ; -----------------------------------------------------------------------------
-extern thread_count
-extern thread_table
 global virt_oom_select_victim
 virt_oom_select_victim:
     push rbx
