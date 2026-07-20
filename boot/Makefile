@@ -83,19 +83,16 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../lib/mem/virt/dmabuf.asm \
                           $(KERNEL_DIR)/../lib/mem/virt/gpummu.asm \
                           $(KERNEL_DIR)/../lib/mem/virt/p2pdma.asm \
-                           $(KERNEL_DIR)/../lib/mem/virt/hmm_metrics.asm \
-                           $(KERNEL_DIR)/../lib/mem/virt/acpi_hotplug.asm \
-                           $(KERNEL_DIR)/../lib/mem/virt/sched_affinity.asm \
-                           $(KERNEL_DIR)/../lib/mem/virt/kernel_relocator.asm \
-                           $(KERNEL_DIR)/../lib/mem/virt/zone_transition.asm \
-                           $(KERNEL_DIR)/../lib/mem/virt/locality_scorer.asm \
-
+                          $(KERNEL_DIR)/../lib/mem/virt/hmm_metrics.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/acpi_hotplug.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/sched_affinity.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/kernel_relocator.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/zone_transition.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/locality_scorer.asm \
                           $(KERNEL_DIR)/../lib/mem/virt/replacement.asm \
                           $(KERNEL_DIR)/../storage/ummapf/mmap.asm \
                           $(KERNEL_DIR)/../lib/mem/virt/ipc.asm \
                           $(KERNEL_DIR)/../lib/mem/numa/numa.asm $(KERNEL_DIR)/../lib/mem/numa/numa_detect.asm \
-
-
                           $(KERNEL_DIR)/../lib/hw/ucpu/mtrr.asm \
                           $(KERNEL_DIR)/../lib/hw/ucpu/pat.asm \
                           $(KERNEL_DIR)/drivers/gpu/fb.asm \
