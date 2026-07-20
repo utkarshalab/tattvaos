@@ -17,8 +17,7 @@
 
 section .text
 
-extern phys_alloc_page
-extern phys_free_page
+
 
 ; -----------------------------------------------------------------------------
 ; pool_grow — expands a saturated pool by allocating a new 4KB page frame
