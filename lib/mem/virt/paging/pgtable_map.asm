@@ -111,7 +111,7 @@ virt_map:
     ; Allocate new PML4 table (cache fast path → PMM fallback)
     push rax
     push rcx
-    call ._alloc_zeroed_table
+    call virt_pgtable_alloc_zeroed
     pop rcx
     pop rdx                         ; RDX = parent directory address
     test rax, rax
@@ -142,7 +142,7 @@ virt_map:
     ; Allocate new PDPT table
     push rax
     push rcx
-    call ._alloc_zeroed_table
+    call virt_pgtable_alloc_zeroed
     pop rcx
     pop rdx                         ; RDX = parent directory address
     test rax, rax
@@ -188,7 +188,7 @@ virt_map:
     ; Allocate new PD table
     push rax
     push rcx
-    call ._alloc_zeroed_table
+    call virt_pgtable_alloc_zeroed
     pop rcx
     pop rdx
     test rax, rax
@@ -234,7 +234,7 @@ virt_map:
     ; Allocate new PT leaf table
     push rax
     push rcx
-    call ._alloc_zeroed_table
+    call virt_pgtable_alloc_zeroed
     pop rcx
     pop rdx
     test rax, rax
@@ -360,7 +360,7 @@ virt_map_huge_2mb:
     
     push rax
     push rcx
-    call ._alloc_zeroed_table
+    call virt_pgtable_alloc_zeroed
     pop rcx
     pop rdx
     test rax, rax
@@ -387,7 +387,7 @@ virt_map_huge_2mb:
 
     push rax
     push rcx
-    call ._alloc_zeroed_table
+    call virt_pgtable_alloc_zeroed
     pop rcx
     pop rdx
     test rax, rax
@@ -430,7 +430,7 @@ virt_map_huge_2mb:
 
     push rax
     push rcx
-    call ._alloc_zeroed_table
+    call virt_pgtable_alloc_zeroed
     pop rcx
     pop rdx
     test rax, rax
@@ -729,7 +729,7 @@ virt_map_super_1gb:
 ; Clobbers: RAX, RCX, RDX, RSI, RDI, R8-R11
 ; NOTE: This is a local helper, not a public API.
 ; -----------------------------------------------------------------------------
-._alloc_zeroed_table:
+virt_pgtable_alloc_zeroed:
     ; Fast path: try the recycling pool
     call pgtable_cache_alloc
     test rax, rax
