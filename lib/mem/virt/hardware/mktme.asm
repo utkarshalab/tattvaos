@@ -126,7 +126,7 @@ sys_mktme_msr_value: dq 0
 ; -----------------------------------------------------------------------------
 section .bss
 
-align 32
+alignb 32
 global sys_mktme_keys
 sys_mktme_keys: resb 4 * mktme_key_t_size
 
