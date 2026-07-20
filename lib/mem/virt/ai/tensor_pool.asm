@@ -27,7 +27,7 @@
 ; ---------------------------------------------------------------------------
 POOL_START_OFF          equ 0       ; dq: data start address
 POOL_SIZE_OFF           equ 8       ; dq: total size in bytes
-BLOCK_SIZE_OFF          equ 16      ; dq: block size in bytes
+TENSOR_BLOCK_SIZE_OFF  equ 16      ; dq: block size in bytes
 TOTAL_BLOCKS_OFF        equ 24      ; dq: total count of blocks
 BITMAP_WORDS_OFF        equ 32      ; dq: number of 64-bit words in bitmap
 BITMAP_START_OFF        equ 40      ; start of bitmap array
@@ -113,7 +113,7 @@ tensor_pool_init:
     ; Write metadata fields to RDI
     mov  [rdi + POOL_START_OFF], rcx
     mov  [rdi + POOL_SIZE_OFF], rsi
-    mov  [rdi + BLOCK_SIZE_OFF], rdx
+    mov  [rdi + TENSOR_BLOCK_SIZE_OFF], rdx
     mov  [rdi + TOTAL_BLOCKS_OFF], r9
     mov  [rdi + BITMAP_WORDS_OFF], r10
 
@@ -183,7 +183,7 @@ tensor_pool_alloc:
 
     ; Compute block address = pool_start + index * block_size
     mov  rdx, [rdi + POOL_START_OFF]
-    mov  rcx, [rdi + BLOCK_SIZE_OFF]
+    mov  rcx, [rdi + TENSOR_BLOCK_SIZE_OFF]
     imul rax, rcx
     add  rax, rdx                   ; RAX = block pointer
 
@@ -218,7 +218,7 @@ tensor_pool_free:
     sub  rax, rdx                   ; RAX = offset in bytes
 
     ; Calculate index = offset / block_size
-    mov  r8, [rdi + BLOCK_SIZE_OFF]
+    mov  r8, [rdi + TENSOR_BLOCK_SIZE_OFF]
     xor  rdx, rdx
     div  r8                          ; RAX = global block index
     test rdx, rdx
