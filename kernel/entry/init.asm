@@ -177,8 +177,6 @@ mm_init:
     call heap_transition
     call kmem_cache_init_all
 
-    ; 4b. Initialize Multi-Core Isolated Stacks (Subfeature 20.6)
-    extern smp_stacks_init
     call smp_stacks_init
 
     ; 5. Unmap the kernel stack guard page to trap stack overflows
