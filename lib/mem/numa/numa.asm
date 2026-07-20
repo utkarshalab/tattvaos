@@ -73,7 +73,7 @@ numa_get_node_by_phys:
     jmp .loop
 
 .found:
-    movzx rax, dword [r8 + numa_range_t.node_id]
+    mov eax, dword [r8 + numa_range_t.node_id]
     jmp .exit
 
 .fallback:
