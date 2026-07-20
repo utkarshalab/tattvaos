@@ -14,25 +14,12 @@
 
 [BITS 64]
 
-; Page Table Flags
-PAGE_PRESENT    equ (1 << 0)
-PAGE_WRITABLE   equ (1 << 1)
-PAGE_USER       equ (1 << 2)
-PAGE_NX         equ (1 << 63)
+PAGE_PRESENT equ (1 << 0)
+PAGE_WRITABLE equ (1 << 1)
+PAGE_USER equ (1 << 2)
+PAGE_NX equ (1 << 63)
 
 section .text
-
-; External symbols
-extern phys_alloc_page
-extern phys_free_page
-extern memzero
-extern memset
-extern virt_map
-extern virt_unmap
-extern virt_walk_table
-extern virt_random_val
-extern uart_print_str
-extern uart_print_hex64
 
 ; -----------------------------------------------------------------------------
 ; virt_temporal_obfuscation_init — maps initial code page to 0x500000000
@@ -202,6 +189,4 @@ temporal_ticks: dq 0
 
 msg_temporal_prefix: db "Temporal Layout: Migrated code section from 0x", 0
 msg_temporal_to:     db " to 0x", 0
-msg_crlf:            db 0x0D, 0x0A, 0
-
 %endif ; LIB_MEM_VIRT_TEMPORAL_ASM
