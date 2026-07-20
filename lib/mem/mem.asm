@@ -178,6 +178,6 @@
 %include "storage/ummapf/bypass.asm"
 %include "storage/ummapf/barrier.asm"
 
-;%include "lib/mem/tests/mem_tests.asm"
+%include "lib/mem/tests/mem_tests.asm"
 
 %endif ; LIB_MEM_MEM_ASM
