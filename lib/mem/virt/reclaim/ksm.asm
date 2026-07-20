@@ -198,9 +198,9 @@ ksm_scan_and_merge:
     ret
 
 section .bss
-align 8
+alignb 8
 global ksm_count
-ksm_count: dq 0                     ; Active KSM entry count
+ksm_count: resq 1                     ; Active KSM entry count
 ksm_table: resb ksm_entry_t_size * 256 ; Dedup database
 
 %endif ; LIB_MEM_VIRT_RECLAIM_KSM_ASM
