@@ -42,8 +42,7 @@ endstruc
 
 section .text
 
-extern thread_table
-extern thread_count
+
 
 ; -----------------------------------------------------------------------------
 ; mem_cgroup_charge — charges allocation size hierarchically up the control tree
