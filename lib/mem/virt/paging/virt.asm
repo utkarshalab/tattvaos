@@ -1193,8 +1193,6 @@ virt_memcg_set_high_limit:
 ;   RAX = pointer to thread_t of selected victim, or 0 if none
 ; Clobbers: RAX, RCX, RDX, RDI
 ; -----------------------------------------------------------------------------
-extern thread_count
-extern thread_table
 global virt_oom_select_victim_in_cgroup
 virt_oom_select_victim_in_cgroup:
     push rbx
@@ -1645,8 +1643,6 @@ sys_kmem_cgroup_charge:
     push rbx
     push rdi
     
-    ; Get current thread
-    extern sched_get_current_thread
     call sched_get_current_thread
     test rax, rax
     jz .done
