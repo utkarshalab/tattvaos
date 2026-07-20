@@ -86,7 +86,7 @@ virt_split_super_1gb:
 
     ; 3. We have a 1GB super page. Perform the split!
     ; Allocate a new PD
-    call .alloc_zeroed_page
+    call virt_pgtable_split_alloc_zeroed
     test rax, rax
     jz .oom
     mov r15, rax                    ; R15 = new PD physical address
@@ -318,9 +318,7 @@ virt_split_huge_2mb:
     ret
 
 ; -----------------------------------------------------------------------------
-; .alloc_zeroed_page — local helper to allocate a zeroed page (via cache or PMM)
-; -----------------------------------------------------------------------------
-.alloc_zeroed_page:
+virt_pgtable_split_alloc_zeroed:
     call pgtable_cache_alloc
     test rax, rax
     jnz .alloc_done
