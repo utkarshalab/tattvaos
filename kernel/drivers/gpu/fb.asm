@@ -166,7 +166,8 @@ fb_init:
     jmp .map_loop
 
 .map_done:
-    mov qword [fb_virt_addr], FB_VIRT_BASE
+    mov rax, FB_VIRT_BASE
+    mov [fb_virt_addr], rax
     mov byte [fb_mapped_wc], 1
     
     mov rsi, msg_fb_mapped_wc
