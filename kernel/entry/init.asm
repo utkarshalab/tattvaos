@@ -211,7 +211,7 @@ serve_init:
 
 sys_handler:
     ; stub system call handler for syscall interface
-    sysretq
+    sysret
 
 ; -----------------------------------------------------------------------------
 ; Messages & Global Data
