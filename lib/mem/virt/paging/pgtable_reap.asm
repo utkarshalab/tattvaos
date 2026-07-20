@@ -165,7 +165,9 @@ virt_reap_empty_page_tables:
     cmp rcx, 128
     jge .not_shared
     
-    lea rax, [rdx + rcx * shared_dir_desc_t_size]
+    mov rax, rcx
+    imul rax, shared_dir_desc_t_size
+    add rax, rdx
     cmp [rax + shared_dir_desc_t.phys_addr], rdi
     je .found_descriptor
     inc rcx
