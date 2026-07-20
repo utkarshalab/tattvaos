@@ -42,7 +42,6 @@ pgtable_lock_acquire:
     movzx rcx, word [rax + rcx * 2]  ; RCX = physical (shuffled) index
 
     ; Check if there is an active thread
-    extern sched_get_current_thread
     call sched_get_current_thread   ; RAX = current thread pointer
     test rax, rax
     jz .traditional_lock_no_index   ; if no current thread, bypass TSX
@@ -59,7 +58,6 @@ pgtable_lock_acquire:
 
     ; Try entering Speculative block
     ; Fallback path is .tsx_fallback
-    extern tsx_begin
     push rax
     push rcx
     push r8
@@ -83,7 +81,6 @@ pgtable_lock_acquire:
 
 .tsx_abort_explicit:
     ; Lock busy, explicitly abort and fall back
-    extern tsx_end
     call tsx_end                    ; reset tsx active status
 
 .tsx_fallback:
