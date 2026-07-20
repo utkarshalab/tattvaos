@@ -459,7 +459,7 @@ sys_sev_init_count:     dq 0    ; telemetry: sev_init() call count
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 global sev_enc_bitmap
 sev_enc_bitmap: resb (SEV_SIM_BITMAP_QWORDS * 8)
 
