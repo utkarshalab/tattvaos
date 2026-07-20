@@ -186,9 +186,7 @@ virt_unmap:
     mov qword [rbp], 0
     invlpg [r12]
 
-    ; Add unmapped address to UAF quarantine list to trap future accesses
     mov rdi, r12
-    extern uaf_quarantine_add
     call uaf_quarantine_add
 
 
@@ -300,7 +298,6 @@ virt_unmap:
 ; Clobbers: RAX, RCX
 ; -----------------------------------------------------------------------------
 ._recycle_table:
-    extern virt_shared_page_release
     push rdi
     call virt_shared_page_release
     test rax, rax
