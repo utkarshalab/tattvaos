@@ -121,7 +121,6 @@ kernel_init:
 ; -----------------------------------------------------------------------------
 mm_init:
     call phys_init
-    extern virt_shuffle_pml4_init
     call virt_shuffle_pml4_init
 
     ; 1. Mark kernel code/data as global (1MB to kernel_end)
