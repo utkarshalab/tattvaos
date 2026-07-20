@@ -564,7 +564,7 @@ virt_map_super_1gb:
     
     push rax
     push rcx
-    call ._alloc_zeroed_table
+    call virt_pgtable_alloc_zeroed
     pop rcx
     pop rdx
     test rax, rax
@@ -591,7 +591,7 @@ virt_map_super_1gb:
 
     push rax
     push rcx
-    call ._alloc_zeroed_table
+    call virt_pgtable_alloc_zeroed
     pop rcx
     pop rdx
     test rax, rax
