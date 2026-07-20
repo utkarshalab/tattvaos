@@ -42,14 +42,7 @@ is_valid_phys_packet_buffer:
     
 .check_high:
     ; 3. Check upper physical memory bounds
-    extern phys_state
-    struc phys_state_t
-        .bitmap_addr    resq 1
-        .bitmap_size    resq 1
-        .total_pages    resq 1
-        .free_pages     resq 1
-        .max_phys_addr  resq 1
-    endstruc
+
     
     mov rax, [phys_state + phys_state_t.max_phys_addr]
     cmp rdi, rax
