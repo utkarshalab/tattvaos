@@ -27,16 +27,7 @@ endstruc
 
 section .text
 
-; External symbols
-extern phys_alloc_page
-extern phys_free_page
-extern memcpy
-extern uart_print_str
-extern swap_slots             ; from swap.asm (for Mock swap backing memory)
-extern swap_alloc_slot        ; from swap.asm
-extern swap_free_slot         ; from swap.asm
-extern swap_write_page        ; from swap.asm
-extern swap_read_page         ; from swap.asm
+
 
 ; -----------------------------------------------------------------------------
 ; swap_register_device — sets the active swap device
