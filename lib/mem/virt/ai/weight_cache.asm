@@ -94,7 +94,9 @@ weight_cache_pin:
     mov  r8, rdx                    ; R8 = target model_id
     xor  rcx, rcx                   ; RCX = index loop
 .find_existing:
-    lea  rax, [sys_weight_models_table + rcx * 40]
+    mov  rax, rcx
+    imul rax, 40
+    add  rax, sys_weight_models_table
     cmp  [rax + MODEL_ENTRY_ID], r8
     je   .handle_existing
     inc  rcx
@@ -158,7 +160,9 @@ weight_cache_pin:
     ; Find a free slot in models table
     xor  rcx, rcx
 .find_free_slot:
-    lea  rax, [sys_weight_models_table + rcx * 40]
+    mov  rax, rcx
+    imul rax, 40
+    add  rax, sys_weight_models_table
     cmp  qword [rax + MODEL_ENTRY_ID], 0
     je   .slot_found
     inc  rcx
@@ -202,7 +206,9 @@ weight_cache_unpin:
 
     xor  rcx, rcx
 .find_loop:
-    lea  rax, [sys_weight_models_table + rcx * 40]
+    mov  rax, rcx
+    imul rax, 40
+    add  rax, sys_weight_models_table
     cmp  [rax + MODEL_ENTRY_ID], rdi
     je   .unpin_it
     inc  rcx
@@ -238,7 +244,9 @@ weight_cache_evict_lru:
     mov  r9, 0xFFFFFFFFFFFFFFFF     ; R9 = lowest access tick found
 
 .lru_search:
-    lea  rax, [sys_weight_models_table + rcx * 40]
+    mov  rax, rcx
+    imul rax, 40
+    add  rax, sys_weight_models_table
     mov  rdx, [rax + MODEL_ENTRY_ID]
     test rdx, rdx
     jz   .next_entry                ; slot is empty
@@ -293,7 +301,9 @@ weight_cache_access:
 
     xor  rcx, rcx
 .find_entry:
-    lea  rax, [sys_weight_models_table + rcx * 40]
+    mov  rax, rcx
+    imul rax, 40
+    add  rax, sys_weight_models_table
     cmp  [rax + MODEL_ENTRY_ID], rdi
     je   .touch_it
     inc  rcx
