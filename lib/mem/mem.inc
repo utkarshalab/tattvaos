@@ -126,5 +126,6 @@ VMA_PMEM        equ (1 << 11)
 VMA_PMEM_WINDOW equ (1 << 12)
 
 PAGE_GPU_VRAM   equ (1 << 58)
+PAGE_COW        equ (1 << 9)
 
 %endif ; LIB_MEM_MEM_INC
