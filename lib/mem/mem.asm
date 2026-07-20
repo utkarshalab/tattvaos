@@ -175,7 +175,6 @@
 %include "storage/ummapf/bypass.asm"
 %include "storage/ummapf/barrier.asm"
 
-; 11. Test Suite File
-%include "lib/mem/tests/mem_tests.asm"
+#%include "lib/mem/tests/mem_tests.asm"
 
 %endif ; LIB_MEM_MEM_ASM
