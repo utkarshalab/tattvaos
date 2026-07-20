@@ -88,7 +88,8 @@ global mte_set_granule_tag
 mte_set_granule_tag:
     ; Strip any logical tags in bits 63:56 of address
     mov  rax, rdi
-    and  rax, 0x00FFFFFFFFFFFFFF        ; clear logical tag bits
+    mov  r11, 0x00FFFFFFFFFFFFFF
+    and  rax, r11        ; clear logical tag bits
     cmp  rax, MTE_LIMIT_MEM - 1
     ja   .fail                          ; address out of tag store limit
 
@@ -140,7 +141,8 @@ mte_set_granule_tag:
 global mte_get_granule_tag
 mte_get_granule_tag:
     mov  rax, rdi
-    and  rax, 0x00FFFFFFFFFFFFFF
+    mov  r11, 0x00FFFFFFFFFFFFFF
+    and  rax, r11
     cmp  rax, MTE_LIMIT_MEM - 1
     ja   .fail
 
@@ -219,7 +221,8 @@ mte_validate_ptr:
 global mte_tag_page
 mte_tag_page:
     mov  rax, rdi
-    and  rax, 0x00FFFFFFFFFFFFFF
+    mov  r11, 0x00FFFFFFFFFFFFFF
+    and  rax, r11
     cmp  rax, MTE_LIMIT_MEM - 1
     ja   .fail
 
