@@ -26,11 +26,7 @@ VMA_PMEM_WINDOW equ (1 << 12)
 
 
 ; Page Table Flags (matching pgtable.asm)
-PAGE_PRESENT equ (1 << 0)
-PAGE_WRITABLE equ (1 << 1)
-PAGE_USER equ (1 << 2)
-PAGE_DIRTY equ (1 << 6)
-PAGE_NX equ (1 << 63)
+
 
 ; Mock file structure (representing a file in our NVMe/extent log-structured filesystem)
 struc mock_file_t
