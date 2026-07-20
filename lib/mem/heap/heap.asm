@@ -29,8 +29,7 @@ extern leak_tracker_init
 extern leak_track_alloc
 extern leak_track_free
 extern leak_track_update_size
-extern sys_kmem_cgroup_charge
-extern sys_kmem_cgroup_uncharge
+
 
 
 ; -----------------------------------------------------------------------------
