@@ -280,7 +280,8 @@ acpi_sci_isr:
 
 .not_our_event:
     ; Send End-Of-Interrupt to LAPIC
-    mov dword [0xFEE00000 + 0x0B0], 0
+    mov r11, 0xFEE00000
+    mov dword [r11 + 0x0B0], 0
 
     ; Restore registers
     pop r15
@@ -425,7 +426,8 @@ acpi_parse_namespace_update:
     mov [acpi_parsed_device + acpi_mem_device_t.proximity_domain], eax
 
     ; Store device name
-    mov qword [acpi_parsed_device + acpi_mem_device_t.device_name], 0x00304D454D5F5F   ; "__MEM0\0"
+    mov r11, 0x00304D454D5F5F
+    mov [acpi_parsed_device + acpi_mem_device_t.device_name], r11   ; "__MEM0\0"
     mov dword [acpi_parsed_device + acpi_mem_device_t.flags], 1
 
     ; Reset simulated valid flag
@@ -470,7 +472,8 @@ acpi_simulate_hotplug_trigger:
     mov eax, 0x00040000
     movzx ecx, byte [acpi_sci_vector]
     or eax, ecx
-    mov dword [0xFEE00000 + 0x300], eax
+    mov r11, 0xFEE00000
+    mov dword [r11 + 0x300], eax
 
     pop rdi
     pop rsi
