@@ -243,7 +243,6 @@ virt_page_fault_handler:
 
     ; Check if the faulting address was previously quarantined (Use-After-Free)
     mov rdi, r12                    ; faulting address
-    extern uaf_quarantine_check
     call uaf_quarantine_check
     test rax, rax
     jz .not_uaf_trap
@@ -260,9 +259,9 @@ virt_page_fault_handler:
     mov rsi, [rsp + 160]            ; RIP of crash
     call kernel_panic
     cli
-.halt:
+.halt_uaf:
     hlt
-    jmp .halt
+    jmp .halt_uaf
 
 .not_uaf_trap:
 
@@ -348,7 +347,6 @@ virt_page_fault_handler:
     mov rdi, r12                    ; virtual address
     mov rsi, rax                    ; VMA pointer
     mov rdx, r13                    ; error code
-    extern hmm_handle_page_fault
     call hmm_handle_page_fault
     test rax, rax
     jz .do_diagnostics              ; failed -> panic
@@ -579,7 +577,6 @@ virt_page_fault_handler:
     ; --- Handled Page Fault (rax == 1) ---
     push rcx
     push rdx
-    extern sched_get_current_thread
     call sched_get_current_thread   ; RAX = current thread pointer
     pop rdx
     pop rcx
@@ -698,9 +695,9 @@ virt_page_fault_handler:
     mov rsi, [rsp + 160]            ; RIP of crash
     call kernel_panic
     cli
-.halt:
+.halt_overflow:
     hlt
-    jmp .halt
+    jmp .halt_overflow
 
 ; -----------------------------------------------------------------------------
 ; virt_handle_ondemand — allocates, mock-loads, and maps an on-demand page
