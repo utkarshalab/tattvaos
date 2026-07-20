@@ -31,8 +31,7 @@ endstruc
 section .text
 
 ; External symbols
-extern virt_walk_table
-extern virt_page_fault_handler
+
 
 ; -----------------------------------------------------------------------------
 ; tsx_log_init — clears the transaction log
@@ -153,7 +152,9 @@ trans_cache_flush:
     cmp rcx, 64
     jae .done
 
-    mov qword [rbx + rcx * trans_cache_entry_t_size + trans_cache_entry_t.valid], 0
+    mov rax, rcx
+    shl rax, 5                      ; rax = rcx * 32 (trans_cache_entry_t_size)
+    mov qword [rbx + rax + trans_cache_entry_t.valid], 0
     inc rcx
     jmp .loop
 .done:
