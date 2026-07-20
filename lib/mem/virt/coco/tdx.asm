@@ -247,7 +247,8 @@ global tdx_share_gpa
 tdx_share_gpa:
     ; Strip any existing shared bit from GPA to get page index
     mov  rax, rdi
-    and  rax, ~TDX_SHARED_BIT          ; clear shared bit if caller set it
+    mov  r11, ~TDX_SHARED_BIT
+    and  rax, r11          ; clear shared bit if caller set it
     shr  rax, 12                        ; page index
     cmp  rax, (TDX_SIM_BITMAP_PAGES - 1)
     ja   .oor
@@ -277,7 +278,8 @@ tdx_share_gpa:
 global tdx_private_gpa
 tdx_private_gpa:
     mov  rax, rdi
-    and  rax, ~TDX_SHARED_BIT
+    mov  r11, ~TDX_SHARED_BIT
+    and  rax, r11
     shr  rax, 12
     cmp  rax, (TDX_SIM_BITMAP_PAGES - 1)
     ja   .oor
@@ -305,7 +307,8 @@ tdx_private_gpa:
 global tdx_is_shared
 tdx_is_shared:
     mov  rax, rdi
-    and  rax, ~TDX_SHARED_BIT
+    mov  r11, ~TDX_SHARED_BIT
+    and  rax, r11
     shr  rax, 12
     cmp  rax, (TDX_SIM_BITMAP_PAGES - 1)
     ja   .oor
@@ -409,11 +412,10 @@ tdx_report:
     test rdi, rdi
     jz   .exit_fail
 
-    ; Write "TDXREPORT" marker at offset 0 of the report buffer
-    mov  rax, 0x545245504558445F54     ; "T_TDXREP" (little-endian)
+    ; Write "TDXREPORT" marker (little-endian)
+    mov  rax, 0x524F504552584454        ; "TDXREPOR"
     mov  [rdi], rax
-    mov  rax, 0x5400000000545250        ; "RPT\0\0\0\0T"
-    mov  [rdi + 8], rax
+    mov  byte [rdi + 8], 0x54           ; 'T'
 
     ; Zero remaining bytes of the 1024-byte buffer
     lea  rbx, [rdi + 16]
