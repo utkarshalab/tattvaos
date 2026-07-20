@@ -551,6 +551,5 @@ msg_hotplug_numa_ok:    db "ACPI SCI: Dynamic NUMA memory range registered succe
 msg_hotplug_err_full:   db "ACPI SCI: Error - NUMA range array is full, cannot add range.", 0x0D, 0x0A, 0
 msg_hotplug_no_dev:     db "ACPI SCI: Warning - SCI triggered but no namespace update block found.", 0x0D, 0x0A, 0
 
-msg_crlf:               db 0x0D, 0x0A, 0
 
 %endif ; LIB_MEM_VIRT_ACPI_HOTPLUG_ASM
