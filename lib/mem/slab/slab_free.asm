@@ -46,7 +46,8 @@ kmem_cache_free:
     ; 3. Hardening Check: Verify Slab Redzone
     mov rax, [rdi + kmem_cache_t.obj_size]
     sub rax, 8                      ; RAX = offset of validation bytes
-    cmp qword [rsi + rax], 0xDEADC0DE
+    mov r11, 0xDEADC0DE
+    cmp [rsi + rax], r11
     jne .redzone_corrupt_panic
 
     ; 4. Acquire cache spinlock

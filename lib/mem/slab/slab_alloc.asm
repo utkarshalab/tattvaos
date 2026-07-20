@@ -412,7 +412,8 @@ kmem_cache_alloc:
     ; Stamp Slab Redzone signature 0xDEADC0DE at the end of the object
     mov r10, [rdi + kmem_cache_t.obj_size]
     sub r10, 8                      ; Redzone offset
-    mov qword [rax + r10], 0xDEADC0DE
+    mov r11, 0xDEADC0DE
+    mov [rax + r10], r11
 
     ; Release spinlock
     mov qword [rdi + kmem_cache_t.lock], 0
