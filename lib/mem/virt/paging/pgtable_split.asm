@@ -250,7 +250,7 @@ virt_split_huge_2mb:
 
     ; 3. We have a 2MB huge page. Perform the split!
     ; Allocate a new PT
-    call .alloc_zeroed_page
+    call virt_pgtable_split_alloc_zeroed
     test rax, rax
     jz .oom
     mov r15, rax                    ; R15 = new PT physical address
