@@ -523,6 +523,4 @@ msg_err_vma:        db "Error: Failed to create framebuffer VMA range.", 0x0D, 0
 msg_err_map:        db "Error: Page mapping failed during framebuffer initialization.", 0x0D, 0x0A, 0
 msg_err_bench:      db "Error: Framebuffer mapping failure during benchmark setup.", 0x0D, 0x0A, 0
 
-msg_crlf:           db 0x0D, 0x0A, 0
-
 %endif ; KERNEL_DRIVERS_GPU_FB_ASM
