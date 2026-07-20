@@ -137,7 +137,7 @@ mbm_init:
     mov  ecx, MBM_CPUID_SUB1
     push rbx
     cpuid
-    movzx rax, ebx              ; EBX = scale factor
+    mov  eax, ebx              ; EBX = scale factor
     pop  rbx
     mov  [sys_mbm_scale], rax
 
@@ -146,7 +146,7 @@ mbm_init:
     xor  ecx, ecx
     push rbx
     cpuid
-    movzx rax, ebx              ; EBX = max RMID
+    mov  eax, ebx              ; EBX = max RMID
     pop  rbx
     inc  rax                    ; RMID count = max_rmid + 1
     cmp  rax, MBM_MAX_RMID
