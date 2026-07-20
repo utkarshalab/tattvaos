@@ -52,7 +52,8 @@ cxl_fabric_allocate:
 
     ; Generate virtual handle key based on count
     mov  rax, [sys_cxl_fabric_slices_allocated]
-    or   rax, 0xABCD0000            ; stamp marker
+    mov  r11, 0xABCD0000
+    or   rax, r11            ; stamp marker
     ret
 
 .fail:
