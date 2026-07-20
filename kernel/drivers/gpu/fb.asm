@@ -24,15 +24,7 @@ BENCH_SIZE_DWORDS equ BENCH_SIZE_BYTES / 4
 section .text
 
 ; External references
-extern boot_info_ptr
-extern vma_create
-extern vma_destroy
-extern virt_map
-extern virt_unmap
-extern pat_supported
-extern pat_find_entry
-extern uart_print_str
-extern uart_print_hex64
+
 
 ; -----------------------------------------------------------------------------
 ; fb_init — initializes framebuffer parameters and maps it under Write-Combining
