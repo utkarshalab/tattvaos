@@ -803,13 +803,14 @@ phys_alloc_pages_node:
     pop rbx
     ret
 
-; -----------------------------------------------------------------------------
-; phys_free_pages — frees N contiguous 4KB physical pages
-; Input:  RDI = starting physical address
-;         RSI = page count (N)
-; Output: none
-; Clobbers: none (preserves all registers)
-; -----------------------------------------------------------------------------
+global phys_free_page
+phys_free_page:
+    push rsi
+    mov rsi, 1
+    call phys_free_pages
+    pop rsi
+    ret
+
 global phys_free_pages
 phys_free_pages:
     push rax
