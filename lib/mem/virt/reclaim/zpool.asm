@@ -38,22 +38,7 @@ zpool_decomp_req_t_size equ 40
 section .text
 
 ; External helper functions
-extern phys_state
-extern phys_alloc_page
-extern phys_free_page
-extern memcpy
 
-; Physical disk swap functions (mock RAM swap helpers)
-extern ram_swap_alloc_slot
-extern ram_swap_free_slot
-extern ram_swap_write_page
-
-; Pool specific decompressors/readers
-extern zswap_decompress_and_free
-extern zram_read_page
-extern lz4_decompress
-extern rle_decompress
-extern smp_active_cores
 
 ; -----------------------------------------------------------------------------
 ; zpool_balance — dynamically scales zswap and zram maximum slots
