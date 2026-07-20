@@ -33,7 +33,6 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../lib/mem/heap/leak_tracker.asm \
                           $(KERNEL_DIR)/../lib/mem/heap/heap.asm \
                           $(KERNEL_DIR)/../lib/mem/heap/defrag.asm \
-
                           $(KERNEL_DIR)/../lib/mem/slab/slab.asm \
                           $(KERNEL_DIR)/../lib/mem/slab/slab_create.asm \
                           $(KERNEL_DIR)/../lib/mem/slab/slab_alloc.asm \
