@@ -348,7 +348,6 @@ uart_print_hex32_pm_idt:
 
 msg_exc_prefix: db "EXCEPTION ", 0
 msg_exc_colon:  db ": ", 0
-msg_crlf:       db 0x0D, 0x0A, 0
 msg_eip:        db "EIP: ", 0
 msg_cs:         db "  CS: ", 0
 msg_eflags:     db "  EFLAGS: ", 0
