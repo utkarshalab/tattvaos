@@ -23,10 +23,10 @@ VMA_USER        equ (1 << 3)
 VMA_PMEM        equ (1 << 11)
 
 ; Page Table Flags
-PAGE_PRESENT    equ (1 << 0)
-PAGE_WRITABLE   equ (1 << 1)
-PAGE_USER       equ (1 << 2)
-PAGE_NX         equ (1 << 63)
+PAGE_PRESENT equ (1 << 0)
+PAGE_WRITABLE equ (1 << 1)
+PAGE_USER equ (1 << 2)
+PAGE_NX equ (1 << 63)
 
 struc vma_t
     .start      resq 1          ; Start virtual address (page-aligned)
@@ -53,10 +53,6 @@ nvdimm_dev:
     iend
 
 section .text
-
-; External symbols
-extern vma_create
-extern virt_map
 
 ; -----------------------------------------------------------------------------
 ; vma_map_pmem — maps a persistent memory range into a VMA (Subfeature 27.2)
