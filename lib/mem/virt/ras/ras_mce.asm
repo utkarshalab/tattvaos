@@ -43,12 +43,7 @@ endstruc
 ; ---------------------------------------------------------------------------
 section .text
 
-extern ras_poison_page
-extern pages_array
-extern buddy_start_addr
-extern vma_list_head
-extern virt_walk_table
-extern sched_get_current_thread
+
 
 ; ---------------------------------------------------------------------------
 ; ras_mce_init — Setup MCE monitoring variables
