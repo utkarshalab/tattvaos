@@ -296,7 +296,7 @@ sys_mte_tag_faults:     dq 0        ; count of tag mismatch detections
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 global mte_tag_store
 mte_tag_store:          resb MTE_TAG_STORE_SIZE
 
