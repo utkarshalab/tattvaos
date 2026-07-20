@@ -39,7 +39,8 @@ section .text
 global ras_poison_page
 ras_poison_page:
     mov  rax, rdi
-    cmp  rax, 0x100000000           ; check limits (4GB)
+    mov  r11, 0x100000000
+    cmp  rax, r11           ; check limits (4GB)
     jae  .fail
 
     shr  rax, 12                    ; RAX = page index
