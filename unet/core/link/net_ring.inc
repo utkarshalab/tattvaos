@@ -94,20 +94,7 @@ endstruc
 ; -----------------------------------------------------------------------------
 ; External VM & Memory Symbols
 ; -----------------------------------------------------------------------------
-extern heap_alloc
-extern heap_free
-extern virt_find_free_range
-extern vma_create
-extern vma_destroy
-extern phys_alloc_page
-extern phys_free_page
-extern virt_map
-extern virt_unmap
-extern virt_translate
-extern smp_active_cores
-extern kernel_end
-extern kernel_panic
-extern uart_print_str
-extern uart_print_hex64
+
+
 
 %endif ; UNET_CORE_LINK_NET_RING_INC
