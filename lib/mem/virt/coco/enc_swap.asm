@@ -124,7 +124,8 @@ enc_swap_encrypt_page:
 
     ; Compute tweak based on block index: tweak = (index * PRIME) ^ K0 ^ K1
     mov  r10, rax
-    imul r10, 0x9E3779B97F4A7C15
+    mov  r11, 0x9E3779B97F4A7C15
+    imul r10, r11
     xor  r10, r8
     xor  r10, r9
 
@@ -210,7 +211,8 @@ enc_swap_decrypt_page:
 
     ; 3. Compute tweak: (index * PRIME) ^ K0 ^ K1
     mov  r10, rax
-    imul r10, 0x9E3779B97F4A7C15
+    mov  r11, 0x9E3779B97F4A7C15
+    imul r10, r11
     xor  r10, r8
     xor  r10, r9
 
