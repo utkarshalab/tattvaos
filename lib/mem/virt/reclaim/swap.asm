@@ -45,30 +45,8 @@ endstruc
 section .text
 
 ; External symbols
-extern phys_alloc_page
-extern phys_free_page
-extern virt_walk_table
-extern heap_free
-extern memcpy
-extern phys_state
-extern numa_get_node_by_phys
-extern active_list_head
-extern active_list_tail
-extern inactive_list_head
-extern inactive_list_tail
-extern active_count
-extern inactive_count
-extern replacement_lock_acquire
-extern replacement_lock_release
-extern sys_mglru_enabled
 
-extern current_swap_device
-extern mock_swap_dev
-extern swap_register_device
 
-extern zswap_init
-extern zswap_compress_and_store
-extern zswap_free_slot
 
 ; -----------------------------------------------------------------------------
 ; swap_init — registers the default Mock RAM device and clears memory slots
