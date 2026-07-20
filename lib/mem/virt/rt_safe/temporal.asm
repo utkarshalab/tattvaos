@@ -14,10 +14,7 @@
 
 [BITS 64]
 
-PAGE_PRESENT equ (1 << 0)
-PAGE_WRITABLE equ (1 << 1)
-PAGE_USER equ (1 << 2)
-PAGE_NX equ (1 << 63)
+
 
 section .text
 
