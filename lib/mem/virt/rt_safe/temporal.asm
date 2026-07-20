@@ -56,7 +56,8 @@ virt_temporal_obfuscation_init:
     jz .fail_map
 
     ; 5. Set global virtual address tracker
-    mov qword [temporal_code_vaddr], 0x500000000
+    mov r11, 0x500000000
+    mov [temporal_code_vaddr], r11
     mov qword [temporal_ticks], 0   ; reset ticks
     mov rax, 1                      ; return 1 (success)
     jmp .done

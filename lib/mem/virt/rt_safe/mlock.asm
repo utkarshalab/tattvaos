@@ -140,7 +140,8 @@ rt_is_locked:
     mov  rax, rdi
     cmp  rax, 0x70000000
     jb   .not_locked
-    cmp  rax, 0x80000000
+    mov  r11, 0x80000000
+    cmp  rax, r11
     jae  .not_locked
 
     sub  rax, 0x70000000
