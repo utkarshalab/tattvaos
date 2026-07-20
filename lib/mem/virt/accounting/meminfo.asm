@@ -61,11 +61,7 @@ endstruc
 ; ---------------------------------------------------------------------------
 section .text
 
-extern phys_state
-extern phys_state_t
-extern sys_page_cache_count     ; from page_cache.asm
-extern sys_vm_stat              ; from percpu_stat.asm — VM_STAT_NR_SLAB at [+24]
-extern smp_active_cores
+
 
 ; VM_STAT indices (must match percpu_stat.asm)
 %define VM_STAT_NR_SLAB 3
@@ -122,7 +118,7 @@ meminfo_snapshot:
 
     ; KernelStack — smp_active_cores × KSTACK_PAGES_PER_CORE × 4096
     ; BSP stack is static (kernel_stack_size); APs each get 16 KB
-    movzx rax, dword [smp_active_cores]
+    mov eax, dword [smp_active_cores]
     test  rax, rax
     jz    .kstack_done
     dec   rax                           ; exclude BSP (static stack)
