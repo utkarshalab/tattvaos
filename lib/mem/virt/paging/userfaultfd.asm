@@ -54,13 +54,7 @@ endstruc
 
 section .text
 
-extern vma_list_head
-extern sched_get_current_thread
-extern thread_table
-extern thread_count
-extern phys_alloc_page
-extern phys_free_page
-extern virt_map
+
 
 ; -----------------------------------------------------------------------------
 ; sys_userfaultfd_register — registers a virtual range to userfaultfd monitoring
