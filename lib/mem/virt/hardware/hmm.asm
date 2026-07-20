@@ -338,8 +338,8 @@ hmm_handle_page_fault:
     mov rbx, rax                    ; RBX = PTE pointer
     mov r15, [rbx]                  ; R15 = PTE value
 
-    ; 2. Check if the page resides in GPU VRAM (PAGE_GPU_VRAM set, PAGE_PRESENT clear)
-    test r15, PAGE_GPU_VRAM
+    mov r11, PAGE_GPU_VRAM
+    test r15, r11
     jz .first_touch                 ; not in GPU, maybe unallocated first touch
 
     ; Page is resident in GPU VRAM. Migrate page from GPU -> Host RAM.
@@ -374,7 +374,8 @@ hmm_handle_page_fault:
     and r10, r15
     or rcx, r10                     ; preserve NX
 
-    and rcx, ~PAGE_GPU_VRAM         ; clear GPU residency flag
+    mov r11, ~PAGE_GPU_VRAM
+    and rcx, r11         ; clear GPU residency flag
     or rcx, PAGE_PRESENT            ; mark present on Host CPU
     or rcx, PAGE_WRITABLE           ; ensure writable if VMA is writable
     or rcx, r9                      ; set new physical page base (Host RAM)
@@ -411,7 +412,8 @@ hmm_handle_page_fault:
     or rsi, PAGE_USER
 .no_user:
     or rsi, PAGE_PRESENT
-    or rsi, PAGE_NX                 ; default no-execute for data
+    mov r11, PAGE_NX
+    or rsi, r11                 ; default no-execute for data
 
     mov rdi, r12                    ; virtual address
     mov rdx, rsi                    ; mapping flags
@@ -505,7 +507,8 @@ hmm_migrate_to_gpu:
     or rcx, r10                     ; preserve NX
 
     and rcx, ~PAGE_PRESENT          ; mark non-present on CPU
-    or rcx, PAGE_GPU_VRAM           ; mark resident in GPU VRAM
+    mov r11, PAGE_GPU_VRAM
+    or rcx, r11           ; mark resident in GPU VRAM
     or rcx, r13                     ; store GPU physical address
 
     mov [rbx], rcx                  ; write back new PTE
