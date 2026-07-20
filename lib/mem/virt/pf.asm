@@ -638,7 +638,6 @@ virt_page_fault_handler:
     ; --- Unhandled Page Fault (rax == 0) ---
     push rcx
     push rdx
-    extern sched_get_current_thread
     call sched_get_current_thread   ; RAX = current thread pointer
     pop rdx
     pop rcx
