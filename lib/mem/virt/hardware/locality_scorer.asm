@@ -14,15 +14,9 @@
 
 [BITS 64]
 
-; External symbols
-extern numa_get_distance
-extern numa_node_count
-extern numa_nodes
-extern cpu_to_node
-extern smp_active_cores
-extern uart_print_str
-extern uart_print_hex64
-extern uart_print_dec
+
+
+
 
 section .text
 
@@ -271,3 +265,5 @@ numa_rank_nodes_for_cpu:
     pop rcx
     pop rbx
     ret
+
+%endif ; LIB_MEM_VIRT_LOCALITY_SCORER_ASM
