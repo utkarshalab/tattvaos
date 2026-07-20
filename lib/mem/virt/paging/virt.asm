@@ -740,13 +740,13 @@ virt_logical_to_physical_vaddr:
     mov rdx, 0x0000007FFFFFFFFF
     and rcx, rdx                   ; clear logical PML4 index and sign bits
     
-    shl rax, 39                     ; shift physical index to bits 39-47
-    
     ; Apply sign extension if physical index >= 256
-    cmp rax, 0x8000000000           ; index 256
+    cmp rax, 256
     jb .no_sign_ext
-    or rax, rdx                     ; set sign bits
+    mov r8, 0xFFFF000000000000
+    or rcx, r8                     ; set sign bits
 .no_sign_ext:
+    shl rax, 39                     ; shift physical index to bits 39-47
     or rax, rcx                     ; merge back offset
     ret
 
