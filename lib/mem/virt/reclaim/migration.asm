@@ -29,9 +29,7 @@ endstruc
 
 section .text
 
-extern sys_enc_swap_key
-extern phys_alloc_page
-extern phys_free_page
+
 
 ; -----------------------------------------------------------------------------
 ; secure_migrate_confidential_pages — migrates enclave pages to a target host
