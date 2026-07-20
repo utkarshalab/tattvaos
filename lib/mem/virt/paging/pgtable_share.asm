@@ -23,13 +23,7 @@ endstruc
 
 section .text
 
-; External helper symbols
-extern pml4_shuffle_map
-extern phys_alloc_page
-extern phys_free_page
-extern memzero
-extern pgtable_lock_acquire
-extern pgtable_lock_release
+
 
 ; -----------------------------------------------------------------------------
 ; virt_share_page_directories — shares page table (PT) pages from source to dest
@@ -126,7 +120,7 @@ virt_share_page_directories:
 
     ; Allocate missing PDPT
     push rax
-    call ._alloc_zeroed_page
+    call virt_pgtable_share_alloc_zeroed
     pop rcx
     test rax, rax
     jz .fail_unlock
@@ -149,7 +143,7 @@ virt_share_page_directories:
     push rbx
     push rax
     push rcx
-    call ._alloc_zeroed_page
+    call virt_pgtable_share_alloc_zeroed
     pop rcx
     pop rdx
     pop rbx
@@ -362,8 +356,7 @@ virt_shared_page_release:
     xor rax, rax                    ; return 0 (not registered, safe to free)
     ret
 
-; Helper to allocate a page and zero it
-._alloc_zeroed_page:
+virt_pgtable_share_alloc_zeroed:
     call phys_alloc_page
     test rax, rax
     jz .alloc_exit
