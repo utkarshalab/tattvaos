@@ -190,10 +190,10 @@ pgtable_lock_release:
 ; -----------------------------------------------------------------------------
 section .bss
 
-align 64                            ; cache-line aligned to reduce false sharing
+alignb 64                            ; cache-line aligned to reduce false sharing
 pgtable_locks: resb 512             ; 0 = unlocked, 1 = locked
 
-align 64
+alignb 64
 global pgtable_lock_abort_counts
 pgtable_lock_abort_counts: resb 512 ; tracks consecutive aborts per PML4 lock
 
