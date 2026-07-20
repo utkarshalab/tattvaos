@@ -16,14 +16,8 @@
 
 section .text
 
-extern buddy_free_heads
-extern buddy_start_addr
-extern buddy_end_addr
-extern buddy_metadata
 extern buddy_link_block
 extern buddy_unlink_block
-extern buddy_nodes
-extern buddy_node_count
 extern buddy_load_context
 
 ; -----------------------------------------------------------------------------
