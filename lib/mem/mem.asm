@@ -43,6 +43,7 @@
 %include "lib/mem/virt/paging/virt.asm"
 %include "lib/mem/virt/pf.asm"
 %include "lib/mem/virt/page_cache.asm"
+%include "lib/mem/virt/readahead.asm"
 %include "lib/mem/virt/paging/pgtable.asm"
 %include "lib/mem/virt/paging/pgtable_map.asm"
 %include "lib/mem/virt/paging/pgtable_unmap.asm"
