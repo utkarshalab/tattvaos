@@ -85,7 +85,8 @@ tlb_shootdown:
     ;      [10:8]  = 000 (fixed delivery)
     ;      [7:0]   = vector (0xFB)
     mov eax, 0x000C4000 | TLB_SHOOTDOWN_VEC
-    mov dword [TLB_LAPIC_BASE + TLB_LAPIC_ICR_LOW], eax
+    mov r11, TLB_LAPIC_BASE
+    mov dword [r11 + TLB_LAPIC_ICR_LOW], eax
 
     ; 5. Perform local invalidation on BSP as well
     call .do_local_flush
@@ -171,7 +172,8 @@ tlb_shootdown_isr:
     lock inc dword [tlb_sd_ack]
 
     ; Send End-Of-Interrupt to Local APIC
-    mov dword [TLB_LAPIC_BASE + TLB_LAPIC_EOI], 0
+    mov r11, TLB_LAPIC_BASE
+    mov dword [r11 + TLB_LAPIC_EOI], 0
 
     pop rdx
     pop rcx
