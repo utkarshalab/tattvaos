@@ -17,65 +17,13 @@
 section .text
 
 ; VMA Flags (matching virt.asm design)
-VMA_READ        equ (1 << 0)
-VMA_WRITE       equ (1 << 1)
-VMA_EXEC        equ (1 << 2)
-VMA_USER        equ (1 << 3)
-VMA_COW         equ (1 << 4)
-VMA_ZFOD        equ (1 << 5)
-VMA_STACK       equ (1 << 6)
-VMA_ONDEMAND    equ (1 << 7)
-VMA_FILE        equ (1 << 8)
-VMA_HMM         equ (1 << 9)
-VMA_DAX         equ (1 << 10)
-VMA_PMEM        equ (1 << 11)
-VMA_PMEM_WINDOW equ (1 << 12)
-
-
-; Page Table Flags (from pgtable.asm)
-PAGE_PRESENT    equ (1 << 0)
-PAGE_WRITABLE   equ (1 << 1)
-PAGE_USER       equ (1 << 2)
-PAGE_COW        equ (1 << 9)
 PAGE_XO         equ (1 << 9)        ; Execute-Only software tracking flag
 PAGE_KEY_1      equ (1 << 59)       ; Protection Key 1 (bits 62:59 = 0001)
 PAGE_SWAPPED    equ (1 << 10)
 PAGE_ZSWAPPED   equ (1 << 11)
 PAGE_ZRAM       equ (1 << 8)
-PAGE_NX         equ (1 << 63)
 
-; External symbols
-extern common_isr_handler
-extern uart_print_str
-extern uart_print_hex64
-extern uart_print_dec
-extern vma_find
-extern phys_alloc_page
-extern phys_free_page
-extern memzero
-extern memcpy
-extern virt_map
-extern virt_walk_table
-extern virt_split_super_1gb
-extern virt_split_huge_2mb
-extern tlb_shootdown
-extern swap_read_page
-extern swap_free_slot
-extern page_list_add_active
-extern phys_state
-extern zswap_decompress_and_free
-extern zram_decompress_and_free
-extern kernel_stack_guard
-extern kernel_panic
-extern virt_handle_file_map
-extern virt_handle_dax_map
-extern virt_handle_pmem_map
-extern virt_handle_pmem_window_map
-extern dbg_dirty_trace_handle_fault
-extern dbg_watchpoint_handle_fault
-extern dbg_ift_handle_fault
-extern dbg_hist_handle_fault
-extern dbg_phys_wp_handle_fault
+
 
 
 
