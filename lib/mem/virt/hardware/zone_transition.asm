@@ -15,13 +15,7 @@
 [BITS 64]
 
 ; External symbols
-extern buddy_nodes
-extern buddy_node_count
-extern buddy_active_node_index
-extern kernel_relocate_page
-extern uart_print_str
-extern uart_print_hex64
-extern uart_print_dec
+
 
 section .text
 
