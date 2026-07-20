@@ -118,7 +118,6 @@ global page_list_add_inactive
 page_list_add_inactive:
     cmp qword [sys_mglru_enabled], 0
     jz .classic_add
-    extern virt_mglru_add
     mov rdx, 0
     call virt_mglru_add
     ret
@@ -344,7 +343,6 @@ global page_list_move_to_inactive
 page_list_move_to_inactive:
     cmp qword [sys_mglru_enabled], 0
     jz .classic_move
-    extern virt_mglru_move
     mov rsi, 0
     call virt_mglru_move
     ret
