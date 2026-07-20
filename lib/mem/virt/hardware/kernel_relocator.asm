@@ -268,6 +268,6 @@ msg_reloc_init:         db "Relocator: Checking critical kernel tables for reloc
 msg_reloc_page_start:   db "Relocator: Relocating page ", 0
 msg_reloc_page_mid:     db " from hot-pluggable physical frame ", 0
 msg_reloc_page_to:      db " to secure frame ", 0
-msg_crlf:               db 0x0D, 0x0A, 0
+
 
 %endif ; LIB_MEM_VIRT_KERNEL_RELOCATOR_ASM
