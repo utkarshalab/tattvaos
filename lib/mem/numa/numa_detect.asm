@@ -16,12 +16,7 @@
 section .text
 
 ; External symbols
-extern boot_info_ptr
-extern phys_state
-extern numa_ranges
-extern numa_range_count
-extern uart_print_str
-extern uart_print_hex64
+
 
 ; -----------------------------------------------------------------------------
 ; numa_detect_init — detects NUMA nodes and memory affinities via ACPI SRAT
