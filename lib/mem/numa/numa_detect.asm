@@ -131,7 +131,7 @@ numa_detect_init:
     cmp rcx, r10
     jae .parse_tables
 
-    movzx rsi, dword [rbx + rcx * 4] ; 32-bit physical address of table
+    mov esi, dword [rbx + rcx * 4] ; 32-bit physical address of table
     test rsi, rsi
     jz .rsdt_next
 
