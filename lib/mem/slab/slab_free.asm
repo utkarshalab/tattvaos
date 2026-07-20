@@ -163,7 +163,6 @@ kmem_cache_free:
     ret
 
 .magic_corrupt_panic:
-    extern kernel_panic
     lea rdi, [msg_magic_corrupt_reason]
     xor rsi, rsi
     call kernel_panic
