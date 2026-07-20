@@ -12,33 +12,17 @@
 
 [BITS 64]
 
-; Page Table Entry Flags (64-bit)
-PAGE_PRESENT    equ (1 << 0)
-PAGE_WRITABLE   equ (1 << 1)
-PAGE_USER       equ (1 << 2)
-PAGE_HUGE       equ (1 << 7)
-PAGE_GLOBAL     equ (1 << 8)
-PAGE_NX         equ (1 << 63)
+PAGE_PRESENT equ (1 << 0)
+PAGE_WRITABLE equ (1 << 1)
+PAGE_USER equ (1 << 2)
+PAGE_HUGE equ (1 << 7)
+PAGE_GLOBAL equ (1 << 8)
+PAGE_NX equ (1 << 63)
 
 section .text
 
 ; External VMM symbols
-extern vma_create
-extern vma_destroy
-extern vma_find
-extern phys_alloc_page
-extern phys_free_page
-extern memzero
-extern memcpy
-extern virt_map
-extern virt_unmap
-extern virt_walk_table
-extern pgtable_lock_acquire
-extern pgtable_lock_release
-extern pgtable_cache_alloc
-extern pgtable_cache_free
-extern virt_split_super_1gb
-extern virt_split_huge_2mb
+
 
 ; -----------------------------------------------------------------------------
 ; virt_map_space — maps a virtual page in a custom PML4 address space
