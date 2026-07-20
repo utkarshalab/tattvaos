@@ -20,9 +20,7 @@ ZSWAP_SLOT_SIZE   equ 2048
 section .text
 
 ; External symbols
-extern phys_alloc_page
-extern phys_free_page
-extern memcpy
+
 
 ; -----------------------------------------------------------------------------
 ; zswap_init — initializes the Zswap cache metadata
