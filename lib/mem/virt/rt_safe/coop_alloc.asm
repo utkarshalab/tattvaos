@@ -77,7 +77,6 @@ coop_alloc_pages:
     mov [rbp + coop_queue_t.ring + r8 * 8], r11
 
     ; If coop_test_mode is active, bypass spinning and return slot index directly
-    extern coop_test_mode
     cmp qword [coop_test_mode], 1
     je .test_mode_exit
 
