@@ -189,13 +189,13 @@ secure_migrate_confidential_pages:
     ret
 
 section .bss
-align 16
+alignb 16
 global ephemeral_migration_key
 ephemeral_migration_key: resb 32     ; 256-bit ephemeral migration key
 
-align 8
+alignb 8
 global sys_migration_queue_count
-sys_migration_queue_count: dq 0
+sys_migration_queue_count: resq 1
 
 global sys_migration_queue
 sys_migration_queue: resq 256        ; migration network queue storage
