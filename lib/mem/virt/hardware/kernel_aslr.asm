@@ -101,7 +101,8 @@ kernel_live_aslr_migrate:
 
     ; Extract physical address from PTE
     mov rax, rdx
-    and rax, 0x000FFFFFFFFFF000
+    mov rdi, 0x000FFFFFFFFFF000
+    and rax, rdi
     cmp rax, [old_paddr]
     jb .next_pt
     mov rcx, [old_paddr]
@@ -112,7 +113,8 @@ kernel_live_aslr_migrate:
     ; In range! Shift target mapping
     sub rax, [old_paddr]
     add rax, [new_paddr]
-    and rdx, ~0x000FFFFFFFFFF000
+    mov rdi, ~0x000FFFFFFFFFF000
+    and rdx, rdi
     or rdx, rax
     mov [r14 + r15 * 8], rdx        ; Write updated translation
 
@@ -122,7 +124,8 @@ kernel_live_aslr_migrate:
 
 .handle_2mb:
     mov rax, r14
-    and rax, 0x000FFFFFE00000       ; 2MB aligned frame address
+    mov rdi, 0x000FFFFFE00000
+    and rax, rdi        ; 2MB aligned frame address
     cmp rax, [old_paddr]
     jb .next_pd
     mov rcx, [old_paddr]
@@ -133,14 +136,16 @@ kernel_live_aslr_migrate:
     ; In range! Shift mapping
     sub rax, [old_paddr]
     add rax, [new_paddr]
-    and r14, ~0x000FFFFFE00000
+    mov rdi, ~0x000FFFFFE00000
+    and r14, rdi
     or r14, rax
     mov [r12 + r13 * 8], r14
     jmp .next_pd
 
 .handle_1gb:
     mov rax, r12
-    and rax, 0x000FFFFC000000       ; 1GB aligned frame address
+    mov rdi, 0x000FFFFC000000
+    and rax, rdi        ; 1GB aligned frame address
     cmp rax, [old_paddr]
     jb .next_pdpt
     mov rcx, [old_paddr]
@@ -151,7 +156,8 @@ kernel_live_aslr_migrate:
     ; In range! Shift mapping
     sub rax, [old_paddr]
     add rax, [new_paddr]
-    and r12, ~0x000FFFFC000000
+    mov rdi, ~0x000FFFFC000000
+    and r12, rdi
     or r12, rax
     mov [r10 + r11 * 8], r12
     jmp .next_pdpt
