@@ -23,11 +23,7 @@ EPT_MT_WB       equ (6 << 3)        ; Bits 5:3: Memory Type (Write-Back)
 section .text
 
 ; External EPT and memory allocator functions
-extern phys_alloc_page
-extern phys_free_page
-extern ept_map_page
-extern ept_translate
-extern vtlb_invept
+
 
 ; -----------------------------------------------------------------------------
 ; eve_init_ve_info — Initializes the 4KB Virtualization Exception info page
