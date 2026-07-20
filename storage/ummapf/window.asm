@@ -134,10 +134,14 @@ pmem_window_select_block:
     call memzero
 
     mov rcx, [rbx + pmem_window_t.data_page]
-    mov qword [rcx], 0x505f415654544154      ; "TATTVA_P"
-    mov qword [rcx + 8], 0x444e49575f4d454d  ; "MEM_WIND"
-    mov qword [rcx + 16], 0x4544414f4c5f574f ; "OW_LOADE"
-    mov qword [rcx + 24], 0x5f4b434f4c425f44 ; "D_BLOCK_"
+    mov rax, 0x505f415654544154      ; "TATTVA_P"
+    mov [rcx], rax
+    mov rax, 0x444e49575f4d454d  ; "MEM_WIND"
+    mov [rcx + 8], rax
+    mov rax, 0x4544414f4c5f574f ; "OW_LOADE"
+    mov [rcx + 16], rax
+    mov rax, 0x5f4b434f4c425f44 ; "D_BLOCK_"
+    mov [rcx + 24], rax
     mov [rcx + 32], r12                      ; new block index
     jmp .clear_dirty
 

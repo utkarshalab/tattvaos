@@ -162,10 +162,14 @@ virt_handle_dax_map:
     pop rbx
 
     ; Write signature: "TATTVA_DAX_BLOCK_LOADED_AT_OFFSET_"
-    mov qword [rcx], 0x445f415654544154      ; "TATTVA_D"
-    mov qword [rcx + 8], 0x4b434f4c425f5841  ; "AX_BLOCK"
-    mov qword [rcx + 16], 0x5f444544414f4c5f ; "_LOADED_"
-    mov qword [rcx + 24], 0x455346464f5f5441 ; "AT_OFFSE"
+    mov rax, 0x445f415654544154      ; "TATTVA_D"
+    mov [rcx], rax
+    mov rax, 0x4b434f4c425f5841  ; "AX_BLOCK"
+    mov [rcx + 8], rax
+    mov rax, 0x5f444544414f4c5f ; "_LOADED_"
+    mov [rcx + 16], rax
+    mov rax, 0x455346464f5f5441 ; "AT_OFFSE"
+    mov [rcx + 24], rax
     mov word [rcx + 32], 0x5f54              ; "T_"
     mov [rcx + 40], rbx                      ; Write file offset at offset 40
 
