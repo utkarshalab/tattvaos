@@ -65,7 +65,6 @@ ras_ecc_report:
     inc  qword [sys_ras_ecc_single_bit_errors]
     
     ; Also log to DIMM statistics per address
-    extern ras_dimm_log_error
     push rdi
     call ras_dimm_log_error
     pop  rdi
@@ -77,7 +76,6 @@ ras_ecc_report:
     inc  qword [sys_ras_ecc_double_bit_errors]
     
     ; Uncorrectable: triggers MCE handling logic immediately
-    extern ras_mce_handler
     mov  rsi, 1                     ; indicate uncorrectable hardware error
     call ras_mce_handler
     
