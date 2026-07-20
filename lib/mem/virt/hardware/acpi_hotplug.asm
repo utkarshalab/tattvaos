@@ -121,7 +121,7 @@ acpi_hotplug_init:
 .rsdt_loop:
     cmp rcx, r10
     jae .use_defaults
-    movzx rsi, dword [rbx + rcx * 4]  ; Load 32-bit table address
+    mov esi, dword [rbx + rcx * 4]  ; Load 32-bit table address
     test rsi, rsi
     jz .rsdt_next
     mov eax, [rsi]                   ; Load signature
@@ -210,7 +210,7 @@ acpi_hotplug_init:
 
     ; 5. Enable GPE0 Memory Hot-Plug event (Event bit 3)
     ; Enable register is located at: GPE0_BLK + GPE0_BLK_LEN / 2
-    movzx dx, word [acpi_gpe0_blk]
+    mov dx, word [acpi_gpe0_blk]
     test dx, dx
     jz .done
     movzx ax, byte [acpi_gpe0_blk_len]
@@ -259,7 +259,7 @@ acpi_sci_isr:
     push r15
 
     ; Check if GPE0 memory hotplug event is set
-    movzx dx, word [acpi_gpe0_blk]
+    mov dx, word [acpi_gpe0_blk]
     in al, dx
     
     ; Merge with simulated GPE status if any
@@ -338,7 +338,7 @@ acpi_handle_hotplug_event:
     
     mov rsi, msg_hotplug_node_label
     call uart_print_str
-    movzx rax, dword [acpi_parsed_device + acpi_mem_device_t.proximity_domain]
+    mov eax, dword [acpi_parsed_device + acpi_mem_device_t.proximity_domain]
     call uart_print_dec
     mov rsi, msg_crlf
     call uart_print_str
@@ -348,7 +348,7 @@ acpi_handle_hotplug_event:
     mov [last_hotplug_addr], rax
     mov rax, [acpi_parsed_device + acpi_mem_device_t.length]
     mov [last_hotplug_size], rax
-    movzx eax, dword [acpi_parsed_device + acpi_mem_device_t.proximity_domain]
+    mov eax, dword [acpi_parsed_device + acpi_mem_device_t.proximity_domain]
     mov [last_hotplug_node], eax
 
     ; Dynamic NUMA range update: Add to numa_ranges list
