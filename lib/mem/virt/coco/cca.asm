@@ -403,10 +403,10 @@ sys_cca_init_count:     dq 0        ; init count
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 16
+alignb 16
 cca_realms_active:      resb CCA_MAX_REALMS
 
-align 64
+alignb 64
 cca_page_realm_map:     resb CCA_SIM_MAP_PAGES
 
 section .text
