@@ -16,7 +16,7 @@
 
 section .text
 
-extern is_valid_phys_packet_buffer
+
 
 ; -----------------------------------------------------------------------------
 ; net_recycle_push — Push physical page to recycle pool to bypass PMM lock
