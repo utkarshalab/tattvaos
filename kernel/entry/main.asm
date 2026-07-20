@@ -12,8 +12,7 @@
 
 section .text
 
-extern uart_print_str
-;extern run_all_memory_tests
+extern run_all_memory_tests
 
 global kernel_main
 
@@ -22,7 +21,7 @@ kernel_main:
     mov rsi, msg_kernel_ready
     call uart_print_str
 
-    ;call run_all_memory_tests
+    call run_all_memory_tests
 
 .idle:
     ; 4. Disable interrupts (no external interrupt handlers registered yet)
