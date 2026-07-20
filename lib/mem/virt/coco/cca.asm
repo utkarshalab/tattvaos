@@ -306,15 +306,20 @@ cca_is_realm_page:
 global cca_smc_call
 cca_smc_call:
     ; In simulation/x86, we branch based on RDI and execute mock operations
-    cmp  rdi, SMC_RMI_VERSION
+    mov  r11, SMC_RMI_VERSION
+    cmp  rdi, r11
     je   .version
-    cmp  rdi, SMC_RMI_REALM_CREATE
+    mov  r11, SMC_RMI_REALM_CREATE
+    cmp  rdi, r11
     je   .realm_create
-    cmp  rdi, SMC_RMI_REALM_DESTROY
+    mov  r11, SMC_RMI_REALM_DESTROY
+    cmp  rdi, r11
     je   .realm_destroy
-    cmp  rdi, SMC_RMI_RTT_MAP_UNPROTECTED
+    mov  r11, SMC_RMI_RTT_MAP_UNPROTECTED
+    cmp  rdi, r11
     je   .map
-    cmp  rdi, SMC_RMI_RTT_UNMAP
+    mov  r11, SMC_RMI_RTT_UNMAP
+    cmp  rdi, r11
     je   .unmap
 
     ; Unknown or unhandled function
