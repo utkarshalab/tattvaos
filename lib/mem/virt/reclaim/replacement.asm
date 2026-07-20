@@ -25,10 +25,7 @@ endstruc
 
 section .text
 
-; External Heap Allocator APIs
-extern heap_alloc
-extern heap_free
-extern sys_mglru_enabled
+
 
 ; -----------------------------------------------------------------------------
 ; page_list_init — resets the active and inactive page lists
@@ -56,7 +53,6 @@ global page_list_add_active
 page_list_add_active:
     cmp qword [sys_mglru_enabled], 0
     jz .classic_add
-    extern virt_mglru_add
     mov rdx, 3
     call virt_mglru_add
     ret
@@ -187,7 +183,6 @@ global page_list_remove
 page_list_remove:
     cmp qword [sys_mglru_enabled], 0
     jz .classic_remove
-    extern virt_mglru_remove
     call virt_mglru_remove
     ret
 
@@ -271,7 +266,6 @@ global page_list_move_to_active
 page_list_move_to_active:
     cmp qword [sys_mglru_enabled], 0
     jz .classic_move
-    extern virt_mglru_move
     mov rsi, 3
     call virt_mglru_move
     ret
