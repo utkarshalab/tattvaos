@@ -55,43 +55,43 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../lib/mem/pool/pool_alloc.asm \
                           $(KERNEL_DIR)/../lib/mem/pool/pool_free.asm \
                           $(KERNEL_DIR)/../lib/mem/pool/pool_destroy.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/pgtable.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/virt.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/pgtable_walk.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/pgtable_map.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/pgtable_unmap.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/pgtable_cache.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/pgtable_lock.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/pgtable_split.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/tlb.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/tlb_shootdown.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/thp.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/swap_device.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/zswap.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/swap.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/kswapd.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/uaf.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/stack.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/virt.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_walk.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_map.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_unmap.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_cache.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_lock.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/pgtable_split.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/tlb.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/tlb_shootdown.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/paging/thp.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/swap_device.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/zswap.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/swap.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/kswapd.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/ept.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/spt.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/vtlb.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/eve.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/pml.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/nested.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/hmm.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/dmabuf.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/gpummu.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/p2pdma.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/hmm_metrics.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/acpi_hotplug.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/uaf.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/stack.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/sched_affinity.asm \
                           $(KERNEL_DIR)/../lib/mem/virt/pf.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/ept.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/spt.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/vtlb.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/eve.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/pml.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/nested.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hmm.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/dmabuf.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/gpummu.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/p2pdma.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/hmm_metrics.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/acpi_hotplug.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/sched_affinity.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/kernel_relocator.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/zone_transition.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/locality_scorer.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/replacement.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/kernel_relocator.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/zone_transition.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/hardware/locality_scorer.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/reclaim/replacement.asm \
                           $(KERNEL_DIR)/../storage/ummapf/mmap.asm \
-                          $(KERNEL_DIR)/../lib/mem/virt/ipc.asm \
+                          $(KERNEL_DIR)/../lib/mem/virt/rt_safe/ipc.asm \
                           $(KERNEL_DIR)/../lib/mem/numa/numa.asm $(KERNEL_DIR)/../lib/mem/numa/numa_detect.asm \
                           $(KERNEL_DIR)/../lib/hw/ucpu/mtrr.asm \
                           $(KERNEL_DIR)/../lib/hw/ucpu/pat.asm \
