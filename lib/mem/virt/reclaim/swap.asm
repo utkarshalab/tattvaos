@@ -302,7 +302,6 @@ global page_replace_clock_evict
 page_replace_clock_evict:
     cmp qword [sys_mglru_enabled], 0
     jz .classic_evict
-    extern virt_mglru_evict
     jmp virt_mglru_evict
 
 .classic_evict:
