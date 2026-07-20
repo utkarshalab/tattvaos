@@ -59,7 +59,8 @@ secure_migrate_confidential_pages:
 
     ; 1. Verify target host signature using security keys (ATTEST = 0x415454455354)
     mov rax, [r12 + attestation_report_t.signature]
-    cmp rax, 0x415454455354
+    mov r11, 0x415454455354
+    cmp rax, r11
     jne .fail
 
     ; 2. Enclave secure handshake to negotiate an ephemeral migration key (256-bit)
