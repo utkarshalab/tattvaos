@@ -186,8 +186,6 @@ zram_write_page:
     mov r12, rsi                    ; r12 = src_phys
 
     ; Dynamic zpool balancing limit check
-    extern zpool_balance
-    extern zram_max_slots
     call zpool_balance
     mov rax, [zram_compressed_pages]
     cmp rax, [zram_max_slots]
@@ -195,7 +193,6 @@ zram_write_page:
 
     ; Limit hit! Trigger physical writeback to evict oldest block (skipping current slot)
     mov rdi, rbx                    ; current slot to skip
-    extern zram_writeback
     call zram_writeback
     test rax, rax
     jz .failed                      ; if writeback fails, reject store
