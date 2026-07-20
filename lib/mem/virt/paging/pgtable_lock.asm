@@ -158,7 +158,6 @@ pgtable_lock_release:
     lea rbx, [pgtable_lock_abort_counts]
     mov byte [rbx + rcx], 0
 
-    extern tsx_end
     call tsx_end
     jmp .done
 
