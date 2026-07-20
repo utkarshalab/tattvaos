@@ -22,13 +22,7 @@ endstruc
 
 section .text
 
-; External references
-extern phys_alloc_page
-extern phys_free_page
-extern memzero
-extern storage_read_file_page
-extern virt_page_cache_find
-extern virt_page_cache_add
+
 
 ; -----------------------------------------------------------------------------
 ; virt_readahead_trigger — triggers prefetching of next sequential blocks
