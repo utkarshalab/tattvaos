@@ -16,9 +16,7 @@
 
 section .text
 
-extern is_valid_phys_packet_buffer
-extern msg_security_err
-extern net_recycle_push
+
 
 ; -----------------------------------------------------------------------------
 ; net_sbuf_create — Creates a zero-copy socket buffer descriptor
