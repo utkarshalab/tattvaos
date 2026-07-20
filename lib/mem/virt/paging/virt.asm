@@ -739,8 +739,8 @@ virt_logical_to_physical_vaddr:
     
     ; Reconstruct physical virtual address
     mov rcx, rdi
-    mov rdx, 0xFFFFFF8000000000
-    and rcx, ~rdx                   ; clear logical PML4 index and sign bits
+    mov rdx, 0x0000007FFFFFFFFF
+    and rcx, rdx                   ; clear logical PML4 index and sign bits
     
     shl rax, 39                     ; shift physical index to bits 39-47
     
