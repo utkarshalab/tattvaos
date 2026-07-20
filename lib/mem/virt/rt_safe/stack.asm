@@ -366,8 +366,6 @@ is_valid_stack_address:
     jnz .invalid
     
     ; 2. Check early kernel stack
-    extern kernel_stack_bottom
-    extern kernel_stack_top
     mov rax, kernel_stack_bottom
     cmp rdi, rax
     jb .check_df_stack
@@ -376,8 +374,6 @@ is_valid_stack_address:
     jb .valid                       ; inside kernel stack!
     
 .check_df_stack:
-    extern double_fault_stack_bottom
-    extern double_fault_stack_top
     mov rax, double_fault_stack_bottom
     cmp rdi, rax
     jb .check_pf_stack
@@ -386,8 +382,6 @@ is_valid_stack_address:
     jb .valid                       ; inside DF stack!
     
 .check_pf_stack:
-    extern page_fault_stack_bottom
-    extern page_fault_stack_top
     mov rax, page_fault_stack_bottom
     cmp rdi, rax
     jb .check_nmi_stack
@@ -396,8 +390,6 @@ is_valid_stack_address:
     jb .valid                       ; inside PF stack!
     
 .check_nmi_stack:
-    extern nmi_stack_bottom
-    extern nmi_stack_top
     mov rax, nmi_stack_bottom
     cmp rdi, rax
     jb .check_vma_stacks
@@ -484,7 +476,7 @@ stack_trace_walk:
     mov rdi, [r12 + 8]              ; RDI = RIP (return address)
     call uart_print_hex64
     
-    mov rsi, msg_newline
+    mov rsi, msg_crlf
     call uart_print_str
     
     ; 4. Update R12 = [R12] (next RBP)
@@ -524,12 +516,10 @@ smp_stacks_init:
     rep stosq
     
     ; Retrieve active cores count
-    extern smp_active_cores
     mov r12d, [smp_active_cores]    ; R12D = core count
     
     ; Core 0 (BSP) uses the statically defined kernel_stack_top.
     ; Store it in the array at index 0 just for completeness!
-    extern kernel_stack_top
     mov rax, kernel_stack_top
     mov [smp_cpu_stacks], rax
     
@@ -607,7 +597,6 @@ msg_canary_error_prefix: db "ERROR: Stack canary mismatch detected for stack top
 msg_canary_error_infix1: db "! Expected: ", 0
 msg_canary_error_infix2: db " Found: ", 0
 msg_canary_error_reason: db "Stack canary corruption detected", 0
-msg_newline:             db 0x0D, 0x0A, 0
 
 msg_backtrace_header:    db 0x0D, 0x0A, "--- STACK BACKTRACE ---", 0x0D, 0x0A, 0
 msg_frame_prefix:        db "  [", 0
