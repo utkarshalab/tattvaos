@@ -17,8 +17,7 @@
 
 section .text
 
-extern heap_free
-extern phys_free_page
+
 
 ; -----------------------------------------------------------------------------
 ; pool_destroy — completely destroys a pool allocator and frees all memory
