@@ -174,7 +174,7 @@ kswapd_check_and_reclaim_node:
 
     mov r12, rdi                    ; R12 = pointer to numa_node_t
     mov r13, rsi                    ; R13 = direct_reclaim flag
-    movzx r14d, dword [r12 + numa_node_t.node_id] ; R14 = node_id
+    mov r14d, dword [r12 + numa_node_t.node_id] ; R14 = node_id
 
     ; Avoid recursive calls if kswapd allocation itself triggers check
     mov al, [kswapd_running]
@@ -439,7 +439,7 @@ kswapd_proactive_reclaim_node:
     push r15
 
     mov r12, rdi                    ; R12 = numa_node_t pointer
-    movzx r14d, dword [r12 + numa_node_t.node_id] ; R14 = node_id
+    mov r14d, dword [r12 + numa_node_t.node_id] ; R14 = node_id
 
     mov al, [kswapd_running]
     test al, al
