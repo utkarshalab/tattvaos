@@ -6933,7 +6933,7 @@ run_all_memory_tests:
 ; -----------------------------------------------------------------------------
 ; oom_notifier_callback â€” Graceful shutdown callback executed by OOM Notifier
 ; -----------------------------------------------------------------------------
-oom_notifier_callback:
+.oom_notifier_callback:
     mov rsi, msg_oom_callback_executed
     call uart_print_str
     mov qword [oom_callback_flag], 1
@@ -8292,7 +8292,7 @@ oom_notifier_callback:
     mov rdi, msg_test_cache_name
     mov rsi, 64                     ; obj_size = 64
     mov rdx, 8                      ; align_size = 8
-    mov rcx, test_ctor              ; ctor = test_ctor
+    mov rcx, .test_ctor             ; ctor = .test_ctor
     mov r8, 0                       ; dtor = NULL
     call kmem_cache_create
     test rax, rax
@@ -8340,7 +8340,7 @@ oom_notifier_callback:
     call uart_print_str
     jmp .run_slab_reap_test
 
-test_ctor:
+.test_ctor:
     mov qword [rdi + 8], 0x123456789ABCDEF0
     ret
 
