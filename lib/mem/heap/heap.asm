@@ -16,6 +16,7 @@
 section .text
 
 ; External symbols (from other included parts or libraries)
+%if 0
 extern uart_print_str
 extern early_bump_init
 extern early_bump_alloc
@@ -29,6 +30,7 @@ extern leak_tracker_init
 extern leak_track_alloc
 extern leak_track_free
 extern leak_track_update_size
+%endif
 
 
 
