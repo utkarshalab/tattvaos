@@ -993,7 +993,8 @@ run_all_memory_tests:
     jz .zone_fail_init
 
     ; Verify PFN 150 flags has PAGE_MOVABLE set (bit 12)
-    imul rax, 150, 16               ; PFN 150 descriptor offset
+    mov rax, 150
+    shl rax, 4                      ; PFN 150 descriptor offset
     mov rdx, [r12 + rax]            ; RDX = page_t.flags
     test rdx, (1 << 12)
     jz .zone_fail_flag
@@ -2534,7 +2535,7 @@ run_all_memory_tests:
     mov rax, [rdi]
     mov rbx, 0x4242424242424242
     cmp rax, rbx
-    jne .fail_zswap_data
+    jne .fail_zswap_data_compact
 
     ; Clean up Part 1
     mov rdi, 0x30000000
@@ -2682,7 +2683,7 @@ run_all_memory_tests:
     mov rax, [rdi]
     mov rbx, 0x4242424242424242
     cmp rax, rbx
-    jne .fail_zram_data
+    jne .fail_zram_data_compact
 
     ; Clean up Part 2
     mov rdi, 0x30000000
@@ -2844,7 +2845,7 @@ run_all_memory_tests:
     mov rdx, 16                     ; compare 16 bytes signature
     call memcmp
     test rax, rax
-    jnz .fail_zswap_data
+    jnz .fail_zswap_data_wb
 
     ; --- Step E: Read Page B (swaps-in from Zswap) ---
     mov rax, [0x40000000]
@@ -2854,7 +2855,7 @@ run_all_memory_tests:
     mov rax, [rdi]
     mov rbx, 0x5555555555555555
     cmp rax, rbx
-    jne .fail_zswap_data
+    jne .fail_zswap_data_wb
 
     ; Clean up Part 1
     mov rdi, 0x30000000
@@ -2986,7 +2987,7 @@ run_all_memory_tests:
     mov rdx, 29
     call memcmp
     test rax, rax
-    jnz .fail_zram_data
+    jnz .fail_zram_data_wb
 
     ; --- Step E: Read Page B (swaps-in from ZRAM) ---
     mov rax, [0x40000000]
@@ -2996,7 +2997,7 @@ run_all_memory_tests:
     mov rax, [rdi]
     mov rbx, 0x5555555555555555
     cmp rax, rbx
-    jne .fail_zram_data
+    jne .fail_zram_data_wb
 
     ; Clean up Part 2
     mov rdi, 0x30000000
@@ -4443,7 +4444,7 @@ run_all_memory_tests:
 
     ; 3. Register OOM notifier callback for Thread N
     mov rdi, r12
-    lea rsi, [oom_notifier_callback]
+    lea rsi, [.oom_notifier_callback]
     call virt_oom_register_notifier
 
     ; 4. Setup system reservations
@@ -7604,6 +7605,7 @@ run_all_memory_tests:
     call uart_print_str
     jmp .panic
 
+.mtrr_test_start:
     ; -------------------------------------------------------------
     ; 10. Run VMM MTRR Cache Programming Test
     ; -------------------------------------------------------------
@@ -10251,6 +10253,26 @@ run_all_memory_tests:
     call uart_print_str
 
     jmp .mmap_test_start
+
+.zof_fail_heap_alloc:
+    mov rsi, msg_zof_fail_heap_alloc_str
+    call uart_print_str
+    jmp .panic
+
+.zof_fail_heap_zero:
+    mov rsi, msg_zof_fail_heap_zero_str
+    call uart_print_str
+    jmp .panic
+
+.zof_fail_phys_alloc:
+    mov rsi, msg_zof_fail_phys_alloc_str
+    call uart_print_str
+    jmp .panic
+
+.zof_fail_phys_zero:
+    mov rsi, msg_zof_fail_phys_zero_str
+    call uart_print_str
+    jmp .panic
 
     ; =========================================================================
     ; Memory-Mapped Files (mmap) Tests (Section 17)
@@ -15178,6 +15200,7 @@ run_all_memory_tests:
     call uart_print_str
     jmp .tdx_panic
 
+.tdx_panic:
     pop r15
     pop r14
     pop r13
@@ -16781,6 +16804,11 @@ run_all_memory_tests:
     call uart_print_str
     jmp .rt_panic
 
+.rt_fail_reserve_free:
+    mov rsi, msg_rt_fail_reserve_free
+    call uart_print_str
+    jmp .rt_panic
+
     pop r15
     pop r14
     pop r13
@@ -18297,6 +18325,7 @@ msg_uaf_test_start:             db "Running VMM Use-After-Free Trap Tests...", 0
 msg_uaf_fail_alloc_str:         db "Failure: Could not allocate physical page for UAF test.", 0x0D, 0x0A, 0
 msg_uaf_fail_map_str:           db "Failure: Could not map page for UAF test.", 0x0D, 0x0A, 0
 msg_uaf_fail_trap:              db "Failure: Access to freed memory did not trigger UAF Trap panic.", 0x0D, 0x0A, 0
+msg_xo_fail_trap_str:          db "Failure: Read from Execute-Only (XO) page did not trigger fault.", 0x0D, 0x0A, 0
 
 msg_tsx_test_start:            db "Running VMM TSX Fault Handling Tests...", 0x0D, 0x0A, 0
 msg_tsx_success_ok:            db "  TSX Success Case: Transaction successfully retried and committed.", 0x0D, 0x0A, 0
@@ -19048,9 +19077,9 @@ msg_prof_fail_inf_stats:            db "Failure: Inference weights, activations 
 
 section .bss
 
-align 8
+alignb 8
 smep_smap_test_buf:            resb 32
-align 8
+alignb 8
 req_A: resb 40
 req_B: resb 40
 req_ptrs: resq 2
@@ -19058,53 +19087,53 @@ dest_phys_A: resq 1
 dest_phys_B: resq 1
 
 ; AI/Inference Specific Memory Test buffers
-align 64
+alignb 64
 sys_tensor_pool_test_buf:   resb 16384
 
-align 32
+alignb 32
 sys_kv_src_bytes:           resb 8
-align 32
+alignb 32
 sys_kv_packed_dword:        resd 1
-align 32
+alignb 32
 sys_kv_unpacked_bytes:      resb 8
 
-align 32
+alignb 32
 sys_quant_src_bytes:        resb 8
-align 32
+alignb 32
 sys_quant_packed_bytes:     resb 4
-align 32
+alignb 32
 sys_quant_unpacked_bytes:   resb 8
 
-align 64
+alignb 64
 sys_rt_det_test_pool:       resb 65536
 
 ; BSS variables for dirty tracing test
-align 8
+alignb 8
 dbg_watch_phys_page: resq 1
 dbg_watch_vma_ptr:   resq 1
 
 ; BSS variables for watchpoint test
-align 8
+alignb 8
 dbg_wp_phys_page: resq 1
 dbg_wp_vma_ptr:   resq 1
 
 ; BSS variables for IFT watchpoint test
-align 8
+alignb 8
 dbg_ift_phys_page: resq 1
 dbg_ift_vma_ptr:   resq 1
 
 ; BSS variables for access histogram test
-align 8
+alignb 8
 dbg_hist_phys_page: resq 1
 dbg_hist_vma_ptr:   resq 1
 
 ; BSS variables for physical watchpoint test
-align 8
+alignb 8
 dbg_phys_wp_phys_page: resq 1
 dbg_phys_wp_vma1_ptr:  resq 1
 dbg_phys_wp_vma2_ptr:  resq 1
 
-align 8
+alignb 8
 oom_callback_flag:     resq 1
 
 %endif ; LIB_MEM_VIRT_DBG_WATCH_ASM
