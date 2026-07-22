@@ -3340,6 +3340,83 @@ run_all_memory_tests:
     pop r12
     jmp .dbg_wp_test_start
 
+.dbg_watch_fail_alloc:
+    mov rsi, msg_dbg_watch_fail_alloc_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_vma:
+    mov rsi, msg_dbg_watch_fail_vma_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_map:
+    mov rsi, msg_dbg_watch_fail_map_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_register:
+    mov rsi, msg_dbg_watch_fail_register_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_walk:
+    mov rsi, msg_dbg_watch_fail_walk_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_protected:
+    mov rsi, msg_dbg_watch_fail_protected_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_dirty_init:
+    mov rsi, msg_dbg_watch_fail_dirty_init_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_dirty_post:
+    mov rsi, msg_dbg_watch_fail_dirty_post_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_rip_mismatch:
+    mov rsi, msg_dbg_watch_fail_rip_mismatch_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_writable_post:
+    mov rsi, msg_dbg_watch_fail_writable_post_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_clear:
+    mov rsi, msg_dbg_watch_fail_clear_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_dirty_clear:
+    mov rsi, msg_dbg_watch_fail_dirty_clear_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_rip_clear:
+    mov rsi, msg_dbg_watch_fail_rip_clear_str
+    call uart_print_str
+    jmp .panic_watch
+
+.dbg_watch_fail_protected_clear:
+    mov rsi, msg_dbg_watch_fail_protected_clear_str
+    call uart_print_str
+    jmp .panic_watch
+
+.panic_watch:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    jmp .panic
+
 .dbg_wp_test_start:
     push r12
     push r13
@@ -9894,7 +9971,7 @@ run_all_memory_tests:
     ; Print Node ID
     mov rsi, msg_numa_range_node
     call uart_print_str
-    movzx rax, dword [r13 + numa_range_t.node_id]
+    mov eax, dword [r13 + numa_range_t.node_id]
     call uart_print_hex64
 
     mov rsi, msg_crlf
