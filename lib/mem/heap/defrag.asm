@@ -20,10 +20,12 @@ RELOC_TABLE_SIZE equ 64
 section .text
 
 ; External symbols (from other modules in the same unit)
+%if 0
 extern early_bump_state
 extern heap_active_allocator
 extern free_list_head
 extern uart_print_str
+%endif
 
 ; -----------------------------------------------------------------------------
 ; heap_register_relocatable — registers the address of a pointer variable
