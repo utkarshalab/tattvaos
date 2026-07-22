@@ -23,7 +23,9 @@ IA32_MTRR_PHYSMASK0   equ 0x201
 section .text
 
 ; External UART printer if needed (declared as extern in entry point)
+%if 0
 extern uart_print_str
+%endif
 
 ; -----------------------------------------------------------------------------
 ; mtrr_supported — checks standard MTRR capability via CPUID
