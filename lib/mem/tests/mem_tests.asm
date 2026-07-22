@@ -7745,7 +7745,8 @@ run_all_memory_tests:
     jz .mtrr_fail_get_active
 
     ; Verify base address
-    cmp rsi, 0xE0000000
+    mov r11, 0xE0000000
+    cmp rsi, r11
     jne .mtrr_fail_base
 
     ; Verify size
@@ -10421,11 +10422,13 @@ run_all_memory_tests:
 
     ; 4. Write data to the memory-mapped file (Write test)
     ; This sets the PAGE_DIRTY bit in the PTE.
-    mov qword [rsi], 0xDEADBEEFCAFEBABE
-    mov qword [rsi + 32], 0x1234567890ABCDEF
+    mov r11, 0xDEADBEEFCAFEBABE
+    mov [rsi], r11
+    mov r11, 0x1234567890ABCDEF
+    mov [rsi + 32], r11
 
     ; 5. Verify the dirty bit is set in the PTE
-    mov rdi, 0x80000000
+    mov edi, 0x80000000
     xor rsi, rsi
     call virt_walk_table            ; RAX = PTE address
     test rax, rax
@@ -10602,11 +10605,12 @@ run_all_memory_tests:
 
     ; Read it back from the first half at 0xA0000020 and verify it matches
     mov rax, [rdi + 32]
-    cmp rax, 0x90ABCDEFAABBCCDD
+    mov r11, 0x90ABCDEFAABBCCDD
+    cmp rax, r11
     jne .ipc_fail_ring_cross_val
 
     ; Clean up the ring buffer
-    mov rdi, 0xA0000000
+    mov edi, 0xA0000000
     mov rsi, 4096
     call ipc_destroy_ring_buffer
 
@@ -10723,7 +10727,8 @@ run_all_memory_tests:
     call tsx_end
 
     ; Verify data was written correctly
-    mov al, [0x80000000]
+    mov edi, 0x80000000
+    mov al, [rdi]
     cmp al, 0xAA
     jne .tsx_test_fail_data
 
