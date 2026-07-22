@@ -10520,21 +10520,21 @@ test_ctor:
     lea rbx, [leak_table]
     xor rcx, rcx
     xor rdx, rdx                    ; RDX = count of active leak pointers matched
-.verify_loop:
+.verify_loop_leak:
     cmp rcx, 512                    ; LEAK_MAX_ENTRIES
-    jge .verify_done
+    jge .verify_done_leak
     imul rsi, rcx, 24
     mov rax, [rbx + rsi + 0]   ; offset 0 is .ptr
     test rax, rax
-    jz .next_verify
+    jz .next_verify_leak
     cmp rax, r13
-    jne .next_verify
+    jne .next_verify_leak
     inc rdx                         ; found block 2!
-.next_verify:
+.next_verify_leak:
     inc rcx
-    jmp .verify_loop
+    jmp .verify_loop_leak
 
-.verify_done:
+.verify_done_leak:
     cmp rdx, 1
     jne .leak_fail_verify
 
