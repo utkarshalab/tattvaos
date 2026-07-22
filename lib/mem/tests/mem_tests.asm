@@ -10,17 +10,24 @@
 [BITS 64]
 
 
-PAGE_PRESENT    equ (1 << 0)
+%ifndef PAGE_XO
 PAGE_XO         equ (1 << 9)
+%endif
+%ifndef PAGE_KEY_1
 PAGE_KEY_1      equ (1 << 59)
-PAGE_NX         equ (1 << 63)
+%endif
 
 ; SMC RMM simulation constants
+%ifndef SMC_RMI_VERSION
 SMC_RMI_VERSION             equ 0xC4000150
+%endif
+%ifndef SMC_RMI_RTT_MAP_UNPROTECTED
 SMC_RMI_RTT_MAP_UNPROTECTED equ 0xC400015F
+%endif
 
 section .text
 
+%if 0
 ; External VMM functions
 extern vma_create
 extern uart_print_str
@@ -540,10 +547,7 @@ extern sys_inf_prof_kv_cache_bytes
 
 
 
-
-
-
-
+%endif
 
 global run_all_memory_tests
 
@@ -682,7 +686,8 @@ run_all_memory_tests:
 .find_desc_loop:
     cmp rcx, 128
     jge .share_fail_desc_not_found
-    lea rdx, [rbx + rcx * shared_dir_desc_t_size]
+    imul rdx, rcx, shared_dir_desc_t_size
+    add rdx, rbx
     cmp qword [rdx + shared_dir_desc_t.phys_addr], 0
     jne .found_desc
     inc rcx
@@ -7372,7 +7377,7 @@ oom_notifier_callback:
     call uart_print_str
     jmp .panic_wb
 
-.fail_zswap_data:
+.fail_zswap_data_wb:
     mov rsi, msg_zpool_writeback_fail_zswap_data_str
     call uart_print_str
     jmp .panic_wb
@@ -7382,7 +7387,7 @@ oom_notifier_callback:
     call uart_print_str
     jmp .panic_wb
 
-.fail_zram_data:
+.fail_zram_data_wb:
     mov rsi, msg_zpool_writeback_fail_zram_data_str
     call uart_print_str
     jmp .panic_wb
@@ -7419,7 +7424,7 @@ oom_notifier_callback:
     call uart_print_str
     jmp .panic_compact
 
-.fail_zswap_data:
+.fail_zswap_data_compact:
     mov rsi, msg_zpool_compact_fail_zswap_data_str
     call uart_print_str
     jmp .panic_compact
@@ -7429,7 +7434,7 @@ oom_notifier_callback:
     call uart_print_str
     jmp .panic_compact
 
-.fail_zram_data:
+.fail_zram_data_compact:
     mov rsi, msg_zpool_compact_fail_zram_data_str
     call uart_print_str
     jmp .panic_compact
@@ -10286,7 +10291,7 @@ test_ctor:
 
     ; 4. Write data to the memory-mapped file (Write test)
     ; This sets the PAGE_DIRTY bit in the PTE.
-    mov qword [rsi], 0xDEADBEEFCAFEBABY
+    mov qword [rsi], 0xDEADBEEFCAFEBABE
     mov qword [rsi + 32], 0x1234567890ABCDEF
 
     ; 5. Verify the dirty bit is set in the PTE
@@ -10322,7 +10327,7 @@ test_ctor:
     jz .mmap_fail_backing
 
     mov rax, [rbx]
-    cmp rax, 0xDEADBEEFCAFEBABY
+    cmp rax, 0xDEADBEEFCAFEBABE
     jne .mmap_fail_backing_data
     mov rax, [rbx + 32]
     cmp rax, 0x1234567890ABCDEF
@@ -10518,7 +10523,8 @@ test_ctor:
 .verify_loop:
     cmp rcx, 512                    ; LEAK_MAX_ENTRIES
     jge .verify_done
-    mov rax, [rbx + rcx * 24 + 0]   ; offset 0 is .ptr
+    imul rsi, rcx, 24
+    mov rax, [rbx + rsi + 0]   ; offset 0 is .ptr
     test rax, rax
     jz .next_verify
     cmp rax, r13
@@ -11721,7 +11727,7 @@ test_ctor:
     ; 6. Verify destination contains identical pattern immediately
     mov rdi, 0x80001000
     mov rcx, 128
-.verify_loop:
+.verify_loop_bypass:
     mov rax, [rdi]
     mov rbx, 0x425f415654544154
     cmp rax, rbx
@@ -11740,7 +11746,7 @@ test_ctor:
     jne .bypass_fail_data
     add rdi, 32
     dec rcx
-    jnz .verify_loop
+    jnz .verify_loop_bypass
 
     ; --- Unaligned pointer test subcase ---
     ; Re-initialize source page with sentinel bytes (0..255)
@@ -11779,7 +11785,7 @@ test_ctor:
     sub r8, 4
     cmp al, r8b
     jne .bypass_fail_data
-    jmp .next_verify
+    jmp .next_verify_bypass
 
 .check_ff:
     ; Out-of-range check: Dest[rcx] should be 0xFF
@@ -11787,7 +11793,7 @@ test_ctor:
     cmp al, 0xFF
     jne .bypass_fail_data
 
-.next_verify:
+.next_verify_bypass:
     inc rcx
     cmp rcx, 512
     jb .verify_unaligned
@@ -15061,7 +15067,7 @@ test_ctor:
 
     ; Verify the "TDXREP" marker at offset 0
     mov  rax, [rsp]
-    mov  rbx, 0x545245504558445F54     ; "T_TDXREP"
+    mov  rbx, 0x524F504552584454     ; "TDXREPOR"
     cmp  rax, rbx
     jne  .tdx_fail_report_marker
 
@@ -17803,7 +17809,6 @@ msg_pasid_fail_entry:           db "Failure: PASID table entry value is incorrec
 
 msg_test_start:       db "Running VMM On-Demand Paging Exception Test...", 0x0D, 0x0A, 0
 msg_vma_ok:           db "VMA created at 0x70000000. Triggering read/write page fault...", 0x0D, 0x0A, 0
-msg_crlf:             db 0x0D, 0x0A, 0
 msg_test_passed:      db "VMM On-Demand Paging Test PASSED!", 0x0D, 0x0A, 0
 msg_test_failed:      db "VMM Test Suite FAILED! Halting.", 0x0D, 0x0A, 0
 
@@ -18350,8 +18355,8 @@ msg_tsx_fallback_lock_fail_retry_active_str:   db "Failure: Acquire did not atte
 msg_tsx_fallback_lock_fail_retry_lock_str:     db "Failure: Acquire modified lock byte after abort count decayed.", 0x0D, 0x0A, 0
 msg_tsx_fallback_lock_fail_final_count_str:    db "Failure: Speculative release did not reset abort count to 0.", 0x0D, 0x0A, 0
 
-msg_aslr_test_start:          db "Running ASLR Symbol Offset Randomization Tests...", 0x0D, 0x0A, 0
-msg_aslr_test_passed:         db "ASLR Symbol Offset Randomization Test PASSED!", 0x0D, 0x0A, 0
+msg_aslr_rand_test_start:     db "Running ASLR Symbol Offset Randomization Tests...", 0x0D, 0x0A, 0
+msg_aslr_rand_test_passed:    db "ASLR Symbol Offset Randomization Test PASSED!", 0x0D, 0x0A, 0
 msg_aslr_fail_alloc_str:      db "Failure: heap_alloc returned NULL for ASLR test.", 0x0D, 0x0A, 0
 msg_aslr_fail_align_str:      db "Failure: ASLR offsetted pointer is not 16-byte aligned.", 0x0D, 0x0A, 0
 msg_aslr_fail_bounds_str:     db "Failure: ASLR random gap size is out of bounds or misaligned.", 0x0D, 0x0A, 0
