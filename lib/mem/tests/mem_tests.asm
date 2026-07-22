@@ -599,7 +599,8 @@ run_all_memory_tests:
 
     ; Write test signature to page 1
     mov rdi, 0x80000000
-    mov qword [rdi], 0x5348415245445F31 ; "SHARED_1"
+    mov rax, 0x5348415245445F31     ; "SHARED_1"
+    mov [rdi], rax
 
     ; Allocate physical page 2
     call phys_alloc_page
@@ -617,7 +618,8 @@ run_all_memory_tests:
 
     ; Write test signature to page 2
     mov rdi, 0x80001000
-    mov qword [rdi], 0x5348415245445F32 ; "SHARED_2"
+    mov rax, 0x5348415245445F32     ; "SHARED_2"
+    mov [rdi], rax
 
     ; Restore original CR3
     mov cr3, r15
@@ -637,13 +639,15 @@ run_all_memory_tests:
     ; Verify signature 1 at 0x80000000
     mov rdi, 0x80000000
     mov rax, [rdi]
-    cmp rax, 0x5348415245445F31     ; "SHARED_1"
+    mov rbx, 0x5348415245445F31     ; "SHARED_1"
+    cmp rax, rbx
     jne .share_fail_verify_val1
 
     ; Verify signature 2 at 0x80001000
     mov rdi, 0x80001000
     mov rax, [rdi]
-    cmp rax, 0x5348415245445F32     ; "SHARED_2"
+    mov rbx, 0x5348415245445F32     ; "SHARED_2"
+    cmp rax, rbx
     jne .share_fail_verify_val2
 
     ; Restore original CR3
@@ -1053,7 +1057,8 @@ run_all_memory_tests:
 
     ; Write signature to old page using identity mapping
     mov rdi, r12
-    mov qword [rdi], 0x41534C525F4F4B3F ; "ASLR_OK?"
+    mov rax, 0x41534C525F4F4B3F     ; "ASLR_OK?"
+    mov [rdi], rax
 
     ; Map old page to virtual address 0x30000000 in current address space (CR3)
     mov rdi, 0x30000000
@@ -1065,7 +1070,8 @@ run_all_memory_tests:
 
     ; Verify virtual address reads correctly
     mov rax, [0x30000000]
-    cmp rax, 0x41534C525F4F4B3F
+    mov rbx, 0x41534C525F4F4B3F
+    cmp rax, rbx
     jne .aslr_fail_sig1
 
     ; Trigger Live ASLR Migration
@@ -1082,7 +1088,8 @@ run_all_memory_tests:
 
     ; Verify that virtual address still reads correct data (copied successfully)
     mov rax, [0x30000000]
-    cmp rax, 0x41534C525F4F4B3F
+    mov rbx, 0x41534C525F4F4B3F
+    cmp rax, rbx
     jne .aslr_fail_sig2
 
     ; Unmap virtual address 0x30000000
@@ -1371,7 +1378,8 @@ run_all_memory_tests:
     ; We write at R14 + 4088 (8 bytes below the top of the new page, i.e. 8 bytes below original page boundary)
     mov r15, r14
     add r15, 4088
-    mov qword [r15], 0x9876543210FEDCBA
+    mov rax, 0x9876543210FEDCBA
+    mov [r15], rax
 
     ; Step D: Verify the write succeeded
     mov rax, [r15]
@@ -2140,7 +2148,8 @@ run_all_memory_tests:
     mov rsi, 0x30000000
     mov rbx, 0x4D4F434E55             ; 'UNCOM' in little-endian ("UNCOMPRESSIBLE_SIG")
     mov rax, [rsi]
-    and rax, 0xFFFFFFFFFF             ; compare 5 bytes
+    mov rdx, 0xFFFFFFFFFF             ; compare 5 bytes
+    and rax, rdx
     cmp rax, rbx
     jne .zswap_fail_data_corrupt2
 
@@ -2481,8 +2490,9 @@ run_all_memory_tests:
 
     ; Set signature in Page B
     mov rdi, r13
-    mov qword [rdi], 0x4242424242424242 ; "BBBBBBBB"
-    mov qword [rdi + 8], 0x4242424242424242
+    mov rax, 0x4242424242424242 ; "BBBBBBBB"
+    mov [rdi], rax
+    mov [rdi + 8], rax
 
     mov rdi, 0x40000000
     mov rsi, 4096
@@ -2630,8 +2640,9 @@ run_all_memory_tests:
 
     ; Set signature in Page B
     mov rdi, r13
-    mov qword [rdi], 0x4242424242424242
-    mov qword [rdi + 8], 0x4242424242424242
+    mov rax, 0x4242424242424242
+    mov [rdi], rax
+    mov [rdi + 8], rax
 
     mov rdi, 0x40000000
     mov rsi, 4096
@@ -2798,8 +2809,9 @@ run_all_memory_tests:
 
     ; Set recognizable data for Page B
     mov rdi, r13
-    mov qword [rdi], 0x5555555555555555
-    mov qword [rdi + 8], 0x5555555555555555
+    mov rax, 0x5555555555555555
+    mov [rdi], rax
+    mov [rdi + 8], rax
 
     mov rdi, 0x40000000
     mov rsi, 4096
@@ -2948,8 +2960,9 @@ run_all_memory_tests:
     rep stosb
 
     mov rdi, r13
-    mov qword [rdi], 0x5555555555555555
-    mov qword [rdi + 8], 0x5555555555555555
+    mov rax, 0x5555555555555555
+    mov [rdi], rax
+    mov [rdi + 8], rax
 
     mov rdi, 0x40000000
     mov rsi, r13
@@ -3071,8 +3084,9 @@ run_all_memory_tests:
 
     ; Set signature in Page B
     mov rdi, r13
-    mov qword [rdi], 0x4242424242424242
-    mov qword [rdi + 8], 0x4242424242424242
+    mov rax, 0x4242424242424242
+    mov [rdi], rax
+    mov [rdi + 8], rax
 
     ; Allocate temporary compression destinations
     call phys_alloc_page
@@ -3257,8 +3271,10 @@ run_all_memory_tests:
     jnz .dbg_watch_fail_dirty_init
 
     ; 8. Perform a write to the page to trigger the emulated dirty tracing page fault!
+    mov rax, 0x123456789ABCDEF0
+    mov rbx, 0x30000000
 .dbg_write_ip:
-    mov qword [0x30000000], 0x123456789ABCDEF0
+    mov [rbx], rax
 
     ; 9. Verify that the write succeeded
     mov rax, [0x30000000]
@@ -10286,10 +10302,11 @@ run_all_memory_tests:
     mov r12, rax                    ; R12 = heap block pointer
 
     ; Write signature to the block
-    mov qword [r12], 0x123456789ABCDEF0
-    mov qword [r12 + 8], 0x123456789ABCDEF0
-    mov qword [r12 + 16], 0x123456789ABCDEF0
-    mov qword [r12 + 24], 0x123456789ABCDEF0
+    mov rax, 0x123456789ABCDEF0
+    mov [r12], rax
+    mov [r12 + 8], rax
+    mov [r12 + 16], rax
+    mov [r12 + 24], rax
 
     ; Free the block
     mov rdi, r12
@@ -10312,8 +10329,10 @@ run_all_memory_tests:
     mov r13, rax                    ; R13 = physical page address
 
     ; Write signature
-    mov qword [r13], 0xDEADBEEFCAFEBAB1
-    mov qword [r13 + 4088], 0xDEADBEEFCAFEBAB2
+    mov rax, 0xDEADBEEFCAFEBAB1
+    mov [r13], rax
+    mov rax, 0xDEADBEEFCAFEBAB2
+    mov [r13 + 4088], rax
 
     ; Free page
     mov rdi, r13
