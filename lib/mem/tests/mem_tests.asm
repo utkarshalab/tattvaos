@@ -598,7 +598,7 @@ run_all_memory_tests:
     jz .share_fail_map1
 
     ; Write test signature to page 1
-    mov rdi, 0x80000000
+    mov edi, 0x80000000
     mov rax, 0x5348415245445F31     ; "SHARED_1"
     mov [rdi], rax
 
@@ -609,7 +609,7 @@ run_all_memory_tests:
     mov rbp, rax                    ; RBP = physical page 2
 
     ; Map physical page 2 to 0x80001000
-    mov rdi, 0x80001000
+    mov edi, 0x80001000
     mov rsi, rbp
     mov rdx, 0x07                   ; PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER
     call virt_map
@@ -617,7 +617,7 @@ run_all_memory_tests:
     jz .share_fail_map2
 
     ; Write test signature to page 2
-    mov rdi, 0x80001000
+    mov edi, 0x80001000
     mov rax, 0x5348415245445F32     ; "SHARED_2"
     mov [rdi], rax
 
@@ -627,7 +627,7 @@ run_all_memory_tests:
     ; 4. Call virt_share_page_directories to share directory from source to dest
     mov rdi, r13                    ; destination PML4
     mov rsi, r12                    ; source PML4
-    mov rdx, 0x80000000             ; start_vaddr (2MB aligned)
+    mov edx, 0x80000000             ; start_vaddr (2MB aligned)
     mov rcx, 0x200000               ; size (2MB)
     call virt_share_page_directories
     test rax, rax
@@ -637,14 +637,14 @@ run_all_memory_tests:
     mov cr3, r13
 
     ; Verify signature 1 at 0x80000000
-    mov rdi, 0x80000000
+    mov edi, 0x80000000
     mov rax, [rdi]
     mov rbx, 0x5348415245445F31     ; "SHARED_1"
     cmp rax, rbx
     jne .share_fail_verify_val1
 
     ; Verify signature 2 at 0x80001000
-    mov rdi, 0x80001000
+    mov edi, 0x80001000
     mov rax, [rdi]
     mov rbx, 0x5348415245445F32     ; "SHARED_2"
     cmp rax, rbx
@@ -1061,7 +1061,7 @@ run_all_memory_tests:
     mov [rdi], rax
 
     ; Map old page to virtual address 0x30000000 in current address space (CR3)
-    mov rdi, 0x30000000
+    mov edi, 0x30000000
     mov rsi, r12
     mov rdx, 0x07                   ; Present | Writable | User
     call virt_map
@@ -1081,7 +1081,7 @@ run_all_memory_tests:
     call kernel_live_aslr_migrate
 
     ; Verify that 0x30000000 now translates to new physical address r13
-    mov rdi, 0x30000000
+    mov edi, 0x30000000
     call virt_translate
     cmp rax, r13
     jne .aslr_fail_translate
@@ -2145,7 +2145,7 @@ run_all_memory_tests:
     mov rax, [0x30000000]
 
     ; Verify data integrity
-    mov rsi, 0x30000000
+    mov esi, 0x30000000
     mov rbx, 0x4D4F434E55             ; 'UNCOM' in little-endian ("UNCOMPRESSIBLE_SIG")
     mov rax, [rsi]
     mov rdx, 0xFFFFFFFFFF             ; compare 5 bytes
@@ -2494,7 +2494,7 @@ run_all_memory_tests:
     mov [rdi], rax
     mov [rdi + 8], rax
 
-    mov rdi, 0x40000000
+    mov edi, 0x40000000
     mov rsi, 4096
     mov rdx, 0x0B                   ; VMA_READ | VMA_WRITE | VMA_USER
     call vma_create
@@ -2502,7 +2502,7 @@ run_all_memory_tests:
     jz .compact_fail_vma
     mov r15, rax                    ; r15 = VMA B pointer
 
-    mov rdi, 0x40000000
+    mov edi, 0x40000000
     mov rsi, r13
     mov rdx, 0x07                   ; PRESENT | WRITE | USER
     call virt_map
@@ -2512,7 +2512,7 @@ run_all_memory_tests:
     mov rdi, r13
     call page_list_move_to_inactive
 
-    mov rdi, 0x40000000
+    mov edi, 0x40000000
     xor rsi, rsi
     call virt_walk_table
     and qword [rax], ~0x20          ; clear ACCESSED
@@ -3538,8 +3538,10 @@ run_all_memory_tests:
     jnz .dbg_wp_fail_non_present
 
     ; 14. Perform a WRITE access to trigger watchpoint page fault again!
+    mov r11, 0xDEADBEEFCAFEBAB1
+    mov rbx, 0x30000000
 .wp_write_ip:
-    mov qword [0x30000000], 0xDEADBEEFCAFEBAB1
+    mov [rbx], r11
 
     ; Verify the write completed
     mov rax, [0x30000000]
@@ -3853,7 +3855,9 @@ run_all_memory_tests:
     jnz .dbg_hist_fail_non_present
 
     ; 12. Perform a WRITE access to trigger page fault!
-    mov qword [0x30000000], 0x12345678ABCD
+    mov r11, 0x12345678ABCD
+    mov rbx, 0x30000000
+    mov [rbx], r11
 
     ; 13. Verify hit count updates (Read=1, Write=1, Total=2)
     mov rdi, 0x30000000
@@ -4072,8 +4076,10 @@ run_all_memory_tests:
     jnz .dbg_phys_wp_fail_non_present
 
     ; 17. Perform a WRITE access to Alias 2 to trigger fault!
+    mov r11, 0x12345678DEADBEEF
+    mov rbx, 0x40000000
 .phys_write_ip:
-    mov qword [0x40000000], 0x12345678DEADBEEF
+    mov [rbx], r11
 
     ; 18. Verify hit count is 2
     mov rdi, r12
@@ -5787,7 +5793,8 @@ run_all_memory_tests:
     jne .page_cache_fail_counters2
 
     ; Test 3: Write and Page Cache Miss (Offset 4096, page 2)
-    mov qword [r13], 0xAA55AA55AA55AA55
+    mov r11, 0xAA55AA55AA55AA55
+    mov [r13], r11
     mov rdi, r12
     mov rsi, 4096
     mov rdx, r13
@@ -5810,7 +5817,8 @@ run_all_memory_tests:
     mov rax, [r12 + mock_file_t.blocks + 8]  ; block 1 (offset 4096)
     test rax, rax
     jz .page_cache_fail_sync
-    cmp qword [rax], 0xAA55AA55AA55AA55
+    mov r11, 0xAA55AA55AA55AA55
+    cmp [rax], r11
     jne .page_cache_fail_sync_data
 
     ; Clean up
@@ -6017,7 +6025,8 @@ run_all_memory_tests:
     ; Prepare temporary stack buffer for writing
     sub rsp, 16
     mov r13, rsp                    ; r13 = buffer pointer
-    mov qword [r13], 0x1122334455667788
+    mov r11, 0x1122334455667788
+    mov [r13], r11
 
     ; 4. Perform 3 writes to different offsets to create 3 dirty pages
     ; Write page 0 (offset 0)
@@ -6566,7 +6575,8 @@ run_all_memory_tests:
     jne .folio_fail_hits
 
     ; 7. Write 8 bytes to offset 12288 (fourth page inside folio)
-    mov qword [r13], 0x8877665544332211
+    mov r11, 0x8877665544332211
+    mov [r13], r11
     mov rdi, r12
     mov rsi, 12288
     mov rdx, r13
@@ -7721,7 +7731,7 @@ run_all_memory_tests:
     ; Step C: Set Variable MTRR slot 0 to Write-Combining (1)
     ; Base: 0xE0000000, Size: 16MB (0x1000000)
     mov rdi, 0                      ; slot 0
-    mov rsi, 0xE0000000             ; base physical address
+    mov esi, 0xE0000000             ; base physical address
     mov rdx, 0x1000000              ; size (16MB)
     mov rcx, 1                      ; type: Write-Combining (WC)
     call mtrr_set_variable
@@ -8436,7 +8446,8 @@ run_all_memory_tests:
     jmp .run_slab_reap_test
 
 .test_ctor:
-    mov qword [rdi + 8], 0x123456789ABCDEF0
+    mov rax, 0x123456789ABCDEF0
+    mov [rdi + 8], rax
     ret
 
 .slab_fail_ctor:
@@ -10385,7 +10396,7 @@ run_all_memory_tests:
     mov r12, rax                    ; R12 = file_ptr (mock_file_t)
 
     ; 2. Map the file to virtual address 0x80000000 with VMA_READ | VMA_WRITE
-    mov rdi, 0x80000000
+    mov edi, 0x80000000
     mov rsi, 8192                   ; 2 pages
     mov rdx, 0x03                   ; VMA_READ | VMA_WRITE
     mov r8, r12                     ; file_ptr
@@ -10397,9 +10408,10 @@ run_all_memory_tests:
     ; 3. Access virtual address to trigger demand paging load (Read test)
     ; Virtual address: 0x80000000.
     ; This triggers a #PF, loads from mock storage, maps, and resumes execution.
-    mov rsi, 0x80000000
+    mov esi, 0x80000000
     mov rax, [rsi]
-    cmp rax, 0x4154544154544154     ; Compare first 8 bytes: "TATTVA_M"
+    mov r11, 0x4154544154544154     ; Compare first 8 bytes: "TATTVA_M"
+    cmp rax, r11
     jne .mmap_fail_read_val
 
     ; Check offset value at 0x80000020 (decimal 32)
@@ -10430,7 +10442,7 @@ run_all_memory_tests:
     jz .mmap_fail_sync
 
     ; 7. Verify that the dirty bit is now cleared in the PTE
-    mov rdi, 0x80000000
+    mov edi, 0x80000000
     xor rsi, rsi
     call virt_walk_table            ; RAX = PTE address
     test rax, rax
@@ -10445,14 +10457,16 @@ run_all_memory_tests:
     jz .mmap_fail_backing
 
     mov rax, [rbx]
-    cmp rax, 0xDEADBEEFCAFEBABE
+    mov r11, 0xDEADBEEFCAFEBABE
+    cmp rax, r11
     jne .mmap_fail_backing_data
     mov rax, [rbx + 32]
-    cmp rax, 0x1234567890ABCDEF
+    mov r11, 0x1234567890ABCDEF
+    cmp rax, r11
     jne .mmap_fail_backing_data
 
     ; 9. Unmap the range via mmap_munmap
-    mov rdi, 0x80000000
+    mov edi, 0x80000000
     mov rsi, 8192
     call mmap_munmap
     test rax, rax
@@ -10488,7 +10502,7 @@ run_all_memory_tests:
     mov r13, rax                    ; R13 = physical page
 
     ; Map it to 0x90000000 in current address space (CR3) with present & writable flags
-    mov rdi, 0x90000000
+    mov edi, 0x90000000
     mov rsi, r13
     mov rdx, 0x03                   ; PAGE_PRESENT | PAGE_WRITABLE
     call virt_map
@@ -10496,16 +10510,16 @@ run_all_memory_tests:
     jz .ipc_fail_map
 
     ; Write test signature to 0x90000000
-    mov rdi, 0x90000000
+    mov edi, 0x90000000
     mov rax, 0x5348415245445f4d     ; "SHARED_M"
     mov [rdi], rax
     mov rax, 0x454d4f52595f4f4b     ; "EMORY_OK"
     mov [rdi + 8], rax
 
     ; Share this page with the secondary PML4 at destination address 0x90000000
-    mov rdi, 0x90000000             ; vaddr_src
+    mov edi, 0x90000000             ; vaddr_src
     mov rsi, r12                    ; pml4_dest
-    mov rdx, 0x90000000             ; vaddr_dest
+    mov edx, 0x90000000             ; vaddr_dest
     mov rcx, 0x03                   ; flags (PAGE_PRESENT | PAGE_WRITABLE)
     call ipc_share_frame
     test rax, rax
@@ -10516,24 +10530,26 @@ run_all_memory_tests:
     mov cr3, r12                    ; switch to secondary PML4
 
     ; Verify that 0x90000000 is readable and contains our signature
-    mov rdi, 0x90000000
+    mov edi, 0x90000000
     mov rax, [rdi]
-    cmp rax, 0x5348415245445f4d     ; "SHARED_M"
+    mov r11, 0x5348415245445f4d     ; "SHARED_M"
+    cmp rax, r11
     jne .ipc_fail_shared_val
     mov rax, [rdi + 8]
-    cmp rax, 0x454d4f52595f4f4b     ; "EMORY_OK"
+    mov r11, 0x454d4f52595f4f4b     ; "EMORY_OK"
+    cmp rax, r11
     jne .ipc_fail_shared_val
 
     ; Switch back to original CR3
     mov cr3, r14
 
     ; Clean up the shared page from both address spaces
-    mov rdi, 0x90000000
+    mov edi, 0x90000000
     call virt_unmap
     
     ; Switch to secondary PML4 to unmap it there as well
     mov cr3, r12
-    mov rdi, 0x90000000
+    mov edi, 0x90000000
     call virt_unmap
     mov cr3, r14                    ; restore original CR3
 
@@ -10549,7 +10565,7 @@ run_all_memory_tests:
     ; 2. Test Zero-Copy Ring Buffers (Subfeature 18.2)
     ; -------------------------------------------------------------------------
     ; Create a double-mapped ring buffer at 0xA0000000 of size 4096 (total 8192 bytes mapped)
-    mov rdi, 0xA0000000
+    mov edi, 0xA0000000
     mov rsi, 4096                   ; size N = 4096 (1 page)
     mov rdx, 0x03                   ; VMA flags (VMA_READ | VMA_WRITE)
     call ipc_create_ring_buffer
@@ -10557,7 +10573,7 @@ run_all_memory_tests:
     jz .ipc_fail_ring_create
 
     ; Write test data at the beginning of the first half (0xA0000000)
-    mov rdi, 0xA0000000
+    mov edi, 0xA0000000
     mov rax, 0x52494e475f425546     ; "RING_BUF"
     mov [rdi], rax
     mov rax, 0x4645525f444f5542     ; "FER_DOUB"
@@ -10566,19 +10582,23 @@ run_all_memory_tests:
     mov [rdi + 16], rax
 
     ; Read back from the second half at 0xA0001000 (offset 4096) and verify it's identical
-    mov rsi, 0xA0001000
+    mov esi, 0xA0001000
     mov rax, [rsi]
-    cmp rax, 0x52494e475f425546
+    mov r11, 0x52494e475f425546
+    cmp rax, r11
     jne .ipc_fail_ring_val
     mov rax, [rsi + 8]
-    cmp rax, 0x4645525f444f5542
+    mov r11, 0x4645525f444f5542
+    cmp rax, r11
     jne .ipc_fail_ring_val
     mov rax, [rsi + 16]
-    cmp rax, 0x4c455f4d41505f21
+    mov r11, 0x4c455f4d41505f21
+    cmp rax, r11
     jne .ipc_fail_ring_val
 
     ; Write a value at offset 32 in the second half (0xA0001020)
-    mov qword [rsi + 32], 0x90ABCDEFAABBCCDD
+    mov r11, 0x90ABCDEFAABBCCDD
+    mov [rsi + 32], r11
 
     ; Read it back from the first half at 0xA0000020 and verify it matches
     mov rax, [rdi + 32]
@@ -10676,7 +10696,7 @@ run_all_memory_tests:
 
     ; Step A: Create a VMA for TSX demand paging test
     ; start=0x80000000, size=4096, flags=VMA_READ|VMA_WRITE|VMA_ONDEMAND (0x83)
-    mov rdi, 0x80000000
+    mov edi, 0x80000000
     mov rsi, 4096
     mov rdx, 0x83                   ; VMA_READ | VMA_WRITE | VMA_ONDEMAND
     call vma_create
@@ -10696,7 +10716,7 @@ run_all_memory_tests:
     ; Access the demand-paging address. This should trigger a page fault!
     ; Since it's inside TSX, the fault handler will resolve it and redirect RIP to .tsx_success_transaction.
     ; On the retry, the access will succeed without a fault!
-    mov rdi, 0x80000000
+    mov edi, 0x80000000
     mov byte [rdi], 0xAA
 
     ; Commit transaction
@@ -12735,7 +12755,7 @@ run_all_memory_tests:
     mov r12, rax                    ; R12 = physical page
 
     ; 2. Map page to virtual address 0xB0000000 with present & writable permissions
-    mov rdi, 0xB0000000
+    mov edi, 0xB0000000
     mov rsi, r12
     mov rdx, 0x03                   ; PAGE_PRESENT | PAGE_WRITABLE
     call virt_map
@@ -12743,11 +12763,12 @@ run_all_memory_tests:
     jz .uaf_fail_map
 
     ; 3. Write data to make sure it is mapped and present
-    mov rdi, 0xB0000000
-    mov qword [rdi], 0xDEADBEEF12345678
+    mov edi, 0xB0000000
+    mov r11, 0xDEADBEEF12345678
+    mov [rdi], r11
 
     ; 4. Unmap/Free the virtual page (calls uaf_quarantine_add internally)
-    mov rdi, 0xB0000000
+    mov edi, 0xB0000000
     call virt_unmap
 
     mov rdi, r12
@@ -12757,7 +12778,7 @@ run_all_memory_tests:
     ; This triggers a page fault, which queries the quarantine table,
     ; prints "Use-After-Free detected at address 0x00000000B0000000! (UAF_TEST_SUCCESS)"
     ; and panics.
-    mov rdi, 0xB0000000
+    mov edi, 0xB0000000
     mov rax, [rdi]                  ; should trigger UAF Trap and halt!
 
     ; If we reach here, the trap failed!
