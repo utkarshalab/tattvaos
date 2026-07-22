@@ -12,8 +12,6 @@
 
 section .text
 
-extern run_all_memory_tests
-
 global kernel_main
 
 kernel_main:
