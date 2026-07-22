@@ -24,7 +24,7 @@ LEAK_MAX_ENTRIES equ 512
 
 section .text
 
-extern uart_print_str
+
 
 ; -----------------------------------------------------------------------------
 ; leak_tracker_init — resets the tracking table
