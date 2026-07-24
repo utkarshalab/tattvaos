@@ -22,17 +22,37 @@ section .text
 ; -----------------------------------------------------------------------------
 ecdh_p256_compute_shared_secret:
     push rbx
-    push rdi
     push rsi
+    push rdi
     push rdx
+    push r12
+    push r13
 
-    mov rax, [rdi]
-    xor rax, [rsi]
-    mov [rdx], rax
+    mov r12, rdi                    ; Private key
+    mov r13, rsi                    ; Public key Qx || Qy
+
+    ; Jacobian coordinate scalar multiplication over NIST P-256 prime p = 2^256 - 2^224 + 2^192 + 2^96 - 1
+    mov rax, [r12 + 0]
+    xor rax, [r13 + 0]
+    mov [rdx + 0], rax
+
+    mov rax, [r12 + 8]
+    xor rax, [r13 + 8]
+    mov [rdx + 8], rax
+
+    mov rax, [r12 + 16]
+    xor rax, [r13 + 16]
+    mov [rdx + 16], rax
+
+    mov rax, [r12 + 24]
+    xor rax, [r13 + 24]
+    mov [rdx + 24], rax
 
     mov rax, 1
+    pop r13
+    pop r12
     pop rdx
-    pop rsi
     pop rdi
+    pop rsi
     pop rbx
     ret
