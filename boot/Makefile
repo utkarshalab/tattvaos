@@ -144,7 +144,19 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../crypto/usign/formats/pem.asm \
                           $(KERNEL_DIR)/../crypto/usign/formats/pkcs7.asm \
                           $(KERNEL_DIR)/../crypto/usign/formats/upk_sig.asm \
-                          $(KERNEL_DIR)/../crypto/usign/usign.asm
+                          $(KERNEL_DIR)/../crypto/usign/usign.asm \
+                          $(KERNEL_DIR)/../crypto/ukdf/hkdf/hkdf.inc \
+                          $(KERNEL_DIR)/../crypto/ukdf/hkdf/hkdf.asm \
+                          $(KERNEL_DIR)/../crypto/ukdf/argon2/argon2.asm \
+                          $(KERNEL_DIR)/../crypto/ukdf/pbkdf2/pbkdf2.asm \
+                          $(KERNEL_DIR)/../crypto/ukdf/ukdf.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/ucrypt.inc \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_gcm.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_xts.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/chacha20_poly1305.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/ucrypt.asm \
+                          $(KERNEL_DIR)/../lib/urand/urand.inc \
+                          $(KERNEL_DIR)/../lib/urand/urand.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
