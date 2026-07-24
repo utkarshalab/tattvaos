@@ -47,6 +47,8 @@ kernel_text_start:
 %include "lib/hw/ucpu/mtrr.asm"
 %include "lib/hw/ucpu/pat.asm"
 %include "drivers/gpu/fb.asm"
+%include "sched/fiber.asm"
+%include "sched/sched.asm"
 
     section .text
     global kernel_text_end

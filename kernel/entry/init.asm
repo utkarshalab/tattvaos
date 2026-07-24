@@ -198,7 +198,8 @@ mm_init:
     jmp .error
 
 sched_init:
-    ; TODO: Implement task scheduler
+    call fiber_system_init
+    call sched_init_real
     ret
 
 drivers_init:
