@@ -134,7 +134,17 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../crypto/uhash/sha512/sha512.inc \
                           $(KERNEL_DIR)/../crypto/uhash/sha512/sha512.asm \
                           $(KERNEL_DIR)/../crypto/uhash/sha3/sha3.asm \
-                          $(KERNEL_DIR)/../crypto/uhash/uhash.asm
+                          $(KERNEL_DIR)/../crypto/uhash/uhash.asm \
+                          $(KERNEL_DIR)/../crypto/usign/ed25519/ed25519.inc \
+                          $(KERNEL_DIR)/../crypto/usign/ed25519/ed25519.asm \
+                          $(KERNEL_DIR)/../crypto/usign/ecdsa/ecdsa_p256.asm \
+                          $(KERNEL_DIR)/../crypto/usign/rsa/rsa_pss.asm \
+                          $(KERNEL_DIR)/../crypto/usign/pqc/dilithium.asm \
+                          $(KERNEL_DIR)/../crypto/usign/formats/raw.asm \
+                          $(KERNEL_DIR)/../crypto/usign/formats/pem.asm \
+                          $(KERNEL_DIR)/../crypto/usign/formats/pkcs7.asm \
+                          $(KERNEL_DIR)/../crypto/usign/formats/upk_sig.asm \
+                          $(KERNEL_DIR)/../crypto/usign/usign.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
