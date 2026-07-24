@@ -30,6 +30,7 @@ The **`crypto/ux509`** library is the single, authoritative Public Key Infrastru
                               +-------------------------------+
                               | CERTIFICATE FIELD EXTRACTOR   |
                               | - Serial, Dates, PubKey, DN   |
+                              | - SHA-256 Thumbprint Hashing  |
                               | (ux509_parse.asm)             |
                               +-------------------------------+
                                               |
@@ -69,14 +70,14 @@ crypto/ux509/
 ├── ux509_policy.asm           ← Extended Key Usage (EKU) policy validator
 ├── ux509_path.asm             ← Path length constraint & hierarchy budget validator
 ├── ux509_time.asm             ← UTCTime / GeneralizedTime parser with 5-min clock-skew window
-├── ux509_crl.asm              ← Certificate Revocation List (CRL) checker
+├── ux509_crl.asm              ← Certificate Revocation List (CRL) 16-byte serial checker
 ├── ux509_ocsp.asm             ← RFC 6960 OCSP Stapling Response reader & validator
 ├── ux509_aia.asm              ← Authority Information Access (AIA) extension parser
 ├── ux509_name_constraints.asm ← RFC 5280 Permitted & Excluded domain tree name constraints
 ├── ux509_sct.asm              ← RFC 6962 Certificate Transparency (CT) SCT verifier
 ├── ux509_fingerprint.asm      ← SHA-256 certificate thumbprint & public key pinning engine
 ├── ux509_key_match.asm        ← Certificate public key vs private keypair validator
-├── ux509_trust_store.asm      ← Unikernel Root CA Trust Store manager
+├── ux509_trust_store.asm      ← Unikernel Root CA Trust Store manager (Dynamic registration)
 ├── ux509_self_signed.asm      ← Self-Signed Root Certificate Auto-Detector
 ├── ux509_name_norm.asm        ← Canonical DN string normalizer & case-insensitive matcher
 ├── ux509_csr.asm              ← PKCS#10 Certificate Signing Request (CSR) parser & generator
@@ -139,18 +140,27 @@ Initializes X.509 PKI Subsystem and pre-loads Root CA Trust Store.
 - **Input**: None
 - **Output**: `RAX = 1`
 
+### `ux509_parse_cert`
+Parses DER binary certificate into `ux509_cert_t` container and computes 32-byte SHA-256 thumbprint.
+- **Input**: `RDI`: DER Buffer, `RSI`: DER Length, `RDX`: Target `ux509_cert_t` Pointer
+- **Output**: `RAX = 1` on success
+
 ### `ux509_verify_cert`
 Parses DER / PEM certificate and validates timestamps, EKU policies, and domain matching.
-- **Input**:
-  - `RDI`: Certificate Buffer Pointer
-  - `RSI`: Certificate Buffer Length
-  - `RDX`: Target Domain String Pointer
-  - `RCX`: Current Unix Timestamp
+- **Input**: `RDI`: Cert Buffer, `RSI`: Cert Length, `RDX`: Target Domain String, `RCX`: Unix Timestamp
 - **Output**: `RAX = 1` if valid, `0` if expired or invalid
 
 ### `ux509_verify_chain`
 Validates certificate chain of trust from Root CA to Intermediate CA to Server Cert using **`usign`** digital signatures.
-- **Input**:
-  - `RDI`: End-Entity Server Certificate Container
-  - `RSI`: Intermediate CA Certificate Container
-- **Output**: `RAX = 1` if chain is valid and trusted, `0` if untrusted
+- **Input**: `RDI`: Server Cert Container, `RSI`: Intermediate CA Cert Container
+- **Output**: `RAX = 1` if chain is valid, `0` if untrusted
+
+### `ux509_trust_store_add_root`
+Registers a new trusted Root CA 32-byte public key into kernel trust store.
+- **Input**: `RDI`: 32-byte Public Key Pointer, `RSI`: Issuer String Pointer
+- **Output**: `RAX = 1` on success
+
+### `ux509_generate_csr`
+Formats PKCS#10 Certificate Signing Request (`.csr`).
+- **Input**: `RDI`: Subject String, `RSI`: Private Key, `RDX`: Output CSR Buffer
+- **Output**: `RAX = CSR Length`
