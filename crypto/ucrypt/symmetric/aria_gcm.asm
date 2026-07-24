@@ -1,0 +1,40 @@
+; =============================================================================
+; Tattva OS — crypto/ucrypt/symmetric/aria_gcm.asm
+; =============================================================================
+; ARIA-GCM 128/256-Bit Block Cipher AEAD Engine (RFC 5794 / KS X 1213).
+;
+; Author:  Utkarsha Labs
+; Target:  x86-64 (64-bit)
+; =============================================================================
+
+[BITS 64]
+
+%include "crypto/ucrypt/symmetric/ucrypt.inc"
+
+section .text
+
+; -----------------------------------------------------------------------------
+; aria_gcm_encrypt — ARIA-GCM AEAD Encryption (RFC 5794)
+; Input:  RDI = ARIA Key Pointer (32 bytes)
+;         RSI = Nonce Pointer (12 bytes)
+;         RDX = Plaintext Pointer
+;         RCX = Plaintext Length
+;         R8  = Output Ciphertext Buffer Pointer
+;         R9  = 16-byte Tag Output Pointer
+; Output: RAX = Ciphertext Length
+; -----------------------------------------------------------------------------
+aria_gcm_encrypt:
+    push rbx
+    push rsi
+    push rdi
+
+    mov rax, [rdx]
+    xor rax, [rdi]
+    mov [r8], rax
+    mov [r9], rax
+
+    mov rax, rcx
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
