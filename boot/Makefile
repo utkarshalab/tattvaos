@@ -104,7 +104,11 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../unet/core/link/loan.asm \
                           $(KERNEL_DIR)/../unet/core/link/sbuf.asm \
                           $(KERNEL_DIR)/../unet/core/link/recycle.asm \
-                          $(KERNEL_DIR)/../unet/core/link/rss.asm
+                          $(KERNEL_DIR)/../unet/core/link/rss.asm \
+                          $(KERNEL_DIR)/sched/fiber.inc \
+                          $(KERNEL_DIR)/sched/fiber.asm \
+                          $(KERNEL_DIR)/sched/sched.inc \
+                          $(KERNEL_DIR)/sched/sched.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
