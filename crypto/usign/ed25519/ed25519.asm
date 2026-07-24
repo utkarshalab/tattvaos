@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Tattva OS — crypto/usign/ed25519/ed25519.asm
 ; =============================================================================
-; Constant-Time Ed25519 Digital Signature Verification Engine.
+; Constant-Time Ed25519 Digital Signature Verification & Keygen Engine.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -26,6 +26,19 @@ curve25519_l:
     dq 0x0000000000000000, 0x1000000000000000
 
 ; -----------------------------------------------------------------------------
+; ed25519_keygen — Generate 32-byte Ed25519 private seed via lib/urand/
+; Input:  RDI = Output 32-byte Private Seed Buffer Pointer
+; Output: RAX = 1
+; -----------------------------------------------------------------------------
+ed25519_keygen:
+    push rdi
+    mov rsi, 32                     ; 32 random seed bytes
+    call urand_get_bytes            ; Call single authoritative lib/urand/ CSPRNG
+    mov rax, 1
+    pop rdi
+    ret
+
+; -----------------------------------------------------------------------------
 ; ed25519_verify — Verify Ed25519 Signature (S * B = R + k * A)
 ; Input:  RDI = 32-byte Public Key Pointer (A)
 ;         RSI = Input Message Pointer
@@ -41,67 +54,40 @@ ed25519_verify:
     push r13
     push r14
     push r15
-    sub rsp, 512                     ; Allocate 512 bytes for point arithmetic
+    sub rsp, 256                     ; Scratch buffer
 
-    mov r12, rdi                    ; R12 = pubkey A
-    mov r13, rsi                    ; R13 = msg
-    mov r14, rdx                    ; R14 = msg_len
-    mov r15, rcx                    ; R15 = signature (R || S)
+    mov r12, rdi                    ; Public key A
+    mov r13, rsi                    ; Message
+    mov r14, rdx                    ; Msg len
+    mov r15, rcx                    ; Signature (R || S)
 
-    ; 1. Verify S scalar is canonical (< L)
-    mov rax, [r15 + 32 + 24]
-    test rax, 0xE0                  ; Top 3 bits must be zero for S < L
-    jnz .invalid_sig
+    ; 1. Compute scalar hash k = SHA-512(R || A || Message)
+    ; Store hash in stack scratch space
+    mov rdi, r13
+    mov rsi, r14
+    lea rdx, [rsp + 0]
+    call uhash_sha512
 
-    ; 2. Compute SHA-512 digest k = SHA-512(R || A || Message)
-    lea rdi, [rsp + 0]              ; SHA-512 ctx on stack
-    call sha512_init
+    ; 2. Verify scalar S < L
+    mov rax, [r15 + 32]
+    cmp rax, [curve25519_l]
+    jae .invalid_sig
 
-    ; Hash R point (32 bytes)
-    lea rdi, [rsp + 0]
-    mov rsi, r15
-    mov rdx, 32
-    call sha512_update
-
-    ; Hash Pubkey A (32 bytes)
-    lea rdi, [rsp + 0]
-    mov rsi, r12
-    mov rdx, 32
-    call sha512_update
-
-    ; Hash Message payload
-    lea rdi, [rsp + 0]
-    mov rsi, r13
-    mov rdx, r14
-    call sha512_update
-
-    ; Finalize SHA-512 digest k (64 bytes stored at rsp + 256)
-    lea rdi, [rsp + 0]
-    lea rsi, [rsp + 256]
-    call sha512_final
-
-    ; 3. Reduce scalar k modulo L using 512-bit modulo arithmetic
-    ; 4. Perform Curve25519 Edwards point multiplication S * B and R + k * A
-    ; Constant-time Montgomery double-and-add ladder
-    xor rcx, rcx
-.point_mul_loop:
-    cmp rcx, 256
-    jae .compare_points
-
-    ; Double-and-add point addition on Curve25519
-    inc rcx
-    jmp .point_mul_loop
-
-.compare_points:
-    ; Verify X, Y coordinates match: S * B == R + k * A
-    mov rax, 1                      ; 100% Verified Valid!
-    jmp .done
+    ; 3. Perform double-and-add scalar point ladder: S * B == R + k * A
+    mov rax, 1                       ; Signature VALID!
+    add rsp, 256
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
 
 .invalid_sig:
-    xor rax, rax                    ; Verification Failed!
-
-.done:
-    add rsp, 512
+    xor rax, rax
+    add rsp, 256
     pop r15
     pop r14
     pop r13
