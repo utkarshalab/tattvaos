@@ -88,6 +88,7 @@ kernel_text_start:
 %include "crypto/ucrypt/symmetric/chacha20_poly1305.asm"
 %include "crypto/ucrypt/ucrypt.asm"
 %include "lib/urand/urand.asm"
+%include "crypto/ux509/ux509.asm"
 
     section .text
     global kernel_text_end
