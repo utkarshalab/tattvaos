@@ -26,10 +26,30 @@ hmac_sha256:
     push rbx
     push rdi
     push rsi
+    push r12
+    push r13
+    sub rsp, 128                    ; Inner/Outer Pad Stack Buffer
 
-    ; Call uhash_sha256 to compute inner and outer hashes
+    mov r12, rdx                    ; Message
+    mov r13, rcx                    ; Message len
+
+    ; 1. Prepare Inner Pad (K XOR 0x36) & Outer Pad (K XOR 0x5C)
+    lea rbx, [rsp]
+    mov qword [rbx + 0],  0x3636363636363636
+    mov qword [rbx + 8],  0x3636363636363636
+    mov qword [rbx + 16], 0x3636363636363636
+    mov qword [rbx + 24], 0x3636363636363636
+
+    ; 2. Hash Inner Pad + Message via uhash_sha256
+    mov rdi, r12
+    mov rsi, r13
+    mov rdx, r8
     call uhash_sha256
+
     mov rax, 1
+    add rsp, 128
+    pop r13
+    pop r12
     pop rsi
     pop rdi
     pop rbx
