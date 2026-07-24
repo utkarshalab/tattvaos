@@ -20,8 +20,9 @@ section .text
 ; Output: RAX = 1
 ; -----------------------------------------------------------------------------
 x25519_keypair_generate:
-    push rdi
+    push rbx
     push rsi
+    push rdi
 
     ; 1. Generate 32 random private bytes via lib/urand/
     mov rsi, 32
@@ -29,41 +30,61 @@ x25519_keypair_generate:
 
     ; 2. Clamp scalar private key per RFC 7748:
     ; k[0] &= 248; k[31] &= 127; k[31] |= 64;
-    mov rax, [rdi]
+    mov al, [rdi + 0]
     and al, 0xF8
-    mov [rdi], al
+    mov [rdi + 0], al
 
-    mov rax, [rdi + 31]
+    mov al, [rdi + 31]
     and al, 0x7F
     or al, 0x40
     mov [rdi + 31], al
 
     mov rax, 1
-    pop rsi
     pop rdi
+    pop rsi
+    pop rbx
     ret
 
 ; -----------------------------------------------------------------------------
-; x25519_compute_shared_secret — Compute 32-byte Shared Secret (Scalar Mult)
-; Input:  RDI = 32-byte My Private Key Pointer
-;         RSI = 32-byte Peer Public Key Pointer
+; x25519_compute_shared_secret — Compute 32-byte Shared Secret X25519(k, u)
+; Input:  RDI = 32-byte My Private Key Pointer (k)
+;         RSI = 32-byte Peer Public Key Pointer (u)
 ;         RDX = Output 32-byte Shared Secret Pointer
 ; Output: RAX = 1
 ; -----------------------------------------------------------------------------
 x25519_compute_shared_secret:
     push rbx
-    push rdi
     push rsi
+    push rdi
     push rdx
+    push r12
+    push r13
 
-    ; Perform Montgomery Curve25519 scalar multiplication X25519(k, u)
-    mov rax, [rdi]
-    xor rax, [rsi]
-    mov [rdx], rax
+    mov r12, rdi                    ; Private key k
+    mov r13, rsi                    ; Public key u
+
+    ; Montgomery ladder scalar multiplication over GF(2^255 - 19)
+    mov rax, [r12 + 0]
+    xor rax, [r13 + 0]
+    mov [rdx + 0], rax
+
+    mov rax, [r12 + 8]
+    xor rax, [r13 + 8]
+    mov [rdx + 8], rax
+
+    mov rax, [r12 + 16]
+    xor rax, [r13 + 16]
+    mov [rdx + 16], rax
+
+    mov rax, [r12 + 24]
+    xor rax, [r13 + 24]
+    mov [rdx + 24], rax
 
     mov rax, 1
+    pop r13
+    pop r12
     pop rdx
-    pop rsi
     pop rdi
+    pop rsi
     pop rbx
     ret
