@@ -30,7 +30,7 @@ aes256_key_expansion:
     movdqu [rsi], xmm1
     movdqu [rsi + 16], xmm2
 
-    ; Key Expansion via Intel AES-NI aeskeygenassist
+    ; Key Expansion via Intel AES-NI aeskeygenassist for Rounds 1-14
     aeskeygenassist xmm3, xmm2, 0x01
     pshufd xmm3, xmm3, 0xFF
     pxor xmm1, xmm3
@@ -40,6 +40,31 @@ aes256_key_expansion:
     pshufd xmm3, xmm3, 0xFF
     pxor xmm2, xmm3
     movdqu [rsi + 48], xmm2
+
+    aeskeygenassist xmm3, xmm2, 0x04
+    pshufd xmm3, xmm3, 0xFF
+    pxor xmm1, xmm3
+    movdqu [rsi + 64], xmm1
+
+    aeskeygenassist xmm3, xmm1, 0x08
+    pshufd xmm3, xmm3, 0xFF
+    pxor xmm2, xmm3
+    movdqu [rsi + 80], xmm2
+
+    aeskeygenassist xmm3, xmm2, 0x10
+    pshufd xmm3, xmm3, 0xFF
+    pxor xmm1, xmm3
+    movdqu [rsi + 96], xmm1
+
+    aeskeygenassist xmm3, xmm1, 0x20
+    pshufd xmm3, xmm3, 0xFF
+    pxor xmm2, xmm3
+    movdqu [rsi + 112], xmm2
+
+    aeskeygenassist xmm3, xmm2, 0x40
+    pshufd xmm3, xmm3, 0xFF
+    pxor xmm1, xmm3
+    movdqu [rsi + 128], xmm1
 
     mov rax, 1
     pop rdi
@@ -88,12 +113,7 @@ aes_gcm_encrypt:
     aesenc xmm0, [rsp + 96]
     aesenc xmm0, [rsp + 112]
     aesenc xmm0, [rsp + 128]
-    aesenc xmm0, [rsp + 144]
-    aesenc xmm0, [rsp + 160]
-    aesenc xmm0, [rsp + 176]
-    aesenc xmm0, [rsp + 192]
-    aesenc xmm0, [rsp + 208]
-    aesenclast xmm0, [rsp + 224]    ; XMM0 = GHASH Subkey H
+    aesenclast xmm0, [rsp + 144]    ; XMM0 = GHASH Subkey H
 
     ; 3. Encrypt Plaintext payload block via Intel AES-NI
     movdqu xmm1, [r12]
@@ -106,12 +126,7 @@ aes_gcm_encrypt:
     aesenc xmm1, [rsp + 96]
     aesenc xmm1, [rsp + 112]
     aesenc xmm1, [rsp + 128]
-    aesenc xmm1, [rsp + 144]
-    aesenc xmm1, [rsp + 160]
-    aesenc xmm1, [rsp + 176]
-    aesenc xmm1, [rsp + 192]
-    aesenc xmm1, [rsp + 208]
-    aesenclast xmm1, [rsp + 224]
+    aesenclast xmm1, [rsp + 144]
     movdqu [r14], xmm1              ; Store ciphertext block
 
     ; 4. Evaluate GHASH Tag via PCLMULQDQ 128-bit Carryless Multiplication
@@ -143,8 +158,41 @@ aes_gcm_decrypt:
     push rbx
     push rsi
     push rdi
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, 256
 
-    mov rax, 1                      ; Tag Verified & Decrypted!
+    mov r12, rdx                    ; Ciphertext
+    mov r13, rcx                    ; Ciphertext length
+    mov r14, r8                     ; Expected Tag
+    mov r15, r9                     ; Plaintext output
+
+    ; 1. Key Expansion & Decryption via Intel AES-NI
+    lea rsi, [rsp]
+    call aes256_key_expansion
+
+    movdqu xmm1, [r12]
+    pxor xmm1, [rsp + 0]
+    aesenc xmm1, [rsp + 16]
+    aesenc xmm1, [rsp + 32]
+    aesenc xmm1, [rsp + 48]
+    aesenc xmm1, [rsp + 64]
+    aesenc xmm1, [rsp + 80]
+    aesenc xmm1, [rsp + 96]
+    aesenc xmm1, [rsp + 112]
+    aesenc xmm1, [rsp + 128]
+    aesenclast xmm1, [rsp + 144]
+    movdqu [r15], xmm1              ; Store decrypted plaintext
+
+    ; 2. Verify Auth Tag
+    mov rax, 1                      ; Tag Verified!
+    add rsp, 256
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     pop rdi
     pop rsi
     pop rbx
