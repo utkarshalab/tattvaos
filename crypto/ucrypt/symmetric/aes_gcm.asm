@@ -14,6 +14,19 @@
 section .text
 
 ; -----------------------------------------------------------------------------
+; aes_gcm_generate_nonce — Generate 12-byte random IV/Nonce via lib/urand/
+; Input:  RDI = Output 12-byte Nonce Pointer
+; Output: RAX = 1
+; -----------------------------------------------------------------------------
+aes_gcm_generate_nonce:
+    push rdi
+    mov rsi, 12                     ; 12-byte GCM Nonce
+    call urand_get_bytes            ; Call single authoritative lib/urand/ CSPRNG
+    mov rax, 1
+    pop rdi
+    ret
+
+; -----------------------------------------------------------------------------
 ; aes_key_expand — Expand 256-bit AES Key into Round Key Schedule using AES-NI
 ; Input:  RDI = 32-byte Key Pointer
 ;         RSI = Output Round Key Schedule Pointer (240 bytes)
