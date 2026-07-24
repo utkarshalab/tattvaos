@@ -27,14 +27,19 @@ crypto/ucrypt/
 │   ├── ecdh_p256.asm          ← NIST P-256 & secp256k1 ECDH Key Exchange
 │   └── rsa_oaep.asm           ← RSA-2048/4096 OAEP Data Encryption
 ├── mac/
-│   ├── hmac.asm               ← Generic HMAC-SHA256 / HMAC-SHA512 MAC (RFC 2104)
-│   ├── kmac.asm               ← KMAC-256 Keccak MAC (NIST SP 800-185)
-│   ├── poly1305.asm           ← Standalone 130-bit Poly1305 MAC (RFC 8439)
-│   └── poly1305_2way.asm      ← 2-way parallel Poly1305 vector accumulator
+│   ├── hmac/
+│   │   └── hmac.asm           ← Generic HMAC-SHA256 / HMAC-SHA512 MAC (RFC 2104)
+│   ├── kmac/
+│   │   └── kmac.asm           ← KMAC-256 Keccak MAC (NIST SP 800-185)
+│   ├── cmac/
+│   │   └── cmac.asm           ← AES-CMAC Cipher-based MAC (NIST SP 800-38B)
+│   └── poly1305/
+│       ├── poly1305.asm       ← Standalone 130-bit Poly1305 MAC (RFC 8439)
+│       └── poly1305_2way.asm  ← 2-way parallel Poly1305 vector accumulator
 ├── guards/
 │   ├── ct_guard.asm           ← Constant-time side-channel protection guard (Bleichenbacher defense)
 │   ├── s2n_guard.asm          ← Formally-verified constant-time key zeroization guard
-│   ├── corecrypto_guard.asm   ← Memory barrier key zeroization (volatile cc_clear)
+│   ├── memory_barrier_guard.asm ← Volatile memory barrier key zeroization (mfence)
 │   └── wipe.asm               ← Cold-boot key zeroization & SIMD vector scrubbing (vzeroall)
 ├── README.md                  ← Master documentation
 └── ucrypt.asm                 ← Master Cipher Dispatcher API
@@ -44,7 +49,8 @@ crypto/ucrypt/
 
 ## 2. Hyperscale Security Features
 
-- **Security Guards Division (`crypto/ucrypt/guards/`)**: Centralized security guards housing side-channel protection, memory barrier key clearing, and cold-boot SIMD scrubbing (`vzeroall`).
+- **Nested MAC Subsystem (`crypto/ucrypt/mac/`)**: Fully populated subdirectories (`mac/poly1305/`, `mac/hmac/`, `mac/kmac/`, `mac/cmac/`) housing all polynomial, HMAC, Keccak, and AES-CMAC authentication engines.
+- **Security Guards Division (`crypto/ucrypt/guards/`)**: Centralized security guards housing side-channel protection, memory barrier key clearing (`memory_barrier_guard.asm`), and cold-boot SIMD scrubbing (`vzeroall`).
 - **Nonce-Misuse Resistance (AES-GCM-SIV)**: Synthetic IV (SIV) guarantees that plaintexts cannot be forged or decrypted even if IV nonces are accidentally reused.
 - **Extended Nonce AEAD (XChaCha20-Poly1305)**: 192-bit (24-byte) extended nonce variant eliminating nonce collision risks across petabytes of network traffic.
 - **X448 High-Security Key Exchange**: 224-bit security level ($2^{448} - 2^{224} - 1$) for next-generation TLS 1.3 key exchanges.
