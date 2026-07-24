@@ -156,6 +156,16 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/chacha20_poly1305.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/ucrypt.asm \
                           $(KERNEL_DIR)/../lib/urand/urand.inc \
+                          $(KERNEL_DIR)/../lib/urand/sources/rdrand.asm \
+                          $(KERNEL_DIR)/../lib/urand/sources/jitter.asm \
+                          $(KERNEL_DIR)/../lib/urand/sources/interrupt_entropy.asm \
+                          $(KERNEL_DIR)/../lib/urand/health/entropy_health.asm \
+                          $(KERNEL_DIR)/../lib/urand/pools/fortuna_pools.asm \
+                          $(KERNEL_DIR)/../lib/urand/generators/chacha20_rng.asm \
+                          $(KERNEL_DIR)/../lib/urand/generators/aes_ctr_drbg.asm \
+                          $(KERNEL_DIR)/../lib/urand/urand_percpu.asm \
+                          $(KERNEL_DIR)/../lib/urand/urand_wipe.asm \
+                          $(KERNEL_DIR)/../lib/urand/tests/urand_test.asm \
                           $(KERNEL_DIR)/../lib/urand/urand.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
