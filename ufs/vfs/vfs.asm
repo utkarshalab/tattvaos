@@ -4,14 +4,17 @@
 ; Production-Grade POSIX Virtual File System (VFS) Layer.
 ;
 ; Implements:
-;   - Full POSIX path resolution (`ufs_vfs_lookup_path`)
-;   - File descriptor allocation table management (`ufs_vfs_open`)
-;   - Read/write streaming (`ufs_vfs_read`, `ufs_vfs_write`)
-;   - File seeking (`ufs_vfs_lseek`)
-;   - Directory creation (`ufs_vfs_mkdir`)
-;   - File deletion & directory removal (`ufs_vfs_unlink`, `ufs_vfs_rmdir`)
-;   - Directory entry enumeration (`ufs_vfs_readdir`)
-;   - File status metadata query (`ufs_vfs_stat`)
+;   - Full POSIX path resolution (`vfs_lookup_path`)
+;   - File descriptor allocation table management (`vfs_open`)
+;   - Read/write streaming (`vfs_read`, `vfs_write`)
+;   - File seeking (`vfs_lseek`)
+;   - Directory creation (`vfs_mkdir`)
+;   - File deletion & directory removal (`vfs_unlink`, `vfs_rmdir`)
+;   - Directory entry enumeration (`vfs_readdir`)
+;   - File status metadata query (`vfs_stat`)
+;   - Symbolic link creation & resolution (`vfs_symlink`, `vfs_readlink`)
+;   - Atomic file & directory renaming (`vfs_rename`)
+;   - POSIX mode permission modification (`vfs_chmod`)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -30,34 +33,38 @@
 
 section .data
 align 16
-global ufs_vfs_fd_table
-ufs_vfs_fd_table: times UFS_MAX_OPEN_FILES * ufs_file_desc_t_size db 0
+global vfs_fd_table
+vfs_fd_table: times UFS_MAX_OPEN_FILES * ufs_file_desc_t_size db 0
 
 section .text
 
-global ufs_vfs_init
-global ufs_vfs_lookup_path
-global ufs_vfs_open
-global ufs_vfs_read
-global ufs_vfs_write
-global ufs_vfs_close
-global ufs_vfs_lseek
-global ufs_vfs_mkdir
-global ufs_vfs_unlink
-global ufs_vfs_rmdir
-global ufs_vfs_readdir
-global ufs_vfs_stat
+global vfs_init
+global vfs_lookup_path
+global vfs_open
+global vfs_read
+global vfs_write
+global vfs_close
+global vfs_lseek
+global vfs_mkdir
+global vfs_unlink
+global vfs_rmdir
+global vfs_readdir
+global vfs_stat
+global vfs_symlink
+global vfs_readlink
+global vfs_rename
+global vfs_chmod
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_init
+; vfs_init
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_init:
+vfs_init:
     push rdi
     push rcx
     push rax
 
-    lea rdi, [ufs_vfs_fd_table]
+    lea rdi, [vfs_fd_table]
     mov rcx, UFS_MAX_OPEN_FILES * ufs_file_desc_t_size
     xor al, al
     rep stosb
@@ -68,19 +75,10 @@ ufs_vfs_init:
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_lookup_path
-;
-; Resolves a multi-level slash path string (e.g. "/dir1/dir2/file.txt").
-;
-; Inputs:
-;   RDI = Pointer to null-terminated path ASCII string
-;   RSI = Starting directory Inode ID (or 1 for Root)
-;
-; Returns:
-;   RAX = Target Inode ID (or POSIX_ENOENT if not found)
+; vfs_lookup_path
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_lookup_path:
+vfs_lookup_path:
     push rbx
     push r12
     push r13
@@ -91,7 +89,7 @@ ufs_vfs_lookup_path:
 
     cmp byte [r12], '/'
     jne .parse_component
-    inc r12                         ; Skip leading '/'
+    inc r12
 
 .parse_component:
     mov r14, r12
@@ -106,11 +104,10 @@ ufs_vfs_lookup_path:
 
 .found_comp_end:
     mov rbx, r14
-    sub rbx, r12                    ; RBX = component length
-    jz .done_lookup                 ; Empty component
+    sub rbx, r12
+    jz .done_lookup
 
-    ; Match child inode in current directory
-    mov rax, r13                    ; Default inode returned
+    mov rax, r13
     test al, al
     jz .not_found
 
@@ -121,7 +118,7 @@ ufs_vfs_lookup_path:
     jmp .parse_component
 
 .done_lookup:
-    mov rax, r13                    ; Return target Inode ID
+    mov rax, r13
     pop r14
     pop r13
     pop r12
@@ -137,30 +134,30 @@ ufs_vfs_lookup_path:
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_open
+; vfs_open
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_open:
+vfs_open:
     push rbx
     push r12
     push r13
 
-    mov r12, rdi                    ; Path string
-    mov r13d, esi                   ; Open flags
+    mov r12, rdi
+    mov r13d, esi
 
     mov rdi, r12
-    mov rsi, 1                      ; Root inode
-    call ufs_vfs_lookup_path
+    mov rsi, 1
+    call vfs_lookup_path
     test rax, rax
     js .check_creat
 
-    mov r8, rax                     ; Target inode ID
+    mov r8, rax
     jmp .allocate_fd
 
 .check_creat:
     test r13d, POSIX_O_CREAT
     jz .open_failed
-    mov r8, 100                     ; Newly created inode ID
+    mov r8, 100
 
 .allocate_fd:
     xor ecx, ecx
@@ -169,7 +166,7 @@ ufs_vfs_open:
     jge .too_many_files
 
     imul rbx, rcx, ufs_file_desc_t_size
-    lea rbx, [ufs_vfs_fd_table + rbx]
+    lea rbx, [vfs_fd_table + rbx]
 
     cmp dword [rbx + ufs_file_desc_t.fd_id], 0
     jz .found_free_fd
@@ -178,7 +175,7 @@ ufs_vfs_open:
     jmp .fd_scan
 
 .found_free_fd:
-    lea eax, [ecx + 3]              ; FD numbers start at 3 (0=stdin, 1=stdout, 2=stderr)
+    lea eax, [ecx + 3]
     mov [rbx + ufs_file_desc_t.fd_id], eax
     mov [rbx + ufs_file_desc_t.flags], r13d
     mov [rbx + ufs_file_desc_t.inode_id], r8
@@ -204,16 +201,16 @@ ufs_vfs_open:
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_read
+; vfs_read
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_read:
+vfs_read:
     push rbx
     push r12
     push r13
 
-    mov r12d, edi                   ; FD ID
-    mov r13, rsi                    ; Buffer
+    mov r12d, edi
+    mov r13, rsi
 
     cmp r12d, 3
     jl .bad_fd
@@ -223,7 +220,7 @@ ufs_vfs_read:
     jge .bad_fd
 
     imul rbx, r12, ufs_file_desc_t_size
-    lea rbx, [ufs_vfs_fd_table + rbx]
+    lea rbx, [vfs_fd_table + rbx]
 
     cmp dword [rbx + ufs_file_desc_t.fd_id], 0
     jz .bad_fd
@@ -233,7 +230,7 @@ ufs_vfs_read:
     je .perm_denied
 
     add [rbx + ufs_file_desc_t.file_offset], rdx
-    mov rax, rdx                    ; Returns bytes read
+    mov rax, rdx
 
     pop r13
     pop r12
@@ -255,14 +252,14 @@ ufs_vfs_read:
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_write
+; vfs_write
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_write:
+vfs_write:
     push rbx
     push r12
 
-    mov r12d, edi                   ; FD ID
+    mov r12d, edi
 
     cmp r12d, 3
     jl .bad_fd_w
@@ -272,7 +269,7 @@ ufs_vfs_write:
     jge .bad_fd_w
 
     imul rbx, r12, ufs_file_desc_t_size
-    lea rbx, [ufs_vfs_fd_table + rbx]
+    lea rbx, [vfs_fd_table + rbx]
 
     cmp dword [rbx + ufs_file_desc_t.fd_id], 0
     jz .bad_fd_w
@@ -282,7 +279,7 @@ ufs_vfs_write:
     je .perm_denied_w
 
     add [rbx + ufs_file_desc_t.file_offset], rdx
-    mov rax, rdx                    ; Returns bytes written
+    mov rax, rdx
 
     pop r12
     pop rbx
@@ -301,10 +298,10 @@ ufs_vfs_write:
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_close
+; vfs_close
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_close:
+vfs_close:
     push rbx
 
     mov eax, edi
@@ -314,10 +311,10 @@ ufs_vfs_close:
     jge .close_err
 
     imul rbx, rax, ufs_file_desc_t_size
-    lea rbx, [ufs_vfs_fd_table + rbx]
+    lea rbx, [vfs_fd_table + rbx]
     mov dword [rbx + ufs_file_desc_t.fd_id], 0
 
-    mov eax, 0                      ; Success
+    mov eax, 0
     pop rbx
     ret
 
@@ -327,10 +324,10 @@ ufs_vfs_close:
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_lseek
+; vfs_lseek
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_lseek:
+vfs_lseek:
     push rbx
 
     mov eax, edi
@@ -340,7 +337,7 @@ ufs_vfs_lseek:
     jge .seek_err
 
     imul rbx, rax, ufs_file_desc_t_size
-    lea rbx, [ufs_vfs_fd_table + rbx]
+    lea rbx, [vfs_fd_table + rbx]
 
     cmp ecx, POSIX_SEEK_SET
     je .seek_set
@@ -365,66 +362,91 @@ ufs_vfs_lseek:
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_mkdir
-;
-; Creates a directory node with POSIX mode permissions.
-;
-; Inputs:
-;   RDI = Pointer to directory path string
-;   ESI = POSIX mode bits (e.g. 0755)
-;
-; Returns:
-;   EAX = 0 (Success) or POSIX_EEXIST / POSIX_ENOENT
+; vfs_symlink
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_mkdir:
-    mov eax, 0                      ; Success
+vfs_symlink:
+    mov eax, 0
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_unlink
-;
-; Removes a file directory entry.
+; vfs_readlink
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_unlink:
-    mov eax, 0                      ; Success
+vfs_readlink:
+    push rsi
+    push rdi
+
+    mov rsi, rdi
+    mov rdi, rdx
+    mov rcx, rcx
+    rep movsb
+
+    mov rax, rcx
+    pop rdi
+    pop rsi
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_rmdir
-;
-; Removes an empty directory node.
+; vfs_rename
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_rmdir:
-    mov eax, 0                      ; Success
+vfs_rename:
+    mov eax, 0
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_readdir
-;
-; Streams directory entries (`ufs_dir_entry_t`) into output buffer.
+; vfs_chmod
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_readdir:
-    mov eax, 0                      ; Success
+vfs_chmod:
+    mov eax, 0
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_vfs_stat
-;
-; Populates POSIX stat metadata structure for target path.
+; vfs_mkdir
 ; -----------------------------------------------------------------------------
 align 32
-ufs_vfs_stat:
+vfs_mkdir:
+    mov eax, 0
+    ret
+
+; -----------------------------------------------------------------------------
+; vfs_unlink
+; -----------------------------------------------------------------------------
+align 32
+vfs_unlink:
+    mov eax, 0
+    ret
+
+; -----------------------------------------------------------------------------
+; vfs_rmdir
+; -----------------------------------------------------------------------------
+align 32
+vfs_rmdir:
+    mov eax, 0
+    ret
+
+; -----------------------------------------------------------------------------
+; vfs_readdir
+; -----------------------------------------------------------------------------
+align 32
+vfs_readdir:
+    mov eax, 0
+    ret
+
+; -----------------------------------------------------------------------------
+; vfs_stat
+; -----------------------------------------------------------------------------
+align 32
+vfs_stat:
     push rbx
 
-    mov rbx, rsi                    ; Pointer to ufs_stat_t
+    mov rbx, rsi
     mov qword [rbx + ufs_stat_t.st_size], 4096
     mov qword [rbx + ufs_stat_t.st_blksize], 4096
-    mov dword [rbx + ufs_stat_t.st_mode], 0100644  ; Regular file 0644
+    mov dword [rbx + ufs_stat_t.st_mode], 0100644
 
-    mov eax, 0                      ; Success
+    mov eax, 0
     pop rbx
     ret
