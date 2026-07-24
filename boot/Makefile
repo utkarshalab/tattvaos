@@ -124,7 +124,17 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../lib/ufile/signatures/fs_signatures.asm \
                           $(KERNEL_DIR)/../lib/ufile/signatures/ai_signatures.asm \
                           $(KERNEL_DIR)/../lib/ufile/signatures/exec_signatures.asm \
-                          $(KERNEL_DIR)/../lib/ufile/ufile.asm
+                          $(KERNEL_DIR)/../lib/ufile/ufile.asm \
+                          $(KERNEL_DIR)/../crypto/uhash/sha256/sha256.inc \
+                          $(KERNEL_DIR)/../crypto/uhash/sha256/sha256.asm \
+                          $(KERNEL_DIR)/../crypto/uhash/blake3/blake3.inc \
+                          $(KERNEL_DIR)/../crypto/uhash/blake3/blake3.asm \
+                          $(KERNEL_DIR)/../crypto/uhash/blake2/blake2b.asm \
+                          $(KERNEL_DIR)/../crypto/uhash/blake2/blake2s.asm \
+                          $(KERNEL_DIR)/../crypto/uhash/sha512/sha512.inc \
+                          $(KERNEL_DIR)/../crypto/uhash/sha512/sha512.asm \
+                          $(KERNEL_DIR)/../crypto/uhash/sha3/sha3.asm \
+                          $(KERNEL_DIR)/../crypto/uhash/uhash.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
