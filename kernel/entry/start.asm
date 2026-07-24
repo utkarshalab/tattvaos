@@ -54,6 +54,17 @@ bsp_cpu_local:
     .reserved    dd 0               ; explicit alignment padding
     .stack_top   dq kernel_stack_top; kernel stack top address
     .arena       dq 0               ; thread-local/core-local arena pointer (offset 24)
+    .pool        dq 0               ; offset 32
+    .reclaim     dq 0               ; offset 40
+    .spare1      dq 0               ; offset 48
+    .spare2      dq 0               ; offset 56
+    .current_fiber  dq 0            ; GS:64
+    .idle_fiber     dq 0            ; GS:72
+    .run_queue_head dq 0            ; GS:80
+    .run_queue_tail dq 0            ; GS:88
+    .fiber_count    dd 0            ; GS:96
+    .ticks          dq 0            ; GS:104
+    .steal_lock     dd 0            ; GS:112
 
 ; -----------------------------------------------------------------------------
 ; Kernel Stack allocation with unmapped guard page
