@@ -166,7 +166,31 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../lib/urand/urand_percpu.asm \
                           $(KERNEL_DIR)/../lib/urand/urand_wipe.asm \
                           $(KERNEL_DIR)/../lib/urand/tests/urand_test.asm \
-                          $(KERNEL_DIR)/../lib/urand/urand.asm
+                          $(KERNEL_DIR)/../lib/urand/urand.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509.inc \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_oid.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_asn1.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_sanitize.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_parse.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_ext.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_san_match.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_policy.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_path.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_time.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_crl.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_ocsp.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_aia.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_name_constraints.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_sct.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_fingerprint.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_key_match.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_trust_store.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_self_signed.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_name_norm.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_csr.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_pqc_cert.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509_chain.asm \
+                          $(KERNEL_DIR)/../crypto/ux509/ux509.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
