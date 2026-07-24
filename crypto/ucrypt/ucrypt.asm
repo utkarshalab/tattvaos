@@ -12,7 +12,7 @@
 %include "crypto/ucrypt/symmetric/ucrypt.inc"
 %include "crypto/ucrypt/guards/ct_guard.asm"
 %include "crypto/ucrypt/guards/s2n_guard.asm"
-%include "crypto/ucrypt/guards/corecrypto_guard.asm"
+%include "crypto/ucrypt/guards/memory_barrier_guard.asm"
 %include "crypto/ucrypt/guards/wipe.asm"
 %include "crypto/ucrypt/symmetric/aes_gcm.asm"
 %include "crypto/ucrypt/symmetric/aes_gcm_4way.asm"
@@ -29,10 +29,11 @@
 %include "crypto/ucrypt/asymmetric/curve448.asm"
 %include "crypto/ucrypt/asymmetric/ecdh_p256.asm"
 %include "crypto/ucrypt/asymmetric/rsa_oaep.asm"
-%include "crypto/ucrypt/mac/hmac.asm"
-%include "crypto/ucrypt/mac/kmac.asm"
-%include "crypto/ucrypt/mac/poly1305.asm"
-%include "crypto/ucrypt/mac/poly1305_2way.asm"
+%include "crypto/ucrypt/mac/hmac/hmac.asm"
+%include "crypto/ucrypt/mac/kmac/kmac.asm"
+%include "crypto/ucrypt/mac/cmac/cmac.asm"
+%include "crypto/ucrypt/mac/poly1305/poly1305.asm"
+%include "crypto/ucrypt/mac/poly1305/poly1305_2way.asm"
 
 section .text
 
