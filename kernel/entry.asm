@@ -73,7 +73,7 @@ kernel_text_start:
 %include "crypto/usign/ed25519/ed25519.asm"
 %include "crypto/usign/ecdsa/ecdsa_p256.asm"
 %include "crypto/usign/rsa/rsa_pss.asm"
-%include "crypto/usign/pqc/dilithium.asm"
+%include "crypto/upqc/upqc.asm"
 %include "crypto/usign/formats/raw.asm"
 %include "crypto/usign/formats/pem.asm"
 %include "crypto/usign/formats/pkcs7.asm"
@@ -89,7 +89,6 @@ kernel_text_start:
 %include "crypto/ucrypt/ucrypt.asm"
 %include "lib/urand/urand.asm"
 %include "crypto/ux509/ux509.asm"
-%include "crypto/upqc/upqc.asm"
 
     section .text
     global kernel_text_end
