@@ -167,6 +167,9 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_gcm_siv.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/xchacha20_poly1305.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/curve448.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/ucrypt_s2n_guard.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_gcm_4way.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/mac/kmac.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/ucrypt.asm \
                           $(KERNEL_DIR)/../lib/urand/urand.inc \
                           $(KERNEL_DIR)/../lib/urand/sources/rdrand.asm \
