@@ -63,6 +63,13 @@ kernel_text_start:
 %include "lib/ufile/signatures/fs_signatures.asm"
 %include "lib/ufile/signatures/ai_signatures.asm"
 %include "lib/ufile/signatures/exec_signatures.asm"
+%include "crypto/uhash/sha256/sha256.asm"
+%include "crypto/uhash/blake3/blake3.asm"
+%include "crypto/uhash/blake2/blake2b.asm"
+%include "crypto/uhash/blake2/blake2s.asm"
+%include "crypto/uhash/sha512/sha512.asm"
+%include "crypto/uhash/sha3/sha3.asm"
+%include "crypto/uhash/uhash.asm"
 
     section .text
     global kernel_text_end
