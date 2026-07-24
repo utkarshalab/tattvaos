@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_parse.asm
 ; =============================================================================
-; Robust X.509 v3 Certificate Field Extractor & ASN.1 Parser.
+; X.509 v3 Certificate Field Extractor & ASN.1 Parser.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
