@@ -174,6 +174,16 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../crypto/ucrypt/guards/s2n_guard.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/guards/memory_barrier_guard.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/guards/wipe.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/ucrypt_post.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_gcm_avx512.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_ocb3.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/sm4_gcm.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aria_gcm.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/camellia_gcm.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/ed448.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/bip32_hdkey.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/secp256k1_schnorr.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/mac/vmac/vmac.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/ucrypt.asm \
                           $(KERNEL_DIR)/../lib/urand/urand.inc \
                           $(KERNEL_DIR)/../lib/urand/sources/rdrand.asm \
