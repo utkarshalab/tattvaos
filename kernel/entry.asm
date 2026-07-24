@@ -79,6 +79,15 @@ kernel_text_start:
 %include "crypto/usign/formats/pkcs7.asm"
 %include "crypto/usign/formats/upk_sig.asm"
 %include "crypto/usign/usign.asm"
+%include "crypto/ukdf/hkdf/hkdf.asm"
+%include "crypto/ukdf/argon2/argon2.asm"
+%include "crypto/ukdf/pbkdf2/pbkdf2.asm"
+%include "crypto/ukdf/ukdf.asm"
+%include "crypto/ucrypt/symmetric/aes_gcm.asm"
+%include "crypto/ucrypt/symmetric/aes_xts.asm"
+%include "crypto/ucrypt/symmetric/chacha20_poly1305.asm"
+%include "crypto/ucrypt/ucrypt.asm"
+%include "lib/urand/urand.asm"
 
     section .text
     global kernel_text_end
