@@ -54,6 +54,15 @@ kernel_text_start:
 %include "sched/fiber_supervisor.asm"
 %include "sched/smp_mpmc.asm"
 %include "sched/sched.asm"
+%include "lib/ufile/ufile.asm"
+%include "lib/ufile/ufile_sanitize.asm"
+%include "lib/ufile/ufile_entropy.asm"
+%include "lib/ufile/ufile_hash.asm"
+%include "lib/ufile/ufile_engine.asm"
+%include "lib/ufile/ufile_transpose.asm"
+%include "lib/ufile/signatures/fs_signatures.asm"
+%include "lib/ufile/signatures/ai_signatures.asm"
+%include "lib/ufile/signatures/exec_signatures.asm"
 
     section .text
     global kernel_text_end
