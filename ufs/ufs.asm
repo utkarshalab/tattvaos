@@ -18,30 +18,30 @@
 ; -----------------------------------------------------------------------------
 %include "ufs/vfs/vfs.asm"
 %include "ufs/vfs/overlayfs.asm"
-%include "ufs/vfs/ufs_clone.asm"
-%include "ufs/vfs/ufs_snapshot.asm"
-%include "ufs/vfs/ufs_pseudofs.asm"
+%include "ufs/vfs/clone.asm"
+%include "ufs/vfs/snapshot.asm"
+%include "ufs/vfs/pseudofs.asm"
 %include "ufs/vfs/compat/fat32.asm"
 %include "ufs/vfs/compat/ntfs.asm"
 %include "ufs/vfs/compat/ext4_compat.asm"
-%include "ufs/cache/ufs_pagecache.asm"
-%include "ufs/cache/ufs_arc.asm"
-%include "ufs/cache/ufs_dax.asm"
-%include "ufs/cache/ufs_dedup.asm"
-%include "ufs/cache/ufs_tmpfs.asm"
-%include "ufs/crypto/ufs_crypto.asm"
-%include "ufs/crypto/ufs_pqc.asm"
-%include "ufs/crypto/ufs_fscrypt.asm"
-%include "ufs/crypto/ufs_verity.asm"
-%include "ufs/crypto/ufs_vault.asm"
-%include "ufs/btree/ufs_cow_btree.asm"
-%include "ufs/btree/ufs_alloc_groups.asm"
-%include "ufs/extents/ufs_extents.asm"
-%include "ufs/compress/ufs_compress.asm"
+%include "ufs/cache/pagecache.asm"
+%include "ufs/cache/arc.asm"
+%include "ufs/cache/dax.asm"
+%include "ufs/cache/dedup.asm"
+%include "ufs/cache/tmpfs.asm"
+%include "ufs/crypto/crypto.asm"
+%include "ufs/crypto/pqc.asm"
+%include "ufs/crypto/fscrypt.asm"
+%include "ufs/crypto/verity.asm"
+%include "ufs/crypto/vault.asm"
+%include "ufs/btree/cow_btree.asm"
+%include "ufs/btree/alloc_groups.asm"
+%include "ufs/extents/extents.asm"
+%include "ufs/compress/compress.asm"
 %include "ufs/compress/erofs.asm"
-%include "ufs/cluster/ufs_cluster.asm"
-%include "ufs/cluster/ufs_erasure.asm"
-%include "ufs/limits/ufs_quota.asm"
+%include "ufs/cluster/cluster.asm"
+%include "ufs/cluster/erasure.asm"
+%include "ufs/limits/quota.asm"
 %include "ufs/drivers/nvme.asm"
 %include "ufs/drivers/nvme_zns.asm"
 %include "ufs/drivers/usb_storage.asm"
@@ -49,8 +49,8 @@
 %include "ufs/drivers/sdhci.asm"
 %include "ufs/drivers/virtio_blk.asm"
 %include "ufs/drivers/nvme_of.asm"
-%include "ufs/journal/ufs_journal.asm"
-%include "ufs/tests/ufs_fuzz.asm"
+%include "ufs/journal/journal.asm"
+%include "ufs/tests/fuzz.asm"
 
 section .text
 
@@ -60,12 +60,6 @@ global ufs_unmount
 
 ; -----------------------------------------------------------------------------
 ; ufs_init
-;
-; Initializes master uFS filesystem subsystem, VFS descriptor tables, page cache,
-; ARC cache, deduplication hash table, and driver queues.
-;
-; Returns:
-;   EAX = 0 (Success)
 ; -----------------------------------------------------------------------------
 align 32
 ufs_init:
@@ -82,14 +76,6 @@ ufs_init:
 
 ; -----------------------------------------------------------------------------
 ; ufs_mount
-;
-; Mounts a target storage volume formatted with uFS.
-;
-; Inputs:
-;   RDI = Pointer to volume superblock buffer
-;
-; Returns:
-;   EAX = 0 (Success)
 ; -----------------------------------------------------------------------------
 align 32
 ufs_mount:
@@ -106,7 +92,7 @@ ufs_mount:
     ret
 
 .corrupt_mount:
-    mov eax, -22                    ; EINVAL (Invalid argument / corrupt magic)
+    mov eax, -22                    ; EINVAL
     pop rbx
     ret
 
