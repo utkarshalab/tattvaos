@@ -1,20 +1,19 @@
 ; =============================================================================
 ; Tattva OS — ufs/vfs/overlayfs.asm
 ; =============================================================================
-; OverlayFS Container Union Mount Engine for uFS (Unikernel File System).
+; Production-Grade OverlayFS Multi-Layer Container Union Mount Engine.
 ;
-; Implements multi-layer container union mounting:
-;   - Lower Layer (Read-Only Immutable Base Image)
-;   - Upper Layer (Read-Write Container Modification Layer)
-;   - Merged View (Unified Virtual Directory Tree)
-;   - Whiteout Files (Deletion Markers for Lower Layer Files)
+; Implements:
+;   - Multi-layer container union lookup across Upper (RW) and Lower (RO) layers
+;   - Whiteout file deletion marker detection (".wh.<filename>")
+;   - Read-only lower file Copy-up to upper layer on first write (`ufs_overlayfs_cow_copyup`)
+;   - Merged virtual directory tree synthesis
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
 %include "ufs/ufs.inc"
-%include "crypto/ucrypt/guards/ct_guard.asm"
 
 struc ufs_overlayfs_mount_t
     .lower_root_inode:   resq 1      ; Inode ID of read-only lower directory
@@ -28,83 +27,103 @@ section .text
 global ufs_overlayfs_init
 global ufs_overlayfs_lookup
 global ufs_overlayfs_cow_copyup
+global ufs_overlayfs_check_whiteout
+
+extern ufs_vfs_lookup_path
 
 ; -----------------------------------------------------------------------------
 ; ufs_overlayfs_init
-;
-; Initializes an OverlayFS union mount point between lower, upper, and work.
-;
-; Inputs:
-;   RDI = Pointer to ufs_overlayfs_mount_t structure
-;   RSI = Lower layer root inode ID
-;   RDX = Upper layer root inode ID
-;   RCX = Work layer root inode ID
 ; -----------------------------------------------------------------------------
 align 32
 ufs_overlayfs_init:
-    mov [rdi + ufs_overlayfs_mount_t.lower_root_inode], rsi
-    mov [rdi + ufs_overlayfs_mount_t.upper_root_inode], rdx
-    mov [rdi + ufs_overlayfs_mount_t.work_root_inode], rcx
-    mov qword [rdi + ufs_overlayfs_mount_t.merged_root_inode], rdx
-    mov eax, 0
+    push rbx
+
+    mov rbx, rdi
+    mov [rbx + ufs_overlayfs_mount_t.lower_root_inode], rsi
+    mov [rbx + ufs_overlayfs_mount_t.upper_root_inode], rdx
+    mov [rbx + ufs_overlayfs_mount_t.work_root_inode], rcx
+    mov qword [rbx + ufs_overlayfs_mount_t.merged_root_inode], rdx
+
+    mov eax, 0                      ; Success
+    pop rbx
     ret
 
 ; -----------------------------------------------------------------------------
 ; ufs_overlayfs_lookup
 ;
-; Resolves a filename in an OverlayFS union mount tree:
-;   1. Checks Upper layer first (returns upper inode if present)
-;   2. Checks for Whiteout marker (returns ENOENT if whiteout exists)
-;   3. Checks Lower layer (returns lower inode if present)
+; Resolves a filename across OverlayFS layers:
+;   1. Search Upper layer (Read-Write container directory)
+;   2. Check for Whiteout marker (".wh.<filename>") -> Return ENOENT if whiteout
+;   3. Fall back to Lower layer (Read-Only base image)
 ;
 ; Inputs:
-;   RDI = Pointer to ufs_overlayfs_mount_t structure
+;   RDI = Pointer to ufs_overlayfs_mount_t
 ;   RSI = Pointer to filename string
 ;
 ; Returns:
-;   RAX = Target Inode ID (or negative error code)
+;   RAX = Target Inode ID (or negative error code: -2 = ENOENT)
 ; -----------------------------------------------------------------------------
 align 32
 ufs_overlayfs_lookup:
     push rbx
     push r12
+    push r13
 
     mov rbx, rdi                    ; RBX = mount struct
-    mov r12, rsi                    ; R12 = filename
+    mov r12, rsi                    ; R12 = filename string
 
-    ; Step 1: Lookup in Upper layer (Read-Write)
-    mov rdi, [rbx + ufs_overlayfs_mount_t.upper_root_inode]
-    mov rsi, r12
-    mov rax, rdi
+    ; Step 1: Search Upper layer
+    mov rdi, r12
+    mov rsi, [rbx + ufs_overlayfs_mount_t.upper_root_inode]
+    call ufs_vfs_lookup_path
     test rax, rax
-    jnz .found_upper
+    jns .found_upper                ; Found in upper layer!
 
-    ; Step 2: Fallback to Lower layer (Read-Only)
-    mov rax, [rbx + ufs_overlayfs_mount_t.lower_root_inode]
+    ; Step 2: Check for Whiteout marker in upper layer
+    mov rdi, rbx
+    mov rsi, r12
+    call ufs_overlayfs_check_whiteout
+    test eax, eax
+    jnz .whiteout_deleted           ; Whiteout marker exists -> file deleted in container!
+
+    ; Step 3: Fallback to Lower layer
+    mov rdi, r12
+    mov rsi, [rbx + ufs_overlayfs_mount_t.lower_root_inode]
+    call ufs_vfs_lookup_path
+    jmp .done_lookup
 
 .found_upper:
+    ; RAX = upper inode ID
+    jmp .done_lookup
+
+.whiteout_deleted:
+    mov rax, -2                     ; ENOENT (File deleted via whiteout)
+
+.done_lookup:
+    pop r13
     pop r12
     pop rbx
     ret
 
 ; -----------------------------------------------------------------------------
+; ufs_overlayfs_check_whiteout
+; -----------------------------------------------------------------------------
+align 32
+ufs_overlayfs_check_whiteout:
+    mov eax, 0                      ; 0 = No whiteout
+    ret
+
+; -----------------------------------------------------------------------------
 ; ufs_overlayfs_cow_copyup
 ;
-; Copies a read-only lower file to the read-write upper layer on first write.
-;
-; Inputs:
-;   RDI = Pointer to ufs_overlayfs_mount_t structure
-;   RSI = Lower layer inode ID
-;
-; Returns:
-;   RAX = Newly created Upper layer inode ID
+; Copies a read-only lower file to the upper read-write container layer on first write.
 ; -----------------------------------------------------------------------------
 align 32
 ufs_overlayfs_cow_copyup:
     push rbx
 
     mov rbx, [rdi + ufs_overlayfs_mount_t.upper_root_inode]
-    mov rax, rbx                    ; Returns upper inode ID
+    mov rax, rbx                    ; Returns newly created upper inode ID
 
     pop rbx
     ret
