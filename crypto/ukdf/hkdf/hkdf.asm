@@ -14,6 +14,21 @@
 section .text
 
 ; -----------------------------------------------------------------------------
+; hkdf_generate_salt — Generate cryptographically secure random salt via lib/urand/
+; Input:  RDI = Output Salt Buffer Pointer
+;         RSI = Target Salt Length in bytes
+; Output: RAX = 1
+; -----------------------------------------------------------------------------
+hkdf_generate_salt:
+    push rdi
+    push rsi
+    call urand_get_bytes            ; Call single authoritative lib/urand/ CSPRNG
+    mov rax, 1
+    pop rsi
+    pop rdi
+    ret
+
+; -----------------------------------------------------------------------------
 ; hkdf_extract — Extract Pseudo-Random Key (PRK = HMAC-Hash(salt, IKM))
 ; Input:  RDI = Pointer to Salt buffer
 ;         RSI = Salt length in bytes
