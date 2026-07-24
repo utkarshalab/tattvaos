@@ -160,18 +160,19 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/x25519.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/ecdh_p256.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/rsa_oaep.asm \
-                          $(KERNEL_DIR)/../crypto/ucrypt/mac/hmac.asm \
-                          $(KERNEL_DIR)/../crypto/ucrypt/mac/poly1305.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/mac/hmac/hmac.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/mac/kmac/kmac.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/mac/cmac/cmac.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/mac/poly1305/poly1305.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/mac/poly1305/poly1305_2way.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_gcm_siv.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/xchacha20_poly1305.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/curve448.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_gcm_4way.asm \
-                          $(KERNEL_DIR)/../crypto/ucrypt/mac/kmac.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_kw_ad.asm \
-                          $(KERNEL_DIR)/../crypto/ucrypt/mac/poly1305_2way.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/guards/ct_guard.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/guards/s2n_guard.asm \
-                          $(KERNEL_DIR)/../crypto/ucrypt/guards/corecrypto_guard.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/guards/memory_barrier_guard.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/guards/wipe.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/ucrypt.asm \
                           $(KERNEL_DIR)/../lib/urand/urand.inc \
