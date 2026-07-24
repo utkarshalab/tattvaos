@@ -226,7 +226,27 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../crypto/upqc/kyber.asm \
                           $(KERNEL_DIR)/../crypto/upqc/falcon.asm \
                           $(KERNEL_DIR)/../crypto/upqc/sphincs.asm \
-                          $(KERNEL_DIR)/../crypto/upqc/upqc.asm
+                          $(KERNEL_DIR)/../crypto/upqc/upqc.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/include/ucmp.inc \
+                          $(KERNEL_DIR)/../lib/ucmp/arch/common/macros.inc \
+                          $(KERNEL_DIR)/../lib/ucmp/arch/common/error.inc \
+                          $(KERNEL_DIR)/../lib/ucmp/arch/common/types.inc \
+                          $(KERNEL_DIR)/../lib/ucmp/arch/common/bitops.inc \
+                          $(KERNEL_DIR)/../lib/ucmp/arch/x86_64/simd/scan.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/core/stream.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/core/buffer.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/core/bitstream.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/algo/lz4/lz4.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/algo/lz4/lz4_decomp.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/algo/snappy/snappy.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/algo/zstd/zstd.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/algo/deflate/deflate.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/algo/deflate/inflate.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/algo/zlib/zlib.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/algo/gzip/gzip.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/checksum/crc32.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/mem/arena.asm \
+                          $(KERNEL_DIR)/../lib/ucmp/ucmp.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
