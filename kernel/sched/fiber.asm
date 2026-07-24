@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Tattva OS — kernel/sched/fiber.asm
 ; =============================================================================
-; Ring-0 Cooperative Fiber Creation, Context Switching, and Yield Engine.
+; Ring-0 Cooperative Fiber Creation, Guard Pages, Canaries, and Context Switcher.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -30,6 +30,7 @@ fiber_system_init:
     rep stosq
 
     mov qword [next_fiber_id], 1
+    call pkey_init
     mov rax, 1
 
     pop rdi
@@ -38,9 +39,11 @@ fiber_system_init:
     ret
 
 ; -----------------------------------------------------------------------------
-; fiber_create — Allocate and initialize a new Ring-0 fiber
+; fiber_create — Allocate and initialize a new Enterprise Ring-0 fiber
 ; Input:  RDI = entry_point function pointer
 ;         RSI = argument (64-bit value passed in RDI to entry_point)
+;         RDX = priority (0=REALTIME, 1=HIGH, 2=NORMAL, 3=IDLE)
+;         RCX = restart_policy (0=NEVER, 1=ALWAYS, 2=TRANSIENT)
 ; Output: RAX = Pointer to new FCB (or 0 if out of memory/slots)
 ; -----------------------------------------------------------------------------
 fiber_create:
@@ -51,9 +54,13 @@ fiber_create:
     push rdi
     push r12
     push r13
+    push r14
+    push r15
 
     mov r12, rdi                    ; R12 = entry_point
     mov r13, rsi                    ; R13 = arg
+    mov r14d, edx                   ; R14D = prio
+    mov r15d, ecx                   ; R15D = restart_policy
 
     ; 1. Find a free FCB slot in fiber_pool
     mov rbx, fiber_pool
@@ -69,15 +76,22 @@ fiber_create:
     jmp .done
 
 .slot_found:
-    ; 2. Allocate 4 pages (16KB) for fiber stack
-    mov rdi, 4
+    ; 2. Allocate 5 pages (20KB total: 1 guard page + 4 pages 16KB stack)
+    mov rdi, 5
     call phys_alloc_pages
     test rax, rax
     jz .alloc_failed
-    
+
+    ; Set guard page & stack addresses
+    mov [rbx + fcb_t.guard_addr], rax
+    add rax, FIBER_GUARD_SIZE
     mov [rbx + fcb_t.stack_bottom], rax
     add rax, FIBER_STACK_SIZE
     mov [rbx + fcb_t.stack_top], rax
+
+    ; Unmap 4KB Guard Page (VMA_NONE) below stack bottom to catch overflows
+    mov rdi, [rbx + fcb_t.guard_addr]
+    call virt_unmap
 
     ; 3. Setup FCB fields
     mov rax, [next_fiber_id]
@@ -85,22 +99,25 @@ fiber_create:
     mov [rbx + fcb_t.id], rax
 
     mov dword [rbx + fcb_t.state], FIBER_STATE_READY
+    mov [rbx + fcb_t.prio], r14d
+    mov [rbx + fcb_t.restart_policy], r15d
+    mov dword [rbx + fcb_t.crash_count], 0
     mov [rbx + fcb_t.entry_point], r12
     mov [rbx + fcb_t.arg], r13
     mov qword [rbx + fcb_t.time_slice], 0
 
-    ; 4. Format the stack for initial fiber_switch return
-    ; Stack grows down from stack_top.
-    ; Layout for initial RSP:
-    ;   [stack_top - 0x08] = fiber_entry_wrapper RIP
-    ;   [stack_top - 0x10] = initial RBP (0)
-    ;   [stack_top - 0x18] = initial RBX (0)
-    ;   [stack_top - 0x20] = initial R12 (0)
-    ;   [stack_top - 0x28] = initial R13 (0)
-    ;   [stack_top - 0x30] = initial R14 (0)
-    ;   [stack_top - 0x38] = initial R15 (0)
+    ; Allocate Intel PKEY
+    call pkey_alloc
+    mov [rbx + fcb_t.pkey], eax
+
+    ; Plant security stack canaries
+    mov rdi, rbx
+    call canary_plant
+
+    ; 4. Format initial stack frame
     mov rdx, [rbx + fcb_t.stack_top]
-    
+    sub rdx, 16                     ; Reserve space for top canary marker
+
     sub rdx, 8
     mov qword [rdx], fiber_entry_wrapper
 
@@ -122,7 +139,6 @@ fiber_create:
     sub rdx, 8
     mov qword [rdx], 0              ; R15
 
-    ; Set initial RSP
     mov [rbx + fcb_t.rsp], rdx
 
     ; 5. Push new FCB to current core's ready queue
@@ -136,6 +152,8 @@ fiber_create:
     xor rax, rax
 
 .done:
+    pop r15
+    pop r14
     pop r13
     pop r12
     pop rdi
@@ -155,24 +173,28 @@ fiber_yield:
     push rsi
     push rdi
 
-    ; Get currently running FCB from CPU GS Base (+64)
-    mov rdi, [gs:64]
+    mov rdi, [gs:64]                ; RDI = current_fiber
     test rdi, rdi
     jz .yield_done
 
-    ; If current fiber is RUNNING, set state back to READY and push to tail
+    ; Verify stack canary before switching
+    push rdi
+    call canary_verify
+    pop rdi
+    test rax, rax
+    jz .canary_failed
+
+    ; If current fiber is RUNNING, set back to READY and push to ready queue
     cmp dword [rdi + fcb_t.state], FIBER_STATE_RUNNING
     jne .select_next
     mov dword [rdi + fcb_t.state], FIBER_STATE_READY
     call sched_push_fiber
 
 .select_next:
-    ; Pop next ready FCB from queue
     call sched_pop_next_fiber
     test rax, rax
     jnz .switch_to_next
 
-    ; If no fibers ready, fallback to idle event fiber
     mov rsi, [gs:72]                ; GS:72 = idle_fiber
     test rsi, rsi
     jz .yield_done
@@ -183,13 +205,16 @@ fiber_yield:
 
 .do_switch:
     cmp rdi, rsi
-    je .yield_done                  ; Same fiber, no switch needed
+    je .yield_done
 
-    ; Update GS:64 to point to new fiber FCB
+    ; Perform PKEY hardware key switch
+    mov edi, [rsi + fcb_t.pkey]
+    call pkey_switch
+
     mov [gs:64], rsi
     mov dword [rsi + fcb_t.state], FIBER_STATE_RUNNING
 
-    ; Perform assembly context switch
+    ; Low-level context switch
     call fiber_switch
 
 .yield_done:
@@ -198,18 +223,82 @@ fiber_yield:
     pop rbx
     ret
 
+.canary_failed:
+    ; Canary corrupted — hand to fault isolation trap!
+    mov rdi, 14                     ; Vector 14 (#PF)
+    mov rsi, 0xBADCAFA             ; Custom canary error code
+    mov rdx, [rdi + fcb_t.entry_point]
+    mov rcx, rsp
+    jmp fiber_guard_trap
+
 ; -----------------------------------------------------------------------------
-; fiber_exit — Called when a fiber finishes execution
+; fiber_reap_dead — Reclaim memory of finished/crashed DEAD fibers
 ; Input:  none
-; Output: never returns (yields to next fiber)
+; Output: RAX = count of reaped fibers
+; -----------------------------------------------------------------------------
+fiber_reap_dead:
+    push rbx
+    push rcx
+    push rdi
+
+    mov rbx, fiber_pool
+    mov ecx, FIBER_MAX_COUNT
+    xor r8, r8                      ; R8 = reaped count
+
+.scan_loop:
+    cmp dword [rbx + fcb_t.state], FIBER_STATE_DEAD
+    jne .next_slot
+
+    ; If restart_policy is ALWAYS and crash_count < 5, supervisor handles restart.
+    ; Otherwise, reclaim stack!
+    cmp dword [rbx + fcb_t.restart_policy], FIBER_RESTART_ALWAYS
+    jne .free_memory
+    cmp dword [rbx + fcb_t.crash_count], 5
+    jbe .next_slot
+
+.free_memory:
+    mov rdi, [rbx + fcb_t.guard_addr]
+    test rdi, rdi
+    jz .reset_fcb
+
+    ; Free 5 pages (20KB total allocation)
+    mov rsi, 5
+    call phys_free_pages
+
+.reset_fcb:
+    mov dword [rbx + fcb_t.state], FIBER_STATE_FREE
+    inc r8
+
+.next_slot:
+    add rbx, fcb_t_size
+    loop .scan_loop
+
+    mov rax, r8
+    pop rdi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; fiber_exit — Called when a fiber completes execution
+; Input:  none
+; Output: never returns
 ; -----------------------------------------------------------------------------
 fiber_exit:
     mov rdi, [gs:64]
     test rdi, rdi
     jz .halt
 
-    ; Mark FCB as DEAD
     mov dword [rdi + fcb_t.state], FIBER_STATE_DEAD
+
+    ; Check if auto-restart daemon
+    cmp dword [rdi + fcb_t.restart_policy], FIBER_RESTART_ALWAYS
+    jne .do_yield
+
+    mov rdi, [gs:64]
+    call fiber_supervisor_handle_crash
+
+.do_yield:
     call fiber_yield
 
 .halt:
@@ -221,14 +310,12 @@ fiber_exit:
 ; fiber_entry_wrapper — Trampoline entry point for newly created fibers
 ; -----------------------------------------------------------------------------
 fiber_entry_wrapper:
-    mov rbx, [gs:64]                ; RBX = current FCB
+    mov rbx, [gs:64]
     test rbx, rbx
     jz .exit
 
     mov rax, [rbx + fcb_t.entry_point]
     mov rdi, [rbx + fcb_t.arg]
-    
-    ; Execute fiber function
     call rax
 
 .exit:
@@ -259,9 +346,6 @@ fiber_switch:
 
     ret
 
-; -----------------------------------------------------------------------------
-; Global Data
-; -----------------------------------------------------------------------------
 section .data
 
 align 16
