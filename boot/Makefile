@@ -250,30 +250,30 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../ufs/ufs.inc \
                           $(KERNEL_DIR)/../ufs/vfs/vfs.asm \
                           $(KERNEL_DIR)/../ufs/vfs/overlayfs.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/ufs_clone.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/ufs_snapshot.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/ufs_pseudofs.asm \
+                          $(KERNEL_DIR)/../ufs/vfs/clone.asm \
+                          $(KERNEL_DIR)/../ufs/vfs/snapshot.asm \
+                          $(KERNEL_DIR)/../ufs/vfs/pseudofs.asm \
                           $(KERNEL_DIR)/../ufs/vfs/compat/fat32.asm \
                           $(KERNEL_DIR)/../ufs/vfs/compat/ntfs.asm \
                           $(KERNEL_DIR)/../ufs/vfs/compat/ext4_compat.asm \
-                          $(KERNEL_DIR)/../ufs/cache/ufs_pagecache.asm \
-                          $(KERNEL_DIR)/../ufs/cache/ufs_arc.asm \
-                          $(KERNEL_DIR)/../ufs/cache/ufs_dax.asm \
-                          $(KERNEL_DIR)/../ufs/cache/ufs_dedup.asm \
-                          $(KERNEL_DIR)/../ufs/cache/ufs_tmpfs.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/ufs_crypto.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/ufs_pqc.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/ufs_fscrypt.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/ufs_verity.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/ufs_vault.asm \
-                          $(KERNEL_DIR)/../ufs/btree/ufs_cow_btree.asm \
-                          $(KERNEL_DIR)/../ufs/btree/ufs_alloc_groups.asm \
-                          $(KERNEL_DIR)/../ufs/extents/ufs_extents.asm \
-                          $(KERNEL_DIR)/../ufs/compress/ufs_compress.asm \
+                          $(KERNEL_DIR)/../ufs/cache/pagecache.asm \
+                          $(KERNEL_DIR)/../ufs/cache/arc.asm \
+                          $(KERNEL_DIR)/../ufs/cache/dax.asm \
+                          $(KERNEL_DIR)/../ufs/cache/dedup.asm \
+                          $(KERNEL_DIR)/../ufs/cache/tmpfs.asm \
+                          $(KERNEL_DIR)/../ufs/crypto/crypto.asm \
+                          $(KERNEL_DIR)/../ufs/crypto/pqc.asm \
+                          $(KERNEL_DIR)/../ufs/crypto/fscrypt.asm \
+                          $(KERNEL_DIR)/../ufs/crypto/verity.asm \
+                          $(KERNEL_DIR)/../ufs/crypto/vault.asm \
+                          $(KERNEL_DIR)/../ufs/btree/cow_btree.asm \
+                          $(KERNEL_DIR)/../ufs/btree/alloc_groups.asm \
+                          $(KERNEL_DIR)/../ufs/extents/extents.asm \
+                          $(KERNEL_DIR)/../ufs/compress/compress.asm \
                           $(KERNEL_DIR)/../ufs/compress/erofs.asm \
-                          $(KERNEL_DIR)/../ufs/cluster/ufs_cluster.asm \
-                          $(KERNEL_DIR)/../ufs/cluster/ufs_erasure.asm \
-                          $(KERNEL_DIR)/../ufs/limits/ufs_quota.asm \
+                          $(KERNEL_DIR)/../ufs/cluster/cluster.asm \
+                          $(KERNEL_DIR)/../ufs/cluster/erasure.asm \
+                          $(KERNEL_DIR)/../ufs/limits/quota.asm \
                           $(KERNEL_DIR)/../ufs/drivers/nvme.asm \
                           $(KERNEL_DIR)/../ufs/drivers/nvme_zns.asm \
                           $(KERNEL_DIR)/../ufs/drivers/usb_storage.asm \
@@ -281,8 +281,8 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../ufs/drivers/sdhci.asm \
                           $(KERNEL_DIR)/../ufs/drivers/virtio_blk.asm \
                           $(KERNEL_DIR)/../ufs/drivers/nvme_of.asm \
-                          $(KERNEL_DIR)/../ufs/journal/ufs_journal.asm \
-                          $(KERNEL_DIR)/../ufs/tests/ufs_fuzz.asm \
+                          $(KERNEL_DIR)/../ufs/journal/journal.asm \
+                          $(KERNEL_DIR)/../ufs/tests/fuzz.asm \
                           $(KERNEL_DIR)/../ufs/ufs.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
