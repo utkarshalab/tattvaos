@@ -107,6 +107,12 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../unet/core/link/rss.asm \
                           $(KERNEL_DIR)/sched/fiber.inc \
                           $(KERNEL_DIR)/sched/fiber.asm \
+                          $(KERNEL_DIR)/sched/fiber_canary.asm \
+                          $(KERNEL_DIR)/sched/fiber_pkey.asm \
+                          $(KERNEL_DIR)/sched/fiber_guard.inc \
+                          $(KERNEL_DIR)/sched/fiber_guard.asm \
+                          $(KERNEL_DIR)/sched/fiber_supervisor.asm \
+                          $(KERNEL_DIR)/sched/smp_mpmc.asm \
                           $(KERNEL_DIR)/sched/sched.inc \
                           $(KERNEL_DIR)/sched/sched.asm
 
