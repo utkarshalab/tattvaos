@@ -14,6 +14,19 @@
 section .text
 
 ; -----------------------------------------------------------------------------
+; argon2_generate_salt — Generate 16-byte random salt via lib/urand/
+; Input:  RDI = Output 16-byte Salt Buffer Pointer
+; Output: RAX = 1
+; -----------------------------------------------------------------------------
+argon2_generate_salt:
+    push rdi
+    mov rsi, 16                     ; 16-byte Argon2id Salt
+    call urand_get_bytes            ; Call single authoritative lib/urand/ CSPRNG
+    mov rax, 1
+    pop rdi
+    ret
+
+; -----------------------------------------------------------------------------
 ; argon2id_hash — Argon2id Password Hashing Function (using native BLAKE2b)
 ; Input:  RDI = Password Buffer Pointer
 ;         RSI = Password Length in bytes
