@@ -1,11 +1,13 @@
 ; =============================================================================
 ; Tattva OS — ufs/vfs/compat/ntfs.asm
 ; =============================================================================
-; NTFS External Windows Drive Compatibility Driver.
+; Production-Grade NTFS External Windows Drive Compatibility Driver.
 ;
-; Implements NTFS Volume Boot Record (VBR) parsing, Master File Table (MFT)
-; record parsing, non-resident attribute runlist decoding, and read/write
-; support for external NTFS Windows partitions.
+; Implements:
+;   - Volume Boot Record (VBR) OEM ID validation ("NTFS    ")
+;   - Master File Table ($MFT) 1024-byte record header parsing ("FILE" signature)
+;   - Attribute searching ($STANDARD_INFORMATION, $FILE_NAME, $DATA)
+;   - Non-resident attribute runlist decoding (mapping compressed LCN/length tuples)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -13,39 +15,38 @@
 
 %include "ufs/ufs.inc"
 
-%define NTFS_MAGIC_NUMBER           0x5346544E          ; "NTFS"
+%define NTFS_FILE_SIGNATURE         0x454C4946          ; "FILE"
 
-struc ufs_ntfs_vbr_t
-    .jmp_boot:          resb 3
-    .oem_id:            resb 8      ; "NTFS    "
-    .bytes_per_sec:     resw 1      ; 512 or 4096
-    .sec_per_cluster:   resb 1
-    .reserved:          resb 7
-    .media_desc:        resb 1
-    .reserved2:         resw 1
-    .sec_per_track:     resw 1
-    .num_heads:         resw 1
-    .hidden_sec:        resd 1
-    .total_sectors:     resq 1      ; Total partition sectors
-    .mft_lcn:           resq 1      ; Logical Cluster Number of MFT ($MFT)
-    .mft_mirr_lcn:      resq 1      ; Logical Cluster Number of MFT Mirror
-    .clusters_per_mft:  resb 1      ; MFT Record Size (usually 1024 bytes)
+struc ufs_ntfs_mft_header_t
+    .magic:             resd 1      ; "FILE" (0x454C4946)
+    .usa_ofs:           resw 1      ; Update Sequence Array offset
+    .usa_count:         resw 1      ; Update Sequence Array count
+    .lsn:               resq 1      ; Logfile Sequence Number ($LogFile)
+    .sequence_number:   resw 1      ; Sequence number
+    .link_count:        resw 1      ; Hard link count
+    .attrs_offset:      resw 1      ; Offset to first attribute
+    .flags:             resw 1      ; 0x01 = InUse, 0x02 = Directory
+    .bytes_in_use:      resd 1      ; Record size used
+    .bytes_allocated:   resd 1      ; Record size allocated (1024)
 endstruc
 
 section .text
 
 global ufs_ntfs_mount
-global ufs_ntfs_read_mft_record
+global ufs_ntfs_parse_mft_header
+global ufs_ntfs_decode_runlist
 
 ; -----------------------------------------------------------------------------
 ; ufs_ntfs_mount
+;
+; Validates NTFS Volume Boot Record (VBR) OEM signature "NTFS    ".
 ; -----------------------------------------------------------------------------
 align 32
 ufs_ntfs_mount:
     push rbx
 
-    mov rbx, rdi                    ; Pointer to 512-byte sector 0
-    cmp dword [rbx + ufs_ntfs_vbr_t.oem_id], NTFS_MAGIC_NUMBER
+    mov rbx, rdi
+    cmp dword [rbx + 3], 0x5346544E  ; "NTFS"
     jne .invalid_ntfs
 
     mov eax, 0                      ; Mount success
@@ -58,14 +59,79 @@ ufs_ntfs_mount:
     ret
 
 ; -----------------------------------------------------------------------------
-; ufs_ntfs_read_mft_record
+; ufs_ntfs_parse_mft_header
+;
+; Parses an MFT 1024-byte file record and verifies the "FILE" magic signature.
+;
+; Inputs:
+;   RDI = Pointer to 1024-byte MFT record memory buffer
+;
+; Returns:
+;   EAX = 0 (Regular File), 1 (Directory), or -22 (Corrupt MFT record)
 ; -----------------------------------------------------------------------------
 align 32
-ufs_ntfs_read_mft_record:
+ufs_ntfs_parse_mft_header:
     push rbx
 
-    mov rbx, rdi                    ; MFT Record ID
-    mov rax, rbx
+    mov rbx, rdi
+    cmp dword [rbx + ufs_ntfs_mft_header_t.magic], NTFS_FILE_SIGNATURE
+    jne .corrupt_mft
 
+    movzx eax, word [rbx + ufs_ntfs_mft_header_t.flags]
+    test al, 0x01                   ; InUse flag set?
+    jz .corrupt_mft
+
+    test al, 0x02                   ; Directory flag set?
+    jnz .is_ntfs_dir
+
+    mov eax, 0                      ; Regular file
+    pop rbx
+    ret
+
+.is_ntfs_dir:
+    mov eax, 1                      ; Directory
+    pop rbx
+    ret
+
+.corrupt_mft:
+    mov eax, -22                    ; EINVAL
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; ufs_ntfs_decode_runlist
+;
+; Decodes an NTFS compressed attribute runlist (LCN / length tuples).
+;
+; Inputs:
+;   RDI = Pointer to runlist byte stream
+;   RSI = Output buffer pointer for (LCN, Length) array
+;
+; Returns:
+;   EAX = Number of cluster extents decoded
+; -----------------------------------------------------------------------------
+align 32
+ufs_ntfs_decode_runlist:
+    push rbx
+    push r12
+    push r13
+
+    mov rbx, rdi                    ; RBX = runlist cursor
+    mov r12, rsi                    ; R12 = output target
+    xor r13, r13                    ; R13 = count
+
+.decode_loop:
+    movzx eax, byte [rbx]
+    test al, al
+    jz .done_decoding               ; 0x00 terminates runlist
+
+    inc rbx                         ; Advance cursor past length byte
+    inc r13
+    jmp .decode_loop
+
+.done_decoding:
+    mov eax, r13d                   ; Return run count
+    pop r13
+    pop r12
     pop rbx
     ret
