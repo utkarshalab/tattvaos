@@ -11,8 +11,10 @@
 
 %include "crypto/ucrypt/symmetric/ucrypt.inc"
 %include "crypto/ucrypt/ucrypt_ct_guard.asm"
+%include "crypto/ucrypt/ucrypt_s2n_guard.asm"
 %include "crypto/ucrypt/ucrypt_wipe.asm"
 %include "crypto/ucrypt/symmetric/aes_gcm.asm"
+%include "crypto/ucrypt/symmetric/aes_gcm_4way.asm"
 %include "crypto/ucrypt/symmetric/aes_gcm_siv.asm"
 %include "crypto/ucrypt/symmetric/aes_xts.asm"
 %include "crypto/ucrypt/symmetric/chacha20_poly1305.asm"
@@ -26,6 +28,7 @@
 %include "crypto/ucrypt/asymmetric/ecdh_p256.asm"
 %include "crypto/ucrypt/asymmetric/rsa_oaep.asm"
 %include "crypto/ucrypt/mac/hmac.asm"
+%include "crypto/ucrypt/mac/kmac.asm"
 %include "crypto/ucrypt/mac/poly1305.asm"
 
 section .text
