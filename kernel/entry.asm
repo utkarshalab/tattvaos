@@ -89,6 +89,7 @@ kernel_text_start:
 %include "crypto/ucrypt/ucrypt.asm"
 %include "lib/urand/urand.asm"
 %include "crypto/ux509/ux509.asm"
+%include "crypto/upqc/upqc.asm"
 
     section .text
     global kernel_text_end
