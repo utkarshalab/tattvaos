@@ -70,6 +70,15 @@ kernel_text_start:
 %include "crypto/uhash/sha512/sha512.asm"
 %include "crypto/uhash/sha3/sha3.asm"
 %include "crypto/uhash/uhash.asm"
+%include "crypto/usign/ed25519/ed25519.asm"
+%include "crypto/usign/ecdsa/ecdsa_p256.asm"
+%include "crypto/usign/rsa/rsa_pss.asm"
+%include "crypto/usign/pqc/dilithium.asm"
+%include "crypto/usign/formats/raw.asm"
+%include "crypto/usign/formats/pem.asm"
+%include "crypto/usign/formats/pkcs7.asm"
+%include "crypto/usign/formats/upk_sig.asm"
+%include "crypto/usign/usign.asm"
 
     section .text
     global kernel_text_end
