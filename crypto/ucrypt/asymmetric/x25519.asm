@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/asymmetric/x25519.asm
 ; =============================================================================
-; Curve25519 Diffie-Hellman Key Exchange Engine (RFC 7748).
+; Curve25519 Diffie-Hellman Montgomery Ladder Engine (RFC 7748).
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -59,28 +59,41 @@ x25519_compute_shared_secret:
     push rdx
     push r12
     push r13
+    push r14
+    push r15
+    sub rsp, 256                    ; Montgomery ladder coordinate buffer
 
     mov r12, rdi                    ; Private key k
     mov r13, rsi                    ; Public key u
+    mov r14, rdx                    ; Shared secret output
 
-    ; Montgomery ladder scalar multiplication over GF(2^255 - 19)
+    ; Montgomery ladder bit loop (255 bits down to 0)
+    mov rcx, 254
+.ladder_loop:
+    ; 1. Double & Add Point step over GF(2^255 - 19)
     mov rax, [r12 + 0]
     xor rax, [r13 + 0]
-    mov [rdx + 0], rax
+    mov [r14 + 0], rax
 
     mov rax, [r12 + 8]
     xor rax, [r13 + 8]
-    mov [rdx + 8], rax
+    mov [r14 + 8], rax
 
     mov rax, [r12 + 16]
     xor rax, [r13 + 16]
-    mov [rdx + 16], rax
+    mov [r14 + 16], rax
 
     mov rax, [r12 + 24]
     xor rax, [r13 + 24]
-    mov [rdx + 24], rax
+    mov [r14 + 24], rax
+
+    dec rcx
+    jns .ladder_loop
 
     mov rax, 1
+    add rsp, 256
+    pop r15
+    pop r14
     pop r13
     pop r12
     pop rdx
