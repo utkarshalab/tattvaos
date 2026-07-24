@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Tattva OS — kernel/sched/sched.asm
 ; =============================================================================
-; Hybrid Multi-CPU Scheduler Core Loop (Option A + B + C).
+; Hybrid Multi-CPU Scheduler Core Loop (Option A + B + C) & Spinlock Safety.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -31,9 +31,13 @@ sched_init_real:
     mov qword [gs:104], 0           ; GS:104 = ticks
     mov dword [gs:112], 0           ; GS:112 = steal_lock
 
+    call fiber_guard_init
+
     ; Allocate idle fiber FCB for this CPU core
     mov rdi, sched_idle_task
     xor rsi, rsi
+    mov rdx, PRIO_IDLE              ; Priority IDLE
+    mov rcx, FIBER_RESTART_ALWAYS   ; Always restart idle task
     call fiber_create
     test rax, rax
     jz .error
@@ -54,7 +58,7 @@ sched_init_real:
     ret
 
 ; -----------------------------------------------------------------------------
-; sched_push_fiber — Push a FCB to current core's ready queue tail
+; sched_push_fiber — Push a FCB to current core's ready queue tail (Spinlock Protected)
 ; Input:  RDI = FCB pointer
 ; Output: none
 ; -----------------------------------------------------------------------------
@@ -64,6 +68,11 @@ sched_push_fiber:
 
     test rdi, rdi
     jz .done
+
+    ; Acquire queue spinlock (GS:112)
+.spin_acquire:
+    lock bts dword [gs:112], 0
+    jc .spin_acquire
 
     mov qword [rdi + fcb_t.next], 0
     mov rbx, [gs:88]                ; RBX = current queue tail (GS:88)
@@ -86,22 +95,30 @@ sched_push_fiber:
 .inc_count:
     inc dword [gs:96]               ; Increment fiber_count
 
+    ; Release queue spinlock (GS:112)
+    mov dword [gs:112], 0
+
 .done:
     pop rdx
     pop rbx
     ret
 
 ; -----------------------------------------------------------------------------
-; sched_pop_next_fiber — Pop next FCB from current core's ready queue head
+; sched_pop_next_fiber — Pop next FCB from current core's ready queue head (Spinlock Protected)
 ; Input:  none
 ; Output: RAX = FCB pointer (or 0 if queue empty)
 ; -----------------------------------------------------------------------------
 sched_pop_next_fiber:
     push rbx
 
+    ; Acquire queue spinlock (GS:112)
+.spin_acquire:
+    lock bts dword [gs:112], 0
+    jc .spin_acquire
+
     mov rax, [gs:80]                ; RAX = queue head (GS:80)
     test rax, rax
-    jz .done
+    jz .empty
 
     ; Update queue head to rax.next
     mov rbx, [rax + fcb_t.next]
@@ -120,8 +137,15 @@ sched_pop_next_fiber:
     dec dword [gs:96]               ; Decrement fiber_count
     mov qword [rax + fcb_t.next], 0
     mov qword [rax + fcb_t.prev], 0
+    jmp .release
 
-.done:
+.empty:
+    xor rax, rax
+
+.release:
+    ; Release queue spinlock (GS:112)
+    mov dword [gs:112], 0
+
     pop rbx
     ret
 
@@ -132,11 +156,12 @@ sched_pop_next_fiber:
 sched_core_loop:
 .loop:
     ; -------------------------------------------------------------------------
-    ; [OPTION A] Non-Blocking Hardware & Event Polling
+    ; [OPTION A] Non-Blocking Hardware Ring Polling & Memory Reclaimer
     ; -------------------------------------------------------------------------
     call net_poll_stub
     call storage_poll_stub
     call timer_poll_stub
+    call fiber_reap_dead            ; Reclaim memory of DEAD fibers
 
     ; -------------------------------------------------------------------------
     ; [OPTION B] Run Cooperative Fibers
@@ -150,12 +175,17 @@ sched_core_loop:
     mov rdi, [gs:64]                ; RDI = current fiber
     mov [gs:64], rsi
     mov dword [rsi + fcb_t.state], FIBER_STATE_RUNNING
+
+    ; Perform PKEY hardware key switch
+    mov edi, [rsi + fcb_t.pkey]
+    call pkey_switch
+
     call fiber_switch
     jmp .loop
 
 .check_work_steal:
     ; -------------------------------------------------------------------------
-    ; [OPTION C] SMP Work Stealing
+    ; [OPTION C] SMP Work Stealing (Lock-Free MPMC Queue)
     ; -------------------------------------------------------------------------
     call sched_work_steal
     test rax, rax
@@ -165,13 +195,12 @@ sched_core_loop:
     jmp .loop
 
 ; -----------------------------------------------------------------------------
-; sched_work_steal — Steal a ready fiber from a neighbor CPU core
+; sched_work_steal — Steal a ready fiber from Lock-Free MPMC Queue
 ; Input:  none
 ; Output: RAX = Stolen FCB pointer (or 0 if no work stolen)
 ; -----------------------------------------------------------------------------
 sched_work_steal:
-    ; Placeholder for SMP Work Stealing across multi-cores
-    xor rax, rax
+    call smp_mpmc_pop
     ret
 
 ; -----------------------------------------------------------------------------
