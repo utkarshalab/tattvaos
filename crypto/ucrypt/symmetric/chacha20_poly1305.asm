@@ -18,6 +18,19 @@ chacha20_poly1305_constants:
     dd 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574
 
 ; -----------------------------------------------------------------------------
+; chacha20_generate_nonce — Generate 12-byte random IV/Nonce via lib/urand/
+; Input:  RDI = Output 12-byte Nonce Pointer
+; Output: RAX = 1
+; -----------------------------------------------------------------------------
+chacha20_generate_nonce:
+    push rdi
+    mov rsi, 12                     ; 12-byte ChaCha20 Nonce
+    call urand_get_bytes            ; Call single authoritative lib/urand/ CSPRNG
+    mov rax, 1
+    pop rdi
+    ret
+
+; -----------------------------------------------------------------------------
 ; chacha20_poly1305_encrypt — ChaCha20-Poly1305 AEAD Encryption
 ; Input:  RDI = Plaintext Pointer
 ;         RSI = Plaintext Length in bytes
