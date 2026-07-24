@@ -154,6 +154,15 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_gcm.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_xts.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/symmetric/chacha20_poly1305.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_cbc.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_ctr.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_ccm.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/symmetric/aes_kw.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/x25519.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/ecdh_p256.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/asymmetric/rsa_oaep.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/mac/hmac.asm \
+                          $(KERNEL_DIR)/../crypto/ucrypt/mac/poly1305.asm \
                           $(KERNEL_DIR)/../crypto/ucrypt/ucrypt.asm \
                           $(KERNEL_DIR)/../lib/urand/urand.inc \
                           $(KERNEL_DIR)/../lib/urand/sources/rdrand.asm \
