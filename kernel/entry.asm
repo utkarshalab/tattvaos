@@ -48,6 +48,11 @@ kernel_text_start:
 %include "lib/hw/ucpu/pat.asm"
 %include "drivers/gpu/fb.asm"
 %include "sched/fiber.asm"
+%include "sched/fiber_canary.asm"
+%include "sched/fiber_pkey.asm"
+%include "sched/fiber_guard.asm"
+%include "sched/fiber_supervisor.asm"
+%include "sched/smp_mpmc.asm"
 %include "sched/sched.asm"
 
     section .text
