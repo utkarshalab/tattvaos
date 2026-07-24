@@ -114,7 +114,17 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/sched/fiber_supervisor.asm \
                           $(KERNEL_DIR)/sched/smp_mpmc.asm \
                           $(KERNEL_DIR)/sched/sched.inc \
-                          $(KERNEL_DIR)/sched/sched.asm
+                          $(KERNEL_DIR)/sched/sched.asm \
+                          $(KERNEL_DIR)/../lib/ufile/ufile.inc \
+                          $(KERNEL_DIR)/../lib/ufile/ufile_sanitize.asm \
+                          $(KERNEL_DIR)/../lib/ufile/ufile_entropy.asm \
+                          $(KERNEL_DIR)/../lib/ufile/ufile_hash.asm \
+                          $(KERNEL_DIR)/../lib/ufile/ufile_engine.asm \
+                          $(KERNEL_DIR)/../lib/ufile/ufile_transpose.asm \
+                          $(KERNEL_DIR)/../lib/ufile/signatures/fs_signatures.asm \
+                          $(KERNEL_DIR)/../lib/ufile/signatures/ai_signatures.asm \
+                          $(KERNEL_DIR)/../lib/ufile/signatures/exec_signatures.asm \
+                          $(KERNEL_DIR)/../lib/ufile/ufile.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
