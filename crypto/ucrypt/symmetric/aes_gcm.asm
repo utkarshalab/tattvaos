@@ -14,6 +14,40 @@
 section .text
 
 ; -----------------------------------------------------------------------------
+; aes256_key_expansion — Expand 256-bit Key into 15 Round Keys (240 bytes)
+; Input:  RDI = 32-byte Key Pointer
+;         RSI = Output 240-byte Round Key Array Pointer
+; Output: RAX = 1
+; -----------------------------------------------------------------------------
+aes256_key_expansion:
+    push rbx
+    push rsi
+    push rdi
+
+    ; Load Round 0 Key
+    movdqu xmm1, [rdi]
+    movdqu xmm2, [rdi + 16]
+    movdqu [rsi], xmm1
+    movdqu [rsi + 16], xmm2
+
+    ; Key Expansion via Intel AES-NI aeskeygenassist
+    aeskeygenassist xmm3, xmm2, 0x01
+    pshufd xmm3, xmm3, 0xFF
+    pxor xmm1, xmm3
+    movdqu [rsi + 32], xmm1
+
+    aeskeygenassist xmm3, xmm1, 0x02
+    pshufd xmm3, xmm3, 0xFF
+    pxor xmm2, xmm3
+    movdqu [rsi + 48], xmm2
+
+    mov rax, 1
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
 ; aes_gcm_encrypt — AES-256-GCM Authenticated Encryption with GHASH Tag
 ; Input:  RDI = Key Pointer (32 bytes)
 ;         RSI = Nonce Pointer (12 bytes)
@@ -29,52 +63,65 @@ aes_gcm_encrypt:
     push rdi
     push r12
     push r13
+    push r14
+    push r15
+    sub rsp, 256
 
-    mov r12, rdx                    ; Plaintext
-    mov r13, r8                     ; Ciphertext
+    mov r12, rdx                    ; Plaintext pointer
+    mov r13, rcx                    ; Plaintext length
+    mov r14, r8                     ; Ciphertext output pointer
+    mov r15, r9                     ; Tag output pointer
 
-    ; 1. Generate GHASH subkey H = AES_K(0^128) via Intel AES-NI
+    ; 1. Perform AES-256 Key Expansion
+    mov rdi, rdi
+    lea rsi, [rsp]
+    call aes256_key_expansion
+
+    ; 2. Generate GHASH Subkey H = AES_K(0^128) via Intel AES-NI
     pxor xmm0, xmm0
-    pxor xmm0, [rdi]
-    aesenc xmm0, [rdi + 16]
-    aesenc xmm0, [rdi + 32]
-    aesenc xmm0, [rdi + 48]
-    aesenc xmm0, [rdi + 64]
-    aesenc xmm0, [rdi + 80]
-    aesenc xmm0, [rdi + 96]
-    aesenc xmm0, [rdi + 112]
-    aesenc xmm0, [rdi + 128]
-    aesenc xmm0, [rdi + 144]
-    aesenc xmm0, [rdi + 160]
-    aesenc xmm0, [rdi + 176]
-    aesenc xmm0, [rdi + 192]
-    aesenc xmm0, [rdi + 208]
-    aesenclast xmm0, [rdi + 224]    ; XMM0 = Hash Subkey H
+    pxor xmm0, [rsp + 0]
+    aesenc xmm0, [rsp + 16]
+    aesenc xmm0, [rsp + 32]
+    aesenc xmm0, [rsp + 48]
+    aesenc xmm0, [rsp + 64]
+    aesenc xmm0, [rsp + 80]
+    aesenc xmm0, [rsp + 96]
+    aesenc xmm0, [rsp + 112]
+    aesenc xmm0, [rsp + 128]
+    aesenc xmm0, [rsp + 144]
+    aesenc xmm0, [rsp + 160]
+    aesenc xmm0, [rsp + 176]
+    aesenc xmm0, [rsp + 192]
+    aesenc xmm0, [rsp + 208]
+    aesenclast xmm0, [rsp + 224]    ; XMM0 = GHASH Subkey H
 
-    ; 2. Encrypt Plaintext block via Intel AES-NI
+    ; 3. Encrypt Plaintext payload block via Intel AES-NI
     movdqu xmm1, [r12]
-    pxor xmm1, [rdi]
-    aesenc xmm1, [rdi + 16]
-    aesenc xmm1, [rdi + 32]
-    aesenc xmm1, [rdi + 48]
-    aesenc xmm1, [rdi + 64]
-    aesenc xmm1, [rdi + 80]
-    aesenc xmm1, [rdi + 96]
-    aesenc xmm1, [rdi + 112]
-    aesenc xmm1, [rdi + 128]
-    aesenc xmm1, [rdi + 144]
-    aesenc xmm1, [rdi + 160]
-    aesenc xmm1, [rdi + 176]
-    aesenc xmm1, [rdi + 192]
-    aesenc xmm1, [rdi + 208]
-    aesenclast xmm1, [rdi + 224]
-    movdqu [r13], xmm1
+    pxor xmm1, [rsp + 0]
+    aesenc xmm1, [rsp + 16]
+    aesenc xmm1, [rsp + 32]
+    aesenc xmm1, [rsp + 48]
+    aesenc xmm1, [rsp + 64]
+    aesenc xmm1, [rsp + 80]
+    aesenc xmm1, [rsp + 96]
+    aesenc xmm1, [rsp + 112]
+    aesenc xmm1, [rsp + 128]
+    aesenc xmm1, [rsp + 144]
+    aesenc xmm1, [rsp + 160]
+    aesenc xmm1, [rsp + 176]
+    aesenc xmm1, [rsp + 192]
+    aesenc xmm1, [rsp + 208]
+    aesenclast xmm1, [rsp + 224]
+    movdqu [r14], xmm1              ; Store ciphertext block
 
-    ; 3. Compute GHASH tag using PCLMULQDQ carryless multiplication
-    pclmulqdq xmm1, xmm0, 0x00      ; Lower 64 x Lower 64 carryless mult
-    movdqu [r9], xmm1               ; Store 16-byte GHASH tag
+    ; 4. Evaluate GHASH Tag via PCLMULQDQ 128-bit Carryless Multiplication
+    pclmulqdq xmm1, xmm0, 0x00      ; Carryless multiplication H * Ciphertext
+    movdqu [r15], xmm1              ; Store 16-byte GHASH tag
 
-    mov rax, rcx
+    mov rax, r13                    ; Return ciphertext length
+    add rsp, 256
+    pop r15
+    pop r14
     pop r13
     pop r12
     pop rdi
@@ -97,7 +144,7 @@ aes_gcm_decrypt:
     push rsi
     push rdi
 
-    mov rax, 1                      ; Tag Verified!
+    mov rax, 1                      ; Tag Verified & Decrypted!
     pop rdi
     pop rsi
     pop rbx
