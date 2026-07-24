@@ -22,7 +22,50 @@ section .text
 ; -----------------------------------------------------------------------------
 ux509_crl_check_revocation:
     push rbx
+    push rcx
+    push rsi
+    push rdi
+    push r12
+    push r13
 
+    mov r12, rdi                    ; Target serial number
+    mov r13, rsi                    ; CRL buffer pointer
+
+    ; Iterate revoked serial numbers in CRL
+    xor rbx, rbx
+.crl_loop:
+    cmp rbx, rdx
+    jae .clean
+
+    ; Compare 16-byte serial number
+    mov rax, [r12 + 0]
+    cmp rax, [r13 + rbx]
+    jne .next_serial
+
+    mov rax, [r12 + 8]
+    cmp rax, [r13 + rbx + 8]
+    je .revoked                     ; Match found -> REVOKED!
+
+.next_serial:
+    add rbx, 16
+    jmp .crl_loop
+
+.clean:
     mov rax, 1                      ; Clean / Not Revoked!
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rbx
+    ret
+
+.revoked:
+    xor rax, rax                    ; Revoked certificate!
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rcx
     pop rbx
     ret
