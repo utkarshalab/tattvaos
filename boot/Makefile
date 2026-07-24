@@ -190,7 +190,13 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../crypto/ux509/ux509_csr.asm \
                           $(KERNEL_DIR)/../crypto/ux509/ux509_pqc_cert.asm \
                           $(KERNEL_DIR)/../crypto/ux509/ux509_chain.asm \
-                          $(KERNEL_DIR)/../crypto/ux509/ux509.asm
+                          $(KERNEL_DIR)/../crypto/ux509/ux509.asm \
+                          $(KERNEL_DIR)/../crypto/upqc/upqc.inc \
+                          $(KERNEL_DIR)/../crypto/upqc/dilithium.asm \
+                          $(KERNEL_DIR)/../crypto/upqc/kyber.asm \
+                          $(KERNEL_DIR)/../crypto/upqc/falcon.asm \
+                          $(KERNEL_DIR)/../crypto/upqc/sphincs.asm \
+                          $(KERNEL_DIR)/../crypto/upqc/upqc.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
