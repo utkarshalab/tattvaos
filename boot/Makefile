@@ -247,43 +247,43 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../lib/ucmp/checksum/crc32.asm \
                           $(KERNEL_DIR)/../lib/ucmp/mem/arena.asm \
                           $(KERNEL_DIR)/../lib/ucmp/ucmp.asm \
-                          $(KERNEL_DIR)/../ufs/ufs.inc \
-                          $(KERNEL_DIR)/../ufs/vfs/vfs.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/overlayfs.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/clone.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/snapshot.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/pseudofs.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/compat/fat32.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/compat/ntfs.asm \
-                          $(KERNEL_DIR)/../ufs/vfs/compat/ext4_compat.asm \
-                          $(KERNEL_DIR)/../ufs/cache/pagecache.asm \
-                          $(KERNEL_DIR)/../ufs/cache/arc.asm \
-                          $(KERNEL_DIR)/../ufs/cache/dax.asm \
-                          $(KERNEL_DIR)/../ufs/cache/dedup.asm \
-                          $(KERNEL_DIR)/../ufs/cache/tmpfs.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/crypto.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/pqc.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/fscrypt.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/verity.asm \
-                          $(KERNEL_DIR)/../ufs/crypto/vault.asm \
-                          $(KERNEL_DIR)/../ufs/btree/cow_btree.asm \
-                          $(KERNEL_DIR)/../ufs/btree/alloc_groups.asm \
-                          $(KERNEL_DIR)/../ufs/extents/extents.asm \
-                          $(KERNEL_DIR)/../ufs/compress/compress.asm \
-                          $(KERNEL_DIR)/../ufs/compress/erofs.asm \
-                          $(KERNEL_DIR)/../ufs/cluster/cluster.asm \
-                          $(KERNEL_DIR)/../ufs/cluster/erasure.asm \
-                          $(KERNEL_DIR)/../ufs/limits/quota.asm \
-                          $(KERNEL_DIR)/../ufs/drivers/nvme.asm \
-                          $(KERNEL_DIR)/../ufs/drivers/nvme_zns.asm \
-                          $(KERNEL_DIR)/../ufs/drivers/usb_storage.asm \
-                          $(KERNEL_DIR)/../ufs/drivers/ahci.asm \
-                          $(KERNEL_DIR)/../ufs/drivers/sdhci.asm \
-                          $(KERNEL_DIR)/../ufs/drivers/virtio_blk.asm \
-                          $(KERNEL_DIR)/../ufs/drivers/nvme_of.asm \
-                          $(KERNEL_DIR)/../ufs/journal/journal.asm \
-                          $(KERNEL_DIR)/../ufs/tests/fuzz.asm \
-                          $(KERNEL_DIR)/../ufs/ufs.asm
+                          $(KERNEL_DIR)/../storage/ufs/ufs.inc \
+                          $(KERNEL_DIR)/../storage/ufs/vfs/vfs.asm \
+                          $(KERNEL_DIR)/../storage/ufs/vfs/overlayfs.asm \
+                          $(KERNEL_DIR)/../storage/ufs/vfs/clone.asm \
+                          $(KERNEL_DIR)/../storage/ufs/vfs/snapshot.asm \
+                          $(KERNEL_DIR)/../storage/ufs/vfs/pseudofs.asm \
+                          $(KERNEL_DIR)/../storage/ufs/vfs/compat/fat32.asm \
+                          $(KERNEL_DIR)/../storage/ufs/vfs/compat/ntfs.asm \
+                          $(KERNEL_DIR)/../storage/ufs/vfs/compat/ext4_compat.asm \
+                          $(KERNEL_DIR)/../storage/ufs/cache/pagecache.asm \
+                          $(KERNEL_DIR)/../storage/ufs/cache/arc.asm \
+                          $(KERNEL_DIR)/../storage/ufs/cache/dax.asm \
+                          $(KERNEL_DIR)/../storage/ufs/cache/dedup.asm \
+                          $(KERNEL_DIR)/../storage/ufs/cache/tmpfs.asm \
+                          $(KERNEL_DIR)/../storage/ufs/crypto/crypto.asm \
+                          $(KERNEL_DIR)/../storage/ufs/crypto/pqc.asm \
+                          $(KERNEL_DIR)/../storage/ufs/crypto/fscrypt.asm \
+                          $(KERNEL_DIR)/../storage/ufs/crypto/verity.asm \
+                          $(KERNEL_DIR)/../storage/ufs/crypto/vault.asm \
+                          $(KERNEL_DIR)/../storage/ufs/btree/cow_btree.asm \
+                          $(KERNEL_DIR)/../storage/ufs/btree/alloc_groups.asm \
+                          $(KERNEL_DIR)/../storage/ufs/extents/extents.asm \
+                          $(KERNEL_DIR)/../storage/ufs/compress/compress.asm \
+                          $(KERNEL_DIR)/../storage/ufs/compress/erofs.asm \
+                          $(KERNEL_DIR)/../storage/ufs/cluster/cluster.asm \
+                          $(KERNEL_DIR)/../storage/ufs/cluster/erasure.asm \
+                          $(KERNEL_DIR)/../storage/ufs/limits/quota.asm \
+                          $(KERNEL_DIR)/../storage/ufs/drivers/nvme.asm \
+                          $(KERNEL_DIR)/../storage/ufs/drivers/nvme_zns.asm \
+                          $(KERNEL_DIR)/../storage/ufs/drivers/usb_storage.asm \
+                          $(KERNEL_DIR)/../storage/ufs/drivers/ahci.asm \
+                          $(KERNEL_DIR)/../storage/ufs/drivers/sdhci.asm \
+                          $(KERNEL_DIR)/../storage/ufs/drivers/virtio_blk.asm \
+                          $(KERNEL_DIR)/../storage/ufs/drivers/nvme_of.asm \
+                          $(KERNEL_DIR)/../storage/ufs/journal/journal.asm \
+                          $(KERNEL_DIR)/../storage/ufs/tests/fuzz.asm \
+                          $(KERNEL_DIR)/../storage/ufs/ufs.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
