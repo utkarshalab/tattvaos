@@ -19,22 +19,22 @@ endstruc
 
 section .data
 align 16
-global ufs_dedup_table
-ufs_dedup_table: times UFS_DEDUP_TABLE_SLOTS * ufs_dedup_entry_t_size db 0
+global dedup_table
+dedup_table: times UFS_DEDUP_TABLE_SLOTS * ufs_dedup_entry_t_size db 0
 
 section .text
 
-global ufs_dedup_init
-global ufs_dedup_query
-global ufs_dedup_insert
+global dedup_init
+global dedup_query
+global dedup_insert
 
 align 32
-ufs_dedup_init:
+dedup_init:
     push rdi
     push rcx
     push rax
 
-    lea rdi, [ufs_dedup_table]
+    lea rdi, [dedup_table]
     mov rcx, UFS_DEDUP_TABLE_SLOTS * ufs_dedup_entry_t_size
     xor al, al
     rep stosb
@@ -45,23 +45,23 @@ ufs_dedup_init:
     ret
 
 align 32
-ufs_dedup_query:
+dedup_query:
     push rbx
     mov rbx, [rdi]
     and rbx, (UFS_DEDUP_TABLE_SLOTS - 1)
     imul rbx, rbx, ufs_dedup_entry_t_size
-    lea rbx, [ufs_dedup_table + rbx]
+    lea rbx, [dedup_table + rbx]
     mov rax, [rbx + ufs_dedup_entry_t.physical_block_id]
     pop rbx
     ret
 
 align 32
-ufs_dedup_insert:
+dedup_insert:
     push rbx
     mov rbx, [rdi]
     and rbx, (UFS_DEDUP_TABLE_SLOTS - 1)
     imul rbx, rbx, ufs_dedup_entry_t_size
-    lea rbx, [ufs_dedup_table + rbx]
+    lea rbx, [dedup_table + rbx]
     mov [rbx + ufs_dedup_entry_t.physical_block_id], rsi
     mov qword [rbx + ufs_dedup_entry_t.ref_count], 1
     pop rbx
