@@ -87,7 +87,7 @@ kernel_text_start:
 %include "lib/urand/urand.asm"
 %include "crypto/ux509/ux509.asm"
 %include "lib/ucmp/ucmp.asm"
-%include "ufs/ufs.asm"
+%include "storage/ufs/ufs.asm"
 
     section .text
     global kernel_text_end
