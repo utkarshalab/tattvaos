@@ -66,9 +66,9 @@ ufs_init:
     push rbp
     mov rbp, rsp
 
-    call ufs_vfs_init
-    call ufs_pagecache_init
-    call ufs_dedup_init
+    call vfs_init
+    call pagecache_init
+    call dedup_init
 
     mov eax, 0                      ; Success
     pop rbp
