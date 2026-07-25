@@ -1,26 +1,22 @@
-# storage — Storage Category
+# storage — Storage Subsystem Category
 
-> Storage subsystem for Tattva OS.
+> Storage subsystem category for Tattva OS.
 > Filesystem, database, object storage, and NVMe access.
 
 ---
 
 ## Projects
 
-| Project | Description |
-|---|---|
-| [`uFS/`](uFS/) | Tattva filesystem — custom, log-structured, NVMe-optimized |
-| [`udb/`](udb/) | Sagar — embedded database, B-tree + LSM, purpose-built |
-| [`uobject/`](uobject/) | Sangraha — object storage, S3-compatible API |
-| [`ubxp/`](ubxp/) | BXP binary format — serialization for storage and network |
-| [`uwal/`](uwal/) | Write-ahead log — durability primitive for Sagar |
-| [`ummapf/`](ummapf/) | Memory-mapped file abstraction |
-| [`unvme/`](unvme/) | NVMe driver — direct hardware access, no block layer |
-| [`utiered/`](utiered/) | Tiered storage — hot/warm/cold data placement |
+| Project | Description | Master Location |
+|---|---|---|
+| **ufs** | Tattva filesystem — custom, log-structured, NVMe-optimized | [`ufs/`](ufs/) |
+| **udb** | Sagar — embedded database, B-tree + LSM, purpose-built | [`udb/`](udb/) |
+| **uobject** | Sangraha — object storage, S3-compatible API | [`uobject/`](uobject/) |
+| **ubxp** | BXP binary format — serialization for storage and network | [`ubxp/`](ubxp/) |
 
 ---
 
-## Philosophy
+## Architecture
 
-No VFS. No page cache. Direct NVMe queue access.
-The filesystem is a first-class citizen of the kernel, not a plugin.
+No VFS overhead. No redundant block layers. Direct hardware queue submission.
+The filesystem is a first-class citizen of the Tattva OS unikernel architecture.
