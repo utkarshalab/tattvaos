@@ -283,7 +283,18 @@ $(KERNEL_DIR)/kernel.bin: $(KERNEL_DIR)/entry.asm $(KERNEL_DIR)/entry/start.asm 
                           $(KERNEL_DIR)/../storage/ufs/drivers/nvme_of.asm \
                           $(KERNEL_DIR)/../storage/ufs/journal/journal.asm \
                           $(KERNEL_DIR)/../storage/ufs/tests/fuzz.asm \
-                          $(KERNEL_DIR)/../storage/ufs/ufs.asm
+                          $(KERNEL_DIR)/../storage/ufs/ufs.asm \
+                          $(KERNEL_DIR)/../unet/unet.inc \
+                          $(KERNEL_DIR)/../unet/mem/pktbuf.asm \
+                          $(KERNEL_DIR)/../unet/core/eth.asm \
+                          $(KERNEL_DIR)/../unet/core/arp.asm \
+                          $(KERNEL_DIR)/../unet/core/ip.asm \
+                          $(KERNEL_DIR)/../unet/core/udp.asm \
+                          $(KERNEL_DIR)/../unet/core/tcp.asm \
+                          $(KERNEL_DIR)/../unet/socket/socket.asm \
+                          $(KERNEL_DIR)/../unet/http/http1.asm \
+                          $(KERNEL_DIR)/../unet/drivers/e1000.asm \
+                          $(KERNEL_DIR)/../unet/unet.asm
 
 	$(ASM) -f bin $(KERNEL_DIR)/entry.asm \
 		-i $(KERNEL_DIR)/ -i $(KERNEL_DIR)/../ \
