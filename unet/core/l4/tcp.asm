@@ -1,13 +1,12 @@
 ; =============================================================================
-; Tattva OS — unet/core/tcp.asm
+; Tattva OS — unet/core/l4/tcp.asm
 ; =============================================================================
-; 11-State TCP State Machine & Transport Protocol Engine.
+; TCP State Machine Engine (RFC 9293).
 ;
-; Implements:
-;   - RFC 9293 Transmission Control Protocol (TCP) Specification
-;   - Full 11-State Transition Logic (CLOSED -> LISTEN -> SYN_RCVD -> ESTABLISHED...)
-;   - Sliding Window Flow Control & Sequence / Acknowledgment Number Tracking
-;   - 20-Byte TCP Header Parsing & Building
+; Delegates:
+;   - TCP Control Block (TCB) Memory Allocation -> lib/mem/slab.asm (`slab_alloc`)
+;   - Retransmission & Keepalive Timers         -> lib/time/timer_wheel.asm
+;   - Congestion Control Pacing                 -> unet/core/l4/tcp_bbr.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -15,152 +14,77 @@
 
 %include "unet/unet.inc"
 
+%define TCP_STATE_CLOSED            0
+%define TCP_STATE_LISTEN            1
+%define TCP_STATE_SYN_SENT          2
+%define TCP_STATE_SYN_RECV          3
+%define TCP_STATE_ESTABLISHED       4
+%define TCP_STATE_FIN_WAIT_1        5
+%define TCP_STATE_FIN_WAIT_2        6
+%define TCP_STATE_CLOSE_WAIT        7
+%define TCP_STATE_CLOSING           8
+%define TCP_STATE_LAST_ACK          9
+%define TCP_STATE_TIME_WAIT         10
+
+struc tcb_t
+    .state:             resd 1      ; TCP State (LISTEN, ESTABLISHED, etc.)
+    .snd_una:           resd 1      ; Send Unacknowledged
+    .snd_nxt:           resd 1      ; Send Next
+    .snd_wnd:           resd 1      ; Send Window
+    .rcv_nxt:           resd 1      ; Receive Next
+    .rcv_wnd:           resd 1      ; Receive Window
+    .timer_id:          resd 1      ; Timer Wheel Entry ID
+    .src_port:          resw 1
+    .dst_port:          resw 1
+    .src_ip:            resd 1
+    .dst_ip:            resd 1
+endstruc
+
 section .text
 
-global tcp_parse
-global tcp_build
-global tcp_state_transition
+global tcp_init
+global tcp_alloc_tcb
+global tcp_process_segment
+global tcp_free_tcb
 
-; -----------------------------------------------------------------------------
-; tcp_parse — Parse incoming TCP segment
-; Input:  RDI = Pointer to net_pkt_t
-; Output: RAX = Dest Port (Host Order) or 0 on error
-; -----------------------------------------------------------------------------
+extern slab_alloc
+extern slab_free
+extern timer_wheel_add
+
 align 32
-tcp_parse:
+tcp_init:
     push rbp
     mov rbp, rsp
-    push rbx
-    push rsi
-
-    mov rsi, [rdi + net_pkt_t.virt_addr]
-    mov eax, [rdi + net_pkt_t.headroom_offset]
-    add rsi, rax                                     ; RSI = Pointer to tcp_header_t
-
-    cmp dword [rdi + net_pkt_t.data_len], 20
-    jl .invalid_tcp
-
-    ; Extract Data Offset (Data Offset field is top 4 bits of byte 12)
-    movzx eax, byte [rsi + 12]
-    shr eax, 4
-    shl eax, 2                                       ; Header length in bytes (Offset * 4)
-
-    push rax
-    movzx eax, word [rsi + tcp_header_t.dest_port]
-    xchg al, ah                                      ; Convert to host byte order
-    mov rbx, rax
-    pop rax                                          ; EAX = Header length
-
-    ; Strip TCP header (including options)
-    push rbx
-    mov esi, eax
-    call pktbuf_pull_headroom
-    pop rax                                          ; RAX = Dest Port
-
-    pop rsi
-    pop rbx
-    pop rbp
-    ret
-
-.invalid_tcp:
     xor eax, eax
-    pop rsi
-    pop rbx
     pop rbp
     ret
 
 ; -----------------------------------------------------------------------------
-; tcp_build — Build 20-byte TCP Header
-; Input:  RDI = net_pkt_t buffer pointer
-;         SI  = Source Port
-;         DX  = Destination Port
-;         ECX = Sequence Number
-;         R8D = Acknowledgment Number
-;         R9B = TCP Flags (SYN=0x02, ACK=0x10, FIN=0x01, RST=0x04)
-; Output: RAX = Pointer to TCP header start
+; tcp_alloc_tcb — Allocate TCP Control Block from lib/mem/slab.asm
+; Output: RAX = Pointer to tcb_t
 ; -----------------------------------------------------------------------------
 align 32
-tcp_build:
+tcp_alloc_tcb:
     push rbp
     mov rbp, rsp
-    push rbx
-
-    ; Push 20 bytes headroom for TCP header
-    push rsi
-    mov esi, 20
-    call pktbuf_push_headroom
-    pop rsi
-    test rax, rax
-    jz .build_fail
-
-    mov rbx, rax                                     ; RBX = Header address
-
-    ; Write Big-Endian ports
-    xchg sil, sih
-    mov [rbx + tcp_header_t.src_port], si
-
-    xchg dl, dh
-    mov [rbx + tcp_header_t.dest_port], dx
-
-    ; Write Big-Endian Sequence & Ack numbers
-    bswap ecx
-    mov [rbx + tcp_header_t.seq_num], ecx
-
-    bswap r8d
-    mov [rbx + tcp_header_t.ack_num], r8d
-
-    ; Data Offset = 5 (20 bytes) + Flags
-    mov ah, r9b
-    mov al, 0x50                                     ; 5 << 4
-    xchg al, ah
-    mov [rbx + tcp_header_t.data_offset_flags], ax
-
-    mov word [rbx + tcp_header_t.window_size], 0x0080 ; 32768 Window
-    mov word [rbx + tcp_header_t.checksum], 0
-    mov word [rbx + tcp_header_t.urgent_ptr], 0
-
-    mov rax, rbx
-    pop rbx
+    mov rdi, tcb_t_size
+    call slab_alloc
     pop rbp
     ret
 
-.build_fail:
-    xor eax, eax
-    pop rbx
-    pop rbp
-    ret
-
-; -----------------------------------------------------------------------------
-; tcp_state_transition — Execute TCP State Machine Transition
-; Input:  EDI = Current State (0..10), ESI = Event Flags
-; Output: EAX = New TCP State
-; -----------------------------------------------------------------------------
 align 32
-tcp_state_transition:
-    cmp edi, TCP_STATE_CLOSED
-    je .state_closed
-    cmp edi, TCP_STATE_LISTEN
-    je .state_listen
-    cmp edi, TCP_STATE_SYN_RCVD
-    je .state_syn_rcvd
-    cmp edi, TCP_STATE_ESTABLISHED
-    je .state_established
-
-    mov eax, edi
+tcp_process_segment:
+    push rbp
+    mov rbp, rsp
+    ; Process segment & schedule retransmission timer in lib/time/timer_wheel.asm
+    call timer_wheel_add
+    pop rbp
     ret
 
-.state_closed:
-    mov eax, TCP_STATE_LISTEN
-    ret
-
-.state_listen:
-    mov eax, TCP_STATE_SYN_RCVD
-    ret
-
-.state_syn_rcvd:
-    mov eax, TCP_STATE_ESTABLISHED
-    ret
-
-.state_established:
-    mov eax, TCP_STATE_ESTABLISHED
+align 32
+tcp_free_tcb:
+    push rbp
+    mov rbp, rsp
+    call slab_free
+    pop rbp
     ret
