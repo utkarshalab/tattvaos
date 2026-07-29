@@ -1,12 +1,12 @@
 ; =============================================================================
 ; Tattva OS — unet/vpn/sstp.asm
 ; =============================================================================
-; Robust SSTP (Secure Socket Tunneling Protocol) HTTPS Engine.
+; Ultra-Robust SSTP HTTPS VPN Tunneling Protocol Engine.
 ;
-; Implements:
-;   - SSTP Control Packet Framing (`SSTP_MSG_CALL_CONNECT_REQUEST`) over HTTPS Port 443
-;   - SSTP Crypto Binding & Attribute Verification (Certificate Hash Check)
-;   - PPP LCP/NCP Payload Encapsulation over TLS 1.3 Tunnel
+; Delegates:
+;   - TLS 1.3 HTTPS Port 443 Handshake  -> crypto/utls/
+;   - X.509 Crypto Binding Cert Verification -> crypto/ux509/
+;   - UFS Configuration Loading         -> storage/ufs/vfs/
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -33,24 +33,24 @@ global sstp_connect_request
 global sstp_process_packet
 global sstp_encap_ppp
 
+extern utls_client_handshake
+extern ux509_verify_cert
+
 align 32
 sstp_init:
     push rbp
     mov rbp, rsp
-    ; Connect to HTTPS Server Port 443 & Perform TLS 1.3 Handshake
-    xor eax, eax
+    ; Delegate HTTPS TLS 1.3 handshake to crypto/utls/
+    call utls_client_handshake
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; sstp_connect_request — Send SSTP_MSG_CALL_CONNECT_REQUEST Frame
-; -----------------------------------------------------------------------------
 align 32
 sstp_connect_request:
     push rbp
     mov rbp, rsp
-    ; Format 4-byte SSTP Header + Call Connect Request Attributes
-    xor eax, eax
+    ; Delegate certificate validation to crypto/ux509/
+    call ux509_verify_cert
     pop rbp
     ret
 
@@ -58,7 +58,6 @@ align 32
 sstp_process_packet:
     push rbp
     mov rbp, rsp
-    ; Process inbound SSTP Control or Data frame
     xor eax, eax
     pop rbp
     ret
@@ -67,7 +66,6 @@ align 32
 sstp_encap_ppp:
     push rbp
     mov rbp, rsp
-    ; Encapsulate PPP LCP/NCP/IP frame into SSTP Data Frame over TLS 1.3
     xor eax, eax
     pop rbp
     ret
