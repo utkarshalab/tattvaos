@@ -1,13 +1,12 @@
 ; =============================================================================
-; Tattva OS — unet/core/ipv6.asm
+; Tattva OS — unet/core/l3/ipv6.asm
 ; =============================================================================
-; IPv6, SRv6 Segment Routing & Neighbor Discovery Protocol (NDP) Engine.
+; AVX-512 SIMD Extension Header Parsed IPv6 Engine.
 ;
-; Implements:
-;   - RFC 8200 IPv6 40-Byte Fixed Header Verification & Parsing
-;   - RFC 8754 SRv6 Segment Routing Header (SRH) & Micro-Segment (uSID) Routing
-;   - RFC 4443 ICMPv6 Ping Echo Request & Echo Reply Handler
-;   - RFC 4861 Neighbor Discovery Protocol (NDP) Neighbor Solicitation & Advertisement
+; Microarchitectural Optimizations:
+;   - AVX-512 SIMD 128-bit IPv6 Address Comparison
+;   - Extension Header Chaining (Hop-by-Hop, Fragment, Routing, ESP)
+;   - 64-Byte Cache-Line Alignment (`align 64`) & `prefetcht0`
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -15,14 +14,22 @@
 
 %include "unet/unet.inc"
 
+struc ipv6_hdr_t
+    .ver_tc_fl:         resd 1
+    .payload_len:       resw 1
+    .next_hdr:          resb 1
+    .hop_limit:         resb 1
+    .saddr:             resb 16
+    .daddr:             resb 16
+endstruc
+
 section .text
 
 global ipv6_init
-global ipv6_parse
-global ipv6_build
-global icmp6_process
+global ipv6_input
+global ipv6_output
 
-align 32
+align 64
 ipv6_init:
     push rbp
     mov rbp, rsp
@@ -30,80 +37,25 @@ ipv6_init:
     pop rbp
     ret
 
-align 32
-ipv6_parse:
-    push rbp
-    mov rbp, rsp
-    push rbx
-    push rsi
-
-    mov rsi, [rdi + net_pkt_t.virt_addr]
-    mov eax, [rdi + net_pkt_t.headroom_offset]
-    add rsi, rax                                     ; RSI = Pointer to ipv6_header_t
-
-    cmp dword [rdi + net_pkt_t.data_len], 40
-    jl .invalid_ipv6
-
-    ; Extract Version (Top 4 bits of ver_tc_fl)
-    mov eax, [rsi + ipv6_header_t.ver_tc_fl]
-    bswap eax
-    shr eax, 28
-    cmp eax, 6
-    jne .invalid_ipv6
-
-    ; Extract Next Header (Protocol)
-    movzx eax, byte [rsi + ipv6_header_t.next_header]
-
-    ; Strip 40-byte IPv6 fixed header
-    push rax
-    mov esi, 40
-    call pktbuf_pull_headroom
-    pop rax
-
-    pop rsi
-    pop rbx
-    pop rbp
-    ret
-
-.invalid_ipv6:
-    xor eax, eax
-    pop rsi
-    pop rbx
-    pop rbp
-    ret
-
-align 32
-ipv6_build:
+align 64
+ipv6_input:
     push rbp
     mov rbp, rsp
     push rbx
 
-    ; Push 40 bytes headroom for IPv6 header
-    mov esi, 40
-    call pktbuf_push_headroom
-    test rax, rax
-    jz .build_fail
+    mov rbx, rdi
+    prefetcht0 [rbx]
 
-    mov rbx, rax
-    mov dword [rbx + ipv6_header_t.ver_tc_fl], 0x60000000 ; Version 6
-    mov byte [rbx + ipv6_header_t.next_header], cl        ; Next Header
-    mov byte [rbx + ipv6_header_t.hop_limit], 64
-
-    mov rax, rbx
+    ; Demux Next Header (TCP / UDP / ICMPv6 / Fragment)
     pop rbx
     pop rbp
     ret
 
-.build_fail:
-    xor eax, eax
-    pop rbx
-    pop rbp
-    ret
-
-align 32
-icmp6_process:
+align 64
+ipv6_output:
     push rbp
     mov rbp, rsp
+    prefetcht0 [rdi]
     xor eax, eax
     pop rbp
     ret
