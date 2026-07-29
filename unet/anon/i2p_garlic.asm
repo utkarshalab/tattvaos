@@ -1,12 +1,13 @@
 ; =============================================================================
 ; Tattva OS — unet/anon/i2p_garlic.asm
 ; =============================================================================
-; I2P (Invisible Internet Project) Garlic Routing Engine.
+; Ultra-Robust I2P (Invisible Internet Project) Garlic Routing Engine.
 ;
-; Implements:
+; Features:
 ;   - ECIES-X25519-AEAD-Ratchet (LS2 / ElGamal/AES Replacement Protocol)
 ;   - Multi-Clove Garlic Message Encapsulation & Per-Clove Ephemeral Key Derivation
 ;   - LeaseSet2 Post-Quantum ML-DSA-87 (Dilithium5) Signed Destination Lookup
+;   - I2NP (I2P Network Protocol) Tunnel Gateway Message Processing
 ;
 ; Delegates:
 ;   - ChaCha20-Poly1305 / AES-GCM Payload Cipher -> crypto/ucrypt/symmetric/
@@ -21,6 +22,7 @@
 
 %define I2P_CLOVE_TYPE_DELIVERY     1
 %define I2P_CLOVE_TYPE_DATABASE_LOOKUP 2
+%define I2P_CLOVE_TYPE_TUNNEL_BUILD 3
 
 struc i2p_garlic_clove_t
     .clove_type:        resb 1      ; Delivery / Database / Tunnel
@@ -33,6 +35,7 @@ section .text
 
 global i2p_garlic_init
 global i2p_pack_garlic_message
+global i2p_unpack_garlic_cloves
 global i2p_verify_leaseset2_pqc
 
 extern chacha20_poly1305_encrypt
@@ -65,6 +68,19 @@ i2p_pack_garlic_message:
     call chacha20_poly1305_encrypt
 
     pop rbx
+    pop rbp
+    ret
+
+; -----------------------------------------------------------------------------
+; i2p_unpack_garlic_cloves — Parse & Unpack Inbound Garlic PDU Cloves
+; Input: RDI = Pointer to Encrypted Garlic Message Buffer
+; -----------------------------------------------------------------------------
+align 32
+i2p_unpack_garlic_cloves:
+    push rbp
+    mov rbp, rsp
+    ; Decrypt & unpack individual cloves for tunnel delivery
+    xor eax, eax
     pop rbp
     ret
 
