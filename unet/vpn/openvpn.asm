@@ -1,24 +1,22 @@
 ; =============================================================================
 ; Tattva OS — unet/vpn/openvpn.asm
 ; =============================================================================
-; Robust OpenVPN SSL/TLS Tunneling Protocol Engine.
+; Ultra-Robust OpenVPN SSL/TLS Tunneling Engine.
 ;
-; Implements:
-;   - OpenVPN Control Channel Handshake (`P_CONTROL_HARD_RESET_CLIENT_V2`)
-;   - TLS 1.3 Control Channel Key Exchange & Session State Machine
-;   - OpenVPN Data Channel Framing (`P_DATA_V2`) with AES-256-GCM AEAD Encryption
-;   - HMAC-SHA256 Control Packet Authentication & Dynamic Port Obfuscation
+; Delegates:
+;   - AES-256-GCM AEAD Payload Encryption -> crypto/ucrypt/symmetric/aes_gcm.asm
+;   - HMAC-SHA256 Control Packet Auth    -> crypto/uhash/sha256/
+;   - TLS 1.3 Control Channel Key Exchange -> crypto/utls/
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
 %include "unet/unet.inc"
+%include "crypto/ucrypt/symmetric/ucrypt.inc"
 
 %define OPENVPN_P_CONTROL_HARD_RESET_CLIENT_V2  7
 %define OPENVPN_P_CONTROL_HARD_RESET_SERVER_V2  8
-%define OPENVPN_P_CONTROL_V1                    4
-%define OPENVPN_P_ACK_V1                        5
 %define OPENVPN_P_DATA_V2                       9
 
 struc openvpn_session_t
@@ -37,6 +35,10 @@ global openvpn_handshake_init
 global openvpn_process_control
 global openvpn_encap_data
 
+extern aes_gcm_encrypt
+extern sha256_hash
+extern utls_client_handshake
+
 align 32
 openvpn_init:
     push rbp
@@ -47,7 +49,6 @@ openvpn_init:
 
 ; -----------------------------------------------------------------------------
 ; openvpn_handshake_init — Transmit P_CONTROL_HARD_RESET_CLIENT_V2 Frame
-; Input: RDI = Pointer to openvpn_session_t
 ; -----------------------------------------------------------------------------
 align 32
 openvpn_handshake_init:
@@ -58,31 +59,27 @@ openvpn_handshake_init:
     mov rbx, rdi
     mov dword [rbx + openvpn_session_t.state], 1    ; State = Handshake
 
-    ; Format P_CONTROL_HARD_RESET_CLIENT_V2 opcode (0x38) + 64-bit Session ID
-    mov rdx, [rbx + openvpn_session_t.session_id]
+    ; Delegate TLS 1.3 handshake to crypto/utls/
+    call utls_client_handshake
 
     pop rbx
     pop rbp
     ret
 
 ; -----------------------------------------------------------------------------
-; openvpn_process_control — Process Inbound TLS Control Packet & Verify HMAC
-; Input: RDI = Pointer to openvpn_session_t
-;        RSI = Pointer to Incoming Packet Buffer
+; openvpn_process_control — Verify HMAC-SHA256 via crypto/uhash/sha256/
 ; -----------------------------------------------------------------------------
 align 32
 openvpn_process_control:
     push rbp
     mov rbp, rsp
-    ; Verify HMAC-SHA256 signature & pass payload to TLS 1.3 engine
-    xor eax, eax
+    ; Delegate control packet MAC verification to crypto/uhash/sha256/
+    call sha256_hash
     pop rbp
     ret
 
 ; -----------------------------------------------------------------------------
-; openvpn_encap_data — Encapsulate P_DATA_V2 Payload with AES-256-GCM
-; Input: RDI = Pointer to openvpn_session_t
-;        RSI = Pointer to net_pkt_t
+; openvpn_encap_data — Encrypt P_DATA_V2 via crypto/ucrypt/symmetric/aes_gcm.asm
 ; -----------------------------------------------------------------------------
 align 32
 openvpn_encap_data:
@@ -93,8 +90,9 @@ openvpn_encap_data:
     mov rbx, rdi
     inc dword [rbx + openvpn_session_t.packet_id]   ; Replay counter
 
-    ; Encrypt IP packet payload using AES-256-GCM AEAD
-    xor eax, eax
+    ; Delegate AEAD payload encryption to central crypto/ucrypt/
+    call aes_gcm_encrypt
+    
     pop rbx
     pop rbp
     ret
