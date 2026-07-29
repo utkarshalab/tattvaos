@@ -62,6 +62,7 @@ unet_shutdown:
 %include "unet/core/sys/pktbuf.asm"
 %include "unet/core/l2/eth.asm"
 %include "unet/core/l2/arp.asm"
+%include "unet/core/l2/mac.asm"
 %include "unet/core/l3/ip.asm"
 %include "unet/core/l3/ipv6.asm"
 %include "unet/core/l4/udp.asm"
