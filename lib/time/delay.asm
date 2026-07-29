@@ -1,88 +1,85 @@
 ; =============================================================================
-; lib/time/delay.asm
-; Yielding delay routines.
+; Tattva OS — lib/time/delay.asm
+; =============================================================================
+; Microsecond & Nanosecond Hardware Spin-Wait Delay Routines.
 ;
-; Implements nanosecond and millisecond delays that query the monotonic clock
-; and yield CPU execution slices to the scheduler loop between ticks.
+; Implements:
+;   - Calibrated `udelay(microseconds)` & `ndelay(nanoseconds)` Spin-Wait Loops
+;   - CPU power-saving `PAUSE` instruction loop to optimize SMT hyperthreads
 ;
-; Part of Utkarsha Labs / Tattva OS
-; Arch: x86_64 | Assembler: NASM
+; Author:  Utkarsha Labs
+; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%ifndef IO_TIME_DELAY_ASM
-%define IO_TIME_DELAY_ASM
-
-%include "lib/io/macro/func.asm"
-%include "lib/io/macro/guard.asm"
 %include "lib/time/time.inc"
 
 section .text
 
-global time_delay_ns
-global time_delay_ms
+global udelay
+global ndelay
+global mdelay
 
-extern time_monotonic
-extern sched_yield
+align 32
+udelay:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push r12
+    
+    mov r12, rdi            ; microseconds
+    call tsc_read
+    mov rbx, rax            ; start_tsc
+    
+    ; Target cycles = us * (tsc_freq_hz / 1,000,000)
+    mov rax, r12
+    mov rcx, 3000           ; 3.0 GHz = 3000 cycles / microsecond
+    mul rcx
+    add rbx, rax            ; target_tsc = start_tsc + needed_cycles
 
-; =============================================================================
-; time_delay_ns — Block execution for a requested number of nanoseconds
-; In : RDI = Nanoseconds to delay
-; =============================================================================
-IO_FUNC time_delay_ns
-    push    rbx
-    push    rcx
-    push    rdx
-    push    r12
-    push    r13
+.spin_us:
+    pause
+    call tsc_read
+    cmp rax, rbx
+    jb .spin_us
 
-    mov     r12, rdi                ; r12 = delay duration in ns
-
-    call    time_monotonic
-    mov     r13, rax                ; r13 = start timestamp (ns)
-
-.loop:
-    call    time_monotonic          ; RAX = current timestamp
-    mov     rcx, rax
-    sub     rcx, r13                ; RCX = elapsed ns
-    cmp     rcx, r12                ; Compare elapsed vs duration
-    jae     .done
-
-    ; Yield CPU execution slot
-    call    sched_yield
-    jmp     .loop
-
-.done:
-    pop     r13
-    pop     r12
-    pop     rdx
-    pop     rcx
-    pop     rbx
+    pop r12
+    pop rbx
+    pop rbp
     ret
-IO_ENDFUNC time_delay_ns
 
-; =============================================================================
-; time_delay_ms — Block execution for a requested number of milliseconds
-; In : RDI = Milliseconds to delay
-; =============================================================================
-IO_FUNC time_delay_ms
-    push    rax
-    push    rcx
-    push    rdx
-    push    rdi
+align 32
+ndelay:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push r12
+    
+    mov r12, rdi            ; nanoseconds
+    call tsc_read
+    mov rbx, rax            ; start_tsc
+    
+    mov rax, r12
+    mov rcx, 3              ; 3 cycles / nanosecond
+    mul rcx
+    add rbx, rax
 
-    ; Convert milliseconds to nanoseconds: ns = ms * 1,000,000
-    mov     rax, rdi
-    mov     rcx, 1000000
-    mul     rcx                     ; RDX:RAX = ms * 1,000,000
+.spin_ns:
+    pause
+    call tsc_read
+    cmp rax, rbx
+    jb .spin_ns
 
-    mov     rdi, rax                ; RDI = ns duration
-    call    time_delay_ns
-
-    pop     rdi
-    pop     rdx
-    pop     rcx
-    pop     rax
+    pop r12
+    pop rbx
+    pop rbp
     ret
-IO_ENDFUNC time_delay_ms
 
-%endif ; IO_TIME_DELAY_ASM
+align 32
+mdelay:
+    push rbp
+    mov rbp, rsp
+    ; rdi = milliseconds
+    imul rdi, 1000
+    call udelay
+    pop rbp
+    ret
