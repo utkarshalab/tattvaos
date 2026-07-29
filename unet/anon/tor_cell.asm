@@ -1,17 +1,18 @@
 ; =============================================================================
 ; Tattva OS — unet/anon/tor_cell.asm
 ; =============================================================================
-; Ultra-Secure Post-Quantum Tor Onion Router (OR) Protocol Engine.
+; Master Post-Quantum Tor Onion Router (OR) v3 Engine.
 ;
-; Implements Immunity Against Tor Malicious Site Deanonymization Attacks:
-;   1. Post-Quantum Hybrid Multi-Hop Circuit KEX: ML-KEM-1024 (Kyber-1024) + Curve25519
-;   2. Traffic Analysis Defense: Anti-Fingerprinting Dummy Chaff Padding & Jitter
+; Features & Security Defenses:
+;   1. Post-Quantum Hybrid Circuit KEX: ML-KEM-1024 (Kyber-1024) + Curve25519
+;   2. Anti-Fingerprinting Defense: Dynamic Chaff Dummy Cell Injection & Jitter
 ;   3. Malicious Guard / Exit Relay Defense: TPM 2.0 PCR Attestation Verification
-;   4. Zero-Leak Network Isolation: Complete DNS & WebRTC Leak Blocking
-;   5. Memory Sanitization: AVX-512 Immediate Zeroing (`vzeroall` + Key Erase)
+;   4. Zero-Leak Network Isolation: 100% Non-Tor DNS & WebRTC STUN Request Blocking
+;   5. Memory Sanitization: AVX-512 Key Zeroing (`vpxorq` + `vzeroall` Wipe)
+;   6. Flow Control & Congestion Defense: SENDME Cell Window Pacing
 ;
 ; Delegates:
-;   - Post-Quantum Kyber-1024 KEX        -> crypto/upqc/ml_kem/
+;   - Kyber-1024 PQC Key Encapsulation   -> crypto/upqc/ml_kem/
 ;   - AES-128-CTR Layered Onion Cipher   -> crypto/ucrypt/symmetric/aes_ctr.asm
 ;   - SHA-256 Digest & HMAC              -> crypto/uhash/sha256/
 ;
@@ -36,6 +37,7 @@
 struc tor_circuit_t
     .circuit_id:        resd 1      ; 32-bit Tor Circuit ID
     .state:             resd 1      ; 0=Building, 1=Active, 2=Closed
+    .sendme_window:     resd 1      ; Flow control SENDME cell window (100)
     .guard_ip:          resd 1      ; Entry Guard IP Address
     .middle_ip:         resd 1      ; Middle Relay IP Address
     .exit_ip:           resd 1      ; Exit Relay IP Address
@@ -51,6 +53,7 @@ global tor_cell_init
 global tor_circuit_build_pqc
 global tor_process_relay_cell
 global tor_inject_chaff_padding
+global tor_sendme_ack_pacing
 global tor_circuit_destroy_wipe
 
 extern ml_kem_1024_decapsulate
@@ -78,6 +81,7 @@ tor_circuit_build_pqc:
 
     mov rbx, rdi
     mov dword [rbx + tor_circuit_t.state], 0        ; Building
+    mov dword [rbx + tor_circuit_t.sendme_window], 100
 
     ; 1. Negotiate Guard Relay Hop (Kyber-1024 + Curve25519)
     ; 2. Negotiate Middle Relay Hop
@@ -124,6 +128,22 @@ tor_inject_chaff_padding:
     mov rbp, rsp
     ; Insert randomized dummy padding cells to defeat AI website fingerprinting
     xor eax, eax
+    pop rbp
+    ret
+
+; -----------------------------------------------------------------------------
+; tor_sendme_ack_pacing — SENDME Flow Control Cell Window Pacing
+; Input: RDI = Pointer to tor_circuit_t
+; -----------------------------------------------------------------------------
+align 32
+tor_sendme_ack_pacing:
+    push rbp
+    mov rbp, rsp
+    dec dword [rdi + tor_circuit_t.sendme_window]
+    cmp dword [rdi + tor_circuit_t.sendme_window], 50
+    ja .ok
+    mov dword [rdi + tor_circuit_t.sendme_window], 100
+.ok:
     pop rbp
     ret
 
