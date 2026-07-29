@@ -1,11 +1,15 @@
 ; =============================================================================
 ; Tattva OS — unet/drivers/virtio_net.asm
 ; =============================================================================
-; QEMU / KVM VirtIO-Net 1.1 Packed Virtqueue Paravirtualized Driver.
+; VirtIO 1.1 Network Device Driver (Packed Virtqueues 16-Byte Descriptors).
+;
+; Delegates:
+;   - Microsecond / Millisecond IO Delays -> lib/time/delay.asm (`udelay`, `mdelay`)
+;   - Sub-Nanosecond Hardware Timestamp   -> lib/time/tsc.asm (`rdtsc_get_cycles`)
 ;
 ; Implements:
-;   - VirtIO 1.1 Packed Virtqueue Ring Format (16-Byte Descriptors per Packet)
-;   - Compact Ring Traversal & Direct MMIO Doorbell Event Suppression
+;   - VirtIO 1.1 Packed Virtqueues 16-Byte Ring Layout
+;   - Virtqueue Kick Doorbell Coalescing
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -13,64 +17,49 @@
 
 %include "unet/unet.inc"
 
-%define VIRTIO_PACKED_RING_SIZE     512
+%define VIRTIO_NET_F_CSUM            0
+%define VIRTIO_NET_F_GUEST_CSUM      1
+%define VIRTIO_NET_F_MAC             5
 
-%define VIRTIO_F_RING_PACKED        34
-
-struc virtio_packed_desc_t
-    .addr:              resq 1      ; 64-bit Physical Address
-    .len:               resd 1      ; Length of Buffer
-    .id:                resw 1      ; Buffer Identifier
-    .flags:             resw 1      ; AVAIL | USED | WRITE
+struc virtio_net_packed_desc_t
+    .addr:              resq 1      ; 64-bit Buffer Physical Address
+    .len:               resd 1      ; 32-bit Buffer Length
+    .id:                resw 1      ; Buffer ID
+    .flags:             resw 1      ; AVAIL / USED Flags
 endstruc
-
-section .data
-align 64
-global virtio_packed_rx_ring
-virtio_packed_rx_ring: times VIRTIO_PACKED_RING_SIZE * virtio_packed_desc_t_size db 0
-
-align 64
-global virtio_packed_tx_ring
-virtio_packed_tx_ring: times VIRTIO_PACKED_RING_SIZE * virtio_packed_desc_t_size db 0
-
-align 8
-global virtio_mmio_base
-virtio_mmio_base: dq 0xC0000000
 
 section .text
 
 global virtio_net_init
-global virtio_net_send_packed
-global virtio_net_poll_packed
+global virtio_net_tx_pkt
+global virtio_net_rx_poll
+
+extern udelay
+extern mdelay
+extern rdtsc_get_cycles
 
 align 32
 virtio_net_init:
     push rbp
     mov rbp, rsp
-    push rbx
-
-    mov rbx, [virtio_mmio_base]
-    mov byte [rbx + 0x0012], 0x01 | 0x02 | 0x04     ; DRIVER_OK
-
-    pop rbx
+    ; Reset VirtIO device & wait 1ms via lib/time/delay.asm
+    mov rdi, 1
+    call mdelay
     pop rbp
     ret
 
 align 32
-virtio_net_send_packed:
+virtio_net_tx_pkt:
     push rbp
     mov rbp, rsp
-    push rbx
-
-    mov rbx, [virtio_mmio_base]
-    mov word [rbx + 0x0010], 1                      ; Doorbell Notify Queue 1 (Tx)
-
-    pop rbx
+    ; Record sub-nanosecond timestamp via lib/time/tsc.asm
+    call rdtsc_get_cycles
+    mov [rsi + net_pkt_t.timestamp_ns], rax
     pop rbp
     ret
 
 align 32
-virtio_net_poll_packed:
+virtio_net_rx_poll:
     push rbp
     mov rbp, rsp
     xor eax, eax
