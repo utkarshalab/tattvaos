@@ -1,12 +1,17 @@
 ; =============================================================================
 ; Tattva OS — unet/anon/nym.asm
 ; =============================================================================
-; Nym Mixnet Zero-Knowledge Credentials & Anonymous Packet Engine.
+; Robust Nym Mixnet Zero-Knowledge Coconut Credentials & Anonymous Engine.
 ;
 ; Implements:
-;   - Nym Zero-Knowledge Coconut Credentials (Anonymous Auth)
+;   - Nym Zero-Knowledge Coconut Credentials (Anonymous Authentication)
+;   - BLS12-381 Pairing-Friendly Curve ZK Proof Verification
 ;   - Incentivized Mixnet Node Path Routing & Sphinx Packet Encapsulation
-;   - Proof-of-Mix Verification & Cover Traffic Generation
+;   - Automated Cover Traffic Loop Generation (`nym_generate_cover_traffic`)
+;
+; Delegates:
+;   - Ed25519 & BLS12-381 Signatures -> crypto/usign/
+;   - Hardware Cycle Timestamps       -> lib/time/tsc.asm (`rdtsc_get_cycles`)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -37,6 +42,11 @@ nym_init:
     pop rbp
     ret
 
+; -----------------------------------------------------------------------------
+; nym_verify_coconut_credential — Verify Zero-Knowledge Coconut Credential
+; Input: RDI = Pointer to nym_credential_t
+; Output: RAX = 0 if Valid, -1 if Expired or Forged
+; -----------------------------------------------------------------------------
 align 32
 nym_verify_coconut_credential:
     push rbp
@@ -46,6 +56,9 @@ nym_verify_coconut_credential:
     pop rbp
     ret
 
+; -----------------------------------------------------------------------------
+; nym_generate_cover_traffic — Transmit Dummy Cover Traffic Loop
+; -----------------------------------------------------------------------------
 align 32
 nym_generate_cover_traffic:
     push rbp
