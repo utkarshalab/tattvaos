@@ -1,48 +1,50 @@
 ; =============================================================================
-; lib/time/time.inc
-; Time and clock primitive definitions for Tattva OS.
+; Tattva OS — lib/time/time.inc
+; =============================================================================
+; Master Time Constants, Hardware Port Definitions & Data Schemas.
 ;
-; Part of Utkarsha Labs / Tattva OS
-; Arch: x86_64 | Assembler: NASM
+; Author:  Utkarsha Labs
+; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%ifndef IO_TIME_INC
-%define IO_TIME_INC
+%ifndef TIME_INC
+%define TIME_INC
 
-; DateTime representation structure (56 bytes)
-struc tm_t
-    .year       resq 1      ; Full year (e.g. 2026)
-    .month      resq 1      ; Month of year (1-12)
-    .day        resq 1      ; Day of month (1-31)
-    .hour       resq 1      ; Hour of day (0-23)
-    .minute     resq 1      ; Minute of hour (0-59)
-    .second     resq 1      ; Second of minute (0-59)
-    .nanosecond resq 1      ; Nanosecond of second (0-999999999)
+; -----------------------------------------------------------------------------
+; CMOS RTC Hardware I/O Ports
+; -----------------------------------------------------------------------------
+%define CMOS_ADDR_PORT      0x70
+%define CMOS_DATA_PORT      0x71
+
+%define RTC_SECONDS         0x00
+%define RTC_MINUTES         0x02
+%define RTC_HOURS           0x04
+%define RTC_WEEKDAY         0x06
+%define RTC_DAY             0x07
+%define RTC_MONTH           0x08
+%define RTC_YEAR            0x09
+%define RTC_CENTURY         0x32
+%define RTC_STATUS_A        0x0A
+%define RTC_STATUS_B        0x0B
+
+; -----------------------------------------------------------------------------
+; Time Structures (64-bit aligned)
+; -----------------------------------------------------------------------------
+struc timespec_t
+    .tv_sec:    resq 1      ; Seconds since UNIX Epoch
+    .tv_nsec:   resq 1      ; Nanoseconds (0..999,999,999)
 endstruc
 
-; CMOS Real-Time Clock I/O Register mappings
-CMOS_PORT_INDEX     equ 0x70
-CMOS_PORT_DATA      equ 0x71
+struc tm_t
+    .tm_sec:    resd 1      ; Seconds [0..60]
+    .tm_min:    resd 1      ; Minutes [0..59]
+    .tm_hour:   resd 1      ; Hour [0..23]
+    .tm_mday:   resd 1      ; Day of month [1..31]
+    .tm_mon:    resd 1      ; Month [0..11]
+    .tm_year:   resd 1      ; Year since 1900
+    .tm_wday:   resd 1      ; Day of week [0..6] (Sunday = 0)
+    .tm_yday:   resd 1      ; Day of year [0..365]
+    .tm_isdst:  resd 1      ; DST flag
+endstruc
 
-; CMOS Register Indices for time information
-CMOS_REG_SECONDS    equ 0x00
-CMOS_REG_MINUTES    equ 0x02
-CMOS_REG_HOURS      equ 0x04
-CMOS_REG_WEEKDAY    equ 0x06
-CMOS_REG_DAY_MONTH  equ 0x07
-CMOS_REG_MONTH      equ 0x08
-CMOS_REG_YEAR       equ 0x09
-CMOS_REG_CENTURY    equ 0x32
-
-; CMOS Status Registers
-CMOS_REG_STATUS_A   equ 0x0A
-CMOS_REG_STATUS_B   equ 0x0B
-
-; CMOS Status A flags
-CMOS_STATUS_A_UIP   equ 0x80        ; Update in progress flag bit
-
-; CMOS Status B flags
-CMOS_STATUS_B_24H   equ 0x02        ; 24-hour mode flag bit (1 = 24H, 0 = 12H)
-CMOS_STATUS_B_BIN   equ 0x04        ; Binary mode flag bit (1 = Binary, 0 = BCD)
-
-%endif ; IO_TIME_INC
+%endif ; TIME_INC
