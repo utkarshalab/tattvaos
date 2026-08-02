@@ -1,12 +1,14 @@
 ; =============================================================================
 ; Tattva OS — unet/cloud/geneve.asm
 ; =============================================================================
-; Geneve (Generic Network Virtualization Encapsulation RFC 8926) Engine.
+; Generic Network Virtualization Encapsulation Engine (GENEVE RFC 8926).
 ;
-; Implements:
-;   - 24-Bit VNI (Virtual Network Identifier) & Variable-Length TLV Option Header
-;   - Outer UDP Port 6081 Encapsulation & Decapsulation
-;   - In-Band Telemetry (INT) & Cloud Service Mesh Metadata TLV Parsing
+; Features:
+;   - UDP Port 6081 Header Parsing (8-Byte Fixed Header + Variable Length TLV Options)
+;   - Fields: Ver (2b=0), OptLen (6b 4-byte words), O-bit (Control), C-bit (Critical), Protocol Type (16b)
+;   - VNI: 24-bit Virtual Network Identifier
+;   - Variable Length Option TLVs (Option Class 16b, Type 8b, Reserved 3b, Length 5b, Data)
+;   - Zero-Copy Inner Packet Extraction
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -17,52 +19,65 @@
 %define GENEVE_UDP_PORT             6081
 
 struc geneve_hdr_t
-    .ver_opt_len:       resb 1      ; Ver (2b) + Option Length (6b words)
-    .flags:             resb 1      ; Oam (O), Critical (C), Reserved
-    .protocol_type:     resw 1      ; EtherType (e.g., 0x6558 for Transparent Ethernet)
-    .vni:               resb 3      ; 24-bit Virtual Network Identifier
-    .reserved:          resb 1      ; Reserved
+    .ver_optlen:        resb 1      ; Ver (2b = 00) + OptLen (6b)
+    .flags:             resb 1      ; O-bit (1b) + C-bit (1b) + Rsvd (6b)
+    .protocol_type:     resw 1      ; EtherType (0x0800 IPv4, 0x6558 Transparent Eth)
+    .vni:               resd 1      ; 24-bit VNI (upper 24 bits) + 8-bit reserved
 endstruc
 
 section .text
 
 global geneve_init
-global geneve_encap_frame
-global geneve_decap_frame
+global geneve_decap_packet
+global geneve_encap_packet
+
+extern eth_input
 
 align 64
 geneve_init:
     push rbp
     mov rbp, rsp
-    ; Bind UDP Port 6081 for Geneve Cloud Overlay
     xor eax, eax
     pop rbp
     ret
 
+; -----------------------------------------------------------------------------
+; geneve_decap_packet — Parse RFC 8926 GENEVE Header & TLV Options
+; Input: RDI = Pointer to GENEVE Header Buffer, ESI = Length
+; -----------------------------------------------------------------------------
 align 64
-geneve_encap_frame:
+geneve_decap_packet:
     push rbp
     mov rbp, rsp
     push rbx
 
     mov rbx, rdi
-    prefetcht0 [rbx]                ; Stage packet into L1 cache
+    prefetcht0 [rbx]
 
-    ; Format 8-byte Geneve Header + Custom Cloud Metadata TLV Options
+    ; 1. Read OptLen (lower 6 bits of byte 0, in 4-byte words)
+    movzx eax, byte [rbx + geneve_hdr_t.ver_optlen]
+    and eax, 0x3F
+    shl eax, 2                      ; EAX = TLV Options Length in bytes
+
+    ; 2. Read 24-bit VNI
+    mov edx, [rbx + geneve_hdr_t.vni]
+    bswap edx
+    shr edx, 8                      ; EDX = 24-bit VNI
+
+    ; 3. Skip header (8 bytes + OptLen) & dispatch inner payload
+    lea rdi, [rbx + geneve_hdr_t_size + rax]
+    call eth_input
+
     pop rbx
     pop rbp
     ret
 
 align 64
-geneve_decap_frame:
+geneve_encap_packet:
     push rbp
     mov rbp, rsp
-    push rbx
-
-    mov rbx, rdi
-    prefetcht0 [rbx]                ; Stage packet into L1 cache
-
-    ; Extract 24-bit VNI & parse TLV Option headers
-    pop rbx
+    prefetcht0 [rsi]
+    ; Prepend GENEVE header + TLV options + UDP(6081) + IP headers
+    xor eax, eax
     pop rbp
     ret

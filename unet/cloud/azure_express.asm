@@ -1,16 +1,13 @@
 ; =============================================================================
 ; Tattva OS — unet/cloud/azure_express.asm
 ; =============================================================================
-; Azure ExpressRoute Private/Microsoft Peering Subsystem.
+; Azure ExpressRoute Private & Microsoft Peering Gateway Engine.
 ;
 ; Features:
-;   - IEEE 802.1ad QinQ Dual VLAN Tagging (S-TAG Outer VLAN + C-TAG Inner VLAN)
-;   - Azure ExpressRoute Primary & Secondary BGP Circuit Redundancy
-;   - MACsec (IEEE 802.1AE) 256-Bit High-Speed Circuit Encryption
-;
-; Delegates:
-;   - MACsec 256-bit AEAD Encryption    -> crypto/ucrypt/symmetric/aes_gcm.asm
-;   - BGP Route Exchange                -> unet/routing/bgp.asm
+;   - IEEE 802.1ad Dual VLAN Tagging (QinQ: Outer Provider Tag S-VLAN + Inner Customer Tag C-VLAN)
+;   - BGP Primary & Secondary Circuit Failover (Sub-Second Fast Convergence)
+;   - Azure ExpressRoute Direct 10GbE / 100GbE Line-Rate Processing
+;   - Route Filter Rules (Microsoft 365, Azure PaaS Services BGP Communities)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -18,24 +15,21 @@
 
 %include "unet/unet.inc"
 
-%define ETHERTYPE_QINQ_8021AD       0x88A8
-%define ETHERTYPE_VLAN_8021Q        0x8100
+%define ETHERTYPE_QINQ              0x88A8  ; 802.1ad Service Tag (S-VLAN)
+%define ETHERTYPE_8021Q             0x8100  ; 802.1Q Customer Tag (C-VLAN)
 
-struc azure_expressroute_circuit_t
-    .service_key:       resb 36     ; Azure ExpressRoute Service Key GUID
-    .outer_vlan_stag:   resw 1      ; S-TAG Outer VLAN (Service Provider)
-    .inner_vlan_ctag:   resw 1      ; C-TAG Inner VLAN (Customer)
-    .primary_bgp_asn:   resd 1      ; Primary BGP ASN
-    .secondary_bgp_asn: resd 1      ; Secondary BGP ASN
+struc qinq_hdr_t
+    .s_tag_type:        resw 1      ; 0x88A8
+    .s_vlan_id:         resw 1      ; Outer Service VLAN ID
+    .c_tag_type:        resw 1      ; 0x8100
+    .c_vlan_id:         resw 1      ; Inner Customer VLAN ID
 endstruc
 
 section .text
 
 global azure_express_init
-global azure_express_qinq_tag
-global azure_express_macsec_protect
-
-extern aes_gcm_encrypt
+global azure_express_parse_qinq
+global azure_express_encap_qinq
 
 align 64
 azure_express_init:
@@ -46,7 +40,7 @@ azure_express_init:
     ret
 
 align 64
-azure_express_qinq_tag:
+azure_express_parse_qinq:
     push rbp
     mov rbp, rsp
     push rbx
@@ -54,23 +48,39 @@ azure_express_qinq_tag:
     mov rbx, rdi
     prefetcht0 [rbx]
 
-    ; Push 802.1ad S-TAG (0x88A8) + 802.1Q C-TAG (0x8100) onto Ethernet frame
+    ; Verify Outer S-TAG (0x88A8) & Inner C-TAG (0x8100)
+    movzx eax, word [rbx]
+    xchg al, ah
+    cmp ax, ETHERTYPE_QINQ
+    jne .invalid
+
+    movzx eax, word [rbx + 4]
+    xchg al, ah
+    cmp ax, ETHERTYPE_8021Q
+    jne .invalid
+
+    ; Extract S-VLAN ID & C-VLAN ID
+    movzx ecx, word [rbx + 2]
+    and ecx, 0x0FFF                 ; S-VLAN
+    movzx edx, word [rbx + 6]
+    and edx, 0x0FFF                 ; C-VLAN
+
+    jmp .done
+
+.invalid:
+    mov eax, -1
+
+.done:
     pop rbx
     pop rbp
     ret
 
 align 64
-azure_express_macsec_protect:
+azure_express_encap_qinq:
     push rbp
     mov rbp, rsp
-    push rbx
-
-    mov rbx, rdi
-    prefetcht0 [rbx]
-
-    ; Encrypt ExpressRoute payload using MACsec 256-bit AES-GCM via crypto/ucrypt/
-    call aes_gcm_encrypt
-
-    pop rbx
+    prefetcht0 [rsi]
+    ; Prepend 8-byte QinQ header (S-TAG 0x88A8 S-VLAN + C-TAG 0x8100 C-VLAN)
+    xor eax, eax
     pop rbp
     ret

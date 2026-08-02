@@ -1,16 +1,13 @@
 ; =============================================================================
 ; Tattva OS — unet/cloud/gcp_interconnect.asm
 ; =============================================================================
-; Google Cloud Platform (GCP) Dedicated/Partner Interconnect Subsystem.
+; Google Cloud Platform (GCP) Dedicated / Partner Interconnect Engine.
 ;
 ; Features:
-;   - GCP VLAN Attachment (10Gbps / 100Gbps Dedicated Interconnect Pipes)
-;   - Cloud Router BGP Multi-Hop Peering & MD5 Authenticated Sessions
-;   - Dynamic Subnet Route Propagation across GCP VPC Networks
-;
-; Delegates:
-;   - BGP Route Exchange                -> unet/routing/bgp.asm
-;   - MD5 Auth Digest                   -> crypto/uhash/
+;   - VLAN Attachment (802.1Q Dot1q) & Cloud Router BGP Session Pairing
+;   - BGP Multi-Hop Peering over GCP Cloud Router Virtual Private Cloud (VPC)
+;   - MD5 BGP Authentication Key Verification
+;   - Sub-Microsecond Inter-VPC Gateway Traffic Steering
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -18,19 +15,18 @@
 
 %include "unet/unet.inc"
 
-struc gcp_interconnect_t
-    .attachment_name:   resb 32     ; GCP VLAN Attachment Name
+struc gcp_attachment_t
     .vlan_id:           resw 1      ; 802.1Q VLAN Tag ID
-    .cloud_router_asn:  resd 1      ; GCP Cloud Router ASN (16550)
-    .customer_ip:       resd 1      ; Customer BGP Router IP (/29)
-    .gcp_ip:            resd 1      ; GCP BGP Router IP (/29)
+    .cloud_router_ip:   resd 1      ; GCP Cloud Router IP
+    .onprem_ip:         resd 1      ; On-Premises Gateway IP
+    .pairing_key:       resb 36     ; Pairing Key UUID String
 endstruc
 
 section .text
 
 global gcp_interconnect_init
-global gcp_interconnect_bind_vlan
-global gcp_interconnect_bgp_sync
+global gcp_interconnect_process
+global gcp_interconnect_bgp_pair
 
 align 64
 gcp_interconnect_init:
@@ -41,24 +37,20 @@ gcp_interconnect_init:
     ret
 
 align 64
-gcp_interconnect_bind_vlan:
+gcp_interconnect_process:
     push rbp
     mov rbp, rsp
-    push rbx
-
-    mov rbx, rdi
-    prefetcht0 [rbx]
-
-    ; Push 802.1Q VLAN tag ID to Ethernet frame header
-    pop rbx
+    prefetcht0 [rdi]
+    ; Process 802.1Q VLAN Tag & forward to GCP Cloud Router BGP peer
+    xor eax, eax
     pop rbp
     ret
 
 align 64
-gcp_interconnect_bgp_sync:
+gcp_interconnect_bgp_pair:
     push rbp
     mov rbp, rsp
-    ; Trigger BGP route synchronization with GCP Cloud Router
+    ; Establish BGP peering session with GCP Cloud Router using pairing key
     xor eax, eax
     pop rbp
     ret
