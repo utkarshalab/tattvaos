@@ -4,7 +4,7 @@
 ; Master Schema Header for unet (64-Bit Assembly Zero-Copy Network Stack Engine).
 ;
 ; Defines data structures for:
-;   - Ethernet II & 802.1Q VLAN Tagging
+;   - Ethernet II & 802.1Q VLAN Tagging & IEEE 802.1ad QinQ Dual Tagging
 ;   - ARP Request/Reply & ACD Conflict Detection
 ;   - IPv4 20-byte & IPv6 40-byte Headers
 ;   - UDP 8-byte Header & Checksums
@@ -23,12 +23,14 @@
 %define UNET_ETH_TYPE_IPV4          0x0800
 %define UNET_ETH_TYPE_ARP           0x0806
 %define UNET_ETH_TYPE_VLAN          0x8100
+%define UNET_ETH_TYPE_QINQ          0x88A8
 %define UNET_ETH_TYPE_IPV6          0x86DD
 
 %define UNET_IP_PROTO_ICMP          1
 %define UNET_IP_PROTO_TCP           6
 %define UNET_IP_PROTO_UDP           17
 %define UNET_IP_PROTO_ESP           50                  ; IPsec ESP
+%define UNET_IP_PROTO_AH            51                  ; IPsec AH
 
 ; POSIX Socket Types
 %define UNET_SOCK_STREAM            1                   ; TCP
@@ -71,6 +73,11 @@ struc net_pkt_t
     .total_capacity:    resd 1      ; 2048 bytes
     .ref_count:         resd 1      ; Shared zero-copy reference counter
     .next_pkt:          resq 1      ; Linked list pointer for packet chains
+    .timestamp_ns:      resq 1      ; Nanosecond hardware timestamp (RDTSC)
+    .next:              resq 1      ; Flow queue next pointer
+    .ttl:               resb 1      ; IP Time-To-Live / Hop Limit
+    .flags:             resb 1      ; Hardware offload flags
+    .reserved:          resw 1      ; Alignment padding
 endstruc
 
 ; -----------------------------------------------------------------------------
@@ -80,6 +87,17 @@ struc eth_header_t
     .dest_mac:          resb 6      ; Destination MAC Address
     .src_mac:           resb 6      ; Source MAC Address
     .ethertype:         resw 1      ; 0x0800 IPv4, 0x0806 ARP, 0x86DD IPv6 (big-endian)
+endstruc
+
+; -----------------------------------------------------------------------------
+; IEEE 802.1Q VLAN Header (18 bytes)
+; -----------------------------------------------------------------------------
+struc vlan_header_t
+    .dest_mac:          resb 6
+    .src_mac:           resb 6
+    .vlan_type:         resw 1      ; 0x8100
+    .tci:               resw 1      ; PCP (3b) + DEI (1b) + VLAN ID (12b)
+    .ethertype:         resw 1      ; Inner EtherType
 endstruc
 
 ; -----------------------------------------------------------------------------

@@ -7,13 +7,14 @@
 ;   - Core (l2/, l3/, l4/, sys/, link/), HTTP, DNS, Mail, Proxy, Identity, Security,
 ;     SSH, VPN, PQC, Cloud, SDN, CNI, Routing, HA, HPC, HFT, Fintech, SCADA, Telecom,
 ;     Optical, Space, Wireless, Automotive, Avionics, Video, VoIP, Gaming, SAN,
-;     CGNAT, QoS, AI, eBPF, Mesh, Anon, Drivers, Tools, Include, Tests.
+;     CGNAT, QoS, AI, eBPF, Mesh, Anon, Drivers, Services, Tools, Include, Tests.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
 %include "unet/unet.inc"
+%include "unet/include/unet_abi.inc"
 %include "unet/tools/tools.inc"
 
 section .text
@@ -22,7 +23,7 @@ global unet_init
 global unet_poll
 global unet_shutdown
 
-align 32
+align 64
 unet_init:
     push rbp
     mov rbp, rsp
@@ -39,7 +40,7 @@ unet_init:
     pop rbp
     ret
 
-align 32
+align 64
 unet_poll:
     push rbp
     mov rbp, rsp
@@ -48,7 +49,7 @@ unet_poll:
     pop rbp
     ret
 
-align 32
+align 64
 unet_shutdown:
     push rbp
     mov rbp, rsp
@@ -57,8 +58,10 @@ unet_shutdown:
     ret
 
 ; -----------------------------------------------------------------------------
-; Master Protocol Suite Includes (39 Single-Word Pure Domain Directories)
+; Master Protocol Suite Includes (All Pure Domain Directories)
 ; -----------------------------------------------------------------------------
+
+; 1. Core Stack (l2/, l3/, l4/, sys/, link/)
 %include "unet/core/sys/pktbuf.asm"
 %include "unet/core/l2/eth.asm"
 %include "unet/core/l2/arp.asm"
@@ -77,7 +80,7 @@ unet_shutdown:
 %include "unet/core/sys/socket.asm"
 %include "unet/core/sys/epoll.asm"
 
-; Core Hardware Link & DMA Ring Management Subdirectory
+; Core Hardware Link & DMA Ring Management
 %include "unet/core/link/net_link.asm"
 %include "unet/core/link/net_ring.asm"
 %include "unet/core/link/pci.asm"
@@ -87,49 +90,169 @@ unet_shutdown:
 %include "unet/core/link/sbuf.asm"
 %include "unet/core/link/loan.asm"
 
+; 2. DNS Engine
+%include "unet/dns/dns.asm"
+%include "unet/dns/dnssec.asm"
+%include "unet/dns/doh.asm"
+%include "unet/dns/doq.asm"
+%include "unet/dns/dot.asm"
+%include "unet/dns/mdns.asm"
+
+; 3. Mail Protocols
+%include "unet/mail/smtp.asm"
+%include "unet/mail/pop3.asm"
+%include "unet/mail/imap.asm"
+%include "unet/mail/dkim.asm"
+%include "unet/mail/spf_dmarc.asm"
+
+; 4. Routing Protocols
+%include "unet/routing/bgp.asm"
+%include "unet/routing/ospf.asm"
+%include "unet/routing/isis.asm"
+%include "unet/routing/evpn.asm"
+%include "unet/routing/netns.asm"
+%include "unet/routing/pim_dm.asm"
+%include "unet/routing/pim_sm.asm"
+%include "unet/routing/vrf_manager.asm"
+
+; 5. SDN (Software-Defined Networking)
+%include "unet/sdn/geneve.asm"
+%include "unet/sdn/gre.asm"
+%include "unet/sdn/ipip.asm"
+%include "unet/sdn/l2tp.asm"
+%include "unet/sdn/mpls.asm"
+%include "unet/sdn/nvgre.asm"
+%include "unet/sdn/vxlan.asm"
+%include "unet/sdn/wireguard.asm"
+
+; 6. CNI (Container Network Interface)
+%include "unet/cni/calico.asm"
+%include "unet/cni/cilium.asm"
+%include "unet/cni/flannel.asm"
+%include "unet/cni/kube_proxy.asm"
+%include "unet/cni/weave.asm"
+
+; 7. CGNAT (Carrier-Grade NAT)
+%include "unet/cgnat/cgnat.asm"
+%include "unet/cgnat/ds_lite.asm"
+%include "unet/cgnat/nat444.asm"
+%include "unet/cgnat/nat64.asm"
+%include "unet/cgnat/nptv6.asm"
+%include "unet/cgnat/pcp.asm"
+
+; 8. SCADA & Industrial Control
+%include "unet/scada/modbus_tcp.asm"
+%include "unet/scada/dnp3.asm"
+%include "unet/scada/iec61850.asm"
+%include "unet/scada/dlms_cosem.asm"
+
+; 9. SAN (Storage Area Network)
+%include "unet/san/iscsi.asm"
+%include "unet/san/nvme_of_rdma.asm"
+%include "unet/san/nvme_of_tcp.asm"
+%include "unet/san/fcoe.asm"
+%include "unet/san/fip.asm"
+%include "unet/san/nfs42.asm"
+%include "unet/san/smb3.asm"
+%include "unet/san/webdav.asm"
+
+; 10. Space Protocols
+%include "unet/space/ccsds.asm"
+%include "unet/space/cfdp.asm"
+%include "unet/space/dtn.asm"
+%include "unet/space/dvb_rcs2.asm"
+%include "unet/space/dvb_s2x.asm"
+%include "unet/space/laser_mesh.asm"
+%include "unet/space/ltp.asm"
+
+; 11. SSH Subsystem
+%include "unet/ssh/ssh_transport.asm"
+%include "unet/ssh/ssh_auth.asm"
+%include "unet/ssh/ssh_connection.asm"
+%include "unet/ssh/sftp.asm"
+
+; 12. Security Subsystem
+%include "unet/security/firewall.asm"
+%include "unet/security/ddos.asm"
+%include "unet/security/ipsec.asm"
+%include "unet/security/nitro.asm"
+%include "unet/security/noise_protocol.asm"
+%include "unet/security/pattern_matcher.asm"
+%include "unet/security/qkd.asm"
+%include "unet/security/qrng_entropy.asm"
+%include "unet/security/ssh_server.asm"
+%include "unet/security/tls13_session.asm"
+%include "unet/security/tpm2.asm"
+%include "unet/security/ztna.asm"
+
+; 13. Network Services
+%include "unet/services/dhcp.asm"
+%include "unet/services/ntp.asm"
+%include "unet/services/syslog.asm"
+%include "unet/services/ipfix.asm"
+%include "unet/services/matter.asm"
+%include "unet/services/mqtt.asm"
+%include "unet/services/opcua.asm"
+%include "unet/services/radius.asm"
+%include "unet/services/snmpv3.asm"
+%include "unet/services/tacacs.asm"
+
+; 14. Anonymity Networks
+%include "unet/anon/tor_cell.asm"
+%include "unet/anon/i2p_garlic.asm"
+%include "unet/anon/freenet.asm"
+%include "unet/anon/lokinet.asm"
+%include "unet/anon/mixnet.asm"
+%include "unet/anon/nym.asm"
+%include "unet/anon/obfs4.asm"
+%include "unet/anon/shadowsocks.asm"
+
+; 15. Telecom Core 5G/LTE
+%include "unet/telecom/diameter.asm"
+%include "unet/telecom/pfcp.asm"
+
+; 16. QoS & Traffic Shaping
 %include "unet/qos/fq_codel.asm"
 %include "unet/qos/tbf.asm"
 %include "unet/qos/slb.asm"
 %include "unet/qos/ebpf_maglev.asm"
 
+; 17. AI Networking
+%include "unet/ai/ml_ids.asm"
+%include "unet/ai/autonomous_qos.asm"
+%include "unet/ai/graph_neural_net.asm"
+%include "unet/ai/predictive_te.asm"
+%include "unet/ai/reinforce_route.asm"
+
+; 18. HPC & RDMA
 %include "unet/hpc/infiniband.asm"
 %include "unet/hpc/slingshot.asm"
 %include "unet/hpc/gpudirect.asm"
 %include "unet/hpc/mpi_collectives.asm"
-%include "unet/hpc/cxl.asm"
-%include "unet/hpc/dragonfly.asm"
+%include "unet/hpc/rdma_cm.asm"
 %include "unet/hpc/roce.asm"
 
+; 19. High-Frequency Trading (HFT)
 %include "unet/hft/fix.asm"
 %include "unet/hft/itch.asm"
+%include "unet/hft/itch_mcast.asm"
 %include "unet/hft/ouch.asm"
-%include "unet/hft/solarflare.asm"
-%include "unet/hft/fpga_bypass.asm"
+%include "unet/hft/ouch_soup.asm"
+%include "unet/hft/pouch.asm"
 
+; 20. Fintech & Banking
+%include "unet/fintech/iso8583.asm"
 %include "unet/fintech/swift.asm"
 %include "unet/fintech/iso20022.asm"
-%include "unet/fintech/fast_protocol.asm"
 
-%include "unet/scada/modbus.asm"
-%include "unet/scada/dnp3.asm"
-%include "unet/scada/iec104.asm"
-%include "unet/scada/iec61850.asm"
-
-%include "unet/telecom/pfcp.asm"
-%include "unet/telecom/diameter.asm"
-
-%include "unet/optical/otn.asm"
+; 21. Optical Networking
 %include "unet/optical/dwdm.asm"
+%include "unet/optical/g709.asm"
+%include "unet/optical/flex_ethernet.asm"
+%include "unet/optical/coherent.asm"
 %include "unet/optical/pon.asm"
 
-%include "unet/space/ccsds.asm"
-%include "unet/space/dvb_s2x.asm"
-%include "unet/space/dtn.asm"
-%include "unet/space/cfdp.asm"
-%include "unet/space/ltp.asm"
-%include "unet/space/dvb_rcs2.asm"
-%include "unet/space/laser_mesh.asm"
-
+; 22. Wireless Stack
 %include "unet/wireless/wifi6e.asm"
 %include "unet/wireless/bluetooth.asm"
 %include "unet/wireless/zigbee.asm"
@@ -138,18 +261,36 @@ unet_shutdown:
 %include "unet/wireless/wpa3_sae.asm"
 %include "unet/wireless/lorawan.asm"
 
+; 23. Automotive Stack
 %include "unet/automotive/can_eth.asm"
 %include "unet/automotive/someip.asm"
 %include "unet/automotive/doip.asm"
-%include "unet/automotive/avb_tsn.asm"
 %include "unet/automotive/doip_uds.asm"
+%include "unet/automotive/avb_tsn.asm"
 %include "unet/automotive/t1_phy.asm"
 
+; 24. Avionics Stack
 %include "unet/avionics/afdx.asm"
 %include "unet/avionics/mil1553.asm"
 %include "unet/avionics/spacefire.asm"
 %include "unet/avionics/stanag.asm"
 
+; 25. Cloud Overlay & Gateways
+%include "unet/cloud/vxlan.asm"
+%include "unet/cloud/geneve.asm"
+%include "unet/cloud/gre.asm"
+%include "unet/cloud/nvgre.asm"
+%include "unet/cloud/aws_tgw.asm"
+%include "unet/cloud/azure_express.asm"
+%include "unet/cloud/gcp_interconnect.asm"
+%include "unet/cloud/vswitch.asm"
+
+; 26. eBPF & SmartNIC Acceleration
+%include "unet/ebpf/ebpf.asm"
+%include "unet/ebpf/dpdk.asm"
+%include "unet/ebpf/smartnic_offload.asm"
+
+; 27. Video Streaming
 %include "unet/video/srt.asm"
 %include "unet/video/rtmp.asm"
 %include "unet/video/hls_dash.asm"
@@ -159,6 +300,7 @@ unet_shutdown:
 %include "unet/video/rtp_h264.asm"
 %include "unet/video/moq.asm"
 
+; 28. VoIP & Telephony
 %include "unet/voip/sip.asm"
 %include "unet/voip/sdp.asm"
 %include "unet/voip/rtp.asm"
@@ -166,121 +308,78 @@ unet_shutdown:
 %include "unet/voip/codecs.asm"
 %include "unet/voip/ice_stun.asm"
 
+; 29. Gaming Stack
 %include "unet/gaming/raknet.asm"
-%include "unet/gaming/gaffer.asm"
-%include "unet/gaming/quake_net.asm"
+%include "unet/gaming/e2s.asm"
 
-%include "unet/san/iscsi.asm"
-%include "unet/san/fcoe.asm"
-%include "unet/san/nvme_of.asm"
-%include "unet/san/smb3.asm"
-%include "unet/san/nfs4.asm"
-
-%include "unet/cgnat/nat64.asm"
-%include "unet/cgnat/nptv6.asm"
-%include "unet/cgnat/nat444.asm"
-
-%include "unet/ai/rdma_gpudirect.asm"
-%include "unet/ai/nccl_transport.asm"
-
-%include "unet/ebpf/smartnic_offload.asm"
-
+; 30. Mesh Networks
+%include "unet/mesh/hyperspace.asm"
+%include "unet/mesh/tailscale.asm"
 %include "unet/mesh/yggdrasil.asm"
 %include "unet/mesh/babel.asm"
 %include "unet/mesh/batman.asm"
 
-%include "unet/anon/tor_cell.asm"
-%include "unet/anon/i2p_garlic.asm"
-%include "unet/anon/lokinet.asm"
-%include "unet/anon/mixnet.asm"
-%include "unet/anon/shadowsocks.asm"
-%include "unet/anon/obfs4.asm"
-%include "unet/anon/freenet.asm"
-%include "unet/anon/nym.asm"
+; 31. Proxy & Tunneling
+%include "unet/proxy/socks5.asm"
+%include "unet/proxy/reverse_proxy.asm"
+%include "unet/proxy/forward_proxy.asm"
 
-%include "unet/dns/dns.asm"
-%include "unet/dns/dnssec.asm"
-%include "unet/dns/doh.asm"
-%include "unet/dns/dot.asm"
-%include "unet/dns/doq.asm"
-%include "unet/dns/mdns.asm"
-
-%include "unet/services/ntp.asm"
-%include "unet/services/dhcp.asm"
-%include "unet/services/syslog.asm"
-%include "unet/services/radius.asm"
-%include "unet/services/snmp.asm"
-%include "unet/services/tacacs.asm"
-%include "unet/services/ipfix.asm"
-%include "unet/services/matter.asm"
-
-%include "unet/identity/oauth2_oidc.asm"
-%include "unet/identity/saml2.asm"
+; 32. Identity Protocols
+%include "unet/identity/kerberos.asm"
+%include "unet/identity/oauth2.asm"
 %include "unet/identity/spiffe.asm"
-%include "unet/identity/did.asm"
+%include "unet/identity/webauthn.asm"
 
-%include "unet/security/tls13_session.asm"
-%include "unet/security/ipsec.asm"
-%include "unet/security/noise_protocol.asm"
-%include "unet/security/ztna.asm"
-%include "unet/security/macsec.asm"
-
-%include "unet/ssh/ssh_transport.asm"
-%include "unet/ssh/ssh_auth.asm"
-%include "unet/ssh/ssh_connection.asm"
-%include "unet/ssh/sftp.asm"
-
+; 33. VPN & Encrypted Tunnels
 %include "unet/vpn/wireguard_blake2s.asm"
 %include "unet/vpn/openvpn.asm"
 %include "unet/vpn/sstp.asm"
 %include "unet/vpn/l2tp_ipsec.asm"
 
+; 34. Post-Quantum Cryptography (PQC)
 %include "unet/pqc/pqc_wireguard.asm"
 %include "unet/pqc/pqc_macsec.asm"
-%include "unet/pqc/pqc_tls13.asm"
+%include "unet/pqc/qkd_km.asm"
 
-%include "unet/cloud/vxlan.asm"
-%include "unet/cloud/geneve.asm"
-%include "unet/cloud/gre.asm"
-%include "unet/cloud/nvgre.asm"
-
-%include "unet/sdn/openflow.asm"
-%include "unet/sdn/p4_runtime.asm"
-%include "unet/sdn/srv6.asm"
-
-%include "unet/cni/calico_ebpf.asm"
-%include "unet/cni/cilium_bpf.asm"
-%include "unet/cni/flannel_overlay.asm"
-
-%include "unet/routing/bgp.asm"
-%include "unet/routing/ospf.asm"
-%include "unet/routing/isis.asm"
-
+; 35. High Availability (HA)
 %include "unet/ha/vrrp.asm"
 %include "unet/ha/carp.asm"
-%include "unet/ha/keepalived.asm"
 
+; 36. HTTP Core
 %include "unet/http/http1.asm"
-%include "unet/http/http2.asm"
-%include "unet/http/http3.asm"
-%include "unet/http/websocket.asm"
-%include "unet/http/grpc.asm"
 
-%include "unet/mail/smtp.asm"
-%include "unet/mail/imap.asm"
-%include "unet/mail/pop3.asm"
-%include "unet/mail/dkim.asm"
-%include "unet/mail/spf_dmarc.asm"
-
-%include "unet/proxy/socks5.asm"
-%include "unet/proxy/haproxy.asm"
-
+; 37. Hardware Network Drivers (26 Network NIC Drivers)
+%include "unet/drivers/intel_e100.asm"
 %include "unet/drivers/e1000.asm"
+%include "unet/drivers/igb.asm"
 %include "unet/drivers/ixgbe.asm"
+%include "unet/drivers/i40e.asm"
+%include "unet/drivers/ice.asm"
+%include "unet/drivers/mlx4.asm"
 %include "unet/drivers/mlx5.asm"
+%include "unet/drivers/broadcom_bnxt.asm"
+%include "unet/drivers/chelsio_cxgb4.asm"
+%include "unet/drivers/solarflare_sfc.asm"
+%include "unet/drivers/pensando_ionic.asm"
 %include "unet/drivers/virtio_net.asm"
+%include "unet/drivers/vmxnet3.asm"
+%include "unet/drivers/ena.asm"
+%include "unet/drivers/gve.asm"
+%include "unet/drivers/sriov.asm"
+%include "unet/drivers/napatech.asm"
+%include "unet/drivers/marvell_octeon.asm"
+%include "unet/drivers/ath11k.asm"
+%include "unet/drivers/quectel_5g.asm"
+%include "unet/drivers/realtek_r8169.asm"
+%include "unet/drivers/3com_3c905.asm"
+%include "unet/drivers/ne2000.asm"
+%include "unet/drivers/microchip_lan9514.asm"
+%include "unet/drivers/usb_eth.asm"
 
-%include "unet/tools/tools.asm"
-%include "unet/tests/tcp_state_test.asm"
-%include "unet/tests/pqc_bench.asm"
+; 38. Test Suite
 %include "unet/tests/net_fuzz.asm"
+%include "unet/tests/pqc_bench.asm"
+%include "unet/tests/tcp_state_test.asm"
+
+; 39. Master Diagnostic & CLI Tool Dispatcher (90 Tools)
+%include "unet/tools/tools.asm"
