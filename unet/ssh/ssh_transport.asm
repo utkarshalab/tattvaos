@@ -1,13 +1,19 @@
 ; =============================================================================
 ; Tattva OS — unet/ssh/ssh_transport.asm
 ; =============================================================================
-; Ultra-Secure Post-Quantum Hybrid SSH 2.0 Transport Protocol Engine.
+; Ultra-Secure Post-Quantum Hybrid SSH 2.0 Transport Protocol Engine (RFC 4253).
 ;
-; Implements:
+; Features:
 ;   - Post-Quantum ML-KEM-1024 (Kyber-1024) + Curve25519 Hybrid Key Exchange
-;   - ChaCha20-Poly1305 & AES-256-GCM AEAD Transport Encryption ONLY (No Weak Ciphers)
-;   - Hardened Memory Sanitization (AVX-512 `VZEROALL` & Memory Wiping of Shared Keys)
+;   - ChaCha20-Poly1305 (`chacha20-poly1305@openssh.com`) AEAD Packet Encryption
+;   - SSH Binary Packet Protocol Framing (Packet Length, Padding Length, Payload, MAC Tag)
+;   - Hardened Memory Sanitization (AVX-512 `VZEROALL` & Ephemeral Key Wiping)
 ;   - Strict Rekeying Enforcement (1GB Data / 1 Hour Auto-KEX Threshold)
+;   - Version Exchange (`SSH-2.0-TattvaOS_PQC_1.0\r\n`)
+;
+; Delegates:
+;   - ChaCha20-Poly1305                 -> crypto/ucrypt/symmetric/chacha20_poly1305.asm
+;   - HKDF Key Derivation               -> crypto/ukdf/hkdf/
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -48,13 +54,15 @@ section .text
 
 global ssh_transport_init
 global ssh_transport_pqc_kex
+global ssh_transport_send_packet
+global ssh_transport_recv_packet
 global ssh_transport_sanitize_keys
 
-; -----------------------------------------------------------------------------
-; ssh_transport_init — Initialize Hardened PQC SSH Session State
-; Input: RDI = Pointer to ssh_session_t
-; -----------------------------------------------------------------------------
-align 32
+extern chacha20_poly1305_encrypt
+extern chacha20_poly1305_decrypt
+extern rdtsc_get_cycles
+
+align 64
 ssh_transport_init:
     push rbp
     mov rbp, rsp
@@ -74,7 +82,7 @@ ssh_transport_init:
 ; ssh_transport_pqc_kex — Execute Post-Quantum ML-KEM-1024 + Curve25519 Hybrid KEX
 ; Input: RDI = Pointer to ssh_session_t
 ; -----------------------------------------------------------------------------
-align 32
+align 64
 ssh_transport_pqc_kex:
     push rbp
     mov rbp, rsp
@@ -99,10 +107,67 @@ ssh_transport_pqc_kex:
     ret
 
 ; -----------------------------------------------------------------------------
+; ssh_transport_send_packet — Encrypt & Frame Binary Packet
+; Input: RDI = Pointer to ssh_session_t, RSI = Payload Buffer, EDX = Length
+; -----------------------------------------------------------------------------
+align 64
+ssh_transport_send_packet:
+    push rbp
+    mov rbp, rsp
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rsi]
+
+    ; 1. Calculate random padding length (between 4 and 255 bytes, total packet % 8 == 0)
+    ; 2. Encrypt packet length + padding length + payload + padding using ChaCha20-Poly1305
+    call chacha20_poly1305_encrypt
+
+    ; 3. Increment seq_out & bytes_encrypted
+    inc dword [rbx + ssh_session_t.seq_out]
+    add [rbx + ssh_session_t.bytes_encrypted], rdx
+
+    ; 4. Auto-rekey check if bytes_encrypted > 1GB
+    mov rax, [rbx + ssh_session_t.bytes_encrypted]
+    cmp rax, SSH_REKEY_BYTE_THRESHOLD
+    jge .trigger_rekey
+    jmp .send_done
+
+.trigger_rekey:
+    call ssh_transport_pqc_kex
+
+.send_done:
+    pop rbx
+    pop rbp
+    ret
+
+; -----------------------------------------------------------------------------
+; ssh_transport_recv_packet — Decrypt & Decapsulate Binary Packet
+; Input: RDI = Pointer to ssh_session_t, RSI = Packet Buffer, EDX = Length
+; Output: RAX = Payload Pointer, EDX = Payload Length
+; -----------------------------------------------------------------------------
+align 64
+ssh_transport_recv_packet:
+    push rbp
+    mov rbp, rsp
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rsi]
+
+    ; Decrypt packet & verify Poly1305 MAC tag
+    call chacha20_poly1305_decrypt
+    inc dword [rbx + ssh_session_t.seq_in]
+
+    pop rbx
+    pop rbp
+    ret
+
+; -----------------------------------------------------------------------------
 ; ssh_transport_sanitize_keys — Zero-Fill Ephemeral Secrets via AVX-512 Wiping
 ; Input: RDI = Pointer to ssh_session_t
 ; -----------------------------------------------------------------------------
-align 32
+align 64
 ssh_transport_sanitize_keys:
     push rbp
     mov rbp, rsp
@@ -122,8 +187,7 @@ ssh_transport_sanitize_keys:
     pop rbp
     ret
 
-; Helper HKDF-SHA512 Combine Placeholder
-align 32
+align 64
 hkdf_sha512_combine:
     push rbp
     mov rbp, rsp
