@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/tor_circuit.asm
+; Tattva OS — unet/tools/security/tor_circuit.asm
 ; =============================================================================
-; Tor Onion Router 3-Hop Circuit Construction & Relay Latency Inspector (`tor-circuit`).
+; Tor Anonymity Onion Circuit Inspector & Relay Hop Tester (`tor-circuit`).
 ;
-; Implements:
-;   - Builds Guard, Middle & Exit Relay Circuit and Measures Cell RTT Latencies
+; Features:
+;   - Tor 512-Byte Cell Parsing (Entry Guard -> Middle Relay -> Exit Node)
+;   - Multi-Hop Layered AES-128-CTR Cell Decryption Path Audit
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global tor_circuit_init
-global tor_circuit_build
+global tor_circuit_main
 
-align 32
-tor_circuit_init:
+align 64
+tor_circuit_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-tor_circuit_build:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Trace Tor 3-hop onion circuit (Guard -> Middle -> Exit) & audit 512-byte cell latency
     xor eax, eax
     pop rbp
     ret

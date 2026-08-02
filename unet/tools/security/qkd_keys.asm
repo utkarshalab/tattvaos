@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/qkd_keys.asm
+; Tattva OS — unet/tools/security/qkd_keys.asm
 ; =============================================================================
-; Quantum Key Distribution (QKD ETSI GS QKD 014) Real-Time Entropy Inspector.
+; Quantum Key Distribution Key Management Agency Inspector (`qkd-keys`).
 ;
-; Implements:
-;   - Queries QKD KMS Key Pool, Measures Key Generation Rate (kbps) & QBER
+; Features:
+;   - ETSI GS QKD 014 Key Pool Status, Entropy Rate, and Key Rotation Rate Audit
+;   - Emergency Quantum Key Purge Benchmark
+;
+; Delegates:
+;   - QKD Key Manager                   -> unet/pqc/qkd_km.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global qkd_keys_init
-global qkd_keys_show
+global qkd_keys_main
 
-align 32
-qkd_keys_init:
+extern qkd_km_fetch_key
+
+align 64
+qkd_keys_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-qkd_keys_show:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Query ETSI GS QKD 014 Key Management Agency REST/UDP endpoint & audit key pool status
+    call qkd_km_fetch_key
     pop rbp
     ret

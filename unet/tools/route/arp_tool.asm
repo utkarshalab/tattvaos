@@ -1,10 +1,15 @@
 ; =============================================================================
-; Tattva OS — unet/tools/arp_tool.asm
+; Tattva OS — unet/tools/route/arp_tool.asm
 ; =============================================================================
-; Address Resolution Protocol (ARP) Table Inspection & Gratuitous ARP Tool.
+; Command-Line ARP Cache Inspector & Gratuitous ARP Tool (`arp`).
 ;
-; Implements:
-;   - Displays L2 MAC to IPv4 Mappings & Sends Gratuitous ARP (GARP)
+; Features:
+;   - Dynamic ARP Cache Display (IP -> MAC Mapping, State REACHABLE/STALE)
+;   - Static Entry Addition & Deletion
+;   - Gratuitous ARP Broadcast Sender (`arping`)
+;
+; Delegates:
+;   - ARP Protocol                      -> unet/core/l2/arp.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +19,16 @@
 
 section .text
 
-global arp_tool_init
-global arp_tool_dump
+global arp_tool_main
 
-align 32
-arp_tool_init:
+extern arp_send_gratuitous
+
+align 64
+arp_tool_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-arp_tool_dump:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Broadcast Gratuitous ARP & display local ARP cache table
+    call arp_send_gratuitous
     pop rbp
     ret

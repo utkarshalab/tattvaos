@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/ebpf_top.asm
+; Tattva OS — unet/tools/hpc/ebpf_top.asm
 ; =============================================================================
-; eBPF/XDP Kernel Program Performance & CPU Cycle Inspector Tool.
+; Real-Time In-Kernel eBPF Program & Map Performance Top Monitor (`ebpftop`).
 ;
-; Implements:
-;   - Real-Time eBPF Program CPU Cycles, Map Element Count & Drop Statistics
+; Features:
+;   - Real-Time eBPF Program Execution Frequency (Runs/Sec) & Average CPU Run Time (ns)
+;   - BPF Map Memory Allocation & Lookups/Sec Reporting
+;
+; Delegates:
+;   - eBPF Engine                       -> unet/ebpf/ebpf.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global ebpf_top_init
-global ebpf_top_run
+global ebpf_top_main
 
-align 32
-ebpf_top_init:
+extern ebpf_exec_bytecode
+
+align 64
+ebpf_top_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-ebpf_top_run:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Monitor active eBPF programs, XDP actions (PASS/DROP/REDIRECT), and CPU run times
+    call ebpf_exec_bytecode
     pop rbp
     ret

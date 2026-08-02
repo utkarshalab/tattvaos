@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/dpdk_pktgen.asm
+; Tattva OS — unet/tools/bench/dpdk_pktgen.asm
 ; =============================================================================
-; DPDK Poll Mode Driver (PMD) 400Gbps Line-Rate Packet Generator Tool.
+; DPDK PMD Wire-Speed Packet Generator Benchmarking Tool (`dpdk-pktgen`).
 ;
-; Implements:
-;   - Zero-Copy 148.8 MPPS Multi-Core Packet Injection & Throughput Testing
+; Features:
+;   - Multi-Core DPDK PMD Traffic Generator Loop
+;   - `rte_eth_tx_burst` 32-Packet Vector Bursting
+;
+; Delegates:
+;   - DPDK PMD                          -> unet/ebpf/dpdk.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global dpdk_pktgen_init
-global dpdk_pktgen_run
+global dpdk_pktgen_main
 
-align 32
-dpdk_pktgen_init:
+extern dpdk_tx_burst
+
+align 64
+dpdk_pktgen_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-dpdk_pktgen_run:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Loop rte_eth_tx_burst across all allocated DPDK PMD ports
+    call dpdk_tx_burst
     pop rbp
     ret

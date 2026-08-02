@@ -1,10 +1,15 @@
 ; =============================================================================
-; Tattva OS — unet/tools/tc_tool.asm
+; Tattva OS — unet/tools/route/tc_tool.asm
 ; =============================================================================
-; Traffic Control (TC) & FQ-CoDel Active Queue Management Configuration Tool.
+; Traffic Control Qdisc & Filter Configuration Utility (`tc`).
 ;
-; Implements:
-;   - Configures Rate Limits, Token Bucket Filter (TBF) & FQ-CoDel AQM Queues
+; Features:
+;   - Qdisc Management: FQ-CoDel, TBF, HTB (Hierarchical Token Bucket)
+;   - Classifier Filters & Action Attaching
+;
+; Delegates:
+;   - FQ-CoDel AQM                     -> unet/qos/fq_codel.asm
+;   - TBF Policer                       -> unet/qos/tbf.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +19,16 @@
 
 section .text
 
-global tc_tool_init
-global tc_tool_config
+global tc_tool_main
 
-align 32
-tc_tool_init:
+extern fq_codel_init
+
+align 64
+tc_tool_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-tc_tool_config:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Program Qdisc (fq_codel / tbf) attached to target interface root
+    call fq_codel_init
     pop rbp
     ret

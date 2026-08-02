@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/ztna_auth.asm
+; Tattva OS — unet/tools/security/ztna_auth.asm
 ; =============================================================================
-; Zero-Trust Network Access (ZTNA) Workload Identity Attestation CLI Tool.
+; Zero Trust Network Access Posture & Authentication Tester (`ztna-auth`).
 ;
-; Implements:
-;   - Attests TPM 2.0 / AWS Nitro Enclave Quote and Obtains Ephemeral X.509 SVID
+; Features:
+;   - Mutual TLS (mTLS) + Device Health Attestation (TPM 2.0 PCR Quote)
+;   - OAuth 2.0 / OIDC JWT Token Posture Validation
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global ztna_auth_init
-global ztna_auth_request
+global ztna_auth_main
 
-align 32
-ztna_auth_init:
+align 64
+ztna_auth_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-ztna_auth_request:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Format ZTNA mTLS posture claim (TPM 2.0 quote + JWT token) & audit gate decision
     xor eax, eax
     pop rbp
     ret

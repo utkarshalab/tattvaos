@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/fix_fuzzer.asm
+; Tattva OS — unet/tools/app/fix_fuzzer.asm
 ; =============================================================================
-; High-Frequency Trading FIX 5.0 Tag-Value Message Fuzzer Tool.
+; High-Frequency FIX 4.2 / 5.0 Protocol Mutation Fuzzer (`fix-fuzzer`).
 ;
-; Implements:
-;   - Fuzzes FIX 5.0 New Order Single (`MsgType=D`) & Tag-Value Boundary Inputs
+; Features:
+;   - Tag=Value Malformed Tag / Length / Checksum Mutation Generation
+;   - SOH Delimiter Corruption & Out-of-Bounds Field Injection Test
+;
+; Delegates:
+;   - FIX Engine                        -> unet/hft/fix.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global fix_fuzzer_init
-global fix_fuzzer_run
+global fix_fuzzer_main
 
-align 32
-fix_fuzzer_init:
+extern fix_parse_msg_avx512
+
+align 64
+fix_fuzzer_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-fix_fuzzer_run:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Mutate FIX tags & execute in-kernel AVX-512 parser sanity audit
+    call fix_parse_msg_avx512
     pop rbp
     ret

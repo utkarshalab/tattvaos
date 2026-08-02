@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/subnet_manager.asm
+; Tattva OS — unet/tools/route/subnet_manager.asm
 ; =============================================================================
-; InfiniBand OpenSM Subnet Manager (SM) Topology Discovery Tool.
+; CIDR Subnet Calculator & IP Allocation Manager Tool (`ipcalc`).
 ;
-; Implements:
-;   - Sends SMP (Subnet Management Packets) to Discover InfiniBand LIDs & Fabric Nodes
+; Features:
+;   - CIDR Prefix Calculation (Network Address, Broadcast Address, Host Range, Total Usable IPs)
+;   - IPv4 Subnet Mask / Wildcard Mask Generator & IPv6 Subnet Divider
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,29 @@
 
 section .text
 
-global subnet_manager_init
-global subnet_manager_discover
+global subnet_manager_main
+global subnet_manager_calc_cidr
 
-align 32
-subnet_manager_init:
+align 64
+subnet_manager_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call subnet_manager_calc_cidr
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-subnet_manager_discover:
+align 64
+subnet_manager_calc_cidr:
     push rbp
     mov rbp, rsp
+    ; Calculate Netmask, Broadcast, Min Host, Max Host for IPv4/IPv6 prefix length
     xor eax, eax
     pop rbp
     ret

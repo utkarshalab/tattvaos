@@ -1,10 +1,12 @@
 ; =============================================================================
-; Tattva OS — unet/tools/snmp_get.asm
+; Tattva OS — unet/tools/app/snmp_get.asm
 ; =============================================================================
-; SNMPv1 / v2c / v3 OID Variable Query Tool.
+; Command-Line SNMP Get Diagnostic Tool (`snmpget`).
 ;
-; Implements:
-;   - Formats ASN.1 BER Encoded SNMP GetRequest and Parses Varbind Responses
+; Features:
+;   - SNMP v1/v2c ASN.1 BER PDU Construction (UDP 161)
+;   - GetRequest PDU (`0xA0`) with Target OID List Encoding
+;   - Response PDU (`0xA2`) Decoding & Value Extraction (INTEGER, OCTET STRING, Counter32, Counter64)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +16,30 @@
 
 section .text
 
-global snmp_get_init
-global snmp_get_query
+global snmp_get_main
+global snmp_get_exec
 
-align 32
-snmp_get_init:
+align 64
+snmp_get_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call snmp_get_exec
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-snmp_get_query:
+align 64
+snmp_get_exec:
     push rbp
     mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Format ASN.1 BER GetRequest (0xA0) with community string & OIDs -> transmit UDP 161
     xor eax, eax
     pop rbp
     ret

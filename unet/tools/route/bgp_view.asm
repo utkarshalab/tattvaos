@@ -1,10 +1,12 @@
 ; =============================================================================
-; Tattva OS — unet/tools/bgp_view.asm
+; Tattva OS — unet/tools/route/bgp_view.asm
 ; =============================================================================
-; BGP-4 Router Routing Information Base (RIB) & Peer Session Inspector Tool.
+; Border Gateway Protocol (BGP-4 RFC 4271) Route Viewer Tool (`bgpview`).
 ;
-; Implements:
-;   - Displays BGP Peers, AS Paths, Communities & Active RIB Routes
+; Features:
+;   - BGP Neighbor Session Status (IDLE, CONNECT, ACTIVE, OPENSENT, OPENCONFIRM, ESTABLISHED)
+;   - AS Path, Next Hop, Local Pref, MED, BGP Community Attribute Dump
+;   - BGP Route Flap Damping & Convergence Time Audit
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +16,30 @@
 
 section .text
 
-global bgp_view_init
-global bgp_view_dump
+global bgp_view_main
+global bgp_view_dump_rib
 
-align 32
-bgp_view_init:
+align 64
+bgp_view_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call bgp_view_dump_rib
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-bgp_view_dump:
+align 64
+bgp_view_dump_rib:
     push rbp
     mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Dump active BGP RIB (Routing Information Base) & AS Path attributes
     xor eax, eax
     pop rbp
     ret

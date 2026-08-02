@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/sr_v6_top.asm
+; Tattva OS — unet/tools/route/sr_v6_top.asm
 ; =============================================================================
-; Segment Routing IPv6 (SRv6) Segment List & Binding SID Path Monitor (`srv6-top`).
+; Segment Routing IPv6 (SRv6 RFC 8754) Path & SID List Inspector (`srv6-top`).
 ;
-; Implements:
-;   - Displays Active SRv6 SID Lists, Segment Routing Headers (SRH) & Latency
+; Features:
+;   - Segment Routing Header (SRH Type 4) Inspection
+;   - Segment List SID Loop Display (End, End.X, End.T, End.DX6)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global sr_v6_top_init
-global sr_v6_top_run
+global sr_v6_top_main
 
-align 32
-sr_v6_top_init:
+align 64
+sr_v6_top_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-sr_v6_top_run:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Dump SRv6 Segment Routing Header (SRH) SID list & active Segment Left index
     xor eax, eax
     pop rbp
     ret

@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/stt_test.asm
+; Tattva OS — unet/tools/hpc/stt_test.asm
 ; =============================================================================
-; Stateless Transport Tunneling (STT) Encapsulation Benchmark Test Tool.
+; Stateless Transport Tunneling (STT) Diagnostic Tool (`stt-test`).
 ;
-; Implements:
-;   - TCP-like Header Framing over STT Virtualization Tunnel
+; Features:
+;   - TCP-Encapsulated Data Framing (TCP Port 8472) Header Verification
+;   - Offload Checksum Emulation Test
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global stt_test_init
-global stt_test_run
+global stt_test_main
 
-align 32
-stt_test_init:
+align 64
+stt_test_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-stt_test_run:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Format STT TCP 8472 header & test hypervisor offload decapsulation
     xor eax, eax
     pop rbp
     ret

@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/vxlan_test.asm
+; Tattva OS — unet/tools/app/vxlan_test.asm
 ; =============================================================================
-; VXLAN Tunneling (RFC 7348) VNI Encapsulation Benchmark Test Tool.
+; VXLAN Tunnel Verification & VNI Ping Tool (`vxlan-test`).
 ;
-; Implements:
-;   - Line-Rate UDP Port 4789 Encapsulation & Decapsulation Throughput Test
+; Features:
+;   - UDP Port 4789 Header Encapsulation / Decapsulation Test
+;   - Target VNI Verification & MTU Overhead Path Audit
+;
+; Delegates:
+;   - VXLAN Engine                      -> unet/cloud/vxlan.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,23 @@
 
 section .text
 
-global vxlan_test_init
-global vxlan_test_run
+global vxlan_test_main
 
-align 32
-vxlan_test_init:
+extern vxlan_encap_packet
+extern vxlan_decap_packet
+
+align 64
+vxlan_test_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
+    push rbx
 
-align 32
-vxlan_test_run:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call vxlan_encap_packet
+    call vxlan_decap_packet
+
+    pop rbx
     pop rbp
     ret

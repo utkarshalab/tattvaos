@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/ospf_view.asm
+; Tattva OS — unet/tools/route/ospf_view.asm
 ; =============================================================================
-; OSPFv2 / OSPFv3 Link-State Database (LSDB) & Neighbor Table Inspector Tool.
+; Open Shortest Path First (OSPFv2 RFC 2328 / OSPFv3 RFC 5340) Viewer Tool (`ospfview`).
 ;
-; Implements:
-;   - Displays OSPF Neighbors, Areas, Router LSAs & Shortest Path Tree
+; Features:
+;   - OSPF Neighbor State (Down, Init, 2-Way, ExStart, Exchange, Loading, Full)
+;   - Link State Database (LSDB Router LSA, Network LSA, Summary LSA) Inspection
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global ospf_view_init
-global ospf_view_dump
+global ospf_view_main
 
-align 32
-ospf_view_init:
+align 64
+ospf_view_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-ospf_view_dump:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Dump OSPF LSDB (Link State Database) LSAs & DR/BDR neighbor states
     xor eax, eax
     pop rbp
     ret

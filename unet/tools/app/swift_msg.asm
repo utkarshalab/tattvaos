@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/swift_msg.asm
+; Tattva OS — unet/tools/app/swift_msg.asm
 ; =============================================================================
-; FIN SWIFT MT103 / MT202 Banking Settlement Message Diagnostic Tool (`swift-msg`).
+; Command-Line SWIFT FIN MT103 / MT202 Message Generator & Parser (`swift-msg`).
 ;
-; Implements:
-;   - Parses SWIFT MT103 Single Customer Credit Transfer Blocks & MAC Signatures
+; Features:
+;   - SWIFT Block 1..5 Framing Generator
+;   - Field :20: TRN, :32A: Value Date/CCY/Amount Validation
+;
+; Delegates:
+;   - SWIFT Engine                      -> unet/fintech/swift.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global swift_msg_init
-global swift_msg_parse
+global swift_msg_main
 
-align 32
-swift_msg_init:
+extern swift_parse_fin
+
+align 64
+swift_msg_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-swift_msg_parse:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Format & parse SWIFT FIN MT103 credit transfer message string
+    call swift_parse_fin
     pop rbp
     ret

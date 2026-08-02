@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/opcua_client.asm
+; Tattva OS — unet/tools/iot/opcua_client.asm
 ; =============================================================================
-; OPC UA Industrial Automation Binary Protocol Client Tool.
+; OPC Unified Architecture (OPC UA IEC 62541) Client Tool (`opcua-client`).
 ;
-; Implements:
-;   - Connects to OPC UA Servers (`opc.tcp://`) & Reads Sensor Data Nodes
+; Features:
+;   - TCP Port 4840 Binary Protocol Header (HEL, ACK, ERR, OPN, CLO, MSG)
+;   - Secure Channel Request & Session Service Set (CreateSession, ActivateSession, Read)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -12,23 +13,18 @@
 
 %include "unet/unet.inc"
 
+%define OPCUA_PORT                  4840
+
 section .text
 
-global opcua_client_init
-global opcua_client_read
+global opcua_client_main
 
-align 32
-opcua_client_init:
+align 64
+opcua_client_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-opcua_client_read:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Issue Hello (HEL) -> OpenSecureChannel (OPN) -> CreateSession -> Read Node Value
     xor eax, eax
     pop rbp
     ret

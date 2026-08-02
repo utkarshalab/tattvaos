@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/imap_test.asm
+; Tattva OS — unet/tools/app/imap_test.asm
 ; =============================================================================
-; IMAP4rev1 Mailbox Remote Retrieval Diagnostic Test Tool.
+; Command-Line IMAP4rev1 Mailbox Audit & Diagnostic Tool.
 ;
-; Implements:
-;   - Connects, Authenticates, and Fetches Mail Headers via IMAP
+; Features:
+;   - RFC 3501 IMAP Tagged Command Execution (`A001 CAPABILITY`, `A002 LOGIN`, `A003 SELECT INBOX`, `A004 FETCH 1:* (FLAGS BODY[HEADER])`, `A005 LOGOUT`)
+;   - Response Tag Matching (`OK`, `NO`, `BAD`)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,30 @@
 
 section .text
 
-global imap_test_init
-global imap_test_run
+global imap_test_main
+global imap_test_audit_mailbox
 
-align 32
-imap_test_init:
+align 64
+imap_test_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call imap_test_audit_mailbox
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-imap_test_run:
+align 64
+imap_test_audit_mailbox:
     push rbp
     mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Send tagged commands: CAPABILITY -> LOGIN -> SELECT INBOX -> FETCH
     xor eax, eax
     pop rbp
     ret

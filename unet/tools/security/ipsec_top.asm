@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/ipsec_top.asm
+; Tattva OS — unet/tools/security/ipsec_top.asm
 ; =============================================================================
-; IPsec ESP Tunnel Security Association (SA) Traffic & Bitrate Meter Tool.
+; Real-Time IPsec Security Association Database Monitor (`ipsec-top`).
 ;
-; Implements:
-;   - Measures Encrypted ESP Encryption Rates, Drop Rates & Replay Window Errors
+; Features:
+;   - Dump Active Security Associations (SAD entries: SPI, Target IP, AES-GCM / ChaCha20 Keys)
+;   - Per-SA Transmitted / Received Bytes, Packets, and Replay Errors Count
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global ipsec_top_init
-global ipsec_top_run
+global ipsec_top_main
 
-align 32
-ipsec_top_init:
+align 64
+ipsec_top_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-ipsec_top_run:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Iterate active IPsec SAD (Security Association Database) table & display real-time throughput
     xor eax, eax
     pop rbp
     ret

@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/slingshot_stat.asm
+; Tattva OS — unet/tools/hpc/slingshot_stat.asm
 ; =============================================================================
-; Cray Slingshot-11 Interconnect Traffic & Congestion Counter Tool.
+; Cray Slingshot Interconnect Telemetry Statistics Tool (`slingshot-stat`).
 ;
-; Implements:
-;   - Displays Dragonfly Topology Link Bandwidth, CNP Counts & Microsecond Latencies
+; Features:
+;   - Slingshot Advanced Congestion Control (SACC) Frame Count, Drops, Retransmits
+;   - Per-Virtual-Channel Throughput & Latency Distribution
+;
+; Delegates:
+;   - Slingshot Engine                  -> unet/hpc/slingshot.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global slingshot_stat_init
-global slingshot_stat_dump
+global slingshot_stat_main
 
-align 32
-slingshot_stat_init:
+extern slingshot_process_frame
+
+align 64
+slingshot_stat_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-slingshot_stat_dump:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Collect SACC congestion notification frame counts & VC credit stats
+    call slingshot_process_frame
     pop rbp
     ret

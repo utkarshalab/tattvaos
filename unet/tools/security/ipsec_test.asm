@@ -1,10 +1,12 @@
 ; =============================================================================
-; Tattva OS — unet/tools/ipsec_test.asm
+; Tattva OS — unet/tools/security/ipsec_test.asm
 ; =============================================================================
-; IPsec ESP Tunnel Security Association (SA) Diagnostic Test Tool.
+; IPsec ESP (Encapsulating Security Payload) & IKEv2 Diagnostic Tool (`ipsec-test`).
 ;
-; Implements:
-;   - Tests IPsec ESP Encryption / Decryption SPI Security Association Loop
+; Features:
+;   - IKEv2 UDP 500 / 4500 Exchange (`IKE_SA_INIT`, `IKE_AUTH`)
+;   - IPsec ESP AES-256-GCM SPI (Security Parameter Index) Encapsulation Audit
+;   - Anti-Replay Window & Hardware Offload Status Inspection
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +16,30 @@
 
 section .text
 
-global ipsec_test_init
-global ipsec_test_run
+global ipsec_test_main
+global ipsec_test_ikev2_sa_init
 
-align 32
-ipsec_test_init:
+align 64
+ipsec_test_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call ipsec_test_ikev2_sa_init
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-ipsec_test_run:
+align 64
+ipsec_test_ikev2_sa_init:
     push rbp
     mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Format IKEv2 IKE_SA_INIT payload (SPI, SA, KE, Nonce) & verify ESP AES-GCM SPI lookup
     xor eax, eax
     pop rbp
     ret

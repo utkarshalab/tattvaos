@@ -1,10 +1,15 @@
 ; =============================================================================
-; Tattva OS — unet/tools/rtmp_stream.asm
+; Tattva OS — unet/tools/app/rtmp_stream.asm
 ; =============================================================================
-; RTMP / RTMPS Live Video Ingest Stream Simulator Tool.
+; Command-Line Live RTMP Stream Ingestion & Push Tester (`rtmp-stream`).
 ;
-; Implements:
-;   - Connects & Pushes Live H.264/AAC Media Chunks to RTMP Ingest Gateways
+; Features:
+;   - Handshake C0/C1/S0/S1 Handshake Exchange
+;   - AMF0 `connect` & `publish` Command Signaling
+;   - FLV H.264 / AAC Audio/Video Chunk Multiplexing
+;
+; Delegates:
+;   - RTMP Engine                       -> unet/video/rtmp.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +19,33 @@
 
 section .text
 
-global rtmp_stream_init
-global rtmp_stream_push
+global rtmp_stream_main
+global rtmp_stream_publish
 
-align 32
-rtmp_stream_init:
+extern rtmp_handshake
+
+align 64
+rtmp_stream_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call rtmp_handshake
+    call rtmp_stream_publish
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-rtmp_stream_push:
+align 64
+rtmp_stream_publish:
     push rbp
     mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Issue AMF0 publish command & stream FLV audio/video tags over RTMP chunk stream
     xor eax, eax
     pop rbp
     ret

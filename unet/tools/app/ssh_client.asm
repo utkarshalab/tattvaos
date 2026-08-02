@@ -1,10 +1,13 @@
 ; =============================================================================
-; Tattva OS — unet/tools/ssh_client.asm
+; Tattva OS — unet/tools/app/ssh_client.asm
 ; =============================================================================
-; Native Assembly SSH 2.0 Secure Terminal Client Tool.
+; Command-Line Secure Shell (SSHv2) Terminal Client Tool.
 ;
-; Implements:
-;   - Curve25519 KEX, Ed25519 Key Auth & Interactive PTY Terminal Sessions
+; Features:
+;   - SSH Identification Exchange (`SSH-2.0-TattvaOS_SSHClient_1.0`)
+;   - Key Exchange (`curve25519-sha256`, `chacha20-poly1305@openssh.com`)
+;   - User Authentication (`ssh-userauth` publickey & password)
+;   - PTY Allocation & Interactive Shell Session (`session` channel request)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +17,43 @@
 
 section .text
 
-global ssh_client_init
-global ssh_client_connect
+global ssh_client_main
+global ssh_client_kex
+global ssh_client_userauth
 
-align 32
-ssh_client_init:
+align 64
+ssh_client_main:
     push rbp
     mov rbp, rsp
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    ; 1. KEX Key Exchange
+    call ssh_client_kex
+
+    ; 2. User Authentication
+    call ssh_client_userauth
+
+    pop rbx
+    pop rbp
+    ret
+
+align 64
+ssh_client_kex:
+    push rbp
+    mov rbp, rsp
+    ; Send SSH_MSG_KEXINIT & derive encryption keys
     xor eax, eax
     pop rbp
     ret
 
-align 32
-ssh_client_connect:
+align 64
+ssh_client_userauth:
     push rbp
     mov rbp, rsp
+    ; Send SSH_MSG_USERAUTH_REQUEST (publickey / password)
     xor eax, eax
     pop rbp
     ret

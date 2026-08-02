@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/afdx_mon.asm
+; Tattva OS — unet/tools/industrial/afdx_mon.asm
 ; =============================================================================
-; ARINC 664 AFDX Avionics Virtual Link (VL) Jitter & Bandwidth Monitor Tool.
+; ARINC 664 AFDX Avionics Network Traffic Monitor Tool (`afdx-mon`).
 ;
-; Implements:
-;   - Tracks Flight Management System (FMS) Virtual Link IDs & Latency Jitter
+; Features:
+;   - Real-Time Virtual Link (VL ID) Bandwidth, BAG Jitter, and Sequence Error Audit
+;   - Redundancy Channel A vs Channel B Skew Time Measurement
+;
+; Delegates:
+;   - AFDX Engine                       -> unet/avionics/afdx.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global afdx_mon_init
-global afdx_mon_run
+global afdx_mon_main
 
-align 32
-afdx_mon_init:
+extern afdx_process_frame
+
+align 64
+afdx_mon_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-afdx_mon_run:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Monitor AFDX Virtual Link (VL ID) sequence numbers & dual channel skew times
+    call afdx_process_frame
     pop rbp
     ret

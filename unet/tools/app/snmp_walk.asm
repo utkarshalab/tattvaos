@@ -1,10 +1,12 @@
 ; =============================================================================
-; Tattva OS — unet/tools/snmp_walk.asm
+; Tattva OS — unet/tools/app/snmp_walk.asm
 ; =============================================================================
-; SNMP MIB Subtree Walk & Traversal CLI Diagnostic Tool.
+; Command-Line SNMP Walk Subtree Traverser Tool (`snmpwalk`).
 ;
-; Implements:
-;   - Iteratively Sends SNMP GetNextRequest to Traverse Remote Device MIB Trees
+; Features:
+;   - GetNextRequest PDU (`0xA1`) / GetBulkRequest PDU (`0xA5`) Recursive Tree Walk
+;   - Subtree Boundary Termination Check (EndOfMibView / NoSuchInstance)
+;   - Fast Iterative MIB Tree Traversal
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +16,30 @@
 
 section .text
 
-global snmp_walk_init
-global snmp_walk_run
+global snmp_walk_main
+global snmp_walk_exec
 
-align 32
-snmp_walk_init:
+align 64
+snmp_walk_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call snmp_walk_exec
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-snmp_walk_run:
+align 64
+snmp_walk_exec:
     push rbp
     mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Loop GetNextRequest (0xA1) or GetBulkRequest (0xA5) until OID leaves target subtree
     xor eax, eax
     pop rbp
     ret

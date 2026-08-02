@@ -1,10 +1,13 @@
 ; =============================================================================
-; Tattva OS — unet/tools/carp_test.asm
+; Tattva OS — unet/tools/route/carp_test.asm
 ; =============================================================================
-; CARP BSD IP Failover Test Tool.
+; CARP Redundancy Failover Diagnostic Tool (`carp-test`).
 ;
-; Implements:
-;   - Simulates CARP Master / Backup Failover State Machine
+; Features:
+;   - CARP AdvBase / AdvSkew Modulation & Manual Master Failover Trigger
+;
+; Delegates:
+;   - CARP Subsystem                    -> unet/ha/carp.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +17,16 @@
 
 section .text
 
-global carp_test_init
-global carp_test_run
+global carp_test_main
 
-align 32
-carp_test_init:
+extern carp_send_advertisement
+
+align 64
+carp_test_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-carp_test_run:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Inject CARP advertisement with AdvSkew=254 to force master failover to peer node
+    call carp_send_advertisement
     pop rbp
     ret

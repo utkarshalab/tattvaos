@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/multicast.asm
+; Tattva OS — unet/tools/app/multicast.asm
 ; =============================================================================
-; IGMPv3 & MLDv2 IPv4/IPv6 Multicast Group Join & Leave CLI Diagnostic Tool.
+; Command-Line IP Multicast Sender & Receiver Tool (`mcast`).
 ;
-; Implements:
-;   - Joins & Leaves Multicast Groups (`224.0.0.0/4` & `ff00::/8`) & Monitors PIM Feeds
+; Features:
+;   - IGMPv3 Join Group (`IP_ADD_MEMBERSHIP`) / Leave Group (`IP_DROP_MEMBERSHIP`)
+;   - UDP Multicast Group Ingest & Throughput Metering
+;
+; Delegates:
+;   - IGMP Subsystem                    -> unet/core/l3/igmp.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global multicast_tool_init
-global multicast_tool_join
+global multicast_main
 
-align 32
-multicast_tool_init:
+extern igmp_join_group
+
+align 64
+multicast_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-multicast_tool_join:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Send IGMPv3 Join Report -> receive UDP multicast stream & count packet rate
+    call igmp_join_group
     pop rbp
     ret

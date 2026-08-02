@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/lorawan_mon.asm
+; Tattva OS — unet/tools/iot/lorawan_mon.asm
 ; =============================================================================
-; LoRaWAN Regional Long-Range Gateway Frame & Signal Monitor Tool.
+; LoRaWAN Gateway Packet Forwarder Monitor Tool (`lorawan-mon`).
 ;
-; Implements:
-;   - Displays LoRa Class A/B/C Uplink Frames, RSSI (dBm), SNR (dB) & DevAddr
+; Features:
+;   - Semtech UDP Gateway Protocol (PULL_DATA, PUSH_DATA, PULL_RESP, PUSH_ACK)
+;   - JSON Payload Metadata Extraction (Frequency, Spreading Factor, RSSI, SNR, Encrypted Payload)
+;
+; Delegates:
+;   - LoRaWAN Protocol Engine           -> unet/wireless/lorawan.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global lorawan_mon_init
-global lorawan_mon_run
+global lorawan_mon_main
 
-align 32
-lorawan_mon_init:
+extern lorawan_process_frame
+
+align 64
+lorawan_mon_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-lorawan_mon_run:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Listen to Semtech UDP gateway port 1700 -> parse PUSH_DATA frames & decrypt FRMPayload
+    call lorawan_process_frame
     pop rbp
     ret

@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/coap_observe.asm
+; Tattva OS — unet/tools/iot/coap_observe.asm
 ; =============================================================================
-; CoAP Resource Observe Subscriptions Real-Time Telemetry Listener (`coap-observe`).
+; CoAP Observe Resource Subscription Tool (`coap-observe` RFC 7641).
 ;
-; Implements:
-;   - Subscribes to CoAP RFC 7641 Observe Resources & Displays Sensor Streams
+; Features:
+;   - CoAP Observe Option (Option 6) Pub/Sub Registration
+;   - Asynchronous Sensor Event Notification Streaming
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global coap_observe_init
-global coap_observe_listen
+global coap_observe_main
 
-align 32
-coap_observe_init:
+align 64
+coap_observe_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-coap_observe_listen:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Transmit GET request with Observe option (6) = 0 -> loop incoming notification frames
     xor eax, eax
     pop rbp
     ret

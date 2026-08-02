@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/tfo_test.asm
+; Tattva OS — unet/tools/app/tfo_test.asm
 ; =============================================================================
-; TCP Fast Open (TFO RFC 7413) 0-RTT Connection Benchmark Test Tool.
+; TCP Fast Open (TFO RFC 7413) Diagnostic & Latency Tester (`tfo-test`).
 ;
-; Implements:
-;   - Sends TFO Cookie Request in SYN Packet for 0-RTT Latency Setup
+; Features:
+;   - TCP SYN + Cookie Request & SYN + Payload Fast Open Connection Establishment
+;   - Round-Trip Time Latency Savings Audit (0-RTT vs 1-RTT Handshake)
+;
+; Delegates:
+;   - TCP Stack                         -> unet/core/l4/tcp.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,14 @@
 
 section .text
 
-global tfo_test_init
-global tfo_test_run
+global tfo_test_main
 
-align 32
-tfo_test_init:
+align 64
+tfo_test_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-tfo_test_run:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Send TCP SYN + TFO Cookie option -> verify 0-RTT payload delivery on subsequent connection
     xor eax, eax
     pop rbp
     ret

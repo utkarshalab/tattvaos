@@ -1,10 +1,20 @@
 ; =============================================================================
-; Tattva OS — unet/tools/doip_flash.asm
+; Tattva OS — unet/tools/industrial/doip_flash.asm
 ; =============================================================================
-; Automotive ISO 14229 UDS over DoIP ECU Firmware Flash Tool.
+; Automotive ECU Diagnostic Firmware Flasher Tool (`doip-flash`).
 ;
-; Implements:
-;   - Initiates DoIP Session, Unlocks Security Access & Flashes ECU Image
+; Features:
+;   - DoIP ISO 13400 + UDS ISO 14229 Flash Sequence:
+;       1. Diagnostic Session Control (`0x10 0x02` Programming Session)
+;       2. Security Access (`0x27 0x01` Seed -> Key Calculation -> `0x27 0x02`)
+;       3. Request Download (`0x34` Address & Memory Size)
+;       4. Transfer Data (`0x36` Firmware Block Transfer)
+;       5. Request Transfer Exit (`0x37`)
+;       6. ECU Reset (`0x11 0x01`)
+;
+; Delegates:
+;   - DoIP Subsystem                    -> unet/automotive/doip.asm
+;   - UDS Subsystem                     -> unet/automotive/doip_uds.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +24,32 @@
 
 section .text
 
-global doip_flash_init
-global doip_flash_run
+global doip_flash_main
+global doip_flash_sequence
 
-align 32
-doip_flash_init:
+extern doip_uds_process_service
+
+align 64
+doip_flash_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call doip_flash_sequence
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-doip_flash_run:
+align 64
+doip_flash_sequence:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Execute UDS Programming Session (0x10) -> Security Access (0x27) -> Transfer Data (0x36) -> Reset (0x11)
+    call doip_uds_process_service
     pop rbp
     ret

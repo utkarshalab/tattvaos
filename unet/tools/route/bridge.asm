@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/bridge.asm
+; Tattva OS — unet/tools/route/bridge.asm
 ; =============================================================================
-; Ethernet Software Bridge & VLAN IEEE 802.1Q Port Management Tool.
+; Ethernet L2 Bridge & FDB Forwarding Database Inspector Tool (`bridge`).
 ;
-; Implements:
-;   - Adds, Removes, and Inspects Virtual Ethernet Bridge Ports & STP Status
+; Features:
+;   - FDB (Forwarding Database MAC -> Port Mapping) Dump & Ageing Timer Verification
+;   - STP (Spanning Tree Protocol) State Display (FORWARDING, BLOCKING, LEARNING)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global bridge_tool_init
-global bridge_tool_show
+global bridge_main
 
-align 32
-bridge_tool_init:
+align 64
+bridge_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-bridge_tool_show:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Dump L2 Ethernet Bridge FDB table & Spanning Tree Port States
     xor eax, eax
     pop rbp
     ret

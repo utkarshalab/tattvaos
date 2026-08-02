@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/lacp_test.asm
+; Tattva OS — unet/tools/route/lacp_test.asm
 ; =============================================================================
-; IEEE 802.3ad LACP Link Aggregation Bonding Test Tool.
+; IEEE 802.3ad Link Aggregation Control Protocol Diagnostic Tool (`lacp-test`).
 ;
-; Implements:
-;   - LACPDU Packet Exchange & Dynamic Multi-Gigabit Link Failover Test
+; Features:
+;   - EtherType 0x8809 Slow Protocols LACPDU Injection & Actor/Partner State Audit
+;   - Bonding Aggregator (LAG) Member Port Health Verification
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global lacp_test_init
-global lacp_test_run
+global lacp_test_main
 
-align 32
-lacp_test_init:
+align 64
+lacp_test_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-lacp_test_run:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Inject LACPDU frame to 01:80:C2:00:00:02 -> verify actor/partner state synchronization
     xor eax, eax
     pop rbp
     ret

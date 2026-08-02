@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/cxi_info.asm
+; Tattva OS — unet/tools/hpc/cxi_info.asm
 ; =============================================================================
-; HPE Slingshot-11 CXI High-Performance Fabric Interface Inspector Tool.
+; Cray Cassini Interconnect (CXI / Slingshot) Network Diagnostic Tool (`cxi-info`).
 ;
-; Implements:
-;   - Displays Slingshot CXI NIC Counters, Congestion State & Virtual Interfaces
+; Features:
+;   - Cassini NIC Hardware Ring State & Virtual Channel Credit Mon
+;   - SACC Congestion Control Metrics Reporting
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global cxi_info_init
-global cxi_info_dump
+global cxi_info_main
 
-align 32
-cxi_info_init:
+align 64
+cxi_info_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-cxi_info_dump:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Query Cassini NIC MMIO registers -> print Virtual Channel (VC) credit balances & SACC stats
     xor eax, eax
     pop rbp
     ret

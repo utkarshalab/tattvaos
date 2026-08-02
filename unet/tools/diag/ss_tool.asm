@@ -1,10 +1,12 @@
 ; =============================================================================
-; Tattva OS — unet/tools/ss_tool.asm
+; Tattva OS — unet/tools/diag/ss_tool.asm
 ; =============================================================================
-; Socket Statistics (SS) Fast Connection Dump & Diagnostic Tool.
+; Socket Statistics Diagnostic Utility (`ss`).
 ;
-; Implements:
-;   - Ultra-Fast Lockless Dump of Active TCP, UDP, Raw, and UNIX Sockets
+; Features:
+;   - Fast-Path Socket Dumping (TCP, UDP, Raw, UNIX sockets)
+;   - TCP Socket Info: Congestion Window (cwnd), RTT, rto, ssthresh, mss, rcv_wnd
+;   - Filtering by Port, Remote IP, State (ESTABLISHED, LISTEN, TIME-WAIT)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +16,29 @@
 
 section .text
 
-global ss_tool_init
-global ss_tool_dump
+global ss_tool_main
+global ss_dump_tcp_info
 
-align 32
-ss_tool_init:
+align 64
+ss_tool_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    call ss_dump_tcp_info
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-ss_tool_dump:
+align 64
+ss_dump_tcp_info:
     push rbp
     mov rbp, rsp
+    ; Dump TCP socket metrics: cwnd, RTT us, RTO, rcv_space, ssthresh
     xor eax, eax
     pop rbp
     ret

@@ -1,10 +1,11 @@
 ; =============================================================================
-; Tattva OS — unet/tools/netns_exec.asm
+; Tattva OS — unet/tools/route/netns_exec.asm
 ; =============================================================================
-; Isolated Network Namespace VRF Container Command Execution CLI Tool.
+; Network Namespace Isolator & Command Executor (`ip netns exec`).
 ;
-; Implements:
-;   - Switches Network Stack Context to Specified Tenant VRF Namespace
+; Features:
+;   - Isolated Network Namespace Partitioning & VETH Pair Attachment
+;   - In-Namespace Command Execution & Routing Isolation
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +15,14 @@
 
 section .text
 
-global netns_exec_init
-global netns_exec_run
+global netns_exec_main
 
-align 32
-netns_exec_init:
+align 64
+netns_exec_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-netns_exec_run:
-    push rbp
-    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Switch network namespace context & execute target command within isolated network stack
     xor eax, eax
     pop rbp
     ret

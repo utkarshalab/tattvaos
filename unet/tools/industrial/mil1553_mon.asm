@@ -1,10 +1,14 @@
 ; =============================================================================
-; Tattva OS — unet/tools/mil1553_mon.asm
+; Tattva OS — unet/tools/industrial/mil1553_mon.asm
 ; =============================================================================
-; MIL-STD-1553B Flight Control Bus Packet Monitor Tool.
+; MIL-STD-1553B Military Serial Bus Monitor & Protocol Analyzer Tool (`1553-mon`).
 ;
-; Implements:
-;   - Captures Dual-Redundant Bus Command, Status & Data Words in Real-Time
+; Features:
+;   - Real-Time Command Word, Data Word, Status Word Bus Traffic Logging
+;   - Bus A vs Bus B Active Channel Monitoring
+;
+; Delegates:
+;   - MIL-STD-1553B Engine             -> unet/avionics/mil1553.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -14,21 +18,16 @@
 
 section .text
 
-global mil1553_mon_init
-global mil1553_mon_capture
+global mil1553_mon_main
 
-align 32
-mil1553_mon_init:
+extern mil1553_parse_cmd_word
+
+align 64
+mil1553_mon_main:
     push rbp
     mov rbp, rsp
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-mil1553_mon_capture:
-    push rbp
-    mov rbp, rsp
-    xor eax, eax
+    prefetcht0 [rdi]
+    ; Monitor 20-bit MIL-STD-1553B words on Bus A / Bus B & parse RT addresses
+    call mil1553_parse_cmd_word
     pop rbp
     ret
