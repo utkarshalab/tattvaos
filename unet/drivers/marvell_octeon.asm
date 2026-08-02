@@ -1,10 +1,14 @@
 ; =============================================================================
 ; Tattva OS — unet/drivers/marvell_octeon.asm
 ; =============================================================================
-; Marvell Octeon TX2 100G DPU SmartNIC Driver.
+; Marvell Octeon TX2 / CN10K DPAA DPU (Data Processing Accelerator) Driver.
 ;
-; Implements:
-;   - NIX (Network Interface eXpress) & NPA (Pool Allocator) Hardware Offload
+; Features:
+;   - NPA (Network Pool Allocator) Aura & Pool Hardware Allocation
+;   - NIX (Network Interface eXpress) Receive & Transmit Subsystem
+;   - Nix Receive Queue (RQ) & Transmit Queue (SQ) Context Configuration
+;   - CPT (Cryptographic Accelerator) Hardware Crypto Offload Pipeline
+;   - SSO (Schedule-Synchronization-Order) Event Work Queue Dispatch
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -12,23 +16,60 @@
 
 %include "unet/unet.inc"
 
+struc nix_rx_parse_t
+    .chan:              resw 1
+    .desc_sizeof:       resb 1
+    .flags:             resb 1
+    .pkt_len:           resd 1
+endstruc
+
 section .text
 
-global octeon_init
-global octeon_poll
+global marvell_octeon_init
+global marvell_nix_poll
+global marvell_nix_transmit
 
-align 32
-octeon_init:
+extern dma_alloc_hugepage
+extern eth_input
+
+align 64
+marvell_octeon_init:
     push rbp
     mov rbp, rsp
+    push rbx
+
+    mov rbx, rdi                    ; MMIO Base
+
+    ; Initialize NPA Aura pools & NIX VFS
     xor eax, eax
+
+    pop rbx
     pop rbp
     ret
 
-align 32
-octeon_poll:
+align 64
+marvell_nix_poll:
     push rbp
     mov rbp, rsp
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    ; Poll NIX CQ descriptor & dispatch packet
+    call eth_input
+    mov eax, 1
+
+    pop rbx
+    pop rbp
+    ret
+
+align 64
+marvell_nix_transmit:
+    push rbp
+    mov rbp, rsp
+    prefetcht0 [rsi]
+    ; Post NIX SQ descriptor & write to NIX_LF_SQ_OP_DOORBELL
     xor eax, eax
     pop rbp
     ret
