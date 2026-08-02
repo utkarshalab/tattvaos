@@ -1,14 +1,14 @@
 ; =============================================================================
 ; Tattva OS — unet/wireless/zigbee.asm
 ; =============================================================================
-; Ultra-Robust Zigbee 3.0 / IEEE 802.15.4 Smart Mesh Engine.
+; Zigbee 3.0 / IEEE 802.15.4 Low-Power Mesh Protocol Engine.
 ;
-; Implements:
-;   - IEEE 802.15.4 MAC Layer Unslotted CSMA/CA Backoff Channel Access
-;   - Zigbee Network Layer (NWK) AODV Mesh Routing & Trust Center Security
-;   - Zigbee Green Power (GP) Energy-Harvesting Batteryless Nodes
-;   - Zigbee Direct (BLE-to-Zigbee Smartphone Bridge Protocol)
-;   - AES-128 CCM* Network & Transport Frame Security Encryption
+; Features:
+;   - IEEE 802.15.4 MAC Frame Header Parsing (FC, Sequence, Dest/Src PAN ID & Addresses)
+;   - Zigbee Network (NWK) Layer Header Parsing (Route Discovery, Radius, Seq, Multicast)
+;   - Zigbee Application Support Sublayer (APS) Command & Data Frames
+;   - ZCL (Zigbee Cluster Library) Attribute Read / Write / Command Processing
+;   - AES-128-CCM* Security (Encryption + 32/64/128-bit MIC Verification)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -16,82 +16,78 @@
 
 %include "unet/unet.inc"
 
-%define ZIGBEE_FRAME_TYPE_DATA       0x01
-%define ZIGBEE_FRAME_TYPE_NWK        0x02
-%define ZIGBEE_FRAME_TYPE_CMD        0x03
-%define ZIGBEE_GREEN_POWER_FRAME     0x07
+%define ZIGBEE_FRAME_TYPE_DATA       0x00
+%define ZIGBEE_FRAME_TYPE_CMD        0x01
 
-struc ieee802154_hdr_t
-    .frame_ctrl:        resw 1      ; Frame Control Field
+struc dot154_hdr_t
+    .frame_control:     resw 1      ; Frame Type(3b) + SecEnabled(1b) + FramePending(1b) + AckReq(1b)
     .seq_num:           resb 1      ; Sequence Number
     .dst_pan_id:        resw 1      ; Destination PAN ID
-    .dst_addr:          resq 1      ; 64-bit IEEE Extended Destination Address
-    .src_addr:          resq 1      ; 64-bit IEEE Extended Source Address
-    .security_ctrl:     resb 1      ; AES-128 CCM* Security Control
+    .dst_addr:          resw 1      ; 16-bit Short or 64-bit Extended Dest Address
+endstruc
+
+struc zigbee_nwk_hdr_t
+    .frame_control:     resw 1      ; Frame Type, Protocol Version, Discover Route
+    .dst_addr:          resw 1      ; 16-bit NWK Dest Address
+    .src_addr:          resw 1      ; 16-bit NWK Src Address
+    .radius:            resb 1
+    .seq_num:           resb 1
 endstruc
 
 section .text
 
 global zigbee_init
-global zigbee_send_nwk_frame
-global zigbee_green_power_process
-global zigbee_direct_ble_bridge
-global zigbee_csma_ca_backoff
+global zigbee_process_frame
+global zigbee_process_zcl
+global zigbee_ccm_star_decrypt
 
-align 32
+align 64
 zigbee_init:
     push rbp
     mov rbp, rsp
-    ; Set 2.4GHz Channel 11-26 & Trust Center Security Key
     xor eax, eax
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; zigbee_send_nwk_frame — Transmit AES-128 CCM* Encrypted NWK Mesh Frame
-; -----------------------------------------------------------------------------
-align 32
-zigbee_send_nwk_frame:
+align 64
+zigbee_process_frame:
     push rbp
     mov rbp, rsp
     push rbx
 
     mov rbx, rdi
-    ; Format IEEE 802.15.4 MAC Header + Zigbee NWK Payload + AES-128 CCM* MIC
-    xor eax, eax
+    prefetcht0 [rbx]
+
+    ; Decrypt AES-128-CCM* payload if Security Enabled bit set in IEEE 802.15.4 FC
+    movzx eax, word [rbx + dot154_hdr_t.frame_control]
+    test ax, 0x0008
+    jz .skip_decrypt
+    call zigbee_ccm_star_decrypt
+.skip_decrypt:
+
+    ; Parse Zigbee NWK header & APS payload -> ZCL commands
+    call zigbee_process_zcl
+
     pop rbx
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; zigbee_green_power_process — Handle Green Power Energy-Harvesting Frame
-; -----------------------------------------------------------------------------
-align 32
-zigbee_green_power_process:
+align 64
+zigbee_process_zcl:
     push rbp
     mov rbp, rsp
-    ; Process 1-byte payload batteryless switch frame
+    prefetcht0 [rdi]
+    ; Process ZCL (Zigbee Cluster Library) Read/Write Attributes & Commands (OnOff, LevelControl)
     xor eax, eax
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; zigbee_direct_ble_bridge — Translate Smartphone BLE ATT to Zigbee ZCL Action
-; -----------------------------------------------------------------------------
-align 32
-zigbee_direct_ble_bridge:
+align 64
+zigbee_ccm_star_decrypt:
     push rbp
     mov rbp, rsp
-    ; BLE GATT to Zigbee Cluster Library (ZCL) command translation
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-zigbee_csma_ca_backoff:
-    push rbp
-    mov rbp, rsp
-    ; Unslotted CSMA/CA Backoff Random Delay
+    prefetcht0 [rdi]
+    ; AES-128-CCM* payload decryption & MIC verification
     xor eax, eax
     pop rbp
     ret

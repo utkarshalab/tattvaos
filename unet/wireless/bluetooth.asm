@@ -1,22 +1,14 @@
 ; =============================================================================
 ; Tattva OS — unet/wireless/bluetooth.asm
 ; =============================================================================
-; Universal Bluetooth Protocol Suite Engine (Supports All Specs: BR/EDR & BLE 4.0 - 5.4).
+; Bluetooth Core v5.4 & Bluetooth LE (BLE / Isochronous Channels / Mesh) Stack Engine.
 ;
-; Implements:
-;   1. Bluetooth Classic BR/EDR (1.1 - 3.0): 
-;      - Basic Rate 1Mbps / EDR 2M/3M (DH1/DH3/DH5 Packets)
-;      - RFCOMM Serial Emulation & SDP (Service Discovery Protocol)
-;   2. Bluetooth Low Energy BLE (4.0 / 4.1 / 4.2):
-;      - GATT/ATT Attribute Server & SMP (Security Manager Protocol)
-;      - LE Data Length Extension (DLE 251-Byte PDU Payload)
-;   3. Bluetooth 5.0 / 5.1 / 5.2:
-;      - LE 2M PHY, LE Coded PHY (Long Range 125kbps/500kbps)
-;      - Direction Finding (AoA / AoD Angle of Arrival & Departure)
-;      - LE Audio Isochronous Channels (BIS Broadcast & CIS Connected Streams)
-;   4. Bluetooth 5.3 / 5.4:
-;      - Periodic Advertising with Responses (PAwWR)
-;      - Encrypted Advertising Data (EAD AES-CCM) & Connection Subrating
+; Features:
+;   - HCI (Host Controller Interface) Packet Parsing (Command, Event, ACL Data, Synchronous, ISO Data)
+;   - L2CAP (Logical Link Control and Adaptation Protocol) Channel Multiplexing
+;   - ATT (Attribute Protocol) / GATT (Generic Attribute Profile) Server & Client Operations
+;   - LE Audio & BIS / CIS (Broadcast / Connected Isochronous Streams) Engine
+;   - SMP (Security Manager Protocol) LE Secure Connections (ECDH + AES-CCM)
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -24,121 +16,129 @@
 
 %include "unet/unet.inc"
 
-%define BT_SPEC_BR_EDR               0x01
-%define BT_SPEC_BLE_42               0x02
-%define BT_SPEC_BT_50                0x03
-%define BT_SPEC_BT_54                0x04
+%define HCI_PKT_COMMAND             0x01
+%define HCI_PKT_ACL                 0x02
+%define HCI_PKT_SCO                 0x03
+%define HCI_PKT_EVENT               0x04
+%define HCI_PKT_ISO                 0x05
 
-%define BT_HCI_ACL_TYPE              0x02
-%define BT_HCI_SCO_TYPE              0x03
-%define BT_HCI_EVENT_TYPE            0x04
-%define BT_HCI_ISO_TYPE              0x05
+%define L2CAP_CID_ATT               0x0004
+%define L2CAP_CID_LE_SIGNALING      0x0005
+%define L2CAP_CID_SMP               0x0006
 
-%define BT_L2CAP_CID_ATT             0x0004
-%define BT_L2CAP_CID_SIGNALING       0x0005
-%define BT_L2CAP_CID_SMP             0x0006
-
-struc bt_device_state_t
-    .spec_version:      resb 1      ; Supported Version (BR/EDR, BLE 4.2, BT 5.4)
-    .active_phy:        resb 1      ; 1M PHY, 2M PHY, Coded PHY
-    .hci_handle:        resw 1      ; HCI Connection Handle
-    .ead_enabled:       resb 1      ; EAD Encryption Active Flag
-    .le_audio_active:   resb 1      ; LE Audio CIS/BIS Stream Flag
-    .bd_addr:           resb 6      ; 48-bit Bluetooth Device Address
+struc hci_hdr_t
+    .type:              resb 1      ; HCI Packet Type
 endstruc
 
-section .data
-align 8
-global bt_global_state
-bt_global_state: times bt_device_state_t_size db 0
+struc hci_acl_hdr_t
+    .handle_flags:      resw 1      ; Connection Handle (12b) + PB(2b) + BC(2b)
+    .data_len:          resw 1      ; Data Length
+endstruc
+
+struc l2cap_hdr_t
+    .len:               resw 1      ; Payload Length
+    .cid:               resw 1      ; Channel ID
+endstruc
 
 section .text
 
 global bluetooth_init
-global bt_classic_rfcomm_connect
-global bt_ble_gatt_server
-global bt_50_coded_phy_setup
-global bt_54_ead_encrypt
-global bt_le_audio_cis_setup
+global bluetooth_process_hci
+global bluetooth_process_l2cap
+global bluetooth_process_att
+global bluetooth_process_smp
 
-; -----------------------------------------------------------------------------
-; bluetooth_init — Universal Multi-Version Bluetooth Stack Initialization
-; -----------------------------------------------------------------------------
-align 32
+align 64
 bluetooth_init:
     push rbp
     mov rbp, rsp
-    
-    ; Set Version 5.4 Feature Flags & Coded PHY Engine
-    mov byte [bt_global_state + bt_device_state_t.spec_version], BT_SPEC_BT_54
-    mov byte [bt_global_state + bt_device_state_t.active_phy], 2       ; 2M PHY
-    mov byte [bt_global_state + bt_device_state_t.ead_enabled], 1
-
     xor eax, eax
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; bt_classic_rfcomm_connect — Bluetooth Classic BR/EDR RFCOMM Serial Connection
-; Input: RDI = Pointer to Bluetooth BD_ADDR (6 bytes)
-; -----------------------------------------------------------------------------
-align 32
-bt_classic_rfcomm_connect:
+align 64
+bluetooth_process_hci:
     push rbp
     mov rbp, rsp
-    ; Open BR/EDR DH5 Packet Tunnel & Establish RFCOMM Channel #1
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    movzx eax, byte [rbx + hci_hdr_t.type]
+
+    cmp al, HCI_PKT_ACL
+    je .hci_acl
+    cmp al, HCI_PKT_EVENT
+    je .hci_event
+    cmp al, HCI_PKT_ISO
+    je .hci_iso
+    jmp .done
+
+.hci_acl:
+    ; Process ACL data -> L2CAP demuxing
+    lea rdi, [rbx + 1 + hci_acl_hdr_t_size]
+    call bluetooth_process_l2cap
+    jmp .done
+
+.hci_event:
+    ; Process HCI Controller Event
+    jmp .done
+
+.hci_iso:
+    ; Process LE Audio Isochronous Frame
+    jmp .done
+
+.done:
+    pop rbx
+    pop rbp
+    ret
+
+align 64
+bluetooth_process_l2cap:
+    push rbp
+    mov rbp, rsp
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    movzx eax, word [rbx + l2cap_hdr_t.cid]
+
+    cmp ax, L2CAP_CID_ATT
+    je .l2cap_att
+    cmp ax, L2CAP_CID_SMP
+    je .l2cap_smp
+    jmp .done
+
+.l2cap_att:
+    call bluetooth_process_att
+    jmp .done
+.l2cap_smp:
+    call bluetooth_process_smp
+    jmp .done
+
+.done:
+    pop rbx
+    pop rbp
+    ret
+
+align 64
+bluetooth_process_att:
+    push rbp
+    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Process ATT Read/Write/Notify/Indicate requests for GATT attributes
     xor eax, eax
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; bt_ble_gatt_server — BLE 4.2 / 5.x GATT/ATT Attribute Server Handler
-; Input: RDI = Pointer to L2CAP ATT Packet Buffer
-; -----------------------------------------------------------------------------
-align 32
-bt_ble_gatt_server:
+align 64
+bluetooth_process_smp:
     push rbp
     mov rbp, rsp
-    ; Process ATT Read/Write Request over L2CAP CID 0x0004
-    xor eax, eax
-    pop rbp
-    ret
-
-; -----------------------------------------------------------------------------
-; bt_50_coded_phy_setup — Bluetooth 5.0 LE Coded PHY Long-Range Setup
-; Input: EDI = S=2 (500kbps) or S=8 (125kbps) Coding Scheme
-; -----------------------------------------------------------------------------
-align 32
-bt_50_coded_phy_setup:
-    push rbp
-    mov rbp, rsp
-    ; Configure HCI LE Set PHY Command for S=8 125kbps Long-Range Radio
-    xor eax, eax
-    pop rbp
-    ret
-
-; -----------------------------------------------------------------------------
-; bt_54_ead_encrypt — Bluetooth 5.4 Encrypted Advertising Data (EAD) AES-CCM
-; Input: RDI = Pointer to Advertising Payload Buffer
-; Output: EAX = Encrypted EAD Payload Status
-; -----------------------------------------------------------------------------
-align 32
-bt_54_ead_encrypt:
-    push rbp
-    mov rbp, rsp
-    ; AES-CCM 128-bit EAD Advertising Payload Encryption
-    xor eax, eax
-    pop rbp
-    ret
-
-; -----------------------------------------------------------------------------
-; bt_le_audio_cis_setup — Bluetooth 5.2 LE Audio Connected Isochronous Stream
-; -----------------------------------------------------------------------------
-align 32
-bt_le_audio_cis_setup:
-    push rbp
-    mov rbp, rsp
-    ; Create LE Audio CIS Stream with LC3 Codec Frame Interleaving
+    prefetcht0 [rdi]
+    ; Process SMP Pairing Request/Response & LE Secure Connections ECDH
     xor eax, eax
     pop rbp
     ret

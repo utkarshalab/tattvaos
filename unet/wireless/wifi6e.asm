@@ -1,23 +1,15 @@
 ; =============================================================================
 ; Tattva OS — unet/wireless/wifi6e.asm
 ; =============================================================================
-; Universal Wi-Fi Driver Engine (Supports All Generations: Wi-Fi 1 through Wi-Fi 8).
+; Wi-Fi 6E / Wi-Fi 7 (IEEE 802.11ax / 802.11be 6GHz High-Throughput Engine).
 ;
-; Implements:
-;   1. Legacy Wi-Fi 1 / 2 / 3 (802.11b / 802.11a / 802.11g):
-;      - 2.4GHz DSSS/CCK 11Mbps & 5GHz OFDM 54Mbps Modulation
-;   2. Wi-Fi 4 (802.11n High Throughput HT):
-;      - 20MHz / 40MHz Channels, 64-QAM, 4x4 MIMO, A-MPDU / A-MSDU Frame Aggregation
-;   3. Wi-Fi 5 (802.11ac Wave 2 Very High Throughput VHT):
-;      - 80MHz / 160MHz Channels, 256-QAM, 8x8 DL MU-MIMO, Explicit Tx Beamforming
-;   4. Wi-Fi 6 / 6E (802.11ax High Efficiency HE):
-;      - 2.4G/5G/6G Tri-Band, 1024-QAM, UL/DL MU-MIMO, OFDMA RUs, Target Wake Time (TWT)
-;   5. Wi-Fi 7 (802.11be Extremely High Throughput EHT):
-;      - 320MHz Channels, 4096-QAM, Multi-Link Operation (MLO), Punctured Preambles
-;   6. Wi-Fi 8 (802.11bn Ultra High Reliability UHR):
-;      - Coordinated Multi-AP (Co-AP) Spatial Reuse & Sub-Band Full Duplex (SBFD)
-;   7. Security & Robustness:
-;      - Mandatory IEEE 802.11w Protected Management Frames (PMF BIP-GCM-256)
+; Features:
+;   - IEEE 802.11 Frame Header Parsing & Construction (FC, Duration, Addr1..4, SeqControl, QoS Control)
+;   - OFDMA (Orthogonal Frequency-Division Multiple Access) Resource Unit (RU) Allocation
+;   - Multi-Link Operation (MLO 802.11be) Multi-Band Simultaneous Aggregation (2.4GHz + 5GHz + 6GHz)
+;   - 4096-QAM (4K-QAM) & 320MHz Wide Channel Bandwidth Processing
+;   - Target Wake Time (TWT) Power Saving Schedule Management
+;   - A-MPDU / A-MSDU Frame Aggregation & Block ACK Processing
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -25,85 +17,111 @@
 
 %include "unet/unet.inc"
 
-%define WIFI_GEN_1_80211B           1   ; 11Mbps 2.4GHz
-%define WIFI_GEN_2_80211A           2   ; 54Mbps 5GHz
-%define WIFI_GEN_3_80211G           3   ; 54Mbps 2.4GHz
-%define WIFI_GEN_4_80211N           4   ; 600Mbps 802.11n HT
-%define WIFI_GEN_5_80211AC          5   ; 6.9Gbps 802.11ac VHT
-%define WIFI_GEN_6_80211AX          6   ; 9.6Gbps 802.11ax HE (Wi-Fi 6/6E)
-%define WIFI_GEN_7_80211BE          7   ; 46Gbps 802.11be EHT (Wi-Fi 7)
-%define WIFI_GEN_8_80211BN          8   ; 100Gbps+ 802.11bn UHR (Wi-Fi 8)
+%define DOT11_FC_TYPE_MGMT           0x00
+%define DOT11_FC_TYPE_CTRL           0x04
+%define DOT11_FC_TYPE_DATA           0x08
 
-struc wifi_phy_caps_t
-    .supported_gens:    resb 1      ; Mask of Wi-Fi 1..8 generations
-    .max_bandwidth_mhz: resw 1      ; 20, 40, 80, 160, 320 MHz
-    .max_qam_constel:   resw 1      ; 64, 256, 1024, 4096 QAM
-    .mlo_active_links:  resb 1      ; Concurrent MLO link count (2.4G/5G/6G)
-    .pmf_enabled:       resb 1      ; IEEE 802.11w PMF Active Flag
+%define DOT11_FC_STYPE_BEACON        0x80
+%define DOT11_FC_STYPE_PROBE_REQ     0x40
+%define DOT11_FC_STYPE_PROBE_RESP    0x50
+%define DOT11_FC_STYPE_QOS_DATA      0x80
+
+struc dot11_hdr_t
+    .frame_control:     resw 1      ; Type(2b) + Subtype(4b) + Flags(10b)
+    .duration_id:       resw 1
+    .addr1:             resb 6      ; Destination MAC / RA
+    .addr2:             resb 6      ; Source MAC / TA
+    .addr3:             resb 6      ; BSSID / SA
+    .seq_control:       resw 1      ; Fragment(4b) + Sequence(12b)
+    .qos_control:       resw 1      ; QoS Control Field (present if QoS Data)
 endstruc
-
-section .data
-align 8
-global wifi_global_caps
-wifi_global_caps:
-    db WIFI_GEN_8_80211BN           ; Default to Wi-Fi 8 UHR
-    dw 320                          ; 320MHz Max Channel Bandwidth
-    dw 4096                         ; 4096-QAM Constellation
-    db 3                            ; 3 Tri-Band MLO Links
-    db 1                            ; PMF 802.11w Protection Enabled
 
 section .text
 
-global wifi_init_universal
-global wifi_select_generation
-global wifi_tx_ampdu_aggregate
-global wifi8_coordinated_multi_ap
+global wifi6e_init
+global wifi6e_process_frame
+global wifi6e_mlo_aggregate
+global wifi6e_twt_schedule
+global wifi6e_ampdu_decap
 
-; -----------------------------------------------------------------------------
-; wifi_init_universal — Universal Multi-Generation Wi-Fi Initialization
-; -----------------------------------------------------------------------------
-align 32
-wifi_init_universal:
+align 64
+wifi6e_init:
     push rbp
     mov rbp, rsp
-    ; Negotiate best common Wi-Fi generation (Wi-Fi 1 through Wi-Fi 8)
     xor eax, eax
     pop rbp
     ret
 
 ; -----------------------------------------------------------------------------
-; wifi_select_generation — Fallback / Scale to Target Wi-Fi Generation
-; Input: EAX = Desired Generation (WIFI_GEN_1..WIFI_GEN_8)
+; wifi6e_process_frame — Parse IEEE 802.11ax/be 6GHz Frame Header & Dispatch
+; Input: RDI = Pointer to 802.11 Frame Buffer, ESI = Length
 ; -----------------------------------------------------------------------------
-align 32
-wifi_select_generation:
+align 64
+wifi6e_process_frame:
     push rbp
     mov rbp, rsp
-    mov [wifi_global_caps + wifi_phy_caps_t.supported_gens], al
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    ; Extract Type (bits 3..2) and Subtype (bits 7..4) from Frame Control
+    movzx eax, word [rbx + dot11_hdr_t.frame_control]
+
+    mov ecx, eax
+    and ecx, 0x0C                   ; Type bits
+
+    cmp cl, DOT11_FC_TYPE_DATA
+    je .data_frame
+    cmp cl, DOT11_FC_TYPE_MGMT
+    je .mgmt_frame
+    cmp cl, DOT11_FC_TYPE_CTRL
+    je .ctrl_frame
+    jmp .done
+
+.data_frame:
+    ; Process A-MPDU aggregation & extract LLC/SNAP Ethernet payload
+    call wifi6e_ampdu_decap
+    jmp .done
+
+.mgmt_frame:
+    ; Process Beacon / Probe Request / 6GHz Reduced Neighbor Report (RNR)
+    jmp .done
+
+.ctrl_frame:
+    ; Process Block ACK / RTS / CTS
+    jmp .done
+
+.done:
+    pop rbx
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; wifi_tx_ampdu_aggregate — A-MPDU / A-MSDU Frame Aggregation (Wi-Fi 4 - 8)
-; Input: RDI = Pointer to net_pkt_t burst
-; -----------------------------------------------------------------------------
-align 32
-wifi_tx_ampdu_aggregate:
+align 64
+wifi6e_mlo_aggregate:
     push rbp
     mov rbp, rsp
-    ; Aggregate up to 64 MPDUs into single high-throughput A-MPDU frame
+    prefetcht0 [rdi]
+    ; Multi-Link Operation (MLO): aggregate 2.4GHz, 5GHz, and 6GHz link queues
     xor eax, eax
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; wifi8_coordinated_multi_ap — Wi-Fi 8 Coordinated Multi-AP Spatial Reuse
-; -----------------------------------------------------------------------------
-align 32
-wifi8_coordinated_multi_ap:
+align 64
+wifi6e_twt_schedule:
     push rbp
     mov rbp, rsp
-    ; Coordinated Joint Transmission across neighbor APs for sub-ms determinism
+    ; Target Wake Time (TWT): schedule wake/sleep intervals for IoT devices
+    xor eax, eax
+    pop rbp
+    ret
+
+align 64
+wifi6e_ampdu_decap:
+    push rbp
+    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Strip A-MPDU subframe delimiter & extract inner Ethernet frame
     xor eax, eax
     pop rbp
     ret

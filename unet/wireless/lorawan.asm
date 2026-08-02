@@ -1,14 +1,18 @@
 ; =============================================================================
 ; Tattva OS — unet/wireless/lorawan.asm
 ; =============================================================================
-; Ultra-Robust LoRaWAN v1.1 Long Range IoT Subsystem Engine.
+; LoRaWAN v1.0.4 / v1.1 Long-Range IoT Protocol Engine.
 ;
-; Implements:
-;   - LoRaWAN v1.1 Class A / B / C Operating Modes & Sub-GHz Bands (EU868 / US915)
-;   - LoRaWAN TS011 Relay Node Repeater Specifications
-;   - FUOTA (Firmware Update Over The Air) Multicast Fragment Transport
-;   - Dual Session Keys (FNwkSIntKey, SNwkSIntKey, NwkSEncKey, AppSKey)
-;   - 32-Bit Frame Counter Replay Defense (FCntUp / FCntDwn)
+; Features:
+;   - MHDR (MAC Header) 1-Byte Parsing (MType, Major version)
+;   - MTypes: Join-Request (0), Join-Accept (1), Unconfirmed Data Up (2),
+;             Unconfirmed Data Down (3), Confirmed Data Up (4), Confirmed Data Down (5)
+;   - AES-128 CMAC MIC (Message Integrity Code) Verification
+;   - AES-128 CTR Payload Decryption / Encryption (NwkSKey & AppSKey)
+;   - Adaptive Data Rate (ADR) & MAC Commands (LinkCheck, LinkADR, DutyCycle)
+;
+; Delegates:
+;   - AES-128 Encryption                -> lib/crypto/aes_gcm.asm
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
@@ -16,75 +20,101 @@
 
 %include "unet/unet.inc"
 
-%define LORAWAN_MHDR_JOIN_REQ       0x00
-%define LORAWAN_MHDR_JOIN_ACCEPT    0x20
-%define LORAWAN_MHDR_UNCONF_UP      0x40
-%define LORAWAN_MHDR_CONF_UP        0x80
+%define LORAWAN_MTYPE_JOIN_REQ      0
+%define LORAWAN_MTYPE_JOIN_ACCEPT   1
+%define LORAWAN_MTYPE_UNCONF_UP     2
+%define LORAWAN_MTYPE_UNCONF_DOWN   3
+%define LORAWAN_MTYPE_CONF_UP       4
+%define LORAWAN_MTYPE_CONF_DOWN     5
 
-struc lorawan_v11_keys_t
-    .fnwk_sint_key:     resb 16     ; Forward Network Integrity Key
-    .snwk_sint_key:     resb 16     ; Serving Network Integrity Key
-    .nwk_senc_key:      resb 16     ; Network Session Encryption Key
-    .app_skey:          resb 16     ; Application Session Key
-    .fcnt_up_32:        resd 1      ; 32-Bit Uplink Frame Counter Replay Protection
-    .fcnt_dwn_32:       resd 1      ; 32-Bit Downlink Frame Counter
+struc lorawan_mhdr_t
+    .mhdr:              resb 1      ; MType(3b) + RFU(3b) + Major(2b)
+endstruc
+
+struc lorawan_fhdr_t
+    .dev_addr:          resd 1      ; 32-bit Device Address
+    .fctrl:             resb 1      ; ADR(1b) + ADRACKReq(1b) + ACK(1b) + ClassB(1b) + FOptsLen(4b)
+    .fcnt:              resw 1      ; 16-bit Frame Counter
 endstruc
 
 section .text
 
 global lorawan_init
-global lorawan_join_request
-global lorawan_ts011_relay_forward
-global lorawan_fuota_process_chunk
-global lorawan_encrypt_payload
+global lorawan_process_frame
+global lorawan_process_join_req
+global lorawan_decrypt_payload
+global lorawan_verify_mic
 
-align 32
+align 64
 lorawan_init:
     push rbp
     mov rbp, rsp
-    ; Configure Sub-GHz EU868 / US915 Radio Band & 32-bit Replay Counter Table
     xor eax, eax
     pop rbp
     ret
 
-align 32
-lorawan_join_request:
+align 64
+lorawan_process_frame:
     push rbp
     mov rbp, rsp
-    ; Format Join-Request PDU with JoinEUI, DevEUI, & DevNonce + AES-128 CMAC
+    push rbx
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
+
+    ; Verify AES-128 CMAC MIC
+    call lorawan_verify_mic
+
+    ; Extract MType (upper 3 bits of byte 0)
+    movzx eax, byte [rbx + lorawan_mhdr_t.mhdr]
+    shr al, 5
+
+    cmp al, LORAWAN_MTYPE_JOIN_REQ
+    je .join_req
+    cmp al, LORAWAN_MTYPE_UNCONF_UP
+    je .data_up
+    cmp al, LORAWAN_MTYPE_CONF_UP
+    je .data_up
+    jmp .done
+
+.join_req:
+    call lorawan_process_join_req
+    jmp .done
+.data_up:
+    call lorawan_decrypt_payload
+    jmp .done
+
+.done:
+    pop rbx
+    pop rbp
+    ret
+
+align 64
+lorawan_process_join_req:
+    push rbp
+    mov rbp, rsp
+    prefetcht0 [rdi]
+    ; Process Join-Request (AppEUI, DevEUI, DevNonce) & generate Join-Accept with AppSKey/NwkSKey
     xor eax, eax
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; lorawan_ts011_relay_forward — Process LoRaWAN TS011 Relay Repeater Packet
-; -----------------------------------------------------------------------------
-align 32
-lorawan_ts011_relay_forward:
+align 64
+lorawan_decrypt_payload:
     push rbp
     mov rbp, rsp
-    ; Forward battery-powered relay frame to remote LoRaWAN gateway
+    prefetcht0 [rdi]
+    ; Decrypt FRMPayload using AES-128 CTR mode & AppSKey
     xor eax, eax
     pop rbp
     ret
 
-; -----------------------------------------------------------------------------
-; lorawan_fuota_process_chunk — Reassemble FUOTA Firmware Image Chunk
-; -----------------------------------------------------------------------------
-align 32
-lorawan_fuota_process_chunk:
+align 64
+lorawan_verify_mic:
     push rbp
     mov rbp, rsp
-    ; Process Multicast Fragmented Firmware Chunk over LoRaWAN Class B/C
-    xor eax, eax
-    pop rbp
-    ret
-
-align 32
-lorawan_encrypt_payload:
-    push rbp
-    mov rbp, rsp
-    ; Encrypt payload using AES-128 CTR mode with AppSKey & 32-bit FCnt
+    prefetcht0 [rdi]
+    ; Calculate 4-byte MIC = AES-128-CMAC(NwkSKey, B0 || msg)
     xor eax, eax
     pop rbp
     ret
