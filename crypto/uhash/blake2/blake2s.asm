@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UHASH_BLAKE2_BLAKE2S_ASM
+%define GUARD_CRYPTO_UHASH_BLAKE2_BLAKE2S_ASM
 ; =============================================================================
 ; Tattva OS — crypto/uhash/blake2/blake2s.asm
 ; =============================================================================
@@ -59,3 +61,5 @@ blake2s_final:
     pop rsi
     pop rcx
     ret
+
+%endif ; GUARD_CRYPTO_UHASH_BLAKE2_BLAKE2S_ASM

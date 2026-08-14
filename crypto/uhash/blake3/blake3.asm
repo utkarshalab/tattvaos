@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UHASH_BLAKE3_BLAKE3_ASM
+%define GUARD_CRYPTO_UHASH_BLAKE3_BLAKE3_ASM
 ; =============================================================================
 ; Tattva OS — crypto/uhash/blake3/blake3.asm
 ; =============================================================================
@@ -224,3 +226,5 @@ blake3_final:
     pop rcx
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UHASH_BLAKE3_BLAKE3_ASM
