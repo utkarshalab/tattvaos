@@ -13,7 +13,7 @@
 ; Cipher Algorithm IDs
 UCRYPT_ALGO_AES_GCM_128      equ 1
 UCRYPT_ALGO_AES_GCM_256      equ 2
-UCRYPT_ALGO_AES_XTS_512      equ 3      ; 2 x 256-bit keys for uFS disk encryption
+UCRYPT_ALGO_AES_XTS_512      equ 3      ; 2 x 256-bit keys for UXFS disk encryption
 UCRYPT_ALGO_CHACHA20_POLY1305 equ 4
 
 ; Tag & Nonce sizes

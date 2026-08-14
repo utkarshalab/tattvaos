@@ -38,7 +38,7 @@
 %include "crypto/ucrypt/asymmetric/rsa_oaep.asm"
 %include "crypto/ucrypt/asymmetric/bip32_hdkey.asm"
 %include "crypto/ucrypt/asymmetric/secp256k1_schnorr.asm"
-%include "crypto/ucrypt/mac/hmac/hmac.asm"
+%include "crypto/ucrypt/mac/hmac.asm"
 %include "crypto/ucrypt/mac/kmac/kmac.asm"
 %include "crypto/ucrypt/mac/cmac/cmac.asm"
 %include "crypto/ucrypt/mac/vmac/vmac.asm"

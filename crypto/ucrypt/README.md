@@ -15,7 +15,7 @@ crypto/ucrypt/
 │   ├── aes_gcm_avx512.asm     ← AVX-512 8-way parallel AES-GCM pipeline (400 Gbps)
 │   ├── aes_gcm_siv.asm        ← RFC 8452 AES-GCM-SIV Nonce-Misuse-Resistant AEAD
 │   ├── aes_ocb3.asm           ← RFC 7253 AES-OCB3 Single-Pass AEAD (2x GCM speed)
-│   ├── aes_xts.asm            ← AES-XTS Dual-Key uFS Sector Encryption
+│   ├── aes_xts.asm            ← AES-XTS Dual-Key UXFS Sector Encryption
 │   ├── sm4_gcm.asm            ← SM4-GCM 128-bit Block Cipher AEAD
 │   ├── aria_gcm.asm           ← ARIA-GCM 128/256-bit Block Cipher AEAD
 │   ├── camellia_gcm.asm       ← Camellia-GCM 128/256-bit Block Cipher AEAD

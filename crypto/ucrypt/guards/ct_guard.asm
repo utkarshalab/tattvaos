@@ -7,6 +7,11 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
+; Included from ucrypt.asm, storage/uxfs/uxfs.asm and storage/uxfs/vfs/clone.asm.
+; Without this guard the single-unit kernel build redefines every label here.
+%ifndef UCRYPT_CT_GUARD_ASM
+%define UCRYPT_CT_GUARD_ASM
+
 [BITS 64]
 
 %include "crypto/ucrypt/symmetric/ucrypt.inc"
@@ -62,3 +67,5 @@ ucrypt_ct_select:
     and rdx, rdi
     or rax, rdx
     ret
+
+%endif ; UCRYPT_CT_GUARD_ASM

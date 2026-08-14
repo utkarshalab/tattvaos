@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_xts.asm
 ; =============================================================================
-; Dual-Key 512-Bit AES-XTS GF(2^128) Sector Encryption Engine for uFS Storage.
+; Dual-Key 512-Bit AES-XTS GF(2^128) Sector Encryption Engine for UXFS Storage.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -14,7 +14,7 @@
 section .text
 
 ; -----------------------------------------------------------------------------
-; aes_xts_encrypt_sector — Encrypt 512-byte uFS Disk Sector via AES-XTS
+; aes_xts_encrypt_sector — Encrypt 512-byte UXFS Disk Sector via AES-XTS
 ; Input:  RDI = 64-byte Dual Key Pointer (Key1 || Key2)
 ;         RSI = 64-bit Sector/Tweak Number Pointer (16 bytes)
 ;         RDX = 512-byte Plaintext Sector Pointer
@@ -80,7 +80,7 @@ aes_xts_encrypt_sector:
     ret
 
 ; -----------------------------------------------------------------------------
-; aes_xts_decrypt_sector — Decrypt 512-byte uFS Disk Sector via AES-XTS
+; aes_xts_decrypt_sector — Decrypt 512-byte UXFS Disk Sector via AES-XTS
 ; Input:  RDI = 64-byte Dual Key Pointer (Key1 || Key2)
 ;         RSI = 64-bit Sector/Tweak Number Pointer (16 bytes)
 ;         RDX = 512-byte Ciphertext Sector Pointer
