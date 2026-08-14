@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CNI_CILIUM_ASM
+%define GUARD_UNET_CNI_CILIUM_ASM
 ; =============================================================================
 ; Tattva OS — unet/cni/cilium.asm
 ; =============================================================================
@@ -67,3 +69,5 @@ cilium_sockmap_fastpath:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CNI_CILIUM_ASM

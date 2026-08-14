@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_E1000_ASM
+%define GUARD_UNET_DRIVERS_E1000_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/e1000.asm
 ; =============================================================================
@@ -78,10 +80,6 @@ global e1000_poll
 global e1000_transmit
 global e1000_mac_read
 
-extern dma_alloc_hugepage
-extern rdtsc_get_cycles
-extern mdelay
-extern eth_input
 
 align 64
 e1000_init:
@@ -140,7 +138,10 @@ e1000_poll:
     and edx, E1000_RING_SIZE - 1    ; Next descriptor to check
 
     ; Check Descriptor Status DD bit (0x01)
-    lea rax, [r12 + rdx * e1000_rx_desc_t_size]
+    ; x86 scale factors are limited to 1, 2, 4 and 8, and the descriptor is 16
+    ; bytes, so the index has to be multiplied out before the add.
+    imul rax, rdx, e1000_rx_desc_t_size
+    add rax, r12
     movzx ecx, byte [rax + e1000_rx_desc_t.status]
     test cl, E1000_RXD_STAT_DD
     jz .no_rx
@@ -194,3 +195,5 @@ e1000_mac_read:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_E1000_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SAN_NVME_OF_RDMA_ASM
+%define GUARD_UNET_SAN_NVME_OF_RDMA_ASM
 ; =============================================================================
 ; Tattva OS — unet/san/nvme_of_rdma.asm
 ; =============================================================================
@@ -76,3 +78,5 @@ nvme_rdma_process_cqe:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SAN_NVME_OF_RDMA_ASM

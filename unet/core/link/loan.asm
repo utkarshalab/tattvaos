@@ -16,8 +16,6 @@
 
 section .text
 
-extern is_valid_phys_packet_buffer
-
 ; -----------------------------------------------------------------------------
 ; net_page_loan — Swaps page mapping between driver context and user process context
 ; Input:

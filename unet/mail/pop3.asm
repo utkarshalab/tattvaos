@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MAIL_POP3_ASM
+%define GUARD_UNET_MAIL_POP3_ASM
 ; =============================================================================
 ; Tattva OS — unet/mail/pop3.asm
 ; =============================================================================
@@ -48,8 +50,6 @@ global pop3_process_retr
 global pop3_process_dele
 global pop3_process_quit
 global pop3_send_response
-
-extern utls_server_handshake
 
 align 64
 pop3_init:
@@ -197,3 +197,5 @@ pop3_send_response:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MAIL_POP3_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_HPC_BFD_TEST_ASM
+%define GUARD_UNET_TOOLS_HPC_BFD_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/hpc/bfd_test.asm
 ; =============================================================================
@@ -17,8 +19,6 @@ section .text
 
 global bfd_test_main
 
-extern rdtsc_get_cycles
-
 align 64
 bfd_test_main:
     push rbp
@@ -29,3 +29,5 @@ bfd_test_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_HPC_BFD_TEST_ASM

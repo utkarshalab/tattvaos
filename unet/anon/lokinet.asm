@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ANON_LOKINET_ASM
+%define GUARD_UNET_ANON_LOKINET_ASM
 ; =============================================================================
 ; Tattva OS — unet/anon/lokinet.asm
 ; =============================================================================
@@ -52,7 +54,7 @@ struc lokinet_snapp_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 lokinet_path_table:     resb lokinet_path_t_size * LOKINET_MAX_PATHS
 lokinet_path_count:     resd 1
 
@@ -67,13 +69,6 @@ global lokinet_cbr_pad
 global lokinet_monitor_latency
 global lokinet_publish_snapp
 global lokinet_lookup_snapp
-
-extern aes_gcm_encrypt
-extern aes_gcm_decrypt
-extern ed25519_verify
-extern timer_wheel_add
-extern timer_wheel_del
-extern rdtsc_get_cycles
 
 align 64
 lokinet_init:
@@ -278,3 +273,5 @@ lokinet_lookup_snapp:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ANON_LOKINET_ASM

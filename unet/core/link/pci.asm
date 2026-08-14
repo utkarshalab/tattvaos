@@ -16,8 +16,6 @@
 
 section .text
 
-extern is_valid_phys_packet_buffer
-
 ; -----------------------------------------------------------------------------
 ; net_pci_map_queue — Maps physical NIC descriptor queues inside uncacheable memory
 ; Input:

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ANON_I2P_GARLIC_ASM
+%define GUARD_UNET_ANON_I2P_GARLIC_ASM
 ; =============================================================================
 ; Tattva OS — unet/anon/i2p_garlic.asm
 ; =============================================================================
@@ -47,9 +49,6 @@ global i2p_pack_garlic_message
 global i2p_unpack_garlic_cloves
 global i2p_verify_leaseset2_pqc
 
-extern chacha20_poly1305_encrypt
-extern ml_dsa_87_verify
-extern hkdf_extract_expand
 
 align 64
 i2p_garlic_init:
@@ -111,3 +110,5 @@ i2p_verify_leaseset2_pqc:
     call ml_dsa_87_verify
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ANON_I2P_GARLIC_ASM

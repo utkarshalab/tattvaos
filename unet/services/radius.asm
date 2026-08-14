@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_RADIUS_ASM
+%define GUARD_UNET_SERVICES_RADIUS_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/radius.asm
 ; =============================================================================
@@ -43,8 +45,6 @@ global radius_process_packet
 global radius_decrypt_password
 global radius_verify_response_authenticator
 global radius_parse_attributes
-
-extern md5_hash
 
 align 64
 radius_init:
@@ -113,3 +113,5 @@ radius_parse_attributes:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_RADIUS_ASM

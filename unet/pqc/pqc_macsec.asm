@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_PQC_PQC_MACSEC_ASM
+%define GUARD_UNET_PQC_PQC_MACSEC_ASM
 ; =============================================================================
 ; Tattva OS — unet/pqc/pqc_macsec.asm
 ; =============================================================================
@@ -32,8 +34,6 @@ global pqc_macsec_protect_frame
 global pqc_macsec_unprotect_frame
 global pqc_macsec_mka_handshake
 
-extern aes_gcm_encrypt
-extern aes_gcm_decrypt
 
 align 64
 pqc_macsec_init:
@@ -78,3 +78,5 @@ pqc_macsec_mka_handshake:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_PQC_PQC_MACSEC_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HPC_ROCE_ASM
+%define GUARD_UNET_HPC_ROCE_ASM
 ; =============================================================================
 ; Tattva OS — unet/hpc/roce.asm
 ; =============================================================================
@@ -42,7 +44,7 @@ struc dcqcn_state_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 roce_dcqcn_table:       resb dcqcn_state_t_size * 256  ; Up to 256 active QPs
 
 section .text
@@ -52,9 +54,6 @@ global roce_decap_packet
 global roce_encap_packet
 global roce_dcqcn_congestion
 global roce_parse_bth
-
-extern infiniband_parse_bth
-extern rdtsc_get_cycles
 
 align 64
 roce_init:
@@ -161,3 +160,5 @@ roce_dcqcn_congestion:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HPC_ROCE_ASM

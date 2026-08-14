@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CLOUD_AZURE_EXPRESS_ASM
+%define GUARD_UNET_CLOUD_AZURE_EXPRESS_ASM
 ; =============================================================================
 ; Tattva OS — unet/cloud/azure_express.asm
 ; =============================================================================
@@ -84,3 +86,5 @@ azure_express_encap_qinq:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CLOUD_AZURE_EXPRESS_ASM

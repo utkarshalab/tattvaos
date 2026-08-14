@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_PATTERN_MATCHER_ASM
+%define GUARD_UNET_SECURITY_PATTERN_MATCHER_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/pattern_matcher.asm
 ; =============================================================================
@@ -88,3 +90,5 @@ pattern_matcher_add_pattern:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_PATTERN_MATCHER_ASM

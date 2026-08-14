@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_HPC_EBPF_TOP_ASM
+%define GUARD_UNET_TOOLS_HPC_EBPF_TOP_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/hpc/ebpf_top.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global ebpf_top_main
 
-extern ebpf_exec_bytecode
 
 align 64
 ebpf_top_main:
@@ -31,3 +32,5 @@ ebpf_top_main:
     call ebpf_exec_bytecode
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_HPC_EBPF_TOP_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AI_AUTONOMOUS_QOS_ASM
+%define GUARD_UNET_AI_AUTONOMOUS_QOS_ASM
 ; =============================================================================
 ; Tattva OS — unet/ai/autonomous_qos.asm
 ; =============================================================================
@@ -32,7 +34,6 @@ global autonomous_qos_init
 global autonomous_qos_evaluate
 global autonomous_qos_adjust_shaper
 
-extern tbf_police_packet
 
 align 64
 autonomous_qos_init:
@@ -73,3 +74,5 @@ autonomous_qos_adjust_shaper:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AI_AUTONOMOUS_QOS_ASM

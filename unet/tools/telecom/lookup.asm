@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TELECOM_LOOKUP_ASM
+%define GUARD_UNET_TOOLS_TELECOM_LOOKUP_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/telecom/lookup.asm
 ; =============================================================================
@@ -41,8 +43,6 @@ global lookup_main
 global lookup_format_query
 global lookup_parse_response
 
-extern dns_parse_query
-extern rdtsc_get_cycles
 
 align 64
 lookup_main:
@@ -94,3 +94,5 @@ lookup_parse_response:
     call dns_parse_query
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_TELECOM_LOOKUP_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CLOUD_GRE_ASM
+%define GUARD_UNET_CLOUD_GRE_ASM
 ; =============================================================================
 ; Tattva OS — unet/cloud/gre.asm
 ; =============================================================================
@@ -27,14 +29,13 @@ endstruc
 
 section .text
 
-global gre_init
+global gre_cloud_init
 global gre_decap_packet
 global gre_encap_packet
 
-extern eth_input
 
 align 64
-gre_init:
+gre_cloud_init:
     push rbp
     mov rbp, rsp
     xor eax, eax
@@ -88,3 +89,5 @@ gre_encap_packet:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CLOUD_GRE_ASM

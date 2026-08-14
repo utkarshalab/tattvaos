@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VIDEO_WEBRTC_SFU_ASM
+%define GUARD_UNET_VIDEO_WEBRTC_SFU_ASM
 ; =============================================================================
 ; Tattva OS — unet/video/webrtc_sfu.asm
 ; =============================================================================
@@ -42,8 +44,6 @@ global webrtc_sfu_process_twcc
 global webrtc_sfu_request_keyframe
 global webrtc_sfu_adapt_bitrate
 
-extern srtp_unprotect
-extern srtp_protect
 
 align 64
 webrtc_sfu_init:
@@ -105,3 +105,5 @@ webrtc_sfu_adapt_bitrate:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VIDEO_WEBRTC_SFU_ASM

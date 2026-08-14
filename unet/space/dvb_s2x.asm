@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SPACE_DVB_S2X_ASM
+%define GUARD_UNET_SPACE_DVB_S2X_ASM
 ; =============================================================================
 ; Tattva OS — unet/space/dvb_s2x.asm
 ; =============================================================================
@@ -80,3 +82,5 @@ dvb_s2x_crc8:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SPACE_DVB_S2X_ASM

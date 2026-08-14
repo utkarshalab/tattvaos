@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DNS_MDNS_ASM
+%define GUARD_UNET_DNS_MDNS_ASM
 ; =============================================================================
 ; Tattva OS — unet/dns/mdns.asm
 ; =============================================================================
@@ -41,7 +43,7 @@ struc mdns_service_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 mdns_service_table:     resb mdns_service_t_size * MDNS_MAX_SERVICES
 mdns_service_count:     resd 1
 
@@ -55,11 +57,6 @@ global mdns_probe_name
 global mdns_handle_query
 global mdns_handle_response
 global mdns_continuous_query
-
-extern timer_wheel_add
-extern timer_wheel_del
-extern udp_output
-extern rdtsc_get_cycles
 
 align 64
 mdns_init:
@@ -246,3 +243,5 @@ mdns_continuous_query:
     ret
 
 .max_interval: dd MDNS_MAX_QUERY_MS
+
+%endif ; GUARD_UNET_DNS_MDNS_ASM

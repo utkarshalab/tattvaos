@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L3_IPV6_ASM
+%define GUARD_UNET_CORE_L3_IPV6_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l3/ipv6.asm
 ; =============================================================================
@@ -41,9 +43,6 @@ global ipv6_input
 global ipv6_output
 global ipv6_route_lookup
 
-extern tcp_input
-extern udp_input
-extern icmp_input
 
 align 64
 ipv6_init:
@@ -70,8 +69,8 @@ ipv6_input:
     prefetcht0 [rbx]                ; Pre-stage IPv6 packet into L1 cache
 
     ; 1. Verify Minimum 40-Byte Header Length
-    mov r12, [rbx + net_pkt_t.data]
-    cmp dword [rbx + net_pkt_t.len], 40
+    mov r12, [rbx + net_pkt_t.virt_addr]
+    cmp dword [rbx + net_pkt_t.data_len], 40
     jb .drop
 
     ; 2. Check Hop Limit
@@ -139,3 +138,5 @@ ipv6_output:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L3_IPV6_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_MULTICAST_ASM
+%define GUARD_UNET_TOOLS_APP_MULTICAST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/multicast.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global multicast_main
 
-extern igmp_join_group
 
 align 64
 multicast_main:
@@ -31,3 +32,5 @@ multicast_main:
     call igmp_join_group
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_MULTICAST_ASM

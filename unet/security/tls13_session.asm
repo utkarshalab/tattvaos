@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_TLS13_SESSION_ASM
+%define GUARD_UNET_SECURITY_TLS13_SESSION_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/tls13_session.asm
 ; =============================================================================
@@ -48,10 +50,6 @@ global tls13_handshake_client
 global tls13_handshake_server
 global tls13_encrypt_record
 global tls13_decrypt_record
-
-extern aes_gcm_encrypt
-extern aes_gcm_decrypt
-extern hkdf_extract_expand
 
 align 64
 tls13_init:
@@ -134,3 +132,5 @@ tls13_decrypt_record:
     call aes_gcm_decrypt
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_TLS13_SESSION_ASM

@@ -133,7 +133,7 @@ net_recycle_pop:
     ret
 
 section .bss
-align 16
+alignb 16
 global net_rx_recycle_pool
 net_rx_recycle_pool:
     resq 512                        ; frames array (4096 bytes)

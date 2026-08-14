@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_BENCH_QUIC_BENCH_ASM
+%define GUARD_UNET_TOOLS_BENCH_QUIC_BENCH_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/bench/quic_bench.asm
 ; =============================================================================
@@ -21,9 +23,6 @@ section .text
 
 global quic_bench_main
 global quic_bench_run_streams
-
-extern rdtsc_get_cycles
-extern quic_process_packet
 
 align 64
 quic_bench_main:
@@ -51,3 +50,5 @@ quic_bench_run_streams:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_BENCH_QUIC_BENCH_ASM

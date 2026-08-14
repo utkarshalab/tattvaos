@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_IDENTITY_SPIFFE_ASM
+%define GUARD_UNET_IDENTITY_SPIFFE_ASM
 ; =============================================================================
 ; Tattva OS — unet/identity/spiffe.asm
 ; =============================================================================
@@ -81,3 +83,5 @@ spiffe_attest_workload:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_IDENTITY_SPIFFE_ASM

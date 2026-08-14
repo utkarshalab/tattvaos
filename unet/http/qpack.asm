@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_QPACK_ASM
+%define GUARD_UNET_HTTP_QPACK_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/qpack.asm
 ; =============================================================================
@@ -101,3 +103,5 @@ qpack_section_ack:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_QPACK_ASM

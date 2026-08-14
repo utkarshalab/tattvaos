@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SDN_GENEVE_ASM
+%define GUARD_UNET_SDN_GENEVE_ASM
 ; =============================================================================
 ; Tattva OS — unet/sdn/geneve.asm
 ; =============================================================================
@@ -104,3 +106,5 @@ geneve_parse_tlvs:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SDN_GENEVE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_PROXY_SOCKS5_ASM
+%define GUARD_UNET_PROXY_SOCKS5_ASM
 ; =============================================================================
 ; Tattva OS — unet/proxy/socks5.asm
 ; =============================================================================
@@ -137,3 +139,5 @@ socks5_send_reply:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_PROXY_SOCKS5_ASM

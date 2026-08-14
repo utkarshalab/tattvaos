@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SDN_NVGRE_ASM
+%define GUARD_UNET_SDN_NVGRE_ASM
 ; =============================================================================
 ; Tattva OS — unet/sdn/nvgre.asm
 ; =============================================================================
@@ -82,3 +84,5 @@ nvgre_encap:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SDN_NVGRE_ASM

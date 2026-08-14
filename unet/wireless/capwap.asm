@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_WIRELESS_CAPWAP_ASM
+%define GUARD_UNET_WIRELESS_CAPWAP_ASM
 ; =============================================================================
 ; Tattva OS — unet/wireless/capwap.asm
 ; =============================================================================
@@ -99,3 +101,5 @@ capwap_decap_data_tunnel:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_WIRELESS_CAPWAP_ASM

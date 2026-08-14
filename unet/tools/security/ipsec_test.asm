@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_IPSEC_TEST_ASM
+%define GUARD_UNET_TOOLS_SECURITY_IPSEC_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/ipsec_test.asm
 ; =============================================================================
@@ -43,3 +45,5 @@ ipsec_test_ikev2_sa_init:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_IPSEC_TEST_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L3_IGMP_ASM
+%define GUARD_UNET_CORE_L3_IGMP_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l3/igmp.asm
 ; =============================================================================
@@ -59,7 +61,7 @@ struc igmp_group_entry_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 igmp_group_table:       resb igmp_group_entry_t_size * IGMP_MAX_GROUPS
 igmp_group_count:       resd 1
 
@@ -70,11 +72,6 @@ global igmp_input
 global igmp_join_group
 global igmp_leave_group
 global igmp_send_report
-
-extern timer_wheel_add
-extern timer_wheel_del
-extern rdtsc_get_cycles
-extern ip_checksum_avx512
 
 align 64
 igmp_init:
@@ -193,3 +190,5 @@ igmp_send_report:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L3_IGMP_ASM

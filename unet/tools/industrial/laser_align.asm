@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_INDUSTRIAL_LASER_ALIGN_ASM
+%define GUARD_UNET_TOOLS_INDUSTRIAL_LASER_ALIGN_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/industrial/laser_align.asm
 ; =============================================================================
@@ -29,3 +31,5 @@ laser_align_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_INDUSTRIAL_LASER_ALIGN_ASM

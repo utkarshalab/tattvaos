@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_HTTP3_DATAGRAM_ASM
+%define GUARD_UNET_HTTP_HTTP3_DATAGRAM_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/http3_datagram.asm
 ; =============================================================================
@@ -31,8 +33,6 @@ global http3_datagram_recv
 global http3_datagram_negotiate
 global http3_datagram_max_size
 
-extern quic_send_datagram
-extern quic_recv_datagram
 
 align 64
 http3_datagram_init:
@@ -97,3 +97,5 @@ http3_datagram_max_size:
     mov eax, 1200                   ; Conservative default
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_HTTP3_DATAGRAM_ASM

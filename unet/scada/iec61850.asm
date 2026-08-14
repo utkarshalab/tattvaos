@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SCADA_IEC61850_ASM
+%define GUARD_UNET_SCADA_IEC61850_ASM
 ; =============================================================================
 ; Tattva OS — unet/scada/iec61850.asm
 ; =============================================================================
@@ -84,3 +86,5 @@ iec61850_process_mms:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SCADA_IEC61850_ASM

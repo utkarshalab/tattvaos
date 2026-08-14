@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_NDP_ASM
+%define GUARD_UNET_TOOLS_ROUTE_NDP_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/ndp.asm
 ; =============================================================================
@@ -29,3 +31,5 @@ ndp_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_NDP_ASM

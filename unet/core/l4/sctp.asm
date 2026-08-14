@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L4_SCTP_ASM
+%define GUARD_UNET_CORE_L4_SCTP_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l4/sctp.asm
 ; =============================================================================
@@ -65,3 +67,5 @@ sctp_process_chunk:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L4_SCTP_ASM

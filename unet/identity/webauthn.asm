@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_IDENTITY_WEBAUTHN_ASM
+%define GUARD_UNET_IDENTITY_WEBAUTHN_ASM
 ; =============================================================================
 ; Tattva OS — unet/identity/webauthn.asm
 ; =============================================================================
@@ -35,9 +37,6 @@ global webauthn_init
 global webauthn_parse_auth_data
 global webauthn_verify_assertion
 global webauthn_parse_cbor_cose_key
-
-extern sha256_hash
-extern ecc_p256_verify
 
 align 64
 webauthn_init:
@@ -99,3 +98,5 @@ webauthn_parse_cbor_cose_key:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_IDENTITY_WEBAUTHN_ASM

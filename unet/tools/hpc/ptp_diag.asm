@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_HPC_PTP_DIAG_ASM
+%define GUARD_UNET_TOOLS_HPC_PTP_DIAG_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/hpc/ptp_diag.asm
 ; =============================================================================
@@ -17,8 +19,6 @@ section .text
 
 global ptp_diag_main
 
-extern rdtsc_get_cycles
-
 align 64
 ptp_diag_main:
     push rbp
@@ -29,3 +29,5 @@ ptp_diag_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_HPC_PTP_DIAG_ASM

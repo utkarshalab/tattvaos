@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_ARP_TOOL_ASM
+%define GUARD_UNET_TOOLS_ROUTE_ARP_TOOL_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/arp_tool.asm
 ; =============================================================================
@@ -21,7 +23,6 @@ section .text
 
 global arp_tool_main
 
-extern arp_send_gratuitous
 
 align 64
 arp_tool_main:
@@ -32,3 +33,5 @@ arp_tool_main:
     call arp_send_gratuitous
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_ARP_TOOL_ASM

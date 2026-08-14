@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_SWIFT_MSG_ASM
+%define GUARD_UNET_TOOLS_APP_SWIFT_MSG_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/swift_msg.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global swift_msg_main
 
-extern swift_parse_fin
 
 align 64
 swift_msg_main:
@@ -31,3 +32,5 @@ swift_msg_main:
     call swift_parse_fin
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_SWIFT_MSG_ASM

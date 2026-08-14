@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_GRPC_ASM
+%define GUARD_UNET_HTTP_GRPC_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/grpc.asm
 ; =============================================================================
@@ -61,11 +63,6 @@ global grpc_send_status
 global grpc_parse_frame_header
 global grpc_health_check
 
-extern http2_send_headers
-extern http2_send_data
-extern http2_parse_frame
-extern timer_wheel_add
-extern timer_wheel_del
 
 align 64
 grpc_init:
@@ -184,3 +181,5 @@ grpc_health_check:
     mov eax, 1                      ; SERVING
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_GRPC_ASM

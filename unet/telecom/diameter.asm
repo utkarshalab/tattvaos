@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TELECOM_DIAMETER_ASM
+%define GUARD_UNET_TELECOM_DIAMETER_ASM
 ; =============================================================================
 ; Tattva OS — unet/telecom/diameter.asm
 ; =============================================================================
@@ -160,3 +162,5 @@ diameter_send_dwr:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TELECOM_DIAMETER_ASM

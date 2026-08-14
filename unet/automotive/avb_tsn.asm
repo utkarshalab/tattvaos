@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AUTOMOTIVE_AVB_TSN_ASM
+%define GUARD_UNET_AUTOMOTIVE_AVB_TSN_ASM
 ; =============================================================================
 ; Tattva OS — unet/automotive/avb_tsn.asm
 ; =============================================================================
@@ -38,8 +40,6 @@ global avb_tsn_init
 global avb_tsn_process_gptp
 global avb_tsn_credit_shaper
 global avb_tsn_tas_schedule
-
-extern rdtsc_get_cycles
 
 align 64
 avb_tsn_init:
@@ -93,3 +93,5 @@ avb_tsn_tas_schedule:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AUTOMOTIVE_AVB_TSN_ASM

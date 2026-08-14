@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_OPTICAL_G709_ASM
+%define GUARD_UNET_OPTICAL_G709_ASM
 ; =============================================================================
 ; Tattva OS — unet/optical/g709.asm
 ; =============================================================================
@@ -57,7 +59,10 @@ g709_detect_fas:
 
     mov rax, [rdi]
     mov rdx, OTN_FAS_BYTES
-    and rax, 0x0000FFFFFFFFFFFF     ; Mask 6 bytes
+    ; A 48-bit mask exceeds imm32; route it through a register so nasm does
+    ; not sign-extend a truncated constant.
+    mov rcx, 0x0000FFFFFFFFFFFF
+    and rax, rcx                    ; Mask 6 bytes
     cmp rax, rdx
     jne .lof
 
@@ -106,3 +111,5 @@ g709_fec_rs255_239:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_OPTICAL_G709_ASM

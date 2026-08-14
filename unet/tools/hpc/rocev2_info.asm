@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_HPC_ROCEV2_INFO_ASM
+%define GUARD_UNET_TOOLS_HPC_ROCEV2_INFO_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/hpc/rocev2_info.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global rocev2_info_main
 
-extern roce_decap_packet
 
 align 64
 rocev2_info_main:
@@ -31,3 +32,5 @@ rocev2_info_main:
     call roce_decap_packet
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_HPC_ROCEV2_INFO_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TELECOM_NAT64_PING_ASM
+%define GUARD_UNET_TOOLS_TELECOM_NAT64_PING_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/telecom/nat64_ping.asm
 ; =============================================================================
@@ -28,8 +30,6 @@ section .text
 
 global nat64_ping_main
 global nat64_ping_construct_addr
-
-extern rdtsc_get_cycles
 
 align 64
 nat64_ping_main:
@@ -65,3 +65,5 @@ nat64_ping_construct_addr:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_TELECOM_NAT64_PING_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VIDEO_MOQ_ASM
+%define GUARD_UNET_VIDEO_MOQ_ASM
 ; =============================================================================
 ; Tattva OS — unet/video/moq.asm
 ; =============================================================================
@@ -39,8 +41,6 @@ global moq_init
 global moq_process_message
 global moq_subscribe_track
 global moq_publish_object
-
-extern quic_send_stream
 
 align 64
 moq_init:
@@ -103,3 +103,5 @@ moq_publish_object:
     call quic_send_stream
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VIDEO_MOQ_ASM

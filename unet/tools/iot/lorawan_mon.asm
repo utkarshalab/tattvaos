@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_IOT_LORAWAN_MON_ASM
+%define GUARD_UNET_TOOLS_IOT_LORAWAN_MON_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/iot/lorawan_mon.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global lorawan_mon_main
 
-extern lorawan_process_frame
 
 align 64
 lorawan_mon_main:
@@ -31,3 +32,5 @@ lorawan_mon_main:
     call lorawan_process_frame
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_IOT_LORAWAN_MON_ASM

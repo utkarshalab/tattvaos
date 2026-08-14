@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_BENCH_PKTGEN_ASM
+%define GUARD_UNET_TOOLS_BENCH_PKTGEN_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/bench/pktgen.asm
 ; =============================================================================
@@ -57,8 +59,6 @@ global pktgen_main
 global pktgen_burst
 global pktgen_mutate_5tuple_avx512
 
-extern rdtsc_get_cycles
-extern net_ring_enqueue_burst
 
 align 64
 pktgen_main:
@@ -106,7 +106,7 @@ pktgen_burst:
     jge .done
 
     ; Mutate 5-Tuple for 32 burst slots using AVX-512 PRNG mask
-    vaddd zmm1, zmm0, [rel pktgen_inc_vector]
+    vpaddd zmm1, zmm0, [rel pktgen_inc_vector]
 
     ; Enqueue burst to TX hardware DMA ring doorbell
     mov rdi, [rbx + pktgen_config_t.tx_ring_ptr]
@@ -142,3 +142,5 @@ section .rodata
 align 64
 pktgen_inc_vector:
     times 16 dd 0x00010000          ; Increment IP/Port fields per vector slot
+
+%endif ; GUARD_UNET_TOOLS_BENCH_PKTGEN_ASM

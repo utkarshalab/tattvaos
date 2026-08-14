@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_OPTICAL_FLEX_ETHERNET_ASM
+%define GUARD_UNET_OPTICAL_FLEX_ETHERNET_ASM
 ; =============================================================================
 ; Tattva OS — unet/optical/flex_ethernet.asm
 ; =============================================================================
@@ -80,3 +82,5 @@ flex_ethernet_demux_client:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_OPTICAL_FLEX_ETHERNET_ASM

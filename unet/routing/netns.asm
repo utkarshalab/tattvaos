@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ROUTING_NETNS_ASM
+%define GUARD_UNET_ROUTING_NETNS_ASM
 ; =============================================================================
 ; Tattva OS — unet/routing/netns.asm
 ; =============================================================================
@@ -36,7 +38,7 @@ struc netns_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 netns_table:            resb netns_t_size * NETNS_MAX
 netns_count:            resd 1
 netns_current:          resd 1      ; Currently Active Namespace ID
@@ -52,10 +54,6 @@ global netns_detach_iface
 global netns_get_current
 global netns_enumerate
 
-extern slab_alloc
-extern slab_free
-extern vrf_create
-extern vrf_delete
 
 align 64
 netns_init:
@@ -172,3 +170,5 @@ netns_enumerate:
     mov eax, [netns_count]
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ROUTING_NETNS_ASM

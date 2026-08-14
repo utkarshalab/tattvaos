@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AUTOMOTIVE_DOIP_ASM
+%define GUARD_UNET_AUTOMOTIVE_DOIP_ASM
 ; =============================================================================
 ; Tattva OS — unet/automotive/doip.asm
 ; =============================================================================
@@ -129,3 +131,5 @@ doip_send_diag_ack:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AUTOMOTIVE_DOIP_ASM

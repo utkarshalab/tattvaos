@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_WIRELESS_WPA3_SAE_ASM
+%define GUARD_UNET_WIRELESS_WPA3_SAE_ASM
 ; =============================================================================
 ; Tattva OS — unet/wireless/wpa3_sae.asm
 ; =============================================================================
@@ -38,7 +40,6 @@ global wpa3_sae_process_confirm
 global wpa3_sae_derive_pmk
 global wpa3_sae_dragonfly_pwd_element
 
-extern sha256_hash
 
 align 64
 wpa3_sae_init:
@@ -95,3 +96,5 @@ wpa3_sae_dragonfly_pwd_element:
     call sha256_hash
     pop rbp
     ret
+
+%endif ; GUARD_UNET_WIRELESS_WPA3_SAE_ASM

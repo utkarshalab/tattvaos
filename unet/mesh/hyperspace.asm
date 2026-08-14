@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MESH_HYPERSPACE_ASM
+%define GUARD_UNET_MESH_HYPERSPACE_ASM
 ; =============================================================================
 ; Tattva OS — unet/mesh/hyperspace.asm
 ; =============================================================================
@@ -56,3 +58,5 @@ hyperspace_multipath_split:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MESH_HYPERSPACE_ASM

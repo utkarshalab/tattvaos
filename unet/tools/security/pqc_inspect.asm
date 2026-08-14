@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_PQC_INSPECT_ASM
+%define GUARD_UNET_TOOLS_SECURITY_PQC_INSPECT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/pqc_inspect.asm
 ; =============================================================================
@@ -23,9 +25,6 @@ section .text
 global pqc_inspect_main
 global pqc_inspect_ml_kem_1024
 global pqc_inspect_ml_dsa_87
-
-extern rdtsc_get_cycles
-extern pqc_wireguard_handshake
 
 align 64
 pqc_inspect_main:
@@ -65,3 +64,5 @@ pqc_inspect_ml_dsa_87:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_PQC_INSPECT_ASM

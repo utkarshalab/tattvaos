@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VPN_L2TP_IPSEC_ASM
+%define GUARD_UNET_VPN_L2TP_IPSEC_ASM
 ; =============================================================================
 ; Tattva OS — unet/vpn/l2tp_ipsec.asm
 ; =============================================================================
@@ -42,9 +44,6 @@ global l2tp_sccrq_connect
 global l2tp_encap_esp
 global l2tp_process_ppp
 
-extern ipsec_esp_encap
-extern ipsec_esp_decap
-extern sha256_hash
 
 align 64
 l2tp_ipsec_init:
@@ -116,3 +115,5 @@ l2tp_process_ppp:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VPN_L2TP_IPSEC_ASM

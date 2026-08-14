@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CGNAT_DS_LITE_ASM
+%define GUARD_UNET_CGNAT_DS_LITE_ASM
 ; =============================================================================
 ; Tattva OS — unet/cgnat/ds_lite.asm
 ; =============================================================================
@@ -69,3 +71,5 @@ ds_lite_decap_aftr:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CGNAT_DS_LITE_ASM

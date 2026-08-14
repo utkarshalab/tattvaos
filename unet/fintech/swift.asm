@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_FINTECH_SWIFT_ASM
+%define GUARD_UNET_FINTECH_SWIFT_ASM
 ; =============================================================================
 ; Tattva OS — unet/fintech/swift.asm
 ; =============================================================================
@@ -86,3 +88,5 @@ swift_validate_bic:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_FINTECH_SWIFT_ASM

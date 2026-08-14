@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TELECOM_SYSLOG_TAIL_ASM
+%define GUARD_UNET_TOOLS_TELECOM_SYSLOG_TAIL_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/telecom/syslog_tail.asm
 ; =============================================================================
@@ -31,3 +33,5 @@ syslog_tail_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_TELECOM_SYSLOG_TAIL_ASM

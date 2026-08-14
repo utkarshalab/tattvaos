@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_ENA_ASM
+%define GUARD_UNET_DRIVERS_ENA_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/ena.asm
 ; =============================================================================
@@ -31,9 +33,6 @@ global ena_init
 global ena_aq_send
 global ena_poll_cq
 global ena_transmit_llq
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 ena_init:
@@ -95,3 +94,5 @@ ena_transmit_llq:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_ENA_ASM

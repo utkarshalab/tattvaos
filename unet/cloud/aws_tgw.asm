@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CLOUD_AWS_TGW_ASM
+%define GUARD_UNET_CLOUD_AWS_TGW_ASM
 ; =============================================================================
 ; Tattva OS — unet/cloud/aws_tgw.asm
 ; =============================================================================
@@ -32,9 +34,6 @@ section .text
 global aws_tgw_init
 global aws_tgw_route_lookup
 global aws_tgw_ecmp_select
-
-extern bgp_process_update
-extern gre_encap_packet
 
 align 64
 aws_tgw_init:
@@ -75,3 +74,5 @@ aws_tgw_ecmp_select:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CLOUD_AWS_TGW_ASM

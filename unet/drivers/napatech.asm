@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_NAPATECH_ASM
+%define GUARD_UNET_DRIVERS_NAPATECH_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/napatech.asm
 ; =============================================================================
@@ -29,9 +31,6 @@ section .text
 global napatech_init
 global napatech_poll_hbr
 global napatech_flow_add
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 napatech_init:
@@ -83,3 +82,5 @@ napatech_flow_add:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_NAPATECH_ASM

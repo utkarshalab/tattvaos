@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_EBPF_SMARTNIC_OFFLOAD_ASM
+%define GUARD_UNET_EBPF_SMARTNIC_OFFLOAD_ASM
 ; =============================================================================
 ; Tattva OS — unet/ebpf/smartnic_offload.asm
 ; =============================================================================
@@ -56,3 +58,5 @@ smartnic_offload_rule_del:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_EBPF_SMARTNIC_OFFLOAD_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CLOUD_VXLAN_ASM
+%define GUARD_UNET_CLOUD_VXLAN_ASM
 ; =============================================================================
 ; Tattva OS — unet/cloud/vxlan.asm
 ; =============================================================================
@@ -31,14 +33,13 @@ endstruc
 
 section .text
 
-global vxlan_init
+global vxlan_cloud_init
 global vxlan_decap_packet
 global vxlan_encap_packet
 
-extern eth_input
 
 align 64
-vxlan_init:
+vxlan_cloud_init:
     push rbp
     mov rbp, rsp
     xor eax, eax
@@ -92,3 +93,5 @@ vxlan_encap_packet:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CLOUD_VXLAN_ASM

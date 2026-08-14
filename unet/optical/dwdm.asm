@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_OPTICAL_DWDM_ASM
+%define GUARD_UNET_OPTICAL_DWDM_ASM
 ; =============================================================================
 ; Tattva OS — unet/optical/dwdm.asm
 ; =============================================================================
@@ -76,3 +78,5 @@ dwdm_monitor_power:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_OPTICAL_DWDM_ASM

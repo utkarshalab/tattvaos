@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SAN_ISCSI_ASM
+%define GUARD_UNET_SAN_ISCSI_ASM
 ; =============================================================================
 ; Tattva OS — unet/san/iscsi.asm
 ; =============================================================================
@@ -181,13 +183,15 @@ iscsi_verify_digest_crc32c:
     mov rbp, rsp
     ; Compute CRC32C over 48-byte BHS using hardware `crc32` instruction
     mov eax, 0xFFFFFFFF
-    crc32 eax, qword [rdi]
-    crc32 eax, qword [rdi + 8]
-    crc32 eax, qword [rdi + 16]
-    crc32 eax, qword [rdi + 24]
-    crc32 eax, qword [rdi + 32]
-    crc32 eax, qword [rdi + 40]
+    crc32 rax, qword [rdi]
+    crc32 rax, qword [rdi + 8]
+    crc32 rax, qword [rdi + 16]
+    crc32 rax, qword [rdi + 24]
+    crc32 rax, qword [rdi + 32]
+    crc32 rax, qword [rdi + 40]
     not eax
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SAN_ISCSI_ASM

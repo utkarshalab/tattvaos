@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ROUTING_BGP_ASM
+%define GUARD_UNET_ROUTING_BGP_ASM
 ; =============================================================================
 ; Tattva OS — unet/routing/bgp.asm
 ; =============================================================================
@@ -82,8 +84,6 @@ global bgp_parse_nlri
 global bgp_best_path_select
 global bgp_fsm_event
 
-extern timer_wheel_add
-extern timer_wheel_del
 
 align 64
 bgp_init:
@@ -227,3 +227,5 @@ bgp_fsm_event:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ROUTING_BGP_ASM

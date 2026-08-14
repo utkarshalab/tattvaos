@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VOIP_SIP_ASM
+%define GUARD_UNET_VOIP_SIP_ASM
 ; =============================================================================
 ; Tattva OS — unet/voip/sip.asm
 ; =============================================================================
@@ -51,8 +53,6 @@ global sip_build_invite
 global sip_build_response
 global sip_process_register
 
-extern sha256_hash
-extern timer_wheel_add
 
 align 64
 sip_init:
@@ -108,3 +108,5 @@ sip_process_register:
     call timer_wheel_add
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VOIP_SIP_ASM

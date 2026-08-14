@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VOIP_RTP_ASM
+%define GUARD_UNET_VOIP_RTP_ASM
 ; =============================================================================
 ; Tattva OS — unet/voip/rtp.asm
 ; =============================================================================
@@ -55,8 +57,6 @@ global rtp_send_packet
 global rtp_process_rtcp
 global rtp_send_sender_report
 global rtp_calculate_jitter
-
-extern rdtsc_get_cycles
 
 align 64
 rtp_init:
@@ -151,3 +151,5 @@ rtp_calculate_jitter:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VOIP_RTP_ASM

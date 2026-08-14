@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_HTTP2_ASM
+%define GUARD_UNET_HTTP_HTTP2_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/http2.asm
 ; =============================================================================
@@ -75,9 +77,7 @@ global http2_send_goaway
 global http2_hpack_encode
 global http2_hpack_decode
 
-extern slab_alloc
-extern utls_send_record
-extern utls_recv_record
+
 
 align 64
 http2_init:
@@ -258,3 +258,5 @@ http2_hpack_decode:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_HTTP2_ASM

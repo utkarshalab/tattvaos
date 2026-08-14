@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CGNAT_NPTV6_ASM
+%define GUARD_UNET_CGNAT_NPTV6_ASM
 ; =============================================================================
 ; Tattva OS — unet/cgnat/nptv6.asm
 ; =============================================================================
@@ -34,3 +36,5 @@ nptv6_translate_prefix:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CGNAT_NPTV6_ASM

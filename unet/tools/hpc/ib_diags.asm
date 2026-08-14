@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_HPC_IB_DIAGS_ASM
+%define GUARD_UNET_TOOLS_HPC_IB_DIAGS_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/hpc/ib_diags.asm
 ; =============================================================================
@@ -22,7 +24,6 @@ section .text
 global ib_diags_main
 global ib_diags_discover_topology
 
-extern infiniband_parse_bth
 
 align 64
 ib_diags_main:
@@ -48,3 +49,5 @@ ib_diags_discover_topology:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_HPC_IB_DIAGS_ASM

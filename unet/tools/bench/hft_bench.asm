@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_BENCH_HFT_BENCH_ASM
+%define GUARD_UNET_TOOLS_BENCH_HFT_BENCH_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/bench/hft_bench.asm
 ; =============================================================================
@@ -30,7 +32,7 @@ struc hft_bench_stats_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 hft_stats:              resb hft_bench_stats_t_size
 hft_latency_buckets:    resq HFT_HISTOGRAM_BUCKETS
 
@@ -39,9 +41,7 @@ section .text
 global hft_bench_main
 global hft_bench_measure_tick_to_trade
 
-extern rdtsc_get_cycles
-extern itch_parse_message
-extern ouch_send_order
+
 
 align 64
 hft_bench_main:
@@ -116,3 +116,5 @@ hft_bench_measure_tick_to_trade:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_BENCH_HFT_BENCH_ASM

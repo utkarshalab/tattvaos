@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_QKD_ASM
+%define GUARD_UNET_SECURITY_QKD_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/qkd.asm
 ; =============================================================================
@@ -27,7 +29,7 @@ struc qkd_key_entry_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 qkd_key_pool:           resb qkd_key_entry_t_size * QKD_MAX_POOL_KEYS
 qkd_key_count:          resd 1
 
@@ -37,8 +39,6 @@ global qkd_init
 global qkd_get_key
 global qkd_push_key
 global qkd_purge_keys_avx512
-
-extern rdtsc_get_cycles
 
 align 64
 qkd_init:
@@ -97,3 +97,5 @@ qkd_purge_keys_avx512:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_QKD_ASM

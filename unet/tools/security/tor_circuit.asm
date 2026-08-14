@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_TOR_CIRCUIT_ASM
+%define GUARD_UNET_TOOLS_SECURITY_TOR_CIRCUIT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/tor_circuit.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ tor_circuit_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_TOR_CIRCUIT_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L2_MAC_ASM
+%define GUARD_UNET_CORE_L2_MAC_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l2/mac.asm
 ; =============================================================================
@@ -31,8 +33,6 @@ global mac_is_multicast
 global mac_generate_random_laa
 global mac_to_eui64
 global mac_multicast_filter_crc32
-
-extern rdtsc_get_cycles
 
 align 64
 mac_init:
@@ -139,3 +139,5 @@ mac_multicast_filter_crc32:
     and eax, 0x3F
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L2_MAC_ASM

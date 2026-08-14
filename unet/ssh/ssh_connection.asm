@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SSH_SSH_CONNECTION_ASM
+%define GUARD_UNET_SSH_SSH_CONNECTION_ASM
 ; =============================================================================
 ; Tattva OS — unet/ssh/ssh_connection.asm
 ; =============================================================================
@@ -42,7 +44,7 @@ struc ssh_channel_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 ssh_channel_table:      resb ssh_channel_t_size * SSH_MAX_CHANNELS
 ssh_channel_count:      resd 1
 
@@ -145,3 +147,5 @@ ssh_channel_window_adjust:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SSH_SSH_CONNECTION_ASM

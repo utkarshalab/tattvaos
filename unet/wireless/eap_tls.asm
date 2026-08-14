@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_WIRELESS_EAP_TLS_ASM
+%define GUARD_UNET_WIRELESS_EAP_TLS_ASM
 ; =============================================================================
 ; Tattva OS — unet/wireless/eap_tls.asm
 ; =============================================================================
@@ -46,8 +48,6 @@ global eap_tls_init
 global eap_tls_process_packet
 global eap_tls_handshake_fragment
 global eap_tls_derive_msk
-
-extern utls_client_handshake
 
 align 64
 eap_tls_init:
@@ -125,3 +125,5 @@ eap_tls_derive_msk:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_WIRELESS_EAP_TLS_ASM

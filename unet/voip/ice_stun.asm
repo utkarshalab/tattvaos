@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VOIP_ICE_STUN_ASM
+%define GUARD_UNET_VOIP_ICE_STUN_ASM
 ; =============================================================================
 ; Tattva OS — unet/voip/ice_stun.asm
 ; =============================================================================
@@ -55,8 +57,6 @@ global ice_stun_send_binding_req
 global ice_stun_send_binding_resp
 global ice_stun_verify_integrity
 global ice_stun_verify_fingerprint
-
-extern sha1_hash
 
 align 64
 ice_stun_init:
@@ -161,3 +161,5 @@ ice_stun_verify_fingerprint:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VOIP_ICE_STUN_ASM

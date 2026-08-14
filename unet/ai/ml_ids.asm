@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AI_ML_IDS_ASM
+%define GUARD_UNET_AI_ML_IDS_ASM
 ; =============================================================================
 ; Tattva OS — unet/ai/ml_ids.asm
 ; =============================================================================
@@ -100,3 +102,5 @@ ml_ids_mlp_inference_avx512:
 section .rodata
 align 16
 attack_threshold:       dd 0.85     ; 85% confidence threshold
+
+%endif ; GUARD_UNET_AI_ML_IDS_ASM

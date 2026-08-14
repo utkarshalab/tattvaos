@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_CHELSIO_CXGB4_ASM
+%define GUARD_UNET_DRIVERS_CHELSIO_CXGB4_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/chelsio_cxgb4.asm
 ; =============================================================================
@@ -32,9 +34,6 @@ global chelsio_init
 global chelsio_poll
 global chelsio_transmit
 global chelsio_fw_cmd
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 chelsio_init:
@@ -95,3 +94,5 @@ chelsio_fw_cmd:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_CHELSIO_CXGB4_ASM

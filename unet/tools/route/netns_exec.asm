@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_NETNS_EXEC_ASM
+%define GUARD_UNET_TOOLS_ROUTE_NETNS_EXEC_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/netns_exec.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ netns_exec_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_NETNS_EXEC_ASM

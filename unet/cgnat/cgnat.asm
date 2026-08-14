@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CGNAT_CGNAT_ASM
+%define GUARD_UNET_CGNAT_CGNAT_ASM
 ; =============================================================================
 ; Tattva OS — unet/cgnat/cgnat.asm
 ; =============================================================================
@@ -43,8 +45,6 @@ global cgnat_translate_outbound
 global cgnat_translate_inbound
 global cgnat_pba_alloc_ports
 
-extern timer_wheel_add
-extern timer_wheel_del
 
 align 64
 cgnat_init:
@@ -111,3 +111,5 @@ cgnat_pba_alloc_ports:
     add eax, 1024
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CGNAT_CGNAT_ASM

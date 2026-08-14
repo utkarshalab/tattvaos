@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_LINK_RSS_ASM
+%define GUARD_UNET_CORE_LINK_RSS_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/link/rss.asm
 ; =============================================================================
@@ -75,3 +77,5 @@ rss_select_core:
     and eax, 0x00000007             ; Direct 8-Core CPU Mask
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_LINK_RSS_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_WEBRTC_PING_ASM
+%define GUARD_UNET_TOOLS_APP_WEBRTC_PING_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/webrtc_ping.asm
 ; =============================================================================
@@ -22,8 +24,6 @@ section .text
 
 global webrtc_ping_main
 global webrtc_ping_measure_rtt
-
-extern ice_stun_send_binding_request
 
 align 64
 webrtc_ping_main:
@@ -50,3 +50,5 @@ webrtc_ping_measure_rtt:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_WEBRTC_PING_ASM

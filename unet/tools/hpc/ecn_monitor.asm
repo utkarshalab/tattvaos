@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_HPC_ECN_MONITOR_ASM
+%define GUARD_UNET_TOOLS_HPC_ECN_MONITOR_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/hpc/ecn_monitor.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ ecn_monitor_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_HPC_ECN_MONITOR_ASM

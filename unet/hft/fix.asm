@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HFT_FIX_ASM
+%define GUARD_UNET_HFT_FIX_ASM
 ; =============================================================================
 ; Tattva OS — unet/hft/fix.asm
 ; =============================================================================
@@ -31,7 +33,7 @@ struc fix_msg_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 fix_parsed_msg:         resb fix_msg_t_size
 
 section .text
@@ -74,7 +76,8 @@ fix_parse_msg_avx512:
 
     ; 2. Load 64 bytes into ZMM0 & find SOH (0x01) delimiters in parallel using AVX-512
     vmovdqu64 zmm0, [rbx]
-    vpbroadcastb zmm1, byte FIX_SOH
+    mov al, FIX_SOH
+    vpbroadcastb zmm1, al
     vpcmpeqb k1, zmm0, zmm1        ; K1 mask = bitmask of SOH (0x01) positions
 
     ; Return pointer to parsed message struct
@@ -169,3 +172,5 @@ fix_build_new_order_single:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HFT_FIX_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MAIL_DKIM_ASM
+%define GUARD_UNET_MAIL_DKIM_ASM
 ; =============================================================================
 ; Tattva OS — unet/mail/dkim.asm
 ; =============================================================================
@@ -51,9 +53,6 @@ global dkim_canonicalize_header
 global dkim_canonicalize_body
 global dkim_lookup_key
 
-extern sha256_hash
-extern ed25519_verify
-extern dns_query
 
 align 64
 dkim_init:
@@ -142,3 +141,5 @@ dkim_lookup_key:
     call dns_query
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MAIL_DKIM_ASM

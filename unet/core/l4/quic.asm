@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L4_QUIC_ASM
+%define GUARD_UNET_CORE_L4_QUIC_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l4/quic.asm
 ; =============================================================================
@@ -54,8 +56,6 @@ global quic_input
 global quic_process_packet
 global quic_decode_vli
 global quic_connection_migrate
-
-extern rdtsc_get_cycles
 
 align 64
 quic_init:
@@ -176,7 +176,10 @@ quic_decode_vli:
 .vli8:
     mov rax, [rdi]
     bswap rax
-    and rax, 0x3FFFFFFFFFFFFFFF     ; Mask out 2 MSB bits
+    ; `and r64, imm` encodes only a sign-extended imm32, so a 62-bit mask has
+    ; to come from a register or it is silently truncated.
+    mov rdx, 0x3FFFFFFFFFFFFFFF
+    and rax, rdx                    ; Mask out the 2 MSB length bits
     mov ecx, 8
     pop rbp
     ret
@@ -211,3 +214,5 @@ quic_connection_migrate:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L4_QUIC_ASM

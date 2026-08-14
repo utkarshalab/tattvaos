@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_IOT_MQTT_SUB_ASM
+%define GUARD_UNET_TOOLS_IOT_MQTT_SUB_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/iot/mqtt_sub.asm
 ; =============================================================================
@@ -45,3 +47,5 @@ mqtt_sub_subscribe:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_IOT_MQTT_SUB_ASM

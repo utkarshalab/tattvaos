@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MESH_YGGDRASIL_ASM
+%define GUARD_UNET_MESH_YGGDRASIL_ASM
 ; =============================================================================
 ; Tattva OS — unet/mesh/yggdrasil.asm
 ; =============================================================================
@@ -74,3 +76,5 @@ yggdrasil_dht_search:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MESH_YGGDRASIL_ASM

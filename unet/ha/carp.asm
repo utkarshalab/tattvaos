@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HA_CARP_ASM
+%define GUARD_UNET_HA_CARP_ASM
 ; =============================================================================
 ; Tattva OS — unet/ha/carp.asm
 ; =============================================================================
@@ -38,9 +40,6 @@ global carp_init
 global carp_process_packet
 global carp_send_advertisement
 global carp_calc_delay
-
-extern sha1_hash
-extern arp_send_gratuitous
 
 align 64
 carp_init:
@@ -99,3 +98,5 @@ carp_calc_delay:
     add eax, edx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HA_CARP_ASM

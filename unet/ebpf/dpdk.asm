@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_EBPF_DPDK_ASM
+%define GUARD_UNET_EBPF_DPDK_ASM
 ; =============================================================================
 ; Tattva OS — unet/ebpf/dpdk.asm
 ; =============================================================================
@@ -87,3 +89,5 @@ dpdk_alloc_mbuf:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_EBPF_DPDK_ASM

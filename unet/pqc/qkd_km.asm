@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_PQC_QKD_KM_ASM
+%define GUARD_UNET_PQC_QKD_KM_ASM
 ; =============================================================================
 ; Tattva OS — unet/pqc/qkd_km.asm
 ; =============================================================================
@@ -35,9 +37,6 @@ global qkd_km_init
 global qkd_km_fetch_key
 global qkd_km_combine_hybrid
 global qkd_km_purge_all
-
-extern hkdf_extract_expand
-extern qkd_get_key
 
 align 64
 qkd_km_init:
@@ -83,3 +82,5 @@ qkd_km_purge_all:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_PQC_QKD_KM_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_SNMPV3_ASM
+%define GUARD_UNET_SERVICES_SNMPV3_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/snmpv3.asm
 ; =============================================================================
@@ -46,7 +48,6 @@ global snmpv3_usm_authenticate
 global snmpv3_usm_decrypt
 global snmpv3_ber_decode
 
-extern sha256_hash
 
 align 64
 snmpv3_init:
@@ -107,3 +108,5 @@ snmpv3_ber_decode:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_SNMPV3_ASM

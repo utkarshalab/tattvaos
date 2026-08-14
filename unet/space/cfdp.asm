@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SPACE_CFDP_ASM
+%define GUARD_UNET_SPACE_CFDP_ASM
 ; =============================================================================
 ; Tattva OS — unet/space/cfdp.asm
 ; =============================================================================
@@ -144,3 +146,5 @@ cfdp_process_nak:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SPACE_CFDP_ASM

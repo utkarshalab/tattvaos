@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_WEBSOCKET_ASM
+%define GUARD_UNET_HTTP_WEBSOCKET_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/websocket.asm
 ; =============================================================================
@@ -58,8 +60,6 @@ global websocket_send_close
 global websocket_send_ping
 global websocket_send_pong
 
-extern sha1_hash
-extern slab_alloc
 
 align 64
 websocket_init:
@@ -246,3 +246,5 @@ websocket_send_pong:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_WEBSOCKET_ASM

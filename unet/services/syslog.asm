@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_SYSLOG_ASM
+%define GUARD_UNET_SERVICES_SYSLOG_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/syslog.asm
 ; =============================================================================
@@ -58,8 +60,6 @@ global syslog_parse_rfc5424
 global syslog_format_msg
 global syslog_emit_log
 
-extern rdtsc_get_cycles
-
 align 64
 syslog_init:
     push rbp
@@ -111,3 +111,5 @@ syslog_emit_log:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_SYSLOG_ASM

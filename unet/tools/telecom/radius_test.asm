@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TELECOM_RADIUS_TEST_ASM
+%define GUARD_UNET_TOOLS_TELECOM_RADIUS_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/telecom/radius_test.asm
 ; =============================================================================
@@ -66,3 +68,5 @@ radius_test_send_access_req:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_TELECOM_RADIUS_TEST_ASM

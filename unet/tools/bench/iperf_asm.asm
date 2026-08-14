@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_BENCH_IPERF_ASM_ASM
+%define GUARD_UNET_TOOLS_BENCH_IPERF_ASM_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/bench/iperf_asm.asm
 ; =============================================================================
@@ -43,7 +45,7 @@ struc iperf_stats_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 iperf_payload_buf:      resb 2048   ; Pre-filled payload buffer (cacheline aligned)
 iperf_stream_stats:     resb iperf_stats_t_size * 16 ; Up to 16 parallel streams
 
@@ -55,10 +57,6 @@ global iperf_asm_run_server
 global iperf_asm_fill_payload_avx512
 global iperf_asm_calc_throughput
 
-extern rdtsc_get_cycles
-extern tcp_send_data
-extern udp_send_pkt
-extern pktbuf_alloc
 
 ; -----------------------------------------------------------------------------
 ; iperf_asm_main — Entry Point: Parse Options & Launch Client or Server
@@ -283,3 +281,5 @@ iperf_asm_calc_throughput:
 section .rodata
 align 4
 iperf_fill_pattern:     dd 0xDEADBEEF
+
+%endif ; GUARD_UNET_TOOLS_BENCH_IPERF_ASM_ASM

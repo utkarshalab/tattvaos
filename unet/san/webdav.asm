@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SAN_WEBDAV_ASM
+%define GUARD_UNET_SAN_WEBDAV_ASM
 ; =============================================================================
 ; Tattva OS — unet/san/webdav.asm
 ; =============================================================================
@@ -120,3 +122,5 @@ webdav_process_unlock:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SAN_WEBDAV_ASM

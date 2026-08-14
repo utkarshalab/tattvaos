@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AUTOMOTIVE_CAN_ETH_ASM
+%define GUARD_UNET_AUTOMOTIVE_CAN_ETH_ASM
 ; =============================================================================
 ; Tattva OS — unet/automotive/can_eth.asm
 ; =============================================================================
@@ -36,7 +38,6 @@ global can_eth_translate_frame
 global can_eth_decap_ethernet
 global can_eth_lookup_route
 
-extern eth_input
 
 align 64
 can_eth_init:
@@ -91,3 +92,5 @@ can_eth_lookup_route:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AUTOMOTIVE_CAN_ETH_ASM

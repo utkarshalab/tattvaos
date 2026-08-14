@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MESH_BATMAN_ASM
+%define GUARD_UNET_MESH_BATMAN_ASM
 ; =============================================================================
 ; Tattva OS — unet/mesh/batman.asm
 ; =============================================================================
@@ -118,3 +120,5 @@ batman_tt_lookup:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MESH_BATMAN_ASM

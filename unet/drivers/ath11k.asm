@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_ATH11K_ASM
+%define GUARD_UNET_DRIVERS_ATH11K_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/ath11k.asm
 ; =============================================================================
@@ -30,9 +32,6 @@ global ath11k_init
 global ath11k_wmi_cmd
 global ath11k_poll_ce
 global ath11k_transmit
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 ath11k_init:
@@ -85,3 +84,5 @@ ath11k_transmit:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_ATH11K_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_FIREWALL_ASM
+%define GUARD_UNET_SECURITY_FIREWALL_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/firewall.asm
 ; =============================================================================
@@ -56,7 +58,7 @@ struc conntrack_entry_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 conntrack_table:        resb conntrack_entry_t_size * FW_CONNTRACK_MAX
 conntrack_count:        resd 1
 
@@ -69,8 +71,6 @@ global firewall_apply_nat
 global firewall_add_rule
 global firewall_delete_rule
 
-extern timer_wheel_add
-extern timer_wheel_del
 
 align 64
 firewall_init:
@@ -153,3 +153,5 @@ firewall_delete_rule:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_FIREWALL_ASM

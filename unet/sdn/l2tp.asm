@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SDN_L2TP_ASM
+%define GUARD_UNET_SDN_L2TP_ASM
 ; =============================================================================
 ; Tattva OS — unet/sdn/l2tp.asm
 ; =============================================================================
@@ -108,3 +110,5 @@ l2tp_parse_avp:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SDN_L2TP_ASM

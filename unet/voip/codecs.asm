@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VOIP_CODECS_ASM
+%define GUARD_UNET_VOIP_CODECS_ASM
 ; =============================================================================
 ; Tattva OS — unet/voip/codecs.asm
 ; =============================================================================
@@ -125,3 +127,5 @@ codecs_vad_detect:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VOIP_CODECS_ASM

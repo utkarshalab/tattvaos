@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HPC_INFINIBAND_ASM
+%define GUARD_UNET_HPC_INFINIBAND_ASM
 ; =============================================================================
 ; Tattva OS — unet/hpc/infiniband.asm
 ; =============================================================================
@@ -137,3 +139,5 @@ infiniband_process_atomic:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HPC_INFINIBAND_ASM

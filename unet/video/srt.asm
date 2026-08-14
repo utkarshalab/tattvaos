@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VIDEO_SRT_ASM
+%define GUARD_UNET_VIDEO_SRT_ASM
 ; =============================================================================
 ; Tattva OS — unet/video/srt.asm
 ; =============================================================================
@@ -128,3 +130,5 @@ srt_send_nak:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VIDEO_SRT_ASM

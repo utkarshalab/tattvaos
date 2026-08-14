@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SCADA_DLMS_COSEM_ASM
+%define GUARD_UNET_SCADA_DLMS_COSEM_ASM
 ; =============================================================================
 ; Tattva OS — unet/scada/dlms_cosem.asm
 ; =============================================================================
@@ -128,3 +130,5 @@ dlms_parse_obis:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SCADA_DLMS_COSEM_ASM

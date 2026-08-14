@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DNS_DOH_ASM
+%define GUARD_UNET_DNS_DOH_ASM
 ; =============================================================================
 ; Tattva OS — unet/dns/doh.asm
 ; =============================================================================
@@ -43,7 +45,7 @@ struc doh_resolver_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 doh_resolver_table:     resb doh_resolver_t_size * DOH_MAX_RESOLVERS
 doh_resolver_count:     resd 1
 doh_active_resolver:    resd 1      ; Index of Currently Selected Resolver
@@ -57,11 +59,6 @@ global doh_decap_response
 global doh_select_resolver
 global doh_health_check
 
-extern utls_client_handshake
-extern http2_send_request
-extern http2_recv_response
-extern timer_wheel_add
-extern rdtsc_get_cycles
 
 align 64
 doh_init:
@@ -203,3 +200,5 @@ doh_health_check:
     call timer_wheel_add
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DNS_DOH_ASM

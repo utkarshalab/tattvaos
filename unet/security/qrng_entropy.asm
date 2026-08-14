@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_QRNG_ENTROPY_ASM
+%define GUARD_UNET_SECURITY_QRNG_ENTROPY_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/qrng_entropy.asm
 ; =============================================================================
@@ -19,7 +21,7 @@
 %define QRNG_POOL_SIZE_BYTES        4096
 
 section .bss
-align 64
+alignb 64
 qrng_entropy_pool:      resb QRNG_POOL_SIZE_BYTES
 qrng_pool_head:         resd 1
 qrng_pool_tail:         resd 1
@@ -30,9 +32,6 @@ global qrng_init
 global qrng_get_random_bytes
 global qrng_mix_entropy
 global qrng_nist_health_check
-
-extern sha256_hash
-extern rdtsc_get_cycles
 
 align 64
 qrng_init:
@@ -93,3 +92,5 @@ qrng_nist_health_check:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_QRNG_ENTROPY_ASM

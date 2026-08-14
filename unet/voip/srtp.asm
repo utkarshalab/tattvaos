@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VOIP_SRTP_ASM
+%define GUARD_UNET_VOIP_SRTP_ASM
 ; =============================================================================
 ; Tattva OS — unet/voip/srtp.asm
 ; =============================================================================
@@ -44,8 +46,6 @@ global srtp_protect_rtcp
 global srtp_unprotect_rtcp
 global srtp_derive_keys
 
-extern aes_gcm_encrypt
-extern aes_gcm_decrypt
 
 align 64
 srtp_init:
@@ -128,3 +128,5 @@ srtp_derive_keys:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VOIP_SRTP_ASM

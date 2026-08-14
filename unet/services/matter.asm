@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_MATTER_ASM
+%define GUARD_UNET_SERVICES_MATTER_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/matter.asm
 ; =============================================================================
@@ -93,3 +95,5 @@ matter_parse_tlv:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_MATTER_ASM

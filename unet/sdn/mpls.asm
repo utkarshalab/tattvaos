@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SDN_MPLS_ASM
+%define GUARD_UNET_SDN_MPLS_ASM
 ; =============================================================================
 ; Tattva OS — unet/sdn/mpls.asm
 ; =============================================================================
@@ -104,3 +106,5 @@ mpls_swap_label:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SDN_MPLS_ASM

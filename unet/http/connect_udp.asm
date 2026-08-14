@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_CONNECT_UDP_ASM
+%define GUARD_UNET_HTTP_CONNECT_UDP_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/connect_udp.asm
 ; =============================================================================
@@ -35,8 +37,6 @@ global connect_udp_encap_datagram
 global connect_udp_decap_datagram
 global connect_ip_proxy
 
-extern http3_send_frame
-extern http3_process_frame
 
 align 64
 connect_udp_init:
@@ -105,3 +105,5 @@ connect_ip_proxy:
     call http3_send_frame
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_CONNECT_UDP_ASM

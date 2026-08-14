@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_ROUTE_TOOL_ASM
+%define GUARD_UNET_TOOLS_ROUTE_ROUTE_TOOL_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/route_tool.asm
 ; =============================================================================
@@ -65,3 +67,5 @@ route_tool_del_route:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_ROUTE_TOOL_ASM

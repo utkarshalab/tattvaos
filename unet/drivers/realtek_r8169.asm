@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_REALTEK_R8169_ASM
+%define GUARD_UNET_DRIVERS_REALTEK_R8169_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/realtek_r8169.asm
 ; =============================================================================
@@ -35,9 +37,6 @@ section .text
 global realtek_init
 global realtek_poll
 global realtek_transmit
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 realtek_init:
@@ -87,3 +86,5 @@ realtek_transmit:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_REALTEK_R8169_ASM

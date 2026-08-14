@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TELECOM_G709_FEC_MON_ASM
+%define GUARD_UNET_TOOLS_TELECOM_G709_FEC_MON_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/telecom/g709_fec_mon.asm
 ; =============================================================================
@@ -32,8 +34,6 @@ section .text
 global g709_fec_mon_main
 global g709_fec_mon_sample
 
-extern rdtsc_get_cycles
-
 align 64
 g709_fec_mon_main:
     push rbp
@@ -67,3 +67,5 @@ g709_fec_mon_sample:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_TELECOM_G709_FEC_MON_ASM

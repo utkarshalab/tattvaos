@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_SR_V6_TOP_ASM
+%define GUARD_UNET_TOOLS_ROUTE_SR_V6_TOP_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/sr_v6_top.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ sr_v6_top_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_SR_V6_TOP_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CGNAT_NAT64_ASM
+%define GUARD_UNET_CGNAT_NAT64_ASM
 ; =============================================================================
 ; Tattva OS — unet/cgnat/nat64.asm
 ; =============================================================================
@@ -32,7 +34,6 @@ global nat64_init
 global nat64_v6_to_v4_translate
 global nat64_v4_to_v6_translate
 
-extern timer_wheel_add
 
 align 64
 nat64_init:
@@ -81,3 +82,5 @@ nat64_v4_to_v6_translate:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CGNAT_NAT64_ASM

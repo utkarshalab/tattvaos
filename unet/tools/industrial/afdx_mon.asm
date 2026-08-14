@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_INDUSTRIAL_AFDX_MON_ASM
+%define GUARD_UNET_TOOLS_INDUSTRIAL_AFDX_MON_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/industrial/afdx_mon.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global afdx_mon_main
 
-extern afdx_process_frame
 
 align 64
 afdx_mon_main:
@@ -31,3 +32,5 @@ afdx_mon_main:
     call afdx_process_frame
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_INDUSTRIAL_AFDX_MON_ASM

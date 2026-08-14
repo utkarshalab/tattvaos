@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HPC_GPUDIRECT_ASM
+%define GUARD_UNET_HPC_GPUDIRECT_ASM
 ; =============================================================================
 ; Tattva OS — unet/hpc/gpudirect.asm
 ; =============================================================================
@@ -75,3 +77,5 @@ gpudirect_unregister_vram:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HPC_GPUDIRECT_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_VMXNET3_ASM
+%define GUARD_UNET_DRIVERS_VMXNET3_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/vmxnet3.asm
 ; =============================================================================
@@ -31,9 +33,6 @@ global vmxnet3_init
 global vmxnet3_poll_rx
 global vmxnet3_transmit
 global vmxnet3_cmd
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 vmxnet3_init:
@@ -95,3 +94,5 @@ vmxnet3_cmd:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_VMXNET3_ASM

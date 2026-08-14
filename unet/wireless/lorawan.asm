@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_WIRELESS_LORAWAN_ASM
+%define GUARD_UNET_WIRELESS_LORAWAN_ASM
 ; =============================================================================
 ; Tattva OS — unet/wireless/lorawan.asm
 ; =============================================================================
@@ -118,3 +120,5 @@ lorawan_verify_mic:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_WIRELESS_LORAWAN_ASM

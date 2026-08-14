@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SSH_SFTP_ASM
+%define GUARD_UNET_SSH_SFTP_ASM
 ; =============================================================================
 ; Tattva OS — unet/ssh/sftp.asm
 ; =============================================================================
@@ -182,3 +184,5 @@ sftp_send_status:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SSH_SFTP_ASM

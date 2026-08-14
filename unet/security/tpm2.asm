@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_TPM2_ASM
+%define GUARD_UNET_SECURITY_TPM2_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/tpm2.asm
 ; =============================================================================
@@ -101,3 +103,5 @@ tpm2_get_random:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_TPM2_ASM

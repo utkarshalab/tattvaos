@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CLOUD_NVGRE_ASM
+%define GUARD_UNET_CLOUD_NVGRE_ASM
 ; =============================================================================
 ; Tattva OS — unet/cloud/nvgre.asm
 ; =============================================================================
@@ -25,14 +27,13 @@ endstruc
 
 section .text
 
-global nvgre_init
+global nvgre_cloud_init
 global nvgre_decap_packet
 global nvgre_encap_packet
 
-extern eth_input
 
 align 64
-nvgre_init:
+nvgre_cloud_init:
     push rbp
     mov rbp, rsp
     xor eax, eax
@@ -82,3 +83,5 @@ nvgre_encap_packet:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CLOUD_NVGRE_ASM

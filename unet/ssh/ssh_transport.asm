@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SSH_SSH_TRANSPORT_ASM
+%define GUARD_UNET_SSH_SSH_TRANSPORT_ASM
 ; =============================================================================
 ; Tattva OS — unet/ssh/ssh_transport.asm
 ; =============================================================================
@@ -57,10 +59,6 @@ global ssh_transport_pqc_kex
 global ssh_transport_send_packet
 global ssh_transport_recv_packet
 global ssh_transport_sanitize_keys
-
-extern chacha20_poly1305_encrypt
-extern chacha20_poly1305_decrypt
-extern rdtsc_get_cycles
 
 align 64
 ssh_transport_init:
@@ -194,3 +192,5 @@ hkdf_sha512_combine:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SSH_SSH_TRANSPORT_ASM

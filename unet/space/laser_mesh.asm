@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SPACE_LASER_MESH_ASM
+%define GUARD_UNET_SPACE_LASER_MESH_ASM
 ; =============================================================================
 ; Tattva OS — unet/space/laser_mesh.asm
 ; =============================================================================
@@ -92,3 +94,5 @@ laser_mesh_fec_decode:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SPACE_LASER_MESH_ASM

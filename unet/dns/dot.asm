@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DNS_DOT_ASM
+%define GUARD_UNET_DNS_DOT_ASM
 ; =============================================================================
 ; Tattva OS — unet/dns/dot.asm
 ; =============================================================================
@@ -40,7 +42,7 @@ struc dot_session_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 dot_connection_pool:    resb dot_session_t_size * DOT_MAX_CONNECTIONS
 dot_pool_count:         resd 1
 
@@ -54,12 +56,8 @@ global dot_close
 global dot_verify_spki_pin
 global dot_get_session
 
-extern utls_client_handshake
-extern utls_send_record
-extern utls_recv_record
-extern slab_alloc
-extern timer_wheel_add
-extern timer_wheel_del
+
+
 
 align 64
 dot_init:
@@ -235,3 +233,5 @@ dot_get_session:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DNS_DOT_ASM

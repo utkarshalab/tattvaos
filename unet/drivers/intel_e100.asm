@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_INTEL_E100_ASM
+%define GUARD_UNET_DRIVERS_INTEL_E100_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/intel_e100.asm
 ; =============================================================================
@@ -44,10 +46,6 @@ global e100_init
 global e100_poll
 global e100_transmit
 global e100_configure
-
-extern dma_alloc_hugepage
-extern mdelay
-extern eth_input
 
 align 64
 e100_init:
@@ -119,3 +117,5 @@ e100_configure:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_INTEL_E100_ASM

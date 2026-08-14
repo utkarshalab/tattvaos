@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_IOT_COAP_OBSERVE_ASM
+%define GUARD_UNET_TOOLS_IOT_COAP_OBSERVE_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/iot/coap_observe.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ coap_observe_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_IOT_COAP_OBSERVE_ASM

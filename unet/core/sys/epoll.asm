@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_SYS_EPOLL_ASM
+%define GUARD_UNET_CORE_SYS_EPOLL_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/sys/epoll.asm
 ; =============================================================================
@@ -61,3 +63,5 @@ epoll_wait:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_SYS_EPOLL_ASM

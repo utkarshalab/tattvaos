@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_PQC_PQC_WIREGUARD_ASM
+%define GUARD_UNET_PQC_PQC_WIREGUARD_ASM
 ; =============================================================================
 ; Tattva OS — unet/pqc/pqc_wireguard.asm
 ; =============================================================================
@@ -33,9 +35,6 @@ section .text
 global pqc_wireguard_init
 global pqc_wireguard_handshake
 global pqc_wireguard_mix_keys
-
-extern ml_kem_1024_encaps
-extern wireguard_encap_data
 
 align 64
 pqc_wireguard_init:
@@ -74,3 +73,5 @@ pqc_wireguard_mix_keys:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_PQC_PQC_WIREGUARD_ASM

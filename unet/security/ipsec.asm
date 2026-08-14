@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_IPSEC_ASM
+%define GUARD_UNET_SECURITY_IPSEC_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/ipsec.asm
 ; =============================================================================
@@ -46,8 +48,6 @@ global ipsec_esp_encap
 global ipsec_sa_lookup
 global ipsec_anti_replay_check
 
-extern aes_gcm_encrypt
-extern aes_gcm_decrypt
 
 align 64
 ipsec_init:
@@ -119,3 +119,5 @@ ipsec_anti_replay_check:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_IPSEC_ASM

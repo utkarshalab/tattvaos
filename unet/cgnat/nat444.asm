@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CGNAT_NAT444_ASM
+%define GUARD_UNET_CGNAT_NAT444_ASM
 ; =============================================================================
 ; Tattva OS — unet/cgnat/nat444.asm
 ; =============================================================================
@@ -36,3 +38,5 @@ nat444_process_subscriber:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CGNAT_NAT444_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_DIAG_MTR_ASM
+%define GUARD_UNET_TOOLS_DIAG_MTR_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/diag/mtr.asm
 ; =============================================================================
@@ -30,7 +32,7 @@ struc mtr_hop_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 mtr_hop_table:          resb mtr_hop_t_size * MTR_MAX_HOPS
 
 section .data
@@ -45,9 +47,6 @@ global mtr_probe_hop
 global mtr_update_stats
 global mtr_on_reply
 
-extern rdtsc_get_cycles
-extern pktbuf_alloc
-extern ip_send_pkt
 
 ; -----------------------------------------------------------------------------
 ; mtr_main — Entry Point: Initialize & Run Continuous Probe Loop
@@ -260,3 +259,5 @@ mtr_update_stats:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_DIAG_MTR_ASM

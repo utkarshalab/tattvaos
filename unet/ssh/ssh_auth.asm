@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SSH_SSH_AUTH_ASM
+%define GUARD_UNET_SSH_SSH_AUTH_ASM
 ; =============================================================================
 ; Tattva OS — unet/ssh/ssh_auth.asm
 ; =============================================================================
@@ -45,9 +47,6 @@ global ssh_auth_verify_publickey
 global ssh_auth_verify_password
 global ssh_auth_send_success
 global ssh_auth_send_failure
-
-extern ed25519_verify
-extern ml_dsa_87_verify
 
 align 64
 ssh_auth_init:
@@ -138,3 +137,5 @@ ssh_auth_send_failure:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SSH_SSH_AUTH_ASM

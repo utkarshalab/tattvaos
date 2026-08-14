@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VPN_WIREGUARD_BLAKE2S_ASM
+%define GUARD_UNET_VPN_WIREGUARD_BLAKE2S_ASM
 ; =============================================================================
 ; Tattva OS — unet/vpn/wireguard_blake2s.asm
 ; =============================================================================
@@ -28,7 +30,7 @@ endstruc
 
 section .data
 align 32
-blake2s_iv:
+wg_blake2s_iv:
     dd 0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A
     dd 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19
 
@@ -47,7 +49,7 @@ wireguard_blake2s_init:
 
     ; Copy IV into ctx.h & XOR parameter block (outlen=32)
     mov ecx, 8
-    lea rsi, [blake2s_iv]
+    lea rsi, [wg_blake2s_iv]
     lea rdx, [rdi + blake2s_ctx_t.h]
 .copy_iv:
     mov eax, [rsi + rcx * 4 - 4]
@@ -99,3 +101,5 @@ wireguard_blake2s_compress_avx2:
     vzeroupper
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VPN_WIREGUARD_BLAKE2S_ASM

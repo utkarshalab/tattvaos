@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L2_ETH_ASM
+%define GUARD_UNET_CORE_L2_ETH_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l2/eth.asm
 ; =============================================================================
@@ -54,11 +56,6 @@ global eth_output
 global eth_parse_vlan
 global eth_validate_fcs
 
-extern ip_input
-extern ipv6_input
-extern arp_input
-extern mac_is_broadcast
-extern mac_is_multicast
 
 align 64
 eth_init:
@@ -215,3 +212,5 @@ eth_validate_fcs:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L2_ETH_ASM

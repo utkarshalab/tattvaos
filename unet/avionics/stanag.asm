@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AVIONICS_STANAG_ASM
+%define GUARD_UNET_AVIONICS_STANAG_ASM
 ; =============================================================================
 ; Tattva OS — unet/avionics/stanag.asm
 ; =============================================================================
@@ -77,3 +79,5 @@ stanag_process_c2_cmd:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AVIONICS_STANAG_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SDN_GRE_ASM
+%define GUARD_UNET_SDN_GRE_ASM
 ; =============================================================================
 ; Tattva OS — unet/sdn/gre.asm
 ; =============================================================================
@@ -110,3 +112,5 @@ gre_verify_checksum:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SDN_GRE_ASM

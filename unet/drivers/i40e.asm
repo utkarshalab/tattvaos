@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_I40E_ASM
+%define GUARD_UNET_DRIVERS_I40E_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/i40e.asm
 ; =============================================================================
@@ -48,9 +50,6 @@ global i40e_aq_send
 global i40e_poll_rx
 global i40e_transmit
 global i40e_vsi_setup
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 i40e_init:
@@ -106,3 +105,5 @@ i40e_vsi_setup:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_I40E_ASM

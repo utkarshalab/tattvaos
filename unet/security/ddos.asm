@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_DDOS_ASM
+%define GUARD_UNET_SECURITY_DDOS_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/ddos.asm
 ; =============================================================================
@@ -37,9 +39,6 @@ global ddos_generate_syncookie
 global ddos_verify_syncookie
 global ddos_track_ip_rate
 global ddos_filter_packet
-
-extern sha256_hash
-extern rdtsc_get_cycles
 
 align 64
 ddos_init:
@@ -98,3 +97,5 @@ ddos_filter_packet:
     call ddos_track_ip_rate
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_DDOS_ASM

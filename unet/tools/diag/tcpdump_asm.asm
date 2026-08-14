@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_DIAG_TCPDUMP_ASM_ASM
+%define GUARD_UNET_TOOLS_DIAG_TCPDUMP_ASM_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/diag/tcpdump_asm.asm
 ; =============================================================================
@@ -33,8 +35,6 @@ section .text
 global net_tcpdump_handler
 global tcpdump_write_pcap_ufs
 
-extern uxfs_write_file
-extern rdtsc_get_cycles
 
 align 32
 net_tcpdump_handler:
@@ -65,3 +65,5 @@ tcpdump_write_pcap_ufs:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_DIAG_TCPDUMP_ASM_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SAN_FCOE_ASM
+%define GUARD_UNET_SAN_FCOE_ASM
 ; =============================================================================
 ; Tattva OS — unet/san/fcoe.asm
 ; =============================================================================
@@ -91,3 +93,5 @@ fcoe_verify_crc:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SAN_FCOE_ASM

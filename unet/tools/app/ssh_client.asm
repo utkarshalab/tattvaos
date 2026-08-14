@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_SSH_CLIENT_ASM
+%define GUARD_UNET_TOOLS_APP_SSH_CLIENT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/ssh_client.asm
 ; =============================================================================
@@ -57,3 +59,5 @@ ssh_client_userauth:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_SSH_CLIENT_ASM

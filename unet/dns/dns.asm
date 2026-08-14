@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DNS_DNS_ASM
+%define GUARD_UNET_DNS_DNS_ASM
 ; =============================================================================
 ; Tattva OS — unet/dns/dns.asm
 ; =============================================================================
@@ -52,9 +54,6 @@ global dns_query
 global dns_parse_response
 global dns_decompress_name
 global dns_cache_lookup
-
-extern timer_wheel_add
-extern slab_alloc
 
 align 64
 dns_init:
@@ -133,3 +132,5 @@ dns_cache_lookup:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DNS_DNS_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HPC_MPI_COLLECTIVES_ASM
+%define GUARD_UNET_HPC_MPI_COLLECTIVES_ASM
 ; =============================================================================
 ; Tattva OS — unet/hpc/mpi_collectives.asm
 ; =============================================================================
@@ -105,3 +107,5 @@ mpi_alltoall_ring:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HPC_MPI_COLLECTIVES_ASM

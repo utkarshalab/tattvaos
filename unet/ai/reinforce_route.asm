@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AI_REINFORCE_ROUTE_ASM
+%define GUARD_UNET_AI_REINFORCE_ROUTE_ASM
 ; =============================================================================
 ; Tattva OS — unet/ai/reinforce_route.asm
 ; =============================================================================
@@ -23,7 +25,7 @@ struc rl_qtable_entry_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 rl_qtable:              resb rl_qtable_entry_t_size * RL_MAX_DESTINATIONS
 
 section .text
@@ -56,7 +58,9 @@ reinforce_route_select_action:
     and eax, RL_MAX_DESTINATIONS - 1
 
     lea rbx, [rl_qtable]
-    lea rbx, [rbx + rax * rl_qtable_entry_t_size]
+    ; Entry size is not a legal scale factor; multiply the index out first.
+    imul rax, rax, rl_qtable_entry_t_size
+    add rbx, rax
 
     ; Find action index with maximum float Q-value
     mov ecx, 0                      ; Best action
@@ -78,3 +82,5 @@ reinforce_route_update_qval:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AI_REINFORCE_ROUTE_ASM

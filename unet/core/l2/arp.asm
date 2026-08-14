@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L2_ARP_ASM
+%define GUARD_UNET_CORE_L2_ARP_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l2/arp.asm
 ; =============================================================================
@@ -52,7 +54,7 @@ struc arp_cache_entry_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 arp_cache_table:        resb arp_cache_entry_t_size * ARP_CACHE_SIZE
 
 section .text
@@ -62,11 +64,6 @@ global arp_input
 global arp_lookup
 global arp_send_request
 global arp_send_gratuitous
-
-extern timer_wheel_add
-extern timer_wheel_del
-extern rdtsc_get_cycles
-extern eth_output
 
 align 64
 arp_init:
@@ -108,7 +105,7 @@ arp_input:
 
     ; 3. Update ARP cache with Sender IP -> Sender MAC mapping
     mov edi, [rbx + arp_hdr_t.sender_ip]
-    call .cache_update
+    call arp_cache_update
 
     ; 4. Check opcode: Request vs Reply
     movzx eax, word [rbx + arp_hdr_t.opcode]
@@ -187,11 +184,18 @@ arp_send_gratuitous:
     pop rbp
     ret
 
-; Internal: Update ARP cache entry with timer wheel expiration
-.cache_update:
+; Update an ARP cache entry, with a timer-wheel TTL expiry.
+;
+; This is a FILE-LEVEL label, not a `.local` one. NASM scopes `.name` to the
+; preceding non-local label, so while this sat at the end of the file it
+; belonged to arp_send_gratuitous — and arp_input's `call .cache_update`
+; resolved to arp_input.cache_update, which nothing defined.
+arp_cache_update:
     push rbp
     mov rbp, rsp
     ; Insert/update cache entry & schedule timer_wheel_add for TTL expiration
     call timer_wheel_add
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L2_ARP_ASM

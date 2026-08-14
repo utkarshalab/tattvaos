@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_USB_ETH_ASM
+%define GUARD_UNET_DRIVERS_USB_ETH_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/usb_eth.asm
 ; =============================================================================
@@ -45,7 +47,6 @@ global usb_eth_poll_ncm
 global usb_eth_poll_rndis
 global usb_eth_transmit_ncm
 
-extern eth_input
 
 align 64
 usb_eth_init:
@@ -122,3 +123,5 @@ usb_eth_transmit_ncm:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_USB_ETH_ASM

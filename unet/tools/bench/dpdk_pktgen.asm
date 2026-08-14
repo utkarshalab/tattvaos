@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_BENCH_DPDK_PKTGEN_ASM
+%define GUARD_UNET_TOOLS_BENCH_DPDK_PKTGEN_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/bench/dpdk_pktgen.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global dpdk_pktgen_main
 
-extern dpdk_tx_burst
 
 align 64
 dpdk_pktgen_main:
@@ -31,3 +32,5 @@ dpdk_pktgen_main:
     call dpdk_tx_burst
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_BENCH_DPDK_PKTGEN_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CNI_FLANNEL_ASM
+%define GUARD_UNET_CNI_FLANNEL_ASM
 ; =============================================================================
 ; Tattva OS — unet/cni/flannel.asm
 ; =============================================================================
@@ -62,3 +64,5 @@ flannel_direct_route:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CNI_FLANNEL_ASM

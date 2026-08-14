@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CNI_KUBE_PROXY_ASM
+%define GUARD_UNET_CNI_KUBE_PROXY_ASM
 ; =============================================================================
 ; Tattva OS — unet/cni/kube_proxy.asm
 ; =============================================================================
@@ -30,8 +32,6 @@ section .text
 global kube_proxy_init
 global kube_proxy_maglev_lookup
 global kube_proxy_nat_endpoint
-
-extern ebpf_maglev_lookup
 
 align 64
 kube_proxy_init:
@@ -71,3 +71,5 @@ kube_proxy_nat_endpoint:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CNI_KUBE_PROXY_ASM

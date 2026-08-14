@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CLOUD_GENEVE_ASM
+%define GUARD_UNET_CLOUD_GENEVE_ASM
 ; =============================================================================
 ; Tattva OS — unet/cloud/geneve.asm
 ; =============================================================================
@@ -27,14 +29,13 @@ endstruc
 
 section .text
 
-global geneve_init
+global geneve_cloud_init
 global geneve_decap_packet
 global geneve_encap_packet
 
-extern eth_input
 
 align 64
-geneve_init:
+geneve_cloud_init:
     push rbp
     mov rbp, rsp
     xor eax, eax
@@ -81,3 +82,5 @@ geneve_encap_packet:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CLOUD_GENEVE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ROUTING_ISIS_ASM
+%define GUARD_UNET_ROUTING_ISIS_ASM
 ; =============================================================================
 ; Tattva OS — unet/routing/isis.asm
 ; =============================================================================
@@ -53,7 +55,6 @@ global isis_spf_calculate
 global isis_flood_lsp
 global isis_parse_tlv
 
-extern timer_wheel_add
 
 align 64
 isis_init:
@@ -143,3 +144,5 @@ isis_parse_tlv:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ROUTING_ISIS_ASM

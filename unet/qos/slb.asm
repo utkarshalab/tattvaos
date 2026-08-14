@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_QOS_SLB_ASM
+%define GUARD_UNET_QOS_SLB_ASM
 ; =============================================================================
 ; Tattva OS — unet/qos/slb.asm
 ; =============================================================================
@@ -28,7 +30,7 @@ struc slb_backend_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 slb_lookup_table:       resd SLB_LOOKUP_TABLE_SIZE
 slb_backends:           resb slb_backend_t_size * SLB_MAX_BACKENDS
 slb_backend_count:      resd 1
@@ -69,7 +71,10 @@ slb_lookup_backend:
     lea rbx, [slb_lookup_table]
     mov eax, [rbx + rdx * 4]        ; EAX = Backend Index
 
-    lea rax, [slb_backends + rax * slb_backend_t_size]
+    ; The backend record is 17 bytes, which is not an encodable scale factor.
+    imul rax, rax, slb_backend_t_size
+    lea rbx, [slb_backends]
+    add rax, rbx
 
     pop rbx
     pop rbp
@@ -93,3 +98,5 @@ slb_health_check:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_QOS_SLB_ASM

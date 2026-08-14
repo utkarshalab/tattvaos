@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_DIAG_PING_ASM
+%define GUARD_UNET_TOOLS_DIAG_PING_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/diag/ping.asm
 ; =============================================================================
@@ -228,3 +230,5 @@ icmp_checksum:
     not ax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_DIAG_PING_ASM

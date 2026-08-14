@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_IDENTITY_KERBEROS_ASM
+%define GUARD_UNET_IDENTITY_KERBEROS_ASM
 ; =============================================================================
 ; Tattva OS — unet/identity/kerberos.asm
 ; =============================================================================
@@ -41,7 +43,6 @@ global kerberos_process_msg
 global kerberos_validate_ticket
 global kerberos_decrypt_authenticator
 
-extern aes_gcm_decrypt
 
 align 64
 kerberos_init:
@@ -107,3 +108,5 @@ kerberos_decrypt_authenticator:
     call aes_gcm_decrypt
     pop rbp
     ret
+
+%endif ; GUARD_UNET_IDENTITY_KERBEROS_ASM

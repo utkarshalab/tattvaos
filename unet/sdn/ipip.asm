@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SDN_IPIP_ASM
+%define GUARD_UNET_SDN_IPIP_ASM
 ; =============================================================================
 ; Tattva OS — unet/sdn/ipip.asm
 ; =============================================================================
@@ -80,3 +82,5 @@ ipip_ecn_propagate:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SDN_IPIP_ASM

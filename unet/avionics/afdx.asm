@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AVIONICS_AFDX_ASM
+%define GUARD_UNET_AVIONICS_AFDX_ASM
 ; =============================================================================
 ; Tattva OS — unet/avionics/afdx.asm
 ; =============================================================================
@@ -97,3 +99,5 @@ afdx_redundancy_select:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AVIONICS_AFDX_ASM

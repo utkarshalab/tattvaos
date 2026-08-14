@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ANON_NYM_ASM
+%define GUARD_UNET_ANON_NYM_ASM
 ; =============================================================================
 ; Tattva OS — unet/anon/nym.asm
 ; =============================================================================
@@ -55,7 +57,7 @@ struc nym_surb_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 nym_credential_cache:   resb nym_credential_t_size * NYM_MAX_CREDENTIALS
 nym_surb_pool:          resb nym_surb_t_size * NYM_SURB_REPLY_BLOCKS
 nym_cred_count:         resd 1
@@ -71,13 +73,6 @@ global nym_select_mix_path
 global nym_build_surb
 global nym_generate_cover_traffic
 global nym_rotate_epoch_credentials
-
-extern ed25519_verify
-extern chacha20_poly1305_encrypt
-extern sha256_hash
-extern rdtsc_get_cycles
-extern timer_wheel_add
-extern timer_wheel_del
 
 align 64
 nym_init:
@@ -266,3 +261,5 @@ nym_rotate_epoch_credentials:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ANON_NYM_ASM

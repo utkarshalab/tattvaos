@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_RTMP_STREAM_ASM
+%define GUARD_UNET_TOOLS_APP_RTMP_STREAM_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/rtmp_stream.asm
 ; =============================================================================
@@ -22,7 +24,6 @@ section .text
 global rtmp_stream_main
 global rtmp_stream_publish
 
-extern rtmp_handshake
 
 align 64
 rtmp_stream_main:
@@ -49,3 +50,5 @@ rtmp_stream_publish:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_RTMP_STREAM_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_GAMING_E2S_ASM
+%define GUARD_UNET_GAMING_E2S_ASM
 ; =============================================================================
 ; Tattva OS — unet/gaming/e2s.asm
 ; =============================================================================
@@ -40,8 +42,6 @@ global e2s_init
 global e2s_compress_delta_avx512
 global e2s_rewind_hit_registration
 global e2s_tick_sync
-
-extern rdtsc_get_cycles
 
 align 64
 e2s_init:
@@ -97,3 +97,5 @@ e2s_tick_sync:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_GAMING_E2S_ASM

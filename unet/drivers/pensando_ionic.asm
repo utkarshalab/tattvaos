@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_PENSANDO_IONIC_ASM
+%define GUARD_UNET_DRIVERS_PENSANDO_IONIC_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/pensando_ionic.asm
 ; =============================================================================
@@ -36,9 +38,6 @@ global pensando_init
 global pensando_dev_cmd
 global pensando_poll_cq
 global pensando_transmit
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 pensando_init:
@@ -101,3 +100,5 @@ pensando_transmit:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_PENSANDO_IONIC_ASM

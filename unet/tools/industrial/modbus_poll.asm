@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_INDUSTRIAL_MODBUS_POLL_ASM
+%define GUARD_UNET_TOOLS_INDUSTRIAL_MODBUS_POLL_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/industrial/modbus_poll.asm
 ; =============================================================================
@@ -60,10 +62,6 @@ global modbus_poll_main
 global modbus_poll_read_registers
 global modbus_poll_format_mbap
 global modbus_poll_parse_response
-
-extern pktbuf_alloc
-extern tcp_send_data
-extern rdtsc_get_cycles
 
 ; -----------------------------------------------------------------------------
 ; modbus_poll_main — Entry Point: Format & Send Modbus Request
@@ -245,3 +243,5 @@ modbus_poll_format_mbap:
     mov eax, 7                      ; MBAP header is always 7 bytes
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_INDUSTRIAL_MODBUS_POLL_ASM

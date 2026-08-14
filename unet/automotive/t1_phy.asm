@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AUTOMOTIVE_T1_PHY_ASM
+%define GUARD_UNET_AUTOMOTIVE_T1_PHY_ASM
 ; =============================================================================
 ; Tattva OS — unet/automotive/t1_phy.asm
 ; =============================================================================
@@ -65,3 +67,5 @@ t1_phy_tdr_fault_check:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AUTOMOTIVE_T1_PHY_ASM

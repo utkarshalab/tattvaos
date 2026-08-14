@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_DIAG_SS_TOOL_ASM
+%define GUARD_UNET_TOOLS_DIAG_SS_TOOL_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/diag/ss_tool.asm
 ; =============================================================================
@@ -42,3 +44,5 @@ ss_dump_tcp_info:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_DIAG_SS_TOOL_ASM

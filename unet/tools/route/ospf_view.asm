@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_OSPF_VIEW_ASM
+%define GUARD_UNET_TOOLS_ROUTE_OSPF_VIEW_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/ospf_view.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ ospf_view_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_OSPF_VIEW_ASM

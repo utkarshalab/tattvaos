@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_INDUSTRIAL_CFDP_GET_ASM
+%define GUARD_UNET_TOOLS_INDUSTRIAL_CFDP_GET_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/industrial/cfdp_get.asm
 ; =============================================================================
@@ -29,3 +31,5 @@ cfdp_get_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_INDUSTRIAL_CFDP_GET_ASM

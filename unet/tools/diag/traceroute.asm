@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_DIAG_TRACEROUTE_ASM
+%define GUARD_UNET_TOOLS_DIAG_TRACEROUTE_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/diag/traceroute.asm
 ; =============================================================================
@@ -104,3 +106,5 @@ traceroute_on_icmp_exceeded:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_DIAG_TRACEROUTE_ASM

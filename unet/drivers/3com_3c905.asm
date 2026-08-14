@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_3COM_3C905_ASM
+%define GUARD_UNET_DRIVERS_3COM_3C905_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/3com_3c905.asm
 ; =============================================================================
@@ -36,7 +38,6 @@ global threecom_poll
 global threecom_transmit
 global threecom_select_window
 
-extern eth_input
 
 align 64
 threecom_init:
@@ -96,3 +97,5 @@ threecom_select_window:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_3COM_3C905_ASM

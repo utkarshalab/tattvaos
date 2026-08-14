@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AI_PREDICTIVE_TE_ASM
+%define GUARD_UNET_AI_PREDICTIVE_TE_ASM
 ; =============================================================================
 ; Tattva OS — unet/ai/predictive_te.asm
 ; =============================================================================
@@ -73,3 +75,5 @@ predictive_te_forecast_congestion:
     call predictive_te_lstm_step_avx512
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AI_PREDICTIVE_TE_ASM

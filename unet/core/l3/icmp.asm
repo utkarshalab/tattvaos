@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L3_ICMP_ASM
+%define GUARD_UNET_CORE_L3_ICMP_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l3/icmp.asm
 ; =============================================================================
@@ -78,8 +80,6 @@ global icmpv6_ndp_ns
 global icmpv6_ndp_na
 global pmtud_update
 
-extern timer_wheel_add
-extern ip_checksum_avx512
 
 align 64
 icmp_init:
@@ -290,3 +290,5 @@ pmtud_update:
     call timer_wheel_add
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L3_ICMP_ASM

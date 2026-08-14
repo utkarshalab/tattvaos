@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ROUTING_EVPN_ASM
+%define GUARD_UNET_ROUTING_EVPN_ASM
 ; =============================================================================
 ; Tattva OS — unet/routing/evpn.asm
 ; =============================================================================
@@ -52,7 +54,6 @@ global evpn_withdraw
 global evpn_arp_suppress
 global evpn_detect_duplicate_mac
 
-extern bgp_send_update
 
 align 64
 evpn_init:
@@ -149,3 +150,5 @@ evpn_detect_duplicate_mac:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ROUTING_EVPN_ASM

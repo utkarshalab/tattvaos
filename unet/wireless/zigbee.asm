@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_WIRELESS_ZIGBEE_ASM
+%define GUARD_UNET_WIRELESS_ZIGBEE_ASM
 ; =============================================================================
 ; Tattva OS — unet/wireless/zigbee.asm
 ; =============================================================================
@@ -91,3 +93,5 @@ zigbee_ccm_star_decrypt:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_WIRELESS_ZIGBEE_ASM

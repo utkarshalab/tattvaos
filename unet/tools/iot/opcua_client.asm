@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_IOT_OPCUA_CLIENT_ASM
+%define GUARD_UNET_TOOLS_IOT_OPCUA_CLIENT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/iot/opcua_client.asm
 ; =============================================================================
@@ -28,3 +30,5 @@ opcua_client_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_IOT_OPCUA_CLIENT_ASM

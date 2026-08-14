@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_SYS_SOCKET_ASM
+%define GUARD_UNET_CORE_SYS_SOCKET_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/sys/socket.asm
 ; =============================================================================
@@ -23,7 +25,7 @@
 %define SOCK_DGRAM                  2
 %define SOCK_RAW                    3
 
-struc socket_t
+struc sock_conn_t
     .fd:                resd 1      ; Socket File Descriptor
     .domain:            resd 1      ; AF_INET / AF_INET6
     .type:              resd 1      ; SOCK_STREAM / SOCK_DGRAM
@@ -40,8 +42,6 @@ global socket_table_init
 global socket_create
 global socket_close
 
-extern slab_alloc
-extern slab_free
 
 align 64
 socket_table_init:
@@ -78,3 +78,5 @@ socket_close:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_SYS_SOCKET_ASM

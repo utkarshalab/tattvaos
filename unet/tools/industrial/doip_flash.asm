@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_INDUSTRIAL_DOIP_FLASH_ASM
+%define GUARD_UNET_TOOLS_INDUSTRIAL_DOIP_FLASH_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/industrial/doip_flash.asm
 ; =============================================================================
@@ -27,7 +29,6 @@ section .text
 global doip_flash_main
 global doip_flash_sequence
 
-extern doip_uds_process_service
 
 align 64
 doip_flash_main:
@@ -53,3 +54,5 @@ doip_flash_sequence:
     call doip_uds_process_service
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_INDUSTRIAL_DOIP_FLASH_ASM

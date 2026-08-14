@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_NE2000_ASM
+%define GUARD_UNET_DRIVERS_NE2000_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/ne2000.asm
 ; =============================================================================
@@ -39,7 +41,6 @@ global ne2000_poll
 global ne2000_transmit
 global ne2000_rdma_read
 
-extern eth_input
 
 align 64
 ne2000_init:
@@ -109,3 +110,5 @@ ne2000_rdma_read:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_NE2000_ASM

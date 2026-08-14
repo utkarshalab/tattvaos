@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_DNSSEC_CHECK_ASM
+%define GUARD_UNET_TOOLS_SECURITY_DNSSEC_CHECK_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/dnssec_check.asm
 ; =============================================================================
@@ -21,8 +23,6 @@ section .text
 
 global dnssec_check_main
 global dnssec_check_verify_chain
-
-extern dns_parse_query
 
 align 64
 dnssec_check_main:
@@ -49,3 +49,5 @@ dnssec_check_verify_chain:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_DNSSEC_CHECK_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AI_GRAPH_NEURAL_NET_ASM
+%define GUARD_UNET_AI_GRAPH_NEURAL_NET_ASM
 ; =============================================================================
 ; Tattva OS — unet/ai/graph_neural_net.asm
 ; =============================================================================
@@ -82,3 +84,5 @@ gnn_predict_path:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AI_GRAPH_NEURAL_NET_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_GAMING_RAKNET_ASM
+%define GUARD_UNET_GAMING_RAKNET_ASM
 ; =============================================================================
 ; Tattva OS — unet/gaming/raknet.asm
 ; =============================================================================
@@ -111,3 +113,5 @@ raknet_send_pong:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_GAMING_RAKNET_ASM

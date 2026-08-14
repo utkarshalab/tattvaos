@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_IOT_MQTT_PUB_ASM
+%define GUARD_UNET_TOOLS_IOT_MQTT_PUB_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/iot/mqtt_pub.asm
 ; =============================================================================
@@ -52,8 +54,6 @@ global mqtt_pub_publish
 global mqtt_pub_encode_remaining_length
 global mqtt_pub_disconnect
 
-extern pktbuf_alloc
-extern tcp_send_data
 
 ; -----------------------------------------------------------------------------
 ; mqtt_pub_main — Entry Point: Connect, Publish, Disconnect
@@ -336,3 +336,5 @@ mqtt_pub_disconnect:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_IOT_MQTT_PUB_ASM

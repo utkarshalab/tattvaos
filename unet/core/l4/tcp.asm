@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L4_TCP_ASM
+%define GUARD_UNET_CORE_L4_TCP_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l4/tcp.asm
 ; =============================================================================
@@ -76,7 +78,7 @@ struc tcb_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 tcp_tcb_hashtable:      resq 1024   ; TCB Lookup Table (1024 buckets)
 
 section .text
@@ -89,12 +91,8 @@ global tcp_close
 global tcp_send_data
 global tcp_checksum_calc
 
-extern slab_alloc
-extern slab_free
-extern timer_wheel_add
-extern rdtsc_get_cycles
-extern pktbuf_alloc
-extern ip_send_pkt
+
+
 
 ; -----------------------------------------------------------------------------
 ; tcp_init — Master TCP Subsystem Initialization
@@ -137,7 +135,10 @@ tcp_input:
 
     ; Extract TCP Flags
     movzx r13d, word [r12 + tcp_hdr_t.data_off_flags]
-    xchg r13b, r13h                 ; Big Endian -> Host
+    ; Byte-swap the 16-bit field. There is no `r13h`: high-byte registers exist
+    ; only as ah/bh/ch/dh and never in a REX-prefixed instruction, so the swap
+    ; is a 16-bit rotate instead.
+    rol r13w, 8                     ; Big Endian -> Host
     and r13d, 0x00FF                ; R13D = TCP Flags (FIN/SYN/RST/PSH/ACK/URG)
 
     ; Demux: 4-Tuple Lookup for matching TCB
@@ -231,3 +232,5 @@ tcp_checksum_calc:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L4_TCP_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DNS_DOQ_ASM
+%define GUARD_UNET_DNS_DOQ_ASM
 ; =============================================================================
 ; Tattva OS — unet/dns/doq.asm
 ; =============================================================================
@@ -42,7 +44,7 @@ struc doq_session_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 doq_session:            resb doq_session_t_size
 
 section .text
@@ -54,13 +56,8 @@ global doq_recv_response
 global doq_close
 global doq_migrate_connection
 
-extern quic_input
-extern quic_open_stream
-extern quic_send_stream
-extern quic_recv_stream
-extern quic_close_connection
-extern timer_wheel_add
-extern timer_wheel_del
+
+
 
 align 64
 doq_init:
@@ -185,3 +182,5 @@ doq_migrate_connection:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DNS_DOQ_ASM

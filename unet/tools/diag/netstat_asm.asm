@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_DIAG_NETSTAT_ASM_ASM
+%define GUARD_UNET_TOOLS_DIAG_NETSTAT_ASM_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/diag/netstat_asm.asm
 ; =============================================================================
@@ -41,8 +43,6 @@ global netstat_main
 global netstat_dump_sockets
 global netstat_dump_interfaces
 global netstat_count_by_state
-
-extern socket_table
 
 ; -----------------------------------------------------------------------------
 ; netstat_main — Entry Point: Dump Socket Table & Interface Statistics
@@ -179,3 +179,5 @@ netstat_count_by_state:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_DIAG_NETSTAT_ASM_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TELECOM_TAILSCALE_PING_ASM
+%define GUARD_UNET_TOOLS_TELECOM_TAILSCALE_PING_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/telecom/tailscale_ping.asm
 ; =============================================================================
@@ -24,8 +26,6 @@ section .text
 global tailscale_ping_main
 global tailscale_ping_resolve_node
 global tailscale_ping_probe
-
-extern rdtsc_get_cycles
 
 align 64
 tailscale_ping_main:
@@ -75,3 +75,5 @@ tailscale_ping_probe:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_TELECOM_TAILSCALE_PING_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_OPCUA_ASM
+%define GUARD_UNET_SERVICES_OPCUA_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/opcua.asm
 ; =============================================================================
@@ -120,3 +122,5 @@ opcua_encode_node_id:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_OPCUA_ASM

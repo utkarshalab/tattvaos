@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_TACACS_ASM
+%define GUARD_UNET_SERVICES_TACACS_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/tacacs.asm
 ; =============================================================================
@@ -44,8 +46,6 @@ global tacacs_process_packet
 global tacacs_crypt_payload
 global tacacs_process_authen
 global tacacs_process_author
-
-extern md5_hash
 
 align 64
 tacacs_init:
@@ -129,3 +129,5 @@ tacacs_process_author:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_TACACS_ASM

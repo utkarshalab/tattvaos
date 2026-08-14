@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TELECOM_NTPDATE_ASM
+%define GUARD_UNET_TOOLS_TELECOM_NTPDATE_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/telecom/ntpdate.asm
 ; =============================================================================
@@ -23,8 +25,6 @@ section .text
 
 global ntpdate_main
 
-extern rdtsc_get_cycles
-
 align 64
 ntpdate_main:
     push rbp
@@ -35,3 +35,5 @@ ntpdate_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_TELECOM_NTPDATE_ASM

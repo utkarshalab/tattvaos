@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_ZTNA_ASM
+%define GUARD_UNET_SECURITY_ZTNA_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/ztna.asm
 ; =============================================================================
@@ -72,3 +74,5 @@ ztna_check_posture:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_ZTNA_ASM

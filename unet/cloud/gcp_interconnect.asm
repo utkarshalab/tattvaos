@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CLOUD_GCP_INTERCONNECT_ASM
+%define GUARD_UNET_CLOUD_GCP_INTERCONNECT_ASM
 ; =============================================================================
 ; Tattva OS — unet/cloud/gcp_interconnect.asm
 ; =============================================================================
@@ -54,3 +56,5 @@ gcp_interconnect_bgp_pair:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CLOUD_GCP_INTERCONNECT_ASM

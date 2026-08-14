@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_GENEVE_TEST_ASM
+%define GUARD_UNET_TOOLS_APP_GENEVE_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/geneve_test.asm
 ; =============================================================================
@@ -20,8 +22,6 @@ section .text
 
 global geneve_test_main
 
-extern geneve_encap_packet
-extern geneve_decap_packet
 
 align 64
 geneve_test_main:
@@ -38,3 +38,5 @@ geneve_test_main:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_GENEVE_TEST_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SAN_NFS42_ASM
+%define GUARD_UNET_SAN_NFS42_ASM
 ; =============================================================================
 ; Tattva OS — unet/san/nfs42.asm
 ; =============================================================================
@@ -163,3 +165,5 @@ nfs42_write_zerocopy:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SAN_NFS42_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_GRPC_CURL_ASM
+%define GUARD_UNET_TOOLS_APP_GRPC_CURL_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/grpc_curl.asm
 ; =============================================================================
@@ -64,3 +66,5 @@ grpc_curl_parse_status:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_GRPC_CURL_ASM

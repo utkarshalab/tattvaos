@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MAIL_SPF_DMARC_ASM
+%define GUARD_UNET_MAIL_SPF_DMARC_ASM
 ; =============================================================================
 ; Tattva OS — unet/mail/spf_dmarc.asm
 ; =============================================================================
@@ -63,7 +65,6 @@ global dmarc_check
 global dmarc_lookup_policy
 global dmarc_check_alignment
 
-extern dns_query
 
 align 64
 spf_init:
@@ -177,3 +178,5 @@ dmarc_check_alignment:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MAIL_SPF_DMARC_ASM

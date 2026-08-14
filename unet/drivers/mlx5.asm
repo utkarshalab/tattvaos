@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_MLX5_ASM
+%define GUARD_UNET_DRIVERS_MLX5_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/mlx5.asm
 ; =============================================================================
@@ -47,9 +49,6 @@ global mlx5_cmd_exec
 global mlx5_create_rq
 global mlx5_create_sq
 
-extern dma_alloc_hugepage
-extern rdtsc_get_cycles
-extern eth_input
 
 align 64
 mlx5_init:
@@ -147,3 +146,5 @@ mlx5_create_sq:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_MLX5_ASM

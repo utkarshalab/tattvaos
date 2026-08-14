@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ROUTING_OSPF_ASM
+%define GUARD_UNET_ROUTING_OSPF_ASM
 ; =============================================================================
 ; Tattva OS — unet/routing/ospf.asm
 ; =============================================================================
@@ -78,8 +80,6 @@ global ospf_flood_lsa
 global ospf_dr_election
 global ospf_neighbor_fsm
 
-extern timer_wheel_add
-extern timer_wheel_del
 
 align 64
 ospf_init:
@@ -199,3 +199,5 @@ ospf_neighbor_fsm:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ROUTING_OSPF_ASM

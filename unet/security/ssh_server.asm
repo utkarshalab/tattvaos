@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_SSH_SERVER_ASM
+%define GUARD_UNET_SECURITY_SSH_SERVER_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/ssh_server.asm
 ; =============================================================================
@@ -39,7 +41,6 @@ global ssh_process_kexinit
 global ssh_process_userauth
 global ssh_process_channel_data
 
-extern chacha20_poly1305_decrypt
 
 align 64
 ssh_init:
@@ -112,3 +113,5 @@ ssh_process_channel_data:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_SSH_SERVER_ASM

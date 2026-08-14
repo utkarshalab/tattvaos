@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HFT_ITCH_ASM
+%define GUARD_UNET_HFT_ITCH_ASM
 ; =============================================================================
 ; Tattva OS — unet/hft/itch.asm
 ; =============================================================================
@@ -169,3 +171,5 @@ itch_process_delete:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HFT_ITCH_ASM

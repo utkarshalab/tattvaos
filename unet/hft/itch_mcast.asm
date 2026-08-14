@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HFT_ITCH_MCAST_ASM
+%define GUARD_UNET_HFT_ITCH_MCAST_ASM
 ; =============================================================================
 ; Tattva OS — unet/hft/itch_mcast.asm
 ; =============================================================================
@@ -28,7 +30,6 @@ global itch_mcast_poll_feed
 global itch_mcast_detect_gap
 global itch_mcast_arbitrage
 
-extern itch_parse_msg
 
 align 64
 itch_mcast_init:
@@ -93,3 +94,5 @@ itch_mcast_arbitrage:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HFT_ITCH_MCAST_ASM

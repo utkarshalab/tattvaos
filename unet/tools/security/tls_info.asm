@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_TLS_INFO_ASM
+%define GUARD_UNET_TOOLS_SECURITY_TLS_INFO_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/tls_info.asm
 ; =============================================================================
@@ -30,8 +32,6 @@ section .text
 global tls_info_main
 global tls_info_send_client_hello
 global tls_info_parse_server_hello
-
-extern rdtsc_get_cycles
 
 align 64
 tls_info_main:
@@ -69,3 +69,5 @@ tls_info_parse_server_hello:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_TLS_INFO_ASM

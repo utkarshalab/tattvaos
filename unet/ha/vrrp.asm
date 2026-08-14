@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HA_VRRP_ASM
+%define GUARD_UNET_HA_VRRP_ASM
 ; =============================================================================
 ; Tattva OS — unet/ha/vrrp.asm
 ; =============================================================================
@@ -58,9 +60,6 @@ global vrrp_send_advertisement
 global vrrp_transition_master
 global vrrp_transition_backup
 
-extern timer_wheel_add
-extern timer_wheel_del
-extern arp_send_gratuitous
 
 align 64
 vrrp_init:
@@ -146,3 +145,5 @@ vrrp_transition_backup:
     call timer_wheel_add
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HA_VRRP_ASM

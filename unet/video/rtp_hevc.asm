@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VIDEO_RTP_HEVC_ASM
+%define GUARD_UNET_VIDEO_RTP_HEVC_ASM
 ; =============================================================================
 ; Tattva OS — unet/video/rtp_hevc.asm
 ; =============================================================================
@@ -97,3 +99,5 @@ rtp_hevc_parse_ap:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VIDEO_RTP_HEVC_ASM

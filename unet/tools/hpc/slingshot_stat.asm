@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_HPC_SLINGSHOT_STAT_ASM
+%define GUARD_UNET_TOOLS_HPC_SLINGSHOT_STAT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/hpc/slingshot_stat.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global slingshot_stat_main
 
-extern slingshot_process_frame
 
 align 64
 slingshot_stat_main:
@@ -31,3 +32,5 @@ slingshot_stat_main:
     call slingshot_process_frame
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_HPC_SLINGSHOT_STAT_ASM

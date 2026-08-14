@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_MARVELL_OCTEON_ASM
+%define GUARD_UNET_DRIVERS_MARVELL_OCTEON_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/marvell_octeon.asm
 ; =============================================================================
@@ -28,9 +30,6 @@ section .text
 global marvell_octeon_init
 global marvell_nix_poll
 global marvell_nix_transmit
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 marvell_octeon_init:
@@ -73,3 +72,5 @@ marvell_nix_transmit:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_MARVELL_OCTEON_ASM

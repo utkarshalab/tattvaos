@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_QOS_FQ_CODEL_ASM
+%define GUARD_UNET_QOS_FQ_CODEL_ASM
 ; =============================================================================
 ; Tattva OS — unet/qos/fq_codel.asm
 ; =============================================================================
@@ -33,7 +35,7 @@ struc fq_codel_flow_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 fq_flows:               resb fq_codel_flow_t_size * FQ_CODEL_FLOWS
 fq_active_flow_idx:     resd 1      ; Current DRR Active Flow Index
 
@@ -43,8 +45,6 @@ global fq_codel_init
 global fq_codel_enqueue
 global fq_codel_dequeue
 global fq_codel_check_codel
-
-extern rdtsc_get_cycles
 
 align 64
 fq_codel_init:
@@ -182,3 +182,5 @@ fq_codel_check_codel:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_QOS_FQ_CODEL_ASM

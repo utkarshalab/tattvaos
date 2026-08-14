@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_PROXY_REVERSE_PROXY_ASM
+%define GUARD_UNET_PROXY_REVERSE_PROXY_ASM
 ; =============================================================================
 ; Tattva OS — unet/proxy/reverse_proxy.asm
 ; =============================================================================
@@ -27,7 +29,7 @@ struc reverse_proxy_backend_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 backend_pool:           resb reverse_proxy_backend_t_size * RP_MAX_BACKENDS
 backend_count:          resd 1
 
@@ -93,3 +95,5 @@ reverse_proxy_forward_request:
     call reverse_proxy_inject_headers
     pop rbp
     ret
+
+%endif ; GUARD_UNET_PROXY_REVERSE_PROXY_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_OPTICAL_PON_ASM
+%define GUARD_UNET_OPTICAL_PON_ASM
 ; =============================================================================
 ; Tattva OS — unet/optical/pon.asm
 ; =============================================================================
@@ -79,3 +81,5 @@ pon_onu_state_machine:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_OPTICAL_PON_ASM

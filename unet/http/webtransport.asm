@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_WEBTRANSPORT_ASM
+%define GUARD_UNET_HTTP_WEBTRANSPORT_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/webtransport.asm
 ; =============================================================================
@@ -39,11 +41,6 @@ global webtransport_open_uni_stream
 global webtransport_send_datagram
 global webtransport_recv
 global webtransport_close
-
-extern http3_send_headers
-extern http3_send_data
-extern http3_datagram_send
-extern quic_open_stream
 
 align 64
 webtransport_init:
@@ -122,3 +119,5 @@ webtransport_close:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_WEBTRANSPORT_ASM

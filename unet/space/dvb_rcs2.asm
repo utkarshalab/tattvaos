@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SPACE_DVB_RCS2_ASM
+%define GUARD_UNET_SPACE_DVB_RCS2_ASM
 ; =============================================================================
 ; Tattva OS — unet/space/dvb_rcs2.asm
 ; =============================================================================
@@ -74,3 +76,5 @@ dvb_rcs2_rle_decap:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SPACE_DVB_RCS2_ASM

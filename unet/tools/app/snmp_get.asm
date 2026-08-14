@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_SNMP_GET_ASM
+%define GUARD_UNET_TOOLS_APP_SNMP_GET_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/snmp_get.asm
 ; =============================================================================
@@ -43,3 +45,5 @@ snmp_get_exec:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_SNMP_GET_ASM

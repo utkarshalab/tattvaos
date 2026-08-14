@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SPACE_LTP_ASM
+%define GUARD_UNET_SPACE_LTP_ASM
 ; =============================================================================
 ; Tattva OS — unet/space/ltp.asm
 ; =============================================================================
@@ -42,8 +44,6 @@ global ltp_send_green_data
 global ltp_send_report
 global ltp_process_report
 
-extern timer_wheel_add
-extern timer_wheel_del
 
 align 64
 ltp_init:
@@ -133,3 +133,5 @@ ltp_process_report:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SPACE_LTP_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AUTOMOTIVE_SOMEIP_ASM
+%define GUARD_UNET_AUTOMOTIVE_SOMEIP_ASM
 ; =============================================================================
 ; Tattva OS — unet/automotive/someip.asm
 ; =============================================================================
@@ -123,3 +125,5 @@ someip_send_response:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AUTOMOTIVE_SOMEIP_ASM

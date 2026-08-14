@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HFT_OUCH_ASM
+%define GUARD_UNET_HFT_OUCH_ASM
 ; =============================================================================
 ; Tattva OS — unet/hft/ouch.asm
 ; =============================================================================
@@ -124,3 +126,5 @@ ouch_process_execution:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HFT_OUCH_ASM

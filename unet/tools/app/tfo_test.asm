@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_TFO_TEST_ASM
+%define GUARD_UNET_TOOLS_APP_TFO_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/tfo_test.asm
 ; =============================================================================
@@ -29,3 +31,5 @@ tfo_test_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_TFO_TEST_ASM

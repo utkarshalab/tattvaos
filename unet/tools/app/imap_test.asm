@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_IMAP_TEST_ASM
+%define GUARD_UNET_TOOLS_APP_IMAP_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/imap_test.asm
 ; =============================================================================
@@ -42,3 +44,5 @@ imap_test_audit_mailbox:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_IMAP_TEST_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VPN_SSTP_ASM
+%define GUARD_UNET_VPN_SSTP_ASM
 ; =============================================================================
 ; Tattva OS — unet/vpn/sstp.asm
 ; =============================================================================
@@ -40,7 +42,6 @@ global sstp_process_packet
 global sstp_connect_request
 global sstp_verify_crypto_binding
 
-extern sha256_hash
 
 align 64
 sstp_init:
@@ -115,3 +116,5 @@ sstp_verify_crypto_binding:
     call sha256_hash
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VPN_SSTP_ASM

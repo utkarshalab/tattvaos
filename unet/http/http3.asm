@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_HTTP3_ASM
+%define GUARD_UNET_HTTP_HTTP3_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/http3.asm
 ; =============================================================================
@@ -49,10 +51,7 @@ global http3_send_headers
 global http3_send_data
 global http3_send_goaway
 
-extern quic_input
-extern quic_open_stream
-extern quic_send_stream
-extern quic_recv_stream
+
 
 align 64
 http3_init:
@@ -159,3 +158,5 @@ http3_send_goaway:
     call quic_send_stream
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_HTTP3_ASM

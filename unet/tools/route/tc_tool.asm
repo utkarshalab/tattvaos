@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_TC_TOOL_ASM
+%define GUARD_UNET_TOOLS_ROUTE_TC_TOOL_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/tc_tool.asm
 ; =============================================================================
@@ -21,7 +23,6 @@ section .text
 
 global tc_tool_main
 
-extern fq_codel_init
 
 align 64
 tc_tool_main:
@@ -32,3 +33,5 @@ tc_tool_main:
     call fq_codel_init
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_TC_TOOL_ASM

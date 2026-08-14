@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_CARP_TEST_ASM
+%define GUARD_UNET_TOOLS_ROUTE_CARP_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/carp_test.asm
 ; =============================================================================
@@ -19,7 +21,6 @@ section .text
 
 global carp_test_main
 
-extern carp_send_advertisement
 
 align 64
 carp_test_main:
@@ -30,3 +31,5 @@ carp_test_main:
     call carp_send_advertisement
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_CARP_TEST_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_VIRTIO_NET_ASM
+%define GUARD_UNET_DRIVERS_VIRTIO_NET_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/virtio_net.asm
 ; =============================================================================
@@ -52,9 +54,6 @@ global virtio_net_init
 global virtio_net_poll_rx
 global virtio_net_transmit
 global virtio_net_kick
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 virtio_net_init:
@@ -121,3 +120,5 @@ virtio_net_kick:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_VIRTIO_NET_ASM

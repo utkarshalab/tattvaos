@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ROUTING_PIM_SM_ASM
+%define GUARD_UNET_ROUTING_PIM_SM_ASM
 ; =============================================================================
 ; Tattva OS — unet/routing/pim_sm.asm
 ; =============================================================================
@@ -57,7 +59,6 @@ global pim_sm_register_source
 global pim_sm_dr_election
 global pim_sm_assert
 
-extern timer_wheel_add
 
 align 64
 pim_sm_init:
@@ -175,3 +176,5 @@ pim_sm_assert:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ROUTING_PIM_SM_ASM

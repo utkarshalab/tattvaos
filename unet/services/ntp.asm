@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_NTP_ASM
+%define GUARD_UNET_SERVICES_NTP_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/ntp.asm
 ; =============================================================================
@@ -46,8 +48,6 @@ global ntp_send_request
 global ntp_send_response
 global ntp_calculate_offset
 global ntp_slew_clock
-
-extern rdtsc_get_cycles
 
 align 64
 ntp_init:
@@ -123,3 +123,5 @@ ntp_slew_clock:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_NTP_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TELECOM_PFCP_ASM
+%define GUARD_UNET_TELECOM_PFCP_ASM
 ; =============================================================================
 ; Tattva OS — unet/telecom/pfcp.asm
 ; =============================================================================
@@ -174,3 +176,5 @@ pfcp_send_heartbeat_rsp:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TELECOM_PFCP_ASM

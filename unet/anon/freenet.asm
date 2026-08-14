@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ANON_FREENET_ASM
+%define GUARD_UNET_ANON_FREENET_ASM
 ; =============================================================================
 ; Tattva OS — unet/anon/freenet.asm
 ; =============================================================================
@@ -64,7 +66,7 @@ struc freenet_store_entry_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 freenet_peer_table:     resb freenet_node_t_size * FNP_PEER_TABLE_SIZE
 freenet_data_store:     resb freenet_store_entry_t_size * FNP_DATASTORE_SIZE
 freenet_peer_count:     resd 1
@@ -80,14 +82,6 @@ global freenet_insert_key
 global freenet_find_closest_peer
 global freenet_store_lookup
 global freenet_store_insert
-
-extern sha256_hash
-extern aes_gcm_encrypt
-extern aes_gcm_decrypt
-extern ed25519_verify
-extern timer_wheel_add
-extern timer_wheel_del
-extern rdtsc_get_cycles
 
 align 64
 freenet_init:
@@ -299,3 +293,5 @@ freenet_store_insert:
     call timer_wheel_add
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ANON_FREENET_ASM

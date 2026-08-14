@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_LACP_TEST_ASM
+%define GUARD_UNET_TOOLS_ROUTE_LACP_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/lacp_test.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ lacp_test_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_LACP_TEST_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L3_IP_ASM
+%define GUARD_UNET_CORE_L3_IP_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l3/ip.asm
 ; =============================================================================
@@ -64,13 +66,6 @@ global ip_route_lookup
 global ip_reassemble_fragment
 global ip_checksum_avx512
 
-extern icmp_input
-extern igmp_join_group
-extern tcp_input
-extern udp_input
-extern timer_wheel_add
-extern rdtsc_get_cycles
-
 align 64
 ip_init:
     push rbp
@@ -96,8 +91,8 @@ ip_input:
     prefetcht0 [rbx]                ; Pre-stage IPv4 packet into L1 cache
 
     ; 1. Verify Minimum Header Length (20 Bytes)
-    mov r12, [rbx + net_pkt_t.data]
-    cmp dword [rbx + net_pkt_t.len], 20
+    mov r12, [rbx + net_pkt_t.virt_addr]
+    cmp dword [rbx + net_pkt_t.data_len], 20
     jb .drop
 
     ; 2. AVX-512 SIMD Parallel Checksum Verification
@@ -231,3 +226,5 @@ ip_output:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L3_IP_ASM

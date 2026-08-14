@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_MLX4_ASM
+%define GUARD_UNET_DRIVERS_MLX4_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/mlx4.asm
 ; =============================================================================
@@ -33,9 +35,6 @@ global mlx4_init
 global mlx4_poll_cq
 global mlx4_post_send_blueflame
 global mlx4_cmd_exec
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 mlx4_init:
@@ -94,3 +93,5 @@ mlx4_cmd_exec:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_MLX4_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_QOS_TBF_ASM
+%define GUARD_UNET_QOS_TBF_ASM
 ; =============================================================================
 ; Tattva OS — unet/qos/tbf.asm
 ; =============================================================================
@@ -38,8 +40,6 @@ section .text
 global tbf_init
 global tbf_police_packet
 global tbf_refill_tokens
-
-extern rdtsc_get_cycles
 
 align 64
 tbf_init:
@@ -105,3 +105,5 @@ tbf_refill_tokens:
     call rdtsc_get_cycles
     pop rbp
     ret
+
+%endif ; GUARD_UNET_QOS_TBF_ASM

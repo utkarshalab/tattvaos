@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HFT_POUCH_ASM
+%define GUARD_UNET_HFT_POUCH_ASM
 ; =============================================================================
 ; Tattva OS — unet/hft/pouch.asm
 ; =============================================================================
@@ -94,3 +96,5 @@ pouch_route_order:
     call pouch_check_pretrade_risk
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HFT_POUCH_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ANON_SHADOWSOCKS_ASM
+%define GUARD_UNET_ANON_SHADOWSOCKS_ASM
 ; =============================================================================
 ; Tattva OS — unet/anon/shadowsocks.asm
 ; =============================================================================
@@ -34,8 +36,6 @@ global shadowsocks_encap_2022
 global shadowsocks_encap_udp_2022
 global shadowsocks_decap_2022
 
-extern chacha20_poly1305_encrypt
-extern uhash_blake3
 
 align 64
 shadowsocks_init:
@@ -97,3 +97,5 @@ shadowsocks_decap_2022:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ANON_SHADOWSOCKS_ASM

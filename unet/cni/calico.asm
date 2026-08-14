@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CNI_CALICO_ASM
+%define GUARD_UNET_CNI_CALICO_ASM
 ; =============================================================================
 ; Tattva OS — unet/cni/calico.asm
 ; =============================================================================
@@ -67,3 +69,5 @@ calico_bgp_route_announce:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CNI_CALICO_ASM

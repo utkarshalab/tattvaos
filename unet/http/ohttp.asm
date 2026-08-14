@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_OHTTP_ASM
+%define GUARD_UNET_HTTP_OHTTP_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/ohttp.asm
 ; =============================================================================
@@ -40,8 +42,6 @@ global ohttp_encap_response
 global ohttp_decap_response
 global ohttp_relay_forward
 
-extern hpke_seal
-extern hpke_open
 
 align 64
 ohttp_init:
@@ -119,3 +119,5 @@ ohttp_relay_forward:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_OHTTP_ASM

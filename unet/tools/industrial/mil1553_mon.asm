@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_INDUSTRIAL_MIL1553_MON_ASM
+%define GUARD_UNET_TOOLS_INDUSTRIAL_MIL1553_MON_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/industrial/mil1553_mon.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global mil1553_mon_main
 
-extern mil1553_parse_cmd_word
 
 align 64
 mil1553_mon_main:
@@ -31,3 +32,5 @@ mil1553_mon_main:
     call mil1553_parse_cmd_word
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_INDUSTRIAL_MIL1553_MON_ASM

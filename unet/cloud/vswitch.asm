@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CLOUD_VSWITCH_ASM
+%define GUARD_UNET_CLOUD_VSWITCH_ASM
 ; =============================================================================
 ; Tattva OS — unet/cloud/vswitch.asm
 ; =============================================================================
@@ -26,7 +28,7 @@ struc vswitch_emc_entry_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 vswitch_emc_table:      resb vswitch_emc_entry_t_size * VSWITCH_EMC_SIZE
 
 section .text
@@ -60,7 +62,9 @@ vswitch_lookup_flow:
     and eax, VSWITCH_EMC_SIZE - 1
 
     lea rbx, [vswitch_emc_table]
-    lea rax, [rbx + rax * vswitch_emc_entry_t_size]
+    ; The entry is 16 bytes; only 1/2/4/8 are encodable as a scale.
+    imul rax, rax, vswitch_emc_entry_t_size
+    add rax, rbx
 
     ; Check if entry hash matches
     cmp esi, [rax + vswitch_emc_entry_t.flow_hash]
@@ -96,3 +100,5 @@ vswitch_add_flow:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CLOUD_VSWITCH_ASM

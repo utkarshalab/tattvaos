@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_INDUSTRIAL_DNP3_CONTROL_ASM
+%define GUARD_UNET_TOOLS_INDUSTRIAL_DNP3_CONTROL_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/industrial/dnp3_control.asm
 ; =============================================================================
@@ -46,3 +48,5 @@ dnp3_control_send_crob:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_INDUSTRIAL_DNP3_CONTROL_ASM

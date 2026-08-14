@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HPC_RDMA_CM_ASM
+%define GUARD_UNET_HPC_RDMA_CM_ASM
 ; =============================================================================
 ; Tattva OS — unet/hpc/rdma_cm.asm
 ; =============================================================================
@@ -101,3 +103,5 @@ rdma_cm_accept:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HPC_RDMA_CM_ASM

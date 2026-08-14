@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_BGP_VIEW_ASM
+%define GUARD_UNET_TOOLS_ROUTE_BGP_VIEW_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/bgp_view.asm
 ; =============================================================================
@@ -43,3 +45,5 @@ bgp_view_dump_rib:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_BGP_VIEW_ASM

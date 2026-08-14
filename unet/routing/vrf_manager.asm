@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ROUTING_VRF_MANAGER_ASM
+%define GUARD_UNET_ROUTING_VRF_MANAGER_ASM
 ; =============================================================================
 ; Tattva OS — unet/routing/vrf_manager.asm
 ; =============================================================================
@@ -39,7 +41,7 @@ struc vrf_instance_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 vrf_table:              resb vrf_instance_t_size * VRF_MAX_INSTANCES
 vrf_count:              resd 1
 
@@ -54,8 +56,6 @@ global vrf_unbind_interface
 global vrf_route_lookup
 global vrf_route_leak
 
-extern slab_alloc
-extern slab_free
 
 align 64
 vrf_init:
@@ -169,3 +169,5 @@ vrf_route_leak:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ROUTING_VRF_MANAGER_ASM

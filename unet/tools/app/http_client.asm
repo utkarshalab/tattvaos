@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_HTTP_CLIENT_ASM
+%define GUARD_UNET_TOOLS_APP_HTTP_CLIENT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/http_client.asm
 ; =============================================================================
@@ -31,8 +33,6 @@ section .text
 global http_client_main
 global http_client_format_request
 global http_client_parse_response
-
-extern http1_parse_request
 
 align 64
 http_client_main:
@@ -72,3 +72,5 @@ http_client_parse_response:
     call http1_parse_request
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_HTTP_CLIENT_ASM

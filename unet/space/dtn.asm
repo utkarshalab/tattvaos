@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SPACE_DTN_ASM
+%define GUARD_UNET_SPACE_DTN_ASM
 ; =============================================================================
 ; Tattva OS — unet/space/dtn.asm
 ; =============================================================================
@@ -49,8 +51,6 @@ global dtn_process_bundle
 global dtn_send_bundle
 global dtn_parse_cbor_block
 global dtn_route_bundle
-
-extern rdtsc_get_cycles
 
 align 64
 dtn_init:
@@ -126,3 +126,5 @@ dtn_route_bundle:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SPACE_DTN_ASM

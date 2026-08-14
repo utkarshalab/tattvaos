@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_FINTECH_ISO20022_ASM
+%define GUARD_UNET_FINTECH_ISO20022_ASM
 ; =============================================================================
 ; Tattva OS — unet/fintech/iso20022.asm
 ; =============================================================================
@@ -82,3 +84,5 @@ iso20022_build_pacs002_ack:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_FINTECH_ISO20022_ASM

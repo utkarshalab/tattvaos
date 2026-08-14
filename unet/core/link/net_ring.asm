@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_LINK_NET_RING_ASM
+%define GUARD_UNET_CORE_LINK_NET_RING_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/link/net_ring.asm
 ; =============================================================================
@@ -16,7 +18,7 @@
 
 %define RING_CAPACITY               4096
 
-struc net_ring_t
+struc net_lockless_ring_t
     ; --- Cache Line 0 (Producer Thread Hot-Path) ---
     align 64
     .head:              resq 1      ; Ring Head Pointer (64-bit atomic)
@@ -44,23 +46,23 @@ global net_ring_dequeue_lockless
 
 ; -----------------------------------------------------------------------------
 ; net_ring_init — Initialize Cache-Aligned Lockless Ring Buffer
-; Input: RDI = Pointer to net_ring_t
+; Input: RDI = Pointer to net_lockless_ring_t
 ; -----------------------------------------------------------------------------
 align 32
 net_ring_init:
     push rbp
     mov rbp, rsp
-    mov qword [rdi + net_ring_t.head], 0
-    mov qword [rdi + net_ring_t.prod_tail], 0
-    mov qword [rdi + net_ring_t.tail], 0
-    mov qword [rdi + net_ring_t.cons_head], 0
+    mov qword [rdi + net_lockless_ring_t.head], 0
+    mov qword [rdi + net_lockless_ring_t.prod_tail], 0
+    mov qword [rdi + net_lockless_ring_t.tail], 0
+    mov qword [rdi + net_lockless_ring_t.cons_head], 0
     xor eax, eax
     pop rbp
     ret
 
 ; -----------------------------------------------------------------------------
 ; net_ring_enqueue_lockless — Zero-Lock Atomic Push (Producer Core)
-; Input: RDI = Pointer to net_ring_t
+; Input: RDI = Pointer to net_lockless_ring_t
 ;        RSI = 64-bit Buffer Pointer to Enqueue
 ; Output: RAX = 0 on Success, -1 if Ring Full
 ; -----------------------------------------------------------------------------
@@ -70,19 +72,19 @@ net_ring_enqueue_lockless:
     mov rbp, rsp
     push rbx
 
-    mov rbx, [rdi + net_ring_t.head]
+    mov rbx, [rdi + net_lockless_ring_t.head]
     mov rdx, rbx
     inc rdx
     and rdx, (RING_CAPACITY - 1)
 
-    cmp rdx, [rdi + net_ring_t.tail]                ; Check for full ring
+    cmp rdx, [rdi + net_lockless_ring_t.tail]                ; Check for full ring
     je .ring_full
 
     ; Store descriptor at head index
-    mov [rdi + net_ring_t.descriptors + rbx * 8], rsi
+    mov [rdi + net_lockless_ring_t.descriptors + rbx * 8], rsi
 
     ; Atomic Release Store of Head Pointer
-    mov [rdi + net_ring_t.head], rdx
+    mov [rdi + net_lockless_ring_t.head], rdx
 
     xor eax, eax
     pop rbx
@@ -97,7 +99,7 @@ net_ring_enqueue_lockless:
 
 ; -----------------------------------------------------------------------------
 ; net_ring_dequeue_lockless — Zero-Lock Atomic Pop (Consumer Core)
-; Input: RDI = Pointer to net_ring_t
+; Input: RDI = Pointer to net_lockless_ring_t
 ; Output: RAX = Dequeued Buffer Pointer (or 0 if Empty)
 ; -----------------------------------------------------------------------------
 align 32
@@ -106,17 +108,17 @@ net_ring_dequeue_lockless:
     mov rbp, rsp
     push rbx
 
-    mov rbx, [rdi + net_ring_t.tail]
-    cmp rbx, [rdi + net_ring_t.head]                ; Check for empty ring
+    mov rbx, [rdi + net_lockless_ring_t.tail]
+    cmp rbx, [rdi + net_lockless_ring_t.head]                ; Check for empty ring
     je .empty
 
     ; Read descriptor at tail index
-    mov rax, [rdi + net_ring_t.descriptors + rbx * 8]
+    mov rax, [rdi + net_lockless_ring_t.descriptors + rbx * 8]
 
     ; Increment Tail Index
     inc rbx
     and rbx, (RING_CAPACITY - 1)
-    mov [rdi + net_ring_t.tail], rbx
+    mov [rdi + net_lockless_ring_t.tail], rbx
 
     pop rbx
     pop rbp
@@ -127,3 +129,5 @@ net_ring_dequeue_lockless:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_LINK_NET_RING_ASM

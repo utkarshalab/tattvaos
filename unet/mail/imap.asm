@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MAIL_IMAP_ASM
+%define GUARD_UNET_MAIL_IMAP_ASM
 ; =============================================================================
 ; Tattva OS — unet/mail/imap.asm
 ; =============================================================================
@@ -52,8 +54,6 @@ global imap_process_store
 global imap_process_search
 global imap_process_idle
 global imap_send_response
-
-extern utls_server_handshake
 
 align 64
 imap_init:
@@ -155,3 +155,5 @@ imap_send_response:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MAIL_IMAP_ASM

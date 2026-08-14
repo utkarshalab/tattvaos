@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SDN_VXLAN_ASM
+%define GUARD_UNET_SDN_VXLAN_ASM
 ; =============================================================================
 ; Tattva OS — unet/sdn/vxlan.asm
 ; =============================================================================
@@ -109,3 +111,5 @@ vxlan_gpe_decap:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SDN_VXLAN_ASM

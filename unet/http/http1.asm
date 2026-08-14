@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_HTTP1_ASM
+%define GUARD_UNET_HTTP_HTTP1_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/http1.asm
 ; =============================================================================
@@ -34,9 +36,8 @@ global http1_stream_uxfs_file
 ; TODO: these two symbols are not defined by storage/uxfs. The subsystem's public
 ; file API is vfs_open / vfs_read / vfs_close. Wire the streaming path below to
 ; those (with proper argument marshalling) before this module is linked.
-extern uxfs_read_file
-extern uxfs_get_file_size
-extern utls_server_handshake
+
+
 
 align 32
 http1_init:
@@ -76,3 +77,5 @@ http1_stream_uxfs_file:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_HTTP1_ASM

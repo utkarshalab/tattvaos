@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VOIP_SDP_ASM
+%define GUARD_UNET_VOIP_SDP_ASM
 ; =============================================================================
 ; Tattva OS — unet/voip/sdp.asm
 ; =============================================================================
@@ -93,3 +95,5 @@ sdp_negotiate_codecs:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VOIP_SDP_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_WIRELESS_WIFI6E_ASM
+%define GUARD_UNET_WIRELESS_WIFI6E_ASM
 ; =============================================================================
 ; Tattva OS — unet/wireless/wifi6e.asm
 ; =============================================================================
@@ -125,3 +127,5 @@ wifi6e_ampdu_decap:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_WIRELESS_WIFI6E_ASM

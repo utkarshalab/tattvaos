@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VIDEO_RTP_H264_ASM
+%define GUARD_UNET_VIDEO_RTP_H264_ASM
 ; =============================================================================
 ; Tattva OS — unet/video/rtp_h264.asm
 ; =============================================================================
@@ -130,3 +132,5 @@ rtp_h264_parse_fu_a:
 .fu_done:
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VIDEO_RTP_H264_ASM

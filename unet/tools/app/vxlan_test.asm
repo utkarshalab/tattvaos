@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_VXLAN_TEST_ASM
+%define GUARD_UNET_TOOLS_APP_VXLAN_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/vxlan_test.asm
 ; =============================================================================
@@ -20,8 +22,6 @@ section .text
 
 global vxlan_test_main
 
-extern vxlan_encap_packet
-extern vxlan_decap_packet
 
 align 64
 vxlan_test_main:
@@ -38,3 +38,5 @@ vxlan_test_main:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_VXLAN_TEST_ASM

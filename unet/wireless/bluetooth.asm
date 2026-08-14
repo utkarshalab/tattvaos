@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_WIRELESS_BLUETOOTH_ASM
+%define GUARD_UNET_WIRELESS_BLUETOOTH_ASM
 ; =============================================================================
 ; Tattva OS — unet/wireless/bluetooth.asm
 ; =============================================================================
@@ -142,3 +144,5 @@ bluetooth_process_smp:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_WIRELESS_BLUETOOTH_ASM

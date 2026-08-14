@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_SYS_AVX512_PARSER_ASM
+%define GUARD_UNET_CORE_SYS_AVX512_PARSER_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/sys/avx512_parser.asm
 ; =============================================================================
@@ -126,11 +128,15 @@ avx512_classify_protocols:
     vpcmpeqw k2, zmm0, zmm11       ; k2 = IPv6 packets
 
     ; Classify L4 Protocols (TCP=6, UDP=17)
-    vpbroadcastb zmm12, byte 6
+    mov al, 6
+    vpbroadcastb zmm12, al
     vpcmpeqb k3, zmm1, zmm12       ; k3 = TCP packets
 
-    vpbroadcastb zmm13, byte 17
+    mov al, 17
+    vpbroadcastb zmm13, al
     vpcmpeqb k4, zmm1, zmm13       ; k4 = UDP packets
 
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_SYS_AVX512_PARSER_ASM

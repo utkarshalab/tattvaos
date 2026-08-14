@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ANON_OBFS4_ASM
+%define GUARD_UNET_ANON_OBFS4_ASM
 ; =============================================================================
 ; Tattva OS — unet/anon/obfs4.asm
 ; =============================================================================
@@ -52,7 +54,7 @@ struc obfs4_frame_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 obfs4_replay_cache:     resb 32 * OBFS4_REPLAY_CACHE_SIZE  ; HMAC hash cache
 
 section .text
@@ -66,12 +68,6 @@ global obfs4_deobfuscate_stream
 global obfs4_generate_padding
 global obfs4_iat_delay
 global obfs4_check_replay
-
-extern chacha20_poly1305_encrypt
-extern chacha20_poly1305_decrypt
-extern sha256_hash
-extern rdtsc_get_cycles
-extern udelay
 
 align 64
 obfs4_init:
@@ -267,3 +263,5 @@ obfs4_check_replay:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ANON_OBFS4_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_WEBSOCKET_CAT_ASM
+%define GUARD_UNET_TOOLS_APP_WEBSOCKET_CAT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/websocket_cat.asm
 ; =============================================================================
@@ -70,3 +72,5 @@ websocket_cat_recv_frame:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_WEBSOCKET_CAT_ASM

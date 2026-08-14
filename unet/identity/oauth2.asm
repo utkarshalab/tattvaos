@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_IDENTITY_OAUTH2_ASM
+%define GUARD_UNET_IDENTITY_OAUTH2_ASM
 ; =============================================================================
 ; Tattva OS — unet/identity/oauth2.asm
 ; =============================================================================
@@ -35,8 +37,6 @@ global oauth2_parse_jwt
 global oauth2_validate_signature
 global oauth2_check_claims
 
-extern rsa_verify_sha256
-extern ecc_p256_verify
 
 align 64
 oauth2_init:
@@ -100,3 +100,5 @@ oauth2_check_claims:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_IDENTITY_OAUTH2_ASM

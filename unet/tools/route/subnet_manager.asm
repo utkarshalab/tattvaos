@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_SUBNET_MANAGER_ASM
+%define GUARD_UNET_TOOLS_ROUTE_SUBNET_MANAGER_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/subnet_manager.asm
 ; =============================================================================
@@ -41,3 +43,5 @@ subnet_manager_calc_cidr:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_SUBNET_MANAGER_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_DIAG_LATENCY_METER_ASM
+%define GUARD_UNET_TOOLS_DIAG_LATENCY_METER_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/diag/latency_meter.asm
 ; =============================================================================
@@ -40,7 +42,7 @@ latency_bucket_bounds:
     dq 0xFFFFFFFFFFFFFFFF ; >=1s (catch-all)
 
 section .bss
-align 64
+alignb 64
 latency_histogram:      resq LATENCY_NUM_BUCKETS    ; Atomic counters per bucket
 latency_total_samples:  resq 1
 latency_min_ns:         resq 1
@@ -227,3 +229,5 @@ latency_meter_print_histogram:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_DIAG_LATENCY_METER_ASM

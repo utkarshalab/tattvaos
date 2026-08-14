@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_IOT_MATTER_COMMISSION_ASM
+%define GUARD_UNET_TOOLS_IOT_MATTER_COMMISSION_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/iot/matter_commission.asm
 ; =============================================================================
@@ -29,3 +31,5 @@ matter_commission_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_IOT_MATTER_COMMISSION_ASM

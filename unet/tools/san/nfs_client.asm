@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SAN_NFS_CLIENT_ASM
+%define GUARD_UNET_TOOLS_SAN_NFS_CLIENT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/san/nfs_client.asm
 ; =============================================================================
@@ -28,3 +30,5 @@ nfs_client_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SAN_NFS_CLIENT_ASM

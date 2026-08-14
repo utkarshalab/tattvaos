@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SAN_NVME_DIAG_ASM
+%define GUARD_UNET_TOOLS_SAN_NVME_DIAG_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/san/nvme_diag.asm
 ; =============================================================================
@@ -57,3 +59,5 @@ nvme_diag_smart_log:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SAN_NVME_DIAG_ASM

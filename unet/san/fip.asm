@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SAN_FIP_ASM
+%define GUARD_UNET_SAN_FIP_ASM
 ; =============================================================================
 ; Tattva OS — unet/san/fip.asm
 ; =============================================================================
@@ -100,3 +102,5 @@ fip_parse_descriptors:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SAN_FIP_ASM

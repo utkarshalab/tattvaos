@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_NOISE_PROTOCOL_ASM
+%define GUARD_UNET_SECURITY_NOISE_PROTOCOL_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/noise_protocol.asm
 ; =============================================================================
@@ -41,11 +43,6 @@ global noise_mix_key
 global noise_encrypt_and_hash
 global noise_decrypt_and_hash
 global noise_split
-
-extern chacha20_poly1305_encrypt
-extern chacha20_poly1305_decrypt
-extern sha256_hash
-extern hkdf_extract_expand
 
 align 64
 noise_init:
@@ -108,3 +105,5 @@ noise_split:
     call hkdf_extract_expand
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_NOISE_PROTOCOL_ASM

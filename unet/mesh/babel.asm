@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MESH_BABEL_ASM
+%define GUARD_UNET_MESH_BABEL_ASM
 ; =============================================================================
 ; Tattva OS — unet/mesh/babel.asm
 ; =============================================================================
@@ -144,3 +146,5 @@ babel_check_feasibility:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MESH_BABEL_ASM

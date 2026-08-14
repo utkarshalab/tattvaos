@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_QOS_EBPF_MAGLEV_ASM
+%define GUARD_UNET_QOS_EBPF_MAGLEV_ASM
 ; =============================================================================
 ; Tattva OS — unet/qos/ebpf_maglev.asm
 ; =============================================================================
@@ -81,3 +83,5 @@ ebpf_maglev_xdp_lookup:
     mov eax, 4                      ; XDP_REDIRECT
     pop rbp
     ret
+
+%endif ; GUARD_UNET_QOS_EBPF_MAGLEV_ASM

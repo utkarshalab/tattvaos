@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_QKD_KEYS_ASM
+%define GUARD_UNET_TOOLS_SECURITY_QKD_KEYS_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/qkd_keys.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global qkd_keys_main
 
-extern qkd_km_fetch_key
 
 align 64
 qkd_keys_main:
@@ -31,3 +32,5 @@ qkd_keys_main:
     call qkd_km_fetch_key
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_QKD_KEYS_ASM

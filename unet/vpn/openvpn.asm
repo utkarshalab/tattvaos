@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VPN_OPENVPN_ASM
+%define GUARD_UNET_VPN_OPENVPN_ASM
 ; =============================================================================
 ; Tattva OS — unet/vpn/openvpn.asm
 ; =============================================================================
@@ -50,8 +52,6 @@ global openvpn_handshake_reset
 global openvpn_encap_data_v2
 global openvpn_decap_data_v2
 
-extern aes_gcm_encrypt
-extern aes_gcm_decrypt
 
 align 64
 openvpn_init:
@@ -133,3 +133,5 @@ openvpn_decap_data_v2:
     call aes_gcm_decrypt
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VPN_OPENVPN_ASM

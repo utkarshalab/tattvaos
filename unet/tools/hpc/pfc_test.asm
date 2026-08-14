@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_HPC_PFC_TEST_ASM
+%define GUARD_UNET_TOOLS_HPC_PFC_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/hpc/pfc_test.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ pfc_test_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_HPC_PFC_TEST_ASM

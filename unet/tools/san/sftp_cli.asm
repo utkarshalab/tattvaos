@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SAN_SFTP_CLI_ASM
+%define GUARD_UNET_TOOLS_SAN_SFTP_CLI_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/san/sftp_cli.asm
 ; =============================================================================
@@ -34,3 +36,5 @@ sftp_cli_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SAN_SFTP_CLI_ASM

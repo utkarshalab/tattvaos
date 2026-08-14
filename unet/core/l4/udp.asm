@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L4_UDP_ASM
+%define GUARD_UNET_CORE_L4_UDP_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l4/udp.asm
 ; =============================================================================
@@ -60,9 +62,6 @@ global udp_checksum_verify
 global udp_bind
 global udp_gro_coalesce
 
-extern ip_checksum_avx512
-extern dma_alloc_hugepage
-extern slab_alloc
 
 align 64
 udp_init:
@@ -187,3 +186,5 @@ udp_gro_coalesce:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L4_UDP_ASM

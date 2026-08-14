@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_SOLARFLARE_SFC_ASM
+%define GUARD_UNET_DRIVERS_SOLARFLARE_SFC_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/solarflare_sfc.asm (or unet/drivers/solarflare_sfc.asm)
 ; =============================================================================
@@ -29,9 +31,6 @@ global solarflare_init
 global solarflare_poll_evq
 global solarflare_transmit
 global solarflare_mcdi_cmd
-
-extern rdtsc_get_cycles
-extern eth_input
 
 align 64
 solarflare_init:
@@ -98,3 +97,5 @@ solarflare_mcdi_cmd:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_SOLARFLARE_SFC_ASM

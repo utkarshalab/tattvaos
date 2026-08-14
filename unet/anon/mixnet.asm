@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ANON_MIXNET_ASM
+%define GUARD_UNET_ANON_MIXNET_ASM
 ; =============================================================================
 ; Tattva OS — unet/anon/mixnet.asm
 ; =============================================================================
@@ -36,8 +38,6 @@ global mixnet_encap_sphinx
 global mixnet_route_sphinx_hop
 global mixnet_poisson_delay_queue
 
-extern chacha20_poly1305_encrypt
-extern sha256_hash
 
 align 64
 mixnet_init:
@@ -105,3 +105,5 @@ mixnet_poisson_delay_queue:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ANON_MIXNET_ASM

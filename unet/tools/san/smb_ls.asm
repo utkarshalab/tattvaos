@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SAN_SMB_LS_ASM
+%define GUARD_UNET_TOOLS_SAN_SMB_LS_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/san/smb_ls.asm
 ; =============================================================================
@@ -29,3 +31,5 @@ smb_ls_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SAN_SMB_LS_ASM

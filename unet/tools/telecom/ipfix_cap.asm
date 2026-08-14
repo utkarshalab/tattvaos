@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TELECOM_IPFIX_CAP_ASM
+%define GUARD_UNET_TOOLS_TELECOM_IPFIX_CAP_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/telecom/ipfix_cap.asm
 ; =============================================================================
@@ -53,7 +55,7 @@ struc ipfix_template_entry_t
 endstruc
 
 section .bss
-align 64
+alignb 64
 ipfix_template_registry: resb ipfix_template_entry_t_size * IPFIX_MAX_TEMPLATES
 
 section .data
@@ -329,3 +331,5 @@ ipfix_cap_lookup_template:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_TELECOM_IPFIX_CAP_ASM

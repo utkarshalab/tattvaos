@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SAN_SMB3_ASM
+%define GUARD_UNET_SAN_SMB3_ASM
 ; =============================================================================
 ; Tattva OS — unet/san/smb3.asm
 ; =============================================================================
@@ -61,8 +63,6 @@ global smb3_process_read
 global smb3_process_write
 global smb3_preauth_hash
 
-extern aes_gcm_decrypt
-extern sha512_hash
 
 align 64
 smb3_init:
@@ -174,3 +174,5 @@ smb3_preauth_hash:
     call sha512_hash
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SAN_SMB3_ASM

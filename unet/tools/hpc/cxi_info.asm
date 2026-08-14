@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_HPC_CXI_INFO_ASM
+%define GUARD_UNET_TOOLS_HPC_CXI_INFO_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/hpc/cxi_info.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ cxi_info_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_HPC_CXI_INFO_ASM

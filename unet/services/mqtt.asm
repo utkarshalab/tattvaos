@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_MQTT_ASM
+%define GUARD_UNET_SERVICES_MQTT_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/mqtt.asm
 ; =============================================================================
@@ -153,3 +155,5 @@ mqtt_match_topic:
     mov eax, 1
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_MQTT_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_INDUSTRIAL_CAN_DUMP_ASM
+%define GUARD_UNET_TOOLS_INDUSTRIAL_CAN_DUMP_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/industrial/can_dump.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global can_dump_main
 
-extern can_eth_translate_frame
 
 align 64
 can_dump_main:
@@ -31,3 +32,5 @@ can_dump_main:
     call can_eth_translate_frame
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_INDUSTRIAL_CAN_DUMP_ASM

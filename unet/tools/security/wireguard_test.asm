@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_WIREGUARD_TEST_ASM
+%define GUARD_UNET_TOOLS_SECURITY_WIREGUARD_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/wireguard_test.asm
 ; =============================================================================
@@ -39,9 +41,6 @@ global wireguard_test_main
 global wireguard_test_handshake
 global wireguard_test_throughput
 
-extern rdtsc_get_cycles
-extern wireguard_process_packet
-
 align 64
 wireguard_test_main:
     push rbp
@@ -80,3 +79,5 @@ wireguard_test_throughput:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_WIREGUARD_TEST_ASM

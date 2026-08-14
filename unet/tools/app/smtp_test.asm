@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_SMTP_TEST_ASM
+%define GUARD_UNET_TOOLS_APP_SMTP_TEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/smtp_test.asm
 ; =============================================================================
@@ -44,3 +46,5 @@ smtp_test_send_mail:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_SMTP_TEST_ASM

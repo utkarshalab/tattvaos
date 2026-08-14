@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HFT_OUCH_SOUP_ASM
+%define GUARD_UNET_HFT_OUCH_SOUP_ASM
 ; =============================================================================
 ; Tattva OS — unet/hft/ouch_soup.asm
 ; =============================================================================
@@ -47,8 +49,6 @@ global ouch_soup_send_login
 global ouch_soup_send_heartbeat
 global ouch_soup_send_unsequenced
 
-extern timer_wheel_add
-extern ouch_parse_response
 
 align 64
 ouch_soup_init:
@@ -131,3 +131,5 @@ ouch_soup_send_unsequenced:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HFT_OUCH_SOUP_ASM

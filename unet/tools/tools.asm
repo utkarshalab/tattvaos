@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TOOLS_ASM
+%define GUARD_UNET_TOOLS_TOOLS_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/tools.asm
 ; =============================================================================
@@ -26,6 +28,102 @@
 
 %include "unet/unet.inc"
 %include "unet/tools/tools.inc"
+
+; Every `net <subcommand>` implementation. The dispatcher below calls each
+; X_main directly, so the defining files must be part of this translation
+; unit — referencing them without including them is what left 89 symbols
+; undefined.
+%include "unet/tools/app/fix_fuzzer.asm"
+%include "unet/tools/app/geneve_test.asm"
+%include "unet/tools/app/grpc_curl.asm"
+%include "unet/tools/app/http_client.asm"
+%include "unet/tools/app/imap_test.asm"
+%include "unet/tools/app/multicast.asm"
+%include "unet/tools/app/rtmp_stream.asm"
+%include "unet/tools/app/smtp_test.asm"
+%include "unet/tools/app/snmp_get.asm"
+%include "unet/tools/app/snmp_walk.asm"
+%include "unet/tools/app/ssh_client.asm"
+%include "unet/tools/app/swift_msg.asm"
+%include "unet/tools/app/tfo_test.asm"
+%include "unet/tools/app/vxlan_test.asm"
+%include "unet/tools/app/webrtc_ping.asm"
+%include "unet/tools/app/websocket_cat.asm"
+%include "unet/tools/bench/dpdk_pktgen.asm"
+%include "unet/tools/bench/hft_bench.asm"
+%include "unet/tools/bench/iperf_asm.asm"
+%include "unet/tools/bench/pktgen.asm"
+%include "unet/tools/bench/quic_bench.asm"
+%include "unet/tools/bench/rdma_perftest.asm"
+%include "unet/tools/diag/latency_meter.asm"
+%include "unet/tools/diag/mtr.asm"
+%include "unet/tools/diag/netstat_asm.asm"
+%include "unet/tools/diag/ping.asm"
+%include "unet/tools/diag/ss_tool.asm"
+%include "unet/tools/diag/tcpdump_asm.asm"
+%include "unet/tools/diag/traceroute.asm"
+%include "unet/tools/hpc/bfd_test.asm"
+%include "unet/tools/hpc/cxi_info.asm"
+%include "unet/tools/hpc/ebpf_top.asm"
+%include "unet/tools/hpc/ecn_monitor.asm"
+%include "unet/tools/hpc/ib_diags.asm"
+%include "unet/tools/hpc/pfc_test.asm"
+%include "unet/tools/hpc/ptp_diag.asm"
+%include "unet/tools/hpc/rocev2_info.asm"
+%include "unet/tools/hpc/slingshot_stat.asm"
+%include "unet/tools/hpc/stt_test.asm"
+%include "unet/tools/industrial/afdx_mon.asm"
+%include "unet/tools/industrial/can_dump.asm"
+%include "unet/tools/industrial/cfdp_get.asm"
+%include "unet/tools/industrial/dnp3_control.asm"
+%include "unet/tools/industrial/doip_flash.asm"
+%include "unet/tools/industrial/laser_align.asm"
+%include "unet/tools/industrial/mil1553_mon.asm"
+%include "unet/tools/industrial/modbus_poll.asm"
+%include "unet/tools/iot/coap_client.asm"
+%include "unet/tools/iot/coap_observe.asm"
+%include "unet/tools/iot/lorawan_mon.asm"
+%include "unet/tools/iot/matter_commission.asm"
+%include "unet/tools/iot/mqtt_pub.asm"
+%include "unet/tools/iot/mqtt_sub.asm"
+%include "unet/tools/iot/opcua_client.asm"
+%include "unet/tools/route/arp_tool.asm"
+%include "unet/tools/route/bgp_view.asm"
+%include "unet/tools/route/bridge.asm"
+%include "unet/tools/route/carp_test.asm"
+%include "unet/tools/route/lacp_test.asm"
+%include "unet/tools/route/ndp.asm"
+%include "unet/tools/route/netns_exec.asm"
+%include "unet/tools/route/ospf_view.asm"
+%include "unet/tools/route/route_tool.asm"
+%include "unet/tools/route/sr_v6_top.asm"
+%include "unet/tools/route/subnet_manager.asm"
+%include "unet/tools/route/tc_tool.asm"
+%include "unet/tools/san/iscsi_initiator.asm"
+%include "unet/tools/san/nfs_client.asm"
+%include "unet/tools/san/nvme_diag.asm"
+%include "unet/tools/san/sftp_cli.asm"
+%include "unet/tools/san/smb_ls.asm"
+%include "unet/tools/security/dnssec_check.asm"
+%include "unet/tools/security/ipsec_test.asm"
+%include "unet/tools/security/ipsec_top.asm"
+%include "unet/tools/security/macsec_mon.asm"
+%include "unet/tools/security/pqc_inspect.asm"
+%include "unet/tools/security/qkd_keys.asm"
+%include "unet/tools/security/tls_info.asm"
+%include "unet/tools/security/tor_circuit.asm"
+%include "unet/tools/security/wireguard_test.asm"
+%include "unet/tools/security/ztna_auth.asm"
+%include "unet/tools/telecom/dhcpclient.asm"
+%include "unet/tools/telecom/g709_fec_mon.asm"
+%include "unet/tools/telecom/ipfix_cap.asm"
+%include "unet/tools/telecom/lookup.asm"
+%include "unet/tools/telecom/nat64_ping.asm"
+%include "unet/tools/telecom/ntpdate.asm"
+%include "unet/tools/telecom/radius_test.asm"
+%include "unet/tools/telecom/syslog_tail.asm"
+%include "unet/tools/telecom/tailscale_ping.asm"
+
 
 section .data
 align 8
@@ -503,3 +601,5 @@ strcmp:
 .equal:
     xor eax, eax
     ret
+
+%endif ; GUARD_UNET_TOOLS_TOOLS_ASM

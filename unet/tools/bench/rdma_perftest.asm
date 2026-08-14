@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_BENCH_RDMA_PERFTEST_ASM
+%define GUARD_UNET_TOOLS_BENCH_RDMA_PERFTEST_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/bench/rdma_perftest.asm
 ; =============================================================================
@@ -33,9 +35,6 @@ section .text
 global rdma_perftest_main
 global rdma_perftest_post_wqe
 global rdma_perftest_poll_cq
-
-extern rdtsc_get_cycles
-extern roce_decap_packet
 
 align 64
 rdma_perftest_main:
@@ -73,3 +72,5 @@ rdma_perftest_poll_cq:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_BENCH_RDMA_PERFTEST_ASM

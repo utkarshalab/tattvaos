@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_OPTICAL_COHERENT_ASM
+%define GUARD_UNET_OPTICAL_COHERENT_ASM
 ; =============================================================================
 ; Tattva OS — unet/optical/coherent.asm
 ; =============================================================================
@@ -70,3 +72,5 @@ coherent_soft_decision_fec:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_OPTICAL_COHERENT_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DNS_DNSSEC_ASM
+%define GUARD_UNET_DNS_DNSSEC_ASM
 ; =============================================================================
 ; Tattva OS — unet/dns/dnssec.asm
 ; =============================================================================
@@ -41,10 +43,6 @@ section .text
 global dnssec_init
 global dnssec_verify_rrsig
 global dnssec_validate_chain_of_trust
-
-extern ed25519_verify
-extern ml_dsa_87_verify
-extern sha256_hash
 
 align 64
 dnssec_init:
@@ -99,3 +97,5 @@ dnssec_validate_chain_of_trust:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DNS_DNSSEC_ASM

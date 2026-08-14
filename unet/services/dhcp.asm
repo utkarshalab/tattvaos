@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_DHCP_ASM
+%define GUARD_UNET_SERVICES_DHCP_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/dhcp.asm
 ; =============================================================================
@@ -61,8 +63,6 @@ global dhcp_send_ack
 global dhcp_lease_allocate
 global dhcp_lease_expire
 
-extern timer_wheel_add
-extern timer_wheel_del
 
 align 64
 dhcp_init:
@@ -159,3 +159,5 @@ dhcp_lease_expire:
     call timer_wheel_del
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_DHCP_ASM

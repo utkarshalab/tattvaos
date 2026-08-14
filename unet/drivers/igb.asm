@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_IGB_ASM
+%define GUARD_UNET_DRIVERS_IGB_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/igb.asm
 ; =============================================================================
@@ -39,9 +41,6 @@ global igb_init
 global igb_poll_queue
 global igb_transmit_queue
 global igb_configure_rss
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 igb_init:
@@ -86,3 +85,5 @@ igb_configure_rss:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_IGB_ASM

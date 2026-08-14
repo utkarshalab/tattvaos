@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MAIL_SMTP_ASM
+%define GUARD_UNET_MAIL_SMTP_ASM
 ; =============================================================================
 ; Tattva OS — unet/mail/smtp.asm
 ; =============================================================================
@@ -56,9 +58,6 @@ global smtp_process_mail_from
 global smtp_process_rcpt_to
 global smtp_process_data
 global smtp_process_starttls
-
-extern utls_server_handshake
-extern timer_wheel_add
 
 align 64
 smtp_init:
@@ -205,3 +204,5 @@ smtp_process_starttls:
     call utls_server_handshake
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MAIL_SMTP_ASM

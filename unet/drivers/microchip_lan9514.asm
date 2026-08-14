@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_MICROCHIP_LAN9514_ASM
+%define GUARD_UNET_DRIVERS_MICROCHIP_LAN9514_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/microchip_lan9514.asm
 ; =============================================================================
@@ -32,7 +34,6 @@ global lan9514_poll_bulk_in
 global lan9514_transmit_bulk_out
 global lan9514_write_reg
 
-extern eth_input
 
 align 64
 lan9514_init:
@@ -95,3 +96,5 @@ lan9514_write_reg:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_MICROCHIP_LAN9514_ASM

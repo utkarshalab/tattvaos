@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SAN_NVME_OF_TCP_ASM
+%define GUARD_UNET_SAN_NVME_OF_TCP_ASM
 ; =============================================================================
 ; Tattva OS — unet/san/nvme_of_tcp.asm
 ; =============================================================================
@@ -121,8 +123,10 @@ nvme_tcp_digest_crc32c:
     push rbp
     mov rbp, rsp
     mov eax, 0xFFFFFFFF
-    crc32 eax, qword [rdi]
-    crc32 eax, qword [rdi + 8]
+    crc32 rax, qword [rdi]
+    crc32 rax, qword [rdi + 8]
     not eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SAN_NVME_OF_TCP_ASM

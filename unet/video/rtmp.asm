@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VIDEO_RTMP_ASM
+%define GUARD_UNET_VIDEO_RTMP_ASM
 ; =============================================================================
 ; Tattva OS — unet/video/rtmp.asm
 ; =============================================================================
@@ -104,3 +106,5 @@ rtmp_decode_amf0:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VIDEO_RTMP_ASM

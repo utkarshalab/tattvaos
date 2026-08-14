@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SAN_ISCSI_INITIATOR_ASM
+%define GUARD_UNET_TOOLS_SAN_ISCSI_INITIATOR_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/san/iscsi_initiator.asm
 ; =============================================================================
@@ -45,3 +47,5 @@ iscsi_initiator_login:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SAN_ISCSI_INITIATOR_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_GVE_ASM
+%define GUARD_UNET_DRIVERS_GVE_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/gve.asm
 ; =============================================================================
@@ -30,9 +32,6 @@ global gve_init
 global gve_adminq_send
 global gve_poll_rx
 global gve_transmit
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 gve_init:
@@ -94,3 +93,5 @@ gve_transmit:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_GVE_ASM

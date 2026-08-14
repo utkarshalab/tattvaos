@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HPC_SLINGSHOT_ASM
+%define GUARD_UNET_HPC_SLINGSHOT_ASM
 ; =============================================================================
 ; Tattva OS — unet/hpc/slingshot.asm
 ; =============================================================================
@@ -76,3 +78,5 @@ slingshot_transmit:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HPC_SLINGSHOT_ASM

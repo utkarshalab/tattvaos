@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SECURITY_NITRO_ASM
+%define GUARD_UNET_SECURITY_NITRO_ASM
 ; =============================================================================
 ; Tattva OS — unet/security/nitro.asm
 ; =============================================================================
@@ -34,8 +36,6 @@ global nitro_verify_attestation_doc
 global nitro_nsm_get_attestation
 global nitro_kms_decrypt
 
-extern sha256_hash
-extern ed25519_verify
 
 align 64
 nitro_init:
@@ -87,3 +87,5 @@ nitro_kms_decrypt:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SECURITY_NITRO_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CNI_WEAVE_ASM
+%define GUARD_UNET_CNI_WEAVE_ASM
 ; =============================================================================
 ; Tattva OS — unet/cni/weave.asm
 ; =============================================================================
@@ -31,7 +33,6 @@ global weave_init
 global weave_mesh_encap
 global weave_fastdp_forward
 
-extern chacha20_poly1305_encrypt
 
 align 64
 weave_init:
@@ -66,3 +67,5 @@ weave_fastdp_forward:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CNI_WEAVE_ASM

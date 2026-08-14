@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_APP_FIX_FUZZER_ASM
+%define GUARD_UNET_TOOLS_APP_FIX_FUZZER_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/app/fix_fuzzer.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global fix_fuzzer_main
 
-extern fix_parse_msg_avx512
 
 align 64
 fix_fuzzer_main:
@@ -31,3 +32,5 @@ fix_fuzzer_main:
     call fix_parse_msg_avx512
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_APP_FIX_FUZZER_ASM

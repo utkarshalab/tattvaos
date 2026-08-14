@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VIDEO_HLS_DASH_ASM
+%define GUARD_UNET_VIDEO_HLS_DASH_ASM
 ; =============================================================================
 ; Tattva OS — unet/video/hls_dash.asm
 ; =============================================================================
@@ -64,3 +66,5 @@ fmp4_parse_atom:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VIDEO_HLS_DASH_ASM

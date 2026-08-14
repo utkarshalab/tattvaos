@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_UNET_ASM
+%define GUARD_UNET_UNET_ASM
 ; =============================================================================
 ; Tattva OS — unet/unet.asm
 ; =============================================================================
@@ -347,6 +349,7 @@ unet_shutdown:
 
 ; 36. HTTP Core
 %include "unet/http/http1.asm"
+%include "unet/http/http2.asm"
 
 ; 37. Hardware Network Drivers (26 Network NIC Drivers)
 %include "unet/drivers/intel_e100.asm"
@@ -383,3 +386,5 @@ unet_shutdown:
 
 ; 39. Master Diagnostic & CLI Tool Dispatcher (90 Tools)
 %include "unet/tools/tools.asm"
+
+%endif ; GUARD_UNET_UNET_ASM

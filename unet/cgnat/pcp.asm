@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CGNAT_PCP_ASM
+%define GUARD_UNET_CGNAT_PCP_ASM
 ; =============================================================================
 ; Tattva OS — unet/cgnat/pcp.asm
 ; =============================================================================
@@ -32,7 +34,6 @@ global pcp_init
 global pcp_process_map_request
 global pcp_process_peer_request
 
-extern timer_wheel_add
 
 align 64
 pcp_init:
@@ -72,3 +73,5 @@ pcp_process_peer_request:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CGNAT_PCP_ASM

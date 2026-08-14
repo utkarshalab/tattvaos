@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_MESH_TAILSCALE_ASM
+%define GUARD_UNET_MESH_TAILSCALE_ASM
 ; =============================================================================
 ; Tattva OS — unet/mesh/tailscale.asm
 ; =============================================================================
@@ -40,7 +42,6 @@ global tailscale_process_derp_frame
 global tailscale_send_disco_probe
 global tailscale_upgrade_to_p2p
 
-extern wireguard_process_packet
 
 align 64
 tailscale_init:
@@ -104,3 +105,5 @@ tailscale_upgrade_to_p2p:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_MESH_TAILSCALE_ASM

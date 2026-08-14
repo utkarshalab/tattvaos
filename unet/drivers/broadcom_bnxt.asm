@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_BROADCOM_BNXT_ASM
+%define GUARD_UNET_DRIVERS_BROADCOM_BNXT_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/broadcom_bnxt.asm
 ; =============================================================================
@@ -32,9 +34,6 @@ global bnxt_init
 global bnxt_hwrm_send
 global bnxt_poll_cmpl
 global bnxt_transmit
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 bnxt_init:
@@ -97,3 +96,5 @@ bnxt_transmit:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_BROADCOM_BNXT_ASM

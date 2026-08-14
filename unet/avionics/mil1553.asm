@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AVIONICS_MIL1553_ASM
+%define GUARD_UNET_AVIONICS_MIL1553_ASM
 ; =============================================================================
 ; Tattva OS — unet/avionics/mil1553.asm
 ; =============================================================================
@@ -92,3 +94,5 @@ mil1553_rt_process:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AVIONICS_MIL1553_ASM

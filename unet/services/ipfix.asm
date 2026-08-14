@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SERVICES_IPFIX_ASM
+%define GUARD_UNET_SERVICES_IPFIX_ASM
 ; =============================================================================
 ; Tattva OS — unet/services/ipfix.asm
 ; =============================================================================
@@ -126,3 +128,5 @@ ipfix_export_flow:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SERVICES_IPFIX_ASM

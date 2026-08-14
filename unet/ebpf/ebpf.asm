@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_EBPF_EBPF_ASM
+%define GUARD_UNET_EBPF_EBPF_ASM
 ; =============================================================================
 ; Tattva OS — unet/ebpf/ebpf.asm
 ; =============================================================================
@@ -98,3 +100,5 @@ ebpf_map_update_elem:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_EBPF_EBPF_ASM

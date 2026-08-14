@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SCADA_MODBUS_TCP_ASM
+%define GUARD_UNET_SCADA_MODBUS_TCP_ASM
 ; =============================================================================
 ; Tattva OS — unet/scada/modbus_tcp.asm
 ; =============================================================================
@@ -156,3 +158,5 @@ modbus_send_exception:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SCADA_MODBUS_TCP_ASM

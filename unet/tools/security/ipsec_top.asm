@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_IPSEC_TOP_ASM
+%define GUARD_UNET_TOOLS_SECURITY_IPSEC_TOP_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/ipsec_top.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ ipsec_top_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_IPSEC_TOP_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_SYS_PKTBUF_ASM
+%define GUARD_UNET_CORE_SYS_PKTBUF_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/sys/pktbuf.asm
 ; =============================================================================
@@ -22,7 +24,7 @@
 %define PKTBUF_SIZE                 2048
 %define PKTBUF_HEADROOM             128
 
-struc net_pkt_t
+struc net_pktbuf_t
     .head:              resq 1      ; Buffer Head Pointer
     .data:              resq 1      ; Current Data Pointer
     .tail:              resq 1      ; Current Tail Pointer
@@ -41,8 +43,6 @@ global pktbuf_alloc
 global pktbuf_free
 global pktbuf_copy_avx512
 
-extern dma_alloc_hugepage
-extern rdtsc_get_cycles
 
 align 64
 pktbuf_init:
@@ -56,7 +56,7 @@ pktbuf_init:
 
 ; -----------------------------------------------------------------------------
 ; pktbuf_alloc — Lockless Atomic SPSC Packet Buffer Allocator
-; Output: RAX = Pointer to net_pkt_t (or NULL if Depleted)
+; Output: RAX = Pointer to net_pktbuf_t (or NULL if Depleted)
 ; -----------------------------------------------------------------------------
 align 64
 pktbuf_alloc:
@@ -73,13 +73,13 @@ pktbuf_alloc:
 
 ; -----------------------------------------------------------------------------
 ; pktbuf_free — Atomic Reference Counter Free / Recycle
-; Input: RDI = Pointer to net_pkt_t
+; Input: RDI = Pointer to net_pktbuf_t
 ; -----------------------------------------------------------------------------
 align 64
 pktbuf_free:
     push rbp
     mov rbp, rsp
-    lock dec dword [rdi + net_pkt_t.refcnt]
+    lock dec dword [rdi + net_pktbuf_t.refcnt]
     jnz .done
     ; Recycle buffer back to Hugepage SPSC pool
 .done:
@@ -114,3 +114,5 @@ pktbuf_copy_avx512:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_SYS_PKTBUF_ASM

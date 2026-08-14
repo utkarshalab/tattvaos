@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_VIDEO_RTP_AV1_ASM
+%define GUARD_UNET_VIDEO_RTP_AV1_ASM
 ; =============================================================================
 ; Tattva OS — unet/video/rtp_av1.asm
 ; =============================================================================
@@ -94,3 +96,5 @@ rtp_av1_decode_leb128:
     jnz .leb_loop
     pop rbp
     ret
+
+%endif ; GUARD_UNET_VIDEO_RTP_AV1_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_ANON_TOR_CELL_ASM
+%define GUARD_UNET_ANON_TOR_CELL_ASM
 ; =============================================================================
 ; Tattva OS — unet/anon/tor_cell.asm
 ; =============================================================================
@@ -70,9 +72,6 @@ global tor_inject_chaff_padding
 global tor_sendme_ack_pacing
 global tor_circuit_destroy_wipe
 
-extern ml_kem_1024_decapsulate
-extern aes_ctr_encrypt
-extern sha256_hash
 
 align 64
 tor_cell_init:
@@ -189,3 +188,5 @@ tor_circuit_destroy_wipe:
     pop rbx
     pop rbp
     ret
+
+%endif ; GUARD_UNET_ANON_TOR_CELL_ASM

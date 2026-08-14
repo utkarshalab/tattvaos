@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_MACSEC_MON_ASM
+%define GUARD_UNET_TOOLS_SECURITY_MACSEC_MON_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/macsec_mon.asm
 ; =============================================================================
@@ -21,7 +23,6 @@ section .text
 
 global macsec_mon_main
 
-extern pqc_macsec_unprotect_frame
 
 align 64
 macsec_mon_main:
@@ -32,3 +33,5 @@ macsec_mon_main:
     call pqc_macsec_unprotect_frame
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_MACSEC_MON_ASM

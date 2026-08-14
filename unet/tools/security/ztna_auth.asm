@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_SECURITY_ZTNA_AUTH_ASM
+%define GUARD_UNET_TOOLS_SECURITY_ZTNA_AUTH_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/security/ztna_auth.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ ztna_auth_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_SECURITY_ZTNA_AUTH_ASM

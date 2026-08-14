@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SDN_WIREGUARD_ASM
+%define GUARD_UNET_SDN_WIREGUARD_ASM
 ; =============================================================================
 ; Tattva OS — unet/sdn/wireguard.asm
 ; =============================================================================
@@ -52,8 +54,6 @@ global wireguard_handshake_resp
 global wireguard_encap_data
 global wireguard_decap_data
 
-extern chacha20_poly1305_encrypt
-extern chacha20_poly1305_decrypt
 
 align 64
 wireguard_init:
@@ -121,3 +121,5 @@ wireguard_decap_data:
     call chacha20_poly1305_decrypt
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SDN_WIREGUARD_ASM

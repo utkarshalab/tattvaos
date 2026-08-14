@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_AVIONICS_SPACEFIRE_ASM
+%define GUARD_UNET_AVIONICS_SPACEFIRE_ASM
 ; =============================================================================
 ; Tattva OS — unet/avionics/spacefire.asm
 ; =============================================================================
@@ -73,3 +75,5 @@ spacefire_process_timecode:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_AVIONICS_SPACEFIRE_ASM

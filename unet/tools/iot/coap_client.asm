@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_IOT_COAP_CLIENT_ASM
+%define GUARD_UNET_TOOLS_IOT_COAP_CLIENT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/iot/coap_client.asm
 ; =============================================================================
@@ -63,9 +65,6 @@ global coap_client_format_header
 global coap_client_encode_option
 global coap_client_parse_response
 
-extern pktbuf_alloc
-extern udp_send_pkt
-extern rdtsc_get_cycles
 
 ; -----------------------------------------------------------------------------
 ; coap_client_main — Entry Point: Format & Send CoAP Request
@@ -296,3 +295,5 @@ coap_client_parse_response:
     mov eax, -1
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_IOT_COAP_CLIENT_ASM

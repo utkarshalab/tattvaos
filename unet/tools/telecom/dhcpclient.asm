@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_TELECOM_DHCPCLIENT_ASM
+%define GUARD_UNET_TOOLS_TELECOM_DHCPCLIENT_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/telecom/dhcpclient.asm
 ; =============================================================================
@@ -49,3 +51,5 @@ dhcpclient_discover:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_TELECOM_DHCPCLIENT_ASM

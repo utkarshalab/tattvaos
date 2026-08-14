@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_SCADA_DNP3_ASM
+%define GUARD_UNET_SCADA_DNP3_ASM
 ; =============================================================================
 ; Tattva OS — unet/scada/dnp3.asm
 ; =============================================================================
@@ -100,3 +102,5 @@ dnp3_verify_crc16:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_SCADA_DNP3_ASM

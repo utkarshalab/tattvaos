@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_HTTP_SSE_ASM
+%define GUARD_UNET_HTTP_SSE_ASM
 ; =============================================================================
 ; Tattva OS — unet/http/sse.asm
 ; =============================================================================
@@ -39,8 +41,6 @@ global sse_send_heartbeat
 global sse_close_stream
 global sse_parse_event
 
-extern timer_wheel_add
-extern timer_wheel_del
 
 align 64
 sse_init:
@@ -144,3 +144,5 @@ sse_parse_event:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_HTTP_SSE_ASM

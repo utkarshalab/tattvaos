@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_IXGBE_ASM
+%define GUARD_UNET_DRIVERS_IXGBE_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/ixgbe.asm
 ; =============================================================================
@@ -66,10 +68,6 @@ global ixgbe_transmit_queue
 global ixgbe_configure_fdir
 global ixgbe_sfp_init
 
-extern dma_alloc_hugepage
-extern rdtsc_get_cycles
-extern mdelay
-extern eth_input
 
 align 64
 ixgbe_init:
@@ -137,3 +135,5 @@ ixgbe_sfp_init:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_IXGBE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_QUECTEL_5G_ASM
+%define GUARD_UNET_DRIVERS_QUECTEL_5G_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/quectel_5g.asm
 ; =============================================================================
@@ -29,7 +31,6 @@ global quectel_5g_qmi_send
 global quectel_5g_at_cmd
 global quectel_5g_poll_wwan
 
-extern eth_input
 
 align 64
 quectel_5g_init:
@@ -75,3 +76,5 @@ quectel_5g_poll_wwan:
     call eth_input
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_QUECTEL_5G_ASM

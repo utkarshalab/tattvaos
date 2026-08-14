@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_PROXY_FORWARD_PROXY_ASM
+%define GUARD_UNET_PROXY_FORWARD_PROXY_ASM
 ; =============================================================================
 ; Tattva OS — unet/proxy/forward_proxy.asm
 ; =============================================================================
@@ -81,3 +83,5 @@ forward_proxy_splice_tunnel:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_PROXY_FORWARD_PROXY_ASM

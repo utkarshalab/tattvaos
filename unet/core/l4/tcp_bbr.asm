@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_CORE_L4_TCP_BBR_ASM
+%define GUARD_UNET_CORE_L4_TCP_BBR_ASM
 ; =============================================================================
 ; Tattva OS — unet/core/l4/tcp_bbr.asm
 ; =============================================================================
@@ -36,8 +38,6 @@ section .text
 global bbr_init
 global bbr_update_sample
 global bbr_calculate_pacing
-
-extern rdtsc_get_cycles
 
 align 64
 bbr_init:
@@ -83,3 +83,5 @@ bbr_calculate_pacing:
     mov rax, 1000000000             ; Default 1Gbps Pacing
     pop rbp
     ret
+
+%endif ; GUARD_UNET_CORE_L4_TCP_BBR_ASM

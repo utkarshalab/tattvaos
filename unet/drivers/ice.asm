@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_DRIVERS_ICE_ASM
+%define GUARD_UNET_DRIVERS_ICE_ASM
 ; =============================================================================
 ; Tattva OS — unet/drivers/ice.asm
 ; =============================================================================
@@ -37,9 +39,6 @@ global ice_cq_send
 global ice_poll_rx_avx512
 global ice_transmit
 global ice_load_ddp_package
-
-extern dma_alloc_hugepage
-extern eth_input
 
 align 64
 ice_init:
@@ -111,3 +110,5 @@ ice_load_ddp_package:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_DRIVERS_ICE_ASM

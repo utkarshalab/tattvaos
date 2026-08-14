@@ -1,3 +1,5 @@
+%ifndef GUARD_UNET_TOOLS_ROUTE_BRIDGE_ASM
+%define GUARD_UNET_TOOLS_ROUTE_BRIDGE_ASM
 ; =============================================================================
 ; Tattva OS — unet/tools/route/bridge.asm
 ; =============================================================================
@@ -26,3 +28,5 @@ bridge_main:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_UNET_TOOLS_ROUTE_BRIDGE_ASM
