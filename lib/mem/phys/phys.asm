@@ -42,7 +42,16 @@ phys_init:
 
     ; 2. Extract E820 map address and entry count
     mov rsi, [rdi + 0]              ; rsi = physical pointer to e820 entries (offset 0)
-    mov rdx, [rdi + 8]              ; rdx = e820 entry count (offset 8)
+    mov edx, [rdi + 8]              ; rdx = e820 entry count. Must be a 32-bit
+                                     ; load: BOOT_INFO_E820_COUNT is a dd at
+                                     ; offset 8, and BOOT_INFO_DRIVE (also a
+                                     ; dd) sits immediately after it at offset
+                                     ; 12. A qword read here pulled the boot
+                                     ; drive number in as the high 32 bits,
+                                     ; turning an entry count of 9 into
+                                     ; 0x8000000009 (~550 billion) and the
+                                     ; scan loop below into an effectively
+                                     ; infinite one.
     test rsi, rsi
     jz .error_halt
     test rdx, rdx
@@ -73,7 +82,10 @@ phys_init:
     ; 5. Scan the E820 map to find a free RAM region above 1MB to place the bitmap
     mov rdi, [boot_info_ptr]
     mov rsi, [rdi + 0]              ; rsi = E820 map pointer
-    mov rdx, [rdi + 8]              ; rdx = entry count
+    mov edx, [rdi + 8]              ; rdx = entry count. 32-bit load: see the
+                                     ; comment on the same read in phys_init
+                                     ; above — a qword read here corrupts the
+                                     ; count with the adjacent boot drive byte.
     xor r8, r8                      ; r8 = index loop
 
 .scan_loop:
@@ -95,7 +107,7 @@ phys_init:
 
     ; Check if base is below 1MB (0x100000). If so, shrink or skip.
     cmp r10, 0x100000
-    jae .check_size
+    jae .kernel_excl_check
 
     ; Base is below 1MB. Adjust base and length.
     mov rcx, 0x100000
@@ -104,6 +116,62 @@ phys_init:
     jbe .next_entry                 ; not enough memory left in this region
     add r10, rcx                    ; shift base to 1MB
     sub r11, rcx                    ; shrink length
+
+.kernel_excl_check:
+    ; -------------------------------------------------------------------------
+    ; Exclude the range this kernel image occupies: [KERNEL_LOAD, kernel end).
+    ; BIOS has no idea a kernel is sitting in RAM — E820 marks all of usable
+    ; memory as type 1 regardless — so without this the block below picks
+    ; KERNEL_LOAD itself as bitmap_addr (it's the base of the first usable
+    ; region ≥1MB) and .init_bitmap then fills the bitmap with 0xFF starting
+    ; there, overwriting the running kernel's own code while it executes. That
+    ; is exactly what happened the first time this path ran: it corrupted its
+    ; own `rep stosb` a few thousand bytes in and crashed into a #GP/#UD chain.
+    ;
+    ; Neither kernel_end nor the ULF header's size field are the right bound
+    ; here. kernel_end marks .text's own end (see the ULF header comment in
+    ; kernel/entry.asm); the ULF header's size covers .text+.data+.rodata —
+    ; the bytes actually on disk. Both stop before .bss, which reserves this
+    ; kernel's live global state (phys_state, the kernel stacks, this very
+    ; bitmap's eventual home) without contributing any bytes to the image.
+    ; Using either one here excludes the code and initialized data but not
+    ; .bss, so the scan below picks the first free page *after* the on-disk
+    ; image — which is the start of .bss — as bitmap_addr, and .init_bitmap
+    ; then fills it with 0xFF starting there. The first time this ran with
+    ; the ULF-size bound it landed exactly on kernel_stack_guard and stamped
+    ; over the live, in-use kernel stack a few instructions into running on
+    ; it. kernel_bss_end is a link-time label placed after every include, in
+    ; `.bss`, specifically to be the one boundary that covers all of it.
+    ; -------------------------------------------------------------------------
+    push r14
+    push r15
+    mov r14, 0x100000
+    mov r15, kernel_bss_end
+    add r15, 4095
+    and r15, ~4095                  ; kernel end, page-aligned up
+
+    mov rcx, r10
+    add rcx, r11                    ; rcx = region end
+
+    cmp r10, r15
+    jae .kernel_excl_done           ; region starts at/after the kernel ends
+    cmp rcx, r14
+    jbe .kernel_excl_done           ; region ends at/before the kernel starts
+    cmp r15, rcx
+    jae .kernel_excl_swallow        ; kernel occupies the rest of this region
+    mov r11, rcx
+    sub r11, r15                    ; new length: from kernel end to region end
+    mov r10, r15                    ; new base: kernel end
+    jmp .kernel_excl_done
+
+.kernel_excl_swallow:
+    pop r15
+    pop r14
+    jmp .next_entry
+
+.kernel_excl_done:
+    pop r15
+    pop r14
 
 .check_size:
     ; Check if this adjusted region has enough bytes to hold the bitmap
@@ -139,7 +207,10 @@ phys_init:
     ; 7. Re-scan E820 map and clear bits for usable RAM regions (Subfeature 1.3)
     mov rdi, [boot_info_ptr]
     mov rsi, [rdi + 0]              ; rsi = E820 map pointer
-    mov rdx, [rdi + 8]              ; rdx = entry count
+    mov edx, [rdi + 8]              ; rdx = entry count. 32-bit load: see the
+                                     ; comment on the same read in phys_init
+                                     ; above — a qword read here corrupts the
+                                     ; count with the adjacent boot drive byte.
     xor r8, r8                      ; r8 = index loop
 
 .clear_loop:
@@ -233,10 +304,15 @@ phys_init:
     test eax, eax
     jnz .kaslr_protect
 
-    ; Default/Fallback (No KASLR): protect 1MB to kernel_end
-    mov rax, kernel_end
+    ; Default/Fallback (No KASLR): protect 1MB to the true end of the kernel's
+    ; footprint, .bss included — same rationale as the bitmap-placement scan
+    ; above: neither kernel_end nor the ULF header's on-disk size cover .bss,
+    ; and .bss is exactly where this reservation needs to reach, since it's
+    ; the allocator's OWN state (phys_state, the bitmap this loop is setting
+    ; bits in) that lives there.
+    mov rax, kernel_bss_end
     add rax, 4095
-    shr rax, 12                     ; RAX = kernel_end page index (exclusive)
+    shr rax, 12                     ; RAX = kernel end page index (exclusive)
     mov rbx, 256                    ; RBX = start page index = 256 (1MB)
     jmp .reserve_kernel_loop
 
@@ -245,8 +321,9 @@ phys_init:
     mov rbx, rax                    ; RBX = phys_dest (loaded in RAX/EAX)
     shr rbx, 12                     ; RBX = start page index
 
-    mov rcx, kernel_end
-    sub rcx, 0x100000               ; RCX = kernel size in bytes
+    mov rcx, kernel_bss_end
+    sub rcx, 0x100000                ; RCX = kernel size in bytes, .bss included.
+                                      ; Same rationale as the fallback branch.
     add rcx, 4095
     shr rcx, 12                     ; RCX = kernel size in pages
 
@@ -476,10 +553,20 @@ phys_alloc_pages:
 .set_loop:
     test rcx, rcx
     jz .set_done
-    
+
     mov rdi, rsi
+    ; bitmap_set_bit clobbers RCX as scratch (byte-offset computation); it is
+    ; this loop's counter, not just a caller-saved register with no meaning
+    ; here — every other bitmap_set_bit/bitmap_clear_bit call site in this
+    ; file protects the registers it still needs across the call except this
+    ; one and its .clear_loop counterpart in phys_free_pages, which is how
+    ; this went unnoticed: allocating N pages silently turned into allocating
+    ; and marking reserved some other, RCX-scratch-derived number of pages,
+    ; walking off the end of the bitmap once N was more than a handful.
+    push rcx
     call bitmap_set_bit
-    
+    pop rcx
+
     inc rsi
     dec rcx
     jmp .set_loop
@@ -768,7 +855,11 @@ phys_alloc_pages_node:
     mov rsi, rdx
     add rsi, rcx
     mov rdi, rbx
+    ; bitmap_set_bit_local clobbers RCX the same way bitmap_set_bit does, and
+    ; this loop counts with it.
+    push rcx
     call bitmap_set_bit_local
+    pop rcx
     inc rcx
     jmp .set_bits_loop
 
@@ -866,7 +957,14 @@ phys_free_pages:
     add rsi, rdx                    ; relative page index to clear
 
     mov rdi, rbx
+    ; The loop counter is RDX (untouched by bitmap_clear_bit_local), but RCX
+    ; here holds the relative start index computed once above the loop and is
+    ; read again on every iteration — bitmap_clear_bit_local clobbers RCX as
+    ; scratch, which would silently redirect every clear after the first one
+    ; at the wrong bit.
+    push rcx
     call bitmap_clear_bit_local
+    pop rcx
 
     inc rdx
     jmp .clear_bits_loop
@@ -895,10 +993,14 @@ phys_free_pages:
 .clear_loop:
     test rcx, rcx
     jz .clear_done
-    
+
     mov rdi, rsi
+    ; See the matching comment on phys_alloc_pages' .set_loop: bitmap_clear_bit
+    ; clobbers RCX and this loop counts with it.
+    push rcx
     call bitmap_clear_bit
-    
+    pop rcx
+
     inc rsi
     dec rcx
     jmp .clear_loop

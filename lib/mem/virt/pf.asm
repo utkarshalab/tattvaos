@@ -256,7 +256,16 @@ virt_page_fault_handler:
     call uart_print_str
 
     mov rdi, msg_uaf_reason
-    mov rsi, [rsp + 160]            ; RIP of crash
+    ; R15 already holds the pointer to the return RIP on the exception stack
+    ; (set once at function entry: "mov r15, rcx"), same as every other panic
+    ; path in this file. This one and .kernel_stack_overflow's used a
+    ; hardcoded [rsp + 160] instead, which doesn't track this function's own
+    ; stack usage — any push/pop added between entry and here shifts what
+    ; that offset actually points at. It happened to land on the saved R12
+    ; (the faulting virtual address) rather than a return RIP, so a stack
+    ; overflow panic printed the fault address twice under two different
+    ; labels instead of showing where the overflow actually happened.
+    mov rsi, [r15]                  ; RIP of crash
     call kernel_panic
     cli
 .halt_uaf:
@@ -691,7 +700,16 @@ virt_page_fault_handler:
     
     ; Call kernel_panic with reason string and RIP of crash
     mov rdi, msg_stack_overflow_reason
-    mov rsi, [rsp + 160]            ; RIP of crash
+    ; R15 already holds the pointer to the return RIP on the exception stack
+    ; (set once at function entry: "mov r15, rcx"), same as every other panic
+    ; path in this file. This one and .kernel_stack_overflow's used a
+    ; hardcoded [rsp + 160] instead, which doesn't track this function's own
+    ; stack usage — any push/pop added between entry and here shifts what
+    ; that offset actually points at. It happened to land on the saved R12
+    ; (the faulting virtual address) rather than a return RIP, so a stack
+    ; overflow panic printed the fault address twice under two different
+    ; labels instead of showing where the overflow actually happened.
+    mov rsi, [r15]                  ; RIP of crash
     call kernel_panic
     cli
 .halt_overflow:

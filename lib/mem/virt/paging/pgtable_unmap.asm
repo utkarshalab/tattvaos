@@ -186,9 +186,20 @@ virt_unmap:
     mov qword [rbp], 0
     invlpg [r12]
 
+    ; uaf_quarantine_add clobbers RAX unconditionally (its first instruction
+    ; is `mov rax, rdi`), but the comment below still expects RAX to hold the
+    ; PT base physical address set two dozen lines up in .pd_not_huge. With
+    ; RDI = R12 (the address just unmapped) here, RAX comes back equal to R12
+    ; itself — the very address whose only mapping was just removed — so
+    ; .check_table_empty then reads through it as if it were the PT base and
+    ; faults on the first (unmapped) qword it touches. Page-aligned R12 and a
+    ; page-aligned PT base are indistinguishable by type, which is how this
+    ; stayed hidden: nothing about the value looked wrong, it was just the
+    ; wrong page.
+    push rax
     mov rdi, r12
     call uaf_quarantine_add
-
+    pop rax
 
     ; =========================================================================
     ; Step 2: Check if the PT is now fully empty → reclaim it

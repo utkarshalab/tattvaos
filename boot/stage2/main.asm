@@ -131,189 +131,28 @@ stage2_main:
     call uart_println
 
     ; -------------------------------------------------------------------------
-    ; STEP 3.5: Load kernel from disk
+    ; STEP 3.5: Stream the kernel from disk to the 1MB mark
+    ;
+    ; fs_load_kernel (GPT/FAT32) is deliberately not tried first any more. It
+    ; targets the KERNEL_TEMP bounce buffer, which is 32KB and cannot hold a
+    ; 9.3MB image; it needs the same chunked unreal-mode transfer that
+    ; kernel_stream_load performs before it can return to this path.
     ; -------------------------------------------------------------------------
-    ; First, try loading dynamically from GPT/FAT32 filesystem
-    call fs_load_kernel
-    test ax, ax
-    jnz .kernel_success             ; if loaded successfully, go to success directly!
-
-    ; Fallback: Option A (raw sectors)
-    mov si, msg_fallback
-    call uart_print
-
     mov si, msg_kernel
     call uart_print
 
-    ; Track current starting LBA in BP for diagnostics
-    mov bp, KERNEL_LBA
+    call kernel_stream_load
+    test ax, ax
+    jz .kernel_failed
 
-    ; Try LBA first if supported (standard for hard drives like drive 0x80)
-    mov ah, 0x41
-    mov bx, 0x55AA
-    mov dl, [boot_drive]
-    int 0x13
-    jc .fallback_chs                ; carry set = LBA not supported
-    cmp bx, 0xAA55
-    jne .fallback_chs               ; magic not flipped = LBA not supported
-
-    ; Setup LBA retry loop
-    mov cx, DISK_RETRY              ; CX = retry count (3)
-
-.lba_retry:
-    ; LBA is supported! Use extended LBA read to load the entire kernel at once.
-    push cx                         ; preserve retry count
-    mov si, lba_packet
-    mov ah, 0x42
-    mov dl, [boot_drive]
-    int 0x13
-    pop cx                          ; restore retry count
-    jnc .kernel_success             ; if LBA read succeeded, we are done!
-
-    ; Read failed, reset disk system (AH=0) and retry
-    push ax
-    push cx
-    xor ax, ax
-    mov dl, [boot_drive]
-    int 0x13
-    pop cx
-    pop ax
-
-    dec cx
-    jnz .lba_retry                  ; retry if we still have retries left
-
-    ; If LBA retries all failed, fallback to CHS mode
-    jmp .fallback_chs
-
-.fallback_chs:
-    ; Fallback: robust floppy sector-by-sector CHS reader
-    mov ax, (KERNEL_TEMP >> 4)      ; segment for KERNEL_TEMP (0x2000)
-    mov es, ax
-    xor bx, bx                      ; ES:BX = KERNEL_TEMP segment:0x0000
-
-    mov bp, KERNEL_LBA                      ; BP = current LBA (starts at KERNEL_LBA, next after stage2)
-    mov di, KERNEL_SECTORS          ; DI = sectors left to read
-
-.read_loop:
-    ; Convert LBA (in BP) to CHS using dynamic geometry variables
-    mov ax, bp
-    xor dx, dx
-    mov cx, [sectors_per_track]
-    div cx                          ; AX = LBA / sectors_per_track, DX = LBA % sectors_per_track
-    
-    inc dx                          ; DX = Sector (1-indexed)
-    mov cl, dl                      ; CL = Sector
-    
-    xor dx, dx
-    mov cx, [number_of_heads]
-    div cx                          ; AX = Cylinder, DX = Head
-    
-    mov ch, al                      ; CH = Cylinder (low 8 bits)
-    shl ah, 6
-    or cl, ah                       ; CL bits 6-7 = cylinder bits 8-9
-    
-    mov dh, dl                      ; DH = Head
-    mov dl, [boot_drive]            ; DL = boot drive
-    
-    ; Setup retry loop
-    mov si, DISK_RETRY              ; SI = retry count (3)
-
-.retry:
-    mov ax, 0x0201                  ; AH = 0x02 (read), AL = 0x01 (1 sector)
-    int 0x13
-    jnc .read_ok                    ; if carry clear, read was successful
-
-    ; read failed, reset disk system (AH=0) and retry
-    push ax
-    xor ax, ax
-    int 0x13
-    pop ax
-    
-    dec si
-    jnz .retry                      ; retry if we still have retries left
-    
-    ; If we ran out of retries, it's a hard failure
-    jmp .read_failed
-
-.read_ok:
-    ; Successfully read 1 sector!
-    add bx, 512                     ; advance buffer offset
-    inc bp                          ; advance LBA
-    dec di                          ; decrement sectors left
-    jnz .read_loop                  ; continue if DI > 0
-
-.kernel_success:
-    ; All sectors read successfully!
-    xor ax, ax
-    mov es, ax                      ; restore ES to 0x0000
-    
     mov si, msg_ok
     call uart_println
     jmp .kernel_done
 
-.read_failed:
-    ; AH contains the BIOS error code. Save it in DL
-    xor dx, dx
-    mov dl, ah
-    
-    xor ax, ax
-    mov es, ax                      ; restore ES to 0x0000
-    
-    mov si, msg_fail
-    call uart_print
-    
-    ; Print " (Error: 0xXX"
-    mov si, msg_err_prefix
-    call uart_print
-    
-    mov al, dl                      ; AL = error code
-    call uart_print_hex8
-    
-    mov si, msg_err_dash
-    call uart_print                 ; Print " - "
-
-    ; Look up description for error code in DL
-    mov si, bios_error_table
-.lookup_loop:
-    mov al, [si]
-    test al, al                     ; end of table?
-    jz .lookup_unknown
-    cmp al, dl                      ; match?
-    je .lookup_found
-    add si, 3                       ; next entry (1 byte code + 2 bytes pointer)
-    jmp .lookup_loop
-
-.lookup_found:
-    mov si, [si+1]                  ; SI = pointer to string
-    jmp .lookup_print
-
-.lookup_unknown:
-    mov si, err_str_unknown
-
-.lookup_print:
-    call uart_print
-    
-    mov si, msg_err_suffix
-    call uart_print                 ; Print ")" without newline
-    
-    ; Print " Sector: XX"
-    mov si, msg_err_sector
-    call uart_print
-    
-    xor eax, eax
-    mov ax, bp                      ; AX = failing LBA sector
-    call uart_print_dec
-    
-    ; print CRLF
-    mov al, 0x0D
-    call uart_putc
-    mov al, 0x0A
-    call uart_putc
-    
-    ; Print Help message
+.kernel_failed:
+    call ks_report_error
     mov si, msg_help
     call uart_println
-    
     mov si, msg_kernel_halt
     call uart_println
     jmp .halt
@@ -355,12 +194,7 @@ msg_ok:         db "OK", 0
 msg_fail:       db "FAIL", 0
 msg_ram:        db "RAM: ", 0
 msg_kernel:     db "Kernel... ", 0
-msg_fallback:   db "WARN: FAT32 load failed, falling back to Option A...", 13, 10, 0
-msg_err_prefix: db " (Error: ", 0
-msg_err_suffix: db ")", 0
-msg_err_dash:   db " - ", 0
-msg_err_sector: db " Sector: ", 0
-msg_help:       db "Help: Is kernel.ulf on disk?", 0
+msg_help:       db "Help: is the ULF image written at LBA 65?", 0
 msg_a20_halt:   db "HALT: A20 enable failed on all methods", 0
 msg_cpu_halt:   db "HALT: CPU does not support long mode", 0
 msg_kernel_halt:db "HALT: Kernel load failed", 0
@@ -368,15 +202,6 @@ msg_geom_prefix: db "Disk: ", 0
 msg_geom_heads:  db " Heads, ", 0
 msg_geom_spt:    db " Sectors/Track", 0
 
-; LBA disk address packet for INT 13h AH=42h
-align 4
-lba_packet:
-    db 0x10                         ; packet size = 16 bytes
-    db 0x00                         ; reserved = 0
-    dw KERNEL_SECTORS               ; number of sectors to read
-    dw 0x0000                       ; buffer offset (0x0000)
-    dw (KERNEL_TEMP >> 4)           ; buffer segment (0x2000)
-    dq KERNEL_LBA                           ; starting LBA sector = KERNEL_LBA (after MBR + stage2)
 
 ; CPU feature flags (stored at FEATURES_DEST by cpu_detect)
 CPU_FEAT_LM     equ (1 << 0)       ; long mode supported

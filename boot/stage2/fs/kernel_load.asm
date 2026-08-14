@@ -1,9 +1,19 @@
 ; =============================================================================
 ; Tattva OS — boot/stage2/fs/kernel_load.asm
 ; =============================================================================
-; Raw sector kernel loader (Option A).
-; Copies the kernel loaded into temporary real-mode buffer (0x20000)
-; to its active, final destination at KERNEL_LOAD (0x100000 / 1MB).
+; Relocates an already-loaded ULF image to a different physical address.
+;
+; This used to be the loader: it copied a fixed 64KB from the KERNEL_TEMP
+; bounce buffer up to 1MB, which was the whole kernel back when the kernel was
+; a stub. It is no longer on the boot path — kernel_stream.asm reads the image
+; straight to KERNEL_LOAD in real mode through a flat ES window, because a
+; 9.3MB image neither fits in the bounce buffer nor can be described by a
+; compile-time sector count.
+;
+; What remains is the relocation step KASLR needs: move the image that is
+; already sitting at KERNEL_LOAD somewhere else. The length comes from the ULF
+; header rather than a constant, so it tracks the image instead of rotting
+; against it.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64, long mode (64-bit)
@@ -15,8 +25,8 @@
 [BITS 64]
 
 ; =============================================================================
-; kernel_load — copy kernel from real mode temporary space to final 1MB address
-; Input:  none
+; kernel_load — copy the ULF image from KERNEL_LOAD to a new physical address
+; Input:  RDI = destination physical address (0 means KERNEL_LOAD, a no-op)
 ; Output: none
 ; Clobbers: none (preserves all)
 ; =============================================================================
@@ -24,21 +34,46 @@ kernel_load:
     push rsi
     push rdi
     push rcx
-    cld                             ; Clear direction flag for rep movsq
+    push rax
+    cld                             ; forward copy for rep movsq
 
-    ; Source: KERNEL_TEMP loaded by BIOS int 0x13 in real mode
-    mov rsi, KERNEL_TEMP            ; source: 0x20000 (KERNEL_TEMP)
-    
-    ; If RDI is non-zero, use it as the destination address; otherwise fallback to KERNEL_LOAD
+    mov rsi, KERNEL_LOAD            ; source: where the streaming loader put it
+
     test rdi, rdi
-    jnz .use_dest
-    mov rdi, KERNEL_LOAD            ; fallback: 0x100000 (1MB)
-.use_dest:
-    
-    ; Copy 64KB (sufficient for early unikernel binaries)
-    mov rcx, 65536 / 8              ; number of quadwords (8192 qwords = 64KB)
-    rep movsq                       ; copy 64-bit quadwords from [RSI] to [RDI]
+    jnz .have_dest
+    mov rdi, KERNEL_LOAD
+.have_dest:
+    cmp rdi, rsi
+    je .done                        ; relocating onto itself
 
+    ; Length from the ULF header (+4), rounded up to a whole quadword. The
+    ; caller has already checked the magic, so the field is trustworthy here.
+    xor rcx, rcx
+    mov ecx, [rsi + 4]
+    add rcx, 7
+    shr rcx, 3                      ; quadwords to move
+    jz .done
+
+    ; Copy backwards when the regions overlap forwards, so a relocation to a
+    ; slightly higher address does not overwrite source it has not read yet.
+    mov rax, rdi
+    sub rax, rsi
+    cmp rax, 0
+    jle .forward                    ; dest below source: forward is safe
+
+.backward:
+    std
+    lea rsi, [rsi + rcx * 8 - 8]
+    lea rdi, [rdi + rcx * 8 - 8]
+    rep movsq
+    cld
+    jmp .done
+
+.forward:
+    rep movsq
+
+.done:
+    pop rax
     pop rcx
     pop rdi
     pop rsi

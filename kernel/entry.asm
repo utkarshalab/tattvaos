@@ -118,4 +118,31 @@ kernel_text_end:
 align 8
 kernel_end:
 
+; -----------------------------------------------------------------------------
+; kernel_bss_end — true top of the kernel's memory footprint, .bss included.
+;
+; kernel_end (above) and the ULF header's size field both stop at the end of
+; .text+.data+.rodata — the bytes actually written to the image on disk. That
+; is correct for what they're for: it's exactly what a loader needs to copy.
+; It is NOT correct for "how much RAM does the kernel occupy", because .bss —
+; every global the kernel initializes to zero, including phys_state, the
+; kernel stacks (kernel_stack_guard among them), smp_active_cores, all of
+; it — reserves address space without contributing any bytes to the file, and
+; so is invisible to both of those.
+;
+; lib/mem/phys/phys.asm's bitmap-placement scan used to exclude only
+; [KERNEL_LOAD, kernel_true_end) — the on-disk extent — from where it would
+; place its own allocation bitmap. The first free page past that boundary is
+; the start of .bss, so the fix landed the bitmap on top of kernel_stack_guard
+; and then filled it with 0xFF, stamping over the live, in-use kernel stack a
+; few instructions into running on it. This label is `.bss`'s own, so being
+; the last thing in the last include (kernel/unimplemented.asm, directly
+; above) makes it — by the same section-grouping flat binaries do for .text —
+; the highest address any of the kernel's zero-initialized state reaches.
+; -----------------------------------------------------------------------------
+    section .bss
+    global kernel_bss_end
+align 8
+kernel_bss_end:
+
 %endif ; KERNEL_ENTRY_ASM

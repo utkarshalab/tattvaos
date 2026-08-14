@@ -54,9 +54,12 @@ tpm_measure_all:
     call tpm_extend_pcr
 
     ; 3. Measure Kernel (PCR 4)
-    ; Kernel resides in memory at KERNEL_LOAD (0x100000), size is KERNEL_SECTORS * 512
+    ; Length comes from the ULF header at KERNEL_LOAD+4, not from a constant.
+    ; The old KERNEL_SECTORS * 512 measured a 32KB prefix of a 9.3MB image, so
+    ; PCR 4 would have matched across almost any change to the kernel.
     mov rsi, KERNEL_LOAD             ; Kernel Load address
-    mov rcx, KERNEL_SECTORS * 512    ; Use config constant
+    xor rcx, rcx
+    mov ecx, [rsi + 4]               ; ULF header: image length in bytes
     lea rdi, [rel tpm_digest_buf]
     call sha256_hash
 

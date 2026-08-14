@@ -182,6 +182,30 @@ longmode_64:
     add edx, 512                    ; EDX = page index (512 to 4095)
     shl rdx, 12                     ; RDX = page_index * 4096 (phys_dest)
 
+    ; -------------------------------------------------------------------------
+    ; The remap below this point only retargets PT0 entries 256-511 — 256 x
+    ; 4KB pages, i.e. virtual 0x100000-0x200000, a single megabyte. Everything
+    ; past that is covered by the identity-mapped 2MB huge pages in PD0-PD3,
+    ; which this code never touches. A kernel bigger than that 1MB window
+    ; would have most of its relocated bytes sitting at a physical address
+    ; nothing points the CPU at — the copy would succeed and the boot would
+    ; still be reading stale (or garbage) memory through the old identity
+    ; mapping, caught here only because the ULF checksum then disagrees.
+    ;
+    ; Proper support needs 2MB-granular relocation through PD0 with the low
+    ; 1MB's identity mapping kept separate from the kernel's, since KERNEL_LOAD
+    ; (1MB) shares a 2MB huge page with reserved low memory. That is real
+    ; paging work, not a one-line fix, so until it exists this skips
+    ; relocation instead of producing a boot that sometimes decodes to
+    ; whatever the destination page happened to hold.
+    ; -------------------------------------------------------------------------
+    mov eax, [KERNEL_LOAD]
+    cmp eax, 0x00464C55              ; "ULF\0" — checked again properly below;
+    jne .no_kaslr                    ; this guard only needs to not misread size
+    mov eax, [KERNEL_LOAD + 4]       ; ULF header: image length in bytes
+    cmp eax, 256 * 4096              ; 1MB: what the PT0 remap below can cover
+    ja .no_kaslr
+
     ; Store physical kernel address in BootInfo (BOOT_INFO_ADDR + 20)
     mov [BOOT_INFO_ADDR + 20], edx
 
@@ -192,7 +216,12 @@ longmode_64:
     call uart_print_hex64
     mov rsi, msg_crlf
     call uart_print_64
+    jmp .kaslr_done
 
+.no_kaslr:
+    mov dword [BOOT_INFO_ADDR + 20], 0
+
+.kaslr_done:
     pop rdx
     pop rcx
     pop rbx
@@ -236,12 +265,34 @@ longmode_64:
     mov rsi, msg_kernel_load
     call uart_print_64
 
-    mov rdi, [BOOT_INFO_ADDR + 20]  ; load randomized physical address
-    call kernel_load                ; copy kernel from KERNEL_TEMP → phys_dest
+    ; -------------------------------------------------------------------------
+    ; KASLR relocation, skipped when no randomized address was chosen.
+    ;
+    ; BOOT_INFO_KASLR_PHYS is a dword and the qword immediately after it holds
+    ; the ACPI RSDP pointer, so this has to be a 32-bit load. Reading eight
+    ; bytes pulled the RSDP's low half into the high half of the address and
+    ; turned a field nothing had set into a plausible-looking nonzero
+    ; destination — which then got used both as a memcpy target and as the
+    ; physical base for virtual 1MB-2MB.
+    ;
+    ; Nothing sets the field yet, so the branch below is the live path:
+    ; kernel_stream_load already placed the image at KERNEL_LOAD while still in
+    ; real mode, and there is nothing left to copy or remap.
+    ; -------------------------------------------------------------------------
+    xor edi, edi
+    mov edi, [BOOT_INFO_ADDR + 20]  ; 32-bit load, zero-extended into RDI
+    test rdi, rdi
+    jz .kernel_in_place
 
-    ; Update page table mapping: virtual 1MB to 2MB maps to phys_dest
+    push rdi
+    call kernel_load                ; relocate KERNEL_LOAD → phys_dest
+    pop rbx                         ; RBX = phys_dest
+
+    ; Repoint virtual 1MB-2MB at the new physical home. Only the first
+    ; megabyte: PT0 is the sole 4KB-granular table, and everything above 2MB
+    ; is covered by the identity huge pages, so a randomized base would have to
+    ; stay 2MB-aligned for the rest of the image to follow.
     mov rdi, PAGING_PT0 + 256 * 8   ; pointer to entry 256 of PT0
-    mov rbx, [BOOT_INFO_ADDR + 20]  ; load phys_dest
     mov rcx, 256                    ; 256 entries (1MB)
 
 .update_kaslr_page_table:
@@ -258,6 +309,8 @@ longmode_64:
     ; Flush TLB by reloading CR3
     mov rax, cr3
     mov cr3, rax
+
+.kernel_in_place:
 
     ; Copy initrd to 32MB if loaded
     xor rax, rax

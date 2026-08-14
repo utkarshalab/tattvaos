@@ -137,6 +137,7 @@ stage2_entry:
 %include "simd_enable.asm"
 %include "fs.asm"
 %include "fs16.asm"
+%include "kernel_stream.asm"
 %include "hw/acpi.asm"
 %include "hw/disk.asm"
 %include "hw/disk_errors.asm"

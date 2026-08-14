@@ -78,7 +78,17 @@ kernel_stack_guard:
     resb 4096                       ; 4KB stack guard page
 alignb 4096
 kernel_stack_bottom:
-    resb 16384                      ; 16KB stack allocation
+    ; 64KB, not the 16KB this started as. The BSP runs the entire boot-time
+    ; init chain on this one stack before any fiber/thread stack exists —
+    ; phys_init, every virt_mark_*/virt_unmap call, heap_init, NUMA, ACPI
+    ; hotplug, scheduler affinity, kmem_cache_init_all, smp_stacks_init — all
+    ; nested, none of it tail-called. 16KB was enough to reach the guard-page
+    ; unmap near the end of mm_init and not one call further: the very next
+    ; nested call after `virt_unmap(kernel_stack_guard)` armed the trap it had
+    ; just placed and walked straight into it. This isn't a runaway/recursive
+    ; bug to chase — it's the genuine depth of a single-stack sequential boot,
+    ; and it will only grow as more subsystems gain init-time work.
+    resb 65536                      ; 64KB stack allocation
 kernel_stack_top:
 
 

@@ -430,7 +430,11 @@ numa_init_local_bitmaps:
     add rsi, rcx                    ; relative page index parameter
 
     mov rdi, r12
+    ; bitmap_set_bit_local clobbers RCX and this loop counts with it — see
+    ; lib/mem/phys/phys.asm's phys_alloc_pages_node for the same defect.
+    push rcx
     call bitmap_set_bit_local
+    pop rcx
 
     inc rcx
     jmp .reserve_local_bitmap_pages

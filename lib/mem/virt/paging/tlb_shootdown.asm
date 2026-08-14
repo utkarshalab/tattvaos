@@ -71,10 +71,18 @@ tlb_shootdown:
     mfence
 
     ; 3. Calculate expected ACKs = active_cores - 1 (BSP doesn't ACK itself)
+    ; Checked *before* decrementing, not after: smp_active_cores is supposed
+    ; to always hold at least 1 (kernel_init defaults it there), but this is
+    ; the one place in the tree where getting that wrong is unrecoverable —
+    ; a stray 0 here used to become 0xFFFFFFFF after the decrement and the
+    ; wait loop below would then spin forever for ACKs from cores that were
+    ; never sent an IPI (there is no dest-known-bad path to fall back to, the
+    ; way an allocator falls back to OOM). smp_stacks_init guards the same
+    ; value the same way for the same reason.
     mov r12d, [smp_active_cores]
+    cmp r12d, 1
+    jbe .local_only                 ; 0 or 1 active cores: nothing to wait for
     dec r12d                        ; R12 = expected ACK count
-    test r12d, r12d
-    jz .local_only                  ; single core, just do local flush
 
     ; 4. Send fixed-vector IPI to all-excluding-self
     ;    ICR format:

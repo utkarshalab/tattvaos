@@ -72,15 +72,16 @@ real_mode_entry:
     mov si, msg_reloading
     call uart_println
 
-    ; Try loading kernel via FAT32 filesystem
-    call fs_load_kernel
+    ; Reload the image straight to 1MB. This uses the same streaming loader the
+    ; normal boot path does, so recovery reloads the whole kernel rather than a
+    ; 32KB prefix — the old raw fallback here read KERNEL_SECTORS into the
+    ; bounce buffer and left the rest of a 9.3MB image unwritten.
+    call kernel_stream_load
     test ax, ax
     jnz .load_success
 
-    ; Fallback to raw sector loader if filesystem load failed
-    mov si, msg_recover_fallback
+    mov si, msg_recover_failed
     call uart_println
-    call load_kernel_raw
 
 .load_success:
     cli                             ; disable interrupts before switching modes
@@ -131,8 +132,8 @@ longmode_recovery:
     ; Setup temporary safe stack
     mov rsp, 0x9C000                ; STACK_LONG
 
-    ; Copy reloaded kernel from KERNEL_TEMP (0x20000) to KERNEL_LOAD (0x100000)
-    call kernel_load
+    ; No copy step: kernel_stream_load wrote the image directly to KERNEL_LOAD
+    ; through the flat-ES window while still in real mode.
 
     ; Restore CR3 (pristine PML4 address)
     mov rax, [SURVIVE_PAGE + 0x90]
@@ -187,127 +188,14 @@ longmode_recovery:
     jmp [SURVIVE_PAGE + 0xD8]
 
 [BITS 16]
-; =============================================================================
-; load_kernel_raw — 16-bit real-mode raw sector disk loader
-; =============================================================================
-load_kernel_raw:
-    pusha
-    push es
-
-    ; Destination segment
-    mov ax, (KERNEL_TEMP >> 4)
-    mov es, ax
-    xor bx, bx                      ; ES:BX = 0x2000:0x0000
-
-    ; Check if LBA is supported on the boot drive
-    mov ah, 0x41
-    mov bx, 0x55AA
-    mov dl, [boot_drive]
-    int 0x13
-    jc .chs_fallback
-    cmp bx, 0xAA55
-    jne .chs_fallback
-
-    ; LBA is supported, attempt LBA read
-    mov cx, 3                       ; retry count
-.lba_retry:
-    push cx
-    mov si, recover_lba_packet
-    mov ah, 0x42
-    mov dl, [boot_drive]
-    int 0x13
-    pop cx
-    jnc .done
-    
-    ; Reset disk
-    xor ax, ax
-    mov dl, [boot_drive]
-    int 0x13
-    dec cx
-    jnz .lba_retry
-    jmp .chs_fallback
-
-.chs_fallback:
-    ; Read sector-by-sector CHS
-    mov bp, KERNEL_LBA                      ; BP = current LBA (starts at KERNEL_LBA)
-    mov di, KERNEL_SECTORS          ; DI = sectors count (64)
-.read_loop:
-    ; Convert BP (LBA) to CHS using dynamic variables
-    mov ax, bp
-    xor dx, dx
-    mov cx, [sectors_per_track]
-    test cx, cx
-    jz .failed
-    div cx                          ; AX = LBA / sectors_per_track, DX = LBA % sectors_per_track
-    inc dx                          ; DX = Sector
-    mov cl, dl
-    
-    xor dx, dx
-    mov cx, [number_of_heads]
-    test cx, cx
-    jz .failed
-    div cx                          ; AX = Cylinder, DX = Head
-    
-    mov ch, al                      ; low 8 bits of cylinder
-    shl ah, 6
-    or cl, ah                       ; cylinder bits 8-9
-    
-    mov dh, dl                      ; DH = Head
-    mov dl, [boot_drive]            ; DL = boot drive
-
-    mov si, 3                       ; retry count
-.retry:
-    mov ax, 0x0201                  ; Read 1 sector
-    int 0x13
-    jnc .read_ok
-
-    ; Reset disk
-    push ax
-    xor ax, ax
-    int 0x13
-    pop ax
-    dec si
-    jnz .retry
-    jmp .failed
-
-.read_ok:
-    add bx, 512
-    inc bp
-    dec di
-    jnz .read_loop
-    jmp .done
-
-.failed:
-    ; Fatal error reloading kernel. Reboot.
-    mov si, msg_recover_failed
-    call uart_println
-    mov al, 0xFE
-    out 0x64, al
-    cli
-    hlt
-
-.done:
-    pop es
-    popa
-    ret
 
 align 2
 real_idt_descriptor:
     dw 0x3FF                        ; limit (1024 bytes)
     dd 0x00000000                   ; base address (0x00000000)
 
-align 4
-recover_lba_packet:
-    db 0x10                         ; packet size = 16 bytes
-    db 0x00                         ; reserved = 0
-    dw KERNEL_SECTORS               ; number of sectors
-    dw 0x0000                       ; offset
-    dw (KERNEL_TEMP >> 4)           ; segment (0x2000)
-    dq KERNEL_LBA                           ; starting LBA
-
 ; 16-bit strings
 msg_reloading:          db "Recovery: reloading kernel...", 0
-msg_recover_fallback:   db "Recovery: FAT32 load failed, falling back to raw sectors...", 0
 msg_recover_failed:     db "Recovery: FAILED to reload kernel! Rebooting...", 0
 
 %endif ; SURVIVE_RECOVER_ASM

@@ -18,10 +18,19 @@ STAGE1_LOAD     equ 0x7C00      ; BIOS loads MBR here
 STAGE1_RELOC    equ 0x0600      ; MBR relocates self here
 STAGE2_LOAD     equ 0x8000      ; stage2 loads here
 KERNEL_LOAD     equ 0x100000    ; kernel loads at 1MB mark
-KERNEL_TEMP     equ 0x20000     ; temporary real-mode buffer for BIOS load
+KERNEL_TEMP     equ 0x20000     ; 32KB bounce buffer for INT 13h reads. BIOS
+                                ; disk services cannot write above 1MB, so each
+                                ; chunk lands here and stage2 copies it up
+                                ; through a flat ES descriptor. See
+                                ; stage2/fs/kernel_stream.asm.
 KERNEL_LBA      equ 65          ; starting LBA sector for the kernel
-KERNEL_SECTOR   equ (KERNEL_LBA + 1) ; CHS sector (1-indexed) where kernel starts on disk (LBA 65 -> CHS 66)
-KERNEL_SECTORS  equ 64          ; number of sectors to read (64 × 512 = 32KB)
+                                ; (LBA 0 = stage1, LBA 1..64 = stage2)
+
+; There is deliberately no KERNEL_SECTORS. The image length lives in the ULF
+; header on disk and the loader reads the first sector to find it, so growing
+; the kernel needs no change here. The constant that used to sit here said 64
+; sectors while the image was 19099, and both the raw loader and the TPM
+; measurement quietly truncated to it.
 STACK_REAL      equ 0x7C00      ; real mode stack top (grows down)
 STACK_PROT      equ 0x9C000     ; protected mode stack top
 STACK_LONG      equ 0x9C000     ; long mode stack top

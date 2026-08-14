@@ -125,10 +125,15 @@ mm_init:
     call phys_init
     call virt_shuffle_pml4_init
 
-    ; 1. Mark kernel code/data as global (1MB to kernel_end)
+    ; 1. Mark kernel code/data as global (1MB to the true end of the kernel's
+    ; footprint, .bss included). Neither kernel_end (end of .text) nor the
+    ; ULF header's size field (end of the on-disk image) reach .bss — see the
+    ; kernel_bss_end comment in kernel/entry.asm — and .bss is exactly where
+    ; this kernel's own runtime state (including the physical allocator's
+    ; bitmap and the kernel stacks) lives.
     mov rdi, 0x100000               ; kernel start: 1MB
-    mov rsi, kernel_end
-    sub rsi, 0x100000               ; kernel size
+    mov rsi, kernel_bss_end
+    sub rsi, 0x100000                ; kernel size, .bss included
     call virt_mark_global_range
 
     ; 1b. Mark kernel code segment as read-only for write protection
