@@ -147,7 +147,7 @@ page_fault_stack_bottom:
     resb 4096                       ; 4KB Emergency Stack for IST 2 (Page Fault)
 page_fault_stack_top:
 
-align 16
+alignb 16
 nmi_stack_bottom:
     resb 4096                       ; 4KB Emergency Stack for IST 3 (NMI)
 nmi_stack_top:

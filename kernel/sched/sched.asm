@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_SCHED_SCHED_ASM
+%define GUARD_KERNEL_SCHED_SCHED_ASM
 ; =============================================================================
 ; Tattva OS — kernel/sched/sched.asm
 ; =============================================================================
@@ -9,7 +11,8 @@
 
 [BITS 64]
 
-%include "sched/sched.inc"
+%include "kernel/sched/sched.inc"
+%include "lib/percpu.inc"           ; Run-queue slots are named percpu_t fields
 
 section .text
 
@@ -23,13 +26,13 @@ sched_init_real:
     push rdi
 
     ; Initialize CPU-local scheduler fields (GS base)
-    mov qword [gs:64], 0            ; GS:64 = current_fiber
-    mov qword [gs:72], 0            ; GS:72 = idle_fiber
-    mov qword [gs:80], 0            ; GS:80 = run_queue_head
-    mov qword [gs:88], 0            ; GS:88 = run_queue_tail
-    mov dword [gs:96], 0            ; GS:96 = fiber_count
-    mov qword [gs:104], 0           ; GS:104 = ticks
-    mov dword [gs:112], 0           ; GS:112 = steal_lock
+    mov qword [gs:percpu_t.current_fiber], 0            ; GS:64 = current_fiber
+    mov qword [gs:percpu_t.idle_fiber], 0            ; GS:72 = idle_fiber
+    mov qword [gs:percpu_t.run_queue_head], 0            ; GS:80 = run_queue_head
+    mov qword [gs:percpu_t.run_queue_tail], 0            ; GS:88 = run_queue_tail
+    mov dword [gs:percpu_t.fiber_count], 0            ; GS:96 = fiber_count
+    mov qword [gs:percpu_t.ticks], 0           ; GS:104 = ticks
+    mov dword [gs:percpu_t.steal_lock], 0           ; GS:112 = steal_lock
 
     call fiber_guard_init
 
@@ -42,8 +45,8 @@ sched_init_real:
     test rax, rax
     jz .error
 
-    mov [gs:72], rax                ; Set GS:72 = idle_fiber
-    mov [gs:64], rax                ; Set GS:64 = current_fiber
+    mov [gs:percpu_t.idle_fiber], rax                ; Set GS:72 = idle_fiber
+    mov [gs:percpu_t.current_fiber], rax                ; Set GS:64 = current_fiber
     mov dword [rax + fcb_t.state], FIBER_STATE_RUNNING
 
     mov rax, 1
@@ -71,11 +74,11 @@ sched_push_fiber:
 
     ; Acquire queue spinlock (GS:112)
 .spin_acquire:
-    lock bts dword [gs:112], 0
+    lock bts dword [gs:percpu_t.steal_lock], 0
     jc .spin_acquire
 
     mov qword [rdi + fcb_t.next], 0
-    mov rbx, [gs:88]                ; RBX = current queue tail (GS:88)
+    mov rbx, [gs:percpu_t.run_queue_tail]                ; RBX = current queue tail (GS:88)
 
     test rbx, rbx
     jz .empty_queue
@@ -83,20 +86,20 @@ sched_push_fiber:
     ; Queue non-empty: attach to tail
     mov [rbx + fcb_t.next], rdi
     mov [rdi + fcb_t.prev], rbx
-    mov [gs:88], rdi                ; New tail = RDI
+    mov [gs:percpu_t.run_queue_tail], rdi                ; New tail = RDI
     jmp .inc_count
 
 .empty_queue:
     ; Queue empty: set both head and tail to RDI
-    mov [rdi + fcb_t.prev], 0
-    mov [gs:80], rdi                ; Head = RDI
-    mov [gs:88], rdi                ; Tail = RDI
+    mov qword [rdi + fcb_t.prev], 0
+    mov [gs:percpu_t.run_queue_head], rdi                ; Head = RDI
+    mov [gs:percpu_t.run_queue_tail], rdi                ; Tail = RDI
 
 .inc_count:
-    inc dword [gs:96]               ; Increment fiber_count
+    inc dword [gs:percpu_t.fiber_count]               ; Increment fiber_count
 
     ; Release queue spinlock (GS:112)
-    mov dword [gs:112], 0
+    mov dword [gs:percpu_t.steal_lock], 0
 
 .done:
     pop rdx
@@ -113,16 +116,16 @@ sched_pop_next_fiber:
 
     ; Acquire queue spinlock (GS:112)
 .spin_acquire:
-    lock bts dword [gs:112], 0
+    lock bts dword [gs:percpu_t.steal_lock], 0
     jc .spin_acquire
 
-    mov rax, [gs:80]                ; RAX = queue head (GS:80)
+    mov rax, [gs:percpu_t.run_queue_head]                ; RAX = queue head (GS:80)
     test rax, rax
     jz .empty
 
     ; Update queue head to rax.next
     mov rbx, [rax + fcb_t.next]
-    mov [gs:80], rbx
+    mov [gs:percpu_t.run_queue_head], rbx
 
     test rbx, rbx
     jz .became_empty
@@ -131,10 +134,10 @@ sched_pop_next_fiber:
     jmp .dec_count
 
 .became_empty:
-    mov qword [gs:88], 0            ; Tail = 0
+    mov qword [gs:percpu_t.run_queue_tail], 0            ; Tail = 0
 
 .dec_count:
-    dec dword [gs:96]               ; Decrement fiber_count
+    dec dword [gs:percpu_t.fiber_count]               ; Decrement fiber_count
     mov qword [rax + fcb_t.next], 0
     mov qword [rax + fcb_t.prev], 0
     jmp .release
@@ -144,7 +147,7 @@ sched_pop_next_fiber:
 
 .release:
     ; Release queue spinlock (GS:112)
-    mov dword [gs:112], 0
+    mov dword [gs:percpu_t.steal_lock], 0
 
     pop rbx
     ret
@@ -172,8 +175,8 @@ sched_core_loop:
 
     ; Execute popped fiber
     mov rsi, rax                    ; RSI = new fiber
-    mov rdi, [gs:64]                ; RDI = current fiber
-    mov [gs:64], rsi
+    mov rdi, [gs:percpu_t.current_fiber]                ; RDI = current fiber
+    mov [gs:percpu_t.current_fiber], rsi
     mov dword [rsi + fcb_t.state], FIBER_STATE_RUNNING
 
     ; Perform PKEY hardware key switch
@@ -223,3 +226,5 @@ storage_poll_stub:
 
 timer_poll_stub:
     ret
+
+%endif ; GUARD_KERNEL_SCHED_SCHED_ASM

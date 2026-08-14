@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_SCHED_FIBER_GUARD_ASM
+%define GUARD_KERNEL_SCHED_FIBER_GUARD_ASM
 ; =============================================================================
 ; Tattva OS — kernel/sched/fiber_guard.asm
 ; =============================================================================
@@ -9,8 +11,9 @@
 
 [BITS 64]
 
-%include "sched/fiber.inc"
-%include "sched/fiber_guard.inc"
+%include "kernel/sched/fiber.inc"
+%include "kernel/sched/fiber_guard.inc"
+%include "lib/percpu.inc"           ; GS-relative fields are named, not numeric
 
 section .text
 
@@ -46,12 +49,12 @@ fiber_guard_init:
 ; Output: Never returns to faulting code (recovers RSP back to sched_core_loop)
 ; -----------------------------------------------------------------------------
 fiber_guard_trap:
-    mov r8, [gs:64]                 ; R8 = current_fiber (GS:64)
+    mov r8, [gs:percpu_t.current_fiber]                 ; R8 = current_fiber (GS:64)
     test r8, r8
     jz .raw_kernel_panic            ; If no fiber active, panic kernel!
 
     ; Check if running fiber is idle_fiber (GS:72)
-    mov r9, [gs:72]
+    mov r9, [gs:percpu_t.idle_fiber]
     cmp r8, r9
     je .raw_kernel_panic            ; Idle task crash is fatal
 
@@ -71,7 +74,7 @@ fiber_guard_trap:
     mov [r11 + crash_record_t.fiber_id], rax
     mov rax, [r8 + fcb_t.name]
     mov [r11 + crash_record_t.fiber_name], rax
-    mov eax, [gs:8]                 ; CPU ID
+    mov eax, [gs:percpu_t.cpu_id]                 ; CPU ID
     mov [r11 + crash_record_t.cpu_id], eax
     mov [r11 + crash_record_t.vector], edi
     mov [r11 + crash_record_t.error_code], rsi
@@ -115,8 +118,8 @@ fiber_guard_trap:
     call fiber_supervisor_handle_crash
 
     ; 6. Recover CPU Stack RSP back to idle_fiber stack and resume main loop!
-    mov r9, [gs:72]                 ; idle_fiber
-    mov [gs:64], r9                 ; set current_fiber = idle_fiber
+    mov r9, [gs:percpu_t.idle_fiber]                 ; idle_fiber
+    mov [gs:percpu_t.current_fiber], r9                 ; set current_fiber = idle_fiber
     mov dword [r9 + fcb_t.state], FIBER_STATE_RUNNING
     mov rsp, [r9 + fcb_t.rsp]
 
@@ -144,3 +147,5 @@ msg_fault_header: db '==========================================================
 msg_fault_fiber_id: db '  Crashed Fiber ID: ', 0
 msg_fault_vector:   db '  Exception Vector: ', 0
 msg_fatal_panic:    db '[FATAL PANIC] Unhandled hardware crash in raw kernel core!', 0x0D, 0x0A, 0
+
+%endif ; GUARD_KERNEL_SCHED_FIBER_GUARD_ASM

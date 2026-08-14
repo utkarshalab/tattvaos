@@ -13,6 +13,8 @@
 
 [BITS 64]
 
+%include "lib/percpu.inc"           ; GS-relative accessors use named fields
+
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -424,7 +426,7 @@ cpu_clear_gprs:
 ; Clobbers: none (preserves all other registers)
 ; -----------------------------------------------------------------------------
 cpu_get_local:
-    mov rax, [gs:0]                 ; offset 0 is .self pointer
+    mov rax, [gs:percpu_t.self]
     ret
 
 ; -----------------------------------------------------------------------------
@@ -434,7 +436,7 @@ cpu_get_local:
 ; Clobbers: none
 ; -----------------------------------------------------------------------------
 cpu_get_id:
-    mov eax, [gs:8]                 ; offset 8 is .cpu_id
+    mov eax, [gs:percpu_t.cpu_id]
     ret
 
 ; -----------------------------------------------------------------------------
@@ -444,7 +446,7 @@ cpu_get_id:
 ; Clobbers: none
 ; -----------------------------------------------------------------------------
 cpu_get_stack_top:
-    mov rax, [gs:16]                ; offset 16 is .stack_top
+    mov rax, [gs:percpu_t.stack_top]
     ret
 
 ; -----------------------------------------------------------------------------

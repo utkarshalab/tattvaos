@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_SCHED_SMP_MPMC_ASM
+%define GUARD_KERNEL_SCHED_SMP_MPMC_ASM
 ; =============================================================================
 ; Tattva OS — kernel/sched/smp_mpmc.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "sched/fiber.inc"
+%include "kernel/sched/fiber.inc"
 
 section .text
 
@@ -102,3 +104,5 @@ align 64
 mpmc_buffer: times FIBER_MAX_COUNT dq 0
 mpmc_head:   dq 0
 mpmc_tail:   dq 0
+
+%endif ; GUARD_KERNEL_SCHED_SMP_MPMC_ASM

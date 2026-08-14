@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_SCHED_FIBER_SUPERVISOR_ASM
+%define GUARD_KERNEL_SCHED_FIBER_SUPERVISOR_ASM
 ; =============================================================================
 ; Tattva OS — kernel/sched/fiber_supervisor.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "sched/fiber.inc"
+%include "kernel/sched/fiber.inc"
 
 section .text
 
@@ -91,3 +93,5 @@ fiber_supervisor_handle_crash:
 section .data
 msg_supervisor_restarted: db '[SUPERVISOR] Self-Healing Engine: Auto-restarted daemon fiber successfully!', 0x0D, 0x0A, 0
 msg_supervisor_throttled: db '[SUPERVISOR WARNING] Daemon fiber crash limit exceeded (>5). Disabling restart.', 0x0D, 0x0A, 0
+
+%endif ; GUARD_KERNEL_SCHED_FIBER_SUPERVISOR_ASM

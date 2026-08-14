@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_ENTRY_START_ASM
+%define GUARD_KERNEL_ENTRY_START_ASM
 ; =============================================================================
 ; Tattva OS — kernel/entry/start.asm
 ; =============================================================================
@@ -70,12 +72,14 @@ bsp_cpu_local:
 ; Kernel Stack allocation with unmapped guard page
 ; -----------------------------------------------------------------------------
 section .bss
-align 4096
+alignb 4096
 global kernel_stack_guard
 kernel_stack_guard:
     resb 4096                       ; 4KB stack guard page
-align 4096
+alignb 4096
 kernel_stack_bottom:
     resb 16384                      ; 16KB stack allocation
 kernel_stack_top:
 
+
+%endif ; GUARD_KERNEL_ENTRY_START_ASM

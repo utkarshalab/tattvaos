@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_SCHED_FIBER_CANARY_ASM
+%define GUARD_KERNEL_SCHED_FIBER_CANARY_ASM
 ; =============================================================================
 ; Tattva OS — kernel/sched/fiber_canary.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "sched/fiber.inc"
+%include "kernel/sched/fiber.inc"
 
 section .text
 
@@ -93,3 +95,5 @@ canary_verify:
 
 section .data
 msg_canary_corrupt: db '[SECURITY ALERT] Stack Canary Corrupted! Stack Smashing Detected.', 0x0D, 0x0A, 0
+
+%endif ; GUARD_KERNEL_SCHED_FIBER_CANARY_ASM

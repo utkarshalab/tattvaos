@@ -25,6 +25,5 @@ struc crash_record_t
     .fault_cr2    resq 1            ; +56: Faulting memory address (CR2)
 endstruc
 
-crash_record_t_size equ 64
 
 %endif ; FIBER_GUARD_INC

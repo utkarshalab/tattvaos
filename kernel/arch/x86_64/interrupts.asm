@@ -500,7 +500,7 @@ msg_space:             db "   ", 0
 ; IDT Memory Space
 ; -----------------------------------------------------------------------------
 section .bss
-align 16
+alignb 16
 idt_start:
     resb 4096                       ; 256 descriptors * 16 bytes = 4096 bytes
 

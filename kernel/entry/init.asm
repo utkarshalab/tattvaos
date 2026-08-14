@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_ENTRY_INIT_ASM
+%define GUARD_KERNEL_ENTRY_INIT_ASM
 ; =============================================================================
 ; Tattva OS — kernel/entry/init.asm
 ; =============================================================================
@@ -236,3 +238,5 @@ msg_init_drivers:    db "Initializing Device Drivers... ", 0
 msg_init_serve:      db "Initializing Services... ", 0
 msg_ok:              db "OK", 0x0D, 0x0A, 0
 msg_crlf:            db 0x0D, 0x0A, 0
+
+%endif ; GUARD_KERNEL_ENTRY_INIT_ASM

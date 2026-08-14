@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_ENTRY_MAIN_ASM
+%define GUARD_KERNEL_ENTRY_MAIN_ASM
 ; =============================================================================
 ; Tattva OS â€” kernel/entry/main.asm
 ; =============================================================================
@@ -37,3 +39,5 @@ section .data
 
 msg_kernel_ready:     db 'Tattva Kernel Ready. Entering main execution.', 0x0D, 0x0A, 0
 
+
+%endif ; GUARD_KERNEL_ENTRY_MAIN_ASM

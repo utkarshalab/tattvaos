@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_SCHED_FIBER_PKEY_ASM
+%define GUARD_KERNEL_SCHED_FIBER_PKEY_ASM
 ; =============================================================================
 ; Tattva OS — kernel/sched/fiber_pkey.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "sched/fiber.inc"
+%include "kernel/sched/fiber.inc"
 
 section .text
 
@@ -110,3 +112,5 @@ pkey_switch:
 section .data
 pkey_supported: db 0
 next_pkey_idx:  dd 1
+
+%endif ; GUARD_KERNEL_SCHED_FIBER_PKEY_ASM

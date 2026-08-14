@@ -72,6 +72,5 @@ struc fcb_t
     .reserved        resq 10        ; +176..+256: L1 Cache Line Padding
 endstruc
 
-fcb_t_size equ 256
 
 %endif ; FIBER_INC

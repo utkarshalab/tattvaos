@@ -1,3 +1,5 @@
+%ifndef GUARD_KERNEL_SCHED_FIBER_ASM
+%define GUARD_KERNEL_SCHED_FIBER_ASM
 ; =============================================================================
 ; Tattva OS — kernel/sched/fiber.asm
 ; =============================================================================
@@ -9,7 +11,8 @@
 
 [BITS 64]
 
-%include "sched/fiber.inc"
+%include "kernel/sched/fiber.inc"
+%include "lib/percpu.inc"           ; current_fiber/idle_fiber are percpu_t fields
 
 section .text
 
@@ -173,7 +176,7 @@ fiber_yield:
     push rsi
     push rdi
 
-    mov rdi, [gs:64]                ; RDI = current_fiber
+    mov rdi, [gs:percpu_t.current_fiber]                ; RDI = current_fiber
     test rdi, rdi
     jz .yield_done
 
@@ -195,7 +198,7 @@ fiber_yield:
     test rax, rax
     jnz .switch_to_next
 
-    mov rsi, [gs:72]                ; GS:72 = idle_fiber
+    mov rsi, [gs:percpu_t.idle_fiber]                ; GS:72 = idle_fiber
     test rsi, rsi
     jz .yield_done
     jmp .do_switch
@@ -211,7 +214,7 @@ fiber_yield:
     mov edi, [rsi + fcb_t.pkey]
     call pkey_switch
 
-    mov [gs:64], rsi
+    mov [gs:percpu_t.current_fiber], rsi
     mov dword [rsi + fcb_t.state], FIBER_STATE_RUNNING
 
     ; Low-level context switch
@@ -285,7 +288,7 @@ fiber_reap_dead:
 ; Output: never returns
 ; -----------------------------------------------------------------------------
 fiber_exit:
-    mov rdi, [gs:64]
+    mov rdi, [gs:percpu_t.current_fiber]
     test rdi, rdi
     jz .halt
 
@@ -295,7 +298,7 @@ fiber_exit:
     cmp dword [rdi + fcb_t.restart_policy], FIBER_RESTART_ALWAYS
     jne .do_yield
 
-    mov rdi, [gs:64]
+    mov rdi, [gs:percpu_t.current_fiber]
     call fiber_supervisor_handle_crash
 
 .do_yield:
@@ -310,7 +313,7 @@ fiber_exit:
 ; fiber_entry_wrapper — Trampoline entry point for newly created fibers
 ; -----------------------------------------------------------------------------
 fiber_entry_wrapper:
-    mov rbx, [gs:64]
+    mov rbx, [gs:percpu_t.current_fiber]
     test rbx, rbx
     jz .exit
 
@@ -354,3 +357,5 @@ fiber_pool:     times (FIBER_MAX_COUNT * fcb_t_size) db 0
 
 align 8
 next_fiber_id:  dq 1
+
+%endif ; GUARD_KERNEL_SCHED_FIBER_ASM
