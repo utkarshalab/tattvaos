@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_EXTENTS_EXTENTS_ASM
+%define GUARD_STORAGE_UXFS_EXTENTS_EXTENTS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/extents/extents.asm
 ; =============================================================================
@@ -128,3 +130,5 @@ uxfs_extent_insert:
     mov eax, 0                      ; Success
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_EXTENTS_EXTENTS_ASM

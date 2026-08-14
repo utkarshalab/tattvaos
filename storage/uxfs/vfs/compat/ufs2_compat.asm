@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_UFS2_COMPAT_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_UFS2_COMPAT_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/ufs2_compat.asm
 ; =============================================================================
@@ -126,3 +128,5 @@ ufs2_read_dinode:
     mov eax, -1
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_UFS2_COMPAT_ASM

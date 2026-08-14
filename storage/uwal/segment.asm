@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UWAL_SEGMENT_ASM
+%define GUARD_STORAGE_UWAL_SEGMENT_ASM
 ; =============================================================================
 ; Tattva OS — storage/uwal/segment.asm
 ; =============================================================================
@@ -367,3 +369,5 @@ uwal_segment_reclaim:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UWAL_SEGMENT_ASM

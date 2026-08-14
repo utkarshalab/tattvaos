@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CACHE_TINYPOINTER_HASH_ASM
+%define GUARD_STORAGE_UXFS_CACHE_TINYPOINTER_HASH_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/cache/tinypointer_hash.asm
 ; =============================================================================
@@ -198,3 +200,5 @@ uxfs_tiny_hash_insert:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CACHE_TINYPOINTER_HASH_ASM

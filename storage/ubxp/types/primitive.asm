@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_TYPES_PRIMITIVE_ASM
+%define GUARD_STORAGE_UBXP_TYPES_PRIMITIVE_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/types/primitive.asm
 ; =============================================================================
@@ -320,3 +322,5 @@ ubxp_read_fixed32:
 .rf32_sticky:
     movsxd rax, eax
     ret
+
+%endif ; GUARD_STORAGE_UBXP_TYPES_PRIMITIVE_ASM

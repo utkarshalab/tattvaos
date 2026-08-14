@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_DRIVERS_NVME_ZNS_ASM
+%define GUARD_STORAGE_UXFS_DRIVERS_NVME_ZNS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/drivers/nvme_zns.asm
 ; =============================================================================
@@ -452,3 +454,5 @@ uxfs_nvme_zns_report_zones:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_DRIVERS_NVME_ZNS_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CLUSTER_CLUSTER_ASM
+%define GUARD_STORAGE_UXFS_CLUSTER_CLUSTER_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/cluster/cluster.asm
 ; =============================================================================
@@ -146,3 +148,5 @@ uxfs_cluster_route_replicas:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CLUSTER_CLUSTER_ASM

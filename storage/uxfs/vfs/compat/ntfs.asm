@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_NTFS_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_NTFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/ntfs.asm
 ; =============================================================================
@@ -135,3 +137,5 @@ uxfs_ntfs_decode_runlist:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_NTFS_ASM

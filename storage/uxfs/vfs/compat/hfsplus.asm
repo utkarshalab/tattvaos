@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_HFSPLUS_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_HFSPLUS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/hfsplus.asm
 ; =============================================================================
@@ -450,3 +452,5 @@ uxfs_hfsplus_extent_lookup:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_HFSPLUS_ASM

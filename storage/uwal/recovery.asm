@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UWAL_RECOVERY_ASM
+%define GUARD_STORAGE_UWAL_RECOVERY_ASM
 ; =============================================================================
 ; Tattva OS — storage/uwal/recovery.asm
 ; =============================================================================
@@ -529,3 +531,5 @@ uwal_recovery_stats:
     mov [rdi + 16], rax
     xor eax, eax
     ret
+
+%endif ; GUARD_STORAGE_UWAL_RECOVERY_ASM

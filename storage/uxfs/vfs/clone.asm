@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_CLONE_ASM
+%define GUARD_STORAGE_UXFS_VFS_CLONE_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/clone.asm
 ; =============================================================================
@@ -106,3 +108,5 @@ uxfs_clone_directory:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_CLONE_ASM

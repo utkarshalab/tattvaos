@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_TYPES_BYTES_ASM
+%define GUARD_STORAGE_UBXP_TYPES_BYTES_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/types/bytes.asm
 ; =============================================================================
@@ -273,3 +275,5 @@ ubxp_skip_bytes:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_TYPES_BYTES_ASM

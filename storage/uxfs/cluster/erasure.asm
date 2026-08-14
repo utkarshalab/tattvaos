@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CLUSTER_ERASURE_ASM
+%define GUARD_STORAGE_UXFS_CLUSTER_ERASURE_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/cluster/erasure.asm
 ; =============================================================================
@@ -1049,3 +1051,5 @@ uxfs_erasure_reconstruct:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CLUSTER_ERASURE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_BTREE_SIMD_ASM
+%define GUARD_STORAGE_UXFS_BTREE_SIMD_ASM
  
 ; =============================================================================
 ; Tattva OS — storage/uxfs/btree/simd.asm
@@ -177,3 +179,5 @@ uxfs_btree_simd_avx2_search:
     or eax, -1
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_BTREE_SIMD_ASM

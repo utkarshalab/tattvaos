@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_EXT4_COMPAT_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_EXT4_COMPAT_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/ext4_compat.asm
 ; =============================================================================
@@ -143,3 +145,5 @@ uxfs_ext4_read_inode:
 
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_EXT4_COMPAT_ASM

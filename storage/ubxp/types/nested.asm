@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_TYPES_NESTED_ASM
+%define GUARD_STORAGE_UBXP_TYPES_NESTED_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/types/nested.asm
 ; =============================================================================
@@ -295,3 +297,5 @@ ubxp_submsg_enter:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_TYPES_NESTED_ASM

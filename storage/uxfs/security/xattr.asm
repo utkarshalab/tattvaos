@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_SECURITY_XATTR_ASM
+%define GUARD_STORAGE_UXFS_SECURITY_XATTR_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/security/xattr.asm
 ; =============================================================================
@@ -831,3 +833,5 @@ uxfs_xattr_list:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_SECURITY_XATTR_ASM

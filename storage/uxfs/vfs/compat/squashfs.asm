@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_SQUASHFS_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_SQUASHFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/squashfs.asm
 ; =============================================================================
@@ -442,3 +444,5 @@ squashfs_read_file:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_SQUASHFS_ASM

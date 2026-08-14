@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_DEBUG_DUMP_ASM
+%define GUARD_STORAGE_UBXP_DEBUG_DUMP_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/debug/dump.asm
 ; =============================================================================
@@ -327,3 +329,5 @@ ubxp_dump_frame:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_DEBUG_DUMP_ASM

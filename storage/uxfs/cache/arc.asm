@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CACHE_ARC_ASM
+%define GUARD_STORAGE_UXFS_CACHE_ARC_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/cache/arc.asm
 ; =============================================================================
@@ -163,3 +165,5 @@ uxfs_arc_insert:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CACHE_ARC_ASM

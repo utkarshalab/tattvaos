@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_PSEUDOFS_ASM
+%define GUARD_STORAGE_UXFS_VFS_PSEUDOFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/pseudofs.asm
 ; =============================================================================
@@ -116,3 +118,5 @@ uxfs_pseudofs_read_sys:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_PSEUDOFS_ASM

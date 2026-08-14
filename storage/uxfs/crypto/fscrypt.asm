@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CRYPTO_FSCRYPT_ASM
+%define GUARD_STORAGE_UXFS_CRYPTO_FSCRYPT_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/crypto/fscrypt.asm
 ; =============================================================================
@@ -619,3 +621,5 @@ uxfs_fscrypt_pad_name:
 
 .pn_done:
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CRYPTO_FSCRYPT_ASM

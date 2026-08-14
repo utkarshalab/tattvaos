@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_APFS_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_APFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/apfs.asm
 ; =============================================================================
@@ -144,3 +146,5 @@ uxfs_apfs_omap_lookup:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_APFS_ASM

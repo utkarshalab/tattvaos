@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_UXFS_ASM
+%define GUARD_STORAGE_UXFS_UXFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/uxfs.asm
 ; =============================================================================
@@ -138,3 +140,5 @@ align 32
 uxfs_unmount:
     mov eax, 0                      ; Success
     ret
+
+%endif ; GUARD_STORAGE_UXFS_UXFS_ASM

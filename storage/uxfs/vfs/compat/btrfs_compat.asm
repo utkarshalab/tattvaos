@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_BTRFS_COMPAT_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_BTRFS_COMPAT_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/btrfs_compat.asm
 ; =============================================================================
@@ -135,3 +137,5 @@ uxfs_btrfs_search_node:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_BTRFS_COMPAT_ASM

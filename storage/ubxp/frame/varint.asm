@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_FRAME_VARINT_ASM
+%define GUARD_STORAGE_UBXP_FRAME_VARINT_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/frame/varint.asm
 ; =============================================================================
@@ -244,3 +246,5 @@ ubxp_zigzag_decode:
     neg rdx                         ; 0 stays 0, 1 becomes -1 (all ones)
     xor rax, rdx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_FRAME_VARINT_ASM

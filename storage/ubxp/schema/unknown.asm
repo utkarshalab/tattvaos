@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_SCHEMA_UNKNOWN_ASM
+%define GUARD_STORAGE_UBXP_SCHEMA_UNKNOWN_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/schema/unknown.asm
 ; =============================================================================
@@ -229,3 +231,5 @@ align 32
 ubxp_unknown_truncated:
     mov eax, dword [rdi + ubxp_unknown_t.truncated]
     ret
+
+%endif ; GUARD_STORAGE_UBXP_SCHEMA_UNKNOWN_ASM

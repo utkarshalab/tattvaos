@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_DRIVERS_DRIVERS_ASM
+%define GUARD_STORAGE_UXFS_DRIVERS_DRIVERS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/drivers/drivers.asm
 ; =============================================================================
@@ -23,3 +25,5 @@
 %include "storage/uxfs/drivers/sdhci.asm"
 %include "storage/uxfs/drivers/virtio_blk.asm"
 %include "storage/uxfs/drivers/nvme_of.asm"
+
+%endif ; GUARD_STORAGE_UXFS_DRIVERS_DRIVERS_ASM

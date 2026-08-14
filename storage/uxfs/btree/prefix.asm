@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_BTREE_PREFIX_ASM
+%define GUARD_STORAGE_UXFS_BTREE_PREFIX_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/btree/prefix.asm
 ; =============================================================================
@@ -182,3 +184,5 @@ uxfs_btree_prefix_lookup:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_BTREE_PREFIX_ASM

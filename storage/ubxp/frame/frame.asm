@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_FRAME_FRAME_ASM
+%define GUARD_STORAGE_UBXP_FRAME_FRAME_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/frame/frame.asm
 ; =============================================================================
@@ -374,3 +376,5 @@ ubxp_crc32c:
     not eax                         ; Final inversion
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_FRAME_FRAME_ASM

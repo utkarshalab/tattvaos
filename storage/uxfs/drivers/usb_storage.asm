@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_DRIVERS_USB_STORAGE_ASM
+%define GUARD_STORAGE_UXFS_DRIVERS_USB_STORAGE_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/drivers/usb_storage.asm
 ; =============================================================================
@@ -145,3 +147,5 @@ align 32
 uxfs_usb_storage_write:
     call uxfs_usb_build_scsi_write10
     ret
+
+%endif ; GUARD_STORAGE_UXFS_DRIVERS_USB_STORAGE_ASM

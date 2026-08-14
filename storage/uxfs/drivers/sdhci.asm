@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_DRIVERS_SDHCI_ASM
+%define GUARD_STORAGE_UXFS_DRIVERS_SDHCI_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/drivers/sdhci.asm
 ; =============================================================================
@@ -691,3 +693,5 @@ align 32
 uxfs_sdhci_write_sectors:
     xor ecx, ecx                    ; Write
     jmp uxfs_sdhci_transfer
+
+%endif ; GUARD_STORAGE_UXFS_DRIVERS_SDHCI_ASM

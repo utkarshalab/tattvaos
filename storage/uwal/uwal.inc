@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UWAL_UWAL_INC
+%define GUARD_STORAGE_UWAL_UWAL_INC
 ; =============================================================================
 ; Tattva OS — storage/uwal/uwal.inc
 ; =============================================================================
@@ -125,3 +127,5 @@ endstruc
 %define UWAL_SEG_RECLAIMABLE         3     ; Checkpointed; may be reused
 
 %endif ; UWAL_INC
+
+%endif ; GUARD_STORAGE_UWAL_UWAL_INC

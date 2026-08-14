@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CRYPTO_VAULT_ASM
+%define GUARD_STORAGE_UXFS_CRYPTO_VAULT_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/crypto/vault.asm
 ; =============================================================================
@@ -696,3 +698,5 @@ uxfs_vault_unseal_key:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CRYPTO_VAULT_ASM

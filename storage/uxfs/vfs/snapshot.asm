@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_SNAPSHOT_ASM
+%define GUARD_STORAGE_UXFS_VFS_SNAPSHOT_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/snapshot.asm
 ; =============================================================================
@@ -126,3 +128,5 @@ uxfs_snapshot_rollback:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_SNAPSHOT_ASM

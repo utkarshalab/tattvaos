@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_COMPRESS_EROFS_ASM
+%define GUARD_STORAGE_UXFS_COMPRESS_EROFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/compress/erofs.asm
 ; =============================================================================
@@ -364,3 +366,5 @@ uxfs_erofs_read_block:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_COMPRESS_EROFS_ASM

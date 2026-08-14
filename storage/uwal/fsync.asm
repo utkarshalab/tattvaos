@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UWAL_FSYNC_ASM
+%define GUARD_STORAGE_UWAL_FSYNC_ASM
 ; =============================================================================
 ; Tattva OS — storage/uwal/fsync.asm
 ; =============================================================================
@@ -417,3 +419,5 @@ uwal_sync_stats:
     mov [rdi + 32], rax
     xor eax, eax
     ret
+
+%endif ; GUARD_STORAGE_UWAL_FSYNC_ASM

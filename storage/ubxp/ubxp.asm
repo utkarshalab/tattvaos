@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_UBXP_ASM
+%define GUARD_STORAGE_UBXP_UBXP_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/ubxp.asm
 ; =============================================================================
@@ -155,3 +157,5 @@ ubxp_encode_end:
 .ee_return:
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_UBXP_ASM

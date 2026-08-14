@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CRYPTO_VERITY_ASM
+%define GUARD_STORAGE_UXFS_CRYPTO_VERITY_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/crypto/verity.asm
 ; =============================================================================
@@ -468,3 +470,5 @@ uxfs_verity_check_root:
     mov eax, POSIX_EINVAL
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CRYPTO_VERITY_ASM

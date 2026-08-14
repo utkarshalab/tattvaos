@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_BTREE_COW_ASM
+%define GUARD_STORAGE_UXFS_BTREE_COW_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/btree/cow.asm
 ; =============================================================================
@@ -491,3 +493,5 @@ uxfs_btree_rcu_free_node:
     mov eax, 0
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_BTREE_COW_ASM

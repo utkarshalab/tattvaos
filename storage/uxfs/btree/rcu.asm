@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_BTREE_RCU_ASM
+%define GUARD_STORAGE_UXFS_BTREE_RCU_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/btree/rcu.asm
 ; =============================================================================
@@ -193,3 +195,5 @@ uxfs_rcu_reclaim_garbage:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_BTREE_RCU_ASM

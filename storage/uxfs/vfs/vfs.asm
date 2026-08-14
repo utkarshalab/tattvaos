@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_VFS_ASM
+%define GUARD_STORAGE_UXFS_VFS_VFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/vfs.asm
 ; =============================================================================
@@ -693,3 +695,5 @@ vfs_stat:
     mov eax, POSIX_EINVAL
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_VFS_ASM

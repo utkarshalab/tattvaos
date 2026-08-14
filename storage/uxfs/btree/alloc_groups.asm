@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_BTREE_ALLOC_GROUPS_ASM
+%define GUARD_STORAGE_UXFS_BTREE_ALLOC_GROUPS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/btree/alloc_groups.asm
 ; =============================================================================
@@ -273,3 +275,5 @@ uxfs_ag_update_checksum:
     mov eax, 0
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_BTREE_ALLOC_GROUPS_ASM

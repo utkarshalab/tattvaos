@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CRYPTO_CRYPTO_ASM
+%define GUARD_STORAGE_UXFS_CRYPTO_CRYPTO_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/crypto/crypto.asm
 ; =============================================================================
@@ -610,3 +612,5 @@ uxfs_crypto_decrypt_block:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CRYPTO_CRYPTO_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_JOURNAL_JOURNAL_ASM
+%define GUARD_STORAGE_UXFS_JOURNAL_JOURNAL_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/journal/journal.asm
 ; =============================================================================
@@ -102,3 +104,5 @@ uxfs_journal_replay:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_JOURNAL_JOURNAL_ASM

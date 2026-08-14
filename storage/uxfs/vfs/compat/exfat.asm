@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_EXFAT_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_EXFAT_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/exfat.asm
 ; =============================================================================
@@ -220,3 +222,5 @@ uxfs_exfat_parse_dir_set:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_EXFAT_ASM

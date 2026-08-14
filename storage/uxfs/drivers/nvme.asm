@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_DRIVERS_NVME_ASM
+%define GUARD_STORAGE_UXFS_DRIVERS_NVME_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/drivers/nvme.asm
 ; =============================================================================
@@ -317,3 +319,5 @@ uxfs_nvme_init:
     mov eax, 0
     pop rbp
     ret
+
+%endif ; GUARD_STORAGE_UXFS_DRIVERS_NVME_ASM

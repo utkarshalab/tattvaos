@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_LIMITS_QUOTA_ASM
+%define GUARD_STORAGE_UXFS_LIMITS_QUOTA_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/limits/quota.asm
 ; =============================================================================
@@ -109,3 +111,5 @@ uxfs_quota_uncharge:
     mov eax, 0
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_LIMITS_QUOTA_ASM

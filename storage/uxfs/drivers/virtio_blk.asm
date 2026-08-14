@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_DRIVERS_VIRTIO_BLK_ASM
+%define GUARD_STORAGE_UXFS_DRIVERS_VIRTIO_BLK_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/drivers/virtio_blk.asm
 ; =============================================================================
@@ -447,3 +449,5 @@ uxfs_virtio_blk_flush:
     xor rdx, rdx                    ; and no data buffer
     xor ecx, ecx
     jmp uxfs_virtio_blk_submit
+
+%endif ; GUARD_STORAGE_UXFS_DRIVERS_VIRTIO_BLK_ASM

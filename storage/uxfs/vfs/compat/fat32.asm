@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_FAT32_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_FAT32_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/fat32.asm
 ; =============================================================================
@@ -167,3 +169,5 @@ align 32
 uxfs_fat32_read_cluster:
     mov rax, rsi                    ; Sector index mapping
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_FAT32_ASM

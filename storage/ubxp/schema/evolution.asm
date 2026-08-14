@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_SCHEMA_EVOLUTION_ASM
+%define GUARD_STORAGE_UBXP_SCHEMA_EVOLUTION_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/schema/evolution.asm
 ; =============================================================================
@@ -280,3 +282,5 @@ ubxp_version_compatible:
 .vc_bad:
     mov rax, UBXP_ERR_PROTO
     ret
+
+%endif ; GUARD_STORAGE_UBXP_SCHEMA_EVOLUTION_ASM

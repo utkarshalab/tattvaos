@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CACHE_PAGECACHE_ASM
+%define GUARD_STORAGE_UXFS_CACHE_PAGECACHE_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/cache/pagecache.asm
 ; =============================================================================
@@ -567,3 +569,5 @@ uxfs_pagecache_stats:
     mov qword [rdi + 32], UXFS_PC_SLOTS
     xor eax, eax
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CACHE_PAGECACHE_ASM

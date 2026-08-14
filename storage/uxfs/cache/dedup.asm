@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CACHE_DEDUP_ASM
+%define GUARD_STORAGE_UXFS_CACHE_DEDUP_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/cache/dedup.asm
 ; =============================================================================
@@ -100,3 +102,5 @@ uxfs_dedup_insert:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CACHE_DEDUP_ASM

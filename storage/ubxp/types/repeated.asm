@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_TYPES_REPEATED_ASM
+%define GUARD_STORAGE_UBXP_TYPES_REPEATED_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/types/repeated.asm
 ; =============================================================================
@@ -554,3 +556,5 @@ ubxp_write_repeated_bytes:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_TYPES_REPEATED_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_SECURITY_ACL_ASM
+%define GUARD_STORAGE_UXFS_SECURITY_ACL_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/security/acl.asm
 ; =============================================================================
@@ -755,3 +757,5 @@ uxfs_acl_to_mode:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_SECURITY_ACL_ASM

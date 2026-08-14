@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CACHE_TMPFS_ASM
+%define GUARD_STORAGE_UXFS_CACHE_TMPFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/cache/tmpfs.asm
 ; =============================================================================
@@ -139,3 +141,5 @@ uxfs_tmpfs_read_file:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CACHE_TMPFS_ASM

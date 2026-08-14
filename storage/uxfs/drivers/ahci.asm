@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_DRIVERS_AHCI_ASM
+%define GUARD_STORAGE_UXFS_DRIVERS_AHCI_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/drivers/ahci.asm
 ; =============================================================================
@@ -128,3 +130,5 @@ uxfs_ahci_write_sectors:
 
     pop rbp
     ret
+
+%endif ; GUARD_STORAGE_UXFS_DRIVERS_AHCI_ASM

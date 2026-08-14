@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_COMPRESS_COMPRESS_ASM
+%define GUARD_STORAGE_UXFS_COMPRESS_COMPRESS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/compress/compress.asm
 ; =============================================================================
@@ -318,3 +320,5 @@ uxfs_decompress_block:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_COMPRESS_COMPRESS_ASM

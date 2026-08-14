@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UWAL_WAL_ASM
+%define GUARD_STORAGE_UWAL_WAL_ASM
 ; =============================================================================
 ; Tattva OS — storage/uwal/wal.asm
 ; =============================================================================
@@ -574,3 +576,5 @@ uwal_stats:
     mov [rdi + 24], rax
     xor eax, eax
     ret
+
+%endif ; GUARD_STORAGE_UWAL_WAL_ASM

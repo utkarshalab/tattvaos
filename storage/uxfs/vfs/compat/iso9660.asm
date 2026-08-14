@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_ISO9660_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_ISO9660_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/iso9660.asm
 ; =============================================================================
@@ -498,3 +500,5 @@ iso9660_read_file:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_ISO9660_ASM

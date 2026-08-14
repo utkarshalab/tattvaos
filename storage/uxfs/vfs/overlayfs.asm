@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_OVERLAYFS_ASM
+%define GUARD_STORAGE_UXFS_VFS_OVERLAYFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/overlayfs.asm
 ; =============================================================================
@@ -187,3 +189,5 @@ uxfs_overlayfs_cow_copyup:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_OVERLAYFS_ASM

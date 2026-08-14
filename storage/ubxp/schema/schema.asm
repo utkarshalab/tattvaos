@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_SCHEMA_SCHEMA_ASM
+%define GUARD_STORAGE_UBXP_SCHEMA_SCHEMA_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/schema/schema.asm
 ; =============================================================================
@@ -168,3 +170,5 @@ ubxp_read_tag:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_SCHEMA_SCHEMA_ASM

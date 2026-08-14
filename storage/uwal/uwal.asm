@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UWAL_UWAL_ASM
+%define GUARD_STORAGE_UWAL_UWAL_ASM
 ; =============================================================================
 ; Tattva OS — storage/uwal/uwal.asm
 ; =============================================================================
@@ -133,3 +135,5 @@ uwal_shutdown:
     mov eax, UWAL_ERR_IO
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UWAL_UWAL_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_SCHEMA_CANONICAL_ASM
+%define GUARD_STORAGE_UBXP_SCHEMA_CANONICAL_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/schema/canonical.asm
 ; =============================================================================
@@ -170,3 +172,5 @@ ubxp_canonical_check:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_SCHEMA_CANONICAL_ASM

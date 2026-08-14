@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CRYPTO_PQC_ASM
+%define GUARD_STORAGE_UXFS_CRYPTO_PQC_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/crypto/pqc.asm
 ; =============================================================================
@@ -432,3 +434,5 @@ align 32
 uxfs_pqc_blob_size:
     mov rax, uxfs_pqc_blob_t_size
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CRYPTO_PQC_ASM

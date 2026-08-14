@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_CACHE_DAX_ASM
+%define GUARD_STORAGE_UXFS_CACHE_DAX_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/cache/dax.asm
 ; =============================================================================
@@ -466,3 +468,5 @@ uxfs_dax_memcpy_nt:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_CACHE_DAX_ASM

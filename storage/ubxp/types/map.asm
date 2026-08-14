@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_TYPES_MAP_ASM
+%define GUARD_STORAGE_UBXP_TYPES_MAP_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/types/map.asm
 ; =============================================================================
@@ -314,3 +316,5 @@ ubxp_write_map_str_bytes:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_TYPES_MAP_ASM

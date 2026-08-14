@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_ZFS_COMPAT_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_ZFS_COMPAT_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/zfs_compat.asm
 ; =============================================================================
@@ -142,3 +144,5 @@ uxfs_zfs_dva_decode:
     mov eax, 0                      ; Success
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_ZFS_COMPAT_ASM

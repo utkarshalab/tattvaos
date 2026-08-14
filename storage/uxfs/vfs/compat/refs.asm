@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_REFS_ASM
+%define GUARD_STORAGE_UXFS_VFS_COMPAT_REFS_ASM
 ; =============================================================================
 ; Tattva OS — storage/uxfs/vfs/compat/refs.asm
 ; =============================================================================
@@ -425,3 +427,5 @@ uxfs_refs_btree_search:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UXFS_VFS_COMPAT_REFS_ASM

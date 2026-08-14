@@ -1,3 +1,5 @@
+%ifndef GUARD_STORAGE_UBXP_SCHEMA_DESCRIPTOR_ASM
+%define GUARD_STORAGE_UBXP_SCHEMA_DESCRIPTOR_ASM
 ; =============================================================================
 ; Tattva OS — storage/ubxp/schema/descriptor.asm
 ; =============================================================================
@@ -298,3 +300,5 @@ ubxp_enum_valid:
     mov rax, 1
     pop rbx
     ret
+
+%endif ; GUARD_STORAGE_UBXP_SCHEMA_DESCRIPTOR_ASM
