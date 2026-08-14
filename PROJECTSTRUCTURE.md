@@ -215,19 +215,21 @@ kernel/
 │   ├── swap.asm            ← uswap — CPU/NVMe offload
 │   └── numa.asm            ← unuma — NUMA topology + affinity
 │
-├── sched/                  ← scheduler
-│   ├── sched.asm           ← main scheduler
-│   ├── rt.asm              ← usched_rt — real-time scheduler
-│   ├── fair.asm            ← ufair — fair/weighted scheduler
-│   ├── gang.asm            ← ugang — gang scheduling
-│   ├── preempt.asm         ← upreempt — preemption
-│   └── elastic.asm         ← uelastic — elastic worker pools
+├── sched/                  ← COOPERATIVE fiber runtime (no preemption)
+│   ├── sched.asm           ← run queue, per-core
+│   ├── fiber.asm           ← context switch + fiber_yield
+│   ├── fiber_guard.asm     ← guard pages, fiber identity
+│   ├── fiber_pkey.asm      ← MPK protection domains
+│   ├── fiber_canary.asm    ← stack canaries
+│   ├── fiber_supervisor.asm← stall watchdog
+│   └── smp_mpmc.asm        ← multi-producer/consumer queue
 │
-├── ipc/                    ← inter-process communication
-│   ├── ipc.asm             ← IPC core
-│   ├── signal.asm          ← usig — signal handling
-│   ├── pipe.asm            ← pipes
-│   └── shm.asm             ← shared memory
+│   NOTE: there is deliberately NO preempt.asm, and no rt/fair/gang/elastic
+│   scheduling classes. Those solve contention between mutually distrusting
+│   workloads, which a unikernel with no user ring does not have. Preemption is
+│   also actively harmful here: security/usrauth holds no locks, and its tables
+│   are correct only because no operation can be interrupted partway. See
+│   security/usrauth/DESIGN.md.
 │
 ├── drivers/                ← device drivers
 │   ├── gpu/
@@ -257,17 +259,28 @@ kernel/
 ├── ebpf/
 │   └── ebpf.asm            ← uebpf — eBPF runtime
 │
-├── syscall/
-│   ├── syscall.asm         ← syscall dispatch table
-│   ├── table_aarch64.asm
-│   ├── table_x86_64.asm
-│   └── table_riscv.asm
-│
 └── tests/
     ├── mm_test/
     ├── sched_test/
     └── driver_test/
 ```
+
+**There is no `syscall/` tree, by design.** Tattva OS is a unikernel: one address
+space, ring 0 only, no user ring. A "system call" is a direct `call` — roughly
+1–2ns against 50–150ns for a ring transition, and considerably worse than that
+once KPTI and speculation mitigations are counted.
+
+What the syscall boundary used to provide has to be replaced, not dropped:
+
+| Property a syscall gave for free | Replacement here |
+|---|---|
+| Caller identity (`current->cred`) | The subject handle in the fiber control block, written only by the scheduler |
+| Tamper-proof kernel state | MPK protection domains (`sched/fiber_pkey.asm`) |
+| Complete mediation (one entry point) | Build-time call-graph check — there is no untrusted binary to load |
+
+See [security/usrauth/DESIGN.md](security/usrauth/DESIGN.md) for the full
+treatment. A Linux-compatible syscall layer would be an optional *personality*
+for running foreign binaries, never the native path.
 
 ---
 

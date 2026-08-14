@@ -2,91 +2,57 @@
 # Tattva OS Kernel Build Makefile
 # Target: x86-64 Flat Binary Image
 # =============================================================================
+#
+# The kernel is ONE translation unit: nasm assembles kernel/entry.asm and every
+# other file arrives through %include. So the prerequisite lists below exist
+# purely for rebuild tracking — they are never assembled individually.
+#
+# They are globbed, not enumerated. A hand-written list silently rots the
+# moment a subsystem is reorganised: the unet/core split into l2/l3/l4/sys left
+# ten dead paths here and the build failed on a missing prerequisite rather
+# than on anything real. Globs survive that.
 
 ASM = nasm
 KERNEL_DIR = .
+ROOT = $(KERNEL_DIR)/..
 
-# The single translation unit NASM assembles; everything else is %include'd.
-ENTRY = $(KERNEL_DIR)/../kernel/entry.asm
+# Every source that can reach the translation unit. Tests are excluded: they
+# have their own harnesses and are not part of the kernel image.
+SRC_DIRS = kernel lib crypto storage security unet
 
-# Storage sources are globbed rather than enumerated so the subsystem sweeps do
-# not have to keep this list in sync by hand.
-STORAGE_SRCS := $(shell find $(KERNEL_DIR)/../storage \
+KERNEL_SRCS := $(shell find $(addprefix $(ROOT)/,$(SRC_DIRS)) \
                           \( -name '*.asm' -o -name '*.inc' \) \
-                          -not -path '*/tests/*')
+                          -not -path '*/tests/*' 2>/dev/null)
+
+# The single translation unit; everything else is %include'd into it.
+ENTRY = $(ROOT)/kernel/entry.asm
 
 all: kernel.bin
 
-kernel.bin: $(ENTRY) $(STORAGE_SRCS) \
-                          $(KERNEL_DIR)/../unet/unet.inc \
-                          $(KERNEL_DIR)/../unet/core/pktbuf.asm \
-                          $(KERNEL_DIR)/../lib/time/nts.asm \
-                          $(KERNEL_DIR)/../lib/time/gnss.asm \
-                          $(KERNEL_DIR)/../lib/time/ptp.asm \
-                          $(KERNEL_DIR)/../lib/time/timezones.asm \
-                          $(KERNEL_DIR)/../lib/time/leap_seconds.asm \
-                          $(KERNEL_DIR)/../lib/time/timer_wheel.asm \
-                          $(KERNEL_DIR)/../lib/time/clock_drift.asm \
-                          $(KERNEL_DIR)/../unet/core/eth.asm \
-                          $(KERNEL_DIR)/../unet/core/arp.asm \
-                          $(KERNEL_DIR)/../unet/core/ip.asm \
-                          $(KERNEL_DIR)/../unet/core/ipv6.asm \
-                          $(KERNEL_DIR)/../unet/core/udp.asm \
-                          $(KERNEL_DIR)/../unet/core/tcp.asm \
-                          $(KERNEL_DIR)/../unet/core/socket.asm \
-                          $(KERNEL_DIR)/../unet/http/http1.asm \
-                          $(KERNEL_DIR)/../unet/drivers/e1000.asm \
-                          $(KERNEL_DIR)/../unet/core/avx512_parser.asm \
-                          $(KERNEL_DIR)/../unet/ai/ml_ids.asm \
-                          $(KERNEL_DIR)/../unet/ai/reinforce_route.asm \
-                          $(KERNEL_DIR)/../unet/ai/predictive_te.asm \
-                          $(KERNEL_DIR)/../unet/ai/graph_neural_net.asm \
-                          $(KERNEL_DIR)/../unet/ai/autonomous_qos.asm \
-                          $(KERNEL_DIR)/../unet/drivers/sriov.asm \
-                          $(KERNEL_DIR)/../unet/security/ztna.asm \
-                          $(KERNEL_DIR)/../unet/pqc/qkd_km.asm \
-                          $(KERNEL_DIR)/../unet/ssh/ssh_transport.asm \
-                          $(KERNEL_DIR)/../unet/ssh/ssh_auth.asm \
-                          $(KERNEL_DIR)/../unet/ssh/ssh_connection.asm \
-                          $(KERNEL_DIR)/../unet/ssh/sftp.asm \
-                          $(KERNEL_DIR)/../unet/mail/smtp.asm \
-                          $(KERNEL_DIR)/../unet/mail/imap.asm \
-                          $(KERNEL_DIR)/../unet/mail/pop3.asm \
-                          $(KERNEL_DIR)/../unet/mail/dkim.asm \
-                          $(KERNEL_DIR)/../unet/mail/spf_dmarc.asm \
-                          $(KERNEL_DIR)/../unet/ebpf/smartnic_offload.asm \
-                          $(KERNEL_DIR)/../unet/hpc/roce.asm \
-                          $(KERNEL_DIR)/../unet/optical/flex_ethernet.asm \
-                          $(KERNEL_DIR)/../unet/ha/carp.asm \
-                          $(KERNEL_DIR)/../unet/scada/modbus_tcp.asm \
-                          $(KERNEL_DIR)/../unet/telecom/pfcp.asm \
-                          $(KERNEL_DIR)/../unet/san/nfs42.asm \
-                          $(KERNEL_DIR)/../unet/pqc/pqc_tls13.asm \
-                          $(KERNEL_DIR)/../unet/identity/webauthn.asm \
-                          $(KERNEL_DIR)/../unet/services/snmpv3.asm \
-                          $(KERNEL_DIR)/../unet/security/noise_protocol.asm \
-                          $(KERNEL_DIR)/../unet/http/http3_datagram.asm \
-                          $(KERNEL_DIR)/../unet/anon/lokinet.asm \
-                          $(KERNEL_DIR)/../unet/cgnat/pcp.asm \
-                          $(KERNEL_DIR)/../unet/cloud/vswitch.asm \
-                          $(KERNEL_DIR)/../unet/wireless/lorawan.asm \
-                          $(KERNEL_DIR)/../unet/hft/ouch_soup.asm \
-                          $(KERNEL_DIR)/../unet/scada/dlms_cosem.asm \
-                          $(KERNEL_DIR)/../unet/vpn/wireguard_blake2s.asm \
-                          $(KERNEL_DIR)/../unet/tools/diag/tcpdump_asm.asm \
-                          $(KERNEL_DIR)/../unet/tools/diag/netstat_asm.asm \
-                          $(KERNEL_DIR)/../unet/tools/bench/iperf_asm.asm \
-                          $(KERNEL_DIR)/../unet/tools/diag/ping.asm \
-                          $(KERNEL_DIR)/../unet/tools/telecom/dhcpclient.asm \
-                          $(KERNEL_DIR)/../unet/tools/telecom/lookup.asm \
-                          $(KERNEL_DIR)/../unet/tools/app/http_client.asm \
-                          $(KERNEL_DIR)/../unet/tools/app/ssh_client.asm \
-                          $(KERNEL_DIR)/../unet/tools/security/wireguard_test.asm \
-                          $(KERNEL_DIR)/../unet/tests/tcp_state_test.asm \
-                          $(KERNEL_DIR)/../unet/tests/pqc_bench.asm \
-                          $(KERNEL_DIR)/../unet/unet.asm
+kernel.bin: $(KERNEL_SRCS)
+	$(ASM) -f bin -I $(ROOT)/ $(ENTRY) -o $(KERNEL_DIR)/kernel.bin
+	@# Patch the ULF size field (offset +4, 4 bytes little-endian) with the real
+	@# image length. The assembler cannot compute it: kernel_end sits in .text,
+	@# and .data/.rodata are emitted after it, so the label under-reported a
+	@# 9.3 MiB image as 274 KB. A loader trusting that would copy the code and
+	@# none of its data.
+	@#
+	@# Done in shell, not Python: this is an assembly-native OS and the kernel
+	@# build should not require an interpreter. The inner printf renders the
+	@# four bytes as octal escapes; the outer one emits them.
+	@SZ=`wc -c < $(KERNEL_DIR)/kernel.bin`; \
+	B0=`expr $$SZ % 256`; B1=`expr $$SZ / 256 % 256`; \
+	B2=`expr $$SZ / 65536 % 256`; B3=`expr $$SZ / 16777216 % 256`; \
+	printf "`printf '\\%03o\\%03o\\%03o\\%03o' $$B0 $$B1 $$B2 $$B3`" \
+	  | dd of=$(KERNEL_DIR)/kernel.bin bs=1 seek=4 conv=notrunc status=none; \
+	echo "ulf: image size $$SZ bytes written to header"
 
-	$(ASM) -f bin -I $(KERNEL_DIR)/../ $(ENTRY) -o $(KERNEL_DIR)/kernel.bin
+# Assemble to ELF instead: keeps symbol names in the error output and lets
+# `nm` show what a section actually contains. Useful when triaging the image.
+elf: $(KERNEL_SRCS)
+	$(ASM) -f elf64 -I $(ROOT)/ $(ENTRY) -o $(KERNEL_DIR)/kernel.o
 
 clean:
-	rm -f $(KERNEL_DIR)/kernel.bin
+	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o
+
+.PHONY: all elf clean
