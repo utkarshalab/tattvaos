@@ -107,10 +107,16 @@ align 32
 tsc_elapsed_nanos:
     push rbp
     mov rbp, rsp
+    push rbx                ; Callee-saved under SysV. Every caller of
+                            ; mono_get_nanos reaches this function, and several
+                            ; of them hold a live pointer in RBX across the
+                            ; call — usrauth's password throttle writes through
+                            ; it immediately afterwards. Clobbering it here
+                            ; sends that store to address 3000000000.
     ; rdi = start_tsc, rsi = end_tsc
     mov rax, rsi
     sub rax, rdi            ; Elapsed cycles
-    
+
     ; Nanoseconds = (cycles * 1,000,000,000) / tsc_freq_hz
     mov rcx, 1000000000
     mul rcx                 ; RDX:RAX = cycles * 1,000,000,000
@@ -120,6 +126,7 @@ tsc_elapsed_nanos:
     mov rbx, 3000000000     ; Fallback if uncalibrated
 .div_freq:
     div rbx                 ; RAX = nanoseconds
+    pop rbx
     pop rbp
     ret
 
