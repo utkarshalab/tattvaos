@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_MEM_ARENA_ASM
+%define GUARD_LIB_UCMP_MEM_ARENA_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/mem/arena.asm
 ; =============================================================================
@@ -76,3 +78,5 @@ align 32
 ucmp_arena_reset:
     mov qword [rdi + ucmp_arena_t.offset], 0
     ret
+
+%endif ; GUARD_LIB_UCMP_MEM_ARENA_ASM

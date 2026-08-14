@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UFILE_UFILE_TRANSPOSE_ASM
+%define GUARD_LIB_UFILE_UFILE_TRANSPOSE_ASM
 ; =============================================================================
 ; Tattva OS — lib/ufile/ufile_transpose.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "ufile.inc"
+%include "lib/ufile/ufile.inc"
 
 section .text
 
@@ -50,3 +52,5 @@ ufile_transpose_meta:
     mov rax, 1
     pop rbx
     ret
+
+%endif ; GUARD_LIB_UFILE_UFILE_TRANSPOSE_ASM

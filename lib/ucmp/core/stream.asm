@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_CORE_STREAM_ASM
+%define GUARD_LIB_UCMP_CORE_STREAM_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/core/stream.asm
 ; =============================================================================
@@ -50,3 +52,5 @@ ucmp_stream_reset:
     mov dword [rdi + ucmp_stream_t.checksum], 0xFFFFFFFF
     mov eax, UCMP_OK
     ret
+
+%endif ; GUARD_LIB_UCMP_CORE_STREAM_ASM

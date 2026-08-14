@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_PTP_ASM
+%define GUARD_LIB_TIME_PTP_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/ptp.asm
 ; =============================================================================
@@ -70,3 +72,5 @@ align 32
 ptp_get_offset_ns:
     mov rax, [rel ptp_offset_from_master_ns]
     ret
+
+%endif ; GUARD_LIB_TIME_PTP_ASM

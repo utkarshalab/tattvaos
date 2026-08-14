@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UFILE_SIGNATURES_FS_SIGNATURES_ASM
+%define GUARD_LIB_UFILE_SIGNATURES_FS_SIGNATURES_ASM
 ; =============================================================================
 ; Tattva OS — lib/ufile/signatures/fs_signatures.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "ufile.inc"
+%include "lib/ufile/ufile.inc"
 
 section .text
 
@@ -115,3 +117,5 @@ str_mime_ext:   db 'application/x-ext4', 0
 str_ext_ext:    db '.ext4', 0
 str_mime_gpt:   db 'application/x-gpt', 0
 str_ext_gpt:    db '.gpt', 0
+
+%endif ; GUARD_LIB_UFILE_SIGNATURES_FS_SIGNATURES_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_ALGO_DEFLATE_INFLATE_ASM
+%define GUARD_LIB_UCMP_ALGO_DEFLATE_INFLATE_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/algo/deflate/inflate.asm
 ; =============================================================================
@@ -63,3 +65,5 @@ ucmp_inflate_decompress:
     mov rax, r13                    ; Return uncompressed bytes written
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_ALGO_DEFLATE_INFLATE_ASM

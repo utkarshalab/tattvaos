@@ -6,7 +6,7 @@
 ; ChaCha20 (RFC 8439) CSPRNG with key erasure.
 ;
 ; Implements:
-;   - The bare block function (`chacha20_block`)
+;   - The bare block function (`urand_chacha20_block`)
 ;   - Context-driven generation with counter advance (`chacha20_rng_generate`)
 ;   - Forward-secrecy rekey (`chacha20_rng_rekey`)
 ;
@@ -36,7 +36,7 @@
 
 section .text
 
-global chacha20_block
+global urand_chacha20_block
 global chacha20_rng_generate
 global chacha20_rng_rekey
 
@@ -78,7 +78,7 @@ global chacha20_rng_rekey
 %endmacro
 
 ; -----------------------------------------------------------------------------
-; chacha20_block — one 64-byte keystream block.
+; urand_chacha20_block — one 64-byte keystream block.
 ;
 ; Inputs:
 ;   RDI = 64-byte output
@@ -91,7 +91,7 @@ global chacha20_rng_rekey
 ; key and nonce plain dword loads.
 ; -----------------------------------------------------------------------------
 align 32
-chacha20_block:
+urand_chacha20_block:
     push rbx
     push rbp
     push r12
@@ -191,7 +191,7 @@ chacha20_rng_generate:
     lea rsi, [rbx + urand_ctx_t.key]
     lea rdx, [rbx + urand_ctx_t.nonce]
     mov ecx, [rbx + urand_ctx_t.counter]
-    call chacha20_block
+    call urand_chacha20_block
 
     inc dword [rbx + urand_ctx_t.counter]
     inc qword [rbx + urand_ctx_t.blocks_out]

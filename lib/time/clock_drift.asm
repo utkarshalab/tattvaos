@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_CLOCK_DRIFT_ASM
+%define GUARD_LIB_TIME_CLOCK_DRIFT_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/clock_drift.asm
 ; =============================================================================
@@ -52,3 +54,5 @@ clock_apply_slew:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_LIB_TIME_CLOCK_DRIFT_ASM

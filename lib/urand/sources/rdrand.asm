@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_URAND_SOURCES_RDRAND_ASM
+%define GUARD_LIB_URAND_SOURCES_RDRAND_ASM
 ; =============================================================================
 ; Tattva OS — lib/urand/sources/rdrand.asm
 ; =============================================================================
@@ -62,3 +64,5 @@ rdrand_get_uint64:
     mov rdx, 1
     pop rcx
     ret
+
+%endif ; GUARD_LIB_URAND_SOURCES_RDRAND_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_URAND_URAND_PERCPU_ASM
+%define GUARD_LIB_URAND_URAND_PERCPU_ASM
 ; =============================================================================
 ; Tattva OS — lib/urand/urand_percpu.asm
 ; =============================================================================
@@ -22,3 +24,5 @@ section .text
 urand_get_bytes_percpu:
     call urand_get_bytes
     ret
+
+%endif ; GUARD_LIB_URAND_URAND_PERCPU_ASM

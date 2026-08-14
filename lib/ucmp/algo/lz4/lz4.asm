@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_ALGO_LZ4_LZ4_ASM
+%define GUARD_LIB_UCMP_ALGO_LZ4_LZ4_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/algo/lz4/lz4.asm
 ; =============================================================================
@@ -20,7 +22,6 @@ section .text
 
 global ucmp_lz4_compress
 
-extern ucmp_avx2_scan_match_length
 
 ; -----------------------------------------------------------------------------
 ; ucmp_lz4_compress
@@ -246,3 +247,5 @@ ucmp_lz4_compress:
     mov rax, UCMP_ERR_BUFF_TOO_SMALL
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_ALGO_LZ4_LZ4_ASM

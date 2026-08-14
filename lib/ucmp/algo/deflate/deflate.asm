@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_ALGO_DEFLATE_DEFLATE_ASM
+%define GUARD_LIB_UCMP_ALGO_DEFLATE_DEFLATE_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/algo/deflate/deflate.asm
 ; =============================================================================
@@ -45,18 +47,24 @@ ucmp_deflate_compress:
     mov byte [r10 + r13], 0x01      ; BFINAL=1, BTYPE=00
     inc r13
 
-    ; Write 16-bit LEN (Little-Endian)
+    ; Write 16-bit LEN (Little-Endian).
+    ; The high byte is reached by shifting rather than naming AH: an
+    ; instruction that already needs a REX prefix for r10/r13 cannot also
+    ; encode a high-byte register, so `mov [r10+r13], ah` is unassemblable.
     mov ax, r9w
     mov byte [r10 + r13], al
     inc r13
-    mov byte [r10 + r13], ah
+    shr ax, 8
+    mov byte [r10 + r13], al
     inc r13
 
-    ; Write 16-bit NLEN (One's Complement of LEN)
+    ; Write 16-bit NLEN (one's complement of LEN)
+    mov ax, r9w
     not ax
     mov byte [r10 + r13], al
     inc r13
-    mov byte [r10 + r13], ah
+    shr ax, 8
+    mov byte [r10 + r13], al
     inc r13
 
 .copy_deflate_raw:
@@ -72,3 +80,5 @@ ucmp_deflate_compress:
     mov rax, r13                    ; Return bytes written
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_ALGO_DEFLATE_DEFLATE_ASM

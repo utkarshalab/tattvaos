@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_URAND_SOURCES_INTERRUPT_ENTROPY_ASM
+%define GUARD_LIB_URAND_SOURCES_INTERRUPT_ENTROPY_ASM
 ; =============================================================================
 ; Tattva OS — lib/urand/sources/interrupt_entropy.asm
 ; =============================================================================
@@ -35,3 +37,5 @@ irq_feed_entropy:
     pop rdx
     pop rbx
     ret
+
+%endif ; GUARD_LIB_URAND_SOURCES_INTERRUPT_ENTROPY_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_ALGO_LZ4_LZ4_DECOMP_ASM
+%define GUARD_LIB_UCMP_ALGO_LZ4_LZ4_DECOMP_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/algo/lz4/lz4_decomp.asm
 ; =============================================================================
@@ -146,3 +148,5 @@ ucmp_lz4_decompress:
     mov rax, r13                    ; Return uncompressed bytes written
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_ALGO_LZ4_LZ4_DECOMP_ASM

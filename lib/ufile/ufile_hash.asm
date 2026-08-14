@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UFILE_UFILE_HASH_ASM
+%define GUARD_LIB_UFILE_UFILE_HASH_ASM
 ; =============================================================================
 ; Tattva OS — lib/ufile/ufile_hash.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "ufile.inc"
+%include "lib/ufile/ufile.inc"
 
 section .text
 
@@ -66,9 +68,11 @@ ufile_hash_header:
     
     ; Store 32-bit CRC in first 4 bytes of sha256_digest field
     mov [rdx + ufile_meta_t.sha256_digest], eax
-    mov [rdx + ufile_meta_t.checksum], rax
+    mov [rdx + ufile_meta_t.sha256_digest], rax
 
     mov rax, 1
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_LIB_UFILE_UFILE_HASH_ASM

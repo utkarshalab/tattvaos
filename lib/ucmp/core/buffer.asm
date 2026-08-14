@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_CORE_BUFFER_ASM
+%define GUARD_LIB_UCMP_CORE_BUFFER_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/core/buffer.asm
 ; =============================================================================
@@ -48,3 +50,5 @@ ucmp_buffer_write_byte:
 .no_wrap:
     mov [rdi + ucmp_window_buffer_t.head_pos], rax
     ret
+
+%endif ; GUARD_LIB_UCMP_CORE_BUFFER_ASM

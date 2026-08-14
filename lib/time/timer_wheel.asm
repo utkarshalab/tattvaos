@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_TIMER_WHEEL_ASM
+%define GUARD_LIB_TIME_TIMER_WHEEL_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/timer_wheel.asm
 ; =============================================================================
@@ -73,3 +75,5 @@ timer_wheel_tick:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_LIB_TIME_TIMER_WHEEL_ASM

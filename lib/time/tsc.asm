@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_TSC_ASM
+%define GUARD_LIB_TIME_TSC_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/tsc.asm
 ; =============================================================================
@@ -134,3 +136,25 @@ align 32
 tsc_get_freq:
     mov rax, [rel tsc_freq_hz]
     ret
+
+; -----------------------------------------------------------------------------
+; rdtsc_get_cycles — raw cycle counter.
+;
+; Input:  none
+; Output: RAX = 64-bit TSC value
+;
+; The name used across unet/ for the same thing tsc_read provides. It is a
+; genuine alias, not a placeholder: the function takes no arguments, so there
+; is nothing for a caller to marshal and nothing to get wrong.
+;
+; Non-serialising on purpose. Callers use it for packet ingress timestamps and
+; as an entropy sample, where the cost of a serialising CPUID would exceed the
+; interval being measured. Use tsc_read_serialized when ordering against
+; surrounding instructions actually matters.
+; -----------------------------------------------------------------------------
+global rdtsc_get_cycles
+align 32
+rdtsc_get_cycles:
+    jmp tsc_read
+
+%endif ; GUARD_LIB_TIME_TSC_ASM

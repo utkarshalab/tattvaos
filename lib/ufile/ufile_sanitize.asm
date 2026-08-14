@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UFILE_UFILE_SANITIZE_ASM
+%define GUARD_LIB_UFILE_UFILE_SANITIZE_ASM
 ; =============================================================================
 ; Tattva OS — lib/ufile/ufile_sanitize.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "ufile.inc"
+%include "lib/ufile/ufile.inc"
 
 section .text
 
@@ -139,3 +141,5 @@ ufile_sanitize_string:
 section .data
 align 64
 shadow_scratch_buf: times 512 db 0
+
+%endif ; GUARD_LIB_UFILE_UFILE_SANITIZE_ASM

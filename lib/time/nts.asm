@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_NTS_ASM
+%define GUARD_LIB_TIME_NTS_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/nts.asm
 ; =============================================================================
@@ -72,3 +74,5 @@ nts_attach_cookie:
     xor eax, eax
     pop rbp
     ret
+
+%endif ; GUARD_LIB_TIME_NTS_ASM

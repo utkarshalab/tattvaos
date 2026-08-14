@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_UCMP_ASM
+%define GUARD_LIB_UCMP_UCMP_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/ucmp.asm
 ; =============================================================================
@@ -188,3 +190,5 @@ ucmp_decompress:
 .exit_decomp:
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_UCMP_ASM

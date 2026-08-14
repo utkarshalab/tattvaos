@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_ALGO_ZLIB_ZLIB_ASM
+%define GUARD_LIB_UCMP_ALGO_ZLIB_ZLIB_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/algo/zlib/zlib.asm
 ; =============================================================================
@@ -17,8 +19,6 @@ section .text
 global ucmp_zlib_compress
 global ucmp_zlib_decompress
 
-extern ucmp_deflate_compress
-extern ucmp_inflate_decompress
 
 ; -----------------------------------------------------------------------------
 ; ucmp_zlib_compress
@@ -68,3 +68,5 @@ ucmp_zlib_decompress:
 
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_ALGO_ZLIB_ZLIB_ASM

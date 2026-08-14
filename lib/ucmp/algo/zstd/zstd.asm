@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_ALGO_ZSTD_ZSTD_ASM
+%define GUARD_LIB_UCMP_ALGO_ZSTD_ZSTD_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/algo/zstd/zstd.asm
 ; =============================================================================
@@ -143,3 +145,5 @@ ucmp_zstd_decompress:
     mov rax, UCMP_ERR_CORRUPT
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_ALGO_ZSTD_ZSTD_ASM

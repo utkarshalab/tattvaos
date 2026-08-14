@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_MONO_ASM
+%define GUARD_LIB_TIME_MONO_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/mono.asm
 ; =============================================================================
@@ -71,3 +73,5 @@ mono_get_nanos:
     call tsc_elapsed_nanos
     pop rbp
     ret
+
+%endif ; GUARD_LIB_TIME_MONO_ASM

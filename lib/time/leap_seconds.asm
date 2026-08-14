@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_LEAP_SECONDS_ASM
+%define GUARD_LIB_TIME_LEAP_SECONDS_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/leap_seconds.asm
 ; =============================================================================
@@ -56,3 +58,5 @@ align 32
 get_tai_offset:
     mov rax, [rel tai_utc_offset_sec]
     ret
+
+%endif ; GUARD_LIB_TIME_LEAP_SECONDS_ASM

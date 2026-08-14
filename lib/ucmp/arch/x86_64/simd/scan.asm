@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_ARCH_X86_64_SIMD_SCAN_ASM
+%define GUARD_LIB_UCMP_ARCH_X86_64_SIMD_SCAN_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/arch/x86_64/simd/scan.asm
 ; =============================================================================
@@ -82,3 +84,5 @@ ucmp_avx2_scan_match_length:
     vzeroall
     pop rbx
     ret
+
+%endif ; GUARD_LIB_UCMP_ARCH_X86_64_SIMD_SCAN_ASM

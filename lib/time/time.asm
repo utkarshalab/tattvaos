@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_TIME_ASM
+%define GUARD_LIB_TIME_TIME_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/time.asm
 ; =============================================================================
@@ -212,3 +214,5 @@ sys_clock_gettime:
     call mono_clock_gettime
     pop rbp
     ret
+
+%endif ; GUARD_LIB_TIME_TIME_ASM

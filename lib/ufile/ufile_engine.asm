@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UFILE_UFILE_ENGINE_ASM
+%define GUARD_LIB_UFILE_UFILE_ENGINE_ASM
 ; =============================================================================
 ; Tattva OS — lib/ufile/ufile_engine.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "ufile.inc"
+%include "lib/ufile/ufile.inc"
 
 ; Opcodes
 OP_MATCH_BYTES  equ 1              ; Match N bytes at current offset
@@ -96,3 +98,5 @@ ufile_eval_rule:
     pop rcx
     pop rbx
     ret
+
+%endif ; GUARD_LIB_UFILE_UFILE_ENGINE_ASM

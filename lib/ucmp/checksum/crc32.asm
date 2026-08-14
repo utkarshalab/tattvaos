@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_CHECKSUM_CRC32_ASM
+%define GUARD_LIB_UCMP_CHECKSUM_CRC32_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/checksum/crc32.asm
 ; =============================================================================
@@ -63,3 +65,5 @@ ucmp_crc32_calc:
 .done:
     xor eax, 0xFFFFFFFF             ; Final XOR invert
     ret
+
+%endif ; GUARD_LIB_UCMP_CHECKSUM_CRC32_ASM

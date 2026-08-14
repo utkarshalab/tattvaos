@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_GNSS_ASM
+%define GUARD_LIB_TIME_GNSS_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/gnss.asm
 ; =============================================================================
@@ -112,3 +114,5 @@ align 32
 gnss_get_utc_time:
     mov rax, [rel gnss_utc_timestamp]
     ret
+
+%endif ; GUARD_LIB_TIME_GNSS_ASM

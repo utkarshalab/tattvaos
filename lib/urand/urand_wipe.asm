@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_URAND_URAND_WIPE_ASM
+%define GUARD_LIB_URAND_URAND_WIPE_ASM
 ; =============================================================================
 ; Tattva OS — lib/urand/urand_wipe.asm
 ; =============================================================================
@@ -41,3 +43,5 @@ urand_wipe_buffer:
     pop rdi
     pop rcx
     ret
+
+%endif ; GUARD_LIB_URAND_URAND_WIPE_ASM

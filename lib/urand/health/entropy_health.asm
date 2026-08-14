@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_URAND_HEALTH_ENTROPY_HEALTH_ASM
+%define GUARD_LIB_URAND_HEALTH_ENTROPY_HEALTH_ASM
 ; =============================================================================
 ; Tattva OS — lib/urand/health/entropy_health.asm
 ; =============================================================================
@@ -37,3 +39,5 @@ entropy_health_check_rct:
 
 section .data
 last_rdrand_sample: dq 0xBADCAFEBEEFCAFE
+
+%endif ; GUARD_LIB_URAND_HEALTH_ENTROPY_HEALTH_ASM

@@ -23,7 +23,7 @@ str_delay_pass:     db "TEST:TIME:DELAY_OK", 0
 str_all_pass:       db "TEST:TIME:ALL_PASS", 0
 
 section .bss
-align 8
+alignb 8
 test_tm:            resb tm_t_size
 
 section .text

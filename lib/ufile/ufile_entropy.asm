@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UFILE_UFILE_ENTROPY_ASM
+%define GUARD_LIB_UFILE_UFILE_ENTROPY_ASM
 ; =============================================================================
 ; Tattva OS — lib/ufile/ufile_entropy.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "ufile.inc"
+%include "lib/ufile/ufile.inc"
 
 section .text
 
@@ -102,3 +104,5 @@ ufile_compute_entropy:
 section .data
 align 64
 byte_histogram: times 256 dd 0
+
+%endif ; GUARD_LIB_UFILE_UFILE_ENTROPY_ASM

@@ -82,13 +82,16 @@ struc ufile_meta_t
     .param3        resq 1           ; +064: FS: FAT Offset   | AI: Layer Count   | ARCH: Uncompressed Size
     .param4        resq 1           ; +072: FS: Root Cluster | AI: Context Size  | MEDIA: Width (pixels)
     .param5        resq 1           ; +080: FS: Volume Label | AI: Model Arch    | MEDIA: Height (pixels)
-    .guid          times 16 db 0    ; +088: 16-byte Partition GUID
-    .label_str     times 32 db 0    ; +104: Sanitized 32-byte ASCII Label Name
-    .sha256_digest times 32 db 0    ; +136: 32-byte SHA256 / BLAKE3 Header Hash Digest
+    ; These three RESERVE space; they do not emit it. `times N db 0` inside a
+    ; struc assembles bytes into absolute space instead of advancing the offset
+    ; counter, which both breaks the enclosing section and leaves the generated
+    ; size short by exactly these 80 bytes.
+    .guid          resb 16          ; +088: 16-byte Partition GUID
+    .label_str     resb 32          ; +104: Sanitized 32-byte ASCII Label Name
+    .sha256_digest resb 32          ; +136: 32-byte SHA256 / BLAKE3 Header Hash Digest
     .version       resd 1           ; +168: Format Version (e.g. GGUF v3, FAT32)
-    .reserved      resq 10          ; +172..+256: Reserved L1 Cache Line Padding
+    .reserved      resb 84          ; +172..+256: pad the record to 256 bytes
 endstruc
 
-ufile_meta_t_size equ 256
 
 %endif ; LIB_UFILE_UFILE_INC

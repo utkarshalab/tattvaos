@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UFILE_SIGNATURES_EXEC_SIGNATURES_ASM
+%define GUARD_LIB_UFILE_SIGNATURES_EXEC_SIGNATURES_ASM
 ; =============================================================================
 ; Tattva OS — lib/ufile/signatures/exec_signatures.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "ufile.inc"
+%include "lib/ufile/ufile.inc"
 
 section .text
 
@@ -39,7 +41,7 @@ match_ulf:
 
     ; Extract Checksum at offset 16
     mov rax, [rdi + 16]
-    mov [rsi + ufile_meta_t.checksum], rax
+    mov [rsi + ufile_meta_t.sha256_digest], rax
 
     mov rax, 1
     ret
@@ -80,3 +82,5 @@ str_mime_ulf: db 'application/x-ulf', 0
 str_ext_ulf:  db '.ulf', 0
 str_mime_elf: db 'application/x-elf64', 0
 str_ext_elf:  db '.elf', 0
+
+%endif ; GUARD_LIB_UFILE_SIGNATURES_EXEC_SIGNATURES_ASM

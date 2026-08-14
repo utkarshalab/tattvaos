@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_ALGO_GZIP_GZIP_ASM
+%define GUARD_LIB_UCMP_ALGO_GZIP_GZIP_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/algo/gzip/gzip.asm
 ; =============================================================================
@@ -18,9 +20,6 @@ section .text
 global ucmp_gzip_compress
 global ucmp_gzip_decompress
 
-extern ucmp_deflate_compress
-extern ucmp_inflate_decompress
-extern ucmp_crc32_calc
 
 ; -----------------------------------------------------------------------------
 ; ucmp_gzip_compress
@@ -98,3 +97,5 @@ ucmp_gzip_decompress:
     mov rax, UCMP_ERR_HEADER_INVALID
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_ALGO_GZIP_GZIP_ASM

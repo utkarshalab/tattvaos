@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_CORE_BITSTREAM_ASM
+%define GUARD_LIB_UCMP_CORE_BITSTREAM_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/core/bitstream.asm
 ; =============================================================================
@@ -132,3 +134,5 @@ ucmp_bitstream_write_bits:
 .done:
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_CORE_BITSTREAM_ASM

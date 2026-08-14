@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UFILE_UFILE_ASM
+%define GUARD_LIB_UFILE_UFILE_ASM
 ; =============================================================================
 ; Tattva OS — lib/ufile/ufile.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "ufile.inc"
+%include "lib/ufile/ufile.inc"
 
 section .text
 
@@ -142,3 +144,5 @@ ufile_detect_sector:
 section .data
 str_mime_unknown: db 'application/octet-stream', 0
 str_ext_unknown:  db '.bin', 0
+
+%endif ; GUARD_LIB_UFILE_UFILE_ASM

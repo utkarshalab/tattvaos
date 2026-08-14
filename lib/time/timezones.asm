@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_TIMEZONES_ASM
+%define GUARD_LIB_TIME_TIMEZONES_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/timezones.asm
 ; =============================================================================
@@ -65,3 +67,5 @@ tz_local_to_utc:
     sub rax, [rel current_tz_offset_sec]
     pop rbp
     ret
+
+%endif ; GUARD_LIB_TIME_TIMEZONES_ASM

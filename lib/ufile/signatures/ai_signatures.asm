@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UFILE_SIGNATURES_AI_SIGNATURES_ASM
+%define GUARD_LIB_UFILE_SIGNATURES_AI_SIGNATURES_ASM
 ; =============================================================================
 ; Tattva OS — lib/ufile/signatures/ai_signatures.asm
 ; =============================================================================
@@ -9,7 +11,7 @@
 
 [BITS 64]
 
-%include "ufile.inc"
+%include "lib/ufile/ufile.inc"
 
 section .text
 
@@ -51,3 +53,5 @@ match_gguf:
 section .data
 str_mime_gguf: db 'application/x-gguf', 0
 str_ext_gguf:  db '.gguf', 0
+
+%endif ; GUARD_LIB_UFILE_SIGNATURES_AI_SIGNATURES_ASM

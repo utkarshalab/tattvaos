@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_TIME_RTC_ASM
+%define GUARD_LIB_TIME_RTC_ASM
 ; =============================================================================
 ; Tattva OS — lib/time/rtc.asm
 ; =============================================================================
@@ -119,3 +121,5 @@ bcd_to_bin:
     and ecx, 0x0F
     add eax, ecx
     ret
+
+%endif ; GUARD_LIB_TIME_RTC_ASM

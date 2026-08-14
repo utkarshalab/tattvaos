@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_UCMP_ALGO_SNAPPY_SNAPPY_ASM
+%define GUARD_LIB_UCMP_ALGO_SNAPPY_SNAPPY_ASM
 ; =============================================================================
 ; Tattva OS — lib/ucmp/algo/snappy/snappy.asm
 ; =============================================================================
@@ -226,7 +228,18 @@ ucmp_snappy_decompress:
     UCMP_RESTORE_REGS
     ret
 
+; NASM scopes a `.label` to the preceding non-local label, so the .overflow_err
+; belonging to ucmp_snappy_compress is NOT reachable from here — the jumps above
+; were resolving to ucmp_snappy_decompress.overflow_err, which did not exist.
+; Each function needs its own copy.
+.overflow_err:
+    mov rax, UCMP_ERR_BUFF_TOO_SMALL
+    UCMP_RESTORE_REGS
+    ret
+
 .done:
     mov rax, r13
     UCMP_RESTORE_REGS
     ret
+
+%endif ; GUARD_LIB_UCMP_ALGO_SNAPPY_SNAPPY_ASM
