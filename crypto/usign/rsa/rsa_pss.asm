@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_USIGN_RSA_RSA_PSS_ASM
+%define GUARD_CRYPTO_USIGN_RSA_RSA_PSS_ASM
 ; =============================================================================
 ; Tattva OS — crypto/usign/rsa/rsa_pss.asm
 ; =============================================================================
@@ -43,3 +45,5 @@ rsa_pss_verify:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_USIGN_RSA_RSA_PSS_ASM
