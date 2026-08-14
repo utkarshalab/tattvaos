@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UPQC_UPQC_ASM
+%define GUARD_CRYPTO_UPQC_UPQC_ASM
 ; =============================================================================
 ; Tattva OS — crypto/upqc/upqc.asm
 ; =============================================================================
@@ -25,3 +27,5 @@ section .text
 upqc_init:
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UPQC_UPQC_ASM

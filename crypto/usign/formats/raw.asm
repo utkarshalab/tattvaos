@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_USIGN_FORMATS_RAW_ASM
+%define GUARD_CRYPTO_USIGN_FORMATS_RAW_ASM
 ; =============================================================================
 ; Tattva OS — crypto/usign/formats/raw.asm
 ; =============================================================================
@@ -33,3 +35,5 @@ parse_raw_sig:
 .invalid:
     xor rax, rax
     ret
+
+%endif ; GUARD_CRYPTO_USIGN_FORMATS_RAW_ASM

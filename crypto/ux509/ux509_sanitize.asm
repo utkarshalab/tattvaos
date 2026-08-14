@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_SANITIZE_ASM
+%define GUARD_CRYPTO_UX509_UX509_SANITIZE_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_sanitize.asm
 ; =============================================================================
@@ -33,3 +35,5 @@ ux509_check_bounds:
 .overflow:
     xor rax, rax
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_SANITIZE_ASM

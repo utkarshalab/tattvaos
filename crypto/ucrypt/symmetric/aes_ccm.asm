@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CCM_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CCM_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_ccm.asm
 ; =============================================================================
@@ -40,3 +42,5 @@ aes_ccm_encrypt:
 aes_ccm_decrypt:
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CCM_ASM

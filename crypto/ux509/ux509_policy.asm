@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_POLICY_ASM
+%define GUARD_CRYPTO_UX509_UX509_POLICY_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_policy.asm
 ; =============================================================================
@@ -30,3 +32,5 @@ ux509_verify_eku:
 .pass:
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_POLICY_ASM

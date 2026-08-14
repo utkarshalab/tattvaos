@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_CRL_ASM
+%define GUARD_CRYPTO_UX509_UX509_CRL_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_crl.asm
 ; =============================================================================
@@ -69,3 +71,5 @@ ux509_crl_check_revocation:
     pop rcx
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_CRL_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_GUARDS_S2N_GUARD_ASM
+%define GUARD_CRYPTO_UCRYPT_GUARDS_S2N_GUARD_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/guards/s2n_guard.asm
 ; =============================================================================
@@ -42,3 +44,5 @@ ucrypt_s2n_bzero:
     pop rcx
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_GUARDS_S2N_GUARD_ASM

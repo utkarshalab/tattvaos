@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_BIP32_HDKEY_ASM
+%define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_BIP32_HDKEY_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/asymmetric/bip32_hdkey.asm
 ; =============================================================================
@@ -34,3 +36,5 @@ bip32_derive_child_key:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_ASYMMETRIC_BIP32_HDKEY_ASM

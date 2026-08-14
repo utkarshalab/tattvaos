@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CBC_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CBC_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_cbc.asm
 ; =============================================================================
@@ -114,3 +116,5 @@ aes_cbc_decrypt:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CBC_ASM

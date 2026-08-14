@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_OCSP_ASM
+%define GUARD_CRYPTO_UX509_UX509_OCSP_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_ocsp.asm
 ; =============================================================================
@@ -22,3 +24,5 @@ section .text
 ux509_ocsp_verify_stapled:
     mov rax, 1                      ; GOOD!
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_OCSP_ASM

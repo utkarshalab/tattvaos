@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_OCB3_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_OCB3_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_ocb3.asm
 ; =============================================================================
@@ -40,3 +42,5 @@ aes_ocb3_encrypt:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_OCB3_ASM

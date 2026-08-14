@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_CSR_ASM
+%define GUARD_CRYPTO_UX509_UX509_CSR_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_csr.asm
 ; =============================================================================
@@ -41,3 +43,5 @@ ux509_generate_csr:
 ux509_parse_csr:
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_CSR_ASM

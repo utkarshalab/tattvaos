@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_MAC_CMAC_CMAC_ASM
+%define GUARD_CRYPTO_UCRYPT_MAC_CMAC_CMAC_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/mac/cmac/cmac.asm
 ; =============================================================================
@@ -31,3 +33,5 @@ aes_cmac:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_MAC_CMAC_CMAC_ASM

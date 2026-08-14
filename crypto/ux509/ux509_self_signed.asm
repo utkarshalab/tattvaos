@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_SELF_SIGNED_ASM
+%define GUARD_CRYPTO_UX509_UX509_SELF_SIGNED_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_self_signed.asm
 ; =============================================================================
@@ -21,3 +23,5 @@ section .text
 ux509_is_self_signed:
     mov rax, [rdi + ux509_cert_t.is_self_signed]
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_SELF_SIGNED_ASM

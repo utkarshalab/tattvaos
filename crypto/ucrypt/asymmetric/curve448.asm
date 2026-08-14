@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_CURVE448_ASM
+%define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_CURVE448_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/asymmetric/curve448.asm
 ; =============================================================================
@@ -68,3 +70,5 @@ x448_compute_shared_secret:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_ASYMMETRIC_CURVE448_ASM

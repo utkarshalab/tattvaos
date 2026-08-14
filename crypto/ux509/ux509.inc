@@ -61,6 +61,5 @@ struc ux509_cert_t
     .reserved       resq 25         ; +312..+512: L1 Cache Line Padding
 endstruc
 
-ux509_cert_t_size equ 512
 
 %endif ; CRYPTO_UX509_UX509_INC

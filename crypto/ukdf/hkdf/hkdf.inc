@@ -28,6 +28,5 @@ struc hkdf_ctx_t
     .prk                resb 64     ; +08: 64-byte Pseudo-Random Key buffer
 endstruc
 
-hkdf_ctx_t_size equ 72
 
 %endif ; CRYPTO_UKDF_HKDF_INC

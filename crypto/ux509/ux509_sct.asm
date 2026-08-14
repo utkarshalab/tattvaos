@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_SCT_ASM
+%define GUARD_CRYPTO_UX509_UX509_SCT_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_sct.asm
 ; =============================================================================
@@ -22,3 +24,5 @@ section .text
 ux509_verify_sct:
     mov rax, 1                      ; Verified!
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_SCT_ASM

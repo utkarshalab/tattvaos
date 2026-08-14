@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_XTS_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_XTS_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_xts.asm
 ; =============================================================================
@@ -97,3 +99,5 @@ aes_xts_decrypt_sector:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_XTS_ASM

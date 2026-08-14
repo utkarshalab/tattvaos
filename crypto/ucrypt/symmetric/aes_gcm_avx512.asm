@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_AVX512_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_AVX512_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_gcm_avx512.asm
 ; =============================================================================
@@ -47,3 +49,5 @@ aes_gcm_encrypt_avx512:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_AVX512_ASM

@@ -24,6 +24,5 @@ struc sha256_ctx_t
     .flags      resd 1              ; +108: Flags (Bit 0 = Use SHA-NI hardware)
 endstruc
 
-sha256_ctx_t_size equ 112
 
 %endif ; CRYPTO_UHASH_SHA256_INC

@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_EXT_ASM
+%define GUARD_CRYPTO_UX509_UX509_EXT_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_ext.asm
 ; =============================================================================
@@ -29,3 +31,5 @@ ux509_parse_extensions:
     mov rax, 1
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_EXT_ASM

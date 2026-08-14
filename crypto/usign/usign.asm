@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_USIGN_USIGN_ASM
+%define GUARD_CRYPTO_USIGN_USIGN_ASM
 ; =============================================================================
 ; Tattva OS — crypto/usign/usign.asm
 ; =============================================================================
@@ -64,3 +66,5 @@ usign_verify_payload:
 .done:
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_USIGN_USIGN_ASM

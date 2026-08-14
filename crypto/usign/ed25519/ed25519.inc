@@ -56,6 +56,5 @@ struc ed25519_sig_t
     .s_scalar       resb 32         ; +32: 32-byte S scalar
 endstruc
 
-ed25519_sig_t_size equ 64
 
 %endif ; CRYPTO_USIGN_ED25519_INC

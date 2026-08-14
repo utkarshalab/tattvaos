@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_MAC_POLY1305_ASM
+%define GUARD_CRYPTO_UCRYPT_MAC_POLY1305_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/mac/poly1305.asm
 ; =============================================================================
@@ -76,3 +78,5 @@ poly1305_mac:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_MAC_POLY1305_ASM

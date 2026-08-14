@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_AIA_ASM
+%define GUARD_CRYPTO_UX509_UX509_AIA_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_aia.asm
 ; =============================================================================
@@ -22,3 +24,5 @@ section .text
 ux509_parse_aia:
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_AIA_ASM

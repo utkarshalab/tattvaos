@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ED448_ASM
+%define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ED448_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/asymmetric/ed448.asm
 ; =============================================================================
@@ -35,3 +37,5 @@ ed448_sign:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ED448_ASM

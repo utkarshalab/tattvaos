@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_OID_ASM
+%define GUARD_CRYPTO_UX509_UX509_OID_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_oid.asm
 ; =============================================================================
@@ -31,3 +33,5 @@ ux509_lookup_oid:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_OID_ASM

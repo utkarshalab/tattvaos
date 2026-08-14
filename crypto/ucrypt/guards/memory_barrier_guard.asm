@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_GUARDS_MEMORY_BARRIER_GUARD_ASM
+%define GUARD_CRYPTO_UCRYPT_GUARDS_MEMORY_BARRIER_GUARD_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/guards/memory_barrier_guard.asm
 ; =============================================================================
@@ -43,3 +45,5 @@ ucrypt_memory_barrier_clear:
     pop rcx
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_GUARDS_MEMORY_BARRIER_GUARD_ASM

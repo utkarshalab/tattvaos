@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_UCRYPT_POST_ASM
+%define GUARD_CRYPTO_UCRYPT_UCRYPT_POST_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/ucrypt_post.asm
 ; =============================================================================
@@ -42,3 +44,5 @@ ucrypt_post_run_all_kats:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_UCRYPT_POST_ASM

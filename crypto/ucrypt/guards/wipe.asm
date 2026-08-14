@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_GUARDS_WIPE_ASM
+%define GUARD_CRYPTO_UCRYPT_GUARDS_WIPE_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/guards/wipe.asm
 ; =============================================================================
@@ -43,3 +45,5 @@ ucrypt_wipe_memory:
     pop rcx
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_GUARDS_WIPE_ASM

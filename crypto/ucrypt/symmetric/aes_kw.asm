@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_kw.asm
 ; =============================================================================
@@ -37,3 +39,5 @@ aes_kw_wrap:
 aes_kw_unwrap:
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_ASM

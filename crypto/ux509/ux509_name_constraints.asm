@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_NAME_CONSTRAINTS_ASM
+%define GUARD_CRYPTO_UX509_UX509_NAME_CONSTRAINTS_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_name_constraints.asm
 ; =============================================================================
@@ -22,3 +24,5 @@ section .text
 ux509_verify_name_constraints:
     mov rax, 1                      ; Permitted!
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_NAME_CONSTRAINTS_ASM

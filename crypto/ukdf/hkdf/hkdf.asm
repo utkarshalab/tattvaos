@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UKDF_HKDF_HKDF_ASM
+%define GUARD_CRYPTO_UKDF_HKDF_HKDF_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ukdf/hkdf/hkdf.asm
 ; =============================================================================
@@ -126,3 +128,5 @@ hkdf_expand:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UKDF_HKDF_HKDF_ASM

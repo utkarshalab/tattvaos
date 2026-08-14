@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_PQC_CERT_ASM
+%define GUARD_CRYPTO_UX509_UX509_PQC_CERT_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_pqc_cert.asm
 ; =============================================================================
@@ -32,3 +34,5 @@ ux509_parse_pqc_cert:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_PQC_CERT_ASM

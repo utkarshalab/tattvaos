@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_USIGN_FORMATS_UPK_SIG_ASM
+%define GUARD_CRYPTO_USIGN_FORMATS_UPK_SIG_ASM
 ; =============================================================================
 ; Tattva OS — crypto/usign/formats/upk_sig.asm
 ; =============================================================================
@@ -19,3 +21,5 @@ parse_upk_sig:
     mov [rdx + usign_meta_t.sig_len], esi
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_USIGN_FORMATS_UPK_SIG_ASM

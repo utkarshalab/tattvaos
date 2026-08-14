@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_RSA_OAEP_ASM
+%define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_RSA_OAEP_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/asymmetric/rsa_oaep.asm
 ; =============================================================================
@@ -94,3 +96,5 @@ rsa_oaep_decrypt:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_ASYMMETRIC_RSA_OAEP_ASM

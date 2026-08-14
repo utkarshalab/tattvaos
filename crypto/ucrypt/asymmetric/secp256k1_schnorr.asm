@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_SECP256K1_SCHNORR_ASM
+%define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_SECP256K1_SCHNORR_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/asymmetric/secp256k1_schnorr.asm
 ; =============================================================================
@@ -35,3 +37,5 @@ schnorr_sign:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_ASYMMETRIC_SECP256K1_SCHNORR_ASM

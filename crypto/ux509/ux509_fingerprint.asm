@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_FINGERPRINT_ASM
+%define GUARD_CRYPTO_UX509_UX509_FINGERPRINT_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_fingerprint.asm
 ; =============================================================================
@@ -24,3 +26,5 @@ ux509_compute_fingerprint:
     call uhash_sha256               ; Compute 32-byte SHA-256 digest
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_FINGERPRINT_ASM

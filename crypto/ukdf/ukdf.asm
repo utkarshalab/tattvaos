@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UKDF_UKDF_ASM
+%define GUARD_CRYPTO_UKDF_UKDF_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ukdf/ukdf.asm
 ; =============================================================================
@@ -68,3 +70,5 @@ ukdf_derive_key:
 .done:
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UKDF_UKDF_ASM

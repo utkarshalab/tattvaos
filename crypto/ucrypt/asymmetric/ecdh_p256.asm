@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ECDH_P256_ASM
+%define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ECDH_P256_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/asymmetric/ecdh_p256.asm
 ; =============================================================================
@@ -56,3 +58,5 @@ ecdh_p256_compute_shared_secret:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ECDH_P256_ASM

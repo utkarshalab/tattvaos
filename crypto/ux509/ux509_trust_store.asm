@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_TRUST_STORE_ASM
+%define GUARD_CRYPTO_UX509_UX509_TRUST_STORE_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_trust_store.asm
 ; =============================================================================
@@ -86,5 +88,7 @@ root_ca_count:          dd 1
 builtin_root_ca_pubkey: times 32 db 0xAA
 
 section .bss
-align 16
+alignb 16
 trust_store_keys:       resb (64 * 32)
+
+%endif ; GUARD_CRYPTO_UX509_UX509_TRUST_STORE_ASM

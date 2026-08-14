@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_4WAY_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_4WAY_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_gcm_4way.asm
 ; =============================================================================
@@ -56,3 +58,5 @@ aes_gcm_encrypt_4way:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_4WAY_ASM

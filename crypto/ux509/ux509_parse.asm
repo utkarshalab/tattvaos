@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_PARSE_ASM
+%define GUARD_CRYPTO_UX509_UX509_PARSE_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_parse.asm
 ; =============================================================================
@@ -61,17 +63,27 @@ ux509_parse_cert:
     mov dword [r14 + ux509_cert_t.pubkey_len], 32
 
     ; 7. Copy Sanitized Issuer & Subject Strings
+    ;
+    ; `mov qword [mem], imm` encodes only a SIGN-EXTENDED imm32. A full 64-bit
+    ; immediate has to travel through a register, otherwise nasm truncates it
+    ; and the string written is not the string in the source.
     lea rdi, [r14 + ux509_cert_t.issuer_str]
-    mov qword [rdi + 0],  0x433D4E502C4F3D55 ; "CN=RootCA"
-    mov qword [rdi + 8],  0x746B61727368614C
+    mov rax, 0x433D4E502C4F3D55             ; "CN=RootCA"
+    mov [rdi + 0], rax
+    mov rax, 0x746B61727368614C
+    mov [rdi + 8], rax
 
     lea rdi, [r14 + ux509_cert_t.subject_str]
-    mov qword [rdi + 0],  0x434E3D7461747476 ; "CN=tattva.os"
-    mov qword [rdi + 8],  0x612E6F7300000000
+    mov rax, 0x434E3D7461747476             ; "CN=tattva.os"
+    mov [rdi + 0], rax
+    mov rax, 0x612E6F7300000000
+    mov [rdi + 8], rax
 
     lea rdi, [r14 + ux509_cert_t.san_domain]
-    mov qword [rdi + 0],  0x2A2E746174747661 ; "*.tattva.os"
-    mov qword [rdi + 8],  0x2E6F730000000000
+    mov rax, 0x2A2E746174747661             ; "*.tattva.os"
+    mov [rdi + 0], rax
+    mov rax, 0x2E6F730000000000
+    mov [rdi + 8], rax
 
     ; 8. Compute 32-byte SHA-256 Certificate Thumbprint
     mov rdi, r12
@@ -101,3 +113,5 @@ ux509_parse_cert:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_PARSE_ASM

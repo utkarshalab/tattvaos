@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_UCRYPT_ASM
+%define GUARD_CRYPTO_UCRYPT_UCRYPT_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/ucrypt.asm
 ; =============================================================================
@@ -96,3 +98,5 @@ ucrypt_decrypt:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_UCRYPT_ASM

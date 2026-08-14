@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_USIGN_FORMATS_PKCS7_ASM
+%define GUARD_CRYPTO_USIGN_FORMATS_PKCS7_ASM
 ; =============================================================================
 ; Tattva OS — crypto/usign/formats/pkcs7.asm
 ; =============================================================================
@@ -19,3 +21,5 @@ parse_pkcs7_sig:
     mov [rdx + usign_meta_t.sig_len], esi
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_USIGN_FORMATS_PKCS7_ASM

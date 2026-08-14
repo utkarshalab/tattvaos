@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_CAMELLIA_GCM_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_CAMELLIA_GCM_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/camellia_gcm.asm
 ; =============================================================================
@@ -38,3 +40,5 @@ camellia_gcm_encrypt:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_CAMELLIA_GCM_ASM

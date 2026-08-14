@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UHASH_UHASH_ASM
+%define GUARD_CRYPTO_UHASH_UHASH_ASM
 ; =============================================================================
 ; Tattva OS — crypto/uhash/uhash.asm
 ; =============================================================================
@@ -121,3 +123,5 @@ uhash_sha512:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UHASH_UHASH_ASM

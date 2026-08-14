@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_MAC_VMAC_VMAC_ASM
+%define GUARD_CRYPTO_UCRYPT_MAC_VMAC_VMAC_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/mac/vmac/vmac.asm
 ; =============================================================================
@@ -35,3 +37,5 @@ vmac_compute:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_MAC_VMAC_VMAC_ASM

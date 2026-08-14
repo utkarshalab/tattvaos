@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_gcm.asm
 ; =============================================================================
@@ -210,3 +212,5 @@ aes_gcm_generate_nonce:
     mov rax, 1
     pop rdi
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_ASM

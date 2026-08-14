@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_SM4_GCM_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_SM4_GCM_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/sm4_gcm.asm
 ; =============================================================================
@@ -38,3 +40,5 @@ sm4_gcm_encrypt:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_SM4_GCM_ASM

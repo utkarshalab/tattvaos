@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_XCHACHA20_POLY1305_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_XCHACHA20_POLY1305_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/xchacha20_poly1305.asm
 ; =============================================================================
@@ -74,3 +76,5 @@ xchacha20_poly1305_encrypt:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_XCHACHA20_POLY1305_ASM

@@ -33,6 +33,5 @@ struc ucrypt_ctx_t
     .tag              resb 16       ; +280: 16-byte Tag
 endstruc
 
-ucrypt_ctx_t_size equ 296
 
 %endif ; CRYPTO_UCRYPT_UCRYPT_INC

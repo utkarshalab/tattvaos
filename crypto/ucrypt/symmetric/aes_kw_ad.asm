@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_AD_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_AD_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_kw_ad.asm
 ; =============================================================================
@@ -33,3 +35,5 @@ aes_kwp_wrap:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_AD_ASM

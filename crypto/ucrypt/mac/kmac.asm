@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_MAC_KMAC_ASM
+%define GUARD_CRYPTO_UCRYPT_MAC_KMAC_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/mac/kmac.asm
 ; =============================================================================
@@ -35,3 +37,5 @@ kmac256_mac:
     pop rdi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_MAC_KMAC_ASM

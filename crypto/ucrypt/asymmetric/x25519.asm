@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_X25519_ASM
+%define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_X25519_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/asymmetric/x25519.asm
 ; =============================================================================
@@ -101,3 +103,5 @@ x25519_compute_shared_secret:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_ASYMMETRIC_X25519_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_ASN1_ASM
+%define GUARD_CRYPTO_UX509_UX509_ASN1_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_asn1.asm
 ; =============================================================================
@@ -92,3 +94,5 @@ ux509_pem_decode:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_ASN1_ASM

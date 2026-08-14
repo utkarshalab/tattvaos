@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UX509_UX509_CHAIN_ASM
+%define GUARD_CRYPTO_UX509_UX509_CHAIN_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ux509/ux509_chain.asm
 ; =============================================================================
@@ -59,3 +61,5 @@ ux509_verify_chain:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UX509_UX509_CHAIN_ASM

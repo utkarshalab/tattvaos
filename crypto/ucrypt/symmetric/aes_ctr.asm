@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CTR_ASM
+%define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CTR_ASM
 ; =============================================================================
 ; Tattva OS — crypto/ucrypt/symmetric/aes_ctr.asm
 ; =============================================================================
@@ -66,3 +68,5 @@ aes_ctr_crypt:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CTR_ASM
