@@ -13,13 +13,10 @@
 [BITS 64]
 
 %include "lib/mem/mem.inc"
+%include "lib/percpu.inc"           ; The arena slot is a named percpu_t field
 
 section .text
 
-extern arena_create
-extern arena_alloc
-extern arena_reset
-extern arena_destroy
 
 ; -----------------------------------------------------------------------------
 ; arena_init_local — initializes a thread-local arena bound to the current core
@@ -37,7 +34,7 @@ arena_init_local:
     jz .fail
 
     ; Store the arena pointer in GS offset 24 (.arena)
-    mov [gs:24], rax
+    mov [gs:percpu_t.arena], rax
 
 .fail:
     ret
@@ -53,7 +50,7 @@ arena_init_local:
 global arena_alloc_local
 arena_alloc_local:
     mov rsi, rdi                    ; RSI = size
-    mov rdi, [gs:24]                ; RDI = arena pointer
+    mov rdi, [gs:percpu_t.arena]                ; RDI = arena pointer
     test rdi, rdi
     jz .fail
 
@@ -71,7 +68,7 @@ arena_alloc_local:
 ; -----------------------------------------------------------------------------
 global arena_reset_local
 arena_reset_local:
-    mov rdi, [gs:24]
+    mov rdi, [gs:percpu_t.arena]
     test rdi, rdi
     jz .exit
 
@@ -88,12 +85,12 @@ arena_reset_local:
 ; -----------------------------------------------------------------------------
 global arena_destroy_local
 arena_destroy_local:
-    mov rdi, [gs:24]
+    mov rdi, [gs:percpu_t.arena]
     test rdi, rdi
     jz .exit
 
     call arena_destroy
-    mov qword [gs:24], 0            ; clear local arena pointer
+    mov qword [gs:percpu_t.arena], 0            ; clear local arena pointer
 
 .exit:
     ret

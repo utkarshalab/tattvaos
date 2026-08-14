@@ -29,9 +29,6 @@ VMA_READONLY    equ (1 << 1)
 ; -----------------------------------------------------------------------------
 section .text
 
-extern vma_list_head
-extern virt_walk_table
-extern virt_file_write
 
 ; -----------------------------------------------------------------------------
 ; sys_coredump_sparse — dumps private anonymous pages to a target file

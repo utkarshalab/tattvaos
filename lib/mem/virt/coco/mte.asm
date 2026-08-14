@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_COCO_MTE_ASM
+%define GUARD_LIB_MEM_VIRT_COCO_MTE_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/mte.asm
 ; =============================================================================
@@ -306,3 +308,5 @@ mte_tag_store:          resb MTE_TAG_STORE_SIZE
 section .text
 
 %endif ; LIB_MEM_VIRT_MTE_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_COCO_MTE_ASM

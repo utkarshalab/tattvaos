@@ -21,14 +21,10 @@
 shared_dir_desc_t.phys_addr equ 0
 shared_dir_desc_t.ref_count equ 8
 shared_dir_desc_t.lock     equ 16
-shared_dir_desc_t_size     equ 24
 %endif
 
 section .text
 
-extern pml4_shuffle_map
-extern shared_dir_table
-extern phys_free_page
 
 ; -----------------------------------------------------------------------------
 ; virt_reap_empty_page_tables — reclaims empty level-1 page tables

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_COCO_CCA_ASM
+%define GUARD_LIB_MEM_VIRT_COCO_CCA_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/cca.asm
 ; =============================================================================
@@ -417,3 +419,5 @@ cca_page_realm_map:     resb CCA_SIM_MAP_PAGES
 section .text
 
 %endif ; LIB_MEM_VIRT_CCA_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_COCO_CCA_ASM

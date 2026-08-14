@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_RAS_RAS_DIMM_ASM
+%define GUARD_LIB_MEM_VIRT_RAS_RAS_DIMM_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/ras_dimm.asm
 ; =============================================================================
@@ -118,3 +120,5 @@ sys_ras_dimm_migrated_pages:    dq 0
 section .text
 
 %endif ; LIB_MEM_VIRT_RAS_DIMM_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_RAS_RAS_DIMM_ASM

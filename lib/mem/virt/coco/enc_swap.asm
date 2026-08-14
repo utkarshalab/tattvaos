@@ -257,7 +257,7 @@ sys_enc_swap_pages_decrypted: dq 0  ; statistics counter
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 16
+alignb 16
 global sys_enc_swap_key
 sys_enc_swap_key:       resb 32     ; derived 256-bit encryption key
 

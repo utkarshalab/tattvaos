@@ -28,8 +28,6 @@ EPT_DIRTY       equ (1 << 9)        ; Bit 9: Dirty
 section .text
 
 ; External Physical Memory Allocator Symbols
-extern phys_alloc_page
-extern phys_free_page
 
 ; -----------------------------------------------------------------------------
 ; ept_create_eptp — Builds the 64-bit Extended Page Table Pointer (EPTP)

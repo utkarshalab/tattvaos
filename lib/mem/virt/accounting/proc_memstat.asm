@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_ACCOUNTING_PROC_MEMSTAT_ASM
+%define GUARD_LIB_MEM_VIRT_ACCOUNTING_PROC_MEMSTAT_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/proc_memstat.asm
 ; =============================================================================
@@ -58,12 +60,7 @@ endstruc
 ; ---------------------------------------------------------------------------
 section .text
 
-extern vma_list_head
-extern vma_t
 extern virt_translate            ; virt_translate(vaddr) → phys or 0
-extern thread_table
-extern thread_t
-extern thread_count
 
 PAGE_SIZE equ 4096
 
@@ -231,3 +228,5 @@ proc_memstat_get_uss:
 section .text
 
 %endif ; LIB_MEM_VIRT_PROC_MEMSTAT_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_ACCOUNTING_PROC_MEMSTAT_ASM

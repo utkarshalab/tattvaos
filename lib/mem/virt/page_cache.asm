@@ -629,7 +629,7 @@ sys_folio_size:        dq 4096
 
 section .bss
 
-align 8
+alignb 8
 global sys_page_cache
 
 sys_page_cache: resb page_cache_entry_t_size * PAGE_CACHE_MAX_ENTRIES

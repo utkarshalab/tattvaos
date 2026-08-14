@@ -21,9 +21,6 @@ EXIT_REASON_CR_ACCESS   equ 28
 section .text
 
 ; External TLB and Shadow Page Table symbols
-extern tlb_flush_page
-extern tlb_flush_all
-extern spt_unmap_entry
 
 ; -----------------------------------------------------------------------------
 ; vtlb_invept — Executes hardware Extended Page Table cache invalidation (INVEPT)

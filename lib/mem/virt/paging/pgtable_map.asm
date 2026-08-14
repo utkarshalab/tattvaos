@@ -750,7 +750,6 @@ virt_pgtable_alloc_zeroed:
 .charge_kmem:
     push rax
     mov rdi, 4096
-    extern sys_kmem_cgroup_charge
     call sys_kmem_cgroup_charge
     pop rax
 

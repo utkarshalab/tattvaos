@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_RT_SAFE_RT_RESERVE_ASM
+%define GUARD_LIB_MEM_VIRT_RT_SAFE_RT_RESERVE_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/rt_reserve.asm
 ; =============================================================================
@@ -50,7 +52,6 @@ rt_reserve_boot_memory:
 
     mov  r8, rax                    ; R8 = page count
     xor  rcx, rcx                   ; RCX = index loop
-    extern phys_alloc_page
 
 .alloc_loop:
     push rcx
@@ -83,7 +84,6 @@ rt_reserve_boot_memory:
     jz   .fail
     mov  r8, rcx
     xor  rcx, rcx
-    extern phys_free_page
 .cleanup_loop:
     mov  rdi, [sys_rt_reserved_phys_frames + rcx * 8]
     call phys_free_page
@@ -270,12 +270,14 @@ sys_rt_reserved_used_bytes:     dq 0
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 sys_rt_reserved_phys_frames:    resq RT_RESERVE_MAX_PAGES
 
-align 64
+alignb 64
 sys_rt_reserved_phys_backup:    resq RT_RESERVE_MAX_PAGES
 
 section .text
 
 %endif ; LIB_MEM_VIRT_RT_RESERVE_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_RT_SAFE_RT_RESERVE_ASM

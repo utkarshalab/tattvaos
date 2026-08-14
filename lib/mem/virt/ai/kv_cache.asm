@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_AI_KV_CACHE_ASM
+%define GUARD_LIB_MEM_VIRT_AI_KV_CACHE_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/kv_cache.asm
 ; =============================================================================
@@ -360,9 +362,11 @@ sys_kv_cache_contiguous_pages: dq 0
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 kv_cache_bitmap:        resb (KV_CACHE_BITMAP_QWORDS * 8)
 
 section .text
 
 %endif ; LIB_MEM_VIRT_KV_CACHE_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_AI_KV_CACHE_ASM

@@ -57,7 +57,6 @@ prefetch_alloc_aligned:
     ; In Tattva OS: we can call phys_alloc_pages_node if present,
     ; otherwise fallback to global phys_alloc_page.
     ; Let's dynamically call phys_alloc_pages_node (extern numa page allocator)
-    extern phys_alloc_pages_node
     
     mov  rdi, r9                    ; NUMA node ID
     mov  rsi, r10                   ; Page count
@@ -86,7 +85,6 @@ prefetch_alloc_aligned:
 
     ; Loop and map pages: virtual (RBX + i*4096) -> physical (R11 + i*4096)
     xor  rcx, rcx                   ; RCX = loop index
-    extern virt_map
 
 .map_loop:
     mov  rax, rcx

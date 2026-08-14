@@ -49,7 +49,6 @@ virt_balloon_inflate:
     jae .done
 
     ; Allocate a physical page frame
-    extern phys_alloc_page
     call phys_alloc_page
     test rax, rax
     jz .done                        ; OOM, stop inflation
@@ -114,7 +113,6 @@ virt_balloon_deflate:
     mov qword [rbx + rax], 0        ; clear slot
 
     ; Free the page frame
-    extern phys_free_page
     call phys_free_page
 
     inc r13
@@ -197,7 +195,7 @@ sys_balloon_current_pages:  dq 0
 
 section .bss
 
-align 8
+alignb 8
 global sys_balloon_page_array
 
 sys_balloon_page_array:     resq BALLOON_MAX_PAGES

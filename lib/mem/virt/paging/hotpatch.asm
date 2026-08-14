@@ -18,7 +18,6 @@
 ; -----------------------------------------------------------------------------
 section .text
 
-extern virt_walk_table
 
 ; -----------------------------------------------------------------------------
 ; kernel_apply_hotpatch — diverts execution from target function to patch function

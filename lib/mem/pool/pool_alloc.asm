@@ -24,7 +24,6 @@ section .text
 ;   RAX = pointer to the allocated slot, or 0 if exhausted or invalid pool
 ; Clobbers: none (preserves non-volatile registers)
 ; -----------------------------------------------------------------------------
-extern pool_grow
 
 global pool_alloc
 pool_alloc:

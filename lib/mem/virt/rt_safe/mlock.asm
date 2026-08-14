@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_RT_SAFE_MLOCK_ASM
+%define GUARD_LIB_MEM_VIRT_RT_SAFE_MLOCK_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/mlock.asm
 ; =============================================================================
@@ -53,9 +55,8 @@ rt_mlockall:
     ; the virtual page table structure. Let's walk the page lists:
     ; we can query page_list_active_count and lock them.
     ; For robust simulation, we iterate through page lists:
-    extern page_list_active_count
-    extern page_list_inactive_count
-    
+
+
     ; Let's lock all pages in our simulation.
     ; We simulate walking the PML4 page tables.
     ; Any mapped virtual page from 0x70000000 to 0x7FFFFFFF (VMAs) will be set in our lock bitmap.
@@ -185,9 +186,11 @@ sys_rt_locked_pages:        dq 0
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 sys_rt_lock_bitmap:         resb MLOCK_BITMAP_SIZE
 
 section .text
 
 %endif ; LIB_MEM_VIRT_MLOCK_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_RT_SAFE_MLOCK_ASM

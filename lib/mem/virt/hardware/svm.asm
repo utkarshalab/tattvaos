@@ -47,7 +47,7 @@ iommu_bind_pasid_table:
 section .bss
 
 global pasid_table_base
-align 8
+alignb 8
 pasid_table_base: resq 1            ; Pointer to mock physical PASID table
 
 %endif ; LIB_MEM_VIRT_HARDWARE_SVM_ASM

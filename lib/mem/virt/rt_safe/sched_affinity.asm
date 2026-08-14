@@ -145,7 +145,6 @@ sched_register_thread:
     mov qword [rbx + thread_t.cgroup_ptr], 0
 
     inc qword [thread_count]
-    extern sys_psi_active_count
     inc qword [sys_psi_active_count]
     mov rax, rcx
     jmp .exit

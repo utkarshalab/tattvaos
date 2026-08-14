@@ -29,16 +29,6 @@ STACK_VIRT_START equ 0x700000000000
 section .text
 
 ; External symbols
-extern vma_list_head
-extern vma_create
-extern vma_find
-extern vma_destroy
-extern phys_alloc_page
-extern phys_free_page
-extern virt_map
-extern virt_unmap
-extern virt_translate
-extern virt_random_val
 
 ; -----------------------------------------------------------------------------
 ; virt_find_free_range — finds a free virtual address range of a given size
@@ -607,7 +597,7 @@ msg_smp_stack_fail:      db "ERROR: Failed to allocate isolated execution stack 
 msg_smp_stack_reason:    db "Failed to allocate multi-core isolated stack", 0
 
 section .bss
-align 8
+alignb 8
 global smp_cpu_stacks
 smp_cpu_stacks: resq MAX_CPUS
 

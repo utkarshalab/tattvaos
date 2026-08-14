@@ -16,7 +16,6 @@
 
 section .text
 
-extern heap_alloc
 
 ; -----------------------------------------------------------------------------
 ; arena_create — allocates and initializes a new memory arena
@@ -71,7 +70,6 @@ arena_create:
 
 .free_and_fail:
     mov rdi, rbx
-    extern heap_free
     call heap_free
 
 .fail:

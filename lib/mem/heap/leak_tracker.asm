@@ -272,7 +272,7 @@ msg_no_leaks:           db "No memory leaks detected.", 0x0D, 0x0A, 0
 
 section .bss
 
-align 8
+alignb 8
 global leak_table
 leak_table: resb LEAK_MAX_ENTRIES * leak_entry_t_size
 global leak_count

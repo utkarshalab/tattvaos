@@ -25,7 +25,6 @@ endstruc
 
 section .text
 
-extern buddy_alloc
 
 ; -----------------------------------------------------------------------------
 ; coop_alloc_pages — submits page allocation request and polls for result

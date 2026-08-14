@@ -67,7 +67,6 @@ ras_scrub_tick:
 
     ; Bit flip detected! Log and trigger ECC correctable report.
     inc  qword [sys_ras_scrub_errors_detected]
-    extern ras_ecc_report
     mov  rdi, rbx
     mov  rsi, 1                      ; correctable single-bit error
     call ras_ecc_report

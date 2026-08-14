@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_ACCOUNTING_MBM_ASM
+%define GUARD_LIB_MEM_VIRT_ACCOUNTING_MBM_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/mbm.asm
 ; =============================================================================
@@ -66,7 +68,6 @@ MBM_CTR_UNAVAIL_BIT equ 63          ; Bit 63 of CTR = RMID unavailable
 ; ---------------------------------------------------------------------------
 section .text
 
-extern smp_active_cores
 
 ; ---------------------------------------------------------------------------
 ; mbm_detect — probe CPUID for Intel RDT MBM support.
@@ -491,22 +492,22 @@ sys_mbm_active_rmids: dq 0     ; number of RMIDs currently allocated
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 8
+alignb 8
 ; Per-CPU RMID assignments: mbm_rmid_cpu_map[cpu_id] = RMID
 global mbm_rmid_cpu_map
 mbm_rmid_cpu_map: resq MBM_MAX_RMID
 
-align 8
+alignb 8
 ; Bandwidth snapshot (total_bw, local_bw) per RMID
 global mbm_bw_snapshot
 mbm_bw_snapshot: resq (MBM_MAX_RMID * 2)
 
-align 8
+alignb 8
 ; Simulated hardware counters for boot testing (raw counts)
 global mbm_sim_counters
 mbm_sim_counters: resq (MBM_MAX_RMID * 2)
 
-align 8
+alignb 8
 ; Shadow of IA32_PQR_ASSOC per CPU (for simulation verification)
 global sys_mbm_pqr_shadow
 sys_mbm_pqr_shadow: resq MBM_MAX_RMID
@@ -514,3 +515,5 @@ sys_mbm_pqr_shadow: resq MBM_MAX_RMID
 section .text
 
 %endif ; LIB_MEM_VIRT_MBM_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_ACCOUNTING_MBM_ASM

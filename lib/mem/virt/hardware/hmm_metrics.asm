@@ -31,12 +31,6 @@ endstruc
 section .text
 
 ; External memory, VMA, and migration symbols
-extern heap_alloc
-extern heap_free
-extern vma_find
-extern phys_state
-extern hmm_handle_page_fault
-extern hmm_migrate_to_gpu
 
 ; -----------------------------------------------------------------------------
 ; hmm_get_metrics — Searches the metric tracking list for a GVA

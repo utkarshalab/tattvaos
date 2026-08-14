@@ -381,13 +381,13 @@ section .bss
 
 ; Slot Allocation Metadata
 zram_in_use:  resb ZRAM_MAX_SLOTS
-align 2
+alignb 2
 zram_sizes:   resw ZRAM_MAX_SLOTS
-align 8
+alignb 8
 zram_frames:  resq ZRAM_MAX_FRAMES
 
 ; Scratch buffer for compression
-align 16
+alignb 16
 zram_scratch: resb ZRAM_SLOT_SIZE
 
 %endif ; LIB_MEM_VIRT_ZRAM_ASM

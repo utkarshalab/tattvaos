@@ -16,9 +16,6 @@
 
 section .text
 
-extern buddy_link_block
-extern buddy_unlink_block
-extern buddy_load_context
 
 ; -----------------------------------------------------------------------------
 ; buddy_free — frees an allocated block and coalesces it with its buddy if possible

@@ -16,7 +16,6 @@
 
 section .text
 
-extern heap_free
 
 ; -----------------------------------------------------------------------------
 ; arena_destroy — destroys the arena and returns its memory to the heap

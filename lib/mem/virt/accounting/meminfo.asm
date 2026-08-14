@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_ACCOUNTING_MEMINFO_ASM
+%define GUARD_LIB_MEM_VIRT_ACCOUNTING_MEMINFO_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/meminfo.asm
 ; =============================================================================
@@ -228,18 +230,20 @@ sys_meminfo_snap_count: dq 0           ; telemetry: total snapshot calls
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 8
+alignb 8
 global sys_mapped_pages
 sys_mapped_pages: resq 1               ; pages currently mapped in any VMA
 
-align 8
+alignb 8
 global sys_buf_pages
 sys_buf_pages: resq 1                  ; pages used for block-device buffers
 
-align 8
+alignb 8
 global sys_shmem_pages
 sys_shmem_pages: resq 1                ; pages used for shared memory / IPC
 
 section .text
 
 %endif ; LIB_MEM_VIRT_MEMINFO_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_ACCOUNTING_MEMINFO_ASM

@@ -27,10 +27,6 @@ endstruc
 section .text
 
 ; External allocator symbols
-extern heap_alloc
-extern heap_free
-extern kernel_end
-extern phys_state
 
 ; -----------------------------------------------------------------------------
 ; is_valid_p2p_phys_addr — Validates physical memory alignment and boundaries

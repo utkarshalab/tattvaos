@@ -28,9 +28,6 @@ endstruc
 
 section .text
 
-extern buddy_start_addr
-extern pages_array
-extern virt_page_cache_find
 
 ; -----------------------------------------------------------------------------
 ; sys_sendfile — transfers data from file directly to socket descriptor

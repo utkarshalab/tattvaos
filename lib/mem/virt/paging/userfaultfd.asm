@@ -349,7 +349,7 @@ sys_userfaultfd_copy:
     ret
 
 section .bss
-align 8
+alignb 8
 global uffd_table
 uffd_table: resb uffd_desc_t_size * 16 ; 16 userfaultfd registry slots
 

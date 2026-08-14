@@ -17,7 +17,6 @@
 
 section .text
 
-extern memcpy
 
 ; -----------------------------------------------------------------------------
 ; kernel_live_aslr_migrate — reshuffles kernel segments and rewrites page tables

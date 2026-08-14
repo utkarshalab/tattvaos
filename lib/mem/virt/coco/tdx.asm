@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_COCO_TDX_ASM
+%define GUARD_LIB_MEM_VIRT_COCO_TDX_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/tdx.asm
 ; =============================================================================
@@ -468,10 +470,12 @@ sys_tdx_init_count:     dq 0    ; telemetry: tdx_init() call count
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 global tdx_shared_bitmap
 tdx_shared_bitmap: resb (TDX_SIM_BITMAP_QWORDS * 8)
 
 section .text
 
 %endif ; LIB_MEM_VIRT_TDX_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_COCO_TDX_ASM

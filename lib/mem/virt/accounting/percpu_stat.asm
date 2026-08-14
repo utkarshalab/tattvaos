@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_ACCOUNTING_PERCPU_STAT_ASM
+%define GUARD_LIB_MEM_VIRT_ACCOUNTING_PERCPU_STAT_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/percpu_stat.asm
 ; =============================================================================
@@ -74,7 +76,6 @@ VM_EVENT_PGSWAPIN   equ 4
 ; ---------------------------------------------------------------------------
 section .text
 
-extern smp_active_cores
 
 ; ---------------------------------------------------------------------------
 ; percpu_stat_init — zeroes all per-CPU delta arrays and global counters.
@@ -392,13 +393,13 @@ sys_percpu_sync_count: dq 0
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 ; vm_stat deltas: PERCPU_MAX_CPUS rows × PERCPU_STAT_STRIDE bytes each
 global percpu_stat_deltas
 percpu_stat_deltas:
     resb (PERCPU_MAX_CPUS * PERCPU_STAT_STRIDE)
 
-align 64
+alignb 64
 ; vm_event deltas: PERCPU_MAX_CPUS rows × PERCPU_EVENT_STRIDE bytes each
 global percpu_event_deltas
 percpu_event_deltas:
@@ -407,3 +408,5 @@ percpu_event_deltas:
 section .text
 
 %endif ; LIB_MEM_VIRT_PERCPU_STAT_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_ACCOUNTING_PERCPU_STAT_ASM

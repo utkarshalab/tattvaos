@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_COCO_SEV_ASM
+%define GUARD_LIB_MEM_VIRT_COCO_SEV_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/sev.asm
 ; =============================================================================
@@ -466,3 +468,5 @@ sev_enc_bitmap: resb (SEV_SIM_BITMAP_QWORDS * 8)
 section .text
 
 %endif ; LIB_MEM_VIRT_SEV_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_COCO_SEV_ASM

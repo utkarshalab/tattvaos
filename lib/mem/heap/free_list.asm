@@ -444,7 +444,6 @@ free_list_realloc:
     mov rdi, rax                    ; dest = new pointer
     mov rsi, [rsp + 16]             ; source = old pointer
     mov rdx, [rsp + 8]              ; count = old size
-    extern memcpy
     call memcpy
     
     pop rax                         ; rax = new pointer

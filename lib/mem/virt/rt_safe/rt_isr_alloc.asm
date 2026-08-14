@@ -47,7 +47,6 @@ rt_isr_alloc_init:
 
     ; Allocate 16 pages from PMM
     xor  r12, r12                   ; R12 = index loop
-    extern phys_alloc_page
 
 .alloc_loop:
     call phys_alloc_page
@@ -74,7 +73,6 @@ rt_isr_alloc_init:
     jz   .fail
     mov  rbx, r12
     xor  r12, r12
-    extern phys_free_page
 .cleanup_loop:
     mov  rdi, [sys_rt_isr_ring + r12 * 8]
     call phys_free_page
@@ -166,7 +164,6 @@ rt_isr_free:
 
 .full:
     ; Ring full: we must free page back to main PMM to prevent leak
-    extern phys_free_page
     call phys_free_page
     inc  qword [sys_rt_isr_freed]
     mov  rax, 1
@@ -202,7 +199,7 @@ sys_rt_isr_freed:               dq 0
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 sys_rt_isr_ring:                resq ISR_RING_SIZE
 
 section .text

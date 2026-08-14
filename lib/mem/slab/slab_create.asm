@@ -16,7 +16,6 @@
 
 section .text
 
-extern heap_alloc
 
 ; -----------------------------------------------------------------------------
 ; kmem_cache_create_in_place — initializes a pre-allocated cache descriptor

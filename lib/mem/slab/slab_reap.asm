@@ -16,8 +16,6 @@
 
 section .text
 
-extern kmem_slab_unlink
-extern heap_free
 
 ; -----------------------------------------------------------------------------
 ; kmem_cache_reap — reclaims/frees all empty slabs in the cache to the heap

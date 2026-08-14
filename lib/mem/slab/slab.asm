@@ -60,7 +60,7 @@ name_cache_vma:  db "kmem_cache_vma", 0
 
 section .bss
 
-align 8
+alignb 8
 global kmem_cache_file
 global kmem_cache_task
 global kmem_cache_vma

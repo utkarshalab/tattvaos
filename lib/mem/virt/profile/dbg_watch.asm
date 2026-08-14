@@ -24,7 +24,6 @@ DBG_MAX_PHYS_WATCHPOINTS equ 128
 section .text
 
 ; External page table walk function
-extern virt_walk_table
 
 ; -----------------------------------------------------------------------------
 ; dbg_dirty_trace_init — initializes the dirty tracing subsystem metadata
@@ -1874,7 +1873,6 @@ dbg_phys_set_present_state:
     push rdi
     push rax
     
-    extern pml4_shuffle_map
     lea rdi, [pml4_shuffle_map]
     xor rcx, rcx                    ; rcx = logical index L
 .find_logical:
@@ -2414,13 +2412,13 @@ dbg_phys_wp_deregister:
 
 section .bss
 
-align 8
+alignb 8
 dbg_trace_table:    resq DBG_MAX_TRACED_PAGES
 dbg_trace_flags:    resq DBG_MAX_TRACED_PAGES
 dbg_trace_dirty:    resq DBG_MAX_TRACED_PAGES
 dbg_trace_rip:      resq DBG_MAX_TRACED_PAGES
 
-align 8
+alignb 8
 dbg_wp_table:       resq DBG_MAX_WATCHPOINTS
 dbg_wp_flags:       resq DBG_MAX_WATCHPOINTS
 dbg_wp_orig_pte:    resq DBG_MAX_WATCHPOINTS
@@ -2428,21 +2426,21 @@ dbg_wp_hit_count:   resq DBG_MAX_WATCHPOINTS
 dbg_wp_last_rip:    resq DBG_MAX_WATCHPOINTS
 dbg_wp_last_type:   resq DBG_MAX_WATCHPOINTS
 
-align 8
+alignb 8
 dbg_ift_table:      resq DBG_MAX_IFT_WATCHPOINTS
 dbg_ift_flags:      resq DBG_MAX_IFT_WATCHPOINTS
 dbg_ift_orig_nx:    resq DBG_MAX_IFT_WATCHPOINTS
 dbg_ift_hit_count:  resq DBG_MAX_IFT_WATCHPOINTS
 dbg_ift_last_rip:   resq DBG_MAX_IFT_WATCHPOINTS
 
-align 8
+alignb 8
 dbg_hist_table:       resq DBG_MAX_HIST_PAGES
 dbg_hist_flags:       resq DBG_MAX_HIST_PAGES
 dbg_hist_orig_pte:    resq DBG_MAX_HIST_PAGES
 dbg_hist_read_count:  resq DBG_MAX_HIST_PAGES
 dbg_hist_write_count: resq DBG_MAX_HIST_PAGES
 
-align 8
+alignb 8
 dbg_phys_wp_table:      resq DBG_MAX_PHYS_WATCHPOINTS
 dbg_phys_wp_flags:      resq DBG_MAX_PHYS_WATCHPOINTS
 dbg_phys_wp_hit_count:  resq DBG_MAX_PHYS_WATCHPOINTS

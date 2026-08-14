@@ -33,11 +33,6 @@ PAGE_MIGRATION  equ (1 << 12)       ; Software flag in PTE when Present = 0
 ; -----------------------------------------------------------------------------
 section .text
 
-extern buddy_start_addr
-extern pages_array
-extern vma_list_head
-extern virt_walk_table
-extern phys_free_page
 
 ; -----------------------------------------------------------------------------
 ; compact_migrate_page — relocates physical page content and updates mappings

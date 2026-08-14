@@ -194,7 +194,7 @@ numa_balance_tiers:
     ret
 
 section .bss
-align 8
+alignb 8
 global coldness_counters
 coldness_counters: resq 1           ; Array of coldness counter bytes
 

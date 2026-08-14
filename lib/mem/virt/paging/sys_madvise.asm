@@ -29,9 +29,6 @@ endstruc
 
 section .text
 
-extern vma_list_head
-extern virt_walk_table
-extern phys_free_page
 
 ; -----------------------------------------------------------------------------
 ; sys_madvise — advises the kernel about virtual address ranges

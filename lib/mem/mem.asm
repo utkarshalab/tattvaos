@@ -170,14 +170,6 @@
 %include "lib/mem/virt/ai/prefetch_alloc.asm"
 %include "lib/mem/virt/ai/quant_layout.asm"
 
-; Storage mmap-related files
-%include "storage/ummapf/mmap.asm"
-%include "storage/ummapf/dax.asm"
-%include "storage/ummapf/pmem.asm"
-%include "storage/ummapf/window.asm"
-%include "storage/ummapf/bypass.asm"
-%include "storage/ummapf/barrier.asm"
 
-%include "lib/mem/tests/mem_tests.asm"
 
 %endif ; LIB_MEM_MEM_ASM

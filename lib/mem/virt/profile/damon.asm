@@ -25,7 +25,6 @@ endstruc
 ; -----------------------------------------------------------------------------
 section .text
 
-extern virt_walk_table
 
 ; -----------------------------------------------------------------------------
 ; damon_register_region — adds a range to the monitoring engine
@@ -162,7 +161,7 @@ damon_region_count: dq 0
 ; -----------------------------------------------------------------------------
 section .bss
 
-align 32
+alignb 32
 global damon_regions
 damon_regions: resb 32 * damon_region_t_size
 

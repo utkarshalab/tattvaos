@@ -23,9 +23,6 @@ endstruc
 
 section .text
 
-extern vma_list_head
-extern virt_walk_table
-extern phys_free_page
 
 ; -----------------------------------------------------------------------------
 ; ksm_scan_and_merge — scans VMAs to find and deduplicate identical pages

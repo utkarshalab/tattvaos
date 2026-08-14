@@ -15,9 +15,6 @@
 
 section .text
 
-extern pml4_shuffle_map
-extern buddy_alloc
-extern phys_free_page
 
 ; -----------------------------------------------------------------------------
 ; khugepaged_scan_and_collapse — coalesces 512 scattered 4KB pages into a 2MB page

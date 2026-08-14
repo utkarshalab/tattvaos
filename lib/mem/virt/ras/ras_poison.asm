@@ -110,7 +110,7 @@ sys_ras_poisoned_pages:         dq 0
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 sys_ras_poison_bitmap:          resb POISON_BITMAP_SIZE
 
 section .text

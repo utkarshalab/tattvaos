@@ -21,10 +21,6 @@ section .text
 
 ; External symbols (from other modules in the same unit)
 %if 0
-extern early_bump_state
-extern heap_active_allocator
-extern free_list_head
-extern uart_print_str
 %endif
 
 ; -----------------------------------------------------------------------------
@@ -260,7 +256,7 @@ heap_compact:
 
 section .bss
 
-align 8
+alignb 8
 global heap_reloc_table
 heap_reloc_table: resq RELOC_TABLE_SIZE
 

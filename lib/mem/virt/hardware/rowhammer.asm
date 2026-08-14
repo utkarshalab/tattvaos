@@ -19,9 +19,6 @@
 ; -----------------------------------------------------------------------------
 section .text
 
-extern virt_walk_table
-extern phys_alloc_page
-extern phys_free_page
 
 ; -----------------------------------------------------------------------------
 ; rowhammer_alert_handler — relocates hammered physical pages to mitigate Rowhammer

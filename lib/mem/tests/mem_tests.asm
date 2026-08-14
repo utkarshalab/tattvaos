@@ -9116,8 +9116,8 @@ run_all_memory_tests:
     test rax, rax
     jz .arena_fail_local_init
 
-    ; Verify it is bound to the core (stored in [gs:24])
-    mov rbx, [gs:24]
+    ; Verify it is bound to the core (stored in [gs:percpu_t.arena])
+    mov rbx, [gs:percpu_t.arena]
     cmp rax, rbx
     jne .arena_fail_local_init
 
@@ -9133,7 +9133,7 @@ run_all_memory_tests:
 
     ; 3. Reset local arena
     call arena_reset_local
-    mov rdx, [gs:24]
+    mov rdx, [gs:percpu_t.arena]
     mov rax, [rdx + arena_t.current]
     mov rbx, [rdx + arena_t.start]
     cmp rax, rbx
@@ -9141,7 +9141,7 @@ run_all_memory_tests:
 
     ; 4. Destroy local arena
     call arena_destroy_local
-    mov rax, [gs:24]
+    mov rax, [gs:percpu_t.arena]
     test rax, rax
     jnz .arena_fail_local_destroy
 

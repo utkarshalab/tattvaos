@@ -253,7 +253,6 @@ buddy_offline_node:
     ; Force switch context to node 0 so this offline node is no longer active in globals
     mov qword [buddy_active_node_index], -1
     xor rax, rax                    ; index 0
-    extern buddy_load_context
     call buddy_load_context
 
 .evacuate:

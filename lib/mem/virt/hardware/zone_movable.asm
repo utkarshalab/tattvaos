@@ -23,11 +23,6 @@ endstruc
 
 section .text
 
-extern pages_array
-extern buddy_start_addr
-extern buddy_end_addr
-extern heap_alloc
-extern memzero
 
 ; -----------------------------------------------------------------------------
 ; zone_mark_movable — marks a range of physical frame numbers as movable

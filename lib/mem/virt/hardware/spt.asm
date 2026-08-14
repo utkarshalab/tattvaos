@@ -31,9 +31,6 @@
 section .text
 
 ; External VM & Physical memory allocators
-extern phys_alloc_page
-extern phys_free_page
-extern ept_translate
 
 ; -----------------------------------------------------------------------------
 ; spt_init — Allocates and initializes the root Shadow PML4 page table

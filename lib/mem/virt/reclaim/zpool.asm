@@ -33,7 +33,6 @@ struc zpool_decomp_req_t
     .status       resq 1      ; 0 = pending, 1 = success, 2 = failed
 endstruc
 
-zpool_decomp_req_t_size equ 40
 
 section .text
 
@@ -937,10 +936,10 @@ zswap_max_slots: dq 256
 zram_max_slots:  dq 256
 
 section .bss
-align 8
+alignb 8
 zpool_decomp_head: resq 1
 zpool_decomp_tail: resq 1
-align 16
+alignb 16
 zpool_decomp_ring: resb (16 * zpool_decomp_req_t_size)
 
 %endif ; LIB_MEM_VIRT_ZPOOL_ASM

@@ -16,9 +16,6 @@
 
 section .text
 
-extern buddy_link_block
-extern buddy_unlink_block
-extern buddy_load_context
 
 ; -----------------------------------------------------------------------------
 ; buddy_alloc — allocates a power-of-two block of pages of the requested order

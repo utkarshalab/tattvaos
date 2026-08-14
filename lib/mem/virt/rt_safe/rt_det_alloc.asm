@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_RT_SAFE_RT_DET_ALLOC_ASM
+%define GUARD_LIB_MEM_VIRT_RT_SAFE_RT_DET_ALLOC_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/rt_det_alloc.asm
 ; =============================================================================
@@ -275,9 +277,11 @@ sys_rt_first_level_bitmap:      dq 0
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 sys_rt_free_lists:              resq 8
 
 section .text
 
 %endif ; LIB_MEM_VIRT_RT_DET_ALLOC_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_RT_SAFE_RT_DET_ALLOC_ASM

@@ -18,7 +18,6 @@
 section .text
 
 ; External references defined in page_cache.asm
-extern sys_page_cache
 
 ; -----------------------------------------------------------------------------
 ; virt_writeback_throttle_check — dynamically throttles writeback if needed

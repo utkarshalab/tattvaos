@@ -16,8 +16,6 @@
 
 section .text
 
-extern heap_alloc
-extern heap_free
 
 ; -----------------------------------------------------------------------------
 ; kmem_slab_link — inserts a slab at the head of a cache's slab list

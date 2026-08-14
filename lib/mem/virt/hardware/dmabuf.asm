@@ -25,9 +25,6 @@ endstruc
 section .text
 
 ; External allocator and driver symbols
-extern heap_alloc
-extern heap_free
-extern kernel_end
 
 ; -----------------------------------------------------------------------------
 ; is_valid_dmabuf_phys_addr — Verifies GPU physical target address is safe

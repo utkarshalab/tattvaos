@@ -142,11 +142,11 @@ buddy_pages_arrays: times 8 dq 0
 
 section .bss
 
-align 8
+alignb 8
 global buddy_free_heads
 buddy_free_heads: resb 12 * 8       ; 12 list heads for orders 0 to 11
 
-align 16
+alignb 16
 global buddy_nodes
 buddy_nodes:      resb buddy_node_t_size * 8  ; Support up to 8 buddy allocator nodes
 

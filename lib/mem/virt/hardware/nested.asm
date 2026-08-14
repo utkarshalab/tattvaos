@@ -23,12 +23,6 @@ EPT_MT_WB       equ (6 << 3)        ; Bits 5:3: Memory Type (Write-Back)
 section .text
 
 ; External EPT and allocator symbols
-extern phys_alloc_page
-extern phys_free_page
-extern ept_translate
-extern ept_map_page
-extern kernel_end
-extern phys_state
 
 ; -----------------------------------------------------------------------------
 ; is_valid_phys_addr — Validates system RAM boundary alignment and permissions

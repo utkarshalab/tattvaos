@@ -159,7 +159,7 @@ uaf_index: dq 0
 
 section .bss
 
-align 8
+alignb 8
 global uaf_quarantine_table
 uaf_quarantine_table: resq UAF_MAX_ENTRIES
 

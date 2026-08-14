@@ -16,10 +16,6 @@
 
 section .text
 
-extern heap_alloc
-extern memset
-extern buddy_save_context
-extern buddy_load_context
 
 ; -----------------------------------------------------------------------------
 ; buddy_link_block — links a block into the free list of a specific order

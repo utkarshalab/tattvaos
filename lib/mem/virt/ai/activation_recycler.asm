@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_MEM_VIRT_AI_ACTIVATION_RECYCLER_ASM
+%define GUARD_LIB_MEM_VIRT_AI_ACTIVATION_RECYCLER_ASM
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/activation_recycler.asm
 ; =============================================================================
@@ -70,7 +72,6 @@ activation_recycler_register:
 
     mov  r8, rdi                    ; R8 = requested page count
     xor  rcx, rcx                   ; RCX = index loop
-    extern phys_alloc_page
 
 .alloc_loop:
     push rcx
@@ -96,7 +97,6 @@ activation_recycler_register:
     jz   .fail
     mov  r8, rcx                    ; R8 = number to free
     xor  rcx, rcx
-    extern phys_free_page
 .free_loop:
     mov  rdi, [sys_activation_phys_pages + rcx * 8]
     push rcx
@@ -134,7 +134,6 @@ activation_recycler_map:
 
     mov  r9, rsi                    ; R9 = base virtual address
     xor  rcx, rcx                   ; RCX = index loop
-    extern virt_map
 
 .map_loop:
     ; Calculate virtual address for this page
@@ -174,7 +173,6 @@ activation_recycler_map:
     jz   .fail
     mov  r8, rcx
     xor  rcx, rcx
-    extern virt_unmap
 .unmap_cleanup:
     mov  rax, rcx
     shl  rax, 12
@@ -215,7 +213,6 @@ activation_recycler_unmap:
 
     mov  rsi, rdi                    ; RSI = base virtual address
     xor  rcx, rcx                   ; RCX = index loop
-    extern virt_unmap
 
 .unmap_loop:
     mov  rax, rcx
@@ -261,9 +258,11 @@ sys_activation_mapped_buffers:  dq 0
 ; ---------------------------------------------------------------------------
 section .bss
 
-align 64
+alignb 64
 sys_activation_phys_pages:      resq ACTIVATION_MAX_PAGES
 
 section .text
 
 %endif ; LIB_MEM_VIRT_ACTIVATION_RECYCLER_ASM
+
+%endif ; GUARD_LIB_MEM_VIRT_AI_ACTIVATION_RECYCLER_ASM

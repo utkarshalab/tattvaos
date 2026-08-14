@@ -119,7 +119,7 @@ pgtable_cache_free:
 ; -----------------------------------------------------------------------------
 section .bss
 
-align 8
+alignb 8
 pgtable_cache_pool: resq PGTABLE_CACHE_CAPACITY    ; array of physical page addresses
 pgtable_cache_count: resq 1                         ; current number of cached pages
 

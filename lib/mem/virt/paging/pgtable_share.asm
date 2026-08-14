@@ -373,7 +373,7 @@ virt_pgtable_share_alloc_zeroed:
 ; Data — Shared directory descriptors
 ; -----------------------------------------------------------------------------
 section .bss
-align 8
+alignb 8
 global shared_dir_table
 shared_dir_table: resb shared_dir_desc_t_size * 128
 

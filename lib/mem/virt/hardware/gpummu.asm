@@ -31,11 +31,6 @@
 section .text
 
 ; External VM allocations and memory limits
-extern phys_alloc_page
-extern phys_free_page
-extern virt_walk_table
-extern kernel_end
-extern phys_state
 
 ; -----------------------------------------------------------------------------
 ; is_valid_gpu_phys_addr — Validates GPU/CPU table page alignment and limits
