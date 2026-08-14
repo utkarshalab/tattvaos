@@ -1,10 +1,10 @@
 ; =============================================================================
 ; Tattva OS — unet/tools/diag/tcpdump_asm.asm
 ; =============================================================================
-; Packet Capture (net tcpdump / PCAP) Tool with Direct UFS Storage Streaming.
+; Packet Capture (net tcpdump / PCAP) Tool with Direct UXFS Storage Streaming.
 ;
 ; Delegates:
-;   - Raw PCAP File Logging           -> storage/ufs/journal/ & storage/ufs/ufs.asm
+;   - Raw PCAP File Logging           -> storage/uxfs/journal/ & storage/uxfs/uxfs.asm
 ;   - High-Precision Cycle Timestamp  -> lib/time/tsc.asm (`rdtsc_get_cycles`)
 ;   - In-NIC Hardware Filter Offload  -> unet/ebpf/smartnic_offload.asm
 ;
@@ -33,7 +33,7 @@ section .text
 global net_tcpdump_handler
 global tcpdump_write_pcap_ufs
 
-extern ufs_write_file
+extern uxfs_write_file
 extern rdtsc_get_cycles
 
 align 32
@@ -46,7 +46,7 @@ net_tcpdump_handler:
     ret
 
 ; -----------------------------------------------------------------------------
-; tcpdump_write_pcap_ufs — Stream Captured Packet Header + Payload to UFS File
+; tcpdump_write_pcap_ufs — Stream Captured Packet Header + Payload to UXFS File
 ; Input: RDI = Pointer to net_pkt_t, RSI = Target File Path
 ; -----------------------------------------------------------------------------
 align 32
@@ -59,8 +59,8 @@ tcpdump_write_pcap_ufs:
     ; Fetch hardware nanosecond cycle timestamp from lib/time/tsc.asm
     call rdtsc_get_cycles
 
-    ; Stream PCAP packet record directly into UFS storage journal log
-    call ufs_write_file
+    ; Stream PCAP packet record directly into UXFS storage journal log
+    call uxfs_write_file
 
     pop rbx
     pop rbp

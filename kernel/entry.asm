@@ -84,10 +84,16 @@ kernel_text_start:
 %include "crypto/ukdf/pbkdf2/pbkdf2.asm"
 %include "crypto/ukdf/ukdf.asm"
 %include "crypto/ucrypt/ucrypt.asm"
+%include "crypto/upass/upass.asm"   ; After ucrypt/ukdf: needs hmac + argon2id
+%include "lib/time/tsc.asm"         ; Before mono: supplies tsc_read/elapsed
+%include "lib/time/mono.asm"        ; Monotonic clock; usrauth TTLs depend on it
 %include "lib/urand/urand.asm"
 %include "crypto/ux509/ux509.asm"
 %include "lib/ucmp/ucmp.asm"
-%include "storage/ufs/ufs.asm"
+%include "storage/ubxp/ubxp.asm"
+%include "storage/uxfs/uxfs.asm"
+%include "storage/uwal/uwal.asm"    ; After uxfs: uses its NVMe driver
+%include "security/usrauth/usrauth.asm"   ; Reference monitor; needs crypto + time
 %include "unet/unet.asm"
 
     section .text

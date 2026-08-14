@@ -149,8 +149,8 @@ in against a working skeleton.
 * `[bring-up]` **LBA Format Query** — detect 512 B vs 4 Kn logical sector at probe;
   abstract sector size. Hardcoding 512 corrupts a 4 Kn drive.
 * `[bring-up]` **GPT Partitions** — parse GUID partition table in `block/gpt.asm`;
-  expose partitions as sub-block-devices. This is the io↔ufs boundary: io hands ufs
-  block devices, ufs does not do raw LBA math.
+  expose partitions as sub-block-devices. This is the io↔uxfs boundary: io hands uxfs
+  block devices, uxfs does not do raw LBA math.
 * `[bring-up]` **ATA-PIO Driver** — simplest polling driver; first-ever sector read sanity.
 * `[bring-up]` **Virtio-Blk Driver** — legacy INTx for bring-up; feature negotiation
   (`VIRTIO_F_VERSION_1`, …); formal status handshake
@@ -217,7 +217,7 @@ in against a working skeleton.
 * `[P2P]` **IOMMU + Interrupt Remapping** — VT-d / AMD-Vi / SMMU domains for isolation;
   interrupt remapping required when MSI is used behind an IOMMU.
 * `[optional]` **Memory-Mapped Block Regions** — map a device region for direct
-  weight access (boundary with ufs; io provides the mapping primitive).
+  weight access (boundary with uxfs; io provides the mapping primitive).
 
 ### J. Reliability, Health & Observability
 * `[hardening]` **Device State Machine** — `PROBE → ONLINE → DEGRADED → RESET → OFFLINE`.
@@ -892,7 +892,7 @@ IO_REQ_TIMEOUT    equ 6      ; Request timed out on the timeout wheel
 IO_COMP_ID_MASK   equ 0x0000FFFFFFFFFFFF
 
 ; ---- File Descriptor Type Constants (fd_t.type) ---------------------------
-FD_TYPE_FILE      equ 0      ; Regular file (reserved for ufs subsystem)
+FD_TYPE_FILE      equ 0      ; Regular file (reserved for uxfs subsystem)
 FD_TYPE_BLOCK     equ 1      ; Block device (disk, NVMe, partition)
 FD_TYPE_CHAR      equ 2      ; Character device (serial console, keyboard)
 FD_TYPE_EVENT     equ 3      ; Event synchronization primitive
@@ -1312,7 +1312,7 @@ IO_ENDFUNC driver_register
 8. **io owns no clock dependency.** Ticks come from the LAPIC timer; timestamps from
    `rdtscp`. Never pull in the `time` module.
 9. **Every init stage emits a serial milestone**, so a hang localizes without a debugger.
-10. **io hands ufs block devices, not raw LBAs.** GPT/namespace parsing lives here.
+10. **io hands uxfs block devices, not raw LBAs.** GPT/namespace parsing lives here.
 
 ---
 

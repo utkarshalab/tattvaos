@@ -6,9 +6,18 @@
 ASM = nasm
 KERNEL_DIR = .
 
+# The single translation unit NASM assembles; everything else is %include'd.
+ENTRY = $(KERNEL_DIR)/../kernel/entry.asm
+
+# Storage sources are globbed rather than enumerated so the subsystem sweeps do
+# not have to keep this list in sync by hand.
+STORAGE_SRCS := $(shell find $(KERNEL_DIR)/../storage \
+                          \( -name '*.asm' -o -name '*.inc' \) \
+                          -not -path '*/tests/*')
+
 all: kernel.bin
 
-kernel.bin: $(KERNEL_DIR)/entry.asm \
+kernel.bin: $(ENTRY) $(STORAGE_SRCS) \
                           $(KERNEL_DIR)/../unet/unet.inc \
                           $(KERNEL_DIR)/../unet/core/pktbuf.asm \
                           $(KERNEL_DIR)/../lib/time/nts.asm \
@@ -77,7 +86,7 @@ kernel.bin: $(KERNEL_DIR)/entry.asm \
                           $(KERNEL_DIR)/../unet/tests/pqc_bench.asm \
                           $(KERNEL_DIR)/../unet/unet.asm
 
-	$(ASM) -f bin $(KERNEL_DIR)/entry.asm -o $(KERNEL_DIR)/kernel.bin
+	$(ASM) -f bin -I $(KERNEL_DIR)/../ $(ENTRY) -o $(KERNEL_DIR)/kernel.bin
 
 clean:
 	rm -f $(KERNEL_DIR)/kernel.bin

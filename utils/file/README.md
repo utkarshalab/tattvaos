@@ -3,6 +3,6 @@
 > File operation utilities for Tattva OS.
 
 Implements: copy, move, delete, stat, find, touch, chmod, chown.
-All operate through the uFS filesystem layer.
+All operate through the UXFS filesystem layer.
 
 Part of the `utils/` category in Tattva OS.

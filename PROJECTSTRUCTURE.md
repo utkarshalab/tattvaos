@@ -558,7 +558,7 @@ net/
 
 ```
 storage/
-├── uFS/                    ← Tattva filesystem
+├── uxfs/                    ← Tattva filesystem
 │   ├── inode.asm           ← inode structure (includes TTL field)
 │   ├── journal.asm         ← journaling
 │   ├── alloc.asm           ← block allocation
@@ -1298,7 +1298,7 @@ third_party/
 13. crypto/uhash/
 14. crypto/ucrypt/
 15. kernel/                 ← kernel (needs lib/ + crypto/)
-16. storage/uFS/ + storage/uwal/ + storage/ubxp/
+16. storage/uxfs/ + storage/uwal/ + storage/ubxp/
 17. storage/udb/
 18. net/unet/ + net/udns/ + net/uhttp/
 19. crypto/uSSL/ + net/uSSH/

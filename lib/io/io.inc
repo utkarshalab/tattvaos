@@ -349,7 +349,7 @@ IO_REQ_CANCELLED  equ 5      ; Request cancelled before or during execution
 IO_REQ_TIMEOUT    equ 6      ; Request timed out on the timeout wheel
 
 ; ---- File Descriptor Type Constants (fd_t.type) ---------------------------
-FD_TYPE_FILE      equ 0      ; Regular file (reserved for ufs subsystem)
+FD_TYPE_FILE      equ 0      ; Regular file (reserved for uxfs subsystem)
 FD_TYPE_BLOCK     equ 1      ; Block device (disk, NVMe, partition)
 FD_TYPE_CHAR      equ 2      ; Character device (serial console, keyboard)
 FD_TYPE_EVENT     equ 3      ; Event synchronization primitive

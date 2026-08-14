@@ -42,7 +42,7 @@ lib/ucmp/
 
 | Algorithm | Identifier | Target Use Case in Tattva OS |
 | :--- | :--- | :--- |
-| **LZ4** | `UCMP_ALGO_LZ4` | **Storage Hot Path** for `ufs/compress/ufs_compress.asm` & immutable boot images (`erofs.asm`) |
+| **LZ4** | `UCMP_ALGO_LZ4` | **Storage Hot Path** for `storage/uxfs/compress/compress.asm` & immutable boot images (`erofs.asm`) |
 | **ZSTD** | `UCMP_ALGO_ZSTD` | High-ratio background data compression for archival storage volumes |
 | **Snappy** | `UCMP_ALGO_SNAPPY` | Ultra-low latency transient RAMDisk (`tmpfs`) compression |
 | **DEFLATE / Gzip** | `UCMP_ALGO_DEFLATE` | Network header and UPK package decompression |

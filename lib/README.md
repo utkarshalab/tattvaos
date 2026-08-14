@@ -15,7 +15,7 @@
 | [`umath/`](umath/) | Math library — integer, float, SIMD-vectorized operations |
 | [`ulog/`](ulog/) | Logging — structured log output, ring buffer |
 | [`urand/`](urand/) | Cryptographic RNG — feeds from hardware entropy |
-| [`ufile/`](ufile/) | File abstraction over uFS |
+| [`ufile/`](ufile/) | File abstraction over UXFS |
 | [`ulib/`](ulib/) | General-purpose library — data structures, algorithms |
 | [`utf8/`](utf8/) | UTF-8 encoding/decoding |
 | [`time/`](time/) | Time and clock primitives — nanosecond resolution |
