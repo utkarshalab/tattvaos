@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_REPLACE_ASM
+%define GUARD_LIB_STR_CORE_REPLACE_ASM
 ; =============================================================================
 ; str/core/replace.asm
 ; String replacement functions.
@@ -17,8 +19,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_find_from
-extern str_copy_bytes
 
 section .text
 
@@ -253,3 +253,5 @@ STR_FUNC str_replace_n
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_INVALID
 STR_ENDFUNC str_replace_n
+
+%endif ; GUARD_LIB_STR_CORE_REPLACE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_NAME_ASM
+%define GUARD_LIB_STR_UNICODE_NAME_ASM
 ; =============================================================================
 ; str/unicode/name.asm
 ; Codepoint → Unicode name lookup (UnicodeData.txt name field).
@@ -37,8 +39,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_u64_to_hex
 
 ; Hangul constants
 HANGUL_SBASE    equ 0xAC00
@@ -291,3 +291,4 @@ STR_FUNC str_cp_name
     ret
 
 STR_ENDFUNC str_cp_name
+%endif ; GUARD_LIB_STR_UNICODE_NAME_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PATTERN_WILDCARD_ASM
+%define GUARD_LIB_STR_PATTERN_WILDCARD_ASM
 ; =============================================================================
 ; str/pattern/wildcard.asm
 ; Simple * wildcard matching (no ? or character classes).
@@ -29,8 +31,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_find
 
 section .text
 
@@ -227,3 +227,4 @@ STR_FUNC str_wildcard_match_icase
     ret
 
 STR_ENDFUNC str_wildcard_match_icase
+%endif ; GUARD_LIB_STR_PATTERN_WILDCARD_ASM

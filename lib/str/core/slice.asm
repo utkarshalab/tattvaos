@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_SLICE_ASM
+%define GUARD_LIB_STR_CORE_SLICE_ASM
 ; =============================================================================
 ; str/core/slice.asm
 ; Subslice, windowing, and byte-level slice operations.
@@ -22,8 +24,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_cp_to_byte_offset
 
 section .text
 
@@ -389,3 +389,5 @@ STR_FUNC str_window
     ret
 
 STR_ENDFUNC str_window
+
+%endif ; GUARD_LIB_STR_CORE_SLICE_ASM

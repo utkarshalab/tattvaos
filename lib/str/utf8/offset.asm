@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UTF8_OFFSET_ASM
+%define GUARD_LIB_STR_UTF8_OFFSET_ASM
 ; =============================================================================
 ; str/utf8/offset.asm
 ; Byte offset of the Nth codepoint in a UTF-8 string, and related
@@ -409,3 +411,4 @@ STR_FUNC str_utf8_offset_slice
     ret
 
 STR_ENDFUNC str_utf8_offset_slice
+%endif ; GUARD_LIB_STR_UTF8_OFFSET_ASM

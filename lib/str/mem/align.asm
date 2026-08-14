@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_MEM_ALIGN_ASM
+%define GUARD_LIB_STR_MEM_ALIGN_ASM
 ; =============================================================================
 ; str/mem/align.asm
 ; Pointer and size alignment utilities.
@@ -199,3 +201,4 @@ STR_FUNC str_padding_bytes
     ret
 
 STR_ENDFUNC str_padding_bytes
+%endif ; GUARD_LIB_STR_MEM_ALIGN_ASM

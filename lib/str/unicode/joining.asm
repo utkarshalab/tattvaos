@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_JOINING_ASM
+%define GUARD_LIB_STR_UNICODE_JOINING_ASM
 ; =============================================================================
 ; str/unicode/joining.asm
 ; Arabic joining types + Indic positional/syllable categories.
@@ -315,3 +317,4 @@ STR_FUNC str_cp_indic_syllable
     ret
 
 STR_ENDFUNC str_cp_indic_syllable
+%endif ; GUARD_LIB_STR_UNICODE_JOINING_ASM

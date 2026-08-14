@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_LINES_ASM
+%define GUARD_LIB_STR_CORE_LINES_ASM
 ; =============================================================================
 ; str/core/lines.asm
 ; Line splitting, counting, and retrieval.
@@ -233,3 +235,5 @@ STR_FUNC str_nth_line
     pop_regs r14, r13, r12, rbx
     ret_err STR_ERR_INVALID
 STR_ENDFUNC str_nth_line
+
+%endif ; GUARD_LIB_STR_CORE_LINES_ASM

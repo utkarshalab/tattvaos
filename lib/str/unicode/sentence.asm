@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_SENTENCE_ASM
+%define GUARD_LIB_STR_UNICODE_SENTENCE_ASM
 ; =============================================================================
 ; str/unicode/sentence.asm
 ; Sentence boundary detection (UAX #29 Sentence_Break).
@@ -41,8 +43,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 ; Sentence break property values
 SB_Other      equ 0
@@ -504,3 +504,4 @@ STR_FUNC str_sentence_count
     ret
 
 STR_ENDFUNC str_sentence_count
+%endif ; GUARD_LIB_STR_UNICODE_SENTENCE_ASM

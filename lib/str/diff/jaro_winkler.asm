@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DIFF_JARO_WINKLER_ASM
+%define GUARD_LIB_STR_DIFF_JARO_WINKLER_ASM
 ; =============================================================================
 ; str/diff/jaro_winkler.asm
 ; Jaro-Winkler similarity — Jaro with prefix bonus for matching prefixes.
@@ -36,8 +38,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_jaro
 
 ; Fixed-point scale
 JW_SCALE        equ 1000000
@@ -356,3 +356,4 @@ STR_FUNC str_similar_enough
     ret
 
 STR_ENDFUNC str_similar_enough
+%endif ; GUARD_LIB_STR_DIFF_JARO_WINKLER_ASM

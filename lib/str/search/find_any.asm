@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_FIND_ANY_ASM
+%define GUARD_LIB_STR_SEARCH_FIND_ANY_ASM
 ; =============================================================================
 ; str/search/find_any.asm
 ; Substring match sets searching (strpbrk-like).
@@ -155,3 +157,5 @@ STR_FUNC str_find_none_of
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_NOT_FOUND
 STR_ENDFUNC str_find_none_of
+
+%endif ; GUARD_LIB_STR_SEARCH_FIND_ANY_ASM

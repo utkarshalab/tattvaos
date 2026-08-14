@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_NET_URL_PARSER_ASM
+%define GUARD_LIB_STR_NET_URL_PARSER_ASM
 ; =============================================================================
 ; str/net/url_parser.asm
 ; URL/URI parsing and IDN (Punycode) domain converters.
@@ -10,8 +12,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_punycode_encode
-extern str_punycode_decode
 
 struc ParsedURL
     .scheme    resb STRSLICE_SIZE
@@ -417,3 +417,5 @@ STR_FUNC str_url_to_idn
     pop     rbp
     ret
 STR_ENDFUNC str_url_to_idn
+
+%endif ; GUARD_LIB_STR_NET_URL_PARSER_ASM

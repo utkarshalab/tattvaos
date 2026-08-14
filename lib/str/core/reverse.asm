@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_REVERSE_ASM
+%define GUARD_LIB_STR_CORE_REVERSE_ASM
 ; =============================================================================
 ; str/core/reverse.asm
 ; Reverse a UTF-8 string codepoint by codepoint into a buffer.
@@ -27,8 +29,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_copy_bytes
-extern str_utf8_charlen
 
 section .text
 
@@ -264,3 +264,5 @@ STR_FUNC str_reverse_ascii
     ret
 
 STR_ENDFUNC str_reverse_ascii
+
+%endif ; GUARD_LIB_STR_CORE_REVERSE_ASM

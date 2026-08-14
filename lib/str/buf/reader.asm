@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_BUF_READER_ASM
+%define GUARD_LIB_STR_BUF_READER_ASM
 ; =============================================================================
 ; str/buf/reader.asm
 ; Streaming byte/codepoint reader over a StrSlice.
@@ -37,8 +39,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 struc StrReader
     .ptr    resq 1
@@ -448,3 +448,4 @@ STR_FUNC str_reader_is_done
     ret
 
 STR_ENDFUNC str_reader_is_done
+%endif ; GUARD_LIB_STR_BUF_READER_ASM

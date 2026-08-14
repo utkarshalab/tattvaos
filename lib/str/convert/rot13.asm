@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_ROT13_ASM
+%define GUARD_LIB_STR_CONVERT_ROT13_ASM
 ; =============================================================================
 ; str/convert/rot13.asm
 ; ROT13 and Caesar cipher functions.
@@ -148,3 +150,5 @@ STR_FUNC str_caesar
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_caesar
+
+%endif ; GUARD_LIB_STR_CONVERT_ROT13_ASM

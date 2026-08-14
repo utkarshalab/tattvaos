@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_SCRIPT_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_SCRIPT_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/script_table.asm
 ; Script property (UAX #24)
@@ -1719,3 +1721,5 @@ _ucd_script_stage2:
 
 global _ucd_script_table
 _ucd_script_table equ _ucd_script_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_SCRIPT_TABLE_ASM

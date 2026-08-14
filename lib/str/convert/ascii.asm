@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_ASCII_ASM
+%define GUARD_LIB_STR_CONVERT_ASCII_ASM
 ; =============================================================================
 ; str/convert/ascii.asm
 ; ASCII-only byte-level conversions — no UTF-8 decoding needed.
@@ -28,8 +30,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 section .text
 
@@ -413,3 +413,5 @@ STR_FUNC str_byte_to_printable
     ret
 
 STR_ENDFUNC str_byte_to_printable
+
+%endif ; GUARD_LIB_STR_CONVERT_ASCII_ASM

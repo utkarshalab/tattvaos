@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INTERP_ESCAPE_SEQ_ASM
+%define GUARD_LIB_STR_INTERP_ESCAPE_SEQ_ASM
 ; =============================================================================
 ; str/interp/escape_seq.asm
 ; ANSI/VT100 terminal escape sequence generation and stripping.
@@ -42,8 +44,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_u64_to_str
 
 ; ANSI color constants
 ANSI_RESET          equ 0
@@ -482,3 +482,4 @@ STR_FUNC str_ansi_visible_len
     ret
 
 STR_ENDFUNC str_ansi_visible_len
+%endif ; GUARD_LIB_STR_INTERP_ESCAPE_SEQ_ASM

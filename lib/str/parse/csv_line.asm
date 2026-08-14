@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PARSE_CSV_LINE_ASM
+%define GUARD_LIB_STR_PARSE_CSV_LINE_ASM
 ; =============================================================================
 ; str/parse/csv_line.asm
 ; Parse a single CSV line into an array of StrSlice fields.
@@ -482,3 +484,4 @@ STR_FUNC str_csv_unquote
     ret
 
 STR_ENDFUNC str_csv_unquote
+%endif ; GUARD_LIB_STR_PARSE_CSV_LINE_ASM

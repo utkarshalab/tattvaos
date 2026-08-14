@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UTF8_CHARLEN_ASM
+%define GUARD_LIB_STR_UTF8_CHARLEN_ASM
 ; =============================================================================
 ; str/utf8/charlen.asm
 ; Given a UTF-8 leading byte, return the sequence length in bytes (1..4).
@@ -199,3 +201,4 @@ STR_FUNC str_utf8_charlen_safe
     ret
 
 STR_ENDFUNC str_utf8_charlen_safe
+%endif ; GUARD_LIB_STR_UTF8_CHARLEN_ASM

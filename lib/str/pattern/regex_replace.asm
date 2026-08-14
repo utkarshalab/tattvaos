@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PATTERN_REGEX_REPLACE_ASM
+%define GUARD_LIB_STR_PATTERN_REGEX_REPLACE_ASM
 ; =============================================================================
 ; str/pattern/regex_replace.asm
 ; Regex find and replace.
@@ -19,10 +21,8 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_regex_compile
-extern str_regex_exec
-extern str_arena_init
-extern str_copy_bytes
+
+
 
 section .text
 
@@ -284,3 +284,5 @@ STR_FUNC str_regex_replace
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_regex_replace
+
+%endif ; GUARD_LIB_STR_PATTERN_REGEX_REPLACE_ASM

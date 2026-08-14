@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_CATEGORY_ASM
+%define GUARD_LIB_STR_UNICODE_CATEGORY_ASM
 ; =============================================================================
 ; str/unicode/category.asm
 ; Unicode general category lookup (Lu, Ll, Nd, Po, etc).
@@ -283,3 +285,4 @@ STR_FUNC str_cp_is_separator
     pop     rbp
     ret
 STR_ENDFUNC str_cp_is_separator
+%endif ; GUARD_LIB_STR_UNICODE_CATEGORY_ASM

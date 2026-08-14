@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_BUF_STRBUF_ASM
+%define GUARD_LIB_STR_BUF_STRBUF_ASM
 ; =============================================================================
 ; str/buf/strbuf.asm
 ; UTF-8 string builder — StrBuf with string-aware push operations.
@@ -33,15 +35,13 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_buf_push
-extern str_buf_push_byte
-extern str_buf_as_slice
-extern str_buf_reserve
-extern str_utf8_encode_unchecked
-extern str_utf8_encode_buf_size
-extern str_u64_to_str
-extern str_i64_to_str
-extern str_u64_to_hex
+
+
+
+
+
+
+
 
 section .text
 
@@ -396,3 +396,4 @@ STR_FUNC str_buf_finish
     jmp     str_buf_as_slice
 
 STR_ENDFUNC str_buf_finish
+%endif ; GUARD_LIB_STR_BUF_STRBUF_ASM

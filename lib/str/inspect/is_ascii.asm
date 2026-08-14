@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INSPECT_IS_ASCII_ASM
+%define GUARD_LIB_STR_INSPECT_IS_ASCII_ASM
 ; =============================================================================
 ; str/inspect/is_ascii.asm
 ; Check whether a byte buffer or codepoint is pure ASCII.
@@ -170,3 +172,4 @@ STR_FUNC str_is_ascii_codepoint
     ret
 
 STR_ENDFUNC str_is_ascii_codepoint
+%endif ; GUARD_LIB_STR_INSPECT_IS_ASCII_ASM

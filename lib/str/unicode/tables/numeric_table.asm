@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_NUMERIC_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_NUMERIC_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/numeric_table.asm
 ; Numeric type
@@ -2127,3 +2129,5 @@ _ucd_numtype_stage2:
 
 global _ucd_numtype_table
 _ucd_numtype_table equ _ucd_numtype_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_NUMERIC_TABLE_ASM

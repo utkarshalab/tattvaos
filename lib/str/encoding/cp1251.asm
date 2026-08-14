@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_CP1251_ASM
+%define GUARD_LIB_STR_ENCODING_CP1251_ASM
 ; =============================================================================
 ; str/encoding/cp1251.asm
 ; Windows-1251 (Cyrillic) ↔ UTF-8 codec.
@@ -203,3 +205,4 @@ STR_FUNC str_cp1251_codec
     pop     rbp
     ret
 STR_ENDFUNC str_cp1251_codec
+%endif ; GUARD_LIB_STR_ENCODING_CP1251_ASM

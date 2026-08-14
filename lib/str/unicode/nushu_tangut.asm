@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_NUSHU_TANGUT_ASM
+%define GUARD_LIB_STR_UNICODE_NUSHU_TANGUT_ASM
 ; =============================================================================
 ; str/unicode/nushu_tangut.asm
 ; Nushu and Tangut script support (NushuSources.txt, TangutSources.txt).
@@ -372,3 +374,5 @@ STR_FUNC str_cp_tangut_strokes
     ret
 
 STR_ENDFUNC str_cp_tangut_strokes
+
+%endif ; GUARD_LIB_STR_UNICODE_NUSHU_TANGUT_ASM

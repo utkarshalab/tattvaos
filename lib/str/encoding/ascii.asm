@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_ASCII_ASM
+%define GUARD_LIB_STR_ENCODING_ASCII_ASM
 ; =============================================================================
 ; str/encoding/ascii.asm
 ; US-ASCII ↔ UTF-8 codec.
@@ -204,3 +206,4 @@ STR_FUNC str_ascii_codec
     pop     rbp
     ret
 STR_ENDFUNC str_ascii_codec
+%endif ; GUARD_LIB_STR_ENCODING_ASCII_ASM

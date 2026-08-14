@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PATTERN_GLOB_ASM
+%define GUARD_LIB_STR_PATTERN_GLOB_ASM
 ; =============================================================================
 ; str/pattern/glob.asm
 ; Glob pattern matching: * ? [abc] [a-z] [^abc]
@@ -444,3 +446,4 @@ STR_FUNC str_glob_match_icase
     ret_ok
 
 STR_ENDFUNC str_glob_match_icase
+%endif ; GUARD_LIB_STR_PATTERN_GLOB_ASM

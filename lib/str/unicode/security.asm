@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_SECURITY_ASM
+%define GUARD_LIB_STR_UNICODE_SECURITY_ASM
 ; =============================================================================
 ; str/unicode/security.asm
 ; Unicode security mechanisms: confusable detection, identifier safety.
@@ -44,10 +46,8 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_cp_script
-extern str_cp_fold_simple
-extern str_cp_category
+
+
 
 ; Identifier status
 IDENT_ALLOWED       equ 0  ; safe for general identifiers
@@ -803,3 +803,5 @@ STR_FUNC str_cp_is_do_not_emit
     ret
 
 STR_ENDFUNC str_cp_is_do_not_emit
+
+%endif ; GUARD_LIB_STR_UNICODE_SECURITY_ASM

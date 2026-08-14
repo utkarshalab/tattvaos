@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_REPEAT_ASM
+%define GUARD_LIB_STR_CORE_REPEAT_ASM
 ; =============================================================================
 ; str/core/repeat.asm
 ; Repeat a StrSlice N times into a caller-supplied buffer.
@@ -25,8 +27,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_copy_bytes
-extern str_utf8_encode_unchecked
 
 section .text
 
@@ -339,3 +339,5 @@ STR_FUNC str_repeat_cp
     ret
 
 STR_ENDFUNC str_repeat_cp
+
+%endif ; GUARD_LIB_STR_CORE_REPEAT_ASM

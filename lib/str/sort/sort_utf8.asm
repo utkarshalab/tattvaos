@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SORT_SORT_UTF8_ASM
+%define GUARD_LIB_STR_SORT_SORT_UTF8_ASM
 ; =============================================================================
 ; str/sort/sort_utf8.asm
 ; Sort arrays of StrSlice by UTF-8 string value.
@@ -24,8 +26,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_sort
 
 section .text
 
@@ -305,3 +305,4 @@ STR_FUNC str_sort_slices_by_len
     ret
 
 STR_ENDFUNC str_sort_slices_by_len
+%endif ; GUARD_LIB_STR_SORT_SORT_UTF8_ASM

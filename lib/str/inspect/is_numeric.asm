@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INSPECT_IS_NUMERIC_ASM
+%define GUARD_LIB_STR_INSPECT_IS_NUMERIC_ASM
 ; =============================================================================
 ; str/inspect/is_numeric.asm
 ; Check whether a codepoint or string contains only numeric characters.
@@ -28,8 +30,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 section .text
 
@@ -406,3 +406,4 @@ STR_FUNC str_is_numeric_slice
     jmp     str_is_numeric
 
 STR_ENDFUNC str_is_numeric_slice
+%endif ; GUARD_LIB_STR_INSPECT_IS_NUMERIC_ASM

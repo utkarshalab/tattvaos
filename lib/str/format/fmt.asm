@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_FORMAT_FMT_ASM
+%define GUARD_LIB_STR_FORMAT_FMT_ASM
 ; =============================================================================
 ; str/format/fmt.asm
 ; Main printf-style format engine.
@@ -58,16 +60,14 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_itoa_i64
-extern str_itoa_u64
-extern str_itoa_hex
-extern str_itoa_hex_up
-extern str_itoa_oct
-extern str_itoa_bin
-extern str_dtoa
-extern str_copy_bytes
-extern str_utf8_encode_unchecked
-extern str_pad_to_width
+
+
+
+
+
+
+
+
 
 ; Internal buffer for formatting a single value
 FMT_VAL_BUF  equ 128
@@ -632,3 +632,4 @@ STR_FUNC str_fmt
 
 section .rodata
 .null_str: db "(null)"
+%endif ; GUARD_LIB_STR_FORMAT_FMT_ASM

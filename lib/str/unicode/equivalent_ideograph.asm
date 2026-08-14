@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_EQUIVALENT_IDEOGRAPH_ASM
+%define GUARD_LIB_STR_UNICODE_EQUIVALENT_IDEOGRAPH_ASM
 ; =============================================================================
 ; str/unicode/equivalent_ideograph.asm
 ; CJK Compatibility → Unified Ideograph mapping.
@@ -34,8 +36,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern _ucd_decomp_index
-extern _ucd_decomp_data
 
 section .text
 
@@ -262,3 +262,5 @@ STR_FUNC str_cp_is_cjk_unified
     ret
 
 STR_ENDFUNC str_cp_is_cjk_unified
+
+%endif ; GUARD_LIB_STR_UNICODE_EQUIVALENT_IDEOGRAPH_ASM

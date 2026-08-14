@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_CATEGORY_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_CATEGORY_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/category_table.asm
 ; general category two-stage trie
@@ -3042,3 +3044,5 @@ _ucd_cat_stage2:
     db 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28
     db 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28
     db 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 29, 29
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_CATEGORY_TABLE_ASM

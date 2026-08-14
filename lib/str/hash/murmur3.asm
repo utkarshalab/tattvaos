@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_HASH_MURMUR3_ASM
+%define GUARD_LIB_STR_HASH_MURMUR3_ASM
 ; =============================================================================
 ; str/hash/murmur3.asm
 ; MurmurHash3 by Austin Appleby — 32-bit and 128-bit x64 variants.
@@ -504,3 +506,4 @@ STR_FUNC str_murmur3_128_slice
     jmp     str_murmur3_128
 
 STR_ENDFUNC str_murmur3_128_slice
+%endif ; GUARD_LIB_STR_HASH_MURMUR3_ASM

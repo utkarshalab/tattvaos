@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PARSE_SIZE_ASM
+%define GUARD_LIB_STR_PARSE_SIZE_ASM
 ; =============================================================================
 ; str/parse/size.asm
 ; Parse human-readable byte size strings → uint64 bytes.
@@ -33,8 +35,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_parse_u64
-extern str_parse_f64
 
 ; SI multipliers (powers of 1000)
 SIZE_KB     equ 1000
@@ -369,8 +369,6 @@ STR_ENDFUNC str_parse_size
 ;                            uint64_t buf_cap, uint64_t *out_len)
 ; -----------------------------------------------------------------------------
 
-extern str_u64_to_str
-
 STR_FUNC str_size_to_str
 
     guard_null rsi, STR_ERR_NULL
@@ -529,3 +527,4 @@ STR_FUNC str_size_to_str
     ret
 
 STR_ENDFUNC str_size_to_str
+%endif ; GUARD_LIB_STR_PARSE_SIZE_ASM

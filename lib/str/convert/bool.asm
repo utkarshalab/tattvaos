@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_BOOL_ASM
+%define GUARD_LIB_STR_CONVERT_BOOL_ASM
 ; =============================================================================
 ; str/convert/bool.asm
 ; Boolean ↔ string conversions.
@@ -24,8 +26,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_eq_ignore_case
 
 section .rodata
 
@@ -260,3 +260,5 @@ STR_FUNC str_is_truthy
     ret
 
 STR_ENDFUNC str_is_truthy
+
+%endif ; GUARD_LIB_STR_CONVERT_BOOL_ASM

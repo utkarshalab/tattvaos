@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_JOINING_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_JOINING_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/joining_table.asm
 ; Arabic joining type
@@ -512,3 +514,5 @@ _ucd_joining_stage2:
 
 global _ucd_joining_table
 _ucd_joining_table equ _ucd_joining_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_JOINING_TABLE_ASM

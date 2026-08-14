@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_AGE_ASM
+%define GUARD_LIB_STR_UNICODE_AGE_ASM
 ; =============================================================================
 ; str/unicode/age.asm
 ; Unicode version (age) per codepoint — when was it assigned?
@@ -114,3 +116,4 @@ STR_FUNC str_cp_is_assigned
     ret
 
 STR_ENDFUNC str_cp_is_assigned
+%endif ; GUARD_LIB_STR_UNICODE_AGE_ASM

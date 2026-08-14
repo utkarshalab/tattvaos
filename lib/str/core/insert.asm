@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_INSERT_ASM
+%define GUARD_LIB_STR_CORE_INSERT_ASM
 ; =============================================================================
 ; str/core/insert.asm
 ; String insertion functions.
@@ -15,8 +17,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 section .text
 
@@ -128,3 +128,5 @@ STR_FUNC str_insert_at
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_INVALID
 STR_ENDFUNC str_insert_at
+
+%endif ; GUARD_LIB_STR_CORE_INSERT_ASM

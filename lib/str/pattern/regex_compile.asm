@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PATTERN_REGEX_COMPILE_ASM
+%define GUARD_LIB_STR_PATTERN_REGEX_COMPILE_ASM
 ; =============================================================================
 ; str/pattern/regex_compile.asm
 ; Compile an ERE regex pattern to NFA bytecode.
@@ -38,8 +40,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_arena_alloc
 
 ; Opcodes
 OP_MATCH_BYTE   equ 0x01
@@ -526,3 +526,4 @@ STR_FUNC str_regex_compile
     ret
 
 STR_ENDFUNC str_regex_compile
+%endif ; GUARD_LIB_STR_PATTERN_REGEX_COMPILE_ASM

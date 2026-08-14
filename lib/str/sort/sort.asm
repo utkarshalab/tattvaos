@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SORT_SORT_ASM
+%define GUARD_LIB_STR_SORT_SORT_ASM
 ; =============================================================================
 ; str/sort/sort.asm
 ; Generic introsort (quicksort + heapsort fallback) for byte arrays.
@@ -472,3 +474,4 @@ STR_FUNC str_sort_ptr
     jmp     str_sort
 
 STR_ENDFUNC str_sort_ptr
+%endif ; GUARD_LIB_STR_SORT_SORT_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_FORMAT_FTOA_ASM
+%define GUARD_LIB_STR_FORMAT_FTOA_ASM
 ; =============================================================================
 ; str/format/ftoa.asm
 ; Float → string with format control (fixed, scientific, shortest).
@@ -26,11 +28,9 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_f64_to_str
-extern str_f64_is_nan
-extern str_f64_is_inf
-extern str_pad_to_width
-extern str_copy_bytes
+
+
+
 
 ; Format mode constants
 FTOA_FIXED      equ 0
@@ -392,3 +392,4 @@ STR_FUNC str_ftoa_fixed
     ret
 
 STR_ENDFUNC str_ftoa_fixed
+%endif ; GUARD_LIB_STR_FORMAT_FTOA_ASM

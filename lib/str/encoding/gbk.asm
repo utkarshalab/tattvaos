@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_GBK_ASM
+%define GUARD_LIB_STR_ENCODING_GBK_ASM
 ; =============================================================================
 ; str/encoding/gbk.asm
 ; GBK (Code Page 936) codec — GB2312 superset for Simplified Chinese.
@@ -49,8 +51,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_encode_unchecked
-extern str_utf8_decode_unchecked
+
 extern _gbk_to_unicode              ; uint16[23940] lookup table
 
 GBK_LEAD_MIN       equ 0x81
@@ -265,3 +266,4 @@ STR_FUNC str_gbk_to_utf8
     ret
 
 STR_ENDFUNC str_gbk_to_utf8
+%endif ; GUARD_LIB_STR_ENCODING_GBK_ASM

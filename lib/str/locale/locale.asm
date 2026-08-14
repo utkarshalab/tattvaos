@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_LOCALE_LOCALE_ASM
+%define GUARD_LIB_STR_LOCALE_LOCALE_ASM
 ; =============================================================================
 ; str/locale/locale.asm
 ; BCP 47 language tag parsing, canonicalization, and fallback matching.
@@ -9,8 +11,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 struc ParsedLocale
     .lang      resb STRSLICE_SIZE
@@ -426,3 +426,5 @@ STR_FUNC str_locale_match_fallback
     pop     rbp
     ret
 STR_ENDFUNC str_locale_match_fallback
+
+%endif ; GUARD_LIB_STR_LOCALE_LOCALE_ASM

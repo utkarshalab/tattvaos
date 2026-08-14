@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_EMOJI_MODIFIERS_ASM
+%define GUARD_LIB_STR_UNICODE_EMOJI_MODIFIERS_ASM
 ; =============================================================================
 ; str/unicode/emoji_modifiers.asm
 ; UTS #51 emoji modifier sequence detection (skin tones, hair, gender).
@@ -10,8 +12,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_cp_is_emoji
 
 ZWJ             equ 0x200D
 VS16            equ 0xFE0F
@@ -220,3 +220,5 @@ STR_FUNC str_emoji_is_multi_person
     pop     rbp
     ret
 STR_ENDFUNC str_emoji_is_multi_person
+
+%endif ; GUARD_LIB_STR_UNICODE_EMOJI_MODIFIERS_ASM

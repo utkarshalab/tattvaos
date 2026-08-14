@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_PARTITION_ASM
+%define GUARD_LIB_STR_CORE_PARTITION_ASM
 ; =============================================================================
 ; str/core/partition.asm
 ; String partitioning views.
@@ -17,8 +19,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_find
-extern str_rfind
 
 section .text
 
@@ -195,3 +195,5 @@ STR_FUNC str_rpartition
     pop_regs r15, r14, r13, r12, rbx
     ret_ok
 STR_ENDFUNC str_rpartition
+
+%endif ; GUARD_LIB_STR_CORE_PARTITION_ASM

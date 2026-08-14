@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_CASE_ASM
+%define GUARD_LIB_STR_CONVERT_CASE_ASM
 ; =============================================================================
 ; str/convert/case.asm
 ; Unicode-aware case conversion for StrSlice.
@@ -32,9 +34,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
-extern str_is_alpha_cp
+
 
 section .text
 
@@ -432,8 +432,6 @@ STR_ENDFUNC str_to_lower
 ;                         uint64_t buf_cap, StrSlice *out)
 ; -----------------------------------------------------------------------------
 
-extern str_is_space_cp
-
 STR_FUNC str_to_title
 
     guard_null rdi, STR_ERR_NULL
@@ -565,3 +563,5 @@ STR_FUNC str_to_title
     ret
 
 STR_ENDFUNC str_to_title
+
+%endif ; GUARD_LIB_STR_CONVERT_CASE_ASM

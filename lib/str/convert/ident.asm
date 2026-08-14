@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_IDENT_ASM
+%define GUARD_LIB_STR_CONVERT_IDENT_ASM
 ; =============================================================================
 ; str/convert/ident.asm
 ; Case conversions for identifiers (snake, camel, pascal, kebab).
@@ -21,13 +23,11 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
-extern str_cp_to_upper
-extern str_cp_to_lower
-extern str_is_lower_cp
-extern str_is_upper_cp
-extern str_is_alnum_cp
+
+
+
+
+
 
 section .text
 
@@ -414,3 +414,5 @@ STR_FUNC str_to_pascal_case
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_to_pascal_case
+
+%endif ; GUARD_LIB_STR_CONVERT_IDENT_ASM

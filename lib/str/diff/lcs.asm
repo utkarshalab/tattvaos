@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DIFF_LCS_ASM
+%define GUARD_LIB_STR_DIFF_LCS_ASM
 ; =============================================================================
 ; str/diff/lcs.asm
 ; Longest Common Subsequence (LCS) length and reconstruction.
@@ -721,3 +723,4 @@ STR_FUNC str_dice_coefficient
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_dice_coefficient
+%endif ; GUARD_LIB_STR_DIFF_LCS_ASM

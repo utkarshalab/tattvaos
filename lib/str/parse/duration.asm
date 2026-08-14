@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PARSE_DURATION_ASM
+%define GUARD_LIB_STR_PARSE_DURATION_ASM
 ; =============================================================================
 ; str/parse/duration.asm
 ; Parse human-readable duration strings → nanoseconds (uint64).
@@ -39,8 +41,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_parse_u64
-extern str_parse_f64
 
 ; Nanosecond multipliers
 NS_PER_NS   equ 1
@@ -367,8 +367,6 @@ str_parse_duration_slice:
 ;   RCX  — out_len
 ; -----------------------------------------------------------------------------
 
-extern str_u64_to_str
-
 STR_FUNC str_duration_to_str
 
     guard_null rsi, STR_ERR_NULL
@@ -587,3 +585,4 @@ STR_FUNC str_duration_to_str
     ret
 
 STR_ENDFUNC str_duration_to_str
+%endif ; GUARD_LIB_STR_PARSE_DURATION_ASM

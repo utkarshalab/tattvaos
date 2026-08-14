@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_CMP_ASM
+%define GUARD_LIB_STR_CORE_CMP_ASM
 ; =============================================================================
 ; str/core/cmp.asm
 ; Equality and ordering comparisons for StrSlice.
@@ -448,3 +450,5 @@ STR_FUNC str_cmp_ignore_case
     ret
 
 STR_ENDFUNC str_cmp_ignore_case
+
+%endif ; GUARD_LIB_STR_CORE_CMP_ASM

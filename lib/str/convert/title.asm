@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_TITLE_ASM
+%define GUARD_LIB_STR_CONVERT_TITLE_ASM
 ; =============================================================================
 ; str/convert/title.asm
 ; Title casing, capitalization, and case-swapping.
@@ -21,13 +23,11 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
-extern str_cp_to_upper
-extern str_cp_to_lower
-extern str_is_lower_cp
-extern str_is_upper_cp
-extern str_cp_is_white_space
+
+
+
+
+
 
 section .text
 
@@ -291,3 +291,5 @@ STR_FUNC str_swap_case
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_swap_case
+
+%endif ; GUARD_LIB_STR_CONVERT_TITLE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_ENDS_ASM
+%define GUARD_LIB_STR_SEARCH_ENDS_ASM
 ; =============================================================================
 ; str/search/ends.asm
 ; Check if a StrSlice ends with a given suffix.
@@ -22,8 +24,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_eq_bytes
 
 section .text
 
@@ -264,3 +264,4 @@ STR_FUNC str_strip_suffix
     ret
 
 STR_ENDFUNC str_strip_suffix
+%endif ; GUARD_LIB_STR_SEARCH_ENDS_ASM

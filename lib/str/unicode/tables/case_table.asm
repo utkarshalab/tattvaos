@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_CASE_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_CASE_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/case_table.asm
 ; canonical combining class + case folding
@@ -3075,3 +3077,5 @@ _ucd_fold_full_index:
     dd 0xFB16, 0x00009A02
     dd 0xFB17, 0x00009C02
     dd 0xFFFFFFFF, 0
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_CASE_TABLE_ASM

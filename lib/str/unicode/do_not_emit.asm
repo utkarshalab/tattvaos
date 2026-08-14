@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_DO_NOT_EMIT_ASM
+%define GUARD_LIB_STR_UNICODE_DO_NOT_EMIT_ASM
 ; =============================================================================
 ; str/unicode/do_not_emit.asm
 ; Characters that should not be emitted in new text (DoNotEmit.txt).
@@ -361,3 +363,5 @@ STR_FUNC str_cp_is_deprecated
     ret
 
 STR_ENDFUNC str_cp_is_deprecated
+
+%endif ; GUARD_LIB_STR_UNICODE_DO_NOT_EMIT_ASM

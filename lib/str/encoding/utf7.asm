@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_UTF7_ASM
+%define GUARD_LIB_STR_ENCODING_UTF7_ASM
 ; =============================================================================
 ; str/encoding/utf7.asm
 ; UTF-7 ↔ UTF-8 codec (RFC 2152).
@@ -324,3 +326,4 @@ STR_FUNC str_utf7_codec
     pop     rbp
     ret
 STR_ENDFUNC str_utf7_codec
+%endif ; GUARD_LIB_STR_ENCODING_UTF7_ASM

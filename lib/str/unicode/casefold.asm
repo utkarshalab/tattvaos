@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_CASEFOLD_ASM
+%define GUARD_LIB_STR_UNICODE_CASEFOLD_ASM
 ; =============================================================================
 ; str/unicode/casefold.asm
 ; Full Unicode case folding (CaseFolding.txt).
@@ -41,8 +43,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
 
 extern _ucd_fold_simple_index   ; cp → folded cp (simple, two-stage)
 extern _ucd_fold_full_index     ; cp → (offset, len) into fold_full_data
@@ -377,3 +377,4 @@ STR_FUNC str_fold_eq
     ret
 
 STR_ENDFUNC str_fold_eq
+%endif ; GUARD_LIB_STR_UNICODE_CASEFOLD_ASM

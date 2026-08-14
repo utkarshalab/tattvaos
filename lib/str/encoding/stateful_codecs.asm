@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_STATEFUL_CODECS_ASM
+%define GUARD_LIB_STR_ENCODING_STATEFUL_CODECS_ASM
 ; =============================================================================
 ; str/encoding/stateful_codecs.asm
 ; Stateful (ISO-2022-JP) and multi-byte (GB18030) decoders.
@@ -9,8 +11,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_encode_unchecked
 
 MODE_ASCII      equ 0
 MODE_JIS0201    equ 1
@@ -273,3 +273,5 @@ STR_FUNC str_gb18030_decode_one
     pop     rbp
     ret
 STR_ENDFUNC str_gb18030_decode_one
+
+%endif ; GUARD_LIB_STR_ENCODING_STATEFUL_CODECS_ASM

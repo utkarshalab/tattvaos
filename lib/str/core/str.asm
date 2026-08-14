@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_STR_ASM
+%define GUARD_LIB_STR_CORE_STR_ASM
 ; =============================================================================
 ; str/core/str.asm
 ; StrSlice constructor, init, and fundamental operations.
@@ -24,8 +26,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_validate
-extern str_is_valid_slice
 
 section .rodata
 
@@ -385,3 +385,5 @@ STR_FUNC str_assign
     ret
 
 STR_ENDFUNC str_assign
+
+%endif ; GUARD_LIB_STR_CORE_STR_ASM

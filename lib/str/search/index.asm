@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_INDEX_ASM
+%define GUARD_LIB_STR_SEARCH_INDEX_ASM
 ; =============================================================================
 ; str/search/index.asm
 ; Find all occurrence byte offsets of a substring in a StrSlice.
@@ -24,9 +26,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_bmh_build_table
-extern str_bmh_build_table_nocase
-extern str_bmh_search_from
+
 
 BMH_TABLE_BYTES equ 2048
 
@@ -350,3 +350,4 @@ STR_FUNC str_index_byte_all
     ret
 
 STR_ENDFUNC str_index_byte_all
+%endif ; GUARD_LIB_STR_SEARCH_INDEX_ASM

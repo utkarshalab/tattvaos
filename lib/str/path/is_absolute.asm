@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PATH_IS_ABSOLUTE_ASM
+%define GUARD_LIB_STR_PATH_IS_ABSOLUTE_ASM
 ; =============================================================================
 ; str/path/is_absolute.asm
 ; Path type predicates.
@@ -193,3 +195,4 @@ STR_FUNC str_path_depth
     ret
 
 STR_ENDFUNC str_path_depth
+%endif ; GUARD_LIB_STR_PATH_IS_ABSOLUTE_ASM

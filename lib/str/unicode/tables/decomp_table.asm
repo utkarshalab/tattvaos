@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_DECOMP_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_DECOMP_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/decomp_table.asm
 ; canonical/compat decompositions
@@ -7024,3 +7026,5 @@ _ucd_decomp_index:
     dd 0x2FA1C, 0x00022222
     dd 0x2FA1D, 0x00022232
     dd 0xFFFFFFFF, 0
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_DECOMP_TABLE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_BREAK_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_BREAK_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/break_table.asm
 ; word/line/bidi break properties
@@ -7755,3 +7757,5 @@ _ucd_bidi_stage2:
 
 global _ucd_bidi_table
 _ucd_bidi_table equ _ucd_bidi_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_BREAK_TABLE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_CHOMP_ASM
+%define GUARD_LIB_STR_CORE_CHOMP_ASM
 ; =============================================================================
 ; str/core/chomp.asm
 ; String chomp, chop, and simplified line counting functions.
@@ -147,3 +149,5 @@ STR_FUNC str_count_lines
     pop     rbp
     ret
 STR_ENDFUNC str_count_lines
+
+%endif ; GUARD_LIB_STR_CORE_CHOMP_ASM

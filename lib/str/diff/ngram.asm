@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DIFF_NGRAM_ASM
+%define GUARD_LIB_STR_DIFF_NGRAM_ASM
 ; =============================================================================
 ; str/diff/ngram.asm
 ; N-gram extraction and Jaccard similarity.
@@ -15,8 +17,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 section .text
 
@@ -410,3 +410,5 @@ STR_FUNC str_jaccard_similarity
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_INVALID
 STR_ENDFUNC str_jaccard_similarity
+
+%endif ; GUARD_LIB_STR_DIFF_NGRAM_ASM

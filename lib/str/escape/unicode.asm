@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ESCAPE_UNICODE_ASM
+%define GUARD_LIB_STR_ESCAPE_UNICODE_ASM
 ; =============================================================================
 ; str/escape/unicode.asm
 ; Unicode escape sequence encoding and decoding.
@@ -34,9 +36,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
-extern str_hex_digit_value
+
 
 section .rodata
 _uni_hex_lo: db "0123456789abcdef"
@@ -678,3 +678,4 @@ STR_FUNC str_cp_to_uplus
     ret
 
 STR_ENDFUNC str_cp_to_uplus
+%endif ; GUARD_LIB_STR_ESCAPE_UNICODE_ASM

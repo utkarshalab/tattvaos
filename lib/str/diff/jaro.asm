@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DIFF_JARO_ASM
+%define GUARD_LIB_STR_DIFF_JARO_ASM
 ; =============================================================================
 ; str/diff/jaro.asm
 ; Jaro similarity metric for string comparison.
@@ -352,3 +354,4 @@ STR_FUNC str_jaro_slice
     jmp     str_jaro
 
 STR_ENDFUNC str_jaro_slice
+%endif ; GUARD_LIB_STR_DIFF_JARO_ASM

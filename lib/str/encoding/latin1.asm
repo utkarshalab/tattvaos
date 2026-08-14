@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_LATIN1_ASM
+%define GUARD_LIB_STR_ENCODING_LATIN1_ASM
 ; =============================================================================
 ; str/encoding/latin1.asm
 ; ISO-8859-1 (Latin-1) ↔ UTF-8 codec.
@@ -199,3 +201,4 @@ STR_FUNC str_latin1_codec
     pop     rbp
     ret
 STR_ENDFUNC str_latin1_codec
+%endif ; GUARD_LIB_STR_ENCODING_LATIN1_ASM

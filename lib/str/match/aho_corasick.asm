@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_MATCH_AHO_CORASICK_ASM
+%define GUARD_LIB_STR_MATCH_AHO_CORASICK_ASM
 ; =============================================================================
 ; str/match/aho_corasick.asm
 ; Aho-Corasick multi-pattern string matching.
@@ -54,8 +56,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_arena_alloc
 
 struc AcNode
     .child_head resq 1      ; first child index (-1 = leaf)
@@ -506,3 +506,4 @@ STR_FUNC str_ac_count
     ret
 
 STR_ENDFUNC str_ac_count
+%endif ; GUARD_LIB_STR_MATCH_AHO_CORASICK_ASM

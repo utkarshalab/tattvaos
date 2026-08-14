@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_TRANSLATE_ASM
+%define GUARD_LIB_STR_CORE_TRANSLATE_ASM
 ; =============================================================================
 ; str/core/translate.asm
 ; Unix tr-like character translation and deletion.
@@ -15,8 +17,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_remove_chars
 
 section .text
 
@@ -156,3 +156,5 @@ STR_FUNC str_delete_chars
     ; Forward directly to str_remove_chars
     jmp     str_remove_chars
 STR_ENDFUNC str_delete_chars
+
+%endif ; GUARD_LIB_STR_CORE_TRANSLATE_ASM

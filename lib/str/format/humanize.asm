@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_FORMAT_HUMANIZE_ASM
+%define GUARD_LIB_STR_FORMAT_HUMANIZE_ASM
 ; =============================================================================
 ; str/format/humanize.asm
 ; Duration and relative time formatting functions.
@@ -15,8 +17,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 section .rodata
 
@@ -453,3 +453,5 @@ STR_FUNC str_format_relative_time
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_format_relative_time
+
+%endif ; GUARD_LIB_STR_FORMAT_HUMANIZE_ASM

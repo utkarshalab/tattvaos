@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_SCRIPT_EXT_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_SCRIPT_EXT_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/script_ext_table.asm
 ; Script extensions bitmask
@@ -342,3 +344,5 @@ _ucd_scext_stage2:
 
 global _ucd_scext_table
 _ucd_scext_table equ _ucd_scext_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_SCRIPT_EXT_TABLE_ASM

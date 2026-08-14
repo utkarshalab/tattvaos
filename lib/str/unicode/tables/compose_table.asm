@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_COMPOSE_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_COMPOSE_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/compose_table.asm
 ; canonical compositions
@@ -946,3 +948,5 @@ _ucd_compose_index:
 global _ucd_compose_count
 _ucd_compose_count:
     dq 961
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_COMPOSE_TABLE_ASM

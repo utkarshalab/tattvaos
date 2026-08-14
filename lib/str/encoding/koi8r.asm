@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_KOI8R_ASM
+%define GUARD_LIB_STR_ENCODING_KOI8R_ASM
 ; =============================================================================
 ; str/encoding/koi8r.asm
 ; KOI8-R (Russian) ↔ UTF-8 codec.
@@ -175,3 +177,4 @@ STR_FUNC str_koi8r_codec
     pop     rbp
     ret
 STR_ENDFUNC str_koi8r_codec
+%endif ; GUARD_LIB_STR_ENCODING_KOI8R_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_FORMAT_DTOA_ASM
+%define GUARD_LIB_STR_FORMAT_DTOA_ASM
 ; =============================================================================
 ; str/format/dtoa.asm
 ; Double → string using Grisu2-inspired shortest representation.
@@ -30,8 +32,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 section .rodata
 
@@ -467,3 +467,4 @@ STR_FUNC str_dtoa_exp
     ret
 
 STR_ENDFUNC str_dtoa_exp
+%endif ; GUARD_LIB_STR_FORMAT_DTOA_ASM

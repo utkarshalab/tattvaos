@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_HASH_DJB2_ASM
+%define GUARD_LIB_STR_HASH_DJB2_ASM
 ; =============================================================================
 ; str/hash/djb2.asm
 ; DJB2 hash by Daniel J. Bernstein.
@@ -313,3 +315,4 @@ STR_FUNC str_djb2a_incremental
     ret
 
 STR_ENDFUNC str_djb2a_incremental
+%endif ; GUARD_LIB_STR_HASH_DJB2_ASM

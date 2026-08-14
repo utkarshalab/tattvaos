@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SORT_COLLATE_TAILORING_ASM
+%define GUARD_LIB_STR_SORT_COLLATE_TAILORING_ASM
 ; =============================================================================
 ; str/sort/collate_tailoring.asm
 ; Locale-specific collation overrides (German phonebook, Swedish end-of-alphabet).
@@ -9,8 +11,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 LOCALE_DEFAULT  equ 0
 LOCALE_DE_PHONE equ 1       ; German phonebook (ä/ö/ü -> ae/oe/ue)
@@ -268,3 +268,5 @@ STR_FUNC str_collate_tailored
     pop     rbp
     ret
 STR_ENDFUNC str_collate_tailored
+
+%endif ; GUARD_LIB_STR_SORT_COLLATE_TAILORING_ASM

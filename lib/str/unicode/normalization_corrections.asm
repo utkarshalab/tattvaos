@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_NORMALIZATION_CORRECTIONS_ASM
+%define GUARD_LIB_STR_UNICODE_NORMALIZATION_CORRECTIONS_ASM
 ; =============================================================================
 ; str/unicode/normalization_corrections.asm
 ; Historical normalization corrections (NormalizationCorrections.txt).
@@ -201,3 +203,5 @@ STR_FUNC str_cp_norm_correction_ver
     ret
 
 STR_ENDFUNC str_cp_norm_correction_ver
+
+%endif ; GUARD_LIB_STR_UNICODE_NORMALIZATION_CORRECTIONS_ASM

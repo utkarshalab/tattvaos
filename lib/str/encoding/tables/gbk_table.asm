@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_TABLES_GBK_TABLE_ASM
+%define GUARD_LIB_STR_ENCODING_TABLES_GBK_TABLE_ASM
 ; ============================================================
 ; str/encoding/tables/gbk_table.asm
 ; GBK (CP936) → Unicode mapping
@@ -23941,3 +23943,5 @@ _gbk_from_unicode:
 
 global _gbk_from_unicode_count
 _gbk_from_unicode_count: dq 21919
+
+%endif ; GUARD_LIB_STR_ENCODING_TABLES_GBK_TABLE_ASM

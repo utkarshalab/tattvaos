@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_BUF_BUILDER_ASM
+%define GUARD_LIB_STR_BUF_BUILDER_ASM
 ; =============================================================================
 ; str/buf/builder.asm
 ; Zero-allocation fixed-capacity string builder.
@@ -10,9 +12,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_copy_bytes
-extern str_utf8_encode_unchecked
-extern str_utf8_encode_buf_size
+
 
 struc StrBuilder
     .ptr  resq 1
@@ -180,3 +180,5 @@ STR_FUNC str_builder_build
     pop     rbp
     ret
 STR_ENDFUNC str_builder_build
+
+%endif ; GUARD_LIB_STR_BUF_BUILDER_ASM

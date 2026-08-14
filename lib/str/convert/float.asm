@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_FLOAT_ASM
+%define GUARD_LIB_STR_CONVERT_FLOAT_ASM
 ; =============================================================================
 ; str/convert/float.asm
 ; String ↔ floating-point conversions.
@@ -28,8 +30,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_u64_to_str
-extern str_i64_to_str
 
 section .rodata
 
@@ -707,3 +707,5 @@ STR_FUNC str_f64_is_inf
     pop     rbp
     ret
 STR_ENDFUNC str_f64_is_inf
+
+%endif ; GUARD_LIB_STR_CONVERT_FLOAT_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_AGE_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_AGE_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/age_table.asm
 ; Unicode version (age) per codepoint
@@ -3419,3 +3421,5 @@ _ucd_age_stage2:
 
 global _ucd_age_table
 _ucd_age_table equ _ucd_age_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_AGE_TABLE_ASM

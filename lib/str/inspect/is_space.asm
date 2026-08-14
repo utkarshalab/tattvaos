@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INSPECT_IS_SPACE_ASM
+%define GUARD_LIB_STR_INSPECT_IS_SPACE_ASM
 ; =============================================================================
 ; str/inspect/is_space.asm
 ; Check whether a codepoint or string contains only whitespace characters.
@@ -40,8 +42,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 section .text
 
@@ -313,3 +313,4 @@ STR_FUNC str_is_ascii_space_slice
     jmp     str_is_ascii_space
 
 STR_ENDFUNC str_is_ascii_space_slice
+%endif ; GUARD_LIB_STR_INSPECT_IS_SPACE_ASM

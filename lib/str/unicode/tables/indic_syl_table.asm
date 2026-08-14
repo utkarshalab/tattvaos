@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_INDIC_SYL_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_INDIC_SYL_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/indic_syl_table.asm
 ; Indic syllable category
@@ -988,3 +990,5 @@ _ucd_indic_syl_stage2:
 
 global _ucd_indic_syl_table
 _ucd_indic_syl_table equ _ucd_indic_syl_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_INDIC_SYL_TABLE_ASM

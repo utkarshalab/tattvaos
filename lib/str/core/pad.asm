@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_PAD_ASM
+%define GUARD_LIB_STR_CORE_PAD_ASM
 ; =============================================================================
 ; str/core/pad.asm
 ; Pad a StrSlice to a target width with a fill byte or codepoint.
@@ -29,10 +31,8 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_copy_bytes
-extern str_fill
-extern str_utf8_encode_unchecked
-extern str_utf8_len
+
+
 
 section .text
 
@@ -743,3 +743,5 @@ STR_FUNC str_zfill
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_zfill
 
+
+%endif ; GUARD_LIB_STR_CORE_PAD_ASM

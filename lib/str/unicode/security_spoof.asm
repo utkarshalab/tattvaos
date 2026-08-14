@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_SECURITY_SPOOF_ASM
+%define GUARD_LIB_STR_UNICODE_SECURITY_SPOOF_ASM
 ; =============================================================================
 ; str/unicode/security_spoof.asm
 ; UTS #39 security spoofing profile checks (restriction levels & mixed-number).
@@ -10,8 +12,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_cp_script
 
 section .text
 
@@ -197,3 +197,5 @@ STR_FUNC str_has_mixed_number_systems
     pop     rbp
     ret
 STR_ENDFUNC str_has_mixed_number_systems
+
+%endif ; GUARD_LIB_STR_UNICODE_SECURITY_SPOOF_ASM

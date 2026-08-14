@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_WIDTH_ASM
+%define GUARD_LIB_STR_UNICODE_WIDTH_ASM
 ; =============================================================================
 ; str/unicode/width.asm
 ; East Asian Width property + display width calculation.
@@ -28,8 +30,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 ; East Asian Width classes
 EAW_N   equ 0      ; Neutral
@@ -363,4 +363,5 @@ STR_FUNC str_display_truncate
     add     rsp, 24
     pop_regs r15, r14, r13, r12, rbx
     ret_ok
-STR_ENDFUNC str_display_truncate
+STR_ENDFUNC str_display_truncate
+%endif ; GUARD_LIB_STR_UNICODE_WIDTH_ASM

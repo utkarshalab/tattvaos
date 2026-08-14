@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INSPECT_IS_PRINT_ASM
+%define GUARD_LIB_STR_INSPECT_IS_PRINT_ASM
 ; =============================================================================
 ; str/inspect/is_print.asm
 ; Check whether a codepoint or string contains only printable characters.
@@ -40,8 +42,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 section .text
 
@@ -251,3 +251,4 @@ STR_FUNC str_is_print_slice
     jmp     str_is_print
 
 STR_ENDFUNC str_is_print_slice
+%endif ; GUARD_LIB_STR_INSPECT_IS_PRINT_ASM

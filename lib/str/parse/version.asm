@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PARSE_VERSION_ASM
+%define GUARD_LIB_STR_PARSE_VERSION_ASM
 ; =============================================================================
 ; str/parse/version.asm
 ; Parse semantic version strings (semver 2.0.0).
@@ -36,8 +38,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_parse_u64
 
 ; Version struct offsets
 struc Version
@@ -370,8 +370,6 @@ STR_ENDFUNC str_version_cmp
 ;                               uint64_t buf_cap, uint64_t *out_len)
 ; -----------------------------------------------------------------------------
 
-extern str_u64_to_str
-extern str_copy_bytes
 
 STR_FUNC str_version_to_str
 
@@ -471,3 +469,4 @@ STR_FUNC str_version_to_str
     ret
 
 STR_ENDFUNC str_version_to_str
+%endif ; GUARD_LIB_STR_PARSE_VERSION_ASM

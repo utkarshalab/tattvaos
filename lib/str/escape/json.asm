@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ESCAPE_JSON_ASM
+%define GUARD_LIB_STR_ESCAPE_JSON_ASM
 ; =============================================================================
 ; str/escape/json.asm
 ; JSON string escaping and unescaping (RFC 8259).
@@ -35,9 +37,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_hex_digit_value
-extern str_utf8_encode_unchecked
-extern str_utf8_decode_unchecked
+
 
 section .rodata
 _json_hex: db "0123456789abcdef"
@@ -475,3 +475,4 @@ STR_FUNC str_json_escape_into_buf
     ret
 
 STR_ENDFUNC str_json_escape_into_buf
+%endif ; GUARD_LIB_STR_ESCAPE_JSON_ASM

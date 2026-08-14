@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DIFF_FUZZY_MATCH_ASM
+%define GUARD_LIB_STR_DIFF_FUZZY_MATCH_ASM
 ; =============================================================================
 ; str/diff/fuzzy_match.asm
 ; Phonetic hashing and fuzzy string matching algorithms (Soundex).
@@ -9,8 +11,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 section .text
 
@@ -196,3 +196,5 @@ STR_FUNC str_soundex
     pop     rbp
     ret
 STR_ENDFUNC str_soundex
+
+%endif ; GUARD_LIB_STR_DIFF_FUZZY_MATCH_ASM

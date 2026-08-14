@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_GB2312_ASM
+%define GUARD_LIB_STR_ENCODING_GB2312_ASM
 ; =============================================================================
 ; str/encoding/gb2312.asm
 ; GB2312 / GBK (Simplified Chinese) ↔ UTF-8 codec.
@@ -44,10 +46,9 @@ _gb2312_name: db "GB2312", 0
 ; External mapping tables (generated):
 ;   _gb2312_to_unicode : indexed by (lead-0x81)*191 + (trail-0x40) → uint16 cp
 ;   _gb2312_from_unicode : sorted (cp → gbk bytes) for reverse lookup
-extern _gb2312_to_unicode
-extern _gb2312_from_unicode_keys
-extern _gb2312_from_unicode_vals
-extern _gb2312_from_unicode_count
+
+
+
 
 GB_LEAD_MIN     equ 0x81
 GB_LEAD_MAX     equ 0xFE
@@ -238,3 +239,4 @@ STR_FUNC str_gb2312_codec
     pop     rbp
     ret
 STR_ENDFUNC str_gb2312_codec
+%endif ; GUARD_LIB_STR_ENCODING_GB2312_ASM

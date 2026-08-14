@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_REPLACE_ASM
+%define GUARD_LIB_STR_SEARCH_REPLACE_ASM
 ; =============================================================================
 ; str/search/replace.asm
 ; Fast Boyer-Moore-Horspool replacement function.
@@ -16,8 +18,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_replace_all
-
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -34,3 +34,5 @@ STR_FUNC str_bmh_replace_all
     ; Forward directly to str_replace_all (which already uses BMH via str_find_from)
     jmp     str_replace_all
 STR_ENDFUNC str_bmh_replace_all
+
+%endif ; GUARD_LIB_STR_SEARCH_REPLACE_ASM

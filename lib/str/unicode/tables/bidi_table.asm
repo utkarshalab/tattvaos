@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_BIDI_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_BIDI_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/bidi_table.asm
 ; Bidi class lookup table (UAX #9)
@@ -2314,3 +2316,5 @@ _ucd_bidi_stage2:
 
 global _ucd_bidi_table
 _ucd_bidi_table equ _ucd_bidi_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_BIDI_TABLE_ASM

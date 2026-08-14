@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_HASH_SIPHASH_ASM
+%define GUARD_LIB_STR_HASH_SIPHASH_ASM
 ; =============================================================================
 ; str/hash/siphash.asm
 ; SipHash-2-4 — cryptographically strong PRF, DoS-resistant hash.
@@ -377,3 +379,4 @@ STR_FUNC str_siphash_24_with_seed
     ret
 
 STR_ENDFUNC str_siphash_24_with_seed
+%endif ; GUARD_LIB_STR_HASH_SIPHASH_ASM

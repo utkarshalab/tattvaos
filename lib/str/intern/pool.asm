@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INTERN_POOL_ASM
+%define GUARD_LIB_STR_INTERN_POOL_ASM
 ; =============================================================================
 ; str/intern/pool.asm
 ; String interning pool — deduplicate identical strings.
@@ -52,9 +54,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_fnv1a_64
-extern str_arena_alloc
-extern str_copy_bytes
+
 
 struc StrInternPool
     .arena    resq 1
@@ -417,3 +417,4 @@ STR_FUNC str_intern_count
     ret
 
 STR_ENDFUNC str_intern_count
+%endif ; GUARD_LIB_STR_INTERN_POOL_ASM

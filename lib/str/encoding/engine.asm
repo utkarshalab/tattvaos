@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_ENGINE_ASM
+%define GUARD_LIB_STR_ENCODING_ENGINE_ASM
 ; =============================================================================
 ; str/encoding/engine.asm
 ; Transcoder engine — convert between any two encodings via a UTF-8 pivot.
@@ -64,9 +66,8 @@ ENC_FLAG_STATEFUL   equ 0x01    ; codec maintains state (ISO-2022)
 ENC_FLAG_ASCII_SUPERSET equ 0x02 ; ASCII bytes map to themselves
 
 ; UTF-8 codec callbacks (from utf8/ module)
-extern str_utf8_decode
-extern str_utf8_encode_unchecked
-extern str_utf8_encode_buf_size
+
+
 
 section .text
 
@@ -409,3 +410,4 @@ STR_FUNC str_encode_from_utf8
     ret
 
 STR_ENDFUNC str_encode_from_utf8
+%endif ; GUARD_LIB_STR_ENCODING_ENGINE_ASM

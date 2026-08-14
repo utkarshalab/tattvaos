@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_NORMALIZE_ASM
+%define GUARD_LIB_STR_UNICODE_NORMALIZE_ASM
 ; =============================================================================
 ; str/unicode/normalize.asm
 ; Unicode normalization: NFC, NFD, NFKC, NFKD (UAX #15).
@@ -48,14 +50,11 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
 
 ; Decomposition tables (generated from UnicodeData.txt)
 extern _ucd_decomp_index    ; lookup: cp → (offset, len, is_compat)
 extern _ucd_decomp_data     ; flat array of decomposition codepoints
 extern _ucd_compose_index   ; (starter, combining) → composed cp
-extern str_cp_ccc
 
 ; Hangul constants (algorithmic decomposition — no table needed)
 HANGUL_SBASE    equ 0xAC00
@@ -1006,3 +1005,4 @@ STR_FUNC str_is_nfkd
     ret
 
 STR_ENDFUNC str_is_nfkd
+%endif ; GUARD_LIB_STR_UNICODE_NORMALIZE_ASM

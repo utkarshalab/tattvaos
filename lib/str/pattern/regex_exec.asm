@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PATTERN_REGEX_EXEC_ASM
+%define GUARD_LIB_STR_PATTERN_REGEX_EXEC_ASM
 ; =============================================================================
 ; str/pattern/regex_exec.asm
 ; Execute a compiled NFA bytecode program against an input string.
@@ -388,8 +390,6 @@ STR_ENDFUNC str_regex_exec
 ;                           uint64_t *out_start, uint64_t *out_len)
 ; -----------------------------------------------------------------------------
 
-extern str_regex_compile
-
 STR_FUNC str_regex_find
 
     guard_null rdi, STR_ERR_NULL
@@ -435,3 +435,4 @@ STR_FUNC str_regex_find
     ret
 
 STR_ENDFUNC str_regex_find
+%endif ; GUARD_LIB_STR_PATTERN_REGEX_EXEC_ASM

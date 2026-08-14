@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ESCAPE_REGEX_ASM
+%define GUARD_LIB_STR_ESCAPE_REGEX_ASM
 ; =============================================================================
 ; str/pattern/regex.asm
 ; High-level regex API — compile once, execute many times.
@@ -45,10 +47,8 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_regex_compile
-extern str_regex_exec
-extern str_arena_alloc
-extern str_copy_bytes
+
+
 
 ; Regex struct layout
 struc Regex
@@ -476,3 +476,4 @@ STR_FUNC str_regex_split
     ret
 
 STR_ENDFUNC str_regex_split
+%endif ; GUARD_LIB_STR_ESCAPE_REGEX_ASM

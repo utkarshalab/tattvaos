@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_BIDI_MIRROR_ASM
+%define GUARD_LIB_STR_UNICODE_BIDI_MIRROR_ASM
 ; =============================================================================
 ; str/unicode/bidi_mirror.asm
 ; Bidi mirroring: get the mirrored glyph for RTL display.
@@ -127,3 +129,4 @@ STR_FUNC str_bidi_is_mirrored
     ret
 
 STR_ENDFUNC str_bidi_is_mirrored
+%endif ; GUARD_LIB_STR_UNICODE_BIDI_MIRROR_ASM

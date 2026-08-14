@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_HASH_FNV1A_ASM
+%define GUARD_LIB_STR_HASH_FNV1A_ASM
 ; =============================================================================
 ; str/hash/fnv1a.asm
 ; FNV-1a (Fowler-Noll-Vo) hash — 32-bit and 64-bit variants.
@@ -269,3 +271,4 @@ STR_FUNC str_fnv1a_64_incremental
     ret
 
 STR_ENDFUNC str_fnv1a_64_incremental
+%endif ; GUARD_LIB_STR_HASH_FNV1A_ASM

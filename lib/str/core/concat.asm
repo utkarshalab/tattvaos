@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_CONCAT_ASM
+%define GUARD_LIB_STR_CORE_CONCAT_ASM
 ; =============================================================================
 ; str/core/concat.asm
 ; Concatenate two or more StrSlices into a caller-supplied buffer.
@@ -25,8 +27,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 section .text
 
@@ -535,3 +535,5 @@ STR_FUNC str_concat_sep
     ret
 
 STR_ENDFUNC str_concat_sep
+
+%endif ; GUARD_LIB_STR_CORE_CONCAT_ASM

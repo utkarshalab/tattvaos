@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_BIDI_BRACKETS_ASM
+%define GUARD_LIB_STR_UNICODE_BIDI_BRACKETS_ASM
 ; =============================================================================
 ; str/unicode/bidi_brackets.asm
 ; Paired bracket algorithm (UAX #9 rule N0) for full bidi support.
@@ -190,3 +192,4 @@ STR_FUNC str_bidi_bracket_pair
     ret
 
 STR_ENDFUNC str_bidi_bracket_pair
+%endif ; GUARD_LIB_STR_UNICODE_BIDI_BRACKETS_ASM

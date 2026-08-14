@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_PROPS_ASM
+%define GUARD_LIB_STR_UNICODE_PROPS_ASM
 ; =============================================================================
 ; str/unicode/props.asm
 ; Unicode boolean properties (PropList.txt + DerivedCoreProperties.txt).
@@ -361,3 +363,4 @@ STR_FUNC str_cp_is_default_ignorable
     pop rbp
     ret
 STR_ENDFUNC str_cp_is_default_ignorable
+%endif ; GUARD_LIB_STR_UNICODE_PROPS_ASM

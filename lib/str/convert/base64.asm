@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_BASE64_ASM
+%define GUARD_LIB_STR_CONVERT_BASE64_ASM
 ; =============================================================================
 ; str/convert/base64.asm
 ; Base64 encode and decode (RFC 4648).
@@ -644,3 +646,5 @@ STR_FUNC str_base64_encode_url
     ret
 
 STR_ENDFUNC str_base64_encode_url
+
+%endif ; GUARD_LIB_STR_CONVERT_BASE64_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_INDIC_POS_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_INDIC_POS_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/indic_pos_table.asm
 ; Indic positional category
@@ -954,3 +956,5 @@ _ucd_indic_pos_stage2:
 
 global _ucd_indic_pos_table
 _ucd_indic_pos_table equ _ucd_indic_pos_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_INDIC_POS_TABLE_ASM

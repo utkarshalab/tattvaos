@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_PROPERTY_ALIASES_ASM
+%define GUARD_LIB_STR_UNICODE_PROPERTY_ALIASES_ASM
 ; =============================================================================
 ; str/unicode/property_aliases.asm
 ; Property name/value alias resolution (PropertyAliases.txt, PropertyValueAliases.txt).
@@ -49,8 +51,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_eq
 
 ; Property IDs
 PROP_NONE   equ 0
@@ -407,3 +407,5 @@ _gc_value_aliases:
 _SC_VALUE_COUNT equ 0
 _sc_value_aliases:
     dq 0                        ; placeholder
+
+%endif ; GUARD_LIB_STR_UNICODE_PROPERTY_ALIASES_ASM

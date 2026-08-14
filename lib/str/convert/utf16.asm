@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_UTF16_ASM
+%define GUARD_LIB_STR_CONVERT_UTF16_ASM
 ; =============================================================================
 ; str/convert/utf16.asm
 ; UTF-8 ↔ UTF-16 transcoding.
@@ -31,9 +33,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
-extern str_utf8_encode_buf_size
+
 
 section .text
 
@@ -394,3 +394,5 @@ STR_FUNC str_utf8_to_utf16be
     ret
 
 STR_ENDFUNC str_utf8_to_utf16be
+
+%endif ; GUARD_LIB_STR_CONVERT_UTF16_ASM

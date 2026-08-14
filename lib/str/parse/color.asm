@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PARSE_COLOR_ASM
+%define GUARD_LIB_STR_PARSE_COLOR_ASM
 ; =============================================================================
 ; str/parse/color.asm
 ; Parse CSS/HTML color strings → u32 RGBA packed value.
@@ -33,8 +35,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_hex_digit_value
 
 section .rodata
 
@@ -536,3 +536,4 @@ STR_FUNC str_parse_color
     ret
 
 STR_ENDFUNC str_parse_color
+%endif ; GUARD_LIB_STR_PARSE_COLOR_ASM

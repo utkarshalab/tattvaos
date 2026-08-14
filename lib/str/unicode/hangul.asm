@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_HANGUL_ASM
+%define GUARD_LIB_STR_UNICODE_HANGUL_ASM
 ; =============================================================================
 ; str/unicode/hangul.asm
 ; Hangul syllable type classification and jamo utilities.
@@ -284,3 +286,4 @@ STR_FUNC str_hangul_compose
     ret
 
 STR_ENDFUNC str_hangul_compose
+%endif ; GUARD_LIB_STR_UNICODE_HANGUL_ASM

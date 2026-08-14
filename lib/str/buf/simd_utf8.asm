@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_BUF_SIMD_UTF8_ASM
+%define GUARD_LIB_STR_BUF_SIMD_UTF8_ASM
 ; =============================================================================
 ; str/buf/simd_utf8.asm
 ; SIMD-accelerated UTF-8 validation and fast ASCII scans.
@@ -9,8 +11,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_charlen
 
 section .text
 
@@ -101,3 +101,5 @@ STR_FUNC str_simd_utf8_validate
     pop     rbp
     ret
 STR_ENDFUNC str_simd_utf8_validate
+
+%endif ; GUARD_LIB_STR_BUF_SIMD_UTF8_ASM

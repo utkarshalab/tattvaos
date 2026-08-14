@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ESCAPE_XML_ASM
+%define GUARD_LIB_STR_ESCAPE_XML_ASM
 ; =============================================================================
 ; str/escape/xml.asm
 ; XML character escaping and unescaping.
@@ -38,8 +40,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_copy_bytes
-extern str_utf8_encode_unchecked
 
 section .rodata
 _xml_amp:  db "&amp;",  0       ; 5
@@ -505,3 +505,4 @@ STR_FUNC str_xml_unescape
     ret_err STR_ERR_BUF_TOO_SMALL
 
 STR_ENDFUNC str_xml_unescape
+%endif ; GUARD_LIB_STR_ESCAPE_XML_ASM

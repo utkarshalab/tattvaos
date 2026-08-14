@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_PUNYCODE_ASM
+%define GUARD_LIB_STR_UNICODE_PUNYCODE_ASM
 ; =============================================================================
 ; str/unicode/punycode.asm
 ; Punycode encoding and decoding (RFC 3492).
@@ -41,8 +43,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
 
 ; Bootstring parameters
 PUNY_BASE       equ 36
@@ -459,3 +459,4 @@ STR_FUNC str_punycode_decode
     ret
 
 STR_ENDFUNC str_punycode_decode
+%endif ; GUARD_LIB_STR_UNICODE_PUNYCODE_ASM

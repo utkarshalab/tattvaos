@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_STANDARDIZED_VARIANTS_ASM
+%define GUARD_LIB_STR_UNICODE_STANDARDIZED_VARIANTS_ASM
 ; =============================================================================
 ; str/unicode/standardized_variants.asm
 ; Standardized variation sequences (StandardizedVariants.txt).
@@ -376,3 +378,5 @@ STR_FUNC str_is_emoji_presentation_vs
     ret
 
 STR_ENDFUNC str_is_emoji_presentation_vs
+
+%endif ; GUARD_LIB_STR_UNICODE_STANDARDIZED_VARIANTS_ASM

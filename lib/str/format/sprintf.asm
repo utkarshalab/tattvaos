@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_FORMAT_SPRINTF_ASM
+%define GUARD_LIB_STR_FORMAT_SPRINTF_ASM
 ; =============================================================================
 ; str/format/sprintf.asm
 ; Format into a buffer, returning result as a StrSlice.
@@ -37,8 +39,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_fmt
 
 section .text
 
@@ -329,3 +329,4 @@ STR_FUNC str_fmt_slice
     ret
 
 STR_ENDFUNC str_fmt_slice
+%endif ; GUARD_LIB_STR_FORMAT_SPRINTF_ASM

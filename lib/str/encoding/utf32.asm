@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_UTF32_ASM
+%define GUARD_LIB_STR_ENCODING_UTF32_ASM
 ; =============================================================================
 ; str/encoding/utf32.asm
 ; UTF-32 LE/BE ↔ UTF-8 codec.
@@ -250,3 +252,4 @@ STR_FUNC str_utf32be_codec
     pop     rbp
     ret
 STR_ENDFUNC str_utf32be_codec
+%endif ; GUARD_LIB_STR_ENCODING_UTF32_ASM

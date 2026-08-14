@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UTF8_NTH_ASM
+%define GUARD_LIB_STR_UTF8_NTH_ASM
 ; =============================================================================
 ; str/utf8/nth.asm
 ; Get the Nth Unicode codepoint from a UTF-8 string (0-indexed).
@@ -23,8 +25,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 section .text
 
@@ -311,3 +311,4 @@ STR_FUNC str_utf8_last
     ret
 
 STR_ENDFUNC str_utf8_last
+%endif ; GUARD_LIB_STR_UTF8_NTH_ASM

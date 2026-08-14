@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ESCAPE_URL_ASM
+%define GUARD_LIB_STR_ESCAPE_URL_ASM
 ; =============================================================================
 ; str/escape/url.asm
 ; URL percent-encoding (RFC 3986) encode and decode.
@@ -33,8 +35,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_hex_digit_value
 
 section .rodata
 
@@ -739,3 +739,4 @@ STR_FUNC str_url_encode_query
     ret
 
 STR_ENDFUNC str_url_encode_query
+%endif ; GUARD_LIB_STR_ESCAPE_URL_ASM

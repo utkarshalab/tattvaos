@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_LATIN2_ASM
+%define GUARD_LIB_STR_ENCODING_LATIN2_ASM
 ; =============================================================================
 ; str/encoding/latin2.asm
 ; ISO-8859-2 (Latin-2, Central European) ↔ UTF-8 codec.
@@ -194,3 +196,4 @@ STR_FUNC str_latin2_codec
     pop     rbp
     ret
 STR_ENDFUNC str_latin2_codec
+%endif ; GUARD_LIB_STR_ENCODING_LATIN2_ASM

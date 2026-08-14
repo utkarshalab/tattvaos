@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INSPECT_IS_BLANK_ASM
+%define GUARD_LIB_STR_INSPECT_IS_BLANK_ASM
 ; =============================================================================
 ; str/inspect/is_blank.asm
 ; Check whether a codepoint or string contains only blank characters.
@@ -35,8 +37,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 section .text
 
@@ -277,3 +277,4 @@ STR_FUNC str_is_ascii_blank_slice
     jmp     str_is_ascii_blank
 
 STR_ENDFUNC str_is_ascii_blank_slice
+%endif ; GUARD_LIB_STR_INSPECT_IS_BLANK_ASM

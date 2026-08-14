@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ESCAPE_HTML_ASM
+%define GUARD_LIB_STR_ESCAPE_HTML_ASM
 ; =============================================================================
 ; str/escape/html.asm
 ; HTML entity escaping and unescaping.
@@ -32,8 +34,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 section .rodata
 
@@ -187,8 +187,6 @@ STR_ENDFUNC str_html_escape_attr
 ;   int64_t str_html_unescape(const StrSlice *src, uint8_t *dst,
 ;                              uint64_t dst_cap, uint64_t *out_len)
 ; -----------------------------------------------------------------------------
-
-extern str_utf8_encode_unchecked
 
 STR_FUNC str_html_unescape
 
@@ -469,3 +467,4 @@ STR_FUNC str_html_unescape
     ret
 
 STR_ENDFUNC str_html_unescape
+%endif ; GUARD_LIB_STR_ESCAPE_HTML_ASM

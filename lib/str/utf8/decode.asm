@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UTF8_DECODE_ASM
+%define GUARD_LIB_STR_UTF8_DECODE_ASM
 ; =============================================================================
 ; str/utf8/decode.asm
 ; Decode a UTF-8 byte sequence into a Unicode codepoint (u32).
@@ -384,3 +386,4 @@ STR_FUNC str_utf8_decode_unchecked
     ret
 
 STR_ENDFUNC str_utf8_decode_unchecked
+%endif ; GUARD_LIB_STR_UTF8_DECODE_ASM

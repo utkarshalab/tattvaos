@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_LINEBREAK_ASM
+%define GUARD_LIB_STR_UNICODE_LINEBREAK_ASM
 ; =============================================================================
 ; str/unicode/linebreak.asm
 ; Line break opportunity detection (UAX #14).
@@ -37,8 +39,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 ; Line break classes (subset)
 LB_XX   equ 0      ; unknown
@@ -508,3 +508,4 @@ STR_FUNC str_linebreak_next
     ret
 
 STR_ENDFUNC str_linebreak_next
+%endif ; GUARD_LIB_STR_UNICODE_LINEBREAK_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_EXPANDTABS_ASM
+%define GUARD_LIB_STR_CORE_EXPANDTABS_ASM
 ; =============================================================================
 ; str/core/expandtabs.asm
 ; Tab expansion function.
@@ -218,3 +220,5 @@ STR_FUNC str_expandtabs
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_expandtabs
+
+%endif ; GUARD_LIB_STR_CORE_EXPANDTABS_ASM

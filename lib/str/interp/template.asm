@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INTERP_TEMPLATE_ASM
+%define GUARD_LIB_STR_INTERP_TEMPLATE_ASM
 ; =============================================================================
 ; str/interp/template.asm
 ; Simple template substitution engine.
@@ -32,8 +34,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 section .text
 
@@ -333,3 +333,4 @@ STR_FUNC str_template_render
     ret
 
 STR_ENDFUNC str_template_render
+%endif ; GUARD_LIB_STR_INTERP_TEMPLATE_ASM

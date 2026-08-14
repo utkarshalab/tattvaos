@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SORT_NATURAL_ASM
+%define GUARD_LIB_STR_SORT_NATURAL_ASM
 ; =============================================================================
 ; str/sort/natural.asm
 ; Natural sort ordering — numeric runs compared by value, not lexicographically.
@@ -34,8 +36,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_sort
 
 section .text
 
@@ -249,3 +249,4 @@ STR_FUNC str_sort_slices_natural
     ret
 
 STR_ENDFUNC str_sort_slices_natural
+%endif ; GUARD_LIB_STR_SORT_NATURAL_ASM

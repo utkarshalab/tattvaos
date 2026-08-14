@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INSPECT_IS_NULL_OR_EMPTY_ASM
+%define GUARD_LIB_STR_INSPECT_IS_NULL_OR_EMPTY_ASM
 ; =============================================================================
 ; str/inspect/is_null_or_empty.asm
 ; Null pointer and empty string guard predicates.
@@ -295,3 +297,4 @@ STR_FUNC str_ptr_in_range
     ret
 
 STR_ENDFUNC str_ptr_in_range
+%endif ; GUARD_LIB_STR_INSPECT_IS_NULL_OR_EMPTY_ASM

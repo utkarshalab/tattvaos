@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_BIDI_ASM
+%define GUARD_LIB_STR_UNICODE_BIDI_ASM
 ; =============================================================================
 ; str/unicode/bidi.asm
 ; Unicode Bidirectional Algorithm (UAX #9).
@@ -58,8 +60,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 ; Bidi class values
 BIDI_L      equ 0       ; Left-to-Right
@@ -619,3 +619,4 @@ STR_FUNC str_bidi_is_rtl
     ret
 
 STR_ENDFUNC str_bidi_is_rtl
+%endif ; GUARD_LIB_STR_UNICODE_BIDI_ASM

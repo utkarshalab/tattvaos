@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_COUNT_ASM
+%define GUARD_LIB_STR_SEARCH_COUNT_ASM
 ; =============================================================================
 ; str/search/count.asm
 ; Count occurrences of a substring, byte, or codepoint in a StrSlice.
@@ -23,9 +25,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_bmh_build_table
-extern str_bmh_search_from
-extern str_bmh_build_table_nocase
+
 
 BMH_TABLE_BYTES equ 2048
 
@@ -416,3 +416,4 @@ STR_FUNC str_count_nocase
     ret
 
 STR_ENDFUNC str_count_nocase
+%endif ; GUARD_LIB_STR_SEARCH_COUNT_ASM

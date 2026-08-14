@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_WORDBREAK_ASM
+%define GUARD_LIB_STR_UNICODE_WORDBREAK_ASM
 ; =============================================================================
 ; str/unicode/wordbreak.asm
 ; Word boundary detection (UAX #29 Word_Break).
@@ -38,8 +40,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 ; Word break property values
 WB_Other        equ 0
@@ -549,3 +549,5 @@ STR_FUNC str_word_count
     ret
 
 STR_ENDFUNC str_word_count
+
+%endif ; GUARD_LIB_STR_UNICODE_WORDBREAK_ASM

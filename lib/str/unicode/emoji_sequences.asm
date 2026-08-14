@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_EMOJI_SEQUENCES_ASM
+%define GUARD_LIB_STR_UNICODE_EMOJI_SEQUENCES_ASM
 ; =============================================================================
 ; str/unicode/emoji_sequences.asm
 ; Emoji sequence type detection (beyond single codepoint properties).
@@ -49,10 +51,8 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_cp_is_emoji
-extern str_cp_is_emoji_modifier_base
-extern str_cp_is_emoji_modifier
+
+
 
 ; Emoji sequence types
 EMOJI_SEQ_NONE      equ 0   ; not an emoji sequence
@@ -783,3 +783,5 @@ STR_FUNC str_emoji_sequence_type
     ret
 
 STR_ENDFUNC str_emoji_sequence_type
+
+%endif ; GUARD_LIB_STR_UNICODE_EMOJI_SEQUENCES_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_STARTS_ASM
+%define GUARD_LIB_STR_SEARCH_STARTS_ASM
 ; =============================================================================
 ; str/search/starts.asm
 ; Check if a StrSlice starts with a given prefix.
@@ -22,8 +24,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_eq_bytes
 
 section .text
 
@@ -262,3 +262,4 @@ STR_FUNC str_strip_prefix
     ret
 
 STR_ENDFUNC str_strip_prefix
+%endif ; GUARD_LIB_STR_SEARCH_STARTS_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_EUC_KR_ASM
+%define GUARD_LIB_STR_ENCODING_EUC_KR_ASM
 ; =============================================================================
 ; str/encoding/euc_kr.asm
 ; EUC-KR (Korean) ↔ UTF-8 codec.
@@ -42,9 +44,7 @@ section .rodata
 _euc_kr_name: db "EUC-KR", 0
 
 extern _euckr_to_unicode            ; 94×94 indexed table
-extern _euckr_from_unicode_keys
-extern _euckr_from_unicode_vals
-extern _euckr_from_unicode_count
+
 
 section .text
 
@@ -201,3 +201,4 @@ STR_FUNC str_euc_kr_codec
     pop     rbp
     ret
 STR_ENDFUNC str_euc_kr_codec
+%endif ; GUARD_LIB_STR_ENCODING_EUC_KR_ASM

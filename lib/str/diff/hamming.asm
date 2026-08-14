@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DIFF_HAMMING_ASM
+%define GUARD_LIB_STR_DIFF_HAMMING_ASM
 ; =============================================================================
 ; str/diff/hamming.asm
 ; Hamming distance — count positions where two strings differ.
@@ -212,8 +214,6 @@ STR_ENDFUNC str_hamming_bits
 ;                           uint64_t *out_distance)
 ; -----------------------------------------------------------------------------
 
-extern str_utf8_decode_unchecked
-
 STR_FUNC str_hamming_cp
 
     guard_null rdi, STR_ERR_NULL
@@ -306,3 +306,4 @@ STR_FUNC str_hamming_cp
     ret
 
 STR_ENDFUNC str_hamming_cp
+%endif ; GUARD_LIB_STR_DIFF_HAMMING_ASM

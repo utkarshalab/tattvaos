@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PARSE_JSON_ASM
+%define GUARD_LIB_STR_PARSE_JSON_ASM
 ; =============================================================================
 ; str/parse/json.asm
 ; Zero-copy streaming JSON parser callback engine.
@@ -356,3 +358,5 @@ STR_FUNC str_json_parse
 .skip_ws_ret:
     ret
 STR_ENDFUNC str_json_parse
+
+%endif ; GUARD_LIB_STR_PARSE_JSON_ASM

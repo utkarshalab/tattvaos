@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_INT_ASM
+%define GUARD_LIB_STR_CONVERT_INT_ASM
 ; =============================================================================
 ; str/convert/int.asm
 ; String ↔ integer conversions.
@@ -926,3 +928,5 @@ STR_FUNC str_parse_u64_bin
     ret
 
 STR_ENDFUNC str_parse_u64_bin
+
+%endif ; GUARD_LIB_STR_CONVERT_INT_ASM

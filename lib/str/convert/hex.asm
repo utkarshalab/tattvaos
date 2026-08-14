@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_HEX_ASM
+%define GUARD_LIB_STR_CONVERT_HEX_ASM
 ; =============================================================================
 ; str/convert/hex.asm
 ; Bytes ↔ hex string conversion.
@@ -27,8 +29,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_hex_digit_value
-extern str_byte_to_printable
 
 section .rodata
 _hex_lo: db "0123456789abcdef"
@@ -469,3 +469,5 @@ STR_FUNC str_hex_qword
     ret
 
 STR_ENDFUNC str_hex_qword
+
+%endif ; GUARD_LIB_STR_CONVERT_HEX_ASM

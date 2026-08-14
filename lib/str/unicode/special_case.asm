@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_SPECIAL_CASE_ASM
+%define GUARD_LIB_STR_UNICODE_SPECIAL_CASE_ASM
 ; =============================================================================
 ; str/unicode/special_case.asm
 ; Locale-aware special casing (SpecialCasing.txt).
@@ -34,8 +36,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_encode_unchecked
-extern str_utf8_decode_unchecked
 
 ; Locale IDs
 LOCALE_DEFAULT  equ 0
@@ -285,3 +285,4 @@ STR_FUNC str_locale_lower
     ret
 
 STR_ENDFUNC str_locale_lower
+%endif ; GUARD_LIB_STR_UNICODE_SPECIAL_CASE_ASM

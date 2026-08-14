@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_SLUGIFY_ASM
+%define GUARD_LIB_STR_CONVERT_SLUGIFY_ASM
 ; =============================================================================
 ; str/convert/slugify.asm
 ; URL-safe slug creation.
@@ -21,12 +23,10 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
-extern str_normalize_nfd
-extern str_cp_ccc
-extern str_cp_to_lower
-extern str_is_alnum_cp
+
+
+
+
 
 section .text
 
@@ -297,3 +297,5 @@ STR_FUNC str_slugify
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_INVALID
 STR_ENDFUNC str_slugify
+
+%endif ; GUARD_LIB_STR_CONVERT_SLUGIFY_ASM

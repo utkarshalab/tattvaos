@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_COPY_ASM
+%define GUARD_LIB_STR_CORE_COPY_ASM
 ; =============================================================================
 ; str/core/copy.asm
 ; Copy bytes into buffers and StrSlice duplication.
@@ -379,3 +381,5 @@ STR_FUNC str_fill
     ret
 
 STR_ENDFUNC str_fill
+
+%endif ; GUARD_LIB_STR_CORE_COPY_ASM

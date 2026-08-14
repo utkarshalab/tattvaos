@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UTF8_ITER_ASM
+%define GUARD_LIB_STR_UTF8_ITER_ASM
 ; =============================================================================
 ; str/utf8/iter.asm
 ; UTF-8 codepoint iterator — walk a string one codepoint at a time.
@@ -42,8 +44,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 section .text
 
@@ -374,3 +374,4 @@ STR_FUNC str_utf8_iter_is_done
     ret
 
 STR_ENDFUNC str_utf8_iter_is_done
+%endif ; GUARD_LIB_STR_UTF8_ITER_ASM

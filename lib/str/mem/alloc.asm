@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_MEM_ALLOC_ASM
+%define GUARD_LIB_STR_MEM_ALLOC_ASM
 ; =============================================================================
 ; str/mem/alloc.asm
 ; Heap allocation wrappers for the str library.
@@ -298,3 +300,4 @@ STR_FUNC str_realloc
     ret
 
 STR_ENDFUNC str_realloc
+%endif ; GUARD_LIB_STR_MEM_ALLOC_ASM

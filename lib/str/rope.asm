@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ROPE_ASM
+%define GUARD_LIB_STR_ROPE_ASM
 ; =============================================================================
 ; str/rope.asm
 ; Balanced Rope data structure for efficient large-string editing.
@@ -11,8 +13,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_arena_alloc
-extern str_copy_bytes
 
 ROPE_LEAF       equ 0
 ROPE_BRANCH     equ 1
@@ -842,3 +842,4 @@ STR_FUNC str_rope_delete
     pop     rbp
     ret
 STR_ENDFUNC str_rope_delete
+%endif ; GUARD_LIB_STR_ROPE_ASM

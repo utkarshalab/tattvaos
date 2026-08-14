@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INSPECT_CHAR_CLASS_ASM
+%define GUARD_LIB_STR_INSPECT_CHAR_CLASS_ASM
 ; =============================================================================
 ; str/inspect/char_class.asm
 ; Classify a Unicode codepoint into a character class bitmask.
@@ -46,15 +48,13 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_is_alpha_cp
-extern str_is_decimal_cp
-extern str_is_numeric_cp
-extern str_is_space_cp
-extern str_is_blank_cp
-extern str_is_upper_cp
-extern str_is_lower_cp
-extern str_is_print_cp
-extern str_utf8_decode_unchecked
+
+
+
+
+
+
+
 
 section .rodata
 
@@ -411,3 +411,4 @@ STR_FUNC str_char_class_name
     ret
 
 STR_ENDFUNC str_char_class_name
+%endif ; GUARD_LIB_STR_INSPECT_CHAR_CLASS_ASM

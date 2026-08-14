@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_TABLES_BIG5_TABLE_ASM
+%define GUARD_LIB_STR_ENCODING_TABLES_BIG5_TABLE_ASM
 ; ============================================================
 ; str/encoding/tables/big5_table.asm
 ; Big5 → Unicode mapping
@@ -15380,3 +15382,5 @@ _big5_from_unicode:
 
 global _big5_from_unicode_count
 _big5_from_unicode_count: dq 13704
+
+%endif ; GUARD_LIB_STR_ENCODING_TABLES_BIG5_TABLE_ASM

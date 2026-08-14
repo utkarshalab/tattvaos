@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_BLOCK_ASM
+%define GUARD_LIB_STR_UNICODE_BLOCK_ASM
 ; =============================================================================
 ; str/unicode/block.asm
 ; Unicode block lookup (Blocks.txt).
@@ -231,3 +233,4 @@ STR_FUNC str_cp_block_name
     ret
 
 STR_ENDFUNC str_cp_block_name
+%endif ; GUARD_LIB_STR_UNICODE_BLOCK_ASM

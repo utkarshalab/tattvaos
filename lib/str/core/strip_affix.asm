@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_STRIP_AFFIX_ASM
+%define GUARD_LIB_STR_CORE_STRIP_AFFIX_ASM
 ; =============================================================================
 ; str/core/strip_affix.asm
 ; Prefix and suffix stripping views.
@@ -253,3 +255,5 @@ STR_FUNC str_strip_suffix
     pop     rbp
     ret
 STR_ENDFUNC str_strip_suffix
+
+%endif ; GUARD_LIB_STR_CORE_STRIP_AFFIX_ASM

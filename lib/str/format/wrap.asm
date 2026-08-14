@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_FORMAT_WRAP_ASM
+%define GUARD_LIB_STR_FORMAT_WRAP_ASM
 ; =============================================================================
 ; str/format/wrap.asm
 ; Word wrapping, indent, and dedent functions.
@@ -17,8 +19,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_lines_next
-extern str_copy_bytes
 
 section .text
 
@@ -610,3 +610,5 @@ STR_FUNC str_word_wrap
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_INVALID
 STR_ENDFUNC str_word_wrap
+
+%endif ; GUARD_LIB_STR_FORMAT_WRAP_ASM

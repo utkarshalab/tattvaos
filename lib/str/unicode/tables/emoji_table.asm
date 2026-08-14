@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_EMOJI_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_EMOJI_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/emoji_table.asm
 ; Emoji properties
@@ -2326,3 +2328,5 @@ _ucd_emoji_extended_pictographic_stage2:
 global _ucd_emoji_extended_pictographic_table
 _ucd_emoji_extended_pictographic_table equ _ucd_emoji_extended_pictographic_stage2
 
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_EMOJI_TABLE_ASM

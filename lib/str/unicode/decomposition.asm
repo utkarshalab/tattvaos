@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_DECOMPOSITION_ASM
+%define GUARD_LIB_STR_UNICODE_DECOMPOSITION_ASM
 ; =============================================================================
 ; str/unicode/decomposition.asm
 ; Decomposition type queries (DerivedDecompositionType.txt).
@@ -78,8 +80,6 @@ DECOMP_COMPAT       equ 17
 ;   bits  3..0  = decomp type (4 bits → 0..17)
 ;
 ; If bits 7..0 == 0, the codepoint has no decomposition.
-extern _ucd_decomp_index
-extern _ucd_decomp_data
 
 section .text
 
@@ -544,3 +544,5 @@ STR_FUNC str_cp_decomp_length
     ret
 
 STR_ENDFUNC str_cp_decomp_length
+
+%endif ; GUARD_LIB_STR_UNICODE_DECOMPOSITION_ASM

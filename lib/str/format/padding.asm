@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_FORMAT_PADDING_ASM
+%define GUARD_LIB_STR_FORMAT_PADDING_ASM
 ; =============================================================================
 ; str/format/padding.asm
 ; Width, precision, and alignment formatting helpers.
@@ -25,9 +27,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_copy_bytes
-extern str_fill
-extern str_utf8_encode_unchecked
+
 
 ; Alignment flags
 ALIGN_LEFT   equ 0   ; '-' flag: left-align, pad right
@@ -446,3 +446,4 @@ STR_FUNC str_format_sign
     ret
 
 STR_ENDFUNC str_format_sign
+%endif ; GUARD_LIB_STR_FORMAT_PADDING_ASM

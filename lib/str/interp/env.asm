@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INTERP_ENV_ASM
+%define GUARD_LIB_STR_INTERP_ENV_ASM
 ; =============================================================================
 ; str/interp/env.asm
 ; Shell-style $VAR and ${VAR} variable expansion.
@@ -32,8 +34,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_copy_bytes
 
 section .text
 
@@ -375,3 +375,4 @@ STR_FUNC str_env_expand
     ret
 
 STR_ENDFUNC str_env_expand
+%endif ; GUARD_LIB_STR_INTERP_ENV_ASM

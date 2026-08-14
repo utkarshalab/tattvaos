@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_IDNA_ASM
+%define GUARD_LIB_STR_UNICODE_IDNA_ASM
 ; =============================================================================
 ; str/unicode/idna.asm
 ; Internationalized Domain Names (IDNA2008 / UTS #46).
@@ -42,9 +44,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_punycode_encode
-extern str_punycode_decode
-extern str_utf8_decode_unchecked
+
 
 MAX_LABEL_LEN   equ 63       ; DNS label octet limit
 
@@ -499,3 +499,4 @@ STR_FUNC str_idna_to_unicode
     ret
 
 STR_ENDFUNC str_idna_to_unicode
+%endif ; GUARD_LIB_STR_UNICODE_IDNA_ASM

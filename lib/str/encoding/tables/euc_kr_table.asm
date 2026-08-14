@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_TABLES_EUC_KR_TABLE_ASM
+%define GUARD_LIB_STR_ENCODING_TABLES_EUC_KR_TABLE_ASM
 ; ============================================================
 ; str/encoding/tables/euc_kr_table.asm
 ; EUC-KR (KS X 1001) → Unicode
@@ -17810,3 +17812,5 @@ _euckr_from_unicode:
 
 global _euckr_from_unicode_count
 _euckr_from_unicode_count: dq 17046
+
+%endif ; GUARD_LIB_STR_ENCODING_TABLES_EUC_KR_TABLE_ASM

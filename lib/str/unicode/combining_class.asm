@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_COMBINING_CLASS_ASM
+%define GUARD_LIB_STR_UNICODE_COMBINING_CLASS_ASM
 ; =============================================================================
 ; str/unicode/combining_class.asm
 ; Canonical Combining Class (CCC) queries (DerivedCombiningClass.txt).
@@ -28,7 +30,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern _ucd_ccc_table
 
 section .text
 
@@ -70,3 +71,5 @@ STR_FUNC str_cp_ccc
     ret
 
 STR_ENDFUNC str_cp_ccc
+
+%endif ; GUARD_LIB_STR_UNICODE_COMBINING_CLASS_ASM

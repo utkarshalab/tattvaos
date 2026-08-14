@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_NAMED_SEQUENCES_ASM
+%define GUARD_LIB_STR_UNICODE_NAMED_SEQUENCES_ASM
 ; =============================================================================
 ; str/unicode/named_sequences.asm
 ; Named character sequence lookup (NamedSequences.txt).
@@ -32,8 +34,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_cmp
-extern str_eq
 
 ; Maximum codepoints in a named sequence (Unicode spec: typically 2-6)
 MAX_SEQ_LEN     equ 8
@@ -319,3 +319,5 @@ _ns_entries:
     ; Populated by build scripts from NamedSequences.txt
     ; Each entry is 32 bytes.
     dq      0                   ; placeholder
+
+%endif ; GUARD_LIB_STR_UNICODE_NAMED_SEQUENCES_ASM

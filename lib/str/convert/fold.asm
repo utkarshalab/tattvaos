@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CONVERT_FOLD_ASM
+%define GUARD_LIB_STR_CONVERT_FOLD_ASM
 ; =============================================================================
 ; str/convert/fold.asm
 ; Unicode case folding for case-insensitive comparison and hashing.
@@ -30,9 +32,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_cp_to_lower
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
+
 
 section .rodata
 
@@ -360,3 +360,5 @@ STR_FUNC str_fold_eq
     ret
 
 STR_ENDFUNC str_fold_eq
+
+%endif ; GUARD_LIB_STR_CONVERT_FOLD_ASM

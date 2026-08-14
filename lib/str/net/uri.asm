@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_NET_URI_ASM
+%define GUARD_LIB_STR_NET_URI_ASM
 ; =============================================================================
 ; str/net/uri.asm
 ; RFC 3986 percent encoding and decoding functions.
@@ -301,3 +303,5 @@ STR_FUNC str_uri_decode
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_uri_decode
+
+%endif ; GUARD_LIB_STR_NET_URI_ASM

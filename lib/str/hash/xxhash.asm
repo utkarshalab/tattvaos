@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_HASH_XXHASH_ASM
+%define GUARD_LIB_STR_HASH_XXHASH_ASM
 ; =============================================================================
 ; str/hash/xxhash.asm
 ; xxHash64 by Yann Collet — fastest non-cryptographic hash algorithm.
@@ -545,3 +547,4 @@ STR_FUNC str_xxhash32
     ret
 
 STR_ENDFUNC str_xxhash32
+%endif ; GUARD_LIB_STR_HASH_XXHASH_ASM

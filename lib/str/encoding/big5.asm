@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_BIG5_ASM
+%define GUARD_LIB_STR_ENCODING_BIG5_ASM
 ; =============================================================================
 ; str/encoding/big5.asm
 ; Big5 (Traditional Chinese) ↔ UTF-8 codec.
@@ -36,9 +38,7 @@ section .rodata
 _big5_name: db "Big5", 0
 
 extern _big5_to_unicode             ; indexed table → uint16 codepoint
-extern _big5_from_unicode_keys
-extern _big5_from_unicode_vals
-extern _big5_from_unicode_count
+
 
 ; Big5 trail byte: 0x40-0x7E (63 values) + 0xA1-0xFE (94 values) = 157
 BIG5_TRAIL_SPAN equ 157
@@ -229,3 +229,4 @@ STR_FUNC str_big5_codec
     pop     rbp
     ret
 STR_ENDFUNC str_big5_codec
+%endif ; GUARD_LIB_STR_ENCODING_BIG5_ASM

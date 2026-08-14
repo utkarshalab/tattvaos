@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_BMH_ASM
+%define GUARD_LIB_STR_SEARCH_BMH_ASM
 ; =============================================================================
 ; str/search/bmh.asm
 ; Boyer-Moore-Horspool fast string search engine.
@@ -513,3 +515,4 @@ STR_FUNC str_bmh_build_table_nocase
     ret
 
 STR_ENDFUNC str_bmh_build_table_nocase
+%endif ; GUARD_LIB_STR_SEARCH_BMH_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PATH_JOIN_ASM
+%define GUARD_LIB_STR_PATH_JOIN_ASM
 ; =============================================================================
 ; str/path/join.asm
 ; Join path segments with the path separator '/'.
@@ -311,3 +313,4 @@ STR_FUNC str_path_join_many
     ret
 
 STR_ENDFUNC str_path_join_many
+%endif ; GUARD_LIB_STR_PATH_JOIN_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UTF8_BOM_ASM
+%define GUARD_LIB_STR_UTF8_BOM_ASM
 ; =============================================================================
 ; str/utf8/bom.asm
 ; UTF-8 BOM (Byte Order Mark) detection, stripping, and writing.
@@ -334,3 +336,4 @@ STR_FUNC str_strip_bom
     mov     [rsi + StrSlice.len], rcx
     ret_ok
 STR_ENDFUNC str_strip_bom
+%endif ; GUARD_LIB_STR_UTF8_BOM_ASM

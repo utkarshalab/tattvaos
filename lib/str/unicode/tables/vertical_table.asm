@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_VERTICAL_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_VERTICAL_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/vertical_table.asm
 ; Vertical orientation (UTR #50)
@@ -886,3 +888,5 @@ _ucd_vert_stage2:
 
 global _ucd_vert_table
 _ucd_vert_table equ _ucd_vert_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_VERTICAL_TABLE_ASM

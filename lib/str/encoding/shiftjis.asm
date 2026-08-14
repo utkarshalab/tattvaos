@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_SHIFTJIS_ASM
+%define GUARD_LIB_STR_ENCODING_SHIFTJIS_ASM
 ; =============================================================================
 ; str/encoding/shiftjis.asm
 ; Shift-JIS (Japanese) ↔ UTF-8 codec.
@@ -38,10 +40,8 @@
 section .rodata
 _shiftjis_name: db "Shift_JIS", 0
 
-extern _sjis_to_unicode
-extern _sjis_from_unicode_keys
-extern _sjis_from_unicode_vals
-extern _sjis_from_unicode_count
+
+
 
 ; double-byte trail span: 0x40-0x7E (63) + 0x80-0xFC (125) = 188
 SJIS_TRAIL_SPAN equ 188
@@ -267,3 +267,4 @@ STR_FUNC str_shiftjis_codec
     pop     rbp
     ret
 STR_ENDFUNC str_shiftjis_codec
+%endif ; GUARD_LIB_STR_ENCODING_SHIFTJIS_ASM

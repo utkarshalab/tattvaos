@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_NUMERIC_ASM
+%define GUARD_LIB_STR_UNICODE_NUMERIC_ASM
 ; =============================================================================
 ; str/unicode/numeric.asm
 ; Numeric type and value lookup (DerivedNumericType/Values).
@@ -217,3 +219,4 @@ STR_FUNC str_cp_digit_value
     ret
 
 STR_ENDFUNC str_cp_digit_value
+%endif ; GUARD_LIB_STR_UNICODE_NUMERIC_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_TABLES_EUC_JP_TABLE_ASM
+%define GUARD_LIB_STR_ENCODING_TABLES_EUC_JP_TABLE_ASM
 ; ============================================================
 ; str/encoding/tables/euc_jp_table.asm
 ; EUC-JP (JIS X 0208) → Unicode
@@ -7643,3 +7645,5 @@ _eucjp_from_unicode:
 
 global _eucjp_from_unicode_count
 _eucjp_from_unicode_count: dq 6879
+
+%endif ; GUARD_LIB_STR_ENCODING_TABLES_EUC_JP_TABLE_ASM

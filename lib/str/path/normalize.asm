@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PATH_NORMALIZE_ASM
+%define GUARD_LIB_STR_PATH_NORMALIZE_ASM
 ; =============================================================================
 ; str/path/normalize.asm
 ; Normalize a filesystem path — resolve . and .., collapse //.
@@ -373,3 +375,4 @@ STR_FUNC str_path_is_normalized
     ret
 
 STR_ENDFUNC str_path_is_normalized
+%endif ; GUARD_LIB_STR_PATH_NORMALIZE_ASM

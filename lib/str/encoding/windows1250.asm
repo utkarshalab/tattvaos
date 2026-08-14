@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_WINDOWS1250_ASM
+%define GUARD_LIB_STR_ENCODING_WINDOWS1250_ASM
 ; =============================================================================
 ; str/encoding/windows1250.asm
 ; Windows-1250 (Central European) codec.
@@ -38,8 +40,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_encode_unchecked
-extern str_utf8_decode_unchecked
 
 section .rodata
 align 16
@@ -312,3 +312,4 @@ STR_FUNC str_cp1250_to_utf8
     ret
 
 STR_ENDFUNC str_cp1250_to_utf8
+%endif ; GUARD_LIB_STR_ENCODING_WINDOWS1250_ASM

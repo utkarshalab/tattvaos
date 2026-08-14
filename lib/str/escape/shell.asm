@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ESCAPE_SHELL_ASM
+%define GUARD_LIB_STR_ESCAPE_SHELL_ASM
 ; =============================================================================
 ; str/escape/shell.asm
 ; Shell argument escaping for POSIX sh and bash.
@@ -390,3 +392,4 @@ STR_FUNC str_shell_needs_escaping
     ret
 
 STR_ENDFUNC str_shell_needs_escaping
+%endif ; GUARD_LIB_STR_ESCAPE_SHELL_ASM

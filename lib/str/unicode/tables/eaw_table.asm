@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_EAW_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_EAW_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/eaw_table.asm
 ; East Asian Width property (UAX #11)
@@ -1124,3 +1126,5 @@ _ucd_eaw_stage2:
 
 global _ucd_eaw_table
 _ucd_eaw_table equ _ucd_eaw_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_EAW_TABLE_ASM

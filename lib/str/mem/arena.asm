@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_MEM_ARENA_ASM
+%define GUARD_LIB_STR_MEM_ARENA_ASM
 ; =============================================================================
 ; str/mem/arena.asm
 ; Arena (bump) allocator — fast, no individual free.
@@ -356,3 +358,4 @@ STR_FUNC str_arena_restore
     ret
 
 STR_ENDFUNC str_arena_restore
+%endif ; GUARD_LIB_STR_MEM_ARENA_ASM

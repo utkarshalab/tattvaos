@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_RFIND_ASM
+%define GUARD_LIB_STR_SEARCH_RFIND_ASM
 ; =============================================================================
 ; str/search/rfind.asm
 ; Reverse substring search functions.
@@ -161,3 +163,5 @@ STR_FUNC str_last_index_of
     pop     rbp
     ret
 STR_ENDFUNC str_last_index_of
+
+%endif ; GUARD_LIB_STR_SEARCH_RFIND_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_CASING_TAILORING_ASM
+%define GUARD_LIB_STR_UNICODE_CASING_TAILORING_ASM
 ; =============================================================================
 ; str/unicode/casing_tailoring.asm
 ; Locale-tailored string case conversions (Dutch, Turkish, German, Lithuanian).
@@ -10,11 +12,9 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
-extern str_cp_to_upper
-extern str_cp_to_lower
-extern str_is_space_cp
+
+
+
 
 LOCALE_DEFAULT  equ 0
 LOCALE_TR       equ 1       ; Turkish / Azerbaijani
@@ -606,3 +606,5 @@ STR_FUNC str_to_title_tailored
     pop     rbp
     ret
 STR_ENDFUNC str_to_title_tailored
+
+%endif ; GUARD_LIB_STR_UNICODE_CASING_TAILORING_ASM

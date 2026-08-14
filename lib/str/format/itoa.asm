@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_FORMAT_ITOA_ASM
+%define GUARD_LIB_STR_FORMAT_ITOA_ASM
 ; =============================================================================
 ; str/format/itoa.asm
 ; Integer → string in various bases with format flags.
@@ -29,13 +31,11 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_u64_to_str
-extern str_i64_to_str
-extern str_u64_to_hex
-extern str_u64_to_hex_up
-extern str_pad_to_width
-extern str_pad_zero_with_sign
-extern str_format_sign
+
+
+
+
+
 
 ; Internal scratch buffer size — enough for any 64-bit number in any base
 ITOA_BUF_SIZE equ 72    ; 64 bits in binary + sign + prefix + null
@@ -684,3 +684,4 @@ STR_FUNC str_itoa_base
     ret
 
 STR_ENDFUNC str_itoa_base
+%endif ; GUARD_LIB_STR_FORMAT_ITOA_ASM

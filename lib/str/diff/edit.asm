@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DIFF_EDIT_ASM
+%define GUARD_LIB_STR_DIFF_EDIT_ASM
 ; =============================================================================
 ; str/diff/edit.asm
 ; Levenshtein edit distance (insert, delete, substitute).
@@ -355,7 +357,6 @@ STR_ENDFUNC str_edit_distance_max
 ;   int64_t str_levenshtein_ratio(const StrSlice *a, const StrSlice *b,
 ;                                 double *out_ratio)
 ; -----------------------------------------------------------------------------
-extern str_edit_distance_slice
 
 STR_FUNC str_levenshtein_ratio
     guard_null rdi, STR_ERR_NULL
@@ -425,3 +426,4 @@ STR_FUNC str_levenshtein_ratio
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_INVALID
 STR_ENDFUNC str_levenshtein_ratio
+%endif ; GUARD_LIB_STR_DIFF_EDIT_ASM

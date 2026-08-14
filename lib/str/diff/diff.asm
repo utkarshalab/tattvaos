@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DIFF_DIFF_ASM
+%define GUARD_LIB_STR_DIFF_DIFF_ASM
 ; =============================================================================
 ; str/diff/diff.asm
 ; Myers O(ND) greedy diff algorithm.
@@ -169,3 +171,5 @@ STR_FUNC str_diff_myers
     pop     rbp
     ret
 STR_ENDFUNC str_diff_myers
+
+%endif ; GUARD_LIB_STR_DIFF_DIFF_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UTF8_ENCODE_ASM
+%define GUARD_LIB_STR_UTF8_ENCODE_ASM
 ; =============================================================================
 ; str/utf8/encode.asm
 ; Encode a Unicode codepoint (u32) into UTF-8 bytes.
@@ -369,3 +371,4 @@ STR_FUNC str_utf8_encode_buf_size
     ret
 
 STR_ENDFUNC str_utf8_encode_buf_size
+%endif ; GUARD_LIB_STR_UTF8_ENCODE_ASM

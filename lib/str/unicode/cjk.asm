@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_CJK_ASM
+%define GUARD_LIB_STR_UNICODE_CJK_ASM
 ; =============================================================================
 ; str/unicode/cjk.asm
 ; CJK radical mappings and ideograph utilities.
@@ -97,3 +99,4 @@ STR_FUNC str_cp_equivalent_unified
     pop     rbp
     ret
 STR_ENDFUNC str_cp_equivalent_unified
+%endif ; GUARD_LIB_STR_UNICODE_CJK_ASM

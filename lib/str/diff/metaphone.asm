@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DIFF_METAPHONE_ASM
+%define GUARD_LIB_STR_DIFF_METAPHONE_ASM
 ; =============================================================================
 ; str/diff/metaphone.asm
 ; Classic Metaphone phonetic encoder.
@@ -693,3 +695,5 @@ STR_FUNC str_metaphone
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_BUF_TOO_SMALL
 STR_ENDFUNC str_metaphone
+
+%endif ; GUARD_LIB_STR_DIFF_METAPHONE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_UTF16_ASM
+%define GUARD_LIB_STR_ENCODING_UTF16_ASM
 ; =============================================================================
 ; str/encoding/utf16.asm
 ; UTF-16 LE/BE ↔ UTF-8 codec (with surrogate pair handling).
@@ -363,3 +365,4 @@ STR_FUNC str_utf16be_codec
     pop     rbp
     ret
 STR_ENDFUNC str_utf16be_codec
+%endif ; GUARD_LIB_STR_ENCODING_UTF16_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_EUC_JP_ASM
+%define GUARD_LIB_STR_ENCODING_EUC_JP_ASM
 ; =============================================================================
 ; str/encoding/euc_jp.asm
 ; EUC-JP (Japanese) ↔ UTF-8 codec.
@@ -41,9 +43,7 @@ _euc_jp_name: db "EUC-JP", 0
 ; EUC-JP maps to the same JIS X 0208 set; the table is indexed by the JIS
 ; row/cell derived from (lead-0xA1, trail-0xA1).
 extern _eucjp_to_unicode            ; 94×94 indexed table
-extern _eucjp_from_unicode_keys
-extern _eucjp_from_unicode_vals
-extern _eucjp_from_unicode_count
+
 
 section .text
 
@@ -251,3 +251,4 @@ STR_FUNC str_euc_jp_codec
     pop     rbp
     ret
 STR_ENDFUNC str_euc_jp_codec
+%endif ; GUARD_LIB_STR_ENCODING_EUC_JP_ASM

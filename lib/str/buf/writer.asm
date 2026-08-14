@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_BUF_WRITER_ASM
+%define GUARD_LIB_STR_BUF_WRITER_ASM
 ; =============================================================================
 ; str/buf/writer.asm
 ; Streaming byte/codepoint writer into a StrBuf or fixed buffer.
@@ -41,12 +43,10 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_buf_push
-extern str_buf_push_byte
-extern str_buf_push_codepoint
-extern str_buf_push_u64
-extern str_buf_as_slice
-extern str_utf8_encode_unchecked
+
+
+
+
 
 struc StrWriter
     .target resq 1
@@ -480,3 +480,4 @@ STR_FUNC str_writer_as_slice
     ret
 
 STR_ENDFUNC str_writer_as_slice
+%endif ; GUARD_LIB_STR_BUF_WRITER_ASM

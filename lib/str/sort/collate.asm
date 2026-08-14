@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SORT_COLLATE_ASM
+%define GUARD_LIB_STR_SORT_COLLATE_ASM
 ; =============================================================================
 ; str/sort/collate.asm
 ; Locale-aware string collation (simplified DUCET-inspired ordering).
@@ -33,8 +35,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 section .text
 
@@ -360,4 +360,5 @@ STR_ENDFUNC str_collate_key
 ; -----------------------------------------------------------------------------
 STR_FUNC str_collation_key
     jmp     str_collate_key
-STR_ENDFUNC str_collation_key
+STR_ENDFUNC str_collation_key
+%endif ; GUARD_LIB_STR_SORT_COLLATE_ASM

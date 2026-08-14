@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SCRIPT_DETECT_ASM
+%define GUARD_LIB_STR_SCRIPT_DETECT_ASM
 ; =============================================================================
 ; str/script_detect.asm
 ; Detect the predominant Unicode script of a string.
@@ -36,8 +38,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 ; Script enum values (ISO 15924 code order, subset)
 SCRIPT_COMMON       equ 0      ; punctuation, digits, symbols
@@ -597,3 +597,4 @@ STR_FUNC str_is_mixed_script
     ret
 
 STR_ENDFUNC str_is_mixed_script
+%endif ; GUARD_LIB_STR_SCRIPT_DETECT_ASM

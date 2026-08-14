@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_TRIE_ASM
+%define GUARD_LIB_STR_TRIE_ASM
 ; =============================================================================
 ; str/trie.asm
 ; Prefix tree (trie) for dictionary lookup, autocomplete, and prefix search.
@@ -46,8 +48,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_arena_alloc
 
 struc TrieNode
     .child_head  resq 1
@@ -395,3 +395,4 @@ STR_FUNC str_trie_count
     ret
 
 STR_ENDFUNC str_trie_count
+%endif ; GUARD_LIB_STR_TRIE_ASM

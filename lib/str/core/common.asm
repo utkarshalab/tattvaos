@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_COMMON_ASM
+%define GUARD_LIB_STR_CORE_COMMON_ASM
 ; =============================================================================
 ; str/core/common.asm
 ; Common prefix and suffix length matching.
@@ -129,3 +131,5 @@ STR_FUNC str_common_suffix_len
     pop     rbp
     ret
 STR_ENDFUNC str_common_suffix_len
+
+%endif ; GUARD_LIB_STR_CORE_COMMON_ASM

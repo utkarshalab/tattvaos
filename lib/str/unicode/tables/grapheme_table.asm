@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_GRAPHEME_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_GRAPHEME_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/grapheme_table.asm
 ; grapheme break property
@@ -2178,3 +2180,5 @@ _ucd_gbp_stage2:
 
 global _ucd_gbp_table
 _ucd_gbp_table equ _ucd_gbp_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_GRAPHEME_TABLE_ASM

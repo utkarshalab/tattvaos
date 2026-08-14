@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_EMOJI_ASM
+%define GUARD_LIB_STR_UNICODE_EMOJI_ASM
 ; =============================================================================
 ; str/unicode/emoji.asm
 ; Full emoji property support.
@@ -233,3 +235,4 @@ STR_FUNC str_cp_is_extended_pictographic
     pop rbp
     ret
 STR_ENDFUNC str_cp_is_extended_pictographic
+%endif ; GUARD_LIB_STR_UNICODE_EMOJI_ASM

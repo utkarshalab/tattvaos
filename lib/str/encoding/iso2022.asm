@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_ISO2022_ASM
+%define GUARD_LIB_STR_ENCODING_ISO2022_ASM
 ; =============================================================================
 ; str/encoding/iso2022.asm
 ; ISO-2022-JP (stateful Japanese) ↔ UTF-8 codec.
@@ -42,10 +44,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern _eucjp_to_unicode
-extern _eucjp_from_unicode_keys
-extern _eucjp_from_unicode_vals
-extern _eucjp_from_unicode_count
 
 section .rodata
 _iso2022_name: db "ISO-2022-JP", 0
@@ -69,8 +67,6 @@ section .text
 ;                               uint8_t *dst, uint64_t dst_cap,
 ;                               uint64_t *out_len)
 ; -----------------------------------------------------------------------------
-
-extern str_utf8_encode_unchecked
 
 STR_FUNC str_iso2022_decode
 
@@ -238,8 +234,6 @@ STR_ENDFUNC str_iso2022_decode
 ;                               uint64_t *out_len)
 ; -----------------------------------------------------------------------------
 
-extern str_utf8_decode
-
 STR_FUNC str_iso2022_encode
 
     guard_null rdi, STR_ERR_NULL
@@ -404,3 +398,4 @@ STR_FUNC str_iso2022_codec
     pop     rbp
     ret
 STR_ENDFUNC str_iso2022_codec
+%endif ; GUARD_LIB_STR_ENCODING_ISO2022_ASM

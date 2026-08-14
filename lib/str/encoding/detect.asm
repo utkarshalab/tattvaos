@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_DETECT_ASM
+%define GUARD_LIB_STR_ENCODING_DETECT_ASM
 ; =============================================================================
 ; str/encoding/detect.asm
 ; Encoding auto-detection from BOM and statistical heuristics.
@@ -389,3 +391,4 @@ STR_FUNC str_detect_encoding
     ret
 
 STR_ENDFUNC str_detect_encoding
+%endif ; GUARD_LIB_STR_ENCODING_DETECT_ASM

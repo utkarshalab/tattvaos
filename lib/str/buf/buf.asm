@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_BUF_BUF_ASM
+%define GUARD_LIB_STR_BUF_BUF_ASM
 ; =============================================================================
 ; str/buf/buf.asm
 ; Generic growable byte buffer backed by heap allocation.
@@ -38,10 +40,8 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_alloc
-extern str_free
-extern str_realloc
-extern str_copy_bytes
+
+
 
 BUF_MIN_CAP     equ 64
 
@@ -443,3 +443,4 @@ STR_FUNC str_buf_truncate
     ret
 
 STR_ENDFUNC str_buf_truncate
+%endif ; GUARD_LIB_STR_BUF_BUF_ASM

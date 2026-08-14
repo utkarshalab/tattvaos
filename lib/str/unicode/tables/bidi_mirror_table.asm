@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_BIDI_MIRROR_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_BIDI_MIRROR_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/bidi_mirror_table.asm
 ; Bidi mirroring pairs
@@ -446,3 +448,5 @@ _ucd_bidi_mirrors:
 global _ucd_bidi_mirror_count
 _ucd_bidi_mirror_count:
     dq 428
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_BIDI_MIRROR_TABLE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PARSE_UUID_ASM
+%define GUARD_LIB_STR_PARSE_UUID_ASM
 ; =============================================================================
 ; str/parse/uuid.asm
 ; Parse, validate, generate, and format UUID strings (RFC 4122).
@@ -33,8 +35,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_hex_digit_value
 
 UUID_STR_LEN    equ 36          ; "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 UUID_BYTES      equ 16
@@ -412,3 +412,4 @@ STR_FUNC str_uuid_is_nil
     ret
 
 STR_ENDFUNC str_uuid_is_nil
+%endif ; GUARD_LIB_STR_PARSE_UUID_ASM

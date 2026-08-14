@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_SPLIT_ASM
+%define GUARD_LIB_STR_CORE_SPLIT_ASM
 ; =============================================================================
 ; str/core/split.asm
 ; Split a StrSlice on a delimiter byte, string, or whitespace.
@@ -29,8 +31,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_eq_bytes
-extern str_is_ascii_space_byte
 
 section .text
 
@@ -443,3 +443,5 @@ STR_FUNC str_split_lines
     ret
 
 STR_ENDFUNC str_split_lines
+
+%endif ; GUARD_LIB_STR_CORE_SPLIT_ASM

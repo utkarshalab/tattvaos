@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_DEVANAGARI_ASM
+%define GUARD_LIB_STR_DEVANAGARI_ASM
 ; =============================================================================
 ; str/devanagari.asm
 ; Devanagari script-specific string operations.
@@ -62,8 +64,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_utf8_encode_unchecked
 
 ; Devanagari codepoint ranges
 DEVA_BLOCK_START    equ 0x0900
@@ -460,3 +460,4 @@ STR_FUNC str_deva_from_digits
     ret
 
 STR_ENDFUNC str_deva_from_digits
+%endif ; GUARD_LIB_STR_DEVANAGARI_ASM

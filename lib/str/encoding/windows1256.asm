@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_WINDOWS1256_ASM
+%define GUARD_LIB_STR_ENCODING_WINDOWS1256_ASM
 ; =============================================================================
 ; str/encoding/windows1256.asm
 ; Windows-1256 (Arabic) codec.
@@ -27,8 +29,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_encode_unchecked
 
 section .rodata
 align 16
@@ -283,3 +283,4 @@ STR_FUNC str_cp1256_to_utf8
     ret
 
 STR_ENDFUNC str_cp1256_to_utf8
+%endif ; GUARD_LIB_STR_ENCODING_WINDOWS1256_ASM

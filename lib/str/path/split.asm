@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PATH_SPLIT_ASM
+%define GUARD_LIB_STR_PATH_SPLIT_ASM
 ; =============================================================================
 ; str/path/split.asm
 ; Split a path into dirname, basename, extension, stem.
@@ -475,3 +477,4 @@ STR_FUNC str_path_parent
     ret
 
 STR_ENDFUNC str_path_parent
+%endif ; GUARD_LIB_STR_PATH_SPLIT_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_PARSE_NUMBER_ASM
+%define GUARD_LIB_STR_PARSE_NUMBER_ASM
 ; =============================================================================
 ; str/parse/number.asm
 ; Parse integers and floats with automatic radix detection.
@@ -26,11 +28,9 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_parse_u64
-extern str_parse_i64
-extern str_parse_u64_hex
-extern str_parse_u64_bin
-extern str_parse_f64
+
+
+
 
 ; Number type tags returned in out_type
 NUM_TYPE_INT    equ 0
@@ -599,3 +599,4 @@ STR_FUNC str_parse_radix
     ret
 
 STR_ENDFUNC str_parse_radix
+%endif ; GUARD_LIB_STR_PARSE_NUMBER_ASM

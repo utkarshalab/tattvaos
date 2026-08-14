@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_EMPTY_ASM
+%define GUARD_LIB_STR_CORE_EMPTY_ASM
 ; =============================================================================
 ; str/core/empty.asm
 ; Empty string constants, predicates, and zero-length operations.
@@ -236,3 +238,5 @@ STR_FUNC str_or_empty
     ret
 
 STR_ENDFUNC str_or_empty
+
+%endif ; GUARD_LIB_STR_CORE_EMPTY_ASM

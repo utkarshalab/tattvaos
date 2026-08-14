@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_CORE_TRIM_ASM
+%define GUARD_LIB_STR_CORE_TRIM_ASM
 ; =============================================================================
 ; str/core/trim.asm
 ; Strip leading and/or trailing whitespace (or custom bytes) from a StrSlice.
@@ -30,9 +32,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_is_space_cp
-extern str_utf8_decode_unchecked
-extern str_utf8_charlen
+
 
 section .text
 
@@ -374,9 +374,10 @@ STR_ENDFUNC str_trim_byte
 ;   int64_t str_normalize_whitespace(const StrSlice *src, uint8_t *dst,
 ;                                    uint64_t cap, uint64_t *out_len)
 ; -----------------------------------------------------------------------------
-extern str_squeeze_whitespace
 
 STR_FUNC str_normalize_whitespace
     jmp     str_squeeze_whitespace
 STR_ENDFUNC str_normalize_whitespace
 
+
+%endif ; GUARD_LIB_STR_CORE_TRIM_ASM

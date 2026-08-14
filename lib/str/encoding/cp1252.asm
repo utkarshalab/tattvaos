@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_CP1252_ASM
+%define GUARD_LIB_STR_ENCODING_CP1252_ASM
 ; =============================================================================
 ; str/encoding/cp1252.asm
 ; Windows-1252 (Western European) ↔ UTF-8 codec.
@@ -181,3 +183,4 @@ STR_FUNC str_cp1252_codec
     pop     rbp
     ret
 STR_ENDFUNC str_cp1252_codec
+%endif ; GUARD_LIB_STR_ENCODING_CP1252_ASM

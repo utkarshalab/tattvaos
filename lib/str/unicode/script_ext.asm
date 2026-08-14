@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_SCRIPT_EXT_ASM
+%define GUARD_LIB_STR_UNICODE_SCRIPT_EXT_ASM
 ; =============================================================================
 ; str/unicode/script_ext.asm
 ; Script extensions — codepoints shared across multiple scripts.
@@ -26,8 +28,6 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_cp_script
-extern str_utf8_decode_unchecked
 
 ; Script extension bitmask (up to 32 scripts in one uint32)
 ; Bit positions match SCRIPT_* enum from script_detect.asm
@@ -123,3 +123,4 @@ STR_FUNC str_cp_in_script
     ret
 
 STR_ENDFUNC str_cp_in_script
+%endif ; GUARD_LIB_STR_UNICODE_SCRIPT_EXT_ASM

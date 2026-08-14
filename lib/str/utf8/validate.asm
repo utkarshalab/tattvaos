@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UTF8_VALIDATE_ASM
+%define GUARD_LIB_STR_UTF8_VALIDATE_ASM
 ; =============================================================================
 ; str/utf8/validate.asm
 ; Validate a UTF-8 byte sequence — reject all malformed input.
@@ -26,8 +28,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_charlen_safe
 
 section .text
 
@@ -341,3 +341,4 @@ STR_FUNC str_utf8_is_valid
     ret
 
 STR_ENDFUNC str_utf8_is_valid
+%endif ; GUARD_LIB_STR_UTF8_VALIDATE_ASM

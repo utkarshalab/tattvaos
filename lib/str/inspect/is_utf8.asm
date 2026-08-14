@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INSPECT_IS_UTF8_ASM
+%define GUARD_LIB_STR_INSPECT_IS_UTF8_ASM
 ; =============================================================================
 ; str/inspect/is_utf8.asm
 ; Check whether a byte buffer is valid UTF-8.
@@ -23,8 +25,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_validate
 
 section .text
 
@@ -168,3 +168,4 @@ STR_FUNC str_is_utf8_strict
     ret
 
 STR_ENDFUNC str_is_utf8_strict
+%endif ; GUARD_LIB_STR_INSPECT_IS_UTF8_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_COMPOSITION_EXCLUSION_ASM
+%define GUARD_LIB_STR_UNICODE_COMPOSITION_EXCLUSION_ASM
 ; =============================================================================
 ; str/unicode/composition_exclusion.asm
 ; Composition exclusion checks (CompositionExclusions.txt).
@@ -49,9 +51,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_cp_ccc
-extern _ucd_decomp_index
 
 section .text
 
@@ -444,3 +443,5 @@ STR_FUNC str_cp_is_nonstarter_decomp
     ret
 
 STR_ENDFUNC str_cp_is_nonstarter_decomp
+
+%endif ; GUARD_LIB_STR_UNICODE_COMPOSITION_EXCLUSION_ASM

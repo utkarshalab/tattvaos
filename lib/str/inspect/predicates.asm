@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_INSPECT_PREDICATES_ASM
+%define GUARD_LIB_STR_INSPECT_PREDICATES_ASM
 ; =============================================================================
 ; str/inspect/predicates.asm
 ; Whole-string predicate functions.
@@ -19,12 +21,10 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_utf8_decode_unchecked
-extern str_is_lower_cp
-extern str_is_upper_cp
-extern str_cp_is_white_space
-extern str_cp_is_id_start
-extern str_cp_is_id_continue
+
+
+
+
 
 section .text
 
@@ -459,3 +459,5 @@ STR_FUNC str_is_palindrome
     pop     rbp
     ret
 STR_ENDFUNC str_is_palindrome
+
+%endif ; GUARD_LIB_STR_INSPECT_PREDICATES_ASM

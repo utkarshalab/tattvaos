@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UTF8_LEN_ASM
+%define GUARD_LIB_STR_UTF8_LEN_ASM
 ; =============================================================================
 ; str/utf8/len.asm
 ; Count the number of Unicode codepoints in a UTF-8 string.
@@ -156,8 +158,6 @@ STR_ENDFUNC str_utf8_len_slice
 ;   RAX  = STR_ERR_INVALID_UTF8 / STR_ERR_OVERLONG / etc. on bad input
 ; -----------------------------------------------------------------------------
 
-extern str_utf8_validate
-
 STR_FUNC str_utf8_len_validated
 
     guard_null rdi, STR_ERR_NULL
@@ -300,3 +300,4 @@ STR_FUNC str_utf8_byte_len_of_first_n
     ret
 
 STR_ENDFUNC str_utf8_byte_len_of_first_n
+%endif ; GUARD_LIB_STR_UTF8_LEN_ASM

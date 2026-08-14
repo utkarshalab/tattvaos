@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_CONTAINS_ASM
+%define GUARD_LIB_STR_SEARCH_CONTAINS_ASM
 ; =============================================================================
 ; str/search/contains.asm
 ; Check if a StrSlice contains a substring or byte.
@@ -20,9 +22,7 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_find
-extern str_find_byte
-extern str_find_nocase
+
 
 section .text
 
@@ -325,3 +325,4 @@ STR_FUNC str_contains_only_bytes
     ret
 
 STR_ENDFUNC str_contains_only_bytes
+%endif ; GUARD_LIB_STR_SEARCH_CONTAINS_ASM

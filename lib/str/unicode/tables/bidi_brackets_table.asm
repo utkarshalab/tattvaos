@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_BIDI_BRACKETS_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_BIDI_BRACKETS_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/bidi_brackets_table.asm
 ; Bidi paired brackets (UAX #9 N0)
@@ -146,3 +148,5 @@ _ucd_bidi_brackets:
 global _ucd_bidi_bracket_count
 _ucd_bidi_bracket_count:
     dq 128
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_BIDI_BRACKETS_TABLE_ASM

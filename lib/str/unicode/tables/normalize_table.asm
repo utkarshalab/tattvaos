@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_NORMALIZE_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_NORMALIZE_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/normalize_table.asm
 ; Combined normalization data: CCC, decomp, compose
@@ -9417,3 +9419,5 @@ _ucd_compose_index:
 global _ucd_compose_count
 _ucd_compose_count:
     dq 961
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_NORMALIZE_TABLE_ASM

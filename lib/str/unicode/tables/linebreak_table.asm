@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_TABLES_LINEBREAK_TABLE_ASM
+%define GUARD_LIB_STR_UNICODE_TABLES_LINEBREAK_TABLE_ASM
 ; ============================================================
 ; str/unicode/tables/linebreak_table.asm
 ; Line break class (UAX #14)
@@ -3062,3 +3064,5 @@ _ucd_lb_stage2:
 
 global _ucd_lb_table
 _ucd_lb_table equ _ucd_lb_stage2
+
+%endif ; GUARD_LIB_STR_UNICODE_TABLES_LINEBREAK_TABLE_ASM

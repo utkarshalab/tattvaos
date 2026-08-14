@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_SEARCH_FIND_ASM
+%define GUARD_LIB_STR_SEARCH_FIND_ASM
 ; =============================================================================
 ; str/search/find.asm
 ; Find first and last occurrence of a substring in a StrSlice.
@@ -26,10 +28,8 @@
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
 
-extern str_bmh_build_table
-extern str_bmh_build_table_nocase
-extern str_bmh_search
-extern str_bmh_search_from
+
+
 
 ; Stack space for BMH shift table: 256 * 8 = 2048 bytes
 BMH_TABLE_BYTES equ 2048
@@ -571,3 +571,4 @@ STR_FUNC str_find_nocase
     ret
 
 STR_ENDFUNC str_find_nocase
+%endif ; GUARD_LIB_STR_SEARCH_FIND_ASM

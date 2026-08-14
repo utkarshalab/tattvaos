@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_GRAPHEME_ASM
+%define GUARD_LIB_STR_UNICODE_GRAPHEME_ASM
 ; =============================================================================
 ; str/unicode/grapheme.asm
 ; Grapheme cluster boundary detection (UAX #29).
@@ -39,8 +41,6 @@
 %include "arch/common/types.inc"
 %include "arch/common/error.inc"
 %include "arch/common/macros.inc"
-
-extern str_utf8_decode_unchecked
 
 ; Grapheme break property values
 GBP_Other       equ 0
@@ -659,4 +659,5 @@ STR_FUNC str_truncate_ellipsis
     add     rsp, 24
     pop_regs r15, r14, r13, r12, rbx
     ret_err STR_ERR_INVALID
-STR_ENDFUNC str_grapheme_truncate
+STR_ENDFUNC str_grapheme_truncate
+%endif ; GUARD_LIB_STR_UNICODE_GRAPHEME_ASM

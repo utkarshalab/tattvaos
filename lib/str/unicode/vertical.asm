@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_UNICODE_VERTICAL_ASM
+%define GUARD_LIB_STR_UNICODE_VERTICAL_ASM
 ; =============================================================================
 ; str/unicode/vertical.asm
 ; Vertical text orientation (VerticalOrientation.txt).
@@ -127,3 +129,4 @@ STR_FUNC str_cp_is_vertical_upright
     pop     rbp
     ret
 STR_ENDFUNC str_cp_is_vertical_upright
+%endif ; GUARD_LIB_STR_UNICODE_VERTICAL_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_STR_ENCODING_GB18030_ASM
+%define GUARD_LIB_STR_ENCODING_GB18030_ASM
 ; =============================================================================
 ; str/encoding/gb18030.asm
 ; GB18030 (Chinese national standard, full Unicode coverage) ↔ UTF-8 codec.
@@ -40,15 +42,13 @@
 %include "arch/common/macros.inc"
 
 ; Reuse the GBK 2-byte table from gb2312.asm
-extern _gb2312_to_unicode
-extern _gb2312_from_unicode_keys
-extern _gb2312_from_unicode_vals
-extern _gb2312_from_unicode_count
+
+
+
 
 ; 4-byte linear range mapping (generated): pairs of (linear_offset, unicode)
 ; that define piecewise-linear segments.
 extern _gb18030_ranges          ; array of {uint32 lin_start, uint32 uni_start, uint32 count}
-extern _gb18030_ranges_count
 
 section .rodata
 _gb18030_name: db "GB18030", 0
@@ -403,3 +403,4 @@ STR_FUNC str_gb18030_codec
     pop     rbp
     ret
 STR_ENDFUNC str_gb18030_codec
+%endif ; GUARD_LIB_STR_ENCODING_GB18030_ASM
