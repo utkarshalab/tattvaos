@@ -9,10 +9,11 @@
 
 | Project | Description | Master Location |
 |---|---|---|
-| **ufs** | Tattva filesystem — custom, log-structured, NVMe-optimized | [`ufs/`](ufs/) |
+| **uxfs** | Tattva filesystem — custom, log-structured, NVMe-optimized | [`uxfs/`](uxfs/) |
+| **uwal** | Write-ahead log — durability substrate for udb and friends | [`uwal/`](uwal/) |
 | **udb** | Sagar — embedded database, B-tree + LSM, purpose-built | [`udb/`](udb/) |
 | **uobject** | Sangraha — object storage, S3-compatible API | [`uobject/`](uobject/) |
-| **ubxp** | BXP binary format — serialization for storage and network | [`ubxp/`](ubxp/) |
+| **ubxp** | UBXP — tagged binary serialization for storage and network | [`ubxp/`](ubxp/) |
 
 ---
 
