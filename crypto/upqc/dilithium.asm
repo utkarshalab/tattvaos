@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UPQC_DILITHIUM_ASM
+%define GUARD_CRYPTO_UPQC_DILITHIUM_ASM
 ; =============================================================================
 ; Tattva OS — crypto/upqc/dilithium.asm
 ; =============================================================================
@@ -44,3 +46,5 @@ dilithium_verify:
     pop rsi
     pop rbx
     ret
+
+%endif ; GUARD_CRYPTO_UPQC_DILITHIUM_ASM

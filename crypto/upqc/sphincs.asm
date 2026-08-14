@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UPQC_SPHINCS_ASM
+%define GUARD_CRYPTO_UPQC_SPHINCS_ASM
 ; =============================================================================
 ; Tattva OS — crypto/upqc/sphincs.asm
 ; =============================================================================
@@ -24,3 +26,5 @@ section .text
 sphincs_verify:
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UPQC_SPHINCS_ASM

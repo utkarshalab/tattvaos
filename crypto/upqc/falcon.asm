@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UPQC_FALCON_ASM
+%define GUARD_CRYPTO_UPQC_FALCON_ASM
 ; =============================================================================
 ; Tattva OS — crypto/upqc/falcon.asm
 ; =============================================================================
@@ -24,3 +26,5 @@ section .text
 falcon_verify:
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UPQC_FALCON_ASM

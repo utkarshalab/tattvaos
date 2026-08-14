@@ -1,3 +1,5 @@
+%ifndef GUARD_CRYPTO_UPQC_KYBER_ASM
+%define GUARD_CRYPTO_UPQC_KYBER_ASM
 ; =============================================================================
 ; Tattva OS — crypto/upqc/kyber.asm
 ; =============================================================================
@@ -56,3 +58,5 @@ kyber_encapsulate:
 kyber_decapsulate:
     mov rax, 1
     ret
+
+%endif ; GUARD_CRYPTO_UPQC_KYBER_ASM

@@ -47,9 +47,9 @@ struc ux509_cert_t
     .pubkey_algo    resd 1          ; +040: Public Key Algo ID
     .pubkey_ptr     resq 1          ; +044: Pointer to extracted Public Key
     .pubkey_len     resd 1          ; +052: Public Key size in bytes
-    .issuer_str     times 64 db 0   ; +056: Sanitized ASCII Issuer string
-    .subject_str    times 64 db 0   ; +120: Sanitized ASCII Subject string
-    .san_domain     times 64 db 0   ; +184: Primary SAN Domain Name (e.g. "*.tattva.os")
+    .issuer_str     resb 64           ; +056: Sanitized ASCII Issuer string
+    .subject_str    resb 64           ; +120: Sanitized ASCII Subject string
+    .san_domain     resb 64           ; +184: Primary SAN Domain Name (e.g. "*.tattva.os")
     .fingerprint    resb 32         ; +248: 32-byte SHA-256 Certificate Thumbprint
     .is_ca          resd 1          ; +280: 1 if CA certificate, 0 if End-Entity
     .is_self_signed resd 1          ; +284: 1 if Self-Signed Root CA
