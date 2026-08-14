@@ -19,9 +19,17 @@
 ; -----------------------------------------------------------------------------
 ulf_header:
     dd 0x00464C55                   ; magic: "ULF\0"
-    dd kernel_end - ulf_header      ; size of binary
+    ; This size is WRONG as assembled and is overwritten by boot/Makefile.
+    ; kernel_end sits in .text, but .data and .rodata are emitted after it in a
+    ; flat binary, so the label measures the text extent only — it reported a
+    ; 9.3 MiB image as 274 KB. The assembler cannot see past its own section,
+    ; so the true length is patched in after the link.
+    dd kernel_end - ulf_header      ; size of binary (patched post-link)
     dq kernel_entry                 ; dynamic entry point
-    dq 0x123456789ABCDEF0           ; checksum placeholder (patched by Makefile)
+    ; Not computed, and nothing verifies it. A checksum only earns its place
+    ; once the loader checks it; until then this stays an obvious placeholder
+    ; rather than a real-looking value that has never been validated.
+    dq 0x123456789ABCDEF0           ; checksum placeholder
     dq 0                            ; reserved
 
 ; -----------------------------------------------------------------------------
@@ -31,29 +39,29 @@ kernel_entry:
     section .text
     global kernel_text_start
 kernel_text_start:
-    %include "entry/start.asm"
-    %include "entry/init.asm"
-    %include "entry/main.asm"
+    %include "kernel/entry/start.asm"
+    %include "kernel/entry/init.asm"
+    %include "kernel/entry/main.asm"
 
 ; -----------------------------------------------------------------------------
 ; Include Drivers & Libraries (for early boot)
 ; -----------------------------------------------------------------------------
-%include "drivers/serial/uart.asm"
-%include "arch/x86_64/cpu.asm"
-%include "arch/x86_64/gdt.asm"
-%include "arch/x86_64/interrupts.asm"
+%include "kernel/drivers/serial/uart.asm"
+%include "kernel/arch/x86_64/cpu.asm"
+%include "kernel/arch/x86_64/gdt.asm"
+%include "kernel/arch/x86_64/interrupts.asm"
 %include "lib/mem/mem.asm"
 %include "unet/core/link/net_link.asm"
 %include "lib/hw/ucpu/mtrr.asm"
 %include "lib/hw/ucpu/pat.asm"
-%include "drivers/gpu/fb.asm"
-%include "sched/fiber.asm"
-%include "sched/fiber_canary.asm"
-%include "sched/fiber_pkey.asm"
-%include "sched/fiber_guard.asm"
-%include "sched/fiber_supervisor.asm"
-%include "sched/smp_mpmc.asm"
-%include "sched/sched.asm"
+%include "kernel/drivers/gpu/fb.asm"
+%include "kernel/sched/fiber.asm"
+%include "kernel/sched/fiber_canary.asm"
+%include "kernel/sched/fiber_pkey.asm"
+%include "kernel/sched/fiber_guard.asm"
+%include "kernel/sched/fiber_supervisor.asm"
+%include "kernel/sched/smp_mpmc.asm"
+%include "kernel/sched/sched.asm"
 %include "lib/ufile/ufile.asm"
 %include "lib/ufile/ufile_sanitize.asm"
 %include "lib/ufile/ufile_entropy.asm"
@@ -85,6 +93,8 @@ kernel_text_start:
 %include "crypto/ukdf/ukdf.asm"
 %include "crypto/ucrypt/ucrypt.asm"
 %include "crypto/upass/upass.asm"   ; After ucrypt/ukdf: needs hmac + argon2id
+%include "lib/time/delay.asm"
+%include "lib/time/timer_wheel.asm"
 %include "lib/time/tsc.asm"         ; Before mono: supplies tsc_read/elapsed
 %include "lib/time/mono.asm"        ; Monotonic clock; usrauth TTLs depend on it
 %include "lib/urand/urand.asm"
@@ -95,6 +105,11 @@ kernel_text_start:
 %include "storage/uwal/uwal.asm"    ; After uxfs: uses its NVMe driver
 %include "security/usrauth/usrauth.asm"   ; Reference monitor; needs crypto + time
 %include "unet/unet.asm"
+
+; Last: stubs for symbols the tree references but has never implemented. Being
+; last means a real definition anywhere above wins, and the generator drops the
+; stub on its next run.
+%include "kernel/unimplemented.asm"
 
     section .text
     global kernel_text_end
