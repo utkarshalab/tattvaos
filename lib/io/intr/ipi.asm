@@ -18,7 +18,6 @@
 
 section .text
 
-extern io_lapic_base
 
 ; =============================================================================
 ; lapic_send_ipi — Issue an IPI to a target CPU core via LAPIC ICR

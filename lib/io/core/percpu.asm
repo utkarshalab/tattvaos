@@ -20,7 +20,7 @@ io_lapic_base: dq 0xFEE00000        ; LAPIC MMIO virtual base, populated by ACPI
 
 section .bss
 global global_percpu_table
-global_percpu_table: resb percpu_t_size * 64 ; Static table supporting up to 64 cores
+global_percpu_table: resb percpu_t_size * PERCPU_MAX_CORES
 
 section .text
 
@@ -45,14 +45,16 @@ IO_FUNC percpu_init
     shr     eax, 24                 ; APIC ID is in bits [24:31]
     and     eax, 0xFF               ; Mask to isolate APIC ID
 
-    ; 3. Validate APIC ID is within our static table bounds (< 64 cores)
-    cmp     eax, 64
+    ; 3. Validate APIC ID is within our static table bounds
+    cmp     eax, PERCPU_MAX_CORES
     jae     .err_bounds
 
-    ; 4. Calculate the core's percpu_t block address
-    ; Address = global_percpu_table + (apic_id * 64)
+    ; 4. Calculate the core's percpu_t block address.
+    ; The stride is DERIVED from percpu_t_size. It was previously a hardcoded
+    ; `shl rax, 6`, so growing the struct would have left the stride at 64 and
+    ; overlapped every block with the next one.
     mov     ebx, eax                ; EBX = APIC ID
-    shl     rax, 6                  ; scale by 64 (percpu_t size)
+    imul    rax, rax, percpu_t_size
     lea     rdx, [rel global_percpu_table]
     add     rax, rdx                ; RAX = pointer to percpu_t for this core
 
@@ -93,7 +95,7 @@ IO_ENDFUNC percpu_init
 ; =============================================================================
 IO_FUNC percpu_get
     ; Reads the 'self' pointer at offset 0 of GS segment directly
-    mov     rax, [gs:0]
+    mov     rax, [gs:percpu_t.self]
 IO_ENDFUNC percpu_get
 
 %endif ; IO_CORE_PERCPU_ASM

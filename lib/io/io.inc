@@ -102,18 +102,11 @@ struc spsc_ring_t
     .resv2       resq 7      ; pad to 64 bytes
 endstruc                     ; total = 192 (three cache lines)
 
-; ---- percpu_t : per-CPU storage block ---------------------------------------
-struc percpu_t
-    .self        resq 1      ; self pointer for verification/validation
-    .cpu_id      resd 1      ; logical CPU ID / APIC ID
-    .lapic_id    resd 1      ; hardware Local APIC ID
-    .current_req resq 1      ; pointer to io_request_t currently being processed (debug)
-    .submit_ring resq 1      ; pointer to SPSC submission ring for this core
-    .complete_ring resq 1    ; pointer to SPSC completion ring for this core
-    .nvme_sq     resq 1      ; pointer to NVMe submission queue (AI path)
-    .nvme_cq     resq 1      ; pointer to NVMe completion queue
-    .irq_stack   resq 1      ; bottom of dedicated IST/IRQ stack for this core
-endstruc
+; ---- percpu_t ---------------------------------------------------------------
+; Declared in lib/percpu.inc, not here. It is shared with lib/mem (the per-core
+; arena) and kernel/sched (the run queue), and keeping a private copy is what
+; let those three subsystems drift onto colliding offsets.
+%include "lib/percpu.inc"
 
 ; ---- driver_binding_t : driver registration entry --------------------------
 struc driver_binding_t

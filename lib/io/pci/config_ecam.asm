@@ -25,8 +25,6 @@
 
 section .text
 
-extern io_ecam_virt
-extern io_ecam_start_bus
 
 ; =============================================================================
 ; pci_ecam_addr — Internal helper: compute ECAM MMIO address for a config offset

@@ -22,8 +22,6 @@ section .text
 global cal_format_iso8601
 global cal_parse_iso8601
 
-extern cal_to_epoch
-extern cal_from_epoch
 
 ; =============================================================================
 ; cal_format_iso8601 — Format tm_t structure into standard ISO 8601 string

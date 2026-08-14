@@ -21,8 +21,6 @@ section .text
 global cal_to_epoch
 global cal_from_epoch
 
-extern cal_is_leap_year
-extern cal_days_in_month
 
 ; =============================================================================
 ; cal_to_epoch — Convert Gregorian Date structure to Unix Epoch seconds

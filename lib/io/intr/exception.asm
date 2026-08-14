@@ -18,9 +18,6 @@ msg_df_overflow: db "DF: Interrupt Stack Table Overflow Detected!", 0
 
 section .text
 
-extern percpu_get
-extern console_milestone
-extern kernel_panic
 
 ; =============================================================================
 ; io_exception_df_handler — Custom Double Fault (#DF) handler

@@ -25,13 +25,11 @@ MERGE_ENTRY_CHILD   equ 8           ; Offset 8: Child request pointer (64-bit)
 MERGE_ENTRY_SIZE    equ 16          ; Descriptor size = 16 bytes
 
 section .bss
-align 16
+alignb 16
 global global_merge_map
 global_merge_map:   resb MERGE_ENTRY_SIZE * MERGE_POOL_SIZE
 
 section .text
-
-extern io_complete_request
 
 ; =============================================================================
 ; bdev_merge_requests — Try to merge a second contiguous request into the first

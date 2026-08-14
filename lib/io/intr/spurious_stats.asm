@@ -24,7 +24,6 @@ msg_spurious_alert:   db "IO:INTR_SPURIOUS_STORM", 0
 section .text
 
 global spurious_telemetry_tick
-extern console_milestone
 
 ; =============================================================================
 ; spurious_telemetry_tick — Telemetry counter increment and warning trigger

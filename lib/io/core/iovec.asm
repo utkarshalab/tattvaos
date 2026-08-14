@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_IO_CORE_IOVEC_ASM
+%define GUARD_LIB_IO_CORE_IOVEC_ASM
 ; =============================================================================
 ; lib/io/core/iovec.asm
 ; Scatter-Gather iovec builder with automatic page-crossing detection.
@@ -31,7 +33,6 @@ IOVEC_MAX_ENTRIES   equ 64
 
 section .text
 
-extern virt_to_phys
 
 ; =============================================================================
 ; iovec_build — Build a scatter-gather iovec_t array from a virtual buffer,
@@ -196,3 +197,4 @@ IO_FUNC iovec_total_bytes
 IO_ENDFUNC iovec_total_bytes
 
 %endif ; IO_CORE_IOVEC_ASM
+%endif ; GUARD_LIB_IO_CORE_IOVEC_ASM

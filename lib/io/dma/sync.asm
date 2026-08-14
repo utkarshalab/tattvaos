@@ -18,8 +18,6 @@ dma_coherency_flag: dq 1             ; 1 = coherent (default on x86_64), 0 = non
 
 section .text
 
-extern io_cache_invalidate
-extern io_cache_writeback
 
 ; =============================================================================
 ; dma_sync_for_cpu — Invalidate CPU cache lines before reading device DMA updates

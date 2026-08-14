@@ -19,7 +19,6 @@ global global_io_ticks
 global_io_ticks: dq 0
 
 section .text
-extern lapic_send_eoi
 
 ; =============================================================================
 ; io_timeout_handler — Vector 0x30 interrupt handler (LAPIC Timer Tick)

@@ -35,11 +35,11 @@ CACHE_ENTRY_STATE   equ 32          ; Offset 32: 0=free, 1=valid, 2=reading (64-
 CACHE_ENTRY_SIZE    equ 40
 
 section .bss
-align 16
+alignb 16
 global global_readahead_track
 global_readahead_track: resb TRACK_ENTRY_SIZE * TRACK_POOL_SIZE
 
-align 16
+alignb 16
 global global_prefetch_cache
 global_prefetch_cache:  resb CACHE_ENTRY_SIZE * CACHE_POOL_SIZE
 
@@ -51,8 +51,6 @@ prefetch_rr_index:      resq 1          ; Round-robin index for cache eviction
 
 section .text
 
-extern dma_alloc
-extern io_submit_request
 
 ; =============================================================================
 ; bdev_readahead_lookup — Inspect prefetch cache to satisfy reads from RAM

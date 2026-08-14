@@ -21,9 +21,7 @@ section .text
 
 global pci_enable_extended_tags
 
-extern pci_find_capability
-extern pci_config_read
-extern pci_config_write
+
 
 ; =============================================================================
 ; pci_enable_extended_tags — Enable 8-bit transaction tags inside PCIe Device Control

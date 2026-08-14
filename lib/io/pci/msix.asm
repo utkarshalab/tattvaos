@@ -22,10 +22,8 @@ section .text
 global pci_find_capability
 global pci_configure_msix
 
-extern pci_ecam_read
-extern pci_ecam_write
-extern pci_config_read
-extern pci_config_write
+
+
 
 ; =============================================================================
 ; pci_find_capability — Find standard capability offset in PCI config space

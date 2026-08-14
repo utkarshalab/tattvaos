@@ -15,7 +15,6 @@
 section .text
 
 ; Declared in kernel/arch/x86_64/interrupts.asm
-extern register_idt_handler
 
 ; =============================================================================
 ; idt_register_handler — Register an interrupt handler in the system IDT

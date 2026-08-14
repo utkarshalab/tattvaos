@@ -33,9 +33,7 @@ global fadt_parse
 global acpi_enable_smi
 global acpi_shutdown
 
-extern port_out8
-extern port_out16
-extern port_in16
+
 
 ; =============================================================================
 ; fadt_parse — Parse FADT ports and configure power variables

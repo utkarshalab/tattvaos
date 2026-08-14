@@ -21,8 +21,6 @@ section .text
 global ioapic_mask_irq
 global ioapic_unmask_irq
 
-extern ioapic_read
-extern ioapic_write
 
 ; =============================================================================
 ; ioapic_mask_irq — Disable (mask) a specific hardware IRQ pin on IO-APIC

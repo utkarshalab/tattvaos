@@ -33,16 +33,12 @@ global fixed_buffer_table
 fixed_buffer_table: dq fixed_buffer_array
 
 section .bss
-align 16
+alignb 16
 fixed_buffer_array: resb FIXED_SLOT_SIZE * FIXED_POOL_SIZE
 fixed_buffer_meta:  resb META_SLOT_SIZE * FIXED_POOL_SIZE
 
 section .text
 
-extern buffer_pin
-extern buffer_unpin
-extern virt_to_phys
-extern global_pin_table
 
 ; =============================================================================
 ; fixed_buf_register — Register and pin a virtual buffer

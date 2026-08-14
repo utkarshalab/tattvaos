@@ -24,15 +24,13 @@ msg_isr_prefix:      db "DIAG:VIRTIO_ISR=0x", 0
 msg_done:            db "DIAG:DUMP_COMPLETE", 0
 
 section .bss
-align 8
+alignb 8
 hex_buffer:          resb 16
 
 section .text
 
 global bdev_dump_diagnostics
 
-extern console_milestone
-extern port_in8
 
 ; =============================================================================
 ; bdev_dump_diagnostics — Dump status register diagnostics for a block device

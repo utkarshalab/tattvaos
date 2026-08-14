@@ -19,8 +19,6 @@
 
 section .text
 
-extern pci_ecam_read
-
 ; =============================================================================
 ; pci_scan_acs — Scan extended capabilities of a device to verify ACS status
 ; In : RDI = Bus (8-bit)

@@ -30,7 +30,6 @@ global_pin_table:   resb PIN_SLOT_SIZE * PIN_POOL_SIZE
 
 section .text
 
-extern virt_to_phys
 
 ; =============================================================================
 ; buffer_pin — Pin a memory range and increment its DMA pin count

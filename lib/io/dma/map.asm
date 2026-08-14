@@ -16,8 +16,6 @@
 
 section .text
 
-extern dma_virtual_alloc_ptr
-extern virt_map_space
 
 ; =============================================================================
 ; dma_map_virtual — Map a physically pre-allocated block to kernel virtual space

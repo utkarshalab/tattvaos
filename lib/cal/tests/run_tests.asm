@@ -30,7 +30,7 @@ str_expected_iso:   db "2026-07-19T11:15:53Z", 0
 str_expected_iso_tz: db "2026-07-19T17:00:53+05:45", 0
 
 section .bss
-align 8
+alignb 8
 test_tm1:           resb tm_t_size
 test_tm2:           resb tm_t_size
 test_tm3:           resb tm_t_size

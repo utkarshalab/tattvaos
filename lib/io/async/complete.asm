@@ -17,8 +17,7 @@
 section .text
 
 ; Declared in kernel scheduler
-extern sched_wakeup
-extern bdev_complete_merged_children
+
 
 ; =============================================================================
 ; spsc_ring_pop — Pop a 64-bit pointer from an SPSC ring buffer

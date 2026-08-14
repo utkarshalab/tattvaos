@@ -19,8 +19,6 @@
 
 section .text
 
-extern io_lapic_base
-extern io_ioapic_base
 
 ; =============================================================================
 ; madt_parse — Parse MADT table to locate LAPIC and I/O APIC physical bases

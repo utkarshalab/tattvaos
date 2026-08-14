@@ -21,9 +21,7 @@ section .text
 
 global pci_verify_link_status
 
-extern pci_find_capability
-extern pci_config_read
-extern pci_config_write
+
 
 ; =============================================================================
 ; pci_verify_link_status — Verify link configuration and retrain if degraded

@@ -17,7 +17,6 @@ section .text
 ; In-Service Register (ISR) bit, hence they must return immediately WITHOUT EOI.
 ; =============================================================================
 global io_spurious_handler
-extern spurious_telemetry_tick
 
 io_spurious_handler:
     ; 1. Preserve caller-saved registers (interrupt context safety)

@@ -1,3 +1,5 @@
+%ifndef GUARD_LIB_IO_CORE_BOUNCE_ASM
+%define GUARD_LIB_IO_CORE_BOUNCE_ASM
 ; =============================================================================
 ; lib/io/core/bounce.asm
 ; DMA bounce buffer management for 32-bit addressing controllers.
@@ -253,3 +255,4 @@ IO_FUNC bounce_copy_out
 IO_ENDFUNC bounce_copy_out
 
 %endif ; IO_CORE_BOUNCE_ASM 
+%endif ; GUARD_LIB_IO_CORE_BOUNCE_ASM

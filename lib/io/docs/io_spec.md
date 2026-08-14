@@ -620,17 +620,21 @@ endstruc                     ; total = 192 (three cache lines)
 ; thousands of entries).
 
 ; ---- percpu_t : per-CPU storage block ---------------------------------------
-struc percpu_t
-    .self        resq 1      ; self pointer for verification/validation
-    .cpu_id      resd 1      ; logical CPU ID / APIC ID
-    .lapic_id    resd 1      ; hardware Local APIC ID
-    .current_req resq 1      ; pointer to io_request_t currently being processed (debug)
-    .submit_ring resq 1      ; pointer to SPSC submission ring for this core
-    .complete_ring resq 1    ; pointer to SPSC completion ring for this core
-    .nvme_sq     resq 1      ; pointer to NVMe submission queue (AI path)
-    .nvme_cq     resq 1      ; pointer to NVMe completion queue
-    .irq_stack   resq 1      ; bottom of dedicated IST/IRQ stack for this core
-endstruc
+; DECLARED IN lib/percpu.inc, not here. lib/io shares the block with lib/mem
+; (the per-core arena) and kernel/sched (the run queue); the I/O fields are only
+; one region of it. This file previously carried its own 64-byte copy, which is
+; how lib/mem came to write its arena pointer over .submit_ring and how
+; kernel/sched came to use offsets past the end of the block entirely.
+;
+; The I/O region is:
+;     .current_req    io_request_t in flight (debug)
+;     .submit_ring    SPSC submission ring for this core
+;     .complete_ring  SPSC completion ring for this core
+;     .nvme_sq        NVMe submission queue (AI path)
+;     .nvme_cq        NVMe completion queue
+;     .irq_stack      dedicated IST/IRQ stack
+;
+; Never use a raw gs:NN offset — always percpu_t.field. See lib/percpu.inc.
 
 ; ---- driver_binding_t : driver registration entry --------------------------
 struc driver_binding_t

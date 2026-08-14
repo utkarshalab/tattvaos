@@ -68,18 +68,14 @@ drv_name_virtio:    db "virtio_blk", 0
 
 section .text
 
-extern pci_config_read
-extern pci_config_write
-extern dma_alloc
-extern idt_register_handler
-extern lapic_send_eoi
-extern port_in8
-extern port_out8
-extern port_in32
-extern vector_alloc
-extern ioapic_route_irq
-extern virt_to_phys
-extern global_plug_depth
+
+
+
+
+
+
+
+
 
 ; =============================================================================
 ; virtio_blk_probe — Probe and initialize Virtio-Blk legacy PCI device

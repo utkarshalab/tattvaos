@@ -21,8 +21,6 @@ dma_virtual_alloc_ptr: dq 0x8000000000  ; Base virtual address for DMA allocatio
 section .text
 
 ; Allocated in lib/mem
-extern rt_reserve_alloc
-extern virt_map_space
 
 ; =============================================================================
 ; dma_alloc — Allocate DMA-coherent, physically contiguous memory.

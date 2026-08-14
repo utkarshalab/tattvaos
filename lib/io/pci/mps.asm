@@ -21,9 +21,7 @@ section .text
 
 global pci_tune_mps
 
-extern pci_find_capability
-extern pci_config_read
-extern pci_config_write
+
 
 ; =============================================================================
 ; pci_tune_mps — Negotiate and write PCIe Max Payload Size

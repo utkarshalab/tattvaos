@@ -21,24 +21,20 @@
 section .text
 
 ; Subsystem module initialization entry points
-extern handoff_ingest
-extern serial_init
-extern console_milestone
-extern acpi_scan
-extern percpu_init
-extern percpu_get
-extern pic_remap
-extern lapic_init
-extern lapic_timer_start
-extern idt_register_handler
-extern pci_enumerate
-extern driver_register
-extern virtio_blk_probe
-extern bounce_init
-extern dma_alloc
-extern io_exception_df_handler
-extern io_spurious_handler
-extern global_serial_port
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ; Static driver bindings registered at probe time
 section .data

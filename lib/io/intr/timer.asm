@@ -22,7 +22,6 @@ lapic_ticks_per_ms: dq 0            ; Calibrated frequency (ticks per ms)
 
 section .text
 
-extern io_lapic_base
 
 ; =============================================================================
 ; lapic_timer_calibrate — Calibrate LAPIC timer tick rate against PIT

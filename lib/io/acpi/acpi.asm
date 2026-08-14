@@ -27,9 +27,7 @@ FADT_SIG            equ 0x50434146          ; "FACP" (4 bytes)
 
 section .text
 
-extern madt_parse
-extern mcfg_parse
-extern fadt_parse
+
 
 ; =============================================================================
 ; acpi_scan — Validate RSDP, walk XSDT entries and parse required tables

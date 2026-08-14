@@ -24,7 +24,6 @@ section .text
 
 ; External UART printer if needed (declared as extern in entry point)
 %if 0
-extern uart_print_str
 %endif
 
 ; -----------------------------------------------------------------------------

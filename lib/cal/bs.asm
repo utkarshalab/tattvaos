@@ -38,8 +38,6 @@ section .text
 global cal_ad_to_bs
 global cal_bs_to_ad
 
-extern cal_to_epoch
-extern cal_from_epoch
 
 ; =============================================================================
 ; cal_ad_to_bs — Convert Gregorian AD Date structure to Bikram Sambat (BS)
