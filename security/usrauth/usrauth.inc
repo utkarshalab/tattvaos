@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_USRAUTH_INC
+%define GUARD_SECURITY_USRAUTH_USRAUTH_INC
 ; =============================================================================
 ; Tattva OS — security/usrauth/usrauth.inc
 ; =============================================================================
@@ -258,3 +260,5 @@ struc usrauth_audit_t
 endstruc
 
 %endif ; USRAUTH_INC
+
+%endif ; GUARD_SECURITY_USRAUTH_USRAUTH_INC

@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_IDENTITY_WEBAUTHN_ASM
+%define GUARD_SECURITY_USRAUTH_IDENTITY_WEBAUTHN_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/identity/webauthn.asm
 ; =============================================================================
@@ -429,3 +431,5 @@ usrauth_webauthn_verify:
     pop rbp
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_IDENTITY_WEBAUTHN_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_POLICY_ATTRIBUTE_ASM
+%define GUARD_SECURITY_USRAUTH_POLICY_ATTRIBUTE_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/policy/attribute.asm
 ; =============================================================================
@@ -325,3 +327,5 @@ usrauth_attr_check:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_POLICY_ATTRIBUTE_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_CAPABILITY_RESTRICT_ASM
+%define GUARD_SECURITY_USRAUTH_CAPABILITY_RESTRICT_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/capability/restrict.asm
 ; =============================================================================
@@ -110,3 +112,5 @@ usrauth_subject_restrict:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_CAPABILITY_RESTRICT_ASM

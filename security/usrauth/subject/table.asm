@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_SUBJECT_TABLE_ASM
+%define GUARD_SECURITY_USRAUTH_SUBJECT_TABLE_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/subject.asm
 ; =============================================================================
@@ -340,3 +342,5 @@ usrauth_subject_bump_epoch:
     mov rax, USRAUTH_DENY_INVALID
     ret
 
+
+%endif ; GUARD_SECURITY_USRAUTH_SUBJECT_TABLE_ASM

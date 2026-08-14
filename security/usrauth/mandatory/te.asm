@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_MANDATORY_TE_ASM
+%define GUARD_SECURITY_USRAUTH_MANDATORY_TE_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/mandatory.asm
 ; =============================================================================
@@ -128,3 +130,5 @@ usrauth_mandatory_check:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_MANDATORY_TE_ASM

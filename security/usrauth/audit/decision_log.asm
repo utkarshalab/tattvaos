@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_AUDIT_DECISION_LOG_ASM
+%define GUARD_SECURITY_USRAUTH_AUDIT_DECISION_LOG_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/audit.asm
 ; =============================================================================
@@ -338,3 +340,5 @@ usrauth_audit_stats:
     mov [rdi + 24], rax
     xor eax, eax
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_AUDIT_DECISION_LOG_ASM

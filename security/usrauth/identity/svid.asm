@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_IDENTITY_SVID_ASM
+%define GUARD_SECURITY_USRAUTH_IDENTITY_SVID_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/identity/svid.asm
 ; =============================================================================
@@ -351,3 +353,5 @@ usrauth_svid_bind:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_IDENTITY_SVID_ASM

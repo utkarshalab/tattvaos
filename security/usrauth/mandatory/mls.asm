@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_MANDATORY_MLS_ASM
+%define GUARD_SECURITY_USRAUTH_MANDATORY_MLS_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/mandatory/mls.asm
 ; =============================================================================
@@ -297,3 +299,5 @@ usrauth_mls_check:
 ;
 ; Returns:
 ;   EAX = USRAUTH_ALLOW, USRAUTH_DENY_MANDATORY or USRAUTH_DENY_MLS
+
+%endif ; GUARD_SECURITY_USRAUTH_MANDATORY_MLS_ASM

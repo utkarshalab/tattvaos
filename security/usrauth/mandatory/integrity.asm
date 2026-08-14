@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_MANDATORY_INTEGRITY_ASM
+%define GUARD_SECURITY_USRAUTH_MANDATORY_INTEGRITY_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/mandatory/integrity.asm
 ; =============================================================================
@@ -66,3 +68,5 @@ usrauth_integrity_check:
     mov eax, USRAUTH_DENY_INTEGRITY
     ret
 
+
+%endif ; GUARD_SECURITY_USRAUTH_MANDATORY_INTEGRITY_ASM

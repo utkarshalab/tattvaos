@@ -498,7 +498,8 @@ the numeric verdict, so renumbering rewrites history.
 
 | Item | State |
 |---|---|
-| `sched/` and a syscall boundary | Deferred. L2/L3 work standalone via handles; a syscall layer changes only *who calls* `usrauth_check`. |
+| `usrauth_check_current` | Not built. The current API takes the subject handle as an ARGUMENT, which with no ring boundary is confused-deputy-prone — any caller can pass any handle. It must read the handle from the running fiber instead. See §12. |
+| Locking / SMP safety | Not built, and correct only while nothing preempts. See §12. |
 | Policy as a compiled artifact | Rules are added programmatically. A policy compiler and a signed update path are needed before L5 is maintainable at scale. |
 | Device binding without escrow | An availability hazard: a dead board means unrecoverable credentials. See upass Stage 3. |
 | Table sizes | Static. Fine for a unikernel; revisit if subject counts grow past a few hundred. |
@@ -511,3 +512,93 @@ the numeric verdict, so renumbering rewrites history.
   a cyclic graph.
 - **The decision cache is a correctness surface, not just a performance one.**
   A stale entry is a grant that policy no longer supports.
+
+---
+
+## 12. Operating in a unikernel with no user ring
+
+Tattva OS is a unikernel: one address space, ring 0 only, cooperative fibers, no
+`syscall` instruction anywhere. That is not a limitation to work around — it is
+the architecture — but it changes what this monitor is and is not.
+
+### What is being defended
+
+There is no untrusted *code*: every byte of the image is compiled together. So
+usrauth is **not** a barrier between a trusted kernel and untrusted user
+programs. It defends three other things:
+
+- **Untrusted data.** The image is trusted; its inputs are not. `unet/http`,
+  `unet/dns`, `uxfs`, `ubxp`, X.509 — every parser is attack surface, and a
+  memory-safety bug in one yields a write primitive *already in ring 0*. usrauth
+  bounds the blast radius after that happens.
+- **Multi-tenancy over data.** The subject model carries uid, gid, groups and MLS
+  labels. Policy is between principals and data flows, not between address spaces.
+- **Audit.** The hash-chained log is meaningful regardless of rings.
+
+A consequence worth internalising: **the cryptographic layers carry more weight
+here than the memory-protection ones**, because there is no ring boundary
+underneath them. L1 tokens are unforgeable because of an HMAC tag, not because of
+page tables, and that property is unaffected by the absence of a user ring.
+
+### What replaces the syscall boundary
+
+A reference monitor needs three properties. A syscall supplied all three for
+free; here each must be built.
+
+| Property | Replacement |
+|---|---|
+| Unforgeable caller identity | The subject handle lives in the fiber control block and is written **only by the scheduler**. Never passed as an argument. |
+| Tamper-proof state | MPK domains (`kernel/sched/fiber_pkey.asm`): application fibers hold the auth domain write-disabled. |
+| Complete mediation | A build-time call-graph assertion. There is no untrusted binary to load, so this is *stronger* than a runtime check — it cannot be branched around. |
+
+**MPK caveat, by design not oversight:** `WRPKRU` is unprivileged, so code in the
+same address space can grant itself write access. MPK is a boundary against bugs,
+not against arbitrary code. The accepted fix (ERIM, Hodor) is binary-level:
+enforce W^X and scan all mapped code for unintended `WRPKRU`/`XRSTOR` byte
+sequences, including ones appearing unaligned inside other instructions. A single
+translation unit makes that tractable — one image, scanned once at build time.
+
+### The non-preemption invariant
+
+> **A usrauth operation must be non-preemptible and must never yield.**
+
+`security/usrauth/` contains **no synchronisation primitives at all** — no `lock`,
+no `cmpxchg`, no fences. Today that is correct: fibers are cooperative, and no
+usrauth path yields (there is no I/O in it; `upass_hash` is pure computation).
+Every operation is therefore atomic by construction.
+
+That correctness evaporates the moment either of these lands:
+
+- **Preemption.** A timer landing between "read subject count" and "write slot"
+  in `usrauth_subject_create` corrupts the table with no error anywhere. This is
+  why `sched/preempt.asm` must not be written.
+- **SMP.** With multiple cores it breaks regardless of yielding.
+
+Concrete races, for whoever brings SMP up:
+
+| Site | Race |
+|---|---|
+| `usrauth_subject_create` | read count → write slot → increment; two cores take the same slot |
+| `usrauth_revoke_token` | scans for a dead slot, then writes it |
+| `usrauth_policy_cache_store` | torn verdict, or one stored under a stale epoch |
+| `usrauth_audit_record` | **worst** — the chain is hash-linked; two records on the same prev-hash silently break verification |
+| `argon2_memory` | explicitly non-reentrant; concurrent hashes corrupt each other's arena |
+| `master_urand_state` | shared DRBG state; concurrent draws can repeat keystream |
+
+### The intended SMP answer
+
+Make the monitor **single-threaded**, reached through the MPMC queue that
+`kernel/sched/smp_mpmc.asm` already exists to provide:
+
+```text
+  application fiber ──► MPMC queue ──► monitor (one core) ──► verdict
+```
+
+Serialisation then *is* the synchronisation: the tables stay lock-free because
+exactly one consumer touches them, and the queue restores the single-entry-point
+property the syscall used to give. The scheduler stamps the producing fiber's
+subject handle into each queue entry, which is also how `usrauth_check_current`
+becomes natural rather than bolted on.
+
+The alternative — fine-grained locking across a dozen tables in assembly — is
+more code, more failure modes, and gives up the single entry point.

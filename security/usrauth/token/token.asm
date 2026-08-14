@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_TOKEN_TOKEN_ASM
+%define GUARD_SECURITY_USRAUTH_TOKEN_TOKEN_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/token/token.asm
 ; =============================================================================
@@ -396,3 +398,5 @@ usrauth_token_verify:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_TOKEN_TOKEN_ASM

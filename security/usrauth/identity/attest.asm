@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_IDENTITY_ATTEST_ASM
+%define GUARD_SECURITY_USRAUTH_IDENTITY_ATTEST_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/identity/attest.asm
 ; =============================================================================
@@ -429,3 +431,5 @@ usrauth_attest_get_id:
 section .rodata
 usrauth_attest_label:       db "USRAUTH-ATTEST-v1"
 usrauth_attest_label_len    equ $ - usrauth_attest_label
+
+%endif ; GUARD_SECURITY_USRAUTH_IDENTITY_ATTEST_ASM

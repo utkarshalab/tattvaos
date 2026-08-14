@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_POLICY_CONSENT_ASM
+%define GUARD_SECURITY_USRAUTH_POLICY_CONSENT_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/policy/consent.asm
 ; =============================================================================
@@ -325,3 +327,5 @@ usrauth_consent_check:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_POLICY_CONSENT_ASM

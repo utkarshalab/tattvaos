@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_IDENTITY_PASSWORD_ASM
+%define GUARD_SECURITY_USRAUTH_IDENTITY_PASSWORD_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/identity/password.asm
 ; =============================================================================
@@ -330,3 +332,5 @@ usrauth_password_authenticate:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_IDENTITY_PASSWORD_ASM

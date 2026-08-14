@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_SUBJECT_TRANSITION_ASM
+%define GUARD_SECURITY_USRAUTH_SUBJECT_TRANSITION_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/subject/transition.asm
 ; =============================================================================
@@ -234,3 +236,5 @@ usrauth_transition_exec:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_SUBJECT_TRANSITION_ASM

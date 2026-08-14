@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_USRAUTH_ASM
+%define GUARD_SECURITY_USRAUTH_USRAUTH_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/usrauth.asm
 ; =============================================================================
@@ -297,3 +299,5 @@ usrauth_stats:
     mov [rdi + 8], rax
     xor eax, eax
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_USRAUTH_ASM

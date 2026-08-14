@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_POLICY_TTL_ASM
+%define GUARD_SECURITY_USRAUTH_POLICY_TTL_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/policy/ttl.asm
 ; =============================================================================
@@ -329,3 +331,5 @@ usrauth_ttl_stats:
     mov [rdi + 16], rax
 .tst_done:
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_POLICY_TTL_ASM

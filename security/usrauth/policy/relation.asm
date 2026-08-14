@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_POLICY_RELATION_ASM
+%define GUARD_SECURITY_USRAUTH_POLICY_RELATION_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/policy.asm
 ; =============================================================================
@@ -588,3 +590,5 @@ usrauth_policy_stats:
     mov [rdi + 24], rax
     xor eax, eax
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_POLICY_RELATION_ASM

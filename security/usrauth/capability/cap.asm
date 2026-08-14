@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_CAPABILITY_CAP_ASM
+%define GUARD_SECURITY_USRAUTH_CAPABILITY_CAP_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/capability/cap.asm
 ; =============================================================================
@@ -377,3 +379,5 @@ usrauth_cap_revoke:
     pop rbx
     ret
 
+
+%endif ; GUARD_SECURITY_USRAUTH_CAPABILITY_CAP_ASM

@@ -1,3 +1,5 @@
+%ifndef GUARD_SECURITY_USRAUTH_TOKEN_REVOKE_ASM
+%define GUARD_SECURITY_USRAUTH_TOKEN_REVOKE_ASM
 ; =============================================================================
 ; Tattva OS — security/usrauth/token/revoke.asm
 ; =============================================================================
@@ -262,3 +264,5 @@ usrauth_revoke_prune:
     pop r12
     pop rbx
     ret
+
+%endif ; GUARD_SECURITY_USRAUTH_TOKEN_REVOKE_ASM
