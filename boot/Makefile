@@ -80,10 +80,16 @@ IMG = $(KERNEL_DIR)/tattva.img
 ACCEL      := $(shell test -e /dev/kvm -a -r /dev/kvm -a -w /dev/kvm && echo kvm || echo tcg)
 QEMU       = qemu-system-x86_64
 QEMU_MEM   = 512
+# -netdev user + -device e1000: gives the e1000 driver in unet/drivers/
+# something to actually probe. `user` mode needs no host-side setup (no tap,
+# no root) and hands the guest 10.0.2.15/24 with a gateway at 10.0.2.2 —
+# unet_init's static config (see unet/unet.asm) is hardcoded to match.
 QEMU_FLAGS = -accel $(ACCEL) \
              -cpu max \
              -drive file=$(IMG),format=raw,if=ide \
              -m $(QEMU_MEM) \
+             -netdev user,id=n0 \
+             -device e1000,netdev=n0 \
              -serial stdio \
              -display none \
              -no-reboot -no-shutdown
