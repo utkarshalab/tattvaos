@@ -41,6 +41,8 @@ numa_detect_init:
     ; Initialize table address holders to 0
     xor r14, r14                    ; R14 = SRAT physical address
     xor r15, r15                    ; R15 = SLIT physical address
+    xor r12, r12                    ; R12 = HMAT physical address (unused
+                                     ; elsewhere in this walk — see below)
 
     mov rdi, [boot_info_ptr]
     test rdi, rdi
@@ -99,8 +101,13 @@ numa_detect_init:
     jmp .xsdt_next
 .xsdt_check_slit:
     cmp eax, 0x54494C53             ; "SLIT"
-    jne .xsdt_next
+    jne .xsdt_check_hmat
     mov r15, rsi
+    jmp .xsdt_next
+.xsdt_check_hmat:
+    cmp eax, 0x54414D48              ; "HMAT"
+    jne .xsdt_next
+    mov r12, rsi
 
 .xsdt_next:
     inc rcx
@@ -143,8 +150,13 @@ numa_detect_init:
     jmp .rsdt_next
 .rsdt_check_slit:
     cmp eax, 0x54494C53             ; "SLIT"
-    jne .rsdt_next
+    jne .rsdt_check_hmat
     mov r15, rsi
+    jmp .rsdt_next
+.rsdt_check_hmat:
+    cmp eax, 0x54414D48              ; "HMAT"
+    jne .rsdt_next
+    mov r12, rsi
 
 .rsdt_next:
     inc rcx
@@ -157,6 +169,7 @@ numa_detect_init:
     ; below take.
     mov [numa_srat_phys_addr], r14
     mov [numa_slit_phys_addr], r15
+    mov [numa_hmat_phys_addr], r12
 
     ; =========================================================================
     ; 1. Parse SRAT
@@ -342,8 +355,10 @@ section .data
 
 global numa_srat_phys_addr
 global numa_slit_phys_addr
+global numa_hmat_phys_addr
 numa_srat_phys_addr: dq 0
 numa_slit_phys_addr: dq 0
+numa_hmat_phys_addr: dq 0
 
 msg_numa_srat_ok:       db "NUMA: ACPI SRAT table parsing successful.", 0x0D, 0x0A, 0
 msg_numa_srat_fallback: db "NUMA: SRAT not found or invalid. Defaulting to UMA (Node 0).", 0x0D, 0x0A, 0
