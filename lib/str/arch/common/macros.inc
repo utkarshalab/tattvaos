@@ -17,7 +17,7 @@
 %ifndef STR_MACROS_INC
 %define STR_MACROS_INC
 
-%include "error.inc"
+%include "lib/str/arch/common/error.inc"
 
 ; -----------------------------------------------------------------------------
 ; STR_FUNC name
