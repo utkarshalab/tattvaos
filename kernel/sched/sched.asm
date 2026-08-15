@@ -175,13 +175,21 @@ sched_core_loop:
 
     ; Execute popped fiber
     mov rsi, rax                    ; RSI = new fiber
+
+    ; Perform PKEY hardware key switch first: it takes the new fiber's key in
+    ; EDI, and fiber_switch below needs the OLD fiber pointer in RDI. Loading
+    ; that before this call — as fiber_yield still does — has pkey_switch's
+    ; own `mov edi, [rsi + fcb_t.pkey]` immediately overwrite it, so
+    ; fiber_switch saves the outgoing stack through `[pkey_value +
+    ; fcb_t.rsp]` instead of `[old_fcb + fcb_t.rsp]`: a wild write to
+    ; whatever low physical address a single-digit pkey happens to land on,
+    ; on the very first fiber this loop ever runs.
+    mov edi, [rsi + fcb_t.pkey]
+    call pkey_switch
+
     mov rdi, [gs:percpu_t.current_fiber]                ; RDI = current fiber
     mov [gs:percpu_t.current_fiber], rsi
     mov dword [rsi + fcb_t.state], FIBER_STATE_RUNNING
-
-    ; Perform PKEY hardware key switch
-    mov edi, [rsi + fcb_t.pkey]
-    call pkey_switch
 
     call fiber_switch
     jmp .loop

@@ -208,11 +208,35 @@ fiber_yield:
 
 .do_switch:
     cmp rdi, rsi
-    je .yield_done
+    jne .real_switch
 
-    ; Perform PKEY hardware key switch
+    ; sched_pop_next_fiber popped the same fiber that was just pushed a few
+    ; lines up (the only thing in the queue was itself) — there's no other
+    ; ready work, so this returns to its own caller instead of paying for a
+    ; context switch to itself. But its state was already flipped to READY
+    ; above, on the assumption a switch would follow and set it back to
+    ; RUNNING; skipping the switch here must not skip that too. Leaving it
+    ; at READY while execution provably never left this stack meant the
+    ; *next* fiber_yield call saw a fiber that wasn't RUNNING and silently
+    ; skipped re-queuing it — the fiber ran exactly once more, yielded into
+    ; the idle/boot context with nothing left in the queue to ever switch
+    ; back to it, and was gone for good. Two prints, then permanent silence.
+    mov dword [rdi + fcb_t.state], FIBER_STATE_RUNNING
+    jmp .yield_done
+
+.real_switch:
+    ; Perform PKEY hardware key switch. RDI already holds the outgoing FCB
+    ; pointer, which fiber_switch below needs — but pkey_switch's own first
+    ; instruction is `mov edi, [rsi + fcb_t.pkey]`, so calling it unprotected
+    ; here overwrites that pointer with a single-digit pkey value. fiber_switch
+    ; would then save the outgoing stack through `[pkey_value + fcb_t.rsp]`,
+    ; a wild write to whatever low physical address that tiny number lands on
+    ; (see sched_core_loop's OPTION B block for the same defect on the pop
+    ; path — this is the yield path's counterpart).
+    push rdi
     mov edi, [rsi + fcb_t.pkey]
     call pkey_switch
+    pop rdi
 
     mov [gs:percpu_t.current_fiber], rsi
     mov dword [rsi + fcb_t.state], FIBER_STATE_RUNNING
