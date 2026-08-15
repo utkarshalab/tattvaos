@@ -377,9 +377,18 @@ PTE_PAT            equ (1 << 7) ; Page Attribute Table index bit (for PTEs)
 PTE_NX             equ (1 << 63); No-Execute (requires LME.NXE enabled)
 
 ; ---- Virtio-Blk Status Codes -----------------------------------------------
-VIRTIO_BLK_S_OK     equ 0       ; Success
-VIRTIO_BLK_S_IOERR  equ 1       ; Device I/O error
-VIRTIO_BLK_S_UNSUPP equ 2       ; Unsupported command
+; IO_-prefixed to stay clear of storage/uxfs/drivers/virtio_blk.asm's own
+; %define VIRTIO_BLK_S_OK/IOERR/UNSUPP — that file's copy is a preprocessor
+; macro, so once both are reachable in the same build (as of unet/drivers/
+; e1000.asm's %include "lib/io/io.inc", the first thing that ever pulled
+; this file into the actual kernel image) NASM substitutes it textually
+; wherever the bare name appears, including as the label being `equ`'d here
+; — turning `VIRTIO_BLK_S_OK equ 0` into `0 equ 0`, an invalid label. Nothing
+; under lib/io/ reads the unprefixed names (checked: only this definition
+; and lib/io/docs/io_spec.md mention them), so renaming here is enough.
+IO_VIRTIO_BLK_S_OK     equ 0       ; Success
+IO_VIRTIO_BLK_S_IOERR  equ 1       ; Device I/O error
+IO_VIRTIO_BLK_S_UNSUPP equ 2       ; Unsupported command
 
 ; ---- Local APIC Register MMIO Offsets ---------------------------------------
 LAPIC_ID           equ 0x0020   ; Local APIC ID
@@ -448,8 +457,16 @@ IOAPIC_REDTBL_BASE equ 0x10     ; Base offset for Redirection Table entries (0-2
 %if spsc_ring_t.cons_idx != 128
   %error "spsc_ring_t.cons_idx must sit on cache line 2 (offset 128)"
 %endif
-%if percpu_t_size != 64
-  %error "percpu_t layout drift — must be exactly 64 bytes"
+; This assertion predates this file ever actually being compiled — io.inc
+; was never %include'd into a real kernel.bin build until unet/drivers/
+; e1000.asm pulled it in for PCI access, which is what surfaced it failing.
+; percpu_t (lib/percpu.inc) has grown to 136 bytes since whenever "exactly
+; 64 bytes, one cache line" was written: identity + mem + io + scheduler +
+; logging have each added their own per-core fields (see that struc's inline
+; comments). That's legitimate, tracked growth, not drift — updated the
+; expected size to match rather than deleting the tripwire.
+%if percpu_t_size != 136
+  %error "percpu_t layout drift — must be exactly 136 bytes"
 %endif
 %if driver_binding_t_size != 20
   %error "driver_binding_t layout drift — must be 20 bytes"

@@ -57,6 +57,9 @@ struc percpu_t
     .fiber_count    resd 1      ; +112
     .steal_lock     resd 1      ; +116  work-stealing spin flag
     .ticks          resq 1      ; +120
-endstruc                        ; = 128 bytes, two cache lines
+
+    ; ---- logging: lib/ulog/record ----
+    .log_ring       resq 1      ; +128  this core's ring_t* (record/ring_alloc.asm)
+endstruc                        ; = 136 bytes
 
 %endif ; LIB_PERCPU_INC
