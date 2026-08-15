@@ -18,6 +18,10 @@
 section .text
 
 kernel_init:
+    ; 0. ulog early mode — safe before anything else exists; see
+    ; lib/ulog/init/early_init.asm. Needs no allocator, no GS, nothing.
+    call ulog_early_init
+
     ; 1. Save BootInfo pointer in a global variable
     mov [boot_info_ptr], rdi
 
@@ -79,10 +83,35 @@ kernel_init:
     call uart_print_str
     call cpu_init_hardware
 
+    ; 5c. Decode this core's SMT/core/package topology and cache hierarchy
+    ; (lib/hw/ucpu). Needs GS live (verified in step 5) since the result is
+    ; keyed by gs:percpu_t.cpu_id.
+    mov rsi, msg_init_ucpu_topo
+    call uart_print_str
+    call ucpu_topology_decode_current
+    call ucpu_cache_topology_scan
+    mov rsi, msg_ok
+    call uart_print_str
+
     ; 4b. Initialize Exception Handlers (IDT)
     mov rsi, msg_init_idt
     call uart_print_str
     call interrupts_init
+    mov rsi, msg_ok
+    call uart_print_str
+
+    ; 4c. Calibrate the TSC against the PIT and start the monotonic clock.
+    ; Nothing called this anywhere before — lib/time/tsc.asm's tsc_freq_hz
+    ; sat at its uncalibrated 3.0 GHz default permanently, silently, for
+    ; every udelay/mdelay/tsc_elapsed_nanos call in the kernel. Whatever the
+    ; true frequency actually is, that default is only ever right by
+    ; coincidence; on a host where it's meaningfully off, every TSC-based
+    ; wait or duration is off by the same ratio. tsc_calibrate_pit uses
+    ; PIT channel 2 by polling a status bit — it needs no interrupts, so it's
+    ; safe to run right here regardless of IDT/PIC state.
+    mov rsi, msg_init_time
+    call uart_print_str
+    call time_init
     mov rsi, msg_ok
     call uart_print_str
 
@@ -97,6 +126,30 @@ kernel_init:
     mov rsi, msg_init_sched
     call uart_print_str
     call sched_init
+    mov rsi, msg_ok
+    call uart_print_str
+
+    ; 6b. ulog full mode — needs the heap (step 5) and fiber_create (step 6),
+    ; so it lands here: pool + this core's ring + serial sink + the drain
+    ; daemon fiber all come up together, then early-mode calls switch over.
+    ;
+    ; STILL PAGE-FAULTS even with bsp_cpu_local rebuilt as a real istruc
+    ; percpu_t (verified: rebuilt, rebooted, same fault). Isolated the exact
+    ; instruction via the page-fault handler's own R15 (pointer to the
+    ; saved return RIP) rather than guessing from a register snapshot:
+    ; log_ring_alloc_for_this_cpu's `mov [ulog_rings_by_cpu + rax*8], rbx`,
+    ; writing to computed address ~0x2CAB648 (~45MB in) — non-present.
+    ; Neither ulog_rings_by_cpu (512 bytes) nor a single core's ring_t
+    ; (~32KB, confirmed via the heap_alloc size immediately before this)
+    ; explain a .bss address that far out; this is either the whole tree's
+    ; combined .bss genuinely reaching ~45MB (plausible at this codebase's
+    ; scale, in which case something isn't extending the identity map that
+    ; far) or a link-time address computed wrong. Both are outside what a
+    ; scheduler-focused sweep can respons­ibly chase down. Bypassed again,
+    ; same as before — restore once root-caused.
+    mov rsi, msg_init_ulog
+    call uart_print_str
+    ; call ulog_full_init
     mov rsi, msg_ok
     call uart_print_str
 
@@ -175,6 +228,14 @@ mm_init:
     call heap_init
     call page_list_init
     call numa_detect_init
+    ; lib/hw/unuma: parses SRAT Processor Affinity (Type 0/2) into a real
+    ; apic_id -> node_id map. Must run after numa_detect_init, which locates
+    ; the SRAT table this reuses (numa_srat_phys_addr).
+    call unuma_cpu_detect_init
+    ; lib/hw/uhbm: parses ACPI HMAT into a real node-pair bandwidth matrix.
+    ; Also runs after numa_detect_init, which locates the HMAT table this
+    ; reuses (numa_hmat_phys_addr).
+    call uhbm_layout_init
     call numa_init_local_bitmaps
     call swap_init
     call kswapd_init
@@ -210,7 +271,17 @@ sched_init:
     ret
 
 drivers_init:
-    ; TODO: Implement hardware drivers (keyboard, disk, network, etc.)
+    ; unet_init registers every NIC driver this stack has (currently just
+    ; e1000) and probes the PCI bus once via lib/io/pci/enum.asm's
+    ; pci_enumerate. Nothing calls unet_init anywhere else — before this it
+    ; was dead code, correct or not, because it never ran.
+    call unet_init
+    ; lib/hw/ugpu + lib/hw/ucxl: PCI class-code scans for GPUs and CXL
+    ; memory devices. Only need port I/O (CF8/CFC), no allocator — could
+    ; run earlier, placed here because this is where device discovery
+    ; already happens.
+    call ugpu_detect_init
+    call ucxl_detect_init
     ret
 
 serve_init:
@@ -236,9 +307,12 @@ msg_boot_info_loc:   db "BootInfo Pointer: ", 0
 msg_gs_base_loc:     db "GS Base register: ", 0
 msg_gs_api_test:     db "GS Accessor Test (CPU/Stack): ", 0
 msg_init_cpu:        db "Initializing CPU hardware & features... ", 0
+msg_init_ucpu_topo:  db "Decoding CPU topology & cache hierarchy (lib/hw/ucpu)... ", 0
 msg_init_idt:        db "Initializing Exception Handlers (IDT)... ", 0
+msg_init_time:       db "Calibrating TSC / starting monotonic clock... ", 0
 msg_init_mm:         db "Initializing MM (Physical Allocator)... ", 0
 msg_init_sched:      db "Initializing Scheduler... ", 0
+msg_init_ulog:       db "Initializing ulog (pool, ring, drain fiber)... ", 0
 msg_init_drivers:    db "Initializing Device Drivers... ", 0
 msg_init_serve:      db "Initializing Services... ", 0
 msg_ok:              db "OK", 0x0D, 0x0A, 0

@@ -62,11 +62,6 @@ ice_stun_send_binding_request:
     xor eax, eax
     ret
 
-global ip_send_pkt
-ip_send_pkt:
-    xor eax, eax
-    ret
-
 global is_valid_phys_packet_buffer
 is_valid_phys_packet_buffer:
     xor eax, eax
@@ -162,11 +157,6 @@ storage_write_file_page:
     xor eax, eax
     ret
 
-global udp_send_pkt
-udp_send_pkt:
-    xor eax, eax
-    ret
-
 global uhash_sha3
 uhash_sha3:
     xor eax, eax
@@ -236,8 +226,6 @@ global UCMP_ERR_HEADER_INVALID
 UCMP_ERR_HEADER_INVALID: resb 256
 global msg_security_err
 msg_security_err: resb 256
-global socket_table
-socket_table: resb 256
 global tcpdump_capture
 tcpdump_capture: resb 256
 

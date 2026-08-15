@@ -54,6 +54,17 @@ kernel_text_start:
 %include "unet/core/link/net_link.asm"
 %include "lib/hw/ucpu/mtrr.asm"
 %include "lib/hw/ucpu/pat.asm"
+%include "lib/hw/ucpu/topology.asm"
+%include "lib/hw/ucpu/pinning.asm"
+%include "lib/hw/unuma/detect.asm"
+%include "lib/hw/unuma/affinity.asm"
+%include "lib/hw/unuma/distance.asm"
+%include "lib/hw/ugpu/detect.asm"
+%include "lib/hw/ugpu/pcie.asm"
+%include "lib/hw/ugpu/nvlink.asm"
+%include "lib/hw/uhbm/layout.asm"
+%include "lib/hw/ucxl/cxl.asm"
+%include "lib/hw/uhwloc/hwloc.asm"
 %include "kernel/drivers/gpu/fb.asm"
 %include "kernel/sched/fiber.asm"
 %include "kernel/sched/fiber_canary.asm"
@@ -97,7 +108,19 @@ kernel_text_start:
 %include "lib/time/timer_wheel.asm"
 %include "lib/time/tsc.asm"         ; Before mono: supplies tsc_read/elapsed
 %include "lib/time/mono.asm"        ; Monotonic clock; usrauth TTLs depend on it
+%include "lib/time/rtc.asm"         ; Before time.asm: supplies rtc_init
+%include "lib/time/time.asm"        ; time_init: the only caller of
+                                     ; tsc_calibrate_pit anywhere in the tree.
+                                     ; Without this file in the build,
+                                     ; tsc_freq_hz can never become anything
+                                     ; but its uncalibrated 3.0 GHz default.
 %include "lib/urand/urand.asm"
+%include "lib/ulog/ulog.asm"        ; Structured logging. Needs mem + time +
+                                     ; the serial driver, all already above;
+                                     ; nothing below this line should have to
+                                     ; wait for it — see lib/ulog/init/
+                                     ; early_init.asm for how callers before
+                                     ; ulog_full_init runs still work.
 %include "crypto/ux509/ux509.asm"
 %include "lib/ucmp/ucmp.asm"
 %include "storage/ubxp/ubxp.asm"

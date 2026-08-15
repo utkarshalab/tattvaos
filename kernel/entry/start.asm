@@ -12,6 +12,8 @@
 
 [BITS 64]
 
+%include "lib/percpu.inc"
+
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -50,23 +52,40 @@ section .text
 ; -----------------------------------------------------------------------------
 section .data
 align 8
+; bsp_cpu_local is a real instance of percpu_t (lib/percpu.inc), not a second,
+; hand-maintained copy of its layout. It used to be the latter — a field list
+; here that had to be kept in step with the struc by hand — and it drifted:
+; percpu_t grew five io fields (current_req through irq_stack) and, most
+; recently, log_ring, while this stayed at its original 112 bytes. Every field
+; from .current_fiber onward then sat 16 bytes into the *next* thing in
+; .data, and log_ring_alloc_for_this_cpu's `mov [gs:percpu_t.log_ring], rbx`
+; landed 8 bytes past .steal_lock's original end entirely — the io-fields gap
+; percpu.inc's own header comment already tells this exact story about,
+; happening again through a new door. `istruc`/`at`/`iend` builds this
+; directly from the struc definition, so a future field can't silently do
+; this a third time.
 bsp_cpu_local:
-    .self        dq bsp_cpu_local   ; pointer to self (standard GS self-reference)
-    .cpu_id      dd 0               ; CPU ID 0 for BSP
-    .reserved    dd 0               ; explicit alignment padding
-    .stack_top   dq kernel_stack_top; kernel stack top address
-    .arena       dq 0               ; thread-local/core-local arena pointer (offset 24)
-    .pool        dq 0               ; offset 32
-    .reclaim     dq 0               ; offset 40
-    .spare1      dq 0               ; offset 48
-    .spare2      dq 0               ; offset 56
-    .current_fiber  dq 0            ; GS:64
-    .idle_fiber     dq 0            ; GS:72
-    .run_queue_head dq 0            ; GS:80
-    .run_queue_tail dq 0            ; GS:88
-    .fiber_count    dd 0            ; GS:96
-    .ticks          dq 0            ; GS:104
-    .steal_lock     dd 0            ; GS:112
+istruc percpu_t
+    at percpu_t.self,            dq bsp_cpu_local
+    at percpu_t.cpu_id,          dd 0
+    at percpu_t.lapic_id,        dd 0
+    at percpu_t.stack_top,       dq kernel_stack_top
+    at percpu_t.arena,           dq 0
+    at percpu_t.current_req,     dq 0
+    at percpu_t.submit_ring,     dq 0
+    at percpu_t.complete_ring,   dq 0
+    at percpu_t.nvme_sq,         dq 0
+    at percpu_t.nvme_cq,         dq 0
+    at percpu_t.irq_stack,       dq 0
+    at percpu_t.current_fiber,   dq 0
+    at percpu_t.idle_fiber,      dq 0
+    at percpu_t.run_queue_head,  dq 0
+    at percpu_t.run_queue_tail,  dq 0
+    at percpu_t.fiber_count,     dd 0
+    at percpu_t.steal_lock,      dd 0
+    at percpu_t.ticks,           dq 0
+    at percpu_t.log_ring,        dq 0
+iend
 
 ; -----------------------------------------------------------------------------
 ; Kernel Stack allocation with unmapped guard page
