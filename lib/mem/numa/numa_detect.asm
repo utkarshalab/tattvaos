@@ -151,6 +151,13 @@ numa_detect_init:
     jmp .rsdt_loop
 
 .parse_tables:
+    ; Export the located table addresses so other subsystems (lib/hw/unuma's
+    ; SRAT CPU-affinity parse) can reuse them without re-walking RSDP ->
+    ; XSDT/RSDT themselves. 0 means "not found", same as the fallback paths
+    ; below take.
+    mov [numa_srat_phys_addr], r14
+    mov [numa_slit_phys_addr], r15
+
     ; =========================================================================
     ; 1. Parse SRAT
     ; =========================================================================
@@ -332,6 +339,11 @@ numa_detect_init:
 ; Messages
 ; -----------------------------------------------------------------------------
 section .data
+
+global numa_srat_phys_addr
+global numa_slit_phys_addr
+numa_srat_phys_addr: dq 0
+numa_slit_phys_addr: dq 0
 
 msg_numa_srat_ok:       db "NUMA: ACPI SRAT table parsing successful.", 0x0D, 0x0A, 0
 msg_numa_srat_fallback: db "NUMA: SRAT not found or invalid. Defaulting to UMA (Node 0).", 0x0D, 0x0A, 0
