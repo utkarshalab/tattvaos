@@ -13,6 +13,14 @@
 
 [BITS 64]
 
+; Explicit, matching the convention every other file in this tree follows
+; (e.g. kernel/arch/x86_64/cpu.asm's own `section .text` at the same spot).
+; This file used to omit it and simply inherit whatever section the previous
+; %include left active — harmless as long as that always happened to be
+; .text or .data, until one that ended in .bss came before it and every
+; function below silently stopped having any code bytes at all.
+section .text
+
 ; =============================================================================
 ; uart_putc — write a single character via COM1 (polling)
 ; Input:  AL = character to send
