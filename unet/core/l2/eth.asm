@@ -48,6 +48,11 @@ struc vlan_tag_t
     .tci:               resw 1      ; Tag Control Info (PCP 3b + DEI 1b + VID 12b)
 endstruc
 
+section .bss
+alignb 8
+global unet_local_mac
+unet_local_mac:         resb 6      ; Our interface's MAC (set by e1000_probe)
+
 section .text
 
 global eth_init
@@ -67,7 +72,14 @@ eth_init:
 
 ; -----------------------------------------------------------------------------
 ; eth_input — Parse L2 Ethernet Frame & Dispatch to L3 Protocol Handler
-; Input: RDI = Pointer to Raw Ethernet Frame, ESI = Frame Length
+; Input: RDI = Pointer to net_pkt_t (headroom_offset at the start of the raw
+;        frame, data_len = bytes actually received)
+;
+; e1000 (like most NICs) strips the trailing 4-byte FCS before DMA'ing the
+; frame into memory and reports CRC validity via the RX descriptor's status/
+; error bits instead (see e1000_poll) — there is no FCS to check here, and
+; eth_validate_fcs is not called for a frame this driver produced. It stays
+; exported for any future driver that actually delivers a raw frame with FCS.
 ; -----------------------------------------------------------------------------
 align 64
 eth_input:
@@ -75,32 +87,51 @@ eth_input:
     mov rbp, rsp
     push rbx
     push r12
+    push r13
 
-    mov rbx, rdi
-    mov r12d, esi
-    prefetcht0 [rbx]                ; Pre-stage Ethernet frame into L1 cache
+    mov rbx, rdi                    ; RBX = net_pkt_t*
+    mov r12, [rbx + net_pkt_t.virt_addr]
+    mov eax, [rbx + net_pkt_t.headroom_offset]
+    add r12, rax                    ; R12 = pointer to eth_hdr_t
+    mov r13d, [rbx + net_pkt_t.data_len]
+    sub r13d, [rbx + net_pkt_t.headroom_offset]
+    prefetcht0 [r12]
 
-    ; 1. Validate minimum frame size (64 bytes including FCS)
-    cmp r12d, ETH_FRAME_MIN
+    ; 1. Validate minimum frame size (header + any payload, FCS not present)
+    cmp r13d, 14
     jb .drop
 
-    ; 2. Validate FCS CRC-32 (last 4 bytes of frame)
-    call eth_validate_fcs
-    test eax, eax
-    jnz .drop
-
-    ; 3. Extract EtherType (big-endian -> host byte order)
-    movzx eax, word [rbx + eth_hdr_t.ethertype]
+    ; 2. Extract EtherType (big-endian -> host byte order)
+    movzx eax, word [r12 + eth_hdr_t.ethertype]
     xchg al, ah                     ; bswap16 (network -> host order)
+    mov ecx, 14                     ; header bytes consumed so far
 
-    ; 4. Handle 802.1Q / 802.1ad VLAN tagging
+    ; 3. Handle 802.1Q / 802.1ad VLAN tagging
     cmp ax, ETHERTYPE_VLAN
     je .parse_vlan
     cmp ax, ETHERTYPE_QINQ
     je .parse_qinq
+    jmp .dispatch
+
+.parse_vlan:
+    cmp r13d, 18
+    jb .drop
+    movzx eax, word [r12 + 16]     ; Inner EtherType after VLAN tag
+    xchg al, ah
+    mov ecx, 18
+    jmp .dispatch
+
+.parse_qinq:
+    cmp r13d, 22
+    jb .drop
+    movzx eax, word [r12 + 20]     ; Inner EtherType after both tags
+    xchg al, ah
+    mov ecx, 22
 
 .dispatch:
-    ; 5. Dispatch to L3 based on EtherType
+    add [rbx + net_pkt_t.headroom_offset], ecx
+
+    ; 4. Dispatch to L3 based on EtherType
     cmp ax, ETHERTYPE_IP
     je .to_ipv4
     cmp ax, ETHERTYPE_IPV6
@@ -110,54 +141,91 @@ eth_input:
     jmp .drop                       ; Unknown EtherType -> drop
 
 .to_ipv4:
-    lea rdi, [rbx + 14]            ; Skip 14-byte Ethernet header
+    mov rdi, rbx
     call ip_input
     jmp .done
 
 .to_ipv6:
-    lea rdi, [rbx + 14]
+    mov rdi, rbx
     call ipv6_input
     jmp .done
 
 .to_arp:
-    lea rdi, [rbx + 14]
+    mov rdi, rbx
     call arp_input
     jmp .done
 
-.parse_vlan:
-    ; 802.1Q: Skip 4-byte VLAN tag, re-read inner EtherType
-    movzx eax, word [rbx + 16]     ; Inner EtherType after VLAN tag
-    xchg al, ah
-    jmp .dispatch
-
-.parse_qinq:
-    ; 802.1ad QinQ: Skip 8-byte dual VLAN tags (S-TAG + C-TAG)
-    movzx eax, word [rbx + 20]     ; Inner EtherType after both tags
-    xchg al, ah
-    jmp .dispatch
-
 .drop:
-    xor eax, eax
+    mov eax, -1
 
 .done:
+    pop r13
     pop r12
     pop rbx
     pop rbp
     ret
 
 ; -----------------------------------------------------------------------------
-; eth_output — Encapsulate L3 Payload into Ethernet Frame & Transmit
-; Input: RDI = Pointer to Destination MAC, RSI = Pointer to L3 Payload,
-;        EDX = Payload Length, ECX = EtherType
+; eth_output — Encapsulate a net_pkt_t's staged L3 payload into an Ethernet
+; frame (prepends the 14-byte header into the buffer's headroom) & transmit.
+; Input: RDI = Pointer to net_pkt_t (headroom_offset/data_len cover the L3
+;        payload already built by the caller), RSI = Pointer to 6-byte
+;        Destination MAC, EDX = EtherType (host byte order)
+; Output: EAX = 0 on success, -1 if there's no headroom left or no link
 ; -----------------------------------------------------------------------------
 align 64
 eth_output:
     push rbp
     mov rbp, rsp
-    prefetcht0 [rdi]
-    prefetcht0 [rsi]
-    ; Build 14-byte Ethernet header (DstMAC + SrcMAC + EtherType) + L3 payload
-    xor eax, eax
+    push rbx
+    push r12
+    push r13
+
+    mov rbx, rdi
+    mov r12, rsi                    ; R12 = dest MAC pointer
+    mov r13d, edx                    ; R13D = EtherType (host order), saved
+                                      ; across the headroom_offset reuse of EDX
+
+    cmp dword [rbx + net_pkt_t.headroom_offset], 14
+    jb .drop
+
+    sub dword [rbx + net_pkt_t.headroom_offset], 14
+    mov rax, [rbx + net_pkt_t.virt_addr]
+    mov edx, [rbx + net_pkt_t.headroom_offset]
+    add rax, rdx                    ; RAX = eth_hdr_t* in the buffer
+
+    ; Dest MAC
+    mov cx, [r12]
+    mov [rax + eth_hdr_t.dst_mac], cx
+    mov cx, [r12 + 2]
+    mov [rax + eth_hdr_t.dst_mac + 2], cx
+    mov cx, [r12 + 4]
+    mov [rax + eth_hdr_t.dst_mac + 4], cx
+
+    ; Src MAC (ours)
+    mov cx, [unet_local_mac]
+    mov [rax + eth_hdr_t.src_mac], cx
+    mov cx, [unet_local_mac + 2]
+    mov [rax + eth_hdr_t.src_mac + 2], cx
+    mov cx, [unet_local_mac + 4]
+    mov [rax + eth_hdr_t.src_mac + 4], cx
+
+    mov cx, r13w
+    xchg cl, ch                     ; host -> network byte order
+    mov [rax + eth_hdr_t.ethertype], cx
+
+    add dword [rbx + net_pkt_t.data_len], 14
+
+    mov rdi, rbx
+    call net_link_transmit
+    jmp .done
+
+.drop:
+    mov eax, -1
+.done:
+    pop r13
+    pop r12
+    pop rbx
     pop rbp
     ret
 

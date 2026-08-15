@@ -56,6 +56,7 @@ endstruc
 section .bss
 alignb 64
 arp_cache_table:        resb arp_cache_entry_t_size * ARP_CACHE_SIZE
+arp_bcast_mac:           resb 6      ; FF:FF:FF:FF:FF:FF, filled in arp_init
 
 section .text
 
@@ -64,19 +65,33 @@ global arp_input
 global arp_lookup
 global arp_send_request
 global arp_send_gratuitous
+global arp_cache_update
 
 align 64
 arp_init:
     push rbp
     mov rbp, rsp
-    ; Zero-initialize ARP cache hash table
+
+    lea rdi, [arp_cache_table]
+    xor eax, eax
+    mov ecx, (arp_cache_entry_t_size * ARP_CACHE_SIZE) / 8
+    rep stosq
+
+    mov byte [arp_bcast_mac], 0xFF
+    mov byte [arp_bcast_mac+1], 0xFF
+    mov byte [arp_bcast_mac+2], 0xFF
+    mov byte [arp_bcast_mac+3], 0xFF
+    mov byte [arp_bcast_mac+4], 0xFF
+    mov byte [arp_bcast_mac+5], 0xFF
+
     xor eax, eax
     pop rbp
     ret
 
 ; -----------------------------------------------------------------------------
 ; arp_input — Process Incoming ARP Request / Reply
-; Input: RDI = Pointer to ARP Header
+; Input: RDI = Pointer to net_pkt_t (headroom_offset at the start of the ARP
+;        packet, following the convention every other L2/L3 handler uses)
 ; -----------------------------------------------------------------------------
 align 64
 arp_input:
@@ -84,45 +99,84 @@ arp_input:
     mov rbp, rsp
     push rbx
     push r12
+    push r13
 
-    mov rbx, rdi
-    prefetcht0 [rbx]               ; Pre-stage ARP header into L1 cache
+    mov rbx, rdi                    ; RBX = net_pkt_t*
+    mov r12, [rbx + net_pkt_t.virt_addr]
+    mov eax, [rbx + net_pkt_t.headroom_offset]
+    add r12, rax                    ; R12 = pointer to arp_hdr_t
+    prefetcht0 [r12]
+
+    mov eax, [rbx + net_pkt_t.data_len]
+    sub eax, [rbx + net_pkt_t.headroom_offset]
+    cmp eax, arp_hdr_t_size
+    jb .drop
 
     ; 1. Validate ARP header fields
-    movzx eax, word [rbx + arp_hdr_t.hw_type]
+    movzx eax, word [r12 + arp_hdr_t.hw_type]
     xchg al, ah
     cmp ax, ARP_HW_TYPE_ETHERNET
     jne .drop
 
-    movzx eax, word [rbx + arp_hdr_t.proto_type]
+    movzx eax, word [r12 + arp_hdr_t.proto_type]
     xchg al, ah
     cmp ax, ARP_PROTO_TYPE_IPV4
     jne .drop
 
-    ; 2. Rate limit check: max 1 ARP per second per Source IP
-    call rdtsc_get_cycles
-    mov r12, rax                    ; Current TSC timestamp
-
-    ; 3. Update ARP cache with Sender IP -> Sender MAC mapping
-    mov edi, [rbx + arp_hdr_t.sender_ip]
+    ; 2. Update ARP cache with Sender IP -> Sender MAC mapping. (Rate-
+    ; limiting incoming ARP by source IP is not implemented: it needs a
+    ; per-source timestamp table this cache doesn't keep yet.)
+    mov edi, [r12 + arp_hdr_t.sender_ip]
+    lea rsi, [r12 + arp_hdr_t.sender_mac]
     call arp_cache_update
 
-    ; 4. Check opcode: Request vs Reply
-    movzx eax, word [rbx + arp_hdr_t.opcode]
+    ; 3. Check opcode: Request vs Reply
+    movzx eax, word [r12 + arp_hdr_t.opcode]
     xchg al, ah
     cmp ax, ARP_OP_REQUEST
     je .handle_request
     jmp .done
 
 .handle_request:
-    ; Check if Target IP matches our local interface IP
-    ; If match: swap sender/target, set opcode = REPLY, send via eth_output
-    mov word [rbx + arp_hdr_t.opcode], 0x0200  ; ARP_OP_REPLY in network order
+    ; Only answer if the target IP is actually ours.
+    cmp dword [unet_local_ip], 0
+    je .done
+    mov eax, [r12 + arp_hdr_t.target_ip]
+    cmp eax, [unet_local_ip]
+    jne .done
+
+    mov r13d, [r12 + arp_hdr_t.sender_ip]   ; who to reply to
+
+    ; Build the reply in-place: swap sender/target, flip opcode.
+    mov eax, [r12 + arp_hdr_t.sender_ip]
+    mov [r12 + arp_hdr_t.target_ip], eax
+    mov cx, [r12 + arp_hdr_t.sender_mac]
+    mov [r12 + arp_hdr_t.target_mac], cx
+    mov cx, [r12 + arp_hdr_t.sender_mac + 2]
+    mov [r12 + arp_hdr_t.target_mac + 2], cx
+    mov cx, [r12 + arp_hdr_t.sender_mac + 4]
+    mov [r12 + arp_hdr_t.target_mac + 4], cx
+
+    mov eax, [unet_local_ip]
+    mov [r12 + arp_hdr_t.sender_ip], eax
+    mov cx, [unet_local_mac]
+    mov [r12 + arp_hdr_t.sender_mac], cx
+    mov cx, [unet_local_mac + 2]
+    mov [r12 + arp_hdr_t.sender_mac + 2], cx
+    mov cx, [unet_local_mac + 4]
+    mov [r12 + arp_hdr_t.sender_mac + 4], cx
+
+    mov word [r12 + arp_hdr_t.opcode], 0x0200  ; ARP_OP_REPLY, network order
+
+    lea rsi, [r12 + arp_hdr_t.target_mac]      ; now holds the requester's MAC
+    mov rdi, rbx
+    mov edx, UNET_ETH_TYPE_ARP
     call eth_output
     jmp .done
 
 .drop:
 .done:
+    pop r13
     pop r12
     pop rbx
     pop rbp
@@ -135,67 +189,145 @@ arp_input:
 ; -----------------------------------------------------------------------------
 align 64
 arp_lookup:
-    push rbp
-    mov rbp, rsp
     ; Hash: (IP >> 8) XOR (IP & 0xFF) mod ARP_CACHE_SIZE
     mov eax, edi
     mov edx, edi
     shr eax, 8
     xor eax, edx
     and eax, ARP_CACHE_SIZE - 1
-    ; index into arp_cache_table
     imul eax, arp_cache_entry_t_size
     lea rax, [arp_cache_table + rax]
 
-    ; Check if entry state is Reachable (2)
+    ; Only a genuine hit for this exact IP, in Reachable state, counts.
+    cmp dword [rax + arp_cache_entry_t.ip_addr], edi
+    jne .miss
     cmp byte [rax + arp_cache_entry_t.state], 2
     jne .miss
-    pop rbp
     ret
 
 .miss:
-    xor eax, eax                    ; Return NULL
-    pop rbp
+    xor eax, eax
     ret
 
 ; -----------------------------------------------------------------------------
 ; arp_send_request — Broadcast ARP Request for Target IP
-; Input: EDI = Target IPv4 Address
+; Input: EDI = Target IPv4 Address (network byte order)
 ; -----------------------------------------------------------------------------
 align 64
 arp_send_request:
     push rbp
     mov rbp, rsp
-    ; Build 28-byte ARP Request & broadcast via eth_output (DstMAC = FF:FF:FF:FF:FF:FF)
-    xor eax, eax
+    push rbx
+    push r12
+
+    mov r12d, edi                   ; R12D = target IP
+
+    call pktbuf_alloc
+    test rax, rax
+    jz .done
+    mov rbx, rax                    ; RBX = net_pkt_t*
+
+    cmp dword [rbx + net_pkt_t.headroom_offset], arp_hdr_t_size
+    jb .free_drop
+    sub dword [rbx + net_pkt_t.headroom_offset], arp_hdr_t_size
+
+    mov rax, [rbx + net_pkt_t.virt_addr]
+    mov edx, [rbx + net_pkt_t.headroom_offset]
+    add rax, rdx                    ; RAX = arp_hdr_t* in the buffer
+
+    mov word [rax + arp_hdr_t.hw_type], 0x0100      ; 1, network order
+    mov word [rax + arp_hdr_t.proto_type], 0x0008   ; 0x0800, network order
+    mov byte [rax + arp_hdr_t.hw_len], 6
+    mov byte [rax + arp_hdr_t.proto_len], 4
+    mov word [rax + arp_hdr_t.opcode], 0x0100       ; ARP_OP_REQUEST, network order
+
+    mov cx, [unet_local_mac]
+    mov [rax + arp_hdr_t.sender_mac], cx
+    mov cx, [unet_local_mac + 2]
+    mov [rax + arp_hdr_t.sender_mac + 2], cx
+    mov cx, [unet_local_mac + 4]
+    mov [rax + arp_hdr_t.sender_mac + 4], cx
+    mov ecx, [unet_local_ip]
+    mov [rax + arp_hdr_t.sender_ip], ecx
+
+    mov word [rax + arp_hdr_t.target_mac], 0
+    mov word [rax + arp_hdr_t.target_mac + 2], 0
+    mov word [rax + arp_hdr_t.target_mac + 4], 0
+    mov [rax + arp_hdr_t.target_ip], r12d
+
+    mov dword [rbx + net_pkt_t.data_len], arp_hdr_t_size
+
+    lea rsi, [arp_bcast_mac]
+    mov rdi, rbx
+    mov edx, UNET_ETH_TYPE_ARP
+    call eth_output
+    jmp .free
+.free_drop:
+.free:
+    mov rdi, rbx
+    call pktbuf_free
+.done:
+    pop r12
+    pop rbx
     pop rbp
     ret
 
 ; -----------------------------------------------------------------------------
 ; arp_send_gratuitous — Send Gratuitous ARP (GARP RFC 5227) for DAD
-; Input: EDI = Our IPv4 Address
+; Input: EDI = Our IPv4 Address (network byte order)
+;
+; A GARP is a request whose sender IP == target IP; every other host on the
+; segment updates its cache from the sender fields without needing to reply.
 ; -----------------------------------------------------------------------------
 align 64
 arp_send_gratuitous:
-    push rbp
-    mov rbp, rsp
-    ; GARP: Sender IP = Target IP = Our IP, DstMAC = Broadcast
-    xor eax, eax
-    pop rbp
-    ret
+    mov edi, [unet_local_ip]
+    jmp arp_send_request
 
-; Update an ARP cache entry, with a timer-wheel TTL expiry.
+; -----------------------------------------------------------------------------
+; arp_cache_update — Insert/refresh a cache entry for (IP -> MAC).
+; Input: EDI = IPv4 address (network order), RSI = pointer to 6-byte MAC
 ;
 ; This is a FILE-LEVEL label, not a `.local` one. NASM scopes `.name` to the
 ; preceding non-local label, so while this sat at the end of the file it
 ; belonged to arp_send_gratuitous — and arp_input's `call .cache_update`
-; resolved to arp_input.cache_update, which nothing defined.
+; resolved to arp_input.cache_update, which nothing defined. It also never
+; wrote anything into the cache table: fixed below to actually populate the
+; slot arp_lookup reads from.
+;
+; Timer-wheel TTL expiry (aging an entry back to Stale/Empty) isn't wired up
+; here — entries are refreshed on every observed ARP but never age out.
+; Follow-up scope, same as IP fragment reassembly's timer.
+; -----------------------------------------------------------------------------
+align 64
 arp_cache_update:
-    push rbp
-    mov rbp, rsp
-    ; Insert/update cache entry & schedule timer_wheel_add for TTL expiration
-    call timer_wheel_add
-    pop rbp
+    push rbx
+    push r12
+
+    mov r12d, edi
+
+    mov eax, edi
+    mov edx, edi
+    shr eax, 8
+    xor eax, edx
+    and eax, ARP_CACHE_SIZE - 1
+    imul eax, arp_cache_entry_t_size
+    lea rbx, [arp_cache_table + rax]
+
+    mov [rbx + arp_cache_entry_t.ip_addr], r12d
+    mov cx, [rsi]
+    mov [rbx + arp_cache_entry_t.mac_addr], cx
+    mov cx, [rsi + 2]
+    mov [rbx + arp_cache_entry_t.mac_addr + 2], cx
+    mov cx, [rsi + 4]
+    mov [rbx + arp_cache_entry_t.mac_addr + 4], cx
+    mov byte [rbx + arp_cache_entry_t.state], 2     ; Reachable
+
+    call rdtsc_get_cycles
+    mov [rbx + arp_cache_entry_t.last_arp_ts], rax
+
+    pop r12
+    pop rbx
     ret
 
 %endif ; GUARD_UNET_CORE_L2_ARP_ASM
