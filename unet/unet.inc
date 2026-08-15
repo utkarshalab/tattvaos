@@ -183,7 +183,15 @@ struc socket_t
     .window_scale:      resb 1
     .rx_buffer_phys:    resq 1      ; Physical RX Ring Buffer Address
     .tx_buffer_phys:    resq 1      ; Physical TX Ring Buffer Address
-    .reserved:          resb 191
+    .tcb_ptr:           resq 1      ; -> tcb_t for TCP sockets, 0 for UDP/unbound
+    ; Intrusive singly-linked queue, carved out of what used to be padding:
+    ;   - data sockets: undelivered net_pkt_t*, chained via net_pkt_t.next_pkt
+    ;   - listening sockets: completed-handshake socket_t* ready for accept(),
+    ;     chained via .accept_next below
+    .rx_queue_head:     resq 1
+    .rx_queue_tail:     resq 1
+    .accept_next:        resq 1      ; next socket_t* on a listener's accept queue
+    .reserved:          resb 159
 endstruc
 
 %endif ; UNET_INC

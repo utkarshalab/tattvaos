@@ -29,15 +29,32 @@ align 64
 unet_init:
     push rbp
     mov rbp, rsp
+
     call pktbuf_init
     call eth_init
+    call arp_init
     call ip_init
     call ipv6_init
     call udp_init
     call tcp_init
     call socket_table_init
     call http1_init
-    call e1000_init
+
+    ; Static config until a real DHCP client exists (unet/services/dhcp.asm
+    ; is still a stub) — QEMU's default usermode network (`-netdev user`)
+    ; hands out 10.0.2.15/24 with a gateway at 10.0.2.2, so that's what's
+    ; hardcoded here rather than something that only works on a real LAN.
+    mov edi, 0x0F02000A              ; 10.0.2.15, network byte order
+    mov esi, 0x00FFFFFF              ; 255.255.255.0, network byte order
+    mov edx, 0x0202000A              ; 10.0.2.2, network byte order
+    call unet_ip_configure
+
+    ; Register every NIC driver this stack has, then probe the PCI bus once.
+    ; A driver whose hardware isn't present just never gets its probe_fn
+    ; called — e1000_present stays 0 and net_link_transmit/unet_poll no-op.
+    call e1000_register_driver
+    call pci_enumerate
+
     xor eax, eax
     pop rbp
     ret
@@ -81,6 +98,7 @@ unet_shutdown:
 %include "unet/core/sys/avx512_parser.asm"
 %include "unet/core/sys/socket.asm"
 %include "unet/core/sys/epoll.asm"
+%include "unet/core/sys/unet_api.asm"
 
 ; Core Hardware Link & DMA Ring Management
 %include "unet/core/link/net_link.asm"

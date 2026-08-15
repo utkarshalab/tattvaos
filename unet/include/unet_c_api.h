@@ -31,6 +31,7 @@ int unet_listen(int sockfd, int backlog);
 int unet_accept(int sockfd, void *addr, uint32_t *addrlen);
 int64_t unet_send(int sockfd, const void *buf, size_t len, int flags);
 int64_t unet_recv(int sockfd, void *buf, size_t len, int flags);
+int unet_close(int sockfd);
 
 /* Monolithic HTTP/1.1 Engine (RFC 9112 + RFC 10008 QUERY) */
 int http1_parse_request(const char *buf, size_t len);
