@@ -41,6 +41,9 @@
 
 %define VXLAN_MAX_VNIS              256
 
+; Must precede its use in vxlan_encap: nasm %define is not hoisted.
+%define UNET_EPHEMERAL_PORT_BASE_VXLAN 49152
+
 struc vxlan_hdr_t
     .flags:             resb 1      ; Flags (I-flag bit 3)
     .rsvd1:             resb 3
@@ -334,7 +337,5 @@ vxlan_gpe_decap:
     pop rbx
     pop rbp
     ret
-
-%define UNET_EPHEMERAL_PORT_BASE_VXLAN 49152
 
 %endif ; GUARD_UNET_SDN_VXLAN_ASM
