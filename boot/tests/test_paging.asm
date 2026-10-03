@@ -28,11 +28,13 @@ test_paging:
 
     mov esi, msg_pass_pm
     call uart_print_pm
+    clc
     jmp .done
 
 .failed:
     mov esi, msg_fail_pm
     call uart_print_pm
+    stc
 
 .done:
     pop esi

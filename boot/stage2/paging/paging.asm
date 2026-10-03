@@ -9,7 +9,7 @@
 ;   PML4  — Page Map Level 4   (512 entries × 8 bytes = 4KB)
 ;   PDPT  — Page Directory Pointer Table (512 entries × 8 bytes = 4KB)
 ;   PD    — Page Directory      (512 entries × 8 bytes = 4KB)
-;   PT    — Page Table          (not used — huge pages skip this level)
+;   PT0   — 4KB pages for the first 2MB, with NX-by-default permissions
 ;
 ; With 2MB huge pages:
 ;   PML4[0] → PDPT
@@ -57,14 +57,16 @@ PAGE_KERNEL_NX  equ (PAGE_PRESENT | PAGE_RW)   ; NX added separately
 ; Input:  nothing
 ; Output: page tables ready at PAGING_PML4
 ;         PAGING_PML4 ready to load into CR3
-; Clobbers: EAX, EBX, ECX, EDI
+; Clobbers: none
 ; =============================================================================
 [BITS 32]
 paging_setup:
     push eax
     push ebx
     push ecx
+    push edx
     push edi
+    push esi
 
     cld                             ; Clear direction flag for rep stosd
     ; -------------------------------------------------------------------------
@@ -122,12 +124,6 @@ paging_setup:
     ; 512 entries × 2MB = 1GB
     ; Each entry maps a 2MB huge page
     ; -------------------------------------------------------------------------
-    call paging_fill_pd_huge        ; fills PD at EDI with 512 huge entries
-    ; Note: paging_fill_pd_huge uses EDI for output PD address
-    ; and EBX for starting physical address
-    ; We set these up via paging_map_gb helper below
-
-    ; rebuild using explicit calls for clarity
     mov edi, PAGING_PD0
     mov ebx, 0x00000000             ; starting physical address: 0GB
     call paging_fill_pd
@@ -153,24 +149,54 @@ paging_setup:
     mov [edi], eax
     mov dword [edi + 4], 0          ; NX=0
 
-    ; Initialize PT0 to flat identity map (0 to 2MB)
+    ; Initialize PT0 to a flat identity map (0 to 2MB).  If NX is available,
+    ; every page starts non-executable.  Only stage2 itself and the executable
+    ; prefix declared by the already validated ULF v1 header are opened for
+    ; instruction fetches.  Low-memory data, stacks, BootInfo, page tables,
+    ; and the kernel's data tail remain NX.
     mov edi, PAGING_PT0
     xor ebx, ebx                    ; starting physical address = 0
     mov ecx, 512                    ; 512 entries of 4KB each
+    xor edx, edx                    ; high-dword NX mask, or zero without NX
+    call paging_nx_supported
+    jc .pt_mask_ready
+    mov edx, PTE_NX_BIT
+.pt_mask_ready:
+    mov esi, [KERNEL_LOAD + 24]     ; validated executable extent
+    add esi, KERNEL_LOAD            ; exclusive end address
 
 .pt_loop:
     mov eax, ebx
     or eax, PAGE_KERNEL             ; present + read/write
     mov [edi], eax
-    mov dword [edi + 4], 0          ; NX=0
-    
+    mov [edi + 4], edx              ; NX by default when supported
+
+    cmp ebx, STAGE2_LOAD
+    jb .check_kernel_exec
+    cmp ebx, STAGE2_LOAD + STAGE2_SECTORS * 512
+    jb .make_executable
+
+.check_kernel_exec:
+    cmp ebx, KERNEL_LOAD
+    jb .next_pt
+    cmp ebx, esi
+    jae .next_pt
+    ; The kernel image is complete before paging is enabled, so executable
+    ; pages can be read-only from the first fetched kernel instruction.
+    and dword [edi], ~PAGE_RW
+
+.make_executable:
+    mov dword [edi + 4], 0
+
+.next_pt:
     add ebx, 0x1000                 ; next 4KB physical page
     add edi, 8                      ; next page table entry
     dec ecx
     jnz .pt_loop
 
-
+    pop esi
     pop edi
+    pop edx
     pop ecx
     pop ebx
     pop eax

@@ -168,10 +168,13 @@ uhbm_layout_init:
 
     ; Store into uhbm_bandwidth_matrix[edx * UHBM_MAX_NODES + edi]
     push rax
+    push rdi
     mov eax, edx
     imul eax, UHBM_MAX_NODES
     add eax, edi
-    mov [rel uhbm_bandwidth_matrix + rax * uhbm_bw_t_size], r8d
+    lea rdi, [rel uhbm_bandwidth_matrix]
+    mov [rdi + rax * uhbm_bw_t_size], r8d
+    pop rdi
     pop rax
     inc rax
 
@@ -229,7 +232,8 @@ uhbm_bandwidth:
     mov eax, edi
     imul eax, UHBM_MAX_NODES
     add eax, esi
-    mov eax, [rel uhbm_bandwidth_matrix + rax * uhbm_bw_t_size]
+    lea rdx, [rel uhbm_bandwidth_matrix]
+    mov eax, [rdx + rax * uhbm_bw_t_size]
     ret
 
 .zero:

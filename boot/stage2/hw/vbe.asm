@@ -23,21 +23,18 @@ vbe_init:
     mov ds, ax
     mov es, ax
 
+    mov byte [best_score], 0
+    mov word [vbe_modes_left], 256  ; malformed lists must not hang the boot
+
     ; -------------------------------------------------------------------------
     ; Step 1: Query VBE Controller Info
     ; -------------------------------------------------------------------------
     mov si, msg_vbe_init
     call uart_print
 
-    mov al, 'a'
-    call uart_putc
-
     mov di, vbe_info_block
     mov ax, 0x4F00
     int 0x10
-
-    mov al, 'b'
-    call uart_putc
 
     cmp ax, 0x004F
     jne .vbe_failed
@@ -51,9 +48,6 @@ vbe_init:
     mov ax, [vbe_info_block + 4]
     cmp ax, 0x0200
     jb .vbe_failed
-
-    mov al, 'c'
-    call uart_putc
 
     ; -------------------------------------------------------------------------
     ; Step 1.5: Query EDID to get native resolution
@@ -110,27 +104,23 @@ vbe_init:
     mov ax, [vbe_info_block + 16]
     mov fs, ax                      ; FS:SI points to mode list
 
-    mov al, 'd'
-    call uart_putc
-
 .find_mode_loop:
+    cmp word [vbe_modes_left], 0
+    je .loop_done
+    dec word [vbe_modes_left]
+
     mov cx, [fs:si]                 ; read mode number
     cmp cx, 0xFFFF                  ; end of list?
     je .loop_done
+    mov [vbe_current_mode], cx      ; BIOS/scoring calls may clobber CX
 
     push fs
     push si
-
-    mov al, 'e'
-    call uart_putc
 
     ; Query mode details
     mov di, vbe_mode_info
     mov ax, 0x4F01
     int 0x10
-
-    mov al, 'f'
-    call uart_putc
 
     pop si
     pop fs
@@ -162,9 +152,11 @@ vbe_init:
 
     ; Save best mode details
     mov [best_score], ah
-    mov [best_mode], cx
+    mov ax, [vbe_current_mode]
+    mov [best_mode], ax
     mov [best_width], dx
     mov [best_height], bx
+    mov al, [vbe_mode_info + 25]
     mov [best_bpp], al
     mov dx, [vbe_mode_info + 16]
     mov [best_pitch], dx
@@ -187,14 +179,8 @@ vbe_init:
     or cx, 0x4000                   ; enable Linear Frame Buffer (LFB)
     mov bx, cx
 
-    mov al, 'h'
-    call uart_putc
-
     mov ax, 0x4F02
     int 0x10
-
-    mov al, 'i'
-    call uart_putc
 
     cmp ax, 0x004F
     jne .vbe_failed
@@ -325,11 +311,13 @@ vbe_score_mode:
 ; =============================================================================
 msg_vbe_init:   db "VBE...     ", 0
 msg_vbe_ok:     db "OK ", 0
-msg_vbe_fail:   db "FAIL (using text mode)", 0
+msg_vbe_fail:   db "SKIP (text mode)", 0
 msg_crlf_vbe:   db 0
 
 ; VBE state variables
 best_score:     db 0
+vbe_modes_left: dw 0
+vbe_current_mode: dw 0
 best_mode:      dw 0
 best_width:     dw 0
 best_height:    dw 0

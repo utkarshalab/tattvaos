@@ -127,7 +127,7 @@ survive_wakeup_entry:
 ; 64-bit strings
 ; =============================================================================
 msg_panic_prefix:   db 0x0D, 0x0A, "!!! KERNEL PANIC !!!", 0x0D, 0x0A, "Reason: ", 0
-msg_panic_at:       db 0x0D, 0x0A, "RIP: 0x", 0
+msg_panic_at:       db 0x0D, 0x0A, "RIP: ", 0
 msg_checksum_ok:    db "Snapshot checksum valid. Initiating warm recovery...", 0x0D, 0x0A, 0
 msg_checksum_fail:  db "Snapshot checksum INVALID (corrupted). Triggering hard reset...", 0x0D, 0x0A, 0
 

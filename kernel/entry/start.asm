@@ -3,8 +3,9 @@
 ; =============================================================================
 ; Tattva OS — kernel/entry/start.asm
 ; =============================================================================
-; Kernel startup logic. Reloads segment registers, sets up the 16KB aligned
-; kernel stack, and configures the GS base register for CPU-local storage.
+; Kernel startup logic. Reloads segment registers and sets up the aligned
+; kernel stack. GS is established after gdt_init performs the final segment
+; reload; programming it here would be undone by that reload.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -33,17 +34,10 @@ section .text
     ; 3. Preserve the BootInfo pointer passed in RDI
     push rdi
 
-    ; 4. Initialize GS base MSR to point to BSP's CPU-local structure
-    mov ecx, 0xC0000101             ; MSR_GS_BASE
-    mov rax, bsp_cpu_local          ; low 32 bits
-    mov rdx, rax
-    shr rdx, 32                     ; high 32 bits (EDX:EAX)
-    wrmsr
-
-    ; 5. Sanitize CPU general purpose registers (excluding RSP/RDI)
+    ; 4. Sanitize CPU general purpose registers (excluding RSP/RDI)
     call cpu_clear_gprs
 
-    ; 6. Restore BootInfo pointer and jump to early initialization
+    ; 5. Restore BootInfo pointer and jump to early initialization
     pop rdi
     jmp kernel_init
 

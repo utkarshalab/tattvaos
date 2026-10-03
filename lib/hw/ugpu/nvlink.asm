@@ -46,7 +46,9 @@ ugpu_nvlink_capable:
 
     mov rax, rdi
     imul rax, ugpu_device_t_size
-    mov ecx, [rel ugpu_devices + rax + ugpu_device_t.vendor_id]
+    lea rcx, [rel ugpu_devices]
+    add rax, rcx
+    mov ecx, [rax + ugpu_device_t.vendor_id]
     cmp ecx, HW_PCI_VENDOR_NVIDIA
     jne .no
 

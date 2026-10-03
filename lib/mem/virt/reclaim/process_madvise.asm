@@ -166,7 +166,7 @@ sys_process_madvise:
     mov rdx, r10
     shl rdx, 12
     or rdx, 0x400                   ; Set PAGE_SWAPPED (bit 10)
-    lock xchg [r15], rdx            ; Update PTE atomically
+    xchg [r15], rdx                 ; Update PTE atomically (implicit lock)
 
     ; Invalidate TLB for the target virtual address
     invlpg [r12]

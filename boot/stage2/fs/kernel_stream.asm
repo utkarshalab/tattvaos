@@ -35,8 +35,12 @@ KS_CHUNK_SECTORS equ 64             ; 32KB per INT 13h call. AH=42h is only
                                     ; and keeps a whole chunk inside the 64KB
                                     ; real-mode window the bounce buffer sits in.
 KS_SEL_FLAT      equ 0x08           ; index 1 of ks_gdt
-KS_ULF_MAGIC     equ 0x00464C55     ; "ULF\0"
-KS_MAX_BYTES     equ 32 * 1024 * 1024
+KS_ULF_MAGIC     equ ULF_MAGIC
+KS_ULF_HEADER    equ ULF_HEADER_SIZE
+KS_ULF_VERSION   equ ULF_VERSION
+KS_EXEC_ALIGN    equ ULF_EXEC_ALIGN
+KS_MAX_EXEC_BYTES equ ULF_MAX_EXEC_BYTES
+KS_MAX_BYTES     equ ULF_MAX_IMAGE_BYTES
 
 ; =============================================================================
 ; kernel_stream_load — load the ULF image from LBA KERNEL_LBA to KERNEL_LOAD.
@@ -46,6 +50,8 @@ KS_MAX_BYTES     equ 32 * 1024 * 1024
 kernel_stream_load:
     pushad
     push es
+
+    mov byte [ks_bios_err_valid], 0
 
     ; -------------------------------------------------------------------------
     ; Read the first sector alone to learn how long the image is.
@@ -61,14 +67,57 @@ kernel_stream_load:
     jne .fail_magic
     mov eax, [es:4]                 ; ULF header +4: image length in bytes
 
-    cmp eax, 32                     ; smaller than its own header
+    cmp eax, KS_ULF_HEADER          ; smaller than its own header
     jb .fail_size
     cmp eax, KS_MAX_BYTES
     ja .fail_size
+    test eax, 7                     ; checksum is defined over whole qwords
+    jnz .fail_size
+
+    ; Version 1 declares the executable prefix separately from total file
+    ; bytes, allowing the bootstrap mapper to default everything else to NX.
+    cmp dword [es:28], KS_ULF_VERSION
+    jne .fail_header
+    mov ecx, [es:24]
+    cmp ecx, KS_ULF_HEADER
+    jb .fail_header
+    test ecx, KS_EXEC_ALIGN - 1
+    jnz .fail_header
+    cmp ecx, eax
+    ja .fail_header
+    cmp ecx, KS_MAX_EXEC_BYTES
+    ja .fail_header
+
+    ; The entry is an identity-mapped virtual address in that executable
+    ; prefix. Reject a high-half or data-page target before trusting it.
+    cmp dword [es:12], 0
+    jne .fail_entry
+    mov edx, [es:8]
+    cmp edx, KERNEL_LOAD + KS_ULF_HEADER
+    jb .fail_entry
+    add ecx, KERNEL_LOAD
+    jc .fail_header
+    cmp edx, ecx
+    jae .fail_entry
 
     add eax, 511                    ; round up to whole sectors
     shr eax, 9
     mov [ks_left], eax
+
+    ; EDD reports the total number of addressable sectors.  Refuse a header
+    ; that claims bytes past the medium instead of discovering truncation only
+    ; after partially overwriting the kernel destination.
+    cmp byte [edd_supported], 1
+    jne .fail_bounds
+    mov edx, [edd_params_block + 20]
+    test edx, edx
+    jnz .capacity_ok                ; disk is larger than the 32-bit LBA range
+    mov edx, KERNEL_LBA
+    add edx, eax                    ; exclusive end LBA
+    jc .fail_bounds
+    cmp edx, [edd_params_block + 16]
+    ja .fail_bounds
+.capacity_ok:
 
     ; -------------------------------------------------------------------------
     ; Stream the image a chunk at a time. Sector zero is read a second time as
@@ -120,6 +169,15 @@ kernel_stream_load:
 .fail_size:
     mov si, ks_msg_size
     jmp .fail
+.fail_entry:
+    mov si, ks_msg_entry
+    jmp .fail
+.fail_header:
+    mov si, ks_msg_header
+    jmp .fail
+.fail_bounds:
+    mov si, ks_msg_bounds
+    jmp .fail
 .fail_read:
     mov si, ks_msg_read
 .fail:
@@ -136,24 +194,40 @@ kernel_stream_load:
 ; =============================================================================
 ks_read_chunk:
     pushad
+    push ds
+    push es
 
+    mov cx, DISK_RETRY
+.attempt:
+    ; AH=42h is allowed to replace the sector count with the number actually
+    ; transferred. Rebuild the complete packet before every attempt.
+    mov byte [ks_dap], 0x10
+    mov byte [ks_dap + 1], 0
     mov ax, [ks_count]
     mov [ks_dap.sectors], ax
+    mov word [ks_dap + 4], 0
+    mov word [ks_dap + 6], KERNEL_TEMP >> 4
     mov eax, [ks_lba]
     mov [ks_dap.lba], eax
     mov dword [ks_dap.lba + 4], 0
 
-    mov cx, DISK_RETRY
-.attempt:
     push cx
     mov si, ks_dap
     mov ah, 0x42
     mov dl, [boot_drive]
     int 0x13
+    pushf
+    push ax                         ; preserve BIOS status while restoring DS/ES
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
+    pop ax
+    popf
     pop cx
     jnc .ok
 
     mov [ks_bios_err], ah
+    mov byte [ks_bios_err_valid], 1
 
     ; Reset the controller before retrying. A latched error status makes every
     ; subsequent read fail even when the media is fine.
@@ -161,15 +235,23 @@ ks_read_chunk:
     xor ax, ax
     mov dl, [boot_drive]
     int 0x13
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
     pop cx
     dec cx
     jnz .attempt
 
+    pop es
+    pop ds
     popad
     stc
     ret
 
 .ok:
+    mov byte [ks_bios_err_valid], 0
+    pop es
+    pop ds
     popad
     clc
     ret
@@ -188,6 +270,7 @@ ks_read_chunk:
 ; =============================================================================
 ks_flush_chunk:
     pushad
+    pushf                           ; preserve the caller's interrupt state
     push ds
     push es
 
@@ -214,7 +297,7 @@ ks_flush_chunk:
 
     pop es
     pop ds
-    sti
+    popf
     popad
     ret
 
@@ -224,6 +307,8 @@ ks_flush_chunk:
 ; =============================================================================
 ks_report_error:
     pusha
+    cmp byte [ks_bios_err_valid], 1
+    jne .done
     mov si, ks_msg_err_prefix
     call uart_print
     mov al, [ks_bios_err]
@@ -250,6 +335,7 @@ ks_report_error:
     call uart_print
     mov si, ks_msg_err_suffix
     call uart_println
+.done:
     popa
     ret
 
@@ -287,10 +373,14 @@ ks_left:        dd 0                ; sectors still to fetch
 ks_count:       dw 0                ; sectors in the current chunk
 ks_tick:        dw 0                ; chunks done, for the progress dots
 ks_bios_err:    db 0                ; last INT 13h status byte
+ks_bios_err_valid: db 0             ; status belongs to the current failure
 
 ks_msg_read:        db "FAIL (disk read error)", 0
 ks_msg_magic:       db "FAIL (no ULF magic at kernel LBA)", 0
 ks_msg_size:        db "FAIL (implausible ULF image size)", 0
+ks_msg_entry:       db "FAIL (invalid ULF entry point)", 0
+ks_msg_header:      db "FAIL (unsupported ULF header)", 0
+ks_msg_bounds:      db "FAIL (ULF image exceeds disk)", 0
 ks_msg_err_prefix:  db "  BIOS status 0x", 0
 ks_msg_err_dash:    db " - ", 0
 ks_msg_err_suffix:  db "", 0

@@ -161,6 +161,7 @@ cpu_init_hardware:
     rdmsr
     or eax, 1 << 11                 ; set NXE (bit 11)
     wrmsr
+    mov byte [cpu_has_nx], 1         ; page-table code may now emit PAGE_NX
     jmp .nx_done
 .no_nx:
     mov rsi, msg_warn_nx
@@ -456,8 +457,10 @@ section .data
 
 global cpu_has_smep
 global cpu_has_smap
+global cpu_has_nx
 cpu_has_smep:       db 0
 cpu_has_smap:       db 0
+cpu_has_nx:         db 0
 
 align 8
 default_mxcsr:      dd 0x9FC0       ; FTZ=1, DAZ=1, masks exceptions, round-to-nearest

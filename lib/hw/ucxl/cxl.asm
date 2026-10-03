@@ -105,7 +105,8 @@ ucxl_detect_init:
     cmp rax, UCXL_MAX_DEVICES
     jae .next_func
     imul rax, ucxl_device_t_size
-    lea r15, [rel ucxl_devices + rax]
+    lea r15, [rel ucxl_devices]
+    add r15, rax
 
     mov [r15 + ucxl_device_t.bus], r12d
     mov [r15 + ucxl_device_t.device], r13d

@@ -154,9 +154,9 @@ unuma_cpu_detect_init:
 .record:
     cmp rdi, UNUMA_MAX_CPUS
     jae .record_skip
-    mov rax, rdi
     mov ecx, esi
-    mov [rel unuma_cpu_node_table + rax * 4], ecx
+    lea rax, [rel unuma_cpu_node_table]
+    mov [rax + rdi * 4], ecx
     inc qword [rel unuma_cpu_node_count]
 .record_skip:
     ret
@@ -174,7 +174,8 @@ unuma_node_of_cpu:
     cmp rdi, UNUMA_MAX_CPUS
     jae .unknown
 
-    mov eax, [rel unuma_cpu_node_table + rdi * 4]
+    lea rax, [rel unuma_cpu_node_table]
+    mov eax, [rax + rdi * 4]
     cmp eax, 0xFFFFFFFF
     je .unknown
 

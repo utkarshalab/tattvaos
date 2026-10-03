@@ -48,7 +48,8 @@ ugpu_get_link_info:
 
     mov rax, rdi
     imul rax, ugpu_device_t_size
-    lea r12, [rel ugpu_devices + rax]
+    lea r12, [rel ugpu_devices]
+    add r12, rax
 
     mov ebx, [r12 + ugpu_device_t.pcie_cap_off]
     test ebx, ebx
@@ -108,7 +109,8 @@ ugpu_get_bandwidth_mbps:
     cmp r12, 6
     ja .zero                         ; unrecognized encoding
 
-    mov eax, [rel ugpu_lane_mbps + r12 * 4]
+    lea rax, [rel ugpu_lane_mbps]
+    mov eax, [rax + r12 * 4]
     imul eax, r13d                   ; total = per-lane MB/s * lanes
     jmp .done
 

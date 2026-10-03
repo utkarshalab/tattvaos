@@ -59,16 +59,17 @@ gdt_null:
 
 ; -----------------------------------------------------------------------------
 ; [0x08] 64-bit code segment — kernel ring 0
-; L=1 (64-bit), D=0, G=1, P=1, DPL=0, S=1, Type=1010 (execute/read)
+; L=1 (64-bit), D=0, G=1, P=1, DPL=0, S=1, Type=1011
+; (execute/read, accessed preset so the CPU never writes the boot GDT)
 ; Base=0, Limit=0xFFFFF
 ; -----------------------------------------------------------------------------
 gdt_code64:
     dw 0xFFFF                       ; limit low
     dw 0x0000                       ; base low
     db 0x00                         ; base mid
-    db 10011010b                    ; P=1 DPL=00 S=1 Type=1010
+    db 10011011b                    ; P=1 DPL=00 S=1 Type=1011 (accessed)
     ;  P DPL  S  E  DC  R  A
-    ;  1  00  1  1   0  1  0  = execute/read, non-conforming
+    ;  1  00  1  1   0  1  1  = execute/read, non-conforming, accessed
     db 10101111b                    ; G=1 D=0 L=1 AVL=0 limit_high=1111
     ;  G  D  L  AVL  limit[19:16]
     ;  1  0  1   0    1111
@@ -76,7 +77,8 @@ gdt_code64:
 
 ; -----------------------------------------------------------------------------
 ; [0x10] 64-bit data segment — kernel ring 0
-; L=0, D=1, G=1, P=1, DPL=0, S=1, Type=0010 (read/write)
+; L=0, D=1, G=1, P=1, DPL=0, S=1, Type=0011
+; (read/write, accessed preset so the CPU never writes the boot GDT)
 ; Base=0, Limit=0xFFFFF
 ; In 64-bit mode most data segment fields are ignored
 ; but segment must be present and writable
@@ -85,35 +87,35 @@ gdt_data64:
     dw 0xFFFF                       ; limit low
     dw 0x0000                       ; base low
     db 0x00                         ; base mid
-    db 10010010b                    ; P=1 DPL=00 S=1 Type=0010
+    db 10010011b                    ; P=1 DPL=00 S=1 Type=0011 (accessed)
     ;  P DPL  S  E  EC  W  A
-    ;  1  00  1  0   0  1  0  = read/write, expand-up
+    ;  1  00  1  0   0  1  1  = read/write, expand-up, accessed
     db 11001111b                    ; G=1 D=1 L=0 AVL=0 limit_high=1111
     db 0x00                         ; base high
 
 ; -----------------------------------------------------------------------------
 ; [0x18] 16-bit code segment — for real mode transition if needed
-; P=1, DPL=0, S=1, Type=1010, G=0 (byte granularity), D=0 (16-bit)
+; P=1, DPL=0, S=1, Type=1011, G=0 (byte granularity), D=0 (16-bit)
 ; Limit=0xFFFF (64KB)
 ; -----------------------------------------------------------------------------
 gdt_code16:
     dw 0xFFFF                       ; limit low (64KB)
     dw 0x0000                       ; base low
     db 0x00                         ; base mid
-    db 10011010b                    ; P=1 DPL=00 S=1 Type=1010
+    db 10011011b                    ; P=1 DPL=00 S=1 Type=1011 (accessed)
     db 00000000b                    ; G=0 D=0 L=0 AVL=0 limit_high=0000
     db 0x00                         ; base high
 
 ; -----------------------------------------------------------------------------
 ; [0x20] 32-bit code segment — protected mode transition
-; P=1, DPL=0, S=1, Type=1010, G=1, D=1 (32-bit default op size)
+; P=1, DPL=0, S=1, Type=1011, G=1, D=1 (32-bit default op size)
 ; Base=0, Limit=0xFFFFF (4GB with G=1)
 ; -----------------------------------------------------------------------------
 gdt_code32:
     dw 0xFFFF                       ; limit low
     dw 0x0000                       ; base low
     db 0x00                         ; base mid
-    db 10011010b                    ; P=1 DPL=00 S=1 Type=1010
+    db 10011011b                    ; P=1 DPL=00 S=1 Type=1011 (accessed)
     db 11001111b                    ; G=1 D=1 L=0 AVL=0 limit_high=1111
     db 0x00                         ; base high
 
@@ -125,7 +127,7 @@ gdt_user_code64:
     dw 0xFFFF
     dw 0x0000
     db 0x00
-    db 11111010b                    ; P=1 DPL=11 S=1 Type=1010
+    db 11111011b                    ; P=1 DPL=11 S=1 Type=1011 (accessed)
     db 10101111b                    ; G=1 D=0 L=1 AVL=0 limit=1111
     db 0x00
 
@@ -137,7 +139,7 @@ gdt_user_data64:
     dw 0xFFFF
     dw 0x0000
     db 0x00
-    db 11110010b                    ; P=1 DPL=11 S=1 Type=0010
+    db 11110011b                    ; P=1 DPL=11 S=1 Type=0011 (accessed)
     db 11001111b                    ; G=1 D=1 L=0 AVL=0 limit=1111
     db 0x00
 
@@ -149,7 +151,15 @@ gdt_end:
 align 2                             ; word-aligned for lgdt
 gdt_descriptor:
     dw gdt_end - gdt_start - 1     ; limit = size - 1
-    dd gdt_start                   ; base address (32-bit in PM, 64-bit in LM)
+    dd gdt_start                   ; six-byte form for real/protected mode
+
+; Long mode always consumes a ten-byte GDTR operand.  Recovery must install
+; this boot GDT before selecting SEL_CODE16; the running kernel has its own
+; GDT, where selector 0x18 is a data descriptor rather than transition code.
+align 8
+gdt_descriptor64:
+    dw gdt_end - gdt_start - 1
+    dq gdt_start
 
 ; GDT size in bytes (for verification)
 GDT_SIZE equ (gdt_end - gdt_start)

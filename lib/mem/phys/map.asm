@@ -12,6 +12,8 @@
 
 [BITS 64]
 
+section .text
+
 ; -----------------------------------------------------------------------------
 ; phys_parse_e820 — parses the E820 map to locate the maximum usable RAM
 ;                    address and count total usable physical pages.

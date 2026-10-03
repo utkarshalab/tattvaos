@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # boot/tests/run_all.sh
 # Run all boot tests in QEMU automatically
 #
@@ -6,25 +6,22 @@
 # Exits 0 on pass, 1 on fail.
 # Run before every git commit.
 
-set -e
+set -eu
 
-QEMU=qemu-system-x86_64
-IMG=../boot.img
-UART_LOG=$(mktemp)
+TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+BOOT_DIR=$(CDPATH= cd -- "$TEST_DIR/.." && pwd)
 
 echo "=== Tattva Boot Test Suite ==="
 
-# Build first
-make -C .. all
-
-# Run stage1 size check
-bash test_stage1_size.sh || exit 1
-
-# Run QEMU boot test
-bash test_boot_qemu.sh || exit 1
-
-# Run A20 method tests
-bash test_a20_methods.sh || exit 1
+# The Makefile's test target has already built the complete image.  These
+# checks deliberately validate that exact artifact rather than rebuilding a
+# different target behind the caller's back.
+sh "$TEST_DIR/test_stage1_size.sh"
+sh "$TEST_DIR/test_section_hygiene.sh"
+sh "$TEST_DIR/test_image_integrity.sh"
+sh "$TEST_DIR/test_boot_qemu.sh"
+sh "$TEST_DIR/test_recovery_qemu.sh"
+sh "$TEST_DIR/test_boot_negative.sh"
 
 echo "=== All tests PASSED ==="
 exit 0

@@ -21,7 +21,7 @@ section .text
 ; tlb_flush_page — invalidate a single page in the TLB (4.1)
 ; Input:
 ;   RDI = virtual address of the page to invalidate
-; Output: none
+; Output: RAX = 1 if every page was mapped and updated, 0 otherwise
 ; Clobbers: none
 ; NOTE: This is the preferred method for single-page changes (map/unmap/
 ;       permission update). Much cheaper than a full TLB flush.
@@ -105,6 +105,7 @@ virt_mark_global_range:
     push r12
     push r13
 
+    mov ebx, 1                      ; success unless a hole/overflow is found
     test rsi, rsi
     jz .done
 
@@ -115,6 +116,7 @@ virt_mark_global_range:
     ; Calculate end address
     mov r13, rdi
     add r13, rsi                    ; R13 = end virtual address
+    jc .invalid
 
 .loop:
     cmp r12, r13
@@ -157,13 +159,16 @@ virt_mark_global_range:
     jmp .loop
 
 .not_mapped:
-    ; Not mapped, just advance by 4KB to check next page
+    xor ebx, ebx                    ; keep walking, but report partial failure
     add r12, 4096
     jmp .loop
 
+.invalid:
+    xor ebx, ebx
 .done:
     ; Flush the TLB to make the global pages active immediately
     call tlb_flush_all_global
+    mov eax, ebx
 
     pop r13
     pop r12
@@ -226,7 +231,7 @@ tlb_pcid_get:
 ; Input:
 ;   RDI = target PCID (0 - 4095)
 ;   RSI = preserve flag (1 = keep TLB entries, 0 = flush TLB entries)
-; Output: none
+; Output: RAX = 1 if every page was mapped and updated, 0 otherwise
 ; Clobbers: RAX, RCX
 ; -----------------------------------------------------------------------------
 global tlb_pcid_set
@@ -287,6 +292,7 @@ virt_mark_read_only_range:
     push r12
     push r13
 
+    mov ebx, 1
     test rsi, rsi
     jz .ro_done
 
@@ -297,6 +303,7 @@ virt_mark_read_only_range:
     ; Calculate end address
     mov r13, rdi
     add r13, rsi                    ; R13 = end virtual address
+    jc .ro_invalid
 
 .ro_loop:
     cmp r12, r13
@@ -339,13 +346,16 @@ virt_mark_read_only_range:
     jmp .ro_loop
 
 .ro_not_mapped:
-    ; Not mapped, just advance by 4KB to check next page
+    xor ebx, ebx                    ; keep walking, but report partial failure
     add r12, 4096
     jmp .ro_loop
 
+.ro_invalid:
+    xor ebx, ebx
 .ro_done:
     ; Flush the TLB to make the write protection active immediately
     call tlb_flush_all_global
+    mov eax, ebx
 
     pop r13
     pop r12
@@ -357,7 +367,8 @@ virt_mark_read_only_range:
 ; Input:
 ;   RDI = starting virtual address
 ;   RSI = range size in bytes
-; Output: none
+; Output: RAX = 1 if every page was mapped and updated (or NX is unavailable),
+;               0 if the requested range contained a hole or overflowed
 ; Clobbers: RAX, RCX, RDX, RSI, RDI, R8
 ; -----------------------------------------------------------------------------
 global virt_mark_nx_range
@@ -365,6 +376,12 @@ virt_mark_nx_range:
     push rbx
     push r12
     push r13
+
+    mov ebx, 1
+    ; Bit 63 is reserved unless EFER.NXE is active.  cpu_init_hardware records
+    ; that state before memory initialization reaches this routine.
+    cmp byte [cpu_has_nx], 0
+    je .nx_done
 
     test rsi, rsi
     jz .nx_done
@@ -376,6 +393,7 @@ virt_mark_nx_range:
     ; Calculate end address
     mov r13, rdi
     add r13, rsi                    ; R13 = end virtual address
+    jc .nx_invalid
 
 .nx_loop:
     cmp r12, r13
@@ -419,13 +437,16 @@ virt_mark_nx_range:
     jmp .nx_loop
 
 .nx_not_mapped:
-    ; Not mapped, just advance by 4KB to check next page
+    xor ebx, ebx                    ; keep walking, but report partial failure
     add r12, 4096
     jmp .nx_loop
 
+.nx_invalid:
+    xor ebx, ebx
 .nx_done:
     ; Flush the TLB to make the execute protection active immediately
     call tlb_flush_all_global
+    mov eax, ebx
 
     pop r13
     pop r12

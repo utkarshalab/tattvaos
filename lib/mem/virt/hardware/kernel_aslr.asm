@@ -43,7 +43,7 @@ kernel_live_aslr_migrate:
     ; 1. Acquire system-wide simulated IPI lock
     mov r8, 1
 .acquire_ipi:
-    lock xchg [ipi_system_lock], r8
+    xchg [ipi_system_lock], r8      ; Memory-form XCHG is implicitly locked
     test r8, r8
     jnz .acquire_ipi
 

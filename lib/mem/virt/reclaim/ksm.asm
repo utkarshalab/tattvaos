@@ -120,12 +120,12 @@ ksm_scan_and_merge:
     mov rsi, [rax]
     and rsi, ~0x02                  ; Clear Writable (bit 1)
     or rsi, 0x200                   ; Set PAGE_COW
-    lock xchg [rax], rsi
+    xchg [rax], rsi                 ; Memory-form XCHG is implicitly locked
 
     ; Update current PTE to point to candidate's physical address as Read-Only + COW
     mov rsi, [rdx + ksm_entry_t.phys_addr]
     or rsi, 0x201                   ; Present | COW (R/W=0, User=1, Global=0)
-    lock xchg [r11], rsi
+    xchg [r11], rsi                 ; Memory-form XCHG is implicitly locked
 
     ; Invalidate TLB for current virtual address
     invlpg [r15]

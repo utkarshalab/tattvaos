@@ -225,7 +225,7 @@ virt_share_page_directories:
     ; Found existing mapping! Acquire spinlock
 .lock_existing:
     mov r10, 1
-    lock xchg [rax + shared_dir_desc_t.lock], r10
+    xchg [rax + shared_dir_desc_t.lock], r10
     test r10, r10
     jz .acquired_existing
     pause
@@ -318,7 +318,7 @@ virt_shared_page_release:
     ; Acquire spinlock
 .lock_spin:
     mov r10, 1
-    lock xchg [rax + shared_dir_desc_t.lock], r10
+    xchg [rax + shared_dir_desc_t.lock], r10
     test r10, r10
     jz .acquired
     pause

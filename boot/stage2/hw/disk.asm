@@ -24,6 +24,7 @@ disk_get_geometry:
     push cx
     push dx
     push di
+    push ds
     push es
 
     ; 1. Clear ES:DI (guards against BIOS bugs)
@@ -35,6 +36,10 @@ disk_get_geometry:
     mov ah, 0x08
     mov dl, [boot_drive]
     int 0x13
+    pushf
+    xor ax, ax                      ; defensive: firmware may alter DS
+    mov ds, ax
+    popf
     jc .done                         ; if carry set, query failed, keep defaults
 
     ; 3. Extract sectors per track
@@ -53,6 +58,7 @@ disk_get_geometry:
 
 .done:
     pop es
+    pop ds
     pop di
     pop dx
     pop cx
@@ -78,6 +84,7 @@ disk_query_edd:
 
     xor ax, ax
     mov ds, ax
+    mov byte [edd_supported], 0
     mov si, edd_params_block
     mov word [si], 74                ; buffer size = 74 bytes (EDD 3.0)
     mov word [si + 30], 0            ; clear key
@@ -85,7 +92,19 @@ disk_query_edd:
     mov ah, 0x48                     ; INT 13h AH=48h
     mov dl, [boot_drive]
     int 0x13
+    pushf
+    xor ax, ax                      ; restore access to the stage2 data area
+    mov ds, ax
+    popf
     jc .done
+
+    cmp word [edd_params_block], 26 ; total-sector field must be present
+    jb .done
+    mov ax, [edd_params_block + 16]
+    or ax, [edd_params_block + 18]
+    or ax, [edd_params_block + 20]
+    or ax, [edd_params_block + 22]
+    jz .done                        ; a boot disk cannot contain zero sectors
 
     mov byte [edd_supported], 1
 

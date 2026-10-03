@@ -116,7 +116,8 @@ ugpu_detect_init:
     cmp rax, UGPU_MAX_DEVICES
     jae .next_func
     imul rax, ugpu_device_t_size
-    lea r15, [rel ugpu_devices + rax]
+    lea r15, [rel ugpu_devices]
+    add r15, rax
 
     mov [r15 + ugpu_device_t.bus], r12d
     mov [r15 + ugpu_device_t.device], r13d

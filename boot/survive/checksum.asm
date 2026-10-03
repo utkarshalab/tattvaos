@@ -13,8 +13,18 @@
 
 [BITS 64]
 
+; The immutable snapshot consists of the saved CPU state (0x000..0x0FF)
+; followed by the 1536-byte stack image (0x100..0x6FF).  Panic diagnostics
+; deliberately live at 0x800 and 0xA00 and therefore must not be included in
+; this checksum: wakeup writes those areas before asking us to verify the
+; pristine state.
+SURVIVE_IMMUTABLE_BYTES equ 0x700
+SURVIVE_MAGIC_OFFSET    equ 0xFF0
+SURVIVE_CRC_OFFSET      equ 0xFFC
+SURVIVE_MAGIC           equ 0x504E535654544154 ; "TATTVSNP"
+
 ; =============================================================================
-; survive_checksum_save — computes CRC32 of first 4092 bytes and saves at 0x9FFC
+; survive_checksum_save — checksum immutable state and stamp the CRC slot
 ; Input:  none
 ; Clobbers: none
 ; =============================================================================
@@ -23,15 +33,17 @@ survive_checksum_save:
     push rcx
     push rbx
     push rdx
+    push r10
     push rax
 
-    mov rsi, SURVIVE_PAGE           ; SURVIVE_PAGE
-    mov rcx, 4092                   ; compute over 4092 bytes
+    mov rsi, SURVIVE_PAGE
+    mov rcx, SURVIVE_IMMUTABLE_BYTES
     call helper_crc32
     
-    mov [SURVIVE_PAGE + 0xFFC], eax ; store at the very end of the page
+    mov [SURVIVE_PAGE + SURVIVE_CRC_OFFSET], eax
 
     pop rax
+    pop r10
     pop rdx
     pop rbx
     pop rcx
@@ -49,12 +61,20 @@ survive_checksum_verify:
     push rcx
     push rbx
     push rdx
+    push r10
 
-    mov rsi, SURVIVE_PAGE           ; SURVIVE_PAGE
-    mov rcx, 4092                   ; compute over 4092 bytes
+    ; The magic is outside the CRC-covered prefix so the mutable diagnostic
+    ; regions can remain between the snapshot and its trailer.  Check it
+    ; explicitly before trusting any saved control state.
+    mov rax, SURVIVE_MAGIC
+    cmp qword [SURVIVE_PAGE + SURVIVE_MAGIC_OFFSET], rax
+    jne .mismatch
+
+    mov rsi, SURVIVE_PAGE
+    mov rcx, SURVIVE_IMMUTABLE_BYTES
     call helper_crc32
     
-    cmp eax, [SURVIVE_PAGE + 0xFFC]
+    cmp eax, [SURVIVE_PAGE + SURVIVE_CRC_OFFSET]
     jne .mismatch
     
     mov rax, 1
@@ -64,6 +84,7 @@ survive_checksum_verify:
     xor rax, rax
 
 .done:
+    pop r10
     pop rdx
     pop rbx
     pop rcx

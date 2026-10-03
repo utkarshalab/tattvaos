@@ -196,7 +196,8 @@ ucpu_topology_decode_current:
     cmp eax, PERCPU_MAX_CORES
     jae .unsupported                ; out of table bounds — should not happen
     imul rax, ucpu_topology_t_size
-    lea rbx, [rel ucpu_topology_table + rax]
+    lea rbx, [rel ucpu_topology_table]
+    add rbx, rax
 
     mov [rbx + ucpu_topology_t.smt_id], r8d
     mov [rbx + ucpu_topology_t.core_id], r9d
@@ -233,7 +234,8 @@ ucpu_topology_get:
 
     mov rax, rdi
     imul rax, ucpu_topology_t_size
-    lea r8, [rel ucpu_topology_table + rax]
+    lea r8, [rel ucpu_topology_table]
+    add r8, rax
 
     cmp dword [r8 + ucpu_topology_t.valid], 0
     je .not_found
@@ -320,7 +322,8 @@ ucpu_cache_topology_scan:
     ; table-entry pointer without disturbing EAX/R8D/R9D/R10D/EBX/EDX.
     mov ecx, r13d
     imul rcx, ucpu_cache_t_size
-    lea rcx, [rel ucpu_cache_levels + rcx]
+    lea rdi, [rel ucpu_cache_levels]
+    add rcx, rdi
 
     mov [rcx + ucpu_cache_t.level], r9d
     mov [rcx + ucpu_cache_t.type], r8d

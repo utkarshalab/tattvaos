@@ -35,8 +35,8 @@ s1_load_stage2:
     ; -----------------------------------------------------------------
     ; Step 1: Detect LBA support
     ; -----------------------------------------------------------------
-    call s1_lba_detect              ; CF set if LBA not supported
-    jc .try_chs                     ; no LBA → fall back to CHS
+    call s1_lba_detect              ; CF set if EDD extended read unavailable
+    jc .load_failed                 ; x86-64 target requires EDD
 
     ; -----------------------------------------------------------------
     ; Step 2a: Load via LBA (INT 13h AH=42h)
@@ -45,25 +45,6 @@ s1_load_stage2:
     mov dl, [boot_drive]
     call s1_disk_read_lba
     jc .load_failed                 ; all LBA retries failed
-    jmp .verify
-
-.try_chs:
-    ; -----------------------------------------------------------------
-    ; Step 2b: Load via CHS (INT 13h AH=02h)
-    ; -----------------------------------------------------------------
-    ; Stage2 starts at LBA 1 → CHS: cylinder 0, head 0, sector 2
-    xor ax, ax
-    mov es, ax                      ; ES = 0x0000
-    mov bx, STAGE2_LOAD             ; ES:BX = 0x0000:0x8000
-
-    mov ah, 0x02                    ; read sectors
-    mov al, STAGE2_SECTORS          ; number of sectors
-    mov ch, 0                       ; cylinder 0
-    mov cl, 2                       ; sector 2 (1-indexed, sector 1 = MBR)
-    mov dh, 0                       ; head 0
-    mov dl, [boot_drive]
-    call s1_disk_read_chs
-    jc .load_failed
 
 .verify:
     ; -----------------------------------------------------------------

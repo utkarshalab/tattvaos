@@ -221,14 +221,46 @@ CPU_FEAT_AMX    equ (1 << 7)       ; AMX supported
 ; =============================================================================
 [BITS 32]
 stage2_main_pm32:
+    ; Descriptor and paging checks are trust gates, not diagnostics. Continuing
+    ; after either one fails would turn a useful UART error into a reset or
+    ; triple fault during the mode switch.
+    call gdt_verify
+    jc .gdt_failed
+
     call idt_setup
     call paging_setup
     call test_paging
+    jc .paging_failed
+
     call simd_enable
+    jc .simd_failed
+
     call longmode_enter
 
+.gdt_failed:
+    mov esi, msg_pm32_gdt_halt
+    jmp .fatal
+
+.paging_failed:
+    mov esi, msg_pm32_paging_halt
+    jmp .fatal
+
+.simd_failed:
+    mov esi, msg_pm32_simd_halt
+
+.fatal:
+    call uart_print_pm
+.halt_pm32:
     cli
     hlt
+    jmp .halt_pm32
+
+msg_pm32_gdt_halt:
+    db "HALT: GDT verification failed", 0x0D, 0x0A, 0
+msg_pm32_paging_halt:
+    db "HALT: paging verification failed", 0x0D, 0x0A, 0
+msg_pm32_simd_halt:
+    db "HALT: SIMD/XCR0 initialization failed", 0x0D, 0x0A, 0
 [BITS 16]
 
 ; =============================================================================

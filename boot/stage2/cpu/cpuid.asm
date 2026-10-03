@@ -98,9 +98,12 @@ cpu_detect:
     or dword [FEATURES_DEST], CPU_FEAT_SSE2
 .no_sse2:
 
-    ; AVX (ECX bit 28)
-    test ecx, (1 << 28)
-    jz .no_avx
+    ; AVX is usable only when the CPU also exposes the XSAVE mechanism needed
+    ; to enable its architectural state component in XCR0.
+    mov eax, ecx
+    and eax, (1 << 26) | (1 << 28)
+    cmp eax, (1 << 26) | (1 << 28)
+    jne .no_avx
     or dword [FEATURES_DEST], CPU_FEAT_AVX
 .no_avx:
 
@@ -121,21 +124,16 @@ cpu_detect:
     cpuid
 
     ; AVX2 (EBX bit 5)
+    test dword [FEATURES_DEST], CPU_FEAT_AVX
+    jz .no_avx2
     test ebx, (1 << 5)
     jz .no_avx2
     or dword [FEATURES_DEST], CPU_FEAT_AVX2
 .no_avx2:
 
-    ; AVX-512F (EBX bit 16)
-    test ebx, (1 << 16)
-    jz .no_avx512
-    or dword [FEATURES_DEST], CPU_FEAT_AVX512
+    ; AVX-512 and AMX require additional XCR0/XSS state that stage2 does not
+    ; yet provision. Do not advertise them as usable through BootInfo.
 .no_avx512:
-
-    ; AMX-TILE (EDX bit 24)
-    test edx, (1 << 24)
-    jz .no_amx
-    or dword [FEATURES_DEST], CPU_FEAT_AMX
 .no_amx:
 
 .check_extended:

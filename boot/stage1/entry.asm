@@ -57,8 +57,6 @@ entry:
                                     ; stack grows DOWN from here
                                     ; safe: we relocate MBR before using stack heavily
 
-    sti                             ; re-enable interrupts
-
     ; -------------------------------------------------------------------------
     ; STEP 2: Save boot drive number from DL
     ; -------------------------------------------------------------------------
@@ -84,14 +82,16 @@ entry:
     mov cx, 512                     ; copy 512 bytes (full MBR)
     rep movsb                       ; copy SI → DI, decrement CX
 
-    ; far jump to relocated code
-    ; 0x0000:relocated_entry = physical address of relocated_entry after copy
-    jmp 0x0000:relocated_entry
+    ; NASM labels include ORG 0x7C00, so a direct jump to relocated_entry
+    ; would silently jump back into the original sector.  Translate the
+    ; label to its offset inside the copy before making the far jump.
+    jmp 0x0000:(STAGE1_RELOC + relocated_entry - $$)
 
 ; =============================================================================
 ; relocated_entry — continues execution from 0x0600
-; All addresses here are relative to ORG 0x7C00 but executing at 0x0600.
-; NASM resolves labels relative to ORG so we adjust manually with STAGE1_RELOC.
+; Code executes from the 0x0600 copy.  Absolute data addresses intentionally
+; continue to reference the original sector at 0x7C00; the stage2 stack cannot
+; overwrite the preserved 0x0600 copy used by measured boot.
 ; =============================================================================
 relocated_entry:
     ; -------------------------------------------------------------------------
@@ -105,6 +105,7 @@ relocated_entry:
     mov es, ax
     mov ss, ax
     mov sp, STACK_REAL              ; stack at 0x7C00 (MBR region now free)
+    sti                             ; relocation is complete; BIOS may use IRQs
 
     ; -------------------------------------------------------------------------
     ; STEP 4: Quick A20 enable (fast port 0x92 method)
@@ -124,55 +125,66 @@ relocated_entry:
     ; -------------------------------------------------------------------------
     ; STEP 5: Detect LBA support
     ; -------------------------------------------------------------------------
-    ; LBA is simpler and more reliable than CHS.
-    ; Almost all hardware made after 1996 supports LBA.
-    ; We try LBA first, fall back to CHS if not available.
+    ; Loading 64 sectors in one legacy CHS request crosses a track boundary
+    ; and is not portable.  The x86-64 target therefore requires BIOS EDD and
+    ; fails closed when extended disk reads are unavailable.
     ; -------------------------------------------------------------------------
     mov ah, 0x41                    ; INT 13h AH=41h: check LBA extensions
     mov bx, 0x55AA                  ; magic value required by BIOS
     mov dl, [boot_drive]            ; boot drive
     int 0x13                        ; call BIOS
-    jc .no_lba                      ; carry set = LBA not supported
+    pushf                           ; restore segments without losing CF
+    xor ax, ax                      ; defensive: buggy BIOSes may alter DS/ES
+    mov ds, ax
+    mov es, ax
+    popf
+    jc .edd_error                   ; carry set = EDD not supported
     cmp bx, 0xAA55                  ; BIOS should flip magic value
-    jne .no_lba                     ; if not flipped, LBA not real
-    mov byte [lba_supported], 1     ; LBA supported
-    jmp .lba_detected
+    jne .edd_error                  ; if not flipped, EDD is not real
+    test cx, 0x0001                 ; bit 0 advertises extended disk access
+    jz .edd_error
 
-.no_lba:
-    mov byte [lba_supported], 0     ; CHS fallback required
-
-.lba_detected:
     ; -------------------------------------------------------------------------
     ; STEP 6: Load stage2 from disk
     ; -------------------------------------------------------------------------
     ; Stage2 starts at LBA sector 1 (sector after MBR).
     ; We load STAGE2_SECTORS sectors to STAGE2_LOAD (0x8000).
     ; -------------------------------------------------------------------------
-    cmp byte [lba_supported], 1
-    je .load_lba
-    jmp .load_chs                   ; fallback to CHS
+    mov byte [disk_retries], DISK_RETRY
 
-    ; --- LBA load ---
 .load_lba:
+    ; BIOS may replace the DAP count with a partial-transfer count on error.
+    ; Every retry starts the complete transfer from LBA 1 again.
+    mov word [lba_packet + 2], STAGE2_SECTORS
     mov si, lba_packet              ; point to disk address packet
     mov ah, 0x42                    ; INT 13h AH=42h: extended read
     mov dl, [boot_drive]
     int 0x13
-    jc .disk_error                  ; carry = error
-    jmp .load_done
+    pushf
+    xor ax, ax                      ; restore flat data segments after BIOS
+    mov ds, ax
+    mov es, ax
+    popf
+    jnc .load_done
 
-    ; --- CHS load (fallback) ---
-.load_chs:
-    mov ah, 0x02                    ; INT 13h AH=02h: read sectors
-    mov al, STAGE2_SECTORS          ; number of sectors to read
-    mov ch, 0                       ; cylinder 0
-    mov cl, 2                       ; sector 2 (1-indexed, sector 1 = MBR)
-    mov dh, 0                       ; head 0
+    dec byte [disk_retries]
+    jz .disk_error
+
+    ; Reset the same BIOS drive before retrying.  Rebuild every input to the
+    ; extended-read call on each iteration instead of trusting BIOS register
+    ; preservation after an error.
+    xor ax, ax                      ; INT 13h AH=00h: reset disk system
     mov dl, [boot_drive]
-    mov bx, STAGE2_LOAD             ; load to ES:BX = 0x0000:0x8000
     int 0x13
-    jc .disk_error
-    jmp .load_done
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
+    jmp .load_lba
+
+.edd_error:
+    mov si, msg_edd_error
+    call print_str
+    jmp .halt
 
 .disk_error:
     ; print error and halt
@@ -199,7 +211,9 @@ relocated_entry:
     ; Stage2 will re-save it immediately on entry.
     ; -------------------------------------------------------------------------
     mov dl, [boot_drive]            ; restore DL for stage2
-    jmp STAGE2_LOAD + 4             ; jump to 0x8004 (skip magic number)
+    ; This must be an absolute far jump: a near jump assembled under ORG
+    ; 0x7C00 would retain the relocation delta while executing at 0x0600.
+    jmp 0x0000:(STAGE2_LOAD + 4)    ; jump to 0x8004 (skip magic number)
 
 .magic_error:
     mov si, msg_magic_error
@@ -212,12 +226,12 @@ relocated_entry:
     jmp .halt                       ; if NMI wakes us, halt again
 
 ; =============================================================================
-; print_str — print null-terminated string via BIOS INT 10h
+; print_str — print null-terminated string via BIOS INT 10h and COM1
 ; Input: SI = pointer to string
-; Clobbers: AX, BX, SI
-; Note: debug only, remove in final build
+; Clobbers: AX, BX, DX, SI
 ; =============================================================================
 print_str:
+    call serial_init
     cld                             ; Clear direction flag for lodsb
     mov ah, 0x0E                    ; BIOS teletype output
     mov bh, 0                       ; page 0
@@ -227,10 +241,59 @@ print_str:
     lodsb                           ; load byte from SI, advance SI
     test al, al                     ; check for null terminator
     jz .done
+    push ax                         ; BIOS is not required to preserve AL
     int 0x10                        ; print character
+    pop ax
+    call serial_putc                ; mirror fatal diagnostics for headless boot
     jmp .loop
 
 .done:
+    ret
+
+; Minimal 115200 8-N-1 COM1 setup.  Stage2 initializes the UART again on a
+; successful boot; stage1 only needs it on a fatal path.
+serial_init:
+    mov dx, UART_COM1 + 1
+    xor al, al                      ; disable UART interrupts
+    out dx, al
+    mov dx, UART_COM1 + 3
+    mov al, 0x80                    ; enable divisor latch
+    out dx, al
+    mov dx, UART_COM1
+    mov al, UART_BAUD_DIV
+    out dx, al
+    inc dx
+    xor al, al                      ; divisor high byte
+    out dx, al
+    mov dx, UART_COM1 + 3
+    mov al, 0x03                    ; 8 data bits, no parity, 1 stop bit
+    out dx, al
+    mov dx, UART_COM1 + 2
+    mov al, 0xC7                    ; enable and clear FIFO
+    out dx, al
+    mov dx, UART_COM1 + 4
+    mov al, 0x0B                    ; DTR, RTS, OUT2
+    out dx, al
+    ret
+
+serial_putc:
+    push ax
+    push cx
+    mov cx, 0xFFFF                  ; never hang forever on a faulty UART
+    mov dx, UART_COM1 + 5
+.wait:
+    in al, dx
+    test al, 0x20                   ; transmitter holding register empty
+    jnz .ready
+    loop .wait
+    pop cx                          ; timeout: retain the VGA diagnostic
+    pop ax
+    ret
+.ready:
+    pop cx
+    pop ax
+    mov dx, UART_COM1
+    out dx, al
     ret
 
 ; =============================================================================
@@ -247,13 +310,15 @@ lba_packet:
     dw 0x0000                       ; memory segment (0x0000)
     dq 0x0000000000000001           ; LBA start sector = 1 (after MBR)
 
-; LBA support flag
-lba_supported:
+disk_retries:
     db 0
 
 ; Error messages (keep short — we are counting bytes)
 msg_disk_error:
     db "Disk err", 0x0D, 0x0A, 0
+
+msg_edd_error:
+    db "EDD req", 0x0D, 0x0A, 0
 
 msg_magic_error:
     db "Bad magic", 0x0D, 0x0A, 0

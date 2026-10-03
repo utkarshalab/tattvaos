@@ -14,7 +14,8 @@
 [BITS 32]
 
 ; =============================================================================
-; simd_enable — configure CR0, CR4, and XCR0 to enable SSE and AVX
+; simd_enable — configure CR0, CR4, and XCR0 to enable SSE and AVX safely
+; Output: CF=0 on success, CF=1 if mandatory state cannot be enabled
 ; =============================================================================
 simd_enable:
     push eax
@@ -22,14 +23,16 @@ simd_enable:
     push ecx
     push edx
 
-    ; -------------------------------------------------------------------------
-    ; Step 1: Configure CR0 flags
-    ; Clear CR0.EM (bit 2) — disable x87 emulation
-    ; Set CR0.MP (bit 1)   — monitor coprocessor (required for SSE)
-    ; -------------------------------------------------------------------------
+    mov eax, [FEATURES_DEST]
+    and eax, CPU_FEAT_SSE | CPU_FEAT_SSE2
+    cmp eax, CPU_FEAT_SSE | CPU_FEAT_SSE2
+    jne .failed
+
+    ; Clear EM/TS, set MP/NE. Leaving TS set would turn the first SIMD
+    ; instruction into #NM; CR0.NE gives architectural x87 exception handling.
     mov eax, cr0
-    and eax, ~0x00000004            ; clear EM
-    or eax, 0x00000002              ; set MP
+    and eax, ~((1 << 2) | (1 << 3))
+    or eax, (1 << 1) | (1 << 5)
     mov cr0, eax
 
     ; -------------------------------------------------------------------------
@@ -41,15 +44,26 @@ simd_enable:
     or eax, (1 << 9) | (1 << 10)    ; set OSFXSR + OSXMMEXCPT
     mov cr4, eax
 
-    ; -------------------------------------------------------------------------
-    ; Step 3: Enable AVX via XCR0 if supported by hardware
-    ; Query CPUID basic leaf 1 to check for XSAVE support (ECX bit 26)
-    ; If XSAVE is supported, we can set XCR0 flags.
-    ; -------------------------------------------------------------------------
+    ; A CPU without AVX remains a valid stage2 target. When AVX was advertised,
+    ; require the complete XSAVE contract before executing XSETBV.
+    test dword [FEATURES_DEST], CPU_FEAT_AVX
+    jz .success
+    cmp dword [cpu_max_leaf], 0x0D
+    jb .failed
+
     mov eax, 1
     cpuid
-    test ecx, (1 << 26)             ; check XSAVE bit
-    jz .no_avx
+    mov eax, ecx
+    and eax, (1 << 26) | (1 << 28) ; XSAVE + AVX hardware support
+    cmp eax, (1 << 26) | (1 << 28)
+    jne .failed
+
+    mov eax, 0x0D
+    xor ecx, ecx
+    cpuid
+    and eax, 0x07                   ; x87, SSE, and AVX state components
+    cmp eax, 0x07
+    jne .failed
 
     ; Set CR4.OSXSAVE (bit 18) to allow XSETBV/XGETBV instructions
     mov eax, cr4
@@ -62,11 +76,26 @@ simd_enable:
     or eax, 0x07                    ; set x87 + SSE + AVX flags
     xsetbv                          ; write back XCR0
 
-.no_avx:
+    xor ecx, ecx
+    xgetbv
+    and eax, 0x07
+    cmp eax, 0x07
+    jne .failed
+
+.success:
     pop edx
     pop ecx
     pop ebx
     pop eax
+    clc
+    ret
+
+.failed:
+    pop edx
+    pop ecx
+    pop ebx
+    pop eax
+    stc
     ret
 
 [BITS 16]

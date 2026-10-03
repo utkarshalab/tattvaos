@@ -51,11 +51,14 @@ ulog_full_init:
     test rax, rax
     jz .fail
 
-    call ulog_mode_transition_to_full
-
     call drain_fiber_start
     test rax, rax
     jz .fail
+
+    ; Publish full mode only after every dependency, including the drain
+    ; fiber, exists. A partial failure must leave callers on the safe early
+    ; synchronous path.
+    call ulog_mode_transition_to_full
 
     mov rax, 1
     ret

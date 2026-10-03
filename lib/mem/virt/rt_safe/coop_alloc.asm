@@ -121,6 +121,8 @@ section .data
 global coop_test_mode
 coop_test_mode: dq 0
 
+section .text
+
 ; -----------------------------------------------------------------------------
 ; coop_process_requests — processes all outstanding allocation requests in the queue
 ; Input:

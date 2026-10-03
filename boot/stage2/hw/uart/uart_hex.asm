@@ -110,91 +110,50 @@ uart_print_hex16:
 ; =============================================================================
 uart_print_hex32:
     push eax
-    push ecx
-
-    ; print "0x" prefix
-    push eax
     mov si, str_0x
     call uart_print
     pop eax
+    call uart_print_hex32_raw
+    ret
 
-    ; print 8 nibbles from high to low
-    mov ecx, 8                      ; 8 nibbles in 32-bit value
-
-.loop32:
-    push ecx
-    push eax
-
-    ; rotate to get next nibble from top
-    mov ecx, 28                     ; shift amount for first nibble
-    ; recalculate shift: (loop_count - 1) * 4
-    pop eax
-    pop ecx
-
-    ; simpler approach: rotate eax left, print nibble
+; uart_print_hex32_raw — print exactly eight hex digits with no prefix.
+; Input: EAX = value. Preserves EAX/ECX/EDX.
+uart_print_hex32_raw:
     push eax
     push ecx
+    push edx
+    mov edx, eax
     mov ecx, 8
-    sub ecx, ecx                    ; will redo this properly below
+.raw_loop32:
+    rol edx, 4
+    push edx                        ; uart_putc uses DX for the UART port
+    movzx eax, dl
+    and eax, 0x0F
+    mov al, [hex_chars + eax]
+    call uart_putc
+    pop edx
+    loop .raw_loop32
+    pop edx
     pop ecx
     pop eax
+    ret
 
-    ; print all 8 hex digits high to low
+; uart_print_hex64_16 — print EDX:EAX as one fixed-width 64-bit hex value.
+; This is the real-mode counterpart of uart_print_hex64 below.
+uart_print_hex64_16:
+    push si
     push eax
-    shr eax, 28                     ; get top 4 bits
-    and eax, 0x0F
-    mov al, [hex_chars + eax]
-    call uart_putc
+    push edx
+    mov si, str_0x
+    call uart_print
+    pop edx                         ; restore high half after UART clobbered DX
+    pop eax                         ; restore low half
+    push eax                        ; keep low half across high-half rendering
+    mov eax, edx
+    call uart_print_hex32_raw
     pop eax
-
-    push eax
-    shr eax, 24
-    and eax, 0x0F
-    mov al, [hex_chars + eax]
-    call uart_putc
-    pop eax
-
-    push eax
-    shr eax, 20
-    and eax, 0x0F
-    mov al, [hex_chars + eax]
-    call uart_putc
-    pop eax
-
-    push eax
-    shr eax, 16
-    and eax, 0x0F
-    mov al, [hex_chars + eax]
-    call uart_putc
-    pop eax
-
-    push eax
-    shr eax, 12
-    and eax, 0x0F
-    mov al, [hex_chars + eax]
-    call uart_putc
-    pop eax
-
-    push eax
-    shr eax, 8
-    and eax, 0x0F
-    mov al, [hex_chars + eax]
-    call uart_putc
-    pop eax
-
-    push eax
-    shr eax, 4
-    and eax, 0x0F
-    mov al, [hex_chars + eax]
-    call uart_putc
-    pop eax
-
-    and eax, 0x0F
-    mov al, [hex_chars + eax]
-    call uart_putc
-
-    pop ecx
-    pop eax
+    call uart_print_hex32_raw
+    pop si
     ret
 
 [BITS 64]

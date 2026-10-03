@@ -1156,6 +1156,8 @@ align 8
 global zero_page_addr
 zero_page_addr:         dq 0
 
+section .text
+
 ; -----------------------------------------------------------------------------
 ; virt_handle_swap_fault — handles swap-in of a page from mock swap space
 ; Input:

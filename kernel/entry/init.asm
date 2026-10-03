@@ -36,6 +36,22 @@ kernel_init:
     ; 2. Initialize Kernel GDT & TSS (with IST stack overflow protection)
     call gdt_init
 
+    ; Loading GS in gdt_init resets its effective base to the descriptor's
+    ; zero base. Program MSR_GS_BASE only after that final segment reload, then
+    ; read it back before any GS-relative accessor is allowed to run.
+    mov ecx, 0xC0000101             ; MSR_GS_BASE
+    mov rax, bsp_cpu_local
+    mov rdx, rax
+    shr rdx, 32
+    wrmsr
+
+    mov ecx, 0xC0000101
+    rdmsr
+    shl rdx, 32
+    or rax, rdx
+    cmp rax, bsp_cpu_local
+    jne .bad_gs_base
+
     ; 3. Print initial boot message
     mov rsi, msg_kernel_boot
     call uart_print_str
@@ -49,7 +65,7 @@ kernel_init:
     ; 4. Print BootInfo physical address
     mov rsi, msg_boot_info_loc
     call uart_print_str
-    mov rax, rdi
+    mov rax, [boot_info_ptr]
     call uart_print_hex64
     mov rsi, msg_crlf
     call uart_print_str
@@ -129,27 +145,15 @@ kernel_init:
     mov rsi, msg_ok
     call uart_print_str
 
-    ; 6b. ulog full mode — needs the heap (step 5) and fiber_create (step 6),
-    ; so it lands here: pool + this core's ring + serial sink + the drain
-    ; daemon fiber all come up together, then early-mode calls switch over.
-    ;
-    ; STILL PAGE-FAULTS even with bsp_cpu_local rebuilt as a real istruc
-    ; percpu_t (verified: rebuilt, rebooted, same fault). Isolated the exact
-    ; instruction via the page-fault handler's own R15 (pointer to the
-    ; saved return RIP) rather than guessing from a register snapshot:
-    ; log_ring_alloc_for_this_cpu's `mov [ulog_rings_by_cpu + rax*8], rbx`,
-    ; writing to computed address ~0x2CAB648 (~45MB in) — non-present.
-    ; Neither ulog_rings_by_cpu (512 bytes) nor a single core's ring_t
-    ; (~32KB, confirmed via the heap_alloc size immediately before this)
-    ; explain a .bss address that far out; this is either the whole tree's
-    ; combined .bss genuinely reaching ~45MB (plausible at this codebase's
-    ; scale, in which case something isn't extending the identity map that
-    ; far) or a link-time address computed wrong. Both are outside what a
-    ; scheduler-focused sweep can respons­ibly chase down. Bypassed again,
-    ; same as before — restore once root-caused.
+    ; 6b. ulog full mode — needs the heap (step 5), scheduler (step 6), and a
+    ; valid GS-relative CPU ID. The old fault in ulog_rings_by_cpu was caused
+    ; by programming GS before gdt_init reset it to a zero-base descriptor;
+    ; GS is now established and verified immediately after gdt_init above.
     mov rsi, msg_init_ulog
     call uart_print_str
-    ; call ulog_full_init
+    call ulog_full_init
+    test rax, rax
+    jz .ulog_init_failed
     mov rsi, msg_ok
     call uart_print_str
 
@@ -170,6 +174,22 @@ kernel_init:
     ; 9. Jump to the main kernel loop
     jmp kernel_main
 
+.bad_gs_base:
+    mov rsi, msg_bad_gs_base
+    call uart_print_str
+    cli
+.bad_gs_halt:
+    hlt
+    jmp .bad_gs_halt
+
+.ulog_init_failed:
+    mov rsi, msg_ulog_failed
+    call uart_print_str
+    cli
+.ulog_halt:
+    hlt
+    jmp .ulog_halt
+
 ; -----------------------------------------------------------------------------
 ; Subsystem Initialization Stubs
 ; (To be replaced by actual implementations in subsequent milestones)
@@ -188,17 +208,33 @@ mm_init:
     mov rsi, kernel_bss_end
     sub rsi, 0x100000                ; kernel size, .bss included
     call virt_mark_global_range
+    test rax, rax
+    jz .error
 
     ; 1b. Mark kernel code segment as read-only for write protection
     mov rdi, kernel_text_start
     mov rsi, kernel_text_end
     sub rsi, rdi                    ; kernel code size
     call virt_mark_read_only_range
+    test rax, rax
+    jz .error
+
+    ; 1c. Reassert NX for every initialized-data and BSS page. Stage2 already
+    ; establishes this policy; doing it again makes the kernel's own page-table
+    ; contract explicit and catches an incomplete identity map fail-closed.
+    mov rdi, kernel_end
+    mov rsi, kernel_bss_end
+    sub rsi, rdi
+    call virt_mark_nx_range
+    test rax, rax
+    jz .error
 
     ; 2. Mark physical allocator bitmap as global
     mov rdi, [phys_state + phys_state_t.bitmap_addr]
     mov rsi, [phys_state + phys_state_t.bitmap_size]
     call virt_mark_global_range
+    test rax, rax
+    jz .error
 
     ; 3. Allocate 1024 pages (4MB) for kernel early bump heap
     mov rdi, 1024
@@ -213,6 +249,8 @@ mm_init:
     mov rdi, rax
     mov rsi, 1024 * 4096            ; 4MB size
     call virt_mark_global_range
+    test rax, rax
+    jz .error
 
     pop rax                         ; restore heap start address
 
@@ -221,6 +259,8 @@ mm_init:
     mov rdi, rax
     mov rsi, 1024 * 4096            ; 4MB size
     call virt_mark_nx_range
+    test rax, rax
+    jz .error
     pop rax
 
     mov rdi, rax
@@ -250,17 +290,26 @@ mm_init:
     ; 5. Unmap the kernel stack guard page to trap stack overflows
     mov rdi, kernel_stack_guard
     call virt_unmap
+    mov rdi, kernel_stack_guard
+    xor rsi, rsi
+    call virt_walk_table
+    test rax, rax
+    jnz .error
 
     ; 5b. Mark active kernel stack as NX (No-Execute)
     mov rdi, kernel_stack_bottom
     mov rsi, kernel_stack_top
     sub rsi, rdi                    ; size of stack
     call virt_mark_nx_range
+    test rax, rax
+    jz .error
 
     ret
 
 
 .error:
+    mov rsi, msg_mm_protection_failed
+    call uart_print_str
     cli
     hlt
     jmp .error
@@ -306,6 +355,9 @@ msg_init_gdt:        db "Initializing Kernel GDT/TSS... ", 0
 msg_boot_info_loc:   db "BootInfo Pointer: ", 0
 msg_gs_base_loc:     db "GS Base register: ", 0
 msg_gs_api_test:     db "GS Accessor Test (CPU/Stack): ", 0
+msg_bad_gs_base:     db "KERNEL PANIC: GS base initialization failed", 0x0D, 0x0A, 0
+msg_ulog_failed:      db "FAIL", 0x0D, 0x0A, "KERNEL PANIC: ulog full initialization failed", 0x0D, 0x0A, 0
+msg_mm_protection_failed: db "FAIL", 0x0D, 0x0A, "KERNEL PANIC: memory protection setup failed", 0x0D, 0x0A, 0
 msg_init_cpu:        db "Initializing CPU hardware & features... ", 0
 msg_init_ucpu_topo:  db "Decoding CPU topology & cache hierarchy (lib/hw/ucpu)... ", 0
 msg_init_idt:        db "Initializing Exception Handlers (IDT)... ", 0

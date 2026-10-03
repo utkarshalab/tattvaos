@@ -26,11 +26,16 @@ ulf_header:
     ; so the true length is patched in after the link.
     dd kernel_end - ulf_header      ; size of binary (patched post-link)
     dq kernel_entry                 ; dynamic entry point
-    ; Not computed, and nothing verifies it. A checksum only earns its place
-    ; once the loader checks it; until then this stays an obvious placeholder
-    ; rather than a real-looking value that has never been validated.
+    ; The build stamps the additive checksum after patching the final image
+    ; size. Stage2 recomputes it across the complete loaded image before any
+    ; kernel code executes; this recognizable value is only a build placeholder.
     dq 0x123456789ABCDEF0           ; checksum placeholder
-    dq 0                            ; reserved
+    ; Executable bytes start at the image base and end on a 4KB boundary after
+    ; .text. Stage2 uses this independently of the full file size to build an
+    ; RX-code/RW+NX-data bootstrap map. Keep it within the first 1MB kernel
+    ; window until the boot mapper grows additional 4KB page tables.
+    dd kernel_end - ulf_header      ; executable extent in bytes
+    dd 1                            ; ULF header version
 
 ; -----------------------------------------------------------------------------
 ; Kernel Entry Point
@@ -138,16 +143,17 @@ kernel_text_start:
     global kernel_text_end
 kernel_text_end:
 
-align 8
+; Make the protection boundary explicit.  Relying on a later data object's
+; alignment can place writable data in the final executable page.
+align 4096, db 0xCC
 kernel_end:
 
 ; -----------------------------------------------------------------------------
 ; kernel_bss_end — true top of the kernel's memory footprint, .bss included.
 ;
-; kernel_end (above) and the ULF header's size field both stop at the end of
-; .text+.data+.rodata — the bytes actually written to the image on disk. That
-; is correct for what they're for: it's exactly what a loader needs to copy.
-; It is NOT correct for "how much RAM does the kernel occupy", because .bss —
+; kernel_end (above) is the page-aligned executable boundary after .text. The
+; stamped ULF size covers .text+.data+.rodata — all bytes written to disk.
+; Neither is correct for "how much RAM does the kernel occupy", because .bss —
 ; every global the kernel initializes to zero, including phys_state, the
 ; kernel stacks (kernel_stack_guard among them), smp_active_cores, all of
 ; it — reserves address space without contributing any bytes to the file, and

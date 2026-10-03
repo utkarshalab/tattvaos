@@ -61,6 +61,14 @@ stage2_entry:
                                     ; grows down from 0x8000
                                     ; safe: stage1 is at 0x0600, stack has room
 
+    ; Preserve the firmware PIC masks for the warm-recovery BIOS window.  The
+    ; kernel later masks every IRQ; blindly executing INT 13h in that state can
+    ; hang firmware implementations that depend on controller interrupts.
+    in al, 0x21
+    mov [boot_pic_master_mask], al
+    in al, 0xA1
+    mov [boot_pic_slave_mask], al
+
     sti                             ; re-enable interrupts
 
     ; -------------------------------------------------------------------------
@@ -146,6 +154,7 @@ stage2_entry:
 %include "gdt_load.asm"
 %include "gdt_verify.asm"
 %include "idt_load.asm"
+%include "idt64.asm"
 %include "paging.asm"
 %include "paging_map.asm"
 %include "paging_verify.asm"
@@ -188,6 +197,9 @@ msg_drive:
 
 msg_main_returned:
     db "ERROR: stage2_main returned unexpectedly", 0
+
+boot_pic_master_mask: db 0xFF
+boot_pic_slave_mask:  db 0xFF
 
 ; =============================================================================
 ; End of entry.asm

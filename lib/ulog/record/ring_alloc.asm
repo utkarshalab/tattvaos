@@ -38,6 +38,11 @@ section .text
 global log_ring_alloc_for_this_cpu
 log_ring_alloc_for_this_cpu:
     push rbx
+    push r12
+
+    mov r12d, [gs:percpu_t.cpu_id]
+    cmp r12d, PERCPU_MAX_CORES
+    jae .fail
 
     mov rdi, ring_t_size
     call heap_alloc
@@ -51,13 +56,14 @@ log_ring_alloc_for_this_cpu:
     cld
     rep stosq                       ; zero the whole struct, including .slots
 
-    mov eax, [gs:percpu_t.cpu_id]
+    mov eax, r12d
     mov [rbx + ring_t.cpu_id], eax
 
     mov [gs:percpu_t.log_ring], rbx
 
-    cdqe                              ; RAX = sign/zero-extended cpu_id for indexing
-    mov [ulog_rings_by_cpu + rax * 8], rbx
+    mov eax, r12d                    ; zero-extend cpu_id for indexing
+    lea rcx, [rel ulog_rings_by_cpu]
+    mov [rcx + rax * 8], rbx
 
     mov rax, rbx
     jmp .done
@@ -66,6 +72,7 @@ log_ring_alloc_for_this_cpu:
     xor rax, rax
 
 .done:
+    pop r12
     pop rbx
     ret
 

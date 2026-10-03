@@ -1631,6 +1631,11 @@ align 8
 global sys_psi_active_count
 sys_psi_active_count: dq 0
 
+; The cgroup accounting routines below are executable.  Keep them in .text;
+; leaving the assembler in .data made their pages NX under the ULF v1 boot
+; policy and faulted the first heap allocation during ulog initialization.
+section .text
+
 ; -----------------------------------------------------------------------------
 ; sys_kmem_cgroup_charge — charges kernel memory allocation to current thread's cgroup
 ; Input:

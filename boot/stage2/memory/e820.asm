@@ -471,21 +471,19 @@ e820_print:
     mov si, msg_e820_base
     call uart_print
 
-    ; print base address (64-bit): high dword first, then low
-    mov eax, [bx + 4]
-    call uart_print_hex32
+    ; print base address as one fixed-width 64-bit value
+    mov edx, [bx + 4]
     mov eax, [bx + 0]
-    call uart_print_hex32
+    call uart_print_hex64_16
 
     ; print " len="
     mov si, msg_e820_len
     call uart_print
 
-    ; print length (64-bit): high dword first, then low
-    mov eax, [bx + 12]
-    call uart_print_hex32
+    ; print length as one fixed-width 64-bit value
+    mov edx, [bx + 12]
     mov eax, [bx + 8]
-    call uart_print_hex32
+    call uart_print_hex64_16
 
     ; print " type="
     mov si, msg_e820_type

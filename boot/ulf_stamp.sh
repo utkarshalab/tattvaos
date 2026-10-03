@@ -51,6 +51,19 @@ if [ $(( SZ % 8 )) -ne 0 ]; then
     echo "ulf: image is $SZ bytes, not a multiple of 8" >&2
     exit 1
 fi
+
+# The executable prefix is assembler-owned metadata. Refuse to bless an image
+# whose version or boundary would merge code and writable data in one page.
+EXEC_SIZE=$(od -An -tu4 -j24 -N4 "$IMG" | tr -d '[:space:]')
+ULF_VERSION=$(od -An -tu4 -j28 -N4 "$IMG" | tr -d '[:space:]')
+if [ "$ULF_VERSION" -ne 1 ]; then
+    echo "ulf: unsupported header version $ULF_VERSION" >&2
+    exit 1
+fi
+if [ "$EXEC_SIZE" -lt 4096 ] || [ "$EXEC_SIZE" -gt $((1024 * 1024)) ] || [ "$EXEC_SIZE" -gt "$SZ" ] || [ $((EXEC_SIZE % 4096)) -ne 0 ]; then
+    echo "ulf: invalid executable extent $EXEC_SIZE" >&2
+    exit 1
+fi
 write_le32 "$SZ" 4
 
 # -----------------------------------------------------------------------------

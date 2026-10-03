@@ -8,12 +8,12 @@
 ; Checks:
 ;   1. GDTR base address matches gdt_start
 ;   2. GDTR limit matches expected size
-;   3. Code64 descriptor has L=1 (64-bit flag)
-;   4. Data64 descriptor has W=1 (writable flag)
+;   3. Every boot descriptor matches its exact access/flag encoding
+;   4. Active protected-mode selectors are the expected ring-0 entries
 ;   5. Null descriptor is actually zero
 ;
-; Call after gdt_setup, before switching to long mode.
-; Debug builds only — strip in release.
+; Call after gdt_setup, before switching to long mode. This is a mandatory
+; transition gate: malformed descriptors are never safe to continue past.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64, protected mode (32-bit)
@@ -64,24 +64,33 @@ gdt_verify:
     or eax, ebx
     jnz .verify_fail_null           ; non-zero = corrupted GDT
 
-    ; -------------------------------------------------------------------------
-    ; Check 3: Code64 descriptor must have L=1 (bit 53 = byte 6 bit 5)
-    ; Byte 6 of descriptor = G|D|L|AVL|limit[19:16]
-    ; L is bit 5 of byte 6
-    ; gdt_code64 is at gdt_start + 8
-    ; -------------------------------------------------------------------------
-    mov al, [gdt_start + 8 + 6]    ; byte 6 of code64 descriptor
-    test al, (1 << 5)               ; test L bit
-    jz .verify_fail_l_bit           ; L=0 means not 64-bit code descriptor
+    ; Compare complete encodings, not one selected feature bit.
+    cmp dword [gdt_code64], 0x0000FFFF
+    jne .verify_fail_descriptor
+    cmp dword [gdt_code64 + 4], 0x00AF9B00
+    jne .verify_fail_descriptor
+    cmp dword [gdt_data64], 0x0000FFFF
+    jne .verify_fail_descriptor
+    cmp dword [gdt_data64 + 4], 0x00CF9300
+    jne .verify_fail_descriptor
+    cmp dword [gdt_code16], 0x0000FFFF
+    jne .verify_fail_descriptor
+    cmp dword [gdt_code16 + 4], 0x00009B00
+    jne .verify_fail_descriptor
+    cmp dword [gdt_code32], 0x0000FFFF
+    jne .verify_fail_descriptor
+    cmp dword [gdt_code32 + 4], 0x00CF9B00
+    jne .verify_fail_descriptor
 
-    ; -------------------------------------------------------------------------
-    ; Check 4: Data64 descriptor must have W=1 (writable)
-    ; Access byte (byte 5) bit 1 = writable
-    ; gdt_data64 is at gdt_start + 16
-    ; -------------------------------------------------------------------------
-    mov al, [gdt_start + 16 + 5]   ; access byte of data64
-    test al, (1 << 1)               ; test W bit
-    jz .verify_fail_w_bit
+    mov ax, cs
+    cmp ax, SEL_CODE32
+    jne .verify_fail_selector
+    mov ax, ds
+    cmp ax, SEL_DATA64
+    jne .verify_fail_selector
+    mov ax, ss
+    cmp ax, SEL_DATA64
+    jne .verify_fail_selector
 
     ; -------------------------------------------------------------------------
     ; All checks passed
@@ -109,14 +118,14 @@ gdt_verify:
     stc
     jmp .verify_done
 
-.verify_fail_l_bit:
-    mov esi, msg_gdt_fail_lbit
+.verify_fail_descriptor:
+    mov esi, msg_gdt_fail_descriptor
     call uart_print_pm
     stc
     jmp .verify_done
 
-.verify_fail_w_bit:
-    mov esi, msg_gdt_fail_wbit
+.verify_fail_selector:
+    mov esi, msg_gdt_fail_selector
     call uart_print_pm
     stc
 
@@ -175,8 +184,8 @@ msg_gdt_verify_ok:      db "GDT verify: OK", 0x0D, 0x0A, 0
 msg_gdt_fail_limit:     db "GDT verify: FAIL limit mismatch", 0x0D, 0x0A, 0
 msg_gdt_fail_base:      db "GDT verify: FAIL base mismatch", 0x0D, 0x0A, 0
 msg_gdt_fail_null:      db "GDT verify: FAIL null descriptor not zero", 0x0D, 0x0A, 0
-msg_gdt_fail_lbit:      db "GDT verify: FAIL code64 L bit not set", 0x0D, 0x0A, 0
-msg_gdt_fail_wbit:      db "GDT verify: FAIL data64 not writable", 0x0D, 0x0A, 0
+msg_gdt_fail_descriptor: db "GDT verify: FAIL descriptor encoding", 0x0D, 0x0A, 0
+msg_gdt_fail_selector:   db "GDT verify: FAIL active selectors", 0x0D, 0x0A, 0
 
 [BITS 16]
 

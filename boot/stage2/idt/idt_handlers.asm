@@ -52,7 +52,7 @@ exc_handler_err    17
 exc_handler_no_err 18
 exc_handler_no_err 19
 exc_handler_no_err 20
-exc_handler_no_err 21
+exc_handler_err    21
 exc_handler_no_err 22
 exc_handler_no_err 23
 exc_handler_no_err 24
@@ -60,7 +60,7 @@ exc_handler_no_err 25
 exc_handler_no_err 26
 exc_handler_no_err 27
 exc_handler_no_err 28
-exc_handler_no_err 29
+exc_handler_err    29
 exc_handler_err    30
 exc_handler_no_err 31
 

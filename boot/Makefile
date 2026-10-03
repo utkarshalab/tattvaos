@@ -100,8 +100,12 @@ all: kernel.bin
 # Kernel
 # -----------------------------------------------------------------------------
 kernel.bin: $(KERNEL_SRCS)
-	$(ASM) -f bin -I $(ROOT)/ $(ENTRY) -o $(KERNEL_DIR)/kernel.bin
-	@sh $(KERNEL_DIR)/ulf_stamp.sh $(KERNEL_DIR)/kernel.bin
+	@TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
+	$(ASM) -f bin -I $(ROOT)/ $(ENTRY) -o "$$TMP" && \
+	test -s "$$TMP" && \
+	sh $(KERNEL_DIR)/ulf_stamp.sh "$$TMP" && \
+	mv -f "$$TMP" "$@"; \
+	trap - EXIT HUP INT TERM
 
 # Assemble to ELF instead: keeps symbol names in the error output and lets
 # `nm` show what a section actually contains. Useful when triaging the image.
@@ -112,34 +116,40 @@ elf: $(KERNEL_SRCS)
 # Boot stages
 # -----------------------------------------------------------------------------
 stage1.bin: $(BOOT_SRCS)
-	$(ASM) -f bin $(BOOT_INC) $(KERNEL_DIR)/stage1/entry.asm -o $@
-	@SZ=`wc -c < $@`; \
+	@TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
+	$(ASM) -f bin $(BOOT_INC) $(KERNEL_DIR)/stage1/entry.asm -o "$$TMP" && \
+	SZ=`wc -c < "$$TMP"`; \
 	if [ "$$SZ" -ne 512 ]; then \
 	    echo "stage1: $$SZ bytes, must be exactly 512 (the MBR)" >&2; exit 1; \
-	fi
+	fi; \
+	mv -f "$$TMP" "$@"; \
+	trap - EXIT HUP INT TERM
 
 stage2.bin: $(BOOT_SRCS)
-	$(ASM) -f bin $(BOOT_INC) $(KERNEL_DIR)/stage2/entry.asm -o $@
-	@SZ=`wc -c < $@`; MAX=`expr $(STAGE2_SECTORS) \* 512`; \
+	@TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
+	$(ASM) -f bin $(BOOT_INC) $(KERNEL_DIR)/stage2/entry.asm -o "$$TMP" && \
+	SZ=`wc -c < "$$TMP"`; MAX=`expr $(STAGE2_SECTORS) \* 512`; \
 	if [ "$$SZ" -gt "$$MAX" ]; then \
 	    echo "stage2: $$SZ bytes exceeds the $$MAX stage1 loads" >&2; exit 1; \
 	fi; \
+	mv -f "$$TMP" "$@"; \
+	trap - EXIT HUP INT TERM; \
 	echo "stage2: $$SZ / $$MAX bytes used"
 
 # -----------------------------------------------------------------------------
 # Bootable image
 # -----------------------------------------------------------------------------
 $(IMG): stage1.bin stage2.bin kernel.bin
-	@rm -f $@
-	@dd if=stage1.bin  of=$@ bs=512 seek=0                conv=notrunc status=none
-	@dd if=stage2.bin  of=$@ bs=512 seek=1                conv=notrunc status=none
-	@dd if=kernel.bin  of=$@ bs=512 seek=$(KERNEL_LBA)    conv=notrunc status=none
-	@# Round the image up to a whole sector. QEMU's raw block driver reports a
-	@# truncated final sector as a short read, which the loader would see as a
-	@# corrupt tail rather than as a missing byte count.
-	@SZ=`wc -c < $@`; PAD=`expr \( $$SZ + 511 \) / 512 \* 512`; \
-	if [ "$$PAD" -ne "$$SZ" ]; then dd if=/dev/zero of=$@ bs=1 seek=$$SZ \
+	@TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
+	test -s stage1.bin && test -s stage2.bin && test -s kernel.bin && \
+	dd if=stage1.bin of="$$TMP" bs=512 seek=0 conv=notrunc status=none && \
+	dd if=stage2.bin of="$$TMP" bs=512 seek=1 conv=notrunc status=none && \
+	dd if=kernel.bin of="$$TMP" bs=512 seek=$(KERNEL_LBA) conv=notrunc status=none && \
+	SZ=`wc -c < "$$TMP"`; PAD=`expr \( $$SZ + 511 \) / 512 \* 512`; \
+	if [ "$$PAD" -ne "$$SZ" ]; then dd if=/dev/zero of="$$TMP" bs=1 seek=$$SZ \
 	    count=`expr $$PAD - $$SZ` conv=notrunc status=none; fi; \
+	mv -f "$$TMP" "$@"; \
+	trap - EXIT HUP INT TERM; \
 	echo "img: $@ is `wc -c < $@` bytes (`expr \`wc -c < $@\` / 512` sectors)"
 
 img: $(IMG)
@@ -155,8 +165,17 @@ run: $(IMG)
 debug: $(IMG)
 	$(QEMU) $(QEMU_FLAGS) -s -S
 
+# Build-time image validation followed by a boot-to-kernel smoke test.  Keep
+# this target beside the image recipe so its paths and QEMU configuration do
+# not drift independently from the artifacts it verifies.
+test: $(IMG)
+	@sh $(KERNEL_DIR)/tests/run_all.sh
+
+test-negative: $(IMG)
+	@sh $(KERNEL_DIR)/tests/test_boot_negative.sh
+
 clean:
 	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
 	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG)
 
-.PHONY: all elf img run debug clean
+.PHONY: all elf img run debug test test-negative clean

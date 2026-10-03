@@ -12,6 +12,8 @@
 
 [BITS 64]
 
+section .text
+
 ; -----------------------------------------------------------------------------
 ; bitmap_set_bit — set a bit to 1 in the physical memory bitmap
 ; Input:

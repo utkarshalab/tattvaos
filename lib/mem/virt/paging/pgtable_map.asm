@@ -42,6 +42,14 @@ virt_map:
     and r13, -4096                  ; R13 = physical address
     mov r14, rdx                    ; R14 = flags
 
+    ; NX is a reserved PTE bit when EFER.NXE is unavailable.  Callers express
+    ; desired policy through PAGE_NX, but the central mapper must never turn
+    ; that policy into a reserved-bit page fault on an NX-less processor.
+    cmp byte [cpu_has_nx], 0
+    jne .nx_flags_ready
+    btr r14, 63                     ; imm32 masks cannot clear bit 63
+.nx_flags_ready:
+
     ; Check if PAGE_XO flag is set
     test r14, PAGE_XO
     jz .not_xo_map_setup
@@ -335,6 +343,10 @@ virt_map_huge_2mb:
     and r13, -0x200000              ; R13 = aligned physical address
     
     mov r14, rdx                    ; R14 = flags
+    cmp byte [cpu_has_nx], 0
+    jne .huge_nx_flags_ready
+    btr r14, 63
+.huge_nx_flags_ready:
     or r14, PAGE_PRESENT | PAGE_HUGE ; always present + huge page bit
 
     ; Acquire per-PML4 spinlock
@@ -539,6 +551,10 @@ virt_map_super_1gb:
     and r13, -0x40000000            ; R13 = aligned physical address
     
     mov r14, rdx                    ; R14 = flags
+    cmp byte [cpu_has_nx], 0
+    jne .super_nx_flags_ready
+    btr r14, 63
+.super_nx_flags_ready:
     or r14, PAGE_PRESENT | PAGE_HUGE ; always present + huge page bit
 
     ; Acquire per-PML4 spinlock

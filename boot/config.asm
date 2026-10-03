@@ -26,6 +26,16 @@ KERNEL_TEMP     equ 0x20000     ; 32KB bounce buffer for INT 13h reads. BIOS
 KERNEL_LBA      equ 65          ; starting LBA sector for the kernel
                                 ; (LBA 0 = stage1, LBA 1..64 = stage2)
 
+; -----------------------------------------------------------------------------
+; ULF v1 image contract
+; -----------------------------------------------------------------------------
+ULF_MAGIC          equ 0x00464C55       ; "ULF\0"
+ULF_HEADER_SIZE    equ 32
+ULF_VERSION        equ 1
+ULF_EXEC_ALIGN     equ 4096             ; W^X boundary is one hardware page
+ULF_MAX_EXEC_BYTES equ 1024 * 1024      ; 1MB..2MB uses 4KB bootstrap PTEs
+ULF_MAX_IMAGE_BYTES equ 32 * 1024 * 1024
+
 ; There is deliberately no KERNEL_SECTORS. The image length lives in the ULF
 ; header on disk and the loader reads the first sector to find it, so growing
 ; the kernel needs no change here. The constant that used to sit here said 64

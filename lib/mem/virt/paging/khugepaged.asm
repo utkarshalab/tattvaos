@@ -160,7 +160,7 @@ khugepaged_scan_and_collapse:
     or rax, rbp
     or rax, 0x80                    ; Huge page (bit 7)
     
-    lock xchg [r12], rax            ; Clear/write PMD entry, RAX = physical address of old PT page
+    xchg [r12], rax                 ; Implicitly locked; RAX = old PT page
     and rax, 0xFFFFFFFFFFFFF000     ; Mask off attribute/flag bits to get the clean physical address
     mov r15, rax                    ; R15 = old PT page (no longer needed for copy)
 

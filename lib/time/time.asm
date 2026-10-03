@@ -113,15 +113,19 @@ tm_to_epoch:
     ; Month days
     mov ecx, [r12 + tm_t.tm_mon]
     and ecx, 0x0F
-    mov edx, [rel days_before_month + rcx * 4]
+    lea rdx, [rel days_before_month]
+    mov edx, [rdx + rcx * 4]
     add rax, rdx
 
     ; If month > 1 and this year is leap, add 1 day
     cmp ecx, 1
     jle .no_feb_leap
+    push rax                        ; preserve accumulated day count
     mov rdi, rbx
-    call is_leap_year
-    add rax, rbx
+    call is_leap_year               ; RAX = 1 for leap year, otherwise 0
+    mov rcx, rax
+    pop rax
+    add rax, rcx
 .no_feb_leap:
 
     ; Add day of month (1-based -> 0-based)

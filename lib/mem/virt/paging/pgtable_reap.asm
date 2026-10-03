@@ -120,7 +120,7 @@ virt_reap_empty_page_tables:
 
     ; PT is empty! Reclaim it atomically
     xor rax, rax
-    lock xchg [r8 + r9 * 8], rax    ; Clear PD entry atomically, retrieve old
+    xchg [r8 + r9 * 8], rax         ; Implicitly locked for a memory operand
     
     ; Free the PT physical page (preserve volatile loop registers r8 and r9)
     push r8

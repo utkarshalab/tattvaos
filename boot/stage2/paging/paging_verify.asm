@@ -5,13 +5,9 @@
 ; Halts with error if any check fails.
 ; Call after paging_setup, before longmode_enter.
 ;
-; Checks:
-;   1. PML4[0] points to PAGING_PDPT (present + RW)
-;   2. PDPT[0..3] point to correct PD addresses (present + RW)
-;   3. PD0[0] maps physical 0x000000 as 2MB huge page
-;   4. PD0[1] maps physical 0x200000 (sequential)
-;   5. Kernel load address (0x100000) is mapped and present
-;   6. No entry in first 4 PDPTs is zero (all should be mapped)
+; Checks every active bootstrap entry before CR0.PG is set.  Exact comparisons
+; deliberately reject USER, unexpected RW/PS bits, reserved high bits, and an
+; executable page outside the two declared code windows.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64, protected mode (32-bit)
@@ -25,124 +21,140 @@
 ; Input:  page tables at PAGING_PML4
 ; Output: CF=0 all checks pass
 ;         CF=1 verification failed (caller should halt)
-; Clobbers: EAX, EBX, EDI
+; Clobbers: none
 ; =============================================================================
 [BITS 32]
 paging_verify:
     push eax
     push ebx
+    push ecx
+    push edx
     push edi
+    push esi
 
-    ; -------------------------------------------------------------------------
-    ; Check 1: PML4[0] present and points to PDPT
-    ; -------------------------------------------------------------------------
-    mov edi, PAGING_PML4
-    mov eax, [edi]                  ; PML4[0] low dword
+    ; Derive the expected NX high dword and validate the ULF executable bound
+    ; again before using it as policy input.
+    xor edx, edx
+    call paging_nx_supported
+    jc .nx_mask_ready
+    mov edx, PTE_NX_BIT
+.nx_mask_ready:
+    cmp dword [KERNEL_LOAD + 28], ULF_VERSION
+    jne .fail_policy
+    mov esi, [KERNEL_LOAD + 24]
+    cmp esi, ULF_HEADER_SIZE
+    jb .fail_policy
+    test esi, ULF_EXEC_ALIGN - 1
+    jnz .fail_policy
+    cmp esi, ULF_MAX_EXEC_BYTES
+    ja .fail_policy
+    cmp esi, [KERNEL_LOAD + 4]
+    ja .fail_policy
+    add esi, KERNEL_LOAD            ; exclusive executable end
+    jc .fail_policy
 
-    test eax, PAGE_PRESENT
-    jz .fail_pml4_present
+    ; PML4[0] is the only active root entry; every other slot must be zero.
+    cmp dword [PAGING_PML4], PAGING_PDPT | PAGE_KERNEL
+    jne .fail_root
+    cmp dword [PAGING_PML4 + 4], 0
+    jne .fail_root
+    mov edi, PAGING_PML4 + 8
+    mov ecx, 511
+.pml4_zero_loop:
+    cmp dword [edi], 0
+    jne .fail_root
+    cmp dword [edi + 4], 0
+    jne .fail_root
+    add edi, 8
+    dec ecx
+    jnz .pml4_zero_loop
 
-    ; mask flags, check base address
-    and eax, 0xFFFFF000
-    cmp eax, PAGING_PDPT
-    jne .fail_pml4_base
-
-    ; -------------------------------------------------------------------------
-    ; Check 2: PDPT[0..3] present and point to correct PDs
-    ; -------------------------------------------------------------------------
+    ; PDPT[0..3] point at four contiguous supervisor-only directories.
     mov edi, PAGING_PDPT
+    mov ebx, PAGING_PD0
+    mov ecx, 4
+.pdpt_loop:
+    mov eax, ebx
+    or eax, PAGE_KERNEL
+    cmp [edi], eax
+    jne .fail_root
+    cmp dword [edi + 4], 0
+    jne .fail_root
+    add ebx, 0x1000
+    add edi, 8
+    dec ecx
+    jnz .pdpt_loop
+    ; No hidden mappings are permitted in the remaining 508 PDPT slots.
+    mov ecx, 508
+.pdpt_zero_loop:
+    cmp dword [edi], 0
+    jne .fail_root
+    cmp dword [edi + 4], 0
+    jne .fail_root
+    add edi, 8
+    dec ecx
+    jnz .pdpt_zero_loop
 
-    mov eax, [edi + 0x00]           ; PDPT[0]
-    test eax, PAGE_PRESENT
-    jz .fail_pdpt_present
-    and eax, 0xFFFFF000
-    cmp eax, PAGING_PD0
-    jne .fail_pdpt_base
+    ; The low 2MB must use PT0.  Accepting a huge mapping here would silently
+    ; discard the 4KB executable/NX policy.
+    cmp dword [PAGING_PD0], PAGING_PT0 | PAGE_KERNEL
+    jne .fail_root
+    cmp dword [PAGING_PD0 + 4], 0
+    jne .fail_root
 
-    mov eax, [edi + 0x08]           ; PDPT[1]
-    test eax, PAGE_PRESENT
-    jz .fail_pdpt_present
-    and eax, 0xFFFFF000
-    cmp eax, PAGING_PD1
-    jne .fail_pdpt_base
+    ; Every remaining mapping from 2MB through 4GB is an exact, sequential,
+    ; supervisor RW huge page and is NX whenever hardware supports NX.
+    mov edi, PAGING_PD0 + 8
+    mov ebx, 0x00200000
+    mov ecx, 2047
+.huge_loop:
+    mov eax, ebx
+    or eax, PAGE_KERNEL | PAGE_HUGE
+    cmp [edi], eax
+    jne .fail_huge
+    cmp [edi + 4], edx
+    jne .fail_huge
+    add ebx, 0x00200000
+    add edi, 8
+    dec ecx
+    jnz .huge_loop
 
-    mov eax, [edi + 0x10]           ; PDPT[2]
-    test eax, PAGE_PRESENT
-    jz .fail_pdpt_present
-    and eax, 0xFFFFF000
-    cmp eax, PAGING_PD2
-    jne .fail_pdpt_base
-
-    mov eax, [edi + 0x18]           ; PDPT[3]
-    test eax, PAGE_PRESENT
-    jz .fail_pdpt_present
-    and eax, 0xFFFFF000
-    cmp eax, PAGING_PD3
-    jne .fail_pdpt_base
-
-    ; -------------------------------------------------------------------------
-    ; Check 3: PD0[0] maps physical 0x000000 (as huge page or split page table)
-    ; -------------------------------------------------------------------------
-    mov edi, PAGING_PD0
-    mov eax, [edi]                  ; PD0[0]
-
-    test eax, PAGE_PRESENT
-    jz .fail_pd_present
-
-    test eax, PAGE_HUGE
-    jz .verify_split_pt             ; if not huge, check if split page table
-
-    ; Huge page validation: base should be 0x000000
-    mov ebx, eax
-    and ebx, 0xFFE00000             ; mask to 2MB boundary
-    cmp ebx, 0x000000
-    jne .fail_pd_base
-    jmp .check3_done
-
-.verify_split_pt:
-    ; Split page table validation: base should be PAGING_PT0
-    mov ebx, eax
-    and ebx, 0xFFFFF000             ; mask flags
-    cmp ebx, PAGING_PT0
-    jne .fail_pd_base
-
-    ; Verify PT0[0] maps physical 0x000000
+    ; Verify all 512 low PTEs, including their exact execution policy.
     mov edi, PAGING_PT0
-    mov eax, [edi]                  ; PT0[0]
-    test eax, PAGE_PRESENT
-    jz .fail_pd_present
-    and eax, 0xFFFFF000
-    cmp eax, 0x000000
-    jne .fail_pd_base
+    xor ebx, ebx
+    mov ecx, 512
+.pt_loop:
+    mov eax, ebx
+    or eax, PAGE_KERNEL
+    cmp ebx, KERNEL_LOAD
+    jb .check_pt_low
+    cmp ebx, esi
+    jae .check_pt_low
+    and eax, ~PAGE_RW               ; executable kernel pages must be RX
+.check_pt_low:
+    cmp [edi], eax
+    jne .fail_pt
 
-    ; Verify PT0[256] maps physical 0x100000 (1MB)
-    mov eax, [edi + 256 * 8]        ; PT0[256]
-    test eax, PAGE_PRESENT
-    jz .fail_pd_present
-    and eax, 0xFFFFF000
-    cmp eax, 0x100000
-    jne .fail_pd_base
+    mov eax, edx                    ; NX unless this page contains boot code
+    cmp ebx, STAGE2_LOAD
+    jb .check_kernel_exec
+    cmp ebx, STAGE2_LOAD + STAGE2_SECTORS * 512
+    jb .expect_exec
+.check_kernel_exec:
+    cmp ebx, KERNEL_LOAD
+    jb .check_pt_high
+    cmp ebx, esi
+    jae .check_pt_high
+.expect_exec:
+    xor eax, eax
+.check_pt_high:
+    cmp [edi + 4], eax
+    jne .fail_pt
 
-.check3_done:
-
-    ; -------------------------------------------------------------------------
-    ; Check 4: PD0[1] maps physical 0x200000
-    ; -------------------------------------------------------------------------
-    mov eax, [PAGING_PD0 + 8]              ; PD0[1]
-    test eax, PAGE_PRESENT
-    jz .fail_pd_present
-
-    mov ebx, eax
-    and ebx, 0xFFE00000
-    cmp ebx, 0x200000
-    jne .fail_pd_base
-
-    ; -------------------------------------------------------------------------
-    ; Check 5: Kernel load address (0x100000) is covered
-    ; 0x100000 is in PD0, entry index = 0x100000 >> 21 = 0
-    ; (covered by PD0[0] which maps 0x000000-0x1FFFFF)
-    ; Already verified above — implicit pass
-    ; -------------------------------------------------------------------------
+    add ebx, 0x1000
+    add edi, 8
+    dec ecx
+    jnz .pt_loop
 
     ; -------------------------------------------------------------------------
     ; All checks passed
@@ -152,49 +164,34 @@ paging_verify:
     clc
     jmp .verify_done
 
-.fail_pml4_present:
-    mov esi, msg_fail_pml4_present
+.fail_root:
+    mov esi, msg_fail_paging_root
     call uart_print_pm
     stc
     jmp .verify_done
 
-.fail_pml4_base:
-    mov esi, msg_fail_pml4_base
+.fail_huge:
+    mov esi, msg_fail_paging_huge
     call uart_print_pm
     stc
     jmp .verify_done
 
-.fail_pdpt_present:
-    mov esi, msg_fail_pdpt_present
+.fail_pt:
+    mov esi, msg_fail_paging_pt
     call uart_print_pm
     stc
     jmp .verify_done
 
-.fail_pdpt_base:
-    mov esi, msg_fail_pdpt_base
-    call uart_print_pm
-    stc
-    jmp .verify_done
-
-.fail_pd_present:
-    mov esi, msg_fail_pd_present
-    call uart_print_pm
-    stc
-    jmp .verify_done
-
-.fail_pd_huge:
-    mov esi, msg_fail_pd_huge
-    call uart_print_pm
-    stc
-    jmp .verify_done
-
-.fail_pd_base:
-    mov esi, msg_fail_pd_base
+.fail_policy:
+    mov esi, msg_fail_paging_policy
     call uart_print_pm
     stc
 
 .verify_done:
+    pop esi
     pop edi
+    pop edx
+    pop ecx
     pop ebx
     pop eax
     ret
@@ -204,20 +201,14 @@ paging_verify:
 ; =============================================================================
 msg_paging_ok:
     db "Paging verify: OK", 0x0D, 0x0A, 0
-msg_fail_pml4_present:
-    db "Paging verify: FAIL PML4[0] not present", 0x0D, 0x0A, 0
-msg_fail_pml4_base:
-    db "Paging verify: FAIL PML4[0] wrong base", 0x0D, 0x0A, 0
-msg_fail_pdpt_present:
-    db "Paging verify: FAIL PDPT entry not present", 0x0D, 0x0A, 0
-msg_fail_pdpt_base:
-    db "Paging verify: FAIL PDPT entry wrong base", 0x0D, 0x0A, 0
-msg_fail_pd_present:
-    db "Paging verify: FAIL PD entry not present", 0x0D, 0x0A, 0
-msg_fail_pd_huge:
-    db "Paging verify: FAIL PD entry not huge page", 0x0D, 0x0A, 0
-msg_fail_pd_base:
-    db "Paging verify: FAIL PD entry wrong base address", 0x0D, 0x0A, 0
+msg_fail_paging_root:
+    db "Paging verify: FAIL root permissions/base", 0x0D, 0x0A, 0
+msg_fail_paging_huge:
+    db "Paging verify: FAIL huge-page permissions/base", 0x0D, 0x0A, 0
+msg_fail_paging_pt:
+    db "Paging verify: FAIL low-page permissions/base", 0x0D, 0x0A, 0
+msg_fail_paging_policy:
+    db "Paging verify: FAIL invalid ULF execution policy", 0x0D, 0x0A, 0
 
 [BITS 16]
 

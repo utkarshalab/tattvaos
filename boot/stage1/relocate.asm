@@ -35,10 +35,11 @@
 ;
 ; Usage:
 ;   call s1_relocate
-;   jmp 0x0000:(relocated_entry_label)
+;   jmp 0x0000:(STAGE1_RELOC + relocated_entry_label - $$)
 ;
 ; The far jump is required to update CS and continue executing from the
-; new location. Without it, CS still points to the old 0x7C00 region.
+; new location.  The ORG-adjusted expression is required: a direct jump to
+; the label encodes its old 0x7C00-based address and does not relocate.
 ; =============================================================================
 s1_relocate:
     cld                             ; ensure forward direction

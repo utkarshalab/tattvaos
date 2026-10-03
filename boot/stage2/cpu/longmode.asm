@@ -25,12 +25,16 @@
 ; MSR addresses
 MSR_EFER        equ 0xC0000080      ; Extended Feature Enable Register
 EFER_LME        equ (1 << 8)        ; Long Mode Enable bit
+EFER_LMA        equ (1 << 10)       ; Long Mode Active bit (read-only)
 EFER_NXE        equ (1 << 11)       ; No-Execute Enable bit
 
 ; CR0 bits
 CR0_PE          equ (1 << 0)        ; Protected mode Enable
 CR0_MP          equ (1 << 1)        ; Monitor coProcessor
 CR0_EM          equ (1 << 2)        ; EMulation (clear for SSE)
+CR0_TS          equ (1 << 3)        ; Task Switched (clear for SIMD)
+CR0_NE          equ (1 << 5)        ; Native x87 exception reporting
+CR0_WP          equ (1 << 16)       ; supervisor write-protect enforcement
 CR0_PG          equ (1 << 31)       ; Paging enable
 
 ; CR4 bits
@@ -62,7 +66,22 @@ longmode_check:
 ;         execution continues in 64-bit code after far jump
 ; =============================================================================
 longmode_enter:
+    cli
 
+    ; Mask the legacy NMI source across the interval where the 32-bit IDT gate
+    ; format no longer matches the active mode. Restore the exact CMOS index
+    ; byte only after a valid 64-bit IDT has passed its round-trip test.
+    in al, 0x70
+    mov [longmode_cmos_index], al
+    or al, 0x80
+    out 0x70, al
+
+    ; The entry contract is protected mode with paging still disabled.
+    mov eax, cr0
+    test eax, CR0_PE
+    jz longmode_fail_pm32
+    test eax, CR0_PG
+    jnz longmode_fail_pm32
 
     ; -------------------------------------------------------------------------
     ; STEP 1: Enable PAE in CR4
@@ -92,6 +111,7 @@ longmode_enter:
     mov ecx, MSR_EFER
     rdmsr                           ; EDX:EAX = EFER
     or eax, EFER_LME                ; set Long Mode Enable
+    and eax, ~EFER_NXE              ; policy below decides whether NXE is legal
 
     ; enable NX if supported
     mov ebx, [FEATURES_DEST]
@@ -99,9 +119,21 @@ longmode_enter:
     jz .no_nx_enable
     or eax, EFER_NXE                ; set No-Execute Enable
 .no_nx_enable:
-
-
     wrmsr                           ; write back EFER
+
+    ; Read back the MSR before making the irreversible CR0.PG transition.
+    rdmsr
+    test eax, EFER_LME
+    jz longmode_fail_pm32
+    test ebx, CPU_FEAT_NX
+    jz .verify_nxe_clear
+    test eax, EFER_NXE
+    jz longmode_fail_pm32
+    jmp .efer_verified
+.verify_nxe_clear:
+    test eax, EFER_NXE
+    jnz longmode_fail_pm32
+.efer_verified:
 
 
     ; -------------------------------------------------------------------------
@@ -110,11 +142,8 @@ longmode_enter:
     ; Both bits set in one mov cr0 instruction
     ; -------------------------------------------------------------------------
     mov eax, cr0
-    or eax, (CR0_PE | CR0_PG)      ; set PE + PG together
-    and eax, ~CR0_EM                ; clear EM (enable SSE, not emulation)
-    or eax, CR0_MP                  ; set MP (monitor coprocessor)
-
-
+    or eax, (CR0_PE | CR0_PG | CR0_WP | CR0_NE | CR0_MP)
+    and eax, ~(CR0_EM | CR0_TS)
     mov cr0, eax
 
 
@@ -126,12 +155,28 @@ longmode_enter:
     ; -------------------------------------------------------------------------
     jmp SEL_CODE64:longmode_64
 
+longmode_fail_pm32:
+    mov esi, msg_longmode_verify_fail_pm
+    call uart_print_pm
+.halt:
+    cli
+    hlt
+    jmp .halt
+
+msg_longmode_verify_fail_pm:
+    db "Long-mode transition verify: FAIL (pre-transition)", 0x0D, 0x0A, 0
+
 ; =============================================================================
 ; longmode_64 — we are now in 64-bit long mode
 ; All code below is [BITS 64]
 ; =============================================================================
 [BITS 64]
 longmode_64:
+    mov rsp, STACK_LONG             ; known mapped stack before the first call
+
+    ; Install a valid 16-byte-gate IDT before doing any work that could fault.
+    ; The protected-mode IDT retained across the jump is not valid in IA-32e.
+    call idt64_init
 
     ; -------------------------------------------------------------------------
     ; STEP 6: Reload all data segment registers
@@ -147,8 +192,17 @@ longmode_64:
     mov gs, ax
     mov ss, ax
 
-    ; set up 64-bit stack
-    mov rsp, STACK_LONG             ; 64-bit stack pointer
+    call idt64_selftest
+    jc .transition_failed
+    mov al, [rel longmode_cmos_index]
+    out 0x70, al                    ; restore prior NMI mask + CMOS index
+    lea rsi, [rel msg_idt64_ok]
+    call uart_print_64
+
+    call longmode_verify_state
+    jc .transition_failed
+    lea rsi, [rel msg_longmode_verify_ok]
+    call uart_print_64
 
     ; -------------------------------------------------------------------------
     ; STEP 6.5: KASLR - Randomize kernel physical base address
@@ -228,27 +282,6 @@ longmode_64:
     pop rax
 
     ; -------------------------------------------------------------------------
-    ; STEP 7: Enable AVX via XSETBV if supported
-    ; CR4.OSXSAVE must be set first, then XSETBV sets XCR0
-    ; -------------------------------------------------------------------------
-    mov eax, [FEATURES_DEST]
-    test eax, CPU_FEAT_AVX
-    jz .no_avx_enable
-
-    ; set CR4.OSXSAVE
-    mov rax, cr4
-    or rax, CR4_OSXSAVE
-    mov cr4, rax
-
-    ; set XCR0: enable x87, SSE, AVX
-    xor rcx, rcx                    ; XCR0 index = 0
-    xgetbv                          ; read XCR0 into EDX:EAX
-    or eax, 0x07                    ; bit 0=x87, bit 1=SSE, bit 2=AVX
-    xsetbv                          ; write back
-
-.no_avx_enable:
-
-    ; -------------------------------------------------------------------------
     ; STEP 8: Print confirmation via UART
     ; (UART still works in long mode, same port I/O)
     ; -------------------------------------------------------------------------
@@ -257,6 +290,7 @@ longmode_64:
 
     ; Run 64-bit survive unit test
     call test_survive
+    jc .survive_test_failed
 
     ; -------------------------------------------------------------------------
     ; STEP 9: Load and jump to kernel
@@ -292,19 +326,40 @@ longmode_64:
     ; megabyte: PT0 is the sole 4KB-granular table, and everything above 2MB
     ; is covered by the identity huge pages, so a randomized base would have to
     ; stay 2MB-aligned for the rest of the image to follow.
+    push r8
+    push r9
+    push r10
     mov rdi, PAGING_PT0 + 256 * 8   ; pointer to entry 256 of PT0
     mov rcx, 256                    ; 256 entries (1MB)
+    mov r8d, KERNEL_LOAD            ; current virtual page
+    mov r9d, [KERNEL_LOAD + 24]
+    add r9d, KERNEL_LOAD            ; executable-prefix exclusive end
+    xor r10d, r10d
+    test dword [FEATURES_DEST], CPU_FEAT_NX
+    jz .kaslr_nx_ready
+    mov r10d, PTE_NX_BIT
+.kaslr_nx_ready:
 
 .update_kaslr_page_table:
     mov rax, rbx
     or rax, 0x03                    ; present + read/write
     mov [rdi], rax
-    mov dword [rdi + 4], 0          ; NX=0 (executable)
+    mov [rdi + 4], r10d             ; data tail is NX when supported
+    cmp r8d, r9d
+    jae .kaslr_page_done
+    and dword [rdi], ~0x02          ; relocated executable prefix is RX
+    mov dword [rdi + 4], 0          ; declared executable prefix
+.kaslr_page_done:
     
     add rbx, 0x1000                 ; next physical page (4KB)
+    add r8d, 0x1000                 ; next virtual page
     add rdi, 8                      ; next page table entry
     dec rcx
     jnz .update_kaslr_page_table
+
+    pop r10
+    pop r9
+    pop r8
 
     ; Flush TLB by reloading CR3
     mov rax, cr3
@@ -352,9 +407,9 @@ longmode_64:
     test ecx, 7                     ; must be 8-byte aligned
     jnz .ulf_bad_size
     cmp ecx, 32
-    jl .ulf_bad_size
+    jb .ulf_bad_size
     cmp ecx, 32 * 1024 * 1024       ; max 32MB
-    jg .ulf_bad_size
+    ja .ulf_bad_size
 
     ; 3. Verify Checksum
     mov rsi, KERNEL_LOAD
@@ -378,6 +433,26 @@ longmode_64:
     mov r8, [KERNEL_LOAD + 16]      ; load checksum from header
     cmp rax, r8
     jne .ulf_bad_checksum
+
+    ; 4. Validate the executable extent, version, and control-flow target at
+    ; the final trust boundary, after the complete image passed its checksum.
+    cmp dword [KERNEL_LOAD + 28], ULF_VERSION
+    jne .ulf_bad_header
+    mov edx, [KERNEL_LOAD + 24]
+    cmp edx, ULF_HEADER_SIZE
+    jb .ulf_bad_header
+    test edx, ULF_EXEC_ALIGN - 1
+    jnz .ulf_bad_header
+    cmp edx, ecx
+    ja .ulf_bad_header
+    cmp edx, ULF_MAX_EXEC_BYTES
+    ja .ulf_bad_header
+    mov rax, [KERNEL_LOAD + 8]
+    cmp rax, KERNEL_LOAD + 32
+    jb .ulf_bad_entry
+    add rdx, KERNEL_LOAD
+    cmp rax, rdx
+    jae .ulf_bad_entry
 
     ; 5. Print success and dynamic jump
     mov rsi, msg_kernel_ok
@@ -411,6 +486,26 @@ longmode_64:
     call uart_print_64
     jmp .halt
 
+.ulf_bad_entry:
+    mov rsi, msg_ulf_err_entry
+    call uart_print_64
+    jmp .halt
+
+.ulf_bad_header:
+    mov rsi, msg_ulf_err_header
+    call uart_print_64
+    jmp .halt
+
+.transition_failed:
+    lea rsi, [rel msg_longmode_verify_fail]
+    call uart_print_64
+    jmp .halt
+
+.survive_test_failed:
+    lea rsi, [rel msg_survive_test_halt]
+    call uart_print_64
+    jmp .halt
+
 .halt:
     cli
     hlt
@@ -420,10 +515,110 @@ longmode_64:
     cli
     hlt
 
+; =============================================================================
+; longmode_verify_state — prove the architectural transition state before the
+; loader performs any optional relocation or transfers control to the kernel.
+; Output: CF=0 valid, CF=1 invalid. Preserves all GPRs.
+; =============================================================================
+longmode_verify_state:
+    push rax
+    push rbx
+    push rcx
+    push rdx
+
+    mov ax, cs
+    cmp ax, SEL_CODE64
+    jne .failed
+    mov ax, ds
+    cmp ax, SEL_DATA64
+    jne .failed
+    mov ax, es
+    cmp ax, SEL_DATA64
+    jne .failed
+    mov ax, ss
+    cmp ax, SEL_DATA64
+    jne .failed
+
+    mov rax, cr0
+    mov ebx, eax
+    and ebx, CR0_PE | CR0_PG | CR0_WP | CR0_NE | CR0_MP
+    cmp ebx, CR0_PE | CR0_PG | CR0_WP | CR0_NE | CR0_MP
+    jne .failed
+    test eax, CR0_EM | CR0_TS
+    jnz .failed
+
+    mov rax, cr4
+    mov ebx, eax
+    and ebx, CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT
+    cmp ebx, CR4_PAE | CR4_OSFXSR | CR4_OSXMMEXCPT
+    jne .failed
+
+    mov rbx, cr3
+    and rbx, -4096
+    cmp rbx, PAGING_PML4
+    jne .failed
+
+    mov ecx, MSR_EFER
+    rdmsr
+    mov ebx, eax
+    and ebx, EFER_LME | EFER_LMA
+    cmp ebx, EFER_LME | EFER_LMA
+    jne .failed
+
+    test dword [FEATURES_DEST], CPU_FEAT_NX
+    jz .expect_nxe_clear
+    test eax, EFER_NXE
+    jz .failed
+    jmp .check_avx
+.expect_nxe_clear:
+    test eax, EFER_NXE
+    jnz .failed
+
+.check_avx:
+    test dword [FEATURES_DEST], CPU_FEAT_AVX
+    jz .check_interrupts
+    mov rax, cr4
+    test rax, CR4_OSXSAVE
+    jz .failed
+    xor ecx, ecx
+    xgetbv
+    and eax, 0x07
+    cmp eax, 0x07
+    jne .failed
+
+.check_interrupts:
+    pushfq
+    pop rax
+    test rax, (1 << 9)              ; IF must stay clear until kernel IDT setup
+    jnz .failed
+
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+    clc
+    ret
+
+.failed:
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+    stc
+    ret
+
 
 ; =============================================================================
 ; Data (in 64-bit section)
 ; =============================================================================
+msg_idt64_ok:       db "IDT64 verify: OK", 0x0D, 0x0A, 0
+msg_longmode_verify_ok:
+    db "Long-mode transition verify: OK", 0x0D, 0x0A, 0
+msg_longmode_verify_fail:
+    db "Long-mode transition verify: FAIL", 0x0D, 0x0A, 0
+msg_survive_test_halt:
+    db "HALT: survive snapshot self-test failed", 0x0D, 0x0A, 0
+longmode_cmos_index: db 0
 msg_longmode_ok:    db "Long mode OK", 0x0D, 0x0A, 0
 msg_kernel_load:    db "Kernel... ", 0
 msg_kaslr_reloc:    db "KASLR: Kernel physically relocated to ", 0
@@ -432,6 +627,8 @@ msg_kernel_ok:      db "OK", 0x0D, 0x0A, 0
 msg_ulf_err_magic:  db "FAIL (Bad Magic)", 0x0D, 0x0A, 0
 msg_ulf_err_size:   db "FAIL (Bad Size)", 0x0D, 0x0A, 0
 msg_ulf_err_checksum:db "FAIL (Bad Checksum)", 0x0D, 0x0A, 0
+msg_ulf_err_entry:   db "FAIL (Invalid Entry Point)", 0x0D, 0x0A, 0
+msg_ulf_err_header:  db "FAIL (Unsupported ULF Header)", 0x0D, 0x0A, 0
 
 ; Switch back to 16-bit for rest of stage2
 [BITS 16]

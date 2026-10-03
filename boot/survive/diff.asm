@@ -77,13 +77,13 @@ survive_diff:
     call uart_print_64
 
     ; Print diff details
-    lea rsi, [msg_diff_middle]      ; " diff: pristine=0x"
+    lea rsi, [msg_diff_middle]      ; hex printer supplies the 0x prefix
     call uart_print_64
 
     pop rax                         ; Pop pristine value
     call uart_print_hex64
 
-    lea rsi, [msg_diff_crash]       ; " crash=0x"
+    lea rsi, [msg_diff_crash]
     call uart_print_64
 
     pop rax                         ; Pop crash value
@@ -105,8 +105,8 @@ survive_diff:
 ; Data strings and register names
 ; =============================================================================
 msg_diff_header:    db 0x0D, 0x0A, "--- Register Diff (Pristine vs Crash) ---", 0x0D, 0x0A, 0
-msg_diff_middle:    db " diff: pristine=0x", 0
-msg_diff_crash:     db " crash=0x", 0
+msg_diff_middle:    db " diff: pristine=", 0
+msg_diff_crash:     db " crash=", 0
 msg_diff_footer:    db "-----------------------------------------", 0x0D, 0x0A, 0
 
 align 4
