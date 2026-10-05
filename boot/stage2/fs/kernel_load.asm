@@ -49,7 +49,7 @@ kernel_load:
     ; Length from the ULF header (+4), rounded up to a whole quadword. The
     ; caller has already checked the magic, so the field is trustworthy here.
     xor rcx, rcx
-    mov ecx, [rsi + 4]
+    mov ecx, [rsi + ULF_IMAGE_SIZE_OFF]
     add rcx, 7
     shr rcx, 3                      ; quadwords to move
     jz .done

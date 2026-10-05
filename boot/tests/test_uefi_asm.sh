@@ -1,7 +1,7 @@
 #!/bin/sh
 # Syntax-check the complete UEFI translation unit as PE/COFF input.
-# This is not yet an OVMF boot-ready claim: loader ownership, ULF loading,
-# page-table setup, and final PE section hygiene remain separate work.
+# This is not yet an OVMF boot-ready claim: loader-owned GDT/page-table setup
+# and final PE section hygiene remain separate work.
 
 set -eu
 
@@ -20,6 +20,22 @@ command -v x86_64-w64-mingw32-ld >/dev/null 2>&1 || {
 }
 command -v x86_64-w64-mingw32-objdump >/dev/null 2>&1 || {
     echo "FAIL: x86_64-w64-mingw32-objdump not found"
+    exit 1
+}
+
+# Lock out the two unsafe placements this phase removes.  The linked PE gate
+# below proves syntax/relocations; these checks make the ownership policy
+# visible when someone later rewrites the file path.
+if grep -Eq '1048576|0x2000000' "$BOOT_DIR/uefi/file.asm" "$BOOT_DIR/uefi/entry.asm" "$BOOT_DIR/uefi/handoff.asm"; then
+    echo "FAIL: UEFI loader reintroduced a fixed read cap or initrd address"
+    exit 1
+fi
+grep -Fq 'EFI_ALLOCATE_ADDRESS' "$BOOT_DIR/uefi/file.asm" || {
+    echo "FAIL: UEFI kernel is not acquired with AllocateAddress"
+    exit 1
+}
+grep -Fq 'EFI_ALLOCATE_MAX_ADDRESS' "$BOOT_DIR/uefi/file.asm" || {
+    echo "FAIL: UEFI initrd is not allocated below the bootstrap aperture"
     exit 1
 }
 

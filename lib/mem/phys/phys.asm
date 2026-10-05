@@ -223,6 +223,73 @@ phys_init:
     pop r15
     pop r14
 
+    ; Exclude a published initrd from bitmap placement as well.  This matters
+    ; on BIOS, where the fixed loader destination is still reported as usable
+    ; RAM.  UEFI already splits AllocatePages memory out as a reserved map
+    ; descriptor, making this check a harmless second line of defence there.
+    push r14
+    push r15
+    mov rax, [boot_info_ptr]
+    mov r14, [rax + 56]             ; BOOT_INFO_INITRD_ADDR
+    mov r15, [rax + 64]             ; BOOT_INFO_INITRD_SIZE
+    test r15, r15
+    jz .initrd_excl_done
+    test r14, r14
+    jz .initrd_excl_invalid
+    add r15, r14                    ; byte-granular exclusive end
+    jc .initrd_excl_invalid
+    mov rax, PHYS_BOOTSTRAP_MAP_LIMIT
+    cmp r15, rax
+    ja .initrd_excl_invalid
+    and r14, -4096                  ; containing first page
+    add r15, 4095
+    jc .initrd_excl_invalid
+    and r15, -4096                  ; page-rounded exclusive end
+    mov rax, PHYS_BOOTSTRAP_MAP_LIMIT
+    cmp r15, rax
+    ja .initrd_excl_invalid
+
+    mov rcx, r10
+    add rcx, r11                    ; candidate exclusive end
+    cmp r10, r15
+    jae .initrd_excl_done
+    cmp rcx, r14
+    jbe .initrd_excl_done
+
+    ; Prefer the prefix when it can hold the bitmap; otherwise try the suffix.
+    cmp r10, r14
+    jae .initrd_excl_suffix
+    mov rax, r14
+    sub rax, r10
+    cmp rax, rbx
+    jae .initrd_excl_prefix
+
+.initrd_excl_suffix:
+    cmp rcx, r15
+    jbe .initrd_excl_swallow
+    mov r11, rcx
+    sub r11, r15
+    mov r10, r15
+    jmp .initrd_excl_done
+
+.initrd_excl_prefix:
+    mov r11, rax
+    jmp .initrd_excl_done
+
+.initrd_excl_invalid:
+    pop r15
+    pop r14
+    jmp .error_halt
+
+.initrd_excl_swallow:
+    pop r15
+    pop r14
+    jmp .next_entry
+
+.initrd_excl_done:
+    pop r15
+    pop r14
+
 .check_size:
     ; Check if this adjusted region has enough bytes to hold the bitmap
     cmp r11, rbx
@@ -424,7 +491,89 @@ phys_init:
 .reserve_kernel_done:
 
     ; -----------------------------------------------------------------------------
-    ; 10. Protect Page Bitmap Self-Memory (Subfeature 1.6)
+    ; 10. Protect the loader-owned initrd, when one was published in BootInfo.
+    ;
+    ; UEFI describes AllocatePages(EfiLoaderData) memory as reserved in the
+    ; canonical handoff map, so setting these bits is intentionally idempotent.
+    ; The BIOS path has no firmware allocation primitive, though: its fixed
+    ; initrd destination still appears as usable E820 RAM and must be booked
+    ; explicitly before the first physical allocation can reuse it.
+    ; -----------------------------------------------------------------------------
+    mov rdi, [boot_info_ptr]
+    mov rbx, [rdi + 56]             ; BOOT_INFO_INITRD_ADDR
+    mov rcx, [rdi + 64]             ; BOOT_INFO_INITRD_SIZE
+    test rcx, rcx
+    jz .reserve_initrd_done
+    test rbx, rbx
+    jz .error_halt
+
+    mov rax, rbx
+    add rax, rcx                    ; byte-granular exclusive end
+    jc .error_halt
+    mov rdx, PHYS_BOOTSTRAP_MAP_LIMIT
+    cmp rax, rdx
+    ja .error_halt                  ; the early kernel must be able to reach it
+
+    ; Reject a loader contract violation rather than reserving an initrd that
+    ; has already overwritten the running kernel.
+    mov rdx, kernel_bss_end
+    add rdx, 4095
+    jc .error_halt
+    and rdx, -4096
+    cmp rax, 0x100000
+    jbe .initrd_disjoint
+    cmp rbx, rdx
+    jb .error_halt
+
+.initrd_disjoint:
+    add rax, 4095
+    jc .error_halt
+    shr rax, 12                     ; exclusive ending PFN
+    shr rbx, 12                     ; containing starting PFN
+    mov rdx, PHYS_BOOTSTRAP_MAP_LIMIT >> 12
+    cmp rax, rdx
+    ja .error_halt                  ; rounded end must not cross 4 GiB
+
+    ; The bitmap spans through the highest *usable* page, not necessarily the
+    ; highest reserved descriptor.  AllocateMaxAddress commonly carves the
+    ; initrd from the top of the last conventional range, leaving the resulting
+    ; LoaderData pages just beyond frame_count.  Such pages are already outside
+    ; the allocator; clamp a partially tracked range and otherwise skip it.
+    mov rdx, [phys_state + phys_state_t.frame_count]
+    cmp rbx, rdx
+    jae .reserve_initrd_done
+    cmp rax, rdx
+    jbe .reserve_initrd_loop
+    mov rax, rdx
+
+.reserve_initrd_loop:
+    cmp rbx, rax
+    jae .reserve_initrd_done
+
+    push rax
+    push rdi
+    push rsi
+    push rdx
+    push rcx
+    push rbx
+
+    mov rdi, rbx
+    call bitmap_set_bit
+
+    pop rbx
+    pop rcx
+    pop rdx
+    pop rsi
+    pop rdi
+    pop rax
+
+    inc rbx
+    jmp .reserve_initrd_loop
+
+.reserve_initrd_done:
+
+    ; -----------------------------------------------------------------------------
+    ; 11. Protect Page Bitmap Self-Memory (Subfeature 1.6)
     ; Mark all pages from bitmap_addr to bitmap_addr + bitmap_size as reserved.
     ; -----------------------------------------------------------------------------
     mov rbx, [phys_state + phys_state_t.bitmap_addr]
@@ -464,7 +613,7 @@ phys_init:
     jmp .reserve_bitmap_loop
 
 .reserve_bitmap_done:
-    ; 11. Recount free pages by scanning the bitmap for zero bits
+    ; 12. Recount free pages by scanning the bitmap for zero bits
     ;     This is the authoritative count after all protections are applied.
     mov rsi, [phys_state + phys_state_t.bitmap_addr]
     mov rcx, [phys_state + phys_state_t.frame_count]

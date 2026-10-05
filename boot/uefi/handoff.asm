@@ -39,7 +39,7 @@ section .text
 ; Input:  RCX = pointer to System Table
 ;         RDX = ImageHandle
 ;         R8  = MapKey value from GetMemoryMap
-;         R9  = kernel entry address (0x100000)
+;         R9  = validated ULF kernel entry address
 ; Output: RAX = EFI status if local validation or ExitBootServices fails
 ; =============================================================================
 uefi_handoff:
@@ -150,11 +150,15 @@ uefi_handoff:
     lea rax, [rel uefi_e820_map_buf]
     mov [r12 + UEFI_BOOT_INFO_E820_PTR], rax
 
-    ; BOOT_INFO_INITRD_ADDR (0x7038) and BOOT_INFO_INITRD_SIZE (0x7040)
+    ; BOOT_INFO_INITRD_ADDR and SIZE describe the pages returned by firmware;
+    ; there is no fixed-address initrd placement on the UEFI path.
     mov rax, [rel uefi_initrd_size]
     test rax, rax
     jz .no_uefi_initrd
-    mov qword [r12 + UEFI_BOOT_INFO_INITRD_ADDR], 0x2000000
+    mov rdx, [rel uefi_initrd_addr]
+    test rdx, rdx
+    jz .prepare_failed
+    mov [r12 + UEFI_BOOT_INFO_INITRD_ADDR], rdx
     mov [r12 + UEFI_BOOT_INFO_INITRD_SIZE], rax
     jmp .uefi_initrd_done
 .no_uefi_initrd:

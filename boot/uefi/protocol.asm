@@ -30,7 +30,12 @@ CON_OUT_OUTPUT_STRING       equ 8       ; OutputString member pointer
 ; -----------------------------------------------------------------------------
 ; UEFI Boot Services offsets
 ; -----------------------------------------------------------------------------
+BS_ALLOCATE_PAGES           equ 40      ; AllocatePages pointer
+BS_FREE_PAGES               equ 48      ; FreePages pointer
 BS_GET_MEMORY_MAP           equ 56      ; GetMemoryMap pointer
+BS_ALLOCATE_POOL            equ 64      ; AllocatePool pointer
+BS_FREE_POOL                equ 72      ; FreePool pointer
+BS_HANDLE_PROTOCOL          equ 152     ; HandleProtocol pointer
 BS_LOCATE_PROTOCOL          equ 320     ; LocateProtocol pointer
 BS_EXIT_BOOT_SERVICES       equ 232     ; ExitBootServices pointer
 
@@ -46,12 +51,29 @@ EFI_SUCCESS                 equ 0
 EFI_LOAD_ERROR              equ 0x8000000000000001
 EFI_INVALID_PARAMETER       equ 0x8000000000000002
 EFI_UNSUPPORTED             equ 0x8000000000000003
+EFI_BAD_BUFFER_SIZE         equ 0x8000000000000004
 EFI_BUFFER_TOO_SMALL        equ 0x8000000000000005
+EFI_DEVICE_ERROR            equ 0x8000000000000007
+EFI_OUT_OF_RESOURCES        equ 0x8000000000000009
+EFI_VOLUME_CORRUPTED        equ 0x800000000000000A
+EFI_NOT_FOUND               equ 0x800000000000000E
+EFI_END_OF_FILE             equ 0x800000000000001F
+EFI_COMPROMISED_DATA        equ 0x8000000000000021
 EFI_MEMORY_DESCRIPTOR_VERSION equ 1
 
+; AllocatePages allocation and memory types
+EFI_ALLOCATE_ANY_PAGES      equ 0
+EFI_ALLOCATE_MAX_ADDRESS    equ 1
+EFI_ALLOCATE_ADDRESS        equ 2
+EFI_LOADER_CODE             equ 1
+EFI_LOADER_DATA             equ 2
+
 ; -----------------------------------------------------------------------------
-; UEFI Simple File System / Graphics Output Protocol GUIDs
+; UEFI protocol and information GUIDs
 ; -----------------------------------------------------------------------------
+section .rdata
+align 8
+
 ; GOP GUID: 9042A9DE-23A6-4A7F-96C7-840AE27F21AA
 gop_guid:
     dd 0x9042A9DE
@@ -63,5 +85,19 @@ sfs_guid:
     dd 0x964E5B22
     dw 0x6459, 0x11D2
     db 0x8E, 0x39, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B
+
+; LoadedImage GUID: 5B1B31A1-9562-11D2-8E3F-00A0C969723B
+loaded_image_guid:
+    dd 0x5B1B31A1
+    dw 0x9562, 0x11D2
+    db 0x8E, 0x3F, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B
+
+; EFI_FILE_INFO_ID: 09576E92-6D3F-11D2-8E39-00A0C969723B
+file_info_guid:
+    dd 0x09576E92
+    dw 0x6D3F, 0x11D2
+    db 0x8E, 0x39, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B
+
+section .text
 
 %endif ; UEFI_PROTOCOL_ASM

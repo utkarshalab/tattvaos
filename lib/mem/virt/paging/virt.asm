@@ -1632,7 +1632,7 @@ global sys_psi_active_count
 sys_psi_active_count: dq 0
 
 ; The cgroup accounting routines below are executable.  Keep them in .text;
-; leaving the assembler in .data made their pages NX under the ULF v1 boot
+; leaving the assembler in .data made their pages NX under the ULF v2 boot
 ; policy and faulted the first heap allocation during ulog initialization.
 section .text
 

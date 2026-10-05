@@ -27,14 +27,27 @@ KERNEL_LBA      equ 65          ; starting LBA sector for the kernel
                                 ; (LBA 0 = stage1, LBA 1..64 = stage2)
 
 ; -----------------------------------------------------------------------------
-; ULF v1 image contract
+; ULF v2 image contract
 ; -----------------------------------------------------------------------------
 ULF_MAGIC          equ 0x00464C55       ; "ULF\0"
-ULF_HEADER_SIZE    equ 32
-ULF_VERSION        equ 1
+ULF_HEADER_SIZE    equ 40
+ULF_VERSION        equ 2
+ULF_MAGIC_OFF      equ 0
+ULF_IMAGE_SIZE_OFF equ 4
+ULF_ENTRY_OFF      equ 8
+ULF_CHECKSUM_OFF   equ 16
+ULF_EXEC_SIZE_OFF  equ 24
+ULF_VERSION_OFF    equ 28
+ULF_MEMORY_SIZE_OFF equ 32
 ULF_EXEC_ALIGN     equ 4096             ; W^X boundary is one hardware page
 ULF_MAX_EXEC_BYTES equ 1024 * 1024      ; 1MB..2MB uses 4KB bootstrap PTEs
 ULF_MAX_IMAGE_BYTES equ 32 * 1024 * 1024
+ULF_MAX_MEMORY_BYTES equ 64 * 1024 * 1024
+ULF_MAX_INITRD_BYTES equ 256 * 1024 * 1024
+
+; The legacy BIOS initrd is fixed-size and must sit beyond every valid kernel
+; image+BSS footprint. KERNEL_LOAD is 1 MiB, so this is 65 MiB physical.
+INITRD_LOAD       equ KERNEL_LOAD + ULF_MAX_MEMORY_BYTES
 
 ; There is deliberately no KERNEL_SECTORS. The image length lives in the ULF
 ; header on disk and the loader reads the first sector to find it, so growing

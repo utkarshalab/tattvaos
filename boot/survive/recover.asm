@@ -344,6 +344,22 @@ longmode_recovery:
     test rax, rax
     jz recovery_validation_halt
 
+    ; Recovery resumes the pristine pre-entry snapshot, which starts the
+    ; kernel as a fresh boot.  Match the cold path by clearing every byte not
+    ; present in the file, including allocation-page padding.  The validator
+    ; has already bounded and authenticated both sizes.
+    mov edi, KERNEL_LOAD
+    mov eax, [KERNEL_LOAD + ULF_IMAGE_SIZE_OFF]
+    add rdi, rax                    ; first byte absent from the file
+    mov ecx, [KERNEL_LOAD + ULF_MEMORY_SIZE_OFF]
+    add rcx, 4095
+    and rcx, -4096                  ; page-rounded footprint length
+    add rcx, KERNEL_LOAD
+    sub rcx, rdi
+    xor eax, eax
+    cld
+    rep stosb
+
     ; Recheck the immutable snapshot after disk I/O and both mode transitions.
     ; Panic log/crash-state regions are intentionally outside its CRC range.
     call survive_checksum_verify
@@ -413,10 +429,10 @@ longmode_recovery:
 ; Output: RAX=1 on success; RAX=0 and RSI=diagnostic string on failure.
 ; =============================================================================
 recovery_validate_ulf:
-    cmp dword [KERNEL_LOAD], ULF_MAGIC
+    cmp dword [KERNEL_LOAD + ULF_MAGIC_OFF], ULF_MAGIC
     jne .bad_magic
 
-    mov ecx, [KERNEL_LOAD + 4]
+    mov ecx, [KERNEL_LOAD + ULF_IMAGE_SIZE_OFF]
     test ecx, 7
     jnz .bad_size
     cmp ecx, ULF_HEADER_SIZE
@@ -431,19 +447,19 @@ recovery_validate_ulf:
     xor rax, rax
     xor edx, edx
 .checksum_loop:
-    cmp edx, 16
+    cmp edx, ULF_CHECKSUM_OFF
     je .skip_checksum
     add rax, [rsi + rdx]
 .skip_checksum:
     add edx, 8
     dec ebx
     jnz .checksum_loop
-    cmp rax, [KERNEL_LOAD + 16]
+    cmp rax, [KERNEL_LOAD + ULF_CHECKSUM_OFF]
     jne .bad_checksum
 
-    cmp dword [KERNEL_LOAD + 28], ULF_VERSION
+    cmp dword [KERNEL_LOAD + ULF_VERSION_OFF], ULF_VERSION
     jne .bad_header
-    mov edx, [KERNEL_LOAD + 24]
+    mov edx, [KERNEL_LOAD + ULF_EXEC_SIZE_OFF]
     cmp edx, ULF_HEADER_SIZE
     jb .bad_header
     test edx, ULF_EXEC_ALIGN - 1
@@ -453,12 +469,26 @@ recovery_validate_ulf:
     cmp edx, ULF_MAX_EXEC_BYTES
     ja .bad_header
 
-    mov rax, [KERNEL_LOAD + 8]
+    mov rax, [KERNEL_LOAD + ULF_ENTRY_OFF]
     cmp rax, KERNEL_LOAD + ULF_HEADER_SIZE
     jb .bad_entry
     add rdx, KERNEL_LOAD
     cmp rax, rdx
     jae .bad_entry
+
+    ; Validate the complete file+BSS footprint before recovery uses it to
+    ; reproduce cold-boot zeroing.
+    cmp dword [KERNEL_LOAD + ULF_MEMORY_SIZE_OFF + 4], 0
+    jne .bad_header
+    mov edx, [KERNEL_LOAD + ULF_MEMORY_SIZE_OFF]
+    cmp edx, ecx
+    jb .bad_header
+    test edx, 7
+    jnz .bad_header
+    cmp edx, ULF_MAX_MEMORY_BYTES
+    ja .bad_header
+    add edx, KERNEL_LOAD
+    jc .bad_header
 
     mov eax, 1
     ret

@@ -151,7 +151,7 @@ paging_setup:
 
     ; Initialize PT0 to a flat identity map (0 to 2MB).  If NX is available,
     ; every page starts non-executable.  Only stage2 itself and the executable
-    ; prefix declared by the already validated ULF v1 header are opened for
+    ; prefix declared by the already validated ULF v2 header are opened for
     ; instruction fetches.  Low-memory data, stacks, BootInfo, page tables,
     ; and the kernel's data tail remain NX.
     mov edi, PAGING_PT0
@@ -162,7 +162,7 @@ paging_setup:
     jc .pt_mask_ready
     mov edx, PTE_NX_BIT
 .pt_mask_ready:
-    mov esi, [KERNEL_LOAD + 24]     ; validated executable extent
+    mov esi, [KERNEL_LOAD + ULF_EXEC_SIZE_OFF]
     add esi, KERNEL_LOAD            ; exclusive end address
 
 .pt_loop:

@@ -59,7 +59,8 @@ tpm_measure_all:
     ; PCR 4 would have matched across almost any change to the kernel.
     mov rsi, KERNEL_LOAD             ; Kernel Load address
     xor rcx, rcx
-    mov ecx, [rsi + 4]               ; ULF header: image length in bytes
+    mov ecx, [rsi + ULF_IMAGE_SIZE_OFF]
+                                      ; ULF header: image length in bytes
     lea rdi, [rel tpm_digest_buf]
     call sha256_hash
 

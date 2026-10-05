@@ -15,7 +15,7 @@
 [ORG 0x100000]
 
 ; -----------------------------------------------------------------------------
-; ULF Header (32 bytes)
+; ULF v2 Header (40 bytes)
 ; -----------------------------------------------------------------------------
 ulf_header:
     dd 0x00464C55                   ; magic: "ULF\0"
@@ -35,7 +35,11 @@ ulf_header:
     ; RX-code/RW+NX-data bootstrap map. Keep it within the first 1MB kernel
     ; window until the boot mapper grows additional 4KB page tables.
     dd kernel_end - ulf_header      ; executable extent in bytes
-    dd 1                            ; ULF header version
+    dd 2                            ; ULF header version
+    ; Exact byte extent of the complete in-memory image, including .bss.
+    ; Loaders page-round this value for ownership and zero every byte after
+    ; the initialized file before transferring control.
+    dq kernel_bss_end - ulf_header
 
 ; -----------------------------------------------------------------------------
 ; Kernel Entry Point

@@ -204,82 +204,11 @@ longmode_64:
     lea rsi, [rel msg_longmode_verify_ok]
     call uart_print_64
 
-    ; -------------------------------------------------------------------------
-    ; STEP 6.5: KASLR - Randomize kernel physical base address
-    ; -------------------------------------------------------------------------
-    push rax
-    push rbx
-    push rcx
-    push rdx
-
-    ; Check if RDRAND is supported (CPUID.01H:ECX.30)
-    mov eax, 1
-    cpuid
-    bt ecx, 30
-    jnc .use_rdtsc
-
-    ; RDRAND is supported, try to generate a hardware random number
-    rdrand eax
-    jc .have_rand
-
-.use_rdtsc:
-    ; Fallback to RDTSC for pseudo-randomness
-    rdtsc                           ; EDX:EAX = TSC
-    xor eax, edx
-
-.have_rand:
-    ; Constrain page index to 2MB - 16MB range
-    ; 2MB = 512 pages, 16MB = 4096 pages. Range is 3584 pages.
-    xor edx, edx
-    mov ecx, 3584
-    div ecx                         ; EDX = random % 3584
-    add edx, 512                    ; EDX = page index (512 to 4095)
-    shl rdx, 12                     ; RDX = page_index * 4096 (phys_dest)
-
-    ; -------------------------------------------------------------------------
-    ; The remap below this point only retargets PT0 entries 256-511 — 256 x
-    ; 4KB pages, i.e. virtual 0x100000-0x200000, a single megabyte. Everything
-    ; past that is covered by the identity-mapped 2MB huge pages in PD0-PD3,
-    ; which this code never touches. A kernel bigger than that 1MB window
-    ; would have most of its relocated bytes sitting at a physical address
-    ; nothing points the CPU at — the copy would succeed and the boot would
-    ; still be reading stale (or garbage) memory through the old identity
-    ; mapping, caught here only because the ULF checksum then disagrees.
-    ;
-    ; Proper support needs 2MB-granular relocation through PD0 with the low
-    ; 1MB's identity mapping kept separate from the kernel's, since KERNEL_LOAD
-    ; (1MB) shares a 2MB huge page with reserved low memory. That is real
-    ; paging work, not a one-line fix, so until it exists this skips
-    ; relocation instead of producing a boot that sometimes decodes to
-    ; whatever the destination page happened to hold.
-    ; -------------------------------------------------------------------------
-    mov eax, [KERNEL_LOAD]
-    cmp eax, 0x00464C55              ; "ULF\0" — checked again properly below;
-    jne .no_kaslr                    ; this guard only needs to not misread size
-    mov eax, [KERNEL_LOAD + 4]       ; ULF header: image length in bytes
-    cmp eax, 256 * 4096              ; 1MB: what the PT0 remap below can cover
-    ja .no_kaslr
-
-    ; Store physical kernel address in BootInfo (BOOT_INFO_ADDR + 20)
-    mov [BOOT_INFO_ADDR + 20], edx
-
-    ; Print diagnostic message: msg_kaslr_reloc followed by address
-    mov rsi, msg_kaslr_reloc
-    call uart_print_64
-    mov rax, rdx
-    call uart_print_hex64
-    mov rsi, msg_crlf
-    call uart_print_64
-    jmp .kaslr_done
-
-.no_kaslr:
+    ; Physical KASLR remains disabled until relocation covers the complete
+    ; validated ULF v2 file+BSS footprint and warm recovery can reproduce the
+    ; same mapping.  The legacy PT0 path covers only 1 MiB and used metadata
+    ; from the reread header before the final whole-image checksum.
     mov dword [BOOT_INFO_ADDR + 20], 0
-
-.kaslr_done:
-    pop rdx
-    pop rcx
-    pop rbx
-    pop rax
 
     ; -------------------------------------------------------------------------
     ; STEP 8: Print confirmation via UART
@@ -332,7 +261,7 @@ longmode_64:
     mov rdi, PAGING_PT0 + 256 * 8   ; pointer to entry 256 of PT0
     mov rcx, 256                    ; 256 entries (1MB)
     mov r8d, KERNEL_LOAD            ; current virtual page
-    mov r9d, [KERNEL_LOAD + 24]
+    mov r9d, [KERNEL_LOAD + ULF_EXEC_SIZE_OFF]
     add r9d, KERNEL_LOAD            ; executable-prefix exclusive end
     xor r10d, r10d
     test dword [FEATURES_DEST], CPU_FEAT_NX
@@ -367,14 +296,16 @@ longmode_64:
 
 .kernel_in_place:
 
-    ; Copy initrd to 32MB if loaded
+    ; The legacy BIOS filesystem reader stages a fixed 64 KiB initrd below
+    ; 1 MiB.  Its permanent destination begins immediately after the largest
+    ; ULF v2 kernel footprint accepted by this loader, so it cannot overlap BSS.
     xor rax, rax
     mov al, [rel initrd_loaded]
     test al, al
     jz .skip_initrd_copy
 
     mov rsi, 0x40000                ; source: 0x40000 (loaded in real mode segment 0x4000)
-    mov rdi, 0x2000000              ; destination: 32MB mark
+    mov rdi, INITRD_LOAD
     xor rcx, rcx
     mov ecx, [rel initrd_size]
     add rcx, 7
@@ -384,7 +315,7 @@ longmode_64:
 
     ; Populate BootInfo fields
     mov rdi, BOOT_INFO_ADDR
-    mov qword [rdi + 56], 0x2000000 ; BOOT_INFO_INITRD_ADDR
+    mov qword [rdi + 56], INITRD_LOAD ; BOOT_INFO_INITRD_ADDR
     xor rax, rax
     mov eax, [rel initrd_size]
     mov [rdi + 64], rax             ; BOOT_INFO_INITRD_SIZE
@@ -398,17 +329,17 @@ longmode_64:
 .initrd_done:
 
     ; 1. Verify ULF magic number at KERNEL_LOAD (0x100000)
-    mov eax, [KERNEL_LOAD]          ; load first dword (magic)
-    cmp eax, 0x00464C55             ; check if it matches "ULF\0"
+    mov eax, [KERNEL_LOAD + ULF_MAGIC_OFF]
+    cmp eax, ULF_MAGIC              ; check if it matches "ULF\0"
     jne .ulf_bad_magic
 
-    ; 2. Verify kernel size constraints (must be multiple of 8, >= 32 bytes, <= 32MB)
-    mov ecx, [KERNEL_LOAD + 4]      ; ecx = total size of binary in bytes
+    ; 2. Verify exact on-disk size constraints.
+    mov ecx, [KERNEL_LOAD + ULF_IMAGE_SIZE_OFF]
     test ecx, 7                     ; must be 8-byte aligned
     jnz .ulf_bad_size
-    cmp ecx, 32
+    cmp ecx, ULF_HEADER_SIZE
     jb .ulf_bad_size
-    cmp ecx, 32 * 1024 * 1024       ; max 32MB
+    cmp ecx, ULF_MAX_IMAGE_BYTES
     ja .ulf_bad_size
 
     ; 3. Verify Checksum
@@ -421,7 +352,7 @@ longmode_64:
     xor rdx, rdx                    ; rdx = current offset
 
 .checksum_loop:
-    cmp rdx, 16                     ; skip the checksum field at offset 16 (0x10)
+    cmp rdx, ULF_CHECKSUM_OFF       ; checksum field is counted as zero
     je .skip_field
     add rax, [rsi + rdx]
 .skip_field:
@@ -430,15 +361,15 @@ longmode_64:
     jnz .checksum_loop
 
 .checksum_done:
-    mov r8, [KERNEL_LOAD + 16]      ; load checksum from header
+    mov r8, [KERNEL_LOAD + ULF_CHECKSUM_OFF]
     cmp rax, r8
     jne .ulf_bad_checksum
 
     ; 4. Validate the executable extent, version, and control-flow target at
     ; the final trust boundary, after the complete image passed its checksum.
-    cmp dword [KERNEL_LOAD + 28], ULF_VERSION
+    cmp dword [KERNEL_LOAD + ULF_VERSION_OFF], ULF_VERSION
     jne .ulf_bad_header
-    mov edx, [KERNEL_LOAD + 24]
+    mov edx, [KERNEL_LOAD + ULF_EXEC_SIZE_OFF]
     cmp edx, ULF_HEADER_SIZE
     jb .ulf_bad_header
     test edx, ULF_EXEC_ALIGN - 1
@@ -447,12 +378,42 @@ longmode_64:
     ja .ulf_bad_header
     cmp edx, ULF_MAX_EXEC_BYTES
     ja .ulf_bad_header
-    mov rax, [KERNEL_LOAD + 8]
-    cmp rax, KERNEL_LOAD + 32
+    mov rax, [KERNEL_LOAD + ULF_ENTRY_OFF]
+    cmp rax, KERNEL_LOAD + ULF_HEADER_SIZE
     jb .ulf_bad_entry
     add rdx, KERNEL_LOAD
     cmp rax, rdx
     jae .ulf_bad_entry
+
+    ; ULF v2 makes the complete initialized-data+BSS footprint explicit.
+    ; Bound it before using it, then zero everything not present in the file,
+    ; including allocation-page padding.  The initial BIOS path otherwise
+    ; inherits whatever happened to be in those physical pages.
+    cmp dword [KERNEL_LOAD + ULF_MEMORY_SIZE_OFF + 4], 0
+    jne .ulf_bad_header
+    mov edx, [KERNEL_LOAD + ULF_MEMORY_SIZE_OFF]
+    cmp edx, ecx
+    jb .ulf_bad_header
+    test edx, 7
+    jnz .ulf_bad_header
+    cmp edx, ULF_MAX_MEMORY_BYTES
+    ja .ulf_bad_header
+
+    mov r9d, edx
+    add r9, 4095
+    jc .ulf_bad_header
+    and r9, -4096                  ; page-rounded footprint length
+    add r9, KERNEL_LOAD
+    jc .ulf_bad_header
+    mov edi, KERNEL_LOAD
+    add rdi, rcx                   ; first byte absent from the file
+    cmp rdi, r9
+    ja .ulf_bad_header
+    mov rcx, r9
+    sub rcx, rdi
+    xor eax, eax
+    cld
+    rep stosb
 
     ; 5. Print success and dynamic jump
     mov rsi, msg_kernel_ok
@@ -466,7 +427,7 @@ longmode_64:
     call survive_vector_install
 
     ; 4. Retrieve dynamic entry point from header (offset 8)
-    mov rax, [KERNEL_LOAD + 8]      ; rax = entry_point
+    mov rax, [KERNEL_LOAD + ULF_ENTRY_OFF]
 
     mov rdi, BOOT_INFO_ADDR         ; Pass BootInfo pointer in RDI (System V ABI)
     jmp rax                         ; jump dynamically!
@@ -621,7 +582,6 @@ msg_survive_test_halt:
 longmode_cmos_index: db 0
 msg_longmode_ok:    db "Long mode OK", 0x0D, 0x0A, 0
 msg_kernel_load:    db "Kernel... ", 0
-msg_kaslr_reloc:    db "KASLR: Kernel physically relocated to ", 0
 msg_crlf:           db 0x0D, 0x0A, 0
 msg_kernel_ok:      db "OK", 0x0D, 0x0A, 0
 msg_ulf_err_magic:  db "FAIL (Bad Magic)", 0x0D, 0x0A, 0

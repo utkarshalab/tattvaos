@@ -50,34 +50,58 @@ efi_main:
     mov rcx, [uefi_system_table]
     call uefi_gop_init
 
-    ; 3. Load kernel.ulf from simple filesystem to KERNEL_LOAD (0x100000)
-    mov rcx, [uefi_system_table]
-    lea rdx, [msg_kernel_file]
-    mov r8, 0x100000                ; KERNEL_LOAD (1MB mark)
-    call uefi_file_load
+    ; 3. Open the filesystem on the device that loaded this application.
+    ; LocateProtocol alone can select an unrelated ESP on multi-disk systems.
+    mov rcx, [rel uefi_system_table]
+    mov rdx, [rel uefi_image_handle]
+    call uefi_open_boot_volume
     test rax, rax
-    jz .load_failed                 ; zero read size = failed to load kernel
+    jnz .load_failed
+    mov [rel uefi_boot_root], rdx
 
-    ; TPM measurement of loaded kernel
-    mov rbx, rax                    ; save kernel size
-    mov rcx, [uefi_system_table]
+    ; 4. Load the validated ULF into firmware-owned pages at its linked base.
+    mov rcx, [rel uefi_system_table]
+    mov rdx, [rel uefi_boot_root]
+    lea r8, [rel msg_kernel_file]
+    call uefi_load_kernel
+    test rax, rax
+    jnz .load_failed
+
+    ; The initrd is optional only when it is absent.  Corruption, an I/O error,
+    ; or an allocation failure is not silently converted into \"no initrd\".
+    mov rcx, [rel uefi_system_table]
+    mov rdx, [rel uefi_boot_root]
+    lea r8, [rel msg_initrd_file]
+    call uefi_load_initrd
+    mov r10, EFI_NOT_FOUND
+    cmp rax, r10
+    je .initrd_ready
+    test rax, rax
+    jnz .load_failed
+
+.initrd_ready:
+    ; No file or volume handle may survive into the final memory-map window.
+    mov rcx, [rel uefi_boot_root]
+    mov qword [rel uefi_boot_root], 0
+    mov rax, [rcx + FILE_CLOSE]
+    call rax
+    test rax, rax
+    jnz .load_failed
+
+    ; TPM measurement covers the exact initialized file bytes, not page
+    ; padding or the zeroed BSS portion of the allocation.
+    mov rcx, [rel uefi_system_table]
     call uefi_tpm_init
     test rax, rax
     jnz .skip_tpm_measure
 
-    mov rcx, [uefi_system_table]
-    mov rdx, 0x100000               ; kernel data address
-    mov r8, rbx                     ; kernel size
+    mov rcx, [rel uefi_system_table]
+    mov rdx, [rel uefi_kernel_addr]
+    mov r8, [rel uefi_kernel_size]
     mov r9d, 4                      ; PCR 4 (OS loader/kernel)
     call uefi_tpm_measure
 
 .skip_tpm_measure:
-    ; Load initrd.img from Simple File System to 0x2000000 (32MB)
-    mov rcx, [uefi_system_table]
-    lea rdx, [rel msg_initrd_file]
-    mov r8, 0x2000000               ; 32MB mark
-    call uefi_file_load
-    mov [rel uefi_initrd_size], rax ; save initrd size (0 if not found)
 
     ; NVRAM can change the firmware memory map. It must run before the final
     ; GetMemoryMap -> local conversion -> ExitBootServices sequence.
@@ -86,7 +110,7 @@ efi_main:
     mov r8, 48
     call uefi_write_boot_log
 
-    ; 4. Query GetMemoryMap to obtain size and MapKey. The static buffer is a
+    ; 5. Query GetMemoryMap to obtain size and MapKey. The static buffer is a
     ; hard capacity: EFI_BUFFER_TOO_SMALL is a clean boot failure.
     mov qword [rel uefi_map_size], 16384
     mov rcx, [uefi_system_table]
@@ -96,21 +120,27 @@ efi_main:
     test rax, rax
     jnz .mem_map_failed             ; if non-zero status, query failed
 
-    ; 5. Handoff to kernel (Exit Boot Services + Jump)
+    ; 6. Handoff to kernel (Exit Boot Services + validated ULF entry).
     mov r8, [rel uefi_map_key]
-    mov rcx, [uefi_system_table]
-    mov rdx, [uefi_image_handle]
-    mov r9, 0x100000                ; KERNEL_LOAD entry point
+    mov rcx, [rel uefi_system_table]
+    mov rdx, [rel uefi_image_handle]
+    mov r9, [rel uefi_kernel_entry]
     call uefi_handoff
 
     ; EFI_LOAD_ERROR is local validation failure before ExitBootServices, so
-    ; console output remains legal. Firmware failures use the restricted retry.
+    ; console output remains legal.
     mov r10, EFI_LOAD_ERROR
     cmp rax, r10
     je .mem_map_failed
 
-    ; If we returned here, the first handoff failed (possibly due to changed memory map).
-    ; Refresh memory map size and query memory map again.
+    ; The one retry permitted by the UEFI contract is for a stale MapKey.
+    ; Any other firmware status fails silently: after the first exit attempt
+    ; no console, filesystem, TPM, GOP, or NVRAM operation is safe.
+    mov r10, EFI_INVALID_PARAMETER
+    cmp rax, r10
+    jne .halt
+
+    ; Refresh the map and retry ExitBootServices with the new key.
     mov qword [rel uefi_map_size], 16384
     mov rcx, [uefi_system_table]
     lea rdx, [rel uefi_mem_map_buf]
@@ -121,9 +151,9 @@ efi_main:
 
     ; Retry Handoff with updated MapKey
     mov r8, [rel uefi_map_key]
-    mov rcx, [uefi_system_table]
-    mov rdx, [uefi_image_handle]
-    mov r9, 0x100000
+    mov rcx, [rel uefi_system_table]
+    mov rdx, [rel uefi_image_handle]
+    mov r9, [rel uefi_kernel_entry]
     call uefi_handoff
 
     ; If handoff returned again, fail silently: after an EBS failure firmware
@@ -131,14 +161,26 @@ efi_main:
     jmp .halt
 
 .mem_map_failed:
-    lea rdx, [msg_mem_map_failed]
-    jmp .error_out
+    lea rdx, [rel msg_mem_map_failed]
+    jmp .preboot_error
 
 .load_failed:
-    lea rdx, [msg_load_failed]
+    lea rdx, [rel msg_load_failed]
 
-.error_out:
-    mov rcx, [uefi_system_table]
+.preboot_error:
+    ; Preserve the message across cleanup calls in a nonvolatile register slot.
+    mov [rbp - 8], rdx
+    mov rcx, [rel uefi_boot_root]
+    test rcx, rcx
+    jz .release_payloads
+    mov qword [rel uefi_boot_root], 0
+    mov rax, [rcx + FILE_CLOSE]
+    call rax
+.release_payloads:
+    mov rcx, [rel uefi_system_table]
+    call uefi_release_payloads
+    mov rcx, [rel uefi_system_table]
+    mov rdx, [rbp - 8]
     call uefi_print
 
 .halt:
@@ -154,6 +196,7 @@ align 8
 uefi_image_handle:  dq 0
 uefi_system_table:  dq 0
 uefi_map_size:      dq 0
+uefi_boot_root:     dq 0
 
 ; UTF-16LE welcoming strings
 msg_uefi_banner:
@@ -164,9 +207,6 @@ msg_kernel_file:
 
 msg_initrd_file:
     dw 'i', 'n', 'i', 't', 'r', 'd', '.', 'i', 'm', 'g', 0
-
-align 8
-uefi_initrd_size:   dq 0
 
 msg_load_failed:
     dw 'E', 'R', 'R', 'O', 'R', ':', ' ', 'F', 'a', 'i', 'l', 'e', 'd', ' ', 't', 'o', ' ', 'l', 'o', 'a', 'd', ' ', 'k', 'e', 'r', 'n', 'e', 'l', '.', 'u', 'l', 'f', 0x0D, 0x0A, 0

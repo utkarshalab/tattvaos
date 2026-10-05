@@ -149,7 +149,7 @@ expect_line "out-of-image ULF entry rejected" "FAIL (invalid ULF entry point)" "
 
 ULF_VERSION_BAD="$TMP_DIR/ulf-version-bad.img"
 cp "$GOOD_IMAGE" "$ULF_VERSION_BAD"
-printf '\002\000\000\000' | \
+printf '\001\000\000\000' | \
     dd of="$ULF_VERSION_BAD" bs=1 seek=$((KERNEL_OFFSET + 28)) conv=notrunc status=none
 ULF_VERSION_LOG="$TMP_DIR/ulf-version.log"
 run_guest "$ULF_VERSION_BAD" max "$ULF_VERSION_LOG"
@@ -170,7 +170,7 @@ ULF_EXEC_ALIGN_LOG="$TMP_DIR/ulf-exec-align.log"
 run_guest "$ULF_EXEC_ALIGN_BAD" max "$ULF_EXEC_ALIGN_LOG"
 expect_line "unaligned ULF executable extent rejected" "FAIL (unsupported ULF header)" "$ULF_EXEC_ALIGN_LOG"
 
-# Version 1 caps the executable prefix at the 1MB PT0 kernel window.  Exercise
+# ULF v2 retains the executable-prefix cap at the 1MB PT0 kernel window. Exercise
 # the upper bound independently of the too-small extent case above.
 ULF_EXEC_LARGE_BAD="$TMP_DIR/ulf-exec-large-bad.img"
 cp "$GOOD_IMAGE" "$ULF_EXEC_LARGE_BAD"
@@ -190,6 +190,32 @@ write_le32 "$ULF_ENTRY_END_BAD" $((KERNEL_OFFSET + 12)) 0
 ULF_ENTRY_END_LOG="$TMP_DIR/ulf-entry-at-exec-end.log"
 run_guest "$ULF_ENTRY_END_BAD" max "$ULF_ENTRY_END_LOG"
 expect_line "ULF entry at executable boundary rejected" "FAIL (invalid ULF entry point)" "$ULF_ENTRY_END_LOG"
+
+# ULF v2 owns and zeroes the complete memory footprint.  Reject both a range
+# that cannot contain the file and one beyond the loader's bounded policy
+# before either value can influence a destination or zeroing loop.
+ULF_MEMORY_SMALL_BAD="$TMP_DIR/ulf-memory-small.img"
+cp "$GOOD_IMAGE" "$ULF_MEMORY_SMALL_BAD"
+write_le32 "$ULF_MEMORY_SMALL_BAD" $((KERNEL_OFFSET + 32)) 40
+write_le32 "$ULF_MEMORY_SMALL_BAD" $((KERNEL_OFFSET + 36)) 0
+ULF_MEMORY_SMALL_LOG="$TMP_DIR/ulf-memory-small.log"
+run_guest "$ULF_MEMORY_SMALL_BAD" max "$ULF_MEMORY_SMALL_LOG"
+expect_line "undersized ULF memory extent rejected" "FAIL (unsupported ULF header)" "$ULF_MEMORY_SMALL_LOG"
+
+ULF_MEMORY_LARGE_BAD="$TMP_DIR/ulf-memory-large.img"
+cp "$GOOD_IMAGE" "$ULF_MEMORY_LARGE_BAD"
+write_le32 "$ULF_MEMORY_LARGE_BAD" $((KERNEL_OFFSET + 32)) $((64 * 1024 * 1024 + 8))
+write_le32 "$ULF_MEMORY_LARGE_BAD" $((KERNEL_OFFSET + 36)) 0
+ULF_MEMORY_LARGE_LOG="$TMP_DIR/ulf-memory-large.log"
+run_guest "$ULF_MEMORY_LARGE_BAD" max "$ULF_MEMORY_LARGE_LOG"
+expect_line "oversized ULF memory extent rejected" "FAIL (unsupported ULF header)" "$ULF_MEMORY_LARGE_LOG"
+
+ULF_MEMORY_HIGH_BAD="$TMP_DIR/ulf-memory-high.img"
+cp "$GOOD_IMAGE" "$ULF_MEMORY_HIGH_BAD"
+write_le32 "$ULF_MEMORY_HIGH_BAD" $((KERNEL_OFFSET + 36)) 1
+ULF_MEMORY_HIGH_LOG="$TMP_DIR/ulf-memory-high.log"
+run_guest "$ULF_MEMORY_HIGH_BAD" max "$ULF_MEMORY_HIGH_LOG"
+expect_line "high ULF memory extent rejected" "FAIL (unsupported ULF header)" "$ULF_MEMORY_HIGH_LOG"
 
 # Preserve a valid header but remove nearly all of the declared kernel image.
 # The EDD capacity check must reject it before the destination is half-written.

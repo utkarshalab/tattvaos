@@ -178,6 +178,8 @@ test-negative: $(IMG)
 # deliberately does not advertise OVMF boot readiness yet.
 uefi-check:
 	@sh $(KERNEL_DIR)/tests/test_uefi_memmap.sh
+	@sh $(KERNEL_DIR)/tests/test_uefi_ulf.sh
+	@sh $(KERNEL_DIR)/tests/test_uefi_file.sh
 	@sh $(KERNEL_DIR)/tests/test_uefi_asm.sh
 
 clean:

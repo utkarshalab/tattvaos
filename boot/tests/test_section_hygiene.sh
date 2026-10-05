@@ -1,6 +1,6 @@
 #!/bin/sh
 # Reject executable instructions emitted after a source file switches to a
-# non-executable section without switching back to .text.  With ULF v1 this is
+# non-executable section without switching back to .text.  With ULF v2 this is
 # a boot contract: stage2 maps only the declared text prefix executable.
 
 set -eu

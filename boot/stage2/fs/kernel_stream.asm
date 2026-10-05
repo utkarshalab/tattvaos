@@ -41,6 +41,7 @@ KS_ULF_VERSION   equ ULF_VERSION
 KS_EXEC_ALIGN    equ ULF_EXEC_ALIGN
 KS_MAX_EXEC_BYTES equ ULF_MAX_EXEC_BYTES
 KS_MAX_BYTES     equ ULF_MAX_IMAGE_BYTES
+KS_MAX_MEMORY_BYTES equ ULF_MAX_MEMORY_BYTES
 
 ; =============================================================================
 ; kernel_stream_load — load the ULF image from LBA KERNEL_LBA to KERNEL_LOAD.
@@ -63,9 +64,9 @@ kernel_stream_load:
 
     mov ax, KERNEL_TEMP >> 4
     mov es, ax
-    cmp dword [es:0], KS_ULF_MAGIC
+    cmp dword [es:ULF_MAGIC_OFF], KS_ULF_MAGIC
     jne .fail_magic
-    mov eax, [es:4]                 ; ULF header +4: image length in bytes
+    mov eax, [es:ULF_IMAGE_SIZE_OFF]
 
     cmp eax, KS_ULF_HEADER          ; smaller than its own header
     jb .fail_size
@@ -74,11 +75,11 @@ kernel_stream_load:
     test eax, 7                     ; checksum is defined over whole qwords
     jnz .fail_size
 
-    ; Version 1 declares the executable prefix separately from total file
-    ; bytes, allowing the bootstrap mapper to default everything else to NX.
-    cmp dword [es:28], KS_ULF_VERSION
+    ; ULF v2 declares executable and complete in-memory extents separately
+    ; from the bytes on disk.
+    cmp dword [es:ULF_VERSION_OFF], KS_ULF_VERSION
     jne .fail_header
-    mov ecx, [es:24]
+    mov ecx, [es:ULF_EXEC_SIZE_OFF]
     cmp ecx, KS_ULF_HEADER
     jb .fail_header
     test ecx, KS_EXEC_ALIGN - 1
@@ -90,15 +91,30 @@ kernel_stream_load:
 
     ; The entry is an identity-mapped virtual address in that executable
     ; prefix. Reject a high-half or data-page target before trusting it.
-    cmp dword [es:12], 0
+    cmp dword [es:ULF_ENTRY_OFF + 4], 0
     jne .fail_entry
-    mov edx, [es:8]
+    mov edx, [es:ULF_ENTRY_OFF]
     cmp edx, KERNEL_LOAD + KS_ULF_HEADER
     jb .fail_entry
     add ecx, KERNEL_LOAD
     jc .fail_header
     cmp edx, ecx
     jae .fail_entry
+
+    ; The memory footprint drives BSS ownership/zeroing later in long mode.
+    ; It is still unchecksummed here, so bound every arithmetic input before
+    ; it can influence a destination range.
+    cmp dword [es:ULF_MEMORY_SIZE_OFF + 4], 0
+    jne .fail_header
+    mov edx, [es:ULF_MEMORY_SIZE_OFF]
+    cmp edx, eax
+    jb .fail_header
+    test edx, 7
+    jnz .fail_header
+    cmp edx, KS_MAX_MEMORY_BYTES
+    ja .fail_header
+    add edx, KERNEL_LOAD
+    jc .fail_header
 
     add eax, 511                    ; round up to whole sectors
     shr eax, 9

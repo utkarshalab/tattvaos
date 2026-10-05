@@ -36,7 +36,7 @@ KERNEL_SIZE=$(wc -c < "$KERNEL" | tr -d ' ')
 HEADER_SIZE=$(od -An -tu4 -j4 -N4 "$KERNEL" | tr -d ' ')
 [ "$HEADER_SIZE" = "$KERNEL_SIZE" ] || \
     fail "ULF size field is $HEADER_SIZE, file is $KERNEL_SIZE bytes"
-[ "$KERNEL_SIZE" -ge 32 ] && [ "$KERNEL_SIZE" -le $((32 * 1024 * 1024)) ] || \
+[ "$KERNEL_SIZE" -ge 40 ] && [ "$KERNEL_SIZE" -le $((32 * 1024 * 1024)) ] || \
     fail "kernel size is outside loader bounds: $KERNEL_SIZE"
 [ $((KERNEL_SIZE % 8)) -eq 0 ] || \
     fail "kernel size is not checksum-aligned: $KERNEL_SIZE"
@@ -44,16 +44,24 @@ HEADER_SIZE=$(od -An -tu4 -j4 -N4 "$KERNEL" | tr -d ' ')
 ULF_ENTRY=$(od -An -tu8 -j8 -N8 "$KERNEL" | tr -d ' ')
 ULF_EXEC_SIZE=$(od -An -tu4 -j24 -N4 "$KERNEL" | tr -d ' ')
 ULF_VERSION=$(od -An -tu4 -j28 -N4 "$KERNEL" | tr -d ' ')
-[ "$ULF_VERSION" -eq 1 ] || fail "unsupported ULF version: $ULF_VERSION"
-[ "$ULF_EXEC_SIZE" -ge 32 ] && [ "$ULF_EXEC_SIZE" -le $((1024 * 1024)) ] && \
+ULF_MEMORY_SIZE=$(od -An -tu8 -j32 -N8 "$KERNEL" | tr -d ' ')
+[ "$ULF_VERSION" -eq 2 ] || fail "unsupported ULF version: $ULF_VERSION"
+[ "$ULF_EXEC_SIZE" -ge 40 ] && [ "$ULF_EXEC_SIZE" -le $((1024 * 1024)) ] && \
     [ "$ULF_EXEC_SIZE" -le "$KERNEL_SIZE" ] || \
     fail "ULF executable extent is invalid: $ULF_EXEC_SIZE"
 if [ $((ULF_EXEC_SIZE % 4096)) -ne 0 ]; then
     fail "ULF executable extent is not page-aligned: $ULF_EXEC_SIZE"
 fi
-[ "$ULF_ENTRY" -ge $((0x100000 + 32)) ] && \
+[ "$ULF_ENTRY" -ge $((0x100000 + 40)) ] && \
     [ "$ULF_ENTRY" -lt $((0x100000 + ULF_EXEC_SIZE)) ] || \
     fail "ULF entry point is outside the executable extent: $ULF_ENTRY"
+[ "$ULF_MEMORY_SIZE" -ge "$KERNEL_SIZE" ] && \
+    [ "$ULF_MEMORY_SIZE" -le $((64 * 1024 * 1024)) ] || \
+    fail "ULF memory extent is invalid: $ULF_MEMORY_SIZE"
+[ $((ULF_MEMORY_SIZE % 8)) -eq 0 ] || \
+    fail "ULF memory extent is not qword-aligned: $ULF_MEMORY_SIZE"
+[ $((0x100000 + ULF_MEMORY_SIZE)) -le $((0x100000000)) ] || \
+    fail "ULF memory extent exceeds the bootstrap aperture"
 
 # Recompute the same modulo-2^64 quadword sum as ulf_stamp.sh, treating the
 # checksum field itself as zero.
@@ -81,10 +89,10 @@ IMAGE_STAGE2_MAGIC=$(hex_at "$IMAGE" 512 4)
 [ "$IMAGE_STAGE2_MAGIC" = "$STAGE2_MAGIC" ] || \
     fail "image LBA 1 does not contain stage2"
 
-FILE_ULF_HEADER=$(hex_at "$KERNEL" 0 32)
-IMAGE_ULF_HEADER=$(hex_at "$IMAGE" $((65 * 512)) 32)
+FILE_ULF_HEADER=$(hex_at "$KERNEL" 0 40)
+IMAGE_ULF_HEADER=$(hex_at "$IMAGE" $((65 * 512)) 40)
 [ "$IMAGE_ULF_HEADER" = "$FILE_ULF_HEADER" ] || \
-    fail "image LBA 65 ULF v1 header differs from kernel.bin"
+    fail "image LBA 65 ULF v2 header differs from kernel.bin"
 
 IMAGE_SECTORS=$(( ($(wc -c < "$IMAGE") + 511) / 512 ))
 KERNEL_END_LBA=$((65 + (KERNEL_SIZE + 511) / 512))

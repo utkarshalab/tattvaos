@@ -111,7 +111,7 @@ done
 
 READY="Tattva Kernel Ready. Entering main execution."
 SELFTESTS="Boot memory self-test: PASS"
-HEARTBEAT="heartbeat #"
+HEARTBEAT="heartbeat #0"
 wait_for_count "$READY" 1 400
 wait_for_count "$SELFTESTS" 1 300
 wait_for_count "$HEARTBEAT" 1 100

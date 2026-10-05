@@ -39,16 +39,16 @@ paging_verify:
     jc .nx_mask_ready
     mov edx, PTE_NX_BIT
 .nx_mask_ready:
-    cmp dword [KERNEL_LOAD + 28], ULF_VERSION
+    cmp dword [KERNEL_LOAD + ULF_VERSION_OFF], ULF_VERSION
     jne .fail_policy
-    mov esi, [KERNEL_LOAD + 24]
+    mov esi, [KERNEL_LOAD + ULF_EXEC_SIZE_OFF]
     cmp esi, ULF_HEADER_SIZE
     jb .fail_policy
     test esi, ULF_EXEC_ALIGN - 1
     jnz .fail_policy
     cmp esi, ULF_MAX_EXEC_BYTES
     ja .fail_policy
-    cmp esi, [KERNEL_LOAD + 4]
+    cmp esi, [KERNEL_LOAD + ULF_IMAGE_SIZE_OFF]
     ja .fail_policy
     add esi, KERNEL_LOAD            ; exclusive executable end
     jc .fail_policy
