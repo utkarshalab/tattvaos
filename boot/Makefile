@@ -174,8 +174,14 @@ test: $(IMG)
 test-negative: $(IMG)
 	@sh $(KERNEL_DIR)/tests/test_boot_negative.sh
 
+# Native ABI validation plus a complete PE32+ EFI application link check. This
+# deliberately does not advertise OVMF boot readiness yet.
+uefi-check:
+	@sh $(KERNEL_DIR)/tests/test_uefi_memmap.sh
+	@sh $(KERNEL_DIR)/tests/test_uefi_asm.sh
+
 clean:
 	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
 	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG)
 
-.PHONY: all elf img run debug test test-negative clean
+.PHONY: all elf img run debug test test-negative uefi-check clean

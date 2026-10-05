@@ -2,7 +2,7 @@
 ; Tattva OS — boot/uefi/handoff.asm
 ; =============================================================================
 ; UEFI handoff to kernel. Shuts down boot services and jumps to kernel entry.
-; Populates BootInfo structure at 0x7000.
+; Populates a loader-owned BootInfo structure and canonical memory map.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64, UEFI PE32+
@@ -12,8 +12,27 @@
 %define UEFI_HANDOFF_ASM
 
 %include "protocol.asm"
+%include "memory_map.asm"
 
 [BITS 64]
+
+UEFI_BOOT_INFO_SIZE          equ 88
+UEFI_BOOT_INFO_E820_PTR      equ 0
+UEFI_BOOT_INFO_E820_COUNT    equ 8
+UEFI_BOOT_INFO_DRIVE         equ 12
+UEFI_BOOT_INFO_FEATURES      equ 16
+UEFI_BOOT_INFO_ACPI_RSDP     equ 24
+UEFI_BOOT_INFO_FB_ADDR       equ 32
+UEFI_BOOT_INFO_FB_WIDTH      equ 40
+UEFI_BOOT_INFO_FB_HEIGHT     equ 44
+UEFI_BOOT_INFO_FB_PITCH      equ 48
+UEFI_BOOT_INFO_FB_FORMAT     equ 52
+UEFI_BOOT_INFO_INITRD_ADDR   equ 56
+UEFI_BOOT_INFO_INITRD_SIZE   equ 64
+UEFI_CANONICAL_MAX_ENTRIES   equ 128
+UEFI_BOOTSTRAP_MAP_LIMIT     equ 0x0000000100000000
+
+section .text
 
 ; =============================================================================
 ; uefi_handoff — ExitBootServices and jump to kernel
@@ -21,12 +40,14 @@
 ;         RDX = ImageHandle
 ;         R8  = MapKey value from GetMemoryMap
 ;         R9  = kernel entry address (0x100000)
-; Output: RAX = status code (only if ExitBootServices fails)
+; Output: RAX = EFI status if local validation or ExitBootServices fails
 ; =============================================================================
 uefi_handoff:
     push rbp
     mov rbp, rsp
-    sub rsp, 64                     ; shadow space + local storage (64 bytes, keeping stack 16-byte aligned)
+    ; The lowest 32 bytes are dedicated Microsoft-x64 call home space. Local
+    ; saves live above it and cannot be overwritten by firmware.
+    sub rsp, 112
 
     ; Save inputs
     mov [rbp - 8], rcx              ; System Table pointer
@@ -38,11 +59,43 @@ uefi_handoff:
     mov [rbp - 48], rbx
     mov [rbp - 56], rsi
     mov [rbp - 64], rdi
+    mov [rbp - 80], r12
+
+    ; Normalize native EFI descriptors before publishing anything to the
+    ; kernel. DescriptorVersion is part of the firmware ABI.
+    cmp dword [rel uefi_desc_version], EFI_MEMORY_DESCRIPTOR_VERSION
+    jne .prepare_failed
+    lea rdi, [rel uefi_mem_map_buf]
+    mov rsi, [rel uefi_map_size]
+    mov rdx, [rel uefi_desc_size]
+    lea rcx, [rel uefi_e820_map_buf]
+    mov r8d, UEFI_CANONICAL_MAX_ENTRIES
+    call uefi_normalize_memory_map
+    jc .prepare_failed
+    mov [rbp - 72], eax             ; canonical entry count
+
+    ; The current kernel bootstrap CR3 maps [0, 4 GiB). The loader image is
+    ; retained as reserved memory, but these objects must be dereferenceable.
+    lea r12, [rel uefi_boot_info]
+    mov rax, r12
+    add rax, UEFI_BOOT_INFO_SIZE
+    jc .prepare_failed
+    mov rdx, UEFI_BOOTSTRAP_MAP_LIMIT
+    cmp rax, rdx
+    ja .prepare_failed
+
+    lea rax, [rel uefi_e820_map_buf]
+    mov ecx, [rbp - 72]
+    imul rcx, UEFI_CANONICAL_ENTRY_SIZE
+    add rcx, rax
+    jc .prepare_failed
+    cmp rcx, rdx
+    ja .prepare_failed
 
     ; 1. Walk ConfigurationTable to find ACPI RSDP pointer
     mov rcx, [rbp - 8]              ; RCX = System Table
-    mov rdx, [rcx + 104]            ; RDX = NumberOfTableEntries (offset 104)
-    mov rsi, [rcx + 112]            ; RSI = ConfigurationTable pointer (offset 112)
+    mov rdx, [rcx + SYS_TABLE_TABLE_COUNT]
+    mov rsi, [rcx + SYS_TABLE_CONFIG_TABLE]
     xor rdi, rdi                    ; RDI = found RSDP address (default 0)
 
 .config_loop:
@@ -86,42 +139,33 @@ uefi_handoff:
 .config_loop_end:
     mov [rbp - 40], rdi             ; save found ACPI RSDP pointer
 
-    ; 2. Zero out the 88-byte BootInfo structure at 0x7000 (11 quadwords)
+    ; 2. Zero the loader-owned 88-byte BootInfo structure (11 quadwords).
     cld                             ; Clear direction flag for rep stosq
-    mov rdi, 0x7000
+    mov rdi, r12
     mov rcx, 11                     ; 11 * 8 = 88 bytes (covers through SMP_CORES at offset 0x50)
     xor rax, rax
     rep stosq
 
     ; 3. Populate BootInfo fields
-    ; BOOT_INFO_E820_ADDR (0x7000) -> address of uefi_mem_map_buf
-    lea rax, [uefi_mem_map_buf]
-    mov [0x7000], rax
+    lea rax, [rel uefi_e820_map_buf]
+    mov [r12 + UEFI_BOOT_INFO_E820_PTR], rax
 
     ; BOOT_INFO_INITRD_ADDR (0x7038) and BOOT_INFO_INITRD_SIZE (0x7040)
     mov rax, [rel uefi_initrd_size]
     test rax, rax
     jz .no_uefi_initrd
-    mov qword [0x7038], 0x2000000   ; address = 32MB mark
-    mov [0x7040], rax               ; size
+    mov qword [r12 + UEFI_BOOT_INFO_INITRD_ADDR], 0x2000000
+    mov [r12 + UEFI_BOOT_INFO_INITRD_SIZE], rax
     jmp .uefi_initrd_done
 .no_uefi_initrd:
-    mov qword [0x7038], 0
-    mov qword [0x7040], 0
+    mov qword [r12 + UEFI_BOOT_INFO_INITRD_ADDR], 0
+    mov qword [r12 + UEFI_BOOT_INFO_INITRD_SIZE], 0
 .uefi_initrd_done:
 
-    ; BOOT_INFO_E820_COUNT (0x7008) -> count = uefi_map_size / uefi_desc_size
-    xor rdx, rdx
-    mov rax, [uefi_map_size]
-    mov rcx, [uefi_desc_size]
-    test rcx, rcx
-    jz .skip_mem_count
-    div rcx
-    mov [0x7008], eax               ; store 32-bit count
-.skip_mem_count:
+    mov eax, [rbp - 72]
+    mov [r12 + UEFI_BOOT_INFO_E820_COUNT], eax
 
-    ; BOOT_INFO_DRIVE (0x700C) -> 0 (standard for UEFI)
-    mov dword [0x700C], 0
+    mov dword [r12 + UEFI_BOOT_INFO_DRIVE], 0
 
     ; BOOT_INFO_FEATURES (0x7010) -> CPU features bitmask
     mov r9d, 1                      ; Bit 0: Long Mode is always supported in 64-bit UEFI
@@ -177,31 +221,31 @@ uefi_handoff:
     or r9d, 1 << 1
 .no_nx:
 .no_ext_features:
-    mov [0x7010], r9d               ; store in cpu_features
+    mov [r12 + UEFI_BOOT_INFO_FEATURES], r9d
 
     ; BOOT_INFO_ACPI_RSDP (0x7018) -> ACPI RSDP physical address
     mov rax, [rbp - 40]
-    mov [0x7018], rax
+    mov [r12 + UEFI_BOOT_INFO_ACPI_RSDP], rax
 
     ; BOOT_INFO_FB_ADDR (0x7020) -> framebuffer base
     mov rax, [uefi_fb_base]
-    mov [0x7020], rax
+    mov [r12 + UEFI_BOOT_INFO_FB_ADDR], rax
 
     ; BOOT_INFO_FB_WIDTH (0x7028) -> width
     mov eax, [uefi_fb_width]
-    mov [0x7028], eax
+    mov [r12 + UEFI_BOOT_INFO_FB_WIDTH], eax
 
     ; BOOT_INFO_FB_HEIGHT (0x702C) -> height
     mov eax, [uefi_fb_height]
-    mov [0x702C], eax
+    mov [r12 + UEFI_BOOT_INFO_FB_HEIGHT], eax
 
     ; BOOT_INFO_FB_PITCH (0x7030) -> pitch
     mov eax, [uefi_fb_pitch]
-    mov [0x7030], eax
+    mov [r12 + UEFI_BOOT_INFO_FB_PITCH], eax
 
     ; BOOT_INFO_FB_FORMAT (0x7034) -> BPP format
     mov eax, [uefi_fb_format]
-    mov [0x7034], eax
+    mov [r12 + UEFI_BOOT_INFO_FB_FORMAT], eax
 
     ; 4. Call ExitBootServices(ImageHandle, MapKey)
     mov rcx, [rbp - 8]              ; RCX = System Table
@@ -219,14 +263,22 @@ uefi_handoff:
     cli
 
     ; Pass BootInfo pointer in RDI (System V ABI)
-    mov rdi, 0x7000
+    mov rdi, r12
 
     ; Jump directly to the kernel entry point
     mov rax, [rbp - 32]
     jmp rax
 
 .failed:
-    ; Restore non-volatile registers and return failure status in RAX
+    ; ExitBootServices failed; preserve its EFI_STATUS for the bounded retry.
+    jmp .restore_return
+
+.prepare_failed:
+    mov rax, EFI_LOAD_ERROR
+
+.restore_return:
+    ; Restore non-volatile registers and return failure status in RAX.
+    mov r12, [rbp - 80]
     mov rdi, [rbp - 64]
     mov rsi, [rbp - 56]
     mov rbx, [rbp - 48]

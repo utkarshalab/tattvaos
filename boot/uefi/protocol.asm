@@ -16,7 +16,10 @@
 ; -----------------------------------------------------------------------------
 SYS_TABLE_CON_IN            equ 48      ; pointer to Simple Text Input
 SYS_TABLE_CON_OUT           equ 64      ; pointer to Simple Text Output (ConOut)
+SYS_TABLE_RUNTIME_SERVICES  equ 88      ; pointer to Runtime Services Table
 SYS_TABLE_BOOT_SERVICES     equ 96      ; pointer to Boot Services Table
+SYS_TABLE_TABLE_COUNT       equ 104     ; NumberOfTableEntries
+SYS_TABLE_CONFIG_TABLE      equ 112     ; pointer to ConfigurationTable array
 
 ; -----------------------------------------------------------------------------
 ; Simple Text Output Protocol (ConOut) offsets
@@ -30,6 +33,21 @@ CON_OUT_OUTPUT_STRING       equ 8       ; OutputString member pointer
 BS_GET_MEMORY_MAP           equ 56      ; GetMemoryMap pointer
 BS_LOCATE_PROTOCOL          equ 320     ; LocateProtocol pointer
 BS_EXIT_BOOT_SERVICES       equ 232     ; ExitBootServices pointer
+
+; -----------------------------------------------------------------------------
+; UEFI Runtime Services offsets
+; -----------------------------------------------------------------------------
+RT_SET_VARIABLE             equ 88      ; SetVariable pointer
+
+; -----------------------------------------------------------------------------
+; EFI status and ABI constants
+; -----------------------------------------------------------------------------
+EFI_SUCCESS                 equ 0
+EFI_LOAD_ERROR              equ 0x8000000000000001
+EFI_INVALID_PARAMETER       equ 0x8000000000000002
+EFI_UNSUPPORTED             equ 0x8000000000000003
+EFI_BUFFER_TOO_SMALL        equ 0x8000000000000005
+EFI_MEMORY_DESCRIPTOR_VERSION equ 1
 
 ; -----------------------------------------------------------------------------
 ; UEFI Simple File System / Graphics Output Protocol GUIDs

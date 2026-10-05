@@ -11,6 +11,9 @@
 %ifndef UEFI_ENTRY_ASM
 %define UEFI_ENTRY_ASM
 
+[BITS 64]
+default rel
+
 %include "protocol.asm"
 %include "console.asm"
 %include "gop.asm"
@@ -20,8 +23,7 @@
 %include "tpm/uefi_tpm.asm"
 %include "nvram.asm"
 
-[BITS 64]
-
+section .text
 global efi_main
 
 ; =============================================================================
@@ -77,48 +79,56 @@ efi_main:
     call uefi_file_load
     mov [rel uefi_initrd_size], rax ; save initrd size (0 if not found)
 
-    ; 4. Query GetMemoryMap to obtain size and MapKey
-    mov qword [uefi_map_size], 16384 ; allocate 16KB for memory map descriptors
+    ; NVRAM can change the firmware memory map. It must run before the final
+    ; GetMemoryMap -> local conversion -> ExitBootServices sequence.
+    mov rcx, [rel uefi_system_table]
+    lea rdx, [rel msg_uefi_banner]
+    mov r8, 48
+    call uefi_write_boot_log
+
+    ; 4. Query GetMemoryMap to obtain size and MapKey. The static buffer is a
+    ; hard capacity: EFI_BUFFER_TOO_SMALL is a clean boot failure.
+    mov qword [rel uefi_map_size], 16384
     mov rcx, [uefi_system_table]
-    lea rdx, [uefi_mem_map_buf]
-    lea r8, [uefi_map_size]
+    lea rdx, [rel uefi_mem_map_buf]
+    lea r8, [rel uefi_map_size]
     call uefi_get_memory_map
     test rax, rax
     jnz .mem_map_failed             ; if non-zero status, query failed
 
-    ; Write early boot log to NVRAM (motherboard variable space)
-    mov rcx, [uefi_system_table]
-    lea rdx, [rel msg_uefi_banner]
-    mov r8, 48                      ; size of message
-    call uefi_write_boot_log
-
     ; 5. Handoff to kernel (Exit Boot Services + Jump)
-    mov r8, rdx                     ; MapKey from uefi_get_memory_map return (in RDX)
+    mov r8, [rel uefi_map_key]
     mov rcx, [uefi_system_table]
     mov rdx, [uefi_image_handle]
     mov r9, 0x100000                ; KERNEL_LOAD entry point
     call uefi_handoff
 
+    ; EFI_LOAD_ERROR is local validation failure before ExitBootServices, so
+    ; console output remains legal. Firmware failures use the restricted retry.
+    mov r10, EFI_LOAD_ERROR
+    cmp rax, r10
+    je .mem_map_failed
+
     ; If we returned here, the first handoff failed (possibly due to changed memory map).
     ; Refresh memory map size and query memory map again.
-    mov qword [uefi_map_size], 16384
+    mov qword [rel uefi_map_size], 16384
     mov rcx, [uefi_system_table]
-    lea rdx, [uefi_mem_map_buf]
-    lea r8, [uefi_map_size]
+    lea rdx, [rel uefi_mem_map_buf]
+    lea r8, [rel uefi_map_size]
     call uefi_get_memory_map
     test rax, rax
-    jnz .mem_map_failed
+    jnz .halt                       ; no console/protocol calls after EBS failure
 
     ; Retry Handoff with updated MapKey
-    mov r8, rdx                     ; updated MapKey
+    mov r8, [rel uefi_map_key]
     mov rcx, [uefi_system_table]
     mov rdx, [uefi_image_handle]
     mov r9, 0x100000
     call uefi_handoff
 
-    ; If handoff returned again, ExitBootServices failed permanently
-    lea rdx, [msg_handoff_failed]
-    jmp .error_out
+    ; If handoff returned again, fail silently: after an EBS failure firmware
+    ; permits only the memory-map/allocation subset used by the retry.
+    jmp .halt
 
 .mem_map_failed:
     lea rdx, [msg_mem_map_failed]
@@ -139,6 +149,7 @@ efi_main:
 ; =============================================================================
 ; Data and Strings (UTF-16LE / 16-bit null-terminated words)
 ; =============================================================================
+section .data
 align 8
 uefi_image_handle:  dq 0
 uefi_system_table:  dq 0
@@ -166,7 +177,10 @@ msg_handoff_failed:
 msg_mem_map_failed:
     dw 'E', 'R', 'R', 'O', 'R', ':', ' ', 'F', 'a', 'i', 'l', 'e', 'd', ' ', 't', 'o', ' ', 'g', 'e', 't', ' ', 'm', 'e', 'm', 'o', 'r', 'y', ' ', 'm', 'a', 'p', 0x0D, 0x0A, 0
 
-align 16
-uefi_mem_map_buf:   times 16384 db 0
+section .bss align=16
+uefi_mem_map_buf:   resb 16384
+uefi_boot_info:     resb UEFI_BOOT_INFO_SIZE
+                    resb 8          ; restore 16-byte alignment after 88-byte BootInfo
+uefi_e820_map_buf:  resb UEFI_CANONICAL_MAX_ENTRIES * UEFI_CANONICAL_ENTRY_SIZE
 
 %endif ; UEFI_ENTRY_ASM

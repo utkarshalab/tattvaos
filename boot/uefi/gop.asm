@@ -110,11 +110,15 @@ uefi_gop_init:
 ; =============================================================================
 ; Data variables to store graphics info
 ; =============================================================================
+section .data
 uefi_fb_base:   dq 0
 uefi_fb_size:   dq 0
 uefi_fb_width:  dd 0
 uefi_fb_height: dd 0
 uefi_fb_pitch:  dd 0
 uefi_fb_format: dd 0
+
+; The next include in the single UEFI translation unit contains code.
+section .text
 
 %endif ; UEFI_GOP_ASM

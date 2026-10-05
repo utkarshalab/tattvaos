@@ -30,7 +30,7 @@ uefi_get_memory_map:
     mov r10, rcx                    ; R10 = System Table
     mov r11, rdx                    ; R11 = MemoryMap buffer pointer
 
-    ; Get BootServices: SystemTable->BootServices (offset 88)
+    ; Get BootServices: SystemTable->BootServices (offset 96)
     mov rdx, [r10 + SYS_TABLE_BOOT_SERVICES]
     mov [rbp - 8], rdx              ; store BootServices
 
@@ -44,17 +44,17 @@ uefi_get_memory_map:
     
     mov rcx, r8                     ; RCX = &MemoryMapSize
     mov rdx, r11                    ; RDX = MemoryMap buffer
-    lea r8, [uefi_map_key]          ; R8 = &MapKey
-    lea r9, [uefi_desc_size]        ; R9 = &DescriptorSize
+    lea r8, [rel uefi_map_key]      ; R8 = &MapKey
+    lea r9, [rel uefi_desc_size]    ; R9 = &DescriptorSize
     
-    lea rax, [uefi_desc_version]
+    lea rax, [rel uefi_desc_version]
     mov [rsp + 32], rax             ; 5th argument at stack offset 32
 
     mov rax, [rbp - 8]              ; RAX = BootServices
     mov rax, [rax + BS_GET_MEMORY_MAP]
     call rax                        ; execute GetMemoryMap
 
-    mov rdx, [uefi_map_key]         ; return MapKey value in RDX
+    mov rdx, [rel uefi_map_key]     ; return MapKey value in RDX
 
     mov rsp, rbp
     pop rbp
@@ -63,6 +63,7 @@ uefi_get_memory_map:
 ; =============================================================================
 ; Data variables to store memory map parameters
 ; =============================================================================
+section .data
 align 8
 uefi_map_key:       dq 0
 uefi_desc_size:     dq 0

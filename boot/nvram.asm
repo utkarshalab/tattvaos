@@ -10,7 +10,11 @@
 %ifndef NVRAM_ASM
 %define NVRAM_ASM
 
+%include "uefi/protocol.asm"
+
 [BITS 64]
+
+section .data
 
 ; EFI Global Variable Vendor GUID: 8be4df61-93ca-11d2-aa0d-00e098032b8c
 align 8
@@ -23,9 +27,6 @@ align 8
 log_var_name:
     dw 'T', 'a', 't', 't', 'v', 'a', 'B', 'o', 'o', 't', 'L', 'o', 'g', 0
 
-; UEFI SetVariable function offset in RuntimeServices is 80
-; RuntimeServices table offset in SystemTable is 120
-
 ; =============================================================================
 ; uefi_write_boot_log — Write early boot diagnostic log to UEFI NVRAM
 ; Input:  RCX = pointer to System Table
@@ -33,6 +34,7 @@ log_var_name:
 ;         R8  = size of Log Data in bytes
 ; Output: RAX = EFI_STATUS (0 = success)
 ; =============================================================================
+section .text
 uefi_write_boot_log:
     push rbp
     mov rbp, rsp
@@ -46,13 +48,17 @@ uefi_write_boot_log:
     mov r13, r8                      ; R13 = LogSize
 
     ; Get RuntimeServices table pointer
-    mov rbx, [rcx + 120]             ; RBX = RuntimeServices table pointer
+    mov rbx, [rcx + SYS_TABLE_RUNTIME_SERVICES]
     test rbx, rbx
     jz .err_exit
 
-    ; Allocate shadow space (32 bytes) + 5th parameter (8 bytes) = 40 bytes
-    ; Align to 16 bytes: 48 bytes
-    sub rsp, 48
+    mov r11, [rbx + RT_SET_VARIABLE]
+    test r11, r11
+    jz .err_exit
+
+    ; At this point RSP is 8 mod 16. Forty bytes supplies the 32-byte home
+    ; area plus the fifth argument and restores 16-byte call alignment.
+    sub rsp, 40
 
     ; SetVariable(VariableName, VendorGuid, Attributes, DataSize, Data)
     lea rcx, [rel log_var_name]      ; RCX = VariableName
@@ -61,14 +67,13 @@ uefi_write_boot_log:
     mov r9, r13                      ; R9 = DataSize
     mov [rsp + 32], r12              ; 5th param on stack = Data pointer
 
-    mov rax, [rbx + 80]              ; SetVariable is offset 80 in RuntimeServices
-    call rax
+    call r11
 
-    add rsp, 48                      ; clean up shadow space
+    add rsp, 40                      ; clean up shadow space
     jmp .exit
 
 .err_exit:
-    mov rax, 0x8000000000000003      ; EFI_UNSUPPORTED
+    mov rax, EFI_UNSUPPORTED
 
 .exit:
     pop r13
