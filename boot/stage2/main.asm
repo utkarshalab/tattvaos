@@ -80,6 +80,13 @@ stage2_main:
     call uart_println
     jmp .halt
 
+.e820_failed:
+    mov si, msg_fail
+    call uart_println
+    mov si, msg_e820_halt
+    call uart_println
+    jmp .halt
+
 .cpu_done:
 
     ; Initialize secondary cores (SMP AP Bootstrap)
@@ -92,10 +99,12 @@ stage2_main:
     call uart_print
 
     call e820_detect                ; fills table at E820_DEST
+    jc .e820_failed
     call e820_parse                 ; find usable regions
     call e820_sort                  ; sort by base address
     call e820_merge                 ; merge overlapping entries
     call hide_survive_page          ; hide/reserve SURVIVE_PAGE from E820 map
+    jc .e820_failed
     call e820_parse                 ; recalculate total usable memory after hiding
     call e820_print                 ; debug print final map
 
@@ -197,6 +206,7 @@ msg_kernel:     db "Kernel... ", 0
 msg_help:       db "Help: is the ULF image written at LBA 65?", 0
 msg_a20_halt:   db "HALT: A20 enable failed on all methods", 0
 msg_cpu_halt:   db "HALT: CPU does not support long mode", 0
+msg_e820_halt:  db "HALT: E820 map invalid or truncated", 0
 msg_kernel_halt:db "HALT: Kernel load failed", 0
 msg_geom_prefix: db "Disk: ", 0
 msg_geom_heads:  db " Heads, ", 0
@@ -278,6 +288,8 @@ boot_info_init:
     push edi
     push es
 
+    xor ax, ax
+    mov es, ax                     ; BIOS calls may leave ES nonzero
     cld                             ; Clear direction flag for rep stosd
     ; Zero out the 88-byte BootInfo structure (22 dwords)
     mov edi, BOOT_INFO_ADDR

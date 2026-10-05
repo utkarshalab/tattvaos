@@ -21,7 +21,7 @@
 ; =============================================================================
 ; hide_survive_page — split the E820 entry containing 0x9000 to hide it
 ; Input:  none
-; Output: none (modifies E820 map in place at E820_DEST)
+; Output: CF=0 on success/not-usable, CF=1 if the map has no split capacity
 ; Clobbers: none
 ; =============================================================================
 hide_survive_page:
@@ -77,6 +77,11 @@ hide_survive_page:
     jmp .loop
 
 .found:
+    ; Leaving the snapshot page usable would let the PMM overwrite recovery
+    ; state.  Fail the boot instead of silently skipping the reservation.
+    cmp cx, E820_MAX_ENTRIES - 2
+    ja .capacity_fail
+
     ; Save original entry values on the stack
     mov eax, [es:si]                ; orig_base (low)
     push eax
@@ -183,6 +188,14 @@ hide_survive_page:
     pop es
     popa
     pop bp
+    clc
+    ret
+
+.capacity_fail:
+    pop es
+    popa
+    pop bp
+    stc
     ret
 
 %endif ; SURVIVE_HIDE_ASM

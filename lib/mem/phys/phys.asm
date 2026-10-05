@@ -34,11 +34,19 @@ phys_init:
     push r8
     push r9
     push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
 
     ; 1. Load BootInfo pointer
     mov rdi, [boot_info_ptr]
     test rdi, rdi
     jz .error_halt                  ; crash early if BootInfo is null
+    mov rax, PHYS_BOOTSTRAP_MAP_LIMIT - 88
+    cmp rdi, rax
+    ja .error_halt                  ; the complete BootInfo must be mapped
 
     ; 2. Extract E820 map address and entry count
     mov rsi, [rdi + 0]              ; rsi = physical pointer to e820 entries (offset 0)
@@ -56,11 +64,25 @@ phys_init:
     jz .error_halt
     test rdx, rdx
     jz .error_halt
+    cmp rdx, PHYS_E820_MAX_ENTRIES
+    ja .error_halt
 
-    ; 3. Parse E820 map to get max RAM address and total usable page count
+    ; Validate the complete descriptor span before trusting any entry.
+    mov rax, rdx
+    imul rax, e820_entry_size
+    add rax, rsi
+    jc .error_halt
+    mov rbx, PHYS_BOOTSTRAP_MAP_LIMIT
+    cmp rax, rbx
+    ja .error_halt
+
+    ; 3. Parse only memory covered by the currently installed identity map.
+    ; Higher usable frames are counted but remain explicitly offline.
     mov rdi, rsi                    ; RDI = e820 map pointer
     mov rsi, rdx                    ; RSI = entry count
-    call phys_parse_e820            ; RAX = max_phys_addr, RCX = total_pages
+    mov rdx, PHYS_BOOTSTRAP_MAP_LIMIT
+    call phys_parse_e820
+    jc .error_halt
     test rax, rax
     jz .error_halt
 
@@ -68,11 +90,18 @@ phys_init:
     mov [phys_state + phys_state_t.max_phys_addr], rax
     mov [phys_state + phys_state_t.total_pages], rcx
     mov [phys_state + phys_state_t.free_pages], rcx
+    mov [phys_state + phys_state_t.offline_pages], r8
+    mov rdx, PHYS_BOOTSTRAP_MAP_LIMIT
+    mov [phys_state + phys_state_t.direct_map_limit], rdx
 
-    ; 4. Calculate bitmap size in bytes: (max_phys_addr / 4096) / 8
-    ; which is max_phys_addr / 32768 (shr 15)
+    ; 4. Track bitmap geometry independently of the sum of usable pages.
+    ; Sparse maps need absolute PFN capacity through max_phys_addr.
     mov rbx, rax
-    shr rbx, 15                     ; rbx = bitmap_size in bytes
+    shr rbx, 12                     ; exact: parser returns page-aligned end
+    mov [phys_state + phys_state_t.frame_count], rbx
+    add rbx, 7
+    jc .error_halt
+    shr rbx, 3                      ; ceil(frame_count / 8)
     test rbx, rbx
     jnz .store_bitmap_size
     mov rbx, 1                      ; ensure size is at least 1 byte
@@ -104,6 +133,27 @@ phys_init:
 
     mov r10, [r9 + e820_entry.base]
     mov r11, [r9 + e820_entry.length]
+
+    ; Validate, page-align, and clip the metadata candidate to the physical
+    ; aperture that the bootstrap CR3 actually maps.
+    mov rcx, r10
+    add rcx, r11                    ; RCX = raw exclusive end
+    jc .next_entry
+    add r10, 4095
+    jc .next_entry
+    and r10, -4096
+    and rcx, -4096
+    mov r12, PHYS_BOOTSTRAP_MAP_LIMIT
+    cmp r10, r12
+    jae .next_entry
+    cmp rcx, r12
+    jbe .candidate_clipped
+    mov rcx, r12
+.candidate_clipped:
+    cmp rcx, r10
+    jbe .next_entry
+    mov r11, rcx
+    sub r11, r10                    ; page-aligned, clipped byte length
 
     ; Check if base is below 1MB (0x100000). If so, shrink or skip.
     cmp r10, 0x100000
@@ -228,13 +278,30 @@ phys_init:
     mov r10, [r9 + e820_entry.base]
     mov r11, [r9 + e820_entry.length]
 
-    ; Calculate start page index = base / 4096 (shr 12)
-    mov rbx, r10
-    shr rbx, 12                     ; rbx = start page index
+    ; Only whole, mapped pages are ever published as free.
+    mov r12, r10
+    add r12, r11                    ; raw exclusive end
+    jc .next_clear
+    add r10, 4095
+    jc .next_clear
+    and r10, -4096
+    and r12, -4096
+    mov r13, PHYS_BOOTSTRAP_MAP_LIMIT
+    cmp r10, r13
+    jae .next_clear
+    cmp r12, r13
+    jbe .clear_extent_ready
+    mov r12, r13
+.clear_extent_ready:
+    cmp r12, r10
+    jbe .next_clear
 
-    ; Calculate page count = length / 4096 (shr 12)
-    mov rcx, r11
-    shr rcx, 12                     ; rcx = page count
+    mov rbx, r10
+    shr rbx, 12                     ; RBX = first complete usable PFN
+
+    mov rcx, r12
+    sub rcx, r10
+    shr rcx, 12                     ; RCX = complete usable page count
 
 .clear_page_loop:
     test rcx, rcx
@@ -400,7 +467,7 @@ phys_init:
     ; 11. Recount free pages by scanning the bitmap for zero bits
     ;     This is the authoritative count after all protections are applied.
     mov rsi, [phys_state + phys_state_t.bitmap_addr]
-    mov rcx, [phys_state + phys_state_t.total_pages]
+    mov rcx, [phys_state + phys_state_t.frame_count]
     xor r8, r8                      ; R8 = free page counter
     xor r9, r9                      ; R9 = current page index
 
@@ -429,6 +496,18 @@ phys_init:
     sub rax, r8
     mov [phys_state + phys_state_t.reserved_pages], rax
 
+    mov rsi, msg_pmm_mapped_limit
+    call uart_print_str
+    cmp qword [phys_state + phys_state_t.offline_pages], 0
+    je .status_done
+    mov rsi, msg_highmem_offline
+    call uart_print_str
+.status_done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
     pop r10
     pop r9
     pop r8
@@ -476,6 +555,11 @@ phys_alloc_page:
 ; -----------------------------------------------------------------------------
 global phys_alloc_pages
 phys_alloc_pages:
+    test rdi, rdi
+    jnz .request_valid
+    xor rax, rax
+    ret
+.request_valid:
     ; Check if NUMA active
     mov rax, [numa_local_bitmaps_active]
     test rax, rax
@@ -617,6 +701,11 @@ phys_alloc_page_node:
 ; -----------------------------------------------------------------------------
 global phys_alloc_pages_node
 phys_alloc_pages_node:
+    test rsi, rsi
+    jnz .node_request_valid
+    xor rax, rax
+    ret
+.node_request_valid:
     push rbx
     push rcx
     push rdx
@@ -915,6 +1004,19 @@ phys_free_pages:
     push r10
     push r11
 
+    ; Reject malformed frees before dereferencing the physical address.
+    test rsi, rsi
+    jz .done
+    test rdi, 4095
+    jnz .done
+    mov rax, rdi
+    shr rax, 12                     ; starting PFN
+    mov rbx, rax
+    add rbx, rsi                    ; exclusive ending PFN
+    jc .done
+    cmp rbx, [phys_state + phys_state_t.frame_count]
+    ja .done
+
     ; Zero out the physical pages being freed
     push rdi
     push rsi
@@ -936,7 +1038,11 @@ phys_free_pages:
     
     ; Determine node ID for the physical address
     mov rdi, r9
+    ; numa_get_node_by_phys uses R8 as its range cursor.  Preserve the page
+    ; count explicitly: it controls both the clear-loop bound and accounting.
+    push r8
     call numa_get_node_by_phys      ; RAX = Node ID
+    pop r8
     
     ; Get node descriptor
     imul rax, numa_node_t_size
@@ -1029,52 +1135,15 @@ phys_free_pages:
 ; Input:
 ;   RDI = physical base address of the region
 ;   RSI = length of the region in bytes
-; Output: none
-; Clobbers: RAX, RCX, RDX, RDI, RSI
+; Output: RAX = 0 (unsupported until bitmap/direct-map growth is transactional)
+; Clobbers: RAX
 ; -----------------------------------------------------------------------------
 global phys_add_region
 phys_add_region:
-    push rbx
-    push rbp
-    
-    ; Convert base and length to page index and count
-    mov rax, rdi
-    shr rax, 12                     ; RAX = start page index
-    mov rcx, rsi
-    shr rcx, 12                     ; RCX = page count
-    
-    test rcx, rcx
-    jz .done
-
-    ; Update total_pages and free_pages counters
-    add [phys_state + phys_state_t.total_pages], rcx
-    add [phys_state + phys_state_t.free_pages], rcx
-    
-    ; Calculate new max physical address if needed
-    mov rdx, rdi
-    add rdx, rsi                    ; RDX = end address of new region
-    cmp rdx, [phys_state + phys_state_t.max_phys_addr]
-    jbe .clear_loop
-    mov [phys_state + phys_state_t.max_phys_addr], rdx
-
-.clear_loop:
-    test rcx, rcx
-    jz .done
-    
-    push rax
-    push rcx
-    mov rdi, rax
-    call bitmap_clear_bit           ; clear bit (make free)
-    pop rcx
-    pop rax
-    
-    inc rax                         ; next page index
-    dec rcx
-    jmp .clear_loop
-
-.done:
-    pop rbp
-    pop rbx
+    ; The old code cleared bits beyond the allocated bitmap and published
+    ; frames that had no virtual mapping.  Hot-add remains fail-closed until a
+    ; growable bitmap and direct-map update can be committed atomically.
+    xor rax, rax
     ret
 
 ; -----------------------------------------------------------------------------
@@ -1104,8 +1173,13 @@ phys_state:
         at phys_state_t.reserved_pages, dq 0
         at phys_state_t.swap_pages,     dq 0
         at phys_state_t.dirty_pages,    dq 0
+        at phys_state_t.frame_count,    dq 0
+        at phys_state_t.direct_map_limit, dq 0
+        at phys_state_t.offline_pages,  dq 0
     iend
 
 msg_err_bitmap_oom: db "!!! KERNEL PANIC: Failed to locate free RAM above 1MB for Page Bitmap !!!", 0x0D, 0x0A, 0
+msg_pmm_mapped_limit: db "PMM mapped limit: 4 GiB", 0x0D, 0x0A, 0
+msg_highmem_offline: db "Highmem direct-map R/W: SKIP (RAM above mapped limit is offline)", 0x0D, 0x0A, 0
 
 %endif ; LIB_MEM_PHYS_PHYS_ASM

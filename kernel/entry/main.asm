@@ -18,19 +18,21 @@
 ; in directly — guarded, so this is a harmless no-op once fiber.asm's own
 ; %include of the same file runs later.
 %include "kernel/sched/fiber.inc"
+%include "lib/mem/mem.inc"
 
 section .text
 
 global kernel_main
 
 kernel_main:
-    ; 1. Print kernel execution ready state
+    ; 1. Exercise the minimum PMM/direct-map contract before advertising ready.
+    call kernel_boot_memory_selftest
+
+    ; 2. Print kernel execution ready state
     mov rsi, msg_kernel_ready
     call uart_print_str
 
-    call run_all_memory_tests
-
-    ; 2. Spawn a heartbeat fiber and hand off to the real scheduler loop.
+    ; 3. Spawn a heartbeat fiber and hand off to the real scheduler loop.
     ;
     ; Every subsystem up to this point has only ever been proven by its own
     ; init routine returning without crashing — kernel_main itself has never
@@ -54,7 +56,7 @@ kernel_main:
     call uart_print_str
 
 .have_heartbeat:
-    ; 2b. Spawn the network poll fiber. unet_init (called from drivers_init,
+    ; 3b. Spawn the network poll fiber. unet_init (called from drivers_init,
     ; earlier in kernel_init) only brings the stack up; nothing drives RX/TX
     ; without something calling unet_poll on a schedule, same as the
     ; heartbeat above proves the scheduler itself is alive.
@@ -70,11 +72,63 @@ kernel_main:
     call uart_print_str
 
 .have_net_poll:
-    ; 3. Enter the scheduler's own core loop. Never returns: sched_core_loop
+    ; 4. Enter the scheduler's own core loop. Never returns: sched_core_loop
     ; is what used to be this file's manual `cli; hlt` idle loop, except it
     ; actually polls, reaps, and runs fibers instead of just waiting for an
     ; interrupt no driver here yet raises.
     jmp sched_core_loop
+
+; -----------------------------------------------------------------------------
+; kernel_boot_memory_selftest — prove the Phase-A PMM/direct-map contract
+; before kernel_main reports the system ready.
+; -----------------------------------------------------------------------------
+kernel_boot_memory_selftest:
+    push rbx
+    push r12
+
+    ; Software address translation must agree with the PML4 slot selected by
+    ; hardware.  Software-only shuffling cannot change a CPU page-table walk.
+    cmp word [pml4_shuffle_map + 2], 1
+    jne .failed
+
+    mov r12, [phys_state + phys_state_t.free_pages]
+    call phys_alloc_page
+    test rax, rax
+    jz .failed
+    mov rbx, rax
+
+    test rbx, 4095
+    jnz .failed
+    cmp rbx, [phys_state + phys_state_t.direct_map_limit]
+    jae .failed
+
+    mov rax, 0x544154545641504D     ; "TATTVAPM"
+    mov [rbx], rax
+    cmp [rbx], rax
+    jne .release_failed
+
+    mov rdi, rbx
+    call phys_free_page
+    cmp [phys_state + phys_state_t.free_pages], r12
+    jne .failed
+
+    mov rsi, msg_boot_memory_selftest_pass
+    call uart_print_str
+    pop r12
+    pop rbx
+    ret
+
+.release_failed:
+    mov rdi, rbx
+    call phys_free_page
+
+.failed:
+    mov rsi, msg_boot_memory_selftest_fail
+    call uart_print_str
+    cli
+.halt:
+    hlt
+    jmp .halt
 
 ; -----------------------------------------------------------------------------
 ; heartbeat_fiber — proves the scheduler is alive: print, pace, yield, repeat.
@@ -118,6 +172,8 @@ net_poll_fiber:
 ; -----------------------------------------------------------------------------
 section .data
 
+msg_boot_memory_selftest_pass: db 'Boot memory self-test: PASS', 0x0D, 0x0A, 0
+msg_boot_memory_selftest_fail: db 'KERNEL PANIC: boot memory self-test failed', 0x0D, 0x0A, 0
 msg_kernel_ready:     db 'Tattva Kernel Ready. Entering main execution.', 0x0D, 0x0A, 0
 msg_heartbeat_prefix: db 'heartbeat #', 0
 msg_heartbeat_spawn_failed: db 'WARN: heartbeat fiber_create failed (no free FCB slots?)', 0x0D, 0x0A, 0

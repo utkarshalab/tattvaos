@@ -42,6 +42,7 @@
 E820_MAGIC          equ 0x534D4150  ; "SMAP" magic for BIOS call
 E820_ENTRY_SIZE     equ 24          ; bytes per entry
 E820_MAX_ENTRIES    equ 128         ; max entries to store
+E820_MAX_CALLS      equ 256         ; bound skipped/disabled firmware entries
 E820_COUNT_OFF      equ 0           ; offset of count word at E820_DEST
 E820_ENTRIES_OFF    equ 2           ; offset of first entry
 
@@ -57,10 +58,15 @@ e820_tmp:           times E820_ENTRY_SIZE db 0
 ; total usable RAM in MB (filled by e820_parse)
 e820_total_mb:      dd 0
 
+; Defensive progress tracking for buggy firmware continuation tokens.
+e820_raw_calls:     dw 0
+e820_prev_token:    dd 0
+
 ; =============================================================================
 ; e820_detect — query BIOS INT 15h E820 for memory map
 ; Input:  nothing
 ; Output: entries stored at E820_DEST, count at [E820_DEST]
+;         CF=0 on a complete, validated map; CF=1 on failure/truncation
 ; Clobbers: EAX, EBX, ECX, EDX, DI, ES
 ; =============================================================================
 e820_detect:
@@ -76,6 +82,8 @@ e820_detect:
     xor ax, ax
     mov es, ax
     mov word [E820_DEST + E820_COUNT_OFF], 0
+    mov word [e820_raw_calls], 0
+    mov dword [e820_prev_token], 0
     mov di, E820_DEST + E820_ENTRIES_OFF
 
     xor ebx, ebx                    ; EBX=0 for first call
@@ -84,7 +92,20 @@ e820_detect:
     ; check max entries
     mov ax, [E820_DEST + E820_COUNT_OFF]
     cmp ax, E820_MAX_ENTRIES
-    jae .detect_done
+    jb .query_entry
+    ; Silently dropping a trailing descriptor can drop a reservation.
+    test ebx, ebx
+    jz .detect_success
+    jmp .detect_fail
+
+.query_entry:
+    inc word [e820_raw_calls]
+    cmp word [e820_raw_calls], E820_MAX_CALLS
+    ja .detect_fail
+
+    ; ACPI 3.x asks callers to seed the extended-attributes valid bit.
+    ; A legacy 20-byte response leaves this value intact.
+    mov dword [es:di + 20], 1
 
 
 
@@ -96,10 +117,28 @@ e820_detect:
 
 
 
-    jc .detect_done                 ; carry = end of list
+    jc .bios_end                    ; tolerate CF only after at least one entry
     cmp eax, E820_MAGIC
-    jne .detect_done                ; bad return value
+    jne .detect_fail                ; bad return value
+    cmp ecx, 20
+    jb .detect_fail                 ; missing part of base/length/type
 
+    ; A nonzero continuation token must make progress.  Without this guard a
+    ; broken BIOS can loop forever on disabled or zero-length descriptors that
+    ; never consume an output slot.
+    cmp word [e820_raw_calls], 1
+    je .continuation_ok
+    cmp ebx, [e820_prev_token]
+    je .detect_fail
+.continuation_ok:
+    mov [e820_prev_token], ebx
+
+    cmp ecx, E820_ENTRY_SIZE
+    jb .check_length
+    test dword [es:di + 20], 1      ; ACPI 3.x descriptor enabled?
+    jz .skip_entry
+
+.check_length:
     ; skip zero-length entries
     cmp dword [es:di + 8], 0
     jne .entry_valid
@@ -112,16 +151,32 @@ e820_detect:
 
 .skip_entry:
     test ebx, ebx                   ; EBX=0 means last entry
-    jz .detect_done
+    jz .detect_success
     jmp .detect_loop
 
-.detect_done:
+.bios_end:
+    cmp word [E820_DEST + E820_COUNT_OFF], 0
+    je .detect_fail
+
+.detect_success:
     pop es
     pop di
     pop edx
     pop ecx
     pop ebx
     pop eax
+    clc
+    ret
+
+.detect_fail:
+    mov word [E820_DEST + E820_COUNT_OFF], 0
+    pop es
+    pop di
+    pop edx
+    pop ecx
+    pop ebx
+    pop eax
+    stc
     ret
 
 ; =============================================================================

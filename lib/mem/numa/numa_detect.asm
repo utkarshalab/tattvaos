@@ -209,6 +209,27 @@ numa_detect_init:
     test r9, r9
     jz .next_srat_entry
 
+    ; SRAT can describe memory that the bootstrap root cannot address.  Keep
+    ; node-local allocators inside the PMM's already validated bitmap span.
+    mov rbp, r8
+    add rbp, r9                      ; raw exclusive end
+    jc .next_srat_entry
+    add r8, 4095
+    jc .next_srat_entry
+    and r8, -4096
+    and rbp, -4096
+    mov rax, [phys_state + phys_state_t.max_phys_addr]
+    cmp r8, rax
+    jae .next_srat_entry
+    cmp rbp, rax
+    jbe .srat_extent_ready
+    mov rbp, rax
+.srat_extent_ready:
+    cmp rbp, r8
+    jbe .next_srat_entry
+    mov r9, rbp
+    sub r9, r8                      ; clipped, page-aligned length
+
     ; Read split Proximity Domain (Node ID)
     movzx eax, byte [r11 + 2]
     mov r14d, [r11 + 4]

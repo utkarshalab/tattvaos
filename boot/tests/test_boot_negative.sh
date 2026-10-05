@@ -222,11 +222,16 @@ expect_ordered_lines "NX-less CPU compatibility boot" "$NO_NX_LOG" \
     "IDT64 verify: OK" \
     "Long-mode transition verify: OK" \
     "CPU does not support NX" \
-    "Tattva Kernel Ready. Entering main execution."
+    "Boot memory self-test: PASS" \
+    "Tattva Kernel Ready. Entering main execution." \
+    "heartbeat #0"
 expect_absent "NX-less CPU early exception" "EARLY64 EXCEPTION" "$NO_NX_LOG"
 expect_absent "NX-less CPU stage2 fatal" "FATAL: stage2" "$NO_NX_LOG"
 expect_absent "NX-less CPU paging failure" "Paging verify: FAIL" "$NO_NX_LOG"
 expect_absent "NX-less CPU IDT64 failure" "IDT64 verify: FAIL" "$NO_NX_LOG"
 expect_absent "NX-less CPU transition failure" "Long-mode transition verify: FAIL" "$NO_NX_LOG"
+if grep -Eiq '(^|[^[:alpha:]])(FAIL|FAILED|FAILURE|ERROR|FATAL|PANIC)([^[:alpha:]]|$)|page fault|triple fault' "$NO_NX_LOG"; then
+    fail "NX-less CPU compatibility boot reported a fatal diagnostic"
+fi
 
 echo "PASS: all negative and compatibility boot tests"

@@ -175,55 +175,34 @@ virt_random_val:
     ret
 
 ; -----------------------------------------------------------------------------
-; virt_shuffle_pml4_init — randomizes the PML4 entry indices mapping (1..511)
+; virt_shuffle_pml4_init — initialize the software PML4 index map.
+;
+; Hardware always walks the index encoded in the virtual address.  The old
+; implementation shuffled only this software lookup table without moving the
+; corresponding hardware PML4 entries, so walkers and mappers could report a
+; mapping at a different slot than the CPU used.  Keep the compatibility API,
+; but make the map an explicit identity until real virtual-base ASLR exists.
 ; -----------------------------------------------------------------------------
 global virt_shuffle_pml4_init
 virt_shuffle_pml4_init:
-    push rbx
+    push rax
     push rcx
-    push rdx
-    push rsi
     push rdi
-    push r12
-    push r13
-    
-    ; We shuffle indices 1 to 511.
-    ; Loop from i = 511 down to 2:
-    mov r12, 511                    ; r12 = i
-.shuffle_loop:
-    cmp r12, 2
-    jl .done
-    
-    ; Get a random number r in range [1, i]
-    push r12
-    call virt_random_val            ; RAX = random 64-bit value
-    pop r12
-    
-    ; Restrict to range [1, i]
-    ; r = 1 + (random % i)
-    xor rdx, rdx
-    div r12                         ; RDX = random % i
-    inc rdx                         ; RDX = 1 + (random % i)
-    mov r13, rdx                    ; r13 = j
-    
-    ; Swap pml4_shuffle_map[i] and pml4_shuffle_map[j]
-    lea rbx, [pml4_shuffle_map]
-    mov ax, [rbx + r12 * 2]         ; AX = map[i]
-    mov cx, [rbx + r13 * 2]         ; CX = map[j]
-    mov [rbx + r12 * 2], cx
-    mov [rbx + r13 * 2], ax
-    
-    dec r12
-    jmp .shuffle_loop
-    
+
+    lea rdi, [pml4_shuffle_map]
+    xor eax, eax
+    mov ecx, 512
+.identity_loop:
+    mov [rdi], ax
+    inc eax
+    add rdi, 2
+    dec ecx
+    jnz .identity_loop
+
 .done:
-    pop r13
-    pop r12
     pop rdi
-    pop rsi
-    pop rdx
     pop rcx
-    pop rbx
+    pop rax
     ret
 
 section .data

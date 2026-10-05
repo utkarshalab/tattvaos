@@ -10,6 +10,12 @@
 %ifndef LIB_MEM_MEM_INC
 %define LIB_MEM_MEM_INC
 
+; The bootstrap root currently identity-maps exactly [0, 4 GiB).  Until the
+; kernel installs a separate high-half direct map, the PMM must never publish
+; frames outside this aperture to code that dereferences physical addresses.
+PHYS_BOOTSTRAP_MAP_LIMIT equ 0x0000000100000000
+PHYS_E820_MAX_ENTRIES    equ 128
+
 ; E820 memory map entry structure
 struc e820_entry
     .base       resq 1          ; Base physical address (64-bit)
@@ -24,10 +30,16 @@ struc phys_state_t
     .bitmap_size    resq 1      ; Size of the bitmap in bytes
     .total_pages    resq 1      ; Total usable pages in system
     .free_pages     resq 1      ; Current free page count
-    .max_phys_addr  resq 1      ; Maximum physical RAM address detected
+    .max_phys_addr  resq 1      ; Exclusive end of managed physical memory
     .reserved_pages resq 1      ; Number of reserved/allocated pages
     .swap_pages     resq 1      ; Number of swapped pages
     .dirty_pages    resq 1      ; Number of dirty pages
+    ; Keep the original fields above ABI-stable.  Older subsystems used these
+    ; offsets directly; new fields are append-only and all consumers should use
+    ; the symbolic names.
+    .frame_count    resq 1      ; Absolute PFN span represented by bitmap
+    .direct_map_limit resq 1    ; Exclusive physical address currently mapped
+    .offline_pages  resq 1      ; Usable pages above direct_map_limit
 endstruc
 
 ; Slab allocator cache descriptor structure

@@ -54,7 +54,7 @@ is_valid_gpu_phys_addr:
 
 .valid:
     ; 3. Must be below max physical address
-    mov rax, [phys_state + 32]       ; offset of max_phys_addr (5th qword)
+    mov rax, [phys_state + phys_state_t.max_phys_addr]
     cmp rdi, rax
     jae .invalid
 

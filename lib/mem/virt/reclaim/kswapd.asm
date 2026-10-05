@@ -14,9 +14,9 @@
 
 %include "lib/mem/mem.inc"
 
-; Offsets for phys_state_t (locally defined for assembly visibility)
-phys_state_t_free_pages_offset     equ 24
-phys_state_t_reserved_pages_offset equ 40
+; Symbolic aliases keep this file readable without freezing the structure ABI.
+phys_state_t_free_pages_offset      equ phys_state_t.free_pages
+phys_state_t_reserved_pages_offset  equ phys_state_t.reserved_pages
 
 section .text
 

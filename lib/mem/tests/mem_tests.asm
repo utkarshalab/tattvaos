@@ -11171,7 +11171,7 @@ run_all_memory_tests:
     jmp .shuffling_test_start
 
     ; =========================================================================
-    ; Virtual Page Table Shuffling Test (Subfeature 26.4)
+    ; Virtual Page Table Translation Map Test (Subfeature 26.4)
     ; =========================================================================
 .shuffling_test_start:
     push r12
@@ -11182,13 +11182,14 @@ run_all_memory_tests:
     mov rsi, msg_shuffling_test_start
     call uart_print_str
 
-    ; 1. Verify that logical index 1 is mapped to a different physical index
+    ; 1. The software translation map must match the hardware PML4 walk until
+    ;    real virtual-base ASLR moves the corresponding hardware entries.
     lea rbx, [pml4_shuffle_map]
     movzx r12, word [rbx + 1 * 2]   ; R12 = physical PML4 index for logical index 1
-    
-    ; Verify that the mapping is randomized (R12 != 1)
+
+    ; A software-only permutation is invalid: the CPU still walks slot 1.
     cmp r12, 1
-    je .shuffling_fail_identity
+    jne .shuffling_fail_nonidentity
 
     mov rsi, msg_shuffling_index_ok
     call uart_print_str
@@ -11261,12 +11262,12 @@ run_all_memory_tests:
     pop r12
     jmp .decoy_test_start
 
-.shuffling_fail_identity:
+.shuffling_fail_nonidentity:
     pop r15
     pop r14
     pop r13
     pop r12
-    mov rsi, msg_shuffling_fail_identity_str
+    mov rsi, msg_shuffling_fail_nonidentity_str
     call uart_print_str
     jmp .panic
 
@@ -18512,13 +18513,13 @@ msg_aslr_fail_alloc_str:      db "Failure: heap_alloc returned NULL for ASLR tes
 msg_aslr_fail_align_str:      db "Failure: ASLR offsetted pointer is not 16-byte aligned.", 0x0D, 0x0A, 0
 msg_aslr_fail_bounds_str:     db "Failure: ASLR random gap size is out of bounds or misaligned.", 0x0D, 0x0A, 0
 
-msg_shuffling_test_start:         db "Running Virtual Page Table Shuffling Tests...", 0x0D, 0x0A, 0
-msg_shuffling_index_ok:           db "  [Shuffling Test] Verification succeeded: logical index 1 randomized in pml4_shuffle_map.", 0x0D, 0x0A, 0
-msg_shuffling_access_ok:          db "  [Shuffling Test] Access (write/read) via physical virtual address succeeded.", 0x0D, 0x0A, 0
-msg_shuffling_test_passed:         db "Virtual Page Table Shuffling Tests PASSED!", 0x0D, 0x0A, 0
-msg_shuffling_fail_identity_str:  db "Failure: Logical index 1 mapped to identity slot in pml4_shuffle_map (not shuffled).", 0x0D, 0x0A, 0
-msg_shuffling_fail_alloc_str:     db "Failure: Could not allocate physical page for shuffling test.", 0x0D, 0x0A, 0
-msg_shuffling_fail_map_str:       db "Failure: Could not map page at logical index 1 for shuffling test.", 0x0D, 0x0A, 0
+msg_shuffling_test_start:         db "Running Virtual Page Table Translation Map Tests...", 0x0D, 0x0A, 0
+msg_shuffling_index_ok:           db "  [PML4 Map Test] Verification succeeded: logical index 1 matches hardware slot 1.", 0x0D, 0x0A, 0
+msg_shuffling_access_ok:          db "  [PML4 Map Test] Access (write/read) via translated virtual address succeeded.", 0x0D, 0x0A, 0
+msg_shuffling_test_passed:         db "Virtual Page Table Translation Map Tests PASSED!", 0x0D, 0x0A, 0
+msg_shuffling_fail_nonidentity_str: db "Failure: Software PML4 translation disagrees with the hardware identity slot.", 0x0D, 0x0A, 0
+msg_shuffling_fail_alloc_str:     db "Failure: Could not allocate physical page for PML4 map test.", 0x0D, 0x0A, 0
+msg_shuffling_fail_map_str:       db "Failure: Could not map page at logical index 1 for PML4 map test.", 0x0D, 0x0A, 0
 msg_shuffling_fail_phys_vaddr_str: db "Failure: Physical virtual address PML4 index does not match pml4_shuffle_map.", 0x0D, 0x0A, 0
 msg_shuffling_fail_data_str:       db "Failure: Data read back from physical virtual address does not match signature.", 0x0D, 0x0A, 0
 msg_shuffling_fail_walk_str:       db "Failure: Walk table returned 0 for logical address 0x8000000000.", 0x0D, 0x0A, 0

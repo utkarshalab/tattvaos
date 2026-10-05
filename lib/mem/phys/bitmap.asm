@@ -77,6 +77,9 @@ bitmap_find_free:
     push rbx
     push rsi
 
+    test rdi, rdi
+    jz .not_found                   ; a zero-page allocation is invalid
+
     mov rsi, [phys_state + phys_state_t.bitmap_addr]
     mov r8, [phys_state + phys_state_t.bitmap_size]
     xor r9, r9                      ; R9 = current byte index in bitmap
@@ -103,7 +106,10 @@ bitmap_find_free:
     add rdx, r10
 
     ; Verify if page range would exceed max pages
-    mov r11, [phys_state + phys_state_t.total_pages]
+    ; Absolute PFNs are bounded by the bitmap span, not by the sum of usable
+    ; pages.  Those values differ whenever firmware reports holes or sparse
+    ; memory (especially a second region above 4 GiB).
+    mov r11, [phys_state + phys_state_t.frame_count]
     mov rbx, rdx
     add rbx, rdi                    ; end page index = start + count
     cmp rbx, r11

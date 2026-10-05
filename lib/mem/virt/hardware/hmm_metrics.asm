@@ -146,29 +146,11 @@ hmm_update_metrics:
     cmp rcx, MIGRATION_THRESHOLD
     jb .no_migration
 
-    ; Migrate Host RAM -> GPU VRAM
-    ; Compute a safe VRAM physical address (256MB above host RAM limit)
-    mov r15, [phys_state + 32]       ; r15 = max_phys_addr
-    add r15, 0x10000000              ; base offset (256MB)
-    add r15, [gpu_vram_phys_alloc]   ; add current allocator offset
-    add qword [gpu_vram_phys_alloc], 4096 ; increment allocator offset
-
-    ; Call page migration API
-    mov rdi, r12                    ; virtual address
-    mov rsi, r15                    ; VRAM destination page
-    call hmm_migrate_to_gpu
-    test rax, rax
-    jz .fail_alloc_rollback
-
-    ; Update metrics residency
-    mov dword [r14 + hmm_metric_t.residency], 1 ; residency is now VRAM
-    mov qword [r14 + hmm_metric_t.cpu_reads], 0
-    mov qword [r14 + hmm_metric_t.cpu_writes], 0
-    mov qword [r14 + hmm_metric_t.gpu_reads], 0
-    mov qword [r14 + hmm_metric_t.gpu_writes], 0
-
-    mov rax, 1                      ; return 1 (migrated)
-    jmp .exit
+    ; No physical VRAM allocator is wired to a discovered PCI BAR yet.  The
+    ; former max-RAM-plus-256MiB guess could target MMIO, reserved, or offline
+    ; host RAM.  Keep residency unchanged until a real BAR-backed allocator can
+    ; provide and validate the destination page.
+    jmp .no_migration
 
 .resident_gpu:
     ; Case B: Page is currently resident in GPU VRAM (residency == 1)
@@ -203,8 +185,6 @@ hmm_update_metrics:
     mov rax, 1                      ; return 1 (migrated)
     jmp .exit
 
-.fail_alloc_rollback:
-    sub qword [gpu_vram_phys_alloc], 4096 ; rollback allocator offset
 .fail:
 .no_migration:
     xor rax, rax                    ; return 0 (no migration or failure)
@@ -221,8 +201,5 @@ section .data
 align 8
 global hmm_metrics_list_head
 hmm_metrics_list_head: dq 0
-
-align 8
-gpu_vram_phys_alloc:   dq 0        ; current GPU physical VRAM allocator offset
 
 %endif ; LIB_MEM_VIRT_HMM_METRICS_ASM

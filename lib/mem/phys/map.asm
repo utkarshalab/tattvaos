@@ -15,62 +15,126 @@
 section .text
 
 ; -----------------------------------------------------------------------------
-; phys_parse_e820 — parses the E820 map to locate the maximum usable RAM
-;                    address and count total usable physical pages.
+; phys_parse_e820 — validates and clips the E820 map to the physical aperture
+;                   that is actually dereferenceable by the current CR3.
 ; Input:
 ;   RDI = physical pointer to the E820 map base
 ;   RSI = number of entries in the E820 map
+;   RDX = exclusive direct-map limit
 ; Output:
-;   RAX = maximum physical RAM address detected
-;   RCX = total usable physical pages count
-; Clobbers: R8, R9, R10, R11
+;   CF=0: RAX = maximum managed physical address (exclusive, page aligned)
+;         RCX = managed usable physical page count
+;         R8  = usable page count above the mapped limit (kept offline)
+;   CF=1: malformed/overflowing map; outputs are zero
+; Clobbers: R9, R10, R11
 ; -----------------------------------------------------------------------------
 phys_parse_e820:
     push rbx
-    push rdx
+    push r12
+    push r13
+    push r14
+    push r15
 
-    xor rax, rax                    ; max address (initially 0)
-    xor rcx, rcx                    ; total usable page count (initially 0)
-    xor rdx, rdx                    ; loop counter (index)
+    mov r12, rdi                    ; immutable map base
+    mov r13, rsi                    ; immutable descriptor count
+    mov r14, rdx                    ; immutable mapped ceiling
+    xor rax, rax                    ; maximum managed end
+    xor rcx, rcx                    ; managed usable pages
+    xor r8, r8                      ; usable pages kept offline
+    xor r9, r9                      ; descriptor index
+
+    test r14, r14
+    jz .invalid
 
 .loop:
-    cmp rdx, rsi
-    jge .done
+    cmp r9, r13
+    jae .done
 
-    ; Calculate pointer to current entry: RDI + RDX * 24 (sizeof(e820_entry))
-    mov r8, rdx
-    imul r8, 24
-    add r8, rdi
+    mov r15, r9
+    imul r15, e820_entry_size
+    add r15, r12
 
-    ; Read entry type (offset 16)
-    mov r9d, [r8 + e820_entry.type]
-    cmp r9d, 1                      ; type == 1 (usable RAM)?
-    jne .next
+    mov r10, [r15 + e820_entry.base]
+    mov r11, [r15 + e820_entry.length]
+    test r11, r11
+    jz .next
 
-    ; Read base address (offset 0) and length (offset 8)
-    mov r10, [r8 + e820_entry.base]
-    mov r11, [r8 + e820_entry.length]
-
-    ; Calculate end address of the region: base + length
+    ; Reject wrapped firmware extents before doing any alignment arithmetic.
     mov rbx, r10
     add rbx, r11
+    jc .invalid
 
-    ; Check if this end address is higher than current max address
-    cmp rbx, rax
-    jbe .calc_pages
-    mov rax, rbx                    ; update max physical address
+    ; Validate every firmware extent before filtering by type.  A wrapped
+    ; reserved descriptor is still a malformed map and may otherwise hide a
+    ; later reservation behind an apparently valid partial parse.
+    cmp dword [r15 + e820_entry.type], 1
+    jne .next
 
-.calc_pages:
-    ; Count usable pages in this entry: length / 4096 (shr 12)
-    shr r11, 12
-    add rcx, r11
+    ; A page is usable only when the complete page is inside the descriptor.
+    add r10, 4095
+    jc .invalid
+    and r10, -4096                  ; aligned usable start
+    and rbx, -4096                  ; aligned usable end (exclusive)
+    cmp rbx, r10
+    jbe .next
+
+    ; Account the portion above the current mapped aperture, but never publish
+    ; it to allocators while physical addresses are still used as pointers.
+    cmp rbx, r14
+    jbe .managed_part
+    mov r11, r10
+    cmp r11, r14
+    jae .offline_start_ready
+    mov r11, r14
+.offline_start_ready:
+    cmp rbx, r11
+    jbe .managed_part
+    mov r15, rbx
+    sub r15, r11
+    shr r15, 12
+    add r8, r15
+    jc .invalid
+
+.managed_part:
+    cmp r10, r14
+    jae .next
+    mov r11, rbx
+    cmp r11, r14
+    jbe .managed_end_ready
+    mov r11, r14
+.managed_end_ready:
+    cmp r11, r10
+    jbe .next
+
+    mov r15, r11
+    sub r15, r10
+    shr r15, 12
+    add rcx, r15
+    jc .invalid
+
+    cmp r11, rax
+    jbe .next
+    mov rax, r11
 
 .next:
-    inc rdx
+    inc r9
     jmp .loop
 
 .done:
-    pop rdx
+    clc
+    jmp .exit
+
+.invalid:
+    xor rax, rax
+    xor rcx, rcx
+    xor r8, r8
+    stc
+
+.exit:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     pop rbx
     ret
 

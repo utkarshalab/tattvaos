@@ -1,7 +1,8 @@
 #!/bin/sh
 # Exercise the complete survive path with a real QEMU NMI after the first
-# successful kernel boot. The guest must reload the ULF image through BIOS,
-# rebuild and verify transition state, then reach Kernel Ready a second time.
+# successful, post-self-test scheduler heartbeat. The guest must reload the ULF
+# image through BIOS, rebuild and verify transition state, then reach the same
+# post-self-test heartbeat a second time.
 
 set -eu
 
@@ -11,6 +12,8 @@ QEMU64=$(printenv QEMU 2>/dev/null || true)
 [ -n "$QEMU64" ] || QEMU64=qemu-system-x86_64
 TIMEOUT=$(printenv RECOVERY_TEST_TIMEOUT 2>/dev/null || true)
 [ -n "$TIMEOUT" ] || TIMEOUT=90
+HIGHMEM=$(printenv RECOVERY_HIGHMEM 2>/dev/null || true)
+[ -n "$HIGHMEM" ] || HIGHMEM=0
 TMP_DIR=$(mktemp -d)
 LOG="$TMP_DIR/uart.log"
 QEMU_ERR="$TMP_DIR/qemu.stderr"
@@ -62,7 +65,14 @@ command -v timeout >/dev/null 2>&1 || fail "timeout command not found"
 : > "$QEMU_ERR"
 : > "$QMP_LOG"
 
+if [ "$HIGHMEM" -eq 1 ]; then
+    set -- -machine "pc,max-ram-below-4g=256M" -accel tcg
+else
+    set --
+fi
+
 timeout "$TIMEOUT" "$QEMU64" \
+    "$@" \
     -drive "format=raw,file=$IMG" \
     -cpu max \
     -m 512 \
@@ -100,7 +110,11 @@ done
 [ -S "$QMP_SOCKET" ] || fail "QMP socket was not created"
 
 READY="Tattva Kernel Ready. Entering main execution."
+SELFTESTS="Boot memory self-test: PASS"
+HEARTBEAT="heartbeat #"
 wait_for_count "$READY" 1 400
+wait_for_count "$SELFTESTS" 1 300
+wait_for_count "$HEARTBEAT" 1 100
 
 # Negotiate QMP and inject a hardware NMI. Keeping stdin open briefly lets
 # socat collect both command replies instead of racing the server greeting.
@@ -114,17 +128,32 @@ wait_for_count "$READY" 1 400
 grep -Fq '"error"' "$QMP_LOG" && fail "QMP rejected the NMI command"
 
 wait_for_count "$READY" 2 600
+wait_for_count "$SELFTESTS" 2 300
+wait_for_count "$HEARTBEAT" 2 100
+
+if [ "$HIGHMEM" -eq 1 ]; then
+    HIGH_E820="base=0x0000000100000000 len=0x0000000010000000 type=1 (usable)"
+    grep -Fq "$HIGH_E820" "$LOG" || fail "forced high E820 range was not reported"
+    wait_for_count "PMM mapped limit: 4 GiB" 2 1
+    wait_for_count "Highmem direct-map R/W: SKIP (RAM above mapped limit is offline)" 2 1
+    grep -Fq "Highmem direct-map R/W: PASS phys=" "$LOG" && \
+        fail "recovery exposed RAM above the mapped limit"
+fi
 
 # Require the recovery story in strict order after the first ready marker.
 LAST_LINE=0
 for MILESTONE in \
+    "$SELFTESTS" \
     "$READY" \
+    "$HEARTBEAT" \
     "!!! KERNEL PANIC !!!" \
     "Snapshot checksum valid. Initiating warm recovery..." \
     "Recovery: reloading kernel..." \
     "Recovery long-mode transition verify: OK" \
     "Tattva Kernel Booting..." \
-    "$READY"
+    "$SELFTESTS" \
+    "$READY" \
+    "$HEARTBEAT"
 do
     LINE=$(awk -v after="$LAST_LINE" -v needle="$MILESTONE" \
         'NR > after && index($0, needle) { print NR; exit }' "$LOG")
@@ -144,4 +173,8 @@ done
 
 echo "[test_recovery_qemu] UART recovery milestones:"
 sed -n '1,220p' "$LOG"
-echo "PASS: NMI warm-recovery boot test"
+if [ "$HIGHMEM" -eq 1 ]; then
+    echo "PASS: high-E820 NMI warm-recovery boot test"
+else
+    echo "PASS: NMI warm-recovery boot test"
+fi
