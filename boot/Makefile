@@ -39,6 +39,13 @@ BOOT_SRCS := $(shell find $(KERNEL_DIR)/stage1 $(KERNEL_DIR)/stage2 \
                           $(KERNEL_DIR)/tests \
                           -name '*.asm' 2>/dev/null) $(KERNEL_DIR)/config.asm
 
+UEFI_SRCS := $(shell find $(KERNEL_DIR)/uefi $(KERNEL_DIR)/tpm \
+                          -name '*.asm' 2>/dev/null) \
+             $(KERNEL_DIR)/nvram.asm $(KERNEL_DIR)/config.asm
+UEFI_EFI = BOOTX64.EFI
+OVMF_STRICT_CODE ?= /usr/share/OVMF/OVMF_CODE_4M.secboot.strictnx.fd
+OVMF_STRICT_VARS ?= /usr/share/OVMF/OVMF_VARS_4M.fd
+
 # The single kernel translation unit; everything else is %include'd into it.
 ENTRY = $(ROOT)/kernel/entry.asm
 
@@ -100,12 +107,32 @@ all: kernel.bin
 # Kernel
 # -----------------------------------------------------------------------------
 kernel.bin: $(KERNEL_SRCS)
-	@TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
-	$(ASM) -f bin -I $(ROOT)/ $(ENTRY) -o "$$TMP" && \
-	test -s "$$TMP" && \
-	sh $(KERNEL_DIR)/ulf_stamp.sh "$$TMP" && \
+	@set -eu; TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
+	$(ASM) -f bin -I $(ROOT)/ $(ENTRY) -o "$$TMP"; \
+	test -s "$$TMP"; \
+	sh $(KERNEL_DIR)/ulf_stamp.sh "$$TMP"; \
 	mv -f "$$TMP" "$@"; \
 	trap - EXIT HUP INT TERM
+
+# -----------------------------------------------------------------------------
+# UEFI application
+# -----------------------------------------------------------------------------
+$(UEFI_EFI): $(UEFI_SRCS)
+	@set -eu; TMP_OBJ="$@.$$$$.obj"; TMP_EFI="$@.$$$$.tmp"; \
+	trap 'rm -f "$$TMP_OBJ" "$$TMP_EFI"' EXIT HUP INT TERM; \
+	$(ASM) -f win64 -Wall -Werror -w-reloc-rel-dword \
+	    -I $(KERNEL_DIR)/uefi/ -I $(KERNEL_DIR)/ \
+	    $(KERNEL_DIR)/uefi/entry.asm -o "$$TMP_OBJ"; \
+	x86_64-w64-mingw32-ld -mi386pep -nostdlib --subsystem 10 \
+	    -e efi_main --dynamicbase --nxcompat \
+	    --file-alignment 512 --section-alignment 4096 \
+	    -o "$$TMP_EFI" "$$TMP_OBJ"; \
+	test -s "$$TMP_EFI"; \
+	mv -f "$$TMP_EFI" "$@"; \
+	rm -f "$$TMP_OBJ"; \
+	trap - EXIT HUP INT TERM
+
+uefi: $(UEFI_EFI)
 
 # Assemble to ELF instead: keeps symbol names in the error output and lets
 # `nm` show what a section actually contains. Useful when triaging the image.
@@ -116,8 +143,8 @@ elf: $(KERNEL_SRCS)
 # Boot stages
 # -----------------------------------------------------------------------------
 stage1.bin: $(BOOT_SRCS)
-	@TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
-	$(ASM) -f bin $(BOOT_INC) $(KERNEL_DIR)/stage1/entry.asm -o "$$TMP" && \
+	@set -eu; TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
+	$(ASM) -f bin $(BOOT_INC) $(KERNEL_DIR)/stage1/entry.asm -o "$$TMP"; \
 	SZ=`wc -c < "$$TMP"`; \
 	if [ "$$SZ" -ne 512 ]; then \
 	    echo "stage1: $$SZ bytes, must be exactly 512 (the MBR)" >&2; exit 1; \
@@ -126,8 +153,8 @@ stage1.bin: $(BOOT_SRCS)
 	trap - EXIT HUP INT TERM
 
 stage2.bin: $(BOOT_SRCS)
-	@TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
-	$(ASM) -f bin $(BOOT_INC) $(KERNEL_DIR)/stage2/entry.asm -o "$$TMP" && \
+	@set -eu; TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
+	$(ASM) -f bin $(BOOT_INC) $(KERNEL_DIR)/stage2/entry.asm -o "$$TMP"; \
 	SZ=`wc -c < "$$TMP"`; MAX=`expr $(STAGE2_SECTORS) \* 512`; \
 	if [ "$$SZ" -gt "$$MAX" ]; then \
 	    echo "stage2: $$SZ bytes exceeds the $$MAX stage1 loads" >&2; exit 1; \
@@ -140,11 +167,11 @@ stage2.bin: $(BOOT_SRCS)
 # Bootable image
 # -----------------------------------------------------------------------------
 $(IMG): stage1.bin stage2.bin kernel.bin
-	@TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
-	test -s stage1.bin && test -s stage2.bin && test -s kernel.bin && \
-	dd if=stage1.bin of="$$TMP" bs=512 seek=0 conv=notrunc status=none && \
-	dd if=stage2.bin of="$$TMP" bs=512 seek=1 conv=notrunc status=none && \
-	dd if=kernel.bin of="$$TMP" bs=512 seek=$(KERNEL_LBA) conv=notrunc status=none && \
+	@set -eu; TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
+	test -s stage1.bin; test -s stage2.bin; test -s kernel.bin; \
+	dd if=stage1.bin of="$$TMP" bs=512 seek=0 conv=notrunc status=none; \
+	dd if=stage2.bin of="$$TMP" bs=512 seek=1 conv=notrunc status=none; \
+	dd if=kernel.bin of="$$TMP" bs=512 seek=$(KERNEL_LBA) conv=notrunc status=none; \
 	SZ=`wc -c < "$$TMP"`; PAD=`expr \( $$SZ + 511 \) / 512 \* 512`; \
 	if [ "$$PAD" -ne "$$SZ" ]; then dd if=/dev/zero of="$$TMP" bs=1 seek=$$SZ \
 	    count=`expr $$PAD - $$SZ` conv=notrunc status=none; fi; \
@@ -168,22 +195,32 @@ debug: $(IMG)
 # Build-time image validation followed by a boot-to-kernel smoke test.  Keep
 # this target beside the image recipe so its paths and QEMU configuration do
 # not drift independently from the artifacts it verifies.
-test: $(IMG)
+test: $(IMG) $(UEFI_EFI)
 	@sh $(KERNEL_DIR)/tests/run_all.sh
 
 test-negative: $(IMG)
 	@sh $(KERNEL_DIR)/tests/test_boot_negative.sh
 
-# Native ABI validation plus a complete PE32+ EFI application link check. This
-# deliberately does not advertise OVMF boot readiness yet.
-uefi-check:
+# Native ABI validation plus a complete PE32+ EFI application link check.
+uefi-check: $(UEFI_EFI)
+	@sh $(KERNEL_DIR)/tests/test_uefi_memory.sh
 	@sh $(KERNEL_DIR)/tests/test_uefi_memmap.sh
 	@sh $(KERNEL_DIR)/tests/test_uefi_ulf.sh
 	@sh $(KERNEL_DIR)/tests/test_uefi_file.sh
+	@sh $(KERNEL_DIR)/tests/test_uefi_tpm.sh
+	@sh $(KERNEL_DIR)/tests/test_uefi_transition_tables.sh
 	@sh $(KERNEL_DIR)/tests/test_uefi_asm.sh
+
+ovmf-test: kernel.bin $(UEFI_EFI)
+	@sh $(KERNEL_DIR)/tests/test_ovmf_qemu.sh
+
+ovmf-strictnx-test: kernel.bin $(UEFI_EFI)
+	@OVMF_CODE="$(OVMF_STRICT_CODE)" OVMF_VARS="$(OVMF_STRICT_VARS)" \
+	    sh $(KERNEL_DIR)/tests/test_ovmf_qemu.sh
 
 clean:
 	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
-	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG)
+	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG) $(UEFI_EFI)
 
-.PHONY: all elf img run debug test test-negative uefi-check clean
+.PHONY: all elf img run debug test test-negative uefi uefi-check ovmf-test \
+        ovmf-strictnx-test clean

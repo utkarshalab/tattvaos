@@ -7,8 +7,9 @@
 ; those pages or installed a final direct map.
 ;
 ; The converter is firmware-independent and is exercised by a native unit
-; harness.  It fails closed on malformed, overlapping, unsorted, or truncated
-; input rather than publishing a partially trusted map.
+; harness.  Firmware descriptor order is not trusted: output is inserted in
+; physical-address order, while malformed, overlapping, or truncated input
+; fails closed rather than publishing a partially trusted map.
 ; =============================================================================
 
 %ifndef UEFI_MEMORY_MAP_ASM
@@ -42,11 +43,14 @@ section .text
 ;   RCX = canonical output address
 ;   R8  = output capacity in 24-byte entries
 ; Output:
-;   CF=0: EAX = canonical entry count
-;   CF=1: EAX = 0; output must be discarded
+;   CF=0: EAX = canonical entry count, EDX = 0
+;   CF=1: EAX = 0, EDX = rejection class; output must be discarded
+;     1=input, 2=span alias/overflow, 3=stride, 4=descriptor,
+;     5=ordering/overlap, 6=output capacity
 ;
-; The raw descriptors must be ordered and non-overlapping.  Adjacent records
-; are coalesced only when their canonical type and attributes are identical.
+; Raw descriptors may arrive in any order.  Output is sorted, overlaps are
+; rejected in either direction, and adjacent records coalesce only when their
+; canonical type and attributes are identical.
 ; -----------------------------------------------------------------------------
 global uefi_normalize_memory_map
 uefi_normalize_memory_map:
@@ -62,6 +66,7 @@ uefi_normalize_memory_map:
     mov r14, rdx                    ; descriptor stride
     mov r15, rcx                    ; canonical output base
     mov rbp, r8                     ; canonical output capacity
+    mov r8d, 1
 
     test r12, r12
     jz .invalid
@@ -74,6 +79,7 @@ uefi_normalize_memory_map:
     cmp r14, EFI_MEMORY_DESCRIPTOR_MIN_SIZE
     jb .invalid
 
+    mov r8d, 2
     ; Validate both spans before touching either.  Reject aliasing so output
     ; writes can never corrupt descriptors that have not yet been consumed.
     mov r10, r12
@@ -95,6 +101,7 @@ uefi_normalize_memory_map:
     jb .invalid
 
 .spans_disjoint:
+    mov r8d, 3
     ; The map must contain a whole number of complete descriptors.
     mov rax, r13
     xor edx, edx
@@ -105,11 +112,10 @@ uefi_normalize_memory_map:
     jz .invalid
     mov r13, rax                    ; descriptors remaining
 
-    mov rdi, r15                    ; next canonical output record
     xor r9d, r9d                    ; canonical output count
-    xor r10d, r10d                  ; previous raw descriptor end
 
 .descriptor_loop:
+    mov r8d, 4
     mov rbx, [r12 + 8]              ; PhysicalStart
     test rbx, 0xFFF
     jnz .invalid
@@ -122,16 +128,9 @@ uefi_normalize_memory_map:
     ja .invalid
     shl r11, 12                     ; canonical byte length
 
-    mov rcx, rbx
-    add rcx, r11                    ; current end (exclusive)
+    mov r10, rbx
+    add r10, r11                    ; current end (exclusive)
     jc .invalid
-
-    ; An overlap—regardless of type—could make reserved memory allocatable if
-    ; the kernel later sees an overlapping usable descriptor.  Reject it.
-    test r9, r9
-    jz .map_type
-    cmp rbx, r10
-    jb .invalid
 
 .map_type:
     mov eax, [r12]
@@ -159,22 +158,113 @@ uefi_normalize_memory_map:
     mov edx, E820_ACPI_NVS
 
 .type_ready:
-    ; Coalesce only exact adjacency with identical semantics.  Gaps remain
-    ; explicit, and overlaps were rejected above.
-    test r9, r9
+    ; Find the sorted insertion point. RAX is the number of existing entries
+    ; at or after RDI, which also bounds every shift below.
+    mov rdi, r15
+    mov rax, r9
+.find_insertion:
+    test rax, rax
+    jz .insertion_found
+    mov rcx, [rdi]
+    cmp rcx, rbx
+    jae .insertion_found
+    add rdi, UEFI_CANONICAL_ENTRY_SIZE
+    dec rax
+    jmp .find_insertion
+
+.insertion_found:
+    xor esi, esi                    ; bit 0=merge prev, bit 1=merge next
+    mov r8d, 5
+
+    ; The predecessor must end at or before the new range.
+    cmp rdi, r15
+    je .check_successor
+    mov rcx, [rdi - UEFI_CANONICAL_ENTRY_SIZE]
+    add rcx, [rdi - UEFI_CANONICAL_ENTRY_SIZE + 8]
+    jc .invalid
+    cmp rbx, rcx
+    jb .invalid
+    jne .check_successor
+    cmp dword [rdi - UEFI_CANONICAL_ENTRY_SIZE + 16], edx
+    jne .check_successor
+    cmp dword [rdi - UEFI_CANONICAL_ENTRY_SIZE + 20], E820_ATTR_ENABLED
+    jne .check_successor
+    or esi, 1
+
+.check_successor:
+    ; The new range must end at or before the successor. Equal boundaries can
+    ; merge only when their canonical semantics match.
+    test rax, rax
+    jz .apply_merge
+    mov rcx, [rdi]
+    cmp r10, rcx
+    ja .invalid
+    jne .apply_merge
+    cmp dword [rdi + 16], edx
+    jne .apply_merge
+    cmp dword [rdi + 20], E820_ATTR_ENABLED
+    jne .apply_merge
+    or esi, 2
+
+.apply_merge:
+    test esi, 1
+    jz .maybe_merge_next
+
+    add qword [rdi - UEFI_CANONICAL_ENTRY_SIZE + 8], r11
+    jc .invalid
+    test esi, 2
+    jz .advance
+
+    ; New range bridges two equivalent neighbors. Extend the predecessor with
+    ; the successor, then remove that successor from the sorted output.
+    mov rcx, [rdi + 8]
+    add [rdi - UEFI_CANONICAL_ENTRY_SIZE + 8], rcx
+    jc .invalid
+    dec rax
+    jz .bridge_removed
+    mov rcx, rax
+    imul rcx, 3                    ; three qwords per packed entry
+    lea rsi, [rdi + UEFI_CANONICAL_ENTRY_SIZE]
+    cld
+    rep movsq
+.bridge_removed:
+    dec r9
+    jmp .advance
+
+.maybe_merge_next:
+    test esi, 2
     jz .emit
-    cmp rbx, r10
-    jne .emit
-    cmp dword [rdi - 8], edx        ; prior entry type
-    jne .emit
-    cmp dword [rdi - 4], E820_ATTR_ENABLED
-    jne .emit
-    add [rdi - 16], r11             ; extend prior entry length
+    mov [rdi], rbx
+    add qword [rdi + 8], r11
+    jc .invalid
     jmp .advance
 
 .emit:
+    mov r8d, 6
     cmp r9, rbp
     jae .invalid
+
+    ; Shift the sorted suffix one entry to the right. Copy backwards because
+    ; source and destination overlap.
+    mov r8, rax
+    test rax, rax
+    jz .write_entry
+    mov rcx, r9
+    imul rcx, UEFI_CANONICAL_ENTRY_SIZE
+    lea rsi, [r15 + rcx - 8]
+    lea rdi, [rsi + UEFI_CANONICAL_ENTRY_SIZE]
+    mov rcx, r8
+    imul rcx, 3
+    std
+    rep movsq
+    cld
+
+    mov rcx, r9
+    sub rcx, r8
+    imul rcx, UEFI_CANONICAL_ENTRY_SIZE
+    lea rdi, [r15 + rcx]
+
+.write_entry:
     mov [rdi], rbx
     mov [rdi + 8], r11
     mov [rdi + 16], edx
@@ -183,17 +273,18 @@ uefi_normalize_memory_map:
     inc r9
 
 .advance:
-    mov r10, rcx
     add r12, r14
     dec r13
     jnz .descriptor_loop
 
     mov rax, r9
+    xor edx, edx
     clc
     jmp .done
 
 .invalid:
     xor eax, eax
+    mov edx, r8d
     stc
 
 .done:

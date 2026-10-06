@@ -84,7 +84,7 @@ The directory structure is in [`PROJECTSTRUCTURE.md`](PROJECTSTRUCTURE.md).
 Minimal build list for first benchmark:
 
 ```
-boot/       → bootloader, x86-64 BIOS path
+boot/       → bootloader, x86-64 BIOS + UEFI/OVMF paths
 lib/mem/    → physical memory, heap, arena
 lib/io/     → UART, disk, device abstraction  
 lib/umath/  → GEMM, AVX2

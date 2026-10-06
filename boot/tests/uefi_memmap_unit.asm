@@ -97,6 +97,8 @@ _start:
     mov r8, 8
     call uefi_normalize_memory_map
     jnc .fail_5
+    cmp edx, 4
+    jne .fail_5
 
     ; PhysicalStart must be page aligned.
     lea rdi, [rel unaligned_base]
@@ -135,6 +137,8 @@ _start:
     jnc .fail_9
     test eax, eax
     jnz .fail_9
+    cmp edx, 6
+    jne .fail_9
 
     ; Overlaps are rejected even when a reserved descriptor follows a usable
     ; one; otherwise the usable view could weaken the reservation.
@@ -145,15 +149,38 @@ _start:
     mov r8, 8
     call uefi_normalize_memory_map
     jnc .fail_10
+    cmp edx, 5
+    jne .fail_10
 
-    ; Unsorted input is equally unsafe and fails closed.
+    ; Firmware order is not trusted. Unsorted, adjacent input is sorted and
+    ; coalesced into the same canonical form.
     lea rdi, [rel unsorted]
     mov rsi, unsorted_end - unsorted
     mov rdx, 40
     lea rcx, [rel output]
     mov r8, 8
     call uefi_normalize_memory_map
+    jc .fail_11
+    test edx, edx
+    jnz .fail_11
+    cmp eax, 1
+    jne .fail_11
+    cmp qword [rel output], 0x00900000
+    jne .fail_11
+    cmp qword [rel output + 8], 0x2000
+    jne .fail_11
+
+    ; Reversed overlapping input must still be rejected after sorted
+    ; insertion; order can never weaken a reservation.
+    lea rdi, [rel reverse_overlapping]
+    mov rsi, reverse_overlapping_end - reverse_overlapping
+    mov rdx, 40
+    lea rcx, [rel output]
+    mov r8, 8
+    call uefi_normalize_memory_map
     jnc .fail_11
+    cmp edx, 5
+    jne .fail_11
 
     ; Input/output aliasing could overwrite unread descriptors.
     lea rdi, [rel alias_map]
@@ -163,6 +190,8 @@ _start:
     mov r8, 1
     call uefi_normalize_memory_map
     jnc .fail_12
+    cmp edx, 2
+    jne .fail_12
 
     xor edi, edi
     jmp .exit
@@ -239,6 +268,11 @@ unsorted:
     EFI_DESC 7, 0x00901000, 1, 0
     EFI_DESC 7, 0x00900000, 1, 0
 unsorted_end:
+
+reverse_overlapping:
+    EFI_DESC 0, 0x00911000, 1, 0
+    EFI_DESC 7, 0x00910000, 2, 0
+reverse_overlapping_end:
 
 alias_map:
     EFI_DESC 7, 0x00A00000, 1, 0

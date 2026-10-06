@@ -18,6 +18,7 @@ default rel
 %include "console.asm"
 %include "gop.asm"
 %include "file.asm"
+%include "transition.asm"
 %include "memory.asm"
 %include "handoff.asm"
 %include "tpm/uefi_tpm.asm"
@@ -59,7 +60,8 @@ efi_main:
     jnz .load_failed
     mov [rel uefi_boot_root], rdx
 
-    ; 4. Load the validated ULF into firmware-owned pages at its linked base.
+    ; 4. Load the validated ULF into low firmware-owned physical backing.
+    ; The owned transition tables map its fixed linked virtual address.
     mov rcx, [rel uefi_system_table]
     mov rdx, [rel uefi_boot_root]
     lea r8, [rel msg_kernel_file]
@@ -110,13 +112,17 @@ efi_main:
     mov r8, 48
     call uefi_write_boot_log
 
-    ; 5. Query GetMemoryMap to obtain size and MapKey. The static buffer is a
-    ; hard capacity: EFI_BUFFER_TOO_SMALL is a clean boot failure.
-    mov qword [rel uefi_map_size], 16384
-    mov rcx, [uefi_system_table]
-    lea rdx, [rel uefi_mem_map_buf]
-    lea r8, [rel uefi_map_size]
-    call uefi_get_memory_map
+    ; Allocate and verify the loader-owned CR3/GDT/IDT/stack before entering
+    ; the final memory-map window.  No allocation is permitted afterwards.
+    mov rcx, [rel uefi_system_table]
+    call uefi_transition_prepare
+    test rax, rax
+    jnz .transition_failed
+
+    ; 5. Probe, allocate, and fill the bounded firmware memory-map buffer.
+    ; Allocation happens before the final map/key window.
+    mov rcx, [rel uefi_system_table]
+    call uefi_memory_map_acquire
     test rax, rax
     jnz .mem_map_failed             ; if non-zero status, query failed
 
@@ -131,7 +137,7 @@ efi_main:
     ; console output remains legal.
     mov r10, EFI_LOAD_ERROR
     cmp rax, r10
-    je .mem_map_failed
+    je .handoff_validation_failed
 
     ; The one retry permitted by the UEFI contract is for a stale MapKey.
     ; Any other firmware status fails silently: after the first exit attempt
@@ -141,11 +147,8 @@ efi_main:
     jne .halt
 
     ; Refresh the map and retry ExitBootServices with the new key.
-    mov qword [rel uefi_map_size], 16384
-    mov rcx, [uefi_system_table]
-    lea rdx, [rel uefi_mem_map_buf]
-    lea r8, [rel uefi_map_size]
-    call uefi_get_memory_map
+    mov rcx, [rel uefi_system_table]
+    call uefi_memory_map_refresh
     test rax, rax
     jnz .halt                       ; no console/protocol calls after EBS failure
 
@@ -164,8 +167,28 @@ efi_main:
     lea rdx, [rel msg_mem_map_failed]
     jmp .preboot_error
 
+.handoff_validation_failed:
+    mov eax, [rel uefi_handoff_stage]
+    cmp eax, 9
+    ja .handoff_stage_ready
+    add eax, '0'
+    mov [rel msg_handoff_stage_digit], ax
+.handoff_stage_ready:
+    mov eax, [rel uefi_handoff_detail]
+    cmp eax, 9
+    ja .handoff_detail_ready
+    add eax, '0'
+    mov [rel msg_handoff_detail_digit], ax
+.handoff_detail_ready:
+    lea rdx, [rel msg_handoff_validation_failed]
+    jmp .preboot_error
+
 .load_failed:
     lea rdx, [rel msg_load_failed]
+    jmp .preboot_error
+
+.transition_failed:
+    lea rdx, [rel msg_transition_failed]
 
 .preboot_error:
     ; Preserve the message across cleanup calls in a nonvolatile register slot.
@@ -177,6 +200,10 @@ efi_main:
     mov rax, [rcx + FILE_CLOSE]
     call rax
 .release_payloads:
+    mov rcx, [rel uefi_system_table]
+    call uefi_memory_map_release
+    mov rcx, [rel uefi_system_table]
+    call uefi_transition_release
     mov rcx, [rel uefi_system_table]
     call uefi_release_payloads
     mov rcx, [rel uefi_system_table]
@@ -195,8 +222,9 @@ section .data
 align 8
 uefi_image_handle:  dq 0
 uefi_system_table:  dq 0
-uefi_map_size:      dq 0
 uefi_boot_root:     dq 0
+uefi_handoff_stage: dd 0
+uefi_handoff_detail:dd 0
 
 ; UTF-16LE welcoming strings
 msg_uefi_banner:
@@ -211,16 +239,20 @@ msg_initrd_file:
 msg_load_failed:
     dw 'E', 'R', 'R', 'O', 'R', ':', ' ', 'F', 'a', 'i', 'l', 'e', 'd', ' ', 't', 'o', ' ', 'l', 'o', 'a', 'd', ' ', 'k', 'e', 'r', 'n', 'e', 'l', '.', 'u', 'l', 'f', 0x0D, 0x0A, 0
 
+msg_transition_failed:
+    dw 'E', 'R', 'R', 'O', 'R', ':', ' ', 'F', 'a', 'i', 'l', 'e', 'd', ' ', 't', 'o', ' ', 'p', 'r', 'e', 'p', 'a', 'r', 'e', ' ', 'o', 'w', 'n', 'e', 'd', ' ', 'k', 'e', 'r', 'n', 'e', 'l', ' ', 't', 'r', 'a', 'n', 's', 'i', 't', 'i', 'o', 'n', 0x0D, 0x0A, 0
+
 msg_handoff_failed:
     dw 'E', 'R', 'R', 'O', 'R', ':', ' ', 'E', 'x', 'i', 't', 'B', 'o', 'o', 't', 'S', 'e', 'r', 'v', 'i', 'c', 'e', 's', ' ', 'f', 'a', 'i', 'l', 'e', 'd', 0x0D, 0x0A, 0
 
 msg_mem_map_failed:
     dw 'E', 'R', 'R', 'O', 'R', ':', ' ', 'F', 'a', 'i', 'l', 'e', 'd', ' ', 't', 'o', ' ', 'g', 'e', 't', ' ', 'm', 'e', 'm', 'o', 'r', 'y', ' ', 'm', 'a', 'p', 0x0D, 0x0A, 0
 
-section .bss align=16
-uefi_mem_map_buf:   resb 16384
-uefi_boot_info:     resb UEFI_BOOT_INFO_SIZE
-                    resb 8          ; restore 16-byte alignment after 88-byte BootInfo
-uefi_e820_map_buf:  resb UEFI_CANONICAL_MAX_ENTRIES * UEFI_CANONICAL_ENTRY_SIZE
+msg_handoff_validation_failed:
+    dw 'E', 'R', 'R', 'O', 'R', ':', ' ', 'F', 'i', 'n', 'a', 'l', ' ', 'U', 'E', 'F', 'I', ' ', 'h', 'a', 'n', 'd', 'o', 'f', 'f', ' ', 'v', 'a', 'l', 'i', 'd', 'a', 't', 'i', 'o', 'n', ' ', 'f', 'a', 'i', 'l', 'e', 'd', ' ', 'a', 't', ' ', 's', 't', 'a', 'g', 'e', ' '
+msg_handoff_stage_digit:
+    dw '0', ' ', 'd', 'e', 't', 'a', 'i', 'l', ' '
+msg_handoff_detail_digit:
+    dw '0', 0x0D, 0x0A, 0
 
 %endif ; UEFI_ENTRY_ASM

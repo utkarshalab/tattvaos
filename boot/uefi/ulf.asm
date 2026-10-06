@@ -22,7 +22,7 @@ section .text
 ;   RDI = address of a ULF header
 ;   RSI = number of accessible bytes at RDI
 ;   RDX = exact file size reported by EFI_FILE_INFO
-;   RCX = required physical load base
+;   RCX = required linked virtual load base
 ; Output:
 ;   CF=0: RAX = complete in-memory footprint, R8 = validated entry address
 ;   CF=1: RAX = 0, R8 = 0
@@ -42,7 +42,7 @@ uefi_ulf_validate_header:
     ja .invalid
     test rdx, 7                    ; checksum is defined over whole qwords
     jnz .invalid
-    test rcx, 0xFFF                ; AllocateAddress works in whole pages
+    test rcx, 0xFFF                ; kernel mapping starts on a whole page
     jnz .invalid
 
     cmp dword [rdi + ULF_MAGIC_OFF], ULF_MAGIC
@@ -104,7 +104,7 @@ uefi_ulf_validate_header:
 ; Input (internal/native ABI):
 ;   RDI = complete loaded image
 ;   RSI = exact image size
-;   RDX = required physical load base
+;   RDX = required linked virtual load base
 ; Output is identical to uefi_ulf_validate_header.
 ; -----------------------------------------------------------------------------
 global uefi_ulf_validate_image

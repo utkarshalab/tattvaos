@@ -289,18 +289,20 @@ boot/
 │           └── uart_hex.asm        ← print hex value via UART
 │                                     for printing addresses + error codes
 │
-├── uefi/                           ← UEFI boot path (x86-64 + AArch64)
-│   │                                 build after BIOS path works
+├── uefi/                           ← UEFI boot path (x86-64; AArch64 planned)
 │   │
 │   ├── entry.asm                   ← UEFI entry point EFI_MAIN
 │   ├── protocol.asm                ← UEFI protocol handling
 │   ├── console.asm                 ← UEFI console output
 │   ├── memory.asm                  ← UEFI GetMemoryMap
-│   ├── file.asm                    ← UEFI SimpleFileSystem protocol
+│   ├── memory_map.asm              ← canonical EFI -> E820 normalization
+│   ├── ulf.asm                     ← bounded ULF v2 metadata + checksum checks
+│   ├── file.asm                    ← owned, full-footprint payload loading
 │   ├── gop.asm                     ← UEFI Graphics Output Protocol
-│   └── handoff.asm                 ← ExitBootServices + jump to kernel
-│                                     MUST call ExitBootServices before
-│                                     any kernel memory operations
+│   ├── transition_tables.asm       ← exact low-4-GiB W^X transition CR3
+│   ├── transition.asm              ← owned GDT, IDT, stack, and CPU state
+│   └── handoff.asm                 ← canonical BootInfo + ExitBootServices
+│                                     + validated ULF entry transfer
 │
 ├── survive/                        ← Panic recovery — unique to Tattva
 │   │                                 build after basic boot works
@@ -584,7 +586,8 @@ Phase 6 — Tests (ongoing from week 1)
     tests/test_*.asm
     → milestone: automated regression testing
 
-Phase 7 — UEFI (after BIOS solid)
+Phase 7 — UEFI (x86-64 OVMF boot-to-scheduler gate complete;
+                bare-metal platform matrix remains)
 Phase 8 — RISC-V (PhD research)
 Phase 9 — TPM (security)
 ```

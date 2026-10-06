@@ -11,29 +11,43 @@
 %ifndef UEFI_TPM_ASM
 %define UEFI_TPM_ASM
 
+%include "uefi/protocol.asm"
+
 [BITS 64]
 
-; TCG2 Protocol GUID: 607f766c-7457-4214-a979-9951a704de84
+TCG2_EVENT_PCR_INDEX_OFF equ 10
+TCG2_MAX_PCR_INDEX       equ 23
+
+; EFI_TCG2_PROTOCOL_GUID: 607f766c-7455-42be-930b-e4d76db2720f
+section .rdata
 align 8
 efi_tcg2_protocol_guid:
     dd 0x607f766c
-    dw 0x7457, 0x4214
-    db 0xa9, 0x79, 0x99, 0x51, 0xa7, 0x04, 0xde, 0x84
+    dw 0x7455, 0x42be
+    db 0x93, 0x0b, 0xe4, 0xd7, 0x6d, 0xb2, 0x72, 0x0f
 
-; Local Storage
+; Firmware writes the located interface through tcg2_protocol, and measurement
+; updates PCRIndex in tcg2_event.  Both must be in writable PE data, never in
+; the executable/read-only section inherited from the including file.
+section .data
+align 8
 tcg2_protocol:      dq 0
 
-; TCG2 Event Structure for Hashing
+; Packed EFI_TCG2_EVENT.  The event payload names what was measured; the data
+; passed separately to HashLogExtendEvent remains the exact kernel image.
 align 8
 tcg2_event:
-    dd 33                           ; Size (sizeof(EFI_TCG2_EVENT) without flexible array + 1 byte event = 4 + 16 + 1 = 21, let's allocate 33 bytes for safety)
-    ; Header:
-    dd 16                           ; HeaderSize = 16
-    dw 1                            ; HeaderVersion = 1
+    dd tcg2_event_end - tcg2_event
+tcg2_event_header:
+    dd tcg2_event_header_end - tcg2_event_header
+    dw 1                            ; EFI_TCG2_EVENT_HEADER_VERSION
     dd 4                            ; PCRIndex (default PCR 4)
-    dd 0x0D                         ; EventType (EV_IPL = 0x0D, Bootloader/OS Loader)
-    ; Event Payload:
-    db 0                            ; Dummy event data (1 byte)
+    dd 0x0D                         ; EV_IPL (bootloader/OS loader)
+tcg2_event_header_end:
+    db "Tattva kernel", 0
+tcg2_event_end:
+
+section .text
 
 ; =============================================================================
 ; uefi_tpm_init — Locate the EFI_TCG2_PROTOCOL interface
@@ -45,16 +59,24 @@ uefi_tpm_init:
     mov rbp, rsp
     sub rsp, 32
 
-    mov rax, [rcx + 96]              ; RAX = BootServices (offset 96 in System Table)
+    mov qword [rel tcg2_protocol], 0
+    mov rax, [rcx + SYS_TABLE_BOOT_SERVICES]
+    test rax, rax
+    jz .unsupported
+    mov rax, [rax + BS_LOCATE_PROTOCOL]
+    test rax, rax
+    jz .unsupported
     
     ; LocateProtocol(GUID*, Registration*, Interface**)
     lea rcx, [rel efi_tcg2_protocol_guid] ; RCX = GUID*
     xor rdx, rdx                     ; RDX = Registration (NULL)
     lea r8, [rel tcg2_protocol]      ; R8 = Interface**
-    
-    mov rax, [rax + 320]             ; Offset 320 in BootServices is LocateProtocol
     call rax                         ; execute LocateProtocol
-    
+    jmp .done
+
+.unsupported:
+    mov rax, EFI_UNSUPPORTED
+.done:
     mov rsp, rbp
     pop rbp
     ret
@@ -72,6 +94,13 @@ uefi_tpm_measure:
     mov rbp, rsp
     sub rsp, 48                      ; shadow space + local variables
 
+    test rdx, rdx
+    jz .invalid
+    test r8, r8
+    jz .invalid
+    cmp r9d, TCG2_MAX_PCR_INDEX
+    ja .invalid
+
     ; Check if TCG2 Protocol was successfully located
     mov rax, [rel tcg2_protocol]
     test rax, rax
@@ -88,7 +117,7 @@ uefi_tpm_measure:
     mov [rbp - 16], r8               ; DataToHashLen
 
     ; Update event structure with PCR index
-    mov [rel tcg2_event + 10], r9d   ; Header.PCRIndex
+    mov [rel tcg2_event + TCG2_EVENT_PCR_INDEX_OFF], r9d
 
     ; HashLogExtendEvent(This, Flags, DataToHash, DataToHashLen, EfiTcgEvent)
     mov rcx, [rel tcg2_protocol]     ; RCX = This
@@ -96,15 +125,20 @@ uefi_tpm_measure:
     mov r8, [rbp - 8]                ; R8 = DataToHash
     mov r9, [rbp - 16]               ; R9 = DataToHashLen
     
-    lea rax, [rel tcg2_event]        ; RDI = EfiTcgEvent
+    lea rax, [rel tcg2_event]
     mov [rsp + 32], rax              ; fifth parameter on stack
     
     mov rax, [rcx + 16]              ; RAX = HashLogExtendEvent function pointer
+    test rax, rax
+    jz .no_protocol
     call rax                         ; execute HashLogExtendEvent
     jmp .done
 
+.invalid:
+    mov rax, EFI_INVALID_PARAMETER
+    jmp .done
 .no_protocol:
-    mov rax, 0x8000000000000003      ; EFI_UNSUPPORTED
+    mov rax, EFI_UNSUPPORTED
 
 .done:
     mov rsp, rbp

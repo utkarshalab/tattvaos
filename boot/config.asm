@@ -17,7 +17,8 @@
 STAGE1_LOAD     equ 0x7C00      ; BIOS loads MBR here
 STAGE1_RELOC    equ 0x0600      ; MBR relocates self here
 STAGE2_LOAD     equ 0x8000      ; stage2 loads here
-KERNEL_LOAD     equ 0x100000    ; kernel loads at 1MB mark
+KERNEL_LOAD     equ 0x100000    ; kernel link address: BIOS loads here;
+                                ; UEFI maps owned backing here
 KERNEL_TEMP     equ 0x20000     ; 32KB bounce buffer for INT 13h reads. BIOS
                                 ; disk services cannot write above 1MB, so each
                                 ; chunk lands here and stage2 copies it up

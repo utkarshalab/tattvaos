@@ -37,6 +37,7 @@ uefi_kernel_addr:        dq 0
 uefi_kernel_size:        dq 0
 uefi_kernel_pages:       dq 0
 uefi_kernel_memory_size: dq 0
+uefi_kernel_exec_size:   dq 0
 uefi_kernel_entry:       dq 0
 
 uefi_initrd_addr:        dq 0
@@ -313,6 +314,7 @@ uefi_load_kernel:
     mov qword [rbp - 72], 0         ; validated entry
     mov qword [rbp - 80], 0         ; saved status
     mov qword [rbp - 88], 0         ; allocation-owned flag
+    mov qword [rbp - 120], 0        ; validated executable-prefix size
     mov [rbp - 96], rdi
     mov [rbp - 104], rsi
 
@@ -368,16 +370,24 @@ uefi_load_kernel:
     jc .load_error
     mov [rbp - 64], rax
     mov [rbp - 72], r8
+    mov eax, [rel uefi_ulf_header_scratch + ULF_EXEC_SIZE_OFF]
+    mov [rbp - 120], rax
 
+    mov rax, [rbp - 64]            ; pages cover the complete memory footprint
     add rax, 4095
     jc .load_error
     shr rax, 12
     test rax, rax
     jz .load_error
     mov [rbp - 56], rax
-    mov qword [rbp - 48], KERNEL_LOAD
+    mov eax, 0xFFFFFFFF
+    mov [rbp - 48], rax             ; highest acceptable backing address
 
-    mov ecx, EFI_ALLOCATE_ADDRESS
+    ; The flat image remains linked at virtual KERNEL_LOAD, but OVMF is not
+    ; required to expose that entire physical span as conventional memory.
+    ; Acquire any contiguous firmware-owned backing below 4 GiB; the owned
+    ; transition CR3 maps it at the linked virtual addresses.
+    mov ecx, EFI_ALLOCATE_MAX_ADDRESS
     mov edx, EFI_LOADER_DATA
     mov r8, [rbp - 56]
     lea r9, [rbp - 48]
@@ -387,8 +397,18 @@ uefi_load_kernel:
     test rax, rax
     jnz .allocation_failed
     mov qword [rbp - 88], 1
-    cmp qword [rbp - 48], KERNEL_LOAD
-    jne .load_error
+    mov rax, [rbp - 48]
+    test rax, rax
+    jz .load_error
+    test rax, 0xFFF
+    jnz .load_error
+    mov rcx, [rbp - 56]
+    shl rcx, 12
+    add rax, rcx
+    jc .load_error
+    mov rdx, 0x0000000100000000
+    cmp rax, rdx
+    ja .load_error
 
     cld
     mov rdi, [rbp - 48]
@@ -420,6 +440,9 @@ uefi_load_kernel:
     jne .load_error
     cmp r8, [rbp - 72]
     jne .load_error
+    mov eax, [rdi + ULF_EXEC_SIZE_OFF]
+    cmp rax, [rbp - 120]
+    jne .load_error
 
     mov rcx, [rbp - 32]
     mov rax, [rcx + FILE_CLOSE]
@@ -436,6 +459,8 @@ uefi_load_kernel:
     mov [rel uefi_kernel_pages], rax
     mov rax, [rbp - 64]
     mov [rel uefi_kernel_memory_size], rax
+    mov rax, [rbp - 120]
+    mov [rel uefi_kernel_exec_size], rax
     mov rax, [rbp - 72]
     mov [rel uefi_kernel_entry], rax
     xor eax, eax
@@ -678,6 +703,7 @@ uefi_release_payloads:
     mov qword [rel uefi_kernel_size], 0
     mov qword [rel uefi_kernel_pages], 0
     mov qword [rel uefi_kernel_memory_size], 0
+    mov qword [rel uefi_kernel_exec_size], 0
     mov qword [rel uefi_kernel_entry], 0
 .done:
     mov rax, [rbp - 16]

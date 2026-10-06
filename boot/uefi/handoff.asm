@@ -29,7 +29,9 @@ UEFI_BOOT_INFO_FB_PITCH      equ 48
 UEFI_BOOT_INFO_FB_FORMAT     equ 52
 UEFI_BOOT_INFO_INITRD_ADDR   equ 56
 UEFI_BOOT_INFO_INITRD_SIZE   equ 64
-UEFI_CANONICAL_MAX_ENTRIES   equ 128
+; The context page has 0xF60 bytes after the E820 offset and before the stack.
+; 160 packed 24-byte entries consume 0xF00, leaving a 96-byte guard.
+UEFI_CANONICAL_MAX_ENTRIES   equ 160
 UEFI_BOOTSTRAP_MAP_LIMIT     equ 0x0000000100000000
 
 section .text
@@ -61,22 +63,50 @@ uefi_handoff:
     mov [rbp - 64], rdi
     mov [rbp - 80], r12
 
+    mov dword [rel uefi_handoff_stage], 1
+    mov dword [rel uefi_handoff_detail], 0
+    cmp byte [rel uefi_transition_ready], 1
+    jne .prepare_failed
+    call uefi_transition_verify_ready
+    jc .prepare_failed
+    mov rax, [rel uefi_kernel_entry]
+    cmp [rbp - 32], rax
+    jne .prepare_failed
+
+    mov r12, [rel uefi_transition_state]
+    test r12, r12
+    jz .prepare_failed
+
+    mov dword [rel uefi_handoff_stage], 2
     ; Normalize native EFI descriptors before publishing anything to the
     ; kernel. DescriptorVersion is part of the firmware ABI.
     cmp dword [rel uefi_desc_version], EFI_MEMORY_DESCRIPTOR_VERSION
     jne .prepare_failed
-    lea rdi, [rel uefi_mem_map_buf]
+    mov rdi, [rel uefi_mem_map_buf]
+    test rdi, rdi
+    jz .prepare_failed
     mov rsi, [rel uefi_map_size]
+    test rsi, rsi
+    jz .prepare_failed
+    cmp rsi, [rel uefi_mem_map_capacity]
+    ja .prepare_failed
     mov rdx, [rel uefi_desc_size]
-    lea rcx, [rel uefi_e820_map_buf]
+    mov rcx, r12
+    add rcx, UEFI_TRANSITION_E820_OFF
     mov r8d, UEFI_CANONICAL_MAX_ENTRIES
     call uefi_normalize_memory_map
-    jc .prepare_failed
+    jnc .map_normalized
+    mov [rel uefi_handoff_detail], edx
+    jmp .prepare_failed
+.map_normalized:
+    mov dword [rel uefi_handoff_detail], 0
     mov [rbp - 72], eax             ; canonical entry count
 
-    ; The current kernel bootstrap CR3 maps [0, 4 GiB). The loader image is
-    ; retained as reserved memory, but these objects must be dereferenceable.
-    lea r12, [rel uefi_boot_info]
+    mov dword [rel uefi_handoff_stage], 3
+    ; BootInfo and its canonical map live in the allocated transition-state
+    ; pages, not in the PE image.  Their identity addresses remain stable even
+    ; when the linked kernel virtual window is backed by different frames.
+    add r12, UEFI_TRANSITION_BOOT_INFO_OFF
     mov rax, r12
     add rax, UEFI_BOOT_INFO_SIZE
     jc .prepare_failed
@@ -84,7 +114,8 @@ uefi_handoff:
     cmp rax, rdx
     ja .prepare_failed
 
-    lea rax, [rel uefi_e820_map_buf]
+    mov rax, [rel uefi_transition_state]
+    add rax, UEFI_TRANSITION_E820_OFF
     mov ecx, [rbp - 72]
     imul rcx, UEFI_CANONICAL_ENTRY_SIZE
     add rcx, rax
@@ -92,6 +123,7 @@ uefi_handoff:
     cmp rcx, rdx
     ja .prepare_failed
 
+    mov dword [rel uefi_handoff_stage], 4
     ; 1. Walk ConfigurationTable to find ACPI RSDP pointer
     mov rcx, [rbp - 8]              ; RCX = System Table
     mov rdx, [rcx + SYS_TABLE_TABLE_COUNT]
@@ -137,8 +169,17 @@ uefi_handoff:
     jmp .config_loop_end
 
 .config_loop_end:
+    test rdi, rdi
+    jz .acpi_ready
+    mov rax, rdi
+    mov edx, 36                    ; complete ACPI 2.0 RSDP; ACPI 1.0 fits
+    call .identity_span_accessible
+    jnc .acpi_ready
+    xor edi, edi                   ; unavailable under the bootstrap mapping
+.acpi_ready:
     mov [rbp - 40], rdi             ; save found ACPI RSDP pointer
 
+    mov dword [rel uefi_handoff_stage], 5
     ; 2. Zero the loader-owned 88-byte BootInfo structure (11 quadwords).
     cld                             ; Clear direction flag for rep stosq
     mov rdi, r12
@@ -147,7 +188,8 @@ uefi_handoff:
     rep stosq
 
     ; 3. Populate BootInfo fields
-    lea rax, [rel uefi_e820_map_buf]
+    mov rax, [rel uefi_transition_state]
+    add rax, UEFI_TRANSITION_E820_OFF
     mov [r12 + UEFI_BOOT_INFO_E820_PTR], rax
 
     ; BOOT_INFO_INITRD_ADDR and SIZE describe the pages returned by firmware;
@@ -158,6 +200,13 @@ uefi_handoff:
     mov rdx, [rel uefi_initrd_addr]
     test rdx, rdx
     jz .prepare_failed
+    mov r10, rax
+    mov rax, rdx
+    mov rdx, r10
+    call .identity_span_accessible
+    jc .prepare_failed
+    mov rdx, [rel uefi_initrd_addr]
+    mov rax, [rel uefi_initrd_size]
     mov [r12 + UEFI_BOOT_INFO_INITRD_ADDR], rdx
     mov [r12 + UEFI_BOOT_INFO_INITRD_SIZE], rax
     jmp .uefi_initrd_done
@@ -171,86 +220,44 @@ uefi_handoff:
 
     mov dword [r12 + UEFI_BOOT_INFO_DRIVE], 0
 
-    ; BOOT_INFO_FEATURES (0x7010) -> CPU features bitmask
-    mov r9d, 1                      ; Bit 0: Long Mode is always supported in 64-bit UEFI
-    
-    ; Check SSE, SSE2, AVX
-    mov eax, 1
-    cpuid
-    test edx, 1 << 25               ; SSE?
-    jz .no_sse
-    or r9d, 1 << 2
-.no_sse:
-    test edx, 1 << 26               ; SSE2?
-    jz .no_sse2
-    or r9d, 1 << 3
-.no_sse2:
-    test ecx, 1 << 28               ; AVX?
-    jz .no_avx
-    or r9d, 1 << 4
-.no_avx:
+    ; Advertise only state that transition_prepare validated and the final
+    ; stub will actually enable in CR4/XCR0.
+    mov eax, [rel uefi_transition_features]
+    mov [r12 + UEFI_BOOT_INFO_FEATURES], eax
 
-    ; Check AVX2, AVX-512, AMX
-    mov eax, 0
-    cpuid
-    cmp eax, 7
-    jl .no_leaf7
-    
-    mov eax, 7
-    xor ecx, ecx
-    cpuid
-    test ebx, 1 << 5                ; AVX2?
-    jz .no_avx2
-    or r9d, 1 << 5
-.no_avx2:
-    test ebx, 1 << 16               ; AVX-512F?
-    jz .no_avx512
-    or r9d, 1 << 6
-.no_avx512:
-    test edx, 1 << 24               ; AMX-TILE?
-    jz .no_amx
-    or r9d, 1 << 7
-.no_amx:
-.no_leaf7:
-
-    ; Check NX bit
-    mov eax, 0x80000000
-    cpuid
-    cmp eax, 0x80000001
-    jl .no_ext_features
-    mov eax, 0x80000001
-    cpuid
-    test edx, 1 << 20               ; NX/XD bit?
-    jz .no_nx
-    or r9d, 1 << 1
-.no_nx:
-.no_ext_features:
-    mov [r12 + UEFI_BOOT_INFO_FEATURES], r9d
-
-    ; BOOT_INFO_ACPI_RSDP (0x7018) -> ACPI RSDP physical address
+    ; Publish the ACPI RSDP physical address.
     mov rax, [rbp - 40]
     mov [r12 + UEFI_BOOT_INFO_ACPI_RSDP], rax
 
-    ; BOOT_INFO_FB_ADDR (0x7020) -> framebuffer base
-    mov rax, [uefi_fb_base]
+    ; Publish GOP only when its complete span survives the remapped low virtual
+    ; window and the removed physical-backing alias.
+    mov rax, [rel uefi_fb_base]
+    test rax, rax
+    jz .framebuffer_done
+    mov rdx, [rel uefi_fb_size]
+    test rdx, rdx
+    jz .framebuffer_done
+    call .identity_span_accessible
+    jc .framebuffer_done
+
+    mov rax, [rel uefi_fb_base]
     mov [r12 + UEFI_BOOT_INFO_FB_ADDR], rax
 
-    ; BOOT_INFO_FB_WIDTH (0x7028) -> width
-    mov eax, [uefi_fb_width]
+    ; Publish framebuffer geometry only with the validated framebuffer.
+    mov eax, [rel uefi_fb_width]
     mov [r12 + UEFI_BOOT_INFO_FB_WIDTH], eax
 
-    ; BOOT_INFO_FB_HEIGHT (0x702C) -> height
-    mov eax, [uefi_fb_height]
+    mov eax, [rel uefi_fb_height]
     mov [r12 + UEFI_BOOT_INFO_FB_HEIGHT], eax
 
-    ; BOOT_INFO_FB_PITCH (0x7030) -> pitch
-    mov eax, [uefi_fb_pitch]
+    mov eax, [rel uefi_fb_pitch]
     mov [r12 + UEFI_BOOT_INFO_FB_PITCH], eax
 
-    ; BOOT_INFO_FB_FORMAT (0x7034) -> BPP format
-    mov eax, [uefi_fb_format]
+    mov eax, [rel uefi_fb_format]
     mov [r12 + UEFI_BOOT_INFO_FB_FORMAT], eax
+.framebuffer_done:
 
+    mov dword [rel uefi_handoff_stage], 6
     ; 4. Call ExitBootServices(ImageHandle, MapKey)
     mov rcx, [rbp - 8]              ; RCX = System Table
     mov rax, [rcx + SYS_TABLE_BOOT_SERVICES] ; RAX = BootServices
@@ -263,15 +270,22 @@ uefi_handoff:
     test rax, rax
     jnz .failed                     ; failed to exit boot services
 
-    ; Disable interrupts (critical before jumping to kernel)
+    ; Enter the self-contained RX transition page while firmware mappings are
+    ; still active.  It installs the owned stack/GDT/IDT/CR3 and deterministic
+    ; CPU state before jumping to the validated linked kernel entry.
     cli
-
-    ; Pass BootInfo pointer in RDI (System V ABI)
+    mov rax, [rel uefi_transition_tables]
+    mov rbx, [rel uefi_transition_state]
+    add rbx, UEFI_TRANSITION_GDTR_OFF
+    mov rcx, [rel uefi_transition_state]
+    add rcx, UEFI_TRANSITION_IDTR_OFF
+    mov rdx, [rel uefi_transition_state]
+    add rdx, UEFI_TRANSITION_STACK_TOP_OFF
+    mov rsi, [rbp - 32]
     mov rdi, r12
-
-    ; Jump directly to the kernel entry point
-    mov rax, [rbp - 32]
-    jmp rax
+    mov r8d, [rel uefi_transition_features]
+    lea r10, [rel uefi_transition_stub]
+    jmp r10
 
 .failed:
     ; ExitBootServices failed; preserve its EFI_STATUS for the bounded retry.
@@ -288,6 +302,56 @@ uefi_handoff:
     mov rbx, [rbp - 48]
     mov rsp, rbp
     pop rbp
+    ret
+
+; RAX = physical identity address, RDX = byte length.
+; CF=0 only when the full span is below 4 GiB and is not shadowed by either
+; the linked kernel virtual window or its deliberately unmapped backing alias.
+.identity_span_accessible:
+    test rdx, rdx
+    jz .identity_bad
+    mov r10, rax
+    add r10, rdx
+    jc .identity_bad
+    mov r11, UEFI_BOOTSTRAP_MAP_LIMIT
+    cmp r10, r11
+    ja .identity_bad
+
+    mov r11, [rel uefi_kernel_pages]
+    test r11, r11
+    jz .identity_bad
+    cmp r11, ULF_MAX_MEMORY_BYTES / 4096
+    ja .identity_bad
+    shl r11, 12
+    add r11, KERNEL_LOAD
+    jc .identity_bad
+    cmp rax, r11
+    jae .check_backing_alias
+    cmp r10, KERNEL_LOAD
+    ja .identity_bad
+
+.check_backing_alias:
+    mov r11, [rel uefi_kernel_addr]
+    cmp r11, KERNEL_LOAD
+    je .identity_good
+    cmp rax, r11
+    jb .span_may_precede_backing
+    mov rdx, [rel uefi_kernel_pages]
+    shl rdx, 12
+    add r11, rdx
+    jc .identity_bad
+    cmp rax, r11
+    jb .identity_bad
+    jmp .identity_good
+.span_may_precede_backing:
+    cmp r10, r11
+    ja .identity_bad
+
+.identity_good:
+    clc
+    ret
+.identity_bad:
+    stc
     ret
 
 %endif ; UEFI_HANDOFF_ASM
