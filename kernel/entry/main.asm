@@ -72,7 +72,16 @@ kernel_main:
     call uart_print_str
 
 .have_net_poll:
-    ; 4. Enter the scheduler's own core loop. Never returns: sched_core_loop
+    ; All shared initialization and initial fiber creation are complete.
+    ; Only now copy/seal the trampoline and start APs: while an AP waits with
+    ; interrupts disabled it cannot receive a TLB shootdown, so starting it
+    ; before drivers/services finish changing shared mappings is unsafe.
+    call smp_start
+
+    ; Publish the final online set, enable BSP interrupts, and release APs.
+    call smp_release
+
+    ; Enter the scheduler's own core loop. Never returns: sched_core_loop
     ; is what used to be this file's manual `cli; hlt` idle loop, except it
     ; actually polls, reaps, and runs fibers instead of just waiting for an
     ; interrupt no driver here yet raises.

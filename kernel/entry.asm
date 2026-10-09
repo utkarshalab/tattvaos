@@ -14,6 +14,8 @@
 [BITS 64]
 [ORG 0x100000]
 
+%include "boot/boot_info.inc"
+
 ; -----------------------------------------------------------------------------
 ; ULF v2 Header (40 bytes)
 ; -----------------------------------------------------------------------------
@@ -60,6 +62,7 @@ kernel_text_start:
 %include "kernel/arch/x86_64/gdt.asm"
 %include "kernel/arch/x86_64/interrupts.asm"
 %include "lib/mem/mem.asm"
+%include "kernel/arch/x86_64/smp.asm"
 %include "unet/core/link/net_link.asm"
 %include "lib/hw/ucpu/mtrr.asm"
 %include "lib/hw/ucpu/pat.asm"

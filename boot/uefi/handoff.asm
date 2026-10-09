@@ -13,24 +13,25 @@
 
 %include "protocol.asm"
 %include "memory_map.asm"
+%include "boot_info.inc"
 
 [BITS 64]
 
-UEFI_BOOT_INFO_SIZE          equ 88
-UEFI_BOOT_INFO_E820_PTR      equ 0
-UEFI_BOOT_INFO_E820_COUNT    equ 8
-UEFI_BOOT_INFO_DRIVE         equ 12
-UEFI_BOOT_INFO_FEATURES      equ 16
-UEFI_BOOT_INFO_ACPI_RSDP     equ 24
-UEFI_BOOT_INFO_FB_ADDR       equ 32
-UEFI_BOOT_INFO_FB_WIDTH      equ 40
-UEFI_BOOT_INFO_FB_HEIGHT     equ 44
-UEFI_BOOT_INFO_FB_PITCH      equ 48
-UEFI_BOOT_INFO_FB_FORMAT     equ 52
-UEFI_BOOT_INFO_INITRD_ADDR   equ 56
-UEFI_BOOT_INFO_INITRD_SIZE   equ 64
-; The context page has 0xF60 bytes after the E820 offset and before the stack.
-; 160 packed 24-byte entries consume 0xF00, leaving a 96-byte guard.
+UEFI_BOOT_INFO_SIZE          equ BOOT_INFO_ABI_SIZE
+UEFI_BOOT_INFO_E820_PTR      equ BOOT_INFO_E820_PTR_OFF
+UEFI_BOOT_INFO_E820_COUNT    equ BOOT_INFO_E820_COUNT_OFF
+UEFI_BOOT_INFO_DRIVE         equ BOOT_INFO_DRIVE_OFF
+UEFI_BOOT_INFO_FEATURES      equ BOOT_INFO_FEATURES_OFF
+UEFI_BOOT_INFO_ACPI_RSDP     equ BOOT_INFO_ACPI_RSDP_OFF
+UEFI_BOOT_INFO_FB_ADDR       equ BOOT_INFO_FB_ADDR_OFF
+UEFI_BOOT_INFO_FB_WIDTH      equ BOOT_INFO_FB_WIDTH_OFF
+UEFI_BOOT_INFO_FB_HEIGHT     equ BOOT_INFO_FB_HEIGHT_OFF
+UEFI_BOOT_INFO_FB_PITCH      equ BOOT_INFO_FB_PITCH_OFF
+UEFI_BOOT_INFO_FB_FORMAT     equ BOOT_INFO_FB_FORMAT_OFF
+UEFI_BOOT_INFO_INITRD_ADDR   equ BOOT_INFO_INITRD_ADDR_OFF
+UEFI_BOOT_INFO_INITRD_SIZE   equ BOOT_INFO_INITRD_SIZE_OFF
+; The context page has 0xF40 bytes after the E820 offset and before the stack.
+; 160 packed 24-byte entries consume 0xF00, leaving a 64-byte guard.
 UEFI_CANONICAL_MAX_ENTRIES   equ 160
 UEFI_BOOTSTRAP_MAP_LIMIT     equ 0x0000000100000000
 
@@ -180,10 +181,10 @@ uefi_handoff:
     mov [rbp - 40], rdi             ; save found ACPI RSDP pointer
 
     mov dword [rel uefi_handoff_stage], 5
-    ; 2. Zero the loader-owned 88-byte BootInfo structure (11 quadwords).
+    ; 2. Zero the complete loader-owned, versioned BootInfo structure.
     cld                             ; Clear direction flag for rep stosq
     mov rdi, r12
-    mov rcx, 11                     ; 11 * 8 = 88 bytes (covers through SMP_CORES at offset 0x50)
+    mov rcx, BOOT_INFO_ABI_SIZE / 8
     xor rax, rax
     rep stosq
 
@@ -224,6 +225,17 @@ uefi_handoff:
     ; stub will actually enable in CR4/XCR0.
     mov eax, [rel uefi_transition_features]
     mov [r12 + UEFI_BOOT_INFO_FEATURES], eax
+
+    ; Publish a single online BSP initially.  The kernel updates this field
+    ; only after APs have completed their owned rendezvous and release barrier.
+    mov dword [r12 + BOOT_INFO_SMP_CORES_OFF], 1
+    mov dword [r12 + BOOT_INFO_ABI_SIZE_OFF], BOOT_INFO_ABI_SIZE
+    mov rax, [rel uefi_ap_trampoline_page]
+    mov [r12 + BOOT_INFO_AP_TRAMPOLINE_OFF], rax
+    mov dword [r12 + BOOT_INFO_AP_TRAMPOLINE_SIZE_OFF], BOOT_AP_TRAMPOLINE_BYTES
+    mov dword [r12 + BOOT_INFO_BOOT_SOURCE_OFF], BOOT_SOURCE_UEFI
+    mov rax, BOOT_INFO_MAGIC
+    mov [r12 + BOOT_INFO_MAGIC_OFF], rax
 
     ; Publish the ACPI RSDP physical address.
     mov rax, [rbp - 40]

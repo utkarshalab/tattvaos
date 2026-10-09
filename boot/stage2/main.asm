@@ -89,8 +89,8 @@ stage2_main:
 
 .cpu_done:
 
-    ; Initialize secondary cores (SMP AP Bootstrap)
-    ; call smp_init_cores
+    ; Secondary processors remain in firmware/reset state.  The kernel parses
+    ; the validated MADT, provisions private contexts, and starts APs itself.
 
     ; -------------------------------------------------------------------------
     ; STEP 3: Detect memory map (E820)
@@ -291,9 +291,9 @@ boot_info_init:
     xor ax, ax
     mov es, ax                     ; BIOS calls may leave ES nonzero
     cld                             ; Clear direction flag for rep stosd
-    ; Zero out the 88-byte BootInfo structure (22 dwords)
+    ; Zero the complete versioned BootInfo structure.
     mov edi, BOOT_INFO_ADDR
-    mov ecx, 22
+    mov ecx, BOOT_INFO_ABI_SIZE / 4
     xor eax, eax
     rep stosd
 
@@ -353,6 +353,18 @@ boot_info_init:
 .skip_edd:
     mov [BOOT_INFO_EDD_ADDR], eax
     mov dword [BOOT_INFO_EDD_ADDR + 4], 0
+
+    ; 12. Publish the owned SIPI page and versioned ABI.  The complete low
+    ; 1 MiB is permanently reserved by the kernel PMM on the BIOS path, and
+    ; 0x4000 is disjoint from stage2, E820, BootInfo, and paging structures.
+    mov dword [BOOT_INFO_SMP_CORES], 1
+    mov dword [BOOT_INFO_ABI_SIZE_ADDR], BOOT_INFO_ABI_SIZE
+    mov dword [BOOT_INFO_AP_TRAMPOLINE], TRAMPOLINE_ADDR
+    mov dword [BOOT_INFO_AP_TRAMPOLINE + 4], 0
+    mov dword [BOOT_INFO_AP_TRAMPOLINE_SIZE], BOOT_AP_TRAMPOLINE_BYTES
+    mov dword [BOOT_INFO_BOOT_SOURCE], BOOT_SOURCE_BIOS
+    mov dword [BOOT_INFO_MAGIC_ADDR], BOOT_INFO_MAGIC & 0xFFFFFFFF
+    mov dword [BOOT_INFO_MAGIC_ADDR + 4], BOOT_INFO_MAGIC >> 32
 
     pop es
     pop edi

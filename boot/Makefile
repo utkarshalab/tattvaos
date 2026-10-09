@@ -32,16 +32,19 @@ SRC_DIRS = kernel lib crypto storage security unet
 
 KERNEL_SRCS := $(shell find $(addprefix $(ROOT)/,$(SRC_DIRS)) \
                           \( -name '*.asm' -o -name '*.inc' \) \
-                          -not -path '*/tests/*' 2>/dev/null)
+                          -not -path '*/tests/*' 2>/dev/null) \
+               $(KERNEL_DIR)/boot_info.inc
 
 BOOT_SRCS := $(shell find $(KERNEL_DIR)/stage1 $(KERNEL_DIR)/stage2 \
                           $(KERNEL_DIR)/survive $(KERNEL_DIR)/tpm \
                           $(KERNEL_DIR)/tests \
-                          -name '*.asm' 2>/dev/null) $(KERNEL_DIR)/config.asm
+                          -name '*.asm' 2>/dev/null) \
+             $(KERNEL_DIR)/config.asm $(KERNEL_DIR)/boot_info.inc
 
 UEFI_SRCS := $(shell find $(KERNEL_DIR)/uefi $(KERNEL_DIR)/tpm \
                           -name '*.asm' 2>/dev/null) \
-             $(KERNEL_DIR)/nvram.asm $(KERNEL_DIR)/config.asm
+             $(KERNEL_DIR)/nvram.asm $(KERNEL_DIR)/config.asm \
+             $(KERNEL_DIR)/boot_info.inc
 UEFI_EFI = BOOTX64.EFI
 OVMF_STRICT_CODE ?= /usr/share/OVMF/OVMF_CODE_4M.secboot.strictnx.fd
 OVMF_STRICT_VARS ?= /usr/share/OVMF/OVMF_VARS_4M.fd
@@ -201,6 +204,17 @@ test: $(IMG) $(UEFI_EFI)
 test-negative: $(IMG)
 	@sh $(KERNEL_DIR)/tests/test_boot_negative.sh
 
+# Fast native coverage for the firmware parser and the complete mixed-mode SMP
+# translation unit. smp-test adds real OVMF INIT/SIPI/rendezvous boots.
+smp-check:
+	@sh $(KERNEL_DIR)/tests/test_madt.sh
+	@sh $(KERNEL_DIR)/tests/test_smp_asm.sh
+	@sh $(KERNEL_DIR)/tests/test_apic_consumers_asm.sh
+	@sh $(KERNEL_DIR)/tests/test_pgtable_lock.sh
+
+smp-test: $(IMG) $(UEFI_EFI) smp-check
+	@sh $(KERNEL_DIR)/tests/test_smp_qemu.sh
+
 # Native ABI validation plus a complete PE32+ EFI application link check.
 uefi-check: $(UEFI_EFI)
 	@sh $(KERNEL_DIR)/tests/test_uefi_memory.sh
@@ -222,5 +236,5 @@ clean:
 	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
 	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG) $(UEFI_EFI)
 
-.PHONY: all elf img run debug test test-negative uefi uefi-check ovmf-test \
-        ovmf-strictnx-test clean
+.PHONY: all elf img run debug test test-negative smp-check smp-test uefi \
+        uefi-check ovmf-test ovmf-strictnx-test clean

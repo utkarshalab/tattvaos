@@ -11,6 +11,8 @@
 %ifndef CONFIG_ASM
 %define CONFIG_ASM
 
+%include "boot_info.inc"
+
 ; -----------------------------------------------------------------------------
 ; Memory layout
 ; -----------------------------------------------------------------------------
@@ -62,6 +64,7 @@ SURVIVE_PAGE    equ 0x90000     ; panic snapshot page (hidden from E820)
 PANIC_VECTOR    equ 0x500       ; panic handler address written here
 E820_DEST       equ 0x6000      ; E820 memory map stored here
 FEATURES_DEST   equ 0x5000      ; CPU feature flags stored here
+TRAMPOLINE_ADDR equ 0x4000      ; reserved 4 KiB SIPI page published in BootInfo
 
 ; -----------------------------------------------------------------------------
 ; Paging table physical addresses (above BIOS, below stage2, 4KB aligned)
@@ -127,20 +130,25 @@ VGA_WHITE       equ 0x07        ; white text on black background
 ; BootInfo structure layout (at physical address 0x7000)
 ; -----------------------------------------------------------------------------
 BOOT_INFO_ADDR       equ 0x7000
-BOOT_INFO_E820_ADDR  equ 0x7000     ; dq: physical address of E820 entries
-BOOT_INFO_E820_COUNT equ 0x7008     ; dd: number of E820 entries
-BOOT_INFO_DRIVE      equ 0x700C     ; dd: boot drive number
-BOOT_INFO_FEATURES   equ 0x7010     ; dd: CPU feature flags
-BOOT_INFO_KASLR_PHYS equ 0x7014     ; dd: physical address of kernel under KASLR
-BOOT_INFO_ACPI_RSDP  equ 0x7018     ; dq: ACPI RSDP physical address
-BOOT_INFO_FB_ADDR    equ 0x7020     ; dq: framebuffer physical address
-BOOT_INFO_FB_WIDTH   equ 0x7028     ; dd: framebuffer width
-BOOT_INFO_FB_HEIGHT  equ 0x702C     ; dd: framebuffer height
-BOOT_INFO_FB_PITCH   equ 0x7030     ; dd: framebuffer pitch
-BOOT_INFO_FB_FORMAT  equ 0x7034     ; dd: framebuffer format
-BOOT_INFO_INITRD_ADDR equ 0x7038    ; dq: initrd physical address
-BOOT_INFO_INITRD_SIZE equ 0x7040    ; dq: initrd size
-BOOT_INFO_EDD_ADDR   equ 0x7048     ; dq: EDD parameters physical address
-BOOT_INFO_SMP_CORES  equ 0x7050     ; dd: SMP logical core count
+BOOT_INFO_E820_ADDR  equ BOOT_INFO_ADDR + BOOT_INFO_E820_PTR_OFF
+BOOT_INFO_E820_COUNT equ BOOT_INFO_ADDR + BOOT_INFO_E820_COUNT_OFF
+BOOT_INFO_DRIVE      equ BOOT_INFO_ADDR + BOOT_INFO_DRIVE_OFF
+BOOT_INFO_FEATURES   equ BOOT_INFO_ADDR + BOOT_INFO_FEATURES_OFF
+BOOT_INFO_KASLR_PHYS equ BOOT_INFO_ADDR + BOOT_INFO_KASLR_PHYS_OFF
+BOOT_INFO_ACPI_RSDP  equ BOOT_INFO_ADDR + BOOT_INFO_ACPI_RSDP_OFF
+BOOT_INFO_FB_ADDR    equ BOOT_INFO_ADDR + BOOT_INFO_FB_ADDR_OFF
+BOOT_INFO_FB_WIDTH   equ BOOT_INFO_ADDR + BOOT_INFO_FB_WIDTH_OFF
+BOOT_INFO_FB_HEIGHT  equ BOOT_INFO_ADDR + BOOT_INFO_FB_HEIGHT_OFF
+BOOT_INFO_FB_PITCH   equ BOOT_INFO_ADDR + BOOT_INFO_FB_PITCH_OFF
+BOOT_INFO_FB_FORMAT  equ BOOT_INFO_ADDR + BOOT_INFO_FB_FORMAT_OFF
+BOOT_INFO_INITRD_ADDR equ BOOT_INFO_ADDR + BOOT_INFO_INITRD_ADDR_OFF
+BOOT_INFO_INITRD_SIZE equ BOOT_INFO_ADDR + BOOT_INFO_INITRD_SIZE_OFF
+BOOT_INFO_EDD_ADDR   equ BOOT_INFO_ADDR + BOOT_INFO_EDD_ADDR_OFF
+BOOT_INFO_SMP_CORES  equ BOOT_INFO_ADDR + BOOT_INFO_SMP_CORES_OFF
+BOOT_INFO_ABI_SIZE_ADDR equ BOOT_INFO_ADDR + BOOT_INFO_ABI_SIZE_OFF
+BOOT_INFO_AP_TRAMPOLINE equ BOOT_INFO_ADDR + BOOT_INFO_AP_TRAMPOLINE_OFF
+BOOT_INFO_AP_TRAMPOLINE_SIZE equ BOOT_INFO_ADDR + BOOT_INFO_AP_TRAMPOLINE_SIZE_OFF
+BOOT_INFO_BOOT_SOURCE equ BOOT_INFO_ADDR + BOOT_INFO_BOOT_SOURCE_OFF
+BOOT_INFO_MAGIC_ADDR equ BOOT_INFO_ADDR + BOOT_INFO_MAGIC_OFF
 
 %endif ; CONFIG_ASM

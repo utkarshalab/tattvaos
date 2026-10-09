@@ -36,12 +36,14 @@
 
 [BITS 64]
 
+%include "lib/percpu.inc"
+
 ; ---------------------------------------------------------------------------
 ; Constants
 ; ---------------------------------------------------------------------------
 
 ; Maximum supported logical CPU count (must match MAX_CPUS in stack.asm)
-PERCPU_MAX_CPUS equ 16
+PERCPU_MAX_CPUS equ PERCPU_MAX_CORES
 
 ; Number of vm_stat counter slots per CPU
 VM_STAT_NR_CPUCOUNTERS equ 4

@@ -19,9 +19,6 @@ LAPIC_BASE          equ 0xFEE00000
 LAPIC_ICR_LOW       equ 0x300
 LAPIC_ICR_HIGH      equ 0x310
 
-; AP Trampoline Physical Address
-TRAMPOLINE_ADDR     equ 0x4000
-
 ; =============================================================================
 ; smp_init_cores — Wake Application Processors (APs) and count them
 ; Input:  none

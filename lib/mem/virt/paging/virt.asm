@@ -320,6 +320,7 @@ vma_create:
     mov qword [rax + vma_t.file_ptr], 0
     mov qword [rax + vma_t.file_off], 0
     mov qword [rax + vma_t.file_size], 0
+    mov r14, rax                    ; preserve node across accounting hooks
 
     ; Charge allocation to thread and cgroup usage
     mov rcx, r12
@@ -378,6 +379,7 @@ vma_create:
     mov rsi, 0                      ; unstalled
     call virt_psi_update_thread_state
 .cgroup_unstall_done:
+    mov rax, r14                    ; insertion and return require the VMA node
     ; Deallocate stack frame
     add rsp, 32
 

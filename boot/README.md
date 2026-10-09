@@ -12,6 +12,8 @@ The boot layer currently has two x86-64 paths:
 make -C boot img
 make -C boot uefi
 make -C boot uefi-check
+make -C boot smp-check
+make -C boot smp-test
 make -C boot ovmf-test
 make -C boot ovmf-strictnx-test
 make -C boot test
@@ -34,8 +36,8 @@ The UEFI loader:
 4. maps the executable prefix read-only/executable and the remainder
    read/write/non-executable when NX is available, with no writable physical
    alias for non-identity kernel backing;
-5. owns and verifies its transition CR3, GDT, IDT, BootInfo/E820 storage, and
-   stack before the final memory-map window;
+5. owns and verifies its transition CR3, GDT, IDT, BootInfo/E820 storage,
+   stack, and low SIPI page before the final memory-map window;
 6. acquires a bounded, firmware-sized raw memory map and canonicalizes
    descriptors in physical order without trusting firmware ordering;
 7. exits boot services with one bounded stale-key retry, normalizes CPU state,
@@ -45,10 +47,28 @@ Native tests mutate the transition arena, validate ULF and memory-map bounds,
 exercise short file reads and TCG2 calls, and inspect linked PE entry/section
 permissions. OVMF is the end-to-end gate.
 
+## Kernel-owned SMP contract
+
+Both loaders publish one reserved 4 KiB SIPI page through the versioned
+112-byte BootInfo ABI and enter the kernel with only the BSP online. The
+kernel validates RSDP -> XSDT/RSDT -> MADT, accepts enabled APIC/x2APIC
+processors up to the 64-core per-CPU bound, builds private stack/GDT/TSS/IST
+state, seals the copied trampoline read-only/executable, and performs targeted
+INIT/SIPI rendezvous. APs remain behind a release barrier until shared
+initialization and initial fiber creation finish.
+
+Startup is deliberately all-or-nothing: an AP timeout or feature mismatch
+atomically cancels the rendezvous and keeps the system BSP-only, avoiding
+sparse logical CPU IDs. TLB, decompression, and ACPI self-IPI paths use the
+active xAPIC/x2APIC backend. The smp-test target boots the real BIOS and OVMF
+paths with 2 and 8 processors and requires exact discovery/rendezvous/online
+and post-barrier release markers.
+
 ## Current boundaries
 
 This is an x86-64 bootstrap, not yet a blanket bare-metal certification. The
-initial physical aperture is the low 4 GiB, the UEFI path starts one BSP, and
-UEFI panic recovery is not implemented. Platform matrices, AP startup, IOMMU
-policy, Secure Boot signing, and broad firmware interoperability remain later
-hardening phases.
+initial physical aperture is the low 4 GiB, CPU topology is static after boot,
+and UEFI panic recovery is not implemented. The startup path does not yet
+online more than 64 CPUs or dynamically switch the platform into x2APIC mode.
+IOMMU policy, Secure Boot signing, CPU/memory hotplug, and broad firmware
+interoperability remain later hardening phases.

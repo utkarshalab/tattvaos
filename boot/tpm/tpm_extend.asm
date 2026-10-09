@@ -101,7 +101,7 @@ tpm_extend_stage1:
 ;
 ; Typical usage:
 ;   mov rsi, BOOT_INFO_ADDR        ; 0x7000
-;   mov rcx, 88                    ; BootInfo structure size
+;   mov rcx, BOOT_INFO_ABI_SIZE    ; complete versioned BootInfo
 ;   call tpm_extend_config
 ; =============================================================================
 tpm_extend_config:
@@ -164,7 +164,7 @@ tpm_extend_all:
 
     ; PCR 5: BootInfo config
     mov rsi, BOOT_INFO_ADDR         ; 0x7000
-    mov rcx, 88                     ; BootInfo structure size (22 dwords)
+    mov rcx, BOOT_INFO_ABI_SIZE     ; complete versioned BootInfo
     call tpm_extend_config
     add r12d, eax                   ; +1 if successful
 

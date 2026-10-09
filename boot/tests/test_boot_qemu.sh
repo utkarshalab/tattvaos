@@ -8,10 +8,29 @@ TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IMG="$TEST_DIR/../tattva.img"
 QEMU64=${QEMU:-qemu-system-x86_64}
 TIMEOUT=${BOOT_TEST_TIMEOUT:-30}
+SMP=${BOOT_QEMU_SMP:-1}
+EXPECT_SMP=${BOOT_EXPECT_SMP:-}
 TMP_DIR=$(mktemp -d)
 LOG="$TMP_DIR/uart.log"
 QEMU_ERR="$TMP_DIR/qemu.stderr"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
+
+case "$SMP" in
+    ''|*[!0-9]*)
+        echo "FAIL: invalid BOOT_QEMU_SMP value: $SMP"
+        exit 1
+        ;;
+esac
+[ "$SMP" -ge 1 ] || {
+    echo "FAIL: BOOT_QEMU_SMP must be at least 1"
+    exit 1
+}
+case "$EXPECT_SMP" in
+    ''|*[!0-9]*) [ -z "$EXPECT_SMP" ] || {
+        echo "FAIL: invalid BOOT_EXPECT_SMP value: $EXPECT_SMP"
+        exit 1
+    } ;;
+esac
 
 if ! command -v "$QEMU64" >/dev/null 2>&1; then
     echo "FAIL: QEMU not found: $QEMU64"
@@ -36,6 +55,7 @@ set +e
 timeout "$TIMEOUT" "$QEMU64" \
     -drive "format=raw,file=$IMG" \
     -cpu max \
+    -smp "$SMP" \
     -m 512 \
     -netdev user,id=n0 \
     -device e1000,netdev=n0 \
@@ -115,6 +135,29 @@ fi
 if ! grep -Eq 'VBE\.\.\.[[:space:]]+(OK [0-9]+x[0-9]+x(16|24|32)|SKIP \(text mode\))' "$LOG"; then
     echo "FAIL: VBE did not report a valid mode or explicit text fallback"
     PASS=0
+fi
+
+if [ -n "$EXPECT_SMP" ]; then
+    SMP_LAST_LINE=0
+    for SMP_MILESTONE in \
+        "SMP: discovered $EXPECT_SMP processors" \
+        "SMP: rendezvous $EXPECT_SMP/$EXPECT_SMP" \
+        "SMP: online $EXPECT_SMP processors" \
+        "SMP: released $EXPECT_SMP/$EXPECT_SMP processors"
+    do
+        SMP_LINE=$(awk -v after="$SMP_LAST_LINE" -v needle="$SMP_MILESTONE" \
+            'NR > after { sub(/\r$/, "", $0); if ($0 == needle) { print NR; exit } }' "$LOG")
+        if [ -z "$SMP_LINE" ]; then
+            echo "FAIL: missing, inexact, or out-of-order SMP milestone: $SMP_MILESTONE"
+            PASS=0
+        else
+            SMP_LAST_LINE=$SMP_LINE
+        fi
+    done
+    if grep -Eq 'SMP: (disabled by validation code|AP startup failed)' "$LOG"; then
+        echo "FAIL: BIOS SMP boot fell back to BSP-only mode"
+        PASS=0
+    fi
 fi
 
 for FATAL in \

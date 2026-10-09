@@ -18,10 +18,6 @@ ZRAM_SLOT_SIZE    equ 2048
 ZSWAP_MAX_SLOTS   equ 256
 ZSWAP_SLOT_SIZE   equ 2048
 
-; LAPIC offsets
-ZPOOL_LAPIC_BASE     equ 0xFEE00000
-ZPOOL_LAPIC_ICR_LOW  equ 0x300
-ZPOOL_LAPIC_EOI      equ 0x0B0
 ZPOOL_DECOMP_VEC     equ 0xFA
 
 ; Batch request structure
@@ -716,13 +712,13 @@ zpool_decomp_worker_loop:
     ; offset = rax % 16
     and rax, 15                     ; RAX = ring index (0..15)
     imul rax, zpool_decomp_req_t_size
-    lea r8, [zpool_decomp_ring + rax]
+    lea rbx, [zpool_decomp_ring + rax]
     
     ; Extract fields
-    mov rdi, [r8 + zpool_decomp_req_t.src_addr]
-    mov rsi, [r8 + zpool_decomp_req_t.dest_addr]
-    mov rdx, [r8 + zpool_decomp_req_t.comp_size]
-    mov rcx, [r8 + zpool_decomp_req_t.pool_type]
+    mov rdi, [rbx + zpool_decomp_req_t.src_addr]
+    mov rsi, [rbx + zpool_decomp_req_t.dest_addr]
+    mov rdx, [rbx + zpool_decomp_req_t.comp_size]
+    mov rcx, [rbx + zpool_decomp_req_t.pool_type]
     
     ; Decompress
     cmp rcx, 1                      ; 1 = Zswap
@@ -732,18 +728,18 @@ zpool_decomp_worker_loop:
     call lz4_decompress
     test rax, rax
     jz .decomp_fail
-    mov qword [r8 + zpool_decomp_req_t.status], 1
+    mov qword [rbx + zpool_decomp_req_t.status], 1
     jmp .get_work
     
 .do_zswap:
     call rle_decompress
     test rax, rax
     jz .decomp_fail
-    mov qword [r8 + zpool_decomp_req_t.status], 1
+    mov qword [rbx + zpool_decomp_req_t.status], 1
     jmp .get_work
     
 .decomp_fail:
-    mov qword [r8 + zpool_decomp_req_t.status], 2 ; failed
+    mov qword [rbx + zpool_decomp_req_t.status], 2 ; failed
     jmp .get_work
     
 .no_more_work:
@@ -761,6 +757,8 @@ zpool_decomp_worker_loop:
 ;   RDI = array of pointers to zpool_decomp_req_t structures
 ;   RSI = count of requests (max 16)
 ; Output: RAX = number of successfully decompressed pages
+; This task-context API temporarily enables interrupts on an SMP system while
+; waiting for the shared batch lock, then restores an originally-disabled IF.
 ; -----------------------------------------------------------------------------
 global zpool_batch_decompress_submit
 zpool_batch_decompress_submit:
@@ -772,19 +770,40 @@ zpool_batch_decompress_submit:
     push r12
     push r13
     push r14
+    push r15
 
     mov r12, rdi                    ; r12 = array pointer
     mov r13, rsi                    ; r13 = count
 
     ; Limit check count (max 16)
+    test r12, r12
+    jz .err
     cmp r13, 16
-    jg .err
+    ja .err
     test r13, r13
     jz .err
 
-    ; Reset cursors
-    mov qword [zpool_decomp_head], 0
-    mov qword [zpool_decomp_tail], r13
+    pushfq
+    pop r15
+    cmp dword [rel smp_active_cores], 1
+    jbe .lock_wait
+
+    ; ponytail: this fixed 16-entry batch is intentionally serialized instead
+    ; of growing per-CPU rings. Enabling interrupts avoids an IF=0 lock waiter
+    ; blocking the current owner's decompression IPI.
+    sti
+.lock_wait:
+    lock bts dword [rel zpool_decomp_lock], 0
+    jnc .locked
+    pause
+    jmp .lock_wait
+
+.locked:
+    ; Retire the prior generation before resetting its claim cursor. A late
+    ; worker then sees an empty queue until the new batch is fully published.
+    mov qword [rel zpool_decomp_tail], 0
+    mfence
+    mov qword [rel zpool_decomp_head], 0
 
     ; Copy requests to the ring
     xor rcx, rcx                    ; rcx = index (0..count-1)
@@ -819,25 +838,30 @@ zpool_batch_decompress_submit:
     jmp .copy_loop
 
 .copy_done:
-    ; Memory fence to make sure ring contents are visible before starting execution
+    ; Publish the tail last so no worker can observe partially copied entries.
+    mfence
+    mov [rel zpool_decomp_tail], r13
     mfence
 
     ; If smp_active_cores > 1, send decompression IPI to all excluding self
-    mov eax, [smp_active_cores]
+    mov eax, [rel smp_active_cores]
     cmp eax, 1
     jle .local_only
 
     ; Send fixed vector IPI 0xFA to all excluding self
-    mov eax, 0x000C4000 | ZPOOL_DECOMP_VEC
-    mov r11, ZPOOL_LAPIC_BASE
-    mov dword [r11 + ZPOOL_LAPIC_ICR_LOW], eax
+    mov edi, 0x000C4000 | ZPOOL_DECOMP_VEC
+    call smp_send_all_others
 
 .local_only:
     ; BSP also participates in processing work
     call zpool_decomp_worker_loop
 
-    ; Spin-wait until all requests are completed (status != 0)
-    xor rcx, rcx                    ; rcx = index
+    ; Wait at most 100 ms for work claimed by another core. Returning while a
+    ; remote worker still owns a ring entry would permit batch reuse and memory
+    ; corruption, so failure is deliberately fail-stop.
+    mov ebx, 100
+.wait_scan:
+    xor ecx, ecx
 .wait_loop:
     cmp rcx, r13
     jge .wait_done
@@ -849,13 +873,25 @@ zpool_batch_decompress_submit:
     
     mov rax, [rsi + zpool_decomp_req_t.status]
     test rax, rax
-    jz .wait_loop                   ; spin-wait if still pending
-    
+    jz .wait_pending
+
     inc rcx
     jmp .wait_loop
 
+.wait_pending:
+    mov rdi, 1000
+    call udelay
+    dec ebx
+    jnz .wait_scan
+    cli
+    lea rsi, [rel msg_zpool_decomp_timeout]
+    call uart_print_str
+.fatal:
+    hlt
+    jmp .fatal
+
 .wait_done:
-    ; Count successful requests (status == 1)
+    ; Copy completion back to the caller-owned requests while counting success.
     xor r14, r14                    ; success count
     xor rcx, rcx
 .count_loop:
@@ -868,6 +904,8 @@ zpool_batch_decompress_submit:
     lea rsi, [zpool_decomp_ring + rax]
     
     mov rax, [rsi + zpool_decomp_req_t.status]
+    mov rdx, [r12 + rcx * 8]
+    mov [rdx + zpool_decomp_req_t.status], rax
     cmp rax, 1
     jne .count_next
     inc r14
@@ -876,6 +914,12 @@ zpool_batch_decompress_submit:
     jmp .count_loop
 
 .count_done:
+    mfence
+    mov dword [rel zpool_decomp_lock], 0
+    bt r15, 9
+    jc .success
+    cli
+.success:
     mov rax, r14                    ; return success count
     jmp .exit
 
@@ -883,6 +927,7 @@ zpool_batch_decompress_submit:
     xor rax, rax
 
 .exit:
+    pop r15
     pop r14
     pop r13
     pop r12
@@ -898,6 +943,7 @@ zpool_batch_decompress_submit:
 ; -----------------------------------------------------------------------------
 global zpool_decomp_isr
 zpool_decomp_isr:
+    cld
     push rax
     push rcx
     push rdx
@@ -911,9 +957,8 @@ zpool_decomp_isr:
     ; Participate in work processing
     call zpool_decomp_worker_loop
 
-    ; Send EOI to LAPIC
-    mov r11, ZPOOL_LAPIC_BASE
-    mov dword [r11 + ZPOOL_LAPIC_EOI], 0
+    ; Send EOI through the active xAPIC/x2APIC backend.
+    call smp_lapic_eoi
 
     pop r11
     pop r10
@@ -934,8 +979,12 @@ global zram_max_slots
 align 8
 zswap_max_slots: dq 256
 zram_max_slots:  dq 256
+msg_zpool_decomp_timeout:
+    db "KERNEL PANIC: zpool decompression rendezvous timed out", 0x0D, 0x0A, 0
 
 section .bss
+alignb 4
+zpool_decomp_lock: resd 1
 alignb 8
 zpool_decomp_head: resq 1
 zpool_decomp_tail: resq 1

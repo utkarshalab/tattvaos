@@ -241,6 +241,9 @@ acpi_hotplug_init:
 ; -----------------------------------------------------------------------------
 global acpi_sci_isr
 acpi_sci_isr:
+    ; Direct interrupt gates preserve the interrupted DF in the IRET frame.
+    ; Kernel helpers follow the x86-64 ABI and require forward string ops.
+    cld
     ; Save all registers
     push rax
     push rbx
@@ -279,9 +282,8 @@ acpi_sci_isr:
     call acpi_handle_hotplug_event
 
 .not_our_event:
-    ; Send End-Of-Interrupt to LAPIC
-    mov r11, 0xFEE00000
-    mov dword [r11 + 0x0B0], 0
+    ; Send End-Of-Interrupt through the active xAPIC/x2APIC backend.
+    call smp_lapic_eoi
 
     ; Restore registers
     pop r15
@@ -466,14 +468,13 @@ acpi_simulate_hotplug_trigger:
     mov rsi, msg_hotplug_sim_trigger
     call uart_print_str
 
-    ; Send Self-IPI to trigger the SCI vector
-    ; Local APIC ICR register at 0xFEE00000 + 0x300
-    ; 0x00040000 (Shorthand = Self) | vector
-    mov eax, 0x00040000
-    movzx ecx, byte [acpi_sci_vector]
-    or eax, ecx
-    mov r11, 0xFEE00000
-    mov dword [r11 + 0x300], eax
+    ; Send Self-IPI through the active xAPIC/x2APIC backend.
+    ; The destination is ignored for the Self shorthand.
+    xor edi, edi
+    mov esi, 0x00040000
+    movzx eax, byte [acpi_sci_vector]
+    or esi, eax
+    call smp_send_ipi
 
     pop rdi
     pop rsi

@@ -33,6 +33,7 @@ PAGE_ZRAM       equ (1 << 8)
 ; -----------------------------------------------------------------------------
 global page_fault_isr
 page_fault_isr:
+    cld
     ; Pushing GP registers
     push rax
     push rbx
@@ -63,6 +64,14 @@ page_fault_isr:
     ; 4. Pass pointer to return RIP on stack frame as arg 4 (RCX)
     lea rcx, [rsp + 128]            ; RCX = RIP pointer
 
+    ; Interrupt gates clear IF. Restore interruptibility while resolving faults
+    ; only when the interrupted context had IF set; IRET restores the complete
+    ; saved RFLAGS. Multicore TLB shootdown relies on this explicit contract.
+    test qword [rsp + 144], 1 << 9
+    jz .dispatch
+    sti
+
+.dispatch:
     ; 5. Call high-level handler
     call virt_page_fault_handler    ; RAX = 1 if handled, 0 if unhandled
 
@@ -109,6 +118,7 @@ page_fault_isr:
     pop rax
 
     ; Vector index 14
+    cli
     push qword 14
     jmp common_isr_handler
 

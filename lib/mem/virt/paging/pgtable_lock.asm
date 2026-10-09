@@ -106,17 +106,16 @@ pgtable_lock_acquire:
     add r8, rcx
 
 .traditional_lock:
-    mov rax, r8                     ; RAX = &lock_byte
 .spin:
     mov al, 1
-    xchg [rax], al                  ; swap AL and lock byte (implicit LOCK)
+    xchg [r8], al                   ; swap AL and lock byte (implicit LOCK)
     test al, al                     ; check if it was 0 (unlocked)
     jz .acquired                    ; old value was 0 -> acquired!
  
     ; Lock is held by another core — spin with PAUSE
 .wait:
     pause                           ; hint to CPU: spin-wait loop
-    cmp byte [rax], 0               ; re-read lock without bus lock
+    cmp byte [r8], 0                ; re-read lock without bus lock
     jne .wait                       ; still held, keep spinning
  
     jmp .spin                       ; lock released, try again

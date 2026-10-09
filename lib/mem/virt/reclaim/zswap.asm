@@ -480,12 +480,12 @@ rle_decompress:
     mov rbx, r10
     add rbx, rcx
     cmp rbx, r11
-    jae .failed                     ; decompressed size > 4096
+    ja .failed                      ; decompressed size > 4096
 
     mov rbx, r8
     add rbx, rcx
     cmp rbx, r9
-    jae .failed                     ; truncated input
+    ja .failed                      ; truncated input
 
 .copy_lit:
     test rcx, rcx
@@ -513,7 +513,7 @@ rle_decompress:
     mov rbx, r10
     add rbx, rcx
     cmp rbx, r11
-    jae .failed                     ; decompressed size > 4096
+    ja .failed                      ; decompressed size > 4096
 
 .write_run:
     test rcx, rcx

@@ -191,29 +191,38 @@ cpu_init_hardware:
     mov edx, 0x00070105             ; PAT7=UC, PAT6=UC-, PAT5=WP, PAT4=WC
     wrmsr
 
-    ; 17. Configure Machine Check Architecture (MCA) (CR4.MCE & Bank Control)
-    mov rax, cr4
-    or rax, 1 << 6                  ; set MCE (bit 6)
-    mov cr4, rax
-    
+    ; 17. Configure Machine Check Architecture before enabling CR4.MCE.
     mov ecx, 0x179                  ; IA32_MCG_CAP
     rdmsr
-    and eax, 0xFF                   ; EAX = count of hardware error banks
     mov r8d, eax
+    and r8d, 0xFF                   ; R8D = count of hardware error banks
+    test eax, 1 << 8                ; MCG_CTL_P
+    jz .mca_banks
+    mov ecx, 0x17B                  ; IA32_MCG_CTL
+    mov eax, 0xFFFFFFFF
+    mov edx, 0xFFFFFFFF
+    wrmsr
+.mca_banks:
     xor r9d, r9d
 .mca_loop:
     cmp r9d, r8d
-    jge .mca_done
-    mov ecx, 0x400                  ; MC0_CTL (control register bank base)
-    mov eax, r9d
-    shl eax, 2                      ; bank * 4
-    add ecx, eax                    ; ECX = 0x400 + bank * 4
+    jae .mca_done
+    mov ecx, r9d
+    shl ecx, 2
+    add ecx, 0x401                  ; IA32_MCi_STATUS
+    xor eax, eax
+    xor edx, edx
+    wrmsr
+    dec ecx                         ; IA32_MCi_CTL
     mov eax, 0xFFFFFFFF
     mov edx, 0xFFFFFFFF             ; write 1s to enable all logs
     wrmsr
     inc r9d
     jmp .mca_loop
 .mca_done:
+    mov rax, cr4
+    or rax, 1 << 6                  ; set MCE only after controls are live
+    mov cr4, rax
 
     ; 18. Verify Memory Type Range Registers (MTRRs)
     mov ecx, 0x2FF                  ; IA32_MTRR_DEF_TYPE
@@ -241,14 +250,23 @@ cpu_init_hardware:
     wrmsr
 .no_tsc_deadline:
 
-    ; 21. Configure Spectre branch mitigation (SPEC_CTRL) if supported
+    ; 21. Configure only the SPEC_CTRL bits individually enumerated by CPUID.
     mov eax, 7
     xor ecx, ecx
     cpuid
-    test edx, 1 << 26               ; Check SPEC_CTRL support (EDX bit 26)
+    xor r8d, r8d
+    test edx, 1 << 26               ; IBRS/IBPB
+    jz .check_stibp
+    or r8d, 1
+.check_stibp:
+    test edx, 1 << 27               ; STIBP
+    jz .write_spec_ctrl
+    or r8d, 2
+.write_spec_ctrl:
+    test r8d, r8d
     jz .no_spec_ctrl
     mov ecx, 0x48                   ; IA32_SPEC_CTRL
-    mov eax, 3                      ; set IBRS (bit 0) and STIBP (bit 1)
+    mov eax, r8d
     xor rdx, rdx
     wrmsr
 .no_spec_ctrl:

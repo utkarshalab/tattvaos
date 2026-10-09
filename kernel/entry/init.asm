@@ -25,13 +25,11 @@ kernel_init:
     ; 1. Save BootInfo pointer in a global variable
     mov [boot_info_ptr], rdi
 
-    ; 1b. Load SMP active cores count from BootInfo structure (offset 80)
-    mov eax, [rdi + 80]             ; load core count
-    test eax, eax                   ; check if 0
-    jnz .store_cores
-    mov eax, 1                      ; default to 1 core
-.store_cores:
-    mov [smp_active_cores], eax
+    ; Reject a truncated/obsolete handoff before reading extension fields.
+    ; Only the executing BSP is online until kernel-owned AP rendezvous.
+    call smp_bootinfo_validate
+    jc .bad_boot_info
+    mov dword [smp_active_cores], 1
 
     ; 2. Initialize Kernel GDT & TSS (with IST stack overflow protection)
     call gdt_init
@@ -182,6 +180,14 @@ kernel_init:
     hlt
     jmp .bad_gs_halt
 
+.bad_boot_info:
+    mov rsi, msg_bad_boot_info
+    call uart_print_str
+    cli
+.bad_boot_halt:
+    hlt
+    jmp .bad_boot_halt
+
 .ulog_init_failed:
     mov rsi, msg_ulog_failed
     call uart_print_str
@@ -285,6 +291,7 @@ mm_init:
     call heap_transition
     call kmem_cache_init_all
 
+    call smp_discover
     call smp_stacks_init
 
     ; 5. Unmap the kernel stack guard page to trap stack overflows
@@ -356,6 +363,7 @@ msg_boot_info_loc:   db "BootInfo Pointer: ", 0
 msg_gs_base_loc:     db "GS Base register: ", 0
 msg_gs_api_test:     db "GS Accessor Test (CPU/Stack): ", 0
 msg_bad_gs_base:     db "KERNEL PANIC: GS base initialization failed", 0x0D, 0x0A, 0
+msg_bad_boot_info:   db "KERNEL PANIC: invalid or obsolete BootInfo ABI", 0x0D, 0x0A, 0
 msg_ulog_failed:      db "FAIL", 0x0D, 0x0A, "KERNEL PANIC: ulog full initialization failed", 0x0D, 0x0A, 0
 msg_mm_protection_failed: db "FAIL", 0x0D, 0x0A, "KERNEL PANIC: memory protection setup failed", 0x0D, 0x0A, 0
 msg_init_cpu:        db "Initializing CPU hardware & features... ", 0

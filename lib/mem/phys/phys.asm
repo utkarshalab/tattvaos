@@ -44,7 +44,7 @@ phys_init:
     mov rdi, [boot_info_ptr]
     test rdi, rdi
     jz .error_halt                  ; crash early if BootInfo is null
-    mov rax, PHYS_BOOTSTRAP_MAP_LIMIT - 88
+    mov rax, PHYS_BOOTSTRAP_MAP_LIMIT - BOOT_INFO_ABI_SIZE
     cmp rdi, rax
     ja .error_halt                  ; the complete BootInfo must be mapped
 

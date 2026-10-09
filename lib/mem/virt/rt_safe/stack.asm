@@ -25,6 +25,9 @@
 %endif
 
 STACK_VIRT_START equ 0x700000000000
+MAX_CPUS            equ PERCPU_MAX_CORES
+SMP_AP_STACK_BYTES  equ 4 * 4096
+SMP_AP_STACK_STRIDE equ 4096 + SMP_AP_STACK_BYTES
 
 section .text
 
@@ -148,13 +151,20 @@ thread_stack_alloc:
     call phys_alloc_page
     test rax, rax
     jz .oom_cleanup
+    mov r12, rax                    ; preserve frame across virt_map
     
     ; Map virtual page to physical frame
     mov rdi, r14                    ; virtual address
-    mov rsi, rax                    ; physical address
+    mov rsi, r12                    ; physical address
     mov rdx, (PAGE_PRESENT | PAGE_WRITABLE | PAGE_NX)
     call virt_map
+    test rax, rax
+    jnz .page_mapped
+    mov rdi, r12                    ; failed leaf mapping owns no frame
+    call phys_free_page
+    jmp .oom_cleanup
     
+.page_mapped:
     add r14, 4096
     jmp .map_loop
     
@@ -202,15 +212,17 @@ thread_stack_alloc:
     ; Get mapped physical address to free it
     mov rdi, r12
     call virt_translate
-    test rax, rax
-    jz .skip_free
-    
-    mov rdi, rax
-    call phys_free_page
-.skip_free:
-    ; Unmap virtual address
+    mov rbx, rax
+
+    ; Remove the live mapping before returning its frame to the allocator.
     mov rdi, r12
     call virt_unmap
+
+    test rbx, rbx
+    jz .cleanup_next
+    mov rdi, rbx
+    call phys_free_page
+.cleanup_next:
     
     add r12, 4096
     jmp .cleanup_loop
@@ -274,20 +286,20 @@ thread_stack_free:
     ; Translate to physical address
     mov rdi, rcx
     call virt_translate
-    test rax, rax
-    jz .skip_phys_free
-    
-    ; Free the physical page frame
-    mov rdi, rax
-    call phys_free_page
-    
-.skip_phys_free:
-    ; Unmap the virtual page
+    mov r12, rax
+
+    ; Remove the live mapping before its frame can be reallocated elsewhere.
     pop rcx
     push rcx
     mov rdi, rcx
     call virt_unmap
-    
+
+    test r12, r12
+    jz .page_done
+    mov rdi, r12
+    call phys_free_page
+
+.page_done:
     pop rcx
     add rcx, 4096
     jmp .free_loop
@@ -382,11 +394,35 @@ is_valid_stack_address:
 .check_nmi_stack:
     mov rax, nmi_stack_bottom
     cmp rdi, rax
-    jb .check_vma_stacks
+    jb .check_ap_stacks
     mov rax, nmi_stack_top
     cmp rdi, rax
     jb .valid                       ; inside NMI stack!
-    
+
+.check_ap_stacks:
+    ; Bootstrap AP stacks are lifetime-owned .bss regions, not VMAs. Accept
+    ; only populated 16KB stack intervals; the lower guard pages stay invalid.
+    mov ecx, [smp_discovered_cores]
+    cmp ecx, MAX_CPUS
+    jbe .ap_count_valid
+    mov ecx, MAX_CPUS
+.ap_count_valid:
+    mov edx, 1
+.ap_stack_loop:
+    cmp edx, ecx
+    jae .check_vma_stacks
+    mov rax, [smp_cpu_stacks + rdx * 8]
+    test rax, rax
+    jz .next_ap_stack
+    cmp rdi, rax                    ; stack top is exclusive
+    jae .next_ap_stack
+    sub rax, SMP_AP_STACK_BYTES
+    cmp rdi, rax
+    jae .valid
+.next_ap_stack:
+    inc edx
+    jmp .ap_stack_loop
+
 .check_vma_stacks:
     ; Call vma_find
     push rdi
@@ -485,65 +521,67 @@ stack_trace_walk:
     pop rbp
     ret
 
-; MAX_CPUS limit
-MAX_CPUS equ 16
-
 ; -----------------------------------------------------------------------------
-; smp_stacks_init — allocates isolated stack sections for multi-core thread execution
+; smp_stacks_init — provisions isolated boot stacks for application processors
 ; Input: none
 ; Output: none
-; Clobbers: RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11, R12
+; Clobbers: RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11
 ; -----------------------------------------------------------------------------
 global smp_stacks_init
 smp_stacks_init:
     push r12
+    push r13
+    push r14
     
     ; Clear the stack array
-    mov rdi, smp_cpu_stacks
+    lea rdi, [rel smp_cpu_stacks]
     xor rax, rax
     mov rcx, MAX_CPUS
     cld
     rep stosq
     
-    ; Retrieve active cores count
-    mov r12d, [smp_active_cores]    ; R12D = core count
+    ; Provision every validated candidate before sending any INIT/SIPI.
+    mov r12d, [smp_discovered_cores] ; provision validated candidates
+    test r12d, r12d
+    jz .fail
+    cmp r12d, MAX_CPUS
+    ja .fail
     
     ; Core 0 (BSP) uses the statically defined kernel_stack_top.
-    ; Store it in the array at index 0 just for completeness!
     mov rax, kernel_stack_top
-    mov [smp_cpu_stacks], rax
+    mov [rel smp_cpu_stacks], rax
     
-    ; If only 1 core is active, we are done
+    ; If only one core is present, no AP stack needs arming.
     cmp r12d, 1
     jbe .done
     
-    ; Loop from core_id = 1 to core_count - 1
-    mov r8, 1                       ; R8 = current core_id
+    mov r13d, 1                     ; logical AP ID
+    lea r14, [rel smp_ap_stack_pool] ; current guard-page base
     
-.alloc_loop:
-    cmp r8, r12
-    jae .done
-    
-    ; Save core_id
-    push r8
-    push r12
-    
-    ; Allocate a 16KB stack frame with 4KB guard page
-    mov rdi, 16384                  ; 16KB size
-    call thread_stack_alloc
+.arm_loop:
+    ; The complete kernel .bss is already global and NX. Remove the lower page
+    ; of each lifetime-owned region to arm its downward-overflow guard.
+    mov rdi, r14
+    call virt_unmap
+
+    ; virt_unmap has no status return, so fail closed unless the guard is gone.
+    mov rdi, r14
+    xor rsi, rsi
+    call virt_walk_table
     test rax, rax
-    jz .fail
-    
-    pop r12
-    pop r8
-    
-    ; Store the allocated stack top in the array at index core_id
-    mov [smp_cpu_stacks + r8 * 8], rax
-    
-    inc r8
-    jmp .alloc_loop
+    jnz .fail
+
+    lea rax, [r14 + SMP_AP_STACK_STRIDE]
+    mov [smp_cpu_stacks + r13 * 8], rax
+
+    add r14, SMP_AP_STACK_STRIDE
+    inc r13
+    cmp r13, r12
+    jb .arm_loop
     
 .done:
+    pop r14
+    pop r13
     pop r12
     ret
     
@@ -554,7 +592,7 @@ smp_stacks_init:
     
     ; Trigger diagnostic panic
     mov rdi, msg_smp_stack_reason
-    mov rsi, [rsp + 24]             ; RIP of caller (since we pushed r12 at start, then r8, r12 in loop = 24 bytes)
+    mov rsi, [rsp + 24]             ; three saved registers, then caller RIP
     call kernel_panic
     cli
 .halt:
@@ -597,6 +635,12 @@ msg_smp_stack_fail:      db "ERROR: Failed to allocate isolated execution stack 
 msg_smp_stack_reason:    db "Failed to allocate multi-core isolated stack", 0
 
 section .bss
+alignb 4096
+; ponytail: fixed boot topology owns these for kernel lifetime; replace this
+; pool only when CPU hotplug needs stacks beyond the validated 64-CPU ceiling.
+smp_ap_stack_pool:
+    resb (MAX_CPUS - 1) * SMP_AP_STACK_STRIDE
+
 alignb 8
 global smp_cpu_stacks
 smp_cpu_stacks: resq MAX_CPUS

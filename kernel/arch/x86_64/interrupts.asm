@@ -74,7 +74,12 @@ interrupts_init:
     jmp .loop_register
 
 .load_idt:
-    ; 2b. Register TLB shootdown ISR at vector 0xFB
+    ; 2b. Register the two kernel-owned cross-CPU work vectors.
+    mov rdi, 0xFA                   ; vector 0xFA
+    mov rsi, zpool_decomp_isr       ; decompression worker
+    xor rdx, rdx                    ; no IST
+    call register_idt_handler
+
     mov rdi, 0xFB                   ; vector 0xFB
     mov rsi, tlb_shootdown_isr      ; handler address
     xor rdx, rdx                    ; no IST
@@ -178,6 +183,7 @@ kernel_panic:
 ; Saves GP registers, dumps state to UART, and triggers kernel_panic.
 ; -----------------------------------------------------------------------------
 common_isr_handler:
+    cld
     ; Push GP registers in reverse order
     push rax                        ; RSP + 112
     push rbx                        ; RSP + 104

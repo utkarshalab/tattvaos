@@ -140,7 +140,9 @@ stage2_entry:
 %include "msr.asm"
 %include "vendor.asm"
 %include "cores.asm"
-%include "smp.asm"
+; AP startup is intentionally kernel-owned.  Do not assemble the legacy
+; broadcast INIT/SIPI path: it used a shared stack and a fixed CR3, and merely
+; commenting out its call left an unsafe implementation one edit away.
 %include "cache.asm"
 %include "simd_enable.asm"
 %include "fs.asm"

@@ -2,12 +2,9 @@
 ; Tattva OS — lib/hw/unuma/affinity.asm
 ; =============================================================================
 ; NUMA-aware placement decisions built on unuma_node_of_cpu (detect.asm) and
-; lib/mem/numa's numa_get_node_by_phys. Scoped to the currently executing
-; core: the kernel boots single-core today (kernel/entry/start.asm's
-; bsp_cpu_local is one static percpu_t, not a table), so there is no live
-; cpu_id -> APIC-ID map for other cores yet to build a multi-core "closest
-; free CPU for this address" query on top of. gs:percpu_t.lapic_id is the
-; only per-core identity that reliably exists right now.
+; lib/mem/numa's numa_get_node_by_phys. Topology is discovered once at boot;
+; callers pass an APIC ID explicitly. Dynamic CPU hotplug and a policy for
+; selecting the closest online CPU remain outside this low-level predicate.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)

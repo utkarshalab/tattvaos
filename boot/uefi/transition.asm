@@ -25,7 +25,9 @@ UEFI_TRANSITION_CONTEXT_OFF     equ 0x2000
 UEFI_TRANSITION_GDTR_OFF        equ UEFI_TRANSITION_CONTEXT_OFF
 UEFI_TRANSITION_IDTR_OFF        equ UEFI_TRANSITION_CONTEXT_OFF + 16
 UEFI_TRANSITION_BOOT_INFO_OFF   equ UEFI_TRANSITION_CONTEXT_OFF + 64
-UEFI_TRANSITION_E820_OFF        equ UEFI_TRANSITION_CONTEXT_OFF + 160
+; BootInfo ABI v2 occupies context+64 .. context+176.  Keep the canonical
+; memory map disjoint and retain a guard before the transition stack.
+UEFI_TRANSITION_E820_OFF        equ UEFI_TRANSITION_CONTEXT_OFF + 192
 UEFI_TRANSITION_STACK_OFF       equ 0x3000
 UEFI_TRANSITION_STACK_TOP_OFF   equ 0x7000
 UEFI_TRANSITION_GDT_LIMIT       equ 4095
@@ -45,6 +47,7 @@ section .data
 align 8
 uefi_transition_tables:        dq 0
 uefi_transition_state:         dq 0
+uefi_ap_trampoline_page:       dq 0
 uefi_transition_stub_page_addr:dq 0
 uefi_transition_features:      dd 0
 uefi_transition_firmware_cs:   dw 0
@@ -191,6 +194,17 @@ uefi_transition_verify_ready:
     ja .invalid
     mov r11, rax                   ; transition-stub end
 
+    mov rbp, [rel uefi_ap_trampoline_page]
+    cmp rbp, 0x10000
+    jb .invalid
+    test rbp, 0xFFF
+    jnz .invalid
+    mov rax, rbp
+    add rax, BOOT_AP_TRAMPOLINE_BYTES
+    jc .invalid
+    cmp rax, 0xA0000
+    ja .invalid
+
     cmp r13, r9
     jae .state_table_disjoint
     cmp r12, r10
@@ -201,6 +215,27 @@ uefi_transition_verify_ready:
     cmp r14, r10
     jb .invalid
 .state_stub_disjoint:
+    cmp rbp, r9
+    jae .trampoline_table_disjoint
+    mov rax, rbp
+    add rax, BOOT_AP_TRAMPOLINE_BYTES
+    cmp r12, rax
+    jb .invalid
+.trampoline_table_disjoint:
+    cmp rbp, r10
+    jae .trampoline_state_disjoint
+    mov rax, rbp
+    add rax, BOOT_AP_TRAMPOLINE_BYTES
+    cmp r13, rax
+    jb .invalid
+.trampoline_state_disjoint:
+    cmp rbp, r11
+    jae .trampoline_stub_disjoint
+    mov rax, rbp
+    add rax, BOOT_AP_TRAMPOLINE_BYTES
+    cmp r14, rax
+    jb .invalid
+.trampoline_stub_disjoint:
 
     lea rax, [rel uefi_transition_stub_page]
     cmp rax, r14
@@ -242,6 +277,15 @@ uefi_transition_verify_ready:
     cmp rsi, r10
     jb .invalid
 .state_backing_disjoint:
+    mov rax, rsi
+    add rax, rdx
+    cmp rbp, rax
+    jae .trampoline_backing_disjoint
+    mov rax, rbp
+    add rax, BOOT_AP_TRAMPOLINE_BYTES
+    cmp rsi, rax
+    jb .invalid
+.trampoline_backing_disjoint:
     mov rax, KERNEL_LOAD
     add rax, rdx
     jc .invalid
@@ -396,6 +440,8 @@ uefi_transition_prepare:
     jne .load_error
     cmp qword [rel uefi_transition_state], 0
     jne .load_error
+    cmp qword [rel uefi_ap_trampoline_page], 0
+    jne .load_error
 
     mov rax, [rcx + SYS_TABLE_BOOT_SERVICES]
     test rax, rax
@@ -428,6 +474,30 @@ uefi_transition_prepare:
     cmp rdx, r8
     ja .load_error
     mov [rel uefi_transition_stub_page_addr], rax
+
+    ; Reserve one firmware-owned SIPI page below the legacy VGA aperture.
+    ; The kernel fills it only after ExitBootServices, then seals its exact
+    ; 4 KiB PTE read-only/executable before issuing any Startup IPI.
+    mov qword [rel uefi_ap_trampoline_page], 0x9FFFF
+    mov ecx, EFI_ALLOCATE_MAX_ADDRESS
+    mov edx, EFI_LOADER_DATA
+    mov r8d, 1
+    lea r9, [rel uefi_ap_trampoline_page]
+    mov rax, [rbp - 16]
+    mov rax, [rax + BS_ALLOCATE_PAGES]
+    call rax
+    test rax, rax
+    jnz .allocation_failed_trampoline
+
+    mov rax, [rel uefi_ap_trampoline_page]
+    cmp rax, 0x10000
+    jb .load_error_cleanup
+    test rax, 0xFFF
+    jnz .load_error_cleanup
+    add rax, BOOT_AP_TRAMPOLINE_BYTES
+    jc .load_error_cleanup
+    cmp rax, 0xA0000
+    ja .load_error_cleanup
 
     ; Acquire all page-table pages in one contiguous, low-4-GiB arena.
     mov eax, 0xFFFFFFFF
@@ -625,6 +695,10 @@ uefi_transition_prepare:
     mov qword [rel uefi_transition_tables], 0
     mov [rbp - 24], rax
     jmp .cleanup
+.allocation_failed_trampoline:
+    mov qword [rel uefi_ap_trampoline_page], 0
+    mov [rbp - 24], rax
+    jmp .cleanup
 .allocation_failed_state:
     mov qword [rel uefi_transition_state], 0
     mov [rbp - 24], rax
@@ -686,7 +760,7 @@ uefi_transition_release:
 .release_tables:
     mov rcx, [rel uefi_transition_tables]
     test rcx, rcx
-    jz .release_done
+    jz .release_trampoline
     mov edx, UEFI_TRANSITION_TABLE_PAGES
     mov rax, [rbp - 16]
     mov rax, [rax + BS_FREE_PAGES]
@@ -698,6 +772,22 @@ uefi_transition_release:
     mov [rbp - 8], rax
 .clear_tables:
     mov qword [rel uefi_transition_tables], 0
+
+.release_trampoline:
+    mov rcx, [rel uefi_ap_trampoline_page]
+    test rcx, rcx
+    jz .release_done
+    mov edx, 1
+    mov rax, [rbp - 16]
+    mov rax, [rax + BS_FREE_PAGES]
+    call rax
+    test rax, rax
+    jz .clear_trampoline
+    cmp qword [rbp - 8], 0
+    jne .clear_trampoline
+    mov [rbp - 8], rax
+.clear_trampoline:
+    mov qword [rel uefi_ap_trampoline_page], 0
 
 .release_done:
     mov qword [rel uefi_transition_stub_page_addr], 0

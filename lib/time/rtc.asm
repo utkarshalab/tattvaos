@@ -27,7 +27,9 @@ align 32
 rtc_init:
     push rbp
     mov rbp, rsp
-    ; Disable NMI & select Status Register B
+    ; Mask NMI while programming Status Register B. interrupts_init has
+    ; already installed the kernel IDT before time_init reaches this routine,
+    ; so restore NMI delivery before returning.
     mov al, 0x8B
     out CMOS_ADDR_PORT, al
     in al, CMOS_DATA_PORT
@@ -37,6 +39,8 @@ rtc_init:
     out CMOS_ADDR_PORT, al
     mov al, bl
     out CMOS_DATA_PORT, al
+    mov al, 0x0B
+    out CMOS_ADDR_PORT, al
     pop rbp
     ret
 

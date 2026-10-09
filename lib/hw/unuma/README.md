@@ -29,11 +29,10 @@ RSDP → XSDT/RSDT itself, so it must run after `numa_detect_init`.
 ## Scope note
 
 `affinity.asm` and `distance.asm` are deliberately scoped to the
-*currently executing* core (`gs:percpu_t.lapic_id`). The kernel boots
-single-core today — `kernel/entry/start.asm`'s `bsp_cpu_local` is one
-static `percpu_t`, not a table — so there's no live `cpu_id -> APIC ID`
-map across cores yet to build a multi-core "closest free CPU for this
-address" query on. That's a natural extension point once SMP AP bring-up
-populates such a table.
+*currently executing* core (`gs:percpu_t.lapic_id`). Kernel-owned SMP now
+gives every online AP a private `percpu_t` and records its firmware APIC ID.
+There is still no exported cross-core placement API over that topology, so a
+multi-core "closest free CPU for this address" query remains a later scheduler
+integration point.
 
 Part of the `lib/` category in Tattva OS.

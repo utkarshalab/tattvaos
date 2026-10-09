@@ -10,6 +10,8 @@ EFI_IMAGE="$BOOT_DIR/BOOTX64.EFI"
 KERNEL="$BOOT_DIR/kernel.bin"
 QEMU64=${QEMU:-qemu-system-x86_64}
 TIMEOUT=${UEFI_BOOT_TEST_TIMEOUT:-45}
+SMP=${UEFI_QEMU_SMP:-1}
+EXPECT_SMP=${UEFI_EXPECT_SMP:-}
 OVMF_CODE=${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}
 OVMF_VARS=${OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}
 TMP_DIR=$(mktemp -d)
@@ -18,6 +20,25 @@ LOG="$TMP_DIR/uart.log"
 QEMU_ERR="$TMP_DIR/qemu.stderr"
 VARS_COPY="$TMP_DIR/OVMF_VARS.fd"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
+
+case "$SMP" in
+    ''|*[!0-9]*)
+        echo "FAIL: invalid UEFI_QEMU_SMP value: $SMP"
+        exit 1
+        ;;
+esac
+[ "$SMP" -ge 1 ] || {
+    echo "FAIL: UEFI_QEMU_SMP must be at least 1"
+    exit 1
+}
+if [ -n "$EXPECT_SMP" ]; then
+    case "$EXPECT_SMP" in
+        *[!0-9]*)
+            echo "FAIL: invalid UEFI_EXPECT_SMP value: $EXPECT_SMP"
+            exit 1
+            ;;
+    esac
+fi
 
 for TOOL in "$QEMU64" timeout; do
     command -v "$TOOL" >/dev/null 2>&1 || {
@@ -50,6 +71,7 @@ timeout "$TIMEOUT" "$QEMU64" \
     -machine q35 \
     -accel "$ACCEL" \
     -cpu max \
+    -smp "$SMP" \
     -m 512 \
     -drive "if=pflash,format=raw,unit=0,readonly=on,file=$OVMF_CODE" \
     -drive "if=pflash,format=raw,unit=1,file=$VARS_COPY" \
@@ -103,6 +125,29 @@ done
 if ! grep -Eq 'BootInfo Pointer: 0x[0-9A-F]{16}' "$LOG"; then
     echo "FAIL: UEFI BootInfo pointer was not rendered as a 64-bit address"
     PASS=0
+fi
+
+if [ -n "$EXPECT_SMP" ]; then
+    SMP_LAST_LINE=0
+    for SMP_MILESTONE in \
+        "SMP: discovered $EXPECT_SMP processors" \
+        "SMP: rendezvous $EXPECT_SMP/$EXPECT_SMP" \
+        "SMP: online $EXPECT_SMP processors" \
+        "SMP: released $EXPECT_SMP/$EXPECT_SMP processors"
+    do
+        SMP_LINE=$(awk -v after="$SMP_LAST_LINE" -v needle="$SMP_MILESTONE" \
+            'NR > after { sub(/\r$/, "", $0); if ($0 == needle) { print NR; exit } }' "$LOG")
+        if [ -z "$SMP_LINE" ]; then
+            echo "FAIL: missing, inexact, or out-of-order SMP milestone: $SMP_MILESTONE"
+            PASS=0
+        else
+            SMP_LAST_LINE=$SMP_LINE
+        fi
+    done
+    if grep -Fq "SMP: disabled by validation code" "$LOG"; then
+        echo "FAIL: SMP topology fell back to BSP-only mode"
+        PASS=0
+    fi
 fi
 
 for FATAL in \
