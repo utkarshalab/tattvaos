@@ -16,6 +16,7 @@
 bits 64
 
 %include "lib/umath/memory/copy.asm"
+%include "lib/umath/cpuid/fallback.asm"
 
 section .text
 
@@ -167,6 +168,7 @@ umath_memmove_sse:
 ; -----------------------------------------------------------------------------
 global umath_memmove_avx2
 umath_memmove_avx2:
+    um_need umath__has_avx2, umath_memmove_sse   ; no AVX2: same operation, narrower registers
     mov     rax, rdi
     test    rdx, rdx
     jz      .done
