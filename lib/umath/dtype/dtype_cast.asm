@@ -39,9 +39,9 @@
 ;   umath_dtype_cast_needs_scale (src_id, dst_id → bool) needs quant scale
 ; =============================================================================
 
-%include "dtype_id.asm"
-%include "dtype_family.asm"
-%include "dtype_size.asm"
+%include "lib/umath/dtype/dtype_id.asm"
+%include "lib/umath/dtype/dtype_family.asm"
+%include "lib/umath/dtype/dtype_size.asm"
 
 bits 64
 
