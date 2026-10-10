@@ -26,7 +26,7 @@
 ;   umath_dtype_elems_per_byte → returns how many fit in one byte
 ; =============================================================================
 
-%include "dtype_id.asm"
+%include "lib/umath/dtype/dtype_id.asm"
 
 bits 64
 
