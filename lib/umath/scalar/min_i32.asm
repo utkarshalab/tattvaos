@@ -14,6 +14,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -68,10 +70,10 @@ umath_min_i32_array:
     movups  xmm7, [rdx + 48]
 
     ; Element-wise minimums using SSE4.1 PMINSD
-    pminsd  xmm0, xmm4
-    pminsd  xmm1, xmm5
-    pminsd  xmm2, xmm6
-    pminsd  xmm3, xmm7
+    um_pminsd  xmm0, xmm4
+    um_pminsd  xmm1, xmm5
+    um_pminsd  xmm2, xmm6
+    um_pminsd  xmm3, xmm7
 
     ; Store results to destination
     movups  [rdi], xmm0
@@ -98,7 +100,7 @@ umath_min_i32_array:
 .loop_vector:
     movups  xmm0, [rsi]
     movups  xmm1, [rdx]
-    pminsd  xmm0, xmm1
+    um_pminsd  xmm0, xmm1
     movups  [rdi], xmm0
     add     rsi, 16
     add     rdx, 16
@@ -229,10 +231,10 @@ umath_min_i32_inplace_clip:
     ; standard clip-below uses max, clip-above uses min.
     ; let's implement clipping to a top-limit threshold, which uses min!
     ; i.e., val = min(val, threshold) -> elements are clipped to not exceed threshold.
-    pminsd  xmm0, xmm15
-    pminsd  xmm1, xmm15
-    pminsd  xmm2, xmm15
-    pminsd  xmm3, xmm15
+    um_pminsd  xmm0, xmm15
+    um_pminsd  xmm1, xmm15
+    um_pminsd  xmm2, xmm15
+    um_pminsd  xmm3, xmm15
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -255,7 +257,7 @@ umath_min_i32_inplace_clip:
 
 .loop_vector:
     movups  xmm0, [rdi]
-    pminsd  xmm0, xmm15
+    um_pminsd  xmm0, xmm15
     movups  [rdi], xmm0
     add     rdi, 16
     dec     rcx
