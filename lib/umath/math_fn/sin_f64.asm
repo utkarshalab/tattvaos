@@ -14,14 +14,13 @@
 ; term-count-doubles-for-double-precision pattern documented in
 ; exp_f64.asm/log_f64.asm.
 ;
-; Domain: the pi/2 hi/lo split uses a 2^32 factor (hi keeps its low 32
-; mantissa bits zeroed), which keeps n*hi exact only while n stays under
-; roughly 2^32 — i.e. |x| up to roughly 2^32 * pi/2 =~ 6.7e9. Verified
-; accurate (a few ULP) well within that bound; verified *inaccurate*
-; (~1e-5 absolute error) at |x| = 1e12, well beyond it — this is a real,
-; measured limit of the simple (not Payne-Hanek) range reduction here, not
-; a vague caveat. Fine for anything a normal numeric workload produces;
-; not fine for reducing an arbitrarily large angle exactly.
+; Domain: pi/2 is split into three parts (21 + 21 + 53 significant bits),
+; so n*p1 and n*p2 are exact while n < 2^32, i.e. |x| < 2^32 * pi/2 =~ 6.7e9.
+; Measured against a 60-digit reference: max absolute error 1.1e-16 for
+; |x| <= 6.5e9 (sin and cos). Beyond that the simple (not Payne-Hanek)
+; reduction degrades roughly as |x| * 1e-16 (2e-6 by |x| = 2e10, 6e-5 by
+; 1e12), and for |x| >= 2^52, where it is meaningless, the result is NaN.
+; sin(x) = x for |x| < 2^-27, which also keeps the sign of -0.0.
 ;
 ; sin(NaN) = NaN, sin(±Inf) = NaN (undefined), matching libm.
 ; =============================================================================
@@ -31,10 +30,12 @@ bits 64
 section .rodata
 align 16
 sinf64_two_over_pi:  dq 0.6366197723675814
-sinf64_pi2_hi:        dq 1.5707963267341256
-sinf64_pi2_lo:        dq 6.077094383272197e-11
+sinf64_pi2_p1:        dq 1.570796012878418      ; pi/2 split into 21 + 21 + 53 bits:
+sinf64_pi2_p2:        dq 3.139164164167596e-07  ; n*p1 and n*p2 are exact for n < 2^32
+sinf64_pi2_p3:        dq 6.223372171896613e-14  ; p3 = pi/2 - p1 - p2 to 53 bits
 sinf64_nan_bits:      dq 0x7FF8000000000000
-sinf64_pos_inf:       dq 0x7FF0000000000000
+sinf64_limit:         dq 4503599627370496.0   ; 2^52: |x| at or above -> NaN (see header)
+sinf64_tiny:          dq 7.450580596923828e-09   ; 2^-27: below it sin(x) rounds to x
 
 align 16
 sinf64_sign_mask:     dq 0x8000000000000000, 0x8000000000000000
@@ -68,7 +69,7 @@ section .text
 ; -----------------------------------------------------------------------------
 ; umath_sin_f64 - scalar double-precision sine
 ; args:    xmm0 = input value (x), radians
-; returns: xmm0 = sin(x); NaN for NaN or +/-Inf input
+; returns: xmm0 = sin(x); NaN for NaN, +/-Inf or |x| >= 2^52
 ; -----------------------------------------------------------------------------
 global umath_sin_f64
 umath_sin_f64:
@@ -79,18 +80,24 @@ umath_sin_f64:
     mov     r8, 0x7FFFFFFFFFFFFFFF
     and     rax, r8
     movq    xmm6, rax              ; xmm6 = |x|
-    ucomisd xmm6, [rel sinf64_pos_inf]
-    je      .return_nan            ; |x| == Inf (sin(Inf) is undefined)
+    ucomisd xmm6, [rel sinf64_limit]
+    jae     .return_nan            ; |x| == Inf (sin(Inf) is undefined), or too
+                                   ; large for this reduction (see header)
+    ucomisd xmm6, [rel sinf64_tiny]
+    jb      .return_x              ; sin(x) == x here; also keeps the sign of -0.0
 
     movsd   xmm1, [rel sinf64_two_over_pi]
     mulsd   xmm1, xmm0
     roundsd xmm1, xmm1, 0          ; xmm1 = n (round to nearest)
 
     movsd   xmm2, xmm1
-    mulsd   xmm2, [rel sinf64_pi2_hi]
+    mulsd   xmm2, [rel sinf64_pi2_p1]
+    subsd   xmm0, xmm2             ; exact (Sterbenz): x and n*p1 are close
+    movsd   xmm2, xmm1
+    mulsd   xmm2, [rel sinf64_pi2_p2]
     subsd   xmm0, xmm2
     movsd   xmm2, xmm1
-    mulsd   xmm2, [rel sinf64_pi2_lo]
+    mulsd   xmm2, [rel sinf64_pi2_p3]
     subsd   xmm0, xmm2             ; xmm0 = r
 
     movsd   xmm2, xmm0
@@ -139,7 +146,7 @@ umath_sin_f64:
     mulsd   xmm4, xmm2
     addsd   xmm4, [rel sinf64_one]  ; xmm4 = cos(r)
 
-    cvttsd2si eax, xmm1             ; n is already integral; truncate is exact
+    cvttsd2si rax, xmm1             ; n is integral; 64-bit so n >= 2^31 keeps its low bits
     and     eax, 3
 
     cmp     eax, 0
@@ -161,6 +168,9 @@ umath_sin_f64:
 .quad2:
     xorpd   xmm3, [rel sinf64_sign_mask]
     movapd  xmm0, xmm3
+    ret
+
+.return_x:
     ret
 
 .return_nan:
