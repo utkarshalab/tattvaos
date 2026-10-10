@@ -14,6 +14,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -107,6 +109,7 @@ umath_memset_sse:
 ; -----------------------------------------------------------------------------
 global umath_memset_avx2
 umath_memset_avx2:
+    um_need umath__has_avx2, umath_memset_sse   ; no AVX2: same operation, narrower registers
     mov     rax, rdi
     cmp     rdx, 32
     jb      .sse_fallback
@@ -183,6 +186,7 @@ umath_memset_avx2:
 ; -----------------------------------------------------------------------------
 global umath_memset_avx512
 umath_memset_avx512:
+    um_need umath__has_avx512, umath_memset_avx2   ; no AVX-512: same operation, narrower registers
     mov     rax, rdi
     cmp     rdx, 64
     jb      .avx2_fallback
