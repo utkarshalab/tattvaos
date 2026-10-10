@@ -1,7 +1,7 @@
 # tests — umath Test Harness
 
 **Module:** `tests/`
-**Status:** Implemented — covers bits/, dtype/, math_fn/, memory/, scalar/.
+**Status:** Implemented — covers bits/, dtype/, math_fn/, memory/, scalar/, stability/.
 **Part of:** umath — unified math library
 
 ---
@@ -44,6 +44,10 @@ compiler. Exit status 0 means everything passed.
 - `test_dtype.py`: classification consistency for every id in
   `dtype_id.asm`, promotion (commutativity and the table in
   `dtype/README.md`), support levels, value traits, ULP and validation.
+- `test_stability.py`: Kahan and pairwise sums against `math.fsum`
+  (including cancellation and 1e6-term sums), Welford mean/variance
+  against exact `Fraction` arithmetic (large offsets, chunked + merged),
+  log-sum-exp accuracy and special values.
 - `umath_ref.py`: shared helpers (ULP distance, float32 rounding, a small
   failure collector).
 
