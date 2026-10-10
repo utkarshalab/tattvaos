@@ -24,6 +24,8 @@
 
 bits 64
 
+%include "lib/umath/math_fn/sin_f32.asm"
+
 section .rodata
 align 16
 cosf32_two_over_pi_d:  dq 0.6366197723675814
@@ -149,6 +151,17 @@ umath_cos_f32:
     ret
 
 ; -----------------------------------------------------------------------------
+; cosf32__packed4 - internal: cos(x) of 4 lanes, bit-identical to
+;                   umath_cos_f32 per lane (shares sinf32__core4)
+; args:    xmm0 = input values
+; returns: xmm0 = results
+; Clobbers xmm1-xmm13, no GPRs. Not declared global.
+; -----------------------------------------------------------------------------
+cosf32__packed4:
+    call    sinf32__core4
+    jmp     sinf32__select_cos
+
+; -----------------------------------------------------------------------------
 ; umath_cos_f32_array - cos(x) for an array of floats
 ; args:    rdi = destination pointer (dst)
 ;          rsi = source pointer (src)
@@ -164,15 +177,28 @@ umath_cos_f32_array:
     test    rdx, rdx
     jz      .done
 
+    mov     rcx, rdx
+    shr     rcx, 2              ; count of 4-float groups
+    jz      .tail
 .loop:
+    movups  xmm0, [rsi]
+    call    cosf32__packed4  ; preserves rcx (no GPRs used)
+    movups  [rdi], xmm0
+    add     rsi, 16
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     rdx, 3
+    jz      .done
+.tail_loop:
     movss   xmm0, [rsi]
     call    umath_cos_f32
     movss   [rdi], xmm0
     add     rsi, 4
     add     rdi, 4
     dec     rdx
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
@@ -189,14 +215,26 @@ umath_cos_f32_inplace:
     test    rsi, rsi
     jz      .done
 
+    mov     rcx, rsi
+    shr     rcx, 2
+    jz      .tail
 .loop:
+    movups  xmm0, [rdi]
+    call    cosf32__packed4
+    movups  [rdi], xmm0
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     rsi, 3
+    jz      .done
+.tail_loop:
     movss   xmm0, [rdi]
     call    umath_cos_f32
     movss   [rdi], xmm0
     add     rdi, 4
     dec     rsi
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
