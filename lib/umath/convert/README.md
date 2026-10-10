@@ -10,7 +10,7 @@
 
 The actual cast execution between dtypes: `dtype/dtype_cast.asm` describes
 which conversions are lossless/safe/unsafe/require-quantization (the
-235×235 policy table), `convert/` is where the conversion *code* for each
+per-pair policy), `convert/` is where the conversion *code* for each
 of those pairs lives — the bit-shuffling, rounding, and range-clamping that
 turns an `FP32` bit pattern into a `BF16` one, or an `INT8` into a `Q4_0`
 nibble.
