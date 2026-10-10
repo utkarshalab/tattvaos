@@ -25,6 +25,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; 128-bit absolute value mask (clears bit 31 of each 32-bit slot)
@@ -276,19 +278,19 @@ umath_abs_f32_count_negative:
 
     ; movmskps extracts sign bit of each float to a 4-bit integer
     movmskps edx, xmm0
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskps edx, xmm1
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskps edx, xmm2
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskps edx, xmm3
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     add     rdi, 64
@@ -309,7 +311,7 @@ umath_abs_f32_count_negative:
     movups  xmm0, [rdi]
     andps   xmm0, xmm15
     movmskps edx, xmm0
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
     add     rdi, 16
     dec     rcx
