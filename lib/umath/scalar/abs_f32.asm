@@ -44,7 +44,7 @@ absf32_sign_mask:
 ; -----------------------------------------------------------------------------
 global umath_abs_f32
 umath_abs_f32:
-    movaps  xmm1, [absf32_abs_mask]
+    movaps  xmm1, [rel absf32_abs_mask]
     andps   xmm0, xmm1
     ret
 
@@ -64,7 +64,7 @@ umath_abs_f32_array:
     test    rdx, rdx
     jz      .done
 
-    movaps  xmm15, [absf32_abs_mask]
+    movaps  xmm15, [rel absf32_abs_mask]
 
     cmp     rdx, 16
     jb      .single_floats
@@ -117,7 +117,7 @@ umath_abs_f32_array:
 
 .residuals:
     movss   xmm0, [rsi]
-    andss   xmm0, xmm15
+    andps   xmm0, xmm15
     movss   [rdi], xmm0
     add     rsi, 4
     add     rdi, 4
@@ -140,7 +140,7 @@ umath_abs_f32_inplace:
     test    rsi, rsi
     jz      .done
 
-    movaps  xmm15, [absf32_abs_mask]
+    movaps  xmm15, [rel absf32_abs_mask]
 
     cmp     rsi, 16
     jb      .single_floats
@@ -191,7 +191,7 @@ umath_abs_f32_inplace:
 
 .residuals:
     movss   xmm0, [rdi]
-    andss   xmm0, xmm15
+    andps   xmm0, xmm15
     movss   [rdi], xmm0
     add     rdi, 4
     dec     rsi
@@ -234,7 +234,7 @@ umath_abs_f32_isinf:
 ; -----------------------------------------------------------------------------
 global umath_abs_f32_copysign
 umath_abs_f32_copysign:
-    movss   xmm2, [absf32_abs_mask]
+    movss   xmm2, [rel absf32_abs_mask]
     andps   xmm0, xmm2
     andnps  xmm2, xmm1
     orps    xmm0, xmm2
@@ -254,7 +254,7 @@ umath_abs_f32_count_negative:
     test    rsi, rsi
     jz      .done
 
-    movaps  xmm15, [absf32_sign_mask]
+    movaps  xmm15, [rel absf32_sign_mask]
 
     cmp     rsi, 16
     jb      .single_floats
@@ -347,7 +347,7 @@ umath_abs_f32_is_all_positive:
     test    rsi, rsi
     jz      .done
 
-    movaps  xmm15, [absf32_sign_mask]
+    movaps  xmm15, [rel absf32_sign_mask]
 
     cmp     rsi, 16
     jb      .single_floats
