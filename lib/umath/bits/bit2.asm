@@ -72,21 +72,21 @@ umath_bit2_set:
 ; -----------------------------------------------------------------------------
 global umath_bit2_pack4
 umath_bit2_pack4:
-    mov     al, dil
-    and     al, 0x3
-    mov     ah, sil
-    and     ah, 0x3
-    shl     ah, 2
-    or      al, ah
-    mov     ah, dl
-    and     ah, 0x3
-    shl     ah, 4
-    or      al, ah
-    mov     ah, cl
-    and     ah, 0x3
-    shl     ah, 6
-    or      al, ah
-    movzx   eax, al
+    ; r8d is the scratch: AH can't be encoded alongside DIL/SIL (REX prefix)
+    movzx   eax, dil
+    and     eax, 0x3
+    movzx   r8d, sil
+    and     r8d, 0x3
+    shl     r8d, 2
+    or      eax, r8d
+    movzx   r8d, dl
+    and     r8d, 0x3
+    shl     r8d, 4
+    or      eax, r8d
+    movzx   r8d, cl
+    and     r8d, 0x3
+    shl     r8d, 6
+    or      eax, r8d
     ret
 
 ; -----------------------------------------------------------------------------
