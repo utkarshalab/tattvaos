@@ -51,6 +51,23 @@ umath_tan_f32:
     ret
 
 ; -----------------------------------------------------------------------------
+; tanf32__packed4 - internal: tan(x) of 4 lanes, bit-identical to
+;                   umath_tan_f32 (= sin(x) / cos(x)) per lane
+; args:    xmm0 = input values
+; returns: xmm0 = results
+; Runs the shared reduction once and takes both sin and cos from it.
+; Clobbers xmm1-xmm14, no GPRs. Not declared global.
+; -----------------------------------------------------------------------------
+tanf32__packed4:
+    call    sinf32__core4
+    call    sinf32__select_sin
+    movaps  xmm14, xmm0         ; sin(x)
+    call    sinf32__select_cos   ; cos(x); core outputs preserved
+    divps   xmm14, xmm0
+    movaps  xmm0, xmm14
+    ret
+
+; -----------------------------------------------------------------------------
 ; umath_tan_f32_array - tan(x) for an array of floats
 ; args:    rdi = destination pointer (dst)
 ;          rsi = source pointer (src)
@@ -66,15 +83,28 @@ umath_tan_f32_array:
     test    rdx, rdx
     jz      .done
 
+    mov     rcx, rdx
+    shr     rcx, 2              ; count of 4-float groups
+    jz      .tail
 .loop:
+    movups  xmm0, [rsi]
+    call    tanf32__packed4  ; preserves rcx (no GPRs used)
+    movups  [rdi], xmm0
+    add     rsi, 16
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     rdx, 3
+    jz      .done
+.tail_loop:
     movss   xmm0, [rsi]
     call    umath_tan_f32
     movss   [rdi], xmm0
     add     rsi, 4
     add     rdi, 4
     dec     rdx
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
@@ -91,14 +121,26 @@ umath_tan_f32_inplace:
     test    rsi, rsi
     jz      .done
 
+    mov     rcx, rsi
+    shr     rcx, 2
+    jz      .tail
 .loop:
+    movups  xmm0, [rdi]
+    call    tanf32__packed4
+    movups  [rdi], xmm0
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     rsi, 3
+    jz      .done
+.tail_loop:
     movss   xmm0, [rdi]
     call    umath_tan_f32
     movss   [rdi], xmm0
     add     rdi, 4
     dec     rsi
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
