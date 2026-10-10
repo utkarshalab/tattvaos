@@ -24,6 +24,8 @@
 
 bits 64
 
+%include "lib/umath/math_fn/sin_f64.asm"
+
 section .rodata
 align 16
 cosf64_two_over_pi:  dq 0.6366197723675814
@@ -168,6 +170,17 @@ umath_cos_f64:
     ret
 
 ; -----------------------------------------------------------------------------
+; cosf64__packed2 - internal: cos(x) of 2 lanes, bit-identical to
+;                   umath_cos_f64 per lane (shares sinf64__core2)
+; args:    xmm0 = input values
+; returns: xmm0 = results
+; Clobbers xmm1-xmm9, no GPRs. Not declared global.
+; -----------------------------------------------------------------------------
+cosf64__packed2:
+    call    sinf64__core2
+    jmp     sinf64__select_cos
+
+; -----------------------------------------------------------------------------
 ; umath_cos_f64_array - cos(x) for an array of doubles
 ; args:    rdi = destination pointer (dst)
 ;          rsi = source pointer (src)
@@ -183,15 +196,28 @@ umath_cos_f64_array:
     test    rdx, rdx
     jz      .done
 
+    mov     rcx, rdx
+    shr     rcx, 1              ; count of 2-double groups
+    jz      .tail
 .loop:
+    movupd  xmm0, [rsi]
+    call    cosf64__packed2  ; preserves rcx (no GPRs used)
+    movupd  [rdi], xmm0
+    add     rsi, 16
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     rdx, 1
+    jz      .done
+.tail_loop:
     movsd   xmm0, [rsi]
     call    umath_cos_f64
     movsd   [rdi], xmm0
     add     rsi, 8
     add     rdi, 8
     dec     rdx
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
@@ -208,14 +234,26 @@ umath_cos_f64_inplace:
     test    rsi, rsi
     jz      .done
 
+    mov     rcx, rsi
+    shr     rcx, 1
+    jz      .tail
 .loop:
+    movupd  xmm0, [rdi]
+    call    cosf64__packed2
+    movupd  [rdi], xmm0
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     rsi, 1
+    jz      .done
+.tail_loop:
     movsd   xmm0, [rdi]
     call    umath_cos_f64
     movsd   [rdi], xmm0
     add     rdi, 8
     dec     rsi
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
