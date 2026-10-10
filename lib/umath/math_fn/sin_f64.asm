@@ -31,6 +31,8 @@
 
 bits 64
 
+%include "lib/umath/cpuid/fallback.asm"
+
 section .rodata
 align 16
 sinf64_two_over_pi:  dq 0.6366197723675814
@@ -126,7 +128,7 @@ umath_sin_f64:
 
     movsd   xmm1, [rel sinf64_two_over_pi]
     mulsd   xmm1, xmm0
-    roundsd xmm1, xmm1, 0          ; xmm1 = n (round to nearest)
+    um_roundsd xmm1, xmm1, 0          ; xmm1 = n (round to nearest)
 
     movsd   xmm2, xmm1
     mulsd   xmm2, [rel sinf64_pi2_p1]
@@ -245,7 +247,7 @@ sinf64__core2:
 
     movapd  xmm1, [rel sinf64_p_two_over_pi]
     mulpd   xmm1, xmm0
-    roundpd xmm1, xmm1, 0       ; n (round to nearest)
+    um_roundpd xmm1, xmm1, 0       ; n (round to nearest)
 
     movapd  xmm2, xmm1
     mulpd   xmm2, [rel sinf64_p_p1]
@@ -302,7 +304,7 @@ sinf64__core2:
 
     movapd  xmm5, xmm1
     mulpd   xmm5, [rel sinf64_p_quarter]
-    roundpd xmm5, xmm5, 1       ; floor(n / 4)
+    um_roundpd xmm5, xmm5, 1       ; floor(n / 4)
     mulpd   xmm5, [rel sinf64_p_four]
     subpd   xmm1, xmm5          ; n mod 4, exact
     ret
