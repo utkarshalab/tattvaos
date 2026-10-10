@@ -202,8 +202,8 @@ umath_arena_realloc:
     mov     r14, rcx            ; r14 = new_size
 
     ; verify arena magic number
-    mov     rax, [rbx + 24]
-    cmp     rax, ARENA_MAGIC
+    mov     rax, ARENA_MAGIC
+    cmp     rax, [rbx + 24]
     jne     .realloc_fail
 
     ; verify pointer is in range of arena buffer
@@ -279,8 +279,8 @@ umath_arena_reset:
     test    rdi, rdi
     jz      .done
     
-    mov     r8, [rdi + 24]      ; magic
-    cmp     r8, ARENA_MAGIC
+    mov     r8, ARENA_MAGIC
+    cmp     r8, [rdi + 24]      ; magic
     jne     .done
 
     mov     rax, [rdi + 0]      ; start
@@ -317,8 +317,8 @@ umath_arena_mark:
     xor     rax, rax
     test    rdi, rdi
     jz      .done
-    mov     rdx, [rdi + 24]     ; magic
-    cmp     rdx, ARENA_MAGIC
+    mov     rdx, ARENA_MAGIC
+    cmp     rdx, [rdi + 24]     ; magic
     jne     .done
     mov     rax, [rdi + 8]      ; current
 .done:
@@ -336,8 +336,8 @@ umath_arena_rewind:
     test    rdi, rdi
     jz      .done
     
-    mov     rcx, [rdi + 24]     ; magic
-    cmp     rcx, ARENA_MAGIC
+    mov     rcx, ARENA_MAGIC
+    cmp     rcx, [rdi + 24]     ; magic
     jne     .done
 
     mov     rcx, [rdi + 0]      ; start
@@ -366,8 +366,8 @@ umath_arena_verify:
     jz      .invalid            ; null struct
 
     ; check magic number
-    mov     rcx, [rdi + 24]     ; magic
-    cmp     rcx, ARENA_MAGIC
+    mov     rcx, ARENA_MAGIC
+    cmp     rcx, [rdi + 24]     ; magic
     jne     .invalid            ; magic mismatch
 
     ; read pointer variables
@@ -403,8 +403,8 @@ umath_arena_available:
     test    rdi, rdi
     jz      .done
     
-    mov     rdx, [rdi + 24]     ; magic
-    cmp     rdx, ARENA_MAGIC
+    mov     rdx, ARENA_MAGIC
+    cmp     rdx, [rdi + 24]     ; magic
     jne     .done
 
     mov     rax, [rdi + 16]     ; end
