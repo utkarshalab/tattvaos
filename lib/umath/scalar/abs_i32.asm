@@ -120,10 +120,12 @@ umath_abs_i32_array:
     jz      .done
 
 .residuals:
+    ; sign mask via sar, not cdq: cdq would overwrite edx (the count)
     mov     eax, [rsi]
-    cdq
-    xor     eax, edx
-    sub     eax, edx
+    mov     r8d, eax
+    sar     r8d, 31
+    xor     eax, r8d
+    sub     eax, r8d
     mov     [rdi], eax
     add     rsi, 4
     add     rdi, 4
@@ -175,7 +177,7 @@ umath_abs_i32_inplace:
     and     rsi, 15
     jz      .done
 
-.single_floats:
+.single_ints:
     cmp     rsi, 4
     jb      .residuals
 
@@ -371,8 +373,16 @@ umath_abs_i32_sat_array:
     jz      .done
 
 .residuals:
-    mov     edi, [rsi]
-    call    umath_abs_i32_sat
+    ; inline, not a call to umath_abs_i32_sat: that takes its argument in edi
+    ; (the dst pointer here) and its cdq overwrites edx (the count)
+    mov     eax, [rsi]
+    mov     r8d, eax
+    sar     r8d, 31
+    xor     eax, r8d
+    sub     eax, r8d                ; wrapping |x|
+    mov     r8d, eax
+    sar     r8d, 31                 ; still negative only for INT32_MIN
+    xor     eax, r8d                ; INT32_MIN -> INT32_MAX
     mov     [rdi], eax
     add     rsi, 4
     add     rdi, 4
