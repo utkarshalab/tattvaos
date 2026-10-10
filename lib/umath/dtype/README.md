@@ -193,8 +193,22 @@ User types start at 0xFF1.
 Never need to renumber existing types.
 
 **No OS dependency**
-`dtype_support.asm` calls into `cpuid/` module directly via CPUID
-instruction. No syscalls. No OS feature query. Runs in ring 0.
+`dtype_support.asm` takes AVX2/BMI2/POPCNT/LZCNT from the shared
+`cpuid/` detection, so `umath_cpu_restrict` applies to it as well; call
+`umath_dtype_support_init` again after a restrict. It reads the
+dtype-specific bits itself, straight from CPUID:
+- AVX-512 F/DQ/BW/VL/VNNI/VPOPCNTDQ/FP16/BF16, counted only when XCR0
+  enables zmm state;
+- AMX, counted only when XCR0 enables tile state;
+- F16C, counted only when AVX is usable.
+
+No syscalls, no OS feature query; it runs in ring 0. Support levels:
+- native: integers up to 64 bits, FP32, FP64;
+- partial: 128/256-bit integers, complex types, and FP16 with F16C only
+  (conversion, no arithmetic);
+- native when the feature is present: FP16 with AVX-512 FP16, BF16 with
+  AVX-512 BF16;
+- software: everything else.
 
 ---
 
