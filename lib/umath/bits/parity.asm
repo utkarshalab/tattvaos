@@ -24,6 +24,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -34,7 +36,7 @@ section .text
 global umath_parity_u8
 umath_parity_u8:
     movzx   eax, dil
-    popcnt  eax, eax
+    um_popcnt  eax, eax
     and     eax, 1
     ret
 
@@ -46,7 +48,7 @@ umath_parity_u8:
 global umath_parity_u16
 umath_parity_u16:
     movzx   eax, di
-    popcnt  eax, eax
+    um_popcnt  eax, eax
     and     eax, 1
     ret
 
@@ -57,7 +59,7 @@ umath_parity_u16:
 ; -----------------------------------------------------------------------------
 global umath_parity_u32
 umath_parity_u32:
-    popcnt  eax, edi
+    um_popcnt  eax, edi
     and     eax, 1
     ret
 
@@ -68,7 +70,7 @@ umath_parity_u32:
 ; -----------------------------------------------------------------------------
 global umath_parity_u64
 umath_parity_u64:
-    popcnt  rax, rdi
+    um_popcnt  rax, rdi
     and     eax, 1
     ret
 
@@ -79,8 +81,8 @@ umath_parity_u64:
 ; -----------------------------------------------------------------------------
 global umath_parity_u128
 umath_parity_u128:
-    popcnt  rax, rdi
-    popcnt  rdx, rsi
+    um_popcnt  rax, rdi
+    um_popcnt  rdx, rsi
     add     eax, edx
     and     eax, 1
     ret
@@ -107,7 +109,7 @@ umath_parity_buf:
     cmp     rcx, r9
     jge     .byte_loop
     mov     rdx, [rdi + rcx]
-    popcnt  rdx, rdx
+    um_popcnt  rdx, rdx
     add     eax, edx
     add     rcx, 8
     jmp     .qword_loop
@@ -116,7 +118,7 @@ umath_parity_buf:
     cmp     rcx, r8
     jge     .done
     movzx   edx, byte [rdi + rcx]
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     eax, edx
     inc     rcx
     jmp     .byte_loop
@@ -134,7 +136,7 @@ global umath_parity_masked_u32
 umath_parity_masked_u32:
     mov     eax, edi
     and     eax, esi
-    popcnt  eax, eax
+    um_popcnt  eax, eax
     and     eax, 1
     ret
 
@@ -147,7 +149,7 @@ global umath_parity_masked_u64
 umath_parity_masked_u64:
     mov     rax, rdi
     and     rax, rsi
-    popcnt  rax, rax
+    um_popcnt  rax, rax
     and     eax, 1
     ret
 
@@ -185,7 +187,7 @@ umath_parity_row_xor:
 ; -----------------------------------------------------------------------------
 global umath_parity_even_u32
 umath_parity_even_u32:
-    popcnt  eax, edi
+    um_popcnt  eax, edi
     and     eax, 1
     ret
 
@@ -196,7 +198,7 @@ umath_parity_even_u32:
 ; -----------------------------------------------------------------------------
 global umath_parity_odd_u32
 umath_parity_odd_u32:
-    popcnt  eax, edi
+    um_popcnt  eax, edi
     and     eax, 1
     xor     eax, 1
     ret
