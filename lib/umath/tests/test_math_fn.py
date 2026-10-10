@@ -103,24 +103,48 @@ for name in ('sin', 'cos'):
         for x in (4503599627370496.0, -1e18, 1e30):
             ck.check(f'{name}{sfx} NaN at |x| >= 2^52', math.isnan(f(x)), x)
 
-# array/inplace variants must match the scalar routine element for element
+# array/inplace variants must match the scalar routine bit for bit, over the
+# whole domain: subnormals, +/-0, negatives, +/-Inf, NaN, both sides of the
+# log reduction's sqrt(2) boundary, and every exponent range
+def wide_inputs(n, f32):
+    big = 3e38 if f32 else 1e308
+    tiny = 1e-44 if f32 else 5e-323
+    pool = [0.0, -0.0, inf, -inf, nan, -1.0, tiny, -tiny, big, 1.0, 2.0, 0.5,
+            1.4142135, 1.4142136, 1.41421356237309, 1.41421356237310, 0.7071067811865475]
+    out = []
+    for _ in range(n):
+        r = random.random()
+        if r < 0.25:
+            out.append(random.choice(pool))
+        elif r < 0.5:
+            out.append(random.uniform(-10, 10))
+        else:
+            out.append(random.choice([1, -1]) * 10.0 ** random.uniform(-45 if f32 else -320, 38 if f32 else 308))
+    return out
+
+
+def bits_equal(a, b, f32):
+    import struct
+    fmt = '<f' if f32 else '<d'
+    if math.isnan(a) and math.isnan(b):
+        return True
+    return struct.pack(fmt, a) == struct.pack(fmt, b)
+
+
 for name in ('exp', 'log', 'sqrt', 'sin', 'cos', 'tan'):
-    for sfx, t in (('_f64', D), ('_f32', F)):
+    for sfx, t, f32 in (('_f64', D, False), ('_f32', F, True)):
         scalar = fn(lib, f'umath_{name}{sfx}', t, t)
         arr = fn(lib, f'umath_{name}{sfx}_array', None, P, P, Z)
         inp = fn(lib, f'umath_{name}{sfx}_inplace', None, P, Z)
-        for n in (0, 1, 3, 4, 5, 7, 8, 9, 17, 33):
-            vals = [random.uniform(0.1, 5) for _ in range(n)] + []
-            if n > 2:
-                vals[1] = nan
-                vals[2] = 1000.0
-            src = (t * n)(*vals)
-            dst = (t * n)()
-            buf = (t * n)(*vals)
+        for n in (0, 1, 2, 3, 4, 5, 7, 8, 9, 17, 33, 1000):
+            vals = [r32(v) if f32 else v for v in wide_inputs(n, f32)]
+            src = (t * max(n, 1))(*vals)
+            dst = (t * max(n, 1))()
+            buf = (t * max(n, 1))(*vals)
             arr(dst, src, n)
             inp(buf, n)
-            want = [scalar(v) for v in vals]
-            ok = all(same(a, b) for a, b in zip(dst, want)) and all(same(a, b) for a, b in zip(buf, want))
-            ck.check(f'{name}{sfx} array/inplace == scalar', ok, f'n={n}')
+            bad = [i for i in range(n) if not bits_equal(dst[i], scalar(src[i]), f32) or not bits_equal(buf[i], scalar(src[i]), f32)]
+            ck.check(f'{name}{sfx} array/inplace bit-identical to scalar', not bad,
+                     f'n={n}: x={src[bad[0]]!r} array={dst[bad[0]]!r} inplace={buf[bad[0]]!r} scalar={scalar(src[bad[0]])!r}' if bad else '')
 
 ck.finish()
