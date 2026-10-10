@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -24,7 +26,7 @@ section .text
 ; -----------------------------------------------------------------------------
 global umath_ceil_f64
 umath_ceil_f64:
-    roundsd xmm0, xmm0, 2       ; round up (mode 2)
+    um_roundsd xmm0, xmm0, 2       ; round up (mode 2)
     ret
 
 ; -----------------------------------------------------------------------------
@@ -34,7 +36,7 @@ umath_ceil_f64:
 ; -----------------------------------------------------------------------------
 global umath_ceil_f64_to_i64
 umath_ceil_f64_to_i64:
-    roundsd xmm0, xmm0, 2       ; guarantee ceil rounding
+    um_roundsd xmm0, xmm0, 2       ; guarantee ceil rounding
     cvtsd2si rax, xmm0          ; convert scalar double to signed 64-bit integer
     ret
 
@@ -68,10 +70,10 @@ umath_ceil_f64_array:
     movups  xmm3, [rsi + 48]
 
     ; Ceil round (mode 2)
-    roundpd xmm0, xmm0, 2
-    roundpd xmm1, xmm1, 2
-    roundpd xmm2, xmm2, 2
-    roundpd xmm3, xmm3, 2
+    um_roundpd xmm0, xmm0, 2
+    um_roundpd xmm1, xmm1, 2
+    um_roundpd xmm2, xmm2, 2
+    um_roundpd xmm3, xmm3, 2
 
     ; Store results
     movups  [rdi], xmm0
@@ -96,7 +98,7 @@ umath_ceil_f64_array:
 
 .loop_vector:
     movups  xmm0, [rsi]
-    roundpd xmm0, xmm0, 2
+    um_roundpd xmm0, xmm0, 2
     movups  [rdi], xmm0
     add     rsi, 16
     add     rdi, 16
@@ -108,7 +110,7 @@ umath_ceil_f64_array:
 
 .residuals:
     movsd   xmm0, [rsi]
-    roundsd xmm0, xmm0, 2
+    um_roundsd xmm0, xmm0, 2
     movsd   [rdi], xmm0
     add     rsi, 8
     add     rdi, 8
@@ -143,10 +145,10 @@ umath_ceil_f64_inplace:
     movups  xmm2, [rdi + 32]
     movups  xmm3, [rdi + 48]
 
-    roundpd xmm0, xmm0, 2
-    roundpd xmm1, xmm1, 2
-    roundpd xmm2, xmm2, 2
-    roundpd xmm3, xmm3, 2
+    um_roundpd xmm0, xmm0, 2
+    um_roundpd xmm1, xmm1, 2
+    um_roundpd xmm2, xmm2, 2
+    um_roundpd xmm3, xmm3, 2
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -169,7 +171,7 @@ umath_ceil_f64_inplace:
 
 .loop_vector:
     movups  xmm0, [rdi]
-    roundpd xmm0, xmm0, 2
+    um_roundpd xmm0, xmm0, 2
     movups  [rdi], xmm0
     add     rdi, 16
     dec     rcx
@@ -180,7 +182,7 @@ umath_ceil_f64_inplace:
 
 .residuals:
     movsd   xmm0, [rdi]
-    roundsd xmm0, xmm0, 2
+    um_roundsd xmm0, xmm0, 2
     movsd   [rdi], xmm0
     add     rdi, 8
     dec     rsi
@@ -198,7 +200,7 @@ umath_ceil_f64_inplace:
 global umath_ceil_f64_fractional
 umath_ceil_f64_fractional:
     movapd  xmm1, xmm0          ; xmm1 = val
-    roundsd xmm0, xmm0, 2       ; xmm0 = ceil(val)
+    um_roundsd xmm0, xmm0, 2       ; xmm0 = ceil(val)
     subsd   xmm1, xmm0          ; xmm1 = val - ceil(val)
     movapd  xmm0, xmm1          ; xmm0 = fractional part
     ret
@@ -230,8 +232,8 @@ umath_ceil_f64_to_i64_array:
     movups  xmm1, [rsi + 16]    ; xmm1 = [val3, val2]
 
     ; Ceil round
-    roundpd xmm0, xmm0, 2
-    roundpd xmm1, xmm1, 2
+    um_roundpd xmm0, xmm0, 2
+    um_roundpd xmm1, xmm1, 2
 
     ; Extract and convert val0
     cvtsd2si rax, xmm0
@@ -261,7 +263,7 @@ umath_ceil_f64_to_i64_array:
 
 .residuals:
     movsd   xmm0, [rsi]
-    roundsd xmm0, xmm0, 2
+    um_roundsd xmm0, xmm0, 2
     cvtsd2si rax, xmm0
     mov     [rdi], rax
     add     rsi, 8
@@ -280,7 +282,7 @@ umath_ceil_f64_to_i64_array:
 global umath_ceil_f64_is_integer
 umath_ceil_f64_is_integer:
     movapd  xmm1, xmm0
-    roundsd xmm0, xmm0, 2       ; xmm0 = ceil(val)
+    um_roundsd xmm0, xmm0, 2       ; xmm0 = ceil(val)
     ucomisd xmm0, xmm1          ; compare ceil(val) vs val
     jne     .not_int            ; if not equal, not an integer
     jp      .not_int            ; NaN guard
