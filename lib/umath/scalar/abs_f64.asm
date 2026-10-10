@@ -44,7 +44,7 @@ absf64_sign_mask:
 ; -----------------------------------------------------------------------------
 global umath_abs_f64
 umath_abs_f64:
-    movapd  xmm1, [absf64_abs_mask]
+    movapd  xmm1, [rel absf64_abs_mask]
     andpd   xmm0, xmm1
     ret
 
@@ -64,7 +64,7 @@ umath_abs_f64_array:
     test    rdx, rdx
     jz      .done
 
-    movapd  xmm15, [absf64_abs_mask]
+    movapd  xmm15, [rel absf64_abs_mask]
 
     cmp     rdx, 8
     jb      .single_doubles
@@ -117,7 +117,7 @@ umath_abs_f64_array:
 
 .residuals:
     movsd   xmm0, [rsi]
-    andsd   xmm0, xmm15
+    andpd   xmm0, xmm15
     movsd   [rdi], xmm0
     add     rsi, 8
     add     rdi, 8
@@ -140,7 +140,7 @@ umath_abs_f64_inplace:
     test    rsi, rsi
     jz      .done
 
-    movapd  xmm15, [absf64_abs_mask]
+    movapd  xmm15, [rel absf64_abs_mask]
 
     cmp     rsi, 8
     jb      .single_doubles
@@ -191,7 +191,7 @@ umath_abs_f64_inplace:
 
 .residuals:
     movsd   xmm0, [rdi]
-    andsd   xmm0, xmm15
+    andpd   xmm0, xmm15
     movsd   [rdi], xmm0
     add     rdi, 8
     dec     rsi
@@ -220,9 +220,9 @@ umath_abs_f64_isnan:
 global umath_abs_f64_isinf
 umath_abs_f64_isinf:
     movq    rcx, xmm0
-    movabs  rax, 0x7FFFFFFFFFFFFFFF
+    mov     rax, 0x7FFFFFFFFFFFFFFF
     and     rcx, rax
-    movabs  rax, 0x7FF0000000000000
+    mov     rax, 0x7FF0000000000000
     cmp     rcx, rax
     sete    al
     movzx   eax, al
@@ -236,7 +236,7 @@ umath_abs_f64_isinf:
 ; -----------------------------------------------------------------------------
 global umath_abs_f64_copysign
 umath_abs_f64_copysign:
-    movapd  xmm2, [absf64_abs_mask]
+    movapd  xmm2, [rel absf64_abs_mask]
     andpd   xmm0, xmm2
     andnpd  xmm2, xmm1
     orpd    xmm0, xmm2
@@ -256,7 +256,7 @@ umath_abs_f64_count_negative:
     test    rsi, rsi
     jz      .done
 
-    movaps  xmm15, [absf64_sign_mask]
+    movaps  xmm15, [rel absf64_sign_mask]
 
     cmp     rsi, 8
     jb      .single_doubles
@@ -347,7 +347,7 @@ umath_abs_f64_is_all_positive:
     test    rsi, rsi
     jz      .done
 
-    movaps  xmm15, [absf64_sign_mask]
+    movaps  xmm15, [rel absf64_sign_mask]
 
     cmp     rsi, 8
     jb      .single_doubles
