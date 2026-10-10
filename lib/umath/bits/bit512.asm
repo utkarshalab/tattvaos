@@ -30,6 +30,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -119,19 +121,27 @@ umath_bit512_sub:
     ret
 
 ; -----------------------------------------------------------------------------
-; umath_bit512_and - dst = a & b  (two YMM halves)
+; umath_bit512_and - dst = a & b  (four SSE2 quarters: runs on any x86-64)
 ; args: rdi=*dst, rsi=*a, rdx=*b
 ; -----------------------------------------------------------------------------
 global umath_bit512_and
 umath_bit512_and:
-    vmovdqu ymm0, [rsi]
-    vmovdqu ymm1, [rdx]
-    vpand   ymm0, ymm0, ymm1
-    vmovdqu [rdi], ymm0
-    vmovdqu ymm0, [rsi+32]
-    vmovdqu ymm1, [rdx+32]
-    vpand   ymm0, ymm0, ymm1
-    vmovdqu [rdi+32], ymm0
+    movdqu  xmm0, [rsi]
+    movdqu  xmm1, [rdx]
+    pand    xmm0, xmm1
+    movdqu  [rdi], xmm0
+    movdqu  xmm0, [rsi + 16]
+    movdqu  xmm1, [rdx + 16]
+    pand    xmm0, xmm1
+    movdqu  [rdi + 16], xmm0
+    movdqu  xmm0, [rsi + 32]
+    movdqu  xmm1, [rdx + 32]
+    pand    xmm0, xmm1
+    movdqu  [rdi + 32], xmm0
+    movdqu  xmm0, [rsi + 48]
+    movdqu  xmm1, [rdx + 48]
+    pand    xmm0, xmm1
+    movdqu  [rdi + 48], xmm0
     ret
 
 ; -----------------------------------------------------------------------------
@@ -139,14 +149,22 @@ umath_bit512_and:
 ; -----------------------------------------------------------------------------
 global umath_bit512_or
 umath_bit512_or:
-    vmovdqu ymm0, [rsi]
-    vmovdqu ymm1, [rdx]
-    vpor    ymm0, ymm0, ymm1
-    vmovdqu [rdi], ymm0
-    vmovdqu ymm0, [rsi+32]
-    vmovdqu ymm1, [rdx+32]
-    vpor    ymm0, ymm0, ymm1
-    vmovdqu [rdi+32], ymm0
+    movdqu  xmm0, [rsi]
+    movdqu  xmm1, [rdx]
+    por     xmm0, xmm1
+    movdqu  [rdi], xmm0
+    movdqu  xmm0, [rsi + 16]
+    movdqu  xmm1, [rdx + 16]
+    por     xmm0, xmm1
+    movdqu  [rdi + 16], xmm0
+    movdqu  xmm0, [rsi + 32]
+    movdqu  xmm1, [rdx + 32]
+    por     xmm0, xmm1
+    movdqu  [rdi + 32], xmm0
+    movdqu  xmm0, [rsi + 48]
+    movdqu  xmm1, [rdx + 48]
+    por     xmm0, xmm1
+    movdqu  [rdi + 48], xmm0
     ret
 
 ; -----------------------------------------------------------------------------
@@ -154,14 +172,22 @@ umath_bit512_or:
 ; -----------------------------------------------------------------------------
 global umath_bit512_xor
 umath_bit512_xor:
-    vmovdqu ymm0, [rsi]
-    vmovdqu ymm1, [rdx]
-    vpxor   ymm0, ymm0, ymm1
-    vmovdqu [rdi], ymm0
-    vmovdqu ymm0, [rsi+32]
-    vmovdqu ymm1, [rdx+32]
-    vpxor   ymm0, ymm0, ymm1
-    vmovdqu [rdi+32], ymm0
+    movdqu  xmm0, [rsi]
+    movdqu  xmm1, [rdx]
+    pxor    xmm0, xmm1
+    movdqu  [rdi], xmm0
+    movdqu  xmm0, [rsi + 16]
+    movdqu  xmm1, [rdx + 16]
+    pxor    xmm0, xmm1
+    movdqu  [rdi + 16], xmm0
+    movdqu  xmm0, [rsi + 32]
+    movdqu  xmm1, [rdx + 32]
+    pxor    xmm0, xmm1
+    movdqu  [rdi + 32], xmm0
+    movdqu  xmm0, [rsi + 48]
+    movdqu  xmm1, [rdx + 48]
+    pxor    xmm0, xmm1
+    movdqu  [rdi + 48], xmm0
     ret
 
 ; -----------------------------------------------------------------------------
@@ -170,13 +196,19 @@ umath_bit512_xor:
 ; -----------------------------------------------------------------------------
 global umath_bit512_not
 umath_bit512_not:
-    vpcmpeqd ymm2, ymm2, ymm2    ; all ones
-    vmovdqu ymm0, [rsi]
-    vpxor   ymm0, ymm0, ymm2
-    vmovdqu [rdi], ymm0
-    vmovdqu ymm0, [rsi+32]
-    vpxor   ymm0, ymm0, ymm2
-    vmovdqu [rdi+32], ymm0
+    pcmpeqd xmm2, xmm2          ; all ones
+    movdqu  xmm0, [rsi]
+    pxor    xmm0, xmm2
+    movdqu  [rdi], xmm0
+    movdqu  xmm0, [rsi + 16]
+    pxor    xmm0, xmm2
+    movdqu  [rdi + 16], xmm0
+    movdqu  xmm0, [rsi + 32]
+    pxor    xmm0, xmm2
+    movdqu  [rdi + 32], xmm0
+    movdqu  xmm0, [rsi + 48]
+    pxor    xmm0, xmm2
+    movdqu  [rdi + 48], xmm0
     ret
 
 ; -----------------------------------------------------------------------------
@@ -401,21 +433,21 @@ umath_bit512_is_zero:
 global umath_bit512_popcount
 umath_bit512_popcount:
     xor     eax, eax
-    popcnt  rcx, qword [rdi]
+    um_popcnt  rcx, qword [rdi]
     add     rax, rcx
-    popcnt  rcx, qword [rdi+8]
+    um_popcnt  rcx, qword [rdi+8]
     add     rax, rcx
-    popcnt  rcx, qword [rdi+16]
+    um_popcnt  rcx, qword [rdi+16]
     add     rax, rcx
-    popcnt  rcx, qword [rdi+24]
+    um_popcnt  rcx, qword [rdi+24]
     add     rax, rcx
-    popcnt  rcx, qword [rdi+32]
+    um_popcnt  rcx, qword [rdi+32]
     add     rax, rcx
-    popcnt  rcx, qword [rdi+40]
+    um_popcnt  rcx, qword [rdi+40]
     add     rax, rcx
-    popcnt  rcx, qword [rdi+48]
+    um_popcnt  rcx, qword [rdi+48]
     add     rax, rcx
-    popcnt  rcx, qword [rdi+56]
+    um_popcnt  rcx, qword [rdi+56]
     add     rax, rcx
     ret
 
@@ -437,7 +469,7 @@ umath_bit512_clz:
     mov     eax, 512
     ret
 .found:
-    lzcnt   rax, rax
+    um_lzcnt   rax, rax
     mov     edx, 7
     sub     edx, ecx
     imul    edx, 64
@@ -462,7 +494,7 @@ umath_bit512_ctz:
     mov     eax, 512
     ret
 .found:
-    tzcnt   rax, rax
+    um_tzcnt   rax, rax
     mov     edx, ecx
     imul    edx, 64
     add     eax, edx
@@ -509,6 +541,10 @@ umath_bit512_bswap:
 
 ; =============================================================================
 ; ZMM memory operations (AVX-512)
+;
+; These hand a value to or from zmm0 for AVX-512 callers. On a CPU (or OS)
+; without usable AVX-512 they return without touching anything, since there
+; is no zmm register to fill: check umath_cpu_has(UMATH_CPU_AVX512) first.
 ; =============================================================================
 
 ; -----------------------------------------------------------------------------
@@ -519,8 +555,11 @@ umath_bit512_bswap:
 ; -----------------------------------------------------------------------------
 global umath_bit512_load
 umath_bit512_load:
+    um_need umath__has_avx512, .no_avx512
     vmovdqa64 zmm0, [rdi]
     ret
+.no_avx512:
+    ret                         ; no zmm registers to use: nothing to do
 
 ; -----------------------------------------------------------------------------
 ; umath_bit512_store - store zmm0 to aligned memory
@@ -528,22 +567,31 @@ umath_bit512_load:
 ; -----------------------------------------------------------------------------
 global umath_bit512_store
 umath_bit512_store:
+    um_need umath__has_avx512, .no_avx512
     vmovdqa64 [rdi], zmm0
     ret
+.no_avx512:
+    ret                         ; no zmm registers to use: nothing to do
 
 ; -----------------------------------------------------------------------------
 ; umath_bit512_zero - return zmm0 = all zeros
 ; -----------------------------------------------------------------------------
 global umath_bit512_zero
 umath_bit512_zero:
+    um_need umath__has_avx512, .no_avx512
     vpxorq  zmm0, zmm0, zmm0
     ret
+.no_avx512:
+    ret                         ; no zmm registers to use: nothing to do
 
 ; -----------------------------------------------------------------------------
 ; umath_bit512_all_ones - return zmm0 = all 1 bits
 ; -----------------------------------------------------------------------------
 global umath_bit512_all_ones
 umath_bit512_all_ones:
+    um_need umath__has_avx512, .no_avx512
     vpternlogd zmm0, zmm0, zmm0, 0xFF
     ret
+.no_avx512:
+    ret                         ; no zmm registers to use: nothing to do
 %endif ; GUARD_LIB_UMATH_BITS_BIT512_ASM
