@@ -13,6 +13,9 @@
 #   2. Links the single translation unit into a shared object and drives it
 #      from Python via ctypes, comparing against Python reference results
 #      (see test_*.py).
+#   3. Runs those tests twice: with every CPU feature the host has, then with
+#      UMATH_CPU_MASK=0 (SSE2 baseline), which sends every SSE4/AVX/BMI fast
+#      path through its fallback (cpuid/fallback.asm).
 #
 # usage: sh lib/umath/tests/run_tests.sh   (from anywhere in the repo)
 # exit status: 0 if everything passed, 1 otherwise
@@ -29,7 +32,7 @@ NASM_FLAGS="-f elf64 -I$ROOT/ -Werror=number-overflow -Werror=other"
 failed=0
 
 cd "$ROOT"
-modules="bits dtype math_fn memory reduce scalar stability"
+modules="bits cpuid dtype math_fn memory reduce scalar stability"
 
 echo "== assembling each file standalone"
 count=0
@@ -54,11 +57,18 @@ if ! nasm $NASM_FLAGS -o "$WORK/umath_all.o" "$WORK/umath_all.asm" > "$WORK/nasm
 fi
 ld -shared -Bsymbolic -z noexecstack -o "$WORK/umath.so" "$WORK/umath_all.o"
 
-for t in "$TESTS_DIR"/test_*.py; do
-    echo "== $(basename "$t")"
-    if ! python3 "$t" "$WORK/umath.so"; then
-        failed=1
+for mode in native baseline; do
+    if [ "$mode" = baseline ]; then
+        export UMATH_CPU_MASK=0     # SSE2 only: every fast path takes its fallback
+    else
+        unset UMATH_CPU_MASK
     fi
+    for t in "$TESTS_DIR"/test_*.py; do
+        echo "== $(basename "$t") ($mode)"
+        if ! python3 "$t" "$WORK/umath.so"; then
+            failed=1
+        fi
+    done
 done
 
 if [ "$failed" -eq 0 ]; then
