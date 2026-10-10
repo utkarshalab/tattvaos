@@ -29,7 +29,7 @@ NASM_FLAGS="-f elf64 -I$ROOT/ -Werror=number-overflow -Werror=other"
 failed=0
 
 cd "$ROOT"
-modules="bits dtype math_fn memory scalar stability"
+modules="bits dtype math_fn memory reduce scalar stability"
 
 echo "== assembling each file standalone"
 count=0
