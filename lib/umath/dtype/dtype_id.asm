@@ -6,12 +6,12 @@
 ; =============================================================================
 ; defines:
 ;   DTYPE_NONE              = 0x000   null/unset dtype
-;   DTYPE_*                 = 0x001   all 235 defined dtypes
+;   DTYPE_*                 = 0x001   all 213 defined dtypes
 ;   DTYPE_UNKNOWN           = 0xFFE   unknown sentinel
 ;   DTYPE_MAX               = 0xFFF   range check sentinel
 ;
 ;   DTYPE_SPEC_VERSION      = 1       spec version
-;   DTYPE_COUNT             = 235     total defined dtypes
+;   DTYPE_COUNT             = 213     total defined dtypes (distinct ids)
 ;   DTYPE_ID_BITS           = 12      bits needed for ID
 ;   DTYPE_ID_MAX            = 0xFFF   maximum valid ID
 ;
@@ -29,7 +29,7 @@ bits 64
 ; =============================================================================
 
 DTYPE_SPEC_VERSION      equ 1
-DTYPE_COUNT             equ 235
+DTYPE_COUNT             equ 213
 DTYPE_ID_BITS           equ 12
 DTYPE_ID_MAX            equ 0xFFF
 
