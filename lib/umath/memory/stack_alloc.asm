@@ -74,8 +74,8 @@ umath_stack_alloc:
     jz      .fail
 
     ; verify stack magic
-    mov     r8, [rdi + 24]      ; magic
-    cmp     r8, STACK_MAGIC
+    mov     r8, STACK_MAGIC
+    cmp     r8, [rdi + 24]      ; magic
     jne     .fail
 
     mov     rcx, [rdi + 8]      ; rcx = current
@@ -111,7 +111,8 @@ umath_stack_alloc:
 
     ; write StackHeader right before payload
     mov     [r9 - 16], rcx      ; store old current (prev_current)
-    mov     qword [r9 - 8], BLOCK_MAGIC ; store block magic number
+    mov     r10, BLOCK_MAGIC    ; 64-bit constant: no 64-bit immediate store exists
+    mov     [r9 - 8], r10       ; store block magic number
 
     ; update stack current pointer
     mov     [rdi + 8], rax
@@ -156,7 +157,7 @@ umath_stack_alloc_zeroed:
     ret
 
 ; -----------------------------------------------------------------------------
-; umath_stack_free - free the top allocated block (strict LIFO unwinding)
+; umath_stack_free - free a block, unwinding every allocation made after it
 ; args:    rdi = pointer to UmathStack struct
 ;          rsi = pointer returned by stack_alloc
 ; returns: rax = 1 (success) or 0 (failure/invalid pointer/violates LIFO)
@@ -170,8 +171,8 @@ umath_stack_free:
     jz      .done
 
     ; check stack magic
-    mov     rcx, [rdi + 24]     ; magic
-    cmp     rcx, STACK_MAGIC
+    mov     rcx, STACK_MAGIC
+    cmp     rcx, [rdi + 24]     ; magic
     jne     .done
 
     mov     rcx, [rdi + 0]      ; start
@@ -186,21 +187,14 @@ umath_stack_free:
     jae     .done
 
     ; check block magic
-    mov     r9, [rsi - 8]       ; block_magic
-    cmp     r9, BLOCK_MAGIC
+    mov     r9, BLOCK_MAGIC
+    cmp     r9, [rsi - 8]       ; block_magic
     jne     .done               ; corrupted block or not a valid block pointer
 
-    ; strict LIFO check: to free this block, its allocation must be at the top
-    ; which means there cannot be any active allocations after it.
-    ; since we do not store sizes directly in header, how do we know if it is the top?
-    ; actually, we can check if restoring `prev_current = [rsi - 16]` is valid.
-    ; but in a strict stack allocator, you can only free the MOST RECENT allocation.
-    ; is rsi the most recent?
-    ; Yes, because if rsi is the most recent, the next allocation would be at `current`.
-    ; If we don't enforce strict LIFO, freeing any block would roll back to that block's
-    ; pre-state (which is unwinding). Unwinding naturally frees all newer allocations!
-    ; To make it robust and explicitly safe: we allow unwinding but verify that
-    ; the pointer actually came from this stack.
+    ; Freeing rolls `current` back to this block's prev_current, which also
+    ; releases every allocation made after it (unwinding). Only provenance is
+    ; checked here (block magic + header bounds), not that the block is the
+    ; most recent one.
     mov     r9, [rsi - 16]      ; r9 = prev_current
     
     ; check prev_current bounds: start <= prev_current < current
@@ -227,8 +221,8 @@ umath_stack_contains:
     test    rdi, rdi
     jz      .done
     
-    mov     rcx, [rdi + 24]
-    cmp     rcx, STACK_MAGIC
+    mov     rcx, STACK_MAGIC
+    cmp     rcx, [rdi + 24]
     jne     .done
 
     mov     rcx, [rdi + 0]      ; start
@@ -253,8 +247,8 @@ umath_stack_reset:
     test    rdi, rdi
     jz      .done
     
-    mov     rcx, [rdi + 24]
-    cmp     rcx, STACK_MAGIC
+    mov     rcx, STACK_MAGIC
+    cmp     rcx, [rdi + 24]
     jne     .done
 
     mov     rax, [rdi + 0]      ; start
@@ -292,8 +286,8 @@ umath_stack_verify:
     test    rdi, rdi
     jz      .done
 
-    mov     rcx, [rdi + 24]     ; magic
-    cmp     rcx, STACK_MAGIC
+    mov     rcx, STACK_MAGIC
+    cmp     rcx, [rdi + 24]     ; magic
     jne     .done
 
     mov     rcx, [rdi + 0]      ; start
@@ -362,8 +356,8 @@ umath_stack_available:
     test    rdi, rdi
     jz      .done
 
-    mov     rcx, [rdi + 24]
-    cmp     rcx, STACK_MAGIC
+    mov     rcx, STACK_MAGIC
+    cmp     rcx, [rdi + 24]
     jne     .done
 
     mov     rax, [rdi + 16]     ; end
