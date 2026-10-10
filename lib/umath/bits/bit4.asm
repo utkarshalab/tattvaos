@@ -42,13 +42,13 @@ section .text
 ; -----------------------------------------------------------------------------
 global umath_bit4_pack
 umath_bit4_pack:
-    mov     al, dil
-    and     al, 0x0F
-    mov     ah, sil
-    and     ah, 0x0F
-    shl     ah, 4
-    or      al, ah
-    movzx   eax, al
+    ; r8d is the scratch: AH can't be encoded alongside SIL (REX prefix)
+    movzx   eax, dil
+    and     eax, 0x0F
+    movzx   r8d, sil
+    and     r8d, 0x0F
+    shl     r8d, 4
+    or      eax, r8d
     ret
 
 ; -----------------------------------------------------------------------------
