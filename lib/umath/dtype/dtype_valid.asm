@@ -30,8 +30,9 @@
 ;   umath_dtype_check_finite    (dtype_id, bits → bool) not nan, not inf
 ; =============================================================================
 
-%include "dtype_id.asm"
-%include "dtype_traits.asm"
+%include "lib/umath/dtype/dtype_id.asm"
+%include "lib/umath/dtype/dtype_traits.asm"
+%include "lib/umath/dtype/dtype_range.asm"
 
 bits 64
 section .text
@@ -101,7 +102,7 @@ umath_dtype_validate_bits:
     mov     rsi, [r12]
     jmp     .check
 .load4:
-    movzx   rsi, dword [r12]
+    mov     esi, [r12]          ; 32-bit load zero-extends into rsi
     jmp     .check
 .load2:
     movzx   rsi, word [r12]
@@ -256,11 +257,11 @@ umath_dtype_validate_i64:
 global umath_dtype_validate_u64
 umath_dtype_validate_u64:
     push    rbx
-    mov     ebx, edi
+    mov     rbx, rsi                ; value (rsi does not survive the call)
     ; get max as u64
-    call    umath_dtype_max_u64     ; eax = max
-    cmp     rsi, rax
-    jg      .no
+    call    umath_dtype_max_u64     ; rax = max
+    cmp     rbx, rax
+    ja      .no                     ; unsigned compare: values >= 2^63 are large, not negative
     ; min for unsigned is 0
     mov     eax, 1
     pop     rbx
