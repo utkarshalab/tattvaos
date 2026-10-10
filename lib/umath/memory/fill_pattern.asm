@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -105,6 +107,7 @@ umath_memfill_pattern2:
 ; -----------------------------------------------------------------------------
 global umath_memfill_pattern4
 umath_memfill_pattern4:
+    um_need umath__has_avx2, fillpat__p4_base   ; no AVX2: scalar qword loop
     mov     rax, rdi
     test    rdx, rdx
     jz      .done_p4
@@ -196,6 +199,7 @@ umath_memfill_pattern4:
 ; -----------------------------------------------------------------------------
 global umath_memfill_pattern8
 umath_memfill_pattern8:
+    um_need umath__has_avx2, fillpat__p8_base   ; no AVX2: scalar qword loop
     mov     rax, rdi
     test    rdx, rdx
     jz      .done_p8
@@ -351,6 +355,7 @@ umath_memfill_pattern16:
 ; -----------------------------------------------------------------------------
 global umath_memfill_pattern32
 umath_memfill_pattern32:
+    um_need umath__has_avx2, fillpat__p32_base   ; no AVX2: SSE2 loop
     mov     rax, rdi
     test    rdx, rdx
     jz      .done_p32
@@ -420,6 +425,69 @@ umath_memfill_pattern32:
 
 .done_p32:
     vzeroupper
+    ret
+
+; -----------------------------------------------------------------------------
+; fillpat__p4_base / fillpat__p8_base / fillpat__p32_base - internal
+; baseline (SSE2-only) versions of memfill_pattern4/8/32 for CPUs without
+; AVX2; same arguments and results (rax = dst). Not declared global.
+; -----------------------------------------------------------------------------
+fillpat__p4_base:
+    mov     esi, esi
+    mov     r9, rsi
+    shl     r9, 32
+    or      rsi, r9             ; the dword pattern twice = a qword pattern
+fillpat__p8_base:
+    mov     rax, rdi
+    mov     r8, rsi
+    mov     rcx, rdx
+    shr     rcx, 3
+    jz      .bytes
+.qwords:
+    mov     [rdi], r8
+    add     rdi, 8
+    dec     rcx
+    jnz     .qwords
+.bytes:
+    and     rdx, 7              ; the tail starts on a pattern boundary
+    jz      .done
+.byte:
+    mov     [rdi], r8b
+    shr     r8, 8
+    inc     rdi
+    dec     rdx
+    jnz     .byte
+.done:
+    ret
+
+fillpat__p32_base:
+    mov     rax, rdi
+    test    rdx, rdx
+    jz      .done
+    test    rsi, rsi
+    jz      .done
+    movdqu  xmm0, [rsi]
+    movdqu  xmm1, [rsi + 16]
+    mov     rcx, rdx
+    shr     rcx, 5
+    jz      .tail
+.blocks:
+    movdqu  [rdi], xmm0
+    movdqu  [rdi + 16], xmm1
+    add     rdi, 32
+    dec     rcx
+    jnz     .blocks
+.tail:
+    and     rdx, 31
+    jz      .done
+    xor     ecx, ecx
+.tail_byte:
+    mov     r8b, [rsi + rcx]
+    mov     [rdi + rcx], r8b
+    inc     rcx
+    cmp     rcx, rdx
+    jb      .tail_byte
+.done:
     ret
 
 %endif ; GUARD_LIB_UMATH_MEMORY_FILL_PATTERN_ASM
