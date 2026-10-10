@@ -174,6 +174,18 @@ for name, t, f32 in (('logsumexp_f64', D, False), ('logsumexp_f32', F, True)):
                  [rnd(80.0)] * 3 if f32 else [700.0] * 3):
         ck.check(f'{name} accuracy', ulp_diff(f(arr(t, vals), len(vals)), lse_ref(vals), f32) <= (1 if f32 else 4),
                  (vals[:3], f(arr(t, vals), len(vals)), lse_ref(vals)))
+    # every remainder of both packed passes, NaN at every position
+    for n in list(range(1, 20)) + [64, 1001]:
+        vals = [rnd(random.uniform(-30, 30)) for _ in range(n)]
+        got = f(arr(t, vals), n)
+        ck.check(f'{name} accuracy by length', ulp_diff(got, lse_ref(vals), f32) <= (1 if f32 else 4), (n, got, lse_ref(vals)))
+        for k in range(min(n, 9)):
+            withnan = list(vals)
+            withnan[k] = nan
+            ck.check(f'{name} NaN at any position', math.isnan(f(arr(t, withnan), n)), (n, k))
+        withinf = list(vals)
+        withinf[-1] = inf
+        ck.check(f'{name} +Inf at the end', f(arr(t, withinf), n) == inf, n)
     for vals, want in (([], -inf), ([nan, 1.0], nan), ([1.0, nan], nan), ([inf, 1.0], inf), ([-inf, -inf], -inf),
                        ([-inf, 0.0], 0.0), ([inf, nan], nan)):
         got = f(arr(t, vals) if vals else None, len(vals))
