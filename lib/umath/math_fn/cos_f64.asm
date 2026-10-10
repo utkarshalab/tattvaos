@@ -25,6 +25,7 @@
 bits 64
 
 %include "lib/umath/math_fn/sin_f64.asm"
+%include "lib/umath/cpuid/fallback.asm"
 
 section .rodata
 align 16
@@ -82,7 +83,7 @@ umath_cos_f64:
 
     movsd   xmm1, [rel cosf64_two_over_pi]
     mulsd   xmm1, xmm0
-    roundsd xmm1, xmm1, 0          ; xmm1 = n (round to nearest)
+    um_roundsd xmm1, xmm1, 0          ; xmm1 = n (round to nearest)
 
     movsd   xmm2, xmm1
     mulsd   xmm2, [rel cosf64_pi2_p1]
