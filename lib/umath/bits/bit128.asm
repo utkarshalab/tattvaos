@@ -41,6 +41,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; =============================================================================
@@ -270,8 +272,8 @@ umath_bit128_bswap:
 ; -----------------------------------------------------------------------------
 global umath_bit128_popcount
 umath_bit128_popcount:
-    popcnt  rax, rdi
-    popcnt  rdx, rsi
+    um_popcnt  rax, rdi
+    um_popcnt  rdx, rsi
     add     eax, edx
     ret
 
@@ -284,10 +286,10 @@ global umath_bit128_clz
 umath_bit128_clz:
     test    rsi, rsi
     jz      .hi_zero
-    lzcnt   rax, rsi
+    um_lzcnt   rax, rsi
     ret
 .hi_zero:
-    lzcnt   rax, rdi
+    um_lzcnt   rax, rdi
     add     eax, 64
     ret
 
@@ -300,10 +302,10 @@ global umath_bit128_ctz
 umath_bit128_ctz:
     test    rdi, rdi
     jz      .lo_zero
-    tzcnt   rax, rdi
+    um_tzcnt   rax, rdi
     ret
 .lo_zero:
-    tzcnt   rax, rsi
+    um_tzcnt   rax, rsi
     add     eax, 64
     ret
 
