@@ -31,19 +31,22 @@ math_fn/
 │                                    rsqrt) + array/inplace variants
 ├── exp_f32.asm / exp_f64.asm     ← e^x via range reduction (k = round(x /
 │                                    ln2), r = x - k*ln2 split hi/lo) +
-│                                    polynomial on r + 2^k reconstructed
-│                                    directly from IEEE-754 bits
+│                                    polynomial on r + 2^k applied as two
+│                                    halves built directly from IEEE-754
+│                                    bits (overflow → +Inf, gradual
+│                                    underflow → 0)
 ├── log_f32.asm / log_f64.asm     ← ln(x) via IEEE-754 bit decomposition
 │                                    (x = m·2^k) + atanh series on
 │                                    s=(m-1)/(m+1)
 ├── pow_f32.asm / pow_f64.asm     ← x^y = exp(y·ln(x)), plus the IEEE
 │                                    special cases and a negative-base
 │                                    integer-exponent path exp/log alone
-│                                    can't cover
+│                                    can't cover; pow_f32 widens to double
+│                                    and calls pow_f64
 ├── sin_f32.asm / sin_f64.asm     ← quadrant range reduction (n = round(x
-│                                    * 2/pi), r = x - n*(pi/2) split
-│                                    hi/lo) + Taylor series on sin(r) and
-│                                    cos(r), selected by n mod 4
+│                                    * 2/pi), r = x - n*(pi/2) with pi/2
+│                                    split 21+21+53 bits) + Taylor series
+│                                    on sin(r) and cos(r), by n mod 4
 ├── cos_f32.asm / cos_f64.asm     ← same reduction as sin, cosine's
 │                                    quadrant table
 ├── tan_f32.asm / tan_f64.asm     ← sin(x)/cos(x), composed from the two
@@ -57,18 +60,26 @@ math_fn/
 
 ## Design decisions, and why
 
-**Saturate instead of overflowing to Inf/0 (exp only).**
-`exp_f32`/`exp_f64` clamp their input to `[MINLOG, MAXLOG]` — the exact
-bounds that keep the reconstructed exponent `k` inside the valid *normal*
-float range — and return the largest/smallest finite value for input beyond
-that, rather than true `±Inf`/`0`. This is a deliberate choice, not a
-missing case: it avoids a branch on the hot path and a kernel math library
-saturating gracefully is usually preferable to it producing a literal
-infinity that then has to be checked for everywhere downstream. `pow`
-inherits this for extreme-magnitude results (it composes `exp`), but treats
-`x == 0` as a genuine pole and returns true `+Inf`, since that's a different
-kind of "extreme" — a division-by-zero-shaped discontinuity, not a smooth
-range limit.
+**exp overflows to +Inf and underflows to 0, branch-free.**
+`exp_f32`/`exp_f64` clamp their input to a range just past the true
+overflow/underflow points (`[-104, 89]` / `[-746, 710]`), then apply `2^k`
+as `2^(k>>1) * 2^(k - (k>>1))`. Both halves are normal numbers, so the first
+multiply is exact and the second rounds once: results beyond the format's
+maximum become `+Inf`, tiny results round through subnormals to `0`, and
+there is still no branch on the hot path. The clamp is written with the
+constant as `minss`/`maxss`'s *first* operand, because those instructions
+return their second operand when either input is NaN — the other way round
+turns NaN into a large finite number. An earlier version saturated to the
+largest/smallest *normal* value instead (exp(1000) = 8.99e307,
+exp(-1000) = 2.2e-308) and returned a finite number for NaN.
+
+**pow_f32 is evaluated in double.**
+`exp(y·ln(x))` amplifies log's relative rounding error by `|y·ln(x)|`, so a
+single-precision pow lost ~200 ULP on results near `1e33`. `pow_f32` now
+widens both arguments, calls `pow_f64`, and rounds once; the special cases
+carry over unchanged. `pow_f64` itself still carries this amplification
+(measured up to ~1.4e3 ULP for results near `1e239`); removing it would need
+an extended-precision log.
 
 **log and pow branch per-element; exp doesn't.**
 `exp`'s only special-case handling is a branchless clamp, so its
@@ -94,13 +105,19 @@ range-reduction multiply/subtract, and only narrow the reduced argument
 back to `f32` (`cvtsd2ss`) for the polynomial evaluation. A first version
 that did the whole reduction in single precision was measurably wrong
 (~1.7e-5 absolute error) by `x=1000` — not an extreme input, just large
-enough that a float32-rounded copy of the pi/2 hi/lo split had already lost
-the "n·hi stays exact" property the split exists for. This is the standard
-fix real `sinf`/`cosf` implementations use, not an original technique. All
-four trig files share the same practical accuracy bound as a result: exact
-to a few ULP for `|x|` up to roughly `2^32 * pi/2 ≈ 6.7e9`, measurably
-degraded beyond it (still not exempt from the same "not Payne-Hanek"
-caveat `exp`'s clamping sidesteps by a different route).
+enough that a float32-rounded copy of the pi/2 split had already lost
+the "n·p1 stays exact" property the split exists for. This is the standard
+fix real `sinf`/`cosf` implementations use, not an original technique.
+
+**Three-part pi/2 split, and a hard domain bound.**
+pi/2 is split as p1 + p2 + p3 with 21, 21 and 53 significant bits, so `n·p1`
+and `n·p2` are exact while `n < 2^32`, i.e. `|x| < 2^32 * pi/2 ≈ 6.7e9`.
+Measured against a 60-digit reference, the absolute error stays at 1.1e-16
+up to `|x| = 6.5e9`; beyond that the simple (not Payne-Hanek) reduction
+degrades roughly as `|x| * 1e-16`, and for `|x| >= 2^52`, where it means
+nothing, sin/cos return NaN instead of an out-of-range value. The quadrant
+`n mod 4` is taken from a 64-bit conversion: a 32-bit one returns
+`0x80000000` once `n >= 2^31` and picked the wrong quadrant from `|x| ≈ 3.4e9`.
 
 **tan composes sin+cos instead of its own reduction.**
 Same reasoning as `pow` composing `log`+`exp`: sin/cos are already
@@ -119,9 +136,10 @@ that's an property of what `sqrt` happens not to touch, not a general
 rule; re-check this per callee, don't assume it.
 
 **Every constant name is unique per file.**
-NASM has no file-private symbol concept, and this whole tree eventually
-becomes a single `%include` chain assembled as one translation unit (see
-`boot/Makefile`). A generic name like `const_one_f32` declared in two
+NASM has no file-private symbol concept, and this whole tree is meant to be
+`%include`d into the kernel's single translation unit (`kernel/entry.asm`;
+umath isn't included there yet, but `tests/run_tests.sh` assembles it all as
+one unit). A generic name like `const_one_f32` declared in two
 different files is a silent build-breaker the moment both get pulled in —
 it doesn't fail until integration, long after the file that introduced it
 looked finished. Every constant here is prefixed with its file's own name
@@ -157,13 +175,13 @@ before assuming a loop-carried register survives a `call`.
 
 ## Verification
 
-Every function in this module has been numerically verified against a
-reference implementation (Python's `math` module, IEEE double throughout)
-via a `ld -shared` + `ctypes` harness — no C compiler needed, since the
-kernel toolchain doesn't have one. This isn't optional polish: this
-methodology is what caught every real bug listed below before it could ship.
-Typical relative error: ~1e-7–1e-8 for f32, ~1e-14–1e-16 for f64, consistent
-with the precision of the reduced-range series/polynomial used.
+Every function in this module is checked against a reference
+implementation (Python's `math` module, IEEE double throughout) via an
+`ld -shared` + `ctypes` harness — no C compiler needed, since the kernel
+toolchain doesn't have one. The harness is checked in: run
+`sh lib/umath/tests/run_tests.sh` (see `tests/README.md`). Measured worst
+cases: sqrt 0 ULP, exp ≤ 1 ULP, log ≤ 3 ULP, sin/cos ≤ 2 ULP, tan ≤ 3 ULP,
+hypot ≤ 2 ULP; pow_f64 as described above.
 
 Bugs this process actually caught (kept here so the pattern is recognizable
 next time, not as a changelog):
@@ -193,6 +211,15 @@ next time, not as a changelog):
   the exactness property the split exists for. Fixed by doing range
   reduction in double and narrowing only the small reduced argument back
   to float32.
+- Two constants computed in double instead of exactly (`sin`/`cos` pi/2
+  low part, `exp_f64` ln2 low part): `lo = double(pi/2) - hi` carries
+  double(pi/2)'s own rounding error (6e-17), so the hi/lo split bought
+  nothing — sin_f64 was off by 13,554 ULP near 3·pi and exp_f64 by 209 ULP.
+  Compute split constants with exact (rational/decimal) arithmetic.
+- `minss`/`minsd`/`maxss`/`maxsd` return the *second* operand on NaN: a
+  clamp written `minsd x, [limit]` returns the limit for NaN x, and a
+  reduction loop `minsd acc, x` lets a NaN element reset the accumulator
+  (`min([1, NaN, 3])` returned 3).
 
 ---
 
@@ -201,7 +228,7 @@ next time, not as a changelog):
 ```
 math_fn/ depends on:
   → nothing at runtime (each file is self-contained except:
-    pow_f32/f64 call log_f32/f64 and exp_f32/f64;
+    pow_f64 calls log_f64 and exp_f64, pow_f32 calls pow_f64;
     tan_f32/f64 call sin_f32/f64 and cos_f32/f64;
     hypot_f32/f64 call sqrt_f32/f64 — all from this same directory)
 
