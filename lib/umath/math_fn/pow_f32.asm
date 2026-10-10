@@ -45,16 +45,15 @@ umath_pow_f32:
     ret
 
 ; -----------------------------------------------------------------------------
-; umath_pow_f32_array - x^y elementwise for two arrays of floats
+; umath_pow_f32_array - pow(x, y) elementwise for two arrays
 ; args:    rdi = destination pointer (dst)
-;          rsi = base array pointer (xs)
-;          rdx = exponent array pointer (ys)
+;          rsi = first operand array (xs)
+;          rdx = second operand array (ys)
 ;          rcx = size of arrays (count)
 ; returns: void
 ;
-; count is moved out of rcx into r10 immediately: umath_log_f64/exp_f64
-; (reached through umath_pow_f32) clobber rcx internally, which would
-; otherwise corrupt the loop counter on the very first iteration.
+; Pairs are widened and run through powf64__packed2, exactly what
+; umath_pow_f32 does per element (widen, pow_f64, round once).
 ; -----------------------------------------------------------------------------
 global umath_pow_f32_array
 umath_pow_f32_array:
@@ -67,9 +66,24 @@ umath_pow_f32_array:
     test    rcx, rcx
     jz      .done
 
-    mov     r10, rcx
-
+    mov     r10, rcx            ; count; the scalar tail clobbers rcx
+    shr     rcx, 1
+    jz      .tail
 .loop:
+    cvtps2pd xmm0, [rsi]        ; two bases, widened exactly
+    cvtps2pd xmm1, [rdx]
+    call    powf64__packed2  ; no GPRs used
+    cvtpd2ps xmm0, xmm0         ; single rounding to float
+    movq    [rdi], xmm0
+    add     rsi, 8
+    add     rdx, 8
+    add     rdi, 8
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     r10, 1
+    jz      .done
+.tail_loop:
     movss   xmm0, [rsi]
     movss   xmm1, [rdx]
     call    umath_pow_f32
@@ -78,8 +92,7 @@ umath_pow_f32_array:
     add     rdx, 4
     add     rdi, 4
     dec     r10
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
