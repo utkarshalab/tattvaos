@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -71,10 +73,10 @@ umath_max_i32_array:
     movups  xmm7, [rdx + 48]
 
     ; Compute element-wise signed 32-bit maximums (SSE4.1 pmaxsd)
-    pmaxsd  xmm0, xmm4
-    pmaxsd  xmm1, xmm5
-    pmaxsd  xmm2, xmm6
-    pmaxsd  xmm3, xmm7
+    um_pmaxsd  xmm0, xmm4
+    um_pmaxsd  xmm1, xmm5
+    um_pmaxsd  xmm2, xmm6
+    um_pmaxsd  xmm3, xmm7
 
     ; Store results to dst
     movups  [rdi], xmm0
@@ -101,7 +103,7 @@ umath_max_i32_array:
 .loop_vector:
     movups  xmm0, [rsi]
     movups  xmm1, [rdx]
-    pmaxsd  xmm0, xmm1
+    um_pmaxsd  xmm0, xmm1
     movups  [rdi], xmm0
     add     rsi, 16
     add     rdx, 16
@@ -160,10 +162,10 @@ umath_max_i32_array_inplace:
     movups  xmm6, [rsi + 32]
     movups  xmm7, [rsi + 48]
 
-    pmaxsd  xmm0, xmm4
-    pmaxsd  xmm1, xmm5
-    pmaxsd  xmm2, xmm6
-    pmaxsd  xmm3, xmm7
+    um_pmaxsd  xmm0, xmm4
+    um_pmaxsd  xmm1, xmm5
+    um_pmaxsd  xmm2, xmm6
+    um_pmaxsd  xmm3, xmm7
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -188,7 +190,7 @@ umath_max_i32_array_inplace:
 .loop_vector:
     movups  xmm0, [rdi]
     movups  xmm1, [rsi]
-    pmaxsd  xmm0, xmm1
+    um_pmaxsd  xmm0, xmm1
     movups  [rdi], xmm0
     add     rdi, 16
     add     rsi, 16
@@ -239,16 +241,16 @@ umath_max_i32_reduce:
 
 .loop_vector:
     movups  xmm1, [rdi]
-    pmaxsd  xmm0, xmm1
+    um_pmaxsd  xmm0, xmm1
     add     rdi, 16
     dec     rcx
     jnz     .loop_vector
 
     ; Reduce xmm0 = [v3, v2, v1, v0] horizontally to single scalar in low slot
     pshufd  xmm1, xmm0, 0x0E    ; xmm1 = [v3, v2, v3, v2]
-    pmaxsd  xmm0, xmm1          ; xmm0 = [max(v3,v3), max(v2,v2), max(v1,v3), max(v0,v2)]
+    um_pmaxsd  xmm0, xmm1          ; xmm0 = [max(v3,v3), max(v2,v2), max(v1,v3), max(v0,v2)]
     pshufd  xmm1, xmm0, 0x01    ; shuffle low slots
-    pmaxsd  xmm0, xmm1          ; horizontal max of low slot and high slot
+    um_pmaxsd  xmm0, xmm1          ; horizontal max of low slot and high slot
     movd    eax, xmm0           ; extract result
 
     and     rsi, 3
@@ -350,10 +352,10 @@ umath_max_i32_inplace_clip:
     movups  xmm2, [rdi + 32]
     movups  xmm3, [rdi + 48]
 
-    pmaxsd  xmm0, xmm15
-    pmaxsd  xmm1, xmm15
-    pmaxsd  xmm2, xmm15
-    pmaxsd  xmm3, xmm15
+    um_pmaxsd  xmm0, xmm15
+    um_pmaxsd  xmm1, xmm15
+    um_pmaxsd  xmm2, xmm15
+    um_pmaxsd  xmm3, xmm15
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -376,7 +378,7 @@ umath_max_i32_inplace_clip:
 
 .loop_vector:
     movups  xmm0, [rdi]
-    pmaxsd  xmm0, xmm15
+    um_pmaxsd  xmm0, xmm15
     movups  [rdi], xmm0
     add     rdi, 16
     dec     rcx
