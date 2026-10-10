@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -24,7 +26,7 @@ section .text
 ; -----------------------------------------------------------------------------
 global umath_ceil_f32
 umath_ceil_f32:
-    roundss xmm0, xmm0, 2       ; round up (mode 2)
+    um_roundss xmm0, xmm0, 2       ; round up (mode 2)
     ret
 
 ; -----------------------------------------------------------------------------
@@ -34,7 +36,7 @@ umath_ceil_f32:
 ; -----------------------------------------------------------------------------
 global umath_ceil_f32_to_i32
 umath_ceil_f32_to_i32:
-    roundss xmm0, xmm0, 2       ; guarantee ceil rounding
+    um_roundss xmm0, xmm0, 2       ; guarantee ceil rounding
     cvtss2si eax, xmm0          ; convert scalar float to signed 32-bit integer
     ret
 
@@ -68,10 +70,10 @@ umath_ceil_f32_array:
     movups  xmm3, [rsi + 48]
 
     ; Ceil round (mode 2)
-    roundps xmm0, xmm0, 2
-    roundps xmm1, xmm1, 2
-    roundps xmm2, xmm2, 2
-    roundps xmm3, xmm3, 2
+    um_roundps xmm0, xmm0, 2
+    um_roundps xmm1, xmm1, 2
+    um_roundps xmm2, xmm2, 2
+    um_roundps xmm3, xmm3, 2
 
     ; Store results
     movups  [rdi], xmm0
@@ -96,7 +98,7 @@ umath_ceil_f32_array:
 
 .loop_vector:
     movups  xmm0, [rsi]
-    roundps xmm0, xmm0, 2
+    um_roundps xmm0, xmm0, 2
     movups  [rdi], xmm0
     add     rsi, 16
     add     rdi, 16
@@ -108,7 +110,7 @@ umath_ceil_f32_array:
 
 .residuals:
     movss   xmm0, [rsi]
-    roundss xmm0, xmm0, 2
+    um_roundss xmm0, xmm0, 2
     movss   [rdi], xmm0
     add     rsi, 4
     add     rdi, 4
@@ -143,10 +145,10 @@ umath_ceil_f32_inplace:
     movups  xmm2, [rdi + 32]
     movups  xmm3, [rdi + 48]
 
-    roundps xmm0, xmm0, 2
-    roundps xmm1, xmm1, 2
-    roundps xmm2, xmm2, 2
-    roundps xmm3, xmm3, 2
+    um_roundps xmm0, xmm0, 2
+    um_roundps xmm1, xmm1, 2
+    um_roundps xmm2, xmm2, 2
+    um_roundps xmm3, xmm3, 2
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -169,7 +171,7 @@ umath_ceil_f32_inplace:
 
 .loop_vector:
     movups  xmm0, [rdi]
-    roundps xmm0, xmm0, 2
+    um_roundps xmm0, xmm0, 2
     movups  [rdi], xmm0
     add     rdi, 16
     dec     rcx
@@ -180,7 +182,7 @@ umath_ceil_f32_inplace:
 
 .residuals:
     movss   xmm0, [rdi]
-    roundss xmm0, xmm0, 2
+    um_roundss xmm0, xmm0, 2
     movss   [rdi], xmm0
     add     rdi, 4
     dec     rsi
@@ -198,7 +200,7 @@ umath_ceil_f32_inplace:
 global umath_ceil_f32_fractional
 umath_ceil_f32_fractional:
     movaps  xmm1, xmm0          ; xmm1 = val
-    roundss xmm0, xmm0, 2       ; xmm0 = ceil(val)
+    um_roundss xmm0, xmm0, 2       ; xmm0 = ceil(val)
     subss   xmm1, xmm0          ; xmm1 = val - ceil(val)
     movaps  xmm0, xmm1          ; xmm0 = fractional part
     ret
@@ -232,10 +234,10 @@ umath_ceil_f32_to_i32_array:
     movups  xmm3, [rsi + 48]
 
     ; Ceil round
-    roundps xmm0, xmm0, 2
-    roundps xmm1, xmm1, 2
-    roundps xmm2, xmm2, 2
-    roundps xmm3, xmm3, 2
+    um_roundps xmm0, xmm0, 2
+    um_roundps xmm1, xmm1, 2
+    um_roundps xmm2, xmm2, 2
+    um_roundps xmm3, xmm3, 2
 
     ; Convert to signed 32-bit integer vectors
     cvtps2dq xmm0, xmm0
@@ -266,7 +268,7 @@ umath_ceil_f32_to_i32_array:
 
 .loop_vector:
     movups  xmm0, [rsi]
-    roundps xmm0, xmm0, 2
+    um_roundps xmm0, xmm0, 2
     cvtps2dq xmm0, xmm0
     movups  [rdi], xmm0
     add     rsi, 16
@@ -279,7 +281,7 @@ umath_ceil_f32_to_i32_array:
 
 .residuals:
     movss   xmm0, [rsi]
-    roundss xmm0, xmm0, 2
+    um_roundss xmm0, xmm0, 2
     cvtss2si eax, xmm0
     mov     [rdi], eax
     add     rsi, 4
@@ -298,7 +300,7 @@ umath_ceil_f32_to_i32_array:
 global umath_ceil_f32_is_integer
 umath_ceil_f32_is_integer:
     movaps  xmm1, xmm0
-    roundss xmm0, xmm0, 2       ; xmm0 = ceil(val)
+    um_roundss xmm0, xmm0, 2       ; xmm0 = ceil(val)
     ucomiss xmm0, xmm1          ; compare ceil(val) vs val
     jne     .not_int            ; if not equal, not an integer
     jp      .not_int            ; NaN guard
