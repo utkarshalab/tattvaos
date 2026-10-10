@@ -37,6 +37,7 @@ bits 64
 
 %include "lib/umath/math_fn/log_f64.asm"
 %include "lib/umath/math_fn/exp_f64.asm"
+%include "lib/umath/cpuid/fallback.asm"
 
 section .rodata
 align 16
@@ -82,7 +83,7 @@ umath_pow_f64:
 
     ; x == +/-0, y != 0. An odd integer y keeps the sign of x:
     ; pow(-0, 3) = -0 and pow(-0, -1) = -Inf; otherwise +0 / +Inf.
-    roundsd xmm4, xmm1, 0
+    um_roundsd xmm4, xmm1, 0
     ucomisd xmm4, xmm1
     jne     .zero_even            ; non-integer y (incl. +/-Inf) acts as even
     cvttsd2si rax, xmm4           ; huge |y| converts to 0x80..0 = even, which they are
@@ -104,7 +105,7 @@ umath_pow_f64:
     jae     .x_positive           ; x > 0 (x == 0 already handled above)
 
     ; x < 0: only defined for integer y
-    roundsd xmm4, xmm1, 0
+    um_roundsd xmm4, xmm1, 0
     ucomisd xmm4, xmm1
     jne     .return_nan           ; y is not an integer
 
@@ -185,12 +186,12 @@ powf64__packed2:
 
     ; y integral (yi == y) and odd (yi - 2*floor(yi/2) == 1)
     movapd  xmm13, xmm11
-    roundpd xmm13, xmm13, 0      ; yi
+    um_roundpd xmm13, xmm13, 0      ; yi
     movapd  xmm14, xmm13
     cmpeqpd xmm14, xmm11         ; integral y
     movapd  xmm1, xmm13
     mulpd   xmm1, [rel logf64_p_half]
-    roundpd xmm1, xmm1, 1
+    um_roundpd xmm1, xmm1, 1
     addpd   xmm1, xmm1           ; 2 * floor(yi / 2), exact
     movapd  xmm15, xmm13
     subpd   xmm15, xmm1
