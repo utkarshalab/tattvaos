@@ -47,6 +47,7 @@ powf64_pos_inf:    dq 0x7FF0000000000000
 align 16
 powf64_sign_mask:  dq 0x8000000000000000, 0x8000000000000000
 powf64_pos_inf_vec: dq 0x7FF0000000000000, 0x7FF0000000000000
+powf64_p_abs:       dq 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF
 
 section .text
 
@@ -158,16 +159,112 @@ umath_pow_f64:
     ret
 
 ; -----------------------------------------------------------------------------
-; umath_pow_f64_array - x^y elementwise for two arrays of doubles
+; powf64__packed2 - internal: x^y of two lane pairs, bit-identical to
+;                  umath_pow_f64 per lane
+; args:    xmm0 = two bases, xmm1 = two exponents
+; returns: xmm0 = two results
+;
+; Every lane computes exp(y * ln|x|) with the packed log and exp cores (each
+; bit-identical to its scalar routine), negated for a negative base with an
+; odd integer exponent. The scalar routine's special cases are then applied
+; as lane masks, lowest priority first, so the case the scalar tests first
+; wins: y == 0 -> 1, x == 1 -> 1, NaN -> NaN, x == +/-0 (signed by the
+; parity of y), x < 0 with non-integer y -> NaN, x < 0 with |x| == 1 -> +/-1.
+; Integer and odd tests are exact (roundpd): an infinite or huge y counts as
+; even, as the scalar's cvttsd2si (0x8000...) does.
+; Clobbers xmm1-xmm15, no GPRs. Not declared global.
+; -----------------------------------------------------------------------------
+powf64__packed2:
+    movapd  xmm10, xmm0          ; x
+    movapd  xmm11, xmm1          ; y
+    andpd   xmm0, [rel powf64_p_abs]
+    call    logf64__packed2      ; ln|x| (xmm1-xmm9)
+    mulpd   xmm0, xmm11          ; y * ln|x|
+    call    umath_exp_f64__reduce2   ; |x|^y (xmm1-xmm4)
+    movapd  xmm12, xmm0
+
+    ; y integral (yi == y) and odd (yi - 2*floor(yi/2) == 1)
+    movapd  xmm13, xmm11
+    roundpd xmm13, xmm13, 0      ; yi
+    movapd  xmm14, xmm13
+    cmpeqpd xmm14, xmm11         ; integral y
+    movapd  xmm1, xmm13
+    mulpd   xmm1, [rel logf64_p_half]
+    roundpd xmm1, xmm1, 1
+    addpd   xmm1, xmm1           ; 2 * floor(yi / 2), exact
+    movapd  xmm15, xmm13
+    subpd   xmm15, xmm1
+    cmpeqpd xmm15, [rel logf64_p_one]
+    andpd   xmm15, xmm14         ; odd integer y
+
+    xorpd   xmm2, xmm2           ; 0.0 (kept to the end)
+    movapd  xmm3, xmm10
+    cmpltpd xmm3, xmm2           ; x < 0
+
+    ; x < 0, odd integer y: negate
+    movapd  xmm4, xmm3
+    andpd   xmm4, xmm15
+    andpd   xmm4, [rel powf64_sign_mask]
+    xorpd   xmm12, xmm4
+
+    ; x < 0, y not integral: NaN
+    movapd  xmm4, xmm14
+    andnpd  xmm4, xmm3
+    logf64_blend xmm12, xmm4, [rel logf64_p_nan], xmm5
+
+    ; x < 0, |x| == 1, integral y: exactly +/-1
+    movapd  xmm4, xmm10
+    andpd   xmm4, [rel powf64_p_abs]
+    cmpeqpd xmm4, [rel logf64_p_one]
+    andpd   xmm4, xmm3
+    andpd   xmm4, xmm14
+    movapd  xmm6, xmm15
+    andpd   xmm6, [rel powf64_sign_mask]
+    orpd    xmm6, [rel logf64_p_one]
+    logf64_blend xmm12, xmm4, xmm6, xmm5
+
+    ; x == +/-0: odd integer y keeps the sign of x
+    movapd  xmm6, xmm10
+    andpd   xmm6, [rel powf64_sign_mask]
+    orpd    xmm6, [rel powf64_pos_inf_vec] ; +/-Inf, sign of x
+    movapd  xmm7, xmm2
+    cmpltpd xmm7, xmm11          ; y > 0
+    movapd  xmm8, xmm7
+    logf64_blend xmm6, xmm8, xmm10, xmm5   ; odd y: y > 0 ? x : +/-Inf
+    movapd  xmm9, [rel powf64_pos_inf_vec]
+    movapd  xmm8, xmm7
+    logf64_blend xmm9, xmm8, xmm2, xmm5    ; even y: y > 0 ? +0 : +Inf
+    movapd  xmm8, xmm15
+    logf64_blend xmm9, xmm8, xmm6, xmm5
+    movapd  xmm4, xmm10
+    cmpeqpd xmm4, xmm2
+    logf64_blend xmm12, xmm4, xmm9, xmm5
+
+    ; NaN x or y
+    movapd  xmm4, xmm10
+    cmpunordpd xmm4, xmm11
+    logf64_blend xmm12, xmm4, [rel logf64_p_nan], xmm5
+    ; x == 1, then y == +/-0 (the scalar's first two tests)
+    movapd  xmm4, xmm10
+    cmpeqpd xmm4, [rel logf64_p_one]
+    logf64_blend xmm12, xmm4, [rel logf64_p_one], xmm5
+    movapd  xmm4, xmm11
+    cmpeqpd xmm4, xmm2
+    logf64_blend xmm12, xmm4, [rel logf64_p_one], xmm5
+
+    movapd  xmm0, xmm12
+    ret
+
+; -----------------------------------------------------------------------------
+; umath_pow_f64_array - pow(x, y) elementwise for two arrays
 ; args:    rdi = destination pointer (dst)
-;          rsi = base array pointer (xs)
-;          rdx = exponent array pointer (ys)
+;          rsi = first operand array (xs)
+;          rdx = second operand array (ys)
 ;          rcx = size of arrays (count)
 ; returns: void
 ;
-; count is moved out of rcx into r10 immediately: umath_log_f64 (reached
-; through umath_pow_f64) clobbers rcx internally, which would otherwise
-; corrupt the loop counter on the very first iteration.
+; Pairs run through powf64__packed2 (bit-identical to umath_pow_f64); an odd
+; last element goes through the scalar routine.
 ; -----------------------------------------------------------------------------
 global umath_pow_f64_array
 umath_pow_f64_array:
@@ -180,9 +277,23 @@ umath_pow_f64_array:
     test    rcx, rcx
     jz      .done
 
-    mov     r10, rcx
-
+    mov     r10, rcx            ; count; the scalar tail clobbers rcx
+    shr     rcx, 1
+    jz      .tail
 .loop:
+    movupd  xmm0, [rsi]
+    movupd  xmm1, [rdx]
+    call    powf64__packed2  ; no GPRs used
+    movupd  [rdi], xmm0
+    add     rsi, 16
+    add     rdx, 16
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     r10, 1
+    jz      .done
+.tail_loop:
     movsd   xmm0, [rsi]
     movsd   xmm1, [rdx]
     call    umath_pow_f64
@@ -191,8 +302,7 @@ umath_pow_f64_array:
     add     rdx, 8
     add     rdi, 8
     dec     r10
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
