@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -25,7 +27,7 @@ section .text
 global umath_popcount8
 umath_popcount8:
     movzx   edi, dil
-    popcnt  eax, edi
+    um_popcnt  eax, edi
     ret
 
 ; -----------------------------------------------------------------------------
@@ -36,7 +38,7 @@ umath_popcount8:
 global umath_popcount16
 umath_popcount16:
     movzx   edi, di
-    popcnt  eax, edi
+    um_popcnt  eax, edi
     ret
 
 ; -----------------------------------------------------------------------------
@@ -46,7 +48,7 @@ umath_popcount16:
 ; -----------------------------------------------------------------------------
 global umath_popcount32
 umath_popcount32:
-    popcnt  eax, edi
+    um_popcnt  eax, edi
     ret
 
 ; -----------------------------------------------------------------------------
@@ -56,7 +58,7 @@ umath_popcount32:
 ; -----------------------------------------------------------------------------
 global umath_popcount64
 umath_popcount64:
-    popcnt  rax, rdi
+    um_popcnt  rax, rdi
     ret
 
 ; -----------------------------------------------------------------------------
@@ -129,7 +131,7 @@ umath_popcount_buf:
     test    rsi, rsi
     jz      .done
 .loop:
-    popcnt  rcx, qword [rdi]
+    um_popcnt  rcx, qword [rdi]
     add     rax, rcx
     add     rdi, 8
     dec     rsi
