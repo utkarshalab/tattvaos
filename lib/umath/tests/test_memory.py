@@ -2,13 +2,12 @@
 import ctypes as C
 import random
 
-from umath_ref import I64, P, U64, Z, Checker, cpu_has, fn, load
+from umath_ref import I64, P, U64, Z, Checker, fn, load
 
 lib = load()
 ck = Checker('memory')
 random.seed(7)
 N = 4096
-avx2 = cpu_has('avx2')
 
 
 def buf(n=N, fill=None):
@@ -20,9 +19,10 @@ def addr(b, off=0):
 
 
 SIZES = [0, 1, 7, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 255, 256, 257, 1000]
-simd = lambda names: [n for n in names if avx2 or 'avx2' not in n]
+# every variant runs on any CPU: the AVX2/AVX-512 ones fall back to narrower
+# code when the CPU or OS lacks them (cpuid/fallback.asm)
 
-for name in simd(['umath_memcpy', 'umath_memcpy_sse', 'umath_memcpy_avx2', 'umath_memcpy_aligned']):
+for name in ['umath_memcpy', 'umath_memcpy_sse', 'umath_memcpy_avx2', 'umath_memcpy_avx512', 'umath_memcpy_aligned']:
     f = fn(lib, name, P, P, P, Z)
     for _ in range(300):
         n = random.choice(SIZES + [random.randrange(1500)])
@@ -34,7 +34,7 @@ for name in simd(['umath_memcpy', 'umath_memcpy_sse', 'umath_memcpy_avx2', 'umat
         ck.check(f'{name} copies exactly n bytes', bytes(dst) == want, f'n={n} so={so} do={do}')
         ck.check(f'{name} returns dst', r == addr(dst, do), f'n={n}')
 
-for name in simd(['umath_memmove', 'umath_memmove_sse', 'umath_memmove_avx2']):
+for name in ['umath_memmove', 'umath_memmove_sse', 'umath_memmove_avx2']:
     f = fn(lib, name, P, P, P, Z)
     for _ in range(500):
         n = random.choice(SIZES)
@@ -47,7 +47,7 @@ for name in simd(['umath_memmove', 'umath_memmove_sse', 'umath_memmove_avx2']):
         ck.check(f'{name} handles overlap', bytes(b) == bytes(want), f'n={n} so={so} do={do}')
         ck.check(f'{name} returns dst', r == addr(b, do), f'n={n}')
 
-for name in simd(['umath_memset', 'umath_memset_sse', 'umath_memset_avx2']):
+for name in ['umath_memset', 'umath_memset_sse', 'umath_memset_avx2', 'umath_memset_avx512']:
     f = fn(lib, name, P, P, U64, Z)
     for _ in range(300):
         n, o, v = random.choice(SIZES), random.randrange(64), random.randrange(256)
@@ -58,7 +58,7 @@ for name in simd(['umath_memset', 'umath_memset_sse', 'umath_memset_avx2']):
         ck.check(f'{name} fills n bytes', bytes(b) == bytes(want), f'n={n} o={o}')
         ck.check(f'{name} returns dst', r == addr(b, o), f'n={n}')
 
-for name in simd(['umath_memzero', 'umath_memzero_sse', 'umath_memzero_avx2', 'umath_memzero_nt']):
+for name in ['umath_memzero', 'umath_memzero_sse', 'umath_memzero_avx2', 'umath_memzero_avx512', 'umath_memzero_nt']:
     f = fn(lib, name, P, P, Z)
     for _ in range(300):
         n = random.choice(SIZES)
@@ -71,7 +71,7 @@ for name in simd(['umath_memzero', 'umath_memzero_sse', 'umath_memzero_avx2', 'u
         ck.check(f'{name} returns dst', r == addr(b, o), f'n={n}')
 
 sign = lambda x: (x > 0) - (x < 0)
-for name in simd(['umath_memcmp', 'umath_memcmp_sse', 'umath_memcmp_avx2']):
+for name in ['umath_memcmp', 'umath_memcmp_sse', 'umath_memcmp_avx2']:
     f = fn(lib, name, I64, P, P, Z)
     for _ in range(600):
         n = random.choice(SIZES)
@@ -82,29 +82,28 @@ for name in simd(['umath_memcmp', 'umath_memcmp_sse', 'umath_memcmp_avx2']):
         x, y = bytes(a[:n]), bytes(b[:n])
         ck.check(f'{name} sign matches lexicographic order', f(addr(a), addr(b), n) == sign((x > y) - (x < y)), f'n={n}')
 
-if avx2:
-    for name, w in (('umath_memfill_pattern2', 2), ('umath_memfill_pattern4', 4), ('umath_memfill_pattern8', 8)):
-        f = fn(lib, name, P, P, U64, Z)
-        for _ in range(300):
-            n, o, pat = random.choice(SIZES), random.randrange(16), random.getrandbits(64)
-            b = buf()
-            want = bytearray(b)
-            pb = pat.to_bytes(8, 'little')[:w]
-            want[o:o + n] = (pb * (n // w + 1))[:n]
-            r = f(addr(b, o), pat, n)
-            ck.check(f'{name} repeats the pattern', bytes(b) == bytes(want), f'n={n} o={o}')
-            ck.check(f'{name} returns dst', r == addr(b, o), f'n={n}')
-    for name, w in (('umath_memfill_pattern16', 16), ('umath_memfill_pattern32', 32)):
-        f = fn(lib, name, P, P, P, Z)
-        for _ in range(300):
-            n, o = random.choice(SIZES), random.randrange(16)
-            pat = buf(64)
-            b = buf()
-            want = bytearray(b)
-            want[o:o + n] = (bytes(pat)[:w] * (n // w + 1))[:n]
-            r = f(addr(b, o), addr(pat), n)
-            ck.check(f'{name} repeats the pattern', bytes(b) == bytes(want), f'n={n} o={o}')
-            ck.check(f'{name} returns dst', r == addr(b, o), f'n={n}')
+for name, w in (('umath_memfill_pattern2', 2), ('umath_memfill_pattern4', 4), ('umath_memfill_pattern8', 8)):
+    f = fn(lib, name, P, P, U64, Z)
+    for _ in range(300):
+        n, o, pat = random.choice(SIZES), random.randrange(16), random.getrandbits(64)
+        b = buf()
+        want = bytearray(b)
+        pb = pat.to_bytes(8, 'little')[:w]
+        want[o:o + n] = (pb * (n // w + 1))[:n]
+        r = f(addr(b, o), pat, n)
+        ck.check(f'{name} repeats the pattern', bytes(b) == bytes(want), f'n={n} o={o}')
+        ck.check(f'{name} returns dst', r == addr(b, o), f'n={n}')
+for name, w in (('umath_memfill_pattern16', 16), ('umath_memfill_pattern32', 32)):
+    f = fn(lib, name, P, P, P, Z)
+    for _ in range(300):
+        n, o = random.choice(SIZES), random.randrange(16)
+        pat = buf(64)
+        b = buf()
+        want = bytearray(b)
+        want[o:o + n] = (bytes(pat)[:w] * (n // w + 1))[:n]
+        r = f(addr(b, o), addr(pat), n)
+        ck.check(f'{name} repeats the pattern', bytes(b) == bytes(want), f'n={n} o={o}')
+        ck.check(f'{name} returns dst', r == addr(b, o), f'n={n}')
 
 # --- allocators: every operation after init must work (64-bit magic checks)
 S = C.c_ubyte * 128
