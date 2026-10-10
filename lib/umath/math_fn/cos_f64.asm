@@ -15,9 +15,9 @@
 ;   n mod 4 = 2:  cos(x) = -cos(r)
 ;   n mod 4 = 3:  cos(x) =  sin(r)
 ;
-; Domain: same practical accuracy bound as sin_f64.asm — accurate for
-; |x| up to roughly 2^32 * pi/2 =~ 6.7e9, measurably degraded well beyond
-; it. See that file's header for the measured numbers.
+; Domain: same three-part reduction and bounds as sin_f64.asm — accurate
+; for |x| < 2^32 * pi/2 =~ 6.7e9, degrading beyond it, NaN for |x| >= 2^52.
+; See that file's header for the measured numbers.
 ;
 ; cos(NaN) = NaN, cos(±Inf) = NaN (undefined), matching libm.
 ; =============================================================================
@@ -27,10 +27,11 @@ bits 64
 section .rodata
 align 16
 cosf64_two_over_pi:  dq 0.6366197723675814
-cosf64_pi2_hi:        dq 1.5707963267341256
-cosf64_pi2_lo:        dq 6.077094383272197e-11
+cosf64_pi2_p1:        dq 1.570796012878418      ; pi/2 split into 21 + 21 + 53 bits:
+cosf64_pi2_p2:        dq 3.139164164167596e-07  ; n*p1 and n*p2 are exact for n < 2^32
+cosf64_pi2_p3:        dq 6.223372171896613e-14  ; p3 = pi/2 - p1 - p2 to 53 bits
 cosf64_nan_bits:      dq 0x7FF8000000000000
-cosf64_pos_inf:       dq 0x7FF0000000000000
+cosf64_limit:         dq 4503599627370496.0   ; 2^52: |x| at or above -> NaN (see header)
 
 align 16
 cosf64_sign_mask:     dq 0x8000000000000000, 0x8000000000000000
@@ -62,7 +63,7 @@ section .text
 ; -----------------------------------------------------------------------------
 ; umath_cos_f64 - scalar double-precision cosine
 ; args:    xmm0 = input value (x), radians
-; returns: xmm0 = cos(x); NaN for NaN or +/-Inf input
+; returns: xmm0 = cos(x); NaN for NaN, +/-Inf or |x| >= 2^52
 ; -----------------------------------------------------------------------------
 global umath_cos_f64
 umath_cos_f64:
@@ -73,18 +74,22 @@ umath_cos_f64:
     mov     r8, 0x7FFFFFFFFFFFFFFF
     and     rax, r8
     movq    xmm6, rax              ; xmm6 = |x|
-    ucomisd xmm6, [rel cosf64_pos_inf]
-    je      .return_nan            ; |x| == Inf (cos(Inf) is undefined)
+    ucomisd xmm6, [rel cosf64_limit]
+    jae     .return_nan            ; |x| == Inf (cos(Inf) is undefined), or too
+                                   ; large for this reduction (see header)
 
     movsd   xmm1, [rel cosf64_two_over_pi]
     mulsd   xmm1, xmm0
     roundsd xmm1, xmm1, 0          ; xmm1 = n (round to nearest)
 
     movsd   xmm2, xmm1
-    mulsd   xmm2, [rel cosf64_pi2_hi]
+    mulsd   xmm2, [rel cosf64_pi2_p1]
+    subsd   xmm0, xmm2             ; exact (Sterbenz): x and n*p1 are close
+    movsd   xmm2, xmm1
+    mulsd   xmm2, [rel cosf64_pi2_p2]
     subsd   xmm0, xmm2
     movsd   xmm2, xmm1
-    mulsd   xmm2, [rel cosf64_pi2_lo]
+    mulsd   xmm2, [rel cosf64_pi2_p3]
     subsd   xmm0, xmm2             ; xmm0 = r
 
     movsd   xmm2, xmm0
@@ -133,7 +138,7 @@ umath_cos_f64:
     mulsd   xmm4, xmm2
     addsd   xmm4, [rel cosf64_one]  ; xmm4 = cos(r)
 
-    cvttsd2si eax, xmm1             ; n is already integral; truncate is exact
+    cvttsd2si rax, xmm1             ; n is integral; 64-bit so n >= 2^31 keeps its low bits
     and     eax, 3
 
     cmp     eax, 0
