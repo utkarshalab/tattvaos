@@ -45,8 +45,9 @@
 ;   BIGINT + FP64  → BIGFLOAT
 ; =============================================================================
 
-%include "dtype_id.asm"
-%include "dtype_family.asm"
+%include "lib/umath/dtype/dtype_id.asm"
+%include "lib/umath/dtype/dtype_family.asm"
+%include "lib/umath/dtype/dtype_size.asm"
 
 bits 64
 section .text
@@ -255,80 +256,111 @@ dtype_get_rank:
     ret
 
 ; -----------------------------------------------------------------------------
+; dtype_promote__is_float_family - internal: is this a floating-point family?
+; args:    edi = family id
+; returns: eax = 1 if floating point, 0 otherwise
+; -----------------------------------------------------------------------------
+dtype_promote__is_float_family:
+    cmp     edi, DFAMILY_FLOAT_IEEE
+    je      .yes
+    cmp     edi, DFAMILY_FLOAT_FP8_VAR
+    je      .yes
+    cmp     edi, DFAMILY_FLOAT_FP6
+    je      .yes
+    cmp     edi, DFAMILY_FLOAT_OCP
+    je      .yes
+    cmp     edi, DFAMILY_FLOAT_NV
+    je      .yes
+    cmp     edi, DFAMILY_ALTERNATIVE
+    je      .yes
+    xor     eax, eax
+    ret
+.yes:
+    mov     eax, 1
+    ret
+
+; -----------------------------------------------------------------------------
 ; umath_dtype_promote - get promotion result of two dtypes
 ; args:    edi = dtype_id_a
 ;          esi = dtype_id_b
-; returns: eax = result dtype_id
+; returns: eax = result dtype_id (the same for (a, b) and (b, a))
 ;
-; algorithm:
+; algorithm (after sorting the two ids, so each rule sees one fixed pairing):
 ;   1. same dtype → return that dtype
 ;   2. one is NONE → return the other
-;   3. both integer: return higher rank
-;   4. one float, one int: return float (at least FP32)
-;   5. both float: return higher rank
-;   6. one complex: return complex of higher component type
-;   7. bignum family: return higher rank
-;   8. default: return higher rank winner
+;   3. bool (INT1) → return the other
+;   4. one complex: return complex of higher component type
+;   5. bignum family: absorbs everything (bignum + float → bigfloat)
+;   6. integer + float: return float (at least FP32)
+;   7. signed + unsigned integer: the signed type if it is strictly wider,
+;      else the signed type twice the unsigned width (UINT8+INT8 → INT16),
+;      BIGINT past INT256
+;   8. otherwise higher rank wins; on a rank tie two distinct floats below
+;      FP32 (FP16+BF16, the FP8 pair) give FP32, any other tie the lower id
 ; -----------------------------------------------------------------------------
 global umath_dtype_promote
 umath_dtype_promote:
+    ; canonical argument order: commutative by construction
+    cmp     edi, esi
+    jbe     .ordered
+    xchg    edi, esi
+.ordered:
     push    rbx
     push    r12
     push    r13
+    push    r14
+    sub     rsp, 8                  ; [rsp] = scratch; keeps rsp 16-byte aligned at calls
 
-    mov     ebx, edi                ; save a
-    mov     r12d, esi               ; save b
+    mov     ebx, edi                ; a (lower id)
+    mov     r12d, esi               ; b
 
     ; 1. same dtype
     cmp     edi, esi
     je      .return_a
 
-    ; 2. either is NONE
+    ; 2. NONE (only a can be: it has the lower id)
     test    edi, edi
     jz      .return_b
-    test    esi, esi
-    jz      .return_a
+
+    ; 3. bool promotes to the other type (INT1 is the lowest real id)
+    cmp     edi, DTYPE_INT1
+    je      .return_b
 
     ; get families
     call    umath_dtype_get_family
     mov     r13d, eax               ; family_a
-
     mov     edi, r12d
     call    umath_dtype_get_family
-    ; eax = family_b, r13d = family_a
+    mov     r14d, eax               ; family_b
 
-    ; 3. complex promotion
+    ; 4. complex promotion
     cmp     r13d, DFAMILY_COMPLEX
     je      .complex_a
-    cmp     eax, DFAMILY_COMPLEX
+    cmp     r14d, DFAMILY_COMPLEX
     je      .complex_b
 
-    ; 4. bignum wins over everything else
+    ; 5. bignum wins over everything else
     cmp     r13d, DFAMILY_BIGNUM
     je      .bignum_a
-    cmp     eax, DFAMILY_BIGNUM
+    cmp     r14d, DFAMILY_BIGNUM
     je      .bignum_b
 
-    ; 5. float + integer: float wins, minimum FP32
+    ; 6./7. integer a (integer ids sort below every float id)
     cmp     r13d, DFAMILY_INT_SIGNED
-    je      .check_b_float
+    je      .int_a
     cmp     r13d, DFAMILY_INT_UNSIGNED
-    je      .check_b_float
+    je      .int_a
     jmp     .rank_compare
 
-.check_b_float:
-    cmp     eax, DFAMILY_FLOAT_IEEE
-    je      .float_wins_b
-    cmp     eax, DFAMILY_FLOAT_FP8_VAR
-    je      .float_wins_b
-    cmp     eax, DFAMILY_FLOAT_FP6
-    je      .float_wins_b
-    cmp     eax, DFAMILY_FLOAT_OCP
-    je      .float_wins_b
-    cmp     eax, DFAMILY_FLOAT_NV
-    je      .float_wins_b
-    cmp     eax, DFAMILY_ALTERNATIVE
-    je      .float_wins_b
+.int_a:
+    mov     edi, r14d
+    call    dtype_promote__is_float_family
+    test    eax, eax
+    jnz     .float_wins_b
+    cmp     r13d, DFAMILY_INT_SIGNED
+    jne     .rank_compare
+    cmp     r14d, DFAMILY_INT_UNSIGNED
+    je      .mixed_sign             ; signed ids sort below unsigned ones
     jmp     .rank_compare
 
 .float_wins_b:
@@ -336,24 +368,59 @@ umath_dtype_promote:
     mov     edi, r12d
     call    dtype_get_rank
     cmp     eax, 35                 ; FP32 rank
-    jge     .return_b
-    ; upgrade to FP32
-    mov     eax, DTYPE_FP32
+    jae     .return_b
+    mov     eax, DTYPE_FP32         ; upgrade to FP32
+    jmp     .done
+
+.mixed_sign:
+    ; signed a holds every value of unsigned b only if strictly wider
+    mov     edi, ebx
+    call    umath_dtype_size_bits
+    mov     r13d, eax               ; signed width
+    mov     edi, r12d
+    call    umath_dtype_size_bits   ; eax = unsigned width
+    cmp     r13d, eax
+    ja      .return_a
+    ; smallest of INT8..INT256 (consecutive ids) with width >= 2 * unsigned
+    add     eax, eax
+    mov     ecx, DTYPE_INT8
+    mov     edx, 8
+.width_loop:
+    cmp     eax, edx
+    jbe     .return_ecx
+    add     edx, edx
+    inc     ecx
+    cmp     ecx, DTYPE_INT256
+    jbe     .width_loop
+    mov     eax, DTYPE_BIGINT       ; nothing fixed-width is wide enough
+    jmp     .done
+.return_ecx:
+    mov     eax, ecx
     jmp     .done
 
 .rank_compare:
     ; compare ranks, return higher
     mov     edi, ebx
     call    dtype_get_rank
-    mov     r13d, eax               ; rank_a
-
+    mov     [rsp], eax              ; rank_a
     mov     edi, r12d
-    call    dtype_get_rank
-    ; eax = rank_b
-
-    cmp     r13d, eax
-    jge     .return_a
-    jmp     .return_b
+    call    dtype_get_rank          ; eax = rank_b
+    cmp     [rsp], eax
+    ja      .return_a
+    jb      .return_b
+    ; equal rank, different dtypes
+    cmp     eax, 35                 ; FP32 rank
+    jae     .return_a
+    mov     edi, r13d
+    call    dtype_promote__is_float_family
+    test    eax, eax
+    jz      .return_a
+    mov     edi, r14d
+    call    dtype_promote__is_float_family
+    test    eax, eax
+    jz      .return_a
+    mov     eax, DTYPE_FP32         ; e.g. FP16 + BF16: FP32 represents both
+    jmp     .done
 
 .complex_a:
     ; a is complex, promote b to match a's component
@@ -379,28 +446,30 @@ umath_dtype_promote:
     mov     edi, r12d
     call    dtype_get_rank
     cmp     eax, 35                 ; FP32 rank
-    jge     .ret_cf32
+    jae     .ret_cf32
     jmp     .return_a
 
 .complex_b:
     ; symmetric: swap a and b and re-run complex_a logic
     xchg    ebx, r12d
+    xchg    r13d, r14d
     jmp     .complex_a
 
 .bignum_a:
     ; a is bignum — if b is also bignum, higher rank wins
-    cmp     eax, DFAMILY_BIGNUM
+    cmp     r14d, DFAMILY_BIGNUM
     je      .rank_compare
     ; bignum a absorbs non-bignum b
     ; except: bignum + float → bigfloat
-    cmp     eax, DFAMILY_FLOAT_IEEE
+    cmp     r14d, DFAMILY_FLOAT_IEEE
     je      .ret_bigfloat
-    cmp     eax, DFAMILY_ALTERNATIVE
+    cmp     r14d, DFAMILY_ALTERNATIVE
     je      .ret_bigfloat
     jmp     .return_a
 
 .bignum_b:
     xchg    ebx, r12d
+    xchg    r13d, r14d
     jmp     .bignum_a
 
 .ret_cf32:
@@ -423,6 +492,8 @@ umath_dtype_promote:
     mov     eax, r12d
 
 .done:
+    add     rsp, 8
+    pop     r14
     pop     r13
     pop     r12
     pop     rbx
