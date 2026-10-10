@@ -1,7 +1,7 @@
 # tests — umath Test Harness
 
 **Module:** `tests/`
-**Status:** Not yet swept — directory scaffolded, no files yet.
+**Status:** Implemented — covers bits/, dtype/, math_fn/, memory/, scalar/.
 **Part of:** umath — unified math library
 
 ---
@@ -15,26 +15,42 @@ its own separate build/run path, matching every other `tests/` directory
 already established elsewhere in the repo (`unet/`, `crypto/`, etc. per
 `boot/Makefile`'s comment on the subject).
 
-The verification approach `math_fn/README.md` documents — `ld -shared` a
-file into a `.so`, drive it from Python via `ctypes`, compare against a
-reference implementation — was done ad hoc per-file during development
-rather than checked in as a running suite. This folder is where that
-should eventually live as an actual, re-runnable harness rather than a
-one-off methodology repeated by hand each time.
+## Running
 
-## Planned scope
+```
+sh lib/umath/tests/run_tests.sh
+```
 
-- A build step that assembles individual umath `.asm` files as standalone
-  ELF objects (or the natural multi-file combinations, e.g. `pow_f32.asm`
-  needs `log_f32.asm`+`exp_f32.asm` in the same assembly pass) and links
-  them as shared objects for host-side testing
-- Reference-value test cases per module, starting with `math_fn/`'s
-  already-exercised sqrt/exp/log/pow test vectors
-- Ideally runs on the host (Linux/WSL, per this project's build setup)
-  without needing QEMU — the whole point is fast iteration during
-  development, not boot-testing
+Needs nasm, ld and python3 on the host (Linux/WSL); no QEMU and no C
+compiler. Exit status 0 means everything passed.
 
-## Dependencies (anticipated)
+## What it checks
+
+- `run_tests.sh` assembles every `.asm` file in the implemented modules on
+  its own and all of them as one translation unit, with
+  `-Werror=number-overflow -Werror=other` (see `../README.md` for why
+  those two warning classes matter here), links the unit into a shared
+  object, then runs each `test_*.py` against it.
+- `test_math_fn.py`: ULP sweeps against Python's `math` module, special
+  values (NaN, ±Inf, ±0, overflow/underflow), the sin/cos domain bound, and
+  array/inplace variants against the scalar routine.
+- `test_memory.py`: fuzzed copy/move (with overlap)/set/zero/compare/fill
+  against Python byte strings, return values, and every allocator
+  operation after init.
+- `test_scalar.py`: rounding, abs/neg/sign, min/max/clamp, reductions
+  (including NaN propagation) and array/inplace variants.
+- `test_bits.py`: property tests against Python integers, including 128- and
+  512-bit shifts, buffer bit insertion and buffer rotation.
+- `test_dtype.py`: classification consistency for every id in
+  `dtype_id.asm`, promotion (commutativity and the table in
+  `dtype/README.md`), support levels, value traits, ULP and validation.
+- `umath_ref.py`: shared helpers (ULP distance, float32 rounding, a small
+  failure collector).
+
+AVX2 variants are skipped on a host without AVX2; the AVX-512 variants
+are not exercised (no hardware to run them on).
+
+## Dependencies
 
 ```
 tests/ is excluded from the kernel image entirely (see boot/Makefile);
