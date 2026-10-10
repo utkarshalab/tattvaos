@@ -18,6 +18,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -84,6 +86,7 @@ umath_abs_i64_sat:
 ; -----------------------------------------------------------------------------
 global umath_abs_i64_array
 umath_abs_i64_array:
+    um_need umath__has_avx2, absi64__array_base   ; no AVX2: scalar loop
     test    rdi, rdi
     jz      .done
     test    rsi, rsi
@@ -160,6 +163,7 @@ umath_abs_i64_array:
 ; -----------------------------------------------------------------------------
 global umath_abs_i64_inplace
 umath_abs_i64_inplace:
+    um_need umath__has_avx2, absi64__inplace_base   ; no AVX2: scalar loop
     test    rdi, rdi
     jz      .done
     test    rsi, rsi
@@ -232,6 +236,7 @@ umath_abs_i64_inplace:
 ; -----------------------------------------------------------------------------
 global umath_abs_i64_sat_array
 umath_abs_i64_sat_array:
+    um_need umath__has_avx2, absi64__sat_base   ; no AVX2: scalar loop
     test    rdi, rdi
     jz      .done
     test    rsi, rsi
@@ -377,6 +382,45 @@ umath_abs_i64_sign:
     jns     .done               ; positive -> returns 1
     
     mov     rax, -1             ; negative -> returns -1
+.done:
+    ret
+
+; -----------------------------------------------------------------------------
+; absi64__*_base - internal: baseline (no AVX2) versions of the abs_i64
+; array functions; same arguments and results. Not declared global.
+; -----------------------------------------------------------------------------
+absi64__inplace_base:
+    mov     rdx, rsi            ; (buf, count) -> (dst = buf, src = buf, count)
+    mov     rsi, rdi
+absi64__array_base:
+    xor     r9d, r9d            ; wrapping |x|
+    jmp     absi64__loop_base
+absi64__sat_base:
+    mov     r9d, 1              ; saturating |x|
+absi64__loop_base:
+    test    rdi, rdi
+    jz      .done
+    test    rsi, rsi
+    jz      .done
+    test    rdx, rdx
+    jz      .done
+.loop:
+    mov     rax, [rsi]
+    mov     r8, rax
+    sar     r8, 63
+    xor     rax, r8
+    sub     rax, r8             ; wrapping |x|
+    test    r9d, r9d
+    jz      .store
+    mov     r8, rax
+    sar     r8, 63              ; still negative only for INT64_MIN
+    xor     rax, r8
+.store:
+    mov     [rdi], rax
+    add     rsi, 8
+    add     rdi, 8
+    dec     rdx
+    jnz     .loop
 .done:
     ret
 
