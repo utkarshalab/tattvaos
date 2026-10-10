@@ -14,13 +14,14 @@ Part of the `lib/` category in Tattva OS.
 
 ## Status
 
-Four modules have real, numerically-verified implementations:
+Five modules have real, numerically-verified implementations (checked by
+`tests/run_tests.sh`, see below):
 
 ```text
 bits/     Tier 0   fixed-width integer & IEEE-754 bit-pattern primitives
 memory/   Tier 0-1  copy/set/compare/allocate (5 allocator shapes)
 scalar/   Tier 0-1  abs/min/max/clamp/round/sign/reciprocal, i32/i64/f32/f64
-dtype/    Tier 0    235-type classification/metadata system
+dtype/    Tier 0    213-type classification/metadata system
 math_fn/  Tier 1    sqrt/exp/log/pow/sin/cos/tan/hypot, f32/f64 — the full
                      transcendental math set
 ```
@@ -51,11 +52,18 @@ remove the ambiguity rather than carry two same-named things side by side
 
 ## A note on the single-translation-unit build
 
-Per `boot/Makefile`, the entire kernel — including everything under
-`lib/`, so all of umath — assembles as **one** NASM translation unit:
-`kernel/entry.asm` pulls in every other file via `%include`. That means
-every non-local label anywhere in this tree, including a file's own
-`.rodata` constants, must be globally unique — NASM has no file-private
+The kernel assembles as **one** NASM translation unit: `kernel/entry.asm`
+pulls in every other file via `%include` (`boot/Makefile` only lists the
+rest of `lib/` as rebuild prerequisites). umath is not `%include`d there
+yet, so nothing in the kernel calls it today; `tests/run_tests.sh`
+assembles every umath file on its own and all of them as one unit, so the
+tree stays ready for that. Files that call into another file
+`%include` it with a repo-root path (`%include "lib/umath/math_fn/log_f64.asm"`)
+behind the usual include guards, so each one assembles standalone too.
+
+Because of the single translation unit, every non-local label anywhere in
+this tree, including a file's own `.rodata` constants, must be globally
+unique — NASM has no file-private
 symbol concept the way C has `static`. This bit a real, cross-cutting bug
 during development (10 groups of colliding constant names like
 `const_one_f32` across 20 files) before it was fixed; every file in this
@@ -66,16 +74,22 @@ tree now prefixes its local constants with the file's own name
 
 ## Verification methodology
 
-Every implemented function in `math_fn/` (and, going forward, every module
-with actual numerical content — `norm/`, `stats/`, `gemm/`) is checked two
-ways before being considered done:
+`sh lib/umath/tests/run_tests.sh` (Linux/WSL: nasm, ld, python3) checks
+every implemented module two ways:
 
-1. **Syntax**: `nasm -f elf64` under WSL.
-2. **Numerics**: `ld -shared` the object into a `.so`, load it from Python
-   via `ctypes`, and compare against a reference implementation (Python's
-   `math` module) across a wide range of inputs including domain edges
-   (zero, negative, NaN, Inf, subnormal). No C compiler needed — the build
-   environment doesn't have one, and this path doesn't require one either.
+1. **Assembly**: `nasm -f elf64` on every file standalone and on all of
+   them as one translation unit, with `-Werror=number-overflow` and
+   `-Werror=other`. Those two warning classes are not cosmetic in this tree:
+   a 64-bit immediate in `cmp reg, imm` is silently truncated to a
+   sign-extended 32 bits (it broke every allocator's magic check), and
+   initialized data in `.bss` is silently dropped (it zeroed a cache whose
+   "not computed" sentinel was 0xFF).
+2. **Behaviour**: `ld -shared` the unit into a `.so`, load it from Python
+   via `ctypes`, and compare against reference implementations (Python's
+   `math` module, Python integers, byte strings) across a wide range of
+   inputs including domain edges (zero, negative, NaN, Inf, subnormal).
+   No C compiler needed — the build environment doesn't have one, and this
+   path doesn't require one either.
 
 This isn't optional polish. It's what caught every real bug that shipped
 during `math_fn`'s development: two register-clobber bugs, two
