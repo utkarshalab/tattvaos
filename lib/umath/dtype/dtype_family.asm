@@ -51,7 +51,7 @@
 ;   DFAMILY_UNKNOWN           = 0xFF
 ; =============================================================================
 
-%include "dtype_id.asm"
+%include "lib/umath/dtype/dtype_id.asm"
 
 bits 64
 section .text
