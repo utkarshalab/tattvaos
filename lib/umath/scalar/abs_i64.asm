@@ -11,7 +11,8 @@
 ;   - Saturating absolute value prevents wrapping of INT64_MIN
 ;     (0x8000000000000000) into itself, mapping it instead to
 ;     INT64_MAX (0x7FFFFFFFFFFFFFFF).
-;   - Vectorized loop utilizing the AVX2 VPABSQ instruction or scalar loops.
+;   - Vectorized loops on AVX2: VPABSQ is AVX-512 only, so packed |x| is
+;     (x ^ m) - m with m = (0 > x) from VPCMPGTQ (absi64_vec below).
 ;   - Vectorized saturating absolute array mapping.
 ;   - Counting negative integers in 64-bit array.
 ; =============================================================================
@@ -19,9 +20,26 @@
 bits 64
 section .text
 
-align 32
-absi64_int64_min:    dq 0x8000000000000000, 0x8000000000000000, 0x8000000000000000, 0x8000000000000000
-absi64_int64_max:    dq 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF
+; -----------------------------------------------------------------------------
+; absi64_vec - packed 64-bit |x| on AVX2 (wrapping: INT64_MIN stays INT64_MIN)
+; args:    %1 = values (in/out), %2 = scratch, %3 = all-zero register
+; -----------------------------------------------------------------------------
+%macro absi64_vec 3
+    vpcmpgtq %2, %3, %1         ; %2 = all-ones where x < 0
+    vpxor   %1, %1, %2
+    vpsubq  %1, %1, %2          ; (x ^ m) - m
+%endmacro
+
+; -----------------------------------------------------------------------------
+; absi64_sat_vec - packed saturating 64-bit |x|: after the wrapping |x| only
+; INT64_MIN is still negative, and INT64_MIN ^ -1 == INT64_MAX
+; args:    %1 = values (in/out), %2 = scratch, %3 = all-zero register
+; -----------------------------------------------------------------------------
+%macro absi64_sat_vec 3
+    absi64_vec %1, %2, %3
+    vpcmpgtq %2, %3, %1         ; %2 = all-ones where |x| wrapped
+    vpxor   %1, %1, %2
+%endmacro
 
 ; -----------------------------------------------------------------------------
 ; umath_abs_i64 - scalar branchless 64-bit absolute value
@@ -43,7 +61,7 @@ umath_abs_i64:
 ; -----------------------------------------------------------------------------
 global umath_abs_i64_sat
 umath_abs_i64_sat:
-    movabs  r8, 0x8000000000000000
+    mov     r8, 0x8000000000000000
     cmp     rdi, r8             ; check if val == INT64_MIN
     je      .clamp
 
@@ -54,7 +72,7 @@ umath_abs_i64_sat:
     ret
 
 .clamp:
-    movabs  rax, 0x7FFFFFFFFFFFFFFF ; return INT64_MAX
+    mov     rax, 0x7FFFFFFFFFFFFFFF ; return INT64_MAX
     ret
 
 ; -----------------------------------------------------------------------------
@@ -73,6 +91,8 @@ umath_abs_i64_array:
     test    rdx, rdx
     jz      .done
 
+    vpxor   ymm15, ymm15, ymm15 ; zero
+
     cmp     rdx, 8
     jb      .single_ints
 
@@ -82,10 +102,8 @@ umath_abs_i64_array:
 .loop_unrolled:
     vmovdqu ymm0, [rsi]
     vmovdqu ymm1, [rsi + 32]
-
-    vpabsq  ymm0, ymm0
-    vpabsq  ymm1, ymm1
-
+    absi64_vec ymm0, ymm2, ymm15
+    absi64_vec ymm1, ymm3, ymm15
     vmovdqu [rdi], ymm0
     vmovdqu [rdi + 32], ymm1
 
@@ -106,7 +124,7 @@ umath_abs_i64_array:
 
 .loop_vector:
     vmovdqu xmm0, [rsi]
-    vpabsq  xmm0, xmm0
+    absi64_vec xmm0, xmm2, xmm15
     vmovdqu [rdi], xmm0
     add     rsi, 16
     add     rdi, 16
@@ -117,10 +135,12 @@ umath_abs_i64_array:
     jz      .done
 
 .residuals:
+    ; sign mask via sar, not cqo: cqo would overwrite rdx (the count)
     mov     rax, [rsi]
-    cqo
-    xor     rax, rdx
-    sub     rax, rdx
+    mov     r8, rax
+    sar     r8, 63
+    xor     rax, r8
+    sub     rax, r8
     mov     [rdi], rax
     add     rsi, 8
     add     rdi, 8
@@ -130,6 +150,7 @@ umath_abs_i64_array:
 .done:
     vzeroupper
     ret
+
 
 ; -----------------------------------------------------------------------------
 ; umath_abs_i64_inplace - in-place absolute value for 64-bit integers
@@ -144,19 +165,19 @@ umath_abs_i64_inplace:
     test    rsi, rsi
     jz      .done
 
+    vpxor   ymm15, ymm15, ymm15 ; zero
+
     cmp     rsi, 8
     jb      .single_ints
 
     mov     rcx, rsi
-    shr     rcx, 3
+    shr     rcx, 3              ; count of 8-integer (64-byte) blocks
 
 .loop_unrolled:
     vmovdqu ymm0, [rdi]
     vmovdqu ymm1, [rdi + 32]
-
-    vpabsq  ymm0, ymm0
-    vpabsq  ymm1, ymm1
-
+    absi64_vec ymm0, ymm2, ymm15
+    absi64_vec ymm1, ymm3, ymm15
     vmovdqu [rdi], ymm0
     vmovdqu [rdi + 32], ymm1
 
@@ -172,11 +193,11 @@ umath_abs_i64_inplace:
     jb      .residuals
 
     mov     rcx, rsi
-    shr     rcx, 1
+    shr     rcx, 1              ; count of 2-integer vectors
 
 .loop_vector:
     vmovdqu xmm0, [rdi]
-    vpabsq  xmm0, xmm0
+    absi64_vec xmm0, xmm2, xmm15
     vmovdqu [rdi], xmm0
     add     rdi, 16
     dec     rcx
@@ -186,10 +207,12 @@ umath_abs_i64_inplace:
     jz      .done
 
 .residuals:
+    ; sign mask via sar, not cqo: cqo would overwrite rdx (the count)
     mov     rax, [rdi]
-    cqo
-    xor     rax, rdx
-    sub     rax, rdx
+    mov     r8, rax
+    sar     r8, 63
+    xor     rax, r8
+    sub     rax, r8
     mov     [rdi], rax
     add     rdi, 8
     dec     rsi
@@ -198,6 +221,7 @@ umath_abs_i64_inplace:
 .done:
     vzeroupper
     ret
+
 
 ; -----------------------------------------------------------------------------
 ; umath_abs_i64_sat_array - compute saturating absolute value for 64-bit int array
@@ -215,45 +239,19 @@ umath_abs_i64_sat_array:
     test    rdx, rdx
     jz      .done
 
-    vmovdqu ymm14, [rel absi64_int64_min]
-    vmovdqu ymm15, [rel absi64_int64_max]
+    vpxor   ymm15, ymm15, ymm15 ; zero
 
     cmp     rdx, 8
     jb      .single_ints
 
     mov     rcx, rdx
-    shr     rcx, 3
+    shr     rcx, 3              ; count of 8-integer (64-byte) blocks
 
 .loop_unrolled:
-    vmovdqu ymm0, [rsi]         ; ymm0 = original 4 elements
-    vmovdqu ymm1, [rsi + 32]    ; ymm1 = original next 4 elements
-
-    ; ymm2 = mask (elements == INT64_MIN)
-    ; ymm3 = mask next
-    vmovdqu ymm2, ymm0
-    vmovdqu ymm3, ymm1
-    vpcmpeqq ymm2, ymm2, ymm14
-    vpcmpeqq ymm3, ymm3, ymm14
-
-    vpabsq  ymm0, ymm0          ; absolute value
-    vpabsq  ymm1, ymm1
-
-    ; res = (abs_val & ~mask) | (INT64_MAX & mask)
-    vpandn  ymm2, ymm2, ymm0
-    vpandn  ymm3, ymm3, ymm1
-
-    ; reload mask to blend the max value part
     vmovdqu ymm0, [rsi]
     vmovdqu ymm1, [rsi + 32]
-    vpcmpeqq ymm0, ymm0, ymm14
-    vpcmpeqq ymm1, ymm1, ymm14
-
-    vpand   ymm0, ymm0, ymm15
-    vpand   ymm1, ymm1, ymm15
-
-    vpor    ymm0, ymm0, ymm2
-    vpor    ymm1, ymm1, ymm3
-
+    absi64_sat_vec ymm0, ymm2, ymm15
+    absi64_sat_vec ymm1, ymm3, ymm15
     vmovdqu [rdi], ymm0
     vmovdqu [rdi + 32], ymm1
 
@@ -270,19 +268,11 @@ umath_abs_i64_sat_array:
     jb      .residuals
 
     mov     rcx, rdx
-    shr     rcx, 1
+    shr     rcx, 1              ; count of 2-integer vectors
 
 .loop_vector:
     vmovdqu xmm0, [rsi]
-    vmovdqu xmm2, xmm0
-    vpcmpeqq xmm2, xmm2, xmm14
-    vpabsq  xmm0, xmm0
-    vpandn  xmm2, xmm2, xmm0
-    
-    vmovdqu xmm0, [rsi]
-    vpcmpeqq xmm0, xmm0, xmm14
-    vpand   xmm0, xmm0, xmm15
-    vpor    xmm0, xmm0, xmm2
+    absi64_sat_vec xmm0, xmm2, xmm15
     vmovdqu [rdi], xmm0
     add     rsi, 16
     add     rdi, 16
@@ -293,8 +283,15 @@ umath_abs_i64_sat_array:
     jz      .done
 
 .residuals:
-    mov     r8, [rsi]
-    call    umath_abs_i64_sat_helper
+    ; sign mask via sar, not cqo: cqo would overwrite rdx (the count)
+    mov     rax, [rsi]
+    mov     r8, rax
+    sar     r8, 63
+    xor     rax, r8
+    sub     rax, r8
+    mov     r8, rax
+    sar     r8, 63              ; still negative only for INT64_MIN
+    xor     rax, r8             ; INT64_MIN -> INT64_MAX
     mov     [rdi], rax
     add     rsi, 8
     add     rdi, 8
@@ -305,19 +302,6 @@ umath_abs_i64_sat_array:
     vzeroupper
     ret
 
-; Helper to avoid stack frame inside absolute residual path
-umath_abs_i64_sat_helper:
-    movabs  r9, 0x8000000000000000
-    cmp     r8, r9
-    je      .clamp_h
-    mov     rax, r8
-    cqo
-    xor     rax, rdx
-    sub     rax, rdx
-    ret
-.clamp_h:
-    movabs  rax, 0x7FFFFFFFFFFFFFFF
-    ret
 
 ; -----------------------------------------------------------------------------
 ; umath_abs_i64_sat_inplace - in-place saturating absolute value for 64-bit int array
