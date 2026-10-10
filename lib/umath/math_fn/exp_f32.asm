@@ -9,20 +9,21 @@
 ; Algorithm (standard range-reduction + minimax polynomial, the same shape
 ; used by fdlibm/cephes-derived libm implementations):
 ;
-;   1. Clamp x to [MINLOGF, MAXLOGF] so the reconstruction step below never
-;      has to build a subnormal or overflowing power of two. This saturates
-;      instead of producing +Inf/0 for extreme input, which is deliberate:
-;      it avoids an extra branch and matches what a kernel math library
-;      wants more often than IEEE overflow semantics does.
+;   1. Clamp x to [MINLOGF, MAXLOGF] = [-104, 89], just past the points where
+;      e^x underflows to 0 and overflows to +Inf, so k (below) stays within
+;      [-150, 128]. The clamp keeps NaN: the constant is the first operand of
+;      minss/maxss, which return their second operand on unordered input.
 ;   2. k = round_to_nearest(x * log2(e))          ; integer power-of-two part
 ;   3. r = x - k*C1 - k*C2                        ; reduced argument, |r| small
 ;      (ln(2) is split into a hi/lo pair C1+C2 so the subtraction doesn't
 ;      lose the low bits that k*ln(2) would otherwise wash out)
 ;   4. p(r) = degree-5 minimax polynomial approximating exp(r) on the
 ;      reduced range, evaluated by Horner's method
-;   5. result = p(r) * 2^k, where 2^k is built directly as IEEE-754 bits
-;      by adding k to the exponent bias (127) and shifting into place —
-;      no actual multiply-by-power-of-two loop needed.
+;   5. result = p(r) * 2^k1 * 2^k2 with k1 = k >> 1 and k2 = k - k1, each
+;      power of two built directly as IEEE-754 bits (k biased by 127 and
+;      shifted into place). Splitting k keeps both factors normal, so the
+;      first multiply is exact and the second rounds once: results past
+;      FLT_MAX become +Inf and tiny results round through subnormals to 0.
 ;
 ; Design & Optimization:
 ;   - Scalar path operates on a single lane (xmm0).
@@ -45,8 +46,8 @@ expf32_p3:        dd 4.1665795894e-2, 4.1665795894e-2, 4.1665795894e-2, 4.166579
 expf32_p4:        dd 1.6666665459e-1, 1.6666665459e-1, 1.6666665459e-1, 1.6666665459e-1
 expf32_p5:        dd 5.0000001201e-1, 5.0000001201e-1, 5.0000001201e-1, 5.0000001201e-1
 expf32_one:       dd 1.0, 1.0, 1.0, 1.0
-expf32_maxlogf:   dd 88.72283905206835, 88.72283905206835, 88.72283905206835, 88.72283905206835
-expf32_minlogf:   dd -87.33654475055310, -87.33654475055310, -87.33654475055310, -87.33654475055310
+expf32_maxlogf:   dd 89.0, 89.0, 89.0, 89.0          ; > ln(FLT_MAX) = 88.72: overflows to +Inf
+expf32_minlogf:   dd -104.0, -104.0, -104.0, -104.0  ; < ln(2^-150) = -103.97: underflows to 0
 expf32_bias_i32:      dd 127, 127, 127, 127
 
 section .text
@@ -54,12 +55,15 @@ section .text
 ; -----------------------------------------------------------------------------
 ; umath_exp_f32 - scalar single-precision e^x
 ; args:    xmm0 = input value (x)
-; returns: xmm0 = e^x (saturated to e^MINLOGF..e^MAXLOGF for extreme input)
+; returns: xmm0 = e^x (+Inf on overflow, 0 or subnormal on underflow, NaN
+;          for NaN input)
 ; -----------------------------------------------------------------------------
 global umath_exp_f32
 umath_exp_f32:
-    minss   xmm0, [rel expf32_maxlogf]
-    maxss   xmm0, [rel expf32_minlogf]
+    movss   xmm1, [rel expf32_maxlogf]
+    minss   xmm1, xmm0           ; NaN x comes back as x (second operand)
+    movss   xmm0, [rel expf32_minlogf]
+    maxss   xmm0, xmm1           ; xmm0 = x clamped to [MINLOGF, MAXLOGF]
 
     movss   xmm1, [rel expf32_log2ef]
     mulss   xmm1, xmm0
@@ -91,11 +95,18 @@ umath_exp_f32:
     addss   xmm2, [rel expf32_one] ; p(r) = p*z + r + 1
 
     cvttss2si eax, xmm1            ; k is already integral; truncate is exact
+    mov     ecx, eax
+    sar     ecx, 1                 ; k1 = k >> 1
+    sub     eax, ecx               ; k2 = k - k1
+    add     ecx, 127
+    shl     ecx, 23
+    movd    xmm4, ecx              ; xmm4 = bit pattern of 2^k1
+    mulss   xmm2, xmm4             ; exact: both factors normal
     add     eax, 127
     shl     eax, 23
-    movd    xmm4, eax              ; xmm4 = bit pattern of 2^k
+    movd    xmm4, eax              ; xmm4 = bit pattern of 2^k2
+    mulss   xmm2, xmm4             ; single rounding (overflow/underflow here)
 
-    mulss   xmm2, xmm4
     movaps  xmm0, xmm2
     ret
 
@@ -157,8 +168,10 @@ umath_exp_f32_array:
 ; Clobbers xmm1-xmm4.
 ; -----------------------------------------------------------------------------
 umath_exp_f32__reduce4:
-    minps   xmm0, [rel expf32_maxlogf]
-    maxps   xmm0, [rel expf32_minlogf]
+    movaps  xmm1, [rel expf32_maxlogf]
+    minps   xmm1, xmm0           ; NaN lanes come back as x (second operand)
+    movaps  xmm0, [rel expf32_minlogf]
+    maxps   xmm0, xmm1           ; xmm0 = x clamped to [MINLOGF, MAXLOGF]
 
     movaps  xmm1, [rel expf32_log2ef]
     mulps   xmm1, xmm0
@@ -190,10 +203,16 @@ umath_exp_f32__reduce4:
     addps   xmm2, [rel expf32_one] ; xmm2 = p(r)
 
     cvtps2dq xmm4, xmm1           ; k as packed int32 (exact, k already integral)
+    movdqa  xmm3, xmm4
+    psrad   xmm3, 1               ; k1 = k >> 1
+    psubd   xmm4, xmm3            ; k2 = k - k1
+    paddd   xmm3, [rel expf32_bias_i32]
+    pslld   xmm3, 23              ; xmm3 = bit pattern of 2^k1, per lane
     paddd   xmm4, [rel expf32_bias_i32]
-    pslld   xmm4, 23              ; xmm4 = bit pattern of 2^k, per lane
+    pslld   xmm4, 23              ; xmm4 = bit pattern of 2^k2, per lane
 
-    mulps   xmm2, xmm4
+    mulps   xmm2, xmm3            ; exact: both factors normal
+    mulps   xmm2, xmm4            ; single rounding
     movaps  xmm0, xmm2
     ret
 
