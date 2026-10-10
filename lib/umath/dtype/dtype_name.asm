@@ -28,7 +28,7 @@
 ;   umath_dtype_from_name_len  (*char, len → dtype_id) bounded parse
 ; =============================================================================
 
-%include "dtype_id.asm"
+%include "lib/umath/dtype/dtype_id.asm"
 
 bits 64
 
@@ -552,6 +552,22 @@ global umath_dtype_name_pretty
 umath_dtype_name_pretty:
     jmp     umath_dtype_name_short
 
+; full-name strings live above umath_dtype_name_full: a non-local label
+; between the function and its .float32/... handlers would end their scope
+section .rodata
+str_float32:    db "float32",0
+str_float64:    db "float64",0
+str_float16:    db "float16",0
+str_bfloat16:   db "bfloat16",0
+str_int8_full:  db "int8",0
+str_int16_full: db "int16",0
+str_int32_full: db "int32",0
+str_int64_full: db "int64",0
+str_uint8_full: db "uint8",0
+str_uint32_full:db "uint32",0
+
+section .text
+
 ; -----------------------------------------------------------------------------
 ; umath_dtype_name_full - get full descriptive name
 ; args:    edi = dtype_id
@@ -584,20 +600,7 @@ umath_dtype_name_full:
     ; default: short name
     jmp     umath_dtype_name_short
 
-section .rodata
-str_float32:    db "float32",0
-str_float64:    db "float64",0
-str_float16:    db "float16",0
-str_bfloat16:   db "bfloat16",0
-str_int8_full:  db "int8",0
-str_int16_full: db "int16",0
-str_int32_full: db "int32",0
-str_int64_full: db "int64",0
-str_uint8_full: db "uint8",0
-str_uint32_full:db "uint32",0
-
-section .text
-.float32:   lea rax, [rel str_float32]    ; ret
+.float32:   lea rax, [rel str_float32]
             ret
 .float64:   lea rax, [rel str_float64]
             ret
