@@ -36,8 +36,8 @@
 ;   umath_dtype_pack_zero_extend  (val, dtype_id → u64)
 ; =============================================================================
 
-%include "dtype_id.asm"
-%include "dtype_size.asm"
+%include "lib/umath/dtype/dtype_id.asm"
+%include "lib/umath/dtype/dtype_size.asm"
 
 bits 64
 section .text
