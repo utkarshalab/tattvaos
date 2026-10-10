@@ -28,7 +28,7 @@
 ;   umath_dtype_pattern_eps        (dtype_id → u64) machine epsilon bit pattern
 ; =============================================================================
 
-%include "dtype_id.asm"
+%include "lib/umath/dtype/dtype_id.asm"
 
 bits 64
 
