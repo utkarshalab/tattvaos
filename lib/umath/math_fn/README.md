@@ -82,8 +82,8 @@ carry over unchanged. `pow_f64` itself still carries this amplification
 an extended-precision log.
 
 **Array paths are packed and bit-identical to the scalar routines.**
-`exp`, `log`, `sin`, `cos` and `tan` run their array/inplace paths 2 lanes
-(f64) or 4 lanes (f32) at a time with the scalar algorithm's exact
+`exp`, `log`, `sin`, `cos`, `tan`, `pow` and `hypot` run their array paths
+2 lanes (f64) or 4 lanes (f32) at a time with the scalar algorithm's exact
 operation sequence: per-lane packed arithmetic rounds exactly like the
 scalar instruction, integer exponent adjustments become exact
 double/integer lane operations, the trig quadrant is computed exactly as
@@ -92,10 +92,13 @@ size bound) are blended in at the end with the scalar's own constants.
 `tests/test_math_fn.py` checks every lane bit-for-bit against the scalar
 call over the whole domain. sin/cos/tan share one reduction core per
 width (`sinf64__core2`, `sinf32__core4`); tan takes both sin and cos from a
-single pass of it. Measured on 1e6-element arrays: log/sin/cos 2-3x
-faster (f64) and ~5x (f32), tan 3.8x / 6.6x. `pow` and `hypot` arrays
-still call the scalar routine per element (their special-case logic is
-the hard part); `sqrt` maps to the hardware instruction.
+single pass of it. `pow` evaluates `exp(y * ln|x|)` on every lane with
+the packed log and exp, then applies the scalar's special cases as lane
+masks in reverse priority (so the case the scalar tests first wins);
+`pow_f32` widens pairs into the f64 core, as the scalar does. Measured on
+1e6-element arrays: log/sin/cos 2-3x faster (f64) and ~5x (f32), tan
+3.8x / 6.6x, pow 1.8x, hypot 2.2x / 4.2x; `sqrt` maps to the hardware
+instruction.
 
 **Subnormal inputs are explicitly handled in `log`.**
 The IEEE-754 bit-decomposition `log` relies on assumes an implicit
