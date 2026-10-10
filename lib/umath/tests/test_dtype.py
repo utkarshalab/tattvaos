@@ -6,7 +6,7 @@ import os
 import re
 import struct
 
-from umath_ref import D, I32, P, U32, U64, Checker, fn, load
+from umath_ref import D, I32, P, U32, U64, Checker, cpu_has, fn, load
 
 lib = load()
 ck = Checker('dtype')
@@ -67,6 +67,52 @@ lvl = u('support_level')
 for k in ('INT8', 'INT32', 'INT64', 'FP32', 'FP64'):
     ck.check('support_level of basic types is not NONE', lvl(T[k]) in (1, 2, 3), f'{k} = {lvl(T[k])}')
     ck.check('support_level is stable (cache)', lvl(T[k]) == lvl(T[k]), k)
+
+# feature queries against what Linux reports (it drops flags whose register
+# state the OS has not enabled); under UMATH_CPU_MASK=0 only AMX, which
+# umath_cpu_restrict does not cover, can remain
+baseline = os.environ.get('UMATH_CPU_MASK') is not None and int(os.environ['UMATH_CPU_MASK'], 0) == 0
+query = lambda name: fn(lib, f'umath_dtype_support_{name}', I32)()
+for name, flag in (('avx2', 'avx2'), ('avx512f', 'avx512f'), ('avx512bf16', 'avx512_bf16'),
+                   ('avx512fp16', 'avx512_fp16'), ('avx512vnni', 'avx512_vnni'), ('amx', 'amx_tile')):
+    want = 0 if baseline and name != 'amx' else int(cpu_has(flag))
+    ck.check(f'dtype_support_{name} matches the CPU and OS', query(name) == want, f'got {query(name)}, want {want}')
+
+
+def fp_levels(restricted):
+    fp16 = 0 if restricted else cpu_has('avx512_fp16')
+    f16c = 0 if restricted else cpu_has('f16c')
+    bf16 = 0 if restricted else cpu_has('avx512_bf16')
+    return 3 if fp16 else 2 if f16c else 1, 3 if bf16 else 1
+
+
+LEVEL = {'NONE': 0, 'SOFTWARE': 1, 'PARTIAL': 2, 'NATIVE': 3}
+expected = {}
+for k in ('INT1', 'INT2', 'INT4', 'INT8', 'INT16', 'INT32', 'INT64',
+          'UINT4', 'UINT8', 'UINT16', 'UINT32', 'UINT64', 'FP32', 'FP64'):
+    expected[k] = 'NATIVE'
+for k in ('INT128', 'INT256', 'UINT128', 'UINT256', 'CF32', 'CF64', 'CI8', 'CI16', 'CI32'):
+    expected[k] = 'PARTIAL'
+for k in ('UINT512', 'UINT1024', 'UINT2048', 'FP128', 'TF32', 'FP8_E4M3', 'FP8_E5M2', 'FP8_E4M3_FNUZ',
+          'FP6_E2M3', 'MXFP8_E4M3', 'MXINT4', 'NVFP8', 'BIGINT', 'RATIONAL', 'POSIT8', 'POSIT256'):
+    expected[k] = 'SOFTWARE'
+for k, want in expected.items():
+    ck.check('support_level per dtype family', lvl(T[k]) == LEVEL[want], f'{k} = {lvl(T[k])}, want {want}')
+ck.check('support_level of DTYPE_NONE', lvl(0) == 0)
+
+ck.check('FP16/BF16 levels follow the features', (lvl(T['FP16']), lvl(T['BF16'])) == fp_levels(baseline),
+         f'{(lvl(T["FP16"]), lvl(T["BF16"]))} vs {fp_levels(baseline)}')
+if not baseline:
+    restrict = fn(lib, 'umath_cpu_restrict', U64, U64)
+    init = fn(lib, 'umath_dtype_support_init', None)
+    restrict(0)
+    init()
+    ck.check('support_init re-detects after umath_cpu_restrict',
+             query('avx2') == 0 and (lvl(T['FP16']), lvl(T['BF16'])) == fp_levels(True))
+    restrict(2 ** 64 - 1)
+    init()
+    ck.check('support_init restores the full set', query('avx2') == int(cpu_has('avx2')) and
+             (lvl(T['FP16']), lvl(T['BF16'])) == fp_levels(False))
 
 bits32 = lambda x: struct.unpack('<I', struct.pack('<f', x))[0]
 bits64 = lambda x: struct.unpack('<Q', struct.pack('<d', x))[0]
