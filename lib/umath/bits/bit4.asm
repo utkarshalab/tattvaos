@@ -32,6 +32,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -340,7 +342,7 @@ global umath_bit4_popcount
 umath_bit4_popcount:
     movzx   eax, dil
     and     eax, 0x0F
-    popcnt  eax, eax
+    um_popcnt  eax, eax
     ret
 
 ; -----------------------------------------------------------------------------
