@@ -205,7 +205,8 @@ umath_bitrot_l_buf:
 ; returns: void
 ; note:    for byte_count not a multiple of 8; bit-by-bit construction.
 ;          intended for small buffers (crypto state, GF(2^n) elements).
-;          max 512 bytes supported (stack temp buffer).
+;          max 512 bytes supported (stack temp buffer); larger byte_count
+;          is rejected and dst is left untouched.
 ; -----------------------------------------------------------------------------
 global umath_bitrot_l_bytes
 umath_bitrot_l_bytes:
@@ -217,6 +218,8 @@ umath_bitrot_l_bytes:
     mov     r12, rdx            ; byte_count
     test    r12, r12
     jz      .done
+    cmp     r12, 512
+    ja      .done               ; larger buffers would overrun the stack temp
 
     mov     r13, r12
     shl     r13, 3              ; total_bits
@@ -268,29 +271,27 @@ umath_bitrot_l_bytes:
     jl      .src_ok
     sub     rax, r13
 .src_ok:
+    ; shift counts must be in cl
     mov     rcx, rax
     shr     rcx, 3              ; src byte index
-    mov     r8, rax
-    and     r8, 7               ; src bit-in-byte
-    mov     dl, [rsp + rcx]
-    shr     dl, r8b
-    and     dl, 1               ; dl = source bit value
+    movzx   edx, byte [rsp + rcx]
+    mov     ecx, eax
+    and     ecx, 7              ; src bit-in-byte
+    shr     edx, cl
+    and     edx, 1              ; edx = source bit value
 
-    mov     rcx, rbx
-    shr     rcx, 3              ; dst byte index
-    mov     r9, rbx
-    and     r9, 7               ; dst bit-in-byte
-    mov     al, [rdi + rcx]
-    mov     r10b, 1
-    mov     r11, r9
-    shl     r10b, r11b
-    not     r10b
-    and     al, r10b
-    mov     r10b, dl
-    mov     r11, r9
-    shl     r10b, r11b
-    or      al, r10b
-    mov     [rdi + rcx], al
+    mov     r10, rbx
+    shr     r10, 3              ; dst byte index
+    mov     ecx, ebx
+    and     ecx, 7              ; dst bit-in-byte
+    mov     al, [rdi + r10]
+    mov     r11d, 1
+    shl     r11d, cl
+    not     r11d
+    and     al, r11b            ; clear dst bit
+    shl     edx, cl
+    or      al, dl              ; insert source bit
+    mov     [rdi + r10], al
 
     inc     rbx
     jmp     .bit_loop
