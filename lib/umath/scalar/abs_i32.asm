@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 align 16
@@ -82,10 +84,10 @@ umath_abs_i32_array:
     movups  xmm2, [rsi + 32]
     movups  xmm3, [rsi + 48]
 
-    pabsd   xmm0, xmm0
-    pabsd   xmm1, xmm1
-    pabsd   xmm2, xmm2
-    pabsd   xmm3, xmm3
+    um_pabsd   xmm0, xmm0
+    um_pabsd   xmm1, xmm1
+    um_pabsd   xmm2, xmm2
+    um_pabsd   xmm3, xmm3
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -109,7 +111,7 @@ umath_abs_i32_array:
 
 .loop_vector:
     movups  xmm0, [rsi]
-    pabsd   xmm0, xmm0
+    um_pabsd   xmm0, xmm0
     movups  [rdi], xmm0
     add     rsi, 16
     add     rdi, 16
@@ -160,10 +162,10 @@ umath_abs_i32_inplace:
     movups  xmm2, [rdi + 32]
     movups  xmm3, [rdi + 48]
 
-    pabsd   xmm0, xmm0
-    pabsd   xmm1, xmm1
-    pabsd   xmm2, xmm2
-    pabsd   xmm3, xmm3
+    um_pabsd   xmm0, xmm0
+    um_pabsd   xmm1, xmm1
+    um_pabsd   xmm2, xmm2
+    um_pabsd   xmm3, xmm3
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -186,7 +188,7 @@ umath_abs_i32_inplace:
 
 .loop_vector:
     movups  xmm0, [rdi]
-    pabsd   xmm0, xmm0
+    um_pabsd   xmm0, xmm0
     movups  [rdi], xmm0
     add     rdi, 16
     dec     rcx
@@ -250,10 +252,10 @@ umath_abs_i32_sat_array:
     pcmpeqd xmm7, xmm14
 
     ; Compute normal absolute values
-    pabsd   xmm0, xmm0
-    pabsd   xmm1, xmm1
-    pabsd   xmm2, xmm2
-    pabsd   xmm3, xmm3
+    um_pabsd   xmm0, xmm0
+    um_pabsd   xmm1, xmm1
+    um_pabsd   xmm2, xmm2
+    um_pabsd   xmm3, xmm3
 
     ; Blend: res = (abs(x) & ~mask) | (INT32_MAX & mask)
     ; In SSE, we can do it via:
@@ -302,10 +304,10 @@ umath_abs_i32_sat_array:
     pcmpeqd xmm10, xmm14
     pcmpeqd xmm11, xmm14
 
-    pabsd   xmm0, xmm0
-    pabsd   xmm1, xmm1
-    pabsd   xmm2, xmm2
-    pabsd   xmm3, xmm3
+    um_pabsd   xmm0, xmm0
+    um_pabsd   xmm1, xmm1
+    um_pabsd   xmm2, xmm2
+    um_pabsd   xmm3, xmm3
 
     andnps  xmm8, xmm0          ; xmm8 = ~mask & abs(x)
     andnps  xmm9, xmm1
@@ -357,7 +359,7 @@ umath_abs_i32_sat_array:
     movups  xmm0, [rsi]
     movups  xmm8, xmm0
     pcmpeqd xmm8, xmm14
-    pabsd   xmm0, xmm0
+    um_pabsd   xmm0, xmm0
     andnps  xmm8, xmm0
     movups  xmm0, [rsi]
     pcmpeqd xmm0, xmm14
