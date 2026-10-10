@@ -33,9 +33,9 @@
 ;   umath_dtype_is_neg_zero_val  (dtype_id, bits → bool)
 ; =============================================================================
 
-%include "dtype_id.asm"
-%include "dtype_family.asm"
-%include "dtype_meta.asm"
+%include "lib/umath/dtype/dtype_id.asm"
+%include "lib/umath/dtype/dtype_family.asm"
+%include "lib/umath/dtype/dtype_meta.asm"
 
 bits 64
 section .text
@@ -264,6 +264,39 @@ umath_dtype_man_bit_pos:
 ; =============================================================================
 
 ; -----------------------------------------------------------------------------
+; dtype_traits__field_masks - internal: exponent/mantissa field masks
+; args:    edi = dtype_id
+; returns: rax = exponent field mask, positioned above the mantissa
+;               (0 if the dtype has no exponent field)
+;          rdx = mantissa field mask
+; Not declared global. Keeps the dtype id and exponent width in callee-saved
+; registers across the two lookups; shift counts go through cl.
+; -----------------------------------------------------------------------------
+dtype_traits__field_masks:
+    push    rbx
+    push    r12
+    sub     rsp, 8                  ; keep rsp 16-byte aligned at the calls
+    mov     ebx, edi
+    call    umath_dtype_exponent_bits
+    mov     r12d, eax               ; exp_bits
+    mov     edi, ebx
+    call    umath_dtype_mantissa_bits
+    mov     r9d, eax                ; man_bits
+    mov     ecx, r12d
+    mov     rax, 1
+    shl     rax, cl
+    dec     rax                     ; (1 << exp_bits) - 1
+    mov     ecx, r9d
+    shl     rax, cl                 ; exponent mask
+    mov     rdx, 1
+    shl     rdx, cl
+    dec     rdx                     ; mantissa mask
+    add     rsp, 8
+    pop     r12
+    pop     rbx
+    ret
+
+; -----------------------------------------------------------------------------
 ; umath_dtype_is_nan_val - check if bit pattern represents NaN
 ; args:    edi = dtype_id
 ;          rsi = value bits (right-justified in u64)
@@ -274,34 +307,22 @@ global umath_dtype_is_nan_val
 umath_dtype_is_nan_val:
     push    rbx
     push    r12
+    mov     ebx, edi                ; dtype_id (edi does not survive the call)
     mov     r12, rsi                ; save value bits
     ; check dtype supports NaN
     call    umath_dtype_has_nan
     test    eax, eax
     jz      .not_nan
-    ; get exp and mantissa bits
-    mov     ebx, edi
-    call    umath_dtype_exponent_bits
-    mov     ecx, eax                ; exp_bits
-    mov     edi, ebx
-    call    umath_dtype_mantissa_bits
-    mov     edx, eax                ; man_bits
     ; NaN: all exponent bits = 1, mantissa != 0
-    ; build all-ones exponent mask: ((1 << exp_bits) - 1) << man_bits
-    mov     rax, 1
-    shl     rax, cl                 ; 1 << exp_bits
-    dec     rax                     ; (1 << exp_bits) - 1
-    shl     rax, dl                 ; shift up by mantissa_bits
+    mov     edi, ebx
+    call    dtype_traits__field_masks   ; rax = exponent mask, rdx = mantissa mask
     ; check exponent all ones
     mov     r8, r12
     and     r8, rax
     cmp     r8, rax
     jne     .not_nan
     ; check mantissa non-zero
-    mov     rax, 1
-    shl     rax, dl                 ; 1 << man_bits
-    dec     rax                     ; mantissa mask
-    test    r12, rax
+    test    r12, rdx
     jz      .not_nan
     mov     eax, 1
     pop     r12
@@ -323,30 +344,20 @@ global umath_dtype_is_inf_val
 umath_dtype_is_inf_val:
     push    rbx
     push    r12
+    mov     ebx, edi                ; dtype_id (edi does not survive the call)
     mov     r12, rsi
     call    umath_dtype_has_inf
     test    eax, eax
     jz      .not_inf
-    mov     ebx, edi
-    call    umath_dtype_exponent_bits
-    mov     ecx, eax
     mov     edi, ebx
-    call    umath_dtype_mantissa_bits
-    mov     edx, eax
+    call    dtype_traits__field_masks   ; rax = exponent mask, rdx = mantissa mask
     ; inf: all exponent bits = 1, mantissa = 0
-    mov     rax, 1
-    shl     rax, cl
-    dec     rax
-    shl     rax, dl                 ; exponent mask
     mov     r8, r12
     and     r8, rax
     cmp     r8, rax
     jne     .not_inf
     ; mantissa must be zero
-    mov     rax, 1
-    shl     rax, dl
-    dec     rax
-    test    r12, rax
+    test    r12, rdx
     jnz     .not_inf
     mov     eax, 1
     pop     r12
@@ -368,28 +379,27 @@ global umath_dtype_is_zero_val
 umath_dtype_is_zero_val:
     push    rbx
     push    r12
+    push    r13
     mov     r12, rsi
     mov     ebx, edi
-    ; get size bits for mask
+    ; value width in bits; every call below clobbers rax/rcx, so keep it in r13
     call    umath_dtype_meta_get_size_bits
-    ; build mask for all bits except sign
-    mov     ecx, eax                ; size_bits
-    mov     rax, 1
-    shl     rax, cl
-    dec     rax                     ; all bits set
-    ; for signed types, clear the sign bit
+    test    eax, eax
+    jz      .unknown
+    mov     r13d, eax
+    ; for signed types, ignore the sign bit (+0 and -0 are both zero)
     mov     edi, ebx
     call    umath_dtype_meta_get_flags
+    mov     ecx, r13d
     test    eax, DTYPE_FLAG_IS_SIGNED
-    jz      .check
-    ; clear sign bit (highest bit)
-    mov     ecx, eax
-    mov     edi, ebx
-    call    umath_dtype_meta_get_size_bits
-    dec     eax
-    btr     rax, rax                ; this is wrong
-    ; rebuild: mask = (1 << (size-1)) - 1 to ignore sign bit
-    mov     ecx, eax                ; size_bits - 1
+    jz      .build_mask
+    dec     ecx
+.build_mask:
+    ; mask = low `width` bits; width >= 64 covers the whole register
+    ; (shl by 64 would be masked to a shift of 0)
+    mov     rax, -1
+    cmp     ecx, 64
+    jae     .check
     mov     rax, 1
     shl     rax, cl
     dec     rax
@@ -397,6 +407,13 @@ umath_dtype_is_zero_val:
     and     r12, rax
     setz    al
     movzx   eax, al
+    pop     r13
+    pop     r12
+    pop     rbx
+    ret
+.unknown:
+    xor     eax, eax                ; unknown dtype is never "zero"
+    pop     r13
     pop     r12
     pop     rbx
     ret
@@ -472,17 +489,9 @@ umath_dtype_is_normal:
     ; not subnormal: exponent bits must not all be zero
     ; (for IEEE floats: exponent != 0 means normal)
     mov     edi, r13d
-    call    umath_dtype_exponent_bits
-    test    eax, eax
+    call    dtype_traits__field_masks   ; rax = exponent mask
+    test    rax, rax
     jz      .yes                    ; integer types always "normal"
-    mov     ecx, eax
-    mov     edi, r13d
-    call    umath_dtype_mantissa_bits
-    mov     edx, eax
-    mov     rax, 1
-    shl     rax, cl
-    dec     rax
-    shl     rax, dl                 ; exp mask
     test    r12, rax
     jz      .no                     ; all exp bits zero = subnormal
 .yes:
@@ -534,17 +543,9 @@ umath_dtype_is_subnormal_val:
     jnz     .no
     ; exponent field must be all zeros
     mov     edi, r13d
-    call    umath_dtype_exponent_bits
-    test    eax, eax
+    call    dtype_traits__field_masks   ; rax = exponent mask
+    test    rax, rax
     jz      .no
-    mov     ecx, eax
-    mov     edi, r13d
-    call    umath_dtype_mantissa_bits
-    mov     edx, eax
-    mov     rax, 1
-    shl     rax, cl
-    dec     rax
-    shl     rax, dl                 ; exp mask
     test    r12, rax
     jnz     .no                     ; exp not all zero
     mov     eax, 1
