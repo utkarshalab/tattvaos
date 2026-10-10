@@ -34,7 +34,7 @@
 ;   SIMD alignment   = 64 bytes (safe default)
 ; =============================================================================
 
-%include "dtype_id.asm"
+%include "lib/umath/dtype/dtype_id.asm"
 
 bits 64
 
