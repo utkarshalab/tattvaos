@@ -27,7 +27,7 @@
 ;   umath_dtype_clamp_f64      (dtype_id, f64 val → f64) clamp to range
 ; =============================================================================
 
-%include "dtype_id.asm"
+%include "lib/umath/dtype/dtype_id.asm"
 
 bits 64
 
