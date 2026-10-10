@@ -20,6 +20,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -69,8 +71,9 @@ umath_prefetch_nta:
 ; -----------------------------------------------------------------------------
 global umath_prefetch_w
 umath_prefetch_w:
-    ; check if CPU supports prefetchw (part of PRFCHW CPUID bit).
-    ; if unsupported, it executes as a NOP.
+    ; PREFETCHW (CPUID PRFCHW) can fault on early 64-bit Intel parts that
+    ; lack it, so check first and fall back to a read-intent prefetch
+    um_need umath__has_prfchw, umath_prefetch_t0
     prefetchw [rdi]
     ret
 
@@ -102,7 +105,7 @@ umath_prefetch_range:
     cmp     rdx, 3
     je      .loop_nta
     cmp     rdx, 4
-    je      .loop_w
+    je      .w
     jmp     .loop_t0            ; default to T0
 
     ; --- T0 Loop ---
@@ -138,6 +141,8 @@ umath_prefetch_range:
     ret
 
     ; --- Write Intent Loop ---
+.w:
+    um_need umath__has_prfchw, .loop_t0   ; no PREFETCHW: read intent
 .loop_w:
     prefetchw [rdi]
     add     rdi, 64
@@ -228,6 +233,13 @@ umath_prefetch_block_transposed:
     mov     r13, rdx            ; height (rows)
     mov     r14, rcx            ; width (cols/bytes)
     mov     r15, r8             ; hint type
+    cmp     r15, 4
+    jne     .hint_ok
+    um_need umath__has_prfchw, .hint_t0
+    jmp     .hint_ok
+.hint_t0:
+    xor     r15d, r15d          ; no PREFETCHW: read intent (T0)
+.hint_ok:
 
     ; we prefetch in cacheline chunks (64 bytes).
     ; for transposed layout, we loop columns with 64-byte column strides.
