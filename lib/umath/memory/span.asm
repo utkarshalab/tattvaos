@@ -21,6 +21,11 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/memory/copy.asm"
+%include "lib/umath/memory/compare.asm"
+%include "lib/umath/memory/set.asm"
+
 section .text
 
 ; -----------------------------------------------------------------------------
