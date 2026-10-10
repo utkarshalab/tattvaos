@@ -147,4 +147,26 @@ for name in ('exp', 'log', 'sqrt', 'sin', 'cos', 'tan'):
             ck.check(f'{name}{sfx} array/inplace bit-identical to scalar', not bad,
                      f'n={n}: x={src[bad[0]]!r} array={dst[bad[0]]!r} inplace={buf[bad[0]]!r} scalar={scalar(src[bad[0]])!r}' if bad else '')
 
+# two-argument array paths (pow, hypot) bit for bit against the scalar
+def exponent_inputs(n):
+    pool = [0.0, -0.0, 1.0, -1.0, 2.0, 3.0, -3.0, 0.5, -0.5, 1 / 3, inf, -inf, nan,
+            2.0 ** 60, -(2.0 ** 60) - 2.0 ** 8, 2.0 ** 53 + 2, 7.0, -7.0, 100.0, -1074.0]
+    return [random.choice(pool) if random.random() < 0.5 else random.uniform(-40, 40) for _ in range(n)]
+
+
+for name in ('pow', 'hypot'):
+    for sfx, t, f32 in (('_f64', D, False), ('_f32', F, True)):
+        scalar = fn(lib, f'umath_{name}{sfx}', t, t, t)
+        arr = fn(lib, f'umath_{name}{sfx}_array', None, P, P, P, Z)
+        for n in (0, 1, 2, 3, 4, 5, 7, 8, 9, 17, 1000):
+            xs = wide_inputs(n, f32) if name == 'hypot' else [random.choice([v, -v]) for v in wide_inputs(n, f32)]
+            ys = wide_inputs(n, f32) if name == 'hypot' else exponent_inputs(n)
+            xs = [r32(v) for v in xs] if f32 else xs
+            ys = [r32(v) for v in ys] if f32 else ys
+            xa, ya, dst = (t * max(n, 1))(*xs), (t * max(n, 1))(*ys), (t * max(n, 1))()
+            arr(dst, xa, ya, n)
+            bad = [i for i in range(n) if not bits_equal(dst[i], scalar(xa[i], ya[i]), f32)]
+            ck.check(f'{name}{sfx} array bit-identical to scalar', not bad,
+                     f'n={n}: ({xa[bad[0]]!r}, {ya[bad[0]]!r}) array={dst[bad[0]]!r} scalar={scalar(xa[bad[0]], ya[bad[0]])!r}' if bad else '')
+
 ck.finish()
