@@ -14,7 +14,7 @@ Part of the `lib/` category in Tattva OS.
 
 ## Status
 
-Seven modules have real, numerically-verified implementations (checked by
+Eight modules have real, numerically-verified implementations (checked by
 `tests/run_tests.sh`, see below):
 
 ```text
@@ -28,6 +28,8 @@ stability/ Tier 1   compensated/pairwise sums, Welford mean/variance,
                      log-sum-exp
 reduce/   Tier 1    sum/mean, dot/sum of squares, overflow-safe product,
                      exact integer sums
+cpuid/    Tier 0    CPU feature detection + SSE2 fallbacks for every
+                     faster instruction (umath runs on any x86-64 CPU)
 ```
 
 Every other directory listed below is scaffolded (created, named, given a
@@ -38,7 +40,7 @@ depends on once its turn comes.
 
 ```text
 assert/  atomic/  cache/  capability/  compare/  compress/  convert/
-cpuid/  diag/  format/  fpmode/  gemm/  hash/  histogram/  lock/  lut/
+diag/  format/  fpmode/  gemm/  hash/  histogram/  lock/  lut/
 norm/  numa/  os/  perf/  prefetch_strategy/  profile/  random/
 register/  simd/  sort/  stats/  tests/  thread/  time/
 ```
@@ -78,7 +80,7 @@ tree now prefixes its local constants with the file's own name
 ## Verification methodology
 
 `sh lib/umath/tests/run_tests.sh` (Linux/WSL: nasm, ld, python3) checks
-every implemented module two ways:
+every implemented module three ways:
 
 1. **Assembly**: `nasm -f elf64` on every file standalone and on all of
    them as one translation unit, with `-Werror=number-overflow` and
@@ -93,6 +95,11 @@ every implemented module two ways:
    inputs including domain edges (zero, negative, NaN, Inf, subnormal).
    No C compiler needed — the build environment doesn't have one, and this
    path doesn't require one either.
+3. **Older CPUs**: the behaviour tests run a second time with
+   `UMATH_CPU_MASK=0`, which limits umath to the x86-64 baseline (SSE2) so
+   every SSE4/AVX/BMI fast path takes its fallback, and `test_cpu.py`
+   compares the fallbacks with the native instructions bit for bit. See
+   `cpuid/README.md`.
 
 This isn't optional polish. It's what caught every real bug that shipped
 during `math_fn`'s development: two register-clobber bugs, two
