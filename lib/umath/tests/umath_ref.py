@@ -1,6 +1,7 @@
 """Shared helpers for the umath ctypes tests (see run_tests.sh)."""
 import ctypes as C
 import math
+import os
 import struct
 import sys
 
@@ -10,7 +11,13 @@ P, Z = C.c_void_p, C.c_size_t
 
 
 def load():
-    return C.CDLL(sys.argv[1])
+    """Load the library under test. UMATH_CPU_MASK (e.g. 0 = SSE2 baseline)
+    limits the CPU features it may use, to exercise the fallbacks."""
+    lib = C.CDLL(sys.argv[1])
+    mask = os.environ.get('UMATH_CPU_MASK')
+    if mask is not None:
+        fn(lib, 'umath_cpu_restrict', C.c_uint64, C.c_uint64)(int(mask, 0) & (2 ** 64 - 1))
+    return lib
 
 
 def fn(lib, name, restype, *argtypes):
