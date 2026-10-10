@@ -238,8 +238,6 @@ umath_bit512_shl:
 .bitshift:
     test    ecx, ecx
     jz      .done
-    mov     r8, 64
-    sub     r8, rcx
     mov     r14, 7
 .bit_loop:
     cmp     r14, 0
@@ -248,10 +246,7 @@ umath_bit512_shl:
     cmp     r14, 0
     je      .top_only
     mov     r15, [rdi + r14*8 - 8]
-    mov     r9, r15
-    shr     r9, r8b
-    shl     rax, cl
-    or      rax, r9
+    shld    rax, r15, cl        ; (word << c) | (lower word >> (64 - c))
     mov     [rdi + r14*8], rax
     dec     r14
     jmp     .bit_loop
@@ -326,8 +321,6 @@ umath_bit512_shr:
 .bitshift:
     test    ecx, ecx
     jz      .done
-    mov     r8, 64
-    sub     r8, rcx
     xor     r14, r14
 .bit_loop:
     cmp     r14, 8
@@ -336,10 +329,7 @@ umath_bit512_shr:
     cmp     r14, 7
     je      .top_only
     mov     r15, [rdi + r14*8 + 8]
-    mov     r9, r15
-    shl     r9, r8b
-    shr     rax, cl
-    or      rax, r9
+    shrd    rax, r15, cl        ; (word >> c) | (upper word << (64 - c))
     mov     [rdi + r14*8], rax
     inc     r14
     jmp     .bit_loop
