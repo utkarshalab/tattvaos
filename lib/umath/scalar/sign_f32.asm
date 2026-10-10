@@ -7,7 +7,7 @@
 ; Targets 64-bit AMD64 System V ABI calling conventions.
 ;
 ; Performance Optimizations:
-;   - Vectorized element-wise sign mapping unrolled 4x (using SSE cmpgtps/cmpunordps).
+;   - Vectorized element-wise sign mapping unrolled 4x (using SSE cmpltps with swapped operands).
 ;   - IEEE-754 compliant NaN propagation and signed zeros handling.
 ;   - In-place and copying sign mappings.
 ;   - Fast scalar helpers for positive and negative checks.
@@ -22,6 +22,30 @@ signf32_neg_one:  dd -1.0, -1.0, -1.0, -1.0
 signf32_zero:     dd 0.0, 0.0, 0.0, 0.0
 
 section .text
+
+; -----------------------------------------------------------------------------
+; signf32_vec - packed signum of one xmm vector
+; args:    %1 = result register, %2 = input values (preserved)
+;          %3, %4 = scratch registers
+; expects: xmm12 = 1.0 lanes, xmm13 = -1.0 lanes, xmm14 = 0.0 lanes
+;
+; Uses ordered less-than compares (false on NaN) with swapped operands, so
+; lanes that are neither > 0 nor < 0 (+/-0.0 and NaN) pass the input through
+; unchanged, matching the scalar path (signed zero and NaN payload kept).
+; -----------------------------------------------------------------------------
+%macro signf32_vec 4
+    movaps  %1, xmm14
+    cmpltps %1, %2              ; %1 = 0.0 < val
+    movaps  %3, %2
+    cmpltps %3, xmm14           ; %3 = val < 0.0
+    movaps  %4, %1
+    orps    %4, %3               ; %4 = lanes with a definite sign
+    andps   %1, xmm12            ; 1.0 where positive
+    andps   %3, xmm13            ; -1.0 where negative
+    orps    %1, %3
+    andnps  %4, %2               ; val where +/-0.0 or NaN
+    orps    %1, %4
+%endmacro
 
 ; -----------------------------------------------------------------------------
 ; umath_sign_f32 - calculate signum of a scalar float
@@ -82,74 +106,19 @@ umath_sign_f32_array:
     movups  xmm2, [rsi + 32]
     movups  xmm3, [rsi + 48]
 
-    ; For each vector, compute:
-    ; mask_pos = val > 0.0
-    ; mask_neg = 0.0 > val
-    ; mask_nan = val != val (unordered)
+    ; Signum of each vector (see the macro above for the lane rules)
     
     ; Vector 0
-    movups  xmm4, xmm0          ; copy val
-    movups  xmm5, xmm14         ; copy zero
-    cmpgtps xmm4, xmm14         ; xmm4 = val > 0.0
-    cmpgtps xmm5, xmm0          ; xmm5 = 0.0 > val
-    movups  xmm8, xmm0
-    cmpunordps xmm8, xmm8       ; xmm8 = NaN mask
-    pand    xmm4, xmm12         ; 1.0 & mask_pos
-    pand    xmm5, xmm13         ; -1.0 & mask_neg
-    por     xmm4, xmm5          ; combined signs (zeros are 0.0)
-    pand    xmm8, xmm0          ; inputs where NaN
-    movups  xmm9, xmm0
-    cmpordps xmm9, xmm0         ; not NaN mask
-    pand    xmm4, xmm9          ; clear slots where NaN
-    por     xmm4, xmm8          ; insert original NaNs
+    signf32_vec xmm4, xmm0, xmm5, xmm8
 
     ; Vector 1
-    movups  xmm6, xmm1
-    movups  xmm7, xmm14
-    cmpgtps xmm6, xmm14
-    cmpgtps xmm7, xmm1
-    movups  xmm10, xmm1
-    cmpunordps xmm10, xmm10
-    pand    xmm6, xmm12
-    pand    xmm7, xmm13
-    por     xmm6, xmm7
-    pand    xmm10, xmm1
-    movups  xmm9, xmm1
-    cmpordps xmm9, xmm1
-    pand    xmm6, xmm9
-    por     xmm6, xmm10
+    signf32_vec xmm6, xmm1, xmm7, xmm10
 
     ; Vector 2
-    movups  xmm8, xmm2
-    movups  xmm5, xmm14
-    cmpgtps xmm8, xmm14
-    cmpgtps xmm5, xmm2
-    movups  xmm10, xmm2
-    cmpunordps xmm10, xmm10
-    pand    xmm8, xmm12
-    pand    xmm5, xmm13
-    por     xmm8, xmm5
-    pand    xmm10, xmm2
-    movups  xmm9, xmm2
-    cmpordps xmm9, xmm2
-    pand    xmm8, xmm9
-    por     xmm8, xmm10
+    signf32_vec xmm8, xmm2, xmm5, xmm10
 
     ; Vector 3
-    movups  xmm10, xmm3
-    movups  xmm7, xmm14
-    cmpgtps xmm10, xmm14
-    cmpgtps xmm7, xmm3
-    movups  xmm5, xmm3
-    cmpunordps xmm5, xmm5
-    pand    xmm10, xmm12
-    pand    xmm7, xmm13
-    por     xmm10, xmm7
-    pand    xmm5, xmm3
-    movups  xmm9, xmm3
-    cmpordps xmm9, xmm3
-    pand    xmm10, xmm9
-    por     xmm10, xmm5
+    signf32_vec xmm10, xmm3, xmm7, xmm5
 
     ; Store results
     movups  [rdi], xmm4
@@ -174,20 +143,7 @@ umath_sign_f32_array:
 
 .loop_vector:
     movups  xmm0, [rsi]
-    movups  xmm4, xmm0
-    movups  xmm5, xmm14
-    cmpgtps xmm4, xmm14
-    cmpgtps xmm5, xmm0
-    movups  xmm8, xmm0
-    cmpunordps xmm8, xmm8
-    pand    xmm4, xmm12
-    pand    xmm5, xmm13
-    por     xmm4, xmm5
-    pand    xmm8, xmm0
-    movups  xmm9, xmm0
-    cmpordps xmm9, xmm0
-    pand    xmm4, xmm9
-    por     xmm4, xmm8
+    signf32_vec xmm4, xmm0, xmm5, xmm8
 
     movups  [rdi], xmm4
     add     rsi, 16
@@ -252,68 +208,16 @@ umath_sign_f32_inplace:
     movups  xmm3, [rdi + 48]
 
     ; Vector 0
-    movups  xmm4, xmm0
-    movups  xmm5, xmm14
-    cmpgtps xmm4, xmm14
-    cmpgtps xmm5, xmm0
-    movups  xmm8, xmm0
-    cmpunordps xmm8, xmm8
-    pand    xmm4, xmm12
-    pand    xmm5, xmm13
-    por     xmm4, xmm5
-    pand    xmm8, xmm0
-    movups  xmm9, xmm0
-    cmpordps xmm9, xmm0
-    pand    xmm4, xmm9
-    por     xmm4, xmm8
+    signf32_vec xmm4, xmm0, xmm5, xmm8
 
     ; Vector 1
-    movups  xmm6, xmm1
-    movups  xmm7, xmm14
-    cmpgtps xmm6, xmm14
-    cmpgtps xmm7, xmm1
-    movups  xmm10, xmm1
-    cmpunordps xmm10, xmm10
-    pand    xmm6, xmm12
-    pand    xmm7, xmm13
-    por     xmm6, xmm7
-    pand    xmm10, xmm1
-    movups  xmm9, xmm1
-    cmpordps xmm9, xmm1
-    pand    xmm6, xmm9
-    por     xmm6, xmm10
+    signf32_vec xmm6, xmm1, xmm7, xmm10
 
     ; Vector 2
-    movups  xmm8, xmm2
-    movups  xmm5, xmm14
-    cmpgtps xmm8, xmm14
-    cmpgtps xmm5, xmm2
-    movups  xmm10, xmm2
-    cmpunordps xmm10, xmm10
-    pand    xmm8, xmm12
-    pand    xmm5, xmm13
-    por     xmm8, xmm5
-    pand    xmm10, xmm2
-    movups  xmm9, xmm2
-    cmpordps xmm9, xmm2
-    pand    xmm8, xmm9
-    por     xmm8, xmm10
+    signf32_vec xmm8, xmm2, xmm5, xmm10
 
     ; Vector 3
-    movups  xmm10, xmm3
-    movups  xmm7, xmm14
-    cmpgtps xmm10, xmm14
-    cmpgtps xmm7, xmm3
-    movups  xmm5, xmm3
-    cmpunordps xmm5, xmm5
-    pand    xmm10, xmm12
-    pand    xmm7, xmm13
-    por     xmm10, xmm7
-    pand    xmm5, xmm3
-    movups  xmm9, xmm3
-    cmpordps xmm9, xmm3
-    pand    xmm10, xmm9
-    por     xmm10, xmm5
+    signf32_vec xmm10, xmm3, xmm7, xmm5
 
     ; Store results
     movups  [rdi], xmm4
@@ -337,20 +241,7 @@ umath_sign_f32_inplace:
 
 .loop_vector:
     movups  xmm0, [rdi]
-    movups  xmm4, xmm0
-    movups  xmm5, xmm14
-    cmpgtps xmm4, xmm14
-    cmpgtps xmm5, xmm0
-    movups  xmm8, xmm0
-    cmpunordps xmm8, xmm8
-    pand    xmm4, xmm12
-    pand    xmm5, xmm13
-    por     xmm4, xmm5
-    pand    xmm8, xmm0
-    movups  xmm9, xmm0
-    cmpordps xmm9, xmm0
-    pand    xmm4, xmm9
-    por     xmm4, xmm8
+    signf32_vec xmm4, xmm0, xmm5, xmm8
 
     movups  [rdi], xmm4
     add     rdi, 16
