@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -415,19 +417,19 @@ umath_clamp_f32_count_clamped:
     ; movmskps extracts the sign bit of each of the 4 elements into a 4-bit integer
     movmskps edx, xmm4
     ; Count set bits in edx (using popcnt)
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskps edx, xmm5
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskps edx, xmm6
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskps edx, xmm7
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     add     rdi, 64
@@ -454,7 +456,7 @@ umath_clamp_f32_count_clamped:
     orps    xmm1, xmm2          ; either
 
     movmskps edx, xmm1
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     add     rdi, 16
