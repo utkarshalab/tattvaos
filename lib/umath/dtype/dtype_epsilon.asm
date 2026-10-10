@@ -25,7 +25,7 @@
 ;   umath_dtype_precision_bits   (dtype_id → u32)  total significand bits
 ; =============================================================================
 
-%include "dtype_id.asm"
+%include "lib/umath/dtype/dtype_id.asm"
 
 bits 64
 
@@ -414,43 +414,36 @@ umath_dtype_precision_bits:
 ; -----------------------------------------------------------------------------
 global umath_dtype_ulp_f64
 umath_dtype_ulp_f64:
-    sub     rsp, 24
+    sub     rsp, 24                ; [rsp] = value; keeps rsp 16-byte aligned at the call
     movsd   [rsp], xmm0            ; save value
-    push    rdi
-    call    umath_dtype_epsilon_f64 ; xmm0 = epsilon
-    movsd   [rsp + 8], xmm0        ; save epsilon
-    ; get |value|
-    movsd   xmm0, [rsp + 16]
-    ; extract biased exponent from value
-    movq    rax, xmm0
+    call    umath_dtype_epsilon_f64 ; xmm0 = epsilon (edi = dtype_id passes through)
+    ; extract biased exponent from value (sign bit drops out)
+    mov     rax, [rsp]
     shr     rax, 52
-    and     rax, 0x7FF             ; biased exponent
-    test    rax, rax
+    and     eax, 0x7FF             ; biased exponent
     jz      .subnormal_or_zero
-    ; ulp = epsilon * 2^(exponent - 1022)
-    ; = epsilon * 2^(biased_exp - 1023 - 52 + 1)
-    ; combined: set exponent of epsilon to (biased_exp - 52)
-    movsd   xmm0, [rsp + 8]        ; epsilon
-    movq    rdx, xmm0
-    shr     rdx, 52
-    and     rdx, 0x7FF             ; epsilon exponent
-    add     rax, rdx
+    ; ulp = epsilon * 2^(biased_exp - 1023):
+    ; set exponent of epsilon to (eps_exp + biased_exp - 1023)
+    movq    rdx, xmm0              ; epsilon bits
+    mov     rcx, rdx
+    shr     rcx, 52
+    and     ecx, 0x7FF             ; epsilon exponent
+    add     rax, rcx
     sub     rax, 1023              ; adjust
     ; clamp exponent
     cmp     rax, 0
     jle     .zero_ulp
     cmp     rax, 2046
-    jge     .max_ulp
-    movq    rdx, xmm0
-    and     rdx, 0x800FFFFFFFFFFFFF ; clear exponent
+    jg      .max_ulp
+    mov     rcx, 0x800FFFFFFFFFFFFF ; 64-bit mask needs a register (no imm64 AND)
+    and     rdx, rcx               ; clear exponent
     shl     rax, 52
     or      rdx, rax
     movq    xmm0, rdx
     add     rsp, 24
     ret
 .subnormal_or_zero:
-    movsd   xmm0, [rsp + 8]        ; just return epsilon
-    add     rsp, 24
+    add     rsp, 24                ; just return epsilon (already in xmm0)
     ret
 .zero_ulp:
     xorpd   xmm0, xmm0
@@ -474,7 +467,8 @@ umath_dtype_round_error_f64:
     movq    rax, xmm0
     test    rax, rax
     jz      .zero
-    sub     rax, 0x0010000000000000 ; decrement exponent
+    mov     rcx, 0x0010000000000000 ; one exponent step (no imm64 SUB)
+    sub     rax, rcx               ; decrement exponent
     movq    xmm0, rax
     ret
 .zero:
