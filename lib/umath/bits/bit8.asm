@@ -34,6 +34,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -373,7 +375,7 @@ umath_bit8_cmp_u:
 global umath_bit8_parity
 umath_bit8_parity:
     movzx   eax, dil
-    popcnt  eax, eax
+    um_popcnt  eax, eax
     and     eax, 1
     ret
 
