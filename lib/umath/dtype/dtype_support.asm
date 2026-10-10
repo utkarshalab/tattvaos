@@ -32,8 +32,8 @@
 ;   umath_dtype_support_matrix    ()         → *support_table
 ; =============================================================================
 
-%include "dtype_id.asm"
-%include "dtype_family.asm"
+%include "lib/umath/dtype/dtype_id.asm"
+%include "lib/umath/dtype/dtype_family.asm"
 
 bits 64
 
@@ -53,26 +53,29 @@ SUPPORT_NATIVE      equ 3
 section .bss
 alignb 8
 
-cpu_features_cached:    db 0        ; 1 = cache is valid
-cpu_has_avx2:           db 0
-cpu_has_avx512f:        db 0
-cpu_has_avx512bw:       db 0
-cpu_has_avx512dq:       db 0
-cpu_has_avx512vl:       db 0
-cpu_has_avx512vnni:     db 0
-cpu_has_avx512bf16:     db 0
-cpu_has_avx512fp16:     db 0
-cpu_has_avx512vpopcntdq: db 0
-cpu_has_amx_tile:       db 0
-cpu_has_amx_bf16:       db 0
-cpu_has_amx_int8:       db 0
-cpu_has_bmi2:           db 0
-cpu_has_popcnt:         db 0
-cpu_has_lzcnt:          db 0
-cpu_has_f16c:           db 0       ; VCVTPH2PS / VCVTPS2PH
-alignb 8
+cpu_features_cached:    resb 1      ; 1 = cache is valid
+cpu_has_avx2:           resb 1
+cpu_has_avx512f:        resb 1
+cpu_has_avx512bw:       resb 1
+cpu_has_avx512dq:       resb 1
+cpu_has_avx512vl:       resb 1
+cpu_has_avx512vnni:     resb 1
+cpu_has_avx512bf16:     resb 1
+cpu_has_avx512fp16:     resb 1
+cpu_has_avx512vpopcntdq: resb 1
+cpu_has_amx_tile:       resb 1
+cpu_has_amx_bf16:       resb 1
+cpu_has_amx_int8:       resb 1
+cpu_has_bmi2:           resb 1
+cpu_has_popcnt:         resb 1
+cpu_has_lzcnt:          resb 1
+cpu_has_f16c:           resb 1     ; VCVTPH2PS / VCVTPS2PH
 
-; support level cache (one byte per dtype_id, up to 0x200)
+; support level cache (one byte per dtype_id, up to 0x200). Must be .data, not
+; .bss: NASM drops initializers in .bss, which would leave every entry 0 =
+; SUPPORT_NONE instead of the 0xFF "not computed yet" sentinel.
+section .data
+align 8
 dtype_support_cache:    times 0x200 db 0xFF  ; 0xFF = not computed yet
 
 section .text
