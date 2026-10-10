@@ -33,7 +33,7 @@ umath_memcmp:
     mov     rcx, rdx
     repe    cmpsb
     je      .equal
-    jc      .less               ; CF=1 -> a < b
+    ja      .less               ; cmpsb sets flags from [rsi]-[rdi] = b - a: b > a -> a < b
 
     mov     rax, 1              ; a > b
     ret
@@ -131,7 +131,7 @@ umath_memcmp_sse:
     mov     rcx, rdx
     repe    cmpsb
     je      .equal_sse
-    jc      .less_sse
+    ja      .less_sse           ; flags are b - a (cmpsb), so "above" means a < b
     mov     rax, 1
     ret
 .less_sse:
@@ -275,7 +275,7 @@ umath_memcmp_avx2:
     mov     rcx, rdx
     repe    cmpsb
     je      .equal_avx
-    jc      .less_avx
+    ja      .less_avx           ; flags are b - a (cmpsb), so "above" means a < b
     mov     rax, 1
     jmp     .done_avx
 .less_avx:
