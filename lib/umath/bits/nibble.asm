@@ -287,13 +287,13 @@ umath_nibble_interleave:
     xor     r8, r8
 .loop:
     cmp     r8, rcx
-    jge     .done
+    jae     .done               ; count is unsigned
     mov     al, [rsi + r8]
     and     al, 0x0F
-    mov     ah, [rdx + r8]
-    and     ah, 0x0F
-    shl     ah, 4
-    or      al, ah
+    movzx   r9d, byte [rdx + r8] ; not AH: the r8 index needs a REX prefix
+    and     r9d, 0x0F
+    shl     r9d, 4
+    or      al, r9b
     mov     [rdi + r8], al
     inc     r8
     jmp     .loop
