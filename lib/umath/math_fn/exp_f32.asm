@@ -34,6 +34,8 @@
 
 bits 64
 
+%include "lib/umath/cpuid/fallback.asm"
+
 section .rodata
 align 16
 expf32_log2ef:  dd 1.44269504088896341, 1.44269504088896341, 1.44269504088896341, 1.44269504088896341
@@ -67,7 +69,7 @@ umath_exp_f32:
 
     movss   xmm1, [rel expf32_log2ef]
     mulss   xmm1, xmm0
-    roundss xmm1, xmm1, 0        ; xmm1 = k (round to nearest)
+    um_roundss xmm1, xmm1, 0        ; xmm1 = k (round to nearest)
 
     movss   xmm2, xmm1
     mulss   xmm2, [rel expf32_c1]
@@ -175,7 +177,7 @@ umath_exp_f32__reduce4:
 
     movaps  xmm1, [rel expf32_log2ef]
     mulps   xmm1, xmm0
-    roundps xmm1, xmm1, 0        ; xmm1 = k (per lane)
+    um_roundps xmm1, xmm1, 0        ; xmm1 = k (per lane)
 
     movaps  xmm2, xmm1
     mulps   xmm2, [rel expf32_c1]
