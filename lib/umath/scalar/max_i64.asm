@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -71,28 +73,28 @@ umath_max_i64_array:
 
     ; Compare and blend for xmm0 and xmm4
     movups  xmm8, xmm0          ; xmm8 = a
-    pcmpgtq xmm8, xmm4          ; xmm8 = mask (a > b)
+    um_pcmpgtq xmm8, xmm4          ; xmm8 = mask (a > b)
     pand    xmm0, xmm8          ; xmm0 = a & mask
     pandn   xmm8, xmm4          ; xmm8 = ~mask & b
     por     xmm0, xmm8          ; xmm0 = max(a, b)
 
     ; Compare and blend for xmm1 and xmm5
     movups  xmm9, xmm1
-    pcmpgtq xmm9, xmm5
+    um_pcmpgtq xmm9, xmm5
     pand    xmm1, xmm9
     pandn   xmm9, xmm5
     por     xmm1, xmm9
 
     ; Compare and blend for xmm2 and xmm6
     movups  xmm10, xmm2
-    pcmpgtq xmm10, xmm6
+    um_pcmpgtq xmm10, xmm6
     pand    xmm2, xmm10
     pandn   xmm10, xmm6
     por     xmm2, xmm10
 
     ; Compare and blend for xmm3 and xmm7
     movups  xmm11, xmm3
-    pcmpgtq xmm11, xmm7
+    um_pcmpgtq xmm11, xmm7
     pand    xmm3, xmm11
     pandn   xmm11, xmm7
     por     xmm3, xmm11
@@ -124,7 +126,7 @@ umath_max_i64_array:
     movups  xmm1, [rdx]
     
     movups  xmm2, xmm0
-    pcmpgtq xmm2, xmm1
+    um_pcmpgtq xmm2, xmm1
     pand    xmm0, xmm2
     pandn   xmm2, xmm1
     por     xmm0, xmm2
@@ -188,25 +190,25 @@ umath_max_i64_array_inplace:
     movups  xmm7, [rsi + 48]
 
     movups  xmm8, xmm0
-    pcmpgtq xmm8, xmm4
+    um_pcmpgtq xmm8, xmm4
     pand    xmm0, xmm8
     pandn   xmm8, xmm4
     por     xmm0, xmm8
 
     movups  xmm9, xmm1
-    pcmpgtq xmm9, xmm5
+    um_pcmpgtq xmm9, xmm5
     pand    xmm1, xmm9
     pandn   xmm9, xmm5
     por     xmm1, xmm9
 
     movups  xmm10, xmm2
-    pcmpgtq xmm10, xmm6
+    um_pcmpgtq xmm10, xmm6
     pand    xmm2, xmm10
     pandn   xmm10, xmm6
     por     xmm2, xmm10
 
     movups  xmm11, xmm3
-    pcmpgtq xmm11, xmm7
+    um_pcmpgtq xmm11, xmm7
     pand    xmm3, xmm11
     pandn   xmm11, xmm7
     por     xmm3, xmm11
@@ -236,7 +238,7 @@ umath_max_i64_array_inplace:
     movups  xmm1, [rsi]
 
     movups  xmm2, xmm0
-    pcmpgtq xmm2, xmm1
+    um_pcmpgtq xmm2, xmm1
     pand    xmm0, xmm2
     pandn   xmm2, xmm1
     por     xmm0, xmm2
@@ -292,7 +294,7 @@ umath_max_i64_reduce:
     movups  xmm1, [rdi]
     
     movups  xmm2, xmm0
-    pcmpgtq xmm2, xmm1
+    um_pcmpgtq xmm2, xmm1
     pand    xmm0, xmm2
     pandn   xmm2, xmm1
     por     xmm0, xmm2
@@ -406,28 +408,28 @@ umath_max_i64_inplace_clip:
 
     ; Apply max(xmm0, xmm15)
     movups  xmm8, xmm0
-    pcmpgtq xmm8, xmm15
+    um_pcmpgtq xmm8, xmm15
     pand    xmm0, xmm8
     pandn   xmm8, xmm15
     por     xmm0, xmm8
 
     ; Apply max(xmm1, xmm15)
     movups  xmm9, xmm1
-    pcmpgtq xmm9, xmm15
+    um_pcmpgtq xmm9, xmm15
     pand    xmm1, xmm9
     pandn   xmm9, xmm15
     por     xmm1, xmm9
 
     ; Apply max(xmm2, xmm15)
     movups  xmm10, xmm2
-    pcmpgtq xmm10, xmm15
+    um_pcmpgtq xmm10, xmm15
     pand    xmm2, xmm10
     pandn   xmm10, xmm15
     por     xmm2, xmm10
 
     ; Apply max(xmm3, xmm15)
     movups  xmm11, xmm3
-    pcmpgtq xmm11, xmm15
+    um_pcmpgtq xmm11, xmm15
     pand    xmm3, xmm11
     pandn   xmm11, xmm15
     por     xmm3, xmm11
@@ -456,7 +458,7 @@ umath_max_i64_inplace_clip:
     movups  xmm0, [rdi]
     
     movups  xmm1, xmm0
-    pcmpgtq xmm1, xmm15
+    um_pcmpgtq xmm1, xmm15
     pand    xmm0, xmm1
     pandn   xmm1, xmm15
     por     xmm0, xmm1
