@@ -90,8 +90,10 @@ umath_memset_sse:
     test    rdx, rdx
     jz      .done
     mov     rcx, rdx
-    mov     al, sil
+    mov     r8, rax             ; preserve return value (stosb needs the byte in al)
+    mov     eax, esi
     rep     stosb
+    mov     rax, r8
 
 .done:
     ret
@@ -163,8 +165,10 @@ umath_memset_avx2:
     test    rdx, rdx
     jz      .done
     mov     rcx, rdx
-    mov     al, sil
+    mov     r8, rax             ; preserve return value (stosb needs the byte in al)
+    mov     eax, esi
     rep     stosb
+    mov     rax, r8
 
 .done:
     vzeroupper
@@ -245,8 +249,10 @@ umath_memset_avx512:
     test    rdx, rdx
     jz      .done
     mov     rcx, rdx
-    mov     al, sil
+    mov     r8, rax             ; preserve return value (stosb needs the byte in al)
+    mov     eax, esi
     rep     stosb
+    mov     rax, r8
 
 .done:
     vzeroupper
