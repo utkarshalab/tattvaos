@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -110,6 +112,7 @@ umath_memcpy_sse:
 ; -----------------------------------------------------------------------------
 global umath_memcpy_avx2
 umath_memcpy_avx2:
+    um_need umath__has_avx2, umath_memcpy_sse   ; no AVX2: same operation, narrower registers
     mov     rax, rdi
     
     ; check fallback thresholds
@@ -186,6 +189,7 @@ umath_memcpy_avx2:
 ; -----------------------------------------------------------------------------
 global umath_memcpy_avx512
 umath_memcpy_avx512:
+    um_need umath__has_avx512, umath_memcpy_avx2   ; no AVX-512: same operation, narrower registers
     mov     rax, rdi
     
     ; check threshold
