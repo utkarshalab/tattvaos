@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -410,19 +412,19 @@ umath_clamp_f64_count_clamped:
 
     ; Extract signs of masks for doubles (movmskpd extracts 2 bits per register)
     movmskpd edx, xmm4
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskpd edx, xmm5
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskpd edx, xmm6
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskpd edx, xmm7
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     add     rdi, 64
@@ -449,7 +451,7 @@ umath_clamp_f64_count_clamped:
     orpd    xmm1, xmm2          ; either
 
     movmskpd edx, xmm1
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     add     rdi, 16
