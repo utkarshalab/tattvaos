@@ -114,13 +114,26 @@ arguments and results:
 
 ## TattvaOS note
 
-The kernel enables SSE (CR4.OSFXSR) but not XSAVE (CR4.OSXSAVE/XCR0).
-Under TattvaOS, umath therefore reports no AVX and takes the SSE2/SSE4
-paths, even on AVX hardware. That is correct and safe.
-
-Enabling AVX in the kernel would be a separate step:
-- set CR4.OSXSAVE and XCR0 in `kernel/arch/x86_64/cpu.asm`;
-- save and restore ymm/zmm state on context switch.
+- **AVX is on.** Both boot paths (`boot/stage2/cpu/simd_enable.asm`,
+  `boot/uefi/transition.asm`) set CR4.OSXSAVE and XCR0 = x87|SSE|AVX.
+  The APs copy the BSP's XCR0 (`kernel/arch/x86_64/smp.asm`). umath
+  therefore detects AVX, AVX2 and FMA under the kernel.
+- **AVX-512 is off.** XCR0 bits 5–7 are not set, so umath reports no
+  AVX-512 and the `_avx512` routines take their AVX2 fallbacks.
+- **The kernel needs AVX2.** `cpu_verify_features` (`cpu.asm`) panics at
+  boot without SSE3, AVX, FMA and AVX2. Inside TattvaOS umath always has
+  at least a Haswell-class CPU, so the fallbacks matter for umath used on
+  its own, or if that requirement is ever relaxed.
+- **No SIMD state saving is needed today.** Fibers switch cooperatively
+  through a call (`fiber_switch`), and every xmm/ymm register is
+  caller-saved in the System V ABI. Interrupt handlers only report and
+  panic. Interrupt-driven preemption, or handlers that resume after using
+  SIMD, would need XSAVE/XRSTOR.
+- **MXCSR is 0x9FC0 under the kernel** (`default_mxcsr` in `cpu.asm`):
+  flush-to-zero and denormals-are-zero. Subnormal inputs read as 0 and
+  subnormal results become 0. umath's tests run with the IEEE default
+  (0x1F80), so their subnormal expectations do not hold under the
+  kernel's setting. Everything else is unaffected.
 
 ## Dependencies
 
@@ -130,10 +143,9 @@ cpuid/ depends on:
 
 cpuid/ is depended on by:
   → bits/, math_fn/, memory/, scalar/ (via fallback.asm)
+  → dtype/dtype_support.asm (shared flags + umath__cpu_xcr0 for its
+    AVX-512/AMX extras)
 ```
-
-`dtype/dtype_support.asm` still keeps its own private CPUID cache. Moving
-it onto this module is a possible follow-up.
 
 ---
 
