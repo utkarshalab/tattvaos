@@ -10,9 +10,9 @@
 ; math_fn's exp/log range reduction):
 ;
 ;   1. n = round(x * 2/pi)              ; nearest multiple of pi/2
-;   2. r = x - n*(pi/2)_hi - n*(pi/2)_lo ; reduced argument, |r| <= pi/4,
-;      pi/2 split into an exact hi/lo pair the same way ln(2) is in
-;      exp_f32.asm
+;   2. r = x - n*p1 - n*p2 - n*p3        ; reduced argument, |r| <= pi/4,
+;      pi/2 split into three parts (21 + 21 + 53 significant bits) so the
+;      n*p1 and n*p2 products are exact
 ;   3. Evaluate sin(r) and cos(r) both, via Taylor series (6 terms each is
 ;      enough headroom for float precision on |r| <= pi/4)
 ;   4. Select the result from n mod 4 from the standard sin/cos quadrant
@@ -26,7 +26,7 @@
 ; the f32 entry point — x is widened via cvtss2sd first, the reduction
 ; multiply/subtract happens in double, and only the small reduced r gets
 ; narrowed back to float32 before the polynomial evaluation. This matters:
-; the hi/lo split of pi/2 only keeps n*hi exact if hi itself hasn't
+; the split of pi/2 only keeps n*p1 exact if p1 itself hasn't
 ; already lost precision to being stored as a single float, and a first
 ; version of this file that did the whole reduction in float32 was
 ; measurably wrong (~1.7e-5 absolute error) by x=1000 — not some
@@ -35,12 +35,10 @@
 ; is the same fix real sinf/cosf implementations use, not an original
 ; technique.
 ;
-; Domain: still a simple (not Payne-Hanek) range reduction. The pi/2 hi/lo
-; split uses a 2^32 factor, keeping n*hi exact only while n stays under
-; roughly 2^32 — i.e. |x| up to roughly 2^32 * pi/2 =~ 6.7e9 (see
-; sin_f64.asm's header for the same bound with measured error numbers).
-; Not an issue for anything in a normal numeric workload's range; would be
-; for something like reducing 1e300 accurately.
+; Domain: still a simple (not Payne-Hanek) range reduction: accurate for
+; |x| < 2^32 * pi/2 =~ 6.7e9, degrading beyond it, NaN for |x| >= 2^52
+; (see sin_f64.asm's header for the measured numbers). sin(x) = x for
+; |x| < 2^-12, which also keeps the sign of -0.0.
 ;
 ; sin(NaN) = NaN, sin(±Inf) = NaN (undefined), matching libm.
 ; =============================================================================
@@ -50,10 +48,12 @@ bits 64
 section .rodata
 align 16
 sinf32_two_over_pi_d:  dq 0.6366197723675814
-sinf32_pi2_hi_d:        dq 1.5707963267341256
-sinf32_pi2_lo_d:        dq 6.077094383272197e-11
+sinf32_pi2_p1_d:        dq 1.570796012878418      ; pi/2 split into 21 + 21 + 53 bits:
+sinf32_pi2_p2_d:        dq 3.139164164167596e-07  ; n*p1 and n*p2 are exact for n < 2^32
+sinf32_pi2_p3_d:        dq 6.223372171896613e-14  ; p3 = pi/2 - p1 - p2 to 53 bits
 sinf32_nan_bits:      dd 0x7FC00000
-sinf32_pos_inf:       dd 0x7F800000
+sinf32_limit:         dd 4503599627370496.0   ; 2^52: |x| at or above -> NaN (see header)
+sinf32_tiny:          dd 0.000244140625   ; 2^-12: below it sin(x) rounds to x
 
 ; xorps needs its full 128 bits and its own 16-byte alignment (see
 ; pow_f32.asm's README-documented fix for the same mistake) — the four
@@ -82,7 +82,7 @@ section .text
 ; -----------------------------------------------------------------------------
 ; umath_sin_f32 - scalar single-precision sine
 ; args:    xmm0 = input value (x), radians
-; returns: xmm0 = sin(x); NaN for NaN or +/-Inf input
+; returns: xmm0 = sin(x); NaN for NaN, +/-Inf or |x| >= 2^52
 ; -----------------------------------------------------------------------------
 global umath_sin_f32
 umath_sin_f32:
@@ -92,8 +92,11 @@ umath_sin_f32:
     movd    eax, xmm0
     and     eax, 0x7FFFFFFF
     movd    xmm6, eax              ; xmm6 = |x|
-    ucomiss xmm6, [rel sinf32_pos_inf]
-    je      .return_nan            ; |x| == Inf (sin(Inf) is undefined)
+    ucomiss xmm6, [rel sinf32_limit]
+    jae     .return_nan            ; |x| == Inf (sin(Inf) is undefined), or too
+                                   ; large for this reduction (see header)
+    ucomiss xmm6, [rel sinf32_tiny]
+    jb      .return_x              ; sin(x) == x here; also keeps the sign of -0.0
 
     cvtss2sd xmm0, xmm0             ; widen x to double for the reduction
 
@@ -102,10 +105,13 @@ umath_sin_f32:
     roundsd xmm1, xmm1, 0          ; xmm1 = n (double, round to nearest)
 
     movsd   xmm2, xmm1
-    mulsd   xmm2, [rel sinf32_pi2_hi_d]
+    mulsd   xmm2, [rel sinf32_pi2_p1_d]
+    subsd   xmm0, xmm2             ; exact (Sterbenz): x and n*p1 are close
+    movsd   xmm2, xmm1
+    mulsd   xmm2, [rel sinf32_pi2_p2_d]
     subsd   xmm0, xmm2
     movsd   xmm2, xmm1
-    mulsd   xmm2, [rel sinf32_pi2_lo_d]
+    mulsd   xmm2, [rel sinf32_pi2_p3_d]
     subsd   xmm0, xmm2             ; xmm0 = r (double)
 
     cvtsd2ss xmm0, xmm0             ; narrow r back to float32 for the polynomial
@@ -140,7 +146,7 @@ umath_sin_f32:
     mulss   xmm4, xmm2
     addss   xmm4, [rel sinf32_one]  ; xmm4 = cos(r)
 
-    cvttsd2si eax, xmm1             ; n is already integral; truncate is exact
+    cvttsd2si rax, xmm1             ; n is integral; 64-bit so n >= 2^31 keeps its low bits
     and     eax, 3
 
     cmp     eax, 0
@@ -162,6 +168,9 @@ umath_sin_f32:
 .quad2:
     xorps   xmm3, [rel sinf32_sign_mask]
     movaps  xmm0, xmm3
+    ret
+
+.return_x:
     ret
 
 .return_nan:
