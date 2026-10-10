@@ -23,6 +23,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -286,10 +288,10 @@ umath_bit2_mask24_decode:
     movzx   ecx, dil
     and     ecx, 0xF
     ; idx0 = position of lowest set bit
-    tzcnt   eax, ecx
+    um_tzcnt   eax, ecx
     ; clear lowest set bit, idx1 = position of remaining bit
-    mov     edx, ecx
-    blsr    edx, edx        ; clear lowest set bit (BMI1)
-    tzcnt   edx, edx
+    lea     edx, [rcx - 1]
+    and     edx, ecx        ; clear lowest set bit (blsr without BMI1)
+    um_tzcnt   edx, edx
     ret
 %endif ; GUARD_LIB_UMATH_BITS_BIT2_ASM
