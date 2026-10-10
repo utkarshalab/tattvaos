@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -24,7 +26,7 @@ section .text
 ; -----------------------------------------------------------------------------
 global umath_floor_f64
 umath_floor_f64:
-    roundsd xmm0, xmm0, 1       ; round down (mode 1)
+    um_roundsd xmm0, xmm0, 1       ; round down (mode 1)
     ret
 
 ; -----------------------------------------------------------------------------
@@ -34,7 +36,7 @@ umath_floor_f64:
 ; -----------------------------------------------------------------------------
 global umath_floor_f64_to_i64
 umath_floor_f64_to_i64:
-    roundsd xmm0, xmm0, 1       ; guarantee floor rounding
+    um_roundsd xmm0, xmm0, 1       ; guarantee floor rounding
     cvtsd2si rax, xmm0          ; convert scalar double to signed 64-bit integer
     ret
 
@@ -68,10 +70,10 @@ umath_floor_f64_array:
     movups  xmm3, [rsi + 48]
 
     ; Floor round (mode 1)
-    roundpd xmm0, xmm0, 1
-    roundpd xmm1, xmm1, 1
-    roundpd xmm2, xmm2, 1
-    roundpd xmm3, xmm3, 1
+    um_roundpd xmm0, xmm0, 1
+    um_roundpd xmm1, xmm1, 1
+    um_roundpd xmm2, xmm2, 1
+    um_roundpd xmm3, xmm3, 1
 
     ; Store results
     movups  [rdi], xmm0
@@ -96,7 +98,7 @@ umath_floor_f64_array:
 
 .loop_vector:
     movups  xmm0, [rsi]
-    roundpd xmm0, xmm0, 1
+    um_roundpd xmm0, xmm0, 1
     movups  [rdi], xmm0
     add     rsi, 16
     add     rdi, 16
@@ -108,7 +110,7 @@ umath_floor_f64_array:
 
 .residuals:
     movsd   xmm0, [rsi]
-    roundsd xmm0, xmm0, 1
+    um_roundsd xmm0, xmm0, 1
     movsd   [rdi], xmm0
     add     rsi, 8
     add     rdi, 8
@@ -143,10 +145,10 @@ umath_floor_f64_inplace:
     movups  xmm2, [rdi + 32]
     movups  xmm3, [rdi + 48]
 
-    roundpd xmm0, xmm0, 1
-    roundpd xmm1, xmm1, 1
-    roundpd xmm2, xmm2, 1
-    roundpd xmm3, xmm3, 1
+    um_roundpd xmm0, xmm0, 1
+    um_roundpd xmm1, xmm1, 1
+    um_roundpd xmm2, xmm2, 1
+    um_roundpd xmm3, xmm3, 1
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -169,7 +171,7 @@ umath_floor_f64_inplace:
 
 .loop_vector:
     movups  xmm0, [rdi]
-    roundpd xmm0, xmm0, 1
+    um_roundpd xmm0, xmm0, 1
     movups  [rdi], xmm0
     add     rdi, 16
     dec     rcx
@@ -180,7 +182,7 @@ umath_floor_f64_inplace:
 
 .residuals:
     movsd   xmm0, [rdi]
-    roundsd xmm0, xmm0, 1
+    um_roundsd xmm0, xmm0, 1
     movsd   [rdi], xmm0
     add     rdi, 8
     dec     rsi
@@ -198,7 +200,7 @@ umath_floor_f64_inplace:
 global umath_floor_f64_fractional
 umath_floor_f64_fractional:
     movapd  xmm1, xmm0          ; xmm1 = val
-    roundsd xmm0, xmm0, 1       ; xmm0 = floor(val)
+    um_roundsd xmm0, xmm0, 1       ; xmm0 = floor(val)
     subsd   xmm1, xmm0          ; xmm1 = val - floor(val)
     movapd  xmm0, xmm1          ; xmm0 = fractional part
     ret
@@ -230,8 +232,8 @@ umath_floor_f64_to_i64_array:
     movups  xmm1, [rsi + 16]    ; xmm1 = [val3, val2]
 
     ; Floor round
-    roundpd xmm0, xmm0, 1
-    roundpd xmm1, xmm1, 1
+    um_roundpd xmm0, xmm0, 1
+    um_roundpd xmm1, xmm1, 1
 
     ; Extract and convert val0
     cvtsd2si rax, xmm0
@@ -261,7 +263,7 @@ umath_floor_f64_to_i64_array:
 
 .residuals:
     movsd   xmm0, [rsi]
-    roundsd xmm0, xmm0, 1
+    um_roundsd xmm0, xmm0, 1
     cvtsd2si rax, xmm0
     mov     [rdi], rax
     add     rsi, 8
@@ -280,7 +282,7 @@ umath_floor_f64_to_i64_array:
 global umath_floor_f64_is_integer
 umath_floor_f64_is_integer:
     movapd  xmm1, xmm0
-    roundsd xmm0, xmm0, 1       ; xmm0 = floor(val)
+    um_roundsd xmm0, xmm0, 1       ; xmm0 = floor(val)
     ucomisd xmm0, xmm1          ; compare floor(val) vs val
     jne     .not_int            ; if not equal, not an integer
     jp      .not_int            ; NaN guard
