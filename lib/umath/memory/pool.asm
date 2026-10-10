@@ -110,8 +110,8 @@ umath_pool_alloc:
     test    rdi, rdi
     jz      .done
 
-    mov     r8, [rdi + 32]
-    cmp     r8, POOL_MAGIC
+    mov     r8, POOL_MAGIC
+    cmp     r8, [rdi + 32]
     jne     .done
 
     mov     rax, [rdi + 8]      ; rax = free_list
@@ -171,8 +171,8 @@ umath_pool_free:
     test    rsi, rsi
     jz      .done
 
-    mov     r8, [rdi + 32]
-    cmp     r8, POOL_MAGIC
+    mov     r8, POOL_MAGIC
+    cmp     r8, [rdi + 32]
     jne     .done
 
     ; validate slot pointer range and alignment
@@ -209,8 +209,8 @@ umath_pool_contains:
     test    rsi, rsi
     jz      .done
 
-    mov     r8, [rdi + 32]
-    cmp     r8, POOL_MAGIC
+    mov     r8, POOL_MAGIC
+    cmp     r8, [rdi + 32]
     jne     .done
 
     mov     r8, [rdi + 0]       ; start
@@ -224,11 +224,11 @@ umath_pool_contains:
     mov     rax, rcx
     mul     r9
     test    rdx, rdx
-    jnz     .done               ; overflow safety check
+    jnz     .reject             ; overflow safety check
     
     add     rax, r8             ; limit
     cmp     rsi, rax
-    jae     .done
+    jae     .reject
 
     ; check alignment
     mov     rax, rsi
@@ -236,9 +236,12 @@ umath_pool_contains:
     xor     rdx, rdx
     div     rcx                 ; offset % object_size
     test    rdx, rdx
-    jnz     .done               ; unaligned, invalid pointer!
+    jnz     .reject             ; unaligned, invalid pointer!
 
     mov     rax, 1
+    ret
+.reject:
+    xor     eax, eax            ; rax holds the limit/quotient here, not 0
 .done:
     ret
 
@@ -252,8 +255,8 @@ umath_pool_clear:
     test    rdi, rdi
     jz      .done
 
-    mov     rax, [rdi + 32]
-    cmp     rax, POOL_MAGIC
+    mov     rax, POOL_MAGIC
+    cmp     rax, [rdi + 32]
     jne     .done
 
     mov     rsi, [rdi + 0]      ; start (buf)
@@ -295,8 +298,8 @@ umath_pool_verify:
     test    rdi, rdi
     jz      .corrupted
 
-    mov     rcx, [rdi + 32]     ; magic
-    cmp     rcx, POOL_MAGIC
+    mov     rcx, POOL_MAGIC
+    cmp     rcx, [rdi + 32]     ; magic
     jne     .corrupted
 
     mov     r8, [rdi + 0]       ; start
