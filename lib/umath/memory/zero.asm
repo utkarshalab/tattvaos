@@ -81,8 +81,10 @@ umath_memzero_sse:
     test    rsi, rsi
     jz      .done
     mov     rcx, rsi
+    mov     r8, rax             ; preserve return value (stosb stores al)
     xor     eax, eax
     rep     stosb
+    mov     rax, r8
 
 .done:
     ret
@@ -144,8 +146,10 @@ umath_memzero_avx2:
     test    rsi, rsi
     jz      .done
     mov     rcx, rsi
+    mov     r8, rax             ; preserve return value (stosb stores al)
     xor     eax, eax
     rep     stosb
+    mov     rax, r8
 
 .done:
     vzeroupper
@@ -216,8 +220,10 @@ umath_memzero_avx512:
     test    rsi, rsi
     jz      .done
     mov     rcx, rsi
+    mov     r8, rax             ; preserve return value (stosb stores al)
     xor     eax, eax
     rep     stosb
+    mov     rax, r8
 
 .done:
     vzeroupper
@@ -283,8 +289,10 @@ umath_memzero_nt:
     test    rsi, rsi
     jz      .done
     mov     rcx, rsi
+    mov     r8, rax             ; preserve return value (stosb stores al)
     xor     eax, eax
     rep     stosb
+    mov     rax, r8
     ret
 
 .fallback:
