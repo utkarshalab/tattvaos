@@ -171,12 +171,9 @@ umath_bit64_abs_s:
     mov     rax, rdi
     test    rax, rax
     jge     .done
-    cmp     rax, 0x8000000000000000
-    jne     .neg
-    mov     rax, 0x7FFFFFFFFFFFFFFF
-    ret
-.neg:
     neg     rax
+    jno     .done               ; OF is set only when negating INT64_MIN
+    mov     rax, 0x7FFFFFFFFFFFFFFF
 .done:
     ret
 
