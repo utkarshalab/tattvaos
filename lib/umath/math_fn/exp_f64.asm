@@ -39,6 +39,8 @@
 
 bits 64
 
+%include "lib/umath/cpuid/fallback.asm"
+
 section .rodata
 align 16
 expf64_log2e:   dq 1.4426950408889634, 1.4426950408889634
@@ -78,7 +80,7 @@ umath_exp_f64:
 
     movsd   xmm1, [rel expf64_log2e]
     mulsd   xmm1, xmm0
-    roundsd xmm1, xmm1, 0        ; xmm1 = k (round to nearest)
+    um_roundsd xmm1, xmm1, 0        ; xmm1 = k (round to nearest)
 
     movsd   xmm2, xmm1
     mulsd   xmm2, [rel expf64_c1]
@@ -144,7 +146,7 @@ umath_exp_f64__reduce2:
 
     movapd  xmm1, [rel expf64_log2e]
     mulpd   xmm1, xmm0
-    roundpd xmm1, xmm1, 0        ; xmm1 = k (per lane)
+    um_roundpd xmm1, xmm1, 0        ; xmm1 = k (per lane)
 
     movapd  xmm2, xmm1
     mulpd   xmm2, [rel expf64_c1]
@@ -185,8 +187,14 @@ umath_exp_f64__reduce2:
     movdqa    xmm3, xmm4
     psrad     xmm3, 1             ; k1 = k >> 1
     psubd     xmm4, xmm3          ; k2 = k - k1
-    pmovsxdq  xmm3, xmm3          ; sign-extend to two packed int64 values
-    pmovsxdq  xmm4, xmm4
+    ; sign-extend both to packed int64 (SSE2: interleave with the sign
+    ; dwords; xmm0/xmm1 are free here)
+    movdqa    xmm0, xmm3
+    psrad     xmm0, 31
+    punpckldq xmm3, xmm0
+    movdqa    xmm1, xmm4
+    psrad     xmm1, 31
+    punpckldq xmm4, xmm1
     paddq     xmm3, [rel expf64_bias_i64]
     psllq     xmm3, 52            ; xmm3 = bit pattern of 2^k1, per lane
     paddq     xmm4, [rel expf64_bias_i64]
