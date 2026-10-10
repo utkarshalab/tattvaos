@@ -6,6 +6,8 @@ set -eu
 
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 COUNTS=${SMP_TEST_COUNTS:-"2 8"}
+X2APIC_CPU=${SMP_X2APIC_CPU:-"max,x2apic=on"}
+XAPIC_CPU=${SMP_XAPIC_CPU:-"max,x2apic=off"}
 
 set -- $COUNTS
 [ "$#" -gt 0 ] || {
@@ -26,11 +28,17 @@ for COUNT in "$@"; do
     }
 
     echo "[test_smp_qemu] Booting UEFI topology with $COUNT processors..."
-    UEFI_QEMU_SMP="$COUNT" UEFI_EXPECT_SMP="$COUNT" \
+    UEFI_QEMU_CPU="$X2APIC_CPU" UEFI_QEMU_SMP="$COUNT" \
+        UEFI_EXPECT_SMP="$COUNT" UEFI_EXPECT_APIC_MODE=x2APIC \
         sh "$TEST_DIR/test_ovmf_qemu.sh"
     echo "[test_smp_qemu] Booting BIOS topology with $COUNT processors..."
-    BOOT_QEMU_SMP="$COUNT" BOOT_EXPECT_SMP="$COUNT" \
+    BOOT_QEMU_CPU="$X2APIC_CPU" BOOT_QEMU_SMP="$COUNT" \
+        BOOT_EXPECT_SMP="$COUNT" BOOT_EXPECT_APIC_MODE=x2APIC \
         sh "$TEST_DIR/test_boot_qemu.sh"
 done
 
-echo "PASS: UEFI and BIOS AP startup/rendezvous matrix ($COUNTS processors)"
+echo "[test_smp_qemu] Booting BIOS xAPIC fallback with 2 processors..."
+BOOT_QEMU_CPU="$XAPIC_CPU" BOOT_QEMU_SMP=2 BOOT_EXPECT_SMP=2 \
+    BOOT_EXPECT_APIC_MODE=xAPIC sh "$TEST_DIR/test_boot_qemu.sh"
+
+echo "PASS: x2APIC UEFI/BIOS matrix ($COUNTS processors) and xAPIC fallback"

@@ -207,6 +207,7 @@ test-negative: $(IMG)
 # Fast native coverage for the firmware parser and the complete mixed-mode SMP
 # translation unit. smp-test adds real OVMF INIT/SIPI/rendezvous boots.
 smp-check:
+	@sh $(KERNEL_DIR)/tests/test_dmar.sh
 	@sh $(KERNEL_DIR)/tests/test_madt.sh
 	@sh $(KERNEL_DIR)/tests/test_smp_asm.sh
 	@sh $(KERNEL_DIR)/tests/test_apic_consumers_asm.sh

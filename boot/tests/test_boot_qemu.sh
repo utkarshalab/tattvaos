@@ -8,8 +8,10 @@ TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IMG="$TEST_DIR/../tattva.img"
 QEMU64=${QEMU:-qemu-system-x86_64}
 TIMEOUT=${BOOT_TEST_TIMEOUT:-30}
+CPU=${BOOT_QEMU_CPU:-max}
 SMP=${BOOT_QEMU_SMP:-1}
 EXPECT_SMP=${BOOT_EXPECT_SMP:-}
+EXPECT_APIC_MODE=${BOOT_EXPECT_APIC_MODE:-}
 TMP_DIR=$(mktemp -d)
 LOG="$TMP_DIR/uart.log"
 QEMU_ERR="$TMP_DIR/qemu.stderr"
@@ -30,6 +32,13 @@ case "$EXPECT_SMP" in
         echo "FAIL: invalid BOOT_EXPECT_SMP value: $EXPECT_SMP"
         exit 1
     } ;;
+esac
+case "$EXPECT_APIC_MODE" in
+    ''|xAPIC|x2APIC) ;;
+    *)
+        echo "FAIL: invalid BOOT_EXPECT_APIC_MODE value: $EXPECT_APIC_MODE"
+        exit 1
+        ;;
 esac
 
 if ! command -v "$QEMU64" >/dev/null 2>&1; then
@@ -54,7 +63,7 @@ echo "[test_boot_qemu] Booting in QEMU..."
 set +e
 timeout "$TIMEOUT" "$QEMU64" \
     -drive "format=raw,file=$IMG" \
-    -cpu max \
+    -cpu "$CPU" \
     -smp "$SMP" \
     -m 512 \
     -netdev user,id=n0 \
@@ -156,6 +165,14 @@ if [ -n "$EXPECT_SMP" ]; then
     done
     if grep -Eq 'SMP: (disabled by validation code|AP startup failed)' "$LOG"; then
         echo "FAIL: BIOS SMP boot fell back to BSP-only mode"
+        PASS=0
+    fi
+fi
+
+if [ -n "$EXPECT_APIC_MODE" ]; then
+    if ! awk -v expected="SMP: APIC mode $EXPECT_APIC_MODE" \
+        '{ sub(/\r$/, "", $0); if ($0 == expected) found = 1 } END { exit !found }' "$LOG"; then
+        echo "FAIL: missing exact APIC-mode marker: SMP: APIC mode $EXPECT_APIC_MODE"
         PASS=0
     fi
 fi

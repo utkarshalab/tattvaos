@@ -10,8 +10,10 @@ EFI_IMAGE="$BOOT_DIR/BOOTX64.EFI"
 KERNEL="$BOOT_DIR/kernel.bin"
 QEMU64=${QEMU:-qemu-system-x86_64}
 TIMEOUT=${UEFI_BOOT_TEST_TIMEOUT:-45}
+CPU=${UEFI_QEMU_CPU:-max}
 SMP=${UEFI_QEMU_SMP:-1}
 EXPECT_SMP=${UEFI_EXPECT_SMP:-}
+EXPECT_APIC_MODE=${UEFI_EXPECT_APIC_MODE:-}
 OVMF_CODE=${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}
 OVMF_VARS=${OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}
 TMP_DIR=$(mktemp -d)
@@ -39,6 +41,13 @@ if [ -n "$EXPECT_SMP" ]; then
             ;;
     esac
 fi
+case "$EXPECT_APIC_MODE" in
+    ''|xAPIC|x2APIC) ;;
+    *)
+        echo "FAIL: invalid UEFI_EXPECT_APIC_MODE value: $EXPECT_APIC_MODE"
+        exit 1
+        ;;
+esac
 
 for TOOL in "$QEMU64" timeout; do
     command -v "$TOOL" >/dev/null 2>&1 || {
@@ -70,7 +79,7 @@ set +e
 timeout "$TIMEOUT" "$QEMU64" \
     -machine q35 \
     -accel "$ACCEL" \
-    -cpu max \
+    -cpu "$CPU" \
     -smp "$SMP" \
     -m 512 \
     -drive "if=pflash,format=raw,unit=0,readonly=on,file=$OVMF_CODE" \
@@ -146,6 +155,14 @@ if [ -n "$EXPECT_SMP" ]; then
     done
     if grep -Fq "SMP: disabled by validation code" "$LOG"; then
         echo "FAIL: SMP topology fell back to BSP-only mode"
+        PASS=0
+    fi
+fi
+
+if [ -n "$EXPECT_APIC_MODE" ]; then
+    if ! awk -v expected="SMP: APIC mode $EXPECT_APIC_MODE" \
+        '{ sub(/\r$/, "", $0); if ($0 == expected) found = 1 } END { exit !found }' "$LOG"; then
+        echo "FAIL: missing exact APIC-mode marker: SMP: APIC mode $EXPECT_APIC_MODE"
         PASS=0
     fi
 fi

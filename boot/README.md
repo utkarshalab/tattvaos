@@ -60,15 +60,19 @@ initialization and initial fiber creation finish.
 Startup is deliberately all-or-nothing: an AP timeout or feature mismatch
 atomically cancels the rendezvous and keeps the system BSP-only, avoiding
 sparse logical CPU IDs. TLB, decompression, and ACPI self-IPI paths use the
-active xAPIC/x2APIC backend. The smp-test target boots the real BIOS and OVMF
-paths with 2 and 8 processors and requires exact discovery/rendezvous/online
-and post-barrier release markers.
+active xAPIC/x2APIC backend. When every processor advertises x2APIC, the
+kernel switches the BSP before startup unless a validated Intel DMAR table
+opts the platform out; malformed DMAR also prevents a new transition. Each AP
+joins the selected mode before programming its LVT. The smp-test target boots the real BIOS and OVMF paths
+with 2 and 8 processors in x2APIC mode, exercises an xAPIC fallback, and
+requires exact mode/discovery/rendezvous/online/post-barrier markers.
 
 ## Current boundaries
 
 This is an x86-64 bootstrap, not yet a blanket bare-metal certification. The
 initial physical aperture is the low 4 GiB, CPU topology is static after boot,
 and UEFI panic recovery is not implemented. The startup path does not yet
-online more than 64 CPUs or dynamically switch the platform into x2APIC mode.
+online more than 64 CPUs. Device interrupt delivery to wide x2APIC IDs still
+requires IOMMU interrupt remapping; current devices remain polling/BSP-routed.
 IOMMU policy, Secure Boot signing, CPU/memory hotplug, and broad firmware
 interoperability remain later hardening phases.

@@ -1,9 +1,10 @@
 ; =============================================================================
 ; Tattva OS — lib/mem/virt/acpi_hotplug.asm
 ; =============================================================================
-; ACPI Memory Hot-Plug Interceptor & Dynamic NUMA Rebalancing.
-; Traps SCI interrupts, parses FADT/FACP table for GPE/IRQ configurations,
-; handles SCI event status, and updates NUMA ranges dynamically on memory insertion.
+; ACPI Memory Hot-Plug Discovery & Dynamic NUMA Rebalancing.
+; Parses FADT/FACP SCI/GPE metadata and retains the event handler for future
+; routing. Hardware delivery stays disabled until IOAPIC discovery and
+; interrupt remapping are owned by the kernel.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -29,7 +30,7 @@ endstruc
 section .text
 
 ; -----------------------------------------------------------------------------
-; acpi_hotplug_init — Scan ACPI tables, register SCI handler, program IOAPIC
+; acpi_hotplug_init — Discover ACPI SCI/GPE metadata without enabling delivery
 ; Input:  none
 ; Output: none
 ; -----------------------------------------------------------------------------
@@ -176,52 +177,16 @@ acpi_hotplug_init:
     mov rsi, msg_crlf
     call uart_print_str
 
-    ; 3. Hook SCI Interrupt Vector
+    ; Record the legacy vector, but keep the SCI and its GPE sources disabled.
+    ; The current kernel has no MADT-derived IOAPIC routing or IOMMU interrupt
+    ; remapping yet. Programming a fixed 0xFEC00000 redirection entry here
+    ; would make kernel-owned x2APIC mode unsafe and could target the wrong
+    ; controller on real hardware.
     movzx ecx, byte [acpi_sci_irq]
     add ecx, 32                      ; IRQ map offset
     mov [acpi_sci_vector], cl
 
-    movzx rdi, cl                    ; vector index
-    mov rsi, acpi_sci_isr            ; ISR handler address
-    xor rdx, rdx                     ; no IST stack
-    call register_idt_handler
-
-    ; 4. Program IOAPIC Redirection Table for SCI IRQ
-    ; Standard IOAPIC Base physical address: 0xFEC00000
-    mov rdi, 0xFEC00000
-    movzx ecx, byte [acpi_sci_irq]
-    shl ecx, 1
-    add ecx, 0x10                    ; Redirection entry offset: 0x10 + 2 * IRQ
-
-    ; Write low 32 bits
-    mov eax, ecx
-    mov [rdi], eax                   ; Select register
-    movzx eax, byte [acpi_sci_vector]
-    ; Set bit 13 (active low) and bit 15 (level trigger) for standard SCI
-    or eax, 0x0000A000
-    mov [rdi + 0x10], eax            ; Write redirection table entry (low)
-
-    ; Write high 32 bits (destination APIC ID = 0)
-    inc ecx
-    mov eax, ecx
-    mov [rdi], eax
-    xor eax, eax
-    mov [rdi + 0x10], eax            ; Write redirection table entry (high)
-
-    ; 5. Enable GPE0 Memory Hot-Plug event (Event bit 3)
-    ; Enable register is located at: GPE0_BLK + GPE0_BLK_LEN / 2
-    mov dx, word [acpi_gpe0_blk]
-    test dx, dx
-    jz .done
-    movzx ax, byte [acpi_gpe0_blk_len]
-    shr ax, 1                        ; divide by 2
-    add dx, ax                       ; DX = GPE0 Enable register base
-    
-    in al, dx
-    or al, 0x08                      ; Enable event bit 3 (hotplug)
-    out dx, al
-
-    mov rsi, msg_hotplug_gpe0_ok
+    mov rsi, msg_hotplug_deferred
     call uart_print_str
 
 .done:
@@ -443,7 +408,7 @@ acpi_parse_namespace_update:
     ret
 
 ; -----------------------------------------------------------------------------
-; acpi_simulate_hotplug_trigger — Trigger mock hot-plug interrupt via Self-IPI
+; acpi_simulate_hotplug_trigger — Inject one mock hot-plug event synchronously
 ; Input:
 ;   RDI = physical base address of memory
 ;   RSI = size of memory region
@@ -463,18 +428,13 @@ acpi_simulate_hotplug_trigger:
     mov [simulated_acpi_update_size], rsi
     mov [simulated_acpi_update_node], edx
     mov qword [simulated_acpi_update_valid], 1
-    mov byte [simulated_gpe_status_bit], 0x08  ; simulated GPE bit 3
-
     mov rsi, msg_hotplug_sim_trigger
     call uart_print_str
 
-    ; Send Self-IPI through the active xAPIC/x2APIC backend.
-    ; The destination is ignored for the Self shorthand.
-    xor edi, edi
-    mov esi, 0x00040000
-    movzx eax, byte [acpi_sci_vector]
-    or esi, eax
-    call smp_send_ipi
+    ; This is a software test hook, not an emulated hardware route. Keeping it
+    ; synchronous avoids installing an IDT vector while the real SCI is
+    ; deliberately quarantined.
+    call acpi_handle_hotplug_event
 
     pop rdi
     pop rsi
@@ -533,9 +493,9 @@ acpi_parsed_device:     times acpi_mem_device_t_size db 0
 msg_hotplug_init_start: db "ACPI: Initializing Memory Hot-Plug Interceptor...", 0x0D, 0x0A, 0
 msg_hotplug_fadt_found: db "ACPI: Successfully located FADT (FACP) table.", 0x0D, 0x0A, 0
 msg_hotplug_defaults:   db "ACPI: FADT not found. Initializing with fallback defaults.", 0x0D, 0x0A, 0
-msg_sci_irq_prefix:     db "ACPI: Configured SCI IRQ = ", 0
+msg_sci_irq_prefix:     db "ACPI: Discovered SCI IRQ = ", 0
 msg_gpe0_prefix:        db ", GPE0_BLK = ", 0
-msg_hotplug_gpe0_ok:    db "ACPI: GPE0 Memory Hot-Plug event interrupt enabled.", 0x0D, 0x0A, 0
+msg_hotplug_deferred:   db "ACPI: SCI/GPE routing deferred until interrupt remapping is owned.", 0x0D, 0x0A, 0
 
 msg_hotplug_sim_trigger:db "ACPI: Simulating hardware memory hot-plug event trigger...", 0x0D, 0x0A, 0
 msg_hotplug_event_rx:   db "ACPI SCI: Intercepted hot-plug interrupt event.", 0x0D, 0x0A, 0

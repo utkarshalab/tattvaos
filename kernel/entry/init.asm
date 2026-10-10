@@ -292,6 +292,7 @@ mm_init:
     call kmem_cache_init_all
 
     call smp_discover
+    jc .smp_error
     call smp_stacks_init
 
     ; 5. Unmap the kernel stack guard page to trap stack overflows
@@ -312,6 +313,13 @@ mm_init:
     jz .error
 
     ret
+
+.smp_error:
+    mov rsi, msg_smp_init_failed
+    call uart_print_str
+    cli
+    hlt
+    jmp .smp_error
 
 
 .error:
@@ -358,6 +366,7 @@ global boot_info_ptr
 boot_info_ptr:      dq 0
 
 msg_kernel_boot:     db "Tattva Kernel Booting...", 0x0D, 0x0A, 0
+msg_smp_init_failed: db "Kernel init: unsafe APIC firmware policy", 0x0D, 0x0A, 0
 msg_init_gdt:        db "Initializing Kernel GDT/TSS... ", 0
 msg_boot_info_loc:   db "BootInfo Pointer: ", 0
 msg_gs_base_loc:     db "GS Base register: ", 0

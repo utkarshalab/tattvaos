@@ -8,6 +8,7 @@
 %include "boot/boot_info.inc"
 %include "lib/percpu.inc"
 %include "kernel/arch/x86_64/madt.asm"
+%include "kernel/arch/x86_64/dmar.asm"
 
 SMP_MAX_CPUS                 equ PERCPU_MAX_CORES
 SMP_MAILBOX_STRIDE           equ 64
@@ -178,6 +179,8 @@ smp_find_madt:
     mov r12, rdi
     mov r14, rsi
     xor r15d, r15d
+    mov byte [rel smp_dmar_seen], 0
+    mov byte [rel smp_x2apic_veto], 0
     test r12, r12
     jz .invalid
     mov rax, r12
@@ -274,7 +277,22 @@ smp_find_madt:
     cmp rax, r14
     ja .invalid
     cmp dword [r13], SMP_MADT_SIGNATURE
+    je .found_madt
+    cmp dword [r13], DMAR_SIGNATURE
     jne .root_loop
+    cmp byte [rel smp_dmar_seen], 0
+    jne .veto_x2apic
+    mov byte [rel smp_dmar_seen], 1
+    mov rdi, r13
+    mov rsi, r14
+    call smp_dmar_policy_parse
+    jc .veto_x2apic
+    test al, DMAR_FLAG_X2APIC_OPT_OUT
+    jz .root_loop
+.veto_x2apic:
+    mov byte [rel smp_x2apic_veto], 1
+    jmp .root_loop
+.found_madt:
     test r15, r15
     jnz .invalid
     mov r15, r13
@@ -297,11 +315,21 @@ smp_find_madt:
     pop rbx
     ret
 
+smp_report_apic_mode:
+    lea rsi, [rel msg_smp_xapic]
+    cmp byte [rel smp_x2apic_mode], 0
+    je .print
+    lea rsi, [rel msg_smp_x2apic]
+.print:
+    call uart_print_str
+    ret
+
 global smp_discover
 smp_discover:
     push rbx
     push r12
     push r13
+    push r14
     mov dword [rel smp_discovered_cores], 1
     mov dword [rel smp_online_pending], 1
     mov dword [rel smp_discovery_error], 0
@@ -312,23 +340,29 @@ smp_discover:
     mov [rel smp_apic_ids], eax
     mov [gs:percpu_t.lapic_id], eax
 
-    ; Detect the hardware APIC mode independently of ACPI topology.  Even when
-    ; RSDP/MADT validation falls back to one CPU, interrupt EOI and self-IPI
-    ; paths must still use x2APIC MSRs when firmware left x2APIC enabled.
+    ; Capture the firmware mode first. A new x2APIC transition is made only
+    ; after validated ACPI policy has had a chance to veto it.
     mov ecx, 0x1B
     rdmsr
     test eax, 1 << 11
     jz .bad_apic
-    test eax, 1 << 10
-    setnz byte [rel smp_x2apic_mode]
     mov r13d, eax
     and r13d, 0xFFFFF000
-    cmp byte [rel smp_x2apic_mode], 0
-    jne .apic_base_ready
+    mov r14d, edx
+    test eax, 1 << 10
+    jz .firmware_xapic
+    mov eax, 1
+    cpuid
+    test ecx, 1 << 21
+    jz .bad_apic
+    mov byte [rel smp_x2apic_mode], 1
+    jmp .apic_base_ready
+
+.firmware_xapic:
     ; This kernel identity-maps xAPIC MMIO below 4 GiB only. IA32_APIC_BASE
     ; carries base bits 35:32 in EDX, so rejecting only the low dword would
     ; silently target the wrong page.
-    test edx, edx
+    test r14d, r14d
     jnz .bad_apic
     test r13d, r13d
     jz .bad_apic
@@ -348,7 +382,35 @@ smp_discover:
     call smp_find_madt
     jc .bad_root
     mov [rel smp_madt_ptr], rax
-    mov rdi, rax
+
+    ; Interrupts remain disabled here, so the xAPIC -> x2APIC transition
+    ; cannot race local or device delivery. Once EXTD is set it is never
+    ; cleared: architectural downgrade disables the APIC and loses state.
+    cmp byte [rel smp_x2apic_mode], 0
+    jne .firmware_x2apic
+    cmp byte [rel smp_x2apic_veto], 0
+    jne .apic_mode_ready
+    mov eax, 1
+    cpuid
+    test ecx, 1 << 21
+    jz .apic_mode_ready
+    mov ecx, 0x1B
+    rdmsr
+    or eax, (1 << 11) | (1 << 10)
+    wrmsr
+    mov ecx, 0x1B
+    rdmsr
+    test eax, 1 << 11
+    jz .bad_apic
+    test eax, 1 << 10
+    jz .bad_apic
+    mov byte [rel smp_x2apic_mode], 1
+    jmp .apic_mode_ready
+.firmware_x2apic:
+    cmp byte [rel smp_x2apic_veto], 0
+    jne .fatal_x2apic_veto
+.apic_mode_ready:
+    mov rdi, [rel smp_madt_ptr]
     mov rsi, [rel phys_state + phys_state_t.direct_map_limit]
     mov edx, [rel smp_bsp_apic_id]
     lea rcx, [rel smp_apic_ids]
@@ -401,12 +463,14 @@ smp_discover:
     jmp .mailbox_loop
 .discovered:
     mov dword [rel smp_mailboxes + SMP_STATE_OFF], SMP_CPU_ONLINE
+    call smp_report_apic_mode
     lea rsi, [rel msg_smp_discovered]
     call uart_print_str
     mov eax, r12d
     call uart_print_dec
     lea rsi, [rel msg_smp_processors]
     call uart_print_str
+    clc
     jmp .done
 .bad_root:
     mov dword [rel smp_discovery_error], 1
@@ -416,17 +480,33 @@ smp_discover:
     jmp .fallback
 .bad_apic:
     mov dword [rel smp_discovery_error], 9
-    jmp .fallback
+    jmp .fatal
+.fatal_x2apic_veto:
+    call smp_report_apic_mode
+    lea rsi, [rel msg_smp_x2apic_veto]
+    call uart_print_str
+    mov dword [rel smp_discovery_error], 11
+    jmp .fatal_return
 .no_topology:
     mov dword [rel smp_discovery_error], 10
 .fallback:
+    call smp_report_apic_mode
     lea rsi, [rel msg_smp_disabled]
     call uart_print_str
     mov eax, [rel smp_discovery_error]
     call uart_print_dec
     lea rsi, [rel msg_crlf_smp]
     call uart_print_str
+    clc
+    jmp .done
+.fatal:
+    call smp_report_apic_mode
+.fatal_return:
+    lea rsi, [rel msg_smp_fatal]
+    call uart_print_str
+    stc
 .done:
+    pop r14
     pop r13
     pop r12
     pop rbx
@@ -1777,10 +1857,16 @@ smp_released_cores:         dd 1
 smp_discovery_error:        dd 0
 smp_bsp_apic_id:            dd 0
 smp_x2apic_mode:            db 0
+smp_dmar_seen:               db 0
+smp_x2apic_veto:             db 0
 smp_bsp_has_spec_ctrl:      db 0
 smp_startup_aborted:        db 0
 smp_lapic_ready:            db 0
 msg_smp_discovered:         db "SMP: discovered ", 0
+msg_smp_xapic:              db "SMP: APIC mode xAPIC", 0x0D, 0x0A, 0
+msg_smp_x2apic:             db "SMP: APIC mode x2APIC", 0x0D, 0x0A, 0
+msg_smp_x2apic_veto:        db "SMP: firmware DMAR veto contradicts active x2APIC", 0x0D, 0x0A, 0
+msg_smp_fatal:               db "SMP: fatal APIC policy failure", 0x0D, 0x0A, 0
 msg_smp_rendezvous:         db "SMP: rendezvous ", 0
 msg_smp_online:             db "SMP: online ", 0
 msg_smp_released:           db "SMP: released ", 0
