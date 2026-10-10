@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -71,16 +73,16 @@ umath_clamp_i32_array:
     movups  xmm3, [rsi + 48]
 
     ; Clamp against max: elements = min(elements, max_val) (SSE4.1 pminsd)
-    pminsd  xmm0, xmm15
-    pminsd  xmm1, xmm15
-    pminsd  xmm2, xmm15
-    pminsd  xmm3, xmm15
+    um_pminsd  xmm0, xmm15
+    um_pminsd  xmm1, xmm15
+    um_pminsd  xmm2, xmm15
+    um_pminsd  xmm3, xmm15
 
     ; Clamp against min: elements = max(elements, min_val) (SSE4.1 pmaxsd)
-    pmaxsd  xmm0, xmm14
-    pmaxsd  xmm1, xmm14
-    pmaxsd  xmm2, xmm14
-    pmaxsd  xmm3, xmm14
+    um_pmaxsd  xmm0, xmm14
+    um_pmaxsd  xmm1, xmm14
+    um_pmaxsd  xmm2, xmm14
+    um_pmaxsd  xmm3, xmm14
 
     ; Store results
     movups  [rdi], xmm0
@@ -105,8 +107,8 @@ umath_clamp_i32_array:
 
 .loop_vector:
     movups  xmm0, [rsi]
-    pminsd  xmm0, xmm15
-    pmaxsd  xmm0, xmm14
+    um_pminsd  xmm0, xmm15
+    um_pmaxsd  xmm0, xmm14
     movups  [rdi], xmm0
     add     rsi, 16
     add     rdi, 16
@@ -163,15 +165,15 @@ umath_clamp_i32_inplace:
     movups  xmm2, [rdi + 32]
     movups  xmm3, [rdi + 48]
 
-    pminsd  xmm0, xmm15
-    pminsd  xmm1, xmm15
-    pminsd  xmm2, xmm15
-    pminsd  xmm3, xmm15
+    um_pminsd  xmm0, xmm15
+    um_pminsd  xmm1, xmm15
+    um_pminsd  xmm2, xmm15
+    um_pminsd  xmm3, xmm15
 
-    pmaxsd  xmm0, xmm14
-    pmaxsd  xmm1, xmm14
-    pmaxsd  xmm2, xmm14
-    pmaxsd  xmm3, xmm14
+    um_pmaxsd  xmm0, xmm14
+    um_pmaxsd  xmm1, xmm14
+    um_pmaxsd  xmm2, xmm14
+    um_pmaxsd  xmm3, xmm14
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -194,8 +196,8 @@ umath_clamp_i32_inplace:
 
 .loop_vector:
     movups  xmm0, [rdi]
-    pminsd  xmm0, xmm15
-    pmaxsd  xmm0, xmm14
+    um_pminsd  xmm0, xmm15
+    um_pmaxsd  xmm0, xmm14
     movups  [rdi], xmm0
     add     rdi, 16
     dec     rcx
@@ -279,16 +281,16 @@ umath_clamp_i32_array_inplace_dynamic:
     movups  xmm11, [rdx + 48]
 
     ; dst = min(dst, max_val)
-    pminsd  xmm0, xmm8
-    pminsd  xmm1, xmm9
-    pminsd  xmm2, xmm10
-    pminsd  xmm3, xmm11
+    um_pminsd  xmm0, xmm8
+    um_pminsd  xmm1, xmm9
+    um_pminsd  xmm2, xmm10
+    um_pminsd  xmm3, xmm11
 
     ; dst = max(dst, min_val)
-    pmaxsd  xmm0, xmm4
-    pmaxsd  xmm1, xmm5
-    pmaxsd  xmm2, xmm6
-    pmaxsd  xmm3, xmm7
+    um_pmaxsd  xmm0, xmm4
+    um_pmaxsd  xmm1, xmm5
+    um_pmaxsd  xmm2, xmm6
+    um_pmaxsd  xmm3, xmm7
 
     ; Store results
     movups  [rdi], xmm0
@@ -317,8 +319,8 @@ umath_clamp_i32_array_inplace_dynamic:
     movups  xmm1, [rsi]
     movups  xmm2, [rdx]
 
-    pminsd  xmm0, xmm2
-    pmaxsd  xmm0, xmm1
+    um_pminsd  xmm0, xmm2
+    um_pmaxsd  xmm0, xmm1
     movups  [rdi], xmm0
 
     add     rdi, 16
@@ -413,19 +415,19 @@ umath_clamp_i32_count_clamped:
 
     ; Extract signs to count popcnt
     movmskps r8d, xmm4
-    popcnt  r8d, r8d
+    um_popcnt  r8d, r8d
     add     rax, r8
 
     movmskps r8d, xmm5
-    popcnt  r8d, r8d
+    um_popcnt  r8d, r8d
     add     rax, r8
 
     movmskps r8d, xmm6
-    popcnt  r8d, r8d
+    um_popcnt  r8d, r8d
     add     rax, r8
 
     movmskps r8d, xmm7
-    popcnt  r8d, r8d
+    um_popcnt  r8d, r8d
     add     rax, r8
 
     add     rdi, 64
@@ -452,7 +454,7 @@ umath_clamp_i32_count_clamped:
     por     xmm1, xmm2
 
     movmskps r8d, xmm1
-    popcnt  r8d, r8d
+    um_popcnt  r8d, r8d
     add     rax, r8
 
     add     rdi, 16
