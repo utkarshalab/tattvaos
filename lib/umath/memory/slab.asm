@@ -108,8 +108,8 @@ umath_slab_alloc:
     jz      .fail
 
     ; verify magic number
-    mov     r8, [rdi + 32]
-    cmp     r8, SLAB_MAGIC
+    mov     r8, SLAB_MAGIC
+    cmp     r8, [rdi + 32]
     jne     .fail
 
     ; get current free_list pointer
@@ -174,8 +174,8 @@ umath_slab_free:
     jz      .fail
 
     ; check magic number
-    mov     r8, [rdi + 32]
-    cmp     r8, SLAB_MAGIC
+    mov     r8, SLAB_MAGIC
+    cmp     r8, [rdi + 32]
     jne     .fail
 
     ; validate block boundaries and alignment
@@ -217,8 +217,8 @@ umath_slab_contains:
     test    rsi, rsi
     jz      .done
 
-    mov     r8, [rdi + 32]
-    cmp     r8, SLAB_MAGIC
+    mov     r8, SLAB_MAGIC
+    cmp     r8, [rdi + 32]
     jne     .done
 
     mov     r8, [rdi + 0]       ; start
@@ -261,8 +261,8 @@ umath_slab_reset:
     test    rdi, rdi
     jz      .done
 
-    mov     rax, [rdi + 32]
-    cmp     rax, SLAB_MAGIC
+    mov     rax, SLAB_MAGIC
+    cmp     rax, [rdi + 32]
     jne     .done
 
     mov     rsi, [rdi + 0]      ; start
@@ -304,8 +304,8 @@ umath_slab_verify:
     test    rdi, rdi
     jz      .invalid
 
-    mov     rcx, [rdi + 32]     ; magic
-    cmp     rcx, SLAB_MAGIC
+    mov     rcx, SLAB_MAGIC
+    cmp     rcx, [rdi + 32]     ; magic
     jne     .invalid
 
     mov     r8, [rdi + 0]       ; start
@@ -317,55 +317,8 @@ umath_slab_verify:
     mul     r9
     add     rax, r8             ; rax = limit
 
-    ; slow and fast pointer algorithm (Floyd's cycle detection) to catch cycles
-    mov     rsi, [rdi + 8]      ; rsi = slow pointer
-    mov     rdx, rsi            ; rdx = fast pointer
-
-.cycle_loop:
-    test    rsi, rsi
-    jz      .list_ok            ; reached end of free list, no cycles!
-    
-    ; validate slow pointer is aligned and within bounds
-    cmp     rsi, r8
-    jb      .corrupted
-    cmp     rsi, rax
-    jae     .corrupted
-    
-    ; check alignment of slow pointer
-    mov     rcx, rsi
-    sub     rcx, r8
-    push    rax
-    mov     rax, rcx
-    xor     rdx, rdx
-    div     r10
-    mov     r11, rdx            ; r11 = offset % block_size
-    pop     rax
-    test    r11, r11
-    jnz     .corrupted
-
-    ; move fast pointer twice, slow pointer once
-    mov     rsi, [rsi]          ; slow = slow->next
-    
-    ; fast step 1
-    mov     rdx, [rdi + 8]      ; load fast pointer location or just walk
-    ; wait, let's keep fast pointer tracking simple:
-    ; let's track the visited block count. If visited block count exceeds
-    ; total_blocks, there must be a cycle! This is much simpler to implement
-    ; and requires less register management.
-    jmp     .walk_count
-
-.list_ok:
-    mov     rax, 1
-    ret
-
-.corrupted:
-.invalid:
-    xor     rax, rax
-    ret
-
-.walk_count:
-    ; alternate verification: walk list and count nodes.
-    ; if count > total_blocks, cycle exists.
+    ; walk the free list and count nodes: a count above total_blocks means
+    ; the list has a cycle
     mov     rsi, [rdi + 8]      ; current = free_list
     xor     rcx, rcx            ; count = 0
 
@@ -397,6 +350,11 @@ umath_slab_verify:
     mov     rsi, [rsi]          ; current = current->next
     jmp     .walk_loop
 
+.corrupted:
+.invalid:
+    xor     rax, rax
+    ret
+
 .walk_ok:
     ; check if counts match free_blocks
     mov     edx, [rdi + 24]     ; free_blocks
@@ -417,8 +375,8 @@ umath_slab_available:
     test    rdi, rdi
     jz      .done
     
-    mov     rdx, [rdi + 32]
-    cmp     rdx, SLAB_MAGIC
+    mov     rdx, SLAB_MAGIC
+    cmp     rdx, [rdi + 32]
     jne     .done
 
     mov     eax, [rdi + 24]     ; free_blocks
