@@ -13,6 +13,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -38,6 +40,7 @@ umath_min_i64:
 ; -----------------------------------------------------------------------------
 global umath_min_i64_array
 umath_min_i64_array:
+    um_need umath__has_avx2, mini64__array_base   ; no AVX2: scalar loop
     test    rdi, rdi
     jz      .done
     test    rsi, rsi
@@ -201,6 +204,7 @@ umath_min_i64_reduce_index:
 ; -----------------------------------------------------------------------------
 global umath_min_i64_inplace_clip
 umath_min_i64_inplace_clip:
+    um_need umath__has_avx2, mini64__clip_base   ; no AVX2: scalar loop
     test    rdi, rdi
     jz      .done_clip
     test    rsi, rsi
@@ -312,6 +316,49 @@ umath_min_i64_reduce_range:
     jnz     .loop_reduce
 
 .done_range:
+    ret
+
+; -----------------------------------------------------------------------------
+; mini64__array_base / mini64__clip_base - internal: baseline (no AVX2)
+; versions of min_i64_array and min_i64_inplace_clip. Not declared global.
+; -----------------------------------------------------------------------------
+mini64__array_base:
+    test    rdi, rdi
+    jz      .done
+    test    rsi, rsi
+    jz      .done
+    test    rdx, rdx
+    jz      .done
+    test    rcx, rcx
+    jz      .done
+.loop:
+    mov     rax, [rsi]
+    mov     r8, [rdx]
+    cmp     r8, rax
+    cmovl   rax, r8             ; signed min
+    mov     [rdi], rax
+    add     rsi, 8
+    add     rdx, 8
+    add     rdi, 8
+    dec     rcx
+    jnz     .loop
+.done:
+    ret
+
+mini64__clip_base:
+    test    rdi, rdi
+    jz      .done
+    test    rsi, rsi
+    jz      .done
+.loop:
+    mov     rax, [rdi]
+    cmp     rdx, rax
+    cmovl   rax, rdx            ; min(x, threshold)
+    mov     [rdi], rax
+    add     rdi, 8
+    dec     rsi
+    jnz     .loop
+.done:
     ret
 
 %endif ; GUARD_LIB_UMATH_SCALAR_MIN_I64_ASM
