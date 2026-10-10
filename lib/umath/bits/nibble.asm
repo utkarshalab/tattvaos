@@ -26,6 +26,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -200,7 +202,7 @@ umath_nibble_popcount_buf:
     cmp     rcx, rsi
     jge     .done
     movzx   edx, byte [rdi + rcx]
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     eax, edx
     inc     rcx
     jmp     .loop
