@@ -149,17 +149,16 @@ umath_mask_single64:
 ; -----------------------------------------------------------------------------
 global umath_mask_range32
 umath_mask_range32:
-    ; low mask = (1 << (hi - lo + 1)) - 1
-    ; result   = low_mask << lo
-    mov     eax, esi
-    sub     eax, edi                ; eax = hi - lo
-    inc     eax                     ; eax = hi - lo + 1 (width)
-    mov     ecx, eax
-    mov     eax, 1
-    shl     eax, cl                 ; eax = 1 << width
-    dec     eax                     ; eax = low_mask
+    ; result = (~0 >> (31 - hi)) & (~0 << lo); neither shift reaches 32, so
+    ; the full range lo=0, hi=31 works (1 << 32 would wrap to 1 << 0)
+    mov     ecx, 31
+    sub     ecx, esi
+    mov     eax, -1
+    shr     eax, cl                 ; eax = bits 0..hi
     mov     ecx, edi
-    shl     eax, cl                 ; eax = low_mask << lo
+    mov     edx, -1
+    shl     edx, cl                 ; edx = bits lo..31
+    and     eax, edx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -171,15 +170,15 @@ umath_mask_range32:
 ; -----------------------------------------------------------------------------
 global umath_mask_range64
 umath_mask_range64:
-    mov     rax, rsi
-    sub     rax, rdi                ; rax = hi - lo
-    inc     rax                     ; rax = width
-    mov     rcx, rax
-    mov     rax, 1
-    shl     rax, cl
-    dec     rax                     ; rax = low_mask
-    mov     rcx, rdi
-    shl     rax, cl                 ; rax = low_mask << lo
+    ; result = (~0 >> (63 - hi)) & (~0 << lo); see umath_mask_range32
+    mov     ecx, 63
+    sub     ecx, esi
+    mov     rax, -1
+    shr     rax, cl                 ; rax = bits 0..hi
+    mov     ecx, edi
+    mov     rdx, -1
+    shl     rdx, cl                 ; rdx = bits lo..63
+    and     rax, rdx
     ret
 
 ; -----------------------------------------------------------------------------
