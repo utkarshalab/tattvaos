@@ -1,7 +1,7 @@
 # tests — umath Test Harness
 
 **Module:** `tests/`
-**Status:** Implemented — covers bits/, dtype/, math_fn/, memory/, reduce/, scalar/, stability/.
+**Status:** Implemented — covers bits/, cpuid/, dtype/, math_fn/, memory/, reduce/, scalar/, stability/.
 **Part of:** umath — unified math library
 
 ---
@@ -30,7 +30,9 @@ compiler. Exit status 0 means everything passed.
   its own and all of them as one translation unit, with
   `-Werror=number-overflow -Werror=other` (see `../README.md` for why
   those two warning classes matter here), links the unit into a shared
-  object, then runs each `test_*.py` against it.
+  object, then runs each `test_*.py` against it twice: natively, then
+  with `UMATH_CPU_MASK=0` so umath uses only the SSE2 baseline and every
+  SSE4/AVX/BMI fast path goes through its fallback (`../cpuid/`).
 - `test_math_fn.py`: ULP sweeps against Python's `math` module, special
   values (NaN, ±Inf, ±0, overflow/underflow), the sin/cos domain bound, and
   array/inplace variants against the scalar routine.
@@ -52,11 +54,18 @@ compiler. Exit status 0 means everything passed.
   (including cancellation and 1e6-term sums), Welford mean/variance
   against exact `Fraction` arithmetic (large offsets, chunked + merged),
   log-sum-exp accuracy and special values.
+- `test_cpu.py`: CPU detection against `/proc/cpuinfo`, the restrict/has
+  API, and the SSE2 fallbacks bit for bit against the native instructions
+  (a second library copy restricted to the baseline; sin/cos/exp/pow and
+  every floor/ceil/round/trunc form, on raw bit patterns including
+  signalling NaNs).
 - `umath_ref.py`: shared helpers (ULP distance, float32 rounding, a small
-  failure collector).
+  failure collector). `load()` applies `UMATH_CPU_MASK` when it is set.
 
-AVX2 variants are skipped on a host without AVX2; the AVX-512 variants
-are not exercised (no hardware to run them on).
+Every variant runs on every host: the AVX2/AVX-512 ones fall back to
+narrower code when the CPU lacks them. They are only *native* on hardware
+that has the extension, though; on this machine (no AVX-512) the
+`_avx512` routines are tested through their AVX2 fallback.
 
 ## Dependencies
 
