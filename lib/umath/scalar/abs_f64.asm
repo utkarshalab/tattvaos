@@ -25,6 +25,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; 128-bit absolute value mask (clears bit 63 of each 64-bit slot)
@@ -276,19 +278,19 @@ umath_abs_f64_count_negative:
     andpd   xmm3, xmm15
 
     movmskpd edx, xmm0
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskpd edx, xmm1
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskpd edx, xmm2
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     movmskpd edx, xmm3
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
 
     add     rdi, 64
@@ -309,7 +311,7 @@ umath_abs_f64_count_negative:
     movups  xmm0, [rdi]
     andpd   xmm0, xmm15
     movmskpd edx, xmm0
-    popcnt  edx, edx
+    um_popcnt  edx, edx
     add     rax, rdx
     add     rdi, 16
     dec     rcx
