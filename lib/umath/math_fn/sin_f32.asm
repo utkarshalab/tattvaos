@@ -45,6 +45,8 @@
 
 bits 64
 
+%include "lib/umath/cpuid/fallback.asm"
+
 section .rodata
 align 16
 sinf32_two_over_pi_d:  dq 0.6366197723675814
@@ -128,7 +130,7 @@ umath_sin_f32:
 
     movsd   xmm1, [rel sinf32_two_over_pi_d]
     mulsd   xmm1, xmm0
-    roundsd xmm1, xmm1, 0          ; xmm1 = n (double, round to nearest)
+    um_roundsd xmm1, xmm1, 0          ; xmm1 = n (double, round to nearest)
 
     movsd   xmm2, xmm1
     mulsd   xmm2, [rel sinf32_pi2_p1_d]
@@ -236,7 +238,7 @@ sinf32__core4:
     cvtps2pd xmm11, xmm11       ; lanes 2-3 widened
     movapd  xmm1, [rel sinf32_p_two_over_pi_d]
     mulpd   xmm1, xmm10
-    roundpd xmm1, xmm1, 0         ; n
+    um_roundpd xmm1, xmm1, 0         ; n
     movapd  xmm2, xmm10
     movapd  xmm4, xmm1
     mulpd   xmm4, [rel sinf32_p_p1_d]
@@ -249,12 +251,12 @@ sinf32__core4:
     subpd   xmm2, xmm4          ; r (double)
     movapd  xmm3, xmm1
     mulpd   xmm3, [rel sinf32_p_quarter_d]
-    roundpd xmm3, xmm3, 1         ; floor(n / 4)
+    um_roundpd xmm3, xmm3, 1         ; floor(n / 4)
     mulpd   xmm3, [rel sinf32_p_four_d]
     subpd   xmm1, xmm3            ; n mod 4, exact
     movapd  xmm12, [rel sinf32_p_two_over_pi_d]
     mulpd   xmm12, xmm11
-    roundpd xmm12, xmm12, 0         ; n
+    um_roundpd xmm12, xmm12, 0         ; n
     movapd  xmm13, xmm11
     movapd  xmm4, xmm12
     mulpd   xmm4, [rel sinf32_p_p1_d]
@@ -267,7 +269,7 @@ sinf32__core4:
     subpd   xmm13, xmm4          ; r (double)
     movapd  xmm5, xmm12
     mulpd   xmm5, [rel sinf32_p_quarter_d]
-    roundpd xmm5, xmm5, 1         ; floor(n / 4)
+    um_roundpd xmm5, xmm5, 1         ; floor(n / 4)
     mulpd   xmm5, [rel sinf32_p_four_d]
     subpd   xmm12, xmm5            ; n mod 4, exact
     cvtpd2ps xmm0, xmm2         ; r lanes 0-1, narrowed to float
