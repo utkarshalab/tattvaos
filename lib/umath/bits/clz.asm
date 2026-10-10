@@ -16,6 +16,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -28,7 +30,7 @@ umath_clz8:
     movzx   edi, dil                ; zero extend to 32 bits
     test    edi, edi
     jz      .zero8
-    lzcnt   eax, edi                ; lzcnt on 32-bit
+    um_lzcnt   eax, edi                ; lzcnt on 32-bit
     sub     eax, 24                 ; adjust for 8-bit width
     ret
 .zero8:
@@ -45,7 +47,7 @@ umath_clz16:
     movzx   edi, di                 ; zero extend to 32 bits
     test    edi, edi
     jz      .zero16
-    lzcnt   eax, edi
+    um_lzcnt   eax, edi
     sub     eax, 16                 ; adjust for 16-bit width
     ret
 .zero16:
@@ -61,7 +63,7 @@ global umath_clz32
 umath_clz32:
     test    edi, edi
     jz      .zero32
-    lzcnt   eax, edi
+    um_lzcnt   eax, edi
     ret
 .zero32:
     mov     eax, 32
@@ -76,7 +78,7 @@ global umath_clz64
 umath_clz64:
     test    rdi, rdi
     jz      .zero64
-    lzcnt   rax, rdi
+    um_lzcnt   rax, rdi
     ret
 .zero64:
     mov     rax, 64
