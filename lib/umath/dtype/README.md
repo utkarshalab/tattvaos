@@ -32,7 +32,7 @@ Is this type supported on the current CPU?
 ```
 
 Without a centralized answer to these questions, every module would define
-its own ad-hoc type handling. dtype solves this once, correctly, for all 235
+its own ad-hoc type handling. dtype solves this once, correctly, for all 213
 types across the entire library.
 
 ---
@@ -98,7 +98,7 @@ Reserved        0xF00–0xFF0 future hardware formats
 User defined    0xFF1–0xFFE user custom types
 Sentinels       0xFFE–0xFFF DTYPE_UNKNOWN, DTYPE_MAX
 ─────────────────────────────────────────────────────────────────
-Total           235 defined types
+Total           213 defined types
 ```
 
 ---
@@ -107,7 +107,7 @@ Total           235 defined types
 
 ```
 dtype/
-├── dtype_id.asm        ← master enum, all 235 IDs + reserved space
+├── dtype_id.asm        ← master enum, all 213 IDs + reserved space
 ├── dtype_family.asm    ← family classification, is_int/float/complex etc
 ├── dtype_size.asm      ← size in bits and bytes, packed size
 ├── dtype_align.asm     ← alignment for scalar/XMM/YMM/ZMM/cache
@@ -116,7 +116,7 @@ dtype/
 ├── dtype_patterns.asm  ← bit patterns for zero/one/nan/inf/max/min/eps
 ├── dtype_range.asm     ← min/max/smallest representable values
 ├── dtype_epsilon.asm   ← machine epsilon, ULP, decimal digits
-├── dtype_promote.asm   ← promotion rules, 235×235 lookup table
+├── dtype_promote.asm   ← promotion rules: rank + family based, commutative
 ├── dtype_cast.asm      ← cast safety, overflow/underflow behavior
 ├── dtype_support.asm   ← CPUID runtime support check per dtype
 ├── dtype_name.asm      ← dtype ↔ string name, ASCII + UTF-8
@@ -166,7 +166,7 @@ bool     → returned as 0 or 1 in eax
 ## Key design decisions
 
 **Flat ID space**
-All 235 types share a single u32 ID namespace. No hierarchy at runtime.
+All 213 types share a single u32 ID namespace. No hierarchy at runtime.
 Family, traits, size — all looked up from flat tables indexed by ID.
 
 **Read-only tables**
@@ -176,8 +176,9 @@ friendly — hot paths fit in L1.
 
 **O(1) everything**
 Every query is a table lookup or trivial arithmetic.
-`dtype_promote(a, b)` → single indexed read from 235×235 table.
-`dtype_size_bytes(id)` → single indexed read from 235-entry table.
+`dtype_promote(a, b)` → a few rank/family lookups; ids are sorted first,
+so the result never depends on argument order.
+`dtype_size_bytes(id)` → single indexed read from a per-id table.
 
 **Sub-byte types**
 INT1, INT2, INT4 are valid dtypes. `dtype_size_bits` returns 1, 2, 4.
@@ -258,7 +259,8 @@ BIGINT + INT64  →   BIGINT
 BIGINT + FP64   →   BIGFLOAT
 ```
 
-Full 235×235 table in `dtype_promote.asm`.
+Rules (rank and family based, not a table) in `dtype_promote.asm`; the pairs
+above are checked by `tests/test_dtype.py`.
 
 ---
 
@@ -363,7 +365,7 @@ dtype/ is depended on by:
 
 ```
 DTYPE_SPEC_VERSION  equ 1       ← increment on breaking changes
-DTYPE_COUNT         equ 235     ← total defined dtypes
+DTYPE_COUNT         equ 213     ← total defined dtypes
 DTYPE_ID_MAX        equ 0xFFF   ← maximum valid ID
 ```
 
