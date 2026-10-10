@@ -130,6 +130,15 @@ grep -Fq '"error"' "$QMP_LOG" && fail "QMP rejected the NMI command"
 wait_for_count "$READY" 2 600
 wait_for_count "$SELFTESTS" 2 300
 wait_for_count "$HEARTBEAT" 2 100
+TIMER_COUNT=$(awk '
+    {
+        sub(/\r$/, "", $0)
+        if ($0 == "SMP: APIC timer periodic 1/1" ||
+            $0 == "SMP: APIC timer tsc-deadline 1/1") count++
+    }
+    END { print count + 0 }
+' "$LOG")
+[ "$TIMER_COUNT" -ge 2 ] || fail "all-core APIC timer proof did not recur after recovery"
 
 if [ "$HIGHMEM" -eq 1 ]; then
     HIGH_E820="base=0x0000000100000000 len=0x0000000010000000 type=1 (usable)"
@@ -166,6 +175,7 @@ for FATAL in \
     "Recovery long-mode transition verify: FAIL" \
     "Recovery: reloaded ULF" \
     "Recovery: pristine snapshot invalid" \
+    "SMP: APIC timer delivery FAILED" \
     "EARLY64 EXCEPTION"
 do
     grep -Fq "$FATAL" "$LOG" && fail "fatal recovery diagnostic found: $FATAL"

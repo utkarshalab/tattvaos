@@ -7,6 +7,7 @@
 [BITS 64]
 %include "boot/boot_info.inc"
 %include "lib/percpu.inc"
+%include "kernel/sched/sched.inc"
 %include "kernel/arch/x86_64/madt.asm"
 %include "kernel/arch/x86_64/dmar.asm"
 
@@ -44,6 +45,9 @@ SMP_LAPIC_LVT_TIMER          equ 0x320
 SMP_LAPIC_LVT_LINT0          equ 0x350
 SMP_LAPIC_LVT_LINT1          equ 0x360
 SMP_LAPIC_LVT_ERROR          equ 0x370
+SMP_LAPIC_TIMER_INIT         equ 0x380
+SMP_LAPIC_TIMER_CURRENT      equ 0x390
+SMP_LAPIC_TIMER_DIVIDE       equ 0x3E0
 SMP_X2APIC_TPR_MSR           equ 0x808
 SMP_X2APIC_EOI_MSR           equ 0x80B
 SMP_X2APIC_SVR_MSR           equ 0x80F
@@ -52,11 +56,20 @@ SMP_X2APIC_LVT_TIMER_MSR     equ 0x832
 SMP_X2APIC_LVT_LINT0_MSR     equ 0x835
 SMP_X2APIC_LVT_LINT1_MSR     equ 0x836
 SMP_X2APIC_LVT_ERROR_MSR     equ 0x837
+SMP_X2APIC_TIMER_INIT_MSR    equ 0x838
+SMP_X2APIC_TIMER_CURRENT_MSR equ 0x839
+SMP_X2APIC_TIMER_DIVIDE_MSR  equ 0x83E
+SMP_TSC_DEADLINE_MSR         equ 0x6E0
 SMP_APIC_INIT_ASSERT         equ 0x0000C500
 SMP_APIC_INIT_DEASSERT       equ 0x00008500
 SMP_APIC_STARTUP             equ 0x00004600
 SMP_APIC_MASKED              equ 1 << 16
+SMP_APIC_TIMER_PERIODIC      equ 1 << 17
+SMP_APIC_TIMER_DEADLINE      equ 1 << 18
+SMP_APIC_TIMER_DIVIDE_16     equ 3
 SMP_SPURIOUS_VECTOR          equ 0xFF
+SMP_TIMER_MODE_PERIODIC      equ 1
+SMP_TIMER_MODE_DEADLINE      equ 2
 SMP_BSP_CR4_ALLOWED          equ (1 << 5) | (1 << 6) | (1 << 7) | (1 << 9) | (1 << 10) | (1 << 16) | (1 << 17) | (1 << 18) | (1 << 20) | (1 << 21) | (1 << 22) | (1 << 24)
 
 SMP_RSDP_SIGNATURE           equ 0x2052545020445352
@@ -490,6 +503,7 @@ smp_discover:
 .no_topology:
     mov dword [rel smp_discovery_error], 10
 .fallback:
+    mov qword [rel smp_madt_ptr], 0
     call smp_report_apic_mode
     lea rsi, [rel msg_smp_disabled]
     call uart_print_str
@@ -851,6 +865,211 @@ smp_lapic_eoi:
 .xapic:
     mov rax, [rel smp_lapic_base]
     mov dword [rax + SMP_LAPIC_EOI], 0
+    ret
+
+; Select one timer backend for every processor. TSC deadline is used only when
+; the BSP advertises both the deadline facility and an invariant TSC.
+smp_timer_select_backend:
+    push rbx
+    mov byte [rel smp_timer_mode], SMP_TIMER_MODE_PERIODIC
+    mov qword [rel smp_timer_interval_tsc], 0
+    mov eax, 1
+    cpuid
+    test ecx, 1 << 24
+    jz .done
+    mov eax, 0x80000000
+    cpuid
+    cmp eax, 0x80000007
+    jb .done
+    mov eax, 0x80000007
+    cpuid
+    test edx, 1 << 8
+    jz .done
+    mov rax, [rel tsc_freq_hz]
+    xor edx, edx
+    mov ecx, 100
+    div rcx                         ; 10 ms in invariant-TSC cycles
+    test rax, rax
+    jz .done
+    mov [rel smp_timer_interval_tsc], rax
+    mov byte [rel smp_timer_mode], SMP_TIMER_MODE_DEADLINE
+.done:
+    pop rbx
+    ret
+
+smp_timer_arm_deadline:
+    rdtsc
+    shl rdx, 32
+    or rax, rdx
+    add rax, [rel smp_timer_interval_tsc]
+    mov rdx, rax
+    shr rdx, 32
+    mov ecx, SMP_TSC_DEADLINE_MSR
+    wrmsr
+    ret
+
+; Program and calibrate this processor's timer while interrupts are disabled.
+; CF=1 if the selected backend is unavailable or the local counter is inert.
+smp_timer_init_current:
+    push rbx
+    mov qword [gs:percpu_t.ticks], 0
+    cmp byte [rel smp_timer_mode], SMP_TIMER_MODE_DEADLINE
+    je .deadline
+    cmp byte [rel smp_timer_mode], SMP_TIMER_MODE_PERIODIC
+    jne .failed
+
+    cmp byte [rel smp_x2apic_mode], 0
+    je .periodic_xapic
+    mov ecx, SMP_X2APIC_TIMER_DIVIDE_MSR
+    mov eax, SMP_APIC_TIMER_DIVIDE_16
+    xor edx, edx
+    wrmsr
+    mov ecx, SMP_X2APIC_LVT_TIMER_MSR
+    mov eax, SMP_APIC_MASKED | APIC_TIMER_VECTOR
+    wrmsr
+    mov ecx, SMP_X2APIC_TIMER_INIT_MSR
+    mov eax, 0xFFFFFFFF
+    wrmsr
+    mov edi, 10000
+    call udelay
+    mov ecx, SMP_X2APIC_TIMER_CURRENT_MSR
+    rdmsr
+    test eax, eax
+    jz .failed
+    mov ebx, 0xFFFFFFFF
+    sub ebx, eax
+    jz .failed
+    mov ecx, SMP_X2APIC_LVT_TIMER_MSR
+    mov eax, SMP_APIC_TIMER_PERIODIC | APIC_TIMER_VECTOR
+    xor edx, edx
+    wrmsr
+    mov ecx, SMP_X2APIC_TIMER_INIT_MSR
+    mov eax, ebx
+    wrmsr
+    jmp .ready
+
+.periodic_xapic:
+    mov rax, [rel smp_lapic_base]
+    mov dword [rax + SMP_LAPIC_TIMER_DIVIDE], SMP_APIC_TIMER_DIVIDE_16
+    mov dword [rax + SMP_LAPIC_LVT_TIMER], SMP_APIC_MASKED | APIC_TIMER_VECTOR
+    mov dword [rax + SMP_LAPIC_TIMER_INIT], 0xFFFFFFFF
+    mov edi, 10000
+    call udelay
+    mov rax, [rel smp_lapic_base]
+    mov eax, [rax + SMP_LAPIC_TIMER_CURRENT]
+    test eax, eax
+    jz .failed
+    mov ebx, 0xFFFFFFFF
+    sub ebx, eax
+    jz .failed
+    mov rax, [rel smp_lapic_base]
+    mov dword [rax + SMP_LAPIC_LVT_TIMER], SMP_APIC_TIMER_PERIODIC | APIC_TIMER_VECTOR
+    mov [rax + SMP_LAPIC_TIMER_INIT], ebx
+    jmp .ready
+
+.deadline:
+    mov eax, 1
+    cpuid
+    test ecx, 1 << 24
+    jz .failed
+    mov eax, 0x80000000
+    cpuid
+    cmp eax, 0x80000007
+    jb .failed
+    mov eax, 0x80000007
+    cpuid
+    test edx, 1 << 8
+    jz .failed
+    cmp byte [rel smp_x2apic_mode], 0
+    je .deadline_xapic
+    mov ecx, SMP_X2APIC_LVT_TIMER_MSR
+    mov eax, SMP_APIC_TIMER_DEADLINE | APIC_TIMER_VECTOR
+    xor edx, edx
+    wrmsr
+    jmp .arm_deadline
+.deadline_xapic:
+    mov rax, [rel smp_lapic_base]
+    mov dword [rax + SMP_LAPIC_LVT_TIMER], SMP_APIC_TIMER_DEADLINE | APIC_TIMER_VECTOR
+.arm_deadline:
+    call smp_timer_arm_deadline
+.ready:
+    clc
+    jmp .done
+.failed:
+    stc
+.done:
+    pop rbx
+    ret
+
+smp_timer_isr:
+    push rax
+    push rcx
+    push rdx
+    inc qword [gs:percpu_t.ticks]
+    cmp byte [rel smp_timer_mode], SMP_TIMER_MODE_DEADLINE
+    jne .eoi
+    call smp_timer_arm_deadline
+.eoi:
+    call smp_lapic_eoi
+    pop rdx
+    pop rcx
+    pop rax
+    iretq
+
+; Require recurring delivery on every released CPU before advertising success.
+global smp_timer_verify
+smp_timer_verify:
+    push rbx
+    push r12
+    push r13
+    mov ebx, 1000
+.poll:
+    cmp qword [gs:percpu_t.ticks], 2
+    jb .wait
+    mov r12d, 1
+.scan:
+    cmp r12d, [rel smp_active_cores]
+    jae .passed
+    mov rax, r12
+    shl rax, 6
+    lea r13, [rel smp_mailboxes]
+    add r13, rax
+    mov r13, [r13 + SMP_PERCPU_OFF]
+    test r13, r13
+    jz .wait
+    cmp qword [r13 + percpu_t.ticks], 2
+    jb .wait
+    inc r12d
+    jmp .scan
+.wait:
+    mov edi, 1000
+    call udelay
+    dec ebx
+    jnz .poll
+    lea rsi, [rel msg_smp_timer_failed]
+    call uart_print_str
+    stc
+    jmp .done
+.passed:
+    lea rsi, [rel msg_smp_timer_periodic]
+    cmp byte [rel smp_timer_mode], SMP_TIMER_MODE_DEADLINE
+    jne .print
+    lea rsi, [rel msg_smp_timer_deadline]
+.print:
+    call uart_print_str
+    mov eax, [rel smp_active_cores]
+    call uart_print_dec
+    mov al, '/'
+    call uart_putc
+    mov eax, [rel smp_active_cores]
+    call uart_print_dec
+    lea rsi, [rel msg_crlf_smp]
+    call uart_print_str
+    clc
+.done:
+    pop r13
+    pop r12
+    pop rbx
     ret
 
 ; RDI=APIC ID, RSI=mailbox. Bounded 100ms rendezvous.
@@ -1346,15 +1565,22 @@ smp_start:
     mov byte [rel smp_startup_aborted], 0
     mov byte [rel smp_lapic_ready], 0
     mov r15d, [rel smp_discovered_cores]
-    cmp dword [rel smp_discovery_error], 0
-    jne .single
     mov edi, SMP_SPURIOUS_VECTOR
     lea rsi, [rel smp_spurious_isr]
     xor edx, edx
     call register_idt_handler
+    mov edi, APIC_TIMER_VECTOR
+    lea rsi, [rel smp_timer_isr]
+    xor edx, edx
+    call register_idt_handler
+    call smp_timer_select_backend
     call smp_local_apic_init
     jc .fatal_lapic
+    call smp_timer_init_current
+    jc .fatal_timer
     mov byte [rel smp_lapic_ready], 1
+    cmp dword [rel smp_discovery_error], 0
+    jne .single
     cmp r15d, 1
     jbe .single
     call smp_capture_bsp_state
@@ -1497,6 +1723,11 @@ smp_start:
     call uart_print_str
     cli
     jmp .fatal_halt
+.fatal_timer:
+    lea rsi, [rel msg_smp_timer_init_fail]
+    call uart_print_str
+    cli
+    jmp .fatal_halt
 .single:
     mov dword [rel smp_online_pending], 1
 .done:
@@ -1620,6 +1851,8 @@ smp_ap_entry:
     call smp_ap_cpu_init
     jc .failed
     call smp_local_apic_init
+    jc .failed
+    call smp_timer_init_current
     jc .failed
     call ucpu_topology_decode_current
     ; Cache topology storage is global and was populated by the BSP. Running
@@ -1862,11 +2095,18 @@ smp_x2apic_veto:             db 0
 smp_bsp_has_spec_ctrl:      db 0
 smp_startup_aborted:        db 0
 smp_lapic_ready:            db 0
+smp_timer_mode:              db 0
+align 8
+smp_timer_interval_tsc:      dq 0
 msg_smp_discovered:         db "SMP: discovered ", 0
 msg_smp_xapic:              db "SMP: APIC mode xAPIC", 0x0D, 0x0A, 0
 msg_smp_x2apic:             db "SMP: APIC mode x2APIC", 0x0D, 0x0A, 0
 msg_smp_x2apic_veto:        db "SMP: firmware DMAR veto contradicts active x2APIC", 0x0D, 0x0A, 0
 msg_smp_fatal:               db "SMP: fatal APIC policy failure", 0x0D, 0x0A, 0
+msg_smp_timer_periodic:      db "SMP: APIC timer periodic ", 0
+msg_smp_timer_deadline:      db "SMP: APIC timer tsc-deadline ", 0
+msg_smp_timer_failed:        db "SMP: APIC timer delivery FAILED", 0x0D, 0x0A, 0
+msg_smp_timer_init_fail:     db "SMP: local APIC timer initialization failed", 0x0D, 0x0A, 0
 msg_smp_rendezvous:         db "SMP: rendezvous ", 0
 msg_smp_online:             db "SMP: online ", 0
 msg_smp_released:           db "SMP: released ", 0

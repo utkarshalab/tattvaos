@@ -63,7 +63,11 @@ sparse logical CPU IDs. TLB, decompression, and ACPI self-IPI paths use the
 active xAPIC/x2APIC backend. When every processor advertises x2APIC, the
 kernel switches the BSP before startup unless a validated Intel DMAR table
 opts the platform out; malformed DMAR also prevents a new transition. Each AP
-joins the selected mode before programming its LVT. The smp-test target boots the real BIOS and OVMF paths
+joins the selected mode before programming its LVT. Every released processor
+then runs a kernel-owned 10 ms local timer: invariant TSC-deadline when
+available, otherwise a per-core TSC-calibrated periodic APIC timer. Boot does
+not proceed until every timer has delivered at least two interrupts. The
+smp-test target boots the real BIOS and OVMF paths
 with 2 and 8 processors in x2APIC mode, exercises an xAPIC fallback, and
 requires exact mode/discovery/rendezvous/online/post-barrier markers.
 

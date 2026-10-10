@@ -47,54 +47,27 @@ tsc_calibrate_pit:
     push rbx
     push r12
 
-    ; Gate PIT Channel 2 LOW first, before touching the reload count. Mode 0
-    ; ("interrupt on terminal count") starts counting down as soon as the
-    ; gate is high AND a full 16-bit count has been loaded; gating high
-    ; *before* programming the count — the previous order here — lets the
-    ; counter start from whatever was already latched (or mid-load, from
-    ; only the LSB) and finish almost immediately. The ~25ms window this
-    ; function measured was then actually only a few microseconds, and
-    ; extrapolating that to "Hz" produced a calibrated frequency of roughly
-    ; 1 MHz on real hardware and under KVM alike — not the ~1-5 GHz any x86
-    ; CPU this kernel targets actually runs at. Everything downstream that
-    ; trusted tsc_freq_hz (every udelay/mdelay/tsc_elapsed_nanos call) was
-    ; silently timed against a clock running ~1000x fast.
+    ; Gate channel 2 low before loading a one-shot count.
     in al, 0x61
-    and al, 0x0C             ; keep bits 2,3; drop bit 0 (gate) and 1 (speaker)
+    and al, 0xFC             ; preserve status, clear gate and speaker
     out 0x61, al
 
     ; Set PIT Channel 2 reload count: 29830 (25ms at the PIT's 1.193182MHz)
-    mov al, 0xB6            ; Channel 2, LSB/MSB, mode 0 (interrupt on terminal count)
+    mov al, 0xB0            ; Channel 2, LSB/MSB, mode 0
     out 0x43, al
 
-    mov al, 0x9B            ; LSB of 29830 (25ms)
+    mov al, 0x86            ; LSB of 29830 (25ms)
     out 0x42, al
     mov al, 0x74            ; MSB
     out 0x42, al
 
     ; Now raise the gate: counting starts cleanly from the value just loaded.
     in al, 0x61
-    and al, 0x0D
+    and al, 0xFD
     or al, 0x01
     out 0x61, al
 
-    ; The OUT2 status bit (port 0x61 bit 5) may still read high from a prior
-    ; run — mode 0's output stays high from terminal count until reprogrammed
-    ; and re-gated, and this function may not be the first thing to have used
-    ; this channel. Confirm the bit has gone low (this run's count is
-    ; genuinely in progress) before waiting for it to go high again (this
-    ; run's terminal count) — otherwise a stale high reads as an instant,
-    ; zero-length window on every calibration after the first.
-    call tsc_read_serialized
-    mov rbx, rax             ; Start TSC
-
-    ; Bounded, not `jnz .wait_low` forever: this channel's status bit is
-    ; hardware this function doesn't fully control the history of, and an
-    ; assumption that it always transitions is exactly the kind of thing
-    ; that turns into a boot that never gets past this point on whatever
-    ; hardware doesn't match it. 10,000,000 polls is generous slack past the
-    ; few dozen this takes in practice; on genuine timeout, fall through and
-    ; calibrate against whatever's left of the window rather than hang.
+    ; Reject a channel that does not enter or leave the counting state.
     mov r12d, 10000000
 .wait_low:
     in al, 0x61
@@ -102,21 +75,39 @@ tsc_calibrate_pit:
     jz .start_confirmed
     dec r12d
     jnz .wait_low
+    jmp .failed
 .start_confirmed:
+    call tsc_read_serialized
+    mov rbx, rax
 
+    mov r12d, 10000000
 .wait_pit:
     in al, 0x61
-    test al, 0x20           ; Check PIT Channel 2 OUT status bit
-    jz .wait_pit
+    test al, 0x20
+    jnz .terminal_count
+    dec r12d
+    jnz .wait_pit
+    jmp .failed
 
-    ; Read ending TSC
+.terminal_count:
     call tsc_read_serialized
-    sub rax, rbx            ; Elapsed TSC cycles in 25ms
+    sub rax, rbx
+    jz .failed
 
-    ; Multiply cycles by 40 to get Hz (since 25ms = 1/40th second)
     imul rax, 40
+    jo .failed
+    cmp rax, 100000000
+    jb .failed
+    mov rcx, 10000000000
+    cmp rax, rcx
+    ja .failed
     mov [rel tsc_freq_hz], rax
+    clc
+    jmp .done
 
+.failed:
+    stc
+.done:
     pop r12
     pop rbx
     pop rbp

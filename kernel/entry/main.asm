@@ -80,12 +80,19 @@ kernel_main:
 
     ; Publish the final online set, enable BSP interrupts, and release APs.
     call smp_release
+    call smp_timer_verify
+    jc .timer_failed
 
     ; Enter the scheduler's own core loop. Never returns: sched_core_loop
     ; is what used to be this file's manual `cli; hlt` idle loop, except it
     ; actually polls, reaps, and runs fibers instead of just waiting for an
     ; interrupt no driver here yet raises.
     jmp sched_core_loop
+
+.timer_failed:
+    cli
+    hlt
+    jmp .timer_failed
 
 ; -----------------------------------------------------------------------------
 ; kernel_boot_memory_selftest — prove the Phase-A PMM/direct-map contract

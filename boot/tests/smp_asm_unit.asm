@@ -21,5 +21,6 @@ extern ucpu_cache_topology_scan
 extern sys_handler
 extern default_mxcsr
 extern idt_ptr
+extern tsc_freq_hz
 
 %include "kernel/arch/x86_64/smp.asm"

@@ -167,6 +167,15 @@ if [ -n "$EXPECT_APIC_MODE" ]; then
     fi
 fi
 
+TIMER_CPUS=$SMP
+[ -z "$EXPECT_SMP" ] || TIMER_CPUS=$EXPECT_SMP
+if ! awk -v periodic="SMP: APIC timer periodic $TIMER_CPUS/$TIMER_CPUS" \
+    -v deadline="SMP: APIC timer tsc-deadline $TIMER_CPUS/$TIMER_CPUS" \
+    '{ sub(/\r$/, "", $0); if ($0 == periodic || $0 == deadline) found = 1 } END { exit !found }' "$LOG"; then
+    echo "FAIL: missing exact all-core APIC timer marker for $TIMER_CPUS processors"
+    PASS=0
+fi
+
 for FATAL in \
     "UEFI TRANSITION EXCEPTION" \
     "EARLY64 EXCEPTION" \

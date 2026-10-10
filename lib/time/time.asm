@@ -36,8 +36,15 @@ time_init:
     mov rbp, rsp
     call rtc_init
     call tsc_init
+    jc .failed
     call mono_time_init
+    mov eax, 1
+    clc
+    pop rbp
+    ret
+.failed:
     xor eax, eax
+    stc
     pop rbp
     ret
 

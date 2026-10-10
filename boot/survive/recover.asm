@@ -46,13 +46,14 @@ survive_recover:
     or al, 0x80
     out 0x70, al
 
-    ; Quiesce the local APIC while firmware owns interrupt delivery. Preserve
-    ; the exact APIC-base MSR and restore it after the BIOS disk window.
+    ; Quiesce the local APIC while firmware owns interrupt delivery. x2APIC
+    ; cannot enter the reserved EN=0/EXTD=1 state, so disable both mode bits
+    ; together and preserve the exact value for the controlled restore below.
     mov ecx, 0x1B
     rdmsr
     mov [rel recovery_apic_base_low], eax
     mov [rel recovery_apic_base_high], edx
-    and eax, ~(1 << 11)
+    and eax, ~((1 << 11) | (1 << 10))
     wrmsr
 
     ; CR0.PG cannot be cleared while PCID is enabled.  Select PCID zero on the
@@ -245,10 +246,19 @@ recovery_pm32:
     call recovery_detect_cpu_features
     jc recovery_cpu_halt
 
-    ; Reinstate the exact APIC-base value that was active at recovery entry.
+    ; Reinstate the APIC mode active at recovery entry. Re-enter xAPIC first
+    ; when restoring x2APIC; disabled -> reserved and direct x2APIC downgrade
+    ; transitions are not valid architectural state changes.
     mov ecx, 0x1B
     mov eax, [recovery_apic_base_low]
     mov edx, [recovery_apic_base_high]
+    test eax, 1 << 10
+    jz .restore_apic_base
+    and eax, ~(1 << 10)
+    wrmsr
+    mov eax, [recovery_apic_base_low]
+    mov edx, [recovery_apic_base_high]
+.restore_apic_base:
     wrmsr
 
     call gdt_verify

@@ -126,6 +126,7 @@ kernel_init:
     mov rsi, msg_init_time
     call uart_print_str
     call time_init
+    jc .time_error
     mov rsi, msg_ok
     call uart_print_str
 
@@ -195,6 +196,13 @@ kernel_init:
 .ulog_halt:
     hlt
     jmp .ulog_halt
+
+.time_error:
+    mov rsi, msg_time_init_failed
+    call uart_print_str
+    cli
+    hlt
+    jmp .time_error
 
 ; -----------------------------------------------------------------------------
 ; Subsystem Initialization Stubs
@@ -379,6 +387,7 @@ msg_init_cpu:        db "Initializing CPU hardware & features... ", 0
 msg_init_ucpu_topo:  db "Decoding CPU topology & cache hierarchy (lib/hw/ucpu)... ", 0
 msg_init_idt:        db "Initializing Exception Handlers (IDT)... ", 0
 msg_init_time:       db "Calibrating TSC / starting monotonic clock... ", 0
+msg_time_init_failed: db "FAILED: PIT/TSC calibration unavailable", 0x0D, 0x0A, 0
 msg_init_mm:         db "Initializing MM (Physical Allocator)... ", 0
 msg_init_sched:      db "Initializing Scheduler... ", 0
 msg_init_ulog:       db "Initializing ulog (pool, ring, drain fiber)... ", 0
