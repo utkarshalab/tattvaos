@@ -64,8 +64,8 @@
 ;   umath_dtype_meta_has_flag        (dtype_id, flag → bool)
 ; =============================================================================
 
-%include "dtype_id.asm"
-%include "dtype_family.asm"
+%include "lib/umath/dtype/dtype_id.asm"
+%include "lib/umath/dtype/dtype_family.asm"
 
 bits 64
 
