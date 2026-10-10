@@ -43,6 +43,7 @@ section .data
 align 8
 umath__cpu_detected:    dq 0            ; what the CPU and OS support
 umath__cpu_allowed:     dq -1           ; umath_cpu_restrict mask
+umath__cpu_xcr0:        dq 0            ; OS-enabled state (XCR0; 0 without OSXSAVE)
 umath__cpu_ready:       db 0            ; 1 once detection has run
 ; one byte per feature, effective = detected & allowed (fast-path checks)
 umath__cpu_flags:
@@ -123,6 +124,7 @@ umath_cpu_init:
     xgetbv
     mov     r10d, eax
 .no_xgetbv:
+    mov     [rel umath__cpu_xcr0], r10
     mov     eax, r10d
     and     eax, 0x6
     cmp     eax, 0x6
