@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -24,7 +26,7 @@ section .text
 ; -----------------------------------------------------------------------------
 global umath_trunc_f32
 umath_trunc_f32:
-    roundss xmm0, xmm0, 3       ; truncate (mode 3)
+    um_roundss xmm0, xmm0, 3       ; truncate (mode 3)
     ret
 
 ; -----------------------------------------------------------------------------
@@ -67,10 +69,10 @@ umath_trunc_f32_array:
     movups  xmm3, [rsi + 48]
 
     ; Truncate round (mode 3)
-    roundps xmm0, xmm0, 3
-    roundps xmm1, xmm1, 3
-    roundps xmm2, xmm2, 3
-    roundps xmm3, xmm3, 3
+    um_roundps xmm0, xmm0, 3
+    um_roundps xmm1, xmm1, 3
+    um_roundps xmm2, xmm2, 3
+    um_roundps xmm3, xmm3, 3
 
     ; Store results
     movups  [rdi], xmm0
@@ -95,7 +97,7 @@ umath_trunc_f32_array:
 
 .loop_vector:
     movups  xmm0, [rsi]
-    roundps xmm0, xmm0, 3
+    um_roundps xmm0, xmm0, 3
     movups  [rdi], xmm0
     add     rsi, 16
     add     rdi, 16
@@ -107,7 +109,7 @@ umath_trunc_f32_array:
 
 .residuals:
     movss   xmm0, [rsi]
-    roundss xmm0, xmm0, 3
+    um_roundss xmm0, xmm0, 3
     movss   [rdi], xmm0
     add     rsi, 4
     add     rdi, 4
@@ -142,10 +144,10 @@ umath_trunc_f32_inplace:
     movups  xmm2, [rdi + 32]
     movups  xmm3, [rdi + 48]
 
-    roundps xmm0, xmm0, 3
-    roundps xmm1, xmm1, 3
-    roundps xmm2, xmm2, 3
-    roundps xmm3, xmm3, 3
+    um_roundps xmm0, xmm0, 3
+    um_roundps xmm1, xmm1, 3
+    um_roundps xmm2, xmm2, 3
+    um_roundps xmm3, xmm3, 3
 
     movups  [rdi], xmm0
     movups  [rdi + 16], xmm1
@@ -168,7 +170,7 @@ umath_trunc_f32_inplace:
 
 .loop_vector:
     movups  xmm0, [rdi]
-    roundps xmm0, xmm0, 3
+    um_roundps xmm0, xmm0, 3
     movups  [rdi], xmm0
     add     rdi, 16
     dec     rcx
@@ -179,7 +181,7 @@ umath_trunc_f32_inplace:
 
 .residuals:
     movss   xmm0, [rdi]
-    roundss xmm0, xmm0, 3
+    um_roundss xmm0, xmm0, 3
     movss   [rdi], xmm0
     add     rdi, 4
     dec     rsi
@@ -197,7 +199,7 @@ umath_trunc_f32_inplace:
 global umath_trunc_f32_fractional
 umath_trunc_f32_fractional:
     movaps  xmm1, xmm0          ; xmm1 = val
-    roundss xmm0, xmm0, 3       ; xmm0 = trunc(val)
+    um_roundss xmm0, xmm0, 3       ; xmm0 = trunc(val)
     subss   xmm1, xmm0          ; xmm1 = val - trunc(val)
     movaps  xmm0, xmm1          ; xmm0 = fractional part
     ret
@@ -289,7 +291,7 @@ umath_trunc_f32_to_i32_array:
 global umath_trunc_f32_is_integer
 umath_trunc_f32_is_integer:
     movaps  xmm1, xmm0
-    roundss xmm0, xmm0, 3       ; xmm0 = trunc(val)
+    um_roundss xmm0, xmm0, 3       ; xmm0 = trunc(val)
     ucomiss xmm0, xmm1          ; compare trunc(val) vs val
     jne     .not_int
     jp      .not_int            ; NaN guard
