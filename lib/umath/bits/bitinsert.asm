@@ -33,31 +33,27 @@ section .text
 ; -----------------------------------------------------------------------------
 global umath_bitinsert_u32
 umath_bitinsert_u32:
-    push    rbx
     mov     eax, edi            ; base
-    mov     ebx, esi            ; field
+    mov     r10d, esi           ; field
 
-    ; build mask = (1<<width)-1, handle width==32
+    ; build mask = (1<<width)-1, handle width==32 (shift counts must be in cl)
     cmp     ecx, 32
-    jge     .full_mask
+    jae     .full_mask
     mov     r8d, 1
-    mov     r9d, ecx
-    shl     r8d, r9b
+    shl     r8d, cl             ; cl = width
     dec     r8d                 ; field mask
-    and     ebx, r8d            ; mask field
-    ; positioned mask
-    mov     r9d, edx
-    shl     r8d, r9b            ; positioned mask
+    and     r10d, r8d           ; mask field
+    mov     ecx, edx            ; cl = pos
+    shl     r8d, cl             ; positioned mask
     not     r8d
     and     eax, r8d            ; clear target bits
     jmp     .insert
 .full_mask:
     xor     eax, eax            ; clearing entire 32-bit value
+    mov     ecx, edx
 .insert:
-    mov     r9d, edx
-    shl     ebx, r9b
-    or      eax, ebx
-    pop     rbx
+    shl     r10d, cl
+    or      eax, r10d
     ret
 
 ; -----------------------------------------------------------------------------
@@ -67,29 +63,26 @@ umath_bitinsert_u32:
 ; -----------------------------------------------------------------------------
 global umath_bitinsert_u64
 umath_bitinsert_u64:
-    push    rbx
     mov     rax, rdi
-    mov     rbx, rsi
+    mov     r10, rsi
 
     cmp     ecx, 64
-    jge     .full_mask
+    jae     .full_mask
     mov     r8, 1
-    mov     r9d, ecx
-    shl     r8, r9b
+    shl     r8, cl              ; cl = width
     dec     r8                  ; field mask
-    and     rbx, r8
-    mov     r9d, edx
-    shl     r8, r9b             ; positioned mask
+    and     r10, r8
+    mov     ecx, edx            ; cl = pos
+    shl     r8, cl              ; positioned mask
     not     r8
     and     rax, r8
     jmp     .insert
 .full_mask:
     xor     rax, rax
+    mov     ecx, edx
 .insert:
-    mov     r9d, edx
-    shl     rbx, r9b
-    or      rax, rbx
-    pop     rbx
+    shl     r10, cl
+    or      rax, r10
     ret
 
 ; -----------------------------------------------------------------------------
@@ -141,13 +134,14 @@ umath_bitinsert_buf:
     ; load low qword at byte_offset
     mov     rbx, [rdi + r12]
 
-    ; build value mask (low `width` bits)
+    ; build value mask (low `width` bits); value moves to r14 so ecx/cl is
+    ; free to hold every shift count below
     mov     r14, rcx
     cmp     edx, 64
     jge     .full_val_mask
     mov     r8, 1
-    mov     r9d, edx
-    shl     r8, r9b
+    mov     ecx, edx
+    shl     r8, cl
     dec     r8
     and     r14, r8             ; masked value
     jmp     .have_val_mask
@@ -168,33 +162,33 @@ umath_bitinsert_buf:
 
     ; clear low_width bits starting at bit_in_byte in rbx
     mov     r8, 1
-    mov     r10d, r9d
-    cmp     r10d, 64
+    mov     ecx, r9d
+    cmp     ecx, 64
     jge     .low_mask_full
-    shl     r8, r10b
+    shl     r8, cl
     dec     r8
     jmp     .low_mask_done
 .low_mask_full:
     xor     r8, r8
     not     r8                  ; all ones
 .low_mask_done:
-    mov     r10d, r13d
-    shl     r8, r10b            ; positioned clear mask
+    mov     ecx, r13d
+    shl     r8, cl             ; positioned clear mask
     not     r8
     and     rbx, r8
 
     ; insert low_width bits of value at bit_in_byte
     mov     r10, r14
-    mov     r11d, r9d
-    cmp     r11d, 64
+    mov     ecx, r9d
+    cmp     ecx, 64
     jge     .low_val_full
     mov     r8, 1
-    shl     r8, r11b
+    shl     r8, cl
     dec     r8
     and     r10, r8
 .low_val_full:
-    mov     r11d, r13d
-    shl     r10, r11b
+    mov     ecx, r13d
+    shl     r10, cl
     or      rbx, r10
     mov     [rdi + r12], rbx
 
@@ -204,17 +198,17 @@ umath_bitinsert_buf:
     sub     r8d, r9d            ; remaining_width
     ; remaining value = value >> low_width
     mov     r10, r14
-    mov     r11d, r9d
-    shr     r10, r11b
+    mov     ecx, r9d
+    shr     r10, cl
 
     ; load byte(s) at offset+8 (load as qword for simplicity)
     mov     rax, [rdi + r12 + 8]
     ; clear remaining_width bits at position 0
     mov     r9, 1
-    mov     r11d, r8d
-    cmp     r11d, 64
+    mov     ecx, r8d
+    cmp     ecx, 64
     jge     .hi_mask_full
-    shl     r9, r11b
+    shl     r9, cl
     dec     r9
     jmp     .hi_mask_done
 .hi_mask_full:
@@ -230,24 +224,24 @@ umath_bitinsert_buf:
 .single_word:
     ; build positioned clear mask
     mov     r8, 1
-    mov     r9d, edx
-    cmp     r9d, 64
+    mov     ecx, edx
+    cmp     ecx, 64
     jge     .sw_mask_full
-    shl     r8, r9b
+    shl     r8, cl
     dec     r8
     jmp     .sw_mask_done
 .sw_mask_full:
     xor     r8, r8
     not     r8
 .sw_mask_done:
-    mov     r9d, r13d
-    shl     r8, r9b
+    mov     ecx, r13d
+    shl     r8, cl
     not     r8
     and     rbx, r8
 
-    mov     r9d, r13d
+    mov     ecx, r13d
     mov     r10, r14
-    shl     r10, r9b
+    shl     r10, cl
     or      rbx, r10
     mov     [rdi + r12], rbx
 
@@ -273,11 +267,12 @@ umath_bitinsert_buf128:
     push    r12
     push    r13
     push    r14
+    push    r15                 ; 5 pushes also keep rsp 16-byte aligned at the calls
     mov     rbx, rdi
     mov     r12, rsi
     mov     r13d, edx
     mov     r14, rcx            ; value_lo
-    ; r8 already holds value_hi
+    mov     r15, r8             ; value_hi (r8 is clobbered by umath_bitinsert_buf)
 
     cmp     r13d, 64
     jle     .low_only
@@ -295,8 +290,9 @@ umath_bitinsert_buf128:
     mov     rdi, rbx
     mov     rsi, r12
     add     rsi, 64
-    mov     rcx, r8
+    mov     rcx, r15
 
+    pop     r15
     pop     r14
     pop     r13
     pop     r12
@@ -309,6 +305,7 @@ umath_bitinsert_buf128:
     mov     edx, r13d
     mov     rcx, r14
     call    umath_bitinsert_buf
+    pop     r15
     pop     r14
     pop     r13
     pop     r12
@@ -322,33 +319,31 @@ umath_bitinsert_buf128:
 ; -----------------------------------------------------------------------------
 global umath_bitinsert_range
 umath_bitinsert_range:
-    push    rbx
     mov     rax, rdi
-    mov     rbx, rsi
+    mov     r11, rsi            ; field
+    mov     r10d, ecx           ; lo (cl is needed for the shift counts)
 
     ; width = hi - lo + 1
-    mov     r8d, edx
-    sub     r8d, ecx
-    inc     r8d
+    mov     ecx, edx
+    sub     ecx, r10d
+    inc     ecx
 
-    cmp     r8d, 64
-    jge     .full_mask
+    cmp     ecx, 64
+    jae     .full_mask
     mov     r9, 1
-    mov     r10d, r8d
-    shl     r9, r10b
+    shl     r9, cl              ; cl = width
     dec     r9                  ; field mask
-    and     rbx, r9
-    mov     r10d, ecx
-    shl     r9, r10b            ; positioned mask
+    and     r11, r9
+    mov     ecx, r10d           ; cl = lo
+    shl     r9, cl              ; positioned mask
     not     r9
     and     rax, r9
     jmp     .insert
 .full_mask:
     xor     rax, rax
+    mov     ecx, r10d
 .insert:
-    mov     r10d, ecx
-    shl     rbx, r10b
-    or      rax, rbx
-    pop     rbx
+    shl     r11, cl
+    or      rax, r11
     ret
 %endif ; GUARD_LIB_UMATH_BITS_BITINSERT_ASM
