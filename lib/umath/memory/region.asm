@@ -73,8 +73,8 @@ umath_region_alloc:
     jz      .fail
 
     ; verify magic number
-    mov     r8, [rdi + 32]      ; magic
-    cmp     r8, REGION_MAGIC
+    mov     r8, REGION_MAGIC
+    cmp     r8, [rdi + 32]      ; magic
     jne     .fail
 
     mov     rcx, [rdi + 16]     ; rcx = current
@@ -155,8 +155,8 @@ umath_region_free_all:
     test    rdi, rdi
     jz      .done
 
-    mov     rcx, [rdi + 32]
-    cmp     rcx, REGION_MAGIC
+    mov     rcx, REGION_MAGIC
+    cmp     rcx, [rdi + 32]
     jne     .done
 
     mov     rax, [rdi + 8]      ; start
@@ -201,8 +201,8 @@ umath_region_create_child:
     mov     r13, rdx            ; r13 = child_size
 
     ; verify parent magic
-    mov     rax, [rbx + 32]
-    cmp     rax, REGION_MAGIC
+    mov     rax, REGION_MAGIC
+    cmp     rax, [rbx + 32]
     jne     .fail
 
     ; allocate child_size from parent region, aligned to 16 bytes
@@ -254,9 +254,10 @@ umath_region_is_descendant:
     cmp     rdi, rsi
     je      .found
 
-    ; verify child magic to prevent infinite loop on corrupted parent links
-    mov     rcx, [rdi + 32]
-    cmp     rcx, REGION_MAGIC
+    ; stop at a link without a valid magic (stale or corrupted struct); note a
+    ; cycle of valid regions is not detected
+    mov     rcx, REGION_MAGIC
+    cmp     rcx, [rdi + 32]
     jne     .done               ; corrupted parent link, abort search
 
     jmp     .walk_parent
@@ -283,8 +284,8 @@ umath_region_contains:
 
 .check_loop:
     ; verify magic number
-    mov     rcx, [rdi + 32]
-    cmp     rcx, REGION_MAGIC
+    mov     rcx, REGION_MAGIC
+    cmp     rcx, [rdi + 32]
     jne     .done
 
     mov     rcx, [rdi + 8]      ; start
@@ -321,8 +322,8 @@ umath_region_verify:
     jz      .invalid
 
     ; check magic
-    mov     rcx, [rdi + 32]     ; magic
-    cmp     rcx, REGION_MAGIC
+    mov     rcx, REGION_MAGIC
+    cmp     rcx, [rdi + 32]     ; magic
     jne     .invalid
 
     ; read pointers
@@ -356,8 +357,8 @@ umath_region_available:
     test    rdi, rdi
     jz      .done
 
-    mov     rcx, [rdi + 32]
-    cmp     rcx, REGION_MAGIC
+    mov     rcx, REGION_MAGIC
+    cmp     rcx, [rdi + 32]
     jne     .done
 
     mov     rax, [rdi + 24]     ; end
