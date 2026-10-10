@@ -32,6 +32,20 @@ section .text
 ; -----------------------------------------------------------------------------
 global umath_kahan_sum_f32
 umath_kahan_sum_f32:
+    sub     rsp, 8              ; keep rsp 16-byte aligned at the call
+    call    kahanf32__sum_d
+    cvtsd2ss xmm0, xmm0         ; single rounding to float
+    add     rsp, 8
+    ret
+
+; -----------------------------------------------------------------------------
+; kahanf32__sum_d - internal: compensated sum of floats, left in double
+; args:    rdi = source pointer, rsi = count
+; returns: xmm0 = sum as double (callers that divide or scale it round once
+;          at the end; reduce/sum_f32.asm's mean uses this)
+; Not declared global.
+; -----------------------------------------------------------------------------
+kahanf32__sum_d:
     xorpd   xmm0, xmm0          ; s lanes 0-1 (double)
     xorpd   xmm1, xmm1          ; c lanes 0-1
     test    rdi, rdi
@@ -76,11 +90,8 @@ umath_kahan_sum_f32:
     jnz     .tail
 
 .finish:
-    call    kahanf64__finish
-    cvtsd2ss xmm0, xmm0         ; single rounding to float
-    ret
+    jmp     kahanf64__finish
 .done:
-    xorps   xmm0, xmm0
     ret
 
 ; -----------------------------------------------------------------------------
