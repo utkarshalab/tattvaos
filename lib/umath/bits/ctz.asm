@@ -16,6 +16,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -28,7 +30,7 @@ umath_ctz8:
     movzx   edi, dil
     test    edi, edi
     jz      .zero8
-    tzcnt   eax, edi
+    um_tzcnt   eax, edi
     ret
 .zero8:
     mov     eax, 8
@@ -44,7 +46,7 @@ umath_ctz16:
     movzx   edi, di
     test    edi, edi
     jz      .zero16
-    tzcnt   eax, edi
+    um_tzcnt   eax, edi
     ret
 .zero16:
     mov     eax, 16
@@ -59,7 +61,7 @@ global umath_ctz32
 umath_ctz32:
     test    edi, edi
     jz      .zero32
-    tzcnt   eax, edi
+    um_tzcnt   eax, edi
     ret
 .zero32:
     mov     eax, 32
@@ -74,7 +76,7 @@ global umath_ctz64
 umath_ctz64:
     test    rdi, rdi
     jz      .zero64
-    tzcnt   rax, rdi
+    um_tzcnt   rax, rdi
     ret
 .zero64:
     mov     rax, 64
