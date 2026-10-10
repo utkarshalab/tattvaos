@@ -43,8 +43,8 @@
 ;   umath_dtype_swap_f16           (f16 → f16) byte-swap half
 ; =============================================================================
 
-%include "dtype_id.asm"
-%include "dtype_size.asm"
+%include "lib/umath/dtype/dtype_id.asm"
+%include "lib/umath/dtype/dtype_size.asm"
 
 bits 64
 
