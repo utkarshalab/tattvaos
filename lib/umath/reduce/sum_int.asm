@@ -8,8 +8,9 @@
 ;
 ; Integer sums wrap silently in the element width; these widen instead:
 ;
-;   - 32-bit elements accumulate in 64 bits (pmovsxdq / pmovzxdq, two
-;     paddq lanes in each of two registers), exact for any count below 2^32.
+;   - 32-bit elements accumulate in 64 bits (SSE2: each dword interleaved
+;     with its sign or with zero, two paddq lanes in each of two registers),
+;     exact for any count below 2^32.
 ;   - 64-bit elements accumulate in 128 bits (add + adc), exact for any
 ;     count, returned as rdx:rax (the System V layout of a 128-bit integer).
 ; =============================================================================
@@ -20,19 +21,26 @@ section .text
 
 ; -----------------------------------------------------------------------------
 ; redsumint_i32 - shared loop for the 32-bit sums
-; args:    %1 = pmovsxdq or pmovzxdq
+; args:    %1 = signed or unsigned
 ; expects: rdi = src, rsi = count (non-zero)
 ; returns: rax = 64-bit sum
 ; -----------------------------------------------------------------------------
 %macro redsumint_i32 1
     pxor    xmm0, xmm0
     pxor    xmm1, xmm1
+    pxor    xmm4, xmm4          ; zero dwords (unsigned high halves)
     mov     rcx, rsi
     shr     rcx, 2              ; count of 4-element groups
     jz      %%reduce
 %%loop4:
-    %1      xmm2, [rdi]         ; elements 0-1 widened to 64 bits
-    %1      xmm3, [rdi + 8]     ; elements 2-3
+    movdqu  xmm2, [rdi]
+%ifidn %1, signed
+    movdqa  xmm4, xmm2
+    psrad   xmm4, 31            ; sign dwords (signed high halves)
+%endif
+    movdqa  xmm3, xmm2
+    punpckldq xmm2, xmm4        ; elements 0-1 widened to 64 bits
+    punpckhdq xmm3, xmm4        ; elements 2-3
     paddq   xmm0, xmm2
     paddq   xmm1, xmm3
     add     rdi, 16
@@ -41,12 +49,13 @@ section .text
 %%reduce:
     paddq   xmm0, xmm1
     movq    rax, xmm0
-    pextrq  rcx, xmm0, 1
+    pshufd  xmm1, xmm0, 0xEE    ; high qword
+    movq    rcx, xmm1
     add     rax, rcx
     and     rsi, 3
     jz      %%done
 %%tail:
-%ifidn %1, pmovsxdq
+%ifidn %1, signed
     movsxd  rcx, dword [rdi]
 %else
     mov     ecx, [rdi]          ; zero-extends
@@ -71,7 +80,7 @@ umath_reduce_sum_i32:
     jz      .done
     test    rsi, rsi
     jz      .done
-    redsumint_i32 pmovsxdq
+    redsumint_i32 signed
 .done:
     ret
 
@@ -88,7 +97,7 @@ umath_reduce_sum_u32:
     jz      .done
     test    rsi, rsi
     jz      .done
-    redsumint_i32 pmovzxdq
+    redsumint_i32 unsigned
 .done:
     ret
 
