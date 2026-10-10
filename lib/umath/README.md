@@ -14,7 +14,7 @@ Part of the `lib/` category in Tattva OS.
 
 ## Status
 
-Five modules have real, numerically-verified implementations (checked by
+Six modules have real, numerically-verified implementations (checked by
 `tests/run_tests.sh`, see below):
 
 ```text
@@ -24,6 +24,8 @@ scalar/   Tier 0-1  abs/min/max/clamp/round/sign/reciprocal, i32/i64/f32/f64
 dtype/    Tier 0    213-type classification/metadata system
 math_fn/  Tier 1    sqrt/exp/log/pow/sin/cos/tan/hypot, f32/f64 — the full
                      transcendental math set
+stability/ Tier 1   compensated/pairwise sums, Welford mean/variance,
+                     log-sum-exp
 ```
 
 Every other directory listed below is scaffolded (created, named, given a
@@ -36,8 +38,7 @@ depends on once its turn comes.
 assert/  atomic/  cache/  capability/  compare/  compress/  convert/
 cpuid/  diag/  format/  fpmode/  gemm/  hash/  histogram/  lock/  lut/
 norm/  numa/  os/  perf/  prefetch_strategy/  profile/  random/
-reduce/  register/  simd/  sort/  stability/  stats/  tests/  thread/
-time/
+reduce/  register/  simd/  sort/  stats/  tests/  thread/  time/
 ```
 
 Four modules (`diag/`, `prefetch_strategy/`, `fpmode/`, `capability/`)
