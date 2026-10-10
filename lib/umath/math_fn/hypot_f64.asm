@@ -27,6 +27,12 @@ hypotf64_pos_inf:  dq 0x7FF0000000000000
 hypotf64_nan_bits: dq 0x7FF8000000000000
 hypotf64_one:      dq 1.0
 
+align 16
+hypotf64_p_one:    dq 1.0, 1.0
+hypotf64_p_abs:    dq 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF
+hypotf64_p_inf:    dq 0x7FF0000000000000, 0x7FF0000000000000
+hypotf64_p_nan:    dq 0x7FF8000000000000, 0x7FF8000000000000
+
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -93,12 +99,68 @@ umath_hypot_f64:
     ret
 
 ; -----------------------------------------------------------------------------
-; umath_hypot_f64_array - hypot(x,y) elementwise for two arrays of doubles
+; hypotf64_blend - lanes of %1 where mask %2 is set take %3 (register or memory)
+; args:    %1 = values (in/out), %2 = mask (clobbered), %3 = source, %4 = scratch
+; -----------------------------------------------------------------------------
+%macro hypotf64_blend 4
+    movapd  %4, %3
+    andpd   %4, %2
+    andnpd  %2, %1
+    orpd    %2, %4
+    movapd  %1, %2
+%endmacro
+
+; -----------------------------------------------------------------------------
+; hypotf64__packed2 - internal: hypot of 2 lane pairs, bit-identical to
+;                   umath_hypot_f64 per lane
+; args:    xmm0 = x lanes, xmm1 = y lanes
+; returns: xmm0 = results
+; a*sqrt(1 + (b/a)^2) on every lane, then the scalar's cases, lowest
+; priority first: a == 0 -> +0, NaN -> NaN, an infinite input -> +Inf.
+; Clobbers xmm1-xmm8, no GPRs. Not declared global.
+; -----------------------------------------------------------------------------
+hypotf64__packed2:
+    movapd  xmm2, xmm0
+    andpd   xmm2, [rel hypotf64_p_abs]  ; |x|
+    movapd  xmm3, xmm1
+    andpd   xmm3, [rel hypotf64_p_abs]  ; |y|
+    movapd  xmm5, xmm2
+    maxpd   xmm5, xmm3          ; a
+    movapd  xmm6, xmm2
+    minpd   xmm6, xmm3          ; b
+    movapd  xmm7, xmm6
+    divpd   xmm7, xmm5          ; b/a
+    mulpd   xmm7, xmm7
+    addpd   xmm7, [rel hypotf64_p_one]
+    sqrtpd  xmm7, xmm7
+    mulpd   xmm7, xmm5          ; a * sqrt(1 + (b/a)^2)
+
+    xorpd   xmm4, xmm4
+    movapd  xmm8, xmm5
+    cmpeqpd xmm8, xmm4          ; a == 0: +0
+    hypotf64_blend xmm7, xmm8, xmm4, xmm6
+    movapd  xmm8, xmm0
+    cmpunordpd xmm8, xmm1       ; NaN x or y
+    hypotf64_blend xmm7, xmm8, [rel hypotf64_p_nan], xmm6
+    movapd  xmm8, xmm2
+    cmpeqpd xmm8, [rel hypotf64_p_inf]
+    movapd  xmm6, xmm3
+    cmpeqpd xmm6, [rel hypotf64_p_inf]
+    orpd    xmm8, xmm6          ; an infinite input: +Inf, even with a NaN
+    hypotf64_blend xmm7, xmm8, [rel hypotf64_p_inf], xmm6
+    movapd  xmm0, xmm7
+    ret
+
+; -----------------------------------------------------------------------------
+; umath_hypot_f64_array - hypot(x, y) elementwise for two arrays
 ; args:    rdi = destination pointer (dst)
-;          rsi = x array pointer (xs)
-;          rdx = y array pointer (ys)
+;          rsi = first operand array (xs)
+;          rdx = second operand array (ys)
 ;          rcx = size of arrays (count)
 ; returns: void
+;
+; Groups of 2 run through hypotf64__packed2 (bit-identical to umath_hypot_f64);
+; the remainder goes through the scalar routine.
 ; -----------------------------------------------------------------------------
 global umath_hypot_f64_array
 umath_hypot_f64_array:
@@ -111,7 +173,23 @@ umath_hypot_f64_array:
     test    rcx, rcx
     jz      .done
 
+    mov     r10, rcx            ; count; the scalar tail clobbers rcx
+    shr     rcx, 1
+    jz      .tail
 .loop:
+    movupd  xmm0, [rsi]
+    movupd  xmm1, [rdx]
+    call    hypotf64__packed2  ; no GPRs used
+    movupd  [rdi], xmm0
+    add     rsi, 16
+    add     rdx, 16
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     r10, 1
+    jz      .done
+.tail_loop:
     movsd   xmm0, [rsi]
     movsd   xmm1, [rdx]
     call    umath_hypot_f64
@@ -119,9 +197,8 @@ umath_hypot_f64_array:
     add     rsi, 8
     add     rdx, 8
     add     rdi, 8
-    dec     rcx
-    jnz     .loop
-
+    dec     r10
+    jnz     .tail_loop
 .done:
     ret
 
