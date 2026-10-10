@@ -15,6 +15,9 @@
 
 bits 64
 
+%include "lib/umath/math_fn/sin_f64.asm"
+%include "lib/umath/math_fn/cos_f64.asm"
+
 section .text
 
 ; -----------------------------------------------------------------------------
