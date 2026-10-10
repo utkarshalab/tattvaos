@@ -34,6 +34,12 @@ hypotf32_pos_inf:  dd 0x7F800000
 hypotf32_nan_bits: dd 0x7FC00000
 hypotf32_one:      dd 1.0
 
+align 16
+hypotf32_p_one:    times 4 dd 1.0
+hypotf32_p_abs:    times 4 dd 0x7FFFFFFF
+hypotf32_p_inf:    times 4 dd 0x7F800000
+hypotf32_p_nan:    times 4 dd 0x7FC00000
+
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -101,12 +107,68 @@ umath_hypot_f32:
     ret
 
 ; -----------------------------------------------------------------------------
-; umath_hypot_f32_array - hypot(x,y) elementwise for two arrays of floats
+; hypotf32_blend - lanes of %1 where mask %2 is set take %3 (register or memory)
+; args:    %1 = values (in/out), %2 = mask (clobbered), %3 = source, %4 = scratch
+; -----------------------------------------------------------------------------
+%macro hypotf32_blend 4
+    movaps  %4, %3
+    andps   %4, %2
+    andnps  %2, %1
+    orps    %2, %4
+    movaps  %1, %2
+%endmacro
+
+; -----------------------------------------------------------------------------
+; hypotf32__packed4 - internal: hypot of 4 lane pairs, bit-identical to
+;                   umath_hypot_f32 per lane
+; args:    xmm0 = x lanes, xmm1 = y lanes
+; returns: xmm0 = results
+; a*sqrt(1 + (b/a)^2) on every lane, then the scalar's cases, lowest
+; priority first: a == 0 -> +0, NaN -> NaN, an infinite input -> +Inf.
+; Clobbers xmm1-xmm8, no GPRs. Not declared global.
+; -----------------------------------------------------------------------------
+hypotf32__packed4:
+    movaps  xmm2, xmm0
+    andps   xmm2, [rel hypotf32_p_abs]  ; |x|
+    movaps  xmm3, xmm1
+    andps   xmm3, [rel hypotf32_p_abs]  ; |y|
+    movaps  xmm5, xmm2
+    maxps   xmm5, xmm3          ; a
+    movaps  xmm6, xmm2
+    minps   xmm6, xmm3          ; b
+    movaps  xmm7, xmm6
+    divps   xmm7, xmm5          ; b/a
+    mulps   xmm7, xmm7
+    addps   xmm7, [rel hypotf32_p_one]
+    sqrtps  xmm7, xmm7
+    mulps   xmm7, xmm5          ; a * sqrt(1 + (b/a)^2)
+
+    xorps   xmm4, xmm4
+    movaps  xmm8, xmm5
+    cmpeqps xmm8, xmm4          ; a == 0: +0
+    hypotf32_blend xmm7, xmm8, xmm4, xmm6
+    movaps  xmm8, xmm0
+    cmpunordps xmm8, xmm1       ; NaN x or y
+    hypotf32_blend xmm7, xmm8, [rel hypotf32_p_nan], xmm6
+    movaps  xmm8, xmm2
+    cmpeqps xmm8, [rel hypotf32_p_inf]
+    movaps  xmm6, xmm3
+    cmpeqps xmm6, [rel hypotf32_p_inf]
+    orps    xmm8, xmm6          ; an infinite input: +Inf, even with a NaN
+    hypotf32_blend xmm7, xmm8, [rel hypotf32_p_inf], xmm6
+    movaps  xmm0, xmm7
+    ret
+
+; -----------------------------------------------------------------------------
+; umath_hypot_f32_array - hypot(x, y) elementwise for two arrays
 ; args:    rdi = destination pointer (dst)
-;          rsi = x array pointer (xs)
-;          rdx = y array pointer (ys)
+;          rsi = first operand array (xs)
+;          rdx = second operand array (ys)
 ;          rcx = size of arrays (count)
 ; returns: void
+;
+; Groups of 4 run through hypotf32__packed4 (bit-identical to umath_hypot_f32);
+; the remainder goes through the scalar routine.
 ; -----------------------------------------------------------------------------
 global umath_hypot_f32_array
 umath_hypot_f32_array:
@@ -119,7 +181,23 @@ umath_hypot_f32_array:
     test    rcx, rcx
     jz      .done
 
+    mov     r10, rcx            ; count; the scalar tail clobbers rcx
+    shr     rcx, 2
+    jz      .tail
 .loop:
+    movups  xmm0, [rsi]
+    movups  xmm1, [rdx]
+    call    hypotf32__packed4  ; no GPRs used
+    movups  [rdi], xmm0
+    add     rsi, 16
+    add     rdx, 16
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop
+.tail:
+    and     r10, 3
+    jz      .done
+.tail_loop:
     movss   xmm0, [rsi]
     movss   xmm1, [rdx]
     call    umath_hypot_f32
@@ -127,9 +205,8 @@ umath_hypot_f32_array:
     add     rsi, 4
     add     rdx, 4
     add     rdi, 4
-    dec     rcx
-    jnz     .loop
-
+    dec     r10
+    jnz     .tail_loop
 .done:
     ret
 
