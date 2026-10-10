@@ -82,16 +82,10 @@ umath_bit32_add_sat_s:
 global umath_bit32_add_sat_u
 umath_bit32_add_sat_u:
     mov     eax, edi
-    mov     ecx, esi
-    add     rax, rcx        ; rax = zero-extended edi + zero-extended esi (no overflow, max 2^33)
-    mov     rcx, rax
-    movzx   rax, eax
-    cmp     rax, 0xFFFFFFFF
-    jbe     .done
+    add     eax, esi        ; CF = unsigned 32-bit overflow
+    jnc     .done
     mov     eax, 0xFFFFFFFF
-    ret
 .done:
-    ; rax currently holds zero-extended sum already <= 0xFFFFFFFF
     ret
 
 global umath_bit32_sub_sat_s
