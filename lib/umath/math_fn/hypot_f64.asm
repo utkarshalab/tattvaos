@@ -19,6 +19,8 @@
 
 bits 64
 
+%include "lib/umath/math_fn/sqrt_f64.asm"
+
 section .rodata
 align 16
 hypotf64_pos_inf:  dq 0x7FF0000000000000
