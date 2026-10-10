@@ -175,11 +175,9 @@ umath_memfill_pattern4:
     ; write byte residual
     mov     rcx, rdx
 .loop_byte_p4:
-    mov     eax, esi
-    ; determine which byte of the 4-byte pattern to write depending on offset
-    ; but since it is a repeating pattern, byte i of buffer should receive pattern[offset % 4]
-    ; wait, we can just do a small byte loop shifting esi
-    mov     [rdi], al
+    ; the tail starts on a 4-byte boundary, so it takes pattern bytes 0, 1, 2
+    ; in order; write sil directly so rax keeps the return value
+    mov     [rdi], sil
     shr     esi, 8
     inc     rdi
     dec     rcx
@@ -264,8 +262,7 @@ umath_memfill_pattern8:
     jz      .done_p8
     mov     rcx, rdx
 .loop_byte_p8:
-    mov     rax, rsi
-    mov     [rdi], al
+    mov     [rdi], sil          ; tail starts on an 8-byte boundary; rax keeps the return value
     shr     rsi, 8
     inc     rdi
     dec     rcx
@@ -329,22 +326,18 @@ umath_memfill_pattern16:
     test    rdx, rdx
     jz      .done_p16
 
-    ; copy residual bytes of pattern
-    ; load XMM0 to stack to access bytes cleanly
-    sub     rsp, 16
-    movups  [rsp], xmm0
+    ; copy residual bytes straight from the pattern source (the tail starts on
+    ; a 16-byte boundary); r9b, not al, so rax keeps the return value
     mov     rcx, rdx
     xor     r8, r8
 
 .loop_res_p16:
-    mov     al, [rsp + r8]
-    mov     [rdi], al
+    mov     r9b, [rsi + r8]
+    mov     [rdi], r9b
     inc     rdi
     inc     r8
     dec     rcx
     jnz     .loop_res_p16
-    
-    add     rsp, 16
 
 .done_p16:
     ret
@@ -400,32 +393,30 @@ umath_memfill_pattern32:
     and     rdx, 31
 
 .sse_fallback_p32:
+    xor     r8, r8              ; r8 = pattern byte index for the tail
     cmp     rdx, 16
     jb      .residuals_p32
     vextracti128 xmm1, ymm0, 0
     movups  [rdi], xmm1
     add     rdi, 16
     sub     rdx, 16
+    mov     r8, 16              ; tail continues with pattern bytes 16..31
 
 .residuals_p32:
     test    rdx, rdx
     jz      .done_p32
 
-    ; copy residual bytes
-    sub     rsp, 32
-    vmovdqu [rsp], ymm0
+    ; copy residual bytes straight from the pattern source; r9b, not al, so
+    ; rax keeps the return value
     mov     rcx, rdx
-    xor     r8, r8
 
 .loop_res_p32:
-    mov     al, [rsp + r8]
-    mov     [rdi], al
+    mov     r9b, [rsi + r8]
+    mov     [rdi], r9b
     inc     rdi
     inc     r8
     dec     rcx
     jnz     .loop_res_p32
-
-    add     rsp, 32
 
 .done_p32:
     vzeroupper
