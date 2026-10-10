@@ -187,7 +187,7 @@ umath_max_f32_array:
 ; umath_max_f32_reduce - reduce an array of floats to its maximum value
 ; args:    rdi = source pointer (src)
 ;          rsi = size of array (count)
-; returns: xmm0 = maximum float value in array
+; returns: xmm0 = maximum float value in array (NaN if any element is NaN)
 ; -----------------------------------------------------------------------------
 global umath_max_f32_reduce
 umath_max_f32_reduce:
@@ -198,16 +198,23 @@ umath_max_f32_reduce:
     jz      .done
 
     movss   xmm0, [rdi]
+    ucomiss xmm0, xmm0
+    jp      .done               ; NaN propagates: src[0] is NaN
     add     rdi, 4
     dec     rsi
     jz      .done
 
 .loop_reduce:
     movss   xmm1, [rdi]
+    ucomiss xmm1, xmm1
+    jp      .nan_reduce         ; NaN propagates (maxss would drop it)
     maxss   xmm0, xmm1
     add     rdi, 4
     dec     rsi
     jnz     .loop_reduce
+    ret
+.nan_reduce:
+    movaps  xmm0, xmm1
 .done:
     ret
 
@@ -334,7 +341,7 @@ umath_max_f32_inplace_clip:
 ; args:    rdi = source pointer (src)
 ;          rsi = start index
 ;          rdx = end index (exclusive)
-; returns: xmm0 = maximum value in range, or 0 if invalid
+; returns: xmm0 = maximum value in range (NaN if any element is NaN), or 0 if invalid
 ; -----------------------------------------------------------------------------
 global umath_max_f32_reduce_range
 umath_max_f32_reduce_range:
@@ -352,16 +359,23 @@ umath_max_f32_reduce_range:
     lea     rdi, [rdi + rsi * 4]
 
     movss   xmm0, [rdi]
+    ucomiss xmm0, xmm0
+    jp      .done_range         ; NaN propagates: src[0] is NaN
     add     rdi, 4
     dec     rcx
     jz      .done_range
 
 .loop_reduce:
     movss   xmm1, [rdi]
+    ucomiss xmm1, xmm1
+    jp      .nan_reduce         ; NaN propagates (maxss would drop it)
     maxss   xmm0, xmm1
     add     rdi, 4
     dec     rcx
     jnz     .loop_reduce
+    ret
+.nan_reduce:
+    movaps  xmm0, xmm1
 
 .done_range:
     ret
