@@ -123,39 +123,25 @@ umath_bit128_not:
 ; -----------------------------------------------------------------------------
 global umath_bit128_shl
 umath_bit128_shl:
-    push    rbx
-    mov     rax, rdi            ; lo
-    mov     rbx, rsi            ; hi
     mov     ecx, edx
     and     ecx, 0x7F           ; amount mod 128
+    mov     rax, rdi            ; lo
+    mov     rdx, rsi            ; hi (amount 0 returns the input unchanged)
     test    ecx, ecx
     jz      .done
     cmp     ecx, 64
-    jge     .shift_ge64
+    jae     .shift_ge64
     ; shift < 64: hi = (hi << amount) | (lo >> (64-amount)), lo = lo << amount
-    mov     r8, rax             ; save lo
-    shl     rbx, cl
-    mov     r9, 64
-    sub     r9, rcx
-    mov     rcx, r9
-    shr     r8, cl
-    or      rbx, r8
-    mov     rcx, edx
-    and     ecx, 0x7F
+    shld    rdx, rax, cl
     shl     rax, cl
-    jmp     .store
+    ret
 .shift_ge64:
     ; shift >= 64: hi = lo << (amount-64), lo = 0
-    mov     r9, ecx
-    sub     r9, 64
-    mov     rbx, rax
-    mov     rcx, r9
-    shl     rbx, cl
-    xor     rax, rax
-.store:
-    mov     rdx, rbx
+    sub     ecx, 64
+    mov     rdx, rax
+    shl     rdx, cl
+    xor     eax, eax
 .done:
-    pop     rbx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -165,38 +151,25 @@ umath_bit128_shl:
 ; -----------------------------------------------------------------------------
 global umath_bit128_shr
 umath_bit128_shr:
-    push    rbx
-    mov     rax, rdi            ; lo
-    mov     rbx, rsi            ; hi
     mov     ecx, edx
     and     ecx, 0x7F
+    mov     rax, rdi            ; lo
+    mov     rdx, rsi            ; hi
     test    ecx, ecx
     jz      .done
     cmp     ecx, 64
-    jge     .shift_ge64
+    jae     .shift_ge64
     ; lo = (lo >> amount) | (hi << (64-amount)), hi = hi >> amount
-    mov     r8, rbx             ; save hi
-    shr     rax, cl
-    mov     r9, 64
-    sub     r9, rcx
-    mov     rcx, r9
-    shl     r8, cl
-    or      rax, r8
-    mov     rcx, edx
-    and     ecx, 0x7F
-    shr     rbx, cl
-    jmp     .store
+    shrd    rax, rdx, cl
+    shr     rdx, cl
+    ret
 .shift_ge64:
-    mov     r9, ecx
-    sub     r9, 64
-    mov     rax, rbx
-    mov     rcx, r9
+    ; lo = hi >> (amount-64), hi = 0
+    sub     ecx, 64
+    mov     rax, rdx
     shr     rax, cl
-    xor     rbx, rbx
-.store:
-    mov     rdx, rbx
+    xor     edx, edx
 .done:
-    pop     rbx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -206,38 +179,23 @@ umath_bit128_shr:
 ; -----------------------------------------------------------------------------
 global umath_bit128_sar
 umath_bit128_sar:
-    push    rbx
-    mov     rax, rdi
-    mov     rbx, rsi
     mov     ecx, edx
     and     ecx, 0x7F
+    mov     rax, rdi
+    mov     rdx, rsi
     test    ecx, ecx
     jz      .done
     cmp     ecx, 64
-    jge     .shift_ge64
-    mov     r8, rbx
-    shr     rax, cl
-    mov     r9, 64
-    sub     r9, rcx
-    mov     rcx, r9
-    shl     r8, cl
-    or      rax, r8
-    mov     rcx, edx
-    and     ecx, 0x7F
-    sar     rbx, cl             ; arithmetic shift preserves sign in hi
-    jmp     .store
+    jae     .shift_ge64
+    shrd    rax, rdx, cl
+    sar     rdx, cl             ; arithmetic shift preserves sign in hi
+    ret
 .shift_ge64:
-    mov     r9, ecx
-    sub     r9, 64
-    mov     rax, rbx
-    mov     rcx, r9
+    sub     ecx, 64
+    mov     rax, rdx
     sar     rax, cl             ; sign-extend from hi
-    ; hi becomes all sign bits
-    sar     rbx, 63             ; rbx = 0 or -1 depending on sign
-.store:
-    mov     rdx, rbx
+    sar     rdx, 63             ; hi becomes all sign bits
 .done:
-    pop     rbx
     ret
 
 ; -----------------------------------------------------------------------------
