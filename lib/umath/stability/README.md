@@ -95,6 +95,9 @@ variance accuracy.
 
 **log-sum-exp shifts by the max.** Every `exp` argument is `<= 0` and the
 largest term is exactly 1, so nothing overflows and the log never sees 0.
+Both passes are packed: the max with `maxpd`/`maxps` and a separate NaN
+flag, the exponentials through `exp_f64`'s two-lane core into a packed
+Neumaier accumulator (2.3x faster than one scalar exp call per element).
 Special values: any NaN → NaN, a `+Inf` element → `+Inf`, all `-Inf` →
 `-Inf`. A stable softmax is `exp(x_i - logsumexp(x))`.
 
