@@ -10,8 +10,9 @@
 ;
 ; description:
 ;   queries CPU feature flags at runtime to determine which dtypes
-;   can be used with native hardware instructions
-;   results cached after first call to avoid repeated CPUID
+;   can be used with native hardware instructions (via cpuid/cpuid.asm
+;   plus the dtype-specific AVX-512/AMX/F16C bits, each only counted when
+;   the OS has enabled its register state); results cached
 ;
 ;   support levels:
 ;     SUPPORT_NONE     = 0  not supported, no fallback
@@ -34,6 +35,7 @@
 
 %include "lib/umath/dtype/dtype_id.asm"
 %include "lib/umath/dtype/dtype_family.asm"
+%include "lib/umath/cpuid/cpuid.asm"
 
 bits 64
 
@@ -85,112 +87,112 @@ section .text
 ; =============================================================================
 
 ; -----------------------------------------------------------------------------
-; detect_cpu_features - run CPUID and cache all relevant feature flags
-; clobbers: rax, rbx, rcx, rdx
+; detect_cpu_features - fill the flags above
+; AVX2, BMI2, POPCNT and LZCNT come from the shared detection in
+; cpuid/cpuid.asm (so umath_cpu_restrict applies to them too). The dtype-
+; specific extras are read here, each only when the register state it
+; needs is enabled by the OS (XCR0): without that state the instructions
+; fault even on hardware that has them.
+; clobbers: rax, rcx, rdx (like the CPUID it replaces; callers keep edi live)
 ; -----------------------------------------------------------------------------
 detect_cpu_features:
     push    rbx
     push    r12
+    push    r13
+    push    rsi
+    push    rdi
+    push    r8
+    push    r9
+    push    r10
+    push    r11
+    call    umath_cpu_init
+    lea     rdi, [rel cpu_has_avx2] ; clear every flag (re-detection)
+    mov     ecx, cpu_has_f16c - cpu_has_avx2 + 1
+    xor     eax, eax
+    rep stosb
+    movzx   eax, byte [rel umath__has_avx2]
+    mov     [rel cpu_has_avx2], al
+    movzx   eax, byte [rel umath__has_bmi2]
+    mov     [rel cpu_has_bmi2], al
+    movzx   eax, byte [rel umath__has_popcnt]
+    mov     [rel cpu_has_popcnt], al
+    movzx   eax, byte [rel umath__has_lzcnt]
+    mov     [rel cpu_has_lzcnt], al
 
-    ; check CPUID max leaf
+    ; F16C: leaf 1 ecx bit 29, VEX-encoded, so it needs usable AVX
+    cmp     byte [rel umath__has_avx], 0
+    je      .no_f16c
+    mov     eax, 1
+    cpuid
+    bt      ecx, 29
+    setc    [rel cpu_has_f16c]
+.no_f16c:
+
     xor     eax, eax
     cpuid
     cmp     eax, 7
-    jl      .no_leaf7
-
-    ; leaf 1: basic features
-    mov     eax, 1
-    cpuid
-    ; ecx bit 23 = POPCNT
-    bt      ecx, 23
-    setc    [rel cpu_has_popcnt]
-    ; ecx bit 29 = F16C (VCVTPH2PS)
-    bt      ecx, 29
-    setc    [rel cpu_has_f16c]
-
-    ; leaf 7, subleaf 0: extended features
+    jb      .done
     mov     eax, 7
     xor     ecx, ecx
     cpuid
-    ; ebx bit 5  = AVX512F
-    bt      ebx, 5
+    mov     r12d, eax               ; highest leaf-7 subleaf
+    mov     r13, [rel umath__cpu_xcr0]
+
+    ; AMX: XCR0 bits 17-18 (XTILECFG, XTILEDATA). On Linux a process must
+    ; still request XTILEDATA (arch_prctl) before using the tiles.
+    mov     eax, r13d
+    and     eax, (1 << 17) | (1 << 18)
+    cmp     eax, (1 << 17) | (1 << 18)
+    jne     .no_amx
+    bt      edx, 24
+    setc    [rel cpu_has_amx_tile]
+    bt      edx, 22
+    setc    [rel cpu_has_amx_bf16]
+    bt      edx, 25
+    setc    [rel cpu_has_amx_int8]
+.no_amx:
+
+    ; AVX-512 family: XCR0 opmask + zmm state (bits 1-2, 5-7), and not
+    ; removed by umath_cpu_restrict
+    mov     eax, r13d
+    and     eax, 0xE6
+    cmp     eax, 0xE6
+    jne     .done
+    cmp     byte [rel umath__has_avx], 0
+    je      .done
+    bt      qword [rel umath__cpu_allowed], UMATH_CPU_AVX512
+    jnc     .done
+    bt      ebx, 16
     setc    [rel cpu_has_avx512f]
-    ; ebx bit 16 = AVX512F (AVX-512 enabled)
-    ; ebx bit 30 = AVX512BW
-    bt      ebx, 30
-    setc    [rel cpu_has_avx512bw]
-    ; ebx bit 17 = AVX512DQ
     bt      ebx, 17
     setc    [rel cpu_has_avx512dq]
-    ; ebx bit 31 = AVX512VL
+    bt      ebx, 30
+    setc    [rel cpu_has_avx512bw]
     bt      ebx, 31
     setc    [rel cpu_has_avx512vl]
-    ; ebx bit 3  = BMI2
-    bt      ebx, 8
-    setc    [rel cpu_has_avx2]      ; AVX2 is bit 5 of ebx, corrected below
-    bt      ebx, 5
-    ; already handled AVX512F above
-    ; ecx bit 11 = AVX512VNNI
     bt      ecx, 11
     setc    [rel cpu_has_avx512vnni]
-    ; ecx bit 12 = AVX512BITALG
-    ; ecx bit 14 = AVX512VPOPCNTDQ
     bt      ecx, 14
     setc    [rel cpu_has_avx512vpopcntdq]
-
-    ; AVX2: leaf 7 ebx bit 5
-    mov     eax, 7
-    xor     ecx, ecx
-    cpuid
-    bt      ebx, 5                  ; re-read for AVX2 (bit 5 = AVX2 in leaf7)
-    setc    [rel cpu_has_avx2]
-    ; BMI2: leaf 7 ebx bit 8
-    bt      ebx, 8
-    setc    [rel cpu_has_bmi2]
-
-    ; leaf 7 subleaf 1: AVX512BF16, AVX512FP16
+    bt      edx, 23
+    setc    [rel cpu_has_avx512fp16]
+    test    r12d, r12d
+    jz      .done
     mov     eax, 7
     mov     ecx, 1
     cpuid
-    ; eax bit 5 = AVX512BF16
-    bt      eax, 5
+    bt      eax, 5                  ; leaf 7 subleaf 1 eax bit 5
     setc    [rel cpu_has_avx512bf16]
-    ; eax bit 23 = AVX512FP16
-    bt      eax, 23
-    setc    [rel cpu_has_avx512fp16]
-
-    ; AMX: leaf 7, subleaf 0
-    mov     eax, 7
-    xor     ecx, ecx
-    cpuid
-    ; edx bit 22 = AMX-BF16
-    bt      edx, 22
-    setc    [rel cpu_has_amx_bf16]
-    ; edx bit 24 = AMX-TILE
-    bt      edx, 24
-    setc    [rel cpu_has_amx_tile]
-    ; edx bit 25 = AMX-INT8
-    bt      edx, 25
-    setc    [rel cpu_has_amx_int8]
-
-    ; LZCNT: leaf 0x80000001 ecx bit 5
-    mov     eax, 0x80000001
-    cpuid
-    bt      ecx, 5
-    setc    [rel cpu_has_lzcnt]
-
-    jmp     .done
-
-.no_leaf7:
-    ; minimal CPU, no AVX512 etc
-    ; popcnt still possible via leaf 1
-    mov     eax, 1
-    cpuid
-    bt      ecx, 23
-    setc    [rel cpu_has_popcnt]
 
 .done:
     mov     byte [rel cpu_features_cached], 1
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    pop     rdi
+    pop     rsi
+    pop     r13
     pop     r12
     pop     rbx
     ret
@@ -210,13 +212,20 @@ ensure_features:
 ; =============================================================================
 
 ; -----------------------------------------------------------------------------
-; umath_dtype_support_init - initialize support detection (call once at boot)
+; umath_dtype_support_init - (re)detect support; optional, queries detect
+;                            lazily. Call again after umath_cpu_restrict.
 ; args:    none
 ; returns: void
 ; -----------------------------------------------------------------------------
 global umath_dtype_support_init
 umath_dtype_support_init:
+    push    rdi                     ; (aligns the stack for the calls)
     call    detect_cpu_features
+    lea     rdi, [rel dtype_support_cache]
+    mov     ecx, 0x200
+    mov     al, 0xFF                ; forget levels computed earlier
+    rep stosb
+    pop     rdi
     ret
 
 ; -----------------------------------------------------------------------------
@@ -320,79 +329,41 @@ umath_dtype_support_level:
 ; returns: eax = SUPPORT_* level
 ; -----------------------------------------------------------------------------
 compute_support_level:
-    ; always supported (software at minimum)
-    cmp     edi, DTYPE_NONE
-    je      .none
+    ; ids are compared unsigned and in increasing order: each family is a
+    ; contiguous range (see dtype_id.asm), so a wider check must never come
+    ; before a narrower one inside the same range
+    test    edi, edi            ; DTYPE_NONE
+    jz      .none
 
-    ; INT types: always native (basic arithmetic)
-    cmp     edi, DTYPE_INT1
-    jl      .none
+    ; signed integers 0x001-0x009: native up to 64 bits, 128/256 partial
     cmp     edi, DTYPE_INT64
-    jle     .native
-    cmp     edi, DTYPE_UINT64
-    jle     .native
-
-    ; INT128/256: partial (no single instruction)
-    cmp     edi, DTYPE_INT128
-    je      .partial
+    jbe     .native
     cmp     edi, DTYPE_INT256
-    je      .partial
-    cmp     edi, DTYPE_UINT128
-    je      .partial
+    jbe     .partial
+
+    ; unsigned integers 0x010-0x019: native up to 64 bits, 128/256 partial
+    ; (no single instruction), 512+ software
+    cmp     edi, DTYPE_UINT4
+    jb      .software
+    cmp     edi, DTYPE_UINT64
+    jbe     .native
     cmp     edi, DTYPE_UINT256
-    je      .partial
-
-    ; UINT512+ software
-    cmp     edi, DTYPE_UINT512
-    jge     .software
-    cmp     edi, DTYPE_UINT1024
-    jge     .software
+    jbe     .partial
     cmp     edi, DTYPE_UINT2048
-    jge     .software
+    jbe     .software
 
-    ; FP32/FP64: always native
+    ; IEEE floats: FP32/FP64 native, FP16/BF16 by CPU feature, FP128 and
+    ; TF32 software (no x86 hardware)
     cmp     edi, DTYPE_FP32
     je      .native
     cmp     edi, DTYPE_FP64
     je      .native
-    cmp     edi, DTYPE_FP128
-    je      .software           ; no x86 FP128 hardware
-
-    ; FP16: native if F16C or AVX512FP16
     cmp     edi, DTYPE_FP16
     je      .check_fp16
-
-    ; BF16: native if AVX512BF16
     cmp     edi, DTYPE_BF16
     je      .check_bf16
 
-    ; TF32: native on NVIDIA only (software on x86)
-    cmp     edi, DTYPE_TF32
-    je      .software
-
-    ; FP8: software on x86 (no native FP8 in x86 yet)
-    cmp     edi, DTYPE_FP8_E4M3
-    je      .software
-    cmp     edi, DTYPE_FP8_E5M2
-    je      .software
-    cmp     edi, DTYPE_FP8_E4M3_FNUZ
-    je      .software
-    cmp     edi, DTYPE_FP8_E5M2_FNUZ
-    je      .software
-
-    ; FP6: software
-    cmp     edi, DTYPE_FP6_E2M3
-    je      .software
-    cmp     edi, DTYPE_FP6_E3M2
-    je      .software
-
-    ; OCP MX: software (no native OCP MX on x86 yet)
-    cmp     edi, DTYPE_MXFP8_E4M3
-    jge     .check_mx
-    cmp     edi, DTYPE_MXINT4
-    jle     .software           ; all OCP MX = software currently
-
-    ; CF32/CF64: partial (no native complex arithmetic in x86)
+    ; complex: partial (no native complex arithmetic in x86)
     cmp     edi, DTYPE_CF32
     je      .partial
     cmp     edi, DTYPE_CF64
@@ -404,19 +375,7 @@ compute_support_level:
     cmp     edi, DTYPE_CI32
     je      .partial
 
-    ; BIGINT etc: software
-    cmp     edi, DTYPE_BIGINT
-    je      .software
-    cmp     edi, DTYPE_BIGFLOAT
-    je      .software
-    cmp     edi, DTYPE_RATIONAL
-    je      .software
-
-    ; POSIT: software
-    cmp     edi, DTYPE_POSIT8
-    jge     .check_posit
-
-    ; default: software
+    ; everything else (FP8, FP6, OCP MX, BIGINT, posit, ...) is software
     jmp     .software
 
 .check_fp16:
@@ -429,18 +388,6 @@ compute_support_level:
 .check_bf16:
     cmp     byte [rel cpu_has_avx512bf16], 1
     je      .native
-    jmp     .software
-
-.check_mx:
-    cmp     edi, DTYPE_MXFP8_E4M3
-    jl      .software
-    cmp     edi, DTYPE_NVFP8
-    jle     .software
-    jmp     .software
-
-.check_posit:
-    cmp     edi, DTYPE_POSIT256
-    jle     .software
     jmp     .software
 
 .none:
