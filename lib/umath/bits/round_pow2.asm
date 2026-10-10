@@ -36,7 +36,9 @@ global umath_round_pow2_up32
 umath_round_pow2_up32:
     mov     eax, edi
     cmp     eax, 1
-    jle     .one_or_zero
+    jbe     .one_or_zero        ; unsigned: values >= 2^31 are large, not negative
+    cmp     eax, 0x80000000
+    ja      .saturate           ; next power of 2 would not fit in 32 bits
     dec     eax
     mov     ecx, eax
     shr     ecx, 1
@@ -58,17 +60,23 @@ umath_round_pow2_up32:
 .one_or_zero:
     mov     eax, 1
     ret
+.saturate:
+    mov     eax, 0x80000000
+    ret
 
 ; -----------------------------------------------------------------------------
 ; umath_round_pow2_up64 - smallest power of 2 >= val (64-bit)
 ; args:    rdi = val
-; returns: rax = next power of 2
+; returns: rax = next power of 2 (0 or 1 -> 1; saturates at 2^63 if
+;          val > 2^63)
 ; -----------------------------------------------------------------------------
 global umath_round_pow2_up64
 umath_round_pow2_up64:
     mov     rax, rdi
     cmp     rax, 1
-    jle     .one_or_zero
+    jbe     .one_or_zero        ; unsigned: values >= 2^63 are large, not negative
+    bt      rax, 63
+    jc      .saturate_check
     dec     rax
     mov     rcx, rax
     shr     rcx, 1
@@ -89,6 +97,10 @@ umath_round_pow2_up64:
     shr     rcx, 32
     or      rax, rcx
     inc     rax
+    ret
+.saturate_check:
+    ; top bit set: 2^63 is its own answer, anything larger saturates to 2^63
+    mov     rax, 0x8000000000000000
     ret
 .one_or_zero:
     mov     rax, 1
