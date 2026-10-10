@@ -179,10 +179,27 @@ fi
 
 TIMER_CPUS=$SMP
 [ -z "$EXPECT_SMP" ] || TIMER_CPUS=$EXPECT_SMP
-if ! awk -v periodic="SMP: APIC timer periodic $TIMER_CPUS/$TIMER_CPUS" \
+TIMER_LINE=$(awk -v periodic="SMP: APIC timer periodic $TIMER_CPUS/$TIMER_CPUS" \
     -v deadline="SMP: APIC timer tsc-deadline $TIMER_CPUS/$TIMER_CPUS" \
-    '{ sub(/\r$/, "", $0); if ($0 == periodic || $0 == deadline) found = 1 } END { exit !found }' "$LOG"; then
+    '{ sub(/\r$/, "", $0); if ($0 == periodic || $0 == deadline) { print NR; exit } }' "$LOG")
+if [ -z "$TIMER_LINE" ]; then
     echo "FAIL: missing exact all-core APIC timer marker for $TIMER_CPUS processors"
+    PASS=0
+fi
+
+if [ "$TIMER_CPUS" -gt 1 ]; then
+    LIFECYCLE_MARKER="SMP: scheduler park/unpark PASS"
+else
+    LIFECYCLE_MARKER="SMP: scheduler park/unpark SKIP (single CPU)"
+fi
+LIFECYCLE_LINE=
+if [ -n "$TIMER_LINE" ]; then
+    LIFECYCLE_LINE=$(awk -v after="$TIMER_LINE" -v expected="$LIFECYCLE_MARKER" \
+        -v heartbeat="heartbeat #0" \
+        'NR > after { sub(/\r$/, "", $0); if ($0 == heartbeat) exit; if ($0 == expected) { print NR; exit } }' "$LOG")
+fi
+if [ -z "$LIFECYCLE_LINE" ]; then
+    echo "FAIL: missing exact scheduler lifecycle marker between timer proof and first heartbeat: $LIFECYCLE_MARKER"
     PASS=0
 fi
 

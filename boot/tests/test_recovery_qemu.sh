@@ -111,9 +111,11 @@ done
 
 READY="Tattva Kernel Ready. Entering main execution."
 SELFTESTS="Boot memory self-test: PASS"
+LIFECYCLE="SMP: scheduler park/unpark SKIP (single CPU)"
 HEARTBEAT="heartbeat #0"
 wait_for_count "$READY" 1 400
 wait_for_count "$SELFTESTS" 1 300
+wait_for_count "$LIFECYCLE" 1 300
 wait_for_count "$HEARTBEAT" 1 100
 
 # Negotiate QMP and inject a hardware NMI. Keeping stdin open briefly lets
@@ -129,6 +131,7 @@ grep -Fq '"error"' "$QMP_LOG" && fail "QMP rejected the NMI command"
 
 wait_for_count "$READY" 2 600
 wait_for_count "$SELFTESTS" 2 300
+wait_for_count "$LIFECYCLE" 2 300
 wait_for_count "$HEARTBEAT" 2 100
 TIMER_COUNT=$(awk '
     {
@@ -154,6 +157,7 @@ LAST_LINE=0
 for MILESTONE in \
     "$SELFTESTS" \
     "$READY" \
+    "$LIFECYCLE" \
     "$HEARTBEAT" \
     "!!! KERNEL PANIC !!!" \
     "Snapshot checksum valid. Initiating warm recovery..." \
@@ -162,6 +166,7 @@ for MILESTONE in \
     "Tattva Kernel Booting..." \
     "$SELFTESTS" \
     "$READY" \
+    "$LIFECYCLE" \
     "$HEARTBEAT"
 do
     LINE=$(awk -v after="$LAST_LINE" -v needle="$MILESTONE" \
@@ -176,6 +181,7 @@ for FATAL in \
     "Recovery: reloaded ULF" \
     "Recovery: pristine snapshot invalid" \
     "SMP: APIC timer delivery FAILED" \
+    "SMP: scheduler park/unpark FAILED" \
     "EARLY64 EXCEPTION"
 do
     grep -Fq "$FATAL" "$LOG" && fail "fatal recovery diagnostic found: $FATAL"

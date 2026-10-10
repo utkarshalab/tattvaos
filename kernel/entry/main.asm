@@ -82,6 +82,8 @@ kernel_main:
     call smp_release
     call smp_timer_verify
     jc .timer_failed
+    call smp_sched_lifecycle_selftest
+    jc .timer_failed
 
     ; Enter the scheduler's own core loop. Never returns: sched_core_loop
     ; is what used to be this file's manual `cli; hlt` idle loop, except it
@@ -160,10 +162,10 @@ heartbeat_fiber:
     call uart_print_str
     inc dword [heartbeat_count]
 
-    ; Paced to be legible on a serial console, not to be a real timer. There
-    ; is no periodic interrupt wired up yet for this cooperative scheduler to
-    ; preempt on, so pacing is this fiber spin-waiting then yielding — the
-    ; same voluntary-yield model every other fiber here is expected to use.
+    ; Paced to be legible on a serial console, not to be a real timer. APIC
+    ; timer interrupts do not yet preempt cooperative fibers, so pacing is
+    ; this fiber spin-waiting then yielding — the same voluntary-yield model
+    ; every other fiber here is expected to use.
     mov rdi, 1000                   ; 1000ms
     call mdelay
     call fiber_yield
@@ -171,9 +173,9 @@ heartbeat_fiber:
 
 ; -----------------------------------------------------------------------------
 ; net_poll_fiber — drives unet_poll (e1000 RX/TX + tcp_timer_tick) on the
-; same voluntary-yield pattern as heartbeat_fiber. 10ms is arbitrary — there's
-; no interrupt-driven RX path yet (e1000_poll is pure polling), so this is
-; the entire receive latency budget until one exists.
+; same voluntary-yield pattern as heartbeat_fiber. The APIC timer does not
+; preempt fibers and e1000_poll is pure polling, so 10ms remains the receive
+; latency budget until an interrupt RX path exists.
 ; -----------------------------------------------------------------------------
 net_poll_fiber:
 .loop:

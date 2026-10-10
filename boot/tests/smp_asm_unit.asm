@@ -22,5 +22,6 @@ extern sys_handler
 extern default_mxcsr
 extern idt_ptr
 extern tsc_freq_hz
+extern tlb_shootdown
 
 %include "kernel/arch/x86_64/smp.asm"

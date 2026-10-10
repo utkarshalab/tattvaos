@@ -158,6 +158,10 @@ sched_pop_next_fiber:
 ; -----------------------------------------------------------------------------
 sched_core_loop:
 .loop:
+    ; Honor runtime scheduler-park requests only at the idle, empty-queue
+    ; safe point. The helper returns immediately on busy CPUs and on the BSP.
+    call smp_sched_park_if_requested
+
     ; -------------------------------------------------------------------------
     ; [OPTION A] Non-Blocking Hardware Ring Polling & Memory Reclaimer
     ; -------------------------------------------------------------------------

@@ -66,17 +66,30 @@ opts the platform out; malformed DMAR also prevents a new transition. Each AP
 joins the selected mode before programming its LVT. Every released processor
 then runs a kernel-owned 10 ms local timer: invariant TSC-deadline when
 available, otherwise a per-core TSC-calibrated periodic APIC timer. Boot does
-not proceed until every timer has delivered at least two interrupts. The
-smp-test target boots the real BIOS and OVMF paths
-with 2 and 8 processors in x2APIC mode, exercises an xAPIC fallback, and
-requires exact mode/discovery/rendezvous/online/post-barrier markers.
+not proceed until every timer has delivered at least two interrupts.
+
+Released APs can also be scheduler-parked at an idle, empty-queue safe point.
+Parking leaves the CPU, local APIC, and timer online in an interruptible
+halt, so TLB shootdowns and kernel worker IPIs still rendezvous with the
+immutable released-CPU set. A boot self-test parks CPU 1, proves its timer and
+TLB acknowledgement remain live, then wakes it through the active xAPIC or
+x2APIC backend. This is scheduler parking, not CPU offlining: it does not
+migrate queues, stop the timer, remove topology, or restart a CPU with
+INIT/SIPI. Current queues are CPU-local and there are no cross-CPU enqueue
+producers; a future dispatcher must add an eligibility-clear-and-drain
+protocol before using the published masks for placement.
+
+The smp-test target boots the real BIOS and OVMF paths with 2 and 8 processors
+in x2APIC mode, exercises an xAPIC fallback, and requires exact
+mode/discovery/rendezvous/online/timer/park-unpark markers.
 
 ## Current boundaries
 
 This is an x86-64 bootstrap, not yet a blanket bare-metal certification. The
-initial physical aperture is the low 4 GiB, CPU topology is static after boot,
-and UEFI panic recovery is not implemented. The startup path does not yet
-online more than 64 CPUs. Device interrupt delivery to wide x2APIC IDs still
-requires IOMMU interrupt remapping; current devices remain polling/BSP-routed.
-IOMMU policy, Secure Boot signing, CPU/memory hotplug, and broad firmware
-interoperability remain later hardening phases.
+initial physical aperture is the low 4 GiB, CPU topology remains static after
+boot despite scheduler parking, and SMP/UEFI panic recovery is not implemented.
+The startup path does not yet online more than 64 CPUs. Device interrupt
+delivery to wide x2APIC IDs still requires IOMMU interrupt remapping; current
+devices remain polling/BSP-routed. IOMMU policy, Secure Boot signing, true
+CPU/memory hotplug, and broad firmware interoperability remain later
+hardening phases.

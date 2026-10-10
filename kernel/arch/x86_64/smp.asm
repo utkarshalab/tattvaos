@@ -1072,6 +1072,370 @@ smp_timer_verify:
     pop rbx
     ret
 
+; Runtime scheduler parking keeps the processor architecturally online.  The
+; local APIC and interrupts remain enabled so coherency and worker IPIs still
+; reach every CPU counted by the immutable smp_active_cores rendezvous set.
+;
+; One transition bit closes the request-timeout race: after claiming it, the
+; target rechecks the requested-run bit before publishing any actual state.
+; A cancelling controller either sees no claim (a later claim must abort) or
+; waits for the claimed transition to publish and unwind completely.
+smp_sched_control_acquire:
+.spin:
+    lock bts dword [rel smp_sched_control_lock], 0
+    jnc .done
+    pause
+    jmp .spin
+.done:
+    ret
+
+smp_sched_control_release:
+    mov dword [rel smp_sched_control_lock], 0
+    ret
+
+; EDI=dense logical CPU ID.  Task-context controllers must remain
+; interruptible while waiting so they can service another CPU's rendezvous.
+smp_sched_validate_target:
+    pushfq
+    pop rax
+    test eax, 1 << 9
+    jz .invalid
+    test edi, edi
+    jz .invalid
+    cmp edi, [rel smp_active_cores]
+    jae .invalid
+    cmp edi, [gs:percpu_t.cpu_id]
+    je .invalid
+    clc
+    ret
+.invalid:
+    stc
+    ret
+
+; EDI=dense logical CPU ID.  The periodic/deadline timer is also a fallback
+; wake source, so callers verify the published state rather than trusting ICR
+; delivery alone.
+smp_sched_send_wake:
+    mov eax, edi
+    shl rax, 6
+    lea rdx, [rel smp_mailboxes]
+    add rdx, rax
+    mov edi, [rdx + SMP_APIC_ID_OFF]
+    mov esi, (1 << 14) | SCHED_WAKE_VECTOR
+    call smp_send_ipi
+    ret
+
+; EDI=dense logical CPU ID.  CF=0/EAX=1 once the target has published parked;
+; CF=1/EAX=0 on rejection or a bounded request timeout.
+global smp_sched_park_cpu
+smp_sched_park_cpu:
+    push rbx
+    push r12
+    mov r12d, edi
+    call smp_sched_validate_target
+    jc .failed
+    call smp_sched_control_acquire
+
+    bt qword [rel smp_sched_parked_mask], r12
+    jc .wait_for_park
+    bt qword [rel smp_sched_run_mask], r12
+    jnc .failed_locked
+
+    lock btr qword [rel smp_sched_run_mask], r12
+    mfence
+.wait_for_park:
+    mov ebx, 1000
+.park_poll:
+    bt qword [rel smp_sched_parked_mask], r12
+    jnc .park_wait
+    bt qword [rel smp_sched_transition_mask], r12
+    jnc .succeeded
+.park_wait:
+    mov edi, 1000
+    call udelay
+    dec ebx
+    jnz .park_poll
+
+    ; Cancel and wait for a late target-side claim to abort or unwind.  Never
+    ; return while the actual schedulable state can still change behind us.
+    lock bts qword [rel smp_sched_run_mask], r12
+    mfence
+    mov edi, r12d
+    call smp_sched_send_wake
+    mov ebx, 1000
+.rollback_poll:
+    bt qword [rel smp_sched_transition_mask], r12
+    jc .rollback_wait
+    bt qword [rel smp_sched_parked_mask], r12
+    jc .rollback_wait
+    bt qword [rel smp_schedulable_mask], r12
+    jc .failed_locked
+.rollback_wait:
+    mov edi, 1000
+    call udelay
+    dec ebx
+    jnz .rollback_poll
+    cli
+    lea rsi, [rel msg_smp_sched_rollback_timeout]
+    call uart_print_str
+.rollback_fatal:
+    hlt
+    jmp .rollback_fatal
+
+.succeeded:
+    mov eax, 1
+    call smp_sched_control_release
+    clc
+    jmp .done
+.failed_locked:
+    call smp_sched_control_release
+.failed:
+    xor eax, eax
+    stc
+.done:
+    pop r12
+    pop rbx
+    ret
+
+; EDI=dense logical CPU ID.  CF=0/EAX=1 only after the target has restored
+; its schedulable bit and cleared the parked acknowledgement. CF=1 means the
+; request was rejected or wake was requested but not confirmed before timeout.
+global smp_sched_unpark_cpu
+smp_sched_unpark_cpu:
+    push rbx
+    push r12
+    mov r12d, edi
+    call smp_sched_validate_target
+    jc .failed
+    call smp_sched_control_acquire
+
+    bt qword [rel smp_sched_run_mask], r12
+    jnc .request_run
+    bt qword [rel smp_sched_transition_mask], r12
+    jc .request_run
+    bt qword [rel smp_sched_parked_mask], r12
+    jc .request_run
+    bt qword [rel smp_schedulable_mask], r12
+    jc .succeeded
+
+.request_run:
+    lock bts qword [rel smp_sched_run_mask], r12
+    mfence
+    mov edi, r12d
+    call smp_sched_send_wake
+    mov ebx, 1000
+.resume_poll:
+    bt qword [rel smp_sched_transition_mask], r12
+    jc .resume_wait
+    bt qword [rel smp_sched_parked_mask], r12
+    jc .resume_wait
+    bt qword [rel smp_schedulable_mask], r12
+    jc .succeeded
+.resume_wait:
+    mov edi, 1000
+    call udelay
+    dec ebx
+    jnz .resume_poll
+    jmp .failed_locked
+
+.succeeded:
+    mov eax, 1
+    call smp_sched_control_release
+    clc
+    jmp .done
+.failed_locked:
+    call smp_sched_control_release
+.failed:
+    xor eax, eax
+    stc
+.done:
+    pop r12
+    pop rbx
+    ret
+
+; Called only at the scheduler's top-level safe point.  A parked processor
+; continues taking interrupts in sti/hlt and therefore remains a member of
+; every cross-CPU coherency rendezvous.
+global smp_sched_park_if_requested
+smp_sched_park_if_requested:
+    push rbx
+    push r12
+    pushfq
+    pop rbx
+    test ebx, 1 << 9
+    jz .done
+    mov r12d, [gs:percpu_t.cpu_id]
+    test r12d, r12d
+    jz .done
+    bt qword [rel smp_sched_run_mask], r12
+    jc .done
+
+    cli
+    bt qword [rel smp_sched_run_mask], r12
+    jc .not_parked
+    mov rax, [gs:percpu_t.current_fiber]
+    test rax, rax
+    jz .not_parked
+    cmp rax, [gs:percpu_t.idle_fiber]
+    jne .not_parked
+    cmp dword [gs:percpu_t.fiber_count], 0
+    jne .not_parked
+    cmp qword [gs:percpu_t.run_queue_head], 0
+    jne .not_parked
+    cmp qword [gs:percpu_t.run_queue_tail], 0
+    jne .not_parked
+
+    lock bts qword [rel smp_sched_transition_mask], r12
+    jc .not_parked
+    bt qword [rel smp_sched_run_mask], r12
+    jc .cancel_claim
+    lock btr qword [rel smp_schedulable_mask], r12
+    jnc .cancel_claim
+    lock dec dword [rel smp_schedulable_cores]
+    lock bts qword [rel smp_sched_parked_mask], r12
+    mfence
+    lock btr qword [rel smp_sched_transition_mask], r12
+
+.parked:
+    cli
+    bt qword [rel smp_sched_run_mask], r12
+    jc .resume
+    sti
+    hlt
+    jmp .parked
+
+.resume:
+    lock bts qword [rel smp_schedulable_mask], r12
+    jc .schedulable
+    lock inc dword [rel smp_schedulable_cores]
+.schedulable:
+    lock btr qword [rel smp_sched_parked_mask], r12
+    mfence
+    sti
+    jmp .done
+
+.cancel_claim:
+    lock btr qword [rel smp_sched_transition_mask], r12
+.not_parked:
+    sti
+.done:
+    pop r12
+    pop rbx
+    ret
+
+; Boot-time integration proof: the parked AP's timer must keep advancing and a
+; synchronous TLB shootdown must still receive its acknowledgement.
+global smp_sched_lifecycle_selftest
+smp_sched_lifecycle_selftest:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    mov r12d, [rel smp_active_cores]
+    mov ecx, r12d
+    mov r15, -1
+    cmp ecx, 64
+    je .expected_ready
+    mov r15, 1
+    shl r15, cl
+    dec r15
+.expected_ready:
+    cmp [rel smp_sched_run_mask], r15
+    jne .failed
+    cmp [rel smp_schedulable_mask], r15
+    jne .failed
+    cmp qword [rel smp_sched_parked_mask], 0
+    jne .failed
+    cmp qword [rel smp_sched_transition_mask], 0
+    jne .failed
+    cmp [rel smp_schedulable_cores], r12d
+    jne .failed
+
+    xor edi, edi
+    call smp_sched_park_cpu
+    jnc .failed                       ; the BSP must never be parkable
+    cmp r12d, 1
+    jbe .single
+
+    mov edi, 1
+    call smp_sched_park_cpu
+    jc .failed
+    cmp [rel smp_active_cores], r12d
+    jne .failed
+    bt qword [rel smp_sched_run_mask], 1
+    jc .failed
+    bt qword [rel smp_schedulable_mask], 1
+    jc .failed
+    bt qword [rel smp_sched_parked_mask], 1
+    jnc .failed
+    bt qword [rel smp_sched_transition_mask], 1
+    jc .failed
+    mov eax, r12d
+    dec eax
+    cmp [rel smp_schedulable_cores], eax
+    jne .failed
+
+    mov r13, [rel smp_mailboxes + SMP_MAILBOX_STRIDE + SMP_PERCPU_OFF]
+    test r13, r13
+    jz .failed
+    mov r14, [r13 + percpu_t.ticks]
+    mov edi, 30000
+    call udelay
+    cmp [r13 + percpu_t.ticks], r14
+    jbe .failed
+
+    mov rdi, 0x100000
+    mov esi, 1
+    call tlb_shootdown
+
+    mov edi, 1
+    call smp_sched_unpark_cpu
+    jc .failed
+    cmp [rel smp_active_cores], r12d
+    jne .failed
+    cmp [rel smp_sched_run_mask], r15
+    jne .failed
+    cmp [rel smp_schedulable_mask], r15
+    jne .failed
+    cmp qword [rel smp_sched_parked_mask], 0
+    jne .failed
+    cmp qword [rel smp_sched_transition_mask], 0
+    jne .failed
+    cmp [rel smp_schedulable_cores], r12d
+    jne .failed
+
+    lea rsi, [rel msg_smp_sched_pass]
+    call uart_print_str
+    mov eax, 1
+    clc
+    jmp .done
+
+.single:
+    lea rsi, [rel msg_smp_sched_skip]
+    call uart_print_str
+    mov eax, 1
+    clc
+    jmp .done
+
+.failed:
+    cmp r12d, 1
+    jbe .report_failed
+    mov edi, 1
+    call smp_sched_unpark_cpu
+.report_failed:
+    lea rsi, [rel msg_smp_sched_failed]
+    call uart_print_str
+    xor eax, eax
+    stc
+.done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 ; RDI=APIC ID, RSI=mailbox. Bounded 100ms rendezvous.
 smp_start_one:
     push rbx
@@ -1565,6 +1929,10 @@ smp_start:
     mov byte [rel smp_startup_aborted], 0
     mov byte [rel smp_lapic_ready], 0
     mov r15d, [rel smp_discovered_cores]
+    mov edi, SCHED_WAKE_VECTOR
+    lea rsi, [rel smp_sched_wake_isr]
+    xor edx, edx
+    call register_idt_handler
     mov edi, SMP_SPURIOUS_VECTOR
     lea rsi, [rel smp_spurious_isr]
     xor edx, edx
@@ -1753,6 +2121,20 @@ smp_release:
 .count_ok:
     mov r12d, eax
     mov [rel smp_active_cores], eax
+    mov ecx, eax
+    mov rdx, -1
+    cmp ecx, 64
+    je .sched_mask_ready
+    mov rdx, 1
+    shl rdx, cl
+    dec rdx
+.sched_mask_ready:
+    mov [rel smp_sched_run_mask], rdx
+    mov [rel smp_schedulable_mask], rdx
+    mov qword [rel smp_sched_parked_mask], 0
+    mov qword [rel smp_sched_transition_mask], 0
+    mov [rel smp_schedulable_cores], eax
+    mov dword [rel smp_sched_control_lock], 0
     mov dword [rel smp_released_cores], 1
     mov rdx, [rel boot_info_ptr]
     test rdx, rdx
@@ -1809,6 +2191,16 @@ smp_release:
     pop r12
     pop rbx
     ret
+
+smp_sched_wake_isr:
+    push rax
+    push rcx
+    push rdx
+    call smp_lapic_eoi
+    pop rdx
+    pop rcx
+    pop rax
+    iretq
 
 smp_spurious_isr:
     iretq
@@ -2098,6 +2490,18 @@ smp_lapic_ready:            db 0
 smp_timer_mode:              db 0
 align 8
 smp_timer_interval_tsc:      dq 0
+align 8
+global smp_sched_run_mask
+global smp_schedulable_mask
+global smp_sched_parked_mask
+global smp_sched_transition_mask
+global smp_schedulable_cores
+smp_sched_run_mask:          dq 1
+smp_schedulable_mask:        dq 1
+smp_sched_parked_mask:       dq 0
+smp_sched_transition_mask:   dq 0
+smp_schedulable_cores:       dd 1
+smp_sched_control_lock:      dd 0
 msg_smp_discovered:         db "SMP: discovered ", 0
 msg_smp_xapic:              db "SMP: APIC mode xAPIC", 0x0D, 0x0A, 0
 msg_smp_x2apic:             db "SMP: APIC mode x2APIC", 0x0D, 0x0A, 0
@@ -2107,6 +2511,11 @@ msg_smp_timer_periodic:      db "SMP: APIC timer periodic ", 0
 msg_smp_timer_deadline:      db "SMP: APIC timer tsc-deadline ", 0
 msg_smp_timer_failed:        db "SMP: APIC timer delivery FAILED", 0x0D, 0x0A, 0
 msg_smp_timer_init_fail:     db "SMP: local APIC timer initialization failed", 0x0D, 0x0A, 0
+msg_smp_sched_pass:          db "SMP: scheduler park/unpark PASS", 0x0D, 0x0A, 0
+msg_smp_sched_skip:          db "SMP: scheduler park/unpark SKIP (single CPU)", 0x0D, 0x0A, 0
+msg_smp_sched_failed:        db "SMP: scheduler park/unpark FAILED", 0x0D, 0x0A, 0
+msg_smp_sched_rollback_timeout:
+    db "KERNEL PANIC: scheduler park rollback timed out", 0x0D, 0x0A, 0
 msg_smp_rendezvous:         db "SMP: rendezvous ", 0
 msg_smp_online:             db "SMP: online ", 0
 msg_smp_released:           db "SMP: released ", 0
