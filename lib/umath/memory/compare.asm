@@ -15,6 +15,8 @@
 ; =============================================================================
 
 bits 64
+
+%include "lib/umath/cpuid/fallback.asm"
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -162,7 +164,7 @@ umath_memcmp_sse:
 .mismatch16:
     not     eax
     and     eax, 0xFFFF
-    tzcnt   eax, eax
+    um_tzcnt   eax, eax
     
     movzx   ecx, byte [rdi + rax]
     movzx   edx, byte [rsi + rax]
@@ -184,6 +186,7 @@ umath_memcmp_sse:
 ; -----------------------------------------------------------------------------
 global umath_memcmp_avx2
 umath_memcmp_avx2:
+    um_need umath__has_avx2, umath_memcmp_sse   ; no AVX2: same operation, narrower registers
     xor     rax, rax
     test    rdx, rdx
     jz      .done
@@ -305,7 +308,7 @@ umath_memcmp_avx2:
 
 .mismatch32:
     not     eax
-    tzcnt   eax, eax
+    um_tzcnt   eax, eax
     
     movzx   ecx, byte [rdi + rax]
     movzx   edx, byte [rsi + rax]
@@ -320,7 +323,7 @@ umath_memcmp_avx2:
 .mismatch16:
     not     eax
     and     eax, 0xFFFF
-    tzcnt   eax, eax
+    um_tzcnt   eax, eax
     movzx   ecx, byte [rdi + rax]
     movzx   edx, byte [rsi + rax]
     cmp     ecx, edx
