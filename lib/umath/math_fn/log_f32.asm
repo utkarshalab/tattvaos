@@ -23,12 +23,13 @@
 ;
 ; Domain: ln(0) = -Inf, ln(negative) = NaN, ln(NaN) = NaN, ln(+Inf) = +Inf,
 ; matching libm.
-; This branches per the scalar domain check below, which is why the
-; array/inplace paths in this file call the scalar routine per element
-; instead of running a branchless packed reduction the way exp_f32.asm
-; does — exp only ever needed a branchless clamp, log needs a real
-; per-element domain decision, and getting that domain logic right marked
-; on 4 lanes at once via blends is not worth the bug surface here.
+;
+; The array/inplace paths run the same algorithm four lanes at a time
+; (logf32__packed4): identical operations in identical order per lane, the
+; scalar's integer exponent adjustments done in packed integers before the
+; exact cvtdq2ps, and the domain cases blended in at the end with the
+; scalar's constants, so every element is bit-for-bit what umath_log_f32
+; returns. The tests check exactly that.
 ; =============================================================================
 
 bits 64
@@ -49,6 +50,28 @@ logf32_neg_inf_bits: dd 0xFF800000
 logf32_flt_min:     dd 1.1754943508222875e-38   ; smallest normal float
 logf32_two_pow_25:  dd 33554432.0                ; 2^25, exact power-of-two scale
 logf32_pos_inf:     dd 0x7F800000
+
+; four-lane copies for logf32__packed4 (16-byte aligned memory operands)
+align 16
+logf32_p_one:       times 4 dd 1.0
+logf32_p_half:      times 4 dd 0.5
+logf32_p_sqrt2:     times 4 dd 1.4142135623730951
+logf32_p_ln2:       times 4 dd 0.6931471805599453
+logf32_p_inv3:      times 4 dd 0.3333333333333333
+logf32_p_inv5:      times 4 dd 0.2
+logf32_p_inv7:      times 4 dd 0.14285714285714285
+logf32_p_inv9:      times 4 dd 0.1111111111111111
+logf32_p_inv11:     times 4 dd 0.09090909090909091
+logf32_p_flt_min:   times 4 dd 1.1754943508222875e-38
+logf32_p_two_pow_25: times 4 dd 33554432.0
+logf32_p_25:        times 4 dd 25
+logf32_p_1:         times 4 dd 1
+logf32_p_mant_mask: times 4 dd 0x007FFFFF
+logf32_p_exp_mask:  times 4 dd 0xFF
+logf32_p_bias:      times 4 dd 127
+logf32_p_nan:       times 4 dd 0x7FC00000
+logf32_p_neg_inf:   times 4 dd 0xFF800000
+logf32_p_pos_inf:   times 4 dd 0x7F800000
 
 section .text
 
@@ -146,6 +169,108 @@ umath_log_f32:
     ret
 
 ; -----------------------------------------------------------------------------
+; logf32_blend - lanes of %1 where mask %2 is set take constant %3
+; args:    %1 = values (in/out), %2 = mask (clobbered), %3 = 16-byte constant
+;          %4 = scratch register
+; -----------------------------------------------------------------------------
+%macro logf32_blend 4
+    movaps  %4, %3
+    andps   %4, %2
+    andnps  %2, %1
+    orps    %2, %4
+    movaps  %1, %2
+%endmacro
+
+; -----------------------------------------------------------------------------
+; logf32__packed4 - internal: ln(x) of four floats, bit-identical to
+;                   umath_log_f32 per lane
+; args:    xmm0 = four input values
+; returns: xmm0 = four results
+; Clobbers xmm1-xmm9; no general-purpose registers. Not declared global.
+; -----------------------------------------------------------------------------
+logf32__packed4:
+    movaps  xmm8, xmm0          ; original x, for the domain cases at the end
+
+    ; subnormal lanes: x *= 2^25 and k -= 25 (the scalar's pre-scale)
+    movaps  xmm1, xmm0
+    cmpltps xmm1, [rel logf32_p_flt_min]
+    movaps  xmm9, xmm1
+    andps   xmm9, [rel logf32_p_25] ; per-lane integer exponent correction
+    movaps  xmm2, xmm0
+    mulps   xmm2, [rel logf32_p_two_pow_25]
+    andps   xmm2, xmm1
+    andnps  xmm1, xmm0
+    orps    xmm1, xmm2          ; xmm1 = x, pre-scaled where subnormal
+
+    ; k = biased exponent - 127 - pre-scale (packed int32)
+    movaps  xmm3, xmm1
+    psrld   xmm3, 23
+    pand    xmm3, [rel logf32_p_exp_mask]
+    psubd   xmm3, [rel logf32_p_bias]
+    psubd   xmm3, xmm9
+
+    ; m = mantissa with exponent forced to 0, in [1, 2)
+    movaps  xmm4, xmm1
+    andps   xmm4, [rel logf32_p_mant_mask]
+    orps    xmm4, [rel logf32_p_one]
+
+    ; m > sqrt(2): m *= 0.5 and k += 1
+    movaps  xmm5, [rel logf32_p_sqrt2]
+    cmpltps xmm5, xmm4          ; mask: sqrt(2) < m
+    movaps  xmm6, xmm5
+    andps   xmm6, [rel logf32_p_1]
+    paddd   xmm3, xmm6
+    cvtdq2ps xmm3, xmm3         ; (float)k, exact
+    movaps  xmm6, xmm4
+    mulps   xmm6, [rel logf32_p_half]
+    andps   xmm6, xmm5
+    andnps  xmm5, xmm4
+    orps    xmm5, xmm6          ; xmm5 = m
+
+    movaps  xmm4, xmm5
+    subps   xmm4, [rel logf32_p_one]  ; m - 1
+    addps   xmm5, [rel logf32_p_one]  ; m + 1
+    divps   xmm4, xmm5          ; xmm4 = s
+
+    movaps  xmm5, xmm4
+    mulps   xmm5, xmm4          ; xmm5 = s^2
+
+    movaps  xmm6, [rel logf32_p_inv11]
+    mulps   xmm6, xmm5
+    addps   xmm6, [rel logf32_p_inv9]
+    mulps   xmm6, xmm5
+    addps   xmm6, [rel logf32_p_inv7]
+    mulps   xmm6, xmm5
+    addps   xmm6, [rel logf32_p_inv5]
+    mulps   xmm6, xmm5
+    addps   xmm6, [rel logf32_p_inv3]
+    mulps   xmm6, xmm5
+    addps   xmm6, [rel logf32_p_one]
+    mulps   xmm6, xmm4          ; s + s^3/3 + ... + s^11/11
+    addps   xmm6, xmm6          ; ln(m)
+
+    mulps   xmm3, [rel logf32_p_ln2]
+    addps   xmm6, xmm3          ; k*ln(2) + ln(m)
+
+    ; domain cases, with the scalar routine's constants
+    movaps  xmm1, xmm8
+    cmpunordps xmm1, xmm8       ; NaN
+    xorps   xmm2, xmm2
+    movaps  xmm7, xmm8
+    cmpltps xmm7, xmm2          ; x < 0
+    orps    xmm1, xmm7
+    logf32_blend xmm6, xmm1, [rel logf32_p_nan], xmm7
+    movaps  xmm1, xmm8
+    cmpeqps xmm1, xmm2          ; +/-0
+    logf32_blend xmm6, xmm1, [rel logf32_p_neg_inf], xmm7
+    movaps  xmm1, xmm8
+    cmpeqps xmm1, [rel logf32_p_pos_inf]
+    logf32_blend xmm6, xmm1, [rel logf32_p_pos_inf], xmm7
+
+    movaps  xmm0, xmm6
+    ret
+
+; -----------------------------------------------------------------------------
 ; umath_log_f32_array - ln(x) for an array of floats
 ; args:    rdi = destination pointer (dst)
 ;          rsi = source pointer (src)
@@ -161,15 +286,28 @@ umath_log_f32_array:
     test    rdx, rdx
     jz      .done
 
-.loop:
+    mov     rcx, rdx
+    shr     rcx, 2              ; count of 4-float groups
+    jz      .tail
+.loop4:
+    movups  xmm0, [rsi]
+    call    logf32__packed4     ; preserves rcx (no GPRs used)
+    movups  [rdi], xmm0
+    add     rsi, 16
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop4
+.tail:
+    and     rdx, 3
+    jz      .done
+.tail_loop:
     movss   xmm0, [rsi]
     call    umath_log_f32
     movss   [rdi], xmm0
     add     rsi, 4
     add     rdi, 4
     dec     rdx
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
@@ -186,14 +324,26 @@ umath_log_f32_inplace:
     test    rsi, rsi
     jz      .done
 
-.loop:
+    mov     rcx, rsi
+    shr     rcx, 2
+    jz      .tail
+.loop4:
+    movups  xmm0, [rdi]
+    call    logf32__packed4
+    movups  [rdi], xmm0
+    add     rdi, 16
+    dec     rcx
+    jnz     .loop4
+.tail:
+    and     rsi, 3
+    jz      .done
+.tail_loop:
     movss   xmm0, [rdi]
     call    umath_log_f32
     movss   [rdi], xmm0
     add     rdi, 4
     dec     rsi
-    jnz     .loop
-
+    jnz     .tail_loop
 .done:
     ret
 
