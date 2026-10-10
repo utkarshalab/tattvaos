@@ -187,7 +187,7 @@ umath_max_f64_array:
 ; umath_max_f64_reduce - reduce an array of doubles to its maximum value
 ; args:    rdi = source pointer (src)
 ;          rsi = size of array (count)
-; returns: xmm0 = maximum double value in array
+; returns: xmm0 = maximum double value in array (NaN if any element is NaN)
 ; -----------------------------------------------------------------------------
 global umath_max_f64_reduce
 umath_max_f64_reduce:
@@ -198,16 +198,23 @@ umath_max_f64_reduce:
     jz      .done
 
     movsd   xmm0, [rdi]
+    ucomisd xmm0, xmm0
+    jp      .done               ; NaN propagates: src[0] is NaN
     add     rdi, 8
     dec     rsi
     jz      .done
 
 .loop_reduce:
     movsd   xmm1, [rdi]
+    ucomisd xmm1, xmm1
+    jp      .nan_reduce         ; NaN propagates (maxsd would drop it)
     maxsd   xmm0, xmm1
     add     rdi, 8
     dec     rsi
     jnz     .loop_reduce
+    ret
+.nan_reduce:
+    movapd  xmm0, xmm1
 .done:
     ret
 
@@ -334,7 +341,7 @@ umath_max_f64_inplace_clip:
 ; args:    rdi = source pointer (src)
 ;          rsi = start index
 ;          rdx = end index (exclusive)
-; returns: xmm0 = maximum value in range, or 0 if invalid
+; returns: xmm0 = maximum value in range (NaN if any element is NaN), or 0 if invalid
 ; -----------------------------------------------------------------------------
 global umath_max_f64_reduce_range
 umath_max_f64_reduce_range:
@@ -352,16 +359,23 @@ umath_max_f64_reduce_range:
     lea     rdi, [rdi + rsi * 8]
 
     movsd   xmm0, [rdi]
+    ucomisd xmm0, xmm0
+    jp      .done_range         ; NaN propagates: src[0] is NaN
     add     rdi, 8
     dec     rcx
     jz      .done_range
 
 .loop_reduce:
     movsd   xmm1, [rdi]
+    ucomisd xmm1, xmm1
+    jp      .nan_reduce         ; NaN propagates (maxsd would drop it)
     maxsd   xmm0, xmm1
     add     rdi, 8
     dec     rcx
     jnz     .loop_reduce
+    ret
+.nan_reduce:
+    movapd  xmm0, xmm1
 
 .done_range:
     ret
