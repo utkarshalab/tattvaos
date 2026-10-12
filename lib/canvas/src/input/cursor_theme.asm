@@ -1,0 +1,136 @@
+; ============================================================================
+; Cursor Theme — Loading and Managing Cursor Themes
+; ============================================================================
+
+%include "inc/abi.inc"
+%include "inc/macros.inc"
+%include "inc/errors.inc"
+%include "inc/tattva.inc"
+
+section .text
+
+struc CursorTheme {
+    .name:          resq 1
+    .cursors:       resq 1
+    .count:         resd 1
+    .size:          resd 1
+    .fallback:      resq 1
+}
+%define CursorTheme_size    40
+
+%define MAX_CURSORS_PER_THEME  64
+
+; ---------------------------------------------------------------------------
+; cursor_theme_init
+; ---------------------------------------------------------------------------
+global cursor_theme_init
+cursor_theme_init:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    mov rdi, r12
+    mov rsi, CursorTheme_size
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov rbx, rax
+
+    mov qword [rbx + CursorTheme.name], 0
+    mov qword [rbx + CursorTheme.cursors], 0
+    mov dword [rbx + CursorTheme.count], 0
+    mov dword [rbx + CursorTheme.size], 32
+    mov qword [rbx + CursorTheme.fallback], 0
+
+    ret
+
+.oom:
+    RETURN_ERROR ENOMEM
+
+; ---------------------------------------------------------------------------
+; cursor_theme_load
+;   Load cursor theme from directory
+;   IN:  rdi = server*, rsi = theme_name
+;   OUT: rax = theme*, 0 on error
+; ---------------------------------------------------------------------------
+global cursor_theme_load
+cursor_theme_load:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    ; Allocate theme
+    mov rdi, [rbx + Server.arena]
+    mov rsi, CursorTheme_size
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov rbx, rax
+
+    ; Load theme index
+    ; TODO: Read theme.index file
+
+    ; For now, use default
+    mov qword [rbx + CursorTheme.name], r12
+    mov dword [rbx + CursorTheme.size], 32
+    mov dword [rbx + CursorTheme.count], 0
+
+    ; Allocate cursor array
+    mov rdi, [rdi + Server.arena]
+    mov rsi, MAX_CURSORS_PER_THEME
+    shl rsi, 3
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov qword [rbx + CursorTheme.cursors], rax
+
+    ; Load default cursors
+    call cursor_theme_load_default
+
+    mov rax, rbx
+    ret
+
+.oom:
+    RETURN_ERROR ENOMEM
+
+; ---------------------------------------------------------------------------
+; cursor_theme_load_default
+; ---------------------------------------------------------------------------
+cursor_theme_load_default:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    ASSERT_PTR rbx
+
+    ; Create default cursor set
+    ; This would normally load from .cursor files
+    ; For now, create placeholder
+
+    mov dword [rbx + CursorTheme.count], 24
+
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; cursor_theme_get_cursor
+; ---------------------------------------------------------------------------
+global cursor_theme_get_cursor
+cursor_theme_get_cursor:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+
+    ; Lookup cursor by name
+    ; TODO: Implement lookup
+
+    ; Return fallback
+    mov rax, [rbx + CursorTheme.fallback]
+    ret
+
+section .data
+global cursor_theme_version
+cursor_theme_version: dq 0x010000
