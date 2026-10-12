@@ -1,0 +1,36 @@
+protocol canvas-remote 1 {
+
+    ; ========================================================================
+    ; cw_remote — Remote display control (RFB viewers + CRP sessions)
+    ; ========================================================================
+    interface cw_remote 1 {
+        enum transport {
+            rfb_tls = 0,
+            crp_tls = 1
+        }
+
+        enum encoding {
+            raw = 0,
+            rle = 1,
+            deflate = 2,
+            delta = 3
+        }
+
+        struct viewer_info {
+            transport: uint
+            width: uint
+            height: uint
+            view_only: bool
+            encodings: array<uint>
+        }
+
+        request list_viewers() -> (viewers: array<viewer_info>)
+        request disconnect_viewer(viewer: uint)
+        request set_view_only(viewer: uint, view_only: bool)
+        request set_quality(viewer: uint, quality: uint)  ; 0..100
+
+        event viewer_connected(viewer: uint, info: viewer_info)
+        event viewer_disconnected(viewer: uint)
+        event frame_stats(viewer: uint, bytes: ulong, tiles: uint, ms: uint)
+    }
+}

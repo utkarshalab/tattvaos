@@ -21,6 +21,8 @@ extern test_quota_suite
 extern test_record_replay_suite
 extern test_jpeg_suite
 extern test_icc_suite
+extern test_tile_diff_suite
+extern test_rfb_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -80,6 +82,14 @@ test_runner_init:
 
     ; Test ICC/color
     call test_icc_suite
+    add rbx, rax
+
+    ; Test tile-diff/codecs
+    call test_tile_diff_suite
+    add rbx, rax
+
+    ; Test RFB
+    call test_rfb_suite
     add rbx, rax
 
     ; Final summary
