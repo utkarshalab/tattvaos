@@ -100,9 +100,26 @@ PROTO_SRCS := \
 IMG_SRCS := \
     $(SRCDIR)/img/crc32.asm
 
-# Server Core (C5+)
+# Server Core (C5-C8)
 SERVER_SRCS := \
-    $(SRCDIR)/server/main.asm
+    $(SRCDIR)/server/main.asm \
+    $(SRCDIR)/server/client/client.asm \
+    $(SRCDIR)/server/client/client_registry.asm \
+    $(SRCDIR)/server/client/auth.asm \
+    $(SRCDIR)/server/buffer/buffer.asm \
+    $(SRCDIR)/server/buffer/buffer_pool.asm \
+    $(SRCDIR)/server/fence/fence.asm \
+    $(SRCDIR)/server/timeline/timeline.asm \
+    $(SRCDIR)/server/surface/surface.asm \
+    $(SRCDIR)/server/subsurface/subsurface.asm \
+    $(SRCDIR)/server/commit/commit.asm \
+    $(SRCDIR)/server/damage/damage.asm \
+    $(SRCDIR)/server/regions/regions.asm \
+    $(SRCDIR)/server/zorder/zorder.asm \
+    $(SRCDIR)/server/surface_transform/surface_transform.asm \
+    $(SRCDIR)/server/frame_clock/frame_clock.asm \
+    $(SRCDIR)/server/presentation/presentation.asm \
+    $(SRCDIR)/server/direct_scanout/direct_scanout.asm
 
 # All Sources
 ALL_SRCS    := $(TATTVA_SRCS) $(CORE_SRCS) $(GFX_SRCS) $(PROTO_SRCS) $(IMG_SRCS) $(SERVER_SRCS)
@@ -190,25 +207,25 @@ EOF
 # ---------------------------------------------------------------------------
 
 # Test runner image
-$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $^
 	@echo "  IMG    $@"
 
 # Golden test image
-$(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $^
 	@echo "  IMG    $@"
 
 # Fuzz runner image
-$(IMAGEDIR)/fuzz_runner.img: $(OBJDIR)/tests/fuzz/fuzz_driver.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/fuzz_runner.img: $(OBJDIR)/tests/fuzz/fuzz_driver.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $^
 	@echo "  IMG    $@"
 
 # Replay test image
-$(IMAGEDIR)/replay_test.img: $(OBJDIR)/tests/replay/replay_test.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/replay_test.img: $(OBJDIR)/tests/replay/replay_test.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $^
 	@echo "  IMG    $@"
