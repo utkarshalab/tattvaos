@@ -19,6 +19,7 @@ extern test_region_suite
 extern test_map_suite
 extern test_quota_suite
 extern test_record_replay_suite
+extern test_jpeg_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -70,6 +71,10 @@ test_runner_init:
 
     ; Test record/replay
     call test_record_replay_suite
+    add rbx, rax
+
+    ; Test image decoders (probe)
+    call test_jpeg_suite
     add rbx, rax
 
     ; Final summary

@@ -96,9 +96,17 @@ PROTO_SRCS := \
     $(SRCDIR)/proto/errors.asm \
     $(SRCDIR)/proto/channel.asm
 
-# Image (C21)
+# Image (C21/C23)
 IMG_SRCS := \
-    $(SRCDIR)/img/crc32.asm
+    $(SRCDIR)/img/crc32.asm \
+    $(SRCDIR)/img/jpeg.asm \
+    $(SRCDIR)/img/jpeg_huff.asm \
+    $(SRCDIR)/img/jpeg_idct.asm \
+    $(SRCDIR)/img/lzw.asm \
+    $(SRCDIR)/img/gif.asm \
+    $(SRCDIR)/img/bmp.asm \
+    $(SRCDIR)/img/svg.asm \
+    $(SRCDIR)/img/svg_path.asm
 
 # Server Core (C5-C8)
 SERVER_SRCS := \
