@@ -20,6 +20,7 @@ extern test_map_suite
 extern test_quota_suite
 extern test_record_replay_suite
 extern test_jpeg_suite
+extern test_icc_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -75,6 +76,10 @@ test_runner_init:
 
     ; Test image decoders (probe)
     call test_jpeg_suite
+    add rbx, rax
+
+    ; Test ICC/color
+    call test_icc_suite
     add rbx, rax
 
     ; Final summary
