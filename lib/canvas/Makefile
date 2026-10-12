@@ -85,15 +85,27 @@ GFX_SRCS := \
     $(SRCDIR)/gfx/transform.asm \
     $(SRCDIR)/gfx/clip.asm
 
-# Protocol (C4) - to be added
-PROTO_SRCS  :=
+# Protocol (C4)
+PROTO_SRCS := \
+    $(SRCDIR)/proto/wire.asm \
+    $(SRCDIR)/proto/msgbuf.asm \
+    $(SRCDIR)/proto/objects.asm \
+    $(SRCDIR)/proto/dispatch.asm \
+    $(SRCDIR)/proto/versioning.asm \
+    $(SRCDIR)/proto/negotiate.asm \
+    $(SRCDIR)/proto/errors.asm \
+    $(SRCDIR)/proto/channel.asm
+
+# Image (C21)
+IMG_SRCS := \
+    $(SRCDIR)/img/crc32.asm
 
 # Server Core (C5+)
 SERVER_SRCS := \
     $(SRCDIR)/server/main.asm
 
 # All Sources
-ALL_SRCS    := $(TATTVA_SRCS) $(CORE_SRCS) $(GFX_SRCS) $(PROTO_SRCS) $(SERVER_SRCS)
+ALL_SRCS    := $(TATTVA_SRCS) $(CORE_SRCS) $(GFX_SRCS) $(PROTO_SRCS) $(IMG_SRCS) $(SERVER_SRCS)
 
 # Object Files
 ALL_OBJS    := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(ALL_SRCS))
@@ -178,15 +190,33 @@ EOF
 # ---------------------------------------------------------------------------
 
 # Test runner image
-$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -o $@ $^
+	@echo "  IMG    $@"
+
+# Golden test image
+$(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -o $@ $^
+	@echo "  IMG    $@"
+
+# Fuzz runner image
+$(IMAGEDIR)/fuzz_runner.img: $(OBJDIR)/tests/fuzz/fuzz_driver.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -o $@ $^
+	@echo "  IMG    $@"
+
+# Replay test image
+$(IMAGEDIR)/replay_test.img: $(OBJDIR)/tests/replay/replay_test.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $^
 	@echo "  IMG    $@"
 
 # Test target
 .PHONY: test
-test: $(IMAGEDIR)/test_runner.img
-	@echo "Test runner built: $<"
+test: $(IMAGEDIR)/test_runner.img $(IMAGEDIR)/golden_test.img $(IMAGEDIR)/fuzz_runner.img $(IMAGEDIR)/replay_test.img
+	@echo "All test images built"
 	@echo "Run on Tattva to execute tests"
 
 # ---------------------------------------------------------------------------
@@ -194,6 +224,21 @@ test: $(IMAGEDIR)/test_runner.img
 # ---------------------------------------------------------------------------
 
 $(OBJDIR)/tests/%.o: tests/%.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
+	@echo "  ASM    $<"
+
+$(OBJDIR)/tests/golden/%.o: tests/golden/%.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
+	@echo "  ASM    $<"
+
+$(OBJDIR)/tests/fuzz/%.o: tests/fuzz/%.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
+	@echo "  ASM    $<"
+
+$(OBJDIR)/tests/replay/%.o: tests/replay/%.asm
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
