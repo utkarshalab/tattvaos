@@ -351,32 +351,49 @@ $(IMAGEDIR)/canvasd.img: $(ALL_OBJS) linker.ld
 	@echo "  IMG    $@"
 
 # Client Library (relocatable object)
+CLIENT_SRCS := \
+    $(SRCDIR)/client/conn.asm \
+    $(SRCDIR)/client/client.asm \
+    $(SRCDIR)/client/objects.asm \
+    $(SRCDIR)/client/buffer_pool.asm \
+    $(SRCDIR)/client/surface_helpers.asm \
+    $(SRCDIR)/client/buffer_helpers.asm \
+    $(SRCDIR)/client/events.asm \
+    $(SRCDIR)/client/event_loop.asm \
+    $(SRCDIR)/client/input_helpers.asm \
+    $(SRCDIR)/client/shell_helpers.asm \
+    $(SRCDIR)/client/clipboard_helpers.asm \
+    $(SRCDIR)/client/present_helpers.asm
+CLIENT_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(CLIENT_SRCS))
+
 client: $(LIBDIR)/canvas_client.o
 
-$(LIBDIR)/canvas_client.o: $(OBJDIR)/client/conn.o $(OBJDIR)/client/client.o \
-                            $(OBJDIR)/client/objects.o $(OBJDIR)/client/buffer_pool.o \
-                            $(OBJDIR)/client/surface_helpers.o $(OBJDIR)/client/buffer_helpers.o \
-                            $(OBJDIR)/client/events.o $(OBJDIR)/client/event_loop.o \
-                            $(OBJDIR)/client/input_helpers.o $(OBJDIR)/client/shell_helpers.o \
-                            $(OBJDIR)/client/clipboard_helpers.o $(OBJDIR)/client/present_helpers.o
+$(LIBDIR)/canvas_client.o: $(CLIENT_OBJS)
 	@mkdir -p $(LIBDIR)
 	$(LD) -r -o $@ $^
 	@echo "  LIB    $@"
 
 # Tools (cwpgen, canvasctl, etc.)
-tools: $(IMAGEDIR)/cwpgen.img $(IMAGEDIR)/canvasctl.img \
-       $(IMAGEDIR)/canvas_info.img $(IMAGEDIR)/canvas_inspect.img \
-       $(IMAGEDIR)/canvas_record.img $(IMAGEDIR)/canvas_replay.img \
-       $(IMAGEDIR)/canvas_bench.img $(IMAGEDIR)/cwplint.img
+TOOLS := cwpgen canvasctl canvas_info canvas_inspect canvas_record canvas_replay canvas_bench cwplint
+TOOL_IMGS := $(addprefix $(IMAGEDIR)/,$(addsuffix .img,$(TOOLS)))
+
+tools: $(TOOL_IMGS)
+
+$(TOOL_IMGS): $(IMAGEDIR)/%.img: $(OBJDIR)/tools/%.o $(ALL_OBJS)
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -e tool_main -o $@ $^
+	@echo "  IMG    $@"
 
 # Reference Clients
-clients: $(IMAGEDIR)/demo_windows.img $(IMAGEDIR)/demo_alpha.img \
-         $(IMAGEDIR)/demo_subsurfaces.img $(IMAGEDIR)/input_test.img \
-         $(IMAGEDIR)/clipboard_test.img $(IMAGEDIR)/dnd_test.img \
-         $(IMAGEDIR)/ime_test.img $(IMAGEDIR)/a11y_test.img \
-         $(IMAGEDIR)/panel.img $(IMAGEDIR)/wallpaper.img \
-         $(IMAGEDIR)/lockscreen.img $(IMAGEDIR)/bench_latency.img \
-         $(IMAGEDIR)/bench_throughput.img $(IMAGEDIR)/stress_clients.img
+CLIENTS := demo_windows demo_alpha demo_subsurfaces input_test clipboard_test dnd_test ime_test a11y_test panel wallpaper lockscreen bench_latency bench_throughput stress_clients
+CLIENT_IMGS := $(addprefix $(IMAGEDIR)/,$(addsuffix .img,$(CLIENTS)))
+
+clients: $(CLIENT_IMGS)
+
+$(CLIENT_IMGS): $(IMAGEDIR)/%.img: $(OBJDIR)/clients/%.o $(LIBDIR)/canvas_client.o $(TATTVA_OBJS)
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -e client_main -o $@ $^
+	@echo "  IMG    $@"
 
 # ---------------------------------------------------------------------------
 # Compilation Rules
