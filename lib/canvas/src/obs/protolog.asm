@@ -1,0 +1,143 @@
+; ============================================================================
+; Protocol Log — Full Message Log for Replay and Debugging
+; ============================================================================
+
+%include "inc/abi.inc"
+%include "inc/macros.inc"
+%include "inc/errors.inc"
+%include "inc/tattva.inc"
+
+section .text
+
+struc ProtoLog {
+    .server:         resq 1
+    .buf:            resq 1
+    .capacity:       resq 1
+    .write_pos:      resq 1
+    .count:          resq 1
+    .enabled:        resb 1
+    .dropped:        resq 1
+}
+%define ProtoLog_size    56
+
+struc ProtoLogEntry {
+    .time_ns:       resq 1
+    .client_id:     resq 1
+    .dir:           resb 1  ; 0 = c2s, 1 = s2c
+    .obj:           resd 1
+    .opcode:        resw 1
+    .flags:         resw 1
+    .len:           resd 1
+    .payload_off:   resq 1
+}
+%define ProtoLogEntry_size    40
+
+%define PROTOLOG_DEFAULT_CAPACITY 2048
+%define PROTOLOG_DIR_C2S      0
+%define PROTOLOG_DIR_S2C      1
+
+; ---------------------------------------------------------------------------
+; protolog_init
+; ---------------------------------------------------------------------------
+global protolog_init
+protolog_init:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    mov rdi, [rbx + Server.arena]
+    mov rsi, ProtoLog_size
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov rbx, rax
+    mov qword [rbx + ProtoLog.server], rdi
+    mov rdi, [rbx + ProtoLog.server]
+    mov rdi, [rdi + Server.arena]
+    mov rsi, PROTOLOG_DEFAULT_CAPACITY
+    imul rsi, ProtoLogEntry_size
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov qword [rbx + ProtoLog.buf], rax
+    mov qword [rbx + ProtoLog.capacity], PROTOLOG_DEFAULT_CAPACITY
+    mov qword [rbx + ProtoLog.write_pos], 0
+    mov qword [rbx + ProtoLog.count], 0
+    mov byte [rbx + ProtoLog.enabled], 1
+    mov qword [rbx + ProtoLog.dropped], 0
+    mov qword [rdi + Server.protolog], rbx
+    xor rax, rax
+    ret
+.oom:
+    RETURN_ERROR ENOMEM
+
+; ---------------------------------------------------------------------------
+; protolog_log
+;   IN: rdi=server*, rsi=client_id, rdx=dir, rcx=obj, r8=opcode,
+;       r9=flags, stack len
+; ---------------------------------------------------------------------------
+global protolog_log
+protolog_log:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    mov rax, [rbx + Server.protolog]
+    test rax, rax
+    jz .disabled
+    mov rbx, rax
+    cmp byte [rbx + ProtoLog.enabled], 0
+    je .disabled
+    mov rax, [rbx + ProtoLog.write_pos]
+    mov rdi, [rbx + ProtoLog.buf]
+    imul rax, ProtoLogEntry_size
+    add rdi, rax
+    call tv_time_now_ns
+    mov [rdi + ProtoLogEntry.time_ns], rax
+    mov [rdi + ProtoLogEntry.client_id], r12
+    mov [rdi + ProtoLogEntry.dir], dl
+    mov [rdi + ProtoLogEntry.obj], ecx
+    mov [rdi + ProtoLogEntry.opcode], r8w
+    mov [rdi + ProtoLogEntry.flags], r9w
+    mov rax, [rsp + 56]
+    mov [rdi + ProtoLogEntry.len], eax
+    mov qword [rdi + ProtoLogEntry.payload_off], 0
+    mov rax, [rbx + ProtoLog.write_pos]
+    inc rax
+    cmp rax, [rbx + ProtoLog.capacity]
+    jb .no_wrap
+    xor rax, rax
+.no_wrap:
+    mov [rbx + ProtoLog.write_pos], rax
+    mov rax, [rbx + ProtoLog.count]
+    cmp rax, [rbx + ProtoLog.capacity]
+    jae .full
+    inc qword [rbx + ProtoLog.count]
+    ret
+.full:
+    inc qword [rbx + ProtoLog.dropped]
+    ret
+.disabled:
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; protolog_set_enabled
+; ---------------------------------------------------------------------------
+global protolog_set_enabled
+protolog_set_enabled:
+    PROLOGUE
+    ASSERT_PTR rdi
+    mov rax, [rdi + Server.protolog]
+    test rax, rax
+    jz .none
+    mov [rax + ProtoLog.enabled], sil
+    xor rax, rax
+    ret
+.none:
+    RETURN_ERROR ENOMEM
+
+section .data
+global protolog_version
+protolog_version: dq 0x010000

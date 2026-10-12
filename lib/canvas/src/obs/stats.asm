@@ -1,0 +1,137 @@
+; ============================================================================
+; Stats — Per-Client Statistics (frames, latency, memory, errors)
+; ============================================================================
+
+%include "inc/abi.inc"
+%include "inc/macros.inc"
+%include "inc/errors.inc"
+%include "inc/tattva.inc"
+
+section .text
+
+struc ClientStats {
+    .client_id:      resq 1
+    .frames:         resq 1
+    .commits:        resq 1
+    .damages:        resq 1
+    .events_in:      resq 1
+    .events_out:     resq 1
+    .bytes_in:       resq 1
+    .bytes_out:      resq 1
+    .proto_errors:   resq 1
+    .last_commit:    resq 1
+    .last_present:   resq 1
+    .commit_to_present_ns: resq 1
+    .mem_bytes:      resq 1
+}
+%define ClientStats_size    104
+
+; ---------------------------------------------------------------------------
+; stats_init
+; ---------------------------------------------------------------------------
+global stats_init
+stats_init:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    mov qword [rbx + Server.client_stats], 0
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; stats_create
+;   Allocate stats for a client
+; ---------------------------------------------------------------------------
+global stats_create
+stats_create:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    mov rdi, [rbx + Server.arena]
+    mov rsi, ClientStats_size
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov rbx, rax
+    mov qword [rbx + ClientStats.client_id], r12
+    mov qword [rbx + ClientStats.frames], 0
+    mov qword [rbx + ClientStats.commits], 0
+    mov qword [rbx + ClientStats.damages], 0
+    mov qword [rbx + ClientStats.events_in], 0
+    mov qword [rbx + ClientStats.events_out], 0
+    mov qword [rbx + ClientStats.bytes_in], 0
+    mov qword [rbx + ClientStats.bytes_out], 0
+    mov qword [rbx + ClientStats.proto_errors], 0
+    mov qword [rbx + ClientStats.last_commit], 0
+    mov qword [rbx + ClientStats.last_present], 0
+    mov qword [rbx + ClientStats.commit_to_present_ns], 0
+    mov qword [rbx + ClientStats.mem_bytes], 0
+    mov rax, rbx
+    ret
+.oom:
+    RETURN_ERROR ENOMEM
+
+; ---------------------------------------------------------------------------
+; stats_inc
+;   IN: rdi = stats*, rsi = field_offset
+; ---------------------------------------------------------------------------
+global stats_inc
+stats_inc:
+    PROLOGUE
+    ASSERT_PTR rdi
+    inc qword [rdi + rsi]
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; stats_add
+;   IN: rdi = stats*, rsi = field_offset, rdx = delta
+; ---------------------------------------------------------------------------
+global stats_add
+stats_add:
+    PROLOGUE
+    ASSERT_PTR rdi
+    add [rdi + rsi], rdx
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; stats_commit
+; ---------------------------------------------------------------------------
+global stats_commit
+stats_commit:
+    PROLOGUE
+    ASSERT_PTR rdi
+    inc qword [rdi + ClientStats.commits]
+    call tv_time_now_ns
+    mov [rdi + ClientStats.last_commit], rax
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; stats_present
+; ---------------------------------------------------------------------------
+global stats_present
+stats_present:
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    ASSERT_PTR rbx
+    inc qword [rbx + ClientStats.frames]
+    call tv_time_now_ns
+    mov [rbx + ClientStats.last_present], rax
+    mov rcx, [rbx + ClientStats.last_commit]
+    test rcx, rcx
+    jz .done
+    sub rax, rcx
+    mov [rbx + ClientStats.commit_to_present_ns], rax
+.done:
+    xor rax, rax
+    ret
+
+section .data
+global stats_version
+stats_version: dq 0x010000

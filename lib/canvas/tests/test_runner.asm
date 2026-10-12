@@ -18,6 +18,7 @@ extern test_handle_suite
 extern test_region_suite
 extern test_map_suite
 extern test_quota_suite
+extern test_record_replay_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -65,6 +66,10 @@ test_runner_init:
 
     ; Test quotas
     call test_quota_suite
+    add rbx, rax
+
+    ; Test record/replay
+    call test_record_replay_suite
     add rbx, rax
 
     ; Final summary
