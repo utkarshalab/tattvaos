@@ -1,0 +1,286 @@
+# ============================================================================
+# Canvas Display Server — Build System for Tattva OS
+# Pure NASM, no C compiler, no libc, bare metal x86-64
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+# Architecture
+ARCH        := x86_64
+BITS        := 64
+
+# Tools
+NASM        := nasm
+LD          := ld
+OBJCOPY     := objcopy
+STRIP       := strip
+
+# NASM Flags
+NASMFLAGS   := -f elf64 -g -F dwarf \
+               -D __TATTVA__ \
+               -D DEBUG_BUILD=1 \
+               -I inc/ \
+               -I src/
+
+# Linker Flags (Tattva image format)
+LDFLAGS     := -nostdlib -static -z max-page-size=0x1000 \
+               -T linker.ld \
+               --build-id=none
+
+# Directories
+SRCDIR      := src
+INCDIR      := inc
+BUILDDIR    := build
+OBJDIR      := $(BUILDDIR)/obj
+IMAGEDIR    := $(BUILDDIR)/img
+LIBDIR      := $(BUILDDIR)/lib
+
+# ---------------------------------------------------------------------------
+# Source Files (C0 Phase)
+# ---------------------------------------------------------------------------
+
+# Tattva Bindings (C0)
+TATTVA_SRCS := \
+    $(SRCDIR)/tattva/tv_mem.asm \
+    $(SRCDIR)/tattva/tv_time.asm \
+    $(SRCDIR)/tattva/tv_log.asm \
+    $(SRCDIR)/tattva/tv_entropy.asm \
+    $(SRCDIR)/tattva/tv_wait.asm
+
+# Core Library (C1)
+CORE_SRCS := \
+    $(SRCDIR)/core/arena.asm \
+    $(SRCDIR)/core/str.asm \
+    $(SRCDIR)/core/map.asm \
+    $(SRCDIR)/core/vec.asm \
+    $(SRCDIR)/core/ring.asm \
+    $(SRCDIR)/core/handle.asm \
+    $(SRCDIR)/core/list.asm \
+    $(SRCDIR)/core/rbtree.asm \
+    $(SRCDIR)/core/fixed.asm \
+    $(SRCDIR)/core/fmt.asm \
+    $(SRCDIR)/core/config.asm \
+    $(SRCDIR)/core/log.asm \
+    $(SRCDIR)/core/time.asm \
+    $(SRCDIR)/core/cpuid.asm \
+    $(SRCDIR)/core/hash.asm \
+    $(SRCDIR)/core/siphash.asm \
+    $(SRCDIR)/core/utf8.asm \
+    $(SRCDIR)/core/bitset.asm
+
+# Graphics (C2)
+GFX_SRCS := \
+    $(SRCDIR)/gfx/pixbuf.asm \
+    $(SRCDIR)/gfx/rect.asm \
+    $(SRCDIR)/gfx/region.asm \
+    $(SRCDIR)/gfx/fill.asm \
+    $(SRCDIR)/gfx/blit.asm \
+    $(SRCDIR)/gfx/blend.asm \
+    $(SRCDIR)/gfx/blend_sse2.asm \
+    $(SRCDIR)/gfx/blend_avx2.asm \
+    $(SRCDIR)/gfx/blend_avx512.asm \
+    $(SRCDIR)/gfx/scale.asm \
+    $(SRCDIR)/gfx/transform.asm \
+    $(SRCDIR)/gfx/clip.asm
+
+# Protocol (C4) - to be added
+PROTO_SRCS  :=
+
+# Server Core (C5+)
+SERVER_SRCS := \
+    $(SRCDIR)/server/main.asm
+
+# All Sources
+ALL_SRCS    := $(TATTVA_SRCS) $(CORE_SRCS) $(GFX_SRCS) $(PROTO_SRCS) $(SERVER_SRCS)
+
+# Object Files
+ALL_OBJS    := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(ALL_SRCS))
+TATTVA_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(TATTVA_SRCS))
+
+# ---------------------------------------------------------------------------
+# Default Target
+# ---------------------------------------------------------------------------
+
+.PHONY: all
+all: server client tools clients test
+
+# ---------------------------------------------------------------------------
+# Build Targets
+# ---------------------------------------------------------------------------
+
+# Canvas Server Image (canvasd)
+server: $(IMAGEDIR)/canvasd.img
+
+$(IMAGEDIR)/canvasd.img: $(ALL_OBJS) linker.ld
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -o $@ $(ALL_OBJS)
+	@echo "  IMG    $@"
+
+# Client Library (relocatable object)
+client: $(LIBDIR)/canvas_client.o
+
+$(LIBDIR)/canvas_client.o: $(OBJDIR)/client/conn.o $(OBJDIR)/client/client.o \
+                            $(OBJDIR)/client/objects.o $(OBJDIR)/client/buffer_pool.o \
+                            $(OBJDIR)/client/surface_helpers.o $(OBJDIR)/client/buffer_helpers.o \
+                            $(OBJDIR)/client/events.o $(OBJDIR)/client/event_loop.o \
+                            $(OBJDIR)/client/input_helpers.o $(OBJDIR)/client/shell_helpers.o \
+                            $(OBJDIR)/client/clipboard_helpers.o $(OBJDIR)/client/present_helpers.o
+	@mkdir -p $(LIBDIR)
+	$(LD) -r -o $@ $^
+	@echo "  LIB    $@"
+
+# Tools (cwpgen, canvasctl, etc.)
+tools: $(IMAGEDIR)/cwpgen.img $(IMAGEDIR)/canvasctl.img \
+       $(IMAGEDIR)/canvas_info.img $(IMAGEDIR)/canvas_inspect.img \
+       $(IMAGEDIR)/canvas_record.img $(IMAGEDIR)/canvas_replay.img \
+       $(IMAGEDIR)/canvas_bench.img $(IMAGEDIR)/cwplint.img
+
+# Reference Clients
+clients: $(IMAGEDIR)/demo_windows.img $(IMAGEDIR)/demo_alpha.img \
+         $(IMAGEDIR)/demo_subsurfaces.img $(IMAGEDIR)/input_test.img \
+         $(IMAGEDIR)/clipboard_test.img $(IMAGEDIR)/dnd_test.img \
+         $(IMAGEDIR)/ime_test.img $(IMAGEDIR)/a11y_test.img \
+         $(IMAGEDIR)/panel.img $(IMAGEDIR)/wallpaper.img \
+         $(IMAGEDIR)/lockscreen.img $(IMAGEDIR)/bench_latency.img \
+         $(IMAGEDIR)/bench_throughput.img $(IMAGEDIR)/stress_clients.img
+
+# ---------------------------------------------------------------------------
+# Compilation Rules
+# ---------------------------------------------------------------------------
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -o $@ $<
+	@echo "  ASM    $<"
+
+# ---------------------------------------------------------------------------
+# Linker Script
+# ---------------------------------------------------------------------------
+
+linker.ld:
+	@cat > $@ << 'EOF'
+ENTRY(canvasd_init)
+SECTIONS
+{
+    . = 0x200000;           /* 2MB alignment for huge pages */
+    .text : { *(.text*) }
+    .rodata : { *(.rodata*) }
+    .data : { *(.data*) }
+    .bss : { *(.bss*) *(COMMON) }
+    /DISCARD/ : { *(.note.*) *(.comment*) }
+}
+EOF
+
+# ---------------------------------------------------------------------------
+# Test Targets
+# ---------------------------------------------------------------------------
+
+# Test runner image
+$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -o $@ $^
+	@echo "  IMG    $@"
+
+# Test target
+.PHONY: test
+test: $(IMAGEDIR)/test_runner.img
+	@echo "Test runner built: $<"
+	@echo "Run on Tattva to execute tests"
+
+# ---------------------------------------------------------------------------
+# Test Compilation Rules
+# ---------------------------------------------------------------------------
+
+$(OBJDIR)/tests/%.o: tests/%.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
+	@echo "  ASM    $<"
+
+.PHONY: fuzz
+fuzz: $(IMAGEDIR)/fuzz_runner.img
+	@echo "Running fuzz tests..."
+
+.PHONY: soak
+soak: $(IMAGEDIR)/soak_test.img
+	@echo "Running 24h soak test..."
+
+.PHONY: bench
+bench: $(IMAGEDIR)/bench_runner.img
+	@echo "Running benchmarks..."
+
+.PHONY: cts
+cts: $(IMAGEDIR)/cts_runner.img
+	@echo "Running conformance suite..."
+
+# ---------------------------------------------------------------------------
+# Clean
+# ---------------------------------------------------------------------------
+
+.PHONY: clean
+clean:
+	rm -rf $(BUILDDIR)
+	rm -f linker.ld
+
+.PHONY: distclean
+distclean: clean
+	rm -rf $(BUILDDIR)
+
+# ---------------------------------------------------------------------------
+# Development Helpers
+# ---------------------------------------------------------------------------
+
+.PHONY: asm-check
+asm-check:
+	@for f in $(ALL_SRCS); do \
+		echo "Checking $$f..."; \
+		$(NASM) $(NASMFLAGS) -o /dev/null $$f || exit 1; \
+	done
+	@echo "All assembly files parse correctly"
+
+.PHONY: size
+size: $(IMAGEDIR)/canvasd.img
+	@$(OBJCOPY) --strip-debug $(IMAGEDIR)/canvasd.img $(IMAGEDIR)/canvasd.stripped.img
+	@echo "canvasd size: $$(stat -c%s $(IMAGEDIR)/canvasd.img) bytes"
+	@echo "canvasd stripped: $$(stat -c%s $(IMAGEDIR)/canvasd.stripped.img) bytes"
+
+.PHONY: deps
+deps:
+	@echo "Checking build dependencies..."
+	@which $(NASM) >/dev/null || (echo "nasm not found"; exit 1)
+	@which $(LD) >/dev/null || (echo "ld not found"; exit 1)
+	@echo "All dependencies satisfied"
+
+# ---------------------------------------------------------------------------
+# Phony Targets
+# ---------------------------------------------------------------------------
+
+.PHONY: help
+help:
+	@echo "Canvas Display Server — Build Targets"
+	@echo ""
+	@echo "  all          Build everything (default)"
+	@echo "  server       Build canvasd server image"
+	@echo "  client       Build canvas_client.o library"
+	@echo "  tools        Build development tools"
+	@echo "  clients      Build reference client images"
+	@echo "  test         Run all tests (unit, golden, replay)"
+	@echo "  fuzz         Run fuzz tests"
+	@echo "  soak         Run 24h soak test"
+	@echo "  bench        Run benchmarks"
+	@echo "  cts          Run conformance suite"
+	@echo "  clean        Remove build artifacts"
+	@echo "  distclean    Remove build directory"
+	@echo "  asm-check    Syntax-check all assembly files"
+	@echo "  size         Show binary sizes"
+	@echo "  deps         Check build dependencies"
+	@echo "  help         Show this help"
+
+# ---------------------------------------------------------------------------
+# Prevent Implicit Rules
+# ---------------------------------------------------------------------------
+
+.SUFFIXES:
+%: %.asm
+%: %.o

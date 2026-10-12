@@ -1,0 +1,662 @@
+# Canvas: Complete Folder and File Structure
+
+Every directory and file of the **Canvas display server** for Tattva OS, tagged with
+the phase (`C0` to `C33`) from `PLAN.md` that creates it. One `.asm` file per
+responsibility. Canvas runs only on Tattva: there is no Linux, hosted mode, or other
+OS code.
+
+```
+canvas/
+├── README.md                          # C0   overview, build, how Canvas starts inside Tattva
+├── PLAN.md                            # C0   master plan and phase table
+├── STRUCTURE.md                       # C0   this file
+├── LICENSE                            # C0
+├── CHANGELOG.md                       # C0
+├── SECURITY.md                        # C17  how to report vulnerabilities, supported versions
+├── CONTRIBUTING.md                    # C0   style, tests, review rules
+├── Makefile                           # C0   build-host targets: server, client, tools, clients,
+│                                      #      test, golden, replay, cts, fuzz, soak, bench, clean
+├── .gitignore                         # C0
+│
+├── build/                             # generated, never committed
+│   ├── obj/
+│   ├── img/                           #      canvasd, tools and reference clients as Tattva images
+│   └── lib/
+│       └── canvas_client.o            #      client library (relocatable object)
+│
+├── proto/                             # CWP protocol definitions (source of truth)
+│   ├── README.md                      # C4   protocol index and conventions
+│   ├── VERSION                        # C4   protocol version
+│   ├── canvas-core.cwp                # C4   cw_display, cw_caps, cw_buffer, cw_fence, cw_surface, cw_subsurface
+│   ├── canvas-present.cwp             # C8   cw_present
+│   ├── canvas-output.cwp              # C11  cw_output
+│   ├── canvas-input.cwp               # C12  cw_seat, cw_pointer, cw_keyboard, cw_touch, cw_tablet
+│   ├── canvas-shell.cwp               # C13  cw_shell, cw_toplevel, cw_popup, cw_layer, cw_decoration
+│   ├── canvas-policy.cwp              # C13  cw_policy
+│   ├── canvas-data.cwp                # C15  cw_data
+│   ├── canvas-text.cwp                # C16  cw_text
+│   ├── canvas-a11y.cwp                # C16  cw_a11y
+│   ├── canvas-capture.cwp             # C17  cw_capture (privileged)
+│   ├── canvas-inject.cwp              # C17  cw_inject (privileged)
+│   ├── canvas-session.cwp             # C18  cw_session
+│   ├── canvas-debug.cwp               # C20  cw_debug (privileged)
+│   └── canvas-remote.cwp              # C26  cw_remote
+│
+├── inc/                               # headers (macros, structs, constants)
+│   ├── abi.inc                        # C0   calling convention, prologue/epilogue macros
+│   ├── macros.inc                     # C0   assert, trap, align, bounds-check macros
+│   ├── errors.inc                     # C0   error codes
+│   ├── tattva.inc                     # C0   every Tattva service Canvas uses (the contract)
+│   ├── arena.inc                      # C1
+│   ├── str.inc                        # C1
+│   ├── map.inc                        # C1
+│   ├── vec.inc                        # C1
+│   ├── ring.inc                       # C1
+│   ├── handle.inc                     # C1   generation-tagged handles
+│   ├── fixed.inc                      # C1
+│   ├── config.inc                     # C1   config parser structs
+│   ├── cpuid.inc                      # C1   CPU feature flags
+│   ├── rect.inc                       # C2
+│   ├── region.inc                     # C2
+│   ├── color.inc                      # C2   pixel formats, named colors
+│   ├── pixbuf.inc                     # C2
+│   ├── cwp.inc                        # C4   message header, opcodes, error codes
+│   ├── caps.inc                       # C4   capability bits
+│   ├── channel.inc                    # C5   channel and message ring structs
+│   ├── buffer.inc                     # C6
+│   ├── fence.inc                      # C6
+│   ├── surface.inc                    # C7
+│   ├── scene.inc                      # C7
+│   ├── render.inc                     # C8   renderer interface table
+│   ├── backend.inc                    # C9   backend interface table
+│   ├── output.inc                     # C11
+│   ├── event.inc                      # C12
+│   ├── keycodes.inc                   # C12
+│   ├── shell.inc                      # C13
+│   ├── policy.inc                     # C13  policy module interface
+│   ├── data.inc                       # C15
+│   ├── trust.inc                      # C17  trust profile and capability gate structs
+│   ├── quota.inc                      # C19
+│   ├── trace.inc                      # C20  trace event ids
+│   ├── image.inc                      # C21
+│   ├── font.inc                       # C22
+│   ├── colorm.inc                     # C25  color management structs
+│   ├── canvas_client.inc              # C28  public client ABI
+│   └── gen/                           # GENERATED by cwpgen, committed for review
+│       ├── cwp_core.inc               # C4
+│       ├── cwp_present.inc            # C8
+│       ├── cwp_output.inc             # C11
+│       ├── cwp_input.inc              # C12
+│       ├── cwp_shell.inc              # C13
+│       ├── cwp_policy.inc             # C13
+│       ├── cwp_data.inc               # C15
+│       ├── cwp_text.inc               # C16
+│       ├── cwp_a11y.inc               # C16
+│       ├── cwp_capture.inc            # C17
+│       ├── cwp_inject.inc             # C17
+│       ├── cwp_session.inc            # C18
+│       ├── cwp_debug.inc              # C20
+│       └── cwp_remote.inc             # C26
+│
+├── conf/                              # default configuration shipped with the server
+│   ├── canvas.conf                    # C5   server settings
+│   ├── outputs.conf                   # C11  output layout, scale, rotation
+│   ├── seats.conf                     # C18  seat to device mapping
+│   ├── policy.conf                    # C13  window policy selection and options
+│   ├── rules.conf                     # C13  per-app window rules
+│   ├── profiles/
+│   │   ├── trusted.profile            # C17
+│   │   ├── standard.profile           # C17
+│   │   ├── sandboxed.profile          # C17
+│   │   ├── remote.profile             # C17
+│   │   └── kiosk.profile              # C17
+│   └── keymaps/
+│       ├── us.km                      # C12
+│       ├── gb.km                      # C12
+│       ├── de.km                      # C12
+│       ├── fr.km                      # C12
+│       ├── np.km                      # C12  Nepali
+│       └── compose.tbl                # C12  compose sequences
+│
+├── src/
+│   ├── tattva/                        # THE ONLY TATTVA-SPECIFIC CODE (thin binding to kernel services)
+│   │   ├── tv_mem.asm                 # C0   memory regions, DMA-able allocation
+│   │   ├── tv_time.asm                # C0   monotonic clock and timers
+│   │   ├── tv_log.asm                 # C0   serial and console output
+│   │   ├── tv_entropy.asm             # C0   hardware entropy
+│   │   ├── tv_wait.asm                # C0   event wait and yield
+│   │   ├── tv_task.asm                # C5   task creation for workers and clients
+│   │   ├── tv_irq.asm                 # C9   interrupt registration (vblank, input, wakeups)
+│   │   ├── tv_input.asm               # C12  input event source from Tattva drivers
+│   │   ├── tv_fs.asm                  # C12  TVFS reads for config, fonts, cursors, wallpapers
+│   │   ├── tv_pci.asm                 # C10  PCI enumeration
+│   │   ├── tv_mmio.asm                # C10  MMIO mapping and DMA
+│   │   ├── tv_power.asm               # C18  suspend and resume events
+│   │   └── tv_net.asm                 # C26  Tattva network and TLS for remote display
+│   │
+│   ├── core/                          # OS-independent foundation
+│   │   ├── arena.asm                  # C1   bump arenas, mark/rewind
+│   │   ├── str.asm                    # C1
+│   │   ├── utf8.asm                   # C1
+│   │   ├── hash.asm                   # C1   FNV-1a, string hash
+│   │   ├── siphash.asm                # C1   keyed hash (tokens)
+│   │   ├── map.asm                    # C1   hash table
+│   │   ├── vec.asm                    # C1   growable array
+│   │   ├── ring.asm                   # C1   SPSC ring buffer
+│   │   ├── handle.asm                 # C1   generation-tagged handle table
+│   │   ├── list.asm                   # C1   intrusive lists
+│   │   ├── rbtree.asm                 # C1   ordered map (timers, z-order)
+│   │   ├── bitset.asm                 # C1
+│   │   ├── fixed.asm                  # C1   fixed-point math
+│   │   ├── fmt.asm                    # C1   number and text formatting
+│   │   ├── mathfn.asm                 # C2   integer sqrt, clamp, mul-div
+│   │   ├── config.asm                 # C1   text config parser and validator
+│   │   ├── log.asm                    # C1   leveled logger
+│   │   ├── time.asm                   # C1   time helpers
+│   │   └── cpuid.asm                  # C1   CPU feature detection and dispatch
+│   │
+│   ├── gfx/                           # drawing primitives
+│   │   ├── pixbuf.asm                 # C2
+│   │   ├── rect.asm                   # C2
+│   │   ├── region.asm                 # C2   union, intersect, subtract
+│   │   ├── fill.asm                   # C2
+│   │   ├── blit.asm                   # C2
+│   │   ├── blend.asm                  # C2   scalar blend and premultiply
+│   │   ├── blend_sse2.asm             # C2
+│   │   ├── blend_avx2.asm             # C2
+│   │   ├── blend_avx512.asm           # C2
+│   │   ├── scale.asm                  # C2   nearest, bilinear
+│   │   ├── transform.asm              # C2   rotate, flip
+│   │   ├── clip.asm                   # C2
+│   │   ├── color.asm                  # C2
+│   │   ├── ppm.asm                    # C2   PPM writer
+│   │   ├── png_write.asm              # C2   stored-block PNG writer
+│   │   ├── font8x16.asm               # C2   bitmap font lookup
+│   │   ├── font8x16_data.asm          # C2
+│   │   └── text.asm                   # C2   draw string
+│   │
+│   ├── proto/                         # CWP runtime
+│   │   ├── wire.asm                   # C4   framing, encode, decode
+│   │   ├── msgbuf.asm                 # C4   send and receive buffers
+│   │   ├── objects.asm                # C4   object table, generation IDs
+│   │   ├── dispatch.asm               # C4   opcode dispatch
+│   │   ├── versioning.asm             # C4   version negotiation
+│   │   ├── negotiate.asm              # C4   capability negotiation
+│   │   ├── errors.asm                 # C4   protocol error objects
+│   │   ├── channel.asm                # C5   in-address-space channels (message rings + handle channel)
+│   │   └── gen/                       # GENERATED by cwpgen
+│   │       ├── gen_core.asm           # C4
+│   │       ├── gen_present.asm        # C8
+│   │       ├── gen_output.asm         # C11
+│   │       ├── gen_input.asm          # C12
+│   │       ├── gen_shell.asm          # C13
+│   │       ├── gen_policy.asm         # C13
+│   │       ├── gen_data.asm           # C15
+│   │       ├── gen_text.asm           # C16
+│   │       ├── gen_a11y.asm           # C16
+│   │       ├── gen_capture.asm        # C17
+│   │       ├── gen_inject.asm         # C17
+│   │       ├── gen_session.asm        # C18
+│   │       ├── gen_debug.asm          # C20
+│   │       └── gen_remote.asm         # C26
+│   │
+│   ├── server/                        # canvasd core
+│   │   ├── main.asm                   # C5   canvasd_init entry, called by Tattva
+│   │   ├── server.asm                 # C5   global state
+│   │   ├── loop.asm                   # C5   event loop and timers
+│   │   ├── startup.asm                # C5   init order, config load
+│   │   ├── shutdown.asm               # C5   orderly teardown
+│   │   ├── reload.asm                 # C5   config reload
+│   │   ├── client.asm                 # C5   client lifecycle
+│   │   ├── client_registry.asm        # C5
+│   │   ├── auth.asm                   # C5   handshake and capability grant
+│   │   ├── buffer.asm                 # C6   buffer objects, ownership transfer
+│   │   ├── buffer_pool.asm            # C6
+│   │   ├── fence.asm                  # C6   explicit sync fences
+│   │   ├── timeline.asm               # C6   timeline sync points
+│   │   ├── surface.asm                # C7
+│   │   ├── subsurface.asm             # C7
+│   │   ├── scene.asm                  # C7   scene graph
+│   │   ├── commit.asm                 # C7   atomic commit and transactions
+│   │   ├── damage.asm                 # C7
+│   │   ├── regions.asm                # C7   opaque and input regions
+│   │   ├── zorder.asm                 # C7
+│   │   ├── surface_transform.asm      # C7   scale and transform state
+│   │   ├── frame_clock.asm            # C8   per-output frame scheduling
+│   │   ├── presentation.asm           # C8   presentation feedback
+│   │   └── direct_scanout.asm         # C8   zero-copy fullscreen path
+│   │
+│   ├── render/                        # rendering
+│   │   ├── render_iface.asm           # C8   backend-agnostic renderer interface
+│   │   ├── compositor.asm             # C8   composition driver
+│   │   ├── sw_render.asm              # C8   software renderer
+│   │   ├── sw_composite.asm           # C8
+│   │   ├── sw_scale.asm               # C8
+│   │   ├── sw_transform.asm           # C8
+│   │   ├── damage_ring.asm            # C8   buffer-age tracking
+│   │   ├── cursor_plane.asm           # C10  hardware cursor plane use
+│   │   ├── overlay_planes.asm         # C10  hardware overlay plane use
+│   │   ├── gpu_render.asm             # C24
+│   │   ├── gpu_cmdring.asm            # C24
+│   │   ├── gpu_blit.asm               # C24
+│   │   └── gpu_mem.asm                # C24
+│   │
+│   ├── gpu/                           # GPU drivers (family chosen at C24)
+│   │   ├── gpu_iface.asm              # C24
+│   │   ├── gpu_ring.asm               # C24
+│   │   ├── gpu_fence.asm              # C24
+│   │   ├── gpu_mem.asm                # C24
+│   │   └── family/                    # C24  first chosen GPU family lands here
+│   │
+│   ├── backend/                       # display backends
+│   │   ├── backend_iface.asm          # C9
+│   │   ├── headless.asm               # C9   frames kept in memory
+│   │   ├── headless_dump.asm          # C9   dump a frame over serial or to TVFS
+│   │   ├── fb_linear.asm              # C9   boot framebuffer (VBE or UEFI GOP)
+│   │   ├── native.asm                 # C10  native backend driver
+│   │   ├── native_pci.asm             # C10  display controller discovery
+│   │   ├── native_modeset.asm         # C10
+│   │   ├── native_flip.asm            # C10  page flip
+│   │   ├── native_vblank.asm          # C10
+│   │   ├── native_planes.asm          # C10
+│   │   ├── native_buffers.asm         # C10  DMA-able scanout buffers
+│   │   ├── edid.asm                   # C10  EDID parser
+│   │   ├── ddc.asm                    # C10  DDC/I2C EDID read
+│   │   ├── hotplug.asm                # C10
+│   │   ├── family/                    # C10  first chosen display-engine family lands here
+│   │   └── remote_backend.asm         # C26
+│   │
+│   ├── output/                        # outputs
+│   │   ├── output.asm                 # C11
+│   │   ├── layout.asm                 # C11  multi-monitor layout
+│   │   ├── modes.asm                  # C11
+│   │   ├── scale_fractional.asm       # C11
+│   │   ├── rotation.asm               # C11
+│   │   ├── mirror.asm                 # C11
+│   │   ├── gamma.asm                  # C11
+│   │   ├── dpms.asm                   # C11
+│   │   └── vrr.asm                    # C11
+│   │
+│   ├── input/                         # input interpretation
+│   │   ├── input.asm                  # C12  device dispatcher
+│   │   ├── source_iface.asm           # C12  input source interface
+│   │   ├── source_tv.asm              # C12  events from Tattva drivers
+│   │   ├── source_virtual.asm         # C17  injected and remote input
+│   │   ├── seat.asm                   # C12
+│   │   ├── devices.asm                # C12
+│   │   ├── keyboard.asm               # C12
+│   │   ├── keymap.asm                 # C12  keymap compiler and runtime
+│   │   ├── compose.asm                # C12
+│   │   ├── repeat.asm                 # C12
+│   │   ├── pointer.asm                # C12
+│   │   ├── accel.asm                  # C12
+│   │   ├── constraints.asm            # C12  pointer lock and confine
+│   │   ├── touch.asm                  # C12
+│   │   ├── gestures.asm               # C12
+│   │   ├── tablet.asm                 # C12
+│   │   ├── focus.asm                  # C12
+│   │   ├── grab.asm                   # C12
+│   │   ├── hittest.asm                # C12
+│   │   ├── cursor.asm                 # C12
+│   │   ├── cursor_theme.asm           # C14
+│   │   ├── shortcuts.asm              # C16  mediated global shortcuts
+│   │   ├── inject.asm                 # C17  privileged injection
+│   │   └── virtual_kbd.asm            # C17
+│   │
+│   ├── shell/                         # window shell
+│   │   ├── shell.asm                  # C13  roles
+│   │   ├── toplevel.asm               # C13
+│   │   ├── popup.asm                  # C13
+│   │   ├── dialog.asm                 # C13
+│   │   ├── layer.asm                  # C13  panels, overlays, lock layer
+│   │   ├── states.asm                 # C13
+│   │   ├── configure.asm              # C13  configure and ack transactions
+│   │   ├── move_resize.asm            # C13
+│   │   ├── workspace.asm              # C13
+│   │   ├── minimize.asm               # C13
+│   │   ├── fullscreen.asm             # C13
+│   │   ├── rules.asm                  # C13  window rules engine
+│   │   ├── decoration.asm             # C14  negotiation
+│   │   ├── decoration_draw.asm        # C14
+│   │   └── theme.asm                  # C14
+│   │
+│   ├── policy/                        # window management policy
+│   │   ├── policy_iface.asm           # C13
+│   │   ├── policy_floating.asm        # C13
+│   │   ├── policy_tiling.asm          # C13
+│   │   ├── layout_engine.asm          # C13  tiling tree
+│   │   ├── policy_external.asm        # C13  bridge to cw_policy
+│   │   └── policy_kiosk.asm           # C18
+│   │
+│   ├── data/                          # clipboard and drag and drop
+│   │   ├── clipboard.asm              # C15
+│   │   ├── selection.asm              # C15  primary selection
+│   │   ├── dnd.asm                    # C15
+│   │   ├── mime.asm                   # C15
+│   │   ├── transfer.asm               # C15  streamed transfers
+│   │   └── limits.asm                 # C15
+│   │
+│   ├── text/                          # input methods
+│   │   ├── text_input.asm             # C16
+│   │   ├── preedit.asm                # C16
+│   │   └── ime_bridge.asm             # C16
+│   │
+│   ├── a11y/                          # accessibility
+│   │   ├── a11y_tree.asm              # C16
+│   │   ├── a11y_events.asm            # C16
+│   │   ├── sticky_keys.asm            # C16
+│   │   ├── magnifier.asm              # C16
+│   │   ├── high_contrast.asm          # C16
+│   │   └── reader_hooks.asm           # C16
+│   │
+│   ├── security/                      # security
+│   │   ├── caps.asm                   # C17
+│   │   ├── trust.asm                  # C17
+│   │   ├── profile_load.asm           # C17
+│   │   ├── gate.asm                   # C17  privileged interface gate
+│   │   ├── isolation.asm              # C17  handle checks, ownership rules
+│   │   ├── verifier_hooks.asm         # C17  RSO verification hooks for client images
+│   │   ├── token.asm                  # C17
+│   │   ├── prompts.asm                # C17  server-drawn permission prompts
+│   │   └── audit.asm                  # C17
+│   │
+│   ├── session/                       # sessions and seats
+│   │   ├── seat_session.asm           # C18
+│   │   ├── multiseat.asm              # C18
+│   │   ├── user_session.asm           # C18
+│   │   ├── lock.asm                   # C18
+│   │   ├── idle.asm                   # C18
+│   │   ├── inhibit.asm                # C18
+│   │   ├── kiosk.asm                  # C18
+│   │   └── power.asm                  # C18  suspend and resume handling
+│   │
+│   ├── governance/                    # resource governance
+│   │   ├── quota.asm                  # C19
+│   │   ├── ratelimit.asm              # C19
+│   │   ├── watchdog.asm               # C19  unresponsive-client detection
+│   │   ├── containment.asm            # C19  fault containment
+│   │   ├── scheduler.asm              # C19  fair client service
+│   │   └── accounting.asm             # C19  memory accounting
+│   │
+│   ├── obs/                           # observability
+│   │   ├── trace.asm                  # C20
+│   │   ├── timeline.asm               # C20  frame timeline
+│   │   ├── protolog.asm               # C20
+│   │   ├── record.asm                 # C20  protocol session recorder
+│   │   ├── replay.asm                 # C20  deterministic replay engine
+│   │   ├── metrics.asm                # C20
+│   │   ├── stats.asm                  # C20  per-client stats
+│   │   ├── debug_iface.asm            # C20
+│   │   └── faultdump.asm              # C20
+│   │
+│   ├── color/                         # color management
+│   │   ├── srgb.asm                   # C25
+│   │   ├── icc_parse.asm              # C25
+│   │   ├── matrix.asm                 # C25
+│   │   ├── trc.asm                    # C25
+│   │   ├── tonemap.asm                # C25  HDR to SDR mapping
+│   │   └── blend_linear.asm           # C25
+│   │
+│   ├── img/                           # image decoding
+│   │   ├── sniff.asm                  # C21
+│   │   ├── crc32.asm                  # C21
+│   │   ├── adler32.asm                # C21
+│   │   ├── huffman.asm                # C21
+│   │   ├── inflate.asm                # C21
+│   │   ├── zlib.asm                   # C21
+│   │   ├── png.asm                    # C21
+│   │   ├── png_filter.asm             # C21
+│   │   ├── jpeg.asm                   # C23
+│   │   ├── jpeg_huff.asm              # C23
+│   │   ├── jpeg_idct.asm              # C23
+│   │   ├── lzw.asm                    # C23
+│   │   ├── gif.asm                    # C23
+│   │   ├── bmp.asm                    # C23
+│   │   ├── svg.asm                    # C23
+│   │   └── svg_path.asm               # C23
+│   │
+│   ├── font/                          # TrueType rendering
+│   │   ├── ttf.asm                    # C22
+│   │   ├── ttf_tables.asm             # C22
+│   │   ├── cmap.asm                   # C22
+│   │   ├── glyf.asm                   # C22
+│   │   ├── outline.asm                # C22
+│   │   ├── flatten.asm                # C22
+│   │   ├── scanline.asm               # C22
+│   │   ├── glyph_cache.asm            # C22
+│   │   ├── kern.asm                   # C22
+│   │   ├── metrics.asm                # C22
+│   │   └── fallback.asm               # C22
+│   │
+│   ├── codec/                         # compression for remote display
+│   │   ├── deflate.asm                # C26  compressor
+│   │   ├── lz.asm                     # C26
+│   │   ├── rle.asm                    # C26
+│   │   ├── tile_diff.asm              # C26  changed-tile detection
+│   │   ├── delta.asm                  # C27
+│   │   └── adaptive.asm               # C27  bandwidth-adaptive encoder choice
+│   │
+│   ├── remote/                        # remote display
+│   │   ├── virtual_output.asm         # C26
+│   │   ├── rfb_server.asm             # C26
+│   │   ├── rfb_handshake.asm          # C26
+│   │   ├── rfb_tls.asm                # C26  TLS-wrapped transport (no legacy VNC auth)
+│   │   ├── rfb_auth.asm               # C26
+│   │   ├── rfb_encode_raw.asm         # C26
+│   │   ├── rfb_encode_zlib.asm        # C26
+│   │   ├── rfb_input.asm              # C26
+│   │   ├── rfb_clipboard.asm          # C26
+│   │   ├── crp_server.asm             # C27  native remote protocol
+│   │   ├── crp_codec.asm              # C27
+│   │   ├── crp_session.asm            # C27
+│   │   └── crp_share.asm              # C27  multi-viewer sharing
+│   │
+│   ├── client/                        # client library
+│   │   ├── conn.asm                   # C28
+│   │   ├── client.asm                 # C28
+│   │   ├── objects.asm                # C28
+│   │   ├── buffer_pool.asm            # C28
+│   │   ├── surface_helpers.asm        # C28
+│   │   ├── buffer_helpers.asm         # C28
+│   │   ├── events.asm                 # C28
+│   │   ├── event_loop.asm             # C28
+│   │   ├── input_helpers.asm          # C28
+│   │   ├── shell_helpers.asm          # C28
+│   │   ├── clipboard_helpers.asm      # C28
+│   │   └── present_helpers.asm        # C28
+│   │
+│   ├── tools/                         # command-line tools
+│   │   ├── cwpgen.asm                 # C4   protocol IDL compiler (build-time)
+│   │   ├── cwplint.asm                # C30  protocol linter
+│   │   ├── canvasctl.asm              # C30  runtime control
+│   │   ├── canvas_info.asm            # C30
+│   │   ├── canvas_inspect.asm         # C30  live scene inspector
+│   │   ├── canvas_record.asm          # C30
+│   │   ├── canvas_replay.asm          # C30
+│   │   └── canvas_bench.asm           # C30
+│   │
+│   └── clients/                       # reference clients
+│       ├── demo_windows.asm           # C29
+│       ├── demo_alpha.asm             # C29
+│       ├── demo_subsurfaces.asm       # C29
+│       ├── input_test.asm             # C29
+│       ├── clipboard_test.asm         # C29
+│       ├── dnd_test.asm               # C29
+│       ├── ime_test.asm               # C29
+│       ├── a11y_test.asm              # C29
+│       ├── panel.asm                  # C29  reference panel
+│       ├── wallpaper.asm              # C29
+│       ├── lockscreen.asm             # C29
+│       ├── bench_latency.asm          # C29
+│       ├── bench_throughput.asm       # C29
+│       └── stress_clients.asm         # C29
+│
+├── tests/                             # all tests run on Tattva and report over serial
+│   ├── test.inc                       # C3   test macros
+│   ├── run_tests.sh                   # C3   build-host helper: build test image, collect serial results
+│   ├── run_golden.sh                  # C3
+│   ├── run_replay.sh                  # C20
+│   ├── run_fuzz.sh                    # C31
+│   ├── run_soak.sh                    # C31
+│   ├── run_bench.sh                   # C32
+│   ├── run_cts.sh                     # C33
+│   ├── unit/
+│   │   ├── test_arena.asm             # C1
+│   │   ├── test_str.asm               # C1
+│   │   ├── test_utf8.asm              # C1
+│   │   ├── test_map.asm               # C1
+│   │   ├── test_vec.asm               # C1
+│   │   ├── test_ring.asm              # C1
+│   │   ├── test_handle.asm            # C1
+│   │   ├── test_rbtree.asm            # C1
+│   │   ├── test_config.asm            # C1
+│   │   ├── test_siphash.asm           # C1
+│   │   ├── test_region.asm            # C2
+│   │   ├── test_blend.asm             # C2
+│   │   ├── test_blend_simd.asm        # C2   SIMD paths match scalar
+│   │   ├── test_wire.asm              # C4
+│   │   ├── test_objects.asm           # C4
+│   │   ├── test_negotiate.asm         # C4
+│   │   ├── test_cwpgen.asm            # C4
+│   │   ├── test_channel.asm           # C5
+│   │   ├── test_client_lifecycle.asm  # C5
+│   │   ├── test_buffer.asm            # C6
+│   │   ├── test_fence.asm             # C6
+│   │   ├── test_scene.asm             # C7
+│   │   ├── test_commit.asm            # C7
+│   │   ├── test_damage.asm            # C7
+│   │   ├── test_compositor.asm        # C8
+│   │   ├── test_presentation.asm      # C8
+│   │   ├── test_edid.asm              # C10
+│   │   ├── test_output_layout.asm     # C11
+│   │   ├── test_keymap.asm            # C12
+│   │   ├── test_compose.asm           # C12
+│   │   ├── test_focus.asm             # C12
+│   │   ├── test_hittest.asm           # C12
+│   │   ├── test_configure.asm         # C13
+│   │   ├── test_policy_tiling.asm     # C13
+│   │   ├── test_rules.asm             # C13
+│   │   ├── test_clipboard.asm         # C15
+│   │   ├── test_dnd.asm               # C15
+│   │   ├── test_caps.asm              # C17
+│   │   ├── test_gate.asm              # C17
+│   │   ├── test_isolation.asm         # C17
+│   │   ├── test_quota.asm             # C19
+│   │   ├── test_watchdog.asm          # C19
+│   │   ├── test_record_replay.asm     # C20
+│   │   ├── test_inflate.asm           # C21
+│   │   ├── test_png.asm               # C21
+│   │   ├── test_ttf.asm               # C22
+│   │   ├── test_jpeg.asm              # C23
+│   │   ├── test_icc.asm               # C25
+│   │   ├── test_tile_diff.asm         # C26
+│   │   └── test_rfb.asm               # C26
+│   ├── golden/
+│   │   ├── scenes/                    # scene programs: rects, alpha, bitmap_text, two_windows,
+│   │   │                              #   subsurfaces, damage_partial, rotation, scale_fractional,
+│   │   │                              #   decorations, png_cursor, ttf_text, multi_output
+│   │   ├── data/                      # sample.png, sample.jpg, sample.gif, sample.ttf, sample.icc
+│   │   └── expected/                  # expected checksums and reference frames
+│   ├── replays/                       # recorded protocol sessions (.cwprec) and expected frames
+│   ├── cts/                           # conformance suite
+│   │   ├── cts_core.asm               # C33
+│   │   ├── cts_surface.asm            # C33
+│   │   ├── cts_sync.asm               # C33
+│   │   ├── cts_present.asm            # C33
+│   │   ├── cts_output.asm             # C33
+│   │   ├── cts_input.asm              # C33
+│   │   ├── cts_shell.asm              # C33
+│   │   ├── cts_data.asm               # C33
+│   │   ├── cts_text.asm               # C33
+│   │   ├── cts_security.asm           # C33
+│   │   └── cts_governance.asm         # C33
+│   ├── fuzz/
+│   │   ├── fuzz_wire.asm              # C31
+│   │   ├── fuzz_objects.asm           # C31
+│   │   ├── fuzz_keymap.asm            # C31
+│   │   ├── fuzz_config.asm            # C31
+│   │   ├── fuzz_png.asm               # C31
+│   │   ├── fuzz_jpeg.asm              # C31
+│   │   ├── fuzz_gif.asm               # C31
+│   │   ├── fuzz_ttf.asm               # C31
+│   │   ├── fuzz_icc.asm               # C31
+│   │   ├── fuzz_rfb.asm               # C31
+│   │   └── corpus/                    # seed inputs per target
+│   ├── soak/
+│   │   ├── soak_churn.asm             # C31  clients connecting, committing, faulting
+│   │   ├── soak_hotplug.asm           # C31
+│   │   └── soak_quota.asm             # C31
+│   └── bench/
+│       ├── bench_idle.asm             # C32
+│       ├── bench_latency.asm          # C32
+│       ├── bench_compose.asm          # C32
+│       ├── bench_memory.asm           # C32
+│       └── results/                   # recorded benchmark results per hardware
+│
+├── assets/
+│   ├── fonts/
+│   │   ├── default.ttf                # C22  default proportional font (choose an open-licence font)
+│   │   └── mono.ttf                   # C22
+│   ├── cursors/                       # C14  default cursor theme PNGs (arrow, hand, text, wait, resize, ...)
+│   ├── icons/                         # C14  decoration button icons
+│   └── wallpapers/
+│       └── default.png                # C21
+│
+├── tools/                             # build-host developer scripts
+│   ├── count_lines.sh                 # C0   line counter, updates the phase table
+│   ├── new_module.sh                  # C0   scaffold .asm, test and doc stub
+│   ├── view.sh                        # C2   convert a dumped PPM to PNG for viewing
+│   ├── ppm_diff.sh                    # C3
+│   └── gen_protocol.sh                # C4   run cwpgen over proto/*.cwp
+│
+└── docs/
+    ├── architecture.md                # C0
+    ├── abi.md                         # C0
+    ├── tattva-contract.md             # C0   every Tattva service Canvas needs and how it is used
+    ├── memory-map.md                  # C1
+    ├── testing.md                     # C3
+    ├── protocol/
+    │   ├── cwp-spec.md                # C4   full protocol specification
+    │   ├── wire-format.md             # C4
+    │   ├── object-model.md            # C4
+    │   ├── versioning.md              # C4
+    │   ├── capabilities.md            # C4
+    │   ├── channels.md                # C5
+    │   ├── sync-model.md              # C6   fences, timelines, atomic commit
+    │   ├── surfaces.md                # C7
+    │   ├── presentation.md            # C8
+    │   ├── outputs.md                 # C11
+    │   ├── input.md                   # C12
+    │   ├── shell.md                   # C13
+    │   ├── data.md                    # C15
+    │   ├── text-a11y.md               # C16
+    │   ├── session.md                 # C18
+    │   └── remote.md                  # C26
+    ├── isolation-model.md             # C5   software isolation on Tattva and its limits
+    ├── security-model.md              # C17
+    ├── threat-model.md                # C17
+    ├── input-model.md                 # C12
+    ├── output-model.md                # C11
+    ├── display-hardware.md            # C10  chosen display family, programming notes
+    ├── color-model.md                 # C25
+    ├── policy-guide.md                # C13  writing a window policy
+    ├── client-guide.md                # C28  writing a Canvas client
+    ├── remote-display.md              # C26
+    ├── observability.md               # C20  tracing, record and replay
+    ├── admin-guide.md                 # C33  deployment, config, profiles, seats, kiosk
+    ├── conformance.md                 # C33
+    ├── performance.md                 # C32
+    ├── benchmark-method.md            # C32
+    ├── design-notes-x11-wayland.md    # C0   what Canvas borrows and avoids (design rationale only)
+    └── decisions/                     # one short record per design decision
+        ├── 0001-no-libc.md
+        ├── 0002-pixel-format.md
+        ├── 0003-wire-protocol-shape.md
+        ├── 0004-generation-tagged-handles.md
+        ├── 0005-one-server-pluggable-policy.md
+        ├── 0006-explicit-sync-in-v1.md
+        ├── 0007-trust-profiles.md
+        ├── 0008-software-isolation-on-tattva.md
+        ├── 0009-driver-boundary-with-tattva.md
+        └── 0010-first-display-and-gpu-family.md
+```

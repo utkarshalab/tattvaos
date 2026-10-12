@@ -1,0 +1,30 @@
+protocol canvas-present 1 {
+
+    ; ========================================================================
+    ; cw_present — Frame callbacks, presentation feedback
+    ; ========================================================================
+    interface cw_present 1 {
+        enum kind {
+            vsync = 0,      ; presented at vblank
+            immediate = 1,  ; presented immediately (tearing)
+            async = 2       ; presented asynchronously (mailbox)
+        }
+
+        struct present_info {
+            kind: uint
+            seq: ulong           ; frame sequence number
+            time: ulong          ; presentation time (monotonic ns)
+            refresh_ns: ulong    ; refresh interval
+            flags: uint          ; HW_COMPLETION=1, ZERO_COPY=2, ASYNC=4
+        }
+
+        request frame_callback(surface: handle) -> (callback: handle)
+        request destroy_callback(callback: handle)
+
+        ; Get presentation feedback for last committed frame
+        request get_feedback(surface: handle) -> (info: present_info)
+
+        event frame_callback(callback: handle, time: ulong, seq: ulong)
+        event presentation_feedback(surface: handle, info: present_info)
+    }
+}

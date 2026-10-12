@@ -1,0 +1,192 @@
+protocol canvas-core 1 {
+
+    ; ========================================================================
+    ; cw_display — Connection, capabilities, globals
+    ; ========================================================================
+    interface cw_display 1 {
+        enum error {
+            invalid_capability = 1,
+            invalid_object = 2,
+            no_memory = 3,
+            implementation = 4
+        }
+
+        request get_caps(wanted: ulong) -> (granted: ulong)
+        request sync() -> (serial: ulong)
+        request get_version() -> (major: uint, minor: uint, patch: uint)
+
+        event capabilities(granted: ulong)
+        event error(object: handle, code: uint, message: string)
+        event ping(serial: ulong)
+    }
+
+    ; ========================================================================
+    ; cw_caps — Capability negotiation (separate from display for clarity)
+    ; ========================================================================
+    interface cw_caps 1 {
+        request get_interface_caps(interface_name: string) -> (caps: ulong)
+        request request_cap(cap: ulong) -> (granted: bool)
+
+        event cap_granted(cap: ulong)
+        event cap_revoked(cap: ulong)
+    }
+
+    ; ========================================================================
+    ; cw_buffer — Buffer objects with explicit sync
+    ; ========================================================================
+    interface cw_buffer 1 {
+        enum format {
+            bgra8888 = 0x41524742,
+            bgr8888  = 0x34325242,
+            rgb565   = 0x35364247,
+            xrgb2101010 = 0x33305258
+        }
+
+        enum modifier {
+            linear = 0,
+            vendor_start = 0x80000000
+        }
+
+        enum state {
+            free = 0,
+            allocated = 1,
+            attached = 2,
+            scanout = 3
+        }
+
+        struct create_params {
+            width: uint
+            height: uint
+            format: uint
+            modifier: ulong
+            usage: uint  ; bitmask: scanout=1, cursor=2, gpu_read=4, gpu_write=8
+        }
+
+        request create(params: create_params) -> (buffer: handle)
+        request destroy(buffer: handle)
+        request get_info(buffer: handle) -> (params: create_params, stride: uint, size: ulong)
+
+        ; Explicit sync - every buffer carries acquire/release
+        request set_fences(buffer: handle, acquire_fence: handle, release_fence: handle)
+        request set_timeline(buffer: handle, timeline: handle, acquire_point: ulong, release_point: ulong)
+
+        event buffer_created(buffer: handle, params: create_params)
+        event buffer_destroyed(buffer: handle)
+    }
+
+    ; ========================================================================
+    ; cw_fence — Binary fence (signaled/unsignaled)
+    ; ========================================================================
+    interface cw_fence 1 {
+        enum type {
+            cpu = 0,
+            gpu = 1,
+            timeline_point = 2
+        }
+
+        request create(type: uint) -> (fence: handle)
+        request destroy(fence: handle)
+        request signal(fence: handle)
+        request wait(fence: handle, timeout_ns: ulong) -> (result: int)  ; 0=signaled, ETIMEDOUT, EINTR
+        request reset(fence: handle)
+        request get_status(fence: handle) -> (signaled: bool)
+
+        event fence_signaled(fence: handle)
+    }
+
+    ; ========================================================================
+    ; cw_timeline — Monotonic timeline with 64-bit points
+    ; ========================================================================
+    interface cw_timeline 1 {
+        request create() -> (timeline: handle)
+        request destroy(timeline: handle)
+        request signal(timeline: handle, point: ulong)
+        request wait(timeline: handle, point: ulong, timeout_ns: ulong) -> (result: int)
+        request get_point(timeline: handle) -> (point: ulong)
+
+        event timeline_signaled(timeline: handle, point: ulong)
+    }
+
+    ; ========================================================================
+    ; cw_surface — Surface with double-buffered state
+    ; ========================================================================
+    interface cw_surface 1 {
+        enum transform {
+            normal = 0,
+            rotate_90 = 1,
+            rotate_180 = 2,
+            rotate_270 = 3,
+            flip_h = 4,
+            flip_v = 8
+        }
+
+        struct region {
+            rects: array<rect>
+        }
+
+        struct rect {
+            x: int, y: int, width: uint, height: uint
+        }
+
+        request create() -> (surface: handle)
+        request destroy(surface: handle)
+
+        ; Attach buffer with position and sync
+        request attach(surface: handle, buffer: handle, x: int, y: int,
+                      acquire_fence: handle, release_fence: handle)
+
+        ; Damage region (in surface-local coordinates)
+        request damage(surface: handle, x: int, y: int, width: uint, height: uint)
+        request damage_buffer(surface: handle, x: int, y: int, width: uint, height: uint)
+
+        ; Opaque region (for optimization)
+        request set_opaque_region(surface: handle, region: handle)
+        request set_input_region(surface: handle, region: handle)
+
+        ; Transform and scale
+        request set_transform(surface: handle, transform: uint)
+        request set_scale(surface: handle, scale: fixed)
+
+        ; Subsurface tree
+        request set_parent(surface: handle, parent: handle, x: int, y: int)
+        request set_position(surface: handle, x: int, y: int)
+
+        ; Frame callbacks
+        request frame_callback(surface: handle) -> (callback: handle)
+
+        ; Commit pending state
+        request commit(surface: handle, flags: uint)  ; TRANSACTION=1
+
+        event frame_done(surface: handle, callback: handle, time: ulong, flags: uint)
+        event enter(surface: handle, output: handle)
+        event leave(surface: handle, output: handle)
+    }
+
+    ; ========================================================================
+    ; cw_subsurface — Subsurface positioning
+    ; ========================================================================
+    interface cw_subsurface 1 {
+        request get_parent(surface: handle) -> (parent: handle)
+        request set_sync(surface: handle, sync: bool)  ; synchronized with parent commit
+        request set_desync(surface: handle)  ; desynchronized
+
+        event position_changed(surface: handle, x: int, y: int)
+        event sync_changed(surface: handle, sync: bool)
+    }
+
+    ; ========================================================================
+    ; cw_region — Region object (for opaque/input regions)
+    ; ========================================================================
+    interface cw_region 1 {
+        request create() -> (region: handle)
+        request destroy(region: handle)
+        request add(region: handle, x: int, y: int, width: uint, height: uint)
+        request subtract(region: handle, x: int, y: int, width: uint, height: uint)
+        request clear(region: handle)
+        request get_rects(region: handle) -> (rects: array<rect>)
+
+        struct rect {
+            x: int, y: int, width: uint, height: uint
+        }
+    }
+}
