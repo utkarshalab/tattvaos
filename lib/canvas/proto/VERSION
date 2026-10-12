@@ -1,0 +1,19 @@
+# Canvas v1.0 — Protocol Freeze (C33)
+
+**Status: FROZEN**
+
+## Frozen Interfaces
+
+| Protocol | Version | File |
+|----------|---------|------|
+| canvas-core | 1 | `proto/canvas-core.cwp` |
+| canvas-present | 1 | `proto/canvas-present.cwp` |
+| canvas-remote | 1 | `proto/canvas-remote.cwp` |
+
+## Freeze Rules (post-v1.0)
+
+1. No opcode renumbering, no struct field reordering, no wire-format change.
+2. Additive only: new opcodes, new interfaces, new capability bits.
+3. Any breaking change requires a major protocol version + new `canvas_client.o`.
+4. `cwplint` runs in CI and rejects wire-breaking diffs against this baseline.
+5. Conformance suite (`tests/cts/`) must pass 100% before any release tag.
