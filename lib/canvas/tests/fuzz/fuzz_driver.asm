@@ -109,6 +109,28 @@ fuzz_target_jpeg:
     ret
 
 ; ---------------------------------------------------------------------------
+; fuzz_target_gif
+;   Fuzz GIF decoder (probe + first-frame header parse)
+; ---------------------------------------------------------------------------
+global fuzz_target_gif
+fuzz_target_gif:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+
+    mov rdi, rbx
+    mov rsi, r12
+    call gif_probe
+    test rax, rax
+    jz .done
+    ; TODO: full first-frame decode on fuzzed input
+.done:
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
+    ret
+
+; ---------------------------------------------------------------------------
 ; fuzz_target_ttf
 ;   Fuzz TTF parser
 ; ---------------------------------------------------------------------------

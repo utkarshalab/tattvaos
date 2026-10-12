@@ -438,8 +438,46 @@ $(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(TATTVA_OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^
 	@echo "  IMG    $@"
 
+# Fuzz targets (C31)
+FUZZ_SRCS := \
+    tests/fuzz/fuzz_wire.asm \
+    tests/fuzz/fuzz_objects.asm \
+    tests/fuzz/fuzz_keymap_config.asm \
+    tests/fuzz/fuzz_media.asm
+
+# Soak tests (C31)
+SOAK_SRCS := \
+    tests/soak/soak_churn.asm \
+    tests/soak/soak_hotplug.asm \
+    tests/soak/soak_quota.asm
+
+# Bench harness (C32)
+BENCH_SRCS := \
+    tests/bench/bench_idle.asm \
+    tests/bench/bench_latency.asm \
+    tests/bench/bench_compose.asm \
+    tests/bench/bench_memory.asm
+
+# Conformance suite (C33)
+CTS_SRCS := \
+    tests/cts/cts_core.asm \
+    tests/cts/cts_surface.asm \
+    tests/cts/cts_sync.asm \
+    tests/cts/cts_present.asm \
+    tests/cts/cts_output.asm \
+    tests/cts/cts_input.asm \
+    tests/cts/cts_shell.asm \
+    tests/cts/cts_data.asm \
+    tests/cts/cts_text.asm \
+    tests/cts/cts_security.asm \
+    tests/cts/cts_governance.asm
+CTS_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(CTS_SRCS))
+SOAK_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(SOAK_SRCS))
+BENCH_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(BENCH_SRCS))
+FUZZ_EXTRA_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(FUZZ_SRCS))
+
 # Fuzz runner image
-$(IMAGEDIR)/fuzz_runner.img: $(OBJDIR)/tests/fuzz/fuzz_driver.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/fuzz_runner.img: $(OBJDIR)/tests/fuzz/fuzz_driver.o $(FUZZ_EXTRA_OBJS) $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $^
 	@echo "  IMG    $@"
@@ -485,17 +523,50 @@ $(OBJDIR)/tests/input/%.o: tests/input/%.asm
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
 
+$(OBJDIR)/tests/soak/%.o: tests/soak/%.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
+	@echo "  ASM    $<"
+
+$(OBJDIR)/tests/bench/%.o: tests/bench/%.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
+	@echo "  ASM    $<"
+
+$(OBJDIR)/tests/cts/%.o: tests/cts/%.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
+	@echo "  ASM    $<"
+
 .PHONY: fuzz
 fuzz: $(IMAGEDIR)/fuzz_runner.img
 	@echo "Running fuzz tests..."
+
+# Soak test image (C31)
+$(IMAGEDIR)/soak_test.img: $(OBJDIR)/tests/soak_runner.o $(SOAK_OBJS) $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -e soak_runner_init -o $@ $^
+	@echo "  IMG    $@"
 
 .PHONY: soak
 soak: $(IMAGEDIR)/soak_test.img
 	@echo "Running 24h soak test..."
 
+# Bench runner image (C32)
+$(IMAGEDIR)/bench_runner.img: $(OBJDIR)/tests/bench_runner.o $(BENCH_OBJS) $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -e bench_runner_init -o $@ $^
+	@echo "  IMG    $@"
+
 .PHONY: bench
 bench: $(IMAGEDIR)/bench_runner.img
 	@echo "Running benchmarks..."
+
+# CTS runner image (C33)
+$(IMAGEDIR)/cts_runner.img: $(OBJDIR)/tests/cts_runner.o $(CTS_OBJS) $(CLIENT_OBJS) $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+	@mkdir -p $(IMAGEDIR)
+	$(LD) $(LDFLAGS) -e cts_runner_init -o $@ $^
+	@echo "  IMG    $@"
 
 .PHONY: cts
 cts: $(IMAGEDIR)/cts_runner.img
