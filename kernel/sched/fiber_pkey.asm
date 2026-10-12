@@ -60,8 +60,8 @@ pkey_alloc:
     cmp byte [pkey_supported], 1
     jne .none
 
-    mov eax, [next_pkey_idx]
-    inc dword [next_pkey_idx]
+    mov eax, 1
+    lock xadd dword [next_pkey_idx], eax
     and eax, 0x0F                   ; Wrap 1..15
     jnz .valid
     mov eax, 1                      ; Avoid PKEY 0 (default kernel key)

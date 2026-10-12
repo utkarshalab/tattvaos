@@ -1335,8 +1335,16 @@ run_all_memory_tests:
 
     ; Step G: Test direct write path on page 2 (0x50001000)
     ; Accessing it directly via write should allocate a private zeroed page immediately
+    vmovdqa ymm0, [rel pf_xstate_test_pattern]
     mov rax, 0xABCDEF0123456789
     mov [0x50001000], rax
+    vpxor ymm1, ymm0, [rel pf_xstate_test_pattern]
+    vptest ymm1, ymm1
+    jnz .zfod_fail_xstate
+    vzeroupper
+
+    mov rsi, msg_pf_xstate_pass
+    call uart_print_str
 
     ; Step H: Verify the write succeeded on page 2
     mov rax, [0x50001000]
@@ -13915,6 +13923,12 @@ run_all_memory_tests:
     call uart_print_str
     jmp .panic
 
+.zfod_fail_xstate:
+    vzeroupper
+    mov rsi, msg_zfod_fail_xstate_str
+    call uart_print_str
+    jmp .panic
+
 .stack_fail_vma:
     mov rsi, msg_stack_fail_vma_str
     call uart_print_str
@@ -17986,6 +18000,7 @@ msg_zfod_test_start:   db "Running VMM Zero-Fill-on-Demand (ZFOD) Exception Test
 msg_zfod_read_ok:     db "ZFOD Page 1 read verify (returned 0). Shared zero page successfully mapped.", 0x0D, 0x0A, 0
 msg_zfod_page1_ok:    db "ZFOD Page 1 write verify & isolation check passed.", 0x0D, 0x0A, 0
 msg_zfod_test_passed:  db "VMM Zero-Fill-on-Demand (ZFOD) Test PASSED!", 0x0D, 0x0A, 0
+msg_pf_xstate_pass:    db "Page-fault XSTATE: PASS", 0x0D, 0x0A, 0
 
 msg_zfod_fail_vma_str:  db "Failure: Could not create ZFOD VMA.", 0x0D, 0x0A, 0
 msg_zfod_fail_read_str: db "Failure: Initial ZFOD read returned non-zero value.", 0x0D, 0x0A, 0
@@ -17995,6 +18010,12 @@ msg_zfod_fail_iso_str:   db "Failure: Shared zero page was modified by COW write
 msg_zfod_fail_same_str:  db "Failure: Page 1 still maps to shared zero page after write.", 0x0D, 0x0A, 0
 msg_zfod_fail_p2val_str: db "Failure: Value read back from ZFOD Page 2 after direct write is incorrect.", 0x0D, 0x0A, 0
 msg_zfod_fail_p2same_str: db "Failure: Page 2 maps to shared zero page after direct write.", 0x0D, 0x0A, 0
+msg_zfod_fail_xstate_str: db "Failure: page-fault handler corrupted YMM state.", 0x0D, 0x0A, 0
+
+align 32
+pf_xstate_test_pattern:
+    dq 0x0011223344556677, 0x8899AABBCCDDEEFF
+    dq 0x0F1E2D3C4B5A6978, 0x8778695A4B3C2D1E
 
 msg_stack_test_start:  db "Running VMM Stack Auto-Grow Exception Test...", 0x0D, 0x0A, 0
 msg_stack_test_passed: db "VMM Stack Auto-Grow Test PASSED!", 0x0D, 0x0A, 0

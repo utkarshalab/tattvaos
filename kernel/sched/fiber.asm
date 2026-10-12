@@ -12,6 +12,7 @@
 [BITS 64]
 
 %include "kernel/sched/fiber.inc"
+%include "kernel/sched/sched.inc"
 %include "lib/percpu.inc"           ; current_fiber/idle_fiber are percpu_t fields
 
 section .text
@@ -50,7 +51,17 @@ fiber_system_init:
 ; Output: RAX = Pointer to new FCB (or 0 if out of memory/slots)
 ; -----------------------------------------------------------------------------
 fiber_create:
+    xor r8d, r8d
+    jmp fiber_create_flags
+
+; Explicit opt-in API.  The legacy four-argument entry remains cooperative.
+fiber_create_preemptible:
+    mov r8d, FIBER_FLAG_PREEMPTIBLE
+
+; R8D = FIBER_FLAG_* for audited callers.
+fiber_create_flags:
     push rbx
+    push rbp
     push rcx
     push rdx
     push rsi
@@ -59,17 +70,22 @@ fiber_create:
     push r13
     push r14
     push r15
+    sub rsp, 8                      ; keep SysV alignment at every nested call
 
     mov r12, rdi                    ; R12 = entry_point
     mov r13, rsi                    ; R13 = arg
     mov r14d, edx                   ; R14D = prio
     mov r15d, ecx                   ; R15D = restart_policy
+    mov ebp, r8d
+    and ebp, FIBER_FLAG_PREEMPTIBLE
 
     ; 1. Find a free FCB slot in fiber_pool
     mov rbx, fiber_pool
     mov ecx, FIBER_MAX_COUNT
 .search_slot:
-    cmp dword [rbx + fcb_t.state], FIBER_STATE_FREE
+    xor eax, eax                    ; expected FIBER_STATE_FREE
+    mov edx, FIBER_STATE_CLAIMED
+    lock cmpxchg dword [rbx + fcb_t.state], edx
     je .slot_found
     add rbx, fcb_t_size
     loop .search_slot
@@ -79,8 +95,8 @@ fiber_create:
     jmp .done
 
 .slot_found:
-    ; 2. Allocate 5 pages (20KB total: 1 guard page + 4 pages 16KB stack)
-    mov rdi, 5
+    ; 2. Allocate guard + 16KB stack + one page-aligned XSAVE area.
+    mov rdi, FIBER_TOTAL_PAGES
     call phys_alloc_pages
     test rax, rax
     jz .alloc_failed
@@ -91,60 +107,38 @@ fiber_create:
     mov [rbx + fcb_t.stack_bottom], rax
     add rax, FIBER_STACK_SIZE
     mov [rbx + fcb_t.stack_top], rax
+    mov [rbx + fcb_t.xsave_area], rax
 
     ; Unmap 4KB Guard Page (VMA_NONE) below stack bottom to catch overflows
     mov rdi, [rbx + fcb_t.guard_addr]
     call virt_unmap
 
     ; 3. Setup FCB fields
-    mov rax, [next_fiber_id]
-    inc qword [next_fiber_id]
+    mov eax, 1
+    lock xadd qword [next_fiber_id], rax
     mov [rbx + fcb_t.id], rax
 
-    mov dword [rbx + fcb_t.state], FIBER_STATE_READY
     mov [rbx + fcb_t.prio], r14d
     mov [rbx + fcb_t.restart_policy], r15d
     mov dword [rbx + fcb_t.crash_count], 0
     mov [rbx + fcb_t.entry_point], r12
     mov [rbx + fcb_t.arg], r13
     mov qword [rbx + fcb_t.time_slice], 0
+    mov [rbx + fcb_t.flags], ebp
+    mov eax, [gs:percpu_t.cpu_id]
+    mov [rbx + fcb_t.cpu_id], eax
 
     ; Allocate Intel PKEY
     call pkey_alloc
     mov [rbx + fcb_t.pkey], eax
 
-    ; Plant security stack canaries
+    ; Plant canaries, initialize XSTATE, and synthesize the canonical IRET
+    ; frame used by both newly created and supervisor-restarted fibers.
     mov rdi, rbx
-    call canary_plant
+    call fiber_reset_context
 
-    ; 4. Format initial stack frame
-    mov rdx, [rbx + fcb_t.stack_top]
-    sub rdx, 16                     ; Reserve space for top canary marker
-
-    sub rdx, 8
-    mov qword [rdx], fiber_entry_wrapper
-
-    sub rdx, 8
-    mov qword [rdx], 0              ; RBP
-
-    sub rdx, 8
-    mov qword [rdx], 0              ; RBX
-
-    sub rdx, 8
-    mov qword [rdx], 0              ; R12
-
-    sub rdx, 8
-    mov qword [rdx], 0              ; R13
-
-    sub rdx, 8
-    mov qword [rdx], 0              ; R14
-
-    sub rdx, 8
-    mov qword [rdx], 0              ; R15
-
-    mov [rbx + fcb_t.rsp], rdx
-
-    ; 5. Push new FCB to current core's ready queue
+    ; 5. Publish only after the complete FCB and stack context are initialized.
+    mov dword [rbx + fcb_t.state], FIBER_STATE_READY
     mov rdi, rbx
     call sched_push_fiber
 
@@ -152,16 +146,84 @@ fiber_create:
     jmp .done
 
 .alloc_failed:
+    mov dword [rbx + fcb_t.state], FIBER_STATE_FREE
     xor rax, rax
 
 .done:
+    add rsp, 8
     pop r15
     pop r14
     pop r13
     pop r12
+    pop rbp
     pop rdi
     pop rsi
     pop rdx
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; fiber_reset_context — clear private state and build a fresh canonical frame
+; Input: RDI = exclusively owned FCB
+; -----------------------------------------------------------------------------
+fiber_reset_context:
+    push rbx
+    push rcx
+    push rdi
+
+    mov rbx, rdi
+
+    mov rdi, [rbx + fcb_t.stack_bottom]
+    mov rcx, FIBER_STACK_SIZE / 8
+    xor eax, eax
+    cld
+    rep stosq
+
+    ; Header.XSTATE_BV=0 means architectural initial x87/SSE/AVX state.
+    mov rdi, [rbx + fcb_t.xsave_area]
+    mov rcx, FIBER_XSTATE_SIZE / 8
+    xor eax, eax
+    rep stosq
+
+    mov rdi, rbx
+    call canary_plant
+    call fiber_build_initial_frame
+
+    pop rdi
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; fiber_build_initial_frame — synthesize the frame restored by SCHED_POP_FRAME
+; Input: RDI = FCB
+; -----------------------------------------------------------------------------
+fiber_build_initial_frame:
+    push rbx
+    push rcx
+    push rdi
+
+    mov rbx, rdi
+    mov rdx, [rbx + fcb_t.stack_top]
+    sub rdx, 16                     ; keep top canary at stack_top - 16
+    sub rdx, SCHED_FRAME_SIZE
+
+    mov rdi, rdx
+    mov rcx, SCHED_FRAME_SIZE / 8
+    xor eax, eax
+    rep stosq
+
+    mov qword [rdx + SCHED_FRAME_VECTOR], SCHED_YIELD_VECTOR
+    mov qword [rdx + SCHED_FRAME_RIP], fiber_entry_wrapper
+    mov qword [rdx + SCHED_FRAME_CS], 0x08
+    mov qword [rdx + SCHED_FRAME_RFLAGS], 0x202
+    lea rax, [rdx + SCHED_FRAME_SIZE]
+    mov [rdx + SCHED_FRAME_RSP], rax
+    mov qword [rdx + SCHED_FRAME_SS], 0x10
+    mov [rbx + fcb_t.rsp], rdx
+
+    pop rdi
     pop rcx
     pop rbx
     ret
@@ -173,89 +235,29 @@ fiber_create:
 ; -----------------------------------------------------------------------------
 fiber_yield:
     push rbx
-    push rsi
-    push rdi
-
-    mov rdi, [gs:percpu_t.current_fiber]                ; RDI = current_fiber
-    test rdi, rdi
+    mov rbx, [gs:percpu_t.current_fiber]
+    test rbx, rbx
     jz .yield_done
 
     ; Verify stack canary before switching
-    push rdi
+    mov rdi, rbx
     call canary_verify
-    pop rdi
     test rax, rax
     jz .canary_failed
 
-    ; If current fiber is RUNNING, set back to READY and push to ready queue
-    cmp dword [rdi + fcb_t.state], FIBER_STATE_RUNNING
-    jne .select_next
-    mov dword [rdi + fcb_t.state], FIBER_STATE_READY
-    call sched_push_fiber
-
-.select_next:
-    call sched_pop_next_fiber
-    test rax, rax
-    jnz .switch_to_next
-
-    mov rsi, [gs:percpu_t.idle_fiber]                ; GS:72 = idle_fiber
-    test rsi, rsi
-    jz .yield_done
-    jmp .do_switch
-
-.switch_to_next:
-    mov rsi, rax
-
-.do_switch:
-    cmp rdi, rsi
-    jne .real_switch
-
-    ; sched_pop_next_fiber popped the same fiber that was just pushed a few
-    ; lines up (the only thing in the queue was itself) — there's no other
-    ; ready work, so this returns to its own caller instead of paying for a
-    ; context switch to itself. But its state was already flipped to READY
-    ; above, on the assumption a switch would follow and set it back to
-    ; RUNNING; skipping the switch here must not skip that too. Leaving it
-    ; at READY while execution provably never left this stack meant the
-    ; *next* fiber_yield call saw a fiber that wasn't RUNNING and silently
-    ; skipped re-queuing it — the fiber ran exactly once more, yielded into
-    ; the idle/boot context with nothing left in the queue to ever switch
-    ; back to it, and was gone for good. Two prints, then permanent silence.
-    mov dword [rdi + fcb_t.state], FIBER_STATE_RUNNING
-    jmp .yield_done
-
-.real_switch:
-    ; Perform PKEY hardware key switch. RDI already holds the outgoing FCB
-    ; pointer, which fiber_switch below needs — but pkey_switch's own first
-    ; instruction is `mov edi, [rsi + fcb_t.pkey]`, so calling it unprotected
-    ; here overwrites that pointer with a single-digit pkey value. fiber_switch
-    ; would then save the outgoing stack through `[pkey_value + fcb_t.rsp]`,
-    ; a wild write to whatever low physical address that tiny number lands on
-    ; (see sched_core_loop's OPTION B block for the same defect on the pop
-    ; path — this is the yield path's counterpart).
-    push rdi
-    mov edi, [rsi + fcb_t.pkey]
-    call pkey_switch
-    pop rdi
-
-    mov [gs:percpu_t.current_fiber], rsi
-    mov dword [rsi + fcb_t.state], FIBER_STATE_RUNNING
-
-    ; Low-level context switch
-    call fiber_switch
+    ; Both cooperative yield and involuntary timer switching now save exactly
+    ; the same full GPR/IRET frame. The ISR chooses and restores the next one.
+    int SCHED_YIELD_VECTOR
 
 .yield_done:
-    pop rdi
-    pop rsi
     pop rbx
     ret
 
 .canary_failed:
-    ; Canary corrupted — hand to fault isolation trap!
-    mov rdi, 14                     ; Vector 14 (#PF)
-    mov rsi, 0xBADCAFA             ; Custom canary error code
-    mov rdx, [rdi + fcb_t.entry_point]
+    mov rdx, [rbx + fcb_t.entry_point]
     mov rcx, rsp
+    mov edi, 14                     ; Vector 14 (#PF)
+    mov esi, 0x0BADCAFA             ; Custom canary error code
     jmp fiber_guard_trap
 
 ; -----------------------------------------------------------------------------
@@ -265,44 +267,94 @@ fiber_yield:
 ; -----------------------------------------------------------------------------
 fiber_reap_dead:
     push rbx
-    push rcx
-    push rdi
+    push r12
+    push r13
+    push r14
+    push r15
+
+    xor r13d, r13d                  ; reaped/restarted count
+    mov rax, [gs:percpu_t.current_fiber]
+    cmp rax, [gs:percpu_t.idle_fiber]
+    jne .done                       ; never reclaim from a worker stack
 
     mov rbx, fiber_pool
-    mov ecx, FIBER_MAX_COUNT
-    xor r8, r8                      ; R8 = reaped count
+    mov r12d, FIBER_MAX_COUNT
 
 .scan_loop:
-    cmp dword [rbx + fcb_t.state], FIBER_STATE_DEAD
+    mov eax, [gs:percpu_t.cpu_id]
+    cmp [rbx + fcb_t.cpu_id], eax
     jne .next_slot
 
-    ; If restart_policy is ALWAYS and crash_count < 5, supervisor handles restart.
-    ; Otherwise, reclaim stack!
-    cmp dword [rbx + fcb_t.restart_policy], FIBER_RESTART_ALWAYS
+    mov eax, FIBER_STATE_DEAD
+    mov edx, FIBER_STATE_REAPING
+    lock cmpxchg dword [rbx + fcb_t.state], edx
+    jne .next_slot
+
+    mov eax, [rbx + fcb_t.restart_policy]
+    cmp eax, FIBER_RESTART_ALWAYS
+    je .restart_candidate
+    cmp eax, FIBER_RESTART_TRANSIENT
     jne .free_memory
+    cmp dword [rbx + fcb_t.crash_count], 0
+    je .free_memory                  ; transient does not restart normal exits
+.restart_candidate:
     cmp dword [rbx + fcb_t.crash_count], 5
-    jbe .next_slot
+    ja .free_memory
+
+    mov rdi, rbx
+    call fiber_reset_context
+    and dword [rbx + fcb_t.flags], ~FIBER_FLAG_ON_RUNQ
+    mov dword [rbx + fcb_t.state], FIBER_STATE_READY
+    mov rdi, rbx
+    call sched_push_fiber
+    inc r13d
+    jmp .next_slot
 
 .free_memory:
-    mov rdi, [rbx + fcb_t.guard_addr]
-    test rdi, rdi
+    mov r15, [rbx + fcb_t.guard_addr]
+    test r15, r15
     jz .reset_fcb
 
-    ; Free 5 pages (20KB total allocation)
-    mov rsi, 5
+    ; phys_free_pages zeroes before release, so restore the deliberately
+    ; unmapped guard page first.  Failure leaves the FCB retryable, not leaked.
+    mov rdi, r15
+    mov rsi, r15
+    mov rdx, PAGE_PRESENT | PAGE_WRITABLE | PAGE_NX
+    call virt_map
+    test rax, rax
+    jz .retry_later
+
+    mov rdi, r15
+    mov rsi, FIBER_TOTAL_PAGES
     call phys_free_pages
 
 .reset_fcb:
+    mov qword [rbx + fcb_t.rsp], 0
+    mov qword [rbx + fcb_t.stack_bottom], 0
+    mov qword [rbx + fcb_t.stack_top], 0
+    mov qword [rbx + fcb_t.guard_addr], 0
+    mov qword [rbx + fcb_t.xsave_area], 0
+    mov qword [rbx + fcb_t.next], 0
+    mov qword [rbx + fcb_t.prev], 0
+    mov dword [rbx + fcb_t.flags], 0
     mov dword [rbx + fcb_t.state], FIBER_STATE_FREE
-    inc r8
+    inc r13d
+    jmp .next_slot
+
+.retry_later:
+    mov dword [rbx + fcb_t.state], FIBER_STATE_DEAD
 
 .next_slot:
     add rbx, fcb_t_size
-    loop .scan_loop
+    dec r12d
+    jnz .scan_loop
 
-    mov rax, r8
-    pop rdi
-    pop rcx
+.done:
+    mov eax, r13d
+    pop r15
+    pop r14
+    pop r13
+    pop r12
     pop rbx
     ret
 
@@ -312,21 +364,16 @@ fiber_reap_dead:
 ; Output: never returns
 ; -----------------------------------------------------------------------------
 fiber_exit:
-    mov rdi, [gs:percpu_t.current_fiber]
-    test rdi, rdi
+    mov rax, [gs:percpu_t.current_fiber]
+    test rax, rax
     jz .halt
+    cmp rax, [gs:percpu_t.idle_fiber]
+    je .halt
 
-    mov dword [rdi + fcb_t.state], FIBER_STATE_DEAD
-
-    ; Check if auto-restart daemon
-    cmp dword [rdi + fcb_t.restart_policy], FIBER_RESTART_ALWAYS
-    jne .do_yield
-
-    mov rdi, [gs:percpu_t.current_fiber]
-    call fiber_supervisor_handle_crash
-
-.do_yield:
-    call fiber_yield
+    ; Only the scheduler ISR may publish DEAD, after it has moved RSP onto
+    ; another fiber's frame.  EXITING cannot be reclaimed by any CPU.
+    mov dword [rax + fcb_t.state], FIBER_STATE_EXITING
+    int SCHED_YIELD_VECTOR
 
 .halt:
     cli
@@ -343,35 +390,11 @@ fiber_entry_wrapper:
 
     mov rax, [rbx + fcb_t.entry_point]
     mov rdi, [rbx + fcb_t.arg]
+    ldmxcsr [rel default_mxcsr]     ; restore kernel FTZ/DAZ policy for fresh state
     call rax
 
 .exit:
-    call fiber_exit
-    ret
-
-; -----------------------------------------------------------------------------
-; fiber_switch — Assembly low-level context switcher
-; Input:  RDI = Old FCB pointer, RSI = New FCB pointer
-; -----------------------------------------------------------------------------
-fiber_switch:
-    push rbp
-    push rbx
-    push r12
-    push r13
-    push r14
-    push r15
-
-    mov [rdi + fcb_t.rsp], rsp
-    mov rsp, [rsi + fcb_t.rsp]
-
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop rbx
-    pop rbp
-
-    ret
+    jmp fiber_exit
 
 section .data
 

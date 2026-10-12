@@ -7,6 +7,7 @@
 [BITS 64]
 %include "boot/boot_info.inc"
 %include "lib/percpu.inc"
+%include "kernel/sched/fiber.inc"
 %include "kernel/sched/sched.inc"
 %include "kernel/arch/x86_64/madt.asm"
 %include "kernel/arch/x86_64/dmar.asm"
@@ -1002,18 +1003,30 @@ smp_timer_init_current:
     ret
 
 smp_timer_isr:
-    push rax
-    push rcx
-    push rdx
+    SCHED_PUSH_FRAME APIC_TIMER_VECTOR
+    cld
+    mov r12, rsp                    ; preserve the canonical frame across calls
+    and rsp, -16                    ; interrupted RSP has no ABI alignment contract
+    inc dword [gs:percpu_t.irq_depth]
     inc qword [gs:percpu_t.ticks]
     cmp byte [rel smp_timer_mode], SMP_TIMER_MODE_DEADLINE
     jne .eoi
     call smp_timer_arm_deadline
 .eoi:
     call smp_lapic_eoi
-    pop rdx
-    pop rcx
-    pop rax
+    mov dword [gs:percpu_t.need_resched], 1
+
+    mov rdi, r12
+    call sched_switch_frame         ; RAX=next frame, RDX=exited FCB (normally 0)
+
+    cli
+    dec dword [gs:percpu_t.irq_depth]
+    mov rsp, rax
+    test rdx, rdx
+    jz .restore
+    mov dword [rdx + fcb_t.state], FIBER_STATE_DEAD
+.restore:
+    SCHED_POP_FRAME
     iretq
 
 ; Require recurring delivery on every released CPU before advertising success.

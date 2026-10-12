@@ -218,6 +218,20 @@ if [ -z "$LIFECYCLE_LINE" ]; then
     PASS=0
 fi
 
+PREEMPT_COUNT=$(awk '{ sub(/\r$/, "", $0); if ($0 == "Scheduler preemption: PASS") count++ } END { print count + 0 }' "$LOG")
+PREEMPT_LINE=$(awk '{ sub(/\r$/, "", $0); if ($0 == "Scheduler preemption: PASS") { print NR; exit } }' "$LOG")
+if [ "$PREEMPT_COUNT" -ne 1 ]; then
+    echo "FAIL: expected exactly one scheduler preemption PASS marker (found $PREEMPT_COUNT)"
+    PASS=0
+elif [ -z "$LIFECYCLE_LINE" ] || [ "$PREEMPT_LINE" -le "$LIFECYCLE_LINE" ]; then
+    echo "FAIL: scheduler preemption proof did not follow lifecycle validation"
+    PASS=0
+elif ! awk -v after="$PREEMPT_LINE" \
+    'NR > after { sub(/\r$/, "", $0); if ($0 ~ /^heartbeat #[0-9]+$/) found = 1 } END { exit !found }' "$LOG"; then
+    echo "FAIL: no scheduler heartbeat after the preemption proof"
+    PASS=0
+fi
+
 for FATAL in \
     "EARLY64 EXCEPTION" \
     "GDT verify: FAIL" \

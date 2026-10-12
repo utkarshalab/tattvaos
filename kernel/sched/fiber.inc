@@ -15,7 +15,9 @@
 ; -----------------------------------------------------------------------------
 FIBER_STACK_SIZE    equ 16384       ; 16KB stack payload per fiber
 FIBER_GUARD_SIZE    equ 4096        ; 4KB unmapped guard page (VMA_NONE)
-FIBER_TOTAL_ALLOC   equ 20480       ; 20KB total allocation (Guard + Stack)
+FIBER_XSTATE_SIZE   equ 4096        ; page-aligned eager XSAVE area
+FIBER_TOTAL_ALLOC   equ 24576       ; Guard + Stack + XSAVE page
+FIBER_TOTAL_PAGES   equ 6
 FIBER_MAX_COUNT     equ 1024        ; Max fibers in system pool
 
 ; Fiber States
@@ -23,7 +25,15 @@ FIBER_STATE_FREE    equ 0           ; Unallocated slot in pool
 FIBER_STATE_READY   equ 1           ; Ready to run in core MLFQ queue
 FIBER_STATE_RUNNING equ 2           ; Currently executing on a CPU core
 FIBER_STATE_WAITING equ 3           ; Waiting for I/O or timer event
-FIBER_STATE_DEAD    equ 4           ; Finished or crashed, pending cleanup/restart
+FIBER_STATE_EXITING equ 4           ; Still executing; not yet safe to reclaim
+FIBER_STATE_DEAD    equ 5           ; Switched away, pending cleanup/restart
+FIBER_STATE_REAPING equ 6           ; Reclaimer owns this FCB
+FIBER_STATE_CLAIMED equ 7           ; Creator owns this FCB
+
+; Fiber flags. Existing four-argument creators default to cooperative mode;
+; only audited fibers opt into involuntary timer preemption.
+FIBER_FLAG_PREEMPTIBLE equ 1 << 0
+FIBER_FLAG_ON_RUNQ     equ 1 << 31
 
 ; Priority Bands (MLFQ)
 PRIO_REALTIME       equ 0           ; 0-latency real-time task
@@ -69,7 +79,10 @@ struc fcb_t
     .time_slice      resq 1         ; +152: APIC ticks in current run slice
     .next            resq 1         ; +160: Pointer to next FCB in queue
     .prev            resq 1         ; +168: Pointer to prev FCB in queue
-    .reserved        resq 10        ; +176..+256: L1 Cache Line Padding
+    .xsave_area      resq 1         ; +176: page-aligned eager XSAVE buffer
+    .flags           resd 1         ; +184: FIBER_FLAG_* bits
+    ._pad            resd 1         ; +188: keep following storage qword-aligned
+    .reserved        resq 8         ; +192..+256: L1 Cache Line Padding
 endstruc
 
 

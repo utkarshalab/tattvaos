@@ -460,13 +460,13 @@ IOAPIC_REDTBL_BASE equ 0x10     ; Base offset for Redirection Table entries (0-2
 ; This assertion predates this file ever actually being compiled — io.inc
 ; was never %include'd into a real kernel.bin build until unet/drivers/
 ; e1000.asm pulled it in for PCI access, which is what surfaced it failing.
-; percpu_t (lib/percpu.inc) has grown to 136 bytes since whenever "exactly
+; percpu_t (lib/percpu.inc) has grown to 192 bytes since whenever "exactly
 ; 64 bytes, one cache line" was written: identity + mem + io + scheduler +
 ; logging have each added their own per-core fields (see that struc's inline
 ; comments). That's legitimate, tracked growth, not drift — updated the
 ; expected size to match rather than deleting the tripwire.
-%if percpu_t_size != 136
-  %error "percpu_t layout drift — must be exactly 136 bytes"
+%if percpu_t_size != 192
+  %error "percpu_t layout drift — must be exactly 192 bytes"
 %endif
 %if driver_binding_t_size != 20
   %error "driver_binding_t layout drift — must be 20 bytes"

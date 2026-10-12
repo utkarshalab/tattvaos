@@ -60,6 +60,16 @@ struc percpu_t
 
     ; ---- logging: lib/ulog/record ----
     .log_ring       resq 1      ; +128  this core's ring_t* (record/ring_alloc.asm)
-endstruc                        ; = 136 bytes
+
+    ; ---- preemption: kernel/sched ----
+    .need_resched   resd 1      ; +136  deferred timer reschedule request
+    .preempt_count  resd 1      ; +140  nesting count for non-preemptible regions
+    .irq_depth      resd 1      ; +144  active maskable interrupt nesting
+    .sched_flags    resd 1      ; +148  SCHED_PERCPU_* state bits
+
+    ; Keep each CPU block on an integral cache-line stride. Remote queue and
+    ; wake operations must not make adjacent CPUs fight over one cache line.
+    .reserved       resb 40     ; +152..+191
+endstruc                        ; = 192 bytes (3 cache lines)
 
 %endif ; LIB_PERCPU_INC

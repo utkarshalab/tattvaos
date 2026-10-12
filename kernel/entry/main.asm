@@ -41,7 +41,7 @@ kernel_main:
     ; scheduler doing what it's built to do: sched_core_loop pops it, plants
     ; it as the running fiber via a real fiber_switch, it prints and calls
     ; fiber_yield, sched_core_loop pops it again next pass. Anything wrong
-    ; with fiber_create's stack setup, pkey_switch, or the ready queue shows
+    ; with the canonical interrupt-frame switch, pkey_switch, or ready queue shows
     ; up as a crash or silence within the first second instead of staying
     ; latent until something else exercises it first.
     mov rdi, heartbeat_fiber
@@ -72,6 +72,34 @@ kernel_main:
     call uart_print_str
 
 .have_net_poll:
+    ; 3c. Queue the opt-in preemption regression on the BSP-local FIFO.  The
+    ; hog never yields; the controller can run only if the APIC timer preserves
+    ; its complete GPR/XSTATE frame and dispatches another ready fiber.
+    mov rdi, sched_preempt_hog_fiber
+    xor rsi, rsi
+    mov rdx, PRIO_NORMAL
+    mov rcx, FIBER_RESTART_NEVER
+    call fiber_create_preemptible
+    test rax, rax
+    jz sched_preempt_selftest_fail
+    mov [sched_preempt_hog_fcb], rax
+
+    mov rdi, sched_preempt_controller_fiber
+    xor rsi, rsi
+    mov rdx, PRIO_NORMAL
+    mov rcx, FIBER_RESTART_NEVER
+    call fiber_create_preemptible
+    test rax, rax
+    jz sched_preempt_selftest_fail
+
+    mov rdi, sched_preempt_observer_fiber
+    xor rsi, rsi
+    mov rdx, PRIO_NORMAL
+    mov rcx, FIBER_RESTART_NEVER
+    call fiber_create
+    test rax, rax
+    jz sched_preempt_selftest_fail
+
     ; All shared initialization and initial fiber creation are complete.
     ; Only now copy/seal the trampoline and start APs: while an AP waits with
     ; interrupts disabled it cannot receive a TLB shootdown, so starting it
@@ -298,10 +326,8 @@ heartbeat_fiber:
     call uart_print_str
     inc dword [heartbeat_count]
 
-    ; Paced to be legible on a serial console, not to be a real timer. APIC
-    ; timer interrupts do not yet preempt cooperative fibers, so pacing is
-    ; this fiber spin-waiting then yielding — the same voluntary-yield model
-    ; every other fiber here is expected to use.
+    ; Paced to be legible on a serial console. This legacy fiber deliberately
+    ; remains cooperative until its UART/delay dependencies are audited.
     mov rdi, 1000                   ; 1000ms
     call mdelay
     call fiber_yield
@@ -309,9 +335,9 @@ heartbeat_fiber:
 
 ; -----------------------------------------------------------------------------
 ; net_poll_fiber — drives unet_poll (e1000 RX/TX + tcp_timer_tick) on the
-; same voluntary-yield pattern as heartbeat_fiber. The APIC timer does not
-; preempt fibers and e1000_poll is pure polling, so 10ms remains the receive
-; latency budget until an interrupt RX path exists.
+; same voluntary-yield pattern as heartbeat_fiber. It deliberately remains
+; non-preemptible because unet currently documents single-threaded cooperative
+; execution; 10ms remains the polling receive-latency budget.
 ; -----------------------------------------------------------------------------
 net_poll_fiber:
 .loop:
@@ -320,6 +346,155 @@ net_poll_fiber:
     call mdelay
     call fiber_yield
     jmp .loop
+
+; -----------------------------------------------------------------------------
+; Opt-in scheduler preemption regression
+; -----------------------------------------------------------------------------
+sched_preempt_hog_fiber:
+    sub rsp, 8                      ; align nested SysV calls
+    mov eax, [gs:percpu_t.cpu_id]
+    mov [sched_preempt_hog_cpu], eax
+    mov r10, [rel sched_preempt_gpr0]
+    mov r12, [rel sched_preempt_gpr1]
+    mov r15, [rel sched_preempt_gpr2]
+    vmovdqa ymm0, [rel sched_preempt_ymm]
+    mov byte [sched_preempt_hog_active], 1
+
+.spin:
+    cmp r10, [rel sched_preempt_gpr0]
+    jne sched_preempt_selftest_fail
+    cmp r12, [rel sched_preempt_gpr1]
+    jne sched_preempt_selftest_fail
+    cmp r15, [rel sched_preempt_gpr2]
+    jne sched_preempt_selftest_fail
+    vpxor ymm1, ymm0, [rel sched_preempt_ymm]
+    vptest ymm1, ymm1
+    jnz sched_preempt_selftest_fail
+
+    inc qword [sched_preempt_hog_iterations]
+    cmp byte [sched_preempt_hog_release], 0
+    jne .released
+    pause
+    jmp .spin
+
+.released:
+    mov byte [sched_preempt_hog_done], 1
+    vzeroupper
+    add rsp, 8
+    ret
+
+sched_preempt_controller_fiber:
+    sub rsp, 8                      ; align nested SysV calls
+.wait_hog_start:
+    cmp byte [sched_preempt_hog_active], 1
+    jne .yield_for_hog
+    cmp qword [sched_preempt_hog_iterations], 0
+    jne .hog_started
+.yield_for_hog:
+    call fiber_yield
+    jmp .wait_hog_start
+
+.hog_started:
+    mov eax, [gs:percpu_t.cpu_id]
+    cmp eax, [sched_preempt_hog_cpu]
+    jne sched_preempt_selftest_fail
+    cmp dword [gs:percpu_t.irq_depth], 0
+    jne sched_preempt_selftest_fail
+
+    ; Let the hog resume and prove that its interrupted GPR/YMM frame survived.
+    mov byte [sched_preempt_hog_release], 1
+.wait_hog:
+    cmp byte [sched_preempt_hog_done], 1
+    je .wait_hog_reaped
+    call fiber_yield
+    jmp .wait_hog
+
+.wait_hog_reaped:
+    mov rax, [sched_preempt_hog_fcb]
+    cmp dword [rax + fcb_t.state], FIBER_STATE_FREE
+    je .deferred_test
+    call fiber_yield
+    jmp .wait_hog_reaped
+
+.deferred_test:
+    cmp byte [sched_preempt_observer_seen], 0
+    jne sched_preempt_selftest_fail
+    call sched_preempt_disable
+    mov byte [sched_preempt_critical_active], 1
+    mov rbx, [gs:percpu_t.ticks]
+    add rbx, 3
+
+.wait_ticks:
+    cmp byte [sched_preempt_observer_seen], 0
+    jne sched_preempt_selftest_fail
+    cmp qword [gs:percpu_t.ticks], rbx
+    jae .ticks_elapsed
+    pause
+    jmp .wait_ticks
+
+.ticks_elapsed:
+    cmp dword [gs:percpu_t.preempt_count], 1
+    jne sched_preempt_selftest_fail
+    cmp dword [gs:percpu_t.need_resched], 1
+    jne sched_preempt_selftest_fail
+
+    mov byte [sched_preempt_critical_active], 0
+    mov byte [sched_preempt_before_enable], 1
+    call sched_preempt_enable
+    mov byte [sched_preempt_after_enable], 1
+
+    cmp byte [sched_preempt_observer_seen], 1
+    jne sched_preempt_selftest_fail
+    cmp dword [gs:percpu_t.preempt_count], 0
+    jne sched_preempt_selftest_fail
+    cmp dword [gs:percpu_t.irq_depth], 0
+    jne sched_preempt_selftest_fail
+
+    ; Do not expose UART or teardown to involuntary scheduling in this phase.
+    mov rax, [gs:percpu_t.current_fiber]
+    and dword [rax + fcb_t.flags], ~FIBER_FLAG_PREEMPTIBLE
+    mov rsi, msg_sched_preempt_pass
+    call uart_print_str
+    add rsp, 8
+    ret
+
+sched_preempt_observer_fiber:
+    sub rsp, 8                      ; align nested SysV calls
+.wait_phase:
+    cmp byte [sched_preempt_before_enable], 1
+    je .observe
+    call fiber_yield
+    jmp .wait_phase
+
+.observe:
+    cmp byte [sched_preempt_critical_active], 0
+    jne sched_preempt_selftest_fail
+    cmp byte [sched_preempt_after_enable], 0
+    jne sched_preempt_selftest_fail
+    cmp dword [gs:percpu_t.preempt_count], 0
+    jne sched_preempt_selftest_fail
+    cmp dword [gs:percpu_t.irq_depth], 0
+    jne sched_preempt_selftest_fail
+    mov eax, [gs:percpu_t.cpu_id]
+    cmp eax, [sched_preempt_hog_cpu]
+    jne sched_preempt_selftest_fail
+    mov byte [sched_preempt_observer_seen], 1
+    add rsp, 8
+    ret
+
+sched_preempt_selftest_fail:
+    cli
+    vzeroupper
+    mov rax, [gs:percpu_t.current_fiber]
+    test rax, rax
+    jz .print
+    and dword [rax + fcb_t.flags], ~FIBER_FLAG_PREEMPTIBLE
+.print:
+    mov rsi, msg_sched_preempt_fail
+    call uart_print_str
+.halt:
+    hlt
+    jmp .halt
 
 ; -----------------------------------------------------------------------------
 ; Messages
@@ -334,10 +509,31 @@ msg_heartbeat_prefix: db 'heartbeat #', 0
 msg_heartbeat_spawn_failed: db 'WARN: heartbeat fiber_create failed (no free FCB slots?)', 0x0D, 0x0A, 0
 msg_heartbeat_crlf:    db 0x0D, 0x0A, 0
 msg_net_poll_spawn_failed: db 'WARN: net_poll fiber_create failed (no free FCB slots?)', 0x0D, 0x0A, 0
+msg_sched_preempt_pass: db 'Scheduler preemption: PASS', 0x0D, 0x0A, 0
+msg_sched_preempt_fail: db 'Scheduler preemption: FAIL', 0x0D, 0x0A, 0
+
+align 32
+sched_preempt_ymm:
+    dq 0x0011223344556677, 0x8899AABBCCDDEEFF
+    dq 0x0F1E2D3C4B5A6978, 0x8778695A4B3C2D1E
+sched_preempt_gpr0: dq 0x13579BDF2468ACE0
+sched_preempt_gpr1: dq 0x0BADF00DDEADC0DE
+sched_preempt_gpr2: dq 0x55AA33CC77EE1199
 
 section .bss
 align 4
 heartbeat_count: resd 1
+sched_preempt_hog_cpu: resd 1
+align 8
+sched_preempt_hog_iterations: resq 1
+sched_preempt_hog_fcb: resq 1
+sched_preempt_hog_active: resb 1
+sched_preempt_hog_release: resb 1
+sched_preempt_hog_done: resb 1
+sched_preempt_observer_seen: resb 1
+sched_preempt_critical_active: resb 1
+sched_preempt_before_enable: resb 1
+sched_preempt_after_enable: resb 1
 
 ; Every file this codebase includes after this one assumes it's arriving in
 ; .text unless it declares its own section — kernel/drivers/serial/uart.asm,

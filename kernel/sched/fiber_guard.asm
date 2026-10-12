@@ -110,22 +110,19 @@ fiber_guard_trap:
     mov rsi, msg_crlf
     call uart_print_str
 
-    ; 4. Mark fiber as DEAD
-    mov dword [r8 + fcb_t.state], FIBER_STATE_DEAD
+    ; 4. Keep the active stack non-reclaimable. Canonical warm recovery is a
+    ; separate phase; fail closed rather than jumping onto an incompatible
+    ; or partially initialized scheduler frame.
+    mov r8, [gs:percpu_t.current_fiber]
+    mov dword [r8 + fcb_t.state], FIBER_STATE_EXITING
 
     ; 5. Pass crashed fiber to Supervisor Engine for self-healing restart
     mov rdi, r8
     call fiber_supervisor_handle_crash
 
-    ; 6. Recover CPU Stack RSP back to idle_fiber stack and resume main loop!
-    mov r9, [gs:percpu_t.idle_fiber]                 ; idle_fiber
-    mov [gs:percpu_t.current_fiber], r9                 ; set current_fiber = idle_fiber
-    mov dword [r9 + fcb_t.state], FIBER_STATE_RUNNING
-    mov rsp, [r9 + fcb_t.rsp]
-
-    ; Enable interrupts and jump to core loop
-    sti
-    jmp sched_core_loop
+    mov rsi, msg_recovery_deferred
+    call uart_print_str
+    jmp .panic_loop
 
 .raw_kernel_panic:
     ; Hardware crash in raw kernel initialization — cannot recover
@@ -147,5 +144,6 @@ msg_fault_header: db '==========================================================
 msg_fault_fiber_id: db '  Crashed Fiber ID: ', 0
 msg_fault_vector:   db '  Exception Vector: ', 0
 msg_fatal_panic:    db '[FATAL PANIC] Unhandled hardware crash in raw kernel core!', 0x0D, 0x0A, 0
+msg_recovery_deferred: db '[FATAL PANIC] Fiber recovery deferred; system halted safely.', 0x0D, 0x0A, 0
 
 %endif ; GUARD_KERNEL_SCHED_FIBER_GUARD_ASM

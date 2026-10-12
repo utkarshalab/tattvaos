@@ -141,6 +141,8 @@ kernel_init:
     mov rsi, msg_init_sched
     call uart_print_str
     call sched_init
+    test rax, rax
+    jz .sched_init_failed
     mov rsi, msg_ok
     call uart_print_str
 
@@ -196,6 +198,14 @@ kernel_init:
 .ulog_halt:
     hlt
     jmp .ulog_halt
+
+.sched_init_failed:
+    mov rsi, msg_sched_failed
+    call uart_print_str
+    cli
+.sched_halt:
+    hlt
+    jmp .sched_halt
 
 .time_error:
     mov rsi, msg_time_init_failed
@@ -385,6 +395,7 @@ msg_gs_api_test:     db "GS Accessor Test (CPU/Stack): ", 0
 msg_bad_gs_base:     db "KERNEL PANIC: GS base initialization failed", 0x0D, 0x0A, 0
 msg_bad_boot_info:   db "KERNEL PANIC: invalid or obsolete BootInfo ABI", 0x0D, 0x0A, 0
 msg_ulog_failed:      db "FAIL", 0x0D, 0x0A, "KERNEL PANIC: ulog full initialization failed", 0x0D, 0x0A, 0
+msg_sched_failed:     db "FAIL", 0x0D, 0x0A, "KERNEL PANIC: scheduler initialization failed", 0x0D, 0x0A, 0
 msg_mm_protection_failed: db "FAIL", 0x0D, 0x0A, "KERNEL PANIC: memory protection setup failed", 0x0D, 0x0A, 0
 msg_init_cpu:        db "Initializing CPU hardware & features... ", 0
 msg_init_ucpu_topo:  db "Decoding CPU topology & cache hierarchy (lib/hw/ucpu)... ", 0

@@ -133,14 +133,52 @@ cpu_init_hardware:
     call uart_print_str
 .pcid_done:
 
-    ; 11. Enable SSE/AVX Coprocessor Execution
+    ; 11. Enable SSE/AVX coprocessor execution and establish the kernel-owned
+    ; XSAVE contract. AVX is mandatory below, so silently relying on firmware
+    ; to leave OSXSAVE/XCR0 configured would make context switching undefined.
+    mov eax, 1
+    cpuid
+    test ecx, 1 << 26               ; XSAVE
+    jz .missing_xstate
+    test ecx, 1 << 28               ; AVX
+    jz .missing_xstate
+
     mov rax, cr0
     or rax, 1 << 1                  ; set MP (bit 1)
     and rax, ~(1 << 2)              ; clear EM (bit 2)
     mov cr0, rax
     mov rax, cr4
-    or rax, (1 << 9) | (1 << 10)    ; set OSFXSR (bit 9) and OSXMMEXCPT (bit 10)
+    or rax, (1 << 9) | (1 << 10) | (1 << 18)
+                                     ; OSFXSR, OSXMMEXCPT, OSXSAVE
     mov cr4, rax
+
+    mov eax, 0xD
+    xor ecx, ecx
+    cpuid
+    and eax, 7                      ; x87 + SSE + AVX must be XCR0-capable
+    cmp eax, 7
+    jne .missing_xstate
+
+    xor ecx, ecx                    ; XCR_XFEATURE_ENABLED_MASK
+    mov eax, 7
+    xor edx, edx
+    xsetbv
+
+    mov eax, 0xD
+    xor ecx, ecx
+    cpuid
+    cmp ebx, 4096                   ; one page is reserved in every FCB
+    ja .missing_xstate
+    jmp .xstate_ready
+
+.missing_xstate:
+    mov rsi, msg_err_xstate
+    call uart_print_str
+    cli
+.halt_xstate:
+    hlt
+    jmp .halt_xstate
+.xstate_ready:
 
     ; 12. Initialize User Thread-Local Base (MSR_FS_BASE) to 0
     mov ecx, 0xC0000100             ; MSR_FS_BASE
@@ -375,6 +413,18 @@ cpu_verify_features:
     test ecx, 1 << 28
     jz .err_avx
 
+    ; XSAVE must be supported and enabled by cpu_init_hardware. The scheduler
+    ; owns x87/SSE/YMM state eagerly across every real fiber switch.
+    test ecx, 1 << 26
+    jz .err_xstate
+    test ecx, 1 << 27
+    jz .err_xstate
+    xor ecx, ecx
+    xgetbv
+    and eax, 7
+    cmp eax, 7
+    jne .err_xstate
+
     ; Query CPUID Leaf 7, Sub-leaf 0 (Extended Features)
     mov eax, 7
     xor ecx, ecx
@@ -406,6 +456,9 @@ cpu_verify_features:
     jmp .panic
 .err_avx2:
     mov rsi, msg_err_avx2
+    jmp .panic
+.err_xstate:
+    mov rsi, msg_err_xstate
     jmp .panic
 
 .panic:
@@ -496,5 +549,6 @@ msg_err_sse3:       db "!!! KERNEL PANIC: Missing CPU feature: SSE3 required !!!
 msg_err_fma:        db "!!! KERNEL PANIC: Missing CPU feature: FMA3 required !!!", 0x0D, 0x0A, 0
 msg_err_avx:        db "!!! KERNEL PANIC: Missing CPU feature: AVX required !!!", 0x0D, 0x0A, 0
 msg_err_avx2:       db "!!! KERNEL PANIC: Missing CPU feature: AVX2 required !!!", 0x0D, 0x0A, 0
+msg_err_xstate:     db "!!! KERNEL PANIC: Missing CPU feature: XSAVE/OSXSAVE XCR0[2:0] required !!!", 0x0D, 0x0A, 0
 
 %endif ; KERNEL_ARCH_X86_64_CPU_ASM

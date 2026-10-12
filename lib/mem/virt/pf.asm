@@ -14,6 +14,8 @@
 
 [BITS 64]
 
+%include "lib/percpu.inc"
+
 section .text
 
 ; VMA Flags (matching virt.asm design)
@@ -22,6 +24,8 @@ PAGE_KEY_1      equ (1 << 59)       ; Protection Key 1 (bits 62:59 = 0001)
 PAGE_SWAPPED    equ (1 << 10)
 PAGE_ZSWAPPED   equ (1 << 11)
 PAGE_ZRAM       equ (1 << 8)
+PF_XSTATE_SIZE  equ 4096
+PF_XSTATE_MASK  equ 7
 
 
 
@@ -51,34 +55,62 @@ page_fault_isr:
     push r14
     push r15
 
+    ; IST2 is a fixed stack, so a fault while already servicing any interrupt
+    ; cannot be recovered without overwriting the active frame. Fail closed.
+    cmp dword [gs:percpu_t.irq_depth], 0
+    jne .recursive_fault
+    inc dword [gs:percpu_t.irq_depth]
+
+    mov eax, [gs:percpu_t.cpu_id]
+    cmp eax, PERCPU_MAX_CORES
+    jae .recursive_fault
+    shl rax, 12
+    lea r13, [rel page_fault_xstate]
+    add r13, rax
+    mov eax, PF_XSTATE_MASK
+    xor edx, edx
+    xsave64 [r13]
+
+    mov r12, rsp                    ; saved GPR/hardware frame base
+
     ; 1. Read CR2 (faulting virtual address)
     mov rdi, cr2                    ; RDI = faulting address (arg 1)
 
     ; 2. Read error code
     ; The error code is at: RSP + 120 (since we pushed 15 registers * 8 bytes = 120 bytes)
-    mov rsi, [rsp + 120]            ; RSI = error code (arg 2)
+    mov rsi, [r12 + 120]            ; RSI = error code (arg 2)
 
     ; 3. Read original RSP (stack pointer at exception entry)
-    mov rdx, [rsp + 152]            ; RDX = original RSP (arg 3)
+    mov rdx, [r12 + 152]            ; RDX = original RSP (arg 3)
 
     ; 4. Pass pointer to return RIP on stack frame as arg 4 (RCX)
-    lea rcx, [rsp + 128]            ; RCX = RIP pointer
+    lea rcx, [r12 + 128]            ; RCX = RIP pointer
 
     ; Interrupt gates clear IF. Restore interruptibility while resolving faults
     ; only when the interrupted context had IF set; IRET restores the complete
     ; saved RFLAGS. Multicore TLB shootdown relies on this explicit contract.
-    test qword [rsp + 144], 1 << 9
+    test qword [r12 + 144], 1 << 9
     jz .dispatch
     sti
 
 .dispatch:
     ; 5. Call high-level handler
+    and rsp, -16                    ; IST hardware frame has no call alignment
     call virt_page_fault_handler    ; RAX = 1 if handled, 0 if unhandled
+    cli
+    mov r14, rax
+    mov eax, PF_XSTATE_MASK
+    xor edx, edx
+    xrstor64 [r13]
+    mov rsp, r12
+    mov rax, r14
 
     test rax, rax
     jz .unhandled
 
     ; Handled: restore registers and return
+    cli
+    dec dword [gs:percpu_t.irq_depth]
     pop r15
     pop r14
     pop r13
@@ -101,6 +133,8 @@ page_fault_isr:
 
 .unhandled:
     ; Restore registers and let common_isr_handler panic
+    cli
+    dec dword [gs:percpu_t.irq_depth]
     pop r15
     pop r14
     pop r13
@@ -118,9 +152,14 @@ page_fault_isr:
     pop rax
 
     ; Vector index 14
-    cli
     push qword 14
     jmp common_isr_handler
+
+.recursive_fault:
+    cli                             ; fixed IST frame is already unrecoverable
+.recursive_halt:
+    hlt
+    jmp .recursive_halt
 
 ; -----------------------------------------------------------------------------
 ; virt_page_fault_handler — parses error code and prints detailed debug logs
@@ -1300,5 +1339,10 @@ virt_handle_swap_fault:
     pop r12
     pop rbx
     ret
+
+section .bss
+alignb 4096
+page_fault_xstate:
+    resb PF_XSTATE_SIZE * PERCPU_MAX_CORES
 
 %endif ; LIB_MEM_VIRT_PF_ASM

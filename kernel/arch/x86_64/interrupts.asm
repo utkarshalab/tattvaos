@@ -14,6 +14,8 @@
 
 [BITS 64]
 
+%include "kernel/sched/sched.inc"
+
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -74,7 +76,12 @@ interrupts_init:
     jmp .loop_register
 
 .load_idt:
-    ; 2b. Register the two kernel-owned cross-CPU work vectors.
+    ; 2b. Register scheduler and kernel-owned cross-CPU work vectors.
+    mov rdi, SCHED_YIELD_VECTOR
+    mov rsi, sched_yield_isr
+    xor rdx, rdx                    ; scheduling must remain on the fiber stack
+    call register_idt_handler
+
     mov rdi, 0xFA                   ; vector 0xFA
     mov rsi, zpool_decomp_isr       ; decompression worker
     xor rdx, rdx                    ; no IST

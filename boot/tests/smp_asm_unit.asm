@@ -16,6 +16,7 @@ extern udelay
 extern register_idt_handler
 extern sched_init_real
 extern sched_core_loop
+extern sched_switch_frame
 extern ucpu_topology_decode_current
 extern ucpu_cache_topology_scan
 extern sys_handler
