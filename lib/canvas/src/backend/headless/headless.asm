@@ -1,0 +1,265 @@
+; ============================================================================
+; Headless Backend — Frames Kept in Memory, No Display Hardware
+; Used for testing, CI, and remote-only servers
+; ============================================================================
+
+%include "inc/abi.inc"
+%include "inc/macros.inc"
+%include "inc/errors.inc"
+%include "inc/tattva.inc"
+%include "inc/backend.inc"
+
+section .text
+
+; ---------------------------------------------------------------------------
+; headless_init
+;   Initialize headless backend
+;   IN:  rdi = backend*, rsi = config*
+;   OUT: rax = 0 OK, negative error
+; ---------------------------------------------------------------------------
+global headless_init
+headless_init:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    ; Allocate headless backend state
+    mov rdi, [rbx + Backend.arena]
+    mov rsi, 256
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov r13, rax
+
+    ; Fill backend state
+    mov qword [rbx + Backend.state], r13
+    mov qword [rbx + Backend.outputs], 0
+    mov qword [rbx + Backend.output_count], 0
+
+    ; Parse config for virtual outputs
+    ; TODO: Read config for output count, modes
+
+    ; Create default virtual output
+    call headless_create_virtual_output
+
+    xor rax, rax
+    ret
+
+.oom:
+    RETURN_ERROR ENOMEM
+
+; ---------------------------------------------------------------------------
+; headless_deinit
+;   Cleanup headless backend
+; ---------------------------------------------------------------------------
+global headless_deinit
+headless_deinit:
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    ASSERT_PTR rbx
+
+    mov rax, [rbx + Backend.state]
+    test rax, rax
+    jz .done
+
+    ; Free virtual outputs
+    ; TODO
+
+    ; Free backend state
+    mov rdi, [rbx + Backend.arena]
+    mov rsi, rax
+    call arena_free
+
+.done:
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; headless_modeset
+;   Set mode on virtual output (no-op, just updates state)
+;   IN:  rdi = backend*, rsi = output*, rdx = mode*
+;   OUT: rax = 0 OK
+; ---------------------------------------------------------------------------
+global headless_modeset
+headless_modeset:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    ; Update output current mode
+    mov rax, [r12 + Output.current_mode]
+    mov [r12 + Output.current_mode], rdx
+    mov [r12 + Output.current_mode], rdx
+
+    ; Update output geometry
+    mov eax, [rdx + Mode.width]
+    mov [r12 + Output.width], eax
+    mov eax, [rdx + Mode.height]
+    mov [r12 + Output.height], eax
+
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; headless_flip
+;   Flip to new buffer (copy to output framebuffer)
+;   IN:  rdi = backend*, rsi = output*, rdx = buffer*, rcx = fence
+;   OUT: rax = 0 OK
+; ---------------------------------------------------------------------------
+global headless_flip
+headless_flip:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    mov r14, rcx
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    ASSERT_PTR r13
+
+    ; Wait for acquire fence
+    test r14, r14
+    jz .no_fence
+    mov rdi, [rbx + Backend.server]
+    mov rsi, r14
+    mov rdx, 0
+    call fence_wait
+    test rax, rax
+    jnz .fence_fail
+
+.no_fence:
+    ; Copy buffer to output framebuffer
+    ; Output framebuffer is in output->framebuffer
+    mov rax, [r12 + Output.framebuffer]
+    test rax, rax
+    jz .no_fb
+
+    mov rdi, rax
+    mov rsi, [r13 + Buffer.base]
+    mov rdx, [r12 + Output.width]
+    mov rcx, [r12 + Output.height]
+    mov r8, [r12 + Output.stride]
+    mov r9, [r13 + Buffer.stride]
+    call blit_copy
+    test rax, rax
+    jnz .copy_fail
+
+    ; Signal release fence
+    test r14, r14
+    jz .done
+    mov rdi, [rbx + Backend.server]
+    mov rsi, r14
+    call fence_signal
+
+.done:
+    xor rax, rax
+    ret
+
+.no_fb:
+    RETURN_ERROR ENXIO
+.fence_fail:
+    RETURN_ERROR EFENCE_WAIT
+.copy_fail:
+    RETURN_ERROR EIO
+
+; ---------------------------------------------------------------------------
+; headless_vblank_wait
+;   Wait for vblank (simulated with timer)
+;   IN:  rdi = backend*, rsi = output*, rdx = sequence
+;   OUT: rax = PresentInfo*
+; ---------------------------------------------------------------------------
+global headless_vblank_wait
+headless_vblank_wait:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    ; Simulate vblank at 60Hz (16.67ms)
+    mov rdi, 16666667  ; 16.67ms in ns
+    call tv_time_sleep_ns
+
+    ; Return present info
+    ; TODO: Allocate and fill PresentInfo
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; headless_hotplug
+;   Hotplug callback (no-op for headless)
+; ---------------------------------------------------------------------------
+global headless_hotplug
+headless_hotplug:
+    PROLOGUE
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; headless_cursor
+;   Set cursor (no-op for headless)
+; ---------------------------------------------------------------------------
+global headless_cursor
+headless_cursor:
+    PROLOGUE
+    xor rax, rax
+    ret
+
+; ---------------------------------------------------------------------------
+; headless_create_virtual_output (internal)
+; ---------------------------------------------------------------------------
+headless_create_virtual_output:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, [rbx + Backend.arena]
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    ; Allocate output struct
+    mov rdi, r12
+    mov rsi, 128
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov r13, rax
+
+    ; Allocate framebuffer (1920x1080 BGRA8888)
+    mov rdi, r12
+    mov rsi, 1920
+    mov rdx, 1080
+    mov rcx, DRM_FORMAT_BGRA8888
+    call pixbuf_create
+    test rax, rax
+    jz .oom
+    mov r14, rax
+
+    ; Fill output
+    mov qword [r13 + Output.id], 1
+    mov qword [r13 + Output.backend], rbx
+    mov qword [r13 + Output.framebuffer], r14
+    mov dword [r13 + Output.width], 1920
+    mov dword [r13 + Output.height], 1080
+    mov qword [r13 + Output.stride], 1920 * 4
+    mov qword [r13 + Output.scale], FIX_ONE
+    mov dword [r13 + Output.rotation], 0
+
+    ; Add to backend output list
+    mov rax, [rbx + Backend.outputs]
+    mov [r13 + Output.next], rax
+    mov [rbx + Backend.outputs], r13
+    inc qword [rbx + Backend.output_count]
+
+    ret
+
+.oom:
+    RETURN_ERROR ENOMEM
+
+section .data
+
+global headless_version
+headless_version: dq 0x010000
