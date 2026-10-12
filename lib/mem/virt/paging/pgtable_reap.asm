@@ -60,7 +60,8 @@ virt_reap_empty_page_tables:
     jz .next_pml4
 
     ; R15 = PDPT physical address (identity mapped)
-    and rbx, 0xFFFFFFFFFFFFF000     ; R15 = PDPT virtual address pointer
+    mov rax, PAGE_ADDR_MASK_4K
+    and rbx, rax                    ; R15 = PDPT virtual address pointer
     mov r15, rbx
     xor rbp, rbp                    ; RBP = PDPT index (0 to 511)
 
@@ -75,7 +76,8 @@ virt_reap_empty_page_tables:
     jnz .next_pdpt
 
     ; R8 = PD physical address (identity mapped)
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov rax, PAGE_ADDR_MASK_4K
+    and rbx, rax
     mov r8, rbx
     xor r9, r9                      ; R9 = PD index (0 to 511)
 
@@ -90,7 +92,8 @@ virt_reap_empty_page_tables:
     jnz .next_pd
 
     ; R10 = PT physical address (identity mapped)
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov rax, PAGE_ADDR_MASK_4K
+    and rbx, rax
     mov r10, rbx
 
     ; Check if this PT page is actively shared

@@ -44,7 +44,7 @@ virt_translate:
     
     ; Level 4 or 5 (4KB page)
     mov rax, rcx
-    mov rsi, 0xFFFFFFFFFFFFF000
+    mov rsi, PAGE_ADDR_MASK_4K
     and rax, rsi                    ; RAX = page base address
     mov rsi, 0xFFF
     and rbx, rsi                    ; RBX = page offset
@@ -53,7 +53,7 @@ virt_translate:
 
 .huge_page_2mb:
     mov rax, rcx
-    mov rsi, 0xFFFFFFFFFFE00000     ; 2MB page mask
+    mov rsi, PAGE_ADDR_MASK_2M      ; 2MB page address field
     and rax, rsi                    ; RAX = huge page base address
     mov rsi, 0x1FFFFF
     and rbx, rsi                    ; RBX = huge page offset
@@ -62,7 +62,7 @@ virt_translate:
 
 .super_page_1gb:
     mov rax, rcx
-    mov rsi, 0xFFFFFFFFC0000000     ; 1GB page mask
+    mov rsi, PAGE_ADDR_MASK_1G      ; 1GB page address field
     and rax, rsi                    ; RAX = super page base address
     mov rsi, 0x3FFFFFFF
     and rbx, rsi                    ; RBX = super page offset

@@ -31,4 +31,4 @@ set -e
     exit 1
 }
 
-echo "PASS: physical E820 parser bounds, alignment, sparse-map, and overflow contracts"
+echo "PASS: physical E820 parser bounds, canonical order, high-cap, sparse-map, and overflow contracts"

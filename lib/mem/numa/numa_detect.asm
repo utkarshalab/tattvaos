@@ -13,6 +13,15 @@
 
 [BITS 64]
 
+; Early NUMA discovery may only dereference the loader's guaranteed contiguous
+; identity map.  Sparse high-memory mappings deliberately exclude ACPI/NVS
+; pages, so high firmware tables are rejected until an explicit ACPI mapper
+; exists.  Work is capped independently of the mapped aperture.
+NUMA_ACPI_MAX_TABLE_BYTES equ 0x100000
+NUMA_ACPI_MAX_RSDP_BYTES  equ 4096
+NUMA_ACPI_MAX_ROOT_ENTRIES equ 4096
+NUMA_ACPI_MAX_CANDIDATES   equ 16
+
 section .text
 
 ; External symbols
@@ -49,41 +58,75 @@ numa_detect_init:
     jz .parse_tables
 
     ; 1. Load RSDP address from BootInfo (offset 24)
-    mov rsi, [rdi + 24]
-    test rsi, rsi
+    mov r13, [rdi + BOOT_INFO_ACPI_RSDP_OFF]
+    test r13, r13
     jz .parse_tables
 
+    ; ACPI 1.0 guarantees the first 20 bytes.  Prove accessibility before the
+    ; first signature byte is touched, then validate the legacy checksum.
+    mov rdi, r13
+    mov ecx, 20
+    call numa_acpi_low_span
+    jc .parse_tables
+
     ; Verify RSDP signature "RSD PTR "
-    mov rbx, [rsi]
+    mov rbx, [r13]
     mov rcx, 0x2052545020445352     ; "RSD PTR "
     cmp rbx, rcx
     jne .parse_tables
+    mov rdi, r13
+    mov ecx, 20
+    call numa_acpi_checksum_ok
+    test eax, eax
+    jz .parse_tables
 
     ; 2. Determine revision
-    movzx eax, byte [rsi + 15]      ; Revision
+    movzx eax, byte [r13 + 15]      ; Revision
     cmp al, 2
-    jl .use_rsdt                    ; ACPI 1.0 -> Use RSDT
+    jb .use_rsdt                    ; ACPI 1.0 -> Use RSDT
+
+    ; ACPI 2.0+ fields are not readable until the fixed extended header and
+    ; its bounded declared length have both been validated.
+    mov rdi, r13
+    mov ecx, 36
+    call numa_acpi_low_span
+    jc .use_rsdt
+    mov r10d, [r13 + 20]            ; RSDP Length
+    cmp r10d, 36
+    jb .use_rsdt
+    cmp r10d, NUMA_ACPI_MAX_RSDP_BYTES
+    ja .use_rsdt
+    mov rdi, r13
+    mov ecx, r10d
+    call numa_acpi_low_span
+    jc .use_rsdt
+    call numa_acpi_checksum_ok
+    test eax, eax
+    jz .use_rsdt
 
     ; ACPI 2.0+ -> Use XSDT if non-zero
-    mov rdi, [rsi + 24]             ; XsdtAddress
+    mov rdi, [r13 + 24]             ; XsdtAddress
     test rdi, rdi
     jz .use_rsdt
 
+    call numa_acpi_sdt_valid
+    jc .use_rsdt
+
     ; XSDT Table walking
-    mov rbx, [rdi]                  ; Signature
-    mov ecx, 0x54445358             ; "XSDT"
-    cmp ebx, ecx
+    cmp dword [rdi], 0x54445358     ; "XSDT"
     jne .use_rsdt
 
     ; Parse XSDT
-    mov r10d, [rdi + 4]             ; XSDT Length
-    cmp r10d, 36
-    jbe .parse_tables
-
-    sub r10d, 36
-    shr r10d, 3                     ; number of 64-bit pointers
+    mov r10, rax                    ; validated XSDT Length
+    sub r10, 36
+    test r10, 7
+    jnz .use_rsdt
+    shr r10, 3                      ; number of 64-bit pointers
+    cmp r10, NUMA_ACPI_MAX_ROOT_ENTRIES
+    ja .use_rsdt
     lea rbx, [rdi + 36]             ; first pointer
     xor rcx, rcx                    ; entry index
+    xor r11d, r11d                  ; relevant-table validation attempts
 
 .xsdt_loop:
     cmp rcx, r10
@@ -93,20 +136,44 @@ numa_detect_init:
     test rsi, rsi
     jz .xsdt_next
 
+    mov rdi, rsi
+    call numa_acpi_sdt_candidate
+    jc .xsdt_next
+
     ; Check table signature
-    mov eax, [rsi]
     cmp eax, 0x54415253             ; "SRAT"
     jne .xsdt_check_slit
+    test r14, r14
+    jnz .xsdt_next
+    inc r11
+    cmp r11, NUMA_ACPI_MAX_CANDIDATES
+    ja .parse_tables
+    call numa_acpi_sdt_valid
+    jc .xsdt_next
     mov r14, rsi
     jmp .xsdt_next
 .xsdt_check_slit:
     cmp eax, 0x54494C53             ; "SLIT"
     jne .xsdt_check_hmat
+    test r15, r15
+    jnz .xsdt_next
+    inc r11
+    cmp r11, NUMA_ACPI_MAX_CANDIDATES
+    ja .parse_tables
+    call numa_acpi_sdt_valid
+    jc .xsdt_next
     mov r15, rsi
     jmp .xsdt_next
 .xsdt_check_hmat:
     cmp eax, 0x54414D48              ; "HMAT"
     jne .xsdt_next
+    test r12, r12
+    jnz .xsdt_next
+    inc r11
+    cmp r11, NUMA_ACPI_MAX_CANDIDATES
+    ja .parse_tables
+    call numa_acpi_sdt_valid
+    jc .xsdt_next
     mov r12, rsi
 
 .xsdt_next:
@@ -115,24 +182,27 @@ numa_detect_init:
 
 .use_rsdt:
     ; RSDT Table walking
-    mov rdi, [rsi + 16]             ; RsdtAddress (32-bit pointer)
+    mov edi, dword [r13 + 16]       ; RsdtAddress is always a 32-bit pointer
     test rdi, rdi
     jz .parse_tables
 
-    mov rbx, [rdi]                  ; Signature
-    mov ecx, 0x54445352             ; "RSDT"
-    cmp ebx, ecx
+    call numa_acpi_sdt_valid
+    jc .parse_tables
+
+    cmp dword [rdi], 0x54445352     ; "RSDT"
     jne .parse_tables
 
     ; Parse RSDT
-    mov r10d, [rdi + 4]             ; RSDT Length
-    cmp r10d, 36
-    jbe .parse_tables
-
-    sub r10d, 36
-    shr r10d, 2                     ; number of 32-bit pointers
+    mov r10, rax                    ; validated RSDT Length
+    sub r10, 36
+    test r10, 3
+    jnz .parse_tables
+    shr r10, 2                      ; number of 32-bit pointers
+    cmp r10, NUMA_ACPI_MAX_ROOT_ENTRIES
+    ja .parse_tables
     lea rbx, [rdi + 36]             ; first pointer
     xor rcx, rcx
+    xor r11d, r11d                  ; relevant-table validation attempts
 
 .rsdt_loop:
     cmp rcx, r10
@@ -142,20 +212,44 @@ numa_detect_init:
     test rsi, rsi
     jz .rsdt_next
 
+    mov rdi, rsi
+    call numa_acpi_sdt_candidate
+    jc .rsdt_next
+
     ; Check table signature
-    mov eax, [rsi]
     cmp eax, 0x54415253             ; "SRAT"
     jne .rsdt_check_slit
+    test r14, r14
+    jnz .rsdt_next
+    inc r11
+    cmp r11, NUMA_ACPI_MAX_CANDIDATES
+    ja .parse_tables
+    call numa_acpi_sdt_valid
+    jc .rsdt_next
     mov r14, rsi
     jmp .rsdt_next
 .rsdt_check_slit:
     cmp eax, 0x54494C53             ; "SLIT"
     jne .rsdt_check_hmat
+    test r15, r15
+    jnz .rsdt_next
+    inc r11
+    cmp r11, NUMA_ACPI_MAX_CANDIDATES
+    ja .parse_tables
+    call numa_acpi_sdt_valid
+    jc .rsdt_next
     mov r15, rsi
     jmp .rsdt_next
 .rsdt_check_hmat:
     cmp eax, 0x54414D48              ; "HMAT"
     jne .rsdt_next
+    test r12, r12
+    jnz .rsdt_next
+    inc r11
+    cmp r11, NUMA_ACPI_MAX_CANDIDATES
+    ja .parse_tables
+    call numa_acpi_sdt_valid
+    jc .rsdt_next
     mov r12, rsi
 
 .rsdt_next:
@@ -183,17 +277,30 @@ numa_detect_init:
     jbe .srat_fallback
 
     lea r11, [rdi + 48]             ; current entry pointer
-    lea r12, [rdi + r10]            ; end of table
+    mov r12, rdi
+    add r12, r10                    ; end of table
+    jc .srat_fallback
     xor r13, r13                    ; range index count = 0
 
 .srat_entry_loop:
     cmp r11, r12
     jae .srat_done
 
+    mov rax, r12
+    sub rax, r11                    ; bytes remaining in the SRAT
+    jc .srat_fallback
+    cmp rax, 2
+    jb .srat_fallback               ; truncated subtable header
+
     movzx eax, byte [r11]           ; Type
     movzx ecx, byte [r11 + 1]       ; Length
     cmp ecx, 2
-    jb .srat_done                   ; sanity check
+    jb .srat_fallback
+    mov rdx, r11
+    add rdx, rcx
+    jc .srat_fallback
+    cmp rdx, r12
+    ja .srat_fallback               ; declared subtable crosses table end
 
     cmp eax, 1                      ; Type 1 = Memory Affinity
     jne .next_srat_entry
@@ -230,16 +337,34 @@ numa_detect_init:
     mov r9, rbp
     sub r9, r8                      ; clipped, page-aligned length
 
-    ; Read split Proximity Domain (Node ID)
-    movzx eax, byte [r11 + 2]
-    mov r14d, [r11 + 4]
-    and r14d, 0x00FFFFFF
-    shl r14d, 8
-    or r14d, eax                    ; full 32-bit Node ID
+    ; Type-1 Memory Affinity stores one contiguous 32-bit proximity domain.
+    mov r14d, [r11 + 2]
+
+    ; Reject overlapping affinities instead of letting two node-local
+    ; allocators publish the same PFN.  SRAT order is not trusted.
+    xor r10d, r10d
+.validate_srat_range:
+    cmp r10, r13
+    jae .store_srat_range
+    mov rax, r10
+    imul rax, numa_range_t_size
+    lea r15, [numa_ranges + rax]
+    mov rdi, [r15 + numa_range_t.base]
+    mov rsi, [r15 + numa_range_t.length]
+    add rsi, rdi
+    jc .srat_fallback
+    cmp r8, rsi
+    jae .next_validated_range
+    cmp rdi, rbp
+    jb .srat_fallback
+.next_validated_range:
+    inc r10
+    jmp .validate_srat_range
 
     ; Store range
+.store_srat_range:
     cmp r13, NUMA_MAX_RANGES
-    jae .srat_done
+    jae .srat_fallback              ; never publish a truncated ownership map
 
     mov rax, r13
     imul rax, numa_range_t_size
@@ -259,6 +384,57 @@ numa_detect_init:
     test r13, r13
     jz .srat_fallback
     mov [numa_range_count], r13
+
+    ; A partial SRAT cannot become allocator authority: pages omitted from its
+    ; affinities would remain globally free but unreachable/unfreeable after
+    ; node-local bitmaps go live.  Ranges are already non-overlapping, so the
+    ; sum of their canonical type-1 E820 intersections must equal every page
+    ; currently managed by the PMM.
+    xor r8d, r8d
+    xor r9d, r9d
+.validate_srat_coverage:
+    cmp r8, r13
+    jae .srat_coverage_done
+    mov rax, r8
+    imul rax, numa_range_t_size
+    lea rdx, [numa_ranges + rax]
+    mov rdi, [rdx + numa_range_t.base]
+    mov rsi, [rdx + numa_range_t.length]
+    add rsi, rdi
+    jc .srat_fallback
+    shr rdi, 12
+    shr rsi, 12
+    call numa_count_usable_pages
+    add r9, rax
+    jc .srat_fallback
+    inc r8
+    jmp .validate_srat_coverage
+.srat_coverage_done:
+    cmp r9, [phys_state + phys_state_t.total_pages]
+    jne .srat_fallback
+
+    ; Node descriptors and the distance matrix are fixed-size.  Establish a
+    ; safe count from SRAT even when firmware supplies no SLIT table.
+    xor r8d, r8d
+    xor r9d, r9d                    ; highest node ID + 1
+.derive_node_count:
+    cmp r8, r13
+    jae .node_count_ready
+    mov rax, r8
+    imul rax, numa_range_t_size
+    lea rdx, [numa_ranges + rax]
+    mov eax, [rdx + numa_range_t.node_id]
+    cmp eax, NUMA_MAX_NODES
+    jae .srat_fallback
+    inc rax
+    cmp r9, rax
+    cmovb r9, rax
+    inc r8
+    jmp .derive_node_count
+.node_count_ready:
+    test r9, r9
+    jz .srat_fallback
+    mov [numa_node_count], r9
     mov rsi, msg_numa_srat_ok
     call uart_print_str
     jmp .parse_slit
@@ -277,13 +453,19 @@ numa_detect_init:
     mov dword [r15 + numa_range_t.flags], 1
 
     mov qword [numa_range_count], 1
+    mov qword [numa_node_count], 1
+    mov qword [numa_srat_phys_addr], 0
+    mov qword [numa_slit_phys_addr], 0
+    mov qword [numa_hmat_phys_addr], 0
     mov rsi, msg_numa_srat_fallback
     call uart_print_str
+    jmp .default_distances
 
 .parse_slit:
     ; =========================================================================
     ; 2. Parse SLIT
     ; =========================================================================
+    mov r15, [numa_slit_phys_addr]
     test r15, r15
     jz .slit_fallback
 
@@ -291,17 +473,30 @@ numa_detect_init:
     mov r10d, [rdi + 4]             ; SLIT Length
     cmp r10d, 44
     jbe .slit_fallback
+    mov ebp, r10d
 
     ; Read Number of System Localities (64-bit at offset 36)
     mov r10, [rdi + 36]
     test r10, r10
     jz .slit_fallback
 
+    ; The distance matrix must fit completely inside the ACPI table.
+    mov rax, r10
+    mul r10
+    test rdx, rdx
+    jnz .slit_fallback
+    add rax, 44
+    jc .slit_fallback
+    cmp rax, rbp
+    ja .slit_fallback
+
     mov r9, r10
     cmp r9, NUMA_MAX_NODES
     jbe .count_ok
     mov r9, NUMA_MAX_NODES
 .count_ok:
+    cmp r9, [numa_node_count]
+    jb .slit_fallback               ; matrix omits a memory proximity domain
     mov [numa_node_count], r9
 
     ; Copy submatrix row by row
@@ -326,6 +521,13 @@ numa_detect_init:
     cmp r8, r9
     jae .next_row
     mov al, [rsi + r8]
+    cmp al, NUMA_DEFAULT_LOCAL_DISTANCE
+    jb .slit_fallback               ; ACPI reserves distance values 0..9
+    cmp rcx, r8
+    jne .store_distance
+    cmp al, NUMA_DEFAULT_LOCAL_DISTANCE
+    jne .slit_fallback              ; every diagonal distance must be 10
+.store_distance:
     mov [rdx + r8], al
     inc r8
     jmp .col_loop
@@ -335,24 +537,64 @@ numa_detect_init:
     jmp .row_loop
 
 .slit_done:
+    ; Every stored proximity domain must index the accepted SLIT submatrix.
+    ; Sparse/out-of-range firmware IDs fall back safely instead of indexing
+    ; beyond numa_nodes or the distance matrix.
+    xor r8d, r8d
+.validate_node_ids:
+    cmp r8, [numa_range_count]
+    jae .slit_valid
+    mov rax, r8
+    imul rax, numa_range_t_size
+    lea rdx, [numa_ranges + rax]
+    mov eax, [rdx + numa_range_t.node_id]
+    cmp rax, r9
+    jae .slit_fallback
+    inc r8
+    jmp .validate_node_ids
+
+.slit_valid:
     mov rsi, msg_numa_slit_ok
     call uart_print_str
     jmp .exit
 
 .slit_fallback:
-    ; Fallback: 1 node (UMA), distance 10
-    mov qword [numa_node_count], 1
-    mov byte [numa_distance_matrix], 10
+    ; SRAT remains authoritative without SLIT.  Use conservative local/remote
+    ; defaults over the already-bounded SRAT node set.
+    mov qword [numa_slit_phys_addr], 0
+    mov rsi, msg_numa_slit_fallback
+    call uart_print_str
 
-    ; Fill remaining 63 bytes with 255
-    lea rdi, [numa_distance_matrix + 1]
-    mov rcx, 63
+.default_distances:
+    lea rdi, [numa_distance_matrix]
+    mov rcx, NUMA_MAX_NODES * NUMA_MAX_NODES
     mov al, 255
     cld
     rep stosb
 
-    mov rsi, msg_numa_slit_fallback
-    call uart_print_str
+    mov r9, [numa_node_count]
+    xor ecx, ecx
+.default_row:
+    cmp rcx, r9
+    jae .exit
+    xor r8d, r8d
+.default_col:
+    cmp r8, r9
+    jae .default_next_row
+    mov rax, rcx
+    imul rax, r9
+    add rax, r8
+    mov dl, NUMA_DEFAULT_REMOTE_DISTANCE
+    cmp rcx, r8
+    jne .default_store
+    mov dl, NUMA_DEFAULT_LOCAL_DISTANCE
+.default_store:
+    mov [numa_distance_matrix + rax], dl
+    inc r8
+    jmp .default_col
+.default_next_row:
+    inc rcx
+    jmp .default_row
 
 .exit:
     pop r15
@@ -370,6 +612,106 @@ numa_detect_init:
     ret
 
 ; -----------------------------------------------------------------------------
+; Early ACPI access helpers
+; -----------------------------------------------------------------------------
+; numa_acpi_low_span — validate [RDI, RDI+RCX) inside the guaranteed direct map
+; Output: CF clear when accessible, CF set otherwise.  Preserves registers.
+numa_acpi_low_span:
+    test rcx, rcx
+    jz .bad
+    push rax
+    mov rax, rdi
+    add rax, rcx
+    jc .bad_pop
+    cmp rax, [phys_state + phys_state_t.direct_map_limit]
+    ja .bad_pop
+    pop rax
+    clc
+    ret
+.bad_pop:
+    pop rax
+.bad:
+    stc
+    ret
+
+; numa_acpi_checksum_ok — return RAX=1 when RCX bytes sum to zero modulo 256.
+; The caller must first validate the complete span.
+numa_acpi_checksum_ok:
+    push rcx
+    push rdx
+    push rdi
+    xor edx, edx
+.sum:
+    add dl, [rdi]
+    inc rdi
+    dec rcx
+    jnz .sum
+    xor eax, eax
+    test dl, dl
+    sete al
+    pop rdi
+    pop rdx
+    pop rcx
+    ret
+
+; numa_acpi_sdt_valid — validate a complete standard ACPI SDT before use.
+; Input: RDI = physical/identity address. Output: RAX=length and CF clear, or
+; RAX=0 and CF set. Preserves all other registers.
+numa_acpi_sdt_valid:
+    push rcx
+    push rdx
+    mov ecx, 36
+    call numa_acpi_low_span
+    jc .invalid
+    mov edx, [rdi + 4]
+    cmp edx, 36
+    jb .invalid
+    cmp edx, NUMA_ACPI_MAX_TABLE_BYTES
+    ja .invalid
+    mov ecx, edx
+    call numa_acpi_low_span
+    jc .invalid
+    call numa_acpi_checksum_ok
+    test eax, eax
+    jz .invalid
+    mov eax, edx
+    pop rdx
+    pop rcx
+    clc
+    ret
+.invalid:
+    xor eax, eax
+    pop rdx
+    pop rcx
+    stc
+    ret
+
+; numa_acpi_sdt_candidate — safely prefilter a child header by signature so
+; irrelevant tables do not consume the bounded full-table checksum budget.
+; Output: EAX=signature and CF clear for SRAT/SLIT/HMAT, CF set otherwise.
+numa_acpi_sdt_candidate:
+    push rcx
+    mov ecx, 36
+    call numa_acpi_low_span
+    jc .not_candidate
+    mov eax, [rdi]
+    cmp eax, 0x54415253             ; "SRAT"
+    je .candidate
+    cmp eax, 0x54494C53             ; "SLIT"
+    je .candidate
+    cmp eax, 0x54414D48             ; "HMAT"
+    jne .not_candidate
+.candidate:
+    pop rcx
+    clc
+    ret
+.not_candidate:
+    xor eax, eax
+    pop rcx
+    stc
+    ret
+
+; -----------------------------------------------------------------------------
 ; Messages
 ; -----------------------------------------------------------------------------
 section .data
@@ -384,6 +726,6 @@ numa_hmat_phys_addr: dq 0
 msg_numa_srat_ok:       db "NUMA: ACPI SRAT table parsing successful.", 0x0D, 0x0A, 0
 msg_numa_srat_fallback: db "NUMA: SRAT not found or invalid. Defaulting to UMA (Node 0).", 0x0D, 0x0A, 0
 msg_numa_slit_ok:       db "NUMA: ACPI SLIT table parsing successful.", 0x0D, 0x0A, 0
-msg_numa_slit_fallback: db "NUMA: SLIT not found or invalid. Defaulting to UMA distances.", 0x0D, 0x0A, 0
+msg_numa_slit_fallback: db "NUMA: SLIT not found or invalid. Defaulting to SRAT topology distances.", 0x0D, 0x0A, 0
 
 %endif ; LIB_MEM_NUMA_NUMA_DETECT_ASM

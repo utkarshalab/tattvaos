@@ -48,6 +48,7 @@
 %include "lib/mem/virt/paging/pgtable_map.asm"
 %include "lib/mem/virt/paging/pgtable_unmap.asm"
 %include "lib/mem/virt/paging/pgtable_walk.asm"
+%include "lib/mem/phys/highmem.asm"
 %include "lib/mem/virt/paging/pgtable_split.asm"
 %include "lib/mem/virt/paging/pgtable_lock.asm"
 %include "lib/mem/virt/paging/pgtable_cache.asm"

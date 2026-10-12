@@ -86,6 +86,92 @@ numa_get_node_by_phys:
     ret
 
 ; -----------------------------------------------------------------------------
+; numa_range_owner — prove a byte range is continuously covered by enabled
+; NUMA ranges belonging to one node.
+; Input:  RDI = physical start, RSI = exclusive physical end
+; Output: RAX = node ID, or -1 for a gap, mixed ownership, or malformed range
+; Clobbers: none except RAX
+; -----------------------------------------------------------------------------
+global numa_range_owner
+numa_range_owner:
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+
+    mov r8, rdi                     ; covered-through cursor
+    mov r9, rsi
+    mov r10, -1                    ; owner not selected yet
+    cmp r8, r9
+    jae .strict_not_found
+
+.strict_cover:
+    cmp r8, r9
+    jae .strict_found
+    xor ebx, ebx
+
+.strict_scan:
+    cmp rbx, [numa_range_count]
+    jae .strict_not_found
+    mov rax, rbx
+    imul rax, numa_range_t_size
+    lea rbp, [numa_ranges + rax]
+    test dword [rbp + numa_range_t.flags], 1
+    jz .strict_next
+
+    mov rdx, [rbp + numa_range_t.base]
+    mov rcx, [rbp + numa_range_t.length]
+    add rcx, rdx
+    jc .strict_not_found
+    cmp r8, rdx
+    jb .strict_next
+    cmp r8, rcx
+    jae .strict_next
+
+    mov eax, [rbp + numa_range_t.node_id]
+    cmp r10, -1
+    je .strict_set_owner
+    cmp rax, r10
+    jne .strict_not_found
+    jmp .strict_advance
+.strict_set_owner:
+    mov r10, rax
+.strict_advance:
+    mov r8, rcx
+    cmp r8, r9
+    jbe .strict_cover
+    mov r8, r9
+    jmp .strict_cover
+
+.strict_next:
+    inc rbx
+    jmp .strict_scan
+
+.strict_found:
+    mov rax, r10
+    jmp .strict_exit
+.strict_not_found:
+    mov rax, -1
+.strict_exit:
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
 ; numa_get_distance — gets relative memory distance between two nodes
 ; Input:
 ;   RDI = node_from (Node ID)
@@ -133,6 +219,84 @@ numa_get_distance:
     mov rax, 255                    ; unreachable/invalid
 
 .exit:
+    pop rdx
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; numa_count_usable_pages — count canonical E820 usable pages inside a PFN span
+; Input:  RDI = first PFN, RSI = exclusive ending PFN
+; Output: RAX = page count
+; Clobbers: none except RAX
+; -----------------------------------------------------------------------------
+numa_count_usable_pages:
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+
+    mov r8, rdi
+    mov r9, rsi
+    xor r10d, r10d
+    cmp r8, r9
+    jae .usable_count_done
+
+    mov rax, [boot_info_ptr]
+    test rax, rax
+    jz .usable_count_done
+    mov r11, [rax + BOOT_INFO_E820_PTR_OFF]
+    mov ebp, [rax + BOOT_INFO_E820_COUNT_OFF]
+    xor ebx, ebx
+
+.usable_count_loop:
+    cmp rbx, rbp
+    jae .usable_count_done
+    mov rax, rbx
+    imul rax, e820_entry_size
+    add rax, r11
+    cmp dword [rax + e820_entry.type], 1
+    jne .usable_count_next
+
+    mov rdx, [rax + e820_entry.base]
+    mov rcx, [rax + e820_entry.length]
+    add rcx, rdx
+    jc .usable_count_next
+    add rdx, 4095
+    jc .usable_count_next
+    and rdx, -4096
+    and rcx, -4096
+    shr rdx, 12                    ; aligned E820 first PFN
+    shr rcx, 12                    ; aligned E820 exclusive PFN
+
+    cmp rdx, r8
+    cmovb rdx, r8
+    cmp rcx, r9
+    cmova rcx, r9
+    cmp rdx, rcx
+    jae .usable_count_next
+    sub rcx, rdx
+    add r10, rcx
+
+.usable_count_next:
+    inc rbx
+    jmp .usable_count_loop
+
+.usable_count_done:
+    mov rax, r10
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
     pop rdx
     pop rcx
     pop rbx
@@ -207,9 +371,9 @@ alloc_local_pages_for_bitmap:
     ; Test page index in the global bitmap
     mov rsi, [phys_state + phys_state_t.bitmap_addr]
     mov rdx, rax
-    shr rdx, 3                      ; byte offset
-    and rax, 7                      ; bit offset
-    bt [rsi + rdx], rax
+    shr rdx, 6                      ; qword index
+    and rax, 63                     ; bit offset
+    bt qword [rsi + rdx * 8], rax
     jc .blocked                     ; bit set = occupied
 
     inc rcx
@@ -232,14 +396,19 @@ alloc_local_pages_for_bitmap:
 
     mov rsi, [phys_state + phys_state_t.bitmap_addr]
     mov rdx, rax
-    shr rdx, 3                      ; byte offset
-    and rax, 7                      ; bit offset
-    bts [rsi + rdx], rax            ; set bit to 1
+    shr rdx, 6                      ; qword index
+    and rax, 63                     ; bit offset
+    bts qword [rsi + rdx * 8], rax
 
     inc rcx
     jmp .reserve_loop
 
 .reserve_done:
+    ; This is a permanent allocator-metadata reservation, not a dynamic
+    ; allocation: update occupancy counters but leave ownership bits clear.
+    sub [phys_state + phys_state_t.free_pages], r13
+    add [phys_state + phys_state_t.reserved_pages], r13
+
     ; Return physical address
     mov rax, rdi
     shl rax, 12                     ; convert to phys address
@@ -278,6 +447,8 @@ numa_init_local_bitmaps:
     push r13
     push r14
     push r15
+
+    mov qword [numa_local_bitmaps_active], 0
 
     mov r14, [numa_node_count]
     test r14, r14
@@ -349,19 +520,31 @@ numa_init_local_bitmaps:
 .check_end_page:
     mov rcx, [r12 + numa_node_t.end_page]
     cmp r10, rcx
-    jbe .add_total_pages
+    jbe .account_total_pages
     mov [r12 + numa_node_t.end_page], r10
 
-.add_total_pages:
-    mov rcx, r10
-    sub rcx, r8                     ; range page count
-    add [r12 + numa_node_t.total_pages], rcx
+.account_total_pages:
+    ; SRAT spans can include firmware/MMIO holes.  Node totals describe only
+    ; page-aligned type-1 E820 RAM managed by the global allocator.
+    mov rdi, r8
+    mov rsi, r10
+    call numa_count_usable_pages
+    add [r12 + numa_node_t.total_pages], rax
 
 .next_range_setup:
     inc rbx
     jmp .node_ranges_loop
 
 .node_setup_next:
+    ; SRAT may advertise a domain whose ranges contain no canonical type-1
+    ; E820 pages.  Keep it out of the allocator instead of allocating a huge
+    ; all-reserved bitmap (or panicking) for memory the PMM can never use.
+    cmp qword [r12 + numa_node_t.total_pages], 0
+    jne .node_setup_advance
+    mov dword [r12 + numa_node_t.flags], 0
+    mov qword [r12 + numa_node_t.start_page], -1
+    mov qword [r12 + numa_node_t.end_page], 0
+.node_setup_advance:
     inc r15
     jmp .node_setup_loop
 
@@ -384,8 +567,9 @@ numa_init_local_bitmaps:
     ; Calculate bitmap size in bytes
     mov rax, [r12 + numa_node_t.end_page]
     sub rax, [r12 + numa_node_t.start_page] ; page count
-    add rax, 7
-    shr rax, 3                      ; bitmap size in bytes
+    add rax, 63
+    shr rax, 6
+    shl rax, 3                      ; qword-safe bitmap size in bytes
     mov [r12 + numa_node_t.bitmap_size], rax
 
     ; Calculate bitmap page count
@@ -404,69 +588,135 @@ numa_init_local_bitmaps:
     mov rdi, r13
     call phys_alloc_pages
     test rax, rax
-    jz .panic_oom
+    jz .fallback_uma
 
 .local_alloc_ok:
     mov [r12 + numa_node_t.bitmap_addr], rax
 
-    ; Clear the allocated bitmap memory to 0 (all pages free by default)
-    mov rdi, rax
-    mov rcx, [r12 + numa_node_t.bitmap_size]
-    xor al, al
-    cld
-    rep stosb
-
-    ; Reserve the bitmap's own pages in its local bitmap
-    mov rbx, [r12 + numa_node_t.bitmap_addr]
-    shr rbx, 12                     ; start page index of bitmap
-    sub rbx, [r12 + numa_node_t.start_page] ; relative start page
-
-    xor rcx, rcx                    ; index 0 .. r13-1
-.reserve_local_bitmap_pages:
+    ; Node bitmap backing is permanent metadata even when the global allocator
+    ; supplied it through the fallback path.
+    mov rbx, rax
+    shr rbx, 12
+    xor rcx, rcx
+.clear_bitmap_ownership:
     cmp rcx, r13
-    jae .populate_from_global
+    jae .bitmap_ownership_cleared
+    mov rdi, rbx
+    add rdi, rcx
+    push rcx
+    call alloc_bitmap_clear_bit
+    pop rcx
+    inc rcx
+    jmp .clear_bitmap_ownership
+.bitmap_ownership_cleared:
 
-    mov rsi, rbx
-    add rsi, rcx                    ; relative page index parameter
+    ; A fallback allocation can land in a node whose bitmap was initialized
+    ; earlier.  Reflect this new permanent reservation there immediately;
+    ; current/later nodes will observe it while they snapshot the global map.
+    xor rcx, rcx
+.sync_initialized_owner:
+    cmp rcx, r13
+    jae .owner_sync_done
+    mov rdi, rbx
+    add rdi, rcx                    ; absolute PFN
+    shl rdi, 12
+    lea rsi, [rdi + 4096]
+    push rcx
+    call numa_range_owner
+    pop rcx
+    cmp rax, -1
+    je .owner_sync_next
+    cmp rax, [numa_node_count]
+    jae .owner_sync_next
+    imul rax, numa_node_t_size
+    lea rbp, [numa_nodes + rax]
+    test dword [rbp + numa_node_t.flags], 2
+    jz .owner_sync_next
 
-    mov rdi, r12
-    ; bitmap_set_bit_local clobbers RCX and this loop counts with it — see
-    ; lib/mem/phys/phys.asm's phys_alloc_pages_node for the same defect.
+    mov rdx, rbx
+    add rdx, rcx                    ; absolute PFN
+    cmp rdx, [rbp + numa_node_t.start_page]
+    jb .owner_sync_next
+    cmp rdx, [rbp + numa_node_t.end_page]
+    jae .owner_sync_next
+    sub rdx, [rbp + numa_node_t.start_page]
+
+    mov rdi, rbp
+    mov rsi, rdx
+    push rcx
+    call bitmap_test_bit_local
+    pop rcx
+    test rax, rax
+    jnz .owner_sync_next
+    mov rdi, rbp
+    mov rsi, rdx
     push rcx
     call bitmap_set_bit_local
     pop rcx
+    dec qword [rbp + numa_node_t.free_pages]
+    inc qword [rbp + numa_node_t.reserved_pages]
 
+.owner_sync_next:
     inc rcx
-    jmp .reserve_local_bitmap_pages
+    jmp .sync_initialized_owner
+.owner_sync_done:
+
+    ; Start reserved.  Only globally-free PFNs in this node's own enabled SRAT
+    ; ranges are cleared below; holes and another node's RAM must stay busy.
+    mov rdi, [r12 + numa_node_t.bitmap_addr]
+    mov rcx, [r12 + numa_node_t.bitmap_size]
+    mov al, 0xFF
+    cld
+    rep stosb
 
 .populate_from_global:
-    ; 3. Populate allocation status of all pages from global bitmap
-    mov r10, [r12 + numa_node_t.start_page]
-    mov r11, [r12 + numa_node_t.end_page]
-    xor rbx, rbx                    ; relative page index = 0
-
-.populate_loop:
-    mov rax, r10
-    add rax, rbx                    ; rax = absolute page index
-    cmp rax, r11
+    ; 3. Visit only this node's enabled ranges and clear a local bit when the
+    ; corresponding global PFN is free.  This handles discontiguous nodes
+    ; without publishing intervening holes or another node's memory.
+    xor rbp, rbp                    ; NUMA range index
+.populate_range_loop:
+    cmp rbp, [numa_range_count]
     jae .recount_node_free_pages
+    mov rax, rbp
+    imul rax, numa_range_t_size
+    lea rdx, [numa_ranges + rax]
+    test dword [rdx + numa_range_t.flags], 1
+    jz .populate_next_range
+    mov eax, [rdx + numa_range_t.node_id]
+    cmp eax, [r12 + numa_node_t.node_id]
+    jne .populate_next_range
 
-    ; Test absolute page in the global bitmap
-    mov rsi, [phys_state + phys_state_t.bitmap_addr]
+    mov r10, [rdx + numa_range_t.base]
+    shr r10, 12
+    mov r11, [rdx + numa_range_t.length]
+    shr r11, 12
+    add r11, r10                    ; exclusive absolute PFN
+
+.populate_range_pages:
+    cmp r10, r11
+    jae .populate_next_range
+    mov rax, r10
     mov rdx, rax
-    shr rdx, 3                      ; byte offset
-    and rax, 7                      ; bit offset
-    bt [rsi + rdx], rax
-    jnc .populate_next              ; if clear (0/free), skip
+    shr rdx, 6                      ; qword index
+    and rax, 63                     ; bit offset
+    mov rsi, [phys_state + phys_state_t.bitmap_addr]
+    bt qword [rsi + rdx * 8], rax
+    jc .populate_next_page          ; globally occupied stays locally reserved
 
-    ; Set bit in the local bitmap
-    mov rdi, r12
-    mov rsi, rbx                    ; relative index
-    call bitmap_set_bit_local
+    mov rax, r10
+    sub rax, [r12 + numa_node_t.start_page]
+    mov rdx, rax
+    shr rdx, 6
+    and rax, 63
+    mov rdi, [r12 + numa_node_t.bitmap_addr]
+    btr qword [rdi + rdx * 8], rax
 
-.populate_next:
-    inc rbx
-    jmp .populate_loop
+.populate_next_page:
+    inc r10
+    jmp .populate_range_pages
+.populate_next_range:
+    inc rbp
+    jmp .populate_range_loop
 
 .recount_node_free_pages:
     ; 4. Authoritative recount of free pages for this node
@@ -482,10 +732,10 @@ numa_init_local_bitmaps:
     jae .node_recount_done
 
     mov rax, r9
-    shr rax, 3                      ; byte offset
+    shr rax, 6                      ; qword index
     mov rbx, r9
-    and rbx, 7                      ; bit offset
-    bt [rsi + rax], rbx
+    and rbx, 63                     ; bit offset
+    bt qword [rsi + rax * 8], rbx
     jc .node_recount_next           ; if bit set, page is reserved
 
     inc r8                          ; page is free
@@ -528,14 +778,28 @@ numa_init_local_bitmaps:
     pop rbx
     ret
 
-.panic_oom:
-    ; Early boot crash if we cannot allocate local bitmap
-    mov rsi, msg_err_numa_bitmap_oom
+.fallback_uma:
+    ; Node-local mirrors are an optimization.  The global occupancy bitmap is
+    ; still authoritative, so allocation failure must degrade to UMA instead
+    ; of making an otherwise usable machine unbootable.  Previously allocated
+    ; backing remains permanently reserved; hide all partial descriptors.
+    mov qword [numa_local_bitmaps_active], 0
+    xor ecx, ecx
+.hide_partial_bitmaps:
+    cmp rcx, r14
+    jae .fallback_uma_log
+    mov rax, rcx
+    imul rax, numa_node_t_size
+    lea rdx, [numa_nodes + rax]
+    and dword [rdx + numa_node_t.flags], ~2
+    mov qword [rdx + numa_node_t.bitmap_addr], 0
+    mov qword [rdx + numa_node_t.bitmap_size], 0
+    inc rcx
+    jmp .hide_partial_bitmaps
+.fallback_uma_log:
+    mov rsi, msg_numa_bitmap_fallback
     call uart_print_str
-    cli
-.halt_loop:
-    hlt
-    jmp .halt_loop
+    jmp .exit
 
 ; -----------------------------------------------------------------------------
 ; numa_set_watermarks — configures watermarks for a specific node
@@ -641,7 +905,7 @@ numa_nodes:          times NUMA_MAX_NODES * numa_node_t_size db 0
 numa_local_bitmaps_active:   dq 0
 
 msg_numa_local_bitmaps_ok:   db "NUMA: Node-Local Bitmaps successfully initialized.", 0x0D, 0x0A, 0
-msg_err_numa_bitmap_oom:    db "Panic: Out of memory during NUMA local bitmap allocation.", 0x0D, 0x0A, 0
+msg_numa_bitmap_fallback:    db "NUMA: node-local bitmap allocation failed; continuing with global PMM.", 0x0D, 0x0A, 0
 
 msg_numa_fallback_prefix: db "NUMA: Node ", 0
 msg_numa_fallback_middle: db " OOM, falling back to Node ", 0

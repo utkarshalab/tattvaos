@@ -150,13 +150,14 @@ unuma_cpu_detect_init:
     ret
 
 ; ---- internal: record (apic_id=RDI, node_id=RSI) into the table ----
-; Clobbers: RAX, RCX only; not part of the public ABI.
+; Clobbers: RAX only; RCX carries the caller's current SRAT entry length.
 .record:
     cmp rdi, UNUMA_MAX_CPUS
     jae .record_skip
-    mov ecx, esi
+    cmp rsi, [rel numa_node_count]
+    jae .record_skip                ; no bounded node/distance descriptor
     lea rax, [rel unuma_cpu_node_table]
-    mov [rax + rdi * 4], ecx
+    mov [rax + rdi * 4], esi
     inc qword [rel unuma_cpu_node_count]
 .record_skip:
     ret

@@ -30,6 +30,15 @@ PAGE_SWAPPED    equ (1 << 10)       ; Page is swapped out to mock swap device
 PAGE_ZSWAPPED   equ (1 << 11)       ; Page is compressed in Zswap cache
 PAGE_NX         equ (1 << 63)       ; No-execute
 
+; Architectural physical-address fields for x86-64 paging entries.  Do not use
+; a sign-extended alignment mask here: that retains NX and protection-key bits
+; and turns them into part of the address when an entry is dereferenced.
+; These constants must be loaded into a register before ANDing because the
+; x86-64 AND r64, imm form only encodes a sign-extended 32-bit immediate.
+PAGE_ADDR_MASK_4K equ 0x000FFFFFFFFFF000
+PAGE_ADDR_MASK_2M equ 0x000FFFFFFFE00000
+PAGE_ADDR_MASK_1G equ 0x000FFFFFC0000000
+
 section .text
 
 ; -----------------------------------------------------------------------------
@@ -52,7 +61,8 @@ virt_walk_table:
     test rax, rax
     jnz .have_root
     mov rax, cr3
-    and rax, 0xFFFFFFFFFFFFF000     ; mask off PCID & status flags
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx                    ; mask off PCID and non-address bits
 .have_root:
 
     ; Check if 5-level paging (LA57) is active in CR4
@@ -70,7 +80,8 @@ virt_walk_table:
     test r8, PAGE_PRESENT
     jz .not_mapped
     
-    and r8, 0xFFFFFFFFFFFFF000      ; R8 = PML4 base physical address
+    mov rax, PAGE_ADDR_MASK_4K
+    and r8, rax                     ; R8 = PML4 base physical address
     mov rax, r8                     ; RAX = PML4 base for next step
     
 .level4:
@@ -85,7 +96,8 @@ virt_walk_table:
     jz .not_mapped
     
     ; 3. Walk PDPT (Level 3)
-    and r8, 0xFFFFFFFFFFFFF000      ; R8 = PDPT base physical address
+    mov rax, PAGE_ADDR_MASK_4K
+    and r8, rax                     ; R8 = PDPT base physical address
     mov rcx, rdi
     shr rcx, 30
     and rcx, 0x1FF                  ; RCX = PDPT index
@@ -103,7 +115,8 @@ virt_walk_table:
 
 .walk_pd:
     ; 4. Walk PD (Level 2)
-    and rax, 0xFFFFFFFFFFFFF000      ; RAX = PD base physical address
+    mov r8, PAGE_ADDR_MASK_4K
+    and rax, r8                     ; RAX = PD base physical address
     mov rcx, rdi
     shr rcx, 21
     and rcx, 0x1FF                  ; RCX = PD index
@@ -121,7 +134,8 @@ virt_walk_table:
 
 .walk_pt:
     ; 5. Walk PT (Level 1)
-    and r8, 0xFFFFFFFFFFFFF000      ; R8 = PT base physical address
+    mov rax, PAGE_ADDR_MASK_4K
+    and r8, rax                     ; R8 = PT base physical address
     mov rcx, rdi
     shr rcx, 12
     and rcx, 0x1FF                  ; RCX = PT index

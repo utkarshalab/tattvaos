@@ -83,7 +83,7 @@ virt_thp_sweep:
     jz .next_region                 ; entry 0 must be present
     
     ; Extract reference flags (mask out physical address bits 12-51)
-    mov r10, 0xFFFFFFFFFFFFF000
+    mov r10, PAGE_ADDR_MASK_4K
     not r10                         ; R10 = flags mask
     
     mov r11, r9
@@ -91,7 +91,8 @@ virt_thp_sweep:
     
     ; Extract reference physical address base
     mov r14, r9
-    and r14, 0xFFFFFFFFFFFFF000     ; R14 = reference physical base address of page 0
+    mov rax, PAGE_ADDR_MASK_4K
+    and r14, rax                    ; R14 = reference physical base address of page 0
     
     ; Verify that the physical base address is 2MB aligned
     mov rbx, r14
@@ -115,7 +116,8 @@ virt_thp_sweep:
     jne .next_region                ; flags mismatch
 
     ; Check physical contiguity: current_phys == reference_phys + r8 * 4096
-    and rbx, 0xFFFFFFFFFFFFF000     ; RBX = current physical address
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rbx, rcx                    ; RBX = current physical address
     
     mov rcx, r8
     shl rcx, 12                     ; RCX = r8 * 4096
@@ -133,7 +135,8 @@ virt_thp_sweep:
 
     ; Walk directories to find the PDE address
     mov rax, cr3
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = root physical base
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx                    ; RAX = root physical base
 
     ; Check 5-level paging
     mov rcx, cr4
@@ -145,7 +148,8 @@ virt_thp_sweep:
     shr rcx, 48
     and rcx, 0x1FF
     mov rax, [rax + rcx * 8]
-    and rax, 0xFFFFFFFFFFFFF000
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx
 
 .merge_pml4:
     ; PML4
@@ -157,14 +161,16 @@ virt_thp_sweep:
     movzx rcx, word [rdx + rcx * 2]  ; RCX = physical (shuffled) index
     pop rdx
     mov rax, [rax + rcx * 8]
-    and rax, 0xFFFFFFFFFFFFF000
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx
 
     ; PDPT
     mov rcx, r12
     shr rcx, 30
     and rcx, 0x1FF
     mov rax, [rax + rcx * 8]
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = PD physical base address
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx                    ; RAX = PD physical base address
 
     ; PD index
     mov rcx, r12
@@ -175,7 +181,8 @@ virt_thp_sweep:
 
     ; Verify that the PDE still points to our PT (RBP) to avoid race conditions
     mov rax, [rdx]
-    and rax, 0xFFFFFFFFFFFFF000
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx
     cmp rax, rbp
     jne .merge_abort
 

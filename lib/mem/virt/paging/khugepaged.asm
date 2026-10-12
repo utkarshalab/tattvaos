@@ -37,7 +37,8 @@ khugepaged_scan_and_collapse:
 
     ; 1. Walk current PML4 hierarchy (CR3) to locate PMD entry
     mov rdx, cr3
-    and rdx, 0xFFFFFFFFFFFFF000     ; RDX = PML4 physical base (identity mapped virtual)
+    mov rax, PAGE_ADDR_MASK_4K
+    and rdx, rax                    ; RDX = PML4 physical base (identity mapped virtual)
     
     ; PML4 Index
     mov rax, r14
@@ -49,9 +50,10 @@ khugepaged_scan_and_collapse:
     mov rbx, [rdx + rax * 8]        ; RBX = PML4 entry
     test rbx, 0x01                  ; Present?
     jz .fail
-    
+
     ; PDPT Index
-    and rbx, 0xFFFFFFFFFFFFF000      ; RBX = PDPT virtual base
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rbx, rcx                    ; RBX = PDPT virtual base
     mov rax, r14
     shr rax, 30
     and rax, 0x1FF                  ; RAX = PDPT index
@@ -60,9 +62,10 @@ khugepaged_scan_and_collapse:
     jz .fail
     test rdx, 0x80                  ; Huge page (1GB)? Skip.
     jnz .fail
-    
+
     ; PD (PMD) Index
-    and rdx, 0xFFFFFFFFFFFFF000      ; RDX = PD virtual base
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rdx, rcx                    ; RDX = PD virtual base
     mov rax, r14
     shr rax, 21
     and rax, 0x1FF                  ; RAX = PD index
@@ -72,9 +75,10 @@ khugepaged_scan_and_collapse:
     jz .fail
     test rsi, 0x80                  ; Already huge page (2MB)? Skip.
     jnz .fail
-    
+
     ; R15 = PT base virtual pointer (identity mapped physical pointer)
-    and rsi, 0xFFFFFFFFFFFFF000
+    mov rax, PAGE_ADDR_MASK_4K
+    and rsi, rax
     mov r15, rsi
 
     ; 2. Read Reference Entry 0 and extract reference flags
@@ -136,9 +140,10 @@ khugepaged_scan_and_collapse:
 .copy_loop:
     cmp rbx, 512
     jge .copy_done
-    
+
     mov rsi, [r15 + rbx * 8]
-    and rsi, 0xFFFFFFFFFFFFF000     ; RSI = source physical pointer
+    mov rax, PAGE_ADDR_MASK_4K
+    and rsi, rax                    ; RSI = source physical pointer
 
     mov rdi, r13
     mov rax, rbx
@@ -161,7 +166,8 @@ khugepaged_scan_and_collapse:
     or rax, 0x80                    ; Huge page (bit 7)
     
     xchg [r12], rax                 ; Implicitly locked; RAX = old PT page
-    and rax, 0xFFFFFFFFFFFFF000     ; Mask off attribute/flag bits to get the clean physical address
+    mov rdx, PAGE_ADDR_MASK_4K
+    and rax, rdx                    ; Mask off attribute/flag bits to get the clean physical address
     mov r15, rax                    ; R15 = old PT page (no longer needed for copy)
 
     ; 8. Flush TLB range for the collapsed 2MB virtual address range
@@ -184,7 +190,8 @@ khugepaged_scan_and_collapse:
     jge .free_pages_done
     
     mov rdi, [r15 + rbx * 8]
-    and rdi, 0xFFFFFFFFFFFFF000
+    mov rax, PAGE_ADDR_MASK_4K
+    and rdi, rax
     test rdi, rdi
     jz .skip_free
     

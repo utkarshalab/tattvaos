@@ -12,6 +12,9 @@ QEMU64=${QEMU:-qemu-system-x86_64}
 TIMEOUT=${UEFI_BOOT_TEST_TIMEOUT:-45}
 CPU=${UEFI_QEMU_CPU:-max}
 SMP=${UEFI_QEMU_SMP:-1}
+MACHINE=${UEFI_QEMU_MACHINE:-q35}
+MEM=${UEFI_QEMU_MEM:-512}
+EXPECT_HIGHMEM=${UEFI_EXPECT_HIGHMEM:-0}
 EXPECT_SMP=${UEFI_EXPECT_SMP:-}
 EXPECT_APIC_MODE=${UEFI_EXPECT_APIC_MODE:-}
 OVMF_CODE=${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}
@@ -77,11 +80,11 @@ echo "[test_ovmf_qemu] Booting PE32+ loader in OVMF..."
 : > "$QEMU_ERR"
 set +e
 timeout "$TIMEOUT" "$QEMU64" \
-    -machine q35 \
+    -machine "$MACHINE" \
     -accel "$ACCEL" \
     -cpu "$CPU" \
     -smp "$SMP" \
-    -m 512 \
+    -m "$MEM" \
     -drive "if=pflash,format=raw,unit=0,readonly=on,file=$OVMF_CODE" \
     -drive "if=pflash,format=raw,unit=1,file=$VARS_COPY" \
     -drive "format=raw,file=fat:rw:$ESP_DIR" \
@@ -130,6 +133,37 @@ do
         LAST_LINE=$LINE
     fi
 done
+
+if [ "$EXPECT_HIGHMEM" -eq 1 ]; then
+    for MILESTONE in \
+        "Paging high map verify: OK" \
+        "Highmem direct-map R/W: PASS phys=0x00000001"
+    do
+        grep -Fq "$MILESTONE" "$LOG" || {
+            echo "FAIL: missing forced-high-memory OVMF milestone: $MILESTONE"
+            PASS=0
+        }
+    done
+    if grep -Fq "Highmem direct-map R/W: SKIP" "$LOG"; then
+        echo "FAIL: OVMF left supported high RAM offline"
+        PASS=0
+    fi
+else
+    for MILESTONE in \
+        "Paging high map verify: SKIP (no supported RAM above 4 GiB)" \
+        "Highmem direct-map R/W: SKIP (no supported RAM above 4 GiB)"
+    do
+        grep -Fq "$MILESTONE" "$LOG" || {
+            echo "FAIL: missing no-high-memory OVMF milestone: $MILESTONE"
+            PASS=0
+        }
+    done
+    if grep -Fq "Paging high map verify: OK" "$LOG" || \
+       grep -Fq "Highmem direct-map R/W: PASS" "$LOG"; then
+        echo "FAIL: ordinary OVMF boot unexpectedly published high RAM"
+        PASS=0
+    fi
+fi
 
 if ! grep -Eq 'BootInfo Pointer: 0x[0-9A-F]{16}' "$LOG"; then
     echo "FAIL: UEFI BootInfo pointer was not rendered as a 64-bit address"

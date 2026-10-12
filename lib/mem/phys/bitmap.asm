@@ -24,9 +24,9 @@ section .text
 bitmap_set_bit:
     mov rax, [phys_state + phys_state_t.bitmap_addr]
     mov rcx, rdi
-    shr rcx, 3                      ; byte offset = index / 8
-    and rdi, 7                      ; bit offset = index % 8
-    bts [rax + rcx], rdi            ; set bit (atomically if needed, bts is safe)
+    shr rcx, 6                      ; qword index = PFN / 64
+    and rdi, 63                     ; bit offset = PFN % 64
+    bts qword [rax + rcx * 8], rdi
     ret
 
 ; -----------------------------------------------------------------------------
@@ -39,9 +39,9 @@ bitmap_set_bit:
 bitmap_clear_bit:
     mov rax, [phys_state + phys_state_t.bitmap_addr]
     mov rcx, rdi
-    shr rcx, 3                      ; byte offset = index / 8
-    and rdi, 7                      ; bit offset = index % 8
-    btr [rax + rcx], rdi            ; clear bit
+    shr rcx, 6
+    and rdi, 63
+    btr qword [rax + rcx * 8], rdi
     ret
 
 ; -----------------------------------------------------------------------------
@@ -55,14 +55,42 @@ bitmap_clear_bit:
 bitmap_test_bit:
     mov rax, [phys_state + phys_state_t.bitmap_addr]
     mov rcx, rdi
-    shr rcx, 3
-    and rdi, 7
-    bt [rax + rcx], rdi             ; test bit, CF = bit value
+    shr rcx, 6
+    and rdi, 63
+    bt qword [rax + rcx * 8], rdi   ; test bit, CF = bit value
     jc .set
     xor rax, rax                    ; return 0
     ret
 .set:
     mov rax, 1                      ; return 1
+    ret
+
+; Dynamic ownership is separate from occupancy: firmware holes and permanent
+; kernel metadata are busy in the main bitmap but were never allocator-owned.
+alloc_bitmap_set_bit:
+    mov rax, [phys_state + phys_state_t.alloc_bitmap_addr]
+    mov rcx, rdi
+    shr rcx, 6
+    and rdi, 63
+    bts qword [rax + rcx * 8], rdi
+    ret
+
+alloc_bitmap_clear_bit:
+    mov rax, [phys_state + phys_state_t.alloc_bitmap_addr]
+    mov rcx, rdi
+    shr rcx, 6
+    and rdi, 63
+    btr qword [rax + rcx * 8], rdi
+    ret
+
+alloc_bitmap_test_bit:
+    mov rax, [phys_state + phys_state_t.alloc_bitmap_addr]
+    mov rcx, rdi
+    shr rcx, 6
+    and rdi, 63
+    bt qword [rax + rcx * 8], rdi
+    setc al
+    movzx eax, al
     ret
 
 ; -----------------------------------------------------------------------------
@@ -112,6 +140,7 @@ bitmap_find_free:
     mov r11, [phys_state + phys_state_t.frame_count]
     mov rbx, rdx
     add rbx, rdi                    ; end page index = start + count
+    jc .not_found
     cmp rbx, r11
     ja .not_found
 
@@ -128,9 +157,9 @@ bitmap_find_free:
 
     ; Test bit 'rcx' in bitmap
     mov r11, rcx
-    shr r11, 3                      ; byte offset
-    and rcx, 7                      ; bit offset
-    bt [rsi + r11], rcx
+    shr r11, 6                      ; qword index
+    and rcx, 63                     ; bit offset
+    bt qword [rsi + r11 * 8], rcx
     jc .bit_occupied                ; if bit is set (1), this run is blocked
 
     inc rbx
@@ -170,9 +199,9 @@ global bitmap_set_bit_local
 bitmap_set_bit_local:
     mov rax, [rdi + numa_node_t.bitmap_addr]
     mov rcx, rsi
-    shr rcx, 3                      ; byte offset
-    and rsi, 7                      ; bit offset
-    bts [rax + rcx], rsi
+    shr rcx, 6
+    and rsi, 63
+    bts qword [rax + rcx * 8], rsi
     ret
 
 ; -----------------------------------------------------------------------------
@@ -187,9 +216,9 @@ global bitmap_clear_bit_local
 bitmap_clear_bit_local:
     mov rax, [rdi + numa_node_t.bitmap_addr]
     mov rcx, rsi
-    shr rcx, 3                      ; byte offset
-    and rsi, 7                      ; bit offset
-    btr [rax + rcx], rsi
+    shr rcx, 6
+    and rsi, 63
+    btr qword [rax + rcx * 8], rsi
     ret
 
 ; -----------------------------------------------------------------------------
@@ -205,9 +234,9 @@ global bitmap_test_bit_local
 bitmap_test_bit_local:
     mov rax, [rdi + numa_node_t.bitmap_addr]
     mov rcx, rsi
-    shr rcx, 3                      ; byte offset
-    and rsi, 7                      ; bit offset
-    bt [rax + rcx], rsi             ; test bit, CF = bit value
+    shr rcx, 6
+    and rsi, 63
+    bt qword [rax + rcx * 8], rsi   ; test bit, CF = bit value
     jc .set
     xor rax, rax
     ret
@@ -264,6 +293,7 @@ bitmap_find_free_local:
     sub r11, [r12 + numa_node_t.start_page]
     mov rbx, rdx
     add rbx, r13                    ; end page index = start + count
+    jc .not_found
     cmp rbx, r11
     ja .not_found
 
@@ -280,9 +310,9 @@ bitmap_find_free_local:
 
     ; Test bit 'rcx' in local bitmap
     mov r11, rcx
-    shr r11, 3                      ; byte offset
-    and rcx, 7                      ; bit offset
-    bt [rsi + r11], rcx
+    shr r11, 6                      ; qword index
+    and rcx, 63                     ; bit offset
+    bt qword [rsi + r11 * 8], rcx
     jc .bit_occupied                ; if bit is set (1), this run is blocked
 
     inc rbx

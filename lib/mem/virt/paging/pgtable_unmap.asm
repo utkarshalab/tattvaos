@@ -44,7 +44,8 @@ virt_unmap:
 
     ; Load CR3 as the root page table base
     mov rax, cr3
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = root physical base
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx                    ; RAX = root physical base
 
     ; =========================================================================
     ; Walk down and record parent entry addresses at each level
@@ -73,7 +74,8 @@ virt_unmap:
     mov rax, [rbx]
     test rax, PAGE_PRESENT
     jz .done                        ; not mapped at PML5
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = PML4 base
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx                    ; RAX = PML4 base
     ; We don't reclaim PML4 from PML5 (too aggressive), just track for walk
     ; Store PML5 entry address in a local (we use stack if needed)
     ; For simplicity, reclamation covers PT, PD, PDPT levels only.
@@ -91,7 +93,8 @@ virt_unmap:
     mov rax, [r13]
     test rax, PAGE_PRESENT
     jz .done
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = PDPT base
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx                    ; RAX = PDPT base
 
     ; -------------------------------------------------------------------------
     ; Level 3: PDPT
@@ -121,7 +124,8 @@ virt_unmap:
     mov rax, [r14]
 
 .pdpt_not_huge:
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = PD base
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx                    ; RAX = PD base
 
     ; -------------------------------------------------------------------------
     ; Level 2: PD
@@ -153,7 +157,8 @@ virt_unmap:
     mov rax, [r15]
 
 .pd_not_huge:
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = PT base
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rax, rcx                    ; RAX = PT base
 
     ; -------------------------------------------------------------------------
     ; Level 1: PT (leaf)
@@ -173,7 +178,8 @@ virt_unmap:
     push rax
     push rcx
     mov rdi, rcx
-    and rdi, 0xFFFFFFFFFFFFF000     ; RDI = physical address of page
+    mov rdx, PAGE_ADDR_MASK_4K
+    and rdi, rdx                    ; RDI = physical address of page
     call page_list_remove
     pop rcx
     pop rax
@@ -218,7 +224,8 @@ virt_unmap:
     ; Step 3: Check if the PD is now fully empty → reclaim it
     ; =========================================================================
     mov rax, [r14]                  ; reload PDPT entry to get PD base
-    and rax, 0xFFFFFFFFFFFFF000
+    mov rdx, PAGE_ADDR_MASK_4K
+    and rax, rdx
     call .check_table_empty
     jnc .done
 
@@ -231,7 +238,8 @@ virt_unmap:
     ; Step 4: Check if the PDPT is now fully empty → reclaim it
     ; =========================================================================
     mov rax, [r13]                  ; reload PML4 entry to get PDPT base
-    and rax, 0xFFFFFFFFFFFFF000
+    mov rdx, PAGE_ADDR_MASK_4K
+    and rax, rdx
     call .check_table_empty
     jnc .done
 

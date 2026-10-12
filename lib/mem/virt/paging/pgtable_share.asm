@@ -73,7 +73,8 @@ virt_share_page_directories:
     jz .fail
 
     ; PDPT Index
-    and rbx, 0xFFFFFFFFFFFFF000     ; RBX = physical PDPT address
+    mov rax, PAGE_ADDR_MASK_4K
+    and rbx, rax                    ; RBX = physical PDPT address
     mov rax, r14
     shr rax, 30
     and rax, 0x1FF                  ; RAX = PDPT index
@@ -84,7 +85,8 @@ virt_share_page_directories:
     jnz .fail
 
     ; PD (PMD) Index
-    and r8, 0xFFFFFFFFFFFFF000      ; R8 = physical PD address
+    mov rdx, PAGE_ADDR_MASK_4K
+    and r8, rdx                     ; R8 = physical PD address
     mov rax, r14
     shr rax, 21
     and rax, 0x1FF                  ; RAX = PD index
@@ -95,7 +97,8 @@ virt_share_page_directories:
     jnz .fail
 
     ; Clean target physical address of the PT page
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = physical address of the shared PT page
+    mov rdx, PAGE_ADDR_MASK_4K
+    and r9, rdx                     ; R9 = physical address of the shared PT page
 
     ; -------------------------------------------------------------------------
     ; 2. Register/Lock PT Page in the shared descriptor table
@@ -131,7 +134,8 @@ virt_share_page_directories:
     
 .have_dest_pdpt:
     ; PDPT Index for Dest
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov rdx, PAGE_ADDR_MASK_4K
+    and rbx, rdx
     mov rax, r14
     shr rax, 30
     and rax, 0x1FF
@@ -156,7 +160,8 @@ virt_share_page_directories:
 
 .have_dest_pd:
     ; PD Index for Dest
-    and r8, 0xFFFFFFFFFFFFF000
+    mov rdx, PAGE_ADDR_MASK_4K
+    and r8, rdx
     mov rax, r14
     shr rax, 21
     and rax, 0x1FF                  ; RAX = PD index

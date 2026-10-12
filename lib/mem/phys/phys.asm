@@ -18,6 +18,44 @@
 section .text
 
 ; -----------------------------------------------------------------------------
+; phys_supported_address_limit — highest exclusive physical address that can
+; be represented by both the CPU and the collision-free PA==VA window.
+; Output: RAX = exclusive, page-aligned limit (at least 4 GiB)
+; Clobbers: RCX, RDX
+; -----------------------------------------------------------------------------
+phys_supported_address_limit:
+    push rbx
+
+    mov eax, 0x80000000
+    cpuid
+    cmp eax, 0x80000008
+    jb .bootstrap_limit
+
+    mov eax, 0x80000008
+    cpuid
+    and eax, 0xFF                   ; MAXPHYADDR
+    cmp eax, 32
+    jb .bootstrap_limit
+    cmp eax, 39
+    jae .virtual_limit
+
+    mov ecx, eax
+    mov rax, 1
+    shl rax, cl
+    jmp .done
+
+.virtual_limit:
+    mov rax, PHYS_IDENTITY_VA_LIMIT
+    jmp .done
+
+.bootstrap_limit:
+    mov rax, PHYS_BOOTSTRAP_MAP_LIMIT
+
+.done:
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
 ; phys_init — discovers system RAM, calculates bitmap requirements, locates
 ;             a safe memory slot for the page bitmap, and initializes it.
 ; Input:  none (reads from global boot_info_ptr)
@@ -76,39 +114,73 @@ phys_init:
     cmp rax, rbx
     ja .error_halt
 
-    ; 3. Parse only memory covered by the currently installed identity map.
-    ; Higher usable frames are counted but remain explicitly offline.
-    mov rdi, rsi                    ; RDI = e820 map pointer
-    mov rsi, rdx                    ; RSI = entry count
+    mov r12, rsi                    ; validated E820 map pointer
+    mov r13, rdx                    ; validated descriptor count
+
+    ; 3. Size candidate metadata through every usable page that four-level
+    ; identity mapping and MAXPHYADDR can represent.  High bits remain reserved
+    ; until phys_highmem_init maps and verifies every candidate extent.
+    call phys_supported_address_limit
+    mov [phys_state + phys_state_t.address_limit], rax
+
+    mov rdi, r12
+    mov rsi, r13
+    mov rdx, rax
+    call phys_parse_e820
+    jc .error_halt
+    test rax, rax
+    jz .error_halt
+
+    mov [phys_state + phys_state_t.max_phys_addr], rax
+    mov [phys_state + phys_state_t.total_pages], rcx
+    mov [phys_state + phys_state_t.free_pages], rcx
+    mov [phys_state + phys_state_t.offline_pages], r8
+    mov qword [phys_state + phys_state_t.highmem_ready], 0
+
+    ; Parse the guaranteed contiguous low aperture separately.  A boot without
+    ; usable low RAM cannot host allocator/page-table metadata and fails closed.
+    mov rdi, r12
+    mov rsi, r13
     mov rdx, PHYS_BOOTSTRAP_MAP_LIMIT
     call phys_parse_e820
     jc .error_halt
     test rax, rax
     jz .error_halt
 
-    ; Store results in state
-    mov [phys_state + phys_state_t.max_phys_addr], rax
-    mov [phys_state + phys_state_t.total_pages], rcx
-    mov [phys_state + phys_state_t.free_pages], rcx
-    mov [phys_state + phys_state_t.offline_pages], r8
+    mov rbx, [phys_state + phys_state_t.total_pages]
+    cmp rbx, rcx
+    jb .error_halt
+    sub rbx, rcx
+    mov [phys_state + phys_state_t.high_pages], rbx
+
     mov rdx, PHYS_BOOTSTRAP_MAP_LIMIT
     mov [phys_state + phys_state_t.direct_map_limit], rdx
 
     ; 4. Track bitmap geometry independently of the sum of usable pages.
     ; Sparse maps need absolute PFN capacity through max_phys_addr.
-    mov rbx, rax
+.set_bitmap_geometry:
+    mov rbx, [phys_state + phys_state_t.max_phys_addr]
     shr rbx, 12                     ; exact: parser returns page-aligned end
     mov [phys_state + phys_state_t.frame_count], rbx
-    add rbx, 7
+    ; Round storage to complete qwords.  Every BT/BTS/BTR helper addresses a
+    ; qword by PFN, so the final operation must never straddle the allocation.
+    add rbx, 63
     jc .error_halt
-    shr rbx, 3                      ; ceil(frame_count / 8)
+    shr rbx, 6
+    shl rbx, 3                      ; ceil(frame_count / 64) * 8
     test rbx, rbx
     jnz .store_bitmap_size
     mov rbx, 1                      ; ensure size is at least 1 byte
 .store_bitmap_size:
     mov [phys_state + phys_state_t.bitmap_size], rbx
+    mov rax, rbx
+    add rax, rbx
+    jc .error_halt
+    mov [phys_state + phys_state_t.metadata_size], rax
 
     ; 5. Scan the E820 map to find a free RAM region above 1MB to place the bitmap
+.prepare_bitmap_scan:
+    mov rbx, [phys_state + phys_state_t.metadata_size]
     mov rdi, [boot_info_ptr]
     mov rsi, [rdi + 0]              ; rsi = E820 map pointer
     mov edx, [rdi + 8]              ; rdx = entry count. 32-bit load: see the
@@ -295,8 +367,13 @@ phys_init:
     cmp r11, rbx
     jb .next_entry
 
-    ; Found a suitable block! Place bitmap at the base address of this region (R10)
+    ; Found a suitable block.  Keep occupancy and dynamic-ownership bitmaps
+    ; adjacent so one validated low-RAM placement owns all PMM metadata.
     mov [phys_state + phys_state_t.bitmap_addr], r10
+    mov rax, r10
+    add rax, [phys_state + phys_state_t.bitmap_size]
+    jc .error_halt
+    mov [phys_state + phys_state_t.alloc_bitmap_addr], rax
     jmp .init_bitmap
 
 .next_entry:
@@ -304,7 +381,34 @@ phys_init:
     jmp .scan_loop
 
 .no_bitmap_mem:
-    ; Panics if we cannot find memory for the allocator bitmap
+    ; A sparse candidate can demand more low metadata than this boot provides.
+    ; Retry with the proven low aperture rather than making the machine
+    ; unbootable.  High RAM then remains explicitly offline.
+    cmp qword [phys_state + phys_state_t.high_pages], 0
+    je .bitmap_oom
+
+    mov rdi, [boot_info_ptr]
+    mov rsi, [rdi + 0]
+    mov edx, [rdi + 8]
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, PHYS_BOOTSTRAP_MAP_LIMIT
+    call phys_parse_e820
+    jc .error_halt
+    test rax, rax
+    jz .error_halt
+
+    mov [phys_state + phys_state_t.max_phys_addr], rax
+    mov [phys_state + phys_state_t.total_pages], rcx
+    mov [phys_state + phys_state_t.free_pages], rcx
+    mov [phys_state + phys_state_t.offline_pages], r8
+    mov qword [phys_state + phys_state_t.high_pages], 0
+    mov rsi, msg_highmem_metadata_fallback
+    call uart_print_str
+    jmp .set_bitmap_geometry
+
+.bitmap_oom:
+    ; Panics if even the low-only allocator bitmap cannot be placed.
     mov rsi, msg_err_bitmap_oom
     call uart_print_str
     cli
@@ -316,10 +420,17 @@ phys_init:
     ; 6. Fill the entire bitmap memory with 0xFF (all pages reserved by default)
     ; Target address: bitmap_addr, Fill value: 0xFF, Count: bitmap_size bytes
     mov rdi, [phys_state + phys_state_t.bitmap_addr]
-    mov rcx, rbx                    ; RCX = bitmap_size in bytes
+    mov rcx, [phys_state + phys_state_t.bitmap_size]
     mov al, 0xFF
     cld
     rep stosb                       ; fill the bitmap
+
+    ; No page is dynamically allocator-owned during bootstrap.  Allocation
+    ; paths set this second bitmap; permanent reservations never do.
+    mov rdi, [phys_state + phys_state_t.alloc_bitmap_addr]
+    mov rcx, [phys_state + phys_state_t.bitmap_size]
+    xor eax, eax
+    rep stosb
 
     ; 7. Re-scan E820 map and clear bits for usable RAM regions (Subfeature 1.3)
     mov rdi, [boot_info_ptr]
@@ -577,7 +688,7 @@ phys_init:
     ; Mark all pages from bitmap_addr to bitmap_addr + bitmap_size as reserved.
     ; -----------------------------------------------------------------------------
     mov rbx, [phys_state + phys_state_t.bitmap_addr]
-    mov rcx, [phys_state + phys_state_t.bitmap_size]
+    mov rcx, [phys_state + phys_state_t.metadata_size]
     
     ; Convert base to page index
     shr rbx, 12                     ; rbx = start page index
@@ -613,32 +724,12 @@ phys_init:
     jmp .reserve_bitmap_loop
 
 .reserve_bitmap_done:
-    ; 12. Recount free pages by scanning the bitmap for zero bits
-    ;     This is the authoritative count after all protections are applied.
-    mov rsi, [phys_state + phys_state_t.bitmap_addr]
-    mov rcx, [phys_state + phys_state_t.frame_count]
-    xor r8, r8                      ; R8 = free page counter
-    xor r9, r9                      ; R9 = current page index
+    ; 12. Authoritatively recount free pages after every protection.  Scan
+    ; bitmap words rather than every represented PFN: sparse high maps can
+    ; otherwise turn this boot-time pass into hundreds of millions of loops.
+    call phys_recount_free_pages
+    mov r8, rax
 
-.recount_loop:
-    cmp r9, rcx
-    jge .recount_done
-
-    ; Test bit R9 in bitmap
-    mov rax, r9
-    shr rax, 3                      ; byte offset
-    mov rbx, r9
-    and rbx, 7                      ; bit offset
-    bt [rsi + rax], rbx
-    jc .recount_next                ; bit set = reserved, skip
-
-    inc r8                          ; bit clear = free page
-
-.recount_next:
-    inc r9
-    jmp .recount_loop
-
-.recount_done:
     ; Store accurate counters
     mov [phys_state + phys_state_t.free_pages], r8
     mov rax, [phys_state + phys_state_t.total_pages]
@@ -672,6 +763,216 @@ phys_init:
     cli
     hlt
     jmp .error_halt
+
+; -----------------------------------------------------------------------------
+; phys_recount_free_pages — count clear bits in the complete global bitmap.
+; Padding bits in the final byte remain initialized to one and therefore do
+; not inflate the result.
+; Output: RAX = free page count
+; Clobbers: none except RAX
+; -----------------------------------------------------------------------------
+global phys_recount_free_pages
+phys_recount_free_pages:
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push r8
+    push r9
+
+    mov eax, 1
+    cpuid
+    bt ecx, 23                     ; POPCNT
+    setc r9b
+
+    mov rsi, [phys_state + phys_state_t.bitmap_addr]
+    mov rcx, [phys_state + phys_state_t.bitmap_size]
+    mov rbx, rcx                    ; original byte count
+    xor r8, r8                      ; occupied-bit count
+    test r9b, r9b
+    jz .recount_bytes
+
+.recount_qwords:
+    cmp rcx, 8
+    jb .recount_tail
+
+    popcnt rax, qword [rsi]
+    add r8, rax
+
+    add rsi, 8
+    sub rcx, 8
+    jmp .recount_qwords
+
+.recount_tail:
+    test rcx, rcx
+    jz .recount_finish
+
+    movzx eax, byte [rsi]
+.recount_tail_bits:
+    test eax, eax
+    jz .recount_tail_next
+    mov edx, eax
+    dec edx
+    and eax, edx
+    inc r8
+    jmp .recount_tail_bits
+
+.recount_tail_next:
+    inc rsi
+    dec rcx
+    jmp .recount_tail
+
+.recount_bytes:
+    test rcx, rcx
+    jz .recount_finish
+    movzx eax, byte [rsi]
+    mov edx, eax
+    and eax, 0x0F
+    shr edx, 4
+    lea r9, [phys_nibble_popcount]
+    movzx eax, byte [r9 + rax]
+    movzx edx, byte [r9 + rdx]
+    add r8, rax
+    add r8, rdx
+    inc rsi
+    dec rcx
+    jmp .recount_bytes
+
+.recount_finish:
+    mov rax, rbx
+    shl rax, 3
+    sub rax, r8
+
+    pop r9
+    pop r8
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; PMM transaction lock.  Reclaim decisions happen before acquisition; callers
+; save RFLAGS and disable interrupts before taking it, because the ISR reserve
+; may return pages to the PMM on ring overflow.  This prevents same-CPU lock
+; recursion while preserving an already-disabled caller's IF state.
+; -----------------------------------------------------------------------------
+phys_lock_acquire:
+    push rax
+.spin:
+    mov al, 1
+    xchg byte [phys_allocator_lock], al
+    test al, al
+    jz .locked
+.wait:
+    pause
+    cmp byte [phys_allocator_lock], 0
+    jne .wait
+    jmp .spin
+.locked:
+    pop rax
+    ret
+
+phys_lock_release:
+    mov byte [phys_allocator_lock], 0
+    ret
+
+; -----------------------------------------------------------------------------
+; phys_range_is_online_usable — prove a page range lies wholly inside one or
+; more adjacent canonical usable firmware extents and an installed mapping.
+; Input: RDI = aligned physical start, RSI = page count
+; Output: RAX = 1 when safe to dereference/free, 0 otherwise
+; -----------------------------------------------------------------------------
+phys_range_is_online_usable:
+    push rbx
+    push rbp
+    push rsi
+    push rdi
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov r12, rdi
+    mov r13, rsi
+    test r13, r13
+    jz .range_invalid
+
+    mov r15, r13
+    shl r15, 12
+    add r15, r12                    ; exclusive byte end
+    jc .range_invalid
+    cmp r15, [phys_state + phys_state_t.max_phys_addr]
+    ja .range_invalid               ; excludes offline high RAM after fallback
+
+    mov rax, PHYS_BOOTSTRAP_MAP_LIMIT
+    cmp r15, rax
+    jbe .mapping_ready
+    cmp qword [phys_state + phys_state_t.highmem_ready], 1
+    jne .range_invalid
+    cmp r15, [phys_state + phys_state_t.address_limit]
+    ja .range_invalid
+
+.mapping_ready:
+    mov r13, r12                    ; covered-through cursor
+    mov rax, [boot_info_ptr]
+    mov r14, [rax + BOOT_INFO_E820_PTR_OFF]
+    mov ebp, [rax + BOOT_INFO_E820_COUNT_OFF]
+    xor ebx, ebx
+
+.range_scan:
+    cmp rbx, rbp
+    jae .range_invalid
+    mov rax, rbx
+    imul rax, e820_entry_size
+    add rax, r14
+    cmp dword [rax + e820_entry.type], 1
+    jne .range_next
+
+    mov rdx, [rax + e820_entry.base]
+    mov rcx, [rax + e820_entry.length]
+    add rcx, rdx
+    jc .range_invalid
+    add rdx, 4095
+    jc .range_invalid
+    and rdx, -4096
+    and rcx, -4096
+    cmp rcx, r13
+    jbe .range_next                 ; extent is entirely before the cursor
+    cmp rdx, r13
+    ja .range_invalid               ; sorted map proves an uncovered gap
+    cmp rcx, r15
+    jae .extent_found
+    mov r13, rcx                    ; adjacent usable extent may continue it
+
+.range_next:
+    inc rbx
+    jmp .range_scan
+
+.extent_found:
+    cmp qword [numa_local_bitmaps_active], 0
+    je .range_valid
+    mov rdi, r12
+    mov rsi, r15
+    call numa_range_owner
+    cmp rax, -1
+    je .range_invalid
+
+.range_valid:
+    mov eax, 1
+    jmp .range_exit
+.range_invalid:
+    xor eax, eax
+.range_exit:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbp
+    pop rbx
+    ret
 
 ; -----------------------------------------------------------------------------
 ; phys_alloc_page — allocates a single 4KB physical page
@@ -769,13 +1070,23 @@ phys_alloc_pages:
     cmp rbx, [kswapd_min_watermark]
     jb .oom                         ; below min, fail allocation!
 
-    ; Save count in R8
-    mov r8, rdi
-
-    ; Find R8 contiguous free pages
+    ; Find the requested contiguous run.  bitmap_find_free documents R8-R11
+    ; as clobbered, so reload the request count from preserved RDI afterward.
+    pushfq
+    cli
+    call phys_lock_acquire
+    ; Revalidate the policy counters in the same transaction as the bitmap
+    ; claim; another CPU may have allocated after the reclaim/watermark pass.
+    mov rax, [phys_state + phys_state_t.free_pages]
+    cmp rax, rdi
+    jb .oom_locked
+    sub rax, rdi
+    cmp rax, [kswapd_min_watermark]
+    jb .oom_locked
     call bitmap_find_free
     cmp rax, -1
-    je .oom
+    je .oom_locked
+    mov r8, rdi
 
     ; Save start page index in R9
     mov r9, rax
@@ -798,6 +1109,8 @@ phys_alloc_pages:
     ; walking off the end of the bitmap once N was more than a handful.
     push rcx
     call bitmap_set_bit
+    mov rdi, rsi
+    call alloc_bitmap_set_bit
     pop rcx
 
     inc rsi
@@ -809,12 +1122,17 @@ phys_alloc_pages:
     sub [phys_state + phys_state_t.free_pages], r8
     ; Update reserved_pages count
     add [phys_state + phys_state_t.reserved_pages], r8
+    call phys_lock_release
+    popfq
 
     ; Calculate physical address: start_page_index * 4096
     mov rax, r9
     shl rax, 12
     jmp .done
 
+.oom_locked:
+    call phys_lock_release
+    popfq
 .oom:
     xor rax, rax                    ; return 0 on OOM
 
@@ -851,7 +1169,12 @@ phys_alloc_page_node:
 global phys_alloc_pages_node
 phys_alloc_pages_node:
     test rsi, rsi
-    jnz .node_request_valid
+    jz .node_request_invalid
+    cmp qword [numa_local_bitmaps_active], 0
+    jne .node_request_valid
+    mov rdi, rsi                    ; node mirrors unavailable: safe UMA path
+    jmp phys_alloc_pages
+.node_request_invalid:
     xor rax, rax
     ret
 .node_request_valid:
@@ -933,15 +1256,29 @@ phys_alloc_pages_node:
 
 .try_alloc_node:
     ; Try allocating from the requested node
+    pushfq
+    cli
+    call phys_lock_acquire
+    mov rax, [rbx + numa_node_t.free_pages]
+    cmp rax, r13
+    jb .node_claim_failed
+    sub rax, r13
+    cmp rax, [rbx + numa_node_t.pages_min]
+    jb .node_claim_failed
     mov rdi, rbx
     mov rsi, r13
     call bitmap_find_free_local
     cmp rax, -1
-    je .fallback_init
+    je .node_claim_failed
 
     ; Allocation succeeded on requested node!
     mov rdx, rax                    ; RDX = relative start page index
     jmp .perform_alloc
+
+.node_claim_failed:
+    call phys_lock_release
+    popfq
+    jmp .fallback_init
 
 .fallback_init:
     ; Fallback initialization: set tried mask
@@ -1056,11 +1393,20 @@ phys_alloc_pages_node:
     jb .fallback_loop               ; candidate still below min after direct reclaim
 
 .try_alloc_candidate:
+    pushfq
+    cli
+    call phys_lock_acquire
+    mov rax, [rbx + numa_node_t.free_pages]
+    cmp rax, r13
+    jb .candidate_claim_failed
+    sub rax, r13
+    cmp rax, [rbx + numa_node_t.pages_min]
+    jb .candidate_claim_failed
     mov rdi, rbx
     mov rsi, r13
     call bitmap_find_free_local
     cmp rax, -1
-    je .fallback_loop               ; failed, try next node
+    je .candidate_claim_failed
 
     ; Allocation succeeded on candidate node rbp!
     mov rdx, rax                    ; RDX = relative start page index
@@ -1082,6 +1428,12 @@ phys_alloc_pages_node:
     mov rsi, msg_numa_fallback_suffix
     call uart_print_str
     pop rdx
+    jmp .perform_alloc
+
+.candidate_claim_failed:
+    call phys_lock_release
+    popfq
+    jmp .fallback_loop
 
 .perform_alloc:
     ; Mark bits in local bitmap
@@ -1090,13 +1442,20 @@ phys_alloc_pages_node:
     cmp rcx, r13
     jae .update_counters
 
+    mov r10, [rbx + numa_node_t.start_page]
+    add r10, rdx
+    add r10, rcx                    ; absolute PFN
     mov rsi, rdx
-    add rsi, rcx
+    add rsi, rcx                    ; node-relative PFN
     mov rdi, rbx
     ; bitmap_set_bit_local clobbers RCX the same way bitmap_set_bit does, and
     ; this loop counts with it.
     push rcx
     call bitmap_set_bit_local
+    mov rdi, r10
+    call bitmap_set_bit
+    mov rdi, r10
+    call alloc_bitmap_set_bit
     pop rcx
     inc rcx
     jmp .set_bits_loop
@@ -1109,6 +1468,8 @@ phys_alloc_pages_node:
     ; Update global counters
     sub [phys_state + phys_state_t.free_pages], r13
     add [phys_state + phys_state_t.reserved_pages], r13
+    call phys_lock_release
+    popfq
 
     ; Calculate physical address
     mov rax, [rbx + numa_node_t.start_page]
@@ -1166,12 +1527,46 @@ phys_free_pages:
     cmp rbx, [phys_state + phys_state_t.frame_count]
     ja .done
 
-    ; Zero out the physical pages being freed
+    call phys_range_is_online_usable
+    test rax, rax
+    jz .done
+
+    ; Ownership validation and release are one transaction.  This rejects
+    ; permanent reservations, offline holes, and double frees before touching
+    ; the caller-supplied physical address.
+    mov r10, rdi                    ; physical start
+    mov r11, rsi                    ; page count
+    mov r9, rdi
+    shr r9, 12                     ; starting PFN
+    xor rbx, rbx
+    pushfq
+    cli
+    call phys_lock_acquire
+
+.validate_owned_loop:
+    cmp rbx, r11
+    jae .owned_range_valid
+    mov rdi, r9
+    add rdi, rbx
+    call alloc_bitmap_test_bit
+    test rax, rax
+    jz .unlock_done
+    mov rdi, r9
+    add rdi, rbx
+    call bitmap_test_bit
+    test rax, rax
+    jz .unlock_done
+    inc rbx
+    jmp .validate_owned_loop
+
+.owned_range_valid:
+    ; Zero out the physical pages only after mapped-usable ownership is proven.
+    mov rdi, r10
+    mov rsi, r11
     push rdi
     push rsi
-    mov rcx, rsi                    ; RCX = page count
-    shl rsi, 12                     ; RSI = size in bytes (N * 4096)
-    ; RDI is already the starting physical address
+    mov rcx, rsi
+    shl rsi, 12
     call memzero
     pop rsi
     pop rdi
@@ -1185,13 +1580,17 @@ phys_free_pages:
     mov r8, rsi                     ; R8 = count N
     mov r9, rdi                     ; R9 = physical address
     
-    ; Determine node ID for the physical address
+    ; Determine the single owning node for the complete physical range.
     mov rdi, r9
-    ; numa_get_node_by_phys uses R8 as its range cursor.  Preserve the page
-    ; count explicitly: it controls both the clear-loop bound and accounting.
-    push r8
-    call numa_get_node_by_phys      ; RAX = Node ID
-    pop r8
+    mov rsi, r8
+    shl rsi, 12
+    add rsi, r9
+    jc .unlock_done
+    call numa_range_owner
+    cmp rax, -1
+    je .unlock_done
+    cmp rax, [numa_node_count]
+    jae .unlock_done
     
     ; Get node descriptor
     imul rax, numa_node_t_size
@@ -1200,6 +1599,7 @@ phys_free_pages:
     ; Calculate relative start page index: (phys_addr >> 12) - node.start_page
     mov rcx, r9
     shr rcx, 12                     ; RCX = absolute page index
+    mov r10, rcx                    ; absolute start page index
     sub rcx, [rbx + numa_node_t.start_page] ; RCX = relative start page index
 
     ; Loop to clear bits
@@ -1219,6 +1619,12 @@ phys_free_pages:
     ; at the wrong bit.
     push rcx
     call bitmap_clear_bit_local
+    mov r11, r10
+    add r11, rdx
+    mov rdi, r11
+    call bitmap_clear_bit
+    mov rdi, r11
+    call alloc_bitmap_clear_bit
     pop rcx
 
     inc rdx
@@ -1232,7 +1638,7 @@ phys_free_pages:
     ; Update global counters
     add [phys_state + phys_state_t.free_pages], r8
     sub [phys_state + phys_state_t.reserved_pages], r8
-    jmp .done
+    jmp .unlock_done
 
 .use_uma:
     ; Save count in R8 and start address in R9
@@ -1254,6 +1660,8 @@ phys_free_pages:
     ; clobbers RCX and this loop counts with it.
     push rcx
     call bitmap_clear_bit
+    mov rdi, rsi
+    call alloc_bitmap_clear_bit
     pop rcx
 
     inc rsi
@@ -1266,6 +1674,9 @@ phys_free_pages:
     ; Update reserved_pages count
     sub [phys_state + phys_state_t.reserved_pages], r8
 
+.unlock_done:
+    call phys_lock_release
+    popfq
 .done:
     pop r11
     pop r10
@@ -1311,6 +1722,13 @@ phys_get_stats:
 section .data
 
 align 8
+phys_nibble_popcount:
+    db 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4
+
+align 8
+phys_allocator_lock: db 0
+
+align 8
 global phys_state
 phys_state:
     istruc phys_state_t
@@ -1325,9 +1743,15 @@ phys_state:
         at phys_state_t.frame_count,    dq 0
         at phys_state_t.direct_map_limit, dq 0
         at phys_state_t.offline_pages,  dq 0
+        at phys_state_t.high_pages,     dq 0
+        at phys_state_t.address_limit,  dq 0
+        at phys_state_t.highmem_ready,  dq 0
+        at phys_state_t.alloc_bitmap_addr, dq 0
+        at phys_state_t.metadata_size,  dq 0
     iend
 
 msg_err_bitmap_oom: db "!!! KERNEL PANIC: Failed to locate free RAM above 1MB for Page Bitmap !!!", 0x0D, 0x0A, 0
+msg_highmem_metadata_fallback: db "Highmem metadata: low-only fallback (candidate bitmap did not fit)", 0x0D, 0x0A, 0
 msg_pmm_mapped_limit: db "PMM mapped limit: 4 GiB", 0x0D, 0x0A, 0
 msg_highmem_offline: db "Highmem direct-map R/W: SKIP (RAM above mapped limit is offline)", 0x0D, 0x0A, 0
 

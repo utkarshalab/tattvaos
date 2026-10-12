@@ -10,11 +10,17 @@
 %ifndef LIB_MEM_MEM_INC
 %define LIB_MEM_MEM_INC
 
-; The bootstrap root currently identity-maps exactly [0, 4 GiB).  Until the
-; kernel installs a separate high-half direct map, the PMM must never publish
-; frames outside this aperture to code that dereferences physical addresses.
+; The loader's bootstrap root identity-maps [0, 4 GiB).  The kernel may add
+; sparse identity mappings for usable RAM above it, but this value remains the
+; guaranteed *contiguous* aperture: firmware/MMIO holes above 4 GiB are never
+; implied to be mapped by a single upper bound.
 PHYS_BOOTSTRAP_MAP_LIMIT equ 0x0000000100000000
-PHYS_E820_MAX_ENTRIES    equ 128
+; The lowest reserved kernel virtual window starts at 512 GiB (DMA/framebuffer).
+; Sparse PA==VA mappings must stop there even though four-level paging's lower
+; canonical half is larger.  A future high-half direct map can lift this cap.
+PHYS_IDENTITY_VA_LIMIT   equ 0x0000008000000000
+; UEFI's canonical handoff buffer holds 160 entries; BIOS produces at most 128.
+PHYS_E820_MAX_ENTRIES    equ 160
 
 ; E820 memory map entry structure
 struc e820_entry
@@ -38,8 +44,13 @@ struc phys_state_t
     ; offsets directly; new fields are append-only and all consumers should use
     ; the symbolic names.
     .frame_count    resq 1      ; Absolute PFN span represented by bitmap
-    .direct_map_limit resq 1    ; Exclusive physical address currently mapped
-    .offline_pages  resq 1      ; Usable pages above direct_map_limit
+    .direct_map_limit resq 1    ; Guaranteed contiguous identity-map limit
+    .offline_pages  resq 1      ; Usable pages above the supported identity cap
+    .high_pages     resq 1      ; Candidate usable pages in [4 GiB, identity cap)
+    .address_limit  resq 1      ; min(MAXPHYADDR ceiling, lower canonical limit)
+    .highmem_ready  resq 1      ; Sparse high mappings are verified and published
+    .alloc_bitmap_addr resq 1   ; Dynamic-allocation ownership bitmap
+    .metadata_size  resq 1      ; Occupancy + ownership bitmap storage bytes
 endstruc
 
 ; Slab allocator cache descriptor structure

@@ -147,9 +147,24 @@ if [ "$HIGHMEM" -eq 1 ]; then
     HIGH_E820="base=0x0000000100000000 len=0x0000000010000000 type=1 (usable)"
     grep -Fq "$HIGH_E820" "$LOG" || fail "forced high E820 range was not reported"
     wait_for_count "PMM mapped limit: 4 GiB" 2 1
-    wait_for_count "Highmem direct-map R/W: SKIP (RAM above mapped limit is offline)" 2 1
-    grep -Fq "Highmem direct-map R/W: PASS phys=" "$LOG" && \
-        fail "recovery exposed RAM above the mapped limit"
+    wait_for_count "Paging high map verify: OK" 2 1
+    wait_for_count "Highmem direct-map R/W: PASS phys=0x00000001" 2 1
+    grep -Fq "Highmem direct-map R/W: SKIP" "$LOG" && \
+        fail "recovery left supported high RAM offline"
+
+    RECOVERY_LINE=$(awk '
+        /Recovery long-mode transition verify: OK/ { print NR; exit }
+    ' "$LOG")
+    [ -n "$RECOVERY_LINE" ] || fail "missing recovery transition boundary"
+    for MILESTONE in \
+        "Paging high map verify: OK" \
+        "Highmem direct-map R/W: PASS phys=0x00000001"
+    do
+        LINE=$(awk -v after="$RECOVERY_LINE" -v needle="$MILESTONE" \
+            'NR > after && index($0, needle) { print NR; exit }' "$LOG")
+        [ -n "$LINE" ] || fail "missing post-recovery high-memory milestone: $MILESTONE"
+        RECOVERY_LINE=$LINE
+    done
 fi
 
 # Require the recovery story in strict order after the first ready marker.

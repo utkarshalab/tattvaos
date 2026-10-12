@@ -99,7 +99,8 @@ virt_map:
 
     ; Load CR3 as the initial directory base
     mov rax, cr3
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = root physical base
+    mov r8, PAGE_ADDR_MASK_4K
+    and rax, r8                     ; RAX = root physical base
 
     ; Check if 5-level paging (LA57) is active in CR4
     mov rcx, cr4
@@ -125,13 +126,15 @@ virt_map:
     test rax, rax
     jz .oom
     
-    ; Link PML4 to PML5: present, writable, user
+    ; Non-leaf U/S must stay set: a later user leaf may reuse this table.
+    ; Supervisor leaves remain protected by their own clear U/S bit.
     mov rbx, rax
     or rbx, (PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER)
     mov [rdx + rcx * 8], rbx
 
 .have_pml4:
-    and rbx, 0xFFFFFFFFFFFFF000      ; RBX = PML4 physical address
+    mov r8, PAGE_ADDR_MASK_4K
+    and rbx, r8                     ; RBX = PML4 physical address
     mov rax, rbx
 
 .do_pml4:
@@ -162,7 +165,8 @@ virt_map:
     mov [rdx + rcx * 8], rbx
 
 .have_pdpt:
-    and rbx, 0xFFFFFFFFFFFFF000      ; RBX = PDPT physical address
+    mov r8, PAGE_ADDR_MASK_4K
+    and rbx, r8                     ; RBX = PDPT physical address
     mov rax, rbx
 
     ; -------------------------------------------------------------------------
@@ -208,7 +212,8 @@ virt_map:
     mov [rdx + rcx * 8], rbx
 
 .have_pd:
-    and rbx, 0xFFFFFFFFFFFFF000      ; RBX = PD physical address
+    mov r8, PAGE_ADDR_MASK_4K
+    and rbx, r8                     ; RBX = PD physical address
     mov rax, rbx
 
     ; -------------------------------------------------------------------------
@@ -254,7 +259,8 @@ virt_map:
     mov [rdx + rcx * 8], rbx
 
 .have_pt:
-    and rbx, 0xFFFFFFFFFFFFF000      ; RBX = PT physical address
+    mov r8, PAGE_ADDR_MASK_4K
+    and rbx, r8                     ; RBX = PT physical address
 
     ; -------------------------------------------------------------------------
     ; 5. Set Leaf PT Entry (PTE)
@@ -355,7 +361,8 @@ virt_map_huge_2mb:
 
     ; Load CR3
     mov rax, cr3
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = root physical base
+    mov r8, PAGE_ADDR_MASK_4K
+    and rax, r8                     ; RAX = root physical base
 
     ; Check 5-level paging
     mov rcx, cr4
@@ -383,7 +390,8 @@ virt_map_huge_2mb:
     mov [rdx + rcx * 8], rbx
 
 .have_pml4:
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rbx, r8
     mov rax, rbx
 
 .do_pml4:
@@ -410,7 +418,8 @@ virt_map_huge_2mb:
     mov [rdx + rcx * 8], rbx
 
 .have_pdpt:
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rbx, r8
     mov rax, rbx
 
     ; PDPT
@@ -453,7 +462,8 @@ virt_map_huge_2mb:
     mov [rdx + rcx * 8], rbx
 
 .have_pd:
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rbx, r8
     mov rax, rbx                    ; RAX = PD physical address
 
     ; PD entry (PDE) index
@@ -471,7 +481,8 @@ virt_map_huge_2mb:
     jnz .write_pde                  ; if it was already huge, just overwrite
 
     ; It was a page table pointer. Recycle it to prevent memory leaks!
-    and rdx, 0xFFFFFFFFFFFFF000     ; RDX = PT physical address
+    mov r8, PAGE_ADDR_MASK_4K
+    and rdx, r8                     ; RDX = PT physical address
     
     push rax
     push rcx
@@ -563,7 +574,8 @@ virt_map_super_1gb:
 
     ; Load CR3
     mov rax, cr3
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = root physical base
+    mov r8, PAGE_ADDR_MASK_4K
+    and rax, r8                     ; RAX = root physical base
 
     ; Check 5-level paging
     mov rcx, cr4
@@ -591,7 +603,8 @@ virt_map_super_1gb:
     mov [rdx + rcx * 8], rbx
 
 .have_pml4:
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rbx, r8
     mov rax, rbx
 
 .do_pml4:
@@ -618,7 +631,8 @@ virt_map_super_1gb:
     mov [rdx + rcx * 8], rbx
 
 .have_pdpt:
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rbx, r8
     mov rax, rbx                    ; RAX = PDPT physical address
 
     ; PDPT entry (PDPTE) index
@@ -636,7 +650,8 @@ virt_map_super_1gb:
     jnz .write_pdpte                ; if it was already huge/super, just overwrite
 
     ; It was a Page Directory pointer. Recursively clean up sub-directories to prevent leaks!
-    and rdx, 0xFFFFFFFFFFFFF000     ; RDX = PD physical address
+    mov r8, PAGE_ADDR_MASK_4K
+    and rdx, r8                     ; RDX = PD physical address
 
     ; We need to preserve RAX (PDPT address) and RCX (PDPT index)
     push rax
@@ -655,7 +670,8 @@ virt_map_super_1gb:
     jnz .next_pde                   ; skip if it is a 2MB huge page (no PT linked)
 
     ; It points to a Page Table (PT). Free it!
-    and r9, 0xFFFFFFFFFFFFF000     ; R9 = PT physical address
+    mov r10, PAGE_ADDR_MASK_4K
+    and r9, r10                    ; R9 = PT physical address
     
     push rdx
     push r8

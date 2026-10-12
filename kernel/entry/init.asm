@@ -211,6 +211,9 @@ kernel_init:
 mm_init:
     call phys_init
     call virt_shuffle_pml4_init
+    call phys_highmem_init
+    test rax, rax
+    jz .error
 
     ; 1. Mark kernel code/data as global (1MB to the true end of the kernel's
     ; footprint, .bss included). Neither kernel_end (end of .text) nor the
@@ -245,7 +248,7 @@ mm_init:
 
     ; 2. Mark physical allocator bitmap as global
     mov rdi, [phys_state + phys_state_t.bitmap_addr]
-    mov rsi, [phys_state + phys_state_t.bitmap_size]
+    mov rsi, [phys_state + phys_state_t.metadata_size]
     call virt_mark_global_range
     test rax, rax
     jz .error

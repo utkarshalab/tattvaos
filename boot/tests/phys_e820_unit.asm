@@ -89,6 +89,48 @@ _start:
     test r8, r8
     jnz .fail_6
 
+    ; Raising the aperture publishes the supported high extent while keeping
+    ; the reserved hole out of the managed page count.
+    lea rdi, [rel sparse_map]
+    mov rsi, 3
+    mov rdx, PHYS_IDENTITY_VA_LIMIT
+    call phys_parse_e820
+    jc .fail_7
+    mov rbx, 0x0000000110000000
+    cmp rax, rbx
+    jne .fail_7
+    cmp rcx, 0x1FF00
+    jne .fail_7
+    test r8, r8
+    jnz .fail_7
+
+    ; Pages at/above the collision-free identity ceiling remain offline.
+    lea rdi, [rel cap_crossing_map]
+    mov rsi, 1
+    mov rdx, PHYS_IDENTITY_VA_LIMIT
+    call phys_parse_e820
+    jc .fail_8
+    mov rbx, PHYS_IDENTITY_VA_LIMIT
+    cmp rax, rbx
+    jne .fail_8
+    cmp rcx, 1
+    jne .fail_8
+    cmp r8, 1
+    jne .fail_8
+
+    ; Canonical maps must be ascending and non-overlapping.
+    lea rdi, [rel unsorted_map]
+    mov rsi, 2
+    mov rdx, PHYS_IDENTITY_VA_LIMIT
+    call phys_parse_e820
+    jnc .fail_9
+
+    lea rdi, [rel overlap_map]
+    mov rsi, 2
+    mov rdx, PHYS_IDENTITY_VA_LIMIT
+    call phys_parse_e820
+    jnc .fail_10
+
     xor edi, edi
     jmp .exit
 
@@ -109,6 +151,18 @@ _start:
     jmp .exit
 .fail_6:
     mov edi, 6
+    jmp .exit
+.fail_7:
+    mov edi, 7
+    jmp .exit
+.fail_8:
+    mov edi, 8
+    jmp .exit
+.fail_9:
+    mov edi, 9
+    jmp .exit
+.fail_10:
+    mov edi, 10
 
 .exit:
     mov eax, 60
@@ -143,3 +197,19 @@ overflow_map:
 reserved_overflow_map:
     dq 0xFFFFFFFFFFFFFF00, 0x200
     dd 2, 1
+
+cap_crossing_map:
+    dq PHYS_IDENTITY_VA_LIMIT - 0x1000, 0x2000
+    dd 1, 1
+
+unsorted_map:
+    dq 0x4000, 0x1000
+    dd 1, 1
+    dq 0x2000, 0x1000
+    dd 1, 1
+
+overlap_map:
+    dq 0x2000, 0x3000
+    dd 2, 1
+    dq 0x4000, 0x2000
+    dd 1, 1

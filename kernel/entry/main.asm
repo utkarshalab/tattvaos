@@ -102,7 +102,11 @@ kernel_main:
 ; -----------------------------------------------------------------------------
 kernel_boot_memory_selftest:
     push rbx
+    push rbp
     push r12
+    push r13
+    push r14
+    push r15
 
     ; Software address translation must agree with the PML4 slot selected by
     ; hardware.  Software-only shuffling cannot change a CPU page-table walk.
@@ -117,8 +121,11 @@ kernel_boot_memory_selftest:
 
     test rbx, 4095
     jnz .failed
-    cmp rbx, [phys_state + phys_state_t.direct_map_limit]
-    jae .failed
+    mov rdi, rbx
+    mov rsi, 1
+    call phys_range_is_online_usable
+    test rax, rax
+    jz .failed
 
     mov rax, 0x544154545641504D     ; "TATTVAPM"
     mov [rbx], rax
@@ -129,15 +136,144 @@ kernel_boot_memory_selftest:
     call phys_free_page
     cmp [phys_state + phys_state_t.free_pages], r12
     jne .failed
+    cmp qword [rbx], 0
+    jne .failed
+    cmp qword [rbx + 4088], 0
+    jne .failed
 
+    ; A second release must not change counters.  Permanent metadata remains
+    ; owned by the kernel and additionally proves rejection happens pre-zero.
+    mov rdi, rbx
+    call phys_free_page
+    cmp [phys_state + phys_state_t.free_pages], r12
+    jne .failed
+
+    mov rdi, [phys_state + phys_state_t.bitmap_addr]
+    mov r13, [rdi]
+    test r13, r13
+    jz .failed
+    call phys_free_page
+    cmp [phys_state + phys_state_t.free_pages], r12
+    jne .failed
+    mov rdi, [phys_state + phys_state_t.bitmap_addr]
+    cmp [rdi], r13
+    jne .failed
+
+    ; When firmware published a usable NUMA node wholly above 4 GiB, prove
+    ; that the node-local allocator and generic free path agree on ownership,
+    ; direct-map access, zeroing, and both local/global counters.  Skip tiny or
+    ; low-only nodes; the QEMU two-node high-memory contract must execute it.
+    cmp qword [numa_local_bitmaps_active], 1
+    jne .passed
+    cmp qword [numa_node_count], 2
+    jb .passed
+    cmp qword [phys_state + phys_state_t.highmem_ready], 1
+    jne .passed
+
+    mov r13, 1                     ; node 0 was already exercised above
+.find_test_node:
+    cmp r13, [numa_node_count]
+    jae .passed
+    mov rax, r13
+    imul rax, numa_node_t_size
+    lea r14, [numa_nodes + rax]
+    mov eax, [r14 + numa_node_t.flags]
+    and eax, 3                     ; active and local bitmap initialized
+    cmp eax, 3
+    jne .next_test_node
+    cmp qword [r14 + numa_node_t.start_page], (PHYS_BOOTSTRAP_MAP_LIMIT >> 12)
+    jb .next_test_node
+    mov r15, [r14 + numa_node_t.free_pages]
+    mov rax, [r14 + numa_node_t.pages_min]
+    inc rax
+    cmp r15, rax
+    jb .next_test_node
+
+    mov rbx, [r14 + numa_node_t.reserved_pages]
+    mov rbp, [phys_state + phys_state_t.reserved_pages]
+    mov rdi, r13
+    call phys_alloc_page_node
+    test rax, rax
+    jz .failed
+    mov r13, rax
+    mov rax, PHYS_BOOTSTRAP_MAP_LIMIT
+    cmp r13, rax
+    jb .numa_release_failed
+
+    mov rax, r15
+    dec rax
+    cmp [r14 + numa_node_t.free_pages], rax
+    jne .numa_release_failed
+    mov rax, r12
+    dec rax
+    cmp [phys_state + phys_state_t.free_pages], rax
+    jne .numa_release_failed
+    mov rax, rbx
+    inc rax
+    cmp [r14 + numa_node_t.reserved_pages], rax
+    jne .numa_release_failed
+    mov rax, rbp
+    inc rax
+    cmp [phys_state + phys_state_t.reserved_pages], rax
+    jne .numa_release_failed
+
+    mov rdi, r13
+    lea rsi, [r13 + 4096]
+    call numa_range_owner
+    mov edx, [r14 + numa_node_t.node_id]
+    cmp eax, edx
+    jne .numa_release_failed
+
+    mov rax, 0x4E554D414E4F4445     ; "NUMANODE"
+    mov [r13], rax
+    cmp [r13], rax
+    jne .numa_release_failed
+    not rax
+    mov [r13 + 4088], rax
+    cmp [r13 + 4088], rax
+    jne .numa_release_failed
+
+    mov rdi, r13
+    call phys_free_page
+    cmp [r14 + numa_node_t.free_pages], r15
+    jne .failed
+    cmp [phys_state + phys_state_t.free_pages], r12
+    jne .failed
+    cmp [r14 + numa_node_t.reserved_pages], rbx
+    jne .failed
+    cmp [phys_state + phys_state_t.reserved_pages], rbp
+    jne .failed
+    cmp qword [r13], 0
+    jne .failed
+    cmp qword [r13 + 4088], 0
+    jne .failed
+
+    mov rsi, msg_boot_numa_selftest_pass
+    call uart_print_str
+    jmp .passed
+
+.next_test_node:
+    inc r13
+    jmp .find_test_node
+
+.passed:
     mov rsi, msg_boot_memory_selftest_pass
     call uart_print_str
+    pop r15
+    pop r14
+    pop r13
     pop r12
+    pop rbp
     pop rbx
     ret
 
 .release_failed:
     mov rdi, rbx
+    call phys_free_page
+    jmp .failed
+
+.numa_release_failed:
+    mov rdi, r13
     call phys_free_page
 
 .failed:
@@ -191,6 +327,7 @@ net_poll_fiber:
 section .data
 
 msg_boot_memory_selftest_pass: db 'Boot memory self-test: PASS', 0x0D, 0x0A, 0
+msg_boot_numa_selftest_pass: db 'NUMA high-node R/W/free: PASS', 0x0D, 0x0A, 0
 msg_boot_memory_selftest_fail: db 'KERNEL PANIC: boot memory self-test failed', 0x0D, 0x0A, 0
 msg_kernel_ready:     db 'Tattva Kernel Ready. Entering main execution.', 0x0D, 0x0A, 0
 msg_heartbeat_prefix: db 'heartbeat #', 0

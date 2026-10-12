@@ -24,10 +24,48 @@ EPT_MT_WB       equ (6 << 3)        ; Bits 5:3: Memory Type (Write-Back)
 EPT_IPAT        equ (1 << 6)        ; Bit 6: Ignore PAT memory type
 EPT_ACCESSED    equ (1 << 8)        ; Bit 8: Accessed
 EPT_DIRTY       equ (1 << 9)        ; Bit 9: Dirty
+EPT_LEAF_FLAGS  equ 0x37F           ; Supported 4KB-leaf attributes (bit 7 excluded)
 
 section .text
 
 ; External Physical Memory Allocator Symbols
+
+; Validate a host page-table page before dereferencing it.  Keep all caller
+; registers except RAX intact so the walk state survives the range validator.
+ept_validate_table_page:
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push r8
+    push r9
+    push r10
+    push r11
+
+    test rdi, 4095
+    jnz .invalid
+    cmp rdi, 0x100000
+    jb .invalid
+    mov rax, kernel_bss_end
+    cmp rdi, rax
+    jb .invalid
+
+    mov rsi, 1
+    call phys_range_is_online_usable
+    jmp .done
+
+.invalid:
+    xor eax, eax
+.done:
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    ret
 
 ; -----------------------------------------------------------------------------
 ; ept_create_eptp — Builds the 64-bit Extended Page Table Pointer (EPTP)
@@ -42,7 +80,7 @@ section .text
 global ept_create_eptp
 ept_create_eptp:
     ; Mask off any offset bits in PML4 physical address to ensure alignment
-    and rdi, -4096                  ; RDI = PML4 page-aligned base address
+    and rdi, [rel ept_page_addr_mask_4k] ; exact 52-bit PML4 base
     
     ; Integrate Memory Type (bits 2:0)
     and rsi, 7
@@ -85,6 +123,32 @@ ept_map_page:
     mov r14, rdx                    ; R14 = HPA (aligned)
     mov r15, rcx                    ; R15 = mapping flags
 
+    test r12, r12
+    jz .fail
+    test r12, 4095
+    jnz .fail
+    test r13, 4095
+    jnz .fail
+    test r14, 4095
+    jnz .fail
+
+    ; Reject address injection through either the HPA or caller flags.
+    mov rax, r14
+    and rax, [rel ept_page_addr_mask_4k]
+    cmp rax, r14
+    jne .fail
+    mov rax, r15
+    and rax, EPT_LEAF_FLAGS
+    cmp rax, r15
+    jne .fail
+    test r15, (EPT_READ | EPT_WRITE | EPT_EXEC)
+    jz .fail
+
+    mov rdi, r12
+    call ept_validate_table_page
+    test rax, rax
+    jz .fail
+
     ; 1. Walk PML4 (Level 4)
     mov rax, r13
     shr rax, 39
@@ -95,7 +159,9 @@ ept_map_page:
     jnz .pml4_valid
 
     ; Allocate EPT PDPT table
+    push r8
     call phys_alloc_page
+    pop r8
     test rax, rax
     jz .fail
     
@@ -114,7 +180,13 @@ ept_map_page:
     mov [r8], r9
 
 .pml4_valid:
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = PDPT physical address
+    test r9, (1 << 7)               ; A PML4 entry cannot be a huge leaf
+    jnz .fail
+    and r9, [rel ept_page_addr_mask_4k] ; R9 = PDPT physical address
+    mov rdi, r9
+    call ept_validate_table_page
+    test rax, rax
+    jz .fail
 
     ; 2. Walk PDPT (Level 3)
     mov rax, r13
@@ -126,7 +198,9 @@ ept_map_page:
     jnz .pdpt_valid
 
     ; Allocate EPT PD table
+    push r8
     call phys_alloc_page
+    pop r8
     test rax, rax
     jz .fail
     
@@ -145,7 +219,13 @@ ept_map_page:
     mov [r8], r9
 
 .pdpt_valid:
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = PD physical address
+    test r9, (1 << 7)               ; This mapper only builds 4KB leaves
+    jnz .fail
+    and r9, [rel ept_page_addr_mask_4k] ; R9 = PD physical address
+    mov rdi, r9
+    call ept_validate_table_page
+    test rax, rax
+    jz .fail
 
     ; 3. Walk PD (Level 2)
     mov rax, r13
@@ -157,7 +237,9 @@ ept_map_page:
     jnz .pd_valid
 
     ; Allocate EPT PT table
+    push r8
     call phys_alloc_page
+    pop r8
     test rax, rax
     jz .fail
     
@@ -176,7 +258,13 @@ ept_map_page:
     mov [r8], r9
 
 .pd_valid:
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = PT physical address
+    test r9, (1 << 7)               ; This mapper only builds 4KB leaves
+    jnz .fail
+    and r9, [rel ept_page_addr_mask_4k] ; R9 = PT physical address
+    mov rdi, r9
+    call ept_validate_table_page
+    test rax, rax
+    jz .fail
 
     ; 4. Walk PT (Level 1)
     mov rax, r13
@@ -186,7 +274,7 @@ ept_map_page:
 
     ; Write target Host Physical Address and mapping flags
     mov r9, r14
-    and r9, 0xFFFFFFFFFFFFF000      ; Align address
+    and r9, [rel ept_page_addr_mask_4k] ; exact HPA without EPT attributes
     or r9, r15                      ; Add mapping flags
     mov [r8], r9
 
@@ -214,6 +302,14 @@ ept_map_page:
 ; -----------------------------------------------------------------------------
 global ept_unmap_page
 ept_unmap_page:
+    test rdi, rdi
+    jz .not_mapped
+    test rsi, 4095
+    jnz .not_mapped
+    call ept_validate_table_page
+    test rax, rax
+    jz .not_mapped
+
     ; PML4 Walk
     mov rax, rsi
     shr rax, 39
@@ -221,27 +317,45 @@ ept_unmap_page:
     mov r8, [rdi + rax * 8]
     test r8, 7
     jz .not_mapped
+    test r8, (1 << 7)
+    jnz .not_mapped
     
     ; PDPT Walk
-    and r8, 0xFFFFFFFFFFFFF000
+    and r8, [rel ept_page_addr_mask_4k]
+    mov rdi, r8
+    call ept_validate_table_page
+    test rax, rax
+    jz .not_mapped
     mov rax, rsi
     shr rax, 30
     and rax, 0x1FF
     mov r9, [r8 + rax * 8]
     test r9, 7
     jz .not_mapped
+    test r9, (1 << 7)
+    jnz .not_mapped
     
     ; PD Walk
-    and r9, 0xFFFFFFFFFFFFF000
+    and r9, [rel ept_page_addr_mask_4k]
+    mov rdi, r9
+    call ept_validate_table_page
+    test rax, rax
+    jz .not_mapped
     mov rax, rsi
     shr rax, 21
     and rax, 0x1FF
     mov r8, [r9 + rax * 8]
     test r8, 7
     jz .not_mapped
+    test r8, (1 << 7)
+    jnz .not_mapped
     
     ; PT Walk
-    and r8, 0xFFFFFFFFFFFFF000
+    and r8, [rel ept_page_addr_mask_4k]
+    mov rdi, r8
+    call ept_validate_table_page
+    test rax, rax
+    jz .not_mapped
     mov rax, rsi
     shr rax, 12
     and rax, 0x1FF
@@ -269,6 +383,12 @@ ept_unmap_page:
 ; -----------------------------------------------------------------------------
 global ept_translate
 ept_translate:
+    test rdi, rdi
+    jz .not_mapped
+    call ept_validate_table_page
+    test rax, rax
+    jz .not_mapped
+
     ; PML4 Walk
     mov rax, rsi
     shr rax, 39
@@ -276,27 +396,45 @@ ept_translate:
     mov r8, [rdi + rax * 8]
     test r8, 7
     jz .not_mapped
+    test r8, (1 << 7)
+    jnz .not_mapped
     
     ; PDPT Walk
-    and r8, 0xFFFFFFFFFFFFF000
+    and r8, [rel ept_page_addr_mask_4k]
+    mov rdi, r8
+    call ept_validate_table_page
+    test rax, rax
+    jz .not_mapped
     mov rax, rsi
     shr rax, 30
     and rax, 0x1FF
     mov r9, [r8 + rax * 8]
     test r9, 7
     jz .not_mapped
+    test r9, (1 << 7)
+    jnz .not_mapped
     
     ; PD Walk
-    and r9, 0xFFFFFFFFFFFFF000
+    and r9, [rel ept_page_addr_mask_4k]
+    mov rdi, r9
+    call ept_validate_table_page
+    test rax, rax
+    jz .not_mapped
     mov rax, rsi
     shr rax, 21
     and rax, 0x1FF
     mov r8, [r9 + rax * 8]
     test r8, 7
     jz .not_mapped
+    test r8, (1 << 7)
+    jnz .not_mapped
     
     ; PT Walk
-    and r8, 0xFFFFFFFFFFFFF000
+    and r8, [rel ept_page_addr_mask_4k]
+    mov rdi, r8
+    call ept_validate_table_page
+    test rax, rax
+    jz .not_mapped
     mov rax, rsi
     shr rax, 12
     and rax, 0x1FF
@@ -306,7 +444,7 @@ ept_translate:
     
     ; Extract physical address base and add GPA offset
     mov rax, rcx
-    mov r8, 0xFFFFFFFFFFFFF000
+    mov r8, [rel ept_page_addr_mask_4k]
     and rax, r8                     ; RAX = HPA page base address
     mov r8, 0xFFF
     and rsi, r8                     ; RSI = page offset (bits 11:0)
@@ -330,6 +468,11 @@ ept_free_level:
     
     mov rbx, rdi                    ; RBX = table physical address
     mov r12, rsi                    ; R12 = paging level
+
+    mov rdi, rbx
+    call ept_validate_table_page
+    test rax, rax
+    jz .invalid
     
     ; If Level 1 (PT), do not traverse, free directly
     cmp r12, 1
@@ -344,11 +487,26 @@ ept_free_level:
     mov rax, [rbx + r13 * 8]        ; RAX = EPT entry value
     test rax, 7                     ; Check present
     jz .next
-    
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = child table physical address
-    
-    ; Call recursively on child table
+
+    ; Huge leaves own mapped data, not another EPT table page.
+    cmp r12, 4
+    je .not_huge
+    test rax, (1 << 7)
+    jnz .next
+.not_huge:
+
+    and rax, [rel ept_page_addr_mask_4k] ; child table physical address
+    cmp rax, rbx                    ; Reject the simplest corrupt cycle
+    je .invalid
+
     mov rdi, rax
+    call ept_validate_table_page
+    test rax, rax
+    jz .invalid
+
+    ; Call recursively on child table
+    mov rdi, [rbx + r13 * 8]
+    and rdi, [rel ept_page_addr_mask_4k]
     mov rsi, r12
     dec rsi                         ; level - 1
     call ept_free_level
@@ -366,6 +524,12 @@ ept_free_level:
     pop rbx
     ret
 
+.invalid:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 ; -----------------------------------------------------------------------------
 ; ept_destroy — Deallocates EPT page table structures recursively
 ; Input:
@@ -373,7 +537,15 @@ ept_free_level:
 ; -----------------------------------------------------------------------------
 global ept_destroy
 ept_destroy:
+    test rdi, rdi
+    jz .done
     mov rsi, 4                      ; Start traversal at PML4 (Level 4)
-    jmp ept_free_level
+    call ept_free_level
+.done:
+    ret
+
+section .rodata
+align 8
+ept_page_addr_mask_4k: dq 0x000FFFFFFFFFF000
 
 %endif ; LIB_MEM_VIRT_EPT_ASM

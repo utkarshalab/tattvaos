@@ -592,7 +592,8 @@ virt_create_user_pml4:
     test rbx, rbx
     jnz .have_kernel_pml4
     mov rbx, cr3
-    and rbx, 0xFFFFFFFFFFFFF000     ; Rbx = current Kernel PML4
+    mov rax, PAGE_ADDR_MASK_4K
+    and rbx, rax                    ; RBX = current kernel PML4
 .have_kernel_pml4:
 
     ; 1. Allocate a physical page for the User PML4

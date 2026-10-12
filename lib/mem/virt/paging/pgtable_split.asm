@@ -40,7 +40,8 @@ virt_split_super_1gb:
     test rbx, rbx
     jnz .have_root
     mov rbx, cr3
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov rax, PAGE_ADDR_MASK_4K
+    and rbx, rax
 .have_root:
 
     ; 2. Check 5-level paging (LA57)
@@ -55,7 +56,8 @@ virt_split_super_1gb:
     mov rax, [rbx + rcx * 8]
     test rax, PAGE_PRESENT
     jz .not_mapped
-    and rax, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rax, r8
     mov rbx, rax
 
 .level4:
@@ -68,7 +70,8 @@ virt_split_super_1gb:
     mov rax, [rbx + rcx * 8]
     test rax, PAGE_PRESENT
     jz .not_mapped
-    and rax, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rax, r8
     mov rbx, rax                    ; RBX = PDPT base
 
     ; PDPT Entry Lookup
@@ -93,13 +96,12 @@ virt_split_super_1gb:
 
     ; Extract base physical address of the 1GB page
     mov r8, r14
-    and r8, 0xFFFFFFFFFFFFF000      ; 1GB page physical base
+    mov r10, PAGE_ADDR_MASK_1G
+    and r8, r10                     ; 1GB page physical base
     
     ; Extract PDPTE flags, keep PAGE_HUGE
     mov r9, r14
-    mov r10, 0xFFFFFFFFFFFFF000
-    not r10                         ; R10 = flags mask (lower 12 bits)
-    and r9, r10                     ; R9 = flags (includes PAGE_HUGE, PRESENT, etc.)
+    and r9, 0xFFF                   ; low-order flags, including HUGE/PRESENT
     
     ; Also preserve NX bit (bit 63)
     mov r10, (1 << 63)
@@ -122,9 +124,12 @@ virt_split_super_1gb:
     jmp .fill_pd_loop
 
 .link_pd:
-    ; Replace PDPTE with pointer to new PD: PRESENT | WRITABLE | USER
+    ; Replace PDPTE with a pointer carrying the original leaf's user policy.
     mov rax, r15
-    or rax, (PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER)
+    or rax, (PAGE_PRESENT | PAGE_WRITABLE)
+    mov r10, r14
+    and r10, PAGE_USER
+    or rax, r10
     mov [r13], rax
 
     ; Flush TLB globally (full shootdown since it's 1GB)
@@ -175,7 +180,8 @@ virt_split_huge_2mb:
     test rbx, rbx
     jnz .have_root
     mov rbx, cr3
-    and rbx, 0xFFFFFFFFFFFFF000
+    mov rax, PAGE_ADDR_MASK_4K
+    and rbx, rax
 .have_root:
 
     ; 2. Check 5-level paging (LA57)
@@ -190,7 +196,8 @@ virt_split_huge_2mb:
     mov rax, [rbx + rcx * 8]
     test rax, PAGE_PRESENT
     jz .not_mapped
-    and rax, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rax, r8
     mov rbx, rax
 
 .level4:
@@ -203,7 +210,8 @@ virt_split_huge_2mb:
     mov rax, [rbx + rcx * 8]
     test rax, PAGE_PRESENT
     jz .not_mapped
-    and rax, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rax, r8
     mov rbx, rax                    ; RBX = PDPT base
 
     ; PDPT Walk
@@ -232,7 +240,8 @@ virt_split_huge_2mb:
     mov rax, [rbx + rcx * 8]
 
 .walk_pd:
-    and rax, 0xFFFFFFFFFFFFF000
+    mov r8, PAGE_ADDR_MASK_4K
+    and rax, r8
     mov rbx, rax                    ; RBX = PD base
 
     ; PD Entry Lookup
@@ -257,13 +266,12 @@ virt_split_huge_2mb:
 
     ; Extract base physical address of the 2MB page (aligned to 2MB)
     mov r8, r14
-    and r8, 0xFFFFFFFFFFE00000      ; 2MB aligned (bits 21-51)
+    mov r10, PAGE_ADDR_MASK_2M
+    and r8, r10                     ; 2MB aligned (bits 21-51)
     
     ; Extract PDE flags, clear PAGE_HUGE
     mov r9, r14
-    mov r10, 0xFFFFFFFFFFFFF000
-    not r10                         ; R10 = flags mask
-    and r9, r10                     ; R9 = flags
+    and r9, 0xFFF                   ; low-order flags
     and r9, ~PAGE_HUGE              ; clear PAGE_HUGE (bit 7)
     
     ; Preserve NX bit (bit 63)
@@ -287,9 +295,12 @@ virt_split_huge_2mb:
     jmp .fill_pt_loop
 
 .link_pt:
-    ; Replace PDE with pointer to new PT: PRESENT | WRITABLE | USER
+    ; Replace PDE with a pointer carrying the original leaf's user policy.
     mov rax, r15
-    or rax, (PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER)
+    or rax, (PAGE_PRESENT | PAGE_WRITABLE)
+    mov r10, r14
+    and r10, PAGE_USER
+    or rax, r10
     mov [r13], rax
 
     ; Flush TLB for the 2MB region

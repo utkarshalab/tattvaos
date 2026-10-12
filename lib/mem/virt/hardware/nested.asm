@@ -32,29 +32,45 @@ section .text
 ;   RAX = 1 if valid, 0 if invalid (reserved or kernel-protected region)
 ; -----------------------------------------------------------------------------
 is_valid_phys_addr:
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push r8
+    push r9
+    push r10
+    push r11
+
     ; 1. Must be 4KB page aligned
     test rdi, 4095
     jnz .invalid
 
     ; 2. Must not overlap with host kernel memory [0x100000, kernel_end]
     cmp rdi, 0x100000
-    jb .check_high
+    jb .invalid                     ; PMM permanently reserves the low 1 MiB
 
-    mov rax, kernel_end
+    mov rax, kernel_bss_end
     cmp rdi, rax
     jb .invalid
 
 .check_high:
-    ; 3. Must be below max physical address
-    mov rax, [phys_state + phys_state_t.max_phys_addr]
-    cmp rdi, rax
-    jae .invalid
-
-    mov rax, 1
-    ret
+    ; A sparse max_phys_addr includes holes.  Require canonical usable E820 RAM
+    ; with an installed identity mapping before any host dereference.
+    mov rsi, 1
+    call phys_range_is_online_usable
+    jmp .done
 
 .invalid:
     xor rax, rax
+.done:
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -89,6 +105,15 @@ nested_ept_init:
 ; -----------------------------------------------------------------------------
 global nested_ept_map_self
 nested_ept_map_self:
+    ; A recursive table link accepts permissions only.  Address bits in the
+    ; caller's flag word must never redirect the already validated root.
+    mov rax, rsi
+    and rax, (EPT_READ | EPT_WRITE | EPT_EXEC)
+    cmp rax, rsi
+    jne .fail
+    test rax, rax
+    jz .fail
+
     ; Validate PML4 alignment/boundaries
     push rdi
     push rsi
@@ -150,11 +175,15 @@ nested_ept_walk_and_sync:
     test rax, rax
     jz .fail
 
-    mov rdi, rax
+    mov r8, rax                     ; preserve translated HPA across validator
+    mov rdi, r8
     call is_valid_phys_addr
     test rax, rax
     jz .fail
-    mov r8, rax                     ; R8 = L1 PML4 HPA
+
+    ; EPT permissions are cumulative at every level.  The shadow leaf may not
+    ; grant any access that an ancestor in the L1 EPT denied.
+    mov r13, (EPT_READ | EPT_WRITE | EPT_EXEC)
 
     ; 2. Walk L1 PML4 (Level 4)
     mov rax, r14
@@ -163,8 +192,12 @@ nested_ept_walk_and_sync:
     mov r9, [r8 + rax * 8]          ; R9 = PML4 entry
     test r9, 7                      ; Present check
     jz .fail
+    mov rax, r9
+    and rax, 7
+    and r13, rax
+    jz .fail
 
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = child PDPT GPA
+    and r9, [rel nested_page_addr_mask_4k] ; R9 = child PDPT GPA
 
     ; Translate PDPT GPA to HPA
     mov rdi, r15
@@ -173,11 +206,11 @@ nested_ept_walk_and_sync:
     test rax, rax
     jz .fail
 
-    mov rdi, rax
+    mov r8, rax                     ; preserve translated HPA across validator
+    mov rdi, r8
     call is_valid_phys_addr
     test rax, rax
     jz .fail
-    mov r8, rax                     ; R8 = L1 PDPT HPA
 
     ; 3. Walk L1 PDPT (Level 3)
     mov rax, r14
@@ -186,11 +219,15 @@ nested_ept_walk_and_sync:
     mov r9, [r8 + rax * 8]
     test r9, 7
     jz .fail
+    mov rax, r9
+    and rax, 7
+    and r13, rax
+    jz .fail
 
     test r9, (1 << 7)               ; Huge pages (1GB) unsupported in EPT walk
     jnz .fail
 
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = child PD GPA
+    and r9, [rel nested_page_addr_mask_4k] ; R9 = child PD GPA
 
     ; Translate PD GPA to HPA
     mov rdi, r15
@@ -199,11 +236,11 @@ nested_ept_walk_and_sync:
     test rax, rax
     jz .fail
 
-    mov rdi, rax
+    mov r8, rax                     ; preserve translated HPA across validator
+    mov rdi, r8
     call is_valid_phys_addr
     test rax, rax
     jz .fail
-    mov r8, rax                     ; R8 = L1 PD HPA
 
     ; 4. Walk L1 PD (Level 2)
     mov rax, r14
@@ -212,11 +249,15 @@ nested_ept_walk_and_sync:
     mov r9, [r8 + rax * 8]
     test r9, 7
     jz .fail
+    mov rax, r9
+    and rax, 7
+    and r13, rax
+    jz .fail
 
     test r9, (1 << 7)               ; Huge pages (2MB) unsupported in EPT walk
     jnz .fail
 
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = child PT GPA
+    and r9, [rel nested_page_addr_mask_4k] ; R9 = child PT GPA
 
     ; Translate PT GPA to HPA
     mov rdi, r15
@@ -225,11 +266,11 @@ nested_ept_walk_and_sync:
     test rax, rax
     jz .fail
 
-    mov rdi, rax
+    mov r8, rax                     ; preserve translated HPA across validator
+    mov rdi, r8
     call is_valid_phys_addr
     test rax, rax
     jz .fail
-    mov r8, rax                     ; R8 = L1 PT HPA
 
     ; 5. Walk L1 PT (Level 1 - Leaf entry)
     mov rax, r14
@@ -238,26 +279,33 @@ nested_ept_walk_and_sync:
     mov r9, [r8 + rax * 8]          ; R9 = leaf entry
     test r9, 7
     jz .fail
+    test r9, (1 << 7)               ; Reserved for a 4KB EPT leaf
+    jnz .fail
+    mov rax, r9
+    and rax, 7
+    and r13, rax
+    jz .fail
 
+    ; Preserve only valid 4KB leaf attributes across the final translation.
     mov rbx, r9
-    and rbx, 0xFFFFFFFFFFFFF000      ; RBX = target GPA_1
+    and rbx, 0x378                  ; memory type, IPAT, accessed, dirty
+    or rbx, r13                     ; effective cumulative R/W/X
 
     ; Translate target GPA_1 to host physical address
     mov rdi, r15
-    mov rsi, rbx
+    mov rsi, r9
+    and rsi, [rel nested_page_addr_mask_4k]
     call ept_translate
     test rax, rax
     jz .fail
 
-    mov rdi, rax
+    mov r8, rax                     ; preserve target HPA across validator
+    mov rdi, r8
     call is_valid_phys_addr
     test rax, rax
     jz .fail
-    mov rdx, rax                    ; RDX = target HPA
-
-    ; Extract mapping flags
-    mov rcx, r9
-    and rcx, 0xFFF                  ; RCX = EPT mapping flags
+    mov rdx, r8                     ; RDX = target HPA
+    mov rcx, rbx                    ; sanitized effective EPT mapping flags
 
     ; 6. Map target HPA to L2 GPA in Shadow EPT structure
     mov rdi, r12                    ; Shadow EPT PML4 base
@@ -275,5 +323,9 @@ nested_ept_walk_and_sync:
     pop r12
     pop rbx
     ret
+
+section .rodata
+align 8
+nested_page_addr_mask_4k: dq 0x000FFFFFFFFFF000
 
 %endif ; LIB_MEM_VIRT_NESTED_ASM

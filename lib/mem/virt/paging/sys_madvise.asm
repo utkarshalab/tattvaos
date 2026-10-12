@@ -109,7 +109,8 @@ sys_madvise:
     jz .skip_page
 
     ; Extract physical base address of page frame
-    and rdx, 0xFFFFFFFFFFFFF000     ; RDX = physical frame address
+    mov rcx, PAGE_ADDR_MASK_4K
+    and rdx, rcx                    ; RDX = physical frame address
 
     ; Atomically clear the PTE
     mov qword [rax], 0

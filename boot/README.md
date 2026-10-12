@@ -86,8 +86,14 @@ mode/discovery/rendezvous/online/timer/park-unpark markers.
 ## Current boundaries
 
 This is an x86-64 bootstrap, not yet a blanket bare-metal certification. The
-initial physical aperture is the low 4 GiB, CPU topology remains static after
-boot despite scheduler parking, and SMP/UEFI panic recovery is not implemented.
+guaranteed contiguous physical aperture remains the low 4 GiB. Canonical usable
+RAM above it is now identity-mapped sparsely and brought online transactionally,
+up to the lower of `MAXPHYADDR` and the existing 512 GiB virtual-window
+boundary; firmware holes remain unmapped. The current flat allocation metadata
+and identity layout are not a petabyte-scale direct map.
+
+CPU topology remains static after boot despite scheduler parking, and SMP/UEFI
+panic recovery is not implemented.
 The startup path does not yet online more than 64 CPUs. Device interrupt
 delivery to wide x2APIC IDs still requires IOMMU interrupt remapping; current
 devices remain polling/BSP-routed. IOMMU policy, Secure Boot signing, true

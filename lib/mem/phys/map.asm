@@ -30,6 +30,7 @@ section .text
 ; -----------------------------------------------------------------------------
 phys_parse_e820:
     push rbx
+    push rbp
     push r12
     push r13
     push r14
@@ -42,6 +43,7 @@ phys_parse_e820:
     xor rcx, rcx                    ; managed usable pages
     xor r8, r8                      ; usable pages kept offline
     xor r9, r9                      ; descriptor index
+    xor rbp, rbp                    ; previous non-empty raw exclusive end
 
     test r14, r14
     jz .invalid
@@ -63,6 +65,13 @@ phys_parse_e820:
     mov rbx, r10
     add rbx, r11
     jc .invalid
+
+    ; Both boot producers promise a canonical, ascending map.  Enforce that
+    ; contract in the consumer: overlapping descriptors make it ambiguous
+    ; whether a later usable range is allowed to weaken a reservation.
+    cmp r10, rbp
+    jb .invalid
+    mov rbp, rbx
 
     ; Validate every firmware extent before filtering by type.  A wrapped
     ; reserved descriptor is still a malformed map and may otherwise hide a
@@ -135,6 +144,7 @@ phys_parse_e820:
     pop r14
     pop r13
     pop r12
+    pop rbp
     pop rbx
     ret
 

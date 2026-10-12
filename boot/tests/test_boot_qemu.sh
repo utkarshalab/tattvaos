@@ -141,6 +141,21 @@ if grep -Eq 'base=0x[0-9A-F]{8}0x|len=0x[0-9A-F]{8}0x' "$LOG"; then
     PASS=0
 fi
 
+for MILESTONE in \
+    "Paging high map verify: SKIP (no supported RAM above 4 GiB)" \
+    "Highmem direct-map R/W: SKIP (no supported RAM above 4 GiB)"
+do
+    grep -Fq "$MILESTONE" "$LOG" || {
+        echo "FAIL: missing no-high-memory milestone: $MILESTONE"
+        PASS=0
+    }
+done
+if grep -Fq "Paging high map verify: OK" "$LOG" || \
+   grep -Fq "Highmem direct-map R/W: PASS" "$LOG"; then
+    echo "FAIL: ordinary low-memory BIOS boot unexpectedly published high RAM"
+    PASS=0
+fi
+
 if ! grep -Eq 'VBE\.\.\.[[:space:]]+(OK [0-9]+x[0-9]+x(16|24|32)|SKIP \(text mode\))' "$LOG"; then
     echo "FAIL: VBE did not report a valid mode or explicit text fallback"
     PASS=0

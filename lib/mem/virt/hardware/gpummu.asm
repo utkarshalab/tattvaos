@@ -40,28 +40,44 @@ section .text
 ;   RAX = 1 if valid, 0 if invalid
 ; -----------------------------------------------------------------------------
 is_valid_gpu_phys_addr:
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push r8
+    push r9
+    push r10
+    push r11
+
     ; 1. Alignment check (4KB aligned)
     test rdi, 4095
     jnz .invalid
 
     ; 2. Must not overlap host kernel code range
     cmp rdi, 0x100000
-    jb .valid
+    jb .invalid                     ; PMM permanently reserves the low 1 MiB
 
-    mov rax, kernel_end
+    mov rax, kernel_bss_end
     cmp rdi, rax
     jb .invalid
 
 .valid:
-    ; 3. Must be below max physical address
-    mov rax, [phys_state + phys_state_t.max_phys_addr]
-    cmp rdi, rax
-    jae .invalid
-
-    mov rax, 1
-    ret
+    ; A sparse max_phys_addr is only a bitmap ceiling, not proof that the page
+    ; is RAM or mapped.  Reuse the PMM's complete E820/direct-map validator.
+    mov rsi, 1
+    call phys_range_is_online_usable
+    jmp .done
 .invalid:
     xor rax, rax
+.done:
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -117,6 +133,19 @@ gpummu_map:
     test r14, 4095
     jnz .fail
 
+    ; Only architectural address bits may come from HPA, and flags may contain
+    ; low PTE attributes plus NX—never another physical-address fragment.
+    mov rax, r14
+    and rax, [rel gpu_page_addr_mask_4k]
+    cmp rax, r14
+    jne .fail
+    mov rax, r15
+    and rax, [rel gpu_leaf_flag_mask]
+    cmp rax, r15
+    jne .fail
+    test r15, PAGE_PRESENT
+    jz .fail
+
     ; Verify base and mapping physical addresses are valid
     mov rdi, r12
     call is_valid_gpu_phys_addr
@@ -138,7 +167,9 @@ gpummu_map:
     jnz .pml4_valid
 
     ; Allocate GPU PDPT
+    push r8
     call phys_alloc_page
+    pop r8
     test rax, rax
     jz .fail
 
@@ -157,7 +188,13 @@ gpummu_map:
     mov [r8], r9
 
 .pml4_valid:
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = PDPT physical address
+    test r9, (1 << 7)
+    jnz .fail
+    and r9, [rel gpu_page_addr_mask_4k] ; R9 = PDPT physical address
+    mov rdi, r9
+    call is_valid_gpu_phys_addr
+    test rax, rax
+    jz .fail
 
     ; 2. Walk PDPT (Level 3)
     mov rax, r13
@@ -169,7 +206,9 @@ gpummu_map:
     jnz .pdpt_valid
 
     ; Allocate GPU PD
+    push r8
     call phys_alloc_page
+    pop r8
     test rax, rax
     jz .fail
 
@@ -188,7 +227,13 @@ gpummu_map:
     mov [r8], r9
 
 .pdpt_valid:
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = PD physical address
+    test r9, (1 << 7)               ; GPU mirror only supports 4KB leaves
+    jnz .fail
+    and r9, [rel gpu_page_addr_mask_4k] ; R9 = PD physical address
+    mov rdi, r9
+    call is_valid_gpu_phys_addr
+    test rax, rax
+    jz .fail
 
     ; 3. Walk PD (Level 2)
     mov rax, r13
@@ -200,7 +245,9 @@ gpummu_map:
     jnz .pd_valid
 
     ; Allocate GPU PT
+    push r8
     call phys_alloc_page
+    pop r8
     test rax, rax
     jz .fail
 
@@ -219,7 +266,13 @@ gpummu_map:
     mov [r8], r9
 
 .pd_valid:
-    and r9, 0xFFFFFFFFFFFFF000      ; R9 = PT physical address
+    test r9, (1 << 7)               ; GPU mirror only supports 4KB leaves
+    jnz .fail
+    and r9, [rel gpu_page_addr_mask_4k] ; R9 = PT physical address
+    mov rdi, r9
+    call is_valid_gpu_phys_addr
+    test rax, rax
+    jz .fail
 
     ; 4. Walk PT (Level 1)
     mov rax, r13
@@ -229,7 +282,7 @@ gpummu_map:
 
     ; Write physical target address and flags
     mov r9, r14
-    and r9, 0xFFFFFFFFFFFFF000
+    and r9, [rel gpu_page_addr_mask_4k]
     or r9, r15                      ; Link flags
     mov [r8], r9
 
@@ -256,6 +309,14 @@ gpummu_map:
 ; -----------------------------------------------------------------------------
 global gpummu_unmap
 gpummu_unmap:
+    test rdi, rdi
+    jz .not_mapped
+    test rsi, 4095
+    jnz .not_mapped
+    call is_valid_gpu_phys_addr
+    test rax, rax
+    jz .not_mapped
+
     ; Walk PML4
     mov rax, rsi
     shr rax, 39
@@ -263,27 +324,45 @@ gpummu_unmap:
     mov r8, [rdi + rax * 8]
     test r8, PAGE_PRESENT
     jz .not_mapped
+    test r8, (1 << 7)
+    jnz .not_mapped
 
     ; Walk PDPT
-    and r8, 0xFFFFFFFFFFFFF000
+    and r8, [rel gpu_page_addr_mask_4k]
+    mov rdi, r8
+    call is_valid_gpu_phys_addr
+    test rax, rax
+    jz .not_mapped
     mov rax, rsi
     shr rax, 30
     and rax, 0x1FF
     mov r9, [r8 + rax * 8]
     test r9, PAGE_PRESENT
     jz .not_mapped
+    test r9, (1 << 7)
+    jnz .not_mapped
 
     ; Walk PD
-    and r9, 0xFFFFFFFFFFFFF000
+    and r9, [rel gpu_page_addr_mask_4k]
+    mov rdi, r9
+    call is_valid_gpu_phys_addr
+    test rax, rax
+    jz .not_mapped
     mov rax, rsi
     shr rax, 21
     and rax, 0x1FF
     mov r8, [r9 + rax * 8]
     test r8, PAGE_PRESENT
     jz .not_mapped
+    test r8, (1 << 7)
+    jnz .not_mapped
 
     ; Walk PT
-    and r8, 0xFFFFFFFFFFFFF000
+    and r8, [rel gpu_page_addr_mask_4k]
+    mov rdi, r8
+    call is_valid_gpu_phys_addr
+    test rax, rax
+    jz .not_mapped
     mov rax, rsi
     shr rax, 12
     and rax, 0x1FF
@@ -345,8 +424,11 @@ gpummu_sync_cpu_range:
     call virt_walk_table            ; RAX = CPU PTE pointer, RDX = level
     test rax, rax
     jz .next_page                   ; skip if not mapped on CPU
-    cmp rdx, 1                      ; leaf level
-    jne .next_page
+    cmp rdx, 4                      ; 4-level 4KB leaf
+    je .have_4k_leaf
+    cmp rdx, 5                      ; LA57 4KB leaf
+    jne .next_page                  ; huge leaves are not mirrored here
+.have_4k_leaf:
 
     mov r8, [rax]                   ; R8 = CPU PTE value
     test r8, PAGE_PRESENT
@@ -354,7 +436,7 @@ gpummu_sync_cpu_range:
 
     ; Extract HPA page frame
     mov rdx, r8
-    and rdx, 0xFFFFFFFFFFFFF000     ; RDX = HPA
+    and rdx, [rel gpu_page_addr_mask_4k] ; RDX = HPA
 
     ; Extract mapping flags
     mov rcx, r8
@@ -406,6 +488,11 @@ gpummu_free_level:
     mov rbx, rdi                    ; RBX = table base
     mov r12, rsi                    ; R12 = paging level
 
+    mov rdi, rbx
+    call is_valid_gpu_phys_addr
+    test rax, rax
+    jz .invalid
+
     cmp r12, 1                      ; PT level
     je .free_self
 
@@ -418,9 +505,23 @@ gpummu_free_level:
     test rax, PAGE_PRESENT
     jz .next
 
-    and rax, 0xFFFFFFFFFFFFF000     ; RAX = child table HPA
-    
+    cmp r12, 4
+    je .not_huge
+    test rax, (1 << 7)
+    jnz .next
+.not_huge:
+
+    and rax, [rel gpu_page_addr_mask_4k] ; RAX = child table HPA
+    cmp rax, rbx
+    je .invalid
+
     mov rdi, rax
+    call is_valid_gpu_phys_addr
+    test rax, rax
+    jz .invalid
+
+    mov rdi, [rbx + r13 * 8]
+    and rdi, [rel gpu_page_addr_mask_4k]
     mov rsi, r12
     dec rsi                         ; level - 1
     call gpummu_free_level
@@ -433,6 +534,12 @@ gpummu_free_level:
     mov rdi, rbx
     call phys_free_page
 
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+.invalid:
     pop r13
     pop r12
     pop rbx
@@ -452,5 +559,10 @@ gpummu_destroy:
     call gpummu_free_level
 .done:
     ret
+
+section .rodata
+align 8
+gpu_page_addr_mask_4k: dq 0x000FFFFFFFFFF000
+gpu_leaf_flag_mask:    dq 0x8000000000000FFF
 
 %endif ; LIB_MEM_VIRT_GPUMMU_ASM
