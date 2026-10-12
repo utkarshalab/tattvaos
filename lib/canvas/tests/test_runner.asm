@@ -23,6 +23,9 @@ extern test_jpeg_suite
 extern test_icc_suite
 extern test_tile_diff_suite
 extern test_rfb_suite
+extern test_inflate_suite
+extern test_png_suite
+extern test_ttf_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -90,6 +93,18 @@ test_runner_init:
 
     ; Test RFB
     call test_rfb_suite
+    add rbx, rax
+
+    ; Test inflate/zlib
+    call test_inflate_suite
+    add rbx, rax
+
+    ; Test PNG
+    call test_png_suite
+    add rbx, rax
+
+    ; Test TTF
+    call test_ttf_suite
     add rbx, rax
 
     ; Final summary
