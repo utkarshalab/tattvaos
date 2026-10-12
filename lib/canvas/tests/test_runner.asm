@@ -17,6 +17,7 @@ extern test_ring_suite
 extern test_handle_suite
 extern test_region_suite
 extern test_map_suite
+extern test_quota_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -60,6 +61,10 @@ test_runner_init:
 
     ; Test map
     call test_map_suite
+    add rbx, rax
+
+    ; Test quotas
+    call test_quota_suite
     add rbx, rax
 
     ; Final summary
