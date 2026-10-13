@@ -52,13 +52,33 @@ fiber_system_init:
 ; -----------------------------------------------------------------------------
 fiber_create:
     xor r8d, r8d
+    mov r9d, [gs:percpu_t.cpu_id]
+    mov r10, FIBER_AFFINITY_ANY
     jmp fiber_create_flags
 
 ; Explicit opt-in API.  The legacy four-argument entry remains cooperative.
 fiber_create_preemptible:
     mov r8d, FIBER_FLAG_PREEMPTIBLE
+    mov r9d, [gs:percpu_t.cpu_id]
+    mov r10, FIBER_AFFINITY_ANY
+    jmp fiber_create_flags
 
-; R8D = FIBER_FLAG_* for audited callers.
+; Targeted creation APIs. R8D is the initial logical CPU and R9 is the allowed
+; CPU mask; the caller chooses whether later park drainage may migrate it.
+global fiber_create_on_cpu
+fiber_create_on_cpu:
+    mov r10, r9
+    mov r9d, r8d
+    xor r8d, r8d
+    jmp fiber_create_flags
+
+global fiber_create_preemptible_on_cpu
+fiber_create_preemptible_on_cpu:
+    mov r10, r9
+    mov r9d, r8d
+    mov r8d, FIBER_FLAG_PREEMPTIBLE
+
+; R8D=FIBER_FLAG_*, R9D=initial CPU, R10=affinity mask.
 fiber_create_flags:
     push rbx
     push rbp
@@ -70,7 +90,10 @@ fiber_create_flags:
     push r13
     push r14
     push r15
-    sub rsp, 8                      ; keep SysV alignment at every nested call
+    sub rsp, 24                     ; two locals plus SysV call-site alignment
+
+    mov [rsp], r9
+    mov [rsp + 8], r10
 
     mov r12, rdi                    ; R12 = entry_point
     mov r13, rsi                    ; R13 = arg
@@ -78,6 +101,21 @@ fiber_create_flags:
     mov r15d, ecx                   ; R15D = restart_policy
     mov ebp, r8d
     and ebp, FIBER_FLAG_PREEMPTIBLE
+
+    test r10, r10
+    jz .invalid_request
+    cmp r9d, 64
+    jae .invalid_request
+    bt r10, r9
+    jnc .invalid_request
+    mov eax, [gs:percpu_t.cpu_id]
+    cmp r9d, eax
+    je .request_valid
+    cmp r9d, [rel smp_active_cores]
+    jae .invalid_request
+    bt qword [rel smp_sched_run_mask], r9
+    jnc .invalid_request
+.request_valid:
 
     ; 1. Find a free FCB slot in fiber_pool
     mov rbx, fiber_pool
@@ -125,8 +163,10 @@ fiber_create_flags:
     mov [rbx + fcb_t.arg], r13
     mov qword [rbx + fcb_t.time_slice], 0
     mov [rbx + fcb_t.flags], ebp
-    mov eax, [gs:percpu_t.cpu_id]
+    mov eax, [rsp]
     mov [rbx + fcb_t.cpu_id], eax
+    mov rax, [rsp + 8]
+    mov [rbx + fcb_t.affinity], rax
 
     ; Allocate Intel PKEY
     call pkey_alloc
@@ -139,18 +179,37 @@ fiber_create_flags:
 
     ; 5. Publish only after the complete FCB and stack context are initialized.
     mov dword [rbx + fcb_t.state], FIBER_STATE_READY
+    mov esi, [rsp]
+    cmp esi, [gs:percpu_t.cpu_id]
+    jne .publish_remote
     mov rdi, rbx
     call sched_push_fiber
+    jmp .published
 
+.publish_remote:
+    mov rdi, rbx
+    call sched_push_fiber_to_cpu
+    jnc .published
+    mov eax, [gs:percpu_t.cpu_id]
+    mov [rbx + fcb_t.cpu_id], eax
+    mov dword [rbx + fcb_t.state], FIBER_STATE_DEAD
+    xor rax, rax
+    jmp .done
+
+.published:
     mov rax, rbx                    ; Return FCB pointer
     jmp .done
 
 .alloc_failed:
     mov dword [rbx + fcb_t.state], FIBER_STATE_FREE
     xor rax, rax
+    jmp .done
+
+.invalid_request:
+    xor rax, rax
 
 .done:
-    add rsp, 8
+    add rsp, 24
     pop r15
     pop r14
     pop r13
@@ -336,6 +395,7 @@ fiber_reap_dead:
     mov qword [rbx + fcb_t.xsave_area], 0
     mov qword [rbx + fcb_t.next], 0
     mov qword [rbx + fcb_t.prev], 0
+    mov qword [rbx + fcb_t.affinity], 0
     mov dword [rbx + fcb_t.flags], 0
     mov dword [rbx + fcb_t.state], FIBER_STATE_FREE
     inc r13d

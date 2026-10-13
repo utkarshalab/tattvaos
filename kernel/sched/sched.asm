@@ -37,6 +37,8 @@ sched_init_real:
     mov dword [gs:percpu_t.preempt_count], 0
     mov dword [gs:percpu_t.irq_depth], 0
     mov dword [gs:percpu_t.sched_flags], 0
+    mov dword [gs:percpu_t.resched_ipis], 0
+    mov dword [gs:percpu_t.drained_fibers], 0
 
     call fiber_guard_init
 
@@ -50,6 +52,10 @@ sched_init_real:
     jz .error
 
     mov rbx, rax
+    mov ecx, [gs:percpu_t.cpu_id]
+    mov rdx, 1
+    shl rdx, cl
+    mov [rbx + fcb_t.affinity], rdx ; idle contexts never migrate
     call sched_pop_next_fiber         ; idle is never ordinary runnable work
     cmp rax, rbx
     jne .error
@@ -79,6 +85,18 @@ sched_init_real:
 ; Output: none
 ; -----------------------------------------------------------------------------
 sched_push_fiber:
+    push rdx
+    mov rsi, [gs:percpu_t.self]
+    mov edx, -1                    ; local lifecycle paths ignore run_mask
+    call sched_queue_push_fiber
+    pop rdx
+    ret
+
+; RDI=FCB, RSI=canonical per-CPU block.  The intrusive queue is protected by
+; the destination CPU's own lock, so this primitive is safe for remote push.
+; EDX is a logical CPU validated under the lock, or -1 for local/internal use.
+; Returns EAX=1 if present/inserted and zero if rejected.
+sched_queue_push_fiber:
     pushfq
     cli
     push rbx
@@ -89,16 +107,22 @@ sched_push_fiber:
 
     ; Acquire queue spinlock (GS:112)
 .spin_acquire:
-    lock bts dword [gs:percpu_t.steal_lock], 0
+    lock bts dword [rsi + percpu_t.steal_lock], 0
     jc .spin_acquire
+
+    cmp edx, -1
+    je .run_allowed
+    bt qword [rel smp_sched_run_mask], rdx
+    jnc .rejected
+.run_allowed:
 
     ; A duplicate enqueue corrupts the intrusive list.  Treat it as an
     ; idempotent request while the queue lock is held.
     bt dword [rdi + fcb_t.flags], 31
-    jc .release
+    jc .present
 
     mov qword [rdi + fcb_t.next], 0
-    mov rbx, [gs:percpu_t.run_queue_tail]                ; RBX = current queue tail (GS:88)
+    mov rbx, [rsi + percpu_t.run_queue_tail]
 
     test rbx, rbx
     jz .empty_queue
@@ -106,27 +130,185 @@ sched_push_fiber:
     ; Queue non-empty: attach to tail
     mov [rbx + fcb_t.next], rdi
     mov [rdi + fcb_t.prev], rbx
-    mov [gs:percpu_t.run_queue_tail], rdi                ; New tail = RDI
+    mov [rsi + percpu_t.run_queue_tail], rdi
     jmp .inc_count
 
 .empty_queue:
     ; Queue empty: set both head and tail to RDI
     mov qword [rdi + fcb_t.prev], 0
-    mov [gs:percpu_t.run_queue_head], rdi                ; Head = RDI
-    mov [gs:percpu_t.run_queue_tail], rdi                ; Tail = RDI
+    mov [rsi + percpu_t.run_queue_head], rdi
+    mov [rsi + percpu_t.run_queue_tail], rdi
 
 .inc_count:
     or dword [rdi + fcb_t.flags], FIBER_FLAG_ON_RUNQ
-    inc dword [gs:percpu_t.fiber_count]               ; Increment fiber_count
+    inc dword [rsi + percpu_t.fiber_count]
+.present:
+    mov eax, 1
+    jmp .release
+.rejected:
+    xor eax, eax
 
     ; Release queue spinlock (GS:112)
 .release:
-    mov dword [gs:percpu_t.steal_lock], 0
+    mov dword [rsi + percpu_t.steal_lock], 0
 
 .done:
+    test rdi, rdi
+    jnz .return
+    xor eax, eax
+.return:
     pop rdx
     pop rbx
     popfq
+    ret
+
+; Publish one READY fiber to a selected online CPU and send its reschedule IPI.
+; RDI=FCB, ESI=dense logical CPU ID.  CF=0/EAX=1 on publication; CF=1/EAX=0
+; when the FCB, affinity, CPU, or scheduler state rejects the request.
+global sched_push_fiber_to_cpu
+sched_push_fiber_to_cpu:
+    push rbx
+    push r12
+    push r13
+
+    mov r12, rdi
+    mov r13d, esi
+    test r12, r12
+    jz .failed
+    cmp dword [r12 + fcb_t.state], FIBER_STATE_READY
+    jne .failed
+    test dword [r12 + fcb_t.flags], FIBER_FLAG_ON_RUNQ
+    jnz .failed
+
+    mov edi, r13d
+    call smp_sched_percpu_for_id
+    test rax, rax
+    jz .failed
+    mov rbx, rax
+    test dword [rbx + percpu_t.sched_flags], SCHED_PERCPU_READY
+    jz .failed
+    bt qword [r12 + fcb_t.affinity], r13
+    jnc .failed
+
+    mov r11d, [r12 + fcb_t.cpu_id]
+    mov [r12 + fcb_t.cpu_id], r13d
+    mov rdi, r12
+    mov rsi, rbx
+    mov edx, r13d
+    call sched_queue_push_fiber
+    test eax, eax
+    jnz .queued
+    mov [r12 + fcb_t.cpu_id], r11d
+    jmp .failed
+
+.queued:
+    cmp r13d, [gs:percpu_t.cpu_id]
+    je .published
+    mov edi, r13d
+    call smp_sched_send_wake       ; timer delivery remains the bounded fallback
+.published:
+    mov eax, 1
+    clc
+    jmp .done
+.failed:
+    xor eax, eax
+    stc
+.done:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; Move every CPU-0-eligible READY fiber off the current AP before it publishes
+; parked.  Hard-affine work stays queued and resumes when that CPU is unparked.
+; ponytail: park drainage targets the non-parkable BSP; add NUMA placement only
+; when scheduler topology policy exists.
+global sched_drain_current_cpu
+sched_drain_current_cpu:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, 8
+
+    pushfq
+    pop rax
+    mov [rsp], rax
+    cli
+    xor ebp, ebp
+    mov r15d, [gs:percpu_t.cpu_id]
+    test r15d, r15d
+    jz .drain_done
+    bt qword [rel smp_sched_run_mask], r15
+    jc .drain_done
+    mov r12, [gs:percpu_t.self]
+    xor edi, edi
+    call smp_sched_percpu_for_id
+    test rax, rax
+    jz .drain_done
+    mov r13, rax
+
+.drain_lock:
+    lock bts dword [r12 + percpu_t.steal_lock], 0
+    jc .drain_lock
+    mov r14, [r12 + percpu_t.run_queue_head]
+.drain_scan:
+    test r14, r14
+    jz .drain_unlock
+    mov rbx, [r14 + fcb_t.next]
+    bt qword [r14 + fcb_t.affinity], 0
+    jnc .drain_next
+
+    mov rax, [r14 + fcb_t.prev]
+    mov rdx, [r14 + fcb_t.next]
+    test rax, rax
+    jz .drain_head
+    mov [rax + fcb_t.next], rdx
+    jmp .drain_tail
+.drain_head:
+    mov [r12 + percpu_t.run_queue_head], rdx
+.drain_tail:
+    test rdx, rdx
+    jz .drain_last
+    mov [rdx + fcb_t.prev], rax
+    jmp .drain_detached
+.drain_last:
+    mov [r12 + percpu_t.run_queue_tail], rax
+.drain_detached:
+    dec dword [r12 + percpu_t.fiber_count]
+    and dword [r14 + fcb_t.flags], ~FIBER_FLAG_ON_RUNQ
+    mov qword [r14 + fcb_t.next], 0
+    mov qword [r14 + fcb_t.prev], 0
+    mov dword [r14 + fcb_t.cpu_id], 0
+    mov rdi, r14
+    mov rsi, r13
+    mov edx, -1
+    call sched_queue_push_fiber
+    inc ebp
+    inc dword [r12 + percpu_t.drained_fibers]
+.drain_next:
+    mov r14, rbx
+    jmp .drain_scan
+.drain_unlock:
+    mov dword [r12 + percpu_t.steal_lock], 0
+    test ebp, ebp
+    jz .drain_done
+    xor edi, edi
+    call smp_sched_send_wake
+.drain_done:
+    mov eax, ebp
+    mov rdx, [rsp]
+    push rdx
+    popfq
+    add rsp, 8
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -265,6 +447,8 @@ sched_switch_frame:
     mov eax, [r12 + SCHED_FRAME_VECTOR]
     cmp eax, APIC_TIMER_VECTOR
     je .timer
+    cmp eax, SCHED_WAKE_VECTOR
+    je .timer
     cmp eax, SCHED_YIELD_VECTOR
     jne .same
 
@@ -315,6 +499,9 @@ sched_switch_frame:
     jmp .select_idle                ; reap only after returning to the idle stack
 
 .select:
+    mov ecx, [gs:percpu_t.cpu_id]
+    bt qword [rel smp_sched_run_mask], rcx
+    jnc .select_idle
     cmp rbx, [gs:percpu_t.idle_fiber]
     je .pop_next
     cmp dword [r12 + SCHED_FRAME_VECTOR], SCHED_YIELD_VECTOR
@@ -386,8 +573,8 @@ sched_switch_frame:
 ; -----------------------------------------------------------------------------
 sched_core_loop:
 .loop:
-    ; Honor runtime scheduler-park requests only at the idle, empty-queue
-    ; safe point. The helper returns immediately on busy CPUs and on the BSP.
+    ; Honor runtime scheduler-park requests only at the idle safe point. The
+    ; helper drains movable work and returns immediately on busy CPUs/the BSP.
     call smp_sched_park_if_requested
 
     ; -------------------------------------------------------------------------

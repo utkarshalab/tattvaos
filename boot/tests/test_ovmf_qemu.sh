@@ -227,13 +227,36 @@ if [ -z "$LIFECYCLE_LINE" ]; then
     PASS=0
 fi
 
+if [ "$TIMER_CPUS" -gt 1 ]; then
+    DRAIN_MARKER="SMP: scheduler queue drain PASS"
+    TARGET_MARKER="SMP: scheduler target/affinity/wake PASS"
+else
+    DRAIN_MARKER="SMP: scheduler queue drain SKIP (single CPU)"
+    TARGET_MARKER="SMP: scheduler target/affinity/wake SKIP (single CPU)"
+fi
+SMP_SCHED_LINE=$LIFECYCLE_LINE
+for SCHED_MARKER in "$DRAIN_MARKER" "$TARGET_MARKER"; do
+    NEXT_LINE=
+    if [ -n "$SMP_SCHED_LINE" ]; then
+        NEXT_LINE=$(awk -v after="$SMP_SCHED_LINE" -v expected="$SCHED_MARKER" \
+            -v heartbeat="heartbeat #0" \
+            'NR > after { sub(/\r$/, "", $0); if ($0 == heartbeat) exit; if ($0 == expected) { print NR; exit } }' "$LOG")
+    fi
+    if [ -z "$NEXT_LINE" ]; then
+        echo "FAIL: missing exact SMP scheduler marker before first heartbeat: $SCHED_MARKER"
+        PASS=0
+    else
+        SMP_SCHED_LINE=$NEXT_LINE
+    fi
+done
+
 PREEMPT_COUNT=$(awk '{ sub(/\r$/, "", $0); if ($0 == "Scheduler preemption: PASS") count++ } END { print count + 0 }' "$LOG")
 PREEMPT_LINE=$(awk '{ sub(/\r$/, "", $0); if ($0 == "Scheduler preemption: PASS") { print NR; exit } }' "$LOG")
 if [ "$PREEMPT_COUNT" -ne 1 ]; then
     echo "FAIL: expected exactly one scheduler preemption PASS marker (found $PREEMPT_COUNT)"
     PASS=0
-elif [ -z "$LIFECYCLE_LINE" ] || [ "$PREEMPT_LINE" -le "$LIFECYCLE_LINE" ]; then
-    echo "FAIL: scheduler preemption proof did not follow lifecycle validation"
+elif [ -z "$SMP_SCHED_LINE" ] || [ "$PREEMPT_LINE" -le "$SMP_SCHED_LINE" ]; then
+    echo "FAIL: scheduler preemption proof did not follow SMP dispatch validation"
     PASS=0
 elif ! awk -v after="$PREEMPT_LINE" \
     'NR > after { sub(/\r$/, "", $0); if ($0 ~ /^heartbeat #[0-9]+$/) found = 1 } END { exit !found }' "$LOG"; then

@@ -66,10 +66,12 @@ struc percpu_t
     .preempt_count  resd 1      ; +140  nesting count for non-preemptible regions
     .irq_depth      resd 1      ; +144  active maskable interrupt nesting
     .sched_flags    resd 1      ; +148  SCHED_PERCPU_* state bits
+    .resched_ipis   resd 1      ; +152  scheduler wake IPIs handled locally
+    .drained_fibers resd 1      ; +156  runnable fibers migrated before park
 
     ; Keep each CPU block on an integral cache-line stride. Remote queue and
     ; wake operations must not make adjacent CPUs fight over one cache line.
-    .reserved       resb 40     ; +152..+191
+    .reserved       resb 32     ; +160..+191
 endstruc                        ; = 192 bytes (3 cache lines)
 
 %endif ; LIB_PERCPU_INC

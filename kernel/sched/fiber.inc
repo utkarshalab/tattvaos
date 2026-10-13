@@ -34,6 +34,7 @@ FIBER_STATE_CLAIMED equ 7           ; Creator owns this FCB
 ; only audited fibers opt into involuntary timer preemption.
 FIBER_FLAG_PREEMPTIBLE equ 1 << 0
 FIBER_FLAG_ON_RUNQ     equ 1 << 31
+FIBER_AFFINITY_ANY     equ -1
 
 ; Priority Bands (MLFQ)
 PRIO_REALTIME       equ 0           ; 0-latency real-time task
@@ -82,7 +83,8 @@ struc fcb_t
     .xsave_area      resq 1         ; +176: page-aligned eager XSAVE buffer
     .flags           resd 1         ; +184: FIBER_FLAG_* bits
     ._pad            resd 1         ; +188: keep following storage qword-aligned
-    .reserved        resq 8         ; +192..+256: L1 Cache Line Padding
+    .affinity        resq 1         ; +192: allowed logical-CPU mask
+    .reserved        resq 7         ; +200..+256: L1 Cache Line Padding
 endstruc
 
 

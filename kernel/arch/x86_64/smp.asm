@@ -1106,6 +1106,35 @@ smp_sched_control_release:
     mov dword [rel smp_sched_control_lock], 0
     ret
 
+; EDI=dense logical CPU ID.  Return the canonical per-CPU block in RAX, or
+; zero when the ID is outside the immutable online set or its slot is corrupt.
+; CPU 0 lives in the bootstrap block; AP slots live in their boot mailboxes.
+global smp_sched_percpu_for_id
+smp_sched_percpu_for_id:
+    cmp edi, [rel smp_active_cores]
+    jae .invalid
+    test edi, edi
+    jnz .ap
+    lea rax, [rel bsp_cpu_local]
+    jmp .validate
+.ap:
+    mov eax, edi
+    shl rax, 6
+    lea rdx, [rel smp_mailboxes]
+    add rdx, rax
+    mov rax, [rdx + SMP_PERCPU_OFF]
+    test rax, rax
+    jz .invalid
+.validate:
+    cmp [rax + percpu_t.self], rax
+    jne .invalid
+    cmp [rax + percpu_t.cpu_id], edi
+    jne .invalid
+    ret
+.invalid:
+    xor eax, eax
+    ret
+
 ; EDI=dense logical CPU ID.  Task-context controllers must remain
 ; interruptible while waiting so they can service another CPU's rendezvous.
 smp_sched_validate_target:
@@ -1128,6 +1157,7 @@ smp_sched_validate_target:
 ; EDI=dense logical CPU ID.  The periodic/deadline timer is also a fallback
 ; wake source, so callers verify the published state rather than trusting ICR
 ; delivery alone.
+global smp_sched_send_wake
 smp_sched_send_wake:
     mov eax, edi
     shl rax, 6
@@ -1156,6 +1186,8 @@ smp_sched_park_cpu:
 
     lock btr qword [rel smp_sched_run_mask], r12
     mfence
+    mov edi, r12d
+    call smp_sched_send_wake
 .wait_for_park:
     mov ebx, 1000
 .park_poll:
@@ -1291,15 +1323,12 @@ smp_sched_park_if_requested:
     jz .not_parked
     cmp rax, [gs:percpu_t.idle_fiber]
     jne .not_parked
-    cmp dword [gs:percpu_t.fiber_count], 0
-    jne .not_parked
-    cmp qword [gs:percpu_t.run_queue_head], 0
-    jne .not_parked
-    cmp qword [gs:percpu_t.run_queue_tail], 0
-    jne .not_parked
 
     lock bts qword [rel smp_sched_transition_mask], r12
     jc .not_parked
+    bt qword [rel smp_sched_run_mask], r12
+    jc .cancel_claim
+    call sched_drain_current_cpu
     bt qword [rel smp_sched_run_mask], r12
     jc .cancel_claim
     lock btr qword [rel smp_schedulable_mask], r12
@@ -1372,6 +1401,25 @@ smp_sched_lifecycle_selftest:
     jbe .single
 
     mov edi, 1
+    call smp_sched_percpu_for_id
+    test rax, rax
+    jz .failed
+    mov r13, rax
+    mov r14d, [r13 + percpu_t.drained_fibers]
+    mov dword [rel smp_sched_probe_abort], 0
+    mov dword [rel smp_sched_drain_probe_ran], 0
+    lea rdi, [rel smp_sched_drain_probe]
+    xor rsi, rsi
+    mov rdx, PRIO_NORMAL
+    mov rcx, FIBER_RESTART_NEVER
+    mov r8d, 1
+    mov r9, FIBER_AFFINITY_ANY
+    call fiber_create_preemptible_on_cpu
+    test rax, rax
+    jz .failed
+    mov [rel smp_sched_drain_probe_fcb], rax
+
+    mov edi, 1
     call smp_sched_park_cpu
     jc .failed
     cmp [rel smp_active_cores], r12d
@@ -1388,10 +1436,20 @@ smp_sched_lifecycle_selftest:
     dec eax
     cmp [rel smp_schedulable_cores], eax
     jne .failed
-
-    mov r13, [rel smp_mailboxes + SMP_MAILBOX_STRIDE + SMP_PERCPU_OFF]
-    test r13, r13
+    cmp [r13 + percpu_t.drained_fibers], r14d
+    jbe .failed
+    cmp dword [r13 + percpu_t.fiber_count], 0
+    jne .failed
+    mov rbx, [rel smp_sched_drain_probe_fcb]
+    test rbx, rbx
     jz .failed
+    cmp dword [rbx + fcb_t.cpu_id], 0
+    jne .failed
+    cmp qword [rbx + fcb_t.affinity], FIBER_AFFINITY_ANY
+    jne .failed
+    test dword [rbx + fcb_t.flags], FIBER_FLAG_ON_RUNQ
+    jz .failed
+
     mov r14, [r13 + percpu_t.ticks]
     mov edi, 30000
     call udelay
@@ -1418,7 +1476,50 @@ smp_sched_lifecycle_selftest:
     cmp [rel smp_schedulable_cores], r12d
     jne .failed
 
+    mov ebx, r12d
+    dec ebx                         ; exercise the widest logical-ID mapping
+    mov [rel smp_sched_target_cpu], ebx
+    mov edi, ebx
+    call smp_sched_percpu_for_id
+    test rax, rax
+    jz .failed
+    mov r13, rax
+    mov r14d, [r13 + percpu_t.resched_ipis]
+    mov ecx, ebx
+    mov r9, 1
+    shl r9, cl
+    mov [rel smp_sched_target_affinity], r9
+    mov dword [rel smp_sched_target_result], 0
+    lea rdi, [rel smp_sched_target_probe]
+    xor rsi, rsi
+    mov rdx, PRIO_NORMAL
+    mov rcx, FIBER_RESTART_NEVER
+    mov r8d, ebx
+    mov r9, [rel smp_sched_target_affinity]
+    call fiber_create_on_cpu
+    test rax, rax
+    jz .failed
+    mov ebx, 1000
+.target_wait:
+    cmp dword [rel smp_sched_target_result], -1
+    je .failed
+    cmp dword [rel smp_sched_target_result], 1
+    jne .target_pause
+    cmp [r13 + percpu_t.resched_ipis], r14d
+    ja .target_ready
+.target_pause:
+    mov edi, 1000
+    call udelay
+    dec ebx
+    jnz .target_wait
+    jmp .failed
+
+.target_ready:
     lea rsi, [rel msg_smp_sched_pass]
+    call uart_print_str
+    lea rsi, [rel msg_smp_sched_drain_pass]
+    call uart_print_str
+    lea rsi, [rel msg_smp_sched_target_pass]
     call uart_print_str
     mov eax, 1
     clc
@@ -1427,11 +1528,16 @@ smp_sched_lifecycle_selftest:
 .single:
     lea rsi, [rel msg_smp_sched_skip]
     call uart_print_str
+    lea rsi, [rel msg_smp_sched_drain_skip]
+    call uart_print_str
+    lea rsi, [rel msg_smp_sched_target_skip]
+    call uart_print_str
     mov eax, 1
     clc
     jmp .done
 
 .failed:
+    mov dword [rel smp_sched_probe_abort], 1
     cmp r12d, 1
     jbe .report_failed
     mov edi, 1
@@ -1447,6 +1553,46 @@ smp_sched_lifecycle_selftest:
     pop r13
     pop r12
     pop rbx
+    ret
+
+; A migratable worker that remains live on AP1 until the park request is
+; visible. Whether queued or running, it must be moved to CPU0 before AP1
+; acknowledges parked.
+smp_sched_drain_probe:
+.wait:
+    cmp dword [rel smp_sched_probe_abort], 0
+    jne .done
+    mov eax, [gs:percpu_t.cpu_id]
+    test eax, eax
+    jz .on_bsp
+    bt qword [rel smp_sched_run_mask], rax
+    jnc .yield
+    pause
+    jmp .wait
+.yield:
+    call fiber_yield
+    jmp .wait
+.on_bsp:
+    mov dword [rel smp_sched_drain_probe_ran], 1
+.done:
+    ret
+
+; The target probe validates both execution ownership and its immutable
+; creation-time affinity before publishing success to the BSP controller.
+smp_sched_target_probe:
+    mov edx, [rel smp_sched_target_cpu]
+    cmp [gs:percpu_t.cpu_id], edx
+    jne .failed
+    mov rax, [gs:percpu_t.current_fiber]
+    test rax, rax
+    jz .failed
+    mov rdx, [rel smp_sched_target_affinity]
+    cmp [rax + fcb_t.affinity], rdx
+    jne .failed
+    mov dword [rel smp_sched_target_result], 1
+    ret
+.failed:
+    mov dword [rel smp_sched_target_result], -1
     ret
 
 ; RDI=APIC ID, RSI=mailbox. Bounded 100ms rendezvous.
@@ -2206,13 +2352,26 @@ smp_release:
     ret
 
 smp_sched_wake_isr:
-    push rax
-    push rcx
-    push rdx
+    SCHED_PUSH_FRAME SCHED_WAKE_VECTOR
+    cld
+    mov r12, rsp
+    and rsp, -16
+    inc dword [gs:percpu_t.irq_depth]
+    inc dword [gs:percpu_t.resched_ipis]
     call smp_lapic_eoi
-    pop rdx
-    pop rcx
-    pop rax
+    mov dword [gs:percpu_t.need_resched], 1
+
+    mov rdi, r12
+    call sched_switch_frame
+
+    cli
+    dec dword [gs:percpu_t.irq_depth]
+    mov rsp, rax
+    test rdx, rdx
+    jz .restore
+    mov dword [rdx + fcb_t.state], FIBER_STATE_DEAD
+.restore:
+    SCHED_POP_FRAME
     iretq
 
 smp_spurious_isr:
@@ -2515,6 +2674,14 @@ smp_sched_parked_mask:       dq 0
 smp_sched_transition_mask:   dq 0
 smp_schedulable_cores:       dd 1
 smp_sched_control_lock:      dd 0
+align 8
+smp_sched_drain_probe_fcb:   dq 0
+smp_sched_probe_abort:       dd 0
+smp_sched_drain_probe_ran:   dd 0
+smp_sched_target_result:     dd 0
+smp_sched_target_cpu:        dd 0
+align 8
+smp_sched_target_affinity:   dq 0
 msg_smp_discovered:         db "SMP: discovered ", 0
 msg_smp_xapic:              db "SMP: APIC mode xAPIC", 0x0D, 0x0A, 0
 msg_smp_x2apic:             db "SMP: APIC mode x2APIC", 0x0D, 0x0A, 0
@@ -2526,6 +2693,10 @@ msg_smp_timer_failed:        db "SMP: APIC timer delivery FAILED", 0x0D, 0x0A, 0
 msg_smp_timer_init_fail:     db "SMP: local APIC timer initialization failed", 0x0D, 0x0A, 0
 msg_smp_sched_pass:          db "SMP: scheduler park/unpark PASS", 0x0D, 0x0A, 0
 msg_smp_sched_skip:          db "SMP: scheduler park/unpark SKIP (single CPU)", 0x0D, 0x0A, 0
+msg_smp_sched_drain_pass:    db "SMP: scheduler queue drain PASS", 0x0D, 0x0A, 0
+msg_smp_sched_drain_skip:    db "SMP: scheduler queue drain SKIP (single CPU)", 0x0D, 0x0A, 0
+msg_smp_sched_target_pass:   db "SMP: scheduler target/affinity/wake PASS", 0x0D, 0x0A, 0
+msg_smp_sched_target_skip:   db "SMP: scheduler target/affinity/wake SKIP (single CPU)", 0x0D, 0x0A, 0
 msg_smp_sched_failed:        db "SMP: scheduler park/unpark FAILED", 0x0D, 0x0A, 0
 msg_smp_sched_rollback_timeout:
     db "KERNEL PANIC: scheduler park rollback timed out", 0x0D, 0x0A, 0
