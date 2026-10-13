@@ -8,6 +8,49 @@
 %include "inc/tattva.inc"
 %include "inc/color.inc"
 
+; struct offsets (hoisted above use)
+%define Buffer_handle        0
+%define Buffer.handle 0
+%define Buffer_generation    4
+%define Buffer.generation 4
+%define Buffer_width         8
+%define Buffer.width 8
+%define Buffer_height        12
+%define Buffer.height 12
+%define Buffer_stride        16
+%define Buffer.stride 16
+%define Buffer_format        20
+%define Buffer.format 20
+%define Buffer_modifier      24
+%define Buffer.modifier 24
+%define Buffer_base          32
+%define Buffer.base 32
+%define Buffer_dma_addr      40
+%define Buffer.dma_addr 40
+%define Buffer_size          48
+%define Buffer.size 48
+%define Buffer_acquire_fence 56
+%define Buffer.acquire_fence 56
+%define Buffer_release_fence 60
+%define Buffer.release_fence 60
+%define Buffer_timeline      64
+%define Buffer.timeline 64
+%define Buffer_acquire_point 68
+%define Buffer.acquire_point 68
+%define Buffer_release_point 76
+%define Buffer.release_point 76
+%define Buffer_state         84
+%define Buffer.state 84
+%define Buffer_refcount      88
+%define Buffer.refcount 88
+%define Buffer_client_id     92
+%define Buffer.client_id 92
+%define Buffer_size          96
+%define Buffer_FREE       0
+%define Buffer_ALLOCATED  1
+%define Buffer_ATTACHED   2
+%define Buffer_SCANOUT    3
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -28,6 +71,7 @@ buffer_init:
     mov qword [rbx + Server.buffer_pool], 0
     mov qword [rbx + Server.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -127,14 +171,21 @@ buffer_create:
 
     ; Return handle to client
     mov rax, [rbx + Buffer.handle]
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .bad_format:
-    RETURN_ERROR EBUF_FORMAT
+    mov rax, -(EBUF_FORMAT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .bad_dim:
-    RETURN_ERROR EBUF_SIZE
+    mov rax, -(EBUF_SIZE)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; buffer_validate_format
@@ -153,9 +204,11 @@ buffer_validate_format:
     cmp rdi, DRM_FORMAT_XRGB2101010
     je .ok
     xor rax, rax
+    leave
     ret
 .ok:
     mov rax, 1
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -194,9 +247,12 @@ buffer_destroy:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .not_found:
-    RETURN_ERROR EBUF_BUSY
+    mov rax, -(EBUF_BUSY)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; buffer_attach
@@ -237,39 +293,21 @@ buffer_attach:
     mov byte [rbx + Buffer.state], 2  ; ATTACHED
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .bad_buffer:
-    RETURN_ERROR EBUF_FORMAT
+    mov rax, -(EBUF_FORMAT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 .bad_state:
-    RETURN_ERROR EBUF_BUSY
+    mov rax, -(EBUF_BUSY)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 section .data
 
-%define Buffer_handle        0
-%define Buffer_generation    4
-%define Buffer_width         8
-%define Buffer_height        12
-%define Buffer_stride        16
-%define Buffer_format        20
-%define Buffer_modifier      24
-%define Buffer_base          32
-%define Buffer_dma_addr      40
-%define Buffer_size          48
-%define Buffer_acquire_fence 56
-%define Buffer_release_fence 60
-%define Buffer_timeline      64
-%define Buffer_acquire_point 68
-%define Buffer_release_point 76
-%define Buffer_state         84
-%define Buffer_refcount      88
-%define Buffer_client_id     92
-%define Buffer_size          96
 
-%define Buffer_FREE       0
-%define Buffer_ALLOCATED  1
-%define Buffer_ATTACHED   2
-%define Buffer_SCANOUT    3
 
 global buffer_version
 buffer_version: dq 0x010000

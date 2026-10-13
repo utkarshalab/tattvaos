@@ -7,25 +7,27 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Shortcut_size    40
+%define SHORTCUT_ACTION_NONE       0
+%define SHORTCUT_ACTION_SPAWN      1
+%define SHORTCUT_ACTION_COMMAND    2
+%define SHORTCUT_ACTION_DBUS       3
+%define SHORTCUT_ACTION_KEYSYM     4
+%define SHORTCUT_MAX               256
+
 section .text
 
-struc Shortcut {
+struc Shortcut
     .keysym:        resd 1
     .modifiers:     resd 1
     .action:        resd 1
     .action_data:   resq 1
     .client:        resq 1
     .next:          resq 1
-}
-%define Shortcut_size    40
+endstruc
 
-%define SHORTCUT_ACTION_NONE       0
-%define SHORTCUT_ACTION_SPAWN      1
-%define SHORTCUT_ACTION_COMMAND    2
-%define SHORTCUT_ACTION_DBUS       3
-%define SHORTCUT_ACTION_KEYSYM     4
 
-%define SHORTCUT_MAX               256
 
 ; ---------------------------------------------------------------------------
 ; shortcuts_init
@@ -42,6 +44,7 @@ shortcuts_init:
     mov qword [rbx + Server.shortcut_count], 0
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -76,7 +79,9 @@ shortcuts_register:
     cmp dword [rax + Shortcut.modifiers], r14d
     jne .next
     ; Duplicate
-    RETURN_ERROR EEXIST
+    mov rax, -(EEXIST)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 .next:
     mov rax, [rax + Shortcut.next]
@@ -104,12 +109,17 @@ shortcuts_register:
     inc qword [rdi + Server.shortcut_count]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; shortcuts_unregister
@@ -157,10 +167,13 @@ shortcuts_unregister:
 .done:
     dec qword [rdi + Server.shortcut_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; shortcuts_process_key
@@ -195,6 +208,7 @@ shortcuts_process_key:
     cmp r14d, SHORTCUT_ACTION_KEYSYM
     je .action_keysym
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .next:
@@ -204,22 +218,27 @@ shortcuts_process_key:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .action_spawn:
     ; TODO: Spawn command
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .action_command:
     ; TODO: Execute internal command
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .action_dbus:
     ; TODO: Send DBus message
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .action_keysym:
     ; TODO: Inject keysym
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

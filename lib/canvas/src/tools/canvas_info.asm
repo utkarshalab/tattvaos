@@ -36,6 +36,7 @@ canvas_info_dump:
     ; dump outputs
     mov rdi, rbx
     call debug_scene_dump
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .rodata

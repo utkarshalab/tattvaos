@@ -88,6 +88,7 @@ cmap_glyph_id:
     mov rdi, r9
     mov esi, r12d
     call cmap_format12
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15, r8, r9
     ret
 .use4:
     test r8, r8
@@ -95,9 +96,11 @@ cmap_glyph_id:
     mov rdi, r8
     mov esi, r12d
     call cmap_format4
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15, r8, r9
     ret
 .missing:
     xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15, r8, r9
     ret
 
 ; ---------------------------------------------------------------------------
@@ -164,14 +167,17 @@ cmap_format4:
     jz .missing
     add eax, r11d
     and eax, 0xFFFF
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .direct:
     mov eax, r12d
     add eax, r11d
     and eax, 0xFFFF
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .missing:
     xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -212,6 +218,7 @@ cmap_format12:
     call cmap_be32  ; startGlyph
     sub r12d, r14d
     add eax, r12d
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .next:
     add rbx, 12
@@ -219,6 +226,7 @@ cmap_format12:
     jmp .search
 .missing:
     xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

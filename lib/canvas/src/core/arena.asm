@@ -7,6 +7,17 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define Arena_base    0
+%define Arena.base 0
+%define Arena_cursor  8
+%define Arena.cursor 8
+%define Arena_limit   16
+%define Arena.limit 16
+%define Arena_parent  24
+%define Arena.parent 24
+%define Arena_size    32
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -31,9 +42,12 @@ arena_init:
     mov qword [rdi + Arena.limit], rax
     mov qword [rdi + Arena.parent], 0
     xor rax, rax
+    leave
     ret
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; arena_create
@@ -66,9 +80,12 @@ arena_create:
     mov qword [r12 + Arena.limit], rdx
     mov qword [r12 + Arena.parent], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; arena_alloc
@@ -89,6 +106,7 @@ arena_alloc:
     jmp .alloc
 .zero:
     xor rax, rax
+    leave
     ret
 .alloc:
     mov rdx, [rdi + Arena.cursor]
@@ -97,9 +115,11 @@ arena_alloc:
     cmp rax, rcx
     ja .oom
     mov [rdi + Arena.cursor], rax
+    leave
     ret
 .oom:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -131,12 +151,15 @@ arena_alloc_aligned:
     ja .oom
     mov [rdi + Arena.cursor], rax
     mov rax, rcx
+    leave
     ret
 .zero:
     xor rax, rax
+    leave
     ret
 .oom:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -150,6 +173,7 @@ arena_mark:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Arena.cursor]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -170,9 +194,12 @@ arena_rewind:
     ja .invalid
     mov [rdi + Arena.cursor], rsi
     xor rax, rax
+    leave
     ret
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; arena_free_all
@@ -187,6 +214,7 @@ arena_free_all:
     mov rax, [rdi + Arena.base]
     mov [rdi + Arena.cursor], rax
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -201,6 +229,7 @@ arena_used:
     ASSERT_PTR rdi
     mov rax, [rdi + Arena.cursor]
     sub rax, [rdi + Arena.base]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -215,6 +244,7 @@ arena_available:
     ASSERT_PTR rdi
     mov rax, [rdi + Arena.limit]
     sub rax, [rdi + Arena.cursor]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -234,9 +264,11 @@ arena_contains:
     cmp rsi, rax
     jae .outside
     mov rax, 1
+    leave
     ret
 .outside:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -260,6 +292,7 @@ arena_destroy:
     pop rdi
 .no_parent:
     xor rax, rax
+    leave
     ret
 
 section .data
@@ -271,11 +304,6 @@ section .data
 ;     .limit:   resq 1
 ;     .parent:  resq 1
 ; endstruc
-%define Arena_base    0
-%define Arena_cursor  8
-%define Arena_limit   16
-%define Arena_parent  24
-%define Arena_size    32
 
 global arena_version
 arena_version: dq 0x010000

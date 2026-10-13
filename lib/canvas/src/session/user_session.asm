@@ -7,9 +7,15 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define UserSession_size    80
+%define SESSION_STATE_INACTIVE    0
+%define SESSION_STATE_ACTIVE      1
+%define SESSION_STATE_CLOSING     2
+
 section .text
 
-struc UserSession {
+struc UserSession
     .session_id:      resq 1
     .user_id:         resq 1
     .seat:            resq 1
@@ -19,12 +25,8 @@ struc UserSession {
     .autostart_apps:  resq 1
     .env_vars:        resq 1
     .cwd:             resq 1
-}
-%define UserSession_size    80
+endstruc
 
-%define SESSION_STATE_INACTIVE    0
-%define SESSION_STATE_ACTIVE      1
-%define SESSION_STATE_CLOSING     2
 
 ; ---------------------------------------------------------------------------
 ; user_session_init
@@ -41,6 +43,7 @@ user_session_init:
     mov qword [rbx + Server.session_count], 0
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -87,10 +90,13 @@ user_session_create:
     call user_session_launch_autostart
 
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; user_session_destroy
@@ -113,6 +119,7 @@ user_session_destroy:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -141,9 +148,11 @@ user_session_get:
 
 .not_found:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .found:
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -152,6 +161,7 @@ user_session_get:
 user_session_launch_autostart:
     PROLOGUE
     ; TODO: Launch autostart applications
+    leave
     ret
 
 section .data

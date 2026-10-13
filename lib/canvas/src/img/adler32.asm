@@ -5,9 +5,11 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 
+; struct offsets (hoisted above use)
+%define ADLER_MOD  65521
+
 section .text
 
-%define ADLER_MOD  65521
 
 ; ---------------------------------------------------------------------------
 ; adler32
@@ -47,6 +49,7 @@ adler32:
     mov eax, r13d
     shl eax, 16
     or eax, r11d
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

@@ -141,5 +141,5 @@ replay_run:
     ret
 
 section .data
-global replay_version
-replay_version: dq 0x010000
+global replay_test_version
+replay_test_version: dq 0x010000

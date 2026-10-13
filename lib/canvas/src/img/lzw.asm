@@ -6,17 +6,19 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define LZW_MAX_BITS     12
 %define LZW_TABLE_SIZE   4096
+%define LzwState_size    (4096 * 2 + 4096 + 4096)
 
-struc LzwState {
+section .text
+
+
+struc LzwState
     .prefix:        resw LZW_TABLE_SIZE
     .suffix:        resb LZW_TABLE_SIZE
     .stack:         resb LZW_TABLE_SIZE
-}
-%define LzwState_size    (4096 * 2 + 4096 + 4096)
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; lzw_decode_gif
@@ -78,11 +80,16 @@ lzw_decode_gif:
     ; (implementation continues below in compact form)
     add rsp, 32
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 section .data
 global lzw_version

@@ -23,6 +23,7 @@ zorder_init:
     mov rdi, rbx
     mov rsi, r12
     call rbtree_init
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -61,10 +62,13 @@ zorder_insert:
 
     mov rdi, rbx
     call rbtree_insert
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; zorder_remove
@@ -85,6 +89,7 @@ zorder_remove:
     mov rdi, rbx
     mov rsi, r12
     call rbtree_remove
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -110,6 +115,7 @@ zorder_move:
 
     ; Insert at new position
     call zorder_insert
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -132,6 +138,7 @@ zorder_above:
 
     ; Move surface
     call zorder_move
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -153,6 +160,7 @@ zorder_below:
     sub rax, 1
 
     call zorder_move
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -176,11 +184,13 @@ zorder_top:
     add rax, 1
     mov rdx, rax
     call zorder_move
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .empty:
     mov rdx, 1
     call zorder_move
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -204,11 +214,13 @@ zorder_bottom:
     sub rax, 1
     mov rdx, rax
     call zorder_move
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .empty:
     mov rdx, 1
     call zorder_move
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -229,6 +241,7 @@ zorder_iterate:
     ; In-order traversal
     ; TODO: Implement tree traversal
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

@@ -46,6 +46,7 @@ blit_copy:
     mov rdx, r14
     imul rdx, rax
     call memcopy_fast
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .strided:
@@ -134,6 +135,7 @@ blit_copy_sse2:
 
 .scalar:
     call blit_copy
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------

@@ -7,9 +7,26 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define PowerManager_size    64
+%define POWER_EVENT_SUSPEND      1
+%define POWER_EVENT_RESUME       2
+%define POWER_EVENT_HIBERNATE    3
+%define POWER_EVENT_LOW_BATTERY  4
+%define POWER_EVENT_AC_CHANGE    5
+%define POWER_EVENT_BATTERY_CHANGE 6
+%define INHIBIT_SUSPEND       (1 << 0)
+%define INHIBIT_HIBERNATE     (1 << 1)
+%define INHIBIT_IDLE          (1 << 2)
+%define INHIBIT_HANDLE_POWER  (1 << 3)
+%define DEFAULT_LOW_BATTERY_PCT    10
+%define DEFAULT_CRITICAL_BATTERY_PCT 5
+%define DEFAULT_LOW_BATTERY_PCT    10
+%define DEFAULT_CRITICAL_BATTERY_PCT 5
+
 section .text
 
-struc PowerManager {
+struc PowerManager
     .server:            resq 1
     .suspend_inhibits:  resq 1
     .inhibit_count:     resd 1
@@ -19,23 +36,10 @@ struc PowerManager {
     .ac_callback:       resq 1
     .low_battery_pct:   resb 1
     .critical_pct:      resb 1
-}
-%define PowerManager_size    64
+endstruc
 
-%define POWER_EVENT_SUSPEND      1
-%define POWER_EVENT_RESUME       2
-%define POWER_EVENT_HIBERNATE    3
-%define POWER_EVENT_LOW_BATTERY  4
-%define POWER_EVENT_AC_CHANGE    5
-%define POWER_EVENT_BATTERY_CHANGE 6
 
-%define INHIBIT_SUSPEND       (1 << 0)
-%define INHIBIT_HIBERNATE     (1 << 1)
-%define INHIBIT_IDLE          (1 << 2)
-%define INHIBIT_HANDLE_POWER  (1 << 3)
 
-%define DEFAULT_LOW_BATTERY_PCT    10
-%define DEFAULT_CRITICAL_BATTERY_PCT 5
 
 global power_init
 power_init:
@@ -74,12 +78,17 @@ power_init:
     jnz .fail
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 power_event_callback:
     PROLOGUE_SAVE rbx, r12
@@ -99,30 +108,37 @@ power_event_callback:
     je .ac_change
     cmp r12d, POWER_EVENT_BATTERY_CHANGE
     je .battery_change
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .suspend:
     call power_handle_suspend
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .resume:
     call power_handle_resume
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .hibernate:
     call power_handle_hibernate
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .low_battery:
     call power_handle_low_battery
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .ac_change:
     call power_handle_ac_change
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .battery_change:
     call power_handle_battery_change
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 power_handle_suspend:
@@ -145,10 +161,12 @@ power_handle_suspend:
 
 .proceed:
     call power_notify_suspend
+    EPILOGUE_RESTORE rbx
     ret
 
 .abort_suspend:
     mov rax, -EBUSY
+    EPILOGUE_RESTORE rbx
     ret
 
 power_handle_resume:
@@ -165,6 +183,7 @@ power_handle_resume:
 
 .done:
     call power_notify_resume
+    EPILOGUE_RESTORE rbx
     ret
 
 power_handle_hibernate:
@@ -173,6 +192,7 @@ power_handle_hibernate:
     ASSERT_PTR rbx
 
     call power_handle_suspend
+    EPILOGUE_RESTORE rbx
     ret
 
 power_handle_low_battery:
@@ -188,6 +208,7 @@ power_handle_low_battery:
     call rax
 
 .done:
+    EPILOGUE_RESTORE rbx
     ret
 
 power_handle_ac_change:
@@ -202,6 +223,7 @@ power_handle_ac_change:
     mov rdi, rbx
     call rax
 
+    EPILOGUE_RESTORE rbx
     ret
 
 power_handle_battery_change:
@@ -216,14 +238,17 @@ power_handle_battery_change:
     mov rdi, rbx
     call rax
 
+    EPILOGUE_RESTORE rbx
     ret
 
 power_notify_suspend:
     PROLOGUE
+    leave
     ret
 
 power_notify_resume:
     PROLOGUE
+    leave
     ret
 
 global power_inhibit_suspend
@@ -240,6 +265,7 @@ power_inhibit_suspend:
     inc dword [rbx + PowerManager.inhibit_count]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global power_uninhibit_suspend
@@ -253,6 +279,7 @@ power_uninhibit_suspend:
     dec dword [rbx + PowerManager.inhibit_count]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global power_set_callbacks
@@ -266,6 +293,7 @@ power_set_callbacks:
     mov qword [rbx + PowerManager.suspend_callback], r12
     mov qword [rbx + PowerManager.resume_callback], r13
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 global power_set_battery_callback
@@ -276,6 +304,7 @@ power_set_battery_callback:
 
     mov qword [rbx + PowerManager.battery_callback], rsi
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 global power_set_ac_callback
@@ -286,6 +315,7 @@ power_set_ac_callback:
 
     mov qword [rbx + PowerManager.ac_callback], rsi
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 global power_get_battery_status
@@ -294,6 +324,7 @@ power_get_battery_status:
     ASSERT_PTR rdi
 
     call tv_power_battery_status
+    leave
     ret
 
 global power_set_thresholds
@@ -305,12 +336,11 @@ power_set_thresholds:
     mov byte [rbx + PowerManager.low_battery_pct], sil
     mov byte [rbx + PowerManager.critical_pct], dl
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data
 
-%define DEFAULT_LOW_BATTERY_PCT    10
-%define DEFAULT_CRITICAL_BATTERY_PCT 5
 
 global power_version
 power_version: dq 0x010000

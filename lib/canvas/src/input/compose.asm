@@ -6,25 +6,27 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define COMPOSE_MAX_SEQ     8
 %define COMPOSE_MAX_ENTRIES 1024
+%define ComposeState_size    48
+%define ComposeEntry_size    40
 
-struc ComposeState {
+section .text
+
+
+struc ComposeState
     .active:        resb 1
     .sequence_len:  resb 1
     .sequence:      resd COMPOSE_MAX_SEQ
     .table:         resq 1
-}
-%define ComposeState_size    48
+endstruc
 
-struc ComposeEntry {
+struc ComposeEntry
     .sequence:      resd COMPOSE_MAX_SEQ
     .len:           resb 1
     .result:        resd 1
-}
-%define ComposeEntry_size    40
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; compose_init
@@ -49,10 +51,13 @@ compose_init:
     call compose_load_table
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; compose_load_table
@@ -77,10 +82,13 @@ compose_load_table:
     call compose_populate_default
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; compose_populate_default
@@ -180,6 +188,7 @@ compose_populate_default:
     ; <Multi_key> <.> <.> <.> = …
     call compose_add_entry 0xFE03, '.', '.', '.', 0x2026
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -253,25 +262,30 @@ compose_process_key:
 
     ; Match found
     call compose_reset
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .composing:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .reset:
     call compose_reset
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .no_compose:
     mov rax, r12
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .multi_key:
     mov byte [rbx + ComposeState.active], 1
     mov byte [rbx + ComposeState.sequence_len], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .dead_key:
@@ -279,6 +293,7 @@ compose_process_key:
     mov byte [rbx + ComposeState.sequence_len], 1
     mov [rbx + ComposeState.sequence + 0], r12d
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -344,6 +359,7 @@ compose_reset:
     mov byte [rdi + ComposeState.active], 0
     mov byte [rdi + ComposeState.sequence_len], 0
     xor rax, rax
+    leave
     ret
 
 section .data

@@ -72,6 +72,7 @@ memcmp_client:
 .diff:
     mov rax, 1
 .done:
+    EPILOGUE_RESTORE rbx, rcx
     ret
 
 section .rodata

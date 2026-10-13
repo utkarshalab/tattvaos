@@ -8,17 +8,19 @@
 %include "inc/tattva.inc"
 %include "inc/channel.inc"
 
+; struct offsets (hoisted above use)
+%define PolicyExternal_size    56
+
 section .text
 
-struc PolicyExternal {
+struc PolicyExternal
     .base:              resq 1
     .server:            resq 1
     .client:            resq 1
     .channel:           resq 1
     .capabilities:      resq 1
     .pending_requests:  resq 1
-}
-%define PolicyExternal_size    56
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; policy_external_init
@@ -54,6 +56,7 @@ policy_external_init:
     call policy_external_create_channel
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -81,10 +84,13 @@ policy_external_create_channel:
     ; Send initial handshake
     ; TODO: Send cw_policy.connect with capabilities
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; policy_external_send_request
@@ -106,10 +112,13 @@ policy_external_send_request:
     ; Send message
     ; TODO: Encode and send via channel
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .fail:
-    RETURN_ERROR ENOTCONN
+    mov rax, -(ENOTCONN)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; policy_external_receive_response
@@ -118,6 +127,7 @@ policy_external_receive_response:
     PROLOGUE
     ; TODO: Receive and parse response
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -140,6 +150,7 @@ policy_external_layout:
     ; TODO: Block until response
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -163,6 +174,7 @@ policy_external_send_layout_request:
     ; Send via channel
     call policy_external_send_request
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -173,6 +185,7 @@ policy_external_configure:
     PROLOGUE
     ; Forward to external policy
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -189,6 +202,7 @@ policy_external_focus_change:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -206,6 +220,7 @@ policy_external_new_window:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -223,6 +238,7 @@ policy_external_close_window:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -240,6 +256,7 @@ policy_external_workspace_changed:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -248,7 +265,9 @@ policy_external_workspace_changed:
 global policy_external_tile_window
 policy_external_tile_window:
     PROLOGUE
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; policy_external_window_configured
@@ -257,6 +276,7 @@ global policy_external_window_configured
 policy_external_window_configured:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 section .data

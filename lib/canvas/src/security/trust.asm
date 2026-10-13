@@ -7,9 +7,24 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define TrustProfile_size    56
+%define PROFILE_TRUSTED    0
+%define PROFILE_STANDARD   1
+%define PROFILE_SANDBOXED  2
+%define PROFILE_REMOTE     3
+%define PROFILE_KIOSK      4
+%define PROFILE_CUSTOM     5
+%define PROFILE_FLAG_NO_PROMPTS     (1 << 0)
+%define PROFILE_FLAG_UNLIMITED_MEM  (1 << 1)
+%define PROFILE_FLAG_NO_AUDIT       (1 << 2)
+%define PROMPT_NEVER   0
+%define PROMPT_PRIVILEGED 1
+%define PROMPT_ALL     2
+
 section .text
 
-struc TrustProfile {
+struc TrustProfile
     .name:          resq 1
     .caps:          resq 1
     .quota_mem:     resq 1
@@ -19,23 +34,10 @@ struc TrustProfile {
     .rate_bytes_sec: resq 1
     .prompts:       resb 1
     .flags:         resd 1
-}
-%define TrustProfile_size    56
+endstruc
 
-%define PROFILE_TRUSTED    0
-%define PROFILE_STANDARD   1
-%define PROFILE_SANDBOXED  2
-%define PROFILE_REMOTE     3
-%define PROFILE_KIOSK      4
-%define PROFILE_CUSTOM     5
 
-%define PROFILE_FLAG_NO_PROMPTS     (1 << 0)
-%define PROFILE_FLAG_UNLIMITED_MEM  (1 << 1)
-%define PROFILE_FLAG_NO_AUDIT       (1 << 2)
 
-%define PROMPT_NEVER   0
-%define PROMPT_PRIVILEGED 1
-%define PROMPT_ALL     2
 
 ; ---------------------------------------------------------------------------
 ; trust_init
@@ -55,6 +57,7 @@ trust_init:
     call trust_load_profiles
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -73,6 +76,7 @@ trust_load_profiles:
     call trust_create_default_profiles
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -111,10 +115,13 @@ trust_create_default_profiles:
     js .fail
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; trust_create_profile
@@ -207,6 +214,7 @@ trust_create_profile:
 .custom:
     ; For custom, caller must fill in
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .done:
@@ -216,10 +224,13 @@ trust_create_profile:
     mov [rdi + Server.trust_profiles], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; trust_get_profile
@@ -247,9 +258,11 @@ trust_get_profile:
 
 .not_found:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .found:
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -265,6 +278,7 @@ trust_assign_profile:
 
     mov qword [r12 + Client.trust_profile], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .rodata

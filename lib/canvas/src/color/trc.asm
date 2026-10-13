@@ -7,16 +7,18 @@
 %include "inc/errors.inc"
 %include "inc/colorm.inc"
 
+; struct offsets (hoisted above use)
+%define Trc_size    56
+
 section .text
 
-struc Trc {
+struc Trc
     .type:          resd 1
     .gamma:         resd 1  ; 16.16
     .table:         resq 1
     .table_count:   resd 1
     .param:         resq 4  ; up to 4 params 16.16
-}
-%define Trc_size    56
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; trc_init_gamma
@@ -30,6 +32,7 @@ trc_init_gamma:
     mov qword [rdi + Trc.table], 0
     mov dword [rdi + Trc.table_count], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -44,6 +47,7 @@ trc_init_table:
     mov [rdi + Trc.table], rsi
     mov [rdi + Trc.table_count], edx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -55,6 +59,7 @@ trc_init_srgb:
     ASSERT_PTR rdi
     mov dword [rdi + Trc.type], TRC_TYPE_SRGB
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -66,6 +71,7 @@ trc_init_linear:
     ASSERT_PTR rdi
     mov dword [rdi + Trc.type], TRC_TYPE_LINEAR
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -92,6 +98,7 @@ trc_apply:
     jmp .pow_gamma
 .linear:
     mov rax, r12
+    EPILOGUE_RESTORE rbx, r12
     ret
 .srgb:
     ; reuse srgb encode path via LUT helper
@@ -104,6 +111,7 @@ trc_apply:
     extern linear_to_srgb_lut
     movzx eax, word [linear_to_srgb_lut + rdi * 2]
     shl eax, 8  ; u16 -> 16.16 approx
+    EPILOGUE_RESTORE rbx, r12
     ret
 .gamma:
     mov eax, [rbx + Trc.gamma]
@@ -116,11 +124,13 @@ trc_apply:
     mov rax, r12
     imul rax, r12
     shr rax, 16
+    EPILOGUE_RESTORE rbx, r12
     ret
 .gen_pow:
     mov rdi, r12
     call fix_sqrt
     mov rax, rdi
+    EPILOGUE_RESTORE rbx, r12
     ret
 .table:
     mov rax, [rbx + Trc.table]
@@ -150,9 +160,11 @@ trc_apply:
     mov ecx, eax
     shl ecx, 0
     mov eax, ecx
+    EPILOGUE_RESTORE rbx, r12
     ret
 .table_top:
     mov rax, 0x10000
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

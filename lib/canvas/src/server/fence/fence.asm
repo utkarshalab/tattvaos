@@ -7,6 +7,24 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Fence_handle       0
+%define Fence.handle 0
+%define Fence_generation   4
+%define Fence.generation 4
+%define Fence_type         8
+%define Fence.type 8
+%define Fence_signaled     12
+%define Fence.signaled 12
+%define Fence_waiters      16
+%define Fence.waiters 16
+%define Fence_client_id    24
+%define Fence.client_id 24
+%define Fence_size         32
+%define FENCE_CPU     0
+%define FENCE_GPU     1
+%define FENCE_TIMELINE 2
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -26,6 +44,7 @@ fence_init:
     mov qword [rbx + Server.fence_table], 0
     mov qword [rbx + Server.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -68,10 +87,13 @@ fence_create:
     mov [rbx + Fence.handle], eax
 
     mov rax, [rbx + Fence.handle]
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fence_destroy
@@ -100,10 +122,13 @@ fence_destroy:
     call handle_destroy
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fence_signal
@@ -131,10 +156,13 @@ fence_signal:
     ; TODO: Implement waiter wakeup
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fence_wait
@@ -166,10 +194,13 @@ fence_wait:
 
 .signaled:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fence_reset
@@ -189,10 +220,13 @@ fence_reset:
 
     mov byte [rax + Fence.signaled], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fence_get_status
@@ -211,24 +245,17 @@ fence_get_status:
     jz .not_found
 
     movzx rax, byte [rax + Fence.signaled]
+    leave
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    leave
+    ret
 
 section .data
 
-%define Fence_handle       0
-%define Fence_generation   4
-%define Fence_type         8
-%define Fence_signaled     12
-%define Fence_waiters      16
-%define Fence_client_id    24
-%define Fence_size         32
 
-%define FENCE_CPU     0
-%define FENCE_GPU     1
-%define FENCE_TIMELINE 2
 
 global fence_version
 fence_version: dq 0x010000

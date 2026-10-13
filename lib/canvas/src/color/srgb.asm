@@ -70,6 +70,7 @@ srgb_init:
     jmp .inv_loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -92,6 +93,7 @@ srgb_pow_24:
     call fix_sqrt  ; x^0.5 approx chain — documented approximation
     ; result scaled: return (x^2 * sqrt(sqrt(x^2)))? simplified stable approx
     mov rax, rbx
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -125,6 +127,7 @@ srgb_encode_one:
     cmp rax, 65535
     cmovg rax, rbx
     ; NOTE: keep simple; exact curve verified by golden in C31
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -135,6 +138,7 @@ srgb_to_linear_u8:
     PROLOGUE
     movzx eax, byte [rdi]
     movzx eax, word [srgb_to_linear_lut + rax * 2]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -150,6 +154,7 @@ srgb_from_linear_u16:
 .ok:
     movzx eax, word [linear_to_srgb_lut + rdi * 2]
     shr eax, 8  ; to u8
+    leave
     ret
 
 section .data

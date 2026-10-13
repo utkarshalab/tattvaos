@@ -7,14 +7,16 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+; struct offsets (hoisted above use)
+%define ClientObjMap_size    24
+
 section .text
 
-struc ClientObjMap {
+struc ClientObjMap
     .entries:       resq 1
     .cap:           resq 1
     .count:         resq 1
-}
-%define ClientObjMap_size    24
+endstruc
 
 global client_objects_init
 client_objects_init:
@@ -32,9 +34,12 @@ client_objects_init:
     mov qword [rbx + ClientObjMap.cap], 128
     mov qword [rbx + ClientObjMap.count], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 global client_objects_add
 client_objects_add:
@@ -49,9 +54,12 @@ client_objects_add:
     mov [rdx + rax * 16 + 8], rdx
     inc qword [rbx + ClientObjMap.count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx
+    ret
 
 global client_objects_find
 client_objects_find:
@@ -70,9 +78,11 @@ client_objects_find:
     jmp .loop
 .found:
     mov rax, [rax + rdx * 16 + 8]
+    EPILOGUE_RESTORE rbx
     ret
 .none:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

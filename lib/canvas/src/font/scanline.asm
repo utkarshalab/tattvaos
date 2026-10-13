@@ -85,6 +85,7 @@ scanline_fill:
     jmp .rec_loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -164,6 +165,7 @@ scanline_edge:
     jmp .y_loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

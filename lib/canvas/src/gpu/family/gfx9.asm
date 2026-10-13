@@ -7,8 +7,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define PM4_TYPE_3             3
 %define PM4_PFP_SYNC_ME        0x26
 %define PM4_DMA_DATA           0x41
@@ -16,6 +15,9 @@ section .text
 %define PM4_FILL_MEM          0x1B
 %define PM4_FENCE_WRITE       0x4A
 %define PM4_NOP                0x10
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; gfx9_packet3
@@ -37,6 +39,7 @@ gfx9_packet3:
     or eax, PM4_TYPE_3
     mov [rdi], eax
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -71,6 +74,7 @@ gfx9_emit_fill:
     mov rdx, 7
     call gpu_ring_write
     add rsp, 32
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -106,6 +110,7 @@ gfx9_emit_copy:
     mov rdx, 7
     call gpu_ring_write
     add rsp, 32
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -136,6 +141,7 @@ gfx9_emit_fence:
     mov rdx, 6
     call gpu_ring_write
     add rsp, 24
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

@@ -8,18 +8,8 @@
 %include "inc/tattva.inc"
 %include "inc/pixbuf.inc"
 
-section .text
-
-struc Cursor {
-    .name:          resq 1
-    .pixbuf:        resq 1
-    .hotspot_x:     resd 1
-    .hotspot_y:     resd 1
-    .delay:         resd 1  ; for animated cursors
-    .next_frame:    resq 1
-}
+; struct offsets (hoisted above use)
 %define Cursor_size    48
-
 %define CURSOR_DEFAULT      0
 %define CURSOR_TEXT         1
 %define CURSOR_POINTER      2
@@ -48,6 +38,18 @@ struc Cursor {
 %define CURSOR_ZOOM_IN      25
 %define CURSOR_ZOOM_OUT     26
 
+section .text
+
+struc Cursor
+    .name:          resq 1
+    .pixbuf:        resq 1
+    .hotspot_x:     resd 1
+    .hotspot_y:     resd 1
+    .delay:         resd 1  ; for animated cursors
+    .next_frame:    resq 1
+endstruc
+
+
 ; ---------------------------------------------------------------------------
 ; cursor_init
 ; ---------------------------------------------------------------------------
@@ -67,6 +69,7 @@ cursor_init:
     call cursor_load_theme
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -93,10 +96,13 @@ cursor_load_theme:
     mov qword [rbx + Server.cursors], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; cursor_create_default
@@ -142,10 +148,13 @@ cursor_create_default:
     mov dword [rax + Cursor.delay], 0
     mov qword [rax + Cursor.next_frame], 0
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; cursor_create_from_pixbuf
@@ -181,12 +190,17 @@ cursor_create_from_pixbuf:
     mov dword [rax + Cursor.delay], 0
     mov qword [rax + Cursor.next_frame], 0
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .bad_hotspot:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; cursor_set_theme
@@ -196,6 +210,7 @@ cursor_set_theme:
     PROLOGUE
     ; TODO
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -207,6 +222,7 @@ cursor_get:
     PROLOGUE
     ; TODO: Lookup cursor by name
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -223,6 +239,7 @@ cursor_set_image:
 
     mov qword [rbx + Cursor.current], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

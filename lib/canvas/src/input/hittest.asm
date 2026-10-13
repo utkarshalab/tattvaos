@@ -38,6 +38,7 @@ hittest_surface:
     mov rsi, r12d
     mov rdx, r13d
     call region_contains_point
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .use_opaque:
@@ -49,12 +50,14 @@ hittest_surface:
     mov rsi, r12d
     mov rdx, r13d
     call region_contains_point
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .no_region:
     ; Fall back to buffer geometry
     ; TODO: Implement buffer geometry check
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------

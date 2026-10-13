@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Seat_size    128
+
 section .text
 
-struc Seat {
+struc Seat
     .id:            resd 1
     .name:          resq 1
     .pointer:       resq 1
@@ -25,8 +28,7 @@ struc Seat {
     .cursor:        resq 1
     .devices:       resq 1
     .next:          resq 1
-}
-%define Seat_size    128
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; seat_init
@@ -48,6 +50,7 @@ seat_init:
     call seat_create_default
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -123,12 +126,17 @@ seat_create_default:
 
     mov qword [rbx + Server.default_seat], r13
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 .keymap_fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; seat_create
@@ -146,6 +154,7 @@ seat_create:
 
     ; TODO: Create seat with specific devices
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -161,6 +170,7 @@ seat_destroy:
 
     ; TODO: Remove from list, free resources
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -171,6 +181,7 @@ seat_get_default:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Server.default_seat]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -193,6 +204,7 @@ seat_deliver_event:
     je .touch
     cmp rbx, INPUT_EVENT_SYN
     je .syn
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .keyboard:
@@ -201,6 +213,7 @@ seat_deliver_event:
     test rdi, rdi
     jz .done
     ; TODO: keyboard_process_key
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .pointer:
@@ -209,6 +222,7 @@ seat_deliver_event:
     test rdi, rdi
     jz .done
     ; TODO: pointer_process_motion
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .touch:
@@ -217,10 +231,12 @@ seat_deliver_event:
     test rdi, rdi
     jz .done
     ; TODO: touch_process
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .syn:
     ; Sync event - commit frame
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .done:

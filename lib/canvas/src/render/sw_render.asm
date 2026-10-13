@@ -44,6 +44,7 @@ sw_render_init:
     mov [rbx + Renderer.blend_fn], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -53,6 +54,7 @@ global sw_render_deinit
 sw_render_deinit:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -106,7 +108,9 @@ sw_render_begin_frame:
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; sw_render_surface
@@ -172,15 +176,20 @@ sw_render_surface:
 .scanout_buffer:
     ; Mark for direct scanout
     ; TODO
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .bad_state:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .bad_buffer:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .no_buffer:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .no_damage:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -214,6 +223,7 @@ sw_composite_surface:
     mov rax, [rbx + Renderer.blend_fn]
     call rax
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -240,6 +250,7 @@ sw_render_rect:
     mov r8, [rbx + FrameCtx.stride]
     call fill_solid
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -274,7 +285,9 @@ sw_render_end_frame:
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; sw_render_flush
@@ -284,6 +297,7 @@ global sw_render_flush
 sw_render_flush:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 section .data

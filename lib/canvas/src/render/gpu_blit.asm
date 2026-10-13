@@ -28,9 +28,12 @@ gpu_blit_copy:
     call gpu_ring_submit
     ; TODO: track fence seq
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
-    RETURN_ERROR ENXIO
+    mov rax, -(ENXIO)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gpu_blit_fill
@@ -50,9 +53,12 @@ gpu_blit_fill:
     mov rdi, r12
     call gpu_ring_submit
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
-    RETURN_ERROR ENXIO
+    mov rax, -(ENXIO)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .data
 global gpu_blit_version

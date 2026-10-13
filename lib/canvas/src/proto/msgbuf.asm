@@ -7,6 +7,19 @@
 %include "inc/errors.inc"
 %include "inc/channel.inc"
 
+; struct offsets (hoisted above use)
+%define MsgBuf_buf       0
+%define MsgBuf.buf 0
+%define MsgBuf_capacity  8
+%define MsgBuf.capacity 8
+%define MsgBuf_read_pos  16
+%define MsgBuf.read_pos 16
+%define MsgBuf_write_pos 24
+%define MsgBuf.write_pos 24
+%define MsgBuf_arena     32
+%define MsgBuf.arena 32
+%define MsgBuf_size      40
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -41,9 +54,12 @@ msgbuf_init:
     mov qword [rbx + MsgBuf.write_pos], 0
     mov qword [rbx + MsgBuf.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; msgbuf_write
@@ -114,7 +130,9 @@ msgbuf_write:
     ret
 
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; msgbuf_read
@@ -181,10 +199,14 @@ msgbuf_read:
     ret
 
 .empty:
-    RETURN_ERROR EAGAIN
+    mov rax, -(EAGAIN)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 .payload_too_large:
-    RETURN_ERROR EMSGSIZE
+    mov rax, -(EMSGSIZE)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; msgbuf_peek
@@ -214,7 +236,9 @@ msgbuf_peek:
     ret
 
 .empty:
-    RETURN_ERROR EAGAIN
+    mov rax, -(EAGAIN)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; msgbuf_available
@@ -229,11 +253,13 @@ msgbuf_available:
     cmp rax, rcx
     jae .after
     sub rax, rcx
+    leave
     ret
 .after:
     mov rdx, [rdi + MsgBuf.capacity]
     sub rdx, rcx
     add rax, rdx
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -249,16 +275,11 @@ msgbuf_free_space:
     sub rcx, rax
     dec rcx          ; keep 1 byte to distinguish full/empty
     mov rax, rcx
+    leave
     ret
 
 section .data
 
-%define MsgBuf_buf       0
-%define MsgBuf_capacity  8
-%define MsgBuf_read_pos  16
-%define MsgBuf_write_pos 24
-%define MsgBuf_arena     32
-%define MsgBuf_size      40
 
 global msgbuf_version
 msgbuf_version: dq 0x010000

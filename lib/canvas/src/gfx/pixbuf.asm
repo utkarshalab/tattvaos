@@ -7,80 +7,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
-; ---------------------------------------------------------------------------
-; pixbuf_create
-;   Create pixel buffer
-;   IN:  rdi = arena, rsi = width, rdx = height, rcx = format (DRM_FORMAT_*)
-;   OUT: rax = PixBuf*, 0 on OOM
-; ---------------------------------------------------------------------------
-global pixbuf_create
-pixbuf_create:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi        ; arena
-    mov r12, rsi        ; width
-    mov r13, rdx        ; height
-    mov r14, rcx        ; format
-    ASSERT_PTR rbx
-
-    ; Validate dimensions
-    test r12, r12
-    jz .invalid
-    test r13, r13
-    jz .invalid
-    cmp r12, 32768
-    ja .invalid
-    cmp r13, 32768
-    ja .invalid
-
-    ; Calculate stride (4-byte aligned)
-    mov rax, r12
-    shl rax, 2          ; * 4 bytes per pixel
-    add rax, 3
-    and rax, ~3
-    mov r12, rax        ; stride
-
-    ; Total size
-    imul rax, r13
-
-    ; Allocate PixBuf struct (64 bytes)
-    mov rdi, rbx
-    mov rsi, 64
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov rbx, rax        ; PixBuf*
-
-    ; Allocate pixel data
-    mov rdi, [rbx + PixBuf.arena]  ; Wait, we need arena from PixBuf
-    ; Actually PixBuf struct comes first, then data
-    mov rdi, [rsp + 40] ; Saved arena pointer
-    mov rsi, rax
-    call arena_alloc
-    test rax, rax
-    jz .oom
-
-    ; Fill PixBuf
-    mov qword [rbx + PixBuf.width], rsi
-    mov qword [rbx + PixBuf.height], r13
-    mov qword [rbx + PixBuf.stride], r12
-    mov qword [rbx + PixBuf.format], r14
-    mov qword [rbx + PixBuf.data], rax
-    mov qword [rbx + PixBuf.size], rdx
-    mov qword [rbx + PixBuf.refcount], 1
-    mov qword [rbx + PixBuf.arena], [rsp + 40]
-    mov rax, rbx
-    ret
-
-.invalid:
-    RETURN_ERROR EINVAL
-.oom:
-    RETURN_ERROR ENOMEM
-
-; Fix: Need proper implementation with arena passed correctly
-; Let me redo this properly
-
+; struct offsets (hoisted above use)
 %define PixBuf_width     0
 %define PixBuf_height    8
 %define PixBuf_stride    16
@@ -90,6 +17,9 @@ pixbuf_create:
 %define PixBuf_refcount  48
 %define PixBuf_arena     56
 %define PixBuf_size_total 64
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; pixbuf_create (proper)
@@ -149,12 +79,17 @@ pixbuf_create:
     mov qword [rbx + PixBuf_refcount], 1
     mov qword [rbx + PixBuf_arena], r15
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; pixbuf_destroy
@@ -175,6 +110,7 @@ pixbuf_destroy:
     mov qword [rdi + PixBuf_size], 0
 .done:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -189,6 +125,7 @@ pixbuf_ref:
     ASSERT_PTR rdi
     lock inc qword [rdi + PixBuf_refcount]
     mov rax, rdi
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -214,9 +151,11 @@ pixbuf_get_pixel:
     shl rax, 2
     add rax, [rdi + PixBuf_data]
     mov eax, [rax]
+    leave
     ret
 .oob:
     xor eax, eax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -243,9 +182,12 @@ pixbuf_set_pixel:
     add rax, [rdi + PixBuf_data]
     mov [rax], ecx
     xor rax, rax
+    leave
     ret
 .oob:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 section .data
 

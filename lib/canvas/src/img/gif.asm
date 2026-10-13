@@ -29,9 +29,11 @@ gif_probe:
     je .yes
 .no:
     xor rax, rax
+    leave
     ret
 .yes:
     mov rax, 1
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -211,12 +213,15 @@ gif_decode_first:
     mov rdx, 64
     mov rcx, DRM_FORMAT_BGRA8888
     call pixbuf_create
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .bad:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .oom:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

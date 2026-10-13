@@ -18,6 +18,7 @@ fuzz_keymap_run:
     mov rsi, r12
     call fuzz_target_keymap
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global fuzz_config_run
@@ -30,6 +31,7 @@ fuzz_config_run:
     mov rsi, r12
     call fuzz_target_config
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

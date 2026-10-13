@@ -7,15 +7,17 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define GpuFenceMgr_size    32
+
 section .text
 
-struc GpuFenceMgr {
+struc GpuFenceMgr
     .gpu:           resq 1
     .signaled_gfx:  resq 1
     .signaled_compute: resq 1
     .signaled_sdma: resq 1
-}
-%define GpuFenceMgr_size    32
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; gpu_fence_init
@@ -39,9 +41,12 @@ gpu_fence_init:
     mov qword [rbx + GpuFenceMgr.signaled_sdma], 0
     mov qword [r12 + GpuDevice.fence_mgr], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gpu_fence_emit
@@ -58,6 +63,7 @@ gpu_fence_emit:
     mov rdi, rbx
     call gpu_ring_submit
     ; seq in rax; record pending (signaled on IRQ in real driver)
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -104,11 +110,16 @@ gpu_fence_wait:
     jmp .poll
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .timeout:
-    RETURN_ERROR ETIMEDOUT
+    mov rax, -(ETIMEDOUT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 .fail:
-    RETURN_ERROR ENXIO
+    mov rax, -(ENXIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gpu_fence_signal_irq
@@ -130,11 +141,13 @@ gpu_fence_signal_irq:
     cmp [rax + GpuFenceMgr.signaled_gfx], rdx
     jae .done
     mov [rax + GpuFenceMgr.signaled_gfx], rdx
+    EPILOGUE_RESTORE rbx
     ret
 .compute:
     cmp [rax + GpuFenceMgr.signaled_compute], rdx
     jae .done
     mov [rax + GpuFenceMgr.signaled_compute], rdx
+    EPILOGUE_RESTORE rbx
     ret
 .sdma:
     cmp [rax + GpuFenceMgr.signaled_sdma], rdx
@@ -142,6 +155,7 @@ gpu_fence_signal_irq:
     mov [rax + GpuFenceMgr.signaled_sdma], rdx
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

@@ -6,23 +6,26 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define LayoutEngine_size    40
+%define LAYOUT_NODE_LEAF    0
+%define LAYOUT_NODE_HSPLIT  1
+%define LAYOUT_NODE_VSPLIT  2
+%define LayoutNode_size    64
+
 section .text
 
-struc LayoutEngine {
+struc LayoutEngine
     .root:          resq 1
     .node_count:    resd 1
     .gap_size:      resd 1
     .master_ratio:  resq 1
     .smart_gaps:    resb 1
     .smart_borders: resb 1
-}
-%define LayoutEngine_size    40
+endstruc
 
-%define LAYOUT_NODE_LEAF    0
-%define LAYOUT_NODE_HSPLIT  1
-%define LAYOUT_NODE_VSPLIT  2
 
-struc LayoutNode {
+struc LayoutNode
     .type:          resd 1
     .toplevel:      resq 1
     .left:          resq 1
@@ -34,8 +37,7 @@ struc LayoutNode {
     .width:         resd 1
     .height:        resd 1
     .gap:           resd 1
-}
-%define LayoutNode_size    64
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; layout_engine_init
@@ -63,6 +65,7 @@ layout_engine_init:
     mov qword [rbx + LayoutEngine.master_ratio], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -100,6 +103,7 @@ layout_engine_build:
     test rax, rax
     jz .oom
     mov [rbx + LayoutEngine.root], rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .build:
@@ -108,14 +112,18 @@ layout_engine_build:
     test rax, rax
     jz .oom
     mov [rbx + LayoutEngine.root], rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .empty:
     mov qword [rbx + LayoutEngine.root], 0
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; layout_tree_build_recursive
@@ -190,16 +198,20 @@ layout_tree_build_recursive:
     ; Build right subtree
     ; TODO: Pass correct window list slice
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .leaf:
     call layout_engine_create_leaf
     test rax, rax
     jz .oom
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; layout_engine_create_leaf
@@ -230,10 +242,13 @@ layout_engine_create_leaf:
     mov eax, [rbx + LayoutEngine.gap_size]
     mov [rax + LayoutNode.gap], eax
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; layout_engine_apply
@@ -257,6 +272,7 @@ layout_engine_apply:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -314,6 +330,7 @@ layout_node_apply:
     mov byte [rax + SurfaceState.pending], 1
 
     call toplevel_schedule_configure
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -332,6 +349,7 @@ layout_engine_resize:
     call layout_engine_build
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -348,6 +366,7 @@ layout_engine_add_window:
     ; Rebuild layout with new window
     call layout_engine_build
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -364,6 +383,7 @@ layout_engine_remove_window:
     ; Rebuild without window
     call layout_engine_build
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

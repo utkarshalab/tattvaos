@@ -7,18 +7,20 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define CursorTheme_size    40
+%define MAX_CURSORS_PER_THEME  64
+
 section .text
 
-struc CursorTheme {
+struc CursorTheme
     .name:          resq 1
     .cursors:       resq 1
     .count:         resd 1
     .size:          resd 1
     .fallback:      resq 1
-}
-%define CursorTheme_size    40
+endstruc
 
-%define MAX_CURSORS_PER_THEME  64
 
 ; ---------------------------------------------------------------------------
 ; cursor_theme_init
@@ -44,10 +46,13 @@ cursor_theme_init:
     mov dword [rbx + CursorTheme.size], 32
     mov qword [rbx + CursorTheme.fallback], 0
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; cursor_theme_load
@@ -92,10 +97,13 @@ cursor_theme_load:
     call cursor_theme_load_default
 
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; cursor_theme_load_default
@@ -112,6 +120,7 @@ cursor_theme_load_default:
     mov dword [rbx + CursorTheme.count], 24
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -129,6 +138,7 @@ cursor_theme_get_cursor:
 
     ; Return fallback
     mov rax, [rbx + CursorTheme.fallback]
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

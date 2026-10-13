@@ -6,14 +6,16 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define FontChain_size    24
+
 section .text
 
-struc FontChain {
+struc FontChain
     .fonts:         resq 1
     .count:         resq 1
     .cap:           resq 1
-}
-%define FontChain_size    24
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; fallback_init
@@ -40,9 +42,12 @@ fallback_init:
     mov qword [rbx + FontChain.count], 0
     mov qword [rbx + FontChain.cap], 8
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fallback_add
@@ -61,9 +66,12 @@ fallback_add:
     mov [rdx + rax * 8], r12
     inc qword [rbx + FontChain.count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fallback_resolve
@@ -91,10 +99,12 @@ fallback_resolve:
 .found:
     mov edx, eax
     mov rax, [r13 + r15 * 8]
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .missing:
     xor rax, rax
     xor rdx, rdx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

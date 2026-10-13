@@ -9,8 +9,7 @@
 %include "inc/tattva.inc"
 %include "inc/image.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define JPEG_SOI       0xD8FF
 %define JPEG_EOI       0xD9FF
 %define JPEG_SOF0      0xC0FF
@@ -20,8 +19,12 @@ section .text
 %define JPEG_DRI       0xDDFF
 %define JPEG_SOS       0xDAFF
 %define JPEG_APP0      0xE0FF
+%define JpegImage_size    48
 
-struc JpegImage {
+section .text
+
+
+struc JpegImage
     .width:         resd 1
     .height:        resd 1
     .components:    resb 1
@@ -30,8 +33,7 @@ struc JpegImage {
     .htables:       resq 1
     .restart:       resd 1
     .pixbuf:        resq 1
-}
-%define JpegImage_size    48
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; jpeg_probe
@@ -47,9 +49,11 @@ jpeg_probe:
     cmp eax, JPEG_SOI
     jne .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -113,12 +117,15 @@ jpeg_decode:
     test rax, rax
     jnz .bad
     mov rax, r15
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .bad:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .oom:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -225,9 +232,11 @@ jpeg_scan_markers:
     jmp .next
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .fail:
     mov rax, -EINVAL
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -237,12 +246,14 @@ global jpeg_read_dqt
 jpeg_read_dqt:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global jpeg_read_dht
 jpeg_read_dht:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -268,9 +279,11 @@ jpeg_decode_scan:
     mov r8, [rax + PixBuf.stride]
     call fill_solid
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fail:
     mov rax, -EINVAL
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

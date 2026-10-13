@@ -22,6 +22,7 @@ fuzz_objects_run:
     ; resolve must never crash on arbitrary input
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

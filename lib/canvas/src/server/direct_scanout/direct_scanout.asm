@@ -6,6 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define ScanoutState_active  0
+%define ScanoutState.active 0
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -15,6 +19,7 @@ global direct_scanout_init
 direct_scanout_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -66,10 +71,12 @@ direct_scanout_check:
     ; TODO
 
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .fail:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -98,10 +105,13 @@ direct_scanout_enable:
     mov byte [r12 + ScanoutState.active], 1
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .fail:
-    RETURN_ERROR EBUF_FORMAT
+    mov rax, -(EBUF_FORMAT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; direct_scanout_disable
@@ -115,6 +125,7 @@ direct_scanout_disable:
 
     mov byte [rbx + ScanoutState.active], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -126,11 +137,11 @@ direct_scanout_is_active:
     PROLOGUE
     ASSERT_PTR rdi
     movzx rax, byte [rdi + ScanoutState.active]
+    leave
     ret
 
 section .data
 
-%define ScanoutState_active  0
 
 global direct_scanout_version
 direct_scanout_version: dq 0x010000

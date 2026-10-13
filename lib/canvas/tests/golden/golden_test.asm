@@ -148,7 +148,9 @@ golden_run_scene:
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; Scene Implementations
@@ -191,6 +193,7 @@ golden_scene_rects:
     mov rcx, 100
     mov r8, 3200
     call fill_solid
+    leave
     ret
 
 golden_scene_alpha:
@@ -221,6 +224,7 @@ golden_scene_alpha:
     mov rcx, 200
     mov r8, 3200
     call blend_dispatch
+    leave
     ret
 
 golden_scene_bitmap_text:
@@ -236,6 +240,7 @@ golden_scene_bitmap_text:
 
     ; Draw "Canvas" at (50,50) in white
     ; TODO: bitmap font draw
+    leave
     ret
 
 golden_scene_two_windows:
@@ -258,46 +263,55 @@ golden_scene_two_windows:
     mov rcx, 300
     mov r8, 3200
     call fill_solid
+    leave
     ret
 
 golden_scene_subsurfaces:
     ; Scene 5: Subsurfaces
     PROLOGUE
+    leave
     ret
 
 golden_scene_damage_partial:
     ; Scene 6: Partial damage
     PROLOGUE
+    leave
     ret
 
 golden_scene_rotation:
     ; Scene 7: 90° rotation
     PROLOGUE
+    leave
     ret
 
 golden_scene_scale_fractional:
     ; Scene 8: 1.5x scale
     PROLOGUE
+    leave
     ret
 
 golden_scene_decorations:
     ; Scene 9: Window decorations
     PROLOGUE
+    leave
     ret
 
 golden_scene_png_cursor:
     ; Scene 10: PNG cursor
     PROLOGUE
+    leave
     ret
 
 golden_scene_ttf_text:
     ; Scene 11: TrueType text
     PROLOGUE
+    leave
     ret
 
 golden_scene_multi_output:
     ; Scene 12: Multi-output
     PROLOGUE
+    leave
     ret
 
 section .data

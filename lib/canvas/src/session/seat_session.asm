@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define SeatSession_size    64
+
 section .text
 
-struc SeatSession {
+struc SeatSession
     .seat:              resq 1
     .user_id:           resq 1
     .active:            resb 1
@@ -19,8 +22,7 @@ struc SeatSession {
     .idle_timeout:      resq 1
     .inhibit_count:     resd 1
     .power_inhibit:     resq 1
-}
-%define SeatSession_size    64
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; seat_session_init
@@ -53,10 +55,13 @@ seat_session_init:
     mov qword [r12 + Seat.session_session], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; seat_session_start
@@ -76,6 +81,7 @@ seat_session_start:
     call seat_session_start_idle_timer
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -91,6 +97,7 @@ seat_session_start_idle_timer:
     jz .create_timer
 
     ; Timer already exists
+    EPILOGUE_RESTORE rbx
     ret
 
 .create_timer:
@@ -101,10 +108,13 @@ seat_session_start_idle_timer:
     test rax, rax
     jnz .fail
     mov [rbx + SeatSession.idle_timer], rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; seat_session_idle_callback
@@ -117,6 +127,7 @@ seat_session_idle_callback:
     ; Lock the session
     call seat_session_lock
 
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -148,10 +159,12 @@ seat_session_lock:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .already_locked:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -183,10 +196,12 @@ seat_session_unlock:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .not_locked:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -212,6 +227,7 @@ seat_session_inhibit_idle:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -233,11 +249,13 @@ seat_session_uninhibit_idle:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .underflow:
     mov dword [rbx + SeatSession.inhibit_count], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

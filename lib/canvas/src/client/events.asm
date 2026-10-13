@@ -29,9 +29,11 @@ canvas_event_poll:
     test rax, rax
     jnz .none
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12
     ret
 .none:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -42,6 +44,7 @@ canvas_event_type:
     PROLOGUE
     ASSERT_PTR rdi
     mov eax, [rdi + ClientEvent.type]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -52,6 +55,7 @@ canvas_event_time:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + ClientEvent.time]
+    leave
     ret
 
 section .data

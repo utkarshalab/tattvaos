@@ -7,18 +7,20 @@
 %include "inc/errors.inc"
 %include "inc/str.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define MIME_MAX_TYPES      32
 %define MIME_MAX_LEN        128
+%define MimeType_size    32
 
-struc MimeType {
+section .text
+
+
+struc MimeType
     .type:      resq 1
     .subtype:   resq 1
     .params:    resq 1
     .next:      resq 1
-}
-%define MimeType_size    32
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; mime_init
@@ -27,6 +29,7 @@ global mime_init
 mime_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -209,12 +212,17 @@ mime_parse:
 .done_params:
     xor rax, rax
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; mime_match
@@ -246,6 +254,7 @@ mime_match:
 
     ; Full match
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .check_wildcard1:
@@ -262,6 +271,7 @@ mime_match:
 
 .no_match:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -292,10 +302,13 @@ mime_to_string:
     mov rsi, [rbx + MimeType.subtype]
     call str_copy
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR ENOBUFS
+    mov rax, -(ENOBUFS)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 section .data
 global mime_version

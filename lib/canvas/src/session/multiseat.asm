@@ -7,15 +7,17 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Multiseat_size    32
+
 section .text
 
-struc Multiseat {
+struc Multiseat
     .server:        resq 1
     .seats:         resq 1
     .seat_count:    resd 1
     .default_seat:  resq 1
-}
-%define Multiseat_size    32
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; multiseat_init
@@ -35,6 +37,7 @@ multiseat_init:
     call multiseat_parse_config
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -53,6 +56,7 @@ multiseat_parse_config:
     ; For now, create default seat
     call multiseat_create_seat
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -82,10 +86,13 @@ multiseat_create_seat:
     ; Create first seat
     call multiseat_add_seat
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; multiseat_add_seat
@@ -159,10 +166,13 @@ multiseat_add_seat:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; multiseat_remove_seat
@@ -177,6 +187,7 @@ multiseat_remove_seat:
 
     ; TODO: Remove seat from list
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -205,9 +216,11 @@ multiseat_get_seat:
 
 .not_found:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .found:
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -218,6 +231,7 @@ multiseat_get_default:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Multiseat.default_seat]
+    leave
     ret
 
 section .data

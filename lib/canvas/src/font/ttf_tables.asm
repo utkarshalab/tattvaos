@@ -18,6 +18,7 @@ ttf_u16:
     ASSERT_PTR rdi
     movzx eax, word [rdi]
     xchg al, ah
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -29,6 +30,7 @@ ttf_u32:
     ASSERT_PTR rdi
     mov eax, [rdi]
     bswap eax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -41,6 +43,7 @@ ttf_i16:
     movzx eax, word [rdi]
     xchg al, ah
     movsx eax, ax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -68,9 +71,11 @@ ttf_table_len:
 .found:
     mov eax, [r13 + 12]
     bswap eax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .none:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

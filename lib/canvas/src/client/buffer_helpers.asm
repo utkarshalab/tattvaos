@@ -16,12 +16,14 @@ canvas_buffer_create:
     ASSERT_PTR rbx
     mov eax, [rbx + ClientConn.next_obj]
     inc dword [rbx + ClientConn.next_obj]
+    EPILOGUE_RESTORE rbx
     ret
 
 global canvas_buffer_destroy
 canvas_buffer_destroy:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_buffer_mmap
@@ -30,6 +32,7 @@ canvas_buffer_mmap:
     ; rdi=conn, rsi=buffer -> rax = cpu pointer
     ; TODO: resolve via server buffer table
     xor rax, rax
+    leave
     ret
 
 global canvas_buffer_stride
@@ -37,6 +40,7 @@ canvas_buffer_stride:
     PROLOGUE
     ; TODO: query stride
     mov eax, 0
+    leave
     ret
 
 section .data

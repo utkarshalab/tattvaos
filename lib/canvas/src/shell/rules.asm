@@ -7,9 +7,29 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Rule_size    80
+%define RULE_PATTERN_APP_ID     0
+%define RULE_PATTERN_TITLE      1
+%define RULE_PATTERN_CLASS      2
+%define RULE_PATTERN_ROLE       3
+%define RULE_ACTION_NONE        0
+%define RULE_ACTION_WORKSPACE   1
+%define RULE_ACTION_STATE       2
+%define RULE_ACTION_FLOATING    3
+%define RULE_ACTION_DECORATION  4
+%define RULE_ACTION_POSITION    5
+%define RULE_ACTION_SIZE        6
+%define RULE_ACTION_OPACITY     7
+%define RULE_ACTION_FOCUS       6
+%define MATCH_EXACT     0
+%define MATCH_CONTAINS  1
+%define MATCH_REGEX     2
+%define MATCH_WILDCARD  3
+
 section .text
 
-struc Rule {
+struc Rule
     .pattern:           resq 1
     .pattern_type:      resd 1
     .workspace:         resd 1
@@ -30,28 +50,10 @@ struc Rule {
     .opacity:           resd 1
     .focus:             resb 1
     .next:              resq 1
-}
-%define Rule_size    80
+endstruc
 
-%define RULE_PATTERN_APP_ID     0
-%define RULE_PATTERN_TITLE      1
-%define RULE_PATTERN_CLASS      2
-%define RULE_PATTERN_ROLE       3
 
-%define RULE_ACTION_NONE        0
-%define RULE_ACTION_WORKSPACE   1
-%define RULE_ACTION_STATE       2
-%define RULE_ACTION_FLOATING    3
-%define RULE_ACTION_DECORATION  4
-%define RULE_ACTION_POSITION    5
-%define RULE_ACTION_SIZE        6
-%define RULE_ACTION_OPACITY     7
-%define RULE_ACTION_FOCUS       6
 
-%define MATCH_EXACT     0
-%define MATCH_CONTAINS  1
-%define MATCH_REGEX     2
-%define MATCH_WILDCARD  3
 
 ; ---------------------------------------------------------------------------
 ; rules_init
@@ -67,6 +69,7 @@ rules_init:
     mov qword [rbx + Server.rules], 0
     mov qword [rbx + Server.rule_count], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -121,10 +124,13 @@ rules_add:
     inc qword [rdi + Server.rule_count]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rules_remove
@@ -167,10 +173,13 @@ rules_remove:
 .done:
     dec qword [rdi + Server.rule_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rules_match
@@ -254,9 +263,11 @@ rules_match:
 
 .no_match:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .match:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -378,6 +389,7 @@ rules_apply:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

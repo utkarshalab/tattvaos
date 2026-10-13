@@ -15,6 +15,7 @@ bench_idle_run:
     mov rbx, rdi
     ; TODO: arm waitset with 100ms deadline, count wakeups
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

@@ -8,9 +8,14 @@
 %include "inc/tattva.inc"
 %include "inc/colorm.inc"
 
+; struct offsets (hoisted above use)
+%define IccProfile_size    112
+%define ICC_MAGIC_SIZE_OFF   0
+%define ICC_TAG_COUNT_OFF    128
+
 section .text
 
-struc IccProfile {
+struc IccProfile
     .size:          resd 1
     .version:       resd 1
     .device_class:  resd 1
@@ -25,11 +30,8 @@ struc IccProfile {
     .trc_b:         resq 1
     .has_matrix:    resb 1
     .has_trc:       resb 1
-}
-%define IccProfile_size    112
+endstruc
 
-%define ICC_MAGIC_SIZE_OFF   0
-%define ICC_TAG_COUNT_OFF    128
 
 ; ---------------------------------------------------------------------------
 ; icc_probe
@@ -47,9 +49,11 @@ icc_probe:
     cmp dword [rdi + 80], 0x70736361  ; "acsp" LE
     jne .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -98,12 +102,15 @@ icc_parse:
     mov rdx, r13
     call icc_parse_tags
     mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .bad:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .oom:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -205,6 +212,7 @@ icc_parse_tags:
     jmp .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -225,6 +233,7 @@ icc_read_xyz:
     bswap eax
     mov [rbx + 8], eax
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -235,6 +244,7 @@ icc_read_trc:
     PROLOGUE
     mov [rdi], rsi
     xor rax, rax
+    leave
     ret
 
 section .data

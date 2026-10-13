@@ -8,19 +8,8 @@
 %include "inc/tattva.inc"
 %include "inc/ring.asm"
 
-section .text
-
-struc AuditEntry {
-    .timestamp:    resq 1
-    .client_id:    resq 1
-    .action:       resd 1
-    .capability:   resq 1
-    .result:       resd 1
-    .details_len:  resq 1
-    .details:      resq 1
-}
+; struct offsets (hoisted above use)
 %define AuditEntry_size    48
-
 %define AUDIT_ACTION_CAP_GRANT      1
 %define AUDIT_ACTION_CAP_REVOKE     2
 %define AUDIT_ACTION_CAP_CHECK      3
@@ -30,12 +19,25 @@ struc AuditEntry {
 %define AUDIT_ACTION_POLICY_CHANGE  7
 %define AUDIT_ACTION_PROFILE_CHANGE 8
 %define AUDIT_ACTION_GRANT_DENIED   9
-
 %define AUDIT_RESULT_GRANTED        1
 %define AUDIT_RESULT_DENIED         2
 %define AUDIT_RESULT_ERROR          3
-
 %define AUDIT_LOG_SIZE    (64 * 1024)  ; 64KB ring buffer
+
+section .text
+
+struc AuditEntry
+    .timestamp:    resq 1
+    .client_id:    resq 1
+    .action:       resd 1
+    .capability:   resq 1
+    .result:       resd 1
+    .details_len:  resq 1
+    .details:      resq 1
+endstruc
+
+
+
 
 ; ---------------------------------------------------------------------------
 ; audit_init
@@ -66,10 +68,13 @@ audit_init:
 
     mov qword [rdi + Server.audit_log], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; audit_log
@@ -122,14 +127,18 @@ audit_log:
     ; Write to ring buffer
     call audit_write_entry
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .no_log:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; audit_write_entry
@@ -171,6 +180,7 @@ audit_write_entry:
     cmp rax, rcx
     jae .full
     inc qword [rbx + AuditLog.count]
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .full:
@@ -180,6 +190,7 @@ audit_write_entry:
     jb .no_wrap_tail
     mov qword [rbx + AuditLog.tail], 0
 .no_wrap_tail:
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -196,6 +207,7 @@ audit_query:
 
     ; TODO: Implement query with filters
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

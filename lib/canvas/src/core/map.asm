@@ -7,7 +7,22 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define Map_entries   0
+%define Map.entries 0
+%define Map_capacity  8
+%define Map.capacity 8
+%define Map_mask      16
+%define Map.mask 16
+%define Map_count     24
+%define Map.count 24
+%define Map_arena     32
+%define Map.arena 32
+%define Map_size      40
+
 section .text
+
+extern fnv1a_hash  ; canonical implementation in src/core/hash.asm
 
 ; ---------------------------------------------------------------------------
 ; map_init
@@ -57,9 +72,12 @@ map_init:
     mov qword [rbx + Map.count], 0
     mov qword [rbx + Map.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; map_put
@@ -96,6 +114,7 @@ map_put:
     lea rdi, [rdi + rax * 16]
     mov qword [rdi + 8], r14
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .insert_new:
@@ -115,11 +134,14 @@ map_put:
     mov qword [rdi + 8], r14
     inc qword [rbx + Map.count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .resize:
     ; TODO: Implement resize
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; map_get
@@ -150,10 +172,12 @@ map_get:
     mov rdi, [rbx + Map.entries]
     lea rdi, [rdi + rax * 16]
     mov rax, [rdi + 8]
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .not_found:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -188,10 +212,13 @@ map_remove:
     mov qword [rdi], -1
     dec qword [rbx + Map.count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; map_find_slot (internal)
@@ -217,6 +244,7 @@ map_find_slot:
     ; Compare keys (simplified - assumes same pointer)
     ; In real implementation, would compare key data
     mov rdx, 1
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .next:
     inc rax
@@ -225,31 +253,7 @@ map_find_slot:
 
 .empty:
     xor rdx, rdx
-    ret
-
-; ---------------------------------------------------------------------------
-; FNV-1a Hash (64-bit)
-;   IN:  rdi = data ptr, rsi = length
-;   OUT: rax = hash
-; ---------------------------------------------------------------------------
-global fnv1a_hash
-fnv1a_hash:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    mov rax, 0xcbf29ce484222325  ; FNV offset basis
-    mov r13, 0x100000001b3      ; FNV prime
-    test r12, r12
-    jz .done
-.loop:
-    movzx rdi, byte [rbx]
-    xor rax, rdi
-    mul r13
-    inc rbx
-    dec r12
-    jnz .loop
-.done:
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -263,6 +267,7 @@ map_count:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Map.count]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -291,16 +296,11 @@ map_clear:
 .done:
     mov qword [rbx + Map.count], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data
 
-%define Map_entries   0
-%define Map_capacity  8
-%define Map_mask      16
-%define Map_count     24
-%define Map_arena     32
-%define Map_size      40
 
 global map_version
 map_version: dq 0x010000

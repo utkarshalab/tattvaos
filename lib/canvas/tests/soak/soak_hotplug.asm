@@ -24,6 +24,7 @@ soak_hotplug_run:
     jmp .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

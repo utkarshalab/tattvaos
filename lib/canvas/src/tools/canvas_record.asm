@@ -31,6 +31,7 @@ canvas_record_run:
     mov rdx, 0
     ; path len computed by caller in rdx
     call record_start
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .rodata

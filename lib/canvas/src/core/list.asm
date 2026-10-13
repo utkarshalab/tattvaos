@@ -6,16 +6,18 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define ListNode_prev  0
 %define ListNode_next  8
 %define ListNode_size  16
-
 %define List_head      0
 %define List_tail      8
 %define List_count     16
 %define List_size      24
+
+section .text
+
+
 
 ; ---------------------------------------------------------------------------
 ; list_init
@@ -31,6 +33,7 @@ list_init:
     mov qword [rdi + List_tail], 0
     mov qword [rdi + List_count], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -56,6 +59,7 @@ list_push_back:
     mov [rbx + List_tail], rsi
     inc qword [rbx + List_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .empty:
@@ -65,6 +69,7 @@ list_push_back:
     mov [rsi + ListNode_next], 0
     mov qword [rbx + List_count], 1
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -90,6 +95,7 @@ list_push_front:
     mov [rbx + List_head], rsi
     inc qword [rbx + List_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .empty:
@@ -99,6 +105,7 @@ list_push_front:
     mov [rsi + ListNode_next], 0
     mov qword [rbx + List_count], 1
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -137,6 +144,7 @@ list_remove:
 .done:
     dec qword [rbx + List_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -169,10 +177,12 @@ list_pop_front:
     dec qword [rbx + List_count]
     mov [rax + ListNode_prev], 0
     mov [rax + ListNode_next], 0
+    EPILOGUE_RESTORE rbx
     ret
 
 .empty:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -203,10 +213,12 @@ list_pop_back:
     dec qword [rbx + List_count]
     mov [rax + ListNode_prev], 0
     mov [rax + ListNode_next], 0
+    EPILOGUE_RESTORE rbx
     ret
 
 .empty:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -220,6 +232,7 @@ list_count:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + List_count]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -236,9 +249,11 @@ list_empty:
     test rax, rax
     jz .empty
     xor rax, rax
+    leave
     ret
 .empty:
     mov rax, 1
+    leave
     ret
 
 section .data

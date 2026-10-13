@@ -54,12 +54,15 @@ rfb_auth:
     cmp rax, 4
     jne .fail
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fail2:
     add rsp, 64
 .fail:
     add rsp, 16
-    RETURN_ERROR EREMOTE_TLS
+    mov rax, -(EREMOTE_TLS)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 section .data
 global rfb_auth_version

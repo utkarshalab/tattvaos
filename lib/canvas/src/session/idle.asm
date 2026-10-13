@@ -7,24 +7,26 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define IdleManager_size    48
+%define IDLE_STATE_ACTIVE    0
+%define IDLE_STATE_IDLE      1
+%define IDLE_STATE_WARNING   2
+%define DEFAULT_IDLE_TIMEOUT    300000000000  ; 5 minutes
+%define DEFAULT_WARNING_TIME    30000000000   ; 30 seconds
+
 section .text
 
-struc IdleManager {
+struc IdleManager
     .server:        resq 1
     .idle_timeout:  resq 1
     .warning_time:  resq 1
     .timer:         resq 1
     .callbacks:     resq 1
     .inhibit_count: resd 1
-}
-%define IdleManager_size    48
+endstruc
 
-%define IDLE_STATE_ACTIVE    0
-%define IDLE_STATE_IDLE      1
-%define IDLE_STATE_WARNING   2
 
-%define DEFAULT_IDLE_TIMEOUT    300000000000  ; 5 minutes
-%define DEFAULT_WARNING_TIME    30000000000   ; 30 seconds
 
 ; ---------------------------------------------------------------------------
 ; idle_init
@@ -57,10 +59,13 @@ idle_init:
     call idle_start_timer
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; idle_start_timer
@@ -83,10 +88,13 @@ idle_start_timer:
     mov [rbx + IdleManager.timer], rax
 
 .done:
+    EPILOGUE_RESTORE rbx
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; idle_timeout_callback
@@ -111,6 +119,7 @@ idle_timeout_callback:
     jnz .callback_loop
 
 .done:
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -133,6 +142,7 @@ idle_reset:
 .no_timer:
     ; Start new timer
     call idle_start_timer
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -156,6 +166,7 @@ idle_inhibit:
     mov qword [rbx + IdleManager.timer], 0
 
 .done:
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -177,10 +188,12 @@ idle_uninhibit:
     call idle_start_timer
 
 .done:
+    EPILOGUE_RESTORE rbx
     ret
 
 .underflow:
     mov dword [rbx + IdleManager.inhibit_count], 0
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -196,6 +209,7 @@ idle_set_timeout:
 
     ; Restart timer with new timeout
     call idle_start_timer
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -221,10 +235,13 @@ idle_add_callback:
     mov [rbx + IdleManager.callbacks], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .data
 global idle_version

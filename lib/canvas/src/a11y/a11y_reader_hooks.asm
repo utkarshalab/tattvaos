@@ -6,25 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/server_offsets.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-section .text
-
-struc A11yReaderHooks {
-    .tree:              resq 1
-    .seat:              resq 1
-    .callbacks:         resq 1
-    .callback_count:    resd 1
-}
-%define A11yReaderHooks_size    32
-
-struc A11yCallback {
-    .event_type:    resd 1
-    .callback:      resq 1
-    .user_data:     resq 1
-    .next:          resq 1
-}
-%define A11yCallback_size    24
-
+; struct offsets (hoisted above use)
 %define CALLBACK_FOCUS_CHANGED      1
 %define CALLBACK_STATE_CHANGED      2
 %define CALLBACK_NAME_CHANGED       3
@@ -34,6 +20,23 @@ struc A11yCallback {
 %define CALLBACK_LOCATION_CHANGED   7
 %define CALLBACK_WINDOW_OPENED      8
 %define CALLBACK_WINDOW_CLOSED      9
+
+section .text
+
+struc A11yReaderHooks
+    .tree:              resq 1
+    .seat:              resq 1
+    .callbacks:         resq 1
+    .callback_count:    resd 1
+endstruc
+
+struc A11yCallback
+    .event_type:    resd 1
+    .callback:      resq 1
+    .user_data:     resq 1
+    .next:          resq 1
+endstruc
+
 
 ; ---------------------------------------------------------------------------
 ; a11y_reader_hooks_init
@@ -60,10 +63,13 @@ a11y_reader_hooks_init:
 
     mov qword [rdi + Server.a11y_reader_hooks], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; a11y_reader_hooks_register
@@ -99,10 +105,13 @@ a11y_reader_hooks_register:
     inc dword [rdi + Server.a11y_reader_hooks + A11yReaderHooks.callback_count]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; a11y_reader_hooks_unregister
@@ -118,6 +127,7 @@ a11y_reader_hooks_unregister:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -158,6 +168,7 @@ a11y_reader_hooks_notify:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

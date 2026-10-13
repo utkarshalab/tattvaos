@@ -7,9 +7,14 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define RfbServer_size    48
+%define RfbClient_size    56
+%define RFB_PORT_DEFAULT  5900
+
 section .text
 
-struc RfbServer {
+struc RfbServer
     .server:         resq 1
     .listener:       resq 1
     .port:           resd 1
@@ -17,10 +22,9 @@ struc RfbServer {
     .client_count:   resq 1
     .voutput:        resq 1
     .running:        resb 1
-}
-%define RfbServer_size    48
+endstruc
 
-struc RfbClient {
+struc RfbClient
     .server:         resq 1
     .conn:           resq 1
     .width:          resd 1
@@ -29,11 +33,9 @@ struc RfbClient {
     .encodings:      resq 1
     .enc_count:      resd 1
     .next:           resq 1
-}
-%define RfbClient_size    56
+endstruc
 
 %define RFB_VERSION_STR   "RFB 003.008\n"
-%define RFB_PORT_DEFAULT  5900
 
 ; ---------------------------------------------------------------------------
 ; rfb_server_init
@@ -61,9 +63,12 @@ rfb_server_init:
     mov byte [rbx + RfbServer.running], 0
     mov qword [rdi + Server.rfb], rbx
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rfb_server_listen
@@ -82,9 +87,12 @@ rfb_server_listen:
     mov [rbx + RfbServer.listener], rax
     mov byte [rbx + RfbServer.running], 1
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
-    RETURN_ERROR EREMOTE_TLS
+    mov rax, -(EREMOTE_TLS)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rfb_server_accept
@@ -128,19 +136,28 @@ rfb_server_accept:
     test rax, rax
     jnz .hs_fail
     mov rax, r12
+    EPILOGUE_RESTORE rbx, r12
     ret
 .not_running:
-    RETURN_ERROR ENOTCONN
+    mov rax, -(ENOTCONN)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .accept_fail:
-    RETURN_ERROR ECONNREFUSED
+    mov rax, -(ECONNREFUSED)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .oom:
     mov rdi, r12
     call tv_tls_close
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .hs_fail:
     mov rdi, r12
     call tv_tls_close
-    RETURN_ERROR EREMOTE_TLS
+    mov rax, -(EREMOTE_TLS)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rfb_server_broadcast Damage — send dirty tiles to all clients
@@ -161,6 +178,7 @@ rfb_server_update:
     jnz .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

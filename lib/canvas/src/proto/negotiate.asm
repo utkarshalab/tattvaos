@@ -29,6 +29,7 @@ negotiate_capabilities:
     ; Always grant core capabilities
     or rax, CAP_DISPLAY | CAP_BUFFER | CAP_SURFACE | CAP_PRESENT
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -43,9 +44,11 @@ negotiate_check_cap:
     test rdi, rsi
     jz .not_granted
     mov rax, 1
+    leave
     ret
 .not_granted:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -62,9 +65,11 @@ negotiate_filter_interface:
     test rdi, CAP_DISPLAY
     jz .hidden
     mov rax, 1
+    leave
     ret
 .hidden:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -146,6 +151,7 @@ negotiate_get_interface_cap:
     je .cap_remote
 
     xor rax, rax
+    leave
     ret
 
 .cap_display:   mov rax, CAP_DISPLAY; ret

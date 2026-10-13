@@ -88,6 +88,7 @@ global scale_bilinear
 scale_bilinear:
     PROLOGUE
     call scale_nearest
+    leave
     ret
 
 section .data

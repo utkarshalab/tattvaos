@@ -7,9 +7,18 @@
 %include "inc/errors.inc"
 %include "inc/str.inc"
 
+; struct offsets (hoisted above use)
+%define PreeditString_size    48
+%define PreeditAttribute_size    16
+%define PREEDIT_ATTR_UNDERLINE      1
+%define PREEDIT_ATTR_HIGHLIGHT      2
+%define PREEDIT_ATTR_INCORRECT      3
+%define PREEDIT_ATTR_COMPOSING      4
+%define PREEDIT_ATTR_CURSOR         5
+
 section .text
 
-struc PreeditString {
+struc PreeditString
     .text:          resq 1
     .text_len:      resq 1
     .cursor:        resd 1
@@ -17,22 +26,15 @@ struc PreeditString {
     .selection_end:   resd 1
     .attributes:    resq 1
     .attr_count:    resd 1
-}
-%define PreeditString_size    48
+endstruc
 
-struc PreeditAttribute {
+struc PreeditAttribute
     .type:      resd 1
     .start:     resd 1
     .end:       resd 1
     .value:     resd 1
-}
-%define PreeditAttribute_size    16
+endstruc
 
-%define PREEDIT_ATTR_UNDERLINE      1
-%define PREEDIT_ATTR_HIGHLIGHT      2
-%define PREEDIT_ATTR_INCORRECT      3
-%define PREEDIT_ATTR_COMPOSING      4
-%define PREEDIT_ATTR_CURSOR         5
 
 ; ---------------------------------------------------------------------------
 ; preedit_init
@@ -54,6 +56,7 @@ preedit_init:
     mov dword [rbx + PreeditString.attr_count], 0
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -84,10 +87,13 @@ preedit_set_text:
     mov qword [rbx + PreeditString.text_len], r13
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; preedit_set_cursor
@@ -98,6 +104,7 @@ preedit_set_cursor:
     ASSERT_PTR rdi
     mov dword [rdi + PreeditString.cursor], esi
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -110,6 +117,7 @@ preedit_set_selection:
     mov dword [rdi + PreeditString.selection_start], esi
     mov dword [rdi + PreeditString.selection_end], edx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -140,10 +148,13 @@ preedit_add_attribute:
     ; TODO: Link into attribute list
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; preedit_clear_attributes
@@ -155,6 +166,7 @@ preedit_clear_attributes:
     mov qword [rdi + PreeditString.attributes], 0
     mov dword [rdi + PreeditString.attr_count], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -166,6 +178,7 @@ preedit_get_text:
     ASSERT_PTR rdi
     mov rax, [rdi + PreeditString.text]
     mov rdx, [rdi + PreeditString.text_len]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -176,6 +189,7 @@ preedit_get_cursor:
     PROLOGUE
     ASSERT_PTR rdi
     mov eax, [rdi + PreeditString.cursor]
+    leave
     ret
 
 section .data

@@ -6,9 +6,21 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define TouchSlot_size    32
+%define Touch_size    48
+%define TOOL_TYPE_FINGER    0
+%define TOOL_TYPE_PEN       1
+%define TOOL_TYPE_ERASER    2
+%define TOOL_TYPE_MOUSE     3
+%define TOUCH_DOWN    1
+%define TOUCH_UP      2
+%define TOUCH_MOTION  3
+%define TOUCH_CANCEL  4
+
 section .text
 
-struc TouchSlot {
+struc TouchSlot
     .tracking_id:   resd 1
     .x:             resd 1
     .y:             resd 1
@@ -18,28 +30,18 @@ struc TouchSlot {
     .orientation:   resd 1
     .tool_type:     resb 1
     .active:        resb 1
-}
-%define TouchSlot_size    32
+endstruc
 
-struc Touch {
+struc Touch
     .seat:          resq 1
     .slots:         resq 1
     .num_slots:     resd 1
     .max_slots:     resd 1
     .active_slots:  resd 1
     .surface:       resq 1
-}
-%define Touch_size    48
+endstruc
 
-%define TOOL_TYPE_FINGER    0
-%define TOOL_TYPE_PEN       1
-%define TOOL_TYPE_ERASER    2
-%define TOOL_TYPE_MOUSE     3
 
-%define TOUCH_DOWN    1
-%define TOUCH_UP      2
-%define TOUCH_MOTION  3
-%define TOUCH_CANCEL  4
 
 ; ---------------------------------------------------------------------------
 ; touch_create
@@ -77,10 +79,13 @@ touch_create:
 
     mov dword [rbx + Touch.num_slots], 10
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; touch_process
@@ -110,6 +115,7 @@ touch_process:
     je .motion
     cmp r13d, TOUCH_CANCEL
     je .cancel
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .down:
@@ -118,11 +124,13 @@ touch_process:
     mov dword [r12 + TouchSlot.y], r15d
     mov byte [r12 + TouchSlot.active], 1
     inc dword [rbx + Touch.active_slots]
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .up:
     mov byte [r12 + TouchSlot.active], 0
     dec dword [rbx + Touch.active_slots]
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .motion:
@@ -131,11 +139,13 @@ touch_process:
     mov dword [r12 + TouchSlot.x], r14d
     mov dword [r12 + TouchSlot.y], r15d
 .ret:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .cancel:
     mov byte [r12 + TouchSlot.active], 0
     dec dword [rbx + Touch.active_slots]
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -146,6 +156,7 @@ touch_get_slot:
     PROLOGUE
     ASSERT_PTR rdi
     movzx eax, byte [rdi + TouchSlot.active]
+    leave
     ret
 
 section .data

@@ -7,9 +7,16 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define ProtoLog_size    56
+%define ProtoLogEntry_size    40
+%define PROTOLOG_DEFAULT_CAPACITY 2048
+%define PROTOLOG_DIR_C2S      0
+%define PROTOLOG_DIR_S2C      1
+
 section .text
 
-struc ProtoLog {
+struc ProtoLog
     .server:         resq 1
     .buf:            resq 1
     .capacity:       resq 1
@@ -17,10 +24,9 @@ struc ProtoLog {
     .count:          resq 1
     .enabled:        resb 1
     .dropped:        resq 1
-}
-%define ProtoLog_size    56
+endstruc
 
-struc ProtoLogEntry {
+struc ProtoLogEntry
     .time_ns:       resq 1
     .client_id:     resq 1
     .dir:           resb 1  ; 0 = c2s, 1 = s2c
@@ -29,12 +35,8 @@ struc ProtoLogEntry {
     .flags:         resw 1
     .len:           resd 1
     .payload_off:   resq 1
-}
-%define ProtoLogEntry_size    40
+endstruc
 
-%define PROTOLOG_DEFAULT_CAPACITY 2048
-%define PROTOLOG_DIR_C2S      0
-%define PROTOLOG_DIR_S2C      1
 
 ; ---------------------------------------------------------------------------
 ; protolog_init
@@ -68,9 +70,12 @@ protolog_init:
     mov qword [rbx + ProtoLog.dropped], 0
     mov qword [rdi + Server.protolog], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; protolog_log
@@ -114,12 +119,15 @@ protolog_log:
     cmp rax, [rbx + ProtoLog.capacity]
     jae .full
     inc qword [rbx + ProtoLog.count]
+    EPILOGUE_RESTORE rbx, r12
     ret
 .full:
     inc qword [rbx + ProtoLog.dropped]
+    EPILOGUE_RESTORE rbx, r12
     ret
 .disabled:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -134,9 +142,12 @@ protolog_set_enabled:
     jz .none
     mov [rax + ProtoLog.enabled], sil
     xor rax, rax
+    leave
     ret
 .none:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    leave
+    ret
 
 section .data
 global protolog_version

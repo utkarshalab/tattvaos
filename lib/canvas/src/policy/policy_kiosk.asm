@@ -7,17 +7,19 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define PolicyKiosk_size    40
+
 section .text
 
-struc PolicyKiosk {
+struc PolicyKiosk
     .base:              resq 1
     .server:            resq 1
     .data:              resq 1
     .allowed_app_id:    resq 1
     .allow_exit:        resb 1
     .auto_restart:      resb 1
-}
-%define PolicyKiosk_size    40
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; policy_kiosk_init
@@ -49,6 +51,7 @@ policy_kiosk_init:
     mov qword [rdi + Policy.window_configured], policy_kiosk_window_configured
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -90,6 +93,7 @@ policy_kiosk_layout:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -100,7 +104,9 @@ global policy_kiosk_configure
 policy_kiosk_configure:
     PROLOGUE
     ; Only allow fullscreen geometry
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; policy_kiosk_focus_change
@@ -110,6 +116,7 @@ global policy_kiosk_focus_change
 policy_kiosk_focus_change:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -142,10 +149,13 @@ policy_kiosk_new_window:
 .allow:
     ; Allow first window
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .deny:
-    RETURN_ERROR EPERM
+    mov rax, -(EPERM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; policy_kiosk_close_window
@@ -167,16 +177,20 @@ policy_kiosk_close_window:
     test al, al
     jnz .restart
 
-    RETURN_ERROR EPERM
+    mov rax, -(EPERM)
+    EPILOGUE_RESTORE rbx
+    ret
 
 .restart:
     ; Auto-restart the app
     ; TODO: Implement
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .allow:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -186,6 +200,7 @@ global policy_kiosk_workspace_changed
 policy_kiosk_workspace_changed:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -194,7 +209,9 @@ policy_kiosk_workspace_changed:
 global policy_kiosk_tile_window
 policy_kiosk_tile_window:
     PROLOGUE
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; policy_kiosk_window_configured
@@ -203,6 +220,7 @@ global policy_kiosk_window_configured
 policy_kiosk_window_configured:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 section .data

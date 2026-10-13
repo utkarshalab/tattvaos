@@ -12,6 +12,7 @@ global config_parse
 config_parse:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 section .data

@@ -7,9 +7,53 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Toplevel_size    120
+%define TOPLEVEL_STATE_DEFAULT     0
+%define TOPLEVEL_STATE_MAXIMIZED   1
+%define TOPLEVEL_STATE_FULLSCREEN  2
+%define TOPLEVEL_STATE_MINIMIZED   3
+%define TOPLEVEL_STATE_TILED       4
+%define TOPLEVEL_STATE_FLOATING    5
+%define TOPLEVEL_CAP_DECORATION     (1 << 0)
+%define TOPLEVEL_CAP_FULLSCREEN     (1 << 1)
+%define TOPLEVEL_CAP_MAXIMIZE       (1 << 2)
+%define TOPLEVEL_CAP_MINIMIZE       (1 << 3)
+%define TOPLEVEL_CAP_MOVE           (1 << 4)
+%define TOPLEVEL_CAP_RESIZE         (1 << 5)
+%define Toplevel_surface         0
+%define Toplevel_shell           8
+%define Toplevel_title           16
+%define Toplevel_app_id          24
+%define Toplevel_state           32
+%define Toplevel_pending_state   36
+%define Toplevel_configure_serial 40
+%define Toplevel_pending_serial  48
+%define Toplevel_width           56
+%define Toplevel_height          60
+%define Toplevel_min_width       64
+%define Toplevel_min_height      68
+%define Toplevel_max_width       72
+%define Toplevel_max_height      76
+%define Toplevel_parent          80
+%define Toplevel_workspace       88
+%define Toplevel_z_order         96
+%define Toplevel_policy_data     104
+%define Toplevel_decoration      112
+%define Toplevel_fullscreen_output 120
+%define Toplevel_saved_width     128
+%define Toplevel.saved_width 128
+%define Toplevel_saved_height    132
+%define Toplevel.saved_height 132
+%define Toplevel_next            136
+%define Toplevel.next 136
+%define Toplevel_next_ws         144
+%define Toplevel.next_ws 144
+%define Toplevel_size            152
+
 section .text
 
-struc Toplevel {
+struc Toplevel
     .surface:           resq 1
     .shell:             resq 1
     .title:             resq 1
@@ -30,22 +74,9 @@ struc Toplevel {
     .policy_data:       resq 1
     .decoration:        resq 1
     .fullscreen_output: resq 1
-}
-%define Toplevel_size    120
+endstruc
 
-%define TOPLEVEL_STATE_DEFAULT     0
-%define TOPLEVEL_STATE_MAXIMIZED   1
-%define TOPLEVEL_STATE_FULLSCREEN  2
-%define TOPLEVEL_STATE_MINIMIZED   3
-%define TOPLEVEL_STATE_TILED       4
-%define TOPLEVEL_STATE_FLOATING    5
 
-%define TOPLEVEL_CAP_DECORATION     (1 << 0)
-%define TOPLEVEL_CAP_FULLSCREEN     (1 << 1)
-%define TOPLEVEL_CAP_MAXIMIZE       (1 << 2)
-%define TOPLEVEL_CAP_MINIMIZE       (1 << 3)
-%define TOPLEVEL_CAP_MOVE           (1 << 4)
-%define TOPLEVEL_CAP_RESIZE         (1 << 5)
 
 ; ---------------------------------------------------------------------------
 ; toplevel_create
@@ -123,7 +154,9 @@ toplevel_create:
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; toplevel_destroy
@@ -154,6 +187,7 @@ toplevel_destroy:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -181,10 +215,13 @@ toplevel_set_title:
     jz .oom
     mov [rbx + Toplevel.title], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; toplevel_set_app_id
@@ -199,6 +236,7 @@ toplevel_set_app_id:
 
     ; Similar to set_title
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -237,6 +275,7 @@ toplevel_set_state:
 
     ; Schedule configure
     call toplevel_schedule_configure
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .handle_fullscreen:
@@ -275,16 +314,22 @@ toplevel_set_state:
 
 .schedule:
     call toplevel_schedule_configure
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .no_change:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; toplevel_validate_state_transition
@@ -300,9 +345,12 @@ toplevel_validate_state_transition:
     jz .fail
 .ok:
     xor rax, rax
+    leave
     ret
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; toplevel_schedule_configure
@@ -321,6 +369,7 @@ toplevel_schedule_configure:
     ; Send configure event
     ; TODO: Encode and send cw_toplevel.configure
 
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -360,10 +409,13 @@ toplevel_ack_configure:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .serial_mismatch:
-    RETURN_ERROR ECWP_SEQ
+    mov rax, -(ECWP_SEQ)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; toplevel_set_min_size
@@ -375,6 +427,7 @@ toplevel_set_min_size:
     mov [rdi + Toplevel.min_width], esi
     mov [rdi + Toplevel.min_height], edx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -387,6 +440,7 @@ toplevel_set_max_size:
     mov [rdi + Toplevel.max_width], esi
     mov [rdi + Toplevel.max_height], edx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -403,6 +457,7 @@ toplevel_set_parent:
     mov [rbx + Toplevel.parent], r12
     ; TODO: Add to parent's children list
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -434,10 +489,13 @@ toplevel_move:
     jnz .fail
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR EBUSY
+    mov rax, -(EBUSY)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; toplevel_resize
@@ -453,35 +511,11 @@ toplevel_resize:
 
     ; Similar to move but with edges
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data
 
-%define Toplevel_surface         0
-%define Toplevel_shell           8
-%define Toplevel_title           16
-%define Toplevel_app_id          24
-%define Toplevel_state           32
-%define Toplevel_pending_state   36
-%define Toplevel_configure_serial 40
-%define Toplevel_pending_serial  48
-%define Toplevel_width           56
-%define Toplevel_height          60
-%define Toplevel_min_width       64
-%define Toplevel_min_height      68
-%define Toplevel_max_width       72
-%define Toplevel_max_height      76
-%define Toplevel_parent          80
-%define Toplevel_workspace       88
-%define Toplevel_z_order         96
-%define Toplevel_policy_data     104
-%define Toplevel_decoration      112
-%define Toplevel_fullscreen_output 120
-%define Toplevel_saved_width     128
-%define Toplevel_saved_height    132
-%define Toplevel_next            136
-%define Toplevel_next_ws         144
-%define Toplevel_size            152
 
 global toplevel_version
 toplevel_version: dq 0x010000

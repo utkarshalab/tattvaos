@@ -105,9 +105,12 @@ rle_encode:
     jmp .loop
 .done:
     mov rax, r15
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rle_decode
@@ -176,9 +179,12 @@ rle_decode:
     jmp .loop
 .done:
     mov rax, r15
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 section .data
 global rle_version

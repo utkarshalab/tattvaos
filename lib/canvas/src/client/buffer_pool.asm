@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+; struct offsets (hoisted above use)
+%define ClientBufPool_size    48
+
 section .text
 
-struc ClientBufPool {
+struc ClientBufPool
     .conn:          resq 1
     .width:         resd 1
     .height:        resd 1
@@ -17,8 +20,7 @@ struc ClientBufPool {
     .bufs:          resd 4
     .busy:          resb 4
     .count:         resd 1
-}
-%define ClientBufPool_size    48
+endstruc
 
 global canvas_buffer_pool_create
 canvas_buffer_pool_create:
@@ -36,9 +38,12 @@ canvas_buffer_pool_create:
     mov dword [rax + ClientBufPool.height], edx
     mov dword [rax + ClientBufPool.format], ecx
     mov dword [rax + ClientBufPool.count], 0
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 global canvas_buffer_pool_acquire
 canvas_buffer_pool_acquire:
@@ -77,9 +82,11 @@ canvas_buffer_pool_acquire:
     mov [rbx + ClientBufPool.bufs + r12 * 4], eax
     mov byte [rbx + ClientBufPool.busy + r12], 1
 .have:
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
     xor eax, eax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global canvas_buffer_pool_release
@@ -90,9 +97,12 @@ canvas_buffer_pool_release:
     jae .fail
     mov byte [rdi + ClientBufPool.busy + rsi], 0
     xor rax, rax
+    leave
     ret
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 section .data
 global canvas_buffer_pool_version

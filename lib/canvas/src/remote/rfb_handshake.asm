@@ -8,10 +8,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define RFB_VERSION_LEN   12
 %define RFB_SEC_TLS       18  ; VeNCrypt-style TLS tunnel (our own subset)
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; rfb_handshake
@@ -79,13 +81,16 @@ rfb_handshake:
     call rfb_server_init_msg
     add rsp, 16
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fail3:
     add rsp, 8
 .fail2:
     add rsp, 16
 .fail:
-    RETURN_ERROR EREMOTE_TLS
+    mov rax, -(EREMOTE_TLS)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rfb_check_version
@@ -108,9 +113,11 @@ rfb_check_version:
     je .yes
 .no:
     xor rax, rax
+    leave
     ret
 .yes:
     mov rax, 1
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -133,10 +140,13 @@ rfb_client_init:
     mov [rbx + RfbClient.shared], al
     add rsp, 8
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
     add rsp, 8
-    RETURN_ERROR EREMOTE_TLS
+    mov rax, -(EREMOTE_TLS)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rfb_server_init_msg — framebuffer size, format, name
@@ -186,9 +196,12 @@ rfb_server_init_msg:
     cmp rax, 30
     jne .fail
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
-    RETURN_ERROR EREMOTE_TLS
+    mov rax, -(EREMOTE_TLS)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .rodata
 rfb_version_str: db "RFB 003.008", 10

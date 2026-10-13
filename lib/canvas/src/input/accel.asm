@@ -7,20 +7,22 @@
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
 
+; struct offsets (hoisted above use)
+%define AccelProfile_size    32
+%define ACCEL_FLAT        0
+%define ACCEL_ADAPTIVE    1
+%define ACCEL_CUSTOM      2
+
 section .text
 
-struc AccelProfile {
+struc AccelProfile
     .type:          resd 1
     .threshold:     resd 1
     .accel_factor:  resq 1
     .decel_factor:  resq 1
     .custom_fn:     resq 1
-}
-%define AccelProfile_size    32
+endstruc
 
-%define ACCEL_FLAT        0
-%define ACCEL_ADAPTIVE    1
-%define ACCEL_CUSTOM      2
 
 ; ---------------------------------------------------------------------------
 ; pointer_accel_create
@@ -50,10 +52,13 @@ pointer_accel_create:
     mov qword [rax + AccelProfile.decel_factor], rax
     mov qword [rax + AccelProfile.custom_fn], 0
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; pointer_accel_apply
@@ -80,6 +85,7 @@ pointer_accel_apply:
 .flat:
     mov rax, r12
     mov rdx, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .adaptive:
@@ -110,6 +116,7 @@ pointer_accel_apply:
     mov rdx, r13
     imul rdx, [rbx + AccelProfile.accel_factor]
     sar rdx, 16
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .custom:
@@ -120,11 +127,13 @@ pointer_accel_apply:
     mov rdi, r12
     mov rsi, r13
     call rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .flat:
     mov rax, r12
     mov rdx, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -139,6 +148,7 @@ pointer_accel_set_profile:
 
     mov dword [rbx + AccelProfile.type], r12d
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -150,6 +160,7 @@ pointer_accel_set_threshold:
     ASSERT_PTR rdi
     mov dword [rdi + AccelProfile.threshold], esi
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -164,6 +175,7 @@ pointer_accel_set_factor:
     mov qword [rbx + AccelProfile.accel_factor], rsi
     mov qword [rbx + AccelProfile.decel_factor], rdx
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

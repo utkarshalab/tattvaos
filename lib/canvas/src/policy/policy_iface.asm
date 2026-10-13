@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Policy_size    80
+
 section .text
 
-struc Policy {
+struc Policy
     .server:            resq 1
     .name:              resq 1
     .layout:            resq 1
@@ -21,8 +24,7 @@ struc Policy {
     .tile_window:       resq 1
     .window_configured: resq 1
     .data:              resq 1
-}
-%define Policy_size    80
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; policy_init
@@ -37,6 +39,7 @@ policy_init:
 
     mov qword [rbx + Server.policy], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -54,6 +57,7 @@ policy_register:
     mov qword [r12 + Policy.server], rdi
     mov qword [rbx + Server.policy], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -63,6 +67,7 @@ global policy_unregister
 policy_unregister:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -79,6 +84,7 @@ policy_layout:
 
     ; Default: do nothing (floating)
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -89,6 +95,7 @@ global policy_configure
 policy_configure:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -98,6 +105,7 @@ global policy_focus_change
 policy_focus_change:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -114,6 +122,7 @@ policy_new_window:
 
     ; Default: place at cursor or center
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -129,6 +138,7 @@ policy_close_window:
 
     ; Default: nothing
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -138,6 +148,7 @@ global policy_workspace_changed
 policy_workspace_changed:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -148,6 +159,7 @@ global policy_tile_window
 policy_tile_window:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -158,6 +170,7 @@ global policy_window_configured
 policy_window_configured:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -167,6 +180,7 @@ global policy_load_config
 policy_load_config:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 section .data

@@ -21,6 +21,7 @@ blend_sse2:
     test r13, 3
     jz .aligned
     call blend_scalar
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .aligned:

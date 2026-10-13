@@ -6,6 +6,22 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+extern arena_alloc
+extern memcopy
+
+; struct offsets (hoisted above use)
+%define Vec_data        0
+%define Vec.data 0
+%define Vec_capacity    8
+%define Vec.capacity 8
+%define Vec_length      16
+%define Vec.length 16
+%define Vec_element_size 24
+%define Vec.element_size 24
+%define Vec_arena       32
+%define Vec.arena 32
+%define Vec_size        40
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -27,7 +43,9 @@ vec_init:
     ASSERT_PTR r12
     test r13, r13
     jnz .ok
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .ok:
     test rcx, rcx
     jnz .has_cap
@@ -46,9 +64,12 @@ vec_init:
     mov qword [rbx + Vec.element_size], r13
     mov qword [rbx + Vec.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; vec_push
@@ -76,6 +97,7 @@ vec_push:
     call memcopy
     mov qword [rbx + Vec.length], rax
     inc qword [rbx + Vec.length]
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .grow:
@@ -109,10 +131,13 @@ vec_push:
     inc qword [rbx + Vec.length]
     mov rax, [rbx + Vec.length]
     dec rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; vec_pop
@@ -140,9 +165,12 @@ vec_pop:
     mov rdx, [rbx + Vec.element_size]
     call memcopy
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .empty:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; vec_get
@@ -160,9 +188,11 @@ vec_get:
     imul rsi, [rdi + Vec.element_size]
     mov rax, [rdi + Vec.data]
     add rax, rsi
+    leave
     ret
 .oob:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -187,9 +217,12 @@ vec_set:
     mov rdx, [rbx + Vec.element_size]
     call memcopy
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oob:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; vec_length
@@ -202,6 +235,7 @@ vec_length:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Vec.length]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -216,6 +250,7 @@ vec_clear:
     ASSERT_PTR rdi
     mov qword [rdi + Vec.length], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -234,12 +269,6 @@ memcopy:
 
 section .data
 
-%define Vec_data        0
-%define Vec_capacity    8
-%define Vec_length      16
-%define Vec_element_size 24
-%define Vec_arena       32
-%define Vec_size        40
 
 global vec_version
 vec_version: dq 0x010000

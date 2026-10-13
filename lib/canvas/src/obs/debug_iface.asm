@@ -22,6 +22,7 @@ debug_iface_init:
     ASSERT_PTR r12
     mov qword [rbx + Server.debug], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -39,6 +40,7 @@ debug_check:
     mov rsi, r12
     mov rdx, CAP_DEBUG
     call gate_check
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -62,6 +64,7 @@ debug_scene_dump:
     call str_copy
     ; TODO: walk surfaces/outputs and append lines
     mov rax, 17
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -77,6 +80,7 @@ debug_client_list:
     ASSERT_PTR r12
     ; TODO: iterate registry, format lines
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -97,13 +101,17 @@ debug_trace_control:
     mov rdi, rbx
     mov rsi, rdx
     call trace_set_mask
+    EPILOGUE_RESTORE rbx
     ret
 .clear:
     mov rdi, rbx
     call trace_clear
+    EPILOGUE_RESTORE rbx
     ret
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; debug_metrics_dump
@@ -118,6 +126,7 @@ debug_metrics_dump:
     mov rdi, rbx
     mov rsi, r12
     call metrics_snapshot
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .rodata

@@ -80,6 +80,7 @@ init_entropy:
     mov rdi, rsp
     call tv_entropy_siphash_key
     add rsp, 32
+    leave
     ret
 
 init_server_arena:
@@ -95,6 +96,7 @@ init_server_arena:
     mov [global_arena_cursor], rax
     mov [global_arena_limit], rax
     add qword [global_arena_limit], 16 * 1024 * 1024
+    leave
     ret
 .oom:
     mov rdi, panic_oom_msg
@@ -108,6 +110,7 @@ init_waitset:
     test rax, rax
     js .fail
     mov [main_waitset], rax
+    leave
     ret
 .fail:
     mov rdi, panic_waitset_msg
@@ -118,30 +121,37 @@ init_waitset:
 init_tattva_bindings:
     PROLOGUE
     ; Verify Tattva contract version
+    leave
     ret
 
 init_protocol:
     PROLOGUE
+    leave
     ret
 
 init_server_core:
     PROLOGUE
+    leave
     ret
 
 init_backends:
     PROLOGUE
+    leave
     ret
 
 init_outputs:
     PROLOGUE
+    leave
     ret
 
 init_input:
     PROLOGUE
+    leave
     ret
 
 init_shell:
     PROLOGUE
+    leave
     ret
 
 ; ---------------------------------------------------------------------------

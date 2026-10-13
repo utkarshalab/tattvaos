@@ -7,6 +7,21 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define HandleTable_entries    0
+%define HandleTable.entries 0
+%define HandleTable_capacity   8
+%define HandleTable.capacity 8
+%define HandleTable_mask       16
+%define HandleTable.mask 16
+%define HandleTable_count      24
+%define HandleTable.count 24
+%define HandleTable_next_index 32
+%define HandleTable.next_index 32
+%define HandleTable_arena      40
+%define HandleTable.arena 40
+%define HandleTable_size       48
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -32,7 +47,9 @@ handle_table_init:
 .check_pow2:
     cmp r13, 1048576
     jbe .ok
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .ok:
     mov rax, r13
     dec rax
@@ -69,9 +86,12 @@ handle_table_init:
     dec rcx
     jnz .clear_loop
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; handle_create
@@ -127,10 +147,12 @@ handle_create:
     and eax, r14
     mov [rbx + HandleTable.next_index], eax
     inc qword [rbx + HandleTable.count]
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .full:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -161,10 +183,12 @@ handle_resolve:
     jne .invalid
 
     mov rax, [rbx + rax * 16]      ; obj_ptr
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .invalid:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -197,10 +221,13 @@ handle_destroy:
     mov qword [rbx + rax * 16], 0
     dec qword [rbx + HandleTable.count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; handle_count
@@ -213,6 +240,7 @@ handle_count:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + HandleTable.count]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -241,17 +269,11 @@ handle_table_clear:
     mov qword [rbx + HandleTable.count], 0
     mov qword [rbx + HandleTable.next_index], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data
 
-%define HandleTable_entries    0
-%define HandleTable_capacity   8
-%define HandleTable_mask       16
-%define HandleTable_count      24
-%define HandleTable_next_index 32
-%define HandleTable_arena      40
-%define HandleTable_size       48
 
 global handle_version
 handle_version: dq 0x010000

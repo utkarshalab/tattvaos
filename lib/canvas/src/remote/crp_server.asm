@@ -8,33 +8,36 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define CrpServer_size    40
+%define CRP_MAGIC        0x50524343  ; "CRCP"
+%define CRP_VERSION      1
+%define CRP_PORT_DEFAULT 5901
+%define CrpFrameHdr_size    24
+%define CrpTileHdr_size    12
+
 section .text
 
-struc CrpServer {
+struc CrpServer
     .server:         resq 1
     .listener:       resq 1
     .port:           resd 1
     .sessions:       resq 1
     .voutput:        resq 1
     .running:        resb 1
-}
-%define CrpServer_size    40
+endstruc
 
-%define CRP_MAGIC        0x50524343  ; "CRCP"
-%define CRP_VERSION      1
-%define CRP_PORT_DEFAULT 5901
 
-struc CrpFrameHdr {
+struc CrpFrameHdr
     .magic:          resd 1
     .version:        resw 1
     .flags:         resw 1
     .seq:            resq 1
     .tile_count:     resd 1
     .total_bytes:    resd 1
-}
-%define CrpFrameHdr_size    24
+endstruc
 
-struc CrpTileHdr {
+struc CrpTileHdr
     .x:             resw 1
     .y:             resw 1
     .w:             resw 1
@@ -42,8 +45,7 @@ struc CrpTileHdr {
     .enc:           resb 1
     .reserved:      resb 1
     .len:           resd 1
-}
-%define CrpTileHdr_size    12
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; crp_server_init
@@ -70,9 +72,12 @@ crp_server_init:
     mov byte [rbx + CrpServer.running], 0
     mov qword [rdi + Server.crp], rbx
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; crp_server_listen
@@ -90,9 +95,12 @@ crp_server_listen:
     mov [rbx + CrpServer.listener], rax
     mov byte [rbx + CrpServer.running], 1
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
-    RETURN_ERROR EREMOTE_TLS
+    mov rax, -(EREMOTE_TLS)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; crp_send_frame
@@ -131,6 +139,7 @@ crp_send_frame:
     add rsp, 64
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/font.inc"
 
+; struct offsets (hoisted above use)
+%define TtfFont_size    112
+
 section .text
 
-struc TtfFont {
+struc TtfFont
     .data:          resq 1
     .size:          resq 1
     .num_tables:    resd 1
@@ -25,8 +28,7 @@ struc TtfFont {
     .units_per_em:  resd 1
     .loca_format:   resd 1
     .num_glyphs:    resd 1
-}
-%define TtfFont_size    112
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; ttf_probe
@@ -46,9 +48,11 @@ ttf_probe:
     je .yes
 .no:
     xor rax, rax
+    leave
     ret
 .yes:
     mov rax, 1
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -119,12 +123,15 @@ ttf_open:
     xchg dl, dh
     mov [rbx + TtfFont.num_glyphs], edx
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .bad:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -201,9 +208,11 @@ ttf_index_tables:
     jmp .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .fail:
     mov rax, -EINVAL
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

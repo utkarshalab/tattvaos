@@ -8,12 +8,14 @@
 %include "inc/tattva.inc"
 %include "inc/image.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define BMP_MAGIC        0x4D42  ; "BM"
 %define BMP_COMP_RGB     0
 %define BMP_COMP_RLE8    1
 %define BMP_COMP_BITFIELDS 3
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; bmp_probe
@@ -28,9 +30,11 @@ bmp_probe:
     cmp eax, BMP_MAGIC
     jne .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------

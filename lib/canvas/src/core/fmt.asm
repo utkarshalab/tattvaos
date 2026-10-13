@@ -108,10 +108,12 @@ fmt_int:
     mov rsi, rbx
     call fmt_uint
     inc rax
+    EPILOGUE_RESTORE rbx
     ret
 .positive:
     mov rsi, rbx
     call fmt_uint
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -125,6 +127,7 @@ fmt_ptr:
     mov rcx, 16
     mov r8, '0'
     call fmt_uint
+    leave
     ret
 
 ; ---------------------------------------------------------------------------

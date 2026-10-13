@@ -43,6 +43,7 @@ auth_handshake:
     ; Send capabilities event to client
     ; TODO: Encode cw_display.capabilities event
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -65,22 +66,28 @@ auth_get_profile_caps:
     cmp rdi, TRUST_KIOSK
     je .kiosk
     xor rax, rax
+    leave
     ret
 
 .trusted:
     mov rax, PROFILE_TRUSTED_CAPS
+    leave
     ret
 .standard:
     mov rax, PROFILE_STANDARD_CAPS
+    leave
     ret
 .sandboxed:
     mov rax, PROFILE_SANDBOXED_CAPS
+    leave
     ret
 .remote:
     mov rax, PROFILE_REMOTE_CAPS
+    leave
     ret
 .kiosk:
     mov rax, PROFILE_KIOSK_CAPS
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -97,9 +104,11 @@ auth_check_cap:
     test rax, rsi
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 section .data

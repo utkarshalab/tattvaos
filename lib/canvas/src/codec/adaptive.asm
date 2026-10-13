@@ -6,9 +6,16 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define AdaptiveCtx_size    56
+%define ENC_RAW       0
+%define ENC_RLE       1
+%define ENC_DEFLATE   2
+%define ENC_DELTA     3
+
 section .text
 
-struc AdaptiveCtx {
+struc AdaptiveCtx
     .bandwidth_bps:  resq 1
     .rtt_ns:         resq 1
     .loss_permille:  resd 1
@@ -17,13 +24,8 @@ struc AdaptiveCtx {
     .bytes_rle:      resq 1
     .bytes_deflate:  resq 1
     .bytes_delta:    resq 1
-}
-%define AdaptiveCtx_size    56
+endstruc
 
-%define ENC_RAW       0
-%define ENC_RLE       1
-%define ENC_DEFLATE   2
-%define ENC_DELTA     3
 
 ; ---------------------------------------------------------------------------
 ; adaptive_init
@@ -50,9 +52,12 @@ adaptive_init:
     mov qword [rbx + AdaptiveCtx.bytes_deflate], 0
     mov qword [rbx + AdaptiveCtx.bytes_delta], 0
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; adaptive_update_stats
@@ -65,6 +70,7 @@ adaptive_update_stats:
     mov [rdi + AdaptiveCtx.rtt_ns], rdx
     mov [rdi + AdaptiveCtx.loss_permille], ecx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -82,6 +88,7 @@ adaptive_choose:
     jz .not_flat
     mov dword [rbx + AdaptiveCtx.last_choice], ENC_RLE
     mov rax, ENC_RLE
+    EPILOGUE_RESTORE rbx
     ret
 .not_flat:
     ; few changes -> delta
@@ -98,14 +105,17 @@ adaptive_choose:
     ja .use_deflate
     mov dword [rbx + AdaptiveCtx.last_choice], ENC_RAW
     mov rax, ENC_RAW
+    EPILOGUE_RESTORE rbx
     ret
 .use_delta:
     mov dword [rbx + AdaptiveCtx.last_choice], ENC_DELTA
     mov rax, ENC_DELTA
+    EPILOGUE_RESTORE rbx
     ret
 .use_deflate:
     mov dword [rbx + AdaptiveCtx.last_choice], ENC_DEFLATE
     mov rax, ENC_DEFLATE
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -122,6 +132,7 @@ adaptive_note_bytes:
     add [rdi + rsi + AdaptiveCtx.bytes_raw], rdx
 .done:
     xor rax, rax
+    leave
     ret
 
 section .data

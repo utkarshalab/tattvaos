@@ -7,9 +7,18 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Theme_size    80
+%define ThemeColors_size    80
+%define THEME_DEFAULT       0
+%define THEME_DARK          1
+%define THEME_LIGHT         2
+%define THEME_HIGH_CONTRAST 3
+%define THEME_CUSTOM        4
+
 section .text
 
-struc Theme {
+struc Theme
     .name:              resq 1
     .colors:            resq 1
     .font:              resq 1
@@ -21,10 +30,9 @@ struc Theme {
     .padding:           resd 1
     .spacing:           resd 1
     .cursor_theme:      resq 1
-}
-%define Theme_size    80
+endstruc
 
-struc ThemeColors {
+struc ThemeColors
     .titlebar_active:       resd 1
     .titlebar_inactive:     resd 1
     .border_active:         resd 1
@@ -43,14 +51,8 @@ struc ThemeColors {
     .menu_border:           resd 1
     .tooltip_bg:            resd 1
     .tooltip_fg:            resd 1
-}
-%define ThemeColors_size    80
+endstruc
 
-%define THEME_DEFAULT       0
-%define THEME_DARK          1
-%define THEME_LIGHT         2
-%define THEME_HIGH_CONTRAST 3
-%define THEME_CUSTOM        4
 
 ; ---------------------------------------------------------------------------
 ; theme_init
@@ -70,6 +72,7 @@ theme_init:
     call theme_create_default
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -133,10 +136,13 @@ theme_create_default:
 
     mov qword [rbx + Server.theme], r13
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; theme_load
@@ -167,10 +173,13 @@ theme_load:
     ; TODO: Implement theme parser
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; theme_get_color
@@ -186,9 +195,11 @@ theme_get_color:
     test rax, rax
     jz .no_theme
     mov eax, [rax + rsi]
+    leave
     ret
 .no_theme:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -208,10 +219,13 @@ theme_set_color:
     jz .no_theme
     mov [rax + rsi], edx
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .no_theme:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; theme_set_font
@@ -225,10 +239,13 @@ theme_set_font:
     mov qword [rax + Theme.font], rsi
     mov dword [rax + Theme.font_size], edx
     xor rax, rax
+    leave
     ret
 
 .no_theme:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; theme_set_border
@@ -242,10 +259,13 @@ theme_set_border:
     mov dword [rax + Theme.border_width], esi
     mov dword [rax + Theme.border_radius], edx
     xor rax, rax
+    leave
     ret
 
 .no_theme:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; theme_get_font
@@ -258,10 +278,12 @@ theme_get_font:
     jz .no_theme
     mov rax, [rax + Theme.font]
     mov rdx, [rax + Theme.font_size]
+    leave
     ret
 .no_theme:
     xor rax, rax
     xor rdx, rdx
+    leave
     ret
 
 section .rodata

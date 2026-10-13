@@ -6,6 +6,17 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define Dispatch_table    0
+%define Dispatch.table 0
+%define Dispatch_count    8
+%define Dispatch.count 8
+%define Dispatch_capacity 16
+%define Dispatch.capacity 16
+%define Dispatch_arena    24
+%define Dispatch.arena 24
+%define Dispatch_size     32
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -27,6 +38,7 @@ dispatch_init:
     mov qword [rbx + Dispatch.capacity], 0
     mov qword [rbx + Dispatch.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -83,6 +95,7 @@ dispatch_register:
     ; Found - update
     mov [rdi + rdx * 16 + 8], r14
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .next:
     inc rdx
@@ -96,13 +109,18 @@ dispatch_register:
     mov [rdi + rcx * 16 + 8], r14
     inc qword [rbx + Dispatch.count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .grow:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; dispatch_call
@@ -148,18 +166,16 @@ dispatch_call:
     mov rdx, r9
     mov rcx, r10
     call rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .not_found:
-    RETURN_ERROR ECWP_OPCODE
+    mov rax, -(ECWP_OPCODE)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 section .data
 
-%define Dispatch_table    0
-%define Dispatch_count    8
-%define Dispatch_capacity 16
-%define Dispatch_arena    24
-%define Dispatch_size     32
 
 global dispatch_version
 dispatch_version: dq 0x010000

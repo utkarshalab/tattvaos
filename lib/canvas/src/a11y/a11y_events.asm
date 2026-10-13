@@ -6,9 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/server_offsets.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define A11Y_EVENT_FOCUS_CHANGED      1
 %define A11Y_EVENT_STATE_CHANGED      2
 %define A11Y_EVENT_NAME_CHANGED       3
@@ -23,14 +25,16 @@ section .text
 %define A11Y_EVENT_WINDOW_OPENED      10
 %define A11Y_EVENT_WINDOW_CLOSED      11
 
-struc A11yEvent {
+section .text
+
+
+struc A11yEvent
     .type:      resd 1
     .node:      resq 1
     .detail1:   resd 1
     .detail2:   resd 1
     .time:      resq 1
-}
-%define A11yEvent_size    32
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; a11y_events_init
@@ -45,6 +49,7 @@ a11y_events_init:
 
     mov qword [rbx + Server.a11y_events], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -79,10 +84,13 @@ a11y_event_send:
     ; Queue event for AT clients
     ; TODO: Add to event queue
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; a11y_event_focus_changed
@@ -100,6 +108,7 @@ a11y_event_focus_changed:
     mov rdx, r12
     mov rcx, 0
     call a11y_event_send
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -117,8 +126,9 @@ a11y_event_state_changed:
     mov rdi, rbx
     mov rsi, A11Y_EVENT_STATE_CHANGED
     mov rdx, r12
-    mov rcx, r13d
+    mov ecx, r13d
     call a11y_event_send
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -137,6 +147,7 @@ a11y_event_name_changed:
     mov rdx, r12
     mov rcx, 0
     call a11y_event_send
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -155,6 +166,7 @@ a11y_event_children_changed:
     mov rdx, r12
     mov rcx, 0
     call a11y_event_send
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -173,6 +185,7 @@ a11y_event_text_changed:
     mov rdx, r12
     mov rcx, 0
     call a11y_event_send
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -191,6 +204,7 @@ a11y_event_selection_changed:
     mov rdx, r12
     mov rcx, 0
     call a11y_event_send
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -209,6 +223,7 @@ a11y_event_location_changed:
     mov rdx, r12
     mov rcx, 0
     call a11y_event_send
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -227,6 +242,7 @@ a11y_event_window_opened:
     mov rdx, r12
     mov rcx, 0
     call a11y_event_send
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -245,6 +261,7 @@ a11y_event_window_closed:
     mov rdx, r12
     mov rcx, 0
     call a11y_event_send
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

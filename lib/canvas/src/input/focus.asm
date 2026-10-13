@@ -6,20 +6,22 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define Focus_size    48
+%define FOCUS_STATE_NONE    0
+%define FOCUS_STATE_ENTER   1
+%define FOCUS_STATE_LEAVE   2
+
 section .text
 
-struc Focus {
+struc Focus
     .seat:          resq 1
     .surface:       resq 1
     .serial:        resq 1
     .keys:          resq 1
     .modifiers:     resd 1
-}
-%define Focus_size    48
+endstruc
 
-%define FOCUS_STATE_NONE    0
-%define FOCUS_STATE_ENTER   1
-%define FOCUS_STATE_LEAVE   2
 
 ; ---------------------------------------------------------------------------
 ; focus_init
@@ -46,10 +48,13 @@ focus_init:
     mov dword [rax + Focus.modifiers], 0
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; focus_set
@@ -84,14 +89,18 @@ focus_set:
     ; TODO: Send enter event with serial
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .already_focused:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; focus_get
@@ -104,9 +113,11 @@ focus_get:
     test rax, rax
     jz .none
     mov rax, [rax + Focus.surface]
+    leave
     ret
 .none:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -120,9 +131,11 @@ focus_get_serial:
     test rax, rax
     jz .none
     mov rax, [rax + Focus.serial]
+    leave
     ret
 .none:
     xor rax, rax
+    leave
     ret
 
 section .data

@@ -7,17 +7,19 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define BitState_size    32
+%define INFLATE_MAX_WINDOW  32768
+
 section .text
 
-struc BitState {
+struc BitState
     .buf:      resq 1
     .nbits:    resq 1
     .src:      resq 1
     .remain:   resq 1
-}
-%define BitState_size    32
+endstruc
 
-%define INFLATE_MAX_WINDOW  32768
 
 ; ---------------------------------------------------------------------------
 ; inflate_bits
@@ -56,9 +58,11 @@ inflate_bits:
     and eax, edx
     shr qword [rbx + BitState.buf], cl
     sub qword [rbx + BitState.nbits], r12
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
     mov rax, -1
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -264,20 +268,27 @@ inflate:
 .finish:
     add rsp, BitState_size + HuffDec_size * 2 + 64
     mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail2:
     add rsp, 8
 .fail:
     add rsp, BitState_size + HuffDec_size * 2 + 64
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .full:
     add rsp, 8
     add rsp, BitState_size + HuffDec_size * 2 + 64
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .full2:
     add rsp, 8
     add rsp, BitState_size + HuffDec_size * 2 + 64
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; huff_fixed_litlen / huff_fixed_dist
@@ -330,6 +341,7 @@ huff_fixed_litlen:
     mov rdx, 288
     call huff_build
     add rsp, 288
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global huff_fixed_dist
@@ -346,6 +358,7 @@ huff_fixed_dist:
     mov rdx, 32
     call huff_build
     add rsp, 32
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -511,11 +524,13 @@ inflate_dynamic:
     jnz .fail2
     add rsp, 512
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail2:
     add rsp, 512
 .fail:
     mov rax, -1
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -537,9 +552,11 @@ inflate_length:
     lea rdx, [length_extra]
     movzx edx, byte [rdx + rax]
     pop rax
+    leave
     ret
 .fail:
     mov rax, -1
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -558,9 +575,11 @@ inflate_dist:
     lea rdx, [dist_extra]
     movzx edx, byte [rdx + rdi]
     pop rax
+    leave
     ret
 .fail:
     mov rax, -1
+    leave
     ret
 
 section .data

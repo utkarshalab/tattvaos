@@ -43,8 +43,10 @@ cwpgen_run:
     mov rdi, rax
     mov rsi, r12
     call cwpgen_emit
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fail:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 global cwpgen_lex
@@ -52,6 +54,7 @@ cwpgen_lex:
     PROLOGUE
     ; TODO: tokenizer
     xor rax, rax
+    leave
     ret
 
 global cwpgen_parse
@@ -59,6 +62,7 @@ cwpgen_parse:
     PROLOGUE
     ; TODO: recursive descent -> AST in arena
     xor rax, rax
+    leave
     ret
 
 global cwpgen_emit
@@ -66,6 +70,7 @@ cwpgen_emit:
     PROLOGUE
     ; TODO: write cwp_<name>.inc + gen_<name>.asm
     xor rax, rax
+    leave
     ret
 
 section .rodata

@@ -6,38 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/server_offsets.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-section .text
-
-struc A11yTree {
-    .root:          resq 1
-    .nodes:         resq 1
-    .node_count:    resd 1
-    .focused_node:  resq 1
-    .seat:          resq 1
-}
-%define A11yTree_size    40
-
-struc A11yNode {
-    .surface:           resq 1
-    .role:              resd 1
-    .name:              resq 1
-    .description:       resq 1
-    .states:            resq 1
-    .attributes:        resq 1
-    .parent:            resq 1
-    .first_child:       resq 1
-    .last_child:        resq 1
-    .next_sibling:      resq 1
-    .prev_sibling:      resq 1
-    .x:                 resd 1
-    .y:                 resd 1
-    .width:             resd 1
-    .height:            resd 1
-    .transform:         resq 1
-}
-%define A11yNode_size    104
-
+; struct offsets (hoisted above use)
 %define A11Y_ROLE_WINDOW          1
 %define A11Y_ROLE_BUTTON          2
 %define A11Y_ROLE_LINK            3
@@ -61,7 +34,6 @@ struc A11yNode {
 %define A11Y_ROLE_NOTIFICATION    20
 %define A11Y_ROLE_STATUSBAR       21
 %define A11Y_ROLE_SCROLLVIEW      22
-
 %define A11Y_STATE_FOCUSABLE      (1 << 0)
 %define A11Y_STATE_FOCUSED        (1 << 1)
 %define A11Y_STATE_SELECTABLE     (1 << 2)
@@ -78,6 +50,37 @@ struc A11yNode {
 %define A11Y_STATE_HAS_POPUP      (1 << 12)
 %define A11Y_STATE_MODAL          (1 << 13)
 
+section .text
+
+struc A11yTree
+    .root:          resq 1
+    .nodes:         resq 1
+    .node_count:    resd 1
+    .focused_node:  resq 1
+    .seat:          resq 1
+endstruc
+
+struc A11yNode
+    .surface:           resq 1
+    .role:              resd 1
+    .name:              resq 1
+    .description:       resq 1
+    .states:            resq 1
+    .attributes:        resq 1
+    .parent:            resq 1
+    .first_child:       resq 1
+    .last_child:        resq 1
+    .next_sibling:      resq 1
+    .prev_sibling:      resq 1
+    .x:                 resd 1
+    .y:                 resd 1
+    .width:             resd 1
+    .height:            resd 1
+    .transform:         resq 1
+endstruc
+
+
+
 global a11y_tree_init
 a11y_tree_init:
     PROLOGUE_SAVE rbx, r12
@@ -90,6 +93,7 @@ a11y_tree_init:
     mov qword [rbx + Server.arena], r12
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global a11y_node_create
@@ -126,15 +130,19 @@ a11y_node_create:
     mov qword [rbx + A11yNode.transform], 0
 
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 global a11y_node_destroy
 a11y_node_destroy:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global a11y_node_set_role
@@ -143,6 +151,7 @@ a11y_node_set_role:
     ASSERT_PTR rdi
     mov dword [rdi + A11yNode.role], esi
     xor rax, rax
+    leave
     ret
 
 global a11y_node_set_name
@@ -163,10 +172,13 @@ a11y_node_set_name:
     jz .oom
     mov [rbx + A11yNode.name], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 global a11y_node_set_geometry
 a11y_node_set_geometry:
@@ -179,6 +191,7 @@ a11y_node_set_geometry:
     mov dword [rbx + A11yNode.width], ecx
     mov dword [rbx + A11yNode.height], r8d
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 global a11y_node_add_child
@@ -197,6 +210,7 @@ a11y_node_add_child:
     mov [r12 + A11yNode.prev_sibling], rax
     mov [rbx + A11yNode.last_child], r12
     mov [r12 + A11yNode.parent], rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .first_child:
@@ -204,6 +218,7 @@ a11y_node_add_child:
     mov [rbx + A11yNode.last_child], r12
     mov [r12 + A11yNode.parent], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global a11y_tree_get_focused
@@ -211,6 +226,7 @@ a11y_tree_get_focused:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + A11yTree.focused_node]
+    leave
     ret
 
 global a11y_tree_set_focused
@@ -222,6 +238,7 @@ a11y_tree_set_focused:
 
     mov qword [rbx + A11yTree.focused_node], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

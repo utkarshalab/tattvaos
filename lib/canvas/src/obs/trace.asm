@@ -8,9 +8,14 @@
 %include "inc/tattva.inc"
 %include "inc/trace.inc"
 
+; struct offsets (hoisted above use)
+%define Trace_size    56
+%define TraceEvent_size    40
+%define TRACE_DEFAULT_CAPACITY  4096
+
 section .text
 
-struc Trace {
+struc Trace
     .server:         resq 1
     .buf:            resq 1
     .capacity:       resq 1
@@ -18,10 +23,9 @@ struc Trace {
     .count:          resq 1
     .enabled_mask:   resq 1
     .dropped:        resq 1
-}
-%define Trace_size    56
+endstruc
 
-struc TraceEvent {
+struc TraceEvent
     .time_ns:       resq 1
     .event_id:      resd 1
     .client_id:     resd 1
@@ -30,10 +34,8 @@ struc TraceEvent {
     .flags:         resw 1
     .arg0:          resq 1
     .arg1:          resq 1
-}
-%define TraceEvent_size    40
+endstruc
 
-%define TRACE_DEFAULT_CAPACITY  4096
 
 ; ---------------------------------------------------------------------------
 ; trace_init
@@ -67,9 +69,12 @@ trace_init:
     mov qword [rbx + Trace.dropped], 0
     mov qword [rdi + Server.trace], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; trace_emit
@@ -120,12 +125,15 @@ trace_emit:
     cmp rax, [rbx + Trace.capacity]
     jae .full
     inc qword [rbx + Trace.count]
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .full:
     inc qword [rbx + Trace.dropped]
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .disabled:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -140,9 +148,12 @@ trace_set_mask:
     jz .none
     mov [rax + Trace.enabled_mask], rsi
     xor rax, rax
+    leave
     ret
 .none:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; trace_clear
@@ -158,9 +169,12 @@ trace_clear:
     mov qword [rax + Trace.count], 0
     mov qword [rax + Trace.dropped], 0
     xor rax, rax
+    leave
     ret
 .none:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    leave
+    ret
 
 section .data
 global trace_version

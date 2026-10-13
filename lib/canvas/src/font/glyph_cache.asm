@@ -6,17 +6,21 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define GlyphCache_size    32
+%define GlyphEntry_size    48
+%define GLYPH_CACHE_DEFAULT_CAP  256
+
 section .text
 
-struc GlyphCache {
+struc GlyphCache
     .entries:       resq 1
     .cap:           resq 1
     .count:         resq 1
     .arena:         resq 1
-}
-%define GlyphCache_size    32
+endstruc
 
-struc GlyphEntry {
+struc GlyphEntry
     .key:           resq 1  ; (glyph<<32)|size
     .mask:          resq 1
     .width:         resd 1
@@ -25,10 +29,8 @@ struc GlyphEntry {
     .bearing_y:     resd 1
     .advance:       resd 1
     .next:          resq 1
-}
-%define GlyphEntry_size    48
+endstruc
 
-%define GLYPH_CACHE_DEFAULT_CAP  256
 
 ; ---------------------------------------------------------------------------
 ; glyph_cache_init
@@ -62,9 +64,12 @@ glyph_cache_init:
     xor eax, eax
     rep stosq
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; glyph_cache_lookup
@@ -97,9 +102,11 @@ glyph_cache_lookup:
     mov rax, [rax + GlyphEntry.next]
     jmp .loop
 .hit:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .miss:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -122,4 +129,5 @@ glyph_cache_insert:
     mov [rcx + rdx * 8], r12  ; new head
     inc qword [rbx + GlyphCache.count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret

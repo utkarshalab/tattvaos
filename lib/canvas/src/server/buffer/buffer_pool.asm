@@ -6,6 +6,17 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define BufferPool_buffers  0
+%define BufferPool.buffers 0
+%define BufferPool_count    8
+%define BufferPool.count 8
+%define BufferPool_capacity 16
+%define BufferPool.capacity 16
+%define BufferPool_arena    24
+%define BufferPool.arena 24
+%define BufferPool_size     32
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -27,6 +38,7 @@ buffer_pool_init:
     mov qword [rbx + BufferPool.capacity], 0
     mov qword [rbx + BufferPool.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -49,6 +61,7 @@ buffer_pool_acquire:
 
     ; For now, return 0 (not found)
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -68,15 +81,11 @@ buffer_pool_release:
     ; Add to pool
     ; TODO: Implement pool insert
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
 
-%define BufferPool_buffers  0
-%define BufferPool_count    8
-%define BufferPool_capacity 16
-%define BufferPool_arena    24
-%define BufferPool_size     32
 
 global buffer_pool_version
 buffer_pool_version: dq 0x010000

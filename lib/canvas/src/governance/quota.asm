@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Quota_size    56
+
 section .text
 
-struc Quota {
+struc Quota
     .max_mem:        resq 1
     .used_mem:       resq 1
     .max_surfs:      resd 1
@@ -19,8 +22,7 @@ struc Quota {
     .max_objs:       resd 1
     .used_objs:      resd 1
     .client:         resq 1
-}
-%define Quota_size    56
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; quota_init
@@ -35,6 +37,7 @@ quota_init:
 
     mov qword [rbx + Server.quotas], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -73,10 +76,13 @@ quota_create:
 
     mov qword [r12 + Client.quota], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; quota_check_mem
@@ -98,9 +104,12 @@ quota_check_mem:
     ja .exceeded
 .ok:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .exceeded:
-    RETURN_ERROR EQUOTA_MEM
+    mov rax, -(EQUOTA_MEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; quota_alloc_mem
@@ -117,8 +126,10 @@ quota_alloc_mem:
     jnz .fail
     add qword [rbx + Quota.used_mem], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -133,6 +144,7 @@ quota_free_mem:
     mov qword [rdi + Quota.used_mem], 0
 .ok:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -149,9 +161,12 @@ quota_check_surfs:
     jae .exceeded
 .ok:
     xor rax, rax
+    leave
     ret
 .exceeded:
-    RETURN_ERROR EQUOTA_SURF
+    mov rax, -(EQUOTA_SURF)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; quota_alloc_surf
@@ -165,8 +180,10 @@ quota_alloc_surf:
     jnz .fail
     inc dword [rdi + Quota.used_surfs]
     xor rax, rax
+    leave
     ret
 .fail:
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -181,6 +198,7 @@ quota_free_surf:
     mov dword [rdi + Quota.used_surfs], 0
 .ok:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -197,9 +215,12 @@ quota_check_bufs:
     jae .exceeded
 .ok:
     xor rax, rax
+    leave
     ret
 .exceeded:
-    RETURN_ERROR EQUOTA_SURF
+    mov rax, -(EQUOTA_SURF)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; quota_alloc_buf
@@ -213,8 +234,10 @@ quota_alloc_buf:
     jnz .fail
     inc dword [rdi + Quota.used_bufs]
     xor rax, rax
+    leave
     ret
 .fail:
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -229,6 +252,7 @@ quota_free_buf:
     mov dword [rdi + Quota.used_bufs], 0
 .ok:
     xor rax, rax
+    leave
     ret
 
 section .data

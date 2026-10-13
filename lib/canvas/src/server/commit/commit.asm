@@ -16,6 +16,7 @@ global commit_init
 commit_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -59,6 +60,7 @@ commit_surface:
 .nothing_pending:
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -102,6 +104,7 @@ surface_apply_state:
     ; Clear pending flag
     mov byte [r13 + SurfaceState.pending], 0
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -139,6 +142,7 @@ surface_fire_frame_callbacks:
     jnz .loop
 
 .done:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -149,6 +153,7 @@ surface_release_old_buffer:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
     ; TODO: Signal release fence on old buffer
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -212,10 +217,13 @@ commit_transaction:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR ESURF_COMMIT
+    mov rax, -(ESURF_COMMIT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 section .data
 

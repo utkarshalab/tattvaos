@@ -8,9 +8,19 @@
 %include "inc/tattva.inc"
 %include "inc/channel.inc"
 
+; struct offsets (hoisted above use)
+%define Transfer_size    112
+%define TRANSFER_STATUS_NONE       0
+%define TRANSFER_STATUS_PENDING    1
+%define TRANSFER_STATUS_ACTIVE     2
+%define TRANSFER_STATUS_COMPLETE   3
+%define TRANSFER_STATUS_ERROR      4
+%define TRANSFER_STATUS_CANCELLED  5
+%define TRANSFER_CHUNK_DEFAULT    (64 * 1024)  ; 64KB
+
 section .text
 
-struc Transfer {
+struc Transfer
     .source_client:     resq 1
     .target_client:     resq 1
     .mime_type:         resq 1
@@ -25,17 +35,9 @@ struc Transfer {
     .target_fd:         resq 1
     .callback:          resq 1
     .user_data:         resq 1
-}
-%define Transfer_size    112
+endstruc
 
-%define TRANSFER_STATUS_NONE       0
-%define TRANSFER_STATUS_PENDING    1
-%define TRANSFER_STATUS_ACTIVE     2
-%define TRANSFER_STATUS_COMPLETE   3
-%define TRANSFER_STATUS_ERROR      4
-%define TRANSFER_STATUS_CANCELLED  5
 
-%define TRANSFER_CHUNK_DEFAULT    (64 * 1024)  ; 64KB
 
 ; ---------------------------------------------------------------------------
 ; transfer_init
@@ -51,6 +53,7 @@ transfer_init:
     mov qword [rbx + Server.transfers], 0
     mov qword [rbx + Server.transfer_count], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -112,10 +115,13 @@ transfer_create:
 
     mov dword [rbx + Transfer.status], TRANSFER_STATUS_ACTIVE
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; transfer_start
@@ -137,10 +143,13 @@ transfer_start:
 
     mov dword [rbx + Transfer.status], TRANSFER_STATUS_ACTIVE
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .invalid_state:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; transfer_read_chunk
@@ -168,6 +177,7 @@ transfer_read_chunk:
     jae .complete
 
     mov rax, 1  ; more data
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .complete:
@@ -176,6 +186,7 @@ transfer_read_chunk:
 
 .not_active:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -203,6 +214,7 @@ transfer_write_chunk:
     jae .complete
 
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .complete:
@@ -211,6 +223,7 @@ transfer_write_chunk:
 
 .not_active:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -243,6 +256,7 @@ transfer_cancel:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -260,6 +274,7 @@ transfer_get_progress:
     mov rax, [rdi + Transfer.total_size]
     mov [rdx], rax
     mov eax, [rdi + Transfer.status]
+    leave
     ret
 
 section .data

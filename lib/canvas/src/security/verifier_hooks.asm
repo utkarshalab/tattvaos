@@ -24,6 +24,7 @@ verifier_init:
     mov qword [rbx + Server.arena], r12
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -68,10 +69,12 @@ verifier_verify_client:
 
     ; For now, accept
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .fail:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -95,6 +98,7 @@ verifier_check_instruction:
     ; - No privileged instructions
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -113,6 +117,7 @@ verifier_register_client:
     mov byte [r12 + Client.verified], 1
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -123,6 +128,7 @@ verifier_is_verified:
     PROLOGUE
     ASSERT_PTR rdi
     movzx rax, byte [rdi + Client.verified]
+    leave
     ret
 
 section .data

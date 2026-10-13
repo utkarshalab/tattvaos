@@ -18,6 +18,7 @@ fuzz_png_run:
     mov rsi, r12
     call fuzz_target_png
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global fuzz_jpeg_run
@@ -30,6 +31,7 @@ fuzz_jpeg_run:
     mov rsi, r12
     call fuzz_target_jpeg
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global fuzz_gif_run
@@ -42,6 +44,7 @@ fuzz_gif_run:
     mov rsi, r12
     call fuzz_target_gif
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global fuzz_ttf_run
@@ -54,6 +57,7 @@ fuzz_ttf_run:
     mov rsi, r12
     call fuzz_target_ttf
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global fuzz_icc_run
@@ -66,6 +70,7 @@ fuzz_icc_run:
     mov rsi, r12
     call fuzz_target_icc
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global fuzz_rfb_run
@@ -78,6 +83,7 @@ fuzz_rfb_run:
     mov rsi, r12
     call fuzz_target_rfb
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

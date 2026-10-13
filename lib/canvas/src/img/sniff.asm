@@ -27,6 +27,7 @@ image_sniff:
     cmp eax, 0x0A1A0A0D
     jne .chk_jpeg
     mov rax, IMAGE_FMT_PNG
+    leave
     ret
 .chk_jpeg:
     cmp rsi, 2
@@ -35,6 +36,7 @@ image_sniff:
     cmp eax, 0xD8FF
     jne .chk_gif
     mov rax, IMAGE_FMT_JPEG
+    leave
     ret
 .chk_gif:
     cmp rsi, 6
@@ -43,6 +45,7 @@ image_sniff:
     cmp eax, 0x38464947
     jne .chk_bmp
     mov rax, IMAGE_FMT_GIF
+    leave
     ret
 .chk_bmp:
     cmp rsi, 2
@@ -51,6 +54,7 @@ image_sniff:
     cmp eax, 0x4D42
     jne .chk_svg
     mov rax, IMAGE_FMT_BMP
+    leave
     ret
 .chk_svg:
     mov rdi, rdi
@@ -58,9 +62,11 @@ image_sniff:
     test rax, rax
     jz .unknown
     mov rax, IMAGE_FMT_SVG
+    leave
     ret
 .unknown:
     xor rax, rax
+    leave
     ret
 
 section .data

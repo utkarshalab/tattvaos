@@ -7,13 +7,13 @@
 
 %define EVENT_SIZE    24
 
-struc Event {
+struc Event
     .type:  resd 1
     .time:  resq 1
     .a:     resd 1
     .b:     resd 1
     .c:     resd 1
-}
+endstruc
 
 ; Event Types
 %define EVENT_NONE          0

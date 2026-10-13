@@ -6,12 +6,16 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define DDC_ADDR_EDID      0x50
 %define DDC_ADDR_EDID_EXT  0x30
 %define DDC_SEGMENT_ADDR   0x30
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; ddc_read_edid
@@ -72,7 +76,7 @@ ddc_read_edid:
     ; Read extension block
     mov rdi, [r12 + Output.i2c_bus]
     mov rsi, DDC_ADDR_EDID
-    mov rdx, ecx
+    mov edx, ecx
     dec edx
     mov r8, r14
     mov r9, 128
@@ -94,11 +98,17 @@ ddc_read_edid:
     ret
 
 .no_i2c:
-    RETURN_ERROR ENXIO
+    mov rax, -(ENXIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .checksum_fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; edid_verify_checksum
@@ -122,10 +132,12 @@ edid_verify_checksum:
     test al, al
     jnz .invalid
     mov rax, 1
+    EPILOGUE_RESTORE rbx, rcx
     ret
 
 .invalid:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, rcx
     ret
 
 ; ---------------------------------------------------------------------------

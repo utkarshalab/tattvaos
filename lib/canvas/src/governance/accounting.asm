@@ -7,17 +7,19 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Accounting_size    48
+
 section .text
 
-struc Accounting {
+struc Accounting
     .server:         resq 1
     .total_mem:      resq 1
     .client_mem:     resq 1
     .buffer_mem:     resq 1
     .server_mem:     resq 1
     .peak_mem:       resq 1
-}
-%define Accounting_size    48
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; accounting_init
@@ -43,9 +45,12 @@ accounting_init:
     mov qword [rbx + Accounting.peak_mem], 0
     mov qword [rdi + Server.accounting], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; accounting_add_client
@@ -64,6 +69,7 @@ accounting_add_client:
     mov [rbx + Accounting.peak_mem], rax
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -84,6 +90,7 @@ accounting_remove_client:
     mov qword [rbx + Accounting.total_mem], 0
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -103,6 +110,7 @@ accounting_add_buffer:
     mov [rbx + Accounting.peak_mem], rax
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -123,6 +131,7 @@ accounting_remove_buffer:
     mov qword [rbx + Accounting.total_mem], 0
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -155,6 +164,7 @@ accounting_snapshot:
     mov [r8], rax
 .done:
     xor rax, rax
+    leave
     ret
 
 section .data

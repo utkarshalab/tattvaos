@@ -8,9 +8,18 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define GpuMemMgr_size    56
+%define GpuBo_size    64
+%define GPU_PLACE_GTT      1
+%define GPU_PLACE_VRAM     2
+%define GPU_PLACE_VISIBLE   4
+%define GPU_TILING_LINEAR  0
+%define GPU_TILING_TILED   1
+
 section .text
 
-struc GpuMemMgr {
+struc GpuMemMgr
     .gpu:           resq 1
     .total_bytes:   resq 1
     .used_bytes:    resq 1
@@ -18,10 +27,9 @@ struc GpuMemMgr {
     .vram_base:     resq 1
     .bos:           resq 1
     .bo_count:      resq 1
-}
-%define GpuMemMgr_size    56
+endstruc
 
-struc GpuBo {
+struc GpuBo
     .size:          resq 1
     .align:         resq 1
     .cpu_addr:      resq 1
@@ -31,15 +39,9 @@ struc GpuBo {
     .tiling:        resd 1
     .refcount:      resd 1
     .next:          resq 1
-}
-%define GpuBo_size    64
+endstruc
 
-%define GPU_PLACE_GTT      1
-%define GPU_PLACE_VRAM     2
-%define GPU_PLACE_VISIBLE   4
 
-%define GPU_TILING_LINEAR  0
-%define GPU_TILING_TILED   1
 
 ; ---------------------------------------------------------------------------
 ; gpu_mem_init
@@ -66,9 +68,12 @@ gpu_mem_init:
     mov qword [rbx + GpuMemMgr.bo_count], 0
     mov qword [r12 + GpuDevice.mem_mgr], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gpu_bo_create
@@ -122,13 +127,20 @@ gpu_bo_create:
     inc qword [r15 + GpuMemMgr.bo_count]
     add [r15 + GpuMemMgr.used_bytes], r12
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .fail:
-    RETURN_ERROR ENXIO
+    mov rax, -(ENXIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gpu_bo_ref / gpu_bo_unref
@@ -139,6 +151,7 @@ gpu_bo_ref:
     ASSERT_PTR rdi
     lock inc dword [rdi + GpuBo.refcount]
     mov rax, rdi
+    leave
     ret
 
 global gpu_bo_unref
@@ -152,6 +165,7 @@ gpu_bo_unref:
     call tv_dma_free
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -167,6 +181,7 @@ gpu_bo_sync:
     mov rdx, [rbx + GpuBo.size]
     mov rcx, DMA_BIDIR
     call tv_dma_sync
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

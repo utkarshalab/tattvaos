@@ -7,6 +7,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/image.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -70,7 +73,9 @@ native_crtc_disable:
     jz .disabled
     dec ecx
     jnz .wait_loop
-    RETURN_ERROR ETIMEDOUT
+    mov rax, -(ETIMEDOUT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .disabled:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
@@ -88,7 +93,9 @@ native_crtc_enable:
     jnz .enabled
     dec ecx
     jnz .wait_loop
-    RETURN_ERROR ETIMEDOUT
+    mov rax, -(ETIMEDOUT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .enabled:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
@@ -249,7 +256,9 @@ native_flip:
     ret
 
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 section .rodata
 DCN_CRTC_CONTROL:              dd 0x0000

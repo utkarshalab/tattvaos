@@ -33,6 +33,7 @@ canvas_replay_run:
     mov rcx, r14
     xor r8d, r8d
     call replay_run_file
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .rodata

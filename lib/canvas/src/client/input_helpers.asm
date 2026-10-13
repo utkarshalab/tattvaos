@@ -16,6 +16,7 @@ canvas_input_key_is_press:
     cmp dword [rdi + ClientEvent.type], 1
     sete al
     movzx rax, al
+    leave
     ret
 
 global canvas_input_key_keysym
@@ -23,6 +24,7 @@ canvas_input_key_keysym:
     PROLOGUE
     ASSERT_PTR rdi
     mov eax, [rdi + ClientEvent.a]
+    leave
     ret
 
 global canvas_input_pointer_pos
@@ -36,6 +38,7 @@ canvas_input_pointer_pos:
     mov eax, [rdi + ClientEvent.b]
     mov [rdx], eax
     xor rax, rax
+    leave
     ret
 
 global canvas_input_pointer_buttons
@@ -43,6 +46,7 @@ canvas_input_pointer_buttons:
     PROLOGUE
     ASSERT_PTR rdi
     mov eax, [rdi + ClientEvent.c]
+    leave
     ret
 
 section .data

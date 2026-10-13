@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Metrics_size    88
+
 section .text
 
-struc Metrics {
+struc Metrics
     .server:         resq 1
     .frames:         resq 1
     .dropped:        resq 1
@@ -21,8 +24,7 @@ struc Metrics {
     .last_fps_time:  resq 1
     .last_frames:    resq 1
     .fps:            resq 1
-}
-%define Metrics_size    88
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; metrics_init
@@ -54,9 +56,12 @@ metrics_init:
     mov qword [rbx + Metrics.fps], 0
     mov qword [rdi + Server.metrics], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; metrics_inc
@@ -71,9 +76,11 @@ metrics_inc:
     jz .none
     inc qword [rax + rsi]
     xor rax, rax
+    leave
     ret
 .none:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -107,9 +114,11 @@ metrics_tick_fps:
     mov [rbx + Metrics.last_fps_time], rax
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 .none:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -131,9 +140,12 @@ metrics_snapshot:
     shr rcx, 3
     rep movsq
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .none:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .data
 global metrics_version

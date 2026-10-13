@@ -7,9 +7,52 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Decoration_size    56
+%define DECORATION_NONE       0
+%define DECORATION_CLIENT     1
+%define DECORATION_SERVER     2
+%define DECORATION_SERVER_PREFERRED 3
+%define DECORATION_BUTTON_CLOSE      0
+%define DECORATION_BUTTON_MAXIMIZE   1
+%define DECORATION_BUTTON_MINIMIZE   2
+%define DECORATION_BUTTON_MENU       3
+%define BUTTON_STATE_NORMAL     0
+%define BUTTON_STATE_HOVER      1
+%define BUTTON_STATE_PRESSED    2
+%define BUTTON_STATE_DISABLED   3
+%define Decoration_toplevel       0
+%define Decoration_mode           8
+%define Decoration_theme          16
+%define Decoration_buttons        24
+%define Decoration_button_count   32
+%define Decoration_titlebar_height 36
+%define Decoration_border_width   40
+%define Decoration_draw_callback  48
+%define Decoration_size           56
+%define DecorationButton_toplevel  0
+%define DecorationButton.toplevel 0
+%define DecorationButton_type      8
+%define DecorationButton.type 8
+%define DecorationButton_state     12
+%define DecorationButton.state 12
+%define DecorationButton_x         16
+%define DecorationButton.x 16
+%define DecorationButton_y         20
+%define DecorationButton.y 20
+%define DecorationButton_width     24
+%define DecorationButton.width 24
+%define DecorationButton_height    28
+%define DecorationButton.height 28
+%define DecorationButton_next      32
+%define DecorationButton.next 32
+%define DecorationButton_icon      40
+%define DecorationButton.icon 40
+%define DecorationButton_size      48
+
 section .text
 
-struc Decoration {
+struc Decoration
     .toplevel:          resq 1
     .mode:              resd 1
     .theme:             resq 1
@@ -18,23 +61,10 @@ struc Decoration {
     .titlebar_height:   resd 1
     .border_width:      resd 1
     .draw_callback:     resq 1
-}
-%define Decoration_size    56
+endstruc
 
-%define DECORATION_NONE       0
-%define DECORATION_CLIENT     1
-%define DECORATION_SERVER     2
-%define DECORATION_SERVER_PREFERRED 3
 
-%define DECORATION_BUTTON_CLOSE      0
-%define DECORATION_BUTTON_MAXIMIZE   1
-%define DECORATION_BUTTON_MINIMIZE   2
-%define DECORATION_BUTTON_MENU       3
 
-%define BUTTON_STATE_NORMAL     0
-%define BUTTON_STATE_HOVER      1
-%define BUTTON_STATE_PRESSED    2
-%define BUTTON_STATE_DISABLED   3
 
 ; ---------------------------------------------------------------------------
 ; decoration_init
@@ -49,6 +79,7 @@ decoration_init:
 
     mov qword [rbx + Server.decoration_theme], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -78,21 +109,25 @@ decoration_negotiate:
     je .server_preferred
 
     ; Default to server-side
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .client_prefers_client:
     ; Client wants client-side - allow if no server policy against it
     mov rax, DECORATION_CLIENT
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .client_prefers_server:
     ; Client wants server-side - good
     mov rax, DECORATION_SERVER
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .server_preferred:
     ; Client prefers server but allows client fallback
     mov rax, DECORATION_SERVER
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -133,10 +168,13 @@ decoration_create:
     mov qword [r12 + Toplevel.decoration], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; decoration_create_buttons
@@ -171,10 +209,13 @@ decoration_create_buttons:
     mov [rbx + Decoration.buttons], rax
     inc dword [rbx + Decoration.button_count]
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; decoration_button_create
@@ -204,10 +245,13 @@ decoration_button_create:
     mov qword [rbx + DecorationButton.next], 0
     mov qword [rbx + DecorationButton.icon], 0
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; decoration_destroy
@@ -226,6 +270,7 @@ decoration_destroy:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -237,6 +282,7 @@ decoration_set_mode:
     ASSERT_PTR rdi
     mov dword [rdi + Decoration.mode], esi
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -256,6 +302,7 @@ decoration_set_theme:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -284,30 +331,12 @@ decoration_get_geometry:
     ; TODO: Calculate button positions
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data
 
-%define Decoration_toplevel       0
-%define Decoration_mode           8
-%define Decoration_theme          16
-%define Decoration_buttons        24
-%define Decoration_button_count   32
-%define Decoration_titlebar_height 36
-%define Decoration_border_width   40
-%define Decoration_draw_callback  48
-%define Decoration_size           56
 
-%define DecorationButton_toplevel  0
-%define DecorationButton_type      8
-%define DecorationButton_state     12
-%define DecorationButton_x         16
-%define DecorationButton_y         20
-%define DecorationButton_width     24
-%define DecorationButton_height    28
-%define DecorationButton_next      32
-%define DecorationButton_icon      40
-%define DecorationButton_size      48
 
 global decoration_version
 decoration_version: dq 0x010000

@@ -74,6 +74,7 @@ hash_combine:
     xor rax, rsi
     mov rdi, 0x9e3779b97f4a7c15
     mul rdi
+    leave
     ret
 
 section .data

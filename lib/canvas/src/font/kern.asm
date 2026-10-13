@@ -61,6 +61,7 @@ kern_get:
     movsx eax, word [r10 + 4]
     xchg al, ah
     movsx eax, ax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .next_pair:
     add r10, 6
@@ -72,6 +73,7 @@ kern_get:
     jmp .table_loop
 .none:
     xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -102,9 +104,11 @@ hmtx_advance:
 .indexed:
     movzx eax, word [r13 + rax * 4]
     xchg al, ah
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .missing:
     xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

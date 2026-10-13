@@ -189,6 +189,7 @@ global cpuid_get_features
 cpuid_get_features:
     PROLOGUE
     mov rax, [cpu_feature_mask]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -204,9 +205,11 @@ cpuid_has_feature:
     test rax, rdi
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 section .data

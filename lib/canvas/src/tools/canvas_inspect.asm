@@ -30,6 +30,7 @@ canvas_inspect_scene:
     mov rsi, r12
     mov rdx, 4096
     call debug_scene_dump
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .rodata

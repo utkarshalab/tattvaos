@@ -14,6 +14,7 @@ bench_memory_run:
     mov rbx, rdi
     ASSERT_PTR rbx
     xor eax, eax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

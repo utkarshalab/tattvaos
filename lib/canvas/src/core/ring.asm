@@ -7,6 +7,23 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define Ring_buffer      0
+%define Ring.buffer 0
+%define Ring_capacity    8
+%define Ring.capacity 8
+%define Ring_mask        16
+%define Ring.mask 16
+%define Ring_head        24
+%define Ring.head 24
+%define Ring_tail        32
+%define Ring.tail 32
+%define Ring_element_size 40
+%define Ring.element_size 40
+%define Ring_arena       48
+%define Ring.arena 48
+%define Ring_size        56
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -29,7 +46,9 @@ ring_init:
     ASSERT_PTR r12
     test r14, r14
     jnz .ok
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 .ok:
     test r13, r13
     jnz .check_pow2
@@ -62,9 +81,12 @@ ring_init:
     mov qword [rbx + Ring.element_size], r14
     mov qword [rbx + Ring.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; ring_push
@@ -104,9 +126,12 @@ ring_push:
     and rax, [rbx + Ring.mask]
     mov [rbx + Ring.head], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; ring_pop
@@ -141,9 +166,12 @@ ring_pop:
     and rcx, [rbx + Ring.mask]
     mov [rbx + Ring.tail], rcx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .empty:
-    RETURN_ERROR EAGAIN
+    mov rax, -(EAGAIN)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; ring_peek
@@ -171,9 +199,12 @@ ring_peek:
     add rsi, rcx
     call memcopy
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .empty:
-    RETURN_ERROR EAGAIN
+    mov rax, -(EAGAIN)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; ring_available
@@ -189,6 +220,7 @@ ring_available:
     mov rcx, [rdi + Ring.tail]
     sub rax, rcx
     and rax, [rdi + Ring.mask]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -208,6 +240,7 @@ ring_free:
     and rcx, [rdi + Ring.mask]
     sub rax, rcx
     dec rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -223,6 +256,7 @@ ring_clear:
     mov qword [rdi + Ring.head], 0
     mov qword [rdi + Ring.tail], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -241,14 +275,6 @@ memcopy:
 
 section .data
 
-%define Ring_buffer      0
-%define Ring_capacity    8
-%define Ring_mask        16
-%define Ring_head        24
-%define Ring_tail        32
-%define Ring_element_size 40
-%define Ring_arena       48
-%define Ring_size        56
 
 global ring_version
 ring_version: dq 0x010000

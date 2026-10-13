@@ -29,6 +29,7 @@ canvasctl_clients:
     mov rdi, debug_client_list
     call tv_log_write
     xor rax, rax
+    leave
     ret
 
 global canvasctl_trace
@@ -36,18 +37,21 @@ canvasctl_trace:
     PROLOGUE
     ; rdi = mask
     call trace_set_mask
+    leave
     ret
 
 global canvasctl_record_start
 canvasctl_record_start:
     PROLOGUE
     call record_start
+    leave
     ret
 
 global canvasctl_record_stop
 canvasctl_record_stop:
     PROLOGUE
     call record_stop
+    leave
     ret
 
 section .rodata

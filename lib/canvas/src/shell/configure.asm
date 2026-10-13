@@ -7,9 +7,27 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Configure_size    48
+%define CONFIGURE_STATE_NONE      0
+%define CONFIGURE_STATE_SENT      1
+%define CONFIGURE_STATE_ACKED     2
+%define CONFIGURE_STATE_CANCELLED 3
+%define Configure_serial    0
+%define Configure_surface   8
+%define Configure_width     16
+%define Configure_height    20
+%define Configure_states    24
+%define Configure_callback  28
+%define Configure_user_data 36
+%define Configure_ack_callback 44
+%define Configure_next      52
+%define Configure.next 52
+%define Configure_size      56
+
 section .text
 
-struc Configure {
+struc Configure
     .serial:            resq 1
     .surface:           resq 1
     .width:             resd 1
@@ -18,13 +36,8 @@ struc Configure {
     .callback:          resq 1
     .user_data:         resq 1
     .ack_callback:      resq 1
-}
-%define Configure_size    48
+endstruc
 
-%define CONFIGURE_STATE_NONE      0
-%define CONFIGURE_STATE_SENT      1
-%define CONFIGURE_STATE_ACKED     2
-%define CONFIGURE_STATE_CANCELLED 3
 
 ; ---------------------------------------------------------------------------
 ; configure_init
@@ -40,6 +53,7 @@ configure_init:
     mov qword [rbx + Server.configure_serial], 0
     mov qword [rbx + Server.configure_list], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -86,10 +100,13 @@ configure_send:
     ; TODO: Encode and send via channel
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; configure_ack
@@ -115,7 +132,9 @@ configure_ack:
     jnz .find_loop
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 .found:
     ; Call ack callback
@@ -131,6 +150,7 @@ configure_ack:
     ; TODO: List removal
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -174,6 +194,7 @@ configure_cancel:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -184,20 +205,11 @@ configure_get_pending:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Server.configure_list]
+    leave
     ret
 
 section .data
 
-%define Configure_serial    0
-%define Configure_surface   8
-%define Configure_width     16
-%define Configure_height    20
-%define Configure_states    24
-%define Configure_callback  28
-%define Configure_user_data 36
-%define Configure_ack_callback 44
-%define Configure_next      52
-%define Configure_size      56
 
 global configure_version
 configure_version: dq 0x010000

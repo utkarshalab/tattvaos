@@ -18,6 +18,7 @@ fuzz_wire_run:
     mov rsi, r12
     call fuzz_target_wire
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

@@ -96,9 +96,13 @@ utf8_validate:
     ret
 
 .invalid:
-    RETURN_ERROR EILSEQ
+    mov rax, -(EILSEQ)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .invalid_cont:
-    RETURN_ERROR EILSEQ
+    mov rax, -(EILSEQ)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; utf8_decode
@@ -142,6 +146,7 @@ utf8_decode:
     or rax, rdx
     mov [rdx], rax
     mov rax, 2
+    EPILOGUE_RESTORE rbx
     ret
 
 .three_byte:
@@ -149,25 +154,30 @@ utf8_decode:
     jb .invalid
     ; Simplified
     mov rax, 3
+    EPILOGUE_RESTORE rbx
     ret
 
 .four_byte:
     cmp rsi, 4
     jb .invalid
     mov rax, 4
+    EPILOGUE_RESTORE rbx
     ret
 
 .ascii:
     mov [rdx], rax
     mov rax, 1
+    EPILOGUE_RESTORE rbx
     ret
 
 .invalid:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -191,6 +201,7 @@ utf8_encode:
     cmp rbx, 0x110000
     jb .four_byte
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .one_byte:
@@ -198,6 +209,7 @@ utf8_encode:
     jb .done
     mov [rsi], bl
     mov rax, 1
+    EPILOGUE_RESTORE rbx
     ret
 
 .two_byte:
@@ -212,6 +224,7 @@ utf8_encode:
     or eax, 0x80
     mov [rsi + 1], al
     mov rax, 2
+    EPILOGUE_RESTORE rbx
     ret
 
 .three_byte:
@@ -231,6 +244,7 @@ utf8_encode:
     or eax, 0x80
     mov [rsi + 2], al
     mov rax, 3
+    EPILOGUE_RESTORE rbx
     ret
 
 .four_byte:
@@ -255,10 +269,12 @@ utf8_encode:
     or eax, 0x80
     mov [rsi + 3], al
     mov rax, 4
+    EPILOGUE_RESTORE rbx
     ret
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

@@ -31,9 +31,12 @@ rfb_tls_write_all:
     jnz .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fail:
-    RETURN_ERROR ECONNRESET
+    mov rax, -(ECONNRESET)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 global rfb_tls_read_all
 rfb_tls_read_all:
@@ -57,9 +60,12 @@ rfb_tls_read_all:
     jnz .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fail:
-    RETURN_ERROR ECONNRESET
+    mov rax, -(ECONNRESET)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 section .data
 global rfb_tls_version

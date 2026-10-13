@@ -7,11 +7,13 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define SELECTION_PRIMARY      1
+%define SELECTION_CLIPBOARD    0
+
 section .text
 
 ; Uses same Clipboard struct as clipboard.asm
-%define SELECTION_PRIMARY      1
-%define SELECTION_CLIPBOARD    0
 
 ; ---------------------------------------------------------------------------
 ; selection_init
@@ -22,6 +24,7 @@ selection_init:
     PROLOGUE
     ; Primary selection is initialized in clipboard_init
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -96,14 +99,21 @@ selection_set:
     call selection_send_event
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .too_large:
-    RETURN_ERROR ECLIP_SIZE
+    mov rax, -(ECLIP_SIZE)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; selection_get
@@ -123,11 +133,13 @@ selection_get:
 
     mov rax, [rax + Clipboard.data]
     mov rdx, [rax + Clipboard.data_len]
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .empty:
     xor rax, rax
     xor rdx, rdx
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -136,6 +148,7 @@ selection_get:
 selection_send_event:
     PROLOGUE
     ; TODO: Send primary selection event to clients
+    leave
     ret
 
 section .data

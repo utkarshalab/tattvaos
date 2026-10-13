@@ -70,6 +70,7 @@ fill_solid_sse2:
     test r13, 3
     jz .aligned
     call fill_solid
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .aligned:

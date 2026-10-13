@@ -8,12 +8,20 @@
 %include "inc/tattva.inc"
 %include "inc/image.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define PNG_SIG0  0x474E5089
 %define PNG_SIG1  0x0A1A0A0D
+%define PngImage_size    72
+%define PNG_CT_GRAY       0
+%define PNG_CT_RGB        2
+%define PNG_CT_PALETTE    3
+%define PNG_CT_GRAY_ALPHA 4
+%define PNG_CT_RGBA       6
 
-struc PngImage {
+section .text
+
+
+struc PngImage
     .width:         resd 1
     .height:        resd 1
     .bit_depth:     resb 1
@@ -26,14 +34,8 @@ struc PngImage {
     .idat_len:      resq 1
     .idat_cap:      resq 1
     .arena:         resq 1
-}
-%define PngImage_size    72
+endstruc
 
-%define PNG_CT_GRAY       0
-%define PNG_CT_RGB        2
-%define PNG_CT_PALETTE    3
-%define PNG_CT_GRAY_ALPHA 4
-%define PNG_CT_RGBA       6
 
 ; ---------------------------------------------------------------------------
 ; png_probe
@@ -51,9 +53,11 @@ png_probe:
     cmp eax, PNG_SIG1
     jne .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -131,12 +135,15 @@ png_decode:
     test rax, rax
     jz .bad
     mov rax, [r14 + PngImage.pixbuf]
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .bad:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .oom:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -285,9 +292,11 @@ png_read_chunks:
     test r15d, r15d
     jz .fail
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail:
     mov rax, -EINVAL
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

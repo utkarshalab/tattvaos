@@ -6,6 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define SubsurfaceData_sync   0
+%define SubsurfaceData.sync 0
+%define SubsurfaceData_size   1
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -16,6 +21,7 @@ global subsurface_init
 subsurface_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -49,6 +55,7 @@ subsurface_create:
     mov byte [r12 + SubsurfaceData.sync], 1
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -68,6 +75,7 @@ subsurface_set_position:
     mov dword [rax + SurfaceState.buf_y], ecx
     mov byte [rax + SurfaceState.pending], 1
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -82,6 +90,7 @@ subsurface_set_sync:
 
     mov byte [rsi + SubsurfaceData.sync], 1
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -96,6 +105,7 @@ subsurface_set_desync:
 
     mov byte [rsi + SubsurfaceData.sync], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -125,12 +135,11 @@ subsurface_destroy:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
 
-%define SubsurfaceData_sync   0
-%define SubsurfaceData_size   1
 
 global subsurface_version
 subsurface_version: dq 0x010000

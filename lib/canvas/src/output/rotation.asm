@@ -6,9 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define ROTATION_NORMAL    0
+
 section .text
 
-%define ROTATION_NORMAL    0
 %define ROTATION_90        1
 %define ROTATION_180       2
 %define ROTATION_270       3
@@ -20,6 +22,7 @@ global rotation_init
 rotation_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -60,10 +63,13 @@ rotation_apply:
     ; TODO: backend_rotation
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rotation_transform_coord
@@ -92,6 +98,7 @@ rotation_transform_coord:
     ; Normal
     mov [r14], r12d
     mov [r8], r13d
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .rot90:
@@ -100,6 +107,7 @@ rotation_transform_coord:
     sub eax, r13d
     mov [r14], eax
     mov [r8], r12d
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .rot180:
@@ -110,6 +118,7 @@ rotation_transform_coord:
     mov eax, [rbx + Output.height]
     sub eax, r13d
     mov [r8], eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .rot270:
@@ -118,6 +127,7 @@ rotation_transform_coord:
     mov eax, [rbx + Output.width]
     sub eax, r12d
     mov [r8], eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -148,6 +158,7 @@ rotation_transform_rect:
     mov [r13], rax
     mov rax, [r12 + 8]
     mov [r13 + 8], rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .rot90:
@@ -165,6 +176,7 @@ rotation_transform_rect:
 
     mov eax, [r12 + 4]
     mov [r13 + 12], eax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .rot180:
@@ -184,6 +196,7 @@ rotation_transform_rect:
     mov eax, [rbx + Output.height]
     sub eax, [r12 + 4]
     mov [r13 + 12], eax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .rot270:
@@ -201,6 +214,7 @@ rotation_transform_rect:
     mov eax, [rbx + Output.width]
     sub eax, [r12 + 0]
     mov [r13 + 12], eax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

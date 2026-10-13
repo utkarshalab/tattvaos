@@ -7,10 +7,12 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define DEFLATE_STORED     0
 %define DEFLATE_FIXED      1
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; deflate_compress
@@ -40,9 +42,11 @@ deflate_compress:
     mov rdx, r13
     mov rcx, r15
     call deflate_stored
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .empty:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -103,9 +107,12 @@ deflate_stored:
     jnz .loop
 .done:
     mov rax, r15
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 section .data
 global deflate_version

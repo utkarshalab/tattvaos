@@ -8,9 +8,12 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+; struct offsets (hoisted above use)
+%define ClientConn_size    64
+
 section .text
 
-struc ClientConn {
+struc ClientConn
     .server_chan:    resq 1
     .tx_ring:        resq 1
     .rx_ring:        resq 1
@@ -20,8 +23,7 @@ struc ClientConn {
     .caps_granted:   resq 1
     .next_obj:       resd 1
     .arena:          resq 1
-}
-%define ClientConn_size    64
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; canvas_connect
@@ -47,9 +49,11 @@ canvas_connect:
     ; send cw_display.get_caps, await grant
     mov qword [r12 + ClientConn.caps_granted], rbx
     mov rax, r12
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -65,6 +69,7 @@ canvas_disconnect:
     mov rdi, [rbx + ClientConn.arena]
     ; NOTE: region handle tracked separately in real impl
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -75,6 +80,7 @@ canvas_get_caps:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + ClientConn.caps_granted]
+    leave
     ret
 
 section .data

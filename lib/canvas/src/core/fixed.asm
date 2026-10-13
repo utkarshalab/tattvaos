@@ -6,9 +6,11 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 
+; struct offsets (hoisted above use)
+%define FIX_SHIFT    16
+
 section .text
 
-%define FIX_SHIFT    16
 %define FIX_ONE      (1 << FIX_SHIFT)
 %define FIX_MASK     (FIX_ONE - 1)
 
@@ -23,6 +25,7 @@ fix_from_int:
     PROLOGUE
     mov rax, rdi
     sal rax, FIX_SHIFT
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -36,6 +39,7 @@ fix_to_int:
     PROLOGUE
     sar rdi, FIX_SHIFT
     mov rax, rdi
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -50,6 +54,7 @@ fix_to_int_round:
     mov rax, rdi
     add rax, FIX_ONE / 2
     sar rax, FIX_SHIFT
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -64,6 +69,7 @@ fix_mul:
     mov rax, rdi
     imul rsi
     shrd rax, rdx, FIX_SHIFT
+    EPILOGUE_RESTORE rdx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -80,6 +86,7 @@ fix_div:
     sal rax, FIX_SHIFT
     rcl rdx, 1
     idiv rsi
+    EPILOGUE_RESTORE rdx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -91,6 +98,7 @@ fix_add:
     PROLOGUE
     add rdi, rsi
     mov rax, rdi
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -102,6 +110,7 @@ fix_sub:
     PROLOGUE
     sub rdi, rsi
     mov rax, rdi
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -140,10 +149,12 @@ fix_sqrt:
     jg .iterate
     cmp rax, -1
     jl .iterate
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .zero:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -160,6 +171,7 @@ fix_clamp:
     cmovl rax, rsi
     cmp rax, rdx
     cmovg rax, rdx
+    leave
     ret
 
 ; ---------------------------------------------------------------------------

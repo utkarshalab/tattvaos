@@ -16,6 +16,7 @@ global regions_init
 regions_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -50,14 +51,19 @@ regions_create:
     ; Cleanup on handle failure
     mov rdi, rax
     call region_destroy
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 .ok:
     mov qword [rbx + Server.region_table], rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; regions_destroy
@@ -84,10 +90,13 @@ regions_destroy:
     call handle_destroy
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; regions_add
@@ -116,10 +125,13 @@ regions_add:
     mov rcx, r15
     mov r8, r9
     call region_add_rect
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; regions_subtract
@@ -130,6 +142,7 @@ regions_subtract:
     PROLOGUE
     ; TODO
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -153,10 +166,13 @@ regions_clear:
     call region_clear
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; regions_get_rects
@@ -167,6 +183,7 @@ regions_get_rects:
     PROLOGUE
     ; TODO
     xor rax, rax
+    leave
     ret
 
 section .data

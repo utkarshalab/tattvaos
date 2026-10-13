@@ -7,7 +7,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/fixed.inc"
+%include "inc/image.inc"
 %include "inc/backend.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -45,10 +49,13 @@ headless_init:
     call headless_create_virtual_output
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; headless_deinit
@@ -74,6 +81,7 @@ headless_deinit:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -102,6 +110,7 @@ headless_modeset:
     mov [r12 + Output.height], eax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -157,14 +166,21 @@ headless_flip:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .no_fb:
-    RETURN_ERROR ENXIO
+    mov rax, -(ENXIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 .fence_fail:
-    RETURN_ERROR EFENCE_WAIT
+    mov rax, -(EFENCE_WAIT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 .copy_fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; headless_vblank_wait
@@ -188,6 +204,7 @@ headless_vblank_wait:
     ; Return present info
     ; TODO: Allocate and fill PresentInfo
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -198,6 +215,7 @@ global headless_hotplug
 headless_hotplug:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -208,6 +226,7 @@ global headless_cursor
 headless_cursor:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -254,10 +273,13 @@ headless_create_virtual_output:
     mov [rbx + Backend.outputs], r13
     inc qword [rbx + Backend.output_count]
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 section .data
 

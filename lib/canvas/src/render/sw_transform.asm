@@ -6,14 +6,16 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define TRANSFORM_NORMAL    0
+%define TRANSFORM_FLIP_H    4
+%define TRANSFORM_FLIP_V    8
+
 section .text
 
-%define TRANSFORM_NORMAL    0
 %define TRANSFORM_90        1
 %define TRANSFORM_180       2
 %define TRANSFORM_270       3
-%define TRANSFORM_FLIP_H    4
-%define TRANSFORM_FLIP_V    8
 
 ; ---------------------------------------------------------------------------
 ; sw_transform_apply
@@ -56,6 +58,7 @@ sw_transform_apply:
     mov r10, r10
     mov r11, r11
     call blit_copy
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .rot90:
@@ -67,22 +70,27 @@ sw_transform_apply:
 
     ; For each dst row (0 to src_h-1)
     ; src row = src_h - 1 - dst_col
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .rot180:
     ; Rotate 180°: (x,y) -> (w-1-x, h-1-y)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .rot270:
     ; Rotate 270°: (x,y) -> (y, w-1-x)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .flip_h:
     ; Flip horizontal: (x,y) -> (w-1-x, y)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .flip_v:
     ; Flip vertical: (x,y) -> (x, h-1-y)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

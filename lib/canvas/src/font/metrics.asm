@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/font.inc"
 
+; struct offsets (hoisted above use)
+%define FontMetrics_size    32
+
 section .text
 
-struc FontMetrics {
+struc FontMetrics
     .units_per_em:  resd 1
     .ascent:        resd 1
     .descent:       resd 1
@@ -18,8 +21,7 @@ struc FontMetrics {
     .y_min:         resd 1
     .x_max:         resd 1
     .y_max:         resd 1
-}
-%define FontMetrics_size    32
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; metrics_get
@@ -92,6 +94,7 @@ metrics_get:
     mov [r12 + FontMetrics.y_max], edx
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -111,11 +114,13 @@ metrics_scale:
     shl eax, 16
     xor edx, edx
     div ecx
+    EPILOGUE_RESTORE rbx
     ret
 .fail:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data
-global metrics_version
-metrics_version: dq 0x010000
+global font_metrics_version
+font_metrics_version: dq 0x010000

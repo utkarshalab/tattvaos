@@ -90,6 +90,7 @@ global sw_scale_bilinear
 sw_scale_bilinear:
     PROLOGUE
     call sw_scale_nearest
+    leave
     ret
 
 section .data

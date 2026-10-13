@@ -7,9 +7,14 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define FrameMark_size    60
+%define FrameTimeline_size    40
+%define FRAME_TIMELINE_DEPTH  64
+
 section .text
 
-struc FrameMark {
+struc FrameMark
     .frame_seq:      resq 1
     .composite_start: resq 1
     .composite_end:  resq 1
@@ -18,19 +23,16 @@ struc FrameMark {
     .present_time:   resq 1
     .damage_bytes:   resq 1
     .flags:          resd 1
-}
-%define FrameMark_size    60
+endstruc
 
-struc FrameTimeline {
+struc FrameTimeline
     .server:         resq 1
     .marks:          resq 1
     .head:           resq 1
     .count:          resq 1
     .seq:            resq 1
-}
-%define FrameTimeline_size    40
+endstruc
 
-%define FRAME_TIMELINE_DEPTH  64
 
 ; ---------------------------------------------------------------------------
 ; frame_timeline_init
@@ -62,9 +64,12 @@ frame_timeline_init:
     mov qword [rbx + FrameTimeline.seq], 0
     mov qword [rdi + Server.frame_timeline], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; frame_timeline_begin
@@ -96,9 +101,11 @@ frame_timeline_begin:
     mov qword [rax + FrameMark.present_time], 0
     mov qword [rax + FrameMark.damage_bytes], 0
     mov dword [rax + FrameMark.flags], 0
+    EPILOGUE_RESTORE rbx
     ret
 .none:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -112,6 +119,7 @@ frame_timeline_mark:
     ASSERT_PTR rbx
     call tv_time_now_ns
     mov [rbx + rsi], rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -141,6 +149,7 @@ frame_timeline_end:
     inc qword [rbx + FrameTimeline.count]
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

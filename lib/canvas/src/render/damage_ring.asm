@@ -7,15 +7,21 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define DAMAGE_RING_SIZE    64  ; Number of frames to track
+%define DamageRing_buffers  0
+%define DamageRing.buffers 0
+%define DamageRing_regions  8
+%define DamageRing.regions 8
+%define DamageRing_head     16
+%define DamageRing.head 16
+%define DamageRing_count    24
+%define DamageRing.count 24
+%define DamageRing_size     32
+
 section .text
 
-%define DAMAGE_RING_SIZE    64  ; Number of frames to track
 
-%define DamageRing_buffers  0
-%define DamageRing_regions  8
-%define DamageRing_head     16
-%define DamageRing_count    24
-%define DamageRing_size     32
 
 ; ---------------------------------------------------------------------------
 ; damage_ring_init
@@ -53,10 +59,13 @@ damage_ring_init:
     mov qword [rbx + DamageRing_count], 0
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; damage_ring_push
@@ -93,10 +102,12 @@ damage_ring_push:
     mov rax, [rbx + DamageRing.count]
     cmp rax, DAMAGE_RING_SIZE
     jb .inc_count
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .inc_count:
     inc rax
     mov [rbx + DamageRing.count], rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -127,10 +138,12 @@ damage_ring_get_age:
 
     mov rbx, [rbx + DamageRing.regions]
     mov rax, [rbx + rax * 8]
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -158,10 +171,12 @@ damage_ring_get_buffer:
 
     mov rbx, [rbx + DamageRing.buffers]
     mov rax, [rbx + rax * 8]
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -175,6 +190,7 @@ damage_ring_clear:
     mov qword [rdi + DamageRing.head], 0
     mov qword [rdi + DamageRing.count], 0
     xor rax, rax
+    leave
     ret
 
 section .data

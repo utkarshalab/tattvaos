@@ -6,9 +6,18 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define Grab_size    56
+%define GRAB_NONE       0
+%define GRAB_POINTER    1
+%define GRAB_KEYBOARD   2
+%define GRAB_TOUCH      3
+%define GRAB_MODE_SYNC      0
+%define GRAB_MODE_ASYNC     1
+
 section .text
 
-struc Grab {
+struc Grab
     .seat:          resq 1
     .surface:       resq 1
     .type:          resd 1
@@ -16,16 +25,9 @@ struc Grab {
     .serial:        resq 1
     .cursor:        resq 1
     .confine:       resq 1
-}
-%define Grab_size    56
+endstruc
 
-%define GRAB_NONE       0
-%define GRAB_POINTER    1
-%define GRAB_KEYBOARD   2
-%define GRAB_TOUCH      3
 
-%define GRAB_MODE_SYNC      0
-%define GRAB_MODE_ASYNC     1
 
 ; ---------------------------------------------------------------------------
 ; grab_init
@@ -42,6 +44,7 @@ grab_init:
     mov qword [rbx + Server.grab_count], 0
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -94,13 +97,18 @@ grab_pointer:
     inc qword [rdi + Server.grab_count]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .already_grabbed:
-    RETURN_ERROR EBUSY
+    mov rax, -(EBUSY)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; grab_keyboard
@@ -149,12 +157,17 @@ grab_keyboard:
     inc qword [rbx + Server.grab_count]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .already_grabbed:
-    RETURN_ERROR EBUSY
+    mov rax, -(EBUSY)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; grab_release
@@ -197,10 +210,13 @@ grab_release:
 .done:
     dec qword [rbx + Server.grab_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .data
 global grab_version

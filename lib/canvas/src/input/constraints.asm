@@ -7,16 +7,18 @@
 %include "inc/errors.inc"
 %include "inc/rect.inc"
 
+; struct offsets (hoisted above use)
+%define Constraints_size    32
+
 section .text
 
-struc Constraints {
+struc Constraints
     .confined:      resb 1
     .confine_rect:  resb Rect_size
     .locked:        resb 1
     .lock_x:        resd 1
     .lock_y:        resd 1
-}
-%define Constraints_size    32
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; constraints_create
@@ -41,10 +43,13 @@ constraints_create:
     mov dword [rax + Constraints.lock_y], 0
     ; rect zeroed by arena_alloc
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; constraints_confine
@@ -62,11 +67,13 @@ constraints_confine:
     mov byte [rdi + Constraints.confined], 1
     mov rdi, [rdi + Constraints.confine_rect]
     call rect_copy
+    leave
     ret
 
 .disable:
     mov byte [rdi + Constraints.confined], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -85,11 +92,13 @@ constraints_lock:
     mov byte [rdi + Constraints.locked], 1
     mov dword [rdi + Constraints.lock_x], edx
     mov dword [rdi + Constraints.lock_y], ecx
+    leave
     ret
 
 .unlock:
     mov byte [rdi + Constraints.locked], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -117,6 +126,7 @@ constraints_apply:
     mov eax, [rbx + Constraints.lock_y]
     mov [r13], eax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .check_confine:
@@ -144,6 +154,7 @@ constraints_apply:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

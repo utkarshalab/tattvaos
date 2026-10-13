@@ -10,6 +10,19 @@
 %include "inc/render.inc"
 %include "inc/backend.inc"
 
+; struct offsets (hoisted above use)
+%define Compositor_server        0
+%define Compositor.server 0
+%define Compositor_renderer      8
+%define Compositor.renderer 8
+%define Compositor_arena         16
+%define Compositor.arena 16
+%define Compositor_damage_ring   24
+%define Compositor.damage_ring 24
+%define Compositor_frame_seq     32
+%define Compositor.frame_seq 32
+%define Compositor_size          40
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -41,6 +54,7 @@ compositor_init:
     call sw_render_init
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -50,6 +64,7 @@ global compositor_deinit
 compositor_deinit:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -90,10 +105,13 @@ compositor_composite:
     ; Increment frame sequence
     inc qword [rbx + Compositor.frame_seq]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; compositor_composite_output
@@ -125,6 +143,7 @@ compositor_composite_output:
     call direct_scanout_enable
     test rax, rax
     jz .composite_normal
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .composite_normal:
@@ -178,15 +197,19 @@ compositor_composite_output:
     call region_clear
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .no_damage:
 .no_surfaces:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; compositor_schedule_frame
@@ -207,6 +230,7 @@ compositor_schedule_frame:
     call frame_clock_schedule
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -237,16 +261,11 @@ compositor_frame_callback:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
 
-%define Compositor_server        0
-%define Compositor_renderer      8
-%define Compositor_arena         16
-%define Compositor_damage_ring   24
-%define Compositor_frame_seq     32
-%define Compositor_size          40
 
 global compositor_version
 compositor_version: dq 0x010000

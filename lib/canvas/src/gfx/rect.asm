@@ -6,13 +6,15 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define Rect_x1    0
 %define Rect_y1    4
 %define Rect_x2    8
 %define Rect_y2    12
 %define Rect_size  16
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; rect_init
@@ -29,6 +31,7 @@ rect_init:
     mov [rdi + Rect_x2], ecx
     mov [rdi + Rect_y2], r8d
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -48,9 +51,11 @@ rect_empty:
     cmp eax, [rdi + Rect_y2]
     jae .empty
     xor rax, rax
+    leave
     ret
 .empty:
     mov rax, 1
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -65,6 +70,7 @@ rect_width:
     ASSERT_PTR rdi
     mov eax, [rdi + Rect_x2]
     sub eax, [rdi + Rect_x1]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -79,6 +85,7 @@ rect_height:
     ASSERT_PTR rdi
     mov eax, [rdi + Rect_y2]
     sub eax, [rdi + Rect_y1]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -95,6 +102,7 @@ rect_area:
     mov rdx, rax
     call rect_height
     imul rax, rdx
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -120,9 +128,11 @@ rect_contains_point:
     cmp edx, eax
     jge .outside
     mov rax, 1
+    leave
     ret
 .outside:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -172,6 +182,7 @@ rect_intersect:
     mov [rbx + Rect_y2], eax
 .ok:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -214,6 +225,7 @@ rect_union:
     mov [rbx + Rect_y2], eax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -231,6 +243,7 @@ rect_translate:
     add dword [rdi + Rect_y1], edx
     add dword [rdi + Rect_y2], edx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -257,9 +270,11 @@ rect_equals:
     cmp eax, [rsi + Rect_y2]
     jne .diff
     mov rax, 1
+    leave
     ret
 .diff:
     xor rax, rax
+    leave
     ret
 
 section .data

@@ -9,6 +9,44 @@
 %include "inc/caps.inc"
 %include "inc/channel.inc"
 
+; struct offsets (hoisted above use)
+%define Server_client_registry   0
+%define Server.client_registry 0
+%define Server_next_client_id    8
+%define Server.next_client_id 8
+%define Server_arena             16
+%define Server.arena 16
+%define Server_size              24
+%define Client_id               0
+%define Client.id 0
+%define Client_trust_profile    8
+%define Client.trust_profile 8
+%define Client_caps             16
+%define Client.caps 16
+%define Client_arena            24
+%define Client.arena 24
+%define Client_obj_table        32
+%define Client.obj_table 32
+%define Client_tx_ring          40
+%define Client.tx_ring 40
+%define Client_rx_ring          48
+%define Client.rx_ring 48
+%define Client_handle_tx        56
+%define Client.handle_tx 56
+%define Client_handle_rx        64
+%define Client.handle_rx 64
+%define Client_quota            72
+%define Client.quota 72
+%define Client_last_ping        104
+%define Client.last_ping 104
+%define Client_state            112
+%define Client.state 112
+%define Client_size             256
+%define CLIENT_CONNECTING   1
+%define CLIENT_ACTIVE       2
+%define CLIENT_THROTTLED    3
+%define CLIENT_DEAD         4
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -29,6 +67,7 @@ client_init:
     mov qword [rbx + Server.next_client_id], 1
     mov qword [rbx + Server.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -117,7 +156,9 @@ client_accept:
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; client_send_caps
@@ -165,10 +206,13 @@ client_disconnect:
     call rbtree_remove
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .not_found:
-    RETURN_ERROR ESRCH
+    mov rax, -(ESRCH)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; client_get
@@ -184,36 +228,17 @@ client_get:
     test rax, rax
     jz .not_found
     call rbtree_find
+    leave
     ret
 .not_found:
     xor rax, rax
+    leave
     ret
 
 section .data
 
-%define Server_client_registry   0
-%define Server_next_client_id    8
-%define Server_arena             16
-%define Server_size              24
 
-%define Client_id               0
-%define Client_trust_profile    8
-%define Client_caps             16
-%define Client_arena            24
-%define Client_obj_table        32
-%define Client_tx_ring          40
-%define Client_rx_ring          48
-%define Client_handle_tx        56
-%define Client_handle_rx        64
-%define Client_quota            72
-%define Client_last_ping        104
-%define Client_state            112
-%define Client_size             256
 
-%define CLIENT_CONNECTING   1
-%define CLIENT_ACTIVE       2
-%define CLIENT_THROTTLED    3
-%define CLIENT_DEAD         4
 
 global client_version
 client_version: dq 0x010000

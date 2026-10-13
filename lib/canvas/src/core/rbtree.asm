@@ -6,11 +6,9 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define RB_RED     0
 %define RB_BLACK   1
-
 %define RBNode_left    0
 %define RBNode_right   8
 %define RBNode_parent  16
@@ -18,10 +16,14 @@ section .text
 %define RBNode_key     32
 %define RBNode_value   40
 %define RBNode_size    48
-
 %define RBTree_root    0
 %define RBTree_count   8
 %define RBTree_size    16
+
+section .text
+
+
+
 
 ; ---------------------------------------------------------------------------
 ; rbtree_init
@@ -33,6 +35,7 @@ rbtree_init:
     mov qword [rdi + RBTree_root], 0
     mov qword [rdi + RBTree_count], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -72,6 +75,7 @@ rbtree_insert:
     ; Key exists - update value
     mov qword [r15 + RBNode_value], r13
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .go_left:
@@ -93,6 +97,7 @@ rbtree_insert:
     mov byte [r14 + RBNode_color], RB_BLACK
     inc qword [rbx + RBTree_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .insert_left:
@@ -109,6 +114,7 @@ rbtree_insert:
     call rbtree_fixup_insert
     inc qword [rbx + RBTree_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -184,6 +190,7 @@ rbtree_find:
     jl .go_left
     jg .go_right
     mov rax, [rax + RBNode_value]
+    leave
     ret
 
 .go_left:
@@ -200,6 +207,7 @@ rbtree_find:
 
 .not_found:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -210,7 +218,9 @@ global rbtree_remove
 rbtree_remove:
     PROLOGUE
     ; TODO: Full RB delete with fixup
-    RETURN_ERROR ENOSYS
+    mov rax, -(ENOSYS)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rbtree_min
@@ -231,9 +241,11 @@ rbtree_min:
     jmp .loop
 .found:
     mov rax, [rax + RBNode_key]
+    leave
     ret
 .empty:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -255,9 +267,11 @@ rbtree_max:
     jmp .loop
 .found:
     mov rax, [rax + RBNode_key]
+    leave
     ret
 .empty:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -268,6 +282,7 @@ rbtree_count:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + RBTree_count]
+    leave
     ret
 
 section .data

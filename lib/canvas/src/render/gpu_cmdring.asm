@@ -13,6 +13,7 @@ gpu_cmdring_init:
     PROLOGUE
     ; delegates to gpu_ring_init per ring type
     xor rax, rax
+    leave
     ret
 
 global gpu_mem_bind_buffer
@@ -34,9 +35,12 @@ gpu_mem_bind_buffer:
     jz .fail
     mov [r12 + Buffer.gpu_bo], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
-    RETURN_ERROR ENXIO
+    mov rax, -(ENXIO)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .data
 global gpu_cmdring_version

@@ -8,9 +8,25 @@
 %include "inc/tattva.inc"
 %include "inc/color.inc"
 
+; struct offsets (hoisted above use)
+%define Prompt_size    72
+%define PROMPT_STATE_PENDING     0
+%define PROMPT_STATE_ANSWERED    1
+%define PROMPT_STATE_TIMEOUT     2
+%define PROMPT_STATE_CANCELLED   3
+%define PROMPT_OPTION_ALLOW      0
+%define PROMPT_OPTION_DENY       1
+%define PROMPT_OPTION_ALWAYS     2
+%define PROMPT_OPTION_NEVER      3
+%define PromptOption_size    24
+%define PROMPT_ACTION_ALLOW      1
+%define PROMPT_ACTION_DENY       2
+%define PROMPT_ACTION_ALWAYS     3
+%define PROMPT_ACTION_NEVER      4
+
 section .text
 
-struc Prompt {
+struc Prompt
     .client:        resq 1
     .message:       resq 1
     .message_len:   resq 1
@@ -21,31 +37,17 @@ struc Prompt {
     .user_data:     resq 1
     .timeout:       resq 1
     .state:         resd 1
-}
-%define Prompt_size    72
+endstruc
 
-%define PROMPT_STATE_PENDING     0
-%define PROMPT_STATE_ANSWERED    1
-%define PROMPT_STATE_TIMEOUT     2
-%define PROMPT_STATE_CANCELLED   3
 
-%define PROMPT_OPTION_ALLOW      0
-%define PROMPT_OPTION_DENY       1
-%define PROMPT_OPTION_ALWAYS     2
-%define PROMPT_OPTION_NEVER      3
 
-struc PromptOption {
+struc PromptOption
     .text:      resq 1
     .text_len:  resq 1
     .action:    resd 1
     .value:     resq 1
-}
-%define PromptOption_size    24
+endstruc
 
-%define PROMPT_ACTION_ALLOW      1
-%define PROMPT_ACTION_DENY       2
-%define PROMPT_ACTION_ALWAYS     3
-%define PROMPT_ACTION_NEVER      4
 
 ; ---------------------------------------------------------------------------
 ; prompts_init
@@ -63,6 +65,7 @@ prompts_init:
     mov qword [rbx + Server.arena], r12
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -99,6 +102,7 @@ prompts_show:
 .no_profile:
 .auto_allow:
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .check_privileged:
@@ -134,10 +138,13 @@ prompts_show:
     ; Wait for response (with timeout)
     call prompts_wait
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; prompts_draw
@@ -159,6 +166,7 @@ prompts_draw:
 
     ; TODO: Implement actual drawing using compositor
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -175,6 +183,7 @@ prompts_wait:
 
     ; For now, auto-allow
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -195,6 +204,7 @@ prompts_handle_input:
     ; TODO: Implement
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

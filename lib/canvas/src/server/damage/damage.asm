@@ -27,11 +27,14 @@ damage_init:
     call region_init
     test rax, rax
     jnz .ok
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 .ok:
     mov qword [rbx + Server.damage_region], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -69,6 +72,7 @@ damage_add_surface:
 
 .no_damage:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -87,6 +91,7 @@ damage_add_rect:
 
     mov rdi, [rbx + Server.damage_region]
     call region_add_rect
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -101,6 +106,7 @@ damage_clear:
     mov rdi, [rdi + Server.damage_region]
     call region_clear
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -112,6 +118,7 @@ damage_get:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Server.damage_region]
+    leave
     ret
 
 section .data

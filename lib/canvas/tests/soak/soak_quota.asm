@@ -34,6 +34,7 @@ soak_quota_run:
     jmp .loop
 .done:
     mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

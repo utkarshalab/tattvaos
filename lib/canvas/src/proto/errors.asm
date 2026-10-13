@@ -35,10 +35,13 @@ errors_create:
     mov [rax + 8], r13       ; message ptr
     call str_len
     mov [rax + 16], rax      ; message len
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; errors_send
@@ -51,6 +54,7 @@ errors_send:
     PROLOGUE
     ; TODO: Encode error event into client's RX ring
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -88,6 +92,7 @@ errors_from_errno:
 
     ; Default to implementation error
     mov rax, ECWP_PARSE
+    leave
     ret
 
 .einval:    mov rax, ECWP_PAYLOAD; ret

@@ -17,6 +17,7 @@ canvas_clipboard_set:
     ; rsi=mime, rdx=mime_len, rcx=data, r8=data_len
     ; TODO: send cw_data.set_selection
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 global canvas_clipboard_get
@@ -27,18 +28,21 @@ canvas_clipboard_get:
     ; TODO: request cw_data.receive, block on reply
     xor rax, rax
     xor rdx, rdx
+    EPILOGUE_RESTORE rbx
     ret
 
 global canvas_clipboard_clear
 canvas_clipboard_clear:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_selection_set
 canvas_selection_set:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_selection_get
@@ -46,6 +50,7 @@ canvas_selection_get:
     PROLOGUE
     xor rax, rax
     xor rdx, rdx
+    leave
     ret
 
 section .data

@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define RateLimit_size    64
+
 section .text
 
-struc RateLimit {
+struc RateLimit
     .max_msg_sec:    resq 1
     .msg_tokens:     resq 1
     .msg_last:       resq 1
@@ -19,8 +22,7 @@ struc RateLimit {
     .throttled:      resb 1
     .violations:     resd 1
     .client:         resq 1
-}
-%define RateLimit_size    64
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; ratelimit_init
@@ -34,6 +36,7 @@ ratelimit_init:
     ASSERT_PTR r12
     mov qword [rbx + Server.ratelimits], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -68,9 +71,12 @@ ratelimit_create:
     mov qword [rbx + RateLimit.client], r12
     mov qword [r12 + Client.ratelimit], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; ratelimit_refill
@@ -103,6 +109,7 @@ ratelimit_refill:
     mov [rbx + RateLimit.byte_tokens], rax
     mov [rbx + RateLimit.byte_last], rcx
 .done:
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -132,11 +139,13 @@ ratelimit_check_msg:
 .ok:
     mov byte [rbx + RateLimit.throttled], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .exceeded:
     inc dword [rbx + RateLimit.violations]
     mov byte [rbx + RateLimit.throttled], 1
     mov rax, -EQUOTA_RATE
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -147,6 +156,7 @@ ratelimit_is_throttled:
     PROLOGUE
     ASSERT_PTR rdi
     movzx rax, byte [rdi + RateLimit.throttled]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -166,6 +176,7 @@ ratelimit_reset:
     mov [rbx + RateLimit.msg_last], rax
     mov [rbx + RateLimit.byte_last], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

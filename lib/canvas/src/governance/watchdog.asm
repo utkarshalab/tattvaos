@@ -7,19 +7,21 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Watchdog_size    40
+%define WATCHDOG_DEFAULT_TIMEOUT  5000000000  ; 5 seconds
+%define WATCHDOG_PING_INTERVAL    1000000000  ; 1 second
+
 section .text
 
-struc Watchdog {
+struc Watchdog
     .server:         resq 1
     .timeout_ns:     resq 1
     .timer:          resq 1
     .suspects:       resq 1
     .kills:          resq 1
-}
-%define Watchdog_size    40
+endstruc
 
-%define WATCHDOG_DEFAULT_TIMEOUT  5000000000  ; 5 seconds
-%define WATCHDOG_PING_INTERVAL    1000000000  ; 1 second
 
 ; ---------------------------------------------------------------------------
 ; watchdog_init
@@ -52,11 +54,16 @@ watchdog_init:
     jnz .fail
     mov [rbx + Watchdog.timer], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; watchdog_sweep
@@ -80,6 +87,7 @@ watchdog_sweep:
     mov rsi, watchdog_sweep
     mov rdx, rbx
     call tv_timer_register
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -94,6 +102,7 @@ watchdog_check_all:
     ASSERT_PTR rbx
     ; registry iteration is server-specific; expose per-client check
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -122,12 +131,14 @@ watchdog_check_client:
     mov rax, [rax + Server.watchdog]
     inc qword [rax + Watchdog.kills]
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .alive:
     ; send ping
     mov rdi, r12
     call watchdog_ping_client
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -140,6 +151,7 @@ watchdog_ping_client:
     call tv_time_now_ns
     mov [rbx + Client.ping_serial], rax
     ; TODO: encode cw_display.ping into rx ring
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -154,6 +166,7 @@ watchdog_pong:
     call tv_time_now_ns
     mov [rsi + Client.last_ping], rax
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -165,6 +178,7 @@ watchdog_set_timeout:
     ASSERT_PTR rdi
     mov [rdi + Watchdog.timeout_ns], rsi
     xor rax, rax
+    leave
     ret
 
 section .data

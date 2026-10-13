@@ -105,9 +105,12 @@ png_unfilter_row:
     jmp .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .bad:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 global png_unfilter
 png_unfilter:
@@ -186,15 +189,18 @@ png_unfilter:
     test rax, rax
     jz .bad
     mov [r12 + PngImage.pixbuf], rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .bad2:
     add rsp, 16
 .bad:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .oom:
     add rsp, 8
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 global png_convert_bgra
@@ -278,6 +284,7 @@ png_convert_bgra:
     jmp .y_loop
 .done:
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

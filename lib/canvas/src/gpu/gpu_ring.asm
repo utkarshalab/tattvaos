@@ -7,9 +7,13 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define GpuRing_size    64
+%define GPU_RING_DEFAULT_DW   4096  ; 16KB
+
 section .text
 
-struc GpuRing {
+struc GpuRing
     .gpu:           resq 1
     .type:          resd 1
     .buf_cpu:       resq 1
@@ -19,10 +23,8 @@ struc GpuRing {
     .rptr_shadow:   resd 1
     .doorbell:      resq 1
     .fence_next:    resq 1
-}
-%define GpuRing_size    64
+endstruc
 
-%define GPU_RING_DEFAULT_DW   4096  ; 16KB
 
 ; ---------------------------------------------------------------------------
 ; gpu_ring_init
@@ -64,15 +66,20 @@ gpu_ring_init:
     cmp r13d, 1
     je .compute
     mov [r12 + GpuDevice.ring_sdma], r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .gfx:
     mov [r12 + GpuDevice.ring_gfx], r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .compute:
     mov [r12 + GpuDevice.ring_compute], r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gpu_ring_write
@@ -127,9 +134,12 @@ gpu_ring_write:
     mov [rbx + GpuRing.wptr], r14d
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gpu_ring_submit
@@ -148,6 +158,7 @@ gpu_ring_submit:
 .no_doorbell:
     mov rax, [rbx + GpuRing.fence_next]
     inc qword [rbx + GpuRing.fence_next]
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -168,9 +179,12 @@ gpu_ring_wait_empty:
     ; TODO: update rptr_shadow from MMIO
     dec ecx
     jnz .poll
-    RETURN_ERROR ETIMEDOUT
+    mov rax, -(ETIMEDOUT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .empty:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

@@ -7,6 +7,19 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define FrameClock_output      0
+%define FrameClock.output 0
+%define FrameClock_refresh_ns  8
+%define FrameClock.refresh_ns 8
+%define FrameClock_next_vblank 16
+%define FrameClock.next_vblank 16
+%define FrameClock_phase       24
+%define FrameClock.phase 24
+%define FrameClock_callbacks   32
+%define FrameClock.callbacks 32
+%define FrameClock_size        40
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -29,6 +42,7 @@ frame_clock_init:
     mov qword [rbx + FrameClock.phase], 0
     mov qword [rbx + FrameClock.callbacks], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -58,6 +72,7 @@ frame_clock_start:
     call output_schedule_vblank
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -75,6 +90,7 @@ frame_clock_schedule:
     ; Add callback to list
     ; TODO: Create callback object and add to list
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -111,6 +127,7 @@ frame_clock_vblank:
     mov rdi, [rbx + FrameClock.output]
     call output_schedule_vblank
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -126,6 +143,7 @@ frame_clock_get_phase:
     mov rdx, [rdi + FrameClock.next_vblank]
     sub rdx, rax
     mov rax, rdx
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -137,16 +155,11 @@ frame_clock_get_refresh:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + FrameClock.refresh_ns]
+    leave
     ret
 
 section .data
 
-%define FrameClock_output      0
-%define FrameClock_refresh_ns  8
-%define FrameClock_next_vblank 16
-%define FrameClock_phase       24
-%define FrameClock_callbacks   32
-%define FrameClock_size        40
 
 global frame_clock_version
 frame_clock_version: dq 0x010000

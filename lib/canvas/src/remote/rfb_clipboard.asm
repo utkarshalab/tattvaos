@@ -62,10 +62,13 @@ rfb_recv_cut_text:
 .done:
     add rsp, 16
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .fail:
     add rsp, 16
-    RETURN_ERROR ECONNRESET
+    mov rax, -(ECONNRESET)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; rfb_send_cut_text
@@ -99,10 +102,13 @@ rfb_send_cut_text:
     mov rdx, r13
     call rfb_tls_write_all
     add rsp, 16
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .fail:
     add rsp, 16
-    RETURN_ERROR ECONNRESET
+    mov rax, -(ECONNRESET)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 section .rodata
 mime_text_plain: db "text/plain", 0

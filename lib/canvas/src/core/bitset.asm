@@ -6,11 +6,13 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define Bitset_words    0
 %define Bitset_count    8
 %define Bitset_size     16
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; bitset_init
@@ -29,7 +31,9 @@ bitset_init:
 
     test r12, r12
     jnz .ok
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .ok:
     ; Calculate words needed
     mov rax, r12
@@ -55,9 +59,12 @@ bitset_init:
     rep stosq
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; bitset_set
@@ -81,9 +88,12 @@ bitset_set:
     and rcx, 63
     bts qword [rbx + Bitset_words + rax * 8], rcx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oob:
-    RETURN_ERROR ERANGE
+    mov rax, -(ERANGE)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; bitset_clear
@@ -107,9 +117,12 @@ bitset_clear:
     and rcx, 63
     btr qword [rbx + Bitset_words + rax * 8], rcx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oob:
-    RETURN_ERROR ERANGE
+    mov rax, -(ERANGE)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; bitset_test
@@ -134,9 +147,12 @@ bitset_test:
     bt qword [rbx + Bitset_words + rax * 8], rcx
     setc al
     movzx rax, al
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oob:
-    RETURN_ERROR ERANGE
+    mov rax, -(ERANGE)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; bitset_flip
@@ -160,9 +176,12 @@ bitset_flip:
     and rcx, 63
     btc qword [rbx + Bitset_words + rax * 8], rcx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oob:
-    RETURN_ERROR ERANGE
+    mov rax, -(ERANGE)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; bitset_count
@@ -227,9 +246,11 @@ bitset_find_first:
     jnz .loop
 .not_found:
     mov rax, -1
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .found:
     add rax, rdx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -249,6 +270,7 @@ bitset_clear_all:
     xor rax, rax
     rep stosq
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

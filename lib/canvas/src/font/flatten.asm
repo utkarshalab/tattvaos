@@ -9,17 +9,19 @@
 %include "inc/errors.inc"
 %include "inc/font.inc"
 
+; struct offsets (hoisted above use)
+%define FlattenCtx_size    32
+%define FLATTEN_MAX_DEPTH   10
+
 section .text
 
-struc FlattenCtx {
+struc FlattenCtx
     .out:           resq 1
     .count:         resq 1
     .cap:           resq 1
     .tolerance:     resq 1
-}
-%define FlattenCtx_size    32
+endstruc
 
-%define FLATTEN_MAX_DEPTH   10
 
 ; ---------------------------------------------------------------------------
 ; flatten_emit_line — IN: rdi=ctx, rsi=x, rdx=y
@@ -42,12 +44,15 @@ flatten_emit_line:
     mov [rcx + 5], edx
     inc qword [rbx + FlattenCtx.count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 .full:
     mov rax, -ENOSPC
+    EPILOGUE_RESTORE rbx
     ret
 .fail:
     mov rax, -EINVAL
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -65,6 +70,7 @@ flatten_quad:
     mov rsi, r12
     xor edx, edx
     call flatten_rec
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------

@@ -18,18 +18,18 @@
 %define RENDER_CAP_COLOR_MGMT     (1 << 7)
 
 ; Renderer Function Table
-struc RenderIface {
+struc RenderIface
     .begin_frame:      resq 1
     .render_surface:   resq 1
     .render_rect:      resq 1
     .end_frame:        resq 1
     .flush:            resq 1
     .caps:             resq 1
-}
+endstruc
 %define RenderIface_size      48
 
 ; Frame Context (per-frame state)
-struc FrameCtx {
+struc FrameCtx
     .output:           resq 1
     .damage:           resq 1
     .render_list:      resq 1
@@ -38,17 +38,17 @@ struc FrameCtx {
     .width:            resd 1
     .height:           resd 1
     .color_transform:  resq 1
-}
+endstruc
 %define FrameCtx_size         64
 
 ; Present Info (returned by end_frame)
-struc PresentInfo {
+struc PresentInfo
     .kind:            resd 1
     .seq:             resq 1
     .time:            resq 1
     .refresh_ns:      resq 1
     .flags:           resd 1
-}
+endstruc
 %define PresentInfo_size      32
 
 ; Present Kinds

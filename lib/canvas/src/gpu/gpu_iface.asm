@@ -7,9 +7,19 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define GpuDevice_size    72
+%define GPU_FAMILY_UNKNOWN   0
+%define GPU_FAMILY_GFX9      0x0900
+%define GPU_FAMILY_GFX10     0x0A00
+%define GPU_FAMILY_GFX11     0x0B00
+%define GPU_RING_GFX        0
+%define GPU_RING_COMPUTE    1
+%define GPU_RING_SDMA       2
+
 section .text
 
-struc GpuDevice {
+struc GpuDevice
     .family:         resd 1
     .mmio_base:      resq 1
     .mmio_size:      resq 1
@@ -19,17 +29,9 @@ struc GpuDevice {
     .mem_mgr:        resq 1
     .fence_mgr:      resq 1
     .enabled:        resb 1
-}
-%define GpuDevice_size    72
+endstruc
 
-%define GPU_FAMILY_UNKNOWN   0
-%define GPU_FAMILY_GFX9      0x0900
-%define GPU_FAMILY_GFX10     0x0A00
-%define GPU_FAMILY_GFX11     0x0B00
 
-%define GPU_RING_GFX        0
-%define GPU_RING_COMPUTE    1
-%define GPU_RING_SDMA       2
 
 ; ---------------------------------------------------------------------------
 ; gpu_init
@@ -83,13 +85,17 @@ gpu_init:
     mov rdx, GPU_RING_GFX
     call gpu_ring_init
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .no_gpu:
     ; no GPU: software path stays active; not fatal
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gpu_detect_family
@@ -101,6 +107,7 @@ gpu_detect_family:
     ; TODO: read device id via tv_pci_config_read_dword
     mov dword [rbx + GpuDevice.family], GPU_FAMILY_GFX9
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -112,6 +119,7 @@ gpu_shutdown:
     ASSERT_PTR rdi
     mov byte [rdi + GpuDevice.enabled], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -122,6 +130,7 @@ gpu_is_available:
     PROLOGUE
     ASSERT_PTR rdi
     movzx rax, byte [rdi + GpuDevice.enabled]
+    leave
     ret
 
 section .rodata

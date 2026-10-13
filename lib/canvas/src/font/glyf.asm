@@ -8,9 +8,12 @@
 %include "inc/errors.inc"
 %include "inc/font.inc"
 
+; struct offsets (hoisted above use)
+%define GlyfOut_size    56
+
 section .text
 
-struc GlyfOut {
+struc GlyfOut
     .verbs:         resq 1
     .coords:        resq 1
     .count:         resq 1
@@ -19,8 +22,7 @@ struc GlyfOut {
     .y_min:         resd 1
     .x_max:         resd 1
     .y_max:         resd 1
-}
-%define GlyfOut_size    56
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; glyf_locate
@@ -48,6 +50,7 @@ glyf_locate:
     sub edx, r13d
     mov rax, [rbx + TtfFont.glyf]
     add rax, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .short:
     movzx eax, word [r14 + r12 * 2]
@@ -60,10 +63,12 @@ glyf_locate:
     sub edx, r13d
     mov rax, [rbx + TtfFont.glyf]
     add rax, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .fail:
     xor rax, rax
     xor rdx, rdx
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -101,6 +106,7 @@ glyf_outline:
     mov rdx, r15
     mov rcx, r13
     call glyf_simple
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .composite:
     mov rdi, rbx
@@ -108,10 +114,12 @@ glyf_outline:
     mov rdx, r15
     mov rcx, r13
     call glyf_composite
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .empty:
     mov qword [r13 + GlyfOut.count], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -166,6 +174,7 @@ glyf_simple:
     inc ecx  ; nPoints
     mov rdx, r14
     call outline_decode_points
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -243,6 +252,7 @@ glyf_composite:
     jnz .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

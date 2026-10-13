@@ -7,20 +7,22 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
-section .text
-
-struc Containment {
-    .server:         resq 1
-    .faults:         resq 1
-    .contained:      resq 1
-}
+; struct offsets (hoisted above use)
 %define Containment_size    24
-
 %define FAULT_PROTO_VIOLATION   1
 %define FAULT_OOM               2
 %define FAULT_TIMEOUT           3
 %define FAULT_TRAP              4
 %define FAULT_RATE_EXCEEDED     5
+
+section .text
+
+struc Containment
+    .server:         resq 1
+    .faults:         resq 1
+    .contained:      resq 1
+endstruc
+
 
 ; ---------------------------------------------------------------------------
 ; containment_init
@@ -43,9 +45,12 @@ containment_init:
     mov qword [rbx + Containment.contained], 0
     mov qword [rdi + Server.containment], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; containment_fault
@@ -80,6 +85,7 @@ containment_fault:
     mov rsi, [r12 + Client.id]
     call client_disconnect
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -94,6 +100,7 @@ containment_proto_violation:
     ASSERT_PTR r12
     mov rdx, FAULT_PROTO_VIOLATION
     call containment_fault
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -108,6 +115,7 @@ containment_trap:
     ASSERT_PTR r12
     mov rdx, FAULT_TRAP
     call containment_fault
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -127,11 +135,13 @@ containment_stats:
     mov rcx, [rax + Containment.contained]
     mov [rdx], rcx
     xor rax, rax
+    leave
     ret
 .none:
     mov qword [rsi], 0
     mov qword [rdx], 0
     xor rax, rax
+    leave
     ret
 
 section .data

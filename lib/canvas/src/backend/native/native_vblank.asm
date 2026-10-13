@@ -48,7 +48,9 @@ native_vblank_init:
     ret
 
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 native_vblank_handler:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15

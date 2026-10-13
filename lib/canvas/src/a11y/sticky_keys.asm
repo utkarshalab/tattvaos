@@ -6,10 +6,19 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/server_offsets.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+
+; struct offsets (hoisted above use)
+%define MOD_SHIFT      (1 << 0)
+%define MOD_CTRL       (1 << 1)
+%define MOD_ALT        (1 << 2)
+%define MOD_MOD4       (1 << 3)
 
 section .text
 
-struc StickyKeys {
+struc StickyKeys
     .enabled:           resb 1
     .lock_modifiers:    resb 1
     .two_keys_off:      resb 1
@@ -19,13 +28,8 @@ struc StickyKeys {
     .locked_modifiers:  resd 1
     .press_count:       resd 1
     .last_key_time:     resq 1
-}
-%define StickyKeys_size    32
+endstruc
 
-%define MOD_SHIFT      (1 << 0)
-%define MOD_CTRL       (1 << 1)
-%define MOD_ALT        (1 << 2)
-%define MOD_MOD4       (1 << 3)
 
 global sticky_keys_init
 sticky_keys_init:
@@ -54,10 +58,13 @@ sticky_keys_init:
 
     mov qword [rdi + Server.sticky_keys], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 global sticky_keys_enable
 sticky_keys_enable:
@@ -67,6 +74,7 @@ sticky_keys_enable:
 
     mov byte [rbx + StickyKeys.enabled], 1
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 global sticky_keys_disable
@@ -80,6 +88,7 @@ sticky_keys_disable:
     mov dword [rbx + StickyKeys.locked_modifiers], 0
     mov dword [rbx + StickyKeys.press_count], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 global sticky_keys_process_key
@@ -111,6 +120,7 @@ sticky_keys_process_key:
     cmp dword [rbx + StickyKeys.press_count], 2
     jl .check_lock
     call sticky_keys_disable
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .check_lock:
@@ -129,6 +139,7 @@ sticky_keys_process_key:
 
 .update_time:
     mov [rbx + StickyKeys.last_key_time], rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .key_release:
@@ -136,23 +147,30 @@ sticky_keys_process_key:
     test eax, r12d
     jz .not_locked
 
-    and eax, ~r12d
+    mov r13d, r12d
+    not r13d
+    and eax, r13d
     mov [rbx + StickyKeys.locked_modifiers], eax
 
     cmp byte [rbx + StickyKeys.sound_on_release], 0
     je .ret
 .ret:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .not_locked:
     mov eax, [rbx + StickyKeys.pressed_modifiers]
-    and eax, ~r12d
+    mov r13d, r12d
+    not r13d
+    and eax, r13d
     mov [rbx + StickyKeys.pressed_modifiers], eax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .disabled:
 .not_modifier:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 sticky_keys_is_modifier:
@@ -174,9 +192,11 @@ sticky_keys_is_modifier:
     cmp rdi, 126
     je .is_mod
     xor rax, rax
+    leave
     ret
 .is_mod:
     mov rax, 1
+    leave
     ret
 
 global sticky_keys_get_modifiers
@@ -188,6 +208,7 @@ sticky_keys_get_modifiers:
     mov eax, [rbx + StickyKeys.pressed_modifiers]
     mov edx, [rbx + StickyKeys.locked_modifiers]
     or eax, edx
+    EPILOGUE_RESTORE rbx
     ret
 
 global sticky_keys_set_option
@@ -208,19 +229,25 @@ sticky_keys_set_option:
 
 .set_lock:
     mov byte [rbx + StickyKeys.lock_modifiers], dl
+    EPILOGUE_RESTORE rbx
     ret
 .set_two_keys:
     mov byte [rbx + StickyKeys.two_keys_off], dl
+    EPILOGUE_RESTORE rbx
     ret
 .set_sound_press:
     mov byte [rbx + StickyKeys.sound_on_press], dl
+    EPILOGUE_RESTORE rbx
     ret
 .set_sound_release:
     mov byte [rbx + StickyKeys.sound_on_release], dl
+    EPILOGUE_RESTORE rbx
     ret
 
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx
+    ret
 
 section .data
 global sticky_keys_version

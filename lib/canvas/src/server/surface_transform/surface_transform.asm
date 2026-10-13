@@ -16,6 +16,7 @@ global surface_transform_init
 surface_transform_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -56,6 +57,7 @@ surface_transform_apply:
 .identity:
     mov [r14], rsi
     mov [r8], rdx
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .rot90:
@@ -65,26 +67,31 @@ surface_transform_apply:
     sub eax, r13
     mov [r14], eax
     mov [r8], rsi
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .rot180:
     ; (x, y) -> (w - x, h - y)
     ; TODO
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .rot270:
     ; (x, y) -> (y, w - x)
     ; TODO
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .flip_h:
     ; (x, y) -> (w - x, y)
     ; TODO
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .flip_v:
     ; (x, y) -> (x, h - y)
     ; TODO
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -96,6 +103,7 @@ surface_transform_rect:
     PROLOGUE
     ; TODO
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -107,6 +115,7 @@ surface_transform_region:
     PROLOGUE
     ; TODO
     xor rax, rax
+    leave
     ret
 
 section .data

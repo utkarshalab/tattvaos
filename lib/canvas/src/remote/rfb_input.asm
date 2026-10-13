@@ -7,11 +7,13 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define RFB_MSG_POINTER_EVENT  5
 %define RFB_MSG_KEY_EVENT      4
 %define RFB_MSG_CUT_TEXT       6
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; rfb_poll_input
@@ -84,10 +86,12 @@ rfb_poll_input:
 .done:
     add rsp, 16
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .none:
     add rsp, 16
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -103,6 +107,7 @@ rfb_forward_pointer:
     mov rdi, [rdi + RfbServer.server]
     mov r8, -1  ; remote device id
     call virtual_input_inject
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -115,6 +120,7 @@ rfb_forward_key:
     ASSERT_PTR rbx
     ; TODO: keysym -> keycode map, then virtual_input_inject
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

@@ -7,9 +7,11 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define RFB_ENC_ZLIB   6
+
 section .text
 
-%define RFB_ENC_ZLIB   6
 
 global rfb_encode_zlib_tile
 rfb_encode_zlib_tile:
@@ -48,11 +50,14 @@ rfb_encode_zlib_tile:
     call rfb_tls_write_all
     add rsp, 8
     mov rax, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail2:
     add rsp, 8
 .fail:
-    RETURN_ERROR ECONNRESET
+    mov rax, -(ECONNRESET)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 global rfb_client_update
 rfb_client_update:
@@ -84,6 +89,7 @@ rfb_client_update:
     add rsp, 64
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

@@ -138,6 +138,7 @@ blend_linear_row:
     jnz .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

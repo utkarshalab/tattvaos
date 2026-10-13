@@ -6,33 +6,35 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define KEYMAP_MAX_KEYCODES    256
 %define KEYMAP_LEVELS          4
 %define KEYMAP_GROUPS          4
+%define Keymap_size    48
+%define KEYSYM_NONE       0
+%define KEYSYM_MOD_SHIFT  0xFFE1
+%define KEYSYM_MOD_CTRL   0xFFE3
+%define KEYSYM_MOD_ALT    0xFFE9
+%define KEYSYM_MOD_SUPER  0xFFEB
 
-struc Keymap {
+section .text
+
+
+struc Keymap
     .name:          resq 1
     .keycodes:      resq 1
     .max_keycode:   resd 1
     .levels:        resb 1
     .groups:        resb 1
     .modifiers:     resd 1
-}
-%define Keymap_size    48
+endstruc
 
-struc KeyEntry {
+struc KeyEntry
     .keycode:       resb 1
     .levels:        resd KEYMAP_LEVELS * KEYMAP_GROUPS
-}
+endstruc
 %define KeyEntry_size    (1 + 4 * KEYMAP_LEVELS * KEYMAP_GROUPS)
 
-%define KEYSYM_NONE       0
-%define KEYSYM_MOD_SHIFT  0xFFE1
-%define KEYSYM_MOD_CTRL   0xFFE3
-%define KEYSYM_MOD_ALT    0xFFE9
-%define KEYSYM_MOD_SUPER  0xFFEB
 
 ; ---------------------------------------------------------------------------
 ; keymap_init
@@ -67,10 +69,13 @@ keymap_init:
     rep stosq
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; keymap_set_entry
@@ -95,10 +100,13 @@ keymap_set_entry:
     add r9, rcx
     mov [rax + r9 * 4], r8d
     xor rax, rax
+    leave
     ret
 
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; keymap_lookup_keysym
@@ -149,10 +157,12 @@ keymap_lookup_keysym:
     mov eax, [rdi + rsi * 4]
     test eax, eax
     jz .none
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .none:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -182,19 +192,24 @@ keymap_is_modifier:
     je .super
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .shift:
     mov rax, MOD_SHIFT
+    EPILOGUE_RESTORE rbx
     ret
 .ctrl:
     mov rax, MOD_CTRL
+    EPILOGUE_RESTORE rbx
     ret
 .alt:
     mov rax, MOD_ALT
+    EPILOGUE_RESTORE rbx
     ret
 .super:
     mov rax, MOD_MOD4
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -206,6 +221,7 @@ keymap_compile:
     PROLOGUE
     ; TODO: Parse text keymap format
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -242,10 +258,13 @@ keymap_load:
     js .fail
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; keymap_create_default
@@ -292,10 +311,13 @@ keymap_create_default:
     ; ... (more key mappings would go here)
 
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .data
 global keymap_version

@@ -7,9 +7,26 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Keyboard_size    96
+%define MOD_SHIFT      (1 << 0)
+%define MOD_CAPS       (1 << 1)
+%define MOD_CTRL       (1 << 2)
+%define MOD_ALT        (1 << 3)
+%define MOD_MOD2       (1 << 4)
+%define MOD_MOD3       (1 << 5)
+%define MOD_MOD4       (1 << 6)
+%define MOD_MOD5       (1 << 7)
+%define LED_NUM_LOCK    (1 << 0)
+%define LED_CAPS_LOCK   (1 << 1)
+%define LED_SCROLL_LOCK (1 << 2)
+%define KEY_PRESS       1
+%define KEY_RELEASE     0
+%define MAX_PRESSED_KEYS  64
+
 section .text
 
-struc Keyboard {
+struc Keyboard
     .seat:          resq 1
     .keymap:        resq 1
     .modifiers:     resd 1
@@ -19,26 +36,11 @@ struc Keyboard {
     .pressed_count: resd 1
     .repeat_key:    resd 1
     .repeat_timer:  resq 1
-}
-%define Keyboard_size    96
+endstruc
 
-%define MOD_SHIFT      (1 << 0)
-%define MOD_CAPS       (1 << 1)
-%define MOD_CTRL       (1 << 2)
-%define MOD_ALT        (1 << 3)
-%define MOD_MOD2       (1 << 4)
-%define MOD_MOD3       (1 << 5)
-%define MOD_MOD4       (1 << 6)
-%define MOD_MOD5       (1 << 7)
 
-%define LED_NUM_LOCK    (1 << 0)
-%define LED_CAPS_LOCK   (1 << 1)
-%define LED_SCROLL_LOCK (1 << 2)
 
-%define KEY_PRESS       1
-%define KEY_RELEASE     0
 
-%define MAX_PRESSED_KEYS  64
 
 ; ---------------------------------------------------------------------------
 ; keyboard_create
@@ -81,10 +83,13 @@ keyboard_create:
     mov qword [rbx + Keyboard.pressed_keys], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; keyboard_set_keymap
@@ -96,6 +101,7 @@ keyboard_set_keymap:
     ASSERT_PTR rsi
     mov qword [rdi + Keyboard.keymap], rsi
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -134,16 +140,19 @@ keyboard_process_key:
 
     ; Press
     call keyboard_key_press
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .release:
     ; Release
     call keyboard_key_release
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .no_keymap:
 .no_keysym:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -290,6 +299,7 @@ keyboard_stop_repeat:
     mov qword [rdi + Keyboard.repeat_timer], 0
     mov dword [rdi + Keyboard.repeat_key], 0
 .done:
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -335,6 +345,7 @@ keyboard_set_leds:
     mov byte [rdi + Keyboard.leds], dl
     ; TODO: Send to hardware
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -345,6 +356,7 @@ keyboard_get_modifiers:
     PROLOGUE
     ASSERT_PTR rdi
     mov eax, [rdi + Keyboard.modifiers]
+    leave
     ret
 
 section .data

@@ -20,6 +20,7 @@ bench_compose_run:
     call compositor_composite
     call tv_time_now_ns
     sub rax, r12
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

@@ -7,10 +7,17 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/fixed.inc"
+%include "inc/server_offsets.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+
+; struct offsets (hoisted above use)
+%define MAGNIFIER_MIN_SCALE    0x10000      ; 1.0
+%define MAGNIFIER_MAX_SCALE    0x100000     ; 16.0
 
 section .text
 
-struc Magnifier {
+struc Magnifier
     .enabled:           resb 1
     .scale:             resq 1
     .follow_mouse:      resb 1
@@ -22,11 +29,8 @@ struc Magnifier {
     .height:            resd 1
     .source_output:     resq 1
     .target_output:     resq 1
-}
-%define Magnifier_size    48
+endstruc
 
-%define MAGNIFIER_MIN_SCALE    0x10000      ; 1.0
-%define MAGNIFIER_MAX_SCALE    0x100000     ; 16.0
 
 ; ---------------------------------------------------------------------------
 ; magnifier_init
@@ -60,10 +64,13 @@ magnifier_init:
 
     mov qword [rdi + Server.magnifier], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; magnifier_enable
@@ -76,6 +83,7 @@ magnifier_enable:
 
     mov byte [rbx + Magnifier.enabled], 1
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -89,6 +97,7 @@ magnifier_disable:
 
     mov byte [rbx + Magnifier.enabled], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -107,12 +116,17 @@ magnifier_set_scale:
 
     mov qword [rbx + Magnifier.scale], rsi
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .too_small:
-    RETURN_ERROR ERANGE
+    mov rax, -(ERANGE)
+    EPILOGUE_RESTORE rbx
+    ret
 .too_large:
-    RETURN_ERROR ERANGE
+    mov rax, -(ERANGE)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; magnifier_set_mode
@@ -135,19 +149,25 @@ magnifier_set_mode:
 
 .set_fullscreen:
     mov byte [rbx + Magnifier.fullscreen], 1
+    EPILOGUE_RESTORE rbx
     ret
 .set_windowed:
     mov byte [rbx + Magnifier.fullscreen], 0
+    EPILOGUE_RESTORE rbx
     ret
 .set_follow_mouse:
     mov byte [rbx + Magnifier.follow_mouse], dl
+    EPILOGUE_RESTORE rbx
     ret
 .set_follow_focus:
     mov byte [rbx + Magnifier.follow_focus], dl
+    EPILOGUE_RESTORE rbx
     ret
 
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; magnifier_update
@@ -200,6 +220,7 @@ magnifier_update:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -220,6 +241,7 @@ magnifier_render:
     ; 3. Render to magnifier window
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

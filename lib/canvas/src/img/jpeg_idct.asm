@@ -79,6 +79,7 @@ jpeg_idct8x8:
     cmp r13d, 64
     jb .clamp
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -100,6 +101,7 @@ idct_row:
 .fill:
     mov [rbx + rcx * 2 - 16], ax
     loop .fill
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .full:
     ; load s0..s7
@@ -155,6 +157,7 @@ idct_row:
     mov eax, r11d
     sub eax, r13d
     mov [rbx + 8], ax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -200,6 +203,7 @@ idct_col:
     mov eax, [rsp + 14]
     mov [rbx + 112], eax
     add rsp, 16
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

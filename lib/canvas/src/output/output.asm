@@ -8,6 +8,82 @@
 %include "inc/tattva.inc"
 %include "inc/fixed.inc"
 
+; struct offsets (hoisted above use)
+%define Output_id              0
+%define Output.id 0
+%define Output_name            8
+%define Output.name 8
+%define Output_backend         16
+%define Output.backend 16
+%define Output_framebuffer     24
+%define Output.framebuffer 24
+%define Output_width           32
+%define Output.width 32
+%define Output_height          36
+%define Output.height 36
+%define Output_stride          40
+%define Output.stride 40
+%define Output_scale           48
+%define Output.scale 48
+%define Output_rotation        56
+%define Output.rotation 56
+%define Output_gamma_lut       64
+%define Output.gamma_lut 64
+%define Output_icc_profile     72
+%define Output.icc_profile 72
+%define Output_vrr_enabled     80
+%define Output.vrr_enabled 80
+%define Output_current_mode    88
+%define Output.current_mode 88
+%define Output_modes           96
+%define Output.modes 96
+%define Output_position        104
+%define Output.position 104
+%define Output_frame_clock     112
+%define Output.frame_clock 112
+%define Output_damage          120
+%define Output.damage 120
+%define Output_next            128
+%define Output.next 128
+%define Output_size            136
+%define Server_outputs         0x80
+%define Server.outputs 0x80
+%define Server_output_count    0x88
+%define Server.output_count 0x88
+%define Server_layout_bounds   0x90
+%define Server.layout_bounds 0x90
+%define Server_arena           0x130
+%define Server.arena 0x130
+%define Mode_width             0
+%define Mode_height            4
+%define Mode_htotal            8
+%define Mode_hsync_start       12
+%define Mode_hsync_end         16
+%define Mode_vtotal            20
+%define Mode_vsync_start       24
+%define Mode_vsync_end         28
+%define Mode_flags             32
+%define Mode_pixel_clock       36
+%define Mode_refresh_ns        40
+%define Mode.refresh_ns 40
+%define Mode_width_mm          48
+%define Mode_height_mm         52
+%define Mode_hborder           56
+%define Mode_vborder           57
+%define Mode_hsync_offset      58
+%define Mode_hsync_width       60
+%define Mode_vsync_offset      62
+%define Mode_vsync_width       63
+%define Mode_size              64
+%define FrameClock_output       0
+%define FrameClock_refresh_ns   8
+%define FrameClock.refresh_ns 8
+%define FrameClock_next_vblank  16
+%define FrameClock_phase        24
+%define FrameClock_callbacks    32
+%define FrameClock_size         40
+%define FIX_ONE                0x10000
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -32,6 +108,7 @@ output_init:
     call output_load_config
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -41,6 +118,7 @@ output_init:
 output_load_config:
     PROLOGUE
     ; TODO: Read outputs.conf
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -119,10 +197,13 @@ output_create:
     inc qword [rbx + Server.output_count]
 
     mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; output_destroy
@@ -147,6 +228,7 @@ output_destroy:
     ; TODO: frame_clock_deinit
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -179,10 +261,13 @@ output_set_mode:
     mov [rdi + FrameClock.refresh_ns], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
-    RETURN_ERROR EOUT_MODE
+    mov rax, -(EOUT_MODE)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; output_set_scale
@@ -197,6 +282,7 @@ output_set_scale:
 
     mov qword [rsi + Output.scale], rdx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -211,6 +297,7 @@ output_set_rotation:
 
     mov dword [rsi + Output.rotation], edx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -231,6 +318,7 @@ output_set_position:
     mov [rbx + 4], eax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -246,6 +334,7 @@ output_enable_vrr:
     mov byte [rsi + Output.vrr_enabled], dl
     ; TODO: Call backend VRR enable
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -268,6 +357,7 @@ output_set_gamma:
     mov rsi, r12
     mov rcx, 768
     call memcopy
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .alloc_gamma:
@@ -281,10 +371,13 @@ output_set_gamma:
     mov rsi, r12
     mov rcx, 768
     call memcopy
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; output_set_icc_profile
@@ -295,6 +388,7 @@ output_set_icc_profile:
     PROLOGUE
     ; TODO
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -352,6 +446,7 @@ output_layout_apply:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -363,64 +458,15 @@ output_mirror:
     PROLOGUE
     ; TODO: Set multiple outputs to same mode/position
     xor rax, rax
+    leave
     ret
 
 section .data
 
-%define Output_id              0
-%define Output_name            8
-%define Output_backend         16
-%define Output_framebuffer     24
-%define Output_width           32
-%define Output_height          36
-%define Output_stride          40
-%define Output_scale           48
-%define Output_rotation        56
-%define Output_gamma_lut       64
-%define Output_icc_profile     72
-%define Output_vrr_enabled     80
-%define Output_current_mode    88
-%define Output_modes           96
-%define Output_position        104
-%define Output_frame_clock     112
-%define Output_damage          120
-%define Output_next            128
-%define Output_size            136
 
-%define Server_outputs         0x80
-%define Server_output_count    0x88
-%define Server_layout_bounds   0x90
-%define Server_arena           0x130
 
-%define Mode_width             0
-%define Mode_height            4
-%define Mode_htotal            8
-%define Mode_hsync_start       12
-%define Mode_hsync_end         16
-%define Mode_vtotal            20
-%define Mode_vsync_start       24
-%define Mode_vsync_end         28
-%define Mode_flags             32
-%define Mode_pixel_clock       36
-%define Mode_refresh_ns        40
-%define Mode_width_mm          48
-%define Mode_height_mm         52
-%define Mode_hborder           56
-%define Mode_vborder           57
-%define Mode_hsync_offset      58
-%define Mode_hsync_width       60
-%define Mode_vsync_offset      62
-%define Mode_vsync_width       63
-%define Mode_size              64
 
-%define FrameClock_output       0
-%define FrameClock_refresh_ns   8
-%define FrameClock_next_vblank  16
-%define FrameClock_phase        24
-%define FrameClock_callbacks    32
-%define FrameClock_size         40
 
-%define FIX_ONE                0x10000
 
 global output_version
 output_version: dq 0x010000

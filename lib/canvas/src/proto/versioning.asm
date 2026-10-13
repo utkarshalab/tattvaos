@@ -45,10 +45,12 @@ versioning_negotiate:
     cmovg rcx, rdx
     or rax, rcx
 
+    leave
     ret
 
 .incompatible:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -65,9 +67,11 @@ versioning_check_interface:
     cmp rsi, rdi
     jbe .supported
     xor rax, rax
+    leave
     ret
 .supported:
     mov rax, 1
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -84,6 +88,7 @@ versioning_encode:
     shl rcx, 16
     or rax, rcx
     or rax, rdx
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -105,6 +110,7 @@ versioning_decode:
     and rax, 0xFFFF
     mov [rcx], eax
     xor rax, rax
+    leave
     ret
 
 section .data

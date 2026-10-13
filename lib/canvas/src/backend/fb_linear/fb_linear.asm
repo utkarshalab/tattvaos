@@ -7,7 +7,25 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/fixed.inc"
 %include "inc/backend.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+
+; struct offsets (hoisted above use)
+%define FbLinearState_fb_base     0
+%define FbLinearState.fb_base 0
+%define FbLinearState_width       8
+%define FbLinearState.width 8
+%define FbLinearState_height      12
+%define FbLinearState.height 12
+%define FbLinearState_stride      16
+%define FbLinearState.stride 16
+%define FbLinearState_format      20
+%define FbLinearState.format 20
+%define FbLinearState_back_buffer 24
+%define FbLinearState.back_buffer 24
+%define FbLinearState_size        32
 
 section .text
 
@@ -68,10 +86,13 @@ fb_linear_init:
     call fb_linear_create_output
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fb_linear_discover
@@ -84,6 +105,7 @@ fb_linear_discover:
     ; For UEFI GOP: read GOP mode info
     ; For VBE: query VBE mode
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -109,6 +131,7 @@ fb_linear_deinit:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -135,6 +158,7 @@ fb_linear_modeset:
     mov [r12 + Output.height], eax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -213,14 +237,21 @@ fb_linear_flip:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .no_fb:
-    RETURN_ERROR ENXIO
+    mov rax, -(ENXIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .fence_fail:
-    RETURN_ERROR EFENCE_WAIT
+    mov rax, -(EFENCE_WAIT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .copy_fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fb_linear_vblank_wait
@@ -246,6 +277,7 @@ fb_linear_vblank_wait:
 
     ; Return present info
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -255,6 +287,7 @@ global fb_linear_hotplug
 fb_linear_hotplug:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -266,6 +299,7 @@ fb_linear_cursor:
     PROLOGUE
     ; Software cursor only
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -309,20 +343,16 @@ fb_linear_create_output:
     mov [rbx + Backend.outputs], r13
     inc qword [rbx + Backend.output_count]
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 section .data
 
-%define FbLinearState_fb_base     0
-%define FbLinearState_width       8
-%define FbLinearState_height      12
-%define FbLinearState_stride      16
-%define FbLinearState_format      20
-%define FbLinearState_back_buffer 24
-%define FbLinearState_size        32
 
 global fb_linear_version
 fb_linear_version: dq 0x010000

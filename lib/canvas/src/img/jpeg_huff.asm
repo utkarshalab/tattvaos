@@ -6,16 +6,18 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define HuffTable_size    1320
+
 section .text
 
-struc HuffTable {
+struc HuffTable
     .counts:        resb 16
     .symbols:       resb 256
     .max_syms:      resd 1
     .codes:         resd 256
     .sizes:         resb 256
-}
-%define HuffTable_size    1320
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; jpeg_huff_build
@@ -70,7 +72,9 @@ jpeg_huff_build:
     shl r15d, 1
     jmp .gen_len
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; jpeg_huff_decode
@@ -118,9 +122,12 @@ jpeg_huff_decode:
     jmp .search
 .found:
     movzx eax, byte [rdi + rdx]
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 section .data
 global jpeg_huff_version

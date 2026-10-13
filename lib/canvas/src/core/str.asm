@@ -57,6 +57,7 @@ str_copy:
 .truncated:
     mov byte [rbx + rdx], 0
     mov rax, -ENOBUFS
+    EPILOGUE_RESTORE rbx, r12
     ret
 .done:
     EPILOGUE_RESTORE rbx, r12
@@ -115,9 +116,11 @@ str_compare:
 .diff:
     sub al, cl
     movsx rax, al
+    EPILOGUE_RESTORE rbx, r12
     ret
 .equal:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -151,9 +154,11 @@ str_ncompare:
 .diff:
     sub al, cl
     movsx rax, al
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .equal:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -178,9 +183,11 @@ str_find_char:
     jmp .loop
 .found:
     mov rax, rbx
+    EPILOGUE_RESTORE rbx
     ret
 .not_found:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -208,6 +215,7 @@ str_find_last_char:
     jmp .loop
 .done:
     mov rax, r12
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -234,9 +242,11 @@ str_starts_with:
     jmp .loop
 .yes:
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12
     ret
 .no:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -272,9 +282,11 @@ str_ends_with:
     jmp .loop
 .yes:
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .no:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -303,6 +315,7 @@ str_to_lower:
     jmp .loop
 .done:
     mov rax, rdi
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -331,6 +344,7 @@ str_to_upper:
     jmp .loop
 .done:
     mov rax, rdi
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -362,9 +376,11 @@ str_dup_arena:
     mov rdi, rax
     mov rsi, r12
     call str_copy
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -404,9 +420,11 @@ str_concat_arena:
     add rdi, r12
     mov rsi, r13
     call str_copy
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

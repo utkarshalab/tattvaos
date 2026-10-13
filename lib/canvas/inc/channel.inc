@@ -18,19 +18,19 @@
 
 %define MAX_PAYLOAD_SIZE  65536
 
-struc Channel {
+struc Channel
     .msg_ring:      resq 1
     .handle_ring:   resq 1
     .client:        resq 1
     .server:        resq 1
-}
+endstruc
 
-struc ChannelPair {
+struc ChannelPair
     .server_to_client:           resq 1
     .client_to_server:           resq 1
     .server_to_client_handles:   resq 1
     .client_to_server_handles:   resq 1
     .arena:                      resq 1
-}
+endstruc
 
 %endif

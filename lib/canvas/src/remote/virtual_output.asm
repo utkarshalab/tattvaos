@@ -7,15 +7,17 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define VirtualOutput_size    32
+
 section .text
 
-struc VirtualOutput {
+struc VirtualOutput
     .output:        resq 1
     .fb:            resq 1
     .tilediff:      resq 1
     .seq:           resq 1
-}
-%define VirtualOutput_size    32
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; virtual_output_create
@@ -75,13 +77,20 @@ virtual_output_create:
     jnz .fail
     mov qword [r14 + VirtualOutput.seq], 0
     mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; virtual_output_damage
@@ -99,6 +108,7 @@ virtual_output_damage:
     mov ecx, [r12 + PixBuf.width]
     mov r8d, [r12 + PixBuf.height]
     call tile_diff_update
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

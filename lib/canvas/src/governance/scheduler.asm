@@ -7,18 +7,20 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Scheduler_size    40
+%define SCHED_DEFAULT_QUANTUM   32  ; messages per turn
+
 section .text
 
-struc Scheduler {
+struc Scheduler
     .server:         resq 1
     .cursor:         resq 1
     .quantum:        resq 1
     .served:         resq 1
     .starved:        resq 1
-}
-%define Scheduler_size    40
+endstruc
 
-%define SCHED_DEFAULT_QUANTUM   32  ; messages per turn
 
 ; ---------------------------------------------------------------------------
 ; scheduler_init
@@ -43,9 +45,12 @@ scheduler_init:
     mov qword [rbx + Scheduler.starved], 0
     mov qword [rdi + Server.scheduler], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; scheduler_run
@@ -73,6 +78,7 @@ scheduler_run:
     add [r12 + Scheduler.served], rax
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -99,6 +105,7 @@ server_dispatch_quantum:
     jmp .loop
 .done:
     mov rax, r13
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -111,6 +118,7 @@ server_dispatch_one:
     ; TODO: pop one message from next ready client channel
     ; and call dispatch_call. Return 1 if work done, 0 if idle.
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -124,9 +132,12 @@ scheduler_set_quantum:
     jz .invalid
     mov [rdi + Scheduler.quantum], rsi
     xor rax, rax
+    leave
     ret
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 section .data
 global scheduler_version

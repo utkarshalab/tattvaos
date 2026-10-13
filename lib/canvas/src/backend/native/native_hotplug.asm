@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -62,7 +64,8 @@ native_hpd_handler:
     mov r12, [rbx + Output.controller]
     mov r13, [r12 + Controller.mmio_base]
     mov eax, [rbx + Output.hpd_register]
-    mov edx, [r13 + eax]
+    movsxd rax, eax
+    mov edx, [r13 + rax]
 
     test edx, edx
     jnz .connected
@@ -134,13 +137,19 @@ native_handle_connect:
 
 .edid_fail:
     add rsp, 256
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .no_mode:
     add rsp, 256
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .mode_fail:
     add rsp, 256
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 native_handle_disconnect:
     PROLOGUE_SAVE rbx, r12

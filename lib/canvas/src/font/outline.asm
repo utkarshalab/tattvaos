@@ -132,9 +132,12 @@ outline_decode_points:
 .y_done:
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; outline_flag / outline_x / outline_y helpers
@@ -146,6 +149,7 @@ outline_flag:
     mov rbx, rdi
     mov rax, [rbx + GlyfOut.coords]
     movzx eax, byte [rax + 8 + rsi]
+    EPILOGUE_RESTORE rbx
     ret
 
 global outline_x
@@ -157,6 +161,7 @@ outline_x:
     mov ecx, [rax + 0]  ; n
     lea rax, [rax + 8 + rcx]
     mov eax, [rax + r12 * 4]
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global outline_y
@@ -168,6 +173,7 @@ outline_y:
     mov ecx, [rax + 0]
     lea rax, [rax + 8 + rcx + rcx * 4]
     mov eax, [rax + r12 * 4]
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -192,11 +198,16 @@ outline_emit_verb:
     mov [r12 + 5], ecx
     inc qword [rbx + GlyfOut.count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; outline_set_contours
@@ -235,8 +246,10 @@ outline_set_contours:
     jmp .contour
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -497,9 +510,11 @@ outline_emit_contour:
 .done:
     add rsp, 48
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .empty:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------

@@ -16,36 +16,42 @@ canvas_toplevel_create:
     ASSERT_PTR rbx
     mov eax, [rbx + ClientConn.next_obj]
     inc dword [rbx + ClientConn.next_obj]
+    EPILOGUE_RESTORE rbx
     ret
 
 global canvas_toplevel_set_title
 canvas_toplevel_set_title:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_toplevel_set_app_id
 canvas_toplevel_set_app_id:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_toplevel_set_state
 canvas_toplevel_set_state:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_toplevel_set_min_size
 canvas_toplevel_set_min_size:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_toplevel_set_max_size
 canvas_toplevel_set_max_size:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_popup_create
@@ -55,6 +61,7 @@ canvas_popup_create:
     ASSERT_PTR rbx
     mov eax, [rbx + ClientConn.next_obj]
     inc dword [rbx + ClientConn.next_obj]
+    EPILOGUE_RESTORE rbx
     ret
 
 global canvas_layer_create
@@ -64,6 +71,7 @@ canvas_layer_create:
     ASSERT_PTR rbx
     mov eax, [rbx + ClientConn.next_obj]
     inc dword [rbx + ClientConn.next_obj]
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

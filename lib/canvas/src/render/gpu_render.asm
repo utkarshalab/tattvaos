@@ -8,14 +8,16 @@
 %include "inc/errors.inc"
 %include "inc/render.inc"
 
+; struct offsets (hoisted above use)
+%define GpuRenderer_size    24
+
 section .text
 
-struc GpuRenderer {
+struc GpuRenderer
     .base:          resq 1
     .gpu:           resq 1
     .sw_fallback:   resb 1
-}
-%define GpuRenderer_size    24
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; gpu_render_init
@@ -51,9 +53,12 @@ gpu_render_init:
 .done:
     mov qword [rdi + Server.gpu_renderer], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gpu_render_surface
@@ -74,12 +79,14 @@ gpu_render_surface:
     test rax, rax
     jz .fallback
     ; TODO: emit SDMA copy via gfx9_emit_copy + fence
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fallback:
     mov rdi, rbx
     mov rsi, r12
     mov rdx, r13
     call sw_render_surface
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -93,9 +100,11 @@ gpu_render_fill:
     cmp byte [rbx + GpuRenderer.sw_fallback], 1
     je .fallback
     ; TODO: gfx9_emit_fill
+    EPILOGUE_RESTORE rbx
     ret
 .fallback:
     call fill_solid
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

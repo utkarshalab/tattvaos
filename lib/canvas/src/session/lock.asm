@@ -7,9 +7,17 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define LockScreen_size    64
+%define LOCK_STATE_UNLOCKED    0
+%define LOCK_STATE_LOCKED      1
+%define LOCK_STATE_AUTHENTICATING 2
+%define MAX_LOCK_ATTEMPTS    5
+%define LOCKOUT_DURATION     30000000000  ; 30 seconds
+
 section .text
 
-struc LockScreen {
+struc LockScreen
     .session:         resq 1
     .surface:         resq 1
     .password_hash:   resq 1
@@ -18,15 +26,9 @@ struc LockScreen {
     .lock_time:       resq 1
     .unlock_callback: resq 1
     .user_data:       resq 1
-}
-%define LockScreen_size    64
+endstruc
 
-%define LOCK_STATE_UNLOCKED    0
-%define LOCK_STATE_LOCKED      1
-%define LOCK_STATE_AUTHENTICATING 2
 
-%define MAX_LOCK_ATTEMPTS    5
-%define LOCKOUT_DURATION     30000000000  ; 30 seconds
 
 ; ---------------------------------------------------------------------------
 ; lock_init
@@ -41,6 +43,7 @@ lock_init:
 
     mov qword [rbx + Server.lock_screens], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -90,10 +93,13 @@ lock_create:
     call lock_grab_input
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; lock_destroy
@@ -116,6 +122,7 @@ lock_destroy:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -145,12 +152,14 @@ lock_authenticate:
     mov dword [rbx + LockScreen.attempts], 0
     call lock_unlock
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .no_hash:
     ; No password set - allow
     call lock_unlock
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .wrong_password:
@@ -160,6 +169,7 @@ lock_authenticate:
 
     ; TODO: Send failed attempt event
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .lockout:
@@ -167,7 +177,9 @@ lock_authenticate:
     call tv_time_now_ns
     add rax, LOCKOUT_DURATION
     mov [rdi + LockScreen.lockout_until], rax
-    RETURN_ERROR EPERM
+    mov rax, -(EPERM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; lock_unlock
@@ -187,6 +199,7 @@ lock_unlock:
 .no_callback:
     ; Destroy lock screen
     call lock_destroy
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -195,6 +208,7 @@ lock_unlock:
 lock_grab_input:
     PROLOGUE
     ; TODO: Grab pointer and keyboard
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -203,6 +217,7 @@ lock_grab_input:
 lock_ungrab_input:
     PROLOGUE
     ; TODO: Release input grab
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -230,6 +245,7 @@ lock_draw:
     ; TODO: Draw UI elements
 
 .done:
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

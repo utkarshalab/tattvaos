@@ -7,9 +7,14 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Workspace_size    56
+%define WORKSPACE_STATE_ACTIVE    1
+%define WORKSPACE_STATE_INACTIVE  0
+
 section .text
 
-struc Workspace {
+struc Workspace
     .id:                resd 1
     .shell:             resq 1
     .toplevels:         resq 1
@@ -18,11 +23,8 @@ struc Workspace {
     .name:              resq 1
     .next:              resq 1
     .next_ws:           resq 1
-}
-%define Workspace_size    56
+endstruc
 
-%define WORKSPACE_STATE_ACTIVE    1
-%define WORKSPACE_STATE_INACTIVE  0
 
 ; ---------------------------------------------------------------------------
 ; workspace_create
@@ -62,10 +64,13 @@ workspace_create:
     inc dword [r12 + Shell.num_workspaces]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; workspace_destroy
@@ -85,6 +90,7 @@ workspace_destroy:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -133,6 +139,7 @@ workspace_set_active:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -155,6 +162,7 @@ workspace_add_toplevel:
     mov qword [r12 + Toplevel.workspace], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -172,6 +180,7 @@ workspace_remove_toplevel:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -182,6 +191,7 @@ workspace_get_toplevels:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Workspace.toplevels]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -203,9 +213,11 @@ workspace_get_active:
     jmp .find_loop
 
 .found:
+    EPILOGUE_RESTORE rbx
     ret
 .none:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -228,9 +240,11 @@ workspace_get_by_id:
     jmp .find_loop
 
 .found:
+    EPILOGUE_RESTORE rbx, r12
     ret
 .not_found:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -257,10 +271,13 @@ workspace_set_name:
     jz .oom
     mov [rbx + Workspace.name], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; workspace_set_layout
@@ -276,6 +293,7 @@ workspace_set_layout:
 
     mov [rbx + Workspace.layout_engine], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

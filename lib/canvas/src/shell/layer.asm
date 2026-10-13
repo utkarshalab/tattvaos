@@ -7,9 +7,40 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Layer_size    80
+%define LAYER_BACKGROUND      0
+%define LAYER_BOTTOM          1
+%define LAYER_NORMAL          2
+%define LAYER_TOP             3
+%define LAYER_OVERLAY         4
+%define LAYER_LOCK            5
+%define LAYER_ANCHOR_TOP      (1 << 0)
+%define LAYER_ANCHOR_BOTTOM   (1 << 1)
+%define LAYER_ANCHOR_LEFT     (1 << 2)
+%define LAYER_ANCHOR_RIGHT    (1 << 3)
+%define KEYBOARD_INTERACTIVITY_NONE      0
+%define KEYBOARD_INTERACTIVITY_EXCLUSIVE 1
+%define KEYBOARD_INTERACTIVITY_ON_DEMAND 2
+%define Layer_surface          0
+%define Layer_shell            8
+%define Layer_output           16
+%define Layer_layer            24
+%define Layer_namespace        32
+%define Layer_anchor           40
+%define Layer_exclusive_zone   44
+%define Layer_margin_top       48
+%define Layer_margin_bottom    52
+%define Layer_margin_left      56
+%define Layer_margin_right     60
+%define Layer_keyboard_interactivity 64
+%define Layer_next             72
+%define Layer.next 72
+%define Layer_size             80
+
 section .text
 
-struc Layer {
+struc Layer
     .surface:           resq 1
     .shell:             resq 1
     .output:            resq 1
@@ -22,24 +53,10 @@ struc Layer {
     .margin_left:       resd 1
     .margin_right:      resd 1
     .keyboard_interactivity: resb 1
-}
-%define Layer_size    80
+endstruc
 
-%define LAYER_BACKGROUND      0
-%define LAYER_BOTTOM          1
-%define LAYER_NORMAL          2
-%define LAYER_TOP             3
-%define LAYER_OVERLAY         4
-%define LAYER_LOCK            5
 
-%define LAYER_ANCHOR_TOP      (1 << 0)
-%define LAYER_ANCHOR_BOTTOM   (1 << 1)
-%define LAYER_ANCHOR_LEFT     (1 << 2)
-%define LAYER_ANCHOR_RIGHT    (1 << 3)
 
-%define KEYBOARD_INTERACTIVITY_NONE      0
-%define KEYBOARD_INTERACTIVITY_EXCLUSIVE 1
-%define KEYBOARD_INTERACTIVITY_ON_DEMAND 2
 
 ; ---------------------------------------------------------------------------
 ; layer_create
@@ -86,10 +103,13 @@ layer_create:
     mov [r13 + Shell.layers], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; layer_destroy
@@ -104,6 +124,7 @@ layer_destroy:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -119,6 +140,7 @@ layer_set_output:
 
     mov [rbx + Layer.output], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -133,10 +155,13 @@ layer_set_layer:
     ja .invalid
     mov dword [rdi + Layer.layer], esi
     xor rax, rax
+    leave
     ret
 
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; layer_set_namespace
@@ -147,6 +172,7 @@ layer_set_namespace:
     ASSERT_PTR rdi
     mov [rdi + Layer.namespace], rsi
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -158,6 +184,7 @@ layer_set_anchor:
     ASSERT_PTR rdi
     mov dword [rdi + Layer.anchor], esi
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -171,6 +198,7 @@ layer_set_exclusive_zone:
     mov dword [rdi + Layer.exclusive_zone], esi
     ; TODO: Notify policy for layout recalculation
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -185,6 +213,7 @@ layer_set_margin:
     mov dword [rdi + Layer.margin_left], ecx
     mov dword [rdi + Layer.margin_right], r8d
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -197,10 +226,13 @@ layer_set_keyboard_interactivity:
     cmp rsi, 2
     ja .invalid
     mov byte [rdi + Layer.keyboard_interactivity], sil
+    leave
     ret
 
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; layer_get_geometry
@@ -223,20 +255,6 @@ layer_get_geometry:
 
 section .data
 
-%define Layer_surface          0
-%define Layer_shell            8
-%define Layer_output           16
-%define Layer_layer            24
-%define Layer_namespace        32
-%define Layer_anchor           40
-%define Layer_exclusive_zone   44
-%define Layer_margin_top       48
-%define Layer_margin_bottom    52
-%define Layer_margin_left      56
-%define Layer_margin_right     60
-%define Layer_keyboard_interactivity 64
-%define Layer_next             72
-%define Layer_size             80
 
 global layer_version
 layer_version: dq 0x010000

@@ -25,6 +25,7 @@ client_registry_init:
     mov rdi, rbx
     mov rsi, r12
     call rbtree_init
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -59,10 +60,13 @@ client_registry_add:
 
     mov rdi, rbx
     call rbtree_insert
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; client_registry_remove
@@ -75,6 +79,7 @@ client_registry_remove:
     PROLOGUE
     ASSERT_PTR rdi
     call rbtree_remove
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -88,6 +93,7 @@ client_registry_find:
     PROLOGUE
     ASSERT_PTR rdi
     call rbtree_find
+    leave
     ret
 
 section .data

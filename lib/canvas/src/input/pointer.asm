@@ -7,9 +7,20 @@
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
 
+; struct offsets (hoisted above use)
+%define Pointer_size    80
+%define BUTTON_LEFT       (1 << 0)
+%define BUTTON_MIDDLE     (1 << 1)
+%define BUTTON_RIGHT      (1 << 2)
+%define BUTTON_BACK       (1 << 3)
+%define BUTTON_FORWARD    (1 << 4)
+%define ACCEL_PROFILE_FLAT        0
+%define ACCEL_PROFILE_ADAPTIVE    1
+%define ACCEL_PROFILE_CUSTOM      2
+
 section .text
 
-struc Pointer {
+struc Pointer
     .seat:          resq 1
     .x:             resd 1
     .y:             resd 1
@@ -22,18 +33,9 @@ struc Pointer {
     .lock_x:        resd 1
     .lock_y:        resd 1
     .surface:       resq 1
-}
-%define Pointer_size    80
+endstruc
 
-%define BUTTON_LEFT       (1 << 0)
-%define BUTTON_MIDDLE     (1 << 1)
-%define BUTTON_RIGHT      (1 << 2)
-%define BUTTON_BACK       (1 << 3)
-%define BUTTON_FORWARD    (1 << 4)
 
-%define ACCEL_PROFILE_FLAT        0
-%define ACCEL_PROFILE_ADAPTIVE    1
-%define ACCEL_PROFILE_CUSTOM      2
 
 ; ---------------------------------------------------------------------------
 ; pointer_create
@@ -82,10 +84,13 @@ pointer_create:
     mov [rbx + Pointer.constraints], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; pointer_set_position
@@ -110,6 +115,7 @@ pointer_set_position:
     ; TODO: Send motion event to clients
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -120,6 +126,7 @@ global pointer_warp
 pointer_warp:
     PROLOGUE
     call pointer_set_position
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -141,6 +148,7 @@ pointer_set_button:
     mov eax, [rbx + Pointer.buttons]
     or eax, r12d
     mov [rbx + Pointer.buttons], eax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .release:
@@ -148,6 +156,7 @@ pointer_set_button:
     mov eax, [rbx + Pointer.buttons]
     and eax, ~r12d
     mov [rbx + Pointer.buttons], eax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -159,6 +168,7 @@ pointer_get_position:
     ASSERT_PTR rdi
     mov eax, [rdi + Pointer.x]
     mov edx, [rdi + Pointer.y]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -169,6 +179,7 @@ pointer_get_buttons:
     PROLOGUE
     ASSERT_PTR rdi
     mov eax, [rdi + Pointer.buttons]
+    leave
     ret
 
 section .data

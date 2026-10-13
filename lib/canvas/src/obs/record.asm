@@ -7,9 +7,16 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Recorder_size    56
+%define CWPREC_MAGIC     0x52505743  ; "CWPR"
+%define CWPREC_VERSION   1
+%define CwprecHeader_size    40
+%define CwprecFrame_size    16
+
 section .text
 
-struc Recorder {
+struc Recorder
     .server:         resq 1
     .active:         resb 1
     .path:           resq 1
@@ -18,27 +25,22 @@ struc Recorder {
     .msg_count:      resq 1
     .bytes:          resq 1
     .start_time:     resq 1
-}
-%define Recorder_size    56
+endstruc
 
-%define CWPREC_MAGIC     0x52505743  ; "CWPR"
-%define CWPREC_VERSION   1
 
-struc CwprecHeader {
+struc CwprecHeader
     .magic:          resd 1
     .version:        resd 1
     .frame_count:    resq 1
     .start_time:     resq 1
     .reserved:       resq 2
-}
-%define CwprecHeader_size    40
+endstruc
 
-struc CwprecFrame {
+struc CwprecFrame
     .timestamp:      resq 1
     .msg_count:      resd 1
     .msg_bytes:      resd 1
-}
-%define CwprecFrame_size    16
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; record_init
@@ -66,9 +68,12 @@ record_init:
     mov qword [rbx + Recorder.start_time], 0
     mov qword [rdi + Server.recorder], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; record_start
@@ -121,13 +126,20 @@ record_start:
     ; TODO: write header to TVFS path (append mode)
     add rsp, CwprecHeader_size
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .busy:
-    RETURN_ERROR EBUSY
+    mov rax, -(EBUSY)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .none:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; record_frame
@@ -151,6 +163,7 @@ record_frame:
     add [rbx + Recorder.bytes], rcx
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -171,9 +184,12 @@ record_stop:
     ; TODO: patch header frame_count
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 .none:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; record_is_active
@@ -186,9 +202,11 @@ record_is_active:
     test rax, rax
     jz .no
     movzx rax, byte [rax + Recorder.active]
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 section .data

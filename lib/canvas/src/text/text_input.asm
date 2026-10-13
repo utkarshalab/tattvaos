@@ -8,9 +8,26 @@
 %include "inc/tattva.inc"
 %include "inc/event.inc"
 
+; struct offsets (hoisted above use)
+%define TextInput_size    80
+%define TEXT_CONTENT_TYPE_NORMAL       0
+%define TEXT_CONTENT_TYPE_PASSWORD     1
+%define TEXT_CONTENT_TYPE_TERMINAL     2
+%define TEXT_CONTENT_HINT_NONE         0
+%define TEXT_CONTENT_HINT_COMPLETION   (1 << 0)
+%define TEXT_CONTENT_HINT_SPELLCHECK   (1 << 1)
+%define TEXT_CONTENT_HINT_NO_COMPLETION (1 << 2)
+%define TEXT_CONTENT_HINT_LOWERCASE    (1 << 3)
+%define TEXT_CONTENT_HINT_UPPERCASE    (1 << 4)
+%define TEXT_CONTENT_HINT_TITLECASE    (1 << 5)
+%define TEXT_CONTENT_HINT_HIDDEN       (1 << 6)
+%define TEXT_CONTENT_HINT_SENSITIVE    (1 << 7)
+%define TEXT_CONTENT_HINT_LATIN        (1 << 8)
+%define TEXT_CONTENT_HINT_MULTILINE    (1 << 9)
+
 section .text
 
-struc TextInput {
+struc TextInput
     .seat:              resq 1
     .surface:           resq 1
     .preedit_string:    resq 1
@@ -25,24 +42,9 @@ struc TextInput {
     .content_hint:      resd 1
     .enabled:           resb 1
     .pending_surrounding: resb 1
-}
-%define TextInput_size    80
+endstruc
 
-%define TEXT_CONTENT_TYPE_NORMAL       0
-%define TEXT_CONTENT_TYPE_PASSWORD     1
-%define TEXT_CONTENT_TYPE_TERMINAL     2
 
-%define TEXT_CONTENT_HINT_NONE         0
-%define TEXT_CONTENT_HINT_COMPLETION   (1 << 0)
-%define TEXT_CONTENT_HINT_SPELLCHECK   (1 << 1)
-%define TEXT_CONTENT_HINT_NO_COMPLETION (1 << 2)
-%define TEXT_CONTENT_HINT_LOWERCASE    (1 << 3)
-%define TEXT_CONTENT_HINT_UPPERCASE    (1 << 4)
-%define TEXT_CONTENT_HINT_TITLECASE    (1 << 5)
-%define TEXT_CONTENT_HINT_HIDDEN       (1 << 6)
-%define TEXT_CONTENT_HINT_SENSITIVE    (1 << 7)
-%define TEXT_CONTENT_HINT_LATIN        (1 << 8)
-%define TEXT_CONTENT_HINT_MULTILINE    (1 << 9)
 
 ; ---------------------------------------------------------------------------
 ; text_input_init
@@ -59,6 +61,7 @@ text_input_init:
     mov qword [rbx + Server.arena], r12
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -111,10 +114,13 @@ text_input_create:
     call text_input_send_enable
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; text_input_destroy
@@ -134,6 +140,7 @@ text_input_destroy:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -146,6 +153,7 @@ text_input_enable:
     mov byte [rdi + TextInput.enabled], 1
     call text_input_send_enable
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -158,6 +166,7 @@ text_input_disable:
     mov byte [rdi + TextInput.enabled], 0
     call text_input_send_disable
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -166,6 +175,7 @@ text_input_disable:
 text_input_send_enable:
     PROLOGUE
     ; TODO: Send cw_text.enable event
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -174,6 +184,7 @@ text_input_send_enable:
 text_input_send_disable:
     PROLOGUE
     ; TODO: Send cw_text.disable event
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -197,6 +208,7 @@ text_input_commit_string:
     ; TODO: Send cw_text.commit_string
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -221,6 +233,7 @@ text_input_set_preedit_string:
     ; TODO: Send cw_text.preedit_string
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -235,6 +248,7 @@ text_input_delete_surrounding_text:
     mov eax, esi
     mov [rbx + TextInput.delete_range], eax
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -255,6 +269,7 @@ text_input_set_surrounding_text:
     mov byte [rbx + TextInput.pending_surrounding], 1
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -269,6 +284,7 @@ text_input_set_content_type:
 
     mov dword [rbx + TextInput.content_type], r12d
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -283,6 +299,7 @@ text_input_set_content_hint:
 
     mov dword [rbx + TextInput.content_hint], r12d
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

@@ -7,14 +7,16 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define PolicyFloating_size    24
+
 section .text
 
-struc PolicyFloating {
+struc PolicyFloating
     .base:              resq 1
     .server:            resq 1
     .data:              resq 1
-}
-%define PolicyFloating_size    24
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; policy_floating_init
@@ -44,6 +46,7 @@ policy_floating_init:
     mov qword [rdi + Policy.window_configured], policy_floating_window_configured
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -73,6 +76,7 @@ policy_floating_layout:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -84,6 +88,7 @@ policy_floating_configure:
     PROLOGUE
     ; Floating allows any configure
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -100,6 +105,7 @@ policy_floating_focus_change:
     ; TODO: Update z-order
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -126,6 +132,7 @@ policy_floating_new_window:
     mov eax, [r13 + Pointer.y]
     mov [r12 + Toplevel.pending_height], eax
     mov byte [r12 + Toplevel.pending_state], 1
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .center:
@@ -133,6 +140,7 @@ policy_floating_new_window:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -142,6 +150,7 @@ global policy_floating_close_window
 policy_floating_close_window:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -151,6 +160,7 @@ global policy_floating_workspace_changed
 policy_floating_workspace_changed:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -160,7 +170,9 @@ policy_floating_workspace_changed:
 global policy_floating_tile_window
 policy_floating_tile_window:
     PROLOGUE
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; policy_floating_window_configured
@@ -169,6 +181,7 @@ global policy_floating_window_configured
 policy_floating_window_configured:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 section .data

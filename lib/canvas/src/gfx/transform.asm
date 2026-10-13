@@ -5,14 +5,16 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 
+; struct offsets (hoisted above use)
+%define TRANSFORM_NORMAL    0
+%define TRANSFORM_FLIP_H    4
+%define TRANSFORM_FLIP_V    8
+
 section .text
 
-%define TRANSFORM_NORMAL    0
 %define TRANSFORM_90        1
 %define TRANSFORM_180       2
 %define TRANSFORM_270       3
-%define TRANSFORM_FLIP_H    4
-%define TRANSFORM_FLIP_V    8
 
 ; ---------------------------------------------------------------------------
 ; transform_apply
@@ -52,6 +54,7 @@ transform_apply:
 
 .normal:
     call blit_copy
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .rot90:
@@ -77,6 +80,7 @@ transform_apply:
         sub r12, r15
         dec r15
         jnz .row_loop
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .rot180:
@@ -108,6 +112,7 @@ transform_apply:
         add r12, r15
         dec r15
         jnz .row_loop
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .rot270:
@@ -132,6 +137,7 @@ transform_apply:
         sub r12, r13
         dec r15
         jnz .row_loop
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .flip_h:
@@ -160,6 +166,7 @@ transform_apply:
         add r12, r15
         dec r15
         jnz .row_loop
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .flip_v:
@@ -191,6 +198,7 @@ transform_apply:
         add r12, r15
         dec r15
         jnz .row_loop
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .done:

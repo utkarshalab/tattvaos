@@ -7,9 +7,11 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define RFB_ENC_RAW    0
+
 section .text
 
-%define RFB_ENC_RAW    0
 
 global rfb_send_rect_header
 rfb_send_rect_header:
@@ -36,6 +38,7 @@ rfb_send_rect_header:
     mov rdx, 12
     call rfb_tls_write_all
     add rsp, 16
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global rfb_encode_raw_tile
@@ -50,6 +53,7 @@ rfb_encode_raw_tile:
     mov rsi, r12
     mov rdx, r13
     call rfb_tls_write_all
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

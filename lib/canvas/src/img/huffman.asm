@@ -7,13 +7,15 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define HuffDec_size    (16 + 288)
+
 section .text
 
-struc HuffDec {
+struc HuffDec
     .counts:        resb 16
     .symbols:       resb 288
-}
-%define HuffDec_size    (16 + 288)
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; huff_build
@@ -91,9 +93,12 @@ huff_build:
     jmp .len_loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; huff_decode
@@ -138,6 +143,7 @@ huff_decode:
 .found:
     lea rax, [rbx + 16]
     movzx eax, byte [rax + r15 + rdx]
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .refill:
     ; load up to 8 bytes LSB-first into buf
@@ -165,7 +171,9 @@ huff_decode:
 .loaded:
     jmp .have
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 section .data
 global huffman_version

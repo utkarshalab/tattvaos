@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define ClientStats_size    104
+
 section .text
 
-struc ClientStats {
+struc ClientStats
     .client_id:      resq 1
     .frames:         resq 1
     .commits:        resq 1
@@ -23,8 +26,7 @@ struc ClientStats {
     .last_present:   resq 1
     .commit_to_present_ns: resq 1
     .mem_bytes:      resq 1
-}
-%define ClientStats_size    104
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; stats_init
@@ -38,6 +40,7 @@ stats_init:
     ASSERT_PTR r12
     mov qword [rbx + Server.client_stats], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -71,9 +74,12 @@ stats_create:
     mov qword [rbx + ClientStats.commit_to_present_ns], 0
     mov qword [rbx + ClientStats.mem_bytes], 0
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; stats_inc
@@ -85,6 +91,7 @@ stats_inc:
     ASSERT_PTR rdi
     inc qword [rdi + rsi]
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -97,6 +104,7 @@ stats_add:
     ASSERT_PTR rdi
     add [rdi + rsi], rdx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -110,6 +118,7 @@ stats_commit:
     call tv_time_now_ns
     mov [rdi + ClientStats.last_commit], rax
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -130,6 +139,7 @@ stats_present:
     mov [rbx + ClientStats.commit_to_present_ns], rax
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

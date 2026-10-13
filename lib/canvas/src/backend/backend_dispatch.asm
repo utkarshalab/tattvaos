@@ -6,6 +6,14 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/backend.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+
+; struct offsets (hoisted above use)
+%define BACKEND_HEADLESS    1
+%define BACKEND_FB_LINEAR   2
+%define BACKEND_NATIVE      3
+%define BACKEND_REMOTE      4
 
 section .text
 
@@ -37,22 +45,28 @@ backend_init:
     cmp r13, BACKEND_REMOTE
     je .remote
 
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 .headless:
     call headless_init
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fb_linear:
     call fb_linear_init
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .native:
     call native_init
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .remote:
     call remote_backend_init
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -75,22 +89,27 @@ backend_deinit:
     je .call_remote
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .call_headless:
     call headless_deinit
+    EPILOGUE_RESTORE rbx
     ret
 
 .call_fb_linear:
     call fb_linear_deinit
+    EPILOGUE_RESTORE rbx
     ret
 
 .call_native:
     call native_deinit
+    EPILOGUE_RESTORE rbx
     ret
 
 .call_remote:
     call remote_backend_deinit
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -117,13 +136,16 @@ backend_modeset:
     cmp rax, BACKEND_REMOTE
     je .call_remote
 
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 .call_headless:
     mov rdi, [rbx + Backend.state]
     mov rsi, r12
     mov rdx, r13
     call headless_modeset
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .call_fb_linear:
@@ -131,6 +153,7 @@ backend_modeset:
     mov rsi, r12
     mov rdx, r13
     call fb_linear_modeset
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .call_native:
@@ -138,6 +161,7 @@ backend_modeset:
     mov rsi, r12
     mov rdx, r13
     call native_modeset
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .call_remote:
@@ -145,6 +169,7 @@ backend_modeset:
     mov rsi, r12
     mov rdx, r13
     call remote_backend_modeset
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -171,7 +196,9 @@ backend_flip:
     cmp rax, BACKEND_REMOTE
     je .call_remote
 
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 .call_headless:
     mov rdi, [rbx + Backend.state]
@@ -179,6 +206,7 @@ backend_flip:
     mov rdx, r13
     mov rcx, r14
     call headless_flip
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .call_fb_linear:
@@ -187,6 +215,7 @@ backend_flip:
     mov rdx, r13
     mov rcx, r14
     call fb_linear_flip
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .call_native:
@@ -195,6 +224,7 @@ backend_flip:
     mov rdx, r13
     mov rcx, r14
     call native_flip
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .call_remote:
@@ -203,6 +233,7 @@ backend_flip:
     mov rdx, r13
     mov rcx, r14
     call remote_backend_flip
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -227,13 +258,16 @@ backend_vblank_wait:
     cmp rax, BACKEND_REMOTE
     je .call_remote
 
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 .call_headless:
     mov rdi, [rbx + Backend.state]
     mov rsi, r12
     mov rdx, r13
     call headless_vblank_wait
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .call_fb_linear:
@@ -241,6 +275,7 @@ backend_vblank_wait:
     mov rsi, r12
     mov rdx, r13
     call fb_linear_vblank_wait
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .call_native:
@@ -248,6 +283,7 @@ backend_vblank_wait:
     mov rsi, r12
     mov rdx, r13
     call native_vblank_wait
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .call_remote:
@@ -255,6 +291,7 @@ backend_vblank_wait:
     mov rsi, r12
     mov rdx, r13
     call remote_backend_vblank_wait
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -277,22 +314,27 @@ backend_hotplug:
     je .call_remote
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .call_headless:
     call headless_hotplug
+    EPILOGUE_RESTORE rbx
     ret
 
 .call_fb_linear:
     call fb_linear_hotplug
+    EPILOGUE_RESTORE rbx
     ret
 
 .call_native:
     call native_hotplug
+    EPILOGUE_RESTORE rbx
     ret
 
 .call_remote:
     call remote_backend_hotplug
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -319,6 +361,7 @@ backend_cursor:
     je .call_remote
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .call_headless:
@@ -327,6 +370,7 @@ backend_cursor:
     mov rdx, r13
     mov rcx, r14
     call headless_cursor
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .call_fb_linear:
@@ -335,6 +379,7 @@ backend_cursor:
     mov rdx, r13
     mov rcx, r14
     call fb_linear_cursor
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .call_native:
@@ -343,6 +388,7 @@ backend_cursor:
     mov rdx, r13
     mov rcx, r14
     call native_cursor
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .call_remote:
@@ -351,14 +397,11 @@ backend_cursor:
     mov rdx, r13
     mov rcx, r14
     call remote_backend_cursor
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data
 
-%define BACKEND_HEADLESS    1
-%define BACKEND_FB_LINEAR   2
-%define BACKEND_NATIVE      3
-%define BACKEND_REMOTE      4
 
 global backend_version
 backend_version: dq 0x010000

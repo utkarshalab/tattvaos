@@ -34,6 +34,7 @@ canvas_event_loop_once:
     call r12
     mov rax, 1
     add rsp, ClientEvent_size
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .none:
     add rsp, ClientEvent_size
@@ -41,6 +42,7 @@ canvas_event_loop_once:
     mov rdi, 1000000
     call tv_time_sleep_ns
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -63,6 +65,7 @@ canvas_event_loop_run:
     test rax, rax
     jnz .loop
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

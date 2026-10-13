@@ -7,9 +7,18 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define PolicyTiling_size    56
+%define LayoutNode_size    64
+%define NODE_TYPE_LEAF    0
+%define NODE_TYPE_SPLIT_H 1
+%define NODE_TYPE_SPLIT_V 2
+%define TILING_MASTER_RATIO_NUM  3
+%define TILING_MASTER_RATIO_DEN  5
+
 section .text
 
-struc PolicyTiling {
+struc PolicyTiling
     .base:              resq 1
     .server:            resq 1
     .data:              resq 1
@@ -18,10 +27,9 @@ struc PolicyTiling {
     .gap_size:          resd 1
     .smart_gaps:        resb 1
     .smart_borders:     resb 1
-}
-%define PolicyTiling_size    56
+endstruc
 
-struc LayoutNode {
+struc LayoutNode
     .type:          resd 1
     .toplevel:      resq 1
     .left:          resq 1
@@ -32,15 +40,9 @@ struc LayoutNode {
     .y:             resd 1
     .width:         resd 1
     .height:        resd 1
-}
-%define LayoutNode_size    64
+endstruc
 
-%define NODE_TYPE_LEAF    0
-%define NODE_TYPE_SPLIT_H 1
-%define NODE_TYPE_SPLIT_V 2
 
-%define TILING_MASTER_RATIO_NUM  3
-%define TILING_MASTER_RATIO_DEN  5
 
 ; ---------------------------------------------------------------------------
 ; policy_tiling_init
@@ -77,6 +79,7 @@ policy_tiling_init:
     call layout_tree_init
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -96,6 +99,7 @@ layout_tree_init:
     mov [rbx + PolicyTiling.master_ratio], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -130,6 +134,7 @@ policy_tiling_layout:
     call layout_tree_apply
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -183,6 +188,7 @@ layout_tree_build:
     mov qword [rax + LayoutNode.right], 0
     mov qword [rax + LayoutNode.parent], 0
     mov qword [rax + LayoutNode.ratio], 0
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .build_tree:
@@ -190,15 +196,19 @@ layout_tree_build:
     ; For simplicity, create a balanced tree
     ; TODO: Implement proper binary tree building
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .empty:
     ; No windows - clear tree
     mov qword [rbx + PolicyTiling.layout_tree], 0
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; layout_tree_apply
@@ -220,6 +230,7 @@ layout_tree_apply:
     call layout_node_apply
 
 .done:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -278,6 +289,7 @@ layout_node_apply:
     mov byte [r14 + SurfaceState.pending], 1
 
     call toplevel_schedule_configure
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -295,6 +307,7 @@ policy_tiling_configure:
     ; TODO: Adjust configure to fit layout
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -304,6 +317,7 @@ global policy_tiling_focus_change
 policy_tiling_focus_change:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -326,6 +340,7 @@ policy_tiling_new_window:
     call layout_tree_insert
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -354,10 +369,12 @@ layout_tree_insert:
 .found:
     ; Convert leaf to split, add new leaf as right child
     ; TODO: Implement split
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .empty:
     ; First window - already handled in layout_tree_build
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -378,6 +395,7 @@ policy_tiling_close_window:
     call layout_tree_build
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -391,6 +409,7 @@ layout_tree_remove:
     ASSERT_PTR r12
 
     ; TODO: Remove node and merge split
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -408,6 +427,7 @@ policy_tiling_workspace_changed:
     call layout_tree_build
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -429,6 +449,7 @@ policy_tiling_tile_window:
     call layout_tree_build
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -438,6 +459,7 @@ global policy_tiling_window_configured
 policy_tiling_window_configured:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 section .data

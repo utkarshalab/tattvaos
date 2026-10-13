@@ -40,16 +40,20 @@ canvas_present_wait:
     ; TODO: check event is frame_done for surface
     add rsp, ClientEvent_size
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .timeout:
     add rsp, ClientEvent_size
-    RETURN_ERROR ETIMEDOUT
+    mov rax, -(ETIMEDOUT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 global canvas_present_feedback
 canvas_present_feedback:
     PROLOGUE
     ; TODO: return last PresentInfo
     xor rax, rax
+    leave
     ret
 
 section .data

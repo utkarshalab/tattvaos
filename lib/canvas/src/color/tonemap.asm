@@ -7,16 +7,18 @@
 %include "inc/errors.inc"
 %include "inc/colorm.inc"
 
+; struct offsets (hoisted above use)
+%define HdrMeta_size    20
+
 section .text
 
-struc HdrMeta {
+struc HdrMeta
     .encoding:      resd 1
     .max_cll:       resd 1  ; nits 16.16
     .max_fall:      resd 1
     .max_display:   resd 1
     .min_display:   resd 1
-}
-%define HdrMeta_size    20
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; tonemap_init
@@ -25,6 +27,7 @@ global tonemap_init
 tonemap_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -48,6 +51,7 @@ pq_to_linear:
     sub rax, 54783   ; 0.8359*65536
     jns .pos
     xor eax, eax
+    EPILOGUE_RESTORE rbx
     ret
 .pos:
     ; denom = 18.8516 - 18.6875*c'
@@ -64,9 +68,11 @@ pq_to_linear:
     mov rdi, rax
     call fix_sqrt
     ; scale to 10000-nit normalized then caller maps to display
+    EPILOGUE_RESTORE rbx
     ret
 .clip:
     mov rax, 0x10000
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -86,6 +92,7 @@ hlg_to_linear:
     mov rdx, rax
     shr rdx, 2  ; /3 approx via /4 (documented)
     mov rax, rdx
+    EPILOGUE_RESTORE rbx
     ret
 .upper:
     ; L = (exp((c-0.5599)/0.1788)+0.2847)/12
@@ -103,6 +110,7 @@ hlg_to_linear:
     mov rcx, 12
     xor rdx, rdx
     div rcx
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -127,6 +135,7 @@ tonemap_reinhard:
     ; scale to max_out
     imul rax, rdx
     sar rax, 16
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -160,6 +169,7 @@ tonemap_pixel:
     mov [rdx + 8], r13
     mov [rdx + 16], r13
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

@@ -7,17 +7,21 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define LIMITS_DEFAULT_CLIPBOARD    (1024 * 1024)      ; 1MB
 %define LIMITS_DEFAULT_SELECTION    (1024 * 1024)      ; 1MB
 %define LIMITS_DEFAULT_DND          (10 * 1024 * 1024) ; 10MB
 %define LIMITS_DEFAULT_OFFER_MIMES  16
-
 %define LIMITS_RATE_MSG_PER_SEC     1000
 %define LIMITS_RATE_BYTES_PER_SEC   (10 * 1024 * 1024) ; 10MB/s
+%define Limits_size    56
+%define ClientLimits_size    48
 
-struc Limits {
+section .text
+
+
+
+struc Limits
     .clipboard_max:       resq 1
     .selection_max:       resq 1
     .dnd_max:             resq 1
@@ -25,18 +29,16 @@ struc Limits {
     .rate_msg_per_sec:    resq 1
     .rate_bytes_per_sec:  resq 1
     .per_client_limits:   resq 1
-}
-%define Limits_size    56
+endstruc
 
-struc ClientLimits {
+struc ClientLimits
     .clipboard_bytes:     resq 1
     .selection_bytes:     resq 1
     .dnd_bytes:           resq 1
     .messages_sent:       resq 1
     .bytes_sent:          resq 1
     .last_reset:          resq 1
-}
-%define ClientLimits_size    48
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; limits_init
@@ -58,6 +60,7 @@ limits_init:
     mov qword [rbx + Limits.per_client_limits], 0
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -75,10 +78,13 @@ limits_check_clipboard:
     cmp r12, rax
     ja .exceeded
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .exceeded:
-    RETURN_ERROR ECLIP_SIZE
+    mov rax, -(ECLIP_SIZE)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; limits_check_selection
@@ -94,10 +100,13 @@ limits_check_selection:
     cmp r12, rax
     ja .exceeded
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .exceeded:
-    RETURN_ERROR ECLIP_SIZE
+    mov rax, -(ECLIP_SIZE)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; limits_check_dnd
@@ -113,10 +122,13 @@ limits_check_dnd:
     cmp r12, rax
     ja .exceeded
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .exceeded:
-    RETURN_ERROR ECLIP_SIZE
+    mov rax, -(ECLIP_SIZE)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; limits_check_offer_mimes
@@ -129,10 +141,13 @@ limits_check_offer_mimes:
     cmp esi, eax
     ja .exceeded
     xor rax, rax
+    leave
     ret
 
 .exceeded:
-    RETURN_ERROR ECLIP_MIME
+    mov rax, -(ECLIP_MIME)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; limits_client_init
@@ -162,10 +177,13 @@ limits_client_init:
 
     mov qword [rbx + Limits.per_client_limits], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; limits_client_check_rate
@@ -202,10 +220,13 @@ limits_client_check_rate:
 
 .ok:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .rate_exceeded:
-    RETURN_ERROR EQUOTA_RATE
+    mov rax, -(EQUOTA_RATE)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; limits_client_account
@@ -229,6 +250,7 @@ limits_client_account:
     ; Check limits
     call limits_client_check_rate
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

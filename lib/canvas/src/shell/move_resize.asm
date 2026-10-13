@@ -7,9 +7,19 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define MoveResize_size    104
+%define MOVE_RESIZE_MOVE      0
+%define MOVE_RESIZE_RESIZE    1
+%define RESIZE_EDGE_NONE      0
+%define RESIZE_EDGE_TOP       (1 << 0)
+%define RESIZE_EDGE_BOTTOM    (1 << 1)
+%define RESIZE_EDGE_LEFT      (1 << 2)
+%define RESIZE_EDGE_RIGHT     (1 << 3)
+
 section .text
 
-struc MoveResize {
+struc MoveResize
     .seat:              resq 1
     .toplevel:          resq 1
     .type:              resd 1
@@ -25,17 +35,9 @@ struc MoveResize {
     .max_width:         resd 1
     .max_height:        resd 1
     .grab:              resq 1
-}
-%define MoveResize_size    104
+endstruc
 
-%define MOVE_RESIZE_MOVE      0
-%define MOVE_RESIZE_RESIZE    1
 
-%define RESIZE_EDGE_NONE      0
-%define RESIZE_EDGE_TOP       (1 << 0)
-%define RESIZE_EDGE_BOTTOM    (1 << 1)
-%define RESIZE_EDGE_LEFT      (1 << 2)
-%define RESIZE_EDGE_RIGHT     (1 << 3)
 %define RESIZE_EDGE_TOP_LEFT      (RESIZE_EDGE_TOP | RESIZE_EDGE_LEFT)
 %define RESIZE_EDGE_TOP_RIGHT     (RESIZE_EDGE_TOP | RESIZE_EDGE_RIGHT)
 %define RESIZE_EDGE_BOTTOM_LEFT   (RESIZE_EDGE_BOTTOM | RESIZE_EDGE_LEFT)
@@ -48,6 +50,7 @@ global move_resize_init
 move_resize_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -119,12 +122,17 @@ move_resize_start:
     mov [r12 + Seat.move_resize], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .grab_fail:
-    RETURN_ERROR EBUSY
+    mov rax, -(EBUSY)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; move_resize_update
@@ -217,6 +225,7 @@ move_resize_update:
 
     ; Schedule configure
     call toplevel_schedule_configure
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .do_move:
@@ -236,10 +245,13 @@ move_resize_update:
     mov byte [r15 + SurfaceState.pending], 1
 
     call toplevel_schedule_configure
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; move_resize_end
@@ -270,6 +282,7 @@ move_resize_end:
     call toplevel_schedule_configure
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -310,6 +323,7 @@ move_resize_cancel:
     call toplevel_schedule_configure
 
     call move_resize_end
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

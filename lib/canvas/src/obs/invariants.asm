@@ -6,13 +6,15 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define INV_OK              0
 %define INV_ZORDER_CYCLE    1
 %define INV_DANGLING_PARENT 2
 %define INV_BAD_GEOMETRY    3
 %define INV_STALE_HANDLE    4
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; invariants_check_all
@@ -36,8 +38,10 @@ invariants_check_all:
     test rax, rax
     jnz .fail
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 .fail:
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -50,6 +54,7 @@ invariants_check_surfaces:
     ASSERT_PTR rbx
     ; TODO: iterate surface table
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -62,6 +67,7 @@ invariants_check_zorder:
     ASSERT_PTR rbx
     ; TODO: walk rbtree, verify sorted + unique
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -74,6 +80,7 @@ invariants_check_subsurfaces:
     ASSERT_PTR rbx
     ; TODO: walk subsurface lists with depth cap
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -87,6 +94,7 @@ invariants_assert:
     int3
 .ok:
     xor rax, rax
+    leave
     ret
 
 section .data

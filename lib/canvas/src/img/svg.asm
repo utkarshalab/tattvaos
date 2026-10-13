@@ -39,9 +39,11 @@ svg_probe:
     jnz .scan
 .no:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .yes:
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -90,12 +92,15 @@ svg_render:
     mov rcx, r14
     call svg_parse_elements
     mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .bad:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .oom:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -199,6 +204,7 @@ svg_parse_elements:
     jmp .scan
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -210,6 +216,7 @@ svg_attr_num:
     ; IN: rdi = tag ptr, rsi = tag len, rdx = attr name ptr, rcx = attr len
     ; OUT: rax = value (0 if missing)
     xor rax, rax
+    leave
     ret
 
 global svg_attr_color
@@ -217,6 +224,7 @@ svg_attr_color:
     PROLOGUE
     ; OUT: rax = BGRA color (default opaque black)
     mov rax, 0xFF000000
+    leave
     ret
 
 ; element draw stubs: rect filled, others delegate to path rasterizer
@@ -234,6 +242,7 @@ svg_draw_rect:
     mov r8, [r12 + PixBuf.stride]
     call fill_solid
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global svg_draw_circle
@@ -241,12 +250,14 @@ svg_draw_circle:
     PROLOGUE
     ; TODO: midpoint circle fill
     xor rax, rax
+    leave
     ret
 
 global svg_draw_ellipse
 svg_draw_ellipse:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global svg_draw_line
@@ -254,6 +265,7 @@ svg_draw_line:
     PROLOGUE
     ; TODO: bresenham
     xor rax, rax
+    leave
     ret
 
 global svg_draw_poly
@@ -261,6 +273,7 @@ svg_draw_poly:
     PROLOGUE
     ; TODO: scanline polygon fill
     xor rax, rax
+    leave
     ret
 
 global svg_draw_path
@@ -276,6 +289,7 @@ svg_draw_path:
     ; extract d="..." and flatten via svg_path
     ; TODO: find d attribute
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

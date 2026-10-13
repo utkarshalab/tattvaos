@@ -6,12 +6,14 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define CRP_ENC_RAW       0
 %define CRP_ENC_RLE       1
 %define CRP_ENC_DEFLATE   2
 %define CRP_ENC_DELTA     3
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; crp_encode_tile
@@ -46,6 +48,7 @@ crp_encode_tile:
     mov rsi, r12
     mov rdx, rax
     call memcopy
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .rle:
     mov rdi, r12
@@ -54,6 +57,7 @@ crp_encode_tile:
     mov rdx, r15
     mov rcx, r9
     call rle_encode
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .deflate:
     mov rdi, rbx
@@ -64,6 +68,7 @@ crp_encode_tile:
     mov r8, r9
     mov r9, 1
     call deflate_compress
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .delta:
     test r13, r13
@@ -74,9 +79,12 @@ crp_encode_tile:
     mov rcx, r13
     mov r8, r14
     call delta_encode_tile
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .full:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; crp_decode_tile
@@ -107,6 +115,7 @@ crp_decode_tile:
     mov rdx, rcx
     call memcopy
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .rle:
     mov rdi, r12
@@ -118,10 +127,13 @@ crp_decode_tile:
     test rax, rax
     js .fail
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .deflate:
     ; TODO: inflate into out
-    RETURN_ERROR ENOSYS
+    mov rax, -(ENOSYS)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .delta:
     test r14, r14
     jz .fail
@@ -131,9 +143,12 @@ crp_decode_tile:
     mov rcx, r15
     mov r8, r9
     call delta_decode_tile
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail:
-    RETURN_ERROR EREMOTE_CODEC
+    mov rax, -(EREMOTE_CODEC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 section .data
 global crp_codec_version

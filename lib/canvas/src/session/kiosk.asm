@@ -7,17 +7,19 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define KioskSession_size    56
+
 section .text
 
-struc KioskSession {
+struc KioskSession
     .session:         resq 1
     .allowed_app_id:  resq 1
     .restart_on_exit: resb 1
     .allow_exit:      resb 1
     .lock_screen:     resq 1
     .watchdog_timer:  resq 1
-}
-%define KioskSession_size    56
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; kiosk_init
@@ -32,6 +34,7 @@ kiosk_init:
 
     mov qword [rbx + Server.kiosk_sessions], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -72,10 +75,13 @@ kiosk_create:
     mov qword [r12 + Session.kiosk_session], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; kiosk_apply_policy
@@ -83,6 +89,7 @@ kiosk_create:
 kiosk_apply_policy:
     PROLOGUE
     ; Set kiosk policy: single fullscreen window, no other windows allowed
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -101,10 +108,13 @@ kiosk_start_watchdog:
     test rax, rax
     jnz .fail
     mov [rbx + KioskSession.watchdog_timer], rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; kiosk_watchdog_callback
@@ -125,6 +135,7 @@ kiosk_watchdog_callback:
     mov rsi, kiosk_watchdog_callback
     mov rdx, rbx
     call tv_timer_register
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -145,6 +156,7 @@ kiosk_destroy:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -158,6 +170,7 @@ kiosk_set_exit_policy:
 
     mov byte [rbx + KioskSession.allow_exit], cl
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

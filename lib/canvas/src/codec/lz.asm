@@ -6,21 +6,23 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define LZ_WINDOW_BITS   15
-%define LZ_WINDOW_SIZE   (1 << LZ_WINDOW_BITS)
 %define LZ_HASH_BITS     14
-%define LZ_HASH_SIZE     (1 << LZ_HASH_BITS)
 %define LZ_MIN_MATCH     3
 %define LZ_MAX_MATCH     258
+%define LzCtx_size    24
 
-struc LzCtx {
+section .text
+
+%define LZ_WINDOW_SIZE   (1 << LZ_WINDOW_BITS)
+%define LZ_HASH_SIZE     (1 << LZ_HASH_BITS)
+
+struc LzCtx
     .head:          resq 1
     .prev:          resq 1
     .window_start:  resq 1
-}
-%define LzCtx_size    24
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; lz_init
@@ -53,9 +55,12 @@ lz_init:
     mov eax, -1
     rep stosd
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; lz_hash3
@@ -72,6 +77,7 @@ lz_hash3:
     movzx edx, byte [rdi + 2]
     or eax, edx
     and eax, LZ_HASH_SIZE - 1
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -133,10 +139,12 @@ lz_find_match:
     jb .none
     mov rax, rcx
     mov rdx, r11
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .none:
     xor rax, rax
     xor rdx, rdx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data

@@ -13,18 +13,21 @@ global canvas_client_init
 canvas_client_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_client_shutdown
 canvas_client_shutdown:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global canvas_client_version
 canvas_client_version:
     PROLOGUE
     mov rax, 0x00010000
+    leave
     ret
 
 section .data

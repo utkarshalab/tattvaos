@@ -12,12 +12,14 @@ global log_init
 log_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global log_set_level
 log_set_level:
     PROLOGUE
     call tv_log_set_level
+    leave
     ret
 
 global log_error
@@ -29,6 +31,7 @@ log_error:
     mov rsi, rdx
     call tv_log_write
 .done:
+    leave
     ret
 
 global log_warn
@@ -40,6 +43,7 @@ log_warn:
     mov rsi, rdx
     call tv_log_write
 .done:
+    leave
     ret
 
 global log_info
@@ -51,6 +55,7 @@ log_info:
     mov rsi, rdx
     call tv_log_write
 .done:
+    leave
     ret
 
 global log_debug
@@ -62,6 +67,7 @@ log_debug:
     mov rsi, rdx
     call tv_log_write
 .done:
+    leave
     ret
 
 section .bss

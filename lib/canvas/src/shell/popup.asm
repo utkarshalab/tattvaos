@@ -7,9 +7,18 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Popup_size    64
+%define POPUP_POSITION_CENTER     0
+%define POPUP_POSITION_CURSOR     1
+%define POPUP_POSITION_RECT       2
+%define POPUP_CONSTRAIN_NONE      0
+%define POPUP_CONSTRAIN_WINDOW    1
+%define POPUP_CONSTRAIN_OUTPUT    2
+
 section .text
 
-struc Popup {
+struc Popup
     .surface:           resq 1
     .shell:             resq 1
     .parent:            resq 1
@@ -20,16 +29,9 @@ struc Popup {
     .height:            resd 1
     .constrain:         resb 1
     .grab:              resq 1
-}
-%define Popup_size    64
+endstruc
 
-%define POPUP_POSITION_CENTER     0
-%define POPUP_POSITION_CURSOR     1
-%define POPUP_POSITION_RECT       2
 
-%define POPUP_CONSTRAIN_NONE      0
-%define POPUP_CONSTRAIN_WINDOW    1
-%define POPUP_CONSTRAIN_OUTPUT    2
 
 ; ---------------------------------------------------------------------------
 ; popup_create
@@ -74,10 +76,13 @@ popup_create:
     mov [r13 + Shell.popups], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; popup_destroy
@@ -103,6 +108,7 @@ popup_destroy:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -118,6 +124,7 @@ popup_set_parent:
 
     mov [rbx + Popup.parent], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -136,6 +143,7 @@ popup_set_position:
     mov dword [rbx + Popup.x], r13d
     mov dword [rbx + Popup.y], r14d
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -148,6 +156,7 @@ popup_set_size:
     mov [rdi + Popup.width], esi
     mov [rdi + Popup.height], edx
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -161,10 +170,13 @@ popup_set_constrain:
     ja .invalid
     mov byte [rdi + Popup.constrain], sil
     xor rax, rax
+    leave
     ret
 
 .invalid:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; popup_compute_position
@@ -186,6 +198,7 @@ popup_compute_position:
     je .cursor
     cmp eax, POPUP_POSITION_RECT
     je .rect
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .center:
@@ -219,6 +232,7 @@ popup_compute_position:
 
     mov [rbx + Popup.x], r13d
     mov [rbx + Popup.y], r14d
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .cursor:
@@ -230,6 +244,7 @@ popup_compute_position:
     mov [rbx + Popup.x], eax
     mov eax, [r13 + Pointer.y]
     mov [rbx + Popup.y], eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .rect:
@@ -237,6 +252,7 @@ popup_compute_position:
     mov r13, [rbx + Popup.x]
     mov r14, [rbx + Popup.y]
     ; x, y already set
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .done:
@@ -270,10 +286,13 @@ popup_grab:
     mov qword [rbx + Popup.grab], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .fail:
-    RETURN_ERROR EBUSY
+    mov rax, -(EBUSY)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; popup_ungrab
@@ -295,6 +314,7 @@ popup_ungrab:
 .done:
     mov qword [rbx + Popup.grab], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

@@ -8,9 +8,18 @@
 %include "inc/tattva.inc"
 %include "inc/siphash.asm"
 
+; struct offsets (hoisted above use)
+%define Token_size    56
+%define TOKEN_TYPE_CAPABILITY   1
+%define TOKEN_TYPE_SESSION      2
+%define TOKEN_TYPE_CAPTURE      3
+%define TOKEN_TYPE_INJECT       4
+%define TOKEN_TYPE_POLICY       5
+%define TOKEN_DEFAULT_TTL       (3600 * 1000000000)  ; 1 hour in ns
+
 section .text
 
-struc Token {
+struc Token
     .value:       resq 1
     .type:        resd 1
     .capabilities: resq 1
@@ -18,16 +27,9 @@ struc Token {
     .issued_to:   resq 1
     .issued_by:   resq 1
     .issued_at:   resq 1
-}
-%define Token_size    56
+endstruc
 
-%define TOKEN_TYPE_CAPABILITY   1
-%define TOKEN_TYPE_SESSION      2
-%define TOKEN_TYPE_CAPTURE      3
-%define TOKEN_TYPE_INJECT       4
-%define TOKEN_TYPE_POLICY       5
 
-%define TOKEN_DEFAULT_TTL       (3600 * 1000000000)  ; 1 hour in ns
 
 ; ---------------------------------------------------------------------------
 ; token_init
@@ -61,10 +63,13 @@ token_init:
     add rsp, 32
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; token_create
@@ -125,12 +130,17 @@ token_create:
     mov qword [rbx + Token.issued_at], r13
 
     mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .cap_denied:
-    RETURN_ERROR ESEC_CAP
+    mov rax, -(ESEC_CAP)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; token_verify
@@ -163,14 +173,17 @@ token_verify:
     ja .expired
 
     mov rax, r12
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .invalid:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .expired:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -188,6 +201,7 @@ token_revoke:
     mov qword [r12 + Token.expires], 0
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -206,6 +220,7 @@ token_extend:
     add rax, r13
     mov [r12 + Token.expires], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data

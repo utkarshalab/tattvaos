@@ -8,17 +8,19 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Replayer_size    48
+
 section .text
 
-struc Replayer {
+struc Replayer
     .server:         resq 1
     .active:         resb 1
     .frames_total:   resq 1
     .frames_done:    resq 1
     .mismatches:     resq 1
     .expected_crc:   resq 1
-}
-%define Replayer_size    48
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; replay_init
@@ -44,9 +46,12 @@ replay_init:
     mov qword [rbx + Replayer.expected_crc], 0
     mov qword [rdi + Server.replayer], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; replay_run_file
@@ -137,40 +142,57 @@ replay_run_file:
     mov byte [rbx + Replayer.active], 0
     mov rax, [rbx + Replayer.mismatches]
     add rsp, 64
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .bad_magic:
     mov rdi, r12
     call tv_fs_close
     add rsp, 64
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .bad_version:
     mov rdi, r12
     call tv_fs_close
     add rsp, 64
-    RETURN_ERROR ECWP_VERSION
+    mov rax, -(ECWP_VERSION)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .read_fail:
     mov rdi, r12
     call tv_fs_close
     add rsp, 64
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .read_fail2:
     mov rdi, r12
     call tv_fs_close
     add rsp, 65536
     add rsp, 64
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .too_big:
     mov rdi, r12
     call tv_fs_close
     add rsp, 64
-    RETURN_ERROR EMSGSIZE
+    mov rax, -(EMSGSIZE)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .open_fail:
     mov byte [rbx + Replayer.active], 0
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .busy:
-    RETURN_ERROR EBUSY
+    mov rax, -(EBUSY)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .none:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; replay_stats
@@ -192,12 +214,14 @@ replay_stats:
     mov r8, [rax + Replayer.mismatches]
     mov [rcx], r8
     xor rax, rax
+    leave
     ret
 .none:
     mov qword [rsi], 0
     mov qword [rdx], 0
     mov qword [rcx], 0
     xor rax, rax
+    leave
     ret
 
 section .data

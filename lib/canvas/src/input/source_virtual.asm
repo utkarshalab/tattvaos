@@ -6,6 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define InputSource_virtual_ring  48
+%define InputSource_virtual_size  56
+
 section .text
 
 global input_source_virtual_init
@@ -41,7 +45,9 @@ input_source_virtual_init:
     call ring_init
     test rax, rax
     jnz .ring_ok
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 .ring_ok:
     mov qword [r12 + InputSource.virtual.ring], rax
@@ -52,39 +58,48 @@ input_source_virtual_init:
     call input_source_register
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 virtual_source_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 virtual_source_deinit:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 virtual_source_start:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 virtual_source_stop:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 virtual_source_get_device:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 virtual_source_grab:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -127,21 +142,24 @@ virtual_input_inject:
 
     add rsp, 24
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .ring_full:
     add rsp, 24
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .rodata
 virtual_source_name: db "virtual-input", 0
 
 section .data
-%define InputSource_virtual_ring  48
-%define InputSource_virtual_size  56
 
 global input_source_virtual_version
 input_source_virtual_version: dq 0x010000

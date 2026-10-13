@@ -17,7 +17,7 @@
 %define BACKEND_CAP_DIRECT_SCANOUT (1 << 8)
 
 ; Backend State (opaque, per-backend)
-struc Backend {
+struc Backend
     .init:           resq 1
     .deinit:         resq 1
     .modeset:        resq 1
@@ -32,11 +32,11 @@ struc Backend {
     .arena:          resq 1
     .server:         resq 1
     .name:           resq 1
-}
+endstruc
 %define Backend_size      96
 
 ; Output Structure
-struc Output {
+struc Output
     .id:              resq 1
     .name:            resq 1
     .backend:         resq 1
@@ -55,17 +55,17 @@ struc Output {
     .frame_clock:     resq 1
     .damage:          resq 1
     .next:            resq 1
-}
+endstruc
 %define Output_size         128
 
 ; Mode Structure
-struc Mode {
+struc Mode
     .width:         resd 1
     .height:        resd 1
     .refresh_ns:    resq 1
     .flags:         resd 1
     .name:          resq 1
-}
+endstruc
 %define Mode_size             32
 
 ; Mode Flags
@@ -74,20 +74,20 @@ struc Mode {
 %define MODE_FLAG_VRR          (1 << 2)
 
 ; Point Structure
-struc Point {
+struc Point
     .x: resd 1
     .y: resd 1
-}
+endstruc
 %define Point_size            8
 
 ; Config Structure (for backend init)
-struc Config {
+struc Config
     .fb_base:       resq 1
     .fb_width:      resd 1
     .fb_height:     resd 1
     .fb_stride:     resd 1
     .fb_format:     resd 1
-}
+endstruc
 %define Config_size           32
 
 ; Backend Function Pointers

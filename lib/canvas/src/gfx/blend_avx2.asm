@@ -21,6 +21,7 @@ blend_avx2:
     test r13, 7
     jz .aligned
     call blend_sse2
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .aligned:

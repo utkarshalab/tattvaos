@@ -7,10 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define GAMMA_ENTRIES    256
 %define GAMMA_CHANNELS   3
+
+section .text
+
 %define GAMMA_LUT_SIZE   (GAMMA_ENTRIES * GAMMA_CHANNELS * 2)  ; 1536 bytes
 
 ; ---------------------------------------------------------------------------
@@ -20,6 +22,7 @@ global gamma_init
 gamma_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -100,7 +103,9 @@ gamma_create_lut:
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gamma_set_lut
@@ -126,6 +131,7 @@ gamma_set_lut:
     mov rdi, rax
     mov rcx, 768
     call memcopy
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .alloc:
@@ -140,12 +146,17 @@ gamma_set_lut:
     mov rsi, r12
     mov rcx, 768
     call memcopy
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .bad_size:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gamma_load_from_edid
@@ -156,6 +167,7 @@ gamma_load_from_edid:
     PROLOGUE
     ; TODO: Parse EDID gamma curve
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -167,6 +179,7 @@ gamma_apply:
     PROLOGUE
     ; TODO: Implement in compositor
     xor rax, rax
+    leave
     ret
 
 section .data

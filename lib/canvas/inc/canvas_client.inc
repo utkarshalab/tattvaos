@@ -21,23 +21,23 @@
 %define CLIENT_COMMIT_TRANSACTION  (1 << 0)
 
 ; Event struct (24 bytes, mirrors inc/event.inc)
-struc ClientEvent {
+struc ClientEvent
     .type:  resd 1
     .time:  resq 1
     .a:     resd 1
     .b:     resd 1
     .c:     resd 1
-}
+endstruc
 %define ClientEvent_size    24
 
 ; Present info (mirrors render.inc)
-struc ClientPresentInfo {
+struc ClientPresentInfo
     .kind:            resd 1
     .seq:             resq 1
     .time:            resq 1
     .refresh_ns:      resq 1
     .flags:           resd 1
-}
+endstruc
 %define ClientPresentInfo_size  32
 
 %endif ; __CANVAS_CLIENT_INC__

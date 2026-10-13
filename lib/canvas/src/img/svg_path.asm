@@ -6,6 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define SvgPathState_size    64
+
 section .text
 
 %define SVG_CMD_MOVE      'M'
@@ -19,7 +22,7 @@ section .text
 %define SVG_CMD_ARC       'A'
 %define SVG_CMD_CLOSE     'Z'
 
-struc SvgPathState {
+struc SvgPathState
     .cx:            resq 1
     .cy:            resq 1
     .sx:            resq 1
@@ -28,8 +31,7 @@ struc SvgPathState {
     .out_count:     resq 1
     .out_cap:       resq 1
     .arena:         resq 1
-}
-%define SvgPathState_size    64
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; svg_path_flatten
@@ -73,10 +75,12 @@ svg_path_flatten:
     call svg_path_parse
     mov rax, [r15 + SvgPathState.out_lines]
     mov rdx, [r15 + SvgPathState.out_count]
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .oom:
     xor rax, rax
     xor rdx, rdx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -165,6 +169,7 @@ svg_path_parse:
     jmp .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -220,6 +225,7 @@ svg_path_num:
     neg eax
 .done:
     mov rdi, rbx
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -263,9 +269,12 @@ svg_path_emit_line:
     mov [rbx + SvgPathState.cx], ecx
     mov [rbx + SvgPathState.cy], r8d
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 global svg_path_emit_close
 svg_path_emit_close:
@@ -278,6 +287,7 @@ svg_path_emit_close:
     mov r8d, [rbx + SvgPathState.sy]
     mov rdi, rbx
     call svg_path_emit_line
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

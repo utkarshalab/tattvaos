@@ -8,6 +8,26 @@
 %include "inc/channel.inc"
 %include "inc/ring.inc"
 
+; struct offsets (hoisted above use)
+%define Channel_msg_ring      0
+%define Channel.msg_ring 0
+%define Channel_handle_ring   8
+%define Channel.handle_ring 8
+%define Channel_client        16
+%define Channel_server        24
+%define Channel_size          32
+%define ChannelPair_server_to_client         0
+%define ChannelPair.server_to_client 0
+%define ChannelPair_client_to_server         8
+%define ChannelPair.client_to_server 8
+%define ChannelPair_server_to_client_handles 16
+%define ChannelPair.server_to_client_handles 16
+%define ChannelPair_client_to_server_handles 24
+%define ChannelPair.client_to_server_handles 24
+%define ChannelPair_arena                    32
+%define ChannelPair.arena 32
+%define ChannelPair_size                     40
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -73,6 +93,7 @@ channel_init:
 
     mov qword [rbx + ChannelPair.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .fail1: RETURN_ERROR ENOMEM
@@ -114,10 +135,13 @@ channel_send:
 
 .no_handles:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .send_fail:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; channel_recv
@@ -163,7 +187,9 @@ channel_recv:
     ret
 
 .recv_fail:
-    RETURN_ERROR EAGAIN
+    mov rax, -(EAGAIN)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; channel_pending
@@ -177,22 +203,12 @@ channel_pending:
     ASSERT_PTR rdi
     mov rdi, [rdi + Channel.msg_ring]
     call ring_available
+    leave
     ret
 
 section .data
 
-%define Channel_msg_ring      0
-%define Channel_handle_ring   8
-%define Channel_client        16
-%define Channel_server        24
-%define Channel_size          32
 
-%define ChannelPair_server_to_client         0
-%define ChannelPair_client_to_server         8
-%define ChannelPair_server_to_client_handles 16
-%define ChannelPair_client_to_server_handles 24
-%define ChannelPair_arena                    32
-%define ChannelPair_size                     40
 
 global channel_version
 channel_version: dq 0x010000

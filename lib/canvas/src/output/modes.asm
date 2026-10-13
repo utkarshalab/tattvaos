@@ -7,34 +7,51 @@
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define Mode_width          0
+%define Mode.width 0
 %define Mode_height         4
+%define Mode.height 4
 %define Mode_htotal         8
+%define Mode.htotal 8
 %define Mode_hsync_start    12
+%define Mode.hsync_start 12
 %define Mode_hsync_end      16
+%define Mode.hsync_end 16
 %define Mode_vtotal         20
+%define Mode.vtotal 20
 %define Mode_vsync_start    24
+%define Mode.vsync_start 24
 %define Mode_vsync_end      28
+%define Mode.vsync_end 28
 %define Mode_flags          32
+%define Mode.flags 32
 %define Mode_pixel_clock    36
+%define Mode.pixel_clock 36
 %define Mode_refresh_ns     40
+%define Mode.refresh_ns 40
 %define Mode_width_mm       48
 %define Mode_height_mm      52
 %define Mode_hborder        56
 %define Mode_vborder        57
 %define Mode_hsync_offset   58
+%define Mode.hsync_offset 58
 %define Mode_hsync_width    60
+%define Mode.hsync_width 60
 %define Mode_vsync_offset   62
+%define Mode.vsync_offset 62
 %define Mode_vsync_width    63
+%define Mode.vsync_width 63
 %define Mode_size           64
-
 %define MODE_FLAG_HSYNC_POSITIVE   (1 << 0)
 %define MODE_FLAG_VSYNC_POSITIVE   (1 << 1)
 %define MODE_FLAG_INTERLACED       (1 << 2)
 %define MODE_FLAG_PREFERRED        (1 << 3)
 %define MODE_FLAG_VRR              (1 << 4)
+
+section .text
+
+
 
 ; ---------------------------------------------------------------------------
 ; mode_init
@@ -57,6 +74,7 @@ mode_init:
     call mode_calc_cvt
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -89,6 +107,7 @@ mode_calc_cvt:
     mov dword [rdi + Mode.flags], MODE_FLAG_HSYNC_POSITIVE | MODE_FLAG_VSYNC_POSITIVE
     mov dword [rdi + Mode.pixel_clock], 138500  ; kHz
     mov qword [rdi + Mode.refresh_ns], 16666667
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .not_1080p:
@@ -107,6 +126,7 @@ mode_calc_cvt:
     mov dword [rdi + Mode.flags], MODE_FLAG_HSYNC_POSITIVE | MODE_FLAG_VSYNC_POSITIVE
     mov dword [rdi + Mode.pixel_clock], 533250
     mov qword [rdi + Mode.refresh_ns], 16666667
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .not_4k:
@@ -125,6 +145,7 @@ mode_calc_cvt:
     mov dword [rdi + Mode.flags], MODE_FLAG_HSYNC_POSITIVE | MODE_FLAG_VSYNC_POSITIVE
     mov dword [rdi + Mode.pixel_clock], 241500
     mov qword [rdi + Mode.refresh_ns], 16666667
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .not_1440p:
@@ -138,6 +159,7 @@ mode_calc_cvt:
     mov dword [rdi + Mode.flags], MODE_FLAG_HSYNC_POSITIVE | MODE_FLAG_VSYNC_POSITIVE
     mov dword [rdi + Mode.pixel_clock], 25175
     mov qword [rdi + Mode.refresh_ns], 16666667
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -294,10 +316,13 @@ mode_validate:
     ja .fail
 
     xor rax, rax
+    leave
     ret
 
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; mode_equal
@@ -326,10 +351,12 @@ mode_equal:
     jne .diff
 
     mov rax, 1
+    leave
     ret
 
 .diff:
     xor rax, rax
+    leave
     ret
 
 section .data

@@ -26,6 +26,7 @@ bench_run_all:
     call bench_latency
     call bench_compose
     call bench_memory
+    EPILOGUE_RESTORE rbx
     ret
 
 global bench_idle
@@ -35,6 +36,7 @@ bench_idle:
     mov rdi, idle_fmt
     mov rsi, 0
     call tv_log_printf
+    EPILOGUE_RESTORE rbx
     ret
 
 global bench_latency
@@ -44,6 +46,7 @@ bench_latency:
     mov rdi, latency_fmt
     mov rsi, 0
     call tv_log_printf
+    EPILOGUE_RESTORE rbx
     ret
 
 global bench_compose
@@ -52,6 +55,7 @@ bench_compose:
     mov rdi, compose_fmt
     mov rsi, 0
     call tv_log_printf
+    EPILOGUE_RESTORE rbx
     ret
 
 global bench_memory
@@ -60,6 +64,7 @@ bench_memory:
     mov rdi, mem_fmt
     mov rsi, 0
     call tv_log_printf
+    EPILOGUE_RESTORE rbx
     ret
 
 section .rodata

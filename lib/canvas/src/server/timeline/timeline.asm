@@ -6,6 +6,19 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define Timeline_handle        0
+%define Timeline.handle 0
+%define Timeline_generation    4
+%define Timeline.generation 4
+%define Timeline_current_point 8
+%define Timeline.current_point 8
+%define Timeline_waiters       16
+%define Timeline.waiters 16
+%define Timeline_client_id     24
+%define Timeline.client_id 24
+%define Timeline_size          32
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -25,6 +38,7 @@ timeline_init:
     mov qword [rbx + Server.timeline_table], 0
     mov qword [rbx + Server.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -65,10 +79,13 @@ timeline_create:
     mov [rbx + Timeline.handle], eax
 
     mov rax, [rbx + Timeline.handle]
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; timeline_destroy
@@ -95,10 +112,13 @@ timeline_destroy:
     call handle_destroy
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; timeline_signal
@@ -131,10 +151,13 @@ timeline_signal:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; timeline_wait
@@ -167,10 +190,13 @@ timeline_wait:
 
 .reached:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; timeline_get_point
@@ -189,19 +215,16 @@ timeline_get_point:
     jz .not_found
 
     mov rax, [rax + Timeline.current_point]
+    leave
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    leave
+    ret
 
 section .data
 
-%define Timeline_handle        0
-%define Timeline_generation    4
-%define Timeline_current_point 8
-%define Timeline_waiters       16
-%define Timeline_client_id     24
-%define Timeline_size          32
 
 global timeline_version
 timeline_version: dq 0x010000

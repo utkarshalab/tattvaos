@@ -7,9 +7,7 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
-section .text
-
-; Capability bits (from inc/caps.inc)
+; struct offsets (hoisted above use)
 %define CAP_DISPLAY     (1 << 0)
 %define CAP_BUFFER      (1 << 1)
 %define CAP_SURFACE     (1 << 2)
@@ -33,6 +31,10 @@ section .text
 %define CAP_SESSION     (1 << 36)
 %define CAP_REMOTE      (1 << 37)
 
+section .text
+
+; Capability bits (from inc/caps.inc)
+
 %define CORE_CAPS       (CAP_DISPLAY | CAP_BUFFER | CAP_SURFACE | CAP_PRESENT)
 %define STANDARD_CAPS   (CORE_CAPS | CAP_OUTPUT | CAP_SEAT | CAP_POINTER | CAP_KEYBOARD | CAP_TOUCH | CAP_TABLET | CAP_SHELL | CAP_LAYER | CAP_DECORATION | CAP_DATA | CAP_TEXT | CAP_A11Y)
 
@@ -51,6 +53,7 @@ caps_init:
     mov qword [rbx + Server.arena], r12
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -69,10 +72,12 @@ caps_check:
     test rax, rdx
     jz .not_granted
     mov rax, 1
+    leave
     ret
 
 .not_granted:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -94,6 +99,7 @@ caps_grant:
     call caps_log_grant
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -115,6 +121,7 @@ caps_revoke:
     call caps_log_revoke
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -127,9 +134,11 @@ caps_has:
     test rdi, rsi
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -141,6 +150,7 @@ caps_get_granted:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Client.caps]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -152,6 +162,7 @@ caps_intersect:
     PROLOGUE
     mov rax, rdi
     and rax, rsi
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -162,6 +173,7 @@ caps_union:
     PROLOGUE
     mov rax, rdi
     or rax, rsi
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -170,6 +182,7 @@ caps_union:
 caps_log_grant:
     PROLOGUE
     ; TODO: Log to audit
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -178,6 +191,7 @@ caps_log_grant:
 caps_log_revoke:
     PROLOGUE
     ; TODO: Log to audit
+    leave
     ret
 
 section .data

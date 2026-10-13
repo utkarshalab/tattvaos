@@ -24,6 +24,7 @@ isolation_init:
 
     mov qword [rbx + Server.isolation], 0
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -55,10 +56,12 @@ isolation_check_handle:
     ; Verify object belongs to client (or is shared)
     ; TODO: Check object ownership
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .invalid:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -89,13 +92,16 @@ isolation_check_buffer_access:
     ; Check if buffer is shared with client
     ; TODO: Check buffer sharing
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .owned:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .invalid:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -123,13 +129,16 @@ isolation_check_surface_access:
     cmp r13, [r12 + Client.id]
     je .owned
 
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .owned:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .invalid:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -158,14 +167,18 @@ isolation_enforce_ownership:
     je .ok
 
     ; Not owner
-    RETURN_ERROR EPERM
+    mov rax, -(EPERM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 .ok:
     mov rax, r13
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .invalid:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -188,6 +201,7 @@ isolation_fault:
     mov rsi, r12
     call client_disconnect
 
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -196,6 +210,7 @@ isolation_fault:
 isolation_log_fault:
     PROLOGUE
     ; TODO: Log to audit
+    leave
     ret
 
 section .data

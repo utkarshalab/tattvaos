@@ -8,9 +8,16 @@
 %include "inc/tattva.inc"
 %include "inc/str.inc"
 
+; struct offsets (hoisted above use)
+%define Clipboard_size    80
+%define SELECTION_CLIPBOARD    0
+%define SELECTION_PRIMARY      1
+%define CLIPBOARD_MAX_MIMES    16
+%define CLIPBOARD_MAX_SIZE     (1024 * 1024)  ; 1MB default limit
+
 section .text
 
-struc Clipboard {
+struc Clipboard
     .seat:              resq 1
     .data:              resq 1
     .data_len:          resq 1
@@ -21,14 +28,9 @@ struc Clipboard {
     .selection_type:    resd 1  ; 0=clipboard, 1=primary
     .offered_mimes:     resq 1
     .offered_count:     resd 1
-}
-%define Clipboard_size    80
+endstruc
 
-%define SELECTION_CLIPBOARD    0
-%define SELECTION_PRIMARY      1
 
-%define CLIPBOARD_MAX_MIMES    16
-%define CLIPBOARD_MAX_SIZE     (1024 * 1024)  ; 1MB default limit
 
 ; ---------------------------------------------------------------------------
 ; clipboard_init
@@ -89,10 +91,13 @@ clipboard_init:
     mov [rdi + Server.primary_selection], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; clipboard_set
@@ -165,14 +170,21 @@ clipboard_set:
     call clipboard_send_event
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .too_large:
-    RETURN_ERROR ECLIP_SIZE
+    mov rax, -(ECLIP_SIZE)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; clipboard_get
@@ -200,11 +212,13 @@ clipboard_get:
     ; Return data
     mov rax, [rax + Clipboard.data]
     mov rdx, [rax + Clipboard.data_len]
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .empty:
     xor rax, rax
     xor rdx, rdx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -216,6 +230,7 @@ clipboard_get_mimes:
     PROLOGUE
     ; TODO: Return list of offered mime types
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -224,6 +239,7 @@ clipboard_get_mimes:
 clipboard_send_event:
     PROLOGUE
     ; TODO: Send clipboard event to clients with cw_data capability
+    leave
     ret
 
 section .data

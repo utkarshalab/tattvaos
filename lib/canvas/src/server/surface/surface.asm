@@ -7,6 +7,53 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Surface_id            0
+%define Surface.id 0
+%define Surface_role          8
+%define Surface.role 8
+%define Surface_role_data     16
+%define Surface.role_data 16
+%define Surface_output        24
+%define Surface.output 24
+%define Surface_z_order       32
+%define Surface.z_order 32
+%define Surface_client        40
+%define Surface.client 40
+%define Surface_current       48
+%define Surface.current 48
+%define Surface_pending       176
+%define Surface.pending 176
+%define Surface_size          304
+%define SurfaceState_buffer      0
+%define SurfaceState.buffer 0
+%define SurfaceState_buf_x       8
+%define SurfaceState.buf_x 8
+%define SurfaceState_buf_y       12
+%define SurfaceState.buf_y 12
+%define SurfaceState_damage      16
+%define SurfaceState.damage 16
+%define SurfaceState_opaque      24
+%define SurfaceState.opaque 24
+%define SurfaceState_input       32
+%define SurfaceState.input 32
+%define SurfaceState_transform   40
+%define SurfaceState.transform 40
+%define SurfaceState_scale       44
+%define SurfaceState.scale 44
+%define SurfaceState_subsurfaces 52
+%define SurfaceState.subsurfaces 52
+%define SurfaceState_frame_cbs   60
+%define SurfaceState.frame_cbs 60
+%define SurfaceState_pending     68
+%define SurfaceState.pending 68
+%define SurfaceState_size        72
+%define SURFACE_ROLE_NONE      0
+%define SURFACE_ROLE_TOPLEVEL  1
+%define SURFACE_ROLE_POPUP     2
+%define SURFACE_ROLE_LAYER     3
+%define SURFACE_ROLE_SUBSURFACE 4
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -26,6 +73,7 @@ surface_init:
     mov qword [rbx + Server.surface_table], 0
     mov qword [rbx + Server.arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -162,7 +210,9 @@ surface_create:
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; surface_destroy
@@ -196,10 +246,13 @@ surface_destroy:
     call handle_destroy
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; surface_attach
@@ -231,10 +284,13 @@ surface_attach:
     mov byte [rax + SurfaceState.pending], 1
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .bad_buffer:
-    RETURN_ERROR EBUF_FORMAT
+    mov rax, -(EBUF_FORMAT)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; surface_damage
@@ -265,10 +321,13 @@ surface_damage:
 
     mov byte [rax + SurfaceState.pending], 1
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .fail:
-    RETURN_ERROR ESURF_DAMAGE
+    mov rax, -(ESURF_DAMAGE)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; surface_set_opaque_region
@@ -279,6 +338,7 @@ surface_set_opaque_region:
     PROLOGUE
     ; TODO
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -290,6 +350,7 @@ surface_set_input_region:
     PROLOGUE
     ; TODO
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -308,6 +369,7 @@ surface_set_transform:
     mov dword [rax + SurfaceState.transform], edx
     mov byte [rax + SurfaceState.pending], 1
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -324,6 +386,7 @@ surface_set_scale:
     mov qword [rax + SurfaceState.scale], rdx
     mov byte [rax + SurfaceState.pending], 1
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -342,38 +405,13 @@ surface_frame_callback:
     ; TODO
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
 
-%define Surface_id            0
-%define Surface_role          8
-%define Surface_role_data     16
-%define Surface_output        24
-%define Surface_z_order       32
-%define Surface_client        40
-%define Surface_current       48
-%define Surface_pending       176
-%define Surface_size          304
 
-%define SurfaceState_buffer      0
-%define SurfaceState_buf_x       8
-%define SurfaceState_buf_y       12
-%define SurfaceState_damage      16
-%define SurfaceState_opaque      24
-%define SurfaceState_input       32
-%define SurfaceState_transform   40
-%define SurfaceState_scale       44
-%define SurfaceState_subsurfaces 52
-%define SurfaceState_frame_cbs   60
-%define SurfaceState_pending     68
-%define SurfaceState_size        72
 
-%define SURFACE_ROLE_NONE      0
-%define SURFACE_ROLE_TOPLEVEL  1
-%define SURFACE_ROLE_POPUP     2
-%define SURFACE_ROLE_LAYER     3
-%define SURFACE_ROLE_SUBSURFACE 4
 
 global surface_version
 surface_version: dq 0x010000

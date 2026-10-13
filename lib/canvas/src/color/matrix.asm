@@ -26,6 +26,7 @@ mat3_identity:
     mov dword [rdi + 28], 0
     mov dword [rdi + 32], 0x10000
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -85,6 +86,7 @@ mat3_mul:
     rep movsd
     add rsp, 36
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -138,6 +140,7 @@ mat3_apply:
     imul rsi, [rbx + 32]
     sar rsi, 16
     add rcx, rsi
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

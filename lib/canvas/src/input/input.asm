@@ -40,10 +40,13 @@ input_init:
     call input_source_tv_init
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; input_deinit
@@ -53,6 +56,7 @@ input_deinit:
     PROLOGUE
     call tv_input_unregister_callback
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------

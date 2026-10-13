@@ -15,6 +15,7 @@ bench_latency_run:
     ASSERT_PTR rbx
     ; TODO: inject synthetic event at vblank-epsilon, measure present time
     mov rax, 16666667
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

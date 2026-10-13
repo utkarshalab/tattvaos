@@ -155,4 +155,5 @@ memcmp_test:
 .diff:
     mov rax, 1
 .done:
+    EPILOGUE_RESTORE rbx, rcx
     ret

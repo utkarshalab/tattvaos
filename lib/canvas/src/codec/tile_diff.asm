@@ -6,9 +6,14 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+; struct offsets (hoisted above use)
+%define TileDiff_size    48
+%define TILE_DEFAULT_W   64
+%define TILE_DEFAULT_H   64
+
 section .text
 
-struc TileDiff {
+struc TileDiff
     .tile_w:        resd 1
     .tile_h:        resd 1
     .cols:          resd 1
@@ -17,11 +22,8 @@ struc TileDiff {
     .dirty:         resq 1
     .dirty_count:   resq 1
     .arena:         resq 1
-}
-%define TileDiff_size    48
+endstruc
 
-%define TILE_DEFAULT_W   64
-%define TILE_DEFAULT_H   64
 
 global tile_diff_init
 tile_diff_init:
@@ -68,9 +70,12 @@ tile_diff_init:
     mov qword [r12 + TileDiff.dirty_count], 0
     mov qword [r12 + TileDiff.arena], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 global tile_diff_update
 tile_diff_update:
@@ -184,6 +189,7 @@ tile_diff_update:
     jmp .row_loop
 .done:
     mov rax, [rbx + TileDiff.dirty_count]
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 global crc32_block
@@ -205,6 +211,7 @@ crc32_block:
     jmp .loop
 .done:
     not eax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global tile_diff_is_dirty
@@ -219,6 +226,7 @@ tile_diff_is_dirty:
     shr dl, al
     and edx, 1
     mov eax, edx
+    leave
     ret
 
 section .data

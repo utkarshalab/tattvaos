@@ -7,11 +7,13 @@
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define SCALE_NEAREST    0
 %define SCALE_BILINEAR   1
 %define SCALE_BICUBIC    2
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; scale_fractional_init
@@ -20,6 +22,7 @@ global scale_fractional_init
 scale_fractional_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -49,10 +52,13 @@ scale_fractional_compute:
 
     mov [rdi + Output.scale], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .zero:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; scale_fractional_render
@@ -136,6 +142,7 @@ scale_fractional_calculate_dest:
     mov [r14 + 4], eax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

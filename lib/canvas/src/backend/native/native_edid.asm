@@ -5,13 +5,19 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+
+; struct offsets (hoisted above use)
+%define EDID_SIZE    128
+%define EDID_BLOCKS  1
+%define Edid_size 128
 
 section .text
 
-%define EDID_SIZE    128
-%define EDID_BLOCKS  1
 
-struc Edid {
+struc Edid
     .header:          resb 8
     .manufacturer:    resw 1
     .product:         resw 1
@@ -38,8 +44,7 @@ struc Edid {
     .detailed:        resb 72
     .extensions:      resb 1
     .checksum:        resb 1
-}
-%define Edid_size 128
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; edid_parse
@@ -107,9 +112,13 @@ edid_parse:
     ret
 
 .bad_header:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .bad_checksum:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; edid_parse_detailed_timing
@@ -197,10 +206,12 @@ edid_parse_detailed_timing:
     mov al, [rbx + 17]
     mov [r12 + Mode.flags], al
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .monitor_desc:
     ; Monitor descriptor (serial, name, etc.) - skip for now
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data

@@ -67,10 +67,15 @@ zlib_decompress:
     cmp eax, edx
     jne .adler_fail
     mov rax, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .fail2:
     add rsp, 8
 .fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .adler_fail:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret

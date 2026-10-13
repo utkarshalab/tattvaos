@@ -6,12 +6,20 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define INPUT_SOURCE_TV       1
 %define INPUT_SOURCE_VIRTUAL  2
+%define InputSource_size    48
+%define INPUT_EVENT_KEY       1
+%define INPUT_EVENT_REL       2
+%define INPUT_EVENT_ABS       3
+%define INPUT_EVENT_SYN       4
+%define InputEvent_size     24
 
-struc InputSource {
+section .text
+
+
+struc InputSource
     .type:          resd 1
     .name:          resq 1
     .init:          resq 1
@@ -21,22 +29,16 @@ struc InputSource {
     .get_device:    resq 1
     .grab:          resq 1
     .next:          resq 1
-}
-%define InputSource_size    48
+endstruc
 
-%define INPUT_EVENT_KEY       1
-%define INPUT_EVENT_REL       2
-%define INPUT_EVENT_ABS       3
-%define INPUT_EVENT_SYN       4
 
-struc InputEvent {
+struc InputEvent
     .type:      resd 1
     .code:      resd 1
     .value:     resd 1
     .time_ns:   resq 1
     .device_id: resd 1
-}
-%define InputEvent_size     24
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; input_source_register
@@ -61,6 +63,7 @@ input_source_register:
     call rdi
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -71,6 +74,7 @@ input_source_unregister:
     PROLOGUE
     ; TODO
     xor rax, rax
+    leave
     ret
 
 section .data

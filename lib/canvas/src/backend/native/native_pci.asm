@@ -7,6 +7,57 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define PciDevice_class_code    0x0E
+%define PciDevice.class_code 0x0E
+%define PciDevice_subclass      0x0F
+%define PciDevice.subclass 0x0F
+%define PciDevice_bar0          0x10
+%define PciDevice.bar0 0x10
+%define PciDevice_bar2          0x28
+%define PciDevice.bar2 0x28
+%define PciDevice_irq           0x3C
+%define PciDevice.irq 0x3C
+%define PCI_CLASS_DISPLAY       0x03
+%define PCI_SUBCLASS_VGA        0x00
+%define PCI_SUBCLASS_XGA        0x01
+%define PCI_SUBCLASS_3D         0x02
+%define PCI_SUBCLASS_DISPLAY    0x80
+%define Server_fb_base       0x100
+%define Server.fb_base 0x100
+%define Server_fb_size       0x108
+%define Server.fb_size 0x108
+%define Server_mmio_base     0x110
+%define Server.mmio_base 0x110
+%define Server_mmio_size     0x118
+%define Server.mmio_size 0x118
+%define Server_pci_dev       0x120
+%define Server.pci_dev 0x120
+%define Server_irq           0x128
+%define Server.irq 0x128
+%define Server_arena         0x130
+%define Server.arena 0x130
+%define Server_controller    0x138
+%define Controller_state       0
+%define Controller.state 0
+%define Controller_pci_dev     8
+%define Controller.pci_dev 8
+%define Controller_mmio_base   16
+%define Controller.mmio_base 16
+%define Controller_fb_base     24
+%define Controller.fb_base 24
+%define Controller_fb_size     32
+%define Controller.fb_size 32
+%define Controller_family      40
+%define Controller.family 40
+%define Controller_outputs     48
+%define Controller.outputs 48
+%define Controller_output_count 56
+%define Controller.output_count 56
+%define Controller_state_size  64
+%define Controller_family_detected 72
+%define Controller.family_detected 72
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -31,6 +82,7 @@ native_pci_discover:
     jnz .done
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .done:
@@ -72,14 +124,17 @@ native_pci_callback:
     test rax, rax
     jnz .fail
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .not_display:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .fail:
     mov rax, -EIO
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -166,12 +221,17 @@ native_init_controller:
     test rax, rax
     jnz .fail
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; native_detect_family
@@ -205,7 +265,9 @@ native_detect_family:
     je .dcn35
 
     ; Unknown family
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 .dcn10:
 .dcn20:
@@ -215,41 +277,14 @@ native_detect_family:
 .dcn35:
     mov byte [rbx + Controller.family_detected], 1
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data
 
-%define PciDevice_class_code    0x0E
-%define PciDevice_subclass      0x0F
-%define PciDevice_bar0          0x10
-%define PciDevice_bar2          0x28
-%define PciDevice_irq           0x3C
 
-%define PCI_CLASS_DISPLAY       0x03
-%define PCI_SUBCLASS_VGA        0x00
-%define PCI_SUBCLASS_XGA        0x01
-%define PCI_SUBCLASS_3D         0x02
-%define PCI_SUBCLASS_DISPLAY    0x80
 
-%define Server_fb_base       0x100
-%define Server_fb_size       0x108
-%define Server_mmio_base     0x110
-%define Server_mmio_size     0x118
-%define Server_pci_dev       0x120
-%define Server_irq           0x128
-%define Server_arena         0x130
-%define Server_controller    0x138
 
-%define Controller_state       0
-%define Controller_pci_dev     8
-%define Controller_mmio_base   16
-%define Controller_fb_base     24
-%define Controller_fb_size     32
-%define Controller_family      40
-%define Controller_outputs     48
-%define Controller_output_count 56
-%define Controller_state_size  64
-%define Controller_family_detected 72
 
 global native_pci_version
 native_pci_version: dq 0x010000

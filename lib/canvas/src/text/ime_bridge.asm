@@ -7,31 +7,33 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
-section .text
-
-struc IMEBridge {
-    .seat:              resq 1
-    .active_ime:        resq 1
-    .available_imes:    resq 1
-    .ime_count:         resd 1
-    .focused_text_input: resq 1
-}
+; struct offsets (hoisted above use)
 %define IMEBridge_size    48
-
-struc IMEInfo {
-    .name:          resq 1
-    .id:            resq 1
-    .capabilities:  resd 1
-    .languages:     resq 1
-    .next:          resq 1
-}
 %define IMEInfo_size    40
-
 %define IME_CAP_PREEDIT       (1 << 0)
 %define IME_CAP_COMMIT        (1 << 1)
 %define IME_CAP_SURROUNDING   (1 << 2)
 %define IME_CAP_PREDICTION    (1 << 3)
 %define IME_CAP_HANDWRITING   (1 << 2)
+
+section .text
+
+struc IMEBridge
+    .seat:              resq 1
+    .active_ime:        resq 1
+    .available_imes:    resq 1
+    .ime_count:         resd 1
+    .focused_text_input: resq 1
+endstruc
+
+struc IMEInfo
+    .name:          resq 1
+    .id:            resq 1
+    .capabilities:  resd 1
+    .languages:     resq 1
+    .next:          resq 1
+endstruc
+
 
 ; ---------------------------------------------------------------------------
 ; ime_bridge_init
@@ -67,10 +69,13 @@ ime_bridge_init:
     call ime_bridge_load_imes
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; ime_bridge_load_imes
@@ -86,6 +91,7 @@ ime_bridge_load_imes:
     ; For now, create a default IME
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -121,10 +127,13 @@ ime_bridge_register_ime:
     inc dword [rdi + Server.ime_bridge + IMEBridge.ime_count]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; ime_bridge_set_active_ime
@@ -139,6 +148,7 @@ ime_bridge_set_active_ime:
 
     mov qword [rbx + IMEBridge.active_ime], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -150,6 +160,7 @@ ime_bridge_get_active_ime:
     ASSERT_PTR rdi
     mov rax, [rdi + Server.ime_bridge]
     mov rax, [rax + IMEBridge.active_ime]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -173,6 +184,7 @@ ime_bridge_set_focused_text_input:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -194,6 +206,7 @@ ime_bridge_forward_key:
 
 .no_ime:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -218,6 +231,7 @@ ime_bridge_forward_preedit:
 
 .no_focus:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -242,6 +256,7 @@ ime_bridge_forward_commit:
 
 .no_focus:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -266,6 +281,7 @@ ime_bridge_forward_surrounding:
 
 .no_focus:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

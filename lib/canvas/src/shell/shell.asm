@@ -8,9 +8,56 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define Shell_size    56
+%define SHELL_ROLE_NONE       0
+%define SHELL_ROLE_TOPLEVEL   1
+%define SHELL_ROLE_POPUP      2
+%define SHELL_ROLE_LAYER      3
+%define SHELL_ROLE_DIALOG     4
+%define TOPLEVEL_STATE_DEFAULT    0
+%define TOPLEVEL_STATE_MAXIMIZED  1
+%define TOPLEVEL_STATE_FULLSCREEN 2
+%define TOPLEVEL_STATE_MINIMIZED  3
+%define TOPLEVEL_STATE_TILED      4
+%define TOPLEVEL_STATE_FLOATING   5
+%define POPUP_POSITION_CENTER     0
+%define POPUP_POSITION_CURSOR     1
+%define POPUP_POSITION_RECT       2
+%define LAYER_BACKGROUND      0
+%define LAYER_BOTTOM          1
+%define LAYER_NORMAL          2
+%define LAYER_TOP             3
+%define LAYER_OVERLAY         4
+%define LAYER_LOCK            5
+%define WORKSPACE_STATE_ACTIVE    1
+%define WORKSPACE_STATE_INACTIVE  0
+%define Shell_server      0
+%define Shell_toplevels   8
+%define Shell_popups      16
+%define Shell_layers      24
+%define Shell_workspaces  32
+%define Shell_active_ws   40
+%define Shell_num_workspaces 44
+%define Shell_policy      48
+%define Shell_size        56
+%define Workspace_id      0
+%define Workspace.id 0
+%define Workspace_shell   8
+%define Workspace.shell 8
+%define Workspace_toplevels 16
+%define Workspace.toplevels 16
+%define Workspace_state   24
+%define Workspace.state 24
+%define Workspace_layout_engine 28
+%define Workspace.layout_engine 28
+%define Workspace_next    32
+%define Workspace.next 32
+%define Workspace_size    40
+
 section .text
 
-struc Shell {
+struc Shell
     .server:        resq 1
     .toplevels:     resq 1
     .popups:        resq 1
@@ -19,35 +66,12 @@ struc Shell {
     .active_ws:     resd 1
     .num_workspaces: resd 1
     .policy:        resq 1
-}
-%define Shell_size    56
+endstruc
 
-%define SHELL_ROLE_NONE       0
-%define SHELL_ROLE_TOPLEVEL   1
-%define SHELL_ROLE_POPUP      2
-%define SHELL_ROLE_LAYER      3
-%define SHELL_ROLE_DIALOG     4
 
-%define TOPLEVEL_STATE_DEFAULT    0
-%define TOPLEVEL_STATE_MAXIMIZED  1
-%define TOPLEVEL_STATE_FULLSCREEN 2
-%define TOPLEVEL_STATE_MINIMIZED  3
-%define TOPLEVEL_STATE_TILED      4
-%define TOPLEVEL_STATE_FLOATING   5
 
-%define POPUP_POSITION_CENTER     0
-%define POPUP_POSITION_CURSOR     1
-%define POPUP_POSITION_RECT       2
 
-%define LAYER_BACKGROUND      0
-%define LAYER_BOTTOM          1
-%define LAYER_NORMAL          2
-%define LAYER_TOP             3
-%define LAYER_OVERLAY         4
-%define LAYER_LOCK            5
 
-%define WORKSPACE_STATE_ACTIVE    1
-%define WORKSPACE_STATE_INACTIVE  0
 
 ; ---------------------------------------------------------------------------
 ; shell_init
@@ -89,10 +113,13 @@ shell_init:
 
     mov qword [rdi + Server.shell], rbx
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; shell_create_workspaces
@@ -142,7 +169,9 @@ shell_create_workspaces:
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; shell_load_policy
@@ -162,10 +191,13 @@ shell_load_policy:
     call policy_floating_init
 
     mov [rbx + Shell.policy], rax
+    leave
     ret
 
 .fail:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; shell_set_policy
@@ -175,27 +207,12 @@ shell_set_policy:
     PROLOGUE
     ; TODO: Switch policy at runtime
     xor rax, rax
+    leave
     ret
 
 section .data
 
-%define Shell_server      0
-%define Shell_toplevels   8
-%define Shell_popups      16
-%define Shell_layers      24
-%define Shell_workspaces  32
-%define Shell_active_ws   40
-%define Shell_num_workspaces 44
-%define Shell_policy      48
-%define Shell_size        56
 
-%define Workspace_id      0
-%define Workspace_shell   8
-%define Workspace_toplevels 16
-%define Workspace_state   24
-%define Workspace_layout_engine 28
-%define Workspace_next    32
-%define Workspace_size    40
 
 global shell_version
 shell_version: dq 0x010000

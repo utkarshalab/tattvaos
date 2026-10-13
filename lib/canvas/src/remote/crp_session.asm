@@ -7,16 +7,18 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define CrpSession_size    40
+
 section .text
 
-struc CrpSession {
+struc CrpSession
     .server:         resq 1
     .conn:           resq 1
     .view_only:      resb 1
     .seq:            resq 1
     .next:           resq 1
-}
-%define CrpSession_size    40
+endstruc
 
 global crp_session_create
 crp_session_create:
@@ -37,9 +39,12 @@ crp_session_create:
     mov rdx, [rbx + CrpServer.sessions]
     mov [rax + CrpSession.next], rdx
     mov [rbx + CrpServer.sessions], rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 global crp_session_destroy
 crp_session_destroy:
@@ -73,9 +78,12 @@ crp_session_destroy:
     mov rdi, [r12 + CrpSession.conn]
     call tv_tls_close
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .not_found:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .data
 global crp_session_version

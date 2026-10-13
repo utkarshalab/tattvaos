@@ -8,6 +8,9 @@
 %include "inc/tattva.inc"
 %include "inc/caps.inc"
 
+; struct offsets (hoisted above use)
+%define Gate_size    16
+
 section .text
 
 ; Privileged capabilities that require gate
@@ -17,11 +20,10 @@ section .text
 %define GATE_CAP_DEBUG      CAP_DEBUG
 %define GATE_CAP_SESSION    CAP_SESSION
 
-struc Gate {
+struc Gate
     .server:        resq 1
     .audit_log:     resq 1
-}
-%define Gate_size    16
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; gate_init
@@ -50,10 +52,13 @@ gate_init:
     mov qword [rdi + Server.gate], rbx
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; gate_check
@@ -114,10 +119,12 @@ gate_check:
     ; Log the access
     call gate_log_access
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .denied:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -142,10 +149,12 @@ gate_show_prompt:
     ; TODO: Implement actual prompt UI
     ; For now, auto-grant
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .auto_grant:
     mov rax, 1
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -162,6 +171,7 @@ gate_log_access:
     ; Entry: timestamp, client_id, capability, granted/denied, details
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

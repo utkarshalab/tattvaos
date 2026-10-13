@@ -15,6 +15,7 @@ global mirror_init
 mirror_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -65,10 +66,14 @@ mirror_configure:
     jmp .loop
 
 .fail:
-    RETURN_ERROR EOUT_MODE
+    mov rax, -(EOUT_MODE)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 .no_mode:
-    RETURN_ERROR EOUT_MODE
+    mov rax, -(EOUT_MODE)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 .done:
     xor rax, rax
@@ -84,6 +89,7 @@ mirror_disable:
     PROLOGUE
     ; TODO: Restore individual output configurations
     xor rax, rax
+    leave
     ret
 
 section .data

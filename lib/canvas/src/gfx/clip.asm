@@ -5,12 +5,14 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define Rect_x1    0
 %define Rect_y1    4
 %define Rect_x2    8
 %define Rect_y2    12
+
+section .text
+
 
 ; ---------------------------------------------------------------------------
 ; clip_rect
@@ -52,6 +54,7 @@ clip_rect:
     mov [rdi + Rect_y2], eax
 .ok:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -96,6 +99,7 @@ clip_rect_intersect:
     mov [rdi + Rect_y2], eax
 .ok:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -124,9 +128,11 @@ clip_point_in_rect:
     jge .outside
 
     mov rax, 1
+    leave
     ret
 .outside:
     xor rax, rax
+    leave
     ret
 
 section .data

@@ -12,48 +12,56 @@ global time_now_ns
 time_now_ns:
     PROLOGUE
     call tv_time_now_ns
+    leave
     ret
 
 global time_now_us
 time_now_us:
     PROLOGUE
     call tv_time_now_us
+    leave
     ret
 
 global time_now_ms
 time_now_ms:
     PROLOGUE
     call tv_time_now_ms
+    leave
     ret
 
 global time_tsc
 time_tsc:
     PROLOGUE
     call tv_time_tsc
+    leave
     ret
 
 global time_sleep_ns
 time_sleep_ns:
     PROLOGUE
     call tv_time_sleep_ns
+    leave
     ret
 
 global time_sleep_until
 time_sleep_until:
     PROLOGUE
     call tv_time_sleep_until
+    leave
     ret
 
 global timer_register
 timer_register:
     PROLOGUE
     call tv_timer_register
+    leave
     ret
 
 global timer_cancel
 timer_cancel:
     PROLOGUE
     call tv_timer_cancel
+    leave
     ret
 
 section .data

@@ -7,6 +7,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
 %include "src/backend/family/amd/dcn/dcn_regs.inc"
 
 section .text
@@ -68,9 +69,13 @@ dcn_modeset:
     ret
 
 .bad_mode:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .no_mmio:
-    RETURN_ERROR ENXIO
+    mov rax, -(ENXIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; dcn_crtc_disable
@@ -79,18 +84,26 @@ dcn_crtc_disable:
     PROLOGUE_SAVE rbx, r12, r13
     ; r14 = MMIO base, r15 = CRTC index
 
-    mov eax, [r14 + CRTC_CONTROL + r15 * CRTC_STRIDE]
+    mov rax, r15
+    imul rax, CRTC_STRIDE
+    add rax, r14
+    add rax, CRTC_CONTROL
+    mov eax, [rax]
     and eax, ~CRTC_CONTROL_ENABLE
-    mov [r14 + CRTC_CONTROL + r15 * CRTC_STRIDE], eax
+    mov [rax], eax
 
-    mov ecx, 100000
-.wait_loop:
-    mov eax, [r14 + CRTC_STATUS + r15 * CRTC_STRIDE]
+    mov rax, r15
+    imul rax, CRTC_STRIDE
+    add rax, r14
+    add rax, CRTC_STATUS
+    mov eax, [rax]
     test eax, CRTC_STATUS_ENABLED
     jz .disabled
     dec ecx
     jnz .wait_loop
-    RETURN_ERROR ETIMEDOUT
+    mov rax, -(ETIMEDOUT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 .disabled:
     xor rax, rax
@@ -102,18 +115,29 @@ dcn_crtc_disable:
 ; ---------------------------------------------------------------------------
 dcn_crtc_enable:
     PROLOGUE_SAVE rbx, r12, r13
-    mov eax, [r14 + CRTC_CONTROL + r15 * CRTC_STRIDE]
+
+    mov rax, r15
+    imul rax, CRTC_STRIDE
+    add rax, r14
+    add rax, CRTC_CONTROL
+    mov eax, [rax]
     or eax, CRTC_CONTROL_ENABLE
-    mov [r14 + CRTC_CONTROL + r15 * CRTC_STRIDE], eax
+    mov [rax], eax
 
     mov ecx, 100000
 .wait_loop:
-    mov eax, [r14 + CRTC_STATUS + r15 * CRTC_STRIDE]
+    mov rax, r15
+    imul rax, CRTC_STRIDE
+    add rax, r14
+    add rax, CRTC_STATUS
+    mov eax, [rax]
     test eax, CRTC_STATUS_ENABLED
     jnz .enabled
     dec ecx
     jnz .wait_loop
-    RETURN_ERROR ETIMEDOUT
+    mov rax, -(ETIMEDOUT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 .enabled:
     xor rax, rax
@@ -129,67 +153,88 @@ dcn_crtc_program_timing:
     mov r12, r14
     mov r13, r15
 
+    ; Helper: compute CRTC register address in rax
+    ; IN: r13 = register offset (CRTC_*), OUT: rax = absolute address
+    ; Uses: r12 = MMIO base, r13 = CRTC index (clobbered), r14 = temp
+%macro CRTC_ADDR 1
+    mov rax, r13
+    imul rax, CRTC_STRIDE
+    add rax, r12
+    add rax, %1
+%endmacro
+
     ; HTOTAL
     mov eax, [rbx + Mode.htotal]
     dec eax
-    mov [r12 + CRTC_HTOTAL + r13 * CRTC_STRIDE], eax
+    CRTC_ADDR CRTC_HTOTAL
+    mov [rax], eax
 
     ; H_START (hsync_start)
     mov eax, [rbx + Mode.hsync_start]
     dec eax
-    mov [r12 + CRTC_H_START + r13 * CRTC_STRIDE], eax
+    CRTC_ADDR CRTC_H_START
+    mov [rax], eax
 
     ; H_END (hsync_end)
     mov eax, [rbx + Mode.hsync_end]
     dec eax
-    mov [r12 + CRTC_H_END + r13 * CRTC_STRIDE], eax
+    CRTC_ADDR CRTC_H_END
+    mov [rax], eax
 
     ; VTOTAL
     mov eax, [rbx + Mode.vtotal]
     dec eax
-    mov [r12 + CRTC_VTOTAL + r13 * CRTC_STRIDE], eax
+    CRTC_ADDR CRTC_VTOTAL
+    mov [rax], eax
 
     ; V_START (vsync_start)
     mov eax, [rbx + Mode.vsync_start]
     dec eax
-    mov [r12 + CRTC_V_START + r13 * CRTC_STRIDE], eax
+    CRTC_ADDR CRTC_V_START
+    mov [rax], eax
 
     ; V_END (vsync_end)
     mov eax, [rbx + Mode.vsync_end]
     dec eax
-    mov [r12 + CRTC_V_END + r13 * CRTC_STRIDE], eax
+    CRTC_ADDR CRTC_V_END
+    mov [rax], eax
 
     ; Polarity
     mov eax, [rbx + Mode.flags]
     test eax, MODE_FLAG_HSYNC_POSITIVE
     jz .hsync_neg
-    mov eax, [r12 + CRTC_H_SYNC_POLARITY + r13 * CRTC_STRIDE]
+    CRTC_ADDR CRTC_H_SYNC_POLARITY
+    mov eax, [rax]
     or eax, 1
-    mov [r12 + CRTC_H_SYNC_POLARITY + r13 * CRTC_STRIDE], eax
+    mov [rax], eax
     jmp .vsync_check
 
 .hsync_neg:
-    mov eax, [r12 + CRTC_H_SYNC_POLARITY + r13 * CRTC_STRIDE]
+    CRTC_ADDR CRTC_H_SYNC_POLARITY
+    mov eax, [rax]
     and eax, ~1
-    mov [r12 + CRTC_H_SYNC_POLARITY + r13 * CRTC_STRIDE], eax
+    mov [rax], eax
 
 .vsync_check:
     test eax, MODE_FLAG_VSYNC_POSITIVE
     jz .vsync_neg
-    mov eax, [r12 + CRTC_V_SYNC_POLARITY + r13 * CRTC_STRIDE]
+    CRTC_ADDR CRTC_V_SYNC_POLARITY
+    mov eax, [rax]
     or eax, 1
-    mov [r12 + CRTC_V_SYNC_POLARITY + r13 * CRTC_STRIDE], eax
+    mov [rax], eax
     jmp .done
 
 .vsync_neg:
-    mov eax, [r12 + CRTC_V_SYNC_POLARITY + r13 * CRTC_STRIDE]
+    CRTC_ADDR CRTC_V_SYNC_POLARITY
+    mov eax, [rax]
     and eax, ~1
-    mov [r12 + CRTC_V_SYNC_POLARITY + r13 * CRTC_STRIDE], eax
+    mov [rax], eax
 
 .done:
     ; Pixel clock
     mov eax, [rbx + Mode.pixel_clock]
-    mov [r12 + CRTC_PIXEL_CLOCK + r13 * CRTC_STRIDE], eax
+    CRTC_ADDR CRTC_PIXEL_CLOCK
+    mov [rax], eax
 
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
@@ -213,36 +258,52 @@ dcn_plane_program:
     test r13, r13
     jz .no_surface
 
+    ; Helper: compute plane register address in rax
+    ; Uses: r12 = MMIO base, r15 = plane index, PLANE_STRIDE
+%macro PLANE_ADDR 1
+    mov rax, r15
+    imul rax, PLANE_STRIDE
+    add rax, r12
+    add rax, %1
+%endmacro
+
     ; PLANE_SURFACE_ADDRESS
-    mov [r12 + PLANE_SURFACE_ADDRESS + r15 * PLANE_STRIDE], r13
-    mov dword [r12 + PLANE_SURFACE_ADDRESS_HIGH + r15 * PLANE_STRIDE], 0
+    PLANE_ADDR PLANE_SURFACE_ADDRESS
+    mov [rax], r13
+    PLANE_ADDR PLANE_SURFACE_ADDRESS_HIGH
+    mov dword [rax], 0
 
     ; PLANE_SIZE
     mov eax, [r12 + Output.width]
     mov edx, [r12 + Output.height]
     shl rdx, 16
     or rax, rdx
-    mov [r12 + PLANE_SIZE + r15 * PLANE_STRIDE], rax
+    PLANE_ADDR PLANE_SIZE
+    mov [rax], rax
 
     ; PLANE_SOURCE_SIZE
     mov eax, [r12 + Output.width]
     mov edx, [r12 + Output.height]
     shl rdx, 16
     or rax, rdx
-    mov [r12 + PLANE_SOURCE_SIZE + r15 * PLANE_STRIDE], rax
+    PLANE_ADDR PLANE_SOURCE_SIZE
+    mov [rax], rax
 
     ; PLANE_STRIDE
     mov eax, [r12 + Output.stride]
-    mov [r12 + PLANE_STRIDE + r15 * PLANE_STRIDE], eax
+    PLANE_ADDR PLANE_STRIDE
+    mov [rax], eax
 
     ; PLANE_FORMAT
     mov eax, PLANE_FORMAT_BGRA8888
-    mov [r12 + PLANE_FORMAT + r15 * PLANE_STRIDE], eax
+    PLANE_ADDR PLANE_FORMAT
+    mov [rax], eax
 
     ; Enable plane
-    mov eax, [r12 + PLANE_CONTROL + r15 * PLANE_STRIDE]
+    PLANE_ADDR PLANE_CONTROL
+    mov eax, [rax]
     or eax, PLANE_CONTROL_ENABLE
-    mov [r12 + PLANE_CONTROL + r15 * PLANE_STRIDE], eax
+    mov [rax], eax
 
 .no_surface:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
@@ -291,14 +352,25 @@ dcn_flip:
     jnz .fail
 
 .no_fence:
+    ; Helper: compute plane register address in rax
+%macro PLANE_ADDR2 1
+    mov rax, r15
+    imul rax, PLANE_STRIDE
+    add rax, r12
+    add rax, %1
+%endmacro
+
     ; Program next surface address
-    mov [r12 + PLANE_SURFACE_ADDRESS_NEXT + r15 * PLANE_STRIDE], r13
-    mov dword [r12 + PLANE_SURFACE_ADDRESS_NEXT_HIGH + r15 * PLANE_STRIDE], 0
+    PLANE_ADDR2 PLANE_SURFACE_ADDRESS_NEXT
+    mov [rax], r13
+    PLANE_ADDR2 PLANE_SURFACE_ADDRESS_NEXT_HIGH
+    mov dword [rax], 0
 
     ; Request flip (UPDATE bit)
-    mov eax, [r12 + PLANE_CONTROL + r15 * PLANE_STRIDE]
+    PLANE_ADDR2 PLANE_CONTROL
+    mov eax, [rax]
     or eax, PLANE_CONTROL_UPDATE
-    mov [r12 + PLANE_CONTROL + r15 * PLANE_STRIDE], eax
+    mov [rax], eax
 
     ; Signal release fence
     test r14, r14
@@ -313,7 +385,9 @@ dcn_flip:
     ret
 
 .fail:
-    RETURN_ERROR EIO
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 section .data
 global dcn_modeset_version

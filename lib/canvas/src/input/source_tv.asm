@@ -41,42 +41,51 @@ input_source_tv_init:
     call input_source_register
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 tv_source_init:
     PROLOGUE
     ; Tattva input callback already registered in input_init
     xor rax, rax
+    leave
     ret
 
 tv_source_deinit:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 tv_source_start:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 tv_source_stop:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 tv_source_get_device:
     PROLOGUE
     ; TODO: Return device info for device_id
     xor rax, rax
+    leave
     ret
 
 tv_source_grab:
     PROLOGUE
     ; TODO: Grab/ungrab device
     xor rax, rax
+    leave
     ret
 
 section .rodata

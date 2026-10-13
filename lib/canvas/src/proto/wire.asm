@@ -55,7 +55,9 @@ wire_encode_request:
     ret
 
 .too_large:
-    RETURN_ERROR EMSGSIZE
+    mov rax, -(EMSGSIZE)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; wire_decode_header
@@ -89,7 +91,9 @@ wire_decode_header:
     ret
 
 .too_large:
-    RETURN_ERROR EMSGSIZE
+    mov rax, -(EMSGSIZE)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; wire_validate_message
@@ -121,11 +125,17 @@ wire_validate_message:
     ret
 
 .too_short:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .len_mismatch:
-    RETURN_ERROR EPROTO
+    mov rax, -(EPROTO)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .unaligned:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; wire_encode_handles
@@ -190,7 +200,9 @@ wire_decode_handles:
     ret
 
 .too_many:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 section .data
 

@@ -7,21 +7,23 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define TOPLEVEL_STATE_DEFAULT     0
 %define TOPLEVEL_STATE_MAXIMIZED   1
 %define TOPLEVEL_STATE_FULLSCREEN  2
 %define TOPLEVEL_STATE_MINIMIZED   3
 %define TOPLEVEL_STATE_TILED       4
 %define TOPLEVEL_STATE_FLOATING    5
-
 %define STATE_FLAG_MAXIMIZED    (1 << 0)
 %define STATE_FLAG_FULLSCREEN   (1 << 1)
 %define STATE_FLAG_MINIMIZED    (1 << 2)
 %define STATE_FLAG_TILED        (1 << 3)
 %define STATE_FLAG_FLOATING     (1 << 4)
 %define STATE_FLAG_ACTIVATED    (1 << 5)
+
+section .text
+
+
 
 ; ---------------------------------------------------------------------------
 ; states_init
@@ -30,6 +32,7 @@ global states_init
 states_init:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -41,6 +44,7 @@ states_get:
     PROLOGUE
     ASSERT_PTR rdi
     mov eax, [rdi + Toplevel.state]
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -53,6 +57,7 @@ states_set:
     ASSERT_PTR rdi
     mov dword [rdi + Toplevel.state], esi
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -67,6 +72,7 @@ states_add:
     or eax, esi
     mov [rdi + Toplevel.state], eax
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -81,6 +87,7 @@ states_remove:
     and eax, ~esi
     mov [rdi + Toplevel.state], eax
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -95,9 +102,11 @@ states_has:
     test eax, esi
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -112,6 +121,7 @@ states_toggle:
     xor eax, esi
     mov [rdi + Toplevel.state], eax
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -125,9 +135,11 @@ states_is_maximized:
     and eax, STATE_FLAG_MAXIMIZED
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -141,9 +153,11 @@ states_is_fullscreen:
     and eax, STATE_FLAG_FULLSCREEN
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -157,9 +171,11 @@ states_is_minimized:
     and eax, STATE_FLAG_MINIMIZED
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -173,9 +189,11 @@ states_is_tiled:
     and eax, STATE_FLAG_TILED
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -189,9 +207,11 @@ states_is_floating:
     and eax, STATE_FLAG_FLOATING
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -205,9 +225,11 @@ states_is_activated:
     and eax, STATE_FLAG_ACTIVATED
     jz .no
     mov rax, 1
+    leave
     ret
 .no:
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -221,6 +243,7 @@ states_activate:
     or eax, STATE_FLAG_ACTIVATED
     mov [rdi + Toplevel.state], eax
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -234,6 +257,7 @@ states_deactivate:
     and eax, ~STATE_FLAG_ACTIVATED
     mov [rdi + Toplevel.state], eax
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -261,6 +285,7 @@ states_maximize:
 
     call toplevel_schedule_configure
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -284,6 +309,7 @@ states_unmaximize:
 
     call toplevel_schedule_configure
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -311,6 +337,7 @@ states_fullscreen:
 
     call toplevel_schedule_configure
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -334,6 +361,7 @@ states_unfullscreen:
 
     call toplevel_schedule_configure
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -354,6 +382,7 @@ states_minimize:
 
     call toplevel_schedule_configure
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -374,6 +403,7 @@ states_unminimize:
 
     call toplevel_schedule_configure
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -401,6 +431,7 @@ states_tile:
 .done:
     call toplevel_schedule_configure
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -423,6 +454,7 @@ states_untile:
 
     call toplevel_schedule_configure
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -441,6 +473,7 @@ states_float:
 
     call toplevel_schedule_configure
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

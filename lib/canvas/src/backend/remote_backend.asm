@@ -7,14 +7,16 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define RemoteBackend_size    24
+
 section .text
 
-struc RemoteBackend {
+struc RemoteBackend
     .voutput:       resq 1
     .rfb:           resq 1
     .crp:           resq 1
-}
-%define RemoteBackend_size    24
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; remote_backend_init
@@ -45,9 +47,12 @@ remote_backend_init:
     jz .oom
     mov [r13 + RemoteBackend.voutput], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 ; ---------------------------------------------------------------------------
 ; remote_backend_flip
@@ -75,18 +80,21 @@ remote_backend_flip:
     call crp_share_broadcast
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global remote_backend_deinit
 remote_backend_deinit:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global remote_backend_modeset
 remote_backend_modeset:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global remote_backend_vblank_wait
@@ -95,18 +103,21 @@ remote_backend_vblank_wait:
     mov rdi, 16666667
     call tv_time_sleep_ns
     xor rax, rax
+    leave
     ret
 
 global remote_backend_hotplug
 remote_backend_hotplug:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 global remote_backend_cursor
 remote_backend_cursor:
     PROLOGUE
     xor rax, rax
+    leave
     ret
 
 section .data

@@ -7,9 +7,23 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define DnD_size    80
+%define DND_STATE_NONE        0
+%define DND_STATE_ENTER       1
+%define DND_STATE_MOTION      2
+%define DND_STATE_DROP        3
+%define DND_STATE_LEAVE       4
+%define DND_STATE_CANCEL      5
+%define DND_ACTION_NONE       0
+%define DND_ACTION_COPY       (1 << 0)
+%define DND_ACTION_MOVE       (1 << 1)
+%define DND_ACTION_ASK        (1 << 2)
+%define DND_MAX_MIMES         16
+
 section .text
 
-struc DnD {
+struc DnD
     .seat:              resq 1
     .source_client:     resq 1
     .source_surface:    resq 1
@@ -24,22 +38,10 @@ struc DnD {
     .actions:           resd 1
     .serial:            resq 1
     .state:             resd 1
-}
-%define DnD_size    80
+endstruc
 
-%define DND_STATE_NONE        0
-%define DND_STATE_ENTER       1
-%define DND_STATE_MOTION      2
-%define DND_STATE_DROP        3
-%define DND_STATE_LEAVE       4
-%define DND_STATE_CANCEL      5
 
-%define DND_ACTION_NONE       0
-%define DND_ACTION_COPY       (1 << 0)
-%define DND_ACTION_MOVE       (1 << 1)
-%define DND_ACTION_ASK        (1 << 2)
 
-%define DND_MAX_MIMES         16
 
 ; ---------------------------------------------------------------------------
 ; dnd_init
@@ -56,6 +58,7 @@ dnd_init:
     mov qword [rbx + Server.arena], r12
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -126,13 +129,18 @@ dnd_start_drag:
     mov qword [rbx + DnD.grab], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 .grab_fail:
-    RETURN_ERROR EBUSY
+    mov rax, -(EBUSY)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; dnd_offer_mime
@@ -148,6 +156,7 @@ dnd_offer_mime:
 
     ; TODO: Add mime type to offered list
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -159,6 +168,7 @@ dnd_set_actions:
     ASSERT_PTR rdi
     mov dword [rdi + DnD.actions], esi
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -182,6 +192,7 @@ dnd_enter:
     ; TODO: Send dnd_enter event with offered mimes
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -206,6 +217,7 @@ dnd_motion:
 
 .not_entered:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -260,12 +272,17 @@ dnd_drop:
 .done:
     mov dword [rbx + DnD.state], DND_STATE_NONE
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .invalid_state:
-    RETURN_ERROR EINVAL
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .invalid_action:
-    RETURN_ERROR ENOTSUP
+    mov rax, -(ENOTSUP)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; dnd_leave
@@ -289,6 +306,7 @@ dnd_leave:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -322,6 +340,7 @@ dnd_cancel_drag:
 .done:
     mov dword [r12 + DnD.state], DND_STATE_NONE
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -337,6 +356,7 @@ dnd_set_drag_icon:
 
     mov qword [rbx + DnD.drag_icon], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data

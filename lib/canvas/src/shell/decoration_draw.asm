@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/color.inc"
 
+; struct offsets (hoisted above use)
+%define DecorationDrawState_size    48
+
 section .text
 
-struc DecorationDrawState {
+struc DecorationDrawState
     .framebuffer:       resq 1
     .stride:            resq 1
     .width:             resd 1
@@ -19,8 +22,7 @@ struc DecorationDrawState {
     .button_bg_color:   resd 1
     .button_fg_color:   resd 1
     .inactive_alpha:    resd 1
-}
-%define DecorationDrawState_size    48
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; decoration_draw_init
@@ -41,6 +43,7 @@ decoration_draw_init:
     mov dword [rbx + DecorationDrawState.inactive_alpha], 0x80808080  ; 50% alpha
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -131,6 +134,7 @@ decoration_draw_frame:
     ; TODO: Draw close/maximize/minimize buttons
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -199,6 +203,7 @@ decoration_draw_button:
     ; Draw icon
     ; TODO: Draw button icon (close X, maximize square, minimize line)
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -223,6 +228,7 @@ decoration_draw_titlebar_text:
     ; TODO: Render text using font subsystem
 
 .no_title:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -242,6 +248,7 @@ decoration_set_colors:
     mov [rbx + DecorationDrawState.inactive_alpha], r9d
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -254,6 +261,7 @@ decoration_set_inactive_alpha:
     ASSERT_PTR rdi
     mov dword [rdi + DecorationDrawState.inactive_alpha], esi
     xor rax, rax
+    leave
     ret
 
 section .data

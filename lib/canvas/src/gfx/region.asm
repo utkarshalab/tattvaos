@@ -7,20 +7,22 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-section .text
-
+; struct offsets (hoisted above use)
 %define Band_y1      0
 %define Band_y2      4
 %define Band_rects   8
 %define Band_count   16
 %define Band_cap     20
 %define Band_size    24
-
 %define Region_bands 0
 %define Region_count 8
 %define Region_cap   12
 %define Region_arena 16
 %define Region_size  24
+
+section .text
+
+
 
 ; ---------------------------------------------------------------------------
 ; region_init
@@ -53,9 +55,12 @@ region_init:
     mov qword [rbx + Region_cap], rdx
     mov qword [rbx + Region_arena], r12
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; region_add_rect
@@ -99,6 +104,7 @@ region_add_rect:
     mov rcx, r12
     mov r8, r14
     call region_add_rect_to_bands
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -126,6 +132,7 @@ region_ensure_bands:
     jmp .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -156,6 +163,7 @@ region_find_or_create_band:
     jmp .search
 
 .found:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .create:
@@ -175,6 +183,7 @@ region_find_or_create_band:
     mov qword [rbx + Band_rects], 0
     mov qword [rbx + Band_count], 0
     mov qword [rbx + Band_cap], 0
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -205,11 +214,14 @@ region_insert_band:
 
     inc qword [rbx + Region_count]
     mov rax, r12
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .grow:
     ; Grow band array
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; region_add_rect_to_bands (internal)
@@ -241,6 +253,7 @@ region_add_rect_to_bands:
     jmp .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -266,10 +279,13 @@ band_add_rect:
     mov dword [r12 + r13 * 16 + 12], r13d
     inc qword [rbx + Band_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .grow:
-    RETURN_ERROR ENOSPC
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; region_clear
@@ -283,6 +299,7 @@ region_clear:
     ASSERT_PTR rdi
     mov qword [rdi + Region_count], 0
     xor rax, rax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -299,9 +316,11 @@ region_is_empty:
     test rax, rax
     jz .empty
     xor rax, rax
+    leave
     ret
 .empty:
     mov rax, 1
+    leave
     ret
 
 section .data

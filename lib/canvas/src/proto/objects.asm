@@ -7,6 +7,13 @@
 %include "inc/errors.inc"
 %include "inc/handle.inc"
 
+; struct offsets (hoisted above use)
+%define Obj_interface_id  0
+%define Obj_version       2
+%define Obj_refcount      4
+%define Obj_data_ptr      12
+%define Obj_size          20
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -28,6 +35,7 @@ objects_init:
     mov rsi, r12
     mov rdx, 65536       ; 64K objects max per client
     call handle_table_init
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -69,10 +77,13 @@ objects_create:
     test rax, rax
     jz .oom
 
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 ; ---------------------------------------------------------------------------
 ; objects_resolve
@@ -100,10 +111,12 @@ objects_resolve:
 
     ; Return data pointer
     mov rax, [rax + 12]
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .invalid:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -119,6 +132,7 @@ objects_destroy:
 
     mov rax, rsi
     call handle_destroy
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -137,10 +151,13 @@ objects_ref:
 
     lock inc qword [rax + 4]
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .invalid:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; objects_unref
@@ -168,10 +185,13 @@ objects_unref:
     ; Free object memory via arena (handled by arena_free_all on client disconnect)
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
 .invalid:
-    RETURN_ERROR ENOENT
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; objects_lookup
@@ -184,15 +204,11 @@ objects_lookup:
     PROLOGUE
     ASSERT_PTR rdi
     call handle_resolve
+    leave
     ret
 
 section .data
 
-%define Obj_interface_id  0
-%define Obj_version       2
-%define Obj_refcount      4
-%define Obj_data_ptr      12
-%define Obj_size          20
 
 global objects_version
 objects_version: dq 0x010000

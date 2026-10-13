@@ -44,8 +44,10 @@ cwplint_check_file:
     test rax, rax
     jnz .fail
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global cwplint_check_names
@@ -53,6 +55,7 @@ cwplint_check_names:
     PROLOGUE
     ; TODO: parse identifiers, enforce snake_case + cw_ prefix
     xor rax, rax
+    leave
     ret
 
 global cwplint_check_versions
@@ -60,6 +63,7 @@ cwplint_check_versions:
     PROLOGUE
     ; TODO: every interface version >= 1, bumps only additive
     xor rax, rax
+    leave
     ret
 
 global cwplint_check_compat
@@ -67,6 +71,7 @@ cwplint_check_compat:
     PROLOGUE
     ; TODO: compare against proto/VERSION baseline
     xor rax, rax
+    leave
     ret
 
 section .rodata

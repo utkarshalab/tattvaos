@@ -60,6 +60,7 @@ crc32_init_table:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     ; Table is pre-computed in .rodata
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .rodata

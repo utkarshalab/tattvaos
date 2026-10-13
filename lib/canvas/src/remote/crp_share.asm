@@ -25,6 +25,7 @@ crp_share_broadcast:
     jnz .loop
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 global crp_share_count
@@ -41,6 +42,7 @@ crp_share_count:
     mov rdx, [rdx + CrpSession.next]
     jmp .loop
 .done:
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data

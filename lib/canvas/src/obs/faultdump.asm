@@ -7,9 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 
+; struct offsets (hoisted above use)
+%define FaultDump_size    104
+
 section .text
 
-struc FaultDump {
+struc FaultDump
     .time_ns:       resq 1
     .fault_code:    resd 1
     .client_id:     resq 1
@@ -24,8 +27,7 @@ struc FaultDump {
     .rbp:           resq 1
     .rsp:           resq 1
     .rip:           resq 1
-}
-%define FaultDump_size    104
+endstruc
 
 ; ---------------------------------------------------------------------------
 ; faultdump_init
@@ -44,9 +46,12 @@ faultdump_init:
     jz .oom
     mov qword [rdi + Server.faultdump], rax
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
-    RETURN_ERROR ENOMEM
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12
+    ret
 
 ; ---------------------------------------------------------------------------
 ; faultdump_capture
@@ -90,9 +95,11 @@ faultdump_capture:
     mov rsi, faultdump_msg_len
     call tv_log_write
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 .none:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -103,6 +110,7 @@ faultdump_get:
     PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + Server.faultdump]
+    leave
     ret
 
 section .rodata
