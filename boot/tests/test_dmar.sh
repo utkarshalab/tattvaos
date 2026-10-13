@@ -15,7 +15,7 @@ command -v ld >/dev/null 2>&1 || {
     exit 1
 }
 
-for UNIT in dmar_unit dmar_drhd_unit; do
+for UNIT in dmar_unit dmar_drhd_unit vtd_unit; do
     nasm -f elf64 -Wall -Werror -w-reloc-rel-dword -w-unknown-warning -I "$ROOT_DIR/" \
         "$TEST_DIR/$UNIT.asm" -o "$TMP_DIR/$UNIT.o"
     ld -o "$TMP_DIR/$UNIT" "$TMP_DIR/$UNIT.o"
@@ -29,4 +29,4 @@ for UNIT in dmar_unit dmar_drhd_unit; do
     }
 done
 
-echo "PASS: DMAR x2APIC policy and DRHD ownership contracts"
+echo "PASS: DMAR policy/DRHD ownership and VT-d capability contracts"

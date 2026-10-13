@@ -216,6 +216,10 @@ smp-check:
 smp-test: $(IMG) $(UEFI_EFI) smp-check
 	@sh $(KERNEL_DIR)/tests/test_smp_qemu.sh
 
+vtd-test: kernel.bin $(UEFI_EFI)
+	@sh $(KERNEL_DIR)/tests/test_dmar.sh
+	@sh $(KERNEL_DIR)/tests/test_vtd_qemu.sh
+
 # Native ABI validation plus a complete PE32+ EFI application link check.
 uefi-check: $(UEFI_EFI)
 	@sh $(KERNEL_DIR)/tests/test_uefi_memory.sh
@@ -237,5 +241,5 @@ clean:
 	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
 	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG) $(UEFI_EFI)
 
-.PHONY: all elf img run debug test test-negative smp-check smp-test uefi \
+.PHONY: all elf img run debug test test-negative smp-check smp-test vtd-test uefi \
         uefi-check ovmf-test ovmf-strictnx-test clean

@@ -269,6 +269,7 @@ fi
 for FATAL in \
     "EARLY64 EXCEPTION" \
     "GDT verify: FAIL" \
+    "VT-d: capability probe rejected" \
     "IOAPIC: topology or hardware validation FAILED" \
     "IOAPIC: PIT IRQ0 delivery FAILED" \
     "Paging verify: FAIL" \

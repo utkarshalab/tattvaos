@@ -314,6 +314,9 @@ mm_init:
 
     call smp_discover
     jc .smp_error
+    ; Retain read-only VT-d capabilities while the validated DMAR ownership
+    ; snapshot is current. Unsupported or unreachable units stay disabled.
+    call vtd_probe
     call smp_stacks_init
 
     ; 5. Unmap the kernel stack guard page to trap stack overflows

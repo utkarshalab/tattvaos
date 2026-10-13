@@ -17,6 +17,8 @@ MEM=${UEFI_QEMU_MEM:-512}
 EXPECT_HIGHMEM=${UEFI_EXPECT_HIGHMEM:-0}
 EXPECT_SMP=${UEFI_EXPECT_SMP:-}
 EXPECT_APIC_MODE=${UEFI_EXPECT_APIC_MODE:-}
+IOMMU=${UEFI_QEMU_IOMMU:-0}
+EXPECT_VTD_UNITS=${UEFI_EXPECT_VTD_UNITS:-}
 OVMF_CODE=${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}
 OVMF_VARS=${OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}
 TMP_DIR=$(mktemp -d)
@@ -51,6 +53,45 @@ case "$EXPECT_APIC_MODE" in
         exit 1
         ;;
 esac
+
+case "$IOMMU" in
+    0|1) ;;
+    *)
+        echo "FAIL: invalid UEFI_QEMU_IOMMU value: $IOMMU"
+        exit 1
+        ;;
+esac
+
+case "$EXPECT_VTD_UNITS" in
+    '') ;;
+    *[!0-9]*|0)
+        echo "FAIL: invalid UEFI_EXPECT_VTD_UNITS value: $EXPECT_VTD_UNITS"
+        exit 1
+        ;;
+esac
+
+if [ "$IOMMU" -eq 1 ]; then
+    case "$MACHINE" in
+        q35)
+            MACHINE="$MACHINE,kernel-irqchip=split"
+            ;;
+        q35,*kernel-irqchip=split*|q35,*kernel-irqchip=off*) ;;
+        q35,*kernel-irqchip=*)
+            echo "FAIL: intel-iommu interrupt remapping requires a split or disabled kernel irqchip"
+            exit 1
+            ;;
+        q35,*)
+            MACHINE="$MACHINE,kernel-irqchip=split"
+            ;;
+        *)
+            echo "FAIL: intel-iommu integration requires a q35 machine"
+            exit 1
+            ;;
+    esac
+    set -- -device "intel-iommu,intremap=on,eim=on"
+else
+    set --
+fi
 
 for TOOL in "$QEMU64" timeout; do
     command -v "$TOOL" >/dev/null 2>&1 || {
@@ -90,6 +131,7 @@ timeout "$TIMEOUT" "$QEMU64" \
     -drive "format=raw,file=fat:rw:$ESP_DIR" \
     -netdev user,id=n0 \
     -device e1000,netdev=n0 \
+    "$@" \
     -serial "file:$LOG" \
     -monitor none \
     -display none \
@@ -201,6 +243,19 @@ if [ -n "$EXPECT_APIC_MODE" ]; then
     fi
 fi
 
+if [ -n "$EXPECT_VTD_UNITS" ]; then
+    VTD_MARKER="VT-d: $EXPECT_VTD_UNITS remapping units support interrupt remapping"
+    if ! awk -v expected="$VTD_MARKER" \
+        '{ sub(/\r$/, "", $0); if ($0 == expected) found = 1 } END { exit !found }' "$LOG"; then
+        echo "FAIL: missing exact VT-d capability marker: $VTD_MARKER"
+        PASS=0
+    fi
+    if grep -Eq '^VT-d: .* (disabled|rejected)' "$LOG"; then
+        echo "FAIL: VT-d integration boot did not retain remapping readiness"
+        PASS=0
+    fi
+fi
+
 TIMER_CPUS=$SMP
 [ -z "$EXPECT_SMP" ] || TIMER_CPUS=$EXPECT_SMP
 TIMER_LINE=$(awk -v periodic="SMP: APIC timer periodic $TIMER_CPUS/$TIMER_CPUS" \
@@ -279,6 +334,7 @@ for FATAL in \
     "UEFI TRANSITION EXCEPTION" \
     "EARLY64 EXCEPTION" \
     "KERNEL PANIC" \
+    "VT-d: capability probe rejected" \
     "IOAPIC: topology or hardware validation FAILED" \
     "IOAPIC: PIT IRQ0 delivery FAILED" \
     "Scheduler preemption: FAIL" \

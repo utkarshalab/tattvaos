@@ -63,6 +63,7 @@ kernel_text_start:
 %include "kernel/arch/x86_64/interrupts.asm"
 %include "lib/mem/mem.asm"
 %include "kernel/arch/x86_64/smp.asm"
+%include "kernel/arch/x86_64/vtd.asm"
 %include "lib/io/intr/vector.asm"
 %include "kernel/arch/x86_64/ioapic.asm"
 %include "unet/core/link/net_link.asm"
