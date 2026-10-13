@@ -211,19 +211,30 @@ if [ -z "$TIMER_LINE" ]; then
     PASS=0
 fi
 
+IOAPIC_LINE=
+if [ -n "$TIMER_LINE" ]; then
+    IOAPIC_LINE=$(awk -v after="$TIMER_LINE" -v expected="IOAPIC: PIT IRQ0 delivery PASS" \
+        -v heartbeat="heartbeat #0" \
+        'NR > after { sub(/\r$/, "", $0); if ($0 == heartbeat) exit; if ($0 == expected) { print NR; exit } }' "$LOG")
+fi
+if [ -z "$IOAPIC_LINE" ]; then
+    echo "FAIL: missing exact IOAPIC/PIT delivery proof after the local timer proof"
+    PASS=0
+fi
+
 if [ "$TIMER_CPUS" -gt 1 ]; then
     LIFECYCLE_MARKER="SMP: scheduler park/unpark PASS"
 else
     LIFECYCLE_MARKER="SMP: scheduler park/unpark SKIP (single CPU)"
 fi
 LIFECYCLE_LINE=
-if [ -n "$TIMER_LINE" ]; then
-    LIFECYCLE_LINE=$(awk -v after="$TIMER_LINE" -v expected="$LIFECYCLE_MARKER" \
+if [ -n "$IOAPIC_LINE" ]; then
+    LIFECYCLE_LINE=$(awk -v after="$IOAPIC_LINE" -v expected="$LIFECYCLE_MARKER" \
         -v heartbeat="heartbeat #0" \
         'NR > after { sub(/\r$/, "", $0); if ($0 == heartbeat) exit; if ($0 == expected) { print NR; exit } }' "$LOG")
 fi
 if [ -z "$LIFECYCLE_LINE" ]; then
-    echo "FAIL: missing exact scheduler lifecycle marker between timer proof and first heartbeat: $LIFECYCLE_MARKER"
+    echo "FAIL: missing exact scheduler lifecycle marker between IOAPIC proof and first heartbeat: $LIFECYCLE_MARKER"
     PASS=0
 fi
 
@@ -268,6 +279,8 @@ for FATAL in \
     "UEFI TRANSITION EXCEPTION" \
     "EARLY64 EXCEPTION" \
     "KERNEL PANIC" \
+    "IOAPIC: topology or hardware validation FAILED" \
+    "IOAPIC: PIT IRQ0 delivery FAILED" \
     "Scheduler preemption: FAIL" \
     "SMP: scheduler park/unpark FAILED" \
     "ERROR: Failed to load kernel.ulf" \

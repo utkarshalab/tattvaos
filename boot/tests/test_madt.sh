@@ -29,4 +29,4 @@ set -e
     exit 1
 }
 
-echo "PASS: MADT topology, bounds, LAPIC, APIC-ID, and NMI-route contracts"
+echo "PASS: MADT CPU, LAPIC-NMI, IOAPIC, and ISA-override contracts"

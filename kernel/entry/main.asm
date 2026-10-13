@@ -106,10 +106,17 @@ kernel_main:
     ; before drivers/services finish changing shared mappings is unsafe.
     call smp_start
 
+    ; Take ownership of every firmware I/O-APIC route while BSP/AP interrupts
+    ; are still disabled. No external source is unmasked by initialization.
+    call ioapic_init
+    jc .interrupt_failed
+
     ; Publish the final online set, enable BSP interrupts, and release APs.
     call smp_release
     call smp_timer_verify
     jc .timer_failed
+    call ioapic_pit_selftest
+    jc .interrupt_failed
     call smp_sched_lifecycle_selftest
     jc .timer_failed
 
@@ -123,6 +130,11 @@ kernel_main:
     cli
     hlt
     jmp .timer_failed
+
+.interrupt_failed:
+    cli
+    hlt
+    jmp .interrupt_failed
 
 ; -----------------------------------------------------------------------------
 ; kernel_boot_memory_selftest — prove the Phase-A PMM/direct-map contract

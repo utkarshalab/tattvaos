@@ -357,6 +357,146 @@ _start:
     cmp edx, SMP_MADT_ERR_ENTRY
     jne .fail_30
 
+    ; External-interrupt topology is parsed by an independently bounded pass.
+    call reset_table
+    lea rsi, [rel irq_routes_valid]
+    mov ecx, IRQ_ROUTES_VALID_BYTES
+    call append_routes
+    call parse_irqs_default
+    jc .fail_31
+    cmp eax, 1
+    jne .fail_31
+    cmp ecx, 1
+    jne .fail_31
+    cmp dword [rel irq_ioapics + SMP_MADT_IOAPIC_ID_OFF], 3
+    jne .fail_31
+    cmp dword [rel irq_ioapics + SMP_MADT_IOAPIC_ADDR_OFF], 0xFEC00000
+    jne .fail_31
+    cmp dword [rel irq_ioapics + SMP_MADT_IOAPIC_GSI_OFF], 0
+    jne .fail_31
+    cmp dword [rel irq_isos + SMP_MADT_ISO_SOURCE_OFF], 0
+    jne .fail_31
+    cmp dword [rel irq_isos + SMP_MADT_ISO_GSI_OFF], 2
+    jne .fail_31
+
+    ; Identical override duplicates are harmless and collapse to one route.
+    call reset_table
+    lea rsi, [rel irq_routes_duplicate_iso]
+    mov ecx, IRQ_ROUTES_DUPLICATE_ISO_BYTES
+    call append_routes
+    call parse_irqs_default
+    jc .fail_32
+    cmp eax, 1
+    jne .fail_32
+    cmp ecx, 1
+    jne .fail_32
+
+    ; Conflicting definitions for one ISA source fail closed.
+    call reset_table
+    lea rsi, [rel irq_routes_conflicting_iso]
+    mov ecx, IRQ_ROUTES_CONFLICTING_ISO_BYTES
+    call append_routes
+    call parse_irqs_default
+    jnc .fail_33
+    cmp edx, SMP_MADT_ERR_DUPLICATE
+    jne .fail_33
+
+    ; Controller IDs, MMIO pages, and GSI bases are unique ownership keys.
+    call reset_table
+    lea rsi, [rel irq_routes_duplicate_ioapic]
+    mov ecx, IRQ_ROUTES_DUPLICATE_IOAPIC_BYTES
+    call append_routes
+    call parse_irqs_default
+    jnc .fail_34
+    cmp edx, SMP_MADT_ERR_DUPLICATE
+    jne .fail_34
+
+    ; Fixed-format reserved fields and override encodings are validated.
+    call reset_table
+    lea rsi, [rel irq_route_bad_reserved]
+    mov ecx, IRQ_ROUTE_BAD_RESERVED_BYTES
+    call append_routes
+    call parse_irqs_default
+    jnc .fail_35
+    cmp edx, SMP_MADT_ERR_ENTRY
+    jne .fail_35
+
+    call reset_table
+    lea rsi, [rel irq_route_bad_flags]
+    mov ecx, IRQ_ROUTE_BAD_FLAGS_BYTES
+    call append_routes
+    call parse_irqs_default
+    jnc .fail_36
+    cmp edx, SMP_MADT_ERR_ENTRY
+    jne .fail_36
+
+    ; Capacity exhaustion is reported instead of truncating controllers.
+    call reset_table
+    lea rsi, [rel irq_routes_two_ioapics]
+    mov ecx, IRQ_ROUTES_TWO_IOAPICS_BYTES
+    call append_routes
+    lea rdi, [rel working_table]
+    mov eax, [rel working_table + 4]
+    lea rsi, [rel working_table]
+    add rsi, rax
+    lea rdx, [rel irq_ioapics]
+    mov ecx, 1
+    lea r8, [rel irq_isos]
+    mov r9d, 16
+    call smp_madt_parse_irqs
+    jnc .fail_37
+    cmp edx, SMP_MADT_ERR_CAPACITY
+    jne .fail_37
+
+    ; Firmware bytes can never alias parser outputs.
+    call reset_table
+    lea rsi, [rel irq_routes_valid]
+    mov ecx, IRQ_ROUTES_VALID_BYTES
+    call append_routes
+    lea rdi, [rel working_table]
+    mov eax, [rel working_table + 4]
+    lea rsi, [rel working_table]
+    add rsi, rax
+    mov rdx, rdi
+    mov ecx, 4
+    lea r8, [rel irq_isos]
+    mov r9d, 16
+    call smp_madt_parse_irqs
+    jnc .fail_38
+    cmp edx, SMP_MADT_ERR_SPAN
+    jne .fail_38
+
+    ; Declared bytes beyond the accessible map and zero-length entries reject.
+    call reset_table
+    lea rsi, [rel irq_routes_valid]
+    mov ecx, IRQ_ROUTES_VALID_BYTES
+    call append_routes
+    lea rdi, [rel working_table]
+    mov eax, [rel working_table + 4]
+    lea rsi, [rel working_table]
+    add rsi, rax
+    dec rsi
+    lea rdx, [rel irq_ioapics]
+    mov ecx, 4
+    lea r8, [rel irq_isos]
+    mov r9d, 16
+    call smp_madt_parse_irqs
+    jnc .fail_39
+    cmp edx, SMP_MADT_ERR_SPAN
+    jne .fail_39
+
+    call reset_table
+    lea rsi, [rel irq_routes_valid]
+    mov ecx, IRQ_ROUTES_VALID_BYTES
+    call append_routes
+    mov byte [rel working_table + MADT_BYTES + 1], 0
+    lea rdi, [rel working_table]
+    call fix_checksum
+    call parse_irqs_default
+    jnc .fail_40
+    cmp edx, SMP_MADT_ERR_ENTRY
+    jne .fail_40
+
     xor edi, edi
     jmp .exit
 
@@ -449,6 +589,36 @@ _start:
     jmp .exit
 .fail_30:
     mov edi, 30
+    jmp .exit
+.fail_31:
+    mov edi, 31
+    jmp .exit
+.fail_32:
+    mov edi, 32
+    jmp .exit
+.fail_33:
+    mov edi, 33
+    jmp .exit
+.fail_34:
+    mov edi, 34
+    jmp .exit
+.fail_35:
+    mov edi, 35
+    jmp .exit
+.fail_36:
+    mov edi, 36
+    jmp .exit
+.fail_37:
+    mov edi, 37
+    jmp .exit
+.fail_38:
+    mov edi, 38
+    jmp .exit
+.fail_39:
+    mov edi, 39
+    jmp .exit
+.fail_40:
+    mov edi, 40
 
 .exit:
     mov eax, 60
@@ -521,6 +691,18 @@ find_ap_300:
     add rsi, rax
     mov edx, 300
     call smp_madt_find_nmi
+    ret
+
+parse_irqs_default:
+    lea rdi, [rel working_table]
+    mov eax, [rel working_table + 4]
+    lea rsi, [rel working_table]
+    add rsi, rax
+    lea rdx, [rel irq_ioapics]
+    mov ecx, 4
+    lea r8, [rel irq_isos]
+    mov r9d, 16
+    call smp_madt_parse_irqs
     ret
 
 section .data
@@ -649,6 +831,69 @@ route_bad_type10_length:
     db 1, 0, 0
 route_bad_type10_length_end:
 
+irq_routes_valid:
+    db 1, 12, 3, 0
+    dd 0xFEC00000
+    dd 0
+    db 2, 10, 0, 0
+    dd 2
+    dw 0
+irq_routes_valid_end:
+
+irq_routes_duplicate_iso:
+    db 1, 12, 3, 0
+    dd 0xFEC00000
+    dd 0
+    db 2, 10, 0, 0
+    dd 2
+    dw 0
+    db 2, 10, 0, 0
+    dd 2
+    dw 0
+irq_routes_duplicate_iso_end:
+
+irq_routes_conflicting_iso:
+    db 1, 12, 3, 0
+    dd 0xFEC00000
+    dd 0
+    db 2, 10, 0, 0
+    dd 2
+    dw 0
+    db 2, 10, 0, 0
+    dd 3
+    dw 0
+irq_routes_conflicting_iso_end:
+
+irq_routes_duplicate_ioapic:
+    db 1, 12, 3, 0
+    dd 0xFEC00000
+    dd 0
+    db 1, 12, 3, 0
+    dd 0xFEC01000
+    dd 24
+irq_routes_duplicate_ioapic_end:
+
+irq_route_bad_reserved:
+    db 1, 12, 3, 1
+    dd 0xFEC00000
+    dd 0
+irq_route_bad_reserved_end:
+
+irq_route_bad_flags:
+    db 2, 10, 0, 0
+    dd 2
+    dw 2
+irq_route_bad_flags_end:
+
+irq_routes_two_ioapics:
+    db 1, 12, 3, 0
+    dd 0xFEC00000
+    dd 0
+    db 1, 12, 4, 0
+    dd 0xFEC01000
+    dd 24
+irq_routes_two_ioapics_end:
+
 MADT_BYTES          equ madt_template.end - madt_template
 FIRST_ENTRY_OFF     equ madt_template.first_entry - madt_template
 SECOND_ENTRY_OFF    equ madt_template.second_entry - madt_template
@@ -670,6 +915,13 @@ ROUTES_WILD_CONFLICT_BYTES   equ routes_wild_conflict_end - routes_wild_conflict
 ROUTE_OTHER_UID_BYTES        equ route_other_uid_end - route_other_uid
 ROUTE_BAD_TYPE4_LENGTH_BYTES equ route_bad_type4_length_end - route_bad_type4_length
 ROUTE_BAD_TYPE10_LENGTH_BYTES equ route_bad_type10_length_end - route_bad_type10_length
+IRQ_ROUTES_VALID_BYTES          equ irq_routes_valid_end - irq_routes_valid
+IRQ_ROUTES_DUPLICATE_ISO_BYTES  equ irq_routes_duplicate_iso_end - irq_routes_duplicate_iso
+IRQ_ROUTES_CONFLICTING_ISO_BYTES equ irq_routes_conflicting_iso_end - irq_routes_conflicting_iso
+IRQ_ROUTES_DUPLICATE_IOAPIC_BYTES equ irq_routes_duplicate_ioapic_end - irq_routes_duplicate_ioapic
+IRQ_ROUTE_BAD_RESERVED_BYTES    equ irq_route_bad_reserved_end - irq_route_bad_reserved
+IRQ_ROUTE_BAD_FLAGS_BYTES       equ irq_route_bad_flags_end - irq_route_bad_flags
+IRQ_ROUTES_TWO_IOAPICS_BYTES    equ irq_routes_two_ioapics_end - irq_routes_two_ioapics
 NMI_ROUTE_CAPACITY           equ 32
 
 section .bss
@@ -677,3 +929,5 @@ align 8
 working_table: resb MADT_BYTES + NMI_ROUTE_CAPACITY
 output_ids:    resd 8
 lapic_output:  resq 1
+irq_ioapics:   resb 4 * SMP_MADT_IOAPIC_BYTES
+irq_isos:      resb 16 * SMP_MADT_ISO_BYTES

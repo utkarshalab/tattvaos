@@ -13,6 +13,22 @@ SMP_MADT_SIGNATURE          equ 0x43495041 ; "APIC"
 SMP_MADT_HEADER_BYTES       equ 44
 SMP_MADT_MAX_BYTES          equ 1024 * 1024
 SMP_MADT_MAX_OUTPUT_IDS     equ 4096
+SMP_MADT_MAX_IOAPICS        equ 64
+SMP_MADT_MAX_ISO_ROUTES     equ 16
+
+; smp_madt_parse_irqs output records. The final IOAPIC dword is populated by
+; the hardware probe with the exclusive GSI limit after the version register
+; supplies the controller's redirection-entry count.
+SMP_MADT_IOAPIC_ID_OFF      equ 0
+SMP_MADT_IOAPIC_ADDR_OFF    equ 4
+SMP_MADT_IOAPIC_GSI_OFF     equ 8
+SMP_MADT_IOAPIC_LIMIT_OFF   equ 12
+SMP_MADT_IOAPIC_BYTES       equ 16
+
+SMP_MADT_ISO_SOURCE_OFF     equ 0
+SMP_MADT_ISO_GSI_OFF        equ 4
+SMP_MADT_ISO_FLAGS_OFF      equ 8
+SMP_MADT_ISO_BYTES          equ 12
 
 SMP_MADT_ERR_INPUT          equ 1
 SMP_MADT_ERR_SPAN           equ 2
@@ -570,6 +586,279 @@ smp_madt_find_nmi:
     stc
 
 .nmi_done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; smp_madt_parse_irqs
+;   RDI = MADT identity address
+;   RSI = exclusive end of the currently accessible physical mapping
+;   RDX = output array of SMP_MADT_IOAPIC_BYTES records
+;   ECX = IOAPIC output capacity
+;   R8  = output array of SMP_MADT_ISO_BYTES records
+;   R9D = interrupt-source-override output capacity
+;
+; CF=0: EAX=IOAPIC count, ECX=unique ISA override count, EDX=0.
+; CF=1: EAX=ECX=0, EDX=rejection class. Partial output must be discarded.
+;
+; The processor parser has already validated the other MADT record families.
+; This independent pass repeats the hostile table-envelope/checksum checks and
+; owns the two record types required for external interrupt routing.
+; -----------------------------------------------------------------------------
+global smp_madt_parse_irqs
+smp_madt_parse_irqs:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, 24
+
+    mov r12, rdi                    ; table start
+    mov r13, rsi                    ; accessible end, then exact table end
+    mov r14, rdx                    ; IOAPIC output
+    mov r15, r8                     ; ISO output
+    mov [rsp], ecx                  ; IOAPIC capacity
+    mov [rsp + 4], r9d              ; ISO capacity
+
+    mov edx, SMP_MADT_ERR_INPUT
+    test r12, r12
+    jz .irq_invalid
+    test r14, r14
+    jz .irq_invalid
+    test r15, r15
+    jz .irq_invalid
+    cmp r12, r13
+    jae .irq_invalid
+    cmp ecx, 1
+    jb .irq_invalid
+    cmp ecx, SMP_MADT_MAX_IOAPICS
+    ja .irq_invalid
+    cmp r9d, 1
+    jb .irq_invalid
+    cmp r9d, SMP_MADT_MAX_ISO_ROUTES
+    ja .irq_invalid
+
+    mov edx, SMP_MADT_ERR_SPAN
+    mov rax, r12
+    add rax, SMP_MADT_HEADER_BYTES
+    jc .irq_invalid
+    cmp rax, r13
+    ja .irq_invalid
+
+    mov edx, SMP_MADT_ERR_HEADER
+    cmp dword [r12], SMP_MADT_SIGNATURE
+    jne .irq_invalid
+    mov ecx, [r12 + 4]
+    cmp ecx, SMP_MADT_HEADER_BYTES
+    jb .irq_invalid
+    cmp ecx, SMP_MADT_MAX_BYTES
+    ja .irq_invalid
+    mov rax, r12
+    add rax, rcx
+    jc .irq_span_invalid
+    cmp rax, r13
+    ja .irq_span_invalid
+    mov r13, rax
+
+    ; Reject table/output and output/output aliasing before writing records.
+    mov eax, [rsp]
+    shl rax, 4
+    add rax, r14
+    jc .irq_span_invalid
+    mov [rsp + 8], rax              ; IOAPIC output end
+    mov eax, [rsp + 4]
+    imul rax, SMP_MADT_ISO_BYTES
+    add rax, r15
+    jc .irq_span_invalid
+    mov [rsp + 16], rax             ; ISO output end
+
+    cmp r14, r13
+    jae .irq_io_table_disjoint
+    cmp r12, [rsp + 8]
+    jb .irq_span_invalid
+.irq_io_table_disjoint:
+    cmp r15, r13
+    jae .irq_iso_table_disjoint
+    cmp r12, [rsp + 16]
+    jb .irq_span_invalid
+.irq_iso_table_disjoint:
+    cmp r14, [rsp + 16]
+    jae .irq_outputs_disjoint
+    mov rax, [rsp + 8]
+    cmp r15, rax
+    jb .irq_span_invalid
+.irq_outputs_disjoint:
+
+    xor eax, eax
+    mov r11, r12
+    mov ecx, [r12 + 4]
+.irq_checksum_loop:
+    add al, [r11]
+    inc r11
+    dec ecx
+    jnz .irq_checksum_loop
+    test al, al
+    jnz .irq_header_invalid
+
+    xor ebx, ebx                    ; IOAPIC count
+    xor ebp, ebp                    ; unique ISO count
+    lea r11, [r12 + SMP_MADT_HEADER_BYTES]
+.irq_entry_loop:
+    cmp r11, r13
+    je .irq_entries_done
+    ja .irq_entry_invalid
+    mov rax, r13
+    sub rax, r11
+    cmp rax, 2
+    jb .irq_entry_invalid
+    movzx ecx, byte [r11 + 1]
+    cmp ecx, 2
+    jb .irq_entry_invalid
+    mov rax, r11
+    add rax, rcx
+    jc .irq_entry_invalid
+    cmp rax, r13
+    ja .irq_entry_invalid
+
+    movzx eax, byte [r11]
+    cmp eax, 1                      ; I/O APIC
+    je .irq_type_ioapic
+    cmp eax, 2                      ; Interrupt Source Override
+    je .irq_type_iso
+    jmp .irq_next_entry
+
+.irq_type_ioapic:
+    cmp ecx, 12
+    jne .irq_entry_invalid
+    cmp byte [r11 + 3], 0           ; architecturally reserved
+    jne .irq_entry_invalid
+    mov esi, [r11 + 4]
+    test esi, esi
+    jz .irq_entry_invalid
+    test esi, 0xFFF
+    jnz .irq_entry_invalid
+    movzx r9d, byte [r11 + 2]
+    mov edi, [r11 + 8]
+
+    xor edx, edx
+.irq_io_duplicate_loop:
+    cmp edx, ebx
+    jae .irq_io_unique
+    mov eax, edx
+    shl rax, 4
+    lea r10, [r14 + rax]
+    cmp r9d, [r10 + SMP_MADT_IOAPIC_ID_OFF]
+    je .irq_duplicate_invalid
+    cmp esi, [r10 + SMP_MADT_IOAPIC_ADDR_OFF]
+    je .irq_duplicate_invalid
+    cmp edi, [r10 + SMP_MADT_IOAPIC_GSI_OFF]
+    je .irq_duplicate_invalid
+    inc edx
+    jmp .irq_io_duplicate_loop
+
+.irq_io_unique:
+    cmp ebx, [rsp]
+    jae .irq_capacity_invalid
+    mov eax, ebx
+    shl rax, 4
+    lea r10, [r14 + rax]
+    mov [r10 + SMP_MADT_IOAPIC_ID_OFF], r9d
+    mov [r10 + SMP_MADT_IOAPIC_ADDR_OFF], esi
+    mov [r10 + SMP_MADT_IOAPIC_GSI_OFF], edi
+    mov dword [r10 + SMP_MADT_IOAPIC_LIMIT_OFF], 0
+    inc ebx
+    jmp .irq_next_entry
+
+.irq_type_iso:
+    cmp ecx, 10
+    jne .irq_entry_invalid
+    cmp byte [r11 + 2], 0           ; ISA is the only defined source bus
+    jne .irq_entry_invalid
+    movzx r9d, byte [r11 + 3]
+    cmp r9d, 15
+    ja .irq_entry_invalid
+    mov esi, [r11 + 4]
+    movzx edi, word [r11 + 8]
+    test edi, 0xFFF0
+    jnz .irq_entry_invalid
+    mov eax, edi
+    and eax, 3
+    cmp eax, 2                      ; polarity value 2 is reserved
+    je .irq_entry_invalid
+    mov eax, edi
+    shr eax, 2
+    and eax, 3
+    cmp eax, 2                      ; trigger value 2 is reserved
+    je .irq_entry_invalid
+
+    xor edx, edx
+.irq_iso_duplicate_loop:
+    cmp edx, ebp
+    jae .irq_iso_unique
+    mov eax, edx
+    imul rax, SMP_MADT_ISO_BYTES
+    lea r10, [r15 + rax]
+    cmp r9d, [r10 + SMP_MADT_ISO_SOURCE_OFF]
+    jne .irq_iso_duplicate_next
+    cmp esi, [r10 + SMP_MADT_ISO_GSI_OFF]
+    jne .irq_duplicate_invalid
+    cmp edi, [r10 + SMP_MADT_ISO_FLAGS_OFF]
+    jne .irq_duplicate_invalid
+    jmp .irq_next_entry             ; identical duplicate is harmless
+.irq_iso_duplicate_next:
+    inc edx
+    jmp .irq_iso_duplicate_loop
+
+.irq_iso_unique:
+    cmp ebp, [rsp + 4]
+    jae .irq_capacity_invalid
+    mov eax, ebp
+    imul rax, SMP_MADT_ISO_BYTES
+    lea r10, [r15 + rax]
+    mov [r10 + SMP_MADT_ISO_SOURCE_OFF], r9d
+    mov [r10 + SMP_MADT_ISO_GSI_OFF], esi
+    mov [r10 + SMP_MADT_ISO_FLAGS_OFF], edi
+    inc ebp
+
+.irq_next_entry:
+    add r11, rcx
+    jmp .irq_entry_loop
+
+.irq_entries_done:
+    mov eax, ebx
+    mov ecx, ebp
+    xor edx, edx
+    clc
+    jmp .irq_done
+
+.irq_span_invalid:
+    mov edx, SMP_MADT_ERR_SPAN
+    jmp .irq_invalid
+.irq_header_invalid:
+    mov edx, SMP_MADT_ERR_HEADER
+    jmp .irq_invalid
+.irq_entry_invalid:
+    mov edx, SMP_MADT_ERR_ENTRY
+    jmp .irq_invalid
+.irq_duplicate_invalid:
+    mov edx, SMP_MADT_ERR_DUPLICATE
+    jmp .irq_invalid
+.irq_capacity_invalid:
+    mov edx, SMP_MADT_ERR_CAPACITY
+.irq_invalid:
+    xor eax, eax
+    xor ecx, ecx
+    stc
+
+.irq_done:
+    lea rsp, [rsp + 24]             ; preserve the CF success/error contract
     pop r15
     pop r14
     pop r13
