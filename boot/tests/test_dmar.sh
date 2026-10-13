@@ -15,16 +15,18 @@ command -v ld >/dev/null 2>&1 || {
     exit 1
 }
 
-nasm -f elf64 -Wall -Werror -w-reloc-rel-dword -w-unknown-warning -I "$ROOT_DIR/" \
-    "$TEST_DIR/dmar_unit.asm" -o "$TMP_DIR/dmar_unit.o"
-ld -o "$TMP_DIR/dmar_unit" "$TMP_DIR/dmar_unit.o"
-set +e
-"$TMP_DIR/dmar_unit"
-STATUS=$?
-set -e
-[ "$STATUS" -eq 0 ] || {
-    echo "FAIL: DMAR policy case $STATUS"
-    exit 1
-}
+for UNIT in dmar_unit dmar_drhd_unit; do
+    nasm -f elf64 -Wall -Werror -w-reloc-rel-dword -w-unknown-warning -I "$ROOT_DIR/" \
+        "$TEST_DIR/$UNIT.asm" -o "$TMP_DIR/$UNIT.o"
+    ld -o "$TMP_DIR/$UNIT" "$TMP_DIR/$UNIT.o"
+    set +e
+    "$TMP_DIR/$UNIT"
+    STATUS=$?
+    set -e
+    [ "$STATUS" -eq 0 ] || {
+        echo "FAIL: $UNIT case $STATUS"
+        exit 1
+    }
+done
 
-echo "PASS: DMAR x2APIC policy validation"
+echo "PASS: DMAR x2APIC policy and DRHD ownership contracts"

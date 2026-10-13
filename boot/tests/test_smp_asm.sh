@@ -24,4 +24,26 @@ test -s "$TMP_DIR/smp_asm_unit.o" || {
     exit 1
 }
 
+assert_acpi_unpublished() {
+    START_LABEL=$1
+    END_LABEL=$2
+    BLOCK=$(awk -v start="$START_LABEL:" -v end="$END_LABEL:" '
+        $0 == start { found = 1 }
+        found { print }
+        found && $0 == end { exit }
+    ' "$ROOT_DIR/kernel/arch/x86_64/smp.asm")
+
+    for FIELD in smp_madt_ptr smp_dmar_seen smp_dmar_table \
+                 smp_dmar_drhd_count smp_dmar_flags smp_x2apic_veto; do
+        printf '%s\n' "$BLOCK" | grep -F "[rel $FIELD], 0" >/dev/null || {
+            echo "FAIL: $START_LABEL does not unpublish $FIELD"
+            exit 1
+        }
+    done
+}
+
+assert_acpi_unpublished smp_discover .firmware_x2apic
+assert_acpi_unpublished .fallback .fatal
+assert_acpi_unpublished .fatal_return .done
+
 echo "PASS: SMP discovery, AP-startup, and trampoline source assembles cleanly"

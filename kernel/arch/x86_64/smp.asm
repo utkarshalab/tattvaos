@@ -194,6 +194,9 @@ smp_find_madt:
     mov r14, rsi
     xor r15d, r15d
     mov byte [rel smp_dmar_seen], 0
+    mov qword [rel smp_dmar_table], 0
+    mov dword [rel smp_dmar_drhd_count], 0
+    mov byte [rel smp_dmar_flags], 0
     mov byte [rel smp_x2apic_veto], 0
     test r12, r12
     jz .invalid
@@ -295,14 +298,28 @@ smp_find_madt:
     cmp dword [r13], DMAR_SIGNATURE
     jne .root_loop
     cmp byte [rel smp_dmar_seen], 0
-    jne .veto_x2apic
+    jne .veto_dmar
     mov byte [rel smp_dmar_seen], 1
     mov rdi, r13
     mov rsi, r14
     call smp_dmar_policy_parse
-    jc .veto_x2apic
-    test al, DMAR_FLAG_X2APIC_OPT_OUT
-    jz .root_loop
+    jc .veto_dmar
+    mov [rel smp_dmar_flags], al
+    mov [rel smp_dmar_table], r13
+    mov rdi, r13
+    mov rsi, r14
+    lea rdx, [rel smp_dmar_drhds]
+    mov ecx, SMP_DMAR_MAX_DRHDS
+    call smp_dmar_parse_drhds
+    jc .veto_dmar
+    mov [rel smp_dmar_drhd_count], eax
+    test byte [rel smp_dmar_flags], DMAR_FLAG_X2APIC_OPT_OUT
+    jnz .veto_x2apic
+    jmp .root_loop
+.veto_dmar:
+    mov qword [rel smp_dmar_table], 0
+    mov dword [rel smp_dmar_drhd_count], 0
+    mov byte [rel smp_dmar_flags], 0
 .veto_x2apic:
     mov byte [rel smp_x2apic_veto], 1
     jmp .root_loop
@@ -318,6 +335,9 @@ smp_find_madt:
     clc
     jmp .done
 .invalid:
+    mov qword [rel smp_dmar_table], 0
+    mov dword [rel smp_dmar_drhd_count], 0
+    mov byte [rel smp_dmar_flags], 0
     xor eax, eax
     stc
 .done:
@@ -349,6 +369,11 @@ smp_discover:
     mov dword [rel smp_discovery_error], 0
     mov byte [rel smp_x2apic_mode], 0
     mov qword [rel smp_madt_ptr], 0
+    mov byte [rel smp_dmar_seen], 0
+    mov qword [rel smp_dmar_table], 0
+    mov dword [rel smp_dmar_drhd_count], 0
+    mov byte [rel smp_dmar_flags], 0
+    mov byte [rel smp_x2apic_veto], 0
     call smp_current_apic_id
     mov [rel smp_bsp_apic_id], eax
     mov [rel smp_apic_ids], eax
@@ -505,6 +530,11 @@ smp_discover:
     mov dword [rel smp_discovery_error], 10
 .fallback:
     mov qword [rel smp_madt_ptr], 0
+    mov byte [rel smp_dmar_seen], 0
+    mov qword [rel smp_dmar_table], 0
+    mov dword [rel smp_dmar_drhd_count], 0
+    mov byte [rel smp_dmar_flags], 0
+    mov byte [rel smp_x2apic_veto], 0
     call smp_report_apic_mode
     lea rsi, [rel msg_smp_disabled]
     call uart_print_str
@@ -517,6 +547,12 @@ smp_discover:
 .fatal:
     call smp_report_apic_mode
 .fatal_return:
+    mov qword [rel smp_madt_ptr], 0
+    mov byte [rel smp_dmar_seen], 0
+    mov qword [rel smp_dmar_table], 0
+    mov dword [rel smp_dmar_drhd_count], 0
+    mov byte [rel smp_dmar_flags], 0
+    mov byte [rel smp_x2apic_veto], 0
     lea rsi, [rel msg_smp_fatal]
     call uart_print_str
     stc
@@ -2656,10 +2692,14 @@ smp_bsp_apic_id:            dd 0
 smp_x2apic_mode:            db 0
 smp_dmar_seen:               db 0
 smp_x2apic_veto:             db 0
+smp_dmar_flags:              db 0
 smp_bsp_has_spec_ctrl:      db 0
 smp_startup_aborted:        db 0
 smp_lapic_ready:            db 0
 smp_timer_mode:              db 0
+align 8
+smp_dmar_table:              dq 0
+smp_dmar_drhd_count:         dd 0
 align 8
 smp_timer_interval_tsc:      dq 0
 align 8
@@ -2714,6 +2754,12 @@ msg_smp_abort_timeout:      db "KERNEL PANIC: AP abort barrier timed out", 0x0D,
 msg_crlf_smp:               db 0x0D, 0x0A, 0
 
 section .bss
+alignb 64
+global smp_dmar_table
+global smp_dmar_flags
+global smp_dmar_drhd_count
+global smp_dmar_drhds
+smp_dmar_drhds:             resb SMP_DMAR_MAX_DRHDS * SMP_DMAR_DRHD_BYTES
 alignb 64
 smp_mailboxes:              resb SMP_MAX_CPUS * SMP_MAILBOX_STRIDE
 alignb 16
