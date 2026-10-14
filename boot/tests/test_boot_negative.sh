@@ -230,7 +230,9 @@ cp "$GOOD_IMAGE" "$ULF_SUM_BAD"
 printf '\000\000\000\000\000\000\000\000' | \
     dd of="$ULF_SUM_BAD" bs=1 seek=$((KERNEL_OFFSET + 16)) conv=notrunc status=none
 ULF_SUM_LOG="$TMP_DIR/ulf-checksum.log"
-run_guest "$ULF_SUM_BAD" max "$ULF_SUM_LOG"
+# Unlike the header-only rejects above, this path sums the complete ULF under
+# emulation before it can report the mismatch.
+run_guest "$ULF_SUM_BAD" max "$ULF_SUM_LOG" "$COMPAT_TIMEOUT"
 expect_line "invalid ULF checksum rejected" "FAIL (Bad Checksum)" "$ULF_SUM_LOG"
 
 CPU_LOG="$TMP_DIR/cpu.log"
