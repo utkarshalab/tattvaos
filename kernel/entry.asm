@@ -66,6 +66,7 @@ kernel_text_start:
 %include "kernel/arch/x86_64/vtd.asm"
 %include "kernel/arch/x86_64/pci.asm"
 %include "lib/io/intr/vector.asm"
+%include "kernel/arch/x86_64/pci_edu.asm"
 %include "kernel/arch/x86_64/ioapic.asm"
 %include "unet/core/link/net_link.asm"
 %include "lib/hw/ucpu/mtrr.asm"

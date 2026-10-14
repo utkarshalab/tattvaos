@@ -100,6 +100,11 @@ kernel_main:
     test rax, rax
     jz sched_preempt_selftest_fail
 
+    ; Prepare the optional EDU MSI proof while page-table and IDT publication
+    ; are still BSP-serialized. An absent test device is a supported no-op.
+    call kpci_edu_prepare
+    jc .interrupt_failed
+
     ; All shared initialization and initial fiber creation are complete.
     ; Only now copy/seal the trampoline and start APs: while an AP waits with
     ; interrupts disabled it cannot receive a TLB shootdown, so starting it
@@ -116,6 +121,8 @@ kernel_main:
     call smp_timer_verify
     jc .timer_failed
     call ioapic_pit_selftest
+    jc .interrupt_failed
+    call kpci_edu_msi_selftest
     jc .interrupt_failed
     call smp_sched_lifecycle_selftest
     jc .timer_failed

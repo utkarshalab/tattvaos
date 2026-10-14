@@ -19,6 +19,7 @@ EXPECT_SMP=${UEFI_EXPECT_SMP:-}
 EXPECT_APIC_MODE=${UEFI_EXPECT_APIC_MODE:-}
 IOMMU=${UEFI_QEMU_IOMMU:-0}
 EXPECT_VTD_UNITS=${UEFI_EXPECT_VTD_UNITS:-}
+EDU=${UEFI_QEMU_EDU:-0}
 OVMF_CODE=${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}
 OVMF_VARS=${OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}
 TMP_DIR=$(mktemp -d)
@@ -62,6 +63,14 @@ case "$IOMMU" in
         ;;
 esac
 
+case "$EDU" in
+    0|1) ;;
+    *)
+        echo "FAIL: invalid UEFI_QEMU_EDU value: $EDU"
+        exit 1
+        ;;
+esac
+
 case "$EXPECT_VTD_UNITS" in
     '') ;;
     *[!0-9]*|0)
@@ -70,6 +79,7 @@ case "$EXPECT_VTD_UNITS" in
         ;;
 esac
 
+set --
 if [ "$IOMMU" -eq 1 ]; then
     case "$MACHINE" in
         q35)
@@ -88,9 +98,10 @@ if [ "$IOMMU" -eq 1 ]; then
             exit 1
             ;;
     esac
-    set -- -device "intel-iommu,intremap=on,eim=on"
-else
-    set --
+    set -- "$@" -device "intel-iommu,intremap=on,eim=on"
+fi
+if [ "$EDU" -eq 1 ]; then
+    set -- "$@" -device "edu,addr=06.0"
 fi
 
 for TOOL in "$QEMU64" timeout; do
@@ -277,19 +288,35 @@ if [ -z "$IOAPIC_LINE" ]; then
     PASS=0
 fi
 
+INTERRUPT_LINE=$IOAPIC_LINE
+if [ "$EDU" -eq 1 ]; then
+    MSI_MARKER="PCI MSI: EDU one-shot PASS"
+    MSI_COUNT=$(awk -v expected="$MSI_MARKER" '{ sub(/\r$/, "", $0); if ($0 == expected) count++ } END { print count + 0 }' "$LOG")
+    MSI_LINE=
+    if [ -n "$IOAPIC_LINE" ]; then
+        MSI_LINE=$(awk -v after="$IOAPIC_LINE" -v expected="$MSI_MARKER" -v heartbeat="heartbeat #0" 'NR > after { sub(/\r$/, "", $0); if ($0 == heartbeat) exit; if ($0 == expected) { print NR; exit } }' "$LOG")
+    fi
+    if [ "$MSI_COUNT" -ne 1 ] || [ -z "$MSI_LINE" ]; then
+        echo "FAIL: expected exactly one EDU MSI proof after IOAPIC delivery"
+        PASS=0
+    else
+        INTERRUPT_LINE=$MSI_LINE
+    fi
+fi
+
 if [ "$TIMER_CPUS" -gt 1 ]; then
     LIFECYCLE_MARKER="SMP: scheduler park/unpark PASS"
 else
     LIFECYCLE_MARKER="SMP: scheduler park/unpark SKIP (single CPU)"
 fi
 LIFECYCLE_LINE=
-if [ -n "$IOAPIC_LINE" ]; then
-    LIFECYCLE_LINE=$(awk -v after="$IOAPIC_LINE" -v expected="$LIFECYCLE_MARKER" \
+if [ -n "$INTERRUPT_LINE" ]; then
+    LIFECYCLE_LINE=$(awk -v after="$INTERRUPT_LINE" -v expected="$LIFECYCLE_MARKER" \
         -v heartbeat="heartbeat #0" \
         'NR > after { sub(/\r$/, "", $0); if ($0 == heartbeat) exit; if ($0 == expected) { print NR; exit } }' "$LOG")
 fi
 if [ -z "$LIFECYCLE_LINE" ]; then
-    echo "FAIL: missing exact scheduler lifecycle marker between IOAPIC proof and first heartbeat: $LIFECYCLE_MARKER"
+    echo "FAIL: missing exact scheduler lifecycle marker after external-interrupt proofs: $LIFECYCLE_MARKER"
     PASS=0
 fi
 
@@ -337,6 +364,7 @@ for FATAL in \
     "VT-d: capability probe rejected" \
     "IOAPIC: topology or hardware validation FAILED" \
     "IOAPIC: PIT IRQ0 delivery FAILED" \
+    "PCI MSI: EDU one-shot FAILED" \
     "Scheduler preemption: FAIL" \
     "SMP: scheduler park/unpark FAILED" \
     "ERROR: Failed to load kernel.ulf" \
