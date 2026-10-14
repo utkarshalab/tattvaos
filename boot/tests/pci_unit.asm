@@ -3,6 +3,7 @@
 default rel
 
 %include "kernel/arch/x86_64/pci.asm"
+%include "kernel/arch/x86_64/pci_msi.asm"
 
 section .text
 global _start
@@ -306,6 +307,39 @@ _start:
     call route_snapshot
     jnc fail_route_input
 
+    call reset_snapshot
+    mov byte [rel config_snapshot + 0x34], 0x40
+    mov byte [rel config_snapshot + 0x40], KPCI_CAP_ID_MSI
+    mov word [rel config_snapshot + 0x42], KPCI_MSI_64BIT
+    lea rdi, [rel config_snapshot]
+    call kpci_msi_snapshot_cap
+    jc fail_msi_valid
+    cmp eax, 0x40
+    jne fail_msi_valid
+
+    or word [rel config_snapshot + 0x42], KPCI_MSI_ENABLE
+    lea rdi, [rel config_snapshot]
+    call kpci_msi_snapshot_cap
+    jnc fail_msi_enabled
+
+    and word [rel config_snapshot + 0x42], ~KPCI_MSI_ENABLE
+    or word [rel config_snapshot + 0x42], KPCI_MSI_MMC_MASK
+    lea rdi, [rel config_snapshot]
+    call kpci_msi_snapshot_cap
+    jnc fail_msi_multiple
+
+    mov word [rel config_snapshot + 0x42], 0
+    lea rdi, [rel config_snapshot]
+    call kpci_msi_snapshot_cap
+    jnc fail_msi_32bit
+
+    call reset_snapshot
+    mov byte [rel config_snapshot + 0x34], 0xFC
+    mov byte [rel config_snapshot + 0xFC], KPCI_CAP_ID_MSI
+    lea rdi, [rel config_snapshot]
+    call kpci_msi_snapshot_cap
+    jnc fail_msi_span
+
     xor edi, edi
     jmp exit
 
@@ -376,6 +410,16 @@ fail_route_cycle:       mov edi, 32
 fail_route_window:      mov edi, 33
                         jmp exit
 fail_route_input:       mov edi, 34
+                        jmp exit
+fail_msi_valid:         mov edi, 35
+                        jmp exit
+fail_msi_enabled:       mov edi, 36
+                        jmp exit
+fail_msi_multiple:      mov edi, 37
+                        jmp exit
+fail_msi_32bit:         mov edi, 38
+                        jmp exit
+fail_msi_span:          mov edi, 39
 
 exit:
     mov eax, 60
@@ -389,6 +433,16 @@ parse_snapshot:
 route_snapshot:
     lea rdi, [rel config_snapshot]
     jmp kpci_snapshot_bridge_route
+
+; Ownership functions are linked but never executed by this userspace parser
+; test; their hardware lifecycle is covered by the OVMF/EDU proof.
+vector_alloc:
+    xor eax, eax
+    ret
+vector_free:
+    ret
+register_idt_handler:
+    ret
 
 reset_snapshot:
     lea rdi, [rel config_snapshot]

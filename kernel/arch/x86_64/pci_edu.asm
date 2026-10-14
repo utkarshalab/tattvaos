@@ -34,12 +34,6 @@ KPCI_COMMAND_IO                equ 1 << 0
 KPCI_COMMAND_MEMORY            equ 1 << 1
 KPCI_COMMAND_BUS_MASTER        equ 1 << 2
 KPCI_COMMAND_INTX_DISABLE      equ 1 << 10
-KPCI_CAP_ID_MSI                equ 0x05
-KPCI_MSI_ENABLE                equ 1 << 0
-KPCI_MSI_MMC_MASK              equ 7 << 1
-KPCI_MSI_MME_MASK              equ 7 << 4
-KPCI_MSI_64BIT                 equ 1 << 7
-KPCI_MSI_MASK_CAPABLE          equ 1 << 8
 
 KPCI_EDU_CLEAN_COMMAND         equ 1 << 0
 KPCI_EDU_CLEAN_MSI             equ 1 << 1
@@ -64,8 +58,6 @@ kpci_edu_prepare:
     mov qword [rel kpci_edu_vma], 0
     mov qword [rel kpci_edu_bar_phys], 0
     mov dword [rel kpci_edu_bdf], 0
-    mov dword [rel kpci_edu_msi_cap], 0
-    mov dword [rel kpci_edu_vector], 0
 
     mov edi, KPCI_EDU_ID
     xor esi, esi                    ; ACPI root discovery is a later ceiling.
@@ -87,27 +79,6 @@ kpci_edu_prepare:
     jne .failed
     movzx eax, byte [r14 + 0x0E]
     and eax, 0x7F
-    jnz .failed
-
-    mov rdi, r14
-    mov esi, KPCI_CONFIG_SPACE_BYTES
-    mov edx, KPCI_CAP_ID_MSI
-    call kpci_find_capability_snapshot
-    jc .failed
-    test eax, eax
-    jz .failed
-    mov r13d, eax
-    add eax, 14                     ; complete 64-bit MSI capability
-    cmp eax, KPCI_CONFIG_SPACE_BYTES
-    ja .failed
-    cmp byte [r14 + r13], KPCI_CAP_ID_MSI
-    jne .failed
-    movzx eax, word [r14 + r13 + 2]
-    test eax, KPCI_MSI_ENABLE | KPCI_MSI_MMC_MASK | KPCI_MSI_MME_MASK
-    jnz .failed
-    test eax, KPCI_MSI_64BIT
-    jz .failed
-    test eax, KPCI_MSI_MASK_CAPABLE
     jnz .failed
 
     mov edi, r12d
@@ -185,25 +156,21 @@ kpci_edu_prepare:
 .mapping_verified:
 
     mov [rel kpci_edu_bdf], r12d
-    mov [rel kpci_edu_msi_cap], r13d
     mov [rel kpci_edu_bar_phys], r14
     mov [rel kpci_edu_mmio], r15
-    call vector_alloc
-    cmp eax, 0x40
-    jb .rollback_mapping
-    cmp eax, 0xEF
-    ja .rollback_mapping
-    mov [rel kpci_edu_vector], eax
-
-    pushfq
-    pop r14
-    cli
-    mov edi, eax
-    lea rsi, [rel kpci_edu_isr]
-    xor edx, edx
-    call register_idt_handler
-    push r14
-    popfq
+    lea rdi, [rel kpci_edu_msi_owner]
+    mov esi, r12d
+    lea rdx, [rel kpci_edu_isr]
+    mov ecx, [rel smp_bsp_apic_id]
+    call kpci_msi_prepare
+    jnc .msi_prepared
+    cmp dword [rel kpci_edu_msi_owner + KPCI_MSI_OWNER_VECTOR], 0
+    je .rollback_mapping
+    lea rdi, [rel kpci_edu_msi_owner]
+    call kpci_msi_restore
+    jc .failed
+    jmp .rollback_mapping
+.msi_prepared:
     mov byte [rel kpci_edu_state], KPCI_EDU_STATE_READY
     clc
     jmp .done
@@ -228,8 +195,6 @@ kpci_edu_prepare:
     mov qword [rel kpci_edu_mmio], 0
     mov qword [rel kpci_edu_bar_phys], 0
     mov dword [rel kpci_edu_bdf], 0
-    mov dword [rel kpci_edu_msi_cap], 0
-    mov dword [rel kpci_edu_vector], 0
     jmp .failed
 
 .remap_required:
@@ -433,9 +398,10 @@ kpci_edu_msi_selftest:
     jne .failed_plain
 
     mov r12d, [rel kpci_edu_bdf]
-    mov r13d, [rel kpci_edu_msi_cap]
     mov r14, [rel kpci_edu_mmio]
-    mov r15d, [rel kpci_edu_vector]
+    cmp dword [rel kpci_edu_msi_owner + KPCI_MSI_OWNER_STATE], KPCI_MSI_STATE_PREPARED
+    jne .failed_plain
+    mov r15d, [rel kpci_edu_msi_owner + KPCI_MSI_OWNER_VECTOR]
     test r14, r14
     jz .failed_plain
     cmp r15d, 0x40
@@ -456,38 +422,6 @@ kpci_edu_msi_selftest:
     call kpci_cfg_read
     jc .failed_plain
     mov [rel kpci_edu_saved_command], eax
-
-    mov edi, r12d
-    lea esi, [r13d + 2]
-    mov edx, 2
-    call kpci_cfg_read
-    jc .failed_plain
-    test eax, KPCI_MSI_ENABLE | KPCI_MSI_MMC_MASK | KPCI_MSI_MME_MASK
-    jnz .failed_plain
-    test eax, KPCI_MSI_64BIT
-    jz .failed_plain
-    test eax, KPCI_MSI_MASK_CAPABLE
-    jnz .failed_plain
-    mov [rel kpci_edu_saved_control], eax
-
-    mov edi, r12d
-    lea esi, [r13d + 4]
-    mov edx, 4
-    call kpci_cfg_read
-    jc .failed_plain
-    mov [rel kpci_edu_saved_address_low], eax
-    mov edi, r12d
-    lea esi, [r13d + 8]
-    mov edx, 4
-    call kpci_cfg_read
-    jc .failed_plain
-    mov [rel kpci_edu_saved_address_high], eax
-    mov edi, r12d
-    lea esi, [r13d + 12]
-    mov edx, 2
-    call kpci_cfg_read
-    jc .failed_plain
-    mov [rel kpci_edu_saved_data], eax
     mov dword [rel kpci_edu_diag_phase], 3
 
     mov dword [rel kpci_edu_irq_count], 0
@@ -527,65 +461,10 @@ kpci_edu_msi_selftest:
     test dword [r14 + KPCI_EDU_DMA_COMMAND], KPCI_EDU_DMA_RUN
     jnz .cleanup
     or ebx, KPCI_EDU_CLEAN_QUIESCED
-    mov dword [rel kpci_edu_diag_phase], 5
-
-    mov edi, r12d
-    lea esi, [r13d + 2]
-    mov edx, 2
-    mov ecx, [rel kpci_edu_saved_control]
-    and ecx, ~(KPCI_MSI_ENABLE | KPCI_MSI_MME_MASK)
-    call kpci_cfg_write
-    jc .cleanup
-    or ebx, KPCI_EDU_CLEAN_MSI
-    mov dword [rel kpci_edu_diag_phase], 6
-
-    mov ecx, [rel smp_bsp_apic_id]
-    shl ecx, 12
-    or ecx, 0xFEE00000
-    mov [rel kpci_edu_message_address], ecx
-    mov edi, r12d
-    lea esi, [r13d + 4]
-    mov edx, 4
-    call kpci_cfg_write
-    jc .cleanup
-    mov edi, r12d
-    lea esi, [r13d + 8]
-    mov edx, 4
-    xor ecx, ecx
-    call kpci_cfg_write
-    jc .cleanup
-    mov edi, r12d
-    lea esi, [r13d + 12]
-    mov edx, 2
-    mov ecx, r15d
-    call kpci_cfg_write
-    jc .cleanup
-
-    mov edi, r12d
-    lea esi, [r13d + 4]
-    mov edx, 4
-    call kpci_cfg_read
-    jc .cleanup
-    cmp eax, [rel kpci_edu_message_address]
-    jne .cleanup
-    mov edi, r12d
-    lea esi, [r13d + 8]
-    mov edx, 4
-    call kpci_cfg_read
-    jc .cleanup
-    test eax, eax
-    jnz .cleanup
-    mov edi, r12d
-    lea esi, [r13d + 12]
-    mov edx, 2
-    call kpci_cfg_read
-    jc .cleanup
-    cmp eax, r15d
-    jne .cleanup
     mov dword [rel kpci_edu_diag_phase], 7
 
     ; MSI is itself a device-originated memory write. Keep bus mastering off
-    ; through validation/programming, then enable it only for the proof window.
+    ; through device validation, then enable it only for the proof window.
     mov edi, r12d
     mov esi, 0x04
     mov edx, 2
@@ -604,23 +483,10 @@ kpci_edu_msi_selftest:
     jne .cleanup
     mov dword [rel kpci_edu_diag_phase], 8
 
-    mov edi, r12d
-    lea esi, [r13d + 2]
-    mov edx, 2
-    mov ecx, [rel kpci_edu_saved_control]
-    and ecx, ~KPCI_MSI_MME_MASK
-    or ecx, KPCI_MSI_ENABLE
-    call kpci_cfg_write
+    lea rdi, [rel kpci_edu_msi_owner]
+    call kpci_msi_arm
     jc .cleanup
-    mov edi, r12d
-    lea esi, [r13d + 2]
-    mov edx, 2
-    call kpci_cfg_read
-    jc .cleanup
-    test eax, KPCI_MSI_ENABLE
-    jz .cleanup
-    test eax, KPCI_MSI_MME_MASK
-    jnz .cleanup
+    or ebx, KPCI_EDU_CLEAN_MSI
     mov dword [rel kpci_edu_diag_phase], 9
 
     and ebx, ~KPCI_EDU_CLEAN_QUIESCED
@@ -652,14 +518,9 @@ kpci_edu_msi_selftest:
 .cleanup:
     cli
     test ebx, KPCI_EDU_CLEAN_MSI
-    jz .restore_command
-    mov r13d, [rel kpci_edu_msi_cap]
-    mov edi, r12d
-    lea esi, [r13d + 2]
-    mov edx, 2
-    mov ecx, [rel kpci_edu_saved_control]
-    and ecx, ~KPCI_MSI_ENABLE
-    call kpci_cfg_write
+    jz .msi_disabled
+    lea rdi, [rel kpci_edu_msi_owner]
+    call kpci_msi_quiesce
     jnc .msi_disabled
     or ebx, KPCI_EDU_CLEAN_RESTORE_BAD
     and ebx, ~KPCI_EDU_CLEAN_PASS
@@ -676,42 +537,11 @@ kpci_edu_msi_selftest:
 .irq_not_quiesced:
     and ebx, ~KPCI_EDU_CLEAN_PASS
 .restore_message:
-    mov edi, r12d
-    lea esi, [r13d + 12]
-    mov edx, 2
-    mov ecx, [rel kpci_edu_saved_data]
-    call kpci_cfg_write
-    jnc .data_restored
+    lea rdi, [rel kpci_edu_msi_owner]
+    call kpci_msi_restore
+    jnc .restore_command
     or ebx, KPCI_EDU_CLEAN_RESTORE_BAD
     and ebx, ~KPCI_EDU_CLEAN_PASS
-.data_restored:
-    mov edi, r12d
-    lea esi, [r13d + 8]
-    mov edx, 4
-    mov ecx, [rel kpci_edu_saved_address_high]
-    call kpci_cfg_write
-    jnc .address_high_restored
-    or ebx, KPCI_EDU_CLEAN_RESTORE_BAD
-    and ebx, ~KPCI_EDU_CLEAN_PASS
-.address_high_restored:
-    mov edi, r12d
-    lea esi, [r13d + 4]
-    mov edx, 4
-    mov ecx, [rel kpci_edu_saved_address_low]
-    call kpci_cfg_write
-    jnc .address_low_restored
-    or ebx, KPCI_EDU_CLEAN_RESTORE_BAD
-    and ebx, ~KPCI_EDU_CLEAN_PASS
-.address_low_restored:
-    mov edi, r12d
-    lea esi, [r13d + 2]
-    mov edx, 2
-    mov ecx, [rel kpci_edu_saved_control]
-    call kpci_cfg_write
-    jnc .control_restored
-    or ebx, KPCI_EDU_CLEAN_RESTORE_BAD
-    and ebx, ~KPCI_EDU_CLEAN_PASS
-.control_restored:
 
 .restore_command:
     test ebx, KPCI_EDU_CLEAN_COMMAND
@@ -747,37 +577,6 @@ kpci_edu_msi_selftest:
 .command_expected_ready:
     cmp eax, ecx
     jne .cleanup_bad
-    test ebx, KPCI_EDU_CLEAN_MSI
-    jz .restore_flags
-    mov r13d, [rel kpci_edu_msi_cap]
-    mov edi, r12d
-    lea esi, [r13d + 2]
-    mov edx, 2
-    call kpci_cfg_read
-    jc .cleanup_bad
-    cmp eax, [rel kpci_edu_saved_control]
-    jne .cleanup_bad
-    mov edi, r12d
-    lea esi, [r13d + 4]
-    mov edx, 4
-    call kpci_cfg_read
-    jc .cleanup_bad
-    cmp eax, [rel kpci_edu_saved_address_low]
-    jne .cleanup_bad
-    mov edi, r12d
-    lea esi, [r13d + 8]
-    mov edx, 4
-    call kpci_cfg_read
-    jc .cleanup_bad
-    cmp eax, [rel kpci_edu_saved_address_high]
-    jne .cleanup_bad
-    mov edi, r12d
-    lea esi, [r13d + 12]
-    mov edx, 2
-    call kpci_cfg_read
-    jc .cleanup_bad
-    cmp eax, [rel kpci_edu_saved_data]
-    jne .cleanup_bad
     jmp .restore_flags
 
 .cleanup_bad:
@@ -800,6 +599,12 @@ kpci_edu_msi_selftest:
     push qword [rel kpci_edu_saved_rflags]
     popfq
 .failed_plain:
+    lea rdi, [rel kpci_edu_msi_owner]
+    call kpci_msi_restore
+    jnc .failure_report
+    or dword [rel kpci_edu_diag_clean], KPCI_EDU_CLEAN_RESTORE_BAD
+.failure_report:
+    mov byte [rel kpci_edu_state], KPCI_EDU_STATE_DONE
     lea rsi, [rel msg_kpci_edu_diag_phase]
     call uart_print_str
     mov eax, [rel kpci_edu_diag_phase]
@@ -887,6 +692,7 @@ msg_kpci_edu_diag_end:   db 0x0D, 0x0A, 0
 section .bss
 alignb 16
 kpci_edu_snapshot:           resb KPCI_CONFIG_SPACE_BYTES
+kpci_edu_msi_owner:          resb KPCI_MSI_OWNER_SIZE
 alignb 8
 kpci_edu_mmio:               resq 1
 kpci_edu_vma:                resq 1
@@ -894,14 +700,7 @@ kpci_edu_bar_phys:           resq 1
 kpci_edu_saved_rflags:       resq 1
 alignb 4
 kpci_edu_bdf:                resd 1
-kpci_edu_msi_cap:            resd 1
-kpci_edu_vector:             resd 1
-kpci_edu_message_address:    resd 1
 kpci_edu_saved_command:      resd 1
-kpci_edu_saved_control:      resd 1
-kpci_edu_saved_address_low:  resd 1
-kpci_edu_saved_address_high: resd 1
-kpci_edu_saved_data:         resd 1
 kpci_edu_irq_count:          resd 1
 kpci_edu_irq_seen:           resd 1
 kpci_edu_irq_bad:            resd 1
