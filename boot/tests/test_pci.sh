@@ -21,6 +21,9 @@ ld -o "$TMP_DIR/pci_unit" "$TMP_DIR/pci_unit.o"
 nasm -f elf64 -Wall -Werror -w-reloc-rel-dword -w-unknown-warning \
     -I "$ROOT_DIR/" "$TEST_DIR/pci_msi_owner_unit.asm" -o "$TMP_DIR/pci_msi_owner_unit.o"
 ld -o "$TMP_DIR/pci_msi_owner_unit" "$TMP_DIR/pci_msi_owner_unit.o"
+nasm -f elf64 -Wall -Werror -w-reloc-rel-dword -w-unknown-warning \
+    -I "$ROOT_DIR/" "$TEST_DIR/pci_msix_owner_unit.asm" -o "$TMP_DIR/pci_msix_owner_unit.o"
+ld -o "$TMP_DIR/pci_msix_owner_unit" "$TMP_DIR/pci_msix_owner_unit.o"
 
 set +e
 "$TMP_DIR/pci_unit"
@@ -40,4 +43,13 @@ set -e
     exit 1
 }
 
-echo "PASS: PCI config, capability, and MSI ownership contracts"
+set +e
+"$TMP_DIR/pci_msix_owner_unit"
+STATUS=$?
+set -e
+[ "$STATUS" -eq 0 ] || {
+    echo "FAIL: PCI MSI-X owner lifecycle case $STATUS"
+    exit 1
+}
+
+echo "PASS: PCI config, capability, MSI, and MSI-X ownership contracts"

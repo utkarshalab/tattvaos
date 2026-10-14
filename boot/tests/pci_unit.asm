@@ -4,6 +4,7 @@ default rel
 
 %include "kernel/arch/x86_64/pci.asm"
 %include "kernel/arch/x86_64/pci_msi.asm"
+%include "kernel/arch/x86_64/pci_msix.asm"
 
 section .text
 global _start
@@ -340,6 +341,116 @@ _start:
     call kpci_msi_snapshot_cap
     jnc fail_msi_span
 
+    ; QEMU e1000e advertises five vectors in one 16 KiB BAR.
+    call setup_msix_snapshot
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jc fail_msix_valid
+    cmp eax, 0x40
+    jne fail_msix_valid
+    cmp dword [rel msix_layout + KPCI_MSIX_LAYOUT_COUNT], 5
+    jne fail_msix_valid
+    cmp dword [rel msix_layout + KPCI_MSIX_LAYOUT_TABLE_BYTES], 80
+    jne fail_msix_valid
+    cmp dword [rel msix_layout + KPCI_MSIX_LAYOUT_PBA_BYTES], 8
+    jne fail_msix_valid
+    lea rdi, [rel msix_layout]
+    mov esi, 0x4000
+    call kpci_msix_validate_layout
+    jc fail_msix_valid
+
+    or word [rel config_snapshot + 0x42], KPCI_MSIX_ENABLE
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jnc fail_msix_control
+    call setup_msix_snapshot
+    or word [rel config_snapshot + 0x42], 1 << 11
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jnc fail_msix_control
+
+    ; Conventional MSI may coexist only while disabled.
+    call setup_msix_snapshot
+    mov byte [rel config_snapshot + 0x41], 0x50
+    mov byte [rel config_snapshot + 0x50], KPCI_CAP_ID_MSI
+    mov word [rel config_snapshot + 0x52], KPCI_MSI_ENABLE
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jnc fail_msix_msi_enabled
+
+    call setup_msix_snapshot
+    mov dword [rel config_snapshot + 0x44], 6
+    mov dword [rel config_snapshot + 0x48], 0x2006
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jnc fail_msix_bir
+    call setup_msix_snapshot
+    mov dword [rel config_snapshot + 0x48], 0x2004
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jnc fail_msix_bir
+
+    call reset_snapshot
+    mov byte [rel config_snapshot + 0x34], 0xF8
+    mov byte [rel config_snapshot + 0xF8], KPCI_CAP_ID_MSIX
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jnc fail_msix_span
+
+    ; Exact BAR end is valid; one byte short and overlapping ranges are not.
+    call setup_msix_snapshot
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jc fail_msix_bounds
+    lea rdi, [rel msix_layout]
+    mov esi, 0x2008
+    call kpci_msix_validate_layout
+    jc fail_msix_bounds
+    lea rdi, [rel msix_layout]
+    mov esi, 0x2007
+    call kpci_msix_validate_layout
+    jnc fail_msix_bounds
+    mov dword [rel msix_layout + KPCI_MSIX_LAYOUT_PBA_OFFSET], 0x40
+    lea rdi, [rel msix_layout]
+    mov esi, 0x4000
+    call kpci_msix_validate_layout
+    jnc fail_msix_overlap
+
+    call setup_msix_snapshot
+    mov word [rel config_snapshot + 0x42], 63
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jc fail_msix_count
+    cmp dword [rel msix_layout + KPCI_MSIX_LAYOUT_TABLE_BYTES], 1024
+    jne fail_msix_count
+    cmp dword [rel msix_layout + KPCI_MSIX_LAYOUT_PBA_BYTES], 8
+    jne fail_msix_count
+    mov word [rel config_snapshot + 0x42], 64
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jc fail_msix_count
+    cmp dword [rel msix_layout + KPCI_MSIX_LAYOUT_PBA_BYTES], 16
+    jne fail_msix_count
+    mov word [rel config_snapshot + 0x42], 2047
+    lea rdi, [rel config_snapshot]
+    lea rsi, [rel msix_layout]
+    call kpci_msix_snapshot_layout
+    jc fail_msix_count
+    cmp dword [rel msix_layout + KPCI_MSIX_LAYOUT_TABLE_BYTES], 32768
+    jne fail_msix_count
+    cmp dword [rel msix_layout + KPCI_MSIX_LAYOUT_PBA_BYTES], 256
+    jne fail_msix_count
+
     xor edi, edi
     jmp exit
 
@@ -420,6 +531,22 @@ fail_msi_multiple:      mov edi, 37
 fail_msi_32bit:         mov edi, 38
                         jmp exit
 fail_msi_span:          mov edi, 39
+                        jmp exit
+fail_msix_valid:        mov edi, 40
+                        jmp exit
+fail_msix_control:      mov edi, 41
+                        jmp exit
+fail_msix_msi_enabled:  mov edi, 42
+                        jmp exit
+fail_msix_bir:          mov edi, 43
+                        jmp exit
+fail_msix_span:         mov edi, 44
+                        jmp exit
+fail_msix_bounds:       mov edi, 45
+                        jmp exit
+fail_msix_overlap:      mov edi, 46
+                        jmp exit
+fail_msix_count:        mov edi, 47
 
 exit:
     mov eax, 60
@@ -452,6 +579,16 @@ reset_snapshot:
     or word [rel config_snapshot + 0x06], KPCI_CAP_STATUS_BIT
     ret
 
+setup_msix_snapshot:
+    call reset_snapshot
+    mov byte [rel config_snapshot + 0x34], 0x40
+    mov byte [rel config_snapshot + 0x40], KPCI_CAP_ID_MSIX
+    mov word [rel config_snapshot + 0x42], 4
+    mov dword [rel config_snapshot + 0x44], 3
+    mov dword [rel config_snapshot + 0x48], 0x2003
+    ret
+
 section .bss
 alignb 16
 config_snapshot: resb KPCI_CONFIG_SPACE_BYTES
+msix_layout:    resb KPCI_MSIX_LAYOUT_SIZE

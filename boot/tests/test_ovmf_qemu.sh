@@ -21,6 +21,7 @@ IOMMU=${UEFI_QEMU_IOMMU:-0}
 EXPECT_VTD_UNITS=${UEFI_EXPECT_VTD_UNITS:-}
 EDU=${UEFI_QEMU_EDU:-0}
 EDU_BRIDGE=${UEFI_QEMU_EDU_BRIDGE:-0}
+E1000E=${UEFI_QEMU_E1000E:-0}
 OVMF_CODE=${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}
 OVMF_VARS=${OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}
 TMP_DIR=$(mktemp -d)
@@ -84,6 +85,14 @@ esac
     exit 1
 }
 
+case "$E1000E" in
+    0|1) ;;
+    *)
+        echo "FAIL: invalid UEFI_QEMU_E1000E value: $E1000E"
+        exit 1
+        ;;
+esac
+
 case "$EXPECT_VTD_UNITS" in
     '') ;;
     *[!0-9]*|0)
@@ -121,6 +130,9 @@ if [ "$EDU" -eq 1 ]; then
     else
         set -- "$@" -device "edu,addr=06.0"
     fi
+fi
+if [ "$E1000E" -eq 1 ]; then
+    set -- "$@" -device "e1000e,addr=07.0,romfile="
 fi
 
 for TOOL in "$QEMU64" timeout; do
@@ -323,6 +335,21 @@ if [ "$EDU" -eq 1 ]; then
     fi
 fi
 
+if [ "$E1000E" -eq 1 ]; then
+    MSIX_MARKER="PCI MSI-X: e1000e one-shot PASS"
+    MSIX_COUNT=$(awk -v expected="$MSIX_MARKER" '{ sub(/\r$/, "", $0); if ($0 == expected) count++ } END { print count + 0 }' "$LOG")
+    MSIX_LINE=
+    if [ -n "$INTERRUPT_LINE" ]; then
+        MSIX_LINE=$(awk -v after="$INTERRUPT_LINE" -v expected="$MSIX_MARKER" -v heartbeat="heartbeat #0" 'NR > after { sub(/\r$/, "", $0); if ($0 == heartbeat) exit; if ($0 == expected) { print NR; exit } }' "$LOG")
+    fi
+    if [ "$MSIX_COUNT" -ne 1 ] || [ -z "$MSIX_LINE" ]; then
+        echo "FAIL: expected exactly one e1000e MSI-X proof after earlier interrupt delivery"
+        PASS=0
+    else
+        INTERRUPT_LINE=$MSIX_LINE
+    fi
+fi
+
 if [ "$TIMER_CPUS" -gt 1 ]; then
     LIFECYCLE_MARKER="SMP: scheduler park/unpark PASS"
 else
@@ -384,6 +411,8 @@ for FATAL in \
     "IOAPIC: topology or hardware validation FAILED" \
     "IOAPIC: PIT IRQ0 delivery FAILED" \
     "PCI MSI: EDU one-shot FAILED" \
+    "PCI MSI-X: e1000e preparation FAILED" \
+    "PCI MSI-X: e1000e one-shot FAILED" \
     "Scheduler preemption: FAIL" \
     "SMP: scheduler park/unpark FAILED" \
     "ERROR: Failed to load kernel.ulf" \

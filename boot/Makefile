@@ -227,6 +227,9 @@ pci-check:
 pci-msi-test: kernel.bin $(UEFI_EFI) pci-check
 	@sh $(KERNEL_DIR)/tests/test_pci_msi_qemu.sh
 
+pci-msix-test: kernel.bin $(UEFI_EFI) pci-check
+	@sh $(KERNEL_DIR)/tests/test_pci_msix_qemu.sh
+
 # Native ABI validation plus a complete PE32+ EFI application link check.
 uefi-check: $(UEFI_EFI)
 	@sh $(KERNEL_DIR)/tests/test_uefi_memory.sh

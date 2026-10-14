@@ -104,6 +104,8 @@ kernel_main:
     ; are still BSP-serialized. An absent test device is a supported no-op.
     call kpci_edu_prepare
     jc .interrupt_failed
+    call kpci_e1000e_prepare
+    jc .interrupt_failed
 
     ; All shared initialization and initial fiber creation are complete.
     ; Only now copy/seal the trampoline and start APs: while an AP waits with
@@ -123,6 +125,8 @@ kernel_main:
     call ioapic_pit_selftest
     jc .interrupt_failed
     call kpci_edu_msi_selftest
+    jc .interrupt_failed
+    call kpci_e1000e_msix_selftest
     jc .interrupt_failed
     call smp_sched_lifecycle_selftest
     jc .timer_failed
