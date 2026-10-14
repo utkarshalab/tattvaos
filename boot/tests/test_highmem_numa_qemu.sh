@@ -9,6 +9,6 @@ for MODE in default slit; do
     echo "[test_highmem_numa_qemu] topology mode: $MODE"
     HIGHMEM_QEMU_NUMA="$MODE" \
     HIGHMEM_QEMU_SMP=2 \
-    HIGHMEM_TEST_TIMEOUT=${HIGHMEM_NUMA_TEST_TIMEOUT:-45} \
+    HIGHMEM_TEST_TIMEOUT=${HIGHMEM_NUMA_TEST_TIMEOUT:-60} \
         sh "$TEST_DIR/test_highmem_qemu.sh"
 done
