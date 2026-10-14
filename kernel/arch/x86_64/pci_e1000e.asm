@@ -23,10 +23,12 @@ KPCI_E1000E_ICS                equ 0x00C8
 KPCI_E1000E_IMS                equ 0x00D0
 KPCI_E1000E_IMC                equ 0x00D8
 KPCI_E1000E_IVAR               equ 0x00E4
+KPCI_E1000E_EITR0              equ 0x00E8
 KPCI_E1000E_STATUS             equ 0x0008
 KPCI_E1000E_RXQ0_CAUSE         equ 1 << 20
 KPCI_E1000E_ICR_ASSERTED       equ 1 << 31
 KPCI_E1000E_IVAR_RXQ0_VECTOR0  equ 1 << 3
+KPCI_E1000E_PROOF_EITR         equ 0xFFFF
 KPCI_E1000E_WAIT_MS            equ 1000
 
 KPCI_E1000E_COMMAND_IO         equ 1 << 0
@@ -703,7 +705,13 @@ kpci_e1000e_msix_selftest:
     jnz .restore_owner
     mov eax, [r13 + KPCI_E1000E_IVAR]
     mov [rel kpci_e1000e_saved_ivar], eax
+    mov eax, [r13 + KPCI_E1000E_EITR0]
+    mov [rel kpci_e1000e_saved_eitr], eax
     or r15d, KPCI_E1000E_CLEAN_REGS
+    mov dword [r13 + KPCI_E1000E_EITR0], KPCI_E1000E_PROOF_EITR
+    mfence
+    cmp dword [r13 + KPCI_E1000E_EITR0], KPCI_E1000E_PROOF_EITR
+    jne .cleanup
     mov dword [r13 + KPCI_E1000E_IMC], 0xFFFFFFFF
     mfence
     cmp dword [r13 + KPCI_E1000E_IMS], 0
@@ -812,6 +820,11 @@ kpci_e1000e_msix_selftest:
 .restore_regs:
     test r15d, KPCI_E1000E_CLEAN_REGS
     jz .restore_command
+    mov eax, [rel kpci_e1000e_saved_eitr]
+    mov [r13 + KPCI_E1000E_EITR0], eax
+    mfence
+    cmp eax, [r13 + KPCI_E1000E_EITR0]
+    jne .regs_bad
     mov eax, [rel kpci_e1000e_saved_ivar]
     mov [r13 + KPCI_E1000E_IVAR], eax
     mfence
@@ -980,6 +993,7 @@ kpci_e1000e_mapped_pages:   resd 1
 kpci_e1000e_saved_command:  resd 1
 kpci_e1000e_saved_ims:      resd 1
 kpci_e1000e_saved_ivar:     resd 1
+kpci_e1000e_saved_eitr:     resd 1
 kpci_e1000e_irq_count:      resd 1
 kpci_e1000e_irq_seen:       resd 1
 kpci_e1000e_irq_bad:        resd 1

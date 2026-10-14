@@ -251,5 +251,5 @@ clean:
 	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
 	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG) $(UEFI_EFI)
 
-.PHONY: all elf img run debug test test-negative smp-check smp-test vtd-test pci-check pci-msi-test uefi \
+.PHONY: all elf img run debug test test-negative smp-check smp-test vtd-test pci-check pci-msi-test pci-msix-test uefi \
         uefi-check ovmf-test ovmf-strictnx-test clean

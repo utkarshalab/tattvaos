@@ -93,6 +93,14 @@ case "$E1000E" in
         ;;
 esac
 
+case "$EXPECT_HIGHMEM" in
+    0|1) ;;
+    *)
+        echo "FAIL: invalid UEFI_EXPECT_HIGHMEM value: $EXPECT_HIGHMEM"
+        exit 1
+        ;;
+esac
+
 case "$EXPECT_VTD_UNITS" in
     '') ;;
     *[!0-9]*|0)
@@ -425,6 +433,11 @@ do
         PASS=0
     fi
 done
+
+if grep -Eiq '(^|[^[:alpha:]])(FAIL|FAILED|FAILURE|ERROR|FATAL|PANIC)([^[:alpha:]]|$)|page fault|triple fault' "$LOG"; then
+    echo "FAIL: fatal diagnostic found in UEFI UART output"
+    PASS=0
+fi
 
 if [ "$PASS" -eq 1 ]; then
     echo "PASS: OVMF UEFI boot reached a live kernel scheduler"
