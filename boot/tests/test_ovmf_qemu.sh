@@ -20,6 +20,7 @@ EXPECT_APIC_MODE=${UEFI_EXPECT_APIC_MODE:-}
 IOMMU=${UEFI_QEMU_IOMMU:-0}
 EXPECT_VTD_UNITS=${UEFI_EXPECT_VTD_UNITS:-}
 EDU=${UEFI_QEMU_EDU:-0}
+EDU_BRIDGE=${UEFI_QEMU_EDU_BRIDGE:-0}
 OVMF_CODE=${OVMF_CODE:-/usr/share/OVMF/OVMF_CODE_4M.fd}
 OVMF_VARS=${OVMF_VARS:-/usr/share/OVMF/OVMF_VARS_4M.fd}
 TMP_DIR=$(mktemp -d)
@@ -71,6 +72,18 @@ case "$EDU" in
         ;;
 esac
 
+case "$EDU_BRIDGE" in
+    0|1) ;;
+    *)
+        echo "FAIL: invalid UEFI_QEMU_EDU_BRIDGE value: $EDU_BRIDGE"
+        exit 1
+        ;;
+esac
+[ "$EDU_BRIDGE" -eq 0 ] || [ "$EDU" -eq 1 ] || {
+    echo "FAIL: UEFI_QEMU_EDU_BRIDGE requires UEFI_QEMU_EDU=1"
+    exit 1
+}
+
 case "$EXPECT_VTD_UNITS" in
     '') ;;
     *[!0-9]*|0)
@@ -101,7 +114,13 @@ if [ "$IOMMU" -eq 1 ]; then
     set -- "$@" -device "intel-iommu,intremap=on,eim=on"
 fi
 if [ "$EDU" -eq 1 ]; then
-    set -- "$@" -device "edu,addr=06.0"
+    if [ "$EDU_BRIDGE" -eq 1 ]; then
+        set -- "$@" \
+            -device "pci-bridge,id=tattva-br0,chassis_nr=1,addr=06.0" \
+            -device "edu,bus=tattva-br0,addr=06.0"
+    else
+        set -- "$@" -device "edu,addr=06.0"
+    fi
 fi
 
 for TOOL in "$QEMU64" timeout; do

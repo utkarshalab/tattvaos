@@ -12,7 +12,6 @@
 [BITS 64]
 
 KPCI_EDU_ID                    equ 0x11E81234
-KPCI_EDU_BDFS                  equ 256
 KPCI_EDU_BAR_BYTES             equ 0x100000
 KPCI_EDU_BAR_SIZE_MASK         equ 0xFFF00000
 KPCI_EDU_MMIO_PAGE_BYTES       equ 4096
@@ -67,26 +66,18 @@ kpci_edu_prepare:
     mov dword [rel kpci_edu_bdf], 0
     mov dword [rel kpci_edu_msi_cap], 0
     mov dword [rel kpci_edu_vector], 0
-    xor ebx, ebx
 
-    ; ponytail: root-bus devfn scan is the controlled EDU ceiling; replace it
-    ; with bridge-aware enumeration when the generic PCI manager is introduced.
-.scan:
-    mov edi, ebx
-    xor esi, esi
-    mov edx, 4
-    call kpci_cfg_read
+    mov edi, KPCI_EDU_ID
+    xor esi, esi                    ; ACPI root discovery is a later ceiling.
+    call kpci_find_device
     jc .failed
-    cmp eax, KPCI_EDU_ID
-    je .found
-    inc ebx
-    cmp ebx, KPCI_EDU_BDFS
-    jb .scan
+    cmp eax, -1
+    jne .found
     clc
     jmp .done
 
 .found:
-    mov r12d, ebx
+    mov r12d, eax
     mov edi, r12d
     lea rsi, [rel kpci_edu_snapshot]
     call kpci_cfg_snapshot

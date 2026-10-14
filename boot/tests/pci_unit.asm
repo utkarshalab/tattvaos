@@ -218,6 +218,94 @@ _start:
     call kpci_find_capability_snapshot
     jnc fail_cap_input
 
+    call reset_snapshot
+    mov word [rel config_snapshot + 0x0A], 0x0200
+    xor esi, esi
+    mov edx, 0xFF
+    call route_snapshot
+    jc fail_route_endpoint
+    test eax, eax
+    jnz fail_route_endpoint
+
+    call reset_snapshot
+    mov word [rel config_snapshot + 0x0A], 0x0604
+    mov byte [rel config_snapshot + 0x0E], 1
+    mov byte [rel config_snapshot + 0x18], 2
+    mov byte [rel config_snapshot + 0x19], 3
+    mov byte [rel config_snapshot + 0x1A], 5
+    mov esi, 2
+    mov edx, 7
+    call route_snapshot
+    jc fail_route_type1
+    cmp eax, 0x0503
+    jne fail_route_type1
+
+    call reset_snapshot
+    mov word [rel config_snapshot + 0x0A], 0x0607
+    mov byte [rel config_snapshot + 0x0E], 0x82
+    mov byte [rel config_snapshot + 0x18], 4
+    mov byte [rel config_snapshot + 0x19], 5
+    mov byte [rel config_snapshot + 0x1A], 6
+    mov esi, 4
+    mov edx, 6
+    call route_snapshot
+    jc fail_route_type2
+    cmp eax, 0x0605
+    jne fail_route_type2
+
+    call reset_snapshot
+    mov word [rel config_snapshot + 0x0A], 0x0604
+    mov byte [rel config_snapshot + 0x0E], 1
+    mov esi, 2
+    mov edx, 7
+    call route_snapshot
+    jc fail_route_unconfigured
+    test eax, eax
+    jnz fail_route_unconfigured
+
+    mov byte [rel config_snapshot + 0x18], 1
+    mov byte [rel config_snapshot + 0x19], 3
+    mov byte [rel config_snapshot + 0x1A], 5
+    call route_snapshot
+    jnc fail_route_primary
+
+    call reset_snapshot
+    mov word [rel config_snapshot + 0x0A], 0x0604
+    xor esi, esi
+    mov edx, 0xFF
+    call route_snapshot
+    jnc fail_route_header_class
+
+    call reset_snapshot
+    mov word [rel config_snapshot + 0x0A], 0x0604
+    mov byte [rel config_snapshot + 0x0E], 1
+    mov byte [rel config_snapshot + 0x18], 2
+    mov byte [rel config_snapshot + 0x1A], 5
+    mov esi, 2
+    mov edx, 7
+    call route_snapshot
+    jnc fail_route_one_zero
+
+    mov byte [rel config_snapshot + 0x19], 5
+    mov byte [rel config_snapshot + 0x1A], 4
+    call route_snapshot
+    jnc fail_route_order
+
+    mov byte [rel config_snapshot + 0x19], 2
+    mov byte [rel config_snapshot + 0x1A], 3
+    call route_snapshot
+    jnc fail_route_cycle
+
+    mov byte [rel config_snapshot + 0x19], 3
+    mov byte [rel config_snapshot + 0x1A], 8
+    call route_snapshot
+    jnc fail_route_window
+
+    mov esi, 8
+    mov edx, 7
+    call route_snapshot
+    jnc fail_route_input
+
     xor edi, edi
     jmp exit
 
@@ -266,6 +354,28 @@ fail_cap_span:          mov edi, 21
 fail_cap_no_function:   mov edi, 22
                         jmp exit
 fail_cap_input:         mov edi, 23
+                        jmp exit
+fail_route_endpoint:    mov edi, 24
+                        jmp exit
+fail_route_type1:       mov edi, 25
+                        jmp exit
+fail_route_type2:       mov edi, 26
+                        jmp exit
+fail_route_unconfigured: mov edi, 27
+                         jmp exit
+fail_route_primary:     mov edi, 28
+                        jmp exit
+fail_route_header_class: mov edi, 29
+                         jmp exit
+fail_route_one_zero:    mov edi, 30
+                        jmp exit
+fail_route_order:       mov edi, 31
+                        jmp exit
+fail_route_cycle:       mov edi, 32
+                        jmp exit
+fail_route_window:      mov edi, 33
+                        jmp exit
+fail_route_input:       mov edi, 34
 
 exit:
     mov eax, 60
@@ -275,6 +385,10 @@ parse_snapshot:
     lea rdi, [rel config_snapshot]
     mov esi, KPCI_CONFIG_SPACE_BYTES
     jmp kpci_find_capability_snapshot
+
+route_snapshot:
+    lea rdi, [rel config_snapshot]
+    jmp kpci_snapshot_bridge_route
 
 reset_snapshot:
     lea rdi, [rel config_snapshot]
