@@ -7,7 +7,8 @@ set -eu
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IMG="$TEST_DIR/../tattva.img"
 QEMU64=${QEMU:-qemu-system-x86_64}
-TIMEOUT=${HIGHMEM_TEST_TIMEOUT:-30}
+# Sparse high-memory boots force TCG and stream the complete ULF through BIOS.
+TIMEOUT=${HIGHMEM_TEST_TIMEOUT:-45}
 CPU=${HIGHMEM_QEMU_CPU:-max}
 SMP=${HIGHMEM_QEMU_SMP:-1}
 MACHINE=${HIGHMEM_QEMU_MACHINE:-pc,max-ram-below-4g=256M}

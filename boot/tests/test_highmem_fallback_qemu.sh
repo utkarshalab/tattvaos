@@ -7,7 +7,7 @@ set -eu
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 IMG="$TEST_DIR/../tattva.img"
 QEMU64=${QEMU:-qemu-system-x86_64}
-TIMEOUT=${HIGHMEM_FALLBACK_TEST_TIMEOUT:-35}
+TIMEOUT=${HIGHMEM_FALLBACK_TEST_TIMEOUT:-45}
 TMP_DIR=$(mktemp -d)
 LOG="$TMP_DIR/uart.log"
 QEMU_ERR="$TMP_DIR/qemu.stderr"
