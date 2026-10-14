@@ -1,9 +1,10 @@
 ; =============================================================================
 ; Tattva OS — strict one-vector MSI-X ownership
 ; =============================================================================
-; Owns entry zero only. Device-specific code remains responsible for BAR
-; sizing/mapping, PCI Command, source masking/acknowledgement, and keeping the
-; table mapped until restore completes.
+; Owns entry zero only. The shared mask primitive covers every validated table
+; entry; multi-vector allocation remains a later owner-lifecycle extension.
+; Device-specific code remains responsible for BAR sizing/mapping, PCI Command,
+; source masking/acknowledgement, and keeping the table mapped until restore.
 
 %ifndef KERNEL_ARCH_X86_64_PCI_MSIX_ASM
 %define KERNEL_ARCH_X86_64_PCI_MSIX_ASM
@@ -259,6 +260,47 @@ kpci_msix_validate_layout:
     cmp rcx, r8
     jb .invalid
 .valid:
+    mov eax, 1
+    clc
+    ret
+.invalid:
+    xor eax, eax
+    stc
+    ret
+
+; RDI=table VA, ESI=validated table entry count, EDX=entry index,
+; ECX=0 to unmask or 1 to mask. Preserves reserved Vector Control bits and
+; verifies the complete dword after the MMIO write. CF=0/EAX=1 on success.
+global kpci_msix_set_entry_mask
+kpci_msix_set_entry_mask:
+    test rdi, rdi
+    jz .invalid
+    test rdi, 3
+    jnz .invalid
+    test esi, esi
+    jz .invalid
+    cmp esi, 2048
+    ja .invalid
+    cmp edx, esi
+    jae .invalid
+    cmp ecx, 1
+    ja .invalid
+    mov eax, edx
+    shl eax, 4
+    add rdi, rax
+    jc .invalid
+    mov eax, [rdi + 12]
+    test ecx, ecx
+    jz .unmask
+    or eax, KPCI_MSIX_VECTOR_MASK
+    jmp .write
+.unmask:
+    and eax, ~KPCI_MSIX_VECTOR_MASK
+.write:
+    mov [rdi + 12], eax
+    mfence
+    cmp eax, [rdi + 12]
+    jne .invalid
     mov eax, 1
     clc
     ret

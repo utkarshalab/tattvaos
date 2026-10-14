@@ -83,6 +83,14 @@ The smp-test target boots the real BIOS and OVMF paths with 2 and 8 processors
 in x2APIC mode, exercises an xAPIC fallback, and requires exact
 mode/discovery/rendezvous/online/timer/park-unpark markers.
 
+## MSI-X ownership contract
+
+The internal MSI-X layer validates table/PBA geometry before a driver maps it.
+Its entry-mask primitive accepts only a validated 1..2048 entry count and an
+in-range index, preserves reserved Vector Control bits, and verifies the full
+MMIO dword. The current owner still allocates entry zero only; multi-entry
+allocation, handler ownership, rollback, and drain remain unclaimed.
+
 ## Current boundaries
 
 This is an x86-64 bootstrap, not yet a blanket bare-metal certification. The

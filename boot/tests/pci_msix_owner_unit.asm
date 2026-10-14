@@ -9,6 +9,33 @@ KPCI_MSI_ENABLE         equ 1
 section .text
 global _start
 _start:
+    ; Per-entry masking addresses only the selected entry and preserves bits.
+    lea rdi, [rel mask_test_table]
+    mov esi, 3
+    mov edx, 1
+    mov ecx, 1
+    call kpci_msix_set_entry_mask
+    jc fail_entry_mask
+    cmp dword [rel mask_test_table + 28], 0xA5
+    jne fail_entry_mask
+    cmp dword [rel mask_test_table + 12], 0x10
+    jne fail_entry_mask
+    lea rdi, [rel mask_test_table]
+    mov ecx, 0
+    call kpci_msix_set_entry_mask
+    jc fail_entry_mask
+    cmp dword [rel mask_test_table + 28], 0xA4
+    jne fail_entry_mask
+    lea rdi, [rel mask_test_table]
+    mov edx, 3
+    call kpci_msix_set_entry_mask
+    jnc fail_entry_mask
+    lea rdi, [rel mask_test_table]
+    mov edx, 1
+    mov ecx, 2
+    call kpci_msix_set_entry_mask
+    jnc fail_entry_mask
+
     ; A failed Function-Mask write must retain recovery ownership and must not
     ; restore payload fields until containment can be proven.
     call reset_fixture
@@ -196,6 +223,8 @@ fail_published_restore:   mov edi, 7
 fail_pending:             mov edi, 8
                           jmp exit
 fail_happy_lifecycle:     mov edi, 9
+                          jmp exit
+fail_entry_mask:          mov edi, 10
 
 exit:
     mov eax, 60
@@ -336,3 +365,10 @@ mock_fail_control:         resd 1
 mock_control_attempts:     resd 1
 mock_vector_free_count:    resd 1
 mock_gate_count:           resd 1
+
+section .data
+align 16
+mask_test_table:
+    dd 0, 0, 0, 0x10
+    dd 0, 0, 0, 0xA4
+    dd 0, 0, 0, 0x32
