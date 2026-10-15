@@ -225,6 +225,7 @@ udp_output:
     mov rdi, rbx
     mov esi, r14d
     mov dl, IP_PROTO_UDP
+    xor dh, dh                    ; UDP doesn't use ECN
     call ip_output
     jmp .done
 

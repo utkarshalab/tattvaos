@@ -177,6 +177,12 @@ ip_input:
 
     ; 5. Advance past the IP header for the L4 handler & demux
     add dword [rbx + net_pkt_t.headroom_offset], r14d
+
+    ; Extract ECN bits from TOS field (bits 0-1)
+    mov al, [r12 + ip_hdr_t.tos]
+    and al, 0x03
+    mov byte [rbx + net_pkt_t.ecn], al   ; Store ECN in packet metadata
+
     mov esi, [r12 + ip_hdr_t.saddr]
     mov edx, [r12 + ip_hdr_t.daddr]
 
@@ -355,7 +361,8 @@ ip_checksum_generate:
 ; starts at .headroom_offset, .data_len covers header room to be filled + the
 ; payload) into an IPv4 header, and hand it to the link layer.
 ; Input: RDI = Pointer to net_pkt_t, ESI = Target Dest IP (network order),
-;        DL = IP protocol (IPPROTO_TCP / IPPROTO_UDP / IPPROTO_ICMP)
+;        DL = IP protocol (IPPROTO_TCP / IPPROTO_UDP / IPPROTO_ICMP),
+;        DH = ECN flags (0=none, 1=ECT(0), 2=ECT(1), 3=CE)
 ; Output: EAX = 0 on success, -1 on drop (no route / ARP miss / unconfigured)
 ; -----------------------------------------------------------------------------
 align 64
@@ -371,6 +378,9 @@ ip_output:
     mov rbx, rdi                    ; RBX = net_pkt_t*
     mov r13d, esi                    ; R13D = dest IP
     mov r14d, edx                    ; R14D = protocol (passed in DL, zero-extended)
+    mov r15d, edx
+    shr r15d, 8
+    and r15d, 0x03                  ; R15B = ECN flags
     and r14d, 0xFF
 
     cmp dword [unet_local_ip], 0
@@ -385,7 +395,8 @@ ip_output:
     add r12, [rbx + net_pkt_t.headroom_offset]  ; R12 = ip_hdr_t* in the buffer
 
     mov byte [r12 + ip_hdr_t.ver_ihl], 0x45     ; IPv4, IHL=5 (20 bytes, no options)
-    mov byte [r12 + ip_hdr_t.tos], 0
+    mov al, r15b                    ; ECN flags
+    mov byte [r12 + ip_hdr_t.tos], al
 
     mov eax, [rbx + net_pkt_t.data_len]         ; payload length already staged
     add eax, 20

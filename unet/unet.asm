@@ -33,12 +33,17 @@ unet_init:
     call pktbuf_init
     call eth_init
     call arp_init
+    call pmtud_init
     call ip_init
     call ipv6_init
     call udp_init
     call tcp_init
     call socket_table_init
     call http1_init
+
+    ; Initialize batch RX/TX API
+    call batch_rx_init
+    call batch_tx_init
 
     ; Static config until a real DHCP client exists (unet/services/dhcp.asm
     ; is still a stub) — QEMU's default usermode network (`-netdev user`)
@@ -64,7 +69,9 @@ unet_poll:
     push rbp
     mov rbp, rsp
     call e1000_poll
-    call tcp_timer_tick
+    ; Advance timer wheel (1ms tick)
+    mov rdi, timer_wheel
+    call timer_wheel_tick
     pop rbp
     ret
 
@@ -86,15 +93,25 @@ unet_shutdown:
 %include "unet/core/l2/arp.asm"
 %include "unet/core/l2/mac.asm"
 %include "unet/core/l3/ip.asm"
-%include "unet/core/l3/ipv6.asm"
+%include "unet/core/l3/ipv6_tcp.asm"
+%include "unet/core/l3/ipv4_pmtud.asm"
 %include "unet/core/l3/icmp.asm"
 %include "unet/core/l3/igmp.asm"
 %include "unet/core/l4/udp.asm"
+%include "unet/core/l4/tcp_rack.asm"
 %include "unet/core/l4/tcp.asm"
-%include "unet/core/l4/tcp_bbr.asm"
+%include "unet/core/l4/tcp_bbrv2.asm"
+%include "unet/core/l4/tcp_cubic.asm"
+%include "unet/core/l4/tcp_syncookie.asm"
+%include "unet/core/l4/tcp_ecn.asm"
+%include "unet/core/l4/tcp_fastopen.asm"
+%include "unet/core/l4/tcp_ao.asm"
+%include "unet/core/l4/tcp_tls.asm"
 %include "unet/core/l4/mptcp.asm"
 %include "unet/core/l4/sctp.asm"
 %include "unet/core/l4/quic.asm"
+%include "unet/core/sys/net_batch.asm"
+%include "unet/core/sys/avx512_checksum.asm"
 %include "unet/core/sys/avx512_parser.asm"
 %include "unet/core/sys/socket.asm"
 %include "unet/core/sys/epoll.asm"

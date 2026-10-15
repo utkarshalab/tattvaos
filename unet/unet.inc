@@ -63,6 +63,48 @@
 %define UNET_MAX_SOCKETS            512
 
 ; -----------------------------------------------------------------------------
+; Timer Wheel Constants
+; -----------------------------------------------------------------------------
+%define TIMER_WHEEL_HZ              1000            ; 1kHz = 1ms tick
+%define TVR_SIZE                    256
+%define TVN_SIZE                    64
+
+; RACK/TLP Constants
+%define RACK_REORDERING_WINDOW_US  1000    ; 1ms reordering window
+%define RACK_MIN_RTO_MS            200
+%define RACK_MAX_RTO_MS            60000
+%define TLP_INITIAL_RTO_MS         1000
+%define TLP_MAX_PROBES             2
+
+; TCP Timer Types
+%define TCP_TIMER_RETRANS           0
+%define TCP_TIMER_PERSIST           1
+%define TCP_TIMER_KEEPALIVE         2
+%define TCP_TIMER_TIMEWAIT          3
+%define TCP_TIMER_DELAYED_ACK       4
+%define TCP_TIMER_COUNT             5
+
+; RTO Constants (RFC 6298)
+%define TCP_RTO_MIN_MS              200
+%define TCP_RTO_MAX_MS              60000
+%define TCP_RTO_INIT_MS             1000
+
+; Persist Timer
+%define TCP_PERSIST_MIN_MS          1000
+%define TCP_PERSIST_MAX_MS          60000
+
+; Keepalive Defaults
+%define TCP_KEEPALIVE_IDLE_MS       7200000     ; 2 hours
+%define TCP_KEEPALIVE_INTV_MS       75000       ; 75 seconds
+%define TCP_KEEPALIVE_COUNT         9
+
+; TIME_WAIT = 2 * MSL = 60 seconds
+%define TCP_TIMEWAIT_MS             60000
+
+; Delayed ACK = 40ms (RFC 1122)
+%define TCP_DELAYED_ACK_MS          40
+
+; -----------------------------------------------------------------------------
 ; Zero-Copy Packet Descriptor (`net_pkt_t`)
 ; -----------------------------------------------------------------------------
 struc net_pkt_t
@@ -77,6 +119,7 @@ struc net_pkt_t
     .next:              resq 1      ; Flow queue next pointer
     .ttl:               resb 1      ; IP Time-To-Live / Hop Limit
     .flags:             resb 1      ; Hardware offload flags
+    .ecn:               resb 1      ; ECN bits from IP TOS field
     .reserved:          resw 1      ; Alignment padding
 endstruc
 
