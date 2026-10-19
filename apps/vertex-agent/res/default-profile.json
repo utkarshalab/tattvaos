@@ -1,0 +1,142 @@
+{
+  "version": "0.1.0",
+  "description": "Default capability profile for vertex-agent containers",
+  "profiles": {
+    "default": {
+      "description": "Standard container profile - minimal privileges",
+      "capabilities": [
+        "fs:read:data/self",
+        "fs:write:data/self",
+        "net:connect",
+        "net:bind:port=0-65535",
+        "sched:cpu_quota",
+        "mm:arena_quota"
+      ],
+      "resources": {
+        "cpu_quota_ns": 100000000,
+        "memory_limit_bytes": 536870912
+      }
+    },
+    "privileged": {
+      "description": "Privileged container - host access (use with caution)",
+      "capabilities": [
+        "fs:read:data/*",
+        "fs:write:data/*",
+        "fs:mount:*",
+        "net:raw",
+        "net:namespace:create",
+        "net:bind:*",
+        "net:connect:*",
+        "sched:fiber_create",
+        "sched:fiber_kill",
+        "cap:delegate",
+        "mm:arena_unlimited"
+      ],
+      "resources": {
+        "cpu_quota_ns": 0,
+        "memory_limit_bytes": 0
+      }
+    },
+    "system": {
+      "description": "System component - vertex-agent, CNI, CSI",
+      "capabilities": [
+        "fs:read:data/*",
+        "fs:write:data/*",
+        "fs:mount:*",
+        "net:raw",
+        "net:namespace:create",
+        "net:bind:*",
+        "sched:fiber_create",
+        "sched:fiber_kill",
+        "cap:delegate",
+        "cap:restrict",
+        "ulog:sink:create",
+        "umetric:export"
+      ],
+      "resources": {
+        "cpu_quota_ns": 0,
+        "memory_limit_bytes": 0
+      }
+    },
+    "untrusted": {
+      "description": "Untrusted workload - maximum isolation",
+      "capabilities": [
+        "fs:read:data/self",
+        "fs:write:data/self",
+        "net:connect:internal_only",
+        "sched:cpu_quota",
+        "mm:arena_quota"
+      ],
+      "resources": {
+        "cpu_quota_ns": 50000000,
+        "memory_limit_bytes": 268435456
+      }
+    }
+  },
+  "capability_definitions": {
+    "fs:read": {
+      "description": "Read filesystem",
+      "params": ["path_pattern"]
+    },
+    "fs:write": {
+      "description": "Write filesystem",
+      "params": ["path_pattern"]
+    },
+    "fs:mount": {
+      "description": "Mount filesystems",
+      "params": ["fs_type"]
+    },
+    "net:connect": {
+      "description": "Outbound network connections",
+      "params": ["cidr_pattern"]
+    },
+    "net:bind": {
+      "description": "Bind to network ports",
+      "params": ["port_range"]
+    },
+    "net:raw": {
+      "description": "Raw socket access",
+      "params": []
+    },
+    "net:namespace:create": {
+      "description": "Create network namespaces",
+      "params": []
+    },
+    "sched:fiber_create": {
+      "description": "Create fibers",
+      "params": []
+    },
+    "sched:fiber_kill": {
+      "description": "Kill fibers",
+      "params": []
+    },
+    "sched:cpu_quota": {
+      "description": "Set CPU quota",
+      "params": ["nanoseconds"]
+    },
+    "cap:delegate": {
+      "description": "Delegate capabilities",
+      "params": []
+    },
+    "cap:restrict": {
+      "description": "Self-restrict capabilities",
+      "params": []
+    },
+    "mm:arena_quota": {
+      "description": "Memory arena quota",
+      "params": ["bytes"]
+    },
+    "mm:arena_unlimited": {
+      "description": "Unlimited memory arena",
+      "params": []
+    },
+    "ulog:sink:create": {
+      "description": "Create log sinks",
+      "params": []
+    },
+    "umetric:export": {
+      "description": "Export metrics",
+      "params": []
+    }
+  }
+}
