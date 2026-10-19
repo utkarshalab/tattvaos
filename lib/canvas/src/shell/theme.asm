@@ -6,10 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
-%define Theme_size    80
-%define ThemeColors_size    80
 %define THEME_DEFAULT       0
 %define THEME_DARK          1
 %define THEME_LIGHT         2
@@ -18,44 +17,11 @@
 
 section .text
 
-struc Theme
-    .name:              resq 1
-    .colors:            resq 1
-    .font:              resq 1
-    .font_size:         resd 1
-    .border_width:      resd 1
-    .border_radius:     resd 1
-    .titlebar_height:   resd 1
-    .button_size:       resd 1
-    .padding:           resd 1
-    .spacing:           resd 1
-    .cursor_theme:      resq 1
-endstruc
-
-struc ThemeColors
-    .titlebar_active:       resd 1
-    .titlebar_inactive:     resd 1
-    .border_active:         resd 1
-    .border_inactive:       resd 1
-    .button_bg_normal:      resd 1
-    .button_bg_hover:       resd 1
-    .button_bg_pressed:     resd 1
-    .button_bg_disabled:    resd 1
-    .button_fg_normal:      resd 1
-    .button_fg_disabled:    resd 1
-    .text_normal:           resd 1
-    .text_disabled:         resd 1
-    .background:            resd 1
-    .panel_bg:              resd 1
-    .menu_bg:               resd 1
-    .menu_border:           resd 1
-    .tooltip_bg:            resd 1
-    .tooltip_fg:            resd 1
-endstruc
-
-
 ; ---------------------------------------------------------------------------
 ; theme_init
+;   Initialize theme engine
+;   IN:  rdi = server*, rsi = arena
+;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
 global theme_init
 theme_init:
@@ -69,87 +35,38 @@ theme_init:
     mov qword [rbx + Server.arena], r12
 
     ; Create default theme
-    call theme_create_default
+    mov rdi, r12
+    mov rsi, Theme_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov r12, rax
 
+    ; Initialize default theme
+    mov qword [r12 + Theme.name], default_theme_name
+    mov qword [r12 + Theme.colors], 0
+    mov qword [r12 + Theme.font], 0
+    mov dword [r12 + Theme.font_size], 12
+    mov dword [r12 + Theme.border_width], 2
+    mov dword [r12 + Theme.border_radius], 4
+    mov dword [r12 + Theme.titlebar_height], 32
+    mov dword [r12 + Theme.button_size], 24
+    mov dword [r12 + Theme.padding], 8
+
+    mov [rbx + Server.theme], r12
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx
+    ret
+
+.oom:
+    mov rax, -(ENOMEM)
     ret
 
 ; ---------------------------------------------------------------------------
 ; theme_create_default
 ; ---------------------------------------------------------------------------
+global theme_create_default
 theme_create_default:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Allocate theme
-    mov rdi, r12
-    mov rsi, Theme_size
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov r13, rax
-
-    ; Fill default dark theme
-    mov qword [r13 + Theme.name], default_theme_name
-    mov qword [r13 + Theme.colors], 0
-    mov qword [r13 + Theme.font], 0
-    mov dword [r13 + Theme.font_size], 11
-    mov dword [r13 + Theme.border_width], 2
-    mov dword [r13 + Theme.border_radius], 4
-    mov dword [r13 + Theme.titlebar_height], 32
-    mov dword [r13 + Theme.button_size], 28
-    mov dword [r13 + Theme.padding], 8
-    mov dword [r13 + Theme.spacing], 4
-    mov qword [r13 + Theme.cursor_theme], 0
-
-    ; Allocate colors
-    mov rdi, r12
-    mov rsi, ThemeColors_size
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov qword [r13 + Theme.colors], rax
-
-    ; Dark theme colors
-    mov dword [rax + ThemeColors.titlebar_active], 0xFF2D2D2D
-    mov dword [rax + ThemeColors.titlebar_inactive], 0xFF1E1E1E
-    mov dword [rax + ThemeColors.border_active], 0xFF3D3D3D
-    mov dword [rax + ThemeColors.border_inactive], 0xFF2D2D2D
-    mov dword [rax + ThemeColors.button_bg_normal], 0xFF3D3D3D
-    mov dword [rax + ThemeColors.button_bg_hover], 0xFF4D4D4D
-    mov dword [rax + ThemeColors.button_bg_pressed], 0xFF2D2D2D
-    mov dword [rax + ThemeColors.button_bg_disabled], 0xFF1D1D1D
-    mov dword [rax + ThemeColors.button_fg_normal], 0xFFFFFFFF
-    mov dword [rax + ThemeColors.button_fg_disabled], 0xFF808080
-    mov dword [rax + ThemeColors.text_normal], 0xFFFFFFFF
-    mov dword [rax + ThemeColors.text_disabled], 0xFF808080
-    mov dword [rax + ThemeColors.background], 0xFF1A1A1A
-    mov dword [rax + ThemeColors.panel_bg], 0xFF252525
-    mov dword [rax + ThemeColors.menu_bg], 0xFF2D2D2D
-    mov dword [rax + ThemeColors.menu_border], 0xFF3D3D3D
-    mov dword [rax + ThemeColors.tooltip_bg], 0xFF333333
-    mov dword [rax + ThemeColors.tooltip_fg], 0xFFFFFFFF
-
-    mov qword [rbx + Server.theme], r13
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-; ---------------------------------------------------------------------------
-; theme_load
-;   Load theme from file
-; ---------------------------------------------------------------------------
-global theme_load
-theme_load:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
@@ -158,137 +75,120 @@ theme_load:
     ASSERT_PTR r12
     ASSERT_PTR r13
 
-    ; Read theme file
-    push r12
-    push r13
+    mov rdi, [rbx + Server.arena]
+    mov rsi, Theme_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov r12, rax
+
+    mov qword [r12 + Theme.name], r13
+    mov qword [r12 + Theme.colors], 0
+    mov qword [r12 + Theme.font], 0
+    mov dword [r12 + Theme.font_size], 12
+    mov dword [r12 + Theme.border_width], 2
+    mov dword [r12 + Theme.border_radius], 4
+    mov dword [r12 + Theme.titlebar_height], 32
+    mov dword [r12 + Theme.button_size], 24
+    mov dword [r12 + Theme.padding], 8
+
+    xor rax, rax
+    EPILOGUE_RESTORE rbx
+    ret
+
+.oom:
+    mov rax, -(ENOMEM)
+    ret
+
+; ---------------------------------------------------------------------------
+; theme_set_colors
+; ---------------------------------------------------------------------------
+global theme_set_colors
+theme_set_colors:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    ASSERT_PTR r13
+
+    mov rax, [r12 + Theme.colors]
+    test rax, rax
+    jz .create_colors
+
+    ; Update existing colors
     mov rdi, r12
     mov rsi, r13
-    call tv_fs_read
-    pop r13
-    pop r12
+    call theme_update_colors
+    jmp .done
+
+.create_colors:
+    mov rdi, [rbx + Server.arena]
+    mov rsi, ThemeColors_SIZE
+    call arena_alloc
     test rax, rax
-    js .fail
+    jz .oom
+    mov [r12 + Theme.colors], rax
 
-    ; Parse theme file (JSON-like format)
-    ; TODO: Implement theme parser
+    mov rdi, rax
+    mov rsi, r13
+    call theme_update_colors
 
+.done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx
     ret
 
-.fail:
-    mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-; ---------------------------------------------------------------------------
-; theme_get_color
-; ---------------------------------------------------------------------------
-global theme_get_color
-theme_get_color:
-    PROLOGUE
-    ASSERT_PTR rdi
-    mov rax, [rdi + Server.theme]
-    test rax, rax
-    jz .no_theme
-    mov rax, [rax + Theme.colors]
-    test rax, rax
-    jz .no_theme
-    mov eax, [rax + rsi]
-    leave
-    ret
-.no_theme:
-    xor rax, rax
-    leave
+.oom:
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
-; theme_set_color
+; theme_update_colors
 ; ---------------------------------------------------------------------------
-global theme_set_color
-theme_set_color:
-    PROLOGUE_SAVE rbx
+global theme_update_colors
+theme_update_colors:
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
+    mov r12, rsi
     ASSERT_PTR rbx
+    ASSERT_PTR r12
 
-    mov rax, [rbx + Server.theme]
-    test rax, rax
-    jz .no_theme
-    mov rax, [rax + Theme.colors]
-    test rax, rax
-    jz .no_theme
-    mov [rax + rsi], edx
+    ; Copy color values
+    mov rax, [r12 + ThemeColors.background]
+    mov [rbx + ThemeColors.background], rax
+    mov rax, [r12 + ThemeColors.foreground]
+    mov [rbx + ThemeColors.foreground], rax
+    mov rax, [r12 + ThemeColors.accent]
+    mov [rbx + ThemeColors.accent], rax
+    mov rax, [r12 + ThemeColors.border]
+    mov [rbx + ThemeColors.border], rax
+    mov rax, [r12 + ThemeColors.titlebar_bg]
+    mov [rbx + ThemeColors.titlebar_bg], rax
+    mov rax, [r12 + ThemeColors.titlebar_fg]
+    mov [rbx + ThemeColors.titlebar_fg], rax
+    mov rax, [r12 + ThemeColors.button_bg]
+    mov [rbx + ThemeColors.button_bg], rax
+    mov rax, [r12 + ThemeColors.button_fg]
+    mov [rbx + ThemeColors.button_fg], rax
+    mov rax, [r12 + ThemeColors.button_hover_bg]
+    mov [rbx + ThemeColors.button_hover_bg], rax
+    mov rax, [r12 + ThemeColors.button_hover_fg]
+    mov [rbx + ThemeColors.button_hover_fg], rax
+    mov rax, [r12 + ThemeColors.button_pressed_bg]
+    mov [rbx + ThemeColors.button_pressed_bg], rax
+    mov rax, [r12 + ThemeColors.button_pressed_fg]
+    mov [rbx + ThemeColors.button_pressed_fg], rax
+
     xor rax, rax
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
-
-.no_theme:
-    mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; theme_set_font
-; ---------------------------------------------------------------------------
-global theme_set_font
-theme_set_font:
-    PROLOGUE
-    mov rax, [rdi + Server.theme]
-    test rax, rax
-    jz .no_theme
-    mov qword [rax + Theme.font], rsi
-    mov dword [rax + Theme.font_size], edx
-    xor rax, rax
-    leave
-    ret
-
-.no_theme:
-    mov rax, -(EINVAL)
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
-; theme_set_border
-; ---------------------------------------------------------------------------
-global theme_set_border
-theme_set_border:
-    PROLOGUE
-    mov rax, [rdi + Server.theme]
-    test rax, rax
-    jz .no_theme
-    mov dword [rax + Theme.border_width], esi
-    mov dword [rax + Theme.border_radius], edx
-    xor rax, rax
-    leave
-    ret
-
-.no_theme:
-    mov rax, -(EINVAL)
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
-; theme_get_font
-; ---------------------------------------------------------------------------
-global theme_get_font
-theme_get_font:
-    PROLOGUE
-    mov rax, [rdi + Server.theme]
-    test rax, rax
-    jz .no_theme
-    mov rax, [rax + Theme.font]
-    mov rdx, [rax + Theme.font_size]
-    leave
-    ret
-.no_theme:
-    xor rax, rax
-    xor rdx, rdx
-    leave
-    ret
-
-section .rodata
-default_theme_name: db "default-dark", 0
 
 section .data
+
+default_theme_name: db "default", 0
+
 global theme_version
 theme_version: dq 0x010000
