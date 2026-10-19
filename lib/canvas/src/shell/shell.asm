@@ -1,218 +1,450 @@
 ; ============================================================================
-; Shell — Window Shell Protocol Implementation
-; Roles, states, configure/ack, workspaces, layers
+; Shell Core — Window Management, Focus, Input, Output Integration
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
-
-; struct offsets (hoisted above use)
-%define Shell_size    56
-%define SHELL_ROLE_NONE       0
-%define SHELL_ROLE_TOPLEVEL   1
-%define SHELL_ROLE_POPUP      2
-%define SHELL_ROLE_LAYER      3
-%define SHELL_ROLE_DIALOG     4
-%define TOPLEVEL_STATE_DEFAULT    0
-%define TOPLEVEL_STATE_MAXIMIZED  1
-%define TOPLEVEL_STATE_FULLSCREEN 2
-%define TOPLEVEL_STATE_MINIMIZED  3
-%define TOPLEVEL_STATE_TILED      4
-%define TOPLEVEL_STATE_FLOATING   5
-%define POPUP_POSITION_CENTER     0
-%define POPUP_POSITION_CURSOR     1
-%define POPUP_POSITION_RECT       2
-%define LAYER_BACKGROUND      0
-%define LAYER_BOTTOM          1
-%define LAYER_NORMAL          2
-%define LAYER_TOP             3
-%define LAYER_OVERLAY         4
-%define LAYER_LOCK            5
-%define WORKSPACE_STATE_ACTIVE    1
-%define WORKSPACE_STATE_INACTIVE  0
-%define Shell_server      0
-%define Shell_toplevels   8
-%define Shell_popups      16
-%define Shell_layers      24
-%define Shell_workspaces  32
-%define Shell_active_ws   40
-%define Shell_num_workspaces 44
-%define Shell_policy      48
-%define Shell_size        56
-%define Workspace_id      0
-%define Workspace.id 0
-%define Workspace_shell   8
-%define Workspace.shell 8
-%define Workspace_toplevels 16
-%define Workspace.toplevels 16
-%define Workspace_state   24
-%define Workspace.state 24
-%define Workspace_layout_engine 28
-%define Workspace.layout_engine 28
-%define Workspace_next    32
-%define Workspace.next 32
-%define Workspace_size    40
+%include "inc/shell.inc"
+%include "inc/externs.inc"
 
 section .text
 
-struc Shell
-    .server:        resq 1
-    .toplevels:     resq 1
-    .popups:        resq 1
-    .layers:        resq 1
-    .workspaces:    resq 1
-    .active_ws:     resd 1
-    .num_workspaces: resd 1
-    .policy:        resq 1
-endstruc
+; ============================================================================
+; shell_create
+;   Create shell
+; ============================================================================
+global shell_create
+shell_create:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi  ; server
+    mov r13, rdx  ; seat
+    mov r14, rcx  ; arena
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    ASSERT_PTR r13
+    ASSERT_PTR r14
 
+    mov qword [rbx + SHELL_SERVER], r12
+    mov qword [rbx + SHELL_SEAT], r13
+    mov qword [rbx + SHELL_ARENA], r14
+    mov qword [rbx + SHELL_TOPLEVELS], 0
+    mov qword [rbx + SHELL_POPUPS], 0
+    mov qword [rbx + SHELL_LAYERS], 0
+    mov qword [rbx + SHELL_WORKSPACES], 0
+    mov qword [rbx + SHELL_ACTIVE_WS], 0
+    mov dword [rbx + SHELL_WORKSPACE_COUNT], 0
+    mov qword [rbx + SHELL_CONFIGURE_LIST], 0
+    mov dword [rbx + SHELL_CONFIGURE_COUNT], 0
+    mov qword [rbx + SHELL_POLICY], 0
+    mov qword [rbx + SHELL_THEME], 0
 
+    ; Create default workspaces
+    call .create_default_workspaces
 
+    ; Initialize default policy (floating)
+    call policy_init
+    mov qword [rbx + SHELL_POLICY], rax
 
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
+.create_default_workspaces:
+    ; Create workspace for each output
+    mov r12, [rbx + SHELL_SERVER]
+    mov r12, [r12 + SERVER_OUTPUTS]
+.ws_loop:
+    test r12, r12
+    jz .done
 
-; ---------------------------------------------------------------------------
-; shell_init
-;   Initialize shell subsystem
-; ---------------------------------------------------------------------------
-global shell_init
-shell_init:
+    mov rdi, rbx
+    mov rsi, rbx
+    mov rdx, r12
+    call workspace_create
+
+    mov r12, [r12 + OUTPUT_NEXT]
+    jmp .ws_loop
+
+.done:
+    ret
+
+; ============================================================================
+; shell_destroy
+;   Destroy shell
+; ============================================================================
+global shell_destroy
+shell_destroy:
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    ASSERT_PTR rbx
+
+    ; Destroy all toplevels
+    mov rax, [rbx + SHELL_TOPLEVELS]
+.toplevel_loop:
+    test rax, rax
+    jz .toplevels_done
+    push rax
+    call toplevel_destroy
+    pop rax
+    mov rax, [rax + TOPLEVEL_NEXT_WS]
+    jmp .toplevel_loop
+
+.toplevels_done:
+    ; Destroy all popups
+    mov rax, [rbx + SHELL_POPUPS]
+.popup_loop:
+    test rax, rax
+    jz .popups_done
+    push rax
+    call popup_destroy
+    pop rax
+    mov rax, [rax + POPUP_NEXT]
+    jmp .popup_loop
+
+.popups_done:
+    ; Destroy all layers
+    mov rax, [rbx + SHELL_LAYERS]
+.layer_loop:
+    test rax, rax
+    jz .layers_done
+    push rax
+    call layer_destroy
+    pop rax
+    mov rax, [rax + LAYER_NEXT]
+    jmp .layer_loop
+
+.layers_done:
+    ; Destroy workspaces
+    mov rax, [rbx + SHELL_WORKSPACES]
+.ws_loop:
+    test rax, rax
+    jz .workspaces_done
+    push rax
+    call workspace_destroy
+    pop rax
+    mov rax, [rax + WORKSPACE_NEXT]
+    jmp .ws_loop
+
+.workspaces_done:
+    ; Destroy policy
+    mov rax, [rbx + SHELL_POLICY]
+    test rax, rax
+    jz .done
+    ; policy_destroy would be called here
+
+.done:
+    xor rax, rax
+    leave
+    ret
+
+; ============================================================================
+; shell_get_toplevel_at
+;   Get toplevel at screen coordinates
+; ============================================================================
+global shell_get_toplevel_at
+shell_get_toplevel_at:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13d, edx
+    ASSERT_PTR rbx
+
+    ; Iterate toplevels from top to bottom (Z-order)
+    mov rax, [rbx + SHELL_TOPLEVELS]
+.tl_loop:
+    test rax, rax
+    jz .not_found
+
+    ; Check if point is within toplevel
+    mov r14d, [rax + TOPLEVEL_X]
+    mov r15d, [rax + TOPLEVEL_Y]
+    mov r14d, [rax + TOPLEVEL_WIDTH]
+    mov r15d, [rax + TOPLEVEL_HEIGHT]
+
+    ; Check bounds
+    cmp r12d, r14d
+    jl .next_tl
+    cmp r13d, r15d
+    jl .next_tl
+    cmp r12d, r14d
+    jge .next_tl
+    cmp r13d, r15d
+    jge .next_tl
+
+    ; Found
+    jmp .found
+
+.next_tl:
+    mov rax, [rax + TOPLEVEL_NEXT_WS]
+    jmp .tl_loop
+
+.found:
+    EPILOGUE_RESTORE rbx
+    ret
+
+.not_found:
+    xor rax, rax
+    EPILOGUE_RESTORE rbx
+    ret
+
+; ============================================================================
+; shell_focus_toplevel
+;   Set keyboard focus to toplevel
+; ============================================================================
+global shell_focus_toplevel
+shell_focus_toplevel:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+
+    ; Update focus
+    mov rax, [rbx + SHELL_SEAT]
+    mov rdi, rax
+    mov rsi, r12
+    call seat_set_focus
+
+    ; Call policy focus change
+    mov rax, [rbx + SHELL_POLICY]
+    test rax, rax
+    jz .done
+    mov rdi, rax
+    mov rsi, r12
+    call qword [rax + POLICY_FOCUS_CHANGE]
+
+.done:
+    xor rax, rax
+    EPILOGUE_RESTORE rbx
+    ret
+
+; ============================================================================
+; shell_get_active_toplevel
+;   Get currently focused toplevel
+; ============================================================================
+global shell_get_active_toplevel
+shell_get_active_toplevel:
+    PROLOGUE
+    mov rax, [rdi + SHELL_SEAT]
+    mov rax, [rax + SEAT_FOCUS]
+    leave
+    ret
+
+; ============================================================================
+; shell_new_toplevel
+;   Create new toplevel from surface
+; ============================================================================
+global shell_new_toplevel
+shell_new_toplevel:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi  ; surface
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    ; Create toplevel
+    mov rdi, rbx
+    mov rsi, rbx
+    mov rdx, r12
+    mov rcx, 0  ; title
+    mov r8, 0   ; app_id
+    call toplevel_create
+    test rax, rax
+    jnz .fail
+
+    ; Add to workspace
+    mov rax, [rbx + SHELL_ACTIVE_WS]
+    test rax, rax
+    jz .fail
+    mov rdi, rax
+    mov rsi, rax
+    call workspace_add_toplevel
+
+    ; Call policy new window
+    mov rax, [rbx + SHELL_POLICY]
+    test rax, rax
+    jz .done
+    mov rdi, rax
+    mov rsi, rax
+    call qword [rax + POLICY_NEW_WINDOW]
+
+.done:
+    xor rax, rax
+    EPILOGUE_RESTORE rbx
+    ret
+
+.fail:
+    EPILOGUE_RESTORE rbx
+    ret
+
+; ============================================================================
+; shell_close_toplevel
+;   Close toplevel
+; ============================================================================
+global shell_close_toplevel
+shell_close_toplevel:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov qword [rbx + Server.shell], 0
-    mov qword [rbx + Server.arena], r12
-
-    ; Allocate shell
-    mov rdi, r12
-    mov rsi, Shell_size
-    call arena_alloc
+    ; Call policy close
+    mov rax, [rbx + SHELL_POLICY]
     test rax, rax
-    jz .oom
-    mov rbx, rax
+    jz .direct
+    mov rdi, rax
+    call qword [rax + POLICY_CLOSE_WINDOW]
 
-    mov qword [rbx + Shell.server], rdi
-    mov qword [rbx + Shell.toplevels], 0
-    mov qword [rbx + Shell.popups], 0
-    mov qword [rbx + Shell.layers], 0
-    mov qword [rbx + Shell.workspaces], 0
-    mov dword [rbx + Shell.active_ws], 0
-    mov dword [rbx + Shell.num_workspaces], 4
-    mov qword [rbx + Shell.policy], 0
-
-    ; Create default workspaces
-    call shell_create_workspaces
-
-    ; Load policy
-    call shell_load_policy
-
-    mov qword [rdi + Server.shell], rbx
+.direct:
+    call toplevel_destroy
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx
     ret
 
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; shell_create_workspaces
-; ---------------------------------------------------------------------------
-shell_create_workspaces:
-    PROLOGUE_SAVE rbx, r12, r13
+; ============================================================================
+; shell_maximize_toplevel
+;   Maximize toplevel
+; ============================================================================
+global shell_maximize_toplevel
+shell_maximize_toplevel:
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
-    mov r12, [rbx + Server.arena]
+    mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov r13d, [rbx + Shell.num_workspaces]
-    test r13d, r13d
-    jz .done
+    mov eax, [r12 + TOPLEVEL_STATE]
+    test eax, TOPLEVEL_STATE_MAXIMIZED
+    jz .do_maximize
 
-.ws_loop:
-    ; Create workspace
-    mov rdi, r12
-    mov rsi, Workspace_size
-    call arena_alloc
-    test rax, rax
-    jz .oom
+    ; Restore
+    mov eax, [r12 + TOPLEVEL_STATE]
+    and eax, ~TOPLEVEL_STATE_MAXIMIZED
+    mov dword [r12 + TOPLEVEL_PENDING_STATE], eax
+    jmp .schedule
 
-    ; Initialize workspace
-    mov dword [rax + Workspace.id], r13d
-    mov qword [rax + Workspace.shell], rbx
-    mov qword [rax + Workspace.toplevels], 0
-    mov dword [rax + Workspace.state], WORKSPACE_STATE_INACTIVE
-    mov dword [rax + Workspace.layout_engine], 0
+.do_maximize:
+    mov eax, [r12 + TOPLEVEL_STATE]
+    or eax, TOPLEVEL_STATE_MAXIMIZED
+    mov dword [r12 + TOPLEVEL_PENDING_STATE], eax
 
-    ; Add to shell
-    mov rdx, [rbx + Shell.workspaces]
-    mov [rax + Workspace.next], rdx
-    mov [rbx + Shell.workspaces], rax
-
-    dec r13d
-    jnz .ws_loop
-
-    ; Set first workspace active
-    mov rax, [rbx + Shell.workspaces]
-    mov dword [rax + Workspace.state], WORKSPACE_STATE_ACTIVE
-    mov dword [rbx + Shell.active_ws], 0
-
-.done:
+.schedule:
+    call toplevel_schedule_configure
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx
     ret
 
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+; ============================================================================
+; shell_fullscreen_toplevel
+;   Fullscreen toplevel
+; ============================================================================
+global shell_fullscreen_toplevel
+shell_fullscreen_toplevel:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    mov eax, [r12 + TOPLEVEL_STATE]
+    test eax, TOPLEVEL_STATE_FULLSCREEN
+    jz .do_fullscreen
+
+    ; Exit fullscreen
+    mov eax, [r12 + TOPLEVEL_STATE]
+    and eax, ~TOPLEVEL_STATE_FULLSCREEN
+    mov dword [r12 + TOPLEVEL_PENDING_STATE], eax
+    jmp .schedule
+
+.do_fullscreen:
+    mov eax, [r12 + TOPLEVEL_STATE]
+    or eax, TOPLEVEL_STATE_FULLSCREEN
+    mov dword [r12 + TOPLEVEL_PENDING_STATE], eax
+
+.schedule:
+    call toplevel_schedule_configure
+    xor rax, rax
+    EPILOGUE_RESTORE rbx
     ret
 
-; ---------------------------------------------------------------------------
-; shell_load_policy
-; ---------------------------------------------------------------------------
-shell_load_policy:
-    PROLOGUE
-    ; TODO: Load policy from config
-    ; For now, use default floating policy
-    mov rax, [rbx + Shell.server]
-    mov rdi, [rax + Server.arena]
-    mov rsi, PolicyFloating_size
-    call arena_alloc
-    test rax, rax
-    jz .fail
-
-    ; Initialize floating policy
-    call policy_floating_init
-
-    mov [rbx + Shell.policy], rax
-    leave
-    ret
-
-.fail:
-    mov rax, -(ENOMEM)
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
+; ============================================================================
 ; shell_set_policy
-; ---------------------------------------------------------------------------
+;   Set window management policy
+; ============================================================================
 global shell_set_policy
 shell_set_policy:
-    PROLOGUE
-    ; TODO: Switch policy at runtime
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi  ; type
+    mov r13, rdx  ; arena
+    mov r14, rcx  ; config
+    ASSERT_PTR rbx
+    ASSERT_PTR r13
+
+    ; Destroy old policy
+    mov rax, [rbx + SHELL_POLICY]
+    test rax, rax
+    jz .create_new
+    ; policy_destroy would go here
+
+.create_new:
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
+    mov rcx, r14
+    call policy_init
+    mov [rbx + SHELL_POLICY], rax
+
     xor rax, rax
+    leave
+    ret
+
+; ============================================================================
+; shell_get_toplevels
+;   Get all toplevels
+; ============================================================================
+global shell_get_toplevels
+shell_get_toplevels:
+    PROLOGUE
+    mov rax, [rdi + SHELL_TOPLEVELS]
+    leave
+    ret
+
+; ============================================================================
+; shell_get_popups
+;   Get all popups
+; ============================================================================
+global shell_get_popups
+shell_get_popups:
+    PROLOGUE
+    mov rax, [rdi + SHELL_POPUPS]
+    leave
+    ret
+
+; ============================================================================
+; shell_get_layers
+;   Get all layers
+; ============================================================================
+global shell_get_layers
+shell_get_layers:
+    PROLOGUE
+    mov rax, [rdi + SHELL_LAYERS]
+    leave
+    ret
+
+; ============================================================================
+; shell_get_outputs
+;   Get all outputs
+; ============================================================================
+global shell_get_outputs
+shell_get_outputs:
+    PROLOGUE
+    mov rax, [rdi + SHELL_OUTPUTS]
     leave
     ret
 
 section .data
-
-
-
 global shell_version
 shell_version: dq 0x010000
