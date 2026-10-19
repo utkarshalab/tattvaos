@@ -13,7 +13,7 @@
 ; =============================================================================
 
 %include "storage/uxfs/uxfs.inc"
-%include "crypto/ucrypt/guards/ct_guard.asm"
+%include "lib/crypto/ucrypt/guards/ct_guard.asm"
 
 section .text
 

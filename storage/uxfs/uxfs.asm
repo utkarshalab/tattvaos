@@ -18,7 +18,7 @@
 ; =============================================================================
 
 %include "storage/uxfs/uxfs.inc"
-%include "crypto/ucrypt/guards/ct_guard.asm"
+%include "lib/crypto/ucrypt/guards/ct_guard.asm"
 
 ; -----------------------------------------------------------------------------
 ; VFS Subsystem & Multi-OS Compatibility Drivers
