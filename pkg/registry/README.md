@@ -1,8 +1,39 @@
 # pkg/registry — Package Registry
 
-> Package index, publishing, and resolution for UPM.
+**Module:** `pkg/registry/`
+**Status:** Skeletoned — directory structure created, implementation pending.
+**Part of:** `pkg/` — Package System
 
-Implements: package index server, version resolution, dependency graph,
-publish/download API, signature verification on install.
+---
 
-Part of the `pkg/` category in Tattva OS.
+## Purpose
+
+Package registry for Tattva OS — tracks installed packages, versions, and
+install paths.
+
+## Files
+
+```
+pkg/registry/
+├── registry.asm   ← package registry implementation
+└── README.md      ← this file
+```
+
+## Planned scope
+
+- Package registry database
+- Install/remove tracking
+- Dependency tracking
+
+## Dependencies
+
+```text
+pkg/registry/ depends on:
+  → storage/uxfs/   (filesystem storage)
+  → lib/io/         (file I/O)
+```
+
+---
+
+*pkg/registry — Package Registry*
+*pure x86-64 assembly, no dependencies, no OS*
