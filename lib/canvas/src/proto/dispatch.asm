@@ -3,6 +3,7 @@
 ; ============================================================================
 
 %include "inc/abi.inc"
+%include "inc/externs.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
@@ -49,7 +50,7 @@ dispatch_init:
 ; ---------------------------------------------------------------------------
 global dispatch_register
 dispatch_register:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -61,65 +62,70 @@ dispatch_register:
     mov rax, r12
     shl rax, 16
     or rax, r13
+    mov r12, rax
 
-    ; For now, just store in array (linear search)
-    ; TODO: Use hash map for O(1) lookup
     mov rdi, [rbx + Dispatch.table]
     test rdi, rdi
     jnz .has_table
 
     ; Allocate table
-    push r14
     mov rdi, [rbx + Dispatch.arena]
-    mov rsi, 256
-    mov rdx, 16
+    mov rsi, 4096
     call arena_alloc
-    pop r14
     test rax, rax
     jz .oom
     mov [rbx + Dispatch.table], rax
-    mov qword [rbx + Dispatch.capacity], 16
+    mov qword [rbx + Dispatch.capacity], 256
     mov qword [rbx + Dispatch.count], 0
+    mov rdi, rax
+    xor rsi, rsi
+    mov rdx, 4096
+    call memset
 
 .has_table:
     mov rdi, [rbx + Dispatch.table]
-    mov rcx, [rbx + Dispatch.count]
-    ; Check for duplicate
-    xor rdx, rdx
-.check_loop:
-    cmp rdx, rcx
-    jae .insert
-    mov rax, [rdi + rdx * 16]
-    cmp rax, r12
-    jne .next
-    ; Found - update
-    mov [rdi + rdx * 16 + 8], r14
+    mov rax, r12
+    imul rax, 0x9E3779B1
+    shr rax, 16
+    and rax, 255
+    mov r15, 256
+.probe:
+    mov rcx, rax
+    shl rcx, 4
+    mov rdx, [rdi + rcx]
+    test rdx, rdx
+    jz .insert
+    dec rdx
+    cmp rdx, r12
+    je .update
+    inc rax
+    and rax, 255
+    dec r15
+    jnz .probe
+    jmp .grow
+.update:
+    mov [rdi + rcx + 8], r14
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
-.next:
-    inc rdx
-    jmp .check_loop
-
 .insert:
-    cmp rcx, [rbx + Dispatch.capacity]
-    jae .grow
-
-    mov [rdi + rcx * 16], r12
-    mov [rdi + rcx * 16 + 8], r14
+    mov rdx, r12
+    inc rdx
+    mov [rdi + rcx], rdx
+    mov [rdi + rcx + 8], r14
     inc qword [rbx + Dispatch.count]
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .grow:
     mov rax, -(ENOSPC)
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -131,6 +137,9 @@ dispatch_register:
 global dispatch_call
 dispatch_call:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 16
+    mov [rsp], r9
+    mov [rsp + 8], r10
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -142,35 +151,45 @@ dispatch_call:
     mov rax, r12
     shl rax, 16
     or rax, r13
+    mov r12, rax
 
-    ; Linear search
     mov rdi, [rbx + Dispatch.table]
-    mov rcx, [rbx + Dispatch.count]
-    test rcx, rcx
+    test rdi, rdi
     jz .not_found
-
-    xor rdx, rdx
+    imul rax, 0x9E3779B1
+    shr rax, 16
+    and rax, 255
+    mov r13, 256
 .search_loop:
-    cmp rdx, rcx
-    jae .not_found
-    cmp qword [rdi + rdx * 16], rax
+    mov rcx, rax
+    shl rcx, 4
+    mov rdx, [rdi + rcx]
+    test rdx, rdx
+    jz .not_found
+    dec rdx
+    cmp rdx, r12
     je .found
-    inc rdx
-    jmp .search_loop
+    inc rax
+    and rax, 255
+    dec r13
+    jnz .search_loop
+    jmp .not_found
 
 .found:
-    mov rax, [rdi + rdx * 16 + 8]   ; handler
+    mov rax, [rdi + rcx + 8]
     ; Call handler(client, msg_hdr, payload, handles)
     mov rdi, r14
     mov rsi, r15
-    mov rdx, r9
-    mov rcx, r10
+    mov rdx, [rsp]
+    mov rcx, [rsp + 8]
     call rax
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .not_found:
     mov rax, -(ECWP_OPCODE)
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
