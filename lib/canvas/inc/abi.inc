@@ -20,6 +20,19 @@
 ; Shadow space:    32 bytes reserved by caller (rsp+8..rsp+40)
 
 ; ---------------------------------------------------------------------------
+; Syscall Numbers (Tattva OS)
+; ---------------------------------------------------------------------------
+%define SYS_MEM_ALLOC       0
+%define SYS_MEM_FREE        1
+%define SYS_TIME_NOW_NS     2
+%define SYS_LOG_WRITE       3
+%define SYS_ENTROPY_GET     4
+%define SYS_WAIT_WAIT       5
+%define SYS_THREAD_WAKE     6
+%define SYS_THREAD_SLEEP    7
+%define SYS_EXIT            60
+
+; ---------------------------------------------------------------------------
 ; Function Prologue / Epilogue Macros
 ; ---------------------------------------------------------------------------
 
@@ -85,7 +98,7 @@
                 mov rcx, %1
             %elif %0 == 6
                 mov r8, %1
-            %elif %0 == 7
+            %elif %0 == 6
                 mov r9, %1
             %elif %0 == 8
                 mov r10, %1
