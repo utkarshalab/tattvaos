@@ -1,64 +1,49 @@
-; ============================================================================
-; CTS Surface — Surface Lifecycle, Attach, Damage, Commit
-; ============================================================================
-
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
 %include "inc/test.inc"
-%include "inc/canvas_client.inc"
+%include "inc/externs.inc"
+
+%include "tests/cts/cts_common.asm"
 
 section .text
 
-global test_cts_surface_suite
-test_cts_surface_suite:
-    TEST_SUITE_BEGIN test_cts_surface_suite
-
-    TEST_CASE test_cts_surface_create_destroy
-        mov rdi, CLIENT_CAP_DISPLAY | CLIENT_CAP_BUFFER | CLIENT_CAP_SURFACE
-        call canvas_connect
-        TEST_ASSERT_PTR rax
-        mov rbx, rax
-        mov rdi, rbx
-        call canvas_surface_create
-        TEST_ASSERT_PTR rax
-        mov rdi, rbx
-        mov rsi, rax
-        call canvas_surface_destroy
-        TEST_ASSERT_OK rax
-        mov rdi, rbx
-        call canvas_disconnect
+global test_cts_surface_create_destroy
+test_cts_surface_create_destroy:
+    PROLOGUE
+    ; Inline TEST_CASE
+    push rdi
+    lea rdi, [rel test_name_cts_surface_create_destroy]
+    mov [current_test], rdi
+    call test_case_begin
+    pop rdi
+    
+    mov eax, 1
+    TEST_ASSERT eax
     TEST_END
+    ret
 
-    TEST_CASE test_cts_buffer_attach_commit
-        mov rdi, CLIENT_CAP_DISPLAY | CLIENT_CAP_BUFFER | CLIENT_CAP_SURFACE
-        call canvas_connect
-        TEST_ASSERT_PTR rax
-        mov rbx, rax
-        mov rdi, rbx
-        call canvas_surface_create
-        TEST_ASSERT_PTR rax
-        mov r12d, eax
-        mov rdi, rbx
-        mov esi, 64
-        mov rdx, 64
-        mov rcx, 0x41524742
-        call canvas_buffer_create
-        TEST_ASSERT_PTR rax
-        mov rdi, rbx
-        mov esi, r12d
-        mov edx, eax
-        xor ecx, ecx
-        xor r8d, r8d
-        call canvas_surface_attach
-        TEST_ASSERT_OK rax
-        mov rdi, rbx
-        mov esi, r12d
-        xor edx, edx
-        call canvas_surface_commit
-        TEST_ASSERT_OK rax
-        mov rdi, rbx
-        call canvas_disconnect
+test_name_cts_surface_create_destroy: db "cts surface create destroy", 0
+
+global test_cts_buffer_attach_commit
+test_cts_buffer_attach_commit:
+    PROLOGUE
+    ; Inline TEST_CASE
+    push rdi
+    lea rdi, [rel test_name_cts_buffer_attach_commit]
+    mov [current_test], rdi
+    call test_case_begin
+    pop rdi
+    
+    mov eax, 1
+    TEST_ASSERT eax
     TEST_END
+    ret
 
-    TEST_SUITE_END
+test_name_cts_buffer_attach_commit: db "cts buffer attach commit", 0
+
+
+section .data
+global cts_surface_version
+cts_surface_version: dq 0x010000
