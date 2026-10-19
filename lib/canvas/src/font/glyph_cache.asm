@@ -5,10 +5,11 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define GlyphCache_size    32
-%define GlyphEntry_size    48
+%define GlyphCache_SIZE    32
+%define GlyphEntry_SIZE    48
 %define GLYPH_CACHE_DEFAULT_CAP  256
 
 section .text
