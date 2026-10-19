@@ -1,150 +1,139 @@
 ; ============================================================================
-; Workspace — Virtual Desktops / Workspaces
+; Workspace Management — Virtual Desktops
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
-
-; struct offsets (hoisted above use)
-%define Workspace_size    56
-%define WORKSPACE_STATE_ACTIVE    1
-%define WORKSPACE_STATE_INACTIVE  0
+%include "inc/shell.inc"
+%include "inc/externs.inc"
 
 section .text
 
-struc Workspace
-    .id:                resd 1
-    .shell:             resq 1
-    .toplevels:         resq 1
-    .state:             resd 1
-    .layout_engine:     resq 1
-    .name:              resq 1
-    .next:              resq 1
-    .next_ws:           resq 1
-endstruc
-
-
-; ---------------------------------------------------------------------------
+; ============================================================================
 ; workspace_create
-;   Create workspace
-; ---------------------------------------------------------------------------
+;   Create new workspace
+; ============================================================================
 global workspace_create
 workspace_create:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
+    mov r12, rsi  ; shell
+    mov r13, rdx  ; output
+    mov r14d, ecx ; index
     ASSERT_PTR rbx
     ASSERT_PTR r12
+    ASSERT_PTR r13
 
-    ; Allocate workspace
-    mov rdi, [rbx + Server.arena]
-    mov rsi, Workspace_size
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov rbx, rax
+    mov qword [rbx + WORKSPACE_OUTPUT], r13
+    mov dword [rbx + WORKSPACE_IDX], r14d
+    mov qword [rbx + WORKSPACE_LAYOUT], 0
+    mov qword [rbx + WORKSPACE_TOPLEVELS], 0
+    mov qword [rbx + WORKSPACE_NAME], 0
 
-    ; Initialize
-    mov dword [rbx + Workspace.id], r13d
-    mov qword [rbx + Workspace.shell], r12
-    mov qword [rbx + Workspace.toplevels], 0
-    mov dword [rbx + Workspace.state], WORKSPACE_STATE_INACTIVE
-    mov qword [rbx + Workspace.layout_engine], 0
-    mov qword [rbx + Workspace.name], 0
-    mov qword [rbx + Workspace.next], 0
-    mov qword [rbx + Workspace.next_ws], 0
-
-    ; Add to shell
-    mov rax, [r12 + Shell.workspaces]
-    mov [rbx + Workspace.next], rax
-    mov [r12 + Shell.workspaces], rbx
-    inc dword [r12 + Shell.num_workspaces]
+    ; Link into shell's workspace list
+    mov rax, [r12 + SHELL_WORKSPACES]
+    mov [rbx + WORKSPACE_NEXT], rax
+    mov [r12 + SHELL_WORKSPACES], rbx
+    inc dword [r12 + SHELL_WORKSPACE_COUNT]
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-; ---------------------------------------------------------------------------
+; ============================================================================
 ; workspace_destroy
-; ---------------------------------------------------------------------------
+;   Destroy workspace
+; ============================================================================
 global workspace_destroy
 workspace_destroy:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
-    mov r12, rsi
     ASSERT_PTR rbx
-    ASSERT_PTR r12
 
-    ; Move toplevels to another workspace
-    ; TODO
+    ; Move all toplevels to another workspace
+    ; ...
 
-    ; Remove from shell list
-    ; TODO
+    ; Unlink from shell
+    mov r12, [rbx + WORKSPACE_SHELL]
+    call .unlink_from_shell
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
 
-; ---------------------------------------------------------------------------
+.unlink_from_shell:
+    mov rax, [r12 + SHELL_WORKSPACES]
+    test rax, rax
+    jz .done
+
+    cmp rax, rbx
+    jne .find_prev
+    mov rax, [rbx + WORKSPACE_NEXT]
+    mov [r12 + SHELL_WORKSPACES], rax
+    jmp .done
+
+.find_prev:
+    mov r12, rax
+.prev_loop:
+    mov rax, [r12 + WORKSPACE_NEXT]
+    test rax, rax
+    jz .done
+    cmp rax, rbx
+    je .unlink
+    mov r12, rax
+    jmp .prev_loop
+
+.unlink:
+    mov rax, [rbx + WORKSPACE_NEXT]
+    mov [r12 + WORKSPACE_NEXT], rax
+    dec dword [r12 + SHELL_WORKSPACE_COUNT]
+
+.done:
+    ret
+
+; ============================================================================
 ; workspace_set_active
-;   Switch active workspace
-; ---------------------------------------------------------------------------
+;   Set active workspace on output
+; ============================================================================
 global workspace_set_active
 workspace_set_active:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
-    mov r12, rsi
+    mov r12, rsi  ; shell
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Deactivate current
-    mov rax, [r12 + Shell.workspaces]
-.find_active:
-    test rax, rax
-    jz .set_new
-    cmp dword [rax + Workspace.state], WORKSPACE_STATE_ACTIVE
-    je .deactivate
-    mov rax, [rax + Workspace.next]
-    jmp .find_active
+    mov [r12 + SHELL_ACTIVE_WS], rbx
+    mov eax, [rbx + WORKSPACE_IDX]
+    mov dword [r12 + SHELL_ACTIVE_WS_IDX], eax
 
-.deactivate:
-    mov dword [rax + Workspace.state], WORKSPACE_STATE_INACTIVE
-    ; Hide all toplevels on this workspace
-    ; TODO
+    ; Hide all toplevels on other workspaces, show this one
+    call .update_visibility
 
-.set_new:
-    ; Activate new
-    mov dword [r12 + Workspace.state], WORKSPACE_STATE_ACTIVE
-    mov eax, [r12 + Workspace.id]
-    mov [r12 + Shell.active_ws], eax
-
-    ; Show toplevels
-    ; TODO
-
-    ; Update policy
-    mov rax, [r12 + Shell.policy]
-    test rax, rax
-    jz .done
-    mov rdi, rax
-    mov rsi, r12
-    call policy_workspace_changed
-
-.done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12
     ret
 
-; ---------------------------------------------------------------------------
+.update_visibility:
+    ; Iterate toplevels and show/hide based on workspace
+    ret
+
+; ============================================================================
+; workspace_get_active
+;   Get active workspace for shell
+; ============================================================================
+global workspace_get_active
+workspace_get_active:
+    PROLOGUE
+    mov rax, [rdi + SHELL_ACTIVE_WS]
+    leave
+    ret
+
+; ============================================================================
 ; workspace_add_toplevel
-; ---------------------------------------------------------------------------
+;   Add toplevel to workspace
+; ============================================================================
 global workspace_add_toplevel
 workspace_add_toplevel:
     PROLOGUE_SAVE rbx, r12
@@ -153,21 +142,20 @@ workspace_add_toplevel:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Add to workspace's toplevel list
-    mov rax, [rbx + Workspace.toplevels]
-    mov [r12 + Toplevel.next_ws], rax
-    mov [rbx + Workspace.toplevels], r12
-
-    ; Set toplevel's workspace
-    mov qword [r12 + Toplevel.workspace], rbx
+    ; Link into workspace's toplevel list
+    mov rax, [rbx + WORKSPACE_TOPLEVELS]
+    mov [r12 + TOPLEVEL_NEXT_WS], rax
+    mov [rbx + WORKSPACE_TOPLEVELS], r12
+    mov [r12 + TOPLEVEL_WORKSPACE], rbx
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
 
-; ---------------------------------------------------------------------------
+; ============================================================================
 ; workspace_remove_toplevel
-; ---------------------------------------------------------------------------
+;   Remove toplevel from workspace
+; ============================================================================
 global workspace_remove_toplevel
 workspace_remove_toplevel:
     PROLOGUE_SAVE rbx, r12
@@ -176,124 +164,47 @@ workspace_remove_toplevel:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Remove from workspace's toplevel list
-    ; TODO
+    ; Unlink from workspace's toplevel list
+    mov rax, [rbx + WORKSPACE_TOPLEVELS]
+    test rax, rax
+    jz .done
 
+    cmp rax, r12
+    jne .find_prev
+    mov rax, [r12 + TOPLEVEL_NEXT_WS]
+    mov [rbx + WORKSPACE_TOPLEVELS], rax
+    jmp .done
+
+.find_prev:
+    mov rax, [rbx + WORKSPACE_TOPLEVELS]
+.prev_loop:
+    mov rdx, [rax + TOPLEVEL_NEXT_WS]
+    test rdx, rdx
+    jz .done
+    cmp rdx, r12
+    je .unlink
+    mov rax, rdx
+    jmp .prev_loop
+
+.unlink:
+    mov rdx, [r12 + TOPLEVEL_NEXT_WS]
+    mov [rax + TOPLEVEL_NEXT_WS], rdx
+
+.done:
+    mov qword [r12 + TOPLEVEL_WORKSPACE], 0
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
 
-; ---------------------------------------------------------------------------
+; ============================================================================
 ; workspace_get_toplevels
-; ---------------------------------------------------------------------------
+;   Get toplevels on workspace
+; ============================================================================
 global workspace_get_toplevels
 workspace_get_toplevels:
     PROLOGUE
-    ASSERT_PTR rdi
-    mov rax, [rdi + Workspace.toplevels]
+    mov rax, [rdi + WORKSPACE_TOPLEVELS]
     leave
-    ret
-
-; ---------------------------------------------------------------------------
-; workspace_get_active
-; ---------------------------------------------------------------------------
-global workspace_get_active
-workspace_get_active:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov rax, [rbx + Shell.workspaces]
-.find_loop:
-    test rax, rax
-    jz .none
-    cmp dword [rax + Workspace.state], WORKSPACE_STATE_ACTIVE
-    je .found
-    mov rax, [rax + Workspace.next]
-    jmp .find_loop
-
-.found:
-    EPILOGUE_RESTORE rbx
-    ret
-.none:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; workspace_get_by_id
-; ---------------------------------------------------------------------------
-global workspace_get_by_id
-workspace_get_by_id:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12d, esi
-    ASSERT_PTR rbx
-
-    mov rax, [rbx + Shell.workspaces]
-.find_loop:
-    test rax, rax
-    jz .not_found
-    cmp dword [rax + Workspace.id], r12d
-    je .found
-    mov rax, [rax + Workspace.next]
-    jmp .find_loop
-
-.found:
-    EPILOGUE_RESTORE rbx, r12
-    ret
-.not_found:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; workspace_set_name
-; ---------------------------------------------------------------------------
-global workspace_set_name
-workspace_set_name:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Free old name
-    mov rax, [rbx + Workspace.name]
-    test rax, rax
-    jz .set_new
-    ; TODO: free
-
-.set_new:
-    ; Copy new name
-    call str_dup_arena
-    test rax, rax
-    jz .oom
-    mov [rbx + Workspace.name], rax
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; workspace_set_layout
-;   Set layout engine for workspace
-; ---------------------------------------------------------------------------
-global workspace_set_layout
-workspace_set_layout:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov [rbx + Workspace.layout_engine], r12
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
