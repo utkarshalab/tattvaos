@@ -13,6 +13,33 @@
 
 section .text
 
+; Disable one output using the native controller selected by its CRTC index.
+; IN: rdi = backend*, rsi = output*
+global native_output_disable
+native_output_disable:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    mov r13, [rbx + Backend.state]
+    test r13, r13
+    jz .disable_no_device
+    mov r13, [r13 + Controller.state]
+    test r13, r13
+    jz .disable_no_device
+    mov r14, [r13 + Controller.mmio_base]
+    test r14, r14
+    jz .disable_no_device
+    mov r15d, [r12 + Output.crtc_index]
+    call native_crtc_disable
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+.disable_no_device:
+    mov rax, -(ENODEV)
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+
 global native_modeset
 native_modeset:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
@@ -132,7 +159,7 @@ native_crtc_program_timing:
     mov [r12 + DCN_CRTC_V_END + r13 * 4], eax
 
     mov eax, [rbx + Mode.flags]
-    test eax, MODE_FLAG_HSYNC_POSITIVE
+    test eax, MODE_FLAG_HSYNC_POSITIVE_VAL
     jz .hsync_neg
     mov eax, [r12 + DCN_CRTC_H_SYNC_POLARITY + r13 * 4]
     or eax, 1
@@ -145,7 +172,7 @@ native_crtc_program_timing:
     mov [r12 + DCN_CRTC_H_SYNC_POLARITY + r13 * 4], eax
 
 .vsync_check:
-    test eax, MODE_FLAG_VSYNC_POSITIVE
+    test eax, MODE_FLAG_VSYNC_POSITIVE_VAL
     jz .vsync_neg
     mov eax, [r12 + DCN_CRTC_V_SYNC_POLARITY + r13 * 4]
     or eax, 1
@@ -281,9 +308,11 @@ DCN_PLANE_SOURCE_SIZE:         dd 0x1040
 DCN_PLANE_STRIDE:              dd 0x1050
 DCN_PLANE_FORMAT:              dd 0x1060
 
-MODE_FLAG_HSYNC_POSITIVE:      dd (1 << 0)
-MODE_FLAG_VSYNC_POSITIVE:      dd (1 << 1)
-MODE_FLAG_INTERLACED:          dd (1 << 2)
+; Mode flag values (for data section)
+; Mode flag values (for data section)
+MODE_FLAG_HSYNC_POSITIVE_VAL:      dd 1
+MODE_FLAG_VSYNC_POSITIVE_VAL:      dd 2
+MODE_FLAG_INTERLACED_VAL:          dd 4
 
 section .data
 global native_modeset_version
