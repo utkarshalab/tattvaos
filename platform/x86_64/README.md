@@ -1,10 +1,32 @@
-# platform/x86_64 — x86-64 Platform
+# platform/x86_64 — x86-64 Platform Support
 
-> x86-64 specific implementation for Tattva OS.
+**Module:** `platform/x86_64/`
+**Status:** Skeletoned — directory structure created, implementation pending.
+**Part of:** `platform/` — Architecture-Specific Code
 
-Covers: APIC/x2APIC init, TSC calibration, MSR access, IOMMU (VT-d),
-XSAVE/XRESTORE for FPU state, SMM lockdown.
+---
 
-Primary build target. Build this first.
+## Purpose
 
-Part of the `platform/` category in Tattva OS.
+x86-64 specific platform initialization, CPU feature detection, and hardware
+abstraction for Tattva OS.
+
+## Files
+
+```
+platform/x86_64/
+├── platform.asm   ← platform init and halt
+└── README.md      ← this file
+```
+
+## Dependencies
+
+```text
+platform/x86_64/ depends on:
+  → kernel/  (kernel interfaces)
+```
+
+---
+
+*umath — unified math library*
+*pure x86-64 assembly, no dependencies, no OS*
