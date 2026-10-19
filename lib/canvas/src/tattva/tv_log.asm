@@ -3,6 +3,8 @@
 ; Console/serial output, panic handlers
 ; ============================================================================
 
+%define TATTVA_BINDING_IMPL 1
+%define PANIC_IMPL 1
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
