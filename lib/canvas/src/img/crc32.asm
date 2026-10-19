@@ -25,10 +25,8 @@ crc32:
     test r12, r12
     jz .done
 
-    ; Use slicing-by-8 if available, else byte-by-byte
-    ; For now, byte-by-byte with table lookup
-    ; TODO: Add hardware CRC32 (SSE4.2) and slicing-by-8
-
+    ; Portable CRC32C core.  It is independent of CPU feature discovery and
+    ; therefore also works during early server startup.
     mov r13, rbx
     mov r14, r12
     mov r15, rax
@@ -37,9 +35,17 @@ crc32:
     movzx rdx, byte [r13]
     xor rdx, r15
     and rdx, 0xFF
-    mov rcx, [crc32_table + rdx * 4]
-    shr r15, 8
-    xor r15, rcx
+    xor r15b, dl
+    mov ecx, 8
+.bit:
+    mov rax, r15
+    and eax, 1
+    neg rax
+    shr r15, 1
+    and rax, 0x82F63B78
+    xor r15, rax
+    dec ecx
+    jnz .bit
     inc r13
     dec r14
     jnz .loop
@@ -49,6 +55,38 @@ crc32:
 
 .done:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+
+; PNG/zlib CRC-32 (IEEE 802.3), reflected polynomial 0xEDB88320.
+; IN: rdi=data, rsi=length. OUT: eax=CRC.
+global crc32_ieee
+crc32_ieee:
+    PROLOGUE_SAVE rbx,r12,r13,r14,r15
+    mov r12,rdi
+    mov r13,rsi
+    mov r14d,0xFFFFFFFF
+.ieee_byte:
+    test r13,r13
+    jz .ieee_done
+    movzx eax,byte [r12]
+    xor r14d,eax
+    mov ecx,8
+.ieee_bit:
+    mov eax,r14d
+    and eax,1
+    neg eax
+    and eax,0xEDB88320
+    shr r14d,1
+    xor r14d,eax
+    dec ecx
+    jnz .ieee_bit
+    inc r12
+    dec r13
+    jmp .ieee_byte
+.ieee_done:
+    mov eax,r14d
+    not eax
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
     ret
 
 ; ---------------------------------------------------------------------------
