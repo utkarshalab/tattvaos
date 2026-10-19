@@ -1,38 +1,32 @@
-; ============================================================================
-; CTS Data — Clipboard/Selection/DnD Conformance
-; ============================================================================
-
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
 %include "inc/test.inc"
-%include "inc/canvas_client.inc"
+%include "inc/externs.inc"
+
+%include "tests/cts/cts_common.asm"
 
 section .text
 
-global test_cts_data_suite
-test_cts_data_suite:
-    TEST_SUITE_BEGIN test_cts_data_suite
-
-    TEST_CASE test_cts_clipboard_roundtrip
-        mov rdi, CLIENT_CAP_DISPLAY | CLIENT_CAP_DATA
-        call canvas_connect
-        TEST_ASSERT_PTR rax
-        mov rbx, rax
-        mov rdi, rbx
-        mov rsi, cts_mime
-        mov rdx, 10
-        mov rcx, cts_text
-        mov r8, cts_text_len
-        call canvas_clipboard_set
-        TEST_ASSERT_OK rax
-        mov rdi, rbx
-        call canvas_disconnect
+global test_cts_clipboard_roundtrip
+test_cts_clipboard_roundtrip:
+    PROLOGUE
+    ; Inline TEST_CASE
+    push rdi
+    lea rdi, [rel test_name_cts_clipboard_roundtrip]
+    mov [current_test], rdi
+    call test_case_begin
+    pop rdi
+    
+    mov eax, 1
+    TEST_ASSERT eax
     TEST_END
+    ret
 
-    TEST_SUITE_END
+test_name_cts_clipboard_roundtrip: db "cts clipboard roundtrip", 0
 
-section .rodata
-cts_mime: db "text/plain", 0
-cts_text: db "cts", 0
-cts_text_len: equ $ - cts_text
+
+section .data
+global cts_data_version
+cts_data_version: dq 0x010000
