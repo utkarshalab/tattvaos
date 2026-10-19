@@ -7,6 +7,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define PixBuf_width     0
 %define PixBuf_height    8
@@ -27,6 +29,7 @@ section .text
 global pixbuf_create
 pixbuf_create:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 16
     mov rbx, rdi        ; arena
     mov r12, rsi        ; width
     mov r13, rdx        ; height
@@ -48,11 +51,11 @@ pixbuf_create:
     shl rax, 2
     add rax, 3
     and rax, ~3
-    mov r12, rax        ; stride in r12
+    mov [rsp], rax      ; stride
 
     ; Size
     imul rax, r13
-    mov r13, rax        ; size in r13
+    mov [rsp + 8], rax  ; size
 
     ; Alloc PixBuf struct
     mov rdi, r15
@@ -60,34 +63,41 @@ pixbuf_create:
     call arena_alloc
     test rax, rax
     jz .oom
+    mov rdx, rax
     mov rbx, rax        ; PixBuf*
 
     ; Alloc pixel data
     mov rdi, r15
-    mov rsi, r13
+    mov rsi, [rsp + 8]
     call arena_alloc
     test rax, rax
     jz .oom
+    mov rdx, rax        ; pixel storage
 
     ; Fill
-    mov qword [rbx + PixBuf_width], rsi
-    mov qword [rbx + PixBuf_height], rdx
-    mov qword [rbx + PixBuf_stride], r12
+    mov qword [rbx + PixBuf_width], r12
+    mov qword [rbx + PixBuf_height], r13
+    mov rax, [rsp]
+    mov qword [rbx + PixBuf_stride], rax
     mov qword [rbx + PixBuf_format], r14
-    mov qword [rbx + PixBuf_data], rax
-    mov qword [rbx + PixBuf_size], r13
+    mov qword [rbx + PixBuf_data], rdx
+    mov rax, [rsp + 8]
+    mov qword [rbx + PixBuf_size], rax
     mov qword [rbx + PixBuf_refcount], 1
     mov qword [rbx + PixBuf_arena], r15
     mov rax, rbx
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .invalid:
     mov rax, -(EINVAL)
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .oom:
     mov rax, -(ENOMEM)
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -103,9 +113,7 @@ pixbuf_destroy:
     ASSERT_PTR rdi
     lock dec qword [rdi + PixBuf_refcount]
     jnz .done
-    ; Refcount hit zero - free data via arena
-    ; Note: In practice, arena_free_all would be called on arena destroy
-    ; For now just zero the struct
+    ; Arena storage is reclaimed with its owner; invalidate this object now.
     mov qword [rdi + PixBuf_data], 0
     mov qword [rdi + PixBuf_size], 0
 .done:
@@ -147,8 +155,8 @@ pixbuf_get_pixel:
 
     mov rax, [rdi + PixBuf_stride]
     imul rax, rdx
-    add rax, rsi
-    shl rax, 2
+    lea rcx, [rsi * 4]
+    add rax, rcx
     add rax, [rdi + PixBuf_data]
     mov eax, [rax]
     leave
@@ -177,8 +185,8 @@ pixbuf_set_pixel:
 
     mov rax, [rdi + PixBuf_stride]
     imul rax, rdx
-    add rax, rsi
-    shl rax, 2
+    lea r8, [rsi * 4]
+    add rax, r8
     add rax, [rdi + PixBuf_data]
     mov [rax], ecx
     xor rax, rax
