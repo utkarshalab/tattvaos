@@ -5,6 +5,9 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
+%include "inc/source_iface.inc"
 
 ; struct offsets (hoisted above use)
 %define InputSource_virtual_ring  48
@@ -50,7 +53,7 @@ input_source_virtual_init:
     ret
 
 .ring_ok:
-    mov qword [r12 + InputSource.virtual.ring], rax
+    mov qword [r12 + InputSource.virtual], rax
 
     ; Register source
     mov rdi, rbx
@@ -134,7 +137,7 @@ virtual_input_inject:
     call tv_time_now_ns
     mov [rsp + 8], rax
 
-    mov rdi, [r12 + InputSource.virtual.ring]
+    mov rdi, [r12 + InputSource.virtual]
     mov rsi, rsp
     call ring_push
     test rax, rax
