@@ -7,6 +7,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/font.inc"
+%include "inc/canvas_client.inc"
 
 section .text
 
@@ -151,7 +152,11 @@ cmap_format4:
     call cmap_be16
     movsx r11d, ax  ; delta (signed)
     ; idRangeOffset
-    lea rdx, [r14 + r13 * 2 + 2 + r13 * 2 + r13 * 2]
+    mov rdx, r14
+    lea rdx, [rdx + r13 * 8]
+    sub rdx, r13
+    sub rdx, r13
+    add rdx, 2
     lea rdx, [rdx + rcx * 2]
     mov rdi, rdx
     call cmap_be16
@@ -161,7 +166,8 @@ cmap_format4:
     mov esi, r12d
     sub esi, r10d
     shl esi, 1
-    lea rdi, [rdx + rax + rsi]
+    lea rdi, [rdx + rax]
+    add rdi, rsi
     call cmap_be16
     test eax, eax
     jz .missing
