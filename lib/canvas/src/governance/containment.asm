@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define Containment_size    24
+%define Containment_SIZE    24
 %define FAULT_PROTO_VIOLATION   1
 %define FAULT_OOM               2
 %define FAULT_TIMEOUT           3
