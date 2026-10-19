@@ -52,7 +52,9 @@ TATTVA_SRCS := \
 # Core Library (C1)
 CORE_SRCS := \
     $(SRCDIR)/core/arena.asm \
+    $(SRCDIR)/core/arena_full.asm \
     $(SRCDIR)/core/str.asm \
+    $(SRCDIR)/core/memops.asm \
     $(SRCDIR)/core/map.asm \
     $(SRCDIR)/core/vec.asm \
     $(SRCDIR)/core/ring.asm \
@@ -106,12 +108,45 @@ IMG_SRCS := \
     $(SRCDIR)/img/sniff.asm \
     $(SRCDIR)/img/png.asm \
     $(SRCDIR)/img/png_filter.asm \
+    $(SRCDIR)/img/png_adam7.asm \
     $(SRCDIR)/img/jpeg.asm \
+    $(SRCDIR)/img/jpeg_entropy.asm \
     $(SRCDIR)/img/jpeg_huff.asm \
+    $(SRCDIR)/img/jpeg_mcu.asm \
     $(SRCDIR)/img/jpeg_idct.asm \
+    $(SRCDIR)/img/jpeg_color.asm \
+    $(SRCDIR)/img/jpeg_lossless.asm \
     $(SRCDIR)/img/lzw.asm \
     $(SRCDIR)/img/gif.asm \
+    $(SRCDIR)/img/gif_animation.asm \
     $(SRCDIR)/img/bmp.asm \
+    $(SRCDIR)/img/qoi.asm \
+    $(SRCDIR)/img/tga.asm \
+    $(SRCDIR)/img/pnm.asm \
+    $(SRCDIR)/img/raw.asm \
+    $(SRCDIR)/img/sensor.asm \
+    $(SRCDIR)/img/dng.asm \
+    $(SRCDIR)/img/dng_matrix.asm \
+    $(SRCDIR)/img/pcx.asm \
+    $(SRCDIR)/img/ico.asm \
+    $(SRCDIR)/img/tiff.asm \
+    $(SRCDIR)/img/tiff_lzw.asm \
+    $(SRCDIR)/img/texture.asm \
+    $(SRCDIR)/img/bc.asm \
+    $(SRCDIR)/img/hdr.asm \
+    $(SRCDIR)/img/exr.asm \
+    $(SRCDIR)/img/psd.asm \
+    $(SRCDIR)/img/camera.asm \
+    $(SRCDIR)/img/farbfeld.asm \
+    $(SRCDIR)/img/webp.asm \
+    $(SRCDIR)/img/webp_decode.asm \
+    $(SRCDIR)/img/webp_entropy.asm \
+    $(SRCDIR)/img/webp_vp8.asm \
+    $(SRCDIR)/img/webp_vp8_recon.asm \
+    $(SRCDIR)/img/webp_huffman.asm \
+    $(SRCDIR)/img/webp_vp8l.asm \
+    $(SRCDIR)/img/webp_transform.asm \
+    $(SRCDIR)/img/webp_predict.asm \
     $(SRCDIR)/img/svg.asm \
     $(SRCDIR)/img/svg_path.asm
 
@@ -147,6 +182,7 @@ SERVER_SRCS := \
     $(SRCDIR)/server/buffer/buffer.asm \
     $(SRCDIR)/server/buffer/buffer_pool.asm \
     $(SRCDIR)/server/fence/fence.asm \
+    $(SRCDIR)/server/fence/fence_full.asm \
     $(SRCDIR)/server/timeline/timeline.asm \
     $(SRCDIR)/server/surface/surface.asm \
     $(SRCDIR)/server/subsurface/subsurface.asm \
@@ -182,7 +218,9 @@ GPU_SRCS := \
 BACKEND_SRCS := \
     $(SRCDIR)/backend/backend_dispatch.asm \
     $(SRCDIR)/backend/headless/headless.asm \
+    $(SRCDIR)/backend/headless/headless_full.asm \
     $(SRCDIR)/backend/fb_linear/fb_linear.asm \
+    $(SRCDIR)/backend/fb_linear/fb_linear_full.asm \
     $(SRCDIR)/backend/remote_backend.asm \
     $(SRCDIR)/backend/native/native_pci.asm \
     $(SRCDIR)/backend/native/native_modeset.asm \
@@ -190,7 +228,8 @@ BACKEND_SRCS := \
     $(SRCDIR)/backend/native/native_planes.asm \
     $(SRCDIR)/backend/native/native_edid.asm \
     $(SRCDIR)/backend/native/native_ddc.asm \
-    $(SRCDIR)/backend/native/native_hotplug.asm
+    $(SRCDIR)/backend/native/native_hotplug.asm \
+    $(SRCDIR)/backend/native/native_full.asm
 
 # Codec (C26/C27)
 CODEC_SRCS := \
@@ -430,18 +469,17 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.asm
 # ---------------------------------------------------------------------------
 
 linker.ld:
-	@cat > $@ << 'EOF'
-ENTRY(canvasd_init)
-SECTIONS
-{
-    . = 0x200000;           /* 2MB alignment for huge pages */
-    .text : { *(.text*) }
-    .rodata : { *(.rodata*) }
-    .data : { *(.data*) }
-    .bss : { *(.bss*) *(COMMON) }
-    /DISCARD/ : { *(.note.*) *(.comment*) }
-}
-EOF
+	@printf '%s\n' \
+		'ENTRY(canvasd_init)' \
+		'SECTIONS' \
+		'{' \
+		'    . = 0x200000;' \
+		'    .text : { *(.text*) }' \
+		'    .rodata : { *(.rodata*) }' \
+		'    .data : { *(.data*) }' \
+		'    .bss : { *(.bss*) *(COMMON) }' \
+		'    /DISCARD/ : { *(.note.*) *(.comment*) }' \
+		'}' > $@
 
 # ---------------------------------------------------------------------------
 # Test Targets
