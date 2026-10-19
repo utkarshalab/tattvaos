@@ -7,81 +7,10 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/fixed.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
-; struct offsets (hoisted above use)
-%define Output_id              0
-%define Output.id 0
-%define Output_name            8
-%define Output.name 8
-%define Output_backend         16
-%define Output.backend 16
-%define Output_framebuffer     24
-%define Output.framebuffer 24
-%define Output_width           32
-%define Output.width 32
-%define Output_height          36
-%define Output.height 36
-%define Output_stride          40
-%define Output.stride 40
-%define Output_scale           48
-%define Output.scale 48
-%define Output_rotation        56
-%define Output.rotation 56
-%define Output_gamma_lut       64
-%define Output.gamma_lut 64
-%define Output_icc_profile     72
-%define Output.icc_profile 72
-%define Output_vrr_enabled     80
-%define Output.vrr_enabled 80
-%define Output_current_mode    88
-%define Output.current_mode 88
-%define Output_modes           96
-%define Output.modes 96
-%define Output_position        104
-%define Output.position 104
-%define Output_frame_clock     112
-%define Output.frame_clock 112
-%define Output_damage          120
-%define Output.damage 120
-%define Output_next            128
-%define Output.next 128
-%define Output_size            136
-%define Server_outputs         0x80
-%define Server.outputs 0x80
-%define Server_output_count    0x88
-%define Server.output_count 0x88
-%define Server_layout_bounds   0x90
-%define Server.layout_bounds 0x90
-%define Server_arena           0x130
-%define Server.arena 0x130
-%define Mode_width             0
-%define Mode_height            4
-%define Mode_htotal            8
-%define Mode_hsync_start       12
-%define Mode_hsync_end         16
-%define Mode_vtotal            20
-%define Mode_vsync_start       24
-%define Mode_vsync_end         28
-%define Mode_flags             32
-%define Mode_pixel_clock       36
-%define Mode_refresh_ns        40
-%define Mode.refresh_ns 40
-%define Mode_width_mm          48
-%define Mode_height_mm         52
-%define Mode_hborder           56
-%define Mode_vborder           57
-%define Mode_hsync_offset      58
-%define Mode_hsync_width       60
-%define Mode_vsync_offset      62
-%define Mode_vsync_width       63
-%define Mode_size              64
-%define FrameClock_output       0
-%define FrameClock_refresh_ns   8
-%define FrameClock.refresh_ns 8
-%define FrameClock_next_vblank  16
-%define FrameClock_phase        24
-%define FrameClock_callbacks    32
-%define FrameClock_size         40
+section .text
 %define FIX_ONE                0x10000
 
 section .text
@@ -116,9 +45,11 @@ output_init:
 ;   Load output configuration from file
 ; ---------------------------------------------------------------------------
 output_load_config:
-    PROLOGUE
-    ; TODO: Read outputs.conf
-    leave
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    lea rsi, [rel outputs_config_path]
+    call config_parse
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -166,8 +97,6 @@ output_create:
 
     ; Initialize damage region
     mov rdi, [rbx + Server.arena]
-    mov rsi, [rbx + Server.arena]
-    mov rdx, 8
     call region_init
     test rax, rax
     jnz .damage_ok
@@ -216,8 +145,20 @@ output_destroy:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Remove from list (simplified)
-    ; TODO: Proper list removal
+    lea rax, [rbx + Server.outputs]
+.unlink:
+    mov rcx, [rax]
+    test rcx, rcx
+    jz .not_linked
+    cmp rcx, r12
+    je .found
+    lea rax, [rcx + Output.next]
+    jmp .unlink
+.found:
+    mov rcx, [r12 + Output.next]
+    mov [rax], rcx
+    dec qword [rbx + Server.output_count]
+.not_linked:
 
     ; Destroy damage region
     mov rdi, [r12 + Output.damage]
@@ -225,7 +166,10 @@ output_destroy:
 
     ; Destroy frame clock
     mov rdi, [r12 + Output.frame_clock]
-    ; TODO: frame_clock_deinit
+    test rdi, rdi
+    jz .destroyed
+    call frame_clock_deinit
+.destroyed:
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
@@ -327,14 +271,31 @@ output_set_position:
 ; ---------------------------------------------------------------------------
 global output_enable_vrr
 output_enable_vrr:
-    PROLOGUE
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
     ASSERT_PTR rdi
     ASSERT_PTR rsi
 
-    mov byte [rsi + Output.vrr_enabled], dl
-    ; TODO: Call backend VRR enable
-    xor rax, rax
-    leave
+    test dl, dl
+    jz .disable
+    mov rdx, [r12 + Output.vrr_caps]
+    test rdx, rdx
+    jz .unsupported
+    mov rdi, rbx
+    mov rsi, r12
+    call vrr_enable
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.disable:
+    mov rdi, rbx
+    mov rsi, r12
+    call vrr_disable
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.unsupported:
+    mov rax, -(ENOTSUP)
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -386,7 +347,8 @@ output_set_gamma:
 global output_set_icc_profile
 output_set_icc_profile:
     PROLOGUE
-    ; TODO
+    ASSERT_PTR rdi
+    mov [rdi + Output.icc_profile], rsi
     xor rax, rax
     leave
     ret
@@ -397,44 +359,44 @@ output_set_icc_profile:
 ; ---------------------------------------------------------------------------
 global output_layout_apply
 output_layout_apply:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
     ASSERT_PTR rbx
 
     ; Calculate total layout bounds
-    mov r12, [rbx + Server.outputs]
-    test r12, r12
+    mov r10, [rbx + Server.outputs]
+    test r10, r10
     jz .done
 
     ; Find min/max bounds
     mov r13d, 0x7FFFFFFF
     mov r14d, 0x7FFFFFFF
     mov r15d, 0x80000000
-    mov r12d, 0x80000000
+    mov r11d, 0x80000000
 
 .bounds_loop:
-    test r12, r12
+    test r10, r10
     jz .bounds_done
 
-    mov eax, [r12 + Output.position + 0]
+    mov eax, [r10 + Output.position + 0]
     cmp eax, r13d
     cmovl r13d, eax
 
-    mov eax, [r12 + Output.position + 4]
+    mov eax, [r10 + Output.position + 4]
     cmp eax, r14d
     cmovl r14d, eax
 
-    mov eax, [r12 + Output.position + 0]
-    add eax, [r12 + Output.width]
+    mov eax, [r10 + Output.position + 0]
+    add eax, [r10 + Output.width]
     cmp eax, r15d
     cmovg r15d, eax
 
-    mov eax, [r12 + Output.position + 4]
-    add eax, [r12 + Output.height]
-    cmp eax, r12d
-    cmovg r12d, eax
+    mov eax, [r10 + Output.position + 4]
+    add eax, [r10 + Output.height]
+    cmp eax, r11d
+    cmovg r11d, eax
 
-    mov r12, [r12 + Output.next]
+    mov r10, [r10 + Output.next]
     jmp .bounds_loop
 
 .bounds_done:
@@ -442,11 +404,11 @@ output_layout_apply:
     mov [rbx + Server.layout_bounds + 0], r13d
     mov [rbx + Server.layout_bounds + 4], r14d
     mov [rbx + Server.layout_bounds + 8], r15d
-    mov [rbx + Server.layout_bounds + 12], r12d
+    mov [rbx + Server.layout_bounds + 12], r11d
 
 .done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -455,13 +417,10 @@ output_layout_apply:
 ; ---------------------------------------------------------------------------
 global output_mirror
 output_mirror:
-    PROLOGUE
-    ; TODO: Set multiple outputs to same mode/position
-    xor rax, rax
-    leave
-    ret
+    jmp mirror_configure
 
 section .data
+outputs_config_path: db '/conf/canvas/outputs.conf', 0
 
 
 
