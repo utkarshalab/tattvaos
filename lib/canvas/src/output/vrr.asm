@@ -5,21 +5,13 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
-; struct offsets (hoisted above use)
 %define VRR_FLAG_FREESYNC   (1 << 0)
 %define VRR_FLAG_GSYNC      (1 << 1)
 %define VRR_FLAG_HDMI_VRR   (1 << 2)
-%define Output_vrr_enabled    80
-%define Output.vrr_enabled 80
-%define Output_vrr_flags      84
-%define Output.vrr_flags 84
-%define Output_vrr_caps       88
-%define Output.vrr_caps 88
-%define Output_vrr_min_refresh 96
-%define Output.vrr_min_refresh 96
-%define Output_vrr_max_refresh 104
-%define Output.vrr_max_refresh 104
 
 section .text
 
