@@ -5,9 +5,10 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define AdaptiveCtx_size    56
+%define AdaptiveCtx_SIZE    56
 %define ENC_RAW       0
 %define ENC_RLE       1
 %define ENC_DEFLATE   2
