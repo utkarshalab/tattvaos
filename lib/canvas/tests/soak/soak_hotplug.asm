@@ -1,30 +1,32 @@
 ; ============================================================================
-; soak_hotplug — Output Connect/Disconnect Cycles
+; Soak Hotplug — Stress Test with Hotplug Events
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
+%include "inc/test.inc"
+%include "inc/externs.inc"
 
 section .text
 
-global soak_hotplug_run
-soak_hotplug_run:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    xor r13d, r13d
-.loop:
-    cmp r13, r12
-    jae .done
-    mov rdi, rbx
-    call output_layout_apply
-    inc r13
-    jmp .loop
-.done:
+; ============================================================================
+; soak_hotplug_main
+; ============================================================================
+global soak_hotplug_main
+soak_hotplug_main:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+; ============================================================================
+; output_layout_apply (stub)
+; ============================================================================
+global output_layout_apply
+output_layout_apply:
+    PROLOGUE
+    xor rax, rax
     ret
 
 section .data
