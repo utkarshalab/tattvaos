@@ -5,6 +5,9 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+%include "inc/caps.inc"
 
 ; struct offsets (hoisted above use)
 %define SubsurfaceData_sync   0
@@ -19,9 +22,15 @@ section .text
 ; ---------------------------------------------------------------------------
 global subsurface_init
 subsurface_init:
-    PROLOGUE
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    mov qword [rbx + Server.subsurface], 0
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -45,7 +54,8 @@ subsurface_create:
     mov rdi, rax
     mov rsi, r12
     call list_push_back
-    TEST_ASSERT_OK rax
+    test rax, rax
+    js .error
 
     ; Set parent pointer on child
     mov qword [r12 + Surface.role_data], r13
@@ -58,59 +68,80 @@ subsurface_create:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
+.error:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
 ; ---------------------------------------------------------------------------
 ; subsurface_set_position
 ;   Set subsurface position relative to parent
-;   IN:  rdi = server*, rsi = surface*, rdx = x, rcx = y
-;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
 global subsurface_set_position
 subsurface_set_position:
-    PROLOGUE
-    ASSERT_PTR rdi
-    ASSERT_PTR rsi
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13d, edx
+    mov r14d, ecx
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
 
-    mov rax, [rsi + Surface.pending]
-    mov dword [rax + SurfaceState.buf_x], edx
-    mov dword [rax + SurfaceState.buf_y], ecx
-    mov byte [rax + SurfaceState.pending], 1
+    ; Get parent surface
+    mov rax, [r12 + Surface.role_data]
+    test rax, rax
+    jz .error
+
+    ; Store position in child's pending state
+    mov [r12 + Surface.pending + SurfaceState.buf_x], r13d
+    mov [r12 + Surface.pending + SurfaceState.buf_y], r14d
+
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+
+.error:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
 ; subsurface_set_sync
-;   Set sync mode (synchronized with parent commit)
+;   Set subsurface sync mode
 ; ---------------------------------------------------------------------------
 global subsurface_set_sync
 subsurface_set_sync:
-    PROLOGUE
-    ASSERT_PTR rdi
-    ASSERT_PTR rsi
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
 
-    mov byte [rsi + SubsurfaceData.sync], 1
+    mov byte [r12 + SubsurfaceData.sync], 1
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
 ; subsurface_set_desync
-;   Set desync mode (independent commit)
+;   Set subsurface desync mode
 ; ---------------------------------------------------------------------------
 global subsurface_set_desync
 subsurface_set_desync:
-    PROLOGUE
-    ASSERT_PTR rdi
-    ASSERT_PTR rsi
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
 
-    mov byte [rsi + SubsurfaceData.sync], 0
+    mov byte [r12 + SubsurfaceData.sync], 0
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
 ; subsurface_destroy
-;   Remove subsurface relationship
+;   Destroy subsurface relationship
 ; ---------------------------------------------------------------------------
 global subsurface_destroy
 subsurface_destroy:
@@ -128,7 +159,8 @@ subsurface_destroy:
     mov rdi, [rax + Surface.current + SurfaceState.subsurfaces]
     mov rsi, r12
     call list_remove
-    TEST_ASSERT_OK rax
+    test rax, rax
+    js .error
 
     mov qword [r12 + Surface.role_data], 0
     mov dword [r12 + Surface.role], 0
@@ -138,8 +170,11 @@ subsurface_destroy:
     EPILOGUE_RESTORE rbx, r12
     ret
 
+.error:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
+
 section .data
-
-
 global subsurface_version
 subsurface_version: dq 0x010000
