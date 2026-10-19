@@ -34,6 +34,7 @@ struc A11yEvent
     .detail1:   resd 1
     .detail2:   resd 1
     .time:      resq 1
+    .next:      resq 1
 endstruc
 
 ; ---------------------------------------------------------------------------
@@ -58,7 +59,7 @@ a11y_events_init:
 ; ---------------------------------------------------------------------------
 global a11y_event_send
 a11y_event_send:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
     mov r12d, esi
     mov r13, rdx
@@ -72,24 +73,31 @@ a11y_event_send:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
+    mov r15, rax
 
-    mov dword [rbx + A11yEvent.type], r12d
-    mov qword [rbx + A11yEvent.node], r13
-    mov dword [rbx + A11yEvent.detail1], r14d
-    mov dword [rbx + A11yEvent.detail2], r8d
+    mov dword [r15 + A11yEvent.type], r12d
+    mov qword [r15 + A11yEvent.node], r13
+    mov dword [r15 + A11yEvent.detail1], r14d
+    mov dword [r15 + A11yEvent.detail2], r8d
+    mov r10, [rbx + Server.a11y_events]
+    mov [r15 + A11yEvent.next], r10
+    mov [rbx + Server.a11y_events], r15
     call tv_time_now_ns
-    mov qword [rbx + A11yEvent.time], rax
+    mov qword [r15 + A11yEvent.time], rax
 
-    ; Queue event for AT clients
-    ; TODO: Add to event queue
+    mov rdi, rbx
+    mov esi, r12d
+    mov rdx, r13
+    mov rcx, r14
+    call a11y_reader_hooks_notify
+    xor rax, rax
 
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
