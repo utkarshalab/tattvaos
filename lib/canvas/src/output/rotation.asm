@@ -5,8 +5,9 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
-; struct offsets (hoisted above use)
 %define ROTATION_NORMAL    0
 
 section .text
@@ -42,10 +43,12 @@ rotation_apply:
     cmp rdx, 3
     ja .invalid
 
+    mov ecx, [r12 + Output.rotation]
     mov dword [r12 + Output.rotation], edx
 
     ; Swap width/height for 90/270
-    test edx, 1
+    xor ecx, edx
+    test ecx, 1
     jz .no_swap
 
     mov eax, [r12 + Output.width]
@@ -53,16 +56,28 @@ rotation_apply:
     mov [r12 + Output.width], edx
     mov [r12 + Output.height], eax
 
-    ; Update stride if needed
-    ; TODO
+    mov eax, [r12 + Output.width]
+    shl rax, 2
+    mov [r12 + Output.stride], rax
 
 .no_swap:
     ; Reconfigure backend for rotation
+    mov rax, [r12 + Output.current_mode]
+    test rax, rax
+    jz .configured
     mov rdi, [rbx + Server.backend]
     mov rsi, r12
-    ; TODO: backend_rotation
+    mov rdx, rax
+    call backend_modeset
+    test rax, rax
+    jnz .backend_failed
+.configured:
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.backend_failed:
+    mov rax, -(EIO)
     EPILOGUE_RESTORE rbx, r12
     ret
 
