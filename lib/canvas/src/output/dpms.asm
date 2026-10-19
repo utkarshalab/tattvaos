@@ -5,22 +5,19 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define DPMS_ON       0
 %define DPMS_STANDBY  1
 %define DPMS_SUSPEND  2
 %define DPMS_OFF      3
-%define Output_dpms_state   81
-%define Output.dpms_state 81
-%define Server_dpms_state        0x90
-%define Server.dpms_state 0x90
-%define Server_dpms_timeout      0x94
-%define Server.dpms_timeout 0x94
-%define Server_dpms_suspend_timeout 0x98
-%define Server.dpms_suspend_timeout 0x98
-%define Server_dpms_off_timeout  0x9C
-%define Server.dpms_off_timeout 0x9C
+%define DPMS_STATE_OFF        0
+%define DPMS_STATE_STANDBY    1
+%define DPMS_STATE_SUSPEND    2
+%define DPMS_STATE_OFF        3
 
 section .text
 
@@ -113,9 +110,32 @@ dpms_timeout:
 ; dpms_start_idle_timer
 ; ---------------------------------------------------------------------------
 dpms_start_idle_timer:
-    PROLOGUE
-    ; TODO: Register timer with tv_timer_register
-    leave
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    ASSERT_PTR rbx
+    mov rdi, [rel dpms_idle_timer]
+    test rdi, rdi
+    jnz .arm
+    mov rdi, [rbx + Server.arena]
+    mov esi, [rbx + Server.dpms_timeout]
+    imul rsi, 1000000000
+    mov rdx, 1
+    call tv_timer_create
+    test rax, rax
+    jz .failed
+    mov [rel dpms_idle_timer], rax
+    mov rdi, rax
+    lea rsi, [rel dpms_idle_handler]
+    mov rdx, rbx
+    call tv_timer_set_callback
+.arm:
+    mov rdi, [rel dpms_idle_timer]
+    call tv_timer_arm
+    EPILOGUE_RESTORE rbx
+    ret
+.failed:
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -153,13 +173,14 @@ dpms_idle_handler:
 
 .done:
     ; Restart timer for next state
+    mov rdi, rbx
     call dpms_start_idle_timer
 
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data
-
+dpms_idle_timer: dq 0
 
 
 global dpms_version
