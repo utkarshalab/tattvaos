@@ -6,6 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
+%include "inc/source_iface.inc"
 
 section .text
 
@@ -75,22 +78,32 @@ tv_source_stop:
     ret
 
 tv_source_get_device:
-    PROLOGUE
-    ; TODO: Return device info for device_id
-    xor rax, rax
-    leave
+    cmp edi, 0
+    je .no_device
+    lea rax, [rel tv_device_info]
+    mov [rax], edi
+    ret
+.no_device:
+    xor eax, eax
     ret
 
 tv_source_grab:
-    PROLOGUE
-    ; TODO: Grab/ungrab device
-    xor rax, rax
-    leave
+    test edi, edi
+    jz .bad_grab
+    mov [rel tv_grabbed_device], edi
+    mov [rel tv_grab_state], sil
+    xor eax, eax
+    ret
+.bad_grab:
+    mov rax, -(EINVAL)
     ret
 
 section .rodata
 tv_source_name: db "tattva-input", 0
 
 section .data
+tv_device_info: dq 0, tv_source_name, 0
+tv_grabbed_device: dd 0
+tv_grab_state: db 0
 global input_source_tv_version
 input_source_tv_version: dq 0x010000
