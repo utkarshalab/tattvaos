@@ -5,6 +5,8 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -20,9 +22,19 @@ zorder_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov rdi, rbx
+    mov rdi, r12
+    mov rsi, 16
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov [rbx + Server.z_order_tree], rax
+    mov rdi, rax
     mov rsi, r12
     call rbtree_init
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.oom:
+    mov rax, -(ENOMEM)
     EPILOGUE_RESTORE rbx, r12
     ret
 
@@ -49,19 +61,19 @@ zorder_insert:
     jz .oom
 
     ; Key = z_index << 32 | surface_id
-    mov r12, rsi
-    shl r12, 32
-    or r12, [rsi + Surface.id]
-
-    mov qword [rax], 0
-    mov qword [rax + 8], 0
-    mov qword [rax + 16], 0
-    mov byte [rax + 24], 1
-    mov qword [rax + 32], r12
-    mov qword [rax + 40], rsi
-
-    mov rdi, rbx
+    mov rcx, rax
+    mov rax, r13
+    shl rax, 32
+    mov edx, [r12 + Surface.id]
+    or rax, rdx
+    mov rsi, rax
+    mov rdx, r12
+    mov rdi, [rbx + Server.z_order_tree]
     call rbtree_insert
+    test rax, rax
+    js .insert_out
+    mov [r12 + Surface.z_order], r13
+.insert_out:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -82,12 +94,12 @@ zorder_remove:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov r12, rsi
-    shl r12, 32
-    or r12, [rsi + Surface.id]
-
-    mov rdi, rbx
-    mov rsi, r12
+    mov rax, [r12 + Surface.z_order]
+    shl rax, 32
+    mov edx, [r12 + Surface.id]
+    or rax, rdx
+    mov rdi, [rbx + Server.z_order_tree]
+    mov rsi, rax
     call rbtree_remove
     EPILOGUE_RESTORE rbx, r12
     ret
@@ -106,15 +118,16 @@ zorder_move:
     ASSERT_PTR r12
 
     ; Remove old position
-    mov r12, rsi
-    shl r12, 32
-    or r12, [rsi + Surface.id]
-
     mov rdi, rbx
-    call rbtree_remove
-
-    ; Insert at new position
+    mov rsi, r12
+    call zorder_remove
+    test rax, rax
+    js .move_out
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
     call zorder_insert
+.move_out:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -176,7 +189,7 @@ zorder_top:
     ASSERT_PTR r12
 
     ; Find max z-index
-    mov rdi, rbx
+    mov rdi, [rbx + Server.z_order_tree]
     call rbtree_max
     test rax, rax
     jz .empty
@@ -206,7 +219,7 @@ zorder_bottom:
     ASSERT_PTR r12
 
     ; Find min z-index
-    mov rdi, rbx
+    mov rdi, [rbx + Server.z_order_tree]
     call rbtree_min
     test rax, rax
     jz .empty
@@ -232,15 +245,48 @@ zorder_bottom:
 global zorder_iterate
 zorder_iterate:
     PROLOGUE_SAVE rbx, r12, r13, r14
+    sub rsp, 512
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; In-order traversal
-    ; TODO: Implement tree traversal
+    mov r14, [rbx + Server.z_order_tree]
+    test r14, r14
+    jz .done
+    mov r14, [r14]
+    xor ecx, ecx
+.walk:
+    test r14, r14
+    jz .pop
+    cmp ecx, 64
+    jae .overflow
+    mov [rsp + rcx * 8], r14
+    inc ecx
+    mov r14, [r14]
+    jmp .walk
+.pop:
+    test ecx, ecx
+    jz .done
+    dec ecx
+    mov r14, [rsp + rcx * 8]
+    mov [rsp + 504], rcx
+    mov rdi, [r14 + 40]
+    mov rsi, r13
+    call r12
+    test rax, rax
+    js .out
+    mov rcx, [rsp + 504]
+    mov r14, [r14 + 8]
+    jmp .walk
+.done:
     xor rax, rax
+    jmp .out
+.overflow:
+    mov rax, -(EOVERFLOW)
+.out:
+    add rsp, 512
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
