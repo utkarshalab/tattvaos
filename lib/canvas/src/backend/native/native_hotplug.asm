@@ -11,6 +11,8 @@
 
 section .text
 
+extern native_output_disable
+
 global native_hotplug_init
 native_hotplug_init:
     PROLOGUE_SAVE rbx, r12, r13, r14
@@ -22,7 +24,7 @@ native_hotplug_init:
     mov r13, [rbx + Backend.state]
     mov r14, [r13 + Controller.state]
     test r14, r14
-    jz .fail
+    jz .no_controller
 
     ; Register HPD interrupt for each connector
     mov r13, [r14 + Controller.outputs]
@@ -35,7 +37,7 @@ native_hotplug_init:
     test eax, eax
     jz .next
 
-    mov rdi, eax
+    mov rdi, rax
     mov rsi, native_hpd_handler
     mov rdx, r13  ; output as user_data
     mov rcx, IRQ_EDGE
@@ -54,6 +56,8 @@ native_hotplug_init:
 
 fail:
     RETURN_ERROR EIO
+.no_controller:
+    RETURN_ERROR ENODEV
 
 native_hpd_handler:
     PROLOGUE_SAVE rbx, r12, r13, r14
@@ -157,14 +161,21 @@ native_handle_disconnect:
     ASSERT_PTR rbx
 
     ; Disable CRTC
-    mov eax, [rbx + Output.crtc_index]
-    ; TODO: Call native_crtc_disable
+    mov rdi, [rbx + Output.controller]
+    mov rsi, rbx
+    call native_output_disable
+    test rax, rax
+    jnz .disable_failed
 
     ; Mark output as disconnected
     mov byte [rbx + Output.connected], 0
     mov qword [rbx + Output.current_mode], 0
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.disable_failed:
+    mov rax, -(EIO)
     EPILOGUE_RESTORE rbx, r12
     ret
 
