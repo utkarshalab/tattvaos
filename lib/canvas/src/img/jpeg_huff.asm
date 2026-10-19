@@ -6,8 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+extern jpeg_bits_get
+
 ; struct offsets (hoisted above use)
-%define HuffTable_size    1320
+%define HuffTable_SIZE 1556
 
 section .text
 
@@ -18,6 +20,9 @@ struc HuffTable
     .codes:         resd 256
     .sizes:         resb 256
 endstruc
+%if HuffTable_size != HuffTable_SIZE
+    %error "HuffTable_SIZE does not match the structure layout"
+%endif
 
 ; ---------------------------------------------------------------------------
 ; jpeg_huff_build
@@ -35,6 +40,18 @@ jpeg_huff_build:
     ASSERT_PTR r13
     cmp r14, 256
     ja .fail
+    ; Validate the prefix tree before materializing codes. `left` is the
+    ; number of unused codewords at the current bit length.
+    mov eax, 1
+    xor ecx, ecx
+.validate_lengths:
+    shl eax, 1
+    movzx edx, byte [r12 + rcx]
+    sub eax, edx
+    js .fail                         ; oversubscribed tree
+    inc ecx
+    cmp ecx, 16
+    jb .validate_lengths
     ; copy counts
     mov rdi, rbx
     mov rsi, r12
@@ -46,6 +63,12 @@ jpeg_huff_build:
     mov rcx, r14
     rep movsb
     mov [rbx + HuffTable.max_syms], r14d
+    ; A table may be redefined by a later DHT segment. Clear lookup metadata
+    ; so symbols absent from the replacement cannot retain stale codes.
+    lea rdi, [rbx + HuffTable.codes]
+    xor eax, eax
+    mov ecx, (256 * 4 + 256) / 8
+    rep stosq
     ; build canonical codes
     xor r15d, r15d  ; code
     xor r12d, r12d  ; k index
@@ -57,7 +80,7 @@ jpeg_huff_build:
     movzx eax, byte [rbx + r13 - 1]
 .len_loop:
     test eax, eax
-    jz .gen_len
+    jz .next_len
     cmp r12d, r14d
     jae .fail
     lea rdi, [rbx + HuffTable.symbols]
@@ -68,9 +91,16 @@ jpeg_huff_build:
     inc r15d
     dec eax
     jmp .len_loop
-.done:
+.next_len:
+    ; Canonical JPEG codes are left-shifted after every code length.
     shl r15d, 1
     jmp .gen_len
+.done:
+    cmp r12d, r14d
+    jne .fail
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 .fail:
     mov rax, -(EINVAL)
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
@@ -113,20 +143,71 @@ jpeg_huff_decode:
 .search:
     cmp edx, eax
     jae .len
-    cmp byte [rbx + HuffTable.sizes + rdx], r14b
+    movzx ecx, byte [rdi + rdx]
+    cmp byte [rbx + HuffTable.sizes + rcx], r14b
     jne .next
-    cmp dword [rbx + HuffTable.codes + rdx * 4], r13d
+    cmp dword [rbx + HuffTable.codes + rcx * 4], r13d
     je .found
 .next:
     inc edx
     jmp .search
 .found:
-    movzx eax, byte [rdi + rdx]
+    mov eax, ecx
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .fail:
     mov rax, -(EINVAL)
     EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+
+; ---------------------------------------------------------------------------
+; jpeg_huff_decode_stream
+;   Decode directly from the stuffing-aware entropy reader.
+;   IN: rdi=HuffTable*, rsi=JpegBitReader*
+; ---------------------------------------------------------------------------
+global jpeg_huff_decode_stream
+jpeg_huff_decode_stream:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    xor r13d, r13d
+    mov r14d, 1
+.stream_length:
+    cmp r14d, 16
+    ja .stream_fail
+    mov rdi, r12
+    mov esi, 1
+    call jpeg_bits_get
+    test rax, rax
+    js .stream_out
+    shl r13d, 1
+    or r13d, eax
+    lea r15, [rbx + HuffTable.symbols]
+    mov r8d, [rbx + HuffTable.max_syms]
+    xor edx, edx
+.stream_search:
+    cmp edx, r8d
+    jae .stream_next_length
+    movzx ecx, byte [r15 + rdx]
+    cmp byte [rbx + HuffTable.sizes + rcx], r14b
+    jne .stream_next_symbol
+    cmp dword [rbx + HuffTable.codes + rcx * 4], r13d
+    je .stream_found
+.stream_next_symbol:
+    inc edx
+    jmp .stream_search
+.stream_next_length:
+    inc r14d
+    jmp .stream_length
+.stream_found:
+    mov eax, ecx
+    jmp .stream_out
+.stream_fail:
+    mov rax, -EINVAL
+.stream_out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data
