@@ -6,35 +6,24 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
+%include "inc/struct_offsets.inc"
 %include "inc/trace.inc"
 
 ; struct offsets (hoisted above use)
-%define Trace_size    56
-%define TraceEvent_size    40
+%define Trace_SIZE    56
+%define TraceEvent_SIZE    40
 %define TRACE_DEFAULT_CAPACITY  4096
 
 section .text
 
-struc Trace
-    .server:         resq 1
-    .buf:            resq 1
-    .capacity:       resq 1
-    .head:           resq 1
-    .count:          resq 1
-    .enabled_mask:   resq 1
-    .dropped:        resq 1
-endstruc
+; Trace struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+; ----------
 
-struc TraceEvent
-    .time_ns:       resq 1
-    .event_id:      resd 1
-    .client_id:     resd 1
-    .object:        resd 1
-    .opcode:        resw 1
-    .flags:         resw 1
-    .arg0:          resq 1
-    .arg1:          resq 1
-endstruc
+; TraceEvent struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+; ----------
 
 
 ; ---------------------------------------------------------------------------
