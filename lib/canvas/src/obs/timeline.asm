@@ -6,32 +6,23 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
+%include "inc/struct_offsets.inc"
 
 ; struct offsets (hoisted above use)
-%define FrameMark_size    60
-%define FrameTimeline_size    40
+%define FrameMark_SIZE    60
+%define FrameTimeline_SIZE    40
 %define FRAME_TIMELINE_DEPTH  64
 
 section .text
 
-struc FrameMark
-    .frame_seq:      resq 1
-    .composite_start: resq 1
-    .composite_end:  resq 1
-    .flip_time:      resq 1
-    .vblank_time:    resq 1
-    .present_time:   resq 1
-    .damage_bytes:   resq 1
-    .flags:          resd 1
-endstruc
+; FrameMark struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+; ----------
 
-struc FrameTimeline
-    .server:         resq 1
-    .marks:          resq 1
-    .head:           resq 1
-    .count:          resq 1
-    .seq:            resq 1
-endstruc
+; FrameTimeline struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+; ----------
 
 
 ; ---------------------------------------------------------------------------
