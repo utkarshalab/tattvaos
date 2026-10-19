@@ -6,26 +6,23 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define Recorder_size    56
+%define Recorder_file    64
+%define Recorder.file    64
+%define Recorder_SIZE    72
 %define CWPREC_MAGIC     0x52505743  ; "CWPR"
 %define CWPREC_VERSION   1
-%define CwprecHeader_size    40
-%define CwprecFrame_size    16
+%define CwprecHeader_SIZE    40
+%define CwprecFrame_SIZE    16
 
 section .text
 
-struc Recorder
-    .server:         resq 1
-    .active:         resb 1
-    .path:           resq 1
-    .path_len:       resq 1
-    .frames:         resq 1
-    .msg_count:      resq 1
-    .bytes:          resq 1
-    .start_time:     resq 1
-endstruc
+; Recorder struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+; ----------
 
 
 struc CwprecHeader
@@ -57,16 +54,17 @@ record_init:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
-    mov qword [rbx + Recorder.server], rdi
-    mov byte [rbx + Recorder.active], 0
-    mov qword [rbx + Recorder.path], 0
-    mov qword [rbx + Recorder.path_len], 0
-    mov qword [rbx + Recorder.frames], 0
-    mov qword [rbx + Recorder.msg_count], 0
-    mov qword [rbx + Recorder.bytes], 0
-    mov qword [rbx + Recorder.start_time], 0
-    mov qword [rdi + Server.recorder], rbx
+    mov r12, rax
+    mov qword [r12 + Recorder.server], rbx
+    mov byte [r12 + Recorder.active], 0
+    mov qword [r12 + Recorder.path], 0
+    mov qword [r12 + Recorder.path_len], 0
+    mov qword [r12 + Recorder.frames], 0
+    mov qword [r12 + Recorder.msg_count], 0
+    mov qword [r12 + Recorder.bytes], 0
+    mov qword [r12 + Recorder.start_time], 0
+    mov qword [r12 + Recorder.file], 0
+    mov qword [rbx + Server.recorder], r12
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
@@ -114,6 +112,11 @@ record_start:
     call tv_time_now_ns
     mov [rbx + Recorder.start_time], rax
     mov byte [rbx + Recorder.active], 1
+    mov rdi, [rbx + Recorder.path]
+    SYSCALL SYS_FS_OPEN
+    test rax, rax
+    js .oom
+    mov [rbx + Recorder.file], rax
     ; write header
     sub rsp, CwprecHeader_size
     mov dword [rsp + 0], CWPREC_MAGIC
@@ -123,9 +126,23 @@ record_start:
     mov [rsp + 16], rax
     mov qword [rsp + 24], 0
     mov qword [rsp + 32], 0
-    ; TODO: write header to TVFS path (append mode)
+    mov rdi, [rbx + Recorder.file]
+    mov rsi, rsp
+    mov rdx, CwprecHeader_size
+    xor rcx, rcx
+    SYSCALL SYS_FS_PWRITE
+    cmp rax, CwprecHeader_size
+    jne .write_fail
     add rsp, CwprecHeader_size
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.write_fail:
+    add rsp, CwprecHeader_size
+    mov rdi, [rbx + Recorder.file]
+    SYSCALL SYS_FS_CLOSE
+    mov byte [rbx + Recorder.active], 0
+    mov rax, -(EIO)
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 .busy:
@@ -148,8 +165,11 @@ record_start:
 ; ---------------------------------------------------------------------------
 global record_frame
 record_frame:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    mov r14, rcx
     ASSERT_PTR rbx
     mov rax, [rbx + Server.recorder]
     test rax, rax
@@ -157,13 +177,44 @@ record_frame:
     mov rbx, rax
     cmp byte [rbx + Recorder.active], 0
     je .done
-    ; TODO: append CwprecFrame + blob to TVFS path
+    sub rsp, CwprecFrame_size
+    call tv_time_now_ns
+    mov [rsp], rax
+    mov [rsp + 8], r13d
+    mov [rsp + 12], r14d
+    mov rdi, [rbx + Recorder.file]
+    mov rsi, rsp
+    mov rdx, CwprecFrame_size
+    mov rcx, [rbx + Recorder.frames]
+    imul rcx, CwprecFrame_size
+    add rcx, [rbx + Recorder.bytes]
+    add rcx, CwprecHeader_size
+    SYSCALL SYS_FS_PWRITE
+    cmp rax, CwprecFrame_size
+    jne .frame_fail
+    mov rdi, [rbx + Recorder.file]
+    mov rsi, r12
+    mov rdx, r14
+    mov rcx, [rbx + Recorder.frames]
+    inc rcx
+    imul rcx, CwprecFrame_size
+    add rcx, [rbx + Recorder.bytes]
+    add rcx, CwprecHeader_size
+    SYSCALL SYS_FS_PWRITE
+    cmp rax, r14
+    jne .frame_fail
+    add rsp, CwprecFrame_size
     inc qword [rbx + Recorder.frames]
-    add [rbx + Recorder.msg_count], rdx
-    add [rbx + Recorder.bytes], rcx
+    add [rbx + Recorder.msg_count], r13
+    add [rbx + Recorder.bytes], r14
 .done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.frame_fail:
+    add rsp, CwprecFrame_size
+    mov rax, -(EIO)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -181,7 +232,18 @@ record_stop:
     cmp byte [rbx + Recorder.active], 0
     je .done
     mov byte [rbx + Recorder.active], 0
-    ; TODO: patch header frame_count
+    sub rsp, 8
+    mov rax, [rbx + Recorder.frames]
+    mov [rsp], rax
+    mov rdi, [rbx + Recorder.file]
+    mov rsi, rsp
+    mov rdx, 8
+    mov rcx, 8
+    SYSCALL SYS_FS_PWRITE
+    add rsp, 8
+    mov rdi, [rbx + Recorder.file]
+    SYSCALL SYS_FS_CLOSE
+    mov qword [rbx + Recorder.file], 0
 .done:
     xor rax, rax
     EPILOGUE_RESTORE rbx
