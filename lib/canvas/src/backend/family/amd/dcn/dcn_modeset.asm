@@ -8,6 +8,7 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 %include "src/backend/family/amd/dcn/dcn_regs.inc"
 
 section .text
@@ -92,6 +93,16 @@ dcn_crtc_disable:
     and eax, ~CRTC_CONTROL_ENABLE
     mov [rax], eax
 
+    mov rax, r15
+    imul rax, CRTC_STRIDE
+    add rax, r14
+    add rax, CRTC_STATUS
+    mov eax, [rax]
+    test eax, CRTC_STATUS_ENABLED
+    jz .disabled
+    dec ecx
+    jnz .wait_loop
+.wait_loop:
     mov rax, r15
     imul rax, CRTC_STRIDE
     add rax, r14
