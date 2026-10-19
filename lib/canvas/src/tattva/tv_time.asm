@@ -3,6 +3,7 @@
 ; Monotonic clock, timers, TSC access
 ; ============================================================================
 
+%define TATTVA_BINDING_IMPL 1
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
