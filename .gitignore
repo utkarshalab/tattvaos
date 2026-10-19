@@ -6,3 +6,8 @@
 *.sys
 *.EFI
 *.tmp
+build/
+__pycache__/
+
+# Preprocessor dumps (nasm -E) left by debugging canvas builds
+lib/canvas/preprocessed*
