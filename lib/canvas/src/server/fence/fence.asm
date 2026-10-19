@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define Fence_handle       0
@@ -35,16 +37,32 @@ section .text
 ; ---------------------------------------------------------------------------
 global fence_init
 fence_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov qword [rbx + Server.fence_table], 0
     mov qword [rbx + Server.arena], r12
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    mov rdi, r12
+    mov rsi, 48
+    call arena_alloc
+    test rax, rax
+    jz .init_oom
+    mov r13, rax
+    mov rdi, r13
+    mov rsi, r12
+    mov rdx, 1024
+    call handle_table_init
+    test rax, rax
+    js .init_done
+    mov [rbx + Server.fence_table], r13
+.init_done:
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.init_oom:
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -69,24 +87,25 @@ fence_create:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
+    mov r14, rax
 
-    mov qword [rbx + Fence.handle], 0
-    mov qword [rbx + Fence.generation], 0
-    mov dword [rbx + Fence.type], r13d
-    mov byte [rbx + Fence.signaled], 0
-    mov qword [rbx + Fence.waiters], 0
-    mov qword [rbx + Fence.client_id], [r12 + Client.id]
+    mov dword [r14 + Fence.handle], 0
+    mov dword [r14 + Fence.generation], 0
+    mov dword [r14 + Fence.type], r13d
+    mov byte [r14 + Fence.signaled], 0
+    mov qword [r14 + Fence.waiters], 0
+    mov rax, [r12 + Client.id]
+    mov qword [r14 + Fence.client_id], rax
 
     ; Create handle
-    mov rdi, [rdi + Server.fence_table]
-    mov rsi, rbx
+    mov rdi, [rbx + Server.fence_table]
+    mov rsi, r14
     call handle_create
     test rax, rax
     jz .oom
-    mov [rbx + Fence.handle], eax
+    mov [r14 + Fence.handle], eax
 
-    mov rax, [rbx + Fence.handle]
+    mov eax, [r14 + Fence.handle]
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
@@ -101,7 +120,7 @@ fence_create:
 ; ---------------------------------------------------------------------------
 global fence_destroy
 fence_destroy:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -111,23 +130,21 @@ fence_destroy:
     call handle_resolve
     test rax, rax
     jz .not_found
-    mov rbx, rax
-
-    ; Wake any waiters
-    ; TODO: Signal waiters
+    mov r13, rax
+    mov byte [r13 + Fence.signaled], 1
 
     ; Destroy handle
-    mov rdi, [rdi + Server.fence_table]
+    mov rdi, [rbx + Server.fence_table]
     mov rsi, r12
     call handle_destroy
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .not_found:
     mov rax, -(ENOENT)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -148,12 +165,7 @@ fence_signal:
     call handle_resolve
     test rax, rax
     jz .not_found
-    mov rbx, rax
-
-    mov byte [rbx + Fence.signaled], 1
-
-    ; Wake waiters
-    ; TODO: Implement waiter wakeup
+    mov byte [rax + Fence.signaled], 1
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
@@ -173,6 +185,7 @@ fence_signal:
 global fence_wait
 fence_wait:
     PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 16
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -183,22 +196,43 @@ fence_wait:
     call handle_resolve
     test rax, rax
     jz .not_found
-    mov rbx, rax
+    mov [rsp], rax
 
     ; Check if already signaled
-    cmp byte [rbx + Fence.signaled], 1
+    cmp byte [rax + Fence.signaled], 1
     je .signaled
 
-    ; Wait on waitset
-    ; TODO: Add to waitset and wait
+    cmp r13, -1
+    je .wait
+    call tv_time_now_ns
+    add rax, r13
+    jc .timed_out
+    mov [rsp + 8], rax
+.wait:
+    call tv_wait_yield
+    mov rax, [rsp]
+    cmp byte [rax + Fence.signaled], 1
+    je .signaled
+    cmp r13, -1
+    je .wait
+    call tv_time_now_ns
+    cmp rax, [rsp + 8]
+    jb .wait
+.timed_out:
+    mov rax, -(ETIMEDOUT)
+    add rsp, 16
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 
 .signaled:
     xor rax, rax
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .not_found:
     mov rax, -(ENOENT)
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -239,7 +273,7 @@ fence_get_status:
     PROLOGUE
     ASSERT_PTR rdi
 
-    mov rax, [rdi + Server.fence_table]
+    mov rdi, [rdi + Server.fence_table]
     call handle_resolve
     test rax, rax
     jz .not_found
