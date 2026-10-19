@@ -7,6 +7,8 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 section .text
 
@@ -125,9 +127,22 @@ png_unfilter:
     mov r14d, [r12 + PngImage.width]
     mov r15d, [r12 + PngImage.height]
     movzx eax, byte [r12 + PngImage.channels]
-    mov r10d, eax
-    mov eax, r14d
-    imul eax, r10d
+    movzx ecx,byte [r12 + PngImage.bit_depth]
+    imul eax,ecx
+    add eax,7
+    shr eax,3
+    mov r10d,eax
+    test r10d,r10d
+    jnz .bpp_ready
+    mov r10d,1
+.bpp_ready:
+    mov eax,r14d
+    movzx ecx,byte [r12 + PngImage.channels]
+    imul eax,ecx
+    movzx ecx,byte [r12 + PngImage.bit_depth]
+    imul eax,ecx
+    add eax,7
+    shr eax,3
     mov r11d, eax
     mov rdi, rbx
     mov rsi, r14
@@ -151,7 +166,7 @@ png_unfilter:
     lea rsi, [r13 + rax]
     movzx eax, byte [rsi]
     cmp eax, 4
-    ja .bad
+    ja .bad2
     inc rsi
     test ecx, ecx
     jz .first_row
@@ -215,29 +230,52 @@ png_convert_bgra:
     ASSERT_PTR r13
     mov r14d, [r12 + PngImage.width]
     mov r15d, [r12 + PngImage.height]
-    movzx eax, byte [r12 + PngImage.channels]
-    mov r10d, eax
     mov eax, r14d
-    imul eax, r10d
+    movzx ecx,byte [r12 + PngImage.channels]
+    imul eax,ecx
+    movzx ecx,byte [r12 + PngImage.bit_depth]
+    imul eax,ecx
+    add eax,7
+    shr eax,3
     inc eax
     mov r11d, eax
+    push r12
     mov r12, [rbx + PixBuf.data]
     mov rdi, [rbx + PixBuf.stride]
     xor ecx, ecx
 .y_loop:
     cmp ecx, r15d
     jae .done
+    mov rax,[rsp]
+    movzx r9d,byte [rax + PngImage.channels]
+    imul r9d,[rax + PngImage.width]
+    movzx r10d,byte [rax + PngImage.bit_depth]
+    imul r9d,r10d
+    add r9d,7
+    shr r9d,3
+    inc r9d
     mov eax, ecx
-    imul eax, r11d
+    imul eax,r9d
     lea rsi, [r13 + rax]
+    inc rsi
     mov eax, ecx
     imul eax, edi
     lea rdx, [r12 + rax]
     xor r8d, r8d
-    cmp r10d, 4
+    mov rax,[rsp]
+    cmp byte [rax + PngImage.bit_depth],8
+    jb .row_packed
+    cmp byte [rax + PngImage.bit_depth],16
+    je .row_16
+    movzx eax,byte [rax + PngImage.color_type]
+    cmp eax,6
     je .row_rgba
-    cmp r10d, 3
+    cmp eax,2
     je .row_rgb
+    cmp eax,4
+    je .row_gray_alpha
+    cmp eax,3
+    je .row_palette
 .x_gray:
     cmp r8d, r14d
     jae .next_row
@@ -246,8 +284,252 @@ png_convert_bgra:
     mov [rdx + r8 * 4 + 1], al
     mov [rdx + r8 * 4 + 2], al
     mov byte [rdx + r8 * 4 + 3], 255
+    mov rax,[rsp]
+    mov r9,[rax + PngImage.transparency]
+    test r9,r9
+    jz .gray_next
+    mov al,[rsi+r8]
+    cmp al,[r9+1]
+    jne .gray_next
+    mov byte [rdx+r8*4+3],0
+.gray_next:
     inc r8d
     jmp .x_gray
+.row_packed:
+    push rcx
+    push r15
+    movzx r10d,byte [rax + PngImage.bit_depth]
+    mov ecx,r10d
+    mov r11d,1
+    shl r11d,cl
+    dec r11d
+    mov r9d,255
+    cmp r10d,2
+    jne .packed_not_2
+    mov r9d,85
+.packed_not_2:
+    cmp r10d,4
+    jne .x_packed
+    mov r9d,17
+.x_packed:
+    cmp r8d,r14d
+    jae .packed_done
+    mov eax,r8d
+    imul eax,r10d
+    mov ecx,eax
+    and ecx,7
+    shr eax,3
+    movzx eax,byte [rsi+rax]
+    mov r15d,8
+    sub r15d,r10d
+    sub r15d,ecx
+    mov ecx,r15d
+    shr eax,cl
+    and eax,r11d
+    mov r15d,eax
+    mov rcx,[rsp+16]
+    cmp byte [rcx + PngImage.color_type],3
+    je .packed_palette
+    imul eax,r9d
+    mov [rdx+r8*4],al
+    mov [rdx+r8*4+1],al
+    mov [rdx+r8*4+2],al
+    mov byte [rdx+r8*4+3],255
+    mov rax,[rcx + PngImage.transparency]
+    test rax,rax
+    jz .packed_next
+    movzx ecx,word [rax]
+    rol cx,8
+    cmp r15d,ecx
+    jne .packed_next
+    mov byte [rdx+r8*4+3],0
+    jmp .packed_next
+.packed_palette:
+    cmp r15,[rcx + PngImage.palette_entries]
+    jae .packed_bad
+    mov rax,[rcx + PngImage.palette]
+    lea r15,[r15+r15*2]
+    mov cl,[rax+r15]
+    mov [rdx+r8*4+2],cl
+    mov cl,[rax+r15+1]
+    mov [rdx+r8*4+1],cl
+    mov cl,[rax+r15+2]
+    mov [rdx+r8*4],cl
+    mov byte [rdx+r8*4+3],255
+    mov rcx,[rsp+16]
+    mov r9,[rcx + PngImage.transparency]
+    test r9,r9
+    jz .packed_next
+    mov eax,r8d
+    imul eax,r10d
+    mov ecx,eax
+    and ecx,7
+    shr eax,3
+    movzx r15d,byte [rsi+rax]
+    mov eax,8
+    sub eax,r10d
+    sub eax,ecx
+    mov ecx,eax
+    shr r15d,cl
+    and r15d,r11d
+    mov rcx,[rsp+16]
+    cmp r15,[rcx + PngImage.transparency_len]
+    jae .packed_next
+    mov al,[r9+r15]
+    mov [rdx+r8*4+3],al
+.packed_next:
+    inc r8d
+    jmp .x_packed
+.packed_done:
+    pop r15
+    pop rcx
+    jmp .next_row
+.packed_bad:
+    pop r15
+    pop rcx
+    jmp .bad_convert
+.row_16:
+    movzx eax,byte [rax + PngImage.color_type]
+    cmp eax,6
+    je .row_rgba16
+    cmp eax,2
+    je .row_rgb16
+    cmp eax,4
+    je .row_gray_alpha16
+.x_gray16:
+    cmp r8d,r14d
+    jae .next_row
+    mov rax,r8
+    shl rax,1
+    mov al,[rsi+rax]
+    mov [rdx+r8*4],al
+    mov [rdx+r8*4+1],al
+    mov [rdx+r8*4+2],al
+    mov byte [rdx+r8*4+3],255
+    mov r10,[rsp]
+    mov r10,[r10 + PngImage.transparency]
+    test r10,r10
+    jz .gray16_next
+    mov r9w,[rsi+rax]
+    cmp r9w,[r10]
+    jne .gray16_next
+    mov byte [rdx+r8*4+3],0
+.gray16_next:
+    inc r8d
+    jmp .x_gray16
+.row_gray_alpha16:
+.x_gray_alpha16:
+    cmp r8d,r14d
+    jae .next_row
+    mov rax,r8
+    shl rax,2
+    mov r9b,[rsi+rax]
+    mov [rdx+r8*4],r9b
+    mov [rdx+r8*4+1],r9b
+    mov [rdx+r8*4+2],r9b
+    mov r9b,[rsi+rax+2]
+    mov [rdx+r8*4+3],r9b
+    inc r8d
+    jmp .x_gray_alpha16
+.row_rgb16:
+.x_rgb16:
+    cmp r8d,r14d
+    jae .next_row
+    mov rax,r8
+    imul rax,6
+    mov r9b,[rsi+rax]
+    mov [rdx+r8*4+2],r9b
+    mov r9b,[rsi+rax+2]
+    mov [rdx+r8*4+1],r9b
+    mov r9b,[rsi+rax+4]
+    mov [rdx+r8*4],r9b
+    mov byte [rdx+r8*4+3],255
+    mov r10,[rsp]
+    mov r10,[r10 + PngImage.transparency]
+    test r10,r10
+    jz .rgb16_next
+    mov r9w,[rsi+rax]
+    cmp r9w,[r10]
+    jne .rgb16_next
+    mov r9w,[rsi+rax+2]
+    cmp r9w,[r10+2]
+    jne .rgb16_next
+    mov r9w,[rsi+rax+4]
+    cmp r9w,[r10+4]
+    jne .rgb16_next
+    mov byte [rdx+r8*4+3],0
+.rgb16_next:
+    inc r8d
+    jmp .x_rgb16
+.row_rgba16:
+.x_rgba16:
+    cmp r8d,r14d
+    jae .next_row
+    mov rax,r8
+    shl rax,3
+    mov r9b,[rsi+rax]
+    mov [rdx+r8*4+2],r9b
+    mov r9b,[rsi+rax+2]
+    mov [rdx+r8*4+1],r9b
+    mov r9b,[rsi+rax+4]
+    mov [rdx+r8*4],r9b
+    mov r9b,[rsi+rax+6]
+    mov [rdx+r8*4+3],r9b
+    inc r8d
+    jmp .x_rgba16
+.row_gray_alpha:
+.x_gray_alpha:
+    cmp r8d,r14d
+    jae .next_row
+    mov r9,r8
+    shl r9,1
+    movzx eax,byte [rsi+r9]
+    mov [rdx+r8*4],al
+    mov [rdx+r8*4+1],al
+    mov [rdx+r8*4+2],al
+    mov al,[rsi+r9+1]
+    mov [rdx+r8*4+3],al
+    inc r8d
+    jmp .x_gray_alpha
+.row_palette:
+    mov rax,[rsp]
+    mov r9,[rax + PngImage.palette]
+    mov r10,[rax + PngImage.palette_entries]
+    mov r11,[rax + PngImage.transparency]
+    push rcx
+    push r15
+.x_palette:
+    cmp r8d,r14d
+    jae .palette_row_done
+    movzx eax,byte [rsi+r8]
+    cmp rax,r10
+    jae .palette_bad
+    lea r15,[rax+rax*2]
+    mov cl,[r9+r15]
+    mov [rdx+r8*4+2],cl
+    mov cl,[r9+r15+1]
+    mov [rdx+r8*4+1],cl
+    mov cl,[r9+r15+2]
+    mov [rdx+r8*4],cl
+    mov byte [rdx+r8*4+3],255
+    test r11,r11
+    jz .palette_next
+    mov rcx,[rsp+16]
+    cmp rax,[rcx + PngImage.transparency_len]
+    jae .palette_next
+    mov cl,[r11+rax]
+    mov [rdx+r8*4+3],cl
+.palette_next:
+    inc r8d
+    jmp .x_palette
+.palette_row_done:
+    pop r15
+    pop rcx
+    jmp .next_row
+.palette_bad:
+    pop r15
+    pop rcx
+    jmp .bad_convert
 .row_rgba:
 .x_rgba:
     cmp r8d, r14d
@@ -263,20 +545,37 @@ png_convert_bgra:
     mov [rdx + r8 * 4 + 1], al
     mov [rdx + r8 * 4 + 2], r10b
     shr eax, 16
-    mov [rdx + r8 * 4 + 3], ah
+    mov [rdx + r8 * 4 + 3], al
     inc r8d
     jmp .x_rgba
 .row_rgb:
 .x_rgb:
     cmp r8d, r14d
     jae .next_row
-    movzx eax, byte [rsi + r8 * 3]
-    movzx r9d, byte [rsi + r8 * 3 + 1]
-    movzx r10d, byte [rsi + r8 * 3 + 2]
-    mov [rdx + r8 * 4], r10b
+    mov rax,r8
+    lea rax,[rax+rax*2]
+    movzx r9d,byte [rsi+rax]
+    mov [rdx+r8*4+2],r9b
+    movzx r9d,byte [rsi+rax+1]
     mov [rdx + r8 * 4 + 1], r9b
-    mov [rdx + r8 * 4 + 2], al
+    movzx r9d,byte [rsi+rax+2]
+    mov [rdx + r8 * 4], r9b
     mov byte [rdx + r8 * 4 + 3], 255
+    mov r10,[rsp]
+    mov r10,[r10 + PngImage.transparency]
+    test r10,r10
+    jz .rgb_next
+    mov r9b,[rsi+rax]
+    cmp r9b,[r10+1]
+    jne .rgb_next
+    mov r9b,[rsi+rax+1]
+    cmp r9b,[r10+3]
+    jne .rgb_next
+    mov r9b,[rsi+rax+2]
+    cmp r9b,[r10+5]
+    jne .rgb_next
+    mov byte [rdx+r8*4+3],0
+.rgb_next:
     inc r8d
     jmp .x_rgb
 .next_row:
@@ -284,7 +583,13 @@ png_convert_bgra:
     jmp .y_loop
 .done:
     mov rax, rbx
+    add rsp,8
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+.bad_convert:
+    xor eax,eax
+    add rsp,8
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
     ret
 
 section .data
