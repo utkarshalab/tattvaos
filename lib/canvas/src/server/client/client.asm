@@ -8,6 +8,8 @@
 %include "inc/tattva.inc"
 %include "inc/caps.inc"
 %include "inc/channel.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define Server_client_registry   0
@@ -57,17 +59,33 @@ section .text
 ; ---------------------------------------------------------------------------
 global client_init
 client_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov qword [rbx + Server.client_registry], 0
-    mov qword [rbx + Server.next_client_id], 1
+    mov rdi, r12
+    mov rsi, 16
+    call arena_alloc
+    test rax, rax
+    jz .init_oom
+    mov r13, rax
+    mov rdi, r13
+    mov rsi, r12
+    call client_registry_init
+    test rax, rax
+    js .init_out
+    mov [rbx + Server.client_registry], r13
+    mov qword [rel next_client_id], 1
     mov qword [rbx + Server.arena], r12
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+.init_out:
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.init_oom:
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -85,8 +103,8 @@ client_accept:
     ASSERT_PTR r12
 
     ; Allocate client ID
-    mov rax, [rbx + Server.next_client_id]
-    inc qword [rbx + Server.next_client_id]
+    mov rax, [rel next_client_id]
+    inc qword [rel next_client_id]
     mov r13, rax        ; client_id
 
     ; Allocate client struct
@@ -144,10 +162,17 @@ client_accept:
     test rax, rax
     jnz .oom
 
-    ; Add to registry
-    ; TODO: Insert into server's client registry (rbtree by client_id)
+    mov rdi, [rbx + Server.client_registry]
+    mov rsi, r13
+    mov rdx, r14
+    mov rcx, [rbx + Server.arena]
+    call client_registry_add
+    test rax, rax
+    js .registry_fail
 
     ; Send capabilities negotiation
+    mov rdi, r14
+    mov rsi, [r14 + Client.caps]
     call client_send_caps
 
     mov byte [r14 + Client.state], CLIENT_ACTIVE
@@ -159,6 +184,9 @@ client_accept:
     mov rax, -(ENOMEM)
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
+.registry_fail:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; client_send_caps
@@ -167,8 +195,10 @@ client_accept:
 client_send_caps:
     PROLOGUE_SAVE rbx, r12
     mov rbx, r14
-    mov r12, [rbx + Client.tx_ring]
-    ; TODO: Send cw_display.capabilities event
+    mov r12, [rbx + Client.caps]
+    mov rdi, rbx
+    mov rsi, r12
+    call auth_send_caps
     EPILOGUE_RESTORE rbx, r12
     ret
 
@@ -236,9 +266,8 @@ client_get:
     ret
 
 section .data
-
-
-
-
 global client_version
 client_version: dq 0x010000
+section .bss
+align 8
+next_client_id: resq 1
