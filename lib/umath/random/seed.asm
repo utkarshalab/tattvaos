@@ -23,100 +23,99 @@ bits 64
 section .text
 
 ; -----------------------------------------------------------------------------
-; splitmix64 — splitmix64 mixing function (not exported)
-; args:  rax = input state
-; out:   rax = mixed 64-bit value
-; clobbers: rbx, rcx
+; umath_random_splitmix64_next — one step of splitmix64 (not exported)
+; args:  r8 = splitmix64 state (advanced in place)
+; out:   rax = next 64-bit output
+; clobbers: rax, rcx, r8
+;
+; Reference (Vigna):
+;   x += 0x9E3779B97F4A7C15
+;   z = x
+;   z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9
+;   z = (z ^ (z >> 27)) * 0x94D049BB133111EB
+;   return z ^ (z >> 31)
 ; -----------------------------------------------------------------------------
-splitmix64:
-    push    rbx
-    mov     rbx, rax                    ; rbx = state
+umath_random_splitmix64_next:
     mov     rcx, 0x9E3779B97F4A7C15
-    add     rax, rcx                    ; state += GOLDEN_RATIO
-    mov     rbx, rax                    ; z = state
-    shr     rbx, 30                     ; z = (z >> 30)
-    xor     rax, rbx                    ; z ^= (z >> 30)
-    mov     rbx, rax
-    imul    rbx, rcx                    ; z *= 0x9E3779B97F4A7C15
-    mov     rbx, rax
-    shr     rbx, 27                     ; z = (z >> 27)
-    xor     rax, rbx                    ; z ^= (z >> 27)
-    mov     rbx, rax
-    imul    rbx, rcx                    ; z *= 0x9E3779B97F4A7C15
-    mov     rbx, rax
-    shr     rbx, 31                     ; z = (z >> 31)
-    xor     rax, rbx                    ; z ^= (z >> 31)
-    pop     rbx
+    add     r8, rcx                     ; x += golden ratio increment
+    mov     rax, r8                     ; z = x
+    mov     rcx, rax
+    shr     rcx, 30
+    xor     rax, rcx                    ; z ^= z >> 30
+    mov     rcx, 0xBF58476D1CE4E5B9
+    imul    rax, rcx                    ; z *= 0xBF58476D1CE4E5B9
+    mov     rcx, rax
+    shr     rcx, 27
+    xor     rax, rcx                    ; z ^= z >> 27
+    mov     rcx, 0x94D049BB133111EB
+    imul    rax, rcx                    ; z *= 0x94D049BB133111EB
+    mov     rcx, rax
+    shr     rcx, 31
+    xor     rax, rcx                    ; z ^= z >> 31
     ret
 
 ; -----------------------------------------------------------------------------
-; random_xoshiro256_seed_from_u64 — seed state from a single u64
+; umath_random_xoshiro256_seed_from_u64 — seed state from a single u64
 ; Input:  rdi = pointer to random_state_t
 ;         rsi = seed u64
-; Output: state filled; at least one state word non-zero guaranteed
-; Clobbers: rax, rbx, rcx
+; Output: s0..s3 = the first four splitmix64 outputs for that seed, the
+;         seeding the xoshiro authors recommend. splitmix64 is a bijection
+;         of its counter, so four consecutive outputs are never all zero.
+; Clobbers: rax, rcx, r8
 ; -----------------------------------------------------------------------------
-global random_xoshiro256_seed_from_u64
-random_xoshiro256_seed_from_u64:
-    push    rbx
-    mov     rbx, rdi                    ; rbx = state pointer
-    mov     rax, rsi                    ; rax = seed
-
-    call    splitmix64                  ; rax = splitmix64(seed) -> s0
-    mov     [rbx + 0], rax
-    mov     rax, [rbx + 0]              ; chain from s0
-    call    splitmix64                  ; rax = splitmix64(s0) -> s1
-    mov     [rbx + 8], rax
-    mov     rax, [rbx + 8]              ; chain from s1
-    call    splitmix64                  ; rax = splitmix64(s1) -> s2
-    mov     [rbx + 16], rax
-    mov     rax, [rbx + 16]             ; chain from s2
-    call    splitmix64                  ; rax = splitmix64(s2) -> s3
-    mov     [rbx + 24], rax
-
-    ; Guarantee at least one word is non-zero (splitmix64(0) != 0, so this
-    ; only triggers if seed and all splits happen to be zero — practically
-    ; impossible but cheap to guard).
-    or      qword [rbx + 0], 1
-
-    pop     rbx
+global umath_random_xoshiro256_seed_from_u64
+umath_random_xoshiro256_seed_from_u64:
+    mov     r8, rsi                     ; splitmix64 state = seed
+    call    umath_random_splitmix64_next
+    mov     [rdi + 0], rax              ; s0
+    call    umath_random_splitmix64_next
+    mov     [rdi + 8], rax              ; s1
+    call    umath_random_splitmix64_next
+    mov     [rdi + 16], rax             ; s2
+    call    umath_random_splitmix64_next
+    mov     [rdi + 24], rax             ; s3
     ret
 
 ; -----------------------------------------------------------------------------
-; random_xoshiro256_seed_from_urand — seed state from lib/urand entropy
+; umath_random_xoshiro256_seed_from_urand — seed state from lib/urand entropy
 ; Input:  rdi = pointer to random_state_t
 ;         rsi = pointer to urand_fill(buf, nbytes) function
-; Output: rax = 1 on success, 0 if urand pointer is NULL
-; Clobbers: rax, rbx, r12
+; Output: rax = 1 on success; 0 if the urand pointer is NULL or urand_fill
+;         returned 0. An all-zero fill (the one state xoshiro cannot leave)
+;         is replaced by s0 = 1.
+; Clobbers: rax, rcx, rdx, rsi, rdi, r8-r11 (urand_fill is a SysV call)
 ; -----------------------------------------------------------------------------
-global random_xoshiro256_seed_from_urand
-random_xoshiro256_seed_from_urand:
+global umath_random_xoshiro256_seed_from_urand
+umath_random_xoshiro256_seed_from_urand:
     push    rbx
     push    r12
+    sub     rsp, 8                      ; rsp 16-byte aligned at the call below
 
+    xor     eax, eax                    ; failure unless proven otherwise
     test    rsi, rsi                    ; urand NULL?
-    jz      .null_urand
+    jz      .done
 
     mov     rbx, rdi                    ; rbx = state pointer
     mov     r12, rsi                    ; r12 = urand_fill function
 
     ; Read 32 bytes of entropy directly into the state
     mov     rdi, rbx                    ; buf = state
-    mov     rsi, 32                     ; nbytes = 32
+    mov     esi, 32                     ; nbytes = 32
     call    r12                         ; rax = urand_fill(state, 32)
     test    rax, rax
-    jz      .null_urand
+    jz      .done                       ; rax = 0: failure
 
-    ; Guarantee at least one word non-zero
-    or      qword [rbx + 0], 1
-
-    mov     rax, 1                      ; success
-    jmp     .done
-
-.null_urand:
-    xor     rax, rax                    ; failure
+    mov     rax, [rbx + 0]
+    or      rax, [rbx + 8]
+    or      rax, [rbx + 16]
+    or      rax, [rbx + 24]
+    jnz     .ok
+    mov     qword [rbx + 0], 1          ; all-zero state would stay zero forever
+.ok:
+    mov     eax, 1                      ; success
 
 .done:
+    add     rsp, 8
     pop     r12
     pop     rbx
     ret
