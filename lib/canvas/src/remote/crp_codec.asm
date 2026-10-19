@@ -5,6 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define CRP_ENC_RAW       0
@@ -130,8 +131,19 @@ crp_decode_tile:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .deflate:
-    ; TODO: inflate into out
-    mov rax, -(ENOSYS)
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
+    mov rcx, r15
+    mov r8, r9
+    shl r8, 2
+    mov r14, r8
+    call inflate
+    test rax, rax
+    js .fail
+    cmp rax, r14
+    jne .fail
+    xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .delta:
