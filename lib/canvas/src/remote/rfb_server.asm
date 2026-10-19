@@ -6,36 +6,14 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+extern rfb_handshake
 
-; struct offsets (hoisted above use)
-%define RfbServer_size    48
-%define RfbClient_size    56
 %define RFB_PORT_DEFAULT  5900
+%define RFB_VERSION_STR   "RFB 003.008\n"
 
 section .text
-
-struc RfbServer
-    .server:         resq 1
-    .listener:       resq 1
-    .port:           resd 1
-    .clients:        resq 1
-    .client_count:   resq 1
-    .voutput:        resq 1
-    .running:        resb 1
-endstruc
-
-struc RfbClient
-    .server:         resq 1
-    .conn:           resq 1
-    .width:          resd 1
-    .height:         resd 1
-    .shared:         resb 1
-    .encodings:      resq 1
-    .enc_count:      resd 1
-    .next:           resq 1
-endstruc
-
-%define RFB_VERSION_STR   "RFB 003.008\n"
 
 ; ---------------------------------------------------------------------------
 ; rfb_server_init
@@ -49,7 +27,7 @@ rfb_server_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
     mov rdi, [rbx + Server.arena]
-    mov rsi, RfbServer_size
+    mov rsi, RfbServer_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
@@ -114,7 +92,7 @@ rfb_server_accept:
     ; allocate client
     mov rdi, [rbx + RfbServer.server]
     mov rdi, [rdi + Server.arena]
-    mov rsi, RfbClient_size
+    mov rsi, RfbClient_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
