@@ -5,6 +5,8 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -31,23 +33,23 @@ client_registry_init:
 ; ---------------------------------------------------------------------------
 ; client_registry_add
 ;   Add client to registry
-;   IN:  rdi = registry*, rsi = client_id, rdx = client*
+;   IN:  rdi = registry*, rsi = client_id, rdx = client*, rcx = arena*
 ;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
 global client_registry_add
 client_registry_add:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
+    mov r13, rdx
+    mov r14, rcx
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
     ; Allocate node
-    push r12
-    mov rdi, r12
+    mov rdi, r14
     mov rsi, 48
     call arena_alloc
-    pop r12
     test rax, rax
     jz .oom
 
@@ -56,16 +58,19 @@ client_registry_add:
     mov qword [rax + 16], 0 ; parent
     mov byte [rax + 24], 1  ; color = RED
     mov qword [rax + 32], r12 ; key = client_id
-    mov qword [rax + 40], rdx ; value = client*
+    mov qword [rax + 40], r13 ; value = client*
 
     mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
+    mov rcx, rax
     call rbtree_insert
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
