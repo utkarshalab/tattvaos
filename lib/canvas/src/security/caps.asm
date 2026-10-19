@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define CAP_DISPLAY     (1 << 0)
@@ -37,6 +39,9 @@ section .text
 
 %define CORE_CAPS       (CAP_DISPLAY | CAP_BUFFER | CAP_SURFACE | CAP_PRESENT)
 %define STANDARD_CAPS   (CORE_CAPS | CAP_OUTPUT | CAP_SEAT | CAP_POINTER | CAP_KEYBOARD | CAP_TOUCH | CAP_TABLET | CAP_SHELL | CAP_LAYER | CAP_DECORATION | CAP_DATA | CAP_TEXT | CAP_A11Y)
+%define AUDIT_ACTION_CAP_GRANT  1
+%define AUDIT_ACTION_CAP_REVOKE 2
+%define AUDIT_RESULT_GRANTED    1
 
 ; ---------------------------------------------------------------------------
 ; caps_init
@@ -86,20 +91,28 @@ caps_check:
 ; ---------------------------------------------------------------------------
 global caps_grant
 caps_grant:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
     ASSERT_PTR rbx
-    ASSERT_PTR rsi
+    ASSERT_PTR r12
 
-    mov rax, [rsi + Client.caps]
-    or rax, rdx
-    mov [rsi + Client.caps], rax
+    mov rax, [r12 + Client.caps]
+    or rax, r13
+    mov [r12 + Client.caps], rax
 
-    ; Log grant
-    call caps_log_grant
+    mov rdi, rbx
+    mov rsi, AUDIT_ACTION_CAP_GRANT
+    mov rdx, [r12 + Client.id]
+    mov rcx, r13
+    mov r8, AUDIT_RESULT_GRANTED
+    xor r9, r9
+    xor r10, r10
+    call audit_log
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -108,20 +121,28 @@ caps_grant:
 ; ---------------------------------------------------------------------------
 global caps_revoke
 caps_revoke:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
     ASSERT_PTR rbx
-    ASSERT_PTR rsi
+    ASSERT_PTR r12
 
-    mov rax, [rsi + Client.caps]
-    and rax, ~rdx
-    mov [rsi + Client.caps], rax
+    mov rax, r13
+    not rax
+    and [r12 + Client.caps], rax
 
-    ; Log revocation
-    call caps_log_revoke
+    mov rdi, rbx
+    mov rsi, AUDIT_ACTION_CAP_REVOKE
+    mov rdx, [r12 + Client.id]
+    mov rcx, r13
+    mov r8, AUDIT_RESULT_GRANTED
+    xor r9, r9
+    xor r10, r10
+    call audit_log
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -173,24 +194,6 @@ caps_union:
     PROLOGUE
     mov rax, rdi
     or rax, rsi
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
-; caps_log_grant
-; ---------------------------------------------------------------------------
-caps_log_grant:
-    PROLOGUE
-    ; TODO: Log to audit
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
-; caps_log_revoke
-; ---------------------------------------------------------------------------
-caps_log_revoke:
-    PROLOGUE
-    ; TODO: Log to audit
     leave
     ret
 
