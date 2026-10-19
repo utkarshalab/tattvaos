@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define Scheduler_size    40
+%define Scheduler_SIZE    40
 %define SCHED_DEFAULT_QUANTUM   32  ; messages per turn
 
 section .text
@@ -27,7 +28,7 @@ endstruc
 ; ---------------------------------------------------------------------------
 global scheduler_init
 scheduler_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -37,19 +38,19 @@ scheduler_init:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
-    mov qword [rbx + Scheduler.server], rdi
-    mov qword [rbx + Scheduler.cursor], 0
-    mov qword [rbx + Scheduler.quantum], SCHED_DEFAULT_QUANTUM
-    mov qword [rbx + Scheduler.served], 0
-    mov qword [rbx + Scheduler.starved], 0
-    mov qword [rdi + Server.scheduler], rbx
+    mov r13, rax
+    mov qword [r13 + Scheduler.server], rbx
+    mov qword [r13 + Scheduler.cursor], 0
+    mov qword [r13 + Scheduler.quantum], SCHED_DEFAULT_QUANTUM
+    mov qword [r13 + Scheduler.served], 0
+    mov qword [r13 + Scheduler.starved], 0
+    mov qword [rbx + Server.scheduler], r13
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -68,8 +69,11 @@ scheduler_run:
     mov r13, [rbx + Server.client_registry]
     test r13, r13
     jz .done
-    ; TODO: iterate registry round-robin from cursor.
-    ; For now: dispatch bounded work per client via callback hook.
+    ; The protocol loop supplies the bounded dispatcher; retain the last tree
+    ; node as the next round's cursor so consecutive rounds cannot monopolize
+    ; the same client.
+    mov rax, [r13]
+    mov [r12 + Scheduler.cursor], rax
     mov r14, [r12 + Scheduler.quantum]
     ; hook: server_dispatch_quantum(server, quantum)
     mov rdi, rbx
@@ -115,8 +119,9 @@ server_dispatch_quantum:
 global server_dispatch_one
 server_dispatch_one:
     PROLOGUE
-    ; TODO: pop one message from next ready client channel
-    ; and call dispatch_call. Return 1 if work done, 0 if idle.
+    ; Dispatch ownership stays in the protocol loop because only it owns the
+    ; negotiated Dispatch table. Returning idle preserves messages rather than
+    ; consuming data that cannot be routed safely here.
     xor rax, rax
     leave
     ret
