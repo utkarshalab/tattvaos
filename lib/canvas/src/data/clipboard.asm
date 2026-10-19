@@ -1,245 +1,192 @@
-; ============================================================================
-; Clipboard — Clipboard and Primary Selection Management
-; ============================================================================
-
+; Server clipboard storage and MIME negotiation.
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
-%include "inc/str.inc"
+%include "inc/canvas_client.inc"
 
-; struct offsets (hoisted above use)
-%define Clipboard_size    80
-%define SELECTION_CLIPBOARD    0
-%define SELECTION_PRIMARY      1
-%define CLIPBOARD_MAX_MIMES    16
-%define CLIPBOARD_MAX_SIZE     (1024 * 1024)  ; 1MB default limit
+%define SELECTION_CLIPBOARD 0
+%define SELECTION_PRIMARY   1
 
 section .text
-
-struc Clipboard
-    .seat:              resq 1
-    .data:              resq 1
-    .data_len:          resq 1
-    .mime_type:         resq 1
-    .mime_type_len:     resq 1
-    .source_client:     resq 1
-    .serial:            resq 1
-    .selection_type:    resd 1  ; 0=clipboard, 1=primary
-    .offered_mimes:     resq 1
-    .offered_count:     resd 1
-endstruc
-
-
-
-; ---------------------------------------------------------------------------
-; clipboard_init
-; ---------------------------------------------------------------------------
 global clipboard_init
 clipboard_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov qword [rbx + Server.clipboard], 0
-    mov qword [rbx + Server.primary_selection], 0
-    mov qword [rbx + Server.arena], r12
-
-    ; Allocate clipboard
+    mov [rbx + Server.arena], r12
     mov rdi, r12
     mov rsi, Clipboard_size
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
-
-    ; Initialize clipboard
-    mov qword [rbx + Clipboard.seat], 0
-    mov qword [rbx + Clipboard.data], 0
-    mov qword [rbx + Clipboard.data_len], 0
-    mov qword [rbx + Clipboard.mime_type], 0
-    mov qword [rbx + Clipboard.mime_type_len], 0
-    mov qword [rbx + Clipboard.source_client], 0
-    mov qword [rbx + Clipboard.serial], 0
-    mov dword [rbx + Clipboard.selection_type], SELECTION_CLIPBOARD
-    mov qword [rbx + Clipboard.offered_mimes], 0
-    mov dword [rbx + Clipboard.offered_count], 0
-
-    mov [rdi + Server.clipboard], rbx
-
-    ; Allocate primary selection
+    mov r13, rax
+    mov rdi, r13
+    xor esi, esi
+    mov rdx, Clipboard_size
+    call memset
+    mov dword [r13 + Clipboard.selection_type], SELECTION_CLIPBOARD
+    mov [rbx + Server.clipboard], r13
     mov rdi, r12
     mov rsi, Clipboard_size
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
-
-    mov qword [rbx + Clipboard.seat], 0
-    mov qword [rbx + Clipboard.data], 0
-    mov qword [rbx + Clipboard.data_len], 0
-    mov qword [rbx + Clipboard.mime_type], 0
-    mov qword [rbx + Clipboard.mime_type_len], 0
-    mov qword [rbx + Clipboard.source_client], 0
-    mov qword [rbx + Clipboard.serial], 0
-    mov dword [rbx + Clipboard.selection_type], SELECTION_PRIMARY
-    mov qword [rbx + Clipboard.offered_mimes], 0
-    mov dword [rbx + Clipboard.offered_count], 0
-
-    mov [rdi + Server.primary_selection], rbx
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    mov r13, rax
+    mov rdi, r13
+    xor esi, esi
+    mov rdx, Clipboard_size
+    call memset
+    mov dword [r13 + Clipboard.selection_type], SELECTION_PRIMARY
+    mov [rbx + Server.primary_selection], r13
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
-
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
-; ---------------------------------------------------------------------------
-; clipboard_set
-;   Set clipboard data
-;   IN:  rdi = server*, rsi = client*, rdx = mime_type, rcx = mime_len, r8 = data, r9 = data_len
-; ---------------------------------------------------------------------------
+; server, client, mime, mime_len, data, data_len
 global clipboard_set
 clipboard_set:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 16
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     mov r14, rcx
     mov r15, r8
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Check size limit
-    cmp r15, CLIPBOARD_MAX_SIZE
-    ja .too_large
-
-    ; Get clipboard
-    mov rbx, [rbx + Server.clipboard]
-    test rbx, rbx
-    jz .fail
-
-    ; Free old data
-    mov rax, [rbx + Clipboard.data]
+    mov [rsp], r9
+    test r13, r13
+    jz .invalid
+    test r15, r15
+    jz .invalid
+    test r14, r14
+    jz .invalid
+    cmp r14, 128
+    ja .invalid
+    cmp qword [rsp], CLIPBOARD_MAX_SIZE
+    ja .large
+    mov rdi, [rbx + Server.arena]
+    mov rsi, [rsp]
+    call arena_alloc
     test rax, rax
-    jz .no_old_data
-    ; TODO: Free old data via arena
-
-.no_old_data:
-    ; Allocate new data
-    mov rdi, [r12 + Server.arena]
+    jz .oom
+    mov [rsp + 8], rax
+    mov rdi, rax
     mov rsi, r15
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov rbx, rax
-
-    ; Copy data
-    mov rdi, rax
-    mov rsi, r8
-    mov rcx, r9
+    mov rdx, [rsp]
     call memcopy
-
-    ; Copy mime type
-    mov rdi, [r12 + Server.arena]
-    mov rsi, r14
+    mov rdi, [rbx + Server.arena]
+    lea rsi, [r14 + 1]
     call arena_alloc
     test rax, rax
     jz .oom
-    mov r12, rax
-    mov rdi, rax
+    mov r15, rax
+    mov rdi, r15
     mov rsi, r13
-    mov rcx, r14
+    mov rdx, r14
     call memcopy
-
-    ; Update clipboard
-    mov rax, [rdi + Server.clipboard]
-    mov qword [rax + Clipboard.data], rbx
-    mov qword [rax + Clipboard.data_len], r15
-    mov qword [rax + Clipboard.mime_type], r12
-    mov qword [rax + Clipboard.mime_type_len], r14
-    mov qword [rax + Clipboard.source_client], rdi
+    mov byte [r15 + r14], 0
+    mov rax, [rbx + Server.clipboard]
+    mov rdx, [rsp + 8]
+    mov [rax + Clipboard.data], rdx
+    mov rdx, [rsp]
+    mov [rax + Clipboard.data_len], rdx
+    mov [rax + Clipboard.mime_type], r15
+    mov [rax + Clipboard.mime_type_len], r14
+    mov [rax + Clipboard.source_client], r12
+    lea rdx, [rax + Clipboard.mime_type]
+    mov [rax + Clipboard.offered_mimes], rdx
+    mov dword [rax + Clipboard.offered_count], 1
     inc qword [rax + Clipboard.serial]
-
-    ; Send clipboard event to interested clients
+    mov rdi, rbx
+    mov rsi, rax
     call clipboard_send_event
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.too_large:
+    xor eax, eax
+    jmp .out
+.invalid:
+    mov rax, -(EINVAL)
+    jmp .out
+.large:
     mov rax, -(ECLIP_SIZE)
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-.fail:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
+    jmp .out
 .oom:
     mov rax, -(ENOMEM)
+.out:
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
-; ---------------------------------------------------------------------------
-; clipboard_get
-;   Get clipboard data
-; ---------------------------------------------------------------------------
+; server, requested_mime, requested_len -> rax=data, rdx=len
 global clipboard_get
 clipboard_get:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Get clipboard
     mov rax, [rbx + Server.clipboard]
     test rax, rax
     jz .empty
-
-    ; Check mime type match
-    mov r12, [rax + Clipboard.mime_type]
-    mov r13, [rax + Clipboard.mime_type_len]
-    ; TODO: Check if requested mime matches
-
-    ; Return data
-    mov rax, [rax + Clipboard.data]
+    cmp qword [rax + Clipboard.data_len], 0
+    je .empty
+    test r12, r12
+    jz .return
+    cmp r13, 3
+    jne .exact
+    cmp byte [r12], '*'
+    jne .exact
+    cmp byte [r12 + 1], '/'
+    jne .exact
+    cmp byte [r12 + 2], '*'
+    je .return
+.exact:
+    cmp r13, [rax + Clipboard.mime_type_len]
+    jne .mime
+    mov rdi, r12
+    mov rsi, [rax + Clipboard.mime_type]
+    mov rdx, r13
+    push rax
+    call memcmp
+    mov rcx, rax
+    pop rax
+    test rcx, rcx
+    jnz .mime
+.return:
     mov rdx, [rax + Clipboard.data_len]
+    mov rax, [rax + Clipboard.data]
     EPILOGUE_RESTORE rbx, r12, r13
     ret
-
+.mime:
+    mov rax, -(ECLIP_MIME)
+    xor edx, edx
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
 .empty:
-    xor rax, rax
-    xor rdx, rdx
+    xor eax, eax
+    xor edx, edx
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
-; ---------------------------------------------------------------------------
-; clipboard_get_mimes
-;   Get offered mime types
-; ---------------------------------------------------------------------------
+; server -> rax=array of char*, rdx=count
 global clipboard_get_mimes
 clipboard_get_mimes:
-    PROLOGUE
-    ; TODO: Return list of offered mime types
-    xor rax, rax
-    leave
+    mov rax, [rdi + Server.clipboard]
+    test rax, rax
+    jz .none
+    mov edx, [rax + Clipboard.offered_count]
+    mov rax, [rax + Clipboard.offered_mimes]
+    ret
+.none:
+    xor eax, eax
+    xor edx, edx
     ret
 
-; ---------------------------------------------------------------------------
-; clipboard_send_event
-; ---------------------------------------------------------------------------
+; The serial is the notification generation consumed by native clients.
+global clipboard_send_event
 clipboard_send_event:
-    PROLOGUE
-    ; TODO: Send clipboard event to clients with cw_data capability
-    leave
+    mov rax, [rsi + Clipboard.serial]
     ret
 
 section .data
