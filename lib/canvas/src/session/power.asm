@@ -6,9 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
-%define PowerManager_size    64
 %define POWER_EVENT_SUSPEND      1
 %define POWER_EVENT_RESUME       2
 %define POWER_EVENT_HIBERNATE    3
@@ -21,26 +21,15 @@
 %define INHIBIT_HANDLE_POWER  (1 << 3)
 %define DEFAULT_LOW_BATTERY_PCT    10
 %define DEFAULT_CRITICAL_BATTERY_PCT 5
-%define DEFAULT_LOW_BATTERY_PCT    10
-%define DEFAULT_CRITICAL_BATTERY_PCT 5
 
 section .text
 
-struc PowerManager
-    .server:            resq 1
-    .suspend_inhibits:  resq 1
-    .inhibit_count:     resd 1
-    .suspend_callback:  resq 1
-    .resume_callback:   resq 1
-    .battery_callback:  resq 1
-    .ac_callback:       resq 1
-    .low_battery_pct:   resb 1
-    .critical_pct:      resb 1
-endstruc
-
-
-
-
+; ---------------------------------------------------------------------------
+; power_init
+;   Initialize power management
+;   IN:  rdi = server*, rsi = arena
+;   OUT: rax = 0 OK
+; ---------------------------------------------------------------------------
 global power_init
 power_init:
     PROLOGUE_SAVE rbx, r12
@@ -49,298 +38,139 @@ power_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov qword [rbx + Server.power_manager], 0
-    mov qword [rbx + Server.arena], r12
-
-    mov rdi, r12
-    mov rsi, PowerManager_size
+    mov rdi,r12
+    mov rsi,PowerManager_SIZE
     call arena_alloc
-    test rax, rax
+    test rax,rax
     jz .oom
-    mov rbx, rax
-
-    mov qword [rbx + PowerManager.server], rdi
-    mov qword [rbx + PowerManager.suspend_inhibits], 0
-    mov dword [rbx + PowerManager.inhibit_count], 0
-    mov qword [rbx + PowerManager.suspend_callback], 0
-    mov qword [rbx + PowerManager.resume_callback], 0
-    mov qword [rbx + PowerManager.battery_callback], 0
-    mov qword [rbx + PowerManager.ac_callback], 0
-    mov byte [rbx + PowerManager.low_battery_pct], DEFAULT_LOW_BATTERY_PCT
-    mov byte [rbx + PowerManager.critical_pct], DEFAULT_CRITICAL_BATTERY_PCT
-
-    mov qword [rdi + Server.power_manager], rbx
-
-    mov rdi, power_event_callback
-    xor rsi, rsi
-    call tv_power_register_callback
-    test rax, rax
-    jnz .fail
+    mov [rax + PowerManager.server],rbx
+    mov qword [rax + PowerManager.inhibit_mask],0
+    mov qword [rax + PowerManager.suspend_callback],0
+    mov qword [rax + PowerManager.resume_callback],0
+    mov dword [rax + PowerManager.battery_level],100
+    mov byte [rax + PowerManager.ac_connected],1
+    mov byte [rax + PowerManager.suspending],0
+    mov [rbx + Server.power_manager],rax
+    mov [rbx + Server.arena],r12
+    lea rdi,[rel power_event_callback]
+    mov rsi,rax
+    mov rax,SYS_POWER_REG_CB
+    syscall
+    test rax,rax
+    js .register_fail
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
-
 .oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    mov rax,-ENOMEM
+    EPILOGUE_RESTORE rbx,r12
     ret
-.fail:
-    mov rax, -(EIO)
-    EPILOGUE_RESTORE rbx, r12
+.register_fail:
+    mov qword [rbx + Server.power_manager],0
+    EPILOGUE_RESTORE rbx,r12
     ret
 
+; ---------------------------------------------------------------------------
+; power_event_callback
+;   Handle power events from kernel
+; ---------------------------------------------------------------------------
+global power_event_callback
 power_event_callback:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
+    mov r13, rdx
     ASSERT_PTR rbx
 
-    cmp r12d, POWER_EVENT_SUSPEND
+    cmp r12,POWER_EVENT_SUSPEND
     je .suspend
-    cmp r12d, POWER_EVENT_RESUME
+    cmp r12,POWER_EVENT_HIBERNATE
+    je .suspend
+    cmp r12,POWER_EVENT_RESUME
     je .resume
-    cmp r12d, POWER_EVENT_HIBERNATE
-    je .hibernate
-    cmp r12d, POWER_EVENT_LOW_BATTERY
-    je .low_battery
-    cmp r12d, POWER_EVENT_AC_CHANGE
-    je .ac_change
-    cmp r12d, POWER_EVENT_BATTERY_CHANGE
-    je .battery_change
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
+    cmp r12,POWER_EVENT_LOW_BATTERY
+    je .battery
+    cmp r12,POWER_EVENT_BATTERY_CHANGE
+    je .battery
+    cmp r12,POWER_EVENT_AC_CHANGE
+    je .ac
+    mov rax,-EINVAL
+    jmp .done
 .suspend:
+    mov rdi,rbx
+    mov rsi,r12
+    mov rdx,r13
     call power_handle_suspend
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
+    jmp .done
 .resume:
-    call power_handle_resume
-    EPILOGUE_RESTORE rbx, r12
+    mov byte [rbx + PowerManager.suspending],0
+    mov rax,[rbx + PowerManager.resume_callback]
+    test rax,rax
+    jz .ok
+    mov rdi,[rbx + PowerManager.server]
+    call rax
+    jmp .ok
+.battery:
+    cmp r13,100
+    ja .invalid
+    mov [rbx + PowerManager.battery_level],r13d
+    jmp .ok
+.ac:
+    test r13,r13
+    setnz al
+    mov [rbx + PowerManager.ac_connected],al
+.ok:
+    xor eax,eax
+    jmp .done
+.invalid:
+    mov rax,-EINVAL
+.done:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
-.hibernate:
-    call power_handle_hibernate
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.low_battery:
-    call power_handle_low_battery
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.ac_change:
-    call power_handle_ac_change
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.battery_change:
-    call power_handle_battery_change
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
+; ---------------------------------------------------------------------------
+; power_handle_suspend
+;   Handle system suspend
+; ---------------------------------------------------------------------------
+global power_handle_suspend
 power_handle_suspend:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov rax, [rbx + PowerManager.inhibit_count]
-    test rax, rax
-    jnz .abort_suspend
-
-    mov rax, [rbx + PowerManager.suspend_callback]
-    test rax, rax
-    jz .proceed
-
-    mov rdi, rbx
-    call rax
-    test rax, rax
-    jz .abort_suspend
-
-.proceed:
-    call power_notify_suspend
-    EPILOGUE_RESTORE rbx
-    ret
-
-.abort_suspend:
-    mov rax, -EBUSY
-    EPILOGUE_RESTORE rbx
-    ret
-
-power_handle_resume:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov rax, [rbx + PowerManager.resume_callback]
-    test rax, rax
-    jz .done
-
-    mov rdi, rbx
-    call rax
-
-.done:
-    call power_notify_resume
-    EPILOGUE_RESTORE rbx
-    ret
-
-power_handle_hibernate:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    call power_handle_suspend
-    EPILOGUE_RESTORE rbx
-    ret
-
-power_handle_low_battery:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov rax, [rbx + PowerManager.battery_callback]
-    test rax, rax
-    jz .done
-
-    mov rdi, rbx
-    call rax
-
-.done:
-    EPILOGUE_RESTORE rbx
-    ret
-
-power_handle_ac_change:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov rax, [rbx + PowerManager.ac_callback]
-    test rax, rax
-    jz .done
-
-    mov rdi, rbx
-    call rax
-
-    EPILOGUE_RESTORE rbx
-    ret
-
-power_handle_battery_change:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov rax, [rbx + PowerManager.battery_callback]
-    test rax, rax
-    jz .done
-
-    mov rdi, rbx
-    call rax
-
-    EPILOGUE_RESTORE rbx
-    ret
-
-power_notify_suspend:
-    PROLOGUE
-    leave
-    ret
-
-power_notify_resume:
-    PROLOGUE
-    leave
-    ret
-
-global power_inhibit_suspend
-power_inhibit_suspend:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov rax, [rbx + PowerManager.suspend_inhibits]
-    mov [r12 + 0], rax
-    mov [rbx + PowerManager.suspend_inhibits], r12
-    inc dword [rbx + PowerManager.inhibit_count]
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-global power_uninhibit_suspend
-power_uninhibit_suspend:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    dec dword [rbx + PowerManager.inhibit_count]
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-global power_set_callbacks
-power_set_callbacks:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     ASSERT_PTR rbx
 
-    mov qword [rbx + PowerManager.suspend_callback], r12
-    mov qword [rbx + PowerManager.resume_callback], r13
-    xor rax, rax
+    cmp byte [rbx + PowerManager.suspending],0
+    jne .already
+    mov rax,[rbx + PowerManager.inhibit_mask]
+    test rax,INHIBIT_SUSPEND | INHIBIT_HIBERNATE
+    jnz .busy
+    mov byte [rbx + PowerManager.suspending],1
+    mov rax,[rbx + PowerManager.suspend_callback]
+    test rax,rax
+    jz .ok
+    mov rdi,[rbx + PowerManager.server]
+    mov rsi,r12
+    mov rdx,r13
+    call rax
+    test rax,rax
+    jnz .callback_failed
+.ok:
+    xor eax,eax
+    jmp .out
+.callback_failed:
+    mov byte [rbx + PowerManager.suspending],0
+    jmp .out
+.busy:
+    mov rax,-EBUSY
+    jmp .out
+.already:
+    mov rax,-EALREADY
+.out:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
-global power_set_battery_callback
-power_set_battery_callback:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov qword [rbx + PowerManager.battery_callback], rsi
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
-
-global power_set_ac_callback
-power_set_ac_callback:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov qword [rbx + PowerManager.ac_callback], rsi
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
-
-global power_get_battery_status
-power_get_battery_status:
-    PROLOGUE
-    ASSERT_PTR rdi
-
-    call tv_power_battery_status
-    leave
-    ret
-
-global power_set_thresholds
-power_set_thresholds:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov byte [rbx + PowerManager.low_battery_pct], sil
-    mov byte [rbx + PowerManager.critical_pct], dl
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
-
 section .data
-
-
 global power_version
 power_version: dq 0x010000
