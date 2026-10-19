@@ -7,6 +7,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -57,13 +59,45 @@ debug_scene_dump:
     mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    ; header: "canvas scene v1\n"
-    mov r14, scene_hdr
+    cmp r13, 18
+    jb .scene_small
     mov rdi, r12
-    mov rsi, r14
-    call str_copy
-    ; TODO: walk surfaces/outputs and append lines
-    mov rax, 17
+    mov rsi, scene_hdr
+    mov rcx, 17
+    rep movsb
+    mov r14, 17
+    mov rax, [rbx + Server.outputs]
+.output_loop:
+    test rax, rax
+    jz .surface_begin
+    cmp r14, r13
+    jae .scene_done
+    mov byte [r12 + r14], 'O'
+    inc r14
+    mov rax, [rax + Output.next]
+    jmp .output_loop
+.surface_begin:
+    mov rax, [rbx + Server.surfaces]
+.surface_loop:
+    test rax, rax
+    jz .scene_done
+    cmp r14, r13
+    jae .scene_done
+    mov byte [r12 + r14], 'S'
+    inc r14
+    mov rax, [rax + Surface.z_order_next]
+    jmp .surface_loop
+.scene_done:
+    cmp r14, r13
+    jae .scene_return
+    mov byte [r12 + r14], 10
+    inc r14
+.scene_return:
+    mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.scene_small:
+    mov rax, -(ENOSPC)
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
@@ -73,13 +107,96 @@ debug_scene_dump:
 ; ---------------------------------------------------------------------------
 global debug_client_list
 debug_client_list:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    ; TODO: iterate registry, format lines
+    mov r13, rdx
+    test r13, r13
+    jz .clients_full
+    mov rax, [rbx + Server.client_registry]
+    test rax, rax
+    jz .clients_empty
+    mov rdi, [rax]
+    mov rsi, r12
+    mov rdx, r13
+    call debug_emit_clients
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.clients_empty:
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.clients_full:
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+
+; In-order RB-tree dump, one native client id per 17-byte hexadecimal line.
+debug_emit_clients:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    xor r14d, r14d
+    test rbx, rbx
+    jz .emit_done
+    mov rdi, [rbx]
+    mov rsi, r12
+    mov rdx, r13
+    call debug_emit_clients
+    test rax, rax
+    js .emit_out
+    mov r14, rax
+    mov rax, r13
+    sub rax, r14
+    cmp rax, 17
+    jb .emit_space
+    lea rdi, [r12 + r14]
+    mov rsi, [rbx + 32]
+    call debug_hex64
+    add r14, 16
+    mov byte [r12 + r14], 10
+    inc r14
+    mov rdi, [rbx + 8]
+    lea rsi, [r12 + r14]
+    mov rdx, r13
+    sub rdx, r14
+    call debug_emit_clients
+    test rax, rax
+    js .emit_out
+    add r14, rax
+.emit_done:
+    mov rax, r14
+.emit_out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+.emit_space:
+    mov rax, -(ENOSPC)
+    jmp .emit_out
+
+debug_hex64:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    mov ecx, 16
+.hex_loop:
+    rol r12, 4
+    mov eax, r12d
+    and eax, 15
+    cmp eax, 10
+    jb .hex_digit
+    add eax, 'a' - 10
+    jmp .hex_store
+.hex_digit:
+    add eax, '0'
+.hex_store:
+    mov [rbx], al
+    inc rbx
+    dec ecx
+    jnz .hex_loop
+    mov rax, 16
     EPILOGUE_RESTORE rbx, r12
     ret
 
