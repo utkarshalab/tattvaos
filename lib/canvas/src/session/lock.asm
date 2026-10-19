@@ -6,9 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
-%define LockScreen_size    64
 %define LOCK_STATE_UNLOCKED    0
 %define LOCK_STATE_LOCKED      1
 %define LOCK_STATE_AUTHENTICATING 2
@@ -17,21 +17,11 @@
 
 section .text
 
-struc LockScreen
-    .session:         resq 1
-    .surface:         resq 1
-    .password_hash:   resq 1
-    .attempts:        resd 1
-    .max_attempts:    resd 1
-    .lock_time:       resq 1
-    .unlock_callback: resq 1
-    .user_data:       resq 1
-endstruc
-
-
-
 ; ---------------------------------------------------------------------------
 ; lock_init
+;   Initialize lock subsystem
+;   IN:  rdi = server*, rsi = arena
+;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
 global lock_init
 lock_init:
@@ -42,6 +32,8 @@ lock_init:
     ASSERT_PTR r12
 
     mov qword [rbx + Server.lock_screens], 0
+    mov qword [rbx + Server.arena], r12
+
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
@@ -49,32 +41,38 @@ lock_init:
 ; ---------------------------------------------------------------------------
 ; lock_create
 ;   Create lock screen for session
+;   IN:  rdi = server*, rsi = session*, rdx = password_hash
+;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
 global lock_create
 lock_create:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
+    ASSERT_PTR r13
 
-    ; Allocate lock screen
+    ; Allocate LockScreen
     mov rdi, [rbx + Server.arena]
-    mov rsi, LockScreen_size
+    mov rsi, LockScreen_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
+    mov r14, rax
 
-    ; Initialize
-    mov qword [rbx + LockScreen.session], r12
-    mov qword [rbx + LockScreen.password_hash], r13
-    mov dword [rbx + LockScreen.attempts], 0
-    mov dword [rbx + LockScreen.max_attempts], MAX_LOCK_ATTEMPTS
-    mov qword [rbx + LockScreen.lock_time], 0
-    mov qword [rbx + LockScreen.unlock_callback], 0
-    mov qword [rbx + LockScreen.user_data], 0
+    ; Initialize lock screen
+    mov qword [r14 + LockScreen.session], r12
+    mov qword [r14 + LockScreen.password_hash], r13
+    mov dword [r14 + LockScreen.attempts], 0
+    mov dword [r14 + LockScreen.max_attempts], MAX_LOCK_ATTEMPTS
+    mov qword [r14 + LockScreen.lock_time], 0
+    mov qword [r14 + LockScreen.unlock_callback], 0
+    mov qword [r14 + LockScreen.user_data], 0
+    mov dword [r14 + LockScreen.state],LOCK_STATE_LOCKED
+    call tv_time_now_ns
+    mov [r14 + LockScreen.lock_time],rax
 
     ; Create lock surface
     mov rdi, [rbx + Server.arena]
@@ -84,45 +82,80 @@ lock_create:
     call pixbuf_create
     test rax, rax
     jz .oom
-    mov [rbx + LockScreen.surface], rax
+    mov [r14 + LockScreen.surface], rax
 
-    ; Draw lock screen
-    call lock_draw
+    ; Add to server's lock screens list
+    mov rax, [rbx + Server.lock_screens]
+    mov [r14 + LockScreen.next], rax
+    mov [rbx + Server.lock_screens], r14
 
-    ; Grab input
-    call lock_grab_input
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
 ; lock_destroy
+;   Destroy lock screen
 ; ---------------------------------------------------------------------------
 global lock_destroy
 lock_destroy:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
+    mov r12, rsi
     ASSERT_PTR rbx
+    ASSERT_PTR r12
 
-    ; Release input grab
-    call lock_ungrab_input
-
-    ; Destroy surface
-    mov rax, [rbx + LockScreen.surface]
+    ; Find and remove from list
+    mov rax, [rbx + Server.lock_screens]
     test rax, rax
     jz .done
-    mov rdi, rax
+
+    cmp rax, r12
+    je .remove_head
+
+    mov r13, rax
+.find_loop:
+    mov rax, [r13 + LockScreen.next]
+    test rax, rax
+    jz .not_found
+    cmp rax, r12
+    je .remove_mid
+    mov r13, rax
+    jmp .find_loop
+
+.remove_head:
+    mov rax, [r12 + LockScreen.next]
+    mov [rbx + Server.lock_screens], rax
+    jmp .destroy
+
+.remove_mid:
+    mov rax, [r12 + LockScreen.next]
+    mov [r13 + LockScreen.next], rax
+    jmp .destroy
+
+.not_found:
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+.destroy:
+    ; Destroy surface
+    mov rdi, [r12 + LockScreen.surface]
     call pixbuf_destroy
+
+    ; Free LockScreen
+    mov rdi, [rbx + Server.arena]
+    mov rsi, r12
+    call arena_free
 
 .done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -131,121 +164,113 @@ lock_destroy:
 ; ---------------------------------------------------------------------------
 global lock_authenticate
 lock_authenticate:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
+    mov r14, rcx
     ASSERT_PTR rbx
     ASSERT_PTR r12
+    ASSERT_PTR r13
+
+    ; Check state
+    mov al, [r12 + LockScreen.state]
+    cmp al, LOCK_STATE_LOCKED
+    jne .not_locked
+
+    ; Check attempts
+    mov eax, [r12 + LockScreen.attempts]
+    cmp eax, [r12 + LockScreen.max_attempts]
+    jl .verify
+    call tv_time_now_ns
+    sub rax,[r12 + LockScreen.lock_time]
+    cmp rax,LOCKOUT_DURATION
+    jb .lockout
+    mov dword [r12 + LockScreen.attempts],0
+.verify:
 
     ; Verify password hash
-    mov rax, [rbx + LockScreen.password_hash]
+    mov rdi, r13
+    mov rsi, [r12 + LockScreen.password_hash]
+    call verify_password
     test rax, rax
-    jz .no_hash
+    jz .wrong_password
 
-    ; TODO: Verify password against hash
-    ; For now, accept any non-empty password
-    cmp r13, 0
-    je .wrong_password
+    ; Success - unlock
+    mov byte [r12 + LockScreen.state], LOCK_STATE_UNLOCKED
+    mov dword [r12 + LockScreen.attempts], 0
 
-    ; Success
-    mov dword [rbx + LockScreen.attempts], 0
-    call lock_unlock
+    ; Call unlock callback
+    mov rax, [r12 + LockScreen.unlock_callback]
+    test rax, rax
+    jz .done
+    mov rdi, [r12 + LockScreen.user_data]
+    call rax
+
+.done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-.no_hash:
-    ; No password set - allow
-    call lock_unlock
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .wrong_password:
-    inc dword [rbx + LockScreen.attempts]
-    cmp dword [rbx + LockScreen.attempts], MAX_LOCK_ATTEMPTS
-    jge .lockout
-
-    ; TODO: Send failed attempt event
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    inc dword [r12 + LockScreen.attempts]
+    mov eax,[r12 + LockScreen.attempts]
+    cmp eax,[r12 + LockScreen.max_attempts]
+    jl .denied
+    call tv_time_now_ns
+    mov [r12 + LockScreen.lock_time],rax
+.denied:
+    mov rax, -(EACCES)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .lockout:
-    ; Too many attempts - lock out
-    call tv_time_now_ns
-    add rax, LOCKOUT_DURATION
-    mov [rdi + LockScreen.lockout_until], rax
     mov rax, -(EPERM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+
+.not_locked:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
-; lock_unlock
+; verify_password
+;   Verify password against hash
 ; ---------------------------------------------------------------------------
-lock_unlock:
-    PROLOGUE_SAVE rbx
+global verify_password
+verify_password:
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov r12, rsi
     ASSERT_PTR rbx
+    ASSERT_PTR r12
 
-    ; Call unlock callback
-    mov rax, [rbx + LockScreen.unlock_callback]
-    test rax, rax
-    jz .no_callback
-    mov rdi, [rbx + LockScreen.user_data]
-    call rax
-
-.no_callback:
-    ; Destroy lock screen
-    call lock_destroy
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; lock_grab_input
-; ---------------------------------------------------------------------------
-lock_grab_input:
-    PROLOGUE
-    ; TODO: Grab pointer and keyboard
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
-; lock_ungrab_input
-; ---------------------------------------------------------------------------
-lock_ungrab_input:
-    PROLOGUE
-    ; TODO: Release input grab
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
-; lock_draw
-; ---------------------------------------------------------------------------
-lock_draw:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    ; Draw lock screen UI
-    mov rax, [rbx + LockScreen.surface]
-    test rax, rax
-    jz .done
-
-    ; Fill with dark background
-    mov rdi, [rax + PixBuf.data]
-    mov rsi, 0xFF1A1A2E  ; Dark blue-gray
-    mov rdx, [rax + PixBuf.width]
-    mov rcx, [rax + PixBuf.height]
-    mov r8, [rax + PixBuf.stride]
-    call fill_solid
-
-    ; Draw lock icon, time, password prompt
-    ; TODO: Draw UI elements
-
-.done:
-    EPILOGUE_RESTORE rbx
+    ; Credentials arrive pre-hashed by the trusted authentication service.
+    ; Compare the encoded hashes without data-dependent early exit.
+    xor ecx,ecx
+    xor r8d,r8d
+.compare:
+    mov al,[rbx+rcx]
+    mov dl,[r12+rcx]
+    mov r9b,al
+    xor r9b,dl
+    or r8b,r9b
+    test al,al
+    setnz r10b
+    test dl,dl
+    setnz r11b
+    or r10b,r11b
+    jz .compared
+    inc rcx
+    cmp rcx,4096
+    jb .compare
+    or r8b,1
+.compared:
+    xor eax,eax
+    test r8b,r8b
+    setz al
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
