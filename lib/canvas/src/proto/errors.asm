@@ -3,8 +3,15 @@
 ; ============================================================================
 
 %include "inc/abi.inc"
+%include "inc/externs.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/cwp.inc"
+%include "inc/channel.inc"
+%include "inc/struct_offsets.inc"
+
+%define CWP_DISPLAY_EVENT_ERROR 1
+%define ERROR_MESSAGE_MAX       244
 
 section .text
 
@@ -16,11 +23,12 @@ section .text
 ; ---------------------------------------------------------------------------
 global errors_create
 errors_create:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     ASSERT_PTR rbx
+    ASSERT_PTR r13
 
     ; Allocate error object
     ; struct Error { code, message_ptr, message_len }
@@ -29,18 +37,21 @@ errors_create:
     call arena_alloc
     test rax, rax
     jz .oom
+    mov r14, rax
 
-    mov [rax + 0], r12d      ; error code
-    mov [rax + 4], 0         ; reserved
-    mov [rax + 8], r13       ; message ptr
+    mov [r14 + 0], r12d      ; error code
+    mov dword [r14 + 4], 0   ; reserved
+    mov [r14 + 8], r13       ; message ptr
+    mov rdi, r13
     call str_len
-    mov [rax + 16], rax      ; message len
-    EPILOGUE_RESTORE rbx, r12, r13
+    mov [r14 + 16], rax      ; message len
+    mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -51,10 +62,52 @@ errors_create:
 ; ---------------------------------------------------------------------------
 global errors_send
 errors_send:
-    PROLOGUE
-    ; TODO: Encode error event into client's RX ring
-    xor rax, rax
-    leave
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 288
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    mov rdi, rsp
+    xor rsi, rsi
+    mov rdx, 288
+    call memset
+
+    mov r13, [r12 + 16]
+    cmp r13, ERROR_MESSAGE_MAX
+    jbe .length_ok
+    mov r13, ERROR_MESSAGE_MAX
+.length_ok:
+    mov dword [rsp + 16], 0
+    mov eax, [r12]
+    mov [rsp + 20], eax
+    mov [rsp + 24], r13d
+    lea rdi, [rsp + 28]
+    mov rsi, [r12 + 8]
+    mov rdx, r13
+    call memcopy
+
+    lea eax, [r13 + 15]
+    and eax, -4
+    mov dword [rsp], CWP_OBJ_DISPLAY
+    mov word [rsp + 4], CWP_DISPLAY_EVENT_ERROR
+    mov word [rsp + 6], CWP_MSG_FLAG_IS_EVENT
+    mov [rsp + 8], eax
+
+    mov rdi, [rbx + Client.rx_ring]
+    test rdi, rdi
+    jz .no_channel
+    mov rsi, rsp
+    lea rdx, [rsp + 16]
+    call msgbuf_write
+    add rsp, 288
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.no_channel:
+    mov rax, -(ENOTCONN)
+    add rsp, 288
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -95,17 +148,20 @@ errors_from_errno:
     leave
     ret
 
-.einval:    mov rax, ECWP_PAYLOAD; ret
-.enomem:    mov rax, ECWP_PARSE; ret
-.eacces:    mov rax, ECWP_CAP; ret
-.enospc:    mov rax, ECWP_FULL; ret
-.enosys:    mov rax, ECWP_OPCODE; ret
-.eperm:     mov rax, ECWP_CAP; ret
-.enoent:    mov rax, ECWP_OBJECT; ret
-.ebusy:     mov rax, ECWP_PARSE; ret
-.etimedout: mov rax, ECWP_PARSE; ret
-.eintr:     mov rax, ECWP_PARSE; ret
-.eio:       mov rax, ECWP_PARSE; ret
+.einval:    mov rax, ECWP_PAYLOAD; jmp .mapped
+.enomem:    mov rax, ECWP_PARSE; jmp .mapped
+.eacces:    mov rax, ECWP_CAP; jmp .mapped
+.enospc:    mov rax, ECWP_FULL; jmp .mapped
+.enosys:    mov rax, ECWP_OPCODE; jmp .mapped
+.eperm:     mov rax, ECWP_CAP; jmp .mapped
+.enoent:    mov rax, ECWP_OBJECT; jmp .mapped
+.ebusy:     mov rax, ECWP_PARSE; jmp .mapped
+.etimedout: mov rax, ECWP_PARSE; jmp .mapped
+.eintr:     mov rax, ECWP_PARSE; jmp .mapped
+.eio:       mov rax, ECWP_PARSE
+.mapped:
+    leave
+    ret
 
 ; ---------------------------------------------------------------------------
 ; errors_standard
