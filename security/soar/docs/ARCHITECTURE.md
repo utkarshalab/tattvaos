@@ -1,0 +1,33 @@
+# soar — Architecture
+
+## Component Diagram
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         External Security Events                             │
+│  IDS ◄─────────────────────────────────────────────────────────────────────► │\n│  IPS ─────────────────────────────────────────────────────────────────────► │\n│  malwarescan ─────────────────────────────────────────────────────────────► │\n│  WAF ─────────────────────────────────────────────────────────────────────► │\n└───────────────────────────┬─────────────────────────────────────────────────┘\n                            │\n                            ▼\n┌─────────────────────────────────────────────────────────────────────────────┐\n│  soar.asm — Main Dispatcher (Orchestrator)                                  │\n│  Routes alerts through: ingest → playbook engine → actions → case mgmt     │\n└───────────┬──────────────────────────────────────────────────────────────────┘\n            │\n    ┌───────┴───────┬───────────┬───────────┬───────────┬───────────┐\n    ▼               ▼           ▼           ▼           ▼           ▼\n┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐\n│ core     │  │ playbook │  │ alert    │  │ action   │  │ playbook │  │ case     │\n│ engine   │  │ engine   │  │ ingestor │  │ engine   │  │ compiler │  │ manager  │\n└────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘\n     │             │             │           │           │           │\n     └─────────────┴─────────────┴───────────┴───────────┴───────────┘\n                            │\n                            ▼\n┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐\n│ automation│ │integration│ │ scheduler│ │ metrics  │  │          │\n│ engine    │ │ engine    │ │          │ │ engine   │  │          │\n└────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘           │\n     │             │             │           │                     │\n     └─────────────┴─────────────┴───────────┴─────────────────────┘\n                            │\n                            ▼\n                    ┌─────────────────────┐\n                    │ External Systems    │\n                    │ (SIEM, Ticketing,   │\n                    │  Firewall, EDR,     │\n                    │  Email, etc.)       │\n                    └─────────────────────┘\n```
+
+## Layer Diagram (Stack Integration)
+
+```text\n┌─────────────────────────────────────────────────────────────────────────────┐\n│  External Systems (SIEM, Ticketing, Firewall, EDR)                           │\n└─────────────────────────┬────────────────────────────────────────────────────┘\n                          │ response actions\n┌─────────────────────────▼────────────────────────────────────────────────────┐\n│  soar (SOAR — Orchestration)                                                  │\n│  Active orchestration. Can trigger actions across multiple systems.           │\n│  FAILS CLOSED by default.                                                     │\n└─────────────────────────┬────────────────────────────────────────────────────┘\n                          │ alert ingestion\n┌─────────────────────────▼────────────────────────────────────────────────────┐\n│  waf (WAF — Application Prevention)                                           │\n│  Active blocking. Can modify/drop requests in-line.                         │\n└─────────────────────────┬────────────────────────────────────────────────────┘\n                          │ alert ingestion\n┌─────────────────────────▼────────────────────────────────────────────────────┐\n│  ips (IPS — Network Prevention)                                               │\n│  Inline, network-layer enforcement.                                           │\n└─────────────────────────┬────────────────────────────────────────────────────┘\n                          │ alert ingestion\n┌─────────────────────────▼────────────────────────────────────────────────────┐\n│  ids (IDS — Network Detection)                                                │\n│  Passive monitoring. Feeds alerts to soar policy.                             │\n└─────────────────────────┬────────────────────────────────────────────────────┘\n                          │ alert ingestion\n┌─────────────────────────▼────────────────────────────────────────────────────┐\n│  malwarescan (Malware Detection)                                              │\n│  File/malware scanning. Feeds alerts to soar policy.                          │\n└─────────────────────────────────────────────────────────────────────────────┘\n```
+
+## Integration Points
+
+| Interface | Direction | Purpose |
+|-----------|-----------|---------|
+| `kernel/net/` | soar ↔ net | Network hook for traffic enforcement |
+| `usrauth/audit` | soar → usrauth | Log every enforcement action |
+| `ids` | ids → soar | IDS alerts feed soar playbooks |
+| `ips` | ips → soar | IPS alerts feed soar playbooks |
+| `malwarescan` | malwarescan → soar | Malware alerts feed soar playbooks |
+| `waf` | waf → soar | WAF alerts feed soar playbooks |
+| `threat_intel` | threat_intel → soar | IOCs fed into soar playbooks |
+| `usrauth/audit` | soar → usrauth | Log enforcement decisions |
+
+## Trust Boundaries
+
+```text\n┌─────────────────────────────────────────────────────────────────────────────┐\n│  TRUST BOUNDARY: SOAR Enforcement Point                                       │\n│  Outside: Raw alert data (untrusted)                                          │\n│  Inside: Enforced actions (validated by playbook)                             │\n│  Mitigation: All alerts validated before action execution                     │\n└─────────────────────────────────────────────────────────────────────────────┘\n\n┌─────────────────────────────────────────────────────────────────────────────┐\n│  TRUST BOUNDARY: External Integrations                                        │\n│  Outside: External systems (SIEM, ticketing) (untrusted)                      │\n│  Inside: Verified integration endpoints (trusted after verification)          │\n│  Mitigation: Signed API keys, mTLS, allowlisted endpoints                     │\n└─────────────────────────────────────────────────────────────────────────────┘\n```
+
+## Data Flow (Inline, Can Modify)
+
+```text\nAlert → soar Entry → [Ingestion Pipeline] →\n    ↳ Allow → Log only, allow traffic\n    ↳ Block → Return enforcement action\n    ↳ Challenge → Return CAPTCHA challenge\n    ↳ Quarantine → Isolate host from network\n    ↳ Log → Log only, allow traffic\n```
