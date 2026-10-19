@@ -145,6 +145,13 @@
 %define ENOTRECOVERABLE 131     ; State not recoverable
 %define ERFKILL         132     ; Operation not possible due to RF-kill
 %define EHWPOISON       133     ; Memory page has hardware error
+%define ENOTSUP 95      ; Operation not supported
+
+; Data transfer limits
+%define CLIPBOARD_MAX_SIZE     (1024 * 1024)  ; 1MB
+
+; Input grab
+%define GRAB_POINTER     1
 
 ; Canvas-Specific Errors (1000+ range)
 %define ECWP_VERSION    1000    ; CWP version mismatch
