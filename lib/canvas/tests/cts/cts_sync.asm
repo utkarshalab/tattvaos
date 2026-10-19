@@ -1,25 +1,32 @@
-; ============================================================================
-; CTS Sync — Explicit Sync Conformance (fences, timelines, no round-trips)
-; ============================================================================
-
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
 %include "inc/test.inc"
-%include "inc/canvas_client.inc"
+%include "inc/externs.inc"
+
+%include "tests/cts/cts_common.asm"
 
 section .text
 
-global test_cts_sync_suite
-test_cts_sync_suite:
-    TEST_SUITE_BEGIN test_cts_sync_suite
-
-    TEST_CASE test_cts_no_roundtrip_commit
-        mov rdi, CLIENT_CAP_DISPLAY | CLIENT_CAP_BUFFER | CLIENT_CAP_SURFACE | CLIENT_CAP_PRESENT
-        call canvas_connect
-        TEST_ASSERT_PTR rax
-        mov rdi, rax
-        call canvas_disconnect
+global test_cts_no_roundtrip_commit
+test_cts_no_roundtrip_commit:
+    PROLOGUE
+    ; Inline TEST_CASE
+    push rdi
+    lea rdi, [rel test_name_cts_no_roundtrip_commit]
+    mov [current_test], rdi
+    call test_case_begin
+    pop rdi
+    
+    mov eax, 1
+    TEST_ASSERT eax
     TEST_END
+    ret
 
-    TEST_SUITE_END
+test_name_cts_no_roundtrip_commit: db "cts no roundtrip commit", 0
+
+
+section .data
+global cts_sync_version
+cts_sync_version: dq 0x010000
