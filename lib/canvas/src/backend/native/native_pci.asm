@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define PciDevice_class_code    0x0E
@@ -210,9 +212,12 @@ native_init_controller:
 
     ; Fill controller state
     mov qword [r15 + Controller.pci_dev], r13
-    mov qword [r15 + Controller.mmio_base], [r14 + Server.mmio_base]
-    mov qword [r15 + Controller.fb_base], [r14 + Server.fb_base]
-    mov qword [r15 + Controller.fb_size], [r14 + Server.fb_size]
+    mov rax, [r14 + Server.mmio_base]
+    mov qword [r15 + Controller.mmio_base], rax
+    mov rax, [r14 + Server.fb_base]
+    mov qword [r15 + Controller.fb_base], rax
+    mov rax, [r14 + Server.fb_size]
+    mov qword [r15 + Controller.fb_size], rax
     mov qword [r15 + Controller.outputs], 0
     mov qword [r15 + Controller.output_count], 0
 
