@@ -6,18 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
-
-; struct offsets (hoisted above use)
-%define VirtualOutput_size    32
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
-
-struc VirtualOutput
-    .output:        resq 1
-    .fb:            resq 1
-    .tilediff:      resq 1
-    .seq:           resq 1
-endstruc
 
 ; ---------------------------------------------------------------------------
 ; virtual_output_create
@@ -35,7 +27,7 @@ virtual_output_create:
     test r13, r13
     jz .invalid
     mov rdi, [rbx + Server.arena]
-    mov rsi, VirtualOutput_size
+    mov rsi, VirtualOutput_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
