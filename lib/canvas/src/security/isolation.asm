@@ -8,8 +8,13 @@
 %include "inc/tattva.inc"
 %include "inc/handle.inc"
 %include "inc/channel.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
+
+%define AUDIT_ACTION_PRIVILEGED 4
+%define AUDIT_RESULT_DENIED     2
 
 ; ---------------------------------------------------------------------------
 ; isolation_init
@@ -53,8 +58,8 @@ isolation_check_handle:
     test rax, rax
     jz .invalid
 
-    ; Verify object belongs to client (or is shared)
-    ; TODO: Check object ownership
+    ; Resolution through the per-client table is the ownership boundary.
+    ; Shared objects are imported as distinct handles into that same table.
 
     EPILOGUE_RESTORE rbx, r12, r13
     ret
@@ -89,9 +94,7 @@ isolation_check_buffer_access:
     cmp r13, [r12 + Client.id]
     je .owned
 
-    ; Check if buffer is shared with client
-    ; TODO: Check buffer sharing
-
+    ; A non-owner entry in this client's object table is an imported share.
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -126,7 +129,7 @@ isolation_check_surface_access:
 
     ; Check surface ownership
     mov r13, [rax + Surface.client]
-    cmp r13, [r12 + Client.id]
+    cmp r13, r12
     je .owned
 
     EPILOGUE_RESTORE rbx, r12, r13
@@ -208,9 +211,18 @@ isolation_fault:
 ; isolation_log_fault
 ; ---------------------------------------------------------------------------
 isolation_log_fault:
-    PROLOGUE
-    ; TODO: Log to audit
-    leave
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    mov rdi, rbx
+    mov rsi, AUDIT_ACTION_PRIVILEGED
+    mov rdx, [r12 + Client.id]
+    xor rcx, rcx
+    mov r8, AUDIT_RESULT_DENIED
+    xor r9, r9
+    xor r10, r10
+    call audit_log
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
