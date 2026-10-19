@@ -54,6 +54,7 @@
 ; Capabilities
 %define Server.caps                 0x1B8
 
-; TODO: Add more as needed
+; Extend this compatibility view only when a subsystem cannot include the
+; generated canonical offsets.
 
 %endif ; __SERVER_OFFSETS_INC__
