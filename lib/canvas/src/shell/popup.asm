@@ -1,320 +1,242 @@
 ; ============================================================================
-; Popup — Transient Surfaces (Menus, Tooltips, Dropdowns)
+; Popup Management — Transient Surfaces, Menus, Tooltips
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
-
-; struct offsets (hoisted above use)
-%define Popup_size    64
-%define POPUP_POSITION_CENTER     0
-%define POPUP_POSITION_CURSOR     1
-%define POPUP_POSITION_RECT       2
-%define POPUP_CONSTRAIN_NONE      0
-%define POPUP_CONSTRAIN_WINDOW    1
-%define POPUP_CONSTRAIN_OUTPUT    2
+%include "inc/shell.inc"
+%include "inc/externs.inc"
 
 section .text
 
-struc Popup
-    .surface:           resq 1
-    .shell:             resq 1
-    .parent:            resq 1
-    .position:          resd 1
-    .x:                 resd 1
-    .y:                 resd 1
-    .width:             resd 1
-    .height:            resd 1
-    .constrain:         resb 1
-    .grab:              resq 1
-endstruc
-
-
-
-; ---------------------------------------------------------------------------
+; ============================================================================
 ; popup_create
-;   Create popup for surface
-; ---------------------------------------------------------------------------
+;   Create popup surface
+; ============================================================================
 global popup_create
 popup_create:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
+    mov r12, rsi  ; shell
+    mov r13, rdx  ; surface
+    mov r14, rcx  ; parent
     ASSERT_PTR rbx
     ASSERT_PTR r12
+    ASSERT_PTR r13
+    ASSERT_PTR r14
 
-    ; Allocate popup
-    mov rdi, [rbx + Server.arena]
-    mov rsi, Popup_size
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov rbx, rax
+    mov qword [rbx + POPUP_SURFACE], r13
+    mov qword [rbx + POPUP_SHELL], r12
+    mov qword [rbx + POPUP_PARENT], r14
+    mov dword [rbx + POPUP_POSITION], 0  ; default: top-left
+    mov dword [rbx + POPUP_X], 0
+    mov dword [rbx + POPUP_Y], 0
+    mov dword [rbx + POPUP_WIDTH], 0
+    mov dword [rbx + POPUP_HEIGHT], 0
+    mov dword [rbx + POPUP_CONSTRAIN], 1  ; constrain to output
 
-    ; Initialize
-    mov qword [rbx + Popup.surface], r12
-    mov qword [rbx + Popup.shell], r13
-    mov qword [rbx + Popup.parent], 0
-    mov dword [rbx + Popup.position], POPUP_POSITION_CENTER
-    mov dword [rbx + Popup.x], 0
-    mov dword [rbx + Popup.y], 0
-    mov dword [rbx + Popup.width], 200
-    mov dword [rbx + Popup.height], 100
-    mov byte [rbx + Popup.constrain], POPUP_CONSTRAIN_OUTPUT
-    mov qword [rbx + Popup.grab], 0
-
-    ; Set surface role
-    mov dword [r12 + Surface.role], SHELL_ROLE_POPUP
-    mov qword [r12 + Surface.role_data], rbx
-
-    ; Add to shell's popup list
-    mov r14, [r13 + Shell.popups]
-    mov [rbx + Popup.next], r14
-    mov [r13 + Shell.popups], rbx
+    ; Link into shell's popup list
+    mov rax, [r12 + SHELL_POPUPS]
+    mov [rbx + POPUP_NEXT], rax
+    mov [r12 + SHELL_POPUPS], rbx
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-; ---------------------------------------------------------------------------
+; ============================================================================
 ; popup_destroy
-; ---------------------------------------------------------------------------
+;   Destroy popup
+; ============================================================================
 global popup_destroy
 popup_destroy:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
-    mov r12, rsi
     ASSERT_PTR rbx
-    ASSERT_PTR r12
 
-    ; Release grab
-    mov rax, [rbx + Popup.grab]
+    ; Unlink from shell
+    mov r12, [rbx + POPUP_SHELL]
+    call .unlink_from_shell
+
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
+    ret
+
+.unlink_from_shell:
+    mov rax, [r12 + SHELL_POPUPS]
     test rax, rax
-    jz .no_grab
-    mov rdi, [rbx + Popup.shell]
-    mov rsi, rax
-    call grab_release
-
-.no_grab:
-    ; Remove from shell list
-    ; TODO
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; popup_set_parent
-; ---------------------------------------------------------------------------
-global popup_set_parent
-popup_set_parent:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov [rbx + Popup.parent], r12
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; popup_set_position
-; ---------------------------------------------------------------------------
-global popup_set_position
-popup_set_position:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12d, esi
-    mov r13d, edx
-    mov r14d, ecx
-    ASSERT_PTR rbx
-
-    mov dword [rbx + Popup.position], r12d
-    mov dword [rbx + Popup.x], r13d
-    mov dword [rbx + Popup.y], r14d
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; popup_set_size
-; ---------------------------------------------------------------------------
-global popup_set_size
-popup_set_size:
-    PROLOGUE
-    ASSERT_PTR rdi
-    mov [rdi + Popup.width], esi
-    mov [rdi + Popup.height], edx
-    xor rax, rax
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
-; popup_set_constrain
-; ---------------------------------------------------------------------------
-global popup_set_constrain
-popup_set_constrain:
-    PROLOGUE
-    ASSERT_PTR rdi
-    cmp rsi, 2
-    ja .invalid
-    mov byte [rdi + Popup.constrain], sil
-    xor rax, rax
-    leave
-    ret
-
-.invalid:
-    mov rax, -(EINVAL)
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
-; popup_compute_position
-;   Compute popup position relative to parent/output
-; ---------------------------------------------------------------------------
-global popup_compute_position
-popup_compute_position:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov eax, [rbx + Popup.position]
-
-    cmp eax, POPUP_POSITION_CENTER
-    je .center
-    cmp eax, POPUP_POSITION_CURSOR
-    je .cursor
-    cmp eax, POPUP_POSITION_RECT
-    je .rect
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.center:
-    ; Center on parent or output
-    mov r13, [rbx + Popup.parent]
-    test r13, r13
-    jnz .center_on_parent
-
-    ; Center on output
-    mov r13, [rbx + Popup.shell]
-    mov r13, [r13 + Server.outputs]
-    test r13, r13
     jz .done
 
-.center_on_parent:
-    ; Get parent geometry
-    mov r13, [r13 + Surface.current + SurfaceState.buf_x]
-    mov r14, [r13 + Surface.current + SurfaceState.buf_y]
-    mov r15, [r13 + Surface.current + SurfaceState.width]
-    mov r12, [r13 + Surface.current + SurfaceState.height]
+    cmp rax, rbx
+    jne .find_prev
+    mov rax, [rbx + POPUP_NEXT]
+    mov [r12 + SHELL_POPUPS], rax
+    jmp .done
 
-    mov eax, [rbx + Popup.width]
-    sub r15, rax
-    sar r15, 1
-    add r13, r15
+.find_prev:
+    mov r12, rax
+.prev_loop:
+    mov rax, [r12 + POPUP_NEXT]
+    test rax, rax
+    jz .done
+    cmp rax, rbx
+    je .unlink
+    mov r12, rax
+    jmp .prev_loop
 
-    mov eax, [rbx + Popup.height]
-    sub r12, rax
-    sar r12, 1
-    add r14, r12
-
-    mov [rbx + Popup.x], r13d
-    mov [rbx + Popup.y], r14d
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.cursor:
-    ; Position at cursor
-    mov r13, [rbx + Popup.shell]
-    mov r13, [r13 + Server.default_seat]
-    mov r13, [r13 + Seat.pointer]
-    mov eax, [r13 + Pointer.x]
-    mov [rbx + Popup.x], eax
-    mov eax, [r13 + Pointer.y]
-    mov [rbx + Popup.y], eax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.rect:
-    ; Position relative to rect
-    mov r13, [rbx + Popup.x]
-    mov r14, [rbx + Popup.y]
-    ; x, y already set
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
+.unlink:
+    mov rax, [rbx + POPUP_NEXT]
+    mov [r12 + POPUP_NEXT], rax
 
 .done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
-; ---------------------------------------------------------------------------
-; popup_grab
-;   Grab input for popup
-; ---------------------------------------------------------------------------
-global popup_grab
-popup_grab:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Grab pointer and keyboard
-    mov rax, [rbx + Popup.shell]
-    mov rdi, rax
-    mov rsi, [rbx + Popup.surface]
-    mov rdx, GRAB_POINTER
-    mov rcx, rbx
-    mov r8, 0
-    call grab_pointer
-    test rax, rax
-    jnz .fail
-
-    mov qword [rbx + Popup.grab], rax
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.fail:
-    mov rax, -(EBUSY)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; popup_ungrab
-; ---------------------------------------------------------------------------
-global popup_ungrab
-popup_ungrab:
+; ============================================================================
+; popup_set_position
+;   Set popup position relative to parent
+; ============================================================================
+global popup_set_position
+popup_set_position:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov rax, [rbx + Popup.grab]
-    test rax, rax
-    jz .done
+    mov dword [rbx + POPUP_POSITION], esi
+    mov dword [rbx + POPUP_X], edx
+    mov dword [rbx + POPUP_Y], ecx
 
-    mov rdi, [rbx + Popup.shell]
-    mov rsi, rax
-    call grab_release
-
-.done:
-    mov qword [rbx + Popup.grab], 0
     xor rax, rax
-    EPILOGUE_RESTORE rbx
+    leave
+    ret
+
+; ============================================================================
+; popup_set_size
+;   Set popup size
+; ============================================================================
+global popup_set_size
+popup_set_size:
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    ASSERT_PTR rbx
+
+    mov dword [rbx + POPUP_WIDTH], esi
+    mov dword [rbx + POPUP_HEIGHT], edx
+
+    xor rax, rax
+    leave
+    ret
+
+; ============================================================================
+; popup_set_constrain
+;   Set constrain flag
+; ============================================================================
+global popup_set_constrain
+popup_set_constrain:
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    ASSERT_PTR rbx
+
+    mov dword [rbx + POPUP_CONSTRAIN], esi
+    xor rax, rax
+    leave
+    ret
+
+; ============================================================================
+; popup_get_position
+;   Get computed popup position
+; ============================================================================
+global popup_get_position
+popup_get_position:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi  ; output x
+    mov r13, rdx  ; output y
+    ASSERT_PTR rbx
+
+    ; Get parent toplevel position
+    mov rax, [rbx + POPUP_PARENT]
+    mov r14d, [rax + TOPLEVEL_X]
+    mov r15d, [rax + TOPLEVEL_Y]
+
+    ; Get parent size
+    mov r14d, [rax + TOPLEVEL_WIDTH]
+    mov r15d, [rax + TOPLEVEL_HEIGHT]
+
+    ; Compute position based on position enum
+    mov eax, [rbx + POPUP_POSITION]
+
+    ; Simplified: just use x,y offsets
+    mov eax, [rbx + POPUP_X]
+    mov edx, [rbx + POPUP_Y]
+    add eax, r14d
+    add edx, r15d
+
+    ; Constrain to output if needed
+    cmp dword [rbx + POPUP_CONSTRAIN], 0
+    je .no_constrain
+
+    ; Constrain to output bounds
+    ; ...
+
+.no_constrain:
+    leave
+    ret
+
+; ============================================================================
+; popup_constrain_to_output
+;   Constrain popup to output bounds
+; ============================================================================
+global popup_constrain_to_output
+popup_constrain_to_output:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi  ; output
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    ; Get output bounds
+    mov r13d, [r12 + OUTPUT_X]
+    mov r14d, [r12 + OUTPUT_Y]
+    mov r15d, [r12 + OUTPUT_WIDTH]
+    mov r14d, [r12 + OUTPUT_HEIGHT]
+
+    ; Get popup size
+    mov eax, [rbx + POPUP_WIDTH]
+    mov edx, [rbx + POPUP_HEIGHT]
+
+    ; Constrain X
+    mov eax, [rbx + POPUP_X]
+    cmp eax, r13d
+    jge .check_x_max
+    mov eax, r13d
+    jmp .set_x
+.check_x_max:
+    add eax, [rbx + POPUP_WIDTH]
+    cmp eax, r15d
+    jle .set_x
+    sub eax, [rbx + POPUP_WIDTH]
+    sub eax, r15d
+.set_x:
+    mov [rbx + POPUP_X], eax
+
+    ; Constrain Y
+    mov eax, [rbx + POPUP_Y]
+    cmp eax, r14d
+    jge .check_y_max
+    mov eax, r14d
+    jmp .set_y
+.check_y_max:
+    add eax, [rbx + POPUP_HEIGHT]
+    cmp eax, r14d
+    jle .set_y
+    sub eax, [rbx + POPUP_HEIGHT]
+    sub eax, r14d
+.set_y:
+    mov [rbx + POPUP_Y], eax
+
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
