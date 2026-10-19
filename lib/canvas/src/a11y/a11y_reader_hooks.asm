@@ -43,7 +43,7 @@ endstruc
 ; ---------------------------------------------------------------------------
 global a11y_reader_hooks_init
 a11y_reader_hooks_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -54,21 +54,21 @@ a11y_reader_hooks_init:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
+    mov r13, rax
 
-    mov qword [rbx + A11yReaderHooks.tree], 0
-    mov qword [rbx + A11yReaderHooks.seat], 0
-    mov qword [rbx + A11yReaderHooks.callbacks], 0
-    mov dword [rbx + A11yReaderHooks.callback_count], 0
+    mov qword [r13 + A11yReaderHooks.tree], 0
+    mov qword [r13 + A11yReaderHooks.seat], r12
+    mov qword [r13 + A11yReaderHooks.callbacks], 0
+    mov dword [r13 + A11yReaderHooks.callback_count], 0
 
-    mov qword [rdi + Server.a11y_reader_hooks], rbx
+    mov qword [rbx + Server.a11y_reader_hooks], r13
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -77,40 +77,42 @@ a11y_reader_hooks_init:
 ; ---------------------------------------------------------------------------
 global a11y_reader_hooks_register
 a11y_reader_hooks_register:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12d, esi
     mov r13, rdx
+    mov r14, rcx
     ASSERT_PTR rbx
     ASSERT_PTR r13
 
     ; Allocate callback
-    mov rdi, [rdi + Server.arena]
+    mov rdi, [rbx + Server.arena]
     mov rsi, A11yCallback_size
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
+    mov rdx, rax
 
-    mov dword [rbx + A11yCallback.event_type], r12d
-    mov qword [rbx + A11yCallback.callback], r13
-    mov qword [rbx + A11yCallback.user_data], rcx
-    mov qword [rbx + A11yCallback.next], 0
+    mov dword [rdx + A11yCallback.event_type], r12d
+    mov qword [rdx + A11yCallback.callback], r13
+    mov qword [rdx + A11yCallback.user_data], r14
 
     ; Add to callback list
-    mov rax, [rdi + Server.a11y_reader_hooks]
-    mov rax, [rax + A11yReaderHooks.callbacks]
-    mov [rbx + A11yCallback.next], rax
-    mov qword [rdi + Server.a11y_reader_hooks + A11yReaderHooks.callbacks], rbx
-    inc dword [rdi + Server.a11y_reader_hooks + A11yReaderHooks.callback_count]
+    mov rax, [rbx + Server.a11y_reader_hooks]
+    test rax, rax
+    jz .oom
+    mov rcx, [rax + A11yReaderHooks.callbacks]
+    mov [rdx + A11yCallback.next], rcx
+    mov [rax + A11yReaderHooks.callbacks], rdx
+    inc dword [rax + A11yReaderHooks.callback_count]
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -123,10 +125,28 @@ a11y_reader_hooks_unregister:
     mov r12, rsi
     ASSERT_PTR rbx
 
-    ; Remove from callback list
-    ; TODO
+    mov rax, [rbx + Server.a11y_reader_hooks]
+    test rax, rax
+    jz .not_found
+    lea rdx, [rax + A11yReaderHooks.callbacks]
+.find:
+    mov rcx, [rdx]
+    test rcx, rcx
+    jz .not_found
+    cmp rcx, r12
+    je .unlink
+    lea rdx, [rcx + A11yCallback.next]
+    jmp .find
+.unlink:
+    mov rcx, [rcx + A11yCallback.next]
+    mov [rdx], rcx
+    dec dword [rax + A11yReaderHooks.callback_count]
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.not_found:
+    mov rax, -(ENOENT)
     EPILOGUE_RESTORE rbx, r12
     ret
 
@@ -156,10 +176,12 @@ a11y_reader_hooks_notify:
     jne .next_callback
 
     ; Call callback
-    mov rdi, [rbx + A11yCallback.callback]
-    mov rsi, [rbx + A11yCallback.user_data]
-    mov rdx, [rdi + Server.a11y_tree]
-    call rdi
+    mov rax, [rbx + A11yCallback.callback]
+    mov rdi, [rbx + A11yCallback.user_data]
+    mov esi, r12d
+    mov rdx, r13
+    mov rcx, r14
+    call rax
 
 .next_callback:
     mov rbx, [rbx + A11yCallback.next]
