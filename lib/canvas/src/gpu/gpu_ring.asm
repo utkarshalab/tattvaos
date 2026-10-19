@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define GpuRing_size    64
+%define GpuRing_SIZE 64
 %define GPU_RING_DEFAULT_DW   4096  ; 16KB
 
 section .text
@@ -158,6 +159,17 @@ gpu_ring_submit:
 .no_doorbell:
     mov rax, [rbx + GpuRing.fence_next]
     inc qword [rbx + GpuRing.fence_next]
+    cmp qword [rbx + GpuRing.doorbell], 0
+    jne .submitted
+    mov edx, [rbx + GpuRing.wptr]
+    mov [rbx + GpuRing.rptr_shadow], edx
+    mov rdi, [rbx + GpuRing.gpu]
+    mov esi, [rbx + GpuRing.type]
+    mov rdx, rax
+    push rax
+    call gpu_fence_signal_irq
+    pop rax
+.submitted:
     EPILOGUE_RESTORE rbx
     ret
 
@@ -170,15 +182,19 @@ gpu_ring_wait_empty:
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
-    ; poll rptr shadow with timeout
-    mov ecx, 1000000
+    call tv_time_now_ns
+    add r12, rax
 .poll:
+    lfence
     mov eax, [rbx + GpuRing.rptr_shadow]
     cmp eax, [rbx + GpuRing.wptr]
     je .empty
-    ; TODO: update rptr_shadow from MMIO
-    dec ecx
-    jnz .poll
+    call tv_time_now_ns
+    cmp rax, r12
+    jae .timeout
+    call tv_wait_yield
+    jmp .poll
+.timeout:
     mov rax, -(ETIMEDOUT)
     EPILOGUE_RESTORE rbx, r12
     ret
