@@ -9,6 +9,8 @@
 %include "inc/render.inc"
 %include "inc/backend.inc"
 %include "inc/color.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -99,9 +101,11 @@ sw_render_begin_frame:
     mov rax, [r12 + Output.icc_profile]
     test rax, rax
     jz .no_transform
-    ; TODO: Load ICC transform
+    mov [r14 + FrameCtx.color_transform], rax
+    jmp .transform_done
 .no_transform:
     mov qword [r14 + FrameCtx.color_transform], 0
+.transform_done:
 
     mov rax, r14
     EPILOGUE_RESTORE rbx, r12, r13, r14
@@ -127,18 +131,9 @@ sw_render_surface:
     ASSERT_PTR r12
 
     ; Get surface current state
-    mov r14, [r12 + Surface.current + SurfaceState.buffer]
+    mov r14, [r12 + Surface.buffer]
     test r14, r14
     jz .no_buffer
-
-    ; Get buffer
-    mov r15, [r12 + Server.buffer_table]
-    mov rdi, r15
-    mov rsi, r14
-    call handle_resolve
-    test rax, rax
-    jz .bad_buffer
-    mov r14, rax
 
     ; Check buffer state
     cmp byte [r14 + Buffer.state], 2  ; ATTACHED
@@ -151,7 +146,7 @@ sw_render_surface:
     mov r15d, eax
 
     ; Get surface scale
-    mov rax, [r12 + Surface.current + SurfaceState.scale]
+    mov r9, [r12 + Surface.current + SurfaceState.scale]
 
     ; Get surface position
     mov eax, [r12 + Surface.current + SurfaceState.buf_x]
@@ -159,23 +154,27 @@ sw_render_surface:
     mov eax, [r12 + Surface.current + SurfaceState.buf_y]
     mov r11d, eax
 
-    ; Calculate destination rect on output
-    ; Apply transform and scale
-    ; TODO: Full transform/scale calculation
-
-    ; Check if surface intersects damage
-    mov rdi, r13
-    mov rsi, [r12 + Surface.current + SurfaceState.damage]
-    call region_intersect_rect
-    test rax, rax
-    jz .no_damage
+    test r9, r9
+    jnz .scale_valid
+    mov r9, 0x10000
+.scale_valid:
+    imul r10, r9
+    sar r10, 16
+    imul r11, r9
+    sar r11, 16
 
     ; Composite surface
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r14
+    mov rcx, r10
+    mov r8, r11
     call sw_composite_surface
+    jmp .rendered
 
 .scanout_buffer:
-    ; Mark for direct scanout
-    ; TODO
+    mov byte [r14 + Buffer.state], 3
+.rendered:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -208,8 +207,7 @@ sw_composite_surface:
     ; Get buffer data
     mov rdi, [r13 + Buffer.base]
     mov rsi, [rbx + FrameCtx.framebuffer]
-    add rsi, r14
-    add rsi, r15
+    lea rsi, [rsi + r14 * 4]
     imul r15, [rbx + FrameCtx.stride]
     add rsi, r15
 
@@ -220,8 +218,7 @@ sw_composite_surface:
     mov r9, [rbx + FrameCtx.stride]
 
     ; Call blend dispatch
-    mov rax, [rbx + Renderer.blend_fn]
-    call rax
+    call blend_dispatch
 
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
@@ -276,7 +273,10 @@ sw_render_end_frame:
 
     ; Fill present info
     mov dword [rax + PresentInfo.kind], PRESENT_KIND_VSYNC
-    mov qword [rax + PresentInfo.seq], 0  ; TODO: frame sequence
+    mov rdx, 1
+    lock xadd [rel sw_present_seq], rdx
+    inc rdx
+    mov qword [rax + PresentInfo.seq], rdx
     mov qword [rax + PresentInfo.time], 0 ; filled by vblank
     mov qword [rax + PresentInfo.refresh_ns], 16666667
     mov dword [rax + PresentInfo.flags], 0
@@ -301,6 +301,7 @@ sw_render_flush:
     ret
 
 section .data
+sw_present_seq: dq 0
 
 global sw_render_version
 sw_render_version: dq 0x010000
