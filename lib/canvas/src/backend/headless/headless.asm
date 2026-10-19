@@ -10,6 +10,7 @@
 %include "inc/fixed.inc"
 %include "inc/image.inc"
 %include "inc/backend.inc"
+%include "inc/render.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -42,11 +43,12 @@ headless_init:
     mov qword [rbx + Backend.outputs], 0
     mov qword [rbx + Backend.output_count], 0
 
-    ; Parse config for virtual outputs
-    ; TODO: Read config for output count, modes
-
-    ; Create default virtual output
+    ; Create a virtual output, honoring the configured framebuffer geometry.
+    mov rdi, rbx
+    mov rsi, r12
     call headless_create_virtual_output
+    test rax, rax
+    js .oom
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
@@ -71,8 +73,23 @@ headless_deinit:
     test rax, rax
     jz .done
 
-    ; Free virtual outputs
-    ; TODO
+    mov r12, [rbx + Backend.outputs]
+.free_outputs:
+    test r12, r12
+    jz .free_state
+    mov rax, [r12 + Output.next]
+    push rax
+    mov rdi, [r12 + Output.framebuffer]
+    test rdi, rdi
+    jz .skip_pixbuf
+    call pixbuf_destroy
+.skip_pixbuf:
+    mov rdi, [rbx + Backend.arena]
+    mov rsi, r12
+    call arena_free
+    pop r12
+    jmp .free_outputs
+.free_state:
 
     ; Free backend state
     mov rdi, [rbx + Backend.arena]
@@ -201,9 +218,24 @@ headless_vblank_wait:
     mov rdi, 16666667  ; 16.67ms in ns
     call tv_time_sleep_ns
 
-    ; Return present info
-    ; TODO: Allocate and fill PresentInfo
-    xor rax, rax
+    mov rdi, [rbx + Backend.arena]
+    mov rsi, PresentInfo_size
+    call arena_alloc
+    test rax, rax
+    jz .present_oom
+    mov dword [rax + PresentInfo.kind], PRESENT_KIND_VSYNC
+    mov [rax + PresentInfo.seq], r13
+    push rax
+    call tv_time_now_ns
+    mov rdx, rax
+    pop rax
+    mov [rax + PresentInfo.time], rdx
+    mov qword [rax + PresentInfo.refresh_ns], 16666667
+    mov dword [rax + PresentInfo.flags], 0
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.present_oom:
+    mov rax, -(ENOMEM)
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -233,8 +265,9 @@ headless_cursor:
 ; headless_create_virtual_output (internal)
 ; ---------------------------------------------------------------------------
 headless_create_virtual_output:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
+    mov r15, rsi
     mov r12, [rbx + Backend.arena]
     ASSERT_PTR rbx
     ASSERT_PTR r12
@@ -247,10 +280,19 @@ headless_create_virtual_output:
     jz .oom
     mov r13, rax
 
-    ; Allocate framebuffer (1920x1080 BGRA8888)
+    mov r8d, 1920
+    mov r9d, 1080
+    test r15, r15
+    jz .geometry_ready
+    cmp dword [r15 + Config.fb_width], 0
+    je .geometry_ready
+    mov r8d, [r15 + Config.fb_width]
+    mov r9d, [r15 + Config.fb_height]
+.geometry_ready:
+    ; Allocate framebuffer using configured geometry.
     mov rdi, r12
-    mov rsi, 1920
-    mov rdx, 1080
+    mov esi, r8d
+    mov edx, r9d
     mov rcx, DRM_FORMAT_BGRA8888
     call pixbuf_create
     test rax, rax
@@ -261,9 +303,11 @@ headless_create_virtual_output:
     mov qword [r13 + Output.id], 1
     mov qword [r13 + Output.backend], rbx
     mov qword [r13 + Output.framebuffer], r14
-    mov dword [r13 + Output.width], 1920
-    mov dword [r13 + Output.height], 1080
-    mov qword [r13 + Output.stride], 1920 * 4
+    mov [r13 + Output.width], r8d
+    mov [r13 + Output.height], r9d
+    mov eax, r8d
+    shl rax, 2
+    mov [r13 + Output.stride], rax
     mov qword [r13 + Output.scale], FIX_ONE
     mov dword [r13 + Output.rotation], 0
 
@@ -273,12 +317,13 @@ headless_create_virtual_output:
     mov [rbx + Backend.outputs], r13
     inc qword [rbx + Backend.output_count]
 
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    mov rax, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data
