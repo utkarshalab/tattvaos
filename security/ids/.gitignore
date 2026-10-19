@@ -1,0 +1,24 @@
+# IDS build artifacts
+/bin/
+/build/
+*.bin
+*.o
+*.obj
+*.exe
+
+# Temporary files
+*.tmp
+*.bak
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+tests/*.bin
