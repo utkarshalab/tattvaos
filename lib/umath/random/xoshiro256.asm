@@ -35,13 +35,13 @@ rotl64:
     ret
 
 ; -----------------------------------------------------------------------------
-; random_xoshiro256_next — produce the next u64 from the state
+; umath_random_xoshiro256_next — produce the next u64 from the state
 ; args:  rdi = pointer to random_state_t (4 x u64: s0,s1,s2,s3)
 ; out:   rax = next 64-bit random value
-; clobbers: rax, rbx, rbp, rcx
+; clobbers: rax, rcx, r8, r9 (rbx and rbp are saved and restored)
 ; -----------------------------------------------------------------------------
-global random_xoshiro256_next
-random_xoshiro256_next:
+global umath_random_xoshiro256_next
+umath_random_xoshiro256_next:
     push    rbx
     push    rbp
 
