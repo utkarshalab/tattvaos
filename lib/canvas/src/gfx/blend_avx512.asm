@@ -4,6 +4,8 @@
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
+%include "inc/errors.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -50,7 +52,7 @@ blend_avx512:
     call blend_avx2_fallback
     jmp .next_chunk
 
-next_chunk:
+.next_chunk:
     add rbx, 64
     add r12, 64
     dec r14
@@ -101,10 +103,16 @@ blend_avx2_core:
     vpsrlw ymm10, ymm6, 8
     vpsrlw ymm11, ymm2, 8
 
-    vpsubw ymm12, [alpha_255], ymm8
-    vpsubw ymm13, [alpha_255], ymm9
-    vpsubw ymm14, [alpha_255], ymm10
-    vpsubw ymm15, [alpha_255], ymm11
+    ; Load alpha_255 constant
+    vmovdqa64 ymm12, [alpha_255]
+    vmovdqa64 ymm13, [alpha_255]
+    vmovdqa64 ymm14, [alpha_255]
+    vmovdqa64 ymm15, [alpha_255]
+
+    vpsubw ymm12, ymm12, ymm8
+    vpsubw ymm13, ymm13, ymm9
+    vpsubw ymm14, ymm14, ymm10
+    vpsubw ymm15, ymm15, ymm11
 
     vpmullw ymm5, ymm5, ymm12
     vpmullw ymm2, ymm2, ymm13
