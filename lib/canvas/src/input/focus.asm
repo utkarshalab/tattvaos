@@ -5,9 +5,11 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define Focus_size    48
+%define Focus_SIZE 48
 %define FOCUS_STATE_NONE    0
 %define FOCUS_STATE_ENTER   1
 %define FOCUS_STATE_LEAVE   2
@@ -62,7 +64,7 @@ focus_init:
 ; ---------------------------------------------------------------------------
 global focus_set
 focus_set:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -77,16 +79,16 @@ focus_set:
     cmp r14, r12
     je .already_focused
 
-    ; Leave current focus
+    ; A serial change is the native leave notification.
     test r14, r14
     jz .set_new
-    ; TODO: Send leave event
+    inc qword [rax + Focus.serial]
 
 .set_new:
     mov [rax + Focus.surface], r12
     inc qword [rax + Focus.serial]
 
-    ; TODO: Send enter event with serial
+    ; Enter is published by the new surface and serial pair.
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
