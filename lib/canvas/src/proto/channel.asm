@@ -6,7 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/channel.inc"
-%include "inc/ring.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define Channel_msg_ring      0
