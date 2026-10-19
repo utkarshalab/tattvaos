@@ -6,18 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
-
-; struct offsets (hoisted above use)
-%define Multiseat_size    32
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
-
-struc Multiseat
-    .server:        resq 1
-    .seats:         resq 1
-    .seat_count:    resd 1
-    .default_seat:  resq 1
-endstruc
 
 ; ---------------------------------------------------------------------------
 ; multiseat_init
@@ -30,14 +22,27 @@ multiseat_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov qword [rbx + Server.multiseat], 0
-    mov qword [rbx + Server.arena], r12
-
-    ; Parse seats config
-    call multiseat_parse_config
-
-    xor rax, rax
+    mov [rbx + Server.arena],r12
+    mov rdi,r12
+    mov rsi,Multiseat_SIZE
+    call arena_alloc
+    test rax,rax
+    jz .oom
+    mov [rax + Multiseat.server],rbx
+    mov qword [rax + Multiseat.seats],0
+    mov dword [rax + Multiseat.seat_count],0
+    mov qword [rax + Multiseat.default_seat],0
+    mov [rbx + Server.multiseat],rax
+    mov rdi,rax
+    lea rsi,[rel default_seat_name]
+    xor edx,edx
+    xor ecx,ecx
+    call multiseat_add_seat
     EPILOGUE_RESTORE rbx, r12
+    ret
+.oom:
+    mov rax,-ENOMEM
+    EPILOGUE_RESTORE rbx,r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -50,12 +55,16 @@ multiseat_parse_config:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Read seats.conf
-    ; TODO: Parse config file
-
-    ; For now, create default seat
-    call multiseat_create_seat
-
+    ; Configuration is supplied by the native session service. Ensure a
+    ; deterministic default when it provides no seat records.
+    cmp dword [rbx + Multiseat.seat_count],0
+    jne .done
+    mov rdi,rbx
+    lea rsi,[rel default_seat_name]
+    xor edx,edx
+    xor ecx,ecx
+    call multiseat_add_seat
+.done:
     EPILOGUE_RESTORE rbx, r12
     ret
 
@@ -69,28 +78,13 @@ multiseat_create_seat:
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-
-    ; Allocate multiseat
-    mov rdi, [rbx + Server.arena]
-    mov rsi, Multiseat_size
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov rbx, rax
-
-    mov qword [rbx + Multiseat.server], r12
-    mov qword [rbx + Multiseat.seats], 0
-    mov dword [rbx + Multiseat.seat_count], 0
-    mov qword [rbx + Multiseat.default_seat], 0
-
-    ; Create first seat
-    call multiseat_add_seat
-
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-.oom:
-    mov rax, -(ENOMEM)
+    mov rdi,rbx
+    mov rsi,r12
+    call multiseat_init
+    test rax,rax
+    jnz .out
+    mov rax,[rbx + Server.multiseat]
+.out:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -108,15 +102,17 @@ multiseat_add_seat:
     ASSERT_PTR r12
 
     ; Allocate seat
-    mov rdi, [rbx + Server.arena]
+    mov rax,[rbx + Multiseat.server]
+    mov rdi,[rax + Server.arena]
     mov rsi, Seat_size
     call arena_alloc
     test rax, rax
     jz .oom
-    mov r12, rax
+    mov r12,rax
 
     ; Initialize seat
-    mov qword [r12 + Seat.id], [rbx + Multiseat.seat_count]
+    mov eax, [rbx + Multiseat.seat_count]
+    mov dword [r12 + Seat.id], eax
     mov qword [r12 + Seat.name], r13
     mov qword [r12 + Seat.pointer], 0
     mov qword [r12 + Seat.keyboard], 0
@@ -133,36 +129,36 @@ multiseat_add_seat:
     mov qword [r12 + Seat.next], 0
 
     ; Create session for this seat
-    mov rdi, [rdi + Server.arena]
-    mov rsi, SeatSession_size
+    mov rax,[rbx + Multiseat.server]
+    mov rdi,[rax + Server.arena]
+    mov rsi, SeatSession_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
     mov qword [r12 + Seat.session], rax
 
     ; Initialize session
-    mov rbx, rax
-    mov qword [rbx + SeatSession.seat], r12
-    mov qword [rbx + SeatSession.user_id], 0
-    mov byte [rbx + SeatSession.active], 0
-    mov byte [rbx + SeatSession.locked], 0
-    mov qword [rbx + SeatSession.lock_surface], 0
-    mov qword [rbx + SeatSession.idle_timer], 0
-    mov qword [rbx + SeatSession.idle_timeout], 300000000000
-    mov dword [rbx + SeatSession.inhibit_count], 0
-    mov qword [rbx + SeatSession.power_inhibit], 0
+    mov qword [rax + SeatSession.seat],r12
+    mov qword [rax + SeatSession.user_id],0
+    mov byte [rax + SeatSession.active],0
+    mov byte [rax + SeatSession.locked],0
+    mov qword [rax + SeatSession.lock_surface],0
+    mov qword [rax + SeatSession.idle_timer],0
+    mov qword [rax + SeatSession.idle_timeout],300000000000
+    mov dword [rax + SeatSession.inhibit_count],0
+    mov qword [rax + SeatSession.power_inhibit],0
 
     ; Add to multiseat
-    mov rax, [rdi + Multiseat.seats]
+    mov rax,[rbx + Multiseat.seats]
     mov [r12 + Seat.next], rax
-    mov [rdi + Multiseat.seats], r12
-    inc dword [rdi + Multiseat.seat_count]
+    mov [rbx + Multiseat.seats],r12
+    inc dword [rbx + Multiseat.seat_count]
 
     ; Set as default if first
-    mov eax, [rdi + Multiseat.seat_count]
+    mov eax,[rbx + Multiseat.seat_count]
     cmp eax, 1
     jne .done
-    mov [rdi + Multiseat.default_seat], r12
+    mov [rbx + Multiseat.default_seat],r12
 
 .done:
     xor rax, rax
@@ -179,15 +175,56 @@ multiseat_add_seat:
 ; ---------------------------------------------------------------------------
 global multiseat_remove_seat
 multiseat_remove_seat:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; TODO: Remove seat from list
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    xor r13d,r13d
+    mov rax,[rbx + Multiseat.seats]
+.find:
+    test rax,rax
+    jz .missing
+    cmp rax,r12
+    je .unlink
+    mov r13,rax
+    mov rax,[rax + Seat.next]
+    jmp .find
+.unlink:
+    mov rdx,[r12 + Seat.next]
+    test r13,r13
+    jz .head
+    mov [r13 + Seat.next],rdx
+    jmp .unlinked
+.head:
+    mov [rbx + Multiseat.seats],rdx
+.unlinked:
+    cmp [rbx + Multiseat.default_seat],r12
+    jne .count
+    mov [rbx + Multiseat.default_seat],rdx
+.count:
+    cmp dword [rbx + Multiseat.seat_count],0
+    je .invalid
+    dec dword [rbx + Multiseat.seat_count]
+    mov rax,[r12 + Seat.session]
+    test rax,rax
+    jz .ok
+    mov rdx,[rax + SeatSession.idle_timer]
+    test rdx,rdx
+    jz .ok
+    mov rdi,rdx
+    call tv_timer_cancel
+.ok:
+    xor eax,eax
+    jmp .out
+.missing:
+    mov rax,-ENOENT
+    jmp .out
+.invalid:
+    mov rax,-EINVAL
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -209,7 +246,7 @@ multiseat_get_seat:
     mov rax, [rax + Seat.next]
     jmp .find_loop
 
-.find_loop:
+.find_done:
     mov rax, [rax + Seat.next]
     test rax, rax
     jnz .find_loop
@@ -237,3 +274,4 @@ multiseat_get_default:
 section .data
 global multiseat_version
 multiseat_version: dq 0x010000
+default_seat_name: db 'seat0',0
