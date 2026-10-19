@@ -5,6 +5,9 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 section .text
 
@@ -86,10 +89,32 @@ mirror_configure:
 ; ---------------------------------------------------------------------------
 global mirror_disable
 mirror_disable:
-    PROLOGUE
-    ; TODO: Restore individual output configurations
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, [rbx + Server.outputs]
+.restore:
+    test r12, r12
+    jz .restored
+    mov rax, [r12 + Output.current_mode]
+    test rax, rax
+    jz .next
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, rax
+    call output_set_mode
+    test rax, rax
+    jnz .failed
+.next:
+    mov r12, [r12 + Output.next]
+    jmp .restore
+.restored:
+    call output_layout_apply
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.failed:
+    mov rax, -(EOUT_MODE)
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
