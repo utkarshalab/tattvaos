@@ -1,8 +1,40 @@
-# dist/udist — Distributed Task Execution
+# dist/udist — Distributed Runtime
 
-> Work distribution across cluster nodes.
+**Module:** `dist/udist/`
+**Status:** Skeletoned — directory structure created, implementation pending.
+**Part of:** `dist/` — Distributed Computing Layer
 
-Implements: task queue, worker pool, work stealing,
-result collection, failure detection and resubmission.
+---
 
-Part of the `dist/` category in Tattva OS.
+## Purpose
+
+Distributed runtime for Tattva OS — node identity, membership protocol,
+heartbeat, and failure detection for multi-node clusters.
+
+## Files
+
+```
+dist/udist/
+├── dist.asm      ← distributed runtime entry point
+└── README.md     ← this file
+```
+
+## Planned scope
+
+- Node identity and membership
+- Heartbeat and failure detection
+- Cluster topology management
+
+## Dependencies
+
+```text
+dist/udist/ depends on:
+  → unet/    (network transport)
+  → lib/umath/  (math primitives)
+  → lib/io/     (I/O primitives)
+```
+
+---
+
+*dist/udist — Distributed Runtime*
+*pure x86-64 assembly, no dependencies, no OS*
