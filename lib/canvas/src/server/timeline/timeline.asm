@@ -5,6 +5,8 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define Timeline_handle        0
@@ -29,16 +31,32 @@ section .text
 ; ---------------------------------------------------------------------------
 global timeline_init
 timeline_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov qword [rbx + Server.timeline_table], 0
     mov qword [rbx + Server.arena], r12
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    mov rdi, r12
+    mov rsi, 48
+    call arena_alloc
+    test rax, rax
+    jz .init_oom
+    mov r13, rax
+    mov rdi, r13
+    mov rsi, r12
+    mov rdx, 1024
+    call handle_table_init
+    test rax, rax
+    js .init_done
+    mov [rbx + Server.timeline_table], r13
+.init_done:
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.init_oom:
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -62,23 +80,24 @@ timeline_create:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
+    mov r13, rax
 
-    mov qword [rbx + Timeline.handle], 0
-    mov qword [rbx + Timeline.generation], 0
-    mov qword [rbx + Timeline.current_point], 0
-    mov qword [rbx + Timeline.waiters], 0
-    mov qword [rbx + Timeline.client_id], [r12 + Client.id]
+    mov dword [r13 + Timeline.handle], 0
+    mov dword [r13 + Timeline.generation], 0
+    mov qword [r13 + Timeline.current_point], 0
+    mov qword [r13 + Timeline.waiters], 0
+    mov rax, [r12 + Client.id]
+    mov qword [r13 + Timeline.client_id], rax
 
     ; Create handle
-    mov rdi, [rdi + Server.timeline_table]
-    mov rsi, rbx
+    mov rdi, [rbx + Server.timeline_table]
+    mov rsi, r13
     call handle_create
     test rax, rax
     jz .oom
-    mov [rbx + Timeline.handle], eax
+    mov [r13 + Timeline.handle], eax
 
-    mov rax, [rbx + Timeline.handle]
+    mov eax, [r13 + Timeline.handle]
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -104,8 +123,7 @@ timeline_destroy:
     test rax, rax
     jz .not_found
 
-    ; Wake waiters
-    ; TODO
+    mov qword [rax + Timeline.current_point], -1
 
     mov rdi, [rbx + Server.timeline_table]
     mov rsi, r12
@@ -128,7 +146,7 @@ timeline_destroy:
 ; ---------------------------------------------------------------------------
 global timeline_signal
 timeline_signal:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -146,17 +164,14 @@ timeline_signal:
     jbe .done
     mov [rbx + Timeline.current_point], r13
 
-    ; Wake waiters
-    ; TODO
-
 .done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .not_found:
     mov rax, -(ENOENT)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -168,6 +183,7 @@ timeline_signal:
 global timeline_wait
 timeline_wait:
     PROLOGUE_SAVE rbx, r12, r13, r14
+    sub rsp, 16
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -179,22 +195,43 @@ timeline_wait:
     call handle_resolve
     test rax, rax
     jz .not_found
-    mov rbx, rax
+    mov [rsp], rax
 
     ; Check if already reached
-    cmp r13, [rbx + Timeline.current_point]
+    cmp r13, [rax + Timeline.current_point]
     jbe .reached
 
-    ; Wait
-    ; TODO: Add to waitset
+    cmp r14, -1
+    je .wait
+    call tv_time_now_ns
+    add rax, r14
+    jc .timed_out
+    mov [rsp + 8], rax
+.wait:
+    call tv_wait_yield
+    mov rax, [rsp]
+    cmp r13, [rax + Timeline.current_point]
+    jbe .reached
+    cmp r14, -1
+    je .wait
+    call tv_time_now_ns
+    cmp rax, [rsp + 8]
+    jb .wait
+.timed_out:
+    mov rax, -(ETIMEDOUT)
+    add rsp, 16
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 .reached:
     xor rax, rax
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .not_found:
     mov rax, -(ENOENT)
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
@@ -209,7 +246,7 @@ timeline_get_point:
     PROLOGUE
     ASSERT_PTR rdi
 
-    mov rax, [rdi + Server.timeline_table]
+    mov rdi, [rdi + Server.timeline_table]
     call handle_resolve
     test rax, rax
     jz .not_found
