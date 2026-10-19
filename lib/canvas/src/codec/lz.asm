@@ -5,13 +5,14 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define LZ_WINDOW_BITS   15
 %define LZ_HASH_BITS     14
 %define LZ_MIN_MATCH     3
 %define LZ_MAX_MATCH     258
-%define LzCtx_size    24
+%define LzCtx_SIZE    24
 
 section .text
 
@@ -128,8 +129,14 @@ lz_find_match:
 .cmp:
     cmp rcx, rax
     jae .found
-    mov r8b, [r12 + r13 + rcx]
-    mov r9b, [r12 + r10 + rcx]
+    mov r8, r12
+    add r8, r13
+    add r8, rcx
+    mov r9, r12
+    add r9, r10
+    add r9, rcx
+    mov r8b, [r8]
+    mov r9b, [r9]
     cmp r8b, r9b
     jne .found
     inc rcx
