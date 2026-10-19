@@ -70,7 +70,7 @@ canvasd_init:
     UNREACHABLE
 
 ; ---------------------------------------------------------------------------
-; Initialization Stubs (implemented in later phases)
+; Initialization stages
 ; ---------------------------------------------------------------------------
 
 init_entropy:
