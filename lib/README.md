@@ -24,6 +24,7 @@
 | [`regex/`](regex/) | Regex engine — minimal, no backtracking |
 | [`uparser/`](uparser/) | Parser combinators for config and protocol formats |
 | [`hw/`](hw/) | Hardware utility library — shared across drivers |
+| [`web/`](web/) | Web rendering engine — HTML, CSS, layout, JS, Web APIs (embedded by `apps/ubrowse`) |
 
 ---
 
