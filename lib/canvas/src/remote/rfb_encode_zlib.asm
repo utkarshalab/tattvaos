@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define RFB_ENC_ZLIB   6
@@ -64,9 +66,9 @@ rfb_client_update:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     ASSERT_PTR rbx
-    mov r12, [rbx + RfbClient.conn]
-    mov r13, [rbx + RfbClient.server]
-    mov r13, [r13 + RfbServer.voutput]
+    mov r12, [rbx + RfbClient_conn]
+    mov r13, [rbx + RfbClient_server]
+    mov r13, [r13 + RfbServer_voutput]
     test r13, r13
     jz .done
     mov rdi, r13
