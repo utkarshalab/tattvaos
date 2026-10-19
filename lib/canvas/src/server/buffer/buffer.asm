@@ -7,6 +7,8 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/color.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define Buffer_handle        0
@@ -144,11 +146,15 @@ buffer_create:
     ; Fill buffer struct
     mov qword [rbx + Buffer.handle], 0
     mov qword [rbx + Buffer.generation], 0
-    mov dword [rbx + Buffer.width], [r13 + 0]
-    mov dword [rbx + Buffer.height], [r13 + 4]
+    mov eax, [r13 + 0]
+    mov dword [rbx + Buffer.width], eax
+    mov eax, [r13 + 4]
+    mov dword [rbx + Buffer.height], eax
     mov dword [rbx + Buffer.stride], r15d
-    mov dword [rbx + Buffer.format], [r13 + 8]
-    mov qword [rbx + Buffer.modifier], [r13 + 16]
+    mov eax, [r13 + 8]
+    mov dword [rbx + Buffer.format], eax
+    mov rax, [r13 + 16]
+    mov qword [rbx + Buffer.modifier], rax
     mov qword [rbx + Buffer.base], r12
     mov qword [rbx + Buffer.dma_addr], r13
     mov qword [rbx + Buffer.size], rax
@@ -159,7 +165,8 @@ buffer_create:
     mov qword [rbx + Buffer.release_point], 0
     mov byte [rbx + Buffer.state], 1  ; ALLOCATED
     mov dword [rbx + Buffer.refcount], 1
-    mov qword [rbx + Buffer.client_id], [r12 + Client.id]
+    mov rax, [r12 + Client.id]
+    mov qword [rbx + Buffer.client_id], rax
 
     ; Create handle in server's buffer table
     mov rdi, [rdi + Server.buffer_table]
@@ -283,7 +290,7 @@ buffer_attach:
     jne .bad_state
 
     ; Set on surface pending state
-    mov rax, [r12 + Surface.pending]
+    lea rax, [r12 + Surface.pending]
     mov qword [rax + SurfaceState.buffer], r13
     mov dword [rax + SurfaceState.buf_x], r14d
     mov dword [rax + SurfaceState.buf_y], r8d
