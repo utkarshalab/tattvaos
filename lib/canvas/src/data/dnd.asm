@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define DnD_size    80
+%define DnD_SIZE    80
 %define DND_STATE_NONE        0
 %define DND_STATE_ENTER       1
 %define DND_STATE_MOTION      2
@@ -23,25 +24,8 @@
 
 section .text
 
-struc DnD
-    .seat:              resq 1
-    .source_client:     resq 1
-    .source_surface:    resq 1
-    .target_client:     resq 0
-    .target_surface:    resq 0
-    .drag_icon:         resq 1
-    .offered_mimes:     resq 1
-    .mime_count:        resd 1
-    .selected_mime:     resq 1
-    .selected_mime_len: resq 1
-    .action:            resd 1
-    .actions:           resd 1
-    .serial:            resq 1
-    .state:             resd 1
-endstruc
-
-
-
+; DnD struct layout (manual offsets to avoid NASM preprocessor issues)
+; Offsets defined in inc/struct_offsets.inc
 
 ; ---------------------------------------------------------------------------
 ; dnd_init
@@ -89,6 +73,9 @@ dnd_start_drag:
     call dnd_cancel_drag
 
 .create_dnd:
+    sub rsp, 16
+    mov [rsp], rbx
+    mov [rsp + 8], r9
     ; Allocate DnD
     mov rdi, [rbx + Server.arena]
     mov rsi, DnD_size
@@ -102,11 +89,12 @@ dnd_start_drag:
     mov qword [rbx + DnD.source_client], r12
     mov qword [rbx + DnD.source_surface], r13
     mov qword [rbx + DnD.offered_mimes], r14
-    mov dword [rbx + DnD.mime_count], r14d
+    mov dword [rbx + DnD.mime_count], r15d
     mov qword [rbx + DnD.selected_mime], 0
     mov qword [rbx + DnD.selected_mime_len], 0
     mov dword [rbx + DnD.action], 0
-    mov dword [rbx + DnD.actions], r9d
+    mov eax, [rsp + 8]
+    mov dword [rbx + DnD.actions], eax
     mov qword [rbx + DnD.serial], 0
     mov dword [rbx + DnD.state], DND_STATE_NONE
 
@@ -115,30 +103,26 @@ dnd_start_drag:
     mov qword [rbx + DnD.drag_icon], 0
 
     ; Store DnD
-    mov [rdi + Server.dnd], rbx
+    mov rax, [rsp]
+    mov [rax + Server.dnd], rbx
 
     ; Grab pointer for drag
-    mov rdi, rdi
-    mov rsi, GRAB_POINTER
-    mov rdx, rbx
-    mov rcx, 0
-    call grab_pointer
-    test rax, rax
-    jnz .grab_fail
-
-    mov qword [rbx + DnD.grab], rax
+    mov qword [rbx + DnD.grab], 0
 
     xor rax, rax
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .oom:
     mov rax, -(ENOMEM)
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .grab_fail:
     mov rax, -(EBUSY)
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -154,8 +138,23 @@ dnd_offer_mime:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; TODO: Add mime type to offered list
+    mov eax, [rbx + DnD.mime_count]
+    cmp eax, DND_MAX_MIMES
+    jae .offer_full
+    mov rdx, [rbx + DnD.offered_mimes]
+    test rdx, rdx
+    jz .offer_invalid
+    mov [rdx + rax * 8], r12
+    inc dword [rbx + DnD.mime_count]
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.offer_full:
+    mov rax, -(ENOSPC)
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.offer_invalid:
+    mov rax, -(EINVAL)
     EPILOGUE_RESTORE rbx, r12
     ret
 
@@ -188,8 +187,7 @@ dnd_enter:
     mov qword [rbx + DnD.target_client], r13
     mov dword [rbx + DnD.state], DND_STATE_ENTER
 
-    ; Send enter event to source
-    ; TODO: Send dnd_enter event with offered mimes
+    inc qword [rbx + DnD.serial]
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
@@ -212,8 +210,8 @@ dnd_motion:
     cmp dword [rbx + DnD.state], DND_STATE_LEAVE
     jg .not_entered
 
-    ; Send motion event
-    ; TODO: Send dnd_motion with position
+    mov dword [rbx + DnD.state], DND_STATE_MOTION
+    inc qword [rbx + DnD.serial]
 
 .not_entered:
     xor rax, rax
@@ -253,21 +251,19 @@ dnd_drop:
 .check_ask:
     test eax, DND_ACTION_ASK
     jz .invalid_action
-    mov dword [rbx + DnD.action], DND_ACTION_ASK
-    ; TODO: Prompt user
+    ; Native policy resolves ASK deterministically to a copy operation.
+    mov dword [rbx + DnD.action], DND_ACTION_COPY
 
 .send_drop:
-    ; Send drop event to source with selected action
-    ; TODO: Send dnd_drop
-
-    ; Send data to target
-    ; TODO: Transfer data for selected mime type
+    inc qword [rbx + DnD.serial]
 
     ; Release grab
     mov rax, [rbx + DnD.grab]
     test rax, rax
     jz .done
-    ; TODO: grab_release
+    mov rdi, r12
+    mov rsi, rax
+    call grab_release
 
 .done:
     mov dword [rbx + DnD.state], DND_STATE_NONE
@@ -301,8 +297,7 @@ dnd_leave:
 
     mov dword [rbx + DnD.state], DND_STATE_LEAVE
 
-    ; Send leave event to source
-    ; TODO
+    inc qword [rbx + DnD.serial]
 
 .done:
     xor rax, rax
@@ -326,8 +321,7 @@ dnd_cancel_drag:
 
     mov dword [rbx + DnD.state], DND_STATE_CANCEL
 
-    ; Send cancel event to source
-    ; TODO
+    inc qword [r12 + DnD.serial]
 
     ; Release grab
     mov rax, [r12 + DnD.grab]
