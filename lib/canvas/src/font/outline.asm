@@ -8,6 +8,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/font.inc"
+%include "inc/struct_offsets.inc"
 
 section .text
 
@@ -171,7 +172,9 @@ outline_y:
     mov r12d, esi
     mov rax, [rbx + GlyfOut.coords]
     mov ecx, [rax + 0]
-    lea rax, [rax + 8 + rcx + rcx * 4]
+    mov r15, rcx
+    lea r15, [r15 + r15 * 4]
+    lea rax, [rax + 8 + r15]
     mov eax, [rax + r12 * 4]
     EPILOGUE_RESTORE rbx, r12
     ret
