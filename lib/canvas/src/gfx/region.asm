@@ -1,329 +1,440 @@
-; ============================================================================
-; Region — Band List of Rectangles (Union, Intersect, Subtract)
-; Efficient for clipping and damage tracking
-; ============================================================================
+; Region operations -- arena-backed lists of 16-byte x/y/w/h rectangles.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
-%define Band_y1      0
-%define Band_y2      4
-%define Band_rects   8
-%define Band_count   16
-%define Band_cap     20
-%define Band_size    24
-%define Region_bands 0
-%define Region_count 8
-%define Region_cap   12
-%define Region_arena 16
-%define Region_size  24
+%define RECT_BYTES 16
+%define REGION_INITIAL_CAPACITY 8
 
 section .text
 
-
-
-; ---------------------------------------------------------------------------
-; region_init
-;   Initialize empty region
-;   IN:  rdi = Region*, rsi = arena, rdx = initial_band_cap (0=8)
-;   OUT: rax = 0 OK
-; ---------------------------------------------------------------------------
+; IN: rdi = arena*. OUT: rax = Region*, or 0 on OOM.
 global region_init
 region_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx
     mov rbx, rdi
-    mov r12, rsi
     ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    test rdx, rdx
-    jnz .has_cap
-    mov rdx, 8
-.has_cap:
-    ; Allocate band array
-    mov rdi, r12
-    mov rsi, rdx
-    imul rsi, Band_size
+    mov rsi, Region_SIZE
     call arena_alloc
     test rax, rax
-    jz .oom
-
-    mov qword [rbx + Region_bands], rax
-    mov qword [rbx + Region_count], 0
-    mov qword [rbx + Region_cap], rdx
-    mov qword [rbx + Region_arena], r12
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; region_add_rect
-;   Add rectangle to region (merges with existing bands)
-;   IN:  rdi = Region*, rsi = x1, rdx = y1, rcx = x2, r8 = y2
-;   OUT: rax = 0 OK
-; ---------------------------------------------------------------------------
-global region_add_rect
-region_add_rect:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    mov rbx, rdi
-    mov r12d, esi
-    mov r13d, edx
-    mov r14d, ecx
-    mov r15d, r8d
-    ASSERT_PTR rbx
-
-    ; Ensure y1 <= y2, x1 <= x2
-    cmp r12d, r14d
-    jle .x_ok
-    xchg r12d, r14d
-.x_ok:
-    cmp r13d, r15d
-    jle .y_ok
-    xchg r13d, r15d
-.y_ok:
-
-    ; Find or create bands for y1..y2
-    ; This is simplified - full implementation would merge adjacent bands
-    ; For now, create one band per scanline (slow but correct)
-    mov rdi, rbx
-    mov rsi, r13
-    mov rdx, r15
-    call region_ensure_bands
-    TEST_ASSERT_OK rax
-
-    ; Add rect to each band
-    mov rdi, rbx
-    mov rsi, r13
-    mov rdx, r15
-    mov rcx, r12
-    mov r8, r14
-    call region_add_rect_to_bands
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-; ---------------------------------------------------------------------------
-; region_ensure_bands (internal)
-;   Ensure bands exist for y-range
-; ---------------------------------------------------------------------------
-region_ensure_bands:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    mov r12, rsi        ; y1
-    mov r13, rdx        ; y2
-    ASSERT_PTR rbx
-
-    ; For each scanline, ensure band exists
-    mov r14, r12
-.loop:
-    cmp r14, r13
-    jge .done
-    ; Find band for this y
-    mov rdi, rbx
-    mov rsi, r14
-    call region_find_or_create_band
-    TEST_ASSERT_OK rax
-    inc r14
-    jmp .loop
+    jz .done
+    mov qword [rax + Region.rects], 0
+    mov qword [rax + Region.count], 0
+    mov qword [rax + Region.capacity], 0
+    mov [rax + Region.arena], rbx
 .done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx
     ret
 
-; ---------------------------------------------------------------------------
-; region_find_or_create_band (internal)
-; ---------------------------------------------------------------------------
-region_find_or_create_band:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    mov r12, rsi        ; y
-    ASSERT_PTR rbx
-
-    ; Search existing bands
-    mov r13, [rbx + Region_bands]
-    mov r14, [rbx + Region_count]
-    test r14, r14
-    jz .create
-
-    xor rax, rax
-.search:
-    cmp rax, r14
-    jae .create
-    mov rdx, [r13 + rax * Band_size + Band_y1]
-    cmp edx, r12d
-    je .found
-    cmp edx, r12d
-    jg .create
-    inc rax
-    jmp .search
-
-.found:
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-.create:
-    ; Need to insert band at position rax
-    mov rdi, rbx
-    mov rsi, rax
-    call region_insert_band
-    TEST_ASSERT_OK rax
-
-    ; Initialize new band
-    mov rbx, [rdi + Region_bands]
-    add rbx, rax
-    mov dword [rbx + Band_y1], r12d
-    mov dword [rbx + Band_y2], r12d
-    inc r12d
-    mov dword [rbx + Band_y2], r12d
-    mov qword [rbx + Band_rects], 0
-    mov qword [rbx + Band_count], 0
-    mov qword [rbx + Band_cap], 0
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-; ---------------------------------------------------------------------------
-; region_insert_band (internal)
-; ---------------------------------------------------------------------------
-region_insert_band:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    mov rbx, rdi
-    mov r12, rsi        ; insert index
-    ASSERT_PTR rbx
-
-    mov r13, [rbx + Region_count]
-    mov r14, [rbx + Region_cap]
-    cmp r13, r14
-    jae .grow
-
-    ; Shift bands up
-    mov r15, [rbx + Region_bands]
-    lea r14, [r15 + r13 * Band_size]
-    lea r13, [r15 + r12 * Band_size]
-    mov rcx, r13
-    sub rcx, r14
-    neg rcx
-    shr rcx, 3
-    std
-    rep movsq
-    cld
-
-    inc qword [rbx + Region_count]
-    mov rax, r12
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.grow:
-    ; Grow band array
-    mov rax, -(ENOSPC)
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-; ---------------------------------------------------------------------------
-; region_add_rect_to_bands (internal)
-; ---------------------------------------------------------------------------
-region_add_rect_to_bands:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    mov rbx, rdi
-    mov r12, rsi        ; y1
-    mov r13, rdx        ; y2
-    mov r14, rcx        ; x1
-    mov r15, r8         ; x2
-    ASSERT_PTR rbx
-
-.loop:
-    cmp r12, r13
-    jge .done
-    ; Find band
-    mov rdi, rbx
-    mov rsi, r12
-    call region_find_or_create_band
-    TEST_ASSERT_OK rax
-
-    ; Add rect to band
-    mov rbx, rax
-    call band_add_rect
-    TEST_ASSERT_OK rax
-
-    inc r12
-    jmp .loop
+; Arena allocations have region lifetime; clearing ownership prevents reuse.
+global region_destroy
+region_destroy:
+    PROLOGUE
+    test rdi, rdi
+    jz .done
+    mov qword [rdi + Region.rects], 0
+    mov qword [rdi + Region.count], 0
+    mov qword [rdi + Region.capacity], 0
 .done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    xor eax, eax
+    leave
     ret
 
-; ---------------------------------------------------------------------------
-; band_add_rect (internal)
-;   Add rect to band's rect list
-; ---------------------------------------------------------------------------
-band_add_rect:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov r12, [rbx + Band_rects]
-    mov r13, [rbx + Band_count]
-    mov r14, [rbx + Band_cap]
-
-    cmp r13, r14
-    jae .grow
-
-    ; Add rect
-    mov dword [r12 + r13 * 16 + 0], r14d
-    mov dword [r12 + r13 * 16 + 4], r12d
-    mov dword [r12 + r13 * 16 + 8], r15d
-    mov dword [r12 + r13 * 16 + 12], r13d
-    inc qword [rbx + Band_count]
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-.grow:
-    mov rax, -(ENOSPC)
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-; ---------------------------------------------------------------------------
-; region_clear
-;   Clear region
-;   IN:  rdi = Region*
-;   OUT: rax = 0 OK
-; ---------------------------------------------------------------------------
 global region_clear
 region_clear:
     PROLOGUE
-    ASSERT_PTR rdi
-    mov qword [rdi + Region_count], 0
-    xor rax, rax
+    test rdi, rdi
+    jz .invalid
+    mov qword [rdi + Region.count], 0
+    xor eax, eax
+    leave
+    ret
+.invalid:
+    mov rax, -(EINVAL)
     leave
     ret
 
-; ---------------------------------------------------------------------------
-; region_is_empty
-;   Check if region is empty
-;   IN:  rdi = Region*
-;   OUT: rax = 1 if empty, 0 if not
-; ---------------------------------------------------------------------------
+; Ensure capacity for at least rsi rectangles.
+; IN rdi=region, rsi=needed. OUT 0 or negative errno.
+region_reserve:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, [rbx + Region.capacity]
+    cmp r13, r12
+    jae .ok
+    test r13, r13
+    jnz .grow
+    mov r13, REGION_INITIAL_CAPACITY
+.grow:
+    cmp r13, r12
+    jae .allocate
+    shl r13, 1
+    jc .oom
+    jmp .grow
+.allocate:
+    mov rdi, [rbx + Region.arena]
+    mov rsi, r13
+    shl rsi, 4
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov r14, rax
+    mov rsi, [rbx + Region.rects]
+    test rsi, rsi
+    jz .install
+    mov rdi, r14
+    mov rdx, [rbx + Region.count]
+    shl rdx, 4
+    call memcopy
+.install:
+    mov [rbx + Region.rects], r14
+    mov [rbx + Region.capacity], r13
+.ok:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.oom:
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+
+; IN rdi=region*, rsi=rect*.
+global region_add_rect
+region_add_rect:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    test rbx, rbx
+    jz .invalid
+    test r12, r12
+    jz .invalid
+    cmp dword [r12 + 8], 0
+    jle .ok
+    cmp dword [r12 + 12], 0
+    jle .ok
+    mov r13, [rbx + Region.count]
+    lea rsi, [r13 + 1]
+    mov rdi, rbx
+    call region_reserve
+    test rax, rax
+    js .out
+    mov rdi, [rbx + Region.rects]
+    mov rax, r13
+    shl rax, 4
+    add rdi, rax
+    mov rsi, r12
+    mov rdx, RECT_BYTES
+    call memcopy
+    inc qword [rbx + Region.count]
+.ok:
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.invalid:
+    mov rax, -(EINVAL)
+    jmp .out
+
+; IN rdi=region*, rsi=x, rdx=y. OUT 1/0.
+global region_contains_point
+region_contains_point:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13d, edx
+    test rbx, rbx
+    jz .no
+    mov r14, [rbx + Region.count]
+    mov rbx, [rbx + Region.rects]
+.loop:
+    test r14, r14
+    jz .no
+    cmp r12d, [rbx]
+    jl .next
+    mov eax, [rbx]
+    add eax, [rbx + 8]
+    cmp r12d, eax
+    jge .next
+    cmp r13d, [rbx + 4]
+    jl .next
+    mov eax, [rbx + 4]
+    add eax, [rbx + 12]
+    cmp r13d, eax
+    jl .yes
+.next:
+    add rbx, RECT_BYTES
+    dec r14
+    jmp .loop
+.yes:
+    mov eax, 1
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.no:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+
 global region_is_empty
 region_is_empty:
-    PROLOGUE
-    ASSERT_PTR rdi
-    mov rax, [rdi + Region_count]
-    test rax, rax
-    jz .empty
-    xor rax, rax
-    leave
+    xor eax, eax
+    test rdi, rdi
+    jz .yes
+    cmp qword [rdi + Region.count], 0
+    jne .done
+.yes:
+    mov eax, 1
+.done:
     ret
-.empty:
-    mov rax, 1
-    leave
+
+; IN rdi=destination, rsi=source. Appends all source rectangles.
+global region_union
+region_union:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    test rbx, rbx
+    jz .invalid
+    test r12, r12
+    jz .invalid
+    cmp rbx, r12
+    je .ok
+    mov r13, [r12 + Region.count]
+    mov r14, [r12 + Region.rects]
+.loop:
+    test r13, r13
+    jz .ok
+    mov rdi, rbx
+    mov rsi, r14
+    call region_add_rect
+    test rax, rax
+    js .out
+    add r14, RECT_BYTES
+    dec r13
+    jmp .loop
+.ok:
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.invalid:
+    mov rax, -(EINVAL)
+    jmp .out
+
+; IN rdi=destination, rsi=source. Replaces destination contents.
+global region_copy
+region_copy:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    test rbx, rbx
+    jz .invalid
+    test r12, r12
+    jz .invalid
+    cmp rbx, r12
+    je .ok
+    mov qword [rbx + Region.count], 0
+    mov rdi, rbx
+    mov rsi, r12
+    call region_union
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.ok:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.invalid:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
+
+; Keep only intersections with the supplied rectangle.
+global region_intersect_rect
+region_intersect_rect:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 16
+    mov rbx, rdi
+    mov r12, rsi
+    test rbx, rbx
+    jz .invalid
+    test r12, r12
+    jz .invalid
+    xor r13d, r13d
+    xor r14d, r14d
+    mov r15, [rbx + Region.count]
+.loop:
+    cmp r14, r15
+    jae .finish
+    mov rax, [rbx + Region.rects]
+    mov rcx, r14
+    shl rcx, 4
+    add rax, rcx
+    mov rdi, rsp
+    mov rsi, rax
+    mov rdx, r12
+    call rect_intersect
+    test rax, rax
+    jnz .next
+    mov rax, [rbx + Region.rects]
+    mov rcx, r13
+    shl rcx, 4
+    lea rdi, [rax + rcx]
+    mov rsi, rsp
+    mov rdx, RECT_BYTES
+    call memcopy
+    inc r13
+.next:
+    inc r14
+    jmp .loop
+.finish:
+    mov [rbx + Region.count], r13
+    xor eax, eax
+    jmp .out
+.invalid:
+    mov rax, -(EINVAL)
+.out:
+    add rsp, 16
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+
+; Subtract one rectangle, splitting each overlap into up to four strips.
+global region_subtract_rect
+region_subtract_rect:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 48
+    mov rbx, rdi
+    mov r12, rsi
+    test rbx, rbx
+    jz .invalid
+    test r12, r12
+    jz .invalid
+    mov r13, [rbx + Region.count]
+    test r13, r13
+    jz .ok
+    lea rsi, [r13 * 4]
+    mov rdi, [rbx + Region.arena]
+    shl rsi, 4
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov r14, rax                 ; destination array
+    xor r15d, r15d               ; destination count
+    xor ecx, ecx                 ; source index
+.source_loop:
+    cmp rcx, r13
+    jae .install
+    mov rax, [rbx + Region.rects]
+    mov rdx, rcx
+    shl rdx, 4
+    add rax, rdx                 ; source rect
+    mov [rsp + 32], rcx
+    mov [rsp + 40], rax
+    mov rdi, rsp                 ; intersection scratch
+    mov rsi, rax
+    mov rdx, r12
+    call rect_intersect
+    mov rcx, [rsp + 32]
+    test rax, rax
+    jz .split
+    mov rsi, [rsp + 40]
+    call .append
+    jmp .source_next
+.split:
+    mov r10, [rsp + 40]
+    ; top: source.x, source.y, source.w, intersection.y-source.y
+    mov eax, [r10]
+    mov [rsp + 16], eax
+    mov eax, [r10 + 4]
+    mov [rsp + 20], eax
+    mov eax, [r10 + 8]
+    mov [rsp + 24], eax
+    mov eax, [rsp + 4]
+    sub eax, [r10 + 4]
+    mov [rsp + 28], eax
+    lea rsi, [rsp + 16]
+    call .append_nonempty
+    ; bottom
+    mov r10, [rsp + 40]
+    mov eax, [r10]
+    mov [rsp + 16], eax
+    mov eax, [rsp + 4]
+    add eax, [rsp + 12]
+    mov [rsp + 20], eax
+    mov eax, [r10 + 8]
+    mov [rsp + 24], eax
+    mov edx, [r10 + 4]
+    add edx, [r10 + 12]
+    sub edx, eax
+    mov [rsp + 28], edx
+    lea rsi, [rsp + 16]
+    call .append_nonempty
+    ; left and right strips span the intersection height
+    mov r10, [rsp + 40]
+    mov eax, [r10]
+    mov [rsp + 16], eax
+    mov eax, [rsp + 4]
+    mov [rsp + 20], eax
+    mov eax, [rsp]
+    sub eax, [r10]
+    mov [rsp + 24], eax
+    mov eax, [rsp + 12]
+    mov [rsp + 28], eax
+    lea rsi, [rsp + 16]
+    call .append_nonempty
+    mov r10, [rsp + 40]
+    mov eax, [rsp]
+    add eax, [rsp + 8]
+    mov [rsp + 16], eax
+    mov eax, [rsp + 4]
+    mov [rsp + 20], eax
+    mov edx, [r10]
+    add edx, [r10 + 8]
+    sub edx, eax
+    mov [rsp + 24], edx
+    mov eax, [rsp + 12]
+    mov [rsp + 28], eax
+    lea rsi, [rsp + 16]
+    call .append_nonempty
+.source_next:
+    mov rcx, [rsp + 32]
+    inc rcx
+    jmp .source_loop
+.append_nonempty:
+    cmp dword [rsi + 8], 0
+    jle .append_ret
+    cmp dword [rsi + 12], 0
+    jle .append_ret
+.append:
+    mov rdi, r14
+    mov rax, r15
+    shl rax, 4
+    add rdi, rax
+    mov rdx, RECT_BYTES
+    call memcopy
+    inc r15
+.append_ret:
+    ret
+.install:
+    mov [rbx + Region.rects], r14
+    mov [rbx + Region.count], r15
+    lea rax, [r13 * 4]
+    mov [rbx + Region.capacity], rax
+.ok:
+    xor eax, eax
+    jmp .out
+.oom:
+    mov rax, -(ENOMEM)
+    jmp .out
+.invalid:
+    mov rax, -(EINVAL)
+.out:
+    add rsp, 48
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data
-
 global region_version
-region_version: dq 0x010000
+region_version: dq 0x010100
