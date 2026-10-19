@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define CursorTheme_size    40
+%define CursorTheme_SIZE 40
 %define MAX_CURSORS_PER_THEME  64
 
 section .text
@@ -64,6 +65,7 @@ global cursor_theme_load
 cursor_theme_load:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
+    mov r13, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
@@ -75,17 +77,12 @@ cursor_theme_load:
     test rax, rax
     jz .oom
     mov rbx, rax
-
-    ; Load theme index
-    ; TODO: Read theme.index file
-
-    ; For now, use default
     mov qword [rbx + CursorTheme.name], r12
     mov dword [rbx + CursorTheme.size], 32
     mov dword [rbx + CursorTheme.count], 0
 
     ; Allocate cursor array
-    mov rdi, [rdi + Server.arena]
+    mov rdi, [r13 + Server.arena]
     mov rsi, MAX_CURSORS_PER_THEME
     shl rsi, 3
     call arena_alloc
@@ -93,8 +90,13 @@ cursor_theme_load:
     jz .oom
     mov qword [rbx + CursorTheme.cursors], rax
 
-    ; Load default cursors
-    call cursor_theme_load_default
+    mov rcx, [r13 + Server.cursors]
+    mov [rax], rcx
+    mov [rbx + CursorTheme.fallback], rcx
+    test rcx, rcx
+    setnz al
+    movzx eax, al
+    mov [rbx + CursorTheme.count], eax
 
     mov rax, rbx
     EPILOGUE_RESTORE rbx, r12, r13
@@ -113,12 +115,6 @@ cursor_theme_load_default:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    ; Create default cursor set
-    ; This would normally load from .cursor files
-    ; For now, create placeholder
-
-    mov dword [rbx + CursorTheme.count], 24
-
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
     ret
@@ -133,11 +129,15 @@ cursor_theme_get_cursor:
     mov r12, rsi
     ASSERT_PTR rbx
 
-    ; Lookup cursor by name
-    ; TODO: Implement lookup
-
-    ; Return fallback
+    cmp dword [rbx + CursorTheme.count], 0
+    je .theme_fallback
+    mov rax, [rbx + CursorTheme.cursors]
+    mov rax, [rax]
+    test rax, rax
+    jnz .theme_out
+.theme_fallback:
     mov rax, [rbx + CursorTheme.fallback]
+.theme_out:
     EPILOGUE_RESTORE rbx, r12
     ret
 
