@@ -5,9 +5,10 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define FontChain_size    24
+%define FontChain_SIZE    24
 
 section .text
 
