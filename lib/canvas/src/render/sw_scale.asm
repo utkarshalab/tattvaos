@@ -84,14 +84,11 @@ sw_scale_nearest:
 
 ; ---------------------------------------------------------------------------
 ; sw_scale_bilinear
-;   Bilinear scaling (simplified - uses nearest for now)
+;   Bilinear scaling through the canonical native scalar kernel
 ; ---------------------------------------------------------------------------
 global sw_scale_bilinear
 sw_scale_bilinear:
-    PROLOGUE
-    call sw_scale_nearest
-    leave
-    ret
+    jmp scale_bilinear
 
 section .data
 global sw_scale_version
