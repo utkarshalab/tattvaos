@@ -6,9 +6,12 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
+%include "inc/channel.inc"
+%include "inc/cwp.inc"
 
 ; struct offsets (hoisted above use)
-%define Watchdog_size    40
+%define Watchdog_SIZE    40
 %define WATCHDOG_DEFAULT_TIMEOUT  5000000000  ; 5 seconds
 %define WATCHDOG_PING_INTERVAL    1000000000  ; 1 second
 
@@ -28,7 +31,7 @@ endstruc
 ; ---------------------------------------------------------------------------
 global watchdog_init
 watchdog_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -38,31 +41,32 @@ watchdog_init:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
-    mov qword [rbx + Watchdog.server], rdi
-    mov qword [rbx + Watchdog.timeout_ns], WATCHDOG_DEFAULT_TIMEOUT
-    mov qword [rbx + Watchdog.timer], 0
-    mov qword [rbx + Watchdog.suspects], 0
-    mov qword [rbx + Watchdog.kills], 0
-    mov qword [rdi + Server.watchdog], rbx
+    mov r13, rax
+    mov qword [r13 + Watchdog.server], rbx
+    mov qword [r13 + Watchdog.timeout_ns], WATCHDOG_DEFAULT_TIMEOUT
+    mov qword [r13 + Watchdog.timer], 0
+    mov qword [r13 + Watchdog.suspects], 0
+    mov qword [r13 + Watchdog.kills], 0
+    mov qword [rbx + Server.watchdog], r13
     ; arm periodic sweep
-    mov rdi, WATCHDOG_PING_INTERVAL
+    call tv_time_now_ns
+    lea rdi, [rax + WATCHDOG_PING_INTERVAL]
     mov rsi, watchdog_sweep
-    mov rdx, rbx
+    mov rdx, r13
     call tv_timer_register
     test rax, rax
-    jnz .fail
-    mov [rbx + Watchdog.timer], rax
+    js .fail
+    mov [r13 + Watchdog.timer], rax
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fail:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -76,14 +80,13 @@ watchdog_sweep:
     mov r12, [rbx + Watchdog.server]
     call tv_time_now_ns
     mov r13, rax
-    ; iterate client registry
-    ; TODO: real iteration; hook provided for event loop
     mov rdi, r12
     mov rsi, r13
     mov rdx, [rbx + Watchdog.timeout_ns]
     call watchdog_check_all
     ; re-arm
-    mov rdi, WATCHDOG_PING_INTERVAL
+    call tv_time_now_ns
+    lea rdi, [rax + WATCHDOG_PING_INTERVAL]
     mov rsi, watchdog_sweep
     mov rdx, rbx
     call tv_timer_register
@@ -100,9 +103,34 @@ watchdog_check_all:
     mov r12, rsi
     mov r13, rdx
     ASSERT_PTR rbx
-    ; registry iteration is server-specific; expose per-client check
+    mov rax, [rbx + Server.client_registry]
+    test rax, rax
+    jz .all_done
+    mov rdi, rbx
+    mov rsi, [rax]                 ; RBTree.root
+    call watchdog_walk_tree
+.all_done:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+watchdog_walk_tree:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    test r12, r12
+    jz .walk_done
+    mov rsi, [r12]
+    call watchdog_walk_tree
+    mov rdi, rbx
+    mov rsi, [r12 + 40]
+    call watchdog_check_client
+    mov rdi, rbx
+    mov rsi, [r12 + 8]
+    call watchdog_walk_tree
+.walk_done:
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -116,20 +144,20 @@ watchdog_check_client:
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    mov rax, [r12 + Client.last_ping]
+    mov r13, [rbx + Server.watchdog]
+    test r13, r13
+    jz .alive
+    cmp qword [r12 + Client.last_ping], 0
+    je .alive
     call tv_time_now_ns
     sub rax, [r12 + Client.last_ping]
-    mov r13, [rbx + Watchdog.server]
-    mov r13, [rbx + Watchdog.timeout_ns]
-    cmp rax, r13
+    cmp rax, [r13 + Watchdog.timeout_ns]
     jb .alive
     ; expired: contain + disconnect
     mov rdi, rbx
     mov rsi, r12
     call containment_fault
-    mov rax, [rbx + Watchdog.server]
-    mov rax, [rax + Server.watchdog]
-    inc qword [rax + Watchdog.kills]
+    inc qword [r13 + Watchdog.kills]
     mov rax, 1
     EPILOGUE_RESTORE rbx, r12, r13
     ret
@@ -150,7 +178,24 @@ watchdog_ping_client:
     ASSERT_PTR rbx
     call tv_time_now_ns
     mov [rbx + Client.ping_serial], rax
-    ; TODO: encode cw_display.ping into rx ring
+    sub rsp, 32
+    mov dword [rsp + MsgHdr_obj], CWP_OBJ_DISPLAY
+    mov word [rsp + MsgHdr_opcode], 2
+    mov word [rsp + MsgHdr_flags], CWP_MSG_FLAG_IS_EVENT
+    mov dword [rsp + MsgHdr_len], 8
+    mov [rsp + 16], rax
+    mov rdi, [rbx + Client.rx_ring]
+    test rdi, rdi
+    jz .ping_disconnected
+    mov rsi, rsp
+    lea rdx, [rsp + 16]
+    call msgbuf_write
+    add rsp, 32
+    EPILOGUE_RESTORE rbx
+    ret
+.ping_disconnected:
+    add rsp, 32
+    mov rax, -(ENOTCONN)
     EPILOGUE_RESTORE rbx
     ret
 
