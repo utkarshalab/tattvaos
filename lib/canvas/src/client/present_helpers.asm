@@ -10,6 +10,9 @@
 
 section .text
 
+%define CLIENT_PRESENT_VALID 104
+%define CLIENT_PRESENT_INFO  112
+
 global canvas_present_wait
 canvas_present_wait:
     PROLOGUE_SAVE rbx, r12, r13
@@ -17,8 +20,11 @@ canvas_present_wait:
     mov r12d, esi
     mov r13, rdx
     ASSERT_PTR rbx
-    ; TODO: send frame callback, block until frame_done or timeout
-    ; poll event loop with deadline
+    mov rdi, rbx
+    mov esi, r12d
+    call canvas_frame_request
+    test rax, rax
+    js .request_failed
     call tv_time_now_ns
     add rax, r13
     mov r13, rax
@@ -37,9 +43,20 @@ canvas_present_wait:
     add rsp, ClientEvent_size
     jmp .poll
 .got:
-    ; TODO: check event is frame_done for surface
+    cmp dword [rsp + ClientEvent.a], r12d
+    jne .other_event
+    mov byte [rbx + CLIENT_PRESENT_VALID], 1
+    mov dword [rbx + CLIENT_PRESENT_INFO], 0
+    mov rax, [rsp + ClientEvent.time]
+    mov [rbx + CLIENT_PRESENT_INFO + 16], rax
     add rsp, ClientEvent_size
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.other_event:
+    add rsp, ClientEvent_size
+    jmp .poll
+.request_failed:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 .timeout:
@@ -51,8 +68,13 @@ canvas_present_wait:
 global canvas_present_feedback
 canvas_present_feedback:
     PROLOGUE
-    ; TODO: return last PresentInfo
-    xor rax, rax
+    cmp byte [rdi + CLIENT_PRESENT_VALID], 0
+    je .no_feedback
+    lea rax, [rdi + CLIENT_PRESENT_INFO]
+    leave
+    ret
+.no_feedback:
+    xor eax, eax
     leave
     ret
 
