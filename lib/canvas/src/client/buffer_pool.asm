@@ -8,7 +8,7 @@
 %include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define ClientBufPool_size    48
+%define ClientBufPool_SIZE    48
 
 section .text
 
