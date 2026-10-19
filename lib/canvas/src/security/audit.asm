@@ -6,10 +6,12 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
-%include "inc/ring.asm"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+%include "inc/ring.inc"
 
 ; struct offsets (hoisted above use)
-%define AuditEntry_size    48
+%define AuditEntry_SIZE    48
 %define AUDIT_ACTION_CAP_GRANT      1
 %define AUDIT_ACTION_CAP_REVOKE     2
 %define AUDIT_ACTION_CAP_CHECK      3
@@ -44,36 +46,41 @@ endstruc
 ; ---------------------------------------------------------------------------
 global audit_init
 audit_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Allocate audit log ring buffer
+    ; Allocate the log header and backing entries separately.
+    mov rdi, r12
+    mov rsi, AuditLog_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov r13, rax
+
     mov rdi, r12
     mov rsi, AUDIT_LOG_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
 
-    ; Initialize ring buffer
-    mov qword [rbx + AuditLog.buffer], rbx
-    mov qword [rbx + AuditLog.capacity], AUDIT_LOG_SIZE
-    mov qword [rbx + AuditLog.head], 0
-    mov qword [rbx + AuditLog.tail], 0
-    mov qword [rbx + AuditLog.element_size], AuditEntry_size
-    mov qword [rbx + AuditLog.count], 0
+    mov qword [r13 + AuditLog.buffer], rax
+    mov qword [r13 + AuditLog.capacity], AUDIT_LOG_SIZE / AuditEntry_SIZE
+    mov qword [r13 + AuditLog.head], 0
+    mov qword [r13 + AuditLog.tail], 0
+    mov qword [r13 + AuditLog.element_size], AuditEntry_SIZE
+    mov qword [r13 + AuditLog.count], 0
 
-    mov qword [rdi + Server.audit_log], rbx
+    mov qword [rbx + Server.audit_log], r13
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -84,130 +91,116 @@ audit_init:
 global audit_log
 audit_log:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 32
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     mov r14, rcx
     mov r15, r8
+    mov [rsp], r9
+    mov [rsp + 8], r10
     ASSERT_PTR rbx
 
-    ; Get audit log
-    mov rax, [rbx + Server.audit_log]
-    test rax, rax
+    mov rbx, [rbx + Server.audit_log]
+    test rbx, rbx
     jz .no_log
 
-    ; Allocate details buffer
-    test r10, r10
-    jz .no_details
-
-    mov rdi, [rbx + Server.arena]
-    mov rsi, r10
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov r12, rax
-
-    mov rdi, r12
-    mov rsi, r9
-    mov rdx, r10
-    call memcopy
-
-.no_details:
-    xor r12, r12
-
-    ; Write entry
-    mov rdi, rax
-    mov rsi, r12  ; action
-    mov rdx, r13  ; client_id
-    mov rcx, r14  ; capability
-    mov r8, r15   ; result
-    mov r9, r12   ; details
-    mov r10, r10  ; details_len
-
-    ; Write to ring buffer
-    call audit_write_entry
-
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.no_log:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-; ---------------------------------------------------------------------------
-; audit_write_entry
-; ---------------------------------------------------------------------------
-audit_write_entry:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-
-    ; Get current head
     mov rax, [rbx + AuditLog.head]
-    mov rcx, [rbx + AuditLog.capacity]
-
-    ; Write entry
+    imul rax, AuditEntry_SIZE
     mov rdi, [rbx + AuditLog.buffer]
     add rdi, rax
+    mov [rsp + 16], rdi
 
-    ; Fill entry
     call tv_time_now_ns
-    mov [rdi + AuditEntry.timestamp], rax
-    mov [rdi + AuditEntry.client_id], r12
-    mov [rdi + AuditEntry.action], r13d
-    mov [rdi + AuditEntry.capability], r14
-    mov [rdi + AuditEntry.result], r15d
-    mov [rdi + AuditEntry.details_len], r10
-    mov [rdi + AuditEntry.details], r9
+    mov rdi, [rsp + 16]
+    mov [rdi + AuditEntry_timestamp], rax
+    mov [rdi + AuditEntry_client_id], r13
+    mov [rdi + AuditEntry_action], r12d
+    mov [rdi + AuditEntry_capability], r14
+    mov [rdi + AuditEntry_result], r15d
+    mov rax, [rsp + 8]
+    mov [rdi + AuditEntry_details_len], rax
+    mov rax, [rsp]
+    mov [rdi + AuditEntry_details], rax
 
-    ; Advance head
-    add rax, AuditEntry_size
-    cmp rax, rcx
-    jb .no_wrap
+    mov rax, [rbx + AuditLog.head]
+    inc rax
+    cmp rax, [rbx + AuditLog.capacity]
+    jb .head_ready
     xor rax, rax
-.no_wrap:
+.head_ready:
     mov [rbx + AuditLog.head], rax
 
-    ; Update count
-    mov rax, [rbx + AuditLog.count]
-    cmp rax, rcx
+    mov rcx, [rbx + AuditLog.count]
+    cmp rcx, [rbx + AuditLog.capacity]
     jae .full
     inc qword [rbx + AuditLog.count]
-    EPILOGUE_RESTORE rbx, r12
-    ret
+    jmp .done
 
 .full:
-    ; Overwrite oldest
-    add qword [rbx + AuditLog.tail], AuditEntry_size
-    cmp qword [rbx + AuditLog.tail], rcx
-    jb .no_wrap_tail
-    mov qword [rbx + AuditLog.tail], 0
-.no_wrap_tail:
-    EPILOGUE_RESTORE rbx, r12
+    mov rcx, [rbx + AuditLog.tail]
+    inc rcx
+    cmp rcx, [rbx + AuditLog.capacity]
+    jb .tail_ready
+    xor rcx, rcx
+.tail_ready:
+    mov [rbx + AuditLog.tail], rcx
+
+.done:
+    xor rax, rax
+.no_log:
+    add rsp, 32
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
 ; audit_query
-;   Query audit log
+;   Copy oldest-first entries into a caller buffer.
+;   IN: rdi = server*, rsi = AuditEntry output[], rdx = output capacity
+;   OUT: rax = number of entries copied
 ; ---------------------------------------------------------------------------
 global audit_query
 audit_query:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    ASSERT_PTR rdi
+    mov rbx, [rdi + Server.audit_log]
     mov r12, rsi
     mov r13, rdx
-    ASSERT_PTR rbx
-
-    ; TODO: Implement query with filters
+    ASSERT_PTR r12
+    test rbx, rbx
+    jz .query_empty
+    mov r15, [rbx + AuditLog.count]
+    cmp r15, r13
+    cmova r15, r13
+    mov r14, [rbx + AuditLog.tail]
+    xor r13, r13
+.query_loop:
+    cmp r13, r15
+    jae .query_done
+    mov rax, r14
+    imul rax, AuditEntry_SIZE
+    mov rsi, [rbx + AuditLog.buffer]
+    add rsi, rax
+    mov rdi, r12
+    mov rax, r13
+    imul rax, AuditEntry_SIZE
+    add rdi, rax
+    mov rdx, AuditEntry_SIZE
+    call memcopy
+    inc r14
+    cmp r14, [rbx + AuditLog.capacity]
+    jb .query_next
+    xor r14, r14
+.query_next:
+    inc r13
+    jmp .query_loop
+.query_done:
+    mov rax, r15
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+.query_empty:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data
