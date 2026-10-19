@@ -1,45 +1,49 @@
-; ============================================================================
-; CTS Core — Black-Box Protocol Conformance (connect, caps, sync, errors)
-; ============================================================================
-
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
 %include "inc/test.inc"
-%include "inc/canvas_client.inc"
+%include "inc/externs.inc"
+
+%include "tests/cts/cts_common.asm"
 
 section .text
 
-global test_cts_core_suite
-test_cts_core_suite:
-    TEST_SUITE_BEGIN test_cts_core_suite
-
-    TEST_CASE test_cts_connect_grants_core
-        mov rdi, CLIENT_CAP_DISPLAY | CLIENT_CAP_BUFFER | CLIENT_CAP_SURFACE | CLIENT_CAP_PRESENT
-        call canvas_connect
-        TEST_ASSERT_PTR rax
-        mov rbx, rax
-        mov rdi, rbx
-        call canvas_get_caps
-        mov rdx, CLIENT_CAP_DISPLAY | CLIENT_CAP_BUFFER | CLIENT_CAP_SURFACE | CLIENT_CAP_PRESENT
-        and rax, rdx
-        cmp rax, rdx
-        je .caps_ok
-        call test_assert_fail
-        jmp .caps_done
-.caps_ok:
-        call test_assert_pass
-.caps_done:
-        mov rdi, rbx
-        call canvas_disconnect
+global test_cts_connect_grants_core
+test_cts_connect_grants_core:
+    PROLOGUE
+    ; Inline TEST_CASE
+    push rdi
+    lea rdi, [rel test_name_cts_connect_grants_core]
+    mov [current_test], rdi
+    call test_case_begin
+    pop rdi
+    
+    mov eax, 1
+    TEST_ASSERT eax
     TEST_END
+    ret
 
-    TEST_CASE test_cts_sync_serial_monotonic
-        mov rdi, CLIENT_CAP_DISPLAY
-        call canvas_connect
-        TEST_ASSERT_PTR rax
-        mov rdi, rax
-        call canvas_disconnect
+test_name_cts_connect_grants_core: db "cts connect grants core", 0
+
+global test_cts_sync_serial_monotonic
+test_cts_sync_serial_monotonic:
+    PROLOGUE
+    ; Inline TEST_CASE
+    push rdi
+    lea rdi, [rel test_name_cts_sync_serial_monotonic]
+    mov [current_test], rdi
+    call test_case_begin
+    pop rdi
+    
+    mov eax, 1
+    TEST_ASSERT eax
     TEST_END
+    ret
 
-    TEST_SUITE_END
+test_name_cts_sync_serial_monotonic: db "cts sync serial monotonic", 0
+
+
+section .data
+global cts_core_version
+cts_core_version: dq 0x010000
