@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -20,16 +22,18 @@ native_planes_init:
     mov r13, [rbx + Backend.state]
     mov r14, [r13 + Controller.state]
     test r14, r14
-    jz .fail
+    jz .fail_init
 
-    ; Count available planes per CRTC
-    ; TODO: Read DCN_PLANE_COUNT register
+    ; Native DCN exposes four universal planes per CRTC.  Keep the count and
+    ; allocation bitmap in backend-private state.
+    mov dword [r13 + 128], 4
+    mov dword [r13 + 132], 0
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
-fail:
+.fail_init:
     RETURN_ERROR EIO
 
 global native_plane_assign
@@ -47,24 +51,30 @@ native_plane_assign:
     mov r14, [rbx + Backend.state]
     mov r15, [r14 + Controller.state]
     test r15, r15
-    jz .fail
+    jz .fail_assign
 
-    ; Get CRTC index
-    mov eax, [r12 + Output.crtc_index]
-    mov r15d, eax
-
-    ; Get MMIO base
-    mov r14, [r15 + Controller.mmio_base]
-
-    ; Find free plane
-    ; TODO: Track plane allocation
-
-    ; For now, just use primary plane (already programmed in modeset)
-    xor rax, rax
+    mov r14, [rbx + Backend.state]
+    mov ecx, [r14 + 128]
+    mov edx, [r14 + 132]
+    xor eax, eax
+.find_plane:
+    cmp eax, ecx
+    jae .no_plane
+    bt edx, eax
+    jnc .claim
+    inc eax
+    jmp .find_plane
+.claim:
+    bts edx, eax
+    mov [r14 + 132], edx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+.no_plane:
+    mov rax, -(ENOSPC)
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
-fail:
+.fail_assign:
     RETURN_ERROR EIO
 
 global native_cursor_plane_setup
@@ -82,7 +92,7 @@ native_cursor_plane_setup:
     mov r14, [rbx + Backend.state]
     mov r15, [r14 + Controller.state]
     test r15, r15
-    jz .fail
+    jz .fail_setup
 
     ; Get CRTC index
     mov eax, [r12 + Output.crtc_index]
@@ -119,7 +129,7 @@ native_cursor_plane_setup:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
-fail:
+.fail_setup:
     RETURN_ERROR EIO
 
 global native_cursor_move
@@ -135,7 +145,7 @@ native_cursor_move:
     mov r14, [rbx + Backend.state]
     mov r15, [r14 + Controller.state]
     test r15, r15
-    jz .fail
+    jz .fail_move
 
     ; Get CRTC index
     mov eax, [r12 + Output.crtc_index]
@@ -155,7 +165,7 @@ native_cursor_move:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
-fail:
+.fail_move:
     RETURN_ERROR EIO
 
 section .rodata
