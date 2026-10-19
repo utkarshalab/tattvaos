@@ -5,6 +5,8 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -22,8 +24,6 @@ damage_init:
 
     ; Create output damage region
     mov rdi, r12
-    mov rsi, r12
-    mov rdx, 8
     call region_init
     test rax, rax
     jnz .ok
@@ -46,32 +46,56 @@ damage_init:
 global damage_add_surface
 damage_add_surface:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 32
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
     ; Get surface current damage
-    mov rax, [r12 + Surface.current + SurfaceState.damage]
-    test rax, rax
+    mov r13, [r12 + Surface.current + SurfaceState.damage]
+    test r13, r13
     jz .no_damage
 
     ; Get surface transform and position
-    mov r13, [r12 + Surface.current + SurfaceState.transform]
-    mov r14, [r12 + Surface.current + SurfaceState.buf_x]
-    mov r15, [r12 + Surface.current + SurfaceState.buf_y]
-
-    ; Transform damage to output coordinates
-    ; TODO: Apply transform, scale, position
-
-    ; Add to output damage
+    movsxd r14, dword [r12 + Surface.current + SurfaceState.buf_x]
+    movsxd r15, dword [r12 + Surface.current + SurfaceState.buf_y]
+    mov rcx, [r13 + Region.count]
+    mov r13, [r13 + Region.rects]
+.damage_loop:
+    test rcx, rcx
+    jz .success
+    mov [rsp + 16], rcx
+    mov rdi, r12
+    mov rsi, r13
+    mov rdx, rsp
+    call surface_transform_rect
+    test rax, rax
+    js .error
+    add dword [rsp], r14d
+    add dword [rsp + 4], r15d
     mov rdi, [rbx + Server.damage_region]
-    mov rsi, rax
-    call region_union
-    TEST_ASSERT_OK rax
+    mov rsi, rsp
+    call region_add_rect
+    test rax, rax
+    js .error
+    add r13, 16
+    mov rcx, [rsp + 16]
+    dec rcx
+    jmp .damage_loop
+.success:
+    xor eax, eax
+    add rsp, 32
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+.error:
+    add rsp, 32
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
 
 .no_damage:
     xor rax, rax
+    add rsp, 32
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -82,6 +106,7 @@ damage_add_surface:
 global damage_add_rect
 damage_add_rect:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 16
     mov rbx, rdi
     mov r12d, esi
     mov r13d, edx
@@ -89,8 +114,14 @@ damage_add_rect:
     mov r15d, r8d
     ASSERT_PTR rbx
 
+    mov dword [rsp], r12d
+    mov dword [rsp + 4], r13d
+    mov dword [rsp + 8], r14d
+    mov dword [rsp + 12], r15d
     mov rdi, [rbx + Server.damage_region]
+    mov rsi, rsp
     call region_add_rect
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
