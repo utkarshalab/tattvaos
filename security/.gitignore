@@ -1,0 +1,33 @@
+# security/ — Tattva OS Enterprise Security Stack
+# Root .gitignore — ignore build outputs across all modules
+
+/bin/
+/build/
+/*.bin
+/*.o
+*.bin
+*.o
+*.obj
+*.exe
+*.tmp
+*.bak
+
+# Module-level build artifacts (defense in depth)
+*/bin/
+*/build/
+*/*.bin
+*/*.o
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+*/tests/*_test.bin
+*/tests/unit/*.bin
