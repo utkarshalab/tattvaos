@@ -7,9 +7,11 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/pixbuf.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define Cursor_size    48
+%define Cursor_SIZE 48
 %define CURSOR_DEFAULT      0
 %define CURSOR_TEXT         1
 %define CURSOR_POINTER      2
@@ -40,16 +42,7 @@
 
 section .text
 
-struc Cursor
-    .name:          resq 1
-    .pixbuf:        resq 1
-    .hotspot_x:     resd 1
-    .hotspot_y:     resd 1
-    .delay:         resd 1  ; for animated cursors
-    .next_frame:    resq 1
-endstruc
-
-
+; Cursor struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 ; ---------------------------------------------------------------------------
 ; cursor_init
 ; ---------------------------------------------------------------------------
@@ -83,17 +76,19 @@ cursor_load_theme:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; TODO: Read cursor theme from directory
-    ; For now, create default cursors
-
-    ; Create default cursor shapes using pixbuf
-    ; CURSOR_DEFAULT - arrow
+    ; Always provide a built-in theme; disk themes can override it later.
     call cursor_create_default
     test rax, rax
     jz .fail
 
     ; Store as default
     mov qword [rbx + Server.cursors], rax
+    mov rdi, rbx
+    lea rsi, [rel default_theme_name]
+    call cursor_theme_load
+    test rax, rax
+    jz .fail
+    mov [rbx + Server.cursor_theme], rax
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
@@ -125,18 +120,42 @@ cursor_create_default:
     jz .fail
     mov rbx, rax
 
-    ; Draw arrow shape
-    ; TODO: Draw actual arrow shape
-    ; For now, fill with white
     mov rdi, [rbx + PixBuf.data]
-    mov rsi, 0xFFFFFFFF
-    mov rdx, 32
-    mov rcx, 32
-    mov r8, 128
-    call fill_solid
+    xor eax, eax
+    mov ecx, 32 * 32
+    rep stosd
+    mov rdi, [rbx + PixBuf.data]
+    xor ecx, ecx
+.arrow_row:
+    cmp ecx, 24
+    jae .arrow_done
+    mov edx, ecx
+    shr edx, 1
+    add edx, 2
+    xor esi, esi
+.arrow_col:
+    cmp esi, edx
+    jae .arrow_next
+    mov eax, 0xffffffff
+    test esi, esi
+    jz .arrow_border
+    lea r8d, [rdx - 1]
+    cmp esi, r8d
+    jne .arrow_store
+.arrow_border:
+    mov eax, 0xff000000
+.arrow_store:
+    mov [rdi + rsi * 4], eax
+    inc esi
+    jmp .arrow_col
+.arrow_next:
+    add rdi, 128
+    inc ecx
+    jmp .arrow_row
+.arrow_done:
 
     ; Create cursor object
-    mov rdi, [r12 + Server.arena]
+    mov rdi, r12
     mov rsi, Cursor_size
     call arena_alloc
     test rax, rax
@@ -162,7 +181,7 @@ cursor_create_default:
 ; ---------------------------------------------------------------------------
 global cursor_create_from_pixbuf
 cursor_create_from_pixbuf:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     mov r13d, edx
@@ -190,16 +209,16 @@ cursor_create_from_pixbuf:
     mov dword [rax + Cursor.delay], 0
     mov qword [rax + Cursor.next_frame], 0
 
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .bad_hotspot:
     mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -208,8 +227,14 @@ cursor_create_from_pixbuf:
 global cursor_set_theme
 cursor_set_theme:
     PROLOGUE
-    ; TODO
+    test rsi, rsi
+    jz .theme_bad
+    mov [rdi + Server.cursor_theme], rsi
     xor rax, rax
+    leave
+    ret
+.theme_bad:
+    mov rax, -(EINVAL)
     leave
     ret
 
@@ -219,11 +244,21 @@ cursor_set_theme:
 ; ---------------------------------------------------------------------------
 global cursor_get
 cursor_get:
-    PROLOGUE
-    ; TODO: Lookup cursor by name
-    xor rax, rax
-    leave
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    mov rdi, [rbx + Server.cursor_theme]
+    test rdi, rdi
+    jz .cursor_builtin
+    call cursor_theme_get_cursor
+    EPILOGUE_RESTORE rbx
     ret
+.cursor_builtin:
+    mov rax, [rbx + Server.cursors]
+    EPILOGUE_RESTORE rbx
+    ret
+
+section .rodata
+default_theme_name: db "default",0
 
 ; ---------------------------------------------------------------------------
 ; cursor_set_image
