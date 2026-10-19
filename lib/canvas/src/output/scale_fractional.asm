@@ -6,8 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
-; struct offsets (hoisted above use)
 %define SCALE_NEAREST    0
 %define SCALE_BILINEAR   1
 %define SCALE_BICUBIC    2
@@ -106,8 +107,20 @@ scale_fractional_render:
     mov rax, [rbx + FrameCtx.output]
     mov rax, [rax + Output.scale]
 
-    ; Scale surface
-    ; TODO: Call sw_scale with fractional factor
+    mov rdi, [rbx + FrameCtx.framebuffer]
+    mov rsi, [r14 + Buffer.base]
+    mov rdx, [r14 + Buffer.width]
+    mov rcx, [r14 + Buffer.height]
+    mov r8, [r14 + Buffer.stride]
+    mov r9d, [rbx + FrameCtx.width]
+    mov r10d, [rbx + FrameCtx.height]
+    mov r11, [rbx + FrameCtx.stride]
+    cmp r13, SCALE_NEAREST
+    je .nearest
+    call sw_scale_bilinear
+    jmp .done
+.nearest:
+    call sw_scale_nearest
 
 .done:
     xor rax, rax
