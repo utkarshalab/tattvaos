@@ -22,6 +22,7 @@ blit_copy:
     mov r13, rdx
     mov r14, rcx
     mov r15, r8
+    mov r10, r9                    ; source stride
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
@@ -35,9 +36,7 @@ blit_copy:
     shl rax, 2
     cmp rax, r15
     jne .strided
-    cmp rax, r15
-    jne .strided
-    cmp r15, r8
+    cmp rax, r10
     jne .strided
 
     ; Contiguous - single memcpy
@@ -67,7 +66,7 @@ blit_copy:
     pop rbx
     pop r14
     add rbx, r15
-    add r12, r8
+    add r12, r10
     dec r14
     jnz .row_loop
 
@@ -88,6 +87,7 @@ blit_copy_sse2:
     mov r13, rdx
     mov r14, rcx
     mov r15, r8
+    mov r10, r9                    ; source stride
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
@@ -101,7 +101,7 @@ blit_copy_sse2:
     jnz .scalar
     test r15, 15
     jnz .scalar
-    test r8, 15
+    test r10, 15
     jnz .scalar
 
     ; Vector copy 16 bytes at a time
@@ -124,7 +124,7 @@ blit_copy_sse2:
     pop rbx
     pop r14
     add rbx, r15
-    add r12, r8
+    add r12, r10
     dec r14
     jnz .row_loop
 
@@ -144,6 +144,7 @@ blit_copy_sse2:
 ; ---------------------------------------------------------------------------
 memcopy_fast:
     PROLOGUE_SAVE rdi, rsi, rcx
+    mov rcx, rdx
     test rcx, rcx
     jz .done
     rep movsb
