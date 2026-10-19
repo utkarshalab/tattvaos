@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define GpuDevice_size    72
+%define GpuDevice_SIZE    72
 %define GPU_FAMILY_UNKNOWN   0
 %define GPU_FAMILY_GFX9      0x0900
 %define GPU_FAMILY_GFX10     0x0A00
@@ -19,18 +20,10 @@
 
 section .text
 
-struc GpuDevice
-    .family:         resd 1
-    .mmio_base:      resq 1
-    .mmio_size:      resq 1
-    .ring_gfx:       resq 1
-    .ring_compute:   resq 1
-    .ring_sdma:      resq 1
-    .mem_mgr:        resq 1
-    .fence_mgr:      resq 1
-    .enabled:        resb 1
-endstruc
+; GpuDevice struct layout (manual offsets to avoid NASM preprocessor issues)
+; Offsets defined in inc/struct_offsets.inc
 
+; ------------------
 
 
 ; ---------------------------------------------------------------------------
@@ -46,10 +39,12 @@ gpu_init:
     ASSERT_PTR r12
     mov rdi, [rbx + Server.arena]
     mov rsi, GpuDevice_size
+    mov r12, rbx
     call arena_alloc
     test rax, rax
     jz .oom
     mov rbx, rax
+    mov qword [rbx + GpuDevice.server], r12
     mov dword [rbx + GpuDevice.family], GPU_FAMILY_UNKNOWN
     mov qword [rbx + GpuDevice.mmio_base], 0
     mov qword [rbx + GpuDevice.mmio_size], 0
@@ -59,7 +54,7 @@ gpu_init:
     mov qword [rbx + GpuDevice.mem_mgr], 0
     mov qword [rbx + GpuDevice.fence_mgr], 0
     mov byte [rbx + GpuDevice.enabled], 0
-    mov qword [rdi + Server.gpu], rbx
+    mov qword [r12 + Server.gpu], rbx
     ; discover 3D controller (class 0x03 subclass 0x02)
     mov rdi, GPU_CLASS_DISPLAY
     mov rsi, GPU_SUBCLASS_3D
@@ -67,6 +62,7 @@ gpu_init:
     test rax, rax
     jz .no_gpu
     ; found: enable + map BAR0 (MMIO), BAR2 (VRAM aperture)
+    mov [rbx + GpuDevice.mem], rax
     mov rdi, rax
     call tv_pci_enable_device
     mov [rbx + GpuDevice.enabled], byte 1
@@ -104,8 +100,36 @@ gpu_detect_family:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
     ASSERT_PTR rbx
-    ; TODO: read device id via tv_pci_config_read_dword
+    mov rdi, [rbx + GpuDevice.mem]
+    xor esi, esi
+    call tv_pci_config_read_dword
+    test rax, rax
+    js .unsupported
+    mov edx, eax
+    and eax, 0xffff
+    cmp eax, 0x1002
+    jne .unsupported
+    shr edx, 16
+    cmp edx, 0x7400
+    jae .gfx11
+    cmp edx, 0x7300
+    jae .gfx10
+    cmp edx, 0x6600
+    jae .gfx9
+.unsupported:
+    mov dword [rbx + GpuDevice.family], GPU_FAMILY_UNKNOWN
+    mov rax, -(ENODEV)
+    EPILOGUE_RESTORE rbx
+    ret
+.gfx11:
+    mov dword [rbx + GpuDevice.family], GPU_FAMILY_GFX11
+    jmp .ok
+.gfx10:
+    mov dword [rbx + GpuDevice.family], GPU_FAMILY_GFX10
+    jmp .ok
+.gfx9:
     mov dword [rbx + GpuDevice.family], GPU_FAMILY_GFX9
+.ok:
     xor rax, rax
     EPILOGUE_RESTORE rbx
     ret
