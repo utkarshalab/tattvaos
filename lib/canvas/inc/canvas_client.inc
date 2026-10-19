@@ -6,6 +6,10 @@
 %ifndef __CANVAS_CLIENT_INC__
 %define __CANVAS_CLIENT_INC__
 
+%include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/events.inc"
+
 ; Opaque handles (all u64 client-side, validated server-side)
 ; conn: u64, surface/buffer/toplevel/etc: u32 generation-tagged
 
