@@ -6,17 +6,19 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define PolicyFloating_size    24
+%define PolicyFloating_SIZE    24
 
 section .text
 
-struc PolicyFloating
-    .base:              resq 1
-    .server:            resq 1
-    .data:              resq 1
-endstruc
+; PolicyFloating struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+
+; ----------
+
 
 ; ---------------------------------------------------------------------------
 ; policy_floating_init
@@ -68,9 +70,42 @@ policy_floating_layout:
     jz .done
 
 .layout_loop:
-    ; Check if window is within output bounds
-    ; TODO: Clamp to output
-    mov rax, [rax + Toplevel.next_ws]
+    mov r13,rax
+    mov ecx,[r13 + Toplevel.width]
+    mov edx,[r12 + Output.width]
+    cmp ecx,edx
+    jbe .width_ok
+    mov ecx,edx
+    mov [r13 + Toplevel.pending_width],ecx
+.width_ok:
+    mov r8d,[r13 + Toplevel.height]
+    mov r9d,[r12 + Output.height]
+    cmp r8d,r9d
+    jbe .height_ok
+    mov r8d,r9d
+    mov [r13 + Toplevel.pending_height],r8d
+.height_ok:
+    mov esi,[r13 + Toplevel.x]
+    mov edx,[r13 + Toplevel.y]
+    mov r10d,[r12 + Output.x]
+    mov r11d,[r12 + Output.y]
+    cmp esi,r10d
+    cmovl esi,r10d
+    cmp edx,r11d
+    cmovl edx,r11d
+    mov eax,[r12 + Output.x]
+    add eax,[r12 + Output.width]
+    sub eax,ecx
+    cmp esi,eax
+    cmovg esi,eax
+    mov eax,[r12 + Output.y]
+    add eax,[r12 + Output.height]
+    sub eax,r8d
+    cmp edx,eax
+    cmovg edx,eax
+    mov rdi,r13
+    call toplevel_set_position
+    mov rax,[r13 + Toplevel.next_ws]
     test rax, rax
     jnz .layout_loop
 
@@ -101,9 +136,16 @@ policy_floating_focus_change:
     mov r12, rsi
     ASSERT_PTR rbx
 
-    ; Raise focused window
-    ; TODO: Update z-order
-
+    test r12,r12
+    jz .done
+    mov rdi,[rbx + PolicyFloating.server]
+    mov rsi,[r12 + Toplevel.surface]
+    test rdi,rdi
+    jz .done
+    test rsi,rsi
+    jz .done
+    call zorder_top
+.done:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
@@ -126,19 +168,32 @@ policy_floating_new_window:
     jz .center
 
     ; Place at cursor
-    mov r13, [r13 + Seat.pointer]
-    mov eax, [r13 + Pointer.x]
-    mov [r12 + Toplevel.pending_width], eax
-    mov eax, [r13 + Pointer.y]
-    mov [r12 + Toplevel.pending_height], eax
-    mov byte [r12 + Toplevel.pending_state], 1
+    mov r13,[r13 + Seat.pointer]
+    test r13,r13
+    jz .center
+    mov esi,[r13 + Pointer.x]
+    mov edx,[r13 + Pointer.y]
+    mov rdi,r12
+    call toplevel_set_position
+    xor eax,eax
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .center:
-    ; Center on output
-    ; TODO
-
+    mov rax,[r12 + Toplevel.output]
+    test rax,rax
+    jz .done
+    mov esi,[rax + Output.width]
+    sub esi,[r12 + Toplevel.width]
+    sar esi,1
+    add esi,[rax + Output.x]
+    mov edx,[rax + Output.height]
+    sub edx,[r12 + Toplevel.height]
+    sar edx,1
+    add edx,[rax + Output.y]
+    mov rdi,r12
+    call toplevel_set_position
+.done:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
     ret
