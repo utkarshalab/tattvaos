@@ -6,20 +6,27 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
+
+; PolicyKiosk struct offsets (manual)
+%define PolicyKiosk_BASE        0
+%define PolicyKiosk_SERVER      8
+%define PolicyKiosk_DATA        16
+%define PolicyKiosk_ALLOWED_APP_ID 24
+%define PolicyKiosk_ALLOW_EXIT  32
+%define PolicyKiosk_AUTO_RESTART 33
+%define PolicyKiosk_SIZE        40
+
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define PolicyKiosk_size    40
+%define PolicyKiosk_SIZE    40
 
 section .text
 
-struc PolicyKiosk
-    .base:              resq 1
-    .server:            resq 1
-    .data:              resq 1
-    .allowed_app_id:    resq 1
-    .allow_exit:        resb 1
-    .auto_restart:      resb 1
-endstruc
+; PolicyKiosk struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
 ; ---------------------------------------------------------------------------
 ; policy_kiosk_init
@@ -125,7 +132,7 @@ policy_kiosk_focus_change:
 ; ---------------------------------------------------------------------------
 global policy_kiosk_new_window
 policy_kiosk_new_window:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -149,12 +156,12 @@ policy_kiosk_new_window:
 .allow:
     ; Allow first window
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .deny:
     mov rax, -(EPERM)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -163,8 +170,9 @@ policy_kiosk_new_window:
 ; ---------------------------------------------------------------------------
 global policy_kiosk_close_window
 policy_kiosk_close_window:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx,r12
     mov rbx, rdi
+    mov r12,rsi
     ASSERT_PTR rbx
 
     ; Check if exit allowed
@@ -178,19 +186,27 @@ policy_kiosk_close_window:
     jnz .restart
 
     mov rax, -(EPERM)
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx,r12
     ret
 
 .restart:
-    ; Auto-restart the app
-    ; TODO: Implement
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
+    ; Keep the managed window alive and restore the mandatory fullscreen
+    ; state. Process relaunch is handled by the kiosk session watchdog.
+    test r12,r12
+    jz .restart_denied
+    mov rdi,r12
+    call states_fullscreen
+    test rax,rax
+    jnz .restart_out
+.restart_denied:
+    mov rax,-EPERM
+.restart_out:
+    EPILOGUE_RESTORE rbx,r12
     ret
 
 .allow:
     xor rax, rax
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx,r12
     ret
 
 ; ---------------------------------------------------------------------------
