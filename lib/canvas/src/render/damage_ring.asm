@@ -6,6 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define DAMAGE_RING_SIZE    64  ; Number of frames to track
