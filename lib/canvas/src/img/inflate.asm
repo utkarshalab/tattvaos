@@ -6,9 +6,10 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define BitState_size    32
+%define BitState_SIZE 32
 %define INFLATE_MAX_WINDOW  32768
 
 section .text
@@ -117,7 +118,8 @@ inflate:
     ; align to byte
     mov rax, [rsp + BitState.nbits]
     and rax, 7
-    shr qword [rsp + BitState.buf], al
+    mov cl, al
+    shr qword [rsp + BitState.buf], cl
     sub qword [rsp + BitState.nbits], rax
     mov qword [rsp + BitState.buf], 0
     mov qword [rsp + BitState.nbits], 0
