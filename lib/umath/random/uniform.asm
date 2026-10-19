@@ -25,16 +25,16 @@ uniform_f64_two53:   dq 0x3CA0000000000000  ; 1.0 / 2^53 = 2^-53
 section .text
 
 ; -----------------------------------------------------------------------------
-; random_uniform_f32 — next u64 mapped to [0, 1) f32
+; umath_random_uniform_f32 — next u64 mapped to [0, 1) f32
 ; args:  rdi = pointer to random_state_t
 ; out:   xmm0 = f32 in [0, 1)
 ; clobbers: rax, rbx
 ; -----------------------------------------------------------------------------
-global random_uniform_f32
-random_uniform_f32:
+global umath_random_uniform_f32
+umath_random_uniform_f32:
     push    rbx
-    call    random_xoshiro256_next      ; rax = u64
-    mov     rbx, rdi                    ; rbx = state (random_xoshiro256_next may clobber)
+    call    umath_random_xoshiro256_next      ; rax = u64
+    mov     rbx, rdi                    ; rbx = state (umath_random_xoshiro256_next may clobber)
     shr     rax, 40                     ; rax = top 24 bits
     cvtsi2ss xmm0, rax                  ; xmm0 = u24 as f32
     mulss   xmm0, [rel uniform_f32_two24]   ; xmm0 *= 1/2^24
@@ -42,16 +42,16 @@ random_uniform_f32:
     ret
 
 ; -----------------------------------------------------------------------------
-; random_uniform_f64 — next u64 mapped to [0, 1) f64
+; umath_random_uniform_f64 — next u64 mapped to [0, 1) f64
 ; Input:  rdi = pointer to random_state_t
 ; OUT:    xmm0 = f64 in [0, 1)
 ; clobbers: rax, rbx
 ; -----------------------------------------------------------------------------
-global random_uniform_f64
-random_uniform_f64:
+global umath_random_uniform_f64
+umath_random_uniform_f64:
     push    rbx
-    call    random_xoshiro256_next      ; rax = u64
-    mov     rbx, rdi                    ; rbx = state (random_xoshiro256_next may clobber)
+    call    umath_random_xoshiro256_next      ; rax = u64
+    mov     rbx, rdi                    ; rbx = state (umath_random_xoshiro256_next may clobber)
     shr     rax, 11                     ; rax = top 53 bits
     cvtsi2sd xmm0, rax                  ; xmm0 = u53 as f64
     mulsd   xmm0, [rel uniform_f64_two53] ; xmm0 *= 1/2^53
@@ -59,17 +59,17 @@ random_uniform_f64:
     ret
 
 ; -----------------------------------------------------------------------------
-; random_uniform_f32_range — [lo, hi) f32
+; umath_random_uniform_f32_range — [lo, hi) f32
 ; args:  rdi = pointer to random_state_t
 ;        xmm0 = lo, xmm1 = hi
 ; out:   xmm0 = f32 in [lo, hi)
 ; clobbers: rax, rbx
 ; -----------------------------------------------------------------------------
-global random_uniform_f32_range
-random_uniform_f32_range:
+global umath_random_uniform_f32_range
+umath_random_uniform_f32_range:
     push    rbx
     movss   xmm2, xmm0                  ; xmm2 = lo (save before call)
-    call    random_uniform_f32          ; xmm0 = u in [0, 1)
+    call    umath_random_uniform_f32          ; xmm0 = u in [0, 1)
     subss   xmm1, xmm2                  ; xmm1 = hi - lo
     mulss   xmm0, xmm1                  ; xmm0 = u * (hi - lo)
     addss   xmm0, xmm2                  ; xmm0 = lo + u * (hi - lo)
@@ -77,17 +77,17 @@ random_uniform_f32_range:
     ret
 
 ; -----------------------------------------------------------------------------
-; random_uniform_f64_range — [lo, hi) f64
+; umath_random_uniform_f64_range — [lo, hi) f64
 ; args:  rdi = pointer to random_state_t
 ;        xmm0 = lo, xmm1 = hi
 ; out:   xmm0 = f64 in [lo, hi)
 ; clobbers: rax, rbx
 ; -----------------------------------------------------------------------------
-global random_uniform_f64_range
-random_uniform_f64_range:
+global umath_random_uniform_f64_range
+umath_random_uniform_f64_range:
     push    rbx
     movsd   xmm2, xmm0                  ; xmm2 = lo (save before call)
-    call    random_uniform_f64          ; xmm0 = u in [0, 1)
+    call    umath_random_uniform_f64          ; xmm0 = u in [0, 1)
     subsd   xmm1, xmm2                  ; xmm1 = hi - lo
     mulsd   xmm0, xmm1                  ; xmm0 = u * (hi - lo)
     addsd   xmm0, xmm2                  ; xmm0 = lo + u * (hi - lo)
@@ -95,15 +95,15 @@ random_uniform_f64_range:
     ret
 
 ; -----------------------------------------------------------------------------
-; random_fill_uniform_f32 — fill array with f32 uniform [0, 1)
+; umath_random_fill_uniform_f32 — fill array with f32 uniform [0, 1)
 ; args:  rdi = pointer to random_state_t
 ;        rsi = destination f32 array
 ;        rdx = count
 ; out:   none
 ; clobbers: rax, rbx, rcx
 ; -----------------------------------------------------------------------------
-global random_fill_uniform_f32
-random_fill_uniform_f32:
+global umath_random_fill_uniform_f32
+umath_random_fill_uniform_f32:
     push    rbx
     push    rcx
     mov     rbx, rdi                    ; rbx = state
@@ -113,7 +113,7 @@ random_fill_uniform_f32:
 .loop:
     push    rcx
     mov     rdi, rbx                    ; state
-    call    random_uniform_f32          ; xmm0 = u in [0, 1)
+    call    umath_random_uniform_f32          ; xmm0 = u in [0, 1)
     movss   [rsi], xmm0                 ; store to array
     add     rsi, 4
     pop     rcx
@@ -125,15 +125,15 @@ random_fill_uniform_f32:
     ret
 
 ; -----------------------------------------------------------------------------
-; random_fill_uniform_f64 — fill array with f64 uniform [0, 1)
+; umath_random_fill_uniform_f64 — fill array with f64 uniform [0, 1)
 ; args:  rdi = pointer to random_state_t
 ;        rsi = destination f64 array
 ;        rdx = count
 ; out:   none
 ; clobbers: rax, rbx, rcx
 ; -----------------------------------------------------------------------------
-global random_fill_uniform_f64
-random_fill_uniform_f64:
+global umath_random_fill_uniform_f64
+umath_random_fill_uniform_f64:
     push    rbx
     push    rcx
     mov     rbx, rdi                    ; rbx = state
@@ -143,7 +143,7 @@ random_fill_uniform_f64:
 .loop:
     push    rcx
     mov     rdi, rbx                    ; state
-    call    random_uniform_f64          ; xmm0 = u in [0, 1)
+    call    umath_random_uniform_f64          ; xmm0 = u in [0, 1)
     movsd   [rsi], xmm0                 ; store to array
     add     rsi, 8
     pop     rcx
