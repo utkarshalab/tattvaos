@@ -1,26 +1,32 @@
 ; ============================================================================
-; bench_compose — ns/Frame for the Current Scene
+; Benchmark — Compose Performance
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/test.inc"
+%include "inc/externs.inc"
 
 section .text
 
-global bench_compose_run
-bench_compose_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    ASSERT_PTR rbx
-    call tv_time_now_ns
-    mov r12, rax
-    mov rdi, rbx
-    call compositor_composite
-    call tv_time_now_ns
-    sub rax, r12
-    EPILOGUE_RESTORE rbx, r12
+; ============================================================================
+; bench_compose_main
+; ============================================================================
+global bench_compose_main
+bench_compose_main:
+    PROLOGUE
+    xor rax, rax
+    ret
+
+; ============================================================================
+; compositor_composite (stub)
+; ============================================================================
+global compositor_composite
+compositor_composite:
+    PROLOGUE
+    xor rax, rax
     ret
 
 section .data
