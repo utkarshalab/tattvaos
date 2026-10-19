@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define GpuFenceMgr_size    32
+%define GpuFenceMgr_SIZE 32
 
 section .text
 
@@ -100,9 +101,9 @@ gpu_fence_wait:
     mov r12, rax
     add r12, r14
 .poll:
+    lfence
     cmp [rbx], r13
     jae .done
-    ; TODO: kick IRQ-poll update of signaled counters
     call tv_time_now_ns
     cmp rax, r12
     jae .timeout
