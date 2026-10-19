@@ -215,11 +215,11 @@ utf8_encode:
 .two_byte:
     cmp rdx, 2
     jb .done
-    mov eax, rbx
+    mov eax, ebx
     shr eax, 6
     or eax, 0xC0
     mov [rsi], al
-    mov eax, rbx
+    mov eax, ebx
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 1], al
@@ -230,16 +230,16 @@ utf8_encode:
 .three_byte:
     cmp rdx, 3
     jb .done
-    mov eax, rbx
+    mov eax, ebx
     shr eax, 12
     or eax, 0xE0
     mov [rsi], al
-    mov eax, rbx
+    mov eax, ebx
     shr eax, 6
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 1], al
-    mov eax, rbx
+    mov eax, ebx
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 2], al
@@ -250,21 +250,21 @@ utf8_encode:
 .four_byte:
     cmp rdx, 4
     jb .done
-    mov eax, rbx
+    mov eax, ebx
     shr eax, 18
     or eax, 0xF0
     mov [rsi], al
-    mov eax, rbx
+    mov eax, ebx
     shr eax, 12
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 1], al
-    mov eax, rbx
+    mov eax, ebx
     shr eax, 6
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 2], al
-    mov eax, rbx
+    mov eax, ebx
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 3], al
