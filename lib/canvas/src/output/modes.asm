@@ -6,48 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
-
-; struct offsets (hoisted above use)
-%define Mode_width          0
-%define Mode.width 0
-%define Mode_height         4
-%define Mode.height 4
-%define Mode_htotal         8
-%define Mode.htotal 8
-%define Mode_hsync_start    12
-%define Mode.hsync_start 12
-%define Mode_hsync_end      16
-%define Mode.hsync_end 16
-%define Mode_vtotal         20
-%define Mode.vtotal 20
-%define Mode_vsync_start    24
-%define Mode.vsync_start 24
-%define Mode_vsync_end      28
-%define Mode.vsync_end 28
-%define Mode_flags          32
-%define Mode.flags 32
-%define Mode_pixel_clock    36
-%define Mode.pixel_clock 36
-%define Mode_refresh_ns     40
-%define Mode.refresh_ns 40
-%define Mode_width_mm       48
-%define Mode_height_mm      52
-%define Mode_hborder        56
-%define Mode_vborder        57
-%define Mode_hsync_offset   58
-%define Mode.hsync_offset 58
-%define Mode_hsync_width    60
-%define Mode.hsync_width 60
-%define Mode_vsync_offset   62
-%define Mode.vsync_offset 62
-%define Mode_vsync_width    63
-%define Mode.vsync_width 63
-%define Mode_size           64
-%define MODE_FLAG_HSYNC_POSITIVE   (1 << 0)
-%define MODE_FLAG_VSYNC_POSITIVE   (1 << 1)
-%define MODE_FLAG_INTERLACED       (1 << 2)
-%define MODE_FLAG_PREFERRED        (1 << 3)
-%define MODE_FLAG_VRR              (1 << 4)
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 section .text
 
@@ -181,56 +141,70 @@ mode_from_edid:
     mov [rbx + Mode.pixel_clock], eax
 
     ; Horizontal active
-    mov al, [r12 + 2]
-    mov ah, [r12 + 4]
-    and ah, 0xF0
-    shr ah, 4
+    mov r8b, [r12 + 2]
+    mov r9b, [r12 + 4]
+    and r9b, 0xF0
+    shr r9b, 4
+    mov ax, r8w
+    or ax, r9w
     mov [rbx + Mode.width], ax
 
     ; Horizontal blanking
-    mov al, [r12 + 3]
-    mov ah, [r12 + 4]
-    and ah, 0x0F
+    mov r8b, [r12 + 3]
+    mov r9b, [r12 + 4]
+    and r9b, 0x0F
+    mov ax, r8w
+    or ax, r9w
     mov [rbx + Mode.hblank], ax
 
     ; Vertical active
-    mov al, [r12 + 5]
-    mov ah, [r12 + 7]
-    and ah, 0xF0
-    shr ah, 4
+    mov r8b, [r12 + 5]
+    mov r9b, [r12 + 7]
+    and r9b, 0xF0
+    shr r9b, 4
+    mov ax, r8w
+    or ax, r9w
     mov [rbx + Mode.height], ax
 
     ; Vertical blanking
-    mov al, [r12 + 6]
-    mov ah, [r12 + 7]
-    and ah, 0x0F
+    mov r8b, [r12 + 6]
+    mov r9b, [r12 + 7]
+    and r9b, 0x0F
+    mov ax, r8w
+    or ax, r9w
     mov [rbx + Mode.vblank], ax
 
     ; HSync offset
-    mov al, [r12 + 8]
-    mov ah, [r12 + 10]
-    and ah, 0xF0
-    shr ah, 4
+    mov r8b, [r12 + 8]
+    mov r9b, [r12 + 10]
+    and r9b, 0xF0
+    shr r9b, 4
+    mov ax, r8w
+    or ax, r9w
     mov [rbx + Mode.hsync_offset], ax
 
     ; HSync width
-    mov al, [r12 + 9]
-    mov ah, [r12 + 10]
-    and ah, 0x0F
+    mov r8b, [r12 + 9]
+    mov r9b, [r12 + 10]
+    and r9b, 0x0F
+    mov ax, r8w
+    or ax, r9w
     mov [rbx + Mode.hsync_width], ax
 
     ; VSync offset
-    mov al, [r12 + 11]
-    mov ah, [r12 + 10]
-    and ah, 0xC0
-    shr ah, 6
+    mov r8b, [r12 + 11]
+    mov r9b, [r12 + 10]
+    and r9b, 0xC0
+    shr r9b, 6
+    mov ax, r8w
+    or ax, r9w
     mov [rbx + Mode.vsync_offset], ax
 
     ; VSync width
-    mov al, [r12 + 11]
-    and al, 0x30
-    shr al, 4
-    mov [rbx + Mode.vsync_width], al
+    mov r8b, [r12 + 11]
+    and r8b, 0x30
+    shr r8b, 4
+    mov [rbx + Mode.vsync_width], r8b
 
     ; Compute totals
     mov ax, [rbx + Mode.width]
