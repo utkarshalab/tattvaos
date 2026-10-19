@@ -10,7 +10,7 @@
 %include "inc/font.inc"
 
 ; struct offsets (hoisted above use)
-%define FlattenCtx_size    32
+%define FlattenCtx_SIZE    32
 %define FLATTEN_MAX_DEPTH   10
 
 section .text
