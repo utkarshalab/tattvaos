@@ -148,7 +148,7 @@ edid_verify_checksum:
 ; ---------------------------------------------------------------------------
 global ddc_write
 ddc_write:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -156,9 +156,17 @@ ddc_write:
     mov r15, r8
     ASSERT_PTR rbx
 
-    ; TODO: Implement I2C write
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
+    mov rcx, r14
+    mov r8, r15
+    call tv_i2c_write
+    test rax, rax
+    jz .done
+    mov rax, -(EIO)
+.done:
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data
