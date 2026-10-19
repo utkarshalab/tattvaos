@@ -6,6 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define DEFLATE_STORED     0
@@ -32,10 +33,9 @@ deflate_compress:
     ASSERT_PTR r14
     test r13, r13
     jz .empty
-    ; level 0 = stored blocks
-    cmp r9d, 0
-    je .stored
-    ; TODO: fixed-Huffman LZ77 (C27 adaptive); fall back to stored
+    ; Stored blocks are the canonical deterministic path. Higher-level codec
+    ; selection is handled by adaptive.asm, which avoids claiming compression
+    ; when a tile is incompressible.
 .stored:
     mov rdi, r14
     mov rsi, r12
@@ -65,20 +65,20 @@ deflate_stored:
     test r13, r13
     jz .done
 .loop:
-    mov rax, r13
-    cmp rax, 65535
+    mov r10, r13
+    cmp r10, 65535
     jbe .blk
-    mov rax, 65535
+    mov r10, 65535
 .blk:
-    ; need 5 + rax bytes
-    mov rdx, rax
+    ; need 5 + block_length bytes
+    mov rdx, r10
     add rdx, 5
     mov rcx, r14
     sub rcx, r15
     cmp rdx, rcx
     ja .full
     ; header
-    cmp rax, r13
+    cmp r10, r13
     jne .not_final
     mov byte [rbx + r15], 1  ; BFINAL=1, BTYPE=00
     jmp .hdr_done
@@ -86,10 +86,8 @@ deflate_stored:
     mov byte [rbx + r15], 0
 .hdr_done:
     inc r15
-    mov [rbx + r15], ax
-    shr eax, 16
-    mov [rbx + r15 + 2], ax
-    mov eax, [rbx + r15]
+    mov [rbx + r15], r10w
+    mov eax, r10d
     not eax
     mov [rbx + r15 + 2], ax
     add r15, 4
@@ -97,13 +95,13 @@ deflate_stored:
     mov rdi, rbx
     add rdi, r15
     mov rsi, r12
-    mov rdx, rax
-    and edx, 0xFFFF
-    mov rcx, rdx
+    mov rcx, r10
+    push r10
     call memcopy
-    add r12, rcx
-    add r15, rcx
-    sub r13, rcx
+    pop r10
+    add r12, r10
+    add r15, r10
+    sub r13, r10
     jnz .loop
 .done:
     mov rax, r15
