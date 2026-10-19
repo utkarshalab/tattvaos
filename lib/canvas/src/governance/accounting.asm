@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define Accounting_size    48
+%define Accounting_SIZE    48
 
 section .text
 
