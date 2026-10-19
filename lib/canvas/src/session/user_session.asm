@@ -6,27 +6,14 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
-%define UserSession_size    80
 %define SESSION_STATE_INACTIVE    0
 %define SESSION_STATE_ACTIVE      1
 %define SESSION_STATE_CLOSING     2
 
 section .text
-
-struc UserSession
-    .session_id:      resq 1
-    .user_id:         resq 1
-    .seat:            resq 1
-    .start_time:      resq 1
-    .last_activity:   resq 1
-    .state:           resd 1
-    .autostart_apps:  resq 1
-    .env_vars:        resq 1
-    .cwd:             resq 1
-endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; user_session_init
@@ -51,24 +38,25 @@ user_session_init:
 ; ---------------------------------------------------------------------------
 global user_session_create
 user_session_create:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
+    mov r14,rbx
 
     ; Allocate session
-    mov rdi, [rbx + Server.arena]
-    mov rsi, UserSession_size
+    mov rdi,[r14 + Server.arena]
+    mov rsi, UserSession_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
     mov rbx, rax
 
     ; Initialize
-    mov rax, [rdi + Server.next_session_id]
-    inc qword [rdi + Server.next_session_id]
+    mov rax,[r14 + Server.next_session_id]
+    inc qword [r14 + Server.next_session_id]
     mov qword [rbx + UserSession.session_id], rax
     mov qword [rbx + UserSession.user_id], r12
     mov qword [rbx + UserSession.seat], r13
@@ -81,21 +69,21 @@ user_session_create:
     mov qword [rbx + UserSession.cwd], 0
 
     ; Add to list
-    mov rax, [rdi + Server.user_sessions]
+    mov rax,[r14 + Server.user_sessions]
     mov [rbx + UserSession.next], rax
-    mov [rdi + Server.user_sessions], rbx
-    inc qword [rdi + Server.session_count]
+    mov [r14 + Server.user_sessions],rbx
+    inc qword [r14 + Server.session_count]
 
     ; Launch autostart apps
     call user_session_launch_autostart
 
     mov rax, rbx
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -103,7 +91,7 @@ user_session_create:
 ; ---------------------------------------------------------------------------
 global user_session_destroy
 user_session_destroy:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -112,14 +100,48 @@ user_session_destroy:
     ; Set state to closing
     mov dword [r12 + UserSession.state], SESSION_STATE_CLOSING
 
-    ; Close all apps in session
-    ; TODO
-
-    ; Remove from list
-    ; TODO
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    ; Detach the seat before unlinking so no new input or launches target it.
+    mov rax,[r12 + UserSession.seat]
+    test rax,rax
+    jz .find
+    mov rcx,[rax + Seat.session]
+    cmp rcx,r12
+    jne .find
+    mov qword [rax + Seat.session],0
+.find:
+    xor r13d,r13d
+    mov rax,[rbx + Server.user_sessions]
+.loop:
+    test rax,rax
+    jz .missing
+    cmp rax,r12
+    je .unlink
+    mov r13,rax
+    mov rax,[rax + UserSession.next]
+    jmp .loop
+.unlink:
+    mov rdx,[r12 + UserSession.next]
+    test r13,r13
+    jz .head
+    mov [r13 + UserSession.next],rdx
+    jmp .count
+.head:
+    mov [rbx + Server.user_sessions],rdx
+.count:
+    cmp qword [rbx + Server.session_count],0
+    je .corrupt
+    dec qword [rbx + Server.session_count]
+    mov dword [r12 + UserSession.state],SESSION_STATE_INACTIVE
+    mov qword [r12 + UserSession.autostart_apps],0
+    xor eax,eax
+    jmp .out
+.missing:
+    mov rax,-ENOENT
+    jmp .out
+.corrupt:
+    mov rax,-EINVAL
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -141,10 +163,10 @@ user_session_get:
     mov rax, [rax + UserSession.next]
     jmp .find_loop
 
-.find_loop:
+.find_next:
     mov rax, [rax + UserSession.next]
     test rax, rax
-    jnz .find_loop
+    jnz .find_next
 
 .not_found:
     xor rax, rax
@@ -159,9 +181,36 @@ user_session_get:
 ; user_session_launch_autostart
 ; ---------------------------------------------------------------------------
 user_session_launch_autostart:
-    PROLOGUE
-    ; TODO: Launch autostart applications
-    leave
+    PROLOGUE_SAVE rbx,r12
+    mov rbx,rdi
+    ASSERT_PTR rbx
+    cmp dword [rbx + UserSession.state],SESSION_STATE_ACTIVE
+    jne .inactive
+    ; The native session service populates this list and performs launches.
+    ; Canvas records ownership; an empty list is a successful no-op.
+    mov r12,[rbx + UserSession.autostart_apps]
+    test r12,r12
+    jz .ok
+    ; Non-empty launch descriptors are handed to the kernel task service as
+    ; (entry, argument, flags) triples followed by a next pointer.
+.launch:
+    mov rdi,[r12]
+    mov rsi,[r12+8]
+    mov rdx,[r12+16]
+    call tv_task_spawn
+    test rax,rax
+    js .out
+    mov r12,[r12+24]
+    test r12,r12
+    jnz .launch
+.ok:
+    xor eax,eax
+.out:
+    EPILOGUE_RESTORE rbx,r12
+    ret
+.inactive:
+    mov rax,-EINVAL
+    EPILOGUE_RESTORE rbx,r12
     ret
 
 section .data
