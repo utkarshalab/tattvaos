@@ -1,0 +1,112 @@
+# vertex-agent Configuration
+# TOML format
+
+[server]
+# gRPC server listen address
+address = "[::]:10010"
+
+# TLS configuration (optional, for production)
+# tls_cert = "sec/vault/vertex-agent/tls.crt"
+# tls_key = "sec/vault/vertex-agent/tls.key"
+
+[image]
+# Image pull settings
+registry_mirrors = [
+    "https://mirror.gcr.io",
+    "https://registry-1.docker.io"
+]
+
+# Insecure registries (skip TLS verify)
+insecure_registries = []
+
+# Pull timeout (nanoseconds)
+pull_timeout_ns = 300000000000
+
+# Max concurrent pulls
+max_concurrent_pulls = 4
+
+# Image GC policy
+gc_interval_ns = 300000000000
+gc_high_threshold = 85    # % disk usage to trigger GC
+gc_low_threshold = 70     # % disk usage to stop GC
+
+[sandbox]
+# Pod sandbox settings
+pause_image = "tattva.io/pause:latest"
+
+# Pod CIDR (overridden by node config)
+pod_cidr = "10.244.0.0/16"
+
+# Default DNS config
+dns_servers = ["10.96.0.10"]
+dns_searches = ["default.svc.cluster.local", "svc.cluster.local", "cluster.local"]
+dns_options = ["ndots:5"]
+
+[container]
+# Default resource limits
+default_cpu_quota_ns = 100000000    # 100ms period
+default_memory_limit = "512Mi"
+
+# Runtime settings
+default_runtime = "tattva"
+runtimes = { tattva = { path = "" } }
+
+# Log settings
+log_driver = "ulog"
+log_max_size = "10Mi"
+log_max_files = 5
+
+[network]
+# Network plugin (builtin = unet)
+plugin = "builtin"
+
+# CNI compatibility (if needed)
+cni_bin_dir = "/opt/cni/bin"
+cni_conf_dir = "/etc/cni/net.d"
+
+# Pod CIDR (from kubelet)
+# pod_cidr = ""
+
+# Service CIDR (for kube-proxy replacement)
+service_cidr = "10.96.0.0/12"
+
+# Network policy enforcement
+network_policy_enabled = true
+
+[volume]
+# Volume plugins
+plugins = ["builtin", "csi"]
+
+# CSI driver sockets
+csi_sockets = []
+
+# EmptyDir storage
+emptydir_storage = "tmpfs"  # or "uxfs"
+
+[m metrics]
+# Metrics collection
+enabled = true
+interval_ns = 10000000000   # 10 seconds
+
+# Export formats
+prometheus_enabled = true
+prometheus_path = "/metrics"
+
+[security]
+# Capability profile
+default_caps = [
+    "fs:read:data/self",
+    "fs:write:data/self",
+    "net:connect",
+    "sched:cpu_quota"
+]
+
+# Seccomp (not used in Tattva, kept for compat)
+seccomp_profile = "runtime/default"
+
+[debug]
+# Debug options
+pprof_enabled = false
+pprof_address = "127.0.0.1:6060"
+
+log_level = "info"  # debug, info, warn, error
