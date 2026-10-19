@@ -5,9 +5,11 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define Grab_size    56
+%define Grab_SIZE 56
 %define GRAB_NONE       0
 %define GRAB_POINTER    1
 %define GRAB_KEYBOARD   2
@@ -17,17 +19,7 @@
 
 section .text
 
-struc Grab
-    .seat:          resq 1
-    .surface:       resq 1
-    .type:          resd 1
-    .owner:         resq 1
-    .serial:        resq 1
-    .cursor:        resq 1
-    .confine:       resq 1
-endstruc
-
-
+; Grab struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
 ; ---------------------------------------------------------------------------
 ; grab_init
