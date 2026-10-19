@@ -6,29 +6,15 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/font.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define TtfFont_size    112
+%define TtfFont_SIZE    112
 
 section .text
 
-struc TtfFont
-    .data:          resq 1
-    .size:          resq 1
-    .num_tables:    resd 1
-    .dir:           resq 1
-    .cmap:          resq 1
-    .glyf:          resq 1
-    .loca:          resq 1
-    .head:          resq 1
-    .hhea:          resq 1
-    .hmtx:          resq 1
-    .kern:          resq 1
-    .maxp:          resq 1
-    .units_per_em:  resd 1
-    .loca_format:   resd 1
-    .num_glyphs:    resd 1
-endstruc
+; TtfFont struct layout (manual offsets to avoid NASM preprocessor issues)
+; Offsets defined in inc/struct_offsets.inc
 
 ; ---------------------------------------------------------------------------
 ; ttf_probe
