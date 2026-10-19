@@ -71,7 +71,7 @@ kernel_text_start:
 %include "kernel/arch/x86_64/pci_edu.asm"
 %include "kernel/arch/x86_64/pci_e1000e.asm"
 %include "kernel/arch/x86_64/ioapic.asm"
-%include "unet/core/link/net_link.asm"
+%include "lib/unet/core/link/net_link.asm"
 %include "lib/hw/ucpu/mtrr.asm"
 %include "lib/hw/ucpu/pat.asm"
 %include "lib/hw/ucpu/topology.asm"
@@ -147,7 +147,7 @@ kernel_text_start:
 %include "storage/uxfs/uxfs.asm"
 %include "storage/uwal/uwal.asm"    ; After uxfs: uses its NVMe driver
 %include "security/usrauth/usrauth.asm"   ; Reference monitor; needs crypto + time
-%include "unet/unet.asm"
+%include "lib/unet/unet.asm"
 
 ; Last: stubs for symbols the tree references but has never implemented. Being
 ; last means a real definition anywhere above wins, and the generator drops the
