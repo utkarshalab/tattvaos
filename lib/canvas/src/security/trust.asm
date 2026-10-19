@@ -6,41 +6,17 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
-
-; struct offsets (hoisted above use)
-%define TrustProfile_size    56
-%define PROFILE_TRUSTED    0
-%define PROFILE_STANDARD   1
-%define PROFILE_SANDBOXED  2
-%define PROFILE_REMOTE     3
-%define PROFILE_KIOSK      4
-%define PROFILE_CUSTOM     5
-%define PROFILE_FLAG_NO_PROMPTS     (1 << 0)
-%define PROFILE_FLAG_UNLIMITED_MEM  (1 << 1)
-%define PROFILE_FLAG_NO_AUDIT       (1 << 2)
-%define PROMPT_NEVER   0
-%define PROMPT_PRIVILEGED 1
-%define PROMPT_ALL     2
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+%include "inc/caps.inc"
 
 section .text
 
-struc TrustProfile
-    .name:          resq 1
-    .caps:          resq 1
-    .quota_mem:     resq 1
-    .quota_surfs:   resd 1
-    .quota_buffers: resd 1
-    .rate_msg_sec:  resq 1
-    .rate_bytes_sec: resq 1
-    .prompts:       resb 1
-    .flags:         resd 1
-endstruc
-
-
-
-
 ; ---------------------------------------------------------------------------
 ; trust_init
+;   Initialize trust profile subsystem
+;   IN:  rdi = server*, rsi = arena
+;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
 global trust_init
 trust_init:
@@ -53,8 +29,8 @@ trust_init:
     mov qword [rbx + Server.trust_profiles], 0
     mov qword [rbx + Server.arena], r12
 
-    ; Load profiles from config
-    call trust_load_profiles
+    ; Load built-in profiles
+    call trust_create_default_profiles
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
@@ -62,232 +38,235 @@ trust_init:
 
 ; ---------------------------------------------------------------------------
 ; trust_load_profiles
+;   Return the number of profiles currently loaded. Built-ins are installed
+;   during trust_init; persistent configuration can add profiles through
+;   trust_create_profile before clients are admitted.
 ; ---------------------------------------------------------------------------
+global trust_load_profiles
 trust_load_profiles:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Load from conf/profiles/*.profile
-    ; For now, create default profiles
-
-    call trust_create_default_profiles
-
+    PROLOGUE_SAVE rbx
+    ASSERT_PTR rdi
+    mov rbx, [rdi + Server.trust_profiles]
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+.count:
+    test rbx, rbx
+    jz .done
+    inc rax
+    mov rbx, [rbx + TrustProfile.next]
+    jmp .count
+.done:
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
 ; trust_create_default_profiles
+;   Create built-in trust profiles
 ; ---------------------------------------------------------------------------
+global trust_create_default_profiles
 trust_create_default_profiles:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
-    mov r12, rsi
     ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Trusted profile
-    call trust_create_profile
+    
+    ; Create trusted profile
+    mov rdi, [rbx + Server.arena]
+    mov rsi, TrustProfile_SIZE
+    call arena_alloc
     test rax, rax
-    js .fail
-
-    ; Standard profile
-    call trust_create_profile
+    jz .fail
+    mov r12, rax
+    
+    mov qword [r12 + TrustProfile.name], trusted_name
+    mov qword [r12 + TrustProfile.caps], -1  ; all capabilities
+    mov qword [r12 + TrustProfile.quota_mem], 0  ; unlimited
+    mov dword [r12 + TrustProfile.quota_surfs], -1
+    mov dword [r12 + TrustProfile.quota_buffers], -1
+    mov qword [r12 + TrustProfile.rate_msg_sec], 0
+    mov qword [r12 + TrustProfile.rate_bytes_sec], 0
+    mov byte [r12 + TrustProfile.prompts], PROMPT_NEVER
+    mov dword [r12 + TrustProfile.flags], PROFILE_FLAG_NO_PROMPTS | PROFILE_FLAG_UNLIMITED_MEM | PROFILE_FLAG_NO_AUDIT
+    
+    ; Add to server's trust_profiles list
+    mov rax, [rbx + Server.trust_profiles]
+    mov [r12 + TrustProfile.next], rax
+    mov [rbx + Server.trust_profiles], r12
+    
+    ; Create standard profile
+    mov rdi, [rbx + Server.arena]
+    mov rsi, TrustProfile_SIZE
+    call arena_alloc
     test rax, rax
-    js .fail
-
-    ; Sandboxed profile
-    call trust_create_profile
+    jz .fail
+    mov r13, rax
+    
+    mov qword [r13 + TrustProfile.name], standard_name
+    mov qword [r13 + TrustProfile.caps], CAP_DISPLAY | CAP_BUFFER | CAP_SURFACE | CAP_PRESENT | CAP_OUTPUT | CAP_SEAT | CAP_INPUT | CAP_CLIPBOARD
+    mov qword [r13 + TrustProfile.quota_mem], 512 * 1024 * 1024
+    mov dword [r13 + TrustProfile.quota_surfs], 64
+    mov dword [r13 + TrustProfile.quota_buffers], 32
+    mov qword [r13 + TrustProfile.rate_msg_sec], 1000
+    mov qword [r13 + TrustProfile.rate_bytes_sec], 10 * 1024 * 1024
+    mov byte [r13 + TrustProfile.prompts], PROMPT_PRIVILEGED
+    mov dword [r13 + TrustProfile.flags], 0
+    
+    mov rax, [rbx + Server.trust_profiles]
+    mov [r13 + TrustProfile.next], rax
+    mov [rbx + Server.trust_profiles], r13
+    
+    ; Create sandboxed profile
+    mov rdi, [rbx + Server.arena]
+    mov rsi, TrustProfile_SIZE
+    call arena_alloc
     test rax, rax
-    js .fail
-
-    ; Remote profile
-    call trust_create_profile
-    test rax, rax
-    js .fail
-
-    ; Kiosk profile
-    call trust_create_profile
-    test rax, rax
-    js .fail
-
+    jz .fail
+    mov r14, rax
+    
+    mov qword [r14 + TrustProfile.name], sandboxed_name
+    mov qword [r14 + TrustProfile.caps], CAP_DISPLAY | CAP_BUFFER | CAP_SURFACE | CAP_PRESENT
+    mov qword [r14 + TrustProfile.quota_mem], 128 * 1024 * 1024
+    mov dword [r14 + TrustProfile.quota_surfs], 16
+    mov dword [r14 + TrustProfile.quota_buffers], 8
+    mov qword [r14 + TrustProfile.rate_msg_sec], 100
+    mov qword [r14 + TrustProfile.rate_bytes_sec], 1024 * 1024
+    mov byte [r14 + TrustProfile.prompts], PROMPT_ALL
+    mov dword [r14 + TrustProfile.flags], 0
+    
+    mov rax, [rbx + Server.trust_profiles]
+    mov [r14 + TrustProfile.next], rax
+    mov [rbx + Server.trust_profiles], r14
+    
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .fail:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
 ; trust_create_profile
-;   IN: rdi = server*, rsi = arena, rdx = profile_type
+;   Create custom trust profile
+;   IN: rdi=server*, rsi=name, rdx=caps, rcx=memory quota,
+;       r8=surface quota, r9=buffer quota, r10=messages/sec,
+;       r11=bytes/sec
+;   OUT: rax=TrustProfile*, negative error
 ; ---------------------------------------------------------------------------
+global trust_create_profile
 trust_create_profile:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 32
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
+    mov r14, rcx
+    mov r15, r8
+    mov [rsp], r9
+    mov [rsp + 8], r10
+    mov [rsp + 16], r11
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov rdi, r12
-    mov rsi, TrustProfile_size
+    mov rdi, rbx
+    mov rsi, r12
+    call trust_get_profile
+    test rax, rax
+    jnz .exists
+
+    mov rdi, [rbx + Server.arena]
+    mov rsi, TrustProfile_SIZE
     call arena_alloc
     test rax, rax
-    jz .oom
-    mov rbx, rax
+    jz .create_oom
+    mov rdi, rax
+    mov [rdi + TrustProfile.caps], r13
+    mov [rdi + TrustProfile.quota_mem], r14
+    mov dword [rdi + TrustProfile.quota_surfs], r15d
+    mov eax, [rsp]
+    mov [rdi + TrustProfile.quota_buffers], eax
+    mov rax, [rsp + 8]
+    mov [rdi + TrustProfile.rate_msg_sec], rax
+    mov rax, [rsp + 16]
+    mov [rdi + TrustProfile.rate_bytes_sec], rax
+    mov byte [rdi + TrustProfile.prompts], PROMPT_PRIVILEGED
+    mov dword [rdi + TrustProfile.flags], 0
+    mov [rsp + 24], rdi
 
-    ; Fill based on type
-    cmp r13d, PROFILE_TRUSTED
-    je .trusted
-    cmp r13d, PROFILE_STANDARD
-    je .standard
-    cmp r13d, PROFILE_SANDBOXED
-    je .sandboxed
-    cmp r13d, PROFILE_REMOTE
-    je .remote
-    cmp r13d, PROFILE_KIOSK
-    je .kiosk
+    ; Profiles own their names; callers may release configuration buffers.
+    mov rdi, r12
+    call str_len
+    test rax, rax
+    jz .bad_name
+    inc rax
+    mov r15, rax
+    mov rdi, [rbx + Server.arena]
+    mov rsi, r15
+    call arena_alloc
+    test rax, rax
+    jz .create_oom
+    mov r13, rax
+    mov rdi, r13
+    mov rsi, r12
+    mov rdx, r15
+    call memcopy
 
-    jmp .custom
-
-.trusted:
-    mov qword [rbx + TrustProfile.name], trusted_name
-    mov qword [rbx + TrustProfile.caps], 0xFFFFFFFFFFFFFFFF
-    mov qword [rbx + TrustProfile.quota_mem], 0
-    mov dword [rbx + TrustProfile.quota_surfs], 0xFFFFFFFF
-    mov dword [rbx + TrustProfile.quota_buffers], 0xFFFFFFFF
-    mov qword [rbx + TrustProfile.rate_msg_sec], 0
-    mov qword [rbx + TrustProfile.rate_bytes_sec], 0
-    mov byte [rbx + TrustProfile.prompts], PROMPT_NEVER
-    jmp .done
-
-.standard:
-    mov qword [rbx + TrustProfile.name], standard_name
-    mov qword [rbx + TrustProfile.caps], STANDARD_CAPS
-    mov qword [rbx + TrustProfile.quota_mem], 64 * 1024 * 1024
-    mov dword [rbx + TrustProfile.quota_surfs], 256
-    mov dword [rbx + TrustProfile.quota_buffers], 64
-    mov qword [rbx + TrustProfile.rate_msg_sec], 1000
-    mov qword [rbx + TrustProfile.rate_bytes_sec], 10 * 1024 * 1024
-    mov byte [rbx + TrustProfile.prompts], PROMPT_PRIVILEGED
-    jmp .done
-
-.sandboxed:
-    mov qword [rbx + TrustProfile.name], sandboxed_name
-    mov qword [rbx + TrustProfile.caps], CORE_CAPS | CAP_SEAT | CAP_POINTER | CAP_KEYBOARD | CAP_TOUCH | CAP_TABLET | CAP_SHELL
-    mov qword [rbx + TrustProfile.quota_mem], 16 * 1024 * 1024
-    mov dword [rbx + TrustProfile.quota_surfs], 64
-    mov dword [rbx + TrustProfile.quota_buffers], 16
-    mov qword [rbx + TrustProfile.rate_msg_sec], 100
-    mov qword [rbx + TrustProfile.rate_bytes_sec], 1024 * 1024
-    mov byte [rbx + TrustProfile.prompts], PROMPT_ALL
-    jmp .done
-
-.remote:
-    mov qword [rbx + TrustProfile.name], remote_name
-    mov qword [rbx + TrustProfile.caps], STANDARD_CAPS | CAP_REMOTE
-    mov qword [rbx + TrustProfile.quota_mem], 32 * 1024 * 1024
-    mov dword [rbx + TrustProfile.quota_surfs], 128
-    mov dword [rbx + TrustProfile.quota_buffers], 32
-    mov qword [rbx + TrustProfile.rate_msg_sec], 500
-    mov qword [rbx + TrustProfile.rate_bytes_sec], 5 * 1024 * 1024
-    mov byte [rbx + TrustProfile.prompts], PROMPT_ALL
-    jmp .done
-
-.kiosk:
-    mov qword [rbx + TrustProfile.name], kiosk_name
-    mov qword [rbx + TrustProfile.caps], CORE_CAPS | CAP_SEAT | CAP_POINTER | CAP_KEYBOARD | CAP_TOUCH | CAP_TABLET | CAP_SHELL
-    mov qword [rbx + TrustProfile.quota_mem], 8 * 1024 * 1024
-    mov dword [rbx + TrustProfile.quota_surfs], 1
-    mov dword [rbx + TrustProfile.quota_buffers], 2
-    mov qword [rbx + TrustProfile.rate_msg_sec], 50
-    mov qword [rbx + TrustProfile.rate_bytes_sec], 512 * 1024
-    mov byte [rbx + TrustProfile.prompts], PROMPT_NEVER
-    jmp .done
-
-.custom:
-    ; For custom, caller must fill in
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-.done:
-    ; Add to profile list
-    mov rax, [rdi + Server.trust_profiles]
-    mov [rbx + TrustProfile.next], rax
-    mov [rdi + Server.trust_profiles], rbx
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-.oom:
+    mov rdi, [rsp + 24]
+    mov [rdi + TrustProfile.name], r13
+    mov rax, [rbx + Server.trust_profiles]
+    mov [rdi + TrustProfile.next], rax
+    mov [rbx + Server.trust_profiles], rdi
+    mov rax, rdi
+    jmp .create_done
+.exists:
+    mov rax, -(EEXIST)
+    jmp .create_done
+.create_oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    jmp .create_done
+.bad_name:
+    mov rax, -(EINVAL)
+.create_done:
+    add rsp, 32
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
 ; trust_get_profile
+;   Get profile by name
+;   IN: rdi=server*, rsi=NUL-terminated name
+;   OUT: rax=TrustProfile* or 0
 ; ---------------------------------------------------------------------------
 global trust_get_profile
 trust_get_profile:
     PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
+    ASSERT_PTR rdi
+    ASSERT_PTR rsi
+    mov rbx, [rdi + Server.trust_profiles]
     mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov rax, [rbx + Server.trust_profiles]
-.find_loop:
-    test rax, rax
+.find:
+    test rbx, rbx
     jz .not_found
-    mov r12, [rax + TrustProfile.name]
-    mov rdi, r12
-    mov rsi, rsi
-    call str_compare
+    mov rdi, [rbx + TrustProfile.name]
+    mov rsi, r12
+    call str_cmp
     test rax, rax
     jz .found
-    mov rax, [rax + TrustProfile.next]
-    jmp .find_loop
-
+    mov rbx, [rbx + TrustProfile.next]
+    jmp .find
+.found:
+    mov rax, rbx
+    EPILOGUE_RESTORE rbx, r12
+    ret
 .not_found:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
 
-.found:
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; trust_assign_profile
-; ---------------------------------------------------------------------------
-global trust_assign_profile
-trust_assign_profile:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov qword [r12 + Client.trust_profile], rbx
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-section .rodata
-trusted_name:    db "trusted", 0
-standard_name:   db "standard", 0
-sandboxed_name:  db "sandboxed", 0
-remote_name:     db "remote", 0
-kiosk_name:      db "kiosk", 0
-
 section .data
+
+trusted_name:     db "trusted", 0
+standard_name:    db "standard", 0
+sandboxed_name:   db "sandboxed", 0
+
 global trust_version
 trust_version: dq 0x010000
