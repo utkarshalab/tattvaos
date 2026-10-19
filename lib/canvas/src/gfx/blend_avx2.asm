@@ -4,6 +4,8 @@
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
+%include "inc/errors.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -56,9 +58,13 @@ blend_avx2:
     vpsrlw ymm4, ymm2, 8
     vpsrlw ymm5, ymm0, 8
 
+    ; Load alpha_255 constant
+    vmovdqa ymm6, [alpha_255]
+    vmovdqa ymm7, [alpha_255]
+
     ; 255 - alpha
-    vpsubw ymm6, [alpha_255], ymm4
-    vpsubw ymm7, [alpha_255], ymm5
+    vpsubw ymm6, ymm6, ymm4
+    vpsubw ymm7, ymm7, ymm5
 
     ; Multiply and shift
     vpmullw ymm3, ymm3, ymm6
