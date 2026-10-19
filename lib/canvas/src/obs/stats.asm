@@ -6,27 +6,17 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
+%include "inc/struct_offsets.inc"
 
 ; struct offsets (hoisted above use)
-%define ClientStats_size    104
+%define ClientStats_SIZE    104
 
 section .text
 
-struc ClientStats
-    .client_id:      resq 1
-    .frames:         resq 1
-    .commits:        resq 1
-    .damages:        resq 1
-    .events_in:      resq 1
-    .events_out:     resq 1
-    .bytes_in:       resq 1
-    .bytes_out:      resq 1
-    .proto_errors:   resq 1
-    .last_commit:    resq 1
-    .last_present:   resq 1
-    .commit_to_present_ns: resq 1
-    .mem_bytes:      resq 1
-endstruc
+; ClientStats struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+; ----------
 
 ; ---------------------------------------------------------------------------
 ; stats_init
