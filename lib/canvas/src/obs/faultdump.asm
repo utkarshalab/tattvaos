@@ -5,29 +5,14 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define FaultDump_size    104
+%define FaultDump_SIZE    104
 
 section .text
 
-struc FaultDump
-    .time_ns:       resq 1
-    .fault_code:    resd 1
-    .client_id:     resq 1
-    .object:        resd 1
-    .opcode:        resw 1
-    .rax:           resq 1
-    .rbx:           resq 1
-    .rcx:           resq 1
-    .rdx:           resq 1
-    .rsi:           resq 1
-    .rdi:           resq 1
-    .rbp:           resq 1
-    .rsp:           resq 1
-    .rip:           resq 1
-endstruc
+; FaultDump struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
 ; ---------------------------------------------------------------------------
 ; faultdump_init
