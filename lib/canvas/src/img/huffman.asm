@@ -6,17 +6,17 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define HuffDec_size    (16 + 288)
+%define HuffDec_SIZE    304
 
 section .text
 
-struc HuffDec
-    .counts:        resb 16
-    .symbols:       resb 288
-endstruc
+; HuffDec struct layout (manual offsets to avoid NASM preprocessor issues)
+; Offsets defined in inc/struct_offsets.inc
 
+; ------------------
 ; ---------------------------------------------------------------------------
 ; huff_build
 ;   IN: rdi = HuffDec*, rsi = lengths[n], rdx = n (<=288)
@@ -142,7 +142,10 @@ huff_decode:
     jmp .len
 .found:
     lea rax, [rbx + 16]
-    movzx eax, byte [rax + r15 + rdx]
+    mov rsi, rax
+    add rsi, r15
+    add rsi, rdx
+    movzx eax, byte [rsi]
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .refill:
