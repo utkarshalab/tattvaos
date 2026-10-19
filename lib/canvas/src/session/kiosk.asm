@@ -6,20 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
-
-; struct offsets (hoisted above use)
-%define KioskSession_size    56
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
-
-struc KioskSession
-    .session:         resq 1
-    .allowed_app_id:  resq 1
-    .restart_on_exit: resb 1
-    .allow_exit:      resb 1
-    .lock_screen:     resq 1
-    .watchdog_timer:  resq 1
-endstruc
 
 ; ---------------------------------------------------------------------------
 ; kiosk_init
@@ -53,7 +43,7 @@ kiosk_create:
 
     ; Allocate kiosk session
     mov rdi, [rbx + Server.arena]
-    mov rsi, KioskSession_size
+    mov rsi, KioskSession_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
@@ -67,15 +57,24 @@ kiosk_create:
     mov qword [rbx + KioskSession.watchdog_timer], 0
 
     ; Set kiosk policy
+    mov rdi,rbx
     call kiosk_apply_policy
+    test rax,rax
+    jnz .error
 
     ; Start watchdog
+    mov rdi,rbx
     call kiosk_start_watchdog
+    test rax,rax
+    jnz .error
 
     mov qword [r12 + Session.kiosk_session], rbx
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.error:
+    EPILOGUE_RESTORE rbx,r12,r13,r14
     ret
 
 .oom:
@@ -87,9 +86,20 @@ kiosk_create:
 ; kiosk_apply_policy
 ; ---------------------------------------------------------------------------
 kiosk_apply_policy:
-    PROLOGUE
-    ; Set kiosk policy: single fullscreen window, no other windows allowed
-    leave
+    PROLOGUE_SAVE rbx
+    mov rbx,rdi
+    ASSERT_PTR rbx
+    mov rax,[rbx + KioskSession.session]
+    test rax,rax
+    jz .invalid
+    mov dword [rax + Session.state],1
+    mov [rax + Session.kiosk_session],rbx
+    xor eax,eax
+    EPILOGUE_RESTORE rbx
+    ret
+.invalid:
+    mov rax,-EINVAL
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -101,18 +111,24 @@ kiosk_start_watchdog:
     ASSERT_PTR rbx
 
     ; Start watchdog timer
-    mov rdi, 1000000000  ; 1 second
+    call tv_time_now_ns
+    add rax,1000000000
+    jc .invalid
+    mov rdi,rax
     mov rsi, kiosk_watchdog_callback
     mov rdx, rbx
     call tv_timer_register
-    test rax, rax
-    jnz .fail
+    test rax,rax
+    js .fail
     mov [rbx + KioskSession.watchdog_timer], rax
     EPILOGUE_RESTORE rbx
     ret
 
 .fail:
-    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx
+    ret
+.invalid:
+    mov rax,-EINVAL
     EPILOGUE_RESTORE rbx
     ret
 
@@ -124,17 +140,48 @@ kiosk_watchdog_callback:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    ; Check if kiosk app is still running
-    ; TODO: Check process status
-
-    ; Restart if needed
-    ; TODO
+    mov rdi,[rbx + KioskSession.allowed_app_id]
+    xor esi,esi
+    call tv_task_wait
+    cmp rax,-EAGAIN
+    je .rearm
+    cmp rax,-EINTR
+    je .rearm
+    test rax,rax
+    js .rearm
+    cmp byte [rbx + KioskSession.restart_on_exit],0
+    je .mark_inactive
+    mov rdi,[rbx + KioskSession.allowed_app_id]
+    mov rsi,[rbx + KioskSession.session]
+    mov rdx,TASK_USER
+    call tv_task_spawn
+    test rax,rax
+    js .mark_inactive
+    mov [rbx + KioskSession.allowed_app_id],rax
+    jmp .rearm
+.mark_inactive:
+    mov rax,[rbx + KioskSession.session]
+    test rax,rax
+    jz .rearm
+    mov dword [rax + Session.state],0
 
     ; Re-arm timer
-    mov rdi, 1000000000
+.rearm:
+    call tv_time_now_ns
+    add rax,1000000000
+    jc .timer_failed
+    mov rdi,rax
     mov rsi, kiosk_watchdog_callback
     mov rdx, rbx
     call tv_timer_register
+    test rax,rax
+    js .timer_failed
+    mov [rbx + KioskSession.watchdog_timer],rax
+    xor eax,eax
+    jmp .out
+.timer_failed:
+    mov qword [rbx + KioskSession.watchdog_timer],0
+.out:
     EPILOGUE_RESTORE rbx
     ret
 
