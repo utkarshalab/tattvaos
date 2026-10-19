@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/rect.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 section .text
 
@@ -17,47 +19,51 @@ section .text
 ; ---------------------------------------------------------------------------
 global hittest_surface
 hittest_surface:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12d, esi
     mov r13d, edx
     ASSERT_PTR rbx
 
-    ; Get surface geometry
-    mov eax, [rbx + Surface.current + SurfaceState.buf_x]
-    mov edx, [rbx + Surface.current + SurfaceState.buf_y]
-    ; TODO: Get buffer width/height
-
-    ; For now, use input region
-    mov rax, [rdi + Surface.current + SurfaceState.input]
+    mov rax, [rbx + Surface.current + SurfaceState.input]
     test rax, rax
     jz .use_opaque
 
     ; Check input region
     mov rdi, rax
-    mov rsi, r12d
-    mov rdx, r13d
+    mov esi, r12d
+    mov edx, r13d
     call region_contains_point
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .use_opaque:
-    mov rax, [rdi + Surface.current + SurfaceState.opaque]
+    mov rax, [rbx + Surface.current + SurfaceState.opaque]
     test rax, rax
     jz .no_region
 
     mov rdi, rax
-    mov rsi, r12d
-    mov rdx, r13d
+    mov esi, r12d
+    mov edx, r13d
     call region_contains_point
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .no_region:
-    ; Fall back to buffer geometry
-    ; TODO: Implement buffer geometry check
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    test r12d, r12d
+    js .miss
+    test r13d, r13d
+    js .miss
+    cmp r12d, [rbx + Surface.current + SurfaceState.width]
+    jae .miss
+    cmp r13d, [rbx + Surface.current + SurfaceState.height]
+    jae .miss
+    mov eax, 1
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.miss:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -84,7 +90,7 @@ hittest_surface_tree:
     test r14, r14
     jz .linear_search
 
-    ; TODO: Use z-order tree for efficient hit testing
+    ; zorder_iterate is bottom-to-top; the linear list is maintained top-first.
 
 .linear_search:
     ; Linear search through surfaces
