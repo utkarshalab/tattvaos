@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
 
@@ -31,7 +33,7 @@ native_vblank_init:
 
     mov rax, [r13 + Output.crtc_index]
     mov rdi, [r14 + Controller.irq]
-    add rdi, eax  ; CRTC-specific IRQ
+    add rdi, rax  ; CRTC-specific IRQ
     mov rsi, native_vblank_handler
     mov rdx, r13  ; output as user_data
     mov rcx, IRQ_EDGE
