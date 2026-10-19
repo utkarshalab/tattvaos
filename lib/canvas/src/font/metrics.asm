@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/font.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define FontMetrics_size    32
+%define FontMetrics_SIZE    32
 
 section .text
 
