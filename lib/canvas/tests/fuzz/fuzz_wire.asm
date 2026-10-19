@@ -1,24 +1,23 @@
 ; ============================================================================
-; fuzz_wire — Wire Parser Fuzz Target
+; Fuzz Wire — Fuzz Tests for Wire Protocol
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
+%include "inc/test.inc"
+%include "inc/externs.inc"
 
 section .text
 
-global fuzz_wire_run
-fuzz_wire_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    mov rdi, rbx
-    mov rsi, r12
-    call fuzz_target_wire
+; ============================================================================
+; fuzz_target_wire (stub)
+; ============================================================================
+global fuzz_target_wire
+fuzz_target_wire:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
