@@ -6,25 +6,15 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define Metrics_size    88
+%define Metrics_SIZE    88
 
 section .text
 
-struc Metrics
-    .server:         resq 1
-    .frames:         resq 1
-    .dropped:        resq 1
-    .commits:        resq 1
-    .presents:       resq 1
-    .input_events:   resq 1
-    .proto_errors:   resq 1
-    .faults:        resq 1
-    .last_fps_time:  resq 1
-    .last_frames:    resq 1
-    .fps:            resq 1
-endstruc
+; Metrics struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
 ; ---------------------------------------------------------------------------
 ; metrics_init
