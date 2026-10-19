@@ -6,6 +6,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/font.inc"
+%include "inc/canvas_client.inc"
 
 section .text
 
