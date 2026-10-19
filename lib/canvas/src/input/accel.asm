@@ -5,10 +5,11 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 %include "inc/fixed.inc"
 
 ; struct offsets (hoisted above use)
-%define AccelProfile_size    32
+%define AccelProfile_SIZE 32
 %define ACCEL_FLAT        0
 %define ACCEL_ADAPTIVE    1
 %define ACCEL_CUSTOM      2
@@ -98,9 +99,9 @@ pointer_accel_apply:
     ; sqrt(velocity^2)
     ; For simplicity, use linear approximation
     ; If velocity > threshold, apply acceleration
-    mov eax, r12
+    mov eax, r12d
     imul eax, eax
-    mov edx, r13
+    mov edx, r13d
     imul edx, edx
     add eax, edx
     ; Compare with threshold^2
@@ -123,14 +124,14 @@ pointer_accel_apply:
     ; Call custom function
     mov rax, [rbx + AccelProfile.custom_fn]
     test rax, rax
-    jz .flat
+    jz .custom_fallback
     mov rdi, r12
     mov rsi, r13
     call rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
-.flat:
+.custom_fallback:
     mov rax, r12
     mov rdx, r13
     EPILOGUE_RESTORE rbx, r12, r13, r14
