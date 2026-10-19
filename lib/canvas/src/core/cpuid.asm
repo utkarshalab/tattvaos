@@ -7,6 +7,20 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
+
+; CPU Feature bitmasks
+%define CPU_HAS_SSE2      (1 << 0)
+%define CPU_HAS_SSE3      (1 << 1)
+%define CPU_HAS_SSSE3     (1 << 2)
+%define CPU_HAS_SSE4_1    (1 << 3)
+%define CPU_HAS_SSE4_2    (1 << 4)
+%define CPU_HAS_AVX       (1 << 5)
+%define CPU_HAS_FMA       (1 << 6)
+%define CPU_HAS_AVX2      (1 << 7)
+%define CPU_HAS_AVX512F   (1 << 8)
+%define CPU_HAS_AVX512BW  (1 << 9)
+%define CPU_HAS_AVX512VL  (1 << 10)
 
 section .text
 
@@ -20,17 +34,17 @@ cpuid_init:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
 
     ; Check CPUID supported
-    pushfd
+    pushfq
     pop rax
     mov rbx, rax
     xor rax, 0x200000
     push rax
-    popfd
-    pushfd
+    popfq
+    pushfq
     pop rax
     xor rax, rbx
     push rbx
-    popfd
+    popfq
     test rax, 0x200000
     jz .no_cpuid
 
@@ -90,8 +104,16 @@ cpuid_init:
     ; AVX (ecx bit 28) + OS support (ecx bit 27)
     test dword [cpu_features_ecx], (1 << 28) | (1 << 27)
     jnz .has_avx
-    jmp .no_avx
+    jmp .done_avx
 .has_avx:
+    ; AVX is usable only when the OS saves both XMM and YMM state.
+    mov r8, rax
+    xor ecx, ecx
+    xgetbv
+    and eax, 6
+    cmp eax, 6
+    jne .done_avx
+    mov rax, r8
     or rax, CPU_HAS_AVX
     ; FMA (ecx bit 12)
     test dword [cpu_features_ecx], 1 << 12
@@ -105,27 +127,27 @@ cpuid_init:
 .no_avx2:
     ; AVX-512F (ebx bit 16)
     test dword [cpu_features_ebx], 1 << 16
-    jz .no_avx512f
+    jz .done_avx512f
     or rax, CPU_HAS_AVX512F
     ; AVX-512BW (ebx bit 30)
     test dword [cpu_features_ebx], 1 << 30
-    jz .no_avx512bw
+    jz .done_avx512bw
     or rax, CPU_HAS_AVX512BW
-.no_avx512bw:
+.done_avx512bw:
     ; AVX-512VL (ebx bit 31)
     test dword [cpu_features_ebx], 1 << 31
-    jz .no_avx512vl
+    jz .done_avx512vl
     or rax, CPU_HAS_AVX512VL
-.no_avx512vl:
+.done_avx512vl:
 
-.no_avx512f:
-.no_avx2:
-.no_fma:
-.no_avx:
-.no_sse42:
-.no_sse41:
-.no_ssse3:
-.no_sse3:
+.done_avx512f:
+.done_avx2:
+.done_fma:
+.done_avx:
+.done_sse42:
+.done_sse41:
+.done_ssse3:
+.done_sse3:
     ; Patch dispatch functions
     mov rdi, rax
     call patch_dispatch
@@ -150,8 +172,10 @@ patch_dispatch:
     mov [cpu_feature_mask], rbx
 
     ; Patch blend_dispatch
-    test rbx, CPU_HAS_AVX512F + CPU_HAS_AVX512BW + CPU_HAS_AVX512VL
-    jz .check_avx2
+    mov rax, rbx
+    and rax, CPU_HAS_AVX512F | CPU_HAS_AVX512BW | CPU_HAS_AVX512VL
+    cmp rax, CPU_HAS_AVX512F | CPU_HAS_AVX512BW | CPU_HAS_AVX512VL
+    jne .check_avx2
     mov rax, blend_avx512
     jmp .patch_blend
 .check_avx2:
@@ -174,7 +198,7 @@ patch_dispatch:
     sub rax, 5
     mov dword [r12 + 1], eax
 
-    ; TODO: Patch other dispatch functions (fill, blit, scale, etc.)
+    ; Other primitives have their own stable dispatch entry points.
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
