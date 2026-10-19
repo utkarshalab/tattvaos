@@ -3,6 +3,7 @@
 ; ============================================================================
 
 %include "inc/abi.inc"
+%include "inc/externs.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/handle.inc"
