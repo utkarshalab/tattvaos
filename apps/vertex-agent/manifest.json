@@ -1,0 +1,27 @@
+{
+  "name": "vertex-agent",
+  "version": "0.1.0",
+  "description": "CRI Runtime for Tattva OS — translates kubelet gRPC to Tattva primitives",
+  "main": "main",
+  "capabilities": [
+    "net:bind:port=10010",
+    "net:raw:unet_socket",
+    "net:namespace:create",
+    "fs:mount:overlayfs",
+    "fs:read:data/vertex-agent/images",
+    "fs:write:data/vertex-agent/images",
+    "fs:read:data/vertex-agent/containers",
+    "fs:write:data/vertex-agent/containers",
+    "fs:read:data/vertex-agent/pods",
+    "fs:write:data/vertex-agent/pods",
+    "sched:fiber_create",
+    "sched:fiber_kill",
+    "cap:delegate",
+    "cap:restrict",
+    "ulog:sink:create",
+    "umetric:export"
+  ],
+  "models": [],
+  "author": "Utkarsha Labs",
+  "license": "Apache-2.0"
+}
