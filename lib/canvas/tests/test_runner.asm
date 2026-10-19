@@ -25,6 +25,7 @@ extern test_tile_diff_suite
 extern test_rfb_suite
 extern test_inflate_suite
 extern test_png_suite
+extern test_webp_suite
 extern test_ttf_suite
 
 ; ---------------------------------------------------------------------------
@@ -101,6 +102,10 @@ test_runner_init:
 
     ; Test PNG
     call test_png_suite
+    add rbx, rax
+
+    ; Test WebP container, VP8L entropy, and inverse transforms
+    call test_webp_suite
     add rbx, rax
 
     ; Test TTF
