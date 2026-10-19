@@ -58,9 +58,8 @@ current_test:   resq 1
 %endmacro
 
 %macro TEST_CASE 1
-    ; %1 = test name (string label)
     push rdi
-    mov rdi, %1
+    lea rdi, [rel %1]
     mov [current_test], rdi
     call test_case_begin
     pop rdi
@@ -81,6 +80,91 @@ current_test:   resq 1
     cmp %1, %2
     je %%pass
     call test_assert_eq_fail
+    jmp %%done
+%%pass:
+    call test_assert_pass
+%%done:
+%endmacro
+
+%macro TEST_ASSERT_NE 2
+    cmp %1, %2
+    jne %%pass
+    call test_assert_ne_fail
+    jmp %%done
+%%pass:
+    call test_assert_pass
+%%done:
+%endmacro
+
+%macro TEST_ASSERT_PTR 1
+    test %1, %1
+    jnz %%pass
+    call test_assert_null_fail
+    jmp %%done
+%%pass:
+    call test_assert_pass
+%%done:
+%endmacro
+
+%macro TEST_ASSERT_ERROR 1
+    ; %1 = register with return value, expect negative
+    test %1, %1
+    js %%pass
+    call test_assert_error_fail
+    jmp %%done
+%%pass:
+    call test_assert_pass
+%%done:
+%endmacro
+
+%macro TEST_ASSERT_OK 1
+    test %1, %1
+    jns %%pass
+    call test_assert_ok_fail
+    jmp %%done
+%%pass:
+    call test_assert_pass
+%%done:
+%endmacro
+
+%macro TEST_ASSERT_ALIGNED 2
+    ; %1 = value to check, %2 = alignment (power of 2)
+    mov rax, %1
+    mov rcx, %2
+    dec rcx
+    test rax, rcx
+    jz %%pass
+    call test_assert_fail
+    jmp %%done
+%%pass:
+    call test_assert_pass
+%%done:
+%endmacro
+
+%macro TEST_ASSERT_GE 2
+    cmp %1, %2
+    jge %%pass
+    call test_assert_fail
+    jmp %%done
+%%pass:
+    call test_assert_pass
+%%done:
+%endmacro
+
+%macro TEST_ASSERT_LE 2
+    cmp %1, %2
+    jle %%pass
+    call test_assert_fail
+    jmp %%done
+%%pass:
+    call test_assert_pass
+%%done:
+%endmacro
+
+%macro TEST_ASSERT_LT 2
+    cmp %1, %2
+    jl %%pass
+    call test_assert_fail
     jmp %%done
 %%pass:
     call test_assert_pass
