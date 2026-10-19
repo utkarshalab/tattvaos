@@ -23,17 +23,17 @@ System V AMD64 ABI throughout. State is a `random_state_t` (32 bytes: 4 × u64) 
 
 | Function | Args | Returns | Clobbers |
 |----------|------|---------|----------|
-| `random_xoshiro256_next` | `rdi = *state` | `rax = u64` | rbx, rbp |
-| `random_xoshiro256_seed_from_u64` | `rdi = *state, rsi = seed u64` | state filled | rbx |
-| `random_xoshiro256_seed_from_urand` | `rdi = *state, rsi = urand_fill` | `rax = 1/0` | rbx, r12 |
-| `random_uniform_f32` | `rdi = *state` | `xmm0 = f32 [0,1)` | rbx |
-| `random_uniform_f64` | `rdi = *state` | `xmm0 = f64 [0,1)` | rbx |
-| `random_uniform_f32_range` | `rdi = *state, xmm0 = lo, xmm1 = hi` | `xmm0 = f32 [lo,hi)` | rbx |
-| `random_uniform_f64_range` | `rdi = *state, xmm0 = lo, xmm1 = hi` | `xmm0 = f64 [lo,hi)` | rbx |
-| `random_fill_uniform_f32` | `rdi = *state, rsi = *dst, rdx = count` | array filled | rbx, rcx |
-| `random_fill_uniform_f64` | `rdi = *state, rsi = *dst, rdx = count` | array filled | rbx, rcx |
+| `umath_random_xoshiro256_next` | `rdi = *state` | `rax = u64` | rcx, r8, r9 |
+| `umath_random_xoshiro256_seed_from_u64` | `rdi = *state, rsi = seed u64` | state filled | rcx, r8 |
+| `umath_random_xoshiro256_seed_from_urand` | `rdi = *state, rsi = urand_fill` | `rax = 1/0` | all SysV caller-saved |
+| `umath_random_uniform_f32` | `rdi = *state` | `xmm0 = f32 [0,1)` | rax, rcx, r8, r9 |
+| `umath_random_uniform_f64` | `rdi = *state` | `xmm0 = f64 [0,1)` | rax, rcx, r8, r9 |
+| `umath_random_uniform_f32_range` | `rdi = *state, xmm0 = lo, xmm1 = hi` | `xmm0 = f32 [lo,hi)` | rax, rcx, r8, r9, xmm1, xmm2 |
+| `umath_random_uniform_f64_range` | `rdi = *state, xmm0 = lo, xmm1 = hi` | `xmm0 = f64 [lo,hi)` | rax, rcx, r8, r9, xmm1, xmm2 |
+| `umath_random_fill_uniform_f32` | `rdi = *state, rsi = *dst, rdx = count` | array filled | rax, rsi, r8, r9, xmm0 |
+| `umath_random_fill_uniform_f64` | `rdi = *state, rsi = *dst, rdx = count` | array filled | rax, rsi, r8, r9, xmm0 |
 
-**Precision:** f32 uses top 24 bits of u64 (24-bit mantissa). f64 uses top 53 bits of u64 (53-bit mantissa). Both map to `[0, 1)` — 0.0 possible, 1.0 is not.
+**Seeding:** `seed_from_u64` fills s0..s3 with the first four splitmix64 outputs for the seed, the seeding the xoshiro authors recommend, so a given seed gives the same stream as the reference C code. `seed_from_urand` reads 32 bytes of entropy straight into the state and replaces the one invalid state (all zero) with s0 = 1.
 
 **Precision:** f32 uses top 24 bits of u64 (24-bit mantissa). f64 uses top 53 bits of u64 (53-bit mantissa). Both map to `[0, 1)` — 0.0 possible, 1.0 is not.
 
@@ -41,7 +41,7 @@ System V AMD64 ABI throughout. State is a `random_state_t` (32 bytes: 4 × u64) 
 
 ```text
 random/ depends on:
-  → lib/urand/   (seeding only, via random_xoshiro256_seed_from_urand;
+  → lib/urand/   (seeding only, via umath_random_xoshiro256_seed_from_urand;
                  optional — seed_from_u64 needs nothing)
 ```
 
