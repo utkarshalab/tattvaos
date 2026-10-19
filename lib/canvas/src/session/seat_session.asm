@@ -6,23 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
-
-; struct offsets (hoisted above use)
-%define SeatSession_size    64
+%include "inc/image.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
-
-struc SeatSession
-    .seat:              resq 1
-    .user_id:           resq 1
-    .active:            resb 1
-    .locked:            resb 1
-    .lock_surface:      resq 1
-    .idle_timer:        resq 1
-    .idle_timeout:      resq 1
-    .inhibit_count:     resd 1
-    .power_inhibit:     resq 1
-endstruc
 
 ; ---------------------------------------------------------------------------
 ; seat_session_init
@@ -36,7 +24,7 @@ seat_session_init:
     ASSERT_PTR r12
 
     mov rdi, [rbx + Server.arena]
-    mov rsi, SeatSession_size
+    mov rsi, SeatSession_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
@@ -101,18 +89,24 @@ seat_session_start_idle_timer:
     ret
 
 .create_timer:
-    mov rdi, [rbx + SeatSession.idle_timeout]
+    call tv_time_now_ns
+    add rax,[rbx + SeatSession.idle_timeout]
+    jc .invalid
+    mov rdi,rax
     mov rsi, seat_session_idle_callback
     mov rdx, rbx
     call tv_timer_register
-    test rax, rax
-    jnz .fail
+    test rax,rax
+    js .fail
     mov [rbx + SeatSession.idle_timer], rax
     EPILOGUE_RESTORE rbx
     ret
 
 .fail:
-    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx
+    ret
+.invalid:
+    mov rax,-EINVAL
     EPILOGUE_RESTORE rbx
     ret
 
@@ -144,12 +138,30 @@ seat_session_lock:
 
     mov byte [rbx + SeatSession.locked], 1
 
-    ; Create lock surface
-    ; TODO: Create lock screen surface
+    mov rax,[rbx + SeatSession.seat]
+    mov rax,[rax + Seat.shell]
+    test rax,rax
+    jz .rollback
+    mov rdi,[rax + Shell.arena]
+    mov esi,1920
+    mov edx,1080
+    mov rcx,DRM_FORMAT_BGRA8888
+    call pixbuf_create
+    test rax,rax
+    jz .rollback
+    mov [rbx + SeatSession.lock_surface],rax
+    mov rdi,[rax + PixBuf.data]
+    mov esi,0xFF101010
+    mov edx,[rax + PixBuf.width]
+    mov ecx,[rax + PixBuf.height]
+    mov r8,[rax + PixBuf.stride]
+    call fill_solid
 
     ; Notify policy
     mov rax, [rbx + SeatSession.seat]
     mov rax, [rax + Seat.shell]
+    test rax,rax
+    jz .done
     mov rax, [rax + Shell.policy]
     test rax, rax
     jz .done
@@ -159,6 +171,11 @@ seat_session_lock:
 
 .done:
     xor rax, rax
+    EPILOGUE_RESTORE rbx
+    ret
+.rollback:
+    mov byte [rbx + SeatSession.locked],0
+    mov rax,-ENOMEM
     EPILOGUE_RESTORE rbx
     ret
 
@@ -181,12 +198,18 @@ seat_session_unlock:
 
     mov byte [rbx + SeatSession.locked], 0
 
-    ; Destroy lock surface
-    ; TODO
+    mov rdi,[rbx + SeatSession.lock_surface]
+    test rdi,rdi
+    jz .notify
+    call pixbuf_destroy
+    mov qword [rbx + SeatSession.lock_surface],0
 
     ; Notify policy
+.notify:
     mov rax, [rbx + SeatSession.seat]
     mov rax, [rax + Seat.shell]
+    test rax,rax
+    jz .done
     mov rax, [rax + Shell.policy]
     test rax, rax
     jz .done
@@ -239,10 +262,11 @@ seat_session_uninhibit_idle:
     mov rbx, rdi
     ASSERT_PTR rbx
 
+    cmp dword [rbx + SeatSession.inhibit_count],0
+    je .underflow
     dec dword [rbx + SeatSession.inhibit_count]
-    jl .underflow
-    test dword [rbx + SeatSession.inhibit_count], 0
-    jnz .done
+    cmp dword [rbx + SeatSession.inhibit_count],0
+    jne .done
 
     ; Restart idle timer
     call seat_session_start_idle_timer
