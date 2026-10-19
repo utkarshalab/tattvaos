@@ -7,11 +7,8 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/caps.inc"
-
-; struct offsets (hoisted above use)
-%define Gate_size    16
-
-section .text
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; Privileged capabilities that require gate
 %define GATE_CAP_CAPTURE    CAP_CAPTURE
@@ -19,18 +16,19 @@ section .text
 %define GATE_CAP_POLICY     CAP_POLICY
 %define GATE_CAP_DEBUG      CAP_DEBUG
 %define GATE_CAP_SESSION    CAP_SESSION
+%define GATE_PRIVILEGED_MASK (GATE_CAP_CAPTURE | GATE_CAP_INJECT | GATE_CAP_POLICY | GATE_CAP_DEBUG | GATE_CAP_SESSION)
+%define AUDIT_ACTION_PRIVILEGED 4
+%define AUDIT_RESULT_GRANTED    1
+%define AUDIT_RESULT_DENIED     2
 
-struc Gate
-    .server:        resq 1
-    .audit_log:     resq 1
-endstruc
+section .text
 
 ; ---------------------------------------------------------------------------
 ; gate_init
 ; ---------------------------------------------------------------------------
 global gate_init
 gate_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -40,16 +38,16 @@ gate_init:
     mov qword [rbx + Server.arena], r12
 
     mov rdi, r12
-    mov rsi, Gate_size
+    mov rsi, Gate_SIZE
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rbx, rax
+    mov r13, rax
 
-    mov qword [rbx + Gate.server], rdi
-    mov qword [rbx + Gate.audit_log], 0
+    mov qword [r13 + Gate.server], rbx
+    mov qword [r13 + Gate.audit_log], 0
 
-    mov qword [rdi + Server.gate], rbx
+    mov qword [rbx + Server.gate], r13
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
@@ -77,17 +75,19 @@ gate_check:
 
     ; Check if client has the capability
     mov rax, [r12 + Client.caps]
-    test rax, r13
-    jz .denied
+    and rax, r13
+    cmp rax, r13
+    jne .denied
 
     ; Check trust profile allows this capability
     mov rax, [rsi + Client.trust_profile]
     test rax, rax
     jz .denied
 
-    mov r13, [rax + TrustProfile.caps]
-    test r13, r13
-    jz .denied
+    mov rcx, [rax + TrustProfile.caps]
+    and rcx, r13
+    cmp rcx, r13
+    jne .denied
 
     ; Check if prompt required
     mov al, [rax + TrustProfile.prompts]
@@ -102,27 +102,38 @@ gate_check:
     jmp .denied
 
 .check_prompt:
-    ; Check if this specific capability requires prompt
-    ; For now, all privileged caps require prompt in standard profile
-    ; TODO: Per-capability prompt configuration
+    test r13, GATE_PRIVILEGED_MASK
+    jz .allowed
     jmp .show_prompt
 
 .show_prompt:
-    ; Show server-drawn permission prompt
-    ; TODO: Implement server-drawn prompt
-    ; For now, grant if user confirms
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, gate_prompt_message
+    mov rcx, gate_prompt_message_len
+    mov r8, r13
+    xor r9, r9
+    mov r10, 30 * 1000000000
     call gate_show_prompt
     test rax, rax
     jz .denied
 
 .allowed:
-    ; Log the access
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
+    mov rcx, 1
     call gate_log_access
     mov rax, 1
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .denied:
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
+    xor rcx, rcx
+    call gate_log_access
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
     ret
@@ -137,43 +148,47 @@ gate_show_prompt:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; TODO: Draw server-drawn prompt on screen
-    ; Wait for user response
-    ; Return 1 if granted, 0 if denied
-
-    ; For now, auto-grant in trusted profile
     mov rax, [rsi + Client.trust_profile]
     cmp dword [rax + TrustProfile.prompts], PROMPT_NEVER
     je .auto_grant
-
-    ; TODO: Implement actual prompt UI
-    ; For now, auto-grant
-    mov rax, 1
-    EPILOGUE_RESTORE rbx, r12
+    call prompts_show
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .auto_grant:
     mov rax, 1
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
 ; gate_log_access
 ; ---------------------------------------------------------------------------
 gate_log_access:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
+    mov r13, rdx
+    mov r14, rcx
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; TODO: Write to audit log
-    ; Entry: timestamp, client_id, capability, granted/denied, details
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    mov rdi, rbx
+    mov rsi, AUDIT_ACTION_PRIVILEGED
+    mov rdx, [r12 + Client.id]
+    mov rcx, r13
+    mov r8, AUDIT_RESULT_DENIED
+    test r14, r14
+    jz .log
+    mov r8, AUDIT_RESULT_GRANTED
+.log:
+    xor r9, r9
+    xor r10, r10
+    call audit_log
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data
+gate_prompt_message: db "Allow privileged display-server operation?", 0
+gate_prompt_message_len equ $ - gate_prompt_message - 1
 global gate_version
 gate_version: dq 0x010000
