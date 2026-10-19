@@ -6,10 +6,12 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define PolicyTiling_size    56
-%define LayoutNode_size    64
+%define PolicyTiling_SIZE    56
+; LayoutNode_size is supplied by struct_offsets.inc.
 %define NODE_TYPE_LEAF    0
 %define NODE_TYPE_SPLIT_H 1
 %define NODE_TYPE_SPLIT_V 2
@@ -29,18 +31,11 @@ struc PolicyTiling
     .smart_borders:     resb 1
 endstruc
 
-struc LayoutNode
-    .type:          resd 1
-    .toplevel:      resq 1
-    .left:          resq 1
-    .right:         resq 1
-    .parent:        resq 1
-    .ratio:         resq 1
-    .x:             resd 1
-    .y:             resd 1
-    .width:         resd 1
-    .height:        resd 1
-endstruc
+; LayoutNode struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+
+; ----------
+
 
 
 
@@ -95,7 +90,9 @@ layout_tree_init:
     ; Set default master ratio (3:5)
     mov rax, TILING_MASTER_RATIO_NUM
     shl rax, 16
-    div dword TILING_MASTER_RATIO_DEN
+    xor rdx, rdx
+    mov rcx, TILING_MASTER_RATIO_DEN
+    div rcx
     mov [rbx + PolicyTiling.master_ratio], rax
 
     xor rax, rax
@@ -118,7 +115,6 @@ policy_tiling_layout:
     mov r13d, [r12 + Output.width]
     mov r14d, [r12 + Output.height]
     mov r15d, [r12 + Output.x]
-    mov r14, [r12 + Output.y]
 
     ; Apply gaps
     mov eax, [rbx + PolicyTiling.gap_size]
@@ -183,7 +179,8 @@ layout_tree_build:
 
 .reuse:
     mov dword [rax + LayoutNode.type], NODE_TYPE_LEAF
-    mov qword [rax + LayoutNode.toplevel], [r12 + Output.toplevels]
+    mov r13, [r12 + Output.toplevels]
+mov qword [rax + LayoutNode.toplevel], r13
     mov qword [rax + LayoutNode.left], 0
     mov qword [rax + LayoutNode.right], 0
     mov qword [rax + LayoutNode.parent], 0
@@ -192,10 +189,20 @@ layout_tree_build:
     ret
 
 .build_tree:
-    ; Build binary tree - master on left, stack on right
-    ; For simplicity, create a balanced tree
-    ; TODO: Implement proper binary tree building
-
+    mov qword [rbx + PolicyTiling.layout_tree], 0
+    mov r13, [r12 + Output.toplevels]
+.build_loop:
+    test r13, r13
+    jz .build_done
+    mov rdi, rbx
+    mov rsi, r13
+    call layout_tree_insert
+    test rax, rax
+    js .oom
+    mov r13, [r13 + Toplevel.next_ws]
+    jmp .build_loop
+.build_done:
+    xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
@@ -225,6 +232,22 @@ layout_tree_apply:
     test rax, rax
     jz .done
 
+    mov ecx, [rbx + PolicyTiling.gap_size]
+    mov edx, [r12 + Output.x]
+    add edx, ecx
+    mov [rax + LayoutNode.x], edx
+    mov edx, [r12 + Output.y]
+    add edx, ecx
+    mov [rax + LayoutNode.y], edx
+    mov edx, [r12 + Output.width]
+    sub edx, ecx
+    sub edx, ecx
+    mov [rax + LayoutNode.width], edx
+    mov edx, [r12 + Output.height]
+    sub edx, ecx
+    sub edx, ecx
+    mov [rax + LayoutNode.height], edx
+
     ; Recursively apply layout
     mov rdi, rax
     call layout_node_apply
@@ -246,8 +269,40 @@ layout_node_apply:
     cmp eax, NODE_TYPE_LEAF
     je .leaf
 
-    ; Split node - recurse
     mov r12, [rbx + LayoutNode.left]
+    mov r13, [rbx + LayoutNode.right]
+    test r12, r12
+    jz .check_right
+    test r13, r13
+    jz .check_right
+    mov eax, [rbx + LayoutNode.x]
+    mov [r12 + LayoutNode.x], eax
+    mov [r13 + LayoutNode.x], eax
+    mov eax, [rbx + LayoutNode.y]
+    mov [r12 + LayoutNode.y], eax
+    mov [r13 + LayoutNode.y], eax
+    mov eax, [rbx + LayoutNode.width]
+    mov [r12 + LayoutNode.width], eax
+    mov [r13 + LayoutNode.width], eax
+    mov eax, [rbx + LayoutNode.height]
+    mov [r12 + LayoutNode.height], eax
+    mov [r13 + LayoutNode.height], eax
+    cmp dword [rbx + LayoutNode.type], NODE_TYPE_SPLIT_V
+    je .vertical
+    mov eax, [rbx + LayoutNode.width]
+    shr eax, 1
+    mov [r12 + LayoutNode.width], eax
+    sub [r13 + LayoutNode.width], eax
+    add [r13 + LayoutNode.x], eax
+    jmp .split_done
+.vertical:
+    mov eax, [rbx + LayoutNode.height]
+    shr eax, 1
+    mov [r12 + LayoutNode.height], eax
+    sub [r13 + LayoutNode.height], eax
+    add [r13 + LayoutNode.y], eax
+.split_done:
+    ; Split node - recurse
     test r12, r12
     jz .check_right
     push rbx
@@ -275,7 +330,11 @@ layout_node_apply:
     jz .done
 
     mov r13, [r12 + Toplevel.surface]
+    test r13, r13
+    jz .done
     mov r14, [r13 + Surface.pending]
+    test r14, r14
+    jz .done
 
     mov eax, [rbx + LayoutNode.x]
     mov [r14 + SurfaceState.buf_x], eax
@@ -303,8 +362,18 @@ policy_tiling_configure:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Tiling policy: constrain to layout
-    ; TODO: Adjust configure to fit layout
+    mov r13, [r12 + Toplevel.layout_node]
+    test r13, r13
+    jz .done
+    mov eax, [r13 + LayoutNode.width]
+    mov [r12 + Toplevel.pending_width], eax
+    mov eax, [r13 + LayoutNode.height]
+    mov [r12 + Toplevel.pending_height], eax
+    mov byte [r12 + Toplevel.pending_state], 1
+    mov rdi, r12
+    mov rdi, r12
+    call toplevel_schedule_configure
+.done:
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
@@ -347,8 +416,9 @@ policy_tiling_new_window:
 ; layout_tree_insert
 ; ---------------------------------------------------------------------------
 layout_tree_insert:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
+    mov r14, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
@@ -367,14 +437,64 @@ layout_tree_insert:
     jmp .find_rightmost
 
 .found:
-    ; Convert leaf to split, add new leaf as right child
-    ; TODO: Implement split
-    EPILOGUE_RESTORE rbx, r12, r13
+    mov r13, [rbx + LayoutNode.toplevel]
+    mov rdi, [r14 + PolicyTiling.server]
+    mov rdi, [rdi + Server.arena]
+    mov rsi, LayoutNode_size
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov dword [rax + LayoutNode.type], NODE_TYPE_LEAF
+    mov [rax + LayoutNode.toplevel], r13
+    mov [r13 + Toplevel.layout_node], rax
+    mov qword [rax + LayoutNode.left], 0
+    mov qword [rax + LayoutNode.right], 0
+    mov [rax + LayoutNode.parent], rbx
+    mov [rbx + LayoutNode.left], rax
+    mov rdi, [r14 + PolicyTiling.server]
+    mov rdi, [rdi + Server.arena]
+    mov rsi, LayoutNode_size
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov dword [rax + LayoutNode.type], NODE_TYPE_LEAF
+    mov [rax + LayoutNode.toplevel], r12
+    mov [r12 + Toplevel.layout_node], rax
+    mov qword [rax + LayoutNode.left], 0
+    mov qword [rax + LayoutNode.right], 0
+    mov [rax + LayoutNode.parent], rbx
+    mov [rbx + LayoutNode.right], rax
+    mov dword [rbx + LayoutNode.type], NODE_TYPE_SPLIT_H
+    mov qword [rbx + LayoutNode.toplevel], 0
+    mov qword [rbx + LayoutNode.ratio], 32768
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .empty:
-    ; First window - already handled in layout_tree_build
-    EPILOGUE_RESTORE rbx, r12, r13
+    mov rdi, [r14 + PolicyTiling.server]
+    mov rdi, [rdi + Server.arena]
+    mov rsi, LayoutNode_size
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov dword [rax + LayoutNode.type], NODE_TYPE_LEAF
+    mov [rax + LayoutNode.toplevel], r12
+    mov qword [rax + LayoutNode.left], 0
+    mov qword [rax + LayoutNode.right], 0
+    mov qword [rax + LayoutNode.parent], 0
+    mov [r12 + Toplevel.layout_node], rax
+    mov [rbx + PolicyTiling.layout_tree], rax
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.oom:
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.bad:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -402,14 +522,46 @@ policy_tiling_close_window:
 ; layout_tree_remove
 ; ---------------------------------------------------------------------------
 layout_tree_remove:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; TODO: Remove node and merge split
-    EPILOGUE_RESTORE rbx, r12
+    mov r13, [r12 + Toplevel.layout_node]
+    test r13, r13
+    jz .done_remove
+    mov rax, [r13 + LayoutNode.parent]
+    test rax, rax
+    jz .root_remove
+    mov rcx, [rax + LayoutNode.left]
+    cmp rcx, r13
+    jne .use_left
+    mov rcx, [rax + LayoutNode.right]
+.use_left:
+    mov rdx, [rax + LayoutNode.parent]
+    test rdx, rdx
+    jz .sibling_root
+    cmp [rdx + LayoutNode.left], rax
+    jne .parent_right
+    mov [rdx + LayoutNode.left], rcx
+    jmp .linked
+.parent_right:
+    mov [rdx + LayoutNode.right], rcx
+.linked:
+    mov [rcx + LayoutNode.parent], rdx
+    jmp .clear
+.sibling_root:
+    mov [rbx + PolicyTiling.layout_tree], rcx
+    mov qword [rcx + LayoutNode.parent], 0
+    jmp .clear
+.root_remove:
+    mov qword [rbx + PolicyTiling.layout_tree], 0
+.clear:
+    mov qword [r12 + Toplevel.layout_node], 0
+.done_remove:
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -442,8 +594,10 @@ policy_tiling_tile_window:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Set tiled state
-    call states_tile
+    ; Set tiled state on toplevel (r12)
+    mov eax, [r12 + Toplevel.state]
+    or eax, 4                  ; STATE_FLAG_TILED (1 << 2)
+    mov [r12 + Toplevel.state], eax
 
     ; Rebuild layout
     call layout_tree_build
