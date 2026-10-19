@@ -3,6 +3,7 @@
 ; ============================================================================
 
 %include "inc/abi.inc"
+%include "inc/externs.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/channel.inc"
@@ -192,6 +193,13 @@ msgbuf_read:
     jb .no_wrap_payload
     sub rax, [rbx + MsgBuf.capacity]
 .no_wrap_payload:
+
+.no_payload:
+    ; No payload case - just update read_pos after header
+    mov [rbx + MsgBuf.read_pos], rax
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
     mov [rbx + MsgBuf.read_pos], rax
     mov rax, rdx
