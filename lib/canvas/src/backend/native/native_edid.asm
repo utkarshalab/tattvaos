@@ -10,9 +10,9 @@
 %include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
-%define EDID_SIZE    128
 %define EDID_BLOCKS  1
-%define Edid_size 128
+%define EDID_SIZE    128
+%define Edid_sizeof  128
 
 section .text
 
