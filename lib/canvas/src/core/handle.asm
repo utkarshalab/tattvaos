@@ -6,6 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define HandleTable_entries    0
@@ -57,6 +58,7 @@ handle_table_init:
     jz .pow2_ok
     bsr rax, r13
     inc rax
+    mov rcx, rax
     mov r13, 1
     shl r13, cl
 .pow2_ok:
@@ -74,6 +76,7 @@ handle_table_init:
     mov qword [rbx + HandleTable.mask], r13
     dec qword [rbx + HandleTable.mask]
     mov qword [rbx + HandleTable.count], 0
+    mov qword [rbx + HandleTable.next_index], 0
     mov qword [rbx + HandleTable.arena], r12
     ; Clear entries
     mov rdi, rax
@@ -101,7 +104,7 @@ handle_table_init:
 ; ---------------------------------------------------------------------------
 global handle_create
 handle_create:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -119,7 +122,9 @@ handle_create:
     and rax, r14
 
 .find_loop:
-    mov rcx, [r13 + rax * 16]      ; obj_ptr
+    mov r15, rax
+    shl r15, 4                  ; multiply by 16
+    mov rcx, [r13 + r15]        ; obj_ptr
     test rcx, rcx
     jz .found
     inc rax
@@ -131,28 +136,33 @@ handle_create:
 
 .found:
     ; Get generation
-    mov rcx, [r13 + rax * 16 + 8]
+    mov r15, rax
+    shl r15, 4                  ; multiply by 16
+    mov rcx, [r13 + r15 + 8]
     inc ecx
     and ecx, 0xFFF            ; 12-bit generation
-    mov [r13 + rax * 16], r12 ; obj_ptr
-    mov [r13 + rax * 16 + 8], rcx
+    mov [r13 + r15], r12       ; obj_ptr
+    mov [r13 + r15 + 8], rcx
 
     ; Build handle: (generation << 20) | index
     shl rcx, 20
     or ecx, eax
-    mov eax, ecx
+    mov edx, ecx
 
     ; Update next_index and count
+    mov eax, edx
+    and eax, 0xFFFFF
     inc rax
-    and eax, r14
+    and eax, r14d
     mov [rbx + HandleTable.next_index], eax
     inc qword [rbx + HandleTable.count]
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    mov eax, edx
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .full:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -168,9 +178,9 @@ handle_resolve:
     mov r12, rsi
     ASSERT_PTR rbx
 
-    mov eax, r12
+    mov eax, r12d
     and eax, 0xFFFFF          ; 20-bit index
-    mov ecx, r12
+    mov ecx, r12d
     shr ecx, 20               ; 12-bit generation
     and ecx, 0xFFF
 
@@ -178,11 +188,15 @@ handle_resolve:
     jae .invalid
 
     mov rbx, [rbx + HandleTable.entries]
-    mov rdx, [rbx + rax * 16 + 8]  ; stored generation
+    mov r15, rax
+    shl r15, 4
+    mov rdx, [rbx + r15 + 8]  ; stored generation
     cmp edx, ecx
     jne .invalid
 
-    mov rax, [rbx + rax * 16]      ; obj_ptr
+    mov r15, rax
+    shl r15, 4
+    mov rax, [rbx + r15]      ; obj_ptr
     EPILOGUE_RESTORE rbx, r12
     ret
 
@@ -204,9 +218,9 @@ handle_destroy:
     mov r12, rsi
     ASSERT_PTR rbx
 
-    mov eax, r12
+    mov eax, r12d
     and eax, 0xFFFFF
-    mov ecx, r12
+    mov ecx, r12d
     shr ecx, 20
     and ecx, 0xFFF
 
@@ -214,11 +228,15 @@ handle_destroy:
     jae .invalid
 
     mov rbx, [rbx + HandleTable.entries]
-    mov rdx, [rbx + rax * 16 + 8]
+    mov r15, rax
+    shl r15, 4
+    mov rdx, [rbx + r15 + 8]
     cmp edx, ecx
     jne .invalid
 
-    mov qword [rbx + rax * 16], 0
+    mov r15, rax
+    shl r15, 4
+    mov qword [rbx + r15], 0
     dec qword [rbx + HandleTable.count]
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
