@@ -75,7 +75,7 @@ fill_solid_sse2:
 
 .aligned:
     ; Broadcast color to xmm0
-    movd xmm0, r12
+    movd xmm0, r12d
     pshufd xmm0, xmm0, 0
 
     test r13, r13
