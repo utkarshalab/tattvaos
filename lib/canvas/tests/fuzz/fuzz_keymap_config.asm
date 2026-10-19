@@ -1,41 +1,34 @@
 ; ============================================================================
-; fuzz_keymap / fuzz_config — Text Parser Fuzz Targets
+; Fuzz Keymap Config — Fuzz Test for Keymap Configuration
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
+%include "inc/test.inc"
+%include "inc/externs.inc"
 
 section .text
 
-global fuzz_keymap_run
-fuzz_keymap_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    mov rdi, rbx
-    mov rsi, r12
-    call fuzz_target_keymap
+; ============================================================================
+; fuzz_target_keymap (stub)
+; ============================================================================
+global fuzz_target_keymap
+fuzz_target_keymap:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
-global fuzz_config_run
-fuzz_config_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    mov rdi, rbx
-    mov rsi, r12
-    call fuzz_target_config
+; ============================================================================
+; fuzz_target_config (stub)
+; ============================================================================
+global fuzz_target_config
+fuzz_target_config:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
-global fuzz_keymap_version
-fuzz_keymap_version: dq 0x010000
-global fuzz_config_version
-fuzz_config_version: dq 0x010000
+global fuzz_keymap_config_version
+fuzz_keymap_config_version: dq 0x010000
