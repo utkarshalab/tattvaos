@@ -6,13 +6,12 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define GAMMA_ENTRIES    256
 %define GAMMA_CHANNELS   3
-
-section .text
-
 %define GAMMA_LUT_SIZE   (GAMMA_ENTRIES * GAMMA_CHANNELS * 2)  ; 1536 bytes
 
 ; ---------------------------------------------------------------------------
@@ -77,10 +76,14 @@ gamma_create_lut:
 
     ; Use integer power approximation
     ; For gamma 2.2: gamma_inv = 1/2.2 ≈ 0.4545 ≈ 29800/65536
-    mov r15, 29800
+    mov rdi, r15
+    mov rsi, 29800
     call fixed_pow
+    jmp .clamp
 
 .linear:
+    mov rax, r15
+.clamp:
     ; Clamp to 16-bit
     cmp rax, 0xFFFF
     jbe .store
@@ -95,9 +98,7 @@ gamma_create_lut:
     jmp .gen_loop
 
 .done:
-    ; Program hardware gamma LUT
-    ; TODO: Call backend gamma_lut_set
-
+    ; The LUT is consumed by the compositor and native scanout path.
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
@@ -129,6 +130,7 @@ gamma_set_lut:
     jz .alloc
 
     mov rdi, rax
+    mov rsi, r12
     mov rcx, 768
     call memcopy
     EPILOGUE_RESTORE rbx, r12
@@ -164,10 +166,28 @@ gamma_set_lut:
 ; ---------------------------------------------------------------------------
 global gamma_load_from_edid
 gamma_load_from_edid:
-    PROLOGUE
-    ; TODO: Parse EDID gamma curve
-    xor rax, rax
-    leave
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    ASSERT_PTR rbx
+    ASSERT_PTR rsi
+    movzx eax, byte [rsi + 23]
+    cmp eax, 0xFF
+    je .unspecified
+    add eax, 100
+    shl rax, 16
+    xor edx, edx
+    mov ecx, 100
+    div rcx
+    mov rsi, rax
+    mov rdi, rbx
+    call gamma_create_lut
+    EPILOGUE_RESTORE rbx
+    ret
+.unspecified:
+    mov rdi, rbx
+    mov rsi, 0x10000
+    call gamma_create_lut
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -176,10 +196,36 @@ gamma_load_from_edid:
 ; ---------------------------------------------------------------------------
 global gamma_apply
 gamma_apply:
-    PROLOGUE
-    ; TODO: Implement in compositor
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    mov r8, [rbx + Output.gamma_lut]
+    test r8, r8
+    jz .applied
+.pixel:
+    test r13, r13
+    jz .applied
+    movzx eax, byte [r12]
+    movzx eax, word [r8 + rax * 2 + 1024]
+    shr eax, 8
+    mov [r12], al
+    movzx eax, byte [r12 + 1]
+    movzx eax, word [r8 + rax * 2 + 512]
+    shr eax, 8
+    mov [r12 + 1], al
+    movzx eax, byte [r12 + 2]
+    movzx eax, word [r8 + rax * 2]
+    shr eax, 8
+    mov [r12 + 2], al
+    add r12, 4
+    dec r13
+    jmp .pixel
+.applied:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data
