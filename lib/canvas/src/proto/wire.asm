@@ -6,6 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/cwp.inc"
+%include "inc/channel.inc"
+%include "inc/externs.inc"
+%define MAX_PAYLOAD_SIZE 65536
 
 section .text
 
@@ -206,7 +209,6 @@ wire_decode_handles:
 
 section .data
 
-MAX_PAYLOAD_SIZE equ 65536
 
 global wire_version
 wire_version: dq 0x010000
