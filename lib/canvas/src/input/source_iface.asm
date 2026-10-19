@@ -5,31 +5,18 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define INPUT_SOURCE_TV       1
 %define INPUT_SOURCE_VIRTUAL  2
-%define InputSource_size    48
-%define INPUT_EVENT_KEY       1
-%define INPUT_EVENT_REL       2
-%define INPUT_EVENT_ABS       3
-%define INPUT_EVENT_SYN       4
-%define InputEvent_size     24
+%define InputSource_SIZE    48
+%define InputEvent_SIZE     24
 
 section .text
 
 
-struc InputSource
-    .type:          resd 1
-    .name:          resq 1
-    .init:          resq 1
-    .deinit:        resq 1
-    .start:         resq 1
-    .stop:          resq 1
-    .get_device:    resq 1
-    .grab:          resq 1
-    .next:          resq 1
-endstruc
+; InputSource struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
 
 struc InputEvent
@@ -71,10 +58,33 @@ input_source_register:
 ; ---------------------------------------------------------------------------
 global input_source_unregister
 input_source_unregister:
-    PROLOGUE
-    ; TODO
-    xor rax, rax
-    leave
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    lea rcx, [rbx + Server.input_sources]
+.find:
+    mov rax, [rcx]
+    test rax, rax
+    jz .missing
+    cmp rax, r12
+    je .remove
+    lea rcx, [rax + InputSource.next]
+    jmp .find
+.remove:
+    mov rax, [r12 + InputSource.next]
+    mov [rcx], rax
+    mov rax, [r12 + InputSource.deinit]
+    test rax, rax
+    jz .ok
+    mov rdi, r12
+    call rax
+.ok:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.missing:
+    mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
