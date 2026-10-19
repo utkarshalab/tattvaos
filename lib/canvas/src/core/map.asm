@@ -1,306 +1,304 @@
-; ============================================================================
-; Hash Map — Open Addressing with Linear Probing
-; Arena-aware, power-of-2 capacity, FNV-1a hash
-; ============================================================================
-
+; Arena-backed open-addressed byte-string map.
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-; struct offsets (hoisted above use)
-%define Map_entries   0
-%define Map.entries 0
-%define Map_capacity  8
-%define Map.capacity 8
-%define Map_mask      16
-%define Map.mask 16
-%define Map_count     24
-%define Map.count 24
-%define Map_arena     32
-%define Map.arena 32
-%define Map_size      40
+%define M_ENTRIES 0
+%define M_CAP 8
+%define M_MASK 16
+%define M_COUNT 24
+%define M_ARENA 32
+%define E_KEY 0
+%define E_LEN 8
+%define E_HASH 16
+%define E_VALUE 24
+%define E_SIZE 32
+%define TOMBSTONE -1
+extern fnv1a_hash
 
 section .text
-
-extern fnv1a_hash  ; canonical implementation in src/core/hash.asm
-
-; ---------------------------------------------------------------------------
-; map_init
-;   Initialize hash map
-;   IN:  rdi = map pointer (Map*)
-;        rsi = arena pointer
-;        rdx = initial capacity (power of 2, min 16)
-;   OUT: rax = 0 OK, negative error
-; ---------------------------------------------------------------------------
 global map_init
 map_init:
     PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi        ; map
-    mov r12, rsi        ; arena
-    mov r13, rdx        ; capacity
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Ensure power of 2, min 16
-    test r13, r13
-    jnz .check_pow2
-    mov r13, 16
-.check_pow2:
-    mov rax, r13
+    mov rbx,rdi
+    mov r12,rsi
+    mov r13,rdx
+    test rbx,rbx
+    jz .bad
+    test r12,r12
+    jz .bad
+    cmp r13,16
+    jae .round
+    mov r13,16
+.round:
+    mov rax,r13
     dec rax
-    test rax, r13
-    jz .pow2_ok
-    ; Round up to next power of 2
-    bsr rax, r13
-    inc rax
-    mov r13, 1
-    shl r13, cl
-.pow2_ok:
-
-    ; Allocate entries array
-    mov rdi, r12
-    mov rsi, r13
-    shl rsi, 4          ; 16 bytes per entry (key_ptr, value_ptr)
+    test rax,r13
+    jz .alloc
+    bsr rcx,r13
+    inc ecx
+    mov r13,1
+    shl r13,cl
+.alloc:
+    mov rdi,r12
+    mov rsi,r13
+    shl rsi,5
     call arena_alloc
-    test rax, rax
+    test rax,rax
     jz .oom
-
-    mov qword [rbx + Map.entries], rax
-    mov qword [rbx + Map.capacity], r13
-    mov qword [rbx + Map.mask], r13
-    dec qword [rbx + Map.mask]
-    mov qword [rbx + Map.count], 0
-    mov qword [rbx + Map.arena], r12
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    mov [rbx+M_ENTRIES],rax
+    mov [rbx+M_CAP],r13
+    lea rcx,[r13-1]
+    mov [rbx+M_MASK],rcx
+    mov qword [rbx+M_COUNT],0
+    mov [rbx+M_ARENA],r12
+    mov rdi,rax
+    xor esi,esi
+    mov rdx,r13
+    shl rdx,5
+    call memset
+    xor eax,eax
+    EPILOGUE_RESTORE rbx,r12,r13
     ret
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+.bad: mov rax,-EINVAL
+    EPILOGUE_RESTORE rbx,r12,r13
     ret
-
-; ---------------------------------------------------------------------------
-; map_put
-;   Insert or update key-value pair
-;   IN:  rdi = map, rsi = key ptr, rdx = key len, rcx = value ptr
-;   OUT: rax = 0 OK, ENOMEM if full
-; ---------------------------------------------------------------------------
-global map_put
-map_put:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    mov rbx, rdi        ; map
-    mov r12, rsi        ; key
-    mov r13, rdx        ; key len
-    mov r14, rcx        ; value
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    ASSERT_PTR r14
-
-    mov rdi, r12
-    mov rsi, r13
-    call fnv1a_hash
-    mov r15, rax        ; hash
-
-    mov rdi, rbx
-    mov rsi, r15
-    call map_find_slot
-    ; rax = slot index, rdx = 0 if empty, 1 if occupied
-
-    test rdx, rdx
-    jz .insert_new
-
-    ; Key exists, update value
-    mov rdi, [rbx + Map.entries]
-    lea rdi, [rdi + rax * 16]
-    mov qword [rdi + 8], r14
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+.oom: mov rax,-ENOMEM
+    EPILOGUE_RESTORE rbx,r12,r13
     ret
 
-.insert_new:
-    ; Check load factor (> 75%)
-    mov rax, [rbx + Map.count]
-    inc rax
-    mov rcx, [rbx + Map.capacity]
-    lea rdx, [rcx * 3]
-    shr rdx, 2
-    cmp rax, rdx
-    ja .resize
-
-    ; Insert
-    mov rdi, [rbx + Map.entries]
-    lea rdi, [rdi + rax * 16]
-    mov qword [rdi], r12
-    mov qword [rdi + 8], r14
-    inc qword [rbx + Map.count]
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.resize:
-    ; TODO: Implement resize
-    mov rax, -(ENOSPC)
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-; ---------------------------------------------------------------------------
-; map_get
-;   Lookup value by key
-;   IN:  rdi = map, rsi = key ptr, rdx = key len
-;   OUT: rax = value ptr, 0 if not found
-; ---------------------------------------------------------------------------
-global map_get
-map_get:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi        ; map
-    mov r12, rsi        ; key
-    mov r13, rdx        ; key len
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov rdi, r12
-    mov rsi, r13
-    call fnv1a_hash
-    mov r14, rax
-
-    mov rdi, rbx
-    mov rsi, r14
-    call map_find_slot
-    test rdx, rdx
-    jz .not_found
-
-    mov rdi, [rbx + Map.entries]
-    lea rdi, [rdi + rax * 16]
-    mov rax, [rdi + 8]
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-.not_found:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-; ---------------------------------------------------------------------------
-; map_remove
-;   Remove key-value pair
-;   IN:  rdi = map, rsi = key ptr, rdx = key len
-;   OUT: rax = 0 OK, ENOENT if not found
-; ---------------------------------------------------------------------------
-global map_remove
-map_remove:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov rdi, r12
-    mov rsi, r13
-    call fnv1a_hash
-    mov r14, rax
-
-    mov rdi, rbx
-    mov rsi, r14
-    call map_find_slot
-    test rdx, rdx
-    jz .not_found
-
-    ; Mark as deleted (key = -1)
-    mov rdi, [rbx + Map.entries]
-    lea rdi, [rdi + rax * 16]
-    mov qword [rdi], -1
-    dec qword [rbx + Map.count]
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-.not_found:
-    mov rax, -(ENOENT)
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-; ---------------------------------------------------------------------------
-; map_find_slot (internal)
-;   IN:  rdi = map, rsi = hash
-;   OUT: rax = slot index, rdx = 0 empty, 1 occupied
-; ---------------------------------------------------------------------------
-map_find_slot:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    mov r12, rsi        ; hash
-    mov r13, [rbx + Map.mask]
-    mov r14, [rbx + Map.entries]
-
-    mov rax, r12
-    and rax, r13        ; initial index
-
+; Probe. IN map,key,len,hash. OUT rax=entry*, rdx=1 found/0 insertion.
+map_probe:
+    PROLOGUE_SAVE rbx,r12,r13,r14,r15
+    mov rbx,rdi
+    mov r12,rsi
+    mov r13,rdx
+    mov r14,rcx
+    mov rax,r14
+    and rax,[rbx+M_MASK]
+    mov rcx,[rbx+M_CAP]
+    xor r15d,r15d
 .loop:
-    mov rdi, [r14 + rax * 16]
-    test rdi, rdi
+    test rcx,rcx
+    jz .full
+    mov rdx,rax
+    shl rdx,5
+    add rdx,[rbx+M_ENTRIES]
+    mov rdi,[rdx+E_KEY]
+    test rdi,rdi
     jz .empty
-    cmp rdi, -1
-    je .next            ; deleted slot, continue
-    ; Compare keys (simplified - assumes same pointer)
-    ; In real implementation, would compare key data
-    mov rdx, 1
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
+    cmp rdi,TOMBSTONE
+    je .tomb
+    cmp [rdx+E_HASH],r14
+    jne .next
+    cmp [rdx+E_LEN],r13
+    jne .next
+    push rcx
+    push rax
+    push rdx
+    mov rsi,r12
+    mov rcx,r13
+    repe cmpsb
+    pop rdx
+    pop rax
+    pop rcx
+    je .found
 .next:
     inc rax
-    and rax, r13
+    and rax,[rbx+M_MASK]
+    dec rcx
     jmp .loop
-
+.tomb:
+    test r15,r15
+    cmovz r15,rdx
+    jmp .next
 .empty:
-    xor rdx, rdx
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    test r15,r15
+    cmovnz rdx,r15
+    mov rax,rdx
+    xor edx,edx
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+    ret
+.found:
+    mov rax,rdx
+    mov edx,1
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+    ret
+.full:
+    mov rax,r15
+    xor edx,edx
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
     ret
 
-; ---------------------------------------------------------------------------
-; map_count
-;   Get number of entries
-;   IN:  rdi = map
-;   OUT: rax = count
-; ---------------------------------------------------------------------------
+; Rehash into a table twice as large.
+map_grow:
+    PROLOGUE_SAVE rbx,r12,r13,r14,r15
+    mov rbx,rdi
+    mov r12,[rbx+M_ENTRIES]
+    mov r13,[rbx+M_CAP]
+    mov r14,r13
+    shl r14,1
+    jc .oom
+    mov rdi,[rbx+M_ARENA]
+    mov rsi,r14
+    shl rsi,5
+    call arena_alloc
+    test rax,rax
+    jz .oom
+    mov r15,rax
+    mov rdi,r15
+    xor esi,esi
+    mov rdx,r14
+    shl rdx,5
+    call memset
+    mov [rbx+M_ENTRIES],r15
+    mov [rbx+M_CAP],r14
+    lea rax,[r14-1]
+    mov [rbx+M_MASK],rax
+    xor ecx,ecx
+.rehash:
+    cmp rcx,r13
+    jae .ok
+    mov rax,rcx
+    shl rax,5
+    lea r15,[r12+rax]
+    mov rsi,[r15+E_KEY]
+    test rsi,rsi
+    jz .next
+    cmp rsi,TOMBSTONE
+    je .next
+    push rcx
+    mov rdi,rbx
+    mov rdx,[r15+E_LEN]
+    mov rcx,[r15+E_HASH]
+    call map_probe
+    mov rcx,[rsp]
+    mov rdi,rax
+    mov rsi,r15
+    mov rdx,E_SIZE
+    call memcopy
+    pop rcx
+.next: inc rcx
+    jmp .rehash
+.ok: xor eax,eax
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+    ret
+.oom: mov rax,-ENOMEM
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+    ret
+
+global map_put
+map_put:
+    PROLOGUE_SAVE rbx,r12,r13,r14,r15
+    mov rbx,rdi
+    mov r12,rsi
+    mov r13,rdx
+    mov r14,rcx
+    test r12,r12
+    jz .bad
+    mov rax,[rbx+M_COUNT]
+    inc rax
+    shl rax,2
+    mov rcx,[rbx+M_CAP]
+    imul rcx,rcx,3
+    cmp rax,rcx
+    jbe .hash
+    mov rdi,rbx
+    call map_grow
+    test rax,rax
+    js .out
+.hash:
+    mov rdi,r12
+    mov rsi,r13
+    call fnv1a_hash
+    mov r15,rax
+    mov rdi,rbx
+    mov rsi,r12
+    mov rdx,r13
+    mov rcx,r15
+    call map_probe
+    test rax,rax
+    jz .oom
+    test rdx,rdx
+    jnz .value
+    mov [rax+E_KEY],r12
+    mov [rax+E_LEN],r13
+    mov [rax+E_HASH],r15
+    inc qword [rbx+M_COUNT]
+.value: mov [rax+E_VALUE],r14
+    xor eax,eax
+.out: EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+    ret
+.bad: mov rax,-EINVAL
+    jmp .out
+.oom: mov rax,-ENOMEM
+    jmp .out
+
+global map_get
+map_get:
+    PROLOGUE_SAVE rbx,r12,r13
+    mov rbx,rdi
+    mov r12,rsi
+    mov r13,rdx
+    mov rdi,r12
+    mov rsi,r13
+    call fnv1a_hash
+    mov rcx,rax
+    mov rdi,rbx
+    mov rsi,r12
+    mov rdx,r13
+    call map_probe
+    test rdx,rdx
+    jz .none
+    mov rax,[rax+E_VALUE]
+    EPILOGUE_RESTORE rbx,r12,r13
+    ret
+.none: xor eax,eax
+    EPILOGUE_RESTORE rbx,r12,r13
+    ret
+
+global map_remove
+map_remove:
+    PROLOGUE_SAVE rbx,r12,r13
+    mov rbx,rdi
+    mov r12,rsi
+    mov r13,rdx
+    mov rdi,r12
+    mov rsi,r13
+    call fnv1a_hash
+    mov rcx,rax
+    mov rdi,rbx
+    mov rsi,r12
+    mov rdx,r13
+    call map_probe
+    test rdx,rdx
+    jz .missing
+    mov qword [rax+E_KEY],TOMBSTONE
+    mov qword [rax+E_VALUE],0
+    dec qword [rbx+M_COUNT]
+    xor eax,eax
+    EPILOGUE_RESTORE rbx,r12,r13
+    ret
+.missing: mov rax,-ENOENT
+    EPILOGUE_RESTORE rbx,r12,r13
+    ret
+
 global map_count
-map_count:
-    PROLOGUE
-    ASSERT_PTR rdi
-    mov rax, [rdi + Map.count]
-    leave
+map_count: mov rax,[rdi+M_COUNT]
     ret
-
-; ---------------------------------------------------------------------------
-; map_clear
-;   Clear all entries (keep capacity)
-;   IN:  rdi = map
-;   OUT: rax = 0 OK
-; ---------------------------------------------------------------------------
 global map_clear
 map_clear:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    ASSERT_PTR rbx
-    mov r12, [rbx + Map.entries]
-    mov r13, [rbx + Map.capacity]
-    test r13, r13
-    jz .done
-    xor rax, rax
-    mov rcx, r13
-.clear_loop:
-    mov qword [r12], 0
-    mov qword [r12 + 8], 0
-    add r12, 16
-    dec rcx
-    jnz .clear_loop
-.done:
-    mov qword [rbx + Map.count], 0
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    PROLOGUE_SAVE rbx
+    mov rbx,rdi
+    mov rdi,[rbx+M_ENTRIES]
+    xor esi,esi
+    mov rdx,[rbx+M_CAP]
+    shl rdx,5
+    call memset
+    mov qword [rbx+M_COUNT],0
+    xor eax,eax
+    EPILOGUE_RESTORE rbx
     ret
-
 section .data
-
-
 global map_version
-map_version: dq 0x010000
+map_version: dq 0x010100
