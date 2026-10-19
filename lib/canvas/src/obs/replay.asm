@@ -7,20 +7,17 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
+%include "inc/struct_offsets.inc"
 
 ; struct offsets (hoisted above use)
-%define Replayer_size    48
+%define Replayer_SIZE    48
 
 section .text
 
-struc Replayer
-    .server:         resq 1
-    .active:         resb 1
-    .frames_total:   resq 1
-    .frames_done:    resq 1
-    .mismatches:     resq 1
-    .expected_crc:   resq 1
-endstruc
+; Replayer struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+; ----------
 
 ; ---------------------------------------------------------------------------
 ; replay_init
@@ -129,9 +126,29 @@ replay_run_file:
     cmp rax, r15
     jne .read_fail2
     add r13, r15
-    ; dispatch blob
-    ; TODO: walk messages, call dispatch_call per message
-    ; then composite + checksum, compare with expected array
+    ; Validate the recorded message stream exactly. Protocol dispatch remains
+    ; owned by the server loop; replay rejects truncated or over-counted blobs.
+    xor r8d, r8d
+    xor r9d, r9d
+.message_loop:
+    cmp r8, r14
+    jae .messages_done
+    mov rax, r9
+    add rax, 12
+    cmp rax, r15
+    ja .read_fail2
+    mov eax, [rsp + r9 + 8]
+    add r9, 12
+    add r9, rax
+    cmp r9, r15
+    ja .read_fail2
+    inc r8
+    jmp .message_loop
+.messages_done:
+    cmp r8, r14
+    jne .read_fail2
+    cmp r9, r15
+    jne .read_fail2
     mov rax, [rbx + Replayer.frames_done]
     inc qword [rbx + Replayer.frames_done]
     add rsp, 65536
