@@ -6,9 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
-%define IdleManager_size    48
 %define IDLE_STATE_ACTIVE    0
 %define IDLE_STATE_IDLE      1
 %define IDLE_STATE_WARNING   2
@@ -17,19 +17,11 @@
 
 section .text
 
-struc IdleManager
-    .server:        resq 1
-    .idle_timeout:  resq 1
-    .warning_time:  resq 1
-    .timer:         resq 1
-    .callbacks:     resq 1
-    .inhibit_count: resd 1
-endstruc
-
-
-
 ; ---------------------------------------------------------------------------
 ; idle_init
+;   Initialize idle manager
+;   IN:  rdi = server*, rsi = arena
+;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
 global idle_init
 idle_init:
@@ -39,87 +31,98 @@ idle_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov rdi, [rbx + Server.arena]
-    mov rsi, IdleManager_size
+    mov rdi,r12
+    mov rsi,IdleManager_SIZE
     call arena_alloc
-    test rax, rax
+    test rax,rax
     jz .oom
-    mov rbx, rax
-
-    mov qword [rbx + IdleManager.server], rdi
-    mov qword [rbx + IdleManager.idle_timeout], DEFAULT_IDLE_TIMEOUT
-    mov qword [rbx + IdleManager.warning_time], DEFAULT_WARNING_TIME
-    mov qword [rbx + IdleManager.timer], 0
-    mov qword [rbx + IdleManager.callbacks], 0
-    mov dword [rbx + IdleManager.inhibit_count], 0
-
-    mov qword [rdi + Server.idle_manager], rbx
-
-    ; Start idle timer
-    call idle_start_timer
+    mov [rax + IdleManager.server],rbx
+    mov qword [rax + IdleManager.idle_timeout],DEFAULT_IDLE_TIMEOUT
+    mov qword [rax + IdleManager.warning_time],DEFAULT_WARNING_TIME
+    mov qword [rax + IdleManager.timer],0
+    mov qword [rax + IdleManager.callbacks],0
+    mov dword [rax + IdleManager.inhibit_count],0
+    mov [rbx + Server.idle_manager],rax
+    mov [rbx + Server.arena],r12
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
-
 .oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    mov rax,-ENOMEM
+    EPILOGUE_RESTORE rbx,r12
     ret
 
 ; ---------------------------------------------------------------------------
 ; idle_start_timer
+;   Start idle timer
 ; ---------------------------------------------------------------------------
+global idle_start_timer
 idle_start_timer:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    mov r14, rcx
     ASSERT_PTR rbx
+    ASSERT_PTR r12
 
-    mov rax, [rbx + IdleManager.timer]
-    test rax, rax
-    jnz .done
-
-    mov rdi, [rbx + IdleManager.idle_timeout]
-    mov rsi, idle_timeout_callback
-    mov rdx, rbx
+    mov rax,[rbx + IdleManager.timer]
+    test rax,rax
+    jz .arm
+    mov rdi,rax
+    call tv_timer_cancel
+.arm:
+    call tv_time_now_ns
+    add rax,r12
+    jc .invalid
+    mov rdi,rax
+    mov rsi,r13
+    mov rdx,r14
     call tv_timer_register
-    test rax, rax
-    jnz .fail
-    mov [rbx + IdleManager.timer], rax
-
-.done:
-    EPILOGUE_RESTORE rbx
+    test rax,rax
+    js .out
+    mov [rbx + IdleManager.timer],rax
+    xor eax,eax
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
-
-.fail:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx
+.invalid:
+    mov rax,-EINVAL
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
 ; idle_timeout_callback
+;   Timer callback when idle timeout fires
 ; ---------------------------------------------------------------------------
+global idle_timeout_callback
 idle_timeout_callback:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
     ASSERT_PTR rbx
 
-    ; Fire idle callbacks
-    mov rax, [rbx + IdleManager.callbacks]
-    test rax, rax
+    mov qword [rbx + IdleManager.timer],0
+    cmp dword [rbx + IdleManager.inhibit_count],0
+    jne .done
+    mov r12,[rbx + IdleManager.callbacks]
+.notify:
+    test r12,r12
     jz .done
-
-.callback_loop:
-    mov rdi, [rax + 8]  ; callback
-    mov rsi, rbx        ; idle manager
-    call rdi
-
-    mov rax, [rax + 8]  ; next
-    test rax, rax
-    jnz .callback_loop
-
+    mov rax,[r12]
+    test rax,rax
+    jz .next
+    mov rdi,[r12+8]
+    mov esi,IDLE_STATE_IDLE
+    call rax
+.next:
+    mov r12,[r12+16]
+    jmp .notify
 .done:
-    EPILOGUE_RESTORE rbx
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -128,21 +131,28 @@ idle_timeout_callback:
 ; ---------------------------------------------------------------------------
 global idle_reset
 idle_reset:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov r12, rsi
     ASSERT_PTR rbx
 
-    ; Cancel current timer
-    mov rax, [rbx + IdleManager.timer]
-    test rax, rax
-    jz .no_timer
-    mov rdi, rax
+    mov rax,[rbx + IdleManager.timer]
+    test rax,rax
+    jz .cleared
+    mov rdi,rax
     call tv_timer_cancel
-
-.no_timer:
-    ; Start new timer
+    mov qword [rbx + IdleManager.timer],0
+.cleared:
+    cmp dword [rbx + IdleManager.inhibit_count],0
+    jne .done
+    mov rdi,rbx
+    mov rsi,[rbx + IdleManager.idle_timeout]
+    lea rdx,[rel idle_timeout_callback]
+    mov rcx,rbx
     call idle_start_timer
-    EPILOGUE_RESTORE rbx
+.done:
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -151,96 +161,54 @@ idle_reset:
 ; ---------------------------------------------------------------------------
 global idle_inhibit
 idle_inhibit:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    inc dword [rbx + IdleManager.inhibit_count]
-
-    ; Cancel timer if active
-    mov rax, [rbx + IdleManager.timer]
-    test rax, rax
-    jz .done
-    mov rdi, rax
-    call tv_timer_cancel
-    mov qword [rbx + IdleManager.timer], 0
-
-.done:
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; idle_uninhibit
-; ---------------------------------------------------------------------------
-global idle_uninhibit
-idle_uninhibit:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    dec dword [rbx + IdleManager.inhibit_count]
-    jl .underflow
-
-    test dword [rbx + IdleManager.inhibit_count], 0
-    jnz .done
-
-    ; Restart timer
-    call idle_start_timer
-
-.done:
-    EPILOGUE_RESTORE rbx
-    ret
-
-.underflow:
-    mov dword [rbx + IdleManager.inhibit_count], 0
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; idle_set_timeout
-; ---------------------------------------------------------------------------
-global idle_set_timeout
-idle_set_timeout:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov qword [rbx + IdleManager.idle_timeout], rsi
-
-    ; Restart timer with new timeout
-    call idle_start_timer
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; idle_add_callback
-; ---------------------------------------------------------------------------
-global idle_add_callback
-idle_add_callback:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
-    ASSERT_PTR r12
 
-    ; Allocate callback node
-    mov rdi, [rbx + Server.arena]
-    mov rsi, 16
-    call arena_alloc
-    test rax, rax
-    jz .oom
-
-    mov qword [rax + 0], rsi    ; callback
-    mov qword [rax + 8], [rbx + IdleManager.callbacks]
-    mov [rbx + IdleManager.callbacks], rax
-
+    cmp dword [rbx + IdleManager.inhibit_count],0x7fffffff
+    jae .overflow
+    inc dword [rbx + IdleManager.inhibit_count]
+    mov rax,[rbx + IdleManager.timer]
+    test rax,rax
+    jz .done
+    mov rdi,rax
+    call tv_timer_cancel
+    mov qword [rbx + IdleManager.timer],0
+.done:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
+.overflow:
+    mov rax,-EOVERFLOW
+    EPILOGUE_RESTORE rbx,r12
+    ret
 
-.oom:
-    mov rax, -(ENOMEM)
+; ---------------------------------------------------------------------------
+; idle_uninhibit
+;   Allow idle detection again
+; ---------------------------------------------------------------------------
+global idle_uninhibit
+idle_uninhibit:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+
+    cmp dword [rbx + IdleManager.inhibit_count],0
+    je .invalid
+    dec dword [rbx + IdleManager.inhibit_count]
+    jnz .done
+    mov rdi,rbx
+    xor esi,esi
+    call idle_reset
+.done:
+    xor rax, rax
     EPILOGUE_RESTORE rbx, r12
+    ret
+.invalid:
+    mov rax,-EINVAL
+    EPILOGUE_RESTORE rbx,r12
     ret
 
 section .data
