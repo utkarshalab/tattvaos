@@ -7,8 +7,16 @@
 %include "inc/errors.inc"
 %include "inc/caps.inc"
 %include "inc/tattva.inc"
+%include "inc/cwp.inc"
+%include "inc/channel.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 section .text
+%define AUTH_CLIENT_TRUST 8
+%define AUTH_CLIENT_CAPS 16
+%define AUTH_CLIENT_RX 48
+%define DISPLAY_EVENT_CAPABILITIES 0
 
 ; ---------------------------------------------------------------------------
 ; auth_handshake
@@ -27,6 +35,7 @@ auth_handshake:
     mov r13, [rbx + Client.trust_profile]
 
     ; Get profile caps
+    mov rdi, r13
     call auth_get_profile_caps
     mov r13, rax
 
@@ -40,10 +49,42 @@ auth_handshake:
     ; Store granted caps
     mov [rbx + Client.caps], rax
 
-    ; Send capabilities event to client
-    ; TODO: Encode cw_display.capabilities event
+    mov rdi, rbx
+    mov rsi, rax
+    call auth_send_caps
+    test rax, rax
+    js .out
+    mov rax, [rbx + AUTH_CLIENT_CAPS]
 
+.out:
     EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+; IN client*, granted mask. Emits cw_display.capabilities(granted).
+global auth_send_caps
+auth_send_caps:
+    PROLOGUE_SAVE rbx, r12
+    sub rsp, 32
+    mov rbx, rdi
+    mov r12, rsi
+    mov dword [rsp], CWP_OBJ_DISPLAY
+    mov word [rsp + 4], DISPLAY_EVENT_CAPABILITIES
+    mov word [rsp + 6], CWP_MSG_FLAG_IS_EVENT
+    mov dword [rsp + 8], 8
+    mov [rsp + 16], r12
+    mov rdi, [rbx + AUTH_CLIENT_RX]
+    test rdi, rdi
+    jz .not_connected
+    mov rsi, rsp
+    lea rdx, [rsp + 16]
+    call msgbuf_write
+    add rsp, 32
+    EPILOGUE_RESTORE rbx, r12
+    ret
+.not_connected:
+    mov rax, -(ENOTCONN)
+    add rsp, 32
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
