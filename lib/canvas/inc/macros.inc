@@ -140,12 +140,14 @@
 ; Panic / Trap Handlers (defined in log.asm)
 ; ---------------------------------------------------------------------------
 
+%ifndef PANIC_IMPL
 extern panic_assert_failed
 extern panic_null_ptr
 extern panic_unaligned
 extern panic_bounds
 extern panic_oom
 extern panic_unreachable
+%endif
 
 %macro PANIC 0
     %if TRAP_ON_PANIC
