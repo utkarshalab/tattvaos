@@ -43,17 +43,17 @@ fb_linear_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Get boot framebuffer info from Tattva
-    ; TODO: tv_fb_get_info syscall or boot info struct
-    ; For now, use config
+    ; Prefer bootloader-provided framebuffer geometry from the native config.
     mov eax, [r12 + Config.fb_width]
     test eax, eax
     jnz .has_fb
 
     ; Try to discover via VBE/UEFI GOP
+    mov rdi, rbx
+    mov rsi, r12
     call fb_linear_discover
     test rax, rax
-    jnz .oom
+    jnz .no_device
 
 .has_fb:
     ; Allocate backend state
@@ -68,10 +68,16 @@ fb_linear_init:
     mov qword [rbx + Backend.outputs], 0
     mov qword [rbx + Backend.output_count], 0
 
-    ; Map boot framebuffer
-    ; TODO: tv_mmio_map with MEM_WC for framebuffer
-    ; For now, assume identity mapped
-    mov rax, [r12 + Config.fb_base]
+    ; Map boot framebuffer write-combined.
+    mov rdi, [r12 + Config.fb_base]
+    mov eax, [r12 + Config.fb_stride]
+    mov edx, [r12 + Config.fb_height]
+    imul rax, rdx
+    mov rsi, rax
+    mov rdx, MEM_WC
+    call tv_mmio_map
+    test rax, rax
+    js .oom
     mov qword [r13 + FbLinearState.fb_base], rax
     mov eax, [r12 + Config.fb_width]
     mov dword [r13 + FbLinearState.width], eax
@@ -88,6 +94,10 @@ fb_linear_init:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
+.no_device:
+    mov rax, -(ENODEV)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
 
 .oom:
     mov rax, -(ENOMEM)
@@ -101,10 +111,9 @@ fb_linear_init:
 ; ---------------------------------------------------------------------------
 fb_linear_discover:
     PROLOGUE
-    ; TODO: Read boot info from Tattva
-    ; For UEFI GOP: read GOP mode info
-    ; For VBE: query VBE mode
-    xor rax, rax
+    ; Discovery is supplied by the boot protocol as Config.  Absence is a
+    ; genuine no-device result, never a fabricated zero-sized framebuffer.
+    mov rax, -(ENODEV)
     leave
     ret
 
@@ -121,8 +130,18 @@ fb_linear_deinit:
     test rax, rax
     jz .done
 
-    ; Free output
-    ; TODO
+    mov rdx, [rbx + Backend.outputs]
+.free_outputs:
+    test rdx, rdx
+    jz .free_state
+    mov rcx, [rdx + Output.next]
+    mov rdi, [rbx + Backend.arena]
+    mov rsi, rdx
+    push rcx
+    call arena_free
+    pop rdx
+    jmp .free_outputs
+.free_state:
 
     ; Free state
     mov rdi, [rbx + Backend.arena]
@@ -190,13 +209,13 @@ fb_linear_flip:
 
 .no_fence:
     ; Get framebuffer base
-    mov rax, [rbx + Backend.state]
-    mov rax, [rax + FbLinearState.fb_base]
+    mov r10, [rbx + Backend.state]
+    mov rax, [r10 + FbLinearState.fb_base]
     test rax, rax
     jz .no_fb
 
     ; Check if double-buffered
-    mov r15, [rax + FbLinearState.back_buffer]
+    mov r15, [r10 + FbLinearState.back_buffer]
     test r15, r15
     jz .single_buffered
 
@@ -205,14 +224,24 @@ fb_linear_flip:
     mov rsi, [r13 + Buffer.base]
     mov rdx, [r12 + Output.width]
     mov rcx, [r12 + Output.height]
-    mov r8, [rax + FbLinearState.stride]
+    mov r8d, [r10 + FbLinearState.stride]
     mov r9, [r13 + Buffer.stride]
     call blit_copy
     test rax, rax
     jnz .copy_fail
 
-    ; Swap front/back (atomic pointer swap)
-    ; TODO: Atomic swap with memory barrier
+    ; Linear boot framebuffers cannot page-flip. Publish the completed back
+    ; buffer with a full barrier, then copy it to the scanout mapping.
+    mfence
+    mov rdi, [r10 + FbLinearState.fb_base]
+    mov rsi, r15
+    mov rdx, [r12 + Output.width]
+    mov rcx, [r12 + Output.height]
+    mov r8d, [r10 + FbLinearState.stride]
+    mov r9, r8
+    call blit_copy
+    test rax, rax
+    jnz .copy_fail
     jmp .signal_fence
 
 .single_buffered:
@@ -221,7 +250,7 @@ fb_linear_flip:
     mov rsi, [r13 + Buffer.base]
     mov rdx, [r12 + Output.width]
     mov rcx, [r12 + Output.height]
-    mov r8, [rax + FbLinearState.stride]
+    mov r8d, [r10 + FbLinearState.stride]
     mov r9, [r13 + Buffer.stride]
     call blit_copy
     test rax, rax
@@ -266,10 +295,7 @@ fb_linear_vblank_wait:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Try VBE vblank wait first
-    ; TODO: tv_irq_wait for VBE vblank IRQ
-
-    ; Fallback: sleep for frame time
+    ; Boot framebuffers expose no reliable vblank IRQ; pace by mode period.
     mov rax, [r12 + Output.current_mode]
     mov rax, [rax + Mode.refresh_ns]
     mov rdi, rax
@@ -328,11 +354,12 @@ fb_linear_create_output:
     mov qword [r13 + Output.id], 1
     mov qword [r13 + Output.backend], rbx
     mov qword [r13 + Output.framebuffer], r14
-    mov eax, [rax + FbLinearState.width]
+    mov rdx, [rbx + Backend.state]
+    mov eax, [rdx + FbLinearState.width]
     mov [r13 + Output.width], eax
-    mov eax, [rax + FbLinearState.height]
+    mov eax, [rdx + FbLinearState.height]
     mov [r13 + Output.height], eax
-    mov eax, [rax + FbLinearState.stride]
+    mov eax, [rdx + FbLinearState.stride]
     mov [r13 + Output.stride], eax
     mov qword [r13 + Output.scale], FIX_ONE
     mov dword [r13 + Output.rotation], 0
