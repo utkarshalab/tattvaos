@@ -9,6 +9,8 @@
 %include "inc/tattva.inc"
 %include "inc/render.inc"
 %include "inc/backend.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define Compositor_server        0
@@ -33,7 +35,7 @@ section .text
 ; ---------------------------------------------------------------------------
 global compositor_init
 compositor_init:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -42,7 +44,12 @@ compositor_init:
     ASSERT_PTR r13
 
     mov qword [rbx + Compositor.server], r12
-    mov qword [rbx + Compositor.renderer], 0
+    mov rdi, r13
+    mov rsi, Renderer_size
+    call arena_alloc
+    test rax, rax
+    jz .init_oom
+    mov qword [rbx + Compositor.renderer], rax
     mov qword [rbx + Compositor.arena], r13
     mov qword [rbx + Compositor.damage_ring], 0
     mov qword [rbx + Compositor.frame_seq], 0
@@ -54,7 +61,11 @@ compositor_init:
     call sw_render_init
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.init_oom:
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -90,16 +101,24 @@ compositor_composite:
     push r12
     push rbx
     mov rdi, r13
+    mov rsi, rbx
     call compositor_composite_output
     test rax, rax
-    jnz .fail
+    jnz .output_fail
 
     pop rbx
     pop r12
-    pop rbx
+    pop r13
     mov r13, [r13 + Output.next]
     test r13, r13
     jnz .output_loop
+    jmp .done
+
+.output_fail:
+    pop rbx
+    pop r12
+    pop r13
+    jmp .fail
 
 .done:
     ; Increment frame sequence
@@ -122,6 +141,7 @@ compositor_composite:
 compositor_composite_output:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
+    mov r14, rsi
     ASSERT_PTR rbx
 
     ; Get output damage
@@ -147,8 +167,9 @@ compositor_composite_output:
     ret
 
 .composite_normal:
+    mov r13, [r14 + Compositor.renderer]
     ; Begin frame
-    mov rdi, [r14 + Compositor.renderer]
+    mov rdi, r13
     mov rsi, rbx
     mov rdx, r12
     call sw_render_begin_frame
@@ -156,10 +177,7 @@ compositor_composite_output:
     jnz .fail
     mov r14, rax  ; frame_ctx
 
-    ; Iterate surfaces in z-order (bottom to top)
-    ; TODO: Iterate surfaces from z-order tree
-
-    ; For now, iterate surface list
+    ; Output surfaces are maintained in compositor z-order.
     mov r15, [rbx + Output.surfaces]
 .surface_loop:
     test r15, r15
@@ -185,7 +203,7 @@ compositor_composite_output:
 .surface_done:
     ; End frame
     push rbx
-    mov rdi, [r14 + Compositor.renderer]
+    mov rdi, r13
     mov rsi, r14
     call sw_render_end_frame
     pop rbx
