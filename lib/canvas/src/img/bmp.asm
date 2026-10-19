@@ -7,6 +7,7 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/image.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define BMP_MAGIC        0x4D42  ; "BM"
@@ -161,13 +162,23 @@ bmp_decode:
 .px24:
     cmp ecx, r8d
     jae .row_next
-    movzx r9d, byte [rdx + rcx * 3]
-    movzx r10d, byte [rdx + rcx * 3 + 1]
-    movzx r11d, byte [rdx + rcx * 3 + 2]
-    mov [rax + rcx * 4], r9b
-    mov [rax + rcx * 4 + 1], r10b
-    mov [rax + rcx * 4 + 2], r11b
-    mov byte [rax + rcx * 4 + 3], 255
+    mov r9d, ecx
+    lea r9, [r9 + r9 * 2]     ; r9 = ecx * 3
+    movzx r9d, byte [rdx + r9]
+    mov r10d, ecx
+    lea r10, [r10 + r10 * 2]
+    inc r10
+    movzx r10d, byte [rdx + r10]
+    mov r11d, ecx
+    lea r11, [r11 + r11 * 2]
+    add r11, 2
+    movzx r11d, byte [rdx + r11]
+    mov r9d, ecx
+    shl r9, 2
+    mov [rax + r9], r9b
+    mov [rax + r9 + 1], r10b
+    mov [rax + r9 + 2], r11b
+    mov byte [rax + r9 + 3], 255
     inc ecx
     jmp .px24
 .row32:
@@ -175,9 +186,11 @@ bmp_decode:
 .px32:
     cmp ecx, r8d
     jae .row_next
-    mov r9d, [rdx + rcx * 4]
-    mov [rax + rcx * 4], r9d
-    mov byte [rax + rcx * 4 + 3], 255
+    mov r9d, ecx
+    shl r9, 2
+    mov r9d, [rdx + r9]
+    mov [rax + r9], r9d
+    mov byte [rax + r9 + 3], 255
     inc ecx
     jmp .px32
 .row_next:
