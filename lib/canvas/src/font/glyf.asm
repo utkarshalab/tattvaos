@@ -7,22 +7,14 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/font.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define GlyfOut_size    56
 
 section .text
 
-struc GlyfOut
-    .verbs:         resq 1
-    .coords:        resq 1
-    .count:         resq 1
-    .cap:           resq 1
-    .x_min:         resd 1
-    .y_min:         resd 1
-    .x_max:         resd 1
-    .y_max:         resd 1
-endstruc
+; GlyfOut struct layout (manual offsets to avoid NASM preprocessor issues)
+; Offsets defined in inc/struct_offsets.inc
 
 ; ---------------------------------------------------------------------------
 ; glyf_locate
