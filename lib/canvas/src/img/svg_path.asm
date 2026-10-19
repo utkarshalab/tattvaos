@@ -5,9 +5,10 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define SvgPathState_size    64
+%define SvgPathState_SIZE 64
 
 section .text
 
@@ -157,12 +158,95 @@ svg_path_parse:
     xor r14d, r14d
     jmp .loop
 .implicit:
-    ; parse coordinate pair and emit per active command (M/L/C/Q subset)
+    ; Parse the endpoint required by the active command. Curves are flattened
+    ; to their endpoint here; the renderer can subdivide them further later.
     mov rdi, r12
     mov rsi, r13
     call svg_path_num
-    ; rdi/rsi advanced? stub: consume rest as one segment
-    jmp .done
+    test rdx, rdx
+    jz .done
+    mov r15, rax
+    add r12, rdx
+    sub r13, rdx
+    cmp r14b, 'H'
+    je .horizontal
+    cmp r14b, 'h'
+    je .horizontal_rel
+    cmp r14b, 'V'
+    je .vertical
+    cmp r14b, 'v'
+    je .vertical_rel
+    mov rdi, r12
+    mov rsi, r13
+    call svg_path_num
+    test rdx, rdx
+    jz .done
+    add r12, rdx
+    sub r13, rdx
+    mov r10, rax
+    sar r15, 16
+    sar r10, 16
+    cmp r14b, 'a'
+    jb .absolute_pair
+    add r15, [rbx + SvgPathState.cx]
+    add r10, [rbx + SvgPathState.cy]
+.absolute_pair:
+    cmp r14b, 'M'
+    je .move
+    cmp r14b, 'm'
+    je .move
+    mov esi, [rbx + SvgPathState.cx]
+    mov edx, [rbx + SvgPathState.cy]
+    mov ecx, r15d
+    mov r8d, r10d
+    mov rdi, rbx
+    call svg_path_emit_line
+    jmp .loop
+.move:
+    mov [rbx + SvgPathState.cx], r15
+    mov [rbx + SvgPathState.cy], r10
+    mov [rbx + SvgPathState.sx], r15
+    mov [rbx + SvgPathState.sy], r10
+    mov r14b, 'L'
+    jmp .loop
+.horizontal:
+    sar r15, 16
+    mov esi, [rbx + SvgPathState.cx]
+    mov edx, [rbx + SvgPathState.cy]
+    mov ecx, r15d
+    mov r8d, edx
+    mov rdi, rbx
+    call svg_path_emit_line
+    jmp .loop
+.horizontal_rel:
+    sar r15, 16
+    add r15, [rbx + SvgPathState.cx]
+    mov esi, [rbx + SvgPathState.cx]
+    mov edx, [rbx + SvgPathState.cy]
+    mov ecx, r15d
+    mov r8d, edx
+    mov rdi, rbx
+    call svg_path_emit_line
+    jmp .loop
+.vertical:
+    sar r15, 16
+    mov esi, [rbx + SvgPathState.cx]
+    mov edx, [rbx + SvgPathState.cy]
+    mov ecx, esi
+    mov r8d, r15d
+    mov rdi, rbx
+    call svg_path_emit_line
+    jmp .loop
+.vertical_rel:
+    sar r15, 16
+    add r15, [rbx + SvgPathState.cy]
+    mov esi, [rbx + SvgPathState.cx]
+    mov edx, [rbx + SvgPathState.cy]
+    mov ecx, esi
+    mov r8d, r15d
+    mov rdi, rbx
+    call svg_path_emit_line
+    jmp .loop
 .adv:
     inc r12
     dec r13
@@ -173,14 +257,16 @@ svg_path_parse:
     ret
 
 ; ---------------------------------------------------------------------------
-; svg_path_num — parse one float (stub: integer part only)
-;   IN/OUT: rdi = cursor**, rsi = remaining*
-;   OUT: rax = fixed 16.16 value
+; svg_path_num — parse one decimal number
+;   IN: rdi = cursor, rsi = remaining
+;   OUT: rax = fixed 16.16 value, rdx = bytes consumed (0 on failure)
 ; ---------------------------------------------------------------------------
 global svg_path_num
 svg_path_num:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
+    mov r12, rdi
+    mov r13, rsi
     xor eax, eax
     ; skip ws
 .skip:
@@ -197,14 +283,20 @@ svg_path_num:
     dec rsi
     jmp .skip
 .sign:
-    xor edx, edx
+    xor r8d, r8d
     cmp byte [rbx], '-'
+    jne .plus
+    mov r8d, 1
+    inc rbx
+    dec rsi
+.plus:
+    cmp byte [rbx], '+'
     jne .digits
-    mov edx, 1
     inc rbx
     dec rsi
 .digits:
     xor eax, eax
+    xor r9d, r9d
 .dloop:
     cmp rsi, 0
     jbe .finish
@@ -215,17 +307,54 @@ svg_path_num:
     imul eax, 10
     movzx ecx, cl
     add eax, ecx
+    inc r9d
     inc rbx
     dec rsi
     jmp .dloop
 .finish:
+    test r9d, r9d
+    jz .invalid
     shl eax, 16
-    test edx, edx
+    cmp rsi, 0
+    jbe .apply_sign
+    cmp byte [rbx], '.'
+    jne .apply_sign
+    inc rbx
+    dec rsi
+    mov r10d, 10
+.fraction:
+    test rsi, rsi
+    jz .apply_sign
+    mov cl, [rbx]
+    sub cl, '0'
+    cmp cl, 9
+    ja .apply_sign
+    movzx ecx, cl
+    shl ecx, 16
+    mov r11d, eax
+    mov eax, ecx
+    xor edx, edx
+    div r10d
+    add r11d, eax
+    mov eax, r11d
+    imul r10d, 10
+    inc rbx
+    dec rsi
+    cmp r10d, 10000000
+    jb .fraction
+.apply_sign:
+    test r8d, r8d
     jz .done
     neg eax
 .done:
-    mov rdi, rbx
-    EPILOGUE_RESTORE rbx
+    mov rdx, rbx
+    sub rdx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.invalid:
+    xor eax, eax
+    xor edx, edx
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -235,6 +364,11 @@ global svg_path_emit_line
 svg_path_emit_line:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    sub rsp, 16
+    mov [rsp], esi
+    mov [rsp + 4], edx
+    mov [rsp + 8], ecx
+    mov [rsp + 12], r8d
     ASSERT_PTR rbx
     mov rax, [rbx + SvgPathState.out_count]
     cmp rax, [rbx + SvgPathState.out_cap]
@@ -260,19 +394,25 @@ svg_path_emit_line:
     mov rcx, [rbx + SvgPathState.out_count]
     imul rcx, 16
     add rax, rcx
-    mov [rax + 0], esi
+    mov edx, [rsp]
+    mov [rax + 0], edx
+    mov edx, [rsp + 4]
     mov [rax + 4], edx
-    mov [rax + 8], ecx
-    mov [rax + 12], r8d
+    mov edx, [rsp + 8]
+    mov [rax + 8], edx
+    mov ecx, [rsp + 12]
+    mov [rax + 12], ecx
     inc qword [rbx + SvgPathState.out_count]
     ; update current point
-    mov [rbx + SvgPathState.cx], ecx
-    mov [rbx + SvgPathState.cy], r8d
+    mov [rbx + SvgPathState.cx], edx
+    mov [rbx + SvgPathState.cy], ecx
     xor rax, rax
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12
     ret
 .oom:
     mov rax, -(ENOMEM)
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12
     ret
 
