@@ -1,361 +1,472 @@
 ; ============================================================================
-; Keyboard — Key Processing, Modifiers, Repeat
+; Keyboard Input Handling — Keys, Modifiers, Repeat, Keymap
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
-
-; struct offsets (hoisted above use)
-%define Keyboard_size    96
-%define MOD_SHIFT      (1 << 0)
-%define MOD_CAPS       (1 << 1)
-%define MOD_CTRL       (1 << 2)
-%define MOD_ALT        (1 << 3)
-%define MOD_MOD2       (1 << 4)
-%define MOD_MOD3       (1 << 5)
-%define MOD_MOD4       (1 << 6)
-%define MOD_MOD5       (1 << 7)
-%define LED_NUM_LOCK    (1 << 0)
-%define LED_CAPS_LOCK   (1 << 1)
-%define LED_SCROLL_LOCK (1 << 2)
-%define KEY_PRESS       1
-%define KEY_RELEASE     0
-%define MAX_PRESSED_KEYS  64
+%include "inc/input.inc"
+%include "inc/externs.inc"
 
 section .text
 
-struc Keyboard
-    .seat:          resq 1
-    .keymap:        resq 1
-    .modifiers:     resd 1
-    .leds:          resb 1
-    .repeat:        resq 1
-    .pressed_keys:  resq 1
-    .pressed_count: resd 1
-    .repeat_key:    resd 1
-    .repeat_timer:  resq 1
-endstruc
-
-
-
-
-
-; ---------------------------------------------------------------------------
+; ============================================================================
 ; keyboard_create
-;   Create keyboard for seat
-; ---------------------------------------------------------------------------
+;   Create keyboard device
+; ============================================================================
 global keyboard_create
 keyboard_create:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi       ; seat
+    mov r13, rdx       ; name
+    mov r14d, ecx      ; capabilities
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    mov qword [rbx + InputDevice_TYPE], INPUT_TYPE_KEYBOARD
+    mov qword [rbx + InputDevice_NAME], r13
+    mov qword [rbx + InputDevice_SEAT], r12
+    mov dword [rbx + InputDevice_CAPS], r14d
+    mov qword [rbx + InputDevice_NEXT], 0
+
+    ; Initialize keyboard state
+    mov qword [rbx + Keyboard_KEYMAP], 0
+    mov dword [rbx + Keyboard_MODIFIERS], 0
+    mov dword [rbx + Keyboard_LEDS], 0
+    mov qword [rbx + Keyboard_REPEAT], 0
+    mov qword [rbx + Keyboard_PRESSED_KEYS], 0
+    mov dword [rbx + Keyboard_PRESSED_COUNT], 0
+    mov qword [rbx + Keyboard_REPEAT_KEY], 0
+    mov qword [rbx + Keyboard_REPEAT_TIMER], 0
+    mov qword [rbx + Keyboard_KEYMAP], 0
+
+    ; Add to seat's device list
+    mov rax, [r12 + SEAT_DEVICES]
+    mov [rbx + InputDevice_NEXT], rax
+    mov [r12 + SEAT_DEVICES], rbx
+
+    ; If keyboard capability, set as seat keyboard
+    test r14d, DEVICE_CAP_KEYBOARD
+    jz .done
+    mov [r12 + SEAT_KEYBOARD], rbx
+
+    ; Create default keymap
+    call keymap_create_default
+    mov [rbx + Keyboard_KEYMAP], rax
+
+.done:
+    xor rax, rax
+    leave
+    ret
+
+; ============================================================================
+; keyboard_destroy
+;   Destroy keyboard device
+; ============================================================================
+global keyboard_destroy
+keyboard_destroy:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    ASSERT_PTR rbx
+
+    ; Remove from seat's device list
+    mov r12, [rbx + InputDevice_SEAT]
+    call .unlink_from_seat
+
+    ; Release focus
+    mov rax, [rbx + Keyboard_KEYMAP]
+    test rax, rax
+    jz .done
+    call keymap_destroy
+
+    ; Cancel repeat timer
+    mov rax, [rbx + Keyboard_REPEAT_TIMER]
+    test rax, rax
+    jz .done
+    call timer_destroy
+
+.done:
+    xor rax, rax
+    leave
+    ret
+
+.unlink_from_seat:
+    mov r12, [rbx + InputDevice_SEAT]
+    mov rax, [r12 + SEAT_DEVICES]
+    test rax, rax
+    jz .done
+
+    cmp rax, rbx
+    jne .find_prev
+    mov rax, [rbx + InputDevice_NEXT]
+    mov [r12 + SEAT_DEVICES], rax
+    jmp .done
+
+.find_prev:
+    mov r12, rax
+.prev_loop:
+    mov rax, [r12 + InputDevice_NEXT]
+    test rax, rax
+    jz .done
+    cmp rax, rbx
+    je .unlink
+    mov r12, rax
+    jmp .prev_loop
+
+.unlink:
+    mov rax, [rbx + InputDevice_NEXT]
+    mov [r12 + InputDevice_NEXT], rax
+
+.done:
+    ret
+
+; ============================================================================
+; keyboard_key
+;   Handle key press/release
+; ============================================================================
+global keyboard_key
+keyboard_key:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    mov rbx, rdi
+    mov r12d, esi      ; keycode
+    mov r13d, edx      ; state (pressed/released)
+    mov r14d, ecx      ; time
+    mov r15d, r8d      ; serial
+    ASSERT_PTR rbx
+
+    ; Update pressed keys array
+    test r13d, r13d
+    jz .released
+
+.pressed:
+    ; Check if already pressed
+    call .is_key_pressed
+    test rax, rax
+    jnz .done
+
+    ; Add to pressed keys
+    call .add_pressed_key
+
+    ; Update modifiers
+    call .update_modifiers
+
+    ; Set repeat key
+    mov [rbx + Keyboard_REPEAT_KEY], r12d
+    mov [rbx + Keyboard_REPEAT_TIMER], 0
+    call timer_start
+
+    jmp .send_event
+
+.released:
+    call .remove_pressed_key
+    call .update_modifiers
+
+    ; Clear repeat key
+    cmp dword [rbx + Keyboard_REPEAT_KEY], r12d
+    jne .send_event
+    mov qword [rbx + Keyboard_REPEAT_KEY], 0
+    mov qword [rbx + Keyboard_REPEAT_TIMER], 0
+
+.send_event:
+    ; Send key event to focus
+    mov rax, [rbx + InputDevice_SEAT]
+    mov rax, [rax + SEAT_KEYBOARD_FOCUS]
+    test rax, rax
+    jz .done
+
+    mov rdi, rax
+    mov esi, r12d
+    mov edx, r13d
+    mov ecx, r14d
+    mov r8d, r15d
+    call surface_keyboard_key
+
+    ; Update modifiers state
+    call .update_leds
+
+    xor rax, rax
+    leave
+    ret
+
+; ============================================================================
+; .is_key_pressed - Check if key is already pressed
+; ============================================================================
+.is_key_pressed:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12d, esi
+
+    mov rax, [rbx + Keyboard_PRESSED_KEYS]
+    mov rcx, [rbx + Keyboard_PRESSED_COUNT]
+    test rcx, rcx
+    jz .not_found
+
+.loop:
+    cmp dword [rax], r12d
+    je .found
+    add rax, 4
+    dec rcx
+    jnz .loop
+
+.not_found:
+    xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+.found:
+    mov rax, 1
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+; ============================================================================
+; .add_pressed_key - Add key to pressed keys array
+; ============================================================================
+.add_pressed_key:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12d, esi
+
+    mov eax, [rbx + Keyboard_PRESSED_COUNT]
+    cmp eax, 64
+    jge .full
+
+    mov rax, [rbx + Keyboard_PRESSED_KEYS]
+    add rax, 4
+    mov [rbx + Keyboard_PRESSED_KEYS], rax
+    mov [rax - 4], r12d
+    inc dword [rbx + Keyboard_PRESSED_COUNT]
+
+.full:
+    EPILOGUE_RESTORE rbx, r13
+    ret
+
+; ============================================================================
+; .remove_pressed_key - Remove key from pressed keys array
+; ============================================================================
+.remove_pressed_key:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12d, esi
+
+    mov rax, [rbx + Keyboard_PRESSED_KEYS]
+    mov rcx, [rbx + Keyboard_PRESSED_COUNT]
+    test rcx, rcx
+    jz .done
+
+.loop:
+    cmp dword [rax], r12d
+    je .found
+    add rax, 4
+    dec rcx
+    jnz .loop
+
+    ; Not found
+    jmp .done
+
+.found:
+    ; Shift remaining keys
+    mov r12, rax
+    add r12, 4
+    mov rcx, [rbx + Keyboard_PRESSED_COUNT]
+    sub rcx, 1
+    sub rcx, [rbx + Keyboard_PRESSED_COUNT]
+    neg rcx
+    jz .shift_done
+
+.shift_loop:
+    mov r13d, [r12]
+    mov [r12 - 4], r13d
+    add r12, 4
+    dec rcx
+    jnz .shift_loop
+
+.shift_done:
+    dec dword [rbx + Keyboard_PRESSED_COUNT]
+
+.done:
+    EPILOGUE_RESTORE rbx, r13
+    ret
+
+; ============================================================================
+; .update_modifiers - Update modifier state
+; ============================================================================
+.update_modifiers:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    mov rbx, rdi
+
+    mov r12d, 0  ; modifiers
+
+    ; Check pressed keys for modifiers
+    mov rax, [rbx + Keyboard_PRESSED_KEYS]
+    mov rcx, [rbx + Keyboard_PRESSED_COUNT]
+    test rcx, rcx
+    jz .mods_done
+
+.mod_loop:
+    mov r12d, [rax]
+    call keymap_is_modifier
+    test rax, rax
+    jz .next_key
+
+    ; Get modifier mask
+    call keymap_get_modifier
+    or r12d, eax
+
+.next_key:
+    add rax, 4
+    dec rcx
+    jnz .mod_loop
+
+.mods_done:
+    mov [rbx + Keyboard_MODIFIERS], r12d
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+
+; ============================================================================
+; .update_leds - Update keyboard LEDs
+; ============================================================================
+.update_leds:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12d, [rbx + Keyboard_MODIFIERS]
+
+    ; Update LED state based on modifiers
+    mov r12d, 0
+    test dword [rbx + Keyboard_MODIFIERS], MOD_NUM
+    jz .no_num
+    or r12d, (1 << 0)  ; NumLock LED
+.no_num:
+    test dword [rbx + Keyboard_MODIFIERS], MOD_CAPS
+    jz .no_caps
+    or r12d, (1 << 1)  ; CapsLock LED
+.no_caps:
+    ; ScrollLock, Compose, etc.
+
+    mov [rbx + Keyboard_LEDS], r12d
+
+    ; Send to hardware
+    mov rax, [rbx + InputDevice_SEAT]
+    mov rdi, [rax + SEAT_DEVICE]
+    mov esi, r12d
+    call device_set_leds
+
+    xor rax, rax
+    leave
+    ret
+
+; ============================================================================
+; keyboard_modifiers
+;   Get current modifier state
+; ============================================================================
+global keyboard_modifiers
+keyboard_modifiers:
+    PROLOGUE
+    mov eax, [rdi + Keyboard_MODIFIERS]
+    leave
+    ret
+
+; ============================================================================
+; keyboard_repeat
+;   Handle key repeat timer
+; ============================================================================
+global keyboard_repeat
+keyboard_repeat:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    ASSERT_PTR rbx
+
+    mov r12d, [rbx + Keyboard_REPEAT_KEY]
+    test r12d, r12d
+    jz .done
+
+    ; Check if key still pressed
+    call .is_key_pressed
+    test rax, rax
+    jz .clear_repeat
+
+    ; Send repeat event
+    mov rax, [rbx + InputDevice_SEAT]
+    mov rax, [rax + SEAT_KEYBOARD_FOCUS]
+    test rax, rax
+    jz .reschedule
+
+    mov rdi, rax
+    mov esi, r12d
+    mov edx, KEY_STATE_REPEAT
+    mov ecx, 0  ; time
+    mov r8d, 0  ; serial
+    call surface_keyboard_key
+
+.reschedule:
+    call timer_restart
+    jmp .done
+
+.clear_repeat:
+    mov qword [rbx + Keyboard_REPEAT_KEY], 0
+    mov qword [rbx + Keyboard_REPEAT_TIMER], 0
+
+.done:
+    xor rax, rax
+    leave
+    ret
+
+; ============================================================================
+; keyboard_set_keymap
+;   Set keyboard keymap
+; ============================================================================
+global keyboard_set_keymap
+keyboard_set_keymap:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Allocate keyboard
-    mov rdi, [rbx + Server.arena]
-    mov rsi, Keyboard_size
-    call arena_alloc
+    ; Destroy old keymap
+    mov rax, [rbx + Keyboard_KEYMAP]
     test rax, rax
-    jz .oom
-    mov rbx, rax
+    jz .set_new
+    call keymap_destroy
 
-    ; Initialize
-    mov qword [rbx + Keyboard.seat], r12
-    mov qword [rbx + Keyboard.keymap], 0
-    mov dword [rbx + Keyboard.modifiers], 0
-    mov byte [rbx + Keyboard.leds], 0
-    mov qword [rbx + Keyboard.repeat], 0
-    mov qword [rbx + Keyboard.pressed_keys], 0
-    mov dword [rbx + Keyboard.pressed_count], 0
-    mov dword [rbx + Keyboard.repeat_key], 0
-    mov qword [rbx + Keyboard.repeat_timer], 0
+.set_new:
+    mov [rbx + Keyboard_KEYMAP], r12
 
-    ; Allocate pressed keys array
-    mov rdi, [rdi + Server.arena]
-    mov rsi, MAX_PRESSED_KEYS
-    shl rsi, 2
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov qword [rbx + Keyboard.pressed_keys], rax
+    ; Update modifiers
+    call .update_modifiers
 
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
+    ; Update LEDs
+    call .update_leds
 
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; keyboard_set_keymap
-; ---------------------------------------------------------------------------
-global keyboard_set_keymap
-keyboard_set_keymap:
-    PROLOGUE
-    ASSERT_PTR rdi
-    ASSERT_PTR rsi
-    mov qword [rdi + Keyboard.keymap], rsi
     xor rax, rax
     leave
     ret
 
-; ---------------------------------------------------------------------------
-; keyboard_process_key
-;   Process key event
-;   IN:  rdi = keyboard*, rsi = keycode, rdx = state (press/release)
-; ---------------------------------------------------------------------------
-global keyboard_process_key
-keyboard_process_key:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    mov r12d, esi
-    mov r13d, edx
-    ASSERT_PTR rbx
-
-    ; Lookup keysym from keymap
-    mov r13, [rbx + Keyboard.keymap]
-    test r13, r13
-    jz .no_keymap
-
-    ; Get keysym for keycode and modifiers
-    mov rdi, r13
-    mov rsi, r12d
-    mov rdx, [rbx + Keyboard.modifiers]
-    call keymap_lookup_keysym
-    test rax, rax
-    jz .no_keysym
-    mov r14, rax
-
-    ; Update modifier state
-    call keyboard_update_modifiers
-
-    ; Add/remove from pressed keys
-    test r12d, r12d
-    jz .release
-
-    ; Press
-    call keyboard_key_press
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-.release:
-    ; Release
-    call keyboard_key_release
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-.no_keymap:
-.no_keysym:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-; ---------------------------------------------------------------------------
-; keyboard_update_modifiers
-; ---------------------------------------------------------------------------
-keyboard_update_modifiers:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, [rbx + Keyboard.keymap]
-    test r12, r12
-    jz .done
-
-    ; Check each modifier key in pressed_keys
-    mov dword [rbx + Keyboard.modifiers], 0
-    mov r13, [rbx + Keyboard.pressed_keys]
-    mov ecx, [rbx + Keyboard.pressed_count]
-    test ecx, ecx
-    jz .done
-
-.mod_loop:
-    test ecx, ecx
-    jz .done
-    movzx r13d, word [r13]
-    ; Check if this keycode is a modifier
-    mov rdi, r12
-    mov rsi, r13d
-    call keymap_is_modifier
-    test rax, rax
-    jz .not_mod
-    or dword [rbx + Keyboard.modifiers], eax
-
-.not_mod:
-    add r13, 2
-    dec ecx
-    jmp .mod_loop
-
-.done:
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; keyboard_key_press
-; ---------------------------------------------------------------------------
-keyboard_key_press:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12d, esi
-
-    ; Add to pressed keys
-    mov r13, [rbx + Keyboard.pressed_keys]
-    mov ecx, [rbx + Keyboard.pressed_count]
-    cmp ecx, MAX_PRESSED_KEYS
-    jae .full
-
-    mov [r13 + ecx * 2], r12w
-    inc dword [rbx + Keyboard.pressed_count]
-
-    ; Start repeat timer
-    call keyboard_start_repeat
-
-.full:
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; keyboard_key_release
-; ---------------------------------------------------------------------------
-keyboard_key_release:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12d, esi
-
-    ; Remove from pressed keys
-    mov r13, [rbx + Keyboard.pressed_keys]
-    mov ecx, [rbx + Keyboard.pressed_count]
-    test ecx, ecx
-    jz .done
-
-.rem_loop:
-    test ecx, ecx
-    jz .done
-    cmp word [r13], r12w
-    jne .next
-    ; Found - remove by shifting
-    dec ecx
-    mov r14, r13
-    add r14, 2
-    mov rdi, r13
-    mov rsi, r14
-    mov rdx, ecx
-    shl rdx, 1
-    call memcopy
-    dec dword [rbx + Keyboard.pressed_count]
-    jmp .done
-
-.next:
-    add r13, 2
-    dec ecx
-    jmp .rem_loop
-
-.done:
-    ; Stop repeat if this was the repeat key
-    cmp dword [rbx + Keyboard.repeat_key], r12d
-    jne .done
-    call keyboard_stop_repeat
-
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; keyboard_start_repeat
-; ---------------------------------------------------------------------------
-keyboard_start_repeat:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12d, esi
-
-    mov dword [rbx + Keyboard.repeat_key], r12d
-
-    ; Register timer: initial delay 250ms, then 33ms (30Hz)
-    mov rdi, 250000000  ; 250ms
-    mov rsi, keyboard_repeat_callback
-    mov rdx, rbx
-    call tv_timer_register
-    test rax, rax
-    jnz .fail
-    mov [rbx + Keyboard.repeat_timer], rax
-
-.fail:
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; keyboard_stop_repeat
-; ---------------------------------------------------------------------------
-keyboard_stop_repeat:
+; ============================================================================
+; keyboard_get_keymap
+;   Get current keymap
+; ============================================================================
+global keyboard_get_keymap
+keyboard_get_keymap:
     PROLOGUE
-    ASSERT_PTR rdi
-    mov rax, [rdi + Keyboard.repeat_timer]
-    test rax, rax
-    jz .done
-    mov rdi, rax
-    call tv_timer_cancel
-    mov qword [rdi + Keyboard.repeat_timer], 0
-    mov dword [rdi + Keyboard.repeat_key], 0
-.done:
+    mov rax, [rdi + Keyboard_KEYMAP]
     leave
     ret
 
-; ---------------------------------------------------------------------------
-; keyboard_repeat_callback
-; ---------------------------------------------------------------------------
-keyboard_repeat_callback:
+; ============================================================================
+; keyboard_set_repeat
+;   Set key repeat rate/delay
+; ============================================================================
+global keyboard_set_repeat
+keyboard_set_repeat:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov r12d, [rbx + Keyboard.repeat_key]
-    test r12d, r12d
-    jz .done
+    mov dword [rbx + Keyboard_REPEAT_RATE], esi
+    mov dword [rbx + Keyboard_REPEAT_DELAY], edx
 
-    ; Generate repeat event
-    mov rdi, [rbx + Keyboard.seat]
-    mov rsi, INPUT_EVENT_KEY
-    mov rdx, r12d
-    mov rcx, KEY_PRESS
-    call seat_deliver_event
-
-    ; Re-arm timer for repeat rate (33ms = 30Hz)
-    mov rdi, 33000000  ; 33ms
-    mov rsi, keyboard_repeat_callback
-    mov rdx, rbx
-    call tv_timer_register
-    test rax, rax
-    jnz .fail
-    mov [rbx + Keyboard.repeat_timer], rax
-
-.fail:
-.done:
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; keyboard_set_leds
-; ---------------------------------------------------------------------------
-global keyboard_set_leds
-keyboard_set_leds:
-    PROLOGUE
-    ASSERT_PTR rdi
-    mov byte [rdi + Keyboard.leds], dl
-    ; TODO: Send to hardware
     xor rax, rax
-    leave
-    ret
-
-; ---------------------------------------------------------------------------
-; keyboard_get_modifiers
-; ---------------------------------------------------------------------------
-global keyboard_get_modifiers
-keyboard_get_modifiers:
-    PROLOGUE
-    ASSERT_PTR rdi
-    mov eax, [rdi + Keyboard.modifiers]
     leave
     ret
 
