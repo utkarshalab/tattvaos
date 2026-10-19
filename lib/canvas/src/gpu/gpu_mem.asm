@@ -7,10 +7,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define GpuMemMgr_size    56
-%define GpuBo_size    64
+%define GpuMemMgr_SIZE 56
+%define GpuBo_SIZE 64
 %define GPU_PLACE_GTT      1
 %define GPU_PLACE_VRAM     2
 %define GPU_PLACE_VISIBLE   4
