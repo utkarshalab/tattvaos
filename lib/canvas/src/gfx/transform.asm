@@ -4,6 +4,7 @@
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define TRANSFORM_NORMAL    0
@@ -59,18 +60,18 @@ transform_apply:
 
 .rot90:
     ; Rotate 90° clockwise: (x,y) -> (h-1-y, x)
-    .row_loop:
+    .rot90_row_loop:
         push r14
         push rbx
         mov r14, r13
 
-        .pixel_loop:
+        .rot90_pixel_loop:
             mov eax, [r12 + (r14 - 1) * 4]
             mov [rbx], eax
             add rbx, 4
             add r12, r15
             dec r14
-            jnz .pixel_loop
+            jnz .rot90_pixel_loop
 
         pop rbx
         pop r14
@@ -79,7 +80,7 @@ transform_apply:
         add r12, r13
         sub r12, r15
         dec r15
-        jnz .row_loop
+        jnz .rot90_row_loop
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -90,18 +91,18 @@ transform_apply:
     imul r12, r15
     sub r12, 4
 
-    .row_loop:
+    .rot180_row_loop:
         push r14
         push rbx
         mov r14, r13
 
-        .pixel_loop:
+        .rot180_pixel_loop:
             mov eax, [r12]
             mov [rbx], eax
             sub r12, 4
             add rbx, 4
             dec r14
-            jnz .pixel_loop
+            jnz .rot180_pixel_loop
 
         pop rbx
         pop r14
@@ -111,24 +112,24 @@ transform_apply:
         sub r12, r13
         add r12, r15
         dec r15
-        jnz .row_loop
+        jnz .rot180_row_loop
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .rot270:
     ; Rotate 270°: (x,y) -> (y, w-1-x)
-    .row_loop:
+    .rot270_row_loop:
         push r14
         push rbx
         mov r14, r13
 
-        .pixel_loop:
+        .rot270_pixel_loop:
             mov eax, [r12 + r14 * 4]
             mov [rbx], eax
             add rbx, 4
             sub r12, r15
             dec r14
-            jnz .pixel_loop
+            jnz .rot270_pixel_loop
 
         pop rbx
         pop r14
@@ -136,13 +137,13 @@ transform_apply:
         shl r13, 2
         sub r12, r13
         dec r15
-        jnz .row_loop
+        jnz .rot270_row_loop
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .flip_h:
     ; Flip horizontal: (x,y) -> (w-1-x, y)
-    .row_loop:
+    .flip_h_row_loop:
         push r14
         push rbx
         push r12
@@ -151,13 +152,13 @@ transform_apply:
         shl r12, 2
         sub r12, 4
 
-        .pixel_loop:
+        .flip_h_pixel_loop:
             mov eax, [r12]
             mov [rbx], eax
             sub r12, 4
             add rbx, 4
             dec r14
-            jnz .pixel_loop
+            jnz .flip_h_pixel_loop
 
         pop r12
         pop rbx
@@ -165,7 +166,7 @@ transform_apply:
         add rbx, r15
         add r12, r15
         dec r15
-        jnz .row_loop
+        jnz .flip_h_row_loop
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -176,18 +177,18 @@ transform_apply:
     imul r12, r15
     sub r12, r15
 
-    .row_loop:
+    .flip_v_row_loop:
         push r14
         push rbx
         mov r14, r13
 
-        .pixel_loop:
+        .flip_v_pixel_loop:
             mov eax, [r12]
             mov [rbx], eax
             add rbx, 4
             add r12, 4
             dec r14
-            jnz .pixel_loop
+            jnz .flip_v_pixel_loop
 
         pop rbx
         pop r14
@@ -197,7 +198,7 @@ transform_apply:
         sub r12, r13
         add r12, r15
         dec r15
-        jnz .row_loop
+        jnz .flip_v_row_loop
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
