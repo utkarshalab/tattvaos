@@ -5,6 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define TRANSFORM_NORMAL    0
