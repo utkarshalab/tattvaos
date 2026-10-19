@@ -5,9 +5,10 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define TileDiff_size    48
+%define TileDiff_SIZE    48
 %define TILE_DEFAULT_W   64
 %define TILE_DEFAULT_H   64
 
@@ -178,7 +179,8 @@ tile_diff_update:
     and eax, 7
     mov edx, eax
     mov rax, 1
-    shl rax, dl
+    mov cl, dl
+    shl rax, cl
     or [rdi + rcx], al
     inc qword [rbx + TileDiff.dirty_count]
 .clean:
@@ -201,11 +203,17 @@ crc32_block:
 .loop:
     test r12, r12
     jz .done
-    movzx edx, byte [rbx]
-    xor edx, eax
-    and edx, 0xFF
-    shr eax, 8
-    xor eax, [crc32_table + rdx * 4]
+    xor al, [rbx]
+    mov ecx, 8
+.bit:
+    mov edx, eax
+    and edx, 1
+    neg edx
+    shr eax, 1
+    and edx, 0xEDB88320
+    xor eax, edx
+    dec ecx
+    jnz .bit
     inc rbx
     dec r12
     jmp .loop
@@ -223,7 +231,8 @@ tile_diff_is_dirty:
     shr rcx, 3
     and eax, 7
     mov dl, [rdi + rcx]
-    shr dl, al
+    mov cl, al
+    shr dl, cl
     and edx, 1
     mov eax, edx
     leave
@@ -232,3 +241,4 @@ tile_diff_is_dirty:
 section .data
 global tile_diff_version
 tile_diff_version: dq 0x010000
+
