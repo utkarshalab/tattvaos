@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/colorm.inc"
+%include "inc/fixed.inc"
 
 ; struct offsets (hoisted above use)
-%define Trc_size    56
+%define Trc_SIZE    56
 
 section .text
 
@@ -118,7 +119,7 @@ trc_apply:
 .pow_gamma:
     ; x^g via repeated sqrt/multiply chain (documented approx)
     mov rdi, r12
-    ; NOTE: full pow in C31 tuning; simple square for gamma≈2 stub
+    ; Fast exact path for gamma 2.0.
     cmp eax, 0x20000
     jne .gen_pow
     mov rax, r12
@@ -128,8 +129,8 @@ trc_apply:
     ret
 .gen_pow:
     mov rdi, r12
-    call fix_sqrt
-    mov rax, rdi
+    mov esi, eax
+    call fixed_pow
     EPILOGUE_RESTORE rbx, r12
     ret
 .table:
@@ -152,8 +153,6 @@ trc_apply:
     shr rax, 16
     cmp rax, rcx
     jae .table_top
-    movzx eax, word [rax + rcx * 0 + rax]  ; placeholder indexing
-    ; proper: table[rax]
     mov rdx, [rbx + Trc.table]
     movzx eax, word [rdx + rax * 2]
     shl eax, 0  ; u16 entries assumed 0..65535 -> 16.16
