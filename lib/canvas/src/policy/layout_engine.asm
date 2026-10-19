@@ -5,39 +5,21 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define LayoutEngine_size    40
+%define LayoutEngine_SIZE    40
 %define LAYOUT_NODE_LEAF    0
 %define LAYOUT_NODE_HSPLIT  1
 %define LAYOUT_NODE_VSPLIT  2
-%define LayoutNode_size    64
+%define LayoutNode_SIZE    64
 
 section .text
 
-struc LayoutEngine
-    .root:          resq 1
-    .node_count:    resd 1
-    .gap_size:      resd 1
-    .master_ratio:  resq 1
-    .smart_gaps:    resb 1
-    .smart_borders: resb 1
-endstruc
+; LayoutEngine struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
 
-struc LayoutNode
-    .type:          resd 1
-    .toplevel:      resq 1
-    .left:          resq 1
-    .right:         resq 1
-    .parent:        resq 1
-    .ratio:         resq 1
-    .x:             resd 1
-    .y:             resd 1
-    .width:         resd 1
-    .height:        resd 1
-    .gap:           resd 1
-endstruc
+; LayoutNode struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
 ; ---------------------------------------------------------------------------
 ; layout_engine_init
@@ -56,6 +38,7 @@ layout_engine_init:
     mov qword [rbx + LayoutEngine.master_ratio], 0
     mov byte [rbx + LayoutEngine.smart_gaps], 1
     mov byte [rbx + LayoutEngine.smart_borders], 1
+    mov qword [rbx + LayoutEngine.server], r12
 
     ; Default master ratio 3:5
     mov rax, 3
@@ -137,15 +120,7 @@ layout_tree_build_recursive:
     ASSERT_PTR rbx
 
     cmp r14d, 1
-    je .leaf
-
-    ; Split
-    ; For tiling: split horizontally (master on left, stack on right)
-    ; For now, create a balanced binary tree
-    mov r14d, r14d
-    shr r14d, 1
-    test r14d, r14d
-    jz .leaf
+    jbe .leaf
 
     ; Allocate split node
     push rbx
@@ -163,45 +138,34 @@ layout_tree_build_recursive:
     mov qword [r12 + LayoutNode.right], 0
     mov qword [r12 + LayoutNode.parent], 0
 
-    ; Build left subtree (master)
+    ; A right-deep BSP keeps the first window as master and divides the
+    ; remaining stack without requiring a temporary array.
     mov rdi, rbx
     mov rsi, r12
-    mov rdx, [rsp + 8]  ; window list
-    mov rcx, r14d       ; left count
-    call layout_tree_build_recursive
+    mov rdx, r13
+    call layout_engine_create_leaf
     test rax, rax
     jz .oom
     mov [r12 + LayoutNode.left], rax
     mov [rax + LayoutNode.parent], r12
 
-    ; Build right subtree (stack)
-    mov r14d, [rsp + 12]  ; right count
-    test r14d, r14d
-    jz .leaf
-
-    push rbx
-    mov rdi, [rbx + LayoutEngine.server]
-    mov rdi, [rdi + Server.arena]
-    mov rsi, LayoutNode_size
-    call arena_alloc
-    pop rbx
+    mov rdx, [r13 + Toplevel.next_ws]
+    dec r14d
+    mov rdi, rbx
+    mov rsi, r12
+    mov ecx, r14d
+    call layout_tree_build_recursive
     test rax, rax
     jz .oom
-
-    mov r13, rax
-    mov dword [r13 + LayoutNode.type], LAYOUT_NODE_VSPLIT
-    mov qword [r13 + LayoutNode.left], 0
-    mov qword [r13 + LayoutNode.right], 0
-    mov qword [r13 + LayoutNode.parent], r12
-    mov [r12 + LayoutNode.right], r13
-
-    ; Build right subtree
-    ; TODO: Pass correct window list slice
-
+    mov [r12 + LayoutNode.right], rax
+    mov [rax + LayoutNode.parent], r12
+    mov rax, r12
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .leaf:
+    mov rsi, r13
+    mov rdi, rbx
     call layout_engine_create_leaf
     test rax, rax
     jz .oom
@@ -219,6 +183,7 @@ layout_tree_build_recursive:
 layout_engine_create_leaf:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov r12, rsi
     ASSERT_PTR rbx
 
     mov rdi, [rbx + LayoutEngine.server]
@@ -229,18 +194,17 @@ layout_engine_create_leaf:
     jz .oom
 
     mov dword [rax + LayoutNode.type], LAYOUT_NODE_LEAF
-    mov qword [rax + LayoutNode.toplevel], rsi
+    mov qword [rax + LayoutNode.toplevel], r12
     mov qword [rax + LayoutNode.left], 0
     mov qword [rax + LayoutNode.right], 0
     mov qword [rax + LayoutNode.parent], 0
     mov qword [rax + LayoutNode.ratio], 0
-    xor eax, eax
-    mov [rax + LayoutNode.x], eax
-    mov [rax + LayoutNode.y], eax
-    mov [rax + LayoutNode.width], eax
-    mov [rax + LayoutNode.height], eax
-    mov eax, [rbx + LayoutEngine.gap_size]
-    mov [rax + LayoutNode.gap], eax
+    mov dword [rax + LayoutNode.x], 0
+    mov dword [rax + LayoutNode.y], 0
+    mov dword [rax + LayoutNode.width], 0
+    mov dword [rax + LayoutNode.height], 0
+    mov edx, [rbx + LayoutEngine.gap_size]
+    mov [rax + LayoutNode.gap], edx
 
     EPILOGUE_RESTORE rbx, r12
     ret
@@ -316,18 +280,20 @@ layout_node_apply:
     jz .done
 
     mov r13, [r12 + Toplevel.surface]
-    mov rax, [r13 + Surface.pending]
+    mov r13, [r13 + Surface.pending]
+    test r13, r13
+    jz .done
 
     mov eax, [rbx + LayoutNode.x]
-    mov [rax + SurfaceState.buf_x], eax
+    mov [r13 + SurfaceState.buf_x], eax
     mov eax, [rbx + LayoutNode.y]
-    mov [rax + SurfaceState.buf_y], eax
+    mov [r13 + SurfaceState.buf_y], eax
     mov eax, [rbx + LayoutNode.width]
-    mov [rax + SurfaceState.width], eax
+    mov [r13 + SurfaceState.width], eax
     mov eax, [rbx + LayoutNode.height]
-    mov [rax + SurfaceState.height], eax
+    mov [r13 + SurfaceState.height], eax
 
-    mov byte [rax + SurfaceState.pending], 1
+    mov byte [r13 + SurfaceState.pending], 1
 
     call toplevel_schedule_configure
     EPILOGUE_RESTORE rbx, r12, r13
