@@ -6,6 +6,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define LIMITS_DEFAULT_CLIPBOARD    (1024 * 1024)      ; 1MB
@@ -14,31 +15,13 @@
 %define LIMITS_DEFAULT_OFFER_MIMES  16
 %define LIMITS_RATE_MSG_PER_SEC     1000
 %define LIMITS_RATE_BYTES_PER_SEC   (10 * 1024 * 1024) ; 10MB/s
-%define Limits_size    56
-%define ClientLimits_size    48
+%define Limits_SIZE    56
+%define ClientLimits_SIZE    48
 
 section .text
 
-
-
-struc Limits
-    .clipboard_max:       resq 1
-    .selection_max:       resq 1
-    .dnd_max:             resq 1
-    .offer_mimes_max:     resd 1
-    .rate_msg_per_sec:    resq 1
-    .rate_bytes_per_sec:  resq 1
-    .per_client_limits:   resq 1
-endstruc
-
-struc ClientLimits
-    .clipboard_bytes:     resq 1
-    .selection_bytes:     resq 1
-    .dnd_bytes:           resq 1
-    .messages_sent:       resq 1
-    .bytes_sent:          resq 1
-    .last_reset:          resq 1
-endstruc
+; Limits struct layout (manual offsets to avoid NASM preprocessor issues)
+; Offsets defined in inc/struct_offsets.inc
 
 ; ---------------------------------------------------------------------------
 ; limits_init
