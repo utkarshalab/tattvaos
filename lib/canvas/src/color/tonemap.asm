@@ -6,9 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/colorm.inc"
+%include "inc/fixed.inc"
 
 ; struct offsets (hoisted above use)
-%define HdrMeta_size    20
+%define HdrMeta_SIZE    20
 
 section .text
 
@@ -119,8 +120,9 @@ hlg_to_linear:
 ; ---------------------------------------------------------------------------
 global tonemap_reinhard
 tonemap_reinhard:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov r12, rdx
     ; x = L * exposure
     mov rax, rbx
     imul rax, rsi
@@ -133,9 +135,9 @@ tonemap_reinhard:
     xor rdx, rdx
     div rcx
     ; scale to max_out
-    imul rax, rdx
+    imul rax, r12
     sar rax, 16
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -144,9 +146,10 @@ tonemap_reinhard:
 ; ---------------------------------------------------------------------------
 global tonemap_pixel
 tonemap_pixel:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
     mov r12, rsi
+    mov r14, rdx
     ASSERT_PTR rbx
     ASSERT_PTR rdx
     mov eax, [rbx + HdrMeta.encoding]
@@ -157,19 +160,41 @@ tonemap_pixel:
     cmovb r13, [r12 + 8]
     cmp r13, [r12 + 16]
     cmovb r13, [r12 + 16]
+    mov r15, r13
     ; exposure from max_display (default 203 nits SDR ref)
     mov rdi, r13
     mov rsi, 0x10000
     mov rdx, 0x10000
     call tonemap_reinhard
     mov r13, rax
-    ; scale channels by ratio
-    ; TODO: per-channel scale
-    mov [rdx + 0], r13
-    mov [rdx + 8], r13
-    mov [rdx + 16], r13
+    ; Preserve hue by applying mapped-luminance/original-luminance to channels.
+    test r15, r15
+    jz .black
+    mov r8, r15
+    mov r9, rax
+    mov rax, [r12]
+    imul rax, r9
+    cqo
+    idiv r8
+    mov [r14], rax
+    mov rax, [r12 + 8]
+    imul rax, r9
+    cqo
+    idiv r8
+    mov [r14 + 8], rax
+    mov rax, [r12 + 16]
+    imul rax, r9
+    cqo
+    idiv r8
+    mov [r14 + 16], rax
+    jmp .pixel_done
+.black:
+    mov qword [r14], 0
+    mov qword [r14 + 8], 0
+    mov qword [r14 + 16], 0
+.pixel_done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data
