@@ -5,17 +5,25 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
 %define KEYMAP_MAX_KEYCODES    256
 %define KEYMAP_LEVELS          4
 %define KEYMAP_GROUPS          4
-%define Keymap_size    48
+%define Keymap_SIZE    48
 %define KEYSYM_NONE       0
 %define KEYSYM_MOD_SHIFT  0xFFE1
 %define KEYSYM_MOD_CTRL   0xFFE3
 %define KEYSYM_MOD_ALT    0xFFE9
 %define KEYSYM_MOD_SUPER  0xFFEB
+%define MOD_SHIFT      (1 << 0)
+%define MOD_CTRL       (1 << 2)
+%define MOD_ALT        (1 << 3)
+%define MOD_MOD2       (1 << 4)
+%define MOD_MOD3       (1 << 5)
+%define MOD_MOD4       (1 << 6)
+%define MOD_MOD5       (1 << 6)
 
 section .text
 
@@ -50,8 +58,7 @@ keymap_init:
 
     ; Allocate keycode array
     mov rdi, r12
-    mov rsi, KEYMAP_MAX_KEYCODES
-    shl rsi, 3  ; 8 bytes per entry (keycode + 4*4 levels)
+    mov rsi, KEYMAP_MAX_KEYCODES * KEYMAP_LEVELS * KEYMAP_GROUPS * 4
     call arena_alloc
     test rax, rax
     jz .oom
@@ -64,7 +71,7 @@ keymap_init:
 
     ; Zero initialize
     mov rdi, rax
-    mov rcx, KEYMAP_MAX_KEYCODES
+    mov rcx, KEYMAP_MAX_KEYCODES * KEYMAP_LEVELS * KEYMAP_GROUPS / 2
     xor rax, rax
     rep stosq
 
@@ -94,10 +101,10 @@ keymap_set_entry:
     jae .fail
 
     mov rax, [rdi + Keymap.keycodes]
-    lea rax, [rax + rsi * 8]
-    mov r9, rdx
-    shl r9, 2
-    add r9, rcx
+    imul r9, rsi, KEYMAP_LEVELS * KEYMAP_GROUPS
+    imul r10, rcx, KEYMAP_LEVELS
+    add r9, r10
+    add r9, rdx
     mov [rax + r9 * 4], r8d
     xor rax, rax
     leave
@@ -116,9 +123,10 @@ keymap_set_entry:
 ; ---------------------------------------------------------------------------
 global keymap_lookup_keysym
 keymap_lookup_keysym:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12d, esi
+    mov r14d, esi
     mov r13d, edx
     ASSERT_PTR rbx
 
@@ -126,10 +134,10 @@ keymap_lookup_keysym:
     jae .none
 
     ; Determine level from modifiers
-    mov r12d, 1  ; base level
+    xor r12d, r12d
     test rdx, MOD_SHIFT
     jz .no_shift
-    mov r12d, 2  ; shifted level
+    mov r12d, 1
 .no_shift:
 
     ; Check for level 3 (AltGr) / level 4
@@ -137,12 +145,12 @@ keymap_lookup_keysym:
     jz .no_altgr
     test rdx, MOD_CTRL
     jnz .no_altgr
-    mov r12d, 3  ; level 3 (AltGr)
+    mov r12d, 2
 .no_altgr:
 
     test rdx, MOD_MOD4
     jz .no_mod4
-    mov r12d, 4  ; level 4
+    mov r12d, 3
 .no_mod4:
 
     ; Group selection (for now, group 0)
@@ -150,19 +158,17 @@ keymap_lookup_keysym:
 
     ; Lookup
     mov rbx, [rbx + Keymap.keycodes]
-    mov rdi, rbx
-    mov rsi, r12d
-    ; Calculate index: level * groups + group
-    lea rsi, [r12 + r13 * 4]
-    mov eax, [rdi + rsi * 4]
+    imul rax, r14, KEYMAP_LEVELS * KEYMAP_GROUPS
+    add rax, r12
+    mov eax, [rbx + rax * 4]
     test eax, eax
     jz .none
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .none:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -173,14 +179,15 @@ keymap_lookup_keysym:
 ; ---------------------------------------------------------------------------
 global keymap_is_modifier
 keymap_is_modifier:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12d, esi
     ASSERT_PTR rbx
 
     ; Check base level keysym
     mov rax, [rbx + Keymap.keycodes]
-    movzx eax, word [rax + r12 * 8 + 4]  ; level 0, group 0
+    shl r12, 6
+    mov eax, [rax + r12]
 
     cmp eax, KEYSYM_MOD_SHIFT
     je .shift
@@ -192,24 +199,24 @@ keymap_is_modifier:
     je .super
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .shift:
     mov rax, MOD_SHIFT
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 .ctrl:
     mov rax, MOD_CTRL
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 .alt:
     mov rax, MOD_ALT
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 .super:
     mov rax, MOD_MOD4
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
@@ -218,10 +225,42 @@ keymap_is_modifier:
 ; ---------------------------------------------------------------------------
 global keymap_compile
 keymap_compile:
-    PROLOGUE
-    ; TODO: Parse text keymap format
-    xor rax, rax
-    leave
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    ; Native compiled records: u16 keycode, u16 reserved, u32 base, u32 shift.
+.record:
+    cmp r13, 12
+    jb .compile_done
+    movzx esi, word [r12]
+    mov r8d, [r12 + 4]
+    xor edx, edx
+    xor ecx, ecx
+    mov rdi, rbx
+    call keymap_set_entry
+    test rax, rax
+    js .compile_out
+    movzx esi, word [r12]
+    mov r8d, [r12 + 8]
+    mov edx, 1
+    xor ecx, ecx
+    mov rdi, rbx
+    call keymap_set_entry
+    test rax, rax
+    js .compile_out
+    add r12, 12
+    sub r13, 12
+    jmp .record
+.compile_done:
+    test r13, r13
+    jnz .compile_bad
+    xor eax, eax
+    jmp .compile_out
+.compile_bad:
+    mov rax, -(EINVAL)
+.compile_out:
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
