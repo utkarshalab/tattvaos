@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define FrameClock_output      0
@@ -83,14 +85,37 @@ frame_clock_start:
 ; ---------------------------------------------------------------------------
 global frame_clock_schedule
 frame_clock_schedule:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
     ASSERT_PTR rbx
-
-    ; Add callback to list
-    ; TODO: Create callback object and add to list
+    test r12, r12
+    jz .invalid
+    mov rdi, 32
+    xor esi, esi
+    mov eax, SYS_MEM_ALLOC
+    syscall
+    test rax, rax
+    jz .oom
+    test rax, rax
+    js .out
+    mov qword [rax], 0
+    mov rcx, [rbx + FrameClock.callbacks]
+    mov [rax + 8], rcx
+    mov [rax + 16], r12
+    mov [rax + 24], r13
+    mov [rbx + FrameClock.callbacks], rax
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.invalid:
+    mov rax, -(EINVAL)
+    jmp .out
+.oom:
+    mov rax, -(ENOMEM)
+    jmp .out
     ret
 
 ; ---------------------------------------------------------------------------
@@ -110,15 +135,24 @@ frame_clock_vblank:
     add rax, [rbx + FrameClock.refresh_ns]
     mov [rbx + FrameClock.next_vblank], rax
 
-    ; Fire callbacks
+    ; Detach the one-shot callback batch before invoking user code. New callbacks
+    ; scheduled from a callback are therefore deferred to the next vblank.
     mov r13, [rbx + FrameClock.callbacks]
+    mov qword [rbx + FrameClock.callbacks], 0
     test r13, r13
     jz .done
 
 .callback_loop:
-    ; Fire callback
-    ; TODO: Call callback with vblank time
-    mov r13, [r13 + ListNode.next]
+    mov rax, [r13 + 8]
+    mov [rbx + FrameClock.phase], rax
+    mov rdi, r12
+    mov rsi, [r13 + 24]
+    call qword [r13 + 16]
+    mov rax, [rbx + FrameClock.phase]
+    mov rdi, r13
+    mov r13, rax
+    mov eax, SYS_MEM_FREE
+    syscall
     test r13, r13
     jnz .callback_loop
 
@@ -136,14 +170,18 @@ frame_clock_vblank:
 ; ---------------------------------------------------------------------------
 global frame_clock_get_phase
 frame_clock_get_phase:
-    PROLOGUE
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
     ASSERT_PTR rdi
 
     call tv_time_now_ns
-    mov rdx, [rdi + FrameClock.next_vblank]
+    mov rdx, [rbx + FrameClock.next_vblank]
     sub rdx, rax
+    jns .phase_ok
+    xor edx, edx
+.phase_ok:
     mov rax, rdx
-    leave
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
