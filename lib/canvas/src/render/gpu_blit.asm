@@ -5,6 +5,11 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+extern gfx9_emit_copy
+extern gfx9_emit_fill
+extern gpu_ring_submit
 
 section .text
 
@@ -26,8 +31,7 @@ gpu_blit_copy:
     jnz .fail
     mov rdi, r12
     call gpu_ring_submit
-    ; TODO: track fence seq
-    xor rax, rax
+    ; Return the submitted fence sequence for dependency tracking.
     EPILOGUE_RESTORE rbx, r12
     ret
 .fail:
