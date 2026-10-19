@@ -7,6 +7,8 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/event.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 section .text
 
@@ -28,6 +30,7 @@ input_init:
     mov qword [rbx + Server.seats], 0
     mov qword [rbx + Server.seat_count], 0
     mov qword [rbx + Server.arena], r12
+    mov [rel input_server], rbx
 
     ; Register Tattva input callback
     mov rdi, input_tattva_callback
@@ -66,6 +69,7 @@ input_deinit:
 ; ---------------------------------------------------------------------------
 input_tattva_callback:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 32
     mov rbx, rdi
     ASSERT_PTR rbx
 
@@ -93,6 +97,7 @@ input_tattva_callback:
 
     call input_dispatch_event
 
+    add rsp, 32
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -107,11 +112,10 @@ input_dispatch_event:
     mov r13, rdx        ; code
     ; rcx = value, r8 = device_id
 
-    ; Find device by device_id
-    ; TODO: Device lookup
-
-    ; For now, broadcast to all seats
-    mov rdi, [rbx + Server.seats]
+    mov rdi, [rel input_server]
+    test rdi, rdi
+    jz .done
+    mov rdi, [rdi + Server.seats]
     test rdi, rdi
     jz .done
 
@@ -130,5 +134,6 @@ input_dispatch_event:
     ret
 
 section .data
+input_server: dq 0
 global input_version
 input_version: dq 0x010000
