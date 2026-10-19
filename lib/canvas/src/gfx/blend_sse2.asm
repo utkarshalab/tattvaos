@@ -4,6 +4,8 @@
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
+%include "inc/errors.inc"
+%include "inc/externs.inc"
 
 section .text
 
