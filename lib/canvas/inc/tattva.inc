@@ -80,6 +80,8 @@
 %define SYS_FS_OPEN         0x83    ; open for streaming
 %define SYS_FS_PREAD        0x84    ; read from open file
 %define SYS_FS_CLOSE        0x85    ; close file
+%define SYS_FS_WRITE        0x86    ; append/write streaming file
+%define SYS_FS_PWRITE       0x87    ; positional write to open file
 
 ; PCI
 %define SYS_PCI_FOR_EACH    0x90    ; iterate all devices
@@ -269,6 +271,8 @@ endstruc
 ; External Function Declarations (implemented in src/tattva/*.asm)
 ; ---------------------------------------------------------------------------
 
+%ifndef TATTVA_BINDING_IMPL
+
 ; Memory
 extern tv_mem_alloc
 extern tv_mem_free
@@ -331,6 +335,7 @@ extern tv_input_grab
 ; FS
 extern tv_fs_read
 extern tv_fs_stat
+%endif
 extern tv_fs_list
 extern tv_fs_open
 extern tv_fs_pread
