@@ -5,6 +5,28 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/externs.inc"
+
+; Struct definitions (from crp_server.asm and crp_session.asm)
+struc CrpServer
+    .server:         resq 1
+    .listener:       resq 1
+    .port:           resd 1
+    .sessions:       resq 1
+    .voutput:        resq 1
+    .running:        resb 1
+endstruc
+
+struc CrpSession
+    .server:         resq 1
+    .conn:           resq 1
+    .view_only:      resb 1
+    .seq:            resq 1
+    .next:           resq 1
+endstruc
+
+; External function
+extern crp_send_frame
 
 section .text
 
