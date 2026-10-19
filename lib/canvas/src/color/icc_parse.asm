@@ -7,9 +7,10 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/colorm.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define IccProfile_size    112
+%define IccProfile_SIZE    112
 %define ICC_MAGIC_SIZE_OFF   0
 %define ICC_TAG_COUNT_OFF    128
 
