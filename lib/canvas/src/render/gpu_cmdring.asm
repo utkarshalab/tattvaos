@@ -5,6 +5,10 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+extern gpu_bo_create
+%define GPU_PLACE_GTT 1
 
 section .text
 
@@ -27,13 +31,13 @@ gpu_mem_bind_buffer:
     mov rdi, [rbx + Server.gpu]
     test rdi, rdi
     jz .fail
-    mov rsi, [r12 + Buffer.size]
+    mov rsi, [r12 + Buffer_SIZE]
     mov rdx, 4096
     mov rcx, GPU_PLACE_GTT
     call gpu_bo_create
     test rax, rax
     jz .fail
-    mov [r12 + Buffer.gpu_bo], rax
+    mov [r12 + Buffer_gpu_bo], rax
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
