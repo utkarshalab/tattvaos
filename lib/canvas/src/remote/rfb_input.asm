@@ -6,6 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
+%include "inc/event.inc"
+extern rfb_recv_cut_text
+extern virtual_input_inject
 
 ; struct offsets (hoisted above use)
 %define RFB_MSG_POINTER_EVENT  5
@@ -25,7 +30,7 @@ rfb_poll_input:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     ASSERT_PTR rbx
-    mov r12, [rbx + RfbClient.conn]
+    mov r12, [rbx + RfbClient_conn]
     sub rsp, 16
     ; poll: try 1-byte read with zero timeout? tv_tls_read blocks;
     ; caller only invokes when waitset signals readability
@@ -55,9 +60,7 @@ rfb_poll_input:
     movzx edx, word [rsp + 1]
     xchg dl, dh
     movzx r8d, word [rsp + 3]
-    xchg r8b, r8b  ; note: 16-bit swap via xchg below
-    movzx r8d, word [rsp + 3]
-    xchg r8b, al
+    rol r8w, 8
     mov rdi, rbx
     mov rsi, rdx
     mov rdx, r8
@@ -103,8 +106,8 @@ rfb_forward_pointer:
     mov rbx, rdi
     ASSERT_PTR rbx
     ; rsi = x, rdx = y, rcx = buttons
-    mov rdi, [rbx + RfbClient.server]
-    mov rdi, [rdi + RfbServer.server]
+    mov rdi, [rbx + RfbClient_server]
+    mov rdi, [rdi + RfbServer_server]
     mov r8, -1  ; remote device id
     call virtual_input_inject
     EPILOGUE_RESTORE rbx, r12
@@ -115,13 +118,82 @@ rfb_forward_pointer:
 ; ---------------------------------------------------------------------------
 global rfb_forward_key
 rfb_forward_key:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov r12, rdx
     ASSERT_PTR rbx
-    ; TODO: keysym -> keycode map, then virtual_input_inject
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
+    ; Translate the stable X11 keysym subset used by RFB into native evdev
+    ; keycodes. Printable letters/digits are table-driven; navigation keys
+    ; use their standard 0xffxx keysyms.
+    mov eax, esi
+    cmp eax, 'A'
+    jb .digit
+    cmp eax, 'Z'
+    jbe .upper
+    cmp eax, 'a'
+    jb .special
+    cmp eax, 'z'
+    ja .special
+    sub eax, 'a'
+    movzx edx, byte [rel rfb_letter_codes + rax]
+    jmp .inject
+.upper:
+    sub eax, 'A'
+    movzx edx, byte [rel rfb_letter_codes + rax]
+    jmp .inject
+.digit:
+    cmp eax, '0'
+    jb .special
+    cmp eax, '9'
+    ja .special
+    sub eax, '0'
+    movzx edx, byte [rel rfb_digit_codes + rax]
+    jmp .inject
+.special:
+    mov edx, 28                 ; Return
+    cmp eax, 0xff0d
+    je .inject
+    mov edx, 1                  ; Escape
+    cmp eax, 0xff1b
+    je .inject
+    mov edx, 14                 ; Backspace
+    cmp eax, 0xff08
+    je .inject
+    mov edx, 15                 ; Tab
+    cmp eax, 0xff09
+    je .inject
+    mov edx, 57                 ; Space
+    cmp eax, 0x20
+    je .inject
+    mov edx, 103                ; Up
+    cmp eax, 0xff52
+    je .inject
+    mov edx, 108                ; Down
+    cmp eax, 0xff54
+    je .inject
+    mov edx, 105                ; Left
+    cmp eax, 0xff51
+    je .inject
+    mov edx, 106                ; Right
+    cmp eax, 0xff53
+    jne .unsupported
+.inject:
+    mov rdi, [rbx + RfbClient_server]
+    mov rdi, [rdi + RfbServer_server]
+    mov rsi, INPUT_EVENT_KEY
+    mov rcx, r12
+    mov r8, -1
+    call virtual_input_inject
+    EPILOGUE_RESTORE rbx, r12
     ret
+.unsupported:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12
+    ret
+
+section .rodata
+rfb_letter_codes: db 30,48,46,32,18,33,34,35,23,36,37,38,50,49,24,25,16,19,31,20,22,47,17,45,21,44
+rfb_digit_codes:  db 11,2,3,4,5,6,7,8,9,10
 
 section .data
 global rfb_input_version
