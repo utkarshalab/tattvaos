@@ -6,6 +6,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define RFB_ENC_RAW    0
