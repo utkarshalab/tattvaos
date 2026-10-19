@@ -8,7 +8,7 @@
 %include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define ClientObjMap_size    24
+%define ClientObjMap_SIZE    24
 
 section .text
 
@@ -50,8 +50,10 @@ client_objects_add:
     cmp rax, [rbx + ClientObjMap.cap]
     jae .full
     mov rdx, [rbx + ClientObjMap.entries]
-    mov [rdx + rax * 16], rsi
-    mov [rdx + rax * 16 + 8], rdx
+    ; Each entry is 16 bytes (handle + pointer), use scale 8 with index*2
+    lea r10, [rax * 2]
+    mov [rdx + r10 * 8], rsi
+    mov [rdx + r10 * 8 + 8], rdx
     inc qword [rbx + ClientObjMap.count]
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -72,12 +74,14 @@ client_objects_find:
 .loop:
     cmp rdx, rcx
     jae .none
-    cmp [rax + rdx * 16], rsi
+    ; Each entry is 16 bytes, use scale 8 with index*2
+    lea r10, [rdx * 2]
+    cmp [rax + r10 * 8], rsi
     je .found
     inc rdx
     jmp .loop
 .found:
-    mov rax, [rax + rdx * 16 + 8]
+    mov rax, [rax + r10 * 8 + 8]
     EPILOGUE_RESTORE rbx
     ret
 .none:
