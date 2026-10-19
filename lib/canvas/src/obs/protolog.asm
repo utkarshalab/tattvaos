@@ -6,36 +6,21 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define ProtoLog_size    56
-%define ProtoLogEntry_size    40
+%define ProtoLog_SIZE    56
+%define ProtoLogEntry_SIZE    40
 %define PROTOLOG_DEFAULT_CAPACITY 2048
 %define PROTOLOG_DIR_C2S      0
 %define PROTOLOG_DIR_S2C      1
 
 section .text
 
-struc ProtoLog
-    .server:         resq 1
-    .buf:            resq 1
-    .capacity:       resq 1
-    .write_pos:      resq 1
-    .count:          resq 1
-    .enabled:        resb 1
-    .dropped:        resq 1
-endstruc
+; ProtoLog struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
-struc ProtoLogEntry
-    .time_ns:       resq 1
-    .client_id:     resq 1
-    .dir:           resb 1  ; 0 = c2s, 1 = s2c
-    .obj:           resd 1
-    .opcode:        resw 1
-    .flags:         resw 1
-    .len:           resd 1
-    .payload_off:   resq 1
-endstruc
+; ProtoLogEntry struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
 
 ; ---------------------------------------------------------------------------
