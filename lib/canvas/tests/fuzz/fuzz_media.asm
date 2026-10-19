@@ -1,89 +1,68 @@
 ; ============================================================================
-; fuzz_media — Media + Remote Parser Fuzz Targets (png/jpeg/gif/ttf/icc/rfb)
+; Fuzz Media — Fuzz Tests for Media Codecs
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
+%include "inc/test.inc"
+%include "inc/externs.inc"
 
 section .text
 
-global fuzz_png_run
-fuzz_png_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    mov rdi, rbx
-    mov rsi, r12
-    call fuzz_target_png
+; ============================================================================
+; fuzz_target_png (stub)
+; ============================================================================
+global fuzz_target_png
+fuzz_target_png:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
-global fuzz_jpeg_run
-fuzz_jpeg_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    mov rdi, rbx
-    mov rsi, r12
-    call fuzz_target_jpeg
+; ============================================================================
+; fuzz_target_jpeg (stub)
+; ============================================================================
+global fuzz_target_jpeg
+fuzz_target_jpeg:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
-global fuzz_gif_run
-fuzz_gif_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    mov rdi, rbx
-    mov rsi, r12
-    call fuzz_target_gif
+; ============================================================================
+; fuzz_target_gif (stub)
+; ============================================================================
+global fuzz_target_gif
+fuzz_target_gif:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
-global fuzz_ttf_run
-fuzz_ttf_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    mov rdi, rbx
-    mov rsi, r12
-    call fuzz_target_ttf
+; ============================================================================
+; fuzz_target_ttf (stub)
+; ============================================================================
+global fuzz_target_ttf
+fuzz_target_ttf:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
-global fuzz_icc_run
-fuzz_icc_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    mov rdi, rbx
-    mov rsi, r12
-    call fuzz_target_icc
+; ============================================================================
+; fuzz_target_icc (stub)
+; ============================================================================
+global fuzz_target_icc
+fuzz_target_icc:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
-global fuzz_rfb_run
-fuzz_rfb_run:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    mov rdi, rbx
-    mov rsi, r12
-    call fuzz_target_rfb
+; ============================================================================
+; fuzz_target_rfb (stub)
+; ============================================================================
+global fuzz_target_rfb
+fuzz_target_rfb:
+    PROLOGUE
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
