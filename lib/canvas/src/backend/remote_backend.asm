@@ -6,9 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
-%define RemoteBackend_size    24
+%define _RemoteBackend_size 24
 
 section .text
 
@@ -29,7 +31,7 @@ remote_backend_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
     mov rdi, [rbx + Backend.arena]
-    mov rsi, RemoteBackend_size
+    mov rsi, _RemoteBackend_size
     call arena_alloc
     test rax, rax
     jz .oom
