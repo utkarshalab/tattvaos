@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/externs.inc"
 
 ; struct offsets (hoisted above use)
 %define TOPLEVEL_STATE_DEFAULT     0
@@ -84,7 +86,8 @@ states_remove:
     PROLOGUE
     ASSERT_PTR rdi
     mov eax, [rdi + Toplevel.state]
-    and eax, ~esi
+    not esi
+    and eax, esi
     mov [rdi + Toplevel.state], eax
     xor rax, rax
     leave
@@ -280,9 +283,21 @@ states_maximize:
     or eax, STATE_FLAG_MAXIMIZED
     mov [rbx + Toplevel.state], eax
 
-    ; Apply maximized geometry (full output minus panels)
-    ; TODO: Calculate from output geometry
+    mov rax,[rbx + Toplevel.output]
+    test rax,rax
+    jz .no_output
+    mov ecx,[rax + Output.width]
+    mov [rbx + Toplevel.pending_width],ecx
+    mov edx,[rax + Output.height]
+    mov [rbx + Toplevel.pending_height],edx
+    mov byte [rbx + Toplevel.pending_state],1
+    mov esi,[rax + Output.x]
+    mov edx,[rax + Output.y]
+    mov rdi,rbx
+    call toplevel_set_position
+.no_output:
 
+    mov rdi,rbx
     call toplevel_schedule_configure
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -307,6 +322,7 @@ states_unmaximize:
     mov eax, [rbx + Toplevel.saved_height]
     mov [rbx + Toplevel.pending_height], eax
 
+    mov rdi,rbx
     call toplevel_schedule_configure
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -332,9 +348,21 @@ states_fullscreen:
     or eax, STATE_FLAG_FULLSCREEN
     mov [rbx + Toplevel.state], eax
 
-    ; Set output geometry
-    ; TODO: Get from output
+    mov rax,[rbx + Toplevel.output]
+    test rax,rax
+    jz .no_output
+    mov ecx,[rax + Output.width]
+    mov [rbx + Toplevel.pending_width],ecx
+    mov edx,[rax + Output.height]
+    mov [rbx + Toplevel.pending_height],edx
+    mov byte [rbx + Toplevel.pending_state],1
+    mov esi,[rax + Output.x]
+    mov edx,[rax + Output.y]
+    mov rdi,rbx
+    call toplevel_set_position
+.no_output:
 
+    mov rdi,rbx
     call toplevel_schedule_configure
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -359,6 +387,7 @@ states_unfullscreen:
     mov eax, [rbx + Toplevel.saved_height]
     mov [rbx + Toplevel.pending_height], eax
 
+    mov rdi,rbx
     call toplevel_schedule_configure
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -377,9 +406,19 @@ states_minimize:
     or eax, STATE_FLAG_MINIMIZED
     mov [rbx + Toplevel.state], eax
 
-    ; Hide surface
-    ; TODO: surface_set_visible(rbx, 0)
+    mov rax,[rbx + Toplevel.shell]
+    test rax,rax
+    jz .configured
+    mov rdi,[rax + Shell.server]
+    mov rsi,[rbx + Toplevel.surface]
+    test rdi,rdi
+    jz .configured
+    test rsi,rsi
+    jz .configured
+    call zorder_remove
 
+.configured:
+    mov rdi,rbx
     call toplevel_schedule_configure
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -398,9 +437,20 @@ states_unminimize:
     and eax, ~STATE_FLAG_MINIMIZED
     mov [rbx + Toplevel.state], eax
 
-    ; Show surface
-    ; TODO: surface_set_visible(rbx, 1)
+    mov rax,[rbx + Toplevel.shell]
+    test rax,rax
+    jz .configured
+    mov rdi,[rax + Shell.server]
+    mov rsi,[rbx + Toplevel.surface]
+    test rdi,rdi
+    jz .configured
+    test rsi,rsi
+    jz .configured
+    mov rdx,[rsi + Surface.z_order]
+    call zorder_insert
 
+.configured:
+    mov rdi,rbx
     call toplevel_schedule_configure
     xor rax, rax
     EPILOGUE_RESTORE rbx
