@@ -6,6 +6,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
 
 section .text
 
@@ -14,7 +15,7 @@ rfb_auth:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     ASSERT_PTR rbx
-    mov r12, [rbx + RfbClient.conn]
+    mov r12, [rbx + RfbClient_conn]
     sub rsp, 16
     mov dword [rsp + 0], 0x01000000
     mov rdi, r12
