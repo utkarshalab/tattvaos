@@ -6,25 +6,19 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/struct_offsets.inc"
+%include "inc/canvas_client.inc"
 
 ; struct offsets (hoisted above use)
-%define Policy_size    80
+%define Policy_SIZE    80
 
 section .text
 
-struc Policy
-    .server:            resq 1
-    .name:              resq 1
-    .layout:            resq 1
-    .configure:         resq 1
-    .focus_change:      resq 1
-    .new_window:        resq 1
-    .close_window:      resq 1
-    .workspace_changed: resq 1
-    .tile_window:       resq 1
-    .window_configured: resq 1
-    .data:              resq 1
-endstruc
+; Policy struct layout (manual offsets)
+; Offsets defined in inc/struct_offsets.inc
+
+; ----------
+
 
 ; ---------------------------------------------------------------------------
 ; policy_init
