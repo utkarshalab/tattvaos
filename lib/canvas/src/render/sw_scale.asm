@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
+extern scale_bilinear
+
 section .text
 
 ; ---------------------------------------------------------------------------
