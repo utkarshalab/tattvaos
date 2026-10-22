@@ -11,6 +11,8 @@ section .text
 
 ; LUTs built at init (256-entry u16 linear 0..65535)
 section .bss
+global srgb_to_linear_lut
+global linear_to_srgb_lut
 srgb_to_linear_lut: resw 256
 linear_to_srgb_lut: resw 4096
 
