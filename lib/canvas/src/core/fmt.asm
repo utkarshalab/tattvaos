@@ -7,6 +7,8 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern str_len
+
 section .text
 
 ; ---------------------------------------------------------------------------
