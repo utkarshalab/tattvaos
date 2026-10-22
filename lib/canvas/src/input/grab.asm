@@ -8,6 +8,26 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
+; Grabs are arena-owned. Destruction detaches all external relationships while
+; preserving the next link so list walkers can continue safely.
+global grab_destroy
+grab_destroy:
+    test rax, rax
+    jz .destroy_none
+    mov rdx, [rax + Grab.next]
+    mov qword [rax + Grab.seat], 0
+    mov qword [rax + Grab.surface], 0
+    mov qword [rax + Grab.owner], 0
+    mov qword [rax + Grab.cursor], 0
+    mov qword [rax + Grab.confine], 0
+    mov rax, rdx
+    ret
+.destroy_none:
+    xor eax, eax
+    ret
+
 ; struct offsets (hoisted above use)
 %define Grab_SIZE 56
 %define GRAB_NONE       0
