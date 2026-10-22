@@ -9,6 +9,9 @@
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
+extern states_set
+extern states_float
+
 %define RULE_PATTERN_APP_ID     0
 %define RULE_PATTERN_TITLE      1
 %define RULE_PATTERN_CLASS      2
