@@ -8,6 +8,10 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern audit_log
+extern client_disconnect
+
 ; struct offsets (hoisted above use)
 %define Containment_SIZE    24
 %define FAULT_PROTO_VIOLATION   1
