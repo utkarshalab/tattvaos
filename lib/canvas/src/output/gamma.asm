@@ -9,6 +9,9 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern memcopy
+
 ; struct offsets (hoisted above use)
 %define GAMMA_ENTRIES    256
 %define GAMMA_CHANNELS   3
