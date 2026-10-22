@@ -4,7 +4,14 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern fence_signal
+extern handle_resolve
+extern list_pop_front
+extern list_push_back
+extern presentation_queue
+extern region_clear
+extern region_copy
 
 ; Server-side surface layout (kept local until compositor/client surfaces are
 ; split into separately named public structures).
