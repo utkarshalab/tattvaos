@@ -7,8 +7,14 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/pixbuf.inc"
+%include "inc/image.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+
+extern arena_alloc
+extern pixbuf_create
+extern cursor_theme_load
+extern cursor_theme_get_cursor
 
 ; struct offsets (hoisted above use)
 %define Cursor_SIZE 48
