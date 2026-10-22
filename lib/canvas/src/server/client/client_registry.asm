@@ -6,7 +6,12 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern rbtree_init
+extern rbtree_insert
+extern rbtree_remove
+extern rbtree_find
+extern arena_alloc
 
 section .text
 
