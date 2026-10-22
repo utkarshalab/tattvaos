@@ -8,6 +8,8 @@
 %include "inc/rect.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define Constraints_SIZE 32
 
@@ -38,11 +40,13 @@ constraints_create:
     test rax, rax
     jz .oom
 
-    mov byte [rax + Constraints.confined], 0
-    mov byte [rax + Constraints.locked], 0
-    mov dword [rax + Constraints.lock_x], 0
-    mov dword [rax + Constraints.lock_y], 0
+    mov rbx, rax
+    mov byte [rbx + Constraints.confined], 0
+    mov byte [rbx + Constraints.locked], 0
+    mov dword [rbx + Constraints.lock_x], 0
+    mov dword [rbx + Constraints.lock_y], 0
     ; rect zeroed by arena_alloc
+    mov rax, rbx
 
     EPILOGUE_RESTORE rbx, r12
     ret
@@ -59,22 +63,26 @@ constraints_create:
 ; ---------------------------------------------------------------------------
 global constraints_confine
 constraints_confine:
-    PROLOGUE
-    ASSERT_PTR rdi
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    ASSERT_PTR rbx
 
     test rsi, rsi
     jz .disable
 
-    mov byte [rdi + Constraints.confined], 1
-    mov rdi, [rdi + Constraints.confine_rect]
-    call rect_copy
-    leave
+    mov byte [rbx + Constraints.confined], 1
+    mov rax, [rsi]
+    mov [rbx + Constraints.confine_rect], rax
+    mov rax, [rsi + 8]
+    mov [rbx + Constraints.confine_rect + 8], rax
+    xor eax, eax
+    EPILOGUE_RESTORE rbx
     ret
 
 .disable:
-    mov byte [rdi + Constraints.confined], 0
+    mov byte [rbx + Constraints.confined], 0
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
