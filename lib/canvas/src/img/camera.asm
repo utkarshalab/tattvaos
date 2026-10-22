@@ -4,6 +4,9 @@
 %include "inc/macros.inc"
 %include "inc/image.inc"
 
+extern jpeg_decode
+extern tiff_decode
+
 section .text
 global camera_probe
 camera_probe:
@@ -88,7 +91,8 @@ camera_probe:
 .compare:
     cmp r10,rsi
     jae .found
-    mov al,[rbx+r8+r10]
+    lea r11,[r8+r10]
+    mov al,[rbx+r11]
     cmp al,[rdi+r10]
     jne .next
     inc r10
