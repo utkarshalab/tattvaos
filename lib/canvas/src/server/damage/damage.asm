@@ -6,7 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern region_init
+extern region_add_rect
+extern region_clear
+extern surface_transform_rect
 
 section .text
 
