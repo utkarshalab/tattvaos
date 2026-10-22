@@ -9,8 +9,15 @@
 %include "inc/image.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
 %include "src/backend/family/amd/dcn/dcn_regs.inc"
+
+extern arena_free
+extern ddc_read_edid
+extern edid_parse
+extern edid_find_preferred_mode
+extern fence_signal
+extern fence_wait
+extern pixbuf_destroy
 
 section .text
 
