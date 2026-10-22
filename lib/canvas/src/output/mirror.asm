@@ -9,6 +9,9 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern output_set_mode
+extern output_layout_apply
+
 section .text
 
 ; ---------------------------------------------------------------------------
