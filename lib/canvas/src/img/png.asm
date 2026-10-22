@@ -9,6 +9,13 @@
 %include "inc/image.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern memcopy
+extern zlib_decompress
+extern png_unfilter
+extern png_adam7_expand
+extern crc32_ieee
+
 ; struct offsets (hoisted above use)
 %define PNG_SIG0  0x474E5089
 %define PNG_SIG1  0x0A1A0A0D
