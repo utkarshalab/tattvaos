@@ -6,7 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/shell.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
 
 section .text
 
