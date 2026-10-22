@@ -7,6 +7,9 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern cmap_glyph_id
+
 ; struct offsets (hoisted above use)
 %define FontChain_SIZE    24
 
