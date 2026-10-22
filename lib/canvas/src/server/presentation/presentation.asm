@@ -6,7 +6,10 @@
 %include "inc/cwp.inc"
 %include "inc/channel.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern memcopy
+extern msgbuf_write
 
 %define PresentInfo.kind 0
 %define PresentInfo.seq 4
