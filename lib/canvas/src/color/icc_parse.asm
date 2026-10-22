@@ -9,6 +9,8 @@
 %include "inc/colorm.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define IccProfile_SIZE    112
 %define ICC_MAGIC_SIZE_OFF   0
