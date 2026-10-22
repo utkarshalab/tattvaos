@@ -6,7 +6,6 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/geometry.inc"
-%include "inc/externs.inc"
 
 section .text
 
@@ -430,8 +429,7 @@ circle_draw_quadrant:
 ;   IN: rdi = pixbuf*, rsi = x, rdx = y, rcx = width, r8 = height, r9 = color
 ;   OUT: rax = 0 OK
 ; ============================================================================
-global rect_fill
-rect_fill:
+circle_rect_fill:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
     mov r12d, esi       ; x
