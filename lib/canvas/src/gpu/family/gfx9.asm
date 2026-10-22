@@ -8,6 +8,8 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern gpu_ring_write
+
 ; struct offsets (hoisted above use)
 %define PM4_TYPE_3             3
 %define PM4_PFP_SYNC_ME        0x26
