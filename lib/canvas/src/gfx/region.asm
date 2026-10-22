@@ -4,7 +4,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern memcopy
+extern rect_intersect
 
 %define RECT_BYTES 16
 %define REGION_INITIAL_CAPACITY 8
