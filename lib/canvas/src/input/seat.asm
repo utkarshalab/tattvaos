@@ -6,9 +6,104 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/input.inc"
-%include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
+
+extern data_source_destroy
+extern grab_destroy
+extern surface_keyboard_enter
+extern surface_keyboard_leave
+extern surface_pointer_enter
+extern surface_pointer_leave
+extern surface_set_cursor
+extern keyboard_key
+extern pointer_motion
+extern pointer_set_position
+
+%define Seat_NAME Seat.name
+%define Seat_ARENA Seat.arena
+%define Seat_CAPABILITIES Seat.capabilities
+%define Seat_DEVICES Seat.devices
+%define Seat_POINTER Seat.pointer
+%define Seat_KEYBOARD Seat.keyboard
+%define Seat_TOUCH Seat.touch
+%define Seat_TABLET Seat.tablet
+%define Seat_POINTER_FOCUS Seat.pointer_focus
+%define Seat_KEYBOARD_FOCUS Seat.keyboard_focus
+%define Seat_SELECTION Seat.selection_source
+%define Seat_GRABS Seat.grab
+%define Seat_SELECTION_SOURCE Seat.selection_source
+%define Seat_SELECTION_SERIAL Seat.selection_serial
+%define Seat_DRAG_SOURCE Seat.drag_source
+%define Seat_DRAG_ICON Seat.drag_icon
+%define Seat_DRAG_ACTIONS Seat.drag_actions
+%define Grab_NEXT Grab.next
+%define Pointer_X Pointer.x
+%define Pointer_Y Pointer.y
 
 section .text
+
+; Dispatch a raw native input record to the primary devices on this seat.
+; rdi=type, rsi=seat, rdx=time, rcx=code, r8=value
+global seat_deliver_event
+seat_deliver_event:
+    cmp edi, 1
+    je .deliver_key
+    cmp edi, 2
+    je .deliver_rel
+    cmp edi, 3
+    je .deliver_abs
+    xor eax, eax
+    ret
+.deliver_key:
+    mov rdi, [rsi + Seat_KEYBOARD]
+    test rdi, rdi
+    jz .delivered
+    mov rsi, rcx
+    mov rcx, rdx
+    mov rdx, r8
+    xor r8d, r8d
+    jmp keyboard_key
+.deliver_rel:
+    mov rdi, [rsi + Seat_POINTER]
+    test rdi, rdi
+    jz .delivered
+    xor esi, esi
+    xor edx, edx
+    test ecx, ecx
+    jnz .relative_y
+    mov esi, r8d
+    jmp pointer_motion
+.relative_y:
+    cmp ecx, 1
+    jne .delivered
+    mov edx, r8d
+    jmp pointer_motion
+.deliver_abs:
+    mov rdi, [rsi + Seat_POINTER]
+    test rdi, rdi
+    jz .delivered
+    mov esi, [rdi + Pointer_X]
+    mov edx, [rdi + Pointer_Y]
+    test ecx, ecx
+    jnz .absolute_y
+    mov esi, r8d
+    jmp pointer_set_position
+.absolute_y:
+    cmp ecx, 1
+    jne .delivered
+    mov edx, r8d
+    jmp pointer_set_position
+.delivered:
+    xor eax, eax
+    ret
+
+; Shell-facing focus operation accepts a toplevel and focuses its surface.
+global seat_set_focus
+seat_set_focus:
+    test rsi, rsi
+    jz seat_set_keyboard_focus
+    mov rsi, [rsi]
+    jmp seat_set_keyboard_focus
 
 ; ============================================================================
 ; seat_create
@@ -54,8 +149,7 @@ seat_create:
     mov qword [rbx + Seat_DRAG_ICON], 0
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ============================================================================
 ; seat_destroy
@@ -346,6 +440,7 @@ seat_set_pointer_focus:
     mov rdx, [rax + Pointer_Y]
     call surface_set_cursor
 
+.done:
     xor rax, rax
     leave
     ret
@@ -384,6 +479,7 @@ seat_set_keyboard_focus:
     mov rdi, r12
     call surface_keyboard_enter
 
+.done:
     xor rax, rax
     leave
     ret
@@ -533,6 +629,7 @@ seat_end_drag:
     mov qword [rbx + Seat_DRAG_ICON], 0
     mov dword [rbx + Seat_DRAG_ACTIONS], 0
 
+.done:
     xor rax, rax
     leave
     ret
