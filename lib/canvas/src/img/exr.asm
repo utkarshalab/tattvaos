@@ -3,6 +3,9 @@
 %include "inc/macros.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+extern fill_solid
+
 section .text
 global exr_decode
 exr_decode:
@@ -184,7 +187,8 @@ exr_decode:
     imul rdx,[rsp+40]
     add rdi,rdx
     mov edx,[rsp+44]
-    mov [rdi+rcx*4+rdx],al
+    add rdi,rdx
+    mov [rdi+rcx*4],al
 .sample_next:
     inc ecx
     jmp .sample
