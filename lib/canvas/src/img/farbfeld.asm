@@ -3,6 +3,8 @@
 %include "inc/macros.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+
 section .text
 global farbfeld_decode
 farbfeld_decode:
