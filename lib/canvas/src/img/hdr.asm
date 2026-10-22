@@ -3,6 +3,10 @@
 %include "inc/macros.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+extern arena_alloc
+extern memcopy
+
 section .text
 global hdr_decode
 hdr_decode:
@@ -134,7 +138,8 @@ hdr_decode:
     cmp r10d,[rsp]
     jae .bad
     mov rcx,[rsp+8]
-    mov [rcx+r15+r10*4],dl
+    lea rcx,[rcx+r10*4]
+    mov [rcx+r15],dl
     inc r10d
     dec eax
     jmp .run
@@ -150,7 +155,8 @@ hdr_decode:
     inc r12
     dec r13
     mov rcx,[rsp+8]
-    mov [rcx+r15+r10*4],dl
+    lea rcx,[rcx+r10*4]
+    mov [rcx+r15],dl
     inc r10d
     dec eax
     jmp .lit_loop
