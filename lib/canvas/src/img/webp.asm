@@ -9,6 +9,10 @@
 %define FOURCC_VP8  0x20385056
 %define FOURCC_VP8L 0x4c385056
 %define FOURCC_VP8X 0x58385056
+%define FOURCC_ALPH 0x48504c41
+%define FOURCC_ICCP 0x50434349
+%define FOURCC_EXIF 0x46495845
+%define FOURCC_XMP  0x20504d58
 
 section .text
 
@@ -143,6 +147,14 @@ webp_inspect:
     je .vp8l
     cmp r10d,FOURCC_VP8
     je .vp8
+    cmp r10d,FOURCC_ALPH
+    je .alpha
+    cmp r10d,FOURCC_ICCP
+    je .icc
+    cmp r10d,FOURCC_EXIF
+    je .exif
+    cmp r10d,FOURCC_XMP
+    je .xmp
 .next:
     lea rax,[r15+r11+8]
     lea r15,[rax+1]
@@ -153,6 +165,8 @@ webp_inspect:
 
 .vp8x:
     cmp r11d,10
+    jne .bad
+    cmp r15d,12                       ; VP8X must be first
     jne .bad
     cmp dword [r13+WebPInfo.width],0
     jne .bad
@@ -236,6 +250,69 @@ webp_inspect:
     call .set_primary_common
     jmp .next
 
+.alpha:
+    cmp qword [r13+WebPInfo.alpha],0
+    jne .bad
+    cmp r11d,1
+    jb .bad
+    cmp dword [r13+WebPInfo.codec],WEBP_CODEC_NONE
+    jne .bad
+    test dword [r13+WebPInfo.flags],WEBP_FLAG_ALPHA
+    jz .bad
+    test byte [rbx+r8],0xc0
+    jnz .bad
+    lea rax,[rbx+r8]
+    mov [r13+WebPInfo.alpha],rax
+    mov [r13+WebPInfo.alpha_len],r11
+    or dword [r13+WebPInfo.flags],WEBP_FLAG_ALPHA
+    jmp .next
+
+.icc:
+    cmp qword [r13+WebPInfo.icc],0
+    jne .bad
+    cmp dword [r13+WebPInfo.codec],WEBP_CODEC_NONE
+    jne .bad
+    cmp qword [r13+WebPInfo.alpha],0
+    jne .bad
+    test dword [r13+WebPInfo.flags],WEBP_FLAG_ICC
+    jz .bad
+    test r11d,r11d
+    jz .bad
+    lea rax,[rbx+r8]
+    mov [r13+WebPInfo.icc],rax
+    mov [r13+WebPInfo.icc_len],r11
+    jmp .next
+
+.exif:
+    cmp qword [r13+WebPInfo.exif],0
+    jne .bad
+    cmp qword [r13+WebPInfo.xmp],0     ; EXIF precedes XMP
+    jne .bad
+    cmp dword [r13+WebPInfo.codec],WEBP_CODEC_NONE
+    je .bad
+    test dword [r13+WebPInfo.flags],WEBP_FLAG_EXIF
+    jz .bad
+    test r11d,r11d
+    jz .bad
+    lea rax,[rbx+r8]
+    mov [r13+WebPInfo.exif],rax
+    mov [r13+WebPInfo.exif_len],r11
+    jmp .next
+
+.xmp:
+    cmp qword [r13+WebPInfo.xmp],0
+    jne .bad
+    cmp dword [r13+WebPInfo.codec],WEBP_CODEC_NONE
+    je .bad
+    test dword [r13+WebPInfo.flags],WEBP_FLAG_XMP
+    jz .bad
+    test r11d,r11d
+    jz .bad
+    lea rax,[rbx+r8]
+    mov [r13+WebPInfo.xmp],rax
+    mov [r13+WebPInfo.xmp_len],r11
+    jmp .next
+
 ; eax=width, r9d=height, r8=payload, r11=size.
 .set_primary:
     mov ecx,WEBP_CODEC_VP8L
@@ -264,6 +341,29 @@ webp_inspect:
     je .bad
     cmp dword [r13+WebPInfo.codec],WEBP_CODEC_NONE
     je .bad
+    mov eax,[r13+WebPInfo.flags]
+    test eax,WEBP_FLAG_ICC
+    jz .done_no_icc
+    cmp qword [r13+WebPInfo.icc],0
+    je .bad
+.done_no_icc:
+    test eax,WEBP_FLAG_EXIF
+    jz .done_no_exif
+    cmp qword [r13+WebPInfo.exif],0
+    je .bad
+.done_no_exif:
+    test eax,WEBP_FLAG_XMP
+    jz .done_no_xmp
+    cmp qword [r13+WebPInfo.xmp],0
+    je .bad
+.done_no_xmp:
+    cmp dword [r13+WebPInfo.codec],WEBP_CODEC_VP8
+    jne .done_valid
+    test eax,WEBP_FLAG_ALPHA
+    jz .done_valid
+    cmp qword [r13+WebPInfo.alpha],0
+    je .bad
+.done_valid:
     xor eax,eax
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
     ret
