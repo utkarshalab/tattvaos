@@ -8,6 +8,8 @@
 %include "inc/canvas_client.inc"
 %include "inc/fixed.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define AccelProfile_SIZE 32
 %define ACCEL_FLAT        0
@@ -42,16 +44,18 @@ pointer_accel_create:
     test rax, rax
     jz .oom
 
+    mov rbx, rax
     ; Default: adaptive
-    mov dword [rax + AccelProfile.type], ACCEL_ADAPTIVE
-    mov dword [rax + AccelProfile.threshold], 4
-    mov rax, FIX_ONE
-    shl rax, 1  ; 2.0
-    mov qword [rax + AccelProfile.accel_factor], rax
-    mov rax, FIX_ONE
-    shr rax, 1  ; 0.5
-    mov qword [rax + AccelProfile.decel_factor], rax
-    mov qword [rax + AccelProfile.custom_fn], 0
+    mov dword [rbx + AccelProfile.type], ACCEL_ADAPTIVE
+    mov dword [rbx + AccelProfile.threshold], 4
+    mov rcx, FIX_ONE
+    shl rcx, 1  ; 2.0
+    mov qword [rbx + AccelProfile.accel_factor], rcx
+    mov rcx, FIX_ONE
+    shr rcx, 1  ; 0.5
+    mov qword [rbx + AccelProfile.decel_factor], rcx
+    mov qword [rbx + AccelProfile.custom_fn], 0
+    mov rax, rbx
 
     EPILOGUE_RESTORE rbx, r12
     ret
