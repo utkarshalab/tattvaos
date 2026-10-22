@@ -253,20 +253,6 @@ vec_clear:
     leave
     ret
 
-; ---------------------------------------------------------------------------
-; memcopy (internal)
-; ---------------------------------------------------------------------------
-memcopy:
-    PROLOGUE_SAVE rbx, rcx
-    mov rbx, rdi
-    mov rcx, rdx
-    test rcx, rcx
-    jz .done
-    rep movsb
-.done:
-    EPILOGUE_RESTORE rbx, rcx
-    ret
-
 section .data
 
 
