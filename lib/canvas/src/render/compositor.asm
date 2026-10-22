@@ -10,7 +10,17 @@
 %include "inc/render.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern direct_scanout_check
+extern direct_scanout_enable
+extern frame_clock_schedule
+extern region_clear
+extern region_is_empty
+extern sw_render_init
+extern sw_render_begin_frame
+extern sw_render_surface
+extern sw_render_end_frame
 
 ; struct offsets (hoisted above use)
 %define Compositor_server        0
@@ -45,7 +55,7 @@ compositor_init:
 
     mov qword [rbx + Compositor.server], r12
     mov rdi, r13
-    mov rsi, Renderer_size
+    mov rsi, Renderer_SIZE
     call arena_alloc
     test rax, rax
     jz .init_oom
