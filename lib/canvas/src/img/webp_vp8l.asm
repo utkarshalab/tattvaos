@@ -118,7 +118,7 @@ webp_distance_value:
     ret
 
 ; reader,group,pixels,count,cache,cache_bits -> count or negative error.
-; This stage handles literal and cache symbols; LZ symbols are routed onward.
+; Literal/cache-only helper. The full decoder below handles LZ symbols.
 global webp_huff_group_decode_literals
 webp_huff_group_decode_literals:
     PROLOGUE_SAVE rbx,r12,r13,r14,r15
@@ -147,7 +147,7 @@ webp_huff_group_decode_literals:
     cmp eax,256
     jb near .literal
     cmp eax,280
-    jb near .decode_unsupported
+    jb near .decode_bad
     cmp dword [rsp],0
     je .decode_bad
     sub eax,280
@@ -201,11 +201,6 @@ webp_huff_group_decode_literals:
     jmp .pixel
 .decode_done:
     mov eax,[rsp+4]
-    add rsp,16
-    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
-    ret
-.decode_unsupported:
-    mov rax,-ENOTSUP
     add rsp,16
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
     ret
