@@ -55,8 +55,55 @@ struc WebPInfo
     .flags:          resd 1
     .payload:        resq 1
     .payload_len:    resq 1
+    .alpha:          resq 1
+    .alpha_len:      resq 1
+    .icc:            resq 1
+    .icc_len:        resq 1
+    .exif:           resq 1
+    .exif_len:       resq 1
+    .xmp:            resq 1
+    .xmp_len:        resq 1
 endstruc
-%define WebPInfo_size 32
+%define WebPInfo_size 96
+
+struc WebPAnimationInfo
+    .width:          resd 1
+    .height:         resd 1
+    .frame_count:    resd 1
+    .loop_count:     resd 1       ; 0 means infinite
+    .duration_ms:    resq 1
+    .background:     resd 1       ; BGRA, as stored by ANIM
+    .reserved:       resd 1
+endstruc
+%define WebPAnimationInfo_size 32
+
+struc WebPCompositeState
+    .canvas:         resq 1       ; destination PixBuf
+    .frame:          resq 1       ; source PixBuf
+    .x:              resd 1
+    .y:              resd 1
+    .width:          resd 1
+    .height:         resd 1
+    .blend:          resd 1       ; 0=replace, nonzero=source-over
+    .reserved:       resd 1
+endstruc
+%define WebPCompositeState_size 40
+
+struc WebPAnimation
+    .width:          resd 1
+    .height:         resd 1
+    .frame_count:    resd 1
+    .loop_count:     resd 1
+    .duration_ms:    resq 1
+    .background:     resd 1
+    .reserved:       resd 1
+    .frames:         resq 1       ; PixBuf*[frame_count]
+    .delays_ms:      resq 1       ; uint32[frame_count]
+    .disposals:      resq 1       ; uint8[frame_count]
+    .blends:         resq 1       ; uint8[frame_count], 1=source-over
+    .arena:          resq 1
+endstruc
+%define WebPAnimation_size 72
 
 struc WebPBitReader
     .cursor:         resq 1
@@ -160,6 +207,157 @@ struc WebPYUVState
     .reserved:       resd 1
 endstruc
 %define WebPYUVState_size 56
+
+struc WebPVP8Config
+    .color_space:       resd 1
+    .clamping:          resd 1
+    .segmentation:      resd 1
+    .segment_map_update:resd 1
+    .segment_data_update:resd 1
+    .segment_absolute:  resd 1
+    .filter_type:       resd 1
+    .filter_level:      resd 1
+    .sharpness:         resd 1
+    .lf_adjustments:    resd 1
+    .lf_update:         resd 1
+    .token_partitions:  resd 1
+    .base_qindex:       resd 1
+    .refresh_entropy:   resd 1
+    .segment_quant:     resd 4
+    .segment_filter:    resd 4
+    .segment_probs:     resb 4
+    .quant_deltas:      resd 5
+    .ref_lf_deltas:     resd 4
+    .mode_lf_deltas:    resd 4
+endstruc
+%define WebPVP8Config_size 144
+
+struc WebPVP8Partitions
+    .count:           resd 1
+    .reserved:        resd 1
+    .data:            resq 8
+    .length:          resq 8
+endstruc
+%define WebPVP8Partitions_size 136
+
+%define VP8_TOKEN_ZERO  0
+%define VP8_TOKEN_ONE   1
+%define VP8_TOKEN_TWO   2
+%define VP8_TOKEN_THREE 3
+%define VP8_TOKEN_FOUR  4
+%define VP8_TOKEN_CAT1  5
+%define VP8_TOKEN_CAT2  6
+%define VP8_TOKEN_CAT3  7
+%define VP8_TOKEN_CAT4  8
+%define VP8_TOKEN_CAT5  9
+%define VP8_TOKEN_CAT6  10
+%define VP8_TOKEN_EOB   11
+%define VP8_COEFF_PROBS_SIZE (4*8*3*11)
+%define VP8_Y_MODE_B_PRED 4
+%define VP8_BMODE_DC 0
+%define VP8_BMODE_TM 1
+%define VP8_BMODE_VE 2
+%define VP8_BMODE_HE 3
+%define VP8_BMODE_LD 4
+%define VP8_BMODE_RD 5
+%define VP8_BMODE_VR 6
+%define VP8_BMODE_VL 7
+%define VP8_BMODE_HD 8
+%define VP8_BMODE_HU 9
+
+struc WebPVP8ResidualState
+    .reader:          resq 1
+    .probs:           resq 1
+    .coeffs:          resq 1
+    .above:           resq 1
+    .left:            resq 1
+    .y_mode:          resd 1
+    .reserved:        resd 1
+endstruc
+%define WebPVP8ResidualState_size 48
+
+struc WebPVP8QuantFactors
+    .y1_dc:           resw 1
+    .y1_ac:           resw 1
+    .uv_dc:           resw 1
+    .uv_ac:           resw 1
+    .y2_dc:           resw 1
+    .y2_ac:           resw 1
+endstruc
+%define WebPVP8QuantFactors_size 12
+
+struc WebPVP8Modes
+    .y_mode:          resd 1
+    .uv_mode:         resd 1
+endstruc
+%define WebPVP8Modes_size 8
+
+struc WebPVP8MBHeader
+    .segment_id:      resd 1
+    .skip_coeff:      resd 1
+    .y_mode:          resd 1
+    .uv_mode:         resd 1
+    .b_modes:         resb 16
+endstruc
+%define WebPVP8MBHeader_size 32
+
+struc WebPVP8ReconstructState
+    .y:               resq 1
+    .u:               resq 1
+    .v:               resq 1
+    .coeffs:          resq 1
+    .y_stride:        resd 1
+    .uv_stride:       resd 1
+endstruc
+%define WebPVP8ReconstructState_size 40
+
+; Macroblock prediction over padded Y/U/V planes. Each plane pointer addresses
+; the macroblock origin and must expose one initialized row/column above/left.
+struc WebPVP8PredictMBState
+    .y:               resq 1
+    .u:               resq 1
+    .v:               resq 1
+    .header:          resq 1
+    .y_stride:        resd 1
+    .uv_stride:       resd 1
+endstruc
+%define WebPVP8PredictMBState_size 40
+
+struc WebPVP8FramePlanes
+    .y:               resq 1
+    .u:               resq 1
+    .v:               resq 1
+    .y_stride:        resd 1
+    .uv_stride:       resd 1
+    .coded_width:     resd 1
+    .coded_height:    resd 1
+endstruc
+%define WebPVP8FramePlanes_size 40
+
+struc WebPVP8RenderMBState
+    .config:          resq 1
+    .header:          resq 1
+    .coeffs:          resq 1
+    .y:               resq 1
+    .u:               resq 1
+    .v:               resq 1
+    .y_stride:        resd 1
+    .uv_stride:       resd 1
+endstruc
+%define WebPVP8RenderMBState_size 56
+
+struc WebPVP8FilterFrameState
+    .y:               resq 1
+    .u:               resq 1
+    .v:               resq 1
+    .config:          resq 1
+    .meta:            resq 1
+    .y_stride:        resd 1
+    .uv_stride:       resd 1
+    .mb_cols:         resd 1
+    .mb_rows:         resd 1
+endstruc
+%define WebPVP8FilterFrameState_size 56
 
 ; Headerless/raw raster formats. These use RawImageDesc and are never sniffed.
 %define RAW_FMT_RGB24       1
