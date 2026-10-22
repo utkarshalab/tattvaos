@@ -3,6 +3,10 @@
 %include "inc/macros.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+extern png_decode
+extern memcopy
+
 section .text
 global ico_decode
 ico_decode:
