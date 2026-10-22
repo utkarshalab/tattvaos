@@ -4,6 +4,8 @@
 %include "inc/errors.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+
 section .text
 ; IN rdi=arena, rsi=data, rdx=data_len, rcx=RawImageDesc*. OUT PixBuf* or 0.
 global raw_decode
@@ -215,8 +217,9 @@ raw_decode:
     mov ecx,r11d
     and ecx,-2
     add rsi,rdx
-    movzx edx,byte [r12+rsi+rcx]
-    movzx ecx,byte [r12+rsi+rcx+1]
+    add rsi,rcx
+    movzx edx,byte [r12+rsi]
+    movzx ecx,byte [r12+rsi+1]
     jmp .convert_yuv
 .i420:
     movzx eax,byte [r8+r11]
@@ -233,8 +236,10 @@ raw_decode:
     mov ecx,r11d
     shr ecx,1
     add edi,ecx
-    movzx edx,byte [r12+rdx+rdi]
-    movzx ecx,byte [r12+rsi+rdi]
+    lea r8,[rdx+rdi]
+    movzx edx,byte [r12+r8]
+    lea r8,[rsi+rdi]
+    movzx ecx,byte [r12+r8]
 .convert_yuv:
     sub eax,16
     jns .y_nonnegative
