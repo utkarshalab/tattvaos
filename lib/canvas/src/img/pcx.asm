@@ -3,6 +3,9 @@
 %include "inc/macros.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+extern arena_alloc
+
 section .text
 global pcx_decode
 pcx_decode:
@@ -119,10 +122,11 @@ pcx_decode:
     mov eax,[rsp+12]
     mov dl,[rcx+r15]
     mov [rdi+2],dl
-    mov dl,[rcx+rax+r15]
+    add rax,r15
+    mov dl,[rcx+rax]
     mov [rdi+1],dl
     add eax,[rsp+12]
-    mov dl,[rcx+rax+r15]
+    mov dl,[rcx+rax]
     mov [rdi],dl
 .alpha:
     mov byte [rdi+3],255
