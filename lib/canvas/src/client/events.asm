@@ -5,7 +5,10 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%define __EVENTS_INC__
 %include "inc/canvas_client.inc"
+
+extern ring_pop
 
 section .text
 
