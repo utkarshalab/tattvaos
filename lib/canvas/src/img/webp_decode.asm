@@ -14,6 +14,7 @@ extern webp_inverse_color
 extern webp_inverse_color_index
 extern webp_inverse_predictor
 extern webp_palette_expand
+extern webp_vp8_decode
 
 %define TX_TYPE       0
 %define TX_BITS       4
@@ -39,18 +40,221 @@ webp_decode:
     call webp_inspect
     test rax,rax
     js .decode_bad
+    cmp dword [rsp+WebPInfo.codec],WEBP_CODEC_VP8
+    je .decode_vp8
     cmp dword [rsp+WebPInfo.codec],WEBP_CODEC_VP8L
     jne .decode_bad
     mov rdi,rbx
     mov rsi,[rsp+WebPInfo.payload]
     mov rdx,[rsp+WebPInfo.payload_len]
     call webp_vp8l_decode
+    jmp .decode_done
+.decode_vp8:
+    mov rdi,rbx
+    mov rsi,[rsp+WebPInfo.payload]
+    mov rdx,[rsp+WebPInfo.payload_len]
+    call webp_vp8_decode
+.decode_done:
+    test rax,rax
+    jz .decode_bad
+    cmp dword [rsp+WebPInfo.codec],WEBP_CODEC_VP8
+    jne .decode_return
+    cmp qword [rsp+WebPInfo.alpha],0
+    je .decode_return
+    mov r12,rax
+    mov rdi,rax
+    mov rsi,[rsp+WebPInfo.alpha]
+    mov rdx,[rsp+WebPInfo.alpha_len]
+    mov rcx,rbx
+    call webp_alpha_apply_raw
+    test eax,eax
+    js .decode_bad
+    mov rax,r12
+.decode_return:
     add rsp,WebPInfo_size
     EPILOGUE_RESTORE rbx,r12,r13
 .decode_bad:
     xor eax,eax
     add rsp,WebPInfo_size
     EPILOGUE_RESTORE rbx,r12,r13
+
+; PixBuf*,ALPH payload,len,arena -> 0/-EINVAL. Raw or VP8L alpha.
+global webp_alpha_apply_raw
+webp_alpha_apply_raw:
+    PROLOGUE_SAVE rbx,r12,r13,r14,r15
+    sub rsp,32
+    mov rbx,rdi
+    mov r12,rsi
+    mov r13,rdx
+    mov [rsp+24],rcx
+    test rbx,rbx
+    jz .alpha_bad
+    test r12,r12
+    jz .alpha_bad
+    cmp r13,1
+    jb .alpha_bad
+    movzx eax,byte [r12]
+    mov ecx,eax
+    and ecx,3
+    cmp ecx,1
+    ja .alpha_bad
+    mov [rsp+20],ecx
+    shr eax,2
+    and eax,3
+    mov [rsp],eax                     ; predictor filter
+    mov r14d,[rbx+PixBuf_width]
+    mov r15d,[rbx+PixBuf_height]
+    test r14d,r14d
+    jz .alpha_bad
+    test r15d,r15d
+    jz .alpha_bad
+    mov eax,r14d
+    imul rax,r15
+    jo .alpha_bad
+    mov [rsp+16],eax                 ; pixel count, then source step
+    cmp dword [rsp+20],0
+    jne .alpha_compressed
+    inc rax
+    cmp r13,rax
+    jb .alpha_bad
+    inc r12
+    mov dword [rsp+16],1
+    jmp .alpha_source_ready
+.alpha_compressed:
+    cmp qword [rsp+24],0
+    je .alpha_bad
+    mov rsi,r13
+    add rsi,4                        ; signature + dimensions + stream
+    jc .alpha_bad
+    mov rdi,[rsp+24]
+    call arena_alloc
+    test rax,rax
+    jle .alpha_bad
+    mov byte [rax],0x2f
+    mov edx,r14d
+    dec edx
+    mov ecx,r15d
+    dec ecx
+    shl ecx,14
+    or edx,ecx
+    mov [rax+1],edx
+    lea rdi,[rax+5]
+    lea rsi,[r12+1]
+    mov rcx,r13
+    dec rcx
+    rep movsb
+    mov rdi,[rsp+24]
+    mov rsi,rax
+    mov rdx,r13
+    add rdx,4
+    call webp_vp8l_decode
+    test rax,rax
+    jz .alpha_bad
+    mov r12,[rax+PixBuf_data]
+    inc r12                          ; green byte carries alpha
+    mov dword [rsp+16],4
+.alpha_source_ready:
+    mov r13,[rbx+PixBuf_data]
+    mov dword [rsp+4],0               ; y
+.alpha_row:
+    mov dword [rsp+8],0               ; x
+.alpha_pixel:
+    mov eax,[rsp+4]
+    imul eax,r14d
+    add eax,[rsp+8]
+    mov ecx,eax
+    imul ecx,[rsp+16]
+    movzx edx,byte [r12+rcx]
+    mov ecx,[rsp+4]
+    imul ecx,[rbx+PixBuf_stride]
+    mov esi,[rsp+8]
+    shl esi,2
+    add ecx,esi
+    mov [rsp+12],ecx                 ; BGRA byte offset
+    cmp dword [rsp],0
+    je .alpha_store
+    cmp dword [rsp],1
+    je .alpha_horizontal
+    cmp dword [rsp],2
+    je .alpha_vertical
+    xor ecx,ecx                       ; gradient predictor
+    cmp dword [rsp+8],0
+    je .gradient_no_left
+    mov ecx,[rsp+12]
+    movzx ecx,byte [r13+rcx-1]
+.gradient_no_left:
+    xor esi,esi
+    cmp dword [rsp+4],0
+    je .gradient_no_above
+    mov esi,[rsp+12]
+    sub esi,[rbx+PixBuf_stride]
+    movzx esi,byte [r13+rsi+3]
+.gradient_no_above:
+    add ecx,esi
+    cmp dword [rsp+8],0
+    je .gradient_clip
+    cmp dword [rsp+4],0
+    je .gradient_clip
+    mov esi,[rsp+12]
+    sub esi,[rbx+PixBuf_stride]
+    movzx esi,byte [r13+rsi-1]
+    sub ecx,esi
+.gradient_clip:
+    xor esi,esi
+    test ecx,ecx
+    cmovs ecx,esi
+    mov esi,255
+    cmp ecx,esi
+    cmova ecx,esi
+    add edx,ecx
+    jmp .alpha_wrap
+.alpha_horizontal:
+    cmp dword [rsp+8],0
+    jne .alpha_horizontal_left
+    cmp dword [rsp+4],0
+    je .alpha_store
+    mov ecx,[rsp+12]
+    sub ecx,[rbx+PixBuf_stride]
+    movzx ecx,byte [r13+rcx+3]
+    add edx,ecx
+    jmp .alpha_wrap
+.alpha_horizontal_left:
+    mov ecx,[rsp+12]
+    movzx ecx,byte [r13+rcx-1]
+    add edx,ecx
+    jmp .alpha_wrap
+.alpha_vertical:
+    cmp dword [rsp+4],0
+    jne .alpha_vertical_above
+    cmp dword [rsp+8],0
+    je .alpha_store
+    mov ecx,[rsp+12]
+    movzx ecx,byte [r13+rcx-1]
+    add edx,ecx
+    jmp .alpha_wrap
+.alpha_vertical_above:
+    mov ecx,[rsp+12]
+    sub ecx,[rbx+PixBuf_stride]
+    movzx ecx,byte [r13+rcx+3]
+    add edx,ecx
+.alpha_wrap:
+    and edx,255
+.alpha_store:
+    mov ecx,[rsp+12]
+    mov [r13+rcx+3],dl
+    inc dword [rsp+8]
+    cmp [rsp+8],r14d
+    jb .alpha_pixel
+    inc dword [rsp+4]
+    cmp [rsp+4],r15d
+    jb .alpha_row
+    xor eax,eax
+    add rsp,32
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+.alpha_bad:
+    mov rax,-EINVAL
+    add rsp,32
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
 
 ; arena,VP8L payload,payload length -> PixBuf* or 0.
 ; Decodes transform subimages, spatial entropy groups, the main image, then
