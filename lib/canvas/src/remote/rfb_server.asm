@@ -7,8 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+extern arena_alloc
+extern rfb_client_update
 extern rfb_handshake
+extern tv_tls_accept
+extern tv_tls_close
+extern tv_tls_listen
 
 %define RFB_PORT_DEFAULT  5900
 %define RFB_VERSION_STR   "RFB 003.008\n"
