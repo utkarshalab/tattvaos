@@ -10,7 +10,10 @@
 %include "inc/backend.inc"
 %include "inc/color.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern blend_dispatch
+extern fill_solid
 
 section .text
 
