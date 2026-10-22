@@ -8,6 +8,10 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern memcopy
+extern gpu_fence_signal_irq
+
 ; struct offsets (hoisted above use)
 %define GpuRing_SIZE 64
 %define GPU_RING_DEFAULT_DW   4096  ; 16KB
