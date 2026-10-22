@@ -8,6 +8,8 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_init
+
 ; struct offsets (hoisted above use)
 %define ClientConn_size 72
 
