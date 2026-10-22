@@ -8,6 +8,8 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define Quota_SIZE    56
 
