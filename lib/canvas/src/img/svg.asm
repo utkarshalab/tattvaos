@@ -11,6 +11,13 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern pixbuf_create
+extern fill_solid
+extern svg_path_num
+extern circle_draw
+extern line_draw
+extern svg_path_flatten
+
 section .text
 
 ; ---------------------------------------------------------------------------
