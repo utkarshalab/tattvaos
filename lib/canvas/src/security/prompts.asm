@@ -8,7 +8,11 @@
 %include "inc/tattva.inc"
 %include "inc/caps.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern tv_log_write
+extern tv_time_now_ns
+extern tv_wait_yield
 
 %define PROMPT_STATE_PENDING     0
 %define PROMPT_STATE_ANSWERED    1
