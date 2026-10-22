@@ -10,6 +10,10 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern channel_send
+extern channel_recv
+
 ; struct offsets (hoisted above use)
 %define PolicyExternal_SIZE    56
 %define POLICY_OP_CONNECT       1
