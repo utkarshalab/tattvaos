@@ -7,6 +7,9 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern toplevel_schedule_configure
+
 ; struct offsets (hoisted above use)
 %define LayoutEngine_SIZE    40
 %define LAYOUT_NODE_LEAF    0
