@@ -5,7 +5,10 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
+
+extern arena_alloc
 
 ; struct offsets (hoisted above use)
 %define KEYMAP_MAX_KEYCODES    256
@@ -26,6 +29,19 @@
 %define MOD_MOD5       (1 << 6)
 
 section .text
+
+; Keymaps are arena-owned; invalidate their live state immediately and let the
+; owning seat arena reclaim storage as a batch.
+global keymap_destroy
+keymap_destroy:
+    test rdi, rdi
+    jz .destroy_done
+    mov qword [rdi + Keymap.keycodes], 0
+    mov dword [rdi + Keymap.max_keycode], 0
+    mov dword [rdi + Keymap.modifiers], 0
+.destroy_done:
+    xor eax, eax
+    ret
 
 
 struc Keymap
