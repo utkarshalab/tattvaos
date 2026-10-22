@@ -5,7 +5,9 @@
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern region_add_rect
+extern region_clear
 
 %define TRANSFORM_NORMAL 0
 %define TRANSFORM_90 1
