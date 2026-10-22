@@ -5,6 +5,11 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern memset
+extern memcopy
+extern memcmp
+
 %define SELECTION_CLIPBOARD 0
 %define SELECTION_PRIMARY   1
 
