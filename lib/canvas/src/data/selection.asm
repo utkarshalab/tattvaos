@@ -5,6 +5,9 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern clipboard_set
+extern clipboard_get
+
 section .text
 global selection_init
 selection_init:
