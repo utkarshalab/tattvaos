@@ -7,7 +7,10 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern deflate_compress
+extern rfb_tls_write_all
+extern virtual_output_damage
 
 ; struct offsets (hoisted above use)
 %define RFB_ENC_ZLIB   6
