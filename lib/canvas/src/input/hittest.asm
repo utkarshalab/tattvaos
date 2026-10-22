@@ -9,6 +9,8 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern region_contains_point
+
 section .text
 
 ; ---------------------------------------------------------------------------
