@@ -4,6 +4,8 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 %define CS_ACTIVE 0
 %define CS_LEN    1
 %define CS_SEQ    8
