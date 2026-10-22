@@ -8,6 +8,8 @@
 %include "inc/fixed.inc"
 %include "inc/canvas_client.inc"
 
+extern memcopy
+
 section .text
 
 ; ---------------------------------------------------------------------------
