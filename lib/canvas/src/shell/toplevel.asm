@@ -6,7 +6,14 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/shell.inc"
-%include "inc/externs.inc"
+
+extern configure_ack
+extern configure_create
+extern decoration_create_for_toplevel
+extern decoration_destroy
+extern frame_callback_init
+extern surface_destroy
+extern surface_set_position
 
 section .text
 
