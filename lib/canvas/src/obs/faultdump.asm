@@ -7,6 +7,10 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern tv_time_now_ns
+extern tv_log_write
+
 ; struct offsets (hoisted above use)
 %define FaultDump_SIZE    104
 
