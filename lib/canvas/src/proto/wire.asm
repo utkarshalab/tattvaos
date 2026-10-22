@@ -7,7 +7,8 @@
 %include "inc/errors.inc"
 %include "inc/cwp.inc"
 %include "inc/channel.inc"
-%include "inc/externs.inc"
+
+extern memcopy
 %define MAX_PAYLOAD_SIZE 65536
 
 section .text
