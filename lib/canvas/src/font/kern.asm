@@ -8,6 +8,8 @@
 %include "inc/font.inc"
 %include "inc/canvas_client.inc"
 
+extern cmap_be16
+
 section .text
 
 ; ---------------------------------------------------------------------------
