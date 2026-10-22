@@ -10,6 +10,9 @@
 %include "inc/canvas_client.inc"
 %include "inc/source_iface.inc"
 
+extern arena_alloc
+extern input_source_register
+
 section .text
 
 global input_source_tv_init
