@@ -9,6 +9,9 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern memcopy
+
 ; struct offsets (hoisted above use)
 %define Recorder_file    64
 %define Recorder.file    64
