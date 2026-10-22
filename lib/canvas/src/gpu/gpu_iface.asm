@@ -8,6 +8,11 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern gpu_mem_init
+extern gpu_fence_init
+extern gpu_ring_init
+
 ; struct offsets (hoisted above use)
 %define GpuDevice_SIZE    72
 %define GPU_FAMILY_UNKNOWN   0
