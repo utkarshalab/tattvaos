@@ -6,7 +6,32 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/input.inc"
-%include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
+
+extern surface_tablet_axis
+extern surface_tablet_proximity
+extern surface_tablet_tip
+extern surface_tablet_button
+
+%define Tablet_TOOL_TYPE Tablet.tool_type
+%define Tablet_TOOL_ID Tablet.tool_id
+%define Tablet_X Tablet.x
+%define Tablet_Y Tablet.y
+%define Tablet_PRESSURE Tablet.pressure
+%define Tablet_DISTANCE Tablet.distance
+%define Tablet_TILT_X Tablet.tilt_x
+%define Tablet_TILT_Y Tablet.tilt_y
+%define Tablet_ROTATION Tablet.rotation
+%define Tablet_SLIDER Tablet.slider
+%define Tablet_WHEEL Tablet.wheel
+%define Tablet_BUTTONS Tablet.buttons
+%define Tablet_PROXIMITY Tablet.proximity
+%define Tablet_TIP_STATE Tablet.tip_state
+%define Tablet_PROX_DISTANCE Tablet.prox_distance
+%define SEAT_DEVICES Seat.devices
+%define SEAT_CAPABILITIES Seat.capabilities
+%define SEAT_TABLET Seat.tablet
+%define SEAT_POINTER_FOCUS Seat.pointer_focus
 
 section .text
 
@@ -59,7 +84,7 @@ tablet_create:
 
 .done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ============================================================================
@@ -74,13 +99,13 @@ tablet_destroy:
 
     ; Remove from seat's device list
     mov r12, [rbx + InputDevice_SEAT]
-    call .unlink_from_seat
+    call tablet_unlink_from_seat
 
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12
     ret
 
-.unlink_from_seat:
+tablet_unlink_from_seat:
     mov r12, [rbx + InputDevice_SEAT]
     mov rax, [r12 + SEAT_DEVICES]
     test rax, rax
@@ -197,7 +222,7 @@ tablet_axis:
 
 .done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ============================================================================
@@ -217,11 +242,9 @@ tablet_proximity:
     mov dword [rbx + Tablet_TOOL_TYPE], r13d
     mov dword [rbx + Tablet_TOOL_ID], r14d
 
-    if r12b == 1:  ; proximity in
-        ; Send proximity in event
-    else:
-        ; Send proximity out event
-        ; Reset all axes
+    test r12b, r12b
+    jnz .send_event
+    ; Proximity out resets transient tool state.
         mov dword [rbx + Tablet_X], 0
         mov dword [rbx + Tablet_Y], 0
         mov dword [rbx + Tablet_PRESSURE], 0
@@ -231,9 +254,10 @@ tablet_proximity:
         mov dword [rbx + Tablet_ROTATION], 0
         mov dword [rbx + Tablet_SLIDER], 0
         mov dword [rbx + Tablet_WHEEL], 0
-        mov dword [rbx + Tablet_BUTTONS], 0
+    mov dword [rbx + Tablet_BUTTONS], 0
 
     ; Send proximity event
+.send_event:
     mov rax, [rbx + InputDevice_SEAT]
     mov rax, [rax + SEAT_POINTER_FOCUS]
     test rax, rax
@@ -244,8 +268,9 @@ tablet_proximity:
     mov edx, r13d
     call surface_tablet_proximity
 
+.done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ============================================================================
@@ -273,8 +298,9 @@ tablet_tip:
     mov edx, r13d
     call surface_tablet_tip
 
+.done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ============================================================================
@@ -294,11 +320,11 @@ tablet_button:
     test r13d, r13d
     jz .released
 
-    or eax, (1 << r12d)
+    bts eax, r12d
     jmp .update
 
 .released:
-    and eax, ~(1 << r12d)
+    btr eax, r12d
 
 .update:
     mov [rbx + Tablet_BUTTONS], eax
@@ -314,8 +340,9 @@ tablet_button:
     mov edx, r13d
     call surface_tablet_button
 
+.done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 section .data
