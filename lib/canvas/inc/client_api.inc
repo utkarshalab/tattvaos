@@ -1,0 +1,39 @@
+; Native TattvaOS Canvas client entry points used by statically linked clients.
+%ifndef __CANVAS_CLIENT_API_INC__
+%define __CANVAS_CLIENT_API_INC__
+
+extern canvas_connect
+extern canvas_disconnect
+extern canvas_get_caps
+extern canvas_surface_create
+extern canvas_surface_destroy
+extern canvas_surface_attach
+extern canvas_surface_damage
+extern canvas_surface_commit
+extern canvas_buffer_create
+extern canvas_buffer_destroy
+extern canvas_buffer_mmap
+extern canvas_buffer_stride
+extern canvas_frame_request
+extern canvas_present_wait
+extern canvas_present_feedback
+extern canvas_event_poll
+extern canvas_event_type
+extern canvas_event_time
+extern canvas_event_loop_once
+extern canvas_event_loop_run
+extern canvas_toplevel_create
+extern canvas_toplevel_set_title
+extern canvas_toplevel_set_app_id
+extern canvas_toplevel_set_min_size
+extern canvas_toplevel_set_max_size
+extern canvas_toplevel_set_state
+extern canvas_popup_create
+extern canvas_layer_create
+extern canvas_clipboard_set
+extern canvas_clipboard_get
+extern canvas_clipboard_clear
+extern canvas_selection_set
+extern canvas_selection_get
+
+%endif
