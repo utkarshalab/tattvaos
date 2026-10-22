@@ -9,6 +9,14 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern ring_init
+extern ring_push
+extern ring_pop
+extern ring_peek
+extern ring_available
+extern msgbuf_write
+extern msgbuf_read
+
 ; struct offsets (hoisted above use)
 %define Channel_msg_ring      0
 %define Channel.msg_ring 0
