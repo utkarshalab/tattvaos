@@ -9,6 +9,10 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern handle_resolve
+extern sw_scale_bilinear
+extern sw_scale_nearest
+
 %define SCALE_NEAREST    0
 %define SCALE_BILINEAR   1
 %define SCALE_BICUBIC    2
