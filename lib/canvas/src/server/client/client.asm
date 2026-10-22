@@ -9,7 +9,18 @@
 %include "inc/caps.inc"
 %include "inc/channel.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern arena_create
+extern arena_destroy
+extern client_registry_init
+extern client_registry_add
+extern handle_table_init
+extern channel_init
+extern client_send_caps
+extern auth_send_caps
+extern rbtree_find
+extern rbtree_remove
 
 ; struct offsets (hoisted above use)
 %define Server_client_registry   0
