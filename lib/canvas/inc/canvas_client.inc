@@ -6,7 +6,6 @@
 %ifndef __CANVAS_CLIENT_INC__
 %define __CANVAS_CLIENT_INC__
 
-%include "inc/externs.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/events.inc"
 
