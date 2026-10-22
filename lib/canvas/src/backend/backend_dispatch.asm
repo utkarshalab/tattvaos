@@ -7,7 +7,36 @@
 %include "inc/errors.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern headless_init
+extern headless_deinit
+extern headless_modeset
+extern headless_flip
+extern headless_vblank_wait
+extern headless_hotplug
+extern headless_cursor
+extern fb_linear_init
+extern fb_linear_deinit
+extern fb_linear_modeset
+extern fb_linear_flip
+extern fb_linear_vblank_wait
+extern fb_linear_hotplug
+extern fb_linear_cursor
+extern native_init
+extern native_deinit
+extern native_modeset
+extern native_flip
+extern native_vblank_wait
+extern native_hotplug
+extern native_cursor
+extern native_crtc_disable
+extern remote_backend_init
+extern remote_backend_deinit
+extern remote_backend_modeset
+extern remote_backend_flip
+extern remote_backend_vblank_wait
+extern remote_backend_hotplug
+extern remote_backend_cursor
 
 ; struct offsets (hoisted above use)
 %define BACKEND_HEADLESS    1
@@ -16,6 +45,86 @@
 %define BACKEND_REMOTE      4
 
 section .text
+
+; VRR policy hooks. Timing is driven by the compositor/frame clock; native
+; backends additionally advertise BACKEND_CAP_VRR when hardware supports it.
+global backend_vrr_enable
+backend_vrr_enable:
+    ASSERT_PTR rdi
+    ASSERT_PTR rsi
+    test qword [rdi + Backend.caps], BACKEND_CAP_VRR
+    jz .vrr_unsupported
+    xor eax, eax
+    ret
+.vrr_unsupported:
+    mov rax, -(ENOTSUP)
+    ret
+
+global backend_vrr_disable
+backend_vrr_disable:
+    ASSERT_PTR rdi
+    ASSERT_PTR rsi
+    xor eax, eax
+    ret
+
+global backend_vrr_set_range
+backend_vrr_set_range:
+    ASSERT_PTR rdi
+    ASSERT_PTR rsi
+    test qword [rdi + Backend.caps], BACKEND_CAP_VRR
+    jz .vrr_range_unsupported
+    test rdx, rdx
+    jz .vrr_range_invalid
+    test rcx, rcx
+    jz .vrr_range_invalid
+    xor eax, eax
+    ret
+.vrr_range_unsupported:
+    mov rax, -(ENOTSUP)
+    ret
+.vrr_range_invalid:
+    mov rax, -(EINVAL)
+    ret
+
+; ---------------------------------------------------------------------------
+; backend_dpms
+;   Apply display power state. Memory-only backends have no physical power
+;   domain, so their state transition is an immediate success.
+;   IN: rdi=backend*, rsi=output*, rdx=DPMS state (0=on, 1..3=low/off)
+; ---------------------------------------------------------------------------
+global backend_dpms
+backend_dpms:
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    cmp r13, 3
+    ja .dpms_invalid
+    cmp qword [rbx + Backend.state], BACKEND_NATIVE
+    jne .dpms_success
+    test r13, r13
+    jnz .dpms_native_off
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, [r12 + Output.current_mode]
+    test rdx, rdx
+    jz .dpms_invalid
+    call native_modeset
+    EPILOGUE_RESTORE rbx, r12, r13
+.dpms_native_off:
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
+    call native_crtc_disable
+    EPILOGUE_RESTORE rbx, r12, r13
+.dpms_success:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13
+.dpms_invalid:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; backend_init
