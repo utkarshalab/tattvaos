@@ -8,6 +8,8 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern canvas_frame_request
+
 section .text
 
 %define CLIENT_PRESENT_VALID 104
