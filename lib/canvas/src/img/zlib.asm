@@ -7,6 +7,9 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern inflate
+extern adler32
+
 section .text
 
 ; ---------------------------------------------------------------------------
