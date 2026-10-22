@@ -3,6 +3,9 @@
 %include "inc/macros.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+extern bc_decode
+
 section .text
 
 ; Common copier. IN arena, pixels, len, width, height, source_is_rgba.
