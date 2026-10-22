@@ -3,10 +3,12 @@
 ; ============================================================================
 
 %include "inc/abi.inc"
-%include "inc/externs.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/channel.inc"
+
+extern arena_alloc
+extern memcopy
 
 ; struct offsets (hoisted above use)
 %define MsgBuf_buf       0
