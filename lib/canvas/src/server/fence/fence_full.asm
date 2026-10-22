@@ -24,6 +24,11 @@ section .text
 ;   waiters:     pointer to wait queue
 ;   lock:        spinlock
 
+; The canonical handle-based fence lifecycle is implemented by fence.asm.
+; Keep this legacy direct-object lifecycle out of the link while retaining the
+; timeline extensions below.
+%if 0
+
 ; ---------------------------------------------------------------------------
 ; fence_init
 ; ---------------------------------------------------------------------------
@@ -43,8 +48,7 @@ fence_init:
     mov qword [rbx + Fence.arena], r12
     
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
 ; fence_signal
@@ -164,6 +168,8 @@ fence_destroy:
     leave
     ret
 
+%endif
+
 ; ---------------------------------------------------------------------------
 ; fence_timeline_init
 ; ---------------------------------------------------------------------------
@@ -191,7 +197,7 @@ fence_timeline_init:
 ; ---------------------------------------------------------------------------
 global fence_timeline_signal
 fence_timeline_signal:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -220,12 +226,10 @@ fence_timeline_signal:
     jmp .wake_loop
 .done:
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 .not_timeline:
     mov rax, -(EINVAL)
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
 ; fence_timeline_wait
@@ -246,9 +250,9 @@ fence_timeline_wait:
     test rdx, rdx
     jz .block
     
+    mov r13, rdx
     call tv_time_now_ns
-    add rax, rdx
-    mov r13, rax
+    add r13, rax
     
 .wait_loop:
     cmp qword [rbx + Fence.value], r12
@@ -269,17 +273,14 @@ fence_timeline_wait:
     
 .signaled:
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 .not_timeline:
     mov rax, -(EINVAL)
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 .timeout:
     mov rax, -(ETIMEDOUT)
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 
 section .data
-global fence_version
-fence_version: dq 0x010000
+global fence_timeline_version
+fence_timeline_version: dq 0x010000
