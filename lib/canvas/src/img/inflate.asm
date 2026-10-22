@@ -8,6 +8,10 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern memcopy
+extern huff_build
+extern huff_decode
+
 ; struct offsets (hoisted above use)
 %define BitState_SIZE 32
 %define INFLATE_MAX_WINDOW  32768
