@@ -7,8 +7,13 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/caps.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern gate_check
+extern metrics_snapshot
+extern trace_clear
+extern trace_set_mask
 
 section .text
 
