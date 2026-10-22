@@ -6,7 +6,6 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/geometry.inc"
-%include "inc/externs.inc"
 
 section .text
 
