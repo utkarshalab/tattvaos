@@ -7,6 +7,8 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern memcopy
+
 section .text
 
 %define CLIENT_CLIP_LEN       88
