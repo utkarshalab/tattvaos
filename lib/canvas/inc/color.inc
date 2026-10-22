@@ -139,7 +139,7 @@ endstruc
 
 section .rodata
 
-global fmt_bgra8888
+global fmt_bgra8888:data weak
 fmt_bgra8888:
     dd DRM_FORMAT_BGRA8888
     dq 0                    ; modifier
@@ -149,7 +149,7 @@ fmt_bgra8888:
     db 0
     times 13 db 0
 
-global fmt_bgr8888
+global fmt_bgr8888:data weak
 fmt_bgr8888:
     dd DRM_FORMAT_BGR8888
     dq 0
@@ -159,7 +159,7 @@ fmt_bgr8888:
     db 0
     times 13 db 0
 
-global fmt_rgb565
+global fmt_rgb565:data weak
 fmt_rgb565:
     dd DRM_FORMAT_RGB565
     dq 0
