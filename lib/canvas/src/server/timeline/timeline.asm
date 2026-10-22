@@ -5,8 +5,14 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern handle_create
+extern handle_destroy
+extern handle_resolve
+extern handle_table_init
 
 ; struct offsets (hoisted above use)
 %define Timeline_handle        0
