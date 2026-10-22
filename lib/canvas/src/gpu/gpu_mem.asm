@@ -9,6 +9,8 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define GpuMemMgr_SIZE 56
 %define GpuBo_SIZE 64
