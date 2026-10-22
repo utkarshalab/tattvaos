@@ -9,6 +9,8 @@
 %include "inc/canvas_client.inc"
 %include "inc/struct_offsets.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define ClientStats_SIZE    104
 
