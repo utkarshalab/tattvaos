@@ -9,6 +9,12 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern blend_avx512
+extern blend_avx2
+extern blend_sse2
+extern blend_scalar
+extern blend_dispatch
+
 ; CPU Feature bitmasks
 %define CPU_HAS_SSE2      (1 << 0)
 %define CPU_HAS_SSE3      (1 << 1)
