@@ -177,6 +177,29 @@ policy_load_config:
     leave
     ret
 
+; Session transitions are policy notifications. Base policies have no private
+; lock state, but validate both objects so callers get deterministic failures.
+global policy_session_lock
+policy_session_lock:
+    test rdi, rdi
+    jz policy_session_invalid
+    test rsi, rsi
+    jz policy_session_invalid
+    xor eax, eax
+    ret
+
+global policy_session_unlock
+policy_session_unlock:
+    test rdi, rdi
+    jz policy_session_invalid
+    test rsi, rsi
+    jz policy_session_invalid
+    xor eax, eax
+    ret
+policy_session_invalid:
+    mov rax, -(EINVAL)
+    ret
+
 section .data
 global policy_version
 policy_version: dq 0x010000
