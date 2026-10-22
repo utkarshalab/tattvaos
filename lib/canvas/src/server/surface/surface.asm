@@ -7,8 +7,19 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
 %include "inc/caps.inc"
+
+extern arena_alloc
+extern handle_create
+extern handle_destroy
+extern handle_resolve
+extern list_init
+extern list_push_back
+extern region_init
+extern region_destroy
+extern region_clear
+extern region_copy
+extern region_add_rect
 
 ; struct offsets (hoisted above use)
 %define Surface_id            0
@@ -58,6 +69,24 @@
 %define SURFACE_ROLE_SUBSURFACE 4
 
 section .text
+
+global frame_callback_init
+frame_callback_init:
+    test rdi, rdi
+    jz .callback_invalid
+    test rsi, rsi
+    jz .callback_invalid
+    mov [rsi + FrameCallback.surface], rdi
+    mov [rsi + FrameCallback.seq], edx
+    mov qword [rsi + FrameCallback.timestamp], 0
+    mov rax, [rdi + Surface.pending + SurfaceState.frame_cbs]
+    mov [rsi + FrameCallback.next], rax
+    mov [rdi + Surface.pending + SurfaceState.frame_cbs], rsi
+    xor eax, eax
+    ret
+.callback_invalid:
+    mov rax, -(EINVAL)
+    ret
 
 ; ---------------------------------------------------------------------------
 ; surface_init
