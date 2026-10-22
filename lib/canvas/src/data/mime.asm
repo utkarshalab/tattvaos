@@ -4,6 +4,10 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern memcopy
+extern str_cmp
+
 struc MimeType
     .type:    resq 1
     .subtype: resq 1
