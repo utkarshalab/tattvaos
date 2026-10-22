@@ -7,7 +7,9 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern output_schedule_vblank
+extern tv_timer_cancel
 
 ; struct offsets (hoisted above use)
 %define FrameClock_output      0
@@ -194,6 +196,34 @@ frame_clock_get_refresh:
     ASSERT_PTR rdi
     mov rax, [rdi + FrameClock.refresh_ns]
     leave
+    ret
+
+; Cancel the armed one-shot timer and release queued callback nodes.
+global frame_clock_deinit
+frame_clock_deinit:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    ASSERT_PTR rbx
+    mov rdi, [rbx + FrameClock.phase]
+    test rdi, rdi
+    jz .free_callbacks
+    call tv_timer_cancel
+    mov qword [rbx + FrameClock.phase], 0
+.free_callbacks:
+    mov r12, [rbx + FrameClock.callbacks]
+    mov qword [rbx + FrameClock.callbacks], 0
+.free_loop:
+    test r12, r12
+    jz .deinit_done
+    mov rbx, [r12 + 8]
+    mov rdi, r12
+    mov eax, SYS_MEM_FREE
+    syscall
+    mov r12, rbx
+    jmp .free_loop
+.deinit_done:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 section .data
