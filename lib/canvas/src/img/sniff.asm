@@ -8,6 +8,30 @@
 %include "inc/image.inc"
 %include "inc/canvas_client.inc"
 
+extern camera_probe
+extern modern_probe
+extern png_decode
+extern jpeg_decode
+extern gif_decode_first
+extern bmp_decode
+extern svg_probe
+extern svg_render
+extern qoi_decode
+extern tga_decode
+extern pnm_decode
+extern farbfeld_decode
+extern tiff_decode
+extern pcx_decode
+extern ico_decode
+extern dds_decode
+extern ktx_decode
+extern ktx2_decode
+extern hdr_decode
+extern exr_decode
+extern psd_decode
+extern webp_decode
+extern camera_decode
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -23,6 +47,13 @@ image_sniff:
     push rdi
     push rsi
     call camera_probe
+    pop rsi
+    pop rdi
+    test eax,eax
+    jnz .sniff_return
+    push rdi
+    push rsi
+    call modern_probe
     pop rsi
     pop rdi
     test eax,eax
@@ -105,6 +136,7 @@ image_decode:
     cmp eax,IMAGE_FMT_RW2
     jbe .decode_camera
 .not_camera:
+    ; AVIF/HEIF/JXL are recognized but intentionally deferred (Decision 0011).
     xor eax,eax
     jmp .decode_done
 .decode_png:
