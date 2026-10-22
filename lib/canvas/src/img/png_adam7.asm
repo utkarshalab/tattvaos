@@ -5,6 +5,10 @@
 %include "inc/image.inc"
 %include "inc/struct_offsets.inc"
 
+extern arena_alloc
+extern png_unfilter_row
+extern png_unfilter
+
 section .text
 global png_adam7_expand
 png_adam7_expand:
