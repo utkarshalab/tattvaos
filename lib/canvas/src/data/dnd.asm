@@ -8,6 +8,9 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern grab_release
+
 ; struct offsets (hoisted above use)
 %define DnD_SIZE    80
 %define DND_STATE_NONE        0
