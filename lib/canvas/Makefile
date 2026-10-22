@@ -47,12 +47,12 @@ TATTVA_SRCS := \
     $(SRCDIR)/tattva/tv_time.asm \
     $(SRCDIR)/tattva/tv_log.asm \
     $(SRCDIR)/tattva/tv_entropy.asm \
-    $(SRCDIR)/tattva/tv_wait.asm
+    $(SRCDIR)/tattva/tv_wait.asm \
+    $(SRCDIR)/tattva/tv_platform.asm
 
 # Core Library (C1)
 CORE_SRCS := \
     $(SRCDIR)/core/arena.asm \
-    $(SRCDIR)/core/arena_full.asm \
     $(SRCDIR)/core/str.asm \
     $(SRCDIR)/core/memops.asm \
     $(SRCDIR)/core/map.asm \
@@ -85,7 +85,9 @@ GFX_SRCS := \
     $(SRCDIR)/gfx/blend_avx512.asm \
     $(SRCDIR)/gfx/scale.asm \
     $(SRCDIR)/gfx/transform.asm \
-    $(SRCDIR)/gfx/clip.asm
+    $(SRCDIR)/gfx/clip.asm \
+    $(SRCDIR)/gfx/line.asm \
+    $(SRCDIR)/gfx/circle.asm
 
 # Protocol (C4)
 PROTO_SRCS := \
@@ -137,12 +139,19 @@ IMG_SRCS := \
     $(SRCDIR)/img/exr.asm \
     $(SRCDIR)/img/psd.asm \
     $(SRCDIR)/img/camera.asm \
+    $(SRCDIR)/img/modern.asm \
     $(SRCDIR)/img/farbfeld.asm \
     $(SRCDIR)/img/webp.asm \
+    $(SRCDIR)/img/webp_animation.asm \
     $(SRCDIR)/img/webp_decode.asm \
     $(SRCDIR)/img/webp_entropy.asm \
     $(SRCDIR)/img/webp_vp8.asm \
-    $(SRCDIR)/img/webp_vp8_recon.asm \
+    $(SRCDIR)/img/webp_vp8_tokens.asm \
+    $(SRCDIR)/img/webp_vp8_macroblock.asm \
+    $(SRCDIR)/img/webp_vp8_quant.asm \
+      $(SRCDIR)/img/webp_vp8_recon.asm \
+      $(SRCDIR)/img/webp_vp8_frame.asm \
+      $(SRCDIR)/img/webp_vp8_filter.asm \
     $(SRCDIR)/img/webp_huffman.asm \
     $(SRCDIR)/img/webp_vp8l.asm \
     $(SRCDIR)/img/webp_transform.asm \
@@ -217,18 +226,12 @@ GPU_SRCS := \
 # Backend (C9)
 BACKEND_SRCS := \
     $(SRCDIR)/backend/backend_dispatch.asm \
-    $(SRCDIR)/backend/headless/headless.asm \
     $(SRCDIR)/backend/headless/headless_full.asm \
-    $(SRCDIR)/backend/fb_linear/fb_linear.asm \
     $(SRCDIR)/backend/fb_linear/fb_linear_full.asm \
     $(SRCDIR)/backend/remote_backend.asm \
     $(SRCDIR)/backend/native/native_pci.asm \
-    $(SRCDIR)/backend/native/native_modeset.asm \
-    $(SRCDIR)/backend/native/native_vblank.asm \
-    $(SRCDIR)/backend/native/native_planes.asm \
     $(SRCDIR)/backend/native/native_edid.asm \
     $(SRCDIR)/backend/native/native_ddc.asm \
-    $(SRCDIR)/backend/native/native_hotplug.asm \
     $(SRCDIR)/backend/native/native_full.asm
 
 # Codec (C26/C27)
@@ -258,7 +261,6 @@ REMOTE_SRCS := \
 
 # Native DCN Family (C10)
 DCN_SRCS := \
-    $(SRCDIR)/backend/family/amd/dcn/dcn_regs.inc \
     $(SRCDIR)/backend/family/amd/dcn/dcn_modeset.asm
 
 # Output Management (C11)
@@ -292,7 +294,9 @@ INPUT_SRCS := \
     $(SRCDIR)/input/grab.asm \
     $(SRCDIR)/input/hittest.asm \
     $(SRCDIR)/input/cursor.asm \
-    $(SRCDIR)/input/cursor_theme.asm
+    $(SRCDIR)/input/cursor_theme.asm \
+    $(SRCDIR)/input/data_source.asm \
+    $(SRCDIR)/input/surface_events.asm
 
 # Shell (C13)
 SHELL_SRCS := \
@@ -425,6 +429,10 @@ CLIENT_SRCS := \
     $(SRCDIR)/client/clipboard_helpers.asm \
     $(SRCDIR)/client/present_helpers.asm
 CLIENT_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(CLIENT_SRCS))
+CLIENT_RUNTIME_OBJS := \
+    $(OBJDIR)/core/arena.o \
+    $(OBJDIR)/core/memops.o \
+    $(OBJDIR)/core/ring.o
 
 client: $(LIBDIR)/canvas_client.o
 
@@ -450,7 +458,7 @@ CLIENT_IMGS := $(addprefix $(IMAGEDIR)/,$(addsuffix .img,$(CLIENTS)))
 
 clients: $(CLIENT_IMGS)
 
-$(CLIENT_IMGS): $(IMAGEDIR)/%.img: $(OBJDIR)/clients/%.o $(LIBDIR)/canvas_client.o $(TATTVA_OBJS)
+$(CLIENT_IMGS): $(IMAGEDIR)/%.img: $(OBJDIR)/clients/%.o $(LIBDIR)/canvas_client.o $(TATTVA_OBJS) $(CLIENT_RUNTIME_OBJS)
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -e client_main -o $@ $^
 	@echo "  IMG    $@"
@@ -485,16 +493,35 @@ linker.ld:
 # Test Targets
 # ---------------------------------------------------------------------------
 
+UNIT_SRCS := \
+    tests/unit/test_arena.asm \
+    tests/unit/test_str.asm \
+    tests/unit/test_ring.asm \
+    tests/unit/test_handle.asm \
+    tests/unit/test_region.asm \
+    tests/unit/test_map.asm \
+    tests/unit/test_quota.asm \
+    tests/unit/test_record_replay.asm \
+    tests/unit/test_jpeg.asm \
+    tests/unit/test_icc.asm \
+    tests/unit/test_tile_diff.asm \
+    tests/unit/test_rfb.asm \
+    tests/unit/test_inflate.asm \
+    tests/unit/test_png.asm \
+    tests/unit/test_webp.asm \
+    tests/unit/test_ttf.asm
+UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
+
 # Test runner image
-$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(UNIT_OBJS) $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) $(LDFLAGS) -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
 
 # Golden test image
 $(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) $(LDFLAGS) -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
 
 # Fuzz targets (C31)
@@ -538,13 +565,13 @@ FUZZ_EXTRA_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(FUZZ_SRCS))
 # Fuzz runner image
 $(IMAGEDIR)/fuzz_runner.img: $(OBJDIR)/tests/fuzz/fuzz_driver.o $(FUZZ_EXTRA_OBJS) $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) $(LDFLAGS) -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
 
 # Replay test image
 $(IMAGEDIR)/replay_test.img: $(OBJDIR)/tests/replay/replay_test.o $(TATTVA_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) $(LDFLAGS) -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
 
 # Test target
