@@ -5,6 +5,10 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern memset
+extern memcopy
+
 %define TRANSFER_STATUS_PENDING    1
 %define TRANSFER_STATUS_ACTIVE     2
 %define TRANSFER_STATUS_COMPLETE   3
