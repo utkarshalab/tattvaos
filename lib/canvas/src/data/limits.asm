@@ -8,6 +8,8 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define LIMITS_DEFAULT_CLIPBOARD    (1024 * 1024)      ; 1MB
 %define LIMITS_DEFAULT_SELECTION    (1024 * 1024)      ; 1MB
