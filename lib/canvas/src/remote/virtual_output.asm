@@ -6,8 +6,14 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
+%include "inc/image.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern output_create
+extern pixbuf_create
+extern tile_diff_init
+extern tile_diff_update
 
 section .text
 
