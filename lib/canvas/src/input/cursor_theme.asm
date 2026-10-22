@@ -8,6 +8,8 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define CursorTheme_SIZE 40
 %define MAX_CURSORS_PER_THEME  64
