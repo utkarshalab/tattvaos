@@ -9,6 +9,9 @@
 %include "inc/font.inc"
 %include "inc/canvas_client.inc"
 
+extern cmap_be16
+extern outline_decode_points
+
 ; struct offsets (hoisted above use)
 
 section .text
