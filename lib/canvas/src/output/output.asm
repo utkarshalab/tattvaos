@@ -10,8 +10,23 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern config_parse
+extern arena_alloc
+extern region_init
+extern region_destroy
+extern frame_clock_init
+extern frame_clock_deinit
+extern backend_modeset
+extern vrr_enable
+extern vrr_disable
+extern memcopy
+extern mirror_configure
+extern tv_timer_register
+extern frame_clock_vblank
+
 section .text
 %define FIX_ONE                0x10000
+%define FrameClock_phase       24
 
 section .text
 
@@ -174,6 +189,32 @@ output_destroy:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
+
+; Arm one native one-shot timer for the output's next vertical blank.
+global output_schedule_vblank
+output_schedule_vblank:
+    PROLOGUE_SAVE rbx
+    mov rbx, [rdi + Output.frame_clock]
+    test rbx, rbx
+    jz .schedule_invalid
+    mov rdi, [rbx + FrameClock.next_vblank]
+    lea rsi, [rel output_vblank_timer]
+    mov rdx, rbx
+    call tv_timer_register
+    test rax, rax
+    js .schedule_out
+    mov [rbx + FrameClock_phase], rax
+.schedule_out:
+    EPILOGUE_RESTORE rbx
+    ret
+.schedule_invalid:
+    mov rax, -(EINVAL)
+    jmp .schedule_out
+
+; Tattva timer callback: rdi=user_data, rsi=fire timestamp.
+output_vblank_timer:
+    mov qword [rdi + FrameClock_phase], 0
+    jmp frame_clock_vblank
 
 ; ---------------------------------------------------------------------------
 ; output_set_mode
