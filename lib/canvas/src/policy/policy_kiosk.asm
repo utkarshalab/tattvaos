@@ -9,6 +9,10 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern toplevel_destroy
+extern str_cmp
+extern states_fullscreen
+
 ; PolicyKiosk struct offsets (manual)
 %define PolicyKiosk_BASE        0
 %define PolicyKiosk_SERVER      8
@@ -149,7 +153,7 @@ policy_kiosk_new_window:
 
     mov rdi, rax
     mov rsi, r13
-    call str_compare
+    call str_cmp
     test rax, rax
     jnz .deny
 
