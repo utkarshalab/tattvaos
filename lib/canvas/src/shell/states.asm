@@ -9,6 +9,9 @@
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
+extern zorder_remove
+extern zorder_insert
+
 ; struct offsets (hoisted above use)
 %define TOPLEVEL_STATE_DEFAULT     0
 %define TOPLEVEL_STATE_MAXIMIZED   1
