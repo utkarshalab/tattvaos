@@ -8,7 +8,10 @@
 %include "inc/tattva.inc"
 %include "inc/caps.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern audit_log
+extern prompts_show
 
 ; Privileged capabilities that require gate
 %define GATE_CAP_CAPTURE    CAP_CAPTURE
