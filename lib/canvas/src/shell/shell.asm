@@ -6,7 +6,17 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/shell.inc"
-%include "inc/externs.inc"
+
+extern layer_destroy
+extern policy_init
+extern popup_destroy
+extern seat_set_focus
+extern toplevel_create
+extern toplevel_destroy
+extern toplevel_schedule_configure
+extern workspace_add_toplevel
+extern workspace_create
+extern workspace_destroy
 
 section .text
 
