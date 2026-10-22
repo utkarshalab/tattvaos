@@ -6,7 +6,27 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/input.inc"
-%include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
+
+extern arena_alloc
+extern keymap_create_default
+extern keymap_destroy
+extern keymap_is_modifier
+extern surface_keyboard_key
+extern tv_time_now_ns
+extern tv_timer_register
+extern tv_timer_cancel
+
+%define Keyboard_KEYMAP Keyboard.keymap
+%define Keyboard_MODIFIERS Keyboard.modifiers
+%define Keyboard_LEDS Keyboard.leds
+%define Keyboard_REPEAT Keyboard.repeat
+%define Keyboard_PRESSED_KEYS Keyboard.pressed_keys
+%define Keyboard_PRESSED_COUNT Keyboard.pressed_count
+%define Keyboard_REPEAT_KEY Keyboard.repeat_key
+%define Keyboard_REPEAT_TIMER Keyboard.repeat_timer
+%define Keyboard_REPEAT_RATE Keyboard.repeat_rate
+%define Keyboard_REPEAT_DELAY Keyboard.repeat_delay
 
 section .text
 
@@ -39,7 +59,13 @@ keyboard_create:
     mov dword [rbx + Keyboard_PRESSED_COUNT], 0
     mov qword [rbx + Keyboard_REPEAT_KEY], 0
     mov qword [rbx + Keyboard_REPEAT_TIMER], 0
-    mov qword [rbx + Keyboard_KEYMAP], 0
+
+    mov rdi, [r12 + Seat.arena]
+    mov rsi, 64 * 4
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov [rbx + Keyboard_PRESSED_KEYS], rax
 
     ; Add to seat's device list
     mov rax, [r12 + SEAT_DEVICES]
@@ -57,8 +83,10 @@ keyboard_create:
 
 .done:
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+.oom:
+    mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ============================================================================
 ; keyboard_destroy
@@ -72,26 +100,27 @@ keyboard_destroy:
 
     ; Remove from seat's device list
     mov r12, [rbx + InputDevice_SEAT]
-    call .unlink_from_seat
+    call keyboard_unlink_from_seat
 
     ; Release focus
     mov rax, [rbx + Keyboard_KEYMAP]
     test rax, rax
     jz .done
+    mov rdi, rax
     call keymap_destroy
 
     ; Cancel repeat timer
     mov rax, [rbx + Keyboard_REPEAT_TIMER]
     test rax, rax
     jz .done
+    mov rdi, rax
     call timer_destroy
 
 .done:
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12
 
-.unlink_from_seat:
+keyboard_unlink_from_seat:
     mov r12, [rbx + InputDevice_SEAT]
     mov rax, [r12 + SEAT_DEVICES]
     test rax, rax
@@ -141,26 +170,34 @@ keyboard_key:
 
 .pressed:
     ; Check if already pressed
-    call .is_key_pressed
+    mov rdi, rbx
+    mov esi, r12d
+    call keyboard_is_key_pressed
     test rax, rax
     jnz .done
 
     ; Add to pressed keys
-    call .add_pressed_key
+    mov rdi, rbx
+    mov esi, r12d
+    call keyboard_add_pressed_key
 
     ; Update modifiers
-    call .update_modifiers
+    mov rdi, rbx
+    call keyboard_update_modifiers
 
     ; Set repeat key
     mov [rbx + Keyboard_REPEAT_KEY], r12d
-    mov [rbx + Keyboard_REPEAT_TIMER], 0
+    mov rdi, rbx
     call timer_start
 
     jmp .send_event
 
 .released:
-    call .remove_pressed_key
-    call .update_modifiers
+    mov rdi, rbx
+    mov esi, r12d
+    call keyboard_remove_pressed_key
+    mov rdi, rbx
+    call keyboard_update_modifiers
 
     ; Clear repeat key
     cmp dword [rbx + Keyboard_REPEAT_KEY], r12d
@@ -183,16 +220,17 @@ keyboard_key:
     call surface_keyboard_key
 
     ; Update modifiers state
-    call .update_leds
+    mov rdi, rbx
+    call keyboard_update_leds
 
+.done:
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 ; ============================================================================
 ; .is_key_pressed - Check if key is already pressed
 ; ============================================================================
-.is_key_pressed:
+keyboard_is_key_pressed:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12d, esi
@@ -222,7 +260,7 @@ keyboard_key:
 ; ============================================================================
 ; .add_pressed_key - Add key to pressed keys array
 ; ============================================================================
-.add_pressed_key:
+keyboard_add_pressed_key:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12d, esi
@@ -232,19 +270,17 @@ keyboard_key:
     jge .full
 
     mov rax, [rbx + Keyboard_PRESSED_KEYS]
-    add rax, 4
-    mov [rbx + Keyboard_PRESSED_KEYS], rax
-    mov [rax - 4], r12d
+    mov ecx, [rbx + Keyboard_PRESSED_COUNT]
+    mov [rax + rcx * 4], r12d
     inc dword [rbx + Keyboard_PRESSED_COUNT]
 
 .full:
-    EPILOGUE_RESTORE rbx, r13
-    ret
+    EPILOGUE_RESTORE rbx, r12
 
 ; ============================================================================
 ; .remove_pressed_key - Remove key from pressed keys array
 ; ============================================================================
-.remove_pressed_key:
+keyboard_remove_pressed_key:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12d, esi
@@ -265,14 +301,15 @@ keyboard_key:
     jmp .done
 
 .found:
-    ; Shift remaining keys
     mov r12, rax
-    add r12, 4
-    mov rcx, [rbx + Keyboard_PRESSED_COUNT]
-    sub rcx, 1
-    sub rcx, [rbx + Keyboard_PRESSED_COUNT]
-    neg rcx
+    mov r13, [rbx + Keyboard_PRESSED_KEYS]
+    sub rax, r13
+    shr rax, 2
+    mov ecx, [rbx + Keyboard_PRESSED_COUNT]
+    dec ecx
+    sub ecx, eax
     jz .shift_done
+    add r12, 4
 
 .shift_loop:
     mov r13d, [r12]
@@ -285,48 +322,45 @@ keyboard_key:
     dec dword [rbx + Keyboard_PRESSED_COUNT]
 
 .done:
-    EPILOGUE_RESTORE rbx, r13
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ============================================================================
 ; .update_modifiers - Update modifier state
 ; ============================================================================
-.update_modifiers:
+keyboard_update_modifiers:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
 
-    mov r12d, 0  ; modifiers
+    xor r15d, r15d
 
     ; Check pressed keys for modifiers
-    mov rax, [rbx + Keyboard_PRESSED_KEYS]
-    mov rcx, [rbx + Keyboard_PRESSED_COUNT]
-    test rcx, rcx
+    mov r13, [rbx + Keyboard_PRESSED_KEYS]
+    mov r14d, [rbx + Keyboard_PRESSED_COUNT]
+    test r14d, r14d
     jz .mods_done
 
 .mod_loop:
-    mov r12d, [rax]
-    call keymap_is_modifier
-    test rax, rax
+    mov rdi, [rbx + Keyboard_KEYMAP]
+    test rdi, rdi
     jz .next_key
-
-    ; Get modifier mask
-    call keymap_get_modifier
-    or r12d, eax
+    mov esi, [r13]
+    call keymap_is_modifier
+    or r15d, eax
 
 .next_key:
-    add rax, 4
-    dec rcx
+    add r13, 4
+    dec r14d
     jnz .mod_loop
 
 .mods_done:
-    mov [rbx + Keyboard_MODIFIERS], r12d
+    mov [rbx + Keyboard_MODIFIERS], r15d
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ============================================================================
 ; .update_leds - Update keyboard LEDs
 ; ============================================================================
-.update_leds:
+keyboard_update_leds:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12d, [rbx + Keyboard_MODIFIERS]
@@ -345,15 +379,8 @@ keyboard_key:
 
     mov [rbx + Keyboard_LEDS], r12d
 
-    ; Send to hardware
-    mov rax, [rbx + InputDevice_SEAT]
-    mov rdi, [rax + SEAT_DEVICE]
-    mov esi, r12d
-    call device_set_leds
-
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12
 
 ; ============================================================================
 ; keyboard_modifiers
@@ -381,7 +408,9 @@ keyboard_repeat:
     jz .done
 
     ; Check if key still pressed
-    call .is_key_pressed
+    mov rdi, rbx
+    mov esi, r12d
+    call keyboard_is_key_pressed
     test rax, rax
     jz .clear_repeat
 
@@ -399,6 +428,7 @@ keyboard_repeat:
     call surface_keyboard_key
 
 .reschedule:
+    mov rdi, rbx
     call timer_restart
     jmp .done
 
@@ -408,8 +438,7 @@ keyboard_repeat:
 
 .done:
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ============================================================================
 ; keyboard_set_keymap
@@ -427,20 +456,22 @@ keyboard_set_keymap:
     mov rax, [rbx + Keyboard_KEYMAP]
     test rax, rax
     jz .set_new
+    mov rdi, rax
     call keymap_destroy
 
 .set_new:
     mov [rbx + Keyboard_KEYMAP], r12
 
     ; Update modifiers
-    call .update_modifiers
+    mov rdi, rbx
+    call keyboard_update_modifiers
 
     ; Update LEDs
-    call .update_leds
+    mov rdi, rbx
+    call keyboard_update_leds
 
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12
 
 ; ============================================================================
 ; keyboard_get_keymap
@@ -467,7 +498,66 @@ keyboard_set_repeat:
     mov dword [rbx + Keyboard_REPEAT_DELAY], edx
 
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx
+
+; Arm the initial key-repeat delay for a keyboard.
+global timer_start
+timer_start:
+    PROLOGUE_SAVE rbx
+    mov rbx, rdi
+    ASSERT_PTR rbx
+    call tv_time_now_ns
+    mov ecx, [rbx + Keyboard_REPEAT_DELAY]
+    test ecx, ecx
+    jnz .have_delay
+    mov ecx, 500
+.have_delay:
+    imul rcx, 1000000
+    add rax, rcx
+    mov rdi, rax
+    lea rsi, [rel keyboard_repeat]
+    mov rdx, rbx
+    call tv_timer_register
+    test rax, rax
+    js .timer_start_out
+    mov [rbx + Keyboard_REPEAT_TIMER], rax
+.timer_start_out:
+    EPILOGUE_RESTORE rbx
+
+; Re-arm at the configured repeat frequency after a repeat callback fires.
+global timer_restart
+timer_restart:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    ASSERT_PTR rbx
+    mov ecx, [rbx + Keyboard_REPEAT_RATE]
+    test ecx, ecx
+    jnz .have_rate
+    mov ecx, 25
+.have_rate:
+    mov rax, 1000000000
+    xor edx, edx
+    div rcx
+    mov r12, rax
+    call tv_time_now_ns
+    add rax, r12
+    mov rdi, rax
+    lea rsi, [rel keyboard_repeat]
+    mov rdx, rbx
+    call tv_timer_register
+    test rax, rax
+    js .timer_restart_out
+    mov [rbx + Keyboard_REPEAT_TIMER], rax
+.timer_restart_out:
+    EPILOGUE_RESTORE rbx, r12
+
+global timer_destroy
+timer_destroy:
+    test rdi, rdi
+    jz .timer_destroyed
+    jmp tv_timer_cancel
+.timer_destroyed:
+    xor eax, eax
     ret
 
 section .data
