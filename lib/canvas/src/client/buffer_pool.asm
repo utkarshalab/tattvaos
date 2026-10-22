@@ -7,6 +7,9 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern canvas_buffer_create
+
 ; struct offsets (hoisted above use)
 %define ClientBufPool_SIZE    48
 
