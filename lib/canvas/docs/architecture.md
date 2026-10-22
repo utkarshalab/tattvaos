@@ -437,6 +437,7 @@ make cts          # conformance suite
 | 0008 | Software isolation on Tattva | Hardware domains not yet exist |
 | 0009 | Tattva owns buses, Canvas owns display engines | Clean driver boundary |
 | 0010 | One GPU/display family at a time | Scope control, direct scanout recovers 80% benefit |
+| 0011 | Defer AVIF, HEIF, and JPEG XL decoding | Prioritize required display-server features; retain accurate format detection |
 
 ---
 
