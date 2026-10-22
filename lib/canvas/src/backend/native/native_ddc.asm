@@ -7,7 +7,9 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern tv_i2c_read
+extern tv_i2c_write
 
 ; struct offsets (hoisted above use)
 %define DDC_ADDR_EDID      0x50
