@@ -3,7 +3,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern backend_flip
+extern handle_resolve
+extern rbtree_max
 
 %define S_CURRENT 48
 %define S_Z_ORDER 32
