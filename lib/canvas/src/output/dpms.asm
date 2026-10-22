@@ -9,12 +9,17 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern canvas_timer_create
+extern canvas_timer_set_callback
+extern canvas_timer_arm
+extern backend_dpms
+
 ; struct offsets (hoisted above use)
 %define DPMS_ON       0
 %define DPMS_STANDBY  1
 %define DPMS_SUSPEND  2
 %define DPMS_OFF      3
-%define DPMS_STATE_OFF        0
+%define DPMS_STATE_ON         0
 %define DPMS_STATE_STANDBY    1
 %define DPMS_STATE_SUSPEND    2
 %define DPMS_STATE_OFF        3
@@ -40,9 +45,10 @@ dpms_init:
 ; ---------------------------------------------------------------------------
 global dpms_set
 dpms_set:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
+    mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
@@ -52,23 +58,24 @@ dpms_set:
     ; Call backend DPMS
     mov rdi, [rbx + Server.backend]
     mov rsi, r12
+    mov rdx, r13
     call backend_dpms
     test rax, rax
     jnz .fail
 
-    mov byte [r12 + Output.dpms_state], dl
+    mov byte [r12 + Output.dpms_state], r13b
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .fail:
     mov rax, -(EIO)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .invalid:
     mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -120,17 +127,17 @@ dpms_start_idle_timer:
     mov esi, [rbx + Server.dpms_timeout]
     imul rsi, 1000000000
     mov rdx, 1
-    call tv_timer_create
+    call canvas_timer_create
     test rax, rax
     jz .failed
     mov [rel dpms_idle_timer], rax
     mov rdi, rax
     lea rsi, [rel dpms_idle_handler]
     mov rdx, rbx
-    call tv_timer_set_callback
+    call canvas_timer_set_callback
 .arm:
     mov rdi, [rel dpms_idle_timer]
-    call tv_timer_arm
+    call canvas_timer_arm
     EPILOGUE_RESTORE rbx
     ret
 .failed:
