@@ -6,7 +6,8 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/canvas_client.inc"
+
+extern arena_alloc
 
 ; struct offsets (hoisted above use)
 %define Ring_buffer      0
@@ -61,6 +62,7 @@ ring_init:
     jz .pow2_ok
     bsr rax, r13
     inc rax
+    mov rcx, rax
     mov r13, 1
     shl r13, cl
 .pow2_ok:
