@@ -5,7 +5,8 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/externs.inc"
+
+extern blend_avx2
 
 section .text
 
