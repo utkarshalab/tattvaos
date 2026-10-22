@@ -7,6 +7,7 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
+%include "inc/client_api.inc"
 
 section .text
 
