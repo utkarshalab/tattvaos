@@ -9,6 +9,8 @@
 %include "inc/image.inc"
 %include "inc/canvas_client.inc"
 
+extern pixbuf_create
+
 ; struct offsets (hoisted above use)
 %define BMP_MAGIC        0x4D42  ; "BM"
 %define BMP_COMP_RGB     0
