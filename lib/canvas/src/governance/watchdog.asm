@@ -10,6 +10,12 @@
 %include "inc/channel.inc"
 %include "inc/cwp.inc"
 
+extern arena_alloc
+extern containment_fault
+extern msgbuf_write
+extern tv_time_now_ns
+extern tv_timer_register
+
 ; struct offsets (hoisted above use)
 %define Watchdog_SIZE    40
 %define WATCHDOG_DEFAULT_TIMEOUT  5000000000  ; 5 seconds
