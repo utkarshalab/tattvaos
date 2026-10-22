@@ -10,6 +10,8 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern pixbuf_create
+
 section .text
 
 global png_unfilter_row
