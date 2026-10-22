@@ -11,7 +11,12 @@
 %include "inc/image.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern arena_alloc
+extern arena_free
+extern fence_signal
+extern fence_wait
+extern memcopy
 
 section .text
 
