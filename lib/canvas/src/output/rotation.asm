@@ -8,6 +8,8 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern backend_modeset
+
 %define ROTATION_NORMAL    0
 
 section .text
