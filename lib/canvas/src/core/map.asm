@@ -15,6 +15,9 @@
 %define E_SIZE 32
 %define TOMBSTONE -1
 extern fnv1a_hash
+extern arena_alloc
+extern memset
+extern memcopy
 
 section .text
 global map_init
