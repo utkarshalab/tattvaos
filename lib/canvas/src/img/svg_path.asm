@@ -7,6 +7,9 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern memcopy
+
 ; struct offsets (hoisted above use)
 %define SvgPathState_SIZE 64
 
