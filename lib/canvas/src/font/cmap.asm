@@ -12,6 +12,7 @@
 section .text
 
 ; be16/be32 local helpers (ptr in rdi)
+global cmap_be16
 cmap_be16:
     movzx eax, word [rdi]
     xchg al, ah
