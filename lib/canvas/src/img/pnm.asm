@@ -4,6 +4,8 @@
 %include "inc/errors.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+
 section .text
 
 ; IN rdi=arena, rsi=data, rdx=len. OUT rax=PixBuf* or 0.
