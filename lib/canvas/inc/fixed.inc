@@ -20,7 +20,7 @@
 ; Initial guess: y_0 = x >> 8 + 1<<8 (rough approximation)
 ; ============================================================================
 section .text
-global fix_sqrt
+global fix_sqrt:function weak
 fix_sqrt:
     PROLOGUE_SAVE rbx
     mov rbx, rdi                ; rbx = x (Q16.16)
@@ -58,7 +58,7 @@ fix_sqrt:
 ; OUT: rax = result (Q16.16)
 ; Uses: result = exp(y * ln(x)) via fixed-point log/exp
 ; ============================================================================
-global fixed_pow
+global fixed_pow:function weak
 fixed_pow:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
@@ -104,7 +104,7 @@ fixed_pow:
 ; IN: rdi = angle in radians (Q16.16) — OUT: rax = cos(angle) (Q16.16)
 ; Uses Taylor series: cos(x) = 1 - x^2/2! + x^4/4! - x^6/6! + ...
 ; ============================================================================
-global fixed_cos
+global fixed_cos:function weak
 fixed_cos:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi                ; rbx = angle
@@ -212,7 +212,7 @@ fixed_cos:
 ; IN: rdi = angle in radians (Q16.16) — OUT: rax = sin(angle) (Q16.16)
 ; Uses: sin(x) = cos(PI/2 - x)
 ; ============================================================================
-global fixed_sin
+global fixed_sin:function weak
 fixed_sin:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
