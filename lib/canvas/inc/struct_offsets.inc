@@ -33,9 +33,17 @@ DEFINE_STRUCT_OFFSET Seat, session_session, 136
 DEFINE_STRUCT_OFFSET Seat, shell, 144
 DEFINE_STRUCT_OFFSET Seat, ime_bridge, 152
 DEFINE_STRUCT_OFFSET Seat, ime_arena, 160
-%define Seat_SIZE 168
-%define Seat.size 128
-%define Seat_size 128
+DEFINE_STRUCT_OFFSET Seat, arena, 168
+DEFINE_STRUCT_OFFSET Seat, pointer_focus, 176
+DEFINE_STRUCT_OFFSET Seat, keyboard_focus, 184
+DEFINE_STRUCT_OFFSET Seat, selection_source, 192
+DEFINE_STRUCT_OFFSET Seat, selection_serial, 200
+DEFINE_STRUCT_OFFSET Seat, drag_source, 208
+DEFINE_STRUCT_OFFSET Seat, drag_icon, 216
+DEFINE_STRUCT_OFFSET Seat, drag_actions, 224
+%define Seat_SIZE 232
+%define Seat.size 232
+%define Seat_size 232
 
 ; All-caps aliases for Seat
 %define SEAT_FOCUS 56
@@ -704,36 +712,39 @@ DEFINE_STRUCT_OFFSET Grab, confine, 56
 %define Grab_size 64
 
 ; Keyboard
-DEFINE_STRUCT_OFFSET Keyboard, seat, 0
-DEFINE_STRUCT_OFFSET Keyboard, keymap, 8
-DEFINE_STRUCT_OFFSET Keyboard, modifiers, 16
-DEFINE_STRUCT_OFFSET Keyboard, leds, 24
-DEFINE_STRUCT_OFFSET Keyboard, repeat, 32
-DEFINE_STRUCT_OFFSET Keyboard, pressed_keys, 40
-DEFINE_STRUCT_OFFSET Keyboard, pressed_count, 48
-DEFINE_STRUCT_OFFSET Keyboard, repeat_key, 56
-DEFINE_STRUCT_OFFSET Keyboard, repeat_timer, 64
-DEFINE_STRUCT_OFFSET Keyboard, keymap, 72
-%define Keyboard_SIZE 80
-%define Keyboard.size 80
-%define Keyboard_size 80
+DEFINE_STRUCT_OFFSET Keyboard, keymap, 64
+DEFINE_STRUCT_OFFSET Keyboard, modifiers, 72
+DEFINE_STRUCT_OFFSET Keyboard, leds, 76
+DEFINE_STRUCT_OFFSET Keyboard, repeat, 80
+DEFINE_STRUCT_OFFSET Keyboard, pressed_keys, 88
+DEFINE_STRUCT_OFFSET Keyboard, pressed_count, 96
+DEFINE_STRUCT_OFFSET Keyboard, repeat_key, 100
+DEFINE_STRUCT_OFFSET Keyboard, repeat_timer, 104
+DEFINE_STRUCT_OFFSET Keyboard, repeat_rate, 112
+DEFINE_STRUCT_OFFSET Keyboard, repeat_delay, 116
+%define Keyboard_SIZE 120
+%define Keyboard.size 120
+%define Keyboard_size 120
 
 ; Pointer
-DEFINE_STRUCT_OFFSET Pointer, seat, 0
-DEFINE_STRUCT_OFFSET Pointer, x, 8
-DEFINE_STRUCT_OFFSET Pointer, y, 16
-DEFINE_STRUCT_OFFSET Pointer, buttons, 24
-DEFINE_STRUCT_OFFSET Pointer, accel, 32
-DEFINE_STRUCT_OFFSET Pointer, constraints, 40
-DEFINE_STRUCT_OFFSET Pointer, grab, 48
-DEFINE_STRUCT_OFFSET Pointer, confined, 56
-DEFINE_STRUCT_OFFSET Pointer, locked, 57
-DEFINE_STRUCT_OFFSET Pointer, lock_x, 60
-DEFINE_STRUCT_OFFSET Pointer, lock_y, 64
-DEFINE_STRUCT_OFFSET Pointer, surface, 72
-%define Pointer_SIZE 80
-%define Pointer.size 80
-%define Pointer_size 80
+; Pointer embeds InputDevice (64 bytes) so every input device can share the
+; intrusive Seat.devices list without overlapping pointer-specific state.
+DEFINE_STRUCT_OFFSET Pointer, x, 64
+DEFINE_STRUCT_OFFSET Pointer, y, 68
+DEFINE_STRUCT_OFFSET Pointer, buttons, 72
+DEFINE_STRUCT_OFFSET Pointer, serial, 76
+DEFINE_STRUCT_OFFSET Pointer, focus, 80
+DEFINE_STRUCT_OFFSET Pointer, constraint, 88
+DEFINE_STRUCT_OFFSET Pointer, accel, 96
+DEFINE_STRUCT_OFFSET Pointer, grab, 104
+DEFINE_STRUCT_OFFSET Pointer, confined, 112
+DEFINE_STRUCT_OFFSET Pointer, locked, 113
+DEFINE_STRUCT_OFFSET Pointer, lock_x, 116
+DEFINE_STRUCT_OFFSET Pointer, lock_y, 120
+DEFINE_STRUCT_OFFSET Pointer, cursor, 128
+%define Pointer_SIZE 136
+%define Pointer.size 136
+%define Pointer_size 136
 
 ; InputSource
 DEFINE_STRUCT_OFFSET InputSource, type, 0
@@ -751,44 +762,45 @@ DEFINE_STRUCT_OFFSET InputSource, virtual, 72
 %define InputSource_size 80
 
 ; Tablet
-DEFINE_STRUCT_OFFSET Tablet, seat, 0
-DEFINE_STRUCT_OFFSET Tablet, tool_type, 8
-DEFINE_STRUCT_OFFSET Tablet, tool_id, 12
-DEFINE_STRUCT_OFFSET Tablet, x, 16
-DEFINE_STRUCT_OFFSET Tablet, y, 20
-DEFINE_STRUCT_OFFSET Tablet, pressure, 24
-DEFINE_STRUCT_OFFSET Tablet, distance, 28
-DEFINE_STRUCT_OFFSET Tablet, tilt_x, 32
-DEFINE_STRUCT_OFFSET Tablet, tilt_y, 36
-DEFINE_STRUCT_OFFSET Tablet, rotation, 40
-DEFINE_STRUCT_OFFSET Tablet, slider, 44
-DEFINE_STRUCT_OFFSET Tablet, wheel, 48
-DEFINE_STRUCT_OFFSET Tablet, buttons, 52
-DEFINE_STRUCT_OFFSET Tablet, proximity, 56
-DEFINE_STRUCT_OFFSET Tablet, prox_distance, 60
-%define Tablet_SIZE 64
-%define Tablet.size 64
-%define Tablet_size 64
+; Tablet embeds InputDevice.
+DEFINE_STRUCT_OFFSET Tablet, tool_type, 64
+DEFINE_STRUCT_OFFSET Tablet, tool_id, 68
+DEFINE_STRUCT_OFFSET Tablet, x, 72
+DEFINE_STRUCT_OFFSET Tablet, y, 76
+DEFINE_STRUCT_OFFSET Tablet, pressure, 80
+DEFINE_STRUCT_OFFSET Tablet, distance, 84
+DEFINE_STRUCT_OFFSET Tablet, tilt_x, 88
+DEFINE_STRUCT_OFFSET Tablet, tilt_y, 92
+DEFINE_STRUCT_OFFSET Tablet, rotation, 96
+DEFINE_STRUCT_OFFSET Tablet, slider, 100
+DEFINE_STRUCT_OFFSET Tablet, wheel, 104
+DEFINE_STRUCT_OFFSET Tablet, buttons, 108
+DEFINE_STRUCT_OFFSET Tablet, proximity, 112
+DEFINE_STRUCT_OFFSET Tablet, tip_state, 113
+DEFINE_STRUCT_OFFSET Tablet, prox_distance, 116
+%define Tablet_SIZE 120
+%define Tablet.size 120
+%define Tablet_size 120
 
 ; Touch
-DEFINE_STRUCT_OFFSET Touch, seat, 0
-DEFINE_STRUCT_OFFSET Touch, slots, 8
-DEFINE_STRUCT_OFFSET Touch, num_slots, 16
-DEFINE_STRUCT_OFFSET Touch, max_slots, 24
-DEFINE_STRUCT_OFFSET Touch, active_slots, 32
-DEFINE_STRUCT_OFFSET Touch, surface, 40
-%define Touch_SIZE 48
-%define Touch.size 48
-%define Touch_size 48
+; Touch also embeds InputDevice.
+DEFINE_STRUCT_OFFSET Touch, slots, 64
+DEFINE_STRUCT_OFFSET Touch, num_slots, 72
+DEFINE_STRUCT_OFFSET Touch, max_slots, 76
+DEFINE_STRUCT_OFFSET Touch, active_slots, 80
+DEFINE_STRUCT_OFFSET Touch, surface, 88
+%define Touch_SIZE 96
+%define Touch.size 96
+%define Touch_size 96
 
 ; TouchSlot
 DEFINE_STRUCT_OFFSET TouchSlot, tracking_id, 0
-DEFINE_STRUCT_OFFSET TouchSlot, x, 8
-DEFINE_STRUCT_OFFSET TouchSlot, y, 16
-DEFINE_STRUCT_OFFSET TouchSlot, active, 24
-%define TouchSlot_SIZE 32
-%define TouchSlot.size 32
-%define TouchSlot_size 32
+DEFINE_STRUCT_OFFSET TouchSlot, x, 4
+DEFINE_STRUCT_OFFSET TouchSlot, y, 8
+DEFINE_STRUCT_OFFSET TouchSlot, active, 12
+%define TouchSlot_SIZE 16
+%define TouchSlot.size 16
+%define TouchSlot_size 16
 
 ; FaultDump
 DEFINE_STRUCT_OFFSET FaultDump, time_ns, 0
