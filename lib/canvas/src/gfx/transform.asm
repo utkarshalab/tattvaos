@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/canvas_client.inc"
 
+extern blit_copy
+
 ; struct offsets (hoisted above use)
 %define TRANSFORM_NORMAL    0
 %define TRANSFORM_FLIP_H    4
