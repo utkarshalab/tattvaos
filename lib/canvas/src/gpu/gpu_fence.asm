@@ -8,6 +8,9 @@
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+extern gpu_ring_submit
+
 ; struct offsets (hoisted above use)
 %define GpuFenceMgr_SIZE 32
 
