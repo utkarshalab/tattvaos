@@ -8,6 +8,8 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
+
+extern arena_alloc
 %include "inc/struct_offsets.inc"
 
 ; struct offsets (hoisted above use)
