@@ -9,6 +9,12 @@
 %include "inc/canvas_client.inc"
 %include "inc/source_iface.inc"
 
+extern arena_alloc
+extern input_source_register
+extern ring_init
+extern ring_push
+extern tv_time_now_ns
+
 ; struct offsets (hoisted above use)
 %define InputSource_virtual_ring  48
 %define InputSource_virtual_size  56
