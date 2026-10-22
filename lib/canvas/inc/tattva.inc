@@ -98,6 +98,8 @@
 %define SYS_DMA_FREE        0xA3    ; free DMA buffer
 %define SYS_DMA_MAP_DEVICE  0xA4    ; map into device IOMMU
 %define SYS_DMA_SYNC        0xA5    ; sync CPU/device
+%define SYS_I2C_READ        0xA6    ; DDC/I2C combined read
+%define SYS_I2C_WRITE       0xA7    ; DDC/I2C write
 
 ; Power
 %define SYS_POWER_REG_CB    0xB0    ; register power callback
@@ -335,7 +337,6 @@ extern tv_input_grab
 ; FS
 extern tv_fs_read
 extern tv_fs_stat
-%endif
 extern tv_fs_list
 extern tv_fs_open
 extern tv_fs_pread
@@ -356,6 +357,8 @@ extern tv_dma_alloc
 extern tv_dma_free
 extern tv_dma_map_device
 extern tv_dma_sync
+extern tv_i2c_read
+extern tv_i2c_write
 
 ; Power
 extern tv_power_register_callback
@@ -372,5 +375,7 @@ extern tv_tls_read
 extern tv_tls_write
 extern tv_tls_close
 extern tv_tls_peer_cert
+
+%endif ; !TATTVA_BINDING_IMPL
 
 %endif ; __TATTVA_INC__
