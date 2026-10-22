@@ -3,6 +3,10 @@
 %include "inc/macros.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+extern arena_alloc
+extern memcopy
+
 section .text
 global psd_decode
 psd_decode:
@@ -192,16 +196,18 @@ psd_decode:
     mov rdx,[rsp+24]
     mov al,[rsi+r10]
     mov [rdi+2],al
-    mov al,[rsi+rdx+r10]
+    lea rcx,[rdx+r10]
+    mov al,[rsi+rcx]
     mov [rdi+1],al
     lea rcx,[rdx+rdx]
-    mov al,[rsi+rcx+r10]
+    add rcx,r10
+    mov al,[rsi+rcx]
     mov [rdi],al
     mov byte [rdi+3],255
     cmp dword [rsp+8],4
     jb .pixel_next
     add rcx,rdx
-    mov al,[rsi+rcx+r10]
+    mov al,[rsi+rcx]
     mov [rdi+3],al
 .pixel_next:
     add rdi,4
