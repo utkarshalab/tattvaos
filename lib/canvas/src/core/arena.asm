@@ -115,6 +115,7 @@ arena_alloc:
     cmp rax, rcx
     ja .oom
     mov [rdi + Arena.cursor], rax
+    mov rax, rdx                    ; return allocation start, not new cursor
     leave
     ret
 .oom:
@@ -215,6 +216,18 @@ arena_free_all:
     mov [rdi + Arena.cursor], rax
     xor rax, rax
     leave
+    ret
+
+; ---------------------------------------------------------------------------
+; arena_free
+;   Release one allocation from a monotonic arena.
+;   Individual allocations cannot be reclaimed without invalidating newer
+;   allocations, so destruction is intentionally deferred to rewind/free_all.
+;   IN:  rdi = arena, rsi = allocation
+;   OUT: rax is preserved (some destruction walks keep their next link here)
+; ---------------------------------------------------------------------------
+global arena_free
+arena_free:
     ret
 
 ; ---------------------------------------------------------------------------
