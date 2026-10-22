@@ -5,7 +5,8 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/externs.inc"
+
+extern blend_sse2
 
 section .text
 
