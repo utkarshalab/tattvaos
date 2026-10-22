@@ -8,6 +8,8 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define Focus_SIZE 48
 %define FOCUS_STATE_NONE    0
@@ -91,17 +93,17 @@ focus_set:
     ; Enter is published by the new surface and serial pair.
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .already_focused:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .fail:
     mov rax, -(ENOENT)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
