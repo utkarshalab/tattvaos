@@ -10,6 +10,9 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
+extern input_source_tv_init
+extern seat_deliver_event
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -106,31 +109,35 @@ input_tattva_callback:
 ;   Dispatch event to appropriate device/seat
 ; ---------------------------------------------------------------------------
 input_dispatch_event:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi        ; event type
     mov r12, rsi        ; time
     mov r13, rdx        ; code
+    mov r15, rcx        ; value
     ; rcx = value, r8 = device_id
 
     mov rdi, [rel input_server]
     test rdi, rdi
     jz .done
-    mov rdi, [rdi + Server.seats]
-    test rdi, rdi
+    mov r14, [rdi + Server.seats]
+    test r14, r14
     jz .done
 
 .seat_loop:
     ; Deliver event to seat
-    mov rsi, rdi
+    mov rsi, r14
     mov rdi, rbx
+    mov rdx, r12
+    mov rcx, r13
+    mov r8, r15
     call seat_deliver_event
 
-    mov rdi, [rdi + Seat.next]
-    test rdi, rdi
+    mov r14, [r14 + Seat.next]
+    test r14, r14
     jnz .seat_loop
 
 .done:
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 section .data
