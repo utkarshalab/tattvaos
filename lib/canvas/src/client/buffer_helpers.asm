@@ -5,6 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/tattva.inc"
 %include "inc/canvas_client.inc"
 
 section .text
@@ -78,7 +79,7 @@ canvas_buffer_destroy:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12d, esi
-    call .find_buffer
+    call canvas_find_buffer
     test rax, rax
     jz .not_found
     mov rdi, [rax + CB_REGION]
@@ -101,7 +102,7 @@ canvas_buffer_mmap:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12d, esi
-    call .find_buffer
+    call canvas_find_buffer
     test rax, rax
     jz .mmap_out
     mov rax, [rax + CB_DATA]
@@ -114,7 +115,7 @@ canvas_buffer_stride:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12d, esi
-    call .find_buffer
+    call canvas_find_buffer
     test rax, rax
     jz .stride_out
     mov eax, [rax + CB_STRIDE]
@@ -122,7 +123,7 @@ canvas_buffer_stride:
     EPILOGUE_RESTORE rbx, r12
     ret
 
-.find_buffer:
+canvas_find_buffer:
     xor ecx, ecx
     mov rdx, [rbx + CLIENT_BUFFER_COUNT]
 .find_loop:
