@@ -7,8 +7,11 @@
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
 %include "inc/ring.inc"
+
+extern arena_alloc
+extern memcopy
+extern tv_time_now_ns
 
 ; struct offsets (hoisted above use)
 %define AuditEntry_SIZE    48
