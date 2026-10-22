@@ -7,6 +7,8 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define LZW_MAX_BITS     12
 %define LZW_TABLE_SIZE   4096
