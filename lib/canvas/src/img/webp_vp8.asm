@@ -33,17 +33,15 @@ webp_bool_init:
     mov rax,-EINVAL
     ret
 
-; reader,probability-of-zero(1..255) -> bit or -EINVAL.
+; reader,probability-of-zero(0..255) -> bit or -EINVAL.
 global webp_bool_get
 webp_bool_get:
     test rdi,rdi
     jz .get_bad
-    cmp esi,1
-    jb .get_bad
     cmp esi,255
     ja .get_bad
-    cmp dword [rdi+WebPBoolReader.error],0
-    jne .get_bad
+    cmp dword [rdi+WebPBoolReader.error],8
+    ja .get_bad
     mov r8d,[rdi+WebPBoolReader.range]
     lea eax,[r8-1]
     imul eax,esi
@@ -71,11 +69,17 @@ webp_bool_get:
     jb .normalize
     mov rax,[rdi+WebPBoolReader.cursor]
     cmp rax,[rdi+WebPBoolReader.end]
-    jae .get_exhausted
+    jae .get_padding
     movzx edx,byte [rax]
     or ecx,edx
     inc rax
     mov [rdi+WebPBoolReader.cursor],rax
+    mov dword [rdi+WebPBoolReader.count],0
+    jmp .normalize
+.get_padding:
+    inc dword [rdi+WebPBoolReader.error]
+    cmp dword [rdi+WebPBoolReader.error],8
+    ja .get_exhausted
     mov dword [rdi+WebPBoolReader.count],0
     jmp .normalize
 .store:
@@ -84,7 +88,7 @@ webp_bool_get:
     mov eax,r9d
     ret
 .get_exhausted:
-    mov dword [rdi+WebPBoolReader.error],1
+    mov dword [rdi+WebPBoolReader.error],9
 .get_bad:
     mov rax,-EINVAL
     ret
@@ -117,6 +121,318 @@ webp_bool_literal:
     mov rax,-EINVAL
     EPILOGUE_RESTORE rbx,r12,r13
 
+; reader,bit_count -> signed magnitude or -EINVAL.
+vp8_signed_literal:
+    PROLOGUE_SAVE rbx,r12
+    mov rbx,rdi
+    mov r12d,esi
+    call webp_bool_literal
+    test rax,rax
+    js .signed_bad
+    push rax
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    mov edx,eax
+    pop rax
+    test edx,edx
+    js .signed_bad
+    test edx,edx
+    jz .signed_done
+    neg eax
+.signed_done:
+    EPILOGUE_RESTORE rbx,r12
+.signed_bad:
+    mov rax,-EINVAL
+    EPILOGUE_RESTORE rbx,r12
+
+; bool reader,WebPVP8Config* -> 0/-EINVAL. Parses key-frame control fields
+; through refresh_entropy_probs; coefficient updates follow this structure.
+global webp_vp8_parse_config
+webp_vp8_parse_config:
+    PROLOGUE_SAVE rbx,r12,r13,r14,r15
+    sub rsp,16
+    mov rbx,rdi
+    mov r12,rsi
+    test rbx,rbx
+    jz .config_bad
+    test r12,r12
+    jz .config_bad
+    mov rdi,r12
+    xor eax,eax
+    mov ecx,WebPVP8Config_size/8
+    rep stosq
+    mov byte [r12+WebPVP8Config.segment_probs],255
+    mov byte [r12+WebPVP8Config.segment_probs+1],255
+    mov byte [r12+WebPVP8Config.segment_probs+2],255
+    mov byte [r12+WebPVP8Config.segment_probs+3],255
+    mov dword [r12+WebPVP8Config.ref_lf_deltas],2
+    mov dword [r12+WebPVP8Config.ref_lf_deltas+8],-2
+    mov dword [r12+WebPVP8Config.ref_lf_deltas+12],-2
+    mov dword [r12+WebPVP8Config.mode_lf_deltas],4
+    mov dword [r12+WebPVP8Config.mode_lf_deltas+4],-2
+    mov dword [r12+WebPVP8Config.mode_lf_deltas+8],2
+    mov dword [r12+WebPVP8Config.mode_lf_deltas+12],4
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get                  ; color space
+    test rax,rax
+    js .config_bad
+    test eax,eax                        ; value 1 is reserved
+    jnz .config_bad
+    mov [r12+WebPVP8Config.color_space],eax
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.clamping],eax
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.segmentation],eax
+    test eax,eax
+    jz .filter_header
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.segment_map_update],eax
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.segment_data_update],eax
+    test eax,eax
+    jz .segment_map
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.segment_absolute],eax
+    xor r13d,r13d                      ; feature: quant, filter
+.segment_feature:
+    xor r14d,r14d
+.segment_value:
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    test eax,eax
+    jz .segment_next
+    mov rdi,rbx
+    mov esi,7
+    test r13d,r13d
+    jz .segment_bits_ready
+    mov esi,6
+.segment_bits_ready:
+    call vp8_signed_literal
+    test rax,rax
+    js .config_bad
+    test r13d,r13d
+    jnz .store_segment_filter
+    mov [r12+WebPVP8Config.segment_quant+r14*4],eax
+    jmp .segment_next
+.store_segment_filter:
+    mov [r12+WebPVP8Config.segment_filter+r14*4],eax
+.segment_next:
+    inc r14d
+    cmp r14d,4
+    jb .segment_value
+    inc r13d
+    cmp r13d,2
+    jb .segment_feature
+.segment_map:
+    cmp dword [r12+WebPVP8Config.segment_map_update],0
+    je .filter_header
+    xor r13d,r13d
+.segment_prob:
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    test eax,eax
+    jz .segment_prob_next
+    mov rdi,rbx
+    mov esi,8
+    call webp_bool_literal
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.segment_probs+r13],al
+.segment_prob_next:
+    inc r13d
+    cmp r13d,3
+    jb .segment_prob
+.filter_header:
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.filter_type],eax
+    mov rdi,rbx
+    mov esi,6
+    call webp_bool_literal
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.filter_level],eax
+    mov rdi,rbx
+    mov esi,3
+    call webp_bool_literal
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.sharpness],eax
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.lf_adjustments],eax
+    test eax,eax
+    jz .token_partitions
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.lf_update],eax
+    test eax,eax
+    jz .token_partitions
+    xor r13d,r13d
+.lf_delta:
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    test eax,eax
+    jz .lf_next
+    mov rdi,rbx
+    mov esi,6
+    call vp8_signed_literal
+    test rax,rax
+    js .config_bad
+    cmp r13d,4
+    jae .store_mode_delta
+    mov [r12+WebPVP8Config.ref_lf_deltas+r13*4],eax
+    jmp .lf_next
+.store_mode_delta:
+    mov edx,r13d
+    sub edx,4
+    mov [r12+WebPVP8Config.mode_lf_deltas+rdx*4],eax
+.lf_next:
+    inc r13d
+    cmp r13d,8
+    jb .lf_delta
+.token_partitions:
+    mov rdi,rbx
+    mov esi,2
+    call webp_bool_literal
+    test rax,rax
+    js .config_bad
+    mov ecx,eax
+    mov eax,1
+    shl eax,cl
+    mov [r12+WebPVP8Config.token_partitions],eax
+    mov rdi,rbx
+    mov esi,7
+    call webp_bool_literal
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.base_qindex],eax
+    xor r13d,r13d
+.quant_delta:
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    test eax,eax
+    jz .quant_next
+    mov rdi,rbx
+    mov esi,4
+    call vp8_signed_literal
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.quant_deltas+r13*4],eax
+.quant_next:
+    inc r13d
+    cmp r13d,5
+    jb .quant_delta
+    mov rdi,rbx
+    mov esi,128
+    call webp_bool_get
+    test rax,rax
+    js .config_bad
+    mov [r12+WebPVP8Config.refresh_entropy],eax
+    xor eax,eax
+    add rsp,16
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+.config_bad:
+    mov rax,-EINVAL
+    add rsp,16
+    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+; token_data,token_length,partition_count,WebPVP8Partitions* -> 0/-EINVAL.
+global webp_vp8_parse_partitions
+webp_vp8_parse_partitions:
+    test rdi,rdi
+    jz .part_bad
+    test rcx,rcx
+    jz .part_bad
+    cmp edx,1
+    je .part_count_ok
+    cmp edx,2
+    je .part_count_ok
+    cmp edx,4
+    je .part_count_ok
+    cmp edx,8
+    jne .part_bad
+.part_count_ok:
+    mov eax,edx
+    dec eax
+    imul eax,3
+    cmp rsi,rax
+    jb .part_bad
+    mov r8d,edx
+    mov [rcx+WebPVP8Partitions.count],edx
+    lea r9,[rdi+rax]
+    sub rsi,rax
+    xor r10d,r10d
+.part_size:
+    lea eax,[r10+1]
+    cmp eax,r8d
+    jae .part_last
+    movzx eax,byte [rdi]
+    movzx edx,byte [rdi+1]
+    shl edx,8
+    or eax,edx
+    movzx edx,byte [rdi+2]
+    shl edx,16
+    or eax,edx
+    add rdi,3
+    cmp rsi,rax
+    jb .part_bad
+    mov [rcx+WebPVP8Partitions.data+r10*8],r9
+    mov [rcx+WebPVP8Partitions.length+r10*8],rax
+    add r9,rax
+    sub rsi,rax
+    inc r10d
+    jmp .part_size
+.part_last:
+    mov [rcx+WebPVP8Partitions.data+r10*8],r9
+    mov [rcx+WebPVP8Partitions.length+r10*8],rsi
+    xor eax,eax
+    ret
+.part_bad:
+    mov rax,-EINVAL
+    ret
 ; VP8 payload,len,WebPVP8Info* -> 0/-EINVAL. WebP carries key frames only.
 global webp_vp8_inspect
 webp_vp8_inspect:
