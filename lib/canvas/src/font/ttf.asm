@@ -8,6 +8,8 @@
 %include "inc/font.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define TtfFont_SIZE    112
 
