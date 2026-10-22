@@ -6,7 +6,41 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/input.inc"
-%include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
+
+extern arena_alloc
+extern surface_pointer_axis
+extern surface_pointer_button
+extern surface_pointer_enter
+extern surface_pointer_leave
+extern surface_pointer_motion
+extern surface_set_cursor
+extern surface_unset_pointer_focus
+
+%define POINTER_X Pointer.x
+%define POINTER_Y Pointer.y
+%define POINTER_BUTTONS Pointer.buttons
+%define POINTER_SERIAL Pointer.serial
+%define POINTER_FOCUS Pointer.focus
+%define POINTER_CONSTRAINT Pointer.constraint
+%define POINTER_CURSOR Pointer.cursor
+%define SEAT_POINTER Seat.pointer
+%define SEAT_DEVICES Seat.devices
+%define SEAT_GRABS Seat.grab
+%define Grab.NEXT Grab.next
+%define Grab.TYPE Grab.type
+%define Grab.SEAT Grab.seat
+%define Grab.OWNER Grab.owner
+%define Grab.SERIAL Grab.serial
+%define Grab.CURSOR Grab.cursor
+%define Grab.SURFACE Grab.surface
+%define Grab.CONFINE Grab.confine
+
+%define Constraint.TYPE 0
+%define Constraint.LIFETIME 4
+%define Constraint.REGION 8
+%define Constraint.POINTER 16
+%define Constraint_SIZE 24
 
 section .text
 
@@ -33,12 +67,13 @@ pointer_create:
     mov qword [rbx + InputDevice_NEXT], 0
 
     ; Initialize pointer state
-    mov qword [rbx + POINTER_X], 0
-    mov qword [rbx + POINTER_Y], 0
+    mov dword [rbx + POINTER_X], 0
+    mov dword [rbx + POINTER_Y], 0
     mov dword [rbx + POINTER_BUTTONS], 0
-    mov qword [rbx + POINTER_SERIAL], 0
+    mov dword [rbx + POINTER_SERIAL], 0
     mov qword [rbx + POINTER_FOCUS], 0
     mov qword [rbx + POINTER_CONSTRAINT], 0
+    mov qword [rbx + POINTER_CURSOR], 0
 
     ; Add to seat's device list
     mov rax, [r12 + SEAT_DEVICES]
@@ -67,7 +102,7 @@ pointer_destroy:
 
     ; Remove from seat's device list
     mov r12, [rbx + InputDevice_SEAT]
-    call .unlink_from_seat
+    call pointer_unlink_from_seat
 
     ; Release focus
     mov rax, [rbx + POINTER_FOCUS]
@@ -79,14 +114,14 @@ pointer_destroy:
     mov rax, [rbx + POINTER_CONSTRAINT]
     test rax, rax
     jz .done
-    call pointer_constraint_destroy
+    mov qword [rbx + POINTER_CONSTRAINT], 0
 
 .done:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
 
-.unlink_from_seat:
+pointer_unlink_from_seat:
     mov r12, [rbx + InputDevice_SEAT]
     mov rax, [r12 + SEAT_DEVICES]
     test rax, rax
@@ -122,7 +157,7 @@ pointer_destroy:
 ; ============================================================================
 global pointer_set_position
 pointer_set_position:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12d, esi
     mov r13d, edx
@@ -143,7 +178,7 @@ pointer_set_position:
 
 .done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ============================================================================
@@ -152,7 +187,7 @@ pointer_set_position:
 ; ============================================================================
 global pointer_motion
 pointer_motion:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12d, esi
     mov r13d, edx
@@ -174,7 +209,7 @@ pointer_motion:
 
 .done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ============================================================================
@@ -195,11 +230,11 @@ pointer_button:
     test r13d, r13d
     jz .released
 
-    or eax, (1 << r12d)
+    bts eax, r12d
     jmp .update
 
 .released:
-    and eax, ~(1 << r12d)
+    btr eax, r12d
 
 .update:
     mov [rbx + POINTER_BUTTONS], eax
@@ -254,7 +289,7 @@ pointer_axis:
 
 .done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ============================================================================
@@ -282,12 +317,13 @@ pointer_enter:
     jz .done
 
     mov rdi, rax
-    mov rsi, [rbx + POINTER_X]
-    mov rdx, [rbx + POINTER_Y]
+    mov esi, [rbx + POINTER_X]
+    mov edx, [rbx + POINTER_Y]
     call surface_set_cursor
 
+.done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ============================================================================
@@ -310,8 +346,9 @@ pointer_leave:
 
     mov qword [rbx + POINTER_FOCUS], 0
 
+.done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ============================================================================
@@ -325,7 +362,9 @@ pointer_grab:
     ASSERT_PTR rbx
 
     ; Create grab
-    mov rdi, 64  ; Grab_SIZE
+    mov rdi, [rbx + InputDevice_SEAT]
+    mov rdi, [rdi + Seat.arena]
+    mov rsi, Grab_SIZE
     call arena_alloc
     test rax, rax
     jz .fail
@@ -333,11 +372,14 @@ pointer_grab:
     mov r12, rax
     mov qword [r12 + Grab.NEXT], 0
     mov dword [r12 + Grab.TYPE], 0  ; pointer grab
-    mov qword [r12 + Grab.SEAT], [rbx + InputDevice_SEAT]
+    mov rax, [rbx + InputDevice_SEAT]
+    mov qword [r12 + Grab.SEAT], rax
     mov qword [r12 + Grab.OWNER], rbx
-    mov dword [r12 + Grab.SERIAL], [rbx + POINTER_SERIAL]
+    mov eax, [rbx + POINTER_SERIAL]
+    mov dword [r12 + Grab.SERIAL], eax
     mov qword [r12 + Grab.CURSOR], 0
-    mov qword [r12 + Grab.SURFACE], [rbx + POINTER_FOCUS]
+    mov rax, [rbx + POINTER_FOCUS]
+    mov qword [r12 + Grab.SURFACE], rax
     mov qword [r12 + Grab.CONFINE], 0
 
     ; Add to seat's grab list
@@ -347,10 +389,12 @@ pointer_grab:
     mov [rbx + SEAT_GRABS], r12
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .fail:
     mov rax, -ENOMEM
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ============================================================================
@@ -393,7 +437,7 @@ pointer_ungrab:
 
 .done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ============================================================================
@@ -411,7 +455,9 @@ pointer_constrain:
     ASSERT_PTR r12
 
     ; Create constraint
-    mov rdi, 48  ; Constraint_SIZE
+    mov rdi, [rbx + InputDevice_SEAT]
+    mov rdi, [rdi + Seat.arena]
+    mov rsi, Constraint_SIZE
     call arena_alloc
     test rax, rax
     jz .fail
@@ -426,10 +472,12 @@ pointer_constrain:
     mov qword [rbx + POINTER_CONSTRAINT], rax
 
     xor rax, rax
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .fail:
     mov rax, -ENOMEM
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ============================================================================
@@ -446,14 +494,12 @@ pointer_unconstrain:
     test rax, rax
     jz .done
 
-    ; Destroy constraint
-    call constraint_destroy
-
+    ; Constraints are arena-owned; releasing one only detaches it.
     mov qword [rbx + POINTER_CONSTRAINT], 0
 
 .done:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data
