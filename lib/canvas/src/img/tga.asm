@@ -4,6 +4,8 @@
 %include "inc/errors.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+
 section .text
 global tga_decode
 tga_decode:
