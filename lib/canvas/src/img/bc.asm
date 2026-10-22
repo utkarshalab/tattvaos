@@ -3,6 +3,8 @@
 %include "inc/macros.inc"
 %include "inc/image.inc"
 
+extern pixbuf_create
+
 section .text
 ; IN arena,data,len,width,height,format(1..3). OUT PixBuf*.
 global bc_decode
