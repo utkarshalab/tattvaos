@@ -6,22 +6,10 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/tattva.inc"
-%include "inc/canvas_client.inc"
+
+extern arena_alloc
 
 section .text
-
-; ---------------------------------------------------------------------------
-; tv_time_now_ns
-;   Get current time in nanoseconds
-;   IN:  none
-;   OUT: rax = nanoseconds since boot
-; ---------------------------------------------------------------------------
-global tv_time_now_ns
-tv_time_now_ns:
-    PROLOGUE
-    SYSCALL SYS_TIME_NOW_NS
-    leave
-    ret
 
 ; ---------------------------------------------------------------------------
 ; tv_time_ns_to_ms
@@ -87,13 +75,13 @@ tv_time_sub_ns:
     ret
 
 ; ---------------------------------------------------------------------------
-; tv_timer_create
+; canvas_timer_create
 ;   Create a timer
 ;   IN:  rdi = arena*, rsi = interval_ns, rdx = flags
 ;   OUT: rax = timer*, 0 on error
 ; ---------------------------------------------------------------------------
-global tv_timer_create
-tv_timer_create:
+global canvas_timer_create
+canvas_timer_create:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
@@ -103,14 +91,14 @@ tv_timer_create:
     jz .fail
     
     mov rdi, rbx
-    mov rsi, 32
+    mov rsi, 40
     call arena_alloc
     test rax, rax
     jz .oom
     
     mov qword [rax + 0], r12       ; interval_ns
     mov qword [rax + 8], 0         ; next_fire
-    mov qword [rax + 16], rdi      ; callback
+    mov qword [rax + 16], 0        ; callback
     mov dword [rax + 24], r13d     ; flags
     mov qword [rax + 32], 0        ; user_data
     
@@ -126,10 +114,10 @@ tv_timer_create:
     ret
 
 ; ---------------------------------------------------------------------------
-; tv_timer_destroy
+; canvas_timer_destroy
 ; ---------------------------------------------------------------------------
-global tv_timer_destroy
-tv_timer_destroy:
+global canvas_timer_destroy
+canvas_timer_destroy:
     PROLOGUE
     ASSERT_PTR rdi
     ; In a full impl, would free via arena
@@ -138,10 +126,10 @@ tv_timer_destroy:
     ret
 
 ; ---------------------------------------------------------------------------
-; tv_timer_arm
+; canvas_timer_arm
 ; ---------------------------------------------------------------------------
-global tv_timer_arm
-tv_timer_arm:
+global canvas_timer_arm
+canvas_timer_arm:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
     ASSERT_PTR rbx
@@ -154,10 +142,10 @@ tv_timer_arm:
     ret
 
 ; ---------------------------------------------------------------------------
-; tv_timer_cancel
+; canvas_timer_cancel
 ; ---------------------------------------------------------------------------
-global tv_timer_cancel
-tv_timer_cancel:
+global canvas_timer_cancel
+canvas_timer_cancel:
     PROLOGUE
     ASSERT_PTR rdi
     mov qword [rdi + 8], 0
@@ -165,10 +153,10 @@ tv_timer_cancel:
     ret
 
 ; ---------------------------------------------------------------------------
-; tv_timer_set_callback
+; canvas_timer_set_callback
 ; ---------------------------------------------------------------------------
-global tv_timer_set_callback
-tv_timer_set_callback:
+global canvas_timer_set_callback
+canvas_timer_set_callback:
     PROLOGUE
     ASSERT_PTR rdi
     ASSERT_PTR rsi
