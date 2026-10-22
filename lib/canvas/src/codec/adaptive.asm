@@ -7,6 +7,8 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern arena_alloc
+
 ; struct offsets (hoisted above use)
 %define AdaptiveCtx_SIZE    56
 %define ENC_RAW       0
