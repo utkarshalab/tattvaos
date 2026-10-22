@@ -10,7 +10,8 @@
 %include "inc/cwp.inc"
 %include "inc/channel.inc"
 %include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
+
+extern msgbuf_write
 
 section .text
 %define AUTH_CLIENT_TRUST 8
