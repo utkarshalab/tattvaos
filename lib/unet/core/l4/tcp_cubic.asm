@@ -25,13 +25,15 @@
 %define CUBIC_BETA_DEN       10
 %define CUBIC_HZ             1000       ; 1kHz tick rate
 %define CUBIC_TCP_FRIENDLINESS 1
+%define CUBIC_K_SCALE        750000000  ; (1 - beta) / C * 10^9, for K in ms
+%define CUBIC_MAX_DELTA_MS   100000     ; clamp |t - K| so D^3 fits in 64 bits
 
 struc cubic_state_t
     .w_max:           resd 1      ; Max window before last reduction
     .w_last_max:      resd 1      ; Last max window (for fast convergence)
-    .k:               resd 1      ; Time to reach W_max (in ticks)
+    .k:               resd 1      ; Time to reach W_max (ms)
     .origin_point:    resd 1      ; Window at start of current epoch
-    .epoch_start:     resq 1      ; TSC at start of epoch
+    .epoch_start:     resq 1      ; mono_get_nanos at start of epoch (0 = none)
     .last_ack:        resd 1      ; Last ACK number for TCP friendliness
     .tcp_friendly:    resb 1      ; TCP friendliness mode
     .pad:             resb 3
@@ -48,6 +50,9 @@ global cubic_cwnd_get
 ; -----------------------------------------------------------------------------
 ; cubic_init — Initialize CUBIC state
 ; Input: RDI = tcb_t*, RSI = cubic_state_t*
+;
+; Windows are in bytes, like the rest of tcb_t (cwnd, ssthresh); CUBIC's own
+; W_max / origin_point are in segments of tcb_t.mss.
 ; -----------------------------------------------------------------------------
 align 64
 cubic_init:
@@ -73,8 +78,11 @@ cubic_init:
     mov qword [rbx + tcb_t.cc_ops], rax
     mov qword [rbx + tcb_t.cc_state], r12
 
-    ; Initialize cwnd to 10 MSS (RFC 6928)
-    mov dword [rbx + tcb_t.cwnd], 10
+    ; Initial window: 10 segments (RFC 6928)
+    mov rdi, rbx
+    call cubic_mss
+    imul eax, 10
+    mov dword [rbx + tcb_t.cwnd], eax
     mov dword [rbx + tcb_t.ssthresh], 0xFFFFFFFF
 
     xor eax, eax
@@ -84,7 +92,7 @@ cubic_init:
     ret
 
 ; -----------------------------------------------------------------------------
-; cubic_cong_event — Handle congestion event (loss, ECN)
+; cubic_cong_event — Handle congestion event (loss, ECN)   [RFC 8312 4.5-4.6]
 ; Input: RDI = tcb_t*, RSI = event type
 ; -----------------------------------------------------------------------------
 align 64
@@ -94,6 +102,7 @@ cubic_cong_event:
     push rbx
     push r12
     push r13
+    push r14
 
     mov rbx, rdi
     mov r12d, esi           ; event type
@@ -102,63 +111,57 @@ cubic_cong_event:
     test r13, r13
     jz .done
 
-    ; Get current cwnd
-    mov r14d, [rbx + tcb_t.cwnd]
+    ; R14D = cwnd in segments
+    mov rdi, rbx
+    call cubic_mss
+    mov ecx, eax
+    mov eax, [rbx + tcb_t.cwnd]
+    xor edx, edx
+    div ecx
+    mov r14d, eax
 
-    ; Fast convergence: if cwnd < last max, reduce last max
-    mov eax, [r13 + cubic_state_t.w_last_max]
-    test eax, eax
-    jz .no_fast_conv
-    cmp r14d, eax
-    jge .no_fast_conv
-    ; Reduce last max: W_last_max = W_last_max * (1 + beta) / 2
+    ; Fast convergence: losing below the last maximum means capacity shrank,
+    ; so remember a W_max lower than this window: cwnd * (1 + beta) / 2
+    mov eax, r14d
+    cmp r14d, [r13 + cubic_state_t.w_last_max]
+    jae .no_fast_conv
     imul eax, CUBIC_BETA_DEN + CUBIC_BETA_NUM
-    shr eax, 1
-    mov ecx, CUBIC_BETA_DEN
+    mov ecx, 2 * CUBIC_BETA_DEN
     xor edx, edx
     div ecx
-    mov [r13 + cubic_state_t.w_last_max], eax
-
 .no_fast_conv:
-    ; W_max = current cwnd
-    mov [r13 + cubic_state_t.w_max], r14d
+    mov [r13 + cubic_state_t.w_max], eax
+    mov [r13 + cubic_state_t.w_last_max], r14d
+    mov [r13 + cubic_state_t.origin_point], eax
 
-    ; Multiplicative decrease: cwnd = cwnd * (1 - beta)
-    imul r14d, CUBIC_BETA_DEN - CUBIC_BETA_NUM
-    mov eax, r14d
+    ; Multiplicative decrease: cwnd = max(cwnd * beta, 2 * MSS)
+    mov eax, [rbx + tcb_t.cwnd]
+    imul rax, rax, CUBIC_BETA_NUM
     mov ecx, CUBIC_BETA_DEN
     xor edx, edx
-    div ecx
-    mov r14d, eax
-    mov dword [rbx + tcb_t.cwnd], r14d
+    div rcx
+    mov ecx, eax            ; ECX = reduced window
+    mov rdi, rbx
+    call cubic_mss
+    shl eax, 1              ; 2 * MSS
+    cmp ecx, eax
+    cmovb ecx, eax
+    mov [rbx + tcb_t.cwnd], ecx
+    mov [rbx + tcb_t.ssthresh], ecx
 
-    ; ssthresh = cwnd (after reduction)
-    mov dword [rbx + tcb_t.ssthresh], r14d
-
-    ; Reset epoch
-    mov dword [r13 + cubic_state_t.origin_point], r14d
-    call rdtsc_get_cycles
-    mov qword [r13 + cubic_state_t.epoch_start], rax
-
-    ; Calculate K = cubic_root(W_max * (1 - beta) / C)
-    ; K = cubic_root(W_max * beta / C) where beta = 0.3 (1 - 0.7)
-    ; Fixed point calculation
-    mov eax, r14d
-    imul eax, CUBIC_BETA_NUM
-    xor edx, edx
-    div CUBIC_BETA_DEN
-    imul eax, CUBIC_C_DEN
-    div CUBIC_C_NUM
-    mov r14d, eax
-
-    ; K = cubic_root(value)
+    ; K = cbrt(W_max * (1 - beta) / C) seconds. In milliseconds, with
+    ; (1 - beta) / C = 0.3 / 0.4: K_ms = cbrt(W_max * 0.75 * 10^9)
+    mov eax, [r13 + cubic_state_t.w_max]
+    imul rax, rax, CUBIC_K_SCALE
     call cubic_root
     mov [r13 + cubic_state_t.k], eax
 
-    ; Update last max for fast convergence
-    mov [r13 + cubic_state_t.w_last_max], r14d
+    ; New epoch starts now
+    call mono_get_nanos
+    mov [r13 + cubic_state_t.epoch_start], rax
 
 .done:
+    pop r14
     pop r13
     pop r12
     pop rbx
@@ -177,6 +180,8 @@ cubic_ack_received:
     push r12
     push r13
     push r14
+    push r15
+    sub rsp, 8
 
     mov rbx, rdi
     mov r12, rsi            ; acked_bytes
@@ -185,64 +190,110 @@ cubic_ack_received:
     test r13, r13
     jz .done
 
+    mov rdi, rbx
+    call cubic_mss
+    mov r15d, eax           ; R15D = MSS
     mov r14d, [rbx + tcb_t.cwnd]
 
-    ; If in slow start (cwnd < ssthresh), use standard slow start
     cmp r14d, [rbx + tcb_t.ssthresh]
-    jl .slow_start
+    jae .congestion_avoidance
 
-    ; Congestion avoidance: CUBIC window growth
-    ; W(t) = C * (t - K)^3 + W_max
-    call rdtsc_get_cycles
-    sub rax, qword [r13 + cubic_state_t.epoch_start]
-    ; Convert cycles to milliseconds (approximate)
-    ; Assuming ~3GHz CPU: cycles / 3000 = ms
-    mov rcx, 3000
-    div rcx
-    mov r15d, eax           ; t in ms
-
-    sub r15d, [r13 + cubic_state_t.k]
-    ; Cube: (t - K)^3
-    imul r15d, r15d
-    imul r15d, r15d
-    ; Multiply by C
-    imul r15d, CUBIC_C_NUM
-    div CUBIC_C_DEN
-    ; Add W_max
-    add r15d, [r13 + cubic_state_t.w_max]
-
-    ; TCP friendliness check
-    cmp byte [r13 + cubic_state_t.tcp_friendly], 1
-    jz .tcp_friendly
-    jmp .set_cwnd
-
-.tcp_friendly:
-    ; TCP-friendly calculation: cwnd = cwnd * (1 + 3*beta/(2 - beta)) * RTT / cwnd
-    ; Simplified: ensure we don't exceed TCP Reno growth
-    ; cwnd_reno = cwnd + acked / cwnd per RTT
-    ; For CUBIC, cap at TCP-friendly rate
-    ; (implementation simplified)
-
-.set_cwnd:
-    cmp r15d, r14d
-    cmovg r14d, r15d
-    mov dword [rbx + tcb_t.cwnd], r14d
+    ; Slow start: cwnd += min(acked, MSS) per ACK (RFC 5681)
+    mov eax, r12d
+    cmp eax, r15d
+    cmova eax, r15d
+    add r14d, eax
+    jc .saturate
+    mov [rbx + tcb_t.cwnd], r14d
+    jmp .done
+.saturate:
+    mov dword [rbx + tcb_t.cwnd], 0xFFFFFFFF
     jmp .done
 
-.slow_start:
-    ; Standard slow start: cwnd += acked / cwnd per ACK (roughly +1 MSS per RTT)
-    ; cwnd += MSS per ACK
-    add dword [rbx + tcb_t.cwnd], r12d
-    cmp dword [rbx + tcb_t.cwnd], [rbx + tcb_t.ssthresh]
-    jl .done
-    mov dword [rbx + tcb_t.cwnd], [rbx + tcb_t.ssthresh]
+.congestion_avoidance:
+    cmp qword [r13 + cubic_state_t.epoch_start], 0
+    jne .have_epoch
+    ; First ACK in congestion avoidance with no loss yet: start the epoch
+    ; at the current window, which is then W_max with K = 0
+    mov eax, r14d
+    xor edx, edx
+    div r15d
+    mov [r13 + cubic_state_t.w_max], eax
+    mov [r13 + cubic_state_t.origin_point], eax
+    mov dword [r13 + cubic_state_t.k], 0
+    call mono_get_nanos
+    mov [r13 + cubic_state_t.epoch_start], rax
+    jmp .done
+
+.have_epoch:
+    ; t = time since the epoch, in ms; D = t - K, clamped to +-100 s
+    call mono_get_nanos
+    sub rax, [r13 + cubic_state_t.epoch_start]
+    xor edx, edx
+    mov ecx, 1000000
+    div rcx
+    mov ecx, [r13 + cubic_state_t.k]
+    sub rax, rcx
+    mov rcx, CUBIC_MAX_DELTA_MS
+    cmp rax, rcx
+    cmovg rax, rcx
+    neg rcx
+    cmp rax, rcx
+    cmovl rax, rcx
+
+    ; W(t) = C * D^3 + W_max segments, C = 0.4 per s^3 = 4 / 10^10 per ms^3
+    mov rcx, rax
+    imul rax, rcx
+    imul rax, rcx           ; D^3 (fits: |D| <= 10^5)
+    imul rax, rax, 4
+    cqo
+    mov rcx, 10000000000
+    idiv rcx
+    mov ecx, [r13 + cubic_state_t.w_max]
+    add rax, rcx            ; RAX = target, segments
+    jle .done
+
+    ; Target in bytes; grow toward it by (target - cwnd) / cwnd per ACK,
+    ; at most one MSS per ACK
+    imul rax, r15
+    mov ecx, r14d
+    sub rax, rcx
+    jbe .done               ; already at or above the target
+    imul rax, r15
+    xor edx, edx
+    div rcx                 ; (target - cwnd) * MSS / cwnd
+    test eax, eax
+    jnz .have_inc
+    inc eax
+.have_inc:
+    cmp eax, r15d
+    cmova eax, r15d
+    add r14d, eax
+    jc .saturate
+    mov [rbx + tcb_t.cwnd], r14d
 
 .done:
+    add rsp, 8
+    pop r15
     pop r14
     pop r13
     pop r12
     pop rbx
     pop rbp
+    ret
+
+; -----------------------------------------------------------------------------
+; cubic_mss — MSS of a connection, 1460 if not negotiated yet
+; Input: RDI = tcb_t*
+; Output: EAX = MSS
+; -----------------------------------------------------------------------------
+align 16
+cubic_mss:
+    mov eax, [rdi + tcb_t.mss]
+    test eax, eax
+    jnz .ok
+    mov eax, 1460
+.ok:
     ret
 
 ; -----------------------------------------------------------------------------
@@ -263,60 +314,36 @@ cubic_cwnd_get:
     ret
 
 ; -----------------------------------------------------------------------------
-; cubic_root — Integer cubic root (fixed point)
-; Input: EAX = value
-; Output: EAX = floor(cuberoot(value))
+; cubic_root — Integer cube root
+; Input: RAX = value (unsigned, below 2^63)
+; Output: EAX = floor(cbrt(value))
+; Clobbers: RCX, RDX, R8, R9
 ; -----------------------------------------------------------------------------
 align 64
 cubic_root:
-    push rbp
-    mov rbp, rsp
-    push rbx
-    push r12
-
-    mov r12d, eax
-    test r12d, r12d
-    jz .zero
-
-    ; Binary search for integer cubic root
-    ; Range: 0 to 2^10 (since max window ~ 1M)
-    mov eax, 1
-    mov edx, 1024
+    mov r9, rax             ; value
+    xor eax, eax            ; low  = 0 (answer is in [low, high))
+    mov edx, 1 << 21        ; high = 2^21 > cbrt(2^63)
 
 .binary_search:
-    cmp eax, edx
-    jge .done
-    mov ecx, eax
-    add ecx, edx
-    shr ecx, 1            ; mid = (low + high) / 2
+    lea ecx, [rax + 1]
+    cmp ecx, edx
+    jae .done               ; high - low == 1: low is the answer
+    lea ecx, [rax + rdx]
+    shr ecx, 1              ; mid
 
     mov r8d, ecx
-    imul r8d, ecx
-    imul r8d, ecx         ; mid^3
-
-    cmp r8d, r12d
-    jle .move_low
-    mov edx, ecx
+    imul r8, r8
+    imul r8, rcx            ; mid^3, below 2^63
+    cmp r8, r9
+    ja .too_big
+    mov eax, ecx            ; mid^3 <= value: low = mid
     jmp .binary_search
-
-.move_low:
-    lea eax, [ecx + 1]
+.too_big:
+    mov edx, ecx            ; high = mid
     jmp .binary_search
 
 .done:
-    cmp eax, 1
-    mov edx, 1
-    cmovl eax, edx
-    pop r12
-    pop rbx
-    pop rbp
-    ret
-
-.zero:
-    xor eax, eax
-    pop r12
-    pop rbx
-    pop rbp
     ret
 
 ; -----------------------------------------------------------------------------
@@ -336,6 +363,8 @@ cubic_ops:
 
 section .data
 cubic_init_name: db "cubic", 0
+
+section .text
 
 cubic_destroy:
     ret
