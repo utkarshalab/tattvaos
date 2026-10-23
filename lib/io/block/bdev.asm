@@ -16,6 +16,11 @@
 
 section .text
 
+; Stack frame for the asynchronous path: one io_request_t followed by the
+; single iovec_t it points at, rounded up to keep RSP 16-byte aligned.
+%define BDEV_IOV_OFF    io_request_t_size
+%define BDEV_FRAME      ((io_request_t_size + iovec_t_size + 15) & ~15)
+
 ; =============================================================================
 ; bdev_read — Synchronous read sectors from a block device
 ; In : RDI = -> device_t object
@@ -27,110 +32,9 @@ section .text
 IO_FUNC bdev_read
     guard_null rdi
     guard_null rcx
-
-    push    rbx
-    push    rcx
-    push    rdx
-    push    rsi
-    push    rdi
-
-    ; Check if synchronous read fallback exists
-    mov     rax, [rdi + device_t.read]
-    test    rax, rax
-    jz      .try_async
-
-    ; Call synchronous read directly: read(dev, lba, count, buf)
-    call    rax
-    jmp     .done
-
-.try_async:
-    ; Synchronous read not available, check for asynchronous submit
-    mov     rax, [rdi + device_t.submit]
-    test    rax, rax
-    jz      .err_badarg
-
-    ; Allocate io_request_t on stack to perform block read
-    ; Stack size of io_request_t is 104 bytes. Align RSP.
-    sub     rsp, 128                ; Stack buffer aligned (multiple of 16)
-    mov     rbx, rsp                ; RBX = -> stack io_request_t
-
-    ; Clear stack request block
-    mov     rdi, rbx
-    xor     rax, rax
-    mov     rcx, 16                 ; 128 / 8 = 16 qwords
-    rep     stosq
-
-    ; Populate io_request_t
-    pop     rdi                     ; Restore original RDI (dev) to push/access
-    push    rdi
-    mov     [rbx + io_request_t.device], rdi
-    mov     qword [rbx + io_request_t.opcode], IO_OP_READ
-    mov     [rbx + io_request_t.lba], rsi
-    mov     [rbx + io_request_t.nblocks], rdx
-    mov     qword [rbx + io_request_t.state], IO_REQ_INIT
-
-    ; We simulate direct transfer (non-SG for simple bdev helper, or stub SG)
-    ; In this bring-up, we reuse the destination buffer pointer directly:
-    ; We can pass buffer address directly in priv or iov fields.
-    ; To keep it simple, we wrap it in a stack iovec:
-    lea     rax, [rbx + 96]         ; Allocate one iovec_t in remaining stack space
-    mov     [rax + iovec_t.base], rcx
-    mov     [rax + iovec_t.len], rdx ; size in blocks
-    ; Get sector size
-    mov     rsi, [rdi + device_t.sector_size]
-    imul    [rax + iovec_t.len], rsi ; convert to bytes
-    mov     [rbx + io_request_t.iov], rax
-    mov     qword [rbx + io_request_t.iov_cnt], 1
-
-    ; Submit the request: submit(dev, req)
-    mov     rdi, [rbx + io_request_t.device]
-    mov     rsi, rbx                ; RSI = &req
-    mov     rax, [rdi + device_t.submit]
-    call    rax
-
-    test    rax, rax
-    jnz     .cleanup_err            ; Submission failed
-
-.spin_wait:
-    ; Spin-wait for completion (polling state)
-    mov     rax, [rbx + io_request_t.state]
-    cmp     rax, IO_REQ_COMPLETE
-    je      .complete
-    cmp     rax, IO_REQ_ERROR
-    je      .err_status
-    cmp     rax, IO_REQ_CANCELLED
-    je      .err_cancel
-    
-    pause                           ; CPU yield hint
-    jmp     .spin_wait
-
-.complete:
-    xor     rax, rax
-    jmp     .cleanup
-
-.err_status:
-    mov     rax, [rbx + io_request_t.status]
-    jmp     .cleanup
-
-.err_cancel:
-    mov     rax, IO_ERR_CANCEL
-    jmp     .cleanup
-
-.cleanup_err:
-    ; RAX already has submission error status
-.cleanup:
-    add     rsp, 128
-    jmp     .done
-
-.err_badarg:
-    mov     rax, IO_ERR_BADARG
-
-.done:
-    pop     rdi
-    pop     rsi
-    pop     rdx
-    pop     rcx
-    pop     rbx
+    mov     r8d, IO_OP_READ
+    mov     r9d, device_t.read
+    jmp     bdev_rw
 IO_ENDFUNC bdev_read
 
 ; =============================================================================
@@ -144,100 +48,111 @@ IO_ENDFUNC bdev_read
 IO_FUNC bdev_write
     guard_null rdi
     guard_null rcx
+    mov     r8d, IO_OP_WRITE
+    mov     r9d, device_t.write
+    jmp     bdev_rw
+IO_ENDFUNC bdev_write
 
+; -----------------------------------------------------------------------------
+; bdev_rw — shared body of bdev_read / bdev_write
+; In : RDI = device, RSI = LBA, RDX = block count, RCX = buffer,
+;      R8 = IO_OP_READ / IO_OP_WRITE,
+;      R9 = offset of the synchronous handler in device_t (.read / .write)
+; Out: RAX = 0 on success, or a negative error band code on failure
+;
+; Uses the device's synchronous handler when it has one; otherwise builds an
+; io_request_t on the stack, submits it, and polls until it finishes.
+; -----------------------------------------------------------------------------
+bdev_rw:
     push    rbx
-    push    rcx
-    push    rdx
-    push    rsi
-    push    rdi
+    push    r12
+    push    r13
+    push    r14
+    push    r15
 
-    ; Check if synchronous write fallback exists
-    mov     rax, [rdi + device_t.write]
+    mov     rbx, rdi                ; device
+    mov     r12, rsi                ; LBA
+    mov     r13, rdx                ; block count
+    mov     r14, rcx                ; buffer
+    mov     r15, r8                 ; opcode
+
+    mov     rax, [rbx + r9]         ; synchronous handler
     test    rax, rax
     jz      .try_async
-
-    ; Call synchronous write directly
+    ; handler(dev, lba, count, buf): RDI..RCX still hold the arguments
     call    rax
     jmp     .done
 
 .try_async:
-    ; Synchronous write not available, check for asynchronous submit
-    mov     rax, [rdi + device_t.submit]
-    test    rax, rax
-    jz      .err_badarg
+    cmp     qword [rbx + device_t.submit], 0
+    je      .err_badarg
 
-    ; Allocate stack request block
-    sub     rsp, 128
-    mov     rbx, rsp
+    sub     rsp, BDEV_FRAME
+    mov     rdi, rsp
+    xor     eax, eax
+    mov     ecx, BDEV_FRAME / 8
+    rep     stosq                   ; zero the request and its iovec
 
-    mov     rdi, rbx
-    xor     rax, rax
-    mov     rcx, 16
-    rep     stosq
+    mov     [rsp + io_request_t.device], rbx
+    mov     [rsp + io_request_t.opcode], r15
+    mov     [rsp + io_request_t.lba], r12
+    mov     [rsp + io_request_t.nblocks], r13
+    mov     qword [rsp + io_request_t.state], IO_REQ_INIT
 
-    pop     rdi
-    push    rdi
-    mov     [rbx + io_request_t.device], rdi
-    mov     qword [rbx + io_request_t.opcode], IO_OP_WRITE
-    mov     [rbx + io_request_t.lba], rsi
-    mov     [rbx + io_request_t.nblocks], rdx
-    mov     qword [rbx + io_request_t.state], IO_REQ_INIT
-
-    lea     rax, [rbx + 96]
-    mov     [rax + iovec_t.base], rcx
+    ; One iovec covering the whole transfer: count * sector_size bytes
+    lea     rax, [rsp + BDEV_IOV_OFF]
+    mov     [rax + iovec_t.base], r14
+    mov     rdx, r13
+    imul    rdx, [rbx + device_t.sector_size]
     mov     [rax + iovec_t.len], rdx
-    mov     rsi, [rdi + device_t.sector_size]
-    imul    [rax + iovec_t.len], rsi
-    mov     [rbx + io_request_t.iov], rax
-    mov     qword [rbx + io_request_t.iov_cnt], 1
+    mov     [rsp + io_request_t.iov], rax
+    mov     qword [rsp + io_request_t.iov_cnt], 1
 
-    ; Submit write request
-    mov     rdi, [rbx + io_request_t.device]
-    mov     rsi, rbx
-    mov     rax, [rdi + device_t.submit]
-    call    rax
-
+    ; submit(dev, req)
+    mov     rdi, rbx
+    mov     rsi, rsp
+    call    [rbx + device_t.submit]
     test    rax, rax
-    jnz     .cleanup_err
+    jnz     .cleanup                ; submission failed: RAX = its error
 
 .spin_wait:
-    mov     rax, [rbx + io_request_t.state]
+    mov     rax, [rsp + io_request_t.state]
     cmp     rax, IO_REQ_COMPLETE
     je      .complete
     cmp     rax, IO_REQ_ERROR
     je      .err_status
     cmp     rax, IO_REQ_CANCELLED
     je      .err_cancel
-    
-    pause
+    cmp     rax, IO_REQ_TIMEOUT
+    je      .err_timeout
+    pause                           ; CPU yield hint
     jmp     .spin_wait
 
 .complete:
-    xor     rax, rax
+    xor     eax, eax
     jmp     .cleanup
-
 .err_status:
-    mov     rax, [rbx + io_request_t.status]
+    mov     rax, [rsp + io_request_t.status]
     jmp     .cleanup
-
 .err_cancel:
     mov     rax, IO_ERR_CANCEL
     jmp     .cleanup
+.err_timeout:
+    mov     rax, IO_ERR_TIMEOUT
 
-.cleanup_err:
 .cleanup:
-    add     rsp, 128
+    add     rsp, BDEV_FRAME
     jmp     .done
 
 .err_badarg:
     mov     rax, IO_ERR_BADARG
 
 .done:
-    pop     rdi
-    pop     rsi
-    pop     rdx
-    pop     rcx
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
     pop     rbx
-IO_ENDFUNC bdev_write
+    ret
 
 %endif ; IO_BLOCK_BDEV_ASM
