@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/playbook_compiler.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR Rule Compiler - compiles playbook rules into efficient

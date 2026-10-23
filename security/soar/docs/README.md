@@ -2,7 +2,7 @@
 
 ## Purpose
 Orchestrate security tools, automate response playbooks, and coordinate
-incident response across Tattva OS security modules.
+incident response across Utkarsha OS security modules.
 
 ## Architecture
 - **Orchestrator** — triggers actions across modules (usrauth, ips, malwarescan)

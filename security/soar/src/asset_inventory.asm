@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/asset_inventory.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR Asset Inventory - tracks and manages enterprise assets,

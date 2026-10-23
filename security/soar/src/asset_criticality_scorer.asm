@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/asset_criticality_scorer.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR Asset Criticality Scorer - calculates criticality scores

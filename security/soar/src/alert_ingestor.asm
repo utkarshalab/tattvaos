@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/alert_ingestor.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR Alert Ingestor - ingests alerts from IDS/IPS/malwarescan/WAF.

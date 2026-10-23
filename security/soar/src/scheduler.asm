@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/scheduler.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR SCHEDULER - scheduled playbooks and recurring tasks.

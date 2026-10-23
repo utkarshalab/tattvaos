@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/tests/test_soar.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: SOAR premium skeleton test.
 ; Status   : PREMIUM ENTERPRISE SKELETON
 ; =============================================================================

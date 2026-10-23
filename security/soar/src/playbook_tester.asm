@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/playbook_tester.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR Playbook Tester - validates playbooks against simulated

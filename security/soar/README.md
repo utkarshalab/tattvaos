@@ -1,7 +1,7 @@
 # security/soar — Security Orchestration, Automation & Response
 
 > Enterprise-grade Security Orchestration, Automation & Response (SOAR) module
-> for Tattva OS. SOAR is the orchestration layer that sits between detection
+> for Utkarsha OS. SOAR is the orchestration layer that sits between detection
 ;              systems (IDS/IPS/malwarescan/WAF) and response systems (firewalls,
 ;              EDR, ticketing). It ingests alerts, evaluates playbooks, and
 ;              executes automated response actions — fail-closed by default.

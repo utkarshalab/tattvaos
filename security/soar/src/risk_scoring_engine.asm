@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/risk_scoring_engine.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR Risk Scoring Engine - calculates risk scores for alerts,

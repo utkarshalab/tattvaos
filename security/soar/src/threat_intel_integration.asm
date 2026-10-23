@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/threat_intel_integration.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR Threat Intel Integration - connects to threat intelligence

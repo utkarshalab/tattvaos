@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/automation_engine.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR AUTOMATION_ENGINE - automated response workflows.

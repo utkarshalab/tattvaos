@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/decoy_manager.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR Decoy Manager - manages honeypots, decoy systems, and

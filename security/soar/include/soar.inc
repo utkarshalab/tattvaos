@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/include/soar.inc
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Security Orchestration, Automation & Response - master schema

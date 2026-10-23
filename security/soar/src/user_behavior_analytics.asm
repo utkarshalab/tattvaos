@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/soar/src/user_behavior_analytics.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: SOAR User Behavior Analytics (UBA/UEBA) - establishes behavioral
