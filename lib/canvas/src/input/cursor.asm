@@ -266,6 +266,8 @@ cursor_get:
 section .rodata
 default_theme_name: db "default",0
 
+section .text
+
 ; ---------------------------------------------------------------------------
 ; cursor_set_image
 ;   Set cursor image for surface
