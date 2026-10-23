@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/src/playbooks.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IR playbooks (YAML/JSON-encoded response procedures)

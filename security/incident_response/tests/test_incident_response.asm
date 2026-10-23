@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/tests/test_incident_response.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Incident Response comprehensive test - all components.
 ; Status   : PREMIUM ENTERPRISE SKELETON
 ; =============================================================================

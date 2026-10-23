@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/src/stakeholder_notifier.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IR stakeholder notifier - manages stakeholder communication,

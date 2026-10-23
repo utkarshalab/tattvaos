@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/src/incident_response.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Incident Response - main dispatcher.

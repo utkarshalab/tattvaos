@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/src/blast_radius_calculator.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IR blast radius calculator - calculates incident impact scope,

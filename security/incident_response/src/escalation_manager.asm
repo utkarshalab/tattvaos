@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/src/escalation_manager.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IR escalation manager - manages escalation workflows,

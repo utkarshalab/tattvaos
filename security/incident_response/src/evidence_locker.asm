@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/src/evidence_locker.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IR evidence locker - secure evidence storage with chain of

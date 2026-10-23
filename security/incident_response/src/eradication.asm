@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/src/eradication.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IR eradication (remove threat actor presence, patch vulns)

@@ -2,7 +2,7 @@
 
 ## Purpose
 Coordinate incident triage, containment, eradication, and recovery for
-Tattva OS security events. Provides playbooks, runbooks, and automation hooks.
+Utkarsha OS security events. Provides playbooks, runbooks, and automation hooks.
 
 ## Architecture
 - **Triage** — event intake, severity classification, priority assignment

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/src/timeline_reconstructor.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IR timeline reconstructor - builds chronological timelines of

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/src/threat_intel_linker.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IR threat intel linker - correlates incidents with threat

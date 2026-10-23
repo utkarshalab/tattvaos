@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/incident_response/include/ir.inc
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Incident Response - master schema header.
