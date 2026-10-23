@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CRYPTO_VERITY_ASM
 %define GUARD_STORAGE_UXFS_CRYPTO_VERITY_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/crypto/verity.asm
+; Utkarsha OS — storage/uxfs/crypto/verity.asm
 ; =============================================================================
 ; dm-verity Merkle Tree Block Integrity Verification.
 ;

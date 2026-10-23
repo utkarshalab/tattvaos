@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_SQUASHFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_SQUASHFS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/squashfs.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/squashfs.asm
 ; =============================================================================
 ; SquashFS Read-Only Compressed Filesystem Driver.
 ;

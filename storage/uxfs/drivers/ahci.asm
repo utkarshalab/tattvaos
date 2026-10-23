@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_AHCI_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_AHCI_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/drivers/ahci.asm
+; Utkarsha OS — storage/uxfs/drivers/ahci.asm
 ; =============================================================================
 ; Production-Grade SATA HDD & SATA SSD AHCI Controller Driver.
 ;

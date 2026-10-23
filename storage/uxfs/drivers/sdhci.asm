@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_SDHCI_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_SDHCI_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/drivers/sdhci.asm
+; Utkarsha OS — storage/uxfs/drivers/sdhci.asm
 ; =============================================================================
 ; SD Host Controller (SDHCI) Driver with ADMA2 Scatter-Gather.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_JOURNAL_JOURNAL_ASM
 %define GUARD_STORAGE_UXFS_JOURNAL_JOURNAL_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/journal/journal.asm
+; Utkarsha OS — storage/uxfs/journal/journal.asm
 ; =============================================================================
 ; ext4 Fast-Commit & Write-Ahead Logging (WAL) Transaction Journal.
 ;

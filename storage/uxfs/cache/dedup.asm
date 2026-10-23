@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_DEDUP_ASM
 %define GUARD_STORAGE_UXFS_CACHE_DEDUP_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/cache/dedup.asm
+; Utkarsha OS — storage/uxfs/cache/dedup.asm
 ; =============================================================================
 ; BLAKE3 Content-Addressed Storage Block Deduplication Engine.
 ;

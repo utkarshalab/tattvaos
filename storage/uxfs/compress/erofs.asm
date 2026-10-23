@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_COMPRESS_EROFS_ASM
 %define GUARD_STORAGE_UXFS_COMPRESS_EROFS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/compress/erofs.asm
+; Utkarsha OS — storage/uxfs/compress/erofs.asm
 ; =============================================================================
 ; EROFS (Enhanced Read-Only File System) Compatibility Driver.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_APFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_APFS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/apfs.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/apfs.asm
 ; =============================================================================
 ; Production-Grade APFS (Apple File System) macOS Container Driver.
 ;

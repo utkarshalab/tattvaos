@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_ARC_ASM
 %define GUARD_STORAGE_UXFS_CACHE_ARC_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/cache/arc.asm
+; Utkarsha OS — storage/uxfs/cache/arc.asm
 ; =============================================================================
 ; OpenZFS Adaptive Replacement Cache (ARC) Dual-List (T1 MRU / T2 MFU) Page Cache.
 ;

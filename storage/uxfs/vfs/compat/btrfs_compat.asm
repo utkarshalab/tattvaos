@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_BTRFS_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_BTRFS_COMPAT_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/btrfs_compat.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/btrfs_compat.asm
 ; =============================================================================
 ; Production-Grade Btrfs (B-Tree File System) Linux CoW Driver.
 ;

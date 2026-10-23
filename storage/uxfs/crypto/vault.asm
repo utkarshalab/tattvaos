@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CRYPTO_VAULT_ASM
 %define GUARD_STORAGE_UXFS_CRYPTO_VAULT_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/crypto/vault.asm
+; Utkarsha OS — storage/uxfs/crypto/vault.asm
 ; =============================================================================
 ; TPM 2.0 Master Key Vault — TIS Transport & PCR-Bound Unsealing.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_PAGECACHE_ASM
 %define GUARD_STORAGE_UXFS_CACHE_PAGECACHE_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/cache/pagecache.asm
+; Utkarsha OS — storage/uxfs/cache/pagecache.asm
 ; =============================================================================
 ; 4KB Page Cache — Descriptor Table, Reference Counting & Writeback Tracking.
 ;

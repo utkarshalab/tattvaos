@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_NVME_ZNS_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_NVME_ZNS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/drivers/nvme_zns.asm
+; Utkarsha OS — storage/uxfs/drivers/nvme_zns.asm
 ; =============================================================================
 ; NVMe Zoned Namespaces (ZNS) Driver.
 ;

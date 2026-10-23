@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_NTFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_NTFS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/ntfs.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/ntfs.asm
 ; =============================================================================
 ; Production-Grade NTFS External Windows Drive Compatibility Driver.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_BTREE_PREFIX_ASM
 %define GUARD_STORAGE_UXFS_BTREE_PREFIX_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/btree/prefix.asm
+; Utkarsha OS — storage/uxfs/btree/prefix.asm
 ; =============================================================================
 ; Path Prefix Compression Dictionary Engine for UXFS B-Trees.
 ;

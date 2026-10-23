@@ -1,6 +1,6 @@
 # UXFS — Unikernel Extended File System & Universal Multi-OS Storage Subsystem
 
-`UXFS` is an enterprise-grade, high-performance storage architecture engineered for **Tattva OS**. It combines Next-Gen Copy-on-Write (CoW) B-Trees, 2025 Tiny-Pointer O(1) Hash Table Caching, Post-Quantum Cryptography, and native read-write support for 13 global operating system filesystems.
+`UXFS` is an enterprise-grade, high-performance storage architecture engineered for **Utkarsha OS**. It combines Next-Gen Copy-on-Write (CoW) B-Trees, 2025 Tiny-Pointer O(1) Hash Table Caching, Post-Quantum Cryptography, and native read-write support for 13 global operating system filesystems.
 
 ---
 

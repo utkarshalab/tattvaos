@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_EXT4_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_EXT4_COMPAT_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/ext4_compat.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/ext4_compat.asm
 ; =============================================================================
 ; Production-Grade ext2/ext3/ext4 External Linux Partition Compatibility Driver.
 ;

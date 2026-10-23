@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_USB_STORAGE_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_USB_STORAGE_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/drivers/usb_storage.asm
+; Utkarsha OS — storage/uxfs/drivers/usb_storage.asm
 ; =============================================================================
 ; Production-Grade USB 3.0 / 2.0 Mass Storage Pendrive Driver (xHCI / BOT).
 ;

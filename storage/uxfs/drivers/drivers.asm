@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_DRIVERS_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_DRIVERS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/drivers/drivers.asm
+; Utkarsha OS — storage/uxfs/drivers/drivers.asm
 ; =============================================================================
 ; Master Storage Hardware Driver Dispatcher & Module Aggregator.
 ;

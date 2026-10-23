@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_SECURITY_ACL_ASM
 %define GUARD_STORAGE_UXFS_SECURITY_ACL_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/security/acl.asm
+; Utkarsha OS — storage/uxfs/security/acl.asm
 ; =============================================================================
 ; POSIX.1e Access Control Lists.
 ;

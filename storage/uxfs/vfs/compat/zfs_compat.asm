@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_ZFS_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_ZFS_COMPAT_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/zfs_compat.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/zfs_compat.asm
 ; =============================================================================
 ; Production-Grade OpenZFS Storage Pool Compatibility Driver.
 ;

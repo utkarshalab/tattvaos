@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CRYPTO_PQC_ASM
 %define GUARD_STORAGE_UXFS_CRYPTO_PQC_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/crypto/pqc.asm
+; Utkarsha OS — storage/uxfs/crypto/pqc.asm
 ; =============================================================================
 ; NIST ML-KEM-1024 Post-Quantum Volume Master Key Wrapping.
 ;

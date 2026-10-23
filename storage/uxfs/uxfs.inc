@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — storage/uxfs/uxfs.inc
+; Utkarsha OS — storage/uxfs/uxfs.inc
 ; =============================================================================
 ; Master Schema Header for UXFS (Unikernel Extended File System).
 ;

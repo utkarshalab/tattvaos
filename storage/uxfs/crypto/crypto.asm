@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CRYPTO_CRYPTO_ASM
 %define GUARD_STORAGE_UXFS_CRYPTO_CRYPTO_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/crypto/crypto.asm
+; Utkarsha OS — storage/uxfs/crypto/crypto.asm
 ; =============================================================================
 ; AES-256-XTS Storage Block Encryption via AES-NI.
 ;

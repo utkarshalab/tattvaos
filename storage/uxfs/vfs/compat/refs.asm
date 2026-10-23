@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_REFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_REFS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/refs.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/refs.asm
 ; =============================================================================
 ; Microsoft ReFS (Resilient File System) Read Compatibility Driver.
 ;

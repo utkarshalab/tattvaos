@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_LIMITS_QUOTA_ASM
 %define GUARD_STORAGE_UXFS_LIMITS_QUOTA_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/limits/quota.asm
+; Utkarsha OS — storage/uxfs/limits/quota.asm
 ; =============================================================================
 ; Production-Grade Storage Quota Enforcement Engine.
 ;

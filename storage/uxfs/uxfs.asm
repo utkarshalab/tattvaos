@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_UXFS_ASM
 %define GUARD_STORAGE_UXFS_UXFS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/uxfs.asm
+; Utkarsha OS — storage/uxfs/uxfs.asm
 ; =============================================================================
 ; Master UXFS (Unikernel Extended File System & Universal Multi-OS Storage).
 ;

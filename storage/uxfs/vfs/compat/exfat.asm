@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_EXFAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_EXFAT_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/exfat.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/exfat.asm
 ; =============================================================================
 ; Production-Grade exFAT (Extended File Allocation Table) Compatibility Driver.
 ;

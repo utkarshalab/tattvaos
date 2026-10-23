@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CLUSTER_ERASURE_ASM
 %define GUARD_STORAGE_UXFS_CLUSTER_ERASURE_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/cluster/erasure.asm
+; Utkarsha OS — storage/uxfs/cluster/erasure.asm
 ; =============================================================================
 ; Reed-Solomon (k+m) Erasure Coding over GF(2^8).
 ;

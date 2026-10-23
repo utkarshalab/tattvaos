@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_BTREE_RCU_ASM
 %define GUARD_STORAGE_UXFS_BTREE_RCU_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/btree/rcu.asm
+; Utkarsha OS — storage/uxfs/btree/rcu.asm
 ; =============================================================================
 ; Lock-Free Read-Copy-Update (RCU) Epoch Recycling & Memory Reclaim Engine.
 ;

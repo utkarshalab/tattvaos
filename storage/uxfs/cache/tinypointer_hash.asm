@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_TINYPOINTER_HASH_ASM
 %define GUARD_STORAGE_UXFS_CACHE_TINYPOINTER_HASH_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/cache/tinypointer_hash.asm
+; Utkarsha OS — storage/uxfs/cache/tinypointer_hash.asm
 ; =============================================================================
 ; Breakthrough Krapivin-Farach-Colton-Kuszmaul (2025) Tiny-Pointer Hash Table.
 ;

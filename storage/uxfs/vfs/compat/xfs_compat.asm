@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_XFS_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_XFS_COMPAT_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/xfs_compat.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/xfs_compat.asm
 ; =============================================================================
 ; Production-Grade XFS Enterprise Linux Storage Compatibility Driver.
 ;

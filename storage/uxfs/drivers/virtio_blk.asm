@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_VIRTIO_BLK_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_VIRTIO_BLK_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/drivers/virtio_blk.asm
+; Utkarsha OS — storage/uxfs/drivers/virtio_blk.asm
 ; =============================================================================
 ; VirtIO Block Device Driver (split virtqueue).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_NVME_OF_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_NVME_OF_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/drivers/nvme_of.asm
+; Utkarsha OS — storage/uxfs/drivers/nvme_of.asm
 ; =============================================================================
 ; NVMe over Fabrics (NVMe-oF) Transport Driver.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_VFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_VFS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/vfs.asm
+; Utkarsha OS — storage/uxfs/vfs/vfs.asm
 ; =============================================================================
 ; Production-Grade POSIX Virtual File System (VFS) Layer in 64-bit Assembly.
 ;

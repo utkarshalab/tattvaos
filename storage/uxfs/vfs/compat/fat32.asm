@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_FAT32_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_FAT32_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/fat32.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/fat32.asm
 ; =============================================================================
 ; Production-Grade FAT32 & exFAT External USB Drive Compatibility Driver.
 ;

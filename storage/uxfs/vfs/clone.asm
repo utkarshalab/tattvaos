@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_CLONE_ASM
 %define GUARD_STORAGE_UXFS_VFS_CLONE_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/clone.asm
+; Utkarsha OS — storage/uxfs/vfs/clone.asm
 ; =============================================================================
 ; APFS / ReFS Zero-Cost O(1) Instant File & Directory Cloning Engine for UXFS.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_BTREE_ALLOC_GROUPS_ASM
 %define GUARD_STORAGE_UXFS_BTREE_ALLOC_GROUPS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/btree/alloc_groups.asm
+; Utkarsha OS — storage/uxfs/btree/alloc_groups.asm
 ; =============================================================================
 ; XFS-Grade Allocation Groups (AG) & Fast Hardware Bitmask Storage Allocator.
 ;

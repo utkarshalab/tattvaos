@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_ISO9660_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_ISO9660_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/iso9660.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/iso9660.asm
 ; =============================================================================
 ; ISO 9660 / ECMA-119 Optical & Cloud-Init Image Driver.
 ;

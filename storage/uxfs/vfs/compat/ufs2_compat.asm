@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_UFS2_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_UFS2_COMPAT_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/compat/ufs2_compat.asm
+; Utkarsha OS — storage/uxfs/vfs/compat/ufs2_compat.asm
 ; =============================================================================
 ; Production-Grade FreeBSD / Unix UFS2 (FFS2) Compatibility Driver.
 ;

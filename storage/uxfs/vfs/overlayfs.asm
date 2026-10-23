@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_OVERLAYFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_OVERLAYFS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/overlayfs.asm
+; Utkarsha OS — storage/uxfs/vfs/overlayfs.asm
 ; =============================================================================
 ; Production-Grade OverlayFS Multi-Layer Container Union Mount Engine.
 ;

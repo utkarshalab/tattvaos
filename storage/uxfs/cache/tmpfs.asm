@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_TMPFS_ASM
 %define GUARD_STORAGE_UXFS_CACHE_TMPFS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/cache/tmpfs.asm
+; Utkarsha OS — storage/uxfs/cache/tmpfs.asm
 ; =============================================================================
 ; In-Memory Temporary RAM Filesystem (tmpfs) Engine for UXFS.
 ;

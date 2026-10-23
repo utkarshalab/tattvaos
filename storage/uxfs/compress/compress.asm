@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_COMPRESS_COMPRESS_ASM
 %define GUARD_STORAGE_UXFS_COMPRESS_COMPRESS_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/compress/compress.asm
+; Utkarsha OS — storage/uxfs/compress/compress.asm
 ; =============================================================================
 ; Inline Transparent Block Compression with Incompressible-Data Fallback.
 ;

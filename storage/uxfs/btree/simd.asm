@@ -2,7 +2,7 @@
 %define GUARD_STORAGE_UXFS_BTREE_SIMD_ASM
  
 ; =============================================================================
-; Tattva OS — storage/uxfs/btree/simd.asm
+; Utkarsha OS — storage/uxfs/btree/simd.asm
 ; =============================================================================
 ; Elite Hardware AVX-512 & AVX2 SIMD Parallel Vector Search Engine for UXFS B-Trees.
 ;

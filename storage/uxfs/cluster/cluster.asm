@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CLUSTER_CLUSTER_ASM
 %define GUARD_STORAGE_UXFS_CLUSTER_CLUSTER_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/cluster/cluster.asm
+; Utkarsha OS — storage/uxfs/cluster/cluster.asm
 ; =============================================================================
 ; Production-Grade Ceph / GlusterFS CRUSH Distributed Cloud Storage Router.
 ;

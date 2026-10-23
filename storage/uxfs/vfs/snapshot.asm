@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_SNAPSHOT_ASM
 %define GUARD_STORAGE_UXFS_VFS_SNAPSHOT_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/vfs/snapshot.asm
+; Utkarsha OS — storage/uxfs/vfs/snapshot.asm
 ; =============================================================================
 ; Frozen Root CoW B-Tree File System Snapshots & Rollback Engine.
 ;

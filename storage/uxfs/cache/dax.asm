@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_DAX_ASM
 %define GUARD_STORAGE_UXFS_CACHE_DAX_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/cache/dax.asm
+; Utkarsha OS — storage/uxfs/cache/dax.asm
 ; =============================================================================
 ; Direct Access (DAX) Persistent Memory Mapping & Durability Primitives.
 ;

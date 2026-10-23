@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_SECURITY_XATTR_ASM
 %define GUARD_STORAGE_UXFS_SECURITY_XATTR_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/security/xattr.asm
+; Utkarsha OS — storage/uxfs/security/xattr.asm
 ; =============================================================================
 ; Extended Attribute Store (namespaced inode metadata).
 ;

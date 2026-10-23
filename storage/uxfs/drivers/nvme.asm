@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_NVME_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_NVME_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/drivers/nvme.asm
+; Utkarsha OS — storage/uxfs/drivers/nvme.asm
 ; =============================================================================
 ; Production-Grade PCIe NVMe 1.4 Storage Driver with Hardware Doorbell Rings.
 ;

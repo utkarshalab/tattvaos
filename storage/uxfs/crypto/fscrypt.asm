@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CRYPTO_FSCRYPT_ASM
 %define GUARD_STORAGE_UXFS_CRYPTO_FSCRYPT_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/crypto/fscrypt.asm
+; Utkarsha OS — storage/uxfs/crypto/fscrypt.asm
 ; =============================================================================
 ; Policy-Based Per-Inode Filesystem Encryption (Linux fscrypt compatible).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_BTREE_COW_ASM
 %define GUARD_STORAGE_UXFS_BTREE_COW_ASM
 ; =============================================================================
-; Tattva OS — storage/uxfs/btree/cow.asm
+; Utkarsha OS — storage/uxfs/btree/cow.asm
 ; =============================================================================
 ; World-Class Production Btrfs Copy-on-Write (CoW) B-Tree Indexing Engine.
 ;
