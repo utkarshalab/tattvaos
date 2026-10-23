@@ -4,7 +4,7 @@
 ; str/buf/builder.asm
 ; Zero-allocation fixed-capacity string builder.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -4,7 +4,7 @@
 ; str/convert/ascii.asm
 ; ASCII-only byte-level conversions — no UTF-8 decoding needed.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

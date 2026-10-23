@@ -4,7 +4,7 @@
 ; str/unicode/width.asm
 ; East Asian Width property + display width calculation.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Source: EastAsianWidth.txt

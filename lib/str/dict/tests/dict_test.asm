@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — str/dict/tests/dict_test.asm
+; Utkarsha OS — str/dict/tests/dict_test.asm
 ; =============================================================================
 ; Semantic test suite for the default English dictionary.
 ;

@@ -4,7 +4,7 @@
 ; str/mem/alloc.asm
 ; Heap allocation wrappers for the str library.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:
@@ -22,7 +22,7 @@
 ; These functions exist for:
 ;   - StrBuf dynamic growth (realloc semantics)
 ;   - Large string operations that exceed arena capacity
-;   - Standalone use outside Tattva OS kernel context
+;   - Standalone use outside Utkarsha OS kernel context
 ;
 ; Linux syscall numbers (x86_64):
 ;   mmap   = 9

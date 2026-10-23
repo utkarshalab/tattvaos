@@ -4,7 +4,7 @@
 ; str/encoding/engine.asm
 ; Transcoder engine — convert between any two encodings via a UTF-8 pivot.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

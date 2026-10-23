@@ -4,7 +4,7 @@
 ; str/path/split.asm
 ; Split a path into dirname, basename, extension, stem.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

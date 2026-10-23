@@ -4,7 +4,7 @@
 ; str/format/ftoa.asm
 ; Float → string with format control (fixed, scientific, shortest).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

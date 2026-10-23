@@ -4,7 +4,7 @@
 ; default English dictionary: exact lookup, prefix/autocomplete, and
 ; edit-distance spellcheck suggestions.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; The dictionary itself is not built at runtime. dict/tables/dict_table.asm

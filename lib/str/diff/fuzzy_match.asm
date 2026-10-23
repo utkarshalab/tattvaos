@@ -4,7 +4,7 @@
 ; str/diff/fuzzy_match.asm
 ; Phonetic hashing and fuzzy string matching algorithms (Soundex).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -1,8 +1,8 @@
 /* ===========================================================================
  * str/include/str.h
- * C-compatible header for the Tattva OS str library.
+ * C-compatible header for the Utkarsha OS str library.
  *
- * Part of Utkarsha Labs / Tattva OS
+ * Part of Utkarsha Labs / Utkarsha OS
  *
  * This header exposes all public functions from the str library to C callers.
  * All functions use the System V AMD64 ABI (RDI, RSI, RDX, RCX, R8, R9).
@@ -18,8 +18,8 @@
  *   str_grapheme_count(&s, &count);
  * =========================================================================== */
 
-#ifndef TATTVA_STR_H
-#define TATTVA_STR_H
+#ifndef UT_STR_H
+#define UT_STR_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -574,4 +574,4 @@ int64_t str_collation_key(const StrSlice *src, uint8_t *dst, uint64_t dst_cap, u
 }
 #endif
 
-#endif /* TATTVA_STR_H */
+#endif /* UT_STR_H */

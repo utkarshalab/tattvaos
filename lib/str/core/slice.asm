@@ -4,7 +4,7 @@
 ; str/core/slice.asm
 ; Subslice, windowing, and byte-level slice operations.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

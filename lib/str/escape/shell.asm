@@ -4,7 +4,7 @@
 ; str/escape/shell.asm
 ; Shell argument escaping for POSIX sh and bash.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

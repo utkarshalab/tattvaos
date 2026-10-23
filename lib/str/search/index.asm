@@ -4,7 +4,7 @@
 ; str/search/index.asm
 ; Find all occurrence byte offsets of a substring in a StrSlice.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

@@ -4,7 +4,7 @@
 ; str/interp/escape_seq.asm
 ; ANSI/VT100 terminal escape sequence generation and stripping.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

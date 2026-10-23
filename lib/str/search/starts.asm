@@ -4,7 +4,7 @@
 ; str/search/starts.asm
 ; Check if a StrSlice starts with a given prefix.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

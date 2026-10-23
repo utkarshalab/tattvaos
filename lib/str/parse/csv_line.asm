@@ -4,7 +4,7 @@
 ; str/parse/csv_line.asm
 ; Parse a single CSV line into an array of StrSlice fields.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

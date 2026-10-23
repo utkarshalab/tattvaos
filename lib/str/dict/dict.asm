@@ -4,10 +4,10 @@
 ; str/dict/dict.asm
 ; Default English dictionary — aggregator include.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
-; The default, always-available English dictionary for Tattva OS: exact
+; The default, always-available English dictionary for Utkarsha OS: exact
 ; lookup, prefix/autocomplete, and edit-distance spellcheck suggestions, ready
 ; for editors (uedit), the shell (ush tab completion), and any other consumer
 ; that %include's this file — no init call, no allocation, nothing to wire up

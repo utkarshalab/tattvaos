@@ -1,6 +1,6 @@
 # lib/str/dict — Default English Dictionary
 
-The **`lib/str/dict`** module is Tattva OS's default English dictionary:
+The **`lib/str/dict`** module is Utkarsha OS's default English dictionary:
 exact word lookup, prefix/autocomplete search, and edit-distance spellcheck
 suggestions, backed by a ~348K-word table baked directly into the kernel
 image. It exists so editors (`uedit`), the shell (`ush` tab completion), and
@@ -11,7 +11,7 @@ file — no init call, no allocation, nothing to wire up beyond the include.
 
 ## 1. Why this shape
 
-Tattva OS has no filesystem lookup at boot and no libc dictionary to shell
+Utkarsha OS has no filesystem lookup at boot and no libc dictionary to shell
 out to (`/usr/share/dict/words` is a Linux/BSD convention, not something
 this kernel has). The two options were: build the dictionary at runtime
 (parse a wordlist, insert into a trie, pay that cost on every boot), or bake

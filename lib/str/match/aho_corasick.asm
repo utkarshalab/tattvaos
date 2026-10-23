@@ -4,7 +4,7 @@
 ; str/match/aho_corasick.asm
 ; Aho-Corasick multi-pattern string matching.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:
@@ -18,7 +18,7 @@
 ; the input string ONCE, finding all occurrences of all patterns in O(n+m+z)
 ; time where n=text length, m=total pattern bytes, z=number of matches.
 ;
-; Use cases in Tattva OS:
+; Use cases in Utkarsha OS:
 ;   - nt (Netra): scan for multiple vulnerability signatures simultaneously
 ;   - uide: multi-keyword syntax highlighting
 ;   - Firewall/IDS: scan network payload against threat patterns

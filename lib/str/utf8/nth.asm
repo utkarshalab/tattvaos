@@ -4,7 +4,7 @@
 ; str/utf8/nth.asm
 ; Get the Nth Unicode codepoint from a UTF-8 string (0-indexed).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

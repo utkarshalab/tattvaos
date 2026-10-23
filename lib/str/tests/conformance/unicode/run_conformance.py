@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # =============================================================================
 # tests/conformance/unicode/run_conformance.py
-# UCD Conformance Test Runner for the Tattva OS str library.
+# UCD Conformance Test Runner for the Utkarsha OS str library.
 #
 # Parses and executes conformance tests for:
 #   - GraphemeBreakTest.txt

@@ -4,7 +4,7 @@
 ; str/utf8/charlen.asm
 ; Given a UTF-8 leading byte, return the sequence length in bytes (1..4).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; %include "arch/common/types.inc"

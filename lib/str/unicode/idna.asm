@@ -4,7 +4,7 @@
 ; str/unicode/idna.asm
 ; Internationalized Domain Names (IDNA2008 / UTS #46).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

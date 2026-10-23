@@ -2,7 +2,7 @@
 ; str/symbols/constants.asm
 ; Named codepoint constants for all Unicode symbol categories
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 (primary)
 ; Assembler: NASM
 ;
@@ -363,7 +363,7 @@ SYM_HAMILTONIAN         equ SCRIPT_H            ; ℋ  0x210B
 ; str/symbols/constants.asm
 ; Named codepoint constants for all Unicode symbol categories
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 (primary)
 ; Assembler: NASM
 ;

@@ -4,7 +4,7 @@
 ; str/unicode/bidi_brackets.asm
 ; Paired bracket algorithm (UAX #9 rule N0) for full bidi support.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Source: BidiBrackets.txt, BidiCharacterTest.txt

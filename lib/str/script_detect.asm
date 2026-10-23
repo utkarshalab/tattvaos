@@ -4,7 +4,7 @@
 ; str/script_detect.asm
 ; Detect the predominant Unicode script of a string.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

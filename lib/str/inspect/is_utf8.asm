@@ -4,7 +4,7 @@
 ; str/inspect/is_utf8.asm
 ; Check whether a byte buffer is valid UTF-8.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

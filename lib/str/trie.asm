@@ -4,7 +4,7 @@
 ; str/trie.asm
 ; Prefix tree (trie) for dictionary lookup, autocomplete, and prefix search.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:
@@ -17,7 +17,7 @@
 ; A trie stores a set of strings with shared-prefix compression.
 ; Each path from root to a marked node represents an inserted string.
 ;
-; Use cases in Tattva OS:
+; Use cases in Utkarsha OS:
 ;   - uide autocomplete (identifiers, keywords)
 ;   - utasm directive/mnemonic lookup
 ;   - DNS label matching

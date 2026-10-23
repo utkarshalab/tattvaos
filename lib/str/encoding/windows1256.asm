@@ -4,7 +4,7 @@
 ; str/encoding/windows1256.asm
 ; Windows-1256 (Arabic) codec.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

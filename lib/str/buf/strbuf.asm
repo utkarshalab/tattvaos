@@ -4,7 +4,7 @@
 ; str/buf/strbuf.asm
 ; UTF-8 string builder — StrBuf with string-aware push operations.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

@@ -4,7 +4,7 @@
 ; str/unicode/security_spoof.asm
 ; UTS #39 security spoofing profile checks (restriction levels & mixed-number).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

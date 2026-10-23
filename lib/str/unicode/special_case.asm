@@ -4,7 +4,7 @@
 ; str/unicode/special_case.asm
 ; Locale-aware special casing (SpecialCasing.txt).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; Source: SpecialCasing.txt
 ;

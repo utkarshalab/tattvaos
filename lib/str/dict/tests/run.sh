@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Tattva OS — str/dict/tests/run.sh
+# Utkarsha OS — str/dict/tests/run.sh
 # =============================================================================
 # Builds and runs the dict semantic suite as a hosted Linux binary.
 #

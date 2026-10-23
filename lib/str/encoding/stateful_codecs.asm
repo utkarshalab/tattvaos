@@ -4,7 +4,7 @@
 ; str/encoding/stateful_codecs.asm
 ; Stateful (ISO-2022-JP) and multi-byte (GB18030) decoders.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

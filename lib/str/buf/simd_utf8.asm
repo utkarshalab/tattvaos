@@ -4,7 +4,7 @@
 ; str/buf/simd_utf8.asm
 ; SIMD-accelerated UTF-8 validation and fast ASCII scans.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -4,7 +4,7 @@
 ; str/unicode/name.asm
 ; Codepoint → Unicode name lookup (UnicodeData.txt name field).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

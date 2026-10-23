@@ -4,7 +4,7 @@
 ; str/encoding/gbk.asm
 ; GBK (Code Page 936) codec — GB2312 superset for Simplified Chinese.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

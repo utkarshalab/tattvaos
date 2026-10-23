@@ -3,7 +3,7 @@
 ; GENERATED FILE — do not hand-edit. Produced by tools/gen_dict_table.py
 ; from a SCOWL-derived English wordlist (see data/dict/SOURCE-LICENSE.txt).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ;
 ; Three parallel arrays, all indexed 0..dict_word_count-1, sorted ascending
 ; by the UTF-8 byte sequence of the word (== codepoint order):

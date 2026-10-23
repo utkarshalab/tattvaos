@@ -4,7 +4,7 @@
 ; str/convert/title.asm
 ; Title casing, capitalization, and case-swapping.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

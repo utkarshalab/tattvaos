@@ -4,7 +4,7 @@
 ; str/pattern/regex_exec.asm
 ; Execute a compiled NFA bytecode program against an input string.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

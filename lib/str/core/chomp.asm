@@ -4,7 +4,7 @@
 ; str/core/chomp.asm
 ; String chomp, chop, and simplified line counting functions.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

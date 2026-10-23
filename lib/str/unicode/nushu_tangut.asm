@@ -4,7 +4,7 @@
 ; str/unicode/nushu_tangut.asm
 ; Nushu and Tangut script support (NushuSources.txt, TangutSources.txt).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Source: NushuSources.txt, TangutSources.txt

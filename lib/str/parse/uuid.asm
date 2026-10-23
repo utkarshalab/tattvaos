@@ -4,7 +4,7 @@
 ; str/parse/uuid.asm
 ; Parse, validate, generate, and format UUID strings (RFC 4122).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

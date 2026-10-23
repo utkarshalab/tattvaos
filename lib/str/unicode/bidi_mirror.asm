@@ -4,7 +4,7 @@
 ; str/unicode/bidi_mirror.asm
 ; Bidi mirroring: get the mirrored glyph for RTL display.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; Source: BidiMirroring.txt
 ;

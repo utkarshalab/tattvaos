@@ -4,7 +4,7 @@
 ; str/encoding/cp1251.asm
 ; Windows-1251 (Cyrillic) ↔ UTF-8 codec.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

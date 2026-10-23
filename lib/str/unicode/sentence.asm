@@ -4,7 +4,7 @@
 ; str/unicode/sentence.asm
 ; Sentence boundary detection (UAX #29 Sentence_Break).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

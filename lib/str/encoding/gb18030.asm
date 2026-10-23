@@ -4,7 +4,7 @@
 ; str/encoding/gb18030.asm
 ; GB18030 (Chinese national standard, full Unicode coverage) ↔ UTF-8 codec.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

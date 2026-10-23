@@ -4,7 +4,7 @@
 ; str/inspect/is_lower.asm
 ; Check whether a codepoint or string contains only lowercase characters.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

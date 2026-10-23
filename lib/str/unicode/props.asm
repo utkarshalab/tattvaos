@@ -4,7 +4,7 @@
 ; str/unicode/props.asm
 ; Unicode boolean properties (PropList.txt + DerivedCoreProperties.txt).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Source: PropList.txt, DerivedCoreProperties.txt

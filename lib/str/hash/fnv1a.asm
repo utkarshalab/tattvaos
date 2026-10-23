@@ -4,7 +4,7 @@
 ; str/hash/fnv1a.asm
 ; FNV-1a (Fowler-Noll-Vo) hash — 32-bit and 64-bit variants.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

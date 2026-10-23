@@ -4,7 +4,7 @@
 ; str/sort/sort_utf8.asm
 ; Sort arrays of StrSlice by UTF-8 string value.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

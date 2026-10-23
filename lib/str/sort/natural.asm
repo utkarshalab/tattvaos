@@ -4,7 +4,7 @@
 ; str/sort/natural.asm
 ; Natural sort ordering — numeric runs compared by value, not lexicographically.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

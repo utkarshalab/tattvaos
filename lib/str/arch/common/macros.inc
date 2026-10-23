@@ -2,7 +2,7 @@
 ; str/arch/common/macros.inc
 ; Calling convention and utility macros for the str library
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 (System V AMD64 ABI)
 ; Assembler: NASM
 ;

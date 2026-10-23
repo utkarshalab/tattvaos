@@ -3,7 +3,7 @@
 # tests/conformance/run.sh
 # Compilation and execution wrapper for the Unicode Conformance suite.
 #
-# Part of Utkarsha Labs / Tattva OS — str library
+# Part of Utkarsha Labs / Utkarsha OS — str library
 # =============================================================================
 
 set -e

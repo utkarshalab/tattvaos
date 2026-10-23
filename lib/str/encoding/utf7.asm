@@ -4,7 +4,7 @@
 ; str/encoding/utf7.asm
 ; UTF-7 ↔ UTF-8 codec (RFC 2152).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

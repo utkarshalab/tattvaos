@@ -4,7 +4,7 @@
 ; str/hash/xxhash.asm
 ; xxHash64 by Yann Collet — fastest non-cryptographic hash algorithm.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

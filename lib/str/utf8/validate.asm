@@ -4,7 +4,7 @@
 ; str/utf8/validate.asm
 ; Validate a UTF-8 byte sequence — reject all malformed input.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

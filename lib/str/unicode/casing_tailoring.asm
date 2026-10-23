@@ -4,7 +4,7 @@
 ; str/unicode/casing_tailoring.asm
 ; Locale-tailored string case conversions (Dutch, Turkish, German, Lithuanian).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

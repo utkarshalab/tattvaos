@@ -4,7 +4,7 @@
 ; str/unicode/emoji_modifiers.asm
 ; UTS #51 emoji modifier sequence detection (skin tones, hair, gender).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

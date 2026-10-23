@@ -4,7 +4,7 @@
 ; str/unicode/do_not_emit.asm
 ; Characters that should not be emitted in new text (DoNotEmit.txt).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Source: DoNotEmit.txt

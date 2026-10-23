@@ -4,7 +4,7 @@
 ; str/core/pad.asm
 ; Pad a StrSlice to a target width with a fill byte or codepoint.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

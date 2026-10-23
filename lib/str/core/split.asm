@@ -4,7 +4,7 @@
 ; str/core/split.asm
 ; Split a StrSlice on a delimiter byte, string, or whitespace.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

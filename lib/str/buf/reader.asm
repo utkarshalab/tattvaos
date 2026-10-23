@@ -4,7 +4,7 @@
 ; str/buf/reader.asm
 ; Streaming byte/codepoint reader over a StrSlice.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

@@ -4,7 +4,7 @@
 ; str/unicode/property_aliases.asm
 ; Property name/value alias resolution (PropertyAliases.txt, PropertyValueAliases.txt).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Source: PropertyAliases.txt, PropertyValueAliases.txt

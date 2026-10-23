@@ -4,7 +4,7 @@
 ; str/encoding/iso2022.asm
 ; ISO-2022-JP (stateful Japanese) ↔ UTF-8 codec.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

@@ -4,7 +4,7 @@
 ; str/unicode/script_ext.asm
 ; Script extensions — codepoints shared across multiple scripts.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; Source: ScriptExtensions.txt
 ;

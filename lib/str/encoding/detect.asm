@@ -4,7 +4,7 @@
 ; str/encoding/detect.asm
 ; Encoding auto-detection from BOM and statistical heuristics.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

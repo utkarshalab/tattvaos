@@ -4,7 +4,7 @@
 ; str/unicode/security.asm
 ; Unicode security mechanisms: confusable detection, identifier safety.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Source: Unicode Technical Standard #39 (Security Mechanisms),

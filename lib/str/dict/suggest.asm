@@ -5,7 +5,7 @@
 ; "Did you mean" spellcheck suggestions: bounded Levenshtein distance against
 ; the default English dictionary.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

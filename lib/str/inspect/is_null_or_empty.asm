@@ -4,7 +4,7 @@
 ; str/inspect/is_null_or_empty.asm
 ; Null pointer and empty string guard predicates.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

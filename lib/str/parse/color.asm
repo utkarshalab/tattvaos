@@ -4,7 +4,7 @@
 ; str/parse/color.asm
 ; Parse CSS/HTML color strings → u32 RGBA packed value.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

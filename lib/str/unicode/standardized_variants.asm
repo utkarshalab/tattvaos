@@ -4,7 +4,7 @@
 ; str/unicode/standardized_variants.asm
 ; Standardized variation sequences (StandardizedVariants.txt).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Source: StandardizedVariants.txt, emoji/emoji-variation-sequences.txt

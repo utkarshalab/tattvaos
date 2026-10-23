@@ -4,7 +4,7 @@
 ; str/unicode/hangul.asm
 ; Hangul syllable type classification and jamo utilities.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; Source: HangulSyllableType.txt, Jamo.txt
 ;

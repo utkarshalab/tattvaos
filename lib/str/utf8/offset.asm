@@ -5,7 +5,7 @@
 ; Byte offset of the Nth codepoint in a UTF-8 string, and related
 ; byte↔codepoint index conversion utilities.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

@@ -4,7 +4,7 @@
 ; str/escape/url.asm
 ; URL percent-encoding (RFC 3986) encode and decode.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

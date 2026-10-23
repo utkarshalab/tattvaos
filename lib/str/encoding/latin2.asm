@@ -4,7 +4,7 @@
 ; str/encoding/latin2.asm
 ; ISO-8859-2 (Latin-2, Central European) ↔ UTF-8 codec.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

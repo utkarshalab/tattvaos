@@ -4,7 +4,7 @@
 ; str/hash/djb2.asm
 ; DJB2 hash by Daniel J. Bernstein.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

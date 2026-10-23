@@ -2,7 +2,7 @@
 ; str/arch/common/types.inc
 ; Core type definitions for the str library
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 (primary), aarch64/riscv stubs follow
 ; Assembler: NASM
 ;

@@ -4,7 +4,7 @@
 ; str/intern/pool.asm
 ; String interning pool — deduplicate identical strings.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:
@@ -23,7 +23,7 @@
 ;   - Deduplication (saves memory for repeated strings)
 ;   - Stable addresses (interned string pointers never move)
 ;
-; Use cases in Tattva OS:
+; Use cases in Utkarsha OS:
 ;   - Kernel symbol tables (function/variable names)
 ;   - utasm identifiers (labels, directives, registers)
 ;   - uide syntax tokens

@@ -4,7 +4,7 @@
 ; str/unicode/numeric.asm
 ; Numeric type and value lookup (DerivedNumericType/Values).
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ; Source: DerivedNumericType.txt, DerivedNumericValues.txt
 ;

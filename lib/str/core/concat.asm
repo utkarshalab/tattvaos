@@ -4,7 +4,7 @@
 ; str/core/concat.asm
 ; Concatenate two or more StrSlices into a caller-supplied buffer.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:

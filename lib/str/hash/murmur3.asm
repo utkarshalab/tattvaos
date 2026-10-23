@@ -4,7 +4,7 @@
 ; str/hash/murmur3.asm
 ; MurmurHash3 by Austin Appleby — 32-bit and 128-bit x64 variants.
 ;
-; Part of Utkarsha Labs / Tattva OS — str library
+; Part of Utkarsha Labs / Utkarsha OS — str library
 ; Arch: x86_64 | Assembler: NASM
 ;
 ; Depends on:
