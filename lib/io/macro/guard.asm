@@ -23,8 +23,7 @@
     test    %1, %1
     jnz     %%ok
     mov     rax, IO_ERR_NULL
-    pop     rbp
-    ret
+    ret                     ; only before the routine pushes anything
 %%ok:
 %endmacro
 
@@ -44,8 +43,7 @@
     jmp     %%ok
 %%fail:
     mov     rax, IO_ERR_BADARG
-    pop     rbp
-    ret
+    ret                     ; only before the routine pushes anything
 %%ok:
 %endmacro
 
