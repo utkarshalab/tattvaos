@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UFILE_UFILE_TRANSPOSE_ASM
 %define GUARD_LIB_UFILE_UFILE_TRANSPOSE_ASM
 ; =============================================================================
-; Tattva OS — lib/ufile/ufile_transpose.asm
+; Utkarsha OS — lib/ufile/ufile_transpose.asm
 ; =============================================================================
 ; Format Version Transposition & Header Normalization Layer.
 ;

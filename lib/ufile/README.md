@@ -5,4 +5,4 @@
 Provides: open, read, write, seek, close, stat — with a clean
 interface over the raw UXFS block layer.
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.

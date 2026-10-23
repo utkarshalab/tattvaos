@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UFILE_UFILE_ASM
 %define GUARD_LIB_UFILE_UFILE_ASM
 ; =============================================================================
-; Tattva OS — lib/ufile/ufile.asm
+; Utkarsha OS — lib/ufile/ufile.asm
 ; =============================================================================
 ; Universal File Format Inspection Engine & Two-Phase SIMD Magic Matrix.
 ;

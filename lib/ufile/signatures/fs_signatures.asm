@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UFILE_SIGNATURES_FS_SIGNATURES_ASM
 %define GUARD_LIB_UFILE_SIGNATURES_FS_SIGNATURES_ASM
 ; =============================================================================
-; Tattva OS — lib/ufile/signatures/fs_signatures.asm
+; Utkarsha OS — lib/ufile/signatures/fs_signatures.asm
 ; =============================================================================
 ; Filesystem & Boot Sector Signature Matchers (FAT32, EXT2/3/4, GPT, MBR, UBF).
 ;

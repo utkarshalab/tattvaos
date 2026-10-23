@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UFILE_UFILE_ENGINE_ASM
 %define GUARD_LIB_UFILE_UFILE_ENGINE_ASM
 ; =============================================================================
-; Tattva OS — lib/ufile/ufile_engine.asm
+; Utkarsha OS — lib/ufile/ufile_engine.asm
 ; =============================================================================
 ; Bytecode Pattern Matcher Engine (YARA/eBPF-Style Rule Evaluator).
 ;

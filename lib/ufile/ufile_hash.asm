@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UFILE_UFILE_HASH_ASM
 %define GUARD_LIB_UFILE_UFILE_HASH_ASM
 ; =============================================================================
-; Tattva OS — lib/ufile/ufile_hash.asm
+; Utkarsha OS — lib/ufile/ufile_hash.asm
 ; =============================================================================
 ; Hardware Cryptographic Integrity Hashing (CRC32C / SHA256) Engine for ufile.
 ;

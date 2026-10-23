@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UFILE_SIGNATURES_EXEC_SIGNATURES_ASM
 %define GUARD_LIB_UFILE_SIGNATURES_EXEC_SIGNATURES_ASM
 ; =============================================================================
-; Tattva OS — lib/ufile/signatures/exec_signatures.asm
+; Utkarsha OS — lib/ufile/signatures/exec_signatures.asm
 ; =============================================================================
 ; Executable Signature Matchers (ULF Unikernel Format, ELF64, PE/COFF).
 ;

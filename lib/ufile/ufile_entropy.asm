@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UFILE_UFILE_ENTROPY_ASM
 %define GUARD_LIB_UFILE_UFILE_ENTROPY_ASM
 ; =============================================================================
-; Tattva OS — lib/ufile/ufile_entropy.asm
+; Utkarsha OS — lib/ufile/ufile_entropy.asm
 ; =============================================================================
 ; Fast Fixed-Point Shannon Entropy Calculator & Payload Encryption Profiler.
 ;

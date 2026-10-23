@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UFILE_SIGNATURES_AI_SIGNATURES_ASM
 %define GUARD_LIB_UFILE_SIGNATURES_AI_SIGNATURES_ASM
 ; =============================================================================
-; Tattva OS — lib/ufile/signatures/ai_signatures.asm
+; Utkarsha OS — lib/ufile/signatures/ai_signatures.asm
 ; =============================================================================
 ; AI / ML Model Signature Matchers (GGUF, Safetensors, ONNX).
 ;

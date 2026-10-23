@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UFILE_UFILE_SANITIZE_ASM
 %define GUARD_LIB_UFILE_UFILE_SANITIZE_ASM
 ; =============================================================================
-; Tattva OS — lib/ufile/ufile_sanitize.asm
+; Utkarsha OS — lib/ufile/ufile_sanitize.asm
 ; =============================================================================
 ; Hardened Security & TOCTOU Shadow Copy Protection Routines for ufile.
 ;

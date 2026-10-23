@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ufile/ufile.inc
+; Utkarsha OS — lib/ufile/ufile.inc
 ; =============================================================================
 ; Universal File Format Inspection Container (ufile_meta_t) & Constants.
 ;
