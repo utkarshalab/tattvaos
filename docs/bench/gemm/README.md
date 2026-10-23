@@ -5,4 +5,4 @@
 Measures: FLOPS/cycle, memory bandwidth utilization, kernel launch overhead,
 comparison against theoretical peak for each CPU generation.
 
-Part of the `bench/` category in Tattva OS.
+Part of the `bench/` category in Utkarsha OS.

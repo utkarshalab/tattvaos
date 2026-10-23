@@ -1,6 +1,6 @@
 # bench — Benchmarking Category
 
-> Cycle-accurate benchmarks for every subsystem in Tattva OS.
+> Cycle-accurate benchmarks for every subsystem in Utkarsha OS.
 > Measures real performance, not amortized averages.
 
 ---
