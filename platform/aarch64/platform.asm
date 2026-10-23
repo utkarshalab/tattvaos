@@ -2,7 +2,7 @@
 %define GUARD_PLATFORM_AARCH64_PLATFORM_ASM
 ; =============================================================================
 ; File     : platform/aarch64/platform.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: AArch64 platform-specific initialization and support code.
