@@ -343,8 +343,20 @@ struc WebPVP8RenderMBState
     .v:               resq 1
     .y_stride:        resd 1
     .uv_stride:       resd 1
+    .mb_flags:        resd 1          ; VP8_MB_* frame-edge flags
+    .reserved:        resd 1
 endstruc
-%define WebPVP8RenderMBState_size 56
+%define WebPVP8RenderMBState_size 64
+
+; Macroblock position flags for edge-dependent prediction (RFC 6386 12.2/12.3).
+%define VP8_MB_LEFT_EDGE   1          ; mb_x == 0
+%define VP8_MB_TOP_EDGE    2          ; mb_y == 0
+%define VP8_MB_RIGHT_EDGE  4          ; mb_x == mb_cols - 1
+
+; webp_vp8_predict_block DC variants for frame edges.
+%define VP8_PRED_DC_NO_TOP      4
+%define VP8_PRED_DC_NO_LEFT     5
+%define VP8_PRED_DC_NO_TOP_LEFT 6
 
 struc WebPVP8FilterFrameState
     .y:               resq 1
