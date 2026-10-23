@@ -141,6 +141,7 @@ global quic_send_handshake
 global quic_send_1rtt
 global quic_process_initial
 global quic_process_handshake
+global quic_process_0rtt
 global quic_process_1rtt
 global quic_send_ack
 global quic_on_ack
@@ -179,7 +180,8 @@ quic_init:
 
 ; =============================================================================
 ; quic_connection_create — Create new QUIC connection
-; Input: RDI = version, RSI = dcid, RDX = dcid_len, RCX = scid, R8 = scid_len
+; Input: EDI = version, RSI = dcid, EDX = dcid_len, RCX = scid, R8D = scid_len
+;        (each connection ID at most QUIC_MAX_CID_LEN bytes)
 ; Output: RAX = quic_conn_t* or 0
 ; -----------------------------------------------------------------------------
 align 64
@@ -190,12 +192,21 @@ quic_connection_create:
     push r12
     push r13
     push r14
+    push r15
 
     mov r12d, edi           ; version
     mov r13, rsi            ; dcid
-    mov r13b, dl            ; dcid_len
     mov r14, rcx            ; scid
-    mov r13b, r8b           ; scid_len
+    movzx r15d, dl          ; dcid_len
+    shl r8d, 8
+    or r15d, r8d            ; R15D = scid_len << 8 | dcid_len
+
+    cmp r15b, QUIC_MAX_CID_LEN
+    ja .fail
+    mov eax, r15d
+    shr eax, 8
+    cmp eax, QUIC_MAX_CID_LEN
+    ja .fail
 
     lea rdi, [quic_conn_pool]
     call kmem_cache_alloc
@@ -203,25 +214,22 @@ quic_connection_create:
     jz .fail
     mov rbx, rax
 
-    ; Initialize connection
-    mov dword [rbx + quic_conn_t.version], r12d
-    mov byte [rbx + quic_conn_t.dcid_len], r13b
-    mov byte [rbx + quic_conn_t.scid_len], r14b
+    mov [rbx + quic_conn_t.version], r12d
     mov byte [rbx + quic_conn_t.state], QUIC_STATE_INIT
     mov byte [rbx + quic_conn_t.flags], 0
 
     ; Copy connection IDs
-    mov rdi, rbx
-    add rdi, quic_conn_t.dcid
+    movzx ecx, r15b
+    mov [rbx + quic_conn_t.dcid_len], cl
+    lea rdi, [rbx + quic_conn_t.dcid]
     mov rsi, r13
-    mov cl, r13b
     rep movsb
 
-    mov byte [rbx + quic_conn_t.scid_len], r14b
-    mov rdi, rbx
-    add rdi, quic_conn_t.scid
+    mov ecx, r15d
+    shr ecx, 8
+    mov [rbx + quic_conn_t.scid_len], cl
+    lea rdi, [rbx + quic_conn_t.scid]
     mov rsi, r14
-    mov cl, r14b
     rep movsb
 
     ; Initialize flow control
@@ -231,21 +239,19 @@ quic_connection_create:
     mov qword [rbx + quic_conn_t.remote_max_stream_data_bidi], 0
     mov qword [rbx + quic_conn_t.local_max_stream_data_uni], 1048576
     mov qword [rbx + quic_conn_t.remote_max_stream_data_uni], 0
-    mov dword [rbx + quic_conn_t.local_max_streams_bidi], 100
+    mov dword [rbx + quic_conn_t.local_max_streams_bidi], QUIC_MAX_STREAMS_BIDI
     mov dword [rbx + quic_conn_t.remote_max_streams_bidi], 0
-    mov dword [rbx + quic_conn_t.local_max_streams_uni], 100
+    mov dword [rbx + quic_conn_t.local_max_streams_uni], QUIC_MAX_STREAMS_UNI
     mov dword [rbx + quic_conn_t.remote_max_streams_uni], 0
 
-    mov dword [rbx + quic_conn_t.state], 0
-    mov byte [rbx + quic_conn_t.flags], 0
-
-    xor eax, eax
+    mov rax, rbx
     jmp .done
 
 .fail:
-    xor rax, rax
+    xor eax, eax
 
 .done:
+    pop r15
     pop r14
     pop r13
     pop r12
@@ -255,7 +261,9 @@ quic_connection_create:
 
 ; =============================================================================
 ; quic_input — Process incoming QUIC packet
-; Input: RDI = net_pkt_t*, RSI = quic_conn_t* (optional)
+; Input: RDI = net_pkt_t* (headroom_offset at the QUIC header),
+;        RSI = quic_conn_t* (optional, 0 if unknown)
+; Output: EAX = 0 (handled) or -1 (dropped)
 ; -----------------------------------------------------------------------------
 align 64
 quic_input:
@@ -263,37 +271,39 @@ quic_input:
     mov rbp, rsp
     push rbx
     push r12
-    push r13
-    push r14
 
     mov rbx, rdi            ; net_pkt_t*
-
-    ; Parse QUIC header
-    ; Determine packet type from first byte
     mov r12, [rbx + net_pkt_t.virt_addr]
-    add r12, [rbx + net_pkt_t.headroom_offset]
-    movzx eax, byte [rax]
+    mov eax, [rbx + net_pkt_t.headroom_offset]
+    add r12, rax            ; R12 = first byte of the QUIC header
 
-    ; Check packet type
+    mov ecx, [rbx + net_pkt_t.data_len]
+    sub ecx, eax            ; ECX = bytes available
+    jz .drop
+
+    movzx eax, byte [r12]
     test al, 0x80
     jz .short_header
 
-    ; Long header packet
+    ; Long header: first byte, then a 4-byte version
+    cmp ecx, 5
+    jb .drop
+    cmp dword [r12 + 1], 0
+    je .version_neg         ; version 0 marks Version Negotiation
+
+    ; Packet type is bits 4-5 (1 1 T T x x x x)
+    and al, 0xF0
     cmp al, QUIC_PACKET_INITIAL
     je .process_initial
-    cmp al, QUIC_PACKET_HANDSHAKE
-    je .process_handshake
     cmp al, QUIC_PACKET_0RTT
     je .process_0rtt
-    cmp al, QUIC_PACKET_RETRY
-    je .process_retry
-    cmp al, QUIC_PACKET_VERSION_NEG
-    je .process_version_neg
-    jmp .drop
+    cmp al, QUIC_PACKET_HANDSHAKE
+    je .process_handshake
+    jmp .process_retry      ; 0xF0 is the only type left
 
 .short_header:
-    ; 1-RTT packet
-    jmp .process_1rtt
+    call quic_process_1rtt
+    jmp .done
 
 .process_initial:
     call quic_process_initial
@@ -308,24 +318,17 @@ quic_input:
     jmp .done
 
 .process_retry:
-    ; Handle retry
-    jmp .done
+    ; TODO: Retry — restart the handshake with the server's token
+    jmp .drop
 
-.process_version_neg:
-    ; Version negotiation
-    jmp .done
-
-.process_1rtt:
-    call quic_process_1rtt
-    jmp .done
+.version_neg:
+    ; TODO: Version Negotiation — pick a common version or abort
+    jmp .drop
 
 .drop:
     mov eax, -1
-    jmp .done
 
 .done:
-    pop r14
-    pop r13
     pop r12
     pop rbx
     pop rbp
@@ -364,6 +367,9 @@ quic_send_1rtt:
 ; -----------------------------------------------------------------------------
 align 64
 quic_process_initial:
+    ; Input: RDI = net_pkt_t*, RSI = quic_conn_t* (optional)
+    ; TODO: decrypt and process the frames; dropped until then
+    mov eax, -1
     ret
 
 ; =============================================================================
@@ -371,6 +377,19 @@ quic_process_initial:
 ; -----------------------------------------------------------------------------
 align 64
 quic_process_handshake:
+    ; Input: RDI = net_pkt_t*, RSI = quic_conn_t* (optional)
+    ; TODO: decrypt and process the frames; dropped until then
+    mov eax, -1
+    ret
+
+; =============================================================================
+; quic_process_0rtt — Process 0-RTT packet
+; -----------------------------------------------------------------------------
+align 64
+quic_process_0rtt:
+    ; Input: RDI = net_pkt_t*, RSI = quic_conn_t* (optional)
+    ; TODO: accept early data once session resumption exists; dropped until then
+    mov eax, -1
     ret
 
 ; =============================================================================
@@ -378,6 +397,9 @@ quic_process_handshake:
 ; -----------------------------------------------------------------------------
 align 64
 quic_process_1rtt:
+    ; Input: RDI = net_pkt_t*, RSI = quic_conn_t* (optional)
+    ; TODO: decrypt and process the frames; dropped until then
+    mov eax, -1
     ret
 
 ; =============================================================================
