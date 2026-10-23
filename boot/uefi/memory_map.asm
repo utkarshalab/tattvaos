@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/memory_map.asm
+; Utkarsha OS — boot/uefi/memory_map.asm
 ; =============================================================================
 ; Convert firmware EFI_MEMORY_DESCRIPTOR records into the packed 24-byte
 ; memory-map ABI consumed by the kernel.  This routine deliberately treats

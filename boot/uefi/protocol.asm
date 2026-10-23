@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/protocol.asm
+; Utkarsha OS — boot/uefi/protocol.asm
 ; =============================================================================
 ; UEFI structures, offsets, and protocols.
 ; Conforms to UEFI 2.8+ specifications.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/memory.asm
+; Utkarsha OS — boot/uefi/memory.asm
 ; =============================================================================
 ; Retrieve UEFI memory map using BootServices->GetMemoryMap.
 ;

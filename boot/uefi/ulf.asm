@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/ulf.asm
+; Utkarsha OS — boot/uefi/ulf.asm
 ; =============================================================================
 ; Firmware-independent ULF v2 validation.  The metadata-only entry point is
 ; used before AllocatePages so no untrusted size can escape the loader policy;

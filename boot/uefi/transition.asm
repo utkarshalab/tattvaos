@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/transition.asm
+; Utkarsha OS — boot/uefi/transition.asm
 ; =============================================================================
 ; Loader-owned x86-64 execution environment for the UEFI -> kernel handoff.
 ; Firmware allocates the page tables, GDT/IDT storage, and transition stack;

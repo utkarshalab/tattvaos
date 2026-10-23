@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/file.asm
+; Utkarsha OS — boot/uefi/file.asm
 ; =============================================================================
 ; Owned, size-checked UEFI payload loading.  Files are opened from the same
 ; device that loaded this EFI image, sized with EFI_FILE_INFO, and copied only

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/gop.asm
+; Utkarsha OS — boot/uefi/gop.asm
 ; =============================================================================
 ; UEFI Graphics Output Protocol (GOP) initialization and query helpers.
 ;

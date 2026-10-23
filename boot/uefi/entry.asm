@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/entry.asm
+; Utkarsha OS — boot/uefi/entry.asm
 ; =============================================================================
 ; Main entry point for the UEFI PE32+ Bootloader path.
 ; Orchestrates Console, GOP, File loading, Memory maps, and Handoff.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/handoff.asm
+; Utkarsha OS — boot/uefi/handoff.asm
 ; =============================================================================
 ; UEFI handoff to kernel. Shuts down boot services and jumps to kernel entry.
 ; Populates a loader-owned BootInfo structure and canonical memory map.

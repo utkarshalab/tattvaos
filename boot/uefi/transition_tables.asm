@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/transition_tables.asm
+; Utkarsha OS — boot/uefi/transition_tables.asm
 ; =============================================================================
 ; Firmware-independent construction and exact verification of the UEFI
 ; transition root.  The flat kernel remains linked at virtual 1 MiB, but its

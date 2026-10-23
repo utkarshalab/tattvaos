@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/uefi/console.asm
+; Utkarsha OS — boot/uefi/console.asm
 ; =============================================================================
 ; Simple text output utilities for UEFI console (ConOut).
 ;
