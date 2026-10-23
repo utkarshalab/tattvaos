@@ -103,7 +103,7 @@ arguments and results:
   `UMATH_CPU_MASK=0` (SSE2 only). Every reference test therefore also
   checks every fallback.
 - `tests/test_cpu.py`:
-  - checks detection against Linux's `/proc/cpuinfo` flags;
+  - checks detection against the CPU flags the test host reports;
   - checks the restrict/has API;
   - loads a second copy of the library restricted to the baseline and
     compares every rounding-heavy float function bit for bit: sin, cos,
