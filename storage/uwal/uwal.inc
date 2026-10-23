@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_UWAL_INC
 %define GUARD_STORAGE_UWAL_UWAL_INC
 ; =============================================================================
-; Tattva OS — storage/uwal/uwal.inc
+; Utkarsha OS — storage/uwal/uwal.inc
 ; =============================================================================
 ; Master Schema Header for UWAL (Unikernel Write-Ahead Log).
 ;

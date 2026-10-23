@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_RECOVERY_ASM
 %define GUARD_STORAGE_UWAL_RECOVERY_ASM
 ; =============================================================================
-; Tattva OS — storage/uwal/recovery.asm
+; Utkarsha OS — storage/uwal/recovery.asm
 ; =============================================================================
 ; UWAL Crash Recovery — Tail Discovery, Transaction Resolution & Replay.
 ;

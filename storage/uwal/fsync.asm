@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_FSYNC_ASM
 %define GUARD_STORAGE_UWAL_FSYNC_ASM
 ; =============================================================================
-; Tattva OS — storage/uwal/fsync.asm
+; Utkarsha OS — storage/uwal/fsync.asm
 ; =============================================================================
 ; UWAL Durability Layer — Device Barriers, Group Commit & Block Transport.
 ;

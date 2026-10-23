@@ -1,6 +1,6 @@
 # UWAL — Unikernel Write-Ahead Log
 
-> General-purpose durable log for Tattva OS.
+> General-purpose durable log for Utkarsha OS.
 
 `UWAL` provides crash consistency to `udb` and any other client that needs it:
 records describing a change are made durable *before* the change reaches its home

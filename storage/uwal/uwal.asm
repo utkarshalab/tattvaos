@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_UWAL_ASM
 %define GUARD_STORAGE_UWAL_UWAL_ASM
 ; =============================================================================
-; Tattva OS — storage/uwal/uwal.asm
+; Utkarsha OS — storage/uwal/uwal.asm
 ; =============================================================================
 ; Master UWAL (Unikernel Write-Ahead Log) Subsystem Dispatcher.
 ;

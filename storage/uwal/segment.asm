@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_SEGMENT_ASM
 %define GUARD_STORAGE_UWAL_SEGMENT_ASM
 ; =============================================================================
-; Tattva OS — storage/uwal/segment.asm
+; Utkarsha OS — storage/uwal/segment.asm
 ; =============================================================================
 ; UWAL Segment Ring — Allocation, Sealing & Reclamation.
 ;

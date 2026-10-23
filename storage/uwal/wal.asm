@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_WAL_ASM
 %define GUARD_STORAGE_UWAL_WAL_ASM
 ; =============================================================================
-; Tattva OS — storage/uwal/wal.asm
+; Utkarsha OS — storage/uwal/wal.asm
 ; =============================================================================
 ; UWAL Core — Append Path, LSN Assignment & Record Framing.
 ;
