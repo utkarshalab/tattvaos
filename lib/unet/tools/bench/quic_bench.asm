@@ -39,15 +39,31 @@ quic_bench_main:
     pop rbp
     ret
 
+; quic_bench_run_streams — time one pass of a packet through quic_input
+; Input: RDI = net_pkt_t* holding a QUIC packet
+; Output: RAX = elapsed TSC cycles
+; TODO: stream multiplexing throughput and loss recovery once QUIC has them
 align 64
 quic_bench_run_streams:
     push rbp
     mov rbp, rsp
-    prefetcht0 [rdi]
-    ; Measure QUIC 0-RTT handshake speed, stream multiplexing throughput, and loss recovery
+    push rbx
+    push r12
+
+    mov rbx, rdi
+    prefetcht0 [rbx]
     call rdtsc_get_cycles
-    call quic_process_packet
-    xor eax, eax
+    mov r12, rax            ; start
+
+    mov rdi, rbx
+    xor esi, esi            ; no known connection
+    call quic_input
+
+    call rdtsc_get_cycles
+    sub rax, r12            ; elapsed cycles
+
+    pop r12
+    pop rbx
     pop rbp
     ret
 
