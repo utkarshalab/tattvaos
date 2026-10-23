@@ -995,6 +995,7 @@ test_webp_suite:
     mov [rdi+WebPVP8RenderMBState.v],rax
     mov dword [rdi+WebPVP8RenderMBState.y_stride],41
     mov dword [rdi+WebPVP8RenderMBState.uv_stride],25
+    mov dword [rdi+WebPVP8RenderMBState.mb_flags],VP8_MB_LEFT_EDGE|VP8_MB_TOP_EDGE
     call webp_vp8_render_macroblock
     test eax,eax
     jnz .recon_fail
