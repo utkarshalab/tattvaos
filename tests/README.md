@@ -1,6 +1,6 @@
 # tests — Test Suite Category
 
-> All tests for Tattva OS. Run before every commit.
+> All tests for Utkarsha OS. Run before every commit.
 
 ---
 
