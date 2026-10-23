@@ -821,34 +821,24 @@ tcp_timer_tcb_init:
     mov rdi, rbx
     call tcp_ecn_init
 
-    ; Initialize RACK state
-    lea rsi, [rack_state_cache]
-    lea rdi, [rack_state_cache]
-    call kmem_cache_alloc
-    test rax, rax
-    jz .rack_fail
-    mov qword [rbx + tcb_t.rack_ptr], rax
-    mov rdi, rax
+    ; Initialize RACK state (rack_init allocates it; on failure rack_ptr = 0)
+    mov rdi, rbx
     call rack_init
 
-.rack_fail:
     xor eax, eax
     jmp .done
 
 .alloc_fail:
-    ; Free any already allocated
-    dec r13
-    jz .done_fail
+    ; Free the R13 entries already allocated (indices R13-1 down to 0)
 .free_loop:
-    mov rdi, qword [rbx + TCB_TIMER_OFF(r13)]
-    test rdi, rdi
-    jz .next_free
-    lea rsi, [timer_entry_cache]
-    xchg rdi, rsi
-    call kmem_cache_free
-.next_free:
+    test r13, r13
+    jz .done_fail
     dec r13
-    jnz .free_loop
+    mov rsi, qword [rbx + TCB_TIMER_OFF(r13)]
+    mov qword [rbx + TCB_TIMER_OFF(r13)], 0
+    lea rdi, [timer_entry_cache]
+    call kmem_cache_free
+    jmp .free_loop
 .done_fail:
     mov eax, -1
 
@@ -894,6 +884,10 @@ tcp_timer_tcb_cleanup:
     dec r12
     jnz .cleanup_loop
 
+    ; RACK owns the TLP timer and its state
+    mov rdi, rbx
+    call rack_destroy
+
     xor eax, eax
     pop r13
     pop r12
@@ -918,6 +912,8 @@ timer_entry_cache_name: db "tcp_timer_entry", 0
 cubic_state_cache_name: db "tcp_cubic_state", 0
 bbrv2_state_cache_name: db "tcp_bbrv2_state", 0
 rack_state_cache_name: db "tcp_rack_state", 0
+
+section .text
 
 ; Initialize timer entry cache (call from tcp_init)
 global tcp_timer_cache_init
