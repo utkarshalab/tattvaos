@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/urand/tests/test_health.asm
+; Utkarsha OS — lib/urand/tests/test_health.asm
 ; =============================================================================
 ; Unit Test for NIST SP 800-90B Continuous Hardware Health Monitor.
 ;

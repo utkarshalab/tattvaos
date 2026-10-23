@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_HEALTH_ENTROPY_HEALTH_ASM
 %define GUARD_LIB_URAND_HEALTH_ENTROPY_HEALTH_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/health/entropy_health.asm
+; Utkarsha OS — lib/urand/health/entropy_health.asm
 ; =============================================================================
 ; NIST SP 800-90B Continuous Hardware Entropy Health Monitor (RCT & APT Tests).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_POOLS_FORTUNA_POOLS_ASM
 %define GUARD_LIB_URAND_POOLS_FORTUNA_POOLS_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/pools/fortuna_pools.asm
+; Utkarsha OS — lib/urand/pools/fortuna_pools.asm
 ; =============================================================================
 ; Fortuna entropy pools.
 ;

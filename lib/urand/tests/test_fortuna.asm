@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/urand/tests/test_fortuna.asm
+; Utkarsha OS — lib/urand/tests/test_fortuna.asm
 ; =============================================================================
 ; Unit Test for Fortuna 32-Pool Entropy Accumulator & Reseed.
 ;

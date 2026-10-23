@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_SOURCES_RDRAND_ASM
 %define GUARD_LIB_URAND_SOURCES_RDRAND_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/sources/rdrand.asm
+; Utkarsha OS — lib/urand/sources/rdrand.asm
 ; =============================================================================
 ; Intel RDRAND & RDSEED Hardware Entropy Reader with Hardware Retries.
 ;

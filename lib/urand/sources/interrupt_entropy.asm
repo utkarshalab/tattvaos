@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_SOURCES_INTERRUPT_ENTROPY_ASM
 %define GUARD_LIB_URAND_SOURCES_INTERRUPT_ENTROPY_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/sources/interrupt_entropy.asm
+; Utkarsha OS — lib/urand/sources/interrupt_entropy.asm
 ; =============================================================================
 ; Hardware Interrupt Timing Jitter Harvester (IRQ & Packet Timing).
 ;

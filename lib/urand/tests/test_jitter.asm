@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/urand/tests/test_jitter.asm
+; Utkarsha OS — lib/urand/tests/test_jitter.asm
 ; =============================================================================
 ; Unit Test for CPU Execution Timing Jitter Entropy Accumulator.
 ;

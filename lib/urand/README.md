@@ -1,6 +1,6 @@
 # lib/urand — Hyperscale Hardware TRNG & Fortuna CSPRNG Subsystem
 
-The **`lib/urand`** library is the single, authoritative Cryptographically Secure Pseudo-Random Number Generator (CSPRNG) and True Random Number Generator (TRNG) subsystem for Tattva OS. It combines hardware silicon entropy sources, CPU execution timing jitter, a 32-pool Fortuna accumulator, NIST SP 800-90B online health monitors, and ChaCha20/AES-CTR-DRBG stream generators with automatic key erasure for forward secrecy.
+The **`lib/urand`** library is the single, authoritative Cryptographically Secure Pseudo-Random Number Generator (CSPRNG) and True Random Number Generator (TRNG) subsystem for Utkarsha OS. It combines hardware silicon entropy sources, CPU execution timing jitter, a 32-pool Fortuna accumulator, NIST SP 800-90B online health monitors, and ChaCha20/AES-CTR-DRBG stream generators with automatic key erasure for forward secrecy.
 
 ---
 

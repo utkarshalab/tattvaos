@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_GENERATORS_AES_CTR_DRBG_ASM
 %define GUARD_LIB_URAND_GENERATORS_AES_CTR_DRBG_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/generators/aes_ctr_drbg.asm
+; Utkarsha OS — lib/urand/generators/aes_ctr_drbg.asm
 ; =============================================================================
 ; CTR_DRBG (NIST SP 800-90A) over AES-256, using AES-NI.
 ;

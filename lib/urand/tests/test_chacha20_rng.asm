@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/urand/tests/test_chacha20_rng.asm
+; Utkarsha OS — lib/urand/tests/test_chacha20_rng.asm
 ; =============================================================================
 ; Unit Test for ChaCha20 CSPRNG Generator & Key Erasure Forward Secrecy.
 ;

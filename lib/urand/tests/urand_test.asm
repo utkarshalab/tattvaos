@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/urand/tests/urand_test.asm
+; Utkarsha OS — lib/urand/tests/urand_test.asm
 ; =============================================================================
 ; Master Test Suite Dispatcher for Hyperscale Hardware TRNG & CSPRNG.
 ;

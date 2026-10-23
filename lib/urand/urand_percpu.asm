@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_URAND_PERCPU_ASM
 %define GUARD_LIB_URAND_URAND_PERCPU_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/urand_percpu.asm
+; Utkarsha OS — lib/urand/urand_percpu.asm
 ; =============================================================================
 ; Lock-Free Per-CPU Core Random Buffers (GS-base) for Multi-Core CPUs.
 ;

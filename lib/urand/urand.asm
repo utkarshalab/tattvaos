@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_URAND_ASM
 %define GUARD_LIB_URAND_URAND_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/urand.asm
+; Utkarsha OS — lib/urand/urand.asm
 ; =============================================================================
 ; Entropy manager and CSPRNG dispatcher.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_GENERATORS_CHACHA20_RNG_ASM
 %define GUARD_LIB_URAND_GENERATORS_CHACHA20_RNG_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/generators/chacha20_rng.asm
+; Utkarsha OS — lib/urand/generators/chacha20_rng.asm
 ; =============================================================================
 ; ChaCha20 (RFC 8439) CSPRNG with key erasure.
 ;

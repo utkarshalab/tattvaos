@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/urand/tests/test_aes_drbg.asm
+; Utkarsha OS — lib/urand/tests/test_aes_drbg.asm
 ; =============================================================================
 ; Unit Test for NIST SP 800-90A AES-256 CTR-DRBG Generator.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/urand/tests/test_rdrand.asm
+; Utkarsha OS — lib/urand/tests/test_rdrand.asm
 ; =============================================================================
 ; Unit Test for Intel RDRAND & RDSEED Hardware Entropy Reader.
 ;

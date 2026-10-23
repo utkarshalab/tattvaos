@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_SOURCES_JITTER_ASM
 %define GUARD_LIB_URAND_SOURCES_JITTER_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/sources/jitter.asm
+; Utkarsha OS — lib/urand/sources/jitter.asm
 ; =============================================================================
 ; CPU execution timing jitter.
 ;

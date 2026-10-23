@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/urand/urand.inc
+; Utkarsha OS — lib/urand/urand.inc
 ; =============================================================================
 ; Ultimate Hyperscale Hardware TRNG & Fortuna CSPRNG Schemas & Constants.
 ;

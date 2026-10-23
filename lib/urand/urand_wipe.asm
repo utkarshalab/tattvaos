@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_URAND_URAND_WIPE_ASM
 %define GUARD_LIB_URAND_URAND_WIPE_ASM
 ; =============================================================================
-; Tattva OS — lib/urand/urand_wipe.asm
+; Utkarsha OS — lib/urand/urand_wipe.asm
 ; =============================================================================
 ; Automatic Zeroization & Memory Scrubbing Engine (Cold Boot Protection).
 ;
