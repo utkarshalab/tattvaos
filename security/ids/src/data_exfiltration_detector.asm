@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/data_exfiltration_detector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Data Exfiltration Detector - identifies data exfiltration

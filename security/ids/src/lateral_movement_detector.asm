@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/lateral_movement_detector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Lateral Movement Detector - detects east-west traffic

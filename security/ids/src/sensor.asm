@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/sensor.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Sensor - packet capture, syscall audit, log ingestion.

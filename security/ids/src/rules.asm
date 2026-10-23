@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/rules.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Rules - signature database and rule compiler. Loads,

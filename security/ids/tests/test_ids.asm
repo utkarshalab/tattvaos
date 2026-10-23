@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/tests/test_ids.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: IDS premium skeleton test.
 ;              Validates that all 10 component .asm files exist, assemble
 ;              independently, and export the required enterprise contract

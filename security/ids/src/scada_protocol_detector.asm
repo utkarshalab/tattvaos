@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/scada_protocol_detector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS SCADA Protocol Detector - detects ICS/SCADA protocol

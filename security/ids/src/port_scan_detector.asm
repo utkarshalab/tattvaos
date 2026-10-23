@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/port_scan_detector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Port Scan Detector - identifies port scanning activity

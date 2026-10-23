@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/file_carver.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS File Carver - extracts files from network traffic

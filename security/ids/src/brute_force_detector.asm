@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/brute_force_detector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Brute Force Detector - identifies brute force attacks

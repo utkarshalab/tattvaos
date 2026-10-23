@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/siem.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS SIEM Exporter - alert export to SIEM systems. Supports

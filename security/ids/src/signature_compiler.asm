@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/signature_compiler.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Signature Compiler - compiles IDS signatures into efficient

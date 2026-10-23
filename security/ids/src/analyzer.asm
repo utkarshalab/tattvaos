@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/analyzer.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Protocol Analyzer - HTTP, DNS, TLS, SMB parsing. Extracts

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/alert.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Alert Engine - alert generation, deduplication, severity

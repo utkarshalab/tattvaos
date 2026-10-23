@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/credential_stuffing_detector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Credential Stuffing Detector - identifies credential

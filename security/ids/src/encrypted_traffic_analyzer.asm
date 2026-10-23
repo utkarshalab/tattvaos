@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/encrypted_traffic_analyzer.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Encrypted Traffic Analyzer - analyzes TLS/SSL handshake

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/anomaly_baseline.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS Anomaly Baseline - maintains statistical baselines for

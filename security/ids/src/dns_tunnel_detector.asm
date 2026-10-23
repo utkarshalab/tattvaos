@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/dns_tunnel_detector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS DNS Tunnel Detector - detects DNS tunneling (data

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ids/src/os_fingerprinter.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IDS OS Fingerprinter - performs passive OS fingerprinting
