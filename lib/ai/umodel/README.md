@@ -5,4 +5,4 @@
 Handles: loading weights from disk, validating model metadata,
 managing multiple model instances, model switching, memory mapping.
 
-Part of the `ai/` category in Tattva OS.
+Part of the `ai/` category in Utkarsha OS.

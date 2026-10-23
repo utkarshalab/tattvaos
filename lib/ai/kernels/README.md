@@ -5,4 +5,4 @@
 Implements: GEMM (AVX-512, AMX), flash attention, RoPE, RMS norm,
 SwiGLU, layer norm. All kernels target peak hardware throughput.
 
-Part of the `ai/` category in Tattva OS.
+Part of the `ai/` category in Utkarsha OS.

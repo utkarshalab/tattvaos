@@ -5,4 +5,4 @@
 Implements: greedy decoding, top-k sampling, top-p (nucleus) sampling,
 temperature scaling, repetition penalty, beam search.
 
-Part of the `ai/` category in Tattva OS.
+Part of the `ai/` category in Utkarsha OS.

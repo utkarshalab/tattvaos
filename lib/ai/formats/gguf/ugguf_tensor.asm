@@ -2,7 +2,7 @@
 %define GUARD_LIB_AI_FORMATS_UGGUF_TENSOR_ASM
 ; =============================================================================
 ; File     : lib/ai/formats/gguf/ugguf_tensor.asm
-; Project  : Tattva OS — AI Inference Stack
+; Project  : Utkarsha OS — AI Inference Stack
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: GGUF tensor table parsing — iterate tensor info entries,

@@ -2,7 +2,7 @@
 %define GUARD_LIB_AI_FORMATS_UGGUF_META_ASM
 ; =============================================================================
 ; File     : lib/ai/formats/gguf/ugguf_meta.asm
-; Project  : Tattva OS — AI Inference Stack
+; Project  : Utkarsha OS — AI Inference Stack
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: GGUF metadata key-value walking. GGUF metadata is a sequence of

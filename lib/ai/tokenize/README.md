@@ -5,4 +5,4 @@
 Implements: BPE (Byte-Pair Encoding), SentencePiece, tiktoken-compatible.
 Handles special tokens, vocabulary loading from GGUF/SafeTensors metadata.
 
-Part of the `ai/` category in Tattva OS.
+Part of the `ai/` category in Utkarsha OS.

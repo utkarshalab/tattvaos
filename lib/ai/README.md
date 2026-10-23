@@ -1,6 +1,6 @@
 # ai — Artificial Intelligence Category
 
-> AI inference, training, and model execution infrastructure for Tattva OS.
+> AI inference, training, and model execution infrastructure for Utkarsha OS.
 > Everything needed to run language models and neural networks at bare-metal speed.
 
 ---

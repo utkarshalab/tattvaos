@@ -5,4 +5,4 @@
 Implements: KV cache allocation, paged attention memory, weight streaming,
 activation buffer pooling, memory pressure handling.
 
-Part of the `ai/` category in Tattva OS.
+Part of the `ai/` category in Utkarsha OS.

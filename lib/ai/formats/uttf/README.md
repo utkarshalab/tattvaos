@@ -8,7 +8,7 @@
 
 ## Purpose
 
-Tattva OS native model format. Content-addressed, dtype-typed, snapshot-compatible
+Utkarsha OS native model format. Content-addressed, dtype-typed, snapshot-compatible
 with UFS. Designed for zero-copy loading directly from disk into inference
 registers — no Python, no framework, no runtime.
 

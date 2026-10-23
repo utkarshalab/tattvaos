@@ -5,4 +5,4 @@
 Implements: tensor parallelism, pipeline parallelism, node discovery,
 work partitioning, result aggregation across cluster nodes.
 
-Part of the `ai/` category in Tattva OS.
+Part of the `ai/` category in Utkarsha OS.

@@ -5,4 +5,4 @@
 Implements: INT4/INT8 quantization (GGUF-compatible), weight pruning,
 layer fusion, speculative decoding integration.
 
-Part of the `ai/` category in Tattva OS.
+Part of the `ai/` category in Utkarsha OS.
