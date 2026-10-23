@@ -153,25 +153,23 @@ ipv6_input:
     cmp r13d, IPV6_HEADER_LEN
     jb .drop
 
-    ; Check version
+    ; Check version: high nibble of the first byte
     movzx eax, byte [r12 + ipv6_header_t.ver_tc_fl]
-    shr eax, 28
+    shr eax, 4
     cmp eax, IPV6_VERSION
     jne .drop
 
-    ; Check payload length
+    ; Header + payload must fit in what arrived
     movzx eax, word [r12 + ipv6_header_t.payload_len]
-    xchg al, ah
-    cmp eax, r13d
-    sub eax, IPV6_HEADER_LEN
-    jne .drop
+    xchg al, ah                     ; network -> host order
+    lea ecx, [rax + IPV6_HEADER_LEN]
+    cmp ecx, r13d
+    ja .drop
 
-    ; Process extension headers
-    mov r14, r12
-    add r14, IPV6_HEADER_LEN
-    mov r15b, byte [r12 + ipv6_header_t.next_header]
-    movzx r13d, word [r12 + ipv6_header_t.payload_len]
-    xchg r13b, r13b+1
+    ; R14 walks the header chain, R13 = end of the IPv6 payload
+    lea r14, [r12 + IPV6_HEADER_LEN]
+    lea r13, [r12 + rcx]
+    movzx r15d, byte [r12 + ipv6_header_t.next_header]
 
 .process_ext_headers:
     cmp r15b, IPV6_NEXTHDR_TCP
@@ -180,78 +178,67 @@ ipv6_input:
     je .process_udp
     cmp r15b, IPV6_NEXTHDR_ICMPV6
     je .process_icmpv6
-    cmp r15b, IPV6_NEXTHDR_HOP
-    je .process_hop
-    cmp r15b, IPV6_NEXTHDR_DEST
-    je .process_dest
-    cmp r15b, IPV6_NEXTHDR_ROUTING
-    je .process_routing
+    cmp r15b, IPV6_NEXTHDR_NONE
+    je .done
     cmp r15b, IPV6_NEXTHDR_FRAGMENT
     je .process_fragment
-    cmp r15b, IPV6_NEXTHDR_AUTH
-    je .process_auth
     cmp r15b, IPV6_NEXTHDR_ESP
-    je .process_esp
+    je .drop                        ; encrypted: needs IPsec, which is not here yet
 
-    ; Unknown next header - skip
+    ; Every other extension header starts with next_header and a length
+    lea rax, [r14 + 2]
+    cmp rax, r13
+    ja .drop
+    movzx eax, byte [r14 + ipv6_ext_header_t.hdr_ext_len]
+    cmp r15b, IPV6_NEXTHDR_AUTH
+    je .auth_len
+    lea eax, [rax * 8 + 8]          ; Hop-by-Hop, Destination, Routing, ...: 8-octet units
     jmp .skip_ext_header
+.auth_len:
+    lea eax, [rax * 4 + 8]          ; AH: 4-octet units (RFC 4302)
+
+.skip_ext_header:
+    movzx r15d, byte [r14 + ipv6_ext_header_t.next_header]
+    add r14, rax
+    cmp r14, r13
+    ja .drop
+    jmp .process_ext_headers
 
 .process_tcp:
-    ; Adjust headroom for L4
-    add dword [rbx + net_pkt_t.headroom_offset], r14
-    sub r12, r14
+    call .to_l4
     mov rdi, rbx
     mov esi, [r12 + ipv6_header_t.src_addr + 12]   ; Last 4 bytes of src
     mov edx, [r12 + ipv6_header_t.dst_addr + 12]   ; Last 4 bytes of dst
     call tcp_input
-    jmp .done
+    jmp .ret
 
 .process_udp:
-    add dword [rbx + net_pkt_t.headroom_offset], r14
-    sub r12, r14
+    call .to_l4
     mov rdi, rbx
+    mov esi, [r12 + ipv6_header_t.src_addr + 12]
+    mov edx, [r12 + ipv6_header_t.dst_addr + 12]
     call udp_input
-    jmp .done
+    jmp .ret
 
 .process_icmpv6:
-    add dword [rbx + net_pkt_t.headroom_offset], r14
-    sub r12, r14
-    mov rdi, rbx
+    mov rdi, r14                    ; ICMPv6 header
+    mov rsi, r13
+    sub rsi, r14                    ; ESI = ICMPv6 length
     call icmpv6_input
-    jmp .done
-
-.process_hop:
-.process_dest:
-.process_routing:
-    ; Parse extension header
-    mov r15b, byte [r14]
-    movzx eax, byte [r14 + 1]
-    lea eax, [rax * 8 + 8]
-    add r14, rax
-    mov r15b, byte [r14]
-    jmp .process_ext_headers
+    jmp .ret
 
 .process_fragment:
-    ; Handle fragmentation
-    call ipv6_reassemble_fragment
-    jmp .done
+    mov rdi, rbx                    ; net_pkt_t*
+    mov rsi, r14                    ; ipv6_frag_header_t*
+    call ipv6_reassemble            ; EAX = result of reassembly
+    jmp .ret
 
-.process_auth:
-.process_esp:
-    ; IPsec headers - skip
-    movzx eax, byte [r14 + 1]
-    lea eax, [rax * 4 + 8]
-    add r14, rax
-    mov r15b, byte [r14]
-    jmp .process_ext_headers
-
-.skip_ext_header:
-    ; Unknown extension header
-    movzx eax, byte [r14 + 1]
-    lea eax, [rax * 8 + 8]
-    add r14, rax
-    mov r15b, byte [r14]
-    jmp .process_ext_headers
+; Move headroom_offset past the IPv6 header and its extension headers
+.to_l4:
+    mov rax, r14
+    sub rax, r12
+    add [rbx + net_pkt_t.headroom_offset], eax
+    ret
 
 .drop:
     mov eax, -1
@@ -273,10 +260,13 @@ ipv6_input:
 ; IPv6 Output
 ; =============================================================================
 
-; ipv6_output — Send IPv6 packet
-; Input: RDI = net_pkt_t*, ESI = dest_addr (16 bytes), EDX = next_header
-;        ECX = hop_limit, R8 = src_addr (16 bytes), R9 = flow_label
-;        R10 = traffic_class, DH = ECN flags
+; ipv6_output — Encapsulate a payload already staged in a net_pkt_t (payload
+; starts at .headroom_offset, .data_len is the payload length) into an IPv6
+; header and hand it to the link layer.
+; Input: RDI = net_pkt_t*, RSI = dest_addr (16 bytes), DL = next_header,
+;        DH = ECN flags (0-3), ECX = hop_limit, R8 = src_addr (16 bytes),
+;        R9D = flow_label, R10D = traffic class (DSCP << 2; ECN comes from DH)
+; Output: EAX = 0 on success, -1 on drop (no headroom / no route / NDP miss)
 align 64
 ipv6_output:
     push rbp
@@ -289,14 +279,11 @@ ipv6_output:
 
     mov rbx, rdi                    ; net_pkt_t*
     mov r13, rsi                    ; dest_addr pointer
-    mov r14d, edx                   ; next_header
+    movzx r14d, dl                  ; next_header
     mov r15d, ecx                   ; hop_limit
-    mov r12, r8                     ; src_addr pointer
-    mov r15, r9                     ; flow_label
-    mov r10d, r10d                  ; traffic_class
     mov r11d, edx
     shr r11d, 8
-    and r11d, 0x03                 ; ECN flags
+    and r11d, 0x03                  ; ECN flags (DH)
 
     ; Check headroom
     cmp dword [rbx + net_pkt_t.headroom_offset], IPV6_HEADER_LEN
@@ -305,18 +292,21 @@ ipv6_output:
     sub dword [rbx + net_pkt_t.headroom_offset], IPV6_HEADER_LEN
 
     mov r12, [rbx + net_pkt_t.virt_addr]
-    add r12, [rbx + net_pkt_t.headroom_offset]  ; R12 = ipv6_header_t*
+    mov eax, [rbx + net_pkt_t.headroom_offset]
+    add r12, rax                    ; R12 = ipv6_header_t*
 
-    ; Build IPv6 header
-    ; Version(4) | TrafficClass(8) | FlowLabel(20)
-    mov eax, IPV6_VERSION
-    shl eax, 28
+    ; Version(4) | TrafficClass(8) | FlowLabel(20), in network byte order
     mov ecx, r10d
-    shl ecx, 20
+    and ecx, 0xFC                   ; DSCP
+    or ecx, r11d                    ; + ECN = traffic class
+    mov eax, IPV6_VERSION
+    shl eax, 8
     or eax, ecx
-    mov ecx, r15d
+    shl eax, 20
+    mov ecx, r9d
     and ecx, IPV6_FLOW_LABEL_MASK
     or eax, ecx
+    bswap eax
     mov [r12 + ipv6_header_t.ver_tc_fl], eax
 
     ; Payload length
@@ -324,47 +314,34 @@ ipv6_output:
     xchg al, ah
     mov [r12 + ipv6_header_t.payload_len], ax
 
-    ; Next header
     mov [r12 + ipv6_header_t.next_header], r14b
-
-    ; Hop limit
     mov [r12 + ipv6_header_t.hop_limit], r15b
 
-    ; Source/Dest addresses
-    mov rsi, r12
-    add rsi, ipv6_header_t.src_addr
-    mov rdi, r12
-    mov rcx, 16
+    ; Source / destination addresses
+    mov rsi, r8
+    lea rdi, [r12 + ipv6_header_t.src_addr]
+    mov ecx, 16
     rep movsb
 
     mov rsi, r13
-    mov rdi, r12
-    add rdi, ipv6_header_t.dst_addr
-    mov rcx, 16
+    lea rdi, [r12 + ipv6_header_t.dst_addr]
+    mov ecx, 16
     rep movsb
 
-    ; ECN in traffic class
-    mov al, r11b
-    shl al, 6
-    or al, r10b
-    mov [r12 + ipv6_header_t.ver_tc_fl + 1], al
-
-    ; Update packet length
     add dword [rbx + net_pkt_t.data_len], IPV6_HEADER_LEN
 
-    ; Route lookup
+    ; Route lookup: RAX = next hop, 0 if no route
     mov rdi, r13
     call ipv6_route_lookup
-    test eax, eax
+    test rax, rax
     jz .drop
 
-    ; NDP lookup for link-layer address
+    ; NDP lookup: RAX = link-layer address of the next hop, 0 if unresolved
     mov rdi, rax
     call ndp_lookup
     test rax, rax
     jz .need_ndp
 
-    ; Send via link layer
     mov rdi, rbx
     mov rsi, rax
     mov edx, UNET_ETH_TYPE_IPV6
@@ -372,16 +349,16 @@ ipv6_output:
     jmp .ok
 
 .need_ndp:
-    ; Queue for NDP resolution
+    ; Queue for NDP resolution; the packet is not sent now
+    mov rdi, rbx
     call ndp_queue_packet
-    jmp .ok
 
 .drop:
     mov eax, -1
-
+    jmp .done
 .ok:
     xor eax, eax
-
+.done:
     pop r15
     pop r14
     pop r13
@@ -488,7 +465,10 @@ ipv6_fragment:
 
 align 64
 ipv6_reassemble:
-    ; TODO: Implement IPv6 reassembly
+    ; Input: RDI = net_pkt_t*, RSI = ipv6_frag_header_t*
+    ; Output: EAX = 0 (consumed) or -1 (dropped)
+    ; TODO: Implement IPv6 reassembly; until then fragments are dropped.
+    mov eax, -1
     ret
 
 ; =============================================================================
@@ -498,7 +478,8 @@ ipv6_reassemble:
 align 64
 ipv6_route_lookup:
     ; TODO: Implement IPv6 routing table lookup
-    ; Return next-hop MAC address in RAX, or 0 if no route
+    ; Input: RDI = dest_addr (16 bytes)
+    ; Output: RAX = pointer to the next-hop address (16 bytes), 0 if no route
     xor rax, rax
     ret
 
@@ -513,6 +494,8 @@ ipv6_ndp_process:
 
 align 64
 ndp_lookup:
+    ; Input: RDI = next-hop address (16 bytes)
+    ; Output: RAX = pointer to its link-layer (MAC) address, 0 if unresolved
     ; TODO: Implement NDP cache lookup
     xor rax, rax
     ret
