@@ -1,6 +1,6 @@
 # obs — Observability Category
 
-> Observability infrastructure for Tattva OS.
+> Observability infrastructure for Utkarsha OS.
 > Metrics, traces, profiling, dashboards — all native, no agents.
 
 ---

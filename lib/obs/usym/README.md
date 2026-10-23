@@ -2,7 +2,7 @@
 
 > Resolves binary addresses to human-readable symbols.
 
-Reads symbol tables from Tattva binaries, resolves addresses from stack
+Reads symbol tables from Utkarsha binaries, resolves addresses from stack
 traces, profiler output, and crash dumps to function names + offsets.
 
-Part of the `obs/` category in Tattva OS.
+Part of the `obs/` category in Utkarsha OS.

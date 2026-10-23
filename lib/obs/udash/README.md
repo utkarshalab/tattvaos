@@ -1,8 +1,8 @@
 # obs/udash — Dashboard
 
-> Web-based metrics and health dashboard for Tattva OS.
+> Web-based metrics and health dashboard for Utkarsha OS.
 
 Serves: real-time metrics graphs, trace viewer, system health summary,
 inference throughput over time — via uhttp on a local port.
 
-Part of the `obs/` category in Tattva OS.
+Part of the `obs/` category in Utkarsha OS.
