@@ -1,6 +1,6 @@
 # scripts — Build Scripts
 
-> Build, test, and automation scripts for Tattva OS development.
+> Build, test, and automation scripts for Utkarsha OS development.
 
 ---
 
