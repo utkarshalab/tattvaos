@@ -228,7 +228,7 @@ uefi_handoff_detail:dd 0
 
 ; UTF-16LE welcoming strings
 msg_uefi_banner:
-    dw 'T', 'a', 't', 't', 'v', 'a', ' ', 'O', 'S', ' ', '|', ' ', 'U', 'E', 'F', 'I', ' ', 'P', 'a', 't', 'h', ' ', 'O', 'K', 0x0D, 0x0A, 0
+    dw 'U', 't', 'k', 'a', 'r', 's', 'h', 'a', ' ', 'O', 'S', ' ', '|', ' ', 'U', 'E', 'F', 'I', ' ', 'P', 'a', 't', 'h', ' ', 'O', 'K', 0x0D, 0x0A, 0
 
 msg_kernel_file:
     dw 'k', 'e', 'r', 'n', 'e', 'l', '.', 'u', 'l', 'f', 0
