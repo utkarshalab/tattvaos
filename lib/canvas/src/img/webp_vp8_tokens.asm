@@ -20,6 +20,17 @@ section .text
 ; WebPBoolReader*,node_probs[11],int32* value -> token or -EINVAL.
 global webp_vp8_decode_token
 webp_vp8_decode_token:
+    xor ecx,ecx
+    jmp vp8_decode_token_common
+
+; Same, for the token after a DCT_0: EOB cannot follow a zero (RFC 6386
+; section 13.2), so decoding starts at the second tree node.
+global webp_vp8_decode_token_after_zero
+webp_vp8_decode_token_after_zero:
+    mov ecx,1
+    jmp vp8_decode_token_common
+
+vp8_decode_token_common:
     PROLOGUE_SAVE rbx,r12,r13,r14,r15
     mov rbx,rdi
     mov r12,rsi
@@ -30,7 +41,10 @@ webp_vp8_decode_token:
     jz .token_bad
     test r13,r13
     jz .token_bad
+    test ecx,ecx
+    jnz .token_after_eob
     TOKEN_NODE 0,.token_eob
+.token_after_eob:
     TOKEN_NODE 1,.token_zero
     TOKEN_NODE 2,.token_one
     TOKEN_NODE 3,.token_low
@@ -146,6 +160,7 @@ webp_vp8_decode_block:
     xor eax,eax
     mov ecx,4
     rep stosq
+    mov dword [rsp+8],0         ; previous token was DCT_0
 .block_next:
     lea r10,[rel vp8_coeff_bands]
     movzx eax,byte [r10+r14]
@@ -156,7 +171,14 @@ webp_vp8_decode_block:
     lea rsi,[r12+rax]
     mov rdi,rbx
     lea rdx,[rsp]
+    cmp dword [rsp+8],0
+    jne .block_after_zero
     call webp_vp8_decode_token
+    jmp .block_token
+.block_after_zero:
+    call webp_vp8_decode_token_after_zero
+.block_token:
+    mov dword [rsp+8],0
     test eax,eax
     js .block_bad
     cmp eax,VP8_TOKEN_EOB
@@ -177,6 +199,7 @@ webp_vp8_decode_block:
     jmp .block_advance
 .block_zero:
     xor r15d,r15d
+    mov dword [rsp+8],1
 .block_advance:
     inc r14d
     cmp r14d,16
