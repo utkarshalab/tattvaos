@@ -1,14 +1,14 @@
 # lib/umath — Math Library
 
-> Math primitives for Tattva OS, optimized for AI workloads.
+> Math primitives for Utkarsha OS, optimized for AI workloads.
 
 Pure x86-64 assembly. No libc, no libm, no OS dependency (except `os/`,
 deliberately the one seam that's allowed to know it's running inside
-TattvaOS — see `os/README.md`). Every function follows System V AMD64 ABI.
-Built the same way every other TattvaOS subsystem is: one module at a time,
+Utkarsha OS — see `os/README.md`). Every function follows System V AMD64 ABI.
+Built the same way every other Utkarsha OS subsystem is: one module at a time,
 file-by-file, to production depth, rather than breadth-first stubs.
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.
 
 ---
 

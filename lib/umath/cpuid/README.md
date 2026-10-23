@@ -112,7 +112,7 @@ arguments and results:
 - A static scan of every source line found no instruction beyond SSE2
   that can run without one of these checks.
 
-## TattvaOS note
+## Utkarsha OS note
 
 - **AVX is on.** Both boot paths (`boot/stage2/cpu/simd_enable.asm`,
   `boot/uefi/transition.asm`) set CR4.OSXSAVE and XCR0 = x87|SSE|AVX.
@@ -121,7 +121,7 @@ arguments and results:
 - **AVX-512 is off.** XCR0 bits 5–7 are not set, so umath reports no
   AVX-512 and the `_avx512` routines take their AVX2 fallbacks.
 - **The kernel needs AVX2.** `cpu_verify_features` (`cpu.asm`) panics at
-  boot without SSE3, AVX, FMA and AVX2. Inside TattvaOS umath always has
+  boot without SSE3, AVX, FMA and AVX2. Inside Utkarsha OS umath always has
   at least a Haswell-class CPU, so the fallbacks matter for umath used on
   its own, or if that requirement is ever relaxed.
 - **No SIMD state saving is needed today.** Fibers switch cooperatively

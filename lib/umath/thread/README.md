@@ -9,7 +9,7 @@
 ## Purpose
 
 Thread- and fiber-local state isolation for math workloads running under
-TattvaOS's cooperative fiber scheduler (`kernel/sched/fiber.asm`,
+Utkarsha OS's cooperative fiber scheduler (`kernel/sched/fiber.asm`,
 `kernel/sched/sched.asm`): per-fiber scratch buffers, per-core allocator
 instances, and similar state that must not be shared between concurrently-
 running fibers without explicit synchronization through `lock/`. Distinct

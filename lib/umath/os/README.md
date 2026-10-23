@@ -10,14 +10,14 @@
 
 The seam between umath (which is otherwise deliberately freestanding — no
 OS, no libc, no syscalls, as every other README in this tree states) and
-the TattvaOS kernel it actually runs inside: hooking `memory/`'s allocators
+the Utkarsha OS kernel it actually runs inside: hooking `memory/`'s allocators
 into the kernel's own physical/virtual memory primitives when umath needs
 more backing memory than its initial arena, registering with the fiber
 scheduler for anything that wants to run as a background fiber (a `gemm/`
 kernel large enough to want to yield partway through), and similar
 integration points. Every *other* umath module stays pure computation with
 no OS dependency; `os/` is deliberately the one place that's allowed to
-know it's running inside TattvaOS specifically.
+know it's running inside Utkarsha OS specifically.
 
 ## Planned scope
 

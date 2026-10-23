@@ -9,7 +9,7 @@
 ## Overview
 
 `memory` is umath's own copy/set/compare/allocate layer — deliberately
-separate from any kernel-wide `lib/mem` the rest of TattvaOS uses for
+separate from any kernel-wide `lib/mem` the rest of Utkarsha OS uses for
 general allocation. Math workloads (tensors, matrices, large float arrays)
 have access patterns and alignment requirements (cacheline, page, SIMD
 width) that a general-purpose allocator doesn't need to specialize for, so

@@ -22,7 +22,7 @@ Per `PROJECTSTRUCTURE.md`'s existing plan for this module:
 
 - `gemm.asm` — general/reference GEMM (correctness baseline)
 - `gemm_x86.asm` — AVX2/AVX-512/AMX-tiled x86 kernel
-- `gemm_aarch64.asm` — NEON/SVE kernel (for whenever TattvaOS targets
+- `gemm_aarch64.asm` — NEON/SVE kernel (for whenever Utkarsha OS targets
   aarch64)
 - `gemm_bench.asm` — benchmark harness, the natural point of comparison
   being cuBLAS/MKL-class throughput per `PROJECTSTRUCTURE.md`'s stated
