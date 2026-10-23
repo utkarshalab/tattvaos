@@ -2,7 +2,7 @@
 
 A native, git-interoperable version control system for assembly projects, written entirely in assembly and built directly on UFS.
 
-- Target: Tattva OS only (no other operating systems).
+- Target: Utkarsha OS only (no other operating systems).
 - Architectures: x86-64 first; AArch64 and RISC-V 64-bit have reserved places in the tree.
 - Assembler: NASM for now; utasm later (see `docs/adr/0001-target-and-assembler.md`).
 

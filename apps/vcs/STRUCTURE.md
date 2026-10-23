@@ -1,6 +1,6 @@
 # Project Structure
 
-Target: Tattva OS only. x86-64 first; AArch64 and RISC-V 64-bit reserved. NASM now, utasm later. Zero third-party dependencies. Every directory has a README.md stating its purpose.
+Target: Utkarsha OS only. x86-64 first; AArch64 and RISC-V 64-bit reserved. NASM now, utasm later. Zero third-party dependencies. Every directory has a README.md stating its purpose.
 
 ```
 bench/
@@ -61,4 +61,4 @@ tools/
 - `src/cli`, `src/ide`: user-facing interfaces.
 - `tests`, `fuzz`, `sim`, `bench`: quality gates.
 - `docs`: plan, Phase 0 specs, standards, decision records, manual.
-- `packaging`: ULF packages and bootable Tattva OS images.
+- `packaging`: ULF packages and bootable Utkarsha OS images.

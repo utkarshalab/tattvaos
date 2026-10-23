@@ -1,4 +1,4 @@
-# Monorepo VCS on UFS: Enterprise Product Plan (v3, Tattva OS)
+# Monorepo VCS on UFS: Enterprise Product Plan (v3, Utkarsha OS)
 
 *Working title. A native, git-interoperable version control system written entirely in assembly, built directly on the Utkarsha File System (UFS).*
 
@@ -11,7 +11,7 @@ UFS already provides a change journal, snapshots, and subtree hashing. The VCS t
 - No virtual-filesystem driver project (the largest risk in v1 of the plan is gone).
 - One Merkle structure shared by filesystem and VCS: a commit reads hashes UFS already maintains.
 - Checkout, branching, and server-side forking become snapshot operations.
-- Scope narrows to **Tattva OS only**: no other operating systems, no portable tier, no OS abstraction layer, no ABI definitions. The VCS calls Tattva OS and UFS directly.
+- Scope narrows to **Utkarsha OS only**: no other operating systems, no portable tier, no OS abstraction layer, no ABI definitions. The VCS calls Utkarsha OS and UFS directly.
 - **x86-64 first.** AArch64 and RISC-V 64-bit have reserved places in the code tree but no work until x86-64 is done.
 - **NASM now, utasm later.** NASM supports x86 only, so other architectures wait for utasm.
 
@@ -63,11 +63,11 @@ The table summarizes public information at a high level; verify details before e
 
 ---
 
-## 3. Strategy: Tattva-Native, Architecture-Ready
+## 3. Strategy: Utkarsha-Native, Architecture-Ready
 
 | Dimension | Decision |
 | --- | --- |
-| Operating system | Tattva OS only. No other operating systems, no OS abstraction layer, no ABI definitions |
+| Operating system | Utkarsha OS only. No other operating systems, no OS abstraction layer, no ABI definitions |
 | Working copy | UFS directly: snapshots, journal, and subtree hashes come from the filesystem |
 | Architecture | x86-64 first; AArch64 and RISC-V 64-bit reserved in the tree |
 | Assembler | NASM now; utasm later (required for AArch64 and RISC-V, since NASM is x86-only) |
@@ -195,7 +195,7 @@ Written, reviewed, and frozen with test vectors before engine work scales.
 - **Audit:** append-only, tamper-evident log of reads, writes, and admin actions, with SIEM export.
 - **Data governance:** retention, legal hold, data residency per tenant, auditable secret redaction.
 - **Compliance:** evidence packs for SOC 2 and ISO 27001 style audits.
-- **Deployment:** single server image for Tattva OS, ULF package, on-premise and air-gapped installs, offline update bundles.
+- **Deployment:** single server image for Utkarsha OS, ULF package, on-premise and air-gapped installs, offline update bundles.
 - **Availability:** multi-zone deployment, defined RPO and RTO, regularly tested restores.
 - **Licensing and support:** offline-verifiable license keys, LTS channels, support SLAs.
 - **Migration:** git, Perforce, and Mercurial importers; shadow-mode mirror with parity checks.
@@ -244,7 +244,7 @@ Also: a language-server-style protocol for IDEs, review and CI hooks, shell comp
 - **Binary awareness:** section-level diff for object files, flat binaries, and custom formats.
 - **Multi-ISA awareness:** shared and per-architecture directories with cross-architecture change views.
 - **Build integration:** `affected` maps changed files to targets for any build system.
-- **Zero-abstraction speed:** hand-tuned SIMD for hashing, chunking, and diff; direct access to Tattva OS and UFS with no runtime.
+- **Zero-abstraction speed:** hand-tuned SIMD for hashing, chunking, and diff; direct access to Utkarsha OS and UFS with no runtime.
 
 ### 12.1 Content Types the VCS Must Recognise
 
@@ -275,9 +275,9 @@ Media handling: compressed formats (JPEG, PNG, MP3, MP4, and similar) dedup poor
 
 ## 13. Implementation Strategy
 
-- **Target:** Tattva OS only. x86-64 first; AArch64 and RISC-V 64-bit have reserved places in the tree and wait for utasm.
+- **Target:** Utkarsha OS only. x86-64 first; AArch64 and RISC-V 64-bit have reserved places in the tree and wait for utasm.
 - **Assembler:** NASM now; migrate to utasm later.
-- **System access:** the VCS calls Tattva OS and UFS directly. There is no OS abstraction layer and no ABI definition; UFS calls live in their own module.
+- **System access:** the VCS calls Utkarsha OS and UFS directly. There is no OS abstraction layer and no ABI definition; UFS calls live in their own module.
 - **Memory:** arenas and regions; no general heap on hot paths.
 - **SIMD:** Blake3, chunking, diff, and scans with AVX-512 and AVX2 paths plus a scalar reference, checked against reference vectors; NEON and RISC-V vector kernels are reserved.
 - **Concurrency:** one worker per core, asynchronous I/O queues, lock-free queues, share-nothing shards.
@@ -327,7 +327,7 @@ Durations are planning estimates for a small focused team. Phases 1 to 3 already
 | Data loss or store corruption | Critical | Write-ahead log, UFS plus VCS checksums, continuous scrubbing, simulation, backups |
 | Hidden-path information leaks | Critical | Design review, leak tests, external audit |
 | Signing key compromise | Critical | HSM-backed keys, rotation, revocation, transparency-log monitoring |
-| Tight coupling to UFS and Tattva OS limits adoption | High | Versioned interface contract frozen in Phase 0; git bridge keeps data portable |
+| Tight coupling to UFS and Utkarsha OS limits adoption | High | Versioned interface contract frozen in Phase 0; git bridge keeps data portable |
 | UFS interfaces change under the VCS | High | Versioned UFS contract frozen in Phase 0; conformance tests run on both sides |
 | Git bridge fidelity gaps | High | Differential tests, shadow mode, documented unsupported features |
 | Wrong merge results | High | Property-based tests; ambiguity becomes a recorded conflict, never a guess |
@@ -392,7 +392,7 @@ utkarsha-vcs/
   fuzz/  sim/  bench/  tools/  scripts/
   bootstrap/              stage 0 NASM builder
   packaging/
-    ulf/ images/          ULF packages and bootable Tattva OS images
+    ulf/ images/          ULF packages and bootable Utkarsha OS images
   examples/
   docs/
     plan/ specs/ standards/ adr/ manual/

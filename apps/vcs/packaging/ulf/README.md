@@ -1,5 +1,5 @@
 # packaging/ulf
 
-ULF packages for distributing the VCS on Tattva OS.
+ULF packages for distributing the VCS on Utkarsha OS.
 
 Status: not started.
