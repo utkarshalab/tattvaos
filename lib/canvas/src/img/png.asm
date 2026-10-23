@@ -123,7 +123,7 @@ png_decode:
     jc .bad
 .raw_capacity_ready:
     mov rdi, rbx
-    mov rsi, rax
+    mov rsi, r13                      ; full capacity, including Adam7 filter bytes
     call arena_alloc
     test rax, rax
     jz .oom
@@ -401,7 +401,8 @@ png_read_chunks:
     shl rcx, 1
     jmp .grow_loop
 .grown:
-    push rax
+    ; rax holds the new buffer after the call; only the capacity and the
+    ; chunk length need saving around it.
     push r10
     push rcx
     mov rdi, [rbx + PngImage.arena]
@@ -409,7 +410,6 @@ png_read_chunks:
     call arena_alloc
     pop rcx
     pop r10
-    pop rax
     test rax, rax
     jz .fail
     ; copy old
