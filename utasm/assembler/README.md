@@ -5,4 +5,4 @@
 Handles: instruction encoding, label resolution, macro expansion,
 include processing, multiple output formats (flat binary, ELF).
 
-Part of the `asm/` category in Tattva OS.
+Part of the `asm/` category in Utkarsha OS.
