@@ -37,7 +37,8 @@ math_fn/
 │                                    underflow → 0)
 ├── log_f32.asm / log_f64.asm     ← ln(x) via IEEE-754 bit decomposition
 │                                    (x = m·2^k) + atanh series on
-│                                    s=(m-1)/(m+1)
+│                                    s = f/(2+f), f = m-1; f64 regrouped
+│                                    so the leading f is exact
 ├── pow_f32.asm / pow_f64.asm     ← x^y = exp(y·ln(x)), plus the IEEE
 │                                    special cases and a negative-base
 │                                    integer-exponent path exp/log alone
@@ -70,6 +71,22 @@ math_fn/
 │                                    seed, Newton, one double-double
 │                                    residual correction
 ├── scalbn_f64.asm                ← x*2^n (scalbn/ldexp), one rounding
+├── atan_f32.asm / atan_f64.asm   ← fold to [0,1], shift by the nearest
+│                                    of 4 anchors, 10-term series on
+│                                    |t| <= tan(pi/24); shared core
+├── atan2_f32.asm / atan2_f64.asm ← full IEEE quadrant/zero/Inf table on
+│                                    top of the atan core
+├── asin_f32.asm / asin_f64.asm   ← atan(a / sqrt((1-a)(1+a)))
+├── acos_f32.asm / acos_f64.asm   ← 2*atan(sqrt((1-x)/(1+x)))
+├── sinh_f32.asm / sinh_f64.asm   ← expm1-based below 22, e^a/2 above,
+│                                    (w/2)*w near overflow
+├── cosh_f32.asm / cosh_f64.asm   ← e/2 + 1/(2e), same large-a handling
+├── tanh_f32.asm / tanh_f64.asm   ← t/(t+2), t = expm1(2a); 1 from 22
+├── asinh_f32.asm / asinh_f64.asm ← log1p / log forms by range,
+│                                    ln(a)+ln2 for huge a
+├── acosh_f32.asm / acosh_f64.asm ← log1p(t + sqrt(2t+t^2)), t = x-1
+│                                    exact, near 1
+├── atanh_f32.asm / atanh_f64.asm ← log1p(2a/(1-a))/2, small-a form
 └── loops.asm                     ← macros: array/inplace loops and the
                                      f32-through-f64 wrappers
 ```
@@ -192,9 +209,55 @@ places.
 
 Their errors are therefore those of the exp/log cores plus about one
 rounding. Measured against 50-digit references: exp2 1.15, exp10 1.37,
-log1p 2.8, log2 3.0, expm1 3.1, log10 3.3 ULP. The last four inherit
-`umath_log_f64`'s ~3 ULP, so a more accurate log core would tighten them
-all at once.
+log2 1.44, log10 1.72, expm1 1.89, log1p 1.90 ULP.
+
+**The f64 log core keeps its leading term exact.**
+`umath_log_f64` used to evaluate `2*s*(1 + s^2/3 + ...) + k*ln2` with
+`s = (m-1)/(m+1)`. The rounded division and the rounded `k*ln2` both
+reached the result at full weight, which cost ~3 ULP. It now uses the
+same atanh series regrouped:
+
+    f = m - 1 (exact),  s = f/(2+f),  hfsq = f^2/2
+    ln(x) = k*ln2_hi - ((hfsq - (s*(hfsq + R(s^2)) + k*ln2_lo)) - f)
+
+- The large term `f` is exact and only small corrections round.
+- ln(2) is split so that `k*ln2_hi` is exact.
+- The measured worst case drops to 0.78 ULP.
+
+Every function built on log improved with it: log2, log10, log1p, expm1,
+pow, and the hyperbolics below. The packed array path changed in
+lockstep and is still bit-identical per lane.
+
+**Inverse trig shares one atan core.**
+`atanf64__core` works on `a >= 0`:
+1. Fold `a > 1` to `1/a` (using `pi/2 - atan(1/a)`).
+2. Shift by the nearest anchor `T` in {0, tan(pi/12), tan(pi/6), 1},
+   with `t = (a - T)/(1 + a*T)`. This leaves `|t| <= tan(pi/24)`, where a
+   10-term series converges fully.
+3. Rebuild as `H + (L + atan(t))`. The hi/lo pair `H + L` is `atan(T)`,
+   or `pi/2 - atan(T)` when folded, computed from the double `T` itself,
+   so the identity is exact for the anchor actually stored.
+
+On top of the core:
+- `asin` uses `atan(a / sqrt((1-a)(1+a)))`; `1 - a` is exact near 1.
+- `acos` uses `2*atan(sqrt((1-x)/(1+x)))`, which is cancellation-free at
+  both ends.
+- `atan2` applies the IEEE signed-zero/Inf table before calling the core.
+
+Measured worst cases: atan 1.19, acos 1.77, asin 2.24 ULP; atan2 1 ULP
+against Python.
+
+**The hyperbolics never subtract nearly equal exponentials.**
+- `sinh` and `tanh` go through `expm1`: `(t + t/(t+1))/2` and `t/(t+2)`.
+- `cosh` adds two positive terms.
+- `asinh`, `acosh` and `atanh` use `log1p` of exactly formed arguments
+  near their zeros, and switch to `ln(a) + ln2` where `2a` could
+  overflow.
+- Near the overflow edge, `sinh` and `cosh` use `(w/2)*w` with
+  `w = e^(a/2)`, which stays finite up to the true limit (~710.48).
+
+Measured worst cases: cosh 1.26, sinh 2.06, asinh 2.24, atanh 2.32,
+acosh 2.47, tanh 2.67 ULP.
 
 **cbrt is nearly correctly rounded.**
 - An exact reduction to `[1, 8)` keeps every intermediate normal.
@@ -253,11 +316,16 @@ implementation (Python's `math` module, IEEE double throughout) via an
 `ld -shared` + `ctypes` harness — no C compiler needed, since the kernel
 toolchain doesn't have one. The harness is checked in: run
 `sh lib/umath/tests/run_tests.sh` (see `tests/README.md`). Measured worst
-cases: sqrt 0 ULP, exp ≤ 1 ULP, log ≤ 3 ULP, sin/cos ≤ 2 ULP, tan ≤ 3 ULP,
-hypot ≤ 2 ULP; pow_f64 as described above. The extended functions are
-checked by `tests/test_math_fn_ext.py` (bounds: exp2/exp10 2 ULP,
-expm1/log2/log10/log1p 4 ULP, cbrt 1 ULP, every f32 function 1 ULP;
-scalbn exactly against ldexp).
+cases: sqrt 0 ULP, exp ≤ 1 ULP, log ≤ 1 ULP (f64; f32 ≤ 3), sin/cos ≤ 2
+ULP, tan ≤ 3 ULP, hypot ≤ 2 ULP; pow_f64 as described above. The extended
+functions are checked by `tests/test_math_fn_ext.py` against Python's
+`math` (the bounds include its own error):
+- exp2, exp10, log2, atan, acos, cosh: 2 ULP;
+- expm1, log10, log1p, asin, sinh, tanh, asinh, acosh, atanh, atan2:
+  3 ULP;
+- cbrt: 1 ULP;
+- every f32 function: 1 ULP;
+- scalbn: exactly against ldexp.
 
 Bugs this process actually caught (kept here so the pattern is recognizable
 next time, not as a changelog):
