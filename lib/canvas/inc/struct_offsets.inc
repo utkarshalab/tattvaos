@@ -608,16 +608,17 @@ DEFINE_STRUCT_OFFSET GpuDevice, enabled, 73
 %define GpuDevice.size 80
 %define GpuDevice_size 80
 
-; PixBuf
+; PixBuf — layout written by pixbuf_create (src/gfx/pixbuf.asm). "size" is
+; the pixel-data size field; PixBuf_SIZE is the whole object.
 DEFINE_STRUCT_OFFSET PixBuf, width, 0
 DEFINE_STRUCT_OFFSET PixBuf, height, 8
-DEFINE_STRUCT_OFFSET PixBuf, format, 16
-DEFINE_STRUCT_OFFSET PixBuf, stride, 24
+DEFINE_STRUCT_OFFSET PixBuf, stride, 16
+DEFINE_STRUCT_OFFSET PixBuf, format, 24
 DEFINE_STRUCT_OFFSET PixBuf, data, 32
 DEFINE_STRUCT_OFFSET PixBuf, size, 40
-%define PixBuf_SIZE 48
-%define PixBuf.size 48
-%define PixBuf_size 48
+DEFINE_STRUCT_OFFSET PixBuf, refcount, 48
+DEFINE_STRUCT_OFFSET PixBuf, arena, 56
+%define PixBuf_SIZE 64
 
 ; Pixbuf (lowercase alias)
 DEFINE_STRUCT_OFFSET Pixbuf, width, 0
