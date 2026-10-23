@@ -471,10 +471,10 @@ webp_vp8_filter_frame:
     mov eax,[rsp]
     lea r8d,[rax*2]
     add r8d,[rsp+4]
-    mov [rsp+16],r8d
     test r13d,r13d
     jz .simple_internal_v
-    add r8d,4
+    add r8d,4                         ; macroblock edges use limit + 4
+    mov [rsp+16],r8d
     VP8_EDGE r14,1,[rbx+WebPVP8FilterFrameState.y_stride],16,[rsp+16],0,0,0
 .simple_internal_v:
     cmp dword [rsp+12],0
@@ -504,11 +504,14 @@ webp_vp8_filter_frame:
     lea r8d,[rax*2]
     add r8d,[rsp+4]
     mov [rsp+16],r8d
+    ; VP8_EDGE returns in rax, so the stride is reloaded before each edge.
     mov eax,[rbx+WebPVP8FilterFrameState.y_stride]
     lea rdi,[r14+rax*4]
     VP8_EDGE rdi,[rbx+WebPVP8FilterFrameState.y_stride],1,16,[rsp+16],0,0,0
+    mov eax,[rbx+WebPVP8FilterFrameState.y_stride]
     lea rdi,[r14+rax*8]
     VP8_EDGE rdi,[rbx+WebPVP8FilterFrameState.y_stride],1,16,[rsp+16],0,0,0
+    mov eax,[rbx+WebPVP8FilterFrameState.y_stride]
     lea rdi,[r14+rax*8]
     lea rdi,[rdi+rax*4]
     VP8_EDGE rdi,[rbx+WebPVP8FilterFrameState.y_stride],1,16,[rsp+16],0,0,0
@@ -554,17 +557,21 @@ webp_vp8_filter_frame:
     je .frame_next
     mov r8d,[rsp]
     mov [rsp+16],r8d
+    ; VP8_EDGE returns in rax, so the stride is reloaded before each edge.
     mov eax,[rbx+WebPVP8FilterFrameState.y_stride]
     lea rdi,[r14+rax*4]
     VP8_EDGE rdi,[rbx+WebPVP8FilterFrameState.y_stride],1,16,[rsp+16],[rsp+4],[rsp+8],1
+    mov eax,[rbx+WebPVP8FilterFrameState.y_stride]
     lea rdi,[r14+rax*8]
     VP8_EDGE rdi,[rbx+WebPVP8FilterFrameState.y_stride],1,16,[rsp+16],[rsp+4],[rsp+8],1
+    mov eax,[rbx+WebPVP8FilterFrameState.y_stride]
     lea rdi,[r14+rax*8]
     lea rdi,[rdi+rax*4]
     VP8_EDGE rdi,[rbx+WebPVP8FilterFrameState.y_stride],1,16,[rsp+16],[rsp+4],[rsp+8],1
     mov eax,[rbx+WebPVP8FilterFrameState.uv_stride]
     lea rdi,[r15+rax*4]
     VP8_EDGE rdi,[rbx+WebPVP8FilterFrameState.uv_stride],1,8,[rsp+16],[rsp+4],[rsp+8],1
+    mov eax,[rbx+WebPVP8FilterFrameState.uv_stride]
     mov rdi,[rsp+32]
     lea rdi,[rdi+rax*4]
     VP8_EDGE rdi,[rbx+WebPVP8FilterFrameState.uv_stride],1,8,[rsp+16],[rsp+4],[rsp+8],1
