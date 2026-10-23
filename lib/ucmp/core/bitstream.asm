@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_CORE_BITSTREAM_ASM
 %define GUARD_LIB_UCMP_CORE_BITSTREAM_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/core/bitstream.asm
+; Utkarsha OS — lib/ucmp/core/bitstream.asm
 ; =============================================================================
 ; Bit-Level Reader & Writer Engine (LSB/MSB) for DEFLATE & Huffman Coding.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_ALGO_GZIP_GZIP_ASM
 %define GUARD_LIB_UCMP_ALGO_GZIP_GZIP_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/algo/gzip/gzip.asm
+; Utkarsha OS — lib/ucmp/algo/gzip/gzip.asm
 ; =============================================================================
 ; Gzip (RFC 1952) Compression Format Wrapper over DEFLATE.
 ;

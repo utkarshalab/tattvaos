@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ucmp/arch/common/error.inc
+; Utkarsha OS — lib/ucmp/arch/common/error.inc
 ; =============================================================================
 ; Comprehensive Compression Subsystem Error Code Definitions.
 ;

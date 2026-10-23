@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_ARCH_X86_64_SIMD_SCAN_ASM
 %define GUARD_LIB_UCMP_ARCH_X86_64_SIMD_SCAN_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/arch/x86_64/simd/scan.asm
+; Utkarsha OS — lib/ucmp/arch/x86_64/simd/scan.asm
 ; =============================================================================
 ; AVX2 256-bit Vector Byte Scanner & High-Speed LZ77 Match Finder.
 ;

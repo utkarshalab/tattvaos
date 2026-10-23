@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ucmp/include/ucmp.inc
+; Utkarsha OS — lib/ucmp/include/ucmp.inc
 ; =============================================================================
 ; Master Compression Subsystem Definitions & Structures.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_UCMP_ASM
 %define GUARD_LIB_UCMP_UCMP_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/ucmp.asm
+; Utkarsha OS — lib/ucmp/ucmp.asm
 ; =============================================================================
 ; Master Compression Subsystem Dispatcher API (`ucmp_init`, `ucmp_compress`,
 ; `ucmp_decompress`).

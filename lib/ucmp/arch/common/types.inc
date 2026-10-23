@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ucmp/arch/common/types.inc
+; Utkarsha OS — lib/ucmp/arch/common/types.inc
 ; =============================================================================
 ; Data Type Aliases & Common Structure Sizes.
 ;

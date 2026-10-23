@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_CORE_BUFFER_ASM
 %define GUARD_LIB_UCMP_CORE_BUFFER_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/core/buffer.asm
+; Utkarsha OS — lib/ucmp/core/buffer.asm
 ; =============================================================================
 ; Sliding Window Ring Buffer Manager (32KB / 64KB).
 ;

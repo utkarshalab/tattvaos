@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_CHECKSUM_CRC32_ASM
 %define GUARD_LIB_UCMP_CHECKSUM_CRC32_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/checksum/crc32.asm
+; Utkarsha OS — lib/ucmp/checksum/crc32.asm
 ; =============================================================================
 ; Intel SSE4.2 Hardware-Accelerated CRC32 Checksum Engine.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ucmp/arch/common/bitops.inc
+; Utkarsha OS — lib/ucmp/arch/common/bitops.inc
 ; =============================================================================
 ; Fast Bit Manipulation Macros (Shifts, Rotates, Bit Swaps).
 ;

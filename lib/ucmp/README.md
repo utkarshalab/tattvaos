@@ -1,6 +1,6 @@
 # lib/ucmp — Master Compression Subsystem
 
-The **`lib/ucmp`** library is the single, authoritative, high-performance 64-bit Assembly Data Compression Subsystem for Tattva OS, featuring hardware SIMD vector acceleration and multi-algorithm compression primitives.
+The **`lib/ucmp`** library is the single, authoritative, high-performance 64-bit Assembly Data Compression Subsystem for Utkarsha OS, featuring hardware SIMD vector acceleration and multi-algorithm compression primitives.
 
 ---
 
@@ -40,7 +40,7 @@ lib/ucmp/
 
 ## 2. Supported Algorithms
 
-| Algorithm | Identifier | Target Use Case in Tattva OS |
+| Algorithm | Identifier | Target Use Case in Utkarsha OS |
 | :--- | :--- | :--- |
 | **LZ4** | `UCMP_ALGO_LZ4` | **Storage Hot Path** for `storage/uxfs/compress/compress.asm` & immutable boot images (`erofs.asm`) |
 | **ZSTD** | `UCMP_ALGO_ZSTD` | High-ratio background data compression for archival storage volumes |

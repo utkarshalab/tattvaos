@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_ALGO_SNAPPY_SNAPPY_ASM
 %define GUARD_LIB_UCMP_ALGO_SNAPPY_SNAPPY_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/algo/snappy/snappy.asm
+; Utkarsha OS — lib/ucmp/algo/snappy/snappy.asm
 ; =============================================================================
 ; Production-grade Snappy Ultra-Low Latency Block Compressor & Decompressor.
 ;

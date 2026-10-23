@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_MEM_ARENA_ASM
 %define GUARD_LIB_UCMP_MEM_ARENA_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/mem/arena.asm
+; Utkarsha OS — lib/ucmp/mem/arena.asm
 ; =============================================================================
 ; Zero-Allocation Memory Arena Allocator for Streaming Buffers.
 ;

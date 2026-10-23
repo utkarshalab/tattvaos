@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_ALGO_ZSTD_ZSTD_ASM
 %define GUARD_LIB_UCMP_ALGO_ZSTD_ZSTD_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/algo/zstd/zstd.asm
+; Utkarsha OS — lib/ucmp/algo/zstd/zstd.asm
 ; =============================================================================
 ; Production-grade ZSTD (Zstandard) Finite State Entropy (FSE) Compressor.
 ;

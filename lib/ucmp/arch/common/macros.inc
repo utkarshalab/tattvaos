@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ucmp/arch/common/macros.inc
+; Utkarsha OS — lib/ucmp/arch/common/macros.inc
 ; =============================================================================
 ; Common NASM Assembly Macros for Compression Algorithms.
 ;

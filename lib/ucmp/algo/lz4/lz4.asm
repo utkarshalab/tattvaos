@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_ALGO_LZ4_LZ4_ASM
 %define GUARD_LIB_UCMP_ALGO_LZ4_LZ4_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/algo/lz4/lz4.asm
+; Utkarsha OS — lib/ucmp/algo/lz4/lz4.asm
 ; =============================================================================
 ; Production-grade LZ4 High-Speed Streaming Compressor.
 ;

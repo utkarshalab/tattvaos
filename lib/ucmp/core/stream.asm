@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_CORE_STREAM_ASM
 %define GUARD_LIB_UCMP_CORE_STREAM_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/core/stream.asm
+; Utkarsha OS — lib/ucmp/core/stream.asm
 ; =============================================================================
 ; Streaming Compression & Decompression State Machine Abstraction.
 ;

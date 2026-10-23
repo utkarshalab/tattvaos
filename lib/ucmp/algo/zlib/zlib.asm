@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_ALGO_ZLIB_ZLIB_ASM
 %define GUARD_LIB_UCMP_ALGO_ZLIB_ZLIB_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/algo/zlib/zlib.asm
+; Utkarsha OS — lib/ucmp/algo/zlib/zlib.asm
 ; =============================================================================
 ; Zlib (RFC 1950) Compression Format Wrapper over DEFLATE.
 ;

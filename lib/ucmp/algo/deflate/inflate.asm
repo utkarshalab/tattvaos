@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_ALGO_DEFLATE_INFLATE_ASM
 %define GUARD_LIB_UCMP_ALGO_DEFLATE_INFLATE_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/algo/deflate/inflate.asm
+; Utkarsha OS — lib/ucmp/algo/deflate/inflate.asm
 ; =============================================================================
 ; Production-grade DEFLATE Inflate Decompressor (RFC 1951).
 ;

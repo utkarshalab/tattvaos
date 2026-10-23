@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_UCMP_ALGO_DEFLATE_DEFLATE_ASM
 %define GUARD_LIB_UCMP_ALGO_DEFLATE_DEFLATE_ASM
 ; =============================================================================
-; Tattva OS — lib/ucmp/algo/deflate/deflate.asm
+; Utkarsha OS — lib/ucmp/algo/deflate/deflate.asm
 ; =============================================================================
 ; Production-grade DEFLATE (RFC 1951) Block Compressor.
 ;
