@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/waf/src/waf_bot.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: WAF Bot Detector - automated bot detection via fingerprinting,

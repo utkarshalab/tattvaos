@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/waf/src/waf_rate.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: WAF Rate Limiter - per-IP and per-API-key rate limiting

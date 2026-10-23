@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/waf/src/waf_core.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: WAF Core Engine - central orchestration, state management,

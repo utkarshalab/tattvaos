@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/waf/src/waf_siem.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: WAF SIEM Exporter - WAF event export to SIEM systems in CEF,

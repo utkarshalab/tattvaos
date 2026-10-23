@@ -1,6 +1,6 @@
 # security/waf — Web Application Firewall (WAF)
 
-> **Web Application Firewall** — Layer 7 application security for Tattva OS.
+> **Web Application Firewall** — Layer 7 application security for Utkarsha OS.
 > Detects and blocks SQL injection, XSS, CSRF, command injection, file inclusion,
 ;              deserialization attacks, bot traffic, API abuse, and more.
 > Works WITH IPS: IPS handles network-layer enforcement, WAF handles application-layer enforcement.

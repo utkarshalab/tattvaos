@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/waf/src/waf_api.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: WAF API Protection - API key validation, JWT validation,

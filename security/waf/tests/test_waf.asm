@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/waf/tests/test_waf.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: WAF premium enterprise skeleton test.
 ; Status   : PREMIUM ENTERPRISE SKELETON
 ; =============================================================================
