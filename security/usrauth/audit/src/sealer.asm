@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/audit/src/sealer.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: audit sealer (log-chaining, tamper evidence)

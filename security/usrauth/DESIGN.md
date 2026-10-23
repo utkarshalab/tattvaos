@@ -1,6 +1,6 @@
 # usrauth — Design and Maintenance Reference
 
-The reference monitor for Tattva OS. This document is for someone changing,
+The reference monitor for Utkarsha OS. This document is for someone changing,
 extending or auditing `usrauth` later — it records not just what the code does
 but **why it is shaped that way**, because most of the decisions here are only
 obvious once you know what they are defending against.
@@ -517,7 +517,7 @@ the numeric verdict, so renumbering rewrites history.
 
 ## 12. Operating in a unikernel with no user ring
 
-Tattva OS is a unikernel: one address space, ring 0 only, cooperative fibers, no
+Utkarsha OS is a unikernel: one address space, ring 0 only, cooperative fibers, no
 `syscall` instruction anywhere. That is not a limitation to work around — it is
 the architecture — but it changes what this monitor is and is not.
 

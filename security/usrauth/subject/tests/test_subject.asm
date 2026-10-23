@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/subject/tests/test_subject.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Subject skeleton test.
 ; Status   : PREMIUM ENTERPRISE - skeleton.
 ; =============================================================================

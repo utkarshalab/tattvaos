@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/policy/src/relation.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Relationship-Based Access Control (ReBAC) - subject-resource

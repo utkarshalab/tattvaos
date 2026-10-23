@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/token/src/minter.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: token minter (issues tokens with scope+ttl)

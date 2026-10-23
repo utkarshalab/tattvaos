@@ -1,6 +1,6 @@
 # security/usrauth/mandatory — Mandatory Access Control (MAC)
 
-> Enterprise-grade mandatory access control for Tattva OS. Implements
+> Enterprise-grade mandatory access control for Utkarsha OS. Implements
 ;              Biba-style integrity levels, Bell-LaPadula Multi-Level
 ;              Security (MLS), and Type Enforcement (TE). Non-discretionary;
 ;              subjects cannot override them.

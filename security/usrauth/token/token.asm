@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_TOKEN_TOKEN_ASM
 %define GUARD_SECURITY_USRAUTH_TOKEN_TOKEN_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/token/token.asm
+; Utkarsha OS — security/usrauth/token/token.asm
 ; =============================================================================
 ; L1 — Attenuable Bearer Tokens.
 ;

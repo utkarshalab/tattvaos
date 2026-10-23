@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_IDENTITY_PASSWORD_ASM
 %define GUARD_SECURITY_USRAUTH_IDENTITY_PASSWORD_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/identity/password.asm
+; Utkarsha OS — security/usrauth/identity/password.asm
 ; =============================================================================
 ; L0 — Password Authentication.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_SUBJECT_TABLE_ASM
 %define GUARD_SECURITY_USRAUTH_SUBJECT_TABLE_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/subject.asm
+; Utkarsha OS — security/usrauth/subject.asm
 ; =============================================================================
 ; L2 — Subject Table and Capability Store.
 ;

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/identity/tests/test_identity.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Identity providers skeleton test - init/status/version.
 ; Status   : SKELETON
 ; =============================================================================

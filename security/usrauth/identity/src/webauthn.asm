@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/identity/src/webauthn.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: WebAuthn Identity Provider - FIDO2/WebAuthn roaming authenticator

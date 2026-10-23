@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_USRAUTH_ASM
 %define GUARD_SECURITY_USRAUTH_USRAUTH_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/usrauth.asm
+; Utkarsha OS — security/usrauth/usrauth.asm
 ; =============================================================================
 ; Master USRAUTH (Reference Monitor) Dispatcher.
 ;

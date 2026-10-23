@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/capability/src/restrict.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Capability Restrictions - caveat/attenuation conditions applied

@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_POLICY_ATTRIBUTE_ASM
 %define GUARD_SECURITY_USRAUTH_POLICY_ATTRIBUTE_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/policy/attribute.asm
+; Utkarsha OS — security/usrauth/policy/attribute.asm
 ; =============================================================================
 ; L4 — Attribute-Based Conditions (ABAC).
 ;

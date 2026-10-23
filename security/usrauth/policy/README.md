@@ -1,6 +1,6 @@
 # security/usrauth/policy — Authorization Policy Engine
 
-> Enterprise-grade policy engine for Tattva OS. Implements Attribute-Based
+> Enterprise-grade policy engine for Utkarsha OS. Implements Attribute-Based
 ;              Access Control (ABAC), Relationship-Based Access Control
 ;              (ReBAC), consent management, and Time-To-Live (TTL) based
 ;              authorization.

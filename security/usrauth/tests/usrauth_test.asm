@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — security/usrauth/tests/usrauth_test.asm
+; Utkarsha OS — security/usrauth/tests/usrauth_test.asm
 ; =============================================================================
 ; Semantic test suite for the reference monitor.
 ;

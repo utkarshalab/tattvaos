@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_POLICY_RELATION_ASM
 %define GUARD_SECURITY_USRAUTH_POLICY_RELATION_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/policy.asm
+; Utkarsha OS — security/usrauth/policy.asm
 ; =============================================================================
 ; L4 — Relationship and Attribute Policy.
 ;

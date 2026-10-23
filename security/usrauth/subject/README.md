@@ -1,6 +1,6 @@
 # security/usrauth/subject — Subject Table & Transitions
 
-> Enterprise-grade subject table module for Tattva OS. Subject identity model
+> Enterprise-grade subject table module for Utkarsha OS. Subject identity model
 ;              with handle-based references, subject state transitions, and
 ;              subject registry.
 

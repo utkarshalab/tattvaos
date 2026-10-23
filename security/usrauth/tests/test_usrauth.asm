@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/tests/test_usrauth.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: usrauth skeleton test - init/shutdown/status/version.
 ; Status   : SKELETON
 ; =============================================================================

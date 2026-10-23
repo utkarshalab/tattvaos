@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_AUDIT_DECISION_LOG_ASM
 %define GUARD_SECURITY_USRAUTH_AUDIT_DECISION_LOG_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/audit.asm
+; Utkarsha OS — security/usrauth/audit.asm
 ; =============================================================================
 ; L6 — Tamper-Evident Decision Log.
 ;

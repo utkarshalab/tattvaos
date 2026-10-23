@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_POLICY_CONSENT_ASM
 %define GUARD_SECURITY_USRAUTH_POLICY_CONSENT_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/policy/consent.asm
+; Utkarsha OS — security/usrauth/policy/consent.asm
 ; =============================================================================
 ; L4 — User Consent Gate (macOS TCC model).
 ;

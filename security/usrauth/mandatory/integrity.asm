@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_MANDATORY_INTEGRITY_ASM
 %define GUARD_SECURITY_USRAUTH_MANDATORY_INTEGRITY_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/mandatory/integrity.asm
+; Utkarsha OS — security/usrauth/mandatory/integrity.asm
 ; =============================================================================
 ; L5 — Integrity Levels (Biba / Windows Mandatory Integrity Control).
 ;

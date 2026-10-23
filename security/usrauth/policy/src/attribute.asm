@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/policy/src/attribute.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Attribute-Based Access Control (ABAC) Policy Engine - evaluates

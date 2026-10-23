@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_IDENTITY_ATTEST_ASM
 %define GUARD_SECURITY_USRAUTH_IDENTITY_ATTEST_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/identity/attest.asm
+; Utkarsha OS — security/usrauth/identity/attest.asm
 ; =============================================================================
 ; L0 — Attestation-Rooted Workload Identity.
 ;

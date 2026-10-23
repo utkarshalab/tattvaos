@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/identity/src/attest.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Attestation Provider - hardware/TEE-based identity attestation

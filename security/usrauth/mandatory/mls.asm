@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_MANDATORY_MLS_ASM
 %define GUARD_SECURITY_USRAUTH_MANDATORY_MLS_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/mandatory/mls.asm
+; Utkarsha OS — security/usrauth/mandatory/mls.asm
 ; =============================================================================
 ; L5 — Multi-Level Security (Bell-LaPadula).
 ;

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/capability/tests/test_capability.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Capability skeleton test - init/shutdown/status/version.
 ; Status   : SKELETON
 ; =============================================================================

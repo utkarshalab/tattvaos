@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/audit/src/decision_log.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Audit Decision Log - immutable append-only authorization decision

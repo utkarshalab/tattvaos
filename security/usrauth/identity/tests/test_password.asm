@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/identity/src/password_test.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Password identity provider skeleton test.

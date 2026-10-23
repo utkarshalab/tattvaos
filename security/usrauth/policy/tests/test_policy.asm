@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/policy/tests/test_policy.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Policy skeleton test.
 ; Status   : PREMIUM ENTERPRISE - skeleton.
 ; =============================================================================

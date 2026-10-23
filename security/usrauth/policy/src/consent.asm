@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/policy/src/consent.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Consent Manager - tracks user consent for data processing and

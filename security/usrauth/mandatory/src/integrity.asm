@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/mandatory/src/integrity.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Integrity MAC Layer - Biba-style integrity enforcement

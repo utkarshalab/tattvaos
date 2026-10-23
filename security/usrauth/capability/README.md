@@ -1,6 +1,6 @@
 # security/usrauth/capability — Capability Management
 
-> Enterprise-grade capability management module for Tattva OS security.
+> Enterprise-grade capability management module for Utkarsha OS security.
 > Provides capability-based access control with unforgeable tokens,
 ;              dynamic attenuation via caveats, and immediate revocation.
 

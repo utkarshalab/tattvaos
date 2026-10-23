@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_SUBJECT_TRANSITION_ASM
 %define GUARD_SECURITY_USRAUTH_SUBJECT_TRANSITION_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/subject/transition.asm
+; Utkarsha OS — security/usrauth/subject/transition.asm
 ; =============================================================================
 ; L2 — Domain Transition Rules.
 ;

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/token/src/token_minter.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Token Minter - mints new authorization tokens with scope and

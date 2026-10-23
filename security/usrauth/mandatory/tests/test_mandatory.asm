@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/mandatory/tests/test_mandatory.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Mandatory access control skeleton test.
 ; Status   : PREMIUM ENTERPRISE - skeleton.
 ; =============================================================================

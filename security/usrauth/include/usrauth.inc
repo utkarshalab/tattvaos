@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_USRAUTH_INC
 %define GUARD_SECURITY_USRAUTH_USRAUTH_INC
 ; =============================================================================
-; Tattva OS — security/usrauth/usrauth.inc
+; Utkarsha OS — security/usrauth/usrauth.inc
 ; =============================================================================
 ; Master Schema Header for USRAUTH (Reference Monitor).
 ;

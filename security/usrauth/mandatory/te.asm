@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_MANDATORY_TE_ASM
 %define GUARD_SECURITY_USRAUTH_MANDATORY_TE_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/mandatory.asm
+; Utkarsha OS — security/usrauth/mandatory.asm
 ; =============================================================================
 ; L5 — Mandatory Access Control. This layer can ONLY deny.
 ;

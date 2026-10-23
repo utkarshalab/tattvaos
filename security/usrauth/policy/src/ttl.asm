@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/policy/src/ttl.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Time-To-Live (TTL) Authorization - time-based authorization

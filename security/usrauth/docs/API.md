@@ -1,7 +1,7 @@
 # usrauth — API Reference
 
 ## Overview
-Enterprise-grade security module for Tattva OS. All symbols follow the
+Enterprise-grade security module for Utkarsha OS. All symbols follow the
 NASM x86-64 calling convention.
 
 ## Conventions

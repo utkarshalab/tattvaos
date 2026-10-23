@@ -2,7 +2,7 @@
 
 > The single authority that decides whether a subject may perform a verb on an object.
 
-`usrauth` is the Tattva OS reference monitor. Every access decision in the system
+`usrauth` is the Utkarsha OS reference monitor. Every access decision in the system
 resolves through one function, and that function can only ever *narrow* authority.
 
 > **Naming:** `usrauth` is deliberately distinct from [`serve/uauth/`](../../serve/),
@@ -90,7 +90,7 @@ Correctness is order-independent; latency is not.
 | **OpenBSD** | pledge / unveil | Voluntary, irreversible self-restriction |
 | **BeyondCorp** | Per-request evaluation | Session establishment ≠ standing authority |
 
-### Two things original to Tattva OS
+### Two things original to Utkarsha OS
 
 **Time-bounded authority as a primitive.** Windows, Linux and macOS all treat grants
 as permanent-until-revoked, which is why stale access accumulates for years. Here

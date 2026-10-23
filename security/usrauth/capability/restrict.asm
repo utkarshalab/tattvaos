@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_CAPABILITY_RESTRICT_ASM
 %define GUARD_SECURITY_USRAUTH_CAPABILITY_RESTRICT_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/capability/restrict.asm
+; Utkarsha OS — security/usrauth/capability/restrict.asm
 ; =============================================================================
 ; L3 — Irreversible Self-Restriction (pledge / unveil).
 ;

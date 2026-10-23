@@ -1,6 +1,6 @@
 # security/usrauth/audit — Audit Decision Log
 
-> Enterprise-grade audit decision log for Tattva OS. Every authorization
+> Enterprise-grade audit decision log for Utkarsha OS. Every authorization
 ;              decision made by usrauth is recorded here for non-repudiation
 ;              and forensic traceability. Log entries are cryptographically
 ;              chained so tampering is detectable.

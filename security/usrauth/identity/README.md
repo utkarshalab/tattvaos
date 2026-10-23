@@ -1,6 +1,6 @@
 # security/usrauth/identity — Identity Providers
 
-> Enterprise-grade identity providers for Tattva OS. Password-based,
+> Enterprise-grade identity providers for Utkarsha OS. Password-based,
 ;              WebAuthn/FIDO2, SPIFFE SVID, and hardware attestation
 ;              authentication providers.
 

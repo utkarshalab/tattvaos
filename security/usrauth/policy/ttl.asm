@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_POLICY_TTL_ASM
 %define GUARD_SECURITY_USRAUTH_POLICY_TTL_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/policy/ttl.asm
+; Utkarsha OS — security/usrauth/policy/ttl.asm
 ; =============================================================================
 ; L4 — Time-Bounded Grants.
 ;

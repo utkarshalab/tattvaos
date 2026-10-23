@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/mandatory/src/te.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Type Enforcement (TE) Layer - domain and type based access

@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_TOKEN_CAVEAT_ASM
 %define GUARD_SECURITY_USRAUTH_TOKEN_CAVEAT_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/token/caveat.asm
+; Utkarsha OS — security/usrauth/token/caveat.asm
 ; =============================================================================
 ; L1 — Caveat Evaluation.
 ;

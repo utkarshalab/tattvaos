@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Tattva OS — security/usrauth/tests/run.sh
+# Utkarsha OS — security/usrauth/tests/run.sh
 # =============================================================================
 # Builds and runs the usrauth semantic suite as a hosted Linux binary.
 #

@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_IDENTITY_SVID_ASM
 %define GUARD_SECURITY_USRAUTH_IDENTITY_SVID_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/identity/svid.asm
+; Utkarsha OS — security/usrauth/identity/svid.asm
 ; =============================================================================
 ; L0 — Workload Identity Document (SPIFFE-shaped SVID).
 ;

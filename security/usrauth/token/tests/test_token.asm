@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/token/tests/test_token.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Token skeleton test.
 ; Status   : PREMIUM ENTERPRISE - skeleton.
 ; =============================================================================

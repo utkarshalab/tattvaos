@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/audit/src/reader.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: audit reader (SIEM/forensics queries)

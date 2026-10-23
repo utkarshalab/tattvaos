@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/src/usrauth.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: usrauth - Identity & Access Management (Reference Monitor).
@@ -61,7 +61,7 @@ section .data
 alignb 16
 usrauth_version_str:   db USRAUTH_VERSION_STR, 0
 alignb 16
-usrauth_module_name: db "Tattva OS usrauth Reference Monitor v1.0.0-enterprise", 0
+usrauth_module_name: db "Utkarsha OS usrauth Reference Monitor v1.0.0-enterprise", 0
 alignb 16
 usrauth_err_not_initialized: db "usrauth: subsystem not initialized", 0
 alignb 16

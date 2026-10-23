@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_IDENTITY_WEBAUTHN_ASM
 %define GUARD_SECURITY_USRAUTH_IDENTITY_WEBAUTHN_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/identity/webauthn.asm
+; Utkarsha OS — security/usrauth/identity/webauthn.asm
 ; =============================================================================
 ; L0 — FIDO2 / WebAuthn Assertion Verification.
 ;

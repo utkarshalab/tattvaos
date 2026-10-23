@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_TOKEN_REVOKE_ASM
 %define GUARD_SECURITY_USRAUTH_TOKEN_REVOKE_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/token/revoke.asm
+; Utkarsha OS — security/usrauth/token/revoke.asm
 ; =============================================================================
 ; L1 — Token Revocation.
 ;

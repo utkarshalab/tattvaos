@@ -1,6 +1,6 @@
 # security/usrauth/token — Tokens, Caveats & Revocation
 
-> Enterprise-grade token management for Tattva OS. Token issuance, caveat
+> Enterprise-grade token management for Utkarsha OS. Token issuance, caveat
 ;              based attenuation, and revocation for delegated authorization
 ;              in the usrauth reference monitor.
 

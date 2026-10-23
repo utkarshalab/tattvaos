@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/audit/tests/test_audit.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Audit skeleton test.
 ; Status   : SKELETON
 ; =============================================================================

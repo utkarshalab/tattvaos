@@ -1,7 +1,7 @@
 # security/usrauth — Identity & Access Management (IAM / Reference Monitor)
 
 ## Purpose
-Central authorization subsystem for Tattva OS. Authentication, authorization,
+Central authorization subsystem for Utkarsha OS. Authentication, authorization,
 RBAC, ABAC, MAC, sessions, tokens, and capability-based access control.
 Implements the "Reference Monitor" pattern: many independent ways to DENY,
 exactly ONE way to GRANT.

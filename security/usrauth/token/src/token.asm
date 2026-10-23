@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/token/src/token.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Token Module - token issuance and management for delegated

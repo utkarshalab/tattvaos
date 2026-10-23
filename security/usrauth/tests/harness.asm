@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — security/usrauth/tests/harness.asm
+; Utkarsha OS — security/usrauth/tests/harness.asm
 ; =============================================================================
 ; Test harness: kernel-service doubles and result reporting.
 ;

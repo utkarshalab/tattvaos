@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/identity/src/provider_base.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: identity provider base (common verify logic)

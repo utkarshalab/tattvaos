@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/capability/tests/test_cap.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Capability skeleton test.
 ; Status   : PREMIUM SKELETON
 ; =============================================================================

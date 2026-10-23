@@ -1,7 +1,7 @@
 %ifndef GUARD_SECURITY_USRAUTH_CAPABILITY_CAP_ASM
 %define GUARD_SECURITY_USRAUTH_CAPABILITY_CAP_ASM
 ; =============================================================================
-; Tattva OS — security/usrauth/capability/cap.asm
+; Utkarsha OS — security/usrauth/capability/cap.asm
 ; =============================================================================
 ; L3 — Capability Table: Unforgeable Authority References.
 ;

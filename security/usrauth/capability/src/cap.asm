@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/usrauth/capability/src/cap.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Capability subsystem - unforgeable delegated authority tokens.
