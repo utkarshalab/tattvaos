@@ -2,11 +2,11 @@
 %define GUARD_DIST_URAFT_RAFT_ASM
 ; =============================================================================
 ; File     : dist/uraft/raft.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Raft consensus — leader election, log replication for
-;              distributed Tattva OS clusters.
+;              distributed Utkarsha OS clusters.
 ; =============================================================================
 
 bits 64

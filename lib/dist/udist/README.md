@@ -8,7 +8,7 @@
 
 ## Purpose
 
-Distributed runtime for Tattva OS — node identity, membership protocol,
+Distributed runtime for Utkarsha OS — node identity, membership protocol,
 heartbeat, and failure detection for multi-node clusters.
 
 ## Files

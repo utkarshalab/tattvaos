@@ -8,7 +8,7 @@
 
 ## Purpose
 
-Raft consensus algorithm implementation for Tattva OS — leader election,
+Raft consensus algorithm implementation for Utkarsha OS — leader election,
 log replication, and consistency for distributed state.
 
 ## Files

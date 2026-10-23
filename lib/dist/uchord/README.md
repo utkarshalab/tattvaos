@@ -5,4 +5,4 @@
 Implements: Chord ring topology, consistent hashing, finger table,
 node join/leave, key lookup in O(log N) hops.
 
-Part of the `dist/` category in Tattva OS.
+Part of the `dist/` category in Utkarsha OS.

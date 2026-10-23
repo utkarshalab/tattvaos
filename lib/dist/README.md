@@ -1,6 +1,6 @@
 # dist — Distributed Systems Category
 
-> Distributed coordination primitives for Tattva OS clusters.
+> Distributed coordination primitives for Utkarsha OS clusters.
 > Consensus, gossip, RPC, and distributed execution.
 
 ---

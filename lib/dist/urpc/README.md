@@ -8,7 +8,7 @@
 
 ## Purpose
 
-RPC (Remote Procedure Call) framework for Tattva OS — BXP-based async calls
+RPC (Remote Procedure Call) framework for Utkarsha OS — BXP-based async calls
 between nodes, zero-copy where possible.
 
 ## Files

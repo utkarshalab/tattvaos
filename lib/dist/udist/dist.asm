@@ -2,11 +2,11 @@
 %define GUARD_DIST_UDIST_DIST_ASM
 ; =============================================================================
 ; File     : dist/udist/dist.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Distributed runtime — node identity, membership, heartbeat,
-;              and failure detection for multi-node Tattva OS clusters.
+;              and failure detection for multi-node Utkarsha OS clusters.
 ; =============================================================================
 
 bits 64

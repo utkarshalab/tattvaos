@@ -2,10 +2,10 @@
 %define GUARD_DIST_URPC_RPC_ASM
 ; =============================================================================
 ; File     : dist/urpc/rpc.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
-; Description: RPC framework — BXP-based async RPC between Tattva OS nodes.
+; Description: RPC framework — BXP-based async RPC between Utkarsha OS nodes.
 ; =============================================================================
 
 bits 64
