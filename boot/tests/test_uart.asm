@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tests/test_uart.asm
+; Utkarsha OS — boot/tests/test_uart.asm
 ; =============================================================================
 ; Test assertion for the UART serial driver functions.
 ;

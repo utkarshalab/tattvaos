@@ -7,7 +7,7 @@
 set -eu
 
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-IMG="$TEST_DIR/../tattva.img"
+IMG="$TEST_DIR/../utkarsha.img"
 QEMU64=$(printenv QEMU 2>/dev/null || true)
 [ -n "$QEMU64" ] || QEMU64=qemu-system-x86_64
 TIMEOUT=$(printenv RECOVERY_TEST_TIMEOUT 2>/dev/null || true)
@@ -109,7 +109,7 @@ while [ ! -S "$QMP_SOCKET" ] && [ "$ITER" -lt 100 ]; do
 done
 [ -S "$QMP_SOCKET" ] || fail "QMP socket was not created"
 
-READY="Tattva Kernel Ready. Entering main execution."
+READY="Utkarsha Kernel Ready. Entering main execution."
 SELFTESTS="Boot memory self-test: PASS"
 LIFECYCLE="SMP: scheduler park/unpark SKIP (single CPU)"
 HEARTBEAT="heartbeat #0"
@@ -178,7 +178,7 @@ for MILESTONE in \
     "Snapshot checksum valid. Initiating warm recovery..." \
     "Recovery: reloading kernel..." \
     "Recovery long-mode transition verify: OK" \
-    "Tattva Kernel Booting..." \
+    "Utkarsha Kernel Booting..." \
     "$SELFTESTS" \
     "$READY" \
     "$LIFECYCLE" \

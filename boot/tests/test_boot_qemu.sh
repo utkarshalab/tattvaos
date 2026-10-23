@@ -1,11 +1,11 @@
 #!/bin/sh
 # boot/tests/test_boot_qemu.sh
-# Boot Tattva OS in QEMU and verify UART output
+# Boot Utkarsha OS in QEMU and verify UART output
 #
 set -eu
 
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-IMG="$TEST_DIR/../tattva.img"
+IMG="$TEST_DIR/../utkarsha.img"
 QEMU64=${QEMU:-qemu-system-x86_64}
 TIMEOUT=${BOOT_TEST_TIMEOUT:-30}
 CPU=${BOOT_QEMU_CPU:-max}
@@ -106,7 +106,7 @@ PASS=1
 # incorrectly accept duplicated or stale diagnostics after a failed transition.
 LAST_LINE=0
 for MILESTONE in \
-    "Tattva OS  |  Stage2 OK" \
+    "Utkarsha OS  |  Stage2 OK" \
     "A20...    OK" \
     "CPU...    OK" \
     "GDT verify: OK" \
@@ -114,11 +114,11 @@ for MILESTONE in \
     "IDT64 verify: OK" \
     "Long-mode transition verify: OK" \
     "Long mode OK" \
-    "Tattva Kernel Booting..." \
+    "Utkarsha Kernel Booting..." \
     "BootInfo Pointer: 0x0000000000007000" \
     "GS Accessor Test (CPU/Stack): 0/" \
     "Boot memory self-test: PASS" \
-    "Tattva Kernel Ready. Entering main execution." \
+    "Utkarsha Kernel Ready. Entering main execution." \
     "heartbeat #0"
 do
     LINE=$(awk -v after="$LAST_LINE" -v needle="$MILESTONE" \

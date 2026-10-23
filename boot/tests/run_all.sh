@@ -11,7 +11,7 @@ set -eu
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 BOOT_DIR=$(CDPATH= cd -- "$TEST_DIR/.." && pwd)
 
-echo "=== Tattva Boot Test Suite ==="
+echo "=== Utkarsha Boot Test Suite ==="
 
 # The Makefile's test target has already built the complete image.  These
 # checks deliberately validate that exact artifact rather than rebuilding a

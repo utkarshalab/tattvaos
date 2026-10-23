@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tests/test_fat32.asm
+; Utkarsha OS — boot/tests/test_fat32.asm
 ; =============================================================================
 ; Test assertion for FAT32 filesystem structures and partitioning.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tests/test_paging.asm
+; Utkarsha OS — boot/tests/test_paging.asm
 ; =============================================================================
 ; Test assertions for PML4 and PDPT page table configuration.
 ;

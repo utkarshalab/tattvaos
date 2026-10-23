@@ -100,10 +100,10 @@ dmar_table:
     db "DMAR"
     dd DMAR_HEADER_BYTES
     db 1, 0
-    db "TATTVA"
+    db "UTOS  "
     db "DMARTEST"
     dd 1
-    db "TATV"
+    db "UTOS"
     dd 1
     db 47
     db 0

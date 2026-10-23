@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tests/test_survive.asm
+; Utkarsha OS — boot/tests/test_survive.asm
 ; =============================================================================
 ; Test assertion for survive/ panic snapshot and CRC32 verification.
 ;

@@ -5,7 +5,7 @@
 set -eu
 
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-IMG="$TEST_DIR/../tattva.img"
+IMG="$TEST_DIR/../utkarsha.img"
 QEMU64=${QEMU:-qemu-system-x86_64}
 TIMEOUT=${HIGHMEM_FALLBACK_TEST_TIMEOUT:-45}
 TMP_DIR=$(mktemp -d)
@@ -63,7 +63,7 @@ for MILESTONE in \
     "Paging high map verify: SKIP (no supported RAM above 4 GiB)" \
     "Highmem direct-map R/W: SKIP (no supported RAM above 4 GiB)" \
     "Boot memory self-test: PASS" \
-    "Tattva Kernel Ready. Entering main execution." \
+    "Utkarsha Kernel Ready. Entering main execution." \
     "heartbeat #0"
 do
     has_exact "$MILESTONE" || fail "missing exact fallback milestone: $MILESTONE"

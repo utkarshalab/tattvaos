@@ -1,12 +1,12 @@
 #!/bin/sh
 # Verify that corrupted boot artifacts and unsupported CPUs fail closed, plus
 # one focused no-NX compatibility boot.  Every mutation is made in a private
-# temporary copy of tattva.img.
+# temporary copy of utkarsha.img.
 
 set -eu
 
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-GOOD_IMAGE="$TEST_DIR/../tattva.img"
+GOOD_IMAGE="$TEST_DIR/../utkarsha.img"
 QEMU64=${QEMU:-qemu-system-x86_64}
 TIMEOUT=${BOOT_NEGATIVE_TIMEOUT:-12}
 KERNEL_OFFSET=$((65 * 512))
@@ -251,7 +251,7 @@ expect_ordered_lines "NX-less CPU compatibility boot" "$NO_NX_LOG" \
     "Long-mode transition verify: OK" \
     "CPU does not support NX" \
     "Boot memory self-test: PASS" \
-    "Tattva Kernel Ready. Entering main execution." \
+    "Utkarsha Kernel Ready. Entering main execution." \
     "heartbeat #0"
 expect_absent "NX-less CPU early exception" "EARLY64 EXCEPTION" "$NO_NX_LOG"
 expect_absent "NX-less CPU stage2 fatal" "FATAL: stage2" "$NO_NX_LOG"

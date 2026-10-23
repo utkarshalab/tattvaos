@@ -133,8 +133,8 @@ fi
 if [ "$EDU" -eq 1 ]; then
     if [ "$EDU_BRIDGE" -eq 1 ]; then
         set -- "$@" \
-            -device "pci-bridge,id=tattva-br0,chassis_nr=1,addr=06.0" \
-            -device "edu,bus=tattva-br0,addr=06.0"
+            -device "pci-bridge,id=utkarsha-br0,chassis_nr=1,addr=06.0" \
+            -device "edu,bus=utkarsha-br0,addr=06.0"
     else
         set -- "$@" -device "edu,addr=06.0"
     fi
@@ -209,11 +209,11 @@ fi
 PASS=1
 LAST_LINE=0
 for MILESTONE in \
-    "Tattva OS | UEFI Path OK" \
-    "Tattva Kernel Booting..." \
+    "Utkarsha OS | UEFI Path OK" \
+    "Utkarsha Kernel Booting..." \
     "CPU features verified (SSE3, AVX, AVX2, FMA)." \
     "Boot memory self-test: PASS" \
-    "Tattva Kernel Ready. Entering main execution." \
+    "Utkarsha Kernel Ready. Entering main execution." \
     "heartbeat #0"
 do
     LINE=$(awk -v after="$LAST_LINE" -v needle="$MILESTONE" \

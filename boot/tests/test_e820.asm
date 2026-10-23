@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tests/test_e820.asm
+; Utkarsha OS — boot/tests/test_e820.asm
 ; =============================================================================
 ; Test assertions for E820 memory map parsing and validation.
 ;

@@ -1,4 +1,4 @@
-Tattva Boot OK
+Utkarsha Boot OK
 stage1: segments initialized
 stage1: DL saved = 0x80
 stage1: relocating MBR to 0x0600

@@ -711,10 +711,10 @@ madt_template:
     dd SMP_MADT_SIGNATURE
     dd MADT_BYTES
     db 1, 0                         ; revision, checksum (fixed at runtime)
-    db "TATVOS"                    ; OEM ID
+    db "UTOS  "                    ; OEM ID
     db "SMPTABLE"                  ; OEM table ID
     dd 1                            ; OEM revision
-    db "TATV"                      ; creator ID
+    db "UTOS"                      ; creator ID
     dd 1                            ; creator revision
     dd 0xFEE00000                   ; architectural LAPIC base
     dd 1                            ; PC-AT compatibility flags

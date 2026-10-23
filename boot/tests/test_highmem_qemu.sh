@@ -5,7 +5,7 @@
 set -eu
 
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-IMG="$TEST_DIR/../tattva.img"
+IMG="$TEST_DIR/../utkarsha.img"
 QEMU64=${QEMU:-qemu-system-x86_64}
 # Sparse high-memory boots force TCG and stream the complete ULF through BIOS.
 TIMEOUT=${HIGHMEM_TEST_TIMEOUT:-45}
@@ -134,7 +134,7 @@ for MILESTONE in \
     "Paging high map verify: OK" \
     "Highmem direct-map R/W: PASS phys=0x00000001" \
     "Boot memory self-test: PASS" \
-    "Tattva Kernel Ready. Entering main execution." \
+    "Utkarsha Kernel Ready. Entering main execution." \
     "heartbeat #0"
 do
     LINE=$(awk -v after="$LAST_LINE" -v needle="$MILESTONE" \

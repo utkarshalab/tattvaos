@@ -9,7 +9,7 @@ BOOT_DIR=$(CDPATH= cd -- "$TEST_DIR/.." && pwd)
 STAGE1="$BOOT_DIR/stage1.bin"
 STAGE2="$BOOT_DIR/stage2.bin"
 KERNEL="$BOOT_DIR/kernel.bin"
-IMAGE="$BOOT_DIR/tattva.img"
+IMAGE="$BOOT_DIR/utkarsha.img"
 
 fail() {
     echo "FAIL: $*"

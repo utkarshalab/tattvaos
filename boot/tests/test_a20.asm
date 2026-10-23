@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tests/test_a20.asm
+; Utkarsha OS — boot/tests/test_a20.asm
 ; =============================================================================
 ; Test assertion for the A20 gate address line verification.
 ;

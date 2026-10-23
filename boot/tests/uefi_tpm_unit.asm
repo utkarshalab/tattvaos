@@ -168,7 +168,7 @@ measured_data:
     dq 0x0123456789ABCDEF
 measured_data_end:
 expected_event:
-    db "Tattva kernel", 0
+    db "Utkarsha kernel", 0
 expected_event_end:
 
 section .bss align=16
