@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/survive/checksum.asm
+; Utkarsha OS — boot/survive/checksum.asm
 ; =============================================================================
 ; CRC32 checksum calculator and verifier for the hardware snapshot page.
 ; Standard IEEE 802.3 CRC32 implemented in software (tableless, compact).

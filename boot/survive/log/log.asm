@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/survive/log/log.asm
+; Utkarsha OS — boot/survive/log/log.asm
 ; =============================================================================
 ; Saves the panic reason description string and crash location to the log area
 ; at SURVIVE_PAGE + 0x800 (0x9800) so it survives warm reboots.

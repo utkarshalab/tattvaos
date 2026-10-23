@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/survive/snapshot.asm
+; Utkarsha OS — boot/survive/snapshot.asm
 ; =============================================================================
 ; Captures the hardware state and stack to SURVIVE_PAGE (0x9000) for recovery.
 ;

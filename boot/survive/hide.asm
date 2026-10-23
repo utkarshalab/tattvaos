@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/survive/hide.asm
+; Utkarsha OS — boot/survive/hide.asm
 ; =============================================================================
 ; Hides the SURVIVE_PAGE (0x9000 - 0xA000) from the E820 memory map.
 ; Splits the usable RAM entry containing 0x9000 into:

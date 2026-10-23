@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/survive/diff.asm
+; Utkarsha OS — boot/survive/diff.asm
 ; =============================================================================
 ; Compares the panic crash state (0x9A00) against the pristine snapshot (0x9000)
 ; and logs any differing registers via UART.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/survive/recover.asm
+; Utkarsha OS — boot/survive/recover.asm
 ; =============================================================================
 ; Handles the transition from 64-bit long mode back to 16-bit real mode,
 ; reloads KERNEL.ULF, transitions back to 64-bit, restores the snapshot state,

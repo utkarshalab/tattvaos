@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/survive/vector.asm
+; Utkarsha OS — boot/survive/vector.asm
 ; =============================================================================
 ; Registers the panic vector at PANIC_VECTOR (0x500) so the kernel can find it.
 ;

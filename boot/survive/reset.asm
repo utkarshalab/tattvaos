@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/survive/reset.asm
+; Utkarsha OS — boot/survive/reset.asm
 ; =============================================================================
 ; Triggers a hardware reset/reboot.
 ; Method 1: PS/2 Keyboard Controller output port pulse (standard legacy reset)

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/survive/wakeup.asm
+; Utkarsha OS — boot/survive/wakeup.asm
 ; =============================================================================
 ; Wakeup entry point for the survive panic recovery vector.
 ; Captures the crash state, logs the panic, verifies checksums, and launches
