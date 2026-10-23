@@ -33,6 +33,12 @@ compiler. Exit status 0 means everything passed.
   object, then runs each `test_*.py` against it twice: natively, then
   with `UMATH_CPU_MASK=0` so umath uses only the SSE2 baseline and every
   SSE4/AVX/BMI fast path goes through its fallback (`../cpuid/`).
+- `test_math_fn_ext.py`: the extended math_fn functions (exp2, exp10,
+  expm1, log2, log10, log1p, cbrt, scalbn): ULP sweeps over each domain,
+  special values, the exactness promises (exp2/log2 of powers of two,
+  exp10/log10 of 10^0..10^22, cbrt of perfect cubes), and array/inplace
+  bit for bit against the scalar. `UMATH_VERBOSE=1` prints the measured
+  worst case per function.
 - `test_math_fn.py`: ULP sweeps against Python's `math` module, special
   values (NaN, ±Inf, ±0, overflow/underflow), the sin/cos domain bound, and
   array/inplace variants against the scalar routine.
@@ -54,8 +60,8 @@ compiler. Exit status 0 means everything passed.
   (including cancellation and 1e6-term sums), Welford mean/variance
   against exact `Fraction` arithmetic (large offsets, chunked + merged),
   log-sum-exp accuracy and special values.
-- `test_cpu.py`: CPU detection against `/proc/cpuinfo`, the restrict/has
-  API, and the SSE2 fallbacks bit for bit against the native instructions
+- `test_cpu.py`: CPU detection against the host's reported CPU flags,
+  the restrict/has API, and the SSE2 fallbacks bit for bit against the native instructions
   (a second library copy restricted to the baseline; sin/cos/exp/pow and
   every floor/ceil/round/trunc form, on raw bit patterns including
   signalling NaNs).
