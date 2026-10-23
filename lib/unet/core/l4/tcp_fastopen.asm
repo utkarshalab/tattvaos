@@ -31,9 +31,7 @@
 %define TFO_OPT_LEN_MIN         2         ; Kind + Length
 %define TFO_OPT_LEN_COOKIE      18        ; Kind + Length + 16-byte cookie
 
-%define TCBF_TFO_CLIENT         0x01      ; Client supports TFO
-%define TCBF_TFO_SERVER         0x02      ; Server supports TFO
-%define TCBF_TFO_COOKIE_VALID        0x04      ; Cookie is valid
+; TCBF_TFO_CLIENT / _SERVER / _COOKIE_VALID are tcb_t.flags bits from tcp.asm
 %define TFO_COOKIE_EXPIRED      0x08      ; Cookie expired
 
 struc tfo_cookie_t
@@ -547,108 +545,17 @@ tfo_process_synack:
 ; =============================================================================
 ; tfo_send_syn_with_data — Send SYN with data and cookie (client side)
 ; Input: RDI = tcb_t*, RSI = data_ptr, RDX = data_len, RCX = cookie (optional)
+; Output: RAX = net_pkt_t* sent, or 0 if nothing was sent
+;
+; TODO: Not implemented yet, so it sends nothing and returns 0; the caller
+; then opens the connection with a plain SYN (tcp_connect). A SYN carrying
+; data needs the TCP output path to place options and payload together:
+; tcp_gen_options currently writes options straight after the 20-byte header,
+; which is where a payload would sit.
 ; -----------------------------------------------------------------------------
 align 64
 tfo_send_syn_with_data:
-    push rbp
-    mov rbp, rsp
-    push rbx
-    push r12
-    push r13
-    push r14
-
-    mov rbx, rdi            ; tcb_t*
-    mov r12, rsi            ; data pointer
-    mov r13, rdx            ; data length
-    mov r14, rcx            ; cookie (0 if none)
-
-    ; Allocate packet
-    call pktbuf_alloc
-    test rax, rax
-    jz .fail
-    mov r12, rax            ; net_pkt_t*
-
-    ; Ensure enough headroom for TCP + IP + Ethernet + Fast Open option
-    cmp dword [r12 + net_pkt_t.headroom_offset], 20 + 20 + 14 + 18
-    jb .free_fail
-
-    sub dword [r12 + net_pkt_t.headroom_offset], 20 + 18  ; TCP header + Fast Open option
-    mov dword [r12 + net_pkt_t.data_len], 20 + 18 + r13d
-
-    ; Build TCP header with SYN + data
-    mov rbx, r12
-    mov edi, TCP_FLAG_SYN
-    mov esi, r13d + 18      ; payload length including option
-    call tcp_build_segment
-
-    ; Add Fast Open option to TCP options
-    mov rax, [r12 + net_pkt_t.virt_addr]
-    add rax, [r12 + net_pkt_t.headroom_offset]
-    lea r13, [rax + 20]     ; Start of options area
-
-    ; Write Fast Open option with cookie
-    mov byte [r13], TFO_COOKIE_OPT
-    mov byte [r13 + 1], TFO_OPT_LEN_COOKIE
-    test r14, r14
-    jz .no_cookie
-    mov [r13 + 2], r14      ; cookie low 64 bits
-    mov [r13 + 10], rdx     ; cookie high 64 bits (if available)
-    jmp .cookie_done
-
-.no_cookie:
-    ; Cookie request (empty cookie)
-    mov qword [r13 + 2], 0
-    mov qword [r13 + 10], 0
-
-.cookie_done:
-    ; Update data offset in TCP header
-    mov rax, [r12 + net_pkt_t.virt_addr]
-    add rax, [r12 + net_pkt_t.headroom_offset]
-    movzx ecx, word [rax + tcp_hdr_t.data_offset_flags]
-    rol cx, 8
-    and cl, 0xF0
-    shr cl, 4
-    add cl, 2               ; 20 + 18 = 38 bytes = 9.5 -> 10 32-bit words
-    shl cl, 4
-    or cl, ch               ; preserve flags
-    rol cx, 8
-    mov [rax + tcp_hdr_t.data_offset_flags], cx
-
-    ; Update data_len
-    mov eax, [r12 + net_pkt_t.data_len]
-    add eax, 18
-    mov [r12 + net_pkt_t.data_len], eax
-
-    ; Set ECN flags
-    mov rdi, rbx
-    mov rsi, rax
-    call tcp_ecn_syn_sent
-
-    ; Calculate checksum and send
-    mov rdi, r12
-    mov esi, [rbx + tcb_t.remote_ip]
-    mov dl, IP_PROTO_TCP
-    mov dh, 0
-    call tcp_ecn_get_flags
-    mov dl, al
-    mov dh, ah
-    call ip_output
-
-    mov rax, r12
-    jmp .done
-
-.free_fail:
-    mov rdi, r12
-    call pktbuf_free
-.fail:
-    xor rax, rax
-
-.done:
-    pop r14
-    pop r13
-    pop r12
-    pop rbx
-    pop rbp
+    xor eax, eax
     ret
 
 ; =============================================================================
