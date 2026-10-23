@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tattva OS — Stack Reference</title>
+<title>Utkarsha OS — Stack Reference</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Syne:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -75,7 +75,7 @@
 <body>
 
 <header>
-  <h1>Tattva OS — stack reference</h1>
+  <h1>Utkarsha OS — stack reference</h1>
   <p>Assembly-native unikernel OS and inference stack by Utkarsha Labs.<br>Every module in hand-crafted assembly. Nothing borrowed, nothing wasted.</p>
   <div class="meta"><span>AArch64</span><span>x86-64</span><span>RISC-V</span><span>Utkarsha Labs © 2026</span></div>
 </header>
@@ -146,7 +146,7 @@
 <div class="CH"><span>module</span><span>what it does</span><span>depends on</span></div>
 <div class="R"><span class="N">uFS</span><span class="D">filesystem — inodes (with TTL field for chmod_ttl), journal, mount/unmount, block allocation, path resolution</span><span class="P">mem, io, ulib</span></div>
 <div class="R"><span class="N">uwal <span class="b bn">added</span></span><span class="D">write-ahead log primitives — fsync guarantees, segment management, crash recovery</span><span class="P">mem, io, uFS</span></div>
-<div class="R"><span class="N">ubxp <span class="b bn">added</span></span><span class="D">BXP binary protocol — encoder/decoder, Tattva wire format for everything</span><span class="P">mem, ulib, ucmp</span></div>
+<div class="R"><span class="N">ubxp <span class="b bn">added</span></span><span class="D">BXP binary protocol — encoder/decoder, Utkarsha wire format for everything</span><span class="P">mem, ulib, ucmp</span></div>
 <div class="R"><span class="N">udb <span class="b bc">rename TBD</span></span><span class="D">multi-model DB — KV, SQL, vector, graph, GIS, HFT, ledger, timeseries, distributed. was Sagar</span><span class="P">mem, io, uFS, uwal, ulib, umath, uhash, ucmp, ubxp</span></div>
 <div class="R"><span class="N">uobject <span class="b bn">added</span></span><span class="D">object storage — S3-compatible API, large file storage, model weight repository. was Sangraha</span><span class="P">uFS, uhttp, uhash</span></div>
 <div class="R"><span class="N">ummapf <span class="b bn">added</span></span><span class="D">memory-mapped files — mmap for model weight loading, lazy loading, zero-copy serving</span><span class="P">mem, io, uFS</span></div>
@@ -222,7 +222,7 @@
 <div class="R"><span class="N">usafetensor <span class="b bn">added</span></span><span class="D">safetensors — HuggingFace standard, safe deserialization, memory-mapped loading</span><span class="P">mem, io</span></div>
 <div class="R"><span class="N">uonnx <span class="b bn">added</span></span><span class="D">ONNX import/export — run any ONNX model, export to your format</span><span class="P">mem, io, uparser</span></div>
 <div class="R"><span class="N">uggml <span class="b bn">added</span></span><span class="D">GGML legacy format reader — older llama.cpp format, still widely used</span><span class="P">mem, io</span></div>
-<div class="R"><span class="N">uconvert <span class="b bn">added</span></span><span class="D">model format converter — GGUF/safetensors/ONNX → Tattva format. one tool, all conversions</span><span class="P">ugguf, usafetensor, uonnx, umodel</span></div>
+<div class="R"><span class="N">uconvert <span class="b bn">added</span></span><span class="D">model format converter — GGUF/safetensors/ONNX → Utkarsha format. one tool, all conversions</span><span class="P">ugguf, usafetensor, uonnx, umodel</span></div>
 <div class="R"><span class="N">umodel</span><span class="D">model loader — weight loading, memory-mapped, sharded model loading across GPUs/nodes</span><span class="P">mem, io, uFS, ucmp, ufile, uhash, ummapf</span></div>
 <div class="R"><span class="N">— engine —</span><span class="D" style="color:var(--dim);font-style:italic">inference + training</span><span class="P"></span></div>
 <div class="R"><span class="N">uinfer</span><span class="D">inference engine — transformer runtime loop, forward pass, request batching, sampling via udecode</span><span class="P">utok, uattn, umodel, ukvcache, umath</span></div>
@@ -234,7 +234,7 @@
   decoder-only    → GPT, LLaMA, ChatGPT — autoregressive generation, one token at a time
   encoder-decoder → T5, BART, Whisper — translation, summarization, ASR
 
-eliminated by Tattva:  Python · framework dispatch · CUDA runtime · OS scheduler jitter · memory copies
+eliminated by Utkarsha:  Python · framework dispatch · CUDA runtime · OS scheduler jitter · memory copies
 accepted as unbeatable: cuBLAS GEMM (NVIDIA's own asm) · NCCL collectives for multi-GPU</div>
 </div></div>
 
@@ -307,7 +307,7 @@ svc #0</div>
 <div class="R"><span class="N">utopology <span class="b bn">added</span></span><span class="D">cluster topology visualizer — all nodes, connections, load, live cluster health map</span><span class="P">udist, umetric</span></div>
 <div class="R"><span class="N">udash <span class="b bn">added</span></span><span class="D">web dashboard — real-time metrics UI, was Tribhuvan, served by userve</span><span class="P">userve, umetric</span></div>
 <div class="R"><span class="N">utui</span><span class="D">terminal UI — dashboard, tables, charts in terminal</span><span class="P">str, utf8, ufont, umetric</span></div>
-<div class="note"><strong>umark philosophy:</strong> direct PMU access, zero overhead. Tattva OS measures itself — measurement does not affect measurement.</div>
+<div class="note"><strong>umark philosophy:</strong> direct PMU access, zero overhead. Utkarsha OS measures itself — measurement does not affect measurement.</div>
 </div></div>
 
 <!-- CORETOOLS -->
@@ -316,13 +316,13 @@ svc #0</div>
 <div class="CH"><span>module</span><span>what it does</span><span>depends on</span></div>
 <div class="R"><span class="N">ush</span><span class="D">shell + init — PID 1, scripting, job control</span><span class="P">mem, io, uFS, ulib</span></div>
 <div class="R"><span class="N">udbg</span><span class="D">debugger — breakpoints, watchpoints, memory inspection, register dump, no DWARF dependency</span><span class="P">mem, io, utasm</span></div>
-<div class="R"><span class="N">ucore <span class="b bn">added</span></span><span class="D">core dump analyzer for Tattva processes</span><span class="P">mem, uelf, udis</span></div>
+<div class="R"><span class="N">ucore <span class="b bn">added</span></span><span class="D">core dump analyzer for Utkarsha processes</span><span class="P">mem, uelf, udis</span></div>
 <div class="R"><span class="N">ustep <span class="b bn">added</span></span><span class="D">single-step executor — instruction by instruction with full register state dump</span><span class="P">udbg, utasm</span></div>
 <div class="R"><span class="N">ustack <span class="b bn">added</span></span><span class="D">stack unwinder and call chain visualizer</span><span class="P">mem, usym</span></div>
-<div class="R"><span class="N">usched_vis <span class="b bn">added</span></span><span class="D">scheduler visualizer — see how Tattva schedules processes in real time</span><span class="P">mem, umetric</span></div>
-<div class="R"><span class="N">usig <span class="b bn">added</span></span><span class="D">signal inspector — monitor signals between Tattva processes</span><span class="P">io, ulog</span></div>
+<div class="R"><span class="N">usched_vis <span class="b bn">added</span></span><span class="D">scheduler visualizer — see how Utkarsha schedules processes in real time</span><span class="P">mem, umetric</span></div>
+<div class="R"><span class="N">usig <span class="b bn">added</span></span><span class="D">signal inspector — monitor signals between Utkarsha processes</span><span class="P">io, ulog</span></div>
 <div class="R"><span class="N">ulock <span class="b bn">added</span></span><span class="D">deadlock detector for asm-level mutex/spinlock usage</span><span class="P">mem, ulog</span></div>
-<div class="R"><span class="N">uproc <span class="b bn">added</span></span><span class="D">process inspector — deep dive into a running Tattva process</span><span class="P">mem, io</span></div>
+<div class="R"><span class="N">uproc <span class="b bn">added</span></span><span class="D">process inspector — deep dive into a running Utkarsha process</span><span class="P">mem, io</span></div>
 <div class="R"><span class="N">ubuild <span class="b bn">added</span></span><span class="D">build system — dependency graph, incremental builds, Makefile alt</span><span class="P">mem, io, uFS, ulib</span></div>
 <div class="R"><span class="N">utest <span class="b bn">added</span></span><span class="D">test runner — assertions, fixtures, coverage, critical for memory safety validation</span><span class="P">mem, ulib, ulog</span></div>
 <div class="R"><span class="N">ucov <span class="b bn">added</span></span><span class="D">code coverage for asm routines — which paths actually execute</span><span class="P">utasm, utest</span></div>
@@ -332,7 +332,7 @@ svc #0</div>
 <div class="R"><span class="N">uscan</span><span class="D">port scanner + static security scanner for unsafe asm memory patterns</span><span class="P">unet, utasm</span></div>
 <div class="R"><span class="N">usim <span class="b bn">added</span></span><span class="D">hardware simulator — simulate AArch64/RISC-V without real hardware, test uboot in QEMU</span><span class="P">utasm</span></div>
 <div class="R"><span class="N">ucross <span class="b bn">added</span></span><span class="D">cross-compiler support — build AArch64 on x86, RISC-V on AArch64, essential for multi-arch</span><span class="P">utasm</span></div>
-<div class="R"><span class="N">udeploy <span class="b bn">added</span></span><span class="D">deployment tool — push Tattva OS images to bare metal, ansible-like but yours, uses upm</span><span class="P">upm, uhttp, uhash</span></div>
+<div class="R"><span class="N">udeploy <span class="b bn">added</span></span><span class="D">deployment tool — push Utkarsha OS images to bare metal, ansible-like but yours, uses upm</span><span class="P">upm, uhttp, uhash</span></div>
 </div></div>
 
 <!-- BINARY ANALYSIS -->
@@ -445,7 +445,7 @@ svc #0</div>
 <!-- NAMING -->
 <div class="S"><div class="SH"><span class="ST">naming decisions</span><span class="b bd">locked where noted</span></div>
 <div class="SB"><div class="ng">
-  <div class="nr"><span class="nk">OS</span><span class="nv">Tattva OS (tattvaos.com taken — use .io or .dev)</span></div>
+  <div class="nr"><span class="nk">OS</span><span class="nv">Utkarsha OS (utkarshaos.com)</span></div>
   <div class="nr"><span class="nk">bootloader</span><span class="nv">uboot ✓</span></div>
   <div class="nr"><span class="nk">assembler</span><span class="nv">utasm ✓</span></div>
   <div class="nr"><span class="nk">database</span><span class="nv">udb — global rename TBD</span></div>

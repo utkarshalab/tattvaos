@@ -1,4 +1,4 @@
-# Tattva OS — Project Structure
+# Utkarsha OS — Project Structure
 
 > Assembly-native unikernel OS and inference stack by Utkarsha Labs.
 > AArch64 · x86-64 · RISC-V
@@ -8,7 +8,7 @@
 ## Repository Root
 
 ```
-tattva/
+utkarsha/
 ├── PROJECTSTRUCTURE.md     ← this file
 ├── STACK.html              ← full stack reference
 ├── README.md               ← project overview
@@ -17,7 +17,7 @@ tattva/
 │
 ├── boot/                   ← uboot — bootloader
 ├── asm/                    ← utasm — assembler/linker/disassembler
-├── kernel/                 ← Tattva OS kernel
+├── kernel/                 ← Utkarsha OS kernel
 ├── lib/                    ← all u-libraries (foundation stack)
 ├── crypto/                 ← crypto stack
 ├── net/                    ← network stack
@@ -99,7 +99,7 @@ boot/
 │   ├── protocol.asm        ← UEFI protocol handling
 │   └── handoff.asm         ← handoff to kernel
 │
-├── survive/                ← Panic recovery — unique to Tattva
+├── survive/                ← Panic recovery — unique to Utkarsha
 │   ├── snapshot.asm        ← hardware state snapshot
 │   ├── hide.asm            ← hide page from e820
 │   ├── vector.asm          ← panic vector installation
@@ -146,7 +146,7 @@ asm/
 │   ├── relocations.asm     ← relocation processing
 │   ├── sections.asm        ← section merging
 │   └── scripts/            ← default linker scripts
-│       ├── tattva.ld       ← Tattva OS binary
+│       ├── utkarsha.ld       ← Utkarsha OS binary
 │       ├── unikernel.ld    ← unikernel layout
 │       └── upk.ld          ← .upk package layout
 │
@@ -182,7 +182,7 @@ asm/
 
 ---
 
-## kernel/ — Tattva OS Kernel
+## kernel/ — Utkarsha OS Kernel
 
 ```
 kernel/
@@ -265,7 +265,7 @@ kernel/
     └── driver_test/
 ```
 
-**There is no `syscall/` tree, by design.** Tattva OS is a unikernel: one address
+**There is no `syscall/` tree, by design.** Utkarsha OS is a unikernel: one address
 space, ring 0 only, no user ring. A "system call" is a direct `call` — roughly
 1–2ns against 50–150ns for a ring transition, and considerably worse than that
 once KPTI and speculation mitigations are counted.
@@ -571,7 +571,7 @@ net/
 
 ```
 storage/
-├── uxfs/                    ← Tattva filesystem
+├── uxfs/                    ← Utkarsha filesystem
 │   ├── inode.asm           ← inode structure (includes TTL field)
 │   ├── journal.asm         ← journaling
 │   ├── alloc.asm           ← block allocation
@@ -769,7 +769,7 @@ ai/
 │   └── uconvert/           ← format converter
 │       ├── convert.asm     ← main converter
 │       └── targets/
-│           ├── to_tattva.asm
+│           ├── to_utkarsha.asm
 │           ├── to_gguf.asm
 │           └── to_onnx.asm
 │
@@ -1239,7 +1239,7 @@ tests/
 ├── bench/                  ← benchmark comparisons
 │   ├── vs_pytorch/         ← assembly vs PyTorch numbers
 │   ├── vs_vllm/            ← assembly vs vLLM
-│   └── vs_linux/           ← Tattva OS vs Linux baseline
+│   └── vs_linux/           ← Utkarsha OS vs Linux baseline
 └── qemu/                   ← QEMU automated boot tests
 ```
 
@@ -1253,7 +1253,7 @@ bench/
 ├── inference/              ← tokens/sec, TTFT, latency
 ├── database/               ← udb vs SurrealDB, Postgres, Redis
 ├── network/                ← userve vs nginx, caddy
-└── os/                     ← Tattva OS vs Linux baseline
+└── os/                     ← Utkarsha OS vs Linux baseline
 ```
 
 ---
@@ -1339,7 +1339,7 @@ third_party/
 ```
 1. Nothing in layer N imports from layer N+1
 2. Every module has a tests/ subdirectory
-3. All assembly uses Tattva calling conventions — not NASM idioms
+3. All assembly uses Utkarsha calling conventions — not NASM idioms
 4. third_party/ is the only exception to pure assembly rule
 5. platform/ contains only arch-specific code, nothing else
 6. apps/ depend on everything but nothing depends on apps/

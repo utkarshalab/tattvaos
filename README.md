@@ -1,4 +1,4 @@
-# Tattva OS
+# Utkarsha OS
 
 > *Every layer between your code and the hardware costs something.*
 > *We eliminate all of it. Then we measure what's left.*
@@ -7,7 +7,7 @@
 
 ## What is this?
 
-Tattva OS is an assembly-native unikernel built specifically for AI inference.
+Utkarsha OS is an assembly-native unikernel built specifically for AI inference.
 
 The thesis is simple. A normal inference stack looks like this:
 
@@ -22,7 +22,7 @@ your model
 ```
 
 Every arrow is overhead. Every layer adds latency, jitter, memory pressure.
-Tattva OS collapses the entire stack to:
+Utkarsha OS collapses the entire stack to:
 
 ```
 your model
@@ -125,7 +125,7 @@ that eliminates software overhead, runs on hardware people actually own,
 and makes serious AI work accessible without depending on hyperscaler
 infrastructure.
 
-Tattva OS is the foundation that makes that possible.
+Utkarsha OS is the foundation that makes that possible.
 
 ---
 
