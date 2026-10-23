@@ -5,4 +5,4 @@
 Catches: uninitialized register reads, missing stack alignment,
 unsafe memory patterns, undefined label references, style violations.
 
-Part of the `asm/` category in Tattva OS.
+Part of the `asm/` category in Utkarsha OS.
