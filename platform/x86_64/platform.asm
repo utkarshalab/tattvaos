@@ -2,7 +2,7 @@
 %define GUARD_PLATFORM_X86_64_PLATFORM_ASM
 ; =============================================================================
 ; File     : platform/x86_64/platform.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: x86_64 platform-specific initialization and support code.

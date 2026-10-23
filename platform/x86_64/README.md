@@ -9,7 +9,7 @@
 ## Purpose
 
 x86-64 specific platform initialization, CPU feature detection, and hardware
-abstraction for Tattva OS.
+abstraction for Utkarsha OS.
 
 ## Files
 
