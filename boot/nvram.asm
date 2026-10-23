@@ -25,7 +25,7 @@ efi_global_var_guid:
 
 align 8
 log_var_name:
-    dw 'T', 'a', 't', 't', 'v', 'a', 'B', 'o', 'o', 't', 'L', 'o', 'g', 0
+    dw 'U', 't', 'k', 'a', 'r', 's', 'h', 'a', 'B', 'o', 'o', 't', 'L', 'o', 'g', 0
 
 ; =============================================================================
 ; uefi_write_boot_log — Write early boot diagnostic log to UEFI NVRAM
