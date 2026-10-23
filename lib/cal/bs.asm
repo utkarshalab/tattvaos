@@ -6,7 +6,7 @@
 ; conversions using a month-lengths lookup table starting at epoch base
 ; BS 2080 (Baisakh 1, 2080 BS = April 14, 2023 AD).
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

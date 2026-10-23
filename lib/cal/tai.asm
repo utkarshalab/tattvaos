@@ -5,7 +5,7 @@
 ; Maps standard Unix Epoch seconds to monotonic TAI seconds by applying
 ; historical leap second adjustments.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -5,7 +5,7 @@
 ; Implements leap year logic, days-per-month determinations, and weekday
 ; offsets (0=Sunday to 6=Saturday) via Sakamoto's fast bitwise algorithm.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

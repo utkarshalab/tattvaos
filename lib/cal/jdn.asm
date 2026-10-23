@@ -5,7 +5,7 @@
 ; Implements Gregorian-to-Julian Day Number (cal_to_jdn) and Julian-to-Gregorian
 ; date conversions (cal_from_jdn) in O(1) time complexity.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

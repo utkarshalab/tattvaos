@@ -5,7 +5,7 @@
 ; Implements Gregorian-to-Epoch seconds conversions (cal_to_epoch) and
 ; Epoch-to-Gregorian date-time decompositions (cal_from_epoch).
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

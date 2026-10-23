@@ -1,6 +1,6 @@
 # =============================================================================
 # lib/cal/Makefile
-# Makefile for Calendar Library in Tattva OS
+# Makefile for Calendar Library in Utkarsha OS
 # =============================================================================
 
 ASM = nasm

@@ -1,8 +1,8 @@
 ; =============================================================================
 ; lib/cal/cal.inc
-; Calendar and Date utility definitions for Tattva OS.
+; Calendar and Date utility definitions for Utkarsha OS.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

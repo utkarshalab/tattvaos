@@ -4,7 +4,7 @@
 ;
 ; Exercises leap years, Sakamoto weekday values, epoch translations, and ISO 8601 parsing.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

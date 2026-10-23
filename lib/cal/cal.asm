@@ -2,7 +2,7 @@
 ; lib/cal/cal.asm
 ; Calendar Library main wrapper.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

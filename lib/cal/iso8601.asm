@@ -5,7 +5,7 @@
 ; Formats tm_t dates into standard "YYYY-MM-DDTHH:MM:SSZ" format strings,
 ; and parses compliant ISO 8601 strings back into tm_t structures.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 
