@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/backpressure_drop_newest.asm
+; Utkarsha OS — lib/ulog/drain/backpressure_drop_newest.asm
 ; =============================================================================
 ; The opposite strategy from backpressure_drop_oldest.asm: protect history,
 ; shed the new. Declines to free anything — batch.asm reads a 0 return as

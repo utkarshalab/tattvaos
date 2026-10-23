@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/record.inc
+; Utkarsha OS — lib/ulog/record/record.inc
 ; =============================================================================
 ; Internal structs for record transport and staging. Not part of ulog.inc's
 ; "master schema" on purpose — nothing outside record/, drain/, and init/

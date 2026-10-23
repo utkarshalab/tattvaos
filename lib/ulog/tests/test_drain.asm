@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/test_drain.asm
+; Utkarsha OS — lib/ulog/tests/test_drain.asm
 ; =============================================================================
 ; batch.asm's collection loop against a scratch ring, and
 ; backpressure_drop_oldest.asm's shift-and-free behavior once the pool runs

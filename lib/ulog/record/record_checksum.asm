@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/record_checksum.asm
+; Utkarsha OS — lib/ulog/record/record_checksum.asm
 ; =============================================================================
 ; CRC32 (Castagnoli, via the SSE4.2 CRC32 instruction — every x86-64 target
 ; this OS ships on has it) over the first 52 bytes of a log_record_t, i.e.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/ulog.inc
+; Utkarsha OS — lib/ulog/ulog.inc
 ; =============================================================================
 ; Master schema for the structured logger: the on-the-wire record shape and
 ; the level constants every other ulog header builds on.

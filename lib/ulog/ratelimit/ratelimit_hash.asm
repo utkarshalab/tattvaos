@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/ratelimit/ratelimit_hash.asm
+; Utkarsha OS — lib/ulog/ratelimit/ratelimit_hash.asm
 ; =============================================================================
 ; A cheap bucket signature over (module_id, msg_ptr). msg_ptr is always a
 ; static string literal's address in this tree — never heap or stack — so

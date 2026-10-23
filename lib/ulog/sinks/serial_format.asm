@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/serial_format.asm
+; Utkarsha OS — lib/ulog/sinks/serial_format.asm
 ; =============================================================================
 ; The seam between "how a record becomes a serial line" and "how bytes get
 ; onto COM1." Forwards to format/text_render.asm today; kept as its own file

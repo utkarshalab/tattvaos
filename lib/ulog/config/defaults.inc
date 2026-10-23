@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/config/defaults.inc
+; Utkarsha OS — lib/ulog/config/defaults.inc
 ; =============================================================================
 ; Named constants for every tunable ulog ships with. Nothing below should
 ; ever be duplicated as a bare literal elsewhere in lib/ulog — that's what

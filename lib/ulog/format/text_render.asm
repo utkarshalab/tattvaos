@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/format/text_render.asm
+; Utkarsha OS — lib/ulog/format/text_render.asm
 ; =============================================================================
 ; Human-readable rendering — what sinks/serial.asm writes, and what a future
 ; live-tail tool under tools/coretools/ would call too. Separate from

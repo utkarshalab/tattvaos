@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/drain_fiber.asm
+; Utkarsha OS — lib/ulog/drain/drain_fiber.asm
 ; =============================================================================
 ; The daemon fiber every other file in drain/ exists to run inside. Entry
 ; point + loop shell only — collection, flush timing, dispatch, and self-

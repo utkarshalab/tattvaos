@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/backpressure_block.asm
+; Utkarsha OS — lib/ulog/drain/backpressure_block.asm
 ; =============================================================================
 ; The third named strategy — and an honest limitation, not a real block: a
 ; cooperative fiber daemon cannot suspend mid-collection and resume later

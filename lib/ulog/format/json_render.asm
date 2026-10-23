@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/format/json_render.asm
+; Utkarsha OS — lib/ulog/format/json_render.asm
 ; =============================================================================
 ; Machine-readable rendering for sinks/file.asm and sinks/net.asm — what an
 ; ELK/Datadog-style ingestion pipeline actually wants. Writes into a

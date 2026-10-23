@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/ring_stats.asm
+; Utkarsha OS — lib/ulog/record/ring_stats.asm
 ; =============================================================================
 ; High-water-mark tracking per ring — the number ULOG_RING_SLOTS_PER_CPU in
 ; config/defaults.inc should be tuned against, instead of guessed.

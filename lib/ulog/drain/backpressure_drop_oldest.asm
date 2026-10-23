@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/backpressure_drop_oldest.asm
+; Utkarsha OS — lib/ulog/drain/backpressure_drop_oldest.asm
 ; =============================================================================
 ; One of three named overflow strategies for when record_pool.asm is
 ; exhausted mid-collection. This one sacrifices history for recency: free

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/dispatch.asm
+; Utkarsha OS — lib/ulog/drain/dispatch.asm
 ; =============================================================================
 ; Fans a collected batch out to every registered, healthy sink. One call per
 ; (record, sink) pair rather than one bulk call per sink — batch.asm's

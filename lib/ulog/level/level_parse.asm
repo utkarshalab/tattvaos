@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/level/level_parse.asm
+; Utkarsha OS — lib/ulog/level/level_parse.asm
 ; =============================================================================
 ; Parses a level from a boot argument or config string (config/boot_args.asm
 ; calls this). Accepts the short names, not full words — boot command lines

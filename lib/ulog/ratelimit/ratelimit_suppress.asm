@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/ratelimit/ratelimit_suppress.asm
+; Utkarsha OS — lib/ulog/ratelimit/ratelimit_suppress.asm
 ; =============================================================================
 ; The public entry point — printk_ratelimit(), exactly. A call site that
 ; wants protection against flooding (a flapping NIC, a retry loop) calls

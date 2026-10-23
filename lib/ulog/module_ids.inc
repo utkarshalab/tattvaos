@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/module_ids.inc
+; Utkarsha OS — lib/ulog/module_ids.inc
 ; =============================================================================
 ; Canonical module/app-ID registry (DLT-style). Every subsystem that emits a
 ; log record identifies itself by one of these 16-bit IDs, never a free-text

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/batch.asm
+; Utkarsha OS — lib/ulog/drain/batch.asm
 ; =============================================================================
 ; Collects records out of the per-CPU rings into record_pool-backed staging
 ; slots, up to ULOG_BATCH_MAX_RECORDS. Owns the choice of backpressure

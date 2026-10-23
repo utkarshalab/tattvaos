@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/test_sinks.asm
+; Utkarsha OS — lib/ulog/tests/test_sinks.asm
 ; =============================================================================
 ; sink_registry.asm's add/count/get, and sink_health.asm's three-condition
 ; check — enabled, healthy, and not mid-breaker-cooldown.

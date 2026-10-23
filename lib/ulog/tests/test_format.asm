@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/test_format.asm
+; Utkarsha OS — lib/ulog/tests/test_format.asm
 ; =============================================================================
 ; json_render_line's shape: starts with `{`, ends with `}\n`, and reports a
 ; length that actually matches what it wrote — the exact class of bug

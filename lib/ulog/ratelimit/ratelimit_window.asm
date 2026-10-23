@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/ratelimit/ratelimit_window.asm
+; Utkarsha OS — lib/ulog/ratelimit/ratelimit_window.asm
 ; =============================================================================
 ; Fixed-window bookkeeping per bucket. Stores enough of the original
 ; (module_id, msg_ptr) to detect a bucket collision — two different call

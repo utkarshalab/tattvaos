@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/drain_wake.asm
+; Utkarsha OS — lib/ulog/drain/drain_wake.asm
 ; =============================================================================
 ; Is there work? A cheap scan across every registered ring's fill count —
 ; drain_fiber.asm calls this before doing any real work, so an idle system

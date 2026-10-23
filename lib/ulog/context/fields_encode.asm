@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/context/fields_encode.asm
+; Utkarsha OS — lib/ulog/context/fields_encode.asm
 ; =============================================================================
 ; Builds a structured-fields blob into a caller-provided buffer (sized for
 ; FIELDS_MAX_ENTRIES — no allocation on the hot path here either). emit_fmt.asm

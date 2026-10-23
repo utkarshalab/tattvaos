@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/emit/emit_varargs.asm
+; Utkarsha OS — lib/ulog/emit/emit_varargs.asm
 ; =============================================================================
 ; The register-packing convention for more than one field, since NASM has no
 ; real varargs. Four macros used as a scoped sequence:

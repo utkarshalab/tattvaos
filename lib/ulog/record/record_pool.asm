@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/record_pool.asm
+; Utkarsha OS — lib/ulog/record/record_pool.asm
 ; =============================================================================
 ; Stable staging memory for in-flight batches. drain/batch.asm copies records
 ; out of a per-CPU ring (which the producer may overwrite the instant its

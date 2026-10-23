@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/context/correlate_stack.asm
+; Utkarsha OS — lib/ulog/context/correlate_stack.asm
 ; =============================================================================
 ; A nested trace/span stack, one per core (indexed by cpu_id, not folded into
 ; lib/percpu.inc itself — SPAN_STACK_DEPTH entries is bigger than a single

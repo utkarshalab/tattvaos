@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/format/hex_dump.asm
+; Utkarsha OS — lib/ulog/format/hex_dump.asm
 ; =============================================================================
 ; Annotated raw-buffer dump for "log these N bytes" error paths — a corrupt
 ; crypto handshake record, a malformed uxfs journal block. 16 bytes per line,

@@ -1,7 +1,7 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/emit/emit_fmt.asm
+; Utkarsha OS — lib/ulog/emit/emit_fmt.asm
 ; =============================================================================
-; The single-field convenience path. Tattva's structured logger takes a
+; The single-field convenience path. Utkarsha's structured logger takes a
 ; static message plus key/value fields, not a printf format string — that's
 ; deliberate (a `%d`-interpolated message is unqueryable text; a message plus
 ; a field is greppable and, once obs/utrace exists, indexable). The

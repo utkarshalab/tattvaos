@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/rotate.asm
+; Utkarsha OS — lib/ulog/sinks/rotate.asm
 ; =============================================================================
 ; Size-based rollover and retention for the file sink. Decides *when* and
 ; tracks *which segment*; file_transport.asm owns the actual uxfs open/close

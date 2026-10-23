@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/panic/panic_lock.asm
+; Utkarsha OS — lib/ulog/panic/panic_lock.asm
 ; =============================================================================
 ; Serializes panic output across cores when more than one crashes at once —
 ; real on SMP, not hypothetical. Deliberately NOT a normal spinlock: a

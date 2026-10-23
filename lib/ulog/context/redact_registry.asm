@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/context/redact_registry.asm
+; Utkarsha OS — lib/ulog/context/redact_registry.asm
 ; =============================================================================
 ; Which (module_id, field key) pairs are sensitive — crypto/ucrypt key
 ; material, security/usrauth capability tokens — so emit_fmt.asm can scrub

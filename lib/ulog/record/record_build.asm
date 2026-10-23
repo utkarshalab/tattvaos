@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/record_build.asm
+; Utkarsha OS — lib/ulog/record/record_build.asm
 ; =============================================================================
 ; Assembles a log_record_t from raw arguments. Called by emit/emit_async.asm
 ; and emit/emit_sync.asm — the one place that touches every field, so the

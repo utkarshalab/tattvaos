@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/seq_alloc.asm
+; Utkarsha OS — lib/ulog/record/seq_alloc.asm
 ; =============================================================================
 ; The one genuinely cross-core atomic in the hot path: a strictly monotonic
 ; sequence counter. Every other piece of record/ is single-producer or

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/self_stats_report.asm
+; Utkarsha OS — lib/ulog/drain/self_stats_report.asm
 ; =============================================================================
 ; Periodically emits self_stats.asm's snapshot as a real, structured log
 ; record — tagged MOD_ULOG_INTERNAL and LOG_FLAG_SELF so a reader can tell

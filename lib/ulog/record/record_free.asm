@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/record_free.asm
+; Utkarsha OS — lib/ulog/record/record_free.asm
 ; =============================================================================
 ; Returns a record_pool_alloc'd slot after every sink in drain/dispatch.asm's
 ; fan-out has finished with it (or given up — dispatch_retry.asm still frees

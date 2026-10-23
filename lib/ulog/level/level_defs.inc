@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/level/level_defs.inc
+; Utkarsha OS — lib/ulog/level/level_defs.inc
 ; =============================================================================
 ; Level constants and severity ordering. Numerically increasing = more severe,
 ; matching syslog/RFC 5424 ordering so sinks/net_format.asm's PRI mapping is a

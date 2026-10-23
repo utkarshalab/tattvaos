@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/context/redact_pattern.asm
+; Utkarsha OS — lib/ulog/context/redact_pattern.asm
 ; =============================================================================
 ; Defense in depth for redact_registry.asm: a value that leaks into a field
 ; without its key ever being explicitly registered as sensitive. Heuristic,

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/context/fields_schema.inc
+; Utkarsha OS — lib/ulog/context/fields_schema.inc
 ; =============================================================================
 ; The structured-fields wire format. A fields blob is self-describing (a
 ; count header, then that many fixed-size entries) so record_encode.asm can

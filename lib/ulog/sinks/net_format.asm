@@ -1,10 +1,10 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/net_format.asm
+; Utkarsha OS — lib/ulog/sinks/net_format.asm
 ; =============================================================================
 ; RFC 5424 PRI field shaping — the one piece of syslog wire format that
 ; belongs on this side of the lib/unet boundary, since it's a pure function
 ; of ulog's own level constants and doesn't need anything unet/services/
-; syslog.asm owns. Facility is fixed at "local0" (16); Tattva has no
+; syslog.asm owns. Facility is fixed at "local0" (16); Utkarsha has no
 ; multi-facility story yet.
 ;
 ; Author:  Utkarsha Labs

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/panic/panic_emit.asm
+; Utkarsha OS — lib/ulog/panic/panic_emit.asm
 ; =============================================================================
 ; What LOG_FATAL (via emit/emit_sync.asm) actually runs. No ring, no pool, no
 ; heap, no drain fiber — a direct synchronous write to serial, the same

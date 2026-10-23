@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/context/fields_decode.asm
+; Utkarsha OS — lib/ulog/context/fields_decode.asm
 ; =============================================================================
 ; Reads a fields blob back out — format/json_render.asm and format/
 ; text_render.asm are the callers, walking every entry to print it.

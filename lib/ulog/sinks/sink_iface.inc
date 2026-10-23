@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/sink_iface.inc
+; Utkarsha OS — lib/ulog/sinks/sink_iface.inc
 ; =============================================================================
 ; The pluggable sink contract. Every transport (serial/file/net, and whatever
 ; obs/udash registers later for a live log tail) implements this shape and

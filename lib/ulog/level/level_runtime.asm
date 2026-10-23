@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/level/level_runtime.asm
+; Utkarsha OS — lib/ulog/level/level_runtime.asm
 ; =============================================================================
 ; The single global "current level" — the floor below level_gate.asm's
 ; compile-time gate already filtered. Distinct from level_module_map.asm:

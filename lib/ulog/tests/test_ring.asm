@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/test_ring.asm
+; Utkarsha OS — lib/ulog/tests/test_ring.asm
 ; =============================================================================
 ; Exercises record/ring_push.asm, ring_pop.asm, and ring_wrap.asm's
 ; overwrite-oldest policy directly, without going through emit_async.asm —

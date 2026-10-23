@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/serial_transport.asm
+; Utkarsha OS — lib/ulog/sinks/serial_transport.asm
 ; =============================================================================
 ; The always-on sink — registered by init/full_init.asm before anything else,
 ; since it's the one output that works from the earliest boot instruction

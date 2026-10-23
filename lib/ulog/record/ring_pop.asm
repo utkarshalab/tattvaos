@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/ring_pop.asm
+; Utkarsha OS — lib/ulog/record/ring_pop.asm
 ; =============================================================================
 ; Consumer-side dequeue. There is exactly one consumer in the whole system —
 ; drain/drain_fiber.asm, visiting every core's ring in turn — so this needs

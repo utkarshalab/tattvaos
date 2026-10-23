@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/net_transport.asm
+; Utkarsha OS — lib/ulog/sinks/net_transport.asm
 ; =============================================================================
 ; The sink_iface.inc contract over net_queue.asm. Doesn't touch a NIC, a
 ; socket, or unet/ at all — that's the whole point of the queue-based

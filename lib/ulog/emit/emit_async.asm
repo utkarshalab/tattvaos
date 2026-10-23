@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/emit/emit_async.asm
+; Utkarsha OS — lib/ulog/emit/emit_async.asm
 ; =============================================================================
 ; The hot path. Every LOG_TRACE/DEBUG/INFO/WARN call level_gate.asm didn't
 ; elide lands here. No message-only call allocates anything — the record is

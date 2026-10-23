@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/test_panic.asm
+; Utkarsha OS — lib/ulog/tests/test_panic.asm
 ; =============================================================================
 ; panic_nmi_safe.asm's reentrancy guard — the one piece of ulog where a bug
 ; means a hang during an actual kernel panic, so it gets tested even though

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/self_stats.asm
+; Utkarsha OS — lib/ulog/drain/self_stats.asm
 ; =============================================================================
 ; The logger observes itself — glog and printk both do this, because a
 ; logger silently losing records under load is worse than one that's merely

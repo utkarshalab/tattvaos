@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/file_index.asm
+; Utkarsha OS — lib/ulog/sinks/file_index.asm
 ; =============================================================================
 ; A seq -> byte-offset index for the file sink, so a reader (uproc/udbg-style
 ; tooling later) can seek to a known record instead of scanning the whole

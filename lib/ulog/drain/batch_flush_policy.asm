@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/batch_flush_policy.asm
+; Utkarsha OS — lib/ulog/drain/batch_flush_policy.asm
 ; =============================================================================
 ; When to stop collecting and hand the batch to dispatch.asm: N records OR
 ; T nanoseconds since the batch started, whichever comes first — the same

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/init/early_init.asm
+; Utkarsha OS — lib/ulog/init/early_init.asm
 ; =============================================================================
 ; Usable the instant boot hands off — before lib/mem's heap, before
 ; kernel/sched exists, before percpu_t is even addressable through GS.

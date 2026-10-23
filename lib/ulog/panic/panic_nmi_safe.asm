@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/panic/panic_nmi_safe.asm
+; Utkarsha OS — lib/ulog/panic/panic_nmi_safe.asm
 ; =============================================================================
 ; Guarantees panic_emit.asm can't deadlock or infinitely recurse — the exact
 ; constraint Linux's emergency console is built around. A per-core reentrancy

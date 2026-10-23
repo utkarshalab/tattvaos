@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/format/timestamp_fmt.asm
+; Utkarsha OS — lib/ulog/format/timestamp_fmt.asm
 ; =============================================================================
 ; Renders a log_record_t.ts_ns (nanoseconds, from lib/time's monotonic clock)
 ; as seconds.nanoseconds directly to serial. Deliberately not zero-padded —

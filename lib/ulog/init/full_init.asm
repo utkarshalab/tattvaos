@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/init/full_init.asm
+; Utkarsha OS — lib/ulog/init/full_init.asm
 ; =============================================================================
 ; Called once from kernel/entry/init.asm, after lib/mem's heap and
 ; kernel/sched exist. Brings up every piece of ulog state that needs an

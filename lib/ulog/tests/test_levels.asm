@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/test_levels.asm
+; Utkarsha OS — lib/ulog/tests/test_levels.asm
 ; =============================================================================
 ; level_module_map.asm's override table and level_parse.asm's string table —
 ; the two pieces of level/ most likely to break silently (an off-by-one in

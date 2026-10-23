@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/sink_registry.asm
+; Utkarsha OS — lib/ulog/sinks/sink_registry.asm
 ; =============================================================================
 ; The pluggable half of "pluggable sink": registration and iteration.
 ; drain/dispatch.asm is the only real reader; init/full_init.asm registers

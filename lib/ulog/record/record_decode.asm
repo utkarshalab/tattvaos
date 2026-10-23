@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/record_decode.asm
+; Utkarsha OS — lib/ulog/record/record_decode.asm
 ; =============================================================================
 ; Inverse of record_encode.asm, and the integrity check integrity/
 ; record_verify.asm calls into: decoding a record also validates it, since

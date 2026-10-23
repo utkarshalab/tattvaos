@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/file_format.asm
+; Utkarsha OS — lib/ulog/sinks/file_format.asm
 ; =============================================================================
 ; Renders one record to JSON in a static scratch buffer for file_transport.asm
 ; to write out. Safe as a single static buffer because only the drain fiber

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/panic/panic_flush.asm
+; Utkarsha OS — lib/ulog/panic/panic_flush.asm
 ; =============================================================================
 ; Force-drains every core's ring before halt/reset — not just the panicking
 ; core's own. The drain fiber that normally does this may be the very thing

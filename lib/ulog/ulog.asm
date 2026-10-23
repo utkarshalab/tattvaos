@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/ulog.asm
+; Utkarsha OS — lib/ulog/ulog.asm
 ; =============================================================================
 ; Top-level aggregator for the structured logger — mirrors the pattern
 ; crypto/uhash/uhash.asm, storage/uxfs/uxfs.asm, and unet/unet.asm already

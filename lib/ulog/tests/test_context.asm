@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/test_context.asm
+; Utkarsha OS — lib/ulog/tests/test_context.asm
 ; =============================================================================
 ; fields_encode/decode round-tripping, and correlate_stack's nesting — the
 ; two pieces a caller directly interacts with when attaching structured data

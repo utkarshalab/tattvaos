@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/dispatch_circuit_breaker.asm
+; Utkarsha OS — lib/ulog/drain/dispatch_circuit_breaker.asm
 ; =============================================================================
 ; A sink that keeps failing (disk full, link down) stops being hammered.
 ; Trips open after ULOG_BREAKER_TRIP_THRESHOLD consecutive failures; a

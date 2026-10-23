@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/init/mode_transition.asm
+; Utkarsha OS — lib/ulog/init/mode_transition.asm
 ; =============================================================================
 ; The one clean handoff point from early to full mode — flips the flag every
 ; emit/emit_async.asm call already checks. Nothing needs flushing on the way

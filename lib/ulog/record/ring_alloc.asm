@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/ring_alloc.asm
+; Utkarsha OS — lib/ulog/record/ring_alloc.asm
 ; =============================================================================
 ; Allocates and wires up the calling core's ring. Called once per core from
 ; init/full_init.asm, after lib/mem's heap is up and percpu_t is addressable

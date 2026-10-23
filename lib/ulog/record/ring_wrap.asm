@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/ring_wrap.asm
+; Utkarsha OS — lib/ulog/record/ring_wrap.asm
 ; =============================================================================
 ; Mechanical ring-full handler. A per-CPU ring is SPSC and its producer is a
 ; hot code path — it cannot block waiting for the drain fiber, and it cannot

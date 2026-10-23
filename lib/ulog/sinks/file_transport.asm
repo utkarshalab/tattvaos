@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/file_transport.asm
+; Utkarsha OS — lib/ulog/sinks/file_transport.asm
 ; =============================================================================
 ; The sink_iface.inc contract over storage/uxfs. uxfs_write_file is still a
 ; fail-closed stub in kernel/unimplemented.asm as of this writing — that's
@@ -102,6 +102,6 @@ file_sink_flush:
     ret
 
 section .rodata
-ulog_file_path: db "/var/log/tattva.ulog", 0
+ulog_file_path: db "/var/log/utkarsha.ulog", 0
 
 %endif ; LIB_ULOG_SINKS_FILE_TRANSPORT_ASM

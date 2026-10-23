@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/run_tests.asm
+; Utkarsha OS — lib/ulog/tests/run_tests.asm
 ; =============================================================================
 ; ulog diagnostic test runner, matching lib/time/tests/run_tests.asm's shape.
 ; Every sub-test returns 0 pass / -1 fail; this stops at the first failure

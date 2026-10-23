@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/net_queue.asm
+; Utkarsha OS — lib/ulog/sinks/net_queue.asm
 ; =============================================================================
 ; The ring buffer unet/services/syslog.asm's own doc comment already expects
 ; ("Ring Buffer Log Collector"). lib/ can't import from unet/ (layer rule),

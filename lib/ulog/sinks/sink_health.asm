@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/sinks/sink_health.asm
+; Utkarsha OS — lib/ulog/sinks/sink_health.asm
 ; =============================================================================
 ; Whether a sink is currently accepting writes — enabled (an operator
 ; toggle), healthy (drain/dispatch_circuit_breaker.asm's verdict), and not

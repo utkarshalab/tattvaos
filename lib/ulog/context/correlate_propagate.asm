@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/context/correlate_propagate.asm
+; Utkarsha OS — lib/ulog/context/correlate_propagate.asm
 ; =============================================================================
 ; Carries the calling fiber's trace context across a fiber_create() boundary,
 ; so a request's log trail survives a handoff to a worker fiber instead of

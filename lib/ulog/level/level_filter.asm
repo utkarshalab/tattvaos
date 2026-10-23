@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/level/level_filter.asm
+; Utkarsha OS — lib/ulog/level/level_filter.asm
 ; =============================================================================
 ; Resolves whether one record should reach one sink: module override (if any)
 ; else the global floor, then compared against that sink's own min_level.

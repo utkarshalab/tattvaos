@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/ring_push.asm
+; Utkarsha OS — lib/ulog/record/ring_push.asm
 ; =============================================================================
 ; Producer-side enqueue. Single producer (the core that owns this ring) means
 ; no CAS and no lock — just correct head/tail arithmetic. This is the actual

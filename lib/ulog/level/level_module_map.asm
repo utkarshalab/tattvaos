@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/level/level_module_map.asm
+; Utkarsha OS — lib/ulog/level/level_module_map.asm
 ; =============================================================================
 ; Per-module level overrides — "set unet to DEBUG, leave everything else at
 ; WARN," without a rebuild. glog's --vmodule / Log4j's logger hierarchy,

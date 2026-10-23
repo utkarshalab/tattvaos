@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/drain_backoff.asm
+; Utkarsha OS — lib/ulog/drain/drain_backoff.asm
 ; =============================================================================
 ; Exponential backoff between idle drain_fiber.asm passes — an idle logger
 ; should cost close to nothing, not spin re-checking every ring on every

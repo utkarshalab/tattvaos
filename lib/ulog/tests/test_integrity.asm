@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/test_integrity.asm
+; Utkarsha OS — lib/ulog/tests/test_integrity.asm
 ; =============================================================================
 ; record_checksum.asm and the record_encode/record_decode round trip —
 ; corrupt one byte after encoding and confirm decode actually notices.

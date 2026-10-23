@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/record/record_encode.asm
+; Utkarsha OS — lib/ulog/record/record_encode.asm
 ; =============================================================================
 ; Packs a log_record_t plus its (optional) structured-fields blob into one
 ; contiguous buffer — what sinks/file.asm and sinks/net.asm actually write,

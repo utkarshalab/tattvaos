@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/tests/test_ratelimit.asm
+; Utkarsha OS — lib/ulog/tests/test_ratelimit.asm
 ; =============================================================================
 ; Confirms a flooding call site gets suppressed after
 ; ULOG_RATELIMIT_MAX_PER_WINDOW admissions within one window, and that a

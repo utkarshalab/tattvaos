@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/level/level_gate.asm
+; Utkarsha OS — lib/ulog/level/level_gate.asm
 ; =============================================================================
 ; The zero-overhead mechanism. These are NASM macros, not functions — the
 ; %if check happens at assemble time against config/defaults.inc's

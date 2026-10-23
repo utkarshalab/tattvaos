@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/emit/emit_sync.asm
+; Utkarsha OS — lib/ulog/emit/emit_sync.asm
 ; =============================================================================
 ; What LOG_FATAL routes to instead of emit_async — the ring and the drain
 ; fiber may both be gone by the time a FATAL fires, so this bypasses them

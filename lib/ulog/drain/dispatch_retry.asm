@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/ulog/drain/dispatch_retry.asm
+; Utkarsha OS — lib/ulog/drain/dispatch_retry.asm
 ; =============================================================================
 ; Transient sink-write failure handling. A bounded number of immediate
 ; retries — this is a fiber-cooperative daemon, not a thread that can sleep
