@@ -451,7 +451,7 @@ IO_FUNC virtio_blk_submit
     mov     rax, IO_ERR_MEDIA
 
 .plugged:
-    mov     qword [r12 + io_request_t.state], IO_REQ_PENDING
+    mov     qword [r12 + io_request_t.state], IO_REQ_SUBMITTED   ; plugged: queued, not yet dispatched
     xor     rax, rax
     jmp     .done
 
