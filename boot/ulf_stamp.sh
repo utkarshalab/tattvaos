@@ -1,6 +1,6 @@
 #!/bin/sh
 # =============================================================================
-# Tattva OS — boot/ulf_stamp.sh
+# Utkarsha OS — boot/ulf_stamp.sh
 # =============================================================================
 # Validates the ULF v2 layout and fills in the two header fields the assembler
 # cannot produce.

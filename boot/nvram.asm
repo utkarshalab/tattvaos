@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/nvram.asm
+; Utkarsha OS — boot/nvram.asm
 ; =============================================================================
 ; Persistent Early Console Logging to NVRAM via UEFI Runtime Services.
 ;

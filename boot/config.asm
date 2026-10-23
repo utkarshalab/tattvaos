@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/config.asm
+; Utkarsha OS — boot/config.asm
 ; =============================================================================
 ; ALL boot constants in one place.
 ; Never scatter constants across files.
@@ -102,14 +102,14 @@ UART_BAUD_DIV   equ 1           ; divisor for 115200 baud (1.8432MHz / 16)
 ; -----------------------------------------------------------------------------
 ; Magic numbers — placed at start of each stage binary
 ; -----------------------------------------------------------------------------
-TATTVA_MAGIC    equ 0x54415456  ; "TATV" in little-endian ASCII
+UT_MAGIC        equ 0x534F5455  ; "UTOS" in little-endian ASCII
 STAGE1_MAGIC    equ 0x31535442  ; "BTS1"
 STAGE2_MAGIC    equ 0x32535442  ; "BTS2"
 
 ; -----------------------------------------------------------------------------
 ; Filesystem detection priority
 ; -----------------------------------------------------------------------------
-FS_BXP          equ 1           ; Tattva native format (always priority 1)
+FS_BXP          equ 1           ; Utkarsha native format (always priority 1)
 FS_GPT          equ 2           ; GUID Partition Table
 FS_MBR_PART     equ 3           ; MBR partition table
 FS_FAT32        equ 4           ; FAT32 (development default)

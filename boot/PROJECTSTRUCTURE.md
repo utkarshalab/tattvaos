@@ -1,6 +1,6 @@
-# Tattva OS — boot/ Complete File Structure
+# Utkarsha OS — boot/ Complete File Structure
 
-> Bootloader for Tattva OS.
+> Bootloader for Utkarsha OS.
 > Targets: x86-64 (BIOS + UEFI), AArch64 (UEFI), RISC-V (OpenSBI)
 > Build first: x86-64 BIOS path only. Everything else later.
 > Written in NASM first. Replaced by utasm when utasm is ready.
@@ -29,7 +29,7 @@ boot/
 │                                     never scatter constants across files
 │
 ├── magic.asm                       ← magic numbers for stage verification
-│                                     TATTVA_MAGIC    equ 0x54415456
+│                                     UT_MAGIC    equ 0x534F5455
 │                                     placed at start of each stage binary
 │                                     verified before jumping to next stage
 │                                     catches corrupt/wrong stage loads
@@ -304,7 +304,7 @@ boot/
 │   └── handoff.asm                 ← canonical BootInfo + ExitBootServices
 │                                     + validated ULF entry transfer
 │
-├── survive/                        ← Panic recovery — unique to Tattva
+├── survive/                        ← Panic recovery — unique to Utkarsha
 │   │                                 build after basic boot works
 │   │
 │   ├── snapshot.asm                ← snapshot all hardware state to 4KB page
@@ -375,7 +375,7 @@ boot/
     │                                 fails build if over limit
     │
     ├── test_boot_qemu.sh           ← boot in QEMU, check UART output
-    │                                 expected: "Tattva Boot OK"
+    │                                 expected: "Utkarsha Boot OK"
     │                                 expected: "A20 enabled"
     │                                 expected: "Long mode OK"
     │
@@ -496,7 +496,7 @@ UART_COM1       equ 0x3F8       ; COM1 base port
 UART_BAUD       equ 115200
 
 ; Magic numbers
-TATTVA_MAGIC    equ 0x54415456  ; "TATV"
+UT_MAGIC    equ 0x534F5455  ; "UTOS"
 STAGE1_MAGIC    equ 0x31535442  ; "BTS1"
 STAGE2_MAGIC    equ 0x32535442  ; "BTS2"
 
@@ -516,7 +516,7 @@ DISK_RETRY      equ 3           ; retry count for disk reads
 ## Build Priority
 
 ```
-Phase 1 — Print "Tattva Boot OK" via UART (week 1-2)
+Phase 1 — Print "Utkarsha Boot OK" via UART (week 1-2)
     config.asm + magic.asm
     stage1/entry.asm            ← segment init + DL save first
     stage1/boot_drive.asm
@@ -527,7 +527,7 @@ Phase 1 — Print "Tattva Boot OK" via UART (week 1-2)
     stage1/signature.asm
     stage2/entry.asm
     stage2/hw/uart/ (all)       ← init UART as first thing in stage2
-    → milestone: "Tattva Boot OK" in QEMU terminal
+    → milestone: "Utkarsha Boot OK" in QEMU terminal
 
 Phase 2 — Reach long mode (week 3-4)
     stage2/a20/ (all)           ← verify first, then enable

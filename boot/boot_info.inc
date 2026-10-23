@@ -1,7 +1,7 @@
-%ifndef TATTVA_BOOT_INFO_INC
-%define TATTVA_BOOT_INFO_INC
+%ifndef UT_BOOT_INFO_INC
+%define UT_BOOT_INFO_INC
 ; =============================================================================
-; Tattva OS — versioned BootInfo ABI shared by BIOS, UEFI, and the kernel.
+; Utkarsha OS — versioned BootInfo ABI shared by BIOS, UEFI, and the kernel.
 ; =============================================================================
 
 BOOT_INFO_E820_PTR_OFF          equ 0
@@ -28,7 +28,7 @@ BOOT_INFO_AP_TRAMPOLINE_SIZE_OFF equ 96
 BOOT_INFO_BOOT_SOURCE_OFF       equ 100
 BOOT_INFO_MAGIC_OFF             equ 104
 BOOT_INFO_ABI_SIZE              equ 112
-BOOT_INFO_MAGIC                 equ 0x3249424156544154 ; "TATVABI2"
+BOOT_INFO_MAGIC                 equ 0x32494241534F5455 ; "UTOSABI2"
 
 BOOT_SOURCE_BIOS                equ 1
 BOOT_SOURCE_UEFI                equ 2
@@ -42,4 +42,4 @@ BOOT_AP_TRAMPOLINE_BYTES        equ 4096
     %error "BootInfo ABI size must remain qword-aligned"
 %endif
 
-%endif ; TATTVA_BOOT_INFO_INC
+%endif ; UT_BOOT_INFO_INC

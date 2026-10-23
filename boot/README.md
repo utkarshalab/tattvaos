@@ -1,4 +1,4 @@
-# TattvaOS boot paths
+# Utkarsha OS boot paths
 
 The boot layer currently has two x86-64 paths:
 

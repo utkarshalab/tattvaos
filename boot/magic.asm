@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/magic.asm
+; Utkarsha OS — boot/magic.asm
 ; =============================================================================
 ; Magic numbers placed at the start of each stage binary.
 ; Verified before jumping to next stage.

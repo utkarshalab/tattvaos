@@ -1,5 +1,5 @@
 # =============================================================================
-# Tattva OS Boot & Kernel Build Makefile
+# Utkarsha OS Boot & Kernel Build Makefile
 # Target: x86-64 Flat Binary Image + bootable raw disk
 # =============================================================================
 #
@@ -72,7 +72,7 @@ BOOT_INC = -I $(KERNEL_DIR)/ \
 STAGE2_SECTORS = 64
 KERNEL_LBA     = 65
 
-IMG = $(KERNEL_DIR)/tattva.img
+IMG = $(KERNEL_DIR)/utkarsha.img
 
 # QEMU. Serial goes to the terminal because that is the only output path the
 # kernel has before it brings up a framebuffer, and -display none keeps the
