@@ -11,11 +11,17 @@
 ;
 ;   1. x = m * 2^k via the IEEE-754 bit pattern (11-bit exponent, bias 1023).
 ;   2. If m > sqrt(2), halve m and increment k -> m in [sqrt(2)/2, sqrt(2)).
-;   3. s = (m-1)/(m+1) in [-0.1716, 0.1716];
-;      ln(m) = 2*(s + s^3/3 + s^5/5 + ... + s^23/23), 11 terms — double
-;      precision on this reduced range needs roughly twice the float path's
-;      term count before the next term drops below 2^-53.
-;   4. result = k*ln(2) + ln(m).
+;   3. f = m - 1 (exact), s = f/(2+f) in [-0.1716, 0.1716], z = s^2, and
+;      ln(m) = f - (f^2/2 - s*(f^2/2 + R(z))),
+;      R(z) = 2z/3 + 2z^2/5 + ... + 2z^11/23 (11 terms; the next one drops
+;      below 2^-56 of the result on this range). This is the same atanh
+;      series, 2*atanh(s), regrouped so that the large term f carries no
+;      rounding at all and only the small corrections round.
+;   4. result = k*ln2_hi - ((f^2/2 - (s*(f^2/2 + R) + k*ln2_lo)) - f), with
+;      ln(2) split so that k*ln2_hi is exact for every exponent. This
+;      takes the worst case from ~3 ULP (2*s*(1 + s^2/3 + ...) + k*ln2,
+;      where the rounded division and the rounded k*ln2 both reach the
+;      result) to about 1 ULP.
 ;
 ; Same domain behavior as log_f32.asm (-Inf at 0, NaN below 0 or on NaN
 ; input). The array/inplace paths run the same algorithm two lanes at a
@@ -32,18 +38,20 @@ align 16
 logf64_one:       dq 1.0
 logf64_half:      dq 0.5
 logf64_sqrt2:     dq 1.4142135623730951
-logf64_ln2:        dq 0.6931471805599453
-logf64_inv3:        dq 0.3333333333333333
-logf64_inv5:        dq 0.2
-logf64_inv7:        dq 0.14285714285714285
-logf64_inv9:        dq 0.1111111111111111
-logf64_inv11:       dq 0.09090909090909091
-logf64_inv13:       dq 0.07692307692307693
-logf64_inv15:       dq 0.06666666666666667
-logf64_inv17:       dq 0.058823529411764705
-logf64_inv19:       dq 0.05263157894736842
-logf64_inv21:       dq 0.047619047619047616
-logf64_inv23:       dq 0.043478260869565216
+logf64_two:        dq 2.0
+logf64_ln2_hi:     dq 0x3FE62E42FEE00000      ; ln(2), 32 bits: k*hi exact
+logf64_ln2_lo:     dq 0x3DEA39EF35793C76      ; ln(2) - hi
+logf64_c1:          dq 0.6666666666666666
+logf64_c2:          dq 0.4
+logf64_c3:          dq 0.2857142857142857
+logf64_c4:          dq 0.2222222222222222
+logf64_c5:          dq 0.18181818181818182
+logf64_c6:          dq 0.15384615384615385
+logf64_c7:          dq 0.13333333333333333
+logf64_c8:          dq 0.11764705882352941
+logf64_c9:          dq 0.10526315789473684
+logf64_c10:         dq 0.09523809523809523
+logf64_c11:         dq 0.08695652173913043
 logf64_nan_bits:    dq 0x7FF8000000000000
 logf64_neg_inf_bits: dq 0xFFF0000000000000
 logf64_dbl_min:     dq 2.2250738585072014e-308   ; smallest normal double
@@ -55,18 +63,20 @@ align 16
 logf64_p_one:       dq 1.0, 1.0
 logf64_p_half:      dq 0.5, 0.5
 logf64_p_sqrt2:     dq 1.4142135623730951, 1.4142135623730951
-logf64_p_ln2:       dq 0.6931471805599453, 0.6931471805599453
-logf64_p_inv3:      dq 0.3333333333333333, 0.3333333333333333
-logf64_p_inv5:      dq 0.2, 0.2
-logf64_p_inv7:      dq 0.14285714285714285, 0.14285714285714285
-logf64_p_inv9:      dq 0.1111111111111111, 0.1111111111111111
-logf64_p_inv11:     dq 0.09090909090909091, 0.09090909090909091
-logf64_p_inv13:     dq 0.07692307692307693, 0.07692307692307693
-logf64_p_inv15:     dq 0.06666666666666667, 0.06666666666666667
-logf64_p_inv17:     dq 0.058823529411764705, 0.058823529411764705
-logf64_p_inv19:     dq 0.05263157894736842, 0.05263157894736842
-logf64_p_inv21:     dq 0.047619047619047616, 0.047619047619047616
-logf64_p_inv23:     dq 0.043478260869565216, 0.043478260869565216
+logf64_p_two:      dq 2.0, 2.0
+logf64_p_ln2_hi:   dq 0x3FE62E42FEE00000, 0x3FE62E42FEE00000
+logf64_p_ln2_lo:   dq 0x3DEA39EF35793C76, 0x3DEA39EF35793C76
+logf64_p_c1:        dq 0.6666666666666666, 0.6666666666666666
+logf64_p_c2:        dq 0.4, 0.4
+logf64_p_c3:        dq 0.2857142857142857, 0.2857142857142857
+logf64_p_c4:        dq 0.2222222222222222, 0.2222222222222222
+logf64_p_c5:        dq 0.18181818181818182, 0.18181818181818182
+logf64_p_c6:        dq 0.15384615384615385, 0.15384615384615385
+logf64_p_c7:        dq 0.13333333333333333, 0.13333333333333333
+logf64_p_c8:        dq 0.11764705882352941, 0.11764705882352941
+logf64_p_c9:        dq 0.10526315789473684, 0.10526315789473684
+logf64_p_c10:       dq 0.09523809523809523, 0.09523809523809523
+logf64_p_c11:       dq 0.08695652173913043, 0.08695652173913043
 logf64_p_dbl_min:   dq 2.2250738585072014e-308, 2.2250738585072014e-308
 logf64_p_two_pow_54: dq 18014398509481984.0, 18014398509481984.0
 logf64_p_54:        dq 54.0, 54.0
@@ -147,44 +157,50 @@ umath_log_f64:
     cvtsi2sd xmm3, rcx           ; xmm3 = (double)k
 
     movsd   xmm4, xmm1
-    subsd   xmm4, [rel logf64_one]  ; m - 1
-    movsd   xmm5, xmm1
-    addsd   xmm5, [rel logf64_one]  ; m + 1
-    divsd   xmm4, xmm5           ; xmm4 = s = (m-1)/(m+1)
-
+    subsd   xmm4, [rel logf64_one]  ; f = m - 1, exact
     movsd   xmm5, xmm4
-    mulsd   xmm5, xmm4            ; xmm5 = s^2
+    mulsd   xmm5, xmm4
+    mulsd   xmm5, [rel logf64_half] ; hfsq = f^2/2
+    movsd   xmm6, [rel logf64_two]
+    addsd   xmm6, xmm4
+    movsd   xmm7, xmm4
+    divsd   xmm7, xmm6          ; s = f/(2+f)
+    movsd   xmm2, xmm7
+    mulsd   xmm2, xmm7          ; z = s^2
 
-    movsd   xmm6, [rel logf64_inv23]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv21]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv19]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv17]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv15]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv13]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv11]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv9]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv7]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv5]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_inv3]
-    mulsd   xmm6, xmm5
-    addsd   xmm6, [rel logf64_one]
-    mulsd   xmm6, xmm4            ; xmm6 = s + s^3/3 + ... + s^23/23
+    movsd   xmm6, [rel logf64_c11]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c10]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c9]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c8]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c7]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c6]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c5]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c4]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c3]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c2]
+    mulsd   xmm6, xmm2
+    addsd   xmm6, [rel logf64_c1]
+    mulsd   xmm6, xmm2          ; R(z)
 
-    addsd   xmm6, xmm6            ; xmm6 = 2*atanh(s) = ln(m)
-
-    mulsd   xmm3, [rel logf64_ln2]
-    addsd   xmm6, xmm3
-    movapd  xmm0, xmm6
+    addsd   xmm6, xmm5          ; hfsq + R
+    mulsd   xmm6, xmm7          ; s*(hfsq + R)
+    movsd   xmm2, xmm3
+    mulsd   xmm2, [rel logf64_ln2_lo]
+    addsd   xmm6, xmm2          ; + k*ln2_lo
+    subsd   xmm5, xmm6
+    subsd   xmm5, xmm4          ; (hfsq - (..)) - f
+    mulsd   xmm3, [rel logf64_ln2_hi]  ; exact
+    subsd   xmm3, xmm5
+    movapd  xmm0, xmm3
     ret
 
 ; -----------------------------------------------------------------------------
@@ -248,41 +264,50 @@ logf64__packed2:
     orpd    xmm5, xmm6          ; xmm5 = m
 
     movapd  xmm4, xmm5
-    subpd   xmm4, [rel logf64_p_one]  ; m - 1
-    addpd   xmm5, [rel logf64_p_one]  ; m + 1
-    divpd   xmm4, xmm5          ; xmm4 = s = (m-1)/(m+1)
+    subpd   xmm4, [rel logf64_p_one]  ; f = m - 1
+    movapd  xmm1, xmm4
+    mulpd   xmm1, xmm4
+    mulpd   xmm1, [rel logf64_p_half] ; hfsq
+    movapd  xmm6, [rel logf64_p_two]
+    addpd   xmm6, xmm4
+    movapd  xmm7, xmm4
+    divpd   xmm7, xmm6          ; s
+    movapd  xmm2, xmm7
+    mulpd   xmm2, xmm7          ; z
 
-    movapd  xmm5, xmm4
-    mulpd   xmm5, xmm4          ; xmm5 = s^2
+    movapd  xmm6, [rel logf64_p_c11]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c10]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c9]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c8]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c7]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c6]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c5]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c4]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c3]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c2]
+    mulpd   xmm6, xmm2
+    addpd   xmm6, [rel logf64_p_c1]
+    mulpd   xmm6, xmm2          ; R(z)
 
-    movapd  xmm6, [rel logf64_p_inv23]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv21]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv19]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv17]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv15]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv13]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv11]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv9]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv7]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv5]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_inv3]
-    mulpd   xmm6, xmm5
-    addpd   xmm6, [rel logf64_p_one]
-    mulpd   xmm6, xmm4          ; s + s^3/3 + ... + s^23/23
-    addpd   xmm6, xmm6          ; ln(m)
-
-    mulpd   xmm3, [rel logf64_p_ln2]
-    addpd   xmm6, xmm3          ; k*ln(2) + ln(m)
+    addpd   xmm6, xmm1
+    mulpd   xmm6, xmm7          ; s*(hfsq + R)
+    movapd  xmm9, xmm3
+    mulpd   xmm9, [rel logf64_p_ln2_lo]
+    addpd   xmm6, xmm9
+    subpd   xmm1, xmm6
+    subpd   xmm1, xmm4
+    mulpd   xmm3, [rel logf64_p_ln2_hi]
+    subpd   xmm3, xmm1
+    movapd  xmm6, xmm3          ; ln(x)
 
     ; domain cases, with the scalar routine's constants
     movapd  xmm1, xmm8
