@@ -5,4 +5,4 @@
 Parses structured comments that describe register conventions,
 calling conventions, function contracts, and memory ownership rules.
 
-Part of the `asm/` category in Tattva OS.
+Part of the `asm/` category in Utkarsha OS.
