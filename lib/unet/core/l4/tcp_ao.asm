@@ -168,41 +168,7 @@ cmac_compute:
     pop rbp
     ret
 
-; =============================================================================
-; HMAC-SHA-256 Implementation (RFC 2104)
-; =============================================================================
-
-; hmac_sha256 - Compute HMAC-SHA-256
-; Input: RDI = key, RSI = key_len, RDX = data, RCX = data_len, R8 = output
-align 64
-hmac_sha256:
-    push rbp
-    mov rbp, rsp
-    push rbx
-    push r12
-    push r13
-    push r14
-    push r15
-
-    ; Simplified HMAC-SHA256 - placeholder
-    ; Real implementation would:
-    ; 1. Pad key to block size (64 bytes)
-    ; 2. Compute inner hash: SHA256((key ^ ipad) || data)
-    ; 3. Compute outer hash: SHA256((key ^ opad) || inner_hash)
-
-    mov rax, 0
-    mov [r8], rax
-    mov [r8 + 8], rax
-    mov [r8 + 16], rax
-    mov [r8 + 24], rax
-
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop rbx
-    pop rbp
-    ret
+; HMAC-SHA-256 (RFC 2104) comes from lib/crypto/ucrypt/mac/hmac.asm.
 
 ; =============================================================================
 ; tcp_ao_init — Initialize TCP-AO subsystem
