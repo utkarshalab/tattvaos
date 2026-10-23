@@ -101,4 +101,4 @@ To integrate UTM Enterprise with your kernel:
 
 Designed for UTM - Your Custom Assembly Operating System.
 
-*Built for UTM - Your Custom Assembly Operating System (Tattva OS)*
+*Built for UTM - Your Custom Assembly Operating System (Utkarsha OS)*

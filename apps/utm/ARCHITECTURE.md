@@ -32,7 +32,7 @@ TABLE OF CONTENTS
 21. Performance Targets & Benchmark Specifications
 22. Build System (Makefile - Detailed)
 23. Deployment Guide (Bare Metal, Container, Kubernetes)
-24. Tattva OS Kernel Integration (Hooks, Accounting, Initialization)
+24. Utkarsha OS Kernel Integration (Hooks, Accounting, Initialization)
 25. Feature Comparison Matrix (vs All Existing Task Managers)
 26. Known Limitations & Roadmap (Phased)
 27. License & Attribution
@@ -62,15 +62,15 @@ TARGET AUDIENCE:
   - Cloud infrastructure providers
   - HPC (High Performance Computing) centers
   - Embedded and real-time system developers
-  - OS/kernel developers building Tattva OS
+  - OS/kernel developers building Utkarsha OS
 
 ================================================================================
 2.  EXECUTIVE SUMMARY
 ================================================================================
 
 UTM Enterprise (Utakarsha Task Manager) is a native, pure-x86_64-assembly
-task manager and system observability platform purpose-built for Tattva OS
-(Tattva OS), a custom assembly operating system.
+task manager and system observability platform purpose-built for Utkarsha OS
+(Utkarsha OS), a custom assembly operating system.
 
 Unlike every existing task manager (Windows Task Manager, Activity Monitor,
 htop, btop, glances, atop), UTM Enterprise:
@@ -185,7 +185,7 @@ communicates with the layer immediately below it via well-defined interfaces.
 │  Jump table: utm_syscall_dispatch_table[rax - 0x100]                         │
 │                             │                                               │
 ├─────────────────────────────┼───────────────────────────────────────────────┤
-│ LAYER 1 - Tattva OS KERNEL                                                        │
+│ LAYER 1 - Utkarsha OS KERNEL                                                        │
 │                                                                              │
 │  Scheduler  │ VM/MM      │ Block Layer   │ Network Stack   │ ACPI           │
 │  CPUID/MSR  │ SMT/HT     │ NUMA          │ cgroups         │ Containers     │
@@ -193,7 +193,7 @@ communicates with the layer immediately below it via well-defined interfaces.
 └─────────────────────────────────────────────────────────────────────────────┘
 
 DATA FLOW:
-  1. Tattva OS kernel subsystems call accounting hooks (utm_cpu_account_thread_tick,
+  1. Utkarsha OS kernel subsystems call accounting hooks (utm_cpu_account_thread_tick,
      utm_mem_account_page_fault, utm_disk_account_io, etc.)
   2. Hooks update per-CPU/per-device statistics in kernel memory
   3. utmd (userspace daemon) calls SYS_UTM_GET_SYS_SAMPLE at 60Hz
@@ -1671,7 +1671,7 @@ KUBERNETES DAEMONSET:
   - Resources: < 200MB memory, < 0.1 CPU
 
 ================================================================================
-24. Tattva OS KERNEL INTEGRATION
+24. Utkarsha OS KERNEL INTEGRATION
 ================================================================================
 
 STEP 1: Register syscall handler at 0x100-0x1FF
@@ -1758,7 +1758,7 @@ PHASE 1 (Current - Foundation):
 
 PHASE 2 (Next - Kernel Integration):
   ⬜ Implement remaining syscall handlers (proc_kill, nice, affinity, etc.)
-  ⬜ Tattva OS kernel accounting hooks
+  ⬜ Utkarsha OS kernel accounting hooks
   ⬜ GPU driver integrations (NVML, ROCm, Intel)
   ⬜ Battery monitoring
 
@@ -1789,7 +1789,7 @@ KNOWN LIMITATIONS:
 27. LICENSE & ATTRIBUTION
 ================================================================================
 
-Designed for UTM - Your Custom Assembly Operating System (Tattva OS).
+Designed for UTM - Your Custom Assembly Operating System (Utkarsha OS).
 
 Pure x86_64 NASM assembly. No C, no libc, no Electron, no web views,
 no interpreted languages.
