@@ -11,22 +11,20 @@
 
 ; -----------------------------------------------------------------------------
 ; IO_FUNC name
-; Standard function prologue conforming to System V AMD64 ABI.
-; Sets up stack frame, saving the caller's frame pointer (RBP).
+; Declares and labels a global routine. Frameless: nothing is pushed, so a
+; body may return early with a plain `ret` as long as its own pushes are
+; balanced. (A frame push here would be skipped by every such early return.)
 ; -----------------------------------------------------------------------------
 %macro IO_FUNC 1
 global %1
 %1:
-    push    rbp
-    mov     rbp, rsp
 %endmacro
 
 ; -----------------------------------------------------------------------------
 ; IO_ENDFUNC name
-; Standard function epilogue. Restores frame pointer and returns.
+; Return for bodies that fall through to the end.
 ; -----------------------------------------------------------------------------
 %macro IO_ENDFUNC 1
-    pop     rbp
     ret
 %endmacro
 
