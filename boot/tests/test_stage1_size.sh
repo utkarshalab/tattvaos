@@ -35,7 +35,11 @@ command -v ndisasm >/dev/null 2>&1 || {
     exit 1
 }
 
-RELOC_TARGET=$(ndisasm -b 16 "$STAGE1_BIN" | awk '
+# NDISASM 3.x prints far jumps as "jmp word 0x0:word 0x621" where 2.x printed
+# "jmp 0x0:0x621"; dropping the size tokens lets one pattern read both.
+disasm() { ndisasm -b 16 "$STAGE1_BIN" | sed 's/word //g'; }
+
+RELOC_TARGET=$(disasm | awk '
     $3 == "jmp" && $4 ~ /^0x0:/ {
         split($4, address, ":")
         print address[2]
@@ -43,7 +47,7 @@ RELOC_TARGET=$(ndisasm -b 16 "$STAGE1_BIN" | awk '
     }
 ')
 
-STAGE2_TARGET=$(ndisasm -b 16 "$STAGE1_BIN" | awk '
+STAGE2_TARGET=$(disasm | awk '
     $3 == "jmp" && $4 ~ /^0x0:/ {
         count++
         if (count == 2) {
