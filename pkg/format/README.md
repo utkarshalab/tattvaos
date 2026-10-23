@@ -9,7 +9,7 @@
 ## Purpose
 
 `.upk` package format specification — package format spec, manifest, and
-signature handling for Tattva OS packages.
+signature handling for Utkarsha OS packages.
 
 ## Files
 

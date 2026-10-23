@@ -2,7 +2,7 @@
 %define GUARD_PKG_FORMAT_UPK_ASM
 ; =============================================================================
 ; File     : pkg/format/upk.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: .upk package format — .upk package format spec, manifest,
