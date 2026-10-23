@@ -1,7 +1,7 @@
 # pkg — Package Management Category
 
 > UPM — the Utkarsha Package Manager.
-> Binary package format, registry, and tooling for Tattva OS software.
+> Binary package format, registry, and tooling for Utkarsha OS software.
 
 ---
 
@@ -11,7 +11,7 @@
 |---|---|
 | [`format/`](format/) | `.upk` binary package format specification and parser |
 | [`registry/`](registry/) | Package registry — index, publish, resolve, download |
-| [`packages/`](packages/) | Built-in packages bundled with Tattva OS |
+| [`packages/`](packages/) | Built-in packages bundled with Utkarsha OS |
 
 ---
 
