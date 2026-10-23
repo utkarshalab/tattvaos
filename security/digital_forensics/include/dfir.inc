@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/digital_forensics/include/dfir.inc
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Digital Forensics - master schema header.

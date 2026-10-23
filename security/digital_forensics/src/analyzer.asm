@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/digital_forensics/src/analyzer.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: forensic analyzer (filesystem carving, timeline, string search)

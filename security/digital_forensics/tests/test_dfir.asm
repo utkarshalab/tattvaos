@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/digital_forensics/tests/test_dfir.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: DFIR comprehensive test - all components.
 ; Status   : PREMIUM ENTERPRISE SKELETON
 ; =============================================================================

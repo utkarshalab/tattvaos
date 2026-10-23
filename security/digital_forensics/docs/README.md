@@ -2,7 +2,7 @@
 
 ## Purpose
 Provide disk and memory forensics, evidence acquisition, chain-of-custody
-management, and artifact analysis for Tattva OS security incidents.
+management, and artifact analysis for Utkarsha OS security incidents.
 
 ## Architecture
 - **Acquirer** — bit-for-mat disk/memory imaging with write-blocking

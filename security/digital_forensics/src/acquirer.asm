@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/digital_forensics/src/acquirer.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: forensic evidence acquirer (write-blocked disk/memory imaging)
