@@ -1,6 +1,6 @@
 # lib — Standard Libraries Category
 
-> Core runtime libraries for Tattva OS.
+> Core runtime libraries for Utkarsha OS.
 > No libc. No glibc. Everything reimplemented from scratch in assembly.
 
 ---

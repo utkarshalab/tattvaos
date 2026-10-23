@@ -1,7 +1,7 @@
 %ifndef LIB_PERCPU_INC
 %define LIB_PERCPU_INC
 ; =============================================================================
-; Tattva OS — lib/percpu.inc
+; Utkarsha OS — lib/percpu.inc
 ; =============================================================================
 ; THE canonical per-CPU block layout, reached through GS.
 ;
