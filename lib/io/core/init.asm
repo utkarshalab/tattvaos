@@ -94,7 +94,7 @@ IO_FUNC io_init
 .serial_done:
 
     ; 3. Emit early initialization milestone
-    lea     rdi, [rel .msg_init]
+    lea     rdi, [rel io_msg_init]
     call    console_milestone
 
     ; 4. Parse ACPI tables (RSDP address passed in boot parameters)
@@ -148,7 +148,7 @@ IO_FUNC io_init
     jnz     .fail
 
     ; 13. System fully armed
-    lea     rdi, [rel .msg_ready]
+    lea     rdi, [rel io_msg_ready]
     call    console_milestone
 
     xor     rax, rax                ; Return 0 (Success)
@@ -157,7 +157,7 @@ IO_FUNC io_init
 .fail:
     ; Emit failure log
     mov     rbx, rax                ; RBX = failed error code
-    lea     rdi, [rel .msg_fail]
+    lea     rdi, [rel io_msg_fail]
     call    console_milestone
     mov     rax, rbx                ; Return failed code
 
@@ -265,8 +265,8 @@ IO_FUNC async_init
 IO_ENDFUNC async_init
 
 section .rodata
-.msg_init:  db "IO:INIT", 0
-.msg_ready: db "IO:READY", 0
-.msg_fail:  db "IO:FAIL", 0
+io_msg_init:  db "IO:INIT", 0
+io_msg_ready: db "IO:READY", 0
+io_msg_fail:  db "IO:FAIL", 0
 
 %endif ; IO_CORE_INIT_ASM
