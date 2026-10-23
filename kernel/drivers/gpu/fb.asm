@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — kernel/drivers/gpu/fb.asm
+; Utkarsha OS — kernel/drivers/gpu/fb.asm
 ; =============================================================================
 ; GPU Framebuffer Driver and Caching Benchmarks (Subfeature 8.3).
 ; Configures fast write-combining video transfers for linear framebuffers.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — kernel/drivers/serial/uart.asm
+; Utkarsha OS — kernel/drivers/serial/uart.asm
 ; =============================================================================
 ; Early serial UART (COM1) driver for x86-64 long mode.
 ; Provides early debugging console output functions.
