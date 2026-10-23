@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tpm/tpm.asm
+; Utkarsha OS — boot/tpm/tpm.asm
 ; =============================================================================
 ; TPM 2.0 TIS (TPM Interface Specification) FIFO driver.
 ; Interfaces with the TPM 2.0 chip via MMIO (0xFED40000) in x86-64 long mode.

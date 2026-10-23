@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tpm/uefi_tpm.asm
+; Utkarsha OS — boot/tpm/uefi_tpm.asm
 ; =============================================================================
 ; UEFI TPM 2.0 Integration.
 ; Uses EFI_TCG2_PROTOCOL to measure and extend PCRs in UEFI long mode.
@@ -44,7 +44,7 @@ tcg2_event_header:
     dd 4                            ; PCRIndex (default PCR 4)
     dd 0x0D                         ; EV_IPL (bootloader/OS loader)
 tcg2_event_header_end:
-    db "Tattva kernel", 0
+    db "Utkarsha kernel", 0
 tcg2_event_end:
 
 section .text

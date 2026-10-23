@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tpm/tpm_measure.asm
+; Utkarsha OS — boot/tpm/tpm_measure.asm
 ; =============================================================================
 ; TPM measurement coordinator for x86_64 BIOS path.
 ;

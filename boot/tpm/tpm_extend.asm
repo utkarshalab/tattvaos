@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/tpm/tpm_extend.asm
+; Utkarsha OS — boot/tpm/tpm_extend.asm
 ; =============================================================================
 ; Higher-level TPM PCR extension helpers.
 ;
@@ -8,7 +8,7 @@
 ; specific PCR register. Completes the measured boot chain alongside
 ; tpm_measure.asm.
 ;
-; PCR allocation (Tattva OS convention):
+; PCR allocation (Utkarsha OS convention):
 ;   PCR 0: Stage 1 (MBR) measurement
 ;   PCR 1: Stage 2 configuration / boot parameters
 ;   PCR 4: Stage 2 code + kernel (handled by tpm_measure.asm)
