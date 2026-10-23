@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/a20/a20.asm
+; Utkarsha OS — boot/stage2/a20/a20.asm
 ; =============================================================================
 ; Main A20 handler. Tries all methods in order.
 ; Verifies after each attempt before trying next.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/cpu/cores.asm
+; Utkarsha OS — boot/stage2/cpu/cores.asm
 ; =============================================================================
 ; Detect total logical core count of the CPU package.
 ;

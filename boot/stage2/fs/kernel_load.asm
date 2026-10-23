@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/kernel_load.asm
+; Utkarsha OS — boot/stage2/fs/kernel_load.asm
 ; =============================================================================
 ; Relocates an already-loaded ULF image to a different physical address.
 ;

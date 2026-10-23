@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/idt/idt_load.asm
+; Utkarsha OS — boot/stage2/idt/idt_load.asm
 ; =============================================================================
 ; Stub IDT setup for Phase 1.
 ; Real IDT handlers and loading are implemented in Phase 2.

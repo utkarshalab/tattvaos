@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/fat32.asm
+; Utkarsha OS — boot/stage2/fs/fat32.asm
 ; =============================================================================
 ; FAT32 filesystem structures and reader.
 ;

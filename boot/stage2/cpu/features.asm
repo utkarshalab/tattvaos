@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/cpu/features.asm
+; Utkarsha OS — boot/stage2/cpu/features.asm
 ; =============================================================================
 ; CPU feature flag utilities.
 ;

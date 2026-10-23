@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/fs.asm
+; Utkarsha OS — boot/stage2/fs/fs.asm
 ; =============================================================================
 ; Filesystem detection and file loading orchestrator.
 ; Resolves GPT partition tables and scans FAT32 volumes to locate "kernel.ulf".

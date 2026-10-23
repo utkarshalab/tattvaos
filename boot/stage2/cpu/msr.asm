@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/cpu/msr.asm
+; Utkarsha OS — boot/stage2/cpu/msr.asm
 ; =============================================================================
 ; Read and write Model Specific Registers (MSRs).
 ;

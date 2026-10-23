@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/idt/idt.asm
+; Utkarsha OS — boot/stage2/idt/idt.asm
 ; =============================================================================
 ; Protected Mode Interrupt Descriptor Table (IDT) definition.
 ; Configures gates for the first 32 exceptions.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/hw/uart/uart_print.asm
+; Utkarsha OS — boot/stage2/hw/uart/uart_print.asm
 ; =============================================================================
 ; Print null-terminated string via COM1 UART.
 ; Requires uart_init to be called first.

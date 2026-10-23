@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/a20/a20_kbd.asm
+; Utkarsha OS — boot/stage2/a20/a20_kbd.asm
 ; =============================================================================
 ; Enable A20 line using the PS/2 Keyboard Controller (8042) Output Port.
 ; Highly compatible fallback for systems without Port 0x92 or BIOS support.

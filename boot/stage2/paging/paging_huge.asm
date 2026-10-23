@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/paging/paging_huge.asm
+; Utkarsha OS — boot/stage2/paging/paging_huge.asm
 ; =============================================================================
 ; 2MB huge page support helpers.
 ;

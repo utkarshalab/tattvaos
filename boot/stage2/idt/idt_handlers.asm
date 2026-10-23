@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/idt/idt_handlers.asm
+; Utkarsha OS — boot/stage2/idt/idt_handlers.asm
 ; =============================================================================
 ; Low-level exception handlers for Protected Mode IDT.
 ; Catches faults 0 to 31, saves registers, and displays a detailed register dump

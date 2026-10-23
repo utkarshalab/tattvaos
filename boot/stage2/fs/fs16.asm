@@ -1,10 +1,10 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/fs16.asm
+; Utkarsha OS — boot/stage2/fs/fs16.asm
 ; =============================================================================
 ; 16-bit real-mode filesystem scanner and loader.
 ; Parses GPT partition table (with secondary fallback) to locate a FAT32 or ext4
 ; partition, searches the root directory, and loads KERNEL.ULF and INITRD.IMG.
-; Supports tattva.cfg boot parameters and dual-kernel fallback.
+; Supports utkarsha.cfg boot parameters and dual-kernel fallback.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64, real mode (16-bit)
@@ -237,14 +237,14 @@ fs_load_kernel:
     add eax, [fat_start]
     mov [data_start], eax
 
-    ; 2.5 Try loading tattva.cfg first
+    ; 2.5 Try loading utkarsha.cfg first
     mov eax, [root_cluster]
     lea dx, [rel filename_config]
     call fat32_find_file_helper
     test eax, eax
     jz .no_config_found
 
-    ; Load tattva.cfg to 0x3000:0x0000
+    ; Load utkarsha.cfg to 0x3000:0x0000
     push eax
     mov ax, 0x3000
     mov es, ax
@@ -257,7 +257,7 @@ fs_load_kernel:
     cmp eax, 0x0FFFFFF8
     jb .load_cfg_loop
 
-    ; Parse tattva.cfg
+    ; Parse utkarsha.cfg
     ; Parser uses FS for buffer segment, DS=0 for key strings
     mov ax, 0x3000
     mov fs, ax
@@ -630,7 +630,7 @@ root_cluster:         dd 0
 kernel_start_cluster: dd 0
 lba_supported:        db 0
 
-filename_config:      db "TATTVA  CFG"
+filename_config:      db "UTKARSHACFG"
 filename_kernel:      db "KERNEL  ULF"
 filename_fallback:    db "KERNELRCULF"
 filename_initrd:      db "INITRD  IMG"

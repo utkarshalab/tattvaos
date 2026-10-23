@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/paging/paging.asm
+; Utkarsha OS — boot/stage2/paging/paging.asm
 ; =============================================================================
 ; Main paging setup. Builds page tables for long mode.
 ; Uses 2MB huge pages for simplicity — sufficient for boot stage.

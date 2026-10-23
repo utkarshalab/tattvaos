@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/memory/mtrr.asm
+; Utkarsha OS — boot/stage2/memory/mtrr.asm
 ; =============================================================================
 ; Memory Type Range Register (MTRR) configuration.
 ;

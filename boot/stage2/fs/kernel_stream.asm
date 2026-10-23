@@ -1,7 +1,7 @@
 %ifndef KERNEL_STREAM_ASM
 %define KERNEL_STREAM_ASM
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/kernel_stream.asm
+; Utkarsha OS — boot/stage2/fs/kernel_stream.asm
 ; =============================================================================
 ; Streams the whole ULF kernel image from raw disk sectors to KERNEL_LOAD (1MB).
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/cpu/cache.asm
+; Utkarsha OS — boot/stage2/cpu/cache.asm
 ; =============================================================================
 ; Detect L1 Data, L2, and L3 cache sizes in kilobytes (KB).
 ; Supports both Intel (deterministic cache) and AMD extended topologies.

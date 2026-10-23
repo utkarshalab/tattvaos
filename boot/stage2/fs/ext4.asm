@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/ext4.asm
+; Utkarsha OS — boot/stage2/fs/ext4.asm
 ; =============================================================================
 ; Read-only ext4 filesystem reader for x86 16-bit real mode.
 ; Traverses the ext4 superblock, group descriptors, inodes, and extent trees

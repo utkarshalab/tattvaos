@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/paging/paging_nx.asm
+; Utkarsha OS — boot/stage2/paging/paging_nx.asm
 ; =============================================================================
 ; NX (No-Execute) / XD (Execute-Disable) bit support.
 ;

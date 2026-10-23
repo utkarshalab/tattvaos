@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/hw/uart/uart_hex.asm
+; Utkarsha OS — boot/stage2/hw/uart/uart_hex.asm
 ; =============================================================================
 ; Print values in hexadecimal via COM1 UART.
 ; Essential for debugging addresses, registers, error codes.

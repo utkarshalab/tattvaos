@@ -1,7 +1,7 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/bxp.asm
+; Utkarsha OS — boot/stage2/fs/bxp.asm
 ; =============================================================================
-; BXP (Boot eXecution Package) — Tattva native boot format.
+; BXP (Boot eXecution Package) — Utkarsha native boot format.
 ;
 ; BXP is a simple, flat boot image format designed for fast, verified
 ; kernel loading. It prioritizes simplicity and integrity over features.
@@ -22,7 +22,7 @@
 ;   0x1C    4     CRC32 of kernel image (0 = unchecked)
 ;   0x20    32    SHA-256 hash of kernel (all zeros = unchecked)
 ;   0x40    64    Reserved (must be zero)
-;   0x80    128   Build string (null-terminated ASCII, e.g. "TattvaOS v0.1")
+;   0x80    128   Build string (null-terminated ASCII, e.g. "Utkarsha OS v0.1")
 ;   0x100   256   Padding (zero)
 ;
 ; Author:  Utkarsha Labs

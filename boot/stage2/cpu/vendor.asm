@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/cpu/vendor.asm
+; Utkarsha OS — boot/stage2/cpu/vendor.asm
 ; =============================================================================
 ; Detect CPU vendor string and match it against Intel / AMD.
 ;

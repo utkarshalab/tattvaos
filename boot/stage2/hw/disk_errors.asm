@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/hw/disk_errors.asm
+; Utkarsha OS — boot/stage2/hw/disk_errors.asm
 ; =============================================================================
 ; BIOS Disk Error Codes description lookup table and strings.
 ; Used by stage2 disk error logging.

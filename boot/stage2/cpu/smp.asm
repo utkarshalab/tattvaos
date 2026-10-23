@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/cpu/smp.asm
+; Utkarsha OS — boot/stage2/cpu/smp.asm
 ; =============================================================================
 ; Early Symmetric Multiprocessing (SMP) AP Bootstrap and Core Parking.
 ; Initializes Local APIC, sends INIT/SIPI to wake secondary cores, and parks them

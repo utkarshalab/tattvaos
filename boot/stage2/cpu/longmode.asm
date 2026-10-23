@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/cpu/longmode.asm
+; Utkarsha OS — boot/stage2/cpu/longmode.asm
 ; =============================================================================
 ; Verify long mode is supported and enter it.
 ; Must be called after GDT and paging are set up.

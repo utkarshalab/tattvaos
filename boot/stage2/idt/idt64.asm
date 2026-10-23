@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/idt/idt64.asm
+; Utkarsha OS — boot/stage2/idt/idt64.asm
 ; =============================================================================
 ; Minimal emergency IDT for the interval between entering IA-32e mode and the
 ; kernel installing its full IDT.  The protected-mode IDT uses 8-byte gates;

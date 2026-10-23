@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/paging/paging_verify.asm
+; Utkarsha OS — boot/stage2/paging/paging_verify.asm
 ; =============================================================================
 ; Verify page table correctness before enabling paging.
 ; Halts with error if any check fails.

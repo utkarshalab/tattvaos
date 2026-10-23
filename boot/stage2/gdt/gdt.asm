@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/gdt/gdt.asm
+; Utkarsha OS — boot/stage2/gdt/gdt.asm
 ; =============================================================================
 ; Global Descriptor Table definition.
 ;

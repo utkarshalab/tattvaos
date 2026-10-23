@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/hw/vbe.asm
+; Utkarsha OS — boot/stage2/hw/vbe.asm
 ; =============================================================================
 ; VESA BIOS Extensions (VBE) initialization.
 ; Queries and sets a high-resolution linear framebuffer (LFB) mode.

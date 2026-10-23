@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/hw/uart/uart.asm
+; Utkarsha OS — boot/stage2/hw/uart/uart.asm
 ; =============================================================================
 ; Initialize COM1 UART at 115200 baud, 8N1, polling mode.
 ; No interrupts. No DMA. Just port I/O.

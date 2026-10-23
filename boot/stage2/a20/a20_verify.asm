@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/a20/a20_verify.asm
+; Utkarsha OS — boot/stage2/a20/a20_verify.asm
 ; =============================================================================
 ; Verify whether the A20 address line is enabled.
 ;

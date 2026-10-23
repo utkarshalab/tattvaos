@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/hw/disk.asm
+; Utkarsha OS — boot/stage2/hw/disk.asm
 ; =============================================================================
 ; Query and manage BIOS disk drive parameters.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/mbr_part.asm
+; Utkarsha OS — boot/stage2/fs/mbr_part.asm
 ; =============================================================================
 ; MBR partition table parser.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/ubf.asm
+; Utkarsha OS — boot/stage2/fs/ubf.asm
 ; =============================================================================
 ; UBF (Utkarsha Boot Format) — unified boot image container.
 ;

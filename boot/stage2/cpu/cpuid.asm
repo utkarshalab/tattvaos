@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/cpu/cpuid.asm
+; Utkarsha OS — boot/stage2/cpu/cpuid.asm
 ; =============================================================================
 ; CPU feature detection using CPUID instruction.
 ; Stores results at FEATURES_DEST for use by kernel and bootloader.

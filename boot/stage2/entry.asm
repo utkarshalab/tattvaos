@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/entry.asm
+; Utkarsha OS — boot/stage2/entry.asm
 ; =============================================================================
 ; Stage2 entry point. Loaded by stage1 to 0x8000.
 ; First 4 bytes MUST be STAGE2_MAGIC for verification.
@@ -10,7 +10,7 @@
 ;   3. Set up stage2 stack
 ;   4. Re-save boot drive number from DL
 ;   5. Initialize UART immediately (first thing for debug output)
-;   6. Print "Tattva Stage2 OK" via UART
+;   6. Print "Utkarsha Stage2 OK" via UART
 ;   7. Call main.asm to orchestrate rest of boot
 ;
 ; Memory at entry:
@@ -192,7 +192,7 @@ msg_banner:
     db "================================", 0
 
 msg_stage2_ok:
-    db "  Tattva OS  |  Stage2 OK", 0
+    db "  Utkarsha OS  |  Stage2 OK", 0
 
 msg_drive:
     db "Boot drive: ", 0

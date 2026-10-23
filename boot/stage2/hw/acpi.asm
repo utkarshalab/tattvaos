@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/hw/acpi.asm
+; Utkarsha OS — boot/stage2/hw/acpi.asm
 ; =============================================================================
 ; Scan memory for the ACPI Root System Description Pointer (RSDP).
 ;

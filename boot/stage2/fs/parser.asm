@@ -1,7 +1,7 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/parser.asm
+; Utkarsha OS — boot/stage2/fs/parser.asm
 ; =============================================================================
-; Simple boot configuration file (tattva.cfg) text parser.
+; Simple boot configuration file (utkarsha.cfg) text parser.
 ; Reads kernel, fallback, and initrd filenames from the config file.
 ;
 ; Author:  Utkarsha Labs
@@ -14,7 +14,7 @@
 [BITS 16]
 
 ; =============================================================================
-; config_parse — Parse tattva.cfg content loaded in memory
+; config_parse — Parse utkarsha.cfg content loaded in memory
 ; Input:  FS = segment of text buffer (e.g. 0x3000)
 ;         SI = offset within segment (e.g. 0)
 ;         CX = text buffer length

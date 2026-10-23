@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/gdt/selectors.asm
+; Utkarsha OS — boot/stage2/gdt/selectors.asm
 ; =============================================================================
 ; GDT segment selector constants.
 ; Include this anywhere a selector value is needed.

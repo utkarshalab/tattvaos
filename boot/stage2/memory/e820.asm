@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/memory/e820.asm
+; Utkarsha OS — boot/stage2/memory/e820.asm
 ; =============================================================================
 ; Complete E820 memory map subsystem.
 ; One file. All functions. One include in main.asm.

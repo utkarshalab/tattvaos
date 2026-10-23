@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/gdt/gdt_verify.asm
+; Utkarsha OS — boot/stage2/gdt/gdt_verify.asm
 ; =============================================================================
 ; Verify the GDT was loaded correctly after gdt_setup.
 ; Reads back the GDT register and checks key descriptor fields.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/paging/paging_map.asm
+; Utkarsha OS — boot/stage2/paging/paging_map.asm
 ; =============================================================================
 ; Map specific virtual → physical address regions.
 ; Used after paging_setup to add or modify specific mappings.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/ext2.asm
+; Utkarsha OS — boot/stage2/fs/ext2.asm
 ; =============================================================================
 ; Minimal read-only EXT2 filesystem driver for boot.
 ;

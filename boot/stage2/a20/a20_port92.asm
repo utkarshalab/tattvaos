@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/a20/a20_port92.asm
+; Utkarsha OS — boot/stage2/a20/a20_port92.asm
 ; =============================================================================
 ; Enable A20 line via port 0x92 (System Control Port A).
 ; This is the fastest method. Works on most modern hardware and QEMU.

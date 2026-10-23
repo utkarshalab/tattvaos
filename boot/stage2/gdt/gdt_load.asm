@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/gdt/gdt_load.asm
+; Utkarsha OS — boot/stage2/gdt/gdt_load.asm
 ; =============================================================================
 ; Load the GDT and perform far jump to protected mode.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/main.asm
+; Utkarsha OS — boot/stage2/main.asm
 ; =============================================================================
 ; Main stage2 orchestrator.
 ; Called from entry.asm after UART is initialized.

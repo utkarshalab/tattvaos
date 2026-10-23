@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/fs/gpt.asm
+; Utkarsha OS — boot/stage2/fs/gpt.asm
 ; =============================================================================
 ; GUID Partition Table (GPT) structures and helpers.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage2/cpu/simd_enable.asm
+; Utkarsha OS — boot/stage2/cpu/simd_enable.asm
 ; =============================================================================
 ; Enable SSE and AVX SIMD coprocessor features.
 ; Must be called in 32-bit Protected Mode before entering Long Mode.
