@@ -1,6 +1,6 @@
 # utils — System Utilities Category
 
-> Native system utilities for Tattva OS.
+> Native system utilities for Utkarsha OS.
 > File, process, text, and system management tools.
 
 ---
@@ -21,5 +21,5 @@
 
 ## Philosophy
 
-These are the POSIX-style utilities rewritten for Tattva OS.
+These are the POSIX-style utilities rewritten for Utkarsha OS.
 Familiar interface. Native performance. No GNU dependency.
