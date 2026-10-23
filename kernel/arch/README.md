@@ -5,4 +5,4 @@
 Contains: interrupt vectors, context switch assembly, MSR access,
 timer setup, TLB flush operations for each architecture.
 
-Part of the `kernel/` category in Tattva OS.
+Part of the `kernel/` category in Utkarsha OS.

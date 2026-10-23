@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — bounded QEMU EDU MSI ownership proof
+; Utkarsha OS — bounded QEMU EDU MSI ownership proof
 ;
 ; This is deliberately a device-specific boot proof, not a general PCI driver.
 ; Prepare runs before AP release so its IDT and page-table writes are serialized.

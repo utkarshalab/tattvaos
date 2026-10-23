@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — kernel/arch/x86_64/cpu.asm
+; Utkarsha OS — kernel/arch/x86_64/cpu.asm
 ; =============================================================================
 ; CPU feature verification, hardware initialization, memory cache activation,
 ; processor security policies, thread-local base, and SIMD/FPU setup (25 Steps).

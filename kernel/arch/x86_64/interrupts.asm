@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — kernel/arch/x86_64/interrupts.asm
+; Utkarsha OS — kernel/arch/x86_64/interrupts.asm
 ; =============================================================================
 ; Interrupt Descriptor Table (IDT) configuration and Exception Handling.
 ; Installs handlers for the 32 standard CPU exceptions, performs comprehensive

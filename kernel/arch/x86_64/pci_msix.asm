@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — strict one-vector MSI-X ownership
+; Utkarsha OS — strict one-vector MSI-X ownership
 ; =============================================================================
 ; Owns entry zero only. The shared mask primitive covers every validated table
 ; entry; multi-vector allocation remains a later owner-lifecycle extension.

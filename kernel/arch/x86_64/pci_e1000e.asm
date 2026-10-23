@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — QEMU e1000e one-shot MSI-X ownership proof
+; Utkarsha OS — QEMU e1000e one-shot MSI-X ownership proof
 ; =============================================================================
 ; This is a bounded boot-time proof for Intel 82574L/QEMU e1000e (8086:10d3),
 ; not a packet driver. It owns no rings and performs no DMA.

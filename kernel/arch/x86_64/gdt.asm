@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — kernel/arch/x86_64/gdt.asm
+; Utkarsha OS — kernel/arch/x86_64/gdt.asm
 ; =============================================================================
 ; Global Descriptor Table (GDT) and Task State Segment (TSS) initialization.
 ; Sets up the kernel GDT and loads the TSS with an Emergency Stack for IST 1.
