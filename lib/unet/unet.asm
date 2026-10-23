@@ -98,8 +98,8 @@ unet_shutdown:
 %include "lib/unet/core/l3/icmp.asm"
 %include "lib/unet/core/l3/igmp.asm"
 %include "lib/unet/core/l4/udp.asm"
-%include "lib/unet/core/l4/tcp_rack.asm"
 %include "lib/unet/core/l4/tcp.asm"
+%include "lib/unet/core/l4/tcp_rack.asm"     ; after tcp.asm: uses its TCBF_* macros
 %include "lib/unet/core/l4/tcp_bbrv2.asm"
 %include "lib/unet/core/l4/tcp_cubic.asm"
 %include "lib/unet/core/l4/tcp_syncookie.asm"
