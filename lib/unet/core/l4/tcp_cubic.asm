@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_CUBIC_ASM
 %define GUARD_UNET_CORE_L4_TCP_CUBIC_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_cubic.asm
+; Utkarsha OS — unet/core/l4/tcp_cubic.asm
 ; =============================================================================
 ; CUBIC Congestion Control (RFC 8312)
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_BENCH_DPDK_PKTGEN_ASM
 %define GUARD_UNET_TOOLS_BENCH_DPDK_PKTGEN_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/bench/dpdk_pktgen.asm
+; Utkarsha OS — unet/tools/bench/dpdk_pktgen.asm
 ; =============================================================================
 ; DPDK PMD Wire-Speed Packet Generator Benchmarking Tool (`dpdk-pktgen`).
 ;

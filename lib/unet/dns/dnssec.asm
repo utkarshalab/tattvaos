@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DNS_DNSSEC_ASM
 %define GUARD_UNET_DNS_DNSSEC_ASM
 ; =============================================================================
-; Tattva OS — unet/dns/dnssec.asm
+; Utkarsha OS — unet/dns/dnssec.asm
 ; =============================================================================
 ; Master DNSSEC (RFC 4034 / RFC 4035 / PQC) Signature Validation Engine.
 ;

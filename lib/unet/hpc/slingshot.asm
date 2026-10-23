@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HPC_SLINGSHOT_ASM
 %define GUARD_UNET_HPC_SLINGSHOT_ASM
 ; =============================================================================
-; Tattva OS — unet/hpc/slingshot.asm
+; Utkarsha OS — unet/hpc/slingshot.asm
 ; =============================================================================
 ; Cray Slingshot / Cassini HPC Ethernet Interconnect Engine.
 ;

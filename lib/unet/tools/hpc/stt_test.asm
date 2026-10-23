@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_STT_TEST_ASM
 %define GUARD_UNET_TOOLS_HPC_STT_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/stt_test.asm
+; Utkarsha OS — unet/tools/hpc/stt_test.asm
 ; =============================================================================
 ; Stateless Transport Tunneling (STT) Diagnostic Tool (`stt-test`).
 ;

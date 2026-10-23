@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_SCTP_ASM
 %define GUARD_UNET_CORE_L4_SCTP_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/sctp.asm
+; Utkarsha OS — unet/core/l4/sctp.asm
 ; =============================================================================
 ; Master SCTP (Stream Control Transmission Protocol RFC 4960) Engine.
 ;

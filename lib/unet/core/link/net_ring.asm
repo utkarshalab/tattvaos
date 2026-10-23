@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_LINK_NET_RING_ASM
 %define GUARD_UNET_CORE_LINK_NET_RING_ASM
 ; =============================================================================
-; Tattva OS — unet/core/link/net_ring.asm
+; Utkarsha OS — unet/core/link/net_ring.asm
 ; =============================================================================
 ; Cache-Line Aligned Lockless Ring Buffer Engine for 400Gbps Line-Rate Network DMA.
 ;

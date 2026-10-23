@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_ENA_ASM
 %define GUARD_UNET_DRIVERS_ENA_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/ena.asm
+; Utkarsha OS — unet/drivers/ena.asm
 ; =============================================================================
 ; AWS Elastic Network Adapter (ENA 100GbE) Driver.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HFT_ITCH_ASM
 %define GUARD_UNET_HFT_ITCH_ASM
 ; =============================================================================
-; Tattva OS — unet/hft/itch.asm
+; Utkarsha OS — unet/hft/itch.asm
 ; =============================================================================
 ; NASDAQ ITCH 5.0 Direct Order Book Feed Protocol Engine.
 ;

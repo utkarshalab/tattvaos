@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_PQC_QKD_KM_ASM
 %define GUARD_UNET_PQC_QKD_KM_ASM
 ; =============================================================================
-; Tattva OS — unet/pqc/qkd_km.asm
+; Utkarsha OS — unet/pqc/qkd_km.asm
 ; =============================================================================
 ; Quantum Key Distribution Key Management Integration Engine (ETSI GS QKD 014 / 004).
 ;

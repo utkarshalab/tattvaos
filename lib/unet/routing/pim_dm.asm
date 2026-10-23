@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ROUTING_PIM_DM_ASM
 %define GUARD_UNET_ROUTING_PIM_DM_ASM
 ; =============================================================================
-; Tattva OS — unet/routing/pim_dm.asm
+; Utkarsha OS — unet/routing/pim_dm.asm
 ; =============================================================================
 ; PIM-DM (Protocol Independent Multicast — Dense Mode) Engine (RFC 3973).
 ;

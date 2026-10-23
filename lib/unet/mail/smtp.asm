@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MAIL_SMTP_ASM
 %define GUARD_UNET_MAIL_SMTP_ASM
 ; =============================================================================
-; Tattva OS — unet/mail/smtp.asm
+; Utkarsha OS — unet/mail/smtp.asm
 ; =============================================================================
 ; SMTP / ESMTP Mail Transfer Agent Engine (RFC 5321 / RFC 3207 STARTTLS).
 ;

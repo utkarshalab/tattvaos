@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SSH_SSH_AUTH_ASM
 %define GUARD_UNET_SSH_SSH_AUTH_ASM
 ; =============================================================================
-; Tattva OS — unet/ssh/ssh_auth.asm
+; Utkarsha OS — unet/ssh/ssh_auth.asm
 ; =============================================================================
 ; SSH Authentication Protocol Engine (RFC 4252).
 ;

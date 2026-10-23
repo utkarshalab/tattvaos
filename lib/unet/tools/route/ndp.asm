@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_NDP_ASM
 %define GUARD_UNET_TOOLS_ROUTE_NDP_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/ndp.asm
+; Utkarsha OS — unet/tools/route/ndp.asm
 ; =============================================================================
 ; IPv6 Neighbor Discovery Protocol Inspector Tool (`ndp`).
 ;

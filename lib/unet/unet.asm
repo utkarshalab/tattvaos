@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_UNET_ASM
 %define GUARD_UNET_UNET_ASM
 ; =============================================================================
-; Tattva OS — unet/unet.asm
+; Utkarsha OS — unet/unet.asm
 ; =============================================================================
 ; Master Network Stack Engine & Universal Protocol Dispatcher.
 ;

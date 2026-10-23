@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_RACK_ASM
 %define GUARD_UNET_CORE_L4_TCP_RACK_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_rack.asm
+; Utkarsha OS — unet/core/l4/tcp_rack.asm
 ; =============================================================================
 ; RACK (Recent ACKnowledgment) and TLP (Tail Loss Probe) — RFC 8960
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HA_VRRP_ASM
 %define GUARD_UNET_HA_VRRP_ASM
 ; =============================================================================
-; Tattva OS — unet/ha/vrrp.asm
+; Utkarsha OS — unet/ha/vrrp.asm
 ; =============================================================================
 ; Virtual Router Redundancy Protocol Engine (VRRPv2 RFC 3768 / VRRPv3 RFC 5798).
 ;

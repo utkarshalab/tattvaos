@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_PROXY_SOCKS5_ASM
 %define GUARD_UNET_PROXY_SOCKS5_ASM
 ; =============================================================================
-; Tattva OS — unet/proxy/socks5.asm
+; Utkarsha OS — unet/proxy/socks5.asm
 ; =============================================================================
 ; SOCKS Protocol Version 5 Engine (RFC 1928 / RFC 1929 Auth).
 ;

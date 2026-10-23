@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_DIAG_NETSTAT_ASM_ASM
 %define GUARD_UNET_TOOLS_DIAG_NETSTAT_ASM_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/diag/netstat_asm.asm
+; Utkarsha OS — unet/tools/diag/netstat_asm.asm
 ; =============================================================================
 ; High-Performance Assembly Network Statistics & Socket Inspector (`netstat`).
 ;

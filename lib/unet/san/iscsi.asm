@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SAN_ISCSI_ASM
 %define GUARD_UNET_SAN_ISCSI_ASM
 ; =============================================================================
-; Tattva OS — unet/san/iscsi.asm
+; Utkarsha OS — unet/san/iscsi.asm
 ; =============================================================================
 ; Internet Small Computer System Interface (iSCSI RFC 7143 / RFC 3720) Engine.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L3_IPV6_TCP_ASM
 %define GUARD_UNET_CORE_L3_IPV6_TCP_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l3/ipv6_tcp.asm
+; Utkarsha OS — unet/core/l3/ipv6_tcp.asm
 ; =============================================================================
 ; IPv6 TCP Support (RFC 8200, RFC 2460, RFC 3542)
 ;

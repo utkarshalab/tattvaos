@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L3_IPV4_PMTUD_ASM
 %define GUARD_UNET_CORE_L3_IPV4_PMTUD_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l3/ipv4_pmtud.asm
+; Utkarsha OS — unet/core/l3/ipv4_pmtud.asm
 ; =============================================================================
 ; Path MTU Discovery (RFC 1191, RFC 8899, RFC 4821 PLPMTUD)
 ;

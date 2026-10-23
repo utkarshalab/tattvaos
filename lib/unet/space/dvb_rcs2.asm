@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SPACE_DVB_RCS2_ASM
 %define GUARD_UNET_SPACE_DVB_RCS2_ASM
 ; =============================================================================
-; Tattva OS — unet/space/dvb_rcs2.asm
+; Utkarsha OS — unet/space/dvb_rcs2.asm
 ; =============================================================================
 ; DVB-RCS2 Satellite Return Link Protocol Engine (ETSI EN 301 545-2).
 ;

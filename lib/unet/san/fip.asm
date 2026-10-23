@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SAN_FIP_ASM
 %define GUARD_UNET_SAN_FIP_ASM
 ; =============================================================================
-; Tattva OS — unet/san/fip.asm
+; Utkarsha OS — unet/san/fip.asm
 ; =============================================================================
 ; FCoE Initialization Protocol (FIP RFC 6104) Engine.
 ;

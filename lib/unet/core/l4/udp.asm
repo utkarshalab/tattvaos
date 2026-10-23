@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_UDP_ASM
 %define GUARD_UNET_CORE_L4_UDP_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/udp.asm
+; Utkarsha OS — unet/core/l4/udp.asm
 ; =============================================================================
 ; Zero-Copy Lockless UDP Socket Demuxing Engine (RFC 768 / RFC 3828).
 ;

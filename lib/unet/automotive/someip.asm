@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AUTOMOTIVE_SOMEIP_ASM
 %define GUARD_UNET_AUTOMOTIVE_SOMEIP_ASM
 ; =============================================================================
-; Tattva OS — unet/automotive/someip.asm
+; Utkarsha OS — unet/automotive/someip.asm
 ; =============================================================================
 ; AUTOSAR SOME/IP (Scalable service-Oriented MiddlewarE over IP) Engine.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VOIP_CODECS_ASM
 %define GUARD_UNET_VOIP_CODECS_ASM
 ; =============================================================================
-; Tattva OS — unet/voip/codecs.asm
+; Utkarsha OS — unet/voip/codecs.asm
 ; =============================================================================
 ; VoIP Audio Codecs & SIMD AVX2/AVX-512 DSP Processing Engine.
 ;

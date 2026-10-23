@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_WEBSOCKET_CAT_ASM
 %define GUARD_UNET_TOOLS_APP_WEBSOCKET_CAT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/websocket_cat.asm
+; Utkarsha OS — unet/tools/app/websocket_cat.asm
 ; =============================================================================
 ; Command-Line Interactive WebSocket Client & Message Cat Tool (`wscat`).
 ;

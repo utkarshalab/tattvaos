@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DNS_MDNS_ASM
 %define GUARD_UNET_DNS_MDNS_ASM
 ; =============================================================================
-; Tattva OS — unet/dns/mdns.asm
+; Utkarsha OS — unet/dns/mdns.asm
 ; =============================================================================
 ; Multicast DNS (mDNS RFC 6762) & DNS-SD (RFC 6763) Service Discovery Engine.
 ;

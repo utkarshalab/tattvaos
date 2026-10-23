@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_VMXNET3_ASM
 %define GUARD_UNET_DRIVERS_VMXNET3_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/vmxnet3.asm
+; Utkarsha OS — unet/drivers/vmxnet3.asm
 ; =============================================================================
 ; VMware VMXNET3 Paravirtualized Network Adapter Driver.
 ;

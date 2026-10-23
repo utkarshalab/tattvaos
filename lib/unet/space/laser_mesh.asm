@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SPACE_LASER_MESH_ASM
 %define GUARD_UNET_SPACE_LASER_MESH_ASM
 ; =============================================================================
-; Tattva OS — unet/space/laser_mesh.asm
+; Utkarsha OS — unet/space/laser_mesh.asm
 ; =============================================================================
 ; Free-Space Optical (FSO) / Inter-Satellite Laser Link Framing Engine.
 ;

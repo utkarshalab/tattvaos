@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_IDENTITY_WEBAUTHN_ASM
 %define GUARD_UNET_IDENTITY_WEBAUTHN_ASM
 ; =============================================================================
-; Tattva OS — unet/identity/webauthn.asm
+; Utkarsha OS — unet/identity/webauthn.asm
 ; =============================================================================
 ; WebAuthn / FIDO2 Passwordless Authentication Engine (W3C WebAuthn Spec).
 ;

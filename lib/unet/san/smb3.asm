@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SAN_SMB3_ASM
 %define GUARD_UNET_SAN_SMB3_ASM
 ; =============================================================================
-; Tattva OS — unet/san/smb3.asm
+; Utkarsha OS — unet/san/smb3.asm
 ; =============================================================================
 ; Server Message Block Version 3.1.1 Engine (SMB 3.1.1 MS-SMB2).
 ;

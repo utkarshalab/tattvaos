@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_IDENTITY_OAUTH2_ASM
 %define GUARD_UNET_IDENTITY_OAUTH2_ASM
 ; =============================================================================
-; Tattva OS — unet/identity/oauth2.asm
+; Utkarsha OS — unet/identity/oauth2.asm
 ; =============================================================================
 ; OAuth 2.0 / OpenID Connect (OIDC RFC 6749 / RFC 7519 JWT Subsystem).
 ;

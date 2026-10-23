@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SERVICES_OPCUA_ASM
 %define GUARD_UNET_SERVICES_OPCUA_ASM
 ; =============================================================================
-; Tattva OS — unet/services/opcua.asm
+; Utkarsha OS — unet/services/opcua.asm
 ; =============================================================================
 ; OPC Unified Architecture (OPC UA IEC 62541 / TCP Port 4840) Engine.
 ;

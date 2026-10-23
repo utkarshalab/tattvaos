@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_QOS_TBF_ASM
 %define GUARD_UNET_QOS_TBF_ASM
 ; =============================================================================
-; Tattva OS — unet/qos/tbf.asm
+; Utkarsha OS — unet/qos/tbf.asm
 ; =============================================================================
 ; Token Bucket Filter (TBF) & Dual-Rate Token Bucket Traffic Policing Engine.
 ;

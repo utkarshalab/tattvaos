@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VIDEO_MOQ_ASM
 %define GUARD_UNET_VIDEO_MOQ_ASM
 ; =============================================================================
-; Tattva OS — unet/video/moq.asm
+; Utkarsha OS — unet/video/moq.asm
 ; =============================================================================
 ; Media over QUIC (MoQ / MoQT IETF Draft) Ultra-Low Latency Transport Engine.
 ;

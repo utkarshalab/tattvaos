@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_BBRV2_ASM
 %define GUARD_UNET_CORE_L4_TCP_BBRV2_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_bbrv2.asm
+; Utkarsha OS — unet/core/l4/tcp_bbrv2.asm
 ; =============================================================================
 ; BBRv2 Congestion Control (RFC 9402, IETF Draft)
 ;

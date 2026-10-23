@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VOIP_ICE_STUN_ASM
 %define GUARD_UNET_VOIP_ICE_STUN_ASM
 ; =============================================================================
-; Tattva OS — unet/voip/ice_stun.asm
+; Utkarsha OS — unet/voip/ice_stun.asm
 ; =============================================================================
 ; STUN / TURN / ICE NAT Traversal Subsystem (RFC 8489 STUN / RFC 8656 TURN / RFC 8445 ICE).
 ;

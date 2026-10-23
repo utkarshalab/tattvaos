@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AI_AUTONOMOUS_QOS_ASM
 %define GUARD_UNET_AI_AUTONOMOUS_QOS_ASM
 ; =============================================================================
-; Tattva OS — unet/ai/autonomous_qos.asm
+; Utkarsha OS — unet/ai/autonomous_qos.asm
 ; =============================================================================
 ; Autonomous AI-Driven Real-Time QoS & Traffic Shaper Adapter.
 ;

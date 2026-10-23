@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_WIRELESS_EAP_TLS_ASM
 %define GUARD_UNET_WIRELESS_EAP_TLS_ASM
 ; =============================================================================
-; Tattva OS — unet/wireless/eap_tls.asm
+; Utkarsha OS — unet/wireless/eap_tls.asm
 ; =============================================================================
 ; Extensible Authentication Protocol over TLS / EAP-PEAP / EAP-TTLS Engine (RFC 5216 / RFC 2716).
 ;

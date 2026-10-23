@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_USB_ETH_ASM
 %define GUARD_UNET_DRIVERS_USB_ETH_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/usb_eth.asm
+; Utkarsha OS — unet/drivers/usb_eth.asm
 ; =============================================================================
 ; USB CDC-ECM / CDC-NCM / RNDIS Mobile Tethering Ethernet Class Driver.
 ;

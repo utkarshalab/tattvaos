@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_MULTICAST_ASM
 %define GUARD_UNET_TOOLS_APP_MULTICAST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/multicast.asm
+; Utkarsha OS — unet/tools/app/multicast.asm
 ; =============================================================================
 ; Command-Line IP Multicast Sender & Receiver Tool (`mcast`).
 ;

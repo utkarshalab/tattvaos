@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VPN_SSTP_ASM
 %define GUARD_UNET_VPN_SSTP_ASM
 ; =============================================================================
-; Tattva OS — unet/vpn/sstp.asm
+; Utkarsha OS — unet/vpn/sstp.asm
 ; =============================================================================
 ; Secure Socket Tunneling Protocol Engine (SSTP MS-SSTP over HTTPS Port 443).
 ;

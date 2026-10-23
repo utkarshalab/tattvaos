@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_SSH_SERVER_ASM
 %define GUARD_UNET_SECURITY_SSH_SERVER_ASM
 ; =============================================================================
-; Tattva OS — unet/security/ssh_server.asm
+; Utkarsha OS — unet/security/ssh_server.asm
 ; =============================================================================
 ; SSH v2 Server Engine (RFC 4253 Transport / RFC 4252 Auth / RFC 4254 Connection).
 ;

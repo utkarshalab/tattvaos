@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SERVICES_MATTER_ASM
 %define GUARD_UNET_SERVICES_MATTER_ASM
 ; =============================================================================
-; Tattva OS — unet/services/matter.asm
+; Utkarsha OS — unet/services/matter.asm
 ; =============================================================================
 ; Matter / CHIP (Connected Home over IP) Smart Home Protocol Engine.
 ;

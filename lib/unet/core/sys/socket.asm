@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_SYS_SOCKET_ASM
 %define GUARD_UNET_CORE_SYS_SOCKET_ASM
 ; =============================================================================
-; Tattva OS — unet/core/sys/socket.asm
+; Utkarsha OS — unet/core/sys/socket.asm
 ; =============================================================================
 ; POSIX / BSD Socket Allocator & Table Dispatcher Engine.
 ;

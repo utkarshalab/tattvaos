@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ANON_LOKINET_ASM
 %define GUARD_UNET_ANON_LOKINET_ASM
 ; =============================================================================
-; Tattva OS — unet/anon/lokinet.asm
+; Utkarsha OS — unet/anon/lokinet.asm
 ; =============================================================================
 ; Lokinet LLARP (Low-Latency Anonymous Routing Protocol) Engine.
 ;

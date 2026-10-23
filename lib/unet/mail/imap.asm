@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MAIL_IMAP_ASM
 %define GUARD_UNET_MAIL_IMAP_ASM
 ; =============================================================================
-; Tattva OS — unet/mail/imap.asm
+; Utkarsha OS — unet/mail/imap.asm
 ; =============================================================================
 ; IMAP4rev2 Remote Mailbox Protocol Engine (RFC 9051 / RFC 3501).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CGNAT_NAT64_ASM
 %define GUARD_UNET_CGNAT_NAT64_ASM
 ; =============================================================================
-; Tattva OS — unet/cgnat/nat64.asm
+; Utkarsha OS — unet/cgnat/nat64.asm
 ; =============================================================================
 ; NAT64 Stateful IPv6-to-IPv4 Translation Engine (RFC 6146 / RFC 6052).
 ;

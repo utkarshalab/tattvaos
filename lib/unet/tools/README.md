@@ -1,6 +1,6 @@
 # unet/tools — Network Diagnostic, Benchmark & Protocol Tools
 
-> 90 Network diagnostic, debugging, benchmarking, and protocol tools for Tattva OS.
+> 90 Network diagnostic, debugging, benchmarking, and protocol tools for Utkarsha OS.
 > All tools are invoked via the universal `net <subcommand> [args]` CLI interface.
 
 ## Tool Categories
@@ -137,4 +137,4 @@
 
 ---
 
-Part of the `unet/` network stack in Tattva OS.
+Part of the `unet/` network stack in Utkarsha OS.

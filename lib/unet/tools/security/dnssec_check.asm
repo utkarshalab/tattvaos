@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SECURITY_DNSSEC_CHECK_ASM
 %define GUARD_UNET_TOOLS_SECURITY_DNSSEC_CHECK_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/security/dnssec_check.asm
+; Utkarsha OS — unet/tools/security/dnssec_check.asm
 ; =============================================================================
 ; DNSSEC Validation & Trust Chain Verification Tool (`dnssec-check`).
 ;

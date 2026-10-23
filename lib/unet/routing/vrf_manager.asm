@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ROUTING_VRF_MANAGER_ASM
 %define GUARD_UNET_ROUTING_VRF_MANAGER_ASM
 ; =============================================================================
-; Tattva OS — unet/routing/vrf_manager.asm
+; Utkarsha OS — unet/routing/vrf_manager.asm
 ; =============================================================================
 ; VRF (Virtual Routing and Forwarding) Instance Manager.
 ;

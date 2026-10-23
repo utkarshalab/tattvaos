@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MESH_HYPERSPACE_ASM
 %define GUARD_UNET_MESH_HYPERSPACE_ASM
 ; =============================================================================
-; Tattva OS — unet/mesh/hyperspace.asm
+; Utkarsha OS — unet/mesh/hyperspace.asm
 ; =============================================================================
 ; Low-Latency Multi-Dimensional Hypercube Orbital & Terrestrial Mesh Engine.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L3_ICMP_ASM
 %define GUARD_UNET_CORE_L3_ICMP_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l3/icmp.asm
+; Utkarsha OS — unet/core/l3/icmp.asm
 ; =============================================================================
 ; ICMPv4 (RFC 792) & ICMPv6 (RFC 4443 / RFC 4861) Messaging Engine.
 ;

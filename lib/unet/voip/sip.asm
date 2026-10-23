@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VOIP_SIP_ASM
 %define GUARD_UNET_VOIP_SIP_ASM
 ; =============================================================================
-; Tattva OS — unet/voip/sip.asm
+; Utkarsha OS — unet/voip/sip.asm
 ; =============================================================================
 ; Session Initiation Protocol Engine (SIP RFC 3261 / RFC 3264 Offer/Answer).
 ;

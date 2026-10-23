@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_TLS_ASM
 %define GUARD_UNET_CORE_L4_TCP_TLS_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_tls.asm
+; Utkarsha OS — unet/core/l4/tcp_tls.asm
 ; =============================================================================
 ; TLS 1.3 / KTLS Integration for TCP
 ;

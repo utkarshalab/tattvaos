@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_ROCEV2_INFO_ASM
 %define GUARD_UNET_TOOLS_HPC_ROCEV2_INFO_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/rocev2_info.asm
+; Utkarsha OS — unet/tools/hpc/rocev2_info.asm
 ; =============================================================================
 ; RoCEv2 Network Diagnostic & GID Table Inspector (`rocev2-info`).
 ;

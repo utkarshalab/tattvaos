@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_BENCH_PKTGEN_ASM
 %define GUARD_UNET_TOOLS_BENCH_PKTGEN_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/bench/pktgen.asm
+; Utkarsha OS — unet/tools/bench/pktgen.asm
 ; =============================================================================
 ; High-Speed Wire-Rate Assembly Packet Generator (`pktgen`).
 ;

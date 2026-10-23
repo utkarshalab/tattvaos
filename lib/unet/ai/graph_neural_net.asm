@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AI_GRAPH_NEURAL_NET_ASM
 %define GUARD_UNET_AI_GRAPH_NEURAL_NET_ASM
 ; =============================================================================
-; Tattva OS — unet/ai/graph_neural_net.asm
+; Utkarsha OS — unet/ai/graph_neural_net.asm
 ; =============================================================================
 ; Graph Neural Network (GNN) Network Topology Analysis & Path Finding Engine.
 ;

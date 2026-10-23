@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SAN_WEBDAV_ASM
 %define GUARD_UNET_SAN_WEBDAV_ASM
 ; =============================================================================
-; Tattva OS — unet/san/webdav.asm
+; Utkarsha OS — unet/san/webdav.asm
 ; =============================================================================
 ; WebDAV HTTP Extension Engine (RFC 4918 / RFC 5689).
 ;

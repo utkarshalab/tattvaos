@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_QOS_SLB_ASM
 %define GUARD_UNET_QOS_SLB_ASM
 ; =============================================================================
-; Tattva OS — unet/qos/slb.asm
+; Utkarsha OS — unet/qos/slb.asm
 ; =============================================================================
 ; Server Load Balancing (SLB) L4 / L7 Traffic Distributor Engine.
 ;

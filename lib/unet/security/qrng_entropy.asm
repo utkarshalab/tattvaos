@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_QRNG_ENTROPY_ASM
 %define GUARD_UNET_SECURITY_QRNG_ENTROPY_ASM
 ; =============================================================================
-; Tattva OS — unet/security/qrng_entropy.asm
+; Utkarsha OS — unet/security/qrng_entropy.asm
 ; =============================================================================
 ; Quantum Random Number Generator (QRNG) Entropy Subsystem Engine.
 ;

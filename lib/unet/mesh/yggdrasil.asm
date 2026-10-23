@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MESH_YGGDRASIL_ASM
 %define GUARD_UNET_MESH_YGGDRASIL_ASM
 ; =============================================================================
-; Tattva OS — unet/mesh/yggdrasil.asm
+; Utkarsha OS — unet/mesh/yggdrasil.asm
 ; =============================================================================
 ; Yggdrasil Encrypted IPv6 Mesh Network Engine.
 ;

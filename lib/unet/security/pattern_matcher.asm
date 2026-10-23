@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_PATTERN_MATCHER_ASM
 %define GUARD_UNET_SECURITY_PATTERN_MATCHER_ASM
 ; =============================================================================
-; Tattva OS — unet/security/pattern_matcher.asm
+; Utkarsha OS — unet/security/pattern_matcher.asm
 ; =============================================================================
 ; SIMD Hyperscan / Aho-Corasick Multi-Pattern DPI Matching Engine.
 ;

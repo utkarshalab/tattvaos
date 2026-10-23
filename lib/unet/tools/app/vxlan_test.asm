@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_VXLAN_TEST_ASM
 %define GUARD_UNET_TOOLS_APP_VXLAN_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/vxlan_test.asm
+; Utkarsha OS — unet/tools/app/vxlan_test.asm
 ; =============================================================================
 ; VXLAN Tunnel Verification & VNI Ping Tool (`vxlan-test`).
 ;

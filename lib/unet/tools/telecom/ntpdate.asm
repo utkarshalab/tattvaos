@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_TELECOM_NTPDATE_ASM
 %define GUARD_UNET_TOOLS_TELECOM_NTPDATE_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/telecom/ntpdate.asm
+; Utkarsha OS — unet/tools/telecom/ntpdate.asm
 ; =============================================================================
 ; Command-Line Network Time Protocol Clock Sync Tool (`ntpdate`).
 ;

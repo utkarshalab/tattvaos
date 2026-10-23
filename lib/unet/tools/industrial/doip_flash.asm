@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_INDUSTRIAL_DOIP_FLASH_ASM
 %define GUARD_UNET_TOOLS_INDUSTRIAL_DOIP_FLASH_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/industrial/doip_flash.asm
+; Utkarsha OS — unet/tools/industrial/doip_flash.asm
 ; =============================================================================
 ; Automotive ECU Diagnostic Firmware Flasher Tool (`doip-flash`).
 ;

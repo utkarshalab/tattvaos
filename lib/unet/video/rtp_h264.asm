@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VIDEO_RTP_H264_ASM
 %define GUARD_UNET_VIDEO_RTP_H264_ASM
 ; =============================================================================
-; Tattva OS — unet/video/rtp_h264.asm
+; Utkarsha OS — unet/video/rtp_h264.asm
 ; =============================================================================
 ; RTP Payload Format for H.264 Video (RFC 6184).
 ;

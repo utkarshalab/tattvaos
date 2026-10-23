@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_BBR_ASM
 %define GUARD_UNET_CORE_L4_TCP_BBR_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_bbr.asm
+; Utkarsha OS — unet/core/l4/tcp_bbr.asm
 ; =============================================================================
 ; Master TCP BBR v2 (Bottleneck Bandwidth & RTT) Congestion Control Engine.
 ;

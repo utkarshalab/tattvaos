@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_SOLARFLARE_SFC_ASM
 %define GUARD_UNET_DRIVERS_SOLARFLARE_SFC_ASM
 ; =============================================================================
-; Tattva OS — unet/services/solarflare_sfc.asm (or unet/drivers/solarflare_sfc.asm)
+; Utkarsha OS — unet/services/solarflare_sfc.asm (or unet/drivers/solarflare_sfc.asm)
 ; =============================================================================
 ; Solarflare EF100 / XtremeScale High-Frequency Trading (HFT) Ultra-Low Latency Driver.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VOIP_SDP_ASM
 %define GUARD_UNET_VOIP_SDP_ASM
 ; =============================================================================
-; Tattva OS — unet/voip/sdp.asm
+; Utkarsha OS — unet/voip/sdp.asm
 ; =============================================================================
 ; Session Description Protocol Engine (SDP RFC 4566 / RFC 3264 Offer/Answer Model).
 ;

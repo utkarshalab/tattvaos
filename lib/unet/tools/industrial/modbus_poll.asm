@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_INDUSTRIAL_MODBUS_POLL_ASM
 %define GUARD_UNET_TOOLS_INDUSTRIAL_MODBUS_POLL_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/industrial/modbus_poll.asm
+; Utkarsha OS — unet/tools/industrial/modbus_poll.asm
 ; =============================================================================
 ; Command-Line Modbus TCP Industrial Polling Tool (`modbus-poll`).
 ;

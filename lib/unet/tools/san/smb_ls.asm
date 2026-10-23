@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SAN_SMB_LS_ASM
 %define GUARD_UNET_TOOLS_SAN_SMB_LS_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/san/smb_ls.asm
+; Utkarsha OS — unet/tools/san/smb_ls.asm
 ; =============================================================================
 ; Command-Line Server Message Block (SMB2 / SMB3) Share Inspector (`smb-ls`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_TPM2_ASM
 %define GUARD_UNET_SECURITY_TPM2_ASM
 ; =============================================================================
-; Tattva OS — unet/security/tpm2.asm
+; Utkarsha OS — unet/security/tpm2.asm
 ; =============================================================================
 ; Trusted Platform Module 2.0 (TPM 2.0 TCG Spec) Hardware Security Engine.
 ;

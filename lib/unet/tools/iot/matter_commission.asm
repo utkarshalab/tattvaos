@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_IOT_MATTER_COMMISSION_ASM
 %define GUARD_UNET_TOOLS_IOT_MATTER_COMMISSION_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/iot/matter_commission.asm
+; Utkarsha OS — unet/tools/iot/matter_commission.asm
 ; =============================================================================
 ; Matter / Thread Smart Home Device Commissioning Tool (`matter-commission`).
 ;

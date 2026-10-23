@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_TFO_TEST_ASM
 %define GUARD_UNET_TOOLS_APP_TFO_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/tfo_test.asm
+; Utkarsha OS — unet/tools/app/tfo_test.asm
 ; =============================================================================
 ; TCP Fast Open (TFO RFC 7413) Diagnostic & Latency Tester (`tfo-test`).
 ;

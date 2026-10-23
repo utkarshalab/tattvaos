@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_HTTP2_ASM
 %define GUARD_UNET_HTTP_HTTP2_ASM
 ; =============================================================================
-; Tattva OS — unet/http/http2.asm
+; Utkarsha OS — unet/http/http2.asm
 ; =============================================================================
 ; HTTP/2 Binary Protocol & HPACK Compression Engine (RFC 9113 / RFC 7541).
 ;

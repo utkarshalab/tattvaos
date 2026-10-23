@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_IB_DIAGS_ASM
 %define GUARD_UNET_TOOLS_HPC_IB_DIAGS_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/ib_diags.asm
+; Utkarsha OS — unet/tools/hpc/ib_diags.asm
 ; =============================================================================
 ; InfiniBand Architecture Diagnostic Utilities (`ibnetdiscover`, `iblinkinfo`, `ibstat`).
 ;

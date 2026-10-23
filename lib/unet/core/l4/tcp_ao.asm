@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_AO_ASM
 %define GUARD_UNET_CORE_L4_TCP_AO_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_ao.asm
+; Utkarsha OS — unet/core/l4/tcp_ao.asm
 ; =============================================================================
 ; TCP Authentication Option (TCP-AO) — RFC 5925
 ;

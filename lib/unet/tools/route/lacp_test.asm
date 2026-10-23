@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_LACP_TEST_ASM
 %define GUARD_UNET_TOOLS_ROUTE_LACP_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/lacp_test.asm
+; Utkarsha OS — unet/tools/route/lacp_test.asm
 ; =============================================================================
 ; IEEE 802.3ad Link Aggregation Control Protocol Diagnostic Tool (`lacp-test`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MAIL_POP3_ASM
 %define GUARD_UNET_MAIL_POP3_ASM
 ; =============================================================================
-; Tattva OS — unet/mail/pop3.asm
+; Utkarsha OS — unet/mail/pop3.asm
 ; =============================================================================
 ; POP3 Post Office Protocol Engine (RFC 1939 / RFC 2595 STARTTLS).
 ;

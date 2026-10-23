@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SAN_NVME_OF_TCP_ASM
 %define GUARD_UNET_SAN_NVME_OF_TCP_ASM
 ; =============================================================================
-; Tattva OS — unet/san/nvme_of_tcp.asm
+; Utkarsha OS — unet/san/nvme_of_tcp.asm
 ; =============================================================================
 ; NVMe over Fabrics TCP Transport Engine (NVMe-oF TCP Specification 1.0a).
 ;

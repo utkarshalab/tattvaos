@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_EBPF_DPDK_ASM
 %define GUARD_UNET_EBPF_DPDK_ASM
 ; =============================================================================
-; Tattva OS — unet/ebpf/dpdk.asm
+; Utkarsha OS — unet/ebpf/dpdk.asm
 ; =============================================================================
 ; Data Plane Development Kit (DPDK PMD / EAL) Fast-Path Bridge.
 ;

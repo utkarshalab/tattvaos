@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_CXI_INFO_ASM
 %define GUARD_UNET_TOOLS_HPC_CXI_INFO_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/cxi_info.asm
+; Utkarsha OS — unet/tools/hpc/cxi_info.asm
 ; =============================================================================
 ; Cray Cassini Interconnect (CXI / Slingshot) Network Diagnostic Tool (`cxi-info`).
 ;

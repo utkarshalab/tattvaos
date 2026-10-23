@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CGNAT_PCP_ASM
 %define GUARD_UNET_CGNAT_PCP_ASM
 ; =============================================================================
-; Tattva OS — unet/cgnat/pcp.asm
+; Utkarsha OS — unet/cgnat/pcp.asm
 ; =============================================================================
 ; Port Control Protocol (PCP RFC 6887) & UPnP IGD Dynamic Mapping Engine.
 ;

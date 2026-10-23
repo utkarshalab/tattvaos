@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_BGP_VIEW_ASM
 %define GUARD_UNET_TOOLS_ROUTE_BGP_VIEW_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/bgp_view.asm
+; Utkarsha OS — unet/tools/route/bgp_view.asm
 ; =============================================================================
 ; Border Gateway Protocol (BGP-4 RFC 4271) Route Viewer Tool (`bgpview`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SERVICES_RADIUS_ASM
 %define GUARD_UNET_SERVICES_RADIUS_ASM
 ; =============================================================================
-; Tattva OS — unet/services/radius.asm
+; Utkarsha OS — unet/services/radius.asm
 ; =============================================================================
 ; RADIUS (Remote Authentication Dial-In User Service RFC 2865 / RFC 2866) Engine.
 ;

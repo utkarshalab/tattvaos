@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MESH_BATMAN_ASM
 %define GUARD_UNET_MESH_BATMAN_ASM
 ; =============================================================================
-; Tattva OS — unet/mesh/batman.asm
+; Utkarsha OS — unet/mesh/batman.asm
 ; =============================================================================
 ; B.A.T.M.A.N. Advanced (batman-adv) Layer 2 Mesh Routing Engine.
 ;

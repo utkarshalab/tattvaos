@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SAN_NVME_OF_RDMA_ASM
 %define GUARD_UNET_SAN_NVME_OF_RDMA_ASM
 ; =============================================================================
-; Tattva OS — unet/san/nvme_of_rdma.asm
+; Utkarsha OS — unet/san/nvme_of_rdma.asm
 ; =============================================================================
 ; NVMe over Fabrics RDMA Transport Engine (RoCEv2 / InfiniBand).
 ;

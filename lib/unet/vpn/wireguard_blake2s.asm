@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VPN_WIREGUARD_BLAKE2S_ASM
 %define GUARD_UNET_VPN_WIREGUARD_BLAKE2S_ASM
 ; =============================================================================
-; Tattva OS — unet/vpn/wireguard_blake2s.asm
+; Utkarsha OS — unet/vpn/wireguard_blake2s.asm
 ; =============================================================================
 ; BLAKE2s (RFC 7693) engine for WireGuard, plus the WireGuard-specific
 ; constructions built on top of it: HMAC-BLAKE2s, the Kdf1/Kdf2 key

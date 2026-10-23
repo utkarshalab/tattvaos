@@ -1,11 +1,11 @@
 %ifndef GUARD_UNET_TOOLS_TOOLS_ASM
 %define GUARD_UNET_TOOLS_TOOLS_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/tools.asm
+; Utkarsha OS — unet/tools/tools.asm
 ; =============================================================================
 ; Master Universal `net` CLI Command Dispatcher Engine.
 ;
-; Every network command in Tattva OS is executed via: `net <subcommand> [args]`
+; Every network command in Utkarsha OS is executed via: `net <subcommand> [args]`
 ;   - `net ping`       ➔ ICMP Echo Request Ping
 ;   - `net traceroute` ➔ Hop-by-Hop TTL Probe
 ;   - `net tcpdump`    ➔ Zero-Copy Packet Capture

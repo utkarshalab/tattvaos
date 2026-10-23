@@ -1,12 +1,12 @@
 %ifndef GUARD_UNET_TOOLS_APP_SSH_CLIENT_ASM
 %define GUARD_UNET_TOOLS_APP_SSH_CLIENT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/ssh_client.asm
+; Utkarsha OS — unet/tools/app/ssh_client.asm
 ; =============================================================================
 ; Command-Line Secure Shell (SSHv2) Terminal Client Tool.
 ;
 ; Features:
-;   - SSH Identification Exchange (`SSH-2.0-TattvaOS_SSHClient_1.0`)
+;   - SSH Identification Exchange (`SSH-2.0-UtkarshaOS_SSHClient_1.0`)
 ;   - Key Exchange (`curve25519-sha256`, `chacha20-poly1305@openssh.com`)
 ;   - User Authentication (`ssh-userauth` publickey & password)
 ;   - PTY Allocation & Interactive Shell Session (`session` channel request)

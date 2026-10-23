@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_GRPC_ASM
 %define GUARD_UNET_HTTP_GRPC_ASM
 ; =============================================================================
-; Tattva OS — unet/http/grpc.asm
+; Utkarsha OS — unet/http/grpc.asm
 ; =============================================================================
 ; gRPC & gRPC-Web Microservice Protocol Engine (HTTP/2 & HTTP/3 Transport).
 ;

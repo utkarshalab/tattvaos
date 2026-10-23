@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VIDEO_RTMP_ASM
 %define GUARD_UNET_VIDEO_RTMP_ASM
 ; =============================================================================
-; Tattva OS — unet/video/rtmp.asm
+; Utkarsha OS — unet/video/rtmp.asm
 ; =============================================================================
 ; Real-Time Messaging Protocol Server Engine (RTMP / RTMPS / RTMPT Adobe Spec).
 ;

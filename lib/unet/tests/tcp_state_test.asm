@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/tests/tcp_state_test.asm
+; Utkarsha OS — unet/tests/tcp_state_test.asm
 ; =============================================================================
 ; Automated TCP 11-State Machine Out-of-Order Segment Stress Test.
 ;

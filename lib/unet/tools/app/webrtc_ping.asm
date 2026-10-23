@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_WEBRTC_PING_ASM
 %define GUARD_UNET_TOOLS_APP_WEBRTC_PING_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/webrtc_ping.asm
+; Utkarsha OS — unet/tools/app/webrtc_ping.asm
 ; =============================================================================
 ; WebRTC DataChannel & RTT Latency Diagnostic Tool (`webrtc-ping`).
 ;

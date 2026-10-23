@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AVIONICS_MIL1553_ASM
 %define GUARD_UNET_AVIONICS_MIL1553_ASM
 ; =============================================================================
-; Tattva OS — unet/avionics/mil1553.asm
+; Utkarsha OS — unet/avionics/mil1553.asm
 ; =============================================================================
 ; MIL-STD-1553B Military Serial Bus Protocol Gateway Engine.
 ;

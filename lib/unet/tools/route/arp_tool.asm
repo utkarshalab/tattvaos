@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_ARP_TOOL_ASM
 %define GUARD_UNET_TOOLS_ROUTE_ARP_TOOL_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/arp_tool.asm
+; Utkarsha OS — unet/tools/route/arp_tool.asm
 ; =============================================================================
 ; Command-Line ARP Cache Inspector & Gratuitous ARP Tool (`arp`).
 ;

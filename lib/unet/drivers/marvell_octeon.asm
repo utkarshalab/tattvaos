@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_MARVELL_OCTEON_ASM
 %define GUARD_UNET_DRIVERS_MARVELL_OCTEON_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/marvell_octeon.asm
+; Utkarsha OS — unet/drivers/marvell_octeon.asm
 ; =============================================================================
 ; Marvell Octeon TX2 / CN10K DPAA DPU (Data Processing Accelerator) Driver.
 ;

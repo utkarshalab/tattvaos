@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HFT_POUCH_ASM
 %define GUARD_UNET_HFT_POUCH_ASM
 ; =============================================================================
-; Tattva OS — unet/hft/pouch.asm
+; Utkarsha OS — unet/hft/pouch.asm
 ; =============================================================================
 ; Pre-Trade Risk & Ultra-Low Latency Order Routing Gateway Engine.
 ;

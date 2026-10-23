@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_SSE_ASM
 %define GUARD_UNET_HTTP_SSE_ASM
 ; =============================================================================
-; Tattva OS — unet/http/sse.asm
+; Utkarsha OS — unet/http/sse.asm
 ; =============================================================================
 ; Server-Sent Events (SSE) LLM Token Streaming Engine (W3C EventSource).
 ;

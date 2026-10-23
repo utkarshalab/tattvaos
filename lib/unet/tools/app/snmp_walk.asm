@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_SNMP_WALK_ASM
 %define GUARD_UNET_TOOLS_APP_SNMP_WALK_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/snmp_walk.asm
+; Utkarsha OS — unet/tools/app/snmp_walk.asm
 ; =============================================================================
 ; Command-Line SNMP Walk Subtree Traverser Tool (`snmpwalk`).
 ;

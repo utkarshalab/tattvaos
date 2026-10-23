@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_SWIFT_MSG_ASM
 %define GUARD_UNET_TOOLS_APP_SWIFT_MSG_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/swift_msg.asm
+; Utkarsha OS — unet/tools/app/swift_msg.asm
 ; =============================================================================
 ; Command-Line SWIFT FIN MT103 / MT202 Message Generator & Parser (`swift-msg`).
 ;

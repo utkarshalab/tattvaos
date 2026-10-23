@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SSH_SSH_CONNECTION_ASM
 %define GUARD_UNET_SSH_SSH_CONNECTION_ASM
 ; =============================================================================
-; Tattva OS — unet/ssh/ssh_connection.asm
+; Utkarsha OS — unet/ssh/ssh_connection.asm
 ; =============================================================================
 ; SSH Connection Protocol Engine (RFC 4254).
 ;

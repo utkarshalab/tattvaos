@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_ATH11K_ASM
 %define GUARD_UNET_DRIVERS_ATH11K_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/ath11k.asm
+; Utkarsha OS — unet/drivers/ath11k.asm
 ; =============================================================================
 ; Qualcomm Atheros Wi-Fi 6 / 6E ath11k PCIe Driver.
 ;

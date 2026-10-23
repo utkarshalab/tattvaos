@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_WIRELESS_WIFI6E_ASM
 %define GUARD_UNET_WIRELESS_WIFI6E_ASM
 ; =============================================================================
-; Tattva OS — unet/wireless/wifi6e.asm
+; Utkarsha OS — unet/wireless/wifi6e.asm
 ; =============================================================================
 ; Wi-Fi 6E / Wi-Fi 7 (IEEE 802.11ax / 802.11be 6GHz High-Throughput Engine).
 ;

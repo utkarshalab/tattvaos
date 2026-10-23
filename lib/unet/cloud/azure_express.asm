@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CLOUD_AZURE_EXPRESS_ASM
 %define GUARD_UNET_CLOUD_AZURE_EXPRESS_ASM
 ; =============================================================================
-; Tattva OS — unet/cloud/azure_express.asm
+; Utkarsha OS — unet/cloud/azure_express.asm
 ; =============================================================================
 ; Azure ExpressRoute Private & Microsoft Peering Gateway Engine.
 ;

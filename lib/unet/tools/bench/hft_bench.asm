@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_BENCH_HFT_BENCH_ASM
 %define GUARD_UNET_TOOLS_BENCH_HFT_BENCH_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/bench/hft_bench.asm
+; Utkarsha OS — unet/tools/bench/hft_bench.asm
 ; =============================================================================
 ; High-Frequency Trading Sub-Nanosecond Tick-to-Trade Benchmark Tool (`hft-bench`).
 ;

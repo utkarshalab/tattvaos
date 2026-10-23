@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_BRIDGE_ASM
 %define GUARD_UNET_TOOLS_ROUTE_BRIDGE_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/bridge.asm
+; Utkarsha OS — unet/tools/route/bridge.asm
 ; =============================================================================
 ; Ethernet L2 Bridge & FDB Forwarding Database Inspector Tool (`bridge`).
 ;

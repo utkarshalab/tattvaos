@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_WIRELESS_ZIGBEE_ASM
 %define GUARD_UNET_WIRELESS_ZIGBEE_ASM
 ; =============================================================================
-; Tattva OS — unet/wireless/zigbee.asm
+; Utkarsha OS — unet/wireless/zigbee.asm
 ; =============================================================================
 ; Zigbee 3.0 / IEEE 802.15.4 Low-Power Mesh Protocol Engine.
 ;

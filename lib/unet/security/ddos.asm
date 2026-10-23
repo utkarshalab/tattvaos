@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_DDOS_ASM
 %define GUARD_UNET_SECURITY_DDOS_ASM
 ; =============================================================================
-; Tattva OS — unet/security/ddos.asm
+; Utkarsha OS — unet/security/ddos.asm
 ; =============================================================================
 ; Anti-DDoS Mitigation & SYN Cookie Generation Engine.
 ;

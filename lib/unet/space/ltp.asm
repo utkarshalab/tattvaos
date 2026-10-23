@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SPACE_LTP_ASM
 %define GUARD_UNET_SPACE_LTP_ASM
 ; =============================================================================
-; Tattva OS — unet/space/ltp.asm
+; Utkarsha OS — unet/space/ltp.asm
 ; =============================================================================
 ; Licklider Transmission Protocol Engine (LTP RFC 5326 for Deep Space).
 ;

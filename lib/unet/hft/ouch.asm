@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HFT_OUCH_ASM
 %define GUARD_UNET_HFT_OUCH_ASM
 ; =============================================================================
-; Tattva OS — unet/hft/ouch.asm
+; Utkarsha OS — unet/hft/ouch.asm
 ; =============================================================================
 ; NASDAQ OUCH 5.0 Ultra-Low Latency Order Entry Protocol Engine.
 ;

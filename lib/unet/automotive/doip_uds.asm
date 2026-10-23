@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AUTOMOTIVE_DOIP_UDS_ASM
 %define GUARD_UNET_AUTOMOTIVE_DOIP_UDS_ASM
 ; =============================================================================
-; Tattva OS — unet/automotive/doip_uds.asm
+; Utkarsha OS — unet/automotive/doip_uds.asm
 ; =============================================================================
 ; ISO 14229-1 Unified Diagnostic Services (UDS) over DoIP Engine.
 ;

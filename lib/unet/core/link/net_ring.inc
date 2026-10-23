@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/core/link/net_ring.inc
+; Utkarsha OS — unet/core/link/net_ring.inc
 ; =============================================================================
 ; Shared constants, structures, and extern declarations for zero-copy network rings.
 ;

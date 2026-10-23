@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_TIMER_ASM
 %define GUARD_UNET_CORE_L4_TCP_TIMER_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_timer.asm
+; Utkarsha OS — unet/core/l4/tcp_timer.asm
 ; =============================================================================
 ; TCP Timer Engine — Retransmission, Persist, Keepalive, TIME_WAIT.
 ;

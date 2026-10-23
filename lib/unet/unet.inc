@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/unet.inc
+; Utkarsha OS — unet/unet.inc
 ; =============================================================================
 ; Master Schema Header for unet (64-Bit Assembly Zero-Copy Network Stack Engine).
 ;

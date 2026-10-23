@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ANON_MIXNET_ASM
 %define GUARD_UNET_ANON_MIXNET_ASM
 ; =============================================================================
-; Tattva OS — unet/anon/mixnet.asm
+; Utkarsha OS — unet/anon/mixnet.asm
 ; =============================================================================
 ; Robust Nym / Loopix Mixnet Sphinx Packet Protocol & Delay Pool Engine.
 ;

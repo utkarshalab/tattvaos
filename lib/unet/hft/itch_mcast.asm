@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HFT_ITCH_MCAST_ASM
 %define GUARD_UNET_HFT_ITCH_MCAST_ASM
 ; =============================================================================
-; Tattva OS — unet/hft/itch_mcast.asm
+; Utkarsha OS — unet/hft/itch_mcast.asm
 ; =============================================================================
 ; MoldUDP64 Multicast Transport Engine for ITCH 5.0 Market Data.
 ;

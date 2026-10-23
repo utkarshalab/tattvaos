@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_OPTICAL_DWDM_ASM
 %define GUARD_UNET_OPTICAL_DWDM_ASM
 ; =============================================================================
-; Tattva OS — unet/optical/dwdm.asm
+; Utkarsha OS — unet/optical/dwdm.asm
 ; =============================================================================
 ; Dense Wavelength Division Multiplexing (DWDM ITU-T G.694.1 Grid Engine).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CLOUD_GCP_INTERCONNECT_ASM
 %define GUARD_UNET_CLOUD_GCP_INTERCONNECT_ASM
 ; =============================================================================
-; Tattva OS — unet/cloud/gcp_interconnect.asm
+; Utkarsha OS — unet/cloud/gcp_interconnect.asm
 ; =============================================================================
 ; Google Cloud Platform (GCP) Dedicated / Partner Interconnect Engine.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TELECOM_PFCP_ASM
 %define GUARD_UNET_TELECOM_PFCP_ASM
 ; =============================================================================
-; Tattva OS — unet/telecom/pfcp.asm
+; Utkarsha OS — unet/telecom/pfcp.asm
 ; =============================================================================
 ; Packet Forwarding Control Protocol Engine (3GPP TS 29.244 5G N4 / 4G Sxa/Sxb/Sxc).
 ;

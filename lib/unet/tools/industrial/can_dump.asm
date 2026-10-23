@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_INDUSTRIAL_CAN_DUMP_ASM
 %define GUARD_UNET_TOOLS_INDUSTRIAL_CAN_DUMP_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/industrial/can_dump.asm
+; Utkarsha OS — unet/tools/industrial/can_dump.asm
 ; =============================================================================
 ; Command-Line CAN / CAN-FD Bus Monitor & Sniffer Tool (`candump`).
 ;

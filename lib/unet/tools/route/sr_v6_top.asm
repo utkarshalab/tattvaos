@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_SR_V6_TOP_ASM
 %define GUARD_UNET_TOOLS_ROUTE_SR_V6_TOP_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/sr_v6_top.asm
+; Utkarsha OS — unet/tools/route/sr_v6_top.asm
 ; =============================================================================
 ; Segment Routing IPv6 (SRv6 RFC 8754) Path & SID List Inspector (`srv6-top`).
 ;

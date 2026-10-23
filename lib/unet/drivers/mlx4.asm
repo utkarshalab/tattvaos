@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_MLX4_ASM
 %define GUARD_UNET_DRIVERS_MLX4_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/mlx4.asm
+; Utkarsha OS — unet/drivers/mlx4.asm
 ; =============================================================================
 ; Mellanox ConnectX-3 / ConnectX-3 Pro 40GbE & InfiniBand Dual-Port NIC Driver.
 ;

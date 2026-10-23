@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_RTMP_STREAM_ASM
 %define GUARD_UNET_TOOLS_APP_RTMP_STREAM_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/rtmp_stream.asm
+; Utkarsha OS — unet/tools/app/rtmp_stream.asm
 ; =============================================================================
 ; Command-Line Live RTMP Stream Ingestion & Push Tester (`rtmp-stream`).
 ;

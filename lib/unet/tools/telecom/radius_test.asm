@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_TELECOM_RADIUS_TEST_ASM
 %define GUARD_UNET_TOOLS_TELECOM_RADIUS_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/telecom/radius_test.asm
+; Utkarsha OS — unet/tools/telecom/radius_test.asm
 ; =============================================================================
 ; RADIUS Authentication & Accounting Diagnostic Tool (`radius-test`).
 ;

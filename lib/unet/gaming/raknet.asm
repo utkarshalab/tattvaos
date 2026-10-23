@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_GAMING_RAKNET_ASM
 %define GUARD_UNET_GAMING_RAKNET_ASM
 ; =============================================================================
-; Tattva OS — unet/gaming/raknet.asm
+; Utkarsha OS — unet/gaming/raknet.asm
 ; =============================================================================
 ; RakNet / RakPeer Reliable UDP Game Networking Protocol Engine.
 ;

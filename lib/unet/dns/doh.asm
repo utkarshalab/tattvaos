@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DNS_DOH_ASM
 %define GUARD_UNET_DNS_DOH_ASM
 ; =============================================================================
-; Tattva OS — unet/dns/doh.asm
+; Utkarsha OS — unet/dns/doh.asm
 ; =============================================================================
 ; DNS over HTTPS (DoH RFC 8484 / HTTP/2 & HTTP/3) Encrypted Resolver Engine.
 ;

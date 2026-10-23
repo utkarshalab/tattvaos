@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VIDEO_RTP_HEVC_ASM
 %define GUARD_UNET_VIDEO_RTP_HEVC_ASM
 ; =============================================================================
-; Tattva OS — unet/video/rtp_hevc.asm
+; Utkarsha OS — unet/video/rtp_hevc.asm
 ; =============================================================================
 ; RTP Payload Format for H.265 / HEVC Video (RFC 7798).
 ;

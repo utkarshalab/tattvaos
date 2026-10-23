@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VIDEO_WEBRTC_SFU_ASM
 %define GUARD_UNET_VIDEO_WEBRTC_SFU_ASM
 ; =============================================================================
-; Tattva OS — unet/video/webrtc_sfu.asm
+; Utkarsha OS — unet/video/webrtc_sfu.asm
 ; =============================================================================
 ; WebRTC Selective Forwarding Unit (SFU) Ultra-Low Latency Engine.
 ;

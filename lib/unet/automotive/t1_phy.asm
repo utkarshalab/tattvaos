@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AUTOMOTIVE_T1_PHY_ASM
 %define GUARD_UNET_AUTOMOTIVE_T1_PHY_ASM
 ; =============================================================================
-; Tattva OS — unet/automotive/t1_phy.asm
+; Utkarsha OS — unet/automotive/t1_phy.asm
 ; =============================================================================
 ; IEEE 802.3bw (100BASE-T1) & IEEE 802.3bp (1000BASE-T1) Automotive Single-Pair PHY Driver.
 ;

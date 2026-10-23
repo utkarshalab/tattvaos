@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_IGB_ASM
 %define GUARD_UNET_DRIVERS_IGB_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/igb.asm
+; Utkarsha OS — unet/drivers/igb.asm
 ; =============================================================================
 ; Intel I350 / I210 / I211 Quad-Port Gigabit Ethernet Driver.
 ;

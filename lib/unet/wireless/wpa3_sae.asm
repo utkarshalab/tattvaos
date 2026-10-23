@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_WIRELESS_WPA3_SAE_ASM
 %define GUARD_UNET_WIRELESS_WPA3_SAE_ASM
 ; =============================================================================
-; Tattva OS — unet/wireless/wpa3_sae.asm
+; Utkarsha OS — unet/wireless/wpa3_sae.asm
 ; =============================================================================
 ; WPA3-Personal SAE (Simultaneous Authentication of Equals / Dragonfly Key Exchange RFC 7664) Engine.
 ;

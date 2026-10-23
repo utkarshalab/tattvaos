@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_QKD_ASM
 %define GUARD_UNET_SECURITY_QKD_ASM
 ; =============================================================================
-; Tattva OS — unet/security/qkd.asm
+; Utkarsha OS — unet/security/qkd.asm
 ; =============================================================================
 ; Quantum Key Distribution (QKD ETSI GS QKD 014 / BB84) Integration Engine.
 ;

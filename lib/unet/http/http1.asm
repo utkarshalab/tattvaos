@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_HTTP1_ASM
 %define GUARD_UNET_HTTP_HTTP1_ASM
 ; =============================================================================
-; Tattva OS — unet/http/http1.asm
+; Utkarsha OS — unet/http/http1.asm
 ; =============================================================================
 ; HTTP/1.1 Web Server Engine with Direct UXFS Zero-Copy Static File Streaming.
 ;

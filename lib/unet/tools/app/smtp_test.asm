@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_SMTP_TEST_ASM
 %define GUARD_UNET_TOOLS_APP_SMTP_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/smtp_test.asm
+; Utkarsha OS — unet/tools/app/smtp_test.asm
 ; =============================================================================
 ; Command-Line SMTP / STARTTLS Mail Delivery Tester Tool.
 ;

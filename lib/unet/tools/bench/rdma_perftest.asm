@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_BENCH_RDMA_PERFTEST_ASM
 %define GUARD_UNET_TOOLS_BENCH_RDMA_PERFTEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/bench/rdma_perftest.asm
+; Utkarsha OS — unet/tools/bench/rdma_perftest.asm
 ; =============================================================================
 ; InfiniBand / RoCEv2 RDMA Bandwidth & Sub-Microsecond Latency Benchmark (`ib_read_bw`, `ib_write_lat`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ANON_NYM_ASM
 %define GUARD_UNET_ANON_NYM_ASM
 ; =============================================================================
-; Tattva OS — unet/anon/nym.asm
+; Utkarsha OS — unet/anon/nym.asm
 ; =============================================================================
 ; Nym Mixnet Zero-Knowledge Coconut Credentials & Anonymous Routing Engine.
 ;

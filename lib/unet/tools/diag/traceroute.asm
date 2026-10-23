@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_DIAG_TRACEROUTE_ASM
 %define GUARD_UNET_TOOLS_DIAG_TRACEROUTE_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/diag/traceroute.asm
+; Utkarsha OS — unet/tools/diag/traceroute.asm
 ; =============================================================================
 ; Robust IP Time-To-Live (TTL) Exceeded Route Hop Discovery Tool.
 ;

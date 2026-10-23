@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AUTOMOTIVE_CAN_ETH_ASM
 %define GUARD_UNET_AUTOMOTIVE_CAN_ETH_ASM
 ; =============================================================================
-; Tattva OS — unet/automotive/can_eth.asm
+; Utkarsha OS — unet/automotive/can_eth.asm
 ; =============================================================================
 ; ISO 11898 CAN / CAN-FD to Ethernet (IEEE 802.3) Gateway & Protocol Bridge.
 ;

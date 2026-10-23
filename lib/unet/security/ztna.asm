@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_ZTNA_ASM
 %define GUARD_UNET_SECURITY_ZTNA_ASM
 ; =============================================================================
-; Tattva OS — unet/security/ztna.asm
+; Utkarsha OS — unet/security/ztna.asm
 ; =============================================================================
 ; Zero Trust Network Access (ZTNA) Microsegmentation & SDP Architecture Engine.
 ;

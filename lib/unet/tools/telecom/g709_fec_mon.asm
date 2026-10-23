@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_TELECOM_G709_FEC_MON_ASM
 %define GUARD_UNET_TOOLS_TELECOM_G709_FEC_MON_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/telecom/g709_fec_mon.asm
+; Utkarsha OS — unet/tools/telecom/g709_fec_mon.asm
 ; =============================================================================
 ; ITU-T G.709 OTN FEC Performance & BER Monitor Tool (`g709-fec-mon`).
 ;

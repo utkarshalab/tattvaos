@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VPN_OPENVPN_ASM
 %define GUARD_UNET_VPN_OPENVPN_ASM
 ; =============================================================================
-; Tattva OS — unet/vpn/openvpn.asm
+; Utkarsha OS — unet/vpn/openvpn.asm
 ; =============================================================================
 ; OpenVPN Enterprise Protocol Engine (OpenVPN v2 / v3 Protocol Spec).
 ;

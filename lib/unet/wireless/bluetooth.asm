@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_WIRELESS_BLUETOOTH_ASM
 %define GUARD_UNET_WIRELESS_BLUETOOTH_ASM
 ; =============================================================================
-; Tattva OS — unet/wireless/bluetooth.asm
+; Utkarsha OS — unet/wireless/bluetooth.asm
 ; =============================================================================
 ; Bluetooth Core v5.4 & Bluetooth LE (BLE / Isochronous Channels / Mesh) Stack Engine.
 ;

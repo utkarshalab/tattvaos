@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SERVICES_SNMPV3_ASM
 %define GUARD_UNET_SERVICES_SNMPV3_ASM
 ; =============================================================================
-; Tattva OS — unet/services/snmpv3.asm
+; Utkarsha OS — unet/services/snmpv3.asm
 ; =============================================================================
 ; Simple Network Management Protocol Version 3 Engine (SNMPv3 RFC 3411..3418).
 ;

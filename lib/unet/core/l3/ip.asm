@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L3_IP_ASM
 %define GUARD_UNET_CORE_L3_IP_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l3/ip.asm
+; Utkarsha OS — unet/core/l3/ip.asm
 ; =============================================================================
 ; AVX-512 Vector Accelerated Master IPv4 Layer Engine.
 ;

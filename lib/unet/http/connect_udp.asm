@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_CONNECT_UDP_ASM
 %define GUARD_UNET_HTTP_CONNECT_UDP_ASM
 ; =============================================================================
-; Tattva OS — unet/http/connect_udp.asm
+; Utkarsha OS — unet/http/connect_udp.asm
 ; =============================================================================
 ; Proxying UDP / IP over HTTP/3 Engine (RFC 9298 / RFC 9484).
 ;

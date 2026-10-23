@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SPACE_DVB_S2X_ASM
 %define GUARD_UNET_SPACE_DVB_S2X_ASM
 ; =============================================================================
-; Tattva OS — unet/space/dvb_s2x.asm
+; Utkarsha OS — unet/space/dvb_s2x.asm
 ; =============================================================================
 ; DVB-S2X Satellite Forward Link Engine (ETSI EN 302 307-2 Extensions).
 ;

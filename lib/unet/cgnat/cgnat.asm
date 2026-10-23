@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CGNAT_CGNAT_ASM
 %define GUARD_UNET_CGNAT_CGNAT_ASM
 ; =============================================================================
-; Tattva OS — unet/cgnat/cgnat.asm
+; Utkarsha OS — unet/cgnat/cgnat.asm
 ; =============================================================================
 ; AVX-512 100Gbps Line-Rate Carrier-Grade NAT (CGNAT / NAT444) Engine.
 ;

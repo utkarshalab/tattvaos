@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_SYS_NET_BATCH_ASM
 %define GUARD_UNET_CORE_SYS_NET_BATCH_ASM
 ; =============================================================================
-; Tattva OS — unet/core/sys/net_batch.asm
+; Utkarsha OS — unet/core/sys/net_batch.asm
 ; =============================================================================
 ; Batch RX/TX API for High-Performance Packet Processing
 ;

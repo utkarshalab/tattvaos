@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_IOT_MQTT_SUB_ASM
 %define GUARD_UNET_TOOLS_IOT_MQTT_SUB_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/iot/mqtt_sub.asm
+; Utkarsha OS — unet/tools/iot/mqtt_sub.asm
 ; =============================================================================
 ; Command-Line MQTT v3.1.1 / v5.0 Subscriber & Stream Monitor (`mqtt-sub`).
 ;

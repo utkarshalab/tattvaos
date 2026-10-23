@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SERVICES_NTP_ASM
 %define GUARD_UNET_SERVICES_NTP_ASM
 ; =============================================================================
-; Tattva OS — unet/services/ntp.asm
+; Utkarsha OS — unet/services/ntp.asm
 ; =============================================================================
 ; Network Time Protocol & Precision Time Protocol Engine (NTPv4 RFC 5905 / PTP IEEE 1588v2).
 ;

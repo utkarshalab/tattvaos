@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SDN_WIREGUARD_ASM
 %define GUARD_UNET_SDN_WIREGUARD_ASM
 ; =============================================================================
-; Tattva OS — unet/sdn/wireguard.asm
+; Utkarsha OS — unet/sdn/wireguard.asm
 ; =============================================================================
 ; WireGuard Modern Secure Network Tunnel Engine (RFC Protocol Spec).
 ;

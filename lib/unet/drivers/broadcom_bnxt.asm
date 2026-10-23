@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_BROADCOM_BNXT_ASM
 %define GUARD_UNET_DRIVERS_BROADCOM_BNXT_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/broadcom_bnxt.asm
+; Utkarsha OS — unet/drivers/broadcom_bnxt.asm
 ; =============================================================================
 ; Broadcom NetXtreme-C / NetXtreme-E 100GbE / 200GbE NIC Driver.
 ;

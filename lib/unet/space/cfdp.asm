@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SPACE_CFDP_ASM
 %define GUARD_UNET_SPACE_CFDP_ASM
 ; =============================================================================
-; Tattva OS — unet/space/cfdp.asm
+; Utkarsha OS — unet/space/cfdp.asm
 ; =============================================================================
 ; CCSDS File Delivery Protocol Engine (CFDP CCSDS 727.0-B-5 / ISO 17355).
 ;

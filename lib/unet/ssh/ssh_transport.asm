@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SSH_SSH_TRANSPORT_ASM
 %define GUARD_UNET_SSH_SSH_TRANSPORT_ASM
 ; =============================================================================
-; Tattva OS — unet/ssh/ssh_transport.asm
+; Utkarsha OS — unet/ssh/ssh_transport.asm
 ; =============================================================================
 ; Ultra-Secure Post-Quantum Hybrid SSH 2.0 Transport Protocol Engine (RFC 4253).
 ;
@@ -11,7 +11,7 @@
 ;   - SSH Binary Packet Protocol Framing (Packet Length, Padding Length, Payload, MAC Tag)
 ;   - Hardened Memory Sanitization (AVX-512 `VZEROALL` & Ephemeral Key Wiping)
 ;   - Strict Rekeying Enforcement (1GB Data / 1 Hour Auto-KEX Threshold)
-;   - Version Exchange (`SSH-2.0-TattvaOS_PQC_1.0\r\n`)
+;   - Version Exchange (`SSH-2.0-UtkarshaOS_PQC_1.0\r\n`)
 ;
 ; Delegates:
 ;   - ChaCha20-Poly1305                 -> crypto/ucrypt/symmetric/chacha20_poly1305.asm
@@ -50,7 +50,7 @@ endstruc
 section .data
 align 8
 global ssh_banner_str
-ssh_banner_str:         db "SSH-2.0-TattvaOS_PQC_1.0", 13, 10, 0
+ssh_banner_str:         db "SSH-2.0-UtkarshaOS_PQC_1.0", 13, 10, 0
 
 section .text
 

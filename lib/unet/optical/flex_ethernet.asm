@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_OPTICAL_FLEX_ETHERNET_ASM
 %define GUARD_UNET_OPTICAL_FLEX_ETHERNET_ASM
 ; =============================================================================
-; Tattva OS — unet/optical/flex_ethernet.asm
+; Utkarsha OS — unet/optical/flex_ethernet.asm
 ; =============================================================================
 ; OIF Flex Ethernet (FlexE 1.1 / 2.1 Specification) Shim Layer Engine.
 ;

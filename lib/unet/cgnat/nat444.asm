@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CGNAT_NAT444_ASM
 %define GUARD_UNET_CGNAT_NAT444_ASM
 ; =============================================================================
-; Tattva OS — unet/cgnat/nat444.asm
+; Utkarsha OS — unet/cgnat/nat444.asm
 ; =============================================================================
 ; Dual-Layer NAT444 ISP Subscriber Translation Engine.
 ;

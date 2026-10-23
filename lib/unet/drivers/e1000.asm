@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_E1000_ASM
 %define GUARD_UNET_DRIVERS_E1000_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/e1000.asm
+; Utkarsha OS — unet/drivers/e1000.asm
 ; =============================================================================
 ; Hardware Optimized Intel 82540EM / 82574L / I350 Gigabit Ethernet NIC Driver.
 ;

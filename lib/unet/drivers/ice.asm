@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_ICE_ASM
 %define GUARD_UNET_DRIVERS_ICE_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/ice.asm
+; Utkarsha OS — unet/drivers/ice.asm
 ; =============================================================================
 ; Intel E810 Series 100 Gigabit Ethernet (100GbE) Driver.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_PQC_PQC_WIREGUARD_ASM
 %define GUARD_UNET_PQC_PQC_WIREGUARD_ASM
 ; =============================================================================
-; Tattva OS — unet/pqc/pqc_wireguard.asm
+; Utkarsha OS — unet/pqc/pqc_wireguard.asm
 ; =============================================================================
 ; Post-Quantum Hybrid WireGuard Protocol Subsystem (ML-KEM-1024 + Curve25519).
 ;

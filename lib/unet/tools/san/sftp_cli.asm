@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SAN_SFTP_CLI_ASM
 %define GUARD_UNET_TOOLS_SAN_SFTP_CLI_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/san/sftp_cli.asm
+; Utkarsha OS — unet/tools/san/sftp_cli.asm
 ; =============================================================================
 ; Command-Line SFTP File Transfer Subsystem Tool (`sftp`).
 ;

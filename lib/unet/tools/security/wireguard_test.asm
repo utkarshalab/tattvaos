@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SECURITY_WIREGUARD_TEST_ASM
 %define GUARD_UNET_TOOLS_SECURITY_WIREGUARD_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/security/wireguard_test.asm
+; Utkarsha OS — unet/tools/security/wireguard_test.asm
 ; =============================================================================
 ; WireGuard Noise_IKpsk2 Handshake & Encryption Benchmark Tool (`wg-test`).
 ;

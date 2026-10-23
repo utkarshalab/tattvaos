@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L3_IGMP_ASM
 %define GUARD_UNET_CORE_L3_IGMP_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l3/igmp.asm
+; Utkarsha OS — unet/core/l3/igmp.asm
 ; =============================================================================
 ; IGMPv3 (RFC 3376) & MLDv2 (RFC 3810) Multicast Membership Engine.
 ;

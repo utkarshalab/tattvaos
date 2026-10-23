@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_NE2000_ASM
 %define GUARD_UNET_DRIVERS_NE2000_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/ne2000.asm
+; Utkarsha OS — unet/drivers/ne2000.asm
 ; =============================================================================
 ; Novell NE2000 ISA / PCI Ethernet Driver (National Semiconductor DP8390 NIC).
 ;

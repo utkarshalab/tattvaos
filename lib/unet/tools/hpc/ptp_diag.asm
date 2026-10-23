@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_PTP_DIAG_ASM
 %define GUARD_UNET_TOOLS_HPC_PTP_DIAG_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/ptp_diag.asm
+; Utkarsha OS — unet/tools/hpc/ptp_diag.asm
 ; =============================================================================
 ; IEEE 1588 PTP / IEEE 802.1AS Precision Time Protocol Diagnostic Tool (`ptp4l-diag`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L2_ARP_ASM
 %define GUARD_UNET_CORE_L2_ARP_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l2/arp.asm
+; Utkarsha OS — unet/core/l2/arp.asm
 ; =============================================================================
 ; Lockless Atomic Hash Table ARP Cache Engine (RFC 826 / RFC 5227).
 ;

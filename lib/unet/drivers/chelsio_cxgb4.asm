@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_CHELSIO_CXGB4_ASM
 %define GUARD_UNET_DRIVERS_CHELSIO_CXGB4_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/chelsio_cxgb4.asm
+; Utkarsha OS — unet/drivers/chelsio_cxgb4.asm
 ; =============================================================================
 ; Chelsio Terminator 5 / 6 (T5 / T6) 100G iWARP / RDMA & TOE NIC Driver.
 ;

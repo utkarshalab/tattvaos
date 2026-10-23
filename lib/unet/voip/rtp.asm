@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VOIP_RTP_ASM
 %define GUARD_UNET_VOIP_RTP_ASM
 ; =============================================================================
-; Tattva OS — unet/voip/rtp.asm
+; Utkarsha OS — unet/voip/rtp.asm
 ; =============================================================================
 ; Real-Time Transport Protocol Engine (RTP RFC 3550 / RTCP RFC 3550).
 ;

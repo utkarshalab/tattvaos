@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_SNMP_GET_ASM
 %define GUARD_UNET_TOOLS_APP_SNMP_GET_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/snmp_get.asm
+; Utkarsha OS — unet/tools/app/snmp_get.asm
 ; =============================================================================
 ; Command-Line SNMP Get Diagnostic Tool (`snmpget`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HPC_MPI_COLLECTIVES_ASM
 %define GUARD_UNET_HPC_MPI_COLLECTIVES_ASM
 ; =============================================================================
-; Tattva OS — unet/hpc/mpi_collectives.asm
+; Utkarsha OS — unet/hpc/mpi_collectives.asm
 ; =============================================================================
 ; Message Passing Interface (MPI 4.0 Standard) Collective Operations Engine.
 ;

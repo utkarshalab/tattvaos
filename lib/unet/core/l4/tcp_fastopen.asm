@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_FASTOPEN_ASM
 %define GUARD_UNET_CORE_L4_TCP_FASTOPEN_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_fastopen.asm
+; Utkarsha OS — unet/core/l4/tcp_fastopen.asm
 ; =============================================================================
 ; TCP Fast Open (RFC 7413)
 ;

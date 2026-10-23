@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SAN_ISCSI_INITIATOR_ASM
 %define GUARD_UNET_TOOLS_SAN_ISCSI_INITIATOR_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/san/iscsi_initiator.asm
+; Utkarsha OS — unet/tools/san/iscsi_initiator.asm
 ; =============================================================================
 ; iSCSI Target Discovery & Login Initiator Tool (`iscsiadm`).
 ;

@@ -1,4 +1,4 @@
-# TattvaOS/unet - Optimization & Completion Plan
+# Utkarsha OS/unet - Optimization & Completion Plan
 
 ## Current State Assessment
 

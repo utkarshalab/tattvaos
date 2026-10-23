@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ROUTING_NETNS_ASM
 %define GUARD_UNET_ROUTING_NETNS_ASM
 ; =============================================================================
-; Tattva OS — unet/routing/netns.asm
+; Utkarsha OS — unet/routing/netns.asm
 ; =============================================================================
 ; Network Namespace Manager for Container-Like Network Isolation.
 ;

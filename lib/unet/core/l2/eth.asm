@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L2_ETH_ASM
 %define GUARD_UNET_CORE_L2_ETH_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l2/eth.asm
+; Utkarsha OS — unet/core/l2/eth.asm
 ; =============================================================================
 ; AVX-512 SIMD Optimized L2 Ethernet Layer Engine (IEEE 802.3).
 ;

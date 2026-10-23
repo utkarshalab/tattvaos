@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_IOT_COAP_OBSERVE_ASM
 %define GUARD_UNET_TOOLS_IOT_COAP_OBSERVE_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/iot/coap_observe.asm
+; Utkarsha OS — unet/tools/iot/coap_observe.asm
 ; =============================================================================
 ; CoAP Observe Resource Subscription Tool (`coap-observe` RFC 7641).
 ;

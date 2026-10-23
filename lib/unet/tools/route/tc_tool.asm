@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_TC_TOOL_ASM
 %define GUARD_UNET_TOOLS_ROUTE_TC_TOOL_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/tc_tool.asm
+; Utkarsha OS — unet/tools/route/tc_tool.asm
 ; =============================================================================
 ; Traffic Control Qdisc & Filter Configuration Utility (`tc`).
 ;

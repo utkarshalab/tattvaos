@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SDN_GENEVE_ASM
 %define GUARD_UNET_SDN_GENEVE_ASM
 ; =============================================================================
-; Tattva OS — unet/sdn/geneve.asm
+; Utkarsha OS — unet/sdn/geneve.asm
 ; =============================================================================
 ; Generic Network Virtualization Encapsulation (GENEVE RFC 8926) Engine.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_QPACK_ASM
 %define GUARD_UNET_HTTP_QPACK_ASM
 ; =============================================================================
-; Tattva OS — unet/http/qpack.asm
+; Utkarsha OS — unet/http/qpack.asm
 ; =============================================================================
 ; QPACK Header Compression for HTTP/3 (RFC 9204).
 ;

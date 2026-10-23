@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_TELECOM_IPFIX_CAP_ASM
 %define GUARD_UNET_TOOLS_TELECOM_IPFIX_CAP_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/telecom/ipfix_cap.asm
+; Utkarsha OS — unet/tools/telecom/ipfix_cap.asm
 ; =============================================================================
 ; IPFIX / NetFlow v9 Flow Record Collector & Exporter Tool (`ipfix-cap`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_IDENTITY_KERBEROS_ASM
 %define GUARD_UNET_IDENTITY_KERBEROS_ASM
 ; =============================================================================
-; Tattva OS — unet/identity/kerberos.asm
+; Utkarsha OS — unet/identity/kerberos.asm
 ; =============================================================================
 ; Kerberos v5 Authentication Protocol Engine (RFC 4120 / RFC 4556 PKINIT).
 ;

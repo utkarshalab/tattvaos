@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_OSPF_VIEW_ASM
 %define GUARD_UNET_TOOLS_ROUTE_OSPF_VIEW_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/ospf_view.asm
+; Utkarsha OS — unet/tools/route/ospf_view.asm
 ; =============================================================================
 ; Open Shortest Path First (OSPFv2 RFC 2328 / OSPFv3 RFC 5340) Viewer Tool (`ospfview`).
 ;

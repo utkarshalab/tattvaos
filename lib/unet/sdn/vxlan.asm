@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SDN_VXLAN_ASM
 %define GUARD_UNET_SDN_VXLAN_ASM
 ; =============================================================================
-; Tattva OS — unet/sdn/vxlan.asm
+; Utkarsha OS — unet/sdn/vxlan.asm
 ; =============================================================================
 ; Virtual eXtensible Local Area Network (VXLAN RFC 7348) Overlay Engine.
 ;

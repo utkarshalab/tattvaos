@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_SLINGSHOT_STAT_ASM
 %define GUARD_UNET_TOOLS_HPC_SLINGSHOT_STAT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/slingshot_stat.asm
+; Utkarsha OS — unet/tools/hpc/slingshot_stat.asm
 ; =============================================================================
 ; Cray Slingshot Interconnect Telemetry Statistics Tool (`slingshot-stat`).
 ;

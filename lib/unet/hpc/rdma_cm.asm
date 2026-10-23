@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HPC_RDMA_CM_ASM
 %define GUARD_UNET_HPC_RDMA_CM_ASM
 ; =============================================================================
-; Tattva OS — unet/hpc/rdma_cm.asm
+; Utkarsha OS — unet/hpc/rdma_cm.asm
 ; =============================================================================
 ; RDMA Communication Manager Protocol Engine (librdmacm / Port 5476).
 ;

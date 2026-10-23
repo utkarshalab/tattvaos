@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SERVICES_MQTT_ASM
 %define GUARD_UNET_SERVICES_MQTT_ASM
 ; =============================================================================
-; Tattva OS — unet/services/mqtt.asm
+; Utkarsha OS — unet/services/mqtt.asm
 ; =============================================================================
 ; MQTT v5.0 & v3.1.1 Lightweight IoT Messaging Broker Engine (OASIS Standard).
 ;

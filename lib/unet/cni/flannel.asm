@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CNI_FLANNEL_ASM
 %define GUARD_UNET_CNI_FLANNEL_ASM
 ; =============================================================================
-; Tattva OS — unet/cni/flannel.asm
+; Utkarsha OS — unet/cni/flannel.asm
 ; =============================================================================
 ; Flannel VXLAN / UDP Overlay & DirectRouting CNI Engine.
 ;

@@ -1,9 +1,9 @@
 ; =============================================================================
-; Tattva OS — unet/tools/tools.inc
+; Utkarsha OS — unet/tools/tools.inc
 ; =============================================================================
 ; Master Universal `net` CLI Command Registration & Dispatch Table Specification.
 ;
-; Every network CLI command in Tattva OS starts with the `net` prefix:
+; Every network CLI command in Utkarsha OS starts with the `net` prefix:
 ;   Example: `net ping <host>`, `net traceroute <host>`, `net iperf`, `net route`
 ;
 ; Author:  Utkarsha Labs

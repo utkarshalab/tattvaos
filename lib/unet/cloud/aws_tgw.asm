@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CLOUD_AWS_TGW_ASM
 %define GUARD_UNET_CLOUD_AWS_TGW_ASM
 ; =============================================================================
-; Tattva OS — unet/cloud/aws_tgw.asm
+; Utkarsha OS — unet/cloud/aws_tgw.asm
 ; =============================================================================
 ; AWS Transit Gateway (TGW) VPC Peering & BGP ECMP Interconnect Engine.
 ;

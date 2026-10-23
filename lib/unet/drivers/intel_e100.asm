@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_INTEL_E100_ASM
 %define GUARD_UNET_DRIVERS_INTEL_E100_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/intel_e100.asm
+; Utkarsha OS — unet/drivers/intel_e100.asm
 ; =============================================================================
 ; Intel i8255x (e100) Fast Ethernet Controller Driver.
 ;

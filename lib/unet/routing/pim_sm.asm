@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ROUTING_PIM_SM_ASM
 %define GUARD_UNET_ROUTING_PIM_SM_ASM
 ; =============================================================================
-; Tattva OS — unet/routing/pim_sm.asm
+; Utkarsha OS — unet/routing/pim_sm.asm
 ; =============================================================================
 ; PIM-SM (Protocol Independent Multicast — Sparse Mode) Engine (RFC 7761).
 ;

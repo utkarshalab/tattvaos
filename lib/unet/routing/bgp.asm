@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ROUTING_BGP_ASM
 %define GUARD_UNET_ROUTING_BGP_ASM
 ; =============================================================================
-; Tattva OS — unet/routing/bgp.asm
+; Utkarsha OS — unet/routing/bgp.asm
 ; =============================================================================
 ; Border Gateway Protocol 4 (BGP-4 — RFC 4271) Autonomous System Router.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_INDUSTRIAL_CFDP_GET_ASM
 %define GUARD_UNET_TOOLS_INDUSTRIAL_CFDP_GET_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/industrial/cfdp_get.asm
+; Utkarsha OS — unet/tools/industrial/cfdp_get.asm
 ; =============================================================================
 ; CCSDS File Delivery Protocol Downlink Tool (`cfdp-get`).
 ;

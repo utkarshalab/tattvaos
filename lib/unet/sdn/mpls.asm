@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SDN_MPLS_ASM
 %define GUARD_UNET_SDN_MPLS_ASM
 ; =============================================================================
-; Tattva OS — unet/sdn/mpls.asm
+; Utkarsha OS — unet/sdn/mpls.asm
 ; =============================================================================
 ; Multi-Protocol Label Switching (MPLS RFC 3031 / RFC 3032) Engine.
 ;

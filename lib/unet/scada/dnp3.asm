@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SCADA_DNP3_ASM
 %define GUARD_UNET_SCADA_DNP3_ASM
 ; =============================================================================
-; Tattva OS — unet/scada/dnp3.asm
+; Utkarsha OS — unet/scada/dnp3.asm
 ; =============================================================================
 ; Distributed Network Protocol 3 (DNP3 IEEE 1815 / TCP Port 20000) Engine.
 ;

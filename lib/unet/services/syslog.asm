@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SERVICES_SYSLOG_ASM
 %define GUARD_UNET_SERVICES_SYSLOG_ASM
 ; =============================================================================
-; Tattva OS — unet/services/syslog.asm
+; Utkarsha OS — unet/services/syslog.asm
 ; =============================================================================
 ; Syslog Protocol Engine (RFC 5424 / RFC 3164 / TLS RFC 5425).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SCADA_MODBUS_TCP_ASM
 %define GUARD_UNET_SCADA_MODBUS_TCP_ASM
 ; =============================================================================
-; Tattva OS — unet/scada/modbus_tcp.asm
+; Utkarsha OS — unet/scada/modbus_tcp.asm
 ; =============================================================================
 ; Modbus TCP/IP Industrial Automation Protocol Engine (RFC 10001 / Modbus Messaging Spec v1.1b).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_BFD_TEST_ASM
 %define GUARD_UNET_TOOLS_HPC_BFD_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/bfd_test.asm
+; Utkarsha OS — unet/tools/hpc/bfd_test.asm
 ; =============================================================================
 ; Bidirectional Forwarding Detection (BFD RFC 5880) Sub-Millisecond Failover Test (`bfd-test`).
 ;

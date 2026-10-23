@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/core/link/loan.asm
+; Utkarsha OS — unet/core/link/loan.asm
 ; =============================================================================
 ; Dynamic page loaning and address space mapper swaps.
 ;

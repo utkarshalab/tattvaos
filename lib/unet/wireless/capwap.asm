@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_WIRELESS_CAPWAP_ASM
 %define GUARD_UNET_WIRELESS_CAPWAP_ASM
 ; =============================================================================
-; Tattva OS — unet/wireless/capwap.asm
+; Utkarsha OS — unet/wireless/capwap.asm
 ; =============================================================================
 ; CAPWAP Control & Data Tunnel Protocol Engine (RFC 5415 / RFC 5416 802.11 Binding).
 ;

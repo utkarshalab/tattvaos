@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_BENCH_IPERF_ASM_ASM
 %define GUARD_UNET_TOOLS_BENCH_IPERF_ASM_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/bench/iperf_asm.asm
+; Utkarsha OS — unet/tools/bench/iperf_asm.asm
 ; =============================================================================
 ; Assembly-Native Bandwidth & Throughput Benchmark (`iperf-asm`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VPN_L2TP_IPSEC_ASM
 %define GUARD_UNET_VPN_L2TP_IPSEC_ASM
 ; =============================================================================
-; Tattva OS — unet/vpn/l2tp_ipsec.asm
+; Utkarsha OS — unet/vpn/l2tp_ipsec.asm
 ; =============================================================================
 ; L2TP over IPsec (L2TP/IPsec RFC 3193) Enterprise VPN Subsystem.
 ;

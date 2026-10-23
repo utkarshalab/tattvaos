@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_PROXY_REVERSE_PROXY_ASM
 %define GUARD_UNET_PROXY_REVERSE_PROXY_ASM
 ; =============================================================================
-; Tattva OS — unet/proxy/reverse_proxy.asm
+; Utkarsha OS — unet/proxy/reverse_proxy.asm
 ; =============================================================================
 ; High-Performance Layer 7 Reverse Proxy & Load Balancer.
 ;

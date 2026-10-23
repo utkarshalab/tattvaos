@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_PENSANDO_IONIC_ASM
 %define GUARD_UNET_DRIVERS_PENSANDO_IONIC_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/pensando_ionic.asm
+; Utkarsha OS — unet/drivers/pensando_ionic.asm
 ; =============================================================================
 ; Pensando DSC / Elba Distributed Services Card (SmartNIC / DPU) Driver.
 ;

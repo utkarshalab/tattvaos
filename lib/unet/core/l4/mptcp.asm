@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_MPTCP_ASM
 %define GUARD_UNET_CORE_L4_MPTCP_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/mptcp.asm
+; Utkarsha OS — unet/core/l4/mptcp.asm
 ; =============================================================================
 ; Multipath TCP (MPTCP) RFC 8684 Implementation
 ;

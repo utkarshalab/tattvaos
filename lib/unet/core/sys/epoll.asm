@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_SYS_EPOLL_ASM
 %define GUARD_UNET_CORE_SYS_EPOLL_ASM
 ; =============================================================================
-; Tattva OS — unet/core/sys/epoll.asm
+; Utkarsha OS — unet/core/sys/epoll.asm
 ; =============================================================================
 ; Lockless Epoll I/O Event Notification Loop Engine.
 ;

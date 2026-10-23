@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/core/link/recycle.asm
+; Utkarsha OS — unet/core/link/recycle.asm
 ; =============================================================================
 ; Fast-path page recycle pool to bypass slow global PMM allocation locks.
 ;

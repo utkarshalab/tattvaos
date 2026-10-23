@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/core/link/pci.asm
+; Utkarsha OS — unet/core/link/pci.asm
 ; =============================================================================
 ; PCI/PCIe device queue uncacheable memory mapping.
 ;

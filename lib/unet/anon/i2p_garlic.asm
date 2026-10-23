@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ANON_I2P_GARLIC_ASM
 %define GUARD_UNET_ANON_I2P_GARLIC_ASM
 ; =============================================================================
-; Tattva OS — unet/anon/i2p_garlic.asm
+; Utkarsha OS — unet/anon/i2p_garlic.asm
 ; =============================================================================
 ; Ultra-Robust I2P (Invisible Internet Project) Garlic Routing Engine.
 ;

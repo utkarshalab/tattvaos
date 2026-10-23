@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_SYS_PKTBUF_ASM
 %define GUARD_UNET_CORE_SYS_PKTBUF_ASM
 ; =============================================================================
-; Tattva OS — unet/core/sys/pktbuf.asm
+; Utkarsha OS — unet/core/sys/pktbuf.asm
 ; =============================================================================
 ; AVX-512 2MB/1GB Hugepages Lockless Packet Buffer Allocation Engine.
 ;

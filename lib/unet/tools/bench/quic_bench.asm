@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_BENCH_QUIC_BENCH_ASM
 %define GUARD_UNET_TOOLS_BENCH_QUIC_BENCH_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/bench/quic_bench.asm
+; Utkarsha OS — unet/tools/bench/quic_bench.asm
 ; =============================================================================
 ; QUIC / HTTP/3 Performance & 0-RTT Handshake Benchmark Tool (`quic-bench`).
 ;

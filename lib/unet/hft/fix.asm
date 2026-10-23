@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HFT_FIX_ASM
 %define GUARD_UNET_HFT_FIX_ASM
 ; =============================================================================
-; Tattva OS — unet/hft/fix.asm
+; Utkarsha OS — unet/hft/fix.asm
 ; =============================================================================
 ; Financial Information eXchange Protocol Engine (FIX 4.2 / 5.0 FAST & SBE).
 ;

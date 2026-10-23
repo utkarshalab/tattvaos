@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_FINTECH_ISO20022_ASM
 %define GUARD_UNET_FINTECH_ISO20022_ASM
 ; =============================================================================
-; Tattva OS — unet/fintech/iso20022.asm
+; Utkarsha OS — unet/fintech/iso20022.asm
 ; =============================================================================
 ; ISO 20022 Financial Business Messaging Engine (XML & JSON Formats).
 ;

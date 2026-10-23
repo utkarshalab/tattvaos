@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SDN_GRE_ASM
 %define GUARD_UNET_SDN_GRE_ASM
 ; =============================================================================
-; Tattva OS — unet/sdn/gre.asm
+; Utkarsha OS — unet/sdn/gre.asm
 ; =============================================================================
 ; Generic Routing Encapsulation (GRE RFC 2784 / RFC 2890) Engine.
 ;

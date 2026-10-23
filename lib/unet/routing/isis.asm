@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ROUTING_ISIS_ASM
 %define GUARD_UNET_ROUTING_ISIS_ASM
 ; =============================================================================
-; Tattva OS — unet/routing/isis.asm
+; Utkarsha OS — unet/routing/isis.asm
 ; =============================================================================
 ; IS-IS (Intermediate System to Intermediate System RFC 1195) Router Engine.
 ;

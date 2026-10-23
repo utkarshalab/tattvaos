@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ROUTING_EVPN_ASM
 %define GUARD_UNET_ROUTING_EVPN_ASM
 ; =============================================================================
-; Tattva OS — unet/routing/evpn.asm
+; Utkarsha OS — unet/routing/evpn.asm
 ; =============================================================================
 ; BGP EVPN Control Plane Overlay Router Engine (RFC 8365 / RFC 7432).
 ;

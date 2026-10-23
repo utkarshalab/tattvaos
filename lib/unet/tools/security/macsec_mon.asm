@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SECURITY_MACSEC_MON_ASM
 %define GUARD_UNET_TOOLS_SECURITY_MACSEC_MON_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/security/macsec_mon.asm
+; Utkarsha OS — unet/tools/security/macsec_mon.asm
 ; =============================================================================
 ; IEEE 802.1AE MACsec Link-Layer Security Monitor (`macsec-mon`).
 ;

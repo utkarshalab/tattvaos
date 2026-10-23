@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_TELECOM_TAILSCALE_PING_ASM
 %define GUARD_UNET_TOOLS_TELECOM_TAILSCALE_PING_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/telecom/tailscale_ping.asm
+; Utkarsha OS — unet/tools/telecom/tailscale_ping.asm
 ; =============================================================================
 ; Tailscale WireGuard Mesh VPN Node Diagnostic Ping Tool (`tailscale-ping`).
 ;

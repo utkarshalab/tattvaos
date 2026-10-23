@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SAN_NVME_DIAG_ASM
 %define GUARD_UNET_TOOLS_SAN_NVME_DIAG_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/san/nvme_diag.asm
+; Utkarsha OS — unet/tools/san/nvme_diag.asm
 ; =============================================================================
 ; NVMe over Fabrics (NVMe-oF RDMA / TCP) Diagnostic Tool (`nvme-diag`).
 ;

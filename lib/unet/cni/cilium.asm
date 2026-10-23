@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CNI_CILIUM_ASM
 %define GUARD_UNET_CNI_CILIUM_ASM
 ; =============================================================================
-; Tattva OS — unet/cni/cilium.asm
+; Utkarsha OS — unet/cni/cilium.asm
 ; =============================================================================
 ; Cilium eBPF XDP Pod-to-Pod Service Proxy Engine.
 ;

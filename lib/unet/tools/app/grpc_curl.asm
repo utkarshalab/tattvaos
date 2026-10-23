@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_GRPC_CURL_ASM
 %define GUARD_UNET_TOOLS_APP_GRPC_CURL_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/grpc_curl.asm
+; Utkarsha OS — unet/tools/app/grpc_curl.asm
 ; =============================================================================
 ; Command-Line gRPC Protocol Tester & Method Invoker (`grpcurl`).
 ;

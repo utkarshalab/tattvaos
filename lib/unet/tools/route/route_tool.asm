@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_ROUTE_TOOL_ASM
 %define GUARD_UNET_TOOLS_ROUTE_ROUTE_TOOL_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/route_tool.asm
+; Utkarsha OS — unet/tools/route/route_tool.asm
 ; =============================================================================
 ; Command-Line IP Routing Table Manager & Inspector Tool (`route`).
 ;

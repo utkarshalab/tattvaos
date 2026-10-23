@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/include/unet_abi.inc
+; Utkarsha OS — unet/include/unet_abi.inc
 ; =============================================================================
 ; System V x86-64 Register Calling Convention & ABI Interop Definitions.
 ;

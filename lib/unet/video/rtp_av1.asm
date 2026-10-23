@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VIDEO_RTP_AV1_ASM
 %define GUARD_UNET_VIDEO_RTP_AV1_ASM
 ; =============================================================================
-; Tattva OS — unet/video/rtp_av1.asm
+; Utkarsha OS — unet/video/rtp_av1.asm
 ; =============================================================================
 ; RTP Payload Format for AV1 Video (AOMedia AV1 RTP Spec / RFC Draft).
 ;

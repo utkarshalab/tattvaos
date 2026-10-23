@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_INDUSTRIAL_LASER_ALIGN_ASM
 %define GUARD_UNET_TOOLS_INDUSTRIAL_LASER_ALIGN_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/industrial/laser_align.asm
+; Utkarsha OS — unet/tools/industrial/laser_align.asm
 ; =============================================================================
 ; In-Orbit Inter-Satellite Optical Laser Link Alignment Tool (`laser-align`).
 ;

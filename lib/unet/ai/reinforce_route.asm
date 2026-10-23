@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AI_REINFORCE_ROUTE_ASM
 %define GUARD_UNET_AI_REINFORCE_ROUTE_ASM
 ; =============================================================================
-; Tattva OS — unet/ai/reinforce_route.asm
+; Utkarsha OS — unet/ai/reinforce_route.asm
 ; =============================================================================
 ; Reinforcement Learning (Q-Learning & Deep Q-Network DQN) Routing Engine.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_TELECOM_SYSLOG_TAIL_ASM
 %define GUARD_UNET_TOOLS_TELECOM_SYSLOG_TAIL_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/telecom/syslog_tail.asm
+; Utkarsha OS — unet/tools/telecom/syslog_tail.asm
 ; =============================================================================
 ; Command-Line Remote Syslog Stream Monitor & Tail Tool (`syslog-tail`).
 ;

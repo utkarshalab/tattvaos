@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SECURITY_IPSEC_TEST_ASM
 %define GUARD_UNET_TOOLS_SECURITY_IPSEC_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/security/ipsec_test.asm
+; Utkarsha OS — unet/tools/security/ipsec_test.asm
 ; =============================================================================
 ; IPsec ESP (Encapsulating Security Payload) & IKEv2 Diagnostic Tool (`ipsec-test`).
 ;

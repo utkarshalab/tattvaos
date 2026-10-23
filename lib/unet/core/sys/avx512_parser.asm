@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_SYS_AVX512_PARSER_ASM
 %define GUARD_UNET_CORE_SYS_AVX512_PARSER_ASM
 ; =============================================================================
-; Tattva OS — unet/core/sys/avx512_parser.asm
+; Utkarsha OS — unet/core/sys/avx512_parser.asm
 ; =============================================================================
 ; AVX-512 8-Header Parallel SIMD Packet Parsing Engine.
 ;

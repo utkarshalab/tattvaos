@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ANON_SHADOWSOCKS_ASM
 %define GUARD_UNET_ANON_SHADOWSOCKS_ASM
 ; =============================================================================
-; Tattva OS — unet/anon/shadowsocks.asm
+; Utkarsha OS — unet/anon/shadowsocks.asm
 ; =============================================================================
 ; Robust Shadowsocks 2022 / V2Ray / Xray AEAD Obfuscated Proxy Protocol.
 ;

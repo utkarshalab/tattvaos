@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TELECOM_DIAMETER_ASM
 %define GUARD_UNET_TELECOM_DIAMETER_ASM
 ; =============================================================================
-; Tattva OS — unet/telecom/diameter.asm
+; Utkarsha OS — unet/telecom/diameter.asm
 ; =============================================================================
 ; Diameter AAA Base & Telephony Protocol Engine (RFC 6733 4G LTE / 5G Core).
 ;

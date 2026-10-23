@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_PQC_PQC_MACSEC_ASM
 %define GUARD_UNET_PQC_PQC_MACSEC_ASM
 ; =============================================================================
-; Tattva OS — unet/pqc/pqc_macsec.asm
+; Utkarsha OS — unet/pqc/pqc_macsec.asm
 ; =============================================================================
 ; Post-Quantum Media Access Control Security (MACsec IEEE 802.1AE-2018 Engine).
 ;

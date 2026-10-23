@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_TELECOM_NAT64_PING_ASM
 %define GUARD_UNET_TOOLS_TELECOM_NAT64_PING_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/telecom/nat64_ping.asm
+; Utkarsha OS — unet/tools/telecom/nat64_ping.asm
 ; =============================================================================
 ; NAT64 / DNS64 IPv6-to-IPv4 Translation Gateway Diagnostic Ping Tool (`nat64-ping`).
 ;

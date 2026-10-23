@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_NETNS_EXEC_ASM
 %define GUARD_UNET_TOOLS_ROUTE_NETNS_EXEC_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/netns_exec.asm
+; Utkarsha OS — unet/tools/route/netns_exec.asm
 ; =============================================================================
 ; Network Namespace Isolator & Command Executor (`ip netns exec`).
 ;

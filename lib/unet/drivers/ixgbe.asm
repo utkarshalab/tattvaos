@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_IXGBE_ASM
 %define GUARD_UNET_DRIVERS_IXGBE_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/ixgbe.asm
+; Utkarsha OS — unet/drivers/ixgbe.asm
 ; =============================================================================
 ; Intel 82599ES / X540 / X550 10 Gigabit Ethernet (10GbE) Driver.
 ;

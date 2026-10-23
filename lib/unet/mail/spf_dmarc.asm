@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MAIL_SPF_DMARC_ASM
 %define GUARD_UNET_MAIL_SPF_DMARC_ASM
 ; =============================================================================
-; Tattva OS — unet/mail/spf_dmarc.asm
+; Utkarsha OS — unet/mail/spf_dmarc.asm
 ; =============================================================================
 ; SPF (RFC 7208) & DMARC (RFC 7489) Email Authentication Policy Engine.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_GAMING_E2S_ASM
 %define GUARD_UNET_GAMING_E2S_ASM
 ; =============================================================================
-; Tattva OS — unet/gaming/e2s.asm
+; Utkarsha OS — unet/gaming/e2s.asm
 ; =============================================================================
 ; Esports Engine Sub-Millisecond Server-to-Server (E2S) Game State Sync.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_INDUSTRIAL_DNP3_CONTROL_ASM
 %define GUARD_UNET_TOOLS_INDUSTRIAL_DNP3_CONTROL_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/industrial/dnp3_control.asm
+; Utkarsha OS — unet/tools/industrial/dnp3_control.asm
 ; =============================================================================
 ; Command-Line DNP3 SCADA Outstation Control Tool (`dnp3-control`).
 ;

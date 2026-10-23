@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_OPTICAL_PON_ASM
 %define GUARD_UNET_OPTICAL_PON_ASM
 ; =============================================================================
-; Tattva OS — unet/optical/pon.asm
+; Utkarsha OS — unet/optical/pon.asm
 ; =============================================================================
 ; Passive Optical Network Engine (XGS-PON ITU-T G.9807.1 / 25G-PON / 50G-PON G.9804).
 ;

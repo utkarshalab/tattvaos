@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AUTOMOTIVE_DOIP_ASM
 %define GUARD_UNET_AUTOMOTIVE_DOIP_ASM
 ; =============================================================================
-; Tattva OS — unet/automotive/doip.asm
+; Utkarsha OS — unet/automotive/doip.asm
 ; =============================================================================
 ; Diagnostic over IP (DoIP ISO 13400-2 Port 13400 Engine).
 ;

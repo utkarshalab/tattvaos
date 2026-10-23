@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_HTTP3_DATAGRAM_ASM
 %define GUARD_UNET_HTTP_HTTP3_DATAGRAM_ASM
 ; =============================================================================
-; Tattva OS — unet/http/http3_datagram.asm
+; Utkarsha OS — unet/http/http3_datagram.asm
 ; =============================================================================
 ; QUIC Datagram Extension for HTTP/3 Engine (RFC 9221 / RFC 9297).
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/core/link/ring.asm
+; Utkarsha OS — unet/core/link/ring.asm
 ; =============================================================================
 ; Shared packet rings creation and user-space directory mapping.
 ;

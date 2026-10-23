@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SERVICES_DHCP_ASM
 %define GUARD_UNET_SERVICES_DHCP_ASM
 ; =============================================================================
-; Tattva OS — unet/services/dhcp.asm
+; Utkarsha OS — unet/services/dhcp.asm
 ; =============================================================================
 ; DHCPv4 & DHCPv6 Dual-Stack Server / Client Engine (RFC 2131 / RFC 8415).
 ;

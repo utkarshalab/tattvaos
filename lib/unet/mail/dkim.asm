@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MAIL_DKIM_ASM
 %define GUARD_UNET_MAIL_DKIM_ASM
 ; =============================================================================
-; Tattva OS — unet/mail/dkim.asm
+; Utkarsha OS — unet/mail/dkim.asm
 ; =============================================================================
 ; DKIM (DomainKeys Identified Mail RFC 6376) Signature Engine.
 ;

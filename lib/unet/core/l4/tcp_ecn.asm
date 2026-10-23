@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_ECN_ASM
 %define GUARD_UNET_CORE_L4_TCP_ECN_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_ecn.asm
+; Utkarsha OS — unet/core/l4/tcp_ecn.asm
 ; =============================================================================
 ; ECN (Explicit Congestion Notification) Support (RFC 3168, RFC 8311)
 ;

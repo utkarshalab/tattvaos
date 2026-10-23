@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_IDENTITY_SPIFFE_ASM
 %define GUARD_UNET_IDENTITY_SPIFFE_ASM
 ; =============================================================================
-; Tattva OS — unet/identity/spiffe.asm
+; Utkarsha OS — unet/identity/spiffe.asm
 ; =============================================================================
 ; SPIFFE / SPIRE Workload Identity Engine (spiffe:// Trust Domain Spec).
 ;

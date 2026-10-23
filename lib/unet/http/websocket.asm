@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_WEBSOCKET_ASM
 %define GUARD_UNET_HTTP_WEBSOCKET_ASM
 ; =============================================================================
-; Tattva OS — unet/http/websocket.asm
+; Utkarsha OS — unet/http/websocket.asm
 ; =============================================================================
 ; WebSocket Framing & Handshake Protocol Engine (RFC 6455).
 ;

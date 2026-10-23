@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_WIRELESS_LORAWAN_ASM
 %define GUARD_UNET_WIRELESS_LORAWAN_ASM
 ; =============================================================================
-; Tattva OS — unet/wireless/lorawan.asm
+; Utkarsha OS — unet/wireless/lorawan.asm
 ; =============================================================================
 ; LoRaWAN v1.0.4 / v1.1 Long-Range IoT Protocol Engine.
 ;

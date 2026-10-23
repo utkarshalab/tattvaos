@@ -227,5 +227,5 @@ udp_fill_checksum(udp, src_ip, dst_ip, 16, payload, 8);
 ## Acknowledgments
 
 - Inspired by smoltcp, lwIP, DPDK, XDP, Linux kernel TCP
-- Built for TattvaOS unikernel OS
+- Built for Utkarsha OS unikernel OS
 - Designed for bare-metal, unikernel, and embedded deployment

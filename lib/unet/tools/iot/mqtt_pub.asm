@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_IOT_MQTT_PUB_ASM
 %define GUARD_UNET_TOOLS_IOT_MQTT_PUB_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/iot/mqtt_pub.asm
+; Utkarsha OS — unet/tools/iot/mqtt_pub.asm
 ; =============================================================================
 ; Command-Line MQTT v3.1.1 / v5.0 Message Publisher (`mqtt-pub`).
 ;

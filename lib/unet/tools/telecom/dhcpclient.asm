@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_TELECOM_DHCPCLIENT_ASM
 %define GUARD_UNET_TOOLS_TELECOM_DHCPCLIENT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/telecom/dhcpclient.asm
+; Utkarsha OS — unet/tools/telecom/dhcpclient.asm
 ; =============================================================================
 ; Command-Line DHCP Client Tool (`dhcpclient`).
 ;

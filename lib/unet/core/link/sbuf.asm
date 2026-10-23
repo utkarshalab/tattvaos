@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/core/link/sbuf.asm
+; Utkarsha OS — unet/core/link/sbuf.asm
 ; =============================================================================
 ; Zero-copy network socket buffer descriptors (sbuf).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ANON_TOR_CELL_ASM
 %define GUARD_UNET_ANON_TOR_CELL_ASM
 ; =============================================================================
-; Tattva OS — unet/anon/tor_cell.asm
+; Utkarsha OS — unet/anon/tor_cell.asm
 ; =============================================================================
 ; Master Post-Quantum Tor v3 Onion Router (OR) Protocol Engine.
 ;

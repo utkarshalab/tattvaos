@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VIDEO_HLS_DASH_ASM
 %define GUARD_UNET_VIDEO_HLS_DASH_ASM
 ; =============================================================================
-; Tattva OS — unet/video/hls_dash.asm
+; Utkarsha OS — unet/video/hls_dash.asm
 ; =============================================================================
 ; Low-Latency HLS (LL-HLS RFC 8216) & Dynamic Adaptive Streaming over HTTP (DASH).
 ;

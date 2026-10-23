@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ANON_OBFS4_ASM
 %define GUARD_UNET_ANON_OBFS4_ASM
 ; =============================================================================
-; Tattva OS — unet/anon/obfs4.asm
+; Utkarsha OS — unet/anon/obfs4.asm
 ; =============================================================================
 ; Obfs4 (Pluggable Transport ScrambleSuit v2) Anti-DPI Censorship Evasion Engine.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/core/link/net_link.asm
+; Utkarsha OS — unet/core/link/net_link.asm
 ; =============================================================================
 ; Top-level wrapper for the modular zero-copy network link layer subsystem.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SAN_NFS42_ASM
 %define GUARD_UNET_SAN_NFS42_ASM
 ; =============================================================================
-; Tattva OS — unet/san/nfs42.asm
+; Utkarsha OS — unet/san/nfs42.asm
 ; =============================================================================
 ; Network File System Version 4.2 Engine (NFSv4.2 RFC 7862).
 ;

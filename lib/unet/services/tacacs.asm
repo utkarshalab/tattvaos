@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SERVICES_TACACS_ASM
 %define GUARD_UNET_SERVICES_TACACS_ASM
 ; =============================================================================
-; Tattva OS — unet/services/tacacs.asm
+; Utkarsha OS — unet/services/tacacs.asm
 ; =============================================================================
 ; TACACS+ (Terminal Access Controller Access-Control System Plus RFC 8907) Engine.
 ;

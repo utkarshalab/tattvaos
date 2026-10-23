@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_I40E_ASM
 %define GUARD_UNET_DRIVERS_I40E_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/i40e.asm
+; Utkarsha OS — unet/drivers/i40e.asm
 ; =============================================================================
 ; Intel XL710 / X710 / XXV710 40 Gigabit Ethernet (40GbE) Driver.
 ;

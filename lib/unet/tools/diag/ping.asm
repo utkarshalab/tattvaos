@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_DIAG_PING_ASM
 %define GUARD_UNET_TOOLS_DIAG_PING_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/diag/ping.asm
+; Utkarsha OS — unet/tools/diag/ping.asm
 ; =============================================================================
 ; Robust Sub-Microsecond ICMP Echo Request / Echo Reply Diagnostic Ping Tool.
 ;

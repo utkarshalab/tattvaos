@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HA_CARP_ASM
 %define GUARD_UNET_HA_CARP_ASM
 ; =============================================================================
-; Tattva OS — unet/ha/carp.asm
+; Utkarsha OS — unet/ha/carp.asm
 ; =============================================================================
 ; Common Address Redundancy Protocol Engine (CARP OpenBSD Spec).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SECURITY_QKD_KEYS_ASM
 %define GUARD_UNET_TOOLS_SECURITY_QKD_KEYS_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/security/qkd_keys.asm
+; Utkarsha OS — unet/tools/security/qkd_keys.asm
 ; =============================================================================
 ; Quantum Key Distribution Key Management Agency Inspector (`qkd-keys`).
 ;

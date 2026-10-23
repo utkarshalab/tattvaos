@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_ASM
 %define GUARD_UNET_CORE_L4_TCP_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp.asm
+; Utkarsha OS — unet/core/l4/tcp.asm
 ; =============================================================================
 ; Master TCP Stack Engine (RFC 793, RFC 7323 Window Scale, RFC 2018 SACK).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_FIREWALL_ASM
 %define GUARD_UNET_SECURITY_FIREWALL_ASM
 ; =============================================================================
-; Tattva OS — unet/security/firewall.asm
+; Utkarsha OS — unet/security/firewall.asm
 ; =============================================================================
 ; Stateful Packet Inspection (SPI) Firewall & NAT Engine.
 ;

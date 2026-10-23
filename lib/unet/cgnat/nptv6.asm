@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CGNAT_NPTV6_ASM
 %define GUARD_UNET_CGNAT_NPTV6_ASM
 ; =============================================================================
-; Tattva OS — unet/cgnat/nptv6.asm
+; Utkarsha OS — unet/cgnat/nptv6.asm
 ; =============================================================================
 ; NPTv6 Stateless IPv6-to-IPv6 Network Prefix Translation Engine (RFC 6296).
 ;

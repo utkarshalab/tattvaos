@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_DIAG_LATENCY_METER_ASM
 %define GUARD_UNET_TOOLS_DIAG_LATENCY_METER_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/diag/latency_meter.asm
+; Utkarsha OS — unet/tools/diag/latency_meter.asm
 ; =============================================================================
 ; Sub-Nanosecond Latency Histogram & Jitter Diagnostic Meter (`latency-meter`).
 ;

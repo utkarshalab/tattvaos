@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MESH_BABEL_ASM
 %define GUARD_UNET_MESH_BABEL_ASM
 ; =============================================================================
-; Tattva OS — unet/mesh/babel.asm
+; Utkarsha OS — unet/mesh/babel.asm
 ; =============================================================================
 ; Babel Distance-Vector Routing Protocol Engine (RFC 6126 / RFC 8966).
 ;

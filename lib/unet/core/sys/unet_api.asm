@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_SYS_UNET_API_ASM
 %define GUARD_UNET_CORE_SYS_UNET_API_ASM
 ; =============================================================================
-; Tattva OS — unet/core/sys/unet_api.asm
+; Utkarsha OS — unet/core/sys/unet_api.asm
 ; =============================================================================
 ; POSIX-shaped BSD socket API — the actual bodies behind unet_c_api.h's
 ; unet_socket/bind/connect/listen/accept/send/recv/close. Before this file,

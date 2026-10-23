@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_IMAP_TEST_ASM
 %define GUARD_UNET_TOOLS_APP_IMAP_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/imap_test.asm
+; Utkarsha OS — unet/tools/app/imap_test.asm
 ; =============================================================================
 ; Command-Line IMAP4rev1 Mailbox Audit & Diagnostic Tool.
 ;

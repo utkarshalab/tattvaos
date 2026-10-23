@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_HTTP_CLIENT_ASM
 %define GUARD_UNET_TOOLS_APP_HTTP_CLIENT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/http_client.asm
+; Utkarsha OS — unet/tools/app/http_client.asm
 ; =============================================================================
 ; Command-Line High-Performance HTTP/1.1 & HTTP/2 Client Tool.
 ;

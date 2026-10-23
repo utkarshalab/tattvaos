@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CNI_CALICO_ASM
 %define GUARD_UNET_CNI_CALICO_ASM
 ; =============================================================================
-; Tattva OS — unet/cni/calico.asm
+; Utkarsha OS — unet/cni/calico.asm
 ; =============================================================================
 ; Calico BGP & eBPF Kubernetes Container Network Interface (CNI) Engine.
 ;

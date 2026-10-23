@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_QUIC_ASM
 %define GUARD_UNET_CORE_L4_QUIC_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/quic.asm
+; Utkarsha OS — unet/core/l4/quic.asm
 ; =============================================================================
 ; QUIC Protocol Support (RFC 9000) - Stub Implementation
 ;

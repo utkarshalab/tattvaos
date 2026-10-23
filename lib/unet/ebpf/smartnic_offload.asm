@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_EBPF_SMARTNIC_OFFLOAD_ASM
 %define GUARD_UNET_EBPF_SMARTNIC_OFFLOAD_ASM
 ; =============================================================================
-; Tattva OS — unet/ebpf/smartnic_offload.asm
+; Utkarsha OS — unet/ebpf/smartnic_offload.asm
 ; =============================================================================
 ; Hardware eBPF / TC Flower Offload Engine for SmartNIC (P4 / FPGA / DPU).
 ;

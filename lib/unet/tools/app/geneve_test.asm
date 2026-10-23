@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_GENEVE_TEST_ASM
 %define GUARD_UNET_TOOLS_APP_GENEVE_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/geneve_test.asm
+; Utkarsha OS — unet/tools/app/geneve_test.asm
 ; =============================================================================
 ; GENEVE Tunnel Verification & TLV Options Tester (`geneve-test`).
 ;

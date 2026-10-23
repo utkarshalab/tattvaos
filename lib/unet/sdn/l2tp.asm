@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SDN_L2TP_ASM
 %define GUARD_UNET_SDN_L2TP_ASM
 ; =============================================================================
-; Tattva OS — unet/sdn/l2tp.asm
+; Utkarsha OS — unet/sdn/l2tp.asm
 ; =============================================================================
 ; Layer 2 Tunneling Protocol Version 2 & 3 (L2TPv2 RFC 2661 / L2TPv3 RFC 3931).
 ;

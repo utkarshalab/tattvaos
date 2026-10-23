@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SDN_IPIP_ASM
 %define GUARD_UNET_SDN_IPIP_ASM
 ; =============================================================================
-; Tattva OS — unet/sdn/ipip.asm
+; Utkarsha OS — unet/sdn/ipip.asm
 ; =============================================================================
 ; IP-in-IP Tunnels (IPIP RFC 2003 / 6in4 RFC 4213 / 4in6 RFC 2473) Engine.
 ;

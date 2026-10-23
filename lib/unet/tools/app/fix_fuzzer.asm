@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_APP_FIX_FUZZER_ASM
 %define GUARD_UNET_TOOLS_APP_FIX_FUZZER_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/app/fix_fuzzer.asm
+; Utkarsha OS — unet/tools/app/fix_fuzzer.asm
 ; =============================================================================
 ; High-Frequency FIX 4.2 / 5.0 Protocol Mutation Fuzzer (`fix-fuzzer`).
 ;

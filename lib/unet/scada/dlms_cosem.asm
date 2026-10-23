@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SCADA_DLMS_COSEM_ASM
 %define GUARD_UNET_SCADA_DLMS_COSEM_ASM
 ; =============================================================================
-; Tattva OS — unet/scada/dlms_cosem.asm
+; Utkarsha OS — unet/scada/dlms_cosem.asm
 ; =============================================================================
 ; DLMS/COSEM Smart Metering Protocol Engine (IEC 62056 / TCP Port 4059).
 ;

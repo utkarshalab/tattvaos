@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L3_IPV6_ASM
 %define GUARD_UNET_CORE_L3_IPV6_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l3/ipv6.asm
+; Utkarsha OS — unet/core/l3/ipv6.asm
 ; =============================================================================
 ; Master IPv6 Layer Engine (RFC 8200).
 ;

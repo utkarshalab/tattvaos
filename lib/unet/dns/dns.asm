@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DNS_DNS_ASM
 %define GUARD_UNET_DNS_DNS_ASM
 ; =============================================================================
-; Tattva OS — unet/dns/dns.asm
+; Utkarsha OS — unet/dns/dns.asm
 ; =============================================================================
 ; AVX-512 SIMD Vector Optimized DNS Resolver & Caching Engine (RFC 1035).
 ;

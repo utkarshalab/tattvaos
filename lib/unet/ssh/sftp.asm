@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SSH_SFTP_ASM
 %define GUARD_UNET_SSH_SFTP_ASM
 ; =============================================================================
-; Tattva OS — unet/ssh/sftp.asm
+; Utkarsha OS — unet/ssh/sftp.asm
 ; =============================================================================
 ; Secure File Transfer Protocol Subsystem Engine (SFTP v3 / v6 Draft Spec).
 ;

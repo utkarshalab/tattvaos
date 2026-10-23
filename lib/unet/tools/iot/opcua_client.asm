@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_IOT_OPCUA_CLIENT_ASM
 %define GUARD_UNET_TOOLS_IOT_OPCUA_CLIENT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/iot/opcua_client.asm
+; Utkarsha OS — unet/tools/iot/opcua_client.asm
 ; =============================================================================
 ; OPC Unified Architecture (OPC UA IEC 62541) Client Tool (`opcua-client`).
 ;

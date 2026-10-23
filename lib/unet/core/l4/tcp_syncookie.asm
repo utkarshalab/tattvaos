@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L4_TCP_SYNCOOKIE_ASM
 %define GUARD_UNET_CORE_L4_TCP_SYNCOOKIE_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l4/tcp_syncookie.asm
+; Utkarsha OS — unet/core/l4/tcp_syncookie.asm
 ; =============================================================================
 ; SYN Cookie Implementation (RFC 6528, RFC 4987)
 ;

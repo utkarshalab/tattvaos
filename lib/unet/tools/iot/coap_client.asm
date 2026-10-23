@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_IOT_COAP_CLIENT_ASM
 %define GUARD_UNET_TOOLS_IOT_COAP_CLIENT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/iot/coap_client.asm
+; Utkarsha OS — unet/tools/iot/coap_client.asm
 ; =============================================================================
 ; Command-Line Constrained Application Protocol Client Tool (`coap-client`).
 ;

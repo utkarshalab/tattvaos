@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_SYS_AVX512_CHECKSUM_ASM
 %define GUARD_UNET_CORE_SYS_AVX512_CHECKSUM_ASM
 ; =============================================================================
-; Tattva OS — unet/core/sys/avx512_checksum.asm
+; Utkarsha OS — unet/core/sys/avx512_checksum.asm
 ; =============================================================================
 ; AVX-512 Optimized Internet Checksum (RFC 1071)
 ;

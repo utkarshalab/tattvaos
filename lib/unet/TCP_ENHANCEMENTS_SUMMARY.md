@@ -1,7 +1,7 @@
 # TCP Stack Enhancements Summary
 
 ## Overview
-This document summarizes the major enhancements made to the TattvaOS/unet TCP stack, transforming it from a basic TCP implementation into a production-ready, high-performance TCP/IP stack with modern congestion control, security, and reliability features.
+This document summarizes the major enhancements made to the Utkarsha OS/unet TCP stack, transforming it from a basic TCP implementation into a production-ready, high-performance TCP/IP stack with modern congestion control, security, and reliability features.
 
 ---
 
@@ -352,7 +352,7 @@ call tcp_timer_cache_init
 
 ## Conclusion
 
-The TattvaOS/unet TCP stack has been transformed from a basic implementation into a **production-grade, RFC-compliant TCP/IP stack** with:
+The Utkarsha OS/unet TCP stack has been transformed from a basic implementation into a **production-grade, RFC-compliant TCP/IP stack** with:
 
 - ✅ **Modern congestion control** (CUBIC, BBR stub)
 - ✅ **Security hardening** (SYN cookies)

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SAN_NFS_CLIENT_ASM
 %define GUARD_UNET_TOOLS_SAN_NFS_CLIENT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/san/nfs_client.asm
+; Utkarsha OS — unet/tools/san/nfs_client.asm
 ; =============================================================================
 ; Network File System NFSv4 Mount & Diagnostic Tool (`nfs-client`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ROUTING_OSPF_ASM
 %define GUARD_UNET_ROUTING_OSPF_ASM
 ; =============================================================================
-; Tattva OS — unet/routing/ospf.asm
+; Utkarsha OS — unet/routing/ospf.asm
 ; =============================================================================
 ; OSPFv2 / OSPFv3 Link-State Router Engine (RFC 2328 / RFC 5340).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SPACE_CCSDS_ASM
 %define GUARD_UNET_SPACE_CCSDS_ASM
 ; =============================================================================
-; Tattva OS — unet/space/ccsds.asm
+; Utkarsha OS — unet/space/ccsds.asm
 ; =============================================================================
 ; CCSDS Space Packet Protocol Engine (CCSDS 133.0-B-2 Specification).
 ;

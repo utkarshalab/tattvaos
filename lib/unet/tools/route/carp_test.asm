@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_CARP_TEST_ASM
 %define GUARD_UNET_TOOLS_ROUTE_CARP_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/carp_test.asm
+; Utkarsha OS — unet/tools/route/carp_test.asm
 ; =============================================================================
 ; CARP Redundancy Failover Diagnostic Tool (`carp-test`).
 ;

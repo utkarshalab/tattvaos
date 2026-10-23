@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HPC_GPUDIRECT_ASM
 %define GUARD_UNET_HPC_GPUDIRECT_ASM
 ; =============================================================================
-; Tattva OS — unet/hpc/gpudirect.asm
+; Utkarsha OS — unet/hpc/gpudirect.asm
 ; =============================================================================
 ; NVIDIA GPUDirect RDMA & PCIe Peer-to-Peer Zero-Copy DMA Driver.
 ;

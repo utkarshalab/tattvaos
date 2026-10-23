@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/tests/pqc_bench.asm
+; Utkarsha OS — unet/tests/pqc_bench.asm
 ; =============================================================================
 ; Post-Quantum ML-KEM-1024 Kyber & ML-DSA Dilithium Latency Benchmark.
 ;

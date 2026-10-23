@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_SRIOV_ASM
 %define GUARD_UNET_DRIVERS_SRIOV_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/sriov.asm
+; Utkarsha OS — unet/drivers/sriov.asm
 ; =============================================================================
 ; Single-Root I/O Virtualization (SR-IOV) VF Manager & Mailbox Architecture Engine.
 ;

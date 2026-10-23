@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_OPTICAL_COHERENT_ASM
 %define GUARD_UNET_OPTICAL_COHERENT_ASM
 ; =============================================================================
-; Tattva OS — unet/optical/coherent.asm
+; Utkarsha OS — unet/optical/coherent.asm
 ; =============================================================================
 ; Coherent Optical Modulation (16-QAM / 64-QAM / DP-QPSK) DSP Signal Engine.
 ;

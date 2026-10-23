@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AVIONICS_SPACEFIRE_ASM
 %define GUARD_UNET_AVIONICS_SPACEFIRE_ASM
 ; =============================================================================
-; Tattva OS — unet/avionics/spacefire.asm
+; Utkarsha OS — unet/avionics/spacefire.asm
 ; =============================================================================
 ; SpaceWire / SpaceFibre ECSS-E-ST-50-52C Spacecraft Interconnect Engine.
 ;

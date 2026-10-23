@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_TELECOM_LOOKUP_ASM
 %define GUARD_UNET_TOOLS_TELECOM_LOOKUP_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/telecom/lookup.asm
+; Utkarsha OS — unet/tools/telecom/lookup.asm
 ; =============================================================================
 ; Command-Line DNS Resolver & Lookup Tool (`dig` / `nslookup`).
 ;

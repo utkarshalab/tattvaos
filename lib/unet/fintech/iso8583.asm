@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_FINTECH_ISO8583_ASM
 %define GUARD_UNET_FINTECH_ISO8583_ASM
 ; =============================================================================
-; Tattva OS — unet/fintech/iso8583.asm
+; Utkarsha OS — unet/fintech/iso8583.asm
 ; =============================================================================
 ; ISO 8583 Financial Transaction Card Originated Messages Engine.
 ;

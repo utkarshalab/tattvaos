@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AUTOMOTIVE_AVB_TSN_ASM
 %define GUARD_UNET_AUTOMOTIVE_AVB_TSN_ASM
 ; =============================================================================
-; Tattva OS — unet/automotive/avb_tsn.asm
+; Utkarsha OS — unet/automotive/avb_tsn.asm
 ; =============================================================================
 ; IEEE 802.1 Time-Sensitive Networking (TSN / AVB) Traffic Engine.
 ;

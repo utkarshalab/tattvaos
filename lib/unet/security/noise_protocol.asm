@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_NOISE_PROTOCOL_ASM
 %define GUARD_UNET_SECURITY_NOISE_PROTOCOL_ASM
 ; =============================================================================
-; Tattva OS — unet/security/noise_protocol.asm
+; Utkarsha OS — unet/security/noise_protocol.asm
 ; =============================================================================
 ; Noise Protocol Framework SymmetricState (Noise Specification rev 34, section
 ; 5.2). This is the shared machinery every Noise-based handshake in this tree

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CLOUD_VSWITCH_ASM
 %define GUARD_UNET_CLOUD_VSWITCH_ASM
 ; =============================================================================
-; Tattva OS — unet/cloud/vswitch.asm
+; Utkarsha OS — unet/cloud/vswitch.asm
 ; =============================================================================
 ; High-Performance Hypervisor Virtual Switch (vSwitch / OVS Datapath Engine).
 ;

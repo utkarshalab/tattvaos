@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_VIRTIO_NET_ASM
 %define GUARD_UNET_DRIVERS_VIRTIO_NET_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/virtio_net.asm
+; Utkarsha OS — unet/drivers/virtio_net.asm
 ; =============================================================================
 ; VirtIO 1.1 / 1.0 Network Device Driver (Packed Ring & Split Ring Spec).
 ;

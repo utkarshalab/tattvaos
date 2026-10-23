@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CGNAT_DS_LITE_ASM
 %define GUARD_UNET_CGNAT_DS_LITE_ASM
 ; =============================================================================
-; Tattva OS — unet/cgnat/ds_lite.asm
+; Utkarsha OS — unet/cgnat/ds_lite.asm
 ; =============================================================================
 ; Dual-Stack Lite (DS-Lite RFC 6333) B4 / AFTR Tunneling Protocol Engine.
 ;

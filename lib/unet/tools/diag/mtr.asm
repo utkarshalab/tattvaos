@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_DIAG_MTR_ASM
 %define GUARD_UNET_TOOLS_DIAG_MTR_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/diag/mtr.asm
+; Utkarsha OS — unet/tools/diag/mtr.asm
 ; =============================================================================
 ; Combined Traceroute + Continuous Ping Network Diagnostic Tool (`mtr`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_EBPF_EBPF_ASM
 %define GUARD_UNET_EBPF_EBPF_ASM
 ; =============================================================================
-; Tattva OS — unet/ebpf/ebpf.asm
+; Utkarsha OS — unet/ebpf/ebpf.asm
 ; =============================================================================
 ; Extended Berkeley Packet Filter (eBPF) Virtual Machine & JIT Engine.
 ;

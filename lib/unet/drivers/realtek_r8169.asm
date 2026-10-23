@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_REALTEK_R8169_ASM
 %define GUARD_UNET_DRIVERS_REALTEK_R8169_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/realtek_r8169.asm
+; Utkarsha OS — unet/drivers/realtek_r8169.asm
 ; =============================================================================
 ; Realtek RTL8111 / RTL8168 / RTL8125 2.5 Gigabit Ethernet Driver.
 ;

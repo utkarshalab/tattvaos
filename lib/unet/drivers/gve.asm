@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_GVE_ASM
 %define GUARD_UNET_DRIVERS_GVE_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/gve.asm
+; Utkarsha OS — unet/drivers/gve.asm
 ; =============================================================================
 ; Google Virtual NIC (gVNIC / GVE 100GbE) Driver.
 ;

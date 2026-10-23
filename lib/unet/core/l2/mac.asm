@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_L2_MAC_ASM
 %define GUARD_UNET_CORE_L2_MAC_ASM
 ; =============================================================================
-; Tattva OS — unet/core/l2/mac.asm
+; Utkarsha OS — unet/core/l2/mac.asm
 ; =============================================================================
 ; Master Hardware MAC Addressing & Privacy Engine (IEEE 802.3 / EUI-64).
 ;

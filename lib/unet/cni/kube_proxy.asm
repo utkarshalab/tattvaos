@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CNI_KUBE_PROXY_ASM
 %define GUARD_UNET_CNI_KUBE_PROXY_ASM
 ; =============================================================================
-; Tattva OS — unet/cni/kube_proxy.asm
+; Utkarsha OS — unet/cni/kube_proxy.asm
 ; =============================================================================
 ; Kubernetes Kube-Proxy eBPF Maglev Load Balancer Engine.
 ;

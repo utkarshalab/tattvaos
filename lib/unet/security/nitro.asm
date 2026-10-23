@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_NITRO_ASM
 %define GUARD_UNET_SECURITY_NITRO_ASM
 ; =============================================================================
-; Tattva OS — unet/security/nitro.asm
+; Utkarsha OS — unet/security/nitro.asm
 ; =============================================================================
 ; AWS Nitro Enclaves Cryptographic Attestation & Secure Execution Engine.
 ;

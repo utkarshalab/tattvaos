@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_NAPATECH_ASM
 %define GUARD_UNET_DRIVERS_NAPATECH_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/napatech.asm
+; Utkarsha OS — unet/drivers/napatech.asm
 ; =============================================================================
 ; Napatech 200GbE FPGA High-Speed Packet Capture & Processing Accelerator Driver.
 ;

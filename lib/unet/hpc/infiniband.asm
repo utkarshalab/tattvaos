@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HPC_INFINIBAND_ASM
 %define GUARD_UNET_HPC_INFINIBAND_ASM
 ; =============================================================================
-; Tattva OS — unet/hpc/infiniband.asm
+; Utkarsha OS — unet/hpc/infiniband.asm
 ; =============================================================================
 ; InfiniBand Architecture Transport Engine (IBTA Specification 1.4 / 1.5).
 ;

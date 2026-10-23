@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SECURITY_TLS_INFO_ASM
 %define GUARD_UNET_TOOLS_SECURITY_TLS_INFO_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/security/tls_info.asm
+; Utkarsha OS — unet/tools/security/tls_info.asm
 ; =============================================================================
 ; TLS 1.3 Certificate & Cipher Suite Audit Tool (`tls-info`).
 ;

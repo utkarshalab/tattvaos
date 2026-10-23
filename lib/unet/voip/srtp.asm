@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VOIP_SRTP_ASM
 %define GUARD_UNET_VOIP_SRTP_ASM
 ; =============================================================================
-; Tattva OS — unet/voip/srtp.asm
+; Utkarsha OS — unet/voip/srtp.asm
 ; =============================================================================
 ; Secure Real-Time Transport Protocol Engine (SRTP / SRTCP RFC 3711).
 ;

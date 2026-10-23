@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CNI_WEAVE_ASM
 %define GUARD_UNET_CNI_WEAVE_ASM
 ; =============================================================================
-; Tattva OS — unet/cni/weave.asm
+; Utkarsha OS — unet/cni/weave.asm
 ; =============================================================================
 ; Weave Net Encrypted Mesh & Fast Datapath CNI Engine.
 ;

@@ -1,5 +1,5 @@
 /* =============================================================================
- * Tattva OS — unet/include/unet_c_api.h
+ * Utkarsha OS — unet/include/unet_c_api.h
  * =============================================================================
  * C/C++ Userland Application Header Bindings for unet Network Engine.
  *

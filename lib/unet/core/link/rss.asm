@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CORE_LINK_RSS_ASM
 %define GUARD_UNET_CORE_LINK_RSS_ASM
 ; =============================================================================
-; Tattva OS — unet/core/link/rss.asm
+; Utkarsha OS — unet/core/link/rss.asm
 ; =============================================================================
 ; AVX2 / AVX-512 Accelerated Receive Side Scaling (RSS) Toeplitz Flow Hashing.
 ;

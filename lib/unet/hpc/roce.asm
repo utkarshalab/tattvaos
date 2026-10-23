@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HPC_ROCE_ASM
 %define GUARD_UNET_HPC_ROCE_ASM
 ; =============================================================================
-; Tattva OS — unet/hpc/roce.asm
+; Utkarsha OS — unet/hpc/roce.asm
 ; =============================================================================
 ; RDMA over Converged Ethernet (RoCEv2 / IBTA Annex A17).
 ;

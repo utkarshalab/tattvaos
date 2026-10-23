@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AVIONICS_STANAG_ASM
 %define GUARD_UNET_AVIONICS_STANAG_ASM
 ; =============================================================================
-; Tattva OS — unet/avionics/stanag.asm
+; Utkarsha OS — unet/avionics/stanag.asm
 ; =============================================================================
 ; NATO STANAG 4586 / STANAG 4609 UAV Control & Video Telemetry Engine.
 ;

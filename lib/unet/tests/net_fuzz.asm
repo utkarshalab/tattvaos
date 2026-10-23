@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — unet/tests/net_fuzz.asm
+; Utkarsha OS — unet/tests/net_fuzz.asm
 ; =============================================================================
 ; Automated Protocol Fuzzer & Vulnerability Testing Suite.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_MICROCHIP_LAN9514_ASM
 %define GUARD_UNET_DRIVERS_MICROCHIP_LAN9514_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/microchip_lan9514.asm
+; Utkarsha OS — unet/drivers/microchip_lan9514.asm
 ; =============================================================================
 ; Microchip LAN9514 / LAN7800 Raspberry Pi USB Ethernet Controller Driver.
 ;

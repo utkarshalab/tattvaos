@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_PROXY_FORWARD_PROXY_ASM
 %define GUARD_UNET_PROXY_FORWARD_PROXY_ASM
 ; =============================================================================
-; Tattva OS — unet/proxy/forward_proxy.asm
+; Utkarsha OS — unet/proxy/forward_proxy.asm
 ; =============================================================================
 ; Explicit & Transparent Forward Proxy Engine.
 ;

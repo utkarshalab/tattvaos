@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HFT_OUCH_SOUP_ASM
 %define GUARD_UNET_HFT_OUCH_SOUP_ASM
 ; =============================================================================
-; Tattva OS — unet/hft/ouch_soup.asm
+; Utkarsha OS — unet/hft/ouch_soup.asm
 ; =============================================================================
 ; SoupBinTCP v3.0 Session Protocol Engine for NASDAQ OUCH Order Entry.
 ;

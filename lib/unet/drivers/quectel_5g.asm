@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_QUECTEL_5G_ASM
 %define GUARD_UNET_DRIVERS_QUECTEL_5G_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/quectel_5g.asm
+; Utkarsha OS — unet/drivers/quectel_5g.asm
 ; =============================================================================
 ; Quectel RM500Q / RG500Q 5G NR M.2 Modem PCIe / USB Driver.
 ;

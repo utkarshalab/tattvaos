@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AI_ML_IDS_ASM
 %define GUARD_UNET_AI_ML_IDS_ASM
 ; =============================================================================
-; Tattva OS — unet/ai/ml_ids.asm
+; Utkarsha OS — unet/ai/ml_ids.asm
 ; =============================================================================
 ; In-Kernel Assembly Neural Network Zero-Day Intrusion Detection System (IDS).
 ;

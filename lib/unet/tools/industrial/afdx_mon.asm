@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_INDUSTRIAL_AFDX_MON_ASM
 %define GUARD_UNET_TOOLS_INDUSTRIAL_AFDX_MON_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/industrial/afdx_mon.asm
+; Utkarsha OS — unet/tools/industrial/afdx_mon.asm
 ; =============================================================================
 ; ARINC 664 AFDX Avionics Network Traffic Monitor Tool (`afdx-mon`).
 ;

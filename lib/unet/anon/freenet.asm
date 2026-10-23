@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_ANON_FREENET_ASM
 %define GUARD_UNET_ANON_FREENET_ASM
 ; =============================================================================
-; Tattva OS — unet/anon/freenet.asm
+; Utkarsha OS — unet/anon/freenet.asm
 ; =============================================================================
 ; Hyphanet / Freenet FNP (Freenet Network Protocol) Distributed Darknet Engine.
 ;

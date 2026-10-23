@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_MESH_TAILSCALE_ASM
 %define GUARD_UNET_MESH_TAILSCALE_ASM
 ; =============================================================================
-; Tattva OS — unet/mesh/tailscale.asm
+; Utkarsha OS — unet/mesh/tailscale.asm
 ; =============================================================================
 ; Tailscale DERP (Detoured Encrypted Routing Protocol) & WireGuard Mesh Subsystem.
 ;

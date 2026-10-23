@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SPACE_DTN_ASM
 %define GUARD_UNET_SPACE_DTN_ASM
 ; =============================================================================
-; Tattva OS — unet/space/dtn.asm
+; Utkarsha OS — unet/space/dtn.asm
 ; =============================================================================
 ; Delay-Tolerant Networking Bundle Protocol Version 7 Engine (BPv7 RFC 9171).
 ;

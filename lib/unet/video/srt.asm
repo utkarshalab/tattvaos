@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_VIDEO_SRT_ASM
 %define GUARD_UNET_VIDEO_SRT_ASM
 ; =============================================================================
-; Tattva OS — unet/video/srt.asm
+; Utkarsha OS — unet/video/srt.asm
 ; =============================================================================
 ; Secure Reliable Transport Protocol Engine (SRT Haivision / UDT-Based).
 ;

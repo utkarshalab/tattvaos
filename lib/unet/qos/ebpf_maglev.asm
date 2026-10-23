@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_QOS_EBPF_MAGLEV_ASM
 %define GUARD_UNET_QOS_EBPF_MAGLEV_ASM
 ; =============================================================================
-; Tattva OS — unet/qos/ebpf_maglev.asm
+; Utkarsha OS — unet/qos/ebpf_maglev.asm
 ; =============================================================================
 ; eBPF XDP Fast-Path Maglev Consistent Hashing Load Balancer.
 ;

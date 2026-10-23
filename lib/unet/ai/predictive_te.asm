@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AI_PREDICTIVE_TE_ASM
 %define GUARD_UNET_AI_PREDICTIVE_TE_ASM
 ; =============================================================================
-; Tattva OS — unet/ai/predictive_te.asm
+; Utkarsha OS — unet/ai/predictive_te.asm
 ; =============================================================================
 ; Predictive Traffic Engineering & Congestion Forecasting Engine (LSTM Time Series).
 ;

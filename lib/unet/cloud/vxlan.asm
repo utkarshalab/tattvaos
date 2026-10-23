@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_CLOUD_VXLAN_ASM
 %define GUARD_UNET_CLOUD_VXLAN_ASM
 ; =============================================================================
-; Tattva OS — unet/cloud/vxlan.asm
+; Utkarsha OS — unet/cloud/vxlan.asm
 ; =============================================================================
 ; Virtual eXtensible Local Area Network (VXLAN RFC 7348 / GPE RFC 8926).
 ;

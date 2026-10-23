@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_WEBTRANSPORT_ASM
 %define GUARD_UNET_HTTP_WEBTRANSPORT_ASM
 ; =============================================================================
-; Tattva OS — unet/http/webtransport.asm
+; Utkarsha OS — unet/http/webtransport.asm
 ; =============================================================================
 ; WebTransport Framework over HTTP/3 (W3C WebTransport API).
 ;

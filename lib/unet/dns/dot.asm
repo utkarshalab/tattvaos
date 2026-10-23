@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DNS_DOT_ASM
 %define GUARD_UNET_DNS_DOT_ASM
 ; =============================================================================
-; Tattva OS — unet/dns/dot.asm
+; Utkarsha OS — unet/dns/dot.asm
 ; =============================================================================
 ; DNS over TLS (DoT RFC 7858 / TCP Port 853) Encrypted Session Engine.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_DIAG_TCPDUMP_ASM_ASM
 %define GUARD_UNET_TOOLS_DIAG_TCPDUMP_ASM_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/diag/tcpdump_asm.asm
+; Utkarsha OS — unet/tools/diag/tcpdump_asm.asm
 ; =============================================================================
 ; Packet Capture (net tcpdump / PCAP) Tool with Direct UXFS Storage Streaming.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SECURITY_PQC_INSPECT_ASM
 %define GUARD_UNET_TOOLS_SECURITY_PQC_INSPECT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/security/pqc_inspect.asm
+; Utkarsha OS — unet/tools/security/pqc_inspect.asm
 ; =============================================================================
 ; Post-Quantum Cryptography Cipher Inspector Tool (`pqc-inspect`).
 ;

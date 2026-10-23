@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SECURITY_IPSEC_TOP_ASM
 %define GUARD_UNET_TOOLS_SECURITY_IPSEC_TOP_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/security/ipsec_top.asm
+; Utkarsha OS — unet/tools/security/ipsec_top.asm
 ; =============================================================================
 ; Real-Time IPsec Security Association Database Monitor (`ipsec-top`).
 ;

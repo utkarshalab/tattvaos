@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SDN_NVGRE_ASM
 %define GUARD_UNET_SDN_NVGRE_ASM
 ; =============================================================================
-; Tattva OS — unet/sdn/nvgre.asm
+; Utkarsha OS — unet/sdn/nvgre.asm
 ; =============================================================================
 ; Network Virtualization using Generic Routing Encapsulation (NVGRE RFC 7637).
 ;

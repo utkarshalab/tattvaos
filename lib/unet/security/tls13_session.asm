@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_TLS13_SESSION_ASM
 %define GUARD_UNET_SECURITY_TLS13_SESSION_ASM
 ; =============================================================================
-; Tattva OS — unet/security/tls13_session.asm
+; Utkarsha OS — unet/security/tls13_session.asm
 ; =============================================================================
 ; TLS 1.3 State Machine & Record Protocol Engine (RFC 8446).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_EBPF_TOP_ASM
 %define GUARD_UNET_TOOLS_HPC_EBPF_TOP_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/ebpf_top.asm
+; Utkarsha OS — unet/tools/hpc/ebpf_top.asm
 ; =============================================================================
 ; Real-Time In-Kernel eBPF Program & Map Performance Top Monitor (`ebpftop`).
 ;

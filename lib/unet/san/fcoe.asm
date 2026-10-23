@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SAN_FCOE_ASM
 %define GUARD_UNET_SAN_FCOE_ASM
 ; =============================================================================
-; Tattva OS — unet/san/fcoe.asm
+; Utkarsha OS — unet/san/fcoe.asm
 ; =============================================================================
 ; Fibre Channel over Ethernet (FCoE RFC 5654) Protocol Engine.
 ;

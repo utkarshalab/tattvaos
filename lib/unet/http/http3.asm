@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_HTTP3_ASM
 %define GUARD_UNET_HTTP_HTTP3_ASM
 ; =============================================================================
-; Tattva OS — unet/http/http3.asm
+; Utkarsha OS — unet/http/http3.asm
 ; =============================================================================
 ; HTTP/3 over QUIC Transport Protocol Engine (RFC 9114 / RFC 9000).
 ;

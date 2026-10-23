@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_AVIONICS_AFDX_ASM
 %define GUARD_UNET_AVIONICS_AFDX_ASM
 ; =============================================================================
-; Tattva OS — unet/avionics/afdx.asm
+; Utkarsha OS — unet/avionics/afdx.asm
 ; =============================================================================
 ; ARINC 664 Part 7 Avionics Full-Duplex Switched Ethernet (AFDX) Engine.
 ;

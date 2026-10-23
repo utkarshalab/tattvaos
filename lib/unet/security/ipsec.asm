@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SECURITY_IPSEC_ASM
 %define GUARD_UNET_SECURITY_IPSEC_ASM
 ; =============================================================================
-; Tattva OS — unet/security/ipsec.asm
+; Utkarsha OS — unet/security/ipsec.asm
 ; =============================================================================
 ; IPsec Architecture (RFC 4301 / RFC 4303 ESP / IKEv2 RFC 7296) Engine.
 ;

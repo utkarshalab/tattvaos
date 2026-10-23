@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_SECURITY_TOR_CIRCUIT_ASM
 %define GUARD_UNET_TOOLS_SECURITY_TOR_CIRCUIT_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/security/tor_circuit.asm
+; Utkarsha OS — unet/tools/security/tor_circuit.asm
 ; =============================================================================
 ; Tor Anonymity Onion Circuit Inspector & Relay Hop Tester (`tor-circuit`).
 ;

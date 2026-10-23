@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_ECN_MONITOR_ASM
 %define GUARD_UNET_TOOLS_HPC_ECN_MONITOR_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/ecn_monitor.asm
+; Utkarsha OS — unet/tools/hpc/ecn_monitor.asm
 ; =============================================================================
 ; Real-Time Explicit Congestion Notification (ECN RFC 3168 / RFC 6040) Monitor (`ecn-mon`).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_SCADA_IEC61850_ASM
 %define GUARD_UNET_SCADA_IEC61850_ASM
 ; =============================================================================
-; Tattva OS — unet/scada/iec61850.asm
+; Utkarsha OS — unet/scada/iec61850.asm
 ; =============================================================================
 ; IEC 61850 Power Substation Automation Protocol Engine (GOOSE & SV).
 ;

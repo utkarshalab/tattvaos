@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_IOT_LORAWAN_MON_ASM
 %define GUARD_UNET_TOOLS_IOT_LORAWAN_MON_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/iot/lorawan_mon.asm
+; Utkarsha OS — unet/tools/iot/lorawan_mon.asm
 ; =============================================================================
 ; LoRaWAN Gateway Packet Forwarder Monitor Tool (`lorawan-mon`).
 ;

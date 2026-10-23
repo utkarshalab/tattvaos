@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_OPTICAL_G709_ASM
 %define GUARD_UNET_OPTICAL_G709_ASM
 ; =============================================================================
-; Tattva OS — unet/optical/g709.asm
+; Utkarsha OS — unet/optical/g709.asm
 ; =============================================================================
 ; ITU-T G.709 Optical Transport Network (OTN OTU1 / OTU2 / OTU4) Engine.
 ;

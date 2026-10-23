@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_HPC_PFC_TEST_ASM
 %define GUARD_UNET_TOOLS_HPC_PFC_TEST_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/hpc/pfc_test.asm
+; Utkarsha OS — unet/tools/hpc/pfc_test.asm
 ; =============================================================================
 ; Priority Flow Control (PFC IEEE 802.1Qbb) Lossless Ethernet Tester (`pfc-test`).
 ;

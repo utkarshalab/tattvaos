@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DRIVERS_MLX5_ASM
 %define GUARD_UNET_DRIVERS_MLX5_ASM
 ; =============================================================================
-; Tattva OS — unet/drivers/mlx5.asm
+; Utkarsha OS — unet/drivers/mlx5.asm
 ; =============================================================================
 ; Mellanox ConnectX-4 / ConnectX-5 / ConnectX-6 / ConnectX-7 100G/200G/400G Driver.
 ;

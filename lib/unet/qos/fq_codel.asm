@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_QOS_FQ_CODEL_ASM
 %define GUARD_UNET_QOS_FQ_CODEL_ASM
 ; =============================================================================
-; Tattva OS — unet/qos/fq_codel.asm
+; Utkarsha OS — unet/qos/fq_codel.asm
 ; =============================================================================
 ; Fair Queueing Controlled Delay Active Queue Management Engine (FQ-CoDel RFC 8290).
 ;

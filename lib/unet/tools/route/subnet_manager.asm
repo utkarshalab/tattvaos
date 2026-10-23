@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_TOOLS_ROUTE_SUBNET_MANAGER_ASM
 %define GUARD_UNET_TOOLS_ROUTE_SUBNET_MANAGER_ASM
 ; =============================================================================
-; Tattva OS — unet/tools/route/subnet_manager.asm
+; Utkarsha OS — unet/tools/route/subnet_manager.asm
 ; =============================================================================
 ; CIDR Subnet Calculator & IP Allocation Manager Tool (`ipcalc`).
 ;

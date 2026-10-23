@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_FINTECH_SWIFT_ASM
 %define GUARD_UNET_FINTECH_SWIFT_ASM
 ; =============================================================================
-; Tattva OS — unet/fintech/swift.asm
+; Utkarsha OS — unet/fintech/swift.asm
 ; =============================================================================
 ; SWIFT FIN Messaging Protocol Engine (MT103 / MT202 / MT940 Specifications).
 ;

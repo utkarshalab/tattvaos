@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_DNS_DOQ_ASM
 %define GUARD_UNET_DNS_DOQ_ASM
 ; =============================================================================
-; Tattva OS — unet/dns/doq.asm
+; Utkarsha OS — unet/dns/doq.asm
 ; =============================================================================
 ; DNS over QUIC (DoQ RFC 9250 / UDP Port 853) Transport Engine.
 ;

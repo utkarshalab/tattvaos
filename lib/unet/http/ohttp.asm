@@ -1,7 +1,7 @@
 %ifndef GUARD_UNET_HTTP_OHTTP_ASM
 %define GUARD_UNET_HTTP_OHTTP_ASM
 ; =============================================================================
-; Tattva OS — unet/http/ohttp.asm
+; Utkarsha OS — unet/http/ohttp.asm
 ; =============================================================================
 ; Oblivious HTTP (OHTTP) Zero-Trust Privacy Proxy Engine (RFC 9458).
 ;
