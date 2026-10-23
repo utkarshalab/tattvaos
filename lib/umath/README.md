@@ -22,8 +22,8 @@ bits/     Tier 0   fixed-width integer & IEEE-754 bit-pattern primitives
 memory/   Tier 0-1  copy/set/compare/allocate (5 allocator shapes)
 scalar/   Tier 0-1  abs/min/max/clamp/round/sign/reciprocal, i32/i64/f32/f64
 dtype/    Tier 0    213-type classification/metadata system
-math_fn/  Tier 1    sqrt/exp/log/pow/sin/cos/tan/hypot, f32/f64 — the full
-                     transcendental math set
+math_fn/  Tier 1    sqrt/cbrt, exp/exp2/exp10/expm1, log/log2/log10/log1p,
+                     pow, sin/cos/tan, hypot, scalbn; f32/f64 + arrays
 stability/ Tier 1   compensated/pairwise sums, Welford mean/variance,
                      log-sum-exp
 reduce/   Tier 1    sum/mean, dot/sum of squares, overflow-safe product,
