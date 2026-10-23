@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_ENTRY_INIT_ASM
 %define GUARD_KERNEL_ENTRY_INIT_ASM
 ; =============================================================================
-; Tattva OS — kernel/entry/init.asm
+; Utkarsha OS — kernel/entry/init.asm
 ; =============================================================================
 ; Kernel early initialization sequence. Saves the BootInfo pointer, verifies
 ; CPU-local storage (GS base), and sequentially calls initialization stubs for
@@ -389,7 +389,7 @@ align 8
 global boot_info_ptr
 boot_info_ptr:      dq 0
 
-msg_kernel_boot:     db "Tattva Kernel Booting...", 0x0D, 0x0A, 0
+msg_kernel_boot:     db "Utkarsha Kernel Booting...", 0x0D, 0x0A, 0
 msg_smp_init_failed: db "Kernel init: unsafe APIC firmware policy", 0x0D, 0x0A, 0
 msg_init_gdt:        db "Initializing Kernel GDT/TSS... ", 0
 msg_boot_info_loc:   db "BootInfo Pointer: ", 0

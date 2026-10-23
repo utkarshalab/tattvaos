@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_ENTRY_START_ASM
 %define GUARD_KERNEL_ENTRY_START_ASM
 ; =============================================================================
-; Tattva OS — kernel/entry/start.asm
+; Utkarsha OS — kernel/entry/start.asm
 ; =============================================================================
 ; Kernel startup logic. Reloads segment registers and sets up the aligned
 ; kernel stack. GS is established after gdt_init performs the final segment

@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_ENTRY_MAIN_ASM
 %define GUARD_KERNEL_ENTRY_MAIN_ASM
 ; =============================================================================
-; Tattva OS â€” kernel/entry/main.asm
+; Utkarsha OS â€” kernel/entry/main.asm
 ; =============================================================================
 ; Kernel main entry point. Invoked after subsystem initialization completes.
 ; Prints the final kernel ready message and transitions to the CPU idle loop.
@@ -178,7 +178,7 @@ kernel_boot_memory_selftest:
     test rax, rax
     jz .failed
 
-    mov rax, 0x544154545641504D     ; "TATTVAPM"
+    mov rax, 0x544154545641504D     ; "UTKARSHAPM"
     mov [rbx], rax
     cmp [rbx], rax
     jne .release_failed
@@ -527,7 +527,7 @@ section .data
 msg_boot_memory_selftest_pass: db 'Boot memory self-test: PASS', 0x0D, 0x0A, 0
 msg_boot_numa_selftest_pass: db 'NUMA high-node R/W/free: PASS', 0x0D, 0x0A, 0
 msg_boot_memory_selftest_fail: db 'KERNEL PANIC: boot memory self-test failed', 0x0D, 0x0A, 0
-msg_kernel_ready:     db 'Tattva Kernel Ready. Entering main execution.', 0x0D, 0x0A, 0
+msg_kernel_ready:     db 'Utkarsha Kernel Ready. Entering main execution.', 0x0D, 0x0A, 0
 msg_heartbeat_prefix: db 'heartbeat #', 0
 msg_heartbeat_spawn_failed: db 'WARN: heartbeat fiber_create failed (no free FCB slots?)', 0x0D, 0x0A, 0
 msg_heartbeat_crlf:    db 0x0D, 0x0A, 0

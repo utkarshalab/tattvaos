@@ -5,4 +5,4 @@
 Initializes: GS base, kernel stack, early console output,
 calls into mm → sched → drivers → serve in order.
 
-Part of the `kernel/` category in Tattva OS.
+Part of the `kernel/` category in Utkarsha OS.
