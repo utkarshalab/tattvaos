@@ -33,7 +33,7 @@ UFILE_TYPE_EXT4     equ 13
 UFILE_TYPE_GPT      equ 14
 UFILE_TYPE_MBR      equ 15
 UFILE_TYPE_ISO9660  equ 16
-UFILE_TYPE_UBF      equ 17
+UFILE_TYPE_UBI      equ 17
 
 ; AI / ML Models
 UFILE_TYPE_GGUF     equ 30
