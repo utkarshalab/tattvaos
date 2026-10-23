@@ -2,7 +2,7 @@
 ; lib/io/block/bdev.asm
 ; Uniform block device read/write synchronization layer.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -1,4 +1,4 @@
-# Tattva OS — lib/io/ Complete File Structure
+# Utkarsha OS — lib/io/ Complete File Structure
 
 > Raw I/O primitives. Device abstraction. DMA. Interrupts.
 > Depends on: mem only.

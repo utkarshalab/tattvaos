@@ -2,7 +2,7 @@
 ; lib/io/async/complete.asm
 ; Lockless SPSC queue pop path and request completion logic.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -5,7 +5,7 @@
 ; Implements TSS structure formatting and Task Register (TR) loading. This
 ; enables hardware-level safe stack switching during critical exceptions.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

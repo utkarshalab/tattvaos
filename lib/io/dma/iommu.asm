@@ -5,7 +5,7 @@
 ; Implements context-entry indexing and multi-level I/O page table mapping
 ; to isolate PCIe device DMA operations from unauthorized physical pages.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

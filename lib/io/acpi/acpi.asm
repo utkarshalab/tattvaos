@@ -6,7 +6,7 @@
 ; XSDT (Extended System Description Table) entries to locate and parse
 ; the MADT (APIC), MCFG, and FADT tables.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

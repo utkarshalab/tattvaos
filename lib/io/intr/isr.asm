@@ -2,7 +2,7 @@
 ; lib/io/intr/isr.asm
 ; Common Interrupt Service Routine (ISR) save/restore macros.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

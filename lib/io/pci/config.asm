@@ -2,7 +2,7 @@
 ; lib/io/pci/config.asm
 ; PCI Configuration Space Read/Write routines using legacy I/O ports.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -5,7 +5,7 @@
 ; Performs register dumps for Virtio legacy controllers to help resolve
 ; transaction hangs and log controller fatal states to the serial console.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

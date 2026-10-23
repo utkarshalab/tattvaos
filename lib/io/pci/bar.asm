@@ -2,7 +2,7 @@
 ; lib/io/pci/bar.asm
 ; PCI Base Address Register (BAR) sizing and mapping helpers.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

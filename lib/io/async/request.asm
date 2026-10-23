@@ -2,7 +2,7 @@
 ; lib/io/async/request.asm
 ; Request structure builder and state transition validation.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

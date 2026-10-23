@@ -5,7 +5,7 @@
 ; Maintains running counts of spurious interrupt occurrences (vector 0xFF) and
 ; logs a milestone alert to COM1 on detecting potential hardware storms.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

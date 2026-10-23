@@ -2,7 +2,7 @@
 ; lib/io/const/apic.asm
 ; Local APIC and I/O APIC register offsets and vector mappings.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

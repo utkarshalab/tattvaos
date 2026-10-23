@@ -6,7 +6,7 @@
 ; into permanent kernel-managed tables before the bootloader memory pages
 ; are reclaimed by the physical memory allocator.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

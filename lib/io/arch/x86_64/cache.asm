@@ -5,7 +5,7 @@
 ; Provides unified interfaces for invalidation and writebacks to decouple
 ; memory-sync mechanisms from device driver loops.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

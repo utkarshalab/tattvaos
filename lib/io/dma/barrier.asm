@@ -2,7 +2,7 @@
 ; lib/io/dma/barrier.asm
 ; Memory barrier synchronization wrapper for DMA and hardware registers.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

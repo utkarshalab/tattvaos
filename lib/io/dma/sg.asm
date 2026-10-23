@@ -2,7 +2,7 @@
 ; lib/io/dma/sg.asm
 ; Scatter-Gather DMA list translation and page table walking.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

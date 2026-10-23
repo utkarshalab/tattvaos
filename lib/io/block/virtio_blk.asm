@@ -7,7 +7,7 @@
 ; redirection entry via intr/ioapic.asm, and registers the ISR handler. This
 ; replaces the previous static PCI interrupt line approach.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

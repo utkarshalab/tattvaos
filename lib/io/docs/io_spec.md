@@ -1,8 +1,8 @@
-# Tattva OS — `lib/io` Subsystem Design Specification
+# Utkarsha OS — `lib/io` Subsystem Design Specification
 
 This document defines the architecture, directory layout, calling conventions, shared
 structures, error codes, build order, init sequence, and per-module implementation
-specifications for the Tattva OS I/O subsystem (`lib/io`).
+specifications for the Utkarsha OS I/O subsystem (`lib/io`).
 
 It is the authoritative hand-off document for implementation. When two implementers
 touch the same seam (struct offset, vector number, error code, calling convention),
@@ -402,7 +402,7 @@ lib/io/
 │
 ├── plat/
 │   ├── dispatch.asm                # native vs hosted selector
-│   ├── native.asm                  # Tattva ring-0 (primary)
+│   ├── native.asm                  # Utkarsha ring-0 (primary)
 │   ├── posix.asm                   # Linux/macOS shim
 │   └── win32.asm                   # Windows overlapped shim
 │
@@ -433,7 +433,7 @@ indistinguishable from an error code. This must not ship.
 
 io reserves the **top page of the virtual address space** — `[-4095, -1]`, i.e.
 `0xFFFF_FFFF_FFFF_F001 … 0xFFFF_FFFF_FFFF_FFFF` — as the error band. This page is never
-mapped by Tattva. Any return value in this band is an error, never a pointer.
+mapped by Utkarsha. Any return value in this band is an error, never a pointer.
 
 ```
 IS_ERR(x)   ≡  (uint64)(x) >= (uint64)-4095

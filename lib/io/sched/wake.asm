@@ -2,7 +2,7 @@
 ; lib/io/sched/wake.asm
 ; Thread wake up scheduler interface stub.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

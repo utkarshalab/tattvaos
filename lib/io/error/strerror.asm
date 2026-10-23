@@ -6,7 +6,7 @@
 ;        call io_strerror
 ;        ; RAX -> null-terminated string (or "Unknown error" if unmapped)
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

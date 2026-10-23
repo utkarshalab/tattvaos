@@ -2,7 +2,7 @@
 # lib/io/Makefile
 # Makefile to verify and build the lib/io subsystem module.
 #
-# Part of Utkarsha Labs / Tattva OS
+# Part of Utkarsha Labs / Utkarsha OS
 # =============================================================================
 
 ASM = nasm

@@ -2,7 +2,7 @@
 ; lib/io/macro/guard.asm
 ; Boundary checks and validation macros for lib/io routines.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

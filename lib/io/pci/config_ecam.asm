@@ -12,7 +12,7 @@
 ; Prerequisites: acpi/mcfg.asm must have parsed the MCFG table and
 ; mcfg_map_ecam must have mapped the ECAM region into virtual space.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

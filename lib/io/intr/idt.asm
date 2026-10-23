@@ -2,7 +2,7 @@
 ; lib/io/intr/idt.asm
 ; IDT handler registration wrapper.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

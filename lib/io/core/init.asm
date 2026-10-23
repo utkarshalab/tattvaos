@@ -6,7 +6,7 @@
 ; per-CPU structures, PIC remap, Local APIC + IO-APIC, PCI bus enumeration,
 ; driver probing, DMA buffers, and per-core async rings.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

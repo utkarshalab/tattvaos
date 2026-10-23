@@ -5,7 +5,7 @@
 ; Monitors PCIe Link speeds and widths, triggering active hardware retraining
 ; on degraded links to recover physical lane throughput capacity.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

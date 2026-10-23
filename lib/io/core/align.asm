@@ -5,7 +5,7 @@
 ; Provides unified helper routines to validate and align memory addresses
 ; and byte lengths to sector, page (4KB), and cache-line (64 bytes) boundaries.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

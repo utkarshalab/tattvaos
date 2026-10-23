@@ -10,7 +10,7 @@
 ; and gpt_part_write — all I/O is bounds-checked against lba_count before
 ; the offset is applied and forwarded to the parent physical device.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -1,11 +1,11 @@
 ; =============================================================================
 ; lib/io/tests/run_tests.asm
-; Diagnostic unit-testing harness for Tattva OS I/O Subsystem.
+; Diagnostic unit-testing harness for Utkarsha OS I/O Subsystem.
 ;
 ; Exercises the core safety properties, alignment constraints, memory fences,
 ; and buffer tracking logic of lib/io, broadcasting results over COM1.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

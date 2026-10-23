@@ -2,7 +2,7 @@
 ; lib/io/sched/wait.asm
 ; Thread wait/block scheduler interface stub.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -7,7 +7,7 @@
 ; required for MMIO-based PCI config access to extended capabilities
 ; (offsets 0x100–0xFFF): AER, ACS, MSI-X, SR-IOV.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

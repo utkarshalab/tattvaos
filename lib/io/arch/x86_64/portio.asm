@@ -2,7 +2,7 @@
 ; lib/io/arch/x86_64/portio.asm
 ; Low-level assembly port I/O wrappers.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

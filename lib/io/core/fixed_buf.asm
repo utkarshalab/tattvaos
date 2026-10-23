@@ -6,7 +6,7 @@
 ; ranges to physical pointers in a static lookup table to eliminate per-request
 ; address translation overhead on the I/O hot-path.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

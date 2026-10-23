@@ -1,8 +1,8 @@
 ; =============================================================================
 ; lib/io/macro/func.asm
-; Prologue and epilogue macros for Tattva OS I/O Subsystem routines.
+; Prologue and epilogue macros for Utkarsha OS I/O Subsystem routines.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

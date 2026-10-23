@@ -4,7 +4,7 @@
 ;
 ; Binds vector 0x30 (LAPIC timer tick) to update global system ticks.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

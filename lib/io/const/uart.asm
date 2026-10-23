@@ -2,7 +2,7 @@
 ; lib/io/const/uart.asm
 ; 16550 UART serial register offset constants.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

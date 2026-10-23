@@ -5,7 +5,7 @@
 ; Implements multi-core signaling for lock-free rescheduling, allowing a
 ; core to wake up scheduler loops on other cores upon async I/O completion.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

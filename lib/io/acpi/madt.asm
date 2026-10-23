@@ -5,7 +5,7 @@
 ; Parses the MADT (signature "APIC") to dynamically extract the physical base
 ; address of the Local APIC and I/O APIC, replacing default hardcoded values.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

@@ -2,7 +2,7 @@
 ; lib/io/intr/lapic.asm
 ; Local APIC (LAPIC) and LAPIC Timer initialization/management.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

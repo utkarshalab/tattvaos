@@ -5,7 +5,7 @@
 ; Defines read, write, and full fence instructions to abstract pipeline
 ; ordering boundaries from system driver modules.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

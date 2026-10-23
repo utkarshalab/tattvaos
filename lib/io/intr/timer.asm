@@ -5,7 +5,7 @@
 ; Calibrates the Local APIC timer frequency dynamically against the legacy PIT
 ; (Programmable Interval Timer) to enable precise time-based delays (milliseconds).
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

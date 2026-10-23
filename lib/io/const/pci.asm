@@ -2,7 +2,7 @@
 ; lib/io/const/pci.asm
 ; PCI / PCIe configuration space offsets, classes, and constants.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

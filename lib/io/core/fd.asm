@@ -2,7 +2,7 @@
 ; lib/io/core/fd.asm
 ; Global file descriptor table tracking.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

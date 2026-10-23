@@ -2,7 +2,7 @@
 ; lib/io/intr/pic.asm
 ; 8259 legacy Programmable Interrupt Controller (PIC) management.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

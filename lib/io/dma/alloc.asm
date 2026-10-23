@@ -2,7 +2,7 @@
 ; lib/io/dma/alloc.asm
 ; Coherent contiguous DMA physical/virtual memory allocator.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

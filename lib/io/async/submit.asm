@@ -2,7 +2,7 @@
 ; lib/io/async/submit.asm
 ; Lockless Single-Producer Single-Consumer (SPSC) queue submission path.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

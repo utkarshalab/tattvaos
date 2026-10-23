@@ -2,7 +2,7 @@
 ; lib/io/block/ata_pio.asm
 ; Legacy IDE / ATA PIO polling block driver.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

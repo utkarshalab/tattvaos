@@ -2,7 +2,7 @@
 ; lib/io/intr/ioapic.asm
 ; IO-APIC redirection table routing driver.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

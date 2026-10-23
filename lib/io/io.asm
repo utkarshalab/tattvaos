@@ -1,8 +1,8 @@
 ; =============================================================================
 ; lib/io/io.asm
-; Top-level include entry wrapper for Tattva OS I/O Subsystem (lib/io).
+; Top-level include entry wrapper for Utkarsha OS I/O Subsystem (lib/io).
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

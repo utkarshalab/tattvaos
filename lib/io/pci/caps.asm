@@ -2,7 +2,7 @@
 ; lib/io/pci/caps.asm
 ; PCI Capability List scanning routine.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

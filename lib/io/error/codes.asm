@@ -1,8 +1,8 @@
 ; =============================================================================
 ; lib/io/error/codes.asm
-; Subsystem semantic error code constants for Tattva OS lib/io.
+; Subsystem semantic error code constants for Utkarsha OS lib/io.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

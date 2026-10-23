@@ -5,7 +5,7 @@
 ; Enables 8-bit transaction tags (expanding from 5-bit) inside PCIe devices
 ; to allow up to 256 concurrent outstanding transactions without bus queue stalls.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

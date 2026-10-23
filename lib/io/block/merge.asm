@@ -6,7 +6,7 @@
 ; device into single large physical transactions. This reduces descriptors
 ; pressure and doorbell notifications overhead under streaming workloads.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

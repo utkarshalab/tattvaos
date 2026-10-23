@@ -5,7 +5,7 @@
 ; Tracks memory ranges actively mapped to device DMA queues. Pin counts
 ; prevent in-flight buffers from being recycled or freed by page reclaim.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

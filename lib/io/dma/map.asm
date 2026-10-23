@@ -2,7 +2,7 @@
 ; lib/io/dma/map.asm
 ; Virtual-to-physical address mapping utilities for DMA.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

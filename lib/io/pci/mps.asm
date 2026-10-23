@@ -5,7 +5,7 @@
 ; Traverses PCIe capabilities to parse maximum supported payload sizes and
 ; configures the Device Control register to align packet transmissions safely.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

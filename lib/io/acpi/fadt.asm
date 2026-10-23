@@ -5,7 +5,7 @@
 ; Parses hardware power ports (SMI_CMD, PM1a, PM1b) from the FADT table,
 ; switches the CPU to ACPI mode, and executes hypervisor shutdown commands.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

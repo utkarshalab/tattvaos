@@ -5,7 +5,7 @@
 ; Implements dynamic disable (mask) and enable (unmask) capabilities for
 ; legacy hardware IRQ pins mapped via the I/O APIC redirect list.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

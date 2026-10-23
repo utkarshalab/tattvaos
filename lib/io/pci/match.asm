@@ -2,7 +2,7 @@
 ; lib/io/pci/match.asm
 ; Driver registration and PCI device matching driver.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

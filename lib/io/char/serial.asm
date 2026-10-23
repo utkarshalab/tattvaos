@@ -2,7 +2,7 @@
 ; lib/io/char/serial.asm
 ; 16550 UART serial driver implementation.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

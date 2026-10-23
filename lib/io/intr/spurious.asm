@@ -2,7 +2,7 @@
 ; lib/io/intr/spurious.asm
 ; Spurious interrupt handler for Local APIC (vector 0xFF).
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

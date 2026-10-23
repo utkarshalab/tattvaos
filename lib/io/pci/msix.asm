@@ -5,7 +5,7 @@
 ; Implements MSI-X capability structure scans and table entry programming.
 ; Enforces core-specific vector steering to LAPIC message addresses.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

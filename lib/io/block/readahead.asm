@@ -6,7 +6,7 @@
 ; read commands for adjacent subsequent sectors into a temporary memory cache
 ; before they are explicitly requested by the filesystem.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

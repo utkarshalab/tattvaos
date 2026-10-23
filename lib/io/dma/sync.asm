@@ -2,7 +2,7 @@
 ; lib/io/dma/sync.asm
 ; DMA Cache Sync (for CPU and Device access) using cache abstractions.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

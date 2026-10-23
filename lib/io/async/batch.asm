@@ -5,7 +5,7 @@
 ; Enables batching of multiple I/O requests into the submission queues
 ; while temporarily suppressing the expensive hardware notify doorbell writes.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

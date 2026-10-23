@@ -16,7 +16,7 @@
 ;   - No gap or overlap between adjacent entries
 ;   - Physically contiguous pages are merged into a single entry (§13.3.7)
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 
