@@ -156,7 +156,7 @@ No preemption, no race conditions, no userspace.
 ## Environment & Configuration
 
 - Environment variables stored as `env_var_t` linked list: `KEY=VALUE`.
-- `.ishrc` parsed at boot: `set PATH=/bin:/usr/bin`, `alias ll=ls -la`, `prompt=utkarsha> `.
+- `.ishrc` parsed at boot: `set PATH=/bin:/usr/bin`, `alias ll=ls -la`, `prompt=ut> `.
 - Aliases expanded by `parser/expander.asm` before command dispatch.
 
 ---
