@@ -2,7 +2,7 @@
 %define GUARD_PLATFORM_RISCV_PLATFORM_ASM
 ; =============================================================================
 ; File     : platform/riscv/platform.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: RISC-V 64 platform-specific initialization and support code.
