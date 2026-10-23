@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UPQC_UPQC_ASM
 %define GUARD_CRYPTO_UPQC_UPQC_ASM
 ; =============================================================================
-; Tattva OS — crypto/upqc/upqc.asm
+; Utkarsha OS — crypto/upqc/upqc.asm
 ; =============================================================================
 ; Master Unified Post-Quantum Cryptography (PQC) Subsystem Dispatcher API.
 ;

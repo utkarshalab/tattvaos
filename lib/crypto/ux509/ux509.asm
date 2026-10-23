@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_ASM
 %define GUARD_CRYPTO_UX509_UX509_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509.asm
+; Utkarsha OS — crypto/ux509/ux509.asm
 ; =============================================================================
 ; Master X.509 PKI Subsystem Dispatcher API.
 ;
@@ -50,7 +50,7 @@ ux509_init:
 ; ux509_verify_cert — Master API to parse & validate X.509 Certificate
 ; Input:  RDI = DER / PEM Certificate Buffer Pointer
 ;         RSI = Buffer Length
-;         RDX = Pointer to Target SAN Domain String (e.g. "api.tattva.os")
+;         RDX = Pointer to Target SAN Domain String (e.g. "api.utkarshaos.com")
 ;         RCX = Current Unix Timestamp
 ; Output: RAX = 1 (Certificate Verified & Valid), 0 (Invalid / Expired)
 ; -----------------------------------------------------------------------------

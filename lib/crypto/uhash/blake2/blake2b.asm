@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UHASH_BLAKE2_BLAKE2B_ASM
 %define GUARD_CRYPTO_UHASH_BLAKE2_BLAKE2B_ASM
 ; =============================================================================
-; Tattva OS — crypto/uhash/blake2/blake2b.asm
+; Utkarsha OS — crypto/uhash/blake2/blake2b.asm
 ; =============================================================================
 ; BLAKE2b (RFC 7693) — 64-bit hashing, digests of 1..64 bytes.
 ;

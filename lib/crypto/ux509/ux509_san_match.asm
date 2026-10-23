@@ -1,9 +1,9 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_SAN_MATCH_ASM
 %define GUARD_CRYPTO_UX509_UX509_SAN_MATCH_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_san_match.asm
+; Utkarsha OS — crypto/ux509/ux509_san_match.asm
 ; =============================================================================
-; RFC 6125 Wildcard Domain Matcher (*.tattva.os).
+; RFC 6125 Wildcard Domain Matcher (*.utkarshaos.com).
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
@@ -17,8 +17,8 @@ section .text
 
 ; -----------------------------------------------------------------------------
 ; ux509_match_san_domain — Match target domain against SAN certificate pattern
-; Input:  RDI = Target domain ASCII string (e.g. "api.tattva.os")
-;         RSI = SAN pattern string (e.g. "*.tattva.os")
+; Input:  RDI = Target domain ASCII string (e.g. "api.utkarshaos.com")
+;         RSI = SAN pattern string (e.g. "*.utkarshaos.com")
 ; Output: RAX = 1 (Matched), 0 (Mismatch)
 ; -----------------------------------------------------------------------------
 ux509_match_san_domain:
@@ -45,7 +45,7 @@ ux509_match_san_domain:
     jmp .find_dot
 
 .match_suffix:
-    add rsi, 1                      ; Compare suffix ".tattva.os"
+    add rsi, 1                      ; Compare suffix ".utkarshaos.com"
 .char_loop:
     mov al, [rdi]
     mov bl, [rsi]

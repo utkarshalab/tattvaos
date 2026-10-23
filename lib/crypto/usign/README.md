@@ -1,6 +1,6 @@
 # crypto/usign — Classical Digital Signature Subsystem
 
-The **`crypto/usign`** library is the Classical Digital Signature Verification Subsystem for Tattva OS, covering **Ed25519, ECDSA P-256 / secp256k1, RSA-PSS**, and signature envelope formats.
+The **`crypto/usign`** library is the Classical Digital Signature Verification Subsystem for Utkarsha OS, covering **Ed25519, ECDSA P-256 / secp256k1, RSA-PSS**, and signature envelope formats.
 
 *(Note: All Post-Quantum Cryptography algorithms have been consolidated into **`crypto/upqc/`**).*
 

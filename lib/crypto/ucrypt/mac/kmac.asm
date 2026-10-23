@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_MAC_KMAC_ASM
 %define GUARD_CRYPTO_UCRYPT_MAC_KMAC_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/mac/kmac.asm
+; Utkarsha OS — crypto/ucrypt/mac/kmac.asm
 ; =============================================================================
 ; AWS-LC KMAC-256 (Keccak Message Authentication Code - NIST SP 800-185).
 ;

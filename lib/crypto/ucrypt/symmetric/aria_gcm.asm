@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_ARIA_GCM_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_ARIA_GCM_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aria_gcm.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aria_gcm.asm
 ; =============================================================================
 ; ARIA-GCM 128/256-Bit Block Cipher AEAD Engine (RFC 5794 / KS X 1213).
 ;

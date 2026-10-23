@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ECDH_P256_ASM
 %define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ECDH_P256_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/asymmetric/ecdh_p256.asm
+; Utkarsha OS — crypto/ucrypt/asymmetric/ecdh_p256.asm
 ; =============================================================================
 ; NIST P-256 & secp256k1 Elliptic Curve Diffie-Hellman (ECDH) Key Exchange.
 ;

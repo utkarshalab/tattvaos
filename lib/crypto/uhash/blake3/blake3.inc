@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — crypto/uhash/blake3/blake3.inc
+; Utkarsha OS — crypto/uhash/blake3/blake3.inc
 ; =============================================================================
 ; BLAKE3 Context Structure Definitions & Flags.
 ;

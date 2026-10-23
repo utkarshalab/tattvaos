@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_RSA_OAEP_ASM
 %define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_RSA_OAEP_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/asymmetric/rsa_oaep.asm
+; Utkarsha OS — crypto/ucrypt/asymmetric/rsa_oaep.asm
 ; =============================================================================
 ; RSA-2048/4096 OAEP & PKCS#1 v1.5 Asymmetric Data Encryption Engine.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_GUARDS_S2N_GUARD_ASM
 %define GUARD_CRYPTO_UCRYPT_GUARDS_S2N_GUARD_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/guards/s2n_guard.asm
+; Utkarsha OS — crypto/ucrypt/guards/s2n_guard.asm
 ; =============================================================================
 ; S2N Formally-Verified Constant-Time Guard & Key Protection.
 ;

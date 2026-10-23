@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_SCT_ASM
 %define GUARD_CRYPTO_UX509_UX509_SCT_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_sct.asm
+; Utkarsha OS — crypto/ux509/ux509_sct.asm
 ; =============================================================================
 ; RFC 6962 Certificate Transparency (CT) Signed Certificate Timestamp Verifier.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_CURVE448_ASM
 %define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_CURVE448_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/asymmetric/curve448.asm
+; Utkarsha OS — crypto/ucrypt/asymmetric/curve448.asm
 ; =============================================================================
 ; X448 High-Security Elliptic Curve Diffie-Hellman Key Exchange (RFC 7748).
 ;

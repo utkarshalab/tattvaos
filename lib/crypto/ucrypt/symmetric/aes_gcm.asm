@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_gcm.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_gcm.asm
 ; =============================================================================
 ; Intel AES-NI Hardware Accelerated AES-256-GCM AEAD & PCLMULQDQ GHASH Engine.
 ;

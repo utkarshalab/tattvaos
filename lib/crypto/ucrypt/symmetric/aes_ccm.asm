@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CCM_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CCM_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_ccm.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_ccm.asm
 ; =============================================================================
 ; AES-CCM Counter with CBC-MAC AEAD Mode (IEEE 802.11i Wi-Fi & Bluetooth LE).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_NAME_NORM_ASM
 %define GUARD_CRYPTO_UX509_UX509_NAME_NORM_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_name_norm.asm
+; Utkarsha OS — crypto/ux509/ux509_name_norm.asm
 ; =============================================================================
 ; Canonical Distinguished Name (DN) Normalizer & Case-Insensitive Matcher.
 ;
@@ -17,7 +17,7 @@ section .text
 
 ; -----------------------------------------------------------------------------
 ; ux509_normalize_dn — Normalize Distinguished Name string into canonical representation
-; Input:  RDI = Input DN string (e.g. "CN=tattva.os, O=Utkarsha Labs, C=NP")
+; Input:  RDI = Input DN string (e.g. "CN=utkarshaos.com, O=Utkarsha Labs, C=NP")
 ;         RSI = Output Normalized Buffer
 ; Output: RAX = 1
 ; -----------------------------------------------------------------------------

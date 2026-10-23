@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_KEY_MATCH_ASM
 %define GUARD_CRYPTO_UX509_UX509_KEY_MATCH_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_key_match.asm
+; Utkarsha OS — crypto/ux509/ux509_key_match.asm
 ; =============================================================================
 ; Certificate Public Key vs Private Keypair Match Validator.
 ;

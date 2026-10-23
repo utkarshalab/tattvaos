@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_CRL_ASM
 %define GUARD_CRYPTO_UX509_UX509_CRL_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_crl.asm
+; Utkarsha OS — crypto/ux509/ux509_crl.asm
 ; =============================================================================
 ; Certificate Revocation List (CRL) Serial Number Checker.
 ;

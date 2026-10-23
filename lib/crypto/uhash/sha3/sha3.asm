@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UHASH_SHA3_SHA3_ASM
 %define GUARD_CRYPTO_UHASH_SHA3_SHA3_ASM
 ; =============================================================================
-; Tattva OS — crypto/uhash/sha3/sha3.asm
+; Utkarsha OS — crypto/uhash/sha3/sha3.asm
 ; =============================================================================
 ; SHA-3 / Keccak-f[1600] 24-Round 1600-bit State Sponge Permutation Engine.
 ;

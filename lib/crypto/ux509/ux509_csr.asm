@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_CSR_ASM
 %define GUARD_CRYPTO_UX509_UX509_CSR_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_csr.asm
+; Utkarsha OS — crypto/ux509/ux509_csr.asm
 ; =============================================================================
 ; PKCS#10 Certificate Signing Request (CSR) Parser & Generator Engine.
 ;
@@ -17,7 +17,7 @@ section .text
 
 ; -----------------------------------------------------------------------------
 ; ux509_generate_csr — Generate PKCS#10 Certificate Signing Request
-; Input:  RDI = Subject String Pointer (e.g. "CN=tattva.os")
+; Input:  RDI = Subject String Pointer (e.g. "CN=utkarshaos.com")
 ;         RSI = Private Key Pointer (32 bytes)
 ;         RDX = Output CSR Buffer Pointer
 ; Output: RAX = CSR Length in bytes

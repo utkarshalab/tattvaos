@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_AVX512_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_AVX512_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_gcm_avx512.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_gcm_avx512.asm
 ; =============================================================================
 ; AVX-512 8-Way Parallel 512-Bit AES-GCM AEAD Pipeline (400 Gbps Line-Rate).
 ;

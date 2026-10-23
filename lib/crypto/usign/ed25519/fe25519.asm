@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_ED25519_FE25519_ASM
 %define GUARD_CRYPTO_USIGN_ED25519_FE25519_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/ed25519/fe25519.asm
+; Utkarsha OS — crypto/usign/ed25519/fe25519.asm
 ; =============================================================================
 ; Field arithmetic modulo p = 2^255 - 19.
 ;

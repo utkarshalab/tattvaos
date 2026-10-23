@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/ucrypt.inc
+; Utkarsha OS — crypto/ucrypt/symmetric/ucrypt.inc
 ; =============================================================================
 ; Symmetric Ciphers Context Definitions, AEAD Schemas & Constants.
 ;

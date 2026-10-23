@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_GUARDS_MEMORY_BARRIER_GUARD_ASM
 %define GUARD_CRYPTO_UCRYPT_GUARDS_MEMORY_BARRIER_GUARD_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/guards/memory_barrier_guard.asm
+; Utkarsha OS — crypto/ucrypt/guards/memory_barrier_guard.asm
 ; =============================================================================
 ; Volatile Memory Barrier Key Protection Guard (cc_clear / Memory Fence).
 ;

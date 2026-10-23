@@ -1,6 +1,6 @@
 # crypto — Cryptography Category
 
-&gt; Cryptographic primitives and protocols for Tattva OS.
+&gt; Cryptographic primitives and protocols for Utkarsha OS.
 &gt; Built for zero-copy, constant-time, unikernel-native operation.
 
 ---
@@ -63,7 +63,7 @@
 
 ---a# crypto — Cryptography Category
 
-&gt; Cryptographic primitives and protocols for Tattva OS.
+&gt; Cryptographic primitives and protocols for Utkarsha OS.
 &gt; Built for zero-copy, constant-time, unikernel-native operation.
 
 ---

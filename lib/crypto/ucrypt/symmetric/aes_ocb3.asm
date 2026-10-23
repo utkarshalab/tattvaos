@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_OCB3_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_OCB3_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_ocb3.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_ocb3.asm
 ; =============================================================================
 ; RFC 7253 AES-OCB3 Single-Pass Authenticated Encryption with Associated Data.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_SECP256K1_SCHNORR_ASM
 %define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_SECP256K1_SCHNORR_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/asymmetric/secp256k1_schnorr.asm
+; Utkarsha OS — crypto/ucrypt/asymmetric/secp256k1_schnorr.asm
 ; =============================================================================
 ; BIP-0340 Schnorr Signature & Batch Verification Engine.
 ;

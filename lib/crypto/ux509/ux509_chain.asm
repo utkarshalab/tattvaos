@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_CHAIN_ASM
 %define GUARD_CRYPTO_UX509_UX509_CHAIN_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_chain.asm
+; Utkarsha OS — crypto/ux509/ux509_chain.asm
 ; =============================================================================
 ; Certificate Chain of Trust Validator via usign (Ed25519/ECDSA/RSA/Dilithium).
 ;

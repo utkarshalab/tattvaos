@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_UCRYPT_POST_ASM
 %define GUARD_CRYPTO_UCRYPT_UCRYPT_POST_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/ucrypt_post.asm
+; Utkarsha OS — crypto/ucrypt/ucrypt_post.asm
 ; =============================================================================
 ; FIPS 140-3 Power-On Self-Test (POST) & Known-Answer Test (KAT) Engine.
 ;

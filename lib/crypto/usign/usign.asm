@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_USIGN_ASM
 %define GUARD_CRYPTO_USIGN_USIGN_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/usign.asm
+; Utkarsha OS — crypto/usign/usign.asm
 ; =============================================================================
 ; Master Digital Signature Dispatcher & Verification Engine.
 ;

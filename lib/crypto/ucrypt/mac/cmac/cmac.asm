@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_MAC_CMAC_CMAC_ASM
 %define GUARD_CRYPTO_UCRYPT_MAC_CMAC_CMAC_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/mac/cmac/cmac.asm
+; Utkarsha OS — crypto/ucrypt/mac/cmac/cmac.asm
 ; =============================================================================
 ; AES-CMAC Cipher-based Message Authentication Code (NIST SP 800-38B).
 ;

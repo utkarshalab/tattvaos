@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_MAC_HMAC_ASM
 %define GUARD_CRYPTO_UCRYPT_MAC_HMAC_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/mac/hmac.asm
+; Utkarsha OS — crypto/ucrypt/mac/hmac.asm
 ; =============================================================================
 ; HMAC-SHA256 (RFC 2104 / FIPS 198-1).
 ;

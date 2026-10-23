@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/guards/ct_guard.asm
+; Utkarsha OS — crypto/ucrypt/guards/ct_guard.asm
 ; =============================================================================
 ; Constant-Time Side-Channel Protection Guard (Bleichenbacher / Lucky 13 Defense).
 ;

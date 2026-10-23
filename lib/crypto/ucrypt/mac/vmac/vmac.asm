@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_MAC_VMAC_VMAC_ASM
 %define GUARD_CRYPTO_UCRYPT_MAC_VMAC_VMAC_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/mac/vmac/vmac.asm
+; Utkarsha OS — crypto/ucrypt/mac/vmac/vmac.asm
 ; =============================================================================
 ; VMAC Fast 64-Bit / 128-Bit Vector Message Authentication Code Engine (RFC 5664).
 ;

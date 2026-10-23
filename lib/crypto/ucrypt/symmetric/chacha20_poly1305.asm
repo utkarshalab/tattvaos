@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_CHACHA20_POLY1305_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_CHACHA20_POLY1305_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/chacha20_poly1305.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/chacha20_poly1305.asm
 ; =============================================================================
 ; AVX2 256-Bit Vectorized ChaCha20-Poly1305 AEAD Streaming Cipher (RFC 8439).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_OID_ASM
 %define GUARD_CRYPTO_UX509_UX509_OID_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_oid.asm
+; Utkarsha OS — crypto/ux509/ux509_oid.asm
 ; =============================================================================
 ; Fast Binary ASN.1 Object Identifier (OID) Lookup & Matcher Registry.
 ;

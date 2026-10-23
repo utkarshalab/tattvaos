@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UHASH_UHASH_ASM
 %define GUARD_CRYPTO_UHASH_UHASH_ASM
 ; =============================================================================
-; Tattva OS — crypto/uhash/uhash.asm
+; Utkarsha OS — crypto/uhash/uhash.asm
 ; =============================================================================
 ; Master Cryptographic Hashing Dispatcher & One-Shot API.
 ;

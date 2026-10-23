@@ -1,9 +1,9 @@
 %ifndef GUARD_CRYPTO_USIGN_FORMATS_UPK_SIG_ASM
 %define GUARD_CRYPTO_USIGN_FORMATS_UPK_SIG_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/formats/upk_sig.asm
+; Utkarsha OS — crypto/usign/formats/upk_sig.asm
 ; =============================================================================
-; Tattva UPK Package Signature Envelope Parser.
+; Utkarsha UPK Package Signature Envelope Parser.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_AD_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_AD_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_kw_ad.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_kw_ad.asm
 ; =============================================================================
 ; Apple SEP (Secure Enclave Processor) AES-KWP Key Wrap with Associated Data.
 ;

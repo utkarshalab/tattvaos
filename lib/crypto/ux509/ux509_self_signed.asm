@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_SELF_SIGNED_ASM
 %define GUARD_CRYPTO_UX509_UX509_SELF_SIGNED_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_self_signed.asm
+; Utkarsha OS — crypto/ux509/ux509_self_signed.asm
 ; =============================================================================
 ; Self-Signed Root Certificate Auto-Detector.
 ;

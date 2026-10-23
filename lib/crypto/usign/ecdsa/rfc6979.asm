@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_ECDSA_RFC6979_ASM
 %define GUARD_CRYPTO_USIGN_ECDSA_RFC6979_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/ecdsa/rfc6979.asm
+; Utkarsha OS — crypto/usign/ecdsa/rfc6979.asm
 ; =============================================================================
 ; Deterministic ECDSA nonces (RFC 6979) over HMAC-SHA256.
 ;

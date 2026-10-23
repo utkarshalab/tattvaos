@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_X25519_ASM
 %define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_X25519_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/asymmetric/x25519.asm
+; Utkarsha OS — crypto/ucrypt/asymmetric/x25519.asm
 ; =============================================================================
 ; Curve25519 Diffie-Hellman Montgomery Ladder Engine (RFC 7748).
 ;

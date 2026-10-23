@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_POLICY_ASM
 %define GUARD_CRYPTO_UX509_UX509_POLICY_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_policy.asm
+; Utkarsha OS — crypto/ux509/ux509_policy.asm
 ; =============================================================================
 ; Extended Key Usage (EKU) Policy Validator.
 ;

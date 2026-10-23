@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_PQC_CERT_ASM
 %define GUARD_CRYPTO_UX509_UX509_PQC_CERT_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_pqc_cert.asm
+; Utkarsha OS — crypto/ux509/ux509_pqc_cert.asm
 ; =============================================================================
 ; Dual-Signature Post-Quantum Hybrid Certificate Parser (ECDSA + Dilithium).
 ;

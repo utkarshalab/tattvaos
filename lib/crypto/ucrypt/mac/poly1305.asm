@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_MAC_POLY1305_ASM
 %define GUARD_CRYPTO_UCRYPT_MAC_POLY1305_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/mac/poly1305.asm
+; Utkarsha OS — crypto/ucrypt/mac/poly1305.asm
 ; =============================================================================
 ; Standalone 130-bit Poly1305 Polynomial Message Authentication Code (RFC 8439).
 ;

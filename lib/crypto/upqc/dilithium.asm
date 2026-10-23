@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UPQC_DILITHIUM_ASM
 %define GUARD_CRYPTO_UPQC_DILITHIUM_ASM
 ; =============================================================================
-; Tattva OS — crypto/upqc/dilithium.asm
+; Utkarsha OS — crypto/upqc/dilithium.asm
 ; =============================================================================
 ; NIST ML-DSA (CRYSTALS-Dilithium) Post-Quantum Digital Signature Engine.
 ;

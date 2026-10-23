@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_FINGERPRINT_ASM
 %define GUARD_CRYPTO_UX509_UX509_FINGERPRINT_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_fingerprint.asm
+; Utkarsha OS — crypto/ux509/ux509_fingerprint.asm
 ; =============================================================================
 ; SHA-256 Certificate Thumbprint & Public Key Pinning Engine.
 ;

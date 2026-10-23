@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UPQC_KYBER_ASM
 %define GUARD_CRYPTO_UPQC_KYBER_ASM
 ; =============================================================================
-; Tattva OS — crypto/upqc/kyber.asm
+; Utkarsha OS — crypto/upqc/kyber.asm
 ; =============================================================================
 ; NIST ML-KEM (CRYSTALS-Kyber) Post-Quantum Key Encapsulation Mechanism (KEM).
 ;

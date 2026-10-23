@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_ECDSA_BN256_ASM
 %define GUARD_CRYPTO_USIGN_ECDSA_BN256_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/ecdsa/bn256.asm
+; Utkarsha OS — crypto/usign/ecdsa/bn256.asm
 ; =============================================================================
 ; 256-bit modular arithmetic for a general modulus.
 ;

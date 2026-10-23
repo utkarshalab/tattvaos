@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_ED25519_ED25519_ASM
 %define GUARD_CRYPTO_USIGN_ED25519_ED25519_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/ed25519/ed25519.asm
+; Utkarsha OS — crypto/usign/ed25519/ed25519.asm
 ; =============================================================================
 ; Ed25519 (RFC 8032) — signature verification.
 ;

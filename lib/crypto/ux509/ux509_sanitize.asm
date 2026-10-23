@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_SANITIZE_ASM
 %define GUARD_CRYPTO_UX509_UX509_SANITIZE_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_sanitize.asm
+; Utkarsha OS — crypto/ux509/ux509_sanitize.asm
 ; =============================================================================
 ; ASN.1 Recursion Guard & Buffer Overflow Bounds Checker.
 ;

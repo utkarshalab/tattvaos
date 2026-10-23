@@ -5,4 +5,4 @@
 Implements: client certificate authentication, certificate chain validation,
 SPIFFE/SVID-compatible identity, automatic cert rotation hooks.
 
-Part of the `crypto/` category in Tattva OS.
+Part of the `crypto/` category in Utkarsha OS.

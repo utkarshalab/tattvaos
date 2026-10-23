@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_XCHACHA20_POLY1305_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_XCHACHA20_POLY1305_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/xchacha20_poly1305.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/xchacha20_poly1305.asm
 ; =============================================================================
 ; XChaCha20-Poly1305 192-Bit Extended Nonce AEAD Engine (Google Chrome & WireGuard).
 ;

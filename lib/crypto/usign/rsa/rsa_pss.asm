@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_RSA_RSA_PSS_ASM
 %define GUARD_CRYPTO_USIGN_RSA_RSA_PSS_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/rsa/rsa_pss.asm
+; Utkarsha OS — crypto/usign/rsa/rsa_pss.asm
 ; =============================================================================
 ; RSA-2048/4096 PSS & PKCS#1 v1.5 Verification Engine with Salt Generation.
 ;

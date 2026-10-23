@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_MAC_POLY1305_POLY1305_2WAY_ASM
 %define GUARD_CRYPTO_UCRYPT_MAC_POLY1305_POLY1305_2WAY_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/mac/poly1305/poly1305_2way.asm
+; Utkarsha OS — crypto/ucrypt/mac/poly1305/poly1305_2way.asm
 ; =============================================================================
 ; High-Throughput 2-Way Parallel Poly1305 Vector Accumulator.
 ;

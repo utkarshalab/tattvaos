@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_ECDSA_ECDSA_P256_ASM
 %define GUARD_CRYPTO_USIGN_ECDSA_ECDSA_P256_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/ecdsa/ecdsa_p256.asm
+; Utkarsha OS — crypto/usign/ecdsa/ecdsa_p256.asm
 ; =============================================================================
 ; ECDSA over NIST P-256 (secp256r1) — signing and verification.
 ;

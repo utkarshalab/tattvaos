@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_OCSP_ASM
 %define GUARD_CRYPTO_UX509_UX509_OCSP_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_ocsp.asm
+; Utkarsha OS — crypto/ux509/ux509_ocsp.asm
 ; =============================================================================
 ; RFC 6960 OCSP Stapling Response Reader & Validator.
 ;

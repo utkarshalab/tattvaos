@@ -1,6 +1,6 @@
 # crypto/upqc — Master Unified Post-Quantum Cryptography (PQC) Subsystem
 
-The **`crypto/upqc`** library is the single, authoritative Post-Quantum Cryptography Engine for Tattva OS, consolidating 100% of NIST Post-Quantum Cryptography Standards (ML-DSA, ML-KEM, FALCON, SPHINCS+).
+The **`crypto/upqc`** library is the single, authoritative Post-Quantum Cryptography Engine for Utkarsha OS, consolidating 100% of NIST Post-Quantum Cryptography Standards (ML-DSA, ML-KEM, FALCON, SPHINCS+).
 
 ---
 

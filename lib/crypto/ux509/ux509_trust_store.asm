@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_TRUST_STORE_ASM
 %define GUARD_CRYPTO_UX509_UX509_TRUST_STORE_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_trust_store.asm
+; Utkarsha OS — crypto/ux509/ux509_trust_store.asm
 ; =============================================================================
 ; Unikernel Root CA Trust Store Manager (Mozilla / Web PKI Root CAs).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_FORMATS_PKCS7_ASM
 %define GUARD_CRYPTO_USIGN_FORMATS_PKCS7_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/formats/pkcs7.asm
+; Utkarsha OS — crypto/usign/formats/pkcs7.asm
 ; =============================================================================
 ; PKCS#7 / CMS Secure Boot Signature Envelope Parser.
 ;

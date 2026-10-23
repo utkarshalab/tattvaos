@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_FORMATS_RAW_ASM
 %define GUARD_CRYPTO_USIGN_FORMATS_RAW_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/formats/raw.asm
+; Utkarsha OS — crypto/usign/formats/raw.asm
 ; =============================================================================
 ; Raw Binary Signature Envelope Parser.
 ;

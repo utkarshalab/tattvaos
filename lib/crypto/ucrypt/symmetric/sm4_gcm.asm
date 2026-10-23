@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_SM4_GCM_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_SM4_GCM_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/sm4_gcm.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/sm4_gcm.asm
 ; =============================================================================
 ; SM4-GCM 128-Bit Block Cipher Authenticated Encryption (GB/T 32907-2016).
 ;

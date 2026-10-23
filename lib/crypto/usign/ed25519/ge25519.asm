@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_ED25519_GE25519_ASM
 %define GUARD_CRYPTO_USIGN_ED25519_GE25519_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/ed25519/ge25519.asm
+; Utkarsha OS — crypto/usign/ed25519/ge25519.asm
 ; =============================================================================
 ; Group elements on the twisted Edwards curve
 ;   -x^2 + y^2 = 1 + d * x^2 * y^2   over GF(2^255 - 19)

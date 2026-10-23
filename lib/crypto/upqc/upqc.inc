@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — crypto/upqc/upqc.inc
+; Utkarsha OS — crypto/upqc/upqc.inc
 ; =============================================================================
 ; Master Unified Post-Quantum Cryptography (PQC) Schemas & Algorithm IDs.
 ;

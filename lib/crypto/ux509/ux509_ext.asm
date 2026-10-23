@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_EXT_ASM
 %define GUARD_CRYPTO_UX509_UX509_EXT_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_ext.asm
+; Utkarsha OS — crypto/ux509/ux509_ext.asm
 ; =============================================================================
 ; X.509 v3 Extensions Parser (Basic Constraints, Key Usage, SAN).
 ;

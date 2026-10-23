@@ -1,6 +1,6 @@
 # crypto/ucrypt — Master Symmetric, Asymmetric & Authenticated Cipher Subsystem
 
-The **`crypto/ucrypt`** library is the single, authoritative Symmetric, Asymmetric, and Message Authentication Code (MAC) Encryption Subsystem for Tattva OS, matching Aerospace and Military-Grade Security Architecture.
+The **`crypto/ucrypt`** library is the single, authoritative Symmetric, Asymmetric, and Message Authentication Code (MAC) Encryption Subsystem for Utkarsha OS, matching Aerospace and Military-Grade Security Architecture.
 
 ---
 

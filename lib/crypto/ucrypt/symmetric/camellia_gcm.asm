@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_CAMELLIA_GCM_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_CAMELLIA_GCM_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/camellia_gcm.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/camellia_gcm.asm
 ; =============================================================================
 ; Camellia-GCM 128/256-Bit Block Cipher AEAD Engine (RFC 3713 / ISO/IEC 18033-3).
 ;

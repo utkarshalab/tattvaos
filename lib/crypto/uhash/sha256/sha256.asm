@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UHASH_SHA256_SHA256_ASM
 %define GUARD_CRYPTO_UHASH_SHA256_SHA256_ASM
 ; =============================================================================
-; Tattva OS — crypto/uhash/sha256/sha256.asm
+; Utkarsha OS — crypto/uhash/sha256/sha256.asm
 ; =============================================================================
 ; SHA-256 (FIPS 180-4).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UKDF_ARGON2_ARGON2_ASM
 %define GUARD_CRYPTO_UKDF_ARGON2_ARGON2_ASM
 ; =============================================================================
-; Tattva OS — crypto/ukdf/argon2/argon2.asm
+; Utkarsha OS — crypto/ukdf/argon2/argon2.asm
 ; =============================================================================
 ; Argon2id (RFC 9106) — memory-hard password hashing.
 ;

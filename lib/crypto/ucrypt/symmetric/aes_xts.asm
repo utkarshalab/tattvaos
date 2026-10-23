@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_XTS_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_XTS_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_xts.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_xts.asm
 ; =============================================================================
 ; Dual-Key 512-Bit AES-XTS GF(2^128) Sector Encryption Engine for UXFS Storage.
 ;

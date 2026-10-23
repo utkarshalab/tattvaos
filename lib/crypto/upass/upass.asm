@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UPASS_ASM
 %define GUARD_CRYPTO_UPASS_ASM
 ; =============================================================================
-; Tattva OS — crypto/upass/upass.asm
+; Utkarsha OS — crypto/upass/upass.asm
 ; =============================================================================
 ; Password Hashing — Layered Stretch, Pepper and Device Binding.
 ;

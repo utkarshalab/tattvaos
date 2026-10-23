@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CBC_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_CBC_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_cbc.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_cbc.asm
 ; =============================================================================
 ; Intel AES-NI Hardware Accelerated AES-256-CBC Cipher with PKCS#7 Padding.
 ;

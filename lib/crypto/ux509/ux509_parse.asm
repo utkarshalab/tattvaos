@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_PARSE_ASM
 %define GUARD_CRYPTO_UX509_UX509_PARSE_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_parse.asm
+; Utkarsha OS — crypto/ux509/ux509_parse.asm
 ; =============================================================================
 ; X.509 v3 Certificate Field Extractor & ASN.1 Parser.
 ;
@@ -74,16 +74,20 @@ ux509_parse_cert:
     mov [rdi + 8], rax
 
     lea rdi, [r14 + ux509_cert_t.subject_str]
-    mov rax, 0x434E3D7461747476             ; "CN=tattva.os"
+    mov rax, 0x72616B74753D4E43             ; "CN=utkarshaos.com"
     mov [rdi + 0], rax
-    mov rax, 0x612E6F7300000000
+    mov rax, 0x6F632E736F616873
     mov [rdi + 8], rax
+    mov rax, 0x000000000000006D
+    mov [rdi + 16], rax
 
     lea rdi, [r14 + ux509_cert_t.san_domain]
-    mov rax, 0x2A2E746174747661             ; "*.tattva.os"
+    mov rax, 0x7372616B74752E2A             ; "*.utkarshaos.com"
     mov [rdi + 0], rax
-    mov rax, 0x2E6F730000000000
+    mov rax, 0x6D6F632E736F6168
     mov [rdi + 8], rax
+    xor eax, eax
+    mov [rdi + 16], rax
 
     ; 8. Compute 32-byte SHA-256 Certificate Thumbprint
     mov rdi, r12

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_TIME_ASM
 %define GUARD_CRYPTO_UX509_UX509_TIME_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_time.asm
+; Utkarsha OS — crypto/ux509/ux509_time.asm
 ; =============================================================================
 ; UTCTime & GeneralizedTime Parser with 5-Minute RTC Clock-Skew Window.
 ;

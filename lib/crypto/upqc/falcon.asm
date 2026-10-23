@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UPQC_FALCON_ASM
 %define GUARD_CRYPTO_UPQC_FALCON_ASM
 ; =============================================================================
-; Tattva OS — crypto/upqc/falcon.asm
+; Utkarsha OS — crypto/upqc/falcon.asm
 ; =============================================================================
 ; NIST FALCON Fast Fourier Lattice-based Post-Quantum Signature Engine.
 ;

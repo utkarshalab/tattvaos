@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UPQC_SPHINCS_ASM
 %define GUARD_CRYPTO_UPQC_SPHINCS_ASM
 ; =============================================================================
-; Tattva OS — crypto/upqc/sphincs.asm
+; Utkarsha OS — crypto/upqc/sphincs.asm
 ; =============================================================================
 ; NIST SPHINCS+ Stateless Hash-based Post-Quantum Signature Engine.
 ;

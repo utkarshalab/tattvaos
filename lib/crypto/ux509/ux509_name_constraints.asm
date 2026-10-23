@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_NAME_CONSTRAINTS_ASM
 %define GUARD_CRYPTO_UX509_UX509_NAME_CONSTRAINTS_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_name_constraints.asm
+; Utkarsha OS — crypto/ux509/ux509_name_constraints.asm
 ; =============================================================================
 ; RFC 5280 Permitted & Excluded Domain Tree Name Constraints Enforcer.
 ;
@@ -17,8 +17,8 @@ section .text
 
 ; -----------------------------------------------------------------------------
 ; ux509_verify_name_constraints — Enforce domain tree constraints on Intermediate CAs
-; Input:  RDI = Target Domain string (e.g. "api.tattva.os")
-;         RSI = Permitted Tree Pattern (e.g. ".tattva.os")
+; Input:  RDI = Target Domain string (e.g. "api.utkarshaos.com")
+;         RSI = Permitted Tree Pattern (e.g. ".utkarshaos.com")
 ; Output: RAX = 1 (Permitted), 0 (Forbidden / Constraint Violated)
 ; -----------------------------------------------------------------------------
 ux509_verify_name_constraints:

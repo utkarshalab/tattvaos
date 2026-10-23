@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UKDF_HKDF_HKDF_ASM
 %define GUARD_CRYPTO_UKDF_HKDF_HKDF_ASM
 ; =============================================================================
-; Tattva OS — crypto/ukdf/hkdf/hkdf.asm
+; Utkarsha OS — crypto/ukdf/hkdf/hkdf.asm
 ; =============================================================================
 ; Robust HKDF (RFC 5869) Key Derivation Engine (HMAC-SHA256 & HMAC-SHA512).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_4WAY_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_4WAY_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_gcm_4way.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_gcm_4way.asm
 ; =============================================================================
 ; AWS-LC High-Throughput 4-Way Parallel AES-NI AES-256-GCM AEAD Pipeline.
 ;

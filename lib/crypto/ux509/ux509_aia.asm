@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_AIA_ASM
 %define GUARD_CRYPTO_UX509_UX509_AIA_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_aia.asm
+; Utkarsha OS — crypto/ux509/ux509_aia.asm
 ; =============================================================================
 ; Authority Information Access (AIA) Extension Parser.
 ;

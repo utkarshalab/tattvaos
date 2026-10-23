@@ -1,6 +1,6 @@
 # crypto/ux509 — Hyperscale X.509 PKI Certificate Subsystem
 
-The **`crypto/ux509`** library is the single, authoritative Public Key Infrastructure (PKI) Certificate Engine for Tattva OS, covering 100% of Web PKI RFC standards (**RFC 5280, RFC 6125, RFC 6960, RFC 6962, RFC 2986, RFC 7468, RFC 5912**).
+The **`crypto/ux509`** library is the single, authoritative Public Key Infrastructure (PKI) Certificate Engine for Utkarsha OS, covering 100% of Web PKI RFC standards (**RFC 5280, RFC 6125, RFC 6960, RFC 6962, RFC 2986, RFC 7468, RFC 5912**).
 
 ---
 
@@ -118,7 +118,7 @@ struc ux509_cert_t
     .pubkey_len     resd 1          ; +052: Public Key size in bytes
     .issuer_str     times 64 db 0   ; +056: Sanitized ASCII Issuer string
     .subject_str    times 64 db 0   ; +120: Sanitized ASCII Subject string
-    .san_domain     times 64 db 0   ; +184: Primary SAN Domain Name (e.g. "*.tattva.os")
+    .san_domain     times 64 db 0   ; +184: Primary SAN Domain Name (e.g. "*.utkarshaos.com")
     .fingerprint    resb 32         ; +248: 32-byte SHA-256 Certificate Thumbprint
     .is_ca          resd 1          ; +280: 1 if CA certificate, 0 if End-Entity
     .is_self_signed resd 1          ; +284: 1 if Self-Signed Root CA

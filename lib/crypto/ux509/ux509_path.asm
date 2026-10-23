@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_PATH_ASM
 %define GUARD_CRYPTO_UX509_UX509_PATH_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_path.asm
+; Utkarsha OS — crypto/ux509/ux509_path.asm
 ; =============================================================================
 ; Intermediate CA Path Length Constraint Budget Validator.
 ;

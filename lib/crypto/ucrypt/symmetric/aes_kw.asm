@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_KW_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_kw.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_kw.asm
 ; =============================================================================
 ; AES Key Wrap / Key Unwrap Specification (RFC 3394 / NIST SP 800-38F).
 ;

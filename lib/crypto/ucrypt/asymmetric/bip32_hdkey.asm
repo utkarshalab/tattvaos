@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_BIP32_HDKEY_ASM
 %define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_BIP32_HDKEY_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/asymmetric/bip32_hdkey.asm
+; Utkarsha OS — crypto/ucrypt/asymmetric/bip32_hdkey.asm
 ; =============================================================================
 ; BIP-32 / SLIP-0010 Hierarchical Deterministic (HD) Key Derivation Engine.
 ;

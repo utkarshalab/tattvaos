@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ED448_ASM
 %define GUARD_CRYPTO_UCRYPT_ASYMMETRIC_ED448_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/asymmetric/ed448.asm
+; Utkarsha OS — crypto/ucrypt/asymmetric/ed448.asm
 ; =============================================================================
 ; Ed448 Goldilocks High-Security Digital Signature Engine (RFC 8032).
 ;

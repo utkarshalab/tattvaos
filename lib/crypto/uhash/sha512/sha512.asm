@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UHASH_SHA512_SHA512_ASM
 %define GUARD_CRYPTO_UHASH_SHA512_SHA512_ASM
 ; =============================================================================
-; Tattva OS — crypto/uhash/sha512/sha512.asm
+; Utkarsha OS — crypto/uhash/sha512/sha512.asm
 ; =============================================================================
 ; SHA-512 (FIPS 180-4).
 ;

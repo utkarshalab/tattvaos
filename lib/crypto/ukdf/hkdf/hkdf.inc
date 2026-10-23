@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — crypto/ukdf/hkdf/hkdf.inc
+; Utkarsha OS — crypto/ukdf/hkdf/hkdf.inc
 ; =============================================================================
 ; HKDF (RFC 5869), Argon2id, and PBKDF2 Context Definitions & Constants.
 ;

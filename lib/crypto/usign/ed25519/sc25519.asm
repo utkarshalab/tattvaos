@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_ED25519_SC25519_ASM
 %define GUARD_CRYPTO_USIGN_ED25519_SC25519_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/ed25519/sc25519.asm
+; Utkarsha OS — crypto/usign/ed25519/sc25519.asm
 ; =============================================================================
 ; Scalar arithmetic modulo the group order
 ; L = 2^252 + 27742317777372353535851937790883648493.

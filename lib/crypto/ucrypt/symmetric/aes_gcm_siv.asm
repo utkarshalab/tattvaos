@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_SIV_ASM
 %define GUARD_CRYPTO_UCRYPT_SYMMETRIC_AES_GCM_SIV_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/symmetric/aes_gcm_siv.asm
+; Utkarsha OS — crypto/ucrypt/symmetric/aes_gcm_siv.asm
 ; =============================================================================
 ; RFC 8452 AES-256-GCM-SIV Nonce-Misuse-Resistant AEAD Engine (Google BoringSSL Standard).
 ;

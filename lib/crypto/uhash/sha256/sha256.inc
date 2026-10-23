@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — crypto/uhash/sha256/sha256.inc
+; Utkarsha OS — crypto/uhash/sha256/sha256.inc
 ; =============================================================================
 ; SHA-256 Context Structure Definitions & Initial Constants.
 ;

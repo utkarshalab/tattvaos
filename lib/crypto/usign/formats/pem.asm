@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_USIGN_FORMATS_PEM_ASM
 %define GUARD_CRYPTO_USIGN_FORMATS_PEM_ASM
 ; =============================================================================
-; Tattva OS — crypto/usign/formats/pem.asm
+; Utkarsha OS — crypto/usign/formats/pem.asm
 ; =============================================================================
 ; Base64 ASCII Armored PEM Signature Envelope Parser.
 ;

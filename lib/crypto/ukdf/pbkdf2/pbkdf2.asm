@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UKDF_PBKDF2_ASM
 %define GUARD_CRYPTO_UKDF_PBKDF2_ASM
 ; =============================================================================
-; Tattva OS — crypto/ukdf/pbkdf2/pbkdf2.asm
+; Utkarsha OS — crypto/ukdf/pbkdf2/pbkdf2.asm
 ; =============================================================================
 ; PBKDF2-HMAC-SHA256 (RFC 8018 / NIST SP 800-132).
 ;

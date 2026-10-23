@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UX509_UX509_ASN1_ASM
 %define GUARD_CRYPTO_UX509_UX509_ASN1_ASM
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509_asn1.asm
+; Utkarsha OS — crypto/ux509/ux509_asn1.asm
 ; =============================================================================
 ; Zero-Copy ASN.1 DER Tag-Length-Value (TLV) Reader & Base64 PEM Decoder.
 ;

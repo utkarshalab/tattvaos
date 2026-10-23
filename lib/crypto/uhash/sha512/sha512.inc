@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — crypto/uhash/sha512/sha512.inc
+; Utkarsha OS — crypto/uhash/sha512/sha512.inc
 ; =============================================================================
 ; SHA-512 Context Structure Definitions.
 ;

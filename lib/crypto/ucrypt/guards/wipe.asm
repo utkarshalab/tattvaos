@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_GUARDS_WIPE_ASM
 %define GUARD_CRYPTO_UCRYPT_GUARDS_WIPE_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/guards/wipe.asm
+; Utkarsha OS — crypto/ucrypt/guards/wipe.asm
 ; =============================================================================
 ; Cold-Boot Key Zeroization & SIMD Vector Scrubbing Guard (vzeroall).
 ;

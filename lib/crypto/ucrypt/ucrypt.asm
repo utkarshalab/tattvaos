@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UCRYPT_UCRYPT_ASM
 %define GUARD_CRYPTO_UCRYPT_UCRYPT_ASM
 ; =============================================================================
-; Tattva OS — crypto/ucrypt/ucrypt.asm
+; Utkarsha OS — crypto/ucrypt/ucrypt.asm
 ; =============================================================================
 ; Master Symmetric & Asymmetric Encryption Subsystem Dispatcher API.
 ;

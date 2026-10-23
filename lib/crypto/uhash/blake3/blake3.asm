@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UHASH_BLAKE3_BLAKE3_ASM
 %define GUARD_CRYPTO_UHASH_BLAKE3_BLAKE3_ASM
 ; =============================================================================
-; Tattva OS — crypto/uhash/blake3/blake3.asm
+; Utkarsha OS — crypto/uhash/blake3/blake3.asm
 ; =============================================================================
 ; AVX2 SIMD-Accelerated BLAKE3 High-Speed Tree Hashing Engine.
 ;

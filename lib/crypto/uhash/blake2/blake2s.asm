@@ -1,7 +1,7 @@
 %ifndef GUARD_CRYPTO_UHASH_BLAKE2_BLAKE2S_ASM
 %define GUARD_CRYPTO_UHASH_BLAKE2_BLAKE2S_ASM
 ; =============================================================================
-; Tattva OS — crypto/uhash/blake2/blake2s.asm
+; Utkarsha OS — crypto/uhash/blake2/blake2s.asm
 ; =============================================================================
 ; BLAKE2s 32-bit Hashing Engine (256-bit Digest).
 ;

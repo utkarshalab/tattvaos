@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — crypto/ux509/ux509.inc
+; Utkarsha OS — crypto/ux509/ux509.inc
 ; =============================================================================
 ; X.509 v3 PKI Certificate Context Definitions, OIDs & Policy Flags.
 ;
@@ -49,7 +49,7 @@ struc ux509_cert_t
     .pubkey_len     resd 1          ; +052: Public Key size in bytes
     .issuer_str     resb 64           ; +056: Sanitized ASCII Issuer string
     .subject_str    resb 64           ; +120: Sanitized ASCII Subject string
-    .san_domain     resb 64           ; +184: Primary SAN Domain Name (e.g. "*.tattva.os")
+    .san_domain     resb 64           ; +184: Primary SAN Domain Name (e.g. "*.utkarshaos.com")
     .fingerprint    resb 32         ; +248: 32-byte SHA-256 Certificate Thumbprint
     .is_ca          resd 1          ; +280: 1 if CA certificate, 0 if End-Entity
     .is_self_signed resd 1          ; +284: 1 if Self-Signed Root CA

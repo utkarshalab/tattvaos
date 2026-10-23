@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — crypto/usign/ed25519/ed25519.inc
+; Utkarsha OS — crypto/usign/ed25519/ed25519.inc
 ; =============================================================================
 ; Ed25519 Key & Signature Structures, Constants, and Dispatcher Schemas.
 ;
@@ -24,7 +24,7 @@ USIGN_ALGO_DILITHIUM equ 4
 USIGN_FMT_RAW        equ 1          ; Raw binary
 USIGN_FMT_PEM        equ 2          ; ASCII armored Base64 PEM
 USIGN_FMT_PKCS7      equ 3          ; PKCS#7 / CMS Secure Boot envelope
-USIGN_FMT_UPK_SIG    equ 4          ; Tattva UPK package signature envelope
+USIGN_FMT_UPK_SIG    equ 4          ; Utkarsha UPK package signature envelope
 
 ; Status Result Codes
 USIGN_STATUS_VALID   equ 1          ; Signature 100% verified valid
