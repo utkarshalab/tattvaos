@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage1/print.asm
+; Utkarsha OS — boot/stage1/print.asm
 ; =============================================================================
 ; BIOS INT 10h print utilities for stage1 debugging.
 ;

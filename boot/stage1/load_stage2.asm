@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage1/load_stage2.asm
+; Utkarsha OS — boot/stage1/load_stage2.asm
 ; =============================================================================
 ; Stage2 loading orchestrator.
 ;

@@ -2,7 +2,7 @@
 ; Stage1 sanity checks after loading stage2
 
 ; Verifies:
-;   - magic number after stage2 load (TATTVA_MAGIC / STAGE2_MAGIC)
+;   - magic number after stage2 load (UT_MAGIC / STAGE2_MAGIC)
 ;   - stack not corrupted (sp == expected value)
 ;   - stage2 loaded at correct address (STAGE2_LOAD equ 0x8000)
 

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage1/boot_drive.asm
+; Utkarsha OS — boot/stage1/boot_drive.asm
 ; =============================================================================
 ; Storage for the boot drive number (DL register from BIOS).
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage1/signature.asm
+; Utkarsha OS — boot/stage1/signature.asm
 ; =============================================================================
 ; MBR boot signature and padding.
 ; MUST be the last include in entry.asm.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage1/lba_detect.asm
+; Utkarsha OS — boot/stage1/lba_detect.asm
 ; =============================================================================
 ; LBA extensions detection using BIOS INT 13h AH=41h.
 ;

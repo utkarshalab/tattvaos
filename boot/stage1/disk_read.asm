@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage1/disk_read.asm
+; Utkarsha OS — boot/stage1/disk_read.asm
 ; =============================================================================
 ; Reusable BIOS disk read with retry logic.
 ;

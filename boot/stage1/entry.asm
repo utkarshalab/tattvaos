@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — boot/stage1/entry.asm
+; Utkarsha OS — boot/stage1/entry.asm
 ; =============================================================================
 ; MBR bootloader entry point.
 ; BIOS loads this to 0x7C00, executes from here.
