@@ -22,6 +22,8 @@ struc fd_t
     .device      resq 1      ; -> device_t (fops live there; native path)
     .vtable      resq 1      ; -> posix/win32 fops (hosted shims only; 0 on native)
     .priv        resq 1      ; driver-private pointer
+    .offset      resq 1      ; current seek position (per descriptor)
+    .flags       resq 1      ; open flags (O_RDONLY / O_WRONLY / O_RDWR, ...)
 endstruc
 
 ; ---- iovec_t : one scatter-gather element ----------------------------------
