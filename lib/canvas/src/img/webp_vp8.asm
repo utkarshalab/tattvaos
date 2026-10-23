@@ -166,13 +166,8 @@ webp_vp8_parse_config:
     mov byte [r12+WebPVP8Config.segment_probs+1],255
     mov byte [r12+WebPVP8Config.segment_probs+2],255
     mov byte [r12+WebPVP8Config.segment_probs+3],255
-    mov dword [r12+WebPVP8Config.ref_lf_deltas],2
-    mov dword [r12+WebPVP8Config.ref_lf_deltas+8],-2
-    mov dword [r12+WebPVP8Config.ref_lf_deltas+12],-2
-    mov dword [r12+WebPVP8Config.mode_lf_deltas],4
-    mov dword [r12+WebPVP8Config.mode_lf_deltas+4],-2
-    mov dword [r12+WebPVP8Config.mode_lf_deltas+8],2
-    mov dword [r12+WebPVP8Config.mode_lf_deltas+12],4
+    ; Loop-filter deltas start at zero on a key frame; only explicit updates
+    ; in this header change them (the encoder-side defaults are not implied).
     mov rdi,rbx
     mov esi,128
     call webp_bool_get                  ; color space
