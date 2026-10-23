@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/privacy_compliance/src/data_discovery.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Data discovery - automatically discovers PII and sensitive

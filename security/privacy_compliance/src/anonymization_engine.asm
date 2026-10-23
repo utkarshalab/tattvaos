@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/privacy_compliance/src/anonymization_engine.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Anonymization engine - performs data anonymization and

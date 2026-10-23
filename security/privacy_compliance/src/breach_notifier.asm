@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/privacy_compliance/src/breach_notifier.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Breach notifier - manages privacy breach detection, assessment,

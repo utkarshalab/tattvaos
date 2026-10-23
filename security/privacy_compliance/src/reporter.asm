@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/privacy_compliance/src/reporter.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: compliance reporter (GDPR/CCPA/HIPAA reports)

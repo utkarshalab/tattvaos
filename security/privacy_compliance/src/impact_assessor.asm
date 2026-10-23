@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/privacy_compliance/src/impact_assessor.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Privacy impact assessor - conducts Privacy Impact Assessments

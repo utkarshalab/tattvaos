@@ -2,7 +2,7 @@
 
 ## Purpose
 Data Loss Prevention (DLP), privacy controls, and regulatory compliance
-reporting (GDPR, CCPA, HIPAA-style) for Tattva OS.
+reporting (GDPR, CCPA, HIPAA-style) for Utkarsha OS.
 
 ## Architecture
 - **Classifier** — data classification (public, internal, confidential, restricted)

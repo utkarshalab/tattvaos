@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/privacy_compliance/tests/test_privacy_compliance.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Privacy compliance comprehensive test - all components.
 ; Status   : PREMIUM ENTERPRISE SKELETON
 ; =============================================================================
