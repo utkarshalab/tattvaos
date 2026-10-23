@@ -1,4 +1,5 @@
-"""math_fn (extended): exp2/exp10/expm1, log2/log10/log1p, cbrt, scalbn.
+"""math_fn (extended): exp2/exp10/expm1, log2/log10/log1p, cbrt, scalbn,
+atan/atan2/asin/acos, sinh/cosh/tanh, asinh/acosh/atanh.
 
 Each function is swept over its domain (uniform regions plus log-uniform
 magnitudes, edges included) against Python's math module and must stay
@@ -30,14 +31,18 @@ def exp10_ref(x):
         return inf
 
 
-def ovf(f):
+def ovf(f, odd=False):
     def g(x):
         try:
             return f(x)
         except OverflowError:
-            return inf
+            return math.copysign(inf, x) if odd else inf
         except ValueError:      # math raises where IEEE gives a value
-            return -inf if x == 0 and f in (math.log2, math.log10) else nan
+            if x == 0 and f in (math.log2, math.log10):
+                return -inf
+            if abs(x) == 1 and f is math.atanh:
+                return math.copysign(inf, x)
+            return nan
     return g
 
 
@@ -68,13 +73,25 @@ FUNCS = {
              + logu(-300, -1, 500, -1) + [float(k) for k in range(-1080, 1030, 7)]),
     'exp10': (exp10_ref, 2, 1, lambda: uni(-330, 312, 3000) + uni(-1, 1, 2000) + logu(-300, -1, 500, 1)
               + logu(-300, -1, 500, -1)),
-    'expm1': (ovf(math.expm1), 4, 1, lambda: uni(-40, 710, 2000) + uni(-1, 1, 2000) + logu(-310, 0, 1000, 1)
+    'expm1': (ovf(math.expm1), 3, 1, lambda: uni(-40, 710, 2000) + uni(-1, 1, 2000) + logu(-310, 0, 1000, 1)
               + logu(-310, 0, 1000, -1) + uni(-745, -30, 300)),
-    'log2': (ovf(math.log2), 4, 1, lambda: logu(-323, 308, 3000) + uni(0.5, 2, 2000) + uni(0.999, 1.001, 500)),
-    'log10': (ovf(math.log10), 4, 1, lambda: logu(-323, 308, 3000) + uni(0.5, 2, 2000) + uni(0.999, 1.001, 500)),
-    'log1p': (ovf(math.log1p), 4, 1, lambda: logu(-310, 308, 2000) + logu(-310, -0.0001, 1000, -1)
+    'log2': (ovf(math.log2), 2, 1, lambda: logu(-323, 308, 3000) + uni(0.5, 2, 2000) + uni(0.999, 1.001, 500)),
+    'log10': (ovf(math.log10), 3, 1, lambda: logu(-323, 308, 3000) + uni(0.5, 2, 2000) + uni(0.999, 1.001, 500)),
+    'log1p': (ovf(math.log1p), 3, 1, lambda: logu(-310, 308, 2000) + logu(-310, -0.0001, 1000, -1)
               + uni(-0.999999, 1, 2000)),
     'cbrt': (cbrt_ref, 1, 1, lambda: logu(-323, 308, 3000, 1) + logu(-323, 308, 2000, -1) + uni(-10, 10, 1000)),
+    'atan': (math.atan, 2, 1, lambda: logu(-310, 308, 2000) + logu(-310, 308, 2000, -1) + uni(-5, 5, 3000)),
+    'asin': (ovf(math.asin), 3, 1, lambda: uni(-1, 1, 3000) + logu(-310, 0, 1000) + [1 - v for v in logu(-16, -1, 1000)]
+             + [v - 1 for v in logu(-16, -1, 500)]),
+    'acos': (ovf(math.acos), 2, 1, lambda: uni(-1, 1, 3000) + logu(-310, 0, 1000) + [1 - v for v in logu(-16, -1, 1000)]
+             + [v - 1 for v in logu(-16, -1, 1000)]),
+    'sinh': (ovf(math.sinh, odd=True), 3, 1, lambda: uni(-712, 712, 2000) + uni(-3, 3, 2000) + logu(-310, 0, 1000)
+             + logu(-310, 0, 500, -1)),
+    'cosh': (ovf(math.cosh), 2, 1, lambda: uni(-712, 712, 2000) + uni(-3, 3, 2000) + logu(-310, 0, 1000)),
+    'tanh': (math.tanh, 3, 1, lambda: uni(-25, 25, 2000) + uni(-1, 1, 2000) + logu(-310, 0, 1000) + logu(-310, 0, 500, -1)),
+    'asinh': (math.asinh, 3, 1, lambda: logu(-310, 308, 2000) + logu(-310, 308, 1000, -1) + uni(-3, 3, 2000)),
+    'acosh': (ovf(math.acosh), 3, 1, lambda: [1 + v for v in logu(-16, 0, 1500)] + logu(0, 308, 1500) + uni(1, 3, 2000)),
+    'atanh': (ovf(math.atanh), 3, 1, lambda: uni(-1, 1, 3000) + logu(-310, 0, 1000) + [1 - v for v in logu(-16, -1, 1000)]),
 }
 
 SPECIAL = {
@@ -88,6 +105,20 @@ SPECIAL = {
     'log1p': [(0.0, 0.0), (-0.0, -0.0), (1e-300, 1e-300), (-1.0, -inf), (-2.0, nan), (inf, inf), (-inf, nan),
               (nan, nan)],
     'cbrt': [(0.0, 0.0), (-0.0, -0.0), (27.0, 3.0), (-8.0, -2.0), (inf, inf), (-inf, -inf), (nan, nan)],
+    'atan': [(0.0, 0.0), (-0.0, -0.0), (1e-300, 1e-300), (inf, math.pi / 2), (-inf, -math.pi / 2), (1.0, math.pi / 4),
+             (nan, nan)],
+    'asin': [(0.0, 0.0), (-0.0, -0.0), (1e-300, 1e-300), (1.0, math.pi / 2), (-1.0, -math.pi / 2), (1.5, nan),
+             (-1.5, nan), (inf, nan), (nan, nan)],
+    'acos': [(1.0, 0.0), (-1.0, math.pi), (0.0, math.pi / 2), (-0.0, math.pi / 2), (1.5, nan), (-inf, nan), (nan, nan)],
+    'sinh': [(0.0, 0.0), (-0.0, -0.0), (1e-300, 1e-300), (711.0, inf), (-711.0, -inf), (inf, inf), (-inf, -inf),
+             (nan, nan)],
+    'cosh': [(0.0, 1.0), (-0.0, 1.0), (711.0, inf), (-711.0, inf), (inf, inf), (-inf, inf), (nan, nan)],
+    'tanh': [(0.0, 0.0), (-0.0, -0.0), (1e-300, 1e-300), (30.0, 1.0), (-30.0, -1.0), (inf, 1.0), (-inf, -1.0),
+             (nan, nan)],
+    'asinh': [(0.0, 0.0), (-0.0, -0.0), (1e-300, 1e-300), (inf, inf), (-inf, -inf), (nan, nan)],
+    'acosh': [(1.0, 0.0), (0.5, nan), (-1.0, nan), (inf, inf), (-inf, nan), (nan, nan)],
+    'atanh': [(0.0, 0.0), (-0.0, -0.0), (1e-300, 1e-300), (1.0, inf), (-1.0, -inf), (1.5, nan), (inf, nan),
+              (nan, nan)],
 }
 
 for name, (ref, b64, b32, gen) in FUNCS.items():
@@ -123,6 +154,46 @@ for name, (ref, b64, b32, gen) in FUNCS.items():
             want = [struct.pack(fmt, f(v)) for v in vals]
             ck.check(f'{name}{sfx}_array matches the scalar', [struct.pack(fmt, v) for v in dst[:n]] == want, f'n={n}')
             ck.check(f'{name}{sfx}_inplace matches the scalar', [struct.pack(fmt, v) for v in buf[:n]] == want, f'n={n}')
+
+# atan2(y, x): sweep, the IEEE special-value table, arrays bit for bit
+pi = math.pi
+for sfx, t, f32, bound in (('_f64', D, False, 3), ('_f32', F, True, 1)):
+    f = fn(lib, f'umath_atan2{sfx}', t, t, t)
+    arr = fn(lib, f'umath_atan2{sfx}_array', None, P, P, P, Z)
+    mags = logu(-310, 308, 3000) + uni(0, 10, 2000)
+    pairs = [(random.choice([1, -1]) * random.choice(mags), random.choice([1, -1]) * random.choice(mags))
+             for _ in range(6000)]
+    pairs += [(random.uniform(-1, 1), random.uniform(-1, 1)) for _ in range(3000)]
+    if f32:
+        pairs = [(r32(y), r32(x)) for y, x in pairs]
+    worst, at = 0, None
+    for y, x in pairs:
+        u = ulp_diff(f(y, x), math.atan2(y, x), f32)
+        if u > worst:
+            worst, at = u, (y, x)
+    if VERBOSE:
+        print(f'    atan2{sfx}: worst {worst} ULP at {at!r}')
+    ck.check(f'atan2{sfx} within {bound} ULP', worst <= bound, f'{worst} ULP at {at!r}')
+    table = [((0.0, 1.0), 0.0), ((-0.0, 1.0), -0.0), ((0.0, 0.0), 0.0), ((-0.0, 0.0), -0.0),
+             ((0.0, -0.0), pi), ((-0.0, -0.0), -pi), ((0.0, -1.0), pi), ((-0.0, -1.0), -pi),
+             ((1.0, 0.0), pi / 2), ((-1.0, -0.0), -pi / 2), ((inf, inf), pi / 4), ((-inf, inf), -pi / 4),
+             ((inf, -inf), 3 * pi / 4), ((-inf, -inf), -3 * pi / 4), ((inf, 5.0), pi / 2), ((-inf, -5.0), -pi / 2),
+             ((5.0, inf), 0.0), ((-5.0, inf), -0.0), ((5.0, -inf), pi), ((-5.0, -inf), -pi),
+             ((nan, 1.0), nan), ((1.0, nan), nan), ((1e300, 1e-300), pi / 2), ((1e-300, 1e300), 0.0)]
+    for (y, x), want in table:
+        got = f(y, x)
+        ck.check(f'atan2{sfx} special values', same(got, r32(want) if f32 else want),
+                 f'atan2({y!r}, {x!r}) = {got!r}, want {want!r}')
+    ct = C.c_float if f32 else C.c_double
+    fmt = '<f' if f32 else '<d'
+    for n in (0, 1, 2, 5, 64):
+        sel = [random.choice(pairs + [k for k, _ in table]) for _ in range(n)]
+        ys = (ct * max(n, 1))(*[y for y, _ in sel])
+        xs = (ct * max(n, 1))(*[x for _, x in sel])
+        dst = (ct * max(n, 1))()
+        arr(C.addressof(dst), C.addressof(ys), C.addressof(xs), n)
+        ck.check(f'atan2{sfx}_array matches the scalar',
+                 [struct.pack(fmt, v) for v in dst[:n]] == [struct.pack(fmt, f(y, x)) for y, x in sel], f'n={n}')
 
 # exactness promises
 exp2 = fn(lib, 'umath_exp2_f64', D, D)
