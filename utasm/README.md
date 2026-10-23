@@ -1,6 +1,6 @@
 # asm — utasm Toolchain Category
 
-> The utasm assembler/linker toolchain — the primary build tool for Tattva OS.
+> The utasm assembler/linker toolchain — the primary build tool for Utkarsha OS.
 > Written in assembly. Replaces NASM as the codebase matures.
 
 ---
