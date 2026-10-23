@@ -66,6 +66,8 @@
 %define TCBF_TFO_SERVER             0x800
 %define TCBF_TFO_COOKIE_VALID       0x1000
 
+%define TCP_LISTEN_BACKLOG          128     ; Half-open connections before SYN cookies
+
 struc tcp_hdr_t
     .src_port:          resw 1      ; Source Port (Big Endian)
     .dst_port:          resw 1      ; Destination Port (Big Endian)
@@ -158,6 +160,17 @@ struc tcb_t
     ; --- OOO Reassembly Queue ---
     .ooo_head:           resq 1      ; Head of OOO segment queue
     .ooo_tail:           resq 1      ; Tail of OOO segment queue
+
+    ; --- Pacing ---
+    .pacing_rate:        resq 1      ; Pacing rate set by the congestion controller
+
+    ; --- Tail Loss Probe (RACK-TLP, RFC 8985) ---
+    .tlp_timer_ptr:      resq 1      ; timer_entry_t* for the probe timeout
+    .tlp_retrans_ptr:    resq 1      ; net_pkt_t* the probe retransmits
+
+    ; --- Listener backlog (SYN cookies take over when it is full) ---
+    .backlog_len:        resd 1      ; Half-open connections queued
+    .backlog_max:        resd 1      ; Queue limit
 endstruc
 
 %define TCP_TCB_HASH_SIZE            1024
@@ -548,6 +561,8 @@ tcp_listen:
     mov byte [rbx + tcb_t.is_listener], 1
     mov qword [rbx + tcb_t.sock_ptr], r12
     mov qword [rbx + tcb_t.hash_next], 0
+    mov dword [rbx + tcb_t.backlog_len], 0
+    mov dword [rbx + tcb_t.backlog_max], TCP_LISTEN_BACKLOG
 
     mov [r12 + socket_t.tcb_ptr], rbx
     mov dword [r12 + socket_t.state], TCP_STATE_LISTEN
@@ -569,12 +584,9 @@ tcp_listen:
 ; tcp_checksum_calc — RFC 793 pseudo-header + TCP segment checksum.
 ; Input: EDI = src IP, ESI = dst IP, RDX = tcp_hdr_t* (segment start),
 ;        ECX = segment length (header + payload, host order byte count)
-; Output: AX = checksum in network byte order, ready to store (generation)
-;         or compare against a received field's fold (== 0xFFFF => valid).
-; This one function serves both generation and verification: the caller
-; either stores AX into the checksum field (after zeroing it first) or, for
-; verification, calls it with the received checksum field left in place and
-; checks the fold via tcp_checksum_verify below instead of reading AX.
+; Output: AX = folded ones'-complement sum. With the received checksum field
+;         left in place it is 0xFFFF iff the segment is intact (verification).
+; To generate a checksum, use tcp_checksum_generate, which complements it.
 ; -----------------------------------------------------------------------------
 align 64
 tcp_checksum_calc:
@@ -618,6 +630,17 @@ tcp_checksum_calc:
     pop rdx
     pop rsi
     pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; tcp_checksum_generate — Checksum to store in an outgoing segment.
+; Input: as tcp_checksum_calc, with the segment's checksum field zeroed
+; Output: AX = complemented checksum, ready to store with a 16-bit move
+; -----------------------------------------------------------------------------
+align 64
+tcp_checksum_generate:
+    call tcp_checksum_calc
+    not ax
     ret
 
 ; -----------------------------------------------------------------------------
@@ -1164,31 +1187,28 @@ tcp_build_segment:
     rol cx, 8                       ; -> network order (offset byte first)
     mov [rax + tcp_hdr_t.data_offset_flags], cx
 
-    ; Apply receive window scaling
-    mov eax, [r11 + tcb_t.rcv_wnd]
+    ; Apply receive window scaling (EDX: RAX keeps the header pointer)
+    mov edx, [r11 + tcb_t.rcv_wnd]
     movzx ecx, byte [r11 + tcb_t.rcv_scale]
-    shr eax, cl
-    cmp eax, 0xFFFF
+    shr edx, cl
+    cmp edx, 0xFFFF
     jbe .wnd_ok
-    mov eax, 0xFFFF
+    mov edx, 0xFFFF
 .wnd_ok:
-    xchg al, ah
-    mov [rax + tcp_hdr_t.window_size], ax
+    xchg dl, dh
+    mov [rax + tcp_hdr_t.window_size], dx
     mov word [rax + tcp_hdr_t.urgent_ptr], 0
     mov word [rax + tcp_hdr_t.checksum], 0
 
     ; Generate TCP options if needed
+    push r11                    ; callers rely on R11 = tcb_t* afterwards
+    push rax
+    mov edx, edi                ; segment flags
     mov rdi, rbx                ; net_pkt_t*
     mov rsi, r11                ; tcb_t*
-    mov edx, r10d               ; flags
     call tcp_gen_options
-    ; tcp_gen_options updates data_offset_flags and adjusts headroom_offset
-    ; It returns RAX = pointer to end of options (start of payload)
-    ; We need to update data_len to include options
-    mov edx, [rbx + net_pkt_t.data_len]
-    sub edx, 20                 ; payload length
-    add edx, 20                 ; header + options
-    mov [rbx + net_pkt_t.data_len], edx
+    pop rax                     ; RAX = tcp_hdr_t*
+    pop r11
 
     ret
 
@@ -1237,7 +1257,7 @@ tcp_send_synack:
     mov esi, [r11 + tcb_t.remote_ip]
     mov rdx, r12
     mov ecx, 20
-    call tcp_checksum_calc
+    call tcp_checksum_generate
     mov [r12 + tcp_hdr_t.checksum], ax
 
     mov rdi, rbx
@@ -1312,7 +1332,7 @@ tcp_send_synack_with_cookie:
     mov esi, [r11 + tcb_t.remote_ip]
     mov rdx, r12
     mov ecx, 20
-    call tcp_checksum_calc
+    call tcp_checksum_generate
     mov [r12 + tcp_hdr_t.checksum], ax
 
     mov rdi, rbx
@@ -1353,7 +1373,7 @@ tcp_send_ack:
     mov esi, [r11 + tcb_t.remote_ip]
     mov rdx, r12
     mov ecx, 20
-    call tcp_checksum_calc
+    call tcp_checksum_generate
     mov [r12 + tcp_hdr_t.checksum], ax
 
     mov rdi, rbx
@@ -1408,7 +1428,7 @@ tcp_send_data:
     mov esi, [r11 + tcb_t.remote_ip]
     mov rdx, r12
     mov ecx, [rbx + net_pkt_t.data_len]
-    call tcp_checksum_calc
+    call tcp_checksum_generate
     mov [r12 + tcp_hdr_t.checksum], ax
 
     ; Add to retransmission queue before sending
@@ -1466,6 +1486,7 @@ tcp_connect:
     push r12
     push r13
     push r14
+    push r15                        ; R15 holds the SYN's net_pkt_t* below
 
     mov r12d, edi                   ; remote_ip
     mov r13d, esi                   ; remote_port
@@ -1540,7 +1561,7 @@ tcp_connect:
     mov edi, [r11 + tcb_t.local_ip]
     mov esi, [r11 + tcb_t.remote_ip]
     mov ecx, 20
-    call tcp_checksum_calc
+    call tcp_checksum_generate
     mov [rdx + tcp_hdr_t.checksum], ax
 
     mov rdi, r15
@@ -1563,6 +1584,7 @@ tcp_connect:
 .done:
     xor eax, eax
 .ret:
+    pop r15
     pop r14
     pop r13
     pop r12
@@ -1604,7 +1626,7 @@ tcp_close:
     mov esi, [r11 + tcb_t.remote_ip]
     mov rdx, r12
     mov ecx, 20
-    call tcp_checksum_calc
+    call tcp_checksum_generate
     mov [r12 + tcp_hdr_t.checksum], ax
 
     mov rdi, rbx
@@ -1734,7 +1756,7 @@ tcp_send_probe:
     mov esi, [rbx + tcb_t.remote_ip]
     mov rdx, r13
     mov ecx, 21
-    call tcp_checksum_calc
+    call tcp_checksum_generate
     mov [r13 + tcp_hdr_t.checksum], ax
 
     mov rdi, r12
@@ -1800,7 +1822,7 @@ tcp_send_keepalive:
     mov esi, [rbx + tcb_t.remote_ip]
     mov rdx, r13
     mov ecx, 20
-    call tcp_checksum_calc
+    call tcp_checksum_generate
     mov [r13 + tcp_hdr_t.checksum], ax
 
     mov rdi, r12
@@ -1860,7 +1882,7 @@ tcp_send_rst:
     mov esi, [rbx + tcb_t.remote_ip]
     mov rdx, r13
     mov ecx, 20
-    call tcp_checksum_calc
+    call tcp_checksum_generate
     mov [r13 + tcp_hdr_t.checksum], ax
 
     mov rdi, r12
@@ -2241,8 +2263,7 @@ tcp_fast_retransmit:
 .set_ssthresh:
     mov dword [rbx + tcb_t.ssthresh], eax
 
-    ; Set cwnd = ssthresh + 3*MSS
-    lea eax, [eax + eax*2]            ; ssthresh * 3? No: ssthresh + 3*MSS
+    ; Set cwnd = ssthresh + 3*MSS (RFC 5681 fast recovery)
     add eax, [rbx + tcb_t.mss]
     add eax, [rbx + tcb_t.mss]
     add eax, [rbx + tcb_t.mss]
@@ -2670,6 +2691,8 @@ ooo_segment_cache:    resb kmem_cache_t_size
 
 section .data
 ooo_segment_cache_name: db "tcp_ooo_segment", 0
+
+section .text
 
 global tcp_ooo_cache_init
 align 64
