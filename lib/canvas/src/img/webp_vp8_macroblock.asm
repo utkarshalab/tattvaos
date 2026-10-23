@@ -8,9 +8,25 @@ extern webp_bool_get
 
 section .text
 
-; WebPBoolReader*,WebPVP8Modes* -> 0/-EINVAL.
+; WebPBoolReader*,WebPVP8Modes* -> 0/-EINVAL. Y mode followed by chroma mode;
+; for B_PRED the sub-block modes sit between the two, see decode_mb_header.
 global webp_vp8_decode_keyframe_base_modes
 webp_vp8_decode_keyframe_base_modes:
+    PROLOGUE_SAVE rbx,r12
+    mov rbx,rdi
+    mov r12,rsi
+    call webp_vp8_decode_keyframe_ymode
+    test eax,eax
+    js .base_done
+    mov rdi,rbx
+    mov rsi,r12
+    call webp_vp8_decode_keyframe_uvmode
+.base_done:
+    EPILOGUE_RESTORE rbx,r12
+
+; WebPBoolReader*,WebPVP8Modes* -> 0/-EINVAL. Key-frame Y mode only.
+global webp_vp8_decode_keyframe_ymode
+webp_vp8_decode_keyframe_ymode:
     PROLOGUE_SAVE rbx,r12
     mov rbx,rdi
     mov r12,rsi
@@ -38,7 +54,7 @@ webp_vp8_decode_keyframe_base_modes:
     test eax,eax
     js .modes_bad
     mov [r12+WebPVP8Modes.y_mode],eax ; DC=0, V=1
-    jmp .mode_uv
+    jmp .modes_ok
 .mode_h_tm:
     mov rdi,rbx
     mov esi,128
@@ -47,41 +63,57 @@ webp_vp8_decode_keyframe_base_modes:
     js .modes_bad
     add eax,2                         ; H=2, TM=3
     mov [r12+WebPVP8Modes.y_mode],eax
-    jmp .mode_uv
+    jmp .modes_ok
 .mode_bpred:
     mov dword [r12+WebPVP8Modes.y_mode],VP8_Y_MODE_B_PRED
-.mode_uv:
+.modes_ok:
+    xor eax,eax
+    EPILOGUE_RESTORE rbx,r12
+.modes_bad:
+    mov rax,-EINVAL
+    EPILOGUE_RESTORE rbx,r12
+
+; WebPBoolReader*,WebPVP8Modes* -> 0/-EINVAL. Key-frame chroma mode only.
+global webp_vp8_decode_keyframe_uvmode
+webp_vp8_decode_keyframe_uvmode:
+    PROLOGUE_SAVE rbx,r12
+    mov rbx,rdi
+    mov r12,rsi
+    test rbx,rbx
+    jz .uv_bad
+    test r12,r12
+    jz .uv_bad
     mov rdi,rbx
     mov esi,142
     call webp_bool_get
     test eax,eax
-    js .modes_bad
+    js .uv_bad
     test eax,eax
     jz .mode_uv_dc
     mov rdi,rbx
     mov esi,114
     call webp_bool_get
     test eax,eax
-    js .modes_bad
+    js .uv_bad
     test eax,eax
     jz .mode_uv_v
     mov rdi,rbx
     mov esi,183
     call webp_bool_get
     test eax,eax
-    js .modes_bad
+    js .uv_bad
     add eax,2                         ; H=2, TM=3
     mov [r12+WebPVP8Modes.uv_mode],eax
-    jmp .modes_ok
+    jmp .uv_ok
 .mode_uv_v:
     mov dword [r12+WebPVP8Modes.uv_mode],1
-    jmp .modes_ok
+    jmp .uv_ok
 .mode_uv_dc:
     mov dword [r12+WebPVP8Modes.uv_mode],0
-.modes_ok:
+.uv_ok:
     xor eax,eax
     EPILOGUE_RESTORE rbx,r12
-.modes_bad:
+.uv_bad:
     mov rax,-EINVAL
     EPILOGUE_RESTORE rbx,r12
 
@@ -268,9 +300,7 @@ webp_vp8_decode_mb_header:
 .mbh_skip:
     cmp dword [rsp],0
     jz .mbh_modes
-    mov ecx,[rsp+4]
-    cmp ecx,1
-    jb .mbh_bad
+    mov ecx,[rsp+4]                   ; prob_skip_false; 0 is legal
     cmp ecx,255
     ja .mbh_bad
     mov rdi,rbx
@@ -280,13 +310,14 @@ webp_vp8_decode_mb_header:
     js .mbh_bad
     mov [r15+WebPVP8MBHeader.skip_coeff],eax
 .mbh_modes:
+    ; RFC 6386 section 19.3 order: Y mode, B_PRED sub-block modes, chroma mode.
     mov rdi,rbx
     lea rsi,[r15+WebPVP8MBHeader.y_mode]
-    call webp_vp8_decode_keyframe_base_modes
+    call webp_vp8_decode_keyframe_ymode
     test eax,eax
     js .mbh_bad
     cmp dword [r15+WebPVP8MBHeader.y_mode],VP8_Y_MODE_B_PRED
-    jne .mbh_ok
+    jne .mbh_uv
     test r13,r13
     jz .mbh_bad
     test r14,r14
@@ -298,7 +329,12 @@ webp_vp8_decode_mb_header:
     call webp_vp8_decode_bpred_modes
     test eax,eax
     js .mbh_bad
-.mbh_ok:
+.mbh_uv:
+    mov rdi,rbx
+    lea rsi,[r15+WebPVP8MBHeader.y_mode]
+    call webp_vp8_decode_keyframe_uvmode
+    test eax,eax
+    js .mbh_bad
     xor eax,eax
     add rsp,16
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
