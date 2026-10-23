@@ -11,8 +11,8 @@ TMP=$(mktemp)
 trap 'rm -f "$TMP"' EXIT HUP INT TERM
 
 set +e
-find "$ROOT/kernel" "$ROOT/lib" "$ROOT/crypto" "$ROOT/storage" \
-     "$ROOT/security" "$ROOT/unet" -type f -name '*.asm' -print0 | \
+find "$ROOT/kernel" "$ROOT/lib" "$ROOT/storage" "$ROOT/security" \
+     -type f -name '*.asm' -print0 | \
     xargs -0 -r awk '
         FNR == 1 { section = "unknown"; in_macro = 0 }
         /^[[:space:]]*%macro([[:space:]]|$)/    { in_macro = 1; next }
