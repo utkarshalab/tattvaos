@@ -5,4 +5,4 @@
 Implements: PEG-style combinators, TOML parser, JSON parser,
 binary protocol frame parser for BXP.
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.
