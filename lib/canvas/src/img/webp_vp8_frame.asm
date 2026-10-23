@@ -30,21 +30,21 @@ extern webp_vp8_filter_frame
 %define F_HEADER     1720
 %define F_COEFFS     1752
 %define F_RENDER     2552
-%define F_RESIDUAL   2608
-%define F_YUV        2656
-%define F_PIXBUF     2712
-%define F_ABOVE_RES  2720
-%define F_ABOVE_MODE 2728
-%define F_MB_COLS    2736
-%define F_MB_ROWS    2740
-%define F_ROW        2744
-%define F_COL        2748
-%define F_SKIP       2752
-%define F_SKIP_PROB  2756
-%define F_LEFT_RES   2760
-%define F_LEFT_MODE  2776
-%define F_META       2784
-%define F_FILTER     2792
+%define F_RESIDUAL   2616
+%define F_YUV        2664
+%define F_PIXBUF     2720
+%define F_ABOVE_RES  2728
+%define F_ABOVE_MODE 2736
+%define F_MB_COLS    2744
+%define F_MB_ROWS    2748
+%define F_ROW        2752
+%define F_COL        2756
+%define F_SKIP       2760
+%define F_SKIP_PROB  2764
+%define F_LEFT_RES   2768              ; 9 used; row reset clears through F_LEFT_MODE
+%define F_LEFT_MODE  2784
+%define F_META       2792
+%define F_FILTER     2800
 %define F_SIZE       2864
 
 section .text
@@ -193,12 +193,9 @@ webp_vp8_decode:
     rep stosq
     mov dword [rsp+F_COL],0
 .column:
-    mov eax,[rsp+F_ROW]
-    mov ecx,[rsp+F_PARTS+WebPVP8Partitions.count]
-    dec ecx
-    and eax,ecx
-    shl eax,5
-    lea rdi,[rsp+F_READERS+rax]
+    ; Per-macroblock modes live in the first partition (RFC 6386 section 19.3);
+    ; only the residual tokens come from the row's token partition.
+    lea rdi,[rsp+F_FIRST]
     lea rsi,[rsp+F_CONFIG]
     mov edx,[rsp+F_SKIP]
     mov ecx,[rsp+F_SKIP_PROB]
@@ -242,18 +239,25 @@ webp_vp8_decode:
     js .bad
     jmp .render
 .zero_residual:
+    ; A skipped macroblock clears its non-zero contexts; the Y2 context is
+    ; only touched when the macroblock actually has a Y2 block (not B_PRED).
     lea rdi,[rsp+F_COEFFS]
     xor eax,eax
     mov ecx,100
     rep stosq
+    mov ecx,8
+    cmp dword [rsp+F_HEADER+WebPVP8MBHeader.y_mode],VP8_Y_MODE_B_PRED
+    je .zero_contexts
+    inc ecx
+.zero_contexts:
+    mov r8d,ecx
     mov edx,[rsp+F_COL]
     imul edx,9
     mov rdi,[rsp+F_ABOVE_RES]
     add rdi,rdx
-    mov ecx,9
     rep stosb
     lea rdi,[rsp+F_LEFT_RES]
-    mov ecx,9
+    mov ecx,r8d
     rep stosb
 .render:
     call .store_meta
@@ -289,6 +293,22 @@ webp_vp8_decode:
     mov [rdi+WebPVP8RenderMBState.y_stride],eax
     mov eax,[rsp+F_PLANES+WebPVP8FramePlanes.uv_stride]
     mov [rdi+WebPVP8RenderMBState.uv_stride],eax
+    xor eax,eax
+    cmp dword [rsp+F_COL],0
+    jne .flags_not_left
+    or eax,VP8_MB_LEFT_EDGE
+.flags_not_left:
+    cmp dword [rsp+F_ROW],0
+    jne .flags_not_top
+    or eax,VP8_MB_TOP_EDGE
+.flags_not_top:
+    mov edx,[rsp+F_COL]
+    inc edx
+    cmp edx,[rsp+F_MB_COLS]
+    jne .flags_ready
+    or eax,VP8_MB_RIGHT_EDGE
+.flags_ready:
+    mov [rdi+WebPVP8RenderMBState.mb_flags],eax
     call webp_vp8_render_macroblock
     test eax,eax
     js .bad
