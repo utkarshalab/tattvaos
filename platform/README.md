@@ -1,6 +1,6 @@
 # platform — Platform Support Category
 
-> Architecture-specific implementations for Tattva OS.
+> Architecture-specific implementations for Utkarsha OS.
 > One subdirectory per supported ISA.
 
 ---
