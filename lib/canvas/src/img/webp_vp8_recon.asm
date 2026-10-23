@@ -332,6 +332,7 @@ webp_vp8_alloc_frame_planes:
     add rdi,rcx
     dec edx
     jnz .planes_y_left
+    mov byte [r15],127                ; corner above the left border is top row
     mov eax,[r14+WebPVP8FramePlanes.coded_height]
     shr eax,1
     inc eax
@@ -360,6 +361,7 @@ webp_vp8_alloc_frame_planes:
     add rdi,rcx
     dec eax
     jnz .planes_u_left
+    mov byte [r12],127
     mov rdi,rbx
     mov rsi,[rsp+8]
     call arena_alloc
@@ -382,6 +384,7 @@ webp_vp8_alloc_frame_planes:
     add rdi,rcx
     dec eax
     jnz .planes_v_left
+    mov byte [r13],127
     xor eax,eax
     add rsp,32
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
@@ -394,20 +397,29 @@ webp_vp8_alloc_frame_planes:
     add rsp,32
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
 
-; WebPVP8RenderMBState* -> 0/-EINVAL. Dequantizes, predicts, and reconstructs.
+%define R_QUANT     0                 ; WebPVP8QuantFactors
+%define R_EDGE      16                ; top-left, above[4], above-right[4]
+%define R_LEFT      32                ; left column, up to 16 pixels
+%define R_TOPRIGHT  48                ; 4 pixels above-right of the macroblock
+%define R_INDEX     52
+%define R_PLANE     56
+%define R_SIZE      64
+
+; WebPVP8RenderMBState* -> 0/-EINVAL. Dequantizes, then predicts and adds the
+; residual block by block (RFC 6386 section 12). B_PRED sub-blocks predict from
+; already reconstructed neighbours, so their prediction and residual interleave.
 global webp_vp8_render_macroblock
 webp_vp8_render_macroblock:
     PROLOGUE_SAVE rbx,r12,r13,r14,r15
-    sub rsp,112
+    sub rsp,R_SIZE
     mov rbx,rdi
     test rbx,rbx
     jz .render_bad
-    mov r12,[rbx+WebPVP8RenderMBState.config]
     mov r13,[rbx+WebPVP8RenderMBState.header]
     mov r14,[rbx+WebPVP8RenderMBState.coeffs]
     mov r15,[rbx+WebPVP8RenderMBState.y]
-    test r12,r12
-    jz .render_bad
+    cmp qword [rbx+WebPVP8RenderMBState.config],0
+    je .render_bad
     test r13,r13
     jz .render_bad
     test r14,r14
@@ -418,53 +430,248 @@ webp_vp8_render_macroblock:
     je .render_bad
     cmp qword [rbx+WebPVP8RenderMBState.v],0
     je .render_bad
-    mov rdi,r12
+    cmp dword [rbx+WebPVP8RenderMBState.y_stride],16
+    jb .render_bad
+    cmp dword [rbx+WebPVP8RenderMBState.uv_stride],8
+    jb .render_bad
+    mov rdi,[rbx+WebPVP8RenderMBState.config]
     mov esi,[r13+WebPVP8MBHeader.segment_id]
-    lea rdx,[rsp]
+    lea rdx,[rsp+R_QUANT]
     call webp_vp8_quant_factors
     test eax,eax
     js .render_bad
     mov rdi,r14
-    lea rsi,[rsp]
+    lea rsi,[rsp+R_QUANT]
     mov edx,[r13+WebPVP8MBHeader.y_mode]
     call webp_vp8_dequant_macroblock
     test eax,eax
     js .render_bad
-    lea rdi,[rsp+16]
-    mov [rdi+WebPVP8PredictMBState.y],r15
-    mov rax,[rbx+WebPVP8RenderMBState.u]
-    mov [rdi+WebPVP8PredictMBState.u],rax
-    mov rax,[rbx+WebPVP8RenderMBState.v]
-    mov [rdi+WebPVP8PredictMBState.v],rax
-    mov [rdi+WebPVP8PredictMBState.header],r13
-    mov eax,[rbx+WebPVP8RenderMBState.y_stride]
-    mov [rdi+WebPVP8PredictMBState.y_stride],eax
-    mov eax,[rbx+WebPVP8RenderMBState.uv_stride]
-    mov [rdi+WebPVP8PredictMBState.uv_stride],eax
-    call webp_vp8_predict_macroblock
+    mov r12d,[rbx+WebPVP8RenderMBState.y_stride]
+    cmp dword [r13+WebPVP8MBHeader.y_mode],VP8_Y_MODE_B_PRED
+    je .render_bpred
+
+    ; 16x16 luma: predict the whole block, then add the 16 residuals.
+    xor ecx,ecx
+.luma_left:
+    mov eax,ecx
+    imul eax,r12d
+    mov al,[r15+rax-1]
+    mov [rsp+R_LEFT+rcx],al
+    inc ecx
+    cmp ecx,16
+    jb .luma_left
+    mov eax,[r13+WebPVP8MBHeader.y_mode]
+    call .dc_variant
+    mov r9d,eax
+    mov rdi,r15
+    mov esi,r12d
+    mov rdx,r15
+    sub rdx,r12
+    lea rcx,[rsp+R_LEFT]
+    mov r8d,16
+    movzx eax,byte [rdx-1]
+    push rax
+    call webp_vp8_predict_block
+    add rsp,8
     test eax,eax
     js .render_bad
-    lea rdi,[rsp+64]
-    mov [rdi+WebPVP8ReconstructState.y],r15
-    mov rax,[rbx+WebPVP8RenderMBState.u]
-    mov [rdi+WebPVP8ReconstructState.u],rax
-    mov rax,[rbx+WebPVP8RenderMBState.v]
-    mov [rdi+WebPVP8ReconstructState.v],rax
-    mov [rdi+WebPVP8ReconstructState.coeffs],r14
-    mov eax,[rbx+WebPVP8RenderMBState.y_stride]
-    mov [rdi+WebPVP8ReconstructState.y_stride],eax
-    mov eax,[rbx+WebPVP8RenderMBState.uv_stride]
-    mov [rdi+WebPVP8ReconstructState.uv_stride],eax
-    call webp_vp8_reconstruct_macroblock
+    mov dword [rsp+R_INDEX],0
+.luma_residual:
+    call .luma_block_dst
+    mov esi,r12d
+    mov edx,[rsp+R_INDEX]
+    shl rdx,5
+    add rdx,r14
+    call vp8_residual4x4
+    inc dword [rsp+R_INDEX]
+    cmp dword [rsp+R_INDEX],16
+    jb .luma_residual
+    jmp .render_chroma
+
+    ; B_PRED: sub-blocks in raster order, each predicted then reconstructed.
+.render_bpred:
+    mov eax,0x7f7f7f7f                ; above the frame: 127
+    test dword [rbx+WebPVP8RenderMBState.mb_flags],VP8_MB_TOP_EDGE
+    jnz .topright_ready
+    mov rdx,r15
+    sub rdx,r12
+    test dword [rbx+WebPVP8RenderMBState.mb_flags],VP8_MB_RIGHT_EDGE
+    jnz .topright_replicate
+    mov eax,[rdx+16]                  ; bottom row of the above-right macroblock
+    jmp .topright_ready
+.topright_replicate:
+    movzx eax,byte [rdx+15]           ; rightmost: repeat the last above pixel
+    imul eax,0x01010101
+.topright_ready:
+    mov [rsp+R_TOPRIGHT],eax
+    mov dword [rsp+R_INDEX],0
+.bpred_block:
+    call .luma_block_dst
+    mov rdx,rdi
+    sub rdx,r12
+    mov al,[rdx-1]
+    mov [rsp+R_EDGE],al
+    mov eax,[rdx]
+    mov [rsp+R_EDGE+1],eax
+    mov eax,[rsp+R_INDEX]
+    and eax,3
+    cmp eax,3
+    je .bpred_right_column
+    mov eax,[rdx+4]
+    jmp .bpred_above_right
+.bpred_right_column:
+    mov eax,[rsp+R_TOPRIGHT]          ; right column always uses the MB's top-right
+.bpred_above_right:
+    mov [rsp+R_EDGE+5],eax
+    xor ecx,ecx
+.bpred_left:
+    mov eax,ecx
+    imul eax,r12d
+    mov al,[rdi+rax-1]
+    mov [rsp+R_LEFT+rcx],al
+    inc ecx
+    cmp ecx,4
+    jb .bpred_left
+    mov esi,r12d
+    lea rdx,[rsp+R_EDGE+1]
+    lea rcx,[rsp+R_LEFT]
+    mov eax,[rsp+R_INDEX]
+    movzx r8d,byte [r13+WebPVP8MBHeader.b_modes+rax]
+    push rdi
+    sub rsp,8
+    call webp_vp8_predict4x4
+    add rsp,8
+    pop rdi
     test eax,eax
     js .render_bad
+    mov esi,r12d
+    mov edx,[rsp+R_INDEX]
+    shl rdx,5
+    add rdx,r14
+    call vp8_residual4x4
+    inc dword [rsp+R_INDEX]
+    cmp dword [rsp+R_INDEX],16
+    jb .bpred_block
+
+    ; Chroma: each 8x8 plane predicted as a whole, then four residuals.
+.render_chroma:
+    mov r12d,[rbx+WebPVP8RenderMBState.uv_stride]
+    mov rax,[rbx+WebPVP8RenderMBState.u]
+    mov [rsp+R_PLANE],rax
+    mov dword [rsp+R_INDEX],16
+.chroma_plane:
+    mov rdi,[rsp+R_PLANE]
+    xor ecx,ecx
+.chroma_left:
+    mov eax,ecx
+    imul eax,r12d
+    mov al,[rdi+rax-1]
+    mov [rsp+R_LEFT+rcx],al
+    inc ecx
+    cmp ecx,8
+    jb .chroma_left
+    mov eax,[r13+WebPVP8MBHeader.uv_mode]
+    call .dc_variant
+    mov r9d,eax
+    mov rdi,[rsp+R_PLANE]
+    mov esi,r12d
+    mov rdx,rdi
+    sub rdx,r12
+    lea rcx,[rsp+R_LEFT]
+    mov r8d,8
+    movzx eax,byte [rdx-1]
+    push rax
+    call webp_vp8_predict_block
+    add rsp,8
+    test eax,eax
+    js .render_bad
+.chroma_residual:
+    mov eax,[rsp+R_INDEX]
+    sub eax,16
+    and eax,3                         ; block within this plane
+    mov edx,eax
+    and edx,1
+    shl edx,2                         ; x offset
+    shr eax,1
+    shl eax,2
+    imul eax,r12d                     ; y offset
+    add eax,edx
+    mov rdi,[rsp+R_PLANE]
+    add rdi,rax
+    mov esi,r12d
+    mov edx,[rsp+R_INDEX]
+    shl rdx,5
+    add rdx,r14
+    call vp8_residual4x4
+    inc dword [rsp+R_INDEX]
+    mov eax,[rsp+R_INDEX]
+    cmp eax,20
+    je .chroma_v
+    cmp eax,24
+    jb .chroma_residual
     xor eax,eax
-    add rsp,112
+    add rsp,R_SIZE
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+.chroma_v:
+    mov rax,[rbx+WebPVP8RenderMBState.v]
+    mov [rsp+R_PLANE],rax
+    jmp .chroma_plane
 .render_bad:
     mov rax,-EINVAL
-    add rsp,112
+    add rsp,R_SIZE
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+
+; rdi = luma destination of sub-block [R_INDEX] (caller frame, +8 for return).
+.luma_block_dst:
+    mov eax,[rsp+8+R_INDEX]
+    mov edx,eax
+    and edx,3
+    shl edx,2
+    shr eax,2
+    shl eax,2
+    imul eax,r12d
+    add eax,edx
+    lea rdi,[r15+rax]
+    ret
+
+; eax = 16x16/chroma mode -> eax with DC replaced by its frame-edge variant
+; (RFC 6386 section 12.2: missing edges are left out of the DC average).
+.dc_variant:
+    test eax,eax
+    jnz .dc_variant_done
+    mov edx,[rbx+WebPVP8RenderMBState.mb_flags]
+    and edx,VP8_MB_LEFT_EDGE|VP8_MB_TOP_EDGE
+    jz .dc_variant_done
+    mov eax,VP8_PRED_DC_NO_TOP_LEFT
+    cmp edx,VP8_MB_LEFT_EDGE|VP8_MB_TOP_EDGE
+    je .dc_variant_done
+    mov eax,VP8_PRED_DC_NO_TOP
+    cmp edx,VP8_MB_TOP_EDGE
+    je .dc_variant_done
+    mov eax,VP8_PRED_DC_NO_LEFT
+.dc_variant_done:
+    ret
+
+; dst,stride,dequantized coeffs[16] -> inverse DCT added onto dst in place.
+vp8_residual4x4:
+    PROLOGUE_SAVE rbx,r12
+    sub rsp,32
+    mov rbx,rdi
+    mov r12d,esi
+    mov rdi,rdx
+    mov rsi,rsp
+    call webp_vp8_idct4x4
+    test eax,eax
+    js .residual_done
+    mov rdi,rbx
+    mov esi,r12d
+    mov rdx,rbx
+    mov ecx,r12d
+    mov r8,rsp
+    call webp_vp8_add_block
+.residual_done:
+    add rsp,32
+    EPILOGUE_RESTORE rbx,r12
 
 ; input[16] int16,output[16] int16.
 global webp_vp8_idct4x4
@@ -636,7 +843,8 @@ webp_vp8_add_block:
     ret
 
 ; dst,stride,above,left,size,mode,top_left -> 0/-EINVAL.
-; Interior VP8 predictors: mode 0=DC, 1=vertical, 2=horizontal, 3=true-motion.
+; Mode 0=DC, 1=vertical, 2=horizontal, 3=true-motion, plus the frame-edge DC
+; variants VP8_PRED_DC_NO_TOP/NO_LEFT/NO_TOP_LEFT (left only, top only, 128).
 global webp_vp8_predict_block
 webp_vp8_predict_block:
     mov r11d,[rsp+8]
@@ -661,7 +869,7 @@ webp_vp8_predict_block:
     cmp r15d,16
     jne .predict_bad
 .predict_size_ok:
-    cmp r9d,3
+    cmp r9d,VP8_PRED_DC_NO_TOP_LEFT
     ja .predict_bad
     test r9d,r9d
     jz .predict_dc
@@ -669,6 +877,8 @@ webp_vp8_predict_block:
     je .predict_vertical
     cmp r9d,2
     je .predict_horizontal
+    cmp r9d,VP8_PRED_DC_NO_TOP
+    jae .predict_dc_edge
     xor r8d,r8d
 .predict_tm_row:
     xor r10d,r10d
@@ -708,6 +918,31 @@ webp_vp8_predict_block:
     xor edx,edx
     div ecx
     mov edx,eax
+    jmp .predict_dc_fill
+.predict_dc_edge:
+    mov edx,128
+    cmp r9d,VP8_PRED_DC_NO_TOP_LEFT
+    je .predict_dc_fill
+    mov rcx,r14                       ; no top: average the left column
+    cmp r9d,VP8_PRED_DC_NO_TOP
+    je .predict_dc_side
+    mov rcx,r13                       ; no left: average the top row
+.predict_dc_side:
+    xor eax,eax
+    xor r8d,r8d
+.predict_dc_side_sum:
+    movzx edx,byte [rcx+r8]
+    add eax,edx
+    inc r8d
+    cmp r8d,r15d
+    jb .predict_dc_side_sum
+    mov edx,r15d
+    shr edx,1
+    add eax,edx
+    xor edx,edx
+    div r15d
+    mov edx,eax
+.predict_dc_fill:
     xor r8d,r8d
 .predict_dc_row:
     xor r10d,r10d
@@ -1010,113 +1245,202 @@ vp8_diagonal_desc:
 
 section .text
 
-; WebPYUVState* -> 0/-EINVAL. Converts limited-range BT.601 YUV420.
+; WebPYUVState* -> 0/-EINVAL. YUV420 -> BGRA with bilinear ("fancy") chroma
+; upsampling and the 14-bit fixed-point BT.601 conversion of the WebP
+; reference decoder, so lossy output matches it bit for bit. Output rows are
+; produced in the reference order: row 0 alone, then pairs (2k-1, 2k) between
+; chroma rows k-1 and k, then the last row of an even-height image alone.
 global webp_vp8_yuv420_to_bgra
 webp_vp8_yuv420_to_bgra:
-    PROLOGUE_SAVE rbx,r12,r13,r14,r15
-    sub rsp,16
+    PROLOGUE_SAVE rbx,r12,r13
     mov rbx,rdi
     test rbx,rbx
     jz .yuv_bad
-    mov r12,[rbx+WebPYUVState.y]
-    mov r13,[rbx+WebPYUVState.u]
-    mov r14,[rbx+WebPYUVState.v]
-    mov r15,[rbx+WebPYUVState.output]
-    test r12,r12
-    jz .yuv_bad
-    test r13,r13
-    jz .yuv_bad
-    test r14,r14
-    jz .yuv_bad
-    test r15,r15
-    jz .yuv_bad
+    cmp qword [rbx+WebPYUVState.y],0
+    je .yuv_bad
+    cmp qword [rbx+WebPYUVState.u],0
+    je .yuv_bad
+    cmp qword [rbx+WebPYUVState.v],0
+    je .yuv_bad
+    cmp qword [rbx+WebPYUVState.output],0
+    je .yuv_bad
     cmp dword [rbx+WebPYUVState.width],0
     je .yuv_bad
     cmp dword [rbx+WebPYUVState.height],0
     je .yuv_bad
-    mov dword [rsp],0
-.yuv_row:
-    mov eax,[rsp]
-    cmp eax,[rbx+WebPYUVState.height]
-    jae .yuv_done
-    mov dword [rsp+4],0
-.yuv_pixel:
-    mov eax,[rsp+4]
-    cmp eax,[rbx+WebPYUVState.width]
-    jae .yuv_next_row
-    mov edx,[rsp]
-    imul edx,[rbx+WebPYUVState.y_stride]
-    add edx,eax
-    movzx ecx,byte [r12+rdx]
-    sub ecx,16                         ; C
-    jns .c_ready
+    mov rdi,rbx
+    xor esi,esi                       ; row 0: chroma row 0 on both sides
+    xor edx,edx
     xor ecx,ecx
-.c_ready:
-    mov edx,[rsp]
-    shr edx,1
-    imul edx,[rbx+WebPYUVState.uv_stride]
-    mov eax,[rsp+4]
-    shr eax,1
-    add edx,eax
-    movzx eax,byte [r13+rdx]
-    sub eax,128                        ; D
-    mov [rsp+8],eax
-    movzx edx,byte [r14+rdx]
-    sub edx,128                        ; E
-    mov [rsp+12],edx
-    imul ecx,298
-    mov eax,[rsp+12]
-    imul eax,409
-    lea eax,[rcx+rax+128]
-    sar eax,8
-    call .clamp
-    mov r8d,eax                        ; R
-    mov eax,[rsp+8]
-    imul eax,-100
-    mov edx,[rsp+12]
-    imul edx,-208
-    add eax,edx
-    lea eax,[rcx+rax+128]
-    sar eax,8
-    call .clamp
-    mov r9d,eax                        ; G
-    mov eax,[rsp+8]
-    imul eax,516
-    lea eax,[rcx+rax+128]
-    sar eax,8
-    call .clamp
-    mov edx,[rsp]
-    imul edx,[rbx+WebPYUVState.output_stride]
-    mov ecx,[rsp+4]
-    lea rdx,[r15+rdx]
-    shl ecx,2
-    mov byte [rdx+rcx],al
-    mov byte [rdx+rcx+1],r9b
-    mov byte [rdx+rcx+2],r8b
-    mov byte [rdx+rcx+3],0xff
-    inc dword [rsp+4]
-    jmp .yuv_pixel
-.yuv_next_row:
-    inc dword [rsp]
-    jmp .yuv_row
+    call vp8_fancy_row
+    xor r12d,r12d                     ; y
+    xor r13d,r13d                     ; k (chroma row)
+.yuv_pair:
+    lea eax,[r12+2]
+    cmp eax,[rbx+WebPYUVState.height]
+    jae .yuv_tail
+    mov rdi,rbx
+    lea esi,[r12+1]                   ; upper row of the pair leans on chroma k
+    mov edx,r13d
+    lea ecx,[r13+1]
+    call vp8_fancy_row
+    mov rdi,rbx
+    lea esi,[r12+2]                   ; lower row leans on chroma k+1
+    lea edx,[r13+1]
+    mov ecx,r13d
+    call vp8_fancy_row
+    add r12d,2
+    inc r13d
+    jmp .yuv_pair
+.yuv_tail:
+    test dword [rbx+WebPYUVState.height],1
+    jnz .yuv_done
+    mov rdi,rbx
+    mov esi,[rbx+WebPYUVState.height]
+    dec esi
+    mov edx,r13d
+    mov ecx,r13d
+    call vp8_fancy_row
 .yuv_done:
     xor eax,eax
-    add rsp,16
-    EPILOGUE_RESTORE rbx,r12,r13,r14,r15
+    EPILOGUE_RESTORE rbx,r12,r13
 .yuv_bad:
     mov rax,-EINVAL
-    add rsp,16
+    EPILOGUE_RESTORE rbx,r12,r13
+
+; state,output row,near chroma row (weight 3),far chroma row (weight 1).
+vp8_fancy_row:
+    PROLOGUE_SAVE rbx,r12,r13,r14,r15
+    sub rsp,48
+    mov rbx,rdi
+    mov eax,esi
+    imul eax,[rbx+WebPYUVState.y_stride]
+    mov r12,[rbx+WebPYUVState.y]
+    add r12,rax                       ; luma row
+    mov eax,esi
+    imul eax,[rbx+WebPYUVState.output_stride]
+    mov r13,[rbx+WebPYUVState.output]
+    add r13,rax                       ; destination row
+    mov eax,edx
+    imul eax,[rbx+WebPYUVState.uv_stride]
+    mov r8,[rbx+WebPYUVState.u]
+    add r8,rax
+    mov [rsp],r8                      ; near U
+    mov r8,[rbx+WebPYUVState.v]
+    add r8,rax
+    mov [rsp+8],r8                    ; near V
+    mov eax,ecx
+    imul eax,[rbx+WebPYUVState.uv_stride]
+    mov r8,[rbx+WebPYUVState.u]
+    add r8,rax
+    mov [rsp+16],r8                   ; far U
+    mov r8,[rbx+WebPYUVState.v]
+    add r8,rax
+    mov [rsp+24],r8                   ; far V
+    mov r15d,[rbx+WebPYUVState.width]
+    xor r14d,r14d
+.row_pixel:
+    mov rdi,[rsp]
+    mov rsi,[rsp+16]
+    mov edx,r14d
+    mov ecx,r15d
+    call vp8_fancy_chroma
+    mov [rsp+32],eax                  ; u
+    mov rdi,[rsp+8]
+    mov rsi,[rsp+24]
+    mov edx,r14d
+    mov ecx,r15d
+    call vp8_fancy_chroma
+    mov r9d,eax                       ; v
+    movzx eax,byte [r12+r14]
+    imul eax,19077
+    shr eax,8
+    mov r10d,eax                      ; MultHi(y, 19077)
+    mov r11d,[rsp+32]
+    imul ecx,r11d,33050
+    shr ecx,8
+    lea eax,[r10+rcx-17685]           ; B
+    call vp8_clip8
+    mov [r13+r14*4],al
+    imul ecx,r11d,6419
+    shr ecx,8
+    imul edx,r9d,13320
+    shr edx,8
+    mov eax,r10d
+    sub eax,ecx
+    sub eax,edx
+    add eax,8708                      ; G
+    call vp8_clip8
+    mov [r13+r14*4+1],al
+    imul ecx,r9d,26149
+    shr ecx,8
+    lea eax,[r10+rcx-14234]           ; R
+    call vp8_clip8
+    mov [r13+r14*4+2],al
+    mov byte [r13+r14*4+3],0xff
+    inc r14d
+    cmp r14d,r15d
+    jb .row_pixel
+    add rsp,48
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
-.clamp:
-    test eax,eax
-    jns .clamp_high
-    xor eax,eax
+
+; eax (6 fractional bits) -> eax clamped to 0..255.
+vp8_clip8:
+    test eax,~((256 << 6) - 1)
+    jnz .clip_out
+    shr eax,6
     ret
-.clamp_high:
-    cmp eax,255
-    jbe .clamp_done
-    mov eax,255
-.clamp_done:
+.clip_out:
+    sar eax,31
+    not eax
+    and eax,255                       ; negative -> 0, overflow -> 255
+    ret
+
+; near row,far row,x,len -> upsampled chroma for output pixel x.
+vp8_fancy_chroma:
+    test edx,edx
+    jz .chroma_first
+    test cl,1
+    jnz .chroma_pair
+    lea eax,[rcx-1]
+    cmp edx,eax
+    jne .chroma_pair
+    shr eax,1                         ; even width: last pixel uses sample (len-1)/2
+    mov r8d,eax
+    jmp .chroma_edge
+.chroma_first:
+    xor r8d,r8d
+.chroma_edge:
+    movzx eax,byte [rdi+r8]
+    lea eax,[rax+rax*2]
+    movzx ecx,byte [rsi+r8]
+    lea eax,[rax+rcx+2]
+    shr eax,2                         ; (3*near + far + 2) >> 2
+    ret
+.chroma_pair:
+    lea r8d,[rdx+1]
+    shr r8d,1                         ; sample pair (i-1, i) for x = 2i-1 / 2i
+    movzx eax,byte [rdi+r8-1]         ; tl
+    movzx r9d,byte [rdi+r8]           ; t
+    movzx r10d,byte [rsi+r8-1]        ; l
+    movzx r11d,byte [rsi+r8]          ; c
+    lea ecx,[rax+r9+8]
+    add ecx,r10d
+    add ecx,r11d                      ; avg = tl + t + l + c + 8
+    test dl,1
+    jz .chroma_even
+    lea edx,[r9+r10]
+    lea ecx,[rcx+rdx*2]
+    shr ecx,3                         ; diag_12
+    add eax,ecx
+    shr eax,1                         ; (diag_12 + tl) >> 1
+    ret
+.chroma_even:
+    lea edx,[rax+r11]
+    lea ecx,[rcx+rdx*2]
+    shr ecx,3                         ; diag_03
+    lea eax,[rcx+r9]
+    shr eax,1                         ; (diag_03 + t) >> 1
     ret
 
 section .data
