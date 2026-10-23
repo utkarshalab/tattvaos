@@ -1,6 +1,6 @@
-# vertex-agent — CRI Runtime on Tattva OS
+# vertex-agent — CRI Runtime on Utkarsha OS
 
-> The CRI (Container Runtime Interface) shim translating kubelet gRPC calls → Tattva OS primitives (fibers, capabilities, unet, uxfs).
+> The CRI (Container Runtime Interface) shim translating kubelet gRPC calls → Utkarsha OS primitives (fibers, capabilities, unet, uxfs).
 
 ---
 
@@ -21,9 +21,9 @@ kubelet (on node) ──CRI gRPC (port 10010)──► vertex-agent (app/vertex-
 
 ---
 
-## 2. Tattva Primitives Mapping
+## 2. Utkarsha Primitives Mapping
 
-| CRI Concept | Tattva Implementation |
+| CRI Concept | Utkarsha Implementation |
 |-------------|----------------------|
 | **Pod Sandbox** | Fiber group: pause fiber (PID 1 of pod) holds shared `netns` + `ipcns`; child fibers = containers |
 | **Container** | Fiber with attenuated `usrauth` capabilities, private VFS mount namespace (overlayfs) |
@@ -294,7 +294,7 @@ upm install keep/upd/vertex-agent-<ver>.upk
 | Test | Method |
 |------|--------|
 | **CRI conformance** | `critest` (upstream) against running vertex-agent |
-| **K8s e2e** | `kubetest` with Tattva node image |
+| **K8s e2e** | `kubetest` with Utkarsha node image |
 | **Security** | `usrauth` test suite + capability attenuation fuzzing |
 | **Performance** | `umark` benchmarks: pod startup latency, image pull throughput, exec latency |
 | **Chaos** | `ufuzz` on gRPC parser, OCI parser, overlayfs mount paths |
@@ -310,7 +310,7 @@ upm install keep/upd/vertex-agent-<ver>.upk
 
 ---
 
-## 15. Dependencies (Must Exist in Tattva)
+## 15. Dependencies (Must Exist in Utkarsha)
 
 | Module | Status | Notes |
 |--------|--------|-------|

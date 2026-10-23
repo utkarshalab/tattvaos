@@ -3,7 +3,7 @@
 ; =============================================================================
 ; vertex-agent — OCI Image Spec Parser / Translator
 ; =============================================================================
-; Parses OCI manifests, converts to .upk format for Tattva
+; Parses OCI manifests, converts to .upk format for Utkarsha
 ; =============================================================================
 
 [BITS 64]

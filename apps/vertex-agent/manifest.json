@@ -1,7 +1,7 @@
 {
   "name": "vertex-agent",
   "version": "0.1.0",
-  "description": "CRI Runtime for Tattva OS — translates kubelet gRPC to Tattva primitives",
+  "description": "CRI Runtime for Utkarsha OS — translates kubelet gRPC to Utkarsha primitives",
   "main": "main",
   "capabilities": [
     "net:bind:port=10010",

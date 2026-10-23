@@ -331,7 +331,7 @@ section .data
 align 8
 netns_map:              dq 0
 
-node_bridge_name:       db "tattva0", 0
+node_bridge_name:       db "utkarsha0", 0
 pod_netmask:            dd 0xFFFFFF00     ; /24
 pod_gateway:            dd 0x0A000001     ; 10.0.0.1
 

@@ -2,11 +2,11 @@
 
 ## Build System Integration
 
-vertex-agent is an `app/` in Tattva OS, built with **utasm** and packaged as `.upk`.
+vertex-agent is an `app/` in Utkarsha OS, built with **utasm** and packaged as `.upk`.
 
 ### Prerequisites
 
-All dependencies must exist in Tattva source tree:
+All dependencies must exist in Utkarsha source tree:
 
 | Module | Path | Status |
 |--------|------|--------|
@@ -29,7 +29,7 @@ All dependencies must exist in Tattva source tree:
 ### 1. Build with utasm
 
 ```bash
-# From Tattva root
+# From Utkarsha root
 cd apps/vertex-agent
 
 # Assemble main + all libs
@@ -65,7 +65,7 @@ upm pack apps/vertex-agent/ \
 ### 3. Install on Node
 
 ```bash
-# On target node (running Tattva OS)
+# On target node (running Utkarsha OS)
 upm install keep/upd/vertex-agent-0.1.0.upk
 
 # Verifies signature, installs to app/vertex-agent/
@@ -74,7 +74,7 @@ upm install keep/upd/vertex-agent-0.1.0.upk
 
 ---
 
-## Integration with Tattva OS Build
+## Integration with Utkarsha OS Build
 
 ### Add to PROJECTSTRUCTURE.md (apps/ section)
 
@@ -216,7 +216,7 @@ critest --runtime-endpoint unix:///run/vertex-agent/cri.sock \
 ### K8s E2E
 
 ```bash
-# With Tattva node image
+# With Utkarsha node image
 kubetest --provider=skeleton \
   --kubectl-path=/usr/bin/kubectl \
   --kubeconfig=/etc/kubernetes/kubelet.conf \
@@ -252,7 +252,7 @@ cd apps/vertex-agent
 ### 3. Test in QEMU
 
 ```bash
-# Build Tattva OS with vertex-agent
+# Build Utkarsha OS with vertex-agent
 make -C ../../.. node-image
 
 # Boot in QEMU
@@ -287,10 +287,10 @@ cat /keep/log/app/vertex-agent/stdout.log
 
 ## Future: Native Build
 
-Once utasm is self-hosting (Gen1+), build entirely within Tattva:
+Once utasm is self-hosting (Gen1+), build entirely within Utkarsha:
 
 ```bash
-# On Tattva node
+# On Utkarsha node
 utasm apps/vertex-agent/main.asm -o /tmp/vertex-agent
 upm pack apps/vertex-agent/ -o /tmp/vertex-agent.upk
 upm install /tmp/vertex-agent.upk

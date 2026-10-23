@@ -32,7 +32,7 @@ gc_low_threshold = 70     # % disk usage to stop GC
 
 [sandbox]
 # Pod sandbox settings
-pause_image = "tattva.io/pause:latest"
+pause_image = "utkarshaos.com/pause:latest"
 
 # Pod CIDR (overridden by node config)
 pod_cidr = "10.244.0.0/16"
@@ -48,8 +48,8 @@ default_cpu_quota_ns = 100000000    # 100ms period
 default_memory_limit = "512Mi"
 
 # Runtime settings
-default_runtime = "tattva"
-runtimes = { tattva = { path = "" } }
+default_runtime = "utkarsha"
+runtimes = { utkarsha = { path = "" } }
 
 # Log settings
 log_driver = "ulog"
@@ -101,7 +101,7 @@ default_caps = [
     "sched:cpu_quota"
 ]
 
-# Seccomp (not used in Tattva, kept for compat)
+# Seccomp (not used in Utkarsha, kept for compat)
 seccomp_profile = "runtime/default"
 
 [debug]

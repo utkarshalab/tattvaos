@@ -3,7 +3,7 @@
 ; =============================================================================
 ; vertex-agent — CRI Runtime Main Entry Point
 ; =============================================================================
-; Translates kubelet CRI gRPC calls → Tattva OS primitives
+; Translates kubelet CRI gRPC calls → Utkarsha OS primitives
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
