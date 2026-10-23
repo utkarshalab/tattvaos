@@ -2,7 +2,7 @@
 
 > **Zero Trust** — "Never trust, always verify." Continuous authentication,
 > micro-segmentation, and least-privilege access enforcement for all access
-> requests in Tattva OS.
+> requests in Utkarsha OS.
 >
 > Zero Trust sits **on top of** `security/usrauth/` (the reference monitor
 > intersection model) and adds runtime context: dynamic policies, short-lived

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/zero_trust/tests/test_zero_trust.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Zero Trust premium skeleton test.
 ;              Validates that all 8 component .asm files exist, assemble
 ;              independently, and export the required enterprise contract

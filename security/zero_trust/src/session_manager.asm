@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/zero_trust/src/session_manager.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Zero Trust Session Manager - session lifecycle storage and

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/zero_trust/src/posture_checker.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Zero Trust Device Posture Checker - verifies device health

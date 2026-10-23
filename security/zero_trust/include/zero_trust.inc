@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/zero_trust/include/zero_trust.inc
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Zero Trust Architecture - master schema header.

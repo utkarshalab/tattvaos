@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/zero_trust/src/policy_administrator.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Zero Trust Policy Administrator - establishes and tears down
