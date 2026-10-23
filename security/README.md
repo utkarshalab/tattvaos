@@ -1,6 +1,6 @@
-# security/ — Tattva OS Enterprise Security Stack
+# security/ — Utkarsha OS Enterprise Security Stack
 
-> Enterprise-grade security subsystem for Tattva OS. Identity, threat
+> Enterprise-grade security subsystem for Utkarsha OS. Identity, threat
 > detection, prevention, response, forensics, compliance, and zero trust — all
 > implemented as NASM (x86-64) skeleton modules with detailed design
 > documentation. Implementation is intentional-stub: every module compiles and

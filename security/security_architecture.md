@@ -1,6 +1,6 @@
-# security/ — Tattva OS Security Architecture
+# security/ — Utkarsha OS Security Architecture
 
-> Complete security architecture for Tattva OS — identity, threat detection,
+> Complete security architecture for Utkarsha OS — identity, threat detection,
 > prevention, response, cryptography, and compliance.
 
 ---

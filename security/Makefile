@@ -1,4 +1,4 @@
-# security/ — Tattva OS Enterprise Security Stack — Root Build
+# security/ — Utkarsha OS Enterprise Security Stack — Root Build
 
 # Top-level Makefile that builds and tests every security module.
 # Usage:
@@ -54,7 +54,7 @@ clean:
 	rm -rf bin/* build/*
 
 help:
-	@echo "Tattva OS Security Stack — Root Makefile"
+	@echo "Utkarsha OS Security Stack — Root Makefile"
 	@echo ""
 	@echo "Targets:"
 	@echo "  all            Build all modules"

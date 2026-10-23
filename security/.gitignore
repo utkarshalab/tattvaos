@@ -1,4 +1,4 @@
-# security/ — Tattva OS Enterprise Security Stack
+# security/ — Utkarsha OS Enterprise Security Stack
 # Root .gitignore — ignore build outputs across all modules
 
 /bin/
