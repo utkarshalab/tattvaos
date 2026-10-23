@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/unuma/distance.asm
+; Utkarsha OS — lib/hw/unuma/distance.asm
 ; =============================================================================
 ; CPU-granularity distance queries. Wraps lib/mem/numa's numa_get_distance
 ; (SLIT-derived node-to-node matrix) with unuma_node_of_cpu's real

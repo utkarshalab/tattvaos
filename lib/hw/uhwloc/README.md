@@ -18,4 +18,4 @@ than the fixed-table parsers (SRAT/SLIT/HMAT) everything else in
 `lib/hw` is. `uhwloc` combines what the other subsystems already expose;
 it doesn't add new discovery of its own.
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.

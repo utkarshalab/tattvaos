@@ -1,6 +1,6 @@
 # lib/hw/ucpu — CPU Hardware Layer
 
-> CPU topology, feature detection, and cache-control access for Tattva OS.
+> CPU topology, feature detection, and cache-control access for Utkarsha OS.
 
 | File | Covers |
 |---|---|
@@ -23,4 +23,4 @@ parts where distinct clusters within a package have separate LLCs. Fixing
 that needs the leaf 0x1F Module/Tile levels, which `topology.asm` doesn't
 currently decode (it stops at SMT/Core/Package).
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.

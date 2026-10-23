@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/ucpu/pinning.asm
+; Utkarsha OS — lib/hw/ucpu/pinning.asm
 ; =============================================================================
 ; Topology-aware core selection: SMT sibling queries, LLC-domain grouping,
 ; and affinity-mask construction — built on the decode table populated by

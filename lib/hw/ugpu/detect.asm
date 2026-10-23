@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/ugpu/detect.asm
+; Utkarsha OS — lib/hw/ugpu/detect.asm
 ; =============================================================================
 ; GPU inventory: scans PCI configuration space for class 0x03 (Display
 ; Controller) devices and records their identity + PCIe capability offset.

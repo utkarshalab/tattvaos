@@ -1,6 +1,6 @@
 # lib/hw — Hardware Topology & Locality
 
-> Direct hardware access and topology discovery for Tattva OS.
+> Direct hardware access and topology discovery for Utkarsha OS.
 > No HAL. No driver model. Direct register access where possible.
 
 | Subsystem | Covers |
@@ -42,4 +42,4 @@ therefore run after `numa_detect_init`.
 - **NVLink topology**: proprietary NVIDIA MMIO layout with no public
   documentation to parse against.
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.

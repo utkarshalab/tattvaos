@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/ucpu/pat.asm
+; Utkarsha OS — lib/hw/ucpu/pat.asm
 ; =============================================================================
 ; Page Attribute Table (PAT) cache controls (Subfeature 8.2).
 ; Configures and queries page-level caching properties in IA32_PAT MSR (0x277).

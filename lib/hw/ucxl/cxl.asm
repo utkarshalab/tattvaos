@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/ucxl/cxl.asm
+; Utkarsha OS — lib/hw/ucxl/cxl.asm
 ; =============================================================================
 ; CXL memory device enumeration: scans PCI configuration space for class
 ; 0x05 / subclass 0x02 (CXL Memory Device, CXL 2.0's PCI-SIG class code

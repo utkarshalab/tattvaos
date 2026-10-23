@@ -1,6 +1,6 @@
 # lib/hw/ucxl — CXL Device Enumeration
 
-> Real CXL memory device discovery for Tattva OS, via PCI class code.
+> Real CXL memory device discovery for Utkarsha OS, via PCI class code.
 
 | File | Covers |
 |---|---|
@@ -31,4 +31,4 @@ accelerators don't get one; only the DVSEC tells them apart, which is
 exactly what's out of reach here. Once ECAM is available, the DVSEC walk
 is the natural extension point for both gaps.
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.

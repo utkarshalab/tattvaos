@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/ucpu/topology.asm
+; Utkarsha OS — lib/hw/ucpu/topology.asm
 ; =============================================================================
 ; SMT / core / package topology decode via CPUID leaf 0x1F (V2 Extended
 ; Topology) with fallback to leaf 0x0B, plus cache-hierarchy enumeration via

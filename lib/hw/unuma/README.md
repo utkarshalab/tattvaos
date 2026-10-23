@@ -35,4 +35,4 @@ There is still no exported cross-core placement API over that topology, so a
 multi-core "closest free CPU for this address" query remains a later scheduler
 integration point.
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.

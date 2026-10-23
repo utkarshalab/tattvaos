@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/unuma/detect.asm
+; Utkarsha OS — lib/hw/unuma/detect.asm
 ; =============================================================================
 ; ACPI SRAT Processor Affinity parser: maps each logical processor's APIC /
 ; x2APIC ID to its NUMA proximity domain.

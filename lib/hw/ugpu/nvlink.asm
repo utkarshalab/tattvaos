@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/ugpu/nvlink.asm
+; Utkarsha OS — lib/hw/ugpu/nvlink.asm
 ; =============================================================================
 ; NVLink capability signal for detected GPUs (ugpu_devices, from detect.asm).
 ;

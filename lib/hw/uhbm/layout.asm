@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/uhbm/layout.asm
+; Utkarsha OS — lib/hw/uhbm/layout.asm
 ; =============================================================================
 ; ACPI HMAT (Heterogeneous Memory Attribute Table) parser: extracts real
 ; per-node-pair bandwidth figures so HBM-tier nodes can be told apart from

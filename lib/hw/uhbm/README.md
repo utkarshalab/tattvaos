@@ -31,4 +31,4 @@ channel-count/speed variation between nodes on the same system, without
 hardcoding a specific MB/s cutoff that would need updating as memory
 technologies change.
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.

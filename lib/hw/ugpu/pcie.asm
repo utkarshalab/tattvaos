@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/ugpu/pcie.asm
+; Utkarsha OS — lib/hw/ugpu/pcie.asm
 ; =============================================================================
 ; PCIe link bandwidth reporting for detected GPUs (ugpu_devices, from
 ; detect.asm). Reads the same PCIe Capability Link Status/Capabilities

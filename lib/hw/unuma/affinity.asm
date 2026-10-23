@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/unuma/affinity.asm
+; Utkarsha OS — lib/hw/unuma/affinity.asm
 ; =============================================================================
 ; NUMA-aware placement decisions built on unuma_node_of_cpu (detect.asm) and
 ; lib/mem/numa's numa_get_node_by_phys. Topology is discovered once at boot;

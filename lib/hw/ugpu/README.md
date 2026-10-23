@@ -1,7 +1,7 @@
 # lib/hw/ugpu — GPU Hardware Layer
 
 > GPU inventory, PCIe link bandwidth, and NVLink capability signal for
-> Tattva OS.
+> Utkarsha OS.
 
 | File | Covers |
 |---|---|
@@ -31,4 +31,4 @@ That's the same tradeoff `lib/mem/virt/cxl/cxl_t1.asm` makes for CXL (a
 flag + a constant, not a real protocol walk); going further needs the
 vendor spec, not more guessing here.
 
-Part of the `lib/` category in Tattva OS.
+Part of the `lib/` category in Utkarsha OS.

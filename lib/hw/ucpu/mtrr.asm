@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/ucpu/mtrr.asm
+; Utkarsha OS — lib/hw/ucpu/mtrr.asm
 ; =============================================================================
 ; Memory Type Range Registers (MTRR) cache controls (Subfeature 8.1).
 ; Configures caching properties (UC, WC, WT, WP, WB) for physical memory ranges.

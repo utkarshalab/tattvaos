@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/hw/uhwloc/hwloc.asm
+; Utkarsha OS — lib/hw/uhwloc/hwloc.asm
 ; =============================================================================
 ; Combined hardware locality: ties ucpu (topology), unuma (NUMA node),
 ; uhbm (bandwidth tier), ugpu, and ucxl (device inventories) together into
