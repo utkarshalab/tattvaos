@@ -3,7 +3,7 @@
 ; =============================================================================
 ; Utkarsha OS — lib/ufile/signatures/fs_signatures.asm
 ; =============================================================================
-; Filesystem & Boot Sector Signature Matchers (FAT32, EXT2/3/4, GPT, MBR, UBF).
+; Filesystem & Boot Sector Signature Matchers (FAT32, EXT2/3/4, GPT, MBR, UBI).
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit)
