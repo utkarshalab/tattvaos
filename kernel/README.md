@@ -1,6 +1,6 @@
 # kernel — Kernel Category
 
-> The core of Tattva OS. Assembly-native unikernel.
+> The core of Utkarsha OS. Assembly-native unikernel.
 > Runs in ring 0. No user space. No process isolation.
 
 ---

@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_UNIMPLEMENTED_ASM
 %define GUARD_KERNEL_UNIMPLEMENTED_ASM
 ; =============================================================================
-; Tattva OS - kernel/unimplemented.asm
+; Utkarsha OS - kernel/unimplemented.asm
 ; =============================================================================
 ; GENERATED FILE - do not edit by hand.
 ;   Regenerate with scratchpad/gen_unimpl.py

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — kernel/entry.asm
+; Utkarsha OS — kernel/entry.asm
 ; =============================================================================
 ; Top-level kernel entry file. Sets up the ULF (Unikernel Loader Format) header
 ; and includes modular files for startup, early initialization, and main loop.
