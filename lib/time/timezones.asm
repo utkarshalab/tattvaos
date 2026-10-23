@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_TIMEZONES_ASM
 %define GUARD_LIB_TIME_TIMEZONES_ASM
 ; =============================================================================
-; Tattva OS — lib/time/timezones.asm
+; Utkarsha OS — lib/time/timezones.asm
 ; =============================================================================
 ; IANA Time Zone Database (tzdb / Olson tzfile) Binary Parser.
 ;

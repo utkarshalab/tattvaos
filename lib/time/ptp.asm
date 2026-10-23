@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_PTP_ASM
 %define GUARD_LIB_TIME_PTP_ASM
 ; =============================================================================
-; Tattva OS — lib/time/ptp.asm
+; Utkarsha OS — lib/time/ptp.asm
 ; =============================================================================
 ; IEEE 1588-2019 Precision Time Protocol (PTPv2 / PTPv2.1) Clock Engine.
 ;

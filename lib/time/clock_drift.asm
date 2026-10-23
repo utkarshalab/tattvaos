@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_CLOCK_DRIFT_ASM
 %define GUARD_LIB_TIME_CLOCK_DRIFT_ASM
 ; =============================================================================
-; Tattva OS — lib/time/clock_drift.asm
+; Utkarsha OS — lib/time/clock_drift.asm
 ; =============================================================================
 ; Phase-Locked Loop (PLL) & Frequency-Locked Loop (FLL) Clock Slew Engine.
 ;

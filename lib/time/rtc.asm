@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_RTC_ASM
 %define GUARD_LIB_TIME_RTC_ASM
 ; =============================================================================
-; Tattva OS — lib/time/rtc.asm
+; Utkarsha OS — lib/time/rtc.asm
 ; =============================================================================
 ; Hardware CMOS Real-Time Clock (RTC) Assembly Driver.
 ;

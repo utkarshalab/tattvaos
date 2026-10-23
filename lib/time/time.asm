@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_TIME_ASM
 %define GUARD_LIB_TIME_TIME_ASM
 ; =============================================================================
-; Tattva OS — lib/time/time.asm
+; Utkarsha OS — lib/time/time.asm
 ; =============================================================================
 ; Exact Gregorian Calendar & UNIX Epoch Converter System Calls.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_DELAY_ASM
 %define GUARD_LIB_TIME_DELAY_ASM
 ; =============================================================================
-; Tattva OS — lib/time/delay.asm
+; Utkarsha OS — lib/time/delay.asm
 ; =============================================================================
 ; Microsecond & Nanosecond Hardware Spin-Wait Delay Routines.
 ;

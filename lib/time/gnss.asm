@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_GNSS_ASM
 %define GUARD_LIB_TIME_GNSS_ASM
 ; =============================================================================
-; Tattva OS — lib/time/gnss.asm
+; Utkarsha OS — lib/time/gnss.asm
 ; =============================================================================
 ; GNSS / GPS Atomic Clock Receiver Assembly Driver (NMEA 0183 + 1PPS GPIO Pin).
 ;

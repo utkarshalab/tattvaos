@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_TSC_ASM
 %define GUARD_LIB_TIME_TSC_ASM
 ; =============================================================================
-; Tattva OS — lib/time/tsc.asm
+; Utkarsha OS — lib/time/tsc.asm
 ; =============================================================================
 ; CPU Time Stamp Counter (RDTSC / RDTSCP) Engine with PIT Hardware Calibration.
 ;

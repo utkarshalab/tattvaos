@@ -1,6 +1,6 @@
 # =============================================================================
 # lib/time/Makefile
-# Makefile for Time Library in Tattva OS
+# Makefile for Time Library in Utkarsha OS
 # =============================================================================
 
 ASM = nasm

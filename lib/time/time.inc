@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/time/time.inc
+; Utkarsha OS — lib/time/time.inc
 ; =============================================================================
 ; Master Time Constants, Hardware Port Definitions & Data Schemas.
 ;

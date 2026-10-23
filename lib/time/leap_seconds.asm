@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_LEAP_SECONDS_ASM
 %define GUARD_LIB_TIME_LEAP_SECONDS_ASM
 ; =============================================================================
-; Tattva OS — lib/time/leap_seconds.asm
+; Utkarsha OS — lib/time/leap_seconds.asm
 ; =============================================================================
 ; TAI (Temps Atomique International) & IERS Leap Second Table Engine.
 ;

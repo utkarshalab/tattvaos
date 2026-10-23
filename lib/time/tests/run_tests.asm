@@ -4,7 +4,7 @@
 ;
 ; Exercises TSC reads, CMOS RTC date sweep, monotonic timings, and delay offsets.
 ;
-; Part of Utkarsha Labs / Tattva OS
+; Part of Utkarsha Labs / Utkarsha OS
 ; Arch: x86_64 | Assembler: NASM
 ; =============================================================================
 

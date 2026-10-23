@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_TIMER_WHEEL_ASM
 %define GUARD_LIB_TIME_TIMER_WHEEL_ASM
 ; =============================================================================
-; Tattva OS — lib/time/timer_wheel.asm
+; Utkarsha OS — lib/time/timer_wheel.asm
 ; =============================================================================
 ; Hierarchical Hashed Timer Wheel Engine (O(1) Insert/Delete/Expire).
 ;

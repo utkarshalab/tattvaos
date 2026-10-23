@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_NTS_ASM
 %define GUARD_LIB_TIME_NTS_ASM
 ; =============================================================================
-; Tattva OS — lib/time/nts.asm
+; Utkarsha OS — lib/time/nts.asm
 ; =============================================================================
 ; Network Time Security (NTS — RFC 8915) Cryptographic Engine.
 ;

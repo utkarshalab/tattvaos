@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_TIME_MONO_ASM
 %define GUARD_LIB_TIME_MONO_ASM
 ; =============================================================================
-; Tattva OS — lib/time/mono.asm
+; Utkarsha OS — lib/time/mono.asm
 ; =============================================================================
 ; Monotonic High-Resolution System Clock Engine (`CLOCK_MONOTONIC`).
 ;
