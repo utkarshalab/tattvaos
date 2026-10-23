@@ -34,11 +34,14 @@ compiler. Exit status 0 means everything passed.
   with `UMATH_CPU_MASK=0` so umath uses only the SSE2 baseline and every
   SSE4/AVX/BMI fast path goes through its fallback (`../cpuid/`).
 - `test_math_fn_ext.py`: the extended math_fn functions (exp2, exp10,
-  expm1, log2, log10, log1p, cbrt, scalbn): ULP sweeps over each domain,
-  special values, the exactness promises (exp2/log2 of powers of two,
-  exp10/log10 of 10^0..10^22, cbrt of perfect cubes), and array/inplace
-  bit for bit against the scalar. `UMATH_VERBOSE=1` prints the measured
-  worst case per function.
+  expm1, log2, log10, log1p, cbrt, scalbn, atan, atan2, asin, acos,
+  sinh, cosh, tanh, asinh, acosh, atanh). It covers:
+  - ULP sweeps over each domain;
+  - special values, including atan2's full signed-zero/Inf table;
+  - the exactness promises: exp2/log2 of powers of two, exp10/log10 of
+    10^0..10^22, cbrt of perfect cubes;
+  - array/inplace bit for bit against the scalar.
+  `UMATH_VERBOSE=1` prints the measured worst case per function.
 - `test_math_fn.py`: ULP sweeps against Python's `math` module, special
   values (NaN, ±Inf, ±0, overflow/underflow), the sin/cos domain bound, and
   array/inplace variants against the scalar routine.
