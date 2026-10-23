@@ -5,4 +5,4 @@
 Verifies: stack pointer alignment, callee-saved register preservation,
 no writes to read-only regions, correct syscall register usage.
 
-Part of the `asm/` category in Tattva OS.
+Part of the `asm/` category in Utkarsha OS.
