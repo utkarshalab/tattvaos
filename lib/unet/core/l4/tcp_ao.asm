@@ -51,9 +51,10 @@ struc tcp_ao_mkt_t
     .send_id:         resd 1      ; Send sequence counter
     .recv_id:         resd 1      ; Receive sequence counter
     .lifetime_ms:     resd 1      ; Key lifetime in ms
-    .created_ts:      resq 1      ; Creation timestamp
+    .created_ts:      resq 1      ; Creation time (mono_get_nanos)
     .flags:           resb 1      ; MKT flags
     .pad:             resb 7
+    .next:            resq 1      ; Next MKT in the same hash bucket
 endstruc
 
 %define TCP_AO_MKT_FLAG_ACTIVE      0x01    ; MKT is active
@@ -65,7 +66,7 @@ struc tcp_ao_ctx_t
     .mkt_table:       resq 16     ; MKT hash table (16 buckets)
     .active_send:     resq 1      ; Active MKT for sending
     .active_recv:     resq 1      ; Active MKT for receiving
-    .key_rotation_ts: resq 1      ; Next key rotation timestamp
+    .key_rotation_ts: resq 1      ; Next key rotation (mono_get_nanos)
     .flags:           resd 1      ; AO context flags
 endstruc
 
@@ -215,12 +216,18 @@ tcp_ao_mkt_create:
     push r14
     push r15
 
+    push r8                 ; [rsp] = key pointer (also keeps RSP 16-aligned)
+
     mov r12d, edi           ; key_id
     mov r13d, esi           ; rnext_key_id
-    mov r14b, dl            ; algorithm
-    mov r15b, cl            ; mac_len
-    mov rdi, r8             ; key pointer
-    mov rsi, r9             ; key_len
+    movzx r14d, dl          ; algorithm
+    shl ecx, 8
+    or r14d, ecx            ; R14D = mac_len << 8 | algorithm
+    mov r15, r9             ; key_len, at most the 32-byte key field
+    cmp r15, 32
+    jbe .len_ok
+    mov r15d, 32
+.len_ok:
 
     ; Allocate MKT
     lea rdi, [tcp_ao_mkt_cache]
@@ -233,19 +240,21 @@ tcp_ao_mkt_create:
     mov word [rbx + tcp_ao_mkt_t.key_id], r12w
     mov word [rbx + tcp_ao_mkt_t.rnext_key_id], r13w
     mov byte [rbx + tcp_ao_mkt_t.algorithm], r14b
-    mov byte [rbx + tcp_ao_mkt_t.mac_len], r15b
-    mov byte [rbx + tcp_ao_mkt_t.key_len], sil
+    mov eax, r14d
+    shr eax, 8
+    mov byte [rbx + tcp_ao_mkt_t.mac_len], al
+    mov byte [rbx + tcp_ao_mkt_t.key_len], r15b
     mov dword [rbx + tcp_ao_mkt_t.send_id], 0
     mov dword [rbx + tcp_ao_mkt_t.recv_id], 0
     mov dword [rbx + tcp_ao_mkt_t.lifetime_ms], 86400000  ; 24 hours default
-    call rdtsc_get_cycles
+    call mono_get_nanos
     mov qword [rbx + tcp_ao_mkt_t.created_ts], rax
     mov byte [rbx + tcp_ao_mkt_t.flags], TCP_AO_MKT_FLAG_ACTIVE | TCP_AO_MKT_FLAG_SEND | TCP_AO_MKT_FLAG_RECEIVE
 
     ; Copy key material
-    mov rdi, rbx
-    add rdi, tcp_ao_mkt_t.key
-    mov rcx, rsi            ; key_len
+    lea rdi, [rbx + tcp_ao_mkt_t.key]
+    mov rsi, [rsp]          ; key pointer
+    mov rcx, r15            ; key_len
     rep movsb
 
     ; Insert into hash table (by key_id)
@@ -264,6 +273,7 @@ tcp_ao_mkt_create:
     xor rax, rax
 
 .done:
+    add rsp, 8              ; key pointer
     pop r15
     pop r14
     pop r13
@@ -303,18 +313,19 @@ tcp_ao_mkt_delete:
 
 .found:
     ; Unlink
+    mov rax, [rcx + tcp_ao_mkt_t.next]
     test rdx, rdx
     jz .unlink_head
-    mov [rdx + tcp_ao_mkt_t.next], [rcx + tcp_ao_mkt_t.next]
+    mov [rdx + tcp_ao_mkt_t.next], rax
     jmp .free
 
 .unlink_head:
-    mov [rbx], [rcx + tcp_ao_mkt_t.next]
+    mov [rbx], rax
 
 .free:
     ; Free MKT
-    lea rsi, [tcp_ao_mkt_cache]
-    xchg rdi, rsi
+    lea rdi, [tcp_ao_mkt_cache]
+    mov rsi, rcx
     call kmem_cache_free
     xor eax, eax
     jmp .done
@@ -652,8 +663,9 @@ tcp_ao_key_rotate:
     call tcp_ao_mkt_set_active
 
     ; Schedule old key for removal after lifetime
-    call rdtsc_get_cycles
-    add rax, 86400000000000  ; 24 hours in cycles (approximate)
+    call mono_get_nanos
+    mov rcx, 86400000000000     ; 24 hours in ns (needs a register: no imm64 add)
+    add rax, rcx
     mov [tcp_ao_ctx + tcp_ao_ctx_t.key_rotation_ts], rax
 
     xor eax, eax
