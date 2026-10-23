@@ -20,6 +20,9 @@ dma_virtual_alloc_ptr: dq 0x8000000000  ; Base virtual address for DMA allocatio
 
 section .text
 
+extern rt_reserve_alloc        ; lib/mem/virt/rt_safe/rt_reserve.asm
+extern virt_map_space          ; lib/mem/virt/rt_safe/ipc.asm
+
 ; Allocated in lib/mem
 
 ; =============================================================================
@@ -63,10 +66,9 @@ IO_FUNC dma_alloc
     ; Check 32-bit DMA limit if flagged
     test    r14, 0x01               ; DMA_32BIT flag
     jz      .map_virtual
-    mov     rcx, rbx
-    add     rcx, r12                ; RCX = end physical address
-    cmp     rcx, 0x100000000        ; Check if it exceeds 4GB
-    jae     .err_nomem              ; Physically allocated above 4GB, fail
+    lea     rcx, [rbx + r12 - 1]    ; RCX = last physical byte
+    shr     rcx, 32                 ; (cmp cannot take a 64-bit immediate)
+    jnz     .err_nomem              ; Reaches above 4GB, fail
 
 .map_virtual:
     ; 3. Reserve virtual space
@@ -85,18 +87,20 @@ IO_FUNC dma_alloc
     mov     [rel dma_virtual_alloc_ptr], rax ; Save bumped virtual pointer
 
     ; 4. Map pages: virt_map_space(virt_addr, phys_addr, flags, pml4_root)
-    xor     r9, r9                  ; R9 = page index iterator
+    ; The page index lives in R13 (alignment is no longer needed):
+    ; virt_map_space clobbers RCX, RDX, RSI, RDI and R8-R11.
+    xor     r13d, r13d              ; R13 = page index iterator
 
 .map_loop:
-    cmp     r9, r15
+    cmp     r13, r15
     je      .map_done
 
     ; Calculate addresses for this page
-    mov     rdi, r9
+    mov     rdi, r13
     shl     rdi, 12
     add     rdi, r12                ; RDI = virtual page address
 
-    mov     rsi, r9
+    mov     rsi, r13
     shl     rsi, 12
     add     rsi, rbx                ; RSI = physical page address
 
@@ -105,7 +109,7 @@ IO_FUNC dma_alloc
     xor     r8, r8                  ; Use current PML4 CR3
     call    virt_map_space
 
-    inc     r9
+    inc     r13
     jmp     .map_loop
 
 .map_done:
