@@ -266,7 +266,7 @@ lib/web/
 │           ├── crypto_random.asm      # B33  over the entropy provider
 │           └── console.asm            # B33
 │
-├── tests/                             # run on Tattva, report over serial
+├── tests/                             # run on Utkarsha, report over serial
 │   ├── run_tests.sh                   # B2
 │   ├── run_golden.sh                  # B2   display-list and frame goldens
 │   ├── run_fuzz.sh                    # B41
@@ -367,7 +367,7 @@ apps/ubrowse/
 │   └── default.conf                   # B35  default mode, Tor off, level, search provider, start page
 │
 ├── inc/
-│   ├── tv.inc                         # B0   Tattva service bindings
+│   ├── tv.inc                         # B0   Utkarsha service bindings
 │   ├── egress.inc                     # B15  egress gate interface
 │   ├── vault.inc                      # B19
 │   ├── levels.inc                     # B34  mode and security level constants
@@ -400,12 +400,12 @@ apps/ubrowse/
 ├── src/
 │   ├── main.asm                       # B35  browser entry point
 │   │
-│   ├── tattva/                        # thin binding to Tattva services
-│   │   ├── tv_log.asm                 # B0
-│   │   ├── tv_time.asm                # B0
-│   │   ├── tv_entropy.asm             # B0
-│   │   ├── tv_task.asm                # B0
-│   │   └── tv_fs.asm                  # B0   durable writes for the vault
+│   ├── ut/                        # thin binding to Utkarsha services
+│   │   ├── ut_log.asm                 # B0
+│   │   ├── ut_time.asm                # B0
+│   │   ├── ut_entropy.asm             # B0
+│   │   ├── ut_task.asm                # B0
+│   │   └── ut_fs.asm                  # B0   durable writes for the vault
 │   │
 │   ├── net/                           # the browser side of the network
 │   │   ├── egress.asm                 # B15  THE single egress gate; implements lib/web's network provider
@@ -507,7 +507,7 @@ apps/ubrowse/
 │       ├── consensus_dump.asm         # B9
 │       └── fp_report.asm              # B39  prints the fingerprint the browser presents
 │
-├── tests/                             # run on Tattva, report over serial
+├── tests/                             # run on Utkarsha, report over serial
 │   ├── run_tests.sh                   # B2
 │   ├── run_fingerprint.sh             # B39
 │   ├── run_leak.sh                    # B40
@@ -597,7 +597,7 @@ apps/ubrowse/
     ├── PLAN.md                        # B0   master plan and phase table
     ├── STRUCTURE.md                   # B0   this file
     ├── architecture.md                # B0   processes, homes, embedder boundary
-    ├── tattva-contract.md             # B0   sockets, TLS hooks, clocks, filesystem, tasks
+    ├── utkarsha-contract.md             # B0   sockets, TLS hooks, clocks, filesystem, tasks
     ├── threat-model.md                # B0   who we defend against and what is out of scope
     ├── privacy-model.md               # B0   privacy rules from the plan, made testable
     ├── isolation-model.md             # B15  partition keys, tab tasks, software isolation limits
@@ -625,7 +625,7 @@ apps/ubrowse/
         ├── 0009-tls-hooks-or-own-tls.md
         ├── 0010-software-isolation.md
         ├── 0011-safer-as-default.md
-        ├── 0012-reuse-tattva-crypto.md
+        ├── 0012-reuse-utkarsha-crypto.md
         ├── 0019-containers-native.md
         ├── 0020-tor-off-by-default.md
         └── 0021-container-tor-routing-is-not-anonymity.md

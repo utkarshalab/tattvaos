@@ -1,7 +1,7 @@
 # ubrowse: Master Plan v2, built to compete
 
 A **full-platform web browser** written entirely in x86-64 NASM assembly for
-**Tattva OS**, drawing through the **Canvas** display server. The goal is not a niche
+**Utkarsha OS**, drawing through the **Canvas** display server. The goal is not a niche
 privacy tool. It is a browser that competes head-on with Chrome, Firefox and Safari on
 **compatibility, speed, security and features**, and beats them on **privacy, footprint
 and transparency**.
@@ -193,7 +193,7 @@ Rules that hold for both:
 ├───────────────┴───────────────┴───────────────┴──────────────────────┤
 │ IPC (handles only) · hardware sandbox · CET shadow stack · W^X        │
 ├──────────────────────────────────────────────────────────────────────┤
-│ Canvas client library, Tattva services (see section 6)                │
+│ Canvas client library, Utkarsha services (see section 6)                │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -248,30 +248,30 @@ because the browser needs them first, but they land in that library and follow i
 conventions. Where a file already exists there, the phase audits and extends it
 instead of writing a new one.
 
-## 6. What the browser needs from Tattva and Canvas
+## 6. What the browser needs from Utkarsha and Canvas
 
 These are **not browser work**, but they **gate** the later releases. They are listed
-in `docs/tattva-contract.md` so Tattva can plan them.
+in `docs/utkarsha-contract.md` so Utkarsha can plan them.
 
 | Requirement | Owner | Gates |
 |---|---|---|
-| **Hardware process isolation** (paging, ring 3, per-process address spaces) | Tattva | R3 sandbox; the whole security pillar |
-| Message passing, shared memory and handle passing between processes | Tattva | R3 |
-| Threads and multi-core scheduling (SMP) | Tattva | R2 workers, R3 off-main-thread work |
-| W^X memory control (map writable, then executable) | Tattva | R3 JITs |
-| CPU hardening: NX, SMEP/SMAP, CET shadow stack and IBT, ASLR | Tattva | R3 |
-| High-resolution clock, RTC, power management | Tattva | battery and startup targets |
-| UDP sockets | Tattva | HTTP/3, WebRTC |
-| TLS with certificate and ClientHello hooks | Tattva | R1 (decision D1) |
-| Durable filesystem with quotas | Tattva | storage, vault |
-| Audio output | Tattva | R4 media |
-| Camera and microphone drivers | Tattva | R4 devices |
+| **Hardware process isolation** (paging, ring 3, per-process address spaces) | Utkarsha | R3 sandbox; the whole security pillar |
+| Message passing, shared memory and handle passing between processes | Utkarsha | R3 |
+| Threads and multi-core scheduling (SMP) | Utkarsha | R2 workers, R3 off-main-thread work |
+| W^X memory control (map writable, then executable) | Utkarsha | R3 JITs |
+| CPU hardening: NX, SMEP/SMAP, CET shadow stack and IBT, ASLR | Utkarsha | R3 |
+| High-resolution clock, RTC, power management | Utkarsha | battery and startup targets |
+| UDP sockets | Utkarsha | HTTP/3, WebRTC |
+| TLS with certificate and ClientHello hooks | Utkarsha | R1 (decision D1) |
+| Durable filesystem with quotas | Utkarsha | storage, vault |
+| Audio output | Utkarsha | R4 media |
+| Camera and microphone drivers | Utkarsha | R4 devices |
 | GPU acceleration and scanout planes | Canvas (C24) | R3 raster, R4 WebGL/WebGPU |
 | Color management and HDR | Canvas (C25) | R4 HDR video |
 | Window states, clipboard, input methods, accessibility | Canvas (C13, C15, C16) | R1 onward |
 
 **Decision D2 (needs your call before R3):** is hardware process isolation (and SMP,
-W^X, CET) on Tattva's roadmap? Without it, the security and speed rows of the
+W^X, CET) on Utkarsha's roadmap? Without it, the security and speed rows of the
 scoreboard cannot be met, because renderers would share one address space and JITs
 could not be made safe.
 
@@ -445,7 +445,7 @@ root (section 5.1); "all homes" means each home gets its own share.
 
 | # | Phase | Home | Deliverable | Est. lines | Status |
 |---|---|---|---|---|---|
-| B0 | Build + Tattva binding | `apps/ubrowse` | build files; `tv_*` bindings for sockets, clock, entropy, TVFS, tasks, log | 1k | ☐ |
+| B0 | Build + Utkarsha binding | `apps/ubrowse` | build files; `ut_*` bindings for sockets, clock, entropy, TVFS, tasks, log | 1k | ☐ |
 | B1 | Browser base | `lib/web` | float parse and format, sort, UTF-16, big-integer helpers, binding to `ustr` | 1k | ☐ |
 | B2 | Test harness | all homes | unit macros, serial reporting, mock network, packet recorder, golden harness | 1k | ☐ |
 
@@ -453,7 +453,7 @@ root (section 5.1); "all homes" means each home gets its own share.
 
 | # | Phase | Home | Deliverable | Est. lines | Status |
 |---|---|---|---|---|---|
-| B3 | Crypto audit + symmetric | `crypto/` | audit Tattva crypto; add AES-CTR, SHA-1, SHA-3/SHAKE, HKDF if absent | 5k | ☐ |
+| B3 | Crypto audit + symmetric | `crypto/` | audit Utkarsha crypto; add AES-CTR, SHA-1, SHA-3/SHAKE, HKDF if absent | 5k | ☐ |
 | B4 | Public-key additions | `crypto/` | Ed25519 with blinding, X25519 and ECDSA if absent, RSA verify, constant-time bignum | 6k | ☐ |
 | B5 | KDF and RNG | `crypto/`, `lib/urand` | Argon2id, CSPRNG with entropy mixing, constant-time helpers | 2k | ☐ |
 
@@ -538,7 +538,7 @@ root (section 5.1); "all homes" means each home gets its own share.
 
 | # | Phase | Home | Deliverable | Est. lines | Status |
 |---|---|---|---|---|---|
-| B61 | Process model + hardware sandbox | `apps/ubrowse` | browser, renderer-per-site, network, Tor, GPU and utility processes; handles-only IPC; sandbox policy (**needs Tattva isolation, decision D2**) | 30k | ☐ |
+| B61 | Process model + hardware sandbox | `apps/ubrowse` | browser, renderer-per-site, network, Tor, GPU and utility processes; handles-only IPC; sandbox policy (**needs Utkarsha isolation, decision D2**) | 30k | ☐ |
 | B62 | Hardening | `lib/mem`, `apps/ubrowse` | CET shadow stack and IBT, hardened allocator with guard pages, zeroization, debug allocator with red zones | 6k | ☐ |
 | B63 | Baseline JIT | `lib/web` | template JIT for the bytecode VM, W^X handling, deoptimization hooks | 40k | ☐ |
 | B64 | Optimizing JIT | `lib/web` | type feedback, inlining, escape analysis, register allocation, deoptimization | 90k | ☐ |
@@ -619,7 +619,7 @@ root (section 5.1); "all homes" means each home gets its own share.
    it.
 4. **R2:** start with B16, B28 to B34 (JS), then B23, B45 to B60 in the order the
    top-site corpus says users feel them.
-5. **Before R3:** resolve decision D2 and the Tattva prerequisites in section 6.
+5. **Before R3:** resolve decision D2 and the Utkarsha prerequisites in section 6.
 6. **R3:** B61, B62 first (isolation), then B63 to B69.
 7. **R4:** B83 (compatibility program) runs first and continuously; the rest follow
    corpus impact.
@@ -627,7 +627,7 @@ root (section 5.1); "all homes" means each home gets its own share.
 
 ## 16. Testing and measurement
 
-All tests run on Tattva and report over serial or console.
+All tests run on Utkarsha and report over serial or console.
 
 1. **Unit tests** per module.
 2. **Web Platform Tests** (subsets run as data) with a per-area pass-rate dashboard.
@@ -650,7 +650,7 @@ All tests run on Tattva and report over serial or console.
 |---|---|---|
 | **Scale** (2 to 3 million lines) | multi-year effort, may stall | generators, test oracles, corpus-driven priorities, release gating, reusable assembly layer |
 | **Compatibility long tail** | users leave when sites break | compatibility program (B83), quirks database, honest error pages |
-| **No hardware isolation on Tattva** | security pillar impossible | decision D2; R3 starts only when it exists |
+| **No hardware isolation on Utkarsha** | security pillar impossible | decision D2; R3 starts only when it exists |
 | **Assembly and memory safety** | exploitable bugs | bounds-checked wrappers, guard pages, CET, fuzzing, sandboxing, audits |
 | **JIT security and complexity** | large attack surface | W^X, validation, JIT off in strict Tor levels, fuzzing |
 | **GPU and codecs** | very large, hardware- and licence-specific | one GPU family first; patent-encumbered codecs need a licensing decision |
@@ -659,21 +659,21 @@ All tests run on Tattva and report over serial or console.
 | **Container Tor routing mistaken for anonymity** | users expose themselves while believing they are anonymous | the switch and indicator say "IP privacy only"; anonymity is offered only by Tor windows |
 | **Small anonymity set** | users distinguishable | blend profile and fingerprint suite; honest messaging until measured |
 | **Stale shipped data** (authorities, roots, HSTS, filters, Public Suffix List) | breakage or privacy loss | signed updates, build-time freshness checks |
-| **Tattva TLS lacks hooks** | blocks Tor and blending | decision D1; own TLS client as fallback |
+| **Utkarsha TLS lacks hooks** | blocks Tor and blending | decision D1; own TLS client as fallback |
 | **Ecosystem** (no extensions or sites targeting you) | adoption | WebExtensions-style API, standards-compliance first |
 
 ## 18. Out of scope
 
-Proprietary DRM beyond ClearKey, any operating system other than Tattva, mobile
+Proprietary DRM beyond ClearKey, any operating system other than Utkarsha, mobile
 versions, a Chrome Web Store clone, a browser-based AI assistant, and browser sync
 servers run by the project (sync is self-hosted only).
 
 ## 19. Definition of done (per phase)
 
-- Assembles with no warnings and links into the Tattva image.
+- Assembles with no warnings and links into the Utkarsha image.
 - Code sits in its home from section 5.1; nothing in `lib/web` reaches into
   `apps/ubrowse`.
-- Unit tests pass on Tattva; leak and fingerprint suites stay green.
+- Unit tests pass on Utkarsha; leak and fingerprint suites stay green.
 - The scoreboard row for the phase's release is not worse than before.
 - Status table updated with the real line count.
 - Relevant doc in `docs/` written, including a decision record for any design choice.
