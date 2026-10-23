@@ -235,11 +235,11 @@ bbrv2_cong_event:
 .loss_event:
     ; Packet loss detected
     ; Enter recovery if not already
-    test byte [rbx + tcb_t.flags], TCBF_FAST_RECOVERY
+    test dword [rbx + tcb_t.flags], TCBF_FAST_RECOVERY
     jnz .in_recovery
 
     ; Set loss recovery
-    or byte [rbx + tcb_t.flags], TCBF_FAST_RECOVERY
+    or dword [rbx + tcb_t.flags], TCBF_FAST_RECOVERY
     mov byte [r13 + bbrv2_state_t.loss_recovery], 1
 
     ; BBRv2: Reset inflight_hi to current inflight
@@ -298,7 +298,7 @@ bbrv2_cong_event:
 .set_ssthresh_ecn:
     mov [rbx + tcb_t.cwnd], eax
     mov [rbx + tcb_t.ssthresh], eax
-    or byte [rbx + tcb_t.flags], TCBF_FAST_RECOVERY
+    or dword [rbx + tcb_t.flags], TCBF_FAST_RECOVERY
     mov byte [r13 + bbrv2_state_t.loss_recovery], 1
 
     ; Update pacing gain
@@ -456,7 +456,7 @@ bbrv2_ack_received:
     mov [rbx + tcb_t.cwnd], eax
 
     ; Check if we should exit STARTUP
-    test byte [rbx + tcb_t.flags], TCBF_FAST_RECOVERY
+    test dword [rbx + tcb_t.flags], TCBF_FAST_RECOVERY
     jnz .exit_startup
     ; Check if bandwidth growth has stopped (3 rounds no growth)
     ; Simplified: check if we've been in STARTUP for 3 rounds
@@ -755,6 +755,8 @@ bbrv2_ops:
 
 section .data
 bbrv2_init_name: db "bbrv2", 0
+
+section .text
 
 bbrv2_destroy:
     ret
