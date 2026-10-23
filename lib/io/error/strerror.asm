@@ -19,55 +19,55 @@
 section .rodata
 
 ; ---- Foundation / Core Band (0x000) ----
-.str_null:          db "Null pointer where non-null expected", 0
-.str_badarg:        db "Invalid function argument", 0
-.str_no_device:     db "Device not detected or present", 0
-.str_nomem:         db "Out of memory", 0
+io_err_str_null:          db "Null pointer where non-null expected", 0
+io_err_str_badarg:        db "Invalid function argument", 0
+io_err_str_no_device:     db "Device not detected or present", 0
+io_err_str_nomem:         db "Out of memory", 0
 
 ; ---- Descriptor / Handle Band (0x100) ----
-.str_badfd:         db "Invalid or closed file descriptor", 0
-.str_stale:         db "Stale handle (use-after-free detected)", 0
+io_err_str_badfd:         db "Invalid or closed file descriptor", 0
+io_err_str_stale:         db "Stale handle (use-after-free detected)", 0
 
 ; ---- DMA & Buffers Band (0x200) ----
-.str_dma_nomem:     db "Contiguous DMA memory exhausted", 0
-.str_page_cross:    db "Scatter-gather split limit exceeded", 0
+io_err_str_dma_nomem:     db "Contiguous DMA memory exhausted", 0
+io_err_str_page_cross:    db "Scatter-gather split limit exceeded", 0
 
 ; ---- Interrupts Band (0x300) ----
-.str_vec_limit:     db "Dynamic interrupt vector pool exhausted", 0
+io_err_str_vec_limit:     db "Dynamic interrupt vector pool exhausted", 0
 
 ; ---- PCI / PCIe Band (0x400) ----
-.str_pci_bar:       db "PCI BAR configuration or mapping conflict", 0
+io_err_str_pci_bar:       db "PCI BAR configuration or mapping conflict", 0
 
 ; ---- Block Device Band (0x500) ----
-.str_qfull:         db "Submission queue or ring full", 0
-.str_media:         db "Media or hardware I/O transfer error", 0
+io_err_str_qfull:         db "Submission queue or ring full", 0
+io_err_str_media:         db "Media or hardware I/O transfer error", 0
 
 ; ---- Async Band (0x600) ----
-.str_timeout:       db "Controller command timeout expired", 0
-.str_cancel:        db "I/O operation cancelled", 0
+io_err_str_timeout:       db "Controller command timeout expired", 0
+io_err_str_cancel:        db "I/O operation cancelled", 0
 
 ; ---- Fallback ----
-.str_unknown:       db "Unknown I/O error code", 0
-.str_success:       db "Success", 0
+io_err_str_unknown:       db "Unknown I/O error code", 0
+io_err_str_success:       db "Success", 0
 
 ; ---- Dispatch table: pairs of (negative_code, string_pointer) ----
 ; Terminated by a zero-code sentinel.
 align 8
-.dispatch_table:
-    dq IO_ERR_NULL,       .str_null
-    dq IO_ERR_BADARG,     .str_badarg
-    dq IO_ERR_NO_DEVICE,  .str_no_device
-    dq IO_ERR_NOMEM,      .str_nomem
-    dq IO_ERR_BADFD,      .str_badfd
-    dq IO_ERR_STALE,      .str_stale
-    dq IO_ERR_DMA_NOMEM,  .str_dma_nomem
-    dq IO_ERR_PAGE_CROSS, .str_page_cross
-    dq IO_ERR_VEC_LIMIT,  .str_vec_limit
-    dq IO_ERR_PCI_BAR,    .str_pci_bar
-    dq IO_ERR_QFULL,      .str_qfull
-    dq IO_ERR_MEDIA,      .str_media
-    dq IO_ERR_TIMEOUT,    .str_timeout
-    dq IO_ERR_CANCEL,     .str_cancel
+io_err_dispatch_table:
+    dq IO_ERR_NULL,       io_err_str_null
+    dq IO_ERR_BADARG,     io_err_str_badarg
+    dq IO_ERR_NO_DEVICE,  io_err_str_no_device
+    dq IO_ERR_NOMEM,      io_err_str_nomem
+    dq IO_ERR_BADFD,      io_err_str_badfd
+    dq IO_ERR_STALE,      io_err_str_stale
+    dq IO_ERR_DMA_NOMEM,  io_err_str_dma_nomem
+    dq IO_ERR_PAGE_CROSS, io_err_str_page_cross
+    dq IO_ERR_VEC_LIMIT,  io_err_str_vec_limit
+    dq IO_ERR_PCI_BAR,    io_err_str_pci_bar
+    dq IO_ERR_QFULL,      io_err_str_qfull
+    dq IO_ERR_MEDIA,      io_err_str_media
+    dq IO_ERR_TIMEOUT,    io_err_str_timeout
+    dq IO_ERR_CANCEL,     io_err_str_cancel
     dq 0, 0               ; Sentinel
 
 section .text
@@ -87,7 +87,7 @@ IO_FUNC io_strerror
     jz      .success
 
     ; Walk dispatch table: pairs of (code, string_ptr), sentinel = (0, 0)
-    lea     rcx, [rel .dispatch_table]
+    lea     rcx, [rel io_err_dispatch_table]
 
 .scan:
     mov     rax, [rcx]              ; RAX = table code entry
@@ -105,11 +105,11 @@ IO_FUNC io_strerror
     jmp     .done
 
 .success:
-    lea     rax, [rel .str_success]
+    lea     rax, [rel io_err_str_success]
     jmp     .done
 
 .unknown:
-    lea     rax, [rel .str_unknown]
+    lea     rax, [rel io_err_str_unknown]
 
 .done:
     pop     rdx
