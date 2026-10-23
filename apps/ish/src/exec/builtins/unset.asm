@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/exec/builtins/unset.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: unset builtin — remove variables or functions.

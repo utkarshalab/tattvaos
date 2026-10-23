@@ -1,6 +1,6 @@
 # ish — Architecture
 
-> Tier-5 data center grade shell design for Tattva OS.
+> Tier-5 data center grade shell design for Utkarsha OS.
 > Written in pure x86-64 assembly. Zero dependencies. No libc. No syscall boundary.
 
 ---
@@ -143,7 +143,7 @@ implementation — zero changes to shell core.
 
 ## Job Control Model
 
-TattvaOS uses a cooperative fiber scheduler (`kernel/sched/`). The shell reuses it:
+Utkarsha OS uses a cooperative fiber scheduler (`kernel/sched/`). The shell reuses it:
 
 - Foreground commands: shell yields fiber until child completes.
 - Background commands (`&`): shell creates fiber, prints job ID, returns immediately.
@@ -156,7 +156,7 @@ No preemption, no race conditions, no userspace.
 ## Environment & Configuration
 
 - Environment variables stored as `env_var_t` linked list: `KEY=VALUE`.
-- `.ishrc` parsed at boot: `set PATH=/bin:/usr/bin`, `alias ll=ls -la`, `prompt=tattva> `.
+- `.ishrc` parsed at boot: `set PATH=/bin:/usr/bin`, `alias ll=ls -la`, `prompt=utkarsha> `.
 - Aliases expanded by `parser/expander.asm` before command dispatch.
 
 ---
@@ -185,7 +185,7 @@ Unit tests live in `tests/unit/`:
 - `test_parser.asm` — tokenizer, expander, grammar
 - `test_executor.asm` — dispatcher, builtins, exit codes
 
-Run with the Tattva OS test harness.
+Run with the Utkarsha OS test harness.
 
 ---
 

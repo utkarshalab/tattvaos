@@ -1,6 +1,6 @@
 /* =============================================================================
  * File     : apps/ish/linker.ld
- * Project  : Tattva OS — Ishana Shell
+ * Project  : Utkarsha OS — Ishana Shell
  * Author   : Utkarsha Lab
  * License  : Apache-2.0
  * Description: Linker script for ish shell ELF image.
@@ -10,7 +10,7 @@ ENTRY(ish_main)
 
 SECTIONS
 {
-    /* Load at 2MB boundary — standard for Tattva OS user/app images */
+    /* Load at 2MB boundary — standard for Utkarsha OS user/app images */
     . = 0x200000;
 
     .text : {

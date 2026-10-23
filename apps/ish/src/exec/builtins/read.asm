@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/exec/builtins/read.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: read builtin — read a line from stdin into a variable.

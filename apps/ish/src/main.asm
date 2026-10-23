@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/main.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Shell entry point — context init, REPL loop, shutdown.
@@ -26,8 +26,8 @@ ish_ctx:      resb ISH_CTX_SIZE
 
 section .data
 align 16
-ish_default_prompt:   db "tattva> ", 0
-ish_welcome_banner:   db "Tattva OS — Ishana Shell v1.0.0", 0x0A
+ish_default_prompt:   db "utkarsha> ", 0
+ish_welcome_banner:   db "Utkarsha OS — Ishana Shell v1.0.0", 0x0A
                       db "Type 'help' for available commands.", 0x0A, 0
 ish_goodbye_msg:      db "logout", 0x0A, 0
 
@@ -63,7 +63,7 @@ ish_main:
 
     ; Default prompt
     mov     qword [rdi + ish_ctx.prompt], ish_default_prompt
-    mov     eax, 9                        ; "tattva> " length
+    mov     eax, 9                        ; "utkarsha> " length
     mov     [rdi + ish_ctx.prompt_len], eax
 
     ; ---- Initialize subsystems ----

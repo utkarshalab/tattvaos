@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/exec/builtins/unalias.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: unalias builtin — remove alias definitions.

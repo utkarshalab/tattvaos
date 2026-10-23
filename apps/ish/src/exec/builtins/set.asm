@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/exec/builtins/set.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: set builtin — set shell options or display variables.

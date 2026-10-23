@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/inc/frontend.inc
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: I/O frontend interface — UART now, Canvas later.

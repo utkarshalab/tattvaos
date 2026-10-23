@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/inc/errors.inc
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Shell-specific error messages and codes.

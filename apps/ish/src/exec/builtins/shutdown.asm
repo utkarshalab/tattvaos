@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/exec/builtins/shutdown.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: shutdown builtin — halt or power off the system.
@@ -51,6 +51,6 @@ shutdown_entry:
     iend
 .cat_system:   db "system", 0
 
-msg_shutting_down: db "Shutting down Tattva OS...", 0x0A, 0
+msg_shutting_down: db "Shutting down Utkarsha OS...", 0x0A, 0
 
 %endif ; ISH_BUILTIN_SHUTDOWN_ASM

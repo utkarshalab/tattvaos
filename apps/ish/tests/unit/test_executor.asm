@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/tests/unit/test_executor.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Unit tests for the shell executor.

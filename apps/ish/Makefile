@@ -1,6 +1,6 @@
 # =============================================================================
 # File     : apps/ish/Makefile
-# Project  : Tattva OS — Ishana Shell
+# Project  : Utkarsha OS — Ishana Shell
 # Author   : Utkarsha Lab
 # License  : Apache-2.0
 # Description: Build the ish shell as a standalone ELF/flat binary image.
@@ -16,7 +16,7 @@ LD          := ld
 #   -I src/         -> apps/ish/src/ (shell sources)
 #   -I ../../       -> repo root (tattvaos/lib/, tattvaos/kernel/, etc.)
 NASMFLAGS   := -f elf64 -g -F dwarf \
-               -D __TATTVA__ \
+               -D __UT__ \
                -I inc/ \
                -I src/ \
                -I ../../

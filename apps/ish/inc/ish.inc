@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/inc/ish.inc
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Core shell context, constants, and return codes.

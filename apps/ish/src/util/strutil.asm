@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/util/strutil.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: String comparison, trim, case folding utilities.

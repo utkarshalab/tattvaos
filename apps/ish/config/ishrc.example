@@ -1,6 +1,6 @@
 # =============================================================================
 # File     : apps/ish/config/ishrc.example
-# Project  : Tattva OS — Ishana Shell
+# Project  : Utkarsha OS — Ishana Shell
 # Author   : Utkarsha Lab
 # License  : Apache-2.0
 # Description: Example shell configuration file.
@@ -11,7 +11,7 @@
 export PATH=/bin:/usr/bin:/sbin:/usr/sbin
 
 # Set shell prompt
-prompt=tattva> >
+prompt=utkarsha> >
 
 # Define useful aliases
 alias ll=ls -la

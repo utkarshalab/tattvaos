@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/inc/job.inc
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Job control structures (&, bg, fg, jobs, kill).

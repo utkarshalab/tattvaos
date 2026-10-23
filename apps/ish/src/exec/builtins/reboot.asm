@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/exec/builtins/reboot.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: reboot builtin — reboot the system.
@@ -52,6 +52,6 @@ reboot_entry:
     iend
 .cat_system:   db "system", 0
 
-msg_rebooting:   db "Rebooting Tattva OS...", 0x0A, 0
+msg_rebooting:   db "Rebooting Utkarsha OS...", 0x0A, 0
 
 %endif ; ISH_BUILTIN_REBOOT_ASM

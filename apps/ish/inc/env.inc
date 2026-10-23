@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/inc/env.inc
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Environment variable block structures.
@@ -37,7 +37,7 @@ ENV_OLDPWD        equ 5
 ENV_LANG          equ 6
 ENV_TZ            equ 7
 ENV_TERM          equ 8
-ENV_INFERENCE_DEV equ 9      ; Tattva AI accelerator device
+ENV_INFERENCE_DEV equ 9      ; Utkarsha AI accelerator device
 ENV_MODEL_PATH    equ 10
 
 %endif ; ENV_INC

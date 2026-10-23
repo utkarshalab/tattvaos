@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/io/uart.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: UART/serial frontend for headless console (COM1, 0x3F8).

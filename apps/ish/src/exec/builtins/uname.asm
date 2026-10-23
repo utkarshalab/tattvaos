@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/exec/builtins/uname.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: uname builtin — print system information.
@@ -19,7 +19,7 @@ uname_name:   db "uname", 0
 uname_help:   db "Print system information", 0
 uname_usage:  db "uname [option]", 0
 
-uname_os:     db "Tattva OS", 0
+uname_os:     db "Utkarsha OS", 0
 uname_arch:   db "x86-64", 0
 uname_kernel: db "1.0.0", 0
 

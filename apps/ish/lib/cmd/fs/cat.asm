@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/lib/cmd/fs/cat.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: cat command library — concatenate and print files.

@@ -1,6 +1,6 @@
 # ish — Ishana Shell
 
-> Enterprise-grade command shell for Tattva OS.
+> Enterprise-grade command shell for Utkarsha OS.
 > Headless-first (UART/serial), canvas-ready (GUI terminal), unikernel-native.
 > Built as an application inside `apps/`, not as a separate `tools/` layer.
 
@@ -8,7 +8,7 @@
 
 ## What is ish?
 
-`ish` (Ishana Shell) is the primary user interface for Tattva OS. It runs in ring 0
+`ish` (Ishana Shell) is the primary user interface for Utkarsha OS. It runs in ring 0
 alongside the kernel — there is no syscall boundary, no `fork`/`exec`, and no userspace.
 Every command is a direct `call` into a library function in `lib/cmd/`, making the shell
 both a user application and a programmable REPL for the entire OS.
@@ -46,7 +46,7 @@ from:
 - The shell (`ish`)
 - A dashboard application
 - An installer or provisioning tool
-- Any other Tattva OS app
+- Any other Utkarsha OS app
 
 ---
 

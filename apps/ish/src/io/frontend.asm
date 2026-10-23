@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/io/frontend.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Frontend dispatcher — calls vtable methods on io_frontend_t.

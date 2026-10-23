@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/exec/cmd_registry_init.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Register all builtin commands at shell startup.

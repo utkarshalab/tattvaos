@@ -1,6 +1,6 @@
 ; =============================================================================
 ; File     : apps/ish/src/env/environment.asm
-; Project  : Tattva OS — Ishana Shell
+; Project  : Utkarsha OS — Ishana Shell
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Environment variable store.
