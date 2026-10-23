@@ -347,13 +347,16 @@ ip_checksum_avx512:
 ; -----------------------------------------------------------------------------
 ; ip_checksum_generate — Compute a checksum to store on the wire.
 ; Input:  RDI = pointer to header/data with the checksum field zeroed, ESI = length
-; Output: AX = 16-bit checksum value in network byte order, ready to store.
+; Output: AX = 16-bit checksum, ready to store with a 16-bit move.
+;
+; ip_checksum_calc sums the data as little-endian words, so its complement is
+; already the checksum in the order a little-endian store puts on the wire
+; (RFC 1071 byte-order independence); swapping it would store it backwards.
 ; -----------------------------------------------------------------------------
 align 64
 ip_checksum_generate:
     call ip_checksum_calc
     not ax
-    xchg al, ah
     ret
 
 ; -----------------------------------------------------------------------------
