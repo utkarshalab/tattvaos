@@ -624,6 +624,39 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
 
+# ---------------------------------------------------------------------------
+# Host Tests (development machine only; never part of an OS image)
+#   tests/host/ut_host.asm stands in for the ut_* bindings, so unit suites and
+#   decoders run as ordinary processes. --gc-sections drops unused modules.
+# ---------------------------------------------------------------------------
+
+HOSTDIR       := $(BUILDDIR)/host
+HOST_SUITES   := webp
+HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
+HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
+HOST_TESTS    := $(addprefix $(HOSTDIR)/test_,$(HOST_SUITES))
+
+$(HOSTDIR)/%.o: tests/host/%.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -o $@ $<
+
+$(HOSTDIR)/runner_%.o: tests/host/host_runner.asm
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -D HOST_SUITE=test_$*_suite -o $@ $<
+
+$(HOSTDIR)/test_%: $(HOSTDIR)/runner_%.o $(OBJDIR)/tests/unit/test_%.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
+	$(LD) $(HOST_LDFLAGS) -o $@ $^
+
+$(HOSTDIR)/host_decode: $(HOSTDIR)/host_decode.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
+	$(LD) $(HOST_LDFLAGS) -o $@ $^
+
+.PHONY: host host-check
+host: $(HOST_TESTS) $(HOSTDIR)/host_decode
+
+host-check: host
+	@set -e; for t in $(HOST_TESTS); do $$t; done
+	python3 tests/host/compare_images.py $(HOSTDIR)/host_decode
+
 .PHONY: fuzz
 fuzz: $(IMAGEDIR)/fuzz_runner.img
 	@echo "Running fuzz tests..."
@@ -714,6 +747,8 @@ help:
 	@echo "  soak         Run 24h soak test"
 	@echo "  bench        Run benchmarks"
 	@echo "  cts          Run conformance suite"
+	@echo "  host         Build host test binaries (development machine)"
+	@echo "  host-check   Run host unit suites and decoder conformance"
 	@echo "  clean        Remove build artifacts"
 	@echo "  distclean    Remove build directory"
 	@echo "  asm-check    Syntax-check all assembly files"
