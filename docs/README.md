@@ -1,6 +1,6 @@
 # docs — Documentation Category
 
-> All documentation for Tattva OS — architecture, APIs, developer guides.
+> All documentation for Utkarsha OS — architecture, APIs, developer guides.
 
 ---
 

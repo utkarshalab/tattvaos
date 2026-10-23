@@ -1,6 +1,6 @@
-# Tattva OS — Filesystem Layout
+# Utkarsha OS — Filesystem Layout
 
-> The root namespace of a running Tattva OS system: what every top-level folder
+> The root namespace of a running Utkarsha OS system: what every top-level folder
 > is for, who may touch it, how long its contents live, what may run from it, and
 > which subsystem implements it.
 
@@ -394,7 +394,7 @@ vol/
 
 ### 4.1 One decision function
 
-Tattva OS runs in a single address space, so access is not enforced by
+Utkarsha OS runs in a single address space, so access is not enforced by
 privilege rings. It is enforced by one reference monitor, `usrauth`:
 
 ```
@@ -432,7 +432,7 @@ in `sec/caps/` (for users and groups) or a request in the app's `manifest`.
 
 ## 5. What may run
 
-Everything in Tattva OS shares one address space at one privilege level. Loaded
+Everything in Utkarsha OS shares one address space at one privilege level. Loaded
 native code is therefore trusted completely — so *which* code may load is the
 most important rule in the layout.
 
@@ -458,7 +458,7 @@ most important rule in the layout.
 
 ## 6. AI models
 
-Tattva OS ships its own models and runs inference and training natively. Each
+Utkarsha OS ships its own models and runs inference and training natively. Each
 kind of AI artefact sits in the folder whose lifetime and access already fit it —
 there is no separate AI root.
 
