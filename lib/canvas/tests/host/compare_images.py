@@ -7,7 +7,8 @@ With no images, a corpus is generated into a temporary directory: WebP lossy
 (several sizes, qualities and filter settings), WebP with alpha, WebP
 lossless, and PNG/JPEG/GIF/BMP/TGA/PPM variants. Each file is decoded by
 Canvas (host_decode) and by Pillow; PSNR over RGBA is reported. Canvas
-output is premultiplied BGRA, so it is un-premultiplied before comparing.
+output is premultiplied BGRA (decision 0002), so the reference is
+premultiplied with the same rounding, round(c * a / 255), before comparing.
 
 Lossless formats must match exactly. Lossy formats are compared with a PSNR
 floor because chroma upsampling and YUV->RGB rounding legitimately differ
@@ -101,24 +102,19 @@ def canvas_decode(tool, path, out):
     px = np.frombuffer(data, dtype=np.uint8, offset=16)
     if px.size != w * h * 4:
         return None, f"short output ({px.size} bytes for {w}x{h})"
-    bgra = px.reshape(h, w, 4).astype(np.float64)
-    rgba = bgra[..., [2, 1, 0, 3]]
-    a = rgba[..., 3:4]
-    # Un-premultiply; fully transparent pixels compare as transparent black.
-    with np.errstate(divide="ignore", invalid="ignore"):
-        rgb = np.where(a > 0, np.clip(rgba[..., :3] * 255.0 / a, 0, 255), 0)
-    return np.concatenate([rgb, a], axis=-1), None
+    bgra = px.reshape(h, w, 4).astype(np.int64)
+    return bgra[..., [2, 1, 0, 3]], None
 
 
 def reference_decode(path):
-    ref = np.asarray(Image.open(path).convert("RGBA")).astype(np.float64)
-    a = ref[..., 3:4]
-    ref[..., :3] = np.where(a > 0, ref[..., :3], 0)
+    ref = np.asarray(Image.open(path).convert("RGBA")).astype(np.int64)
+    t = ref[..., :3] * ref[..., 3:4] + 128
+    ref[..., :3] = (t + (t >> 8)) >> 8
     return ref
 
 
 def psnr(a, b):
-    mse = np.mean((a - b) ** 2)
+    mse = np.mean((a - b).astype(np.float64) ** 2)
     return math.inf if mse == 0 else 10 * math.log10(255.0 ** 2 / mse)
 
 
@@ -147,9 +143,6 @@ def main():
             p = psnr(got, ref)
             maxdiff = int(np.max(np.abs(got - ref)))
             ok = p == math.inf if kind == "exact" else p >= LOSSY_PSNR_FLOOR
-            # Exact formats tolerate +-1 from premultiplied round trips on alpha images.
-            if not ok and kind == "exact" and maxdiff <= 1:
-                ok = True
             failed += not ok
             shown = "exact" if p == math.inf else f"{p:6.2f} dB"
             print(f"{'ok  ' if ok else 'FAIL'}  {name:28} {shown:>9}  maxdiff={maxdiff}")
