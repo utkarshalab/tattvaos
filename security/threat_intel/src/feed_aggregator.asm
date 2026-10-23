@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/threat_intel/src/feed_aggregator.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: threat feed aggregation (feed aggregation)

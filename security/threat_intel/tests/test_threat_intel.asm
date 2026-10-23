@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/threat_intel/tests/test_threat_intel.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Threat intel skeleton test - verifies constants, structs, and
 ;              include file integrity. Component symbol exports are verified
 ;              by tests/run.sh via grep.

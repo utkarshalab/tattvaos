@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/threat_intel/src/geoip_engine.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: geolocation intelligence (IP geolocation)

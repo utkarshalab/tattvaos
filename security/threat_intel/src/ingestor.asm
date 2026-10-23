@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/threat_intel/src/ingestor.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: threat feed ingestor (STIX/TAXII, CSV, JSON)

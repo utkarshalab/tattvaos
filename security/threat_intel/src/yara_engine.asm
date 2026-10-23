@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/threat_intel/src/yara_engine.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: yara engine (YARA rules engine)

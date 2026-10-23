@@ -2,7 +2,7 @@
 
 ## Purpose
 Threat intelligence ingestion, sharing, correlation, and indicator-of-compromise
-(IOC) management for Tattva OS security modules.
+(IOC) management for Utkarsha OS security modules.
 
 ## Architecture
 - **Ingestor** — pull/push feeds (STIX/TAXII, CSV, JSON, proprietary)

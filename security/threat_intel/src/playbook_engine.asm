@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/threat_intel/src/playbook_engine.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: threat hunting playbooks (YAML/JSON-encoded response procedures)

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/threat_intel/include/threat_intel.inc
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Threat Intelligence - master schema header.
