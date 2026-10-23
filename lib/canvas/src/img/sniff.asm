@@ -31,6 +31,7 @@ extern exr_decode
 extern psd_decode
 extern webp_decode
 extern camera_decode
+extern pixbuf_premultiply
 
 section .text
 
@@ -261,6 +262,14 @@ image_decode:
     mov rdx,r13
     call camera_decode
 .decode_done:
+    ; Decoders produce straight alpha; Canvas buffers are premultiplied.
+    test rax,rax
+    jle .decode_return
+    mov rbx,rax
+    mov rdi,rax
+    call pixbuf_premultiply
+    mov rax,rbx
+.decode_return:
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
     ret
 image_sniff_chk_qoi:
