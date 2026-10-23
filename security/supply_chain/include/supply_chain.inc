@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/supply_chain/include/supply_chain.inc
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Supply Chain - master schema header.

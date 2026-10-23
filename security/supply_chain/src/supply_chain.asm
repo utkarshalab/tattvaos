@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/supply_chain/src/supply_chain.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Supply Chain Security - main dispatcher.

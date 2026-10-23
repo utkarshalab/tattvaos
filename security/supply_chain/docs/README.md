@@ -2,7 +2,7 @@
 
 ## Purpose
 Supply chain integrity: SBOM generation, provenance tracking, supply-chain
-attestation, and component verification for Tattva OS.
+attestation, and component verification for Utkarsha OS.
 
 ## Architecture
 - **SBOM** — Software Bill of Materials generation and storage

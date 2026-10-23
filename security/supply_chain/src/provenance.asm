@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/supply_chain/src/provenance.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: build-system attestation, signer tracking

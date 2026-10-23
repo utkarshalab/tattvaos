@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/supply_chain/tests/test_supply_chain.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Supply chain comprehensive test - all components.
 ; Status   : PREMIUM ENTERPRISE SKELETON
 ; =============================================================================
