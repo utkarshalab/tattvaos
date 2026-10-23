@@ -8,7 +8,7 @@
 
 ## Purpose
 
-Unit tests for individual Tattva OS modules — kernel subsystems, libraries,
+Unit tests for individual Utkarsha OS modules — kernel subsystems, libraries,
 and applications. Each test module tests a single component in isolation.
 
 ## Files

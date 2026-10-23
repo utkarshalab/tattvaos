@@ -2,7 +2,7 @@
 %define GUARD_TESTS_UNIT_TEST_SUITE_ASM
 ; =============================================================================
 ; File     : tests/unit/test_suite.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Unit test suite entry point — runs all unit tests.
