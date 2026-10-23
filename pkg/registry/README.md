@@ -8,7 +8,7 @@
 
 ## Purpose
 
-Package registry for Tattva OS — tracks installed packages, versions, and
+Package registry for Utkarsha OS — tracks installed packages, versions, and
 install paths.
 
 ## Files
