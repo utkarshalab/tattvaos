@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_ACCOUNTING_MBM_ASM
 %define GUARD_LIB_MEM_VIRT_ACCOUNTING_MBM_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/mbm.asm
+; Utkarsha OS — lib/mem/virt/mbm.asm
 ; =============================================================================
 ; Memory Bandwidth Monitoring (MBM) — Subfeature 34.5.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/cxl_tier.asm
+; Utkarsha OS — lib/mem/virt/cxl_tier.asm
 ; =============================================================================
 ; CXL Memory Tiering — Subfeature 39.3.
 ;

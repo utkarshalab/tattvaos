@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS -- lib/mem/tests/mem_tests.asm
+; Utkarsha OS -- lib/mem/tests/mem_tests.asm
 ; =============================================================================
 ; Dedicated memory verification test suite extracted from main.asm.
 ; =============================================================================
@@ -1180,7 +1180,7 @@ run_all_memory_tests:
 
     ; Verification 2: Print the mock loaded page content
     mov rsi, rdi
-    call uart_print_str             ; should print "TATTVA_OS_ONDEMAND_PAGE_LOADED"
+    call uart_print_str             ; should print "UT_OS_ONDEMAND_PAGE_LOADED"
     mov rsi, msg_crlf
     call uart_print_str
 
@@ -10419,7 +10419,7 @@ run_all_memory_tests:
     ; This triggers a #PF, loads from mock storage, maps, and resumes execution.
     mov esi, 0x80000000
     mov rax, [rsi]
-    mov r11, 0x4154544154544154     ; Compare first 8 bytes: "TATTVA_M"
+    mov r11, 0x4154544154544154     ; Compare first 8 bytes: "UT_M"
     cmp rax, r11
     jne .mmap_fail_read_val
 
@@ -11752,7 +11752,7 @@ run_all_memory_tests:
 
     ; 5. Access (read) the window at 0xFA000000 to verify default block 5 signature load (triggers page fault)
     mov rdi, 0xFA000000
-    mov rax, [rdi]                  ; TATTVA_P
+    mov rax, [rdi]                  ; UT_P
     mov rbx, 0x505f415654544154
     cmp rax, rbx
     jne .window_fail_sig
@@ -11854,11 +11854,11 @@ run_all_memory_tests:
     test rax, rax
     jz .bypass_fail_map
 
-    ; 4. Fill source page with pattern "TATTVA_BYPASS_CACHE_TEST_PATTERN_"
+    ; 4. Fill source page with pattern "UT_BYPASS_CACHE_TEST_PATTERN_"
     mov rdi, 0x80000000
     mov rcx, 128                    ; 128 * 32 bytes = 4096 bytes
 .fill_loop:
-    mov rax, 0x425f415654544154     ; "TATTVA_B"
+    mov rax, 0x425f415654544154     ; "UT_B"
     mov [rdi], rax
     mov rax, 0x41435f5353415059     ; "YPASS_CA"
     mov [rdi + 8], rax

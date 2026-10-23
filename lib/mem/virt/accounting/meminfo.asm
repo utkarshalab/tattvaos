@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_ACCOUNTING_MEMINFO_ASM
 %define GUARD_LIB_MEM_VIRT_ACCOUNTING_MEMINFO_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/meminfo.asm
+; Utkarsha OS — lib/mem/virt/meminfo.asm
 ; =============================================================================
 ; Memory Map Statistics — Subfeature 34.3.
 ;

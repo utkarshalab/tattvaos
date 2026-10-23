@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/pgtable.asm
+; Utkarsha OS — lib/mem/virt/pgtable.asm
 ; =============================================================================
 ; 4-Level Page Table walking and traversal utilities (PML4 -> PDPT -> PD -> PT).
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_ACCOUNTING_PROC_MEMSTAT_ASM
 %define GUARD_LIB_MEM_VIRT_ACCOUNTING_PROC_MEMSTAT_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/proc_memstat.asm
+; Utkarsha OS — lib/mem/virt/proc_memstat.asm
 ; =============================================================================
 ; Per-Process Memory Statistics — Subfeature 34.4.
 ;
@@ -17,7 +17,7 @@
 ;   USS  (Unique Set Size)         — pages not shared with any other thread
 ;                                    (share_count == 1)
 ;
-; Since Tattva OS does not yet have a multi-level page-sharing reference
+; Since Utkarsha OS does not yet have a multi-level page-sharing reference
 ; counter, we model sharing conservatively:
 ;   • A page mapped by more than one active VMA (overlapping phys addr)
 ;     counts as shared; its contribution to PSS = 1/overlap_count.

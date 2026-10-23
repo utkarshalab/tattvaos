@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/ras_ecc.asm
+; Utkarsha OS — lib/mem/virt/ras_ecc.asm
 ; =============================================================================
 ; ECC Memory Error Detection — Subfeature 38.1.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/pgtable_split.asm
+; Utkarsha OS — lib/mem/virt/pgtable_split.asm
 ; =============================================================================
 ; Huge page and super page splitting logic (Subfeature 5.4).
 ; Splits 1GB super pages into 512 2MB huge pages, and 2MB huge pages into

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/pool/pool.asm
+; Utkarsha OS — lib/mem/pool/pool.asm
 ; =============================================================================
 ; Fixed-Size Pool Allocator top-level include module.
 ;

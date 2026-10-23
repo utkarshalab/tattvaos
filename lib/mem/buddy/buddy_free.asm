@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/buddy/buddy_free.asm
+; Utkarsha OS — lib/mem/buddy/buddy_free.asm
 ; =============================================================================
 ; Buddy Allocator Block Freeing and Coalescing (Subfeature 11.3).
 ;

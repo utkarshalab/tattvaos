@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/ops/user_copy.asm
+; Utkarsha OS — lib/mem/ops/user_copy.asm
 ; =============================================================================
 ; Safe user memory copy functions that bypass SMAP checks using stac/clac.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/virt.asm
+; Utkarsha OS — lib/mem/virt/virt.asm
 ; =============================================================================
 ; Virtual memory manager entry. Handles Virtual Memory Areas (VMAs).
 ;

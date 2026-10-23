@@ -1,4 +1,4 @@
-# Tattva OS — lib/mem/ Complete File Structure
+# Utkarsha OS — lib/mem/ Complete File Structure
 
 > Physical and virtual memory management primitives.
 > The absolute foundation — nothing else can exist without this.
@@ -277,7 +277,7 @@ Physical address space (x86-64):
 ...
 0x0009_000  - 0x0009_0FFF   → survive/ snapshot page (hidden)
 
-Virtual address space (Tattva kernel):
+Virtual address space (Utkarsha kernel):
 
 0xFFFF_8000_0000_0000+      → kernel space
 0x0000_0000_0000_0000+      → not used (null pointer protection)

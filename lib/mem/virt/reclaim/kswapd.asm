@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/kswapd.asm
+; Utkarsha OS — lib/mem/virt/kswapd.asm
 ; =============================================================================
 ; Page-out Daemon (kswapd) implementation for watermark memory reclamation.
 ;

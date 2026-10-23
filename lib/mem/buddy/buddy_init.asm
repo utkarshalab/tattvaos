@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/buddy/buddy_init.asm
+; Utkarsha OS — lib/mem/buddy/buddy_init.asm
 ; =============================================================================
 ; Buddy Allocator Initialization (Subfeature 11.1).
 ;

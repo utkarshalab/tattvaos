@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/mem.inc
+; Utkarsha OS — lib/mem/mem.inc
 ; =============================================================================
 ; Memory management definitions, structures, and offsets.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/ops/memcpy.asm
+; Utkarsha OS — lib/mem/ops/memcpy.asm
 ; =============================================================================
 ; AVX2-optimized memcpy implementation.
 ;

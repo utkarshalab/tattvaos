@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/reclaim/migration.asm
+; Utkarsha OS — lib/mem/virt/reclaim/migration.asm
 ; =============================================================================
 ; Confidential Live-Migration Support (SEV-SNP & Intel TDX) (Feature 14).
 ; Securely migrates guest-enclave pages to a remote host after attestation,

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/ras_scrub.asm
+; Utkarsha OS — lib/mem/virt/ras_scrub.asm
 ; =============================================================================
 ; Memory Scrubbing — Subfeature 38.5.
 ;

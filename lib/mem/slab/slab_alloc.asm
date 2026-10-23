@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/slab/slab_alloc.asm
+; Utkarsha OS — lib/mem/slab/slab_alloc.asm
 ; =============================================================================
 ; Slab Allocator Allocation & Tracking routines (Subfeature 10.3).
 ;

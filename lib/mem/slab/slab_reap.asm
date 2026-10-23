@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/slab/slab_reap.asm
+; Utkarsha OS — lib/mem/slab/slab_reap.asm
 ; =============================================================================
 ; Slab Allocator Reclaim function (Subfeature 10.4).
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/numa/numa_detect.asm
+; Utkarsha OS — lib/mem/numa/numa_detect.asm
 ; =============================================================================
 ; ACPI SRAT (Static Resource Affinity Table) parser.
 ; Maps physical memory range boundaries to Node IDs.

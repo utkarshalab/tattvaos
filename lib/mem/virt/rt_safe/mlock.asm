@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_RT_SAFE_MLOCK_ASM
 %define GUARD_LIB_MEM_VIRT_RT_SAFE_MLOCK_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/mlock.asm
+; Utkarsha OS — lib/mem/virt/mlock.asm
 ; =============================================================================
 ; Real-Time Memory Locking — Subfeature 37.1.
 ;
@@ -51,7 +51,7 @@ rt_mlockall:
     mov  qword [sys_rt_mlockall_active], 1
 
     ; Retrieve active pages list and lock every page
-    ; In Tattva OS, active physical pages list can be walked, or we can look up
+    ; In Utkarsha OS, active physical pages list can be walked, or we can look up
     ; the virtual page table structure. Let's walk the page lists:
     ; we can query page_list_active_count and lock them.
     ; For robust simulation, we iterate through page lists:

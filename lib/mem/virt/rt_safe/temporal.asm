@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/temporal.asm
+; Utkarsha OS — lib/mem/virt/temporal.asm
 ; =============================================================================
 ; Temporal Layout Obfuscation (Subfeature 26.5).
 ; Periodically relocates active code sections in the virtual address space

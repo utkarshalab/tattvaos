@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/thp.asm
+; Utkarsha OS — lib/mem/virt/thp.asm
 ; =============================================================================
 ; Transparent Huge Pages (THP) sweep daemon (5.3).
 ; Scans page mappings to identify contiguous blocks of 512 4KB pages and

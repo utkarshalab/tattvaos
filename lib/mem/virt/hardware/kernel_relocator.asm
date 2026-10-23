@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/kernel_relocator.asm
+; Utkarsha OS — lib/mem/virt/kernel_relocator.asm
 ; =============================================================================
 ; Dynamic Kernel Page Relocator.
 ; Checks if physical pages are located inside hot-pluggable memory zones.

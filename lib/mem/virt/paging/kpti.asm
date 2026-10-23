@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/paging/kpti.asm
+; Utkarsha OS — lib/mem/virt/paging/kpti.asm
 ; =============================================================================
 ; Kernel Page Table Isolation (KPTI / Meltdown Mitigation) (Feature 18).
 ; Protects kernel memory from side-channel leakages while in user mode.

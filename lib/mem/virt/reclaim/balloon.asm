@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/balloon.asm
+; Utkarsha OS — lib/mem/virt/balloon.asm
 ; =============================================================================
 ; Memory Balloon Driver.
 ; Dynamically allocates (inflates) or frees (deflates) page frames to adjust guest

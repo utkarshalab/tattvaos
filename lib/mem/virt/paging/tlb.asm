@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/tlb.asm
+; Utkarsha OS — lib/mem/virt/tlb.asm
 ; =============================================================================
 ; TLB (Translation Lookaside Buffer) management operations.
 ;

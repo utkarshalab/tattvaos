@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/ops/memset.asm
+; Utkarsha OS — lib/mem/ops/memset.asm
 ; =============================================================================
 ; AVX2-optimized memset implementation.
 ;

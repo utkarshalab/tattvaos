@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hle.asm
+; Utkarsha OS — lib/mem/virt/hle.asm
 ; =============================================================================
 ; Hardware Lock Elision (HLE) Protection (Subfeature 25.4).
 ; Enforces Write-Back (WB) caching on speculatively accessed pages by clearing

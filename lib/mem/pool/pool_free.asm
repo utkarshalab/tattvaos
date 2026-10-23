@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/pool/pool_free.asm
+; Utkarsha OS — lib/mem/pool/pool_free.asm
 ; =============================================================================
 ; Pool Deallocation: Pushes a slot back to the intrusive stack-based free list.
 ;

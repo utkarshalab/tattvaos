@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/uaf.asm
+; Utkarsha OS — lib/mem/virt/uaf.asm
 ; =============================================================================
 ; Use-After-Free (UAF) quarantine table and helpers.
 ;

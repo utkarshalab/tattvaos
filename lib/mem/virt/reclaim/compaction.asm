@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/reclaim/compaction.asm
+; Utkarsha OS — lib/mem/virt/reclaim/compaction.asm
 ; =============================================================================
 ; Active Memory Compaction (Feature 26).
 ; Relocates active pages to resolve physical RAM fragmentation.

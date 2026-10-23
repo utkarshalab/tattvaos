@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/pgtable_cache.asm
+; Utkarsha OS — lib/mem/virt/pgtable_cache.asm
 ; =============================================================================
 ; Directory Cache — Page Table Recycling Pool (3.3).
 ; Maintains a small pool of pre-zeroed 4KB pages for instant page table

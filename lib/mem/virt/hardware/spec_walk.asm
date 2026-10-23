@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/spec_walk.asm
+; Utkarsha OS — lib/mem/virt/spec_walk.asm
 ; =============================================================================
 ; Speculative Directory Walk Engine (Subfeature 25.2).
 ; Reads memory access transaction logs to speculatively resolve page table walks

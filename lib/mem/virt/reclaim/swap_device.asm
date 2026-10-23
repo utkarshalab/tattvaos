@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/swap_device.asm
+; Utkarsha OS — lib/mem/virt/swap_device.asm
 ; =============================================================================
 ; Polymorphic Swap Device Abstraction and concrete driver backends.
 ;

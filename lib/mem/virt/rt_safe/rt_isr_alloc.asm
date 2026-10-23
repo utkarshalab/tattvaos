@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/rt_isr_alloc.asm
+; Utkarsha OS — lib/mem/virt/rt_isr_alloc.asm
 ; =============================================================================
 ; Interrupt-Safe Lock-Free Memory Allocator — Subfeature 37.4.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/quant_layout.asm
+; Utkarsha OS — lib/mem/virt/quant_layout.asm
 ; =============================================================================
 ; Quantized Memory Layout Manager — Subfeature 36.6.
 ;

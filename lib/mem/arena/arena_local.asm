@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/arena/arena_local.asm
+; Utkarsha OS — lib/mem/arena/arena_local.asm
 ; =============================================================================
 ; Thread-Local Arenas: Bind and allocate from core-local memory arenas lock-free.
 ;

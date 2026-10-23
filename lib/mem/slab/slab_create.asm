@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/slab/slab_create.asm
+; Utkarsha OS — lib/mem/slab/slab_create.asm
 ; =============================================================================
 ; Slab Allocator Cache Creation functions (Subfeature 10.3).
 ;

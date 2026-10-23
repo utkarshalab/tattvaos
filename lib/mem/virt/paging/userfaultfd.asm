@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/paging/userfaultfd.asm
+; Utkarsha OS — lib/mem/virt/paging/userfaultfd.asm
 ; =============================================================================
 ; User-Space Page Fault Handling (userfaultfd) (Feature 12).
 ; Intercepts page faults, registers target VMAs, suspends faulting threads,

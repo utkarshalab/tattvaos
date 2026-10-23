@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/locality_scorer.asm
+; Utkarsha OS — lib/mem/virt/locality_scorer.asm
 ; =============================================================================
 ; Locality-Distance Affinity Scorer.
 ; Computes NUMA proximity scores dynamically using the ACPI SLIT table metrics.

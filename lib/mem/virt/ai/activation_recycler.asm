@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_AI_ACTIVATION_RECYCLER_ASM
 %define GUARD_LIB_MEM_VIRT_AI_ACTIVATION_RECYCLER_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/activation_recycler.asm
+; Utkarsha OS — lib/mem/virt/activation_recycler.asm
 ; =============================================================================
 ; Activation Memory Recycler — Subfeature 36.4.
 ;

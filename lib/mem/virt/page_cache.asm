@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/page_cache.asm
+; Utkarsha OS — lib/mem/virt/page_cache.asm
 ; =============================================================================
 ; Unified Page Cache.
 ; Caches file blocks (pages) in RAM to accelerate file reads and writes.

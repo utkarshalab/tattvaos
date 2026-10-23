@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/heap/leak_tracker.asm
+; Utkarsha OS — lib/mem/heap/leak_tracker.asm
 ; =============================================================================
 ; Memory Leak Tracker utility (Subfeature 19.1).
 ; Maps heap allocations, sizes, and return addresses to detect memory leaks.

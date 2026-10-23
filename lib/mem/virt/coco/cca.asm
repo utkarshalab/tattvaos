@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_COCO_CCA_ASM
 %define GUARD_LIB_MEM_VIRT_COCO_CCA_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/cca.asm
+; Utkarsha OS — lib/mem/virt/cca.asm
 ; =============================================================================
 ; ARM CCA (Confidential Compute Architecture) — Subfeature 35.3.
 ;
@@ -20,7 +20,7 @@
 ;     - Granule transition commands (e.g., GPT_transition) configure memory
 ;       as Realm, Secure, or Non-Secure.
 ;
-; Software model for Tattva OS:
+; Software model for Utkarsha OS:
 ;   - Simulation layers for RMM calls and Stage 2 page table ownership.
 ;   - Realm allocation/destruction tracked via `sys_cca_realm_count`.
 ;   - Page ownership tracked via 64KB `cca_page_realm_map` in .bss.

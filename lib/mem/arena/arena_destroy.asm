@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/arena/arena_destroy.asm
+; Utkarsha OS — lib/mem/arena/arena_destroy.asm
 ; =============================================================================
 ; Arena Destroy: Releases the entire memory block of the arena to the heap.
 ;

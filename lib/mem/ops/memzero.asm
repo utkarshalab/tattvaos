@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/ops/memzero.asm
+; Utkarsha OS — lib/mem/ops/memzero.asm
 ; =============================================================================
 ; AVX2-optimized memzero implementation.
 ;

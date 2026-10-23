@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_AI_WEIGHT_CACHE_ASM
 %define GUARD_LIB_MEM_VIRT_AI_WEIGHT_CACHE_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/weight_cache.asm
+; Utkarsha OS — lib/mem/virt/weight_cache.asm
 ; =============================================================================
 ; Weight Cache Manager — Subfeature 36.2.
 ;

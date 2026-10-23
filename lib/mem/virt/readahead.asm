@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/readahead.asm
+; Utkarsha OS — lib/mem/virt/readahead.asm
 ; =============================================================================
 ; Sequential File Readahead Prefetching Engine.
 ; Prefetches subsequent sequential blocks of a file into the Unified Page Cache

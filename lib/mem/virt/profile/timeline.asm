@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/timeline.asm
+; Utkarsha OS — lib/mem/virt/timeline.asm
 ; =============================================================================
 ; Memory Timeline Recorder — Subfeature 40.3.
 ;
@@ -54,7 +54,7 @@ timeline_log:
 
     inc  qword [sys_timeline_event_count]
 
-    ; In Tattva OS, this reads the Time Stamp Counter (rdtsc) and writes a
+    ; In Utkarsha OS, this reads the Time Stamp Counter (rdtsc) and writes a
     ; structured record [timestamp, event_type, address, size] to the circular
     ; tracing buffer log.
     mov  rax, 1

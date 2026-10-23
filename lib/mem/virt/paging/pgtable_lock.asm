@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/pgtable_lock.asm
+; Utkarsha OS — lib/mem/virt/pgtable_lock.asm
 ; =============================================================================
 ; Per-PML4-entry spinlocks for concurrent page table protection (3.4).
 ; Guards directory updates using fine-grained locks indexed by PML4 slot,

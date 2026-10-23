@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_AI_KV_CACHE_ASM
 %define GUARD_LIB_MEM_VIRT_AI_KV_CACHE_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/kv_cache.asm
+; Utkarsha OS — lib/mem/virt/kv_cache.asm
 ; =============================================================================
 ; KV Cache Physical Allocator — Subfeature 36.3.
 ;

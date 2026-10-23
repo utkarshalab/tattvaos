@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/numa_stat.asm
+; Utkarsha OS — lib/mem/virt/numa_stat.asm
 ; =============================================================================
 ; NUMA Hit/Miss Counters — Subfeature 40.4.
 ;

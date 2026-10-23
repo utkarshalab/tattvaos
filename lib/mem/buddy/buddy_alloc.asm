@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/buddy/buddy_alloc.asm
+; Utkarsha OS — lib/mem/buddy/buddy_alloc.asm
 ; =============================================================================
 ; Buddy Allocator Allocation and Splitting logic (Subfeature 11.2).
 ;

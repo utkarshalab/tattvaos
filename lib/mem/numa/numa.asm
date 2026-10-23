@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/numa/numa.asm
+; Utkarsha OS — lib/mem/numa/numa.asm
 ; =============================================================================
 ; NUMA Range structures and Node ID lookup functions.
 ;

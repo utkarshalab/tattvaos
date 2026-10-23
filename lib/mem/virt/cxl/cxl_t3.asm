@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/cxl_t3.asm
+; Utkarsha OS — lib/mem/virt/cxl_t3.asm
 ; =============================================================================
 ; CXL Type 3 Memory Expansion — Subfeature 39.2.
 ;
@@ -53,7 +53,7 @@ cxl_t3_hotplug:
     inc  qword [sys_cxl_t3_device_count]
     add  [sys_cxl_t3_total_capacity_gb], rsi
 
-    ; In Tattva OS, this physically maps the region's frames into the global
+    ; In Utkarsha OS, this physically maps the region's frames into the global
     ; page allocator's free-lists for use by user space allocators.
     mov  rax, 1
     ret

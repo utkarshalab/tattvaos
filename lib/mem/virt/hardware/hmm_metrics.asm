@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hmm_metrics.asm
+; Utkarsha OS — lib/mem/virt/hmm_metrics.asm
 ; =============================================================================
 ; Dynamic Page Migration Metrics Subsystem (Milestone 23.6).
 ; Tracks CPU and GPU read/write access counts for unified memory pages and

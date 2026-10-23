@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_RT_SAFE_RT_DET_ALLOC_ASM
 %define GUARD_LIB_MEM_VIRT_RT_SAFE_RT_DET_ALLOC_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/rt_det_alloc.asm
+; Utkarsha OS — lib/mem/virt/rt_det_alloc.asm
 ; =============================================================================
 ; Deterministic Memory Allocator — Subfeature 37.3.
 ;

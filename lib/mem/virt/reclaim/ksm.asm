@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/reclaim/ksm.asm
+; Utkarsha OS — lib/mem/virt/reclaim/ksm.asm
 ; =============================================================================
 ; Kernel Samepage Merging (KSM / Memory Deduplication) (Feature 9).
 ; Identifies physically distinct pages with identical content, merges them into

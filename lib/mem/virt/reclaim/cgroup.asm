@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/reclaim/cgroup.asm
+; Utkarsha OS — lib/mem/virt/reclaim/cgroup.asm
 ; =============================================================================
 ; Hierarchical Memory Cgroups (v2 Control Topology) (Feature 15).
 ; Enforces memory limits hierarchically across cgroups, executing cgroup-specific

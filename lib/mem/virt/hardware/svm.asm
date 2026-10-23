@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hardware/svm.asm
+; Utkarsha OS — lib/mem/virt/hardware/svm.asm
 ; =============================================================================
 ; Shared Virtual Memory (SVM) via IOMMU Direct Sharing (Feature 6).
 ; Maps process PML4 tables directly into the physical PCIe PASID descriptor tables.

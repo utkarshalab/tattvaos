@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/bw_sat.asm
+; Utkarsha OS — lib/mem/virt/bw_sat.asm
 ; =============================================================================
 ; Memory Bandwidth Saturation Detector — Subfeature 40.5.
 ;

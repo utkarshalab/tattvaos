@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/pgtable_unmap.asm
+; Utkarsha OS — lib/mem/virt/pgtable_unmap.asm
 ; =============================================================================
 ; Virtual memory page unmapping API with empty table reclamation (3.2)
 ; and recycling pool integration (3.3). Protected by per-PML4

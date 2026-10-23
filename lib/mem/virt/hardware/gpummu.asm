@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/gpummu.asm
+; Utkarsha OS — lib/mem/virt/gpummu.asm
 ; =============================================================================
 ; GPU Page Table Shadowing Subsystem (Milestone 23.4).
 ; Replicates virtual page structures and mirrors CPU page tables inside

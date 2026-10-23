@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/phys/bitmap.asm
+; Utkarsha OS — lib/mem/phys/bitmap.asm
 ; =============================================================================
 ; Page bitmap allocator helper functions (set, clear, test, find free bits).
 ;

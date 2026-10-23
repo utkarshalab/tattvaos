@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_ACCOUNTING_PERCPU_STAT_ASM
 %define GUARD_LIB_MEM_VIRT_ACCOUNTING_PERCPU_STAT_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/percpu_stat.asm
+; Utkarsha OS — lib/mem/virt/percpu_stat.asm
 ; =============================================================================
 ; Per-CPU Memory Counters — Subfeature 34.2.
 ;
@@ -185,7 +185,7 @@ percpu_event_inc:
 ;               counters and reset per-CPU deltas to zero.
 ;
 ; This is the "periodic sync" step analogous to Linux's
-; refresh_cpu_vm_stats(). On Tattva OS it is called explicitly (e.g. from
+; refresh_cpu_vm_stats(). On Utkarsha OS it is called explicitly (e.g. from
 ; kswapd, from the boot test harness, or by a periodic timer interrupt).
 ;
 ; Input:  none

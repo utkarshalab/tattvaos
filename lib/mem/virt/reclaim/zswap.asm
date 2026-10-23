@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/zswap.asm
+; Utkarsha OS — lib/mem/virt/zswap.asm
 ; =============================================================================
 ; Zswap compressed cache pool and PackBits Run-Length Encoding.
 ;

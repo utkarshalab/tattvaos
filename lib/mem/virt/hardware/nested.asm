@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/nested.asm
+; Utkarsha OS — lib/mem/virt/nested.asm
 ; =============================================================================
 ; Nested Page Table Virtualization — Nested PML4 Page Structures (Milestone 22.6).
 ; Supports recursive PML4 mappings to host nested hypervisors and implements

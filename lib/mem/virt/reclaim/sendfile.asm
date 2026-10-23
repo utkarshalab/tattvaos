@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/reclaim/sendfile.asm
+; Utkarsha OS — lib/mem/virt/reclaim/sendfile.asm
 ; =============================================================================
 ; Zero-Copy Network & Storage Unified Buffer Pool (Feature 13).
 ; Passes page cache pages directly to network sockets without copying,

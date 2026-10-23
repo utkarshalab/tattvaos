@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/reclaim/numa_balance.asm
+; Utkarsha OS — lib/mem/virt/reclaim/numa_balance.asm
 ; =============================================================================
 ; Dynamic Tiering across N-Tier Fabrics / NUMA Balancing (Feature 10).
 ; Monitors page access patterns, identifies 'cold' pages in DDR5 (Node 0),

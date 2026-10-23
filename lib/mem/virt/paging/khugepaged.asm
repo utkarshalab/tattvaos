@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/paging/khugepaged.asm
+; Utkarsha OS — lib/mem/virt/paging/khugepaged.asm
 ; =============================================================================
 ; Dynamic Transparent Huge Page (THP) Coalescing / khugepaged (Feature 7).
 ; Consolidates 512 scattered contiguous-content 4KB pages into a single 2MB huge page.

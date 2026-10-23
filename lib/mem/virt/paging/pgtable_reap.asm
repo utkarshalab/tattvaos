@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/paging/pgtable_reap.asm
+; Utkarsha OS — lib/mem/virt/paging/pgtable_reap.asm
 ; =============================================================================
 ; Intermediate Page Table Reaping (Feature 2).
 ; Scans the paging hierarchy of a PML4 and reclaims any level-1 page tables (PT)

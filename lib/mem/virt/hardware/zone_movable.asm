@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hardware/zone_movable.asm
+; Utkarsha OS — lib/mem/virt/hardware/zone_movable.asm
 ; =============================================================================
 ; Memory Compact Hot-Plug Zones / ZONE_MOVABLE (Feature 4).
 ; Allows marking specific physical page frame number (PFN) ranges as movable

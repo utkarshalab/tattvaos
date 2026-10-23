@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/lz4.asm
+; Utkarsha OS — lib/mem/virt/lz4.asm
 ; =============================================================================
 ; LZ4 Block Compression and Decompression algorithms.
 ;

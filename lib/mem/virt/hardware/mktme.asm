@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hardware/mktme.asm
+; Utkarsha OS — lib/mem/virt/hardware/mktme.asm
 ; =============================================================================
 ; Multi-Key Memory Encryption (MKTME) Configuration & Mappings (Feature 19).
 ; Configures multi-tenant hardware encryption keys and stamps key IDs on PML4/PTEs.

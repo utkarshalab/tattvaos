@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_RAS_RAS_DIMM_ASM
 %define GUARD_LIB_MEM_VIRT_RAS_RAS_DIMM_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/ras_dimm.asm
+; Utkarsha OS — lib/mem/virt/ras_dimm.asm
 ; =============================================================================
 ; DIMM Failure Prediction & Migration — Subfeature 38.4.
 ;

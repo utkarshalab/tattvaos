@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/phys/phys.asm
+; Utkarsha OS — lib/mem/phys/phys.asm
 ; =============================================================================
 ; Physical memory manager. Coordinates E820 parsing, bitmap allocation,
 ; page booking, and runtime PMM APIs.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/pool/pool_create.asm
+; Utkarsha OS — lib/mem/pool/pool_create.asm
 ; =============================================================================
 ; Pool Creator: Allocates memory and partitions it into fixed-size slots.
 ;

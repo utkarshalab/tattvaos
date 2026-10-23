@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hardware/kernel_aslr.asm
+; Utkarsha OS — lib/mem/virt/hardware/kernel_aslr.asm
 ; =============================================================================
 ; Live Kernel ASLR Re-Shuffling (Feature 5).
 ; Migrates kernel code/data segments from an old physical range to a new one

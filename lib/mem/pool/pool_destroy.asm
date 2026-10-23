@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/pool/pool_destroy.asm
+; Utkarsha OS — lib/mem/pool/pool_destroy.asm
 ; =============================================================================
 ; Pool Destroyer: Walks the block list, reclaiming physical pages and the initial
 ; heap allocation before freeing the pool descriptor.

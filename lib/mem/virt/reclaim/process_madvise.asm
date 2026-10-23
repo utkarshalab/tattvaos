@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/reclaim/process_madvise.asm
+; Utkarsha OS — lib/mem/virt/reclaim/process_madvise.asm
 ; =============================================================================
 ; Remote Process Advice & Reclamation (Feature 11).
 ; Allows administrative tasks to reclaim memory from target tasks.

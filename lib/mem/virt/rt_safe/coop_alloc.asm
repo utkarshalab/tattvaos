@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/rt_safe/coop_alloc.asm
+; Utkarsha OS — lib/mem/virt/rt_safe/coop_alloc.asm
 ; =============================================================================
 ; Cooperative Lockless Allocator (Feature 3).
 ; Allows user-space processes to submit allocation requests into a shared-memory

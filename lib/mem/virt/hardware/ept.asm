@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/ept.asm
+; Utkarsha OS — lib/mem/virt/ept.asm
 ; =============================================================================
 ; Hardware Page Table Virtualization — Extended Page Tables (EPT) (Milestone 22).
 ; Constructs and manages secondary level-4 guest page tables to map Guest

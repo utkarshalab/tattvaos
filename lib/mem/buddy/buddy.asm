@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/buddy/buddy.asm
+; Utkarsha OS — lib/mem/buddy/buddy.asm
 ; =============================================================================
 ; Buddy Allocator top-level include and tracking structures.
 ;

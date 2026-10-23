@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/pool/pool_grow.asm
+; Utkarsha OS — lib/mem/pool/pool_grow.asm
 ; =============================================================================
 ; Pool Expander: Requests a new page frame when the pool is saturated,
 ; partitions it into fixed-size slots, and links them atomically.

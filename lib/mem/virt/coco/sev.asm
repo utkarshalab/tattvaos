@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_COCO_SEV_ASM
 %define GUARD_LIB_MEM_VIRT_COCO_SEV_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/sev.asm
+; Utkarsha OS — lib/mem/virt/sev.asm
 ; =============================================================================
 ; AMD SEV (Secure Encrypted Virtualization) — Subfeature 35.1.
 ;
@@ -29,7 +29,7 @@
 ;     PVALIDATE instruction validates/invalidates a guest-owned GPA.
 ;     RMP (Reverse Map Table) tracks ownership of each physical page.
 ;
-; Software model for Tattva OS:
+; Software model for Utkarsha OS:
 ;   - Full CPUID detection and MSR probing.
 ;   - Simulation layer: sys_sev_cbit_shadow replaces live PTE manipulation
 ;     so tests run correctly on non-SEV x86-64 hardware.

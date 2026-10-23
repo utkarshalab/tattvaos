@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hmm.asm
+; Utkarsha OS — lib/mem/virt/hmm.asm
 ; =============================================================================
 ; Heterogeneous Memory Management (HMM) & GPU BAR Mappings (Milestone 23.1).
 ; Maps device PCIe physical BAR aperture memory ranges into the kernel virtual

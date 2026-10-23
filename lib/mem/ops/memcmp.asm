@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/ops/memcmp.asm
+; Utkarsha OS — lib/mem/ops/memcmp.asm
 ; =============================================================================
 ; AVX2-optimized memcmp implementation.
 ;

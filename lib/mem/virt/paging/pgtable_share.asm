@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/paging/pgtable_share.asm
+; Utkarsha OS — lib/mem/virt/paging/pgtable_share.asm
 ; =============================================================================
 ; Multi-Process Page Table Sharing (Part 1).
 ; Allows distinct processes to share intermediate page table directories (PT pages)

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/eve.asm
+; Utkarsha OS — lib/mem/virt/eve.asm
 ; =============================================================================
 ; EPT Violation & Virtualization Exception (#VE) Handler (Milestone 22.4).
 ; Intercepts EPT violation faults (exit reason 48) on VM exits, resolving

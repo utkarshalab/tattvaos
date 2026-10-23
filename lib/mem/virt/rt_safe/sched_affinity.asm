@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/sched_affinity.asm
+; Utkarsha OS — lib/mem/virt/sched_affinity.asm
 ; =============================================================================
 ; Thread CPU Affinity Scheduler & Dynamic NUMA Core Migration.
 ; Maps CPU cores to NUMA nodes, tracks threads, and migrates thread CPU

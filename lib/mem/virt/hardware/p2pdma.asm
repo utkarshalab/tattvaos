@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/p2pdma.asm
+; Utkarsha OS — lib/mem/virt/p2pdma.asm
 ; =============================================================================
 ; PCIe Peer-to-Peer (P2P) DMA mapping subsystem (Milestone 23.5).
 ; Configures direct, secure peer-to-peer DMA mappings between PCIe devices

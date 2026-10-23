@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/heap/heap.asm
+; Utkarsha OS — lib/mem/heap/heap.asm
 ; =============================================================================
 ; Unified Heap Allocator selector wrapper (Subfeature 9.1).
 ; Directs requests to either the early bump allocator or the free-list allocator.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/ipc.asm
+; Utkarsha OS — lib/mem/virt/ipc.asm
 ; =============================================================================
 ; Shared Memory & IPC Primitives implementation (Subfeatures 18.1, 18.2).
 ;

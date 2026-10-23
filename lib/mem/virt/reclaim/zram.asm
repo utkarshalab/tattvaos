@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/zram.asm
+; Utkarsha OS — lib/mem/virt/zram.asm
 ; =============================================================================
 ; ZRAM Compressed Swap Device backend (Subfeature 28.1).
 ;

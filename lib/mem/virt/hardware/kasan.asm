@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hardware/kasan.asm
+; Utkarsha OS — lib/mem/virt/hardware/kasan.asm
 ; =============================================================================
 ; Kernel Address Sanitizer (KASAN) & Fault Injection Engine (Feature 24).
 ; Detects invalid memory access attempts by mapping and auditing shadow bytes.

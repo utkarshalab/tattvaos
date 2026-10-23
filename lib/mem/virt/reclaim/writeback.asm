@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/writeback.asm
+; Utkarsha OS — lib/mem/virt/writeback.asm
 ; =============================================================================
 ; Writeback Throttling Engine.
 ; Rate-limits dirty page writebacks when the dirty page count exceeds a

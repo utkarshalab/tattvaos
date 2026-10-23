@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/prefetch_alloc.asm
+; Utkarsha OS — lib/mem/virt/prefetch_alloc.asm
 ; =============================================================================
 ; Prefetch-Aware Allocator — Subfeature 36.5.
 ;
@@ -54,7 +54,7 @@ prefetch_alloc_aligned:
     mov  r10, rax                   ; R10 = page count
 
     ; Check if NUMA support is available
-    ; In Tattva OS: we can call phys_alloc_pages_node if present,
+    ; In Utkarsha OS: we can call phys_alloc_pages_node if present,
     ; otherwise fallback to global phys_alloc_page.
     ; Let's dynamically call phys_alloc_pages_node (extern numa page allocator)
     

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/ras_poison.asm
+; Utkarsha OS — lib/mem/virt/ras_poison.asm
 ; =============================================================================
 ; Poison Page Handling — Subfeature 38.3.
 ;
@@ -59,7 +59,7 @@ ras_poison_page:
 
 .already_poisoned:
     ; Simulates permanent removal from the buddy allocator availability arrays:
-    ; In Tattva OS, we could query the buddy free list block and mark it allocated/unavailable.
+    ; In Utkarsha OS, we could query the buddy free list block and mark it allocated/unavailable.
     mov  rax, 1
     ret
 

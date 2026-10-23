@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/heap/free_list.asm
+; Utkarsha OS — lib/mem/heap/free_list.asm
 ; =============================================================================
 ; Doubly-linked free list heap allocator with block splitting and coalescing.
 ;

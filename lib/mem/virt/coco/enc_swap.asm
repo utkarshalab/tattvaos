@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/enc_swap.asm
+; Utkarsha OS — lib/mem/virt/enc_swap.asm
 ; =============================================================================
 ; Encrypted Memory Swapping — Subfeature 35.4.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/tensor_pool.asm
+; Utkarsha OS — lib/mem/virt/tensor_pool.asm
 ; =============================================================================
 ; Tensor Memory Pool — Subfeature 36.1.
 ;

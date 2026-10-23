@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/cxl_pmem.asm
+; Utkarsha OS — lib/mem/virt/cxl_pmem.asm
 ; =============================================================================
 ; CXL Persistent Memory — Subfeature 39.4.
 ;

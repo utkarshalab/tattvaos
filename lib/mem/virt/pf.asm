@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/pf.asm
+; Utkarsha OS — lib/mem/virt/pf.asm
 ; =============================================================================
 ; Page Fault Handler entry and dispatching (Subfeature 6.1).
 ; Hooks Vector 14 (#PF) to intercept faults, read CR2 and the exception error
@@ -1182,7 +1182,7 @@ msg_pf_details_end:     db ")", 0x0D, 0x0A, 0
 msg_stack_overflow_panic:   db "KERNEL PANIC: Stack Overflow detected! Page fault in kernel stack guard page at ", 0
 msg_stack_overflow_reason:  db "Double Fault / Kernel Stack Overflow", 0
 
-msg_pf_mock_data:       db "TATTVA_OS_ONDEMAND_PAGE_LOADED", 0
+msg_pf_mock_data:       db "UT_OS_ONDEMAND_PAGE_LOADED", 0
 
 msg_uaf_panic_prefix:  db "KERNEL PANIC: Use-After-Free detected at address 0x", 0
 msg_uaf_panic_suffix:  db "! (UAF_TEST_SUCCESS)", 0x0D, 0x0A, 0

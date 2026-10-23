@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hw_perf.asm
+; Utkarsha OS — lib/mem/virt/hw_perf.asm
 ; =============================================================================
 ; Hardware Performance Counters for Memory — Subfeature 40.1.
 ;

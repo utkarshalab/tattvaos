@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/vtlb.asm
+; Utkarsha OS — lib/mem/virt/vtlb.asm
 ; =============================================================================
 ; Virtual TLB Cache Invalidation Subsystem (Milestone 22.3).
 ; Intercepts guest TLB flushes on VM exits and issues EPT/VPID hardware

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/acpi_hotplug.asm
+; Utkarsha OS — lib/mem/virt/acpi_hotplug.asm
 ; =============================================================================
 ; ACPI Memory Hot-Plug Discovery & Dynamic NUMA Rebalancing.
 ; Parses FADT/FACP SCI/GPE metadata and retains the event handler for future

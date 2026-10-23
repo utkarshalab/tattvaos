@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/mem.asm
+; Utkarsha OS — lib/mem/mem.asm
 ; =============================================================================
 ; Memory management library top-level include wrapper.
 ;

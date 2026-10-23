@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/pool/pool_alloc.asm
+; Utkarsha OS — lib/mem/pool/pool_alloc.asm
 ; =============================================================================
 ; Pool Allocation: Pops a free slot from the intrusive stack-based free list.
 ;

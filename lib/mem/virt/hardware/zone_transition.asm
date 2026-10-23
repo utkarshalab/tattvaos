@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/zone_transition.asm
+; Utkarsha OS — lib/mem/virt/zone_transition.asm
 ; =============================================================================
 ; Online/Offline Memory Zone Transition Manager.
 ; Locks memory buddy nodes to block allocations and performs reverse page table

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/inf_prof.asm
+; Utkarsha OS — lib/mem/virt/inf_prof.asm
 ; =============================================================================
 ; Inference Memory Profiler — Subfeature 40.6.
 ;

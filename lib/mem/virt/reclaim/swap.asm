@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/swap.asm
+; Utkarsha OS — lib/mem/virt/swap.asm
 ; =============================================================================
 ; Polymorphic swap subsystem and concrete RAM-backed swap helpers.
 ;

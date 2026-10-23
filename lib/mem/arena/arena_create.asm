@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/arena/arena_create.asm
+; Utkarsha OS — lib/mem/arena/arena_create.asm
 ; =============================================================================
 ; Arena Creation: Allocates a region and initializes the arena_t header.
 ;

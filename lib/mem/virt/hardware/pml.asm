@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/pml.asm
+; Utkarsha OS — lib/mem/virt/pml.asm
 ; =============================================================================
 ; Guest Page Modification Log (PML) Subsystem (Milestone 22.5).
 ; Configures hardware page write logging inside the VMCS to track guest writes

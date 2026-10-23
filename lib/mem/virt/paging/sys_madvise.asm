@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/paging/sys_madvise.asm
+; Utkarsha OS — lib/mem/virt/paging/sys_madvise.asm
 ; =============================================================================
 ; User-Space Allocator Directives / Advanced madvise Support (Feature 8).
 ; Allows applications to specify memory paging strategies like releasing physical

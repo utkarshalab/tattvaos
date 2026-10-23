@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/cxl_fabric.asm
+; Utkarsha OS — lib/mem/virt/cxl_fabric.asm
 ; =============================================================================
 ; CXL Fabric Manager Integration — Subfeature 39.5.
 ;

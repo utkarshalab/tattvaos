@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/arena/arena_checkpoint.asm
+; Utkarsha OS — lib/mem/arena/arena_checkpoint.asm
 ; =============================================================================
 ; Arena Checkpointing: Save and restore allocation points (Subfeature 12.3: Arena Checkpoints).
 ;

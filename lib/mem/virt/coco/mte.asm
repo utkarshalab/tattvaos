@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_COCO_MTE_ASM
 %define GUARD_LIB_MEM_VIRT_COCO_MTE_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/mte.asm
+; Utkarsha OS — lib/mem/virt/mte.asm
 ; =============================================================================
 ; Memory Tagging Extension (MTE) — Subfeature 35.5.
 ;

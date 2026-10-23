@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/arena/arena_alloc.asm
+; Utkarsha OS — lib/mem/arena/arena_alloc.asm
 ; =============================================================================
 ; Arena Allocation: Bump allocate memory from an arena with 16-byte alignment.
 ;

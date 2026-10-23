@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_RT_SAFE_RT_RESERVE_ASM
 %define GUARD_LIB_MEM_VIRT_RT_SAFE_RT_RESERVE_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/rt_reserve.asm
+; Utkarsha OS — lib/mem/virt/rt_reserve.asm
 ; =============================================================================
 ; Physical Memory Reservation — Subfeature 37.5.
 ;

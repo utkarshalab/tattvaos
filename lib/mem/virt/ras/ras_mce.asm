@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/ras/ras_mce.asm
+; Utkarsha OS — lib/mem/virt/ras/ras_mce.asm
 ; =============================================================================
 ; Machine Check Exception (MCE) Handler — Subfeature 38.2 & Feature 20.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — sparse high-memory identity mapping and publication
+; Utkarsha OS — sparse high-memory identity mapping and publication
 ; =============================================================================
 ;
 ; Physical addresses are still used as pointers throughout the kernel.  Keep

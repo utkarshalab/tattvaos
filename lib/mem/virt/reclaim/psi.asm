@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/reclaim/psi.asm
+; Utkarsha OS — lib/mem/virt/reclaim/psi.asm
 ; =============================================================================
 ; Pressure Stall Information (PSI) Stall Telemetry (Feature 21).
 ; Monitors active and stalled threads to compute memory pressure stall duration.

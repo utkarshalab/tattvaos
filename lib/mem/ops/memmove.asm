@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/ops/memmove.asm
+; Utkarsha OS — lib/mem/ops/memmove.asm
 ; =============================================================================
 ; AVX2-optimized memmove implementation, safe for overlapping memory regions.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/dmabuf.asm
+; Utkarsha OS — lib/mem/virt/dmabuf.asm
 ; =============================================================================
 ; DMA-BUF direct NVMe-to-GPU Routing (Milestone 23.3).
 ; Establishes VRAM-backed DMA-BUF descriptors and submits direct NVMe read

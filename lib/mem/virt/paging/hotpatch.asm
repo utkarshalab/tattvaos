@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/paging/hotpatch.asm
+; Utkarsha OS — lib/mem/virt/paging/hotpatch.asm
 ; =============================================================================
 ; Live-Patching Memory Redirection (Feature 23).
 ; Hot-fixes active functions in memory without stopping services via JMP rel32.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/stack.asm
+; Utkarsha OS — lib/mem/virt/stack.asm
 ; =============================================================================
 ; Thread Stack Page Allocator (Subfeature 20.1).
 ; Allocates page-aligned stack frames for newly spawned tasks.

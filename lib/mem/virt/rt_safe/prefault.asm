@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/prefault.asm
+; Utkarsha OS — lib/mem/virt/prefault.asm
 ; =============================================================================
 ; Real-Time Memory Pre-faulting — Subfeature 37.2.
 ;

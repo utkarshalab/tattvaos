@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/mglru.asm
+; Utkarsha OS — lib/mem/virt/mglru.asm
 ; =============================================================================
 ; Multi-Gen LRU (MGLRU) Page Replacement Engine.
 ; Maintains pages in 4 generations (Gen 0 oldest to Gen 3 youngest).

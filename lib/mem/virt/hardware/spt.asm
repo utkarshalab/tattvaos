@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/spt.asm
+; Utkarsha OS — lib/mem/virt/spt.asm
 ; =============================================================================
 ; Software Page Table Virtualization — Shadow Page Tables (SPT) (Milestone 22.2).
 ; Synchronizes guest virtual-to-physical structures to host page tables in

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/slab/slab.asm
+; Utkarsha OS — lib/mem/slab/slab.asm
 ; =============================================================================
 ; Slab Allocator Main Entry and Static Cache Definitions (Subfeature 10.1).
 ;

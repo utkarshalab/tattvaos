@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/heap/bump.asm
+; Utkarsha OS — lib/mem/heap/bump.asm
 ; =============================================================================
 ; Early bump allocator. Fast, non-reclaimable memory allocator for early boot.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/zpool.asm
+; Utkarsha OS — lib/mem/virt/zpool.asm
 ; =============================================================================
 ; Balancing, Compaction, Writeback, and Parallel Batch Decompression (Section 28).
 ;

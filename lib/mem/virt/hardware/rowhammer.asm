@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/hardware/rowhammer.asm
+; Utkarsha OS — lib/mem/virt/hardware/rowhammer.asm
 ; =============================================================================
 ; Hardware-Level Page Access Rate Limiting (Rowhammer Protection) (Feature 17).
 ; Detects charge-leakage risk on memory rows, dynamically relocates targeted

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/arena/arena.asm
+; Utkarsha OS — lib/mem/arena/arena.asm
 ; =============================================================================
 ; Arena Allocator top-level include module.
 ;

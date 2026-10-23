@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/dbg_watch.asm
+; Utkarsha OS — lib/mem/virt/dbg_watch.asm
 ; =============================================================================
 ; Emulated Page-Granular Dirty Bit Tracing, Watchpoints, and Instruction Fetch Tracing.
 ;

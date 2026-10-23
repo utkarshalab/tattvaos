@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/alloc_site.asm
+; Utkarsha OS — lib/mem/virt/alloc_site.asm
 ; =============================================================================
 ; Allocation Site Tracking — Subfeature 40.2.
 ;
@@ -53,7 +53,7 @@ alloc_site_record:
     inc  qword [sys_alloc_site_count]
     add  [sys_alloc_site_total_bytes], rsi
 
-    ; In Tattva OS, this records the callsite into a hashed dictionary/tree
+    ; In Utkarsha OS, this records the callsite into a hashed dictionary/tree
     ; database structure to map active block locations for dump reports.
     mov  rax, 1
     ret

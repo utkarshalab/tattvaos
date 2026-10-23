@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/pgtable_map.asm
+; Utkarsha OS — lib/mem/virt/pgtable_map.asm
 ; =============================================================================
 ; Virtual memory page mapping API (maps virtual -> physical).
 ; Uses the pgtable_cache recycling pool (3.3) as a fast path for

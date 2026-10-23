@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/phys/map.asm
+; Utkarsha OS — lib/mem/phys/map.asm
 ; =============================================================================
 ; E820 memory map parser. Finds maximum physical RAM and total system pages.
 ;

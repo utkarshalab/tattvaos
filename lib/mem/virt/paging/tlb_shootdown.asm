@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/tlb_shootdown.asm
+; Utkarsha OS — lib/mem/virt/tlb_shootdown.asm
 ; =============================================================================
 ; Multi-Core TLB Shootdown — sends Inter-Processor Interrupts (IPIs) to
 ; all other active cores, forcing them to invalidate stale TLB entries

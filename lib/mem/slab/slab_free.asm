@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/slab/slab_free.asm
+; Utkarsha OS — lib/mem/slab/slab_free.asm
 ; =============================================================================
 ; Slab Allocator Freeing function stub (Subfeature 10.1).
 ;

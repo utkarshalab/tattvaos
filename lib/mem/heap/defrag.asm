@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/heap/defrag.asm
+; Utkarsha OS — lib/mem/heap/defrag.asm
 ; =============================================================================
 ; Heap Defragmenter (Subfeature 9.5).
 ; Compacts heap memory dynamically by sliding active blocks to lower addresses

@@ -1,7 +1,7 @@
 %ifndef GUARD_LIB_MEM_VIRT_COCO_TDX_ASM
 %define GUARD_LIB_MEM_VIRT_COCO_TDX_ASM
 ; =============================================================================
-; Tattva OS — lib/mem/virt/tdx.asm
+; Utkarsha OS — lib/mem/virt/tdx.asm
 ; =============================================================================
 ; Intel TDX (Trust Domain Extensions) — Subfeature 35.2.
 ;
@@ -35,7 +35,7 @@
 ;     TDG.VP.REPORT (TDCALL leaf 0x22) generates a TD report for remote
 ;     attestation. The report is signed by the TDX module's attestation key.
 ;
-; Software model for Tattva OS:
+; Software model for Utkarsha OS:
 ;   - Full CPUID detection (signature + feature bit checks).
 ;   - TDCALL wrappers: real instruction issued when running as TD guest;
 ;     simulated via data shadow tables on bare metal for boot testing.

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/profile/damon.asm
+; Utkarsha OS — lib/mem/virt/profile/damon.asm
 ; =============================================================================
 ; Access Monitoring Engine (DAMON-equivalent) (Feature 25).
 ; Audits page access frequency using standard page table Accessed bit queries.

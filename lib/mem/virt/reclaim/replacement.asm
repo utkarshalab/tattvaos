@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/replacement.asm
+; Utkarsha OS — lib/mem/virt/replacement.asm
 ; =============================================================================
 ; Active/Inactive Page List Manager for Page Replacement (Subfeature 7.1).
 ; Maintains doubly-linked lists of user-space allocated physical page frames,

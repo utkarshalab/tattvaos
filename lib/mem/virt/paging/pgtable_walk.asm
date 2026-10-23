@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/pgtable_walk.asm
+; Utkarsha OS — lib/mem/virt/pgtable_walk.asm
 ; =============================================================================
 ; Virtual to physical address translation engine.
 ;

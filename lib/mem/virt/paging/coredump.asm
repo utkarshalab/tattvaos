@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — lib/mem/virt/paging/coredump.asm
+; Utkarsha OS — lib/mem/virt/paging/coredump.asm
 ; =============================================================================
 ; Selective & Sparse Core Dumping (Feature 22).
 ; Saves disk space and IO time by dumping only anonymous private heap/stack pages.
