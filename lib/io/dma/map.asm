@@ -16,6 +16,8 @@
 
 section .text
 
+extern virt_map_space          ; lib/mem/virt/rt_safe/ipc.asm
+
 
 ; =============================================================================
 ; dma_map_virtual — Map a physically pre-allocated block to kernel virtual space
@@ -58,18 +60,19 @@ IO_FUNC dma_map_virtual
     add     rax, rcx
     mov     [rel dma_virtual_alloc_ptr], rax
 
-    ; 3. Map pages
-    xor     r9, r9                  ; Iterator
+    ; 3. Map pages. The page index lives in R13 (the size is no longer
+    ; needed): virt_map_space clobbers RCX, RDX, RSI, RDI and R8-R11.
+    xor     r13d, r13d              ; Iterator
 
 .map_loop:
-    cmp     r9, r15
+    cmp     r13, r15
     je      .map_done
 
-    mov     rdi, r9
+    mov     rdi, r13
     shl     rdi, 12
     add     rdi, rbx                ; RDI = virtual address page
 
-    mov     rsi, r9
+    mov     rsi, r13
     shl     rsi, 12
     add     rsi, r12                ; RSI = physical address page
 
@@ -77,7 +80,7 @@ IO_FUNC dma_map_virtual
     xor     r8, r8                  ; R8 = current CR3
     call    virt_map_space
 
-    inc     r9
+    inc     r13
     jmp     .map_loop
 
 .map_done:
