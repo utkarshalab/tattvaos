@@ -102,6 +102,62 @@ pixbuf_create:
     ret
 
 ; ---------------------------------------------------------------------------
+; pixbuf_premultiply
+;   Convert straight-alpha BGRA to premultiplied BGRA in place (decision 0002),
+;   rounding each channel to nearest: c' = round(c * a / 255).
+;   IN:  rdi = PixBuf*
+;   OUT: rax = 0 OK, -EINVAL
+; ---------------------------------------------------------------------------
+global pixbuf_premultiply
+pixbuf_premultiply:
+    PROLOGUE_SAVE rbx, r12, r13
+    test rdi, rdi
+    jz .pm_bad
+    mov r12, [rdi + PixBuf_data]
+    test r12, r12
+    jz .pm_bad
+    mov r13, [rdi + PixBuf_height]
+    mov rbx, [rdi + PixBuf_stride]
+    mov r11, [rdi + PixBuf_width]
+.pm_row:
+    test r13, r13
+    jz .pm_done
+    xor r10d, r10d
+.pm_pixel:
+    cmp r10, r11
+    jae .pm_next_row
+    movzx r9d, byte [r12 + r10 * 4 + 3]
+    cmp r9d, 255
+    je .pm_skip                       ; opaque pixels are unchanged
+    lea r8, [r12 + r10 * 4]
+    xor ecx, ecx
+.pm_channel:
+    movzx eax, byte [r8 + rcx]
+    imul eax, r9d
+    add eax, 128
+    mov edx, eax
+    shr edx, 8
+    add eax, edx
+    shr eax, 8
+    mov [r8 + rcx], al
+    inc ecx
+    cmp ecx, 3
+    jb .pm_channel
+.pm_skip:
+    inc r10
+    jmp .pm_pixel
+.pm_next_row:
+    add r12, rbx
+    dec r13
+    jmp .pm_row
+.pm_done:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13
+.pm_bad:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
 ; pixbuf_destroy
 ;   Decrement refcount, free if zero
 ;   IN:  rdi = PixBuf*
