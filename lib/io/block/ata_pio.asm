@@ -150,7 +150,7 @@ IO_FUNC ata_pio_read
     jz      .success
 
     ; 1. Wait for controller to not be busy
-    call    .wait_ready
+    call    ata_pio_wait_ready
     test    rax, rax
     jnz     .err_fault
 
@@ -193,7 +193,7 @@ IO_FUNC ata_pio_read
     call    port_out8
 
     ; 4. Wait for sector data ready (DRQ set)
-    call    .wait_drq
+    call    ata_pio_wait_drq
     test    rax, rax
     jnz     .err_fault
 
@@ -261,7 +261,7 @@ IO_FUNC ata_pio_write
     jz      .success
 
     ; 1. Wait for controller
-    call    .wait_ready
+    call    ata_pio_wait_ready
     test    rax, rax
     jnz     .err_fault
 
@@ -300,7 +300,7 @@ IO_FUNC ata_pio_write
     call    port_out8
 
     ; 4. Wait until DRQ is ready to accept data
-    call    .wait_drq
+    call    ata_pio_wait_drq
     test    rax, rax
     jnz     .err_fault
 
@@ -340,11 +340,11 @@ IO_FUNC ata_pio_write
 IO_ENDFUNC ata_pio_write
 
 ; -----------------------------------------------------------------------------
-; Helper: .wait_ready
+; Helper: ata_pio_wait_ready
 ; Poll status until BSY (bit 7) is 0 and DRDY (bit 6) is 1.
 ; Out: RAX = 0 on success, -1 on timeout/fault
 ; -----------------------------------------------------------------------------
-.wait_ready:
+ata_pio_wait_ready:
     push    rcx
     mov     rcx, 100000             ; Timeout counter
 
@@ -376,11 +376,11 @@ IO_ENDFUNC ata_pio_write
     ret
 
 ; -----------------------------------------------------------------------------
-; Helper: .wait_drq
+; Helper: ata_pio_wait_drq
 ; Poll status until BSY is 0 and DRQ (bit 3) is 1.
 ; Out: RAX = 0 on success, -1 on timeout/fault
 ; -----------------------------------------------------------------------------
-.wait_drq:
+ata_pio_wait_drq:
     push    rcx
     mov     rcx, 100000             ; Timeout counter
 
