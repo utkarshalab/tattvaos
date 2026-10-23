@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — kernel/sched/fiber.inc
+; Utkarsha OS — kernel/sched/fiber.inc
 ; =============================================================================
 ; Ultimate Enterprise Fiber Control Block (FCB) and Constants.
 ;

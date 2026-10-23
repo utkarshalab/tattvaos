@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_SCHED_SMP_MPMC_ASM
 %define GUARD_KERNEL_SCHED_SMP_MPMC_ASM
 ; =============================================================================
-; Tattva OS — kernel/sched/smp_mpmc.asm
+; Utkarsha OS — kernel/sched/smp_mpmc.asm
 ; =============================================================================
 ; Lock-Free Multi-Producer Multi-Consumer (MPMC) Queue for SMP Work Stealing.
 ;

@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — kernel/sched/fiber_guard.inc
+; Utkarsha OS — kernel/sched/fiber_guard.inc
 ; =============================================================================
 ; Enterprise Fault Isolation and Crash Telemetry Schemas.
 ;

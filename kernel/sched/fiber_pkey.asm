@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_SCHED_FIBER_PKEY_ASM
 %define GUARD_KERNEL_SCHED_FIBER_PKEY_ASM
 ; =============================================================================
-; Tattva OS — kernel/sched/fiber_pkey.asm
+; Utkarsha OS — kernel/sched/fiber_pkey.asm
 ; =============================================================================
 ; Intel/AMD Protection Keys (PKEYs / MPK) Hardware Memory Protection Engine.
 ;

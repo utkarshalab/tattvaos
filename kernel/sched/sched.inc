@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — kernel/sched/sched.inc
+; Utkarsha OS — kernel/sched/sched.inc
 ; =============================================================================
 ; Scheduler definitions and hardware timer constants.
 ;

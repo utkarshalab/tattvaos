@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_SCHED_FIBER_CANARY_ASM
 %define GUARD_KERNEL_SCHED_FIBER_CANARY_ASM
 ; =============================================================================
-; Tattva OS — kernel/sched/fiber_canary.asm
+; Utkarsha OS — kernel/sched/fiber_canary.asm
 ; =============================================================================
 ; Stack Smashing Protection & Canary Verification Engine.
 ;

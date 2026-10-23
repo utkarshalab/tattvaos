@@ -1,8 +1,8 @@
 # kernel/sched — Scheduler
 
-> Task scheduler for Tattva OS.
+> Task scheduler for Utkarsha OS.
 
 Implements: cooperative + preemptive scheduling, core affinity,
 NUMA-aware placement, priority queues, work stealing between cores.
 
-Part of the `kernel/` category in Tattva OS.
+Part of the `kernel/` category in Utkarsha OS.

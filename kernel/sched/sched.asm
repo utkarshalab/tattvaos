@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_SCHED_SCHED_ASM
 %define GUARD_KERNEL_SCHED_SCHED_ASM
 ; =============================================================================
-; Tattva OS — kernel/sched/sched.asm
+; Utkarsha OS — kernel/sched/sched.asm
 ; =============================================================================
 ; Hybrid Multi-CPU Scheduler Core Loop (Option A + B + C) & Spinlock Safety.
 ;

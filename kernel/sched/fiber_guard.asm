@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_SCHED_FIBER_GUARD_ASM
 %define GUARD_KERNEL_SCHED_FIBER_GUARD_ASM
 ; =============================================================================
-; Tattva OS — kernel/sched/fiber_guard.asm
+; Utkarsha OS — kernel/sched/fiber_guard.asm
 ; =============================================================================
 ; Enterprise Fault Interceptor & Crash Telemetry Logger.
 ;

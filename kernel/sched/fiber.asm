@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_SCHED_FIBER_ASM
 %define GUARD_KERNEL_SCHED_FIBER_ASM
 ; =============================================================================
-; Tattva OS — kernel/sched/fiber.asm
+; Utkarsha OS — kernel/sched/fiber.asm
 ; =============================================================================
 ; Ring-0 Cooperative Fiber Creation, Guard Pages, Canaries, and Context Switcher.
 ;

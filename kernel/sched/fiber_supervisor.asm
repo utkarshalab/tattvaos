@@ -1,7 +1,7 @@
 %ifndef GUARD_KERNEL_SCHED_FIBER_SUPERVISOR_ASM
 %define GUARD_KERNEL_SCHED_FIBER_SUPERVISOR_ASM
 ; =============================================================================
-; Tattva OS — kernel/sched/fiber_supervisor.asm
+; Utkarsha OS — kernel/sched/fiber_supervisor.asm
 ; =============================================================================
 ; Erlang OTP Style Self-Healing Fiber Supervisor & Auto-Restart Engine.
 ;
