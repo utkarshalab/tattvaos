@@ -1,7 +1,7 @@
 # security/vuln_scan — Vulnerability Scanning & Assessment
 
 ## Purpose
-Vulnerability discovery, assessment, and reporting for Tattva OS components,
+Vulnerability discovery, assessment, and reporting for Utkarsha OS components,
 configuration, and dependencies.
 
 ## Architecture

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/vuln_scan/tests/test_vuln_scan.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: Vulnerability scan comprehensive test - all components.
 ; Status   : PREMIUM ENTERPRISE SKELETON
 ; =============================================================================

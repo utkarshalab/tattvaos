@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/vuln_scan/src/vuln_scan.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Vulnerability Scanning & Assessment - main dispatcher.

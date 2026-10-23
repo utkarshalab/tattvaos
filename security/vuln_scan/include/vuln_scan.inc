@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/vuln_scan/include/vuln_scan.inc
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Vulnerability Scan - master schema header.

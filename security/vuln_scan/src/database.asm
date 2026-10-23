@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/vuln_scan/src/database.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: vulnerability database (CVE, CWE, advisories)
