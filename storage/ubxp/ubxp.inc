@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — storage/ubxp/ubxp.inc
+; Utkarsha OS — storage/ubxp/ubxp.inc
 ; =============================================================================
 ; Master Schema Header for UBXP (Unikernel Binary eXchange Protocol).
 ;

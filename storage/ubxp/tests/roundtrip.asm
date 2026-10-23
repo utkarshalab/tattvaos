@@ -1,5 +1,5 @@
 ; =============================================================================
-; Tattva OS — storage/ubxp/tests/roundtrip.asm
+; Utkarsha OS — storage/ubxp/tests/roundtrip.asm
 ; =============================================================================
 ; UBXP Self-Checking Round-Trip Test Harness.
 ;

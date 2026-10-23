@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_TYPES_NESTED_ASM
 %define GUARD_STORAGE_UBXP_TYPES_NESTED_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/types/nested.asm
+; Utkarsha OS — storage/ubxp/types/nested.asm
 ; =============================================================================
 ; UBXP Nested Message Composition & Bounded Sub-Cursor Descent.
 ;

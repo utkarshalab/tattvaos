@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_FRAME_VARINT_ASM
 %define GUARD_STORAGE_UBXP_FRAME_VARINT_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/frame/varint.asm
+; Utkarsha OS — storage/ubxp/frame/varint.asm
 ; =============================================================================
 ; LEB128 Variable-Length Integer Codec & Zig-Zag Signed Mapping.
 ;

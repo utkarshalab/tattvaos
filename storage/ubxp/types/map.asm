@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_TYPES_MAP_ASM
 %define GUARD_STORAGE_UBXP_TYPES_MAP_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/types/map.asm
+; Utkarsha OS — storage/ubxp/types/map.asm
 ; =============================================================================
 ; UBXP Map Codec — Key/Value Association as Repeated Entries.
 ;

@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_TYPES_REPEATED_ASM
 %define GUARD_STORAGE_UBXP_TYPES_REPEATED_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/types/repeated.asm
+; Utkarsha OS — storage/ubxp/types/repeated.asm
 ; =============================================================================
 ; UBXP Repeated Field Codec — Packed and Tag-Per-Element Encodings.
 ;

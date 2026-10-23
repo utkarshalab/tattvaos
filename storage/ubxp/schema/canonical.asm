@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_SCHEMA_CANONICAL_ASM
 %define GUARD_STORAGE_UBXP_SCHEMA_CANONICAL_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/schema/canonical.asm
+; Utkarsha OS — storage/ubxp/schema/canonical.asm
 ; =============================================================================
 ; UBXP Canonical Form — Deterministic Encoding Verification.
 ;

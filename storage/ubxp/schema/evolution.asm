@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_SCHEMA_EVOLUTION_ASM
 %define GUARD_STORAGE_UBXP_SCHEMA_EVOLUTION_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/schema/evolution.asm
+; Utkarsha OS — storage/ubxp/schema/evolution.asm
 ; =============================================================================
 ; UBXP Schema Evolution — Unknown-Field Tolerance & Version Negotiation.
 ;

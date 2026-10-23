@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_TYPES_PRIMITIVE_ASM
 %define GUARD_STORAGE_UBXP_TYPES_PRIMITIVE_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/types/primitive.asm
+; Utkarsha OS — storage/ubxp/types/primitive.asm
 ; =============================================================================
 ; UBXP Scalar Type Codec — booleans, integers and fixed-width words.
 ;

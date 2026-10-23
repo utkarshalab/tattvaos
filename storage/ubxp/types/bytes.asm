@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_TYPES_BYTES_ASM
 %define GUARD_STORAGE_UBXP_TYPES_BYTES_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/types/bytes.asm
+; Utkarsha OS — storage/ubxp/types/bytes.asm
 ; =============================================================================
 ; UBXP Length-Delimited Codec — byte blobs, UTF-8 strings and nested frames.
 ;

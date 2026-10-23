@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_SCHEMA_DESCRIPTOR_ASM
 %define GUARD_STORAGE_UBXP_SCHEMA_DESCRIPTOR_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/schema/descriptor.asm
+; Utkarsha OS — storage/ubxp/schema/descriptor.asm
 ; =============================================================================
 ; UBXP Schema Descriptors — Reflection, Validation & Presence Tracking.
 ;

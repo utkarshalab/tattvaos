@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_SCHEMA_SCHEMA_ASM
 %define GUARD_STORAGE_UBXP_SCHEMA_SCHEMA_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/schema/schema.asm
+; Utkarsha OS — storage/ubxp/schema/schema.asm
 ; =============================================================================
 ; UBXP Field Tag Composition & Wire-Type Dispatch.
 ;

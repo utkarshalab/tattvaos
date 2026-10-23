@@ -2,7 +2,7 @@
 
 > Binary serialization format for storage and network.
 
-`UBXP` is the wire and storage encoding shared across Tattva OS: `udb` record
+`UBXP` is the wire and storage encoding shared across Utkarsha OS: `udb` record
 storage, `uobject` metadata, and the `urpc` wire protocol. It is a tagged,
 length-delimited format built for zero-copy decoding and forward compatibility.
 

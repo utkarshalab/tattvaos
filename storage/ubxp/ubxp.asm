@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_UBXP_ASM
 %define GUARD_STORAGE_UBXP_UBXP_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/ubxp.asm
+; Utkarsha OS — storage/ubxp/ubxp.asm
 ; =============================================================================
 ; Master UBXP (Unikernel Binary eXchange Protocol) Subsystem Dispatcher.
 ;

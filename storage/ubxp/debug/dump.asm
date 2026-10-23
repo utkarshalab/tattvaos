@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_DEBUG_DUMP_ASM
 %define GUARD_STORAGE_UBXP_DEBUG_DUMP_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/debug/dump.asm
+; Utkarsha OS — storage/ubxp/debug/dump.asm
 ; =============================================================================
 ; UBXP Human-Readable Frame Rendering.
 ;

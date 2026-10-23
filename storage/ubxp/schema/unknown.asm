@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_SCHEMA_UNKNOWN_ASM
 %define GUARD_STORAGE_UBXP_SCHEMA_UNKNOWN_ASM
 ; =============================================================================
-; Tattva OS — storage/ubxp/schema/unknown.asm
+; Utkarsha OS — storage/ubxp/schema/unknown.asm
 ; =============================================================================
 ; UBXP Unknown-Field Retention & Verbatim Re-emission.
 ;
