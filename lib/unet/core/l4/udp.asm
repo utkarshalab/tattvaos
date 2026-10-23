@@ -243,7 +243,8 @@ udp_output:
 ; the datagram currently staged in RBX (caller's net_pkt_t).
 ; Input: EDI = Source IP, ESI = Dest IP, EDX = UDP length (host order,
 ;        header+payload), RBX = net_pkt_t* with the datagram already built
-; Output: CX = checksum in network byte order (may be 0, caller fixes that up)
+; Output: CX = checksum, ready to store with a 16-bit move (may be 0, caller
+;         fixes that up)
 ; -----------------------------------------------------------------------------
 align 64
 udp_pseudo_checksum:
@@ -286,8 +287,8 @@ udp_pseudo_checksum:
     add eax, edx
     jmp .fold
 .done:
-    not ax
-    xchg al, ah                     ; host -> network order
+    not ax                          ; already in wire order: the sums are of
+                                    ; little-endian words (see ip_checksum_generate)
 
     add rsp, 12
     mov cx, ax
