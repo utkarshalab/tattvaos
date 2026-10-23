@@ -1,6 +1,6 @@
 # serve/uauth — Authentication & Authorization
 
-> Multi-provider authentication, token validation, and RBAC for Tattva OS serving layer.
+> Multi-provider authentication, token validation, and RBAC for Utkarsha OS serving layer.
 
 ## Responsibility
 
@@ -49,7 +49,7 @@ Request
 | 1 | mTLS | TLS client certificate |
 | 2 | Bearer Token | `Authorization: Bearer <token>` |
 | 3 | API Key | `X-API-Key: <key>` or `Authorization: ApiKey <key>` |
-| 4 | Cookie | `__Host-tattva_session=<token>` |
+| 4 | Cookie | `__Host-ut_session=<token>` |
 | 5 | Query Param | `?access_token=<token>` (least preferred) |
 
 ## Verifiers
@@ -70,10 +70,10 @@ pub struct ApiKeyConfig {
 ### JWT
 ```rust
 pub struct JwtConfig {
-    pub jwks_uri: String,                    // "https://auth.tattva.io/.well-known/jwks.json"
+    pub jwks_uri: String,                    // "https://auth.utkarshaos.com/.well-known/jwks.json"
     pub jwks_cache_ttl: Duration,            // default: 1h
-    pub issuer: String,                      // "https://auth.tattva.io"
-    pub audiences: Vec<String>,              // ["tattva-api", "tattva-ai"]
+    pub issuer: String,                      // "https://auth.utkarshaos.com"
+    pub audiences: Vec<String>,              // ["utkarsha-api", "utkarsha-ai"]
     pub required_claims: Vec<String>,        // ["sub", "scope", "org_id"]
     pub clock_skew: Duration,                // default: 60s
 }
@@ -88,7 +88,7 @@ pub struct MtlsConfig {
     pub ca_store: CaStore,           // File, SPIRE, Vault
     pub verify_hostname: bool,
     pub require_spiffe: bool,        // Enforce SPIFFE ID format
-    pub allowed_spiffe_patterns: Vec<String>, // "spiffe://tattva.io/ns/prod/sa/*"
+    pub allowed_spiffe_patterns: Vec<String>, // "spiffe://utkarshaos.com/ns/prod/sa/*"
 }
 ```
 - **SPIFFE/SPIRE**: Native integration for workload identity
@@ -161,21 +161,21 @@ store = "redis"  # memory | redis | database | file
 rotation = { max_age = "90d", overlap = "7d" }
 
 [auth.jwt]
-jwks_uri = "https://auth.tattva.io/.well-known/jwks.json"
-issuer = "https://auth.tattva.io"
-audiences = ["tattva-api", "tattva-ai"]
+jwks_uri = "https://auth.utkarshaos.com/.well-known/jwks.json"
+issuer = "https://auth.utkarshaos.com"
+audiences = ["utkarsha-api", "utkarsha-ai"]
 required_claims = ["sub", "scope", "org_id"]
 cache_ttl = "1h"
 
 [auth.mtls]
 ca_store = "spire"  # file | spire | vault
 require_spiffe = true
-allowed_patterns = ["spiffe://tattva.io/ns/prod/sa/*"]
+allowed_patterns = ["spiffe://utkarshaos.com/ns/prod/sa/*"]
 
 [auth.oidc]
 enabled = true
-issuer = "https://auth.tattva.io"
-introspection_endpoint = "https://auth.tattva.io/oauth2/introspect"
+issuer = "https://auth.utkarshaos.com"
+introspection_endpoint = "https://auth.utkarshaos.com/oauth2/introspect"
 cache_ttl = "5m"
 
 [auth.authorization]
@@ -204,9 +204,9 @@ revocation_check = true
 
 | Code | Condition | Headers |
 |------|-----------|---------|
-| `401` | Missing/invalid credentials | `WWW-Authenticate: Bearer realm="tattva", error="invalid_token"` |
+| `401` | Missing/invalid credentials | `WWW-Authenticate: Bearer realm="utkarsha", error="invalid_token"` |
 | `403` | Valid identity, insufficient permissions | `X-Auth-Decision: deny` |
-| `419` | Session expired | `WWW-Authenticate: Bearer realm="tattva", error="token_expired"` |
+| `419` | Session expired | `WWW-Authenticate: Bearer realm="utkarsha", error="token_expired"` |
 | `503` | Auth service unavailable (JWKS, introspection) | `Retry-After` |
 
 ## Status

@@ -1,6 +1,6 @@
 # serve/uaudit — Audit Logging
 
-> Structured, tamper-evident request audit logging for Tattva OS serving layer.
+> Structured, tamper-evident request audit logging for Utkarsha OS serving layer.
 
 ## Responsibility
 
@@ -33,13 +33,13 @@
     "domain": "uai",
     "protocol": "http2",
     "client_ip": "203.0.113.42",
-    "user_agent": "tattva-sdk/1.2.0",
+    "user_agent": "utkarsha-sdk/1.2.0",
     "request_size": 2048,
     "headers": { "content-type": "application/json", "authorization": "Bearer [REDACTED]" }
   },
   "identity": {
     "sub": "user_123",
-    "iss": "https://auth.tattva.io",
+    "iss": "https://auth.utkarshaos.com",
     "auth_method": "Jwt",
     "scopes": ["inference:chat"],
     "roles": ["developer"],
@@ -151,7 +151,7 @@ by_domain = { uai = 3650, uapp = 2555, uweb = 1095, usys = 2555 }
 by_classification = { public = 365, internal = 2555, confidential = 3650, restricted = 3650 }
 by_status = { error = 3650, denied = 2555 }
 archive_after_days = 90
-archive_target = "s3://tattva-audit-archive/{domain}/{year}/{month}/"
+archive_target = "s3://utkarsha-audit-archive/{domain}/{year}/{month}/"
 ```
 
 ## Configuration
@@ -166,9 +166,9 @@ max_event_size = "1MB"
 
 [audit.output]
 targets = [
-  { type = "file", path = "/var/log/tattva/audit.log", rotation = "daily", compression = "gzip" },
-  { type = "kafka", brokers = ["kafka-1:9092", "kafka-2:9092"], topic = "tattva.audit", format = "json" },
-  { type = "s3", bucket = "tattva-audit", prefix = "audit/", format = "parquet", batch_size = 10000 }
+  { type = "file", path = "/var/log/utkarsha/audit.log", rotation = "daily", compression = "gzip" },
+  { type = "kafka", brokers = ["kafka-1:9092", "kafka-2:9092"], topic = "utkarsha.audit", format = "json" },
+  { type = "s3", bucket = "utkarsha-audit", prefix = "audit/", format = "parquet", batch_size = 10000 }
 ]
 
 [audit.redaction]

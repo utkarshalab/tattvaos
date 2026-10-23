@@ -1,6 +1,6 @@
 # serve/userve — Core Serving Engine
 
-> Request lifecycle, routing, and connection management for Tattva OS serving layer.
+> Request lifecycle, routing, and connection management for Utkarsha OS serving layer.
 
 ## Responsibility
 

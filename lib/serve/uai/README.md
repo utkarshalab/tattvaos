@@ -253,7 +253,7 @@ streaming = {
 
 # uinfer connection
 uinfer = {
-  endpoint = "unix:///run/tattva/uinfer.sock"
+  endpoint = "unix:///run/utkarsha/uinfer.sock"
   max_concurrent_batches = 32
   request_timeout = "60s"
 }

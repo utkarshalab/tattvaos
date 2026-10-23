@@ -1,6 +1,6 @@
 # serve — OS Serving Layer
 
-> The unified request serving layer for Tattva OS.
+> The unified request serving layer for Utkarsha OS.
 > Handles all inbound traffic: apps, browsers, hosted services, AI inference, system APIs.
 
 ---
@@ -179,7 +179,7 @@ protocol = "http2"  # http1, http2, http3
 [ingress]
 firewall = { enabled = true, policy = "default-deny" }
 auth = { enabled = true, providers = ["api_key", "jwt", "mtls"] }
-audit = { enabled = true, output = "file", path = "/var/log/tattva/audit.log" }
+audit = { enabled = true, output = "file", path = "/var/log/utkarsha/audit.log" }
 
 [gateway]
 routes = [

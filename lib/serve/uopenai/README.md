@@ -6,7 +6,7 @@
 
 - **Request translation** — OpenAI format → `uai` internal format
 - **Response translation** — `uai` streaming → OpenAI SSE format
-- **Model mapping** — OpenAI model IDs → Tattva model registry
+- **Model mapping** — OpenAI model IDs → Utkarsha model registry
 - **Parameter validation** — OpenAI-specific params, defaults, limits
 - **Error mapping** — `uai` errors → OpenAI error codes
 - **Usage tracking** — Token counting for billing compatibility
@@ -21,7 +21,7 @@
 
 ## Supported Endpoints
 
-| OpenAI Endpoint | Tattva Route | `uai` Operation |
+| OpenAI Endpoint | Utkarsha Route | `uai` Operation |
 |-----------------|--------------|-----------------|
 | `POST /v1/chat/completions` | `/api/ai/v1/chat/completions` | Chat completion (streaming) |
 | `POST /v1/completions` | `/api/ai/v1/completions` | Text completion (legacy) |
@@ -111,7 +111,7 @@ InferenceRequest {
 
 ## Model Mapping
 
-| OpenAI Model ID | Tattva Model Family | Notes |
+| OpenAI Model ID | Utkarsha Model Family | Notes |
 |-----------------|---------------------|-------|
 | `gpt-4`, `gpt-4-turbo` | `llama-3-70b-instruct` | Best available |
 | `gpt-4o` | `llama-3-70b-instruct` | Alias |
@@ -210,7 +210,7 @@ data: [DONE]
 # Base path
 base_path = "/v1"
 
-# Model mapping (OpenAI ID -> Tattva model selector)
+# Model mapping (OpenAI ID -> Utkarsha model selector)
 model_mapping = {
   "gpt-4" = "llama-3-70b-instruct"
   "gpt-4-turbo" = "llama-3-70b-instruct"
@@ -272,8 +272,8 @@ errors = {
 ## Compatibility Notes
 
 - **Not supported**: Fine-tuning API, Assistants API, Batch API, Files API, Images API (DALL-E), Audio API (Whisper/TTS)
-- **Extensions**: `/v1/rerank`, `/v1/moderations`, `/v1/usage` are Tattva-specific
-- **Model list**: `GET /v1/models` returns mapped models with Tattva metadata
+- **Extensions**: `/v1/rerank`, `/v1/moderations`, `/v1/usage` are Utkarsha-specific
+- **Model list**: `GET /v1/models` returns mapped models with Utkarsha metadata
 
 ## Status
 

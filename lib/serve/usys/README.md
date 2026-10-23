@@ -1,6 +1,6 @@
 # serve/usys — System API Serving Adapter
 
-> Domain adapter for serving Tattva OS system APIs: metrics, config, debugging, cluster management.
+> Domain adapter for serving Utkarsha OS system APIs: metrics, config, debugging, cluster management.
 
 ## Responsibility
 
@@ -113,9 +113,9 @@ pub struct ConfigSchema {
 
 ```toml
 [usys.debug]
-# Require mTLS with SPIFFE ID: spiffe://tattva.io/ns/infra/sa/debugger
+# Require mTLS with SPIFFE ID: spiffe://utkarshaos.com/ns/infra/sa/debugger
 require_mtls = true
-allowed_spiffe = ["spiffe://tattva.io/ns/infra/sa/*"]
+allowed_spiffe = ["spiffe://utkarshaos.com/ns/infra/sa/*"]
 
 # Or API key with debug scope
 api_key_scope = "debug:*"
@@ -159,16 +159,16 @@ enabled = ${ENV != "production"}
 ```toml
 [usys]
 # Network binding (internal only!)
-bind = "127.0.0.1:9090"  # Or unix:///run/tattva/usys.sock
-tls = { cert = "/etc/tattva/certs/usys.crt", key = "/etc/tattva/certs/usys.key" }
-mtls = { ca = "/etc/tattva/certs/ca.crt", require = true }
+bind = "127.0.0.1:9090"  # Or unix:///run/utkarsha/usys.sock
+tls = { cert = "/etc/utkarsha/certs/usys.crt", key = "/etc/utkarsha/certs/usys.key" }
+mtls = { ca = "/etc/utkarsha/certs/ca.crt", require = true }
 
 # Metrics
 metrics = {
   scrape_interval = "15s"
   retention = "14d"
   remote_write = [
-    { url = "https://thanos.tattva.io/api/v1/receive", headers = { "Authorization" = "Bearer ${THANOS_TOKEN}" } }
+    { url = "https://thanos.utkarshaos.com/api/v1/receive", headers = { "Authorization" = "Bearer ${THANOS_TOKEN}" } }
   ]
 }
 
@@ -176,7 +176,7 @@ metrics = {
 config = {
   backend = "etcd"  # etcd | consul | sql
   endpoints = ["etcd-1:2379", "etcd-2:2379", "etcd-3:2379"]
-  prefix = "/tattva/config"
+  prefix = "/utkarsha/config"
 }
 
 # Debug

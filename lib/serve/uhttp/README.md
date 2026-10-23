@@ -1,6 +1,6 @@
 # serve/uhttp — HTTP Protocol Adapter
 
-> HTTP/1.1, HTTP/2, HTTP/3 protocol handling for Tattva OS serving layer.
+> HTTP/1.1, HTTP/2, HTTP/3 protocol handling for Utkarsha OS serving layer.
 
 ## Responsibility
 
@@ -199,8 +199,8 @@ bind = [
 
 # TLS
 tls = {
-  cert_file = "/etc/tattva/certs/server.crt"
-  key_file = "/etc/tattva/certs/server.key"
+  cert_file = "/etc/utkarsha/certs/server.crt"
+  key_file = "/etc/utkarsha/certs/server.key"
   ocsp_stapling = true
   session_resumption = true
 }

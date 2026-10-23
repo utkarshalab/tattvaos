@@ -1,6 +1,6 @@
 # serve/niti — Inbound Firewall
 
-> L3/L4/L7 firewall for Tattva OS serving layer: IP policy, geo-blocking, rate limiting, DDoS mitigation.
+> L3/L4/L7 firewall for Utkarsha OS serving layer: IP policy, geo-blocking, rate limiting, DDoS mitigation.
 
 ## Responsibility
 
@@ -119,7 +119,7 @@ pub struct ChallengeConfig {
 providers = [
   { name = "abuseipdb", api_key = "${ABUSEIPDB_KEY}", confidence_min = 75, cache_ttl = "1h" },
   { name = "crowdsec", lapi_url = "http://crowdsec:8080", cache_ttl = "5m" },
-  { name = "custom", url = "https://intel.tattva.io/iocs", format = "json", cache_ttl = "15m" },
+  { name = "custom", url = "https://intel.utkarshaos.com/iocs", format = "json", cache_ttl = "15m" },
 ]
 ```
 
@@ -135,7 +135,7 @@ providers = [
 [firewall]
 mode = "allowlist"  # allowlist | denylist (default: denylist)
 default_action = "allow"  # allow | deny (when no rule matches)
-rules_file = "/etc/tattva/niti/rules.yaml"
+rules_file = "/etc/utkarsha/niti/rules.yaml"
 hot_reload = true
 
 [firewall.geoip]
@@ -164,7 +164,7 @@ request_timeout = "30s"
 
 [firewall.tls_fingerprinting]
 enabled = true
-ja3_database = "/etc/tattva/niti/ja3_fingerprints.yaml"
+ja3_database = "/etc/utkarsha/niti/ja3_fingerprints.yaml"
 block_known_bots = false  # Challenge instead
 challenge_suspicious = true
 

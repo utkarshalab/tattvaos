@@ -166,7 +166,7 @@ lifecycle = {
 
 # Storage backend
 storage = {
-  endpoint = "unix:///run/tattva/storage.sock"
+  endpoint = "unix:///run/utkarsha/storage.sock"
   read_replicas = 2
   write_quorum = 2
   consistency = "strong"  # strong | eventual
@@ -175,7 +175,7 @@ storage = {
 # Notifications
 notifications = {
   enabled = true
-  endpoint = "ukafka://tattva.storage.events"
+  endpoint = "ukafka://utkarsha.storage.events"
   events = ["ObjectCreated:*", "ObjectRemoved:*", "ObjectRestore:*"]
 }
 ```

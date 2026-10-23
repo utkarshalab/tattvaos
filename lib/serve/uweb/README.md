@@ -200,7 +200,7 @@ dom_streaming = {
 # WASM
 wasm = {
   streaming_compile = true
-  cache_dir = "/var/cache/tattva/wasm"
+  cache_dir = "/var/cache/utkarsha/wasm"
   max_cache_size = "2GB"
   features = ["simd", "threads", "gc", "tail_call", "memory64"]
   wasi_preview1 = true

@@ -1,6 +1,6 @@
 # serve/ustream — Streaming Response Layer
 
-> Unified streaming abstraction: SSE, Chunked Transfer, WebSocket, gRPC streaming for Tattva OS.
+> Unified streaming abstraction: SSE, Chunked Transfer, WebSocket, gRPC streaming for Utkarsha OS.
 
 ## Responsibility
 

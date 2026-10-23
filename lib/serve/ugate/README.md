@@ -1,6 +1,6 @@
 # serve/ugate — API Gateway & Router
 
-> Path-based routing, rate limiting, request validation, and gateway middleware for Tattva OS.
+> Path-based routing, rate limiting, request validation, and gateway middleware for Utkarsha OS.
 
 ## Responsibility
 

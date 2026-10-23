@@ -1,6 +1,6 @@
 # serve/ulb — Load Balancer
 
-> Distributes requests across inference workers, app sandboxes, and service nodes for Tattva OS.
+> Distributes requests across inference workers, app sandboxes, and service nodes for Utkarsha OS.
 
 ## Responsibility
 
@@ -154,12 +154,12 @@ source = "static"  # static | consul | etcd | kubernetes | file
 static_workers = [
   { id = "ai-1", domain = "uai", endpoint = "http://10.0.1.10:8080", capacity = { max_concurrent = 100, models = ["llama-3-70b"] } },
   { id = "ai-2", domain = "uai", endpoint = "http://10.0.1.11:8080", capacity = { max_concurrent = 100, models = ["llama-3-8b"] } },
-  { id = "app-1", domain = "uapp", endpoint = "unix:///run/tattva/app-1.sock", capacity = { max_concurrent = 50 } },
+  { id = "app-1", domain = "uapp", endpoint = "unix:///run/utkarsha/app-1.sock", capacity = { max_concurrent = 50 } },
 ]
 
 [affinity]
 default_key = "identity"  # identity | ip | cookie | header | query
-cookie_name = "tattva_affinity"
+cookie_name = "ut_affinity"
 header_name = "X-Affinity-Key"
 
 [traffic_shaping]

@@ -1,6 +1,6 @@
 # serve/uapp — Native App Serving Adapter
 
-> Domain adapter for serving native Tattva OS applications via capability-routed sandbox IPC.
+> Domain adapter for serving native Utkarsha OS applications via capability-routed sandbox IPC.
 
 ## Responsibility
 
@@ -106,7 +106,7 @@ App Request (from uapp)                    App Response
          │                                    │
          ▼                                    ▼
     Unix Domain Socket                   Unix Domain Socket
-    (abstract: @tattva/app/{app_id})     (same socket, bidirectional)
+    (abstract: @utkarsha/app/{app_id})     (same socket, bidirectional)
 ```
 
 - **Streaming**: Both request/body and response/body are streamed
@@ -170,13 +170,13 @@ pool = {
   min_ready = 2,
   max_idle = 10,
   idle_timeout = "5m",
-  prewarm_apps = ["com.tattva.terminal", "com.tattva.files"]
+  prewarm_apps = ["com.utkarsha.terminal", "com.utkarsha.files"]
 }
 
 # IPC
 ipc = {
   transport = "unix"  # unix | vsock
-  socket_dir = "/run/tattva/app"
+  socket_dir = "/run/utkarsha/app"
   connect_timeout = "2s"
   request_timeout = "30s"
 }
