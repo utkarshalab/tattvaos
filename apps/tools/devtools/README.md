@@ -1,6 +1,6 @@
 # tools/devtools — Developer Tools
 
-> Core developer tools for working on Tattva OS.
+> Core developer tools for working on Utkarsha OS.
 
 Includes:
 - `udbg` — native debugger, no DWARF dependency
@@ -9,4 +9,4 @@ Includes:
 - `ufmt` — assembly formatter/linter
 - `upad` — binary padding and alignment tool
 
-Part of the `tools/` category in Tattva OS.
+Part of the `tools/` category in Utkarsha OS.

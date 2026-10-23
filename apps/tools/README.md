@@ -1,7 +1,7 @@
 # tools — Developer Tools Category
 
-> Developer tooling for Tattva OS.
-> The full ecosystem of tools that make working on Tattva OS possible.
+> Developer tooling for Utkarsha OS.
+> The full ecosystem of tools that make working on Utkarsha OS possible.
 
 ---
 
