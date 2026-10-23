@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/honeypot_redirector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Honeypot Redirector - redirects suspicious traffic to

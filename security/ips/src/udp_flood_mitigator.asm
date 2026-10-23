@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/udp_flood_mitigator.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS UDP Flood Mitigator - detects and mitigates UDP flood

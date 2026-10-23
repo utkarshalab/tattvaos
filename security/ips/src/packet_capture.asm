@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/packet_capture.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Packet Capture - PCAP export and forensic capture.

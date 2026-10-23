@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/memcached_amplification_mitigator.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Memcached Amplification Mitigator - detects and mitigates

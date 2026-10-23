@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/file_analysis.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS File Analysis - file hash reputation checking and sandbox

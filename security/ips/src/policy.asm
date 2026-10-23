@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/policy.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Policy - allow/deny lists, rate limits, geo-IP filtering.

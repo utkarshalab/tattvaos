@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/load_balancer_integration.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Load Balancer Integration - integrates with load balancers

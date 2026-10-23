@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/tls_inspector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS TLS Inspector - SSL/TLS inspection without decryption.

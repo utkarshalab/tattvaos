@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/deep_packet_inspector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Deep Packet Inspector - full DPI engine for payload

@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/enforcer.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Enforcer - applies enforcement actions: DROP, RESET,

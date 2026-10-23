@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/bypass.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Bypass - fail-open/fail-closed toggle for high-availability

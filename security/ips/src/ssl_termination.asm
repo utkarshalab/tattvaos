@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/ssl_termination.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS SSL Termination - terminates SSL/TLS connections at the

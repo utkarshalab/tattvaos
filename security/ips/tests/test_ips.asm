@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/tests/test_ips.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Description: IPS premium enterprise skeleton test.
 ;              Validates that all 21 component .asm files exist, assemble
 ;              independently, and export the required enterprise contract

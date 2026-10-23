@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/waf_engine.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS WAF Engine - Web Application Firewall. Detects and blocks

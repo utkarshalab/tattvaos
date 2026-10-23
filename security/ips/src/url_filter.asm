@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/url_filter.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS URL Filter - URL/web filtering and categorization.

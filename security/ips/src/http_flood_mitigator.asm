@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/http_flood_mitigator.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS HTTP Flood Mitigator - detects and mitigates HTTP flood

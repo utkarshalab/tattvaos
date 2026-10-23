@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/include/ips.inc
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: Intrusion Prevention System - master schema header (Enterprise).

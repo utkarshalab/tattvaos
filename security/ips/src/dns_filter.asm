@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/dns_filter.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS DNS Filter - DNS query filtering and DNS tunneling

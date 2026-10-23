@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/ml_anomaly.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS ML Anomaly Detection - machine learning based anomaly

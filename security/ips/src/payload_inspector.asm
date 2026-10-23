@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/payload_inspector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Payload Inspector - inspects packet payloads for embedded

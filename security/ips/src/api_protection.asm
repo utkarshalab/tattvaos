@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/api_protection.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS API Protection - API gateway protection with OAuth/JWT

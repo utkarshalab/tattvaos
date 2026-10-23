@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/siem.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS SIEM Exporter - enforcement event export to SIEM systems.

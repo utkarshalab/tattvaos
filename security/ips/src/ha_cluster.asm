@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/ha_cluster.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS HA Cluster - high availability clustering. Provides

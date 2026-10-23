@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/connection_terminator.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Connection Terminator - kills malicious TCP connections

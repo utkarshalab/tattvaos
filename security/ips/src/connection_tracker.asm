@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/connection_tracker.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Connection Tracker - stateful connection tracking.

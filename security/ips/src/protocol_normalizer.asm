@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/protocol_normalizer.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Protocol Normalizer - normalizes protocol traffic to

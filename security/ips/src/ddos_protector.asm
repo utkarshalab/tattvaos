@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/ddos_protector.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS DDoS Protector - volumetric and application layer DDoS

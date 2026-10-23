@@ -3,7 +3,7 @@
 
 ; =============================================================================
 ; File     : security/ips/src/quarantine_manager.asm
-; Project  : Tattva OS
+; Project  : Utkarsha OS
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
 ; Description: IPS Quarantine Manager - isolates compromised endpoints,
