@@ -18,23 +18,24 @@ cd "$ROOT" || exit 1
 
 BUILD=${TMPDIR:-/tmp}/usrauth_test
 mkdir -p "$BUILD"
+trap 'rm -rf "$BUILD"' EXIT      # leave nothing behind in /tmp
 
 # The include order is the kernel's: primitives, then the monitor that uses
 # them. harness.asm goes in before upass so the doubles are defined once.
 cat > "$BUILD/root.asm" <<'ASM'
 [BITS 64]
-%include "crypto/uhash/sha256/sha256.asm"
-%include "crypto/ucrypt/mac/hmac.asm"
-%include "crypto/ucrypt/guards/ct_guard.asm"
-%include "crypto/uhash/sha512/sha512.asm"
-%include "crypto/uhash/blake2/blake2b.asm"
+%include "lib/crypto/uhash/sha256/sha256.asm"
+%include "lib/crypto/ucrypt/mac/hmac.asm"
+%include "lib/crypto/ucrypt/guards/ct_guard.asm"
+%include "lib/crypto/uhash/sha512/sha512.asm"
+%include "lib/crypto/uhash/blake2/blake2b.asm"
 %include "security/usrauth/tests/harness.asm"
 %include "lib/urand/urand.asm"
-%include "crypto/ukdf/pbkdf2/pbkdf2.asm"
-%include "crypto/ukdf/argon2/argon2.asm"
-%include "crypto/upass/upass.asm"
-%include "crypto/usign/ed25519/ed25519.asm"
-%include "crypto/usign/ecdsa/ecdsa_p256.asm"
+%include "lib/crypto/ukdf/pbkdf2/pbkdf2.asm"
+%include "lib/crypto/ukdf/argon2/argon2.asm"
+%include "lib/crypto/upass/upass.asm"
+%include "lib/crypto/usign/ed25519/ed25519.asm"
+%include "lib/crypto/usign/ecdsa/ecdsa_p256.asm"
 %include "security/usrauth/usrauth.asm"
 %include "security/usrauth/tests/usrauth_test.asm"
 ASM
