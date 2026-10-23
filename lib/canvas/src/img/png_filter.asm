@@ -116,89 +116,65 @@ png_unfilter_row:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
+; png_unfilter
+;   IN: rdi=arena, rsi=PngImage*, rdx=raw scanlines (filter byte + row each)
+;   OUT: rax = PixBuf* (also stored in PngImage.pixbuf) or 0
 global png_unfilter
 png_unfilter:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 16
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
     ASSERT_PTR r13
-    push r12
-    mov r14d, [r12 + PngImage.width]
-    mov r15d, [r12 + PngImage.height]
     movzx eax, byte [r12 + PngImage.channels]
-    movzx ecx,byte [r12 + PngImage.bit_depth]
-    imul eax,ecx
-    add eax,7
-    shr eax,3
-    mov r10d,eax
-    test r10d,r10d
-    jnz .bpp_ready
-    mov r10d,1
-.bpp_ready:
-    mov eax,r14d
-    movzx ecx,byte [r12 + PngImage.channels]
-    imul eax,ecx
-    movzx ecx,byte [r12 + PngImage.bit_depth]
-    imul eax,ecx
-    add eax,7
-    shr eax,3
-    mov r11d, eax
+    movzx ecx, byte [r12 + PngImage.bit_depth]
+    imul eax, ecx
+    add eax, 7
+    shr eax, 3                        ; filter distance in bytes, at least 1
+    mov [rsp], eax
+    mov eax, [r12 + PngImage.width]
+    movzx ecx, byte [r12 + PngImage.channels]
+    imul eax, ecx
+    movzx ecx, byte [r12 + PngImage.bit_depth]
+    imul eax, ecx
+    add eax, 7
+    shr eax, 3
+    mov [rsp + 4], eax                ; row bytes, without the filter byte
     mov rdi, rbx
-    mov rsi, r14
-    mov rdx, r15
-    mov rcx, DRM_FORMAT_BGRA8888
+    mov esi, [r12 + PngImage.width]
+    mov edx, [r12 + PngImage.height]
+    mov ecx, DRM_FORMAT_BGRA8888
     call pixbuf_create
     test rax, rax
-    jz .oom
+    jle .bad                          ; 0 or negative errno
     mov r14, rax
-    pop r12
-    push r12
-    push r14
-    xor ecx, ecx
+    xor r15d, r15d                    ; row
 .row_loop:
-    cmp ecx, [r12 + PngImage.height]
+    cmp r15d, [r12 + PngImage.height]
     jae .convert
-    mov eax, ecx
-    mov edx, r11d
-    inc edx
-    imul eax, edx
-    lea rsi, [r13 + rax]
-    movzx eax, byte [rsi]
-    cmp eax, 4
-    ja .bad2
-    inc rsi
-    test ecx, ecx
-    jz .first_row
-    mov eax, ecx
-    dec eax
-    mov edx, r11d
-    inc edx
-    imul eax, edx
-    lea rdi, [r13 + rax + 1]
-    jmp .do_row
-.first_row:
-    xor edi, edi
-.do_row:
-    push rcx
-    push r13
-    mov rdx, rsi
-    mov rsi, rdi
-    mov rdi, rdx
-    mov edx, r11d
-    mov ecx, r10d
-    call png_unfilter_row
-    pop r13
-    pop rcx
-    test rax, rax
-    jnz .bad2
+    mov eax, [rsp + 4]
+    inc eax
+    imul eax, r15d
+    lea rdi, [r13 + rax + 1]          ; this row, after its filter byte
+    xor esi, esi                      ; no previous row for row 0
+    test r15d, r15d
+    jz .do_row
+    mov ecx, [rsp + 4]
     inc ecx
+    mov rsi, rdi
+    sub rsi, rcx                      ; previous (already unfiltered) row
+.do_row:
+    mov edx, [rsp + 4]
+    mov ecx, [rsp]
+    call png_unfilter_row
+    test rax, rax
+    jnz .bad
+    inc r15d
     jmp .row_loop
 .convert:
-    pop r14
-    pop r12
     mov rdi, r14
     mov rsi, r12
     mov rdx, r13
@@ -206,19 +182,12 @@ png_unfilter:
     test rax, rax
     jz .bad
     mov [r12 + PngImage.pixbuf], rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-.bad2:
     add rsp, 16
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 .bad:
-    xor rax, rax
+    xor eax, eax
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-.oom:
-    add rsp, 8
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
 
 global png_convert_bgra
 png_convert_bgra:
