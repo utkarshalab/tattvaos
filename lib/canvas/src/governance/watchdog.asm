@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 %include "inc/channel.inc"
 %include "inc/cwp.inc"
@@ -13,8 +13,8 @@
 extern arena_alloc
 extern containment_fault
 extern msgbuf_write
-extern tv_time_now_ns
-extern tv_timer_register
+extern ut_time_now_ns
+extern ut_timer_register
 
 ; struct offsets (hoisted above use)
 %define Watchdog_SIZE    40
@@ -55,11 +55,11 @@ watchdog_init:
     mov qword [r13 + Watchdog.kills], 0
     mov qword [rbx + Server.watchdog], r13
     ; arm periodic sweep
-    call tv_time_now_ns
+    call ut_time_now_ns
     lea rdi, [rax + WATCHDOG_PING_INTERVAL]
     mov rsi, watchdog_sweep
     mov rdx, r13
-    call tv_timer_register
+    call ut_timer_register
     test rax, rax
     js .fail
     mov [r13 + Watchdog.timer], rax
@@ -84,18 +84,18 @@ watchdog_sweep:
     mov rbx, rdi
     ASSERT_PTR rbx
     mov r12, [rbx + Watchdog.server]
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov r13, rax
     mov rdi, r12
     mov rsi, r13
     mov rdx, [rbx + Watchdog.timeout_ns]
     call watchdog_check_all
     ; re-arm
-    call tv_time_now_ns
+    call ut_time_now_ns
     lea rdi, [rax + WATCHDOG_PING_INTERVAL]
     mov rsi, watchdog_sweep
     mov rdx, rbx
-    call tv_timer_register
+    call ut_timer_register
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -155,7 +155,7 @@ watchdog_check_client:
     jz .alive
     cmp qword [r12 + Client.last_ping], 0
     je .alive
-    call tv_time_now_ns
+    call ut_time_now_ns
     sub rax, [r12 + Client.last_ping]
     cmp rax, [r13 + Watchdog.timeout_ns]
     jb .alive
@@ -182,7 +182,7 @@ watchdog_ping_client:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
     ASSERT_PTR rbx
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rbx + Client.ping_serial], rax
     sub rsp, 32
     mov dword [rsp + MsgHdr_obj], CWP_OBJ_DISPLAY
@@ -214,7 +214,7 @@ watchdog_pong:
     PROLOGUE
     ASSERT_PTR rdi
     ASSERT_PTR rsi
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rsi + Client.last_ping], rax
     xor rax, rax
     leave

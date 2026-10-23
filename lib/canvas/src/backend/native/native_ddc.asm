@@ -5,11 +5,11 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 
-extern tv_i2c_read
-extern tv_i2c_write
+extern ut_i2c_read
+extern ut_i2c_write
 
 ; struct offsets (hoisted above use)
 %define DDC_ADDR_EDID      0x50
@@ -53,7 +53,7 @@ ddc_read_edid:
     mov rcx, 0
     mov r8, r13
     mov r9, 128
-    call tv_i2c_read
+    call ut_i2c_read
     test rax, rax
     jnz .fail
 
@@ -82,7 +82,7 @@ ddc_read_edid:
     dec edx
     mov r8, r14
     mov r9, 128
-    call tv_i2c_read
+    call ut_i2c_read
     test rax, rax
     jnz .fail
 
@@ -163,7 +163,7 @@ ddc_write:
     mov rdx, r13
     mov rcx, r14
     mov r8, r15
-    call tv_i2c_write
+    call ut_i2c_write
     test rax, rax
     jz .done
     mov rax, -(EIO)

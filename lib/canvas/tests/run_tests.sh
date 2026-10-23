@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# Canvas Test Runner — Build and Run Tests on Tattva
+# Canvas Test Runner — Build and Run Tests on Utkarsha
 # ============================================================================
 
 set -euo pipefail
@@ -26,11 +26,11 @@ fi
 
 echo "Test image: $TEST_IMG ($(stat -c%s "$TEST_IMG") bytes)"
 
-# Run on Tattva (this would be replaced with actual Tattva execution)
+# Run on Utkarsha (this would be replaced with actual Utkarsha execution)
 echo ""
-echo "To run on Tattva:"
-echo "  1. Copy $TEST_IMG to Tattva boot media"
-echo "  2. Boot Tattva with test_runner.img as init"
+echo "To run on Utkarsha:"
+echo "  1. Copy $TEST_IMG to Utkarsha boot media"
+echo "  2. Boot Utkarsha with test_runner.img as init"
 echo "  3. Collect serial output for results"
 echo ""
 echo "Expected serial output format:"
@@ -41,11 +41,11 @@ echo "  DONE"
 echo "  ..."
 echo "  === SUMMARY: total=14 passed=14 failed=0 ==="
 
-# If running in QEMU with Tattva (for CI)
-if [[ "${TATTVA_QEMU:-}" == "1" ]]; then
+# If running in QEMU with Utkarsha (for CI)
+if [[ "${UT_QEMU:-}" == "1" ]]; then
     echo "Running in QEMU..."
     qemu-system-x86_64 \
-        -kernel /path/to/tattva/kernel \
+        -kernel /path/to/utkarsha/kernel \
         -initrd "$TEST_IMG" \
         -nographic \
         -serial stdio \

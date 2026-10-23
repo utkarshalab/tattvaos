@@ -1,12 +1,12 @@
 ; ============================================================================
 ; CTS Runner — Executes All Conformance Suites Against a Live Server
-; Built as Tattva image, reports results over serial
+; Built as Utkarsha image, reports results over serial
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
@@ -27,11 +27,11 @@ cts_runner_init:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
 
     mov rdi, LOG_TRACE
-    call tv_log_set_level
+    call ut_log_set_level
 
     mov rdi, runner_banner
     mov rsi, runner_banner_len
-    call tv_log_write
+    call ut_log_write
 
     xor rbx, rbx
 
@@ -70,10 +70,10 @@ cts_runner_init:
 
     mov rdi, runner_summary
     mov rsi, rbx
-    call tv_log_printf
+    call ut_log_printf
 
     mov rax, rbx
-    call tv_task_exit
+    call ut_task_exit
 
     UNREACHABLE
 

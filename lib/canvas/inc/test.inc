@@ -1,5 +1,5 @@
 ; ============================================================================
-; Test Framework Macros — Unit Tests on Tattva
+; Test Framework Macros — Unit Tests on Utkarsha
 ; Reports results over serial, no external dependencies
 ; ============================================================================
 
@@ -7,7 +7,7 @@
 %define __TEST_INC__
 
 %include "inc/macros.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 ; ---------------------------------------------------------------------------
 ; Test Statistics (in .bss)
@@ -36,7 +36,7 @@ current_test:   resq 1
         ; Print suite header
         mov rdi, suite_fmt
         mov rsi, %1
-        call tv_log_printf
+        call ut_log_printf
 %endmacro
 
 %macro TEST_SUITE_END 0
@@ -45,7 +45,7 @@ current_test:   resq 1
     mov rsi, [test_total]
     mov rdx, [test_passed]
     mov rcx, [test_failed]
-    call tv_log_printf
+    call ut_log_printf
     ; Return exit code: 0 if all passed, 1 if any failed
     mov rax, [test_failed]
     test rax, rax
@@ -228,14 +228,14 @@ test_case_begin:
     inc qword [test_total]
     mov rdi, test_begin_fmt
     mov rsi, rbx
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 
 test_case_end:
     PROLOGUE
     mov rdi, test_end_fmt
-    call tv_log_printf
+    call ut_log_printf
     ret
 
 test_assert_pass:
@@ -243,7 +243,7 @@ test_assert_pass:
     inc qword [test_passed]
     mov rdi, assert_pass_fmt
     mov rsi, [current_test]
-    call tv_log_printf
+    call ut_log_printf
     ret
 
 test_assert_fail:
@@ -251,7 +251,7 @@ test_assert_fail:
     inc qword [test_failed]
     mov rdi, assert_fail_fmt
     mov rsi, [current_test]
-    call tv_log_printf
+    call ut_log_printf
     ret
 
 test_assert_eq_fail:
@@ -261,7 +261,7 @@ test_assert_eq_fail:
     mov rdi, assert_eq_fail_fmt
     mov rsi, rbx
     ; Expected in rsi, actual in rdx (set by caller convention)
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 
@@ -271,7 +271,7 @@ test_assert_ne_fail:
     mov rbx, [current_test]
     mov rdi, assert_ne_fail_fmt
     mov rsi, rbx
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 
@@ -281,7 +281,7 @@ test_assert_null_fail:
     mov rbx, [current_test]
     mov rdi, assert_null_fail_fmt
     mov rsi, rbx
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 
@@ -291,7 +291,7 @@ test_assert_error_fail:
     mov rbx, [current_test]
     mov rdi, assert_error_fail_fmt
     mov rsi, rbx
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 
@@ -301,7 +301,7 @@ test_assert_ok_fail:
     mov rbx, [current_test]
     mov rdi, assert_ok_fail_fmt
     mov rsi, rbx
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 

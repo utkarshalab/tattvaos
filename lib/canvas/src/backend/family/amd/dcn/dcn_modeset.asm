@@ -6,7 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 %include "src/backend/family/amd/dcn/dcn_regs.inc"

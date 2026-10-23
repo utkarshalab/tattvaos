@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 %include "inc/client_api.inc"
 
@@ -27,7 +27,7 @@ client_main:
     call canvas_toplevel_create
     mov rdi, input_banner
     mov rsi, input_banner_len
-    call tv_log_write
+    call ut_log_write
     xor r12d, r12d
 .loop:
     cmp r12d, 1000
@@ -42,7 +42,7 @@ client_main:
     call canvas_event_type
     mov rsi, rax
     mov rdi, event_fmt
-    call tv_log_printf
+    call ut_log_printf
 .no_event:
     add rsp, ClientEvent_size
     inc r12d
@@ -51,10 +51,10 @@ client_main:
     mov rdi, rbx
     call canvas_disconnect
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
 .fail:
     mov rax, 1
-    call tv_task_exit
+    call ut_task_exit
 
 section .rodata
 input_banner: db "input_test: logging 1000 polls", 10, 0

@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/image.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
@@ -89,13 +89,13 @@ seat_session_start_idle_timer:
     ret
 
 .create_timer:
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax,[rbx + SeatSession.idle_timeout]
     jc .invalid
     mov rdi,rax
     mov rsi, seat_session_idle_callback
     mov rdx, rbx
-    call tv_timer_register
+    call ut_timer_register
     test rax,rax
     js .fail
     mov [rbx + SeatSession.idle_timer], rax
@@ -245,7 +245,7 @@ seat_session_inhibit_idle:
     test rax, rax
     jz .done
     mov rdi, rax
-    call tv_timer_cancel
+    call ut_timer_cancel
     mov qword [rbx + SeatSession.idle_timer], 0
 
 .done:

@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
@@ -107,7 +107,7 @@ global remote_backend_vblank_wait
 remote_backend_vblank_wait:
     PROLOGUE
     mov rdi, 16666667
-    call tv_time_sleep_ns
+    call ut_time_sleep_ns
     xor rax, rax
     leave
     ret

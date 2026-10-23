@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
@@ -298,7 +298,7 @@ keymap_load:
     push r13
     mov rdi, r12
     mov rsi, r13
-    call tv_fs_read
+    call ut_fs_read
     pop r13
     pop r12
     test rax, rax

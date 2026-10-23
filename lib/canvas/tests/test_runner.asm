@@ -1,12 +1,12 @@
 ; ============================================================================
 ; Test Runner — Executes All Unit Test Suites
-; Built as Tattva image, reports results over serial
+; Built as Utkarsha image, reports results over serial
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
@@ -38,12 +38,12 @@ test_runner_init:
 
     ; Initialize logging
     mov rdi, LOG_TRACE
-    call tv_log_set_level
+    call ut_log_set_level
 
     ; Print banner
     mov rdi, runner_banner
     mov rsi, runner_banner_len
-    call tv_log_write
+    call ut_log_write
 
     ; Run all test suites
     xor rbx, rbx        ; total failures
@@ -115,11 +115,11 @@ test_runner_init:
     ; Final summary
     mov rdi, runner_summary
     mov rsi, rbx
-    call tv_log_printf
+    call ut_log_printf
 
     ; Exit with failure count
     mov rax, rbx
-    call tv_task_exit
+    call ut_task_exit
 
     UNREACHABLE
 

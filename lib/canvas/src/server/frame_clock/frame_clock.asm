@@ -5,11 +5,11 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 
 extern output_schedule_vblank
-extern tv_timer_cancel
+extern ut_timer_cancel
 
 ; struct offsets (hoisted above use)
 %define FrameClock_output      0
@@ -60,7 +60,7 @@ frame_clock_start:
     ASSERT_PTR rbx
 
     ; Get current time
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov r12, rax
 
     ; Align to next vblank
@@ -176,7 +176,7 @@ frame_clock_get_phase:
     mov rbx, rdi
     ASSERT_PTR rdi
 
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov rdx, [rbx + FrameClock.next_vblank]
     sub rdx, rax
     jns .phase_ok
@@ -207,7 +207,7 @@ frame_clock_deinit:
     mov rdi, [rbx + FrameClock.phase]
     test rdi, rdi
     jz .free_callbacks
-    call tv_timer_cancel
+    call ut_timer_cancel
     mov qword [rbx + FrameClock.phase], 0
 .free_callbacks:
     mov r12, [rbx + FrameClock.callbacks]

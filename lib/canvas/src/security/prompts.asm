@@ -5,14 +5,14 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/caps.inc"
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
-extern tv_log_write
-extern tv_time_now_ns
-extern tv_wait_yield
+extern ut_log_write
+extern ut_time_now_ns
+extern ut_wait_yield
 
 %define PROMPT_STATE_PENDING     0
 %define PROMPT_STATE_ANSWERED    1
@@ -97,7 +97,7 @@ prompts_show:
     mov qword [rbx + Server.prompt_count], 1
     mov [rsp], r11
 
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov r11, [rsp]
     mov rcx, [rsp + 8]
     test rcx, rcx
@@ -152,7 +152,7 @@ prompts_draw:
     mov rbx, rsi
     mov rdi, [rbx + Prompt.message]
     mov rsi, [rbx + Prompt.message_len]
-    call tv_log_write
+    call ut_log_write
     test rax, rax
     js .draw_done
     xor rax, rax
@@ -175,10 +175,10 @@ prompts_wait:
     je .denied
     cmp eax, PROMPT_STATE_TIMEOUT
     je .denied
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, [r12 + Prompt.timeout]
     jae .timed_out
-    call tv_wait_yield
+    call ut_wait_yield
     jmp .wait
 .timed_out:
     mov dword [r12 + Prompt.state], PROMPT_STATE_TIMEOUT

@@ -1,11 +1,11 @@
-# Decision 0008: Software Isolation on Tattva
+# Decision 0008: Software Isolation on Utkarsha
 
 **Status**: Accepted
 **Date**: 2026-10-12
 **Phase**: C0 (foundation for C1, C4, C5, C17)
 
 ## Context
-Tattva OS is a ring-0 unikernel — Canvas and all clients share **one address space**. No MMU isolation, no ring 3, no process separation yet.
+Utkarsha OS is a ring-0 unikernel — Canvas and all clients share **one address space**. No MMU isolation, no ring 3, no process separation yet.
 
 ## Decision
 **Software Isolation Model** — Five layers:
@@ -39,7 +39,7 @@ Tattva OS is a ring-0 unikernel — Canvas and all clients share **one address s
 ### 5. Fault Containment
 - Trap in client (invalid handle, OOB, div/0) → **only that client torn down**
 - Server continues; other clients unaffected
-- `tv_task` provides task boundary for future HW domain migration
+- `ut_task` provides task boundary for future HW domain migration
 
 ## What This Gives You
 | Threat | Mitigated? | How |
@@ -58,7 +58,7 @@ Tattva OS is a ring-0 unikernel — Canvas and all clients share **one address s
 - **Kernel compromise containment** — Canvas runs in ring 0
 
 ## Consequences
-- **No untrusted third-party binaries** until Tattva has HW domains
+- **No untrusted third-party binaries** until Utkarsha has HW domains
 - `inc/arena.inc`, `src/core/arena.asm` — Bump allocators with quotas
 - `inc/channel.inc`, `src/proto/channel.asm` — SPSC rings
 - `src/security/isolation.asm` — Handle checks, ownership rules
@@ -66,9 +66,9 @@ Tattva OS is a ring-0 unikernel — Canvas and all clients share **one address s
 - `tests/unit/test_isolation.asm` — Isolation invariant tests
 
 ## Migration Path to Hardware Domains
-When Tattva adds paging/ring 3:
+When Utkarsha adds paging/ring 3:
 1. Each client → separate address space (task)
-2. Channels → shared memory + eventfd (or Tattva IPC)
+2. Channels → shared memory + eventfd (or Utkarsha IPC)
 3. Handles → capability table (kernel-enforced)
 4. Arenas → per-process heaps
 5. **CWP protocol unchanged** — only transport layer changes
@@ -76,7 +76,7 @@ When Tattva adds paging/ring 3:
 ## Related
 - `architecture.md` §3
 - Decision 0004 (handles), 0007 (trust profiles)
-- `tattva-contract.md` §3.5 (tv_task, tv_wait)
+- `utkarsha-contract.md` §3.5 (ut_task, ut_wait)
 
 ## Revisit Criteria
-When Tattva implements hardware protection domains → migrate isolation model incrementally. Protocol and server architecture remain valid.
+When Utkarsha implements hardware protection domains → migrate isolation model incrementally. Protocol and server architecture remain valid.

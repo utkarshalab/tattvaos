@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
@@ -18,16 +18,16 @@ global bench_runner_init
 bench_runner_init:
     PROLOGUE_SAVE rbx
     mov rdi, LOG_INFO
-    call tv_log_set_level
+    call ut_log_set_level
     mov rdi, bench_banner
     mov rsi, bench_banner_len
-    call tv_log_write
+    call ut_log_write
     ; NOTE: wired to live server state by the harness init (C32 sign-off)
     mov rdi, bench_done
     mov rsi, bench_done_len
-    call tv_log_write
+    call ut_log_write
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
     UNREACHABLE
 
 section .rodata

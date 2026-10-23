@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/fixed.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
@@ -21,7 +21,7 @@ extern vrr_enable
 extern vrr_disable
 extern memcopy
 extern mirror_configure
-extern tv_timer_register
+extern ut_timer_register
 extern frame_clock_vblank
 
 section .text
@@ -200,7 +200,7 @@ output_schedule_vblank:
     mov rdi, [rbx + FrameClock.next_vblank]
     lea rsi, [rel output_vblank_timer]
     mov rdx, rbx
-    call tv_timer_register
+    call ut_timer_register
     test rax, rax
     js .schedule_out
     mov [rbx + FrameClock_phase], rax
@@ -211,7 +211,7 @@ output_schedule_vblank:
     mov rax, -(EINVAL)
     jmp .schedule_out
 
-; Tattva timer callback: rdi=user_data, rsi=fire timestamp.
+; Utkarsha timer callback: rdi=user_data, rsi=fire timestamp.
 output_vblank_timer:
     mov qword [rdi + FrameClock_phase], 0
     jmp frame_clock_vblank

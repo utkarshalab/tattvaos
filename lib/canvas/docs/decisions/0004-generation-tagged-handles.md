@@ -5,7 +5,7 @@
 **Phase**: C0 (implemented C1)
 
 ## Context
-Canvas and clients share a single address space (Tattva is ring-0 unikernel). Object references must be safe against use-after-free and stale references.
+Canvas and clients share a single address space (Utkarsha is ring-0 unikernel). Object references must be safe against use-after-free and stale references.
 
 ## Decision
 **Handle Format** (32-bit):

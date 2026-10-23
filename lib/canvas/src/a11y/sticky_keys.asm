@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/server_offsets.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
@@ -124,7 +124,7 @@ sticky_keys_process_key:
     ret
 
 .check_lock:
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov r12, rax
     sub r12, [rbx + StickyKeys.last_key_time]
     cmp r12, 500000000

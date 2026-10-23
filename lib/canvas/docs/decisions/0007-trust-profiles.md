@@ -26,7 +26,7 @@ profile Kiosk     { caps: CORE+SHELL+INPUT,       quota: 8MB,   prompts: never }
   - Explicit runtime grant (audit log entry) AND
   - Server-drawn permission prompt (for interactive)
 
-**Capability Tokens** — Unguessable `u64` from `tv_entropy`, authenticated with siphash key:
+**Capability Tokens** — Unguessable `u64` from `ut_entropy`, authenticated with siphash key:
 - Used for: `cw_policy` external process auth, `cw_capture` session tokens
 - Verified on every privileged call
 
@@ -64,4 +64,4 @@ Written for: connect/disconnect, cap grant/deny, privileged call, policy change.
 - `conf/profiles/*.profile`
 
 ## Revisit Criteria
-If hardware domains (paging, ring 3) added to Tattva → profiles map to domain permissions, not just software caps.
+If hardware domains (paging, ring 3) added to Utkarsha → profiles map to domain permissions, not just software caps.

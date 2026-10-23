@@ -1,24 +1,24 @@
 ; ============================================================================
-; Time Operations — Tattva Time Syscall Wrappers
+; Time Operations — Utkarsha Time Syscall Wrappers
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 extern arena_alloc
 
 section .text
 
 ; ---------------------------------------------------------------------------
-; tv_time_ns_to_ms
+; ut_time_ns_to_ms
 ;   Convert nanoseconds to milliseconds
 ;   IN:  rdi = nanoseconds
 ;   OUT: rax = milliseconds
 ; ---------------------------------------------------------------------------
-global tv_time_ns_to_ms
-tv_time_ns_to_ms:
+global ut_time_ns_to_ms
+ut_time_ns_to_ms:
     PROLOGUE
     mov rax, rdi
     mov rcx, 1000000
@@ -28,13 +28,13 @@ tv_time_ns_to_ms:
     ret
 
 ; ---------------------------------------------------------------------------
-; tv_time_ms_to_ns
+; ut_time_ms_to_ns
 ;   Convert milliseconds to nanoseconds
 ;   IN:  rdi = milliseconds
 ;   OUT: rax = nanoseconds
 ; ---------------------------------------------------------------------------
-global tv_time_ms_to_ns
-tv_time_ms_to_ns:
+global ut_time_ms_to_ns
+ut_time_ms_to_ns:
     PROLOGUE
     mov rax, rdi
     mov rcx, 1000000
@@ -43,26 +43,26 @@ tv_time_ms_to_ns:
     ret
 
 ; ---------------------------------------------------------------------------
-; tv_time_add_ns
+; ut_time_add_ns
 ;   Add nanoseconds to timestamp
 ;   IN:  rdi = base_ns, rsi = add_ns
 ;   OUT: rax = result_ns
 ; ---------------------------------------------------------------------------
-global tv_time_add_ns
-tv_time_add_ns:
+global ut_time_add_ns
+ut_time_add_ns:
     PROLOGUE
     add rax, rsi
     leave
     ret
 
 ; ---------------------------------------------------------------------------
-; tv_time_sub_ns
+; ut_time_sub_ns
 ;   Subtract nanoseconds
 ;   IN:  rdi = base_ns, rsi = sub_ns
 ;   OUT: rax = result_ns (0 if underflow)
 ; ---------------------------------------------------------------------------
-global tv_time_sub_ns
-tv_time_sub_ns:
+global ut_time_sub_ns
+ut_time_sub_ns:
     PROLOGUE
     cmp rdi, rsi
     jb .underflow
@@ -134,7 +134,7 @@ canvas_timer_arm:
     mov rbx, rdi
     ASSERT_PTR rbx
     
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax, [rbx + 0]  ; interval
     mov [rbx + 8], rax  ; next_fire
     xor rax, rax

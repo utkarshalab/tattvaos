@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
@@ -33,7 +33,7 @@ section .text
 
 ; ---------------------------------------------------------------------------
 ; gpu_init
-;   IN: rdi = server*, rsi = arena — discovers GPU via tv_pci, maps BARs
+;   IN: rdi = server*, rsi = arena — discovers GPU via ut_pci, maps BARs
 ; ---------------------------------------------------------------------------
 global gpu_init
 gpu_init:
@@ -63,13 +63,13 @@ gpu_init:
     ; discover 3D controller (class 0x03 subclass 0x02)
     mov rdi, GPU_CLASS_DISPLAY
     mov rsi, GPU_SUBCLASS_3D
-    call tv_pci_find_class
+    call ut_pci_find_class
     test rax, rax
     jz .no_gpu
     ; found: enable + map BAR0 (MMIO), BAR2 (VRAM aperture)
     mov [rbx + GpuDevice.mem], rax
     mov rdi, rax
-    call tv_pci_enable_device
+    call ut_pci_enable_device
     mov [rbx + GpuDevice.enabled], byte 1
     ; detect family from device id
     mov rdi, rbx
@@ -107,7 +107,7 @@ gpu_detect_family:
     ASSERT_PTR rbx
     mov rdi, [rbx + GpuDevice.mem]
     xor esi, esi
-    call tv_pci_config_read_dword
+    call ut_pci_config_read_dword
     test rax, rax
     js .unsupported
     mov edx, eax

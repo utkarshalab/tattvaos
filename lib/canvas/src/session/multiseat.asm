@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -214,7 +214,7 @@ multiseat_remove_seat:
     test rdx,rdx
     jz .ok
     mov rdi,rdx
-    call tv_timer_cancel
+    call ut_timer_cancel
 .ok:
     xor eax,eax
     jmp .out

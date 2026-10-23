@@ -99,7 +99,7 @@ frame_clock_vblank_handler:
     ASSERT_PTR rbx
 
     ; Get current timestamp
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov r12, rax
 
     ; Fire all pending callbacks

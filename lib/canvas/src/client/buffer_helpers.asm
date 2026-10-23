@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 section .text
@@ -51,7 +51,7 @@ canvas_buffer_create:
     and rdi, -4096
     xor esi, esi
     push rdx
-    call tv_mem_alloc
+    call ut_mem_alloc
     pop rdx
     test rax, rax
     js .create_fail
@@ -84,7 +84,7 @@ canvas_buffer_destroy:
     jz .not_found
     mov rdi, [rax + CB_REGION]
     push rax
-    call tv_mem_free
+    call ut_mem_free
     pop rdx
     test rax, rax
     js .destroy_out

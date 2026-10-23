@@ -7,7 +7,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
@@ -18,7 +18,7 @@ tool_main:
     mov r12, rsi
     mov rdi, gen_banner
     mov rsi, gen_banner_len
-    call tv_log_write
+    call ut_log_write
     cmp rbx, 3
     jb .gen_usage
     mov rdi, [r12 + 8]
@@ -28,10 +28,10 @@ tool_main:
 .gen_usage:
     mov rdi, gen_usage
     mov rsi, gen_usage_len
-    call tv_log_write
+    call ut_log_write
     mov rax, -(EINVAL)
 .gen_exit:
-    call tv_task_exit
+    call ut_task_exit
 
 ; ---------------------------------------------------------------------------
 ; cwpgen_run
@@ -146,7 +146,7 @@ cwpgen_emit:
     call cwpgen_strlen
     mov rsi, rax
     mov rdi, rbx
-    call tv_log_write
+    call ut_log_write
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret

@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
@@ -209,18 +209,18 @@ fence_wait:
 
     cmp r13, -1
     je .wait
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax, r13
     jc .timed_out
     mov [rsp + 8], rax
 .wait:
-    call tv_wait_yield
+    call ut_wait_yield
     mov rax, [rsp]
     cmp byte [rax + Fence.signaled], 1
     je .signaled
     cmp r13, -1
     je .wait
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, [rsp + 8]
     jb .wait
 .timed_out:

@@ -6,7 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/fixed.inc"
 %include "inc/image.inc"
 %include "inc/backend.inc"
@@ -216,7 +216,7 @@ headless_vblank_wait:
 
     ; Simulate vblank at 60Hz (16.67ms)
     mov rdi, 16666667  ; 16.67ms in ns
-    call tv_time_sleep_ns
+    call ut_time_sleep_ns
 
     mov rdi, [rbx + Backend.arena]
     mov rsi, PresentInfo_size
@@ -226,7 +226,7 @@ headless_vblank_wait:
     mov dword [rax + PresentInfo.kind], PRESENT_KIND_VSYNC
     mov [rax + PresentInfo.seq], r13
     push rax
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov rdx, rax
     pop rax
     mov [rax + PresentInfo.time], rdx

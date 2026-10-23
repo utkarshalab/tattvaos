@@ -77,5 +77,5 @@ src/gpu/family/amd/gfx9/
 
 ## Revisit Criteria
 - If deployment target changes → swap family (rewrite C10/C24 family code)
-- If Tattva gains GPU virtualization → add mediated pass-through
+- If Utkarsha gains GPU virtualization → add mediated pass-through
 - Multiple families only if business case justifies ~15k lines each

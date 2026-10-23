@@ -57,4 +57,4 @@ Client reuse → wait release_fence → render next frame
 - `proto/canvas-present.cwp` — Presentation feedback
 
 ## Revisit Criteria
-If GPU driver (C24) requires different sync primitive (dma_fence, sync_file), add translation layer in `tv_mmio`/`gpu_fence.asm`. CWP protocol remains unchanged.
+If GPU driver (C24) requires different sync primitive (dma_fence, sync_file), add translation layer in `ut_mmio`/`gpu_fence.asm`. CWP protocol remains unchanged.

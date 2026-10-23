@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -71,15 +71,15 @@ idle_start_timer:
     test rax,rax
     jz .arm
     mov rdi,rax
-    call tv_timer_cancel
+    call ut_timer_cancel
 .arm:
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax,r12
     jc .invalid
     mov rdi,rax
     mov rsi,r13
     mov rdx,r14
-    call tv_timer_register
+    call ut_timer_register
     test rax,rax
     js .out
     mov [rbx + IdleManager.timer],rax
@@ -140,7 +140,7 @@ idle_reset:
     test rax,rax
     jz .cleared
     mov rdi,rax
-    call tv_timer_cancel
+    call ut_timer_cancel
     mov qword [rbx + IdleManager.timer],0
 .cleared:
     cmp dword [rbx + IdleManager.inhibit_count],0
@@ -173,7 +173,7 @@ idle_inhibit:
     test rax,rax
     jz .done
     mov rdi,rax
-    call tv_timer_cancel
+    call ut_timer_cancel
     mov qword [rbx + IdleManager.timer],0
 .done:
     xor rax, rax

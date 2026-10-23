@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_init
@@ -44,7 +44,7 @@ canvas_connect:
     mov rbx, rdi
     mov rdi, CLIENT_REGION_SIZE
     mov rsi, 0
-    call tv_mem_alloc
+    call ut_mem_alloc
     test rax, rax
     js .fail
     mov r12, rax
@@ -79,7 +79,7 @@ canvas_connect:
     ret
 .free_fail:
     mov rdi, [r12 + ClientConn_region_handle]
-    call tv_mem_free
+    call ut_mem_free
     jmp .fail
 
 ; ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ canvas_disconnect:
     mov rbx, rdi
     ASSERT_PTR rbx
     mov rdi, [rbx + ClientConn_region_handle]
-    call tv_mem_free
+    call ut_mem_free
     EPILOGUE_RESTORE rbx
     ret
 

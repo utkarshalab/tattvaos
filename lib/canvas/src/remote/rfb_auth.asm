@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 
 section .text
@@ -21,13 +21,13 @@ rfb_auth:
     mov rdi, r12
     mov rsi, rsp
     mov rdx, 4
-    call tv_tls_write
+    call ut_tls_write
     cmp rax, 4
     jne .fail
     mov rdi, r12
     mov rsi, rsp
     mov rdx, 4
-    call tv_tls_read
+    call ut_tls_read
     cmp rax, 4
     jne .fail
     mov eax, [rsp]
@@ -41,7 +41,7 @@ rfb_auth:
     mov rdi, r12
     mov rsi, rsp
     mov rdx, r13
-    call tv_tls_read
+    call ut_tls_read
     cmp rax, r13
     jne .fail2
     add rsp, 64
@@ -50,7 +50,7 @@ rfb_auth:
     mov rdi, r12
     mov rsi, rsp
     mov rdx, 4
-    call tv_tls_write
+    call ut_tls_write
     add rsp, 16
     cmp rax, 4
     jne .fail

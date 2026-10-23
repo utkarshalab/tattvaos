@@ -1,6 +1,6 @@
 ; ============================================================================
 ; Canvas Error Codes — Negative values returned in rax
-; Matches Tattva kernel errno values
+; Matches Utkarsha kernel errno values
 ; ============================================================================
 
 %ifndef __ERRORS_INC__

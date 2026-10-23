@@ -5,13 +5,13 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/ring.inc"
 
 extern arena_alloc
 extern memcopy
-extern tv_time_now_ns
+extern ut_time_now_ns
 
 ; struct offsets (hoisted above use)
 %define AuditEntry_SIZE    48
@@ -114,7 +114,7 @@ audit_log:
     add rdi, rax
     mov [rsp + 16], rdi
 
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov rdi, [rsp + 16]
     mov [rdi + AuditEntry_timestamp], rax
     mov [rdi + AuditEntry_client_id], r13

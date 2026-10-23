@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
@@ -100,17 +100,17 @@ gpu_fence_wait:
     lea rax, [rbx + GpuFenceMgr.signaled_sdma]
 .wait:
     mov rbx, rax
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov r12, rax
     add r12, r14
 .poll:
     lfence
     cmp [rbx], r13
     jae .done
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, r12
     jae .timeout
-    call tv_wait_yield
+    call ut_wait_yield
     jmp .poll
 .done:
     xor rax, rax

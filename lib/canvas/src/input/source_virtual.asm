@@ -13,7 +13,7 @@ extern arena_alloc
 extern input_source_register
 extern ring_init
 extern ring_push
-extern tv_time_now_ns
+extern ut_time_now_ns
 
 ; struct offsets (hoisted above use)
 %define InputSource_virtual_ring  48
@@ -140,7 +140,7 @@ virtual_input_inject:
     mov [rsp + 16], rcx   ; code
     mov [rsp + 20], r8    ; value
 
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rsp + 8], rax
 
     mov rdi, [r12 + InputSource.virtual]

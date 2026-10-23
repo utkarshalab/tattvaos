@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
@@ -157,7 +157,7 @@ limits_client_init:
     mov qword [rax + ClientLimits.dnd_bytes], 0
     mov qword [rax + ClientLimits.messages_sent], 0
     mov qword [rax + ClientLimits.bytes_sent], 0
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rax + ClientLimits.last_reset], rax
 
     mov qword [rbx + Limits.per_client_limits], rax
@@ -192,7 +192,7 @@ limits_client_check_rate:
 
     ; Check if reset needed
     mov rax, [r12 + ClientLimits.last_reset]
-    call tv_time_now_ns
+    call ut_time_now_ns
     sub rax, [r12 + ClientLimits.last_reset]
     cmp rax, 1000000000  ; 1 second
     jb .ok
@@ -200,7 +200,7 @@ limits_client_check_rate:
     ; Reset counters
     mov qword [r12 + ClientLimits.messages_sent], 0
     mov qword [r12 + ClientLimits.bytes_sent], 0
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [r12 + ClientLimits.last_reset], rax
 
 .ok:

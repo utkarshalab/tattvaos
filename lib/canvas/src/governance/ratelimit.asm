@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
@@ -66,7 +66,7 @@ ratelimit_create:
     mov rax, [r13 + TrustProfile.rate_bytes_sec]
     mov [rbx + RateLimit.max_bytes_sec], rax
     mov [rbx + RateLimit.byte_tokens], rax
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rbx + RateLimit.msg_last], rax
     mov [rbx + RateLimit.byte_last], rax
     mov byte [rbx + RateLimit.throttled], 0
@@ -88,7 +88,7 @@ ratelimit_refill:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
     ASSERT_PTR rbx
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov rcx, rax
     ; msg bucket
     mov rax, [rbx + RateLimit.max_msg_sec]
@@ -175,7 +175,7 @@ ratelimit_reset:
     mov rax, [rbx + RateLimit.max_bytes_sec]
     mov [rbx + RateLimit.byte_tokens], rax
     mov byte [rbx + RateLimit.throttled], 0
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rbx + RateLimit.msg_last], rax
     mov [rbx + RateLimit.byte_last], rax
     xor rax, rax

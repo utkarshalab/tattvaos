@@ -1,13 +1,13 @@
 # Canvas: Complete Folder and File Structure
 
-Every directory and file of the **Canvas display server** for Tattva OS, tagged with
+Every directory and file of the **Canvas display server** for Utkarsha OS, tagged with
 the phase (`C0` to `C33`) from `PLAN.md` that creates it. One `.asm` file per
-responsibility. Canvas runs only on Tattva: there is no Linux, hosted mode, or other
+responsibility. Canvas runs only on Utkarsha: there is no Linux, hosted mode, or other
 OS code.
 
 ```
 canvas/
-├── README.md                          # C0   overview, build, how Canvas starts inside Tattva
+├── README.md                          # C0   overview, build, how Canvas starts inside Utkarsha
 ├── PLAN.md                            # C0   master plan and phase table
 ├── STRUCTURE.md                       # C0   this file
 ├── LICENSE                            # C0
@@ -20,7 +20,7 @@ canvas/
 │
 ├── build/                             # generated, never committed
 │   ├── obj/
-│   ├── img/                           #      canvasd, tools and reference clients as Tattva images
+│   ├── img/                           #      canvasd, tools and reference clients as Utkarsha images
 │   └── lib/
 │       └── canvas_client.o            #      client library (relocatable object)
 │
@@ -46,7 +46,7 @@ canvas/
 │   ├── abi.inc                        # C0   calling convention, prologue/epilogue macros
 │   ├── macros.inc                     # C0   assert, trap, align, bounds-check macros
 │   ├── errors.inc                     # C0   error codes
-│   ├── tattva.inc                     # C0   every Tattva service Canvas uses (the contract)
+│   ├── ut.inc                     # C0   every Utkarsha service Canvas uses (the contract)
 │   ├── arena.inc                      # C1
 │   ├── str.inc                        # C1
 │   ├── map.inc                        # C1
@@ -119,20 +119,20 @@ canvas/
 │       └── compose.tbl                # C12  compose sequences
 │
 ├── src/
-│   ├── tattva/                        # THE ONLY TATTVA-SPECIFIC CODE (thin binding to kernel services)
-│   │   ├── tv_mem.asm                 # C0   memory regions, DMA-able allocation
-│   │   ├── tv_time.asm                # C0   monotonic clock and timers
-│   │   ├── tv_log.asm                 # C0   serial and console output
-│   │   ├── tv_entropy.asm             # C0   hardware entropy
-│   │   ├── tv_wait.asm                # C0   event wait and yield
-│   │   ├── tv_task.asm                # C5   task creation for workers and clients
-│   │   ├── tv_irq.asm                 # C9   interrupt registration (vblank, input, wakeups)
-│   │   ├── tv_input.asm               # C12  input event source from Tattva drivers
-│   │   ├── tv_fs.asm                  # C12  TVFS reads for config, fonts, cursors, wallpapers
-│   │   ├── tv_pci.asm                 # C10  PCI enumeration
-│   │   ├── tv_mmio.asm                # C10  MMIO mapping and DMA
-│   │   ├── tv_power.asm               # C18  suspend and resume events
-│   │   └── tv_net.asm                 # C26  Tattva network and TLS for remote display
+│   ├── ut/                        # THE ONLY UTKARSHA-SPECIFIC CODE (thin binding to kernel services)
+│   │   ├── ut_mem.asm                 # C0   memory regions, DMA-able allocation
+│   │   ├── ut_time.asm                # C0   monotonic clock and timers
+│   │   ├── ut_log.asm                 # C0   serial and console output
+│   │   ├── ut_entropy.asm             # C0   hardware entropy
+│   │   ├── ut_wait.asm                # C0   event wait and yield
+│   │   ├── ut_task.asm                # C5   task creation for workers and clients
+│   │   ├── ut_irq.asm                 # C9   interrupt registration (vblank, input, wakeups)
+│   │   ├── ut_input.asm               # C12  input event source from Utkarsha drivers
+│   │   ├── ut_fs.asm                  # C12  TVFS reads for config, fonts, cursors, wallpapers
+│   │   ├── ut_pci.asm                 # C10  PCI enumeration
+│   │   ├── ut_mmio.asm                # C10  MMIO mapping and DMA
+│   │   ├── ut_power.asm               # C18  suspend and resume events
+│   │   └── ut_net.asm                 # C26  Utkarsha network and TLS for remote display
 │   │
 │   ├── core/                          # OS-independent foundation
 │   │   ├── arena.asm                  # C1   bump arenas, mark/rewind
@@ -201,7 +201,7 @@ canvas/
 │   │       └── gen_remote.asm         # C26
 │   │
 │   ├── server/                        # canvasd core
-│   │   ├── main.asm                   # C5   canvasd_init entry, called by Tattva
+│   │   ├── main.asm                   # C5   canvasd_init entry, called by Utkarsha
 │   │   ├── server.asm                 # C5   global state
 │   │   ├── loop.asm                   # C5   event loop and timers
 │   │   ├── startup.asm                # C5   init order, config load
@@ -280,7 +280,7 @@ canvas/
 │   ├── input/                         # input interpretation
 │   │   ├── input.asm                  # C12  device dispatcher
 │   │   ├── source_iface.asm           # C12  input source interface
-│   │   ├── source_tv.asm              # C12  events from Tattva drivers
+│   │   ├── source_ut.asm              # C12  events from Utkarsha drivers
 │   │   ├── source_virtual.asm         # C17  injected and remote input
 │   │   ├── seat.asm                   # C12
 │   │   ├── devices.asm                # C12
@@ -491,7 +491,7 @@ canvas/
 │       ├── bench_throughput.asm       # C29
 │       └── stress_clients.asm         # C29
 │
-├── tests/                             # all tests run on Tattva and report over serial
+├── tests/                             # all tests run on Utkarsha and report over serial
 │   ├── test.inc                       # C3   test macros
 │   ├── run_tests.sh                   # C3   build-host helper: build test image, collect serial results
 │   ├── run_golden.sh                  # C3
@@ -612,7 +612,7 @@ canvas/
 └── docs/
     ├── architecture.md                # C0
     ├── abi.md                         # C0
-    ├── tattva-contract.md             # C0   every Tattva service Canvas needs and how it is used
+    ├── utkarsha-contract.md             # C0   every Utkarsha service Canvas needs and how it is used
     ├── memory-map.md                  # C1
     ├── testing.md                     # C3
     ├── protocol/
@@ -632,7 +632,7 @@ canvas/
     │   ├── text-a11y.md               # C16
     │   ├── session.md                 # C18
     │   └── remote.md                  # C26
-    ├── isolation-model.md             # C5   software isolation on Tattva and its limits
+    ├── isolation-model.md             # C5   software isolation on Utkarsha and its limits
     ├── security-model.md              # C17
     ├── threat-model.md                # C17
     ├── input-model.md                 # C12
@@ -656,7 +656,7 @@ canvas/
         ├── 0005-one-server-pluggable-policy.md
         ├── 0006-explicit-sync-in-v1.md
         ├── 0007-trust-profiles.md
-        ├── 0008-software-isolation-on-tattva.md
-        ├── 0009-driver-boundary-with-tattva.md
+        ├── 0008-software-isolation-on-utkarsha.md
+        ├── 0009-driver-boundary-with-utkarsha.md
         └── 0010-first-display-and-gpu-family.md
 ```

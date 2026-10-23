@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
@@ -85,7 +85,7 @@ protolog_log:
     mov rdi, [rbx + ProtoLog.buf]
     imul rax, ProtoLogEntry_size
     add rdi, rax
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rdi + ProtoLogEntry.time_ns], rax
     mov [rdi + ProtoLogEntry.client_id], r12
     mov [rdi + ProtoLogEntry.dir], dl

@@ -5,14 +5,14 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 extern arena_alloc
 extern rfb_client_update
 extern rfb_handshake
-extern tv_tls_accept
-extern tv_tls_close
-extern tv_tls_listen
+extern ut_tls_accept
+extern ut_tls_close
+extern ut_tls_listen
 
 %define RFB_PORT_DEFAULT  5900
 %define RFB_VERSION_STR   "RFB 003.008\n"
@@ -63,7 +63,7 @@ rfb_server_listen:
     mov r12d, esi
     ASSERT_PTR rbx
     mov dword [rbx + RfbServer.port], r12d
-    call tv_tls_listen
+    call ut_tls_listen
     test rax, rax
     js .fail
     mov [rbx + RfbServer.listener], rax
@@ -89,7 +89,7 @@ rfb_server_accept:
     je .not_running
     mov rdi, [rbx + RfbServer.listener]
     mov rsi, 0  ; infinite
-    call tv_tls_accept
+    call ut_tls_accept
     test rax, rax
     js .accept_fail
     mov r12, rax
@@ -130,13 +130,13 @@ rfb_server_accept:
     ret
 .oom:
     mov rdi, r12
-    call tv_tls_close
+    call ut_tls_close
     mov rax, -(ENOMEM)
     EPILOGUE_RESTORE rbx, r12
     ret
 .hs_fail:
     mov rdi, r12
-    call tv_tls_close
+    call ut_tls_close
     mov rax, -(EREMOTE_TLS)
     EPILOGUE_RESTORE rbx, r12
     ret

@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 %include "inc/struct_offsets.inc"
 
@@ -107,7 +107,7 @@ stats_commit:
     PROLOGUE
     ASSERT_PTR rdi
     inc qword [rdi + ClientStats.commits]
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rdi + ClientStats.last_commit], rax
     xor rax, rax
     leave
@@ -122,7 +122,7 @@ stats_present:
     mov rbx, rdi
     ASSERT_PTR rbx
     inc qword [rbx + ClientStats.frames]
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rbx + ClientStats.last_present], rax
     mov rcx, [rbx + ClientStats.last_commit]
     test rcx, rcx

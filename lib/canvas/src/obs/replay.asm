@@ -6,7 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
@@ -80,7 +80,7 @@ replay_run_file:
     mov qword [rbx + Replayer.expected_crc], r14
     ; open file
     mov rdi, r12
-    call tv_fs_open
+    call ut_fs_open
     test rax, rax
     js .open_fail
     mov r12, rax
@@ -90,7 +90,7 @@ replay_run_file:
     mov rsi, rsp
     mov rdx, 40
     xor rcx, rcx
-    call tv_fs_pread
+    call ut_fs_pread
     cmp rax, 40
     jne .read_fail
     cmp dword [rsp + 0], 0x52505743
@@ -110,7 +110,7 @@ replay_run_file:
     mov rsi, rsp
     mov rdx, 16
     mov rcx, r13
-    call tv_fs_pread
+    call ut_fs_pread
     cmp rax, 16
     jne .read_fail
     mov r14, [rsp + 8]   ; msg_count
@@ -124,7 +124,7 @@ replay_run_file:
     mov rsi, rsp
     mov rdx, r15
     mov rcx, r13
-    call tv_fs_pread
+    call ut_fs_pread
     cmp rax, r15
     jne .read_fail2
     add r13, r15
@@ -157,7 +157,7 @@ replay_run_file:
     jmp .frame_loop
 .finish:
     mov rdi, r12
-    call tv_fs_close
+    call ut_fs_close
     mov byte [rbx + Replayer.active], 0
     mov rax, [rbx + Replayer.mismatches]
     add rsp, 64
@@ -165,28 +165,28 @@ replay_run_file:
     ret
 .bad_magic:
     mov rdi, r12
-    call tv_fs_close
+    call ut_fs_close
     add rsp, 64
     mov rax, -(EINVAL)
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .bad_version:
     mov rdi, r12
-    call tv_fs_close
+    call ut_fs_close
     add rsp, 64
     mov rax, -(ECWP_VERSION)
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .read_fail:
     mov rdi, r12
-    call tv_fs_close
+    call ut_fs_close
     add rsp, 64
     mov rax, -(EIO)
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .read_fail2:
     mov rdi, r12
-    call tv_fs_close
+    call ut_fs_close
     add rsp, 65536
     add rsp, 64
     mov rax, -(EIO)
@@ -194,7 +194,7 @@ replay_run_file:
     ret
 .too_big:
     mov rdi, r12
-    call tv_fs_close
+    call ut_fs_close
     add rsp, 64
     mov rax, -(EMSGSIZE)
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15

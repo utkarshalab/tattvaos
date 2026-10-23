@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -37,7 +37,7 @@ native_vblank_init:
     mov rsi, native_vblank_handler
     mov rdx, r13  ; output as user_data
     mov rcx, IRQ_EDGE
-    call tv_irq_register
+    call ut_irq_register
     test rax, rax
     jnz .fail
 
@@ -65,7 +65,7 @@ native_vblank_handler:
     jz .done
 
     ; Get current time
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov r13, rax
 
     ; Update frame clock

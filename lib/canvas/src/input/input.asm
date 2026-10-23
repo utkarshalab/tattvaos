@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/event.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
@@ -35,10 +35,10 @@ input_init:
     mov qword [rbx + Server.arena], r12
     mov [rel input_server], rbx
 
-    ; Register Tattva input callback
-    mov rdi, input_tattva_callback
+    ; Register Utkarsha input callback
+    mov rdi, input_ut_callback
     xor rsi, rsi
-    call tv_input_register_callback
+    call ut_input_register_callback
     test rax, rax
     jnz .fail
 
@@ -60,23 +60,23 @@ input_init:
 global input_deinit
 input_deinit:
     PROLOGUE
-    call tv_input_unregister_callback
+    call ut_input_unregister_callback
     xor rax, rax
     leave
     ret
 
 ; ---------------------------------------------------------------------------
-; input_tattva_callback
-;   Callback from Tattva for raw input events
+; input_ut_callback
+;   Callback from Utkarsha for raw input events
 ;   IN:  rdi = InputEvent*
 ; ---------------------------------------------------------------------------
-input_tattva_callback:
+input_ut_callback:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     sub rsp, 32
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    ; Convert Tattva InputEvent to internal Event
+    ; Convert Utkarsha InputEvent to internal Event
     ; struct InputEvent { type, code, value, time_ns, device_id }
     ; struct Event { type, time, a, b, c }
 

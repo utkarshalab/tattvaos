@@ -43,7 +43,7 @@ extern siphash_update
 extern siphash_final
 extern siphash24
 extern siphash24_verify
-extern tv_entropy_siphash_key
+extern ut_entropy_siphash_key
 
 ; String operations
 extern str_dup_arena
@@ -57,9 +57,9 @@ extern str_len
 %define str_copy str_dup_arena
 
 ; Time
-extern tv_time_now_ns
-extern tv_time_ns_to_ms
-extern tv_log_write
+extern ut_time_now_ns
+extern ut_time_ns_to_ms
+extern ut_log_write
 
 ; Fence operations
 extern fence_wait
@@ -102,8 +102,8 @@ extern rfb_server_update
 extern crp_share_broadcast
 
 ; I2C
-extern tv_i2c_read
-extern tv_i2c_write
+extern ut_i2c_read
+extern ut_i2c_write
 
 ; EDID
 extern ddc_read_edid
@@ -300,7 +300,7 @@ extern constraints_create
 ; Input source
 extern input_source_tv_init
 ; Filesystem
-extern tv_fs_read
+extern ut_fs_read
 ; Seat
 extern seat_deliver_event
 
@@ -317,8 +317,8 @@ extern blend_avx512
 extern blend_dispatch
 
 ; Network/TLS
-extern tv_tls_write
-extern tv_tls_read
+extern ut_tls_write
+extern ut_tls_read
 
 ; Surface and Layout management
 extern surface_destroy

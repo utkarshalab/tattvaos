@@ -6,7 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -83,7 +83,7 @@ crp_server_listen:
     mov r12d, esi
     ASSERT_PTR rbx
     mov dword [rbx + CrpServer_port], r12d
-    call tv_tls_listen
+    call ut_tls_listen
     test rax, rax
     js .fail
     mov [rbx + CrpServer_listener], rax

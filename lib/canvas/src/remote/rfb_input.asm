@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 %include "inc/event.inc"
@@ -32,12 +32,12 @@ rfb_poll_input:
     ASSERT_PTR rbx
     mov r12, [rbx + RfbClient_conn]
     sub rsp, 16
-    ; poll: try 1-byte read with zero timeout? tv_tls_read blocks;
+    ; poll: try 1-byte read with zero timeout? ut_tls_read blocks;
     ; caller only invokes when waitset signals readability
     mov rdi, r12
     mov rsi, rsp
     mov rdx, 1
-    call tv_tls_read
+    call ut_tls_read
     cmp rax, 1
     jne .none
     movzx eax, byte [rsp]

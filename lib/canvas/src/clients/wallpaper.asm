@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 %include "inc/client_api.inc"
 
@@ -52,11 +52,11 @@ client_main:
     ; static: park until killed
 .park:
     mov rdi, 1000000000
-    call tv_time_sleep_ns
+    call ut_time_sleep_ns
     jmp .park
 .fail:
     mov rax, 1
-    call tv_task_exit
+    call ut_task_exit
 
 section .data
 global wallpaper_version

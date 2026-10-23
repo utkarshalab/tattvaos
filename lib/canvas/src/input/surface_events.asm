@@ -8,7 +8,7 @@
 %include "inc/struct_offsets.inc"
 
 extern ring_push
-extern tv_time_now_ns
+extern ut_time_now_ns
 
 %define SERVER_SURFACE_CLIENT 40
 %define SERVER_SURFACE_ID      0
@@ -36,7 +36,7 @@ surface_emit_event:
     mov [rsp + Event.b], ecx
     mov [rsp + Event.c], r8d
     mov r9, rax
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rsp + Event.time], rax
     mov rdi, r9
     mov rsi, rsp

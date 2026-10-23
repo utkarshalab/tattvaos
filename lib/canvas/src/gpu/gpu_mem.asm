@@ -1,12 +1,12 @@
 ; ============================================================================
 ; GPU Memory — GTT/VRAM Placement, Buffer Objects, Tiling Flags
-; Unified memory preferred (APU); discrete VRAM via tv_dma
+; Unified memory preferred (APU); discrete VRAM via ut_dma
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
@@ -112,7 +112,7 @@ gpu_bo_create:
     ; DMA buffer
     mov rdi, r12
     mov rsi, r13
-    call tv_dma_alloc
+    call ut_dma_alloc
     test rax, rax
     js .oom
     mov [rbx + GpuBo.cpu_addr], rax
@@ -165,7 +165,7 @@ gpu_bo_unref:
     lock dec dword [rbx + GpuBo.refcount]
     jnz .done
     mov rdi, [rbx + GpuBo.handle]
-    call tv_dma_free
+    call ut_dma_free
 .done:
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -183,7 +183,7 @@ gpu_bo_sync:
     mov rsi, 0
     mov rdx, [rbx + GpuBo.size]
     mov rcx, DMA_BIDIR
-    call tv_dma_sync
+    call ut_dma_sync
     EPILOGUE_RESTORE rbx
     ret
 

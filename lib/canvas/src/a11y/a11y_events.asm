@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/server_offsets.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
@@ -84,7 +84,7 @@ a11y_event_send:
     mov r10, [rbx + Server.a11y_events]
     mov [r15 + A11yEvent.next], r10
     mov [rbx + Server.a11y_events], r15
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov qword [r15 + A11yEvent.time], rax
 
     mov rdi, rbx

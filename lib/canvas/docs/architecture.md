@@ -1,6 +1,6 @@
 # Canvas Architecture
 
-**Display server for Tattva OS — x86-64 NASM, no libc, bare metal only.**
+**Display server for Utkarsha OS — x86-64 NASM, no libc, bare metal only.**
 
 ---
 
@@ -8,7 +8,7 @@
 
 | Principle | Implementation |
 |-----------|----------------|
-| **Zero abstraction overhead** | Direct Tattva syscalls, inline assembly hot paths, no virtual calls in compositor |
+| **Zero abstraction overhead** | Direct Utkarsha syscalls, inline assembly hot paths, no virtual calls in compositor |
 | **Single address space, software isolation** | Generation-tagged handles, per-client bump arenas, bounded SPSC rings, RSO-verified clients |
 | **Explicit sync everywhere** | Fences and timelines on every buffer; no implicit flushes |
 | **Atomic commits only** | Surface state double-buffered; `commit` applies all pending changes in one frame |
@@ -23,11 +23,11 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ Tattva OS (Ring 0)                                                          │
+│ Utkarsha OS (Ring 0)                                                          │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
 │  │ Canvas Display Server (canvasd)                                       │  │
 │  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐   │  │
-│  │  │ Proto    │ │ Server   │ │ Render   │ │ Backend  │ │ Tattva   │   │  │
+│  │  │ Proto    │ │ Server   │ │ Render   │ │ Backend  │ │ Utkarsha   │   │  │
 │  │  │ Runtime  │ │ Core     │ │ Engine   │ │ Drivers  │ │ Binding  │   │  │
 │  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘   │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
@@ -180,7 +180,7 @@ src/backend/family/<vendor>/<family>/
   └── ddc.asm        // I2C/DDC read
 ```
 - **One family at a time** — chosen from deployment hardware
-- Tattva provides PCI/MMIO/IRQ; Canvas owns display engine registers
+- Utkarsha provides PCI/MMIO/IRQ; Canvas owns display engine registers
 
 ---
 
@@ -256,7 +256,7 @@ struct FrameClock {
 
 ### 8.1 Event Flow
 ```
-Tattva IRQ → tv_input.asm → InputSource → Seat → Focus/HitTest → Client Channel
+Utkarsha IRQ → ut_input.asm → InputSource → Seat → Focus/HitTest → Client Channel
 ```
 - **Zero-copy**: Input events written directly into client's RX ring
 - **Focus-gated**: Only focused/hit-tested surface receives pointer/keyboard
@@ -390,7 +390,7 @@ Client Buffer (sRGB/linear/HDR) → ICC/per-output transform → Linear blend �
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| Idle CPU | 0 wakeups | `tv_wait` with no timers/damage |
+| Idle CPU | 0 wakeups | `ut_wait` with no timers/damage |
 | Input→photon | 1 vblank | Direct scanout, event at vblank-ε |
 | Resident memory | < 8 MB | 2 outputs, no client buffers |
 | `canvasd` image | < 1 MB | Stripped binary |
@@ -404,10 +404,10 @@ Client Buffer (sRGB/linear/HDR) → ICC/per-output transform → Linear blend �
 
 ### 14.1 Build Targets (Makefile)
 ```
-make server       # canvasd Tattva image
+make server       # canvasd Utkarsha image
 make client       # canvas_client.o (relocatable)
 make tools        # cwpgen, canvasctl, canvas_bench, etc.
-make clients      # reference clients as Tattva images
+make clients      # reference clients as Utkarsha images
 make test         # unit + golden + replay
 make fuzz         # fuzz targets
 make soak         # 24h soak
@@ -415,8 +415,8 @@ make bench        # benchmarks
 make cts          # conformance suite
 ```
 
-### 14.2 Tattva Image Format
-- Canvas builds as ELF, loaded by Tattva loader
+### 14.2 Utkarsha Image Format
+- Canvas builds as ELF, loaded by Utkarsha loader
 - `build/img/canvasd.img` — server
 - `build/img/<client>.img` — each reference client
 - `build/lib/canvas_client.o` — linked into client images
@@ -434,8 +434,8 @@ make cts          # conformance suite
 | 0005 | One server, pluggable policy | Avoid WM/compositor split races |
 | 0006 | Explicit sync in v1 | No implicit flush races, frame-perfect |
 | 0007 | Trust profiles | Capability grants auditable, revocable |
-| 0008 | Software isolation on Tattva | Hardware domains not yet exist |
-| 0009 | Tattva owns buses, Canvas owns display engines | Clean driver boundary |
+| 0008 | Software isolation on Utkarsha | Hardware domains not yet exist |
+| 0009 | Utkarsha owns buses, Canvas owns display engines | Clean driver boundary |
 | 0010 | One GPU/display family at a time | Scope control, direct scanout recovers 80% benefit |
 | 0011 | Defer AVIF, HEIF, and JPEG XL decoding | Prioritize required display-server features; retain accurate format detection |
 
@@ -443,7 +443,7 @@ make cts          # conformance suite
 
 ## 17. Next Steps
 
-1. **C0**: Write `Makefile`, `inc/tattva.inc`, `src/tattva/tv_{mem,time,log,entropy,wait}.asm`
+1. **C0**: Write `Makefile`, `inc/ut.inc`, `src/ut/ut_{mem,time,log,entropy,wait}.asm`
 2. **C1**: Core library (arena, str, map, vec, ring, handle, rbtree, config, log, cpuid)
 3. **C2**: Graphics primitives (region, blend SIMD, scale, pixbuf)
 4. **C3**: Test harness (unit, golden, serial reporting)

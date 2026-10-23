@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
@@ -42,7 +42,7 @@ metrics_init:
     mov qword [rbx + Metrics.input_events], 0
     mov qword [rbx + Metrics.proto_errors], 0
     mov qword [rbx + Metrics.faults], 0
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rbx + Metrics.last_fps_time], rax
     mov qword [rbx + Metrics.last_frames], 0
     mov qword [rbx + Metrics.fps], 0
@@ -87,7 +87,7 @@ metrics_tick_fps:
     test rax, rax
     jz .none
     mov rbx, rax
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov rcx, rax
     sub rcx, [rbx + Metrics.last_fps_time]
     cmp rcx, 1000000000
@@ -102,7 +102,7 @@ metrics_tick_fps:
     mov [rbx + Metrics.fps], rax
     mov rax, [rbx + Metrics.frames]
     mov [rbx + Metrics.last_frames], rax
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rbx + Metrics.last_fps_time], rax
 .done:
     xor rax, rax

@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/externs.inc"
 
 section .text
@@ -15,9 +15,9 @@ tool_main:
     PROLOGUE_SAVE rbx
     mov rdi, replay_banner
     mov rsi, replay_banner_len
-    call tv_log_write
+    call ut_log_write
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
 
 global canvas_replay_run
 canvas_replay_run:

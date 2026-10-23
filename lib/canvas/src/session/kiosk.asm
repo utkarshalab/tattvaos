@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -111,13 +111,13 @@ kiosk_start_watchdog:
     ASSERT_PTR rbx
 
     ; Start watchdog timer
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax,1000000000
     jc .invalid
     mov rdi,rax
     mov rsi, kiosk_watchdog_callback
     mov rdx, rbx
-    call tv_timer_register
+    call ut_timer_register
     test rax,rax
     js .fail
     mov [rbx + KioskSession.watchdog_timer], rax
@@ -142,7 +142,7 @@ kiosk_watchdog_callback:
 
     mov rdi,[rbx + KioskSession.allowed_app_id]
     xor esi,esi
-    call tv_task_wait
+    call ut_task_wait
     cmp rax,-EAGAIN
     je .rearm
     cmp rax,-EINTR
@@ -154,7 +154,7 @@ kiosk_watchdog_callback:
     mov rdi,[rbx + KioskSession.allowed_app_id]
     mov rsi,[rbx + KioskSession.session]
     mov rdx,TASK_USER
-    call tv_task_spawn
+    call ut_task_spawn
     test rax,rax
     js .mark_inactive
     mov [rbx + KioskSession.allowed_app_id],rax
@@ -167,13 +167,13 @@ kiosk_watchdog_callback:
 
     ; Re-arm timer
 .rearm:
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax,1000000000
     jc .timer_failed
     mov rdi,rax
     mov rsi, kiosk_watchdog_callback
     mov rdx, rbx
-    call tv_timer_register
+    call ut_timer_register
     test rax,rax
     js .timer_failed
     mov [rbx + KioskSession.watchdog_timer],rax
@@ -199,7 +199,7 @@ kiosk_destroy:
     test rax, rax
     jz .done
     mov rdi, rax
-    call tv_timer_cancel
+    call ut_timer_cancel
 
 .done:
     xor rax, rax

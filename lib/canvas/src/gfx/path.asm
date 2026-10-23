@@ -1,4 +1,4 @@
-; Native TattvaOS vector path command container.
+; Native Utkarsha OS vector path command container.
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"

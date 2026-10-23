@@ -1,11 +1,11 @@
 ; ============================================================================
-; RFB TLS — TLS Record Helpers over tv_tls
+; RFB TLS — TLS Record Helpers over ut_tls
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
@@ -21,7 +21,7 @@ rfb_tls_write_all:
     mov rdi, rbx
     mov rsi, r12
     mov rdx, r13
-    call tv_tls_write
+    call ut_tls_write
     test rax, rax
     js .fail
     test rax, rax
@@ -50,7 +50,7 @@ rfb_tls_read_all:
     mov rdi, rbx
     mov rsi, r12
     mov rdx, r13
-    call tv_tls_read
+    call ut_tls_read
     test rax, rax
     js .fail
     test rax, rax

@@ -1,16 +1,16 @@
 ; ============================================================================
-; Tattva System Call Interface — Canvas Binding
-; Every Tattva service Canvas uses, exact syscall numbers and structures
-; THIS IS THE CONTRACT — Tattva kernel MUST implement these
+; Utkarsha System Call Interface — Canvas Binding
+; Every Utkarsha service Canvas uses, exact syscall numbers and structures
+; THIS IS THE CONTRACT — Utkarsha kernel MUST implement these
 ; ============================================================================
 
-%ifndef __TATTVA_INC__
-%define __TATTVA_INC__
+%ifndef __UT_INC__
+%define __UT_INC__
 
 %include "errors.inc"
 
 ; ---------------------------------------------------------------------------
-; Syscall Numbers (Tattva Kernel ABI)
+; Syscall Numbers (Utkarsha Kernel ABI)
 ; ---------------------------------------------------------------------------
 
 ; Memory Management
@@ -265,117 +265,117 @@ endstruc
 %define LOG_TRACE     5
 
 ; ---------------------------------------------------------------------------
-; Tattva Version (for contract negotiation)
+; Utkarsha Version (for contract negotiation)
 ; ---------------------------------------------------------------------------
-%define TATTVA_CONTRACT_VERSION  0x010000   ; 1.0.0
+%define UT_CONTRACT_VERSION  0x010000   ; 1.0.0
 
 ; ---------------------------------------------------------------------------
-; External Function Declarations (implemented in src/tattva/*.asm)
+; External Function Declarations (implemented in src/ut/*.asm)
 ; ---------------------------------------------------------------------------
 
-%ifndef TATTVA_BINDING_IMPL
+%ifndef UT_BINDING_IMPL
 
 ; Memory
-extern tv_mem_alloc
-extern tv_mem_free
-extern tv_mem_resize
-extern tv_mem_map_phys
-extern tv_mem_info
+extern ut_mem_alloc
+extern ut_mem_free
+extern ut_mem_resize
+extern ut_mem_map_phys
+extern ut_mem_info
 
 ; Time
-extern tv_time_now_ns
-extern tv_time_now_us
-extern tv_time_now_ms
-extern tv_time_tsc
-extern tv_time_sleep_ns
-extern tv_time_sleep_until
-extern tv_timer_register
-extern tv_timer_cancel
+extern ut_time_now_ns
+extern ut_time_now_us
+extern ut_time_now_ms
+extern ut_time_tsc
+extern ut_time_sleep_ns
+extern ut_time_sleep_until
+extern ut_timer_register
+extern ut_timer_cancel
 
 ; Log
-extern tv_log_write
-extern tv_log_printf
-extern tv_log_set_level
-extern tv_log_get_level
-extern tv_log_flush
+extern ut_log_write
+extern ut_log_printf
+extern ut_log_set_level
+extern ut_log_get_level
+extern ut_log_flush
 
 ; Entropy
-extern tv_entropy_get
-extern tv_entropy_u64
-extern tv_entropy_siphash_key
+extern ut_entropy_get
+extern ut_entropy_u64
+extern ut_entropy_siphash_key
 
 ; Wait
-extern tv_waitset_create
-extern tv_waitset_add
-extern tv_waitset_remove
-extern tv_wait_wait
-extern tv_wait_yield
-extern tv_wait_wake_task
+extern ut_waitset_create
+extern ut_waitset_add
+extern ut_waitset_remove
+extern ut_wait_wait
+extern ut_wait_yield
+extern ut_wait_wake_task
 
 ; Task
-extern tv_task_spawn
-extern tv_task_exit
-extern tv_task_wait
-extern tv_task_self
-extern tv_task_set_priority
-extern tv_task_pin
+extern ut_task_spawn
+extern ut_task_exit
+extern ut_task_wait
+extern ut_task_self
+extern ut_task_set_priority
+extern ut_task_pin
 
 ; IRQ
-extern tv_irq_register
-extern tv_irq_unregister
-extern tv_irq_enable
-extern tv_irq_disable
-extern tv_irq_affinity
-extern tv_irq_set_affinity
+extern ut_irq_register
+extern ut_irq_unregister
+extern ut_irq_enable
+extern ut_irq_disable
+extern ut_irq_affinity
+extern ut_irq_set_affinity
 
 ; Input
-extern tv_input_register_callback
-extern tv_input_unregister_callback
-extern tv_input_device_info
-extern tv_input_grab
+extern ut_input_register_callback
+extern ut_input_unregister_callback
+extern ut_input_device_info
+extern ut_input_grab
 
 ; FS
-extern tv_fs_read
-extern tv_fs_stat
-extern tv_fs_list
-extern tv_fs_open
-extern tv_fs_pread
-extern tv_fs_close
+extern ut_fs_read
+extern ut_fs_stat
+extern ut_fs_list
+extern ut_fs_open
+extern ut_fs_pread
+extern ut_fs_close
 
 ; PCI
-extern tv_pci_for_each
-extern tv_pci_find_class
-extern tv_pci_config_read_dword
-extern tv_pci_config_write_dword
-extern tv_pci_enable_device
-extern tv_pci_disable_device
+extern ut_pci_for_each
+extern ut_pci_find_class
+extern ut_pci_config_read_dword
+extern ut_pci_config_write_dword
+extern ut_pci_enable_device
+extern ut_pci_disable_device
 
 ; MMIO/DMA
-extern tv_mmio_map
-extern tv_mmio_unmap
-extern tv_dma_alloc
-extern tv_dma_free
-extern tv_dma_map_device
-extern tv_dma_sync
-extern tv_i2c_read
-extern tv_i2c_write
+extern ut_mmio_map
+extern ut_mmio_unmap
+extern ut_dma_alloc
+extern ut_dma_free
+extern ut_dma_map_device
+extern ut_dma_sync
+extern ut_i2c_read
+extern ut_i2c_write
 
 ; Power
-extern tv_power_register_callback
-extern tv_power_unregister_callback
-extern tv_power_inhibit_suspend
-extern tv_power_uninhibit_suspend
-extern tv_power_battery_status
+extern ut_power_register_callback
+extern ut_power_unregister_callback
+extern ut_power_inhibit_suspend
+extern ut_power_uninhibit_suspend
+extern ut_power_battery_status
 
 ; Network/TLS
-extern tv_tls_listen
-extern tv_tls_accept
-extern tv_tls_connect
-extern tv_tls_read
-extern tv_tls_write
-extern tv_tls_close
-extern tv_tls_peer_cert
+extern ut_tls_listen
+extern ut_tls_accept
+extern ut_tls_connect
+extern ut_tls_read
+extern ut_tls_write
+extern ut_tls_close
+extern ut_tls_peer_cert
 
-%endif ; !TATTVA_BINDING_IMPL
+%endif ; !UT_BINDING_IMPL
 
-%endif ; __TATTVA_INC__
+%endif ; __UT_INC__

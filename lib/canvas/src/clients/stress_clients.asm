@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 %include "inc/client_api.inc"
 
@@ -49,9 +49,9 @@ client_main:
 .done:
     mov rdi, stress_done
     mov rsi, stress_done_len
-    call tv_log_write
+    call ut_log_write
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
 
 section .rodata
 stress_done: db "stress_clients: 50 connect/commit cycles done", 10, 0

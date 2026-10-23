@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -102,7 +102,7 @@ fence_wait:
     jz .block
     
     ; Timeout wait
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax, rsi
     mov r12, rax
     
@@ -111,7 +111,7 @@ fence_wait:
     je .signaled
     cmp dword [rbx + Fence.state], FENCE_STATE_ERROR
     je .error
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, r12
     jae .timeout
     pause
@@ -251,13 +251,13 @@ fence_timeline_wait:
     jz .block
     
     mov r13, rdx
-    call tv_time_now_ns
+    call ut_time_now_ns
     add r13, rax
     
 .wait_loop:
     cmp qword [rbx + Fence.value], r12
     jae .signaled
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, r13
     jae .timeout
     pause

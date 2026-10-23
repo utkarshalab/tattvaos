@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
@@ -112,7 +112,7 @@ record_start:
     mov qword [rbx + Recorder.frames], 0
     mov qword [rbx + Recorder.msg_count], 0
     mov qword [rbx + Recorder.bytes], 0
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rbx + Recorder.start_time], rax
     mov byte [rbx + Recorder.active], 1
     mov rdi, [rbx + Recorder.path]
@@ -181,7 +181,7 @@ record_frame:
     cmp byte [rbx + Recorder.active], 0
     je .done
     sub rsp, CwprecFrame_size
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rsp], rax
     mov [rsp + 8], r13d
     mov [rsp + 12], r14d

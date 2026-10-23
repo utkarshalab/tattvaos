@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
@@ -86,7 +86,7 @@ frame_timeline_begin:
     mov rdi, [rbx + FrameTimeline.seq]
     inc qword [rbx + FrameTimeline.seq]
     mov [rax + FrameMark.frame_seq], rdi
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rax + FrameMark.composite_start], rax
     mov qword [rax + FrameMark.composite_end], 0
     mov qword [rax + FrameMark.flip_time], 0
@@ -110,7 +110,7 @@ frame_timeline_mark:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
     ASSERT_PTR rbx
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rbx + rsi], rax
     EPILOGUE_RESTORE rbx
     ret
@@ -125,7 +125,7 @@ frame_timeline_end:
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [r12 + FrameMark.composite_end], rax
     mov rax, [rbx + Server.frame_timeline]
     mov rbx, rax

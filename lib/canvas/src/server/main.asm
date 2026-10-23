@@ -1,20 +1,20 @@
 ; ============================================================================
 ; Canvas Server Entry Point — main.asm
-; Called by Tattva loader as canvasd_init
+; Called by Utkarsha loader as canvasd_init
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
 ; ---------------------------------------------------------------------------
 ; canvasd_init
 ;   Main entry point for Canvas display server
-;   Called by Tattva loader after kernel init
-;   IN:  rdi = boot_info pointer (Tattva boot info struct)
+;   Called by Utkarsha loader after kernel init
+;   IN:  rdi = boot_info pointer (Utkarsha boot info struct)
 ;   OUT: rax = 0 on success, negative error (never returns on success)
 ; ---------------------------------------------------------------------------
 global canvasd_init
@@ -26,12 +26,12 @@ canvasd_init:
 
     ; Initialize logging first (for early debug output)
     mov rdi, LOG_DEBUG
-    call tv_log_set_level
+    call ut_log_set_level
 
     ; Print banner
     mov rdi, banner_msg
     mov rsi, banner_len
-    call tv_log_write
+    call ut_log_write
 
     ; Initialize entropy (for capability tokens)
     call init_entropy
@@ -42,8 +42,8 @@ canvasd_init:
     ; Initialize waitset for event loop
     call init_waitset
 
-    ; Initialize Tattva service bindings
-    call init_tattva_bindings
+    ; Initialize Utkarsha service bindings
+    call init_ut_bindings
 
     ; Initialize protocol layer (C4)
     call init_protocol
@@ -78,7 +78,7 @@ init_entropy:
     ; Get siphash key for capability tokens
     sub rsp, 32
     mov rdi, rsp
-    call tv_entropy_siphash_key
+    call ut_entropy_siphash_key
     add rsp, 32
     leave
     ret
@@ -88,7 +88,7 @@ init_server_arena:
     ; Allocate 16MB global arena
     mov rdi, 16 * 1024 * 1024
     mov rsi, MEM_DMA
-    call tv_mem_alloc
+    call ut_mem_alloc
     test rax, rax
     js .oom
     ; Store arena base in global
@@ -101,12 +101,12 @@ init_server_arena:
 .oom:
     mov rdi, panic_oom_msg
     mov rsi, panic_oom_len
-    call tv_log_write
+    call ut_log_write
     PANIC
 
 init_waitset:
     PROLOGUE
-    call tv_waitset_create
+    call ut_waitset_create
     test rax, rax
     js .fail
     mov [main_waitset], rax
@@ -115,12 +115,12 @@ init_waitset:
 .fail:
     mov rdi, panic_waitset_msg
     mov rsi, panic_waitset_len
-    call tv_log_write
+    call ut_log_write
     PANIC
 
-init_tattva_bindings:
+init_ut_bindings:
     PROLOGUE
-    ; Verify Tattva contract version
+    ; Verify Utkarsha contract version
     leave
     ret
 
@@ -164,7 +164,7 @@ event_loop:
     ; Wait for events (infinite wait)
     mov rdi, [main_waitset]
     mov rsi, 0          ; infinite timeout
-    call tv_wait_wait
+    call ut_wait_wait
 
     test rax, rax
     js .error
@@ -218,7 +218,7 @@ dispatch_input:
 
 section .rodata
 
-banner_msg:     db "Canvas Display Server for Tattva OS", 10, 0
+banner_msg:     db "Canvas Display Server for Utkarsha OS", 10, 0
 banner_len:     equ $ - banner_msg
 
 panic_oom_msg:  db "PANIC: Failed to allocate server arena", 10, 0

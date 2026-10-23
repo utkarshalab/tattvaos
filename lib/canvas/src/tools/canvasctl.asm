@@ -6,7 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/externs.inc"
 
 section .text
@@ -18,7 +18,7 @@ tool_main:
     mov r12, rsi                   ; command string
     mov rdi, ctl_banner
     mov rsi, ctl_banner_len
-    call tv_log_write
+    call ut_log_write
     test rbx, rbx
     jz .ctl_bad
     test r12, r12
@@ -55,14 +55,14 @@ tool_main:
     js .ctl_free
     mov rsi, rax
     mov rdi, rsp
-    call tv_log_write
+    call ut_log_write
 .ctl_free:
     add rsp, 4096
     jmp .ctl_exit
 .ctl_bad:
     mov rax, -(EINVAL)
 .ctl_exit:
-    call tv_task_exit
+    call ut_task_exit
 
 ; ---------------------------------------------------------------------------
 ; canvasctl subcommands (also callable in-process)

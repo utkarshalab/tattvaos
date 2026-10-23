@@ -1,4 +1,4 @@
-; Native TattvaOS Canvas client entry points used by statically linked clients.
+; Native Utkarsha OS Canvas client entry points used by statically linked clients.
 %ifndef __CANVAS_CLIENT_API_INC__
 %define __CANVAS_CLIENT_API_INC__
 

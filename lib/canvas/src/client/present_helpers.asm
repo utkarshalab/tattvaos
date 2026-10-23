@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern canvas_frame_request
@@ -27,7 +27,7 @@ canvas_present_wait:
     call canvas_frame_request
     test rax, rax
     js .request_failed
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax, r13
     mov r13, rax
 .poll:
@@ -37,11 +37,11 @@ canvas_present_wait:
     call canvas_event_poll
     test rax, rax
     jnz .got
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, r13
     jae .timeout
     mov rdi, 1000000
-    call tv_time_sleep_ns
+    call ut_time_sleep_ns
     add rsp, ClientEvent_size
     jmp .poll
 .got:

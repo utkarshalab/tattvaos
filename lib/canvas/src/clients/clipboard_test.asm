@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 %include "inc/client_api.inc"
 
@@ -43,18 +43,18 @@ client_main:
     jnz .fail2
     mov rdi, clip_ok
     mov rsi, clip_ok_len
-    call tv_log_write
+    call ut_log_write
     mov rdi, rbx
     call canvas_disconnect
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
 .fail2:
     mov rdi, clip_fail
     mov rsi, clip_fail_len
-    call tv_log_write
+    call ut_log_write
 .fail:
     mov rax, 1
-    call tv_task_exit
+    call ut_task_exit
 
 memcmp_client:
     PROLOGUE_SAVE rbx, rcx

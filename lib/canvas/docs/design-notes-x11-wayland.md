@@ -45,7 +45,7 @@
 | **Accessibility hooks** | **Yes** — `cw_a11y` tree + events |
 | **Layer shell (panels, lock, OSD)** | **Yes** — `cw_layer` with z-layers |
 | **Fractional scaling** | **Yes** — `wp_fractional_scale` → `cw_surface.scale` (fixed-point) |
-| **DRM lease / KMS** | **Concept only** — Canvas owns display engine directly via `tv_pci`/`tv_mmio` |
+| **DRM lease / KMS** | **Concept only** — Canvas owns display engine directly via `ut_pci`/`ut_mmio` |
 
 ### 2.3 From Modern Graphics (Vulkan, DRM/KMS, GBM)
 | Idea | Canvas Adaptation |
@@ -95,7 +95,7 @@
 ### 3.3 From Both (General)
 | Anti-Pattern | Canvas Fix |
 |--------------|------------|
-| **C ABI / libc dependency** | Pure assembly, Tattva syscalls only |
+| **C ABI / libc dependency** | Pure assembly, Utkarsha syscalls only |
 | **Dynamic linking** | Static image, no relocations at runtime |
 | **Unbounded memory growth** | Per-client arenas, quotas, buffer-age |
 | **Implicit synchronization** | Explicit fences/timelines everywhere |
@@ -109,12 +109,12 @@
 
 ### 4.1 Single Address Space + Software Isolation
 - **X11/Wayland**: Process isolation (MMU, pid namespaces)
-- **Canvas**: Tattva is ring-0 unikernel → no HW domains yet
+- **Canvas**: Utkarsha is ring-0 unikernel → no HW domains yet
 - **Solution**: Generation handles + per-client arenas + bounded SPSC rings + RSO verifier
 - **Trade-off**: Only as strong as verifier; no untrusted binaries until HW domains
 
 ### 4.2 No Event Loop Abstraction (libwayland, libxcb)
-- **Canvas**: Hand-written event loop in `loop.asm` — single `tv_wait_wait` on IRQ + channels + timers
+- **Canvas**: Hand-written event loop in `loop.asm` — single `ut_wait_wait` on IRQ + channels + timers
 - **Why**: Zero overhead, predictable latency, no callback hell
 
 ### 4.3 Protocol as Source of Truth (cwpgen)
@@ -173,7 +173,7 @@
 |-----|-------------------|-------------------|
 | **GPU driver coverage** | Mature (amdgpu, i915, nvidia) | One family at a time (C24); SW renderer + direct scanout first |
 | **App ecosystem** | Everything runs | Client lib + reference clients; Utkarsha browser later |
-| **Hardware isolation** | Process + MMU | Software isolation only; HW domains when Tattva adds paging |
+| **Hardware isolation** | Process + MMU | Software isolation only; HW domains when Utkarsha adds paging |
 | **Video decode** | VA-API, VDPAU, DMABUF import | Out of scope (C16: only protocol hooks) |
 | **3D APIs (GL/Vulkan)** | EGL/GBM/Vulkan WSI | Out of scope — browser gets own plan |
 | **Mature IME engines** | ibus, fcitx, maliit | Protocol only (`cw_text`); engine is client |
@@ -193,8 +193,8 @@
 | 0005 | One server, pluggable policy | Avoids X11 WM race, Wayland fragmentation |
 | 0006 | Explicit sync in v1 | Avoids Wayland's late explicit sync adoption |
 | 0007 | Trust profiles | Avoids X11 no-security, Wayland ad-hoc extensions |
-| 0008 | Software isolation | Tattva constraint, not choice |
-| 0009 | Driver boundary | Tattva owns buses, Canvas owns display engines |
+| 0008 | Software isolation | Utkarsha constraint, not choice |
+| 0009 | Driver boundary | Utkarsha owns buses, Canvas owns display engines |
 | 0010 | First display/GPU family | Scope control — one at a time |
 
 ---

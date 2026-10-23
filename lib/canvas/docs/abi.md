@@ -1,12 +1,12 @@
 # Canvas ABI Specification
 
-**Calling conventions, data layouts, and binary interfaces for Canvas on Tattva OS x86-64.**
+**Calling conventions, data layouts, and binary interfaces for Canvas on Utkarsha OS x86-64.**
 
 ---
 
-## 1. Tattva ABI (System Call Interface)
+## 1. Utkarsha ABI (System Call Interface)
 
-All Canvas ↔ Tattva kernel calls use this ABI.
+All Canvas ↔ Utkarsha kernel calls use this ABI.
 
 ### 1.1 Register Usage
 | Register | Role | Preserved? |
@@ -83,7 +83,7 @@ Used for all `call` instructions within `canvasd` and client library.
 %endmacro
 ```
 
-### 2.2 Standard Calling Convention (Same as Tattva ABI)
+### 2.2 Standard Calling Convention (Same as Utkarsha ABI)
 - First 6 integer args: `rdi, rsi, rdx, rcx, r8, r9`
 - Additional args: stack (right-to-left)
 - FP/Vector args: `xmm0-xmm7` (also `ymm`/`zmm` if AVX)
@@ -372,7 +372,7 @@ canvas_present_wait   ; conn:u64, surface:u32, timeout_ns:u64 -> PresentInfo*
 - `canvas_client.o` is a **relocatable object** (not shared library)
 - Linked into client image at build time
 - No PLT/GOT — direct calls
-- Uses same Tattva ABI
+- Uses same Utkarsha ABI
 
 ---
 
@@ -451,26 +451,26 @@ blend_avx512    ; 16 pixels/iter (512-bit)
 
 ---
 
-## 8. Tattva Service Binding ABI (`src/tattva/*.asm`)
+## 8. Utkarsha Service Binding ABI (`src/ut/*.asm`)
 
-Each `tv_*.asm` exports thin wrappers matching the contract in `tattva-contract.md`.
+Each `ut_*.asm` exports thin wrappers matching the contract in `utkarsha-contract.md`.
 
 ### 8.1 Naming Convention
 ```nasm
-; tv_mem.asm
-global tv_mem_alloc, tv_mem_free, tv_mem_resize, tv_mem_map_phys, tv_mem_info
+; ut_mem.asm
+global ut_mem_alloc, ut_mem_free, ut_mem_resize, ut_mem_map_phys, ut_mem_info
 
-; tv_time.asm
-global tv_time_now_ns, tv_time_now_us, tv_time_now_ms, tv_time_tsc
-global tv_time_sleep_until, tv_time_sleep_ns, tv_timer_register, tv_timer_cancel
+; ut_time.asm
+global ut_time_now_ns, ut_time_now_us, ut_time_now_ms, ut_time_tsc
+global ut_time_sleep_until, ut_time_sleep_ns, ut_timer_register, ut_timer_cancel
 
 ; ... etc for all services
 ```
 
 ### 8.2 Stub Implementation (C0)
 ```nasm
-; C0: All return ENOSYS (-15) until Tattva implements
-tv_mem_alloc:
+; C0: All return ENOSYS (-15) until Utkarsha implements
+ut_mem_alloc:
     mov rax, -15  ; ENOSYS
     ret
 ```
@@ -479,7 +479,7 @@ tv_mem_alloc:
 
 ## 9. Memory Layout Conventions
 
-### 9.1 Kernel/Canvas Split (Tattva Defines)
+### 9.1 Kernel/Canvas Split (Utkarsha Defines)
 ```
 0x0000_0000_0000_0000 - 0x0000_7FFF_FFFF_FFFF  User/Canvas space (128 TB)
 0xFFFF_8000_0000_0000 - 0xFFFF_FFFF_FFFF_FFFF  Kernel space
@@ -492,7 +492,7 @@ tv_mem_alloc:
 0x0000_0000_0200_0000 - 0x0000_0000_0FFF_FFFF  Per-client arenas (dynamic)
 0x0000_0000_1000_0000 - 0x0000_0000_FFFF_FFFF  DMA/Scanout buffers (mapped on demand)
 0x0000_0001_0000_0000 - 0x0000_00FF_FFFF_FFFF  Shared rings, handle tables
-0x0000_0100_0000_0000 - 0x0000_7FFF_FFFF_FFFF  Client code (loaded by Tattva)
+0x0000_0100_0000_0000 - 0x0000_7FFF_FFFF_FFFF  Client code (loaded by Utkarsha)
 ```
 
 ### 9.3 Alignment Requirements
@@ -514,7 +514,7 @@ tv_mem_alloc:
 | 2.0 | Post-v1 | If HW domains added |
 
 **ABI Stability Promise**: Within v1.x, no breaking changes to:
-- Tattva syscall numbers/structures
+- Utkarsha syscall numbers/structures
 - CWP wire format (only additive interfaces)
 - Client library public symbols
 - Core data structure layouts (only append fields)

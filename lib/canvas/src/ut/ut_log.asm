@@ -1,26 +1,26 @@
 ; ============================================================================
-; Tattva Log Service Binding — tv_log.asm
+; Utkarsha Log Service Binding — ut_log.asm
 ; Console/serial output, panic handlers
 ; ============================================================================
 
-%define TATTVA_BINDING_IMPL 1
+%define UT_BINDING_IMPL 1
 %define PANIC_IMPL 1
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
 ; ---------------------------------------------------------------------------
-; tv_log_write
+; ut_log_write
 ;   Write bytes to console/serial (blocking but fast)
 ;   IN:  rdi = buffer pointer
 ;        rsi = length
 ;   OUT: rax = bytes written (== length on success), negative error
 ; ---------------------------------------------------------------------------
-global tv_log_write
-tv_log_write:
+global ut_log_write
+ut_log_write:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12, rsi
@@ -29,49 +29,49 @@ tv_log_write:
     EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
-; tv_log_printf
+; ut_log_printf
 ;   Write formatted (limited printf: %s %d %x %p %c %% )
 ;   IN:  rdi = format string, rsi... = args
 ;   OUT: rax = chars written
 ; ---------------------------------------------------------------------------
-global tv_log_printf
-tv_log_printf:
+global ut_log_printf
+ut_log_printf:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rax, SYS_LOG_PRINTF
     syscall
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 ; ---------------------------------------------------------------------------
-; tv_log_set_level
+; ut_log_set_level
 ;   Set log level filter
 ;   IN:  rdi = level (0=none, 1=error, 2=warn, 3=info, 4=debug, 5=trace)
 ; ---------------------------------------------------------------------------
-global tv_log_set_level
-tv_log_set_level:
+global ut_log_set_level
+ut_log_set_level:
     PROLOGUE
     mov rax, SYS_LOG_SET_LEVEL
     syscall
     EPILOGUE
 
 ; ---------------------------------------------------------------------------
-; tv_log_get_level
+; ut_log_get_level
 ;   Get current log level
 ;   OUT: rax = level
 ; ---------------------------------------------------------------------------
-global tv_log_get_level
-tv_log_get_level:
+global ut_log_get_level
+ut_log_get_level:
     PROLOGUE
     mov rax, SYS_LOG_GET_LEVEL
     syscall
     EPILOGUE
 
 ; ---------------------------------------------------------------------------
-; tv_log_flush
+; ut_log_flush
 ;   Flush any buffered output
 ;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
-global tv_log_flush
-tv_log_flush:
+global ut_log_flush
+ut_log_flush:
     PROLOGUE
     mov rax, SYS_LOG_FLUSH
     syscall
@@ -87,7 +87,7 @@ panic_assert_failed:
     ; Print assertion failure message
     mov rdi, panic_msg_assert
     mov rsi, panic_msg_assert_len
-    call tv_log_write
+    call ut_log_write
     ; Dump registers
     call dump_registers
     PANIC
@@ -97,7 +97,7 @@ panic_null_ptr:
     PROLOGUE
     mov rdi, panic_msg_null
     mov rsi, panic_msg_null_len
-    call tv_log_write
+    call ut_log_write
     call dump_registers
     PANIC
 
@@ -106,7 +106,7 @@ panic_unaligned:
     PROLOGUE
     mov rdi, panic_msg_unaligned
     mov rsi, panic_msg_unaligned_len
-    call tv_log_write
+    call ut_log_write
     call dump_registers
     PANIC
 
@@ -115,7 +115,7 @@ panic_bounds:
     PROLOGUE
     mov rdi, panic_msg_bounds
     mov rsi, panic_msg_bounds_len
-    call tv_log_write
+    call ut_log_write
     call dump_registers
     PANIC
 
@@ -124,7 +124,7 @@ panic_oom:
     PROLOGUE
     mov rdi, panic_msg_oom
     mov rsi, panic_msg_oom_len
-    call tv_log_write
+    call ut_log_write
     call dump_registers
     PANIC
 
@@ -133,7 +133,7 @@ panic_unreachable:
     PROLOGUE
     mov rdi, panic_msg_unreach
     mov rsi, panic_msg_unreach_len
-    call tv_log_write
+    call ut_log_write
     call dump_registers
     PANIC
 
@@ -155,7 +155,7 @@ dump_registers:
     mov r13, r8
     mov r14, r9
     mov r15, r10
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -178,8 +178,8 @@ reg_dump_fmt:           db "RAX=%p RBX=%p RCX=%p RDX=%p RSI=%p RDI=%p RBP=%p RSP
 
 section .data
 
-global tv_log_version
-tv_log_version: dq 0x010000
+global ut_log_version
+ut_log_version: dq 0x010000
 
-section .note.tattva_contract
-    db "TATTVA_LOG_CONTRACT", 0
+section .note.ut_contract
+    db "UT_LOG_CONTRACT", 0

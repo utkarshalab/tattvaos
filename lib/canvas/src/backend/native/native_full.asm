@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/image.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
@@ -454,7 +454,7 @@ native_vblank_wait:
     mov r14d, eax
     mov r15, [rbx + Controller.mmio_base]
     
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov rbx, rax
     add rbx, r13
     
@@ -466,14 +466,14 @@ native_vblank_wait:
     mov eax, [rax]
     test eax, CRTC_STATUS_VSYNC_ACTIVE
     jnz .vsync
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, rbx
     jae .timeout
     pause
     jmp .wait_loop
     
 .vsync:
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax, 1000000
 .wait_vsync_end:
     mov rax, r14
@@ -519,7 +519,7 @@ native_hotplug:
     mov rsi, native_hpd_handler
     mov rdx, r13
     mov rcx, IRQ_EDGE
-    call tv_irq_register
+    call ut_irq_register
     test rax, rax
     jnz .fail
     

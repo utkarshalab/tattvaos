@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 section .text
@@ -40,7 +40,7 @@ canvas_event_loop_once:
     add rsp, ClientEvent_size
     ; wait briefly for new events
     mov rdi, 1000000
-    call tv_time_sleep_ns
+    call ut_time_sleep_ns
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret

@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
@@ -14,10 +14,10 @@ tool_main:
     PROLOGUE_SAVE rbx
     mov rdi, bench_banner
     mov rsi, bench_banner_len
-    call tv_log_write
+    call ut_log_write
     call bench_run_all
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
 
 global bench_run_all
 bench_run_all:
@@ -35,7 +35,7 @@ bench_idle:
     ; measure wakeups with no damage/timers over 1s
     mov rdi, idle_fmt
     mov rsi, 0
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 
@@ -45,7 +45,7 @@ bench_latency:
     ; input-to-photon on direct scanout
     mov rdi, latency_fmt
     mov rsi, 0
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 
@@ -54,7 +54,7 @@ bench_compose:
     PROLOGUE_SAVE rbx
     mov rdi, compose_fmt
     mov rsi, 0
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 
@@ -63,7 +63,7 @@ bench_memory:
     PROLOGUE_SAVE rbx
     mov rdi, mem_fmt
     mov rsi, 0
-    call tv_log_printf
+    call ut_log_printf
     EPILOGUE_RESTORE rbx
     ret
 

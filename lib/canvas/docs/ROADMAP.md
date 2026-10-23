@@ -91,7 +91,7 @@
 | FND-06 | Release build mode (`DEBUG_BUILD=0`), warnings as errors | P0 | |
 | FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | |
 | FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | |
-| FND-09 | Host test shim: `tv_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | |
+| FND-09 | Host test shim: `ut_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | |
 | FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | → FND-09 |
 | FND-11 | Separate text/rodata/data segments in the linker script (W^X images) | P0 | ld warns about RWX segments today |
 | FND-12 | Dual-assembler CI: NASM and utasm both green, outputs compared byte for byte | P1 | 12 files currently utasm-only failures |
@@ -106,12 +106,12 @@
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| KRN-01 | Agree the syscall ABI with the kernel (numbers, registers, return conventions) | P1 | ◐ proposal in `inc/tattva.inc`, `tattva-contract.md` |
+| KRN-01 | Agree the syscall ABI with the kernel (numbers, registers, return conventions) | P1 | ◐ proposal in `inc/ut.inc`, `utkarsha-contract.md` |
 | KRN-02 | Move every config and asset path to the root layout: config in `/conf`, trust in `/sec/trust`, assets under `/app` | P1 | Contract still uses old paths |
 | KRN-03 | Channel and shared-memory primitives for client↔server rings | P1 | → KRN-01 |
 | KRN-04 | Handle passing between tasks (buffers, fences) | P1 | |
-| KRN-05 | IRQ, MMIO, PCI and DMA services for the native backend | P2 | ◐ `tv_platform.asm` wrappers |
-| KRN-06 | Input device event delivery from kernel drivers | P2 | ◐ `source_tv.asm` |
+| KRN-05 | IRQ, MMIO, PCI and DMA services for the native backend | P2 | ◐ `ut_platform.asm` wrappers |
+| KRN-06 | Input device event delivery from kernel drivers | P2 | ◐ `source_ut.asm` |
 | KRN-07 | Early boot splash owned by Canvas, handed off from the firmware framebuffer | P3 | |
 | KRN-08 | Flicker-free handoff boot → login → desktop with no mode switch or black frame | P3 | → KRN-07 |
 | KRN-09 | Crash screen: kernel or server panic drawn legibly with error code | P3 | |

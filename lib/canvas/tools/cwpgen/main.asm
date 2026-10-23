@@ -18,7 +18,7 @@ cwpgen_main:
 
     mov rdi, banner
     mov rsi, banner_len
-    call tv_log_write
+    call ut_log_write
 
     ; TODO: Full implementation
     ; 1. Parse .cwp file
@@ -26,7 +26,7 @@ cwpgen_main:
     ; 3. Generate output files
 
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
     UNREACHABLE
 
 section .rodata

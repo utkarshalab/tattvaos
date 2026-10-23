@@ -6,7 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/fixed.inc"
 %include "inc/image.inc"
 %include "inc/backend.inc"
@@ -255,11 +255,11 @@ fb_linear_vblank_wait:
     ASSERT_PTR rbx
     ASSERT_PTR r12
     
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov rbx, rax
     add rbx, r13
 .wait_loop:
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, rbx
     jae .timeout
     pause

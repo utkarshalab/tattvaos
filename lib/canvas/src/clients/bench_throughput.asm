@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 %include "inc/client_api.inc"
 
@@ -35,7 +35,7 @@ client_main:
     xor r8d, r8d
     call canvas_surface_attach
     xor r14d, r14d
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov r15, rax
 .loop:
     cmp r14d, 1000
@@ -54,18 +54,18 @@ client_main:
     inc r14d
     jmp .loop
 .report:
-    call tv_time_now_ns
+    call ut_time_now_ns
     sub rax, r15
     mov rsi, rax
     mov rdi, bench_fmt
-    call tv_log_printf
+    call ut_log_printf
     mov rdi, rbx
     call canvas_disconnect
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
 .fail:
     mov rax, 1
-    call tv_task_exit
+    call ut_task_exit
 
 section .rodata
 bench_fmt: db "throughput: 1000 commits in %d ns", 10, 0

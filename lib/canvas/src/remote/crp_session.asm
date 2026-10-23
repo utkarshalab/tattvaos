@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -67,7 +67,7 @@ crp_session_destroy:
     mov [rbx + CrpSession_next], rax
 .close:
     mov rdi, [r12 + CrpSession_conn]
-    call tv_tls_close
+    call ut_tls_close
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret

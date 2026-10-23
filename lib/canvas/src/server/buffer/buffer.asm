@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/color.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
@@ -125,7 +125,7 @@ buffer_create:
     mov rdi, [rbx + Server.arena]
     mov rsi, rax
     mov rdx, MEM_DMA
-    call tv_mem_alloc
+    call ut_mem_alloc
     test rax, rax
     js .oom
     mov r12, rax            ; vaddr
@@ -245,7 +245,7 @@ buffer_destroy:
 
     ; Free DMA memory
     mov rdi, [rbx + Buffer.dma_addr]
-    call tv_dma_free
+    call ut_dma_free
 
     ; Destroy handle
     mov rdi, [rdi + Server.buffer_table]

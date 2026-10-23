@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/externs.inc"
 
 section .text
@@ -16,7 +16,7 @@ tool_main:
     mov rbx, rdi
     mov rdi, info_banner
     mov rsi, info_banner_len
-    call tv_log_write
+    call ut_log_write
     test rbx, rbx
     jz .info_exit
     sub rsp, 4096
@@ -28,11 +28,11 @@ tool_main:
     js .info_free
     mov rsi, rax
     mov rdi, rsp
-    call tv_log_write
+    call ut_log_write
 .info_free:
     add rsp, 4096
 .info_exit:
-    call tv_task_exit
+    call ut_task_exit
 
 section .data
 

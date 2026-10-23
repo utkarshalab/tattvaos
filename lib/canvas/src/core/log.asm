@@ -1,10 +1,10 @@
 ; ============================================================================
-; Log — Leveled Logger (wraps tv_log)
+; Log — Leveled Logger (wraps ut_log)
 ; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
@@ -18,7 +18,7 @@ log_init:
 global log_set_level
 log_set_level:
     PROLOGUE
-    call tv_log_set_level
+    call ut_log_set_level
     leave
     ret
 
@@ -29,7 +29,7 @@ log_error:
     jl .done
     mov rdi, rsi
     mov rsi, rdx
-    call tv_log_write
+    call ut_log_write
 .done:
     leave
     ret
@@ -41,7 +41,7 @@ log_warn:
     jl .done
     mov rdi, rsi
     mov rsi, rdx
-    call tv_log_write
+    call ut_log_write
 .done:
     leave
     ret
@@ -53,7 +53,7 @@ log_info:
     jl .done
     mov rdi, rsi
     mov rsi, rdx
-    call tv_log_write
+    call ut_log_write
 .done:
     leave
     ret
@@ -65,7 +65,7 @@ log_debug:
     jl .done
     mov rdi, rsi
     mov rsi, rdx
-    call tv_log_write
+    call ut_log_write
 .done:
     leave
     ret

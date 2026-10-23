@@ -3,4 +3,4 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 make cts
-echo "Boot build/img/cts_runner.img on Tattva; all suites must pass."
+echo "Boot build/img/cts_runner.img on Utkarsha; all suites must pass."

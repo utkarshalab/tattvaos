@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
@@ -60,7 +60,7 @@ gpu_ring_init:
     mov rdi, GPU_RING_DEFAULT_DW
     shl rdi, 2
     mov rsi, 4096
-    call tv_dma_alloc
+    call ut_dma_alloc
     test rax, rax
     js .oom
     mov [r14 + GpuRing.buf_cpu], rax
@@ -186,17 +186,17 @@ gpu_ring_wait_empty:
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
-    call tv_time_now_ns
+    call ut_time_now_ns
     add r12, rax
 .poll:
     lfence
     mov eax, [rbx + GpuRing.rptr_shadow]
     cmp eax, [rbx + GpuRing.wptr]
     je .empty
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, r12
     jae .timeout
-    call tv_wait_yield
+    call ut_wait_yield
     jmp .poll
 .timeout:
     mov rax, -(ETIMEDOUT)

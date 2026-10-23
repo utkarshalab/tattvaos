@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -90,7 +90,7 @@ move_resize_start:
     mov eax,[r13 + Toplevel.height]
     mov [r11 + MoveResize.surface_y],eax
     mov dword [r11 + MoveResize.grab_serial],0
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov r11,[rsp+8]
     mov [r11 + MoveResize.grab_time],rax
     mov [rbx + Server.move_resize],r11

@@ -8,8 +8,8 @@
 %include "inc/canvas_client.inc"
 
 extern arena_alloc
-extern tv_time_now_ns
-extern tv_log_write
+extern ut_time_now_ns
+extern ut_log_write
 
 ; struct offsets (hoisted above use)
 %define FaultDump_SIZE    104
@@ -59,7 +59,7 @@ faultdump_capture:
     push r8
     push rcx
     push rdx
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [rbx + FaultDump.time_ns], rax
     pop rdx
     pop rcx
@@ -82,7 +82,7 @@ faultdump_capture:
     ; emit to serial + trace
     mov rdi, faultdump_msg
     mov rsi, faultdump_msg_len
-    call tv_log_write
+    call ut_log_write
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret

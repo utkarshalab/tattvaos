@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/externs.inc"
 
 section .text
@@ -18,7 +18,7 @@ tool_main:
     mov r13, rdx                   ; path
     mov rdi, rec_banner
     mov rsi, rec_banner_len
-    call tv_log_write
+    call ut_log_write
     test rbx, rbx
     jz .record_bad
     test r13, r13
@@ -43,7 +43,7 @@ tool_main:
 .record_bad:
     mov rax, -(EINVAL)
 .record_exit:
-    call tv_task_exit
+    call ut_task_exit
 
 canvas_tool_strlen:
     PROLOGUE_SAVE rbx

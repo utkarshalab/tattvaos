@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/canvas_client.inc"
 %include "inc/client_api.inc"
 
@@ -69,10 +69,10 @@ client_main:
     mov rdi, rbx
     call canvas_disconnect
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
 .fail:
     mov rax, 1
-    call tv_task_exit
+    call ut_task_exit
 
 section .data
 global demo_windows_version

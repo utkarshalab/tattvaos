@@ -9,7 +9,7 @@
 Canvas already has native decoders for the image formats needed by the early
 desktop, shell, UI, diagnostics, and camera pipeline. AVIF, HEIF, and JPEG XL
 require substantially larger codec stacks and conformance work than the value
-they provide to the near-term TattvaOS display-server milestones.
+they provide to the near-term Utkarsha OS display-server milestones.
 
 ## Decision
 
@@ -19,7 +19,7 @@ no claim that `image_decode` supports them. The generic decoder continues to
 return null for these recognized-but-unsupported formats.
 
 No external codec library, compatibility ABI, or hosted-process bridge will be
-introduced. Future implementations remain native TattvaOS assembly modules.
+introduced. Future implementations remain native Utkarsha OS assembly modules.
 
 ## Current Behavior
 
@@ -42,7 +42,7 @@ introduced. Future implementations remain native TattvaOS assembly modules.
 
 Implement one codec at a time only when at least one condition is met:
 
-1. A first-party TattvaOS application has a demonstrated requirement.
+1. A first-party Utkarsha OS application has a demonstrated requirement.
 2. A deployment workload contains enough real files to justify the footprint.
 3. The decoder can be fuzzed and tested against a meaningful conformance corpus.
 4. Higher-priority Canvas and boot/kernel milestones are no longer blocked.

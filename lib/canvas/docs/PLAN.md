@@ -1,11 +1,11 @@
 # Canvas: Master Plan
 
-**Canvas** is the display server for **Tattva OS**, written entirely in x86-64 NASM
+**Canvas** is the display server for **Utkarsha OS**, written entirely in x86-64 NASM
 assembly: no libc, no imports, no third-party code. It owns the screen, turns input
 events into focus-routed events, composes windows, and defines the protocol clients
 use to draw.
 
-- **Tattva only.** There is no Linux, hosted mode, or other-OS support, and no X11 or
+- **Utkarsha only.** There is no Linux, hosted mode, or other-OS support, and no X11 or
   Wayland compatibility layer. Every design choice assumes bare metal.
 - **Display server only.** No browser, toolkit or desktop apps are in this plan. The
   browser gets its own plan later and will be one client of Canvas.
@@ -42,7 +42,7 @@ about design and about absolute measured numbers.
 |---|---|---|
 | GPU and display hardware coverage | every GPU family needs its own driver | software renderer and boot framebuffer first; one hardware family at a time (C10, C24) |
 | Application ecosystem | nothing existing runs on Canvas | client library and reference clients; later, native Utkarsha apps (including the browser) |
-| Hardware isolation | Tattva clients share one address space (section 3) | software isolation now; hardware domains if Tattva gains them |
+| Hardware isolation | Utkarsha clients share one address space (section 3) | software isolation now; hardware domains if Utkarsha gains them |
 | Edge-case maturity | years of bug reports | conformance suite, fuzzing, soak tests, record/replay |
 
 **Measurable targets** (placeholders until baselined at C32, on your hardware):
@@ -85,9 +85,9 @@ the benchmarks measure.
 │ render      software (SIMD) renderer, direct scanout, planes, GPU    │
 │ backend     headless, boot framebuffer, native modeset, remote       │
 ├──────────────────────────────────────────────────────────────────────┤
-│ tattva/     thin binding to Tattva kernel services (inc/tattva.inc)  │
+│ ut/     thin binding to Utkarsha kernel services (inc/ut.inc)  │
 └──────────────────────────────────────────────────────────────────────┘
-        Tattva OS (ring 0): memory, timers, interrupts, PCI, input drivers, net, TVFS
+        Utkarsha OS (ring 0): memory, timers, interrupts, PCI, input drivers, net, TVFS
         hardware: display controller, GPU, input devices
 ```
 
@@ -95,9 +95,9 @@ the benchmarks measure.
 `gfx` (pixels, regions, SIMD blend), `font` (TrueType), `img` (PNG, JPEG, GIF),
 `codec` (compression for remote display).
 
-## 3. Isolation on Tattva (decided)
+## 3. Isolation on Utkarsha (decided)
 
-Tattva is a ring-0 unikernel, so Canvas and its clients share one address space. The
+Utkarsha is a ring-0 unikernel, so Canvas and its clients share one address space. The
 plan uses **software isolation**:
 
 1. **Handles only.** Clients never hold raw pointers into server memory. Every object
@@ -114,7 +114,7 @@ plan uses **software isolation**:
    client.
 
 **What this does and does not give you:** isolation is only as strong as the
-verifier. Do **not** load untrusted third-party binaries until Tattva has hardware
+verifier. Do **not** load untrusted third-party binaries until Utkarsha has hardware
 protection domains (paging, ring 3). Until then, the trust profiles in section 7 mean
 "how much of the protocol this verified client may use", not "defence against hostile
 machine code". Hardware domains are listed as a future option, not a phase.
@@ -170,26 +170,26 @@ machine code". Hardware domains are listed as a future option, not a phase.
 | `cw_debug` | canvas-debug | privileged inspection and tracing |
 | `cw_remote` | canvas-remote | remote display control |
 
-## 5. What Canvas needs from Tattva
+## 5. What Canvas needs from Utkarsha
 
-Listed precisely in `docs/tattva-contract.md` and `inc/tattva.inc`, so Tattva can grow
+Listed precisely in `docs/utkarsha-contract.md` and `inc/ut.inc`, so Utkarsha can grow
 exactly these services.
 
 | Service | Used for | Binding file |
 |---|---|---|
-| Memory regions | arenas, buffers, DMA-able scanout memory | `tv_mem` |
-| Monotonic clock and timers | frame clock, key repeat, watchdog | `tv_time` |
-| Interrupt registration | vblank, input, channel wakeups | `tv_irq` |
-| PCI enumeration and MMIO/DMA | display and GPU drivers | `tv_pci`, `tv_mmio` |
-| Task creation and wait/yield | worker tasks, event loop | `tv_task`, `tv_wait` |
-| Input event source | keyboard, mouse, touch from Tattva drivers | `tv_input` |
-| Console/serial log | logging, test results | `tv_log` |
-| Entropy | capability tokens | `tv_entropy` |
-| TVFS read | config, fonts, cursors, wallpapers | `tv_fs` |
-| Network and TLS | remote display | `tv_net` |
-| Power events | suspend and resume | `tv_power` |
+| Memory regions | arenas, buffers, DMA-able scanout memory | `ut_mem` |
+| Monotonic clock and timers | frame clock, key repeat, watchdog | `ut_time` |
+| Interrupt registration | vblank, input, channel wakeups | `ut_irq` |
+| PCI enumeration and MMIO/DMA | display and GPU drivers | `ut_pci`, `ut_mmio` |
+| Task creation and wait/yield | worker tasks, event loop | `ut_task`, `ut_wait` |
+| Input event source | keyboard, mouse, touch from Utkarsha drivers | `ut_input` |
+| Console/serial log | logging, test results | `ut_log` |
+| Entropy | capability tokens | `ut_entropy` |
+| TVFS read | config, fonts, cursors, wallpapers | `ut_fs` |
+| Network and TLS | remote display | `ut_net` |
+| Power events | suspend and resume | `ut_power` |
 
-**Driver boundary:** Tattva owns buses and generic drivers (PCI, USB host, PS/2, HID
+**Driver boundary:** Utkarsha owns buses and generic drivers (PCI, USB host, PS/2, HID
 transport). Canvas owns **display** drivers (framebuffer, modeset, planes, EDID, GPU)
 and **input interpretation** (keymaps, focus, accel, gestures).
 
@@ -303,10 +303,10 @@ assembly lines and will be replaced by real counts.
 
 | # | Phase | Deliverable | Est. lines | Status |
 |---|---|---|---|---|
-| C0 | Build + Tattva binding | build files; `inc/tattva.inc` contract; `tv_mem`, `tv_time`, `tv_log`, `tv_entropy`, `tv_wait`; stubs for the rest | 1k | ☐ |
+| C0 | Build + Utkarsha binding | build files; `inc/ut.inc` contract; `ut_mem`, `ut_time`, `ut_log`, `ut_entropy`, `ut_wait`; stubs for the rest | 1k | ☐ |
 | C1 | Core library | arena, str, utf8, hash, siphash, map, vec, ring, handle table, list, rbtree, bitset, fixed, fmt, config parser, logger, cpuid | 3k | ☐ |
 | C2 | Graphics primitives | pixbuf, rect, **region**, fill, blit, blend (scalar + SSE2/AVX2/AVX-512), scale, transform, clip, color, PPM/PNG writers, bitmap font | 3.5k | ☐ |
-| C3 | Test harness on Tattva | test macros, serial result reporting, headless harness, golden compare by checksum with dump-on-fail, fuzz driver skeleton | 0.8k | ☐ |
+| C3 | Test harness on Utkarsha | test macros, serial result reporting, headless harness, golden compare by checksum with dump-on-fail, fuzz driver skeleton | 0.8k | ☐ |
 
 ### Track B: Protocol
 
@@ -325,7 +325,7 @@ assembly lines and will be replaced by real counts.
 | C9 | Backends I | `headless` and `fb_linear` (boot framebuffer) | 1.5k | ☐ |
 | C10 | Backends II: native modeset | PCI discovery, display engine programming for the first chosen family, vblank interrupts, flip, planes, EDID/DDC, hotplug | 8k | ☐ |
 | C11 | Output management | multi-monitor layout, mirror/extend, integer and fractional scale, rotation, gamma, DPMS, VRR flag | 4k | ☐ |
-| C12 | Input | input sources from Tattva, seats, keymap compiler, compose and dead keys, repeat, pointer accel, constraints, touch, gestures, tablet, focus, grabs, hit-test, cursor | 7k | ☐ |
+| C12 | Input | input sources from Utkarsha, seats, keymap compiler, compose and dead keys, repeat, pointer accel, constraints, touch, gestures, tablet, focus, grabs, hit-test, cursor | 7k | ☐ |
 | C13 | Shell + policy | roles, configure/ack, states, move/resize, workspaces, built-in floating and tiling, external policy interface | 7k | ☐ |
 | C14 | Decorations + cursors | server-side decorations, theme engine, cursor themes (needs C21, C22) | 3k | ☐ |
 | C15 | Data | clipboard, primary selection, drag and drop, MIME negotiation, limits | 3k | ☐ |
@@ -406,7 +406,7 @@ assembly lines and will be replaced by real counts.
 
 ## 14. Testing and conformance
 
-All tests run **on Tattva**, report over serial or console, and use the headless
+All tests run **on Utkarsha**, report over serial or console, and use the headless
 backend for anything visual.
 
 1. **Unit tests** per module. Pure-logic modules (core, gfx, region, wire codec,
@@ -430,7 +430,7 @@ backend for anything visual.
 | Scope (about 135k lines) | multi-year effort | tiers; every milestone is shippable; later tiers are optional |
 | Native display and GPU drivers | hardware-specific, very large | boot framebuffer and software renderer first; one family only; direct scanout and planes recover much of the benefit |
 | Software isolation (section 3) | only as strong as the verifier | handles-only API, per-client arenas, verified clients only; no untrusted binaries until hardware domains exist |
-| Tattva service gaps | Canvas blocked on missing OS features | `tattva-contract.md` defines exactly what is needed; stub each service until Tattva provides it |
+| Utkarsha service gaps | Canvas blocked on missing OS features | `utkarsha-contract.md` defines exactly what is needed; stub each service until Utkarsha provides it |
 | No existing apps | nothing to show | reference clients and the later browser; client library kept small and stable |
 | Protocol design mistakes | costly to change after freeze | freeze only at C33; `cwplint`, versioning and the conformance suite from early on |
 | Bare-metal debugging | slow iteration | headless backend, serial logging, record/replay |
@@ -446,8 +446,8 @@ animations and effects, printing, Bluetooth and network management, full IME eng
 
 ## 17. Definition of done (per phase)
 
-- Assembles with no warnings and links into the Tattva image.
-- Unit, golden and (where relevant) replay and conformance tests pass on Tattva.
+- Assembles with no warnings and links into the Utkarsha image.
+- Unit, golden and (where relevant) replay and conformance tests pass on Utkarsha.
 - Status table updated with the real line count.
 - Relevant doc in `docs/` written or updated, including a decision record if a
   design choice was made.

@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
@@ -16,7 +16,7 @@ tool_main:
     mov r12, rsi
     mov rdi, lint_banner
     mov rsi, lint_banner_len
-    call tv_log_write
+    call ut_log_write
     cmp rbx, 2
     jb .usage
     mov rdi, [r12 + 8]
@@ -25,10 +25,10 @@ tool_main:
 .usage:
     mov rdi, lint_usage
     mov rsi, lint_usage_len
-    call tv_log_write
+    call ut_log_write
     mov rax, -(EINVAL)
 .exit:
-    call tv_task_exit
+    call ut_task_exit
 
 ; ---------------------------------------------------------------------------
 ; cwplint_check_file

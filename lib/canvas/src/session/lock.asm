@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -71,7 +71,7 @@ lock_create:
     mov qword [r14 + LockScreen.unlock_callback], 0
     mov qword [r14 + LockScreen.user_data], 0
     mov dword [r14 + LockScreen.state],LOCK_STATE_LOCKED
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [r14 + LockScreen.lock_time],rax
 
     ; Create lock surface
@@ -182,7 +182,7 @@ lock_authenticate:
     mov eax, [r12 + LockScreen.attempts]
     cmp eax, [r12 + LockScreen.max_attempts]
     jl .verify
-    call tv_time_now_ns
+    call ut_time_now_ns
     sub rax,[r12 + LockScreen.lock_time]
     cmp rax,LOCKOUT_DURATION
     jb .lockout
@@ -217,7 +217,7 @@ lock_authenticate:
     mov eax,[r12 + LockScreen.attempts]
     cmp eax,[r12 + LockScreen.max_attempts]
     jl .denied
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov [r12 + LockScreen.lock_time],rax
 .denied:
     mov rax, -(EACCES)

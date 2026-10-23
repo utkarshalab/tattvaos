@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -79,7 +79,7 @@ native_pci_discover:
     ; Iterate all PCI devices
     mov rdi, native_pci_callback
     mov rsi, rbx
-    call tv_pci_for_each
+    call ut_pci_for_each
     test rax, rax
     jnz .done
 
@@ -151,7 +151,7 @@ native_init_controller:
 
     ; Enable device (memory/IO/BusMaster)
     mov rdi, rbx
-    call tv_pci_enable_device
+    call ut_pci_enable_device
     test rax, rax
     jnz .fail
 
@@ -171,7 +171,7 @@ native_init_controller:
     mov rdi, rax
     mov rsi, rdx
     mov rdx, MEM_WC
-    call tv_mmio_map
+    call ut_mmio_map
     test rax, rax
     js .fail
     mov [r14 + Server.fb_base], rax
@@ -188,7 +188,7 @@ native_init_controller:
     mov rdi, rax
     mov rsi, rdx
     mov rdx, MEM_UNCACHED
-    call tv_mmio_map
+    call ut_mmio_map
     test rax, rax
     js .fail
     mov [r14 + Server.mmio_base], rax

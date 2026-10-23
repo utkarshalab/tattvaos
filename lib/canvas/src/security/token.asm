@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -40,7 +40,7 @@ token_init:
     jz .oom
     mov [rbx + Server.token_key], rax
     mov rdi, rax
-    call tv_entropy_siphash_key
+    call ut_entropy_siphash_key
     test rax, rax
     js .error
 
@@ -97,7 +97,7 @@ token_create:
     mov rax, [r12 + Client.id]
     mov qword [rdi + Token.issued_to], rax
     mov qword [rdi + Token.issued_by], 0
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov rdi, [rsp]
     mov qword [rdi + Token.issued_at], rax
     test r15, r15
@@ -161,7 +161,7 @@ token_verify:
     cmp rax, r13
     jne .invalid
 
-    call tv_time_now_ns
+    call ut_time_now_ns
     cmp rax, [r12 + Token.expires]
     jae .invalid
 

@@ -10,7 +10,7 @@
 ## Procedure
 
 1. `make bench` → `build/img/bench_runner.img`.
-2. Boot Tattva with `bench_runner.img` as init; collect serial output.
+2. Boot Utkarsha with `bench_runner.img` as init; collect serial output.
 3. Each benchmark prints one line: `<name>: <value> <unit>`.
 4. Append the block to `tests/bench/results/<machine>.md` with date + rev.
 5. Re-run 3×; report median. Variance >10% → investigate, do not tune blindly.

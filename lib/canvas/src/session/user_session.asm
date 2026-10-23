@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
@@ -60,7 +60,7 @@ user_session_create:
     mov qword [rbx + UserSession.session_id], rax
     mov qword [rbx + UserSession.user_id], r12
     mov qword [rbx + UserSession.seat], r13
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov qword [rbx + UserSession.start_time], rax
     mov qword [rbx + UserSession.last_activity], rax
     mov dword [rbx + UserSession.state], SESSION_STATE_ACTIVE
@@ -197,7 +197,7 @@ user_session_launch_autostart:
     mov rdi,[r12]
     mov rsi,[r12+8]
     mov rdx,[r12+16]
-    call tv_task_spawn
+    call ut_task_spawn
     test rax,rax
     js .out
     mov r12,[r12+24]

@@ -13,9 +13,9 @@ extern keymap_create_default
 extern keymap_destroy
 extern keymap_is_modifier
 extern surface_keyboard_key
-extern tv_time_now_ns
-extern tv_timer_register
-extern tv_timer_cancel
+extern ut_time_now_ns
+extern ut_timer_register
+extern ut_timer_cancel
 
 %define Keyboard_KEYMAP Keyboard.keymap
 %define Keyboard_MODIFIERS Keyboard.modifiers
@@ -506,7 +506,7 @@ timer_start:
     PROLOGUE_SAVE rbx
     mov rbx, rdi
     ASSERT_PTR rbx
-    call tv_time_now_ns
+    call ut_time_now_ns
     mov ecx, [rbx + Keyboard_REPEAT_DELAY]
     test ecx, ecx
     jnz .have_delay
@@ -517,7 +517,7 @@ timer_start:
     mov rdi, rax
     lea rsi, [rel keyboard_repeat]
     mov rdx, rbx
-    call tv_timer_register
+    call ut_timer_register
     test rax, rax
     js .timer_start_out
     mov [rbx + Keyboard_REPEAT_TIMER], rax
@@ -539,12 +539,12 @@ timer_restart:
     xor edx, edx
     div rcx
     mov r12, rax
-    call tv_time_now_ns
+    call ut_time_now_ns
     add rax, r12
     mov rdi, rax
     lea rsi, [rel keyboard_repeat]
     mov rdx, rbx
-    call tv_timer_register
+    call ut_timer_register
     test rax, rax
     js .timer_restart_out
     mov [rbx + Keyboard_REPEAT_TIMER], rax
@@ -555,7 +555,7 @@ global timer_destroy
 timer_destroy:
     test rdi, rdi
     jz .timer_destroyed
-    jmp tv_timer_cancel
+    jmp ut_timer_cancel
 .timer_destroyed:
     xor eax, eax
     ret

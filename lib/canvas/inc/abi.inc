@@ -1,5 +1,5 @@
 ; ============================================================================
-; Canvas ABI — x86-64 NASM calling convention for Tattva OS
+; Canvas ABI — x86-64 NASM calling convention for Utkarsha OS
 ; No libc, no standard ABI, our own pure assembly convention
 ; ============================================================================
 
@@ -7,7 +7,7 @@
 %define __ABI_INC__
 
 ; ---------------------------------------------------------------------------
-; Register Assignment (Tattva Syscall Convention)
+; Register Assignment (Utkarsha Syscall Convention)
 ; ---------------------------------------------------------------------------
 ; Syscall number:  rax
 ; Args:            rdi, rsi, rdx, rcx, r8, r9, r10, r11  (up to 8 args)
@@ -20,7 +20,7 @@
 ; Shadow space:    32 bytes reserved by caller (rsp+8..rsp+40)
 
 ; ---------------------------------------------------------------------------
-; Syscall Numbers (Tattva OS)
+; Syscall Numbers (Utkarsha OS)
 ; ---------------------------------------------------------------------------
 %define SYS_MEM_ALLOC       0
 %define SYS_MEM_FREE        1
@@ -115,33 +115,33 @@
 ; Fast Path: Inline Syscalls (for hot paths)
 ; ---------------------------------------------------------------------------
 
-%macro TV_MEM_ALLOC 2       ; size, flags -> rax=vaddr, rdx=paddr, r8=handle
+%macro UT_MEM_ALLOC 2       ; size, flags -> rax=vaddr, rdx=paddr, r8=handle
     mov rdi, %1
     mov rsi, %2
     mov rax, SYS_MEM_ALLOC
     syscall
 %endmacro
 
-%macro TV_TIME_NOW_NS 0     ; -> rax=ns
+%macro UT_TIME_NOW_NS 0     ; -> rax=ns
     mov rax, SYS_TIME_NOW_NS
     syscall
 %endmacro
 
-%macro TV_LOG_WRITE 2       ; buf, len -> rax=written
+%macro UT_LOG_WRITE 2       ; buf, len -> rax=written
     mov rdi, %1
     mov rsi, %2
     mov rax, SYS_LOG_WRITE
     syscall
 %endmacro
 
-%macro TV_ENTROPY_GET 2     ; buf, len -> rax=0/err
+%macro UT_ENTROPY_GET 2     ; buf, len -> rax=0/err
     mov rdi, %1
     mov rsi, %2
     mov rax, SYS_ENTROPY_GET
     syscall
 %endmacro
 
-%macro TV_WAIT_WAIT 2       ; waitset, deadline_ns -> rax=mask
+%macro UT_WAIT_WAIT 2       ; waitset, deadline_ns -> rax=mask
     mov rdi, %1
     mov rsi, %2
     mov rax, SYS_WAIT_WAIT

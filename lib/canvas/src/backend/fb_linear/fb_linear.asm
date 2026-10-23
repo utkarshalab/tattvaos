@@ -6,7 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/fixed.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
@@ -75,7 +75,7 @@ fb_linear_init:
     imul rax, rdx
     mov rsi, rax
     mov rdx, MEM_WC
-    call tv_mmio_map
+    call ut_mmio_map
     test rax, rax
     js .oom
     mov qword [r13 + FbLinearState.fb_base], rax
@@ -299,7 +299,7 @@ fb_linear_vblank_wait:
     mov rax, [r12 + Output.current_mode]
     mov rax, [rax + Mode.refresh_ns]
     mov rdi, rax
-    call tv_time_sleep_ns
+    call ut_time_sleep_ns
 
     ; Return present info
     xor rax, rax

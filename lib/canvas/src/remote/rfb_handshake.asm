@@ -6,7 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 extern rfb_auth
@@ -32,7 +32,7 @@ rfb_handshake:
     mov rdi, r12
     mov rsi, rfb_version_str
     mov rdx, RFB_VERSION_LEN
-    call tv_tls_write
+    call ut_tls_write
     cmp rax, RFB_VERSION_LEN
     jne .fail
     ; 2. read client version
@@ -40,7 +40,7 @@ rfb_handshake:
     mov rdi, r12
     mov rsi, rsp
     mov rdx, RFB_VERSION_LEN
-    call tv_tls_read
+    call ut_tls_read
     cmp rax, RFB_VERSION_LEN
     jne .fail2
     ; accept 3.3/3.7/3.8
@@ -55,7 +55,7 @@ rfb_handshake:
     mov rdi, r12
     mov rsi, rsp
     mov rdx, 2
-    call tv_tls_write
+    call ut_tls_write
     add rsp, 8
     cmp rax, 2
     jne .fail2
@@ -64,7 +64,7 @@ rfb_handshake:
     mov rdi, r12
     mov rsi, rsp
     mov rdx, 1
-    call tv_tls_read
+    call ut_tls_read
     cmp rax, 1
     jne .fail3
     cmp byte [rsp], RFB_SEC_TLS
@@ -136,7 +136,7 @@ rfb_client_init:
     mov rdi, r12
     mov rsi, rsp
     mov rdx, 1
-    call tv_tls_read
+    call ut_tls_read
     cmp rax, 1
     jne .fail
     mov al, [rsp]
@@ -194,7 +194,7 @@ rfb_server_init_msg:
     mov rdi, r12
     mov rsi, rsp
     mov rdx, 30
-    call tv_tls_write
+    call ut_tls_write
     add rsp, 32
     cmp rax, 30
     jne .fail

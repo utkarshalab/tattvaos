@@ -6,7 +6,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/caps.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 %include "inc/cwp.inc"
 %include "inc/channel.inc"
 %include "inc/struct_offsets.inc"

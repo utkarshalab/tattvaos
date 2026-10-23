@@ -5,7 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/tattva.inc"
+%include "inc/ut.inc"
 
 section .text
 
@@ -17,19 +17,19 @@ global soak_runner_init
 soak_runner_init:
     PROLOGUE_SAVE rbx, r12
     mov rdi, LOG_INFO
-    call tv_log_set_level
+    call ut_log_set_level
     mov rdi, soak_banner
     mov rsi, soak_banner_len
-    call tv_log_write
+    call ut_log_write
     ; NOTE: real 24h loop drives these with live server state;
     ; the harness below validates entry points with 1 cycle each.
     xor rbx, rbx
     ; (server pointer would be passed by the harness init)
     mov rdi, soak_done
     mov rsi, soak_done_len
-    call tv_log_write
+    call ut_log_write
     xor rax, rax
-    call tv_task_exit
+    call ut_task_exit
     UNREACHABLE
 
 section .rodata
