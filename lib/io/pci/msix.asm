@@ -180,9 +180,11 @@ IO_FUNC pci_configure_msix
 
     ; Program Message Address (bytes 0-7): 0xFEE00000 | (target_apic_id << 12)
     mov     rsi, [rsp + 16]         ; Retrieve R8 (target APIC ID) from stack frame (pushed r8 is at rsp+16)
-    shl     rsi, 12
-    or      rsi, 0xFEE00000         ; MSI-X Address format
-    mov     [rax], rsi              ; Write low address
+    shl     esi, 12
+    or      esi, 0xFEE00000         ; MSI-X Address format; the 32-bit op clears
+                                    ; bits 63:32 (a 64-bit OR would sign-extend
+                                    ; the immediate into the upper address)
+    mov     [rax], rsi              ; Write low address, upper address = 0
 
     ; Program Message Data (bytes 8-11): Vector
     mov     [rax + 8], r15d         ; Write vector
