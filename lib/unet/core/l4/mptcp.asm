@@ -54,6 +54,7 @@ struc mptcp_conn_t
     .scheduler:         resb 1      ; Scheduler algorithm
     .backup_mode:       resb 1      ; Backup path mode
     .pad1:              resw 1
+    .rr_index:          resd 1      ; Round-robin scheduler position
     .dss_snd_nxt:       resq 1      ; DSS send next (64-bit)
     .dss_rcv_nxt:       resq 1      ; DSS receive next (64-bit)
     .subflow_seq_map:   resq 1      ; Subflow sequence mapping
@@ -130,7 +131,6 @@ global mptcp_send_dss
 global mptcp_process_dss
 global mptcp_schedule_subflow
 global mptcp_congestion_control
-global mptcp_hmac_sha256
 
 ; =============================================================================
 ; mptcp_init — Initialize MPTCP subsystem
@@ -171,9 +171,12 @@ mptcp_init:
     ret
 
 ; =============================================================================
-; mptcp_parse_options — Parse MPTCP options from incoming segment
-; Input: RDI = net_pkt_t*, RSI = tcp_hdr_t*, RDX = options length
-; Output: RAX = 0 on success, -1 on error
+; mptcp_parse_options — Walk the TCP options of a segment and dispatch the
+; MPTCP (kind 30) ones by subtype.
+; Input: RDI = net_pkt_t*, RSI = tcp_hdr_t*, RDX = TCP header length in bytes
+;        (data offset * 4, so options are RDX - 20 bytes), RCX = mptcp_conn_t*
+;        (0 while the connection is not yet known)
+; Output: EAX = 0 on success, -1 on a malformed option
 ; -----------------------------------------------------------------------------
 align 64
 mptcp_parse_options:
@@ -186,63 +189,40 @@ mptcp_parse_options:
     push r15
 
     mov rbx, rdi            ; net_pkt_t*
-    mov r12, rsi            ; tcp_hdr_t*
-    mov r13, rdx            ; options length
-    mov r14, rcx            ; mptcp_conn_t* (output)
-
-    test rdx, rdx
-    jz .done
-
-    lea r15, [rsi + 20]     ; Start of options
-    mov r14d, edx
-    sub r14d, 20            ; Options length
+    mov r14, rcx            ; mptcp_conn_t* (may be 0)
+    lea r12, [rsi + 20]     ; R12 = current option
+    lea r13, [rsi + rdx]    ; R13 = end of options
+    cmp edx, 20
+    jbe .ok                 ; no options
 
 .parse_loop:
-    cmp r14d, 2
-    jl .done
-
-    movzx eax, byte [r12]       ; Current pointer
-    ; Actually r12 is tcp_hdr_t*, need to calculate options start
-    ; TCP header starts at headroom_offset, options at +20
-    mov r15, rsi
-    add r12, 20
-    mov r13d, edx
-    sub r13d, 20
-
-.parse_loop2:
-    cmp r13d, 2
-    jl .done
-
+    cmp r12, r13
+    jae .ok
     movzx eax, byte [r12]
-    cmp al, MPTCP_KIND
-    je .found_mptcp
-    cmp al, 0
-    je .done
+    test al, al
+    jz .ok                  ; End of Option List
     cmp al, 1
     je .skip_nop
 
-    ; Multi-byte option
-    movzx ecx, byte [r12 + 1]
-    cmp r15d, ecx
-    jl .done
-    add r12, rcx
-    sub r15d, ecx
-    jmp .check_loop
+    ; Every other option has a length byte, covering kind and length
+    lea rcx, [r12 + 2]
+    cmp rcx, r13
+    ja .invalid
+    movzx r15d, byte [r12 + 1]
+    cmp r15d, 2
+    jb .invalid
+    lea rcx, [r12 + r15]
+    cmp rcx, r13
+    ja .invalid
 
-.skip_nop:
-    inc r12
-    dec r15d
-    jmp .check_loop
+    cmp al, MPTCP_KIND
+    jne .next_option
 
-.found_mptcp:
-    ; Parse MPTCP option
-    movzx ecx, byte [r12 + 1]
-    cmp cl, 4
-    jl .invalid
-
-    ; Extract subtype
+    ; MPTCP option: kind, length, subtype (high nibble) | version/flags
+    cmp r15d, 4
+    jb .invalid
     movzx eax, byte [r12 + 2]
-    and al, MPTCP_SUBTYPE_MASK
+    shr eax, 4
 
     cmp al, MPTCP_SUB_CAPABLE
     je .parse_capable
@@ -250,55 +230,38 @@ mptcp_parse_options:
     je .parse_join
     cmp al, MPTCP_SUB_DSS
     je .parse_dss
-    cmp al, MPTCP_SUB_ADD_ADDR
-    je .parse_add_addr
-    cmp al, MPTCP_SUB_REMOVE_ADDR
-    je .parse_remove_addr
-    cmp al, MPTCP_SUB_PRIO
-    je .parse_prio
-    cmp al, MPTCP_SUB_FAST_CLOSE
-    je .parse_fast_close
-
-    jmp .continue_parse
+    jmp .next_option        ; ADD_ADDR, REMOVE_ADDR, MP_PRIO, MP_FASTCLOSE
 
 .parse_capable:
-    ; MP_CAPABLE: version, flags, key exchange
-    ; TODO: Parse keys, generate tokens
-    jmp .continue_parse
+    ; TODO: MP_CAPABLE — parse keys, derive the connection token
+    jmp .next_option
 
 .parse_join:
-    ; MP_JOIN: authenticate subflow
-    ; TODO: Verify HMAC, link to existing connection
-    jmp .continue_parse
+    ; TODO: MP_JOIN — verify the HMAC, link the subflow to its connection
+    jmp .next_option
 
 .parse_dss:
-    ; DSS option
-    ; TODO: Parse data sequence mapping
-    jmp .continue_parse
+    test r14, r14
+    jz .next_option
+    mov rdi, r14
+    mov rsi, r12
+    call mptcp_process_dss
+    jmp .next_option
 
-.parse_add_addr:
-.parse_remove_addr:
-.parse_prio:
-.parse_fast_close:
-    ; Handle other subtypes
-    jmp .continue_parse
+.skip_nop:
+    inc r12
+    jmp .parse_loop
+
+.next_option:
+    add r12, r15
+    jmp .parse_loop
 
 .invalid:
     mov eax, -1
     jmp .done
-
-.continue_parse:
-    movzx ecx, byte [r12 + 1]
-    add r12, rcx
-    sub r15d, ecx
-    jmp .check_loop
-
-.check_loop:
-    cmp r15d, 2
-    jge .parse_loop2
-
-.done:
+.ok:
     xor eax, eax
+.done:
     pop r15
     pop r14
     pop r13
@@ -310,7 +273,7 @@ mptcp_parse_options:
 ; =============================================================================
 ; mptcp_add_subflow — Add new subflow to MPTCP connection
 ; Input: RDI = mptcp_conn_t*, RSI = subflow tcb_t*
-; Output: RAX = 0 on success, -1 on failure
+; Output: EAX = 0 on success, -1 on failure (connection full / out of memory)
 ; -----------------------------------------------------------------------------
 align 64
 mptcp_add_subflow:
@@ -323,61 +286,64 @@ mptcp_add_subflow:
     mov rbx, rdi            ; mptcp_conn_t*
     mov r12, rsi            ; tcb_t* (subflow)
 
-    ; Check max subflows
-    mov eax, [rdi + mptcp_conn_t.num_subflows]
-    cmp eax, MPTCP_MAX_SUBFLOWS
-    jge .fail
+    cmp dword [rbx + mptcp_conn_t.num_subflows], MPTCP_MAX_SUBFLOWS
+    jae .fail
 
-    ; Allocate subflow structure
     lea rdi, [mptcp_subflow_pool]
     call kmem_cache_alloc
     test rax, rax
     jz .fail
-    mov rbx, rax
+    mov r13, rax            ; R13 = mptcp_subflow_t*
 
-    ; Initialize subflow
-    mov rsi, rdi            ; original mptcp_conn_t*
-    mov rdi, rax
-    ; Copy addresses from TCB
+    ; Addresses: the TCB is IPv4, stored in the low 32 bits of each 128-bit field
+    xor eax, eax
+    mov [r13 + mptcp_subflow_t.local_addr], rax
+    mov [r13 + mptcp_subflow_t.local_addr + 8], rax
+    mov [r13 + mptcp_subflow_t.remote_addr], rax
+    mov [r13 + mptcp_subflow_t.remote_addr + 8], rax
     mov eax, [r12 + tcb_t.local_ip]
-    mov [rbx + mptcp_subflow_t.local_addr], eax
+    mov [r13 + mptcp_subflow_t.local_addr], eax
     mov eax, [r12 + tcb_t.remote_ip]
-    mov [rbx + mptcp_subflow_t.remote_addr], eax
+    mov [r13 + mptcp_subflow_t.remote_addr], eax
     mov ax, [r12 + tcb_t.local_port]
-    mov [rax + mptcp_subflow_t.local_port], ax
+    mov [r13 + mptcp_subflow_t.local_port], ax
     mov ax, [r12 + tcb_t.remote_port]
-    mov [rax + mptcp_subflow_t.remote_port], ax
+    mov [r13 + mptcp_subflow_t.remote_port], ax
 
-    ; Assign local ID
-    mov al, [rdi + mptcp_conn_t.num_subflows]
-    mov byte [rbx + mptcp_subflow_t.local_id], al
+    mov eax, [rbx + mptcp_conn_t.num_subflows]
+    mov [r13 + mptcp_subflow_t.local_id], al
+    mov byte [r13 + mptcp_subflow_t.remote_id], 0
+    mov [r13 + mptcp_subflow_t.tcb_ptr], r12
+    mov byte [r13 + mptcp_subflow_t.state], TCP_STATE_SYN_SENT
+    mov byte [r13 + mptcp_subflow_t.flags], 0
+    mov byte [r13 + mptcp_subflow_t.backup], 0
 
-    ; Link to connection
-    mov qword [rbx + mptcp_subflow_t.tcb_ptr], r12
-    mov byte [rbx + mptcp_subflow_t.state], TCP_STATE_SYN_SENT
-    mov qword [rbx + mptcp_subflow_t.tcb_ptr], r12
+    ; Per-subflow congestion state starts from the TCB's
+    mov ecx, [r12 + tcb_t.srtt]
+    mov [r13 + mptcp_subflow_t.rtt_us], ecx
+    mov dword [r13 + mptcp_subflow_t.cwnd], 10
+    mov dword [r13 + mptcp_subflow_t.ssthresh], 0xFFFFFFFF
+    mov dword [r13 + mptcp_subflow_t.last_ack], 0
 
-    ; Add to connection's subflow array
-    mov rax, rdi
-    mov ecx, [rax + mptcp_conn_t.num_subflows]
-    mov [rax + mptcp_conn_t.subflows + rcx * 8], rbx
-    inc dword [rax + mptcp_conn_t.num_subflows]
-
-    ; Initialize subflow congestion control
-    mov dword [rbx + mptcp_subflow_t.cwnd], 10
-    mov dword [rbx + mptcp_subflow_t.ssthresh], 0xFFFFFFFF
+    ; Append to the connection's subflow array
+    mov [rbx + mptcp_conn_t.subflows + rax * 8], r13
+    inc dword [rbx + mptcp_conn_t.num_subflows]
 
     xor eax, eax
     jmp .done
-
 .fail:
     mov eax, -1
 .done:
+    pop r13
+    pop r12
+    pop rbx
+    pop rbp
     ret
 
 ; =============================================================================
 ; mptcp_remove_subflow — Remove subflow from MPTCP connection
 ; Input: RDI = mptcp_conn_t*, RSI = subflow tcb_t*
+; Output: EAX = 0 if removed, -1 if the TCB is not a subflow of the connection
 ; -----------------------------------------------------------------------------
 align 64
 mptcp_remove_subflow:
@@ -389,65 +355,69 @@ mptcp_remove_subflow:
     mov rbx, rdi
     mov r12, rsi
 
+    ; Find the slot whose subflow wraps this TCB
     mov ecx, [rbx + mptcp_conn_t.num_subflows]
-    test ecx, ecx
-    jz .done
-
-    mov rdi, [rbx + mptcp_conn_t.subflows]
+    xor edx, edx
 .find_loop:
-    cmp qword [rdi], r12
+    cmp edx, ecx
+    jae .not_found
+    mov rax, [rbx + mptcp_conn_t.subflows + rdx * 8]
+    cmp [rax + mptcp_subflow_t.tcb_ptr], r12
     je .found
-    add rdi, 8
-    dec ecx
-    jnz .find_loop
-    jmp .done
+    inc edx
+    jmp .find_loop
 
 .found:
-    ; Shift remaining subflows
-    mov rax, [rdi + 8]
-    mov [rdi], rax
-    dec dword [rbx + mptcp_conn_t.num_subflows]
+    ; Close the gap: shift the later slots down by one
+    mov rsi, rax            ; RSI = subflow to free
+    dec ecx                 ; ECX = new count
+.shift:
+    cmp edx, ecx
+    jae .shifted
+    mov rax, [rbx + mptcp_conn_t.subflows + rdx * 8 + 8]
+    mov [rbx + mptcp_conn_t.subflows + rdx * 8], rax
+    inc edx
+    jmp .shift
+.shifted:
+    mov qword [rbx + mptcp_conn_t.subflows + rcx * 8], 0
+    mov [rbx + mptcp_conn_t.num_subflows], ecx
 
-    ; Free subflow structure
-    lea rsi, [mptcp_subflow_pool]
-    xchg rdi, rsi
+    lea rdi, [mptcp_subflow_pool]
     call kmem_cache_free
 
     xor eax, eax
+    jmp .done
+.not_found:
+    mov eax, -1
+.done:
+    pop r12
+    pop rbx
+    pop rbp
     ret
 
 ; =============================================================================
 ; mptcp_send_dss — Send Data Sequence Signal
 ; Input: RDI = mptcp_conn_t*, RSI = data pointer, RDX = length
+; Output: EAX = 0
 ; -----------------------------------------------------------------------------
 align 64
 mptcp_send_dss:
-    push rbp
-    mov rbp, rsp
-    push rbx
-    push r12
-    push r13
-
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13d, edx
-
-    ; Get next DSS sequence
-    mov rax, [rdi + mptcp_conn_t.dss_snd_nxt]
-    mov rdx, rax
-
-    ; Build DSS option
-    ; TODO: Implement DSS option generation
-    ; Data Sequence Signal: subtype=2, flags, data_seq, data_len
-
+    ; TODO: Build the DSS option (subtype 2: flags, data_seq, subflow_seq,
+    ; data_len) for the next mapping. Only the connection-level sequence is
+    ; advanced here.
+    add [rdi + mptcp_conn_t.dss_snd_nxt], rdx
     xor eax, eax
     ret
 
 ; =============================================================================
 ; mptcp_process_dss — Process incoming DSS option
+; Input: RDI = mptcp_conn_t*, RSI = pointer to the DSS option
+; Output: EAX = 0
 ; -----------------------------------------------------------------------------
 align 64
 mptcp_process_dss:
+    ; TODO: Parse the data sequence mapping and DATA_ACK
+    xor eax, eax
     ret
 
 ; =============================================================================
@@ -457,66 +427,57 @@ mptcp_process_dss:
 ; -----------------------------------------------------------------------------
 align 64
 mptcp_schedule_subflow:
-    push rbp
-    mov rbp, rsp
-    push rbx
-    push r12
-    push r13
-
-    mov rbx, rdi
-    mov r12, rsi
+    mov ecx, [rdi + mptcp_conn_t.num_subflows]
+    test ecx, ecx
+    jz .no_subflow
 
     movzx eax, byte [rdi + mptcp_conn_t.scheduler]
     cmp al, MPTCP_SCHED_LOW_RTT
     je .sched_low_rtt
     cmp al, MPTCP_SCHED_BLEST
-    je .sched_blest
-    ; Default: Round Robin
-    jmp .sched_rr
+    je .sched_low_rtt       ; TODO: BLEST; lowest RTT until it exists
 
-.sched_rr:
-    ; Simple round-robin among available subflows
-    mov ecx, [rdi + mptcp_conn_t.num_subflows]
-    test ecx, ecx
-    jz .no_subflow
+    ; Default: round robin over the subflows
     mov eax, [rdi + mptcp_conn_t.rr_index]
     xor edx, edx
-    div ecx
-    mov [rdi + mptcp_conn_t.rr_index], edx
+    div ecx                 ; EDX = rr_index % num_subflows
+    lea eax, [rdx + 1]
+    mov [rdi + mptcp_conn_t.rr_index], eax
     mov rax, [rdi + mptcp_conn_t.subflows + rdx * 8]
+    mov rax, [rax + mptcp_subflow_t.tcb_ptr]
     ret
 
 .sched_low_rtt:
-    ; Select subflow with lowest RTT
-    mov rcx, [rdi + mptcp_conn_t.subflows]
-    mov r12d, [rcx + mptcp_subflow_t.rtt_us]
-    mov rax, rcx
-    mov r13d, [rdi + mptcp_conn_t.num_subflows]
-    mov rbx, 1
+    ; Subflow with the lowest smoothed RTT
+    mov rax, [rdi + mptcp_conn_t.subflows]
+    mov r8d, [rax + mptcp_subflow_t.rtt_us]
+    mov edx, 1
 .find_best:
-    cmp rbx, r13
-    jge .found_best
-    mov rdx, [rdi + mptcp_conn_t.subflows + rbx * 8]
-    mov edx, [rdx + mptcp_subflow_t.rtt_us]
-    cmp edx, r12d
-    jge .next_candidate
-    mov r12d, edx
-    mov rax, rdx
+    cmp edx, ecx
+    jae .found_best
+    mov r9, [rdi + mptcp_conn_t.subflows + rdx * 8]
+    cmp [r9 + mptcp_subflow_t.rtt_us], r8d
+    jae .next_candidate
+    mov r8d, [r9 + mptcp_subflow_t.rtt_us]
+    mov rax, r9
 .next_candidate:
-    inc rbx
+    inc edx
     jmp .find_best
 .found_best:
+    mov rax, [rax + mptcp_subflow_t.tcb_ptr]
     ret
 
 .no_subflow:
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; =============================================================================
 ; mptcp_congestion_control — Coupled congestion control (LIA/OLIA)
+; Input: RDI = mptcp_conn_t*
 ; -----------------------------------------------------------------------------
 align 64
 mptcp_congestion_control:
+    ; TODO: Couple the subflow windows (RFC 6356 LIA)
     ret
 
 %endif ; GUARD_UNET_CORE_L4_MPTCP_ASM
