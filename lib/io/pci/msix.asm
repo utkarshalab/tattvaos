@@ -85,7 +85,8 @@ IO_FUNC pci_find_capability
     cmp     rcx, r15
     je      .found
 
-    movzx   r9, ah                  ; Move to next capability pointer
+    movzx   eax, ah                 ; Move to next capability pointer (AH cannot
+    mov     r9d, eax                ; take a REX prefix, so go through EAX)
     jmp     .loop
 
 .found:
