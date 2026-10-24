@@ -341,8 +341,17 @@ extern panic_null_ptr
 %define UgfxSvgItem_dash_n      280     ; u32
 %define UgfxSvgItem_dash_off    288     ; f64
 %define UgfxSvgItem_kind        296     ; u32 UGFX_SVG_*
-%define UgfxSvgItem_alpha       300     ; u32 group opacity 0..255 (UGFX_SVG_BEGIN)
-%define UgfxSvgItem_SIZE        304
+%define UgfxSvgItem_alpha       300     ; u32 group opacity 0..255 (UGFX_SVG_BEGIN / END)
+%define UgfxSvgItem_clip        304     ; const UgfxSvgClip* (BEGIN / END), 0 = none
+%define UgfxSvgItem_bbox        312     ; f64 x0, y0, x1, y1: BEGIN's content in its space
+%define UgfxSvgItem_SIZE        344
+; a clipPath's content, compiled for one element (items are shapes; next:
+; the clipPath's own clip-path, intersected)
+%define UgfxSvgClip_items       0       ; UgfxSvgItem[]
+%define UgfxSvgClip_count       8       ; u32
+%define UgfxSvgClip_units       12      ; u32 1 = objectBoundingBox
+%define UgfxSvgClip_next        16      ; const UgfxSvgClip*
+%define UgfxSvgClip_SIZE        24
 ; item kinds: a shape, or the start / end of a group drawn as one layer
 %define UGFX_SVG_SHAPE          0
 %define UGFX_SVG_BEGIN          1
