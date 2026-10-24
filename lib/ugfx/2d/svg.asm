@@ -58,6 +58,16 @@
 ; patternContentUnits or fitted by viewBox / preserveAspectRatio, each
 ; tile clipped to itself; at most 4096 tiles, else nothing.
 ;
+; marker-start / -mid / -end (and the marker shorthand) on path, line,
+; polyline and polygon put a compiled marker at each vertex: the first,
+; the last, the others. Its direction is the bisector of the incoming and
+; outgoing tangents (one of them at an open end; a closed subpath's start
+; takes the closing segment's), orient auto / auto-start-reverse / an
+; angle; markerUnits strokeWidth scales by stroke-width; refX / refY
+; (through the viewBox) sit on the vertex; the content is clipped to
+; markerWidth x markerHeight unless overflow is visible or auto. Markers
+; draw after the shape, inside its group, even when it has no paint.
+;
 ; A nested svg and an instanced symbol clip to their viewport (overflow
 ; hidden); the root only with slice, the one mapping that overflows by
 ; itself (its viewport, in viewBox units, is a group's rect clip). Drawing maps the document into the square (x, y, size, size): its
@@ -81,6 +91,9 @@ extern ugfx_svg_defs_id
 extern umath_affine2_multiply
 extern umath_affine2_translate
 extern umath_affine2_invert
+extern umath_affine2_rotate
+extern umath_affine2_scale
+extern umath_atan2_f64
 extern ugfx_path_bounds_tight
 extern ugfx_ctx_set_transform
 extern ugfx_ctx_clip_begin
@@ -160,7 +173,8 @@ extern ugfx_ctx_end_layer
 %define S_GROUP         228             ; u32 the BEGIN it opened + 1 (not inherited)
 %define S_CLIPRULE      232             ; u32 clip-rule
 %define S_VPGROUP       236             ; u32 the viewport clip's BEGIN + 1 (not inherited)
-%define S_SIZE          240
+%define S_MARKERS       240             ; (url, end)[3]: marker-start, -mid, -end (0: none)
+%define S_SIZE          288
 
 ; elements
 %define E_GROUP         0
@@ -181,10 +195,12 @@ extern ugfx_ctx_end_layer
 %define E_CLIPPATH      15              ; drawn only as a clip's content
 %define E_MASK          16              ; drawn only as a mask's content
 %define E_PATTERN       17              ; drawn only as a pattern's tiles
+%define E_MARKER        18              ; drawn only at a shape's vertices
 %define SVG_MAX_CLIPS   4               ; clipPaths / masks compiling inside each other
 %define K_CLIP          2               ; compile kinds (and P_INST for their roots)
 %define K_MASK          3
 %define K_PATTERN       4
+%define K_MARKER        5
 %define SVG_MAX_TILES   4096
 %define SVG_MAX_USES    8               ; <use> instances inside instances
 
@@ -225,7 +241,11 @@ extern ugfx_ctx_end_layer
 %define A_CLIP_PATH     18
 %define A_CLIP_RULE     19
 %define A_MASK          20
-%define A_LAST_PROP     20              ; ids up to here are style properties too
+%define A_MARKER_START  21
+%define A_MARKER_MID    22
+%define A_MARKER_END    23
+%define A_MARKER        24              ; all three
+%define A_LAST_PROP     24              ; ids up to here are style properties too
 %define A_TRANSFORM     40
 %define A_STYLE         41
 %define A_D             42
@@ -295,7 +315,17 @@ extern ugfx_ctx_end_layer
 %define P_MASKREC       (P_FONT_RAW + 112)              ; the compiled mask for a group
 %define P_COMPILE       (P_FONT_RAW + 120)              ; u32 clipPaths / masks being compiled
 %define P_CROOT         (P_FONT_RAW + 124)              ; u32 this element is a compile's root
-%define P_SIZE          (((P_FONT_RAW + 128 + 15) & ~15) + 8)
+%define P_VERTS         (P_FONT_RAW + 128)              ; a shape's vertices (V_*), for markers
+%define P_NVERTS        (P_FONT_RAW + 136)              ; u32
+%define P_SIZE          (((P_FONT_RAW + 144 + 15) & ~15) + 8)
+
+; a vertex, for markers
+%define VX_X            0               ; f64
+%define VX_Y            8
+%define VX_IN           16              ; f64 incoming direction (radians)
+%define VX_OUT          24              ; outgoing
+%define VX_FLAGS        32              ; u32 1 has in, 2 has out
+%define VX_SIZE         40
 
 %define PAR_DEFAULT     5               ; xMidYMid meet
 
@@ -356,6 +386,7 @@ svg_elements:
     NAME "linearGradient", E_SKIP
     NAME "radialGradient", E_SKIP
     NAME "pattern", E_PATTERN
+    NAME "marker", E_MARKER
     NAME "marker", E_SKIP
     NAME "text", E_TEXT
     NAME "switch", E_SWITCH
@@ -388,6 +419,10 @@ svg_attributes:
     NAME "clip-path", A_CLIP_PATH
     NAME "clip-rule", A_CLIP_RULE
     NAME "mask", A_MASK
+    NAME "marker-start", A_MARKER_START
+    NAME "marker-mid", A_MARKER_MID
+    NAME "marker-end", A_MARKER_END
+    NAME "marker", A_MARKER
     NAME "transform", A_TRANSFORM
     NAME "style", A_STYLE
     NAME "d", A_D
@@ -450,7 +485,35 @@ svg_inherit_fields:
     INHERITS A_DASHOFFSET, S_DASH_OFF, 8
     INHERITS A_PAINT_ORDER, S_ORDER, 4
     INHERITS A_CLIP_RULE, S_CLIPRULE, 4
+    INHERITS A_MARKER_START, S_MARKERS, 16
+    INHERITS A_MARKER_MID, S_MARKERS + 16, 16
+    INHERITS A_MARKER_END, S_MARKERS + 32, 16
+    INHERITS A_MARKER, S_MARKERS, 48
     db 0
+svg_marker_words:
+    NAME "markerUnits", 1
+    NAME "refX", 2
+    NAME "refY", 3
+    NAME "markerWidth", 4
+    NAME "markerHeight", 5
+    NAME "orient", 6
+    NAME "viewBox", 7
+    NAME "preserveAspectRatio", 8
+    NAME "overflow", 9
+    db 0
+svg_orient_words:
+    NAME "auto", 1
+    NAME "auto-start-reverse", 2
+    db 0
+svg_overflow_words:
+    NAME "visible", 1
+    NAME "auto", 1
+    db 0
+svg_three_text:     db "3"
+svg_word_user:      db "userSpaceOnUse"
+align 8
+svg_deg:            dq 0x3F91DF46A2529D39   ; pi / 180
+svg_two_pi:         dq 6.283185307179586
 svg_clip_attrs:
     NAME "clipPathUnits", 1
     NAME "clip-path", 2
@@ -628,6 +691,9 @@ ugfx_svg_parse:
     mov [rbx + S_DASH_OFF], rax
     mov [rbx + S_SWITCH], eax
     mov [rbx + S_CLIPRULE], eax
+    mov [rbx + S_MARKERS], rax
+    mov [rbx + S_MARKERS + 16], rax
+    mov [rbx + S_MARKERS + 32], rax
     ; gradients first: url(#id) may name one defined further on
     lea rdi, [r15 + P_DEFS]
     mov rax, [r15 + P_SVG]
@@ -739,6 +805,8 @@ svg_walk:
     je .mask_root
     cmp eax, E_PATTERN
     je .pattern_root
+    cmp eax, E_MARKER
+    je .marker_root
     cmp eax, E_SYMBOL
     jne .kind
     mov eax, E_SKIP
@@ -764,6 +832,13 @@ svg_walk:
 .pattern_root:
     mov eax, E_SKIP
     cmp ecx, K_PATTERN
+    jne .kind
+    mov eax, E_GROUP
+    mov dword [r15 + P_CROOT], 1
+    jmp .kind
+.marker_root:
+    mov eax, E_SKIP
+    cmp ecx, K_MARKER
     jne .kind
     mov eax, E_GROUP
     mov dword [r15 + P_CROOT], 1
@@ -1766,6 +1841,8 @@ svg_property:
     je .clip_rule
     cmp eax, A_MASK
     je .mask
+    cmp eax, A_MARKER_START
+    jae .marker
     ; opacities: a number (or a percentage), clamped to [0, 1]
     mov r13, rsi
     call ugfx_svg_number
@@ -1905,6 +1982,43 @@ svg_property:
     IS_WORD none
     jne .out
     mov qword [r15 + P_CLIP], 0
+    jmp .out
+.marker:
+    ; url(...) or none, into one slot or all three
+    call ugfx_svg_trim
+    push rdi
+    push rsi
+    IS_WORD none
+    pop rsi
+    pop rdi
+    jne .marker_url
+    xor edi, edi
+    xor esi, esi
+    jmp .marker_set
+.marker_url:
+    mov rax, rsi
+    sub rax, rdi
+    cmp rax, 4
+    jb .out
+    mov eax, [rdi]
+    or eax, 0x20202020
+    cmp eax, 'url('
+    jne .out
+.marker_set:
+    lea ecx, [r12 - A_MARKER_START]
+    cmp r12d, A_MARKER
+    je .marker_all
+    shl ecx, 4
+    mov [rbx + S_MARKERS + rcx], rdi
+    mov [rbx + S_MARKERS + rcx + 8], rsi
+    jmp .out
+.marker_all:
+    mov [rbx + S_MARKERS], rdi
+    mov [rbx + S_MARKERS + 8], rsi
+    mov [rbx + S_MARKERS + 16], rdi
+    mov [rbx + S_MARKERS + 24], rsi
+    mov [rbx + S_MARKERS + 32], rdi
+    mov [rbx + S_MARKERS + 40], rsi
     jmp .out
 .mask:
     call ugfx_svg_trim
@@ -3113,6 +3227,697 @@ svg_pattern_paint:
     stc
     ret
 
+; -----------------------------------------------------------------------------
+; svg_vertices — r12 = a shape item (its path), r15 = frame -> P_VERTS /
+;   P_NVERTS: each vertex with its incoming / outgoing tangent directions.
+;   A segment's start direction is toward its first distinct control point
+;   (else the end), its end direction from its last; a close adds a vertex
+;   at the subpath's start unless it is already there, gives that vertex
+;   the first segment's outgoing direction and the start the closing
+;   segment's incoming one; a segment after a close starts a new subpath.
+; -----------------------------------------------------------------------------
+%define VS_CUR      0                   ; f64 x, y: the current point
+%define VS_START    16                  ; f64 x, y: the subpath's start
+%define VS_FIRST    32                  ; u32 the subpath's first vertex
+%define VS_OPEN     36                  ; u32 a subpath is open (its vertex exists)
+%define VS_DS       40                  ; f64 dx, dy: a segment's start direction
+%define VS_DE       56                  ; f64 dx, dy: its end direction
+%define VS_PT       72                  ; f64 x, y: a closing segment's end
+%define VS_SIZE     88
+
+svg_vertices:
+    push rbx
+    push r13
+    push r14
+    push rbp
+    sub rsp, VS_SIZE
+    mov dword [r15 + P_NVERTS], 0
+    ; room: two vertices a verb is plenty
+    mov eax, [r12 + UgfxSvgItem_path + UgfxPath_verb_count]
+    lea esi, [rax + rax + 2]
+    imul esi, esi, VX_SIZE
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    call arena_alloc
+    mov [r15 + P_VERTS], rax
+    test rax, rax
+    jz .nomem
+    mov dword [rsp + VS_OPEN], 0
+    mov dword [rsp + VS_FIRST], 0
+    xorpd xmm0, xmm0
+    movsd [rsp + VS_CUR], xmm0
+    movsd [rsp + VS_CUR + 8], xmm0
+    movsd [rsp + VS_START], xmm0
+    movsd [rsp + VS_START + 8], xmm0
+    mov rbx, [r12 + UgfxSvgItem_path + UgfxPath_verbs]
+    mov rbp, [r12 + UgfxSvgItem_path + UgfxPath_points]
+    xor r13d, r13d                      ; verb index
+.verb:
+    cmp r13d, [r12 + UgfxSvgItem_path + UgfxPath_verb_count]
+    jae .out
+    movzx eax, byte [rbx + r13]
+    inc r13d
+    cmp eax, PATH_VERB_MOVE
+    je .move
+    cmp eax, PATH_VERB_LINE
+    je .line
+    cmp eax, PATH_VERB_QUAD
+    je .quad
+    cmp eax, PATH_VERB_CUBIC
+    je .cubic
+    cmp eax, PATH_VERB_CLOSE
+    je .close
+    jmp .out                            ; (no other verbs come from SVG geometry)
+.move:
+    movsd xmm0, [rbp]
+    movsd xmm1, [rbp + 8]
+    add rbp, 16
+    movsd [rsp + VS_CUR], xmm0
+    movsd [rsp + VS_CUR + 8], xmm1
+    movsd [rsp + VS_START], xmm0
+    movsd [rsp + VS_START + 8], xmm1
+    call .push_at                       ; no directions yet
+    mov eax, [r15 + P_NVERTS]
+    dec eax
+    mov [rsp + VS_FIRST], eax
+    mov dword [rsp + VS_OPEN], 1
+    jmp .verb
+.line:
+    movsd xmm0, [rbp]
+    movsd xmm1, [rbp + 8]
+    subsd xmm0, [rsp + VS_CUR]
+    subsd xmm1, [rsp + VS_CUR + 8]
+    movsd [rsp + VS_DS], xmm0
+    movsd [rsp + VS_DS + 8], xmm1
+    movsd [rsp + VS_DE], xmm0
+    movsd [rsp + VS_DE + 8], xmm1
+    mov r14, rbp                        ; the end point
+    add rbp, 16
+    call .seg
+    jmp .verb
+.quad:
+    ; start: c - cur, else p - cur; end: p - c, else p - cur
+    lea r14, [rbp + 16]
+    movsd xmm0, [rbp]
+    movsd xmm1, [rbp + 8]
+    subsd xmm0, [rsp + VS_CUR]
+    subsd xmm1, [rsp + VS_CUR + 8]
+    call .zero
+    jne .quad_ds
+    movsd xmm0, [r14]
+    movsd xmm1, [r14 + 8]
+    subsd xmm0, [rsp + VS_CUR]
+    subsd xmm1, [rsp + VS_CUR + 8]
+.quad_ds:
+    movsd [rsp + VS_DS], xmm0
+    movsd [rsp + VS_DS + 8], xmm1
+    movsd xmm0, [r14]
+    movsd xmm1, [r14 + 8]
+    subsd xmm0, [rbp]
+    subsd xmm1, [rbp + 8]
+    call .zero
+    jne .quad_de
+    movsd xmm0, [r14]
+    movsd xmm1, [r14 + 8]
+    subsd xmm0, [rsp + VS_CUR]
+    subsd xmm1, [rsp + VS_CUR + 8]
+.quad_de:
+    movsd [rsp + VS_DE], xmm0
+    movsd [rsp + VS_DE + 8], xmm1
+    add rbp, 32
+    call .seg
+    jmp .verb
+.cubic:
+    lea r14, [rbp + 32]
+    ; start: c1 - cur, c2 - cur, p - cur
+    movsd xmm0, [rbp]
+    movsd xmm1, [rbp + 8]
+    subsd xmm0, [rsp + VS_CUR]
+    subsd xmm1, [rsp + VS_CUR + 8]
+    call .zero
+    jne .cubic_ds
+    movsd xmm0, [rbp + 16]
+    movsd xmm1, [rbp + 24]
+    subsd xmm0, [rsp + VS_CUR]
+    subsd xmm1, [rsp + VS_CUR + 8]
+    call .zero
+    jne .cubic_ds
+    movsd xmm0, [r14]
+    movsd xmm1, [r14 + 8]
+    subsd xmm0, [rsp + VS_CUR]
+    subsd xmm1, [rsp + VS_CUR + 8]
+.cubic_ds:
+    movsd [rsp + VS_DS], xmm0
+    movsd [rsp + VS_DS + 8], xmm1
+    ; end: p - c2, p - c1, p - cur
+    movsd xmm0, [r14]
+    movsd xmm1, [r14 + 8]
+    subsd xmm0, [rbp + 16]
+    subsd xmm1, [rbp + 24]
+    call .zero
+    jne .cubic_de
+    movsd xmm0, [r14]
+    movsd xmm1, [r14 + 8]
+    subsd xmm0, [rbp]
+    subsd xmm1, [rbp + 8]
+    call .zero
+    jne .cubic_de
+    movsd xmm0, [r14]
+    movsd xmm1, [r14 + 8]
+    subsd xmm0, [rsp + VS_CUR]
+    subsd xmm1, [rsp + VS_CUR + 8]
+.cubic_de:
+    movsd [rsp + VS_DE], xmm0
+    movsd [rsp + VS_DE + 8], xmm1
+    add rbp, 48
+    call .seg
+    jmp .verb
+.close:
+    cmp dword [rsp + VS_OPEN], 0
+    je .verb
+    movsd xmm0, [rsp + VS_START]
+    movsd xmm1, [rsp + VS_START + 8]
+    subsd xmm0, [rsp + VS_CUR]
+    subsd xmm1, [rsp + VS_CUR + 8]
+    call .zero
+    je .closed_here
+    ; a closing line, its vertex at the start
+    movsd [rsp + VS_DS], xmm0
+    movsd [rsp + VS_DS + 8], xmm1
+    movsd [rsp + VS_DE], xmm0
+    movsd [rsp + VS_DE + 8], xmm1
+    movsd xmm0, [rsp + VS_START]
+    movsd xmm1, [rsp + VS_START + 8]
+    movsd [rsp + VS_PT], xmm0
+    movsd [rsp + VS_PT + 8], xmm1
+    lea r14, [rsp + VS_PT]
+    call .seg
+.closed_here:
+    ; the closing vertex leaves along the first segment; the start comes in
+    ; along the closing one
+    call .last
+    mov ecx, [rsp + VS_FIRST]
+    imul rcx, rcx, VX_SIZE
+    add rcx, [r15 + P_VERTS]
+    test dword [rcx + VX_FLAGS], 2
+    jz .no_first_out
+    movsd xmm0, [rcx + VX_OUT]
+    movsd [rax + VX_OUT], xmm0
+    or dword [rax + VX_FLAGS], 2
+.no_first_out:
+    cmp rax, rcx
+    je .no_close_in
+    test dword [rax + VX_FLAGS], 1
+    jz .no_close_in
+    movsd xmm0, [rax + VX_IN]
+    movsd [rcx + VX_IN], xmm0
+    or dword [rcx + VX_FLAGS], 1
+.no_close_in:
+    mov dword [rsp + VS_OPEN], 0
+    movsd xmm0, [rsp + VS_START]
+    movsd xmm1, [rsp + VS_START + 8]
+    movsd [rsp + VS_CUR], xmm0
+    movsd [rsp + VS_CUR + 8], xmm1
+    jmp .verb
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.out:
+    add rsp, VS_SIZE
+    pop rbp
+    pop r14
+    pop r13
+    pop rbx
+    ret
+; a segment ending at r14 with VS_DS / VS_DE: the last vertex leaves along
+;   it (unless it already has a way out), a new vertex comes in along it;
+;   after a close it first opens a subpath at the current point (frame at
+;   rsp + 8)
+.seg:
+    sub rsp, 8                          ; (frame at rsp + 16)
+    cmp dword [rsp + 16 + VS_OPEN], 0
+    jne .seg_open
+    movsd xmm0, [rsp + 16 + VS_CUR]
+    movsd xmm1, [rsp + 16 + VS_CUR + 8]
+    movsd [rsp + 16 + VS_START], xmm0
+    movsd [rsp + 16 + VS_START + 8], xmm1
+    call .push_at
+    mov eax, [r15 + P_NVERTS]
+    dec eax
+    mov [rsp + 16 + VS_FIRST], eax
+    mov dword [rsp + 16 + VS_OPEN], 1
+.seg_open:
+    call .last
+    test dword [rax + VX_FLAGS], 2
+    jnz .seg_in
+    movsd xmm0, [rsp + 16 + VS_DS + 8]
+    movsd xmm1, [rsp + 16 + VS_DS]
+    call umath_atan2_f64
+    call .last
+    movsd [rax + VX_OUT], xmm0
+    or dword [rax + VX_FLAGS], 2
+.seg_in:
+    movsd xmm0, [r14]
+    movsd xmm1, [r14 + 8]
+    movsd [rsp + 16 + VS_CUR], xmm0
+    movsd [rsp + 16 + VS_CUR + 8], xmm1
+    call .push_at
+    movsd xmm0, [rsp + 16 + VS_DE + 8]
+    movsd xmm1, [rsp + 16 + VS_DE]
+    call umath_atan2_f64
+    call .last
+    movsd [rax + VX_IN], xmm0
+    or dword [rax + VX_FLAGS], 1
+    add rsp, 8
+    ret
+; (xmm0, xmm1) -> ZF = 1 when both are 0
+.zero:
+    xorpd xmm2, xmm2
+    ucomisd xmm0, xmm2
+    jne .zero_out
+    jp .zero_out
+    ucomisd xmm1, xmm2
+.zero_out:
+    ret
+; rax -> the last vertex
+.last:
+    mov eax, [r15 + P_NVERTS]
+    dec eax
+    imul rax, rax, VX_SIZE
+    add rax, [r15 + P_VERTS]
+    ret
+; xmm0, xmm1 = a point: a vertex there, no directions
+.push_at:
+    mov eax, [r15 + P_NVERTS]
+    inc dword [r15 + P_NVERTS]
+    imul rax, rax, VX_SIZE
+    add rax, [r15 + P_VERTS]
+    movsd [rax + VX_X], xmm0
+    movsd [rax + VX_Y], xmm1
+    mov dword [rax + VX_FLAGS], 0
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_markers — r15 = frame (P_VERTS / P_NVERTS), rbx = the shape's state:
+;   marker items at its vertices - marker-start at the first, marker-mid
+;   at the others, marker-end at the last (a lone vertex has both ends)
+; -----------------------------------------------------------------------------
+%define MK_REC      0                   ; UgfxSvgMarker*[3]
+%define MK_M        24                  ; f64[6]
+%define MK_T        72                  ; f64[6]
+%define MK_I        120                 ; u32
+%define MK_A        128                 ; f64 the marker's angle
+%define MK_SIZE     144
+
+svg_markers:
+    push r12
+    push r13
+    push r14
+    sub rsp, MK_SIZE
+    xor r12d, r12d
+.compile:
+    mov qword [rsp + MK_REC + r12 * 8], 0
+    mov eax, r12d
+    shl eax, 4
+    mov rdi, [rbx + S_MARKERS + rax]
+    mov rsi, [rbx + S_MARKERS + rax + 8]
+    test rdi, rdi
+    jz .next_rec
+    call svg_url_ref
+    test rax, rax
+    jz .next_rec
+    mov rsi, rax
+    mov ecx, K_MARKER
+    call svg_compile
+    mov [rsp + MK_REC + r12 * 8], rax
+.next_rec:
+    inc r12d
+    cmp r12d, 3
+    jb .compile
+    mov r13d, [r15 + P_NVERTS]
+    test r13d, r13d
+    jz .out
+    ; start, mids, end
+    xor edx, edx
+    mov rcx, [rsp + MK_REC]
+    mov r8d, 1
+    call .emit
+    mov dword [rsp + MK_I], 1
+.mid:
+    mov edx, [rsp + MK_I]
+    lea eax, [r13 - 1]
+    cmp edx, eax
+    jae .end
+    mov rcx, [rsp + MK_REC + 8]
+    xor r8d, r8d
+    call .emit
+    inc dword [rsp + MK_I]
+    jmp .mid
+.end:
+    lea edx, [r13 - 1]
+    mov rcx, [rsp + MK_REC + 16]
+    xor r8d, r8d
+    call .emit
+.out:
+    add rsp, MK_SIZE
+    pop r14
+    pop r13
+    pop r12
+    ret
+; edx = a vertex, rcx = its marker (0: none), r8d = 1 for the start one
+;   (frame at rsp + 8)
+.emit:
+    sub rsp, 8                          ; (frame at rsp + 16)
+    mov r14, rcx
+    test r14, r14
+    jz .emit_out
+    cmp dword [r14 + UgfxSvgMarker_count], 0
+    je .emit_out
+    xorpd xmm0, xmm0
+    ucomisd xmm0, [r14 + UgfxSvgMarker_size]
+    jae .emit_out
+    ucomisd xmm0, [r14 + UgfxSvgMarker_size + 8]
+    jae .emit_out
+    imul r12, rdx, VX_SIZE
+    add r12, [r15 + P_VERTS]            ; the vertex
+    ; the angle: the bisector of in and out, else either, else 0
+    xorpd xmm0, xmm0
+    mov eax, [r12 + VX_FLAGS]
+    cmp eax, 3
+    je .bisect
+    cmp eax, 1
+    je .in
+    cmp eax, 2
+    jne .oriented
+    movsd xmm0, [r12 + VX_OUT]
+    jmp .oriented
+.in:
+    movsd xmm0, [r12 + VX_IN]
+    jmp .oriented
+.bisect:
+    movsd xmm1, [r12 + VX_OUT]
+    subsd xmm1, [r12 + VX_IN]           ; d = out - in, into [-pi, pi]
+    ucomisd xmm1, [rel svg_pi]
+    jbe .not_over
+    subsd xmm1, [rel svg_two_pi]
+    jmp .halved
+.not_over:
+    movsd xmm2, [rel svg_pi]
+    xorpd xmm3, xmm3
+    subsd xmm3, xmm2
+    ucomisd xmm3, xmm1
+    jbe .halved
+    addsd xmm1, [rel svg_two_pi]
+.halved:
+    mulsd xmm1, [rel svg_half]
+    movsd xmm0, [r12 + VX_IN]
+    addsd xmm0, xmm1
+.oriented:
+    mov eax, [r14 + UgfxSvgMarker_orient]
+    test eax, eax
+    jnz .auto
+    movsd xmm0, [r14 + UgfxSvgMarker_angle]
+    jmp .angled
+.auto:
+    cmp eax, 2
+    jne .angled
+    test r8d, r8d
+    jz .angled
+    addsd xmm0, [rel svg_pi]            ; auto-start-reverse
+.angled:
+    movsd [rsp + 16 + MK_A], xmm0
+    ; M = the shape's x translate(v) x rotate(a) x scale(k) x translate(-ref)
+    xor ecx, ecx
+.m:
+    mov rax, [rbx + S_M + rcx * 8]
+    mov [rsp + 16 + MK_M + rcx * 8], rax
+    inc ecx
+    cmp ecx, 6
+    jb .m
+    lea rdi, [rsp + 16 + MK_T]
+    movsd xmm0, [r12 + VX_X]
+    movsd xmm1, [r12 + VX_Y]
+    call umath_affine2_translate
+    call .apply
+    lea rdi, [rsp + 16 + MK_T]
+    movsd xmm0, [rsp + 16 + MK_A]
+    call umath_affine2_rotate
+    call .apply
+    movsd xmm0, [rel svg_one]
+    cmp dword [r14 + UgfxSvgMarker_units], 0
+    jne .scale
+    movsd xmm0, [rbx + S_SW]
+.scale:
+    movapd xmm1, xmm0
+    lea rdi, [rsp + 16 + MK_T]
+    call umath_affine2_scale
+    call .apply
+    xorpd xmm0, xmm0
+    subsd xmm0, [r14 + UgfxSvgMarker_ref]
+    xorpd xmm1, xmm1
+    subsd xmm1, [r14 + UgfxSvgMarker_ref + 8]
+    lea rdi, [rsp + 16 + MK_T]
+    call umath_affine2_translate
+    call .apply
+    mov ecx, 1
+    call svg_item_room
+    test rax, rax
+    jz .emit_nomem
+    mov dword [rax + UgfxSvgItem_kind], UGFX_SVG_MARKER
+    mov [rax + UgfxSvgItem_marker], r14
+    xor ecx, ecx
+.copy:
+    mov rdx, [rsp + 16 + MK_M + rcx * 8]
+    mov [rax + UgfxSvgItem_matrix + rcx * 8], rdx
+    inc ecx
+    cmp ecx, 6
+    jb .copy
+    mov rax, [r15 + P_SVG]
+    inc dword [rax + UgfxSvg_count]
+    jmp .emit_out
+.emit_nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.emit_out:
+    add rsp, 8
+    ret
+; MK_M = MK_M x MK_T (frame at rsp + 24: called from .emit)
+.apply:
+    sub rsp, 8
+    lea rdi, [rsp + 32 + MK_M]
+    mov rsi, rdi
+    lea rdx, [rsp + 32 + MK_T]
+    call umath_affine2_multiply
+    add rsp, 8
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_marker_attrs — r13 = a new UgfxSvgMarker (content compiled), the
+;   marker's tag through svg_compile's frame, r15 = frame, rbx = the
+;   referencing state: markerUnits, refX / refY, markerWidth / Height
+;   (default 3), orient, viewBox, preserveAspectRatio, overflow
+; -----------------------------------------------------------------------------
+%define MA_RAW      0                   ; refX, refY, markerWidth, markerHeight as written
+%define MA_VB       64                  ; f64[4]
+%define MA_SIZE     104
+
+svg_marker_attrs:
+    push r12
+    push r14
+    sub rsp, MA_SIZE
+    %define MA_CC (8 + MA_SIZE + 16)    ; svg_compile's frame, from here
+    mov dword [r13 + UgfxSvgMarker_units], 0
+    mov dword [r13 + UgfxSvgMarker_orient], 0
+    mov dword [r13 + UgfxSvgMarker_clip], 1
+    mov dword [r13 + UgfxSvgMarker_has_vb], 0
+    xorpd xmm0, xmm0
+    movsd [r13 + UgfxSvgMarker_angle], xmm0
+    lea rax, [rel svg_zero_text]
+    mov [rsp + MA_RAW], rax
+    mov [rsp + MA_RAW + 16], rax
+    inc rax
+    mov [rsp + MA_RAW + 8], rax
+    mov [rsp + MA_RAW + 24], rax
+    lea rax, [rel svg_three_text]
+    mov [rsp + MA_RAW + 32], rax
+    mov [rsp + MA_RAW + 48], rax
+    inc rax
+    mov [rsp + MA_RAW + 40], rax
+    mov [rsp + MA_RAW + 56], rax
+    mov r12d, PAR_DEFAULT
+.attr:
+    lea rdi, [rsp + MA_CC + CC_XML]
+    lea rsi, [rsp + MA_CC + CC_ATTR]
+    call ugfx_svg_xml_attr
+    test eax, eax
+    jz .sizes
+    mov rdi, [rsp + MA_CC + CC_ATTR + UgfxSvgAttr_name]
+    mov rsi, [rsp + MA_CC + CC_ATTR + UgfxSvgAttr_name_end]
+    lea rdx, [rel svg_marker_words]
+    call ugfx_svg_lookup
+    test eax, eax
+    jle .attr
+    mov r14d, eax
+    mov rdi, [rsp + MA_CC + CC_ATTR + UgfxSvgAttr_val]
+    mov rsi, [rsp + MA_CC + CC_ATTR + UgfxSvgAttr_val_end]
+    cmp r14d, 2
+    jb .units
+    cmp r14d, 5
+    ja .other
+    lea eax, [r14 - 2]
+    shl eax, 4
+    mov [rsp + MA_RAW + rax], rdi
+    mov [rsp + MA_RAW + rax + 8], rsi
+    jmp .attr
+.units:
+    call ugfx_svg_trim
+    lea rdx, [rel svg_word_user]
+    mov ecx, 14
+    call svg_word
+    sete al
+    movzx eax, al
+    mov [r13 + UgfxSvgMarker_units], eax
+    jmp .attr
+.other:
+    cmp r14d, 6
+    je .orient
+    cmp r14d, 7
+    je .viewbox
+    cmp r14d, 8
+    je .par
+    ; overflow: visible / auto draw outside the viewport
+    call ugfx_svg_trim
+    lea rdx, [rel svg_overflow_words]
+    call ugfx_svg_lookup
+    xor ecx, ecx
+    cmp eax, 1
+    setne cl
+    mov [r13 + UgfxSvgMarker_clip], ecx
+    jmp .attr
+.par:
+    call svg_par
+    mov r12d, eax
+    jmp .attr
+.orient:
+    call ugfx_svg_trim
+    push rdi
+    push rsi
+    lea rdx, [rel svg_orient_words]
+    call ugfx_svg_lookup
+    pop rsi
+    pop rdi
+    cmp eax, 0
+    jg .orient_word
+    mov dword [r13 + UgfxSvgMarker_orient], 0
+    call ugfx_svg_number
+    xorpd xmm1, xmm1
+    test rax, rax
+    jz .orient_angle
+    mulsd xmm0, [rel svg_deg]
+    movapd xmm1, xmm0
+.orient_angle:
+    movsd [r13 + UgfxSvgMarker_angle], xmm1
+    jmp .attr
+.orient_word:
+    mov [r13 + UgfxSvgMarker_orient], eax
+    jmp .attr
+.viewbox:
+    mov r14, rdi
+    mov [rsp + MA_VB + 32], rsi         ; (the end, kept)
+    xor ecx, ecx
+    mov dword [r13 + UgfxSvgMarker_has_vb], 0
+.vb_number:
+    cmp ecx, 4
+    jae .vb_check
+    push rcx
+    sub rsp, 8
+    mov rdi, r14
+    mov rsi, [rsp + 16 + MA_VB + 32]
+    call ugfx_svg_number
+    add rsp, 8
+    pop rcx
+    test rax, rax
+    jz .attr
+    mov r14, rax
+    movsd [rsp + MA_VB + rcx * 8], xmm0
+    inc ecx
+    jmp .vb_number
+.vb_check:
+    xorpd xmm1, xmm1
+    movsd xmm0, [rsp + MA_VB + 16]
+    ucomisd xmm0, xmm1
+    jbe .attr
+    movsd xmm0, [rsp + MA_VB + 24]
+    ucomisd xmm0, xmm1
+    jbe .attr
+    mov dword [r13 + UgfxSvgMarker_has_vb], 1
+    jmp .attr
+.sizes:
+    ; refX, refY, markerWidth, markerHeight: lengths (0 if invalid)
+    xor r14d, r14d
+.size_value:
+    cmp r14d, 4
+    jae .fit
+    mov eax, r14d
+    shl eax, 4
+    mov rdi, [rsp + MA_RAW + rax]
+    mov rsi, [rsp + MA_RAW + rax + 8]
+    mov edx, r14d
+    and edx, 1
+    call svg_length
+    test rax, rax
+    jnz .size_set
+    xorpd xmm0, xmm0
+.size_set:
+    movsd [r13 + UgfxSvgMarker_ref + r14 * 8], xmm0
+    inc r14d
+    jmp .size_value
+.fit:
+    ; the viewBox into markerWidth x markerHeight; refX / refY through it
+    lea rdi, [r13 + UgfxSvgMarker_vbm]
+    call umath_affine2_identity
+    cmp dword [r13 + UgfxSvgMarker_has_vb], 0
+    je .square
+    xorpd xmm2, xmm2
+    movsd xmm0, [r13 + UgfxSvgMarker_size]
+    ucomisd xmm0, xmm2
+    jbe .square
+    movsd xmm1, [r13 + UgfxSvgMarker_size + 8]
+    ucomisd xmm1, xmm2
+    jbe .square
+    lea rdi, [r13 + UgfxSvgMarker_vbm]
+    lea rsi, [rsp + MA_VB]
+    mov edx, r12d
+    call svg_fit
+    movsd xmm0, [r13 + UgfxSvgMarker_vbm]
+    mulsd xmm0, [r13 + UgfxSvgMarker_ref]
+    addsd xmm0, [r13 + UgfxSvgMarker_vbm + 32]
+    movsd [r13 + UgfxSvgMarker_ref], xmm0
+    movsd xmm0, [r13 + UgfxSvgMarker_vbm + 24]
+    mulsd xmm0, [r13 + UgfxSvgMarker_ref + 8]
+    addsd xmm0, [r13 + UgfxSvgMarker_vbm + 40]
+    movsd [r13 + UgfxSvgMarker_ref + 8], xmm0
+.square:
+    lea rdi, [r13 + UgfxSvgMarker_path]
+    mov rax, [r15 + P_SVG]
+    mov rsi, [rax + UgfxSvg_arena]
+    call ugfx_path_init
+    test rax, rax
+    jnz .nomem
+    lea rdi, [r13 + UgfxSvgMarker_path]
+    xorpd xmm0, xmm0
+    xorpd xmm1, xmm1
+    movsd xmm2, [rel svg_one]
+    movapd xmm3, xmm2
+    call ugfx_path_add_rect
+    test rax, rax
+    jz .out
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.out:
+    add rsp, MA_SIZE
+    pop r14
+    pop r12
+    ret
+
 ; rsi = a BEGIN item, rdi = where its END goes: kind END, everything else
 ;   (alpha, clip, mask, matrix, bbox) as the BEGIN has it
 svg_end_from:
@@ -3208,6 +4013,8 @@ svg_compile:
     je .want_mask
     cmp dword [rsp + CC_KIND], K_PATTERN
     je .want_pattern
+    cmp dword [rsp + CC_KIND], K_MARKER
+    je .want_marker
     mov rdx, 'clipPath'
     cmp [r12 + 1], rdx
     jne .out
@@ -3227,6 +4034,14 @@ svg_compile:
     jne .out
     movzx eax, byte [r12 + 8]
     mov esi, UgfxSvgPattern_SIZE
+    jmp .name_end
+.want_marker:
+    cmp dword [r12 + 1], 'mark'
+    jne .out
+    cmp word [r12 + 5], 'er'
+    jne .out
+    movzx eax, byte [r12 + 7]
+    mov esi, UgfxSvgMarker_SIZE
 .name_end:
     cmp al, '>'
     je .is_it
@@ -3323,6 +4138,8 @@ svg_compile:
     je .mask_attrs
     cmp dword [rsp + CC_KIND], K_PATTERN
     je .pattern_attrs
+    cmp dword [rsp + CC_KIND], K_MARKER
+    je .marker_attrs
 .attr:
     lea rdi, [rsp + CC_XML]
     lea rsi, [rsp + CC_ATTR]
@@ -3469,6 +4286,9 @@ svg_compile:
     jmp .region_value
 .pattern_attrs:
     call svg_pattern_attrs
+    jmp .done
+.marker_attrs:
+    call svg_marker_attrs
     jmp .done
 .unit_square:
     lea rdi, [r13 + UgfxSvgMask_path]
@@ -3776,6 +4596,21 @@ svg_shape:
     jae .have_paint                     ; width 0: no stroke
     or r13d, 2
 .have_paint:
+    ; markers (bit 32): path, line, polyline, polygon, outside clips
+    cmp dword [r15 + P_CLIPMODE], 0
+    jne .markers_known
+    mov eax, [r15 + P_ELEM]
+    cmp eax, E_PATH
+    je .marker_kind
+    cmp eax, E_LINE
+    jb .markers_known
+.marker_kind:
+    mov rax, [rbx + S_MARKERS]
+    or rax, [rbx + S_MARKERS + 16]
+    or rax, [rbx + S_MARKERS + 32]
+    jz .markers_known
+    or r13d, 32
+.markers_known:
     test r13d, r13d
     jz .shape_out
     ; clip-path (bit 8), mask (bit 16): a group
@@ -3826,6 +4661,10 @@ svg_shape:
     je .shape_out
     cmp dword [r12 + UgfxSvgItem_path + UgfxPath_error], 0
     jne .nomem
+    test r13d, 32
+    jz .no_vertices
+    call svg_vertices                   ; (before the item moves)
+.no_vertices:
     ; transform, paints, style
     xor ecx, ecx
 .copy_m:
@@ -3896,7 +4735,7 @@ svg_shape:
     movsd [r12 + UgfxSvgItem_dash_off], xmm0
     inc dword [r14 + UgfxSvg_count]
     test r13d, 4 | 8 | 16
-    jz .shape_out
+    jz .ungrouped
     ; BEGIN, the shape, END
     lea rsi, [r12 + UgfxSvgItem_SIZE - 1]
     lea rdi, [r12 + 2 * UgfxSvgItem_SIZE - 1]
@@ -3948,6 +4787,29 @@ svg_shape:
     add rsi, [r14 + UgfxSvg_items]
     lea rdi, [rsi + 2 * UgfxSvgItem_SIZE]
     call svg_end_from
+    test r13d, 32
+    jz .shape_out
+    ; markers inside the group: END goes after them
+    mov r14, [r15 + P_SVG]
+    dec dword [r14 + UgfxSvg_count]
+    mov r12d, [r14 + UgfxSvg_count]
+    sub r12d, 2                         ; the BEGIN's index
+    call svg_markers
+    mov ecx, 1
+    call svg_item_room
+    test rax, rax
+    jz .nomem
+    mov rdi, rax
+    mov r14, [r15 + P_SVG]
+    imul rsi, r12, UgfxSvgItem_SIZE
+    add rsi, [r14 + UgfxSvg_items]
+    call svg_end_from
+    inc dword [r14 + UgfxSvg_count]
+    jmp .shape_out
+.ungrouped:
+    test r13d, 32
+    jz .shape_out
+    call svg_markers
     jmp .shape_out
 .clip_shape:
     ; a clip's content: the geometry, its transform and clip-rule
@@ -4658,6 +5520,8 @@ svg_draw_list:
     je .begin
     cmp eax, UGFX_SVG_END
     je .end
+    cmp eax, UGFX_SVG_MARKER
+    je .marker
     mov eax, [r13 + UgfxContext_state + UgfxState_alpha]
     mov [rsp + L_ALPHA], eax            ; paints' alpha is relative to this
     mov rdi, r13
@@ -5005,6 +5869,47 @@ svg_draw_list:
     pop rax
     jmp .fail
 
+.marker:
+    ; the marker's content at its matrix, clipped to its viewport
+    mov r15, [r12 + UgfxSvgItem_marker]
+    mov rdi, r13
+    call ugfx_ctx_save
+    test rax, rax
+    jnz .fail
+    call .element_space
+    cmp dword [r15 + UgfxSvgMarker_clip], 0
+    je .marker_vb
+    xorpd xmm2, xmm2
+    movsd xmm0, [r15 + UgfxSvgMarker_size]
+    movsd [rsp + L_M2], xmm0
+    movsd [rsp + L_M2 + 8], xmm2
+    movsd [rsp + L_M2 + 16], xmm2
+    movsd xmm0, [r15 + UgfxSvgMarker_size + 8]
+    movsd [rsp + L_M2 + 24], xmm0
+    movsd [rsp + L_M2 + 32], xmm2
+    movsd [rsp + L_M2 + 40], xmm2
+    mov rdi, r13
+    lea rsi, [rsp + L_M2]
+    call ugfx_ctx_transform
+    mov rdi, r13
+    lea rsi, [r15 + UgfxSvgMarker_path]
+    call ugfx_ctx_clip
+    test rax, rax
+    jnz .item_fail
+    call .element_space
+.marker_vb:
+    cmp dword [r15 + UgfxSvgMarker_has_vb], 0
+    je .marker_content
+    mov rdi, r13
+    lea rsi, [r15 + UgfxSvgMarker_vbm]
+    call ugfx_ctx_transform
+.marker_content:
+    mov rdi, [r15 + UgfxSvgMarker_items]
+    mov esi, [r15 + UgfxSvgMarker_count]
+    call svg_draw_list
+    test rax, rax
+    jnz .item_fail
+    jmp .item_done
 .item_fail:
     push rax
     sub rsp, 8
