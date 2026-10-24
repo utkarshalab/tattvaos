@@ -1,7 +1,7 @@
 # tests — umath Test Harness
 
 **Module:** `tests/`
-**Status:** Implemented — covers bits/, cpuid/, dtype/, math_fn/, memory/, reduce/, scalar/, stability/.
+**Status:** Implemented — covers bits/, cpuid/, dtype/, geom/, math_fn/, memory/, random/, reduce/, scalar/, stability/.
 **Part of:** umath — unified math library
 
 ---
@@ -42,6 +42,11 @@ compiler. Exit status 0 means everything passed.
     10^0..10^22, cbrt of perfect cubes;
   - array/inplace bit for bit against the scalar.
   `UMATH_VERBOSE=1` prints the measured worst case per function.
+- `test_ieee.py`: the IEEE 754 helpers (fmod, remainder, remquo,
+  frexp, ilogb, logb, modf, nextafter/nextup/nextdown, fdim,
+  scalbn_f32/ldexp_f32, fma), each bit for bit against an exact
+  reference. Under `UMATH_CPU_MASK=0` the fma checks run the software
+  path.
 - `test_math_fn.py`: ULP sweeps against Python's `math` module, special
   values (NaN, ±Inf, ±0, overflow/underflow), the sin/cos domain bound, and
   array/inplace variants against the scalar routine.
