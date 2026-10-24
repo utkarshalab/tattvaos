@@ -73,9 +73,33 @@ def transform(path, m):
     return out
 
 
+def flatten(doc, warnings, name):
+    """UIC has no layers: a group's opacity goes into each item inside it."""
+    items, alphas = [], [255]
+    for it in doc.items:
+        if isinstance(it, svgmodel.Group):
+            if it.kind == "begin":
+                alphas.append(alphas[-1] * it.alpha // 255)
+                warnings.append(f"{name}: group opacity applied per item")
+            elif len(alphas) > 1:
+                alphas.pop()
+            continue
+        a = alphas[-1]
+        if a != 255:
+            for attr in ("fill", "stroke"):
+                p = getattr(it, attr)
+                if p and p[0] == "paint":
+                    setattr(it, attr, p[:6] + (int(p[6] * a / 255 + 0.5),))
+                elif p:
+                    setattr(it, attr, (p[0], int((p[1] >> 24) * a / 255 + 0.5) << 24 | (p[1] & 0xFFFFFF)))
+        items.append(it)
+    doc.items = items
+
+
 def convert(text, name, design_size=0):
     doc = svgmodel.parse(text)
     warnings = []
+    flatten(doc, warnings, name)
     for it in doc.items:
         for attr in ("fill", "stroke"):
             p = getattr(it, attr)
