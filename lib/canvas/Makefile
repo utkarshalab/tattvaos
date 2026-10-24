@@ -498,12 +498,15 @@ $(OBJDIR)/ugfx/core/umath_unit.o: $(wildcard ../umath/geom/*.asm ../umath/math_f
 # the built-in UI icons are embedded with incbin
 $(OBJDIR)/shell/icons.o: assets/icons/ui.uic
 
+# Canvas sources that use ugfx's structures (a UgfxContext on the stack)
+$(OBJDIR)/shell/icons.o $(OBJDIR)/img/svg.o: $(UGFX_DIR)/include/ugfx.inc
+
 # rebuild assets/icons/ui.uic from assets/icons/ui/*.svg (development machine: python3)
 .PHONY: ui-icons
 ui-icons:
 	python3 ../ugfx/tools/svg2uic.py assets/icons/ui.uic assets/icons/ui
 
-$(OBJDIR)/ugfx/%.o: $(UGFX_DIR)/%.asm
+$(OBJDIR)/ugfx/%.o: $(UGFX_DIR)/%.asm $(UGFX_DIR)/include/ugfx.inc
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I ../../ -o $@ $<
 	@echo "  ASM    $<"
