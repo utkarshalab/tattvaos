@@ -16,8 +16,9 @@ is reported, since UIC strokes cannot follow it). Colours become slots:
 currentColor is slot 0; an icon with one colour and no currentColor gets
 that colour in slot 0 so it can be recoloured; other colours follow in
 order of use. Alpha from opacity becomes OPACITY commands, so a slot holds
-one colour. More than 16 colours, or coordinates beyond what an i16 can
-hold, are errors.
+one colour. UIC has no gradients: a gradient becomes the average of its
+stop colours, with a warning. More than 16 colours, or coordinates beyond
+what an i16 can hold, are errors.
 
 Development-machine tooling only; not part of any OS image.
 """
@@ -75,6 +76,16 @@ def transform(path, m):
 def convert(text, name, design_size=0):
     doc = svgmodel.parse(text)
     warnings = []
+    for it in doc.items:
+        for attr in ("fill", "stroke"):
+            p = getattr(it, attr)
+            if p and p[0] == "paint":
+                stops, alpha = p[4], p[6]
+                avg = [sum((c >> s) & 255 for _, c in stops) / len(stops) for s in (0, 8, 16, 24)]
+                a = int(avg[3] * alpha / 255 + 0.5)
+                rgb = sum(int(v + 0.5) << s for v, s in zip(avg[:3], (0, 8, 16)))
+                setattr(it, attr, ("colour", a << 24 | rgb))
+                warnings.append(f"{name}: gradient drawn as its average colour")
     vb = doc.viewbox
     if vb is None:
         vb = [0.0, 0.0, doc.width if doc.width and doc.width > 0 else 300.0,
