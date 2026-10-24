@@ -151,8 +151,8 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 |---|---|---|---|---|
 | C2D-083 | Context: transform, clip, paint, stroke style, alpha; save/restore | P2 | ✓ `2d/context` | 012, 058 |
 | C2D-084 | Draw calls: fill, stroke, image, text, clear, shapes | P2 | ◐ `2d/context` fill, stroke, clip, rects, image, clear; text pending | 083 |
-| C2D-085 | Display lists (record and replay) | P2 | | 084 |
-| C2D-086 | Draw commands for CPU now, GPU later | P3 | | 085 |
+| C2D-085 | Display lists (record and replay) | P2 | ✓ `2d/list` | 084 |
+| C2D-086 | Draw commands for CPU now, GPU later | P3 | ◐ the `2d/list` record stream; GPU backend pending | 085 |
 | C2D-087 | Layers and offscreen targets | P2 | ✓ `ugfx_ctx_begin_layer` / `_end_layer` | 001 |
 | C2D-088 | Dirty-region tracking and partial redraw | P3 | | 011 |
 
