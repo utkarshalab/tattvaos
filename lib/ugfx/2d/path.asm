@@ -1,9 +1,5 @@
 ; Native Utkarsha OS vector path command container.
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
-%include "inc/geometry.inc"
-%include "inc/externs.inc"
+%include "ugfx.inc"
 
 section .text
 ; IN path*, arena*. Storage is bounded deliberately to prevent hostile paths
