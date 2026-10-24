@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Check ugfx SVG: parsing (elements, attributes, styles, transforms, colours,
+path data, shapes) and drawing.
+
+Usage: svg_check.py <host_ctx binary>
+
+Each document is parsed and drawn by ugfx (ugfx_svg_parse, ugfx_svg_draw)
+through host_ctx, and separately turned by tools/svgmodel.py - a model of
+the same subset and rules - into the context calls the drawing should
+make, which host_ctx then runs. The images must match: exactly where only
+arithmetic is involved, within 1 per channel on at most 3 pixels where
+arcs or rotations go through trigonometry (umath's last bit may differ
+from Python's).
+
+Development-machine tooling only; not part of any OS image.
+"""
+import os
+import subprocess
+import sys
+import tempfile
+
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
+import svgmodel  # noqa: E402
+from ctx_check import encode  # noqa: E402
+
+
+def div255(x):
+    x += 128
+    return (x + (x >> 8)) >> 8
+
+
+def premul(c):
+    a = c >> 24
+    return (a << 24) | sum(div255(((c >> s) & 255) * a) << s for s in (0, 8, 16))
+
+
+def expected_calls(doc, current, x, y, size):
+    vb = doc.viewbox
+    if vb is None:
+        w = doc.width if doc.width and doc.width > 0 else 300.0
+        h = doc.height if doc.height and doc.height > 0 else 150.0
+        vb = [0.0, 0.0, w, h]
+    vx, vy, w, h = vb
+    s = size / max(w, h)
+    dx = x + (size - w * s) * 0.5
+    dy = y + (size - h * s) * 0.5
+    out = [('save',), ('translate', dx, dy), ('scale', s, s), ('translate', 0.0 - vx, 0.0 - vy), ('dash', 0, [])]
+
+    def paint(p):
+        kind, c = p
+        if kind == "current":
+            c = (div255((current >> 24) * (c >> 24)) << 24) | (current & 0xFFFFFF)
+        return premul(c)
+
+    for it in doc.items:
+        out += [('save',), ('transform', *it.matrix)]
+        if it.fill:
+            out += [('fill_color', paint(it.fill)), ('rule', it.rule), ('new_path',)] + it.path + [('fill',)]
+        if it.stroke:
+            out += [('stroke_color', paint(it.stroke)), ('stroke_style', it.width, it.miter, it.join, it.cap),
+                    ('new_path',)] + it.path + [('stroke',)]
+        out.append(('restore',))
+    return out + [('restore',)]
+
+
+def svg(body, attrs='viewBox="0 0 24 24"'):
+    return f'<svg xmlns="http://www.w3.org/2000/svg" {attrs}>{body}</svg>'
+
+
+CASES = [
+    ("lines abs/rel", svg('<path d="M2 2 L22 2 L22 10 H12 V22 h-8 v-6 l-2 -2 Z" fill="#1060e0"/>'), False),
+    ("implicit lineto", svg('<path d="M2 2 22 2 22 22 m-4 -4 -6 0 0 -6z" fill="#e04010"/>'), False),
+    ("cubic + smooth", svg('<path d="M2 12 C2 2 12 2 12 12 S22 22 22 12 s-5 -8 -10 -4 S4 20 2 12z" fill="#208040"/>'), False),
+    ("quad + smooth", svg('<path d="M2 12 Q7 2 12 12 T22 12 t-10 8 T2 12 q5 -8 10 -9z" fill="#8020a0"/>'), False),
+    ("smooth after line", svg('<path d="M2 2 L10 2 S20 2 20 12 T12 20 Z" fill="#c08000"/>'), False),
+    ("numbers", svg('<path d="M.5.5L+23.5-.0e1 2.35e1 1.2E1 -0 2.4e+1zM12 12l.5.5.5-.5" fill="#000"/>'), False),
+    ("arcs", svg('<path d="M4 12 A8 8 0 0 1 20 12 A8 8 0 1 1 4 12 Z" fill="#e02060"/>'), True),
+    ("arc flags packed", svg('<path d="M4 12a8 4 30 1012 0a8 4 30 01-12 0z" fill="#20a0a0" fill-rule="evenodd"/>'), True),
+    ("arc tiny radii", svg('<path d="M3 3 A1 1 0 0 0 21 21 A0.5 2 45 1 0 3 3" fill="#a0a020"/>'), True),
+    ("arc zero radius", svg('<path d="M3 12 A0 5 0 0 1 21 12 L12 3z" fill="#304050"/>'), False),
+    ("rect plain", svg('<rect x="3" y="4" width="18" height="12" fill="red"/>'), False),
+    ("rect rx", svg('<rect x="2" y="2" width="20" height="16" rx="5" fill="blue"/>'), True),
+    ("rect rx ry", svg('<rect x="2" y="2" width="20" height="16" rx="8" ry="3" fill="green"/>'), True),
+    ("rect rx clamped", svg('<rect x="2" y="6" width="20" height="10" ry="40" fill="navy"/>'), True),
+    ("rect zero size", svg('<rect width="0" height="10" fill="red"/><circle cx="12" cy="12" r="0" fill="red"/>'
+                           '<circle cx="12" cy="12" r="4"/>'), False),
+    ("circle ellipse", svg('<circle cx="8" cy="8" r="6" fill="teal"/><ellipse cx="15" cy="16" rx="7" ry="4" fill="purple"/>'
+                           '<ellipse cx="18" cy="6" rx="3" fill="orange"/>'), False),
+    ("line poly", svg('<line x1="2" y1="2" x2="22" y2="20" stroke="black" stroke-width="2"/>'
+                      '<polyline points="2,22 8,12 14,20 22,4" fill="none" stroke="#c00" stroke-width="1.5"/>'
+                      '<polygon points="12 2, 20 10 12 18 4 10 7" fill="#0a0" fill-opacity=".5"/>'), False),
+    ("stroke styles", svg('<path d="M3 20 L12 4 L21 20" fill="none" stroke="#123" stroke-width="3" '
+                          'stroke-linecap="round" stroke-linejoin="round"/>'
+                          '<path d="M3 22 L12 14 L21 22" fill="none" stroke="#f60" stroke-width="2" '
+                          'stroke-linecap="square" stroke-linejoin="bevel"/>'), False),
+    ("miter limit", svg('<path d="M2 20 L12 18 L22 20" fill="none" stroke="#000" stroke-width="3" stroke-miterlimit="12"/>'), False),
+    ("transforms", svg('<g transform="translate(12 12) scale(0.8, 1.2)"><rect x="-6" y="-6" width="12" height="12" '
+                       'fill="#e04" transform="skewX(15)"/></g><g transform="matrix(1 0 0 1 2 2)">'
+                       '<circle cx="4" cy="4" r="2" transform="scale(1.5)"/></g>'), True),
+    ("rotate about", svg('<rect x="8" y="4" width="8" height="16" fill="#08f" transform="rotate(30 12 12)"/>'
+                         '<rect x="10" y="10" width="4" height="4" transform="rotate(-45)" fill="#f80"/>'), True),
+    ("nested groups", svg('<g fill="#f00" stroke="#00f" stroke-width="2" opacity="0.6"><g fill="#0f0" opacity="0.5">'
+                          '<circle cx="8" cy="12" r="6"/></g><rect x="13" y="6" width="9" height="12" stroke="none"/></g>'), False),
+    ("style overrides", svg('<rect x="2" y="2" width="20" height="20" fill="red" style="fill: #0c0 ; stroke:#000;'
+                            'stroke-width:2px;opacity:.75"/><circle cx="12" cy="12" r="5" fill="blue" '
+                            'style="fill:yellow !important"/>'), False),
+    ("current colour", svg('<path d="M4 4h16v16H4z" fill="currentColor" fill-opacity="0.5"/>'
+                           '<path d="M6 12h12" stroke="currentColor" stroke-width="2" fill="none"/>'), False),
+    ("colours", svg('<rect width="6" height="6" fill="#f0a"/><rect x="6" width="6" height="6" fill="#f0a8"/>'
+                    '<rect x="12" width="6" height="6" fill="rgb(10%, 50%, 255)"/>'
+                    '<rect x="18" width="6" height="6" fill="rgba(200,100,0,0.4)"/>'
+                    '<rect y="6" width="6" height="6" fill="#11223380"/><rect x="6" y="6" width="6" height="6" fill="Teal"/>'
+                    '<rect x="12" y="6" width="6" height="6" fill="url(#missing) orange"/>'
+                    '<rect x="18" y="6" width="6" height="6" fill="url(#missing)" stroke="#000"/>'
+                    '<rect y="12" width="6" height="6" fill="nonsense"/><rect x="6" y="12" width="6" height="6" fill="transparent" stroke="red"/>'), False),
+    ("fill rules", svg('<path d="M12 2 L18 20 L3 8 L21 8 L6 20 Z" fill="#000" fill-rule="evenodd"/>', 'viewBox="0 0 24 24"'), False),
+    ("display none", svg('<g display="none"><rect width="24" height="24"/></g><rect x="4" y="4" width="8" height="8" '
+                         'style="display:none"/><rect x="12" y="12" width="8" height="8" fill="#0af"/>'), False),
+    ("skipped content", '<?xml version="1.0"?><!DOCTYPE svg><!-- a comment <rect/> -->'
+                        + svg('<defs><rect id="r" width="24" height="24"/></defs><title>x</title><desc>y</desc>'
+                              '<linearGradient id="g"><stop offset="0"/></linearGradient>'
+                              '<style><![CDATA[ rect { fill: red } ]]></style>'
+                              '<circle cx="12" cy="12" r="8" fill="#a0f"/><unknown><rect x="1" y="1" width="4" height="4"/></unknown>'), False),
+    ("viewBox offset", svg('<circle cx="0" cy="0" r="10" fill="#fa0"/>', 'viewBox="-12 -12 24 24"'), False),
+    ("wide viewBox", svg('<rect width="48" height="16" fill="#08a"/>', 'viewBox="0 0 48 16"'), False),
+    ("width height only", svg('<rect width="20" height="10" fill="#a08"/>', 'width="20px" height="10"'), False),
+    ("no size", svg('<rect width="300" height="150" fill="#555"/><circle cx="150" cy="75" r="60" fill="#fff"/>', ''), False),
+    ("path error stops", svg('<path d="M2 2 L22 2 L22 22 L x 2 2" fill="#000"/><path d="M2 22 L12 12 Z Q" stroke="#f00" fill="none"/>'), False),
+    ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+                         'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+                         'stroke-linejoin="round"'), True),
+    ("material style", svg('<path d="M0 0h24v24H0z" fill="none"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 '
+                           '10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>'), False),
+    ("fontawesome style", svg('<path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm0 448c-110.5 0-200-89.5-200-200S145.5 56 256 56s200 89.5 200 200-89.5 200-200 200z"/>',
+                              'viewBox="0 0 512 512"'), True),
+]
+
+
+def run(tool, d, cmds):
+    sp, raw = os.path.join(d, "s.bin"), os.path.join(d, "s.raw")
+    open(sp, "wb").write(encode(cmds))
+    r = subprocess.run([tool, sp, raw], capture_output=True, timeout=60)
+    return (np.frombuffer(open(raw, "rb").read(), np.uint8).astype(int) if r.returncode == 0 else None), r.returncode
+
+
+def svg_cmd(text, current, x, y, size):
+    return ('svg', text.encode(), current, x, y, size)
+
+
+def main():
+    tool = os.path.abspath(sys.argv[1])
+    failed = total = 0
+    with tempfile.TemporaryDirectory(prefix="ugfx_svg.") as d:
+        blank, _ = run(tool, d, [])
+        for name, text, trig in CASES:
+            for current, (x, y, size) in ((0xFF2050C0, (8, 0, 32)), (0x80E0E020, (2, 3, 27.5))):
+                total += 1
+                got, rc = run(tool, d, [svg_cmd(text, current, x, y, size)])
+                doc = svgmodel.parse(text)
+                want, rc2 = run(tool, d, expected_calls(doc, current, x, y, size))
+                if got is None or want is None:
+                    print(f"FAIL  {name:20} exit {rc}/{rc2}")
+                    failed += 1
+                    continue
+                diff = np.abs(got - want).reshape(-1, 4).max(axis=1)
+                off = int((diff > 1).sum())
+                exact = int(diff.max()) == 0
+                ok = exact or (trig and off <= 3)
+                painted = int((want != blank).reshape(-1, 4).any(axis=1).sum())
+                failed += not ok
+                print(f"{'ok  ' if ok else 'FAIL'}  {name:20} items={len(doc.items):2} max_diff={int(diff.max()):3d} "
+                      f"pixels_off={off} painted={painted}")
+        for name, text in (("not svg", "<html><body/></html>"), ("empty", ""), ("text only", "hello"),
+                           ("too deep", "<svg>" + "<g>" * 70 + "</g>" * 70 + "</svg>")):
+            total += 1
+            _, rc = run(tool, d, [svg_cmd(text, 0xFF000000, 0, 0, 16)])
+            ok = rc == 5
+            failed += not ok
+            print(f"{'ok  ' if ok else 'FAIL'}  refuse {name:16} exit={rc}")
+        total += 1
+        _, rc = run(tool, d, [svg_cmd('<svg viewBox="0 0 10 10"><rect width="5" height="5"/>', 0xFF000000, 0, 0, 16)])
+        failed += rc != 0
+        print(f"{'ok  ' if rc == 0 else 'FAIL'}  unterminated document kept   exit={rc}")
+    print(f"{total - failed}/{total} passed")
+    sys.exit(1 if failed else 0)
+
+
+if __name__ == "__main__":
+    main()
