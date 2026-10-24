@@ -296,6 +296,17 @@ extern panic_null_ptr
 %define UgfxList_count          36      ; u32 records
 %define UgfxList_SIZE           40
 
+; UIC icon pack (caller-allocated, UgfxUic_SIZE bytes; 2d/uic.asm, docs/UIC.md)
+%define UgfxUic_data            0       ; the pack's bytes (used in place)
+%define UgfxUic_size            8       ; u64
+%define UgfxUic_count           16      ; u32 icons
+%define UgfxUic_index           24      ; 16-byte entries
+%define UgfxUic_strings         32
+%define UgfxUic_bodies          40
+%define UgfxUic_arena           48
+%define UgfxUic_path            56      ; UgfxPath used while drawing
+%define UgfxUic_SIZE            112
+
 ; Gradient colour stop (UgfxStop_SIZE bytes, an array of them per gradient)
 %define UgfxStop_offset         0       ; f64 position, clamped to [0, 1] and to the previous stop
 %define UgfxStop_color          8       ; u32 straight (not premultiplied) BGRA, 0xAARRGGBB
