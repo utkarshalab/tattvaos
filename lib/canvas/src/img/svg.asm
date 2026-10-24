@@ -6,8 +6,9 @@
 ;   svg_probe(data, len)                         -> 1 if it looks like SVG
 ;   svg_render(arena, data, len, width, height)  -> PixBuf* or 0
 ;
-; Parsing and drawing are ugfx's (2d/svg.asm: paths, shapes, styles,
-; transforms, colours, opacity; see lib/ugfx/README.md). The image is the
+; Parsing and drawing are ugfx's (2d/svg.asm; see lib/ugfx/README.md);
+; images inside the document (data: URIs) decode through image_decode,
+; so any format Canvas reads can be embedded. The image is the
 ; requested size, or the document's own (viewBox, else width / height,
 ; else 300 x 150) when width or height is 0; the drawing is fitted and
 ; centred, transparent around it, currentColor black.
@@ -21,7 +22,8 @@
 %include "ugfx.inc"
 
 extern pixbuf_create
-extern ugfx_svg_parse
+extern ugfx_svg_parse_ex
+extern image_decode
 extern ugfx_svg_draw
 extern ugfx_ctx_init
 
@@ -73,6 +75,25 @@ svg_probe:
     ret
 
 ; ---------------------------------------------------------------------------
+; svg_image — ugfx's image callback: rdi = user, rsi = bytes, rdx = length,
+;   ecx = kind (0: a data: URI's bytes, 1: another href), r8 = arena
+;   -> rax = PixBuf* (premultiplied) from image_decode, 0 for references
+;   (no files are opened here) or what does not decode
+; ---------------------------------------------------------------------------
+svg_image:
+    xor eax, eax
+    test ecx, ecx
+    jnz .done
+    sub rsp, 8
+    mov rdi, r8
+    xor ecx, ecx                        ; an SVG inside: its own size
+    xor r8d, r8d
+    call image_decode
+    add rsp, 8
+.done:
+    ret
+
+; ---------------------------------------------------------------------------
 ; svg_render
 ;   IN:  rdi = arena, rsi = data, rdx = length, rcx = width, r8 = height
 ;        (0: the document's size)
@@ -94,7 +115,9 @@ svg_render:
     mov rcx, rdx
     mov rdx, rsi
     mov rsi, rbx
-    call ugfx_svg_parse
+    lea r8, [rel svg_image]
+    xor r9d, r9d
+    call ugfx_svg_parse_ex
     test rax, rax
     jnz .fail
     ; the size: requested, else the document's
