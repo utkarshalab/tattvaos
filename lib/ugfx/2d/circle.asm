@@ -2,10 +2,7 @@
 ; Circle/Ellipse Primitives — Midpoint Circle Algorithm
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
-%include "inc/geometry.inc"
+%include "ugfx.inc"
 
 section .text
 
@@ -26,13 +23,13 @@ circle_draw:
     ASSERT_PTR rbx
 
     ; Get pixbuf info
-    mov eax, [rbx + Pixbuf.width]
+    mov eax, [rbx + PixBuf_width]
     mov r11d, eax
-    mov eax, [rbx + Pixbuf.height]
+    mov eax, [rbx + PixBuf_height]
     mov r10d, eax
-    mov rax, [rbx + Pixbuf.stride]
+    mov rax, [rbx + PixBuf_stride]
     mov r9, rax
-    mov rax, [rbx + Pixbuf.data]
+    mov rax, [rbx + PixBuf_data]
     mov rdi, rax            ; framebuffer
 
     ; Check if circle is completely outside
@@ -217,13 +214,13 @@ ellipse_draw:
     ASSERT_PTR rbx
 
     ; Get pixbuf info
-    mov eax, [rbx + Pixbuf.width]
+    mov eax, [rbx + PixBuf_width]
     mov r11d, eax
-    mov eax, [rbx + Pixbuf.height]
+    mov eax, [rbx + PixBuf_height]
     mov r10d, eax
-    mov rax, [rbx + Pixbuf.stride]
+    mov rax, [rbx + PixBuf_stride]
     mov r9, rax
-    mov rax, [rbx + Pixbuf.data]
+    mov rax, [rbx + PixBuf_data]
     mov rdi, rax
 
     ; Region 1: dx > dy
@@ -316,13 +313,13 @@ circle_draw_quadrant:
     ASSERT_PTR rbx
 
     ; Get pixbuf info
-    mov eax, [rbx + Pixbuf.width]
+    mov eax, [rbx + PixBuf_width]
     mov r11d, eax
-    mov eax, [rbx + Pixbuf.height]
+    mov eax, [rbx + PixBuf_height]
     mov r9d, eax
-    mov rax, [rbx + Pixbuf.stride]
+    mov rax, [rbx + PixBuf_stride]
     mov r8, rax
-    mov rax, [rbx + Pixbuf.data]
+    mov rax, [rbx + PixBuf_data]
     mov rdi, rax        ; framebuffer
     mov rsi, rax        ; stride
 
@@ -440,13 +437,13 @@ circle_rect_fill:
     ASSERT_PTR rbx
 
     ; Get pixbuf info
-    mov eax, [rbx + Pixbuf.width]
+    mov eax, [rbx + PixBuf_width]
     mov r11d, eax
-    mov eax, [rbx + Pixbuf.height]
+    mov eax, [rbx + PixBuf_height]
     mov r10d, eax
-    mov rax, [rbx + Pixbuf.stride]
+    mov rax, [rbx + PixBuf_stride]
     mov r9, rax
-    mov rax, [rbx + Pixbuf.data]
+    mov rax, [rbx + PixBuf_data]
     mov rdi, rax
 
     ; Clip to pixbuf bounds
