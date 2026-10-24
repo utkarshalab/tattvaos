@@ -259,6 +259,8 @@
 
 Lives in `lib/ugfx`: `2d/` on the shared `core/` that 3D will also use. Math (vectors, matrices, fixed point, curve evaluation) comes from `lib/umath`.
 
+The complete list of 104 2D components, with state and dependencies, is in [`lib/ugfx/docs/COMPONENTS.md`](../../ugfx/docs/COMPONENTS.md); the rows below are the milestone summary.
+
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | G2D-01 | Primitives: fill, blit, line, circle, rect clip | P1 | ◐ `ugfx/core`, `ugfx/2d` (line/circle simplified) |
