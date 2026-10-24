@@ -215,4 +215,73 @@ for _ in range(400):
 for bad in (0.0, math.nan):
     ck.check('arc_to_cubics empty sweep', arcc((C.c_double * 24)(), 0, 0, 1, 1, 0, bad) == 0, bad)
 
+# --- SVG arcs (end points, rotation, flags) ----------------------------------
+arcsvg = fn(lib, 'umath_arc_svg_to_cubics', Z, P, D, D, D, D, D, D, D, I32)
+
+
+def svg_arc_ref(x1, y1, x2, y2, rx, ry, phi, large, sweep):
+    """SVG 1.1 F.6.5-F.6.6: centre, radii, start angle, sweep."""
+    rx, ry = abs(rx), abs(ry)
+    c, s = math.cos(phi), math.sin(phi)
+    dx, dy = (x1 - x2) / 2, (y1 - y2) / 2
+    xp, yp = c * dx + s * dy, -s * dx + c * dy
+    lam = (xp / rx) ** 2 + (yp / ry) ** 2
+    if lam > 1:
+        rx, ry = rx * math.sqrt(lam), ry * math.sqrt(lam)
+    num = rx * rx * ry * ry - rx * rx * yp * yp - ry * ry * xp * xp
+    coef = 0.0 if lam > 1 else math.sqrt(max(0.0, num / (rx * rx * yp * yp + ry * ry * xp * xp)))
+    if large == sweep:
+        coef = -coef
+    cxp, cyp = coef * rx * yp / ry, -coef * ry * xp / rx
+    cx, cy = c * cxp - s * cyp + (x1 + x2) / 2, s * cxp + c * cyp + (y1 + y2) / 2
+    ux, uy = (xp - cxp) / rx, (yp - cyp) / ry
+    vx, vy = (-xp - cxp) / rx, (-yp - cyp) / ry
+    t1 = math.atan2(uy, ux)
+    dt = math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)
+    if sweep and dt < 0:
+        dt += math.tau
+    elif not sweep and dt > 0:
+        dt -= math.tau
+    return cx, cy, rx, ry, t1, dt
+
+
+for trial in range(600):
+    x1, y1, x2, y2 = (random.uniform(-50, 50) for _ in range(4))
+    rx, ry = random.uniform(0.5, 60) * random.choice([1, -1]), random.uniform(0.5, 60)
+    if trial % 7 == 0:
+        rx, ry = 0.01, 0.02                     # far too small: scaled up
+    phi = random.uniform(-4, 4)
+    large, sweep = trial & 1, (trial >> 1) & 1
+    out = (C.c_double * 24)()
+    n = arcsvg(out, x1, y1, x2, y2, rx, ry, phi, large | sweep << 1)
+    cx, cy, rrx, rry, t1, dt = svg_arc_ref(x1, y1, x2, y2, rx, ry, phi, large, sweep)
+    want_n = max(1, min(4, math.ceil(abs(dt) / (math.pi / 2) - 1e-12)))
+    ck.check('arc_svg count', n == want_n, (trial, n, want_n, dt))
+    if trial % 7 == 0:
+        ck.check('arc_svg scaled radii: a half ellipse', abs(abs(dt) - math.pi) == 0.0, (trial, dt))
+    ck.check('arc_svg ends exactly at p2', out[6 * n - 2] == x2 and out[6 * n - 1] == y2, trial)
+    c, s = math.cos(phi), math.sin(phi)
+    prev, worst = (x1, y1), 0.0
+    for i in range(n):
+        seg = [prev] + [(out[6 * i + 2 * k], out[6 * i + 2 * k + 1]) for k in range(3)]
+        for t in range(1, 32):
+            px, py = bern(seg, t / 32)
+            lx, ly = c * (px - cx) + s * (py - cy), -s * (px - cx) + c * (py - cy)
+            worst = max(worst, abs(math.hypot(lx / rrx, ly / rry) - 1.0))
+        prev = seg[-1]
+    ck.check('arc_svg on the ellipse', worst < 3e-4, (trial, worst))
+    # the direction: the curve's first handle leaves p1 on the sweep's side
+    tx, ty = out[0] - x1, out[1] - y1
+    rad_x, rad_y = x1 - cx, y1 - cy
+    turn = rad_x * ty - rad_y * tx
+    ck.check('arc_svg direction', (turn > 0) == bool(sweep) or abs(turn) < 1e-9, (trial, turn, sweep))
+out = (C.c_double * 24)()
+ck.check('arc_svg equal end points', arcsvg(out, 3, 4, 3, 4, 5, 5, 0, 0) == 0)
+n = arcsvg(out, 1, 2, 7, 5, 0, 5, 0.3, 3)
+ck.check('arc_svg zero radius is a line', n == 1 and list(out[:6]) == [1, 2, 7, 5, 7, 5], list(out[:6]))
+n = arcsvg(out, 1, 2, 7, 5, 4, 0, 0, 0)
+ck.check('arc_svg zero ry is a line', n == 1 and list(out[:6]) == [1, 2, 7, 5, 7, 5], list(out[:6]))
+n = arcsvg(out, 0, 0, 10, 0, 5, 5, 0, 0)      # a half circle, centre (5, 0)
+ck.check('arc_svg half circle', n == 2 and abs(out[4] - 5) < 1e-12 and abs(abs(out[5]) - 5) < 1e-12, list(out[:12]))
+
 ck.finish()
