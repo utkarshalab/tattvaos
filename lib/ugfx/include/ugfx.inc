@@ -359,7 +359,10 @@ extern panic_null_ptr
 %define UgfxSvgDefs_rules       24      ; CSS rules from <style>, in cascade order
 %define UgfxSvgDefs_nrules      32      ; u32
 %define UgfxSvgDefs_rulecap     36      ; u32
-%define UgfxSvgDefs_SIZE        40
+%define UgfxSvgDefs_ids         40      ; (id, id end, tag start) of every element with an id
+%define UgfxSvgDefs_nids        48      ; u32
+%define UgfxSvgDefs_idcap       52      ; u32
+%define UgfxSvgDefs_SIZE        56
 
 ; An element as CSS selectors see it (2d/svg_defs.asm, ugfx_svg_defs_rule)
 %define UgfxSvgSel_name         0       ; element name
