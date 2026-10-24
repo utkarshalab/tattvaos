@@ -30,7 +30,8 @@ OPS = {'move': (0, 2), 'line': (1, 2), 'quad': (2, 4), 'cubic': (3, 6), 'close':
        'rect': (5, 4), 'rrect': (6, 5), 'rrect4': (7, 8), 'ellipse': (8, 4), 'circle': (9, 3),
        'arc': (10, 6), 'pie': (11, 6), 'ring': (12, 6), 'polygon': (13, None),
        'star': (14, 6), 'transform': (15, 6), 'stroke': (16, 4), 'dash': (17, None),
-       'flatten': (18, 0), 'length': (19, 2), 'paint': (20, None), 'paint_transform': (21, 6)}
+       'flatten': (18, 0), 'length': (19, 2), 'paint': (20, None), 'paint_transform': (21, 6),
+       'image': (22, None)}
 SAMPLES = 256        # reference points per curve or full turn
 
 
@@ -49,6 +50,10 @@ def script(w, h, rule, cmds, matrix=None, tol=0.02, color=0xFFFFFFFF, bg=0):
             geom = list(geom) + [0.0] * (6 - len(geom))
             out += struct.pack("<9d", kind, spread, *geom, len(stops))
             out += b"".join(struct.pack("<2d", o, c) for o, c in stops)
+        elif name == 'image':
+            w, h, ex, ey, filt, pixels = args
+            out += struct.pack("<5d", w, h, ex, ey, filt)
+            out += b"".join(struct.pack("<d", p) for p in pixels)
         elif name == 'dash':
             offset, intervals = args
             out += struct.pack(f"<2d{len(intervals)}d", offset, len(intervals), *intervals)
