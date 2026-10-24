@@ -8,7 +8,28 @@
 %include "inc/color.inc"
 %include "inc/shell.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/pixbuf.inc"
 %include "inc/externs.inc"
+
+extern canvas_icon_draw
+
+; the built-in icon for each button type (BTN_CLOSE .. BTN_MENU)
+%define DECOR_ICON_TYPES    4
+
+section .rodata
+decor_icon_close:       db "x"
+decor_icon_maximize:    db "square"
+decor_icon_minimize:    db "minus"
+decor_icon_menu:        db "menu"
+align 8
+decor_icons:
+    dq decor_icon_close, 1
+    dq decor_icon_maximize, 6
+    dq decor_icon_minimize, 5
+    dq decor_icon_menu, 4
+decor_three_quarters:   dq 0.75
+decor_half:             dq 0.5
+decor_one:              dq 1.0
 
 section .text
 
@@ -177,7 +198,10 @@ decoration_draw_frame:
 
 ; ---------------------------------------------------------------------------
 ; decoration_draw_button
-;   Draw a single button
+;   Draw a single button: its background, then its type's icon (x, square,
+;   minus, menu from the built-in pack) at 3/4 of its height, centred, in
+;   the foreground colour.
+;   IN:  rdi = decoration_draw_state*, rsi = button, rdx = framebuffer
 ; ---------------------------------------------------------------------------
 global decoration_draw_button
 decoration_draw_button:
@@ -239,27 +263,55 @@ decoration_draw_button:
     mov rsi,r14
     mov ecx,r8d
     mov r8,r9
+    push r9
+    sub rsp,8
     call fill_solid
-    ; Draw a centered control mark.
-    mov eax,[r12]
-    add eax,4
-    mov ecx,[r12+4]
-    mov edx,[r12+12]
-    shr edx,1
-    add ecx,edx
+    add rsp,8
+    pop r9
+    ; the icon
+    mov eax,[r12 + DecorationButton.type]
+    cmp eax,DECOR_ICON_TYPES
+    jae .no_icon
+    ; the framebuffer as a PixBuf (rows down to the button's bottom at least)
+    sub rsp,PixBuf_SIZE
+    mov ecx,[rbx + DecorationDrawState.width]
+    mov [rsp + PixBuf_width],rcx
+    mov ecx,[rbx + DecorationDrawState.height]
+    mov edx,[r12+4]
+    add edx,[r12+12]
+    cmp ecx,edx
+    cmovb ecx,edx
+    mov [rsp + PixBuf_height],rcx
+    mov [rsp + PixBuf_stride],r9
+    mov qword [rsp + PixBuf_format],0
+    mov [rsp + PixBuf_data],r13
     imul rcx,r9
-    lea rdi,[r13+rcx]
-    lea rdi,[rdi+rax*4]
-    mov rsi,r15
-    mov edx,[r12+8]
-    sub edx,8
-    cmp edx,1
-    jge .mark_width
-    mov edx,1
-.mark_width:
-    mov ecx,2
-    mov r8,r9
-    call fill_solid
+    mov [rsp + PixBuf_size],rcx
+    mov qword [rsp + PixBuf_refcount],1
+    mov qword [rsp + PixBuf_arena],0
+    ; the square: 3/4 of the button's height, centred in the button
+    cvtsi2sd xmm2,dword [r12+12]
+    mulsd xmm2,[rel decor_three_quarters]
+    cvtsi2sd xmm0,dword [r12+8]
+    subsd xmm0,xmm2
+    mulsd xmm0,[rel decor_half]
+    cvtsi2sd xmm3,dword [r12]
+    addsd xmm0,xmm3
+    cvtsi2sd xmm1,dword [r12+12]
+    subsd xmm1,xmm2
+    mulsd xmm1,[rel decor_half]
+    cvtsi2sd xmm3,dword [r12+4]
+    addsd xmm1,xmm3
+    movsd xmm3,[rel decor_one]
+    lea rdx,[rel decor_icons]
+    shl eax,4
+    mov rsi,[rdx + rax]
+    mov edx,[rdx + rax + 8]
+    mov rdi,rsp
+    mov ecx,r15d
+    call canvas_icon_draw
+    add rsp,PixBuf_SIZE
+.no_icon:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
