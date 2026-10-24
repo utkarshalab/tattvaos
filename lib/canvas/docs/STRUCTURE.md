@@ -317,7 +317,8 @@ canvas/
 │   │   ├── fullscreen.asm             # C13
 │   │   ├── rules.asm                  # C13  window rules engine
 │   │   ├── decoration.asm             # C14  negotiation
-│   │   ├── decoration_draw.asm        # C14
+│   │   ├── decoration_draw.asm        # C14  frames; button icons from shell/icons
+│   │   ├── icons.asm                  # C14  built-in UI icon pack (assets/icons/ui.uic) via lib/ugfx
 │   │   └── theme.asm                  # C14
 │   │
 │   ├── policy/                        # window management policy
@@ -412,8 +413,7 @@ canvas/
 │   │   ├── lzw.asm                    # C23
 │   │   ├── gif.asm                    # C23
 │   │   ├── bmp.asm                    # C23
-│   │   ├── svg.asm                    # C23
-│   │   └── svg_path.asm               # C23
+│   │   └── svg.asm                    # C23  SVG through lib/ugfx (2d/svg)
 │   │
 │   ├── font/                          # TrueType rendering
 │   │   ├── ttf.asm                    # C22
@@ -598,7 +598,7 @@ canvas/
 │   │   ├── default.ttf                # C22  default proportional font (choose an open-licence font)
 │   │   └── mono.ttf                   # C22
 │   ├── cursors/                       # C14  default cursor theme PNGs (arrow, hand, text, wait, resize, ...)
-│   ├── icons/                         # C14  decoration button icons
+│   ├── icons/                         # C14  built-in UI icons: ui/*.svg (Lucide, ISC) -> ui.uic, embedded
 │   └── wallpapers/
 │       └── default.png                # C21
 │
