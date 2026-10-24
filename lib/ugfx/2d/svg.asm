@@ -5,6 +5,7 @@
 ; number of times through a context.
 ;
 ;   ugfx_svg_parse(svg, arena, data, size)
+;   ugfx_svg_parse_ex(svg, arena, data, size, image_fn, user)
 ;   ugfx_svg_draw(svg, ctx, current_colour, x, y, size)
 ;
 ; The subset is what icon sets use: svg, g, path, rect (rx / ry), circle,
@@ -67,6 +68,13 @@
 ; (through the viewBox) sit on the vertex; the content is clipped to
 ; markerWidth x markerHeight unless overflow is visible or auto. Markers
 ; draw after the shape, inside its group, even when it has no paint.
+;
+; image: with ugfx_svg_parse_ex's image_fn, a data: URI (base64 or
+; percent-encoded) is decoded and its bytes handed over (kind 0), any
+; other href as it is (kind 1); the PixBuf it returns is placed in x, y,
+; width, height (default: its own size) by preserveAspectRatio, clipped
+; to that box for slice, at the element's opacity (a group, like a
+; container's). Without image_fn images are left out.
 ;
 ; A nested svg and an instanced symbol clip to their viewport (overflow
 ; hidden); the root only with slice, the one mapping that overflows by
@@ -135,6 +143,7 @@ extern ugfx_ctx_fill
 extern ugfx_ctx_stroke
 extern ugfx_ctx_begin_layer
 extern ugfx_ctx_end_layer
+extern ugfx_ctx_draw_image
 
 %define SVG_MAX_DEPTH   64
 
@@ -196,6 +205,7 @@ extern ugfx_ctx_end_layer
 %define E_MASK          16              ; drawn only as a mask's content
 %define E_PATTERN       17              ; drawn only as a pattern's tiles
 %define E_MARKER        18              ; drawn only at a shape's vertices
+%define E_IMAGE         19
 %define SVG_MAX_CLIPS   4               ; clipPaths / masks compiling inside each other
 %define K_CLIP          2               ; compile kinds (and P_INST for their roots)
 %define K_MASK          3
@@ -317,7 +327,9 @@ extern ugfx_ctx_end_layer
 %define P_CROOT         (P_FONT_RAW + 124)              ; u32 this element is a compile's root
 %define P_VERTS         (P_FONT_RAW + 128)              ; a shape's vertices (V_*), for markers
 %define P_NVERTS        (P_FONT_RAW + 136)              ; u32
-%define P_SIZE          (((P_FONT_RAW + 144 + 15) & ~15) + 8)
+%define P_HREF_RAW      (P_FONT_RAW + 144)              ; an href as written, trimmed (0: none)
+%define P_HREF_RAW_END  (P_FONT_RAW + 152)
+%define P_SIZE          (((P_FONT_RAW + 160 + 15) & ~15) + 8)
 
 ; a vertex, for markers
 %define VX_X            0               ; f64
@@ -387,6 +399,7 @@ svg_elements:
     NAME "radialGradient", E_SKIP
     NAME "pattern", E_PATTERN
     NAME "marker", E_MARKER
+    NAME "image", E_IMAGE
     NAME "marker", E_SKIP
     NAME "text", E_TEXT
     NAME "switch", E_SWITCH
@@ -628,6 +641,15 @@ svg_word_trimmed:
 ; -----------------------------------------------------------------------------
 global ugfx_svg_parse
 ugfx_svg_parse:
+    xor r8d, r8d                        ; no images
+    xor r9d, r9d
+
+; -----------------------------------------------------------------------------
+; ugfx_svg_parse_ex — as ugfx_svg_parse, r8 = image_fn (0: none), r9 = its
+;   user pointer (see UgfxSvg_image_fn)
+; -----------------------------------------------------------------------------
+global ugfx_svg_parse_ex
+ugfx_svg_parse_ex:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     sub rsp, P_SIZE
     mov r15, rsp
@@ -640,6 +662,8 @@ ugfx_svg_parse:
     jz .out
     mov [r15 + P_SVG], rdi
     mov [rdi + UgfxSvg_arena], rsi
+    mov [rdi + UgfxSvg_image_fn], r8
+    mov [rdi + UgfxSvg_image_user], r9
     mov qword [rdi + UgfxSvg_items], 0
     mov dword [rdi + UgfxSvg_count], 0
     mov dword [rdi + UgfxSvg_cap], 0
@@ -926,6 +950,7 @@ svg_element:
     mov qword [r15 + P_SEL + UgfxSvgSel_id], 0
     mov qword [r15 + P_SEL + UgfxSvgSel_class], 0
     mov qword [r15 + P_HREF], 0
+    mov qword [r15 + P_HREF_RAW], 0
     mov dword [r15 + P_GRAW], 0
     mov qword [r15 + P_FONT_RAW], 0
     mov qword [r15 + P_SW_RAW], 0
@@ -991,6 +1016,8 @@ svg_element:
     jmp .attr
 .attr_href:
     call ugfx_svg_trim
+    mov [r15 + P_HREF_RAW], rdi
+    mov [r15 + P_HREF_RAW_END], rsi
     cmp rdi, rsi
     jae .attr
     cmp byte [rdi], '#'
@@ -1078,6 +1105,8 @@ svg_element:
     mov eax, [r15 + P_ELEM]
     cmp eax, E_USE
     je .use
+    cmp eax, E_IMAGE
+    je .image
     cmp eax, E_SVG
     je .root
     cmp eax, E_PATH
@@ -1088,6 +1117,9 @@ svg_element:
     jmp .element_out
 .use:
     call svg_use
+    jmp .element_out
+.image:
+    call svg_image
     jmp .element_out
 .root:
     cmp dword [r15 + P_ROOT], 0
@@ -2530,7 +2562,10 @@ svg_group_bbox:
     imul rax, r14, UgfxSvgItem_SIZE
     add rax, rbx
     cmp dword [rax + UgfxSvgItem_kind], UGFX_SVG_SHAPE
+    je .bounded_kind
+    cmp dword [rax + UgfxSvgItem_kind], UGFX_SVG_IMAGE
     jne .next
+.bounded_kind:
     push rax
     sub rsp, 8
     lea rdi, [rax + UgfxSvgItem_path]
@@ -3916,6 +3951,333 @@ svg_marker_attrs:
     add rsp, MA_SIZE
     pop r14
     pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_image — r15 = frame, rbx = state: an image item from the href through
+;   UgfxSvg_image_fn, placed by preserveAspectRatio
+; -----------------------------------------------------------------------------
+%define IM_VB       0                   ; f64[4] (0, 0, image w, h)
+%define IM_M        32                  ; f64[6] the fit
+%define IM_BOX      80                  ; f64 x, y, w, h
+%define IM_PIX      112
+%define IM_SIZE     120
+
+svg_image:
+    push r12
+    push r13
+    push r14
+    sub rsp, IM_SIZE
+    cmp dword [rbx + S_HIDDEN], 0
+    jne .out
+    mov r14, [r15 + P_SVG]
+    cmp qword [r14 + UgfxSvg_image_fn], 0
+    je .out
+    mov rdi, [r15 + P_HREF_RAW]
+    test rdi, rdi
+    jz .out
+    mov rsi, [r15 + P_HREF_RAW_END]
+    ; a data: URI's bytes, else the reference
+    mov r12, rdi
+    mov r13, rsi
+    call svg_data_uri
+    mov ecx, 0
+    test rax, rax
+    jnz .call
+    mov rax, r12
+    mov rdx, r13
+    sub rdx, r12
+    mov ecx, 1
+.call:
+    mov rdi, [r14 + UgfxSvg_image_user]
+    mov rsi, rax
+    mov r8, [r14 + UgfxSvg_arena]
+    call [r14 + UgfxSvg_image_fn]
+    test rax, rax
+    jle .out
+    mov [rsp + IM_PIX], rax
+    ; the box: x, y, width / height (default: the image's own)
+    xorpd xmm0, xmm0
+    movsd [rsp + IM_VB], xmm0
+    movsd [rsp + IM_VB + 8], xmm0
+    cvtsi2sd xmm0, qword [rax + PixBuf_width]
+    movsd [rsp + IM_VB + 16], xmm0
+    cvtsi2sd xmm1, qword [rax + PixBuf_height]
+    movsd [rsp + IM_VB + 24], xmm1
+    xorpd xmm2, xmm2
+    ucomisd xmm0, xmm2
+    jbe .out
+    ucomisd xmm1, xmm2
+    jbe .out
+    movsd xmm2, [r15 + P_G + G_X * 8]
+    movsd [rsp + IM_BOX], xmm2
+    movsd xmm2, [r15 + P_G + G_Y * 8]
+    movsd [rsp + IM_BOX + 8], xmm2
+    test dword [r15 + P_HAVE], 1 << G_W
+    jz .width
+    movsd xmm0, [r15 + P_G + G_W * 8]
+.width:
+    test dword [r15 + P_HAVE], 1 << G_H
+    jz .height
+    movsd xmm1, [r15 + P_G + G_H * 8]
+.height:
+    movsd [rsp + IM_BOX + 16], xmm0
+    movsd [rsp + IM_BOX + 24], xmm1
+    xorpd xmm2, xmm2
+    ucomisd xmm0, xmm2
+    jbe .out
+    ucomisd xmm1, xmm2
+    jbe .out
+    lea rdi, [rsp + IM_M]
+    lea rsi, [rsp + IM_VB]
+    mov edx, [r15 + P_PAR]
+    call svg_fit
+    ; the item
+    mov ecx, 1
+    call svg_item_room
+    test rax, rax
+    jz .nomem
+    mov r12, rax
+    mov dword [r12 + UgfxSvgItem_kind], UGFX_SVG_IMAGE
+    xor ecx, ecx
+.m:
+    mov rax, [rbx + S_M + rcx * 8]
+    mov [r12 + UgfxSvgItem_matrix + rcx * 8], rax
+    inc ecx
+    cmp ecx, 6
+    jb .m
+    mov rax, [rsp + IM_PIX]
+    mov [r12 + UgfxSvgItem_fill_paint], rax
+    ; drawn at x + tx, y + ty, w sx, h sy
+    movsd xmm0, [rsp + IM_BOX]
+    addsd xmm0, [rsp + IM_M + 32]
+    movsd [r12 + UgfxSvgItem_bbox], xmm0
+    movsd xmm0, [rsp + IM_BOX + 8]
+    addsd xmm0, [rsp + IM_M + 40]
+    movsd [r12 + UgfxSvgItem_bbox + 8], xmm0
+    movsd xmm0, [rsp + IM_VB + 16]
+    mulsd xmm0, [rsp + IM_M]
+    movsd [r12 + UgfxSvgItem_bbox + 16], xmm0
+    movsd xmm0, [rsp + IM_VB + 24]
+    mulsd xmm0, [rsp + IM_M + 24]
+    movsd [r12 + UgfxSvgItem_bbox + 24], xmm0
+    ; slice: clipped to the box
+    mov eax, [r15 + P_PAR]
+    xor ecx, ecx
+    test eax, 0x100
+    jz .clip_flag
+    test al, al
+    setnz cl
+.clip_flag:
+    mov [r12 + UgfxSvgItem_order], ecx
+    mov edi, 0xFF000000
+    movsd xmm0, [rel svg_one]
+    call svg_bake_alpha
+    mov [r12 + UgfxSvgItem_fill], eax
+    lea rdi, [r12 + UgfxSvgItem_path]
+    mov rsi, [r14 + UgfxSvg_arena]
+    call ugfx_path_init
+    test rax, rax
+    jnz .nomem
+    lea rdi, [r12 + UgfxSvgItem_path]
+    movsd xmm0, [rsp + IM_BOX]
+    movsd xmm1, [rsp + IM_BOX + 8]
+    movsd xmm2, [rsp + IM_BOX + 16]
+    movsd xmm3, [rsp + IM_BOX + 24]
+    call ugfx_path_add_rect
+    test rax, rax
+    jnz .nomem
+    inc dword [r14 + UgfxSvg_count]
+    jmp .out
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.out:
+    add rsp, IM_SIZE
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_data_uri — rdi / rsi = an href, r15 = frame -> rax = the bytes of a
+;   data: URI (decoded: base64 with ;base64, else percent-encoding), rdx =
+;   their length; rax = 0 when it is not one (or out of memory)
+; -----------------------------------------------------------------------------
+svg_data_uri:
+    push r12
+    push r13
+    push r14
+    xor eax, eax
+    mov rcx, rsi
+    sub rcx, rdi
+    cmp rcx, 5
+    jb .out
+    mov ecx, [rdi]
+    or ecx, 0x20202020
+    cmp ecx, 'data'
+    jne .out
+    cmp byte [rdi + 4], ':'
+    jne .out
+    ; the payload after ','; ";base64" just before it
+    mov r12, rdi
+.comma:
+    cmp r12, rsi
+    jae .none
+    cmp byte [r12], ','
+    je .have_comma
+    inc r12
+    jmp .comma
+.have_comma:
+    xor r14d, r14d                      ; base64?
+    lea rax, [r12 - 7]
+    cmp rax, rdi
+    jb .payload
+    mov ecx, [rax]
+    or ecx, 0x20202020
+    cmp ecx, ';bas'
+    jne .payload
+    mov ecx, [rax + 3]
+    or ecx, 0x20202020
+    cmp ecx, 'se64'
+    jne .payload
+    mov r14d, 1
+.payload:
+    inc r12
+    mov r13, rsi
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    mov rsi, r13
+    sub rsi, r12
+    inc rsi
+    call arena_alloc
+    test rax, rax
+    jz .none
+    mov rdi, rax                        ; out
+    mov rdx, rax                        ; start
+    test r14d, r14d
+    jnz .base64
+.percent:
+    cmp r12, r13
+    jae .done
+    movzx ecx, byte [r12]
+    inc r12
+    cmp cl, '%'
+    jne .byte
+    lea r8, [r12 + 2]
+    cmp r8, r13
+    ja .byte
+    movzx eax, byte [r12]
+    call .hex
+    js .byte
+    mov r9d, eax
+    movzx eax, byte [r12 + 1]
+    call .hex
+    js .byte
+    shl r9d, 4
+    or eax, r9d
+    mov ecx, eax
+    add r12, 2
+.byte:
+    mov [rdi], cl
+    inc rdi
+    jmp .percent
+.base64:
+    xor r8d, r8d                        ; bits
+    xor r9d, r9d                        ; bit count
+.b64:
+    cmp r12, r13
+    jae .done
+    movzx eax, byte [r12]
+    inc r12
+    cmp al, '='
+    je .done
+    cmp al, ' '
+    jbe .b64                            ; whitespace
+    call .b64_value
+    js .done                            ; not base64: stop
+    shl r8d, 6
+    or r8d, eax
+    add r9d, 6
+    cmp r9d, 8
+    jb .b64
+    sub r9d, 8
+    mov eax, r8d
+    mov ecx, r9d
+    shr eax, cl
+    mov [rdi], al
+    inc rdi
+    mov eax, 1
+    shl eax, cl
+    dec eax
+    and r8d, eax                        ; keep the bits not yet used
+    jmp .b64
+.done:
+    mov rax, rdx
+    mov rdx, rdi
+    sub rdx, rax
+    jmp .out
+.none:
+    xor eax, eax
+.out:
+    pop r14
+    pop r13
+    pop r12
+    ret
+; al = a hex digit -> eax = its value, SF set when it is not one
+.hex:
+    sub eax, '0'
+    cmp eax, 9
+    jbe .hex_ok
+    or eax, 0x20
+    sub eax, 'a' - '0' - 10
+    cmp eax, 10
+    jb .hex_bad
+    cmp eax, 15
+    jbe .hex_ok
+.hex_bad:
+    mov eax, -1
+    test eax, eax
+    ret
+.hex_ok:
+    test eax, eax
+    ret
+; al = a base64 character -> eax = its value, SF set when it is not one
+.b64_value:
+    cmp al, 'A'
+    jb .b64_digit
+    cmp al, 'Z'
+    ja .b64_lower
+    sub eax, 'A'
+    ret
+.b64_lower:
+    cmp al, 'a'
+    jb .b64_bad
+    cmp al, 'z'
+    ja .b64_bad
+    sub eax, 'a' - 26
+    ret
+.b64_digit:
+    cmp al, '0'
+    jb .b64_sign
+    cmp al, '9'
+    ja .b64_bad
+    sub eax, '0' - 52
+    ret
+.b64_sign:
+    cmp al, '+'
+    jne .b64_slash
+    mov eax, 62
+    test eax, eax
+    ret
+.b64_slash:
+    cmp al, '/'
+    jne .b64_bad
+    mov eax, 63
+    test eax, eax
+    ret
+.b64_bad:
+    mov eax, -1
+    test eax, eax
     ret
 
 ; rsi = a BEGIN item, rdi = where its END goes: kind END, everything else
@@ -5524,6 +5886,9 @@ svg_draw_list:
     je .marker
     mov eax, [r13 + UgfxContext_state + UgfxState_alpha]
     mov [rsp + L_ALPHA], eax            ; paints' alpha is relative to this
+    cmp dword [r12 + UgfxSvgItem_kind], UGFX_SVG_IMAGE
+    je .image
+    mov [rsp + L_ALPHA], eax            ; paints' alpha is relative to this
     mov rdi, r13
     call ugfx_ctx_save
     test rax, rax
@@ -5869,6 +6234,35 @@ svg_draw_list:
     pop rax
     jmp .fail
 
+.image:
+    ; the PixBuf in its box, clipped to the viewport for slice
+    mov rdi, r13
+    call ugfx_ctx_save
+    test rax, rax
+    jnz .fail
+    mov rdi, r13
+    lea rsi, [r12 + UgfxSvgItem_matrix]
+    call ugfx_ctx_transform
+    cmp dword [r12 + UgfxSvgItem_order], 0
+    je .image_draw
+    mov rdi, r13
+    lea rsi, [r12 + UgfxSvgItem_path]
+    call ugfx_ctx_clip
+    test rax, rax
+    jnz .item_fail
+.image_draw:
+    mov edi, [r12 + UgfxSvgItem_fill]
+    call .paint_alpha
+    mov rdi, r13
+    mov rsi, [r12 + UgfxSvgItem_fill_paint]
+    movsd xmm0, [r12 + UgfxSvgItem_bbox]
+    movsd xmm1, [r12 + UgfxSvgItem_bbox + 8]
+    movsd xmm2, [r12 + UgfxSvgItem_bbox + 16]
+    movsd xmm3, [r12 + UgfxSvgItem_bbox + 24]
+    call ugfx_ctx_draw_image
+    test rax, rax
+    jnz .item_fail
+    jmp .item_done
 .marker:
     ; the marker's content at its matrix, clipped to its viewport
     mov r15, [r12 + UgfxSvgItem_marker]
