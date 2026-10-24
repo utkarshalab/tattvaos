@@ -58,21 +58,25 @@ def expected_calls(doc, current, x, y, size):
 
     for it in doc.items:
         out += [('save',), ('transform', *it.matrix)]
+        fill, stroke = [], []
         if it.fill:
             if it.fill[0] == 'paint':
                 _, kind, spread, geom, stops, m, a = it.fill
-                out += [('fill_gradient', kind, spread, geom, stops, m), ('alpha', a)]
+                fill += [('fill_gradient', kind, spread, geom, stops, m), ('alpha', a)]
             else:
-                out.append(('fill_color', paint(it.fill)))
-            out += [('rule', it.rule), ('new_path',)] + it.path + [('fill',)]
+                fill += [('alpha', 255), ('fill_color', paint(it.fill))]
+            fill += [('rule', it.rule), ('new_path',)] + it.path + [('fill',)]
         if it.stroke:
             if it.stroke[0] == 'paint':
                 _, kind, spread, geom, stops, m, a = it.stroke
-                out += [('stroke_gradient', kind, spread, geom, stops, m), ('alpha', a)]
+                stroke += [('stroke_gradient', kind, spread, geom, stops, m), ('alpha', a)]
             else:
-                out += [('alpha', 255), ('stroke_color', paint(it.stroke))]
-            out += [('stroke_style', it.width, it.miter, it.join, it.cap), ('new_path',)] + it.path + [('stroke',)]
-        out.append(('restore',))
+                stroke += [('alpha', 255), ('stroke_color', paint(it.stroke))]
+            stroke += [('stroke_style', it.width, it.miter, it.join, it.cap)]
+            if it.dash:
+                stroke.append(('dash', it.dash_off, it.dash))
+            stroke += [('new_path',)] + it.path + [('stroke',)]
+        out += (stroke + fill if it.order else fill + stroke) + [('restore',)]
     return out + [('restore',)]
 
 
@@ -254,6 +258,32 @@ CASES = [
     ("root units", svg('<rect width="12" height="12" fill="#246"/><rect x="12" y="12" width="12" height="12" fill="#642"/>',
                        'width="2em" height="1.5em"'), False),
     ("root percent", svg('<rect width="50%" height="50%" fill="#246"/>', 'width="100%" height="50%"'), False),
+    ("inherit", svg('<g fill="#c00" stroke="#00c" stroke-width="2" opacity=".5"><g fill="#0c0" stroke-width="4">'
+                    '<rect x="2" y="2" width="8" height="8" fill="inherit" style="stroke-width:inherit"/>'
+                    '<rect x="14" y="2" width="8" height="8" style="fill:inherit" opacity="inherit"/>'
+                    '<circle cx="6" cy="17" r="4" stroke="inherit" stroke-linecap="inherit" fill="#ff0"/></g>'
+                    '<g style="fill:#0cc"><rect x="13" y="13" width="8" height="8" fill="red" style="fill: inherit !important"/>'
+                    '</g></g>'), False),
+    ("color property", svg('<g color="#d40"><rect x="1" y="1" width="10" height="10" fill="currentColor"/>'
+                           '<g style="color:hsl(120,100%,30%)"><circle cx="17" cy="6" r="4" fill="none" '
+                           'stroke="currentColor" stroke-width="2"/></g><rect x="1" y="13" width="10" height="10" '
+                           'color="rgba(0,0,255,.5)" fill="currentColor"/><g color="currentColor">'
+                           '<rect x="13" y="13" width="10" height="10" fill="currentColor"/></g></g>'), False),
+    ("visibility", svg('<g visibility="hidden"><rect width="10" height="10" fill="#f00"/>'
+                       '<rect x="12" width="10" height="10" visibility="visible" fill="#0a0"/>'
+                       '<g style="visibility:collapse"><circle cx="5" cy="18" r="4"/></g></g>'
+                       '<rect x="12" y="12" width="10" height="10" fill="#00f" visibility="bogus"/>'), False),
+    ("paint order", svg('<g stroke="#000" stroke-width="4" fill="#fc0"><rect x="3" y="3" width="8" height="8" '
+                        'paint-order="stroke"/><rect x="14" y="3" width="8" height="8" paint-order="markers stroke fill"/>'
+                        '<rect x="3" y="14" width="8" height="8" style="paint-order:fill stroke"/>'
+                        '<rect x="14" y="14" width="8" height="8" paint-order="stroke bogus"/></g>'), False),
+    ("dashes", svg('<g fill="none" stroke="#039" stroke-width="2"><path d="M2 3H22" stroke-dasharray="4 2"/>'
+                   '<path d="M2 7H22" stroke-dasharray="3" stroke-dashoffset="1.5"/>'
+                   '<path d="M2 11H22" stroke-dasharray="1,2,3"/><circle cx="8" cy="18" r="4" '
+                   'stroke-dasharray="25%" stroke-linecap="round"/><path d="M14 15H22" stroke-dasharray="0 0"/>'
+                   '<path d="M14 18H22" stroke-dasharray="2 -1"/><path d="M14 21H22" stroke-dasharray=".5em 1x" '
+                   'font-size="4"/><g stroke-dasharray="2 1"><path d="M2 23H12" stroke-dasharray="none"/>'
+                   '<path d="M14 23.5H22" stroke-dashoffset="-1"/></g></g>'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
