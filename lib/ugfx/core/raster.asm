@@ -73,6 +73,7 @@ ugfx_raster_init:
     mov [rbx + UgfxRaster_cells], rax
     mov dword [rbx + UgfxRaster_cap], RASTER_INITIAL_CELLS
     mov qword [rbx + UgfxRaster_clip], 0
+    mov dword [rbx + UgfxRaster_alpha], 255
     mov rdi, rbx
     call ugfx_raster_reset
     xor eax, eax
@@ -938,12 +939,30 @@ rs_span_clipped:
     add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
+; -----------------------------------------------------------------------------
+; ugfx_raster_set_alpha — rdi = UgfxRaster*, esi = alpha 0..255 (global
+;   opacity: every fill's coverage is multiplied by it) -> rax = 0, -EINVAL
+; -----------------------------------------------------------------------------
+global ugfx_raster_set_alpha
+ugfx_raster_set_alpha:
+    test rdi, rdi
+    jz .alpha_bad
+    cmp esi, 255
+    ja .alpha_bad
+    mov [rdi + UgfxRaster_alpha], esi
+    xor eax, eax
+    ret
+.alpha_bad:
+    mov rax, -(EINVAL)
+    ret
+
 ; eax = cover << 9 minus area -> eax = coverage 0..255 for the rule at
 ; [rsp + 8 + F_RULE] (called from ugfx_raster_fill's frame).
 rs_alpha:
     mov ecx, [rsp + 8 + F_RULE]
     jmp rs_alpha_rule
-; Same, called with one extra qword pushed on the fill frame.
+; Same, called with one extra qword pushed on the fill frame. Both apply the
+; raster's alpha into account (rbx = raster).
 rs_alpha_frame8:
     mov ecx, [rsp + 16 + F_RULE]
 rs_alpha_rule:
@@ -960,8 +979,18 @@ rs_alpha_rule:
     add eax, 512
 .alpha_clamp:
     cmp eax, 255
-    jbe .alpha_done
+    jbe .alpha_global
     mov eax, 255
+.alpha_global:
+    mov ecx, [rbx + UgfxRaster_alpha]
+    cmp ecx, 255
+    je .alpha_done
+    imul eax, ecx                       ; round(coverage * alpha / 255)
+    add eax, 128
+    mov edx, eax
+    shr edx, 8
+    add eax, edx
+    shr eax, 8
 .alpha_done:
     ret
 
