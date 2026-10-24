@@ -328,7 +328,7 @@ extern panic_null_ptr
 
 %define UgfxSvgItem_matrix      0       ; f64[6] element -> viewBox space
 %define UgfxSvgItem_path        48      ; UgfxPath
-%define UgfxSvgItem_fill_kind   104     ; u32 0 none, 1 colour, 2 currentColor, 3 paint
+%define UgfxSvgItem_fill_kind   104     ; u32 0 none, 1 colour, 2 currentColor, 3 paint, 4 pattern
 %define UgfxSvgItem_fill        108     ; u32 straight BGRA (alpha with opacities; paints: alpha only)
 %define UgfxSvgItem_stroke_kind 112
 %define UgfxSvgItem_stroke      116
@@ -337,7 +337,7 @@ extern panic_null_ptr
 %define UgfxSvgItem_cap         128
 %define UgfxSvgItem_width       136     ; f64 stroke width
 %define UgfxSvgItem_miter       144
-%define UgfxSvgItem_fill_paint  152     ; UgfxPaint* (kind 3)
+%define UgfxSvgItem_fill_paint  152     ; UgfxPaint* (kind 3), UgfxSvgPattern* (kind 4)
 %define UgfxSvgItem_fill_pm     160     ; f64[6] paint -> element space
 %define UgfxSvgItem_stroke_paint 208
 %define UgfxSvgItem_stroke_pm   216
@@ -348,7 +348,8 @@ extern panic_null_ptr
 %define UgfxSvgItem_kind        296     ; u32 UGFX_SVG_*
 %define UgfxSvgItem_alpha       300     ; u32 group opacity 0..255 (UGFX_SVG_BEGIN / END)
 %define UgfxSvgItem_clip        304     ; const UgfxSvgClip* (BEGIN / END), 0 = none
-%define UgfxSvgItem_bbox        312     ; f64 x0, y0, x1, y1: BEGIN's content in its space
+%define UgfxSvgItem_bbox        312     ; f64 x0, y0, x1, y1: BEGIN's content in its space,
+                                        ; a shape's own bounds when a paint is a pattern
 %define UgfxSvgItem_mask        344     ; const UgfxSvgMask* (BEGIN / END), 0 = none
 %define UgfxSvgItem_SIZE        352
 ; a clipPath's content, compiled for one element (items are shapes; next:
@@ -368,6 +369,19 @@ extern panic_null_ptr
 %define UgfxSvgMask_region      24      ; f64 x, y, w, h in those units
 %define UgfxSvgMask_path        56      ; UgfxPath: the unit square
 %define UgfxSvgMask_SIZE        112
+; a pattern's tile and content, compiled for one element (href followed)
+%define UgfxSvgPattern_items    0       ; UgfxSvgItem[]
+%define UgfxSvgPattern_count    8       ; u32
+%define UgfxSvgPattern_units    12      ; u32 patternUnits: 1 = objectBoundingBox (the default)
+%define UgfxSvgPattern_content  16      ; u32 patternContentUnits: 1 = objectBoundingBox
+%define UgfxSvgPattern_has_vb   20      ; u32 a viewBox was given
+%define UgfxSvgPattern_rect     24      ; f64 x, y, w, h of the tile, in those units
+%define UgfxSvgPattern_matrix   56      ; f64[6] patternTransform
+%define UgfxSvgPattern_viewbox  104     ; f64[4]
+%define UgfxSvgPattern_par      136     ; u32 preserveAspectRatio
+%define UgfxSvgPattern_given    140     ; u32 attributes given (href inherits the rest)
+%define UgfxSvgPattern_path     144     ; UgfxPath: the unit square
+%define UgfxSvgPattern_SIZE     200
 ; item kinds: a shape, or the start / end of a group drawn as one layer
 %define UGFX_SVG_SHAPE          0
 %define UGFX_SVG_BEGIN          1
