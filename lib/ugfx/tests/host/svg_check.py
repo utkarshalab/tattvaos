@@ -39,16 +39,7 @@ def premul(c):
 
 
 def expected_calls(doc, current, x, y, size):
-    vb = doc.viewbox
-    if vb is None:
-        w = doc.width if doc.width and doc.width > 0 else 300.0
-        h = doc.height if doc.height and doc.height > 0 else 150.0
-        vb = [0.0, 0.0, w, h]
-    vx, vy, w, h = vb
-    s = size / max(w, h)
-    dx = x + (size - w * s) * 0.5
-    dy = y + (size - h * s) * 0.5
-    out = [('save',), ('translate', dx, dy), ('scale', s, s), ('translate', 0.0 - vx, 0.0 - vy), ('dash', 0, [])]
+    out = [('save',), ('transform', *svgmodel.root_matrix(doc, x, y, size)), ('dash', 0, [])]
 
     def paint(p):
         kind, c = p
@@ -284,6 +275,40 @@ CASES = [
                    '<path d="M14 18H22" stroke-dasharray="2 -1"/><path d="M14 21H22" stroke-dasharray=".5em 1x" '
                    'font-size="4"/><g stroke-dasharray="2 1"><path d="M2 23H12" stroke-dasharray="none"/>'
                    '<path d="M14 23.5H22" stroke-dashoffset="-1"/></g></g>'), False),
+    ("switch", svg('<switch><rect width="10" height="10" fill="#f00" requiredExtensions="http://x"/>'
+                   '<desc>skipped</desc><rect width="10" height="10" fill="#0a0" systemLanguage="fr, en-GB"/>'
+                   '<rect width="10" height="10" fill="#00f"/></switch>'
+                   '<switch><foreignObject width="10" height="10" requiredExtensions="http://www.w3.org/1999/xhtml"/>'
+                   '<text>fallback</text><rect x="12" width="10" height="10" fill="#f0f"/></switch>'
+                   '<switch><g systemLanguage="de"><circle cx="5" cy="17" r="4" fill="#f00"/></g>'
+                   '<g systemLanguage=" EN "><circle cx="5" cy="17" r="4" fill="#0aa"/></g></switch>'
+                   '<rect x="12" y="12" width="10" height="10" fill="#880" systemLanguage="en-US"/>'
+                   '<rect x="12" y="12" width="5" height="5" fill="#f00" systemLanguage="eng"/>'
+                   '<rect x="17" y="17" width="5" height="5" fill="#f00" requiredExtensions=""/>'), False),
+    ("aspect ratio", svg('<defs><symbol id="w" viewBox="0 0 20 10"><rect width="20" height="10" fill="#38c"/>'
+                         '<circle cx="10" cy="5" r="5" fill="#fd0"/></symbol></defs>'
+                         '<use href="#w" width="10" height="10"/>'
+                         '<use href="#w" x="12" width="10" height="10" preserveAspectRatio="none"/>'
+                         '<use href="#w" y="12" width="10" height="10" preserveAspectRatio="xMinYMax"/>'
+                         '<use href="#w" x="12" y="12" width="10" height="10" preserveAspectRatio="defer xMaxYMin meet"/>'
+                         '<use href="#w" x="14" y="14" width="2" height="4" preserveAspectRatio="xMidYMid slice"/>'
+                         '<use href="#w" x="2" y="20" width="3" height="3" preserveAspectRatio="xMinYMin bogus"/>'), False),
+    ("nested svg", svg('<svg x="2" y="2" width="10" height="10" viewBox="0 0 100 100"><rect width="100" height="100" '
+                       'fill="#e44"/><rect x="25%" y="25%" width="50%" height="50%" fill="#fff"/></svg>'
+                       '<svg x="12" y="2" width="10" height="5" viewBox="0 0 10 10" preserveAspectRatio="xMaxYMid">'
+                       '<circle cx="5" cy="5" r="5" fill="#4a4"/></svg><svg y="12" width="50%" height="50%">'
+                       '<rect width="50%" height="50%" fill="#44e"/><svg x="12" width="0" height="5"><rect width="9" '
+                       'height="9"/></svg></svg><svg x="14" y="14" width="8" height="8" viewBox="0 0 4 2" '
+                       'preserveAspectRatio="none"><rect width="2" height="2" fill="#a0a"/><rect x="2" width="2" '
+                       'height="2" fill="#0aa"/></svg>'), False),
+    ("root aspect", svg('<rect width="24" height="24" fill="#357"/><circle cx="12" cy="12" r="10" fill="#fa3"/>',
+                        'viewBox="0 0 24 24" width="48" height="24"'), False),
+    ("root par none", svg('<rect width="24" height="12" fill="#357"/><circle cx="12" cy="12" r="10" fill="#fa3"/>',
+                          'viewBox="0 0 24 24" width="40" height="20" preserveAspectRatio="none"'), False),
+    ("root par align", svg('<rect width="24" height="12" fill="#753"/><circle cx="12" cy="12" r="10" fill="#3af"/>',
+                           'viewBox="0 0 24 12" preserveAspectRatio="xMinYMax meet"'), False),
+    ("root par slice", svg('<rect width="24" height="12" fill="#753"/><circle cx="12" cy="6" r="6" fill="#3af"/>',
+                           'viewBox="0 0 24 12" width="10" height="20" preserveAspectRatio="xMaxYMin slice"'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
