@@ -1,7 +1,7 @@
 # tests — umath Test Harness
 
 **Module:** `tests/`
-**Status:** Implemented — covers bits/, cpuid/, dtype/, geom/, math_fn/, memory/, random/, reduce/, scalar/, stability/.
+**Status:** Implemented — covers bits/, cpuid/, dtype/, geom/, integer/, math_fn/, memory/, random/, reduce/, scalar/, stability/.
 **Part of:** umath — unified math library
 
 ---
@@ -42,6 +42,9 @@ compiler. Exit status 0 means everything passed.
     10^0..10^22, cbrt of perfect cubes;
   - array/inplace bit for bit against the scalar.
   `UMATH_VERBOSE=1` prints the measured worst case per function.
+- `test_integer.py`: the integer module against Python's exact integers:
+  random and boundary values, every n below 100 000 for primality, plus
+  Carmichael numbers, strong pseudoprimes and the largest 64-bit prime.
 - `test_ieee.py`: the IEEE 754 helpers (fmod, remainder, remquo,
   frexp, ilogb, logb, modf, nextafter/nextup/nextdown, fdim,
   scalbn_f32/ldexp_f32, fma), each bit for bit against an exact
