@@ -351,7 +351,8 @@ extern panic_null_ptr
 %define UgfxSvgItem_bbox        312     ; f64 x0, y0, x1, y1: BEGIN's content in its space,
                                         ; a shape's own bounds when a paint is a pattern
 %define UgfxSvgItem_mask        344     ; const UgfxSvgMask* (BEGIN / END), 0 = none
-%define UgfxSvgItem_SIZE        352
+%define UgfxSvgItem_marker      352     ; const UgfxSvgMarker* (UGFX_SVG_MARKER)
+%define UgfxSvgItem_SIZE        360
 ; a clipPath's content, compiled for one element (items are shapes; next:
 ; the clipPath's own clip-path, intersected)
 %define UgfxSvgClip_items       0       ; UgfxSvgItem[]
@@ -382,10 +383,24 @@ extern panic_null_ptr
 %define UgfxSvgPattern_given    140     ; u32 attributes given (href inherits the rest)
 %define UgfxSvgPattern_path     144     ; UgfxPath: the unit square
 %define UgfxSvgPattern_SIZE     200
+; a marker's content, compiled for one shape
+%define UgfxSvgMarker_items     0       ; UgfxSvgItem[]
+%define UgfxSvgMarker_count     8       ; u32
+%define UgfxSvgMarker_units     12      ; u32 markerUnits: 1 = userSpaceOnUse, 0 = strokeWidth
+%define UgfxSvgMarker_orient    16      ; u32 0 an angle, 1 auto, 2 auto-start-reverse
+%define UgfxSvgMarker_clip      20      ; u32 overflow hidden (the default)
+%define UgfxSvgMarker_angle     24      ; f64 radians (orient as an angle)
+%define UgfxSvgMarker_ref       32      ; f64 x, y: refX / refY through the viewBox
+%define UgfxSvgMarker_size      48      ; f64 markerWidth, markerHeight
+%define UgfxSvgMarker_vbm       64      ; f64[6] viewBox -> marker viewport (identity without)
+%define UgfxSvgMarker_has_vb    112     ; u32
+%define UgfxSvgMarker_path      120     ; UgfxPath: the unit square
+%define UgfxSvgMarker_SIZE      176
 ; item kinds: a shape, or the start / end of a group drawn as one layer
 %define UGFX_SVG_SHAPE          0
 %define UGFX_SVG_BEGIN          1
 %define UGFX_SVG_END            2
+%define UGFX_SVG_MARKER         3       ; a marker's content at matrix (marker space -> doc)
 
 ; SVG reading state (2d/svg_xml.asm)
 %define UgfxSvgXml_cur          0       ; next byte to read
