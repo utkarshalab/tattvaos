@@ -225,6 +225,21 @@ def farbfeld(data, kind):
     return w, h, img
 
 
+def test_font(font, cp, s, outline):
+    """host_font."""
+    if cp == 32:
+        return 0.3 * s, []
+    adv = ((cp % 7) * 0.08 + 0.4) * s
+    if font[1] >= 600:
+        adv = adv * 1.25
+    path = []
+    if outline:
+        path.append(('rect', s * 0.05, s * -0.7, adv - s * 0.1, s * 0.7))
+        if cp % 2:
+            path.append(('rect', s * 0.05, s * -0.9, s * 0.15, s * 0.15))
+    return adv, path
+
+
 def ff_bytes(w, h, px):
     return b"farbfeld" + w.to_bytes(4, "big") + h.to_bytes(4, "big") + b"".join(
         bytes([r, r, g, g, b, b, a, a]) for r, g, b, a in px)
@@ -619,6 +634,25 @@ CASES = [
                           f'transform="rotate(8 12 8)"/><image y="16" width="8" height="8" href="photo.png"/>'
                           f'<image x="8" y="16" width="8" height="8" href="data:image/x-farbfeld;base64,AAAA"/>'
                           f'<image x="16" y="16" width="0" height="8" href="{IMG}"/>'), True),
+    ("text basic", svg('<text x="1" y="7" font-size="5" fill="#036">Hi there</text>'
+                       '<text x="12" y="14" font-size="4" text-anchor="middle" fill="#a30" stroke="#000" '
+                       'stroke-width=".3">centre<tspan fill="#0a0" dy="2">down</tspan> back</text>'
+                       '<text x="23" y="21" font-size="4" text-anchor="end" style="font-weight:bold" '
+                       'letter-spacing="0.5" word-spacing="2">end it</text>'), False),
+    ("text lists", svg('<text x="2 6 10" y="8" dx="0 1" dy="0 0 2" font-size="4">abcdef</text>'
+                       '<text x="2" y="18" rotate="0 20 -20 45" font-size="5" fill="#609">wxyz</text>'
+                       '<text x="14" y="18" font-size="3"><tspan x="14 16 18">pq</tspan><tspan y="23">rs</tspan></text>'),
+     True),
+    ("text spaces", svg('<text x="1" y="6" font-size="4">  a &amp; b\n   c  </text>'
+                        '<text x="1" y="12" font-size="4" xml:space="preserve"> a  b</text>'
+                        '<text x="1" y="18" font-size="4"><![CDATA[x<y]]>&#x41;&#66;&lt;\u00e9</text>'
+                        '<text x="1" y="23" font-size="4">u<!-- c -->v<tspan> w </tspan> z</text>'), False),
+    ("text styled", svg('<g opacity=".6"><text x="2" y="8" font-size="6" fill="url(#g)" font-weight="bolder" '
+                        'clip-path="url(#c)">GRAD</text></g><linearGradient id="g"><stop offset="0" stop-color="#f00"/>'
+                        '<stop offset="1" stop-color="#00f"/></linearGradient><clipPath id="c"><rect width="24" '
+                        'height="6"/></clipPath><text x="2" y="18" font-size="5" fill="none" stroke="#080" '
+                        'stroke-dasharray="1 .5">open<tspan opacity=".5" fill="#c0c" font-size="3">half</tspan></text>'
+                        '<tspan x="2" y="22">alone</tspan>'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
@@ -649,7 +683,7 @@ def main():
             for current, (x, y, size) in ((0xFF2050C0, (8, 0, 32)), (0x80E0E020, (2, 3, 27.5))):
                 total += 1
                 got, rc = run(tool, d, [svg_cmd(text, current, x, y, size)])
-                doc = svgmodel.parse(text, farbfeld)
+                doc = svgmodel.parse(text, farbfeld, test_font)
                 want, rc2 = run(tool, d, expected_calls(doc, current, x, y, size))
                 if got is None or want is None:
                     print(f"FAIL  {name:20} exit {rc}/{rc2}")
