@@ -206,4 +206,11 @@ extern panic_null_ptr
 %define UGFX_CAP_ROUND      1
 %define UGFX_CAP_SQUARE     2
 
+; Dash pattern (caller-filled, UgfxDash_SIZE bytes): alternating on and off
+; lengths, starting with on; an odd count repeats the list (SVG).
+%define UgfxDash_intervals      0       ; const f64*, each >= 0, sum > 0
+%define UgfxDash_count          8       ; u32 >= 1
+%define UgfxDash_offset         16      ; f64 distance into the pattern at each contour start
+%define UgfxDash_SIZE           24
+
 %endif ; __UGFX_INC__
