@@ -30,7 +30,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | C2D-011 | Regions (rectangle sets) | P2 | ◐ `core/region` | 009 |
 | C2D-012 | Affine transforms | P2 | ✓ `umath/geom/affine2` | |
 | C2D-013 | Perspective transforms (2.5D) | P4 | | 012 |
-| C2D-014 | Bounds: tight and conservative | P2 | ◐ conservative `ugfx_path_bounds`; tight needs curve extrema | 015 |
+| C2D-014 | Bounds: tight and conservative | P2 | ✓ `ugfx_path_bounds` (control points), `ugfx_path_bounds_tight` (curve extrema, `umath_bezier_*_bounds`) | 015 |
 
 ## 3. Paths
 
@@ -161,7 +161,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
 | C2D-089 | UIC icon format (layers, colour slots, stroke weights) | P2 | ✓ `2d/uic`, `docs/UIC.md`, `tools/uic.py`, `tools/svg2uic.py` | 038, 085 |
-| C2D-090 | SVG rendering | P2 | ◐ `2d/svg` icon subset (shapes, paths, styles, transforms); gradients, use, CSS classes pending | 024, 084 |
+| C2D-090 | SVG rendering | P2 | ◐ `2d/svg` icon subset (shapes, paths, styles, transforms, linear / radial gradients); use, CSS classes pending | 024, 084 |
 | C2D-091 | Vector animation | P4 | | 085 |
 | C2D-092 | Vector export (print, PDF-style) | P4 | | 085 |
 
