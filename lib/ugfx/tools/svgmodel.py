@@ -26,7 +26,14 @@ SKIP = {"defs", "clipPath", "mask", "symbol", "linearGradient", "radialGradient"
 MAX_USES = 8                                        # <use> instances inside instances
 SHAPES = {"path", "rect", "circle", "ellipse", "line", "polyline", "polygon"}
 PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "fill-rule",
-         "fill-opacity", "stroke-opacity", "opacity", "display", "font-size"}
+         "fill-opacity", "stroke-opacity", "opacity", "display", "font-size", "color", "visibility",
+         "stroke-dasharray", "stroke-dashoffset", "paint-order"}
+INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "stroke-linecap": ["cap"],
+            "stroke-linejoin": ["join"], "stroke-miterlimit": ["miter"], "fill-rule": ["rule"],
+            "fill-opacity": ["fill_op"], "stroke-opacity": ["stroke_op"], "font-size": ["font"],
+            "color": ["color"], "visibility": ["hidden"], "stroke-dasharray": ["dash"],
+            "stroke-dashoffset": ["dash_off"], "paint-order": ["order"]}
+DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset")
 GEOM = ("x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "y1", "x2", "y2")
 AXIS = dict(x="x", y="y", width="x", height="y", rx="x", ry="y", cx="x", cy="y", r="d",
             x1="x", y1="y", x2="x", y2="y")
@@ -198,6 +205,9 @@ class Item:
     miter: float
     join: int
     cap: int
+    order: int = 0                                  # 1: stroke before fill
+    dash: object = None                             # even list of intervals, or None
+    dash_off: float = 0.0
 
 
 @dataclass
@@ -376,34 +386,72 @@ def transform_list(s, m):
         m = mul(m, t)
 
 
-def length(v, axis, st):
-    """(user units, is a percentage) or (None, False), as svg_length reads it."""
-    val, i = number(v, 0)
+def length_at(v, i, axis, st):
+    """(user units, is a percentage, next index) or (None, False, i), as svg_length reads it."""
+    val, i = number(v, i)
     if val is None or i >= len(v):
-        return val, False
+        return val, False, i
     c = v[i]
     if c == '%':
         val = val * 0.01
         if axis == "x":
-            return val * st["vw"], True
+            return val * st["vw"], True, i + 1
         if axis == "y":
-            return val * st["vh"], True
+            return val * st["vh"], True, i + 1
         if axis == "font":
-            return val * st["font"], True
-        return val * math.sqrt((st["vw"] * st["vw"] + st["vh"] * st["vh"]) * 0.5), True
+            return val * st["font"], True, i + 1
+        return val * math.sqrt((st["vw"] * st["vw"] + st["vh"] * st["vh"]) * 0.5), True, i + 1
     if not 'a' <= chr(ord(c) | 0x20) <= 'z':
-        return val, False
+        return val, False, i
     if i + 2 > len(v):
-        return None, False
+        return None, False, i
     u = "".join(chr(ord(ch) | 0x20) for ch in v[i:i + 2])
     if u == "px":
-        return val, False
+        return val, False, i + 2
     if u == "em":
-        return val * st["font"], False
+        return val * st["font"], False, i + 2
     if u == "ex":
-        return val * st["font"] * 0.5, False
+        return val * st["font"] * 0.5, False, i + 2
     f = {"pt": 96.0 / 72.0, "pc": 16.0, "mm": 96.0 / 25.4, "cm": 96.0 / 2.54, "in": 96.0}.get(u)
-    return (val * f if f is not None else None), False
+    return (val * f if f is not None else None), False, i + 2
+
+
+def length(v, axis, st):
+    val, pct, _ = length_at(v, 0, axis, st)
+    return val, pct
+
+
+def dash_list(v, st):
+    """The intervals (an odd list repeated), or None for solid, as svg_dash_list makes them."""
+    vals, total, i = [], 0.0, 0
+    while True:
+        val, _, j = length_at(v, i, "d", st)
+        if val is None:
+            break
+        if val < 0:
+            return None
+        vals.append(val)
+        total = total + val
+        i = j
+    if any(c not in " ,\t\r\n" for c in v[i:]) or not vals or not total > 0:
+        return None
+    return vals * 2 if len(vals) % 2 else vals
+
+
+def paint_order(v):
+    """1 when stroke comes before fill, 0 otherwise, None when invalid."""
+    t = trim(v)
+    if t == "normal":
+        return 0
+    first = None
+    for word in re.split(r"[\x00- ]+", t):
+        if not word or word == "markers":
+            continue
+        if word not in ("fill", "stroke"):
+            return None
+        if first is None:
+            first = 1 if word == "stroke" else 0
+    return first or 0
 
 
 def font_size(v, st):
@@ -983,12 +1031,31 @@ def parse(text):
             ids.setdefault(trim(el.attrib["id"]), el)
     default = dict(m=[1.0, 0, 0, 1.0, 0, 0], fill=("colour", 0xFF000000), stroke=("none", 0xFF000000),
                    fill_op=1.0, stroke_op=1.0, op=1.0, sw=1.0, miter=4.0, join=0, cap=0, rule=0, skip=False,
-                   font=16.0, vw=300.0, vh=150.0)
+                   font=16.0, vw=300.0, vh=150.0, color=None, hidden=False, order=0, dash=None, dash_off=0.0)
     seen_root = [False]
 
-    def prop(st, name, value, own):
-        if name in ("stroke-width", "font-size"):
+    def prop(st, name, value, own, parent):
+        if trim(value) == "inherit":
+            for k in INHERITS.get(name, ()):
+                st[k] = parent[k]
+            own[1].pop(name, None)
+            if name == "opacity":
+                own[0] = 1.0
+            return
+        if name in DEFERRED:
             own[1][name] = value                    # resolved once font-size is known
+        elif name == "color":
+            kind, c = colour(value)
+            if kind == "colour":
+                st["color"] = c
+        elif name == "visibility":
+            t = trim(value)
+            if t in ("visible", "hidden", "collapse"):
+                st["hidden"] = t != "visible"
+        elif name == "paint-order":
+            o = paint_order(value)
+            if o is not None:
+                st["order"] = o
         elif name in ("fill", "stroke"):
             v = value.strip(" \t\r\n")
             if len(v) >= 10 and v[-10] == '!':
@@ -1066,7 +1133,7 @@ def parse(text):
                     if m is not None:
                         st["m"] = m
                 elif name in PROPS:
-                    prop(st, name, value, own)
+                    prop(st, name, value, own, parent)
                 elif name in ("d", "points", "viewBox"):
                     geom[name] = value
                 elif name in GEOM:
@@ -1078,7 +1145,7 @@ def parse(text):
                     name, value = decl.split(':', 1)
                     name = trim(name)
                     if name in PROPS:
-                        prop(st, name, value, own)
+                        prop(st, name, value, own, parent)
             raw = own[1]
             if "font-size" in raw:
                 f = font_size(raw["font-size"], st)
@@ -1088,6 +1155,13 @@ def parse(text):
                 v, _ = length(raw["stroke-width"], "d", st)
                 if v is not None and v >= 0:
                     st["sw"] = v
+            if "stroke-dasharray" in raw:
+                t = trim(raw["stroke-dasharray"])
+                st["dash"] = None if t == "none" else dash_list(t, st)
+            if "stroke-dashoffset" in raw:
+                v, _ = length(raw["stroke-dashoffset"], "d", st)
+                if v is not None:
+                    st["dash_off"] = v
             for name in GEOM:
                 if "geom:" + name in raw:
                     v, pct = length(raw["geom:" + name], AXIS[name], st)
@@ -1153,14 +1227,19 @@ def parse(text):
         return (doc.width if doc.width and doc.width > 0 else 300.0,
                 doc.height if doc.height and doc.height > 0 else 150.0)
 
+    def current(p, st):
+        if p[0] == "current" and st["color"] is not None:
+            return "colour", st["color"]
+        return p
+
     def paint_of(p, op, st, path):
         """The item's paint, or None when it draws nothing."""
         if p[0] != "url":
-            return bake(p, op, st) if p[0] != "none" else None
+            return bake(current(p, st), op, st) if p[0] != "none" else None
         _, rid, fb_kind, fb_colour = p
         r = resolve_gradient(grads, rid, path, viewport())
         if r is None:
-            return bake((fb_kind, fb_colour), op, st) if fb_kind != "none" else None
+            return bake(current((fb_kind, fb_colour), st), op, st) if fb_kind != "none" else None
         if r == "none":
             return None
         if r[0] == "colour":
@@ -1168,6 +1247,8 @@ def parse(text):
         return r + (int(255 * op * st["op"] + 0.5),)
 
     def shape(tag, g, st):
+        if st["hidden"]:
+            return
         fill = st["fill"][0] != "none"
         stroke = st["stroke"][0] != "none" and st["sw"] > 0
         if not (fill or stroke):
@@ -1200,7 +1281,8 @@ def parse(text):
         f = paint_of(st["fill"], st["fill_op"], st, path) if fill else None
         s = paint_of(st["stroke"], st["stroke_op"], st, path) if stroke else None
         doc.items.append(Item(list(st["m"]), path, f, s, st["rule"],
-                              st["sw"], st["miter"], st["join"], st["cap"]))
+                              st["sw"], st["miter"], st["join"], st["cap"],
+                              st["order"], st["dash"], st["dash_off"]))
 
     walk(root, default)
     return doc
