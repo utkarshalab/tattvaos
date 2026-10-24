@@ -118,6 +118,10 @@ for MILESTONE in \
     "BootInfo Pointer: 0x0000000000007000" \
     "GS Accessor Test (CPU/Stack): 0/" \
     "Boot memory self-test: PASS" \
+    "UBF app: hello from a loaded program" \
+    "UBF app: imports, relocations and data work" \
+    "UBF loader: hello.ubf loaded, ran and returned 42: PASS" \
+    "UBF loader: tampered image refused: PASS" \
     "Utkarsha Kernel Ready. Entering main execution." \
     "heartbeat #0"
 do
