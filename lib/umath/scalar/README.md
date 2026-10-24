@@ -34,6 +34,11 @@ scalar/
 ├── min_f32.asm / min_f64.asm / min_i32.asm / min_i64.asm
 ├── neg_f32.asm / neg_f64.asm
 ├── sign_f32.asm / sign_f64.asm
+├── fmod_f32.asm / fmod_f64.asm  ← fmod, remainder, remquo: exact, by
+│                                  integer long division on the mantissas
+├── frexp_f32.asm / frexp_f64.asm ← frexp, ilogb, logb, modf
+├── nextafter_f32.asm / nextafter_f64.asm ← nextafter, nextup, nextdown
+├── fdim_f32.asm / fdim_f64.asm  ← positive difference
 └── reciprocal_f32.asm  ← exact (divss/divps) + fast approx (rcpss/rcpps)
                            + Newton-Raphson refined, each with array/
                            inplace variants (see math_fn/README.md's
@@ -83,6 +88,23 @@ surface. The functions in `scalar/` have no such per-element branching
 (abs/min/max/clamp/round are all branchless at the bit or instruction
 level), so there's no reason to give up the throughput.
 
+**The IEEE 754 helpers are exact.**
+`fmod`, `remainder` and `remquo` never round:
+- Both operands become integer mantissas.
+- The remainder is a long division on those integers, at most 63 bits
+  per `div`, so even the widest exponent gap takes 34 steps.
+- The quotient's low bits are carried along: `remainder` rounds the
+  quotient half to even with them, and `remquo` reports them.
+- The f32 versions widen to double, where the same exact result is
+  itself a float.
+
+`frexp`, `ilogb`, `logb` and `modf` read the exponent from the bits
+(subnormals normalized, down to -1074 / -149). `nextafter`, `nextup` and
+`nextdown` step the bit pattern by one. `tests/test_ieee.py` checks all
+of them bit for bit against exact references. Their array variants (fmod,
+remainder, fdim) call the scalar per element through
+`math_fn/loops.asm`, unlike the packed arrays above.
+
 **Approx/refined tiers exist where a hardware estimate instruction exists.**
 `reciprocal_f32` has exact (`divps`)/approx (`rcpps`)/refined
 (`rcpps` + one Newton-Raphson step) variants because x86 actually offers a
@@ -97,7 +119,10 @@ precision for speed on.
 
 ```
 scalar/ depends on:
-  → nothing (Tier 0, self-contained; see Design notes above)
+  → nothing for the original operations (Tier 0, self-contained; see
+    Design notes above)
+  → math_fn/scalbn_f64.asm and math_fn/loops.asm for fmod/remainder
+    (exact rescaling of the remainder, shared array loops)
 
 scalar/ is depended on by:
   → math_fn/  (range clamps, sign handling)
