@@ -114,7 +114,10 @@ def convert(text, name, design_size=0):
     for it in doc.items:
         path = transform(expand(it.path), it.matrix)
         a, b, c, d = it.matrix[:4]
-        for paint, is_stroke in ((it.fill, False), (it.stroke, True)):
+        if it.dash:
+            warnings.append(f"{name}: dashed stroke drawn solid")
+        order = ((it.stroke, True), (it.fill, False)) if it.order else ((it.fill, False), (it.stroke, True))
+        for paint, is_stroke in order:
             if not paint:
                 continue
             want = paint[1] >> 24
