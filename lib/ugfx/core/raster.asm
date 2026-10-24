@@ -21,6 +21,7 @@
 
 extern arena_alloc
 extern ugfx_span_fill_solid
+extern ugfx_span_mask_union
 
 %define SHIFT   UGFX_SUBPIXEL_SHIFT
 %define SCALE   UGFX_SUBPIXEL_SCALE
@@ -71,6 +72,7 @@ ugfx_raster_init:
     jz .init_nomem
     mov [rbx + UgfxRaster_cells], rax
     mov dword [rbx + UgfxRaster_cap], RASTER_INITIAL_CELLS
+    mov qword [rbx + UgfxRaster_clip], 0
     mov rdi, rbx
     call ugfx_raster_reset
     xor eax, eax
@@ -583,6 +585,14 @@ rs_line:
 ;   the paint's own span function (UgfxPaint_span):
 ;   IN:  rdi = UgfxRaster*, rsi = PixBuf*, rdx = const UgfxPaint*, ecx = rule
 ;
+; ugfx_raster_fill_mask — the same into a coverage mask: each pixel becomes
+;   the union m = c + m (255 - c) / 255 (ugfx_span_mask_union)
+;   IN:  rdi = UgfxRaster*, rsi = UgfxMask*, ecx = rule
+;
+; With a clip (ugfx_raster_set_clip) every fill's coverage is multiplied by
+; the clip mask: rs_span_clipped splits each run where the mask value
+; changes and hands the pieces to the fill's span function.
+;
 ; Both sweep into a span function with ugfx_span_fill_solid's registers
 ; (rdi = PixBuf*, esi = x, edx = y, ecx = length, r8d = coverage, r9 = the
 ; colour or the paint).
@@ -597,13 +607,20 @@ rs_line:
 %define F_COVER  44
 %define F_X      48
 %define F_SPAN   56                     ; span function
-%define F_COUNTS 64                     ; u32[256] radix histogram
-%define F_SIZE   (64 + 1024 + 8)        ; keeps calls 16-byte aligned
+%define F_CLIP   64                     ; clipped: span, argument, mask
+%define F_COUNTS 88                     ; u32[256] radix histogram
+%define F_SIZE   (88 + 1024)            ; keeps calls 16-byte aligned
 
 global ugfx_raster_fill
 ugfx_raster_fill:
     lea r8, [rel ugfx_span_fill_solid]
     mov edx, edx
+    jmp rs_fill
+
+global ugfx_raster_fill_mask
+ugfx_raster_fill_mask:
+    lea r8, [rel ugfx_span_mask_union]
+    xor edx, edx
     jmp rs_fill
 
 global ugfx_raster_fill_paint
@@ -632,6 +649,18 @@ rs_fill:
     mov [rsp + F_ARG], rdx
     mov [rsp + F_RULE], ecx
     mov [rsp + F_SPAN], r8
+    ; a clip wraps the span function
+    mov rax, [rbx + UgfxRaster_clip]
+    test rax, rax
+    jz .fill_unclipped
+    mov [rsp + F_CLIP + 16], rax
+    mov [rsp + F_CLIP], r8
+    mov [rsp + F_CLIP + 8], rdx
+    lea rax, [rel rs_span_clipped]
+    mov [rsp + F_SPAN], rax
+    lea rax, [rsp + F_CLIP]
+    mov [rsp + F_ARG], rax
+.fill_unclipped:
     call rs_close
     call rs_push_cell
     mov dword [rbx + UgfxRaster_cur_x], 0x7FFFFFFF
@@ -815,6 +844,98 @@ rs_fill:
     call ugfx_raster_reset
     mov rax, -(ENOMEM)
     add rsp, F_SIZE
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+; -----------------------------------------------------------------------------
+; ugfx_raster_set_clip — rdi = UgfxRaster*, rsi = const UgfxMask* or 0 (no
+;   clip) -> rax = 0, -EINVAL. Pixels outside the mask are clipped away.
+; -----------------------------------------------------------------------------
+global ugfx_raster_set_clip
+ugfx_raster_set_clip:
+    test rdi, rdi
+    jz .clip_bad
+    test rsi, rsi
+    jz .clip_set
+    cmp qword [rsi + UgfxMask_data], 0
+    je .clip_bad
+.clip_set:
+    mov [rdi + UgfxRaster_clip], rsi
+    xor eax, eax
+    ret
+.clip_bad:
+    mov rax, -(EINVAL)
+    ret
+
+; -----------------------------------------------------------------------------
+; rs_span_clipped — span function under a clip: rdi = target, esi = x,
+;   edx = y, ecx = length, r8d = coverage, r9 = [span, argument, mask].
+;   Each run of equal mask values goes to the span at round(c m / 255).
+; -----------------------------------------------------------------------------
+rs_span_clipped:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 24
+    mov rbx, r9
+    mov r12, rdi                        ; target
+    mov [rsp], r8d                      ; coverage
+    mov r10, [rbx + 16]                 ; mask
+    test edx, edx
+    js .sc_done
+    movsxd r13, edx                     ; y
+    cmp r13, [r10 + UgfxMask_height]
+    jae .sc_done                        ; below the mask: clipped
+    movsxd r14, esi                     ; x
+    movsxd rcx, ecx
+    lea r15, [r14 + rcx]                ; end
+    xor eax, eax
+    test r14, r14
+    cmovs r14, rax
+    cmp r15, [r10 + UgfxMask_width]
+    jle .sc_end
+    mov r15, [r10 + UgfxMask_width]
+.sc_end:
+    mov rax, r13
+    imul rax, [r10 + UgfxMask_stride]
+    add rax, [r10 + UgfxMask_data]
+    mov [rsp + 8], rax                  ; mask row
+.sc_run:
+    cmp r14, r15
+    jge .sc_done
+    mov rdx, [rsp + 8]
+    movzx r9d, byte [rdx + r14]         ; this run's mask value
+    lea rcx, [r14 + 1]
+.sc_extend:
+    cmp rcx, r15
+    jge .sc_have_run
+    cmp [rdx + rcx], r9b
+    jne .sc_have_run
+    inc rcx
+    jmp .sc_extend
+.sc_have_run:
+    mov [rsp + 16], rcx                 ; run end
+    test r9d, r9d
+    jz .sc_next
+    mov eax, [rsp]
+    imul eax, r9d
+    add eax, 128
+    mov edx, eax
+    shr edx, 8
+    add eax, edx
+    shr eax, 8                          ; round(c m / 255)
+    test eax, eax
+    jz .sc_next
+    mov r8d, eax
+    mov rdi, r12
+    mov esi, r14d
+    mov edx, r13d
+    sub ecx, r14d
+    mov r9, [rbx + 8]
+    call [rbx]
+.sc_next:
+    mov r14, [rsp + 16]
+    jmp .sc_run
+.sc_done:
+    xor eax, eax
+    add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 ; eax = cover << 9 minus area -> eax = coverage 0..255 for the rule at
