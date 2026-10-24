@@ -29,9 +29,11 @@
 ;
 ; Each item keeps the element's transform (user space -> viewBox space),
 ; its path, and fill / stroke as none, a colour or currentColor, with the
-; alpha already multiplied by fill-opacity / stroke-opacity and the
-; opacity of the element and its ancestors (applied per item, not as a
-; group). Drawing maps the document into the square (x, y, size, size): its
+; alpha already multiplied by fill-opacity / stroke-opacity and baked
+; opacities. Opacity below 1 on a container (g, svg, use, switch, ...),
+; or on a shape with both a fill and a stroke, makes a group: BEGIN and
+; END items around its content, drawn as one context layer at that
+; alpha; on a shape with one paint it is baked into that paint. Drawing maps the document into the square (x, y, size, size): its
 ; viewBox through preserveAspectRatio into width x height when both are
 ; given, that box centred in the square; with only a viewBox, the viewBox
 ; straight into the square; with none, (0, 0, width or 300, height or
@@ -81,6 +83,8 @@ extern ugfx_ctx_set_stroke_style
 extern ugfx_ctx_set_dash
 extern ugfx_ctx_fill
 extern ugfx_ctx_stroke
+extern ugfx_ctx_begin_layer
+extern ugfx_ctx_end_layer
 
 %define SVG_MAX_DEPTH   64
 
@@ -116,6 +120,7 @@ extern ugfx_ctx_stroke
 %define S_DASH_N        208             ; u32, 0 = solid
 %define S_DASH_OFF      216             ; f64
 %define S_SWITCH        224             ; u32 1: a switch still choosing, 2: it chose
+%define S_GROUP         228             ; u32 this element opened a group (not inherited)
 %define S_SIZE          232
 
 ; elements
@@ -533,6 +538,16 @@ ugfx_svg_parse:
     jmp .finish
 
 .finish:
+    ; groups an unterminated document left open
+    mov eax, [r15 + P_DEPTH]
+    imul rdi, rax, S_SIZE
+    add rdi, [r15 + P_STACK]
+    cmp dword [r15 + P_DEPTH], 0
+    je .closed
+    call svg_group_close
+    dec dword [r15 + P_DEPTH]
+    jmp .finish
+.closed:
     movsxd rax, dword [r15 + P_ERR]
     test rax, rax
     jnz .out
@@ -567,6 +582,10 @@ svg_walk:
     jne .start_tag
     cmp dword [r15 + P_DEPTH], 0        ; an end tag
     je .token
+    mov eax, [r15 + P_DEPTH]
+    imul rdi, rax, S_SIZE
+    add rdi, [r15 + P_STACK]            ; the element it closes
+    call svg_group_close
     dec dword [r15 + P_DEPTH]
     cmp [r15 + P_DEPTH], r12d
     je .return
@@ -586,6 +605,7 @@ svg_walk:
     mov rbx, rdi
     mov ecx, S_SIZE
     rep movsb
+    mov dword [rbx + S_GROUP], 0
     inc dword [r15 + P_DEPTH]
     ; the element
     mov rdi, [r15 + P_XML + UgfxSvgXml_name]
@@ -647,6 +667,8 @@ svg_walk:
 .element_done:
     cmp dword [r15 + P_SELF], 0
     je .token
+    mov rdi, rbx
+    call svg_group_close
     dec dword [r15 + P_DEPTH]
     cmp [r15 + P_DEPTH], r12d
     je .return
@@ -805,12 +827,20 @@ svg_element:
     call svg_decls
 .styled:
     call svg_lengths
-    ; the element's own opacity, once
-    movsd xmm0, [rbx + S_OP]
-    mulsd xmm0, [r15 + P_OPACITY]
-    movsd [rbx + S_OP], xmm0
     cmp dword [rbx + S_SKIP], 0
     jne .element_out
+    ; a container's own opacity: a group (a shape's: svg_shape)
+    mov eax, [r15 + P_ELEM]
+    cmp eax, E_PATH
+    jb .container
+    cmp eax, E_POLYGON
+    jbe .not_container
+.container:
+    movsd xmm0, [r15 + P_OPACITY]
+    ucomisd xmm0, [rel svg_one]
+    jae .not_container
+    call svg_group_open
+.not_container:
     cmp dword [r15 + P_SYMROOT], 0
     je .not_symbol
     call svg_symbol_map
@@ -1854,6 +1884,100 @@ svg_dash_list:
     pop r12
     ret
 
+; ecx = items wanted (1..3), r15 = frame -> rax = the next free item, room
+;   for ecx from there (0: out of memory)
+svg_item_room:
+    push r12
+    push r13
+    push r14
+    mov r14, [r15 + P_SVG]
+    mov eax, [r14 + UgfxSvg_count]
+    add eax, ecx
+    cmp eax, [r14 + UgfxSvg_cap]
+    jbe .room
+    mov r12d, [r14 + UgfxSvg_cap]
+    add r12d, r12d
+    cmp r12d, eax
+    jae .size
+    lea r12d, [rax + 16]
+.size:
+    cmp r12d, 16
+    jae .grow
+    mov r12d, 16
+.grow:
+    mov rdi, [r14 + UgfxSvg_arena]
+    imul esi, r12d, UgfxSvgItem_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .out
+    mov [r14 + UgfxSvg_cap], r12d
+    mov rdi, rax
+    mov rsi, [r14 + UgfxSvg_items]
+    mov ecx, [r14 + UgfxSvg_count]
+    imul ecx, ecx, UgfxSvgItem_SIZE
+    mov rdx, rax
+    rep movsb
+    mov [r14 + UgfxSvg_items], rdx
+.room:
+    mov eax, [r14 + UgfxSvg_count]
+    imul rax, rax, UgfxSvgItem_SIZE
+    add rax, [r14 + UgfxSvg_items]
+.out:
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; r15 = frame -> eax = round(own opacity x 255)
+svg_group_alpha:
+    movsd xmm0, [r15 + P_OPACITY]
+    mulsd xmm0, [rel svg_255]
+    addsd xmm0, [rel svg_half]
+    cvttsd2si eax, xmm0
+    ret
+
+; r15 = frame, rbx = a container's state: a BEGIN item at its opacity
+svg_group_open:
+    push r12
+    mov ecx, 1
+    call svg_item_room
+    test rax, rax
+    jz .nomem
+    mov r12, rax
+    mov dword [r12 + UgfxSvgItem_kind], UGFX_SVG_BEGIN
+    call svg_group_alpha
+    mov [r12 + UgfxSvgItem_alpha], eax
+    mov rax, [r15 + P_SVG]
+    inc dword [rax + UgfxSvg_count]
+    mov dword [rbx + S_GROUP], 1
+    pop r12
+    ret
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+    pop r12
+    ret
+
+; rdi = the state of an element that is closing, r15 = frame: END for a
+;   group it opened
+svg_group_close:
+    cmp dword [rdi + S_GROUP], 0
+    je .done
+    mov dword [rdi + S_GROUP], 0
+    push rdi
+    mov ecx, 1
+    call svg_item_room
+    pop rdi
+    test rax, rax
+    jz .nomem
+    mov dword [rax + UgfxSvgItem_kind], UGFX_SVG_END
+    mov rax, [r15 + P_SVG]
+    inc dword [rax + UgfxSvg_count]
+.done:
+    ret
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+    ret
+
 ; eax = paint kind, edx = colour, rbx = state -> currentColor becomes the
 ;   color property's colour where one was given
 svg_current:
@@ -2129,38 +2253,26 @@ svg_shape:
 .have_paint:
     test r13d, r13d
     jz .shape_out
-    ; room for one more item
-    mov r14, [r15 + P_SVG]
-    mov eax, [r14 + UgfxSvg_count]
-    cmp eax, [r14 + UgfxSvg_cap]
-    jb .room
-    mov ecx, [r14 + UgfxSvg_cap]
-    add ecx, ecx
-    cmp ecx, 16
-    jae .grow
-    mov ecx, 16
-.grow:
-    push rcx
-    sub rsp, 8
-    mov rdi, [r14 + UgfxSvg_arena]
-    imul esi, ecx, UgfxSvgItem_SIZE
-    call arena_alloc
-    add rsp, 8
-    pop rcx
+    ; opacity: a group around fill and stroke together, else baked
+    movsd xmm0, [r15 + P_OPACITY]
+    ucomisd xmm0, [rel svg_one]
+    jae .baked
+    cmp r13d, 3
+    jne .bake
+    or r13d, 4                          ; group
+    jmp .baked
+.bake:
+    mulsd xmm0, [rbx + S_OP]
+    movsd [rbx + S_OP], xmm0
+.baked:
+    ; room for the item (and a group around it)
+    mov ecx, 3
+    call svg_item_room
     test rax, rax
     jz .nomem
-    mov [r14 + UgfxSvg_cap], ecx
-    mov rdi, rax
-    mov rsi, [r14 + UgfxSvg_items]
-    mov ecx, [r14 + UgfxSvg_count]
-    imul ecx, ecx, UgfxSvgItem_SIZE
-    mov rdx, rax
-    rep movsb
-    mov [r14 + UgfxSvg_items], rdx
-.room:
-    mov eax, [r14 + UgfxSvg_count]
-    imul r12, rax, UgfxSvgItem_SIZE
-    add r12, [r14 + UgfxSvg_items]      ; the item
+    mov r14, [r15 + P_SVG]
+    mov r12, rax                        ; the item
+    mov dword [r12 + UgfxSvgItem_kind], UGFX_SVG_SHAPE
     lea rdi, [r12 + UgfxSvgItem_path]
     mov rsi, [r14 + UgfxSvg_arena]
     call ugfx_path_init
@@ -2232,6 +2344,20 @@ svg_shape:
     movsd xmm0, [rbx + S_DASH_OFF]
     movsd [r12 + UgfxSvgItem_dash_off], xmm0
     inc dword [r14 + UgfxSvg_count]
+    test r13d, 4
+    jz .shape_out
+    ; BEGIN, the shape, END
+    lea rsi, [r12 + UgfxSvgItem_SIZE - 1]
+    lea rdi, [r12 + 2 * UgfxSvgItem_SIZE - 1]
+    mov ecx, UgfxSvgItem_SIZE
+    std
+    rep movsb
+    cld
+    mov dword [r12 + UgfxSvgItem_kind], UGFX_SVG_BEGIN
+    call svg_group_alpha
+    mov [r12 + UgfxSvgItem_alpha], eax
+    mov dword [r12 + 2 * UgfxSvgItem_SIZE + UgfxSvgItem_kind], UGFX_SVG_END
+    add dword [r14 + UgfxSvg_count], 2
     jmp .shape_out
 .nomem:
     mov dword [r15 + P_ERR], -(ENOMEM)
@@ -2703,6 +2829,7 @@ svg_rounded_rect:
 %define V_DASH      104                 ; UgfxDash
 %define V_M         128                 ; f64[6]
 %define V_M2        176                 ; f64[6]
+%define V_OPEN      224                 ; u32 layers open
 %define V_SIZE      232
 
 global ugfx_svg_draw
@@ -2804,8 +2931,7 @@ ugfx_svg_draw:
     mov rdi, r13
     xor esi, esi
     call ugfx_ctx_set_dash
-    mov eax, [r13 + UgfxContext_state + UgfxState_alpha]
-    mov [rsp + V_ALPHA], eax
+    mov dword [rsp + V_OPEN], 0
     ; the items
     xor r14d, r14d
 .item:
@@ -2813,6 +2939,13 @@ ugfx_svg_draw:
     jae .items_done
     imul r12, r14, UgfxSvgItem_SIZE
     add r12, [rbx + UgfxSvg_items]
+    mov eax, [r12 + UgfxSvgItem_kind]
+    cmp eax, UGFX_SVG_BEGIN
+    je .begin
+    cmp eax, UGFX_SVG_END
+    je .end
+    mov eax, [r13 + UgfxContext_state + UgfxState_alpha]
+    mov [rsp + V_ALPHA], eax            ; paints' alpha is relative to this
     mov rdi, r13
     call ugfx_ctx_save
     test rax, rax
@@ -2916,8 +3049,26 @@ ugfx_svg_draw:
 .item_done:
     mov rdi, r13
     call ugfx_ctx_restore
+.next_item:
     inc r14d
     jmp .item
+.begin:
+    mov rdi, r13
+    mov esi, [r12 + UgfxSvgItem_alpha]
+    call ugfx_ctx_begin_layer
+    test rax, rax
+    jnz .item_fail_outer
+    inc dword [rsp + V_OPEN]
+    jmp .next_item
+.end:
+    cmp dword [rsp + V_OPEN], 0
+    je .next_item
+    mov rdi, r13
+    call ugfx_ctx_end_layer
+    dec dword [rsp + V_OPEN]
+    test rax, rax
+    jnz .item_fail_outer
+    jmp .next_item
 .item_fail:
     push rax
     sub rsp, 8
@@ -2928,12 +3079,27 @@ ugfx_svg_draw:
 .item_fail_outer:
     push rax
     sub rsp, 8
+.unwind:
+    cmp dword [rsp + 16 + V_OPEN], 0
+    je .unwound
+    mov rdi, r13
+    call ugfx_ctx_end_layer
+    dec dword [rsp + 16 + V_OPEN]
+    jmp .unwind
+.unwound:
     mov rdi, r13
     call ugfx_ctx_restore
     add rsp, 8
     pop rax
     jmp .draw_out
 .items_done:
+    cmp dword [rsp + V_OPEN], 0
+    je .all_closed
+    mov rdi, r13
+    call ugfx_ctx_end_layer
+    dec dword [rsp + V_OPEN]
+    jmp .items_done
+.all_closed:
     mov rdi, r13
     call ugfx_ctx_restore
     xor eax, eax
