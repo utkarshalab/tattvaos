@@ -2,9 +2,7 @@
 ; Rectangle Operations — Intersection, Union, Containment, Translation
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
+%include "ugfx.inc"
 
 section .text
 
