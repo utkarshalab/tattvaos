@@ -212,6 +212,29 @@ CASES = [
     ("css gradient", svg('<style>.g{fill:url(#lg)}</style><linearGradient id="lg"><stop offset="0" '
                          'stop-color="#fc0"/><stop offset="1" stop-color="#c06"/></linearGradient>'
                          '<rect class="g" x="2" y="2" width="20" height="20"/>'), False),
+    ("use sprite", svg('<defs><symbol id="dot" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></symbol>'
+                       '<symbol id="bar" viewBox="0 0 20 10"><rect x="1" y="1" width="18" height="8" rx="2"/>'
+                       '</symbol></defs><use href="#dot" x="1" y="1" width="8" height="8" fill="#e33"/>'
+                       '<use href="#dot" x="12" y="1" width="10" height="6" fill="#3a3"/>'
+                       '<use href="#bar" x="2" y="12" width="20" height="10" fill="#36f"/>'
+                       '<use href="#bar" x="2" y="12" fill="none" stroke="#000"/>'), True),
+    ("use transform", svg('<path id="tri" d="M0 0 L6 0 L3 5 Z" fill="#f80"/>'
+                          '<use xlink:href="#tri" x="8" y="2"/><use href="#tri" transform="rotate(30 12 12)" x="10" y="10"/>'
+                          '<use href="#tri" transform="scale(1.5)" x="1" y="9" fill="#00f" opacity=".5"/>',
+                          'viewBox="0 0 24 24" xmlns:xlink="http://www.w3.org/1999/xlink"'), True),
+    ("use inherit", svg('<style>.u{stroke:#c0c;stroke-width:1.5}</style><defs><g id="pair"><circle cx="4" cy="4" r="3"/>'
+                        '<rect x="9" y="1" width="6" height="6" fill="#0aa"/></g></defs>'
+                        '<use href="#pair" fill="#fa0"/><use href="#pair" class="u" y="8"/>'
+                        '<use href="#pair" style="fill:#08f" x="4" y="15"/>'), True),
+    ("use nested", svg('<defs><circle id="c" cx="2" cy="2" r="2"/><g id="row"><use href="#c"/><use href="#c" x="5"/>'
+                       '<use href="#c" x="10"/></g><g id="grid"><use href="#row"/><use href="#row" y="6"/></g></defs>'
+                       '<use href="#grid" x="2" y="2" fill="#555"/><use href="#grid" x="6" y="13" fill="#a22"/>'), True),
+    ("use edge cases", svg('<g id="loop"><rect width="2" height="2" fill="#000"/><use href="#loop" x="2" y="2"/></g>'
+                           '<use id="self" href="#self" x="3"/><use href="#missing" fill="#f00"/><use href="nohash"/>'
+                           '<use href="#grad"/><linearGradient id="grad"/><symbol id="s"><rect x="14" y="14" '
+                           'width="6" height="6" fill="#0c0"/></symbol><use href="#s"/>'
+                           '<use href=" #c2 " display="none"/><circle id=" c2 " cx="20" cy="4" r="3" fill="#06c"/>'
+                           '<use href="#c2" x="-4" y="16"/>'), True),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
