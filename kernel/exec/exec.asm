@@ -11,6 +11,7 @@
 %include "kernel/exec/ubf.inc"
 %include "kernel/exec/exports.asm"
 %include "kernel/exec/ubf_load.asm"
+%include "pkg/format/upk.asm"           ; package verification (docs/UPK_SPEC.md)
 %include "kernel/exec/selftest.asm"
 
 %endif ; KERNEL_EXEC_EXEC_ASM
