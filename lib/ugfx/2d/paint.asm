@@ -8,6 +8,7 @@
 ;   ugfx_paint_radial(paint, arena, stops, n, spread, cx, cy, r)
 ;   ugfx_paint_radial2(paint, arena, stops, n, spread, x0, y0, r0, x1, y1, r1)
 ;   ugfx_paint_conic(paint, arena, stops, n, cx, cy, start_angle)
+;   ugfx_paint_image(paint, pixbuf, extend_x, extend_y, filter)
 ;   ugfx_paint_set_transform(paint, m)      paint space -> device space
 ;
 ; Gradients map each pixel centre, taken back to paint space through the
@@ -35,6 +36,17 @@
 ; radial2 solves |p - c(t)| = r(t): with q = p - c0,
 ;   a t^2 - 2 b t + c = 0,  b = q . d + r0 dr,  c = q . q - r0^2
 ; (a = 0, one circle touching the other from inside: t = c / 2b).
+;
+; Image paints: paint space is the image's pixel space (pixel (i, j) covers
+; [i, i + 1) x [j, j + 1)); the transform places, scales, rotates it.
+; Nearest takes the pixel under p; bilinear blends the four pixels around
+; p - (0.5, 0.5) with weights (1 - fx)(1 - fy), fx (1 - fy), (1 - fx) fy,
+; fx fy (premultiplied, so no dark fringes). Outside the image each axis
+; extends by its mode: pad repeats the edge pixel, repeat tiles, reflect
+; mirrors, none is transparent. Positions are clamped to +/- 2^52.
+;
+; Every pixel centre is mapped on its own (not stepped along the span), so
+; a pixel's colour never depends on how its row was split into spans.
 ; =============================================================================
 
 %include "ugfx.inc"
@@ -46,6 +58,7 @@ extern umath_affine2_identity
 extern umath_affine2_invert
 extern umath_atan2_f64
 extern umath_floor_f64_fractional
+extern umath_floor_f64
 
 %define PAINT_CHUNK 64                  ; pixels coloured per ugfx_span_blend_colors
 
@@ -59,6 +72,8 @@ paint_lut_last:     dq 1023.0           ; UGFX_GRADIENT_LUT - 1
 paint_inv_255:      dq 0x3F70101010101010   ; 1 / 255
 paint_inv_2pi:      dq 0x3FC45F306DC9C883   ; 1 / (2 pi)
 paint_max:          dq 0x7FEFFFFFFFFFFFFF   ; largest finite double
+paint_pos_limit:    dq 4503599627370496.0   ; 2^52: image positions are clamped
+paint_neg_limit:    dq -4503599627370496.0
 
 section .text
 
@@ -397,7 +412,7 @@ pt_gradient:
     jb .g_entry
     ; identity transform, the gradient span
     mov rdi, [r15 + G_PAINT]
-    lea rax, [rel pt_span_gradient]
+    lea rax, [rel pt_span_paint]
     mov [rdi + UgfxPaint_span], rax
     lea rdi, [rdi + UgfxPaint_inverse]
     call umath_affine2_identity
@@ -429,6 +444,51 @@ ugfx_paint_set_transform:
     ret
 
 ; -----------------------------------------------------------------------------
+; ugfx_paint_image — rdi = UgfxPaint*, rsi = const PixBuf* (premultiplied
+;   BGRA, kept by reference), edx = extend across, ecx = extend down
+;   (UGFX_SPREAD_PAD, _REPEAT, _REFLECT, _NONE), r8d = UGFX_FILTER_*
+;   -> rax = 0, -EINVAL
+; -----------------------------------------------------------------------------
+global ugfx_paint_image
+ugfx_paint_image:
+    test rdi, rdi
+    jz pt_bad
+    test rsi, rsi
+    jz pt_bad
+    cmp qword [rsi + PixBuf_data], 0
+    je pt_bad
+    cmp qword [rsi + PixBuf_width], 0
+    je pt_bad
+    cmp qword [rsi + PixBuf_height], 0
+    je pt_bad
+    cmp edx, UGFX_SPREAD_NONE
+    ja pt_bad
+    cmp ecx, UGFX_SPREAD_NONE
+    ja pt_bad
+    cmp r8d, UGFX_FILTER_BILINEAR
+    ja pt_bad
+    lea rax, [rel pt_span_paint]
+    mov [rdi + UgfxPaint_span], rax
+    mov dword [rdi + UgfxPaint_type], UGFX_PAINT_IMAGE
+    mov [rdi + UgfxPaint_spread], edx
+    mov [rdi + UgfxPaint_extend_y], ecx
+    mov [rdi + UgfxPaint_filter], r8d
+    mov [rdi + UgfxPaint_image], rsi
+    mov dword [rdi + UgfxPaint_color], 0
+    mov qword [rdi + UgfxPaint_lut], 0
+    xor eax, eax
+    mov ecx, 8
+.img_geom:
+    mov [rdi + UgfxPaint_geom + rcx * 8 - 8], rax
+    loop .img_geom
+    push rdi
+    lea rdi, [rdi + UgfxPaint_inverse]
+    call umath_affine2_identity
+    pop rdi
+    xor eax, eax
+    ret
+
+; -----------------------------------------------------------------------------
 ; Span functions (ugfx_raster_fill_paint): rdi = PixBuf*, esi = x, edx = y,
 ;   ecx = length, r8d = coverage, r9 = const UgfxPaint*
 ; -----------------------------------------------------------------------------
@@ -444,13 +504,16 @@ pt_span_solid:
 %define S_END       28                  ; u32
 %define S_N         32                  ; u32 pixels in the chunk
 %define S_K         36                  ; u32
-%define S_PX        40                  ; paint-space position of the pixel
-%define S_PY        48
-%define S_T         56
-%define S_BUF       64                  ; u32[PAINT_CHUNK]
-%define S_SIZE      (64 + PAINT_CHUNK * 4 + 8)
+%define S_V         56                  ; image sampling: v
+%define S_I         64                  ; i64 texel column, row
+%define S_J         72
+%define S_FX        80                  ; bilinear fractions
+%define S_FY        88
+%define S_TX        96                  ; u32[4] the four texels
+%define S_BUF       112                 ; u32[PAINT_CHUNK]
+%define S_SIZE      (112 + PAINT_CHUNK * 4 + 8)
 
-pt_span_gradient:
+pt_span_paint:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     sub rsp, S_SIZE
     mov r15, rsp
@@ -493,9 +556,12 @@ pt_span_gradient:
 .s_chunk_n:
     mov [r15 + S_N], eax
     mov dword [r15 + S_K], 0
-    ; p = inverse * (x + 0.5, y + 0.5)
+.s_pixel:
+    ; p = inverse * (x + 0.5, y + 0.5), for this pixel on its own
     mov rbx, [r15 + S_PAINT]
-    cvtsi2sd xmm0, dword [r15 + S_X]
+    mov eax, [r15 + S_X]
+    add eax, [r15 + S_K]
+    cvtsi2sd xmm0, eax
     addsd xmm0, [rel paint_half]
     cvtsi2sd xmm1, dword [r15 + S_Y]
     addsd xmm1, [rel paint_half]
@@ -505,21 +571,19 @@ pt_span_gradient:
     mulsd xmm3, xmm1
     addsd xmm2, xmm3
     addsd xmm2, [rbx + UgfxPaint_inverse + 32]
-    movsd [r15 + S_PX], xmm2
-    movsd xmm2, [rbx + UgfxPaint_inverse + 8]
-    mulsd xmm2, xmm0
+    movsd xmm4, [rbx + UgfxPaint_inverse + 8]
+    mulsd xmm4, xmm0
     movsd xmm3, [rbx + UgfxPaint_inverse + 24]
     mulsd xmm3, xmm1
-    addsd xmm2, xmm3
-    addsd xmm2, [rbx + UgfxPaint_inverse + 40]
-    movsd [r15 + S_PY], xmm2
-.s_pixel:
-    mov rbx, [r15 + S_PAINT]
-    movsd xmm0, [r15 + S_PX]
-    movsd xmm1, [r15 + S_PY]
+    addsd xmm4, xmm3
+    addsd xmm4, [rbx + UgfxPaint_inverse + 40]
+    movapd xmm0, xmm2
+    movapd xmm1, xmm4
+    mov eax, [rbx + UgfxPaint_type]
+    cmp eax, UGFX_PAINT_IMAGE
+    je .s_image
     subsd xmm0, [rbx + UgfxPaint_geom]
     subsd xmm1, [rbx + UgfxPaint_geom + 8]
-    mov eax, [rbx + UgfxPaint_type]
     cmp eax, UGFX_PAINT_LINEAR
     je .s_linear
     cmp eax, UGFX_PAINT_RADIAL
@@ -638,18 +702,102 @@ pt_span_gradient:
     mov rdx, [rbx + UgfxPaint_lut]
     mov eax, [rdx + rax * 4]
     jmp .s_store
+.s_image:
+    ; (u, v) = p in image pixels
+    movsd [r15 + S_V], xmm1
+    cmp dword [rbx + UgfxPaint_filter], UGFX_FILTER_BILINEAR
+    je .s_bilinear
+    call pt_floor_i64
+    mov [r15 + S_I], rax
+    movsd xmm0, [r15 + S_V]
+    call pt_floor_i64
+    mov rdx, rax
+    mov rax, [r15 + S_I]
+    call pt_texel
+    jmp .s_store
+.s_bilinear:
+    ; texel centres sit at + 0.5: i = floor(u - 0.5), fx = u - 0.5 - i
+    subsd xmm0, [rel paint_half]
+    movsd [r15 + S_FX], xmm0
+    call pt_floor_i64
+    mov [r15 + S_I], rax
+    movsd xmm1, [r15 + S_FX]
+    subsd xmm1, xmm0
+    movsd [r15 + S_FX], xmm1
+    movsd xmm0, [r15 + S_V]
+    subsd xmm0, [rel paint_half]
+    movsd [r15 + S_FY], xmm0
+    call pt_floor_i64
+    mov [r15 + S_J], rax
+    movsd xmm1, [r15 + S_FY]
+    subsd xmm1, xmm0
+    movsd [r15 + S_FY], xmm1
+    mov rax, [r15 + S_I]
+    mov rdx, [r15 + S_J]
+    call pt_texel
+    mov [r15 + S_TX], eax
+    mov rax, [r15 + S_I]
+    inc rax
+    mov rdx, [r15 + S_J]
+    call pt_texel
+    mov [r15 + S_TX + 4], eax
+    mov rax, [r15 + S_I]
+    mov rdx, [r15 + S_J]
+    inc rdx
+    call pt_texel
+    mov [r15 + S_TX + 8], eax
+    mov rax, [r15 + S_I]
+    inc rax
+    mov rdx, [r15 + S_J]
+    inc rdx
+    call pt_texel
+    mov [r15 + S_TX + 12], eax
+    ; weights w00, w10, w01, w11
+    movsd xmm2, [rel paint_one]
+    subsd xmm2, [r15 + S_FX]            ; 1 - fx
+    movsd xmm3, [rel paint_one]
+    subsd xmm3, [r15 + S_FY]            ; 1 - fy
+    movapd xmm4, xmm2
+    mulsd xmm4, xmm3
+    movsd xmm5, [r15 + S_FX]
+    mulsd xmm5, xmm3
+    movapd xmm6, xmm2
+    mulsd xmm6, [r15 + S_FY]
+    movsd xmm7, [r15 + S_FX]
+    mulsd xmm7, [r15 + S_FY]
+    ; each channel: ((c00 w00 + c10 w10) + c01 w01) + c11 w11, rounded
+    xor r8d, r8d
+    xor r9d, r9d
+.s_bilinear_channel:
+    movzx eax, byte [r15 + S_TX + r9]
+    cvtsi2sd xmm0, eax
+    mulsd xmm0, xmm4
+    movzx eax, byte [r15 + S_TX + 4 + r9]
+    cvtsi2sd xmm1, eax
+    mulsd xmm1, xmm5
+    addsd xmm0, xmm1
+    movzx eax, byte [r15 + S_TX + 8 + r9]
+    cvtsi2sd xmm1, eax
+    mulsd xmm1, xmm6
+    addsd xmm0, xmm1
+    movzx eax, byte [r15 + S_TX + 12 + r9]
+    cvtsi2sd xmm1, eax
+    mulsd xmm1, xmm7
+    addsd xmm0, xmm1
+    cvtsd2si eax, xmm0                  ; nearest
+    lea ecx, [r9 * 8]
+    shl eax, cl
+    or r8d, eax
+    inc r9d
+    cmp r9d, 4
+    jb .s_bilinear_channel
+    mov eax, r8d
+    jmp .s_store
 .s_none:
     xor eax, eax                        ; on no circle: unpainted
 .s_store:
     mov ecx, [r15 + S_K]
     mov [r15 + S_BUF + rcx * 4], eax
-    ; next pixel: p += (a, b)
-    movsd xmm0, [r15 + S_PX]
-    addsd xmm0, [rbx + UgfxPaint_inverse]
-    movsd [r15 + S_PX], xmm0
-    movsd xmm0, [r15 + S_PY]
-    addsd xmm0, [rbx + UgfxPaint_inverse + 8]
-    movsd [r15 + S_PY], xmm0
     inc dword [r15 + S_K]
     mov eax, [r15 + S_K]
     cmp eax, [r15 + S_N]
@@ -670,6 +818,96 @@ pt_span_gradient:
 .s_out:
     add rsp, S_SIZE
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+; xmm0 -> xmm0 = floor(x) and rax = the same as an integer, x clamped to
+;   +/- 2^52 (NaN -> -2^52)
+pt_floor_i64:
+    sub rsp, 8
+    maxsd xmm0, [rel paint_neg_limit]
+    minsd xmm0, [rel paint_pos_limit]
+    call umath_floor_f64
+    cvttsd2si rax, xmm0
+    add rsp, 8
+    ret
+
+; rax = column, rdx = row, rbx = image paint -> eax = the texel after both
+;   axes' extend modes, 0 where a mode leaves it outside. Clobbers rcx, rdx,
+;   r8-r10.
+pt_texel:
+    push rdx
+    mov r10, [rbx + UgfxPaint_image]
+    mov rcx, [r10 + PixBuf_width]
+    mov r8d, [rbx + UgfxPaint_spread]
+    call pt_wrap
+    pop rdx
+    test rax, rax
+    js .texel_none
+    mov r9, rax
+    mov rax, rdx
+    mov r10, [rbx + UgfxPaint_image]
+    mov rcx, [r10 + PixBuf_height]
+    mov r8d, [rbx + UgfxPaint_extend_y]
+    call pt_wrap
+    test rax, rax
+    js .texel_none
+    mov r10, [rbx + UgfxPaint_image]
+    imul rax, [r10 + PixBuf_stride]
+    add rax, [r10 + PixBuf_data]
+    mov eax, [rax + r9 * 4]
+    ret
+.texel_none:
+    xor eax, eax
+    ret
+
+; rax = coordinate, rcx = size (> 0), r8d = UGFX_SPREAD_* -> rax = index in
+;   [0, size), or -1 outside for UGFX_SPREAD_NONE. Clobbers rdx, r10.
+pt_wrap:
+    cmp r8d, UGFX_SPREAD_REPEAT
+    je .wrap_repeat
+    cmp r8d, UGFX_SPREAD_REFLECT
+    je .wrap_reflect
+    cmp r8d, UGFX_SPREAD_NONE
+    je .wrap_none
+    test rax, rax                       ; pad: the edge pixel
+    jns .wrap_pad_high
+    xor eax, eax
+    ret
+.wrap_pad_high:
+    cmp rax, rcx
+    jl .wrap_done
+    lea rax, [rcx - 1]
+.wrap_done:
+    ret
+.wrap_repeat:
+    cqo
+    idiv rcx
+    mov rax, rdx
+    test rax, rax
+    jns .wrap_done
+    add rax, rcx
+    ret
+.wrap_reflect:
+    lea r10, [rcx + rcx]                ; period 2 size
+    cqo
+    idiv r10
+    mov rax, rdx
+    test rax, rax
+    jns .wrap_fold
+    add rax, r10
+.wrap_fold:
+    cmp rax, rcx
+    jl .wrap_done
+    sub rax, r10
+    not rax                             ; 2 size - 1 - m
+    ret
+.wrap_none:
+    test rax, rax
+    js .wrap_outside
+    cmp rax, rcx
+    jl .wrap_done
+.wrap_outside:
+    mov rax, -1
+    ret
 
 section .rodata
 align 16
