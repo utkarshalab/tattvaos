@@ -40,7 +40,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | C2D-016 | Shapes: rect, rounded rect, ellipse, circle, polygon, star, pie, sector | P2 | ✓ `2d/shapes` | 015 |
 | C2D-017 | Path transforms | P2 | ✓ `ugfx_path_transform`, matrix in rasterize | 012, 015 |
 | C2D-018 | Flattening with error tolerance | P2 | ✓ `ugfx_path_rasterize` + `umath/geom/bezier` | 015 |
-| C2D-019 | Iteration, reversal, measuring (length, point at distance, tangent) | P3 | | 015 |
+| C2D-019 | Iteration, reversal, measuring (length, point at distance, tangent) | P3 | ◐ `ugfx_path_flatten`, `ugfx_path_length`; reversal, point at distance pending | 015 |
 | C2D-020 | Hit testing: point in fill, near stroke | P2 | | 018 |
 | C2D-021 | Simplification (degenerate segments) | P3 | | 015 |
 | C2D-022 | Boolean ops: union, intersect, difference, xor | P3 | | 018 |
@@ -67,7 +67,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | C2D-033 | Stroke width, thin and hairline strokes | P2 | ◐ `2d/stroke` any width > 0; device hairline pending | 018 |
 | C2D-034 | Joins: miter (limit), round, bevel | P2 | ✓ `2d/stroke` | 033 |
 | C2D-035 | Caps: butt, round, square | P2 | ✓ `2d/stroke` | 033 |
-| C2D-036 | Dashes (pattern, offset, along curves) | P2 | | 019, 033 |
+| C2D-036 | Dashes (pattern, offset, along curves) | P2 | ✓ `2d/dash` | 019, 033 |
 | C2D-037 | Variable-width strokes | P4 | | 033 |
 | C2D-038 | Stroke to path | P2 | ✓ `ugfx_path_stroke` | 033–035 |
 | C2D-039 | Non-scaling strokes | P3 | | 033, 017 |
@@ -196,7 +196,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 
 1. Geometry math in `umath/geom` (012, 018) — **done**
 2. Path builder, shapes, transforms, flattening, path fill (015–018, 014) — **done** (conic, tight bounds pending)
-3. Strokes: width, joins, caps, stroke to path, dashes (033–036, 038) — **done** except dashes (036) and device hairlines
+3. Strokes: width, joins, caps, stroke to path, dashes (033–036, 038) — **done** except device hairlines
 4. Span variants and paint: gradients, image patterns (054, 041–046)
 5. Clipping and masks, coverage masks (032, 055–060)
 6. Context, draw calls, display lists, layers (083–087)
