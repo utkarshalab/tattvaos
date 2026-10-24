@@ -93,7 +93,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | C2D-049 | Porter-Duff operators | P2 | ◐ `core/blend` | |
 | C2D-050 | Separable blend modes | P3 | | 049 |
 | C2D-051 | Non-separable blend modes (hue, saturation, colour, luminosity) | P3 | | 049 |
-| C2D-052 | Group opacity and layers | P2 | | 087 |
+| C2D-052 | Group opacity and layers | P2 | ✓ context layers | 087 |
 | C2D-053 | SIMD paths (SSE2, AVX2, AVX-512) | P3 | ◐ `core/blend_*` | 049 |
 | C2D-054 | Span compositor variants (solid, gradient, image, mask) | P2 | ◐ solid and per-pixel colours in `core/span`, gradient and image spans; mask pending | 040 |
 
@@ -104,7 +104,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | C2D-055 | Rectangle clips | P2 | ✓ `core/clip` (rects), `ugfx_mask_fill_rect` (as clips) | |
 | C2D-056 | Region clips | P2 | | 011 |
 | C2D-057 | AA path clips | P2 | ✓ `ugfx_raster_set_clip` | 032 |
-| C2D-058 | Clip stack | P2 | ◐ intersection by rendering under the clip; the stack itself comes with the context (083) | 055–057 |
+| C2D-058 | Clip stack | P2 | ✓ `2d/context` save/restore with a per-depth mask pool | 055–057 |
 | C2D-059 | Alpha and luminance masks | P3 | ✓ `core/mask` | 032 |
 | C2D-060 | Scissor fast paths | P2 | | 055 |
 
@@ -149,11 +149,11 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
-| C2D-083 | Context: transform, clip, paint, stroke style, alpha; save/restore | P2 | | 012, 058 |
-| C2D-084 | Draw calls: fill, stroke, image, text, clear, shapes | P2 | | 083 |
+| C2D-083 | Context: transform, clip, paint, stroke style, alpha; save/restore | P2 | ✓ `2d/context` | 012, 058 |
+| C2D-084 | Draw calls: fill, stroke, image, text, clear, shapes | P2 | ◐ `2d/context` fill, stroke, clip, rects, image, clear; text pending | 083 |
 | C2D-085 | Display lists (record and replay) | P2 | | 084 |
 | C2D-086 | Draw commands for CPU now, GPU later | P3 | | 085 |
-| C2D-087 | Layers and offscreen targets | P2 | | 001 |
+| C2D-087 | Layers and offscreen targets | P2 | ✓ `ugfx_ctx_begin_layer` / `_end_layer` | 001 |
 | C2D-088 | Dirty-region tracking and partial redraw | P3 | | 011 |
 
 ## 13. Vector content formats
