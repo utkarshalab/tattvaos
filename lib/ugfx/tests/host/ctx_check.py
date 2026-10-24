@@ -63,7 +63,8 @@ CTX_OPS = {'new_path': (30, 0), 'fill': (31, 0), 'stroke': (32, 0), 'clip': (33,
            'fill_gradient': (43, None), 'stroke_gradient': (44, None), 'stroke_style': (45, 4),
            'dash': (46, None), 'alpha': (47, 1), 'rule': (48, 1), 'tolerance': (49, 1),
            'fill_rect': (50, 4), 'stroke_rect': (51, 4), 'draw_image': (52, None), 'clear': (53, 1),
-           'begin_layer': (54, 1), 'end_layer': (55, 0), 'uic': (56, None), 'svg': (57, None)}
+           'begin_layer': (54, 1), 'end_layer': (55, 0), 'uic': (56, None), 'svg': (57, None),
+           'clip_begin': (58, 0), 'clip_add': (59, 0), 'clip_end': (60, 0)}
 PATH_OPS = ('move', 'line', 'quad', 'cubic', 'close', 'rect', 'ellipse', 'circle')
 
 
@@ -157,6 +158,13 @@ class Ref:
             elif name == 'clip':
                 cov = self.coverage(self.path, st['rule'])
                 st['clip'] = cov if st['clip'] is None else div255(cov * st['clip'])
+            elif name == 'clip_begin':
+                self.union = np.zeros((H, W), np.int64)
+            elif name == 'clip_add':
+                cov = self.coverage(self.path, st['rule'])
+                self.union = cov + div255(self.union * (255 - cov))
+            elif name == 'clip_end':
+                st['clip'] = self.union if st['clip'] is None else div255(self.union * st['clip'])
             elif name == 'save':
                 self.stack.append(dict(st))
                 st = self.st = dict(st, layer=None)
@@ -267,6 +275,17 @@ def cases(rng):
                                 ('fill_rect', 0, 0, 48, 32), ('end_layer',), ('fill_color', 0x80FF0000), ('fill_rect', 0, 0, 20, 32)])
     yield "layer reused", ([('begin_layer', 255), ('fill_color', 0xFFFF0000), ('fill_rect', 0, 0, 24, 32), ('end_layer',),
                            ('begin_layer', 128), ('fill_color', 0xFF00FF00), ('fill_rect', 20, 0, 28, 16), ('end_layer',)])
+    yield "union clip", ([('clip_begin',)] + circle + [('clip_add',), ('new_path',), ('save',), ('translate', 18, 0),
+                         ('rule', 1)] + tri + [('clip_add',), ('new_path',), ('restore',), ('clip_end',),
+                         ('fill_color', 0xFFFF8000), ('fill_rect', 0, 0, 48, 32)])
+    yield "union clip under clip", (tri + [('clip',), ('new_path',), ('save',), ('clip_begin',), ('rect', 0, 0, 20, 32),
+                                    ('clip_add',), ('new_path',), ('rect', 30, 0, 18, 32), ('clip_add',), ('new_path',),
+                                    ('clip_end',), ('fill_color', 0xFF40FF40), ('fill_rect', 0, 0, 48, 32),
+                                    ('restore',), ('fill_color', 0x80000080), ('fill_rect', 0, 0, 48, 32)])
+    yield "union clip owned", (circle + [('clip',), ('new_path',), ('clip_begin',), ('rect', 10, 4, 30, 8),
+                               ('clip_add',), ('new_path',), ('clip_end',), ('fill_color', 0xFFFFFFFF),
+                               ('fill_rect', 0, 0, 48, 32)])
+    yield "empty union clip", [('clip_begin',), ('clip_end',), ('fill_color', 0xFFFFFFFF), ('fill_rect', 0, 0, 48, 32)]
     yield "clip mask reused", ([('save',)] + circle + [('clip',), ('new_path',), ('restore',),
                                ('save',)] + tri + [('clip',), ('new_path',), ('fill_rect', 0, 0, 48, 32), ('restore',),
                                ('fill_color', 0x5000FFFF), ('fill_rect', 0, 0, 48, 32)])
