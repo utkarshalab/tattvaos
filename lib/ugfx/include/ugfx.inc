@@ -349,7 +349,8 @@ extern panic_null_ptr
 %define UgfxSvgItem_alpha       300     ; u32 group opacity 0..255 (UGFX_SVG_BEGIN / END)
 %define UgfxSvgItem_clip        304     ; const UgfxSvgClip* (BEGIN / END), 0 = none
 %define UgfxSvgItem_bbox        312     ; f64 x0, y0, x1, y1: BEGIN's content in its space
-%define UgfxSvgItem_SIZE        344
+%define UgfxSvgItem_mask        344     ; const UgfxSvgMask* (BEGIN / END), 0 = none
+%define UgfxSvgItem_SIZE        352
 ; a clipPath's content, compiled for one element (items are shapes; next:
 ; the clipPath's own clip-path, intersected)
 %define UgfxSvgClip_items       0       ; UgfxSvgItem[]
@@ -357,6 +358,16 @@ extern panic_null_ptr
 %define UgfxSvgClip_units       12      ; u32 1 = objectBoundingBox
 %define UgfxSvgClip_next        16      ; const UgfxSvgClip*
 %define UgfxSvgClip_SIZE        24
+; a mask's content, compiled for one element: drawn into a mask layer,
+; clipped to the region, as luminance or alpha
+%define UgfxSvgMask_items       0       ; UgfxSvgItem[]
+%define UgfxSvgMask_count       8       ; u32
+%define UgfxSvgMask_units       12      ; u32 maskUnits: 1 = objectBoundingBox (the default)
+%define UgfxSvgMask_content     16      ; u32 maskContentUnits: 1 = objectBoundingBox
+%define UgfxSvgMask_mode        20      ; u32 UGFX_MASK_LUMINANCE / _ALPHA (mask-type)
+%define UgfxSvgMask_region      24      ; f64 x, y, w, h in those units
+%define UgfxSvgMask_path        56      ; UgfxPath: the unit square
+%define UgfxSvgMask_SIZE        112
 ; item kinds: a shape, or the start / end of a group drawn as one layer
 %define UGFX_SVG_SHAPE          0
 %define UGFX_SVG_BEGIN          1
