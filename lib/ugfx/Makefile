@@ -16,7 +16,7 @@ PATH_SRCS := 2d/path.asm 2d/shapes.asm 2d/stroke.asm 2d/flatten.asm 2d/dash.asm 
 CORE_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(CORE_SRCS))
 PATH_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(PATH_SRCS)) $(BUILDDIR)/core/umath_unit.o
 
-.PHONY: all host host-check clean
+.PHONY: all host host-check icons clean
 all: host
 
 $(BUILDDIR)/core/umath_unit.o: core/umath_unit.asm $(wildcard ../umath/geom/*.asm)
@@ -50,6 +50,10 @@ host-check: host
 	python3 tests/host/uic_check.py $(BUILDDIR)/host_ctx
 	python3 tests/host/svg_check.py $(BUILDDIR)/host_ctx
 	python3 tests/host/svg2uic_check.py $(BUILDDIR)/host_ctx
+
+# icon packs from the open sets in icons/sources.json (fetches them; needs git)
+icons:
+	python3 tools/build_icons.py icons/sources.json $(BUILDDIR)/icons
 
 clean:
 	rm -rf $(BUILDDIR)
