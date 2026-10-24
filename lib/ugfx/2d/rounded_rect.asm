@@ -2,11 +2,7 @@
 ; Rounded Rectangle Primitive
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
-%include "inc/geometry.inc"
-%include "inc/externs.inc"
+%include "ugfx.inc"
 
 section .text
 
@@ -29,13 +25,13 @@ rounded_rect_draw:
     ASSERT_PTR rbx
 
     ; Get pixbuf info
-    mov eax, [rbx + Pixbuf.width]
+    mov eax, [rbx + PixBuf_width]
     mov r11d, eax
-    mov eax, [rbx + Pixbuf.height]
+    mov eax, [rbx + PixBuf_height]
     mov r10d, eax
-    mov rax, [rbx + Pixbuf.stride]
+    mov rax, [rbx + PixBuf_stride]
     mov r9, rax
-    mov rax, [rbx + Pixbuf.data]
+    mov rax, [rbx + PixBuf_data]
     mov rdi, rax
 
     ; Clamp radius to half of min(w, h)
