@@ -26,8 +26,8 @@ scalar/   Tier 0-1  abs/min/max/clamp/round/sign/reciprocal, i32/i64/f32/f64;
 dtype/    Tier 0    213-type classification/metadata system
 math_fn/  Tier 1    sqrt/cbrt, exp/exp2/exp10/expm1, log/log2/log10/log1p,
                      pow, sin/cos/tan, asin/acos/atan/atan2, sinh/cosh/
-                     tanh, asinh/acosh/atanh, hypot, scalbn, fma; f32/f64 +
-                     arrays
+                     tanh, asinh/acosh/atanh, hypot, scalbn, fma, erf/erfc,
+                     tgamma/lgamma, polyval; f32/f64 + arrays
 stability/ Tier 1   compensated/pairwise sums, Welford mean/variance,
                      log-sum-exp
 reduce/   Tier 1    sum/mean, dot/sum of squares, overflow-safe product,
