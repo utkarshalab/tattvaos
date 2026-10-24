@@ -121,7 +121,7 @@ for MILESTONE in \
     "UBF app: hello from a loaded program" \
     "UBF app: imports, relocations and data work" \
     "UBF loader: hello.ubf loaded, ran and returned 42: PASS" \
-    "UBF loader: tampered image refused: PASS" \
+    "UBF loader: tampered image refused: PASS"     "UBF app: hello from a loaded program"     "UPK: hello.upk verified, its main loaded, ran and returned 42: PASS"     "UPK: tampered package refused: PASS"     "UPK: package from an untrusted key refused: PASS" \
     "Utkarsha Kernel Ready. Entering main execution." \
     "heartbeat #0"
 do
