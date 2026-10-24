@@ -316,6 +316,8 @@ extern panic_null_ptr
 %define UgfxSvg_width           56      ; f64 (the root's width attribute)
 %define UgfxSvg_height          64
 %define UgfxSvg_has             72      ; u32 bit 0 viewBox, 1 width, 2 height
+%define UgfxSvg_par             76      ; u32 the root's preserveAspectRatio: align 0 none,
+                                        ; 1..9 xMinYMin .. xMaxYMax (x fastest); bit 8 slice
 %define UgfxSvg_SIZE            80
 
 %define UgfxSvgItem_matrix      0       ; f64[6] element -> viewBox space
