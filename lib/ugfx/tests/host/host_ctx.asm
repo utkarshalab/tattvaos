@@ -30,7 +30,8 @@
 ;       draw it onto the context (directly, also when recording)
 ;    57 svg bytes <document, padded to 8> current_colour x y size: parse the
 ;       document and draw it onto the context (exit 5 if parsing fails);
-;       its images decode as farbfeld (host_image)
+;       its images decode as farbfeld (host_image), its text uses
+;       host_font
 ;    58 clip_begin   59 clip_add (the current path)   60 clip_end
 ;    61 begin_mask   62 end_mask mode   63 clip_stroke (the current path)
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 setup error, 4 write error,
@@ -123,7 +124,8 @@ extern ugfx_list_init
 extern ugfx_uic_open
 extern ugfx_uic_find
 extern ugfx_uic_draw
-extern ugfx_svg_parse_ex
+extern ugfx_svg_parse_opts
+extern ugfx_path_add_rect
 extern ugfx_svg_draw
 extern ugfx_list_replay
 
@@ -563,9 +565,8 @@ _start:
     lea r14, [rdx + rax]
     lea rdi, [rel svg]
     lea rsi, [rel arena_state]
-    lea r8, [rel host_image]
-    xor r9d, r9d
-    call ugfx_svg_parse_ex
+    lea r8, [rel svg_options]
+    call ugfx_svg_parse_opts
     test rax, rax
     jnz .call_fail
     lea rdi, [rel svg]
@@ -814,6 +815,72 @@ host_image:
     shr eax, 8
     ret
 
+; host_font — the test font: rdi = user, rsi = UgfxSvgFont*, edx = code
+;   point, xmm0 = size s, rcx = UgfxPath* or 0 -> xmm0 = advance: a space
+;   0.3 s; else ((cp mod 7) x 0.08 + 0.4) s, x 1.25 at weight >= 600, and
+;   the outline a box (0.05 s, -0.7 s, advance - 0.1 s, 0.7 s), odd code
+;   points with a notch (0.05 s, -0.9 s, 0.15 s, 0.15 s)
+host_font:
+    push rbx
+    push r12
+    push r13
+    sub rsp, 32
+    movsd [rsp], xmm0                   ; s
+    mov rbx, rcx
+    mov r12d, edx
+    cmp edx, ' '
+    jne .hf_glyph
+    mulsd xmm0, [rel hf_space]
+    jmp .hf_out
+.hf_glyph:
+    mov eax, edx
+    xor edx, edx
+    mov ecx, 7
+    div ecx
+    cvtsi2sd xmm1, edx
+    mulsd xmm1, [rel hf_step]
+    addsd xmm1, [rel hf_base]
+    mulsd xmm1, xmm0
+    cmp dword [rsi + UgfxSvgFont_weight], 600
+    jb .hf_weight
+    mulsd xmm1, [rel hf_bold]
+.hf_weight:
+    movsd [rsp + 8], xmm1               ; advance
+    test rbx, rbx
+    jz .hf_adv
+    movsd xmm0, [rsp]
+    mulsd xmm0, [rel hf_x0]
+    movsd xmm1, [rsp]
+    mulsd xmm1, [rel hf_y0]
+    movsd xmm2, [rsp]
+    mulsd xmm2, [rel hf_inset]
+    movsd xmm3, [rsp + 8]
+    subsd xmm3, xmm2
+    movapd xmm2, xmm3
+    movsd xmm3, [rsp]
+    mulsd xmm3, [rel hf_h]
+    mov rdi, rbx
+    call ugfx_path_add_rect
+    test r12d, 1
+    jz .hf_adv
+    movsd xmm0, [rsp]
+    mulsd xmm0, [rel hf_x0]
+    movsd xmm1, [rsp]
+    mulsd xmm1, [rel hf_ny]
+    movsd xmm2, [rsp]
+    mulsd xmm2, [rel hf_nw]
+    movapd xmm3, xmm2
+    mov rdi, rbx
+    call ugfx_path_add_rect
+.hf_adv:
+    movsd xmm0, [rsp + 8]
+.hf_out:
+    add rsp, 32
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 global panic_null_ptr
 panic_null_ptr:
     mov edi, 134
@@ -823,6 +890,17 @@ panic_null_ptr:
 
 section .data
 align 8
+svg_options:    dq host_image, 0, host_font, 0
+hf_space:       dq 0.3
+hf_step:        dq 0.08
+hf_base:        dq 0.4
+hf_bold:        dq 1.25
+hf_x0:          dq 0.05
+hf_y0:          dq -0.7
+hf_inset:       dq 0.1
+hf_h:           dq 0.7
+hf_ny:          dq -0.9
+hf_nw:          dq 0.15
 ctx_fns:
     dq ugfx_ctx_begin_layer
     dq ugfx_ctx_clear
