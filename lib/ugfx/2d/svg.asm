@@ -94,7 +94,10 @@ extern ugfx_ctx_stroke
 %define S_STROKE_ID_END 144
 %define S_FILL_FB       152             ; u32 the fallback's kind (its colour in S_FILL)
 %define S_STROKE_FB     156
-%define S_SIZE          160
+%define S_FONT          160             ; f64 font-size (user units) for em / ex
+%define S_VW            168             ; f64 the viewport, for percentages
+%define S_VH            176
+%define S_SIZE          184
 
 ; elements
 %define E_GROUP         0
@@ -139,16 +142,23 @@ extern ugfx_ctx_stroke
 %define A_STROKE_OP     9
 %define A_OPACITY       10
 %define A_DISPLAY       11
-%define A_LAST_PROP     11              ; ids up to here are style properties too
-%define A_TRANSFORM     12
-%define A_STYLE         13
-%define A_D             14
-%define A_POINTS        15
-%define A_VIEWBOX       16
-%define A_ID            17
-%define A_CLASS         18
-%define A_HREF          19
-%define A_GEOM          32              ; + G_* slot
+%define A_FONT_SIZE     12
+%define A_LAST_PROP     12              ; ids up to here are style properties too
+%define A_TRANSFORM     40
+%define A_STYLE         41
+%define A_D             42
+%define A_POINTS        43
+%define A_VIEWBOX       44
+%define A_ID            45
+%define A_CLASS         46
+%define A_HREF          47
+%define A_GEOM          64              ; + G_* slot
+
+; lengths: what a percentage is of
+%define AX_X            0               ; the viewport width
+%define AX_Y            1               ; its height
+%define AX_D            2               ; its normalised diagonal, sqrt((w^2 + h^2) / 2)
+%define AX_FONT         3               ; the parent's font-size
 
 ; parser frame (r15)
 %define P_SVG           0
@@ -182,7 +192,13 @@ extern ugfx_ctx_stroke
 %define P_INST          (P_HREF + 36)                   ; u32 the next start tag is an instance's root
 %define P_SYMROOT       (P_HREF + 40)                   ; u32 this element is an instanced symbol
 %define P_USE_HAVE      (P_HREF + 44)                   ; u32 width and height given
-%define P_SIZE          (((P_HREF + 48 + 15) & ~15) + 8)
+%define P_GV            (P_HREF + 48)                   ; geometry values as written: (p, end)[G_COUNT]
+%define P_GRAW          (P_GV + G_COUNT * 16)           ; u32 bits: P_GV slots given
+%define P_FONT_RAW      (P_GRAW + 8)                    ; font-size as written (0: none)
+%define P_FONT_RAW_END  (P_FONT_RAW + 8)
+%define P_SW_RAW        (P_FONT_RAW + 16)               ; stroke-width as written
+%define P_SW_RAW_END    (P_FONT_RAW + 24)
+%define P_SIZE          (((P_FONT_RAW + 32 + 15) & ~15) + 8)
 
 section .rodata
 align 8
@@ -195,6 +211,18 @@ svg_default_h:      dq 150.0
 svg_neg_half_pi:    dq -1.5707963267948966
 svg_half_pi:        dq 1.5707963267948966
 svg_pi:             dq 3.141592653589793
+svg_16:             dq 16.0
+svg_pt:             dq 0x3FF5555555555555   ; 96 / 72
+svg_pc:             dq 16.0
+svg_mm:             dq 0x400E3C78F1E3C790   ; 96 / 25.4
+svg_cm:             dq 0x4042E5CB972E5CB9   ; 96 / 2.54
+svg_in:             dq 96.0
+svg_1_2:            dq 0x3FF3333333333333   ; 1.2: larger / smaller
+; font-size keywords, by id - 1
+svg_font_sizes:     dq 9.0, 10.0, 13.0, 16.0, 18.0, 24.0, 32.0
+; what a percentage of each geometry slot is of
+svg_slot_axis:      db AX_X, AX_Y, AX_X, AX_Y, AX_X, AX_Y, AX_X, AX_Y, AX_D
+                    db AX_X, AX_Y, AX_X, AX_Y
 
 ; names: length, text, id
 %macro NAME 2
@@ -240,6 +268,7 @@ svg_attributes:
     NAME "stroke-opacity", A_STROKE_OP
     NAME "opacity", A_OPACITY
     NAME "display", A_DISPLAY
+    NAME "font-size", A_FONT_SIZE
     NAME "transform", A_TRANSFORM
     NAME "style", A_STYLE
     NAME "d", A_D
@@ -262,6 +291,17 @@ svg_attributes:
     NAME "y1", A_GEOM + G_Y1
     NAME "x2", A_GEOM + G_X2
     NAME "y2", A_GEOM + G_Y2
+    db 0
+svg_font_words:
+    NAME "xx-small", 1
+    NAME "x-small", 2
+    NAME "small", 3
+    NAME "medium", 4
+    NAME "large", 5
+    NAME "x-large", 6
+    NAME "xx-large", 7
+    NAME "larger", 8
+    NAME "smaller", 9
     db 0
 svg_word_none:      db "none"
 svg_word_butt:      db "butt"
@@ -362,6 +402,12 @@ ugfx_svg_parse:
     mov dword [rbx + S_CAP], UGFX_CAP_BUTT
     mov dword [rbx + S_RULE], UGFX_FILL_NONZERO
     mov dword [rbx + S_SKIP], 0
+    movsd xmm0, [rel svg_16]
+    movsd [rbx + S_FONT], xmm0
+    movsd xmm0, [rel svg_default_w]
+    movsd [rbx + S_VW], xmm0
+    movsd xmm0, [rel svg_default_h]
+    movsd [rbx + S_VH], xmm0
     ; gradients first: url(#id) may name one defined further on
     lea rdi, [r15 + P_DEFS]
     mov rax, [r15 + P_SVG]
@@ -508,6 +554,9 @@ svg_element:
     mov qword [r15 + P_SEL + UgfxSvgSel_id], 0
     mov qword [r15 + P_SEL + UgfxSvgSel_class], 0
     mov qword [r15 + P_HREF], 0
+    mov dword [r15 + P_GRAW], 0
+    mov qword [r15 + P_FONT_RAW], 0
+    mov qword [r15 + P_SW_RAW], 0
     mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
 .attr:
     lea rdi, [r15 + P_XML]
@@ -580,13 +629,12 @@ svg_element:
     call ugfx_svg_transform             ; an invalid list changes nothing
     jmp .attr
 .attr_geom:
-    sub eax, A_GEOM
-    mov r14d, eax
-    call ugfx_svg_number
-    test rax, rax
-    jz .attr
-    movsd [r15 + P_G + r14 * 8], xmm0
-    bts dword [r15 + P_HAVE], r14d
+    sub eax, A_GEOM                     ; resolved once font-size is known
+    mov ecx, eax
+    shl ecx, 4
+    mov [r15 + P_GV + rcx], rdi
+    mov [r15 + P_GV + rcx + 8], rsi
+    bts dword [r15 + P_GRAW], eax
     jmp .attr
 .attrs_done:
     ; CSS rules (cascade order), then the style attribute, over the attributes
@@ -612,6 +660,7 @@ svg_element:
     mov rsi, [r15 + P_STYLE_END]
     call svg_decls
 .styled:
+    call svg_lengths
     ; the element's own opacity, once
     movsd xmm0, [rbx + S_OP]
     mulsd xmm0, [r15 + P_OPACITY]
@@ -655,7 +704,7 @@ svg_element:
 .root_vb:
     mov r12, [r15 + P_VB]
     test r12, r12
-    jz .element_out
+    jz .root_view
     ; four numbers, width and height > 0
     xor r13d, r13d
 .vb_number:
@@ -665,7 +714,7 @@ svg_element:
     mov rsi, [r15 + P_VB_END]
     call ugfx_svg_number
     test rax, rax
-    jz .element_out
+    jz .root_view
     mov r12, rax
     movsd [r15 + P_ARC + r13 * 8], xmm0
     inc r13d
@@ -674,10 +723,10 @@ svg_element:
     xorpd xmm1, xmm1
     movsd xmm0, [r15 + P_ARC + 16]
     ucomisd xmm0, xmm1
-    jbe .element_out
+    jbe .root_view
     movsd xmm0, [r15 + P_ARC + 24]
     ucomisd xmm0, xmm1
-    jbe .element_out
+    jbe .root_view
     mov rcx, [r15 + P_SVG]
     xor eax, eax
 .vb_copy:
@@ -687,6 +736,12 @@ svg_element:
     cmp eax, 4
     jb .vb_copy
     or dword [rcx + UgfxSvg_has], 1
+.root_view:
+    call svg_viewport                   ; what percentages inside are of
+    movsd xmm0, [r15 + P_VIEW]
+    movsd [rbx + S_VW], xmm0
+    movsd xmm0, [r15 + P_VIEW + 8]
+    movsd [rbx + S_VH], xmm0
 .element_out:
     pop r14
     pop r13
@@ -938,6 +993,8 @@ svg_property:
     je .rule
     cmp eax, A_DISPLAY
     je .display
+    cmp eax, A_FONT_SIZE
+    je .font_size
     ; opacities: a number (or a percentage), clamped to [0, 1]
     mov r13, rsi
     call ugfx_svg_number
@@ -1026,13 +1083,12 @@ svg_property:
     mov [rcx + 4], edx
     jmp .out
 .width:
-    call ugfx_svg_number
-    test rax, rax
-    jz .out
-    xorpd xmm1, xmm1
-    ucomisd xmm0, xmm1
-    jb .out                             ; negative: ignored
-    movsd [rbx + S_SW], xmm0
+    mov [r15 + P_SW_RAW], rdi           ; resolved with the final font-size
+    mov [r15 + P_SW_RAW_END], rsi
+    jmp .out
+.font_size:
+    mov [r15 + P_FONT_RAW], rdi
+    mov [r15 + P_FONT_RAW_END], rsi
     jmp .out
 .miter:
     call ugfx_svg_number
@@ -1097,6 +1153,220 @@ svg_property:
     IS_WORD none
     jne .out
     mov dword [rbx + S_SKIP], 1
+.out:
+    add rsp, 8
+    pop r13
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_lengths — r15 = frame, rbx = state, attributes and styles read: the
+;   lengths written with units, in order: font-size (em and % of the
+;   parent's), stroke-width, then the geometry. A root svg's width or
+;   height in percent stays unset.
+; -----------------------------------------------------------------------------
+svg_lengths:
+    push r12
+    push r13
+    push r14
+    mov rdi, [r15 + P_FONT_RAW]
+    test rdi, rdi
+    jz .stroke_width
+    mov rsi, [r15 + P_FONT_RAW_END]
+    call svg_font_size
+.stroke_width:
+    mov rdi, [r15 + P_SW_RAW]
+    test rdi, rdi
+    jz .geometry
+    mov rsi, [r15 + P_SW_RAW_END]
+    mov edx, AX_D
+    call svg_length
+    test rax, rax
+    jz .geometry
+    xorpd xmm1, xmm1
+    ucomisd xmm0, xmm1
+    jb .geometry                        ; negative: ignored
+    movsd [rbx + S_SW], xmm0
+.geometry:
+    xor r12d, r12d
+.slot:
+    cmp r12d, G_COUNT
+    jae .done
+    bt dword [r15 + P_GRAW], r12d
+    jnc .next
+    mov eax, r12d
+    shl eax, 4
+    mov rdi, [r15 + P_GV + rax]
+    mov rsi, [r15 + P_GV + rax + 8]
+    lea rax, [rel svg_slot_axis]
+    movzx edx, byte [rax + r12]
+    call svg_length
+    test rax, rax
+    jz .next
+    test ecx, ecx
+    jz .store
+    cmp dword [r15 + P_ELEM], E_SVG
+    jne .store
+    cmp dword [r15 + P_ROOT], 0
+    jne .store
+    cmp r12d, G_W
+    je .next
+    cmp r12d, G_H
+    je .next
+.store:
+    movsd [r15 + P_G + r12 * 8], xmm0
+    bts dword [r15 + P_HAVE], r12d
+.next:
+    inc r12d
+    jmp .slot
+.done:
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_length — rdi / rsi = a length, edx = AX_* (what a percentage is of),
+;   rbx = state -> xmm0 = user units, rax = the byte after it (0: not a
+;   length), ecx = 1 for a percentage. Units px, pt, pc, mm, cm, in (96 per
+;   inch), em, ex (half an em), %; any other unit is not a length.
+; -----------------------------------------------------------------------------
+svg_length:
+    push r12
+    push r13
+    sub rsp, 8
+    mov r12d, edx
+    mov r13, rsi
+    call ugfx_svg_number
+    xor ecx, ecx
+    test rax, rax
+    jz .out
+    cmp rax, r13
+    jae .out
+    movzx edx, byte [rax]
+    cmp dl, '%'
+    je .percent
+    or dl, 0x20
+    sub dl, 'a'
+    cmp dl, 25
+    ja .out                             ; no unit
+    lea rdx, [rax + 2]
+    cmp rdx, r13
+    ja .bad
+    movzx edx, word [rax]
+    or edx, 0x2020
+    add rax, 2
+    cmp dx, 'px'
+    je .out
+    cmp dx, 'pt'
+    je .pt
+    cmp dx, 'pc'
+    je .pc
+    cmp dx, 'mm'
+    je .mm
+    cmp dx, 'cm'
+    je .cm
+    cmp dx, 'in'
+    je .in
+    cmp dx, 'em'
+    je .em
+    cmp dx, 'ex'
+    je .ex
+.bad:
+    xor eax, eax
+    jmp .out
+.pt:
+    mulsd xmm0, [rel svg_pt]
+    jmp .out
+.pc:
+    mulsd xmm0, [rel svg_pc]
+    jmp .out
+.mm:
+    mulsd xmm0, [rel svg_mm]
+    jmp .out
+.cm:
+    mulsd xmm0, [rel svg_cm]
+    jmp .out
+.in:
+    mulsd xmm0, [rel svg_in]
+    jmp .out
+.em:
+    mulsd xmm0, [rbx + S_FONT]
+    jmp .out
+.ex:
+    mulsd xmm0, [rbx + S_FONT]
+    mulsd xmm0, [rel svg_half]
+    jmp .out
+.percent:
+    inc rax
+    mov ecx, 1
+    mulsd xmm0, [rel svg_hundredth]
+    cmp r12d, AX_X
+    je .of_w
+    cmp r12d, AX_Y
+    je .of_h
+    cmp r12d, AX_FONT
+    je .em
+    movsd xmm1, [rbx + S_VW]
+    mulsd xmm1, xmm1
+    movsd xmm2, [rbx + S_VH]
+    mulsd xmm2, xmm2
+    addsd xmm1, xmm2
+    mulsd xmm1, [rel svg_half]
+    sqrtsd xmm1, xmm1
+    mulsd xmm0, xmm1
+    jmp .out
+.of_w:
+    mulsd xmm0, [rbx + S_VW]
+    jmp .out
+.of_h:
+    mulsd xmm0, [rbx + S_VH]
+.out:
+    add rsp, 8
+    pop r13
+    pop r12
+    ret
+
+; rdi / rsi = font-size, rbx = state (S_FONT still the parent's): a
+;   keyword, larger / smaller (x 1.2, / 1.2) or a length >= 0
+svg_font_size:
+    push r12
+    push r13
+    sub rsp, 8
+    call ugfx_svg_trim
+    mov r12, rdi
+    mov r13, rsi
+    lea rdx, [rel svg_font_words]
+    call ugfx_svg_lookup
+    cmp eax, -1
+    je .length
+    cmp eax, 8
+    je .larger
+    cmp eax, 9
+    je .smaller
+    lea rcx, [rel svg_font_sizes]
+    movsd xmm0, [rcx + rax * 8 - 8]
+    jmp .set
+.larger:
+    movsd xmm0, [rbx + S_FONT]
+    mulsd xmm0, [rel svg_1_2]
+    jmp .set
+.smaller:
+    movsd xmm0, [rbx + S_FONT]
+    divsd xmm0, [rel svg_1_2]
+    jmp .set
+.length:
+    mov rdi, r12
+    mov rsi, r13
+    mov edx, AX_FONT
+    call svg_length
+    test rax, rax
+    jz .out
+    xorpd xmm1, xmm1
+    ucomisd xmm0, xmm1
+    jb .out
+.set:
+    movsd [rbx + S_FONT], xmm0
 .out:
     add rsp, 8
     pop r13
