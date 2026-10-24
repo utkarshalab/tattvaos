@@ -1334,7 +1334,7 @@ def parse(text):
                     if v is None or (pct and tag == "svg" and not seen_root[0] and name in ("width", "height")):
                         continue
                     geom[name] = v
-            opened = None
+            opened = vp = None
             if not st["skip"]:
                 if tag not in SHAPES and not clipmode[0]:
                     rec = clip_ref(raw, st, uses)
@@ -1343,7 +1343,7 @@ def parse(text):
                         doc.items.append(opened)
                         opened_at = len(doc.items)
                 if symroot:
-                    symbol_map(st, geom, inst)
+                    vp = symbol_map(st, geom, inst)
                 if tag == "use":
                     target = ids.get(href) if href is not None else None
                     if target is not None and uses < MAX_USES:
@@ -1355,6 +1355,7 @@ def parse(text):
                     st["m"] = mul(st["m"], [1.0, 0.0, 0.0, 1.0, geom.get("x", 0.0), geom.get("y", 0.0)])
                     w, h = geom.get("width", st["vw"]), geom.get("height", st["vh"])
                     if w > 0 and h > 0:
+                        vp = view_clip(st, 0.0, 0.0, w, h)
                         view_map(st, geom, w, h)
                     else:
                         st["skip"] = True
@@ -1371,11 +1372,17 @@ def parse(text):
                             vals.append(v)
                         if len(vals) == 4 and vals[2] > 0 and vals[3] > 0:
                             doc.viewbox = vals
+                            if doc.par[1] and doc.par[0]:
+                                vw, vh = 1.0, 1.0
+                                if doc.width and doc.width > 0 and doc.height and doc.height > 0:
+                                    vw, vh = doc.width, doc.height
+                                f = fit(vals, vw, vh, doc.par)
+                                vp = view_clip(st, (0.0 - f[4]) / f[0], (0.0 - f[5]) / f[0], vw / f[0], vh / f[0])
                     st["vw"], st["vh"] = viewport()
                 elif tag in SHAPES:
                     shape(tag, geom, st, own[0], raw, uses)
         else:
-            opened = None
+            opened = vp = None
         chosen = False
         for child in el:
             if tag == "switch":
@@ -1385,13 +1392,27 @@ def parse(text):
                         continue
                     chosen = True
             walk(child, st, uses)
+        if vp:
+            vp[0].bbox = group_bbox(vp[0], doc.items[vp[1]:])
+            doc.items.append(Group("end", 255, vp[0].clip))
         if opened:
             if opened.clip:
                 opened.bbox = group_bbox(opened, doc.items[opened_at:])
             doc.items.append(Group("end", opened.alpha, opened.clip))
 
     def symbol_map(st, geom, wh):
+        vp = view_clip(st, 0.0, 0.0, wh[0], wh[1])
         view_map(st, geom, wh[0], wh[1])
+        return vp
+
+    def view_clip(st, x, y, w, h):
+        """svg_view_clip: a group clipping to that rectangle -> (its begin, where its content starts)."""
+        if clipmode[0]:
+            return None
+        rect = Item([1.0, 0.0, 0.0, 1.0, 0.0, 0.0], [('rect', x, y, w, h)], None, None, 0, 1.0, 4.0, 0, 0)
+        begin = Group("begin", 255, Clip([rect]), list(st["m"]))
+        doc.items.append(begin)
+        return begin, len(doc.items)
 
     def view_map(st, geom, w, h):
         """svg_view_map: a valid viewBox fitted into w x h becomes the viewport inside."""
