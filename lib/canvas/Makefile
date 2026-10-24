@@ -104,6 +104,7 @@ GFX_SRCS := \
     $(UGFX_DIR)/2d/list.asm \
     $(UGFX_DIR)/2d/uic.asm \
     $(UGFX_DIR)/2d/svg_syntax.asm \
+    $(UGFX_DIR)/2d/svg_xml.asm \
     $(UGFX_DIR)/2d/svg.asm
 GFX_OBJS := $(patsubst $(UGFX_DIR)/%.asm,$(OBJDIR)/ugfx/%.o,$(GFX_SRCS))
 
