@@ -320,8 +320,8 @@ extern panic_null_ptr
 
 %define UgfxSvgItem_matrix      0       ; f64[6] element -> viewBox space
 %define UgfxSvgItem_path        48      ; UgfxPath
-%define UgfxSvgItem_fill_kind   104     ; u32 0 none, 1 colour, 2 currentColor
-%define UgfxSvgItem_fill        108     ; u32 straight BGRA (alpha with opacities)
+%define UgfxSvgItem_fill_kind   104     ; u32 0 none, 1 colour, 2 currentColor, 3 paint
+%define UgfxSvgItem_fill        108     ; u32 straight BGRA (alpha with opacities; paints: alpha only)
 %define UgfxSvgItem_stroke_kind 112
 %define UgfxSvgItem_stroke      116
 %define UgfxSvgItem_rule        120     ; u32
@@ -329,7 +329,11 @@ extern panic_null_ptr
 %define UgfxSvgItem_cap         128
 %define UgfxSvgItem_width       136     ; f64 stroke width
 %define UgfxSvgItem_miter       144
-%define UgfxSvgItem_SIZE        152
+%define UgfxSvgItem_fill_paint  152     ; UgfxPaint* (kind 3)
+%define UgfxSvgItem_fill_pm     160     ; f64[6] paint -> element space
+%define UgfxSvgItem_stroke_paint 208
+%define UgfxSvgItem_stroke_pm   216
+%define UgfxSvgItem_SIZE        264
 
 ; SVG reading state (2d/svg_xml.asm)
 %define UgfxSvgXml_cur          0       ; next byte to read
@@ -346,6 +350,13 @@ extern panic_null_ptr
 %define UgfxSvgAttr_val         24
 %define UgfxSvgAttr_val_end     32
 %define UgfxSvgAttr_SIZE        40
+
+; SVG definitions gathered before drawing (2d/svg_defs.asm)
+%define UgfxSvgDefs_arena       0
+%define UgfxSvgDefs_grads       8       ; gradient records
+%define UgfxSvgDefs_count       16      ; u32
+%define UgfxSvgDefs_cap         20      ; u32
+%define UgfxSvgDefs_SIZE        24
 
 ; Gradient colour stop (UgfxStop_SIZE bytes, an array of them per gradient)
 %define UgfxStop_offset         0       ; f64 position, clamped to [0, 1] and to the previous stop
