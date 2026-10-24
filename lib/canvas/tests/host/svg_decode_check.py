@@ -56,6 +56,8 @@ def main():
     failed = total = 0
     with tempfile.TemporaryDirectory(prefix="canvas_svg.") as d:
         for name, text, _ in CASES:
+            if "<text" in text:
+                continue                # ugfx's checks draw text with a test font; Canvas's fonts differ
             total += 1
             got, rc = decode(decode_tool, d, text.encode())
             w, h = own_size(text)
