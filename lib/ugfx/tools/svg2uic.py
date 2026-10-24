@@ -103,6 +103,12 @@ def convert(text, name, design_size=0):
     for it in doc.items:
         for attr in ("fill", "stroke"):
             p = getattr(it, attr)
+            if p and p[0] == "pattern":
+                setattr(it, attr, None)
+                warnings.append(f"{name}: pattern paint left out")
+    for it in doc.items:
+        for attr in ("fill", "stroke"):
+            p = getattr(it, attr)
             if p and p[0] == "paint":
                 stops, alpha = p[4], p[6]
                 avg = [sum((c >> s) & 255 for _, c in stops) / len(stops) for s in (0, 8, 16, 24)]
