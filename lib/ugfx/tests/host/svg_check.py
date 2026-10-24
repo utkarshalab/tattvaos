@@ -59,10 +59,19 @@ def expected_calls(doc, current, x, y, size):
     for it in doc.items:
         out += [('save',), ('transform', *it.matrix)]
         if it.fill:
-            out += [('fill_color', paint(it.fill)), ('rule', it.rule), ('new_path',)] + it.path + [('fill',)]
+            if it.fill[0] == 'paint':
+                _, kind, spread, geom, stops, m, a = it.fill
+                out += [('fill_gradient', kind, spread, geom, stops, m), ('alpha', a)]
+            else:
+                out.append(('fill_color', paint(it.fill)))
+            out += [('rule', it.rule), ('new_path',)] + it.path + [('fill',)]
         if it.stroke:
-            out += [('stroke_color', paint(it.stroke)), ('stroke_style', it.width, it.miter, it.join, it.cap),
-                    ('new_path',)] + it.path + [('stroke',)]
+            if it.stroke[0] == 'paint':
+                _, kind, spread, geom, stops, m, a = it.stroke
+                out += [('stroke_gradient', kind, spread, geom, stops, m), ('alpha', a)]
+            else:
+                out += [('alpha', 255), ('stroke_color', paint(it.stroke))]
+            out += [('stroke_style', it.width, it.miter, it.join, it.cap), ('new_path',)] + it.path + [('stroke',)]
         out.append(('restore',))
     return out + [('restore',)]
 
@@ -130,6 +139,55 @@ CASES = [
     ("width height only", svg('<rect width="20" height="10" fill="#a08"/>', 'width="20px" height="10"'), False),
     ("no size", svg('<rect width="300" height="150" fill="#555"/><circle cx="150" cy="75" r="60" fill="#fff"/>', ''), False),
     ("path error stops", svg('<path d="M2 2 L22 2 L22 22 L x 2 2" fill="#000"/><path d="M2 22 L12 12 Z Q" stroke="#f00" fill="none"/>'), False),
+    ("linear default", svg('<defs><linearGradient id="g"><stop offset="0" stop-color="#f00"/>'
+                            '<stop offset="1" stop-color="#00f"/></linearGradient></defs>'
+                            '<rect x="2" y="4" width="20" height="16" fill="url(#g)"/>'), False),
+    ("linear user space", svg('<linearGradient id="g" gradientUnits="userSpaceOnUse" x1="10%" y1="0" x2="90%" '
+                              'y2="24" spreadMethod="reflect" gradientTransform="rotate(20 12 12)">'
+                              '<stop offset="0%" stop-color="#0a0"/><stop offset="50%" stop-color="#ff0" '
+                              'stop-opacity=".5"/><stop offset="100%" style="stop-color: #a00"/></linearGradient>'
+                              '<path d="M2 2h20v20H2z" fill="url(#g)"/>'), True),
+    ("linear repeat", svg('<linearGradient id="g" x1="0" y1="0" x2="0.25" y2="0.25" spreadMethod="repeat">'
+                          '<stop offset=".2" stop-color="#000"/><stop offset=".8" stop-color="#fff"/></linearGradient>'
+                          '<rect x="3" y="3" width="18" height="18" fill="url(#g)" stroke="#000"/>'), False),
+    ("radial default", svg('<radialGradient id="r"><stop offset="0" stop-color="#fff"/><stop offset="1" '
+                           'stop-color="#048"/></radialGradient><circle cx="12" cy="12" r="10" fill="url(#r)"/>'), True),
+    ("radial focal", svg('<radialGradient id="r" cx="0.5" cy="0.5" r="0.5" fx="0.3" fy="0.3" fr="0.05">'
+                         '<stop offset="0" stop-color="#ff8"/><stop offset="0.6" stop-color="#f80"/>'
+                         '<stop offset="1" stop-color="#800"/></radialGradient>'
+                         '<rect x="2" y="2" width="20" height="20" rx="4" fill="url(#r)"/>'), True),
+    ("radial user space", svg('<radialGradient id="r" gradientUnits="userSpaceOnUse" cx="12" cy="12" r="40%" '
+                              'spreadMethod="repeat"><stop offset="0" stop-color="#00f"/><stop offset="1" '
+                              'stop-color="#0ff"/></radialGradient><path d="M2 12 L12 2 L22 12 L12 22Z" '
+                              'fill="url(#r)"/>'), False),
+    ("href chain", svg('<linearGradient id="base"><stop offset="0" stop-color="#f0f"/><stop offset=".5" '
+                       'stop-color="#ff0"/><stop offset="1" stop-color="#0ff"/></linearGradient>'
+                       '<linearGradient id="mid" href="#base" x2="0" y2="1"/>'
+                       '<linearGradient id="top" xlink:href="#mid" spreadMethod="reflect" y2="0.5"/>'
+                       '<radialGradient id="rad" href="#base" r="0.3"/>'
+                       '<rect x="1" y="1" width="10" height="22" fill="url(#top)"/>'
+                       '<rect x="13" y="1" width="10" height="22" fill="url(#rad)"/>',
+                       'viewBox="0 0 24 24" xmlns:xlink="http://www.w3.org/1999/xlink"'), False),
+    ("stops edge cases", svg('<linearGradient id="one"><stop offset=".5" stop-color="#e40"/></linearGradient>'
+                             '<linearGradient id="none"/>'
+                             '<linearGradient id="odd"><stop offset=".7" stop-color="#00f"/><stop offset=".2" '
+                             'stop-color="#f00"/><stop offset="2" stop-color="rgb(0,200,0)" stop-opacity="0.3"/>'
+                             '</linearGradient>'
+                             '<rect x="2" y="2" width="9" height="9" fill="url(#one)"/>'
+                             '<rect x="13" y="2" width="9" height="9" fill="url(#none)" stroke="#000"/>'
+                             '<rect x="2" y="13" width="20" height="9" fill="url(#odd)"/>'), False),
+    ("stroke gradient", svg('<linearGradient id="g" x2="0" y2="1"><stop offset="0" stop-color="#f00"/>'
+                            '<stop offset="1" stop-color="#00f"/></linearGradient>'
+                            '<path d="M4 4 L20 4 L20 20 L4 20 Z" fill="#eee" stroke="url(#g)" stroke-width="3"/>'
+                            '<path d="M4 12 H20" stroke="url(#g)" stroke-width="2"/>'), False),
+    ("gradient opacity", svg('<linearGradient id="g"><stop offset="0" stop-color="#000"/><stop offset="1" '
+                             'stop-color="#f80"/></linearGradient><g opacity=".7"><rect x="2" y="2" width="20" '
+                             'height="20" fill="url(#g)" fill-opacity=".5" stroke="#000" stroke-width="1.5"/></g>'), False),
+    ("forward + fallback", svg('<rect x="2" y="2" width="9" height="20" fill="url(&quot;#later&quot;)"/>'
+                               '<rect x="13" y="2" width="9" height="9" fill="url(#missing) #0a0"/>'
+                               '<rect x="13" y="13" width="9" height="9" fill="url(#missing)" stroke="#000"/>'
+                               '<defs><linearGradient id="later" x2="0" y2="1"><stop offset="0" stop-color="#08f"/>'
+                               '<stop offset="1" stop-color="#f08"/></linearGradient></defs>'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
