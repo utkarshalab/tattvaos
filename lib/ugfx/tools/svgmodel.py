@@ -26,7 +26,12 @@ SKIP = {"defs", "clipPath", "mask", "symbol", "linearGradient", "radialGradient"
 MAX_USES = 8                                        # <use> instances inside instances
 SHAPES = {"path", "rect", "circle", "ellipse", "line", "polyline", "polygon"}
 PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "fill-rule",
-         "fill-opacity", "stroke-opacity", "opacity", "display"}
+         "fill-opacity", "stroke-opacity", "opacity", "display", "font-size"}
+GEOM = ("x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "y1", "x2", "y2")
+AXIS = dict(x="x", y="y", width="x", height="y", rx="x", ry="y", cx="x", cy="y", r="d",
+            x1="x", y1="y", x2="x", y2="y")
+FONT_WORDS = {"xx-small": 9.0, "x-small": 10.0, "small": 13.0, "medium": 16.0, "large": 18.0,
+              "x-large": 24.0, "xx-large": 32.0}
 KEYWORDS = {  # the 148 CSS named colours
     "aliceblue": 0xF0F8FF,
     "antiquewhite": 0xFAEBD7,
@@ -369,6 +374,48 @@ def transform_list(s, m):
             tn = math.tan(args[0] * DEG)
             t = [1.0, 0.0, tn, 1.0, 0.0, 0.0] if name == "skewX" else [1.0, tn, 0.0, 1.0, 0.0, 0.0]
         m = mul(m, t)
+
+
+def length(v, axis, st):
+    """(user units, is a percentage) or (None, False), as svg_length reads it."""
+    val, i = number(v, 0)
+    if val is None or i >= len(v):
+        return val, False
+    c = v[i]
+    if c == '%':
+        val = val * 0.01
+        if axis == "x":
+            return val * st["vw"], True
+        if axis == "y":
+            return val * st["vh"], True
+        if axis == "font":
+            return val * st["font"], True
+        return val * math.sqrt((st["vw"] * st["vw"] + st["vh"] * st["vh"]) * 0.5), True
+    if not 'a' <= chr(ord(c) | 0x20) <= 'z':
+        return val, False
+    if i + 2 > len(v):
+        return None, False
+    u = "".join(chr(ord(ch) | 0x20) for ch in v[i:i + 2])
+    if u == "px":
+        return val, False
+    if u == "em":
+        return val * st["font"], False
+    if u == "ex":
+        return val * st["font"] * 0.5, False
+    f = {"pt": 96.0 / 72.0, "pc": 16.0, "mm": 96.0 / 25.4, "cm": 96.0 / 2.54, "in": 96.0}.get(u)
+    return (val * f if f is not None else None), False
+
+
+def font_size(v, st):
+    t = trim(v)
+    if t in FONT_WORDS:
+        return FONT_WORDS[t]
+    if t == "larger":
+        return st["font"] * 1.2
+    if t == "smaller":
+        return st["font"] / 1.2
+    f, _ = length(t, "font", st)
+    return f if f is not None and f >= 0 else None
 
 
 def alpha_slash(s, i):
@@ -935,11 +982,14 @@ def parse(text):
         if "id" in el.attrib:
             ids.setdefault(trim(el.attrib["id"]), el)
     default = dict(m=[1.0, 0, 0, 1.0, 0, 0], fill=("colour", 0xFF000000), stroke=("none", 0xFF000000),
-                   fill_op=1.0, stroke_op=1.0, op=1.0, sw=1.0, miter=4.0, join=0, cap=0, rule=0, skip=False)
+                   fill_op=1.0, stroke_op=1.0, op=1.0, sw=1.0, miter=4.0, join=0, cap=0, rule=0, skip=False,
+                   font=16.0, vw=300.0, vh=150.0)
     seen_root = [False]
 
     def prop(st, name, value, own):
-        if name in ("fill", "stroke"):
+        if name in ("stroke-width", "font-size"):
+            own[1][name] = value                    # resolved once font-size is known
+        elif name in ("fill", "stroke"):
             v = value.strip(" \t\r\n")
             if len(v) >= 10 and v[-10] == '!':
                 v = v[:-10].strip(" \t\r\n")
@@ -955,10 +1005,6 @@ def parse(text):
             kind, c = colour(value)
             if kind in ("none", "colour", "current"):
                 st[name] = (kind, c if kind == "colour" else 0xFF000000)
-        elif name == "stroke-width":
-            v, _ = number(value, 0)
-            if v is not None and v >= 0:
-                st["sw"] = v
         elif name == "stroke-miterlimit":
             v, _ = number(value, 0)
             if v is not None and v >= 1:
@@ -1001,7 +1047,7 @@ def parse(text):
         if tag in SKIP and not symroot:
             st["skip"] = True
         if not st["skip"]:
-            own = [1.0]
+            own = [1.0, {}]
             geom, style, el_id, classes, href = {}, None, None, [], None
             for name, value in el.attrib.items():
                 name = name.split('}')[-1]
@@ -1023,10 +1069,8 @@ def parse(text):
                     prop(st, name, value, own)
                 elif name in ("d", "points", "viewBox"):
                     geom[name] = value
-                elif name in ("x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "y1", "x2", "y2"):
-                    v, _ = number(value, 0)
-                    if v is not None:
-                        geom[name] = v
+                elif name in GEOM:
+                    own[1]["geom:" + name] = value
             for decls in [r[4] for r in rules if css_matches(r, tag, el_id, classes)] + ([style] if style else []):
                 for decl in decls.split(';'):
                     if ':' not in decl:
@@ -1035,6 +1079,21 @@ def parse(text):
                     name = trim(name)
                     if name in PROPS:
                         prop(st, name, value, own)
+            raw = own[1]
+            if "font-size" in raw:
+                f = font_size(raw["font-size"], st)
+                if f is not None:
+                    st["font"] = f
+            if "stroke-width" in raw:
+                v, _ = length(raw["stroke-width"], "d", st)
+                if v is not None and v >= 0:
+                    st["sw"] = v
+            for name in GEOM:
+                if "geom:" + name in raw:
+                    v, pct = length(raw["geom:" + name], AXIS[name], st)
+                    if v is None or (pct and tag == "svg" and not seen_root[0] and name in ("width", "height")):
+                        continue
+                    geom[name] = v
             st["op"] = st["op"] * own[0]
             if not st["skip"]:
                 if symroot:
@@ -1058,6 +1117,7 @@ def parse(text):
                             vals.append(v)
                         if len(vals) == 4 and vals[2] > 0 and vals[3] > 0:
                             doc.viewbox = vals
+                    st["vw"], st["vh"] = viewport()
                 elif tag in SHAPES:
                     shape(tag, geom, st)
         for child in el:
