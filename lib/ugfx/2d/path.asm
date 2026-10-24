@@ -26,6 +26,8 @@ extern ugfx_raster_line_to
 extern ugfx_raster_close
 extern umath_affine2_apply
 extern umath_affine2_apply_array
+extern umath_bezier_quad_bounds
+extern umath_bezier_cubic_bounds
 extern umath_bezier_quad_eval
 extern umath_bezier_cubic_eval
 extern umath_bezier_quad_segments
@@ -429,6 +431,96 @@ ugfx_path_bounds:
     ret
 .bounds_empty:
     mov rax, -(EINVAL)
+    ret
+
+; -----------------------------------------------------------------------------
+; ugfx_path_bounds_tight — rdi = UgfxPath*, rsi = double out[4] (x0, y0, x1,
+;   y1): the bounds of the path itself - curves by their extrema
+;   (umath_bezier_*_bounds), not their control points.
+;   -> rax = 0, or -EINVAL for an empty path (out untouched).
+; -----------------------------------------------------------------------------
+global ugfx_path_bounds_tight
+ugfx_path_bounds_tight:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 40                         ; a curve's box
+    mov rbx, rdi
+    mov r12, rsi
+    mov rax, -(EINVAL)
+    cmp dword [rbx + UgfxPath_point_count], 0
+    je .tight_out
+    movsd xmm0, [rel path_huge]
+    movsd [r12], xmm0
+    movsd [r12 + 8], xmm0
+    movsd xmm0, [rel path_neg_huge]
+    movsd [r12 + 16], xmm0
+    movsd [r12 + 24], xmm0
+    xor r13d, r13d                      ; verb
+    xor r14d, r14d                      ; point
+.tight_verb:
+    cmp r13d, [rbx + UgfxPath_verb_count]
+    jae .tight_done
+    mov rax, [rbx + UgfxPath_verbs]
+    movzx eax, byte [rax + r13]
+    inc r13d
+    cmp eax, PATH_VERB_QUAD
+    je .tight_quad
+    cmp eax, PATH_VERB_CUBIC
+    je .tight_cubic
+    cmp eax, PATH_VERB_CLOSE
+    je .tight_verb
+    ; move / line: the point itself
+    mov rax, r14
+    shl rax, 4
+    add rax, [rbx + UgfxPath_points]
+    movsd xmm0, [rax]
+    movsd xmm1, [rax + 8]
+    movsd [rsp], xmm0
+    movsd [rsp + 8], xmm1
+    movsd [rsp + 16], xmm0
+    movsd [rsp + 24], xmm1
+    inc r14d
+    jmp .tight_merge
+.tight_quad:
+    ; the curve's points follow the current point in the array
+    lea rdi, [r14 - 1]
+    shl rdi, 4
+    add rdi, [rbx + UgfxPath_points]
+    mov rsi, rsp
+    call umath_bezier_quad_bounds
+    add r14d, 2
+    jmp .tight_merge
+.tight_cubic:
+    lea rdi, [r14 - 1]
+    shl rdi, 4
+    add rdi, [rbx + UgfxPath_points]
+    mov rsi, rsp
+    call umath_bezier_cubic_bounds
+    add r14d, 3
+.tight_merge:
+    movsd xmm0, [r12]
+    minsd xmm0, [rsp]
+    movsd [r12], xmm0
+    movsd xmm0, [r12 + 8]
+    minsd xmm0, [rsp + 8]
+    movsd [r12 + 8], xmm0
+    movsd xmm0, [r12 + 16]
+    maxsd xmm0, [rsp + 16]
+    movsd [r12 + 16], xmm0
+    movsd xmm0, [r12 + 24]
+    maxsd xmm0, [rsp + 24]
+    movsd [r12 + 24], xmm0
+    jmp .tight_verb
+.tight_done:
+    xor eax, eax
+.tight_out:
+    add rsp, 40
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
     ret
 
 ; -----------------------------------------------------------------------------
