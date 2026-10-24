@@ -213,4 +213,30 @@ extern panic_null_ptr
 %define UgfxDash_offset         16      ; f64 distance into the pattern at each contour start
 %define UgfxDash_SIZE           24
 
+; Paint (caller-allocated, UgfxPaint_SIZE bytes): what a fill puts under its
+; coverage. Built by ugfx_paint_solid / _linear / _radial / _conic; the
+; transform maps paint space to device space (identity by default).
+%define UgfxPaint_span          0       ; span function for ugfx_raster_fill_paint
+%define UgfxPaint_type          8       ; u32 UGFX_PAINT_*
+%define UgfxPaint_spread        12      ; u32 UGFX_SPREAD_*
+%define UgfxPaint_color         16      ; u32 premultiplied BGRA (solid)
+%define UgfxPaint_lut           24      ; u32[UGFX_GRADIENT_LUT] premultiplied BGRA
+%define UgfxPaint_inverse       32      ; f64[6] device -> paint space
+%define UgfxPaint_geom          80      ; f64[6] gradient geometry (see 2d/paint.asm)
+%define UgfxPaint_SIZE          128
+
+%define UGFX_PAINT_SOLID        0
+%define UGFX_PAINT_LINEAR       1
+%define UGFX_PAINT_RADIAL       2
+%define UGFX_PAINT_CONIC        3
+%define UGFX_SPREAD_PAD         0
+%define UGFX_SPREAD_REPEAT      1
+%define UGFX_SPREAD_REFLECT     2
+%define UGFX_GRADIENT_LUT       1024
+
+; Gradient colour stop (UgfxStop_SIZE bytes, an array of them per gradient)
+%define UgfxStop_offset         0       ; f64 position, clamped to [0, 1] and to the previous stop
+%define UgfxStop_color          8       ; u32 straight (not premultiplied) BGRA, 0xAARRGGBB
+%define UgfxStop_SIZE           16
+
 %endif ; __UGFX_INC__
