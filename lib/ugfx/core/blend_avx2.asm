@@ -2,9 +2,7 @@
 ; Blend AVX2 — 8 pixels per iteration using VPMADDUBSW
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
+%include "ugfx.inc"
 
 extern blend_sse2
 
