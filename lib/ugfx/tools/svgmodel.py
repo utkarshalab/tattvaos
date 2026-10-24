@@ -31,13 +31,14 @@ MAX_USES = 8                                        # <use> instances inside ins
 SHAPES = {"path", "rect", "circle", "ellipse", "line", "polyline", "polygon"}
 PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "fill-rule",
          "fill-opacity", "stroke-opacity", "opacity", "display", "font-size", "color", "visibility",
-         "stroke-dasharray", "stroke-dashoffset", "paint-order"}
+         "stroke-dasharray", "stroke-dashoffset", "paint-order", "clip-path", "clip-rule"}
+MAX_CLIPS = 4
 INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "stroke-linecap": ["cap"],
             "stroke-linejoin": ["join"], "stroke-miterlimit": ["miter"], "fill-rule": ["rule"],
             "fill-opacity": ["fill_op"], "stroke-opacity": ["stroke_op"], "font-size": ["font"],
             "color": ["color"], "visibility": ["hidden"], "stroke-dasharray": ["dash"],
-            "stroke-dashoffset": ["dash_off"], "paint-order": ["order"]}
-DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset")
+            "stroke-dashoffset": ["dash_off"], "paint-order": ["order"], "clip-rule": ["cliprule"]}
+DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset", "clip-path")
 GEOM = ("x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "y1", "x2", "y2")
 AXIS = dict(x="x", y="y", width="x", height="y", rx="x", ry="y", cx="x", cy="y", r="d",
             x1="x", y1="y", x2="x", y2="y")
@@ -215,9 +216,53 @@ class Item:
 
 
 @dataclass
+class Clip:
+    items: list                                     # Items: matrix, path, rule
+    units: int = 0                                  # 1 = objectBoundingBox
+    next: object = None                             # the clipPath's own clip-path
+
+
+@dataclass
 class Group:
     kind: str                                       # "begin" / "end"
     alpha: int = 255
+    clip: object = None                             # Clip
+    matrix: list = None                             # the element's (begin)
+    bbox: list = None                               # its content's bounds in its space
+
+
+def invert(m):
+    """umath_affine2_invert, or None when singular."""
+    a, b, c, d, e, f = m
+    det = a * d - b * c
+    if det == 0 or det != det:
+        return None
+    inv = 1.0 / det
+    return [d * inv, (0.0 - b) * inv, (0.0 - c) * inv, a * inv, (c * f - d * e) * inv, (b * e - a * f) * inv]
+
+
+def group_bbox(begin, items):
+    """svg_group_bbox: the shapes' tight bounds, corners into the group's space."""
+    box = [0.0, 0.0, 0.0, 0.0]
+    inv = invert(begin.matrix)
+    if inv is None:
+        return box
+    first = True
+    for it in items:
+        if not isinstance(it, Item):
+            continue
+        b = tight_bounds(it.path)
+        if b is None:
+            continue
+        r = mul(inv, it.matrix)
+        for x, y in ((b[0], b[1]), (b[2], b[1]), (b[0], b[3]), (b[2], b[3])):
+            px = r[0] * x + r[2] * y + r[4]
+            py = r[1] * x + r[3] * y + r[5]
+            if first:
+                box, first = [px, py, px, py], False
+            else:
+                box = [min(box[0], px), min(box[1], py), max(box[2], px), max(box[3], py)]
+    return box
 
 
 @dataclass
@@ -1110,8 +1155,43 @@ def parse(text):
             ids.setdefault(trim(el.attrib["id"]), el)
     default = dict(m=[1.0, 0, 0, 1.0, 0, 0], fill=("colour", 0xFF000000), stroke=("none", 0xFF000000),
                    fill_op=1.0, stroke_op=1.0, op=1.0, sw=1.0, miter=4.0, join=0, cap=0, rule=0, skip=False,
-                   font=16.0, vw=300.0, vh=150.0, color=None, hidden=False, order=0, dash=None, dash_off=0.0)
+                   font=16.0, vw=300.0, vh=150.0, color=None, hidden=False, order=0, dash=None, dash_off=0.0,
+                   cliprule=0)
     seen_root = [False]
+    clipmode = [0]
+
+    def clip_ref(raw, st, uses):
+        """The element's compiled clip-path, or None."""
+        v = raw.get("clip-path")
+        if clipmode[0] or v is None:
+            return None
+        t = trim(v)
+        if t == "none" or t[:4].lower() != "url(":
+            return None
+        r = url_ref(t)
+        return clip_compile(r[0], st, uses) if r else None
+
+    def clip_compile(cid, st, uses):
+        el = ids.get(cid)
+        if clipmode[0] >= MAX_CLIPS or el is None or el.tag.split('}')[-1] != "clipPath":
+            return None
+        clipmode[0] += 1
+        base = dict(default, vw=st["vw"], vh=st["vh"], font=st["font"])
+        saved, doc.items = doc.items, []
+        walk(el, base, uses, "clip")
+        rec = Clip(doc.items)
+        doc.items = saved
+        for name, value in el.attrib.items():
+            name = name.split('}')[-1]
+            if name == "clipPathUnits" and trim(value) == "objectBoundingBox":
+                rec.units = 1
+            elif name == "clip-path":
+                t = trim(value)
+                r = url_ref(t) if t[:4].lower() == "url(" else None
+                if r:
+                    rec.next = clip_compile(r[0], st, uses)
+        clipmode[0] -= 1
+        return rec
 
     def prop(st, name, value, own, parent):
         if trim(value) == "inherit":
@@ -1135,6 +1215,10 @@ def parse(text):
             o = paint_order(value)
             if o is not None:
                 st["order"] = o
+        elif name == "clip-rule":
+            t = trim(value)
+            if t in ("evenodd", "nonzero"):
+                st["cliprule"] = int(t == "evenodd")
         elif name in ("fill", "stroke"):
             v = value.strip(" \t\r\n")
             if len(v) >= 10 and v[-10] == '!':
@@ -1189,10 +1273,11 @@ def parse(text):
         """inst: (width, height) or None from the <use> whose root el is."""
         tag = el.tag.split('}')[-1]
         st = dict(parent)
-        symroot = tag == "symbol" and inst is not None
-        if (takes_part(tag) or symroot) and not conditions(el):
+        symroot = tag == "symbol" and isinstance(inst, tuple)
+        cliproot = tag == "clipPath" and inst == "clip"
+        if (takes_part(tag) or symroot or cliproot) and not conditions(el):
             return
-        if tag in SKIP and not symroot:
+        if tag in SKIP and not (symroot or cliproot):
             st["skip"] = True
         if not st["skip"]:
             own = [1.0, {}]
@@ -1249,11 +1334,14 @@ def parse(text):
                     if v is None or (pct and tag == "svg" and not seen_root[0] and name in ("width", "height")):
                         continue
                     geom[name] = v
-            opened = False
+            opened = None
             if not st["skip"]:
-                if tag not in SHAPES and own[0] < 1.0:
-                    doc.items.append(Group("begin", int(own[0] * 255.0 + 0.5)))
-                    opened = True
+                if tag not in SHAPES and not clipmode[0]:
+                    rec = clip_ref(raw, st, uses)
+                    if rec or own[0] < 1.0:
+                        opened = Group("begin", int(own[0] * 255.0 + 0.5), rec, list(st["m"]))
+                        doc.items.append(opened)
+                        opened_at = len(doc.items)
                 if symroot:
                     symbol_map(st, geom, inst)
                 if tag == "use":
@@ -1285,9 +1373,9 @@ def parse(text):
                             doc.viewbox = vals
                     st["vw"], st["vh"] = viewport()
                 elif tag in SHAPES:
-                    shape(tag, geom, st, own[0])
+                    shape(tag, geom, st, own[0], raw, uses)
         else:
-            opened = False
+            opened = None
         chosen = False
         for child in el:
             if tag == "switch":
@@ -1298,7 +1386,9 @@ def parse(text):
                     chosen = True
             walk(child, st, uses)
         if opened:
-            doc.items.append(Group("end"))
+            if opened.clip:
+                opened.bbox = group_bbox(opened, doc.items[opened_at:])
+            doc.items.append(Group("end", opened.alpha, opened.clip))
 
     def symbol_map(st, geom, wh):
         view_map(st, geom, wh[0], wh[1])
@@ -1349,16 +1439,38 @@ def parse(text):
             return bake(("colour", r[1]), op, st)
         return r + (int(255 * op * st["op"] + 0.5),)
 
-    def shape(tag, g, st, own):
+    def shape(tag, g, st, own, raw, uses):
         if st["hidden"]:
+            return
+        if clipmode[0]:
+            path = geometry(tag, g)
+            if path:
+                doc.items.append(Item(list(st["m"]), path, None, None, st["cliprule"], 1.0, 4.0, 0, 0))
             return
         fill = st["fill"][0] != "none"
         stroke = st["stroke"][0] != "none" and st["sw"] > 0
         if not (fill or stroke):
             return
+        rec = clip_ref(raw, st, uses)
         group = own < 1.0 and fill and stroke
         if own < 1.0 and not group:
             st["op"] = own * st["op"]
+        path = geometry(tag, g)
+        if not path:
+            return
+        f = paint_of(st["fill"], st["fill_op"], st, path) if fill else None
+        s = paint_of(st["stroke"], st["stroke_op"], st, path) if stroke else None
+        item = Item(list(st["m"]), path, f, s, st["rule"], st["sw"], st["miter"], st["join"], st["cap"],
+                    st["order"], st["dash"], st["dash_off"])
+        if group or rec:
+            begin = Group("begin", int(own * 255.0 + 0.5) if group else 255, rec, list(st["m"]))
+            if rec:
+                begin.bbox = group_bbox(begin, [item])
+            doc.items += [begin, item, Group("end", begin.alpha, rec)]
+        else:
+            doc.items.append(item)
+
+    def geometry(tag, g):
         path = []
         if tag == "rect":
             w, h = g.get("width", 0.0), g.get("height", 0.0)
@@ -1382,16 +1494,7 @@ def parse(text):
             path = points(g.get("points", ""), tag == "polygon")
         else:
             path = path_data(g.get("d", ""))
-        if not path:
-            return
-        f = paint_of(st["fill"], st["fill_op"], st, path) if fill else None
-        s = paint_of(st["stroke"], st["stroke_op"], st, path) if stroke else None
-        item = Item(list(st["m"]), path, f, s, st["rule"], st["sw"], st["miter"], st["join"], st["cap"],
-                    st["order"], st["dash"], st["dash_off"])
-        if group:
-            doc.items += [Group("begin", int(own * 255.0 + 0.5)), item, Group("end")]
-        else:
-            doc.items.append(item)
+        return path
 
     walk(root, default)
     return doc
