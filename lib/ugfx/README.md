@@ -40,7 +40,7 @@ lib/ugfx/
     ├── stroke.asm        ← stroke outlines: width, miter/round/bevel joins, butt/round/square caps
     ├── flatten.asm       ← curves to polylines; path length
     ├── dash.asm          ← dash patterns along lines and curves
-    └── paint.asm         ← paints: solid, linear, radial and conic gradients
+    └── paint.asm         ← paints: solid; linear, radial, two-circle and conic gradients; image patterns
 ```
 
 ## 2. Planned
@@ -48,7 +48,7 @@ lib/ugfx/
 | Area | Contents |
 |---|---|
 | `core/` | Clip masks and more span operations (gradients, images) for the span compositor; draw-command lists for CPU and GPU backends |
-| `2d/` | Device hairlines, image patterns, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
+| `2d/` | Device hairlines, coverage masks, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
 | `3d/` | Meshes, vertex transform, clipping, triangle setup, depth test, shading, textures |
 | `backend/` | CPU (scalar and SIMD) now; GPU later through Canvas's command rings |
 | `tests/` | Host-run tests against a reference renderer and golden images |
@@ -139,7 +139,8 @@ same source-over rounding as solid fills).
 | `ugfx_paint_radial(paint, arena, stops, n, spread, cx, cy, r)` | t = distance / r |
 | `ugfx_paint_radial2(paint, arena, stops, n, spread, x0, y0, r0, x1, y1, r1)` | two circles: focal points, cones; t of the largest circle through the pixel, none = unpainted |
 | `ugfx_paint_conic(paint, arena, stops, n, cx, cy, start)` | t = angle in turns from `start` |
-| `ugfx_paint_set_transform(paint, m)` | paint space → device space (ellipses, rotation, skew) |
+| `ugfx_paint_image(paint, pixbuf, extend_x, extend_y, filter)` | an image: nearest or bilinear; pad, repeat, reflect or none (transparent) per axis |
+| `ugfx_paint_set_transform(paint, m)` | paint space → device space (ellipses, rotation, skew, image placement and scale) |
 
 Stops are `UgfxStop` (position, straight BGRA colour). Positions are
 clamped to [0, 1] and to the previous stop, so equal positions give hard
@@ -148,7 +149,13 @@ Colours are interpolated premultiplied into a 1024-entry table per
 gradient. Spread: pad, repeat, reflect. Each pixel centre goes back to
 paint space through the inverse transform (`umath_affine2_invert`); the
 conic angle comes from `umath_atan2_f64`, fractions from
-`umath_floor_f64_fractional`.
+`umath_floor_f64_fractional`. Every pixel centre is mapped on its own, so
+a pixel's colour does not depend on how its row was split into spans.
+
+Image paints use the image's pixels as paint space. Bilinear sampling
+blends the four premultiplied pixels around the sample with double
+weights; outside the image each axis pads with the edge pixel, repeats,
+mirrors or stays transparent.
 
 Tests: `tests/host/paint_check.py` - 39 gradient cases (every kind and
 spread, focal points inside the circle and with a radius, cones with
@@ -156,7 +163,10 @@ unpainted outsides, the tangent and concentric two-circle cases, transparent and
 out-of-range positions, a single stop, transformed, elliptical and skewed
 paints, anti-aliased shapes over a background, random) compared with a
 reference built the same way, bit-exact (the two-circle reference checks
-each t against the circle equation); and invalid paints.
+each t against the circle equation); 25 image cases (every extend mode
+on each axis, nearest and bilinear, magnified, minified, rotated, skewed,
+far from the origin, a 1x1 image, under anti-aliased coverage, random),
+also bit-exact; and invalid paints.
 
 ## 7. Using it
 
