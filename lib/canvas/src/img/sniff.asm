@@ -171,7 +171,7 @@ image_decode:
     mov rcx,r14
     mov r8,r15
     call svg_render
-    jmp .decode_done
+    jmp .decode_return                  ; ugfx draws premultiplied already
 .decode_qoi:
     mov rdi,rbx
     mov rsi,r12
@@ -262,7 +262,8 @@ image_decode:
     mov rdx,r13
     call camera_decode
 .decode_done:
-    ; Decoders produce straight alpha; Canvas buffers are premultiplied.
+    ; Decoders produce straight alpha; Canvas buffers are premultiplied
+    ; (SVG excepted: it is drawn premultiplied).
     test rax,rax
     jle .decode_return
     mov rbx,rax
