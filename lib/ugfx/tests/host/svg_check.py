@@ -378,6 +378,17 @@ CASES = [
                          '<rect x="20" width="4" height="4" fill="#0f0" clip-path="url(#nothing)"/>'
                          '<rect x="20" y="20" width="4" height="4" fill="#00f" style="clip-path:none" '
                          'clip-path="url(#u)"/>'), False),
+    ("viewport clips", svg('<symbol id="s" viewBox="0 0 10 10"><circle cx="5" cy="5" r="8" fill="#e60"/></symbol>'
+                           '<use href="#s" width="10" height="10"/><use href="#s" x="12" width="10" height="6"/>'
+                           '<svg x="2" y="12" width="8" height="8"><rect x="-4" y="-4" width="20" height="20" '
+                           'fill="#06e"/></svg><svg x="12" y="12" width="10" height="10" viewBox="0 0 4 4" '
+                           'preserveAspectRatio="xMidYMid slice"><rect width="4" height="4" fill="#6c6"/>'
+                           '<circle cx="2" cy="2" r="3" fill="none" stroke="#000"/></svg>'), True),
+    ("root slice clip", svg('<rect x="-5" y="-5" width="40" height="40" fill="#357"/><circle cx="12" cy="6" r="7" '
+                            'fill="#fa3"/>', 'viewBox="0 0 24 12" preserveAspectRatio="xMidYMid slice"'), False),
+    ("root slice sized", svg('<rect x="-5" y="-5" width="40" height="40" fill="#753"/><circle cx="12" cy="6" r="7" '
+                             'fill="#3af"/>', 'viewBox="0 0 24 12" width="10" height="20" '
+                             'preserveAspectRatio="xMaxYMin slice"'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
