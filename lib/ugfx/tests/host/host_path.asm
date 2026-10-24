@@ -15,6 +15,10 @@
 ;    13 polygon n x0 y0 ... (n as f64)       14 star cx cy ro ri tips rotation
 ;    15 transform a b c d e f
 ;    16 stroke width miter_limit join cap: the path becomes its stroke outline
+;    17 dash offset n i0 ... (n as f64): the path becomes its dashes
+;    18 flatten: the path becomes its flattened copy
+;    19 length expected max_error: fails (exit 5) unless the path's length
+;       is within max_error of expected
 ;   The path is rasterized with the matrix (if any) and tolerance, filled
 ;   with the colour over the background, and written as BGRA.
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 raster error, 4 write error,
@@ -48,6 +52,9 @@ extern ugfx_path_add_polygon
 extern ugfx_path_add_star
 extern ugfx_path_stroke
 extern ugfx_path_reset
+extern ugfx_path_dash
+extern ugfx_path_flatten
+extern ugfx_path_length
 
 %define SYS_WRITE   1
 %define SYS_OPEN    2
@@ -77,7 +84,12 @@ op_table:
     dq ugfx_path_add_star, -1
     dq ugfx_path_transform, -1
     dq ugfx_path_stroke, -1
+    dq ugfx_path_dash, -1
+    dq ugfx_path_flatten, -1
+    dq ugfx_path_length, -1
 OP_COUNT equ ($ - op_table) / 16
+align 16
+abs_mask: dq 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF
 
 section .text
 
@@ -196,6 +208,15 @@ _start:
     lea rax, [rel ugfx_path_stroke]
     cmp r15, rax
     je .sp_stroke
+    lea rax, [rel ugfx_path_dash]
+    cmp r15, rax
+    je .sp_dash
+    lea rax, [rel ugfx_path_flatten]
+    cmp r15, rax
+    je .sp_flatten
+    lea rax, [rel ugfx_path_length]
+    cmp r15, rax
+    je .sp_length
     lea rax, [rel ugfx_path_add_rounded_rect_radii]
     cmp r15, rax
     je .sp_radii
@@ -234,6 +255,52 @@ _start:
     mov rdx, [rel other_path]
     mov [rel cur_path], rdx
     mov [rel other_path], rax
+    dec r12
+    jmp .command
+.sp_dash:
+    movsd xmm0, [r14]
+    movsd [rel dash_style + UgfxDash_offset], xmm0
+    cvttsd2si rax, qword [r14 + 8]      ; n
+    mov [rel dash_style + UgfxDash_count], eax
+    lea rdx, [r14 + 16]
+    mov [rel dash_style + UgfxDash_intervals], rdx
+    lea r14, [r14 + rax * 8 + 16]
+    mov rdi, [rel other_path]
+    call ugfx_path_reset
+    mov rdi, [rel other_path]
+    mov rsi, [rel cur_path]
+    lea rdx, [rel dash_style]
+    movsd xmm0, [rbx + 72]
+    call ugfx_path_dash
+    jmp .sp_swap
+.sp_flatten:
+    mov rdi, [rel other_path]
+    call ugfx_path_reset
+    mov rdi, [rel other_path]
+    mov rsi, [rel cur_path]
+    movsd xmm0, [rbx + 72]
+    call ugfx_path_flatten
+.sp_swap:
+    test rax, rax
+    jnz .command_fail
+    mov rax, [rel cur_path]
+    mov rdx, [rel other_path]
+    mov [rel cur_path], rdx
+    mov [rel other_path], rax
+    dec r12
+    jmp .command
+.sp_length:
+    lea rsi, [rel arena_state]
+    movsd xmm0, [rbx + 72]
+    call ugfx_path_length
+    test rax, rax
+    jnz .command_fail
+    subsd xmm0, [r14]
+    andpd xmm0, [rel abs_mask]
+    ucomisd xmm0, [r14 + 8]
+    ja .command_fail
+    jp .command_fail
+    add r14, 16
     dec r12
     jmp .command
 .sp_radii:
@@ -374,5 +441,7 @@ path2:          resb UgfxPath_SIZE
 cur_path:       resq 1
 other_path:     resq 1
 stroke_style:   resb UgfxStroke_SIZE
+alignb 8
+dash_style:     resb UgfxDash_SIZE
 alignb 4096
 arena_memory:   resb ARENA_BYTES
