@@ -2,7 +2,8 @@
 %define GUARD_LIB_UMATH_GEOM_ARC_ASM
 ; =============================================================================
 ; umath - unified math library
-; geom/arc.asm - elliptical arcs as cubic Beziers (f64)
+; geom/arc.asm - elliptical arcs as cubic Beziers (f64), axis-aligned by
+;                 centre and angles, or SVG-style by end points
 ; =============================================================================
 ; Targets 64-bit AMD64 System V ABI calling conventions.
 ;
@@ -20,6 +21,7 @@ bits 64
 %include "lib/umath/math_fn/sin_f64.asm"
 %include "lib/umath/math_fn/cos_f64.asm"
 %include "lib/umath/math_fn/tan_f64.asm"
+%include "lib/umath/math_fn/atan2_f64.asm"
 
 section .rodata
 align 8
@@ -28,6 +30,8 @@ arc_neg_two_pi:     dq -6.283185307179586
 arc_half_pi:        dq 1.5707963267948966
 arc_four_thirds:    dq 1.3333333333333333
 arc_quarter:        dq 0.25
+arc_half:           dq 0.5
+arc_one:            dq 1.0
 
 section .text
 
@@ -202,5 +206,299 @@ umath_arc_to_cubics:
     pop r12
     pop rbx
     ret
+
+; -----------------------------------------------------------------------------
+; size_t umath_arc_svg_to_cubics(double out[24], double x1, double y1,
+;                                double x2, double y2, double rx, double ry,
+;                                double phi, int flags)
+;   An SVG elliptical arc from (x1, y1) to (x2, y2): radii rx, ry, x-axis
+;   rotation phi (radians), flags bit 0 = large-arc, bit 1 = sweep. Writes n
+;   cubics like umath_arc_to_cubics (the start point not written; the last
+;   end point is exactly (x2, y2)). Follows SVG 1.1 F.6.5-F.6.6: radii are
+;   taken as |rx|, |ry| and scaled up when too small to reach (the centre is
+;   then exactly the chord's midpoint); a zero radius
+;   gives one straight cubic; equal end points give n = 0.
+; -----------------------------------------------------------------------------
+%define SA_X1       0
+%define SA_Y1       8
+%define SA_X2       16
+%define SA_Y2       24
+%define SA_RX       32
+%define SA_RY       40
+%define SA_COS      48
+%define SA_SIN      56
+%define SA_XP       64                  ; x1', y1'
+%define SA_YP       72
+%define SA_CXP      80                  ; cx', cy'
+%define SA_CYP      88
+%define SA_CX       96
+%define SA_CY       104
+%define SA_T1       112
+%define SA_PHI      120
+%define SA_FLAGS    128
+%define SA_N        136
+%define SA_FRAME    144
+
+global umath_arc_svg_to_cubics
+umath_arc_svg_to_cubics:
+    push rbx
+    sub rsp, SA_FRAME
+    mov rbx, rdi
+    movsd [rsp + SA_X1], xmm0
+    movsd [rsp + SA_Y1], xmm1
+    movsd [rsp + SA_X2], xmm2
+    movsd [rsp + SA_Y2], xmm3
+    movsd [rsp + SA_PHI], xmm6
+    mov [rsp + SA_FLAGS], esi
+    ; equal end points: nothing
+    ucomisd xmm0, xmm2
+    jne .sa_apart
+    jp .sa_apart
+    ucomisd xmm1, xmm3
+    jne .sa_apart
+    jp .sa_apart
+    xor eax, eax
+    jmp .sa_out
+.sa_apart:
+    andpd xmm4, [rel arc_abs_mask]
+    andpd xmm5, [rel arc_abs_mask]
+    movsd [rsp + SA_RX], xmm4
+    movsd [rsp + SA_RY], xmm5
+    xorpd xmm7, xmm7
+    ucomisd xmm4, xmm7
+    jp .sa_line
+    je .sa_line
+    ucomisd xmm5, xmm7
+    jp .sa_line
+    je .sa_line
+    movsd xmm0, [rsp + SA_PHI]
+    call umath_cos_f64
+    movsd [rsp + SA_COS], xmm0
+    movsd xmm0, [rsp + SA_PHI]
+    call umath_sin_f64
+    movsd [rsp + SA_SIN], xmm0
+    ; (x1', y1') = R(-phi) ((p1 - p2) / 2)
+    movsd xmm0, [rsp + SA_X1]
+    subsd xmm0, [rsp + SA_X2]
+    mulsd xmm0, [rel arc_half]          ; dx
+    movsd xmm1, [rsp + SA_Y1]
+    subsd xmm1, [rsp + SA_Y2]
+    mulsd xmm1, [rel arc_half]          ; dy
+    movsd xmm2, [rsp + SA_COS]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + SA_SIN]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    movsd [rsp + SA_XP], xmm2
+    movsd xmm2, [rsp + SA_COS]
+    mulsd xmm2, xmm1
+    movsd xmm3, [rsp + SA_SIN]
+    mulsd xmm3, xmm0
+    subsd xmm2, xmm3
+    movsd [rsp + SA_YP], xmm2
+    ; lambda = x1'^2 / rx^2 + y1'^2 / ry^2 > 1: scale the radii by sqrt
+    movsd xmm0, [rsp + SA_XP]
+    divsd xmm0, [rsp + SA_RX]
+    mulsd xmm0, xmm0
+    movsd xmm1, [rsp + SA_YP]
+    divsd xmm1, [rsp + SA_RY]
+    mulsd xmm1, xmm1
+    addsd xmm0, xmm1
+    mov dword [rsp + SA_N], 0           ; 1: radii scaled (centre = midpoint)
+    ucomisd xmm0, [rel arc_one]
+    jbe .sa_radii_ok
+    mov dword [rsp + SA_N], 1
+    sqrtsd xmm0, xmm0
+    movsd xmm1, [rsp + SA_RX]
+    mulsd xmm1, xmm0
+    movsd [rsp + SA_RX], xmm1
+    movsd xmm1, [rsp + SA_RY]
+    mulsd xmm1, xmm0
+    movsd [rsp + SA_RY], xmm1
+.sa_radii_ok:
+    ; coef = +-sqrt(max(0, (rx^2 ry^2 - rx^2 y1'^2 - ry^2 x1'^2) /
+    ;                       (rx^2 y1'^2 + ry^2 x1'^2))), - when large == sweep
+    movsd xmm0, [rsp + SA_RX]
+    mulsd xmm0, xmm0                    ; rx^2
+    movsd xmm1, [rsp + SA_RY]
+    mulsd xmm1, xmm1                    ; ry^2
+    movsd xmm2, [rsp + SA_YP]
+    mulsd xmm2, xmm2
+    mulsd xmm2, xmm0                    ; rx^2 y1'^2
+    movsd xmm3, [rsp + SA_XP]
+    mulsd xmm3, xmm3
+    mulsd xmm3, xmm1                    ; ry^2 x1'^2
+    movapd xmm4, xmm0
+    mulsd xmm4, xmm1
+    subsd xmm4, xmm2
+    subsd xmm4, xmm3                    ; numerator
+    addsd xmm2, xmm3                    ; denominator (> 0: the points differ)
+    divsd xmm4, xmm2
+    xorpd xmm5, xmm5
+    maxsd xmm4, xmm5
+    sqrtsd xmm4, xmm4
+    cmp dword [rsp + SA_N], 0
+    je .sa_coef_ok
+    xorpd xmm4, xmm4                    ; scaled radii: exactly 0, not rounding noise
+.sa_coef_ok:
+    mov eax, [rsp + SA_FLAGS]
+    mov ecx, eax
+    shr ecx, 1
+    xor eax, ecx
+    test eax, 1
+    jnz .sa_sign_ok                     ; large != sweep: +
+    xorpd xmm5, xmm5
+    subsd xmm5, xmm4
+    movapd xmm4, xmm5
+.sa_sign_ok:
+    ; (cx', cy') = coef (rx y1' / ry, -ry x1' / rx)
+    movsd xmm0, [rsp + SA_RX]
+    mulsd xmm0, [rsp + SA_YP]
+    divsd xmm0, [rsp + SA_RY]
+    mulsd xmm0, xmm4
+    movsd [rsp + SA_CXP], xmm0
+    movsd xmm0, [rsp + SA_RY]
+    mulsd xmm0, [rsp + SA_XP]
+    divsd xmm0, [rsp + SA_RX]
+    mulsd xmm0, xmm4
+    xorpd xmm1, xmm1
+    subsd xmm1, xmm0
+    movsd [rsp + SA_CYP], xmm1
+    ; centre = R(phi) c' + (p1 + p2) / 2
+    movsd xmm0, [rsp + SA_COS]
+    mulsd xmm0, [rsp + SA_CXP]
+    movsd xmm1, [rsp + SA_SIN]
+    mulsd xmm1, [rsp + SA_CYP]
+    subsd xmm0, xmm1
+    movsd xmm1, [rsp + SA_X1]
+    addsd xmm1, [rsp + SA_X2]
+    mulsd xmm1, [rel arc_half]
+    addsd xmm0, xmm1
+    movsd [rsp + SA_CX], xmm0
+    movsd xmm0, [rsp + SA_SIN]
+    mulsd xmm0, [rsp + SA_CXP]
+    movsd xmm1, [rsp + SA_COS]
+    mulsd xmm1, [rsp + SA_CYP]
+    addsd xmm0, xmm1
+    movsd xmm1, [rsp + SA_Y1]
+    addsd xmm1, [rsp + SA_Y2]
+    mulsd xmm1, [rel arc_half]
+    addsd xmm0, xmm1
+    movsd [rsp + SA_CY], xmm0
+    ; theta1 = angle of u = ((x1' - cx') / rx, (y1' - cy') / ry)
+    movsd xmm0, [rsp + SA_YP]
+    subsd xmm0, [rsp + SA_CYP]
+    divsd xmm0, [rsp + SA_RY]           ; uy
+    movsd xmm1, [rsp + SA_XP]
+    subsd xmm1, [rsp + SA_CXP]
+    divsd xmm1, [rsp + SA_RX]           ; ux
+    call umath_atan2_f64
+    movsd [rsp + SA_T1], xmm0
+    ; dtheta = angle from u to v = ((-x1' - cx') / rx, (-y1' - cy') / ry)
+    movsd xmm2, [rsp + SA_XP]
+    subsd xmm2, [rsp + SA_CXP]
+    divsd xmm2, [rsp + SA_RX]           ; ux
+    movsd xmm3, [rsp + SA_YP]
+    subsd xmm3, [rsp + SA_CYP]
+    divsd xmm3, [rsp + SA_RY]           ; uy
+    xorpd xmm4, xmm4
+    subsd xmm4, [rsp + SA_XP]
+    subsd xmm4, [rsp + SA_CXP]
+    divsd xmm4, [rsp + SA_RX]           ; vx
+    xorpd xmm5, xmm5
+    subsd xmm5, [rsp + SA_YP]
+    subsd xmm5, [rsp + SA_CYP]
+    divsd xmm5, [rsp + SA_RY]           ; vy
+    movapd xmm0, xmm2
+    mulsd xmm0, xmm5
+    movapd xmm6, xmm3
+    mulsd xmm6, xmm4
+    subsd xmm0, xmm6                    ; u x v
+    movapd xmm1, xmm2
+    mulsd xmm1, xmm4
+    movapd xmm6, xmm3
+    mulsd xmm6, xmm5
+    addsd xmm1, xmm6                    ; u . v
+    call umath_atan2_f64
+    ; sweep 0: dtheta <= 0; sweep 1: dtheta >= 0
+    xorpd xmm1, xmm1
+    test dword [rsp + SA_FLAGS], 2
+    jz .sa_negative
+    ucomisd xmm0, xmm1
+    jae .sa_have_sweep
+    addsd xmm0, [rel arc_two_pi]
+    jmp .sa_have_sweep
+.sa_negative:
+    ucomisd xmm0, xmm1
+    jbe .sa_have_sweep
+    subsd xmm0, [rel arc_two_pi]
+.sa_have_sweep:
+    movapd xmm5, xmm0
+    mov rdi, rbx
+    xorpd xmm0, xmm0
+    xorpd xmm1, xmm1
+    movsd xmm2, [rsp + SA_RX]
+    movsd xmm3, [rsp + SA_RY]
+    movsd xmm4, [rsp + SA_T1]
+    call umath_arc_to_cubics
+    mov [rsp + SA_N], rax
+    ; rotate by phi and move to the centre
+    lea rcx, [rax * 2 + rax]            ; 3 points per cubic
+    xor edx, edx
+.sa_point:
+    cmp rdx, rcx
+    jae .sa_pin
+    mov r8, rdx
+    shl r8, 4
+    movsd xmm0, [rbx + r8]
+    movsd xmm1, [rbx + r8 + 8]
+    movsd xmm2, [rsp + SA_COS]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + SA_SIN]
+    mulsd xmm3, xmm1
+    subsd xmm2, xmm3
+    addsd xmm2, [rsp + SA_CX]
+    movsd xmm3, [rsp + SA_SIN]
+    mulsd xmm3, xmm0
+    movsd xmm4, [rsp + SA_COS]
+    mulsd xmm4, xmm1
+    addsd xmm3, xmm4
+    addsd xmm3, [rsp + SA_CY]
+    movsd [rbx + r8], xmm2
+    movsd [rbx + r8 + 8], xmm3
+    inc rdx
+    jmp .sa_point
+.sa_pin:
+    mov rax, [rsp + SA_N]
+    test rax, rax
+    jz .sa_out
+    imul rcx, rax, 48
+    movsd xmm0, [rsp + SA_X2]
+    movsd [rbx + rcx - 16], xmm0
+    movsd xmm0, [rsp + SA_Y2]
+    movsd [rbx + rcx - 8], xmm0
+    jmp .sa_out
+.sa_line:
+    ; a zero radius: one straight cubic, handles at the end points
+    movsd xmm0, [rsp + SA_X1]
+    movsd [rbx], xmm0
+    movsd xmm0, [rsp + SA_Y1]
+    movsd [rbx + 8], xmm0
+    movsd xmm0, [rsp + SA_X2]
+    movsd [rbx + 16], xmm0
+    movsd [rbx + 32], xmm0
+    movsd xmm0, [rsp + SA_Y2]
+    movsd [rbx + 24], xmm0
+    movsd [rbx + 40], xmm0
+    mov eax, 1
+.sa_out:
+    add rsp, SA_FRAME
+    pop rbx
+    ret
+
+section .rodata
+align 16
+arc_abs_mask:       dq 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF
+section .text
 
 %endif ; GUARD_LIB_UMATH_GEOM_ARC_ASM
