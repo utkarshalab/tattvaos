@@ -36,7 +36,8 @@ lib/ugfx/
     ├── circle.asm        ← circles and ellipses
     ├── polygon.asm       ← aliased polygons (assembles; not yet built or tested)
     ├── path.asm          ← paths: lines, quads, cubics, transform, bounds, flattening
-    └── shapes.asm        ← rect, rounded rect, ellipse, circle, arc, pie, ring sector, polygon, star
+    ├── shapes.asm        ← rect, rounded rect, ellipse, circle, arc, pie, ring sector, polygon, star
+    └── stroke.asm        ← stroke outlines: width, miter/round/bevel joins, butt/round/square caps
 ```
 
 ## 2. Planned
@@ -80,7 +81,23 @@ as one object.
 Tests: `tests/host/path_check.py` runs 36 path, shape and transform cases
 against a model built from exact geometry, plus invalid-input cases.
 
-## 5. Using it
+## 5. Strokes
+
+`ugfx_path_stroke(dst, src, style, tolerance)` appends the outline of each
+contour's stroke to `dst`, to be filled with the nonzero rule. Contours are
+flattened in user space and offset by half the width. Outer corners get the
+join (miter within `miter_limit`, else bevel; round; bevel); inner corners
+end where the two inner offset lines meet when that point lies within the
+near half of both segments, so the outline does not overlap itself, and
+otherwise pass through the vertex. Open contours get caps and become one
+outline; closed contours become two loops of opposite winding.
+
+Tests: `tests/host/stroke_check.py` compares 30 stroke cases against the
+exact union of segment, join and cap pieces (supersampled), requiring ugfx
+to stay between that union and the pieces' summed coverage (overlap
+accumulation, C2D-027), plus invalid styles.
+
+## 6. Using it
 
 Assemble with `-I lib/ugfx/include/` and include `ugfx.inc`. Functions follow
 the System V register order and return negative error codes. Allocating
