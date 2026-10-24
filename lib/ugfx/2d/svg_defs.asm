@@ -7,6 +7,8 @@
 ;   ugfx_svg_defs_scan(defs, arena, data, size)
 ;       every linearGradient / radialGradient in the document with its
 ;       stops (wherever it is: defs or not)
+;   ugfx_svg_defs_id(defs, id, id_end) -> rax = the '<' of the first
+;          element with that id, or 0 (for <use>)
 ;   ugfx_svg_defs_rule(defs, index, selectable)
 ;       -> rax = rule index's declarations (rdx their end) if it applies
 ;          to the element, else 0; rules come in cascade order
@@ -189,6 +191,9 @@ ugfx_svg_defs_scan:
     mov qword [rdi + UgfxSvgDefs_rules], 0
     mov dword [rdi + UgfxSvgDefs_nrules], 0
     mov dword [rdi + UgfxSvgDefs_rulecap], 0
+    mov qword [rdi + UgfxSvgDefs_ids], 0
+    mov dword [rdi + UgfxSvgDefs_nids], 0
+    mov dword [rdi + UgfxSvgDefs_idcap], 0
     mov qword [r15 + SC_GRAD], 0
     mov [r15 + SC_XML + UgfxSvgXml_cur], rdx
     add rdx, rcx
@@ -199,6 +204,12 @@ ugfx_svg_defs_scan:
     test eax, eax
     jz .done
     mov ebx, eax
+    cmp ebx, 2
+    je .named
+    call defs_record_id                 ; every start tag: its id, if any
+    test rax, rax
+    jnz .nomem
+.named:
     mov rdi, [r15 + SC_XML + UgfxSvgXml_name]
     mov rsi, [r15 + SC_XML + UgfxSvgXml_name_end]
     lea rdx, [rel defs_elements]
@@ -782,6 +793,113 @@ ugfx_svg_defs_rule:
     mov rax, [rbx + RL_DECL]
     mov rdx, [rbx + RL_DECL_END]
 .out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; r15 = scan frame, a start tag read: its id attribute recorded with where
+;   the tag starts -> rax = 0 or -ENOMEM
+defs_record_id:
+    push rbx
+    push r12
+    sub rsp, 8
+    mov qword [r15 + SC_ATTR + UgfxSvgAttr_cur], 0
+.attr:
+    lea rdi, [r15 + SC_XML]
+    lea rsi, [r15 + SC_ATTR]
+    call ugfx_svg_xml_attr
+    test eax, eax
+    jz .none
+    mov rdi, [r15 + SC_ATTR + UgfxSvgAttr_name]
+    mov rax, [r15 + SC_ATTR + UgfxSvgAttr_name_end]
+    sub rax, rdi
+    cmp rax, 2
+    jne .attr
+    cmp word [rdi], 'id'
+    jne .attr
+    ; room for one more
+    mov rbx, [r15 + SC_DEFS]
+    mov eax, [rbx + UgfxSvgDefs_nids]
+    cmp eax, [rbx + UgfxSvgDefs_idcap]
+    jb .room
+    mov ecx, [rbx + UgfxSvgDefs_idcap]
+    add ecx, ecx
+    cmp ecx, 32
+    jae .grow
+    mov ecx, 32
+.grow:
+    mov r12d, ecx
+    mov rdi, [rbx + UgfxSvgDefs_arena]
+    imul esi, ecx, 24
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov [rbx + UgfxSvgDefs_idcap], r12d
+    mov rdi, rax
+    mov rsi, [rbx + UgfxSvgDefs_ids]
+    mov ecx, [rbx + UgfxSvgDefs_nids]
+    imul ecx, ecx, 24
+    mov rdx, rax
+    rep movsb
+    mov [rbx + UgfxSvgDefs_ids], rdx
+.room:
+    mov eax, [rbx + UgfxSvgDefs_nids]
+    inc dword [rbx + UgfxSvgDefs_nids]
+    imul r12, rax, 24
+    add r12, [rbx + UgfxSvgDefs_ids]
+    mov rdi, [r15 + SC_ATTR + UgfxSvgAttr_val]
+    mov rsi, [r15 + SC_ATTR + UgfxSvgAttr_val_end]
+    call ugfx_svg_trim
+    mov [r12], rdi
+    mov [r12 + 8], rsi
+    mov rax, [r15 + SC_XML + UgfxSvgXml_name]
+    dec rax                             ; the '<'
+    mov [r12 + 16], rax
+.none:
+    xor eax, eax
+    jmp .out
+.nomem:
+    mov rax, -(ENOMEM)
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; ugfx_svg_defs_id — rdi = const UgfxSvgDefs*, rsi = id, rdx = id end
+;   -> rax = the '<' of the first element with that id, or 0
+; -----------------------------------------------------------------------------
+global ugfx_svg_defs_id
+ugfx_svg_defs_id:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 8
+    mov r12, rsi
+    mov r13, rdx
+    mov rbx, [rdi + UgfxSvgDefs_ids]
+    mov r14d, [rdi + UgfxSvgDefs_nids]
+.next:
+    xor eax, eax
+    test r14d, r14d
+    jz .out
+    mov rdi, [rbx]
+    mov rsi, [rbx + 8]
+    mov rdx, r12
+    mov rcx, r13
+    call ugfx_svg_same
+    je .found
+    add rbx, 24
+    dec r14d
+    jmp .next
+.found:
+    mov rax, [rbx + 16]
+.out:
+    add rsp, 8
+    pop r14
     pop r13
     pop r12
     pop rbx
