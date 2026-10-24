@@ -40,6 +40,9 @@ integer/  Tier 0-1  gcd/lcm/Bezout, isqrt/icbrt/ilog2/ilog10, mulmod/powmod/
                      modinv/ipow, deterministic is_prime, factorial/binomial
 ```
 
+What comes next, group by group and formula by formula, is in
+`ROADMAP.md`.
+
 Every other directory listed below is scaffolded (created, named, given a
 README describing its intended purpose) but not yet implemented. Per this
 project's sweep workflow, an empty module is "not yet swept," not broken —
