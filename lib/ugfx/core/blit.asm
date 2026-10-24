@@ -3,8 +3,7 @@
 ; Simple memcpy with stride handling
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
+%include "ugfx.inc"
 
 section .text
 
