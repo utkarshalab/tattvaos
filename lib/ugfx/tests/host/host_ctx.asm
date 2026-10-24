@@ -31,7 +31,7 @@
 ;    57 svg bytes <document, padded to 8> current_colour x y size: parse the
 ;       document and draw it onto the context (exit 5 if parsing fails)
 ;    58 clip_begin   59 clip_add (the current path)   60 clip_end
-;    61 begin_mask   62 end_mask mode
+;    61 begin_mask   62 end_mask mode   63 clip_stroke (the current path)
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 setup error, 4 write error,
 ;   5 a call returned an error, 6 unknown opcode.
 ; Development-machine tool only.
@@ -69,6 +69,8 @@ extern ugfx_ctx_begin_mask
 extern ugfx_ctx_end_mask
 extern ugfx_list_begin_mask
 extern ugfx_list_end_mask
+extern ugfx_ctx_clip_stroke
+extern ugfx_list_clip_stroke
 extern ugfx_ctx_save
 extern ugfx_ctx_restore
 extern ugfx_ctx_set_transform
@@ -259,6 +261,8 @@ _start:
     je .c_begin_mask
     cmp rax, 62
     je .c_end_mask
+    cmp rax, 63
+    je .c_clip_stroke
     cmp rax, 55
     ja .bad_op
     sub rax, 30
@@ -304,6 +308,9 @@ _start:
 .c_end_mask:
     mov rax, [rel fns + 29 * 8]   ; end_mask
     jmp .ctx_int
+.c_clip_stroke:
+    mov rax, [rel fns + 30 * 8]   ; clip_stroke
+    jmp .ctx_path
 .c_clip:
     mov rax, [rel fns + 2 * 8]   ; clip
 .ctx_path:
@@ -751,6 +758,7 @@ ctx_fns:
     dq ugfx_ctx_clip_end
     dq ugfx_ctx_begin_mask
     dq ugfx_ctx_end_mask
+    dq ugfx_ctx_clip_stroke
 list_fns:
     dq ugfx_list_begin_layer
     dq ugfx_list_clear
@@ -782,7 +790,8 @@ list_fns:
     dq ugfx_list_clip_end
     dq ugfx_list_begin_mask
     dq ugfx_list_end_mask
-FN_COUNT equ 30
+    dq ugfx_list_clip_stroke
+FN_COUNT equ 31
 ctx_jumps:
     dq _start.c_new_path, _start.c_fill, _start.c_stroke, _start.c_clip
     dq _start.c_save, _start.c_restore, _start.c_set_transform, _start.c_transform
