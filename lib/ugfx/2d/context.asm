@@ -21,7 +21,10 @@
 ; Clips: each save depth owns at most one mask from a pool (plus one
 ; scratch mask), so memory stays bounded however often clip is called.
 ; A new clip is rendered with the current clip applied, which is the
-; intersection.
+; intersection. A union clip (SVG clipPath: shapes with their own
+; transforms and rules) is built between ugfx_ctx_clip_begin and
+; ugfx_ctx_clip_end: each ugfx_ctx_clip_add renders a path into a union
+; mask (c + m (255 - c) / 255), and clip_end intersects the clip with it.
 ;
 ; Layers: ugfx_ctx_begin_layer(alpha) saves the state and redirects
 ; drawing into a transparent offscreen buffer the size of the target, with
@@ -54,6 +57,7 @@ extern ugfx_paint_set_transform
 extern ugfx_mask_init
 extern ugfx_mask_fill
 extern ugfx_mask_copy
+extern ugfx_mask_intersect
 extern umath_affine2_identity
 extern umath_affine2_multiply
 extern umath_affine2_translate
@@ -93,6 +97,7 @@ ugfx_ctx_init:
     mov [rbx + UgfxContext_arena], rsi
     mov [rbx + UgfxContext_root], rdx
     mov dword [rbx + UgfxContext_depth], 0
+    mov dword [rbx + UgfxContext_union], 0
     lea rdi, [rbx + UgfxContext_raster]
     mov rcx, [rdx + PixBuf_height]
     mov rdx, [rdx + PixBuf_width]
@@ -119,7 +124,7 @@ ugfx_ctx_init:
     call ctx_alloc_zero
     jz .init_nomem
     mov [rbx + UgfxContext_stack], rax
-    mov esi, (UGFX_CTX_MAX_DEPTH + 2) * UgfxMask_SIZE
+    mov esi, (UGFX_CTX_MAX_DEPTH + 3) * UgfxMask_SIZE
     call ctx_alloc_zero
     jz .init_nomem
     mov [rbx + UgfxContext_masks], rax
@@ -559,6 +564,111 @@ ugfx_ctx_clip:
     call ugfx_raster_reset
     mov rax, -(ENOMEM)
 .clip_out:
+    EPILOGUE_RESTORE rbx, r12
+
+; -----------------------------------------------------------------------------
+; ugfx_ctx_clip_begin — rdi = ctx -> rax = 0, -EINVAL (one already open),
+;   -ENOMEM: an empty union clip
+; ugfx_ctx_clip_add — rdi = ctx, rsi = UgfxPath* -> rax = 0, -EINVAL (none
+;   open), -errno: the path (current transform and fill rule) added
+; ugfx_ctx_clip_end — rdi = ctx -> rax = 0, -EINVAL (none open): the clip
+;   becomes its intersection with the union
+; -----------------------------------------------------------------------------
+global ugfx_ctx_clip_begin
+ugfx_ctx_clip_begin:
+    test rdi, rdi
+    jz ctx_bad
+    cmp dword [rdi + UgfxContext_union], 0
+    jne ctx_bad
+    push rbx
+    mov rbx, rdi
+    mov eax, UGFX_CTX_MAX_DEPTH + 2
+    call ctx_mask
+    test rax, rax
+    jz .cb_nomem
+    mov rdi, rax
+    xor esi, esi
+    call ugfx_mask_fill
+    mov dword [rbx + UgfxContext_union], 1
+    xor eax, eax
+    pop rbx
+    ret
+.cb_nomem:
+    mov rax, -(ENOMEM)
+    pop rbx
+    ret
+
+global ugfx_ctx_clip_add
+ugfx_ctx_clip_add:
+    test rdi, rdi
+    jz ctx_bad
+    test rsi, rsi
+    jz ctx_bad
+    cmp dword [rdi + UgfxContext_union], 0
+    je ctx_bad
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov rdi, rsi
+    call ctx_rasterize
+    test rax, rax
+    jnz .ca_out
+    lea rdi, [rbx + UgfxContext_raster]
+    xor esi, esi                        ; no clip: intersected at the end
+    call ugfx_raster_set_clip
+    lea rdi, [rbx + UgfxContext_raster]
+    mov esi, 255
+    call ugfx_raster_set_alpha
+    mov eax, UGFX_CTX_MAX_DEPTH + 2
+    call ctx_mask
+    lea rdi, [rbx + UgfxContext_raster]
+    mov rsi, rax
+    mov ecx, [rbx + ST(rule)]
+    call ugfx_raster_fill_mask
+.ca_out:
+    EPILOGUE_RESTORE rbx, r12
+
+global ugfx_ctx_clip_end
+ugfx_ctx_clip_end:
+    test rdi, rdi
+    jz ctx_bad
+    cmp dword [rdi + UgfxContext_union], 0
+    je ctx_bad
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov dword [rbx + UgfxContext_union], 0
+    mov eax, UGFX_CTX_MAX_DEPTH + 2
+    call ctx_mask
+    mov r12, rax                        ; the union
+    cmp dword [rbx + ST(clip_owned)], 0
+    je .ce_own
+    mov rdi, [rbx + ST(clip)]           ; this depth's mask: intersect in place
+    mov rsi, r12
+    call ugfx_mask_intersect
+    jmp .ce_ok
+.ce_own:
+    mov eax, [rbx + UgfxContext_depth]
+    call ctx_mask
+    test rax, rax
+    jz .ce_nomem
+    push rax
+    sub rsp, 8
+    mov rdi, rax
+    mov rsi, r12
+    call ugfx_mask_copy
+    add rsp, 8
+    pop rdi
+    mov rsi, [rbx + ST(clip)]
+    mov [rbx + ST(clip)], rdi
+    mov dword [rbx + ST(clip_owned)], 1
+    test rsi, rsi
+    jz .ce_ok
+    call ugfx_mask_intersect            ; with the clip it had
+.ce_ok:
+    xor eax, eax
+    jmp .ce_out
+.ce_nomem:
+    mov rax, -(ENOMEM)
+.ce_out:
     EPILOGUE_RESTORE rbx, r12
 
 ; eax = pool index, rbx = ctx -> rax = UgfxMask* (initialised), 0 = no memory
