@@ -149,6 +149,8 @@ kernel_text_start:
 %include "security/usrauth/usrauth.asm"   ; Reference monitor; needs crypto + time
 %include "lib/unet/unet.asm"
 
+%include "kernel/exec/exec.asm"     ; UBF program loader (docs/UBF_SPEC.md)
+
 ; Last: stubs for symbols the tree references but has never implemented. Being
 ; last means a real definition anywhere above wins, and the generator drops the
 ; stub on its next run.
