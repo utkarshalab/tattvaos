@@ -26,20 +26,20 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
 | C2D-009 | Points, sizes, rectangles | P2 | ◐ `core/rect` | |
-| C2D-010 | Rounded rectangles (per-corner, elliptical radii) | P2 | | 009 |
+| C2D-010 | Rounded rectangles (per-corner, elliptical radii) | P2 | ◐ per-corner circular radii in `2d/shapes`; elliptical pending | 009 |
 | C2D-011 | Regions (rectangle sets) | P2 | ◐ `core/region` | 009 |
 | C2D-012 | Affine transforms | P2 | ✓ `umath/geom/affine2` | |
 | C2D-013 | Perspective transforms (2.5D) | P4 | | 012 |
-| C2D-014 | Bounds: tight and conservative | P2 | | 015 |
+| C2D-014 | Bounds: tight and conservative | P2 | ◐ conservative `ugfx_path_bounds`; tight needs curve extrema | 015 |
 
 ## 3. Paths
 
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
-| C2D-015 | Path builder: move, line, quad, cubic, conic, arc, close | P2 | | 012 |
-| C2D-016 | Shapes: rect, rounded rect, ellipse, circle, polygon, star, pie, sector | P2 | | 015 |
-| C2D-017 | Path transforms | P2 | | 012, 015 |
-| C2D-018 | Flattening with error tolerance | P2 | ◐ `umath/geom/bezier` segments | 015 |
+| C2D-015 | Path builder: move, line, quad, cubic, conic, arc, close | P2 | ◐ `2d/path` + `add_arc`; conic pending | 012 |
+| C2D-016 | Shapes: rect, rounded rect, ellipse, circle, polygon, star, pie, sector | P2 | ✓ `2d/shapes` | 015 |
+| C2D-017 | Path transforms | P2 | ✓ `ugfx_path_transform`, matrix in rasterize | 012, 015 |
+| C2D-018 | Flattening with error tolerance | P2 | ✓ `ugfx_path_rasterize` + `umath/geom/bezier` | 015 |
 | C2D-019 | Iteration, reversal, measuring (length, point at distance, tangent) | P3 | | 015 |
 | C2D-020 | Hit testing: point in fill, near stroke | P2 | | 018 |
 | C2D-021 | Simplification (degenerate segments) | P3 | | 015 |
@@ -195,7 +195,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 ## Build order
 
 1. Geometry math in `umath/geom` (012, 018) — **done**
-2. Path builder, shapes, transforms, flattening, path fill (015–018, 014)
+2. Path builder, shapes, transforms, flattening, path fill (015–018, 014) — **done** (conic, tight bounds pending)
 3. Strokes: width, joins, caps, stroke to path, dashes (033–036, 038)
 4. Span variants and paint: gradients, image patterns (054, 041–046)
 5. Clipping and masks, coverage masks (032, 055–060)
