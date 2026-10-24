@@ -14,8 +14,10 @@
 ; exact power of ten turns into the double (correctly rounded while the
 ; integer stays below 2^53 and the power within 10^22).
 ; Colours: none, currentColor, inherit, #rgb, #rgba, #rrggbb, #rrggbbaa,
-; rgb() / rgba() (numbers or percentages), the CSS basic colour keywords
-; (any case), url(...) with an optional fallback colour (else none).
+; rgb() / rgba() (numbers or percentages, commas or spaces, an optional
+; "/ alpha"), hsl() / hsla() (hue in degrees, optional "deg"), the 148
+; CSS named colours (any case), url(...) with an optional fallback colour
+; (else none).
 ; Transforms: matrix, translate, scale, rotate (degrees, optional centre),
 ; skewX, skewY; an invalid list leaves m unchanged.
 ; Path data: M L H V C S Q T A Z in both cases, implicit repeats, S / T
@@ -52,6 +54,13 @@ syn_255:            dq 255.0
 syn_half:           dq 0.5
 syn_one:            dq 1.0
 syn_two:            dq 2.0
+syn_3:              dq 3.0
+syn_9:              dq 9.0
+syn_12:             dq 12.0
+syn_30:             dq 30.0
+syn_360:            dq 360.0
+syn_minus_one:      dq -1.0
+syn_hsl_n:          dq 0.0, 8.0, 4.0        ; red, green, blue
 align 16
 syn_sign_mask:      dq 0x8000000000000000, 0
 
@@ -60,27 +69,155 @@ syn_sign_mask:      dq 0x8000000000000000, 0
     db %strlen(%1), %1
     dd %2
 %endmacro
-syn_keywords:
-    KEYWORD "black",   0x000000
-    KEYWORD "white",   0xFFFFFF
-    KEYWORD "red",     0xFF0000
-    KEYWORD "lime",    0x00FF00
-    KEYWORD "green",   0x008000
-    KEYWORD "blue",    0x0000FF
-    KEYWORD "yellow",  0xFFFF00
-    KEYWORD "cyan",    0x00FFFF
-    KEYWORD "aqua",    0x00FFFF
-    KEYWORD "magenta", 0xFF00FF
-    KEYWORD "fuchsia", 0xFF00FF
-    KEYWORD "gray",    0x808080
-    KEYWORD "grey",    0x808080
-    KEYWORD "silver",  0xC0C0C0
-    KEYWORD "maroon",  0x800000
-    KEYWORD "olive",   0x808000
-    KEYWORD "navy",    0x000080
-    KEYWORD "purple",  0x800080
-    KEYWORD "teal",    0x008080
-    KEYWORD "orange",  0xFFA500
+syn_keywords:                           ; the 148 CSS named colours
+    KEYWORD "aliceblue",            0xF0F8FF
+    KEYWORD "antiquewhite",         0xFAEBD7
+    KEYWORD "aqua",                 0x00FFFF
+    KEYWORD "aquamarine",           0x7FFFD4
+    KEYWORD "azure",                0xF0FFFF
+    KEYWORD "beige",                0xF5F5DC
+    KEYWORD "bisque",               0xFFE4C4
+    KEYWORD "black",                0x000000
+    KEYWORD "blanchedalmond",       0xFFEBCD
+    KEYWORD "blue",                 0x0000FF
+    KEYWORD "blueviolet",           0x8A2BE2
+    KEYWORD "brown",                0xA52A2A
+    KEYWORD "burlywood",            0xDEB887
+    KEYWORD "cadetblue",            0x5F9EA0
+    KEYWORD "chartreuse",           0x7FFF00
+    KEYWORD "chocolate",            0xD2691E
+    KEYWORD "coral",                0xFF7F50
+    KEYWORD "cornflowerblue",       0x6495ED
+    KEYWORD "cornsilk",             0xFFF8DC
+    KEYWORD "crimson",              0xDC143C
+    KEYWORD "cyan",                 0x00FFFF
+    KEYWORD "darkblue",             0x00008B
+    KEYWORD "darkcyan",             0x008B8B
+    KEYWORD "darkgoldenrod",        0xB8860B
+    KEYWORD "darkgray",             0xA9A9A9
+    KEYWORD "darkgreen",            0x006400
+    KEYWORD "darkgrey",             0xA9A9A9
+    KEYWORD "darkkhaki",            0xBDB76B
+    KEYWORD "darkmagenta",          0x8B008B
+    KEYWORD "darkolivegreen",       0x556B2F
+    KEYWORD "darkorange",           0xFF8C00
+    KEYWORD "darkorchid",           0x9932CC
+    KEYWORD "darkred",              0x8B0000
+    KEYWORD "darksalmon",           0xE9967A
+    KEYWORD "darkseagreen",         0x8FBC8F
+    KEYWORD "darkslateblue",        0x483D8B
+    KEYWORD "darkslategray",        0x2F4F4F
+    KEYWORD "darkslategrey",        0x2F4F4F
+    KEYWORD "darkturquoise",        0x00CED1
+    KEYWORD "darkviolet",           0x9400D3
+    KEYWORD "deeppink",             0xFF1493
+    KEYWORD "deepskyblue",          0x00BFFF
+    KEYWORD "dimgray",              0x696969
+    KEYWORD "dimgrey",              0x696969
+    KEYWORD "dodgerblue",           0x1E90FF
+    KEYWORD "firebrick",            0xB22222
+    KEYWORD "floralwhite",          0xFFFAF0
+    KEYWORD "forestgreen",          0x228B22
+    KEYWORD "fuchsia",              0xFF00FF
+    KEYWORD "gainsboro",            0xDCDCDC
+    KEYWORD "ghostwhite",           0xF8F8FF
+    KEYWORD "gold",                 0xFFD700
+    KEYWORD "goldenrod",            0xDAA520
+    KEYWORD "gray",                 0x808080
+    KEYWORD "green",                0x008000
+    KEYWORD "greenyellow",          0xADFF2F
+    KEYWORD "grey",                 0x808080
+    KEYWORD "honeydew",             0xF0FFF0
+    KEYWORD "hotpink",              0xFF69B4
+    KEYWORD "indianred",            0xCD5C5C
+    KEYWORD "indigo",               0x4B0082
+    KEYWORD "ivory",                0xFFFFF0
+    KEYWORD "khaki",                0xF0E68C
+    KEYWORD "lavender",             0xE6E6FA
+    KEYWORD "lavenderblush",        0xFFF0F5
+    KEYWORD "lawngreen",            0x7CFC00
+    KEYWORD "lemonchiffon",         0xFFFACD
+    KEYWORD "lightblue",            0xADD8E6
+    KEYWORD "lightcoral",           0xF08080
+    KEYWORD "lightcyan",            0xE0FFFF
+    KEYWORD "lightgoldenrodyellow", 0xFAFAD2
+    KEYWORD "lightgray",            0xD3D3D3
+    KEYWORD "lightgreen",           0x90EE90
+    KEYWORD "lightgrey",            0xD3D3D3
+    KEYWORD "lightpink",            0xFFB6C1
+    KEYWORD "lightsalmon",          0xFFA07A
+    KEYWORD "lightseagreen",        0x20B2AA
+    KEYWORD "lightskyblue",         0x87CEFA
+    KEYWORD "lightslategray",       0x778899
+    KEYWORD "lightslategrey",       0x778899
+    KEYWORD "lightsteelblue",       0xB0C4DE
+    KEYWORD "lightyellow",          0xFFFFE0
+    KEYWORD "lime",                 0x00FF00
+    KEYWORD "limegreen",            0x32CD32
+    KEYWORD "linen",                0xFAF0E6
+    KEYWORD "magenta",              0xFF00FF
+    KEYWORD "maroon",               0x800000
+    KEYWORD "mediumaquamarine",     0x66CDAA
+    KEYWORD "mediumblue",           0x0000CD
+    KEYWORD "mediumorchid",         0xBA55D3
+    KEYWORD "mediumpurple",         0x9370DB
+    KEYWORD "mediumseagreen",       0x3CB371
+    KEYWORD "mediumslateblue",      0x7B68EE
+    KEYWORD "mediumspringgreen",    0x00FA9A
+    KEYWORD "mediumturquoise",      0x48D1CC
+    KEYWORD "mediumvioletred",      0xC71585
+    KEYWORD "midnightblue",         0x191970
+    KEYWORD "mintcream",            0xF5FFFA
+    KEYWORD "mistyrose",            0xFFE4E1
+    KEYWORD "moccasin",             0xFFE4B5
+    KEYWORD "navajowhite",          0xFFDEAD
+    KEYWORD "navy",                 0x000080
+    KEYWORD "oldlace",              0xFDF5E6
+    KEYWORD "olive",                0x808000
+    KEYWORD "olivedrab",            0x6B8E23
+    KEYWORD "orange",               0xFFA500
+    KEYWORD "orangered",            0xFF4500
+    KEYWORD "orchid",               0xDA70D6
+    KEYWORD "palegoldenrod",        0xEEE8AA
+    KEYWORD "palegreen",            0x98FB98
+    KEYWORD "paleturquoise",        0xAFEEEE
+    KEYWORD "palevioletred",        0xDB7093
+    KEYWORD "papayawhip",           0xFFEFD5
+    KEYWORD "peachpuff",            0xFFDAB9
+    KEYWORD "peru",                 0xCD853F
+    KEYWORD "pink",                 0xFFC0CB
+    KEYWORD "plum",                 0xDDA0DD
+    KEYWORD "powderblue",           0xB0E0E6
+    KEYWORD "purple",               0x800080
+    KEYWORD "rebeccapurple",        0x663399
+    KEYWORD "red",                  0xFF0000
+    KEYWORD "rosybrown",            0xBC8F8F
+    KEYWORD "royalblue",            0x4169E1
+    KEYWORD "saddlebrown",          0x8B4513
+    KEYWORD "salmon",               0xFA8072
+    KEYWORD "sandybrown",           0xF4A460
+    KEYWORD "seagreen",             0x2E8B57
+    KEYWORD "seashell",             0xFFF5EE
+    KEYWORD "sienna",               0xA0522D
+    KEYWORD "silver",               0xC0C0C0
+    KEYWORD "skyblue",              0x87CEEB
+    KEYWORD "slateblue",            0x6A5ACD
+    KEYWORD "slategray",            0x708090
+    KEYWORD "slategrey",            0x708090
+    KEYWORD "snow",                 0xFFFAFA
+    KEYWORD "springgreen",          0x00FF7F
+    KEYWORD "steelblue",            0x4682B4
+    KEYWORD "tan",                  0xD2B48C
+    KEYWORD "teal",                 0x008080
+    KEYWORD "thistle",              0xD8BFD8
+    KEYWORD "tomato",               0xFF6347
+    KEYWORD "turquoise",            0x40E0D0
+    KEYWORD "violet",               0xEE82EE
+    KEYWORD "wheat",                0xF5DEB3
+    KEYWORD "white",                0xFFFFFF
+    KEYWORD "whitesmoke",           0xF5F5F5
+    KEYWORD "yellow",               0xFFFF00
+    KEYWORD "yellowgreen",          0x9ACD32
     db 0
 
 section .text
@@ -391,6 +528,10 @@ ugfx_svg_colour:
     je .rgb
     IS_KEYWORD "rgb("
     je .rgb
+    IS_KEYWORD "hsla("
+    je .hsl
+    IS_KEYWORD "hsl("
+    je .hsl
     cmp byte [rdi], '#'
     je .hash
     ; keywords
@@ -407,10 +548,10 @@ ugfx_svg_colour:
     ; a keyword must end the token
     cmp rdi, rsi
     jae .kw_hit
-    movzx eax, byte [rdi]
-    or eax, 0x20
-    sub eax, 'a'
-    cmp eax, 25
+    movzx r8d, byte [rdi]               ; (rax holds where the name began)
+    or r8d, 0x20
+    sub r8d, 'a'
+    cmp r8d, 25
     jbe .kw_miss
 .kw_hit:
     movzx ecx, byte [rbx]
@@ -418,7 +559,6 @@ ugfx_svg_colour:
     or edx, 0xFF000000
     jmp .colour
 .kw_miss:
-    mov rdi, rax
 .kw_next:
     mov rdi, rax
     movzx ecx, byte [rbx]
@@ -488,6 +628,7 @@ ugfx_svg_colour:
 .rgb_arg:
     cmp r12d, 4
     jae .rgb_close
+    call syn_alpha_slash
     push rsi
     call ugfx_svg_number
     pop rsi
@@ -540,6 +681,117 @@ ugfx_svg_colour:
     shl edx, 8
     or edx, [rsp + 8]
     jmp .colour
+.hsl:
+    ; hue [deg], saturation [%], lightness [%], [alpha [%]]
+    mov rax, [rel syn_one]
+    mov [rsp + 24], rax
+    xor r12d, r12d
+.hsl_arg:
+    cmp r12d, 4
+    jae .hsl_close
+    call syn_alpha_slash
+    push rsi
+    call ugfx_svg_number
+    pop rsi
+    test rax, rax
+    jz .hsl_close
+    mov rdi, rax
+    test r12d, r12d
+    jnz .hsl_pct
+    IS_KEYWORD "deg"                    ; optional
+    jmp .hsl_store
+.hsl_pct:
+    cmp r12d, 3
+    je .hsl_alpha
+    cmp rdi, rsi
+    jae .hsl_frac
+    cmp byte [rdi], '%'
+    jne .hsl_frac
+    inc rdi
+.hsl_frac:
+    mulsd xmm0, [rel syn_hundredth]     ; s and l are percentages
+    jmp .hsl_store
+.hsl_alpha:
+    cmp rdi, rsi
+    jae .hsl_store
+    cmp byte [rdi], '%'
+    jne .hsl_store
+    inc rdi
+    mulsd xmm0, [rel syn_hundredth]
+.hsl_store:
+    movsd [rsp + r12 * 8], xmm0
+    inc r12d
+    jmp .hsl_arg
+.hsl_close:
+    call syn_skip
+    cmp rdi, rsi
+    jae .invalid
+    cmp byte [rdi], ')'
+    jne .invalid
+    inc rdi
+    cmp r12d, 3
+    jb .invalid
+    ; alpha byte
+    movsd xmm0, [rsp + 24]
+    mulsd xmm0, [rel syn_255]
+    call syn_byte
+    mov r13d, eax
+    ; h mod 360, s and l clamped, a = s min(l, 1 - l)
+    movsd xmm0, [rsp]
+    divsd xmm0, [rel syn_360]
+    call syn_floor
+    mulsd xmm0, [rel syn_360]
+    movsd xmm1, [rsp]
+    subsd xmm1, xmm0
+    movsd [rsp], xmm1
+    xorpd xmm2, xmm2
+    movsd xmm0, [rsp + 8]
+    maxsd xmm0, xmm2
+    minsd xmm0, [rel syn_one]
+    movsd xmm1, [rsp + 16]
+    maxsd xmm1, xmm2
+    minsd xmm1, [rel syn_one]
+    movsd [rsp + 16], xmm1
+    movsd xmm2, [rel syn_one]
+    subsd xmm2, xmm1
+    minsd xmm1, xmm2
+    mulsd xmm0, xmm1
+    movsd [rsp + 8], xmm0               ; a
+    ; each channel: k = (n + h / 30) mod 12, l - a max(-1, min(k - 3, 9 - k, 1))
+    xor r12d, r12d
+    xor ebx, ebx
+.hsl_channel:
+    lea rax, [rel syn_hsl_n]
+    movsd xmm0, [rsp]
+    divsd xmm0, [rel syn_30]
+    addsd xmm0, [rax + r12 * 8]
+    movsd [rsp + 24], xmm0
+    divsd xmm0, [rel syn_12]
+    call syn_floor
+    mulsd xmm0, [rel syn_12]
+    movsd xmm1, [rsp + 24]
+    subsd xmm1, xmm0                    ; k
+    movapd xmm2, xmm1
+    subsd xmm2, [rel syn_3]
+    movsd xmm3, [rel syn_9]
+    subsd xmm3, xmm1
+    minsd xmm2, xmm3
+    minsd xmm2, [rel syn_one]
+    maxsd xmm2, [rel syn_minus_one]
+    mulsd xmm2, [rsp + 8]
+    movsd xmm0, [rsp + 16]
+    subsd xmm0, xmm2
+    mulsd xmm0, [rel syn_255]
+    call syn_byte
+    shl ebx, 8
+    or ebx, eax
+    inc r12d
+    cmp r12d, 3
+    jb .hsl_channel
+    mov edx, r13d
+    shl edx, 24
+    or edx, ebx
+    jmp .colour
 .url:
     ; url(...) [fallback]
 .url_skip:
@@ -575,6 +827,39 @@ ugfx_svg_colour:
     pop r13
     pop r12
     pop rbx
+    ret
+
+; rdi = p, rsi = end -> rdi past [ws ,]* and one '/' with the whitespace
+;   after it (CSS colour 4's alpha separator)
+syn_alpha_slash:
+    call syn_skip
+    cmp rdi, rsi
+    jae .done
+    cmp byte [rdi], '/'
+    jne .done
+    inc rdi
+    call syn_skip
+.done:
+    ret
+
+; xmm0 -> xmm0 = floor(xmm0) (|x| < 2^63)
+syn_floor:
+    cvttsd2si rax, xmm0
+    cvtsi2sd xmm1, rax
+    ucomisd xmm1, xmm0
+    jbe .done
+    subsd xmm1, [rel syn_one]
+.done:
+    movapd xmm0, xmm1
+    ret
+
+; xmm0 = 0..255 (clamped) -> eax = rounded
+syn_byte:
+    xorpd xmm1, xmm1
+    maxsd xmm0, xmm1
+    minsd xmm0, [rel syn_255]
+    addsd xmm0, [rel syn_half]
+    cvttsd2si eax, xmm0
     ret
 
 ; -----------------------------------------------------------------------------
