@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 
 SKIP = {"defs", "clipPath", "mask", "symbol", "linearGradient", "radialGradient", "pattern", "marker", "text",
         "style", "script", "title", "desc", "metadata", "foreignObject", "filter"}
+MAX_USES = 8                                        # <use> instances inside instances
 SHAPES = {"path", "rect", "circle", "ellipse", "line", "polyline", "polygon"}
 PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "fill-rule",
          "fill-opacity", "stroke-opacity", "opacity", "display"}
@@ -733,6 +734,10 @@ def parse(text):
         if el.tag.split('}')[-1] == "style" and el.text:
             rules += css_rules(el.text)
     rules.sort(key=lambda r: r[1])
+    ids = {}
+    for el in root.iter():
+        if "id" in el.attrib:
+            ids.setdefault(trim(el.attrib["id"]), el)
     default = dict(m=[1.0, 0, 0, 1.0, 0, 0], fill=("colour", 0xFF000000), stroke=("none", 0xFF000000),
                    fill_op=1.0, stroke_op=1.0, op=1.0, sw=1.0, miter=4.0, join=0, cap=0, rule=0, skip=False)
     seen_root = [False]
@@ -792,14 +797,16 @@ def parse(text):
             else:
                 own[0] = v
 
-    def walk(el, parent):
+    def walk(el, parent, uses=0, inst=None):
+        """inst: (width, height) or None from the <use> whose root el is."""
         tag = el.tag.split('}')[-1]
         st = dict(parent)
-        if tag in SKIP:
+        symroot = tag == "symbol" and inst is not None
+        if tag in SKIP and not symroot:
             st["skip"] = True
         if not st["skip"]:
             own = [1.0]
-            geom, style, el_id, classes = {}, None, None, []
+            geom, style, el_id, classes, href = {}, None, None, [], None
             for name, value in el.attrib.items():
                 name = name.split('}')[-1]
                 if name == "style":
@@ -808,6 +815,10 @@ def parse(text):
                     el_id = trim(value)
                 elif name == "class":
                     classes = value.split()
+                elif name == "href":
+                    v = trim(value)
+                    if v.startswith('#'):
+                        href = v[1:]
                 elif name == "transform":
                     m = transform_list(value, st["m"])
                     if m is not None:
@@ -830,7 +841,16 @@ def parse(text):
                         prop(st, name, value, own)
             st["op"] = st["op"] * own[0]
             if not st["skip"]:
-                if tag == "svg" and not seen_root[0]:
+                if symroot:
+                    symbol_map(st, geom, inst)
+                if tag == "use":
+                    target = ids.get(href) if href is not None else None
+                    if target is not None and uses < MAX_USES:
+                        u = dict(st)
+                        u["m"] = mul(st["m"], [1.0, 0.0, 0.0, 1.0, geom.get("x", 0.0), geom.get("y", 0.0)])
+                        wh = (geom["width"], geom["height"]) if "width" in geom and "height" in geom else False
+                        walk(target, u, uses + 1, wh)
+                elif tag == "svg" and not seen_root[0]:
                     seen_root[0] = True
                     doc.width, doc.height = geom.get("width"), geom.get("height")
                     if "viewBox" in geom:
@@ -845,7 +865,26 @@ def parse(text):
                 elif tag in SHAPES:
                     shape(tag, geom, st)
         for child in el:
-            walk(child, st)
+            walk(child, st, uses)
+
+    def symbol_map(st, geom, wh):
+        """The symbol's viewBox fitted into the use's width x height, xMidYMid meet."""
+        if "viewBox" not in geom:
+            return
+        vals, i = [], 0
+        while len(vals) < 4:
+            v, i = number(geom["viewBox"], i)
+            if v is None:
+                return
+            vals.append(v)
+        x, y, w, h = vals
+        if not (w > 0 and h > 0):
+            return
+        W, H = wh if wh else (w, h)
+        s = min(W / w, H / h)
+        tx = (W - w * s) * 0.5 - x * s
+        ty = (H - h * s) * 0.5 - y * s
+        st["m"] = mul(st["m"], [s, 0.0, 0.0, s, tx, ty])
 
     def bake(paint, op, st):
         kind, c = paint
