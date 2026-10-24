@@ -12,14 +12,14 @@ UMATHFLAGS := -f elf64 -g -F dwarf -I ../../
 BUILDDIR  := build
 
 CORE_SRCS := core/pixbuf.asm core/span.asm core/raster.asm core/mask.asm
-PATH_SRCS := 2d/path.asm 2d/shapes.asm 2d/stroke.asm 2d/flatten.asm 2d/dash.asm 2d/paint.asm 2d/context.asm 2d/list.asm 2d/uic.asm 2d/svg_syntax.asm 2d/svg_xml.asm 2d/svg.asm
+PATH_SRCS := 2d/path.asm 2d/shapes.asm 2d/stroke.asm 2d/flatten.asm 2d/dash.asm 2d/paint.asm 2d/context.asm 2d/list.asm 2d/uic.asm 2d/svg_syntax.asm 2d/svg_xml.asm 2d/svg_defs.asm 2d/svg.asm
 CORE_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(CORE_SRCS))
 PATH_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(PATH_SRCS)) $(BUILDDIR)/core/umath_unit.o
 
 .PHONY: all host host-check icons clean
 all: host
 
-$(BUILDDIR)/core/umath_unit.o: core/umath_unit.asm $(wildcard ../umath/geom/*.asm)
+$(BUILDDIR)/core/umath_unit.o: core/umath_unit.asm $(wildcard ../umath/geom/*.asm ../umath/math_fn/*.asm ../umath/scalar/*.asm)
 	@mkdir -p $(dir $@)
 	$(NASM) $(UMATHFLAGS) -o $@ $<
 
