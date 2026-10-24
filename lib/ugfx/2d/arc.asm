@@ -2,12 +2,7 @@
 ; Arc Primitives — Elliptical Arc Drawing
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
-%include "inc/geometry.inc"
-%include "inc/fixed.inc"
-%include "inc/externs.inc"
+%include "ugfx.inc"
 
 section .text
 
@@ -39,13 +34,13 @@ arc_draw:
     ASSERT_PTR rbx
 
     ; Get pixbuf info
-    mov eax, [rbx + Pixbuf.width]
+    mov eax, [rbx + PixBuf_width]
     mov r8d, eax
-    mov eax, [rbx + Pixbuf.height]
+    mov eax, [rbx + PixBuf_height]
     mov r9d, eax
-    mov rax, [rbx + Pixbuf.stride]
+    mov rax, [rbx + PixBuf_stride]
     mov r8, rax             ; stride
-    mov rax, [rbx + Pixbuf.data]
+    mov rax, [rbx + PixBuf_data]
     mov rdi, rax            ; framebuffer
 
     ; Convert angles to fixed-point radians
