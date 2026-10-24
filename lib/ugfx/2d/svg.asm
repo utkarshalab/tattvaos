@@ -43,6 +43,13 @@
 ; bounding box (the union of its shapes' bounds, corners transformed). A
 ; clip-path on the clipPath element intersects; up to 4 nest.
 ;
+; mask="url(#id)" compiles that mask's content (everything that draws)
+; the same way; the group draws into a layer, the mask's content into a
+; mask layer (its region - x, y, width, height, -10% / 120% by default -
+; in maskUnits, objectBoundingBox by default; the content in
+; maskContentUnits), and the layer is composited through its luminance,
+; or its alpha for mask-type="alpha".
+;
 ; A nested svg and an instanced symbol clip to their viewport (overflow
 ; hidden); the root only with slice, the one mapping that overflows by
 ; itself (its viewport, in viewBox units, is a group's rect clip). Drawing maps the document into the square (x, y, size, size): its
@@ -71,6 +78,9 @@ extern ugfx_ctx_set_transform
 extern ugfx_ctx_clip_begin
 extern ugfx_ctx_clip_add
 extern ugfx_ctx_clip_end
+extern ugfx_ctx_clip
+extern ugfx_ctx_begin_mask
+extern ugfx_ctx_end_mask
 extern ugfx_ctx_set_fill_paint
 extern ugfx_ctx_set_stroke_paint
 extern ugfx_ctx_set_alpha
@@ -160,7 +170,10 @@ extern ugfx_ctx_end_layer
 %define E_TEXT          13              ; not drawn yet, but takes part in switch
 %define E_FOREIGN       14              ; foreignObject: the same
 %define E_CLIPPATH      15              ; drawn only as a clip's content
-%define SVG_MAX_CLIPS   4               ; clipPaths compiling inside each other
+%define E_MASK          16              ; drawn only as a mask's content
+%define SVG_MAX_CLIPS   4               ; clipPaths / masks compiling inside each other
+%define K_CLIP          2               ; compile kinds (and P_INST for their roots)
+%define K_MASK          3
 %define SVG_MAX_USES    8               ; <use> instances inside instances
 
 ; geometry slots (f64), with a bit each in P_HAVE
@@ -199,7 +212,8 @@ extern ugfx_ctx_end_layer
 %define A_PAINT_ORDER   17
 %define A_CLIP_PATH     18
 %define A_CLIP_RULE     19
-%define A_LAST_PROP     19              ; ids up to here are style properties too
+%define A_MASK          20
+%define A_LAST_PROP     20              ; ids up to here are style properties too
 %define A_TRANSFORM     40
 %define A_STYLE         41
 %define A_D             42
@@ -264,7 +278,12 @@ extern ugfx_ctx_end_layer
 %define P_CLIP          (P_FONT_RAW + 72)               ; clip-path as written (0: none)
 %define P_CLIP_END      (P_FONT_RAW + 80)
 %define P_CLIPREC       (P_FONT_RAW + 88)               ; the compiled clip for a group
-%define P_SIZE          (((P_FONT_RAW + 96 + 15) & ~15) + 8)
+%define P_MASK          (P_FONT_RAW + 96)               ; mask as written (0: none)
+%define P_MASK_END      (P_FONT_RAW + 104)
+%define P_MASKREC       (P_FONT_RAW + 112)              ; the compiled mask for a group
+%define P_COMPILE       (P_FONT_RAW + 120)              ; u32 clipPaths / masks being compiled
+%define P_CROOT         (P_FONT_RAW + 124)              ; u32 this element is a compile's root
+%define P_SIZE          (((P_FONT_RAW + 128 + 15) & ~15) + 8)
 
 %define PAR_DEFAULT     5               ; xMidYMid meet
 
@@ -308,7 +327,7 @@ svg_elements:
     NAME "polygon", E_POLYGON
     NAME "defs", E_SKIP
     NAME "clipPath", E_CLIPPATH
-    NAME "mask", E_SKIP
+    NAME "mask", E_MASK
     NAME "symbol", E_SYMBOL
     NAME "use", E_USE
     NAME "linearGradient", E_SKIP
@@ -345,6 +364,7 @@ svg_attributes:
     NAME "paint-order", A_PAINT_ORDER
     NAME "clip-path", A_CLIP_PATH
     NAME "clip-rule", A_CLIP_RULE
+    NAME "mask", A_MASK
     NAME "transform", A_TRANSFORM
     NAME "style", A_STYLE
     NAME "d", A_D
@@ -412,6 +432,18 @@ svg_clip_attrs:
     NAME "clipPathUnits", 1
     NAME "clip-path", 2
     db 0
+svg_mask_attrs:
+    NAME "maskUnits", 1
+    NAME "maskContentUnits", 2
+    NAME "x", 3
+    NAME "y", 4
+    NAME "width", 5
+    NAME "height", 6
+    NAME "mask-type", 7
+    db 0
+svg_word_alpha:     db "alpha"
+svg_m10:            db "-10%"
+svg_120:            db "120%"
 svg_word_obb:       db "objectBoundingBox"
 svg_cond_words:
     NAME "requiredExtensions", 1
@@ -569,6 +601,7 @@ ugfx_svg_parse:
     jnz .nomem
     mov dword [r15 + P_USES], 0
     mov dword [r15 + P_CLIPMODE], 0
+    mov dword [r15 + P_COMPILE], 0
     mov dword [r15 + P_INST], 0
     mov dword [r15 + P_SYMROOT], 0
     mov edi, -1
@@ -660,8 +693,11 @@ svg_walk:
     mov ecx, [r15 + P_INST]
     mov dword [r15 + P_INST], 0
     mov dword [r15 + P_SYMROOT], 0
+    mov dword [r15 + P_CROOT], 0
     cmp eax, E_CLIPPATH
     je .clip_root
+    cmp eax, E_MASK
+    je .mask_root
     cmp eax, E_SYMBOL
     jne .kind
     mov eax, E_SKIP
@@ -672,9 +708,17 @@ svg_walk:
     jmp .kind
 .clip_root:
     mov eax, E_SKIP
-    cmp ecx, 2
+    cmp ecx, K_CLIP
     jne .kind
     mov eax, E_GROUP
+    mov dword [r15 + P_CROOT], 1
+    jmp .kind
+.mask_root:
+    mov eax, E_SKIP
+    cmp ecx, K_MASK
+    jne .kind
+    mov eax, E_GROUP
+    mov dword [r15 + P_CROOT], 1
 .kind:
     ; conditional processing; a switch keeps only its first child that passes
     cmp eax, E_SKIP
@@ -766,6 +810,7 @@ svg_element:
     mov qword [r15 + P_DOFF_RAW], 0
     mov dword [r15 + P_PAR], PAR_DEFAULT
     mov qword [r15 + P_CLIP], 0
+    mov qword [r15 + P_MASK], 0
     mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
 .attr:
     lea rdi, [r15 + P_XML]
@@ -887,10 +932,16 @@ svg_element:
 .container:
     cmp dword [r15 + P_CLIPMODE], 0
     jne .not_container                  ; a clip's content: geometry only
+    cmp dword [r15 + P_CROOT], 0
+    jne .not_container                  ; a clipPath / mask itself
     call svg_clip_ref
     mov [r15 + P_CLIPREC], rax
+    call svg_mask_ref
+    mov [r15 + P_MASKREC], rax
     test rax, rax
     jnz .open
+    cmp qword [r15 + P_CLIPREC], 0
+    jne .open
     movsd xmm0, [r15 + P_OPACITY]
     ucomisd xmm0, [rel svg_one]
     jae .not_container
@@ -1145,6 +1196,7 @@ svg_view_clip:
     mov dword [r12 + UgfxSvgItem_alpha], 255
     mov rax, [r15 + P_CLIPREC]
     mov [r12 + UgfxSvgItem_clip], rax
+    mov qword [r12 + UgfxSvgItem_mask], 0
     xor ecx, ecx
 .m:
     mov rax, [rbx + S_M + rcx * 8]
@@ -1664,6 +1716,8 @@ svg_property:
     je .clip_path
     cmp eax, A_CLIP_RULE
     je .clip_rule
+    cmp eax, A_MASK
+    je .mask
     ; opacities: a number (or a percentage), clamped to [0, 1]
     mov r13, rsi
     call ugfx_svg_number
@@ -1804,6 +1858,14 @@ svg_property:
     jne .out
     mov qword [r15 + P_CLIP], 0
     jmp .out
+.mask:
+    call ugfx_svg_trim
+    mov [r15 + P_MASK], rdi
+    mov [r15 + P_MASK_END], rsi
+    IS_WORD none
+    jne .out
+    mov qword [r15 + P_MASK], 0
+    jmp .out
 .clip_rule:
     IS_WORD evenodd
     mov eax, UGFX_FILL_EVENODD
@@ -1928,6 +1990,10 @@ svg_inherit:
     jne .not_clip
     mov qword [r15 + P_CLIP], 0         ; not inherited: none
 .not_clip:
+    cmp r12d, A_MASK
+    jne .not_mask
+    mov qword [r15 + P_MASK], 0         ; not inherited: none
+.not_mask:
     cmp r12d, A_OPACITY
     jne .done
     movsd xmm0, [rel svg_one]           ; not inherited: the initial value
@@ -2191,6 +2257,8 @@ svg_group_open:
     mov [r12 + UgfxSvgItem_alpha], eax
     mov rax, [r15 + P_CLIPREC]
     mov [r12 + UgfxSvgItem_clip], rax
+    mov rax, [r15 + P_MASKREC]
+    mov [r12 + UgfxSvgItem_mask], rax
     xor ecx, ecx
 .m:
     mov rax, [rbx + S_M + rcx * 8]
@@ -2231,8 +2299,9 @@ svg_group_end:
     mov rax, [r15 + P_SVG]
     imul rcx, r12, UgfxSvgItem_SIZE
     add rcx, [rax + UgfxSvg_items]
-    cmp qword [rcx + UgfxSvgItem_clip], 0
-    je .room
+    mov rdx, [rcx + UgfxSvgItem_clip]
+    or rdx, [rcx + UgfxSvgItem_mask]
+    jz .room
     mov edi, r12d
     mov esi, [rax + UgfxSvg_count]
     call svg_group_bbox
@@ -2242,13 +2311,10 @@ svg_group_end:
     test rax, rax
     jz .nomem
     mov rdx, [r15 + P_SVG]
-    imul rcx, r12, UgfxSvgItem_SIZE
-    add rcx, [rdx + UgfxSvg_items]
-    mov dword [rax + UgfxSvgItem_kind], UGFX_SVG_END
-    mov edx, [rcx + UgfxSvgItem_alpha]
-    mov [rax + UgfxSvgItem_alpha], edx
-    mov rdx, [rcx + UgfxSvgItem_clip]
-    mov [rax + UgfxSvgItem_clip], rdx
+    imul rsi, r12, UgfxSvgItem_SIZE
+    add rsi, [rdx + UgfxSvg_items]
+    mov rdi, rax
+    call svg_end_from
     mov rax, [r15 + P_SVG]
     inc dword [rax + UgfxSvg_count]
     pop r12
@@ -2385,26 +2451,46 @@ svg_group_bbox:
     movsd [rsp + 8 + BB_BOX + 24], xmm0
     ret
 
+; rsi = a BEGIN item, rdi = where its END goes: kind END, everything else
+;   (alpha, clip, mask, matrix, bbox) as the BEGIN has it
+svg_end_from:
+    push rdi
+    mov ecx, UgfxSvgItem_SIZE
+    rep movsb
+    pop rdi
+    mov dword [rdi + UgfxSvgItem_kind], UGFX_SVG_END
+    ret
+
 ; -----------------------------------------------------------------------------
-; svg_clip_ref — r15 = frame, rbx = state -> rax = the element's compiled
-;   clip-path (0: none, not a clipPath, or inside a clip's content)
+; svg_clip_ref / svg_mask_ref — r15 = frame, rbx = state -> rax = the
+;   element's compiled clip-path / mask (0: none, not a clipPath / mask,
+;   or inside a clip's content)
 ; -----------------------------------------------------------------------------
 svg_clip_ref:
-    sub rsp, 8
+    mov rdi, [r15 + P_CLIP]
+    mov rsi, [r15 + P_CLIP_END]
+    mov ecx, K_CLIP
+    jmp svg_ref
+svg_mask_ref:
+    mov rdi, [r15 + P_MASK]
+    mov rsi, [r15 + P_MASK_END]
+    mov ecx, K_MASK
+svg_ref:
+    push r12
+    mov r12d, ecx
     xor eax, eax
     cmp dword [r15 + P_CLIPMODE], 0
     jne .out
-    mov rdi, [r15 + P_CLIP]
     test rdi, rdi
     jz .out
-    mov rsi, [r15 + P_CLIP_END]
     call svg_url_ref
     test rax, rax
     jz .out
     mov rsi, rax
-    call svg_clip_compile
+    mov ecx, r12d
+    call svg_compile
 .out:
-    add rsp, 8
+    pop r12
     ret
 
 ; rdi / rsi = a trimmed value -> rax = the id of url(#id) (0: not one), rdx
@@ -2424,28 +2510,32 @@ svg_url_ref:
     ret
 
 ; -----------------------------------------------------------------------------
-; svg_clip_compile — rsi / rdx = a clipPath's id, r15 = frame, rbx = the
-;   referencing element's state -> rax = UgfxSvgClip* (0: no such clipPath,
-;   too deep, or out of memory). The clipPath's subtree is walked from a
-;   fresh state (the defaults, with the element's viewport and font-size)
-;   into an item list of its own, with every frame field kept.
+; svg_compile — rsi / rdx = an id, ecx = K_CLIP / K_MASK, r15 = frame, rbx =
+;   the referencing element's state -> rax = UgfxSvgClip* / UgfxSvgMask*
+;   (0: no such clipPath / mask, too deep, or out of memory). Its subtree is
+;   walked from a fresh state (the defaults, with the element's viewport
+;   and font-size) into an item list of its own - a clip's in clip mode,
+;   geometry only - with every frame field kept.
 ; -----------------------------------------------------------------------------
 %define CC_FRAME    0                               ; the frame, P_SIZE bytes
 %define CC_ITEMS    (((P_SIZE + 15) & ~15))         ; the main item list
 %define CC_COUNT    (CC_ITEMS + 8)
 %define CC_CAP      (CC_ITEMS + 12)
-%define CC_XML      (CC_ITEMS + 16)                 ; the clipPath's tag, read again
+%define CC_XML      (CC_ITEMS + 16)                 ; the element's tag, read again
 %define CC_ATTR     (CC_XML + UgfxSvgXml_SIZE)
-%define CC_SIZE     (((CC_ATTR + UgfxSvgAttr_SIZE + 15) & ~15) + 8)
+%define CC_RAW      (CC_ATTR + UgfxSvgAttr_SIZE)    ; a mask's x, y, width, height as written
+%define CC_KIND     (CC_RAW + 64)                   ; u32
+%define CC_SIZE     (((CC_KIND + 4 + 15) & ~15) + 8)
 
-svg_clip_compile:
+svg_compile:
     push r12
     push r13
     push r14
     push rbp
     sub rsp, CC_SIZE
+    mov [rsp + CC_KIND], ecx
     xor r13d, r13d
-    cmp dword [r15 + P_CLIPMODE], SVG_MAX_CLIPS
+    cmp dword [r15 + P_COMPILE], SVG_MAX_CLIPS
     jae .out
     mov eax, [r15 + P_DEPTH]
     cmp eax, SVG_MAX_DEPTH
@@ -2455,25 +2545,34 @@ svg_clip_compile:
     test rax, rax
     jz .out
     mov r12, rax                        ; its '<'
-    ; a clipPath element
+    ; the right element: clipPath or mask
     mov rcx, [r15 + P_XML + UgfxSvgXml_end]
     lea rdx, [r12 + 10]
     cmp rdx, rcx
     ja .out
+    cmp dword [rsp + CC_KIND], K_MASK
+    je .want_mask
     mov rdx, 'clipPath'
     cmp [r12 + 1], rdx
     jne .out
     movzx eax, byte [r12 + 9]
+    mov esi, UgfxSvgClip_SIZE
+    jmp .name_end
+.want_mask:
+    cmp dword [r12 + 1], 'mask'
+    jne .out
+    movzx eax, byte [r12 + 5]
+    mov esi, UgfxSvgMask_SIZE
+.name_end:
     cmp al, '>'
-    je .is_clip
+    je .is_it
     cmp al, '/'
-    je .is_clip
+    je .is_it
     cmp al, ' '
     ja .out
-.is_clip:
+.is_it:
     mov rax, [r15 + P_SVG]
     mov rdi, [rax + UgfxSvg_arena]
-    mov esi, UgfxSvgClip_SIZE
     call arena_alloc
     test rax, rax
     jz .nomem
@@ -2481,13 +2580,17 @@ svg_clip_compile:
     mov qword [r13 + UgfxSvgClip_items], 0
     mov dword [r13 + UgfxSvgClip_count], 0
     mov dword [r13 + UgfxSvgClip_units], 0
-    mov qword [r13 + UgfxSvgClip_next], 0
-    inc dword [r15 + P_CLIPMODE]
+    mov qword [r13 + UgfxSvgClip_next], 0   ; (a mask's content units and mode: 0)
+    inc dword [r15 + P_COMPILE]
     ; keep the frame and the main list
     lea rdi, [rsp + CC_FRAME]
     mov rsi, r15
     mov ecx, P_SIZE
     rep movsb
+    xor eax, eax
+    cmp dword [rsp + CC_KIND], K_CLIP
+    sete al
+    mov [r15 + P_CLIPMODE], eax         ; a clip's content: geometry only
     mov rax, [r15 + P_SVG]
     mov rcx, [rax + UgfxSvg_items]
     mov [rsp + CC_ITEMS], rcx
@@ -2515,7 +2618,8 @@ svg_clip_compile:
     movsd [rbp + S_FONT], xmm0
     inc dword [r15 + P_DEPTH]
     mov [r15 + P_XML + UgfxSvgXml_cur], r12
-    mov dword [r15 + P_INST], 2
+    mov eax, [rsp + CC_KIND]
+    mov [r15 + P_INST], eax
     mov edi, [r15 + P_DEPTH]
     call svg_walk
     ; the content, then everything back
@@ -2540,7 +2644,7 @@ svg_clip_compile:
     mov [rax + UgfxSvg_count], ecx
     mov ecx, [rsp + CC_CAP]
     mov [rax + UgfxSvg_cap], ecx
-    ; the clipPath's own attributes: clipPathUnits, clip-path
+    ; its own attributes: clipPathUnits and clip-path, or a mask's
     mov [rsp + CC_XML + UgfxSvgXml_cur], r12
     mov rax, [r15 + P_XML + UgfxSvgXml_end]
     mov [rsp + CC_XML + UgfxSvgXml_end], rax
@@ -2551,6 +2655,8 @@ svg_clip_compile:
     cmp eax, 2
     je .done
     mov qword [rsp + CC_ATTR + UgfxSvgAttr_cur], 0
+    cmp dword [rsp + CC_KIND], K_MASK
+    je .mask_attrs
 .attr:
     lea rdi, [rsp + CC_XML]
     lea rsi, [rsp + CC_ATTR]
@@ -2573,7 +2679,8 @@ svg_clip_compile:
     test rax, rax
     jz .attr
     mov rsi, rax
-    call svg_clip_compile               ; intersected with this one
+    mov ecx, K_CLIP
+    call svg_compile                    ; intersected with this one
     mov [r13 + UgfxSvgClip_next], rax
     jmp .attr
 .units:
@@ -2583,8 +2690,136 @@ svg_clip_compile:
     jne .attr
     mov dword [r13 + UgfxSvgClip_units], 1
     jmp .attr
+.mask_attrs:
+    ; maskUnits (objectBoundingBox unless userSpaceOnUse), maskContentUnits,
+    ; mask-type, and the region as written (-10%, -10%, 120%, 120%)
+    mov dword [r13 + UgfxSvgMask_units], 1
+    xorpd xmm0, xmm0
+    movsd [r13 + UgfxSvgMask_region], xmm0
+    movsd [r13 + UgfxSvgMask_region + 8], xmm0
+    movsd [r13 + UgfxSvgMask_region + 16], xmm0
+    movsd [r13 + UgfxSvgMask_region + 24], xmm0
+    lea rax, [rel svg_m10]
+    mov [rsp + CC_RAW], rax
+    mov [rsp + CC_RAW + 16], rax
+    add rax, 4
+    mov [rsp + CC_RAW + 8], rax
+    mov [rsp + CC_RAW + 24], rax
+    lea rax, [rel svg_120]
+    mov [rsp + CC_RAW + 32], rax
+    mov [rsp + CC_RAW + 48], rax
+    add rax, 4
+    mov [rsp + CC_RAW + 40], rax
+    mov [rsp + CC_RAW + 56], rax
+.mask_attr:
+    lea rdi, [rsp + CC_XML]
+    lea rsi, [rsp + CC_ATTR]
+    call ugfx_svg_xml_attr
+    test eax, eax
+    jz .region
+    mov rdi, [rsp + CC_ATTR + UgfxSvgAttr_name]
+    mov rsi, [rsp + CC_ATTR + UgfxSvgAttr_name_end]
+    lea rdx, [rel svg_mask_attrs]
+    call ugfx_svg_lookup
+    mov r14d, eax
+    mov rdi, [rsp + CC_ATTR + UgfxSvgAttr_val]
+    mov rsi, [rsp + CC_ATTR + UgfxSvgAttr_val_end]
+    cmp r14d, 3
+    jb .mask_word
+    cmp r14d, 6
+    ja .mask_word
+    lea eax, [r14 - 3]
+    shl eax, 4
+    mov [rsp + CC_RAW + rax], rdi
+    mov [rsp + CC_RAW + rax + 8], rsi
+    jmp .mask_attr
+.mask_word:
+    call ugfx_svg_trim
+    cmp r14d, 7
+    je .mask_type
+    cmp r14d, 2
+    ja .mask_attr
+    jb .mask_units
+    lea rdx, [rel svg_word_obb]
+    mov ecx, 17
+    call svg_word
+    sete al
+    movzx eax, al
+    mov [r13 + UgfxSvgMask_content], eax
+    jmp .mask_attr
+.mask_units:
+    cmp r14d, 1
+    jne .mask_attr
+    lea rdx, [rel svg_word_obb]
+    mov ecx, 17
+    call svg_word
+    sete al
+    movzx eax, al
+    mov [r13 + UgfxSvgMask_units], eax
+    jmp .mask_attr
+.mask_type:
+    lea rdx, [rel svg_word_alpha]
+    mov ecx, 5
+    call svg_word
+    sete al
+    movzx eax, al
+    mov [r13 + UgfxSvgMask_mode], eax
+    jmp .mask_attr
+.region:
+    ; x, y, w, h: fractions (or percentages) of the bbox, else user lengths
+    xor r14d, r14d
+.region_value:
+    cmp r14d, 4
+    jae .unit_square
+    mov eax, r14d
+    shl eax, 4
+    mov rdi, [rsp + CC_RAW + rax]
+    mov rsi, [rsp + CC_RAW + rax + 8]
+    cmp dword [r13 + UgfxSvgMask_units], 0
+    je .region_user
+    push rsi
+    sub rsp, 8
+    call ugfx_svg_number
+    add rsp, 8
+    pop rsi
+    test rax, rax
+    jz .region_next                     ; (0: unparsable)
+    cmp rax, rsi
+    jae .region_set
+    cmp byte [rax], '%'
+    jne .region_set
+    mulsd xmm0, [rel svg_hundredth]
+    jmp .region_set
+.region_user:
+    mov edx, r14d
+    and edx, 1                          ; x, w: AX_X; y, h: AX_Y
+    call svg_length
+    test rax, rax
+    jz .region_next
+.region_set:
+    movsd [r13 + UgfxSvgMask_region + r14 * 8], xmm0
+.region_next:
+    inc r14d
+    jmp .region_value
+.unit_square:
+    lea rdi, [r13 + UgfxSvgMask_path]
+    mov rax, [r15 + P_SVG]
+    mov rsi, [rax + UgfxSvg_arena]
+    call ugfx_path_init
+    test rax, rax
+    jnz .nomem_done
+    lea rdi, [r13 + UgfxSvgMask_path]
+    xorpd xmm0, xmm0
+    xorpd xmm1, xmm1
+    movsd xmm2, [rel svg_one]
+    movapd xmm3, xmm2
+    call ugfx_path_add_rect
+    test rax, rax
+    jz .done
+.nomem_done:
+    mov dword [r15 + P_ERR], -(ENOMEM)
 .done:
-    dec dword [r15 + P_CLIPMODE]
+    dec dword [r15 + P_COMPILE]
     jmp .out
 .nomem:
     mov dword [r15 + P_ERR], -(ENOMEM)
@@ -2874,20 +3109,26 @@ svg_shape:
 .have_paint:
     test r13d, r13d
     jz .shape_out
-    ; clip-path: a group (bit 8)
+    ; clip-path (bit 8), mask (bit 16): a group
     call svg_clip_ref
     mov [r15 + P_CLIPREC], rax
     test rax, rax
     jz .no_clip
     or r13d, 8
 .no_clip:
+    call svg_mask_ref
+    mov [r15 + P_MASKREC], rax
+    test rax, rax
+    jz .no_mask
+    or r13d, 16
+.no_mask:
     ; opacity: a group around fill and stroke together (bit 4), else baked
     movsd xmm0, [r15 + P_OPACITY]
     ucomisd xmm0, [rel svg_one]
     jae .baked
-    cmp r13d, 3
-    je .group_alpha
-    cmp r13d, 3 | 8
+    mov eax, r13d
+    and eax, 3
+    cmp eax, 3
     jne .bake
 .group_alpha:
     or r13d, 4
@@ -2975,7 +3216,7 @@ svg_shape:
     movsd xmm0, [rbx + S_DASH_OFF]
     movsd [r12 + UgfxSvgItem_dash_off], xmm0
     inc dword [r14 + UgfxSvg_count]
-    test r13d, 4 | 8
+    test r13d, 4 | 8 | 16
     jz .shape_out
     ; BEGIN, the shape, END
     lea rsi, [r12 + UgfxSvgItem_SIZE - 1]
@@ -2997,6 +3238,13 @@ svg_shape:
     xor ecx, ecx
 .begin_clip:
     mov [r12 + UgfxSvgItem_clip], rcx
+    mov rax, [r15 + P_MASKREC]
+    test r13d, 16
+    jnz .begin_mask
+    xor eax, eax
+.begin_mask:
+    mov [r12 + UgfxSvgItem_mask], rax
+    or rcx, rax                         ; a bbox for either
     xor edx, edx
 .begin_m:
     mov rax, [r12 + UgfxSvgItem_SIZE + UgfxSvgItem_matrix + rdx * 8]
@@ -3004,17 +3252,23 @@ svg_shape:
     inc edx
     cmp edx, 6
     jb .begin_m
-    mov dword [r12 + 2 * UgfxSvgItem_SIZE + UgfxSvgItem_kind], UGFX_SVG_END
-    mov eax, [r12 + UgfxSvgItem_alpha]
-    mov [r12 + 2 * UgfxSvgItem_SIZE + UgfxSvgItem_alpha], eax
-    mov [r12 + 2 * UgfxSvgItem_SIZE + UgfxSvgItem_clip], rcx
     mov edi, [r14 + UgfxSvg_count]
     dec edi                             ; the BEGIN's index
     lea esi, [rdi + 2]
     add dword [r14 + UgfxSvg_count], 2
     test rcx, rcx
-    jz .shape_out
+    jz .shape_end
+    push rdi
+    sub rsp, 8
     call svg_group_bbox
+    add rsp, 8
+    pop rdi
+.shape_end:
+    imul rsi, rdi, UgfxSvgItem_SIZE
+    mov r14, [r15 + P_SVG]
+    add rsi, [r14 + UgfxSvg_items]
+    lea rdi, [rsi + 2 * UgfxSvgItem_SIZE]
+    call svg_end_from
     jmp .shape_out
 .clip_shape:
     ; a clip's content: the geometry, its transform and clip-rule
@@ -3510,18 +3764,16 @@ svg_rounded_rect:
 ;   colour (straight BGRA), xmm0 = x, xmm1 = y, xmm2 = size -> rax = 0,
 ;   -EINVAL, or a context error
 ; -----------------------------------------------------------------------------
-%define V_CURRENT   0                   ; u32
-%define V_BOX       8                   ; f64[4] the viewBox used
-%define V_STYLE     40                  ; UgfxStroke
-%define V_TMP       64                  ; f64[3]
-%define V_ALPHA     88                  ; u32 the context's alpha on entry
-%define V_DASH      104                 ; UgfxDash
-%define V_M         128                 ; f64[6]
-%define V_M2        176                 ; f64[6]
-%define V_OPEN      224                 ; u32 context levels BEGINs opened
-%define V_CI        228                 ; u32 a clip item's index
-%define V_T         232                 ; f64[6] the context's transform for the document
-%define V_SIZE      280
+%define V_CURRENT   0                   ; u32 (shared with svg_draw_list)
+%define V_CTX       8                   ; UgfxContext* (shared)
+%define V_T         16                  ; f64[6] the document's device transform (shared)
+%define V_BOX       64                  ; f64[4] the viewBox used
+%define V_TMP       96                  ; f64[3]
+%define V_M         120                 ; f64[6]
+%define V_M2        168                 ; f64[6]
+%define V_SIZE      232
+; the shared fields, from svg_draw_list (rbp is ugfx_svg_draw's frame pointer)
+%define DRAW(f)     (rbp - 40 - V_SIZE + (f))
 
 global ugfx_svg_draw
 ugfx_svg_draw:
@@ -3535,6 +3787,7 @@ ugfx_svg_draw:
     test rsi, rsi
     jz .draw_out
     mov [rsp + V_CURRENT], edx
+    mov [rsp + V_CTX], rsi
     movsd [rsp + V_TMP], xmm0
     movsd [rsp + V_TMP + 8], xmm1
     movsd [rsp + V_TMP + 16], xmm2
@@ -3629,25 +3882,78 @@ ugfx_svg_draw:
     mov rdi, r13
     xor esi, esi
     call ugfx_ctx_set_dash
-    mov dword [rsp + V_OPEN], 0
-    ; the items
+    mov rdi, [rbx + UgfxSvg_items]
+    mov esi, [rbx + UgfxSvg_count]
+    call svg_draw_list
+    push rax
+    sub rsp, 8
+    mov rdi, r13
+    call ugfx_ctx_restore
+    add rsp, 8
+    pop rax
+.draw_out:
+    add rsp, V_SIZE
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+; rdi = out, edx = preserveAspectRatio: V_BOX fitted into the square,
+;   offset to (x, y) (frame at rsp + 8)
+.square:
+    lea rsi, [rsp + 8 + V_BOX]
+    movsd xmm0, [rsp + 8 + V_TMP + 16]
+    movapd xmm1, xmm0
+    push rdi
+    call svg_fit
+    pop rdi
+    movsd xmm0, [rdi + 32]
+    addsd xmm0, [rsp + 8 + V_TMP]
+    movsd [rdi + 32], xmm0
+    movsd xmm0, [rdi + 40]
+    addsd xmm0, [rsp + 8 + V_TMP + 8]
+    movsd [rdi + 40], xmm0
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_draw_list — rdi = UgfxSvgItem[], esi = count, rbp = ugfx_svg_draw's
+;   frame (DRAW: the context, the current colour, the document's
+;   transform) -> rax = 0 or a context error, every level it opened closed.
+;   Re-entrant: a mask's content is drawn through it.
+; -----------------------------------------------------------------------------
+%define L_COUNT     0                   ; u32
+%define L_OPEN      4                   ; u32 context levels BEGINs opened
+%define L_CI        8                   ; u32 a clip item's index
+%define L_ALPHA     12                  ; u32 the context's alpha at an item
+%define L_STYLE     16                  ; UgfxStroke
+%define L_DASH      40                  ; UgfxDash
+%define L_M2        64                  ; f64[6]
+%define L_SIZE      112
+
+svg_draw_list:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, L_SIZE
+    mov rbx, rdi
+    mov [rsp + L_COUNT], esi
+    mov dword [rsp + L_OPEN], 0
+    mov r13, [DRAW(V_CTX)]
     xor r14d, r14d
 .item:
-    cmp r14d, [rbx + UgfxSvg_count]
+    cmp r14d, [rsp + L_COUNT]
     jae .items_done
     imul r12, r14, UgfxSvgItem_SIZE
-    add r12, [rbx + UgfxSvg_items]
+    add r12, rbx
     mov eax, [r12 + UgfxSvgItem_kind]
     cmp eax, UGFX_SVG_BEGIN
     je .begin
     cmp eax, UGFX_SVG_END
     je .end
     mov eax, [r13 + UgfxContext_state + UgfxState_alpha]
-    mov [rsp + V_ALPHA], eax            ; paints' alpha is relative to this
+    mov [rsp + L_ALPHA], eax            ; paints' alpha is relative to this
     mov rdi, r13
     call ugfx_ctx_save
     test rax, rax
-    jnz .item_fail_outer
+    jnz .fail
     mov rdi, r13
     lea rsi, [r12 + UgfxSvgItem_matrix]
     call ugfx_ctx_transform
@@ -3675,7 +3981,7 @@ ugfx_svg_draw:
     jmp .fill_rule
 .fill_colour:
     mov edi, 0xFF000000
-    call .paint_alpha                   ; back to the entry alpha
+    call .paint_alpha                   ; back to the item's alpha
     mov eax, [r12 + UgfxSvgItem_fill_kind]
     mov edi, [r12 + UgfxSvgItem_fill]
     call .paint_colour
@@ -3707,7 +4013,7 @@ ugfx_svg_draw:
     jmp .stroke_style
 .stroke_colour:
     mov edi, 0xFF000000
-    call .paint_alpha                   ; back to the entry alpha
+    call .paint_alpha                   ; back to the item's alpha
     mov eax, [r12 + UgfxSvgItem_stroke_kind]
     mov edi, [r12 + UgfxSvgItem_stroke]
     call .paint_colour
@@ -3716,26 +4022,26 @@ ugfx_svg_draw:
     call ugfx_ctx_set_stroke_color
 .stroke_style:
     movsd xmm0, [r12 + UgfxSvgItem_width]
-    movsd [rsp + V_STYLE + UgfxStroke_width], xmm0
+    movsd [rsp + L_STYLE + UgfxStroke_width], xmm0
     movsd xmm0, [r12 + UgfxSvgItem_miter]
-    movsd [rsp + V_STYLE + UgfxStroke_miter_limit], xmm0
+    movsd [rsp + L_STYLE + UgfxStroke_miter_limit], xmm0
     mov eax, [r12 + UgfxSvgItem_join]
-    mov [rsp + V_STYLE + UgfxStroke_join], eax
+    mov [rsp + L_STYLE + UgfxStroke_join], eax
     mov eax, [r12 + UgfxSvgItem_cap]
-    mov [rsp + V_STYLE + UgfxStroke_cap], eax
+    mov [rsp + L_STYLE + UgfxStroke_cap], eax
     mov rdi, r13
-    lea rsi, [rsp + V_STYLE]
+    lea rsi, [rsp + L_STYLE]
     call ugfx_ctx_set_stroke_style
     cmp dword [r12 + UgfxSvgItem_dash_n], 0
     je .solid
     mov rax, [r12 + UgfxSvgItem_dash]
-    mov [rsp + V_DASH + UgfxDash_intervals], rax
+    mov [rsp + L_DASH + UgfxDash_intervals], rax
     mov eax, [r12 + UgfxSvgItem_dash_n]
-    mov [rsp + V_DASH + UgfxDash_count], eax
+    mov [rsp + L_DASH + UgfxDash_count], eax
     movsd xmm0, [r12 + UgfxSvgItem_dash_off]
-    movsd [rsp + V_DASH + UgfxDash_offset], xmm0
+    movsd [rsp + L_DASH + UgfxDash_offset], xmm0
     mov rdi, r13
-    lea rsi, [rsp + V_DASH]
+    lea rsi, [rsp + L_DASH]
     call ugfx_ctx_set_dash
 .solid:
     mov rdi, r13
@@ -3750,6 +4056,7 @@ ugfx_svg_draw:
 .next_item:
     inc r14d
     jmp .item
+
 .begin:
     mov r15, [r12 + UgfxSvgItem_clip]
     test r15, r15
@@ -3757,54 +4064,34 @@ ugfx_svg_draw:
     mov rdi, r13
     call ugfx_ctx_save
     test rax, rax
-    jnz .item_fail_outer
-    inc dword [rsp + V_OPEN]
+    jnz .fail
+    inc dword [rsp + L_OPEN]
 .clip_rec:
     ; each clip in the element's space (or its bbox), then intersected
     test r15, r15
     jz .clipped
-    mov rdi, r13
-    lea rsi, [rsp + V_T]
-    call ugfx_ctx_set_transform
-    mov rdi, r13
-    lea rsi, [r12 + UgfxSvgItem_matrix]
-    call ugfx_ctx_transform
-    mov dword [rsp + V_CI], 0
+    call .element_space
+    mov dword [rsp + L_CI], 0
     cmp dword [r15 + UgfxSvgClip_units], 0
     je .clip_open
-    movsd xmm0, [r12 + UgfxSvgItem_bbox + 16]
-    subsd xmm0, [r12 + UgfxSvgItem_bbox]
-    movsd xmm1, [r12 + UgfxSvgItem_bbox + 24]
-    subsd xmm1, [r12 + UgfxSvgItem_bbox + 8]
-    xorpd xmm2, xmm2
     mov eax, [r15 + UgfxSvgClip_count]
-    mov [rsp + V_CI], eax               ; empty box: no shapes
-    ucomisd xmm0, xmm2
+    mov [rsp + L_CI], eax               ; empty box: no shapes
+    call .bbox_matrix
     jbe .clip_open
-    ucomisd xmm1, xmm2
-    jbe .clip_open
-    mov dword [rsp + V_CI], 0
-    movsd [rsp + V_M2], xmm0
-    movsd [rsp + V_M2 + 8], xmm2
-    movsd [rsp + V_M2 + 16], xmm2
-    movsd [rsp + V_M2 + 24], xmm1
-    movsd xmm0, [r12 + UgfxSvgItem_bbox]
-    movsd [rsp + V_M2 + 32], xmm0
-    movsd xmm0, [r12 + UgfxSvgItem_bbox + 8]
-    movsd [rsp + V_M2 + 40], xmm0
+    mov dword [rsp + L_CI], 0
     mov rdi, r13
-    lea rsi, [rsp + V_M2]
+    lea rsi, [rsp + L_M2]
     call ugfx_ctx_transform
 .clip_open:
     mov rdi, r13
     call ugfx_ctx_clip_begin
     test rax, rax
-    jnz .item_fail_outer
+    jnz .fail
 .clip_item:
-    mov eax, [rsp + V_CI]
+    mov eax, [rsp + L_CI]
     cmp eax, [r15 + UgfxSvgClip_count]
     jae .clip_close
-    inc dword [rsp + V_CI]
+    inc dword [rsp + L_CI]
     imul rax, rax, UgfxSvgItem_SIZE
     add rax, [r15 + UgfxSvgClip_items]
     push rax
@@ -3836,7 +4123,7 @@ ugfx_svg_draw:
     call ugfx_ctx_clip_end
     add rsp, 8
     pop rax
-    jmp .item_fail_outer
+    jmp .fail
 .clip_close:
     mov rdi, r13
     call ugfx_ctx_clip_end
@@ -3844,37 +4131,118 @@ ugfx_svg_draw:
     jmp .clip_rec
 .clipped:
     mov rdi, r13
-    lea rsi, [rsp + V_T]
+    lea rsi, [DRAW(V_T)]
     call ugfx_ctx_set_transform
 .begin_layer:
+    ; a layer for opacity or a mask
+    cmp qword [r12 + UgfxSvgItem_mask], 0
+    jne .layer
     cmp dword [r12 + UgfxSvgItem_alpha], 255
     jae .next_item
+.layer:
     mov rdi, r13
     mov esi, [r12 + UgfxSvgItem_alpha]
     call ugfx_ctx_begin_layer
     test rax, rax
-    jnz .item_fail_outer
-    inc dword [rsp + V_OPEN]
+    jnz .fail
+    inc dword [rsp + L_OPEN]
     jmp .next_item
+
 .end:
+    cmp dword [rsp + L_OPEN], 0
+    je .next_item
+    mov r15, [r12 + UgfxSvgItem_mask]
+    test r15, r15
+    jnz .masked
     cmp dword [r12 + UgfxSvgItem_alpha], 255
     jae .end_clip
-    cmp dword [rsp + V_OPEN], 0
-    je .next_item
+    jmp .end_layer
+.masked:
+    ; the mask's content in its own layer: clipped to its region (user
+    ; space or the bbox), in user space or the bbox
+    mov rdi, r13
+    call ugfx_ctx_begin_mask
+    test rax, rax
+    jnz .fail
+    call .element_space
+    movsd xmm0, [r15 + UgfxSvgMask_region + 16]
+    movsd xmm1, [r15 + UgfxSvgMask_region + 24]
+    movsd xmm2, [r15 + UgfxSvgMask_region]
+    movsd xmm3, [r15 + UgfxSvgMask_region + 8]
+    cmp dword [r15 + UgfxSvgMask_units], 0
+    je .region
+    ; x = bx + rx bw, y = by + ry bh, w = rw bw, h = rh bh
+    movsd xmm4, [r12 + UgfxSvgItem_bbox + 16]
+    subsd xmm4, [r12 + UgfxSvgItem_bbox]
+    movsd xmm5, [r12 + UgfxSvgItem_bbox + 24]
+    subsd xmm5, [r12 + UgfxSvgItem_bbox + 8]
+    mulsd xmm0, xmm4
+    mulsd xmm1, xmm5
+    mulsd xmm2, xmm4
+    addsd xmm2, [r12 + UgfxSvgItem_bbox]
+    mulsd xmm3, xmm5
+    addsd xmm3, [r12 + UgfxSvgItem_bbox + 8]
+.region:
+    xorpd xmm4, xmm4
+    movsd [rsp + L_M2], xmm0
+    movsd [rsp + L_M2 + 8], xmm4
+    movsd [rsp + L_M2 + 16], xmm4
+    movsd [rsp + L_M2 + 24], xmm1
+    movsd [rsp + L_M2 + 32], xmm2
+    movsd [rsp + L_M2 + 40], xmm3
+    mov rdi, r13
+    lea rsi, [rsp + L_M2]
+    call ugfx_ctx_transform
+    mov rdi, r13
+    lea rsi, [r15 + UgfxSvgMask_path]   ; the unit square
+    call ugfx_ctx_clip
+    test rax, rax
+    jnz .mask_fail
+    call .element_space
+    cmp dword [r15 + UgfxSvgMask_content], 0
+    je .mask_content
+    call .bbox_matrix
+    jbe .mask_done                      ; no box: nothing in the mask
+    mov rdi, r13
+    lea rsi, [rsp + L_M2]
+    call ugfx_ctx_transform
+.mask_content:
+    mov rdi, [r15 + UgfxSvgMask_items]
+    mov esi, [r15 + UgfxSvgMask_count]
+    call svg_draw_list
+    test rax, rax
+    jnz .mask_fail
+.mask_done:
+    mov rdi, r13
+    mov esi, [r15 + UgfxSvgMask_mode]
+    call ugfx_ctx_end_mask
+    test rax, rax
+    jnz .fail
+.end_layer:
     mov rdi, r13
     call ugfx_ctx_end_layer
-    dec dword [rsp + V_OPEN]
+    dec dword [rsp + L_OPEN]
     test rax, rax
-    jnz .item_fail_outer
+    jnz .fail
 .end_clip:
     cmp qword [r12 + UgfxSvgItem_clip], 0
     je .next_item
-    cmp dword [rsp + V_OPEN], 0
+    cmp dword [rsp + L_OPEN], 0
     je .next_item
     mov rdi, r13
     call ugfx_ctx_restore
-    dec dword [rsp + V_OPEN]
+    dec dword [rsp + L_OPEN]
     jmp .next_item
+.mask_fail:
+    push rax
+    sub rsp, 8
+    mov rdi, r13
+    mov esi, UGFX_MASK_LUMINANCE
+    call ugfx_ctx_end_mask
+    add rsp, 8
+    pop rax
+    jmp .fail
+
 .item_fail:
     push rax
     sub rsp, 8
@@ -3882,11 +4250,12 @@ ugfx_svg_draw:
     call ugfx_ctx_restore
     add rsp, 8
     pop rax
-.item_fail_outer:
+.fail:
+    ; close every level this list opened
     push rax
     sub rsp, 8
 .unwind:
-    cmp dword [rsp + 16 + V_OPEN], 0
+    cmp dword [rsp + 16 + L_OPEN], 0
     je .unwound
     mov rdi, r13
     call ugfx_ctx_end_layer             ; a layer, else a clip's save
@@ -3895,17 +4264,15 @@ ugfx_svg_draw:
     mov rdi, r13
     call ugfx_ctx_restore
 .unwound_one:
-    dec dword [rsp + 16 + V_OPEN]
+    dec dword [rsp + 16 + L_OPEN]
     jmp .unwind
 .unwound:
-    mov rdi, r13
-    call ugfx_ctx_restore
     add rsp, 8
     pop rax
-    jmp .draw_out
+    jmp .out
 .items_done:
-    cmp dword [rsp + V_OPEN], 0
-    je .all_closed
+    cmp dword [rsp + L_OPEN], 0
+    je .closed
     mov rdi, r13
     call ugfx_ctx_end_layer
     test rax, rax
@@ -3913,36 +4280,56 @@ ugfx_svg_draw:
     mov rdi, r13
     call ugfx_ctx_restore
 .closed_one:
-    dec dword [rsp + V_OPEN]
+    dec dword [rsp + L_OPEN]
     jmp .items_done
-.all_closed:
-    mov rdi, r13
-    call ugfx_ctx_restore
+.closed:
     xor eax, eax
-.draw_out:
-    add rsp, V_SIZE
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-; rdi = out, edx = preserveAspectRatio: V_BOX fitted into the square,
-;   offset to (x, y) (frame at rsp + 8)
-.square:
-    lea rsi, [rsp + 8 + V_BOX]
-    movsd xmm0, [rsp + 8 + V_TMP + 16]
-    movapd xmm1, xmm0
-    push rdi
-    call svg_fit
-    pop rdi
-    movsd xmm0, [rdi + 32]
-    addsd xmm0, [rsp + 8 + V_TMP]
-    movsd [rdi + 32], xmm0
-    movsd xmm0, [rdi + 40]
-    addsd xmm0, [rsp + 8 + V_TMP + 8]
-    movsd [rdi + 40], xmm0
+.out:
+    add rsp, L_SIZE
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
     ret
-; edi = item colour: the context's alpha = entry alpha x its alpha / 255
+
+; the context's transform = the document's x the item's matrix (r12)
+.element_space:
+    sub rsp, 8
+    mov rdi, r13
+    lea rsi, [DRAW(V_T)]
+    call ugfx_ctx_set_transform
+    mov rdi, r13
+    lea rsi, [r12 + UgfxSvgItem_matrix]
+    call ugfx_ctx_transform
+    add rsp, 8
+    ret
+; L_M2 = [bw 0 0 bh bx by] from the item's bbox; flags "below or equal"
+;   when the box is empty (frame at rsp + 8)
+.bbox_matrix:
+    movsd xmm0, [r12 + UgfxSvgItem_bbox + 16]
+    subsd xmm0, [r12 + UgfxSvgItem_bbox]
+    movsd xmm1, [r12 + UgfxSvgItem_bbox + 24]
+    subsd xmm1, [r12 + UgfxSvgItem_bbox + 8]
+    xorpd xmm2, xmm2
+    movsd [rsp + 8 + L_M2], xmm0
+    movsd [rsp + 8 + L_M2 + 8], xmm2
+    movsd [rsp + 8 + L_M2 + 16], xmm2
+    movsd [rsp + 8 + L_M2 + 24], xmm1
+    movsd xmm3, [r12 + UgfxSvgItem_bbox]
+    movsd [rsp + 8 + L_M2 + 32], xmm3
+    movsd xmm3, [r12 + UgfxSvgItem_bbox + 8]
+    movsd [rsp + 8 + L_M2 + 40], xmm3
+    ucomisd xmm0, xmm2
+    jbe .bbox_done
+    ucomisd xmm1, xmm2
+.bbox_done:
+    ret
+; edi = item colour: the context's alpha = the item's alpha x its / 255
 ;   (frame at rsp + 8)
 .paint_alpha:
     shr edi, 24
-    mov esi, [rsp + 8 + V_ALPHA]
+    mov esi, [rsp + 8 + L_ALPHA]
     imul esi, edi
     add esi, 128
     mov eax, esi
@@ -3955,11 +4342,11 @@ ugfx_svg_draw:
     add rsp, 8
     ret
 ; eax = kind, edi = item colour -> eax = premultiplied colour; currentColor
-;   takes the given colour with its alpha x the item's (frame at rsp + 8)
+;   takes the given colour with its alpha x the item's
 .paint_colour:
     cmp eax, 2
     jne .premultiply
-    mov eax, [rsp + 8 + V_CURRENT]
+    mov eax, [DRAW(V_CURRENT)]
     mov ecx, eax
     shr ecx, 24
     shr edi, 24
