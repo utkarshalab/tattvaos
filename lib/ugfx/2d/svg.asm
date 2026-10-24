@@ -37,6 +37,9 @@ extern ugfx_svg_trim
 extern ugfx_svg_defs_scan
 extern ugfx_svg_defs_paint
 extern ugfx_svg_defs_rule
+extern ugfx_svg_defs_id
+extern umath_affine2_multiply
+extern umath_affine2_translate
 extern ugfx_ctx_set_fill_paint
 extern ugfx_ctx_set_stroke_paint
 extern ugfx_ctx_set_alpha
@@ -104,6 +107,9 @@ extern ugfx_ctx_stroke
 %define E_POLYLINE      7
 %define E_POLYGON       8
 %define E_SKIP          9
+%define E_USE           10
+%define E_SYMBOL        11              ; drawn only as a <use> instance
+%define SVG_MAX_USES    8               ; <use> instances inside instances
 
 ; geometry slots (f64), with a bit each in P_HAVE
 %define G_X             0
@@ -141,6 +147,7 @@ extern ugfx_ctx_stroke
 %define A_VIEWBOX       16
 %define A_ID            17
 %define A_CLASS         18
+%define A_HREF          19
 %define A_GEOM          32              ; + G_* slot
 
 ; parser frame (r15)
@@ -167,7 +174,15 @@ extern ugfx_ctx_stroke
 %define P_DEFS          (P_ATTR + UgfxSvgAttr_SIZE)     ; UgfxSvgDefs
 %define P_VIEW          (P_DEFS + UgfxSvgDefs_SIZE)     ; f64 viewport w, h
 %define P_SEL           (P_VIEW + 16)                   ; UgfxSvgSel: the element for CSS
-%define P_SIZE          (((P_SEL + UgfxSvgSel_SIZE + 15) & ~15) + 8)
+%define P_HREF          (P_SEL + UgfxSvgSel_SIZE)       ; <use>: the id named
+%define P_HREF_END      (P_HREF + 8)
+%define P_USE_W         (P_HREF + 16)                   ; <use> width, height for a symbol
+%define P_USE_H         (P_HREF + 24)
+%define P_USES          (P_HREF + 32)                   ; u32 instances open
+%define P_INST          (P_HREF + 36)                   ; u32 the next start tag is an instance's root
+%define P_SYMROOT       (P_HREF + 40)                   ; u32 this element is an instanced symbol
+%define P_USE_HAVE      (P_HREF + 44)                   ; u32 width and height given
+%define P_SIZE          (((P_HREF + 48 + 15) & ~15) + 8)
 
 section .rodata
 align 8
@@ -198,7 +213,8 @@ svg_elements:
     NAME "defs", E_SKIP
     NAME "clipPath", E_SKIP
     NAME "mask", E_SKIP
-    NAME "symbol", E_SKIP
+    NAME "symbol", E_SYMBOL
+    NAME "use", E_USE
     NAME "linearGradient", E_SKIP
     NAME "radialGradient", E_SKIP
     NAME "pattern", E_SKIP
@@ -231,6 +247,8 @@ svg_attributes:
     NAME "viewBox", A_VIEWBOX
     NAME "id", A_ID
     NAME "class", A_CLASS
+    NAME "href", A_HREF
+    NAME "xlink:href", A_HREF
     NAME "x", A_GEOM + G_X
     NAME "y", A_GEOM + G_Y
     NAME "width", A_GEOM + G_W
@@ -354,18 +372,51 @@ ugfx_svg_parse:
     call ugfx_svg_defs_scan
     test rax, rax
     jnz .nomem
+    mov dword [r15 + P_USES], 0
+    mov dword [r15 + P_INST], 0
+    mov dword [r15 + P_SYMROOT], 0
+    mov edi, -1
+    call svg_walk                       ; the whole document
+    jmp .finish
+
+.finish:
+    movsxd rax, dword [r15 + P_ERR]
+    test rax, rax
+    jnz .out
+    cmp dword [r15 + P_ROOT], 0
+    jne .out
+    mov rax, -(EINVAL)
+    jmp .out
+.nomem:
+    mov rax, -(ENOMEM)
+.out:
+    add rsp, P_SIZE
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+; -----------------------------------------------------------------------------
+; svg_walk — edi = depth to stop at (-1: the end of the document), r15 =
+;   frame: tags, from the XML cursor, until an end tag (or a self-closing
+;   tag) brings the depth back to it
+; -----------------------------------------------------------------------------
+svg_walk:
+    push rbx
+    push r12
+    sub rsp, 8
+    mov r12d, edi
 .token:
     cmp dword [r15 + P_ERR], 0
-    jne .finish
+    jne .return
     lea rdi, [r15 + P_XML]
     call ugfx_svg_xml_next
     test eax, eax
-    jz .finish
+    jz .return
     cmp eax, 2
     jne .start_tag
     cmp dword [r15 + P_DEPTH], 0        ; an end tag
     je .token
     dec dword [r15 + P_DEPTH]
+    cmp [r15 + P_DEPTH], r12d
+    je .return
     jmp .token
 .start_tag:
     mov rax, [r15 + P_XML + UgfxSvgXml_tag_end]
@@ -392,6 +443,18 @@ ugfx_svg_parse:
     jne .known
     xor eax, eax                        ; unknown: a group
 .known:
+    ; a symbol is drawn only as the root of a <use> instance, as a group
+    mov ecx, [r15 + P_INST]
+    mov dword [r15 + P_INST], 0
+    mov dword [r15 + P_SYMROOT], 0
+    cmp eax, E_SYMBOL
+    jne .kind
+    mov eax, E_SKIP
+    test ecx, ecx
+    jz .kind
+    mov eax, E_GROUP
+    mov dword [r15 + P_SYMROOT], 1
+.kind:
     mov [r15 + P_ELEM], eax
     cmp eax, E_SKIP
     jne .not_skipped
@@ -404,22 +467,17 @@ ugfx_svg_parse:
     cmp dword [r15 + P_SELF], 0
     je .token
     dec dword [r15 + P_DEPTH]
+    cmp [r15 + P_DEPTH], r12d
+    je .return
     jmp .token
 .too_deep:
     mov dword [r15 + P_ERR], -(EINVAL)
-.finish:
-    movsxd rax, dword [r15 + P_ERR]
-    test rax, rax
-    jnz .out
-    cmp dword [r15 + P_ROOT], 0
-    jne .out
-    mov rax, -(EINVAL)
-    jmp .out
-.nomem:
-    mov rax, -(ENOMEM)
-.out:
-    add rsp, P_SIZE
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+.return:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
 
 ; -----------------------------------------------------------------------------
 ; svg_element — r15 = frame, rbx = the element's state,
@@ -449,6 +507,7 @@ svg_element:
     mov [r15 + P_SEL + UgfxSvgSel_name_end], rax
     mov qword [r15 + P_SEL + UgfxSvgSel_id], 0
     mov qword [r15 + P_SEL + UgfxSvgSel_class], 0
+    mov qword [r15 + P_HREF], 0
     mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
 .attr:
     lea rdi, [r15 + P_XML]
@@ -479,6 +538,8 @@ svg_element:
     je .attr_id
     cmp eax, A_CLASS
     je .attr_class
+    cmp eax, A_HREF
+    je .attr_href
     cmp eax, A_GEOM
     jae .attr_geom
     call svg_property
@@ -499,6 +560,16 @@ svg_element:
     call ugfx_svg_trim
     mov [r15 + P_SEL + UgfxSvgSel_id], rdi
     mov [r15 + P_SEL + UgfxSvgSel_id_end], rsi
+    jmp .attr
+.attr_href:
+    call ugfx_svg_trim
+    cmp rdi, rsi
+    jae .attr
+    cmp byte [rdi], '#'
+    jne .attr
+    inc rdi
+    mov [r15 + P_HREF], rdi
+    mov [r15 + P_HREF_END], rsi
     jmp .attr
 .attr_class:
     mov [r15 + P_SEL + UgfxSvgSel_class], rdi
@@ -547,7 +618,13 @@ svg_element:
     movsd [rbx + S_OP], xmm0
     cmp dword [rbx + S_SKIP], 0
     jne .element_out
+    cmp dword [r15 + P_SYMROOT], 0
+    je .not_symbol
+    call svg_symbol_map
+.not_symbol:
     mov eax, [r15 + P_ELEM]
+    cmp eax, E_USE
+    je .use
     cmp eax, E_SVG
     je .root
     cmp eax, E_PATH
@@ -555,6 +632,9 @@ svg_element:
     cmp eax, E_POLYGON
     ja .element_out
     call svg_shape
+    jmp .element_out
+.use:
+    call svg_use
     jmp .element_out
 .root:
     cmp dword [r15 + P_ROOT], 0
@@ -609,6 +689,163 @@ svg_element:
     or dword [rcx + UgfxSvg_has], 1
 .element_out:
     pop r14
+    pop r13
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_use — r15 = frame, rbx = the <use>'s state (attributes applied): the
+;   element its href names is walked again as its child, after
+;   translate(x, y); width / height size an instanced symbol. Nothing for
+;   an unknown id or past SVG_MAX_USES instances inside instances.
+; -----------------------------------------------------------------------------
+%define U_XML       0                   ; the XML state to come back to
+%define U_SELF      UgfxSvgXml_SIZE
+%define U_ELEM      (U_SELF + 4)
+%define U_TAGEND    (U_SELF + 8)
+%define U_M         (U_SELF + 16)       ; f64[6]
+%define U_SIZE      (U_M + 48 + 16)       ; calls at rsp = 0 (mod 16)
+
+svg_use:
+    push r12
+    push r13
+    sub rsp, U_SIZE
+    mov rsi, [r15 + P_HREF]
+    test rsi, rsi
+    jz .out
+    cmp dword [r15 + P_USES], SVG_MAX_USES
+    jae .out
+    lea rdi, [r15 + P_DEFS]
+    mov rdx, [r15 + P_HREF_END]
+    call ugfx_svg_defs_id
+    test rax, rax
+    jz .out
+    mov r12, rax                        ; the target's '<'
+    ; translate(x, y) after the use's own transform
+    lea rdi, [rsp + U_M]
+    movsd xmm0, [r15 + P_G + G_X * 8]
+    movsd xmm1, [r15 + P_G + G_Y * 8]
+    call umath_affine2_translate
+    lea rdi, [rbx + S_M]
+    mov rsi, rdi
+    lea rdx, [rsp + U_M]
+    call umath_affine2_multiply
+    ; width and height, for a symbol
+    mov eax, [r15 + P_HAVE]
+    and eax, (1 << G_W) | (1 << G_H)
+    cmp eax, (1 << G_W) | (1 << G_H)
+    sete al
+    movzx eax, al
+    mov [r15 + P_USE_HAVE], eax
+    movsd xmm0, [r15 + P_G + G_W * 8]
+    movsd [r15 + P_USE_W], xmm0
+    movsd xmm0, [r15 + P_G + G_H * 8]
+    movsd [r15 + P_USE_H], xmm0
+    ; keep where reading is, walk the target, come back
+    lea rdi, [rsp + U_XML]
+    lea rsi, [r15 + P_XML]
+    mov ecx, UgfxSvgXml_SIZE
+    rep movsb
+    mov eax, [r15 + P_SELF]
+    mov [rsp + U_SELF], eax
+    mov eax, [r15 + P_ELEM]
+    mov [rsp + U_ELEM], eax
+    mov rax, [r15 + P_TAGEND]
+    mov [rsp + U_TAGEND], rax
+    mov [r15 + P_XML + UgfxSvgXml_cur], r12
+    mov dword [r15 + P_INST], 1
+    inc dword [r15 + P_USES]
+    mov edi, [r15 + P_DEPTH]
+    call svg_walk
+    dec dword [r15 + P_USES]
+    mov dword [r15 + P_INST], 0
+    lea rdi, [r15 + P_XML]
+    lea rsi, [rsp + U_XML]
+    mov ecx, UgfxSvgXml_SIZE
+    rep movsb
+    mov eax, [rsp + U_SELF]
+    mov [r15 + P_SELF], eax
+    mov eax, [rsp + U_ELEM]
+    mov [r15 + P_ELEM], eax
+    mov rax, [rsp + U_TAGEND]
+    mov [r15 + P_TAGEND], rax
+.out:
+    add rsp, U_SIZE
+    pop r13
+    pop r12
+    ret
+
+; r15 = frame, rbx = an instanced symbol's state: its viewBox fitted into
+;   the <use>'s width x height (else the viewBox's own size), centred,
+;   keeping the aspect ratio (xMidYMid meet)
+svg_symbol_map:
+    push r12
+    push r13
+    sub rsp, 56
+    mov r12, [r15 + P_VB]
+    test r12, r12
+    jz .out
+    xor r13d, r13d
+.number:
+    cmp r13d, 4
+    jae .have
+    mov rdi, r12
+    mov rsi, [r15 + P_VB_END]
+    call ugfx_svg_number
+    test rax, rax
+    jz .out
+    mov r12, rax
+    movsd [rsp + r13 * 8], xmm0
+    inc r13d
+    jmp .number
+.have:
+    xorpd xmm7, xmm7
+    movsd xmm2, [rsp + 16]              ; vb w
+    ucomisd xmm2, xmm7
+    jbe .out
+    movsd xmm3, [rsp + 24]              ; vb h
+    ucomisd xmm3, xmm7
+    jbe .out
+    movapd xmm4, xmm2                   ; W, H
+    movapd xmm5, xmm3
+    cmp dword [r15 + P_USE_HAVE], 0
+    je .sized
+    movsd xmm4, [r15 + P_USE_W]
+    movsd xmm5, [r15 + P_USE_H]
+.sized:
+    ; s = min(W / w, H / h)
+    movapd xmm0, xmm4
+    divsd xmm0, xmm2
+    movapd xmm1, xmm5
+    divsd xmm1, xmm3
+    minsd xmm0, xmm1
+    ; tx = (W - w s) / 2 - x s, ty = (H - h s) / 2 - y s
+    movapd xmm6, xmm2
+    mulsd xmm6, xmm0
+    subsd xmm4, xmm6
+    mulsd xmm4, [rel svg_half]
+    movsd xmm6, [rsp]
+    mulsd xmm6, xmm0
+    subsd xmm4, xmm6
+    movapd xmm6, xmm3
+    mulsd xmm6, xmm0
+    subsd xmm5, xmm6
+    mulsd xmm5, [rel svg_half]
+    movsd xmm6, [rsp + 8]
+    mulsd xmm6, xmm0
+    subsd xmm5, xmm6
+    movsd [rsp], xmm0                   ; [s 0 0 s tx ty]
+    movsd [rsp + 8], xmm7
+    movsd [rsp + 16], xmm7
+    movsd [rsp + 24], xmm0
+    movsd [rsp + 32], xmm4
+    movsd [rsp + 40], xmm5
+    lea rdi, [rbx + S_M]
+    mov rsi, rdi
+    mov rdx, rsp
+    call umath_affine2_multiply
+.out:
+    add rsp, 56
     pop r13
     pop r12
     ret
