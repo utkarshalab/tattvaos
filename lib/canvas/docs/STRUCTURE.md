@@ -155,7 +155,7 @@ canvas/
 │   │   ├── time.asm                   # C1   time helpers
 │   │   └── cpuid.asm                  # C1   CPU feature detection and dispatch
 │   │
-│   ├── gfx/                           # drawing primitives
+│   ├── gfx/                           # drawing primitives (moved to lib/ugfx, 2026-10-24)
 │   │   ├── pixbuf.asm                 # C2
 │   │   ├── rect.asm                   # C2
 │   │   ├── region.asm                 # C2   union, intersect, subtract
