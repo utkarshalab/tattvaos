@@ -53,6 +53,7 @@ extern ugfx_ctx_clip_add
 extern ugfx_ctx_clip_end
 extern ugfx_ctx_begin_mask
 extern ugfx_ctx_end_mask
+extern ugfx_ctx_clip_stroke
 
 %define LIST_INITIAL    4096
 
@@ -84,7 +85,8 @@ extern ugfx_ctx_end_mask
 %define LOP_CLIP_END        25
 %define LOP_BEGIN_MASK      26
 %define LOP_END_MASK        27
-%define LOP_LAST            27
+%define LOP_CLIP_STROKE     28
+%define LOP_LAST            28
 
 section .text
 
@@ -549,6 +551,10 @@ ugfx_list_clip:
 global ugfx_list_clip_add
 ugfx_list_clip_add:
     mov eax, LOP_CLIP_ADD
+    jmp ls_path_entry
+global ugfx_list_clip_stroke
+ugfx_list_clip_stroke:
+    mov eax, LOP_CLIP_STROKE
 ls_path_entry:
     test rdi, rdi
     jz ls_bad
@@ -661,6 +667,9 @@ ugfx_list_replay:
     jmp .rp_check
 .r_clip_add:
     lea rax, [rel ugfx_ctx_clip_add]
+    jmp .r_path
+.r_clip_stroke:
+    lea rax, [rel ugfx_ctx_clip_stroke]
     jmp .r_path
 .r_set_transform:
     mov rsi, r15
@@ -808,6 +817,7 @@ replay_jumps:
     dq ugfx_list_replay.r_clip_begin, ugfx_list_replay.r_clip_add
     dq ugfx_list_replay.r_clip_end
     dq ugfx_list_replay.r_begin_mask, ugfx_list_replay.r_end_mask
+    dq ugfx_list_replay.r_clip_stroke
 
 global ugfx_list_version
 ugfx_list_version: dq 0x010000
