@@ -2,9 +2,7 @@
 ; Fill — Solid Color Fill (Scalar + SIMD)
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/color.inc"
+%include "ugfx.inc"
 
 section .text
 
