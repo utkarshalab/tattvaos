@@ -6,6 +6,7 @@
 ;   ugfx_paint_solid(paint, colour)
 ;   ugfx_paint_linear(paint, arena, stops, n, spread, x0, y0, x1, y1)
 ;   ugfx_paint_radial(paint, arena, stops, n, spread, cx, cy, r)
+;   ugfx_paint_radial2(paint, arena, stops, n, spread, x0, y0, r0, x1, y1, r1)
 ;   ugfx_paint_conic(paint, arena, stops, n, cx, cy, start_angle)
 ;   ugfx_paint_set_transform(paint, m)      paint space -> device space
 ;
@@ -13,6 +14,10 @@
 ; inverse transform, to a position t:
 ;   linear  t = (p - p0) . (p1 - p0) / |p1 - p0|^2
 ;   radial  t = |p - c| / r
+;   radial2 the largest t whose circle c(t) = c0 + t (c1 - c0),
+;           r(t) = r0 + t (r1 - r0) >= 0 passes through p; pixels on no
+;           such circle are left unpainted (focal gradients: r0 = 0 at the
+;           focus; HTML canvas createRadialGradient, PDF type 3 shading)
 ;   conic   t = angle of p around c (clockwise on screen, y down), in turns
 ;           from start_angle, in [0, 1)
 ; then spread: pad clamps t to [0, 1], repeat takes its fraction, reflect
@@ -24,7 +29,12 @@
 ; last stop the end colours continue.
 ;
 ; Geometry (UgfxPaint_geom): linear x0, y0, kx, ky with k = d / |d|^2;
-; radial cx, cy, 1 / r; conic cx, cy, start_angle / 2pi.
+; radial cx, cy, 1 / r; conic cx, cy, start_angle / 2pi; radial2 x0, y0,
+; r0, dx, dy, dr (c1 - c0, r1 - r0) and a = dx^2 + dy^2 - dr^2.
+;
+; radial2 solves |p - c(t)| = r(t): with q = p - c0,
+;   a t^2 - 2 b t + c = 0,  b = q . d + r0 dr,  c = q . q - r0^2
+; (a = 0, one circle touching the other from inside: t = c / 2b).
 ; =============================================================================
 
 %include "ugfx.inc"
@@ -140,6 +150,68 @@ ugfx_paint_conic:
     mov r9d, UGFX_PAINT_CONIC
     jmp pt_gradient
 
+; -----------------------------------------------------------------------------
+; ugfx_paint_radial2 — rdi = UgfxPaint*, rsi = arena, rdx = const UgfxStop*,
+;   ecx = stop count, r8d = UGFX_SPREAD_*, xmm0..xmm5 = x0, y0, r0, x1, y1, r1
+;   (radii >= 0) -> rax = 0, -EINVAL (bad radii, the same circle twice, bad
+;   stops or spread), -ENOMEM
+; -----------------------------------------------------------------------------
+global ugfx_paint_radial2
+ugfx_paint_radial2:
+    xorpd xmm6, xmm6
+    ucomisd xmm2, xmm6
+    jp pt_bad
+    jb pt_bad
+    ucomisd xmm5, xmm6
+    jp pt_bad
+    jb pt_bad
+    ; d = c1 - c0, dr = r1 - r0 (x0, y0, r0 are checked by pt_gradient)
+    subsd xmm3, xmm0
+    subsd xmm4, xmm1
+    subsd xmm5, xmm2
+    movapd xmm6, xmm3
+    andpd xmm6, [rel paint_abs_mask]
+    movapd xmm7, xmm4
+    andpd xmm7, [rel paint_abs_mask]
+    maxsd xmm6, xmm7
+    movapd xmm7, xmm5
+    andpd xmm7, [rel paint_abs_mask]
+    maxsd xmm6, xmm7
+    ucomisd xmm6, [rel paint_max]
+    jp pt_bad
+    ja pt_bad                           ; not finite
+    xorpd xmm7, xmm7
+    ucomisd xmm6, xmm7
+    je pt_bad                           ; the same circle twice
+    sub rsp, 40
+    movsd [rsp], xmm4
+    movsd [rsp + 8], xmm5
+    ; a = dx^2 + dy^2 - dr^2
+    movapd xmm6, xmm3
+    mulsd xmm6, xmm3
+    movapd xmm7, xmm4
+    mulsd xmm7, xmm4
+    addsd xmm6, xmm7
+    movapd xmm7, xmm5
+    mulsd xmm7, xmm5
+    subsd xmm6, xmm7
+    movsd [rsp + 16], xmm6
+    mov [rsp + 24], rdi
+    mov r9d, UGFX_PAINT_RADIAL2
+    call pt_gradient                    ; stores x0, y0, r0, dx
+    test rax, rax
+    jnz .r2_out
+    mov rdi, [rsp + 24]
+    movsd xmm0, [rsp]
+    movsd [rdi + UgfxPaint_geom + 32], xmm0
+    movsd xmm0, [rsp + 8]
+    movsd [rdi + UgfxPaint_geom + 40], xmm0
+    movsd xmm0, [rsp + 16]
+    movsd [rdi + UgfxPaint_geom + 48], xmm0
+.r2_out:
+    add rsp, 40
+    ret
+
 pt_bad:
     mov rax, -(EINVAL)
     ret
@@ -205,6 +277,8 @@ pt_gradient:
     xorpd xmm0, xmm0
     movsd [rdi + UgfxPaint_geom + 32], xmm0
     movsd [rdi + UgfxPaint_geom + 40], xmm0
+    movsd [rdi + UgfxPaint_geom + 48], xmm0
+    movsd [rdi + UgfxPaint_geom + 56], xmm0
     ; stops: clamped offsets and premultiplied colours, 40 bytes each
     mov rdi, rsi
     mov esi, ecx
@@ -450,6 +524,8 @@ pt_span_gradient:
     je .s_linear
     cmp eax, UGFX_PAINT_RADIAL
     je .s_radial
+    cmp eax, UGFX_PAINT_RADIAL2
+    je .s_radial2
     ; conic: atan2(dy, dx) in turns from the start, wrapped to [0, 1)
     movapd xmm2, xmm0
     movapd xmm0, xmm1
@@ -470,6 +546,70 @@ pt_span_gradient:
     addsd xmm0, xmm1
     sqrtsd xmm0, xmm0
     mulsd xmm0, [rbx + UgfxPaint_geom + 16]
+    jmp .s_spread
+.s_radial2:
+    ; q = p - c0 in xmm0/xmm1; b = q . d + r0 dr, c = q . q - r0^2
+    movapd xmm2, xmm0
+    mulsd xmm2, [rbx + UgfxPaint_geom + 24]
+    movapd xmm3, xmm1
+    mulsd xmm3, [rbx + UgfxPaint_geom + 32]
+    addsd xmm2, xmm3
+    movsd xmm3, [rbx + UgfxPaint_geom + 16]
+    mulsd xmm3, [rbx + UgfxPaint_geom + 40]
+    addsd xmm2, xmm3                    ; b
+    mulsd xmm0, xmm0
+    mulsd xmm1, xmm1
+    addsd xmm0, xmm1
+    movsd xmm3, [rbx + UgfxPaint_geom + 16]
+    mulsd xmm3, xmm3
+    subsd xmm0, xmm3                    ; c
+    movsd xmm4, [rbx + UgfxPaint_geom + 48]     ; a
+    xorpd xmm5, xmm5
+    ucomisd xmm4, xmm5
+    jne .r2_quadratic
+    ; a = 0: t = c / 2b
+    ucomisd xmm2, xmm5
+    je .s_none
+    addsd xmm2, xmm2
+    divsd xmm0, xmm2
+    movapd xmm6, xmm0
+    mulsd xmm6, [rbx + UgfxPaint_geom + 40]
+    addsd xmm6, [rbx + UgfxPaint_geom + 16]
+    ucomisd xmm6, xmm5
+    jb .s_none                          ; r(t) < 0 (or NaN)
+    jmp .s_spread
+.r2_quadratic:
+    movapd xmm6, xmm2
+    mulsd xmm6, xmm2
+    movapd xmm7, xmm4
+    mulsd xmm7, xmm0
+    subsd xmm6, xmm7                    ; b^2 - a c
+    ucomisd xmm6, xmm5
+    jb .s_none
+    sqrtsd xmm6, xmm6
+    movapd xmm0, xmm2
+    addsd xmm0, xmm6
+    divsd xmm0, xmm4
+    movapd xmm1, xmm2
+    subsd xmm1, xmm6
+    divsd xmm1, xmm4
+    movapd xmm2, xmm0
+    maxsd xmm2, xmm1                    ; larger root
+    minsd xmm1, xmm0                    ; smaller root
+    movapd xmm6, xmm2
+    mulsd xmm6, [rbx + UgfxPaint_geom + 40]
+    addsd xmm6, [rbx + UgfxPaint_geom + 16]
+    ucomisd xmm6, xmm5
+    jae .r2_larger
+    movapd xmm6, xmm1
+    mulsd xmm6, [rbx + UgfxPaint_geom + 40]
+    addsd xmm6, [rbx + UgfxPaint_geom + 16]
+    ucomisd xmm6, xmm5
+    jb .s_none
+    movapd xmm0, xmm1
+    jmp .s_spread
+.r2_larger:
+    movapd xmm0, xmm2
 .s_spread:
     mov eax, [rbx + UgfxPaint_spread]
     cmp eax, UGFX_SPREAD_REPEAT
@@ -497,6 +637,10 @@ pt_span_gradient:
     mov rbx, [r15 + S_PAINT]
     mov rdx, [rbx + UgfxPaint_lut]
     mov eax, [rdx + rax * 4]
+    jmp .s_store
+.s_none:
+    xor eax, eax                        ; on no circle: unpainted
+.s_store:
     mov ecx, [r15 + S_K]
     mov [r15 + S_BUF + rcx * 4], eax
     ; next pixel: p += (a, b)
