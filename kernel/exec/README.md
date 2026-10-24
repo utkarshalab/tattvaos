@@ -8,8 +8,8 @@
 | [`ubf.inc`](ubf.inc) | the UBF layout, the loaded-program record (`ubf_prog_t`), the export entry, the errors, the program window |
 | [`ubf_load.asm`](ubf_load.asm) | `ubf_load`, `ubf_start`, `ubf_cpu_features` |
 | [`exports.asm`](exports.asm) | what the kernel exports to programs (`UBF_EXPORT`), `ubf_export_find` |
-| [`selftest.asm`](selftest.asm) | the boot self-test: loads, runs and checks [`kernel/tests/ubf/hello.ubf`](../tests/ubf/), and refuses a tampered copy |
-| [`exec.asm`](exec.asm) | the one include `kernel/entry.asm` needs |
+| [`selftest.asm`](selftest.asm) | the boot self-test: loads, runs and checks [`kernel/tests/ubf/hello.ubf`](../tests/ubf/) and refuses a tampered copy; opens the signed `hello.upk`, runs its main binary, and refuses a tampered or untrusted package |
+| [`exec.asm`](exec.asm) | the one include `kernel/entry.asm` needs (it also brings in the package verifier, [`pkg/format/upk.asm`](../../pkg/format/upk.asm)) |
 
 ## Loading
 
