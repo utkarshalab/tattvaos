@@ -267,7 +267,13 @@ Icons are authored as SVG and converted when the system is built.
 | `ugfx_uic_draw(uic, icon, ctx, colours, count, x, y, size, weight)` | fits the icon in a square of the context's user space |
 
 `tools/uic.py` builds packs (choosing fraction bits, sorting the index)
-and dumps them as text (`uic.py dump pack.uic`).
+and dumps them as text (`uic.py dump pack.uic`). `tools/svg2uic.py`
+converts SVG icons (`svg2uic.py out.uic icons/ ...`): transforms baked
+into the coordinates, currentColor (or a one-colour icon's colour) in
+slot 0, other colours in further slots, opacity as OPACITY commands;
+what UIC cannot express is reported. `tests/host/svg2uic_check.py`
+draws every svg_check document both as SVG and converted to UIC: they
+agree within 1 per channel (most are identical).
 
 Tests: `tests/host/uic_check.py` - 17 draws (filled, duotone with
 opacity, even-odd, strokes at weights 0.5 / 1 / 2, non-square and offset
