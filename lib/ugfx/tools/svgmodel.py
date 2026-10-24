@@ -31,14 +31,14 @@ MAX_USES = 8                                        # <use> instances inside ins
 SHAPES = {"path", "rect", "circle", "ellipse", "line", "polyline", "polygon"}
 PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "fill-rule",
          "fill-opacity", "stroke-opacity", "opacity", "display", "font-size", "color", "visibility",
-         "stroke-dasharray", "stroke-dashoffset", "paint-order", "clip-path", "clip-rule"}
+         "stroke-dasharray", "stroke-dashoffset", "paint-order", "clip-path", "clip-rule", "mask"}
 MAX_CLIPS = 4
 INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "stroke-linecap": ["cap"],
             "stroke-linejoin": ["join"], "stroke-miterlimit": ["miter"], "fill-rule": ["rule"],
             "fill-opacity": ["fill_op"], "stroke-opacity": ["stroke_op"], "font-size": ["font"],
             "color": ["color"], "visibility": ["hidden"], "stroke-dasharray": ["dash"],
             "stroke-dashoffset": ["dash_off"], "paint-order": ["order"], "clip-rule": ["cliprule"]}
-DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset", "clip-path")
+DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset", "clip-path", "mask")
 GEOM = ("x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "y1", "x2", "y2")
 AXIS = dict(x="x", y="y", width="x", height="y", rx="x", ry="y", cx="x", cy="y", r="d",
             x1="x", y1="y", x2="x", y2="y")
@@ -223,12 +223,23 @@ class Clip:
 
 
 @dataclass
+class Mask:
+    items: list                                     # what the mask draws
+    units: int = 1                                  # maskUnits: 1 = objectBoundingBox
+    content: int = 0                                # maskContentUnits: 1 = objectBoundingBox
+    mode: int = 0                                   # 0 luminance, 1 alpha (mask-type)
+    region: list = field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0])
+
+
+@dataclass
 class Group:
     kind: str                                       # "begin" / "end"
     alpha: int = 255
     clip: object = None                             # Clip
     matrix: list = None                             # the element's (begin)
     bbox: list = None                               # its content's bounds in its space
+    mask: object = None                             # Mask
+    begin: object = None                            # an end's begin
 
 
 def invert(m):
@@ -1158,39 +1169,74 @@ def parse(text):
                    font=16.0, vw=300.0, vh=150.0, color=None, hidden=False, order=0, dash=None, dash_off=0.0,
                    cliprule=0)
     seen_root = [False]
-    clipmode = [0]
+    clipmode = [0]                                  # 1: a clip's content (geometry only)
+    compiling = [0]                                 # clipPaths / masks being compiled
 
-    def clip_ref(raw, st, uses):
-        """The element's compiled clip-path, or None."""
-        v = raw.get("clip-path")
+    def ref(raw, prop, kind, st, uses):
+        """The element's compiled clip-path / mask, or None."""
+        v = raw.get(prop)
         if clipmode[0] or v is None:
             return None
         t = trim(v)
         if t == "none" or t[:4].lower() != "url(":
             return None
         r = url_ref(t)
-        return clip_compile(r[0], st, uses) if r else None
+        return compile_ref(r[0], kind, st, uses) if r else None
 
-    def clip_compile(cid, st, uses):
+    def clip_ref(raw, st, uses):
+        return ref(raw, "clip-path", "clip", st, uses)
+
+    def mask_ref(raw, st, uses):
+        return ref(raw, "mask", "mask", st, uses)
+
+    def compile_ref(cid, kind, st, uses):
         el = ids.get(cid)
-        if clipmode[0] >= MAX_CLIPS or el is None or el.tag.split('}')[-1] != "clipPath":
+        want = "clipPath" if kind == "clip" else "mask"
+        if compiling[0] >= MAX_CLIPS or el is None or el.tag.split('}')[-1] != want:
             return None
-        clipmode[0] += 1
+        compiling[0] += 1
         base = dict(default, vw=st["vw"], vh=st["vh"], font=st["font"])
         saved, doc.items = doc.items, []
-        walk(el, base, uses, "clip")
-        rec = Clip(doc.items)
+        saved_mode, clipmode[0] = clipmode[0], int(kind == "clip")
+        walk(el, base, uses, kind)
+        clipmode[0] = saved_mode
+        rec = Clip(doc.items) if kind == "clip" else Mask(doc.items)
         doc.items = saved
-        for name, value in el.attrib.items():
-            name = name.split('}')[-1]
-            if name == "clipPathUnits" and trim(value) == "objectBoundingBox":
-                rec.units = 1
-            elif name == "clip-path":
-                t = trim(value)
-                r = url_ref(t) if t[:4].lower() == "url(" else None
-                if r:
-                    rec.next = clip_compile(r[0], st, uses)
-        clipmode[0] -= 1
+        if kind == "clip":
+            for name, value in el.attrib.items():
+                name = name.split('}')[-1]
+                if name == "clipPathUnits" and trim(value) == "objectBoundingBox":
+                    rec.units = 1
+                elif name == "clip-path":
+                    t = trim(value)
+                    r = url_ref(t) if t[:4].lower() == "url(" else None
+                    if r:
+                        rec.next = compile_ref(r[0], "clip", st, uses)
+        else:
+            raw_region = ["-10%", "-10%", "120%", "120%"]
+            for name, value in el.attrib.items():
+                name = name.split('}')[-1]
+                if name in ("x", "y", "width", "height"):
+                    raw_region[("x", "y", "width", "height").index(name)] = value
+                elif name == "maskUnits":
+                    rec.units = int(trim(value) == "objectBoundingBox")
+                elif name == "maskContentUnits":
+                    rec.content = int(trim(value) == "objectBoundingBox")
+                elif name == "mask-type":
+                    rec.mode = int(trim(value) == "alpha")
+            for i, v in enumerate(raw_region):
+                if rec.units:
+                    val, j = number(v, 0)
+                    if val is None:
+                        continue
+                    if j < len(v) and v[j] == '%':
+                        val = val * 0.01
+                else:
+                    val, _ = length(v, "x" if i % 2 == 0 else "y", st)
+                    if val is None:
+                        continue
+                rec.region[i] = val
+        compiling[0] -= 1
         return rec
 
     def prop(st, name, value, own, parent):
@@ -1274,7 +1320,7 @@ def parse(text):
         tag = el.tag.split('}')[-1]
         st = dict(parent)
         symroot = tag == "symbol" and isinstance(inst, tuple)
-        cliproot = tag == "clipPath" and inst == "clip"
+        cliproot = (tag == "clipPath" and inst == "clip") or (tag == "mask" and inst == "mask")
         if (takes_part(tag) or symroot or cliproot) and not conditions(el):
             return
         if tag in SKIP and not (symroot or cliproot):
@@ -1336,10 +1382,11 @@ def parse(text):
                     geom[name] = v
             opened = vp = None
             if not st["skip"]:
-                if tag not in SHAPES and not clipmode[0]:
+                if tag not in SHAPES and not clipmode[0] and not cliproot:
                     rec = clip_ref(raw, st, uses)
-                    if rec or own[0] < 1.0:
-                        opened = Group("begin", int(own[0] * 255.0 + 0.5), rec, list(st["m"]))
+                    mrec = mask_ref(raw, st, uses)
+                    if rec or mrec or own[0] < 1.0:
+                        opened = Group("begin", int(own[0] * 255.0 + 0.5), rec, list(st["m"]), mask=mrec)
                         doc.items.append(opened)
                         opened_at = len(doc.items)
                 if symroot:
@@ -1394,11 +1441,11 @@ def parse(text):
             walk(child, st, uses)
         if vp:
             vp[0].bbox = group_bbox(vp[0], doc.items[vp[1]:])
-            doc.items.append(Group("end", 255, vp[0].clip))
+            doc.items.append(Group("end", 255, vp[0].clip, begin=vp[0]))
         if opened:
-            if opened.clip:
+            if opened.clip or opened.mask:
                 opened.bbox = group_bbox(opened, doc.items[opened_at:])
-            doc.items.append(Group("end", opened.alpha, opened.clip))
+            doc.items.append(Group("end", opened.alpha, opened.clip, mask=opened.mask, begin=opened))
 
     def symbol_map(st, geom, wh):
         vp = view_clip(st, 0.0, 0.0, wh[0], wh[1])
@@ -1473,6 +1520,7 @@ def parse(text):
         if not (fill or stroke):
             return
         rec = clip_ref(raw, st, uses)
+        mrec = mask_ref(raw, st, uses)
         group = own < 1.0 and fill and stroke
         if own < 1.0 and not group:
             st["op"] = own * st["op"]
@@ -1483,11 +1531,11 @@ def parse(text):
         s = paint_of(st["stroke"], st["stroke_op"], st, path) if stroke else None
         item = Item(list(st["m"]), path, f, s, st["rule"], st["sw"], st["miter"], st["join"], st["cap"],
                     st["order"], st["dash"], st["dash_off"])
-        if group or rec:
-            begin = Group("begin", int(own * 255.0 + 0.5) if group else 255, rec, list(st["m"]))
-            if rec:
+        if group or rec or mrec:
+            begin = Group("begin", int(own * 255.0 + 0.5) if group else 255, rec, list(st["m"]), mask=mrec)
+            if rec or mrec:
                 begin.bbox = group_bbox(begin, [item])
-            doc.items += [begin, item, Group("end", begin.alpha, rec)]
+            doc.items += [begin, item, Group("end", begin.alpha, rec, mask=mrec, begin=begin)]
         else:
             doc.items.append(item)
 
