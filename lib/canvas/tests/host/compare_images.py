@@ -186,6 +186,12 @@ def build_corpus(d):
     add("subsample444.jpg", "lossy",
         lambda p: im.save(p, "JPEG", quality=90, subsampling=0))
     add("image.gif", "exact", lambda p: im.convert("P").save(p, "GIF"))
+    noisy = synth(300, 200, 3).convert("P", palette=Image.ADAPTIVE, colors=256)
+    add("noisy.gif", "exact", lambda p: noisy.save(p, "GIF"))   # table fills, clears
+    add("interlaced.gif", "exact", lambda p: noisy.save(p, "GIF", interlace=True))
+    two = synth(31, 17, 5).convert("1").convert("P")
+    add("twocolor.gif", "exact", lambda p: two.save(p, "GIF"))  # minimum code size 2
+    add("transparent.gif", "exact", lambda p: noisy.save(p, "GIF", transparency=5))
     add("image.bmp", "exact", lambda p: im.save(p, "BMP"))
     add("gray.bmp", "exact", lambda p: im.convert("L").save(p, "BMP"))
     add("mono.bmp", "exact", lambda p: im.convert("1").save(p, "BMP"))
