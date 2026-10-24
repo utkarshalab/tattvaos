@@ -32,7 +32,7 @@ NASM_FLAGS="-f elf64 -I$ROOT/ -Werror=number-overflow -Werror=other"
 failed=0
 
 cd "$ROOT"
-modules="bits cpuid dtype math_fn memory reduce scalar stability random"
+modules="bits cpuid dtype math_fn memory reduce scalar stability random geom"
 
 echo "== assembling each file standalone"
 count=0
