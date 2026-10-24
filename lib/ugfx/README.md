@@ -37,7 +37,9 @@ lib/ugfx/
     ├── polygon.asm       ← aliased polygons (assembles; not yet built or tested)
     ├── path.asm          ← paths: lines, quads, cubics, transform, bounds, flattening
     ├── shapes.asm        ← rect, rounded rect, ellipse, circle, arc, pie, ring sector, polygon, star
-    └── stroke.asm        ← stroke outlines: width, miter/round/bevel joins, butt/round/square caps
+    ├── stroke.asm        ← stroke outlines: width, miter/round/bevel joins, butt/round/square caps
+    ├── flatten.asm       ← curves to polylines; path length
+    └── dash.asm          ← dash patterns along lines and curves
 ```
 
 ## 2. Planned
@@ -45,7 +47,7 @@ lib/ugfx/
 | Area | Contents |
 |---|---|
 | `core/` | Clip masks and more span operations (gradients, images) for the span compositor; draw-command lists for CPU and GPU backends |
-| `2d/` | Strokes (joins, caps, dashes), gradients, patterns, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
+| `2d/` | Device hairlines, gradients, patterns, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
 | `3d/` | Meshes, vertex transform, clipping, triangle setup, depth test, shading, textures |
 | `backend/` | CPU (scalar and SIMD) now; GPU later through Canvas's command rings |
 | `tests/` | Host-run tests against a reference renderer and golden images |
@@ -96,6 +98,30 @@ Tests: `tests/host/stroke_check.py` compares 30 stroke cases against the
 exact union of segment, join and cap pieces (supersampled), requiring ugfx
 to stay between that union and the pieces' summed coverage (overlap
 accumulation, C2D-027), plus invalid styles.
+
+### Dashes
+
+`ugfx_path_dash(dst, src, dash, tolerance)` cuts each contour into the on
+runs of a `UgfxDash` (alternating on/off lengths starting with on; an odd
+list repeats; `offset` shifts the pattern) and appends them to `dst` as
+open polylines; stroke `dst` for dashed lines. The source is flattened
+first (`ugfx_path_flatten`), so dashes follow curves by arc length, and
+every contour restarts the pattern. A dash that crosses a vertex keeps it,
+so the stroke joins there; a zero-length dash is one point (a dot with
+round or square caps). On a closed contour that starts inside a dash, the
+first run is drawn last, continuing the final dash through the start
+point, and a contour inside a single dash stays closed.
+
+`ugfx_path_flatten(dst, src, tolerance)` copies a path with curves turned
+into lines (MOVE and CLOSE kept); `ugfx_path_length(path, arena,
+tolerance)` sums the flattened length, closing segments included.
+
+Tests: `tests/host/dash_check.py` - 29 dash cases (offsets, odd and
+three-interval patterns, joins across vertices, closed contours joining at
+the start, dots, curves, restarts per contour, random) against an
+arc-length reference stroked with the same pieces as `stroke_check.py`;
+invalid patterns; flattened fills against the originals; lengths of
+lines, polygons, circles and curves.
 
 ## 6. Using it
 
