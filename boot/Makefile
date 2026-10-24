@@ -33,7 +33,17 @@ SRC_DIRS = kernel lib crypto storage security unet
 KERNEL_SRCS := $(shell find $(addprefix $(ROOT)/,$(SRC_DIRS)) \
                           \( -name '*.asm' -o -name '*.inc' \) \
                           -not -path '*/tests/*' 2>/dev/null) \
+               $(shell find $(ROOT)/apps/calender/src $(ROOT)/apps/calender/inc $(ROOT)/apps/clock/src $(ROOT)/apps/clock/inc -type f) \
                $(KERNEL_DIR)/boot_info.inc
+
+USH_SRCS := $(shell find $(ROOT)/apps/ush/src $(ROOT)/apps/ush/inc \
+                         $(ROOT)/apps/calculator/src $(ROOT)/apps/uedit/src $(ROOT)/apps/uedit/inc -type f) \
+            $(ROOT)/lib/str/utf8/decode.asm $(ROOT)/lib/str/utf8/encode.asm \
+            $(ROOT)/lib/str/unicode/tables/category_table.asm $(ROOT)/lib/str/unicode/tables/eaw_table.asm \
+            $(wildcard $(ROOT)/lib/str/arch/common/*.inc) \
+            $(ROOT)/apps/ush/Makefile $(ROOT)/apps/uedit/Makefile $(ROOT)/apps/ush/scripts/kernel_bundle.py \
+            $(ROOT)/storage/uxfs/volume.asm $(ROOT)/storage/uxfs/volume.inc
+USH_LAYOUT = $(ROOT)/apps/ush/build/kernel/layout.inc
 
 BOOT_SRCS := $(shell find $(KERNEL_DIR)/stage1 $(KERNEL_DIR)/stage2 \
                           $(KERNEL_DIR)/survive $(KERNEL_DIR)/tpm \
@@ -109,10 +119,15 @@ all: kernel.bin
 # -----------------------------------------------------------------------------
 # Kernel
 # -----------------------------------------------------------------------------
-kernel.bin: $(KERNEL_SRCS)
+$(USH_LAYOUT): $(USH_SRCS) $(KERNEL_SRCS)
+	$(MAKE) -C $(ROOT)/apps/ush native
+	python3 $(ROOT)/apps/ush/scripts/kernel_bundle.py prepare
+
+kernel.bin: $(KERNEL_SRCS) $(USH_LAYOUT)
 	@set -eu; TMP="$@.$$$$.tmp"; trap 'rm -f "$$TMP"' EXIT HUP INT TERM; \
 	$(ASM) -f bin -I $(ROOT)/ $(ENTRY) -o "$$TMP"; \
 	test -s "$$TMP"; \
+	python3 $(ROOT)/apps/ush/scripts/kernel_bundle.py patch "$$TMP"; \
 	sh $(KERNEL_DIR)/ulf_stamp.sh "$$TMP"; \
 	mv -f "$$TMP" "$@"; \
 	trap - EXIT HUP INT TERM
@@ -187,13 +202,18 @@ img: $(IMG)
 # -----------------------------------------------------------------------------
 # Run
 # -----------------------------------------------------------------------------
+# Optional explicit data image; never format it or touch the primary boot disk.
+UXFS_IMAGE ?=
+ifneq ($(strip $(UXFS_IMAGE)),)
+QEMU_UXFS = -drive file=$(abspath $(UXFS_IMAGE)),format=raw,if=ide,index=2,cache=writeback
+endif
 run: $(IMG)
-	$(QEMU) $(QEMU_FLAGS)
+	$(QEMU) $(QEMU_FLAGS) $(QEMU_UXFS)
 
 # Same, but stopped at the reset vector waiting for gdb on :1234.
 # Attach with:  gdb -ex 'target remote :1234'
 debug: $(IMG)
-	$(QEMU) $(QEMU_FLAGS) -s -S
+	$(QEMU) $(QEMU_FLAGS) $(QEMU_UXFS) -s -S
 
 # Build-time image validation followed by a boot-to-kernel smoke test.  Keep
 # this target beside the image recipe so its paths and QEMU configuration do
@@ -203,6 +223,30 @@ test: $(IMG) $(UEFI_EFI)
 
 test-negative: $(IMG)
 	@sh $(KERNEL_DIR)/tests/test_boot_negative.sh
+
+# Real serial interaction through the production kernel, not a shell-only image.
+ush-storage-test: $(IMG) $(UEFI_EFI)
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware bios --storage-test
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf --storage-test
+
+ush-uedit-test: $(IMG) $(UEFI_EFI)
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware bios --uedit-test
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf --smp 4 --uedit-test
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf --strict-nx --uedit-test
+
+ush-power-test: $(IMG) $(UEFI_EFI)
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware bios --power-test
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf --smp 4 --power-test
+
+ush-bundle-check: $(USH_LAYOUT)
+	python3 $(ROOT)/apps/ush/tests/host/test_kernel_bundle.py
+
+ush-test: $(IMG) $(UEFI_EFI) ush-bundle-check
+	@sh $(KERNEL_DIR)/tests/test_image_integrity.sh
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware bios
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf --smp 4
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf --strict-nx
 
 # Fast native coverage for the firmware parser and the complete mixed-mode SMP
 # translation unit. smp-test adds real OVMF INIT/SIPI/rendezvous boots.
@@ -251,5 +295,5 @@ clean:
 	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
 	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG) $(UEFI_EFI)
 
-.PHONY: all elf img run debug test test-negative smp-check smp-test vtd-test pci-check pci-msi-test pci-msix-test uefi \
+.PHONY: all elf img run debug test test-negative ush-test ush-storage-test ush-power-test ush-uedit-test ush-bundle-check smp-check smp-test vtd-test pci-check pci-msi-test pci-msix-test uefi \
         uefi-check ovmf-test ovmf-strictnx-test clean

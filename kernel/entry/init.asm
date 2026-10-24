@@ -129,6 +129,7 @@ kernel_init:
     jc .time_error
     mov rsi, msg_ok
     call uart_print_str
+    call kernel_apps_time_probe
 
     ; 5. Initialize Memory Management
     mov rsi, msg_init_mm

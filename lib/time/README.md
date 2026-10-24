@@ -43,4 +43,4 @@ The wired test links actual `native.asm`, `rtc_native.asm`, `mono.asm`, shared
 calendar code and app adapters. Only hardware boundaries are fake assembly code.
 It covers 800 date/time paths, all RTC modes, missing centuries, invalid dates,
 permanent UIP, continuous rollover, and source unavailability. Production kernel
-build/emulator results will be recorded in `NATIVE_QUALIFICATION.md` after validation.
+build/emulator results are recorded in [NATIVE_QUALIFICATION.md](NATIVE_QUALIFICATION.md).

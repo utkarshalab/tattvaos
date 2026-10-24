@@ -129,11 +129,17 @@ kernel_text_start:
 %include "lib/time/tsc.asm"         ; Before mono: supplies tsc_read/elapsed
 %include "lib/time/mono.asm"        ; Monotonic clock; usrauth TTLs depend on it
 %include "lib/time/rtc.asm"         ; Before time.asm: supplies rtc_init
+%define TIME_NATIVE_EMBEDDED 1
+%include "lib/cal/gregorian.asm"
+%include "lib/cal/civil.asm"
+%include "lib/time/rtc_native.asm"
+%include "lib/time/native.asm"
 %include "lib/time/time.asm"        ; time_init: the only caller of
                                      ; tsc_calibrate_pit anywhere in the tree.
                                      ; Without this file in the build,
                                      ; tsc_freq_hz can never become anything
                                      ; but its uncalibrated 3.0 GHz default.
+%include "kernel/entry/apps_time.asm"
 %include "lib/urand/urand.asm"
 %include "lib/ulog/ulog.asm"        ; Structured logging. Needs mem + time +
                                      ; the serial driver, all already above;
@@ -148,6 +154,9 @@ kernel_text_start:
 %include "storage/uwal/uwal.asm"    ; After uxfs: uses its NVMe driver
 %include "security/usrauth/usrauth.asm"   ; Reference monitor; needs crypto + time
 %include "lib/unet/unet.asm"
+
+; Static Ush bundle: object-linked independently, embedded with ULF ownership.
+%include "kernel/entry/ush.asm"
 
 %include "kernel/exec/exec.asm"     ; UBF program loader (docs/UBF_SPEC.md)
 

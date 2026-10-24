@@ -5,7 +5,10 @@
 
 ---
 
-No sub-projects yet. Applications will be added as the kernel matures.
+The command shell lives in [`ush/`](ush/) — Utkarsha Shell.
+[`calculator/`](calculator/) contains the scientific and programmer calculator.
+[`calender/`](calender/) contains the calendar/date/event model API, and [`clock/`](clock/) contains clock/stopwatch/timer/alarm APIs for later Canvas frontends.
+[`uedit/`](uedit/) contains the native terminal text editor, launched with `uedit FILE` from Ush.
 
 ---
 

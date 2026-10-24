@@ -51,7 +51,9 @@ kernel_main:
     xor rsi, rsi                    ; no argument
     mov rdx, PRIO_NORMAL
     mov rcx, FIBER_RESTART_ALWAYS   ; a dead heartbeat should restart, not vanish
-    call fiber_create
+    xor r8d, r8d                   ; serialize console diagnostics on BSP
+    mov r9, 1
+    call fiber_create_on_cpu
     test rax, rax
     jnz .have_heartbeat
 
@@ -59,6 +61,9 @@ kernel_main:
     call uart_print_str
 
 .have_heartbeat:
+    ; One cooperative BSP console fiber; idle UART reads yield to the scheduler.
+    call kernel_ush_spawn
+
     ; 3b. Spawn the network poll fiber. unet_init (called from drivers_init,
     ; earlier in kernel_init) only brings the stack up; nothing drives RX/TX
     ; without something calling unet_poll on a schedule, same as the
@@ -343,7 +348,9 @@ kernel_boot_memory_selftest:
 ; Runs as PRIO_NORMAL/FIBER_RESTART_ALWAYS, forever, on its own fiber stack.
 ; -----------------------------------------------------------------------------
 heartbeat_fiber:
+    sub rsp, 8                     ; align SysV editor/log callbacks
 .loop:
+    call kernel_ush_log_begin
     mov rsi, msg_heartbeat_prefix
     call uart_print_str
     mov eax, [heartbeat_count]
@@ -351,6 +358,7 @@ heartbeat_fiber:
     mov rsi, msg_heartbeat_crlf
     call uart_print_str
     inc dword [heartbeat_count]
+    call kernel_ush_log_end
 
     ; Paced to be legible on a serial console. This legacy fiber deliberately
     ; remains cooperative until its UART/delay dependencies are audited.
