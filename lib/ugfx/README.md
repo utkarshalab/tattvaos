@@ -30,7 +30,8 @@ lib/ugfx/
 │   ├── scale.asm         ← nearest and bilinear scaling
 │   ├── transform.asm     ← 90/180/270 rotation and flips
 │   ├── raster.asm        ← anti-aliased area-coverage rasterizer (nonzero, even-odd)
-│   └── span.asm          ← span compositor: coverage rows into pixels (src-over), one colour or per pixel
+│   ├── span.asm          ← span compositor: coverage rows into pixels (src-over), one colour or per pixel
+│   └── mask.asm          ← A8 coverage masks: clips, intersect, invert, alpha and luminance masks
 └── 2d/                   ← 2D shapes and paths
     ├── line.asm          ← line segments
     ├── circle.asm        ← circles and ellipses
@@ -48,7 +49,7 @@ lib/ugfx/
 | Area | Contents |
 |---|---|
 | `core/` | Clip masks and more span operations (gradients, images) for the span compositor; draw-command lists for CPU and GPU backends |
-| `2d/` | Device hairlines, coverage masks, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
+| `2d/` | Device hairlines, region clips, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
 | `3d/` | Meshes, vertex transform, clipping, triangle setup, depth test, shading, textures |
 | `backend/` | CPU (scalar and SIMD) now; GPU later through Canvas's command rings |
 | `tests/` | Host-run tests against a reference renderer and golden images |
@@ -168,7 +169,36 @@ on each axis, nearest and bilinear, magnified, minified, rotated, skewed,
 far from the origin, a 1x1 image, under anti-aliased coverage, random),
 also bit-exact; and invalid paints.
 
-## 7. Using it
+## 7. Clips and masks
+
+A `UgfxMask` is one byte of coverage per pixel (A8). Paths render into
+masks with `ugfx_raster_fill_mask(raster, mask, rule)` (each pixel becomes
+the union with what is there), and `ugfx_raster_set_clip(raster, mask)`
+clips every later fill on that raster - solid, gradient, image, or into
+another mask - by multiplying its coverage with the mask. The clipped
+span splits each run where the mask value changes, so clip interiors stay
+long runs.
+
+| Function | |
+|---|---|
+| `ugfx_mask_init(mask, arena, w, h)` | zeroed mask |
+| `ugfx_mask_fill`, `ugfx_mask_fill_rect` | constant value, everywhere or in a rectangle |
+| `ugfx_mask_copy`, `ugfx_mask_intersect` | dst = src, dst = dst × src / 255 |
+| `ugfx_mask_invert` | m = 255 − m (clip-out, holes) |
+| `ugfx_mask_from_alpha`, `ugfx_mask_from_luminance` | from an image (CSS Masking luminance weights) |
+
+A clip stack is a sequence of masks: rendering the next clip path into a
+fresh mask while the current clip is set gives their intersection (what
+HTML canvas `clip()` does); popping restores the previous mask.
+
+Tests: `tests/host/clip_check.py` - 30 cases (anti-aliased path clips,
+both fill rules, nested clips, rectangle clips on and off the buffer,
+inverted clips, alpha and luminance image masks, a stroke used as a clip,
+clipped solid, gradient and image fills, a transformed clip, random
+sequences) against a reference that rebuilds the clip as an A8 array;
+pixel-exact.
+
+## 8. Using it
 
 Assemble with `-I lib/ugfx/include/` and include `ugfx.inc`. Functions follow
 the System V register order and return negative error codes. Allocating
