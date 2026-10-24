@@ -43,7 +43,8 @@ lib/ugfx/
     ├── dash.asm          ← dash patterns along lines and curves
     ├── paint.asm         ← paints: solid; linear, radial, two-circle and conic gradients; image patterns
     ├── context.asm       ← drawing context: state, save/restore, fill/stroke/clip, images, layers
-    └── list.asm          ← display lists: record context calls, replay them
+    ├── list.asm          ← display lists: record context calls, replay them
+    └── uic.asm           ← UIC icon packs: open (validate), find, draw
 ```
 
 ## 2. Planned
@@ -250,7 +251,29 @@ directly, recorded and replayed once, and replayed twice: replay equals
 direct drawing byte for byte, two replays equal the script drawn twice,
 failures match; plus a stress list of hundreds of records and long curves.
 
-## 10. Using it
+## 10. Icons (UIC)
+
+UIC is the run-time icon format ([`docs/UIC.md`](docs/UIC.md)): a pack of
+named vector icons with i16 fixed-point coordinates, colour slots (slot 0
+is the main colour) and stroke widths scaled by a weight at draw time.
+Icons are authored as SVG and converted when the system is built.
+
+| Function | |
+|---|---|
+| `ugfx_uic_open(uic, arena, data, size)` | checks header, index and every body; uses the bytes in place |
+| `ugfx_uic_find(uic, name, length, pixels)` | binary search; picks the design size for the pixel size |
+| `ugfx_uic_draw(uic, icon, ctx, colours, count, x, y, size, weight)` | fits the icon in a square of the context's user space |
+
+`tools/uic.py` builds packs (choosing fraction bits, sorting the index)
+and dumps them as text (`uic.py dump pack.uic`).
+
+Tests: `tests/host/uic_check.py` - 17 draws (filled, duotone with
+opacity, even-odd, strokes at weights 0.5 / 1 / 2, non-square and offset
+viewBoxes, a 512 grid, colour overrides, under a transform, a clip and
+alpha, inside a layer) byte-identical to the context calls the format
+defines; 17 lookups by name and size; 30 corrupt packs refused.
+
+## 11. Using it
 
 Assemble with `-I lib/ugfx/include/` and include `ugfx.inc`. Functions follow
 the System V register order and return negative error codes. Allocating
