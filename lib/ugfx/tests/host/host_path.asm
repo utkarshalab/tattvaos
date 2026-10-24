@@ -19,9 +19,10 @@
 ;    18 flatten: the path becomes its flattened copy
 ;    19 length expected max_error: fails (exit 5) unless the path's length
 ;       is within max_error of expected
-;    20 paint kind spread g0 g1 g2 g3 n (offset colour) x n: fill with a
+;    20 paint kind spread g0 .. g5 n (offset colour) x n: fill with a
 ;       gradient instead of the colour (kind 1 linear x0 y0 x1 y1, 2 radial
-;       cx cy r -, 3 conic cx cy start -; colour as f64, straight BGRA)
+;       cx cy r, 3 conic cx cy start, 4 radial2 x0 y0 r0 x1 y1 r1; unused
+;       g are ignored; colour as f64, straight BGRA)
 ;    21 paint_transform a b c d e f
 ;   The path is rasterized with the matrix (if any) and tolerance, filled
 ;   with the colour over the background, and written as BGRA.
@@ -63,6 +64,7 @@ extern ugfx_raster_fill_paint
 extern ugfx_paint_linear
 extern ugfx_paint_radial
 extern ugfx_paint_conic
+extern ugfx_paint_radial2
 extern ugfx_paint_set_transform
 
 %define SYS_WRITE   1
@@ -323,10 +325,10 @@ _start:
     jmp .command
 .sp_paint:
     ; stops: (offset, colour) pairs of f64 -> UgfxStop
-    cvttsd2si rcx, qword [r14 + 48]     ; n
+    cvttsd2si rcx, qword [r14 + 64]     ; n
     cmp rcx, MAX_STOPS
     ja .command_fail
-    lea rsi, [r14 + 56]
+    lea rsi, [r14 + 72]
     lea rdi, [rel stops]
     xor edx, edx
 .sp_stop:
@@ -349,6 +351,8 @@ _start:
     movsd xmm1, [r14 + 24]
     movsd xmm2, [r14 + 32]
     movsd xmm3, [r14 + 40]
+    movsd xmm4, [r14 + 48]
+    movsd xmm5, [r14 + 56]
     pop rcx
     lea rdi, [rel paint]
     lea rsi, [rel arena_state]
@@ -357,9 +361,14 @@ _start:
     je .sp_linear
     cmp eax, 2
     je .sp_radial
+    cmp eax, 4
+    je .sp_radial2
     cmp eax, 3
     jne .bad_op
     call ugfx_paint_conic
+    jmp .sp_paint_done
+.sp_radial2:
+    call ugfx_paint_radial2
     jmp .sp_paint_done
 .sp_linear:
     call ugfx_paint_linear
