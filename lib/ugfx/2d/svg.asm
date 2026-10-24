@@ -17,14 +17,25 @@
 ; gradients, patterns, markers, text, style, script, title, desc, metadata
 ; and foreignObject are skipped with everything inside them; other
 ; elements act as groups. Comments, processing instructions, DOCTYPE and
-; CDATA are skipped. A nested svg acts as a group.
+; CDATA are skipped.
+;
+; Viewports: the root, a nested svg (x, y, width, height, default 100%)
+; and a symbol instanced by use map their viewBox into their size with
+; preserveAspectRatio (align or none, meet or slice). Conditional
+; processing: requiredExtensions is never met (none are supported),
+; systemLanguage matches "en" and "en-*", requiredFeatures is ignored;
+; switch draws only its first child element that passes (descriptive
+; and definition elements take no part).
 ;
 ; Each item keeps the element's transform (user space -> viewBox space),
 ; its path, and fill / stroke as none, a colour or currentColor, with the
 ; alpha already multiplied by fill-opacity / stroke-opacity and the
 ; opacity of the element and its ancestors (applied per item, not as a
-; group). Drawing fits the viewBox (else width / height, else 300 x 150)
-; into the square (x, y, size, size), keeping its aspect ratio, centred.
+; group). Drawing maps the document into the square (x, y, size, size): its
+; viewBox through preserveAspectRatio into width x height when both are
+; given, that box centred in the square; with only a viewBox, the viewBox
+; straight into the square; with none, (0, 0, width or 300, height or
+; 150) centred in it.
 ; =============================================================================
 
 %include "ugfx.inc"
@@ -104,7 +115,8 @@ extern ugfx_ctx_stroke
 %define S_DASH          200             ; f64* (even count) or 0
 %define S_DASH_N        208             ; u32, 0 = solid
 %define S_DASH_OFF      216             ; f64
-%define S_SIZE          224
+%define S_SWITCH        224             ; u32 1: a switch still choosing, 2: it chose
+%define S_SIZE          232
 
 ; elements
 %define E_GROUP         0
@@ -119,6 +131,9 @@ extern ugfx_ctx_stroke
 %define E_SKIP          9
 %define E_USE           10
 %define E_SYMBOL        11              ; drawn only as a <use> instance
+%define E_SWITCH        12
+%define E_TEXT          13              ; not drawn yet, but takes part in switch
+%define E_FOREIGN       14              ; foreignObject: the same
 %define SVG_MAX_USES    8               ; <use> instances inside instances
 
 ; geometry slots (f64), with a bit each in P_HAVE
@@ -164,6 +179,7 @@ extern ugfx_ctx_stroke
 %define A_ID            45
 %define A_CLASS         46
 %define A_HREF          47
+%define A_PAR           48              ; preserveAspectRatio
 %define A_GEOM          64              ; + G_* slot
 
 ; lengths: what a percentage is of
@@ -214,7 +230,10 @@ extern ugfx_ctx_stroke
 %define P_DASH_RAW_END  (P_FONT_RAW + 40)
 %define P_DOFF_RAW      (P_FONT_RAW + 48)               ; stroke-dashoffset as written
 %define P_DOFF_RAW_END  (P_FONT_RAW + 56)
-%define P_SIZE          (((P_FONT_RAW + 64 + 15) & ~15) + 8)
+%define P_PAR           (P_FONT_RAW + 64)               ; u32 preserveAspectRatio (as UgfxSvg_par)
+%define P_SIZE          (((P_FONT_RAW + 72 + 15) & ~15) + 8)
+
+%define PAR_DEFAULT     5               ; xMidYMid meet
 
 section .rodata
 align 8
@@ -263,13 +282,14 @@ svg_elements:
     NAME "radialGradient", E_SKIP
     NAME "pattern", E_SKIP
     NAME "marker", E_SKIP
-    NAME "text", E_SKIP
+    NAME "text", E_TEXT
+    NAME "switch", E_SWITCH
     NAME "style", E_SKIP
     NAME "script", E_SKIP
     NAME "title", E_SKIP
     NAME "desc", E_SKIP
     NAME "metadata", E_SKIP
-    NAME "foreignObject", E_SKIP
+    NAME "foreignObject", E_FOREIGN
     NAME "filter", E_SKIP
     db 0
 svg_attributes:
@@ -299,6 +319,7 @@ svg_attributes:
     NAME "class", A_CLASS
     NAME "href", A_HREF
     NAME "xlink:href", A_HREF
+    NAME "preserveAspectRatio", A_PAR
     NAME "x", A_GEOM + G_X
     NAME "y", A_GEOM + G_Y
     NAME "width", A_GEOM + G_W
@@ -351,6 +372,27 @@ svg_inherit_fields:
     INHERITS A_DASHOFFSET, S_DASH_OFF, 8
     INHERITS A_PAINT_ORDER, S_ORDER, 4
     db 0
+svg_cond_words:
+    NAME "requiredExtensions", 1
+    NAME "systemLanguage", 2
+    db 0
+svg_par_words:
+    NAME "xMinYMin", 1
+    NAME "xMidYMin", 2
+    NAME "xMaxYMin", 3
+    NAME "xMinYMid", 4
+    NAME "xMidYMid", 5
+    NAME "xMaxYMid", 6
+    NAME "xMinYMax", 7
+    NAME "xMidYMax", 8
+    NAME "xMaxYMax", 9
+    NAME "none", 10
+    NAME "meet", 20
+    NAME "slice", 21
+    NAME "defer", 30
+    db 0
+align 8
+svg_align_f:        dq 0.0, 0.5, 1.0
 svg_word_inherit:   db "inherit"
 svg_word_visible:   db "visible"
 svg_word_hidden:    db "hidden"
@@ -427,6 +469,7 @@ ugfx_svg_parse:
     mov dword [rdi + UgfxSvg_count], 0
     mov dword [rdi + UgfxSvg_cap], 0
     mov dword [rdi + UgfxSvg_has], 0
+    mov dword [rdi + UgfxSvg_par], PAR_DEFAULT
     mov [r15 + P_XML + UgfxSvgXml_cur], rdx
     add rdx, rcx
     mov [r15 + P_XML + UgfxSvgXml_end], rdx
@@ -471,6 +514,7 @@ ugfx_svg_parse:
     mov [rbx + S_DASH], rax
     mov [rbx + S_DASH_N], eax
     mov [rbx + S_DASH_OFF], rax
+    mov [rbx + S_SWITCH], eax
     ; gradients first: url(#id) may name one defined further on
     lea rdi, [r15 + P_DEFS]
     mov rax, [r15 + P_SVG]
@@ -564,6 +608,34 @@ svg_walk:
     mov eax, E_GROUP
     mov dword [r15 + P_SYMROOT], 1
 .kind:
+    ; conditional processing; a switch keeps only its first child that passes
+    cmp eax, E_SKIP
+    je .decided                         ; not rendered, takes no part
+    cmp dword [rbx - S_SIZE + S_SWITCH], 2
+    je .not_chosen
+    mov [rsp], eax
+    call svg_conditions
+    test eax, eax
+    jz .not_chosen
+    mov eax, [rsp]
+    cmp dword [rbx - S_SIZE + S_SWITCH], 1
+    jne .decided
+    mov dword [rbx - S_SIZE + S_SWITCH], 2
+    jmp .decided
+.not_chosen:
+    mov eax, E_SKIP
+.decided:
+    xor ecx, ecx
+    cmp eax, E_SWITCH
+    sete cl
+    mov [rbx + S_SWITCH], ecx
+    cmp eax, E_TEXT
+    je .no_drawing
+    cmp eax, E_FOREIGN
+    jne .chosen
+.no_drawing:
+    mov eax, E_SKIP
+.chosen:
     mov [r15 + P_ELEM], eax
     cmp eax, E_SKIP
     jne .not_skipped
@@ -622,6 +694,7 @@ svg_element:
     mov qword [r15 + P_SW_RAW], 0
     mov qword [r15 + P_DASH_RAW], 0
     mov qword [r15 + P_DOFF_RAW], 0
+    mov dword [r15 + P_PAR], PAR_DEFAULT
     mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
 .attr:
     lea rdi, [r15 + P_XML]
@@ -654,6 +727,8 @@ svg_element:
     je .attr_class
     cmp eax, A_HREF
     je .attr_href
+    cmp eax, A_PAR
+    je .attr_par
     cmp eax, A_GEOM
     jae .attr_geom
     call svg_property
@@ -684,6 +759,10 @@ svg_element:
     inc rdi
     mov [r15 + P_HREF], rdi
     mov [r15 + P_HREF_END], rsi
+    jmp .attr
+.attr_par:
+    call svg_par
+    mov [r15 + P_PAR], eax
     jmp .attr
 .attr_class:
     mov [r15 + P_SEL + UgfxSvgSel_class], rdi
@@ -752,9 +831,11 @@ svg_element:
     jmp .element_out
 .root:
     cmp dword [r15 + P_ROOT], 0
-    jne .element_out                    ; a nested svg: a group
+    jne .nested
     mov dword [r15 + P_ROOT], 1
     mov rcx, [r15 + P_SVG]
+    mov eax, [r15 + P_PAR]
+    mov [rcx + UgfxSvg_par], eax
     test dword [r15 + P_HAVE], 1 << G_W
     jz .root_h
     movsd xmm0, [r15 + P_G + G_W * 8]
@@ -807,6 +888,9 @@ svg_element:
     movsd [rbx + S_VW], xmm0
     movsd xmm0, [r15 + P_VIEW + 8]
     movsd [rbx + S_VH], xmm0
+    jmp .element_out
+.nested:
+    call svg_nested
 .element_out:
     pop r14
     pop r13
@@ -850,16 +934,18 @@ svg_use:
     mov rsi, rdi
     lea rdx, [rsp + U_M]
     call umath_affine2_multiply
-    ; width and height, for a symbol
-    mov eax, [r15 + P_HAVE]
-    and eax, (1 << G_W) | (1 << G_H)
-    cmp eax, (1 << G_W) | (1 << G_H)
-    sete al
-    movzx eax, al
-    mov [r15 + P_USE_HAVE], eax
+    ; width and height (default 100%), for a symbol
+    movsd xmm0, [rbx + S_VW]
+    test dword [r15 + P_HAVE], 1 << G_W
+    jz .use_w
     movsd xmm0, [r15 + P_G + G_W * 8]
+.use_w:
     movsd [r15 + P_USE_W], xmm0
+    movsd xmm0, [rbx + S_VH]
+    test dword [r15 + P_HAVE], 1 << G_H
+    jz .use_h
     movsd xmm0, [r15 + P_G + G_H * 8]
+.use_h:
     movsd [r15 + P_USE_H], xmm0
     ; keep where reading is, walk the target, come back
     lea rdi, [rsp + U_XML]
@@ -895,13 +981,67 @@ svg_use:
     pop r12
     ret
 
-; r15 = frame, rbx = an instanced symbol's state: its viewBox fitted into
-;   the <use>'s width x height (else the viewBox's own size), centred,
-;   keeping the aspect ratio (xMidYMid meet)
+; r15 = frame, rbx = an instanced symbol's state: its viewport is the
+;   <use>'s width x height
 svg_symbol_map:
+    movsd xmm0, [r15 + P_USE_W]
+    movsd xmm1, [r15 + P_USE_H]
+    jmp svg_view_map
+
+; r15 = frame, rbx = a nested svg's state: translate(x, y), then its
+;   viewport width x height (default 100%); not drawn when either is <= 0
+svg_nested:
+    sub rsp, 8
+    lea rdi, [r15 + P_ARC]
+    movsd xmm0, [r15 + P_G + G_X * 8]
+    movsd xmm1, [r15 + P_G + G_Y * 8]
+    call umath_affine2_translate
+    lea rdi, [rbx + S_M]
+    mov rsi, rdi
+    lea rdx, [r15 + P_ARC]
+    call umath_affine2_multiply
+    movsd xmm0, [rbx + S_VW]
+    test dword [r15 + P_HAVE], 1 << G_W
+    jz .w
+    movsd xmm0, [r15 + P_G + G_W * 8]
+.w:
+    movsd xmm1, [rbx + S_VH]
+    test dword [r15 + P_HAVE], 1 << G_H
+    jz .h
+    movsd xmm1, [r15 + P_G + G_H * 8]
+.h:
+    xorpd xmm2, xmm2
+    ucomisd xmm0, xmm2
+    jbe .hide
+    ucomisd xmm1, xmm2
+    jbe .hide
+    add rsp, 8
+    jmp svg_view_map
+.hide:
+    mov dword [rbx + S_SKIP], 1
+    add rsp, 8
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_view_map — xmm0 = width, xmm1 = height of the element's viewport, r15
+;   = frame (P_VB, P_PAR), rbx = state: a valid viewBox is fitted into it
+;   (S_M x the fit) and becomes the viewport inside; without one the
+;   viewport is width x height
+; -----------------------------------------------------------------------------
+%define VM_VB       0                   ; f64[4]
+%define VM_M        32                  ; f64[6]
+%define VM_W        80
+%define VM_H        88
+%define VM_SIZE     104
+
+svg_view_map:
     push r12
     push r13
-    sub rsp, 56
+    sub rsp, VM_SIZE
+    movsd [rsp + VM_W], xmm0
+    movsd [rsp + VM_H], xmm1
+    movsd [rbx + S_VW], xmm0
+    movsd [rbx + S_VH], xmm1
     mov r12, [r15 + P_VB]
     test r12, r12
     jz .out
@@ -915,57 +1055,255 @@ svg_symbol_map:
     test rax, rax
     jz .out
     mov r12, rax
-    movsd [rsp + r13 * 8], xmm0
+    movsd [rsp + VM_VB + r13 * 8], xmm0
     inc r13d
     jmp .number
 .have:
     xorpd xmm7, xmm7
-    movsd xmm2, [rsp + 16]              ; vb w
+    movsd xmm2, [rsp + VM_VB + 16]
     ucomisd xmm2, xmm7
     jbe .out
-    movsd xmm3, [rsp + 24]              ; vb h
+    movsd xmm3, [rsp + VM_VB + 24]
     ucomisd xmm3, xmm7
     jbe .out
-    movapd xmm4, xmm2                   ; W, H
-    movapd xmm5, xmm3
-    cmp dword [r15 + P_USE_HAVE], 0
-    je .sized
-    movsd xmm4, [r15 + P_USE_W]
-    movsd xmm5, [r15 + P_USE_H]
-.sized:
-    ; s = min(W / w, H / h)
-    movapd xmm0, xmm4
-    divsd xmm0, xmm2
-    movapd xmm1, xmm5
-    divsd xmm1, xmm3
-    minsd xmm0, xmm1
-    ; tx = (W - w s) / 2 - x s, ty = (H - h s) / 2 - y s
-    movapd xmm6, xmm2
-    mulsd xmm6, xmm0
-    subsd xmm4, xmm6
-    mulsd xmm4, [rel svg_half]
-    movsd xmm6, [rsp]
-    mulsd xmm6, xmm0
-    subsd xmm4, xmm6
-    movapd xmm6, xmm3
-    mulsd xmm6, xmm0
-    subsd xmm5, xmm6
-    mulsd xmm5, [rel svg_half]
-    movsd xmm6, [rsp + 8]
-    mulsd xmm6, xmm0
-    subsd xmm5, xmm6
-    movsd [rsp], xmm0                   ; [s 0 0 s tx ty]
-    movsd [rsp + 8], xmm7
-    movsd [rsp + 16], xmm7
-    movsd [rsp + 24], xmm0
-    movsd [rsp + 32], xmm4
-    movsd [rsp + 40], xmm5
+    movsd [rbx + S_VW], xmm2
+    movsd [rbx + S_VH], xmm3
+    lea rdi, [rsp + VM_M]
+    lea rsi, [rsp + VM_VB]
+    movsd xmm0, [rsp + VM_W]
+    movsd xmm1, [rsp + VM_H]
+    mov edx, [r15 + P_PAR]
+    call svg_fit
     lea rdi, [rbx + S_M]
     mov rsi, rdi
-    mov rdx, rsp
+    lea rdx, [rsp + VM_M]
     call umath_affine2_multiply
 .out:
-    add rsp, 56
+    add rsp, VM_SIZE
+    pop r13
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_fit — rdi = out f64[6], rsi = viewBox (x, y, w, h; w, h > 0), xmm0 =
+;   width, xmm1 = height, edx = preserveAspectRatio (as UgfxSvg_par):
+;   [sx 0 0 sy tx ty] with sx = W / w, sy = H / h (both min or max of the
+;   two unless align is none), tx = (W - w sx) f - x sx, f = 0, 1/2, 1
+;   for min, mid, max (0 for none); ty the same
+; -----------------------------------------------------------------------------
+svg_fit:
+    movsd xmm2, [rsi + 16]
+    movsd xmm3, [rsi + 24]
+    movapd xmm4, xmm0
+    divsd xmm4, xmm2                    ; sx
+    movapd xmm5, xmm1
+    divsd xmm5, xmm3                    ; sy
+    movzx eax, dl
+    xorpd xmm6, xmm6                    ; fx
+    xorpd xmm7, xmm7                    ; fy
+    test eax, eax
+    jz .scaled
+    test edx, 0x100
+    jnz .slice
+    minsd xmm4, xmm5
+    jmp .uniform
+.slice:
+    maxsd xmm4, xmm5
+.uniform:
+    movapd xmm5, xmm4
+    dec eax
+    xor edx, edx
+    mov ecx, 3
+    div ecx                             ; eax = y index, edx = x index
+    lea rcx, [rel svg_align_f]
+    movsd xmm6, [rcx + rdx * 8]
+    movsd xmm7, [rcx + rax * 8]
+.scaled:
+    ; tx
+    movapd xmm8, xmm2
+    mulsd xmm8, xmm4
+    subsd xmm0, xmm8
+    mulsd xmm0, xmm6
+    movsd xmm8, [rsi]
+    mulsd xmm8, xmm4
+    subsd xmm0, xmm8
+    ; ty
+    movapd xmm8, xmm3
+    mulsd xmm8, xmm5
+    subsd xmm1, xmm8
+    mulsd xmm1, xmm7
+    movsd xmm8, [rsi + 8]
+    mulsd xmm8, xmm5
+    subsd xmm1, xmm8
+    xorpd xmm8, xmm8
+    movsd [rdi], xmm4
+    movsd [rdi + 8], xmm8
+    movsd [rdi + 16], xmm8
+    movsd [rdi + 24], xmm5
+    movsd [rdi + 32], xmm0
+    movsd [rdi + 40], xmm1
+    ret
+
+; rdi / rsi = preserveAspectRatio -> eax = align | slice << 8; anything
+;   invalid gives the default, xMidYMid meet
+svg_par:
+    push r12
+    push r13
+    push r14
+    call ugfx_svg_trim
+    mov r12, rdi
+    mov r13, rsi
+    call .token
+    cmp eax, 30
+    jne .align
+    call .token                         ; defer: ignored
+.align:
+    cmp eax, 10
+    je .none
+    cmp eax, 1
+    jb .default
+    cmp eax, 9
+    ja .default
+    mov r14d, eax
+    jmp .meet
+.none:
+    xor r14d, r14d
+.meet:
+    call .token
+    test eax, eax
+    jz .done                            ; nothing more: meet
+    cmp eax, 20
+    je .end
+    cmp eax, 21
+    jne .default
+    or r14d, 0x100
+.end:
+    call .token
+    test eax, eax
+    jnz .default
+.done:
+    mov eax, r14d
+    jmp .out
+.default:
+    mov eax, PAR_DEFAULT
+.out:
+    pop r14
+    pop r13
+    pop r12
+    ret
+; r12 / r13 = the rest -> eax = the next word's id (0: none left, -1:
+;   unknown), r12 past it
+.token:
+    cmp r12, r13
+    jae .no_token
+    cmp byte [r12], ' '
+    ja .word
+    inc r12
+    jmp .token
+.no_token:
+    xor eax, eax
+    ret
+.word:
+    mov rdi, r12
+.word_end:
+    cmp r12, r13
+    jae .lookup
+    cmp byte [r12], ' '
+    jbe .lookup
+    inc r12
+    jmp .word_end
+.lookup:
+    mov rsi, r12
+    lea rdx, [rel svg_par_words]
+    sub rsp, 8
+    call ugfx_svg_lookup
+    add rsp, 8
+    ret
+
+; r15 = frame, the start tag in P_XML -> eax = 1 when its conditional
+;   attributes pass
+svg_conditions:
+    push r12
+    push r13
+    push r14
+    mov r14d, 1
+    mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
+.attr:
+    lea rdi, [r15 + P_XML]
+    lea rsi, [r15 + P_ATTR]
+    call ugfx_svg_xml_attr
+    test eax, eax
+    jz .done
+    mov rdi, [r15 + P_ATTR + UgfxSvgAttr_name]
+    mov rsi, [r15 + P_ATTR + UgfxSvgAttr_name_end]
+    lea rdx, [rel svg_cond_words]
+    call ugfx_svg_lookup
+    cmp eax, 1
+    je .fail                            ; requiredExtensions: none supported
+    cmp eax, 2
+    jne .attr
+    mov rdi, [r15 + P_ATTR + UgfxSvgAttr_val]
+    mov rsi, [r15 + P_ATTR + UgfxSvgAttr_val_end]
+    call svg_language
+    test eax, eax
+    jnz .attr
+.fail:
+    xor r14d, r14d
+.done:
+    mov eax, r14d
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; rdi / rsi = systemLanguage -> eax = 1 when a comma-separated tag is en or
+;   en-*
+svg_language:
+    push r12
+    push r13
+    sub rsp, 8
+    mov r12, rdi
+    mov r13, rsi
+.tag:
+    mov rdi, r12
+.comma:
+    cmp r12, r13
+    jae .have
+    cmp byte [r12], ','
+    je .have
+    inc r12
+    jmp .comma
+.have:
+    mov rsi, r12
+    call ugfx_svg_trim
+    mov rax, rsi
+    sub rax, rdi
+    cmp rax, 2
+    jb .next
+    movzx ecx, byte [rdi]
+    or ecx, 0x20
+    cmp ecx, 'e'
+    jne .next
+    movzx ecx, byte [rdi + 1]
+    or ecx, 0x20
+    cmp ecx, 'n'
+    jne .next
+    cmp rax, 2
+    je .yes
+    cmp byte [rdi + 2], '-'
+    je .yes
+.next:
+    cmp r12, r13
+    jae .no
+    inc r12                             ; past the comma
+    jmp .tag
+.yes:
+    mov eax, 1
+    jmp .out
+.no:
+    xor eax, eax
+.out:
+    add rsp, 8
     pop r13
     pop r12
     ret
@@ -2363,7 +2701,9 @@ svg_rounded_rect:
 %define V_TMP       64                  ; f64[3]
 %define V_ALPHA     88                  ; u32 the context's alpha on entry
 %define V_DASH      104                 ; UgfxDash
-%define V_SIZE      136
+%define V_M         128                 ; f64[6]
+%define V_M2        176                 ; f64[6]
+%define V_SIZE      232
 
 global ugfx_svg_draw
 ugfx_svg_draw:
@@ -2415,47 +2755,52 @@ ugfx_svg_draw:
     jbe .have_box
     movsd [rsp + V_BOX + 24], xmm0
 .have_box:
-    ; s = size / max(w, h); the box centred in the square
-    movsd xmm4, [rsp + V_BOX + 16]
-    movsd xmm5, [rsp + V_BOX + 24]
-    movapd xmm6, xmm4
-    maxsd xmm6, xmm5
-    movsd xmm2, [rsp + V_TMP + 16]
-    movapd xmm7, xmm2
-    divsd xmm7, xmm6
-    mulsd xmm4, xmm7
-    movapd xmm6, xmm2
-    subsd xmm6, xmm4
-    mulsd xmm6, [rel svg_half]
-    movsd xmm0, [rsp + V_TMP]
-    addsd xmm0, xmm6
-    mulsd xmm5, xmm7
-    movapd xmm6, xmm2
-    subsd xmm6, xmm5
-    mulsd xmm6, [rel svg_half]
-    movsd xmm1, [rsp + V_TMP + 8]
-    addsd xmm1, xmm6
-    movsd [rsp + V_TMP], xmm0
-    movsd [rsp + V_TMP + 8], xmm1
-    movsd [rsp + V_TMP + 16], xmm7
+    ; viewBox and width x height: the viewBox into width x height, that box
+    ; centred in the square; else the box straight into the square
+    mov eax, [rbx + UgfxSvg_has]
+    mov edx, PAR_DEFAULT
+    test eax, 1
+    jz .one_step
+    mov edx, [rbx + UgfxSvg_par]
+    and eax, 6
+    cmp eax, 6
+    jne .one_step
+    xorpd xmm2, xmm2
+    movsd xmm0, [rbx + UgfxSvg_width]
+    ucomisd xmm0, xmm2
+    jbe .one_step
+    movsd xmm1, [rbx + UgfxSvg_height]
+    ucomisd xmm1, xmm2
+    jbe .one_step
+    lea rdi, [rsp + V_M]
+    lea rsi, [rsp + V_BOX]
+    call svg_fit
+    xorpd xmm0, xmm0
+    movsd [rsp + V_BOX], xmm0
+    movsd [rsp + V_BOX + 8], xmm0
+    movsd xmm0, [rbx + UgfxSvg_width]
+    movsd [rsp + V_BOX + 16], xmm0
+    movsd xmm0, [rbx + UgfxSvg_height]
+    movsd [rsp + V_BOX + 24], xmm0
+    lea rdi, [rsp + V_M2]
+    mov edx, PAR_DEFAULT
+    call .square
+    lea rdi, [rsp + V_M]
+    lea rsi, [rsp + V_M2]
+    lea rdx, [rsp + V_M]
+    call umath_affine2_multiply
+    jmp .mapped
+.one_step:
+    lea rdi, [rsp + V_M]
+    call .square
+.mapped:
     mov rdi, r13
     call ugfx_ctx_save
     test rax, rax
     jnz .draw_out
     mov rdi, r13
-    movsd xmm0, [rsp + V_TMP]
-    movsd xmm1, [rsp + V_TMP + 8]
-    call ugfx_ctx_translate
-    mov rdi, r13
-    movsd xmm0, [rsp + V_TMP + 16]
-    movapd xmm1, xmm0
-    call ugfx_ctx_scale
-    xorpd xmm0, xmm0
-    subsd xmm0, [rsp + V_BOX]
-    xorpd xmm1, xmm1
-    subsd xmm1, [rsp + V_BOX + 8]
-    mov rdi, r13
-    call ugfx_ctx_translate
+    lea rsi, [rsp + V_M]
+    call ugfx_ctx_transform
     mov rdi, r13
     xor esi, esi
     call ugfx_ctx_set_dash
@@ -2595,6 +2940,22 @@ ugfx_svg_draw:
 .draw_out:
     add rsp, V_SIZE
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+; rdi = out, edx = preserveAspectRatio: V_BOX fitted into the square,
+;   offset to (x, y) (frame at rsp + 8)
+.square:
+    lea rsi, [rsp + 8 + V_BOX]
+    movsd xmm0, [rsp + 8 + V_TMP + 16]
+    movapd xmm1, xmm0
+    push rdi
+    call svg_fit
+    pop rdi
+    movsd xmm0, [rdi + 32]
+    addsd xmm0, [rsp + 8 + V_TMP]
+    movsd [rdi + 32], xmm0
+    movsd xmm0, [rdi + 40]
+    addsd xmm0, [rsp + 8 + V_TMP + 8]
+    movsd [rdi + 40], xmm0
+    ret
 ; edi = item colour: the context's alpha = entry alpha x its alpha / 255
 ;   (frame at rsp + 8)
 .paint_alpha:
