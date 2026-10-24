@@ -50,6 +50,14 @@
 ; maskContentUnits), and the layer is composited through its luminance,
 ; or its alpha for mask-type="alpha".
 ;
+; fill / stroke "url(#id)" naming a pattern compiles it too (its href
+; chain supplies attributes and content it lacks): the shape is clipped
+; to its fill (or stroke outline) and the pattern's content drawn once
+; per tile that covers it - tile x, y, width, height in patternUnits
+; (objectBoundingBox by default), patternTransform, the content in
+; patternContentUnits or fitted by viewBox / preserveAspectRatio, each
+; tile clipped to itself; at most 4096 tiles, else nothing.
+;
 ; A nested svg and an instanced symbol clip to their viewport (overflow
 ; hidden); the root only with slice, the one mapping that overflows by
 ; itself (its viewport, in viewBox units, is a group's rect clip). Drawing maps the document into the square (x, y, size, size): its
@@ -79,6 +87,7 @@ extern ugfx_ctx_clip_begin
 extern ugfx_ctx_clip_add
 extern ugfx_ctx_clip_end
 extern ugfx_ctx_clip
+extern ugfx_ctx_clip_stroke
 extern ugfx_ctx_begin_mask
 extern ugfx_ctx_end_mask
 extern ugfx_ctx_set_fill_paint
@@ -171,9 +180,12 @@ extern ugfx_ctx_end_layer
 %define E_FOREIGN       14              ; foreignObject: the same
 %define E_CLIPPATH      15              ; drawn only as a clip's content
 %define E_MASK          16              ; drawn only as a mask's content
+%define E_PATTERN       17              ; drawn only as a pattern's tiles
 %define SVG_MAX_CLIPS   4               ; clipPaths / masks compiling inside each other
 %define K_CLIP          2               ; compile kinds (and P_INST for their roots)
 %define K_MASK          3
+%define K_PATTERN       4
+%define SVG_MAX_TILES   4096
 %define SVG_MAX_USES    8               ; <use> instances inside instances
 
 ; geometry slots (f64), with a bit each in P_HAVE
@@ -287,6 +299,17 @@ extern ugfx_ctx_end_layer
 
 %define PAR_DEFAULT     5               ; xMidYMid meet
 
+; svg_compile's frame (svg_pattern_attrs reads its tag through it)
+%define CC_FRAME    0                               ; the frame, P_SIZE bytes
+%define CC_ITEMS    (((P_SIZE + 15) & ~15))         ; the main item list
+%define CC_COUNT    (CC_ITEMS + 8)
+%define CC_CAP      (CC_ITEMS + 12)
+%define CC_XML      (CC_ITEMS + 16)                 ; the element's tag, read again
+%define CC_ATTR     (CC_XML + UgfxSvgXml_SIZE)
+%define CC_RAW      (CC_ATTR + UgfxSvgAttr_SIZE)    ; a mask's x, y, width, height as written
+%define CC_KIND     (CC_RAW + 64)                   ; u32
+%define CC_SIZE     (((CC_KIND + 4 + 15) & ~15) + 8)
+
 section .rodata
 align 8
 svg_one:            dq 1.0
@@ -332,7 +355,7 @@ svg_elements:
     NAME "use", E_USE
     NAME "linearGradient", E_SKIP
     NAME "radialGradient", E_SKIP
-    NAME "pattern", E_SKIP
+    NAME "pattern", E_PATTERN
     NAME "marker", E_SKIP
     NAME "text", E_TEXT
     NAME "switch", E_SWITCH
@@ -441,6 +464,22 @@ svg_mask_attrs:
     NAME "height", 6
     NAME "mask-type", 7
     db 0
+svg_pattern_words:
+    NAME "patternUnits", 1
+    NAME "patternContentUnits", 2
+    NAME "x", 3
+    NAME "y", 4
+    NAME "width", 5
+    NAME "height", 6
+    NAME "patternTransform", 7
+    NAME "viewBox", 8
+    NAME "preserveAspectRatio", 9
+    NAME "href", 10
+    NAME "xlink:href", 10
+    db 0
+svg_zero_text:      db "0"
+align 8
+svg_1_5:            dq 1.5
 svg_word_alpha:     db "alpha"
 svg_m10:            db "-10%"
 svg_120:            db "120%"
@@ -698,6 +737,8 @@ svg_walk:
     je .clip_root
     cmp eax, E_MASK
     je .mask_root
+    cmp eax, E_PATTERN
+    je .pattern_root
     cmp eax, E_SYMBOL
     jne .kind
     mov eax, E_SKIP
@@ -716,6 +757,13 @@ svg_walk:
 .mask_root:
     mov eax, E_SKIP
     cmp ecx, K_MASK
+    jne .kind
+    mov eax, E_GROUP
+    mov dword [r15 + P_CROOT], 1
+    jmp .kind
+.pattern_root:
+    mov eax, E_SKIP
+    cmp ecx, K_PATTERN
     jne .kind
     mov eax, E_GROUP
     mov dword [r15 + P_CROOT], 1
@@ -2451,6 +2499,620 @@ svg_group_bbox:
     movsd [rsp + 8 + BB_BOX + 24], xmm0
     ret
 
+; -----------------------------------------------------------------------------
+; svg_pattern_attrs — r13 = a new UgfxSvgPattern (content compiled), the
+;   pattern's tag in [rsp + 8 + CC_XML] / CC_ATTR (svg_compile's frame),
+;   r15 = frame, rbx = the referencing state: its attributes; an href'd
+;   pattern (compiled first) gives those not given and, without content of
+;   its own, its content. The tile's x, y, width, height are resolved:
+;   fractions (or percentages) of the bbox, else user lengths.
+; -----------------------------------------------------------------------------
+%define PA_RAW      0                   ; x, y, w, h as written
+%define PA_HREF     64                  ; the id an href names (0: none)
+%define PA_HREF_END 72
+%define PA_SIZE     88
+
+svg_pattern_attrs:
+    push r12
+    push r14
+    sub rsp, PA_SIZE
+    %define PA_CC (8 + PA_SIZE + 16)    ; svg_compile's frame, from here
+    mov dword [r13 + UgfxSvgPattern_units], 1
+    mov dword [r13 + UgfxSvgPattern_par], PAR_DEFAULT
+    mov dword [r13 + UgfxSvgPattern_given], 0
+    lea rdi, [r13 + UgfxSvgPattern_matrix]
+    call umath_affine2_identity
+    lea rax, [rel svg_zero_text]
+    xor ecx, ecx
+.raw_default:
+    mov [rsp + PA_RAW + rcx * 8], rax
+    lea rdx, [rax + 1]
+    mov [rsp + PA_RAW + rcx * 8 + 8], rdx
+    add ecx, 2
+    cmp ecx, 8
+    jb .raw_default
+    mov qword [rsp + PA_HREF], 0
+.attr:
+    lea rdi, [rsp + PA_CC + CC_XML]
+    lea rsi, [rsp + PA_CC + CC_ATTR]
+    call ugfx_svg_xml_attr
+    test eax, eax
+    jz .inherit
+    mov rdi, [rsp + PA_CC + CC_ATTR + UgfxSvgAttr_name]
+    mov rsi, [rsp + PA_CC + CC_ATTR + UgfxSvgAttr_name_end]
+    lea rdx, [rel svg_pattern_words]
+    call ugfx_svg_lookup
+    test eax, eax
+    jle .attr
+    mov r14d, eax
+    lea ecx, [rax - 1]
+    bts dword [r13 + UgfxSvgPattern_given], ecx
+    mov rdi, [rsp + PA_CC + CC_ATTR + UgfxSvgAttr_val]
+    mov rsi, [rsp + PA_CC + CC_ATTR + UgfxSvgAttr_val_end]
+    cmp r14d, 3
+    jb .units
+    cmp r14d, 6
+    ja .other
+    lea eax, [r14 - 3]
+    shl eax, 4
+    mov [rsp + PA_RAW + rax], rdi
+    mov [rsp + PA_RAW + rax + 8], rsi
+    jmp .attr
+.units:
+    call ugfx_svg_trim
+    lea rdx, [rel svg_word_obb]
+    mov ecx, 17
+    call svg_word
+    sete al
+    movzx eax, al
+    cmp r14d, 1
+    jne .content_units
+    mov [r13 + UgfxSvgPattern_units], eax
+    jmp .attr
+.content_units:
+    mov [r13 + UgfxSvgPattern_content], eax
+    jmp .attr
+.other:
+    cmp r14d, 7
+    je .transform
+    cmp r14d, 8
+    je .viewbox
+    cmp r14d, 9
+    je .par
+    call ugfx_svg_trim                  ; href: "#id"
+    cmp rdi, rsi
+    jae .attr
+    cmp byte [rdi], '#'
+    jne .attr
+    inc rdi
+    mov [rsp + PA_HREF], rdi
+    mov [rsp + PA_HREF_END], rsi
+    jmp .attr
+.transform:
+    lea rdx, [r13 + UgfxSvgPattern_matrix]
+    call ugfx_svg_transform
+    jmp .attr
+.par:
+    call svg_par
+    mov [r13 + UgfxSvgPattern_par], eax
+    jmp .attr
+.viewbox:
+    mov r12, rdi
+    mov [rsp + PA_RAW + 64 + 16], rsi   ; (past PA_HREF_END: scratch)
+    xor r14d, r14d
+.vb_number:
+    cmp r14d, 4
+    jae .vb_check
+    mov rdi, r12
+    mov rsi, [rsp + PA_RAW + 64 + 16]
+    call ugfx_svg_number
+    test rax, rax
+    jz .vb_bad
+    mov r12, rax
+    movsd [r13 + UgfxSvgPattern_viewbox + r14 * 8], xmm0
+    inc r14d
+    jmp .vb_number
+.vb_check:
+    xorpd xmm1, xmm1
+    movsd xmm0, [r13 + UgfxSvgPattern_viewbox + 16]
+    ucomisd xmm0, xmm1
+    jbe .vb_bad
+    movsd xmm0, [r13 + UgfxSvgPattern_viewbox + 24]
+    ucomisd xmm0, xmm1
+    jbe .vb_bad
+    mov dword [r13 + UgfxSvgPattern_has_vb], 1
+    jmp .attr
+.vb_bad:
+    mov dword [r13 + UgfxSvgPattern_has_vb], 0
+    jmp .attr
+.inherit:
+    ; the tile, resolved here: fractions of the bbox, else user lengths
+    xor r14d, r14d
+.rect_value:
+    cmp r14d, 4
+    jae .href
+    xorpd xmm0, xmm0
+    movsd [r13 + UgfxSvgPattern_rect + r14 * 8], xmm0
+    mov eax, r14d
+    shl eax, 4
+    mov rdi, [rsp + PA_RAW + rax]
+    mov rsi, [rsp + PA_RAW + rax + 8]
+    cmp dword [r13 + UgfxSvgPattern_units], 0
+    je .rect_user
+    push rsi
+    sub rsp, 8
+    call ugfx_svg_number
+    add rsp, 8
+    pop rsi
+    test rax, rax
+    jz .rect_next
+    cmp rax, rsi
+    jae .rect_set
+    cmp byte [rax], '%'
+    jne .rect_set
+    mulsd xmm0, [rel svg_hundredth]
+    jmp .rect_set
+.rect_user:
+    mov edx, r14d
+    and edx, 1
+    call svg_length
+    test rax, rax
+    jz .rect_next
+.rect_set:
+    movsd [r13 + UgfxSvgPattern_rect + r14 * 8], xmm0
+.rect_next:
+    inc r14d
+    jmp .rect_value
+.href:
+    mov rsi, [rsp + PA_HREF]
+    test rsi, rsi
+    jz .square
+    mov rdx, [rsp + PA_HREF_END]
+    mov ecx, K_PATTERN
+    call svg_compile
+    test rax, rax
+    jz .square
+    ; what this pattern did not give, from the one it names
+    mov r12, rax
+    mov r14d, [r13 + UgfxSvgPattern_given]
+    bt r14d, 0
+    jc .h_content_units
+    mov eax, [r12 + UgfxSvgPattern_units]
+    mov [r13 + UgfxSvgPattern_units], eax
+.h_content_units:
+    bt r14d, 1
+    jc .h_rect
+    mov eax, [r12 + UgfxSvgPattern_content]
+    mov [r13 + UgfxSvgPattern_content], eax
+.h_rect:
+    xor ecx, ecx
+.h_rect_value:
+    lea edx, [rcx + 2]
+    bt r14d, edx
+    jc .h_rect_next
+    mov rax, [r12 + UgfxSvgPattern_rect + rcx * 8]
+    mov [r13 + UgfxSvgPattern_rect + rcx * 8], rax
+.h_rect_next:
+    inc ecx
+    cmp ecx, 4
+    jb .h_rect_value
+    bt r14d, 6
+    jc .h_viewbox
+    lea rdi, [r13 + UgfxSvgPattern_matrix]
+    lea rsi, [r12 + UgfxSvgPattern_matrix]
+    mov ecx, 48
+    rep movsb
+.h_viewbox:
+    bt r14d, 7
+    jc .h_par
+    mov eax, [r12 + UgfxSvgPattern_has_vb]
+    mov [r13 + UgfxSvgPattern_has_vb], eax
+    lea rdi, [r13 + UgfxSvgPattern_viewbox]
+    lea rsi, [r12 + UgfxSvgPattern_viewbox]
+    mov ecx, 32
+    rep movsb
+.h_par:
+    bt r14d, 8
+    jc .h_content
+    mov eax, [r12 + UgfxSvgPattern_par]
+    mov [r13 + UgfxSvgPattern_par], eax
+.h_content:
+    cmp dword [r13 + UgfxSvgPattern_count], 0
+    jne .square
+    mov rax, [r12 + UgfxSvgPattern_items]
+    mov [r13 + UgfxSvgPattern_items], rax
+    mov eax, [r12 + UgfxSvgPattern_count]
+    mov [r13 + UgfxSvgPattern_count], eax
+.square:
+    lea rdi, [r13 + UgfxSvgPattern_path]
+    mov rax, [r15 + P_SVG]
+    mov rsi, [rax + UgfxSvg_arena]
+    call ugfx_path_init
+    test rax, rax
+    jnz .nomem
+    lea rdi, [r13 + UgfxSvgPattern_path]
+    xorpd xmm0, xmm0
+    xorpd xmm1, xmm1
+    movsd xmm2, [rel svg_one]
+    movapd xmm3, xmm2
+    call ugfx_path_add_rect
+    test rax, rax
+    jz .out
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.out:
+    add rsp, PA_SIZE
+    pop r14
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_pattern_paint — rdi = UgfxSvgPattern*, rsi = the item (its bbox), edx
+;   = 0 fill / 1 stroke, ecx = the paint's alpha, r13 = the context, rbp =
+;   ugfx_svg_draw's frame; the context already clipped to the fill or the stroke outline,
+;   in the item's space -> rax = 0 or a context error: the tiles that cover
+;   the shape (its bbox, grown for a stroke), each clipped to itself, in a
+;   layer at that alpha
+; -----------------------------------------------------------------------------
+%define PP_TB       0                   ; f64[6] the context's transform: the item's space
+%define PP_INV      48                  ; f64[6] patternTransform inverted
+%define PP_M        96                  ; f64[6] one tile's translation
+%define PP_S        144                 ; f64[6] the tile's size / the content's transform
+%define PP_R        192                 ; f64[4] the tile in user space
+%define PP_C        224                 ; f64[4] what must be covered, user space
+%define PP_P        256                 ; f64[4] the same in pattern space
+%define PP_I0       288                 ; i32 tile indices: columns i0 .. i1 - 1
+%define PP_I1       292
+%define PP_J0       296
+%define PP_J1       300
+%define PP_I        304
+%define PP_J        308
+%define PP_STROKE   312                 ; u32
+%define PP_ALPHA    316                 ; u32
+%define PP_ANY      320                 ; u32 a corner seen
+%define PP_SIZE     336
+
+svg_pattern_paint:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, PP_SIZE
+    mov rbx, rdi
+    mov r12, rsi
+    mov [rsp + PP_STROKE], edx
+    mov [rsp + PP_ALPHA], ecx           ; (r13: the context, as svg_draw_list has it)
+    xor r15d, r15d                      ; a layer opened
+    xor r14d, r14d                      ; the result
+    cmp dword [rbx + UgfxSvgPattern_count], 0
+    je .out
+    ; the tile: in the bbox's units, or as it is
+    movsd xmm4, [r12 + UgfxSvgItem_bbox + 16]
+    subsd xmm4, [r12 + UgfxSvgItem_bbox]           ; bw
+    movsd xmm5, [r12 + UgfxSvgItem_bbox + 24]
+    subsd xmm5, [r12 + UgfxSvgItem_bbox + 8]       ; bh
+    movsd xmm0, [rbx + UgfxSvgPattern_rect]
+    movsd xmm1, [rbx + UgfxSvgPattern_rect + 8]
+    movsd xmm2, [rbx + UgfxSvgPattern_rect + 16]
+    movsd xmm3, [rbx + UgfxSvgPattern_rect + 24]
+    cmp dword [rbx + UgfxSvgPattern_units], 0
+    je .rect
+    mulsd xmm0, xmm4
+    addsd xmm0, [r12 + UgfxSvgItem_bbox]
+    mulsd xmm1, xmm5
+    addsd xmm1, [r12 + UgfxSvgItem_bbox + 8]
+    mulsd xmm2, xmm4
+    mulsd xmm3, xmm5
+.rect:
+    movsd [rsp + PP_R], xmm0
+    movsd [rsp + PP_R + 8], xmm1
+    movsd [rsp + PP_R + 16], xmm2
+    movsd [rsp + PP_R + 24], xmm3
+    xorpd xmm6, xmm6
+    ucomisd xmm2, xmm6
+    jbe .out
+    ucomisd xmm3, xmm6
+    jbe .out
+    ; what to cover: the bbox, grown by (width x max(miter, 1.5)) / 2 for a stroke
+    xor ecx, ecx
+.cover:
+    mov rax, [r12 + UgfxSvgItem_bbox + rcx * 8]
+    mov [rsp + PP_C + rcx * 8], rax
+    inc ecx
+    cmp ecx, 4
+    jb .cover
+    cmp dword [rsp + PP_STROKE], 0
+    je .covered
+    movsd xmm0, [r12 + UgfxSvgItem_miter]
+    maxsd xmm0, [rel svg_1_5]
+    movsd xmm1, [r12 + UgfxSvgItem_width]
+    mulsd xmm1, xmm0
+    mulsd xmm1, [rel svg_half]
+    movsd xmm0, [rsp + PP_C]
+    subsd xmm0, xmm1
+    movsd [rsp + PP_C], xmm0
+    movsd xmm0, [rsp + PP_C + 8]
+    subsd xmm0, xmm1
+    movsd [rsp + PP_C + 8], xmm0
+    movsd xmm0, [rsp + PP_C + 16]
+    addsd xmm0, xmm1
+    movsd [rsp + PP_C + 16], xmm0
+    movsd xmm0, [rsp + PP_C + 24]
+    addsd xmm0, xmm1
+    movsd [rsp + PP_C + 24], xmm0
+.covered:
+    ; into pattern space: the corners through patternTransform's inverse
+    lea rdi, [rsp + PP_INV]
+    lea rsi, [rbx + UgfxSvgPattern_matrix]
+    call umath_affine2_invert
+    test eax, eax
+    jnz .out
+    mov dword [rsp + PP_ANY], 0
+    movsd xmm0, [rsp + PP_C]
+    movsd xmm1, [rsp + PP_C + 8]
+    call .corner
+    movsd xmm0, [rsp + PP_C + 16]
+    movsd xmm1, [rsp + PP_C + 8]
+    call .corner
+    movsd xmm0, [rsp + PP_C]
+    movsd xmm1, [rsp + PP_C + 24]
+    call .corner
+    movsd xmm0, [rsp + PP_C + 16]
+    movsd xmm1, [rsp + PP_C + 24]
+    call .corner
+    ; i0 = floor((px0 - x) / w), i1 = ceil((px1 - x) / w), the same for j
+    movsd xmm0, [rsp + PP_P]
+    subsd xmm0, [rsp + PP_R]
+    divsd xmm0, [rsp + PP_R + 16]
+    call .floor
+    jc .out
+    mov [rsp + PP_I0], eax
+    movsd xmm0, [rsp + PP_P + 16]
+    subsd xmm0, [rsp + PP_R]
+    divsd xmm0, [rsp + PP_R + 16]
+    call .ceil
+    jc .out
+    mov [rsp + PP_I1], eax
+    movsd xmm0, [rsp + PP_P + 8]
+    subsd xmm0, [rsp + PP_R + 8]
+    divsd xmm0, [rsp + PP_R + 24]
+    call .floor
+    jc .out
+    mov [rsp + PP_J0], eax
+    movsd xmm0, [rsp + PP_P + 24]
+    subsd xmm0, [rsp + PP_R + 8]
+    divsd xmm0, [rsp + PP_R + 24]
+    call .ceil
+    jc .out
+    mov [rsp + PP_J1], eax
+    mov eax, [rsp + PP_I1]
+    sub eax, [rsp + PP_I0]
+    jle .out
+    mov ecx, [rsp + PP_J1]
+    sub ecx, [rsp + PP_J0]
+    jle .out
+    cmp eax, SVG_MAX_TILES
+    ja .out
+    cmp ecx, SVG_MAX_TILES
+    ja .out
+    imul eax, ecx
+    cmp eax, SVG_MAX_TILES
+    ja .out
+    ; a layer for the paint's alpha
+    cmp dword [rsp + PP_ALPHA], 255
+    jae .no_layer
+    mov rdi, r13
+    mov esi, [rsp + PP_ALPHA]
+    call ugfx_ctx_begin_layer
+    mov r14, rax
+    test rax, rax
+    jnz .out
+    mov r15d, 1
+.no_layer:
+    xor ecx, ecx
+.keep_tb:
+    mov rax, [r13 + UgfxContext_state + UgfxState_transform + rcx * 8]
+    mov [rsp + PP_TB + rcx * 8], rax
+    inc ecx
+    cmp ecx, 6
+    jb .keep_tb
+    mov eax, [rsp + PP_J0]
+    mov [rsp + PP_J], eax
+.row:
+    mov eax, [rsp + PP_J]
+    cmp eax, [rsp + PP_J1]
+    jge .done
+    mov eax, [rsp + PP_I0]
+    mov [rsp + PP_I], eax
+.tile:
+    mov eax, [rsp + PP_I]
+    cmp eax, [rsp + PP_I1]
+    jge .next_row
+    ; translate(x + i w, y + j h)
+    xorpd xmm7, xmm7
+    movsd xmm6, [rel svg_one]
+    movsd [rsp + PP_M], xmm6
+    movsd [rsp + PP_M + 8], xmm7
+    movsd [rsp + PP_M + 16], xmm7
+    movsd [rsp + PP_M + 24], xmm6
+    cvtsi2sd xmm0, dword [rsp + PP_I]
+    mulsd xmm0, [rsp + PP_R + 16]
+    addsd xmm0, [rsp + PP_R]
+    movsd [rsp + PP_M + 32], xmm0
+    cvtsi2sd xmm0, dword [rsp + PP_J]
+    mulsd xmm0, [rsp + PP_R + 24]
+    addsd xmm0, [rsp + PP_R + 8]
+    movsd [rsp + PP_M + 40], xmm0
+    mov rdi, r13
+    call ugfx_ctx_save
+    test rax, rax
+    jnz .fail
+    ; clipped to the tile
+    call .tile_space
+    movsd xmm0, [rsp + PP_R + 16]
+    movsd xmm1, [rsp + PP_R + 24]
+    xorpd xmm2, xmm2
+    movsd [rsp + PP_S], xmm0
+    movsd [rsp + PP_S + 8], xmm2
+    movsd [rsp + PP_S + 16], xmm2
+    movsd [rsp + PP_S + 24], xmm1
+    movsd [rsp + PP_S + 32], xmm2
+    movsd [rsp + PP_S + 40], xmm2
+    mov rdi, r13
+    lea rsi, [rsp + PP_S]
+    call ugfx_ctx_transform
+    mov rdi, r13
+    lea rsi, [rbx + UgfxSvgPattern_path]
+    call ugfx_ctx_clip
+    test rax, rax
+    jnz .tile_fail
+    ; the content: fitted by the viewBox, or in bbox units, or as it is
+    call .tile_space
+    cmp dword [rbx + UgfxSvgPattern_has_vb], 0
+    je .no_vb
+    lea rdi, [rsp + PP_S]
+    lea rsi, [rbx + UgfxSvgPattern_viewbox]
+    movsd xmm0, [rsp + PP_R + 16]
+    movsd xmm1, [rsp + PP_R + 24]
+    mov edx, [rbx + UgfxSvgPattern_par]
+    call svg_fit
+    jmp .content_m
+.no_vb:
+    cmp dword [rbx + UgfxSvgPattern_content], 0
+    je .content
+    movsd xmm0, [r12 + UgfxSvgItem_bbox + 16]
+    subsd xmm0, [r12 + UgfxSvgItem_bbox]
+    movsd xmm1, [r12 + UgfxSvgItem_bbox + 24]
+    subsd xmm1, [r12 + UgfxSvgItem_bbox + 8]
+    xorpd xmm2, xmm2
+    movsd [rsp + PP_S], xmm0
+    movsd [rsp + PP_S + 8], xmm2
+    movsd [rsp + PP_S + 16], xmm2
+    movsd [rsp + PP_S + 24], xmm1
+    movsd [rsp + PP_S + 32], xmm2
+    movsd [rsp + PP_S + 40], xmm2
+.content_m:
+    mov rdi, r13
+    lea rsi, [rsp + PP_S]
+    call ugfx_ctx_transform
+.content:
+    mov rdi, [rbx + UgfxSvgPattern_items]
+    mov esi, [rbx + UgfxSvgPattern_count]
+    call svg_draw_list
+    test rax, rax
+    jnz .tile_fail
+    mov rdi, r13
+    call ugfx_ctx_restore
+    inc dword [rsp + PP_I]
+    jmp .tile
+.next_row:
+    inc dword [rsp + PP_J]
+    jmp .row
+.tile_fail:
+    mov r14, rax
+    mov rdi, r13
+    call ugfx_ctx_restore
+    jmp .done
+.fail:
+    mov r14, rax
+.done:
+    test r15d, r15d
+    jz .out
+    mov rdi, r13
+    call ugfx_ctx_end_layer
+    test r14, r14
+    jnz .out
+    mov r14, rax
+.out:
+    mov rax, r14
+    add rsp, PP_SIZE
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+; the item's space x patternTransform x the tile's translation (frame at
+;   rsp + 8)
+.tile_space:
+    sub rsp, 8
+    mov rdi, r13
+    lea rsi, [rsp + 16 + PP_TB]
+    call ugfx_ctx_set_transform
+    mov rdi, r13
+    lea rsi, [rbx + UgfxSvgPattern_matrix]
+    call ugfx_ctx_transform
+    mov rdi, r13
+    lea rsi, [rsp + 16 + PP_M]
+    call ugfx_ctx_transform
+    add rsp, 8
+    ret
+; xmm0 / xmm1 = a point: through PP_INV into PP_P's union (frame at rsp + 8)
+.corner:
+    movsd xmm2, [rsp + 8 + PP_INV]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + 8 + PP_INV + 16]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    addsd xmm2, [rsp + 8 + PP_INV + 32]
+    movsd xmm4, [rsp + 8 + PP_INV + 8]
+    mulsd xmm4, xmm0
+    movsd xmm3, [rsp + 8 + PP_INV + 24]
+    mulsd xmm3, xmm1
+    addsd xmm4, xmm3
+    addsd xmm4, [rsp + 8 + PP_INV + 40]
+    cmp dword [rsp + 8 + PP_ANY], 0
+    jne .grow
+    mov dword [rsp + 8 + PP_ANY], 1
+    movsd [rsp + 8 + PP_P], xmm2
+    movsd [rsp + 8 + PP_P + 8], xmm4
+    movsd [rsp + 8 + PP_P + 16], xmm2
+    movsd [rsp + 8 + PP_P + 24], xmm4
+    ret
+.grow:
+    movsd xmm0, [rsp + 8 + PP_P]
+    minsd xmm0, xmm2
+    movsd [rsp + 8 + PP_P], xmm0
+    movsd xmm0, [rsp + 8 + PP_P + 8]
+    minsd xmm0, xmm4
+    movsd [rsp + 8 + PP_P + 8], xmm0
+    movsd xmm0, [rsp + 8 + PP_P + 16]
+    maxsd xmm0, xmm2
+    movsd [rsp + 8 + PP_P + 16], xmm0
+    movsd xmm0, [rsp + 8 + PP_P + 24]
+    maxsd xmm0, xmm4
+    movsd [rsp + 8 + PP_P + 24], xmm0
+    ret
+; xmm0 -> eax = floor / ceil, CF set when |xmm0| is beyond 2^30 (or NaN)
+.ceil:
+    xorpd xmm1, xmm1
+    subsd xmm1, xmm0
+    movapd xmm0, xmm1
+    call .floor
+    jc .ceil_out
+    neg eax
+    clc
+.ceil_out:
+    ret
+.floor:
+    movsd xmm1, xmm0
+    andpd xmm1, [rel svg_abs_mask]
+    ucomisd xmm1, [rel svg_2p30]
+    jp .too_far                         ; NaN
+    jae .too_far
+    cvttsd2si eax, xmm0
+    cvtsi2sd xmm1, eax
+    ucomisd xmm1, xmm0
+    jbe .floored
+    dec eax
+.floored:
+    clc
+    ret
+.too_far:
+    stc
+    ret
+
 ; rsi = a BEGIN item, rdi = where its END goes: kind END, everything else
 ;   (alpha, clip, mask, matrix, bbox) as the BEGIN has it
 svg_end_from:
@@ -2517,15 +3179,7 @@ svg_url_ref:
 ;   and font-size) into an item list of its own - a clip's in clip mode,
 ;   geometry only - with every frame field kept.
 ; -----------------------------------------------------------------------------
-%define CC_FRAME    0                               ; the frame, P_SIZE bytes
-%define CC_ITEMS    (((P_SIZE + 15) & ~15))         ; the main item list
-%define CC_COUNT    (CC_ITEMS + 8)
-%define CC_CAP      (CC_ITEMS + 12)
-%define CC_XML      (CC_ITEMS + 16)                 ; the element's tag, read again
-%define CC_ATTR     (CC_XML + UgfxSvgXml_SIZE)
-%define CC_RAW      (CC_ATTR + UgfxSvgAttr_SIZE)    ; a mask's x, y, width, height as written
-%define CC_KIND     (CC_RAW + 64)                   ; u32
-%define CC_SIZE     (((CC_KIND + 4 + 15) & ~15) + 8)
+; (svg_compile's frame: CC_* with the parser frame's layout, above)
 
 svg_compile:
     push r12
@@ -2552,6 +3206,8 @@ svg_compile:
     ja .out
     cmp dword [rsp + CC_KIND], K_MASK
     je .want_mask
+    cmp dword [rsp + CC_KIND], K_PATTERN
+    je .want_pattern
     mov rdx, 'clipPath'
     cmp [r12 + 1], rdx
     jne .out
@@ -2563,6 +3219,14 @@ svg_compile:
     jne .out
     movzx eax, byte [r12 + 5]
     mov esi, UgfxSvgMask_SIZE
+    jmp .name_end
+.want_pattern:
+    cmp dword [r12 + 1], 'patt'
+    jne .out
+    cmp dword [r12 + 4], 'tern'
+    jne .out
+    movzx eax, byte [r12 + 8]
+    mov esi, UgfxSvgPattern_SIZE
 .name_end:
     cmp al, '>'
     je .is_it
@@ -2657,6 +3321,8 @@ svg_compile:
     mov qword [rsp + CC_ATTR + UgfxSvgAttr_cur], 0
     cmp dword [rsp + CC_KIND], K_MASK
     je .mask_attrs
+    cmp dword [rsp + CC_KIND], K_PATTERN
+    je .pattern_attrs
 .attr:
     lea rdi, [rsp + CC_XML]
     lea rsi, [rsp + CC_ATTR]
@@ -2801,6 +3467,9 @@ svg_compile:
 .region_next:
     inc r14d
     jmp .region_value
+.pattern_attrs:
+    call svg_pattern_attrs
+    jmp .done
 .unit_square:
     lea rdi, [r13 + UgfxSvgMask_path]
     mov rax, [r15 + P_SVG]
@@ -3197,6 +3866,16 @@ svg_shape:
     movsd xmm0, [rbx + S_STROKE_OP]
     call svg_bake_alpha
     mov [r12 + UgfxSvgItem_stroke], eax
+    ; a pattern's tiles are placed by the shape's bounds
+    cmp dword [r12 + UgfxSvgItem_fill_kind], 4
+    je .pattern_bounds
+    cmp dword [r12 + UgfxSvgItem_stroke_kind], 4
+    jne .bounded
+.pattern_bounds:
+    lea rdi, [r12 + UgfxSvgItem_path]
+    lea rsi, [r12 + UgfxSvgItem_bbox]
+    call ugfx_path_bounds_tight
+.bounded:
     mov eax, [rbx + S_RULE]
     mov [r12 + UgfxSvgItem_rule], eax
     mov eax, [rbx + S_JOIN]
@@ -3360,6 +4039,28 @@ svg_resolve:
     mov edx, 0xFF000000
     jmp .out
 .fallback:
+    ; a pattern by that id?
+    mov rsi, [rbx + S_FILL_ID]
+    mov rdx, [rbx + S_FILL_ID_END]
+    test r13d, r13d
+    jz .pattern
+    mov rsi, [rbx + S_STROKE_ID]
+    mov rdx, [rbx + S_STROKE_ID_END]
+.pattern:
+    mov ecx, K_PATTERN
+    call svg_compile
+    test rax, rax
+    jz .no_pattern
+    lea rcx, [r12 + UgfxSvgItem_fill_paint]
+    test r13d, r13d
+    jz .pattern_slot
+    lea rcx, [r12 + UgfxSvgItem_stroke_paint]
+.pattern_slot:
+    mov [rcx], rax
+    mov eax, 4
+    mov edx, 0xFF000000
+    jmp .out
+.no_pattern:
     mov eax, [rbx + S_FILL_FB]
     mov edx, [rbx + S_FILL]
     test r13d, r13d
@@ -3913,9 +4614,10 @@ ugfx_svg_draw:
 
 ; -----------------------------------------------------------------------------
 ; svg_draw_list — rdi = UgfxSvgItem[], esi = count, rbp = ugfx_svg_draw's
-;   frame (DRAW: the context, the current colour, the document's
-;   transform) -> rax = 0 or a context error, every level it opened closed.
-;   Re-entrant: a mask's content is drawn through it.
+;   frame (DRAW: the context, the current colour) -> rax = 0 or a context
+;   error, every level it opened closed. Items' matrices are relative to
+;   the context's transform when it begins. Re-entrant: a mask's content
+;   and a pattern's tiles are drawn through it.
 ; -----------------------------------------------------------------------------
 %define L_COUNT     0                   ; u32
 %define L_OPEN      4                   ; u32 context levels BEGINs opened
@@ -3924,7 +4626,8 @@ ugfx_svg_draw:
 %define L_STYLE     16                  ; UgfxStroke
 %define L_DASH      40                  ; UgfxDash
 %define L_M2        64                  ; f64[6]
-%define L_SIZE      112
+%define L_T         112                 ; f64[6] the context's transform when the list began
+%define L_SIZE      160
 
 svg_draw_list:
     push rbx
@@ -3937,6 +4640,13 @@ svg_draw_list:
     mov [rsp + L_COUNT], esi
     mov dword [rsp + L_OPEN], 0
     mov r13, [DRAW(V_CTX)]
+    xor ecx, ecx
+.keep_t:
+    mov rax, [r13 + UgfxContext_state + UgfxState_transform + rcx * 8]
+    mov [rsp + L_T + rcx * 8], rax      ; the items' matrices start from here
+    inc ecx
+    cmp ecx, 6
+    jb .keep_t
     xor r14d, r14d
 .item:
     cmp r14d, [rsp + L_COUNT]
@@ -3970,6 +4680,8 @@ svg_draw_list:
     mov eax, [r12 + UgfxSvgItem_fill_kind]
     test eax, eax
     jz .pass
+    cmp eax, 4
+    je .fill_pattern
     cmp eax, 3
     jne .fill_colour
     mov rdi, r13
@@ -4002,6 +4714,8 @@ svg_draw_list:
     mov eax, [r12 + UgfxSvgItem_stroke_kind]
     test eax, eax
     jz .pass
+    cmp eax, 4
+    je .stroke_style
     cmp eax, 3
     jne .stroke_colour
     mov rdi, r13
@@ -4044,9 +4758,57 @@ svg_draw_list:
     lea rsi, [rsp + L_DASH]
     call ugfx_ctx_set_dash
 .solid:
+    cmp dword [r12 + UgfxSvgItem_stroke_kind], 4
+    je .stroke_pattern
     mov rdi, r13
     lea rsi, [r12 + UgfxSvgItem_path]
     call ugfx_ctx_stroke
+    test rax, rax
+    jnz .item_fail
+    jmp .pass
+.fill_pattern:
+    ; clipped to the fill, then the tiles
+    mov rdi, r13
+    call ugfx_ctx_save
+    test rax, rax
+    jnz .item_fail
+    mov rdi, r13
+    mov esi, [r12 + UgfxSvgItem_rule]
+    call ugfx_ctx_set_fill_rule
+    mov rdi, r13
+    lea rsi, [r12 + UgfxSvgItem_path]
+    call ugfx_ctx_clip
+    test rax, rax
+    jnz .pattern_fail
+    mov rdi, [r12 + UgfxSvgItem_fill_paint]
+    xor edx, edx
+    mov ecx, [r12 + UgfxSvgItem_fill]
+    jmp .pattern_tiles
+.stroke_pattern:
+    ; clipped to the stroke's outline, then the tiles
+    mov rdi, r13
+    call ugfx_ctx_save
+    test rax, rax
+    jnz .item_fail
+    mov rdi, r13
+    lea rsi, [r12 + UgfxSvgItem_path]
+    call ugfx_ctx_clip_stroke
+    test rax, rax
+    jnz .pattern_fail
+    mov rdi, [r12 + UgfxSvgItem_stroke_paint]
+    mov edx, 1
+    mov ecx, [r12 + UgfxSvgItem_stroke]
+.pattern_tiles:
+    shr ecx, 24                         ; the paint's alpha
+    mov rsi, r12
+    call svg_pattern_paint
+.pattern_fail:
+    push rax
+    sub rsp, 8
+    mov rdi, r13
+    call ugfx_ctx_restore
+    add rsp, 8
+    pop rax
     test rax, rax
     jnz .item_fail
     jmp .pass
@@ -4131,7 +4893,7 @@ svg_draw_list:
     jmp .clip_rec
 .clipped:
     mov rdi, r13
-    lea rsi, [DRAW(V_T)]
+    lea rsi, [rsp + L_T]
     call ugfx_ctx_set_transform
 .begin_layer:
     ; a layer for opacity or a mask
@@ -4293,11 +5055,11 @@ svg_draw_list:
     pop rbx
     ret
 
-; the context's transform = the document's x the item's matrix (r12)
+; the context's transform = the list's x the item's matrix (r12)
 .element_space:
     sub rsp, 8
     mov rdi, r13
-    lea rsi, [DRAW(V_T)]
+    lea rsi, [rsp + 16 + L_T]
     call ugfx_ctx_set_transform
     mov rdi, r13
     lea rsi, [r12 + UgfxSvgItem_matrix]
@@ -4387,6 +5149,9 @@ svg_draw_list:
 
 section .rodata
 svg_hundredth:      dq 0.01
+svg_2p30:           dq 1073741824.0
+align 16
+svg_abs_mask:       dq 0x7FFFFFFFFFFFFFFF, 0
 
 section .data
 global ugfx_svg_version
