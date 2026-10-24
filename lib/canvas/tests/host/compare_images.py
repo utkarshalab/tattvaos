@@ -148,6 +148,21 @@ def bmp_variants(add, rng):
                                                  comp=2, palette=pal[:16]))
 
 
+def write_farbfeld(path, im):
+    """16-bit RGBA, big endian; each 8-bit value doubled (v * 257) so it maps back exactly."""
+    rgba = np.asarray(im.convert("RGBA")).astype(np.uint32)
+    h, w = rgba.shape[:2]
+    with open(path, "wb") as f:
+        f.write(b"farbfeld" + struct.pack(">II", w, h) + (rgba * 257).astype(">u2").tobytes())
+
+
+def read_farbfeld(path):
+    with open(path, "rb") as f:
+        data = f.read()
+    w, h = struct.unpack_from(">II", data, 8)
+    return (np.frombuffer(data, ">u2", offset=16).reshape(h, w, 4) >> 8).astype(np.int64)
+
+
 def build_corpus(d):
     cases = []
 
@@ -198,6 +213,7 @@ def build_corpus(d):
     bmp_variants(add, random.Random(7))
     add("image.tga", "exact", lambda p: im.save(p, "TGA"))
     add("image.ppm", "exact", lambda p: im.save(p, "PPM"))
+    add("image.ff", "exact", lambda p: write_farbfeld(p, ima))
     return cases
 
 
@@ -216,7 +232,10 @@ def canvas_decode(tool, path, out):
 
 
 def reference_decode(path):
-    ref = np.asarray(Image.open(path).convert("RGBA")).astype(np.int64)
+    if path.endswith(".ff"):
+        ref = read_farbfeld(path)
+    else:
+        ref = np.asarray(Image.open(path).convert("RGBA")).astype(np.int64)
     t = ref[..., :3] * ref[..., 3:4] + 128
     ref[..., :3] = (t + (t >> 8)) >> 8
     return ref
