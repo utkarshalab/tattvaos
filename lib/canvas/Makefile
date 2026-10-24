@@ -105,6 +105,7 @@ GFX_SRCS := \
     $(UGFX_DIR)/2d/uic.asm \
     $(UGFX_DIR)/2d/svg_syntax.asm \
     $(UGFX_DIR)/2d/svg_xml.asm \
+    $(UGFX_DIR)/2d/svg_defs.asm \
     $(UGFX_DIR)/2d/svg.asm
 GFX_OBJS := $(patsubst $(UGFX_DIR)/%.asm,$(OBJDIR)/ugfx/%.o,$(GFX_SRCS))
 
@@ -490,6 +491,9 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.asm
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -o $@ $<
 	@echo "  ASM    $<"
+
+# the umath unit %includes lib/umath sources: rebuild it when they change
+$(OBJDIR)/ugfx/core/umath_unit.o: $(wildcard ../umath/geom/*.asm ../umath/math_fn/*.asm ../umath/scalar/*.asm)
 
 # the built-in UI icons are embedded with incbin
 $(OBJDIR)/shell/icons.o: assets/icons/ui.uic
