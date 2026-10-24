@@ -34,10 +34,9 @@ lib/ugfx/
 └── 2d/                   ← 2D shapes and paths
     ├── line.asm          ← line segments
     ├── circle.asm        ← circles and ellipses
-    ├── polygon.asm       ← polygons (assembles; not yet built or tested)
-    ├── arc.asm           ← not built: needs sin/cos from lib/umath
-    ├── path.asm          ← not built: superseded by the path engine below
-    └── rounded_rect.asm  ← not built: superseded by the path engine below
+    ├── polygon.asm       ← aliased polygons (assembles; not yet built or tested)
+    ├── path.asm          ← paths: lines, quads, cubics, transform, bounds, flattening
+    └── shapes.asm        ← rect, rounded rect, ellipse, circle, arc, pie, ring sector, polygon, star
 ```
 
 ## 2. Planned
@@ -45,7 +44,7 @@ lib/ugfx/
 | Area | Contents |
 |---|---|
 | `core/` | Clip masks and more span operations (gradients, images) for the span compositor; draw-command lists for CPU and GPU backends |
-| `2d/` | Paths (move, line, quadratic, cubic, arc, close), tolerance-based flattening, nonzero and even-odd fills, strokes (joins, caps, dashes), gradients, patterns |
+| `2d/` | Strokes (joins, caps, dashes), gradients, patterns, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
 | `3d/` | Meshes, vertex transform, clipping, triangle setup, depth test, shading, textures |
 | `backend/` | CPU (scalar and SIMD) now; GPU later through Canvas's command rings |
 | `tests/` | Host-run tests against a reference renderer and golden images |
@@ -67,7 +66,21 @@ Tests: `make host-check` builds `tests/host/host_raster` and runs
 `tests/host/raster_check.py`, which compares 72 shape/rule cases against an
 independent 256-sub-scanline reference and checks compositing exactly.
 
-## 4. Using it
+## 4. Paths
+
+`ugfx_path_*` builds contours in f64 user space (`move_to`, `line_to`,
+`quad_to`, `cubic_to`, `close`, plus the shape builders in `2d/shapes.asm`),
+transforms them, and `ugfx_path_rasterize` feeds them to a `UgfxRaster`
+with an optional matrix and a tolerance in device pixels. Curves are
+transformed first, then flattened into Wang's segment count, so the error
+bound holds at any zoom. Arcs and rounded shapes are cubics from
+`lib/umath/geom/arc`. `core/umath_unit.asm` links the umath code ugfx uses
+as one object.
+
+Tests: `tests/host/path_check.py` runs 36 path, shape and transform cases
+against a model built from exact geometry, plus invalid-input cases.
+
+## 5. Using it
 
 Assemble with `-I lib/ugfx/include/` and include `ugfx.inc`. Functions follow
 the System V register order and return negative error codes. Allocating
