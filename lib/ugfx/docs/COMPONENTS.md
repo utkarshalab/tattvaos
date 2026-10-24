@@ -77,11 +77,11 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
 | C2D-040 | Solid colour | P2 | ✓ `core/span` | |
-| C2D-041 | Linear gradients | P2 | | 054 |
-| C2D-042 | Radial gradients (with focal point) | P2 | | 054 |
-| C2D-043 | Conic (sweep) gradients | P3 | | 054 |
+| C2D-041 | Linear gradients | P2 | ✓ `2d/paint` | 054 |
+| C2D-042 | Radial gradients (with focal point) | P2 | ◐ `2d/paint` centred; focal and two-point pending | 054 |
+| C2D-043 | Conic (sweep) gradients | P3 | ✓ `2d/paint` | 054 |
 | C2D-044 | Mesh and diamond gradients | P4 | | 054 |
-| C2D-045 | Stops, spread modes, interpolation (sRGB, linear, OKLab) | P2 | | 041 |
+| C2D-045 | Stops, spread modes, interpolation (sRGB, linear, OKLab) | P2 | ◐ stops, pad/repeat/reflect, premultiplied sRGB; linear and OKLab pending | 041 |
 | C2D-046 | Image patterns (repeat, mirror, clamp, filtered) | P2 | | 062 |
 | C2D-047 | Shader composition | P3 | | 041, 046 |
 | C2D-048 | Gradient dithering | P3 | | 041 |
@@ -95,7 +95,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | C2D-051 | Non-separable blend modes (hue, saturation, colour, luminosity) | P3 | | 049 |
 | C2D-052 | Group opacity and layers | P2 | | 087 |
 | C2D-053 | SIMD paths (SSE2, AVX2, AVX-512) | P3 | ◐ `core/blend_*` | 049 |
-| C2D-054 | Span compositor variants (solid, gradient, image, mask) | P2 | ◐ solid in `core/span` | 040 |
+| C2D-054 | Span compositor variants (solid, gradient, image, mask) | P2 | ◐ solid and per-pixel colours in `core/span`, paint spans; mask pending | 040 |
 
 ## 8. Clipping and masking
 
