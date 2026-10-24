@@ -356,7 +356,19 @@ extern panic_null_ptr
 %define UgfxSvgDefs_grads       8       ; gradient records
 %define UgfxSvgDefs_count       16      ; u32
 %define UgfxSvgDefs_cap         20      ; u32
-%define UgfxSvgDefs_SIZE        24
+%define UgfxSvgDefs_rules       24      ; CSS rules from <style>, in cascade order
+%define UgfxSvgDefs_nrules      32      ; u32
+%define UgfxSvgDefs_rulecap     36      ; u32
+%define UgfxSvgDefs_SIZE        40
+
+; An element as CSS selectors see it (2d/svg_defs.asm, ugfx_svg_defs_rule)
+%define UgfxSvgSel_name         0       ; element name
+%define UgfxSvgSel_name_end     8
+%define UgfxSvgSel_id           16      ; its id attribute (0 = none)
+%define UgfxSvgSel_id_end       24
+%define UgfxSvgSel_class        32      ; its class attribute (0 = none)
+%define UgfxSvgSel_class_end    40
+%define UgfxSvgSel_SIZE         48
 
 ; Gradient colour stop (UgfxStop_SIZE bytes, an array of them per gradient)
 %define UgfxStop_offset         0       ; f64 position, clamped to [0, 1] and to the previous stop
