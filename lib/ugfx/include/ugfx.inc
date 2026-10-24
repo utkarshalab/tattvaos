@@ -328,7 +328,24 @@ extern panic_null_ptr
                                         ; (premultiplied BGRA) or 0; kind 0: a data: URI's
                                         ; bytes, 1: any other href (ugfx_svg_parse_ex)
 %define UgfxSvg_image_user      88
-%define UgfxSvg_SIZE            96
+%define UgfxSvg_font_fn         96      ; glyphs: fn(user, UgfxSvgFont*, code point, xmm0 = size,
+                                        ; UgfxPath* (0: the advance only), arena) -> xmm0 =
+                                        ; advance; the outline appended at that size, y down,
+                                        ; origin on the baseline (ugfx_svg_parse_opts)
+%define UgfxSvg_font_user       104
+%define UgfxSvg_SIZE            112
+; ugfx_svg_parse_opts' options (caller-filled; 0 = none)
+%define UgfxSvgOptions_image_fn     0
+%define UgfxSvgOptions_image_user   8
+%define UgfxSvgOptions_font_fn      16
+%define UgfxSvgOptions_font_user    24
+%define UgfxSvgOptions_SIZE         32
+; the font a glyph is asked for
+%define UgfxSvgFont_family      0       ; font-family as written (0: none)
+%define UgfxSvgFont_family_end  8
+%define UgfxSvgFont_weight      16      ; u32 100 .. 900 (400 normal, 700 bold)
+%define UgfxSvgFont_style       20      ; u32 0 normal, 1 italic, 2 oblique
+%define UgfxSvgFont_SIZE        24
 
 %define UgfxSvgItem_matrix      0       ; f64[6] element -> viewBox space
 %define UgfxSvgItem_path        48      ; UgfxPath
