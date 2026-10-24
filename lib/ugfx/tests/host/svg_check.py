@@ -115,6 +115,12 @@ def item_calls(items, current, t):
         return premul(c)
 
     for it in items:
+        if isinstance(it, svgmodel.ImageItem):
+            out += [('save',), ('transform', *it.matrix)]
+            if it.clip:
+                out += [('new_path',)] + it.path + [('clip',)]
+            out += [('alpha', it.alpha), ('draw_image', *it.dest, it.image), ('restore',)]
+            continue
         if isinstance(it, svgmodel.MarkerItem):
             mk = it.marker
             out += [('save',), ('set_transform', *t), ('transform', *it.matrix)]
@@ -203,6 +209,40 @@ def item_calls(items, current, t):
             stroke += [('new_path',)] + it.path + [('stroke',)]
         out += (stroke + fill if it.order else fill + stroke) + [('restore',)]
     return out
+
+
+def farbfeld(data, kind):
+    """host_image's decoder: farbfeld (the high bytes), premultiplied."""
+    if kind != 0 or data is None or len(data) < 16 or data[:8] != b"farbfeld":
+        return None
+    w, h = int.from_bytes(data[8:12], "big"), int.from_bytes(data[12:16], "big")
+    if len(data) < 16 + w * h * 8:
+        return None
+    img = np.zeros((h, w), np.int64)
+    for i in range(w * h):
+        r, g, b, a = data[16 + 8 * i], data[18 + 8 * i], data[20 + 8 * i], data[22 + 8 * i]
+        img[i // w, i % w] = a << 24 | div255(r * a) << 16 | div255(g * a) << 8 | div255(b * a)
+    return w, h, img
+
+
+def ff_bytes(w, h, px):
+    return b"farbfeld" + w.to_bytes(4, "big") + h.to_bytes(4, "big") + b"".join(
+        bytes([r, r, g, g, b, b, a, a]) for r, g, b, a in px)
+
+
+def ff_uri(w, h, px, base64=True):
+    import base64 as b64
+    data = ff_bytes(w, h, px)
+    if base64:
+        return "data:image/x-farbfeld;base64," + b64.b64encode(data).decode()
+    return "data:image/x-farbfeld," + "".join(f"%{c:02X}" if c < 33 or c > 126 or chr(c) in '%"<>&' else chr(c)
+                                               for c in data)
+
+
+IMG = ff_uri(4, 3, [(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255), (255, 255, 0, 255),
+                    (0, 255, 255, 255), (255, 0, 255, 128), (255, 255, 255, 255), (0, 0, 0, 255),
+                    (128, 64, 32, 255), (32, 64, 128, 64), (200, 200, 200, 255), (10, 20, 30, 0)])
+IMG_PCT = ff_uri(2, 2, [(255, 128, 0, 255), (0, 128, 255, 255), (128, 0, 255, 200), (0, 0, 0, 255)], False)
 
 
 def svg(body, attrs='viewBox="0 0 24 24"'):
@@ -569,6 +609,16 @@ CASES = [
                           '<path d="M2 6C6 0 10 12 14 6S22 2 22 8M3 14h8v6h-8z M14 14Q18 22 22 14" fill="#fec" '
                           'stroke="#444" marker-start="url(#tick)" marker-mid="url(#tick)" marker-end="url(#tick)" '
                           'opacity=".8"/>'), True),
+    ("image fit", svg(f'<image x="1" y="1" width="10" height="10" href="{IMG}"/>'
+                      f'<image x="13" y="1" width="10" height="10" preserveAspectRatio="none" xlink:href="{IMG}"/>'
+                      f'<image x="1" y="13" width="10" height="10" preserveAspectRatio="xMinYMax slice" href="{IMG}"/>'
+                      f'<image x="13" y="13" href="{IMG_PCT}" opacity=".6"/>',
+                      'viewBox="0 0 24 24" xmlns:xlink="http://www.w3.org/1999/xlink"'), False),
+    ("image clipped", svg(f'<clipPath id="o" clipPathUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".5"/>'
+                          f'</clipPath><image width="24" height="16" href="{IMG}" clip-path="url(#o)" '
+                          f'transform="rotate(8 12 8)"/><image y="16" width="8" height="8" href="photo.png"/>'
+                          f'<image x="8" y="16" width="8" height="8" href="data:image/x-farbfeld;base64,AAAA"/>'
+                          f'<image x="16" y="16" width="0" height="8" href="{IMG}"/>'), True),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
@@ -599,7 +649,7 @@ def main():
             for current, (x, y, size) in ((0xFF2050C0, (8, 0, 32)), (0x80E0E020, (2, 3, 27.5))):
                 total += 1
                 got, rc = run(tool, d, [svg_cmd(text, current, x, y, size)])
-                doc = svgmodel.parse(text)
+                doc = svgmodel.parse(text, farbfeld)
                 want, rc2 = run(tool, d, expected_calls(doc, current, x, y, size))
                 if got is None or want is None:
                     print(f"FAIL  {name:20} exit {rc}/{rc2}")
