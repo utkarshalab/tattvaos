@@ -6,6 +6,7 @@
 ;
 ;   ugfx_svg_parse(svg, arena, data, size)
 ;   ugfx_svg_parse_ex(svg, arena, data, size, image_fn, user)
+;   ugfx_svg_parse_opts(svg, arena, data, size, options)  images and fonts
 ;   ugfx_svg_draw(svg, ctx, current_colour, x, y, size)
 ;
 ; The subset is what icon sets use: svg, g, path, rect (rx / ry), circle,
@@ -75,6 +76,9 @@
 ; width, height (default: its own size) by preserveAspectRatio, clipped
 ; to that box for slice, at the element's opacity (a group, like a
 ; container's). Without image_fn images are left out.
+;
+; text / tspan: with a font_fn (ugfx_svg_parse_opts), character data
+; becomes glyphs - see svg_text_start below for the layout.
 ;
 ; A nested svg and an instanced symbol clip to their viewport (overflow
 ; hidden); the root only with slice, the one mapping that overflows by
@@ -183,7 +187,16 @@ extern ugfx_ctx_draw_image
 %define S_CLIPRULE      232             ; u32 clip-rule
 %define S_VPGROUP       236             ; u32 the viewport clip's BEGIN + 1 (not inherited)
 %define S_MARKERS       240             ; (url, end)[3]: marker-start, -mid, -end (0: none)
-%define S_SIZE          288
+%define S_FAMILY        288             ; font-family as written (ptr, end; 0: none)
+%define S_WEIGHT        304             ; u32 font-weight
+%define S_FSTYLE        308             ; u32 font-style
+%define S_ANCHOR        312             ; u32 text-anchor: 0 start, 1 middle, 2 end
+%define S_INTEXT        316             ; u32 2: a text element, 1: inside one
+%define S_LSPACE        320             ; f64 letter-spacing
+%define S_WSPACE        328             ; f64 word-spacing
+%define S_PRESERVE      336             ; u32 xml:space="preserve"
+%define S_LISTS         344             ; x, y, dx, dy, rotate records (values, u32 count, u32 first char)
+%define S_SIZE          384
 
 ; elements
 %define E_GROUP         0
@@ -206,6 +219,8 @@ extern ugfx_ctx_draw_image
 %define E_PATTERN       17              ; drawn only as a pattern's tiles
 %define E_MARKER        18              ; drawn only at a shape's vertices
 %define E_IMAGE         19
+%define E_TSPAN         20
+%define E_GLYPH         21              ; (a text glyph, for svg_geometry)
 %define SVG_MAX_CLIPS   4               ; clipPaths / masks compiling inside each other
 %define K_CLIP          2               ; compile kinds (and P_INST for their roots)
 %define K_MASK          3
@@ -255,7 +270,13 @@ extern ugfx_ctx_draw_image
 %define A_MARKER_MID    22
 %define A_MARKER_END    23
 %define A_MARKER        24              ; all three
-%define A_LAST_PROP     24              ; ids up to here are style properties too
+%define A_FONT_FAMILY   25
+%define A_FONT_WEIGHT   26
+%define A_FONT_STYLE    27
+%define A_TEXT_ANCHOR   28
+%define A_LETTER_SP     29
+%define A_WORD_SP       30
+%define A_LAST_PROP     30              ; ids up to here are style properties too
 %define A_TRANSFORM     40
 %define A_STYLE         41
 %define A_D             42
@@ -265,6 +286,10 @@ extern ugfx_ctx_draw_image
 %define A_CLASS         46
 %define A_HREF          47
 %define A_PAR           48              ; preserveAspectRatio
+%define A_DX            49              ; text / tspan lists
+%define A_DY            50
+%define A_ROTATE        51
+%define A_XMLSPACE      52
 %define A_GEOM          64              ; + G_* slot
 
 ; lengths: what a percentage is of
@@ -329,7 +354,25 @@ extern ugfx_ctx_draw_image
 %define P_NVERTS        (P_FONT_RAW + 136)              ; u32
 %define P_HREF_RAW      (P_FONT_RAW + 144)              ; an href as written, trimmed (0: none)
 %define P_HREF_RAW_END  (P_FONT_RAW + 152)
-%define P_SIZE          (((P_FONT_RAW + 160 + 15) & ~15) + 8)
+%define P_LS_RAW        (P_FONT_RAW + 160)              ; letter-spacing as written
+%define P_WS_RAW        (P_FONT_RAW + 176)              ; word-spacing as written
+%define P_DX_RAW        (P_FONT_RAW + 192)              ; dx, dy, rotate as written (in this order)
+%define P_DY_RAW        (P_FONT_RAW + 208)
+%define P_ROT_RAW       (P_FONT_RAW + 224)
+%define P_TX_X          (P_FONT_RAW + 240)              ; f64 the current text position
+%define P_TX_Y          (P_FONT_RAW + 248)
+%define P_TX_COUNT      (P_FONT_RAW + 256)              ; u32 characters laid out
+%define P_TX_SPACE      (P_FONT_RAW + 260)              ; u32 a space is pending
+%define P_TX_ANY        (P_FONT_RAW + 264)              ; u32 a character was laid out
+%define P_TX_CHUNK      (P_FONT_RAW + 268)              ; u32 the open chunk's first item + 1
+%define P_TX_CX         (P_FONT_RAW + 272)              ; f64 its start x
+%define P_TX_ANCHOR     (P_FONT_RAW + 280)              ; u32 its anchor
+%define P_TX_M          (P_FONT_RAW + 288)              ; f64[6] the text element's matrix
+%define P_TX_SAVEM      (P_FONT_RAW + 336)              ; f64[6]
+%define P_GLYPH_CP      (P_FONT_RAW + 384)              ; u32 the glyph svg_geometry builds
+%define P_GLYPH_SIZE    (P_FONT_RAW + 392)              ; f64
+%define P_GLYPH_FONT    (P_FONT_RAW + 400)              ; UgfxSvgFont
+%define P_SIZE          (((P_FONT_RAW + 424 + 15) & ~15) + 8)
 
 ; a vertex, for markers
 %define VX_X            0               ; f64
@@ -400,6 +443,7 @@ svg_elements:
     NAME "pattern", E_PATTERN
     NAME "marker", E_MARKER
     NAME "image", E_IMAGE
+    NAME "tspan", E_TSPAN
     NAME "marker", E_SKIP
     NAME "text", E_TEXT
     NAME "switch", E_SWITCH
@@ -436,6 +480,12 @@ svg_attributes:
     NAME "marker-mid", A_MARKER_MID
     NAME "marker-end", A_MARKER_END
     NAME "marker", A_MARKER
+    NAME "font-family", A_FONT_FAMILY
+    NAME "font-weight", A_FONT_WEIGHT
+    NAME "font-style", A_FONT_STYLE
+    NAME "text-anchor", A_TEXT_ANCHOR
+    NAME "letter-spacing", A_LETTER_SP
+    NAME "word-spacing", A_WORD_SP
     NAME "transform", A_TRANSFORM
     NAME "style", A_STYLE
     NAME "d", A_D
@@ -446,6 +496,10 @@ svg_attributes:
     NAME "href", A_HREF
     NAME "xlink:href", A_HREF
     NAME "preserveAspectRatio", A_PAR
+    NAME "dx", A_DX
+    NAME "dy", A_DY
+    NAME "rotate", A_ROTATE
+    NAME "xml:space", A_XMLSPACE
     NAME "x", A_GEOM + G_X
     NAME "y", A_GEOM + G_Y
     NAME "width", A_GEOM + G_W
@@ -502,7 +556,37 @@ svg_inherit_fields:
     INHERITS A_MARKER_MID, S_MARKERS + 16, 16
     INHERITS A_MARKER_END, S_MARKERS + 32, 16
     INHERITS A_MARKER, S_MARKERS, 48
+    INHERITS A_FONT_FAMILY, S_FAMILY, 16
+    INHERITS A_FONT_WEIGHT, S_WEIGHT, 4
+    INHERITS A_FONT_STYLE, S_FSTYLE, 4
+    INHERITS A_TEXT_ANCHOR, S_ANCHOR, 4
+    INHERITS A_LETTER_SP, S_LSPACE, 8
+    INHERITS A_WORD_SP, S_WSPACE, 8
     db 0
+svg_entities:
+    NAME "amp", '&'
+    NAME "lt", '<'
+    NAME "gt", '>'
+    NAME "quot", '"'
+    NAME "apos", 39
+    db 0
+svg_weight_words:
+    NAME "normal", 1
+    NAME "bold", 2
+    NAME "bolder", 3
+    NAME "lighter", 4
+    db 0
+svg_style_words:
+    NAME "normal", 1
+    NAME "italic", 2
+    NAME "oblique", 3
+    db 0
+svg_anchor_words:
+    NAME "start", 1
+    NAME "middle", 2
+    NAME "end", 3
+    db 0
+svg_word_preserve:  db "preserve"
 svg_marker_words:
     NAME "markerUnits", 1
     NAME "refX", 2
@@ -646,10 +730,44 @@ ugfx_svg_parse:
 
 ; -----------------------------------------------------------------------------
 ; ugfx_svg_parse_ex — as ugfx_svg_parse, r8 = image_fn (0: none), r9 = its
-;   user pointer (see UgfxSvg_image_fn)
+;   user pointer (see UgfxSvg_image_fn); no fonts
+; ugfx_svg_parse_opts — as ugfx_svg_parse, r8 = const UgfxSvgOptions* (0:
+;   none): images and fonts
 ; -----------------------------------------------------------------------------
 global ugfx_svg_parse_ex
 ugfx_svg_parse_ex:
+    test rdi, rdi
+    jz svg_parse_bad
+    mov [rdi + UgfxSvg_image_fn], r8
+    mov [rdi + UgfxSvg_image_user], r9
+    mov qword [rdi + UgfxSvg_font_fn], 0
+    mov qword [rdi + UgfxSvg_font_user], 0
+    jmp svg_parse_common
+global ugfx_svg_parse_opts
+ugfx_svg_parse_opts:
+    test rdi, rdi
+    jz svg_parse_bad
+    xor eax, eax
+    mov [rdi + UgfxSvg_image_fn], rax
+    mov [rdi + UgfxSvg_image_user], rax
+    mov [rdi + UgfxSvg_font_fn], rax
+    mov [rdi + UgfxSvg_font_user], rax
+    test r8, r8
+    jz svg_parse_common
+    mov rax, [r8 + UgfxSvgOptions_image_fn]
+    mov [rdi + UgfxSvg_image_fn], rax
+    mov rax, [r8 + UgfxSvgOptions_image_user]
+    mov [rdi + UgfxSvg_image_user], rax
+    mov rax, [r8 + UgfxSvgOptions_font_fn]
+    mov [rdi + UgfxSvg_font_fn], rax
+    mov rax, [r8 + UgfxSvgOptions_font_user]
+    mov [rdi + UgfxSvg_font_user], rax
+    jmp svg_parse_common
+svg_parse_bad:
+    mov rax, -(EINVAL)
+    ret
+
+svg_parse_common:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     sub rsp, P_SIZE
     mov r15, rsp
@@ -662,8 +780,6 @@ ugfx_svg_parse_ex:
     jz .out
     mov [r15 + P_SVG], rdi
     mov [rdi + UgfxSvg_arena], rsi
-    mov [rdi + UgfxSvg_image_fn], r8
-    mov [rdi + UgfxSvg_image_user], r9
     mov qword [rdi + UgfxSvg_items], 0
     mov dword [rdi + UgfxSvg_count], 0
     mov dword [rdi + UgfxSvg_cap], 0
@@ -718,6 +834,20 @@ ugfx_svg_parse_ex:
     mov [rbx + S_MARKERS], rax
     mov [rbx + S_MARKERS + 16], rax
     mov [rbx + S_MARKERS + 32], rax
+    mov [rbx + S_FAMILY], rax
+    mov [rbx + S_FAMILY + 8], rax
+    mov dword [rbx + S_WEIGHT], 400
+    mov [rbx + S_FSTYLE], eax
+    mov [rbx + S_ANCHOR], eax
+    mov [rbx + S_INTEXT], eax
+    mov [rbx + S_LSPACE], rax
+    mov [rbx + S_WSPACE], rax
+    mov [rbx + S_PRESERVE], eax
+    mov [rbx + S_LISTS], rax
+    mov [rbx + S_LISTS + 8], rax
+    mov [rbx + S_LISTS + 16], rax
+    mov [rbx + S_LISTS + 24], rax
+    mov [rbx + S_LISTS + 32], rax
     ; gradients first: url(#id) may name one defined further on
     lea rdi, [r15 + P_DEFS]
     mov rax, [r15 + P_SVG]
@@ -774,6 +904,16 @@ svg_walk:
 .token:
     cmp dword [r15 + P_ERR], 0
     jne .return
+    ; character data inside text
+    mov eax, [r15 + P_DEPTH]
+    imul rbx, rax, S_SIZE
+    add rbx, [r15 + P_STACK]
+    cmp dword [rbx + S_INTEXT], 0
+    je .tags
+    cmp dword [rbx + S_SKIP], 0
+    jne .tags
+    call svg_text_node
+.tags:
     lea rdi, [r15 + P_XML]
     call ugfx_svg_xml_next
     test eax, eax
@@ -785,6 +925,14 @@ svg_walk:
     mov eax, [r15 + P_DEPTH]
     imul rdi, rax, S_SIZE
     add rdi, [r15 + P_STACK]            ; the element it closes
+    cmp dword [rdi + S_INTEXT], 2
+    jne .close_group
+    push rdi
+    sub rsp, 8
+    call svg_text_finish                ; the last chunk
+    add rsp, 8
+    pop rdi
+.close_group:
     call svg_group_close
     dec dword [r15 + P_DEPTH]
     cmp [r15 + P_DEPTH], r12d
@@ -807,6 +955,10 @@ svg_walk:
     rep movsb
     mov dword [rbx + S_GROUP], 0
     mov dword [rbx + S_VPGROUP], 0
+    cmp dword [rbx + S_INTEXT], 0
+    je .not_in_text
+    mov dword [rbx + S_INTEXT], 1       ; inside a text element
+.not_in_text:
     inc dword [r15 + P_DEPTH]
     ; the element
     mov rdi, [r15 + P_XML + UgfxSvgXml_name]
@@ -888,8 +1040,18 @@ svg_walk:
     cmp eax, E_SWITCH
     sete cl
     mov [rbx + S_SWITCH], ecx
+    cmp eax, E_TSPAN
+    je .tspan
     cmp eax, E_TEXT
-    je .no_drawing
+    jne .not_text
+    cmp dword [rbx + S_INTEXT], 0
+    jne .no_drawing                     ; text inside text
+    jmp .chosen
+.tspan:
+    cmp dword [rbx + S_INTEXT], 0
+    je .no_drawing                      ; a tspan outside text
+    jmp .chosen
+.not_text:
     cmp eax, E_FOREIGN
     jne .chosen
 .no_drawing:
@@ -906,6 +1068,10 @@ svg_walk:
 .element_done:
     cmp dword [r15 + P_SELF], 0
     je .token
+    cmp dword [rbx + S_INTEXT], 2
+    jne .self_group
+    call svg_text_finish
+.self_group:
     mov rdi, rbx
     call svg_group_close
     dec dword [r15 + P_DEPTH]
@@ -951,6 +1117,11 @@ svg_element:
     mov qword [r15 + P_SEL + UgfxSvgSel_class], 0
     mov qword [r15 + P_HREF], 0
     mov qword [r15 + P_HREF_RAW], 0
+    mov qword [r15 + P_LS_RAW], 0
+    mov qword [r15 + P_WS_RAW], 0
+    mov qword [r15 + P_DX_RAW], 0
+    mov qword [r15 + P_DY_RAW], 0
+    mov qword [r15 + P_ROT_RAW], 0
     mov dword [r15 + P_GRAW], 0
     mov qword [r15 + P_FONT_RAW], 0
     mov qword [r15 + P_SW_RAW], 0
@@ -993,6 +1164,13 @@ svg_element:
     je .attr_href
     cmp eax, A_PAR
     je .attr_par
+    cmp eax, A_XMLSPACE
+    je .attr_space
+    cmp eax, A_DX
+    jb .not_list
+    cmp eax, A_ROTATE
+    jbe .attr_list
+.not_list:
     cmp eax, A_GEOM
     jae .attr_geom
     call svg_property
@@ -1029,6 +1207,20 @@ svg_element:
 .attr_par:
     call svg_par
     mov [r15 + P_PAR], eax
+    jmp .attr
+.attr_list:
+    sub eax, A_DX
+    shl eax, 4
+    mov [r15 + P_DX_RAW + rax], rdi
+    mov [r15 + P_DX_RAW + rax + 8], rsi
+    jmp .attr
+.attr_space:
+    lea rdx, [rel svg_word_preserve]
+    mov ecx, 8
+    call svg_word_trimmed
+    sete al
+    movzx eax, al
+    mov [rbx + S_PRESERVE], eax
     jmp .attr
 .attr_class:
     mov [r15 + P_SEL + UgfxSvgSel_class], rdi
@@ -1107,6 +1299,10 @@ svg_element:
     je .use
     cmp eax, E_IMAGE
     je .image
+    cmp eax, E_TEXT
+    je .text
+    cmp eax, E_TSPAN
+    je .tspan_lists
     cmp eax, E_SVG
     je .root
     cmp eax, E_PATH
@@ -1120,6 +1316,12 @@ svg_element:
     jmp .element_out
 .image:
     call svg_image
+    jmp .element_out
+.text:
+    call svg_text_start
+    jmp .element_out
+.tspan_lists:
+    call svg_text_lists
     jmp .element_out
 .root:
     cmp dword [r15 + P_ROOT], 0
@@ -1873,6 +2075,8 @@ svg_property:
     je .clip_rule
     cmp eax, A_MASK
     je .mask
+    cmp eax, A_FONT_FAMILY
+    jae .text_prop
     cmp eax, A_MARKER_START
     jae .marker
     ; opacities: a number (or a percentage), clamped to [0, 1]
@@ -2014,6 +2218,100 @@ svg_property:
     IS_WORD none
     jne .out
     mov qword [r15 + P_CLIP], 0
+    jmp .out
+.text_prop:
+    cmp eax, A_FONT_FAMILY
+    je .family
+    cmp eax, A_FONT_WEIGHT
+    je .weight
+    cmp eax, A_FONT_STYLE
+    je .fstyle
+    cmp eax, A_TEXT_ANCHOR
+    je .anchor
+    ; letter-spacing / word-spacing: resolved with the other lengths
+    lea rcx, [r15 + P_LS_RAW]
+    cmp eax, A_LETTER_SP
+    je .spacing
+    lea rcx, [r15 + P_WS_RAW]
+.spacing:
+    mov [rcx], rdi
+    mov [rcx + 8], rsi
+    jmp .out
+.family:
+    call ugfx_svg_trim
+    mov [rbx + S_FAMILY], rdi
+    mov [rbx + S_FAMILY + 8], rsi
+    jmp .out
+.fstyle:
+    call ugfx_svg_trim
+    lea rdx, [rel svg_style_words]
+    call ugfx_svg_lookup
+    cmp eax, 0
+    jle .out
+    dec eax
+    mov [rbx + S_FSTYLE], eax
+    jmp .out
+.anchor:
+    call ugfx_svg_trim
+    lea rdx, [rel svg_anchor_words]
+    call ugfx_svg_lookup
+    cmp eax, 0
+    jle .out
+    dec eax
+    mov [rbx + S_ANCHOR], eax
+    jmp .out
+.weight:
+    ; normal 400, bold 700, bolder / lighter from the parent's, 1 .. 1000
+    call ugfx_svg_trim
+    push rdi
+    push rsi
+    lea rdx, [rel svg_weight_words]
+    call ugfx_svg_lookup
+    pop rsi
+    pop rdi
+    mov ecx, [rbx + S_WEIGHT]
+    cmp eax, 1
+    je .w_normal
+    cmp eax, 2
+    je .w_bold
+    cmp eax, 3
+    je .w_bolder
+    cmp eax, 4
+    je .w_lighter
+    call ugfx_svg_number
+    test rax, rax
+    jz .out
+    ucomisd xmm0, [rel svg_one]
+    jb .out
+    ucomisd xmm0, [rel svg_1000]
+    ja .out
+    cvttsd2si eax, xmm0
+    jmp .w_set
+.w_normal:
+    mov eax, 400
+    jmp .w_set
+.w_bold:
+    mov eax, 700
+    jmp .w_set
+.w_bolder:
+    mov eax, 400
+    cmp ecx, 400
+    jb .w_set
+    mov eax, 700
+    cmp ecx, 600
+    jb .w_set
+    mov eax, 900
+    jmp .w_set
+.w_lighter:
+    mov eax, 100
+    cmp ecx, 600
+    jb .w_set
+    mov eax, 400
+    cmp ecx, 800
+    jb .w_set
+    mov eax, 700
+.w_set:
+    mov [rbx + S_WEIGHT], eax
     jmp .out
 .marker:
     ; url(...) or none, into one slot or all three
@@ -2188,6 +2486,14 @@ svg_inherit:
     jne .not_mask
     mov qword [r15 + P_MASK], 0         ; not inherited: none
 .not_mask:
+    cmp r12d, A_LETTER_SP
+    jne .not_ls
+    mov qword [r15 + P_LS_RAW], 0
+.not_ls:
+    cmp r12d, A_WORD_SP
+    jne .not_ws
+    mov qword [r15 + P_WS_RAW], 0
+.not_ws:
     cmp r12d, A_OPACITY
     jne .done
     movsd xmm0, [rel svg_one]           ; not inherited: the initial value
@@ -3552,6 +3858,624 @@ svg_vertices:
     ret
 
 ; -----------------------------------------------------------------------------
+; Text. A text element (E_TEXT) starts a layout in the frame (P_TX_*); its
+; character data and its tspans' (svg_walk hands each run between tags to
+; svg_text_node) become glyphs: one shape item each, the outline from
+; UgfxSvg_font_fn at the element's font-size, with that element's paints.
+; White space collapses (CSS normal) unless xml:space="preserve": newline
+; and tab are spaces, runs of spaces one, none at the start, a pending
+; one only before a following character. x / y / dx / dy / rotate lists
+; (on text and tspan, a tspan's own shadowing its parent's) give each
+; character by its index; an absolute x or y starts a new text chunk,
+; which text-anchor shifts by its advance (middle: half) when it ends.
+; letter-spacing after every character, word-spacing after spaces.
+; -----------------------------------------------------------------------------
+
+; svg_text_start — r15 = frame, rbx = a text element's state: a new layout
+svg_text_start:
+    sub rsp, 8
+    mov dword [rbx + S_INTEXT], 2
+    xorpd xmm0, xmm0
+    movsd [r15 + P_TX_X], xmm0
+    movsd [r15 + P_TX_Y], xmm0
+    mov dword [r15 + P_TX_COUNT], 0
+    mov dword [r15 + P_TX_SPACE], 0
+    mov dword [r15 + P_TX_ANY], 0
+    mov dword [r15 + P_TX_CHUNK], 0
+    xor ecx, ecx
+.m:
+    mov rax, [rbx + S_M + rcx * 8]
+    mov [r15 + P_TX_M + rcx * 8], rax
+    inc ecx
+    cmp ecx, 6
+    jb .m
+    call svg_text_lists
+    add rsp, 8
+    ret
+
+; svg_text_lists — r15 = frame, rbx = a text / tspan state: its x, y, dx,
+;   dy, rotate lists (from P_GV / P_DX_RAW / ...) as records starting at
+;   the current character
+%define TL_K        0                   ; u32 the list
+%define TL_P        8                   ; its text
+%define TL_E        16
+%define TL_N        24                  ; u32 values counted
+%define TL_SIZE     48
+
+svg_text_lists:
+    push r12
+    push r13
+    push r14
+    sub rsp, TL_SIZE
+    mov dword [rsp + TL_K], 0
+.list:
+    mov eax, [rsp + TL_K]
+    cmp eax, 5
+    jae .out
+    ; the text: x, y from the geometry slots, the others their own
+    cmp eax, 2
+    jae .own_raw
+    mov ecx, eax                        ; G_X = 0, G_Y = 1
+    bt dword [r15 + P_GRAW], ecx
+    jnc .next
+    shl ecx, 4
+    mov rdi, [r15 + P_GV + rcx]
+    mov rsi, [r15 + P_GV + rcx + 8]
+    jmp .have_raw
+.own_raw:
+    lea ecx, [rax - 2]
+    shl ecx, 4
+    mov rdi, [r15 + P_DX_RAW + rcx]
+    test rdi, rdi
+    jz .next
+    mov rsi, [r15 + P_DX_RAW + rcx + 8]
+.have_raw:
+    mov [rsp + TL_P], rdi
+    mov [rsp + TL_E], rsi
+    ; count, then fill
+    xor edx, edx
+    call .values
+    mov [rsp + TL_N], eax
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    mov esi, [rsp + TL_N]
+    lea esi, [rsi * 8 + 16]
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov r14, rax
+    lea rdx, [rax + 16]
+    mov [r14], rdx                      ; values
+    mov eax, [rsp + TL_N]
+    mov [r14 + 8], eax                  ; count
+    mov eax, [r15 + P_TX_COUNT]
+    mov [r14 + 12], eax                 ; the first character it gives
+    mov rdi, [rsp + TL_P]
+    mov rsi, [rsp + TL_E]
+    call .values
+    mov eax, [rsp + TL_K]
+    mov [rbx + S_LISTS + rax * 8], r14
+.next:
+    inc dword [rsp + TL_K]
+    jmp .list
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.out:
+    add rsp, TL_SIZE
+    pop r14
+    pop r13
+    pop r12
+    ret
+; rdi / rsi = a list, rdx = where the values go (0: count only), list kind
+;   in [rsp + 8 + TL_K] -> eax = values (lengths: x, dx of the width, y, dy
+;   of the height; rotate: numbers)
+.values:
+    push r12
+    push r13
+    push r14
+    sub rsp, 16                         ; [rsp]: the count (frame at rsp + 48)
+    mov r12, rdi
+    mov r13, rsi
+    mov r14, rdx
+    mov dword [rsp], 0
+.value:
+    mov rdi, r12
+    mov rsi, r13
+    mov eax, [rsp + 48 + TL_K]
+    cmp eax, 4
+    je .number
+    and eax, 1
+    mov edx, eax                        ; x, dx: AX_X; y, dy: AX_Y
+    call svg_length
+    jmp .got
+.number:
+    call ugfx_svg_number
+.got:
+    test rax, rax
+    jz .values_done
+    mov r12, rax
+    mov ecx, [rsp]
+    test r14, r14
+    jz .counted
+    movsd [r14 + rcx * 8], xmm0
+.counted:
+    inc dword [rsp]
+    jmp .value
+.values_done:
+    mov eax, [rsp]
+    add rsp, 16
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_text_node — r15 = frame (P_XML.cur at character data), rbx = the
+;   state it belongs to: its characters up to the next tag (CDATA kept,
+;   comments skipped), entities and UTF-8 decoded
+; -----------------------------------------------------------------------------
+svg_text_node:
+    push r12
+    push r13
+    push r14
+    mov r12, [r15 + P_XML + UgfxSvgXml_cur]
+    mov r13, [r15 + P_XML + UgfxSvgXml_end]
+.char:
+    cmp dword [r15 + P_ERR], 0
+    jne .out
+    cmp r12, r13
+    jae .out
+    movzx eax, byte [r12]
+    cmp al, '<'
+    je .markup
+    cmp al, '&'
+    je .entity
+    call .utf8
+    jmp .emit
+.markup:
+    ; CDATA: its text as it is; a comment: skipped; else a tag: done
+    lea rax, [r12 + 9]
+    cmp rax, r13
+    ja .comment
+    mov rax, '<![CDATA'
+    cmp [r12], rax
+    jne .comment
+    cmp byte [r12 + 8], '['
+    jne .comment
+    add r12, 9
+.cdata:
+    lea rax, [r12 + 3]
+    cmp rax, r13
+    ja .out
+    cmp word [r12], ']]'
+    jne .cdata_char
+    cmp byte [r12 + 2], '>'
+    jne .cdata_char
+    add r12, 3
+    jmp .char
+.cdata_char:
+    movzx eax, byte [r12]
+    call .utf8
+    mov edi, eax
+    call svg_text_cp
+    jmp .cdata
+.comment:
+    lea rax, [r12 + 4]
+    cmp rax, r13
+    ja .out
+    cmp dword [r12], '<!--'
+    jne .out
+    add r12, 4
+.comment_end:
+    lea rax, [r12 + 3]
+    cmp rax, r13
+    ja .out
+    cmp word [r12], '--'
+    jne .comment_next
+    cmp byte [r12 + 2], '>'
+    jne .comment_next
+    add r12, 3
+    jmp .char
+.comment_next:
+    inc r12
+    jmp .comment_end
+.entity:
+    call .decode_entity
+.emit:
+    mov edi, eax
+    call svg_text_cp
+    jmp .char
+.out:
+    pop r14
+    pop r13
+    pop r12
+    ret
+; r12 = a byte (al) -> eax = the code point (UTF-8; a broken sequence: the
+;   byte itself), r12 past it
+.utf8:
+    inc r12
+    cmp al, 0x80
+    jb .utf8_out
+    mov ecx, 1
+    mov edx, eax
+    and edx, 0x1F
+    cmp al, 0xE0
+    jb .utf8_more
+    mov ecx, 2
+    mov edx, eax
+    and edx, 0x0F
+    cmp al, 0xF0
+    jb .utf8_more
+    mov ecx, 3
+    mov edx, eax
+    and edx, 0x07
+.utf8_more:
+    cmp al, 0xC0
+    jb .utf8_out                        ; a stray continuation byte
+    lea r8, [r12 + rcx]
+    cmp r8, r13
+    ja .utf8_out
+    mov r9, r12
+.utf8_byte:
+    movzx r10d, byte [r9]
+    mov r11d, r10d
+    and r11d, 0xC0
+    cmp r11d, 0x80
+    jne .utf8_out
+    shl edx, 6
+    and r10d, 0x3F
+    or edx, r10d
+    inc r9
+    dec ecx
+    jnz .utf8_byte
+    mov r12, r9
+    mov eax, edx
+.utf8_out:
+    ret
+; r12 at '&' -> eax = &amp; &lt; &gt; &quot; &apos; &#nn; &#xhh; (else '&'),
+;   r12 past it
+.decode_entity:
+    mov r8, r12
+    inc r8
+.entity_end:
+    cmp r8, r13
+    jae .literal
+    cmp byte [r8], ';'
+    je .entity_named
+    mov rax, r8
+    sub rax, r12
+    cmp rax, 12
+    ja .literal
+    inc r8
+    jmp .entity_end
+.entity_named:
+    lea rdi, [r12 + 1]
+    mov rsi, r8
+    mov rax, rsi
+    sub rax, rdi
+    cmp rax, 2
+    jb .literal
+    cmp byte [rdi], '#'
+    je .numeric
+    push rdi
+    push rsi
+    lea rdx, [rel svg_entities]
+    call ugfx_svg_lookup
+    pop rsi
+    pop rdi
+    cmp eax, 0
+    jle .literal
+    lea r12, [rsi + 1]
+    ret
+.numeric:
+    inc rdi
+    xor eax, eax
+    mov ecx, 10
+    movzx edx, byte [rdi]
+    or edx, 0x20
+    cmp edx, 'x'
+    jne .digit
+    inc rdi
+    mov ecx, 16
+.digit:
+    cmp rdi, rsi
+    jae .numeric_done
+    movzx edx, byte [rdi]
+    sub edx, '0'
+    cmp edx, 9
+    jbe .digit_value
+    movzx edx, byte [rdi]
+    or edx, 0x20
+    sub edx, 'a' - 10
+    cmp edx, 10
+    jb .literal
+.digit_value:
+    cmp edx, ecx
+    jae .literal
+    imul eax, ecx
+    add eax, edx
+    cmp eax, 0x10FFFF
+    ja .literal
+    inc rdi
+    jmp .digit
+.numeric_done:
+    lea r12, [rsi + 1]
+    ret
+.literal:
+    mov eax, '&'
+    inc r12
+    ret
+
+; edi = a code point, rbx = its state, r15 = frame: white space handled,
+;   then laid out
+svg_text_cp:
+    sub rsp, 8
+    cmp edi, ' '
+    je .space
+    cmp edi, 9
+    je .space
+    cmp edi, 10
+    je .space
+    cmp edi, 13
+    je .space
+    ; a pending space first
+    cmp dword [r15 + P_TX_SPACE], 0
+    je .char
+    mov dword [r15 + P_TX_SPACE], 0
+    push rdi
+    sub rsp, 8
+    mov edi, ' '
+    call svg_text_char
+    add rsp, 8
+    pop rdi
+.char:
+    mov dword [r15 + P_TX_ANY], 1
+    call svg_text_char
+    jmp .out
+.space:
+    cmp dword [rbx + S_PRESERVE], 0
+    jne .preserved
+    cmp dword [r15 + P_TX_ANY], 0
+    je .out                             ; none at the start
+    mov dword [r15 + P_TX_SPACE], 1
+    jmp .out
+.preserved:
+    mov dword [r15 + P_TX_ANY], 1
+    mov edi, ' '
+    call svg_text_char
+.out:
+    add rsp, 8
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_text_char — edi = a code point, rbx = its state, r15 = frame: placed
+;   (lists, chunk), its glyph emitted, the position advanced
+; -----------------------------------------------------------------------------
+%define TC_M        0                   ; f64[6]
+%define TC_ROT      48                  ; f64
+%define TC_ADV      56
+%define TC_SIZE     64
+
+svg_text_char:
+    push r12
+    push r13
+    push r14
+    sub rsp, TC_SIZE
+    mov r12d, edi
+    mov r14, [r15 + P_SVG]
+    cmp qword [r14 + UgfxSvg_font_fn], 0
+    je .out
+    mov r13d, [r15 + P_TX_COUNT]
+    ; absolute x / y: a new chunk there
+    mov edi, 0
+    call .list_value
+    jc .no_x
+    movsd [rsp + TC_ADV], xmm0
+    call svg_text_finish
+    movsd xmm0, [rsp + TC_ADV]
+    movsd [r15 + P_TX_X], xmm0
+.no_x:
+    mov edi, 1
+    call .list_value
+    jc .no_y
+    movsd [rsp + TC_ADV], xmm0
+    call svg_text_finish
+    movsd xmm0, [rsp + TC_ADV]
+    movsd [r15 + P_TX_Y], xmm0
+.no_y:
+    mov edi, 2
+    call .list_value
+    jc .no_dx
+    addsd xmm0, [r15 + P_TX_X]
+    movsd [r15 + P_TX_X], xmm0
+.no_dx:
+    mov edi, 3
+    call .list_value
+    jc .no_dy
+    addsd xmm0, [r15 + P_TX_Y]
+    movsd [r15 + P_TX_Y], xmm0
+.no_dy:
+    ; rotate: its value, else its last, else 0 (degrees)
+    xorpd xmm0, xmm0
+    mov rax, [rbx + S_LISTS + 32]
+    test rax, rax
+    jz .rotated
+    mov ecx, [rax + 8]
+    test ecx, ecx
+    jz .rotated
+    mov edx, r13d
+    sub edx, [rax + 12]
+    cmp edx, ecx
+    jb .rotate_index
+    lea edx, [rcx - 1]
+.rotate_index:
+    mov rax, [rax]
+    movsd xmm0, [rax + rdx * 8]
+    mulsd xmm0, [rel svg_deg]
+.rotated:
+    movsd [rsp + TC_ROT], xmm0
+    ; the chunk: its first character's anchor and x, its first item
+    cmp dword [r15 + P_TX_CHUNK], 0
+    jne .in_chunk
+    mov eax, [r14 + UgfxSvg_count]
+    inc eax
+    mov [r15 + P_TX_CHUNK], eax
+    movsd xmm0, [r15 + P_TX_X]
+    movsd [r15 + P_TX_CX], xmm0
+    mov eax, [rbx + S_ANCHOR]
+    mov [r15 + P_TX_ANCHOR], eax
+.in_chunk:
+    ; the font, the advance
+    mov rax, [rbx + S_FAMILY]
+    mov [r15 + P_GLYPH_FONT + UgfxSvgFont_family], rax
+    mov rax, [rbx + S_FAMILY + 8]
+    mov [r15 + P_GLYPH_FONT + UgfxSvgFont_family_end], rax
+    mov eax, [rbx + S_WEIGHT]
+    mov [r15 + P_GLYPH_FONT + UgfxSvgFont_weight], eax
+    mov eax, [rbx + S_FSTYLE]
+    mov [r15 + P_GLYPH_FONT + UgfxSvgFont_style], eax
+    mov [r15 + P_GLYPH_CP], r12d
+    movsd xmm0, [rbx + S_FONT]
+    movsd [r15 + P_GLYPH_SIZE], xmm0
+    mov rdi, [r14 + UgfxSvg_font_user]
+    lea rsi, [r15 + P_GLYPH_FONT]
+    mov edx, r12d
+    xor ecx, ecx                        ; the advance only
+    mov r8, [r14 + UgfxSvg_arena]
+    call [r14 + UgfxSvg_font_fn]
+    movsd [rsp + TC_ADV], xmm0
+    ; the glyph: a shape at translate(x, y) x rotate, no opacity / clip /
+    ; mask of its own (the elements' groups carry those)
+    cmp r12d, ' '
+    je .placed
+    lea rdi, [r15 + P_TX_SAVEM]
+    lea rsi, [rbx + S_M]
+    mov ecx, 48
+    rep movsb
+    lea rdi, [rsp + TC_M]
+    movsd xmm0, [r15 + P_TX_X]
+    movsd xmm1, [r15 + P_TX_Y]
+    call umath_affine2_translate
+    lea rdi, [rbx + S_M]
+    mov rsi, rdi
+    lea rdx, [rsp + TC_M]
+    call umath_affine2_multiply
+    lea rdi, [rsp + TC_M]
+    movsd xmm0, [rsp + TC_ROT]
+    call umath_affine2_rotate
+    lea rdi, [rbx + S_M]
+    mov rsi, rdi
+    lea rdx, [rsp + TC_M]
+    call umath_affine2_multiply
+    mov dword [r15 + P_ELEM], E_GLYPH
+    movsd xmm0, [rel svg_one]
+    movsd [r15 + P_OPACITY], xmm0
+    mov qword [r15 + P_CLIP], 0
+    mov qword [r15 + P_MASK], 0
+    call svg_shape
+    lea rdi, [rbx + S_M]
+    lea rsi, [r15 + P_TX_SAVEM]
+    mov ecx, 48
+    rep movsb
+.placed:
+    ; x += advance + letter-spacing (+ word-spacing after a space)
+    movsd xmm0, [r15 + P_TX_X]
+    addsd xmm0, [rsp + TC_ADV]
+    addsd xmm0, [rbx + S_LSPACE]
+    cmp r12d, ' '
+    jne .advanced
+    addsd xmm0, [rbx + S_WSPACE]
+.advanced:
+    movsd [r15 + P_TX_X], xmm0
+    inc dword [r15 + P_TX_COUNT]
+.out:
+    add rsp, TC_SIZE
+    pop r14
+    pop r13
+    pop r12
+    ret
+; edi = a list (0 x, 1 y, 2 dx, 3 dy), r13d = the character -> xmm0 = its
+;   value, CF clear; CF set when the list gives this character none
+.list_value:
+    mov rax, [rbx + S_LISTS + rdi * 8]
+    test rax, rax
+    jz .none
+    mov edx, r13d
+    sub edx, [rax + 12]
+    cmp edx, [rax + 8]
+    jae .none
+    mov rax, [rax]
+    movsd xmm0, [rax + rdx * 8]
+    clc
+    ret
+.none:
+    stc
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_text_finish — r15 = frame: the open chunk ends; middle / end anchors
+;   shift its items along the text's x axis by - advance / 2 or - advance
+;   (D = M x translate(shift, 0) x M^-1 before each item's matrix)
+; -----------------------------------------------------------------------------
+%define TF_INV      0                   ; f64[6]
+%define TF_D        48                  ; f64[6]
+%define TF_SIZE     112
+
+svg_text_finish:
+    push r12
+    push r13
+    push r14
+    sub rsp, TF_SIZE
+    mov r12d, [r15 + P_TX_CHUNK]
+    test r12d, r12d
+    jz .out
+    mov dword [r15 + P_TX_CHUNK], 0
+    dec r12d                            ; its first item
+    mov eax, [r15 + P_TX_ANCHOR]
+    test eax, eax
+    jz .out
+    movsd xmm0, [r15 + P_TX_CX]
+    subsd xmm0, [r15 + P_TX_X]          ; - advance
+    cmp eax, 1
+    jne .shift
+    mulsd xmm0, [rel svg_half]
+.shift:
+    lea rdi, [rsp + TF_D]
+    xorpd xmm1, xmm1
+    call umath_affine2_translate
+    lea rdi, [rsp + TF_D]
+    lea rsi, [r15 + P_TX_M]
+    lea rdx, [rsp + TF_D]
+    call umath_affine2_multiply
+    lea rdi, [rsp + TF_INV]
+    lea rsi, [r15 + P_TX_M]
+    call umath_affine2_invert
+    test eax, eax
+    jnz .out
+    lea rdi, [rsp + TF_D]
+    mov rsi, rdi
+    lea rdx, [rsp + TF_INV]
+    call umath_affine2_multiply
+    mov r14, [r15 + P_SVG]
+.item:
+    cmp r12d, [r14 + UgfxSvg_count]
+    jae .out
+    imul rdi, r12, UgfxSvgItem_SIZE
+    add rdi, [r14 + UgfxSvg_items]
+    lea rdi, [rdi + UgfxSvgItem_matrix]
+    lea rsi, [rsp + TF_D]
+    mov rdx, rdi
+    call umath_affine2_multiply
+    inc r12d
+    jmp .item
+.out:
+    add rsp, TF_SIZE
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
 ; svg_markers — r15 = frame (P_VERTS / P_NVERTS), rbx = the shape's state:
 ;   marker items at its vertices - marker-start at the first, marker-mid
 ;   at the others, marker-end at the last (a lone vertex has both ends)
@@ -4726,7 +5650,7 @@ svg_lengths:
 .dashes:
     mov rdi, [r15 + P_DASH_RAW]
     test rdi, rdi
-    jz .dash_offset
+    jz .spacings
     mov rsi, [r15 + P_DASH_RAW_END]
     call ugfx_svg_trim
     push rdi
@@ -4736,9 +5660,18 @@ svg_lengths:
     pop rdi
     jne .dash_list
     mov dword [rbx + S_DASH_N], 0
-    jmp .dash_offset
+    jmp .spacings
 .dash_list:
     call svg_dash_list
+    jmp .spacings
+.spacings:
+    ; letter-spacing, word-spacing: normal (0) or a length
+    lea r12, [r15 + P_LS_RAW]
+    lea r13, [rbx + S_LSPACE]
+    call .spacing
+    lea r12, [r15 + P_WS_RAW]
+    lea r13, [rbx + S_WSPACE]
+    call .spacing
 .dash_offset:
     mov rdi, [r15 + P_DOFF_RAW]
     test rdi, rdi
@@ -4889,6 +5822,37 @@ svg_length:
     pop r12
     ret
 
+; r12 = a spacing as written (ptr, end), r13 = where it goes (frame at
+;   svg_lengths' + 8): normal is 0; an invalid value leaves it
+svg_lengths.spacing:
+    mov rdi, [r12]
+    test rdi, rdi
+    jz .sp_out
+    mov rsi, [r12 + 8]
+    sub rsp, 8
+    push rdi
+    push rsi
+    lea rdx, [rel svg_weight_words]     ; (its first word is "normal")
+    call ugfx_svg_trim
+    call ugfx_svg_lookup
+    pop rsi
+    pop rdi
+    cmp eax, 1
+    jne .sp_length
+    xorpd xmm0, xmm0
+    movsd [r13], xmm0
+    add rsp, 8
+.sp_out:
+    ret
+.sp_length:
+    mov edx, AX_X
+    call svg_length
+    add rsp, 8
+    test rax, rax
+    jz .sp_out
+    movsd [r13], xmm0
+    ret
+
 ; rdi / rsi = font-size, rbx = state (S_FONT still the parent's): a
 ;   keyword, larger / smaller (x 1.2, / 1.2) or a length >= 0
 svg_font_size:
@@ -4966,6 +5930,8 @@ svg_shape:
     je .marker_kind
     cmp eax, E_LINE
     jb .markers_known
+    cmp eax, E_POLYGON
+    ja .markers_known
 .marker_kind:
     mov rax, [rbx + S_MARKERS]
     or rax, [rbx + S_MARKERS + 16]
@@ -5437,6 +6403,8 @@ svg_geometry:
     sub rsp, 8
     lea rbx, [r12 + UgfxSvgItem_path]
     mov eax, [r15 + P_ELEM]
+    cmp eax, E_GLYPH
+    je .glyph
     cmp eax, E_PATH
     je .path
     cmp eax, E_POLYLINE
@@ -5557,6 +6525,16 @@ svg_geometry:
     mov rdx, rbx
     call ugfx_svg_path_data
     jmp .out
+.glyph:
+    ; the font's outline at the size
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_font_user]
+    lea rsi, [r15 + P_GLYPH_FONT]
+    mov edx, [r15 + P_GLYPH_CP]
+    movsd xmm0, [r15 + P_GLYPH_SIZE]
+    mov rcx, rbx
+    mov r8, [rax + UgfxSvg_arena]
+    call [rax + UgfxSvg_font_fn]
 .empty:
     xor eax, eax
 .out:
@@ -6448,6 +7426,7 @@ svg_draw_list:
 
 section .rodata
 svg_hundredth:      dq 0.01
+svg_1000:           dq 1000.0
 svg_2p30:           dq 1073741824.0
 align 16
 svg_abs_mask:       dq 0x7FFFFFFFFFFFFFFF, 0
