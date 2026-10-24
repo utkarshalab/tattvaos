@@ -2,10 +2,7 @@
 ; Line Primitives — Line Segment Operations
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
-%include "inc/geometry.inc"
+%include "ugfx.inc"
 
 section .text
 
@@ -27,13 +24,13 @@ line_draw:
     mov r10d, r9d
 
     ; Get pixbuf info
-    mov eax, [rbx + Pixbuf.width]
+    mov eax, [rbx + PixBuf_width]
     mov r11d, eax
-    mov eax, [rbx + Pixbuf.height]
+    mov eax, [rbx + PixBuf_height]
     mov r9d, eax
-    mov rax, [rbx + Pixbuf.stride]
+    mov rax, [rbx + PixBuf_stride]
     mov r8, rax
-    mov rax, [rbx + Pixbuf.data]
+    mov rax, [rbx + PixBuf_data]
     mov rdi, rax
 
     ; Clip line to pixbuf bounds
