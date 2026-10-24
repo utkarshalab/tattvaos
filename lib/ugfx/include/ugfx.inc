@@ -158,7 +158,15 @@ extern panic_null_ptr
 %define UgfxRaster_height   60          ; u32 clip height in pixels
 %define UgfxRaster_open     64          ; u32 a contour is open
 %define UgfxRaster_error    68          ; u32 sticky -ENOMEM from cell growth
-%define UgfxRaster_SIZE     72
+%define UgfxRaster_clip     72          ; const UgfxMask* applied to every fill, or 0
+%define UgfxRaster_SIZE     80
+
+; Coverage mask (caller-allocated, UgfxMask_SIZE bytes; ugfx_mask_init)
+%define UgfxMask_width      0           ; u64 pixels
+%define UgfxMask_height     8           ; u64 pixels
+%define UgfxMask_stride     16          ; u64 bytes per row
+%define UgfxMask_data       24          ; u8[] 0 = outside .. 255 = inside
+%define UgfxMask_SIZE       32
 %define UgfxCell_SIZE       16
 
 ; -----------------------------------------------------------------------------
