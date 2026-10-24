@@ -19,6 +19,12 @@
 ;                 cubic n = ceil(sqrt(3 L / (4 tol))),    L = max |second differences|
 ;             The result is at least 1 and at most UMATH_BEZIER_MAX_SEGMENTS;
 ;             a non-positive or non-finite tol, or non-finite points, give 1.
+;   bounds    the tight box (min x, min y, max x, max y) of the curve for t in
+;             [0, 1]: the end points and, per axis, the curve at the roots of
+;             B'(t) inside (0, 1) - quad t = (p0 - p1) / (p0 - 2p1 + p2), cubic
+;             the roots of A t^2 + B t + C with c0 = p1 - p0, c1 = p2 - p1,
+;             c2 = p3 - p2, A = c0 - 2c1 + c2, B = 2 (c1 - c0), C = c0
+;             (B / 3 of the derivative), evaluated by the same lerps as eval.
 ; =============================================================================
 
 bits 64
@@ -33,6 +39,8 @@ bezier_three:       dq 3.0
 bezier_quarter:     dq 0.25
 bezier_three_qtr:   dq 0.75
 bezier_max_seg:     dq 4096.0
+bezier_half:        dq 0.5
+bezier_zero:        dq 0.0
 
 section .text
 
@@ -324,6 +332,204 @@ umath_bezier_cubic_segments:
     jmp bezier_ceil_count
 .one:
     mov eax, 1
+    ret
+
+; -----------------------------------------------------------------------------
+; umath_bezier_quad_bounds(const double p[6], double out[4])
+;   out = min x, min y, max x, max y of the quadratic for t in [0, 1]
+; -----------------------------------------------------------------------------
+global umath_bezier_quad_bounds
+umath_bezier_quad_bounds:
+    xor ecx, ecx                        ; axis: 0 x, 8 y
+.axis:
+    movsd xmm0, [rdi + rcx]             ; p0
+    movsd xmm1, [rdi + rcx + 16]        ; p1
+    movsd xmm2, [rdi + rcx + 32]        ; p2
+    movapd xmm4, xmm0                   ; min
+    minsd xmm4, xmm2
+    movapd xmm5, xmm0                   ; max
+    maxsd xmm5, xmm2
+    ; t = (p0 - p1) / (p0 - 2 p1 + p2)
+    movapd xmm6, xmm1
+    addsd xmm6, xmm6
+    movapd xmm7, xmm0
+    subsd xmm7, xmm6
+    addsd xmm7, xmm2                    ; denominator
+    xorpd xmm6, xmm6
+    ucomisd xmm7, xmm6
+    jp .store
+    je .store
+    movapd xmm3, xmm0
+    subsd xmm3, xmm1
+    divsd xmm3, xmm7                    ; t
+    call bezier_bounds_inside
+    jbe .store
+    ; q0 = lerp(p0, p1), q1 = lerp(p1, p2), v = lerp(q0, q1)
+    movapd xmm6, xmm1
+    subsd xmm6, xmm0
+    mulsd xmm6, xmm3
+    addsd xmm6, xmm0                    ; q0
+    movapd xmm7, xmm2
+    subsd xmm7, xmm1
+    mulsd xmm7, xmm3
+    addsd xmm7, xmm1                    ; q1
+    subsd xmm7, xmm6
+    mulsd xmm7, xmm3
+    addsd xmm6, xmm7                    ; v
+    minsd xmm4, xmm6
+    maxsd xmm5, xmm6
+.store:
+    movsd [rsi + rcx], xmm4
+    movsd [rsi + rcx + 16], xmm5
+    add ecx, 8
+    cmp ecx, 16
+    jb .axis
+    ret
+
+; xmm3 = t -> flags: "ja" when 0 < t < 1 (NaN: not inside). Keeps xmm3.
+bezier_bounds_inside:
+    xorpd xmm6, xmm6
+    ucomisd xmm3, xmm6
+    jp .no
+    jbe .no
+    movsd xmm6, [rel bezier_one]
+    ucomisd xmm6, xmm3                  ; 1 > t: "ja"
+    ret
+.no:
+    xorpd xmm6, xmm6
+    ucomisd xmm6, xmm6                  ; ZF = 1: "jbe" taken
+    ret
+
+; -----------------------------------------------------------------------------
+; umath_bezier_cubic_bounds(const double p[8], double out[4])
+;   out = min x, min y, max x, max y of the cubic for t in [0, 1]
+; -----------------------------------------------------------------------------
+global umath_bezier_cubic_bounds
+umath_bezier_cubic_bounds:
+    push rbx
+    sub rsp, 64
+    xor ebx, ebx                        ; axis: 0 x, 8 y
+.axis:
+    movsd xmm0, [rdi + rbx]
+    movsd xmm1, [rdi + rbx + 16]
+    movsd xmm2, [rdi + rbx + 32]
+    movsd xmm3, [rdi + rbx + 48]
+    movsd [rsp], xmm0                   ; p0 .. p3
+    movsd [rsp + 8], xmm1
+    movsd [rsp + 16], xmm2
+    movsd [rsp + 24], xmm3
+    movapd xmm4, xmm0
+    minsd xmm4, xmm3
+    movapd xmm5, xmm0
+    maxsd xmm5, xmm3
+    movsd [rsp + 32], xmm4              ; min
+    movsd [rsp + 40], xmm5              ; max
+    ; c0, c1, c2 and A, B, C
+    subsd xmm3, xmm2                    ; c2 = p3 - p2
+    subsd xmm2, xmm1                    ; c1 = p2 - p1
+    subsd xmm1, xmm0                    ; c0 = p1 - p0 = C
+    movapd xmm4, xmm2
+    addsd xmm4, xmm4
+    movapd xmm6, xmm1
+    subsd xmm6, xmm4
+    addsd xmm6, xmm3                    ; A = c0 - 2 c1 + c2
+    movapd xmm7, xmm2
+    subsd xmm7, xmm1
+    addsd xmm7, xmm7                    ; B = 2 (c1 - c0)
+    xorpd xmm4, xmm4
+    ucomisd xmm6, xmm4
+    jp .done_axis
+    jne .quadratic
+    ; A = 0: t = -C / B
+    ucomisd xmm7, xmm4
+    jp .done_axis
+    je .done_axis
+    xorpd xmm3, xmm3
+    subsd xmm3, xmm1
+    divsd xmm3, xmm7
+    call .try
+    jmp .done_axis
+.quadratic:
+    ; disc = B^2 - 4 A C
+    movapd xmm2, xmm7
+    mulsd xmm2, xmm7
+    movapd xmm3, xmm6
+    mulsd xmm3, xmm1
+    addsd xmm3, xmm3
+    addsd xmm3, xmm3
+    subsd xmm2, xmm3
+    ucomisd xmm2, xmm4
+    jp .done_axis
+    jb .done_axis
+    sqrtsd xmm2, xmm2
+    addsd xmm6, xmm6                    ; 2 A
+    movsd [rsp + 48], xmm6
+    movsd [rsp + 56], xmm2
+    ; (-B + s) / 2A
+    xorpd xmm3, xmm3
+    subsd xmm3, xmm7
+    movapd xmm0, xmm3
+    addsd xmm3, xmm2
+    divsd xmm3, xmm6
+    movsd [rsp + 48], xmm6
+    movapd xmm6, xmm0                   ; -B
+    subsd xmm6, xmm2
+    divsd xmm6, [rsp + 48]              ; (-B - s) / 2A
+    movsd [rsp + 56], xmm6
+    call .try
+    movsd xmm3, [rsp + 56]
+    call .try
+.done_axis:
+    movsd xmm4, [rsp + 32]
+    movsd xmm5, [rsp + 40]
+    movsd [rsi + rbx], xmm4
+    movsd [rsi + rbx + 16], xmm5
+    add ebx, 8
+    cmp ebx, 16
+    jb .axis
+    add rsp, 64
+    pop rbx
+    ret
+; xmm3 = t: inside (0, 1), the curve there widens the box (frame at rsp + 8)
+.try:
+    call bezier_bounds_inside
+    jbe .try_out
+    movsd xmm0, [rsp + 8]               ; p0 .. p3
+    movsd xmm1, [rsp + 16]
+    movsd xmm2, [rsp + 24]
+    movsd xmm4, [rsp + 32]
+    ; de Casteljau, as eval: lerp(a, b) = a + (b - a) t
+    movapd xmm5, xmm1
+    subsd xmm5, xmm0
+    mulsd xmm5, xmm3
+    addsd xmm0, xmm5                    ; a = lerp(p0, p1)
+    movapd xmm5, xmm2
+    subsd xmm5, xmm1
+    mulsd xmm5, xmm3
+    addsd xmm1, xmm5                    ; b = lerp(p1, p2)
+    movapd xmm5, xmm4
+    subsd xmm5, xmm2
+    mulsd xmm5, xmm3
+    addsd xmm2, xmm5                    ; c = lerp(p2, p3)
+    movapd xmm5, xmm1
+    subsd xmm5, xmm0
+    mulsd xmm5, xmm3
+    addsd xmm0, xmm5                    ; d = lerp(a, b)
+    movapd xmm5, xmm2
+    subsd xmm5, xmm1
+    mulsd xmm5, xmm3
+    addsd xmm1, xmm5                    ; e = lerp(b, c)
+    movapd xmm5, xmm1
+    subsd xmm5, xmm0
+    mulsd xmm5, xmm3
+    addsd xmm0, xmm5                    ; v = lerp(d, e)
+    movsd xmm4, [rsp + 8 + 32]
+    minsd xmm4, xmm0
+    movsd [rsp + 8 + 32], xmm4
+    movsd xmm5, [rsp + 8 + 40]
+    maxsd xmm5, xmm0
+    movsd [rsp + 8 + 40], xmm5
+.try_out:
     ret
 
 %endif ; GUARD_LIB_UMATH_GEOM_BEZIER_ASM
