@@ -32,6 +32,11 @@ extern ugfx_svg_xml_next
 extern ugfx_svg_xml_attr
 extern ugfx_svg_lookup
 extern ugfx_svg_trim
+extern ugfx_svg_defs_scan
+extern ugfx_svg_defs_paint
+extern ugfx_ctx_set_fill_paint
+extern ugfx_ctx_set_stroke_paint
+extern ugfx_ctx_set_alpha
 extern ugfx_path_init
 extern ugfx_path_move_to
 extern ugfx_path_line_to
@@ -77,7 +82,13 @@ extern ugfx_ctx_stroke
 %define S_CAP           108
 %define S_RULE          112
 %define S_SKIP          116             ; u32 not drawn (display none, skipped subtree)
-%define S_SIZE          120
+%define S_FILL_ID       120             ; url(#id) of a kind 3 fill
+%define S_FILL_ID_END   128
+%define S_STROKE_ID     136
+%define S_STROKE_ID_END 144
+%define S_FILL_FB       152             ; u32 the fallback's kind (its colour in S_FILL)
+%define S_STROKE_FB     156
+%define S_SIZE          160
 
 ; elements
 %define E_GROUP         0
@@ -148,7 +159,9 @@ extern ugfx_ctx_stroke
 %define P_ARC           256             ; f64[24]
 %define P_XML           456             ; UgfxSvgXml
 %define P_ATTR          (P_XML + UgfxSvgXml_SIZE)       ; UgfxSvgAttr
-%define P_SIZE          (((P_ATTR + UgfxSvgAttr_SIZE + 15) & ~15) + 8)
+%define P_DEFS          (P_ATTR + UgfxSvgAttr_SIZE)     ; UgfxSvgDefs
+%define P_VIEW          (P_DEFS + UgfxSvgDefs_SIZE)     ; f64 viewport w, h
+%define P_SIZE          (((P_VIEW + 16 + 15) & ~15) + 8)
 
 section .rodata
 align 8
@@ -323,6 +336,16 @@ ugfx_svg_parse:
     mov dword [rbx + S_CAP], UGFX_CAP_BUTT
     mov dword [rbx + S_RULE], UGFX_FILL_NONZERO
     mov dword [rbx + S_SKIP], 0
+    ; gradients first: url(#id) may name one defined further on
+    lea rdi, [r15 + P_DEFS]
+    mov rax, [r15 + P_SVG]
+    mov rsi, [rax + UgfxSvg_arena]
+    mov rdx, [r15 + P_XML + UgfxSvgXml_cur]
+    mov rcx, [r15 + P_XML + UgfxSvgXml_end]
+    sub rcx, rdx
+    call ugfx_svg_defs_scan
+    test rax, rax
+    jnz .nomem
 .token:
     cmp dword [r15 + P_ERR], 0
     jne .finish
@@ -641,6 +664,51 @@ svg_property:
     movsd [rbx + S_STROKE_OP], xmm0
     jmp .out
 .paint:
+    push rdi
+    push rsi
+    call ugfx_svg_trim
+    mov rax, rsi
+    sub rax, rdi
+    cmp rax, 4
+    jb .paint_plain
+    cmp dword [rdi], 'url('
+    jne .paint_plain
+    add rsp, 16
+    call svg_url
+    test rax, rax
+    jz .out                             ; malformed: ignored
+    lea rcx, [rbx + S_FILL_KIND]
+    lea r8, [rbx + S_FILL_ID]
+    lea r9, [rbx + S_FILL_FB]
+    cmp r12d, A_FILL
+    je .url_set
+    lea rcx, [rbx + S_STROKE_KIND]
+    lea r8, [rbx + S_STROKE_ID]
+    lea r9, [rbx + S_STROKE_FB]
+.url_set:
+    mov dword [rcx], 3
+    mov [r8], rax
+    mov [r8 + 8], rdx
+    ; the fallback after ')': none, a colour or currentColor
+    push rcx
+    push r9
+    call ugfx_svg_colour
+    pop r9
+    pop rcx
+    cmp eax, 2
+    jbe .url_fallback
+    xor eax, eax                        ; none given / not usable: none
+.url_fallback:
+    mov [r9], eax
+    cmp eax, 1
+    je .url_colour
+    mov edx, 0xFF000000
+.url_colour:
+    mov [rcx + 4], edx
+    jmp .out
+.paint_plain:
+    pop rsi
+    pop rdi
     call ugfx_svg_colour
     cmp eax, 3
     jae .out                            ; inherit (already) or invalid (-1)
@@ -808,22 +876,32 @@ svg_shape:
     cmp ecx, 6
     jb .copy_m
     xor eax, eax
+    mov edx, [rbx + S_FILL]
     test r13d, 1
     jz .fill_kind
     mov eax, [rbx + S_FILL_KIND]
+    cmp eax, 3
+    jne .fill_kind
+    xor ecx, ecx
+    call svg_resolve
 .fill_kind:
     mov [r12 + UgfxSvgItem_fill_kind], eax
-    mov edi, [rbx + S_FILL]
+    mov edi, edx
     movsd xmm0, [rbx + S_FILL_OP]
     call svg_bake_alpha
     mov [r12 + UgfxSvgItem_fill], eax
     xor eax, eax
+    mov edx, [rbx + S_STROKE]
     test r13d, 2
     jz .stroke_kind
     mov eax, [rbx + S_STROKE_KIND]
+    cmp eax, 3
+    jne .stroke_kind
+    mov ecx, 1
+    call svg_resolve
 .stroke_kind:
     mov [r12 + UgfxSvgItem_stroke_kind], eax
-    mov edi, [rbx + S_STROKE]
+    mov edi, edx
     movsd xmm0, [rbx + S_STROKE_OP]
     call svg_bake_alpha
     mov [r12 + UgfxSvgItem_stroke], eax
@@ -845,6 +923,183 @@ svg_shape:
     pop r14
     pop r13
     pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_resolve — ecx = 0 fill / 1 stroke of state rbx (kind 3), r12 = the
+;   item (path built), r15 = frame -> eax = kind, edx = colour: the
+;   gradient as a paint (kind 3, edx opaque so the opacities make its
+;   alpha), a solid colour (1), nothing (0), or the fallback when the id
+;   names no gradient
+; -----------------------------------------------------------------------------
+svg_resolve:
+    push r13
+    push r14
+    sub rsp, 8
+    mov r13d, ecx
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    mov esi, UgfxPaint_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov r14, rax
+    lea rcx, [r12 + UgfxSvgItem_fill_paint]
+    test r13d, r13d
+    jz .slot
+    lea rcx, [r12 + UgfxSvgItem_stroke_paint]
+.slot:
+    mov [rcx], r14
+    call svg_viewport
+    lea rdi, [r15 + P_DEFS]
+    mov rsi, [rbx + S_FILL_ID]
+    mov rdx, [rbx + S_FILL_ID_END]
+    lea rax, [r12 + UgfxSvgItem_fill_pm]
+    test r13d, r13d
+    jz .args
+    mov rsi, [rbx + S_STROKE_ID]
+    mov rdx, [rbx + S_STROKE_ID_END]
+    lea rax, [r12 + UgfxSvgItem_stroke_pm]
+.args:
+    lea rcx, [r12 + UgfxSvgItem_path]
+    lea r8, [r15 + P_VIEW]
+    mov r9, r14
+    sub rsp, 8
+    push rax                            ; the matrix (7th argument)
+    call ugfx_svg_defs_paint
+    add rsp, 16
+    cmp eax, -1
+    je .fallback
+    cmp eax, 3
+    jne .out
+    mov edx, 0xFF000000
+    jmp .out
+.fallback:
+    mov eax, [rbx + S_FILL_FB]
+    mov edx, [rbx + S_FILL]
+    test r13d, r13d
+    jz .out
+    mov eax, [rbx + S_STROKE_FB]
+    mov edx, [rbx + S_STROKE]
+    jmp .out
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+    xor eax, eax
+    xor edx, edx
+.out:
+    add rsp, 8
+    pop r14
+    pop r13
+    ret
+
+; r15 = frame -> P_VIEW = the viewport (viewBox size, else width / height,
+;   else 300 x 150), for userSpaceOnUse percentages
+svg_viewport:
+    mov rax, [r15 + P_SVG]
+    movsd xmm0, [rel svg_default_w]
+    movsd xmm1, [rel svg_default_h]
+    mov ecx, [rax + UgfxSvg_has]
+    test ecx, 1
+    jz .no_viewbox
+    movsd xmm0, [rax + UgfxSvg_viewbox + 16]
+    movsd xmm1, [rax + UgfxSvg_viewbox + 24]
+    jmp .done
+.no_viewbox:
+    xorpd xmm2, xmm2
+    test ecx, 2
+    jz .no_width
+    movsd xmm3, [rax + UgfxSvg_width]
+    ucomisd xmm3, xmm2
+    jbe .no_width
+    movapd xmm0, xmm3
+.no_width:
+    test ecx, 4
+    jz .done
+    movsd xmm3, [rax + UgfxSvg_height]
+    ucomisd xmm3, xmm2
+    jbe .done
+    movapd xmm1, xmm3
+.done:
+    movsd [r15 + P_VIEW], xmm0
+    movsd [r15 + P_VIEW + 8], xmm1
+    ret
+
+; rdi = "url(" ..., rsi = the value's end -> rax = id (0: malformed), rdx =
+;   its end, rdi = after ')' (the fallback follows), rsi kept
+svg_url:
+    add rdi, 4
+.ws:
+    cmp rdi, rsi
+    jae .bad
+    cmp byte [rdi], ' '
+    ja .quote
+    inc rdi
+    jmp .ws
+.quote:
+    xor ecx, ecx
+    movzx eax, byte [rdi]
+    cmp al, '"'
+    je .quoted
+    cmp al, 39
+    je .quoted
+    ; &quot; / &apos; (as written inside an attribute): the id ends at '&'
+    cmp al, '&'
+    jne .hash
+    lea rdx, [rdi + 6]
+    cmp rdx, rsi
+    ja .hash
+    cmp dword [rdi], '&quo'
+    je .entity
+    cmp dword [rdi], '&apo'
+    jne .hash
+.entity:
+    cmp word [rdi + 4], 't;'
+    je .entity_quote
+    cmp word [rdi + 4], 's;'
+    jne .hash
+.entity_quote:
+    mov ecx, '&'
+    add rdi, 6
+    jmp .hash
+.quoted:
+    mov ecx, eax
+    inc rdi
+.hash:
+    cmp rdi, rsi
+    jae .bad
+    cmp byte [rdi], '#'
+    jne .id
+    inc rdi
+.id:
+    mov rax, rdi
+.id_scan:
+    cmp rdi, rsi
+    jae .bad
+    movzx edx, byte [rdi]
+    cmp dl, ')'
+    je .id_end
+    cmp dl, ' '
+    jbe .id_end
+    test ecx, ecx
+    jz .id_next
+    cmp edx, ecx
+    je .id_end
+.id_next:
+    inc rdi
+    jmp .id_scan
+.id_end:
+    mov rdx, rdi
+.close:
+    cmp rdi, rsi
+    jae .bad
+    inc rdi
+    cmp byte [rdi - 1], ')'
+    jne .close
+    cmp rax, rdx
+    je .bad                             ; no id
+    ret
+.bad:
+    xor eax, eax
     ret
 
 ; edi = straight colour (its own alpha), xmm0 = paint opacity, rbx = state
@@ -1128,6 +1383,7 @@ svg_rounded_rect:
 %define V_BOX       8                   ; f64[4] the viewBox used
 %define V_STYLE     40                  ; UgfxStroke
 %define V_TMP       64                  ; f64[3]
+%define V_ALPHA     88                  ; u32 the context's alpha on entry
 %define V_SIZE      104
 
 global ugfx_svg_draw
@@ -1224,6 +1480,8 @@ ugfx_svg_draw:
     mov rdi, r13
     xor esi, esi
     call ugfx_ctx_set_dash
+    mov eax, [r13 + UgfxContext_state + UgfxState_alpha]
+    mov [rsp + V_ALPHA], eax
     ; the items
     xor r14d, r14d
 .item:
@@ -1241,11 +1499,22 @@ ugfx_svg_draw:
     mov eax, [r12 + UgfxSvgItem_fill_kind]
     test eax, eax
     jz .no_fill
+    cmp eax, 3
+    jne .fill_colour
+    mov rdi, r13
+    mov rsi, [r12 + UgfxSvgItem_fill_paint]
+    lea rdx, [r12 + UgfxSvgItem_fill_pm]
+    call ugfx_ctx_set_fill_paint
+    mov edi, [r12 + UgfxSvgItem_fill]
+    call .paint_alpha
+    jmp .fill_rule
+.fill_colour:
     mov edi, [r12 + UgfxSvgItem_fill]
     call .paint_colour
     mov rdi, r13
     mov esi, eax
     call ugfx_ctx_set_fill_color
+.fill_rule:
     mov rdi, r13
     mov esi, [r12 + UgfxSvgItem_rule]
     call ugfx_ctx_set_fill_rule
@@ -1258,11 +1527,25 @@ ugfx_svg_draw:
     mov eax, [r12 + UgfxSvgItem_stroke_kind]
     test eax, eax
     jz .item_done
+    cmp eax, 3
+    jne .stroke_colour
+    mov rdi, r13
+    mov rsi, [r12 + UgfxSvgItem_stroke_paint]
+    lea rdx, [r12 + UgfxSvgItem_stroke_pm]
+    call ugfx_ctx_set_stroke_paint
+    mov edi, [r12 + UgfxSvgItem_stroke]
+    call .paint_alpha
+    jmp .stroke_style
+.stroke_colour:
+    mov edi, 0xFF000000
+    call .paint_alpha                   ; back to the entry alpha
+    mov eax, [r12 + UgfxSvgItem_stroke_kind]
     mov edi, [r12 + UgfxSvgItem_stroke]
     call .paint_colour
     mov rdi, r13
     mov esi, eax
     call ugfx_ctx_set_stroke_color
+.stroke_style:
     movsd xmm0, [r12 + UgfxSvgItem_width]
     movsd [rsp + V_STYLE + UgfxStroke_width], xmm0
     movsd xmm0, [r12 + UgfxSvgItem_miter]
@@ -1306,6 +1589,22 @@ ugfx_svg_draw:
 .draw_out:
     add rsp, V_SIZE
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+; edi = item colour: the context's alpha = entry alpha x its alpha / 255
+;   (frame at rsp + 8)
+.paint_alpha:
+    shr edi, 24
+    mov esi, [rsp + 8 + V_ALPHA]
+    imul esi, edi
+    add esi, 128
+    mov eax, esi
+    shr eax, 8
+    add esi, eax
+    shr esi, 8
+    mov rdi, r13
+    sub rsp, 8
+    call ugfx_ctx_set_alpha
+    add rsp, 8
+    ret
 ; eax = kind, edi = item colour -> eax = premultiplied colour; currentColor
 ;   takes the given colour with its alpha x the item's (frame at rsp + 8)
 .paint_colour:
