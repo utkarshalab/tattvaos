@@ -1,9 +1,6 @@
 ; Region operations -- arena-backed lists of 16-byte x/y/w/h rectangles.
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
-%include "inc/struct_offsets.inc"
+%include "ugfx.inc"
 
 extern arena_alloc
 extern memcopy
