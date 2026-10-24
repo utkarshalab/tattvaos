@@ -339,7 +339,13 @@ extern panic_null_ptr
 %define UgfxSvgItem_dash        272     ; const f64* (even count), 0 = solid
 %define UgfxSvgItem_dash_n      280     ; u32
 %define UgfxSvgItem_dash_off    288     ; f64
-%define UgfxSvgItem_SIZE        296
+%define UgfxSvgItem_kind        296     ; u32 UGFX_SVG_*
+%define UgfxSvgItem_alpha       300     ; u32 group opacity 0..255 (UGFX_SVG_BEGIN)
+%define UgfxSvgItem_SIZE        304
+; item kinds: a shape, or the start / end of a group drawn as one layer
+%define UGFX_SVG_SHAPE          0
+%define UGFX_SVG_BEGIN          1
+%define UGFX_SVG_END            2
 
 ; SVG reading state (2d/svg_xml.asm)
 %define UgfxSvgXml_cur          0       ; next byte to read
