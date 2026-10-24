@@ -192,4 +192,18 @@ extern panic_null_ptr
 ; Default flattening tolerance, in device pixels
 %define UGFX_PATH_TOLERANCE 0.1
 
+; Stroke style (caller-filled, UgfxStroke_SIZE bytes)
+%define UgfxStroke_width        0       ; f64 > 0, user units
+%define UgfxStroke_miter_limit  8       ; f64, ratio of miter length to width (>= 1)
+%define UgfxStroke_join         16      ; u32 UGFX_JOIN_*
+%define UgfxStroke_cap          20      ; u32 UGFX_CAP_*
+%define UgfxStroke_SIZE         24
+
+%define UGFX_JOIN_MITER     0
+%define UGFX_JOIN_ROUND     1
+%define UGFX_JOIN_BEVEL     2
+%define UGFX_CAP_BUTT       0
+%define UGFX_CAP_ROUND      1
+%define UGFX_CAP_SQUARE     2
+
 %endif ; __UGFX_INC__
