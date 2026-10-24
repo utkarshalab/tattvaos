@@ -275,6 +275,15 @@ what UIC cannot express is reported. `tests/host/svg2uic_check.py`
 draws every svg_check document both as SVG and converted to UIC: they
 agree within 1 per channel (most are identical).
 
+`make icons` builds the open icon sets listed in
+[`icons/sources.json`](icons/sources.json) - Lucide, Tabler, Bootstrap
+Icons, Heroicons, Material Design Icons, Font Awesome Free, Phosphor -
+each fetched at a pinned commit, into 18 packs (33 312 icons, about
+10 MB) in `build/icons/`, with every set's licence text and a NOTICE.
+Sets whose licences do not allow redistribution (Flaticon) are left out.
+`tools/uic_sheet.py` renders a pack's icons into a PNG contact sheet
+through ugfx, for checking by eye.
+
 Tests: `tests/host/uic_check.py` - 17 draws (filled, duotone with
 opacity, even-odd, strokes at weights 0.5 / 1 / 2, non-square and offset
 viewBoxes, a 512 grid, colour overrides, under a transform, a clip and
