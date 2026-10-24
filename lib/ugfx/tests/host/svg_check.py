@@ -40,7 +40,12 @@ def premul(c):
 
 def expected_calls(doc, current, x, y, size):
     t = svgmodel.root_matrix(doc, x, y, size)
-    out = [('save',), ('transform', *t), ('dash', 0, [])]
+    return [('save',), ('transform', *t), ('dash', 0, [])] + item_calls(doc.items, current, t) + [('restore',)]
+
+
+def item_calls(items, current, t):
+    """The calls svg_draw_list makes for an item list."""
+    out = []
 
     def paint(p):
         kind, c = p
@@ -48,7 +53,7 @@ def expected_calls(doc, current, x, y, size):
             c = (div255((current >> 24) * (c >> 24)) << 24) | (current & 0xFFFFFF)
         return premul(c)
 
-    for it in doc.items:
+    for it in items:
         if isinstance(it, svgmodel.Group):
             if it.kind == "begin":
                 if it.clip:
@@ -70,10 +75,25 @@ def expected_calls(doc, current, x, y, size):
                         out.append(('clip_end',))
                         rec = rec.next
                     out.append(('set_transform', *t))
-                if it.alpha < 255:
+                if it.mask or it.alpha < 255:
                     out.append(('begin_layer', it.alpha))
             else:
-                if it.alpha < 255:
+                if it.mask:
+                    b, mk = it.begin, it.mask
+                    bw, bh = b.bbox[2] - b.bbox[0], b.bbox[3] - b.bbox[1]
+                    rx, ry, rw, rh = mk.region
+                    if mk.units:
+                        rx, ry, rw, rh = rx * bw + b.bbox[0], ry * bh + b.bbox[1], rw * bw, rh * bh
+                    out += [('begin_mask',), ('set_transform', *t), ('transform', *b.matrix),
+                            ('transform', rw, 0.0, 0.0, rh, rx, ry), ('new_path',), ('rect', 0.0, 0.0, 1.0, 1.0),
+                            ('clip',), ('set_transform', *t), ('transform', *b.matrix)]
+                    if not mk.content:
+                        out += item_calls(mk.items, current, t)
+                    elif bw > 0 and bh > 0:
+                        out.append(('transform', bw, 0.0, 0.0, bh, b.bbox[0], b.bbox[1]))
+                        out += item_calls(mk.items, current, t)
+                    out += [('end_mask', mk.mode), ('end_layer',)]
+                elif it.alpha < 255:
                     out.append(('end_layer',))
                 if it.clip:
                     out.append(('restore',))
@@ -98,7 +118,7 @@ def expected_calls(doc, current, x, y, size):
                 stroke.append(('dash', it.dash_off, it.dash))
             stroke += [('new_path',)] + it.path + [('stroke',)]
         out += (stroke + fill if it.order else fill + stroke) + [('restore',)]
-    return out + [('restore',)]
+    return out
 
 
 def svg(body, attrs='viewBox="0 0 24 24"'):
@@ -389,6 +409,29 @@ CASES = [
     ("root slice sized", svg('<rect x="-5" y="-5" width="40" height="40" fill="#753"/><circle cx="12" cy="6" r="7" '
                              'fill="#3af"/>', 'viewBox="0 0 24 12" width="10" height="20" '
                              'preserveAspectRatio="xMaxYMin slice"'), False),
+    ("mask luminance", svg('<defs><linearGradient id="g"><stop offset="0" stop-color="#fff"/><stop offset="1" '
+                           'stop-color="#000"/></linearGradient><mask id="m"><rect width="24" height="24" fill="url(#g)"/>'
+                           '</mask></defs><g mask="url(#m)"><rect width="24" height="12" fill="#d22"/>'
+                           '<rect y="12" width="24" height="12" fill="#22d"/></g>'), False),
+    ("mask units", svg('<mask id="obb" maskContentUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".4" fill="#fff"/>'
+                       '</mask><mask id="user" maskUnits="userSpaceOnUse" x="12" y="0" width="6" height="24">'
+                       '<rect width="24" height="24" fill="white"/></mask>'
+                       '<rect x="2" y="2" width="20" height="9" fill="#0a5" mask="url(#obb)"/>'
+                       '<rect y="13" width="24" height="9" fill="#a50" stroke="#000" mask="url(#user)" opacity=".8"/>'),
+     True),
+    ("mask alpha", svg('<mask id="a" style="mask-type:luminance" mask-type="alpha" x="0" y="0" width="1" height="1">'
+                       '<circle cx="12" cy="12" r="10" fill="#000" fill-opacity=".6"/></mask>'
+                       '<mask id="l" x="0" y="0" width="1" height="1"><circle cx="12" cy="12" r="10" fill="#000" '
+                       'fill-opacity=".6"/></mask><rect width="12" height="24" fill="#c0c" mask="url(#a)"/>'
+                       '<rect x="12" width="12" height="24" fill="#c0c" mask="url(#l)"/>'), True),
+    ("mask nested", svg('<mask id="inner"><rect width="24" height="12" fill="#fff"/></mask>'
+                        '<mask id="outer" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">'
+                        '<g mask="url(#inner)"><circle cx="12" cy="12" r="10" fill="#ccc"/></g></mask>'
+                        '<mask id="self"><rect width="24" height="24" fill="#fff" mask="url(#self)"/></mask>'
+                        '<g mask="url(#outer)" clip-path="url(#cp)"><rect width="24" height="24" fill="#26e"/></g>'
+                        '<clipPath id="cp"><rect x="2" width="20" height="24"/></clipPath>'
+                        '<rect x="4" y="18" width="16" height="4" fill="#e62" mask="url(#self)"/>'
+                        '<rect x="4" y="14" width="2" height="2" mask="url(#cp)"/>'), True),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
