@@ -185,6 +185,82 @@ for deg, T, ev, tg, sp, sn, npts in ((2, Q, qe, qt, qs, qn, 3), (3, Cu, ce, ct, 
     nanpts = T(*([math.nan] * (2 * npts)))
     ck.check(f'{name}_segments NaN points', sn(nanpts, 0.5) == 1)
 
+# --- tight bounds -----------------------------------------------------------
+qb = fn(lib, 'umath_bezier_quad_bounds', None, P, P)
+cb = fn(lib, 'umath_bezier_cubic_bounds', None, P, P)
+
+
+def lerp(a, b, t):
+    return a + (b - a) * t
+
+
+def quad_bounds_ref(p):
+    out = [0.0] * 4
+    for k in (0, 1):
+        p0, p1, p2 = p[k], p[k + 2], p[k + 4]
+        lo, hi = min(p0, p2), max(p0, p2)
+        den = p0 - p1 * 2 + p2
+        if den != 0:
+            t = (p0 - p1) / den
+            if 0 < t < 1:
+                v = lerp(lerp(p0, p1, t), lerp(p1, p2, t), t)
+                lo, hi = min(lo, v), max(hi, v)
+        out[k], out[k + 2] = lo, hi
+    return out
+
+
+def cubic_bounds_ref(p):
+    out = [0.0] * 4
+    for k in (0, 1):
+        p0, p1, p2, p3 = p[k], p[k + 2], p[k + 4], p[k + 6]
+        lo, hi = min(p0, p3), max(p0, p3)
+        c0, c1, c2 = p1 - p0, p2 - p1, p3 - p2
+        A = c0 - (c1 + c1) + c2
+        B = (c1 - c0) + (c1 - c0)
+        ts = []
+        if A == 0:
+            if B != 0:
+                ts.append((0.0 - c0) / B)
+        else:
+            disc = B * B - ((A * c0) + (A * c0)) * 2
+            if disc >= 0:
+                r = disc ** 0.5
+                ts += [((0.0 - B) + r) / (A + A), ((0.0 - B) - r) / (A + A)]
+        for t in ts:
+            if 0 < t < 1:
+                a, b, c = lerp(p0, p1, t), lerp(p1, p2, t), lerp(p2, p3, t)
+                v = lerp(lerp(a, b, t), lerp(b, c, t), t)
+                lo, hi = min(lo, v), max(hi, v)
+        out[k], out[k + 2] = lo, hi
+    return out
+
+
+for trial in range(3000):
+    n = 6 if trial % 2 else 8
+    pts = [random.uniform(-100, 100) for _ in range(n)]
+    if trial % 7 == 0:          # a line, a repeated point, a straight cubic
+        pts[2], pts[3] = pts[0], pts[1]
+    arr, out = (C.c_double * n)(*pts), (C.c_double * 4)()
+    (cb if n == 8 else qb)(arr, out)
+    want = (cubic_bounds_ref if n == 8 else quad_bounds_ref)(pts)
+    name = 'cubic' if n == 8 else 'quad'
+    ck.check(f'{name}_bounds matches the reference', list(out) == want, (trial, list(out), want))
+    # every point of the curve lies inside, and the box's edges are reached
+    ev = ce if n == 8 else qe
+    xs, ys = [], []
+    for i in range(401):
+        q = ev(arr, i / 400)
+        xs.append(q.x)
+        ys.append(q.y)
+    span = max(1.0, out[2] - out[0], out[3] - out[1])
+    inside = min(xs) >= out[0] - 1e-9 * span and max(xs) <= out[2] + 1e-9 * span and \
+        min(ys) >= out[1] - 1e-9 * span and max(ys) <= out[3] + 1e-9 * span
+    ck.check(f'{name}_bounds contain the curve', inside, trial)
+    # tight: sampling at 1/400 comes within the curvature-limited gap
+    tight = min(xs) - out[0] <= 1e-3 * span and out[2] - max(xs) <= 1e-3 * span and \
+        min(ys) - out[1] <= 1e-3 * span and out[3] - max(ys) <= 1e-3 * span
+    ck.check(f'{name}_bounds are tight', tight, trial)
+
 # --- arc ---------------------------------------------------------------------
 arcpt = fn(lib, 'umath_arc_point', Pt, D, D, D, D, D)
 arcc = fn(lib, 'umath_arc_to_cubics', Z, P, D, D, D, D, D, D)
