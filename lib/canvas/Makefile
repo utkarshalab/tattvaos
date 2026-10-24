@@ -89,7 +89,22 @@ GFX_SRCS := \
     $(UGFX_DIR)/core/transform.asm \
     $(UGFX_DIR)/core/clip.asm \
     $(UGFX_DIR)/2d/line.asm \
-    $(UGFX_DIR)/2d/circle.asm
+    $(UGFX_DIR)/2d/circle.asm \
+    $(UGFX_DIR)/core/span.asm \
+    $(UGFX_DIR)/core/raster.asm \
+    $(UGFX_DIR)/core/mask.asm \
+    $(UGFX_DIR)/core/umath_unit.asm \
+    $(UGFX_DIR)/2d/path.asm \
+    $(UGFX_DIR)/2d/shapes.asm \
+    $(UGFX_DIR)/2d/stroke.asm \
+    $(UGFX_DIR)/2d/flatten.asm \
+    $(UGFX_DIR)/2d/dash.asm \
+    $(UGFX_DIR)/2d/paint.asm \
+    $(UGFX_DIR)/2d/context.asm \
+    $(UGFX_DIR)/2d/list.asm \
+    $(UGFX_DIR)/2d/uic.asm \
+    $(UGFX_DIR)/2d/svg_syntax.asm \
+    $(UGFX_DIR)/2d/svg.asm
 GFX_OBJS := $(patsubst $(UGFX_DIR)/%.asm,$(OBJDIR)/ugfx/%.o,$(GFX_SRCS))
 
 # Protocol (C4)
@@ -159,8 +174,7 @@ IMG_SRCS := \
     $(SRCDIR)/img/webp_vp8l.asm \
     $(SRCDIR)/img/webp_transform.asm \
     $(SRCDIR)/img/webp_predict.asm \
-    $(SRCDIR)/img/svg.asm \
-    $(SRCDIR)/img/svg_path.asm
+    $(SRCDIR)/img/svg.asm
 
 # Fonts (C22)
 FONT_SRCS := \
@@ -313,6 +327,7 @@ SHELL_SRCS := \
     $(SRCDIR)/shell/states.asm \
     $(SRCDIR)/shell/decoration.asm \
     $(SRCDIR)/shell/decoration_draw.asm \
+    $(SRCDIR)/shell/icons.asm \
     $(SRCDIR)/shell/theme.asm \
     $(SRCDIR)/shell/rules.asm
 
@@ -475,9 +490,17 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.asm
 	$(NASM) $(NASMFLAGS) -o $@ $<
 	@echo "  ASM    $<"
 
+# the built-in UI icons are embedded with incbin
+$(OBJDIR)/shell/icons.o: assets/icons/ui.uic
+
+# rebuild assets/icons/ui.uic from assets/icons/ui/*.svg (development machine: python3)
+.PHONY: ui-icons
+ui-icons:
+	python3 ../ugfx/tools/svg2uic.py assets/icons/ui.uic assets/icons/ui
+
 $(OBJDIR)/ugfx/%.o: $(UGFX_DIR)/%.asm
 	@mkdir -p $(dir $@)
-	$(NASM) $(NASMFLAGS) -o $@ $<
+	$(NASM) $(NASMFLAGS) -I ../../ -o $@ $<
 	@echo "  ASM    $<"
 
 # ---------------------------------------------------------------------------
@@ -658,11 +681,17 @@ $(HOSTDIR)/test_%: $(HOSTDIR)/runner_%.o $(OBJDIR)/tests/unit/test_%.o $(HOSTDIR
 $(HOSTDIR)/host_decode: $(HOSTDIR)/host_decode.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
 	$(LD) $(HOST_LDFLAGS) -o $@ $^
 
+$(HOSTDIR)/host_ui: $(HOSTDIR)/host_ui.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
+	$(LD) $(HOST_LDFLAGS) -o $@ $^
+
 .PHONY: host host-check
-host: $(HOST_TESTS) $(HOSTDIR)/host_decode
+host: $(HOST_TESTS) $(HOSTDIR)/host_decode $(HOSTDIR)/host_ui
 
 host-check: host
 	@set -e; for t in $(HOST_TESTS); do $$t; done
+	$(MAKE) -C ../ugfx host
+	python3 tests/host/svg_decode_check.py $(HOSTDIR)/host_decode ../ugfx/$(BUILDDIR)/host_ctx
+	python3 tests/host/ui_icons_check.py $(HOSTDIR)/host_ui ../ugfx/$(BUILDDIR)/host_ctx
 	python3 tests/host/compare_images.py $(HOSTDIR)/host_decode
 
 .PHONY: fuzz
