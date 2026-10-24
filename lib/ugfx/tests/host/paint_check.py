@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Check ugfx paints: linear, radial and conic gradients, spreads, stops,
-paint transforms and compositing under anti-aliased coverage.
+"""Check ugfx paints: linear, radial, two-circle radial and conic gradients,
+spreads, stops, paint transforms and compositing under anti-aliased
+coverage.
 
 Usage: paint_check.py <host_path binary> [--seed N]
 
@@ -8,7 +9,9 @@ The reference builds the same 1024-entry table from the stops (positions
 clamped to [0, 1] and to the previous stop, colours interpolated
 premultiplied, rounded to nearest), maps each pixel centre through the
 inverse paint transform to t, applies the spread, and picks the entry
-round(t * 1023). The shape's coverage comes from filling it once in solid
+round(t * 1023). For two-circle gradients t is the larger root of
+|p - c(t)| = r(t) with r(t) >= 0 (each chosen t is checked against that
+equation), and pixels on no circle stay unpainted. The shape's coverage comes from filling it once in solid
 white over transparent black; the expected pixel is that coverage applied
 to the gradient colour, composited source-over onto the background with
 ugfx's exact rounding. Each channel must match within 1, except a few
@@ -29,7 +32,7 @@ from path_check import run_tool, script  # noqa: E402
 
 LUT = 1024
 PAD, REPEAT, REFLECT = 0, 1, 2
-LINEAR, RADIAL, CONIC = 1, 2, 3
+LINEAR, RADIAL, CONIC, RADIAL2 = 1, 2, 3, 4
 
 
 def lut(stops):
@@ -81,6 +84,8 @@ def colours(w, h, kind, spread, geom, stops, matrix):
     elif kind == RADIAL:
         cx, cy, r = geom[:3]
         t = np.sqrt((px - cx) ** 2 + (py - cy) ** 2) * (1.0 / r)
+    elif kind == RADIAL2:
+        t, painted = radial2_t(px, py, *geom)
     else:
         cx, cy, start = geom[:3]
         t = np.arctan2(py - cy, px - cx) * (1 / (2 * math.pi)) - start * (1 / (2 * math.pi))
@@ -93,7 +98,38 @@ def colours(w, h, kind, spread, geom, stops, matrix):
         u = (u - np.floor(u)) * 2
         t = np.where(u > 1, 2 - u, u)
     t = np.clip(np.nan_to_num(t, nan=0.0), 0, 1)
-    return table[(t * 1023 + 0.5).astype(np.int64)]
+    out = table[(t * 1023 + 0.5).astype(np.int64)]
+    if kind == RADIAL2:
+        out = np.where(painted, out, 0)
+    return out
+
+
+def radial2_t(px, py, x0, y0, r0, x1, y1, r1):
+    """Largest t with |p - c(t)| = r(t), r(t) >= 0; and where one exists."""
+    dx, dy, dr = x1 - x0, y1 - y0, r1 - r0
+    qx, qy = px - x0, py - y0
+    a = dx * dx + dy * dy - dr * dr
+    b = qx * dx + qy * dy + r0 * dr
+    c = qx * qx + qy * qy - r0 * r0
+    with np.errstate(all='ignore'):
+        if a == 0:
+            t = np.where(b != 0, c / (2 * b), np.nan)
+            ok = (b != 0) & (r0 + t * dr >= 0)
+        else:
+            disc = b * b - a * c
+            s = np.sqrt(np.maximum(disc, 0))
+            t1, t2 = (b + s) / a, (b - s) / a
+            hi, lo = np.maximum(t1, t2), np.minimum(t1, t2)
+            hi_ok = r0 + hi * dr >= 0
+            lo_ok = r0 + lo * dr >= 0
+            t = np.where(hi_ok, hi, lo)
+            ok = (disc >= 0) & (hi_ok | lo_ok)
+    # the reference's own check: the circle at t passes through p
+    tt = np.where(ok, t, 0)
+    resid = np.hypot(qx - tt * dx, qy - tt * dy) - (r0 + tt * dr)
+    scale = 1 + np.abs(tt) * (abs(dx) + abs(dy) + abs(dr)) + abs(r0)
+    assert np.all(np.abs(np.where(ok, resid, 0)) <= 1e-6 * scale), "radial2 reference"
+    return np.where(ok, t, 0.0), ok
 
 
 def div255(x):
@@ -141,16 +177,28 @@ def gradient_cases(rng):
     yield "linear transformed", W, H, full, LINEAR, REFLECT, [0, 0, 10, 0], three, rot
     yield "radial ellipse", W, H, full, RADIAL, PAD, [0, 0, 1, 0], three, [20, 0, 0, 12, 24, 16]
     yield "conic skewed", W, H, full, CONIC, PAD, [0, 0, 0.3, 0], three, [1, 0, 0.5, 1, 22, 16]
+    yield "focal inside", W, H, full, RADIAL2, PAD, [17, 12, 0, 24, 16, 15], three, None
+    yield "focal radius", W, H, full, RADIAL2, REFLECT, [20, 14, 3, 24, 16, 13], three, None
+    yield "cone pad", W, H, full, RADIAL2, PAD, [9, 16, 4, 38, 15, 9], three, None
+    yield "cone repeat", W, H, full, RADIAL2, REPEAT, [9, 16, 4, 38, 15, 9], two, None
+    yield "cone reflect", W, H, full, RADIAL2, REFLECT, [12, 10, 2, 30, 22, 6], three, None
+    yield "tangent (a = 0)", W, H, full, RADIAL2, PAD, [20, 16, 0, 30, 16, 10], three, None
+    yield "concentric ring", W, H, full, RADIAL2, REPEAT, [24, 16, 5, 24, 16, 13], three, None
+    yield "shrinking", W, H, full, RADIAL2, PAD, [16, 16, 14, 34, 14, 3], three, None
+    yield "radial2 transformed", W, H, full, RADIAL2, PAD, [0, 0, 0, 4, 0, 10], three, rot
     yield "circle over bg", W, H, [('circle', 24, 16, 13.3)], LINEAR, PAD, [11, 0, 37, 0], [(0, 0xFFFF0000), (1, 0x8000FF00)], None
     yield "star over bg", W, H, [('star', 24, 16, 15, 6, 5, 0.2)], RADIAL, REPEAT, [24, 16, 5, 0], three, None
     for i in range(8):
-        kind = rng.choice([LINEAR, RADIAL, CONIC])
+        kind = rng.choice([LINEAR, RADIAL, CONIC, RADIAL2])
         n = rng.randint(1, 5)
         stops = sorted((round(rng.uniform(-0.1, 1.1), 3), rng.getrandbits(32)) for _ in range(n))
         if kind == LINEAR:
             geom = [rng.uniform(0, W), rng.uniform(0, H), rng.uniform(0, W), rng.uniform(0, H)]
         elif kind == RADIAL:
             geom = [rng.uniform(0, W), rng.uniform(0, H), rng.uniform(2, 30), 0]
+        elif kind == RADIAL2:
+            geom = [rng.uniform(0, W), rng.uniform(0, H), rng.uniform(0, 10),
+                    rng.uniform(0, W), rng.uniform(0, H), rng.uniform(0, 25)]
         else:
             geom = [rng.uniform(0, W), rng.uniform(0, H), rng.uniform(-7, 7), 0]
         shape = [('ellipse', rng.uniform(10, 38), rng.uniform(8, 24), rng.uniform(5, 20), rng.uniform(4, 14))]
@@ -191,6 +239,9 @@ def main():
                            ("nan offset", [('paint', LINEAR, PAD, [0, 0, 8, 0], [(math.nan, 0xFFFFFFFF)])]),
                            ("bad spread", [('paint', LINEAR, 3, [0, 0, 8, 0], two)]),
                            ("infinite geometry", [('paint', LINEAR, PAD, [0, 0, math.inf, 0], two)]),
+                           ("radial2 r0 < 0", [('paint', RADIAL2, PAD, [3, 3, -1, 5, 5, 4], two)]),
+                           ("radial2 same circle", [('paint', RADIAL2, PAD, [3, 3, 2, 3, 3, 2], two)]),
+                           ("radial2 nan", [('paint', RADIAL2, PAD, [3, 3, 2, math.nan, 3, 2], two)]),
                            ("singular transform", [('paint', LINEAR, PAD, [0, 0, 8, 0], two),
                                                    ('paint_transform', 1, 2, 2, 4, 0, 0)])):
             total += 1
