@@ -64,12 +64,12 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
-| C2D-033 | Stroke width, thin and hairline strokes | P2 | | 018 |
-| C2D-034 | Joins: miter (limit), round, bevel | P2 | | 033 |
-| C2D-035 | Caps: butt, round, square | P2 | | 033 |
+| C2D-033 | Stroke width, thin and hairline strokes | P2 | ◐ `2d/stroke` any width > 0; device hairline pending | 018 |
+| C2D-034 | Joins: miter (limit), round, bevel | P2 | ✓ `2d/stroke` | 033 |
+| C2D-035 | Caps: butt, round, square | P2 | ✓ `2d/stroke` | 033 |
 | C2D-036 | Dashes (pattern, offset, along curves) | P2 | | 019, 033 |
 | C2D-037 | Variable-width strokes | P4 | | 033 |
-| C2D-038 | Stroke to path | P2 | | 033–035 |
+| C2D-038 | Stroke to path | P2 | ✓ `ugfx_path_stroke` | 033–035 |
 | C2D-039 | Non-scaling strokes | P3 | | 033, 017 |
 
 ## 6. Paint
@@ -196,7 +196,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 
 1. Geometry math in `umath/geom` (012, 018) — **done**
 2. Path builder, shapes, transforms, flattening, path fill (015–018, 014) — **done** (conic, tight bounds pending)
-3. Strokes: width, joins, caps, stroke to path, dashes (033–036, 038)
+3. Strokes: width, joins, caps, stroke to path, dashes (033–036, 038) — **done** except dashes (036) and device hairlines
 4. Span variants and paint: gradients, image patterns (054, 041–046)
 5. Clipping and masks, coverage masks (032, 055–060)
 6. Context, draw calls, display lists, layers (083–087)
