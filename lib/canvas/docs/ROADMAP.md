@@ -266,7 +266,7 @@ Lives in `lib/ugfx`: `2d/` on the shared `core/` that 3D will also use. Math (ve
 | G2D-03 | Vector paths: moves, lines, quadratic and cubic Béziers, arcs, fill rules | P2 | ◐ orphans `render/path_*`, `ugfx/2d/arc`, `ugfx/2d/path`, `polygon_fill` |
 | G2D-04 | Strokes: width, joins, caps, dashes | P2 | ◐ orphan `render/strokes` |
 | G2D-05 | Gradients: linear, radial, conic | P2 | ◐ orphan `render/gradients` |
-| G2D-06 | Analytic coverage anti-aliasing; optional MSAA | P2 | |
+| G2D-06 | Analytic coverage anti-aliasing; optional MSAA | P2 | ✓ `ugfx/core/raster` exact-area coverage, nonzero and even-odd; host-tested |
 | G2D-07 | Filters: blur, shadow, color matrix, saturation | P3 | |
 | G2D-08 | Rounded rectangles and window shadows | P2 | ◐ unbuilt `ugfx/2d/rounded_rect` |
 | G2D-09 | Clip stacks and alpha masks | P2 | |
@@ -275,6 +275,7 @@ Lives in `lib/ugfx`: `2d/` on the shared `core/` that 3D will also use. Math (ve
 | G2D-12 | Display-list API that `lib/web` and toolkits can emit into | P2 | |
 | G2D-13 | Multi-core tile rasterizer for large surfaces | P3 | → SRV-11 |
 | G2D-14 | Material effects (frosted glass, vibrancy) with a low-cost fallback | P3 | → G2D-07 |
+| G2D-15 | Conflation-free coverage where overlapping contours meet inside a pixel (exact union instead of accumulated winding area) | P4 | → G2D-06 |
 
 ## GPU — GPU
 
