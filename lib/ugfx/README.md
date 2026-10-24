@@ -47,7 +47,7 @@ lib/ugfx/
     ├── uic.asm           ← UIC icon packs: open (validate), find, draw
     ├── svg.asm           ← SVG documents: elements, styles, shapes, drawing
     ├── svg_xml.asm       ← SVG's XML layer: tags, attributes, shared string helpers
-    ├── svg_defs.asm      ← SVG definitions found first: gradients (url(#id))
+    ├── svg_defs.asm      ← SVG definitions found first: gradients (url(#id)), CSS rules
     └── svg_syntax.asm    ← SVG attribute grammars: numbers, colours, transforms, path data
 ```
 
@@ -310,7 +310,11 @@ attributes) and every CSS colour form icons use. Fills and strokes can be
 objectBoundingBox or userSpaceOnUse, percentages, gradientTransform,
 spreadMethod, href chains, stop opacity), found by a first pass over the
 whole document, with the fallback colour when the id names nothing;
-bounding boxes are tight (`ugfx_path_bounds_tight`). `defs`, `clipPath`,
+bounding boxes are tight (`ugfx_path_bounds_tight`). `<style>` sheets
+apply too: selectors `element`, `.class`, `#id`, `element.class`, `*` and
+lists, cascaded by specificity then order, between the presentation
+attributes and the `style` attribute (`!important` is not
+distinguished); other selectors and at-rules are skipped. `defs`, `clipPath`,
 `mask`, gradients, `text` and similar are skipped with their contents;
 other elements act as groups. Opacity is applied per item rather than as
 a group. `tools/svgmodel.py` models the same subset in Python.
