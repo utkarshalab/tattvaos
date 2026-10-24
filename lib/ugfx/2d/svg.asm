@@ -8,10 +8,12 @@
 ;   ugfx_svg_draw(svg, ctx, current_colour, x, y, size)
 ;
 ; The subset is what icon sets use: svg, g, path, rect (rx / ry), circle,
-; ellipse, line, polyline, polygon; the presentation attributes and style
-; declarations fill, stroke, stroke-width, stroke-linecap, stroke-linejoin,
-; stroke-miterlimit, fill-rule, fill-opacity, stroke-opacity, opacity,
-; display, and the transform attribute. defs, clipPath, mask, symbol,
+; ellipse, line, polyline, polygon; the presentation attributes, CSS rules
+; from <style> (2d/svg_defs.asm) and style declarations - in that order of
+; precedence, !important not distinguished - for fill, stroke,
+; stroke-width, stroke-linecap, stroke-linejoin, stroke-miterlimit,
+; fill-rule, fill-opacity, stroke-opacity, opacity and display; and the
+; transform attribute. defs, clipPath, mask, symbol,
 ; gradients, patterns, markers, text, style, script, title, desc, metadata
 ; and foreignObject are skipped with everything inside them; other
 ; elements act as groups. Comments, processing instructions, DOCTYPE and
@@ -34,6 +36,7 @@ extern ugfx_svg_lookup
 extern ugfx_svg_trim
 extern ugfx_svg_defs_scan
 extern ugfx_svg_defs_paint
+extern ugfx_svg_defs_rule
 extern ugfx_ctx_set_fill_paint
 extern ugfx_ctx_set_stroke_paint
 extern ugfx_ctx_set_alpha
@@ -136,6 +139,8 @@ extern ugfx_ctx_stroke
 %define A_D             14
 %define A_POINTS        15
 %define A_VIEWBOX       16
+%define A_ID            17
+%define A_CLASS         18
 %define A_GEOM          32              ; + G_* slot
 
 ; parser frame (r15)
@@ -161,7 +166,8 @@ extern ugfx_ctx_stroke
 %define P_ATTR          (P_XML + UgfxSvgXml_SIZE)       ; UgfxSvgAttr
 %define P_DEFS          (P_ATTR + UgfxSvgAttr_SIZE)     ; UgfxSvgDefs
 %define P_VIEW          (P_DEFS + UgfxSvgDefs_SIZE)     ; f64 viewport w, h
-%define P_SIZE          (((P_VIEW + 16 + 15) & ~15) + 8)
+%define P_SEL           (P_VIEW + 16)                   ; UgfxSvgSel: the element for CSS
+%define P_SIZE          (((P_SEL + UgfxSvgSel_SIZE + 15) & ~15) + 8)
 
 section .rodata
 align 8
@@ -223,6 +229,8 @@ svg_attributes:
     NAME "d", A_D
     NAME "points", A_POINTS
     NAME "viewBox", A_VIEWBOX
+    NAME "id", A_ID
+    NAME "class", A_CLASS
     NAME "x", A_GEOM + G_X
     NAME "y", A_GEOM + G_Y
     NAME "width", A_GEOM + G_W
@@ -435,6 +443,12 @@ svg_element:
     inc ecx
     cmp ecx, G_COUNT
     jb .zero_geom
+    mov rax, [r15 + P_XML + UgfxSvgXml_name]
+    mov [r15 + P_SEL + UgfxSvgSel_name], rax
+    mov rax, [r15 + P_XML + UgfxSvgXml_name_end]
+    mov [r15 + P_SEL + UgfxSvgSel_name_end], rax
+    mov qword [r15 + P_SEL + UgfxSvgSel_id], 0
+    mov qword [r15 + P_SEL + UgfxSvgSel_class], 0
     mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
 .attr:
     lea rdi, [r15 + P_XML]
@@ -461,6 +475,10 @@ svg_element:
     je .attr_viewbox
     cmp eax, A_TRANSFORM
     je .attr_transform
+    cmp eax, A_ID
+    je .attr_id
+    cmp eax, A_CLASS
+    je .attr_class
     cmp eax, A_GEOM
     jae .attr_geom
     call svg_property
@@ -477,6 +495,15 @@ svg_element:
     mov [r15 + P_VB], rdi
     mov [r15 + P_VB_END], rsi
     jmp .attr
+.attr_id:
+    call ugfx_svg_trim
+    mov [r15 + P_SEL + UgfxSvgSel_id], rdi
+    mov [r15 + P_SEL + UgfxSvgSel_id_end], rsi
+    jmp .attr
+.attr_class:
+    mov [r15 + P_SEL + UgfxSvgSel_class], rdi
+    mov [r15 + P_SEL + UgfxSvgSel_class_end], rsi
+    jmp .attr
 .attr_transform:
     lea rdx, [rbx + S_M]
     call ugfx_svg_transform             ; an invalid list changes nothing
@@ -491,54 +518,28 @@ svg_element:
     bts dword [r15 + P_HAVE], r14d
     jmp .attr
 .attrs_done:
-    ; style declarations override the attributes
-    mov r12, [r15 + P_STYLE]
-    test r12, r12
+    ; CSS rules (cascade order), then the style attribute, over the attributes
+    xor r12d, r12d
+.css:
+    cmp r12d, [r15 + P_DEFS + UgfxSvgDefs_nrules]
+    jae .style
+    lea rdi, [r15 + P_DEFS]
+    mov esi, r12d
+    lea rdx, [r15 + P_SEL]
+    call ugfx_svg_defs_rule
+    inc r12d
+    test rax, rax
+    jz .css
+    mov rdi, rax
+    mov rsi, rdx
+    call svg_decls
+    jmp .css
+.style:
+    mov rdi, [r15 + P_STYLE]
+    test rdi, rdi
     jz .styled
-.decl:
     mov rsi, [r15 + P_STYLE_END]
-    cmp r12, rsi
-    jae .styled
-    ; name up to ':'
-    mov rdi, r12
-.decl_colon:
-    cmp rdi, rsi
-    jae .styled
-    cmp byte [rdi], ':'
-    je .decl_name
-    cmp byte [rdi], ';'
-    je .decl_skip
-    inc rdi
-    jmp .decl_colon
-.decl_skip:
-    lea r12, [rdi + 1]
-    jmp .decl
-.decl_name:
-    mov r13, rdi                        ; ':'
-    ; value up to ';'
-    lea r14, [rdi + 1]
-.decl_semi:
-    cmp r14, rsi
-    jae .decl_value
-    cmp byte [r14], ';'
-    je .decl_value
-    inc r14
-    jmp .decl_semi
-.decl_value:
-    mov rdi, r12
-    mov rsi, r13
-    call ugfx_svg_trim
-    lea rdx, [rel svg_attributes]
-    call ugfx_svg_lookup
-    lea r12, [r14 + 1]
-    cmp eax, A_LAST_PROP
-    ja .decl                            ; not a style property (or unknown)
-    cmp eax, -1
-    je .decl
-    lea rdi, [r13 + 1]
-    mov rsi, r14
-    call svg_property
-    jmp .decl
+    call svg_decls
 .styled:
     ; the element's own opacity, once
     movsd xmm0, [rbx + S_OP]
@@ -607,6 +608,69 @@ svg_element:
     jb .vb_copy
     or dword [rcx + UgfxSvg_has], 1
 .element_out:
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_decls — rdi / rsi = "name: value; ..." declarations (a style
+;   attribute or a CSS rule), rbx = state, r15 = frame: each style property
+;   applied in order
+; -----------------------------------------------------------------------------
+svg_decls:
+    push r12
+    push r13
+    push r14
+    push rbx
+    sub rsp, 8
+    mov r12, rdi
+    mov [rsp], rsi
+.decl:
+    mov rsi, [rsp]
+    cmp r12, rsi
+    jae .done
+    ; name up to ':'
+    mov rdi, r12
+.colon:
+    cmp rdi, rsi
+    jae .done
+    cmp byte [rdi], ':'
+    je .named
+    cmp byte [rdi], ';'
+    je .skip
+    inc rdi
+    jmp .colon
+.skip:
+    lea r12, [rdi + 1]
+    jmp .decl
+.named:
+    mov r13, rdi                        ; ':'
+    ; value up to ';'
+    lea r14, [rdi + 1]
+.semi:
+    cmp r14, rsi
+    jae .value
+    cmp byte [r14], ';'
+    je .value
+    inc r14
+    jmp .semi
+.value:
+    mov rdi, r12
+    mov rsi, r13
+    call ugfx_svg_trim
+    lea rdx, [rel svg_attributes]
+    call ugfx_svg_lookup
+    lea r12, [r14 + 1]
+    cmp eax, A_LAST_PROP
+    ja .decl                            ; not a style property (or unknown)
+    lea rdi, [r13 + 1]
+    mov rsi, r14
+    call svg_property
+    jmp .decl
+.done:
+    add rsp, 8
+    pop rbx
     pop r14
     pop r13
     pop r12
