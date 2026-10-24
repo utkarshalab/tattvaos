@@ -635,6 +635,87 @@ def resolve_gradient(grads, rid, path, viewport):
     return ('paint', 4, spread, [val["fx"], val["fy"], fr, val["cx"], val["cy"], r], stops, matrix)
 
 
+IDENT = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def css_skip(t, i):
+    """Whitespace, /* comments */, <!-- --> and CDATA markers."""
+    while i < len(t):
+        if ord(t[i]) <= 32:
+            i += 1
+        elif t.startswith("/*", i):
+            j = t.find("*/", i + 2)
+            i = len(t) if j < 0 else j + 2
+        elif t.startswith("<![CDATA[", i):
+            i += 9
+        elif t.startswith("<!--", i):
+            i += 4
+        elif t.startswith("-->", i) or t.startswith("]]>", i):
+            i += 3
+        else:
+            break
+    return i
+
+
+def css_rules(text):
+    """The supported rules of a style sheet: (kind, spec, name, elem, declarations)."""
+    rules, i = [], 0
+    while True:
+        i = css_skip(text, i)
+        if i >= len(text):
+            break
+        if text[i] == '@':
+            depth = 0
+            while i < len(text):
+                c = text[i]
+                i += 1
+                if c == '{':
+                    depth += 1
+                elif c == '}':
+                    depth -= 1
+                    if depth <= 0:
+                        break
+                elif c == ';' and depth == 0:
+                    break
+            continue
+        b = text.find('{', i)
+        if b < 0:
+            break
+        sels = text[i:b]
+        e = text.find('}', b + 1)
+        decls = text[b + 1:] if e < 0 else text[b + 1:e]
+        i = len(text) if e < 0 else e + 1
+        for sel in sels.split(','):
+            sel = trim(sel)
+            if not sel:
+                continue
+            if sel == '*':
+                rules.append((5, 0, None, None, decls))
+            elif sel[0] in '.#':
+                if IDENT.fullmatch(sel[1:]):
+                    rules.append((2, 10, sel[1:], None, decls) if sel[0] == '.' else (3, 100, sel[1:], None, decls))
+            elif '.' in sel:
+                elem, cls = sel.split('.', 1)
+                if elem and IDENT.fullmatch(elem) and IDENT.fullmatch(cls):
+                    rules.append((4, 11, cls, elem, decls))
+            elif IDENT.fullmatch(sel):
+                rules.append((1, 1, sel, None, decls))
+    return sorted(rules, key=lambda r: r[1])          # stable: document order within a specificity
+
+
+def css_matches(rule, tag, el_id, classes):
+    kind, _, name, elem, _ = rule
+    if kind == 5:
+        return True
+    if kind == 1:
+        return tag == name
+    if kind == 3:
+        return el_id == name
+    if kind == 4 and tag != elem:
+        return False
+    return name in classes
+
+
 def trim(v):
     v = v.strip(" \t\r\n")
     if len(v) >= 10 and v[-10] == '!':
@@ -647,6 +728,11 @@ def parse(text):
     root = ET.fromstring(text)
     doc = Doc()
     grads = scan_gradients(root)
+    rules = []
+    for el in root.iter():
+        if el.tag.split('}')[-1] == "style" and el.text:
+            rules += css_rules(el.text)
+    rules.sort(key=lambda r: r[1])
     default = dict(m=[1.0, 0, 0, 1.0, 0, 0], fill=("colour", 0xFF000000), stroke=("none", 0xFF000000),
                    fill_op=1.0, stroke_op=1.0, op=1.0, sw=1.0, miter=4.0, join=0, cap=0, rule=0, skip=False)
     seen_root = [False]
@@ -713,11 +799,15 @@ def parse(text):
             st["skip"] = True
         if not st["skip"]:
             own = [1.0]
-            geom, style = {}, None
+            geom, style, el_id, classes = {}, None, None, []
             for name, value in el.attrib.items():
                 name = name.split('}')[-1]
                 if name == "style":
                     style = value
+                elif name == "id":
+                    el_id = trim(value)
+                elif name == "class":
+                    classes = value.split()
                 elif name == "transform":
                     m = transform_list(value, st["m"])
                     if m is not None:
@@ -730,8 +820,8 @@ def parse(text):
                     v, _ = number(value, 0)
                     if v is not None:
                         geom[name] = v
-            if style:
-                for decl in style.split(';'):
+            for decls in [r[4] for r in rules if css_matches(r, tag, el_id, classes)] + ([style] if style else []):
+                for decl in decls.split(';'):
                     if ':' not in decl:
                         continue
                     name, value = decl.split(':', 1)
