@@ -13,6 +13,10 @@
                              cx cy r, 4 two-circle x0 y0 r0 x1 y1 r1; matrix
                              paint -> element space; alpha from the opacities)
     item.rule, .width, .miter, .join, .cap
+    Group("begin", alpha) / Group("end")
+                             a group drawn as one layer at alpha (opacity
+                             below 1 on a container, or on a shape with
+                             both fill and stroke)
 
 Used by tests/host/svg_check.py as the reference, and by the SVG -> UIC
 converter. Development-machine tooling only; not part of any OS image.
@@ -208,6 +212,12 @@ class Item:
     order: int = 0                                  # 1: stroke before fill
     dash: object = None                             # even list of intervals, or None
     dash_off: float = 0.0
+
+
+@dataclass
+class Group:
+    kind: str                                       # "begin" / "end"
+    alpha: int = 255
 
 
 @dataclass
@@ -1239,8 +1249,11 @@ def parse(text):
                     if v is None or (pct and tag == "svg" and not seen_root[0] and name in ("width", "height")):
                         continue
                     geom[name] = v
-            st["op"] = st["op"] * own[0]
+            opened = False
             if not st["skip"]:
+                if tag not in SHAPES and own[0] < 1.0:
+                    doc.items.append(Group("begin", int(own[0] * 255.0 + 0.5)))
+                    opened = True
                 if symroot:
                     symbol_map(st, geom, inst)
                 if tag == "use":
@@ -1272,7 +1285,9 @@ def parse(text):
                             doc.viewbox = vals
                     st["vw"], st["vh"] = viewport()
                 elif tag in SHAPES:
-                    shape(tag, geom, st)
+                    shape(tag, geom, st, own[0])
+        else:
+            opened = False
         chosen = False
         for child in el:
             if tag == "switch":
@@ -1282,6 +1297,8 @@ def parse(text):
                         continue
                     chosen = True
             walk(child, st, uses)
+        if opened:
+            doc.items.append(Group("end"))
 
     def symbol_map(st, geom, wh):
         view_map(st, geom, wh[0], wh[1])
@@ -1332,13 +1349,16 @@ def parse(text):
             return bake(("colour", r[1]), op, st)
         return r + (int(255 * op * st["op"] + 0.5),)
 
-    def shape(tag, g, st):
+    def shape(tag, g, st, own):
         if st["hidden"]:
             return
         fill = st["fill"][0] != "none"
         stroke = st["stroke"][0] != "none" and st["sw"] > 0
         if not (fill or stroke):
             return
+        group = own < 1.0 and fill and stroke
+        if own < 1.0 and not group:
+            st["op"] = own * st["op"]
         path = []
         if tag == "rect":
             w, h = g.get("width", 0.0), g.get("height", 0.0)
@@ -1366,9 +1386,12 @@ def parse(text):
             return
         f = paint_of(st["fill"], st["fill_op"], st, path) if fill else None
         s = paint_of(st["stroke"], st["stroke_op"], st, path) if stroke else None
-        doc.items.append(Item(list(st["m"]), path, f, s, st["rule"],
-                              st["sw"], st["miter"], st["join"], st["cap"],
-                              st["order"], st["dash"], st["dash_off"]))
+        item = Item(list(st["m"]), path, f, s, st["rule"], st["sw"], st["miter"], st["join"], st["cap"],
+                    st["order"], st["dash"], st["dash_off"])
+        if group:
+            doc.items += [Group("begin", int(own * 255.0 + 0.5)), item, Group("end")]
+        else:
+            doc.items.append(item)
 
     walk(root, default)
     return doc
