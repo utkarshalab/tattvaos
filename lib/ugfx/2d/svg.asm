@@ -33,7 +33,15 @@
 ; opacities. Opacity below 1 on a container (g, svg, use, switch, ...),
 ; or on a shape with both a fill and a stroke, makes a group: BEGIN and
 ; END items around its content, drawn as one context layer at that
-; alpha; on a shape with one paint it is baked into that paint. Drawing maps the document into the square (x, y, size, size): its
+; alpha; on a shape with one paint it is baked into that paint.
+;
+; clip-path="url(#id)" on a container or a shape compiles that clipPath's
+; content (its shapes and uses, with their transforms and clip-rule;
+; display none and visibility hidden left out) for the element, and a
+; group clips to their union (ugfx_ctx_clip_begin .. _end), in the
+; element's user space or, for clipPathUnits="objectBoundingBox", its
+; bounding box (the union of its shapes' bounds, corners transformed). A
+; clip-path on the clipPath element intersects; up to 4 nest. Drawing maps the document into the square (x, y, size, size): its
 ; viewBox through preserveAspectRatio into width x height when both are
 ; given, that box centred in the square; with only a viewBox, the viewBox
 ; straight into the square; with none, (0, 0, width or 300, height or
@@ -53,6 +61,12 @@ extern ugfx_svg_defs_rule
 extern ugfx_svg_defs_id
 extern umath_affine2_multiply
 extern umath_affine2_translate
+extern umath_affine2_invert
+extern ugfx_path_bounds_tight
+extern ugfx_ctx_set_transform
+extern ugfx_ctx_clip_begin
+extern ugfx_ctx_clip_add
+extern ugfx_ctx_clip_end
 extern ugfx_ctx_set_fill_paint
 extern ugfx_ctx_set_stroke_paint
 extern ugfx_ctx_set_alpha
@@ -120,8 +134,9 @@ extern ugfx_ctx_end_layer
 %define S_DASH_N        208             ; u32, 0 = solid
 %define S_DASH_OFF      216             ; f64
 %define S_SWITCH        224             ; u32 1: a switch still choosing, 2: it chose
-%define S_GROUP         228             ; u32 this element opened a group (not inherited)
-%define S_SIZE          232
+%define S_GROUP         228             ; u32 the BEGIN it opened + 1 (not inherited)
+%define S_CLIPRULE      232             ; u32 clip-rule
+%define S_SIZE          240
 
 ; elements
 %define E_GROUP         0
@@ -139,6 +154,8 @@ extern ugfx_ctx_end_layer
 %define E_SWITCH        12
 %define E_TEXT          13              ; not drawn yet, but takes part in switch
 %define E_FOREIGN       14              ; foreignObject: the same
+%define E_CLIPPATH      15              ; drawn only as a clip's content
+%define SVG_MAX_CLIPS   4               ; clipPaths compiling inside each other
 %define SVG_MAX_USES    8               ; <use> instances inside instances
 
 ; geometry slots (f64), with a bit each in P_HAVE
@@ -175,7 +192,9 @@ extern ugfx_ctx_end_layer
 %define A_DASHARRAY     15
 %define A_DASHOFFSET    16
 %define A_PAINT_ORDER   17
-%define A_LAST_PROP     17              ; ids up to here are style properties too
+%define A_CLIP_PATH     18
+%define A_CLIP_RULE     19
+%define A_LAST_PROP     19              ; ids up to here are style properties too
 %define A_TRANSFORM     40
 %define A_STYLE         41
 %define A_D             42
@@ -236,7 +255,11 @@ extern ugfx_ctx_end_layer
 %define P_DOFF_RAW      (P_FONT_RAW + 48)               ; stroke-dashoffset as written
 %define P_DOFF_RAW_END  (P_FONT_RAW + 56)
 %define P_PAR           (P_FONT_RAW + 64)               ; u32 preserveAspectRatio (as UgfxSvg_par)
-%define P_SIZE          (((P_FONT_RAW + 72 + 15) & ~15) + 8)
+%define P_CLIPMODE      (P_FONT_RAW + 68)               ; u32 clipPaths being compiled
+%define P_CLIP          (P_FONT_RAW + 72)               ; clip-path as written (0: none)
+%define P_CLIP_END      (P_FONT_RAW + 80)
+%define P_CLIPREC       (P_FONT_RAW + 88)               ; the compiled clip for a group
+%define P_SIZE          (((P_FONT_RAW + 96 + 15) & ~15) + 8)
 
 %define PAR_DEFAULT     5               ; xMidYMid meet
 
@@ -279,7 +302,7 @@ svg_elements:
     NAME "polyline", E_POLYLINE
     NAME "polygon", E_POLYGON
     NAME "defs", E_SKIP
-    NAME "clipPath", E_SKIP
+    NAME "clipPath", E_CLIPPATH
     NAME "mask", E_SKIP
     NAME "symbol", E_SYMBOL
     NAME "use", E_USE
@@ -315,6 +338,8 @@ svg_attributes:
     NAME "stroke-dasharray", A_DASHARRAY
     NAME "stroke-dashoffset", A_DASHOFFSET
     NAME "paint-order", A_PAINT_ORDER
+    NAME "clip-path", A_CLIP_PATH
+    NAME "clip-rule", A_CLIP_RULE
     NAME "transform", A_TRANSFORM
     NAME "style", A_STYLE
     NAME "d", A_D
@@ -376,7 +401,13 @@ svg_inherit_fields:
     INHERITS A_DASHARRAY, S_DASH, 16
     INHERITS A_DASHOFFSET, S_DASH_OFF, 8
     INHERITS A_PAINT_ORDER, S_ORDER, 4
+    INHERITS A_CLIP_RULE, S_CLIPRULE, 4
     db 0
+svg_clip_attrs:
+    NAME "clipPathUnits", 1
+    NAME "clip-path", 2
+    db 0
+svg_word_obb:       db "objectBoundingBox"
 svg_cond_words:
     NAME "requiredExtensions", 1
     NAME "systemLanguage", 2
@@ -520,6 +551,7 @@ ugfx_svg_parse:
     mov [rbx + S_DASH_N], eax
     mov [rbx + S_DASH_OFF], rax
     mov [rbx + S_SWITCH], eax
+    mov [rbx + S_CLIPRULE], eax
     ; gradients first: url(#id) may name one defined further on
     lea rdi, [r15 + P_DEFS]
     mov rax, [r15 + P_SVG]
@@ -531,6 +563,7 @@ ugfx_svg_parse:
     test rax, rax
     jnz .nomem
     mov dword [r15 + P_USES], 0
+    mov dword [r15 + P_CLIPMODE], 0
     mov dword [r15 + P_INST], 0
     mov dword [r15 + P_SYMROOT], 0
     mov edi, -1
@@ -617,16 +650,25 @@ svg_walk:
     xor eax, eax                        ; unknown: a group
 .known:
     ; a symbol is drawn only as the root of a <use> instance, as a group
+    ; (a clipPath likewise, as the root of its compiled content)
     mov ecx, [r15 + P_INST]
     mov dword [r15 + P_INST], 0
     mov dword [r15 + P_SYMROOT], 0
+    cmp eax, E_CLIPPATH
+    je .clip_root
     cmp eax, E_SYMBOL
     jne .kind
     mov eax, E_SKIP
-    test ecx, ecx
-    jz .kind
+    cmp ecx, 1
+    jne .kind
     mov eax, E_GROUP
     mov dword [r15 + P_SYMROOT], 1
+    jmp .kind
+.clip_root:
+    mov eax, E_SKIP
+    cmp ecx, 2
+    jne .kind
+    mov eax, E_GROUP
 .kind:
     ; conditional processing; a switch keeps only its first child that passes
     cmp eax, E_SKIP
@@ -717,6 +759,7 @@ svg_element:
     mov qword [r15 + P_DASH_RAW], 0
     mov qword [r15 + P_DOFF_RAW], 0
     mov dword [r15 + P_PAR], PAR_DEFAULT
+    mov qword [r15 + P_CLIP], 0
     mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
 .attr:
     lea rdi, [r15 + P_XML]
@@ -836,9 +879,16 @@ svg_element:
     cmp eax, E_POLYGON
     jbe .not_container
 .container:
+    cmp dword [r15 + P_CLIPMODE], 0
+    jne .not_container                  ; a clip's content: geometry only
+    call svg_clip_ref
+    mov [r15 + P_CLIPREC], rax
+    test rax, rax
+    jnz .open
     movsd xmm0, [r15 + P_OPACITY]
     ucomisd xmm0, [rel svg_one]
     jae .not_container
+.open:
     call svg_group_open
 .not_container:
     cmp dword [r15 + P_SYMROOT], 0
@@ -1445,6 +1495,10 @@ svg_property:
     je .dashoffset
     cmp eax, A_PAINT_ORDER
     je .paint_order
+    cmp eax, A_CLIP_PATH
+    je .clip_path
+    cmp eax, A_CLIP_RULE
+    je .clip_rule
     ; opacities: a number (or a percentage), clamped to [0, 1]
     mov r13, rsi
     call ugfx_svg_number
@@ -1577,6 +1631,24 @@ svg_property:
 .inherit:
     call svg_inherit
     jmp .out
+.clip_path:
+    call ugfx_svg_trim
+    mov [r15 + P_CLIP], rdi
+    mov [r15 + P_CLIP_END], rsi
+    IS_WORD none
+    jne .out
+    mov qword [r15 + P_CLIP], 0
+    jmp .out
+.clip_rule:
+    IS_WORD evenodd
+    mov eax, UGFX_FILL_EVENODD
+    je .clip_rule_set
+    IS_WORD nonzero
+    mov eax, UGFX_FILL_NONZERO
+    jne .out
+.clip_rule_set:
+    mov [rbx + S_CLIPRULE], eax
+    jmp .out
 .miter:
     call ugfx_svg_number
     test rax, rax
@@ -1687,6 +1759,10 @@ svg_inherit:
     jne .not_doff
     mov qword [r15 + P_DOFF_RAW], 0
 .not_doff:
+    cmp r12d, A_CLIP_PATH
+    jne .not_clip
+    mov qword [r15 + P_CLIP], 0         ; not inherited: none
+.not_clip:
     cmp r12d, A_OPACITY
     jne .done
     movsd xmm0, [rel svg_one]           ; not inherited: the initial value
@@ -1936,7 +2012,8 @@ svg_group_alpha:
     cvttsd2si eax, xmm0
     ret
 
-; r15 = frame, rbx = a container's state: a BEGIN item at its opacity
+; r15 = frame, rbx = a container's state: a BEGIN item at its opacity,
+;   with P_CLIPREC and the container's matrix
 svg_group_open:
     push r12
     mov ecx, 1
@@ -1947,9 +2024,20 @@ svg_group_open:
     mov dword [r12 + UgfxSvgItem_kind], UGFX_SVG_BEGIN
     call svg_group_alpha
     mov [r12 + UgfxSvgItem_alpha], eax
+    mov rax, [r15 + P_CLIPREC]
+    mov [r12 + UgfxSvgItem_clip], rax
+    xor ecx, ecx
+.m:
+    mov rax, [rbx + S_M + rcx * 8]
+    mov [r12 + UgfxSvgItem_matrix + rcx * 8], rax
+    inc ecx
+    cmp ecx, 6
+    jb .m
     mov rax, [r15 + P_SVG]
+    mov ecx, [rax + UgfxSvg_count]
     inc dword [rax + UgfxSvg_count]
-    mov dword [rbx + S_GROUP], 1
+    inc ecx
+    mov [rbx + S_GROUP], ecx            ; its index + 1
     pop r12
     ret
 .nomem:
@@ -1958,24 +2046,382 @@ svg_group_open:
     ret
 
 ; rdi = the state of an element that is closing, r15 = frame: END for a
-;   group it opened
+;   group it opened (its alpha and clip copied; a clipped group's bbox
+;   measured first)
 svg_group_close:
-    cmp dword [rdi + S_GROUP], 0
-    je .done
+    mov eax, [rdi + S_GROUP]
+    test eax, eax
+    jz .done
     mov dword [rdi + S_GROUP], 0
-    push rdi
+    push r12
+    lea r12d, [rax - 1]                 ; the BEGIN's index
+    mov rax, [r15 + P_SVG]
+    imul rcx, r12, UgfxSvgItem_SIZE
+    add rcx, [rax + UgfxSvg_items]
+    cmp qword [rcx + UgfxSvgItem_clip], 0
+    je .room
+    mov edi, r12d
+    mov esi, [rax + UgfxSvg_count]
+    call svg_group_bbox
+.room:
     mov ecx, 1
     call svg_item_room
-    pop rdi
     test rax, rax
     jz .nomem
+    mov rdx, [r15 + P_SVG]
+    imul rcx, r12, UgfxSvgItem_SIZE
+    add rcx, [rdx + UgfxSvg_items]
     mov dword [rax + UgfxSvgItem_kind], UGFX_SVG_END
+    mov edx, [rcx + UgfxSvgItem_alpha]
+    mov [rax + UgfxSvgItem_alpha], edx
+    mov rdx, [rcx + UgfxSvgItem_clip]
+    mov [rax + UgfxSvgItem_clip], rdx
     mov rax, [r15 + P_SVG]
     inc dword [rax + UgfxSvg_count]
+    pop r12
 .done:
     ret
 .nomem:
     mov dword [r15 + P_ERR], -(ENOMEM)
+    pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_group_bbox — edi = a BEGIN's index, esi = the end of its content (an
+;   index), r15 = frame: the BEGIN's bbox = the union of its shapes' tight
+;   bounds, each with its corners taken into the BEGIN's space (all 0 when
+;   there are none or the BEGIN's matrix is singular)
+; -----------------------------------------------------------------------------
+%define BB_INV      0                   ; f64[6] the BEGIN's matrix inverted
+%define BB_R        48                  ; f64[6] item -> BEGIN space
+%define BB_B        96                  ; f64[4] one item's bounds
+%define BB_BOX      128                 ; f64[4] the union
+%define BB_ANY      160                 ; u32
+%define BB_SIZE     168
+
+svg_group_bbox:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, BB_SIZE
+    mov r12d, edi
+    mov r13d, esi
+    mov dword [rsp + BB_ANY], 0
+    xorpd xmm0, xmm0
+    movsd [rsp + BB_BOX], xmm0
+    movsd [rsp + BB_BOX + 8], xmm0
+    movsd [rsp + BB_BOX + 16], xmm0
+    movsd [rsp + BB_BOX + 24], xmm0
+    mov rax, [r15 + P_SVG]
+    mov rbx, [rax + UgfxSvg_items]
+    imul rsi, r12, UgfxSvgItem_SIZE
+    add rsi, rbx
+    lea rsi, [rsi + UgfxSvgItem_matrix]
+    lea rdi, [rsp + BB_INV]
+    call umath_affine2_invert
+    test eax, eax
+    jnz .store
+    lea r14d, [r12 + 1]
+.item:
+    cmp r14d, r13d
+    jae .store
+    imul rax, r14, UgfxSvgItem_SIZE
+    add rax, rbx
+    cmp dword [rax + UgfxSvgItem_kind], UGFX_SVG_SHAPE
+    jne .next
+    push rax
+    sub rsp, 8
+    lea rdi, [rax + UgfxSvgItem_path]
+    lea rsi, [rsp + 16 + BB_B]
+    call ugfx_path_bounds_tight
+    add rsp, 8
+    pop rdx
+    test rax, rax
+    jnz .next
+    lea rdi, [rsp + BB_R]
+    lea rsi, [rsp + BB_INV]
+    lea rdx, [rdx + UgfxSvgItem_matrix]
+    call umath_affine2_multiply
+    ; corners (x0, y0), (x1, y0), (x0, y1), (x1, y1)
+    movsd xmm0, [rsp + BB_B]
+    movsd xmm1, [rsp + BB_B + 8]
+    call .corner
+    movsd xmm0, [rsp + BB_B + 16]
+    movsd xmm1, [rsp + BB_B + 8]
+    call .corner
+    movsd xmm0, [rsp + BB_B]
+    movsd xmm1, [rsp + BB_B + 24]
+    call .corner
+    movsd xmm0, [rsp + BB_B + 16]
+    movsd xmm1, [rsp + BB_B + 24]
+    call .corner
+.next:
+    inc r14d
+    jmp .item
+.store:
+    imul rdi, r12, UgfxSvgItem_SIZE
+    add rdi, rbx
+    xor ecx, ecx
+.copy:
+    mov rax, [rsp + BB_BOX + rcx * 8]
+    mov [rdi + UgfxSvgItem_bbox + rcx * 8], rax
+    inc ecx
+    cmp ecx, 4
+    jb .copy
+    add rsp, BB_SIZE
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+; xmm0 / xmm1 = a point: through BB_R, into the union (frame at rsp + 8)
+.corner:
+    movsd xmm2, [rsp + 8 + BB_R]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + 8 + BB_R + 16]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    addsd xmm2, [rsp + 8 + BB_R + 32]   ; x' = a x + c y + e
+    movsd xmm4, [rsp + 8 + BB_R + 8]
+    mulsd xmm4, xmm0
+    movsd xmm3, [rsp + 8 + BB_R + 24]
+    mulsd xmm3, xmm1
+    addsd xmm4, xmm3
+    addsd xmm4, [rsp + 8 + BB_R + 40]   ; y' = b x + d y + f
+    cmp dword [rsp + 8 + BB_ANY], 0
+    jne .grow
+    mov dword [rsp + 8 + BB_ANY], 1
+    movsd [rsp + 8 + BB_BOX], xmm2
+    movsd [rsp + 8 + BB_BOX + 8], xmm4
+    movsd [rsp + 8 + BB_BOX + 16], xmm2
+    movsd [rsp + 8 + BB_BOX + 24], xmm4
+    ret
+.grow:
+    movsd xmm0, [rsp + 8 + BB_BOX]
+    minsd xmm0, xmm2
+    movsd [rsp + 8 + BB_BOX], xmm0
+    movsd xmm0, [rsp + 8 + BB_BOX + 8]
+    minsd xmm0, xmm4
+    movsd [rsp + 8 + BB_BOX + 8], xmm0
+    movsd xmm0, [rsp + 8 + BB_BOX + 16]
+    maxsd xmm0, xmm2
+    movsd [rsp + 8 + BB_BOX + 16], xmm0
+    movsd xmm0, [rsp + 8 + BB_BOX + 24]
+    maxsd xmm0, xmm4
+    movsd [rsp + 8 + BB_BOX + 24], xmm0
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_clip_ref — r15 = frame, rbx = state -> rax = the element's compiled
+;   clip-path (0: none, not a clipPath, or inside a clip's content)
+; -----------------------------------------------------------------------------
+svg_clip_ref:
+    sub rsp, 8
+    xor eax, eax
+    cmp dword [r15 + P_CLIPMODE], 0
+    jne .out
+    mov rdi, [r15 + P_CLIP]
+    test rdi, rdi
+    jz .out
+    mov rsi, [r15 + P_CLIP_END]
+    call svg_url_ref
+    test rax, rax
+    jz .out
+    mov rsi, rax
+    call svg_clip_compile
+.out:
+    add rsp, 8
+    ret
+
+; rdi / rsi = a trimmed value -> rax = the id of url(#id) (0: not one), rdx
+;   = its end
+svg_url_ref:
+    xor eax, eax
+    mov rcx, rsi
+    sub rcx, rdi
+    cmp rcx, 4
+    jb .no
+    mov ecx, [rdi]
+    or ecx, 0x20202020
+    cmp ecx, 'url('
+    jne .no
+    jmp svg_url
+.no:
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_clip_compile — rsi / rdx = a clipPath's id, r15 = frame, rbx = the
+;   referencing element's state -> rax = UgfxSvgClip* (0: no such clipPath,
+;   too deep, or out of memory). The clipPath's subtree is walked from a
+;   fresh state (the defaults, with the element's viewport and font-size)
+;   into an item list of its own, with every frame field kept.
+; -----------------------------------------------------------------------------
+%define CC_FRAME    0                               ; the frame, P_SIZE bytes
+%define CC_ITEMS    (((P_SIZE + 15) & ~15))         ; the main item list
+%define CC_COUNT    (CC_ITEMS + 8)
+%define CC_CAP      (CC_ITEMS + 12)
+%define CC_XML      (CC_ITEMS + 16)                 ; the clipPath's tag, read again
+%define CC_ATTR     (CC_XML + UgfxSvgXml_SIZE)
+%define CC_SIZE     (((CC_ATTR + UgfxSvgAttr_SIZE + 15) & ~15) + 8)
+
+svg_clip_compile:
+    push r12
+    push r13
+    push r14
+    push rbp
+    sub rsp, CC_SIZE
+    xor r13d, r13d
+    cmp dword [r15 + P_CLIPMODE], SVG_MAX_CLIPS
+    jae .out
+    mov eax, [r15 + P_DEPTH]
+    cmp eax, SVG_MAX_DEPTH
+    jae .out
+    lea rdi, [r15 + P_DEFS]
+    call ugfx_svg_defs_id
+    test rax, rax
+    jz .out
+    mov r12, rax                        ; its '<'
+    ; a clipPath element
+    mov rcx, [r15 + P_XML + UgfxSvgXml_end]
+    lea rdx, [r12 + 10]
+    cmp rdx, rcx
+    ja .out
+    mov rdx, 'clipPath'
+    cmp [r12 + 1], rdx
+    jne .out
+    movzx eax, byte [r12 + 9]
+    cmp al, '>'
+    je .is_clip
+    cmp al, '/'
+    je .is_clip
+    cmp al, ' '
+    ja .out
+.is_clip:
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    mov esi, UgfxSvgClip_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov r13, rax
+    mov qword [r13 + UgfxSvgClip_items], 0
+    mov dword [r13 + UgfxSvgClip_count], 0
+    mov dword [r13 + UgfxSvgClip_units], 0
+    mov qword [r13 + UgfxSvgClip_next], 0
+    inc dword [r15 + P_CLIPMODE]
+    ; keep the frame and the main list
+    lea rdi, [rsp + CC_FRAME]
+    mov rsi, r15
+    mov ecx, P_SIZE
+    rep movsb
+    mov rax, [r15 + P_SVG]
+    mov rcx, [rax + UgfxSvg_items]
+    mov [rsp + CC_ITEMS], rcx
+    mov ecx, [rax + UgfxSvg_count]
+    mov [rsp + CC_COUNT], ecx
+    mov ecx, [rax + UgfxSvg_cap]
+    mov [rsp + CC_CAP], ecx
+    mov qword [rax + UgfxSvg_items], 0
+    mov dword [rax + UgfxSvg_count], 0
+    mov dword [rax + UgfxSvg_cap], 0
+    ; a fresh state above this element's
+    mov eax, [r15 + P_DEPTH]
+    inc eax
+    imul rdi, rax, S_SIZE
+    add rdi, [r15 + P_STACK]
+    mov rbp, rdi
+    mov rsi, [r15 + P_STACK]
+    mov ecx, S_SIZE
+    rep movsb
+    movsd xmm0, [rbx + S_VW]
+    movsd [rbp + S_VW], xmm0
+    movsd xmm0, [rbx + S_VH]
+    movsd [rbp + S_VH], xmm0
+    movsd xmm0, [rbx + S_FONT]
+    movsd [rbp + S_FONT], xmm0
+    inc dword [r15 + P_DEPTH]
+    mov [r15 + P_XML + UgfxSvgXml_cur], r12
+    mov dword [r15 + P_INST], 2
+    mov edi, [r15 + P_DEPTH]
+    call svg_walk
+    ; the content, then everything back
+    mov rax, [r15 + P_SVG]
+    mov rcx, [rax + UgfxSvg_items]
+    mov [r13 + UgfxSvgClip_items], rcx
+    mov ecx, [rax + UgfxSvg_count]
+    mov [r13 + UgfxSvgClip_count], ecx
+    mov r14d, [r15 + P_ERR]
+    mov rdi, r15
+    lea rsi, [rsp + CC_FRAME]
+    mov ecx, P_SIZE
+    rep movsb
+    test r14d, r14d
+    jz .kept
+    mov [r15 + P_ERR], r14d
+.kept:
+    mov rax, [r15 + P_SVG]
+    mov rcx, [rsp + CC_ITEMS]
+    mov [rax + UgfxSvg_items], rcx
+    mov ecx, [rsp + CC_COUNT]
+    mov [rax + UgfxSvg_count], ecx
+    mov ecx, [rsp + CC_CAP]
+    mov [rax + UgfxSvg_cap], ecx
+    ; the clipPath's own attributes: clipPathUnits, clip-path
+    mov [rsp + CC_XML + UgfxSvgXml_cur], r12
+    mov rax, [r15 + P_XML + UgfxSvgXml_end]
+    mov [rsp + CC_XML + UgfxSvgXml_end], rax
+    lea rdi, [rsp + CC_XML]
+    call ugfx_svg_xml_next
+    test eax, eax
+    jz .done
+    cmp eax, 2
+    je .done
+    mov qword [rsp + CC_ATTR + UgfxSvgAttr_cur], 0
+.attr:
+    lea rdi, [rsp + CC_XML]
+    lea rsi, [rsp + CC_ATTR]
+    call ugfx_svg_xml_attr
+    test eax, eax
+    jz .done
+    mov rdi, [rsp + CC_ATTR + UgfxSvgAttr_name]
+    mov rsi, [rsp + CC_ATTR + UgfxSvgAttr_name_end]
+    lea rdx, [rel svg_clip_attrs]
+    call ugfx_svg_lookup
+    mov r14d, eax
+    mov rdi, [rsp + CC_ATTR + UgfxSvgAttr_val]
+    mov rsi, [rsp + CC_ATTR + UgfxSvgAttr_val_end]
+    call ugfx_svg_trim
+    cmp r14d, 1
+    je .units
+    cmp r14d, 2
+    jne .attr
+    call svg_url_ref
+    test rax, rax
+    jz .attr
+    mov rsi, rax
+    call svg_clip_compile               ; intersected with this one
+    mov [r13 + UgfxSvgClip_next], rax
+    jmp .attr
+.units:
+    lea rdx, [rel svg_word_obb]
+    mov ecx, 17
+    call svg_word
+    jne .attr
+    mov dword [r13 + UgfxSvgClip_units], 1
+    jmp .attr
+.done:
+    dec dword [r15 + P_CLIPMODE]
+    jmp .out
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.out:
+    mov rax, r13
+    add rsp, CC_SIZE
+    pop rbp
+    pop r14
+    pop r13
+    pop r12
     ret
 
 ; eax = paint kind, edx = colour, rbx = state -> currentColor becomes the
@@ -2240,6 +2686,8 @@ svg_shape:
     push r14
     cmp dword [rbx + S_HIDDEN], 0
     jne .shape_out                      ; visibility hidden: nothing of its own
+    cmp dword [r15 + P_CLIPMODE], 0
+    jne .clip_shape
     ; paints that draw
     xor r13d, r13d
     cmp dword [rbx + S_FILL_KIND], 0
@@ -2253,13 +2701,23 @@ svg_shape:
 .have_paint:
     test r13d, r13d
     jz .shape_out
-    ; opacity: a group around fill and stroke together, else baked
+    ; clip-path: a group (bit 8)
+    call svg_clip_ref
+    mov [r15 + P_CLIPREC], rax
+    test rax, rax
+    jz .no_clip
+    or r13d, 8
+.no_clip:
+    ; opacity: a group around fill and stroke together (bit 4), else baked
     movsd xmm0, [r15 + P_OPACITY]
     ucomisd xmm0, [rel svg_one]
     jae .baked
     cmp r13d, 3
+    je .group_alpha
+    cmp r13d, 3 | 8
     jne .bake
-    or r13d, 4                          ; group
+.group_alpha:
+    or r13d, 4
     jmp .baked
 .bake:
     mulsd xmm0, [rbx + S_OP]
@@ -2344,7 +2802,7 @@ svg_shape:
     movsd xmm0, [rbx + S_DASH_OFF]
     movsd [r12 + UgfxSvgItem_dash_off], xmm0
     inc dword [r14 + UgfxSvg_count]
-    test r13d, 4
+    test r13d, 4 | 8
     jz .shape_out
     ; BEGIN, the shape, END
     lea rsi, [r12 + UgfxSvgItem_SIZE - 1]
@@ -2354,10 +2812,68 @@ svg_shape:
     rep movsb
     cld
     mov dword [r12 + UgfxSvgItem_kind], UGFX_SVG_BEGIN
+    mov eax, 255
+    test r13d, 4
+    jz .begin_alpha
     call svg_group_alpha
+.begin_alpha:
     mov [r12 + UgfxSvgItem_alpha], eax
+    mov rcx, [r15 + P_CLIPREC]
+    test r13d, 8
+    jnz .begin_clip
+    xor ecx, ecx
+.begin_clip:
+    mov [r12 + UgfxSvgItem_clip], rcx
+    xor edx, edx
+.begin_m:
+    mov rax, [r12 + UgfxSvgItem_SIZE + UgfxSvgItem_matrix + rdx * 8]
+    mov [r12 + UgfxSvgItem_matrix + rdx * 8], rax
+    inc edx
+    cmp edx, 6
+    jb .begin_m
     mov dword [r12 + 2 * UgfxSvgItem_SIZE + UgfxSvgItem_kind], UGFX_SVG_END
+    mov eax, [r12 + UgfxSvgItem_alpha]
+    mov [r12 + 2 * UgfxSvgItem_SIZE + UgfxSvgItem_alpha], eax
+    mov [r12 + 2 * UgfxSvgItem_SIZE + UgfxSvgItem_clip], rcx
+    mov edi, [r14 + UgfxSvg_count]
+    dec edi                             ; the BEGIN's index
+    lea esi, [rdi + 2]
     add dword [r14 + UgfxSvg_count], 2
+    test rcx, rcx
+    jz .shape_out
+    call svg_group_bbox
+    jmp .shape_out
+.clip_shape:
+    ; a clip's content: the geometry, its transform and clip-rule
+    mov ecx, 1
+    call svg_item_room
+    test rax, rax
+    jz .nomem
+    mov r14, [r15 + P_SVG]
+    mov r12, rax
+    mov dword [r12 + UgfxSvgItem_kind], UGFX_SVG_SHAPE
+    lea rdi, [r12 + UgfxSvgItem_path]
+    mov rsi, [r14 + UgfxSvg_arena]
+    call ugfx_path_init
+    test rax, rax
+    jnz .nomem
+    call svg_geometry
+    test rax, rax
+    jnz .nomem
+    cmp dword [r12 + UgfxSvgItem_path + UgfxPath_verb_count], 0
+    je .shape_out
+    cmp dword [r12 + UgfxSvgItem_path + UgfxPath_error], 0
+    jne .nomem
+    xor ecx, ecx
+.clip_m:
+    mov rax, [rbx + S_M + rcx * 8]
+    mov [r12 + UgfxSvgItem_matrix + rcx * 8], rax
+    inc ecx
+    cmp ecx, 6
+    jb .clip_m
+    mov eax, [rbx + S_CLIPRULE]
+    mov [r12 + UgfxSvgItem_rule], eax
+    inc dword [r14 + UgfxSvg_count]
     jmp .shape_out
 .nomem:
     mov dword [r15 + P_ERR], -(ENOMEM)
@@ -2829,8 +3345,10 @@ svg_rounded_rect:
 %define V_DASH      104                 ; UgfxDash
 %define V_M         128                 ; f64[6]
 %define V_M2        176                 ; f64[6]
-%define V_OPEN      224                 ; u32 layers open
-%define V_SIZE      232
+%define V_OPEN      224                 ; u32 context levels BEGINs opened
+%define V_CI        228                 ; u32 a clip item's index
+%define V_T         232                 ; f64[6] the context's transform for the document
+%define V_SIZE      280
 
 global ugfx_svg_draw
 ugfx_svg_draw:
@@ -2928,6 +3446,13 @@ ugfx_svg_draw:
     mov rdi, r13
     lea rsi, [rsp + V_M]
     call ugfx_ctx_transform
+    xor ecx, ecx
+.keep_t:
+    mov rax, [r13 + UgfxContext_state + UgfxState_transform + rcx * 8]
+    mov [rsp + V_T + rcx * 8], rax
+    inc ecx
+    cmp ecx, 6
+    jb .keep_t
     mov rdi, r13
     xor esi, esi
     call ugfx_ctx_set_dash
@@ -3053,6 +3578,104 @@ ugfx_svg_draw:
     inc r14d
     jmp .item
 .begin:
+    mov r15, [r12 + UgfxSvgItem_clip]
+    test r15, r15
+    jz .begin_layer
+    mov rdi, r13
+    call ugfx_ctx_save
+    test rax, rax
+    jnz .item_fail_outer
+    inc dword [rsp + V_OPEN]
+.clip_rec:
+    ; each clip in the element's space (or its bbox), then intersected
+    test r15, r15
+    jz .clipped
+    mov rdi, r13
+    lea rsi, [rsp + V_T]
+    call ugfx_ctx_set_transform
+    mov rdi, r13
+    lea rsi, [r12 + UgfxSvgItem_matrix]
+    call ugfx_ctx_transform
+    mov dword [rsp + V_CI], 0
+    cmp dword [r15 + UgfxSvgClip_units], 0
+    je .clip_open
+    movsd xmm0, [r12 + UgfxSvgItem_bbox + 16]
+    subsd xmm0, [r12 + UgfxSvgItem_bbox]
+    movsd xmm1, [r12 + UgfxSvgItem_bbox + 24]
+    subsd xmm1, [r12 + UgfxSvgItem_bbox + 8]
+    xorpd xmm2, xmm2
+    mov eax, [r15 + UgfxSvgClip_count]
+    mov [rsp + V_CI], eax               ; empty box: no shapes
+    ucomisd xmm0, xmm2
+    jbe .clip_open
+    ucomisd xmm1, xmm2
+    jbe .clip_open
+    mov dword [rsp + V_CI], 0
+    movsd [rsp + V_M2], xmm0
+    movsd [rsp + V_M2 + 8], xmm2
+    movsd [rsp + V_M2 + 16], xmm2
+    movsd [rsp + V_M2 + 24], xmm1
+    movsd xmm0, [r12 + UgfxSvgItem_bbox]
+    movsd [rsp + V_M2 + 32], xmm0
+    movsd xmm0, [r12 + UgfxSvgItem_bbox + 8]
+    movsd [rsp + V_M2 + 40], xmm0
+    mov rdi, r13
+    lea rsi, [rsp + V_M2]
+    call ugfx_ctx_transform
+.clip_open:
+    mov rdi, r13
+    call ugfx_ctx_clip_begin
+    test rax, rax
+    jnz .item_fail_outer
+.clip_item:
+    mov eax, [rsp + V_CI]
+    cmp eax, [r15 + UgfxSvgClip_count]
+    jae .clip_close
+    inc dword [rsp + V_CI]
+    imul rax, rax, UgfxSvgItem_SIZE
+    add rax, [r15 + UgfxSvgClip_items]
+    push rax
+    sub rsp, 8
+    mov rdi, r13
+    call ugfx_ctx_save
+    mov rdi, r13
+    mov rsi, [rsp + 8]
+    lea rsi, [rsi + UgfxSvgItem_matrix]
+    call ugfx_ctx_transform
+    mov rdi, r13
+    mov rsi, [rsp + 8]
+    mov esi, [rsi + UgfxSvgItem_rule]
+    call ugfx_ctx_set_fill_rule
+    mov rdi, r13
+    mov rsi, [rsp + 8]
+    lea rsi, [rsi + UgfxSvgItem_path]
+    call ugfx_ctx_clip_add
+    mov [rsp], rax
+    mov rdi, r13
+    call ugfx_ctx_restore
+    mov rax, [rsp]
+    add rsp, 16
+    test rax, rax
+    jz .clip_item
+    push rax
+    sub rsp, 8
+    mov rdi, r13
+    call ugfx_ctx_clip_end
+    add rsp, 8
+    pop rax
+    jmp .item_fail_outer
+.clip_close:
+    mov rdi, r13
+    call ugfx_ctx_clip_end
+    mov r15, [r15 + UgfxSvgClip_next]
+    jmp .clip_rec
+.clipped:
+    mov rdi, r13
+    lea rsi, [rsp + V_T]
+    call ugfx_ctx_set_transform
+.begin_layer:
+    cmp dword [r12 + UgfxSvgItem_alpha], 255
+    jae .next_item
     mov rdi, r13
     mov esi, [r12 + UgfxSvgItem_alpha]
     call ugfx_ctx_begin_layer
@@ -3061,6 +3684,8 @@ ugfx_svg_draw:
     inc dword [rsp + V_OPEN]
     jmp .next_item
 .end:
+    cmp dword [r12 + UgfxSvgItem_alpha], 255
+    jae .end_clip
     cmp dword [rsp + V_OPEN], 0
     je .next_item
     mov rdi, r13
@@ -3068,6 +3693,14 @@ ugfx_svg_draw:
     dec dword [rsp + V_OPEN]
     test rax, rax
     jnz .item_fail_outer
+.end_clip:
+    cmp qword [r12 + UgfxSvgItem_clip], 0
+    je .next_item
+    cmp dword [rsp + V_OPEN], 0
+    je .next_item
+    mov rdi, r13
+    call ugfx_ctx_restore
+    dec dword [rsp + V_OPEN]
     jmp .next_item
 .item_fail:
     push rax
@@ -3083,7 +3716,12 @@ ugfx_svg_draw:
     cmp dword [rsp + 16 + V_OPEN], 0
     je .unwound
     mov rdi, r13
-    call ugfx_ctx_end_layer
+    call ugfx_ctx_end_layer             ; a layer, else a clip's save
+    test rax, rax
+    jz .unwound_one
+    mov rdi, r13
+    call ugfx_ctx_restore
+.unwound_one:
     dec dword [rsp + 16 + V_OPEN]
     jmp .unwind
 .unwound:
@@ -3097,6 +3735,11 @@ ugfx_svg_draw:
     je .all_closed
     mov rdi, r13
     call ugfx_ctx_end_layer
+    test rax, rax
+    jz .closed_one
+    mov rdi, r13
+    call ugfx_ctx_restore
+.closed_one:
     dec dword [rsp + V_OPEN]
     jmp .items_done
 .all_closed:
