@@ -28,6 +28,9 @@ kernel_main:
     ; 1. Exercise the minimum PMM/direct-map contract before advertising ready.
     call kernel_boot_memory_selftest
 
+    ; 1.5 Load and run a UBF program (kernel/exec/selftest.asm).
+    call ubf_selftest
+
     ; 2. Print kernel execution ready state
     mov rsi, msg_kernel_ready
     call uart_print_str
