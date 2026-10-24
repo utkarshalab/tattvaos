@@ -14,7 +14,7 @@ Part of the `lib/` category in Utkarsha OS.
 
 ## Status
 
-Eight modules have real, numerically-verified implementations (checked by
+Nine modules have real, numerically-verified implementations (checked by
 `tests/run_tests.sh`, see below):
 
 ```text
@@ -32,6 +32,8 @@ reduce/   Tier 1    sum/mean, dot/sum of squares, overflow-safe product,
                      exact integer sums
 cpuid/    Tier 0    CPU feature detection + SSE2 fallbacks for every
                      faster instruction (umath runs on any x86-64 CPU)
+geom/     Tier 1    2D affine transforms, Bezier eval/tangent/split and
+                     tolerance-based segment counts (f64; used by lib/ugfx)
 ```
 
 Every other directory listed below is scaffolded (created, named, given a
