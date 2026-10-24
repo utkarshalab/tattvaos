@@ -2,9 +2,7 @@
 ; Blend AVX-512 — 16 pixels per iteration
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
+%include "ugfx.inc"
 
 extern blend_avx2
 
