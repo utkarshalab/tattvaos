@@ -13,6 +13,7 @@
 | [`arch/`](arch/) | Architecture-specific code — x86-64, AArch64, RISC-V |
 | [`mm/`](mm/) | Memory management — physical allocator, virtual memory, huge pages |
 | [`sched/`](sched/) | Scheduler — cooperative and preemptive, core affinity |
+| [`exec/`](exec/) | Program loader — UBF programs mapped, relocated and started as fibers |
 | [`ipc/`](ipc/) | Inter-process communication — message queues, shared memory |
 | [`syscall/`](syscall/) | System call interface — minimal syscall table |
 | [`drivers/`](drivers/) | Device drivers — NVMe, UART, network cards |
