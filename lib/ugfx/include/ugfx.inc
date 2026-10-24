@@ -69,7 +69,9 @@
 %endmacro
 %endif
 %if DEBUG_BUILD
+%ifndef UGFX_PANIC_IMPL                 ; defined by the file that implements it
 extern panic_null_ptr
+%endif
 %endif
 
 ; -----------------------------------------------------------------------------
@@ -128,6 +130,36 @@ extern panic_null_ptr
 %define TRANSFORM_270       3
 %define TRANSFORM_FLIP_H    4
 %define TRANSFORM_FLIP_V    8
+
+; -----------------------------------------------------------------------------
+; Rasterizer — anti-aliased area coverage (core/raster.asm)
+;   Coordinates are 24.8 fixed point in device pixels. Coverage is exact area
+;   per pixel, 0..255. Spans go to the span compositor (core/span.asm).
+; -----------------------------------------------------------------------------
+%define UGFX_SUBPIXEL_SHIFT 8
+%define UGFX_SUBPIXEL_SCALE 256
+%define UGFX_FILL_NONZERO   0
+%define UGFX_FILL_EVENODD   1
+
+; Raster object (caller-allocated, UgfxRaster_SIZE bytes)
+%define UgfxRaster_arena    0           ; arena for cell storage
+%define UgfxRaster_cells    8           ; cell array: x, y, cover, area (i32 each)
+%define UgfxRaster_count    16          ; u32 cells stored
+%define UgfxRaster_cap      20          ; u32 cell capacity
+%define UgfxRaster_cur_x    24          ; i32 current cell
+%define UgfxRaster_cur_y    28
+%define UgfxRaster_cover    32          ; i32 current cell accumulators
+%define UgfxRaster_area     36
+%define UgfxRaster_move_x   40          ; i32 start of the open contour
+%define UgfxRaster_move_y   44
+%define UgfxRaster_last_x   48          ; i32 current point
+%define UgfxRaster_last_y   52
+%define UgfxRaster_width    56          ; u32 clip width in pixels
+%define UgfxRaster_height   60          ; u32 clip height in pixels
+%define UgfxRaster_open     64          ; u32 a contour is open
+%define UgfxRaster_error    68          ; u32 sticky -ENOMEM from cell growth
+%define UgfxRaster_SIZE     72
+%define UgfxCell_SIZE       16
 
 ; -----------------------------------------------------------------------------
 ; 2D paths
