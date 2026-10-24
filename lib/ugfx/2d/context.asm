@@ -32,6 +32,11 @@
 ; layer once, at alpha x the restored global alpha, under the restored clip
 ; (group opacity, without double-counting clip edges).
 ;
+; Masks: inside a layer, ugfx_ctx_begin_mask opens another layer for the
+; mask's content; ugfx_ctx_end_mask(mode) turns it into a coverage mask
+; (luminance x alpha, or alpha) for the layer below, which end_layer then
+; composites through (the mask times the restored clip).
+;
 ; All storage comes from the arena given to ugfx_ctx_init.
 ; =============================================================================
 
@@ -58,6 +63,8 @@ extern ugfx_mask_init
 extern ugfx_mask_fill
 extern ugfx_mask_copy
 extern ugfx_mask_intersect
+extern ugfx_mask_from_luminance
+extern ugfx_mask_from_alpha
 extern umath_affine2_identity
 extern umath_affine2_multiply
 extern umath_affine2_translate
@@ -132,7 +139,12 @@ ugfx_ctx_init:
     call ctx_alloc_zero
     jz .init_nomem
     mov [rbx + UgfxContext_layers], rax
+    mov esi, (UGFX_CTX_MAX_DEPTH + 1) * UgfxMask_SIZE
+    call ctx_alloc_zero
+    jz .init_nomem
+    mov [rbx + UgfxContext_lmasks], rax
     ; the default state
+    mov qword [rbx + ST(mask)], 0
     lea rdi, [rbx + ST(transform)]
     call umath_affine2_identity
     movsd xmm0, [rel ctx_default_tol]
@@ -947,6 +959,7 @@ ugfx_ctx_begin_layer:
 .bl_have:
     mov [rbx + ST(target)], rax
     mov dword [rbx + ST(is_layer)], 1
+    mov qword [rbx + ST(mask)], 0
     mov [rbx + ST(layer_alpha)], r12d
     mov dword [rbx + ST(alpha)], 255
     mov qword [rbx + ST(clip)], 0
@@ -967,13 +980,40 @@ global ugfx_ctx_end_layer
 ugfx_ctx_end_layer:
     test rdi, rdi
     jz ctx_bad
-    cmp dword [rdi + ST(is_layer)], 0
-    je ctx_bad
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    cmp dword [rdi + ST(is_layer)], 1
+    jne ctx_bad
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
     mov rbx, rdi
     mov r14, [rbx + ST(target)]         ; the layer
     mov r12d, [rbx + ST(layer_alpha)]
+    mov r15, [rbx + ST(mask)]
     call ugfx_ctx_restore
+    ; a mask: composited through it times the restored clip
+    test r15, r15
+    jz .el_clip
+    mov rax, [rbx + ST(clip)]
+    test rax, rax
+    jz .el_masked
+    mov eax, UGFX_CTX_MAX_DEPTH + 1
+    call ctx_mask
+    test rax, rax
+    jz .el_nomem
+    push rax
+    sub rsp, 8
+    mov rdi, rax
+    mov rsi, r15
+    call ugfx_mask_copy
+    mov rdi, [rsp + 8]
+    mov rsi, [rbx + ST(clip)]
+    call ugfx_mask_intersect
+    add rsp, 8
+    pop r15
+.el_masked:
+    xchg r15, [rbx + ST(clip)]          ; r15 = the clip to put back
+    jmp .el_alpha
+.el_clip:
+    mov r15, [rbx + ST(clip)]
+.el_alpha:
     ; composite: alpha = layer alpha x restored alpha
     mov eax, [rbx + ST(alpha)]
     imul eax, r12d
@@ -1019,7 +1059,77 @@ ugfx_ctx_end_layer:
     call ctx_fill_placed
     mov [rbx + ST(alpha)], r13d
 .el_out:
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    mov [rbx + ST(clip)], r15
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+.el_nomem:
+    mov rax, -(ENOMEM)
+    mov r15, [rbx + ST(clip)]
+    jmp .el_out
+
+; -----------------------------------------------------------------------------
+; ugfx_ctx_begin_mask — rdi = ctx -> rax = 0, -errno: a layer for a mask's
+;   content (it ends with end_mask, not end_layer)
+; ugfx_ctx_end_mask — rdi = ctx, esi = UGFX_MASK_LUMINANCE / _ALPHA
+;   -> rax = 0, -EINVAL (no mask open), -ENOMEM: back to the state below,
+;   whose layer will be composited through the mask
+; -----------------------------------------------------------------------------
+global ugfx_ctx_begin_mask
+ugfx_ctx_begin_mask:
+    test rdi, rdi
+    jz ctx_bad
+    push rbx
+    mov rbx, rdi
+    mov esi, 255
+    call ugfx_ctx_begin_layer
+    test rax, rax
+    jnz .bm_out
+    mov dword [rbx + ST(is_layer)], 2
+.bm_out:
+    pop rbx
+    ret
+
+global ugfx_ctx_end_mask
+ugfx_ctx_end_mask:
+    test rdi, rdi
+    jz ctx_bad
+    cmp dword [rdi + ST(is_layer)], 2
+    jne ctx_bad
+    cmp esi, UGFX_MASK_ALPHA
+    ja ctx_bad
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13, [rbx + ST(target)]         ; the mask's content
+    call ugfx_ctx_restore
+    ; this depth's layer mask, created once
+    mov eax, [rbx + UgfxContext_depth]
+    imul eax, eax, UgfxMask_SIZE
+    mov rdi, [rbx + UgfxContext_lmasks]
+    add rdi, rax
+    cmp qword [rdi + UgfxMask_data], 0
+    jne .em_have
+    push rdi
+    sub rsp, 8
+    mov rsi, [rbx + UgfxContext_arena]
+    mov rax, [rbx + UgfxContext_root]
+    mov rdx, [rax + PixBuf_width]
+    mov rcx, [rax + PixBuf_height]
+    call ugfx_mask_init
+    add rsp, 8
+    pop rdi
+    test rax, rax
+    jnz .em_out
+.em_have:
+    mov [rbx + ST(mask)], rdi
+    mov rsi, r13
+    test r12d, r12d
+    jnz .em_alpha
+    call ugfx_mask_from_luminance
+    jmp .em_out
+.em_alpha:
+    call ugfx_mask_from_alpha
+.em_out:
+    EPILOGUE_RESTORE rbx, r12, r13
 
 section .rodata
 align 16
