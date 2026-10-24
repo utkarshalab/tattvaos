@@ -11,7 +11,7 @@ NASMFLAGS := -f elf64 -g -F dwarf -D DEBUG_BUILD=1 -I include/
 UMATHFLAGS := -f elf64 -g -F dwarf -I ../../
 BUILDDIR  := build
 
-CORE_SRCS := core/pixbuf.asm core/span.asm core/raster.asm
+CORE_SRCS := core/pixbuf.asm core/span.asm core/raster.asm core/mask.asm
 PATH_SRCS := 2d/path.asm 2d/shapes.asm 2d/stroke.asm 2d/flatten.asm 2d/dash.asm 2d/paint.asm
 CORE_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(CORE_SRCS))
 PATH_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(PATH_SRCS)) $(BUILDDIR)/core/umath_unit.o
@@ -41,6 +41,7 @@ host-check: host
 	python3 tests/host/stroke_check.py $(BUILDDIR)/host_path
 	python3 tests/host/dash_check.py $(BUILDDIR)/host_path
 	python3 tests/host/paint_check.py $(BUILDDIR)/host_path
+	python3 tests/host/clip_check.py $(BUILDDIR)/host_path
 
 clean:
 	rm -rf $(BUILDDIR)
