@@ -348,6 +348,53 @@ def marker_angle(v):
 
 
 @dataclass
+class ImageItem:
+    matrix: list
+    path: list                                      # the viewport (x, y, w, h)
+    image: object                                   # what image_fn returned
+    dest: list                                      # x, y, w, h it is drawn at
+    clip: int                                       # 1: slice, clipped to the viewport
+    alpha: int
+
+
+def data_uri(href):
+    """svg_data_uri: the bytes of a data: URI, or None."""
+    if len(href) < 5 or href[:4].lower() != "data" or href[4] != ':':
+        return None
+    j = href.find(',')
+    if j < 0:
+        return None
+    payload, out = href[j + 1:], bytearray()
+    if j >= 7 and href[j - 7:j].lower() == ";base64":
+        bits = count = 0
+        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        for ch in payload:
+            if ch == '=':
+                break
+            if ord(ch) <= 32:
+                continue
+            v = alphabet.find(ch)
+            if v < 0:
+                break
+            bits, count = bits << 6 | v, count + 6
+            if count >= 8:
+                count -= 8
+                out.append(bits >> count & 255)
+                bits &= (1 << count) - 1
+        return bytes(out)
+    i = 0
+    while i < len(payload):
+        ch = payload[i]
+        i += 1
+        if ch == '%' and i + 2 <= len(payload) and all(c in "0123456789abcdefABCDEF" for c in payload[i:i + 2]):
+            out.append(int(payload[i:i + 2], 16))
+            i += 2
+        else:
+            out.append(ord(ch) & 255)
+    return bytes(out)
+
+
+@dataclass
 class Group:
     kind: str                                       # "begin" / "end"
     alpha: int = 255
@@ -376,7 +423,7 @@ def group_bbox(begin, items):
         return box
     first = True
     for it in items:
-        if not isinstance(it, Item):
+        if not isinstance(it, (Item, ImageItem)):
             continue
         b = tight_bounds(it.path)
         if b is None:
@@ -1266,7 +1313,8 @@ def trim(v):
     return v
 
 
-def parse(text):
+def parse(text, image_fn=None):
+    """image_fn(bytes or href, kind) -> (width, height, image) or None, as ugfx_svg_parse_ex's."""
     import xml.etree.ElementTree as ET
     root = ET.fromstring(text)
     doc = Doc()
@@ -1354,6 +1402,27 @@ def parse(text):
                 rec.par = base.par
             if not rec.items:
                 rec.items = base.items
+
+    def image(g, st, href):
+        """svg_image."""
+        if st["hidden"] or image_fn is None or href is None:
+            return
+        data = data_uri(href)
+        got = image_fn(data, 0) if data is not None else image_fn(href, 1)
+        if got is None:
+            return
+        iw, ih, img = got
+        if not (iw > 0 and ih > 0):
+            return
+        x, y = g.get("x", 0.0), g.get("y", 0.0)
+        w, h = g.get("width", float(iw)), g.get("height", float(ih))
+        if not (w > 0 and h > 0):
+            return
+        p = par(g.get("preserveAspectRatio"))
+        m = fit([0.0, 0.0, float(iw), float(ih)], w, h, p)
+        dest = [x + m[4], y + m[5], float(iw) * m[0], float(ih) * m[3]]
+        doc.items.append(ImageItem(list(st["m"]), [('rect', x, y, w, h)], img, dest, int(bool(p[1] and p[0])),
+                                   int(255 * 1.0 * st["op"] + 0.5)))
 
     def marker_attrs(rec, el, st):
         """svg_marker_attrs."""
@@ -1582,7 +1651,7 @@ def parse(text):
             st["skip"] = True
         if not st["skip"]:
             own = [1.0, {}]
-            geom, style, el_id, classes, href = {}, None, None, [], None
+            geom, style, el_id, classes, href, href_raw = {}, None, None, [], None, None
             for name, value in el.attrib.items():
                 name = name.split('}')[-1]
                 if name == "style":
@@ -1593,6 +1662,7 @@ def parse(text):
                     classes = value.split()
                 elif name == "href":
                     v = trim(value)
+                    href_raw = v
                     if v.startswith('#'):
                         href = v[1:]
                 elif name == "transform":
@@ -1646,7 +1716,9 @@ def parse(text):
                         opened_at = len(doc.items)
                 if symroot:
                     vp = symbol_map(st, geom, inst)
-                if tag == "use":
+                if tag == "image":
+                    image(geom, st, href_raw)
+                elif tag == "use":
                     target = ids.get(href) if href is not None else None
                     if target is not None and uses < MAX_USES:
                         u = dict(st)
