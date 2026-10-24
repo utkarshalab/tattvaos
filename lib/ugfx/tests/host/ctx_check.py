@@ -63,7 +63,7 @@ CTX_OPS = {'new_path': (30, 0), 'fill': (31, 0), 'stroke': (32, 0), 'clip': (33,
            'fill_gradient': (43, None), 'stroke_gradient': (44, None), 'stroke_style': (45, 4),
            'dash': (46, None), 'alpha': (47, 1), 'rule': (48, 1), 'tolerance': (49, 1),
            'fill_rect': (50, 4), 'stroke_rect': (51, 4), 'draw_image': (52, None), 'clear': (53, 1),
-           'begin_layer': (54, 1), 'end_layer': (55, 0), 'uic': (56, None)}
+           'begin_layer': (54, 1), 'end_layer': (55, 0), 'uic': (56, None), 'svg': (57, None)}
 PATH_OPS = ('move', 'line', 'quad', 'cubic', 'close', 'rect', 'ellipse', 'circle')
 
 
@@ -83,6 +83,10 @@ def encode(cmds):
         elif name == 'dash':
             off, iv = a
             out += struct.pack(f"<2d{len(iv)}d", off, len(iv), *iv)
+        elif name == 'svg':
+            text, current, x, y, size = a
+            out += struct.pack("<d", len(text)) + text + bytes(-len(text) % 8)
+            out += struct.pack("<4d", current, x, y, size)
         elif name == 'uic':
             pack, icon, px, expected, x, y, size, weight, cols = a
             name = icon.encode()
