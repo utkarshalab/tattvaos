@@ -3,9 +3,7 @@
 ; 32-bit BGRA premultiplied alpha (primary format)
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
+%include "ugfx.inc"
 
 extern arena_alloc
 
