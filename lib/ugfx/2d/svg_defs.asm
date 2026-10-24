@@ -2,11 +2,14 @@
 ; Utkarsha OS — lib/ugfx/2d/svg_defs.asm
 ; =============================================================================
 ; SVG definitions found before drawing: gradients, looked up by id when a
-; fill or stroke says url(#id).
+; fill or stroke says url(#id), and the CSS rules of <style> elements.
 ;
 ;   ugfx_svg_defs_scan(defs, arena, data, size)
 ;       every linearGradient / radialGradient in the document with its
 ;       stops (wherever it is: defs or not)
+;   ugfx_svg_defs_rule(defs, index, selectable)
+;       -> rax = rule index's declarations (rdx their end) if it applies
+;          to the element, else 0; rules come in cascade order
 ;   ugfx_svg_defs_paint(defs, id, id_end, path, viewport, paint, matrix)
 ;       -> -1 no such gradient, 0 paints nothing, 1 a solid colour (edx,
 ;          straight BGRA), 3 a ugfx paint (written to paint) with its
@@ -27,6 +30,13 @@
 ; No stops paint nothing; one stop, a linear gradient whose ends meet or a
 ; radial one with no radius paint the last stop's colour. A focal point or
 ; radius makes it a two-circle gradient from (fx, fy, fr) to (cx, cy, r).
+;
+; CSS: rules "selectors { declarations }" from every <style> (comments,
+; CDATA and HTML comment markers skipped; at-rules skipped with their
+; blocks). Selectors: element, .class, #id, element.class, * and lists of
+; them; any other selector (combinators, attributes, pseudo-classes) is
+; left out. Rules are kept in cascade order: by specificity (id 100,
+; class 10, element 1, element.class 11, * 0), then document order.
 ; =============================================================================
 
 %include "ugfx.inc"
@@ -34,6 +44,7 @@
 extern arena_alloc
 extern ugfx_svg_xml_next
 extern ugfx_svg_xml_attr
+extern ugfx_svg_xml_text_end
 extern ugfx_svg_lookup
 extern ugfx_svg_trim
 extern ugfx_svg_same
@@ -79,6 +90,17 @@ extern umath_affine2_multiply
 %define H_SPREAD        11
 %define H_TRANSFORM     12
 
+; CSS rules
+%define RL_KIND         0               ; u32 1 element, 2 class, 3 id, 4 element.class, 5 *
+%define RL_SPEC         4               ; u32 specificity
+%define RL_NAME         8               ; element name / class / id
+%define RL_NAME_END     16
+%define RL_ELEM         24              ; element.class: the element
+%define RL_ELEM_END     32
+%define RL_DECL         40              ; the declarations
+%define RL_DECL_END     48
+%define RL_SIZE         56
+
 ; attribute ids
 %define DA_ID           1
 %define DA_HREF         2
@@ -109,6 +131,7 @@ defs_elements:
     NAME "linearGradient", 1
     NAME "radialGradient", 2
     NAME "stop", 3
+    NAME "style", 4
     db 0
 defs_attributes:
     NAME "id", DA_ID
@@ -163,6 +186,9 @@ ugfx_svg_defs_scan:
     mov qword [rdi + UgfxSvgDefs_grads], 0
     mov dword [rdi + UgfxSvgDefs_count], 0
     mov dword [rdi + UgfxSvgDefs_cap], 0
+    mov qword [rdi + UgfxSvgDefs_rules], 0
+    mov dword [rdi + UgfxSvgDefs_nrules], 0
+    mov dword [rdi + UgfxSvgDefs_rulecap], 0
     mov qword [r15 + SC_GRAD], 0
     mov [r15 + SC_XML + UgfxSvgXml_cur], rdx
     add rdx, rcx
@@ -181,6 +207,8 @@ ugfx_svg_defs_scan:
     je .end_tag
     cmp eax, 3
     je .stop
+    cmp eax, 4
+    je .style
     cmp eax, 1
     jb .token                           ; another element
     cmp eax, 2
@@ -213,7 +241,24 @@ ugfx_svg_defs_scan:
     test rax, rax
     jnz .nomem
     jmp .token
+.style:
+    cmp dword [r15 + SC_XML + UgfxSvgXml_self], 0
+    jne .token
+    ; the CSS text runs to </style>
+    lea rdi, [r15 + SC_XML]
+    lea rsi, [rel defs_style_name]
+    mov edx, 5
+    call ugfx_svg_xml_text_end
+    mov r12, rax
+    mov rdi, [r15 + SC_XML + UgfxSvgXml_cur]
+    mov rsi, r12
+    call defs_css
+    test rax, rax
+    jnz .nomem
+    mov [r15 + SC_XML + UgfxSvgXml_cur], r12
+    jmp .token
 .done:
+    call defs_sort_rules
     xor eax, eax
     jmp .out
 .nomem:
@@ -221,6 +266,526 @@ ugfx_svg_defs_scan:
 .out:
     add rsp, SC_SIZE
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+; -----------------------------------------------------------------------------
+; defs_css — rdi = CSS text, rsi = its end, r15 = scan frame -> rax = 0 or
+;   -ENOMEM: its rules appended (unsorted)
+; -----------------------------------------------------------------------------
+defs_css:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 24
+    mov r12, rdi                        ; cursor
+    mov r13, rsi                        ; end
+.rule:
+    mov rdi, r12
+    mov rsi, r13
+    call css_skip
+    mov r12, rdi
+    cmp r12, r13
+    jae .done
+    cmp byte [r12], '@'
+    je .at_rule
+    ; selectors up to '{'
+    mov rbx, r12
+.to_brace:
+    cmp r12, r13
+    jae .done
+    cmp byte [r12], '{'
+    je .brace
+    inc r12
+    jmp .to_brace
+.brace:
+    mov [rsp], rbx                      ; selectors
+    mov [rsp + 8], r12                  ; their end
+    lea r14, [r12 + 1]                  ; declarations
+    mov r12, r14
+.to_close:
+    cmp r12, r13
+    jae .closed
+    cmp byte [r12], '}'
+    je .closed
+    inc r12
+    jmp .to_close
+.closed:
+    mov [rsp + 16], r12                 ; declarations end
+    cmp r12, r13
+    jae .selectors
+    inc r12                             ; past '}'
+.selectors:
+    ; each selector of the comma list
+    mov rbx, [rsp]
+.selector:
+    cmp rbx, [rsp + 8]
+    jae .rule
+    mov rdi, rbx
+.comma:
+    cmp rdi, [rsp + 8]
+    jae .one
+    cmp byte [rdi], ','
+    je .one
+    inc rdi
+    jmp .comma
+.one:
+    push rdi
+    mov rsi, rdi
+    mov rdi, rbx
+    mov rdx, r14
+    mov rcx, [rsp + 8 + 16]
+    call css_add_rule
+    pop rdi
+    test rax, rax
+    jnz .nomem
+    lea rbx, [rdi + 1]
+    jmp .selector
+.at_rule:
+    ; @...; or @... { ... } with nested blocks
+    xor ecx, ecx                        ; depth
+.at_scan:
+    cmp r12, r13
+    jae .done
+    movzx eax, byte [r12]
+    inc r12
+    cmp al, '{'
+    je .at_open
+    cmp al, '}'
+    je .at_close
+    cmp al, ';'
+    jne .at_scan
+    test ecx, ecx
+    jz .rule
+    jmp .at_scan
+.at_open:
+    inc ecx
+    jmp .at_scan
+.at_close:
+    dec ecx
+    jg .at_scan
+    jmp .rule
+.done:
+    xor eax, eax
+    jmp .out
+.nomem:
+    mov rax, -(ENOMEM)
+.out:
+    add rsp, 24
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; rdi / rsi -> rdi past whitespace, /* comments */, <!-- --> and CDATA
+;   markers
+css_skip:
+    cmp rdi, rsi
+    jae .done
+    movzx eax, byte [rdi]
+    cmp al, ' '
+    jbe .one
+    mov rcx, rsi
+    sub rcx, rdi
+    cmp al, '/'
+    je .comment
+    cmp al, '<'
+    je .open_marker
+    cmp al, '-'
+    je .html_close
+    cmp al, ']'
+    je .cdata_close
+.done:
+    ret
+.one:
+    inc rdi
+    jmp css_skip
+.comment:
+    cmp rcx, 2
+    jb .done
+    cmp byte [rdi + 1], '*'
+    jne .done
+    add rdi, 2
+.comment_end:
+    lea rax, [rdi + 1]
+    cmp rax, rsi
+    jae .to_end
+    cmp word [rdi], '*/'
+    je .comment_out
+    inc rdi
+    jmp .comment_end
+.comment_out:
+    add rdi, 2
+    jmp css_skip
+.to_end:
+    mov rdi, rsi
+    ret
+.open_marker:
+    cmp rcx, 9
+    jb .html_open
+    cmp dword [rdi], '<![C'
+    jne .html_open
+    cmp dword [rdi + 4], 'DATA'
+    jne .html_open
+    cmp byte [rdi + 8], '['
+    jne .html_open
+    add rdi, 9
+    jmp css_skip
+.html_open:
+    cmp rcx, 4
+    jb .done
+    cmp dword [rdi], '<!--'
+    jne .done
+    add rdi, 4
+    jmp css_skip
+.html_close:
+    cmp rcx, 3
+    jb .done
+    cmp word [rdi], '--'
+    jne .done
+    cmp byte [rdi + 2], '>'
+    jne .done
+    add rdi, 3
+    jmp css_skip
+.cdata_close:
+    cmp rcx, 3
+    jb .done
+    cmp word [rdi], ']]'
+    jne .done
+    cmp byte [rdi + 2], '>'
+    jne .done
+    add rdi, 3
+    jmp css_skip
+
+; al -> ZF = 1 when it is an identifier character [A-Za-z0-9_-]
+css_ident:
+    cmp al, '-'
+    je .yes
+    cmp al, '_'
+    je .yes
+    mov ah, al
+    sub ah, '0'
+    cmp ah, 9
+    jbe .yes
+    mov ah, al
+    or ah, 0x20
+    sub ah, 'a'
+    cmp ah, 25
+    jbe .yes
+    or ah, 1                            ; ZF = 0 (ah is non-zero: >= 1 after or)
+    ret
+.yes:
+    cmp al, al                          ; ZF = 1
+    ret
+
+; rdi / rsi -> ZF = 1 when the range is one or more identifier characters
+css_ident_run:
+    cmp rdi, rsi
+    jae .no
+.byte:
+    cmp rdi, rsi
+    jae .yes
+    mov al, [rdi]
+    call css_ident
+    jne .no
+    inc rdi
+    jmp .byte
+.yes:
+    cmp al, al
+    ret
+.no:
+    or eax, 1
+    ret
+
+; rdi / rsi = one selector (untrimmed), rdx / rcx = declarations, r15 =
+;   scan frame -> rax = 0 or -ENOMEM; unsupported selectors are left out
+css_add_rule:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 24
+    mov [rsp], rdx
+    mov [rsp + 8], rcx
+    call ugfx_svg_trim
+    mov r12, rdi
+    mov r13, rsi
+    cmp r12, r13
+    jae .skip
+    xor r14d, r14d                      ; the element.class split, if any
+    movzx eax, byte [r12]
+    cmp al, '*'
+    je .universal
+    cmp al, '.'
+    je .class
+    cmp al, '#'
+    je .id
+    ; element, or element.class
+    mov rdi, r12
+.elem_scan:
+    cmp rdi, r13
+    jae .element
+    mov al, [rdi]
+    cmp al, '.'
+    je .elem_class
+    call css_ident
+    jne .skip
+    inc rdi
+    jmp .elem_scan
+.element:
+    mov ebx, 1                          ; kind
+    mov ecx, 1                          ; specificity
+    mov rdx, r12
+    mov r8, r13
+    jmp .push
+.elem_class:
+    cmp rdi, r12
+    je .skip
+    mov r14, rdi                        ; '.'
+    lea rdi, [r14 + 1]
+    mov rsi, r13
+    call css_ident_run
+    jne .skip
+    mov ebx, 4
+    mov ecx, 11
+    lea rdx, [r14 + 1]
+    mov r8, r13
+    jmp .push
+.universal:
+    lea rax, [r12 + 1]
+    cmp rax, r13
+    jne .skip
+    mov ebx, 5
+    xor ecx, ecx
+    mov rdx, r12
+    mov r8, r13
+    jmp .push
+.class:
+    mov ebx, 2
+    mov ecx, 10
+    jmp .named
+.id:
+    mov ebx, 3
+    mov ecx, 100
+.named:
+    lea rdi, [r12 + 1]
+    mov rsi, r13
+    push rcx
+    call css_ident_run
+    pop rcx
+    jne .skip
+    lea rdx, [r12 + 1]
+    mov r8, r13
+.push:
+    mov [rsp + 16], rdx
+    push rcx
+    push r8
+    call defs_new_rule
+    pop r8
+    pop rcx
+    test rax, rax
+    jz .nomem
+    mov [rax + RL_KIND], ebx
+    mov [rax + RL_SPEC], ecx
+    mov rdx, [rsp + 16]
+    mov [rax + RL_NAME], rdx
+    mov [rax + RL_NAME_END], r8
+    mov [rax + RL_ELEM], r12
+    mov [rax + RL_ELEM_END], r14
+    mov rdx, [rsp]
+    mov [rax + RL_DECL], rdx
+    mov rdx, [rsp + 8]
+    mov [rax + RL_DECL_END], rdx
+.skip:
+    xor eax, eax
+    jmp .out
+.nomem:
+    mov rax, -(ENOMEM)
+.out:
+    add rsp, 24
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; r15 = scan frame -> rax = a new rule slot (0: out of memory)
+defs_new_rule:
+    push rbx
+    mov rbx, [r15 + SC_DEFS]
+    mov eax, [rbx + UgfxSvgDefs_nrules]
+    cmp eax, [rbx + UgfxSvgDefs_rulecap]
+    jb .room
+    mov ecx, [rbx + UgfxSvgDefs_rulecap]
+    add ecx, ecx
+    cmp ecx, 16
+    jae .grow
+    mov ecx, 16
+.grow:
+    push rcx
+    mov rdi, [rbx + UgfxSvgDefs_arena]
+    imul esi, ecx, RL_SIZE
+    call arena_alloc
+    pop rcx
+    test rax, rax
+    jz .fail
+    mov [rbx + UgfxSvgDefs_rulecap], ecx
+    mov rdi, rax
+    mov rsi, [rbx + UgfxSvgDefs_rules]
+    mov ecx, [rbx + UgfxSvgDefs_nrules]
+    imul ecx, ecx, RL_SIZE
+    mov rdx, rax
+    rep movsb
+    mov [rbx + UgfxSvgDefs_rules], rdx
+.room:
+    mov eax, [rbx + UgfxSvgDefs_nrules]
+    inc dword [rbx + UgfxSvgDefs_nrules]
+    imul rax, rax, RL_SIZE
+    add rax, [rbx + UgfxSvgDefs_rules]
+    pop rbx
+    ret
+.fail:
+    xor eax, eax
+    pop rbx
+    ret
+
+; r15 = scan frame: the rules sorted by specificity, stably (insertion)
+defs_sort_rules:
+    push rbx
+    push r12
+    sub rsp, RL_SIZE + 8
+    mov rbx, [r15 + SC_DEFS]
+    mov r12d, 1
+.next:
+    cmp r12d, [rbx + UgfxSvgDefs_nrules]
+    jae .done
+    ; hold rule i, shift larger ones up
+    imul rsi, r12, RL_SIZE
+    add rsi, [rbx + UgfxSvgDefs_rules]
+    mov rdi, rsp
+    mov ecx, RL_SIZE
+    rep movsb
+    mov r8d, r12d
+.shift:
+    test r8d, r8d
+    jz .place
+    lea eax, [r8 - 1]
+    imul rax, rax, RL_SIZE
+    add rax, [rbx + UgfxSvgDefs_rules]
+    mov ecx, [rax + RL_SPEC]
+    cmp ecx, [rsp + RL_SPEC]
+    jbe .place
+    mov rsi, rax
+    lea rdi, [rax + RL_SIZE]
+    mov ecx, RL_SIZE
+    rep movsb
+    dec r8d
+    jmp .shift
+.place:
+    imul rdi, r8, RL_SIZE
+    add rdi, [rbx + UgfxSvgDefs_rules]
+    mov rsi, rsp
+    mov ecx, RL_SIZE
+    rep movsb
+    inc r12d
+    jmp .next
+.done:
+    add rsp, RL_SIZE + 8
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; ugfx_svg_defs_rule — rdi = const UgfxSvgDefs*, esi = rule index (in
+;   cascade order, below UgfxSvgDefs_nrules), rdx = const UgfxSvgSel*
+;   -> rax = the rule's declarations and rdx their end if it applies to the
+;   element, else rax = 0
+; -----------------------------------------------------------------------------
+global ugfx_svg_defs_rule
+ugfx_svg_defs_rule:
+    push rbx
+    push r12
+    push r13
+    mov r12, rdx
+    xor eax, eax
+    cmp esi, [rdi + UgfxSvgDefs_nrules]
+    jae .out
+    imul rbx, rsi, RL_SIZE
+    add rbx, [rdi + UgfxSvgDefs_rules]
+    mov eax, [rbx + RL_KIND]
+    cmp eax, 5
+    je .match
+    cmp eax, 1
+    je .element
+    cmp eax, 3
+    je .id
+    cmp eax, 4
+    jne .class
+    ; element.class: the element first
+    mov rdi, [rbx + RL_ELEM]
+    mov rsi, [rbx + RL_ELEM_END]
+    mov rdx, [r12 + UgfxSvgSel_name]
+    mov rcx, [r12 + UgfxSvgSel_name_end]
+    call ugfx_svg_same
+    jne .no
+.class:
+    ; one of the element's classes (space separated)
+    mov r13, [r12 + UgfxSvgSel_class]
+    test r13, r13
+    jz .no
+.token:
+    mov rsi, [r12 + UgfxSvgSel_class_end]
+.token_ws:
+    cmp r13, rsi
+    jae .no
+    cmp byte [r13], ' '
+    ja .token_start
+    inc r13
+    jmp .token_ws
+.token_start:
+    mov rdi, r13
+.token_end:
+    cmp r13, rsi
+    jae .compare
+    cmp byte [r13], ' '
+    jbe .compare
+    inc r13
+    jmp .token_end
+.compare:
+    mov rsi, r13
+    mov rdx, [rbx + RL_NAME]
+    mov rcx, [rbx + RL_NAME_END]
+    call ugfx_svg_same
+    je .match
+    jmp .token
+.element:
+    mov rdi, [rbx + RL_NAME]
+    mov rsi, [rbx + RL_NAME_END]
+    mov rdx, [r12 + UgfxSvgSel_name]
+    mov rcx, [r12 + UgfxSvgSel_name_end]
+    call ugfx_svg_same
+    je .match
+    jmp .no
+.id:
+    mov rdi, [r12 + UgfxSvgSel_id]
+    test rdi, rdi
+    jz .no
+    mov rsi, [r12 + UgfxSvgSel_id_end]
+    mov rdx, [rbx + RL_NAME]
+    mov rcx, [rbx + RL_NAME_END]
+    call ugfx_svg_same
+    je .match
+.no:
+    xor eax, eax
+    jmp .out
+.match:
+    mov rax, [rbx + RL_DECL]
+    mov rdx, [rbx + RL_DECL_END]
+.out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
 
 ; r15 = scan frame -> rax = a new, empty gradient (0: out of memory)
 defs_new_gradient:
@@ -935,6 +1500,7 @@ defs_take:
     ret
 
 section .rodata
+defs_style_name:    db "style"
 ; which viewport length a percentage value is of: 0 width, 1 height, 2 diagonal
 defs_axis:          db 0, 1, 0, 1, 0, 1, 2, 0, 1, 2
 
