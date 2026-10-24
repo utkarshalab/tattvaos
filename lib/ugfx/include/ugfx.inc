@@ -287,6 +287,15 @@ extern panic_null_ptr
 %define UgfxContext_SIZE        1120
 %define UGFX_CTX_MAX_DEPTH      32
 
+; Display list (caller-allocated, UgfxList_SIZE bytes; 2d/list.asm)
+%define UgfxList_arena          0
+%define UgfxList_data           8       ; records: u32 opcode, u32 bytes, payload (8-aligned)
+%define UgfxList_size           16      ; u64 bytes used
+%define UgfxList_cap            24      ; u64 bytes allocated
+%define UgfxList_error          32      ; i32 sticky recording error
+%define UgfxList_count          36      ; u32 records
+%define UgfxList_SIZE           40
+
 ; Gradient colour stop (UgfxStop_SIZE bytes, an array of them per gradient)
 %define UgfxStop_offset         0       ; f64 position, clamped to [0, 1] and to the previous stop
 %define UgfxStop_color          8       ; u32 straight (not premultiplied) BGRA, 0xAARRGGBB
