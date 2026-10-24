@@ -44,6 +44,8 @@ def main():
     worst = 0
     with tempfile.TemporaryDirectory(prefix="ugfx_svg2uic.") as d:
         for name, text, _ in CASES:
+            if "Gradient" in text:
+                continue                # UIC has no gradients: svg2uic approximates them
             icon, warnings = svg2uic.convert(text, "icon")
             data = pack([icon])
             uses_current = any(c[0] in ('fill', 'stroke') and c[1] == 0 for c in icon.commands) and \
