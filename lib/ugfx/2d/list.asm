@@ -51,6 +51,8 @@ extern ugfx_ctx_end_layer
 extern ugfx_ctx_clip_begin
 extern ugfx_ctx_clip_add
 extern ugfx_ctx_clip_end
+extern ugfx_ctx_begin_mask
+extern ugfx_ctx_end_mask
 
 %define LIST_INITIAL    4096
 
@@ -80,7 +82,9 @@ extern ugfx_ctx_clip_end
 %define LOP_CLIP_BEGIN      23
 %define LOP_CLIP_ADD        24
 %define LOP_CLIP_END        25
-%define LOP_LAST            25
+%define LOP_BEGIN_MASK      26
+%define LOP_END_MASK        27
+%define LOP_LAST            27
 
 section .text
 
@@ -275,6 +279,12 @@ ugfx_list_clip_end:
     jz ls_bad
     mov esi, LOP_CLIP_END
     jmp ls_op0
+global ugfx_list_begin_mask
+ugfx_list_begin_mask:
+    test rdi, rdi
+    jz ls_bad
+    mov esi, LOP_BEGIN_MASK
+    jmp ls_op0
 
 global ugfx_list_set_fill_color
 ugfx_list_set_fill_color:
@@ -295,6 +305,10 @@ ugfx_list_set_fill_rule:
 global ugfx_list_clear
 ugfx_list_clear:
     mov eax, LOP_CLEAR
+    jmp ls_u32_entry
+global ugfx_list_end_mask
+ugfx_list_end_mask:
+    mov eax, LOP_END_MASK
     jmp ls_u32_entry
 global ugfx_list_begin_layer
 ugfx_list_begin_layer:
@@ -635,6 +649,13 @@ ugfx_list_replay:
 .r_clip_begin:
     call ugfx_ctx_clip_begin
     jmp .rp_check
+.r_begin_mask:
+    call ugfx_ctx_begin_mask
+    jmp .rp_check
+.r_end_mask:
+    mov esi, [r15]
+    call ugfx_ctx_end_mask
+    jmp .rp_check
 .r_clip_end:
     call ugfx_ctx_clip_end
     jmp .rp_check
@@ -786,6 +807,7 @@ replay_jumps:
     dq ugfx_list_replay.r_begin_layer, ugfx_list_replay.r_end_layer
     dq ugfx_list_replay.r_clip_begin, ugfx_list_replay.r_clip_add
     dq ugfx_list_replay.r_clip_end
+    dq ugfx_list_replay.r_begin_mask, ugfx_list_replay.r_end_mask
 
 global ugfx_list_version
 ugfx_list_version: dq 0x010000
