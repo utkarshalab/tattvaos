@@ -440,7 +440,7 @@ most important rule in the layout.
 |---|---|---|
 | **Native code** (applications, commands, libraries, drivers) | `app/` and `boot/mod/` only — signed layers | the app's manifest; commands and libraries inherit the caller's |
 | **Kernel-loaded programs** (packet and trace programs) | `app/lib/` only — signed, then verified before loading | the app that attaches them |
-| **Scripts** (run by the shell, `ish`) | anywhere the caller can read — including `tmp/`, `user/`, `share/`, `vol/` | exactly the subject that started it, never more |
+| **Scripts** (run by the shell, `ush`) | anywhere the caller can read — including `tmp/`, `user/`, `share/`, `vol/` | exactly the subject that started it, never more |
 | **Model weights** | `app/model/` (base), `data/<app>/ai/` and `user/<name>/app/<app>/` (adapters) | data, not code — read by the inference engine for an app that holds the grant |
 
 - **Native code never loads from `tmp/`, `data/`, `user/`, `share/` or `vol/`.**
@@ -630,7 +630,7 @@ There are two builds of the system image, both using this same layout:
 | [`obs/`](../obs/) — `udash`, `utui` | `app/udash/`, `app/utui/` | metrics history in `data/<app>/` |
 | [`utils/`](../utils/) — `file`, `dir`, `text`, `process`, `archive`, `system` | `app/cmd/` | the caller's files |
 | [`tools/devtools/`](../tools/devtools/), [`tools/binary/`](../tools/binary/) | `app/cmd/` | the caller's files |
-| [`tools/coretools/`](../tools/coretools/) — `ish`, `kalam`, `tribhuvan` | `app/ish/`, `app/kalam/`, `app/tribhuvan/` | settings in `user/<name>/conf/<app>` |
+| [`tools/coretools/`](../tools/coretools/) — `ush`, `kalam`, `tribhuvan` | `app/ush/`, `app/kalam/`, `app/tribhuvan/` | settings in `user/<name>/conf/<app>` |
 | [`apps/`](../apps/) | `app/<app>/` | `data/<app>/`, `tmp/app/<app>/` |
 | [`pkg/format/`](../pkg/format/), [`pkg/registry/`](../pkg/registry/) | `app/upm/` — the package manager | installed index `data/upm/`; downloads `keep/upd/`; trust `sec/trust/` |
 | [`pkg/packages/`](../pkg/packages/) | the contents of `app/` | each bundled package installs to its place above |
@@ -708,7 +708,7 @@ Sub-projects inside the libraries above that keep runtime data of their own:
 | | `dump/` | [`boot/survive/`](../boot/survive/) |
 | | `upd/` | [`pkg/registry/`](../pkg/registry/), [`pkg/format/`](../pkg/format/) |
 | `tmp/` | RAM filesystem | [`storage/uxfs/cache/tmpfs.asm`](../storage/uxfs/cache/tmpfs.asm) |
-| | `script/` execution | [`tools/coretools/`](../tools/coretools/) (`ish`) |
+| | `script/` execution | [`tools/coretools/`](../tools/coretools/) (`ush`) |
 | `vol/` | `ext/` devices | [`storage/uxfs/drivers/`](../storage/uxfs/drivers/) |
 | | `att/` remote | [`storage/uxfs/drivers/nvme_of.asm`](../storage/uxfs/drivers/nvme_of.asm), [`unet/san/`](../unet/san/), [`storage/uobject/`](../storage/uobject/), [`dist/`](../dist/) |
 | | foreign formats | [`storage/uxfs/vfs/compat/`](../storage/uxfs/vfs/compat/) |

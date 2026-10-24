@@ -69,7 +69,7 @@ upm pack apps/vertex-agent/ \
 upm install keep/upd/vertex-agent-0.1.0.upk
 
 # Verifies signature, installs to app/vertex-agent/
-# Registers with ish for supervision
+# Registers with ush for supervision
 ```
 
 ---

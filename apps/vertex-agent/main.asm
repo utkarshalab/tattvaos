@@ -22,7 +22,7 @@
 section .text
 
 ; -----------------------------------------------------------------------------
-; vertex_agent_main — Entry point (called by ish as supervised app)
+; vertex_agent_main — Entry point (called by ush as supervised app)
 ; -----------------------------------------------------------------------------
 global vertex_agent_main
 vertex_agent_main:

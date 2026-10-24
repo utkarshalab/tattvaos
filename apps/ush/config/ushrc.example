@@ -1,0 +1,29 @@
+# =============================================================================
+# File     : apps/ush/config/ushrc.example
+# Project  : Utkarsha OS — Utkarsha Shell
+# Author   : Utkarsha Lab
+# License  : Apache-2.0
+# Description: Example shell configuration file.
+# Copy to /etc/ushrc or ~/.ushrc to customize your shell.
+# =============================================================================
+
+# Set PATH for command lookup
+export PATH=/bin:/usr/bin:/sbin:/usr/sbin
+
+# Set shell prompt
+prompt=ut> 
+
+# Define useful aliases
+alias ll=ls -la
+alias la=ls -A
+alias l=ls -CF
+alias ..='cd ..'
+alias ...='cd ../..'
+
+# Default editor
+export EDITOR=vi
+
+# History settings
+export HISTSIZE=1000
+
+# End of ushrc

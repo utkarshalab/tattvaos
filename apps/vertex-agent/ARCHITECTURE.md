@@ -44,7 +44,7 @@ kubelet (on node) ──CRI gRPC (port 10010)──► vertex-agent (app/vertex-
 ### 3.1 Process Model
 
 ```
-vertex-agent (single fiber, supervised by ish)
+vertex-agent (single fiber, supervised by ush)
 ├── gRPC server fiber          # Listens on [::]:10010, spawns handler fibers
 ├── Image manager fiber        # Pull, unpack, layer GC
 ├── Sandbox manager fiber      # Pod lifecycle, netns/ipcns creation
@@ -239,7 +239,7 @@ Container creation:
 
 ## 10. Upgrade / HA
 
-- **In-place binary swap:** New `vertex-agent` staged in `keep/upd/`, verified, `ish` sends `SIGUSR1` → old fiber drains connections, new fiber starts, old exits
+- **In-place binary swap:** New `vertex-agent` staged in `keep/upd/`, verified, `ush` sends `SIGUSR1` → old fiber drains connections, new fiber starts, old exits
 - **State persistence:** All metadata in `data/vertex-agent/` (survives restart)
 - **Image layers:** `uxfs` snapshots survive reboot
 - **Pod sandbox recovery:** On `vertex-agent` restart, scan `data/vertex-agent/pods/`, recreate pause fibers, reattach container fibers (if `restartPolicy=Always`)
@@ -284,7 +284,7 @@ upm pack app/vertex-agent/ -o keep/upd/vertex-agent-<ver>.upk
 # Install (on node)
 upm install keep/upd/vertex-agent-<ver>.upk
 
-# Runs as app/vertex-agent/main under ish supervision
+# Runs as app/vertex-agent/main under ush supervision
 ```
 
 ---
