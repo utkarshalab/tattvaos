@@ -47,7 +47,7 @@ lib/ugfx/
     ├── uic.asm           ← UIC icon packs: open (validate), find, draw
     ├── svg.asm           ← SVG documents: elements, styles, shapes, drawing
     ├── svg_xml.asm       ← SVG's XML layer: tags, attributes, shared string helpers
-    ├── svg_defs.asm      ← SVG definitions found first: gradients (url(#id)), CSS rules
+    ├── svg_defs.asm      ← SVG definitions found first: gradients (url(#id)), CSS rules, element ids
     └── svg_syntax.asm    ← SVG attribute grammars: numbers, colours, transforms, path data
 ```
 
@@ -314,7 +314,11 @@ bounding boxes are tight (`ugfx_path_bounds_tight`). `<style>` sheets
 apply too: selectors `element`, `.class`, `#id`, `element.class`, `*` and
 lists, cascaded by specificity then order, between the presentation
 attributes and the `style` attribute (`!important` is not
-distinguished); other selectors and at-rules are skipped. `defs`, `clipPath`,
+distinguished); other selectors and at-rules are skipped. `<use>`
+(`href` or `xlink:href`) draws the element it names again, as its child,
+after `translate(x, y)`; an instanced `<symbol>` maps its viewBox into the
+use's width and height (xMidYMid meet). Instances nest up to 8 deep,
+which also ends reference cycles. `defs`, `clipPath`,
 `mask`, gradients, `text` and similar are skipped with their contents;
 other elements act as groups. Opacity is applied per item rather than as
 a group. `tools/svgmodel.py` models the same subset in Python.
