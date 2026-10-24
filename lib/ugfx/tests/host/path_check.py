@@ -46,7 +46,8 @@ def script(w, h, rule, cmds, matrix=None, tol=0.02, color=0xFFFFFFFF, bg=0):
             out += struct.pack("<d", len(pts)) + b"".join(struct.pack("<2d", *p) for p in pts)
         elif name == 'paint':
             kind, spread, geom, stops = args
-            out += struct.pack("<7d", kind, spread, *geom, len(stops))
+            geom = list(geom) + [0.0] * (6 - len(geom))
+            out += struct.pack("<9d", kind, spread, *geom, len(stops))
             out += b"".join(struct.pack("<2d", o, c) for o, c in stops)
         elif name == 'dash':
             offset, intervals = args
