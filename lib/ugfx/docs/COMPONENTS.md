@@ -78,7 +78,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 |---|---|---|---|---|
 | C2D-040 | Solid colour | P2 | ✓ `core/span` | |
 | C2D-041 | Linear gradients | P2 | ✓ `2d/paint` | 054 |
-| C2D-042 | Radial gradients (with focal point) | P2 | ◐ `2d/paint` centred; focal and two-point pending | 054 |
+| C2D-042 | Radial gradients (with focal point) | P2 | ✓ `2d/paint` centred and two-circle (focal, cones) | 054 |
 | C2D-043 | Conic (sweep) gradients | P3 | ✓ `2d/paint` | 054 |
 | C2D-044 | Mesh and diamond gradients | P4 | | 054 |
 | C2D-045 | Stops, spread modes, interpolation (sRGB, linear, OKLab) | P2 | ◐ stops, pad/repeat/reflect, premultiplied sRGB; linear and OKLab pending | 041 |
