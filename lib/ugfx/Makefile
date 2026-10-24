@@ -12,7 +12,7 @@ UMATHFLAGS := -f elf64 -g -F dwarf -I ../../
 BUILDDIR  := build
 
 CORE_SRCS := core/pixbuf.asm core/span.asm core/raster.asm core/mask.asm
-PATH_SRCS := 2d/path.asm 2d/shapes.asm 2d/stroke.asm 2d/flatten.asm 2d/dash.asm 2d/paint.asm 2d/context.asm 2d/list.asm 2d/uic.asm
+PATH_SRCS := 2d/path.asm 2d/shapes.asm 2d/stroke.asm 2d/flatten.asm 2d/dash.asm 2d/paint.asm 2d/context.asm 2d/list.asm 2d/uic.asm 2d/svg_syntax.asm 2d/svg.asm
 CORE_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(CORE_SRCS))
 PATH_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(PATH_SRCS)) $(BUILDDIR)/core/umath_unit.o
 
@@ -48,6 +48,7 @@ host-check: host
 	python3 tests/host/ctx_check.py $(BUILDDIR)/host_ctx $(BUILDDIR)/host_path
 	python3 tests/host/list_check.py $(BUILDDIR)/host_ctx
 	python3 tests/host/uic_check.py $(BUILDDIR)/host_ctx
+	python3 tests/host/svg_check.py $(BUILDDIR)/host_ctx
 
 clean:
 	rm -rf $(BUILDDIR)
