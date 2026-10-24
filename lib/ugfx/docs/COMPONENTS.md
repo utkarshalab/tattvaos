@@ -161,7 +161,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
 | C2D-089 | UIC icon format (layers, colour slots, stroke weights) | P2 | ✓ `2d/uic`, `docs/UIC.md`, `tools/uic.py`, `tools/svg2uic.py` | 038, 085 |
-| C2D-090 | SVG rendering | P2 | ◐ `2d/svg` icon subset (shapes, paths, styles, transforms, linear / radial gradients); use, CSS classes pending | 024, 084 |
+| C2D-090 | SVG rendering | P2 | ◐ `2d/svg` icon subset (shapes, paths, styles, transforms, gradients, CSS rules); `use` pending | 024, 084 |
 | C2D-091 | Vector animation | P4 | | 085 |
 | C2D-092 | Vector export (print, PDF-style) | P4 | | 085 |
 
