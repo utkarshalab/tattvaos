@@ -24,6 +24,8 @@
 ;       cx cy r, 3 conic cx cy start, 4 radial2 x0 y0 r0 x1 y1 r1; unused
 ;       g are ignored; colour as f64, straight BGRA)
 ;    21 paint_transform a b c d e f
+;    22 image w h extend_x extend_y filter colour x (w * h): fill with an
+;       image pattern (colours premultiplied BGRA as f64, row by row)
 ;   The path is rasterized with the matrix (if any) and tolerance, filled
 ;   with the colour over the background, and written as BGRA.
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 raster error, 4 write error,
@@ -65,6 +67,7 @@ extern ugfx_paint_linear
 extern ugfx_paint_radial
 extern ugfx_paint_conic
 extern ugfx_paint_radial2
+extern ugfx_paint_image
 extern ugfx_paint_set_transform
 
 %define SYS_WRITE   1
@@ -101,6 +104,7 @@ op_table:
     dq ugfx_path_length, -1
     dq ugfx_paint_linear, -1
     dq ugfx_paint_set_transform, -1
+    dq ugfx_paint_image, -1
 OP_COUNT equ ($ - op_table) / 16
 align 16
 abs_mask: dq 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF
@@ -237,6 +241,9 @@ _start:
     lea rax, [rel ugfx_paint_set_transform]
     cmp r15, rax
     je .sp_paint_transform
+    lea rax, [rel ugfx_paint_image]
+    cmp r15, rax
+    je .sp_image
     lea rax, [rel ugfx_path_add_rounded_rect_radii]
     cmp r15, rax
     je .sp_radii
@@ -376,6 +383,52 @@ _start:
 .sp_radial:
     call ugfx_paint_radial
 .sp_paint_done:
+    pop r14
+    test rax, rax
+    jnz .command_fail
+    mov byte [rel use_paint], 1
+    dec r12
+    jmp .command
+.sp_image:
+    lea rdi, [rel arena_state]
+    cvttsd2si rsi, qword [r14]          ; w
+    cvttsd2si rdx, qword [r14 + 8]      ; h
+    xor ecx, ecx
+    call pixbuf_create
+    test rax, rax
+    jle .command_fail
+    mov [rel image], rax
+    ; rows of f64 colours -> pixels
+    lea rsi, [r14 + 40]
+    xor r8d, r8d                        ; row
+.sp_image_row:
+    cmp r8, [rax + PixBuf_height]
+    jae .sp_image_done
+    mov rdi, r8
+    imul rdi, [rax + PixBuf_stride]
+    add rdi, [rax + PixBuf_data]
+    xor ecx, ecx
+.sp_image_px:
+    cmp rcx, [rax + PixBuf_width]
+    jae .sp_image_next
+    cvttsd2si rdx, qword [rsi]
+    mov [rdi + rcx * 4], edx
+    add rsi, 8
+    inc rcx
+    jmp .sp_image_px
+.sp_image_next:
+    inc r8
+    jmp .sp_image_row
+.sp_image_done:
+    push rsi                            ; the next command
+    sub rsp, 8
+    lea rdi, [rel paint]
+    mov rsi, [rel image]
+    cvttsd2si edx, qword [r14 + 16]
+    cvttsd2si ecx, qword [r14 + 24]
+    cvttsd2si r8d, qword [r14 + 32]
+    call ugfx_paint_image
+    add rsp, 8
     pop r14
     test rax, rax
     jnz .command_fail
@@ -542,5 +595,7 @@ alignb 16
 paint:          resb UgfxPaint_SIZE
 stops:          resb UgfxStop_SIZE * MAX_STOPS
 use_paint:      resb 1
+alignb 8
+image:          resq 1
 alignb 4096
 arena_memory:   resb ARENA_BYTES
