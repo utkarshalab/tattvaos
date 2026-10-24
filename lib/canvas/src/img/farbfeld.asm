@@ -14,7 +14,7 @@ farbfeld_decode:
     mov r13,rdx
     cmp r13,16
     jb .bad
-    cmp dword [r12],0x62617266     ; "farb"
+    cmp dword [r12],0x62726166     ; "farb"
     jne .bad
     cmp dword [r12+4],0x646C6566   ; "feld"
     jne .bad
