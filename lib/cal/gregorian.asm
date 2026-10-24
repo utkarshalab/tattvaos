@@ -178,7 +178,6 @@ IO_FUNC cal_weekday
     add     rax, rbx                ; RAX = y + y/4 - y/100 + y/400
 
     ; Add t[m-1]
-    lea     rbx, [rel AlignmentTableDummy] ; Use rel sakamoto_table pointer
     lea     rbx, [rel sakamoto_table]
     mov     rcx, r13
     dec     rcx                     ; RCX = m-1
@@ -187,7 +186,7 @@ IO_FUNC cal_weekday
 
     ; Add d (restore Day from original register saved on stack, or use RDX)
     ; Since RDX was pushed, retrieve it from the frame
-    mov     rdx, [rsp + 16]         ; Pushed order: r13, r12, rdi, rsi, rdx, rcx, rbx
+    mov     rdx, [rsp + 32]         ; Pushed order: r13, r12, rdi, rsi, rdx, rcx, rbx
     add     rax, rdx                ; RAX = ... + d
 
     ; Modulo 7
@@ -204,9 +203,6 @@ IO_FUNC cal_weekday
     pop     rcx
     pop     rbx
     ret
-
-; Dummy alignment label for referencing
-AlignmentTableDummy: db 0
 
 IO_ENDFUNC cal_weekday
 

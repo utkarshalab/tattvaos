@@ -38,6 +38,7 @@ time_init:
     call tsc_init
     jc .failed
     call mono_time_init
+    call time_native_init
     mov eax, 1
     clc
     pop rbp

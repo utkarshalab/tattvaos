@@ -25,23 +25,9 @@ global rtc_is_updating
 
 align 32
 rtc_init:
-    push rbp
-    mov rbp, rsp
-    ; Mask NMI while programming Status Register B. interrupts_init has
-    ; already installed the kernel IDT before time_init reaches this routine,
-    ; so restore NMI delivery before returning.
-    mov al, 0x8B
-    out CMOS_ADDR_PORT, al
-    in al, CMOS_DATA_PORT
-    or al, 0x02             ; 24-hour mode bit
-    mov bl, al
-    mov al, 0x8B
-    out CMOS_ADDR_PORT, al
-    mov al, bl
-    out CMOS_DATA_PORT, al
-    mov al, 0x0B
-    out CMOS_ADDR_PORT, al
-    pop rbp
+    ; Preserve firmware binary/BCD and 12/24-hour modes. Checked readers decode
+    ; status B; changing its mode bit without converting hours corrupts time.
+    xor eax,eax
     ret
 
 align 32

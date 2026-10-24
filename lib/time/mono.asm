@@ -15,6 +15,10 @@
 
 %include "lib/time/time.inc"
 
+%ifdef TIME_MONO_STANDALONE
+extern tsc_read,tsc_elapsed_nanos
+%endif
+
 section .data
 align 8
 mono_base_tsc:      dq 0
