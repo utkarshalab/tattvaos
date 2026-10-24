@@ -237,6 +237,23 @@ CASES = [
                            '<use href="#c2" x="-4" y="16"/>'), True),
     ("named colours", svg('<rect x="0" y="0" width="6" height="8" fill="rebeccapurple"/><rect x="6" y="0" width="6" height="8" fill="CornflowerBlue"/><rect x="12" y="0" width="6" height="8" fill="darkSlateGrey"/><rect x="18" y="0" width="6" height="8" fill="papayawhip"/><rect x="0" y="8" width="6" height="8" fill="lightgoldenrodyellow"/><rect x="6" y="8" width="6" height="8" fill="tomato"/><rect x="12" y="8" width="6" height="8" fill="mediumspringgreen"/><rect x="18" y="8" width="6" height="8" fill="blueviolet"/><rect x="0" y="16" width="6" height="8" fill="Peru"/><rect x="6" y="16" width="6" height="8" fill="navajowhite"/><rect x="12" y="16" width="6" height="8" fill="firebrick"/><rect x="18" y="16" width="6" height="8" fill="olivedrab"/>'), False),
     ("hsl colours", svg('<rect x="0" y="0" width="6" height="8" fill="hsl(0, 100%, 50%)"/><rect x="6" y="0" width="6" height="8" fill="hsl(120deg 100% 25%)"/><rect x="12" y="0" width="6" height="8" fill="hsl(210, 60%, 70%)"/><rect x="18" y="0" width="6" height="8" fill="hsla(300, 50%, 50%, .5)"/><rect x="0" y="8" width="6" height="8" fill="hsl(-60 80% 40% / 75%)"/><rect x="6" y="8" width="6" height="8" fill="hsl(725, 40%, 55%)"/><rect x="12" y="8" width="6" height="8" fill="hsl(45, 0%, 30%)"/><rect x="18" y="8" width="6" height="8" fill="hsl(200 120% -5%)"/><rect x="0" y="16" width="6" height="8" fill="rgb(10 200 30 / .4)"/><rect x="6" y="16" width="6" height="8" fill="rgb(100% 50% 0% / 25%)"/><rect x="12" y="16" width="6" height="8" fill="hsl(30.5, 66.6%, 33.3%)"/><rect x="18" y="16" width="6" height="8" fill="HSL(90,100%,100%)"/>'), False),
+    ("units", svg('<rect x="0.25in" y="2mm" width="12pt" height="1.5pc" fill="#c33"/>'
+                  '<circle cx="1.6cm" cy="7.5px" r="0.25em" fill="#3c3"/><g font-size="8"><rect x="1em" y="2ex" '
+                  'width="1.25em" height="1EM" fill="#33c" stroke="#000" stroke-width=".1em"/></g>'
+                  '<line x1="1" y1="22" x2="23" y2="22" stroke="#880" stroke-width="2.4pt"/>'
+                  '<rect x="3q" y="3" width="4" height="4"/><rect x="0" y="0" width="5zz" height="4"/>'), False),
+    ("percent lengths", svg('<rect x="10%" y="25%" width="50%" height="12.5%" fill="#a5f"/>'
+                            '<circle cx="75%" cy="75%" r="10%" fill="none" stroke="#063" stroke-width="2%"/>'
+                            '<ellipse cx="25%" cy="80%" rx="20%" ry="5%" fill="#e90"/>', 'viewBox="0 0 40 20"'), False),
+    ("font sizes", svg('<g font-size="x-small"><rect width="1em" height="1em" fill="#f00"/>'
+                       '<g style="font-size:larger"><rect x="12" width="1em" height="1em" fill="#0a0"/>'
+                       '<g font-size="150%"><rect y="12" width="1em" height="0.5em" fill="#00f"/></g></g>'
+                       '<g font-size="smaller"><rect x="12" y="12" width="1em" height="1em" fill="#0aa"/></g>'
+                       '<g font-size="xx-large" class="f"><rect x="20" y="20" width=".1em" height=".1em"/></g></g>'
+                       '<style>.f{font-size:0.25in}</style>', 'viewBox="0 0 24 24"'), False),
+    ("root units", svg('<rect width="12" height="12" fill="#246"/><rect x="12" y="12" width="12" height="12" fill="#642"/>',
+                       'width="2em" height="1.5em"'), False),
+    ("root percent", svg('<rect width="50%" height="50%" fill="#246"/>', 'width="100%" height="50%"'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
