@@ -64,7 +64,8 @@ CTX_OPS = {'new_path': (30, 0), 'fill': (31, 0), 'stroke': (32, 0), 'clip': (33,
            'dash': (46, None), 'alpha': (47, 1), 'rule': (48, 1), 'tolerance': (49, 1),
            'fill_rect': (50, 4), 'stroke_rect': (51, 4), 'draw_image': (52, None), 'clear': (53, 1),
            'begin_layer': (54, 1), 'end_layer': (55, 0), 'uic': (56, None), 'svg': (57, None),
-           'clip_begin': (58, 0), 'clip_add': (59, 0), 'clip_end': (60, 0)}
+           'clip_begin': (58, 0), 'clip_add': (59, 0), 'clip_end': (60, 0),
+           'begin_mask': (61, 0), 'end_mask': (62, 1)}
 PATH_OPS = ('move', 'line', 'quad', 'cubic', 'close', 'rect', 'ellipse', 'circle')
 
 
@@ -207,14 +208,27 @@ class Ref:
                 self.draw(cov, image_colours(W, H, img, PAD, PAD, BILINEAR, m))
             elif name == 'clear':
                 self.bufs[st['target']] = np.full((H, W), int(a[0]), np.int64)
-            elif name == 'begin_layer':
+            elif name in ('begin_layer', 'begin_mask'):
                 self.stack.append(dict(st))
                 self.bufs.append(np.zeros((H, W), np.int64))
-                st = self.st = dict(st, layer=int(a[0]), alpha=255, clip=None, target=len(self.bufs) - 1)
-            elif name == 'end_layer':
-                layer, la = self.bufs[st['target']], st['layer']
+                st = self.st = dict(st, layer=int(a[0]) if a else 255, alpha=255, clip=None, mask=None,
+                                    target=len(self.bufs) - 1)
+            elif name == 'end_mask':
+                buf = self.bufs[st['target']]
                 st = self.st = self.stack.pop()
+                if int(a[0]):
+                    st['mask'] = buf >> 24 & 255
+                else:
+                    lum = (13926 * (buf >> 16 & 255) + 46884 * (buf >> 8 & 255) + 4725 * (buf & 255) + 32768) >> 16
+                    st['mask'] = np.minimum(lum, 255)
+            elif name == 'end_layer':
+                layer, la, m = self.bufs[st['target']], st['layer'], st.get('mask')
+                st = self.st = self.stack.pop()
+                clip = st['clip']
+                if m is not None:
+                    st['clip'] = m if clip is None else div255(m * clip)
                 self.draw(np.full((H, W), 255, np.int64), layer, div255(st['alpha'] * la))
+                st['clip'] = clip
         return self.bufs[0]
 
 
@@ -286,6 +300,21 @@ def cases(rng):
                                ('clip_add',), ('new_path',), ('clip_end',), ('fill_color', 0xFFFFFFFF),
                                ('fill_rect', 0, 0, 48, 32)])
     yield "empty union clip", [('clip_begin',), ('clip_end',), ('fill_color', 0xFFFFFFFF), ('fill_rect', 0, 0, 48, 32)]
+    mgrad = (LINEAR, PAD, (4, 0, 44, 0), [(0.0, 0xFFFFFFFF), (1.0, 0x00000000)], [1.0, 0, 0, 1.0, 0, 0])
+    yield "luminance mask", ([('begin_layer', 255), ('fill_color', 0xFFFF4000), ('fill_rect', 0, 0, 48, 32),
+                              ('begin_mask',), ('fill_gradient', *mgrad), ('fill_rect', 0, 0, 48, 32),
+                              ('fill_color', 0xFF808080)] + circle + [('fill',), ('end_mask', 0), ('end_layer',)])
+    yield "alpha mask", ([('begin_layer', 200), ('fill_color', 0xFF2080FF), ('fill_rect', 0, 0, 48, 32),
+                          ('begin_mask',), ('fill_color', 0x80000000)] + circle + [('fill',), ('end_mask', 1),
+                         ('end_layer',)])
+    yield "mask under clip", (tri + [('clip',), ('new_path',), ('alpha', 180), ('begin_layer', 255),
+                              ('fill_color', 0xFF00FF80), ('fill_rect', 0, 0, 48, 32), ('begin_mask',),
+                              ('fill_color', 0xFFFFFFFF)] + circle + [('fill',), ('end_mask', 0), ('end_layer',)])
+    yield "nested masks", ([('begin_layer', 255), ('fill_color', 0xFFFF00FF), ('fill_rect', 0, 0, 48, 32),
+                            ('begin_layer', 255), ('fill_color', 0xFF00FFFF), ('fill_rect', 10, 4, 28, 24),
+                            ('begin_mask',), ('fill_color', 0xFFFFFFFF), ('fill_rect', 0, 0, 24, 32),
+                            ('end_mask', 0), ('end_layer',), ('begin_mask',), ('fill_color', 0xFFFFFFFF)]
+                           + circle + [('fill',), ('end_mask', 0), ('end_layer',)])
     yield "clip mask reused", ([('save',)] + circle + [('clip',), ('new_path',), ('restore',),
                                ('save',)] + tri + [('clip',), ('new_path',), ('fill_rect', 0, 0, 48, 32), ('restore',),
                                ('fill_color', 0x5000FFFF), ('fill_rect', 0, 0, 48, 32)])
