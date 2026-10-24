@@ -44,7 +44,9 @@ lib/ugfx/
     ├── paint.asm         ← paints: solid; linear, radial, two-circle and conic gradients; image patterns
     ├── context.asm       ← drawing context: state, save/restore, fill/stroke/clip, images, layers
     ├── list.asm          ← display lists: record context calls, replay them
-    └── uic.asm           ← UIC icon packs: open (validate), find, draw
+    ├── uic.asm           ← UIC icon packs: open (validate), find, draw
+    ├── svg.asm           ← SVG documents: XML, elements, styles, shapes, drawing
+    └── svg_syntax.asm    ← SVG attribute grammars: numbers, colours, transforms, path data
 ```
 
 ## 2. Planned
@@ -273,7 +275,34 @@ viewBoxes, a 512 grid, colour overrides, under a transform, a clip and
 alpha, inside a layer) byte-identical to the context calls the format
 defines; 17 lookups by name and size; 30 corrupt packs refused.
 
-## 11. Using it
+## 11. SVG
+
+`ugfx_svg_parse(svg, arena, data, size)` reads an SVG document once into a
+list of items (transform, path, fill and stroke: none, a colour or
+currentColor, opacities folded into the alpha); `ugfx_svg_draw(svg, ctx,
+current_colour, x, y, size)` draws it through a context, the viewBox
+fitted and centred in the square.
+
+The subset is what icon sets use: `svg`, `g`, `path` (all commands,
+arcs through `umath_arc_svg_to_cubics`), `rect` (elliptical corners),
+`circle`, `ellipse`, `line`, `polyline`, `polygon`; fill, stroke and
+their opacities, stroke width / caps / joins / miter limit, fill-rule,
+opacity, display, transforms, `style` declarations (which override the
+attributes) and every CSS colour form icons use. `defs`, `clipPath`,
+`mask`, gradients, `text` and similar are skipped with their contents;
+other elements act as groups. Opacity is applied per item rather than as
+a group. `tools/svgmodel.py` models the same subset in Python.
+
+Tests: `tests/host/svg_check.py` - 37 documents (every path command
+absolute and relative, smooth reflections, arcs with every flag and
+tiny or zero radii, packed numbers, every shape, transforms, nested
+groups, styles, currentColor, colour syntaxes, fill rules, display,
+skipped content, viewBox fallbacks, Lucide-, Material- and Font
+Awesome-style icons, syntax errors), each drawn two ways, compared with
+the context calls svgmodel.py derives - all exact; plus 4 refused and 1
+truncated document.
+
+## 12. Using it
 
 Assemble with `-I lib/ugfx/include/` and include `ugfx.inc`. Functions follow
 the System V register order and return negative error codes. Allocating
