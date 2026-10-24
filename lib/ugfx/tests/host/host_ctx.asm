@@ -29,7 +29,8 @@
 ;       name up (exit 5 unless the index is `expected`; -2 = any), and
 ;       draw it onto the context (directly, also when recording)
 ;    57 svg bytes <document, padded to 8> current_colour x y size: parse the
-;       document and draw it onto the context (exit 5 if parsing fails)
+;       document and draw it onto the context (exit 5 if parsing fails);
+;       its images decode as farbfeld (host_image)
 ;    58 clip_begin   59 clip_add (the current path)   60 clip_end
 ;    61 begin_mask   62 end_mask mode   63 clip_stroke (the current path)
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 setup error, 4 write error,
@@ -122,7 +123,7 @@ extern ugfx_list_init
 extern ugfx_uic_open
 extern ugfx_uic_find
 extern ugfx_uic_draw
-extern ugfx_svg_parse
+extern ugfx_svg_parse_ex
 extern ugfx_svg_draw
 extern ugfx_list_replay
 
@@ -562,7 +563,9 @@ _start:
     lea r14, [rdx + rax]
     lea rdi, [rel svg]
     lea rsi, [rel arena_state]
-    call ugfx_svg_parse
+    lea r8, [rel host_image]
+    xor r9d, r9d
+    call ugfx_svg_parse_ex
     test rax, rax
     jnz .call_fail
     lea rdi, [rel svg]
@@ -716,6 +719,99 @@ arena_alloc:
     ret
 .full:
     xor eax, eax
+    ret
+
+; host_image — the image callback for SVG documents: rdi = user, rsi =
+;   bytes, rdx = length, ecx = kind (0: a data URI's bytes), r8 = arena ->
+;   rax = a premultiplied PixBuf for a farbfeld image (16-bit RGBA, big
+;   endian; the high bytes), else 0
+host_image:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    xor eax, eax
+    test ecx, ecx
+    jnz .hi_out
+    cmp rdx, 16
+    jb .hi_out
+    mov rcx, 'farbfeld'
+    cmp [rsi], rcx
+    jne .hi_out
+    mov rbx, rsi
+    mov r15, rdx
+    mov r12d, [rsi + 8]
+    bswap r12d                          ; width
+    mov r13d, [rsi + 12]
+    bswap r13d                          ; height
+    mov rax, r12
+    imul rax, r13
+    shl rax, 3
+    add rax, 16
+    cmp rax, r15
+    ja .hi_none
+    mov rdi, r8
+    mov rsi, r12
+    mov rdx, r13
+    xor ecx, ecx
+    call pixbuf_create
+    test rax, rax
+    jle .hi_none
+    mov r14, rax
+    lea rsi, [rbx + 16]                 ; the pixels
+    xor r15d, r15d                      ; row
+.hi_row:
+    cmp r15, r13
+    jae .hi_done
+    mov rdi, r15
+    imul rdi, [r14 + PixBuf_stride]
+    add rdi, [r14 + PixBuf_data]
+    xor ecx, ecx
+.hi_px:
+    cmp rcx, r12
+    jae .hi_next
+    movzx r8d, byte [rsi + 6]           ; alpha
+    mov r9d, r8d
+    shl r9d, 24
+    movzx eax, byte [rsi]               ; red
+    call .hi_pm
+    shl eax, 16
+    or r9d, eax
+    movzx eax, byte [rsi + 2]           ; green
+    call .hi_pm
+    shl eax, 8
+    or r9d, eax
+    movzx eax, byte [rsi + 4]           ; blue
+    call .hi_pm
+    or r9d, eax
+    mov [rdi + rcx * 4], r9d
+    add rsi, 8
+    inc rcx
+    jmp .hi_px
+.hi_next:
+    inc r15
+    jmp .hi_row
+.hi_done:
+    mov rax, r14
+    jmp .hi_out
+.hi_none:
+    xor eax, eax
+.hi_out:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+; eax = channel, r8d = alpha -> eax = round(channel x alpha / 255)
+.hi_pm:
+    imul eax, r8d
+    add eax, 128
+    mov edx, eax
+    shr edx, 8
+    add eax, edx
+    shr eax, 8
     ret
 
 global panic_null_ptr
