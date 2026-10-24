@@ -32,7 +32,8 @@ SHAPES = {"path", "rect", "circle", "ellipse", "line", "polyline", "polygon"}
 PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "fill-rule",
          "fill-opacity", "stroke-opacity", "opacity", "display", "font-size", "color", "visibility",
          "stroke-dasharray", "stroke-dashoffset", "paint-order", "clip-path", "clip-rule", "mask",
-         "marker-start", "marker-mid", "marker-end", "marker"}
+         "marker-start", "marker-mid", "marker-end", "marker", "font-family", "font-weight", "font-style",
+         "text-anchor", "letter-spacing", "word-spacing"}
 MARKED = {"path", "line", "polyline", "polygon"}
 MAX_CLIPS = 4
 INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "stroke-linecap": ["cap"],
@@ -40,8 +41,11 @@ INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "str
             "fill-opacity": ["fill_op"], "stroke-opacity": ["stroke_op"], "font-size": ["font"],
             "color": ["color"], "visibility": ["hidden"], "stroke-dasharray": ["dash"],
             "stroke-dashoffset": ["dash_off"], "paint-order": ["order"], "clip-rule": ["cliprule"],
-            "marker-start": ["m0"], "marker-mid": ["m1"], "marker-end": ["m2"], "marker": ["m0", "m1", "m2"]}
-DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset", "clip-path", "mask")
+            "marker-start": ["m0"], "marker-mid": ["m1"], "marker-end": ["m2"], "marker": ["m0", "m1", "m2"],
+            "font-family": ["family"], "font-weight": ["weight"], "font-style": ["fstyle"],
+            "text-anchor": ["anchor"], "letter-spacing": ["lspace"], "word-spacing": ["wspace"]}
+DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset", "clip-path", "mask",
+            "letter-spacing", "word-spacing")
 GEOM = ("x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "y1", "x2", "y2")
 AXIS = dict(x="x", y="y", width="x", height="y", rx="x", ry="y", cx="x", cy="y", r="d",
             x1="x", y1="y", x2="x", y2="y")
@@ -1313,8 +1317,9 @@ def trim(v):
     return v
 
 
-def parse(text, image_fn=None):
-    """image_fn(bytes or href, kind) -> (width, height, image) or None, as ugfx_svg_parse_ex's."""
+def parse(text, image_fn=None, font_fn=None):
+    """image_fn(bytes or href, kind) -> (width, height, image) or None, as ugfx_svg_parse_ex's;
+    font_fn((family, weight, style), code point, size, outline) -> (advance, path)."""
     import xml.etree.ElementTree as ET
     root = ET.fromstring(text)
     doc = Doc()
@@ -1331,7 +1336,9 @@ def parse(text, image_fn=None):
     default = dict(m=[1.0, 0, 0, 1.0, 0, 0], fill=("colour", 0xFF000000), stroke=("none", 0xFF000000),
                    fill_op=1.0, stroke_op=1.0, op=1.0, sw=1.0, miter=4.0, join=0, cap=0, rule=0, skip=False,
                    font=16.0, vw=300.0, vh=150.0, color=None, hidden=False, order=0, dash=None, dash_off=0.0,
-                   cliprule=0, m0=None, m1=None, m2=None)
+                   cliprule=0, m0=None, m1=None, m2=None, family=None, weight=400, fstyle=0, anchor=0,
+                   intext=0, lspace=0.0, wspace=0.0, preserve=0, lists=(None,) * 5)
+    tx = {}                                         # the text layout (one text element at a time)
     seen_root = [False]
     clipmode = [0]                                  # 1: a clip's content (geometry only)
     compiling = [0]                                 # clipPaths / masks being compiled
@@ -1402,6 +1409,110 @@ def parse(text, image_fn=None):
                 rec.par = base.par
             if not rec.items:
                 rec.items = base.items
+
+    def text_lists(st, el, lists_raw):
+        """svg_text_lists: x, y, dx, dy, rotate as (values, first character)."""
+        raws = [el.attrib.get("x"), el.attrib.get("y"), lists_raw.get("dx"), lists_raw.get("dy"),
+                lists_raw.get("rotate")]
+        lists = list(st["lists"])
+        for k, v in enumerate(raws):
+            if v is None:
+                continue
+            vals, i = [], 0
+            while True:
+                if k == 4:
+                    val, j = number(v, i)
+                else:
+                    val, _, j = length_at(v, i, "x" if k % 2 == 0 else "y", st)
+                if val is None:
+                    break
+                vals.append(val)
+                i = j
+            lists[k] = (vals, tx["count"])
+        st["lists"] = tuple(lists)
+
+    def list_value(st, k, c):
+        rec = st["lists"][k]
+        if rec is None or not 0 <= c - rec[1] < len(rec[0]):
+            return None
+        return rec[0][c - rec[1]]
+
+    def text_node(s, st, uses):
+        for ch in s:
+            text_cp(ord(ch), st, uses)
+
+    def text_cp(cp, st, uses):
+        """svg_text_cp: white space, then the character."""
+        if cp in (32, 9, 10, 13):
+            if st["preserve"]:
+                tx["any"] = 1
+                text_char(32, st, uses)
+            elif tx["any"]:
+                tx["space"] = 1
+            return
+        if tx["space"]:
+            tx["space"] = 0
+            text_char(32, st, uses)
+        tx["any"] = 1
+        text_char(cp, st, uses)
+
+    def text_char(cp, st, uses):
+        """svg_text_char."""
+        if font_fn is None:
+            return
+        c = tx["count"]
+        v = list_value(st, 0, c)
+        if v is not None:
+            text_finish()
+            tx["x"] = v
+        v = list_value(st, 1, c)
+        if v is not None:
+            text_finish()
+            tx["y"] = v
+        v = list_value(st, 2, c)
+        if v is not None:
+            tx["x"] = v + tx["x"]
+        v = list_value(st, 3, c)
+        if v is not None:
+            tx["y"] = v + tx["y"]
+        rot, rec = 0.0, st["lists"][4]
+        if rec is not None and rec[0]:
+            i = c - rec[1]
+            rot = rec[0][i if i < len(rec[0]) else len(rec[0]) - 1] * 0.017453292519943295
+        if not tx["chunk"]:
+            tx.update(chunk=len(doc.items) + 1, cx=tx["x"], anchor=st["anchor"])
+        font = (st["family"], st["weight"], st["fstyle"])
+        adv, _ = font_fn(font, cp, st["font"], False)
+        if cp != 32:
+            _, path = font_fn(font, cp, st["font"], True)
+            gst = dict(st)
+            m = mul(st["m"], [1.0, 0.0, 0.0, 1.0, tx["x"], tx["y"]])
+            cs, sn = math.cos(rot), math.sin(rot)
+            gst["m"] = mul(m, [cs, sn, 0.0 - sn, cs, 0.0, 0.0])
+            shape("glyph", {"glyph": path}, gst, 1.0, {}, uses)
+        x = tx["x"] + adv + st["lspace"]
+        if cp == 32:
+            x = x + st["wspace"]
+        tx["x"] = x
+        tx["count"] = c + 1
+
+    def text_finish():
+        """svg_text_finish: middle / end anchors shift the chunk's items."""
+        if not tx.get("chunk"):
+            return
+        start, tx["chunk"] = tx["chunk"] - 1, 0
+        if not tx["anchor"]:
+            return
+        shift = tx["cx"] - tx["x"]
+        if tx["anchor"] == 1:
+            shift = shift * 0.5
+        inv = invert(tx["m"])
+        if inv is None:
+            return
+        d = mul(mul(tx["m"], [1.0, 0.0, 0.0, 1.0, shift, 0.0]), inv)
+        for it in doc.items[start:]:
+            if isinstance(it, (Item, ImageItem, MarkerItem)) or (isinstance(it, Group) and it.kind == "begin"):
+                it.matrix = mul(d, it.matrix)
 
     def image(g, st, href):
         """svg_image."""
@@ -1584,6 +1695,30 @@ def parse(text, image_fn=None):
                 return
             for k in INHERITS[name]:
                 st[k] = v
+        elif name == "font-family":
+            st["family"] = trim(value)
+        elif name == "font-weight":
+            t, w = trim(value), st["weight"]
+            if t == "normal":
+                st["weight"] = 400
+            elif t == "bold":
+                st["weight"] = 700
+            elif t == "bolder":
+                st["weight"] = 400 if w < 400 else 700 if w < 600 else 900
+            elif t == "lighter":
+                st["weight"] = 100 if w < 600 else 400 if w < 800 else 700
+            else:
+                v, _ = number(t, 0)
+                if v is not None and 1.0 <= v <= 1000.0:
+                    st["weight"] = int(v)
+        elif name == "font-style":
+            t = trim(value)
+            if t in ("normal", "italic", "oblique"):
+                st["fstyle"] = ("normal", "italic", "oblique").index(t)
+        elif name == "text-anchor":
+            t = trim(value)
+            if t in ("start", "middle", "end"):
+                st["anchor"] = ("start", "middle", "end").index(t)
         elif name == "clip-rule":
             t = trim(value)
             if t in ("evenodd", "nonzero"):
@@ -1642,16 +1777,22 @@ def parse(text, image_fn=None):
         """inst: (width, height) or None from the <use> whose root el is."""
         tag = el.tag.split('}')[-1]
         st = dict(parent)
+        if st["intext"]:
+            st["intext"] = 1
         symroot = tag == "symbol" and isinstance(inst, tuple)
         cliproot = (tag == "clipPath" and inst == "clip") or (tag == "mask" and inst == "mask") or \
             (tag == "pattern" and inst == "pattern") or (tag == "marker" and inst == "marker")
         if (takes_part(tag) or symroot or cliproot) and not conditions(el):
             return
-        if tag in SKIP and not (symroot or cliproot):
+        if tag in SKIP and not (symroot or cliproot) and tag != "text":
+            st["skip"] = True
+        if (tag == "text" and st["intext"]) or (tag == "tspan" and not st["intext"]) or \
+                (tag == "text" and font_fn is None and False):
             st["skip"] = True
         if not st["skip"]:
             own = [1.0, {}]
             geom, style, el_id, classes, href, href_raw = {}, None, None, [], None, None
+            lists_raw = {}
             for name, value in el.attrib.items():
                 name = name.split('}')[-1]
                 if name == "style":
@@ -1671,6 +1812,10 @@ def parse(text, image_fn=None):
                         st["m"] = m
                 elif name in PROPS:
                     prop(st, name, value, own, parent)
+                elif name in ("dx", "dy", "rotate"):
+                    lists_raw[name] = value
+                elif name == "space":
+                    st["preserve"] = int(trim(value) == "preserve")
                 elif name in ("d", "points", "viewBox", "preserveAspectRatio"):
                     geom[name] = value
                 elif name in GEOM:
@@ -1695,6 +1840,15 @@ def parse(text, image_fn=None):
             if "stroke-dasharray" in raw:
                 t = trim(raw["stroke-dasharray"])
                 st["dash"] = None if t == "none" else dash_list(t, st)
+            for key, field_ in (("letter-spacing", "lspace"), ("word-spacing", "wspace")):
+                if key in raw:
+                    t = raw[key]
+                    if trim(t) == "normal":
+                        st[field_] = 0.0
+                    else:
+                        v, _ = length(t, "x", st)
+                        if v is not None:
+                            st[field_] = v
             if "stroke-dashoffset" in raw:
                 v, _ = length(raw["stroke-dashoffset"], "d", st)
                 if v is not None:
@@ -1716,7 +1870,13 @@ def parse(text, image_fn=None):
                         opened_at = len(doc.items)
                 if symroot:
                     vp = symbol_map(st, geom, inst)
-                if tag == "image":
+                if tag == "text":
+                    st["intext"] = 2
+                    tx.update(x=0.0, y=0.0, count=0, space=0, any=0, chunk=0, cx=0.0, anchor=0, m=list(st["m"]))
+                    text_lists(st, el, lists_raw)
+                elif tag == "tspan":
+                    text_lists(st, el, lists_raw)
+                elif tag == "image":
                     image(geom, st, href_raw)
                 elif tag == "use":
                     target = ids.get(href) if href is not None else None
@@ -1758,6 +1918,9 @@ def parse(text, image_fn=None):
         else:
             opened = vp = None
         chosen = False
+        intext = st["intext"] and not st["skip"]
+        if intext and el.text:
+            text_node(el.text, st, uses)
         for child in el:
             if tag == "switch":
                 ctag = child.tag.split('}')[-1]
@@ -1766,6 +1929,10 @@ def parse(text, image_fn=None):
                         continue
                     chosen = True
             walk(child, st, uses)
+            if intext and child.tail:
+                text_node(child.tail, st, uses)
+        if st["intext"] == 2 and not st["skip"]:
+            text_finish()
         if vp:
             vp[0].bbox = group_bbox(vp[0], doc.items[vp[1]:])
             doc.items.append(Group("end", 255, vp[0].clip, begin=vp[0]))
@@ -1899,6 +2066,8 @@ def parse(text, image_fn=None):
             path = [('move', g.get("x1", 0.0), g.get("y1", 0.0)), ('line', g.get("x2", 0.0), g.get("y2", 0.0))]
         elif tag in ("polyline", "polygon"):
             path = points(g.get("points", ""), tag == "polygon")
+        elif tag == "glyph":
+            path = g["glyph"]
         else:
             path = path_data(g.get("d", ""))
         return path
