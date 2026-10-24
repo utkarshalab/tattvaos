@@ -213,6 +213,7 @@ class Item:
     order: int = 0                                  # 1: stroke before fill
     dash: object = None                             # even list of intervals, or None
     dash_off: float = 0.0
+    bbox: object = None                             # its bounds, when a paint is a pattern
 
 
 @dataclass
@@ -229,6 +230,17 @@ class Mask:
     content: int = 0                                # maskContentUnits: 1 = objectBoundingBox
     mode: int = 0                                   # 0 luminance, 1 alpha (mask-type)
     region: list = field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0])
+
+
+@dataclass
+class Pattern:
+    items: list                                     # one tile's content
+    units: int = 1                                  # patternUnits: 1 = objectBoundingBox
+    content: int = 0                                # patternContentUnits: 1 = objectBoundingBox
+    rect: list = field(default_factory=lambda: [0.0, 0.0, 0.0, 0.0])
+    matrix: list = field(default_factory=lambda: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
+    viewbox: object = None
+    par: tuple = (5, 0)
 
 
 @dataclass
@@ -1183,6 +1195,62 @@ def parse(text):
         r = url_ref(t)
         return compile_ref(r[0], kind, st, uses) if r else None
 
+    def pattern_attrs(rec, el, st, uses):
+        """svg_pattern_attrs: the tile, units, transform, viewBox; href gives what is missing."""
+        given, raw_rect, href = set(), ["0", "0", "0", "0"], None
+        for name, value in el.attrib.items():
+            name = name.split('}')[-1]
+            given.add(name)
+            if name in ("x", "y", "width", "height"):
+                raw_rect[("x", "y", "width", "height").index(name)] = value
+            elif name == "patternUnits":
+                rec.units = int(trim(value) == "objectBoundingBox")
+            elif name == "patternContentUnits":
+                rec.content = int(trim(value) == "objectBoundingBox")
+            elif name == "patternTransform":
+                m = transform_list(value, rec.matrix)
+                if m is not None:
+                    rec.matrix = m
+            elif name == "viewBox":
+                vals, i = [], 0
+                while len(vals) < 4:
+                    v, i = number(value, i)
+                    if v is None:
+                        break
+                    vals.append(v)
+                rec.viewbox = vals if len(vals) == 4 and vals[2] > 0 and vals[3] > 0 else None
+            elif name == "preserveAspectRatio":
+                rec.par = par(value)
+            elif name == "href":
+                t = trim(value)
+                if t.startswith('#'):
+                    href = t[1:]
+        for i, v in enumerate(raw_rect):
+            if rec.units:
+                val, j = number(v, 0)
+                if val is not None and j < len(v) and v[j] == '%':
+                    val = val * 0.01
+            else:
+                val, _ = length(v, "x" if i % 2 == 0 else "y", st)
+            rec.rect[i] = val if val is not None else 0.0
+        base = compile_ref(href, "pattern", st, uses) if href is not None else None
+        if base is not None:
+            if "patternUnits" not in given:
+                rec.units = base.units
+            if "patternContentUnits" not in given:
+                rec.content = base.content
+            for i, name in enumerate(("x", "y", "width", "height")):
+                if name not in given:
+                    rec.rect[i] = base.rect[i]
+            if "patternTransform" not in given:
+                rec.matrix = list(base.matrix)
+            if "viewBox" not in given:
+                rec.viewbox = base.viewbox
+            if "preserveAspectRatio" not in given:
+                rec.par = base.par
+            if not rec.items:
+                rec.items = base.items
+
     def clip_ref(raw, st, uses):
         return ref(raw, "clip-path", "clip", st, uses)
 
@@ -1191,7 +1259,7 @@ def parse(text):
 
     def compile_ref(cid, kind, st, uses):
         el = ids.get(cid)
-        want = "clipPath" if kind == "clip" else "mask"
+        want = {"clip": "clipPath", "mask": "mask", "pattern": "pattern"}[kind]
         if compiling[0] >= MAX_CLIPS or el is None or el.tag.split('}')[-1] != want:
             return None
         compiling[0] += 1
@@ -1200,9 +1268,11 @@ def parse(text):
         saved_mode, clipmode[0] = clipmode[0], int(kind == "clip")
         walk(el, base, uses, kind)
         clipmode[0] = saved_mode
-        rec = Clip(doc.items) if kind == "clip" else Mask(doc.items)
+        rec = {"clip": Clip, "mask": Mask, "pattern": Pattern}[kind](doc.items)
         doc.items = saved
-        if kind == "clip":
+        if kind == "pattern":
+            pattern_attrs(rec, el, st, uses)
+        elif kind == "clip":
             for name, value in el.attrib.items():
                 name = name.split('}')[-1]
                 if name == "clipPathUnits" and trim(value) == "objectBoundingBox":
@@ -1320,7 +1390,8 @@ def parse(text):
         tag = el.tag.split('}')[-1]
         st = dict(parent)
         symroot = tag == "symbol" and isinstance(inst, tuple)
-        cliproot = (tag == "clipPath" and inst == "clip") or (tag == "mask" and inst == "mask")
+        cliproot = (tag == "clipPath" and inst == "clip") or (tag == "mask" and inst == "mask") or \
+            (tag == "pattern" and inst == "pattern")
         if (takes_part(tag) or symroot or cliproot) and not conditions(el):
             return
         if tag in SKIP and not (symroot or cliproot):
@@ -1493,13 +1564,16 @@ def parse(text):
             return "colour", st["color"]
         return p
 
-    def paint_of(p, op, st, path):
+    def paint_of(p, op, st, path, uses):
         """The item's paint, or None when it draws nothing."""
         if p[0] != "url":
             return bake(current(p, st), op, st) if p[0] != "none" else None
         _, rid, fb_kind, fb_colour = p
         r = resolve_gradient(grads, rid, path, viewport())
         if r is None:
+            pat = compile_ref(rid, "pattern", st, uses)
+            if pat is not None:
+                return ("pattern", pat, int(255 * op * st["op"] + 0.5))
             return bake(current((fb_kind, fb_colour), st), op, st) if fb_kind != "none" else None
         if r == "none":
             return None
@@ -1527,10 +1601,12 @@ def parse(text):
         path = geometry(tag, g)
         if not path:
             return
-        f = paint_of(st["fill"], st["fill_op"], st, path) if fill else None
-        s = paint_of(st["stroke"], st["stroke_op"], st, path) if stroke else None
+        f = paint_of(st["fill"], st["fill_op"], st, path, uses) if fill else None
+        s = paint_of(st["stroke"], st["stroke_op"], st, path, uses) if stroke else None
         item = Item(list(st["m"]), path, f, s, st["rule"], st["sw"], st["miter"], st["join"], st["cap"],
                     st["order"], st["dash"], st["dash_off"])
+        if (f and f[0] == "pattern") or (s and s[0] == "pattern"):
+            item.bbox = tight_bounds(path)
         if group or rec or mrec:
             begin = Group("begin", int(own * 255.0 + 0.5) if group else 255, rec, list(st["m"]), mask=mrec)
             if rec or mrec:
