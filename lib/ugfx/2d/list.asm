@@ -48,6 +48,9 @@ extern ugfx_ctx_draw_image
 extern ugfx_ctx_clear
 extern ugfx_ctx_begin_layer
 extern ugfx_ctx_end_layer
+extern ugfx_ctx_clip_begin
+extern ugfx_ctx_clip_add
+extern ugfx_ctx_clip_end
 
 %define LIST_INITIAL    4096
 
@@ -74,7 +77,10 @@ extern ugfx_ctx_end_layer
 %define LOP_CLEAR           20
 %define LOP_BEGIN_LAYER     21
 %define LOP_END_LAYER       22
-%define LOP_LAST            22
+%define LOP_CLIP_BEGIN      23
+%define LOP_CLIP_ADD        24
+%define LOP_CLIP_END        25
+%define LOP_LAST            25
 
 section .text
 
@@ -256,6 +262,18 @@ ugfx_list_end_layer:
     test rdi, rdi
     jz ls_bad
     mov esi, LOP_END_LAYER
+    jmp ls_op0
+global ugfx_list_clip_begin
+ugfx_list_clip_begin:
+    test rdi, rdi
+    jz ls_bad
+    mov esi, LOP_CLIP_BEGIN
+    jmp ls_op0
+global ugfx_list_clip_end
+ugfx_list_clip_end:
+    test rdi, rdi
+    jz ls_bad
+    mov esi, LOP_CLIP_END
     jmp ls_op0
 
 global ugfx_list_set_fill_color
@@ -513,6 +531,10 @@ ugfx_list_stroke:
 global ugfx_list_clip
 ugfx_list_clip:
     mov eax, LOP_CLIP
+    jmp ls_path_entry
+global ugfx_list_clip_add
+ugfx_list_clip_add:
+    mov eax, LOP_CLIP_ADD
 ls_path_entry:
     test rdi, rdi
     jz ls_bad
@@ -610,6 +632,15 @@ ugfx_list_replay:
 .r_end_layer:
     call ugfx_ctx_end_layer
     jmp .rp_check
+.r_clip_begin:
+    call ugfx_ctx_clip_begin
+    jmp .rp_check
+.r_clip_end:
+    call ugfx_ctx_clip_end
+    jmp .rp_check
+.r_clip_add:
+    lea rax, [rel ugfx_ctx_clip_add]
+    jmp .r_path
 .r_set_transform:
     mov rsi, r15
     call ugfx_ctx_set_transform
@@ -753,6 +784,8 @@ replay_jumps:
     dq ugfx_list_replay.r_fill_rect, ugfx_list_replay.r_stroke_rect
     dq ugfx_list_replay.r_draw_image, ugfx_list_replay.r_clear
     dq ugfx_list_replay.r_begin_layer, ugfx_list_replay.r_end_layer
+    dq ugfx_list_replay.r_clip_begin, ugfx_list_replay.r_clip_add
+    dq ugfx_list_replay.r_clip_end
 
 global ugfx_list_version
 ugfx_list_version: dq 0x010000
