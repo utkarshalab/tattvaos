@@ -1,0 +1,7 @@
+# Test package for the kernel's boot self-test (kernel/exec/selftest.asm)
+name = hello
+version = 1.0.0
+kind = app
+title = Hello
+publisher = Utkarsha Labs (test key)
+entry = main
