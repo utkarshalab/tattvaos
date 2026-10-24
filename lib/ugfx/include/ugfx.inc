@@ -277,14 +277,15 @@ extern panic_null_ptr
 %define UgfxContext_path_b      160
 %define UgfxContext_path_c      216
 %define UgfxContext_stack       272     ; UgfxState[UGFX_CTX_MAX_DEPTH]
-%define UgfxContext_masks       280     ; UgfxMask[UGFX_CTX_MAX_DEPTH + 2]: per depth + scratch
+%define UgfxContext_masks       280     ; UgfxMask[UGFX_CTX_MAX_DEPTH + 3]: per depth, scratch, union
 %define UgfxContext_layers      288     ; PixBuf*[UGFX_CTX_MAX_DEPTH + 1]
 %define UgfxContext_depth       296     ; u32 saved states
 %define UgfxContext_tmp_paint   304     ; UgfxPaint
 %define UgfxContext_tmp_m       464     ; f64[6]
 %define UgfxContext_tmp_m2      512     ; f64[6]
 %define UgfxContext_state       560     ; UgfxState (the current one)
-%define UgfxContext_SIZE        1120
+%define UgfxContext_union       1120    ; u32 a union clip is being built (clip_begin .. clip_end)
+%define UgfxContext_SIZE        1128
 %define UGFX_CTX_MAX_DEPTH      32
 
 ; Display list (caller-allocated, UgfxList_SIZE bytes; 2d/list.asm)
