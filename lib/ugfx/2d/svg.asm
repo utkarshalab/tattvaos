@@ -41,7 +41,11 @@
 ; group clips to their union (ugfx_ctx_clip_begin .. _end), in the
 ; element's user space or, for clipPathUnits="objectBoundingBox", its
 ; bounding box (the union of its shapes' bounds, corners transformed). A
-; clip-path on the clipPath element intersects; up to 4 nest. Drawing maps the document into the square (x, y, size, size): its
+; clip-path on the clipPath element intersects; up to 4 nest.
+;
+; A nested svg and an instanced symbol clip to their viewport (overflow
+; hidden); the root only with slice, the one mapping that overflows by
+; itself (its viewport, in viewBox units, is a group's rect clip). Drawing maps the document into the square (x, y, size, size): its
 ; viewBox through preserveAspectRatio into width x height when both are
 ; given, that box centred in the square; with only a viewBox, the viewBox
 ; straight into the square; with none, (0, 0, width or 300, height or
@@ -136,6 +140,7 @@ extern ugfx_ctx_end_layer
 %define S_SWITCH        224             ; u32 1: a switch still choosing, 2: it chose
 %define S_GROUP         228             ; u32 the BEGIN it opened + 1 (not inherited)
 %define S_CLIPRULE      232             ; u32 clip-rule
+%define S_VPGROUP       236             ; u32 the viewport clip's BEGIN + 1 (not inherited)
 %define S_SIZE          240
 
 ; elements
@@ -639,6 +644,7 @@ svg_walk:
     mov ecx, S_SIZE
     rep movsb
     mov dword [rbx + S_GROUP], 0
+    mov dword [rbx + S_VPGROUP], 0
     inc dword [r15 + P_DEPTH]
     ; the element
     mov rdi, [r15 + P_XML + UgfxSvgXml_name]
@@ -962,6 +968,7 @@ svg_element:
     cmp eax, 4
     jb .vb_copy
     or dword [rcx + UgfxSvg_has], 1
+    call svg_root_slice
 .root_view:
     call svg_viewport                   ; what percentages inside are of
     movsd xmm0, [r15 + P_VIEW]
@@ -1064,6 +1071,13 @@ svg_use:
 ; r15 = frame, rbx = an instanced symbol's state: its viewport is the
 ;   <use>'s width x height
 svg_symbol_map:
+    sub rsp, 8
+    xorpd xmm0, xmm0
+    xorpd xmm1, xmm1
+    movsd xmm2, [r15 + P_USE_W]
+    movsd xmm3, [r15 + P_USE_H]
+    call svg_view_clip
+    add rsp, 8
     movsd xmm0, [r15 + P_USE_W]
     movsd xmm1, [r15 + P_USE_H]
     jmp svg_view_map
@@ -1095,11 +1109,162 @@ svg_nested:
     jbe .hide
     ucomisd xmm1, xmm2
     jbe .hide
+    movsd [r15 + P_USE_W], xmm0         ; (free here: a use's, consumed)
+    movsd [r15 + P_USE_H], xmm1
+    movapd xmm2, xmm0
+    movapd xmm3, xmm1
+    xorpd xmm0, xmm0
+    xorpd xmm1, xmm1
+    call svg_view_clip
+    movsd xmm0, [r15 + P_USE_W]
+    movsd xmm1, [r15 + P_USE_H]
     add rsp, 8
     jmp svg_view_map
 .hide:
     mov dword [rbx + S_SKIP], 1
     add rsp, 8
+    ret
+
+; xmm0..xmm3 = x, y, w, h in the element's space (S_M), r15 = frame, rbx =
+;   state: a group clipping its content to that rectangle (not in a clip's
+;   content)
+svg_view_clip:
+    push r12
+    cmp dword [r15 + P_CLIPMODE], 0
+    jne .out
+    call svg_rect_clip
+    test rax, rax
+    jz .out
+    mov [r15 + P_CLIPREC], rax
+    mov ecx, 1
+    call svg_item_room
+    test rax, rax
+    jz .nomem
+    mov r12, rax
+    mov dword [r12 + UgfxSvgItem_kind], UGFX_SVG_BEGIN
+    mov dword [r12 + UgfxSvgItem_alpha], 255
+    mov rax, [r15 + P_CLIPREC]
+    mov [r12 + UgfxSvgItem_clip], rax
+    xor ecx, ecx
+.m:
+    mov rax, [rbx + S_M + rcx * 8]
+    mov [r12 + UgfxSvgItem_matrix + rcx * 8], rax
+    inc ecx
+    cmp ecx, 6
+    jb .m
+    mov rax, [r15 + P_SVG]
+    mov ecx, [rax + UgfxSvg_count]
+    inc dword [rax + UgfxSvg_count]
+    inc ecx
+    mov [rbx + S_VPGROUP], ecx
+    jmp .out
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.out:
+    pop r12
+    ret
+
+; xmm0..xmm3 = x, y, w, h, r15 = frame -> rax = a UgfxSvgClip of that one
+;   rectangle (0: out of memory)
+svg_rect_clip:
+    push r12
+    push r13
+    sub rsp, 40
+    movsd [rsp], xmm0
+    movsd [rsp + 8], xmm1
+    movsd [rsp + 16], xmm2
+    movsd [rsp + 24], xmm3
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    mov esi, UgfxSvgClip_SIZE + UgfxSvgItem_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov r12, rax
+    lea r13, [r12 + UgfxSvgClip_SIZE]
+    mov [r12 + UgfxSvgClip_items], r13
+    mov dword [r12 + UgfxSvgClip_count], 1
+    mov dword [r12 + UgfxSvgClip_units], 0
+    mov qword [r12 + UgfxSvgClip_next], 0
+    mov dword [r13 + UgfxSvgItem_kind], UGFX_SVG_SHAPE
+    mov dword [r13 + UgfxSvgItem_rule], UGFX_FILL_NONZERO
+    lea rdi, [r13 + UgfxSvgItem_matrix]
+    call umath_affine2_identity
+    lea rdi, [r13 + UgfxSvgItem_path]
+    mov rax, [r15 + P_SVG]
+    mov rsi, [rax + UgfxSvg_arena]
+    call ugfx_path_init
+    test rax, rax
+    jnz .nomem
+    lea rdi, [r13 + UgfxSvgItem_path]
+    movsd xmm0, [rsp]
+    movsd xmm1, [rsp + 8]
+    movsd xmm2, [rsp + 16]
+    movsd xmm3, [rsp + 24]
+    call ugfx_path_add_rect
+    test rax, rax
+    jnz .nomem
+    mov rax, r12
+    jmp .out
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+    xor eax, eax
+.out:
+    add rsp, 40
+    pop r13
+    pop r12
+    ret
+
+; r15 = frame (P_ARC = the root's viewBox, just read), rbx = the root's
+;   state: with slice, a viewport clip - the viewport (width x height when
+;   both are given, else a square) in viewBox units
+svg_root_slice:
+    push r12
+    sub rsp, 48
+    mov eax, [r15 + P_PAR]
+    test eax, 0x100
+    jz .out
+    test al, al
+    jz .out
+    movsd xmm0, [rel svg_one]
+    movapd xmm1, xmm0
+    mov rcx, [r15 + P_SVG]
+    mov edx, [rcx + UgfxSvg_has]
+    and edx, 6
+    cmp edx, 6
+    jne .square
+    xorpd xmm2, xmm2
+    movsd xmm3, [rcx + UgfxSvg_width]
+    ucomisd xmm3, xmm2
+    jbe .square
+    movsd xmm4, [rcx + UgfxSvg_height]
+    ucomisd xmm4, xmm2
+    jbe .square
+    movapd xmm0, xmm3
+    movapd xmm1, xmm4
+.square:
+    movsd [rsp], xmm0                   ; Wv, Hv
+    movsd [rsp + 8], xmm1
+    lea rdi, [r15 + P_ARC + 64]
+    lea rsi, [r15 + P_ARC]
+    mov edx, [r15 + P_PAR]
+    call svg_fit
+    ; x0 = -tx / s, y0 = -ty / s, w = Wv / s, h = Hv / s
+    movsd xmm4, [r15 + P_ARC + 64]      ; s (sx = sy: an alignment)
+    xorpd xmm0, xmm0
+    subsd xmm0, [r15 + P_ARC + 64 + 32]
+    divsd xmm0, xmm4
+    xorpd xmm1, xmm1
+    subsd xmm1, [r15 + P_ARC + 64 + 40]
+    divsd xmm1, xmm4
+    movsd xmm2, [rsp]
+    divsd xmm2, xmm4
+    movsd xmm3, [rsp + 8]
+    divsd xmm3, xmm4
+    call svg_view_clip
+.out:
+    add rsp, 48
+    pop r12
     ret
 
 ; -----------------------------------------------------------------------------
@@ -2045,14 +2210,22 @@ svg_group_open:
     pop r12
     ret
 
-; rdi = the state of an element that is closing, r15 = frame: END for a
-;   group it opened (its alpha and clip copied; a clipped group's bbox
-;   measured first)
+; rdi = the state of an element that is closing, r15 = frame: END for each
+;   group it opened, its viewport clip first (alpha and clip copied; a
+;   clipped group's bbox measured first)
 svg_group_close:
+    push rdi
+    mov eax, [rdi + S_VPGROUP]
+    mov dword [rdi + S_VPGROUP], 0
+    call svg_group_end
+    pop rdi
     mov eax, [rdi + S_GROUP]
+    mov dword [rdi + S_GROUP], 0
+
+; eax = a BEGIN's index + 1 (0: none), r15 = frame: its END
+svg_group_end:
     test eax, eax
     jz .done
-    mov dword [rdi + S_GROUP], 0
     push r12
     lea r12d, [rax - 1]                 ; the BEGIN's index
     mov rax, [r15 + P_SVG]
