@@ -578,21 +578,47 @@ rs_line:
 ;   IN:  rdi = UgfxRaster*, rsi = PixBuf*, edx = colour (premultiplied BGRA),
 ;        ecx = UGFX_FILL_NONZERO or UGFX_FILL_EVENODD
 ;   OUT: rax = 0, -EINVAL, -ENOMEM. The raster is reset afterwards.
+;
+; ugfx_raster_fill_paint — the same with a paint (gradient, pattern), through
+;   the paint's own span function (UgfxPaint_span):
+;   IN:  rdi = UgfxRaster*, rsi = PixBuf*, rdx = const UgfxPaint*, ecx = rule
+;
+; Both sweep into a span function with ugfx_span_fill_solid's registers
+; (rdi = PixBuf*, esi = x, edx = y, ecx = length, r8d = coverage, r9 = the
+; colour or the paint).
 ; -----------------------------------------------------------------------------
 %define F_PIXBUF 0
-%define F_COLOR  8
-%define F_RULE   12
-%define F_KEYS   16
-%define F_TEMP   24
-%define F_COUNT  32
-%define F_ROW    36
-%define F_COVER  40
-%define F_X      44
-%define F_COUNTS 48                     ; u32[256] radix histogram
-%define F_SIZE   (48 + 1024)
+%define F_ARG    8                      ; colour or UgfxPaint*, passed in r9
+%define F_RULE   16
+%define F_COUNT  20
+%define F_KEYS   24
+%define F_TEMP   32
+%define F_ROW    40
+%define F_COVER  44
+%define F_X      48
+%define F_SPAN   56                     ; span function
+%define F_COUNTS 64                     ; u32[256] radix histogram
+%define F_SIZE   (64 + 1024 + 8)        ; keeps calls 16-byte aligned
 
 global ugfx_raster_fill
 ugfx_raster_fill:
+    lea r8, [rel ugfx_span_fill_solid]
+    mov edx, edx
+    jmp rs_fill
+
+global ugfx_raster_fill_paint
+ugfx_raster_fill_paint:
+    test rdx, rdx
+    jz .paint_bad
+    mov r8, [rdx + UgfxPaint_span]      ; set by the paint's constructor
+    test r8, r8
+    jnz rs_fill
+.paint_bad:
+    mov rax, -(EINVAL)
+    ret
+
+; rdi = raster, rsi = PixBuf*, rdx = span argument, ecx = rule, r8 = span
+rs_fill:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     sub rsp, F_SIZE
     mov rbx, rdi
@@ -603,8 +629,9 @@ ugfx_raster_fill:
     cmp ecx, UGFX_FILL_EVENODD
     ja .fill_bad
     mov [rsp + F_PIXBUF], rsi
-    mov [rsp + F_COLOR], edx
+    mov [rsp + F_ARG], rdx
     mov [rsp + F_RULE], ecx
+    mov [rsp + F_SPAN], r8
     call rs_close
     call rs_push_cell
     mov dword [rbx + UgfxRaster_cur_x], 0x7FFFFFFF
@@ -742,8 +769,8 @@ ugfx_raster_fill:
     mov rdi, [rsp + F_PIXBUF]
     mov edx, [rsp + F_ROW]
     mov ecx, 1
-    mov r9d, [rsp + F_COLOR]
-    call ugfx_span_fill_solid
+    mov r9, [rsp + F_ARG]
+    call [rsp + F_SPAN]
 .sweep_cell_skip:
     inc dword [rsp + F_X]
 .sweep_span:
@@ -770,8 +797,8 @@ ugfx_raster_fill:
     mov rdi, [rsp + F_PIXBUF]
     mov esi, [rsp + F_X]
     mov edx, [rsp + F_ROW]
-    mov r9d, [rsp + F_COLOR]
-    call ugfx_span_fill_solid
+    mov r9, [rsp + F_ARG]
+    call [rsp + F_SPAN]
     jmp .sweep_cell
 .fill_done:
     mov rdi, rbx
