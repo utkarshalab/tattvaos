@@ -324,7 +324,11 @@ extern panic_null_ptr
 %define UgfxSvg_has             72      ; u32 bit 0 viewBox, 1 width, 2 height
 %define UgfxSvg_par             76      ; u32 the root's preserveAspectRatio: align 0 none,
                                         ; 1..9 xMinYMin .. xMaxYMax (x fastest); bit 8 slice
-%define UgfxSvg_SIZE            80
+%define UgfxSvg_image_fn        80      ; images: fn(user, bytes, length, kind, arena) -> PixBuf*
+                                        ; (premultiplied BGRA) or 0; kind 0: a data: URI's
+                                        ; bytes, 1: any other href (ugfx_svg_parse_ex)
+%define UgfxSvg_image_user      88
+%define UgfxSvg_SIZE            96
 
 %define UgfxSvgItem_matrix      0       ; f64[6] element -> viewBox space
 %define UgfxSvgItem_path        48      ; UgfxPath
@@ -401,6 +405,8 @@ extern panic_null_ptr
 %define UGFX_SVG_BEGIN          1
 %define UGFX_SVG_END            2
 %define UGFX_SVG_MARKER         3       ; a marker's content at matrix (marker space -> doc)
+%define UGFX_SVG_IMAGE          4       ; fill_paint = PixBuf*, bbox = its x, y, w, h, path =
+                                        ; the viewport (clipped to when order = 1), fill = alpha
 
 ; SVG reading state (2d/svg_xml.asm)
 %define UgfxSvgXml_cur          0       ; next byte to read
