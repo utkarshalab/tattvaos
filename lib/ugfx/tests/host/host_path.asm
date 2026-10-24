@@ -26,6 +26,14 @@
 ;    21 paint_transform a b c d e f
 ;    22 image w h extend_x extend_y filter colour x (w * h): fill with an
 ;       image pattern (colours premultiplied BGRA as f64, row by row)
+;    23 clip: the current path (with the matrix, tolerance and rule) is
+;       rendered into a mask under the current clip and becomes the clip;
+;       the path is emptied
+;    24 clip_rect x y w h: intersect the clip with a rectangle
+;    25 clip_invert: the clip becomes its complement
+;    26 mask_image w h kind colour x (w * h): intersect the clip with an
+;       image's alpha (kind 0) or luminance (kind 1)
+;    27 clip_none: remove the clip
 ;   The path is rasterized with the matrix (if any) and tolerance, filled
 ;   with the colour over the background, and written as BGRA.
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 raster error, 4 write error,
@@ -68,6 +76,16 @@ extern ugfx_paint_radial
 extern ugfx_paint_conic
 extern ugfx_paint_radial2
 extern ugfx_paint_image
+extern ugfx_raster_fill_mask
+extern ugfx_raster_set_clip
+extern ugfx_mask_init
+extern ugfx_mask_fill
+extern ugfx_mask_fill_rect
+extern ugfx_mask_copy
+extern ugfx_mask_intersect
+extern ugfx_mask_invert
+extern ugfx_mask_from_alpha
+extern ugfx_mask_from_luminance
 extern ugfx_paint_set_transform
 
 %define SYS_WRITE   1
@@ -105,6 +123,11 @@ op_table:
     dq ugfx_paint_linear, -1
     dq ugfx_paint_set_transform, -1
     dq ugfx_paint_image, -1
+    dq ugfx_raster_fill_mask, -1
+    dq ugfx_mask_fill_rect, -1
+    dq ugfx_mask_invert, -1
+    dq ugfx_mask_from_alpha, -1
+    dq ugfx_raster_set_clip, -1
 OP_COUNT equ ($ - op_table) / 16
 align 16
 abs_mask: dq 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF
@@ -182,6 +205,25 @@ _start:
     call ugfx_path_init
     test rax, rax
     jnz .raster_fail
+    ; two masks the size of the image: the clip and a scratch one
+    lea rdi, [rel mask_a]
+    lea rsi, [rel arena_state]
+    mov edx, [rbx]
+    mov ecx, [rbx + 4]
+    call ugfx_mask_init
+    test rax, rax
+    jnz .raster_fail
+    lea rdi, [rel mask_b]
+    lea rsi, [rel arena_state]
+    mov edx, [rbx]
+    mov ecx, [rbx + 4]
+    call ugfx_mask_init
+    test rax, rax
+    jnz .raster_fail
+    lea rax, [rel mask_a]
+    mov [rel clip_mask], rax
+    lea rax, [rel mask_b]
+    mov [rel scratch_mask], rax
     lea rax, [rel path]
     mov [rel cur_path], rax
     lea rax, [rel path2]
@@ -244,6 +286,21 @@ _start:
     lea rax, [rel ugfx_paint_image]
     cmp r15, rax
     je .sp_image
+    lea rax, [rel ugfx_raster_fill_mask]
+    cmp r15, rax
+    je .sp_clip
+    lea rax, [rel ugfx_mask_fill_rect]
+    cmp r15, rax
+    je .sp_clip_rect
+    lea rax, [rel ugfx_mask_invert]
+    cmp r15, rax
+    je .sp_clip_invert
+    lea rax, [rel ugfx_mask_from_alpha]
+    cmp r15, rax
+    je .sp_mask_image
+    lea rax, [rel ugfx_raster_set_clip]
+    cmp r15, rax
+    je .sp_clip_none
     lea rax, [rel ugfx_path_add_rounded_rect_radii]
     cmp r15, rax
     je .sp_radii
@@ -435,6 +492,125 @@ _start:
     mov byte [rel use_paint], 1
     dec r12
     jmp .command
+.sp_clip:
+    ; render the path into the scratch mask (under the current clip)
+    mov rdi, [rel scratch_mask]
+    xor esi, esi
+    call ugfx_mask_fill
+    mov rdi, [rel cur_path]
+    lea rsi, [rel raster]
+    xor edx, edx
+    cmp dword [rbx + 20], 0
+    je .sp_clip_no_matrix
+    lea rdx, [rbx + 24]
+.sp_clip_no_matrix:
+    movsd xmm0, [rbx + 72]
+    call ugfx_path_rasterize
+    test rax, rax
+    jnz .command_fail
+    lea rdi, [rel raster]
+    mov rsi, [rel scratch_mask]
+    mov ecx, [rbx + 8]
+    call ugfx_raster_fill_mask
+    test rax, rax
+    jnz .command_fail
+    ; it becomes the clip
+    mov rax, [rel clip_mask]
+    mov rdx, [rel scratch_mask]
+    mov [rel clip_mask], rdx
+    mov [rel scratch_mask], rax
+    mov rdi, [rel cur_path]
+    call ugfx_path_reset
+    jmp .sp_clip_set
+.sp_clip_rect:
+    mov rdi, [rel scratch_mask]
+    xor esi, esi
+    call ugfx_mask_fill
+    mov rdi, [rel scratch_mask]
+    cvttsd2si esi, qword [r14]
+    cvttsd2si edx, qword [r14 + 8]
+    cvttsd2si ecx, qword [r14 + 16]
+    cvttsd2si r8d, qword [r14 + 24]
+    mov r9d, 255
+    add r14, 32
+    call ugfx_mask_fill_rect
+    jmp .sp_clip_combine
+.sp_clip_invert:
+    cmp byte [rel clip_active], 0
+    jne .sp_invert_now
+    mov rdi, [rel clip_mask]
+    mov esi, 255
+    call ugfx_mask_fill
+.sp_invert_now:
+    mov rdi, [rel clip_mask]
+    call ugfx_mask_invert
+    jmp .sp_clip_set
+.sp_mask_image:
+    lea rdi, [rel arena_state]
+    cvttsd2si rsi, qword [r14]          ; w
+    cvttsd2si rdx, qword [r14 + 8]      ; h
+    xor ecx, ecx
+    call pixbuf_create
+    test rax, rax
+    jle .command_fail
+    mov [rel image], rax
+    lea rsi, [r14 + 24]
+    xor r8d, r8d
+.sp_mi_row:
+    cmp r8, [rax + PixBuf_height]
+    jae .sp_mi_done
+    mov rdi, r8
+    imul rdi, [rax + PixBuf_stride]
+    add rdi, [rax + PixBuf_data]
+    xor ecx, ecx
+.sp_mi_px:
+    cmp rcx, [rax + PixBuf_width]
+    jae .sp_mi_next
+    cvttsd2si rdx, qword [rsi]
+    mov [rdi + rcx * 4], edx
+    add rsi, 8
+    inc rcx
+    jmp .sp_mi_px
+.sp_mi_next:
+    inc r8
+    jmp .sp_mi_row
+.sp_mi_done:
+    cvttsd2si eax, qword [r14 + 16]     ; kind
+    mov r14, rsi
+    mov rdi, [rel scratch_mask]
+    mov rsi, [rel image]
+    test eax, eax
+    jnz .sp_mi_luminance
+    call ugfx_mask_from_alpha
+    jmp .sp_clip_combine
+.sp_mi_luminance:
+    call ugfx_mask_from_luminance
+.sp_clip_combine:
+    ; clip = clip ∩ scratch (or scratch when there is no clip yet)
+    mov rdi, [rel clip_mask]
+    mov rsi, [rel scratch_mask]
+    cmp byte [rel clip_active], 0
+    je .sp_combine_copy
+    call ugfx_mask_intersect
+    jmp .sp_clip_set
+.sp_combine_copy:
+    call ugfx_mask_copy
+.sp_clip_set:
+    mov byte [rel clip_active], 1
+    lea rdi, [rel raster]
+    mov rsi, [rel clip_mask]
+    call ugfx_raster_set_clip
+    test rax, rax
+    jnz .command_fail
+    dec r12
+    jmp .command
+.sp_clip_none:
+    mov byte [rel clip_active], 0
+    lea rdi, [rel raster]
+    xor esi, esi
+    call ugfx_raster_set_clip
+    dec r12
+    jmp .command
 .sp_paint_transform:
     lea rdi, [rel paint]
     mov rsi, r14
@@ -597,5 +773,10 @@ stops:          resb UgfxStop_SIZE * MAX_STOPS
 use_paint:      resb 1
 alignb 8
 image:          resq 1
+mask_a:         resb UgfxMask_SIZE
+mask_b:         resb UgfxMask_SIZE
+clip_mask:      resq 1
+scratch_mask:   resq 1
+clip_active:    resb 1
 alignb 4096
 arena_memory:   resb ARENA_BYTES
