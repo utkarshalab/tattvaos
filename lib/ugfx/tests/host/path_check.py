@@ -31,7 +31,8 @@ OPS = {'move': (0, 2), 'line': (1, 2), 'quad': (2, 4), 'cubic': (3, 6), 'close':
        'arc': (10, 6), 'pie': (11, 6), 'ring': (12, 6), 'polygon': (13, None),
        'star': (14, 6), 'transform': (15, 6), 'stroke': (16, 4), 'dash': (17, None),
        'flatten': (18, 0), 'length': (19, 2), 'paint': (20, None), 'paint_transform': (21, 6),
-       'image': (22, None)}
+       'image': (22, None), 'clip': (23, 0), 'clip_rect': (24, 4), 'clip_invert': (25, 0),
+       'mask_image': (26, None), 'clip_none': (27, 0)}
 SAMPLES = 256        # reference points per curve or full turn
 
 
@@ -53,6 +54,10 @@ def script(w, h, rule, cmds, matrix=None, tol=0.02, color=0xFFFFFFFF, bg=0):
         elif name == 'image':
             w, h, ex, ey, filt, pixels = args
             out += struct.pack("<5d", w, h, ex, ey, filt)
+            out += b"".join(struct.pack("<d", p) for p in pixels)
+        elif name == 'mask_image':
+            w, h, kind, pixels = args
+            out += struct.pack("<3d", w, h, kind)
             out += b"".join(struct.pack("<d", p) for p in pixels)
         elif name == 'dash':
             offset, intervals = args
