@@ -1,8 +1,5 @@
 ; Filled polygon rasterization using the even-odd rule and half-open edges.
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
-%include "inc/struct_offsets.inc"
+%include "ugfx.inc"
 
 section .text
 ; IN pixbuf*, points[{s32 x,s32 y}], count, BGRA color.
@@ -45,7 +42,7 @@ polygon_draw:
     xor eax,eax
     test r10d,r10d
     cmovs r10d,eax
-    mov eax,[rbx+Pixbuf.height]
+    mov eax,[rbx+PixBuf_height]
     cmp r11d,eax
     cmovg r11d,eax
 .scanline:
@@ -128,13 +125,13 @@ polygon_draw:
     xor eax,eax
     test esi,esi
     cmovs esi,eax
-    mov eax,[rbx+Pixbuf.width]
+    mov eax,[rbx+PixBuf_width]
     cmp edx,eax
     cmovg edx,eax
     cmp esi,edx
     jge .span_next
-    mov rdi,[rbx+Pixbuf.data]
-    mov rax,[rbx+Pixbuf.stride]
+    mov rdi,[rbx+PixBuf_data]
+    mov rax,[rbx+PixBuf_stride]
     imul rax,r10
     add rdi,rax
     lea rdi,[rdi+rsi*4]
