@@ -42,8 +42,8 @@ No other formats in v1 core. Additional formats (RGB565, YUV, 10-bit) negotiated
 
 ## Implementation
 - `inc/color.inc` — Format constants, premul/unpremul helpers
-- `src/gfx/blend.asm` — Scalar premul blend
-- `src/gfx/blend_sse2/avx2/avx512.asm` — SIMD premul blend
+- `lib/ugfx/core/blend.asm` — Scalar premul blend
+- `lib/ugfx/core/blend_sse2/avx2/avx512.asm` — SIMD premul blend
 - `src/render/sw_render.asm` — Compositor uses premul throughout
 
 ## Related
