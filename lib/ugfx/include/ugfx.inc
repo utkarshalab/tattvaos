@@ -222,13 +222,14 @@ extern panic_null_ptr
 %define UgfxPaint_color         16      ; u32 premultiplied BGRA (solid)
 %define UgfxPaint_lut           24      ; u32[UGFX_GRADIENT_LUT] premultiplied BGRA
 %define UgfxPaint_inverse       32      ; f64[6] device -> paint space
-%define UgfxPaint_geom          80      ; f64[6] gradient geometry (see 2d/paint.asm)
-%define UgfxPaint_SIZE          128
+%define UgfxPaint_geom          80      ; f64[8] gradient geometry (see 2d/paint.asm)
+%define UgfxPaint_SIZE          144
 
 %define UGFX_PAINT_SOLID        0
 %define UGFX_PAINT_LINEAR       1
 %define UGFX_PAINT_RADIAL       2
 %define UGFX_PAINT_CONIC        3
+%define UGFX_PAINT_RADIAL2      4       ; two circles (focal, two-point conical)
 %define UGFX_SPREAD_PAD         0
 %define UGFX_SPREAD_REPEAT      1
 %define UGFX_SPREAD_REFLECT     2
