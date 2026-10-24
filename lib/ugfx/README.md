@@ -48,7 +48,7 @@ lib/ugfx/
 | Area | Contents |
 |---|---|
 | `core/` | Clip masks and more span operations (gradients, images) for the span compositor; draw-command lists for CPU and GPU backends |
-| `2d/` | Device hairlines, focal radial gradients, image patterns, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
+| `2d/` | Device hairlines, image patterns, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
 | `3d/` | Meshes, vertex transform, clipping, triangle setup, depth test, shading, textures |
 | `backend/` | CPU (scalar and SIMD) now; GPU later through Canvas's command rings |
 | `tests/` | Host-run tests against a reference renderer and golden images |
@@ -137,6 +137,7 @@ same source-over rounding as solid fills).
 | `ugfx_paint_solid(paint, colour)` | one premultiplied colour |
 | `ugfx_paint_linear(paint, arena, stops, n, spread, x0, y0, x1, y1)` | t along p0 → p1 |
 | `ugfx_paint_radial(paint, arena, stops, n, spread, cx, cy, r)` | t = distance / r |
+| `ugfx_paint_radial2(paint, arena, stops, n, spread, x0, y0, r0, x1, y1, r1)` | two circles: focal points, cones; t of the largest circle through the pixel, none = unpainted |
 | `ugfx_paint_conic(paint, arena, stops, n, cx, cy, start)` | t = angle in turns from `start` |
 | `ugfx_paint_set_transform(paint, m)` | paint space → device space (ellipses, rotation, skew) |
 
@@ -149,11 +150,13 @@ paint space through the inverse transform (`umath_affine2_invert`); the
 conic angle comes from `umath_atan2_f64`, fractions from
 `umath_floor_f64_fractional`.
 
-Tests: `tests/host/paint_check.py` - 30 gradient cases (every kind and
-spread, transparent and translucent stops, hard edges, unordered and
+Tests: `tests/host/paint_check.py` - 39 gradient cases (every kind and
+spread, focal points inside the circle and with a radius, cones with
+unpainted outsides, the tangent and concentric two-circle cases, transparent and translucent stops, hard edges, unordered and
 out-of-range positions, a single stop, transformed, elliptical and skewed
 paints, anti-aliased shapes over a background, random) compared with a
-reference built the same way, bit-exact; and invalid paints.
+reference built the same way, bit-exact (the two-circle reference checks
+each t against the circle equation); and invalid paints.
 
 ## 7. Using it
 
