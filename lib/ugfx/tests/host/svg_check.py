@@ -188,6 +188,30 @@ CASES = [
                                '<rect x="13" y="13" width="9" height="9" fill="url(#missing)" stroke="#000"/>'
                                '<defs><linearGradient id="later" x2="0" y2="1"><stop offset="0" stop-color="#08f"/>'
                                '<stop offset="1" stop-color="#f08"/></linearGradient></defs>'), False),
+    ("css illustrator", svg('<defs><style>.cls-1{fill:#e94;}.cls-2{fill:none;stroke:#333;stroke-width:2px;}'
+                            '.cls-3{fill:#3a7}</style></defs><circle class="cls-1" cx="9" cy="9" r="7"/>'
+                            '<rect class="cls-2" x="3" y="3" width="18" height="18"/>'
+                            '<rect class="extra cls-3" x="12" y="12" width="9" height="9"/>'), True),
+    ("css specificity", svg('<style>rect{fill:red} .a{fill:green} #x{fill:blue} rect.a{fill:#ff0} '
+                            '.b{fill:#f0f} .c{fill:#0ff} *{stroke:#000}</style>'
+                            '<rect x="1" y="1" width="6" height="6"/><rect class="a" x="9" y="1" width="6" height="6"/>'
+                            '<rect id="x" class="a" x="17" y="1" width="6" height="6"/>'
+                            '<circle class="a" cx="4" cy="12" r="3"/><circle class="b c" cx="12" cy="12" r="3"/>'
+                            '<circle class="c b" cx="20" cy="12" r="3"/>'), True),
+    ("css precedence", svg('<style>.p{fill:#08f;stroke:#f00}</style>'
+                           '<rect class="p" fill="#000" x="2" y="2" width="9" height="20"/>'
+                           '<rect class="p" style="fill:#0a0" stroke="#00f" x="13" y="2" width="9" height="20"/>'), False),
+    ("css ignored", svg('<style>/* rect{fill:red} */ g rect{fill:red} rect:hover{fill:red} [fill]{fill:red} '
+                        'g>rect{fill:red} @media screen { rect { fill: red } } @import "x.css"; '
+                        'rect{fill:#2a6}</style><g><rect x="2" y="2" width="20" height="20" fill="#000"/></g>'), False),
+    ("css groups", svg('<style>.grp{fill:#808;stroke:#000;stroke-width:1.5}</style><style>.thin{stroke-width:.5}'
+                       '.hide{display:none}.half{opacity:.5}</style>'
+                       '<g class="grp"><circle cx="7" cy="7" r="5"/><circle class="thin" cx="17" cy="7" r="5"/>'
+                       '<rect class="hide" width="24" height="24"/><rect class="half" x="2" y="14" width="20" '
+                       'height="8"/></g>'), True),
+    ("css gradient", svg('<style>.g{fill:url(#lg)}</style><linearGradient id="lg"><stop offset="0" '
+                         'stop-color="#fc0"/><stop offset="1" stop-color="#c06"/></linearGradient>'
+                         '<rect class="g" x="2" y="2" width="20" height="20"/>'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
