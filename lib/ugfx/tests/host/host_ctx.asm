@@ -2,7 +2,9 @@
 ; Utkarsha OS — lib/ugfx/tests/host/host_ctx.asm
 ; =============================================================================
 ; Host test tool: host_ctx <script> <out.raw> — drives a UgfxContext.
-;   script: u32 width, height, background colour, 0; u64 command count;
+;   script: u32 width, height, background colour, mode (0: draw, 1: record
+;           into a display list and replay it, 2: replay it twice); u64
+;           command count;
 ;           then commands, each a u64 opcode followed by f64 arguments:
 ;   path (the current path, user space):
 ;     0 move x y   1 line x y   2 quad x1 y1 x2 y2   3 cubic x1 y1 x2 y2 x3 y3
@@ -71,6 +73,33 @@ extern ugfx_ctx_draw_image
 extern ugfx_ctx_clear
 extern ugfx_ctx_begin_layer
 extern ugfx_ctx_end_layer
+extern ugfx_list_begin_layer
+extern ugfx_list_clear
+extern ugfx_list_clip
+extern ugfx_list_draw_image
+extern ugfx_list_end_layer
+extern ugfx_list_fill
+extern ugfx_list_fill_rect
+extern ugfx_list_restore
+extern ugfx_list_rotate
+extern ugfx_list_save
+extern ugfx_list_scale
+extern ugfx_list_set_alpha
+extern ugfx_list_set_dash
+extern ugfx_list_set_fill_color
+extern ugfx_list_set_fill_paint
+extern ugfx_list_set_fill_rule
+extern ugfx_list_set_stroke_color
+extern ugfx_list_set_stroke_paint
+extern ugfx_list_set_stroke_style
+extern ugfx_list_set_tolerance
+extern ugfx_list_set_transform
+extern ugfx_list_stroke
+extern ugfx_list_stroke_rect
+extern ugfx_list_transform
+extern ugfx_list_translate
+extern ugfx_list_init
+extern ugfx_list_replay
 
 %define SYS_WRITE   1
 %define SYS_OPEN    2
@@ -159,6 +188,24 @@ _start:
     call ugfx_ctx_init
     test rax, rax
     jnz .setup_fail
+    ; mode 0: draw; 1: record, replay once; 2: record, replay twice
+    lea rax, [rel ctx]
+    mov [rel obj], rax
+    lea rsi, [rel ctx_fns]
+    cmp dword [rbx + 12], 0
+    je .fns
+    lea rdi, [rel list]
+    lea rsi, [rel arena_state]
+    call ugfx_list_init
+    test rax, rax
+    jnz .setup_fail
+    lea rax, [rel list]
+    mov [rel obj], rax
+    lea rsi, [rel list_fns]
+.fns:
+    lea rdi, [rel fns]
+    mov ecx, FN_COUNT * 8
+    rep movsb
     lea rdi, [rel path]
     lea rsi, [rel arena_state]
     call ugfx_path_init
@@ -197,93 +244,93 @@ _start:
     call ugfx_path_reset
     jmp .next
 .c_fill:
-    lea rax, [rel ugfx_ctx_fill]
+    mov rax, [rel fns + 5 * 8]   ; fill
     jmp .ctx_path
 .c_stroke:
-    lea rax, [rel ugfx_ctx_stroke]
+    mov rax, [rel fns + 21 * 8]   ; stroke
     jmp .ctx_path
 .c_clip:
-    lea rax, [rel ugfx_ctx_clip]
+    mov rax, [rel fns + 2 * 8]   ; clip
 .ctx_path:
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     lea rsi, [rel path]
     call rax
     jmp .checked
 .c_save:
-    lea rdi, [rel ctx]
-    call ugfx_ctx_save
+    mov rdi, [rel obj]
+    call [rel fns + 9 * 8]   ; save
     jmp .checked
 .c_restore:
-    lea rdi, [rel ctx]
-    call ugfx_ctx_restore
+    mov rdi, [rel obj]
+    call [rel fns + 7 * 8]   ; restore
     jmp .checked
 .c_set_transform:
-    lea rax, [rel ugfx_ctx_set_transform]
+    mov rax, [rel fns + 20 * 8]   ; set_transform
     jmp .ctx_matrix
 .c_transform:
-    lea rax, [rel ugfx_ctx_transform]
+    mov rax, [rel fns + 23 * 8]   ; transform
 .ctx_matrix:
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     mov rsi, r14
     add r14, 48
     call rax
     jmp .checked
 .c_translate:
-    lea rax, [rel ugfx_ctx_translate]
+    mov rax, [rel fns + 24 * 8]   ; translate
     jmp .ctx_two
 .c_scale:
-    lea rax, [rel ugfx_ctx_scale]
+    mov rax, [rel fns + 10 * 8]   ; scale
 .ctx_two:
     movsd xmm0, [r14]
     movsd xmm1, [r14 + 8]
     add r14, 16
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     call rax
     jmp .checked
 .c_rotate:
     movsd xmm0, [r14]
     add r14, 8
-    lea rdi, [rel ctx]
-    call ugfx_ctx_rotate
+    mov rdi, [rel obj]
+    call [rel fns + 8 * 8]   ; rotate
     jmp .checked
 .c_fill_color:
-    lea rax, [rel ugfx_ctx_set_fill_color]
+    mov rax, [rel fns + 13 * 8]   ; set_fill_color
     jmp .ctx_int
 .c_stroke_color:
-    lea rax, [rel ugfx_ctx_set_stroke_color]
+    mov rax, [rel fns + 16 * 8]   ; set_stroke_color
     jmp .ctx_int
 .c_alpha:
-    lea rax, [rel ugfx_ctx_set_alpha]
+    mov rax, [rel fns + 11 * 8]   ; set_alpha
     jmp .ctx_int
 .c_rule:
-    lea rax, [rel ugfx_ctx_set_fill_rule]
+    mov rax, [rel fns + 15 * 8]   ; set_fill_rule
     jmp .ctx_int
 .c_clear:
-    lea rax, [rel ugfx_ctx_clear]
+    mov rax, [rel fns + 1 * 8]   ; clear
     jmp .ctx_int
 .c_begin_layer:
-    lea rax, [rel ugfx_ctx_begin_layer]
+    mov rax, [rel fns + 0 * 8]   ; begin_layer
 .ctx_int:
     cvttsd2si rsi, qword [r14]
     add r14, 8
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     call rax
     jmp .checked
 .c_end_layer:
-    lea rdi, [rel ctx]
-    call ugfx_ctx_end_layer
+    mov rdi, [rel obj]
+    call [rel fns + 4 * 8]   ; end_layer
     jmp .checked
 .c_tolerance:
     movsd xmm0, [r14]
     add r14, 8
-    lea rdi, [rel ctx]
-    call ugfx_ctx_set_tolerance
+    mov rdi, [rel obj]
+    call [rel fns + 19 * 8]   ; set_tolerance
     jmp .checked
 .c_fill_gradient:
-    lea rax, [rel ugfx_ctx_set_fill_paint]
+    mov rax, [rel fns + 14 * 8]   ; set_fill_paint
     jmp .ctx_gradient
 .c_stroke_gradient:
-    lea rax, [rel ugfx_ctx_set_stroke_paint]
+    mov rax, [rel fns + 17 * 8]   ; set_stroke_paint
 .ctx_gradient:
     mov [rel setter], rax
     ; stops
@@ -341,7 +388,7 @@ _start:
     test rax, rax
     jnz .call_fail
     mov r14, [rel next_cmd]
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     lea rsi, [rel paint]
     mov rdx, [rel matrix_ptr]
     call [rel setter]
@@ -356,9 +403,9 @@ _start:
     cvttsd2si eax, qword [r14 + 24]
     mov [rel style + UgfxStroke_cap], eax
     add r14, 32
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     lea rsi, [rel style]
-    call ugfx_ctx_set_stroke_style
+    call [rel fns + 18 * 8]   ; set_stroke_style
     jmp .checked
 .c_dash:
     movsd xmm0, [r14]                   ; offset
@@ -376,27 +423,27 @@ _start:
     rep movsb
     lea rax, [rel dash_values]
     mov [rel dash + UgfxDash_intervals], rax
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     lea rsi, [rel dash]
-    call ugfx_ctx_set_dash
+    call [rel fns + 12 * 8]   ; set_dash
     jmp .checked
 .dash_none:
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     xor esi, esi
-    call ugfx_ctx_set_dash
+    call [rel fns + 12 * 8]   ; set_dash
     jmp .checked
 .c_fill_rect:
-    lea rax, [rel ugfx_ctx_fill_rect]
+    mov rax, [rel fns + 6 * 8]   ; fill_rect
     jmp .ctx_rect
 .c_stroke_rect:
-    lea rax, [rel ugfx_ctx_stroke_rect]
+    mov rax, [rel fns + 22 * 8]   ; stroke_rect
 .ctx_rect:
     movsd xmm0, [r14]
     movsd xmm1, [r14 + 8]
     movsd xmm2, [r14 + 16]
     movsd xmm3, [r14 + 24]
     add r14, 32
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     call rax
     jmp .checked
 .c_draw_image:
@@ -434,9 +481,9 @@ _start:
     movsd xmm2, [r14 + 16]
     movsd xmm3, [r14 + 24]
     mov r14, rsi
-    lea rdi, [rel ctx]
+    mov rdi, [rel obj]
     mov rsi, [rel image]
-    call ugfx_ctx_draw_image
+    call [rel fns + 3 * 8]   ; draw_image
 .checked:
     test rax, rax
     jnz .call_fail
@@ -444,6 +491,18 @@ _start:
     dec r12
     jmp .command
 .done:
+    mov r15d, [rbx + 12]                ; replays
+.replay:
+    test r15d, r15d
+    jz .write_out
+    lea rdi, [rel list]
+    lea rsi, [rel ctx]
+    call ugfx_list_replay
+    test rax, rax
+    jnz .call_fail
+    dec r15d
+    jmp .replay
+.write_out:
     mov rdi, r13
     mov esi, 0x241
     mov edx, 0644o
@@ -526,6 +585,59 @@ panic_null_ptr:
 
 section .data
 align 8
+ctx_fns:
+    dq ugfx_ctx_begin_layer
+    dq ugfx_ctx_clear
+    dq ugfx_ctx_clip
+    dq ugfx_ctx_draw_image
+    dq ugfx_ctx_end_layer
+    dq ugfx_ctx_fill
+    dq ugfx_ctx_fill_rect
+    dq ugfx_ctx_restore
+    dq ugfx_ctx_rotate
+    dq ugfx_ctx_save
+    dq ugfx_ctx_scale
+    dq ugfx_ctx_set_alpha
+    dq ugfx_ctx_set_dash
+    dq ugfx_ctx_set_fill_color
+    dq ugfx_ctx_set_fill_paint
+    dq ugfx_ctx_set_fill_rule
+    dq ugfx_ctx_set_stroke_color
+    dq ugfx_ctx_set_stroke_paint
+    dq ugfx_ctx_set_stroke_style
+    dq ugfx_ctx_set_tolerance
+    dq ugfx_ctx_set_transform
+    dq ugfx_ctx_stroke
+    dq ugfx_ctx_stroke_rect
+    dq ugfx_ctx_transform
+    dq ugfx_ctx_translate
+list_fns:
+    dq ugfx_list_begin_layer
+    dq ugfx_list_clear
+    dq ugfx_list_clip
+    dq ugfx_list_draw_image
+    dq ugfx_list_end_layer
+    dq ugfx_list_fill
+    dq ugfx_list_fill_rect
+    dq ugfx_list_restore
+    dq ugfx_list_rotate
+    dq ugfx_list_save
+    dq ugfx_list_scale
+    dq ugfx_list_set_alpha
+    dq ugfx_list_set_dash
+    dq ugfx_list_set_fill_color
+    dq ugfx_list_set_fill_paint
+    dq ugfx_list_set_fill_rule
+    dq ugfx_list_set_stroke_color
+    dq ugfx_list_set_stroke_paint
+    dq ugfx_list_set_stroke_style
+    dq ugfx_list_set_tolerance
+    dq ugfx_list_set_transform
+    dq ugfx_list_stroke
+    dq ugfx_list_stroke_rect
+    dq ugfx_list_transform
+    dq ugfx_list_translate
+FN_COUNT equ 25
 ctx_jumps:
     dq _start.c_new_path, _start.c_fill, _start.c_stroke, _start.c_clip
     dq _start.c_save, _start.c_restore, _start.c_set_transform, _start.c_transform
@@ -546,6 +658,10 @@ matrix_ptr:     resq 1
 next_cmd:       resq 1
 alignb 16
 ctx:            resb UgfxContext_SIZE
+alignb 16
+list:           resb UgfxList_SIZE
+obj:            resq 1
+fns:            resq 32
 alignb 16
 path:           resb UgfxPath_SIZE
 alignb 16
