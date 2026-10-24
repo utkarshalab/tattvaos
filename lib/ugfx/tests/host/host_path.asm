@@ -19,6 +19,10 @@
 ;    18 flatten: the path becomes its flattened copy
 ;    19 length expected max_error: fails (exit 5) unless the path's length
 ;       is within max_error of expected
+;    20 paint kind spread g0 g1 g2 g3 n (offset colour) x n: fill with a
+;       gradient instead of the colour (kind 1 linear x0 y0 x1 y1, 2 radial
+;       cx cy r -, 3 conic cx cy start -; colour as f64, straight BGRA)
+;    21 paint_transform a b c d e f
 ;   The path is rasterized with the matrix (if any) and tolerance, filled
 ;   with the colour over the background, and written as BGRA.
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 raster error, 4 write error,
@@ -55,6 +59,11 @@ extern ugfx_path_reset
 extern ugfx_path_dash
 extern ugfx_path_flatten
 extern ugfx_path_length
+extern ugfx_raster_fill_paint
+extern ugfx_paint_linear
+extern ugfx_paint_radial
+extern ugfx_paint_conic
+extern ugfx_paint_set_transform
 
 %define SYS_WRITE   1
 %define SYS_OPEN    2
@@ -62,6 +71,7 @@ extern ugfx_path_length
 %define SYS_MMAP    9
 %define SYS_EXIT    231
 %define ARENA_BYTES (256 * 1024 * 1024)
+%define MAX_STOPS   64
 
 section .rodata
 align 8
@@ -87,6 +97,8 @@ op_table:
     dq ugfx_path_dash, -1
     dq ugfx_path_flatten, -1
     dq ugfx_path_length, -1
+    dq ugfx_paint_linear, -1
+    dq ugfx_paint_set_transform, -1
 OP_COUNT equ ($ - op_table) / 16
 align 16
 abs_mask: dq 0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF
@@ -217,6 +229,12 @@ _start:
     lea rax, [rel ugfx_path_length]
     cmp r15, rax
     je .sp_length
+    lea rax, [rel ugfx_paint_linear]
+    cmp r15, rax
+    je .sp_paint
+    lea rax, [rel ugfx_paint_set_transform]
+    cmp r15, rax
+    je .sp_paint_transform
     lea rax, [rel ugfx_path_add_rounded_rect_radii]
     cmp r15, rax
     je .sp_radii
@@ -303,6 +321,67 @@ _start:
     add r14, 16
     dec r12
     jmp .command
+.sp_paint:
+    ; stops: (offset, colour) pairs of f64 -> UgfxStop
+    cvttsd2si rcx, qword [r14 + 48]     ; n
+    cmp rcx, MAX_STOPS
+    ja .command_fail
+    lea rsi, [r14 + 56]
+    lea rdi, [rel stops]
+    xor edx, edx
+.sp_stop:
+    cmp rdx, rcx
+    jae .sp_stops_done
+    movsd xmm0, [rsi]
+    movsd [rdi + UgfxStop_offset], xmm0
+    cvttsd2si rax, qword [rsi + 8]
+    mov [rdi + UgfxStop_color], eax
+    add rsi, 16
+    add rdi, UgfxStop_SIZE
+    inc rdx
+    jmp .sp_stop
+.sp_stops_done:
+    push rsi                            ; the next command
+    push rcx
+    cvttsd2si eax, qword [r14]          ; kind
+    cvttsd2si r8d, qword [r14 + 8]      ; spread
+    movsd xmm0, [r14 + 16]
+    movsd xmm1, [r14 + 24]
+    movsd xmm2, [r14 + 32]
+    movsd xmm3, [r14 + 40]
+    pop rcx
+    lea rdi, [rel paint]
+    lea rsi, [rel arena_state]
+    lea rdx, [rel stops]
+    cmp eax, 1
+    je .sp_linear
+    cmp eax, 2
+    je .sp_radial
+    cmp eax, 3
+    jne .bad_op
+    call ugfx_paint_conic
+    jmp .sp_paint_done
+.sp_linear:
+    call ugfx_paint_linear
+    jmp .sp_paint_done
+.sp_radial:
+    call ugfx_paint_radial
+.sp_paint_done:
+    pop r14
+    test rax, rax
+    jnz .command_fail
+    mov byte [rel use_paint], 1
+    dec r12
+    jmp .command
+.sp_paint_transform:
+    lea rdi, [rel paint]
+    mov rsi, r14
+    add r14, 48
+    call ugfx_paint_set_transform
+    test rax, rax
+    jnz .command_fail
+    dec r12
+    jmp .command
 .sp_radii:
     movsd xmm0, [r14]
     movsd xmm1, [r14 + 8]
@@ -355,7 +434,14 @@ _start:
     mov rsi, [rel pixbuf]
     mov edx, [rbx + 12]
     mov ecx, [rbx + 8]
+    cmp byte [rel use_paint], 0
+    je .fill_solid
+    lea rdx, [rel paint]
+    call ugfx_raster_fill_paint
+    jmp .filled
+.fill_solid:
     call ugfx_raster_fill
+.filled:
     test rax, rax
     jnz .raster_fail
     mov rdi, r13
@@ -443,5 +529,9 @@ other_path:     resq 1
 stroke_style:   resb UgfxStroke_SIZE
 alignb 8
 dash_style:     resb UgfxDash_SIZE
+alignb 16
+paint:          resb UgfxPaint_SIZE
+stops:          resb UgfxStop_SIZE * MAX_STOPS
+use_paint:      resb 1
 alignb 4096
 arena_memory:   resb ARENA_BYTES
