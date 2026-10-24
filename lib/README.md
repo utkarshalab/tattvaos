@@ -21,6 +21,7 @@
 | [`time/`](time/) | Time and clock primitives — nanosecond resolution |
 | [`cal/`](cal/) | Calendar and date utilities |
 | [`ucmp/`](ucmp/) | Compression — LZ4, Zstd, fast block compression |
+| [`ugfx/`](ugfx/) | Graphics — pixel buffers, compositing, 2D drawing (3D later) on one shared core |
 | [`regex/`](regex/) | Regex engine — minimal, no backtracking |
 | [`uparser/`](uparser/) | Parser combinators for config and protocol formats |
 | [`hw/`](hw/) | Hardware utility library — shared across drivers |
