@@ -44,12 +44,12 @@ def main():
     worst = 0
     with tempfile.TemporaryDirectory(prefix="ugfx_svg2uic.") as d:
         for name, text, _ in CASES:
-            if "Gradient" in text:
-                continue                # UIC has no gradients: svg2uic approximates them
+            if "Gradient" in text or "dasharray" in text:
+                continue                # UIC has no gradients or dashes: svg2uic approximates them
             icon, warnings = svg2uic.convert(text, "icon")
             data = pack([icon])
-            uses_current = any(c[0] in ('fill', 'stroke') and c[1] == 0 for c in icon.commands) and \
-                "currentColor" in text
+            uses_current = any(p and p[0] == "current" for it in svg2uic.svgmodel.parse(text).items
+                               for p in (it.fill, it.stroke))
             for current, (x, y, size) in ((0xFF2050C0, (8, 0, 32)), (0x80E0E020, (2, 3, 27.5))):
                 total += 1
                 want, rc = run(tool, d, [('svg', text.encode(), current, x, y, size)])
