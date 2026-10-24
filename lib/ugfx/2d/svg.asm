@@ -3961,7 +3961,7 @@ svg_marker_attrs:
 %define IM_M        32                  ; f64[6] the fit
 %define IM_BOX      80                  ; f64 x, y, w, h
 %define IM_PIX      112
-%define IM_SIZE     120
+%define IM_SIZE     128                 ; calls at rsp = 0 (mod 16)
 
 svg_image:
     push r12
