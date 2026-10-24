@@ -185,4 +185,34 @@ for deg, T, ev, tg, sp, sn, npts in ((2, Q, qe, qt, qs, qn, 3), (3, Cu, ce, ct, 
     nanpts = T(*([math.nan] * (2 * npts)))
     ck.check(f'{name}_segments NaN points', sn(nanpts, 0.5) == 1)
 
+# --- arc ---------------------------------------------------------------------
+arcpt = fn(lib, 'umath_arc_point', Pt, D, D, D, D, D)
+arcc = fn(lib, 'umath_arc_to_cubics', Z, P, D, D, D, D, D, D)
+for _ in range(400):
+    cx, cy = random.uniform(-100, 100), random.uniform(-100, 100)
+    rx, ry = random.uniform(0.1, 80), random.uniform(0.1, 80)
+    start, sweep = random.uniform(-7, 7), random.choice([random.uniform(-7, 7), 0.01, -math.pi / 2, math.tau])
+    p = arcpt(cx, cy, rx, ry, start)
+    ck.check('arc_point', close(p.x, cx + rx * math.cos(start)) and close(p.y, cy + ry * math.sin(start)))
+    out = (C.c_double * 24)()
+    n = arcc(out, cx, cy, rx, ry, start, sweep)
+    sw = max(-math.tau, min(math.tau, sweep))
+    want_n = max(1, min(4, math.ceil(abs(sw) / (math.pi / 2) - 1e-12)))
+    ck.check('arc_to_cubics count', n == want_n, (sweep, n, want_n))
+    prev = (cx + rx * math.cos(start), cy + ry * math.sin(start))
+    worst = 0.0
+    for i in range(n):
+        seg = [prev] + [(out[6 * i + 2 * k], out[6 * i + 2 * k + 1]) for k in range(3)]
+        for s in range(1, 32):
+            x, y = bern(seg, s / 32)
+            # distance from the ellipse, measured in the unit-circle frame
+            worst = max(worst, abs(math.hypot((x - cx) / rx, (y - cy) / ry) - 1.0))
+        prev = seg[-1]
+    end = (cx + rx * math.cos(start + sw), cy + ry * math.sin(start + sw))
+    ck.check('arc_to_cubics on the ellipse', worst < 3e-4, (worst, sweep))
+    ck.check('arc_to_cubics ends at start + sweep',
+             math.hypot(prev[0] - end[0], prev[1] - end[1]) < 1e-9 * max(1, rx, ry, abs(cx), abs(cy)))
+for bad in (0.0, math.nan):
+    ck.check('arc_to_cubics empty sweep', arcc((C.c_double * 24)(), 0, 0, 1, 1, 0, bad) == 0, bad)
+
 ck.finish()
