@@ -265,16 +265,16 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 |---|---|---|---|
 | G2D-01 | Primitives: fill, blit, line, circle, rect clip | P1 | ◐ `ugfx/core`, `ugfx/2d` (line/circle simplified) |
 | G2D-02 | Region math with SIMD band operations | P3 | ◐ `ugfx/core/region` |
-| G2D-03 | Vector paths: moves, lines, quadratic and cubic Béziers, arcs, fill rules | P2 | ◐ orphans `render/path_*`, `ugfx/2d/arc`, `ugfx/2d/path`, `polygon_fill` |
-| G2D-04 | Strokes: width, joins, caps, dashes | P2 | ◐ orphan `render/strokes` |
-| G2D-05 | Gradients: linear, radial, conic | P2 | ◐ orphan `render/gradients` |
+| G2D-03 | Vector paths: moves, lines, quadratic and cubic Béziers, arcs, fill rules | P2 | ✓ `ugfx/2d/path`, `shapes`, `flatten`; built into Canvas |
+| G2D-04 | Strokes: width, joins, caps, dashes | P2 | ✓ `ugfx/2d/stroke`, `dash` |
+| G2D-05 | Gradients: linear, radial, conic | P2 | ✓ `ugfx/2d/paint` (also two-circle radial and image patterns) |
 | G2D-06 | Analytic coverage anti-aliasing; optional MSAA | P2 | ✓ `ugfx/core/raster` exact-area coverage, nonzero and even-odd; host-tested |
 | G2D-07 | Filters: blur, shadow, color matrix, saturation | P3 | |
-| G2D-08 | Rounded rectangles and window shadows | P2 | ◐ unbuilt `ugfx/2d/rounded_rect` |
-| G2D-09 | Clip stacks and alpha masks | P2 | |
+| G2D-08 | Rounded rectangles and window shadows | P2 | ◐ rounded rectangles in `ugfx/2d/shapes`; shadows need G2D-07 |
+| G2D-09 | Clip stacks and alpha masks | P2 | ✓ `ugfx/core/mask`, context save/restore |
 | G2D-10 | Full Porter-Duff and separable blend modes | P3 | |
 | G2D-11 | Nine-patch / border-image drawing | P2 | |
-| G2D-12 | Display-list API that `lib/web` and toolkits can emit into | P2 | |
+| G2D-12 | Display-list API that `lib/web` and toolkits can emit into | P2 | ◐ `ugfx/2d/context` and `ugfx/2d/list`; not yet exposed to clients |
 | G2D-13 | Multi-core tile rasterizer for large surfaces | P3 | → SRV-11 |
 | G2D-14 | Material effects (frosted glass, vibrancy) with a low-cost fallback | P3 | → G2D-07 |
 | G2D-15 | Conflation-free coverage where overlapping contours meet inside a pixel (exact union instead of accumulated winding area) | P4 | → G2D-06 |
@@ -539,7 +539,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | THM-06 | UI density and font scaling settings | P3 | |
 | THM-07 | Decoration button layout customization | P3 | |
 | THM-08 | Per-app theme override | P4 | |
-| THM-09 | Vector icon pipeline and icon theme loader with cache | P2 | |
+| THM-09 | Vector icon pipeline and icon theme loader with cache | P2 | ◐ UIC packs (`lib/ugfx`, 33 312 open icons), built-in UI pack in `shell/icons`; theme loader pending |
 | THM-10 | Signed theme package format | P4 | |
 
 ## IXD — Interaction design and feedback
