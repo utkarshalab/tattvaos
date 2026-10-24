@@ -2,9 +2,7 @@
 ; Blend SSE2 — 4 pixels per iteration using PMADDUBSW
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
+%include "ugfx.inc"
 
 extern blend_scalar
 
