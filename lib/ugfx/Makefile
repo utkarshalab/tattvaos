@@ -49,6 +49,7 @@ host-check: host
 	python3 tests/host/list_check.py $(BUILDDIR)/host_ctx
 	python3 tests/host/uic_check.py $(BUILDDIR)/host_ctx
 	python3 tests/host/svg_check.py $(BUILDDIR)/host_ctx
+	python3 tests/host/svg2uic_check.py $(BUILDDIR)/host_ctx
 
 clean:
 	rm -rf $(BUILDDIR)
