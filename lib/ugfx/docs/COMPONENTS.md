@@ -58,7 +58,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | C2D-029 | Hairlines (1 px AA lines, fast path) | P2 | | 025 |
 | C2D-030 | Pixel snapping and hinting for crisp UI | P2 | | 017 |
 | C2D-031 | Tile-based and multi-core rasterization | P3 | | 025 |
-| C2D-032 | Coverage-mask output (A8) | P2 | | 025, 002 |
+| C2D-032 | Coverage-mask output (A8) | P2 | ✓ `core/mask`, `ugfx_raster_fill_mask` | 025, 002 |
 
 ## 5. Strokes
 
@@ -101,11 +101,11 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
-| C2D-055 | Rectangle clips | P2 | ◐ `core/clip` | |
+| C2D-055 | Rectangle clips | P2 | ✓ `core/clip` (rects), `ugfx_mask_fill_rect` (as clips) | |
 | C2D-056 | Region clips | P2 | | 011 |
-| C2D-057 | AA path clips | P2 | | 032 |
-| C2D-058 | Clip stack | P2 | | 055–057 |
-| C2D-059 | Alpha and luminance masks | P3 | | 032 |
+| C2D-057 | AA path clips | P2 | ✓ `ugfx_raster_set_clip` | 032 |
+| C2D-058 | Clip stack | P2 | ◐ intersection by rendering under the clip; the stack itself comes with the context (083) | 055–057 |
+| C2D-059 | Alpha and luminance masks | P3 | ✓ `core/mask` | 032 |
 | C2D-060 | Scissor fast paths | P2 | | 055 |
 
 ## 9. Images
