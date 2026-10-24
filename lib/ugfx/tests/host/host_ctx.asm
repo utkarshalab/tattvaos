@@ -30,6 +30,7 @@
 ;       draw it onto the context (directly, also when recording)
 ;    57 svg bytes <document, padded to 8> current_colour x y size: parse the
 ;       document and draw it onto the context (exit 5 if parsing fails)
+;    58 clip_begin   59 clip_add (the current path)   60 clip_end
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 setup error, 4 write error,
 ;   5 a call returned an error, 6 unknown opcode.
 ; Development-machine tool only.
@@ -57,6 +58,12 @@ extern ugfx_ctx_init
 extern ugfx_ctx_fill
 extern ugfx_ctx_stroke
 extern ugfx_ctx_clip
+extern ugfx_ctx_clip_begin
+extern ugfx_ctx_clip_add
+extern ugfx_ctx_clip_end
+extern ugfx_list_clip_begin
+extern ugfx_list_clip_add
+extern ugfx_list_clip_end
 extern ugfx_ctx_save
 extern ugfx_ctx_restore
 extern ugfx_ctx_set_transform
@@ -237,6 +244,12 @@ _start:
     je .c_uic
     cmp rax, 57
     je .c_svg
+    cmp rax, 58
+    je .c_clip_begin
+    cmp rax, 59
+    je .c_clip_add
+    cmp rax, 60
+    je .c_clip_end
     cmp rax, 55
     ja .bad_op
     sub rax, 30
@@ -263,6 +276,17 @@ _start:
     jmp .ctx_path
 .c_stroke:
     mov rax, [rel fns + 21 * 8]   ; stroke
+    jmp .ctx_path
+.c_clip_begin:
+    mov rdi, [rel obj]
+    call [rel fns + 25 * 8]   ; clip_begin
+    jmp .checked
+.c_clip_end:
+    mov rdi, [rel obj]
+    call [rel fns + 27 * 8]   ; clip_end
+    jmp .checked
+.c_clip_add:
+    mov rax, [rel fns + 26 * 8]   ; clip_add
     jmp .ctx_path
 .c_clip:
     mov rax, [rel fns + 2 * 8]   ; clip
@@ -706,6 +730,9 @@ ctx_fns:
     dq ugfx_ctx_stroke_rect
     dq ugfx_ctx_transform
     dq ugfx_ctx_translate
+    dq ugfx_ctx_clip_begin
+    dq ugfx_ctx_clip_add
+    dq ugfx_ctx_clip_end
 list_fns:
     dq ugfx_list_begin_layer
     dq ugfx_list_clear
@@ -732,7 +759,10 @@ list_fns:
     dq ugfx_list_stroke_rect
     dq ugfx_list_transform
     dq ugfx_list_translate
-FN_COUNT equ 25
+    dq ugfx_list_clip_begin
+    dq ugfx_list_clip_add
+    dq ugfx_list_clip_end
+FN_COUNT equ 28
 ctx_jumps:
     dq _start.c_new_path, _start.c_fill, _start.c_stroke, _start.c_clip
     dq _start.c_save, _start.c_restore, _start.c_set_transform, _start.c_transform
