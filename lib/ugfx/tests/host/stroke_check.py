@@ -6,7 +6,8 @@ Usage: stroke_check.py <host_path binary> [--seed N]
 The reference is the exact stroke region as a union of pieces: one
 rectangle per segment, a join piece at every interior vertex (and every
 vertex of a closed contour) on the outer side - miter quad within the
-limit, else bevel triangle; round joins are disks - and caps at the ends of
+limit, else bevel triangle; round joins are the wedge between the two
+offsets - and caps at the ends of
 open contours (round: disks, square: half-width extensions, butt: none).
 Its coverage is supersampled at 32x32 points per pixel, within about 1/32
 of a pixel at each edge.
@@ -89,16 +90,25 @@ def pieces(pts, closed, h, join, cap, limit):
     for v in verts:
         _, p, dp, np_ = seg(v - 1)
         _, _, dc, nc = seg(v)
-        if join == 'round':
-            pcs.append(('disk', p[0], p[1], h))
-            continue
         cross = dp[0] * dc[1] - dp[1] * dc[0]
+        dot = np_[0] * nc[0] + np_[1] * nc[1]
         if abs(cross) < 1e-12:
+            if join == 'round' and dot < 0:
+                pcs.append(('disk', p[0], p[1], h))     # a reversal: the half disk
             continue
         s = 1 if cross < 0 else -1          # the outer side
         o1 = (p[0] + s * h * np_[0], p[1] + s * h * np_[1])
         o2 = (p[0] + s * h * nc[0], p[1] + s * h * nc[1])
-        dot = np_[0] * nc[0] + np_[1] * nc[1]
+        if join == 'round':
+            # the wedge between the two offsets (a disk would reach past
+            # a butt end when the next segment is short)
+            a0 = math.atan2(s * np_[1], s * np_[0])
+            sweep = math.atan2(s * nc[1], s * nc[0]) - a0
+            sweep = (sweep + math.pi) % math.tau - math.pi
+            arc = [(p[0] + h * math.cos(a0 + sweep * i / 32), p[1] + h * math.sin(a0 + sweep * i / 32))
+                   for i in range(33)]
+            pcs.append(('poly', [p] + arc))
+            continue
         if join == 'miter' and (1 + dot) / 2 * limit * limit >= 1:
             k = s * h / (1 + dot)
             mp = (p[0] + k * (np_[0] + nc[0]), p[1] + k * (np_[1] + nc[1]))
@@ -108,7 +118,15 @@ def pieces(pts, closed, h, join, cap, limit):
     if not closed:
         for end, (a, b, d, nn), sgn in ((pts[-1], seg(segs - 1), 1), (pts[0], seg(0), -1)):
             if cap == 'round':
-                pcs.append(('disk', end[0], end[1], h))
+                # the half disk beyond the end (a whole disk would reach back
+                # past a vertex when the last segment is shorter than h)
+                a0 = math.atan2(nn[1], nn[0])
+                turn = math.pi                  # the sweep whose middle points outward
+                if math.cos(a0 + turn / 2) * d[0] * sgn + math.sin(a0 + turn / 2) * d[1] * sgn < 0:
+                    turn = -turn
+                arc = [(end[0] + h * math.cos(a0 + turn * i / 32), end[1] + h * math.sin(a0 + turn * i / 32))
+                       for i in range(33)]
+                pcs.append(('poly', arc))
             elif cap == 'square':
                 dd = (d[0] * sgn * h, d[1] * sgn * h)
                 pcs.append(('poly', [(end[0] + nn[0] * h, end[1] + nn[1] * h),
@@ -123,24 +141,39 @@ def coverage(w, h, all_pieces):
     g = (np.arange(SS) + 0.5) / SS
     xs = (np.arange(w)[:, None] + g[None, :]).reshape(-1)
     ys = (np.arange(h)[:, None] + g[None, :]).reshape(-1)
-    X, Y = np.meshgrid(xs, ys)
-    count = np.zeros(X.shape, np.int32)
+    count = np.zeros((len(ys), len(xs)), np.int32)
+
+    def window(x0, y0, x1, y1):
+        """Sample index ranges covering the box (each piece is tested only there)."""
+        c0, c1 = np.searchsorted(xs, x0), np.searchsorted(xs, x1, 'right')
+        r0, r1 = np.searchsorted(ys, y0), np.searchsorted(ys, y1, 'right')
+        return r0, r1, c0, c1
+
     for pc in all_pieces:
         if pc[0] == 'disk':
             _, cx, cy, r = pc
-            count += (X - cx) ** 2 + (Y - cy) ** 2 <= r * r
+            r0, r1, c0, c1 = window(cx - r, cy - r, cx + r, cy + r)
+            if r0 >= r1 or c0 >= c1:
+                continue
+            X, Y = np.meshgrid(xs[c0:c1], ys[r0:r1])
+            count[r0:r1, c0:c1] += (X - cx) ** 2 + (Y - cy) ** 2 <= r * r
             continue
         poly = pc[1]
         area = sum(poly[i][0] * poly[(i + 1) % len(poly)][1] - poly[(i + 1) % len(poly)][0] * poly[i][1]
                    for i in range(len(poly)))
         if abs(area) < 1e-12:
             continue
+        r0, r1, c0, c1 = window(min(p[0] for p in poly), min(p[1] for p in poly),
+                                max(p[0] for p in poly), max(p[1] for p in poly))
+        if r0 >= r1 or c0 >= c1:
+            continue
+        X, Y = np.meshgrid(xs[c0:c1], ys[r0:r1])
         sign = 1 if area > 0 else -1
         m = np.ones(X.shape, bool)
         for i in range(len(poly)):
             (x0, y0), (x1, y1) = poly[i], poly[(i + 1) % len(poly)]
             m &= sign * ((x1 - x0) * (Y - y0) - (y1 - y0) * (X - x0)) >= 0
-        count += m
+        count[r0:r1, c0:c1] += m
     union = (count > 0).reshape(h, SS, w, SS).mean(axis=(1, 3))
     total = count.reshape(h, SS, w, SS).mean(axis=(1, 3))
     return union, total
