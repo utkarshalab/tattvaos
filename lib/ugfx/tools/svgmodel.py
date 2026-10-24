@@ -216,6 +216,75 @@ class Doc:
     width: object = None
     height: object = None
     items: list = field(default_factory=list)
+    par: tuple = (5, 0)                             # the root's preserveAspectRatio
+
+
+ALIGNS = {"xMinYMin": 1, "xMidYMin": 2, "xMaxYMin": 3, "xMinYMid": 4, "xMidYMid": 5, "xMaxYMid": 6,
+          "xMinYMax": 7, "xMidYMax": 8, "xMaxYMax": 9, "none": 0}
+
+
+def par(v):
+    """(align 0 none / 1..9, slice) as svg_par reads it; invalid: xMidYMid meet."""
+    if v is None:
+        return (5, 0)
+    words = [w for w in re.split(r"[\x00- ]+", trim(v)) if w]
+    if words and words[0] == "defer":
+        words = words[1:]
+    if not words or words[0] not in ALIGNS or len(words) > 2:
+        return (5, 0)
+    if len(words) == 2 and words[1] not in ("meet", "slice"):
+        return (5, 0)
+    return (ALIGNS[words[0]], int(len(words) == 2 and words[1] == "slice"))
+
+
+def fit(vb, w, h, p):
+    """svg_fit: the viewBox into w x h."""
+    align, sl = p
+    vx, vy, vw, vh = vb
+    sx, sy = w / vw, h / vh
+    fx = fy = 0.0
+    if align:
+        sx = sy = max(sx, sy) if sl else min(sx, sy)
+        fx, fy = (0.0, 0.5, 1.0)[(align - 1) % 3], (0.0, 0.5, 1.0)[(align - 1) // 3]
+    return [sx, 0.0, 0.0, sy, (w - vw * sx) * fx - vx * sx, (h - vh * sy) * fy - vy * sy]
+
+
+def root_matrix(doc, x, y, size):
+    """The document -> device matrix ugfx_svg_draw sets for the square (x, y, size)."""
+    def square(box, p):
+        m = fit(box, size, size, p)
+        m[4] = m[4] + x
+        m[5] = m[5] + y
+        return m
+    w, h = doc.width, doc.height
+    if doc.viewbox and w and w > 0 and h and h > 0:
+        a = fit(doc.viewbox, w, h, doc.par)
+        return mul(square([0.0, 0.0, w, h], (5, 0)), a)
+    if doc.viewbox:
+        return square(doc.viewbox, doc.par)
+    return square([0.0, 0.0, w if w and w > 0 else 300.0, h if h and h > 0 else 150.0], (5, 0))
+
+
+def conditions(el):
+    """requiredExtensions never passes; systemLanguage needs en or en-*."""
+    for name, value in el.attrib.items():
+        name = name.split('}')[-1]
+        if name == "requiredExtensions":
+            return False
+        if name == "systemLanguage":
+            ok = False
+            for t in value.split(','):
+                t = trim(t)
+                if len(t) >= 2 and t[:2].lower() == "en" and (len(t) == 2 or t[2] == '-'):
+                    ok = True
+            if not ok:
+                return False
+    return True
+
+
+def takes_part(tag):
+    """Elements a switch chooses among (and conditional attributes apply to)."""
+    return tag not in SKIP or tag in ("text", "foreignObject")
 
 
 def number(s, i):
@@ -1111,6 +1180,8 @@ def parse(text):
         tag = el.tag.split('}')[-1]
         st = dict(parent)
         symroot = tag == "symbol" and inst is not None
+        if (takes_part(tag) or symroot) and not conditions(el):
+            return
         if tag in SKIP and not symroot:
             st["skip"] = True
         if not st["skip"]:
@@ -1134,7 +1205,7 @@ def parse(text):
                         st["m"] = m
                 elif name in PROPS:
                     prop(st, name, value, own, parent)
-                elif name in ("d", "points", "viewBox"):
+                elif name in ("d", "points", "viewBox", "preserveAspectRatio"):
                     geom[name] = value
                 elif name in GEOM:
                     own[1]["geom:" + name] = value
@@ -1177,10 +1248,18 @@ def parse(text):
                     if target is not None and uses < MAX_USES:
                         u = dict(st)
                         u["m"] = mul(st["m"], [1.0, 0.0, 0.0, 1.0, geom.get("x", 0.0), geom.get("y", 0.0)])
-                        wh = (geom["width"], geom["height"]) if "width" in geom and "height" in geom else False
+                        wh = (geom.get("width", st["vw"]), geom.get("height", st["vh"]))
                         walk(target, u, uses + 1, wh)
-                elif tag == "svg" and not seen_root[0]:
+                elif tag == "svg" and seen_root[0]:
+                    st["m"] = mul(st["m"], [1.0, 0.0, 0.0, 1.0, geom.get("x", 0.0), geom.get("y", 0.0)])
+                    w, h = geom.get("width", st["vw"]), geom.get("height", st["vh"])
+                    if w > 0 and h > 0:
+                        view_map(st, geom, w, h)
+                    else:
+                        st["skip"] = True
+                elif tag == "svg":
                     seen_root[0] = True
+                    doc.par = par(geom.get("preserveAspectRatio"))
                     doc.width, doc.height = geom.get("width"), geom.get("height")
                     if "viewBox" in geom:
                         vals, i = [], 0
@@ -1194,11 +1273,22 @@ def parse(text):
                     st["vw"], st["vh"] = viewport()
                 elif tag in SHAPES:
                     shape(tag, geom, st)
+        chosen = False
         for child in el:
+            if tag == "switch":
+                ctag = child.tag.split('}')[-1]
+                if takes_part(ctag):
+                    if chosen or not conditions(child):
+                        continue
+                    chosen = True
             walk(child, st, uses)
 
     def symbol_map(st, geom, wh):
-        """The symbol's viewBox fitted into the use's width x height, xMidYMid meet."""
+        view_map(st, geom, wh[0], wh[1])
+
+    def view_map(st, geom, w, h):
+        """svg_view_map: a valid viewBox fitted into w x h becomes the viewport inside."""
+        st["vw"], st["vh"] = w, h
         if "viewBox" not in geom:
             return
         vals, i = [], 0
@@ -1207,14 +1297,10 @@ def parse(text):
             if v is None:
                 return
             vals.append(v)
-        x, y, w, h = vals
-        if not (w > 0 and h > 0):
+        if not (vals[2] > 0 and vals[3] > 0):
             return
-        W, H = wh if wh else (w, h)
-        s = min(W / w, H / h)
-        tx = (W - w * s) * 0.5 - x * s
-        ty = (H - h * s) * 0.5 - y * s
-        st["m"] = mul(st["m"], [s, 0.0, 0.0, s, tx, ty])
+        st["vw"], st["vh"] = vals[2], vals[3]
+        st["m"] = mul(st["m"], fit(vals, w, h, par(geom.get("preserveAspectRatio"))))
 
     def bake(paint, op, st):
         kind, c = paint
