@@ -28,7 +28,9 @@ lib/ugfx/
 │   ├── blend_avx2.asm    ← 8 pixels per iteration
 │   ├── blend_avx512.asm  ← 16 pixels per iteration
 │   ├── scale.asm         ← nearest and bilinear scaling
-│   └── transform.asm     ← 90/180/270 rotation and flips
+│   ├── transform.asm     ← 90/180/270 rotation and flips
+│   ├── raster.asm        ← anti-aliased area-coverage rasterizer (nonzero, even-odd)
+│   └── span.asm          ← span compositor: coverage rows into pixels (src-over)
 └── 2d/                   ← 2D shapes and paths
     ├── line.asm          ← line segments
     ├── circle.asm        ← circles and ellipses
@@ -42,7 +44,7 @@ lib/ugfx/
 
 | Area | Contents |
 |---|---|
-| `core/` | AA coverage span engine shared by 2D fills and 3D triangles; span compositor with clip masks; draw-command lists for CPU and GPU backends |
+| `core/` | Clip masks and more span operations (gradients, images) for the span compositor; draw-command lists for CPU and GPU backends |
 | `2d/` | Paths (move, line, quadratic, cubic, arc, close), tolerance-based flattening, nonzero and even-odd fills, strokes (joins, caps, dashes), gradients, patterns |
 | `3d/` | Meshes, vertex transform, clipping, triangle setup, depth test, shading, textures |
 | `backend/` | CPU (scalar and SIMD) now; GPU later through Canvas's command rings |
@@ -50,7 +52,22 @@ lib/ugfx/
 
 The work items are tracked as `G2D-*` in [`lib/canvas/docs/ROADMAP.md`](../canvas/docs/ROADMAP.md).
 
-## 3. Using it
+## 3. Rasterizer
+
+`ugfx_raster_init` / `move_to` / `line_to` / `close` / `fill` take edges in
+24.8 fixed-point device pixels and composite a solid premultiplied colour
+through `ugfx_span_fill_solid`. Coverage is the exact area of the shape in
+each pixel (0..255). Where overlapping parts of one shape meet inside a
+single pixel, coverage is their accumulated winding area, clamped (nonzero)
+or folded (even-odd), as in the classic area rasterizers; an exact-union
+mode is roadmap item G2D-15. Coordinates outside the target are handled
+(left edges keep carrying cover, the rest is clipped).
+
+Tests: `make host-check` builds `tests/host/host_raster` and runs
+`tests/host/raster_check.py`, which compares 72 shape/rule cases against an
+independent 256-sub-scanline reference and checks compositing exactly.
+
+## 4. Using it
 
 Assemble with `-I lib/ugfx/include/` and include `ugfx.inc`. Functions follow
 the System V register order and return negative error codes. Allocating
