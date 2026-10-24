@@ -174,4 +174,22 @@ extern panic_null_ptr
 %define PATH_VERB_CLOSE     5
 %define PATH_VERB_END       255
 
+; Path object (caller-allocated, UgfxPath_SIZE bytes). Verbs are bytes;
+; points are f64 (x, y) pairs: MOVE and LINE use one, QUAD two, CUBIC three,
+; CLOSE none. Arcs and shapes are stored as cubics.
+%define UgfxPath_arena      0
+%define UgfxPath_verbs      8           ; u8[]
+%define UgfxPath_points     16          ; f64[2][]
+%define UgfxPath_verb_count 24          ; u32
+%define UgfxPath_verb_cap   28          ; u32
+%define UgfxPath_point_count 32         ; u32
+%define UgfxPath_point_cap  36          ; u32
+%define UgfxPath_start      40          ; u32 point index of the open contour's MOVE
+%define UgfxPath_open       44          ; u32 a contour is open
+%define UgfxPath_error      48          ; u32 sticky -ENOMEM
+%define UgfxPath_SIZE       56
+
+; Default flattening tolerance, in device pixels
+%define UGFX_PATH_TOLERANCE 0.1
+
 %endif ; __UGFX_INC__
