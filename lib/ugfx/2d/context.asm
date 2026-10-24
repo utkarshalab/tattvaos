@@ -12,7 +12,8 @@
 ;   stroke style, dash, global alpha, fill rule, tolerance
 ;   target           the context's PixBuf, or a layer's
 ;
-; Draw calls: fill, stroke, clip (paths in user space), fill_rect,
+; Draw calls: fill, stroke, clip, clip_stroke (the stroke's outline, with
+; the stroke style and dash; paths in user space), fill_rect,
 ; stroke_rect, draw_image, clear. Strokes and dashes are built in user
 ; space and then transformed, so a non-uniform scale widens them the way
 ; HTML canvas does; their flattening tolerance is the device tolerance
@@ -470,23 +471,75 @@ ugfx_ctx_stroke:
     test rsi, rsi
     jz ctx_bad
     PROLOGUE_SAVE rbx, r12
-    sub rsp, 16
     mov rbx, rdi
-    mov r12, rsi
-    ; user-space tolerance = tolerance / sqrt|det|; a flat transform draws nothing
+    mov rdi, rsi
+    call ctx_outline
+    test rax, rax
+    jnz .stroke_out                     ; 1: a flat transform, nothing
+    lea rdi, [rbx + UgfxContext_path_b]
+    call ctx_rasterize
+    test rax, rax
+    jnz .stroke_out
+    mov esi, UgfxState_stroke_paint
+    mov edx, UGFX_FILL_NONZERO
+    call ctx_paint_fill
+.stroke_out:
+    cmp rax, 1
+    jne .stroke_ret
+    xor eax, eax
+.stroke_ret:
+    EPILOGUE_RESTORE rbx, r12
+
+; -----------------------------------------------------------------------------
+; ugfx_ctx_clip_stroke — rdi = ctx, rsi = UgfxPath* -> rax = 0, -errno: the
+;   clip intersected with the path's stroke outline (the stroke style and
+;   dash; empty under a flat transform)
+; -----------------------------------------------------------------------------
+global ugfx_ctx_clip_stroke
+ugfx_ctx_clip_stroke:
+    test rdi, rdi
+    jz ctx_bad
+    test rsi, rsi
+    jz ctx_bad
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov rdi, rsi
+    call ctx_outline
+    cmp rax, 1
+    ja .cs_out                          ; an error
+    jb .cs_clip
+    lea rdi, [rbx + UgfxContext_path_b] ; flat: an empty outline
+    call ugfx_path_reset
+.cs_clip:
+    mov r12d, [rbx + ST(rule)]
+    mov dword [rbx + ST(rule)], UGFX_FILL_NONZERO
+    mov rdi, rbx
+    lea rsi, [rbx + UgfxContext_path_b]
+    call ugfx_ctx_clip
+    mov [rbx + ST(rule)], r12d
+.cs_out:
+    EPILOGUE_RESTORE rbx, r12
+
+; rdi = path, rbx = ctx -> rax = 0 (path_b = the stroke's outline, dashed
+;   first), 1 (a flat transform: no outline), or an error. The outline is
+;   built in user space at tolerance / sqrt|det|.
+ctx_outline:
+    push r12
+    sub rsp, 16
+    mov r12, rdi
     lea rdi, [rbx + ST(transform)]
     call umath_affine2_determinant
     andpd xmm0, [rel ctx_abs_mask]
     sqrtsd xmm0, xmm0
     xorpd xmm1, xmm1
     ucomisd xmm0, xmm1
-    jp .stroke_none
-    je .stroke_none
+    jp .ol_flat
+    je .ol_flat
     movsd xmm1, [rbx + ST(tolerance)]
     divsd xmm1, xmm0
     movsd [rsp], xmm1
     cmp qword [rbx + ST(dash) + UgfxDash_intervals], 0
-    je .stroke_solid
+    je .ol_solid
     lea rdi, [rbx + UgfxContext_path_a]
     call ugfx_path_reset
     lea rdi, [rbx + UgfxContext_path_a]
@@ -495,9 +548,9 @@ ugfx_ctx_stroke:
     movsd xmm0, [rsp]
     call ugfx_path_dash
     test rax, rax
-    jnz .stroke_out
+    jnz .ol_out
     lea r12, [rbx + UgfxContext_path_a]
-.stroke_solid:
+.ol_solid:
     lea rdi, [rbx + UgfxContext_path_b]
     call ugfx_path_reset
     lea rdi, [rbx + UgfxContext_path_b]
@@ -505,21 +558,13 @@ ugfx_ctx_stroke:
     lea rdx, [rbx + ST(stroke)]
     movsd xmm0, [rsp]
     call ugfx_path_stroke
-    test rax, rax
-    jnz .stroke_out
-    lea rdi, [rbx + UgfxContext_path_b]
-    call ctx_rasterize
-    test rax, rax
-    jnz .stroke_out
-    mov esi, UgfxState_stroke_paint
-    mov edx, UGFX_FILL_NONZERO
-    call ctx_paint_fill
-    jmp .stroke_out
-.stroke_none:
-    xor eax, eax
-.stroke_out:
+    jmp .ol_out
+.ol_flat:
+    mov eax, 1
+.ol_out:
     add rsp, 16
-    EPILOGUE_RESTORE rbx, r12
+    pop r12
+    ret
 
 global ugfx_ctx_clip
 ugfx_ctx_clip:
