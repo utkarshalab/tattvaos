@@ -331,6 +331,22 @@ extern panic_null_ptr
 %define UgfxSvgItem_miter       144
 %define UgfxSvgItem_SIZE        152
 
+; SVG reading state (2d/svg_xml.asm)
+%define UgfxSvgXml_cur          0       ; next byte to read
+%define UgfxSvgXml_end          8
+%define UgfxSvgXml_name         16      ; the tag's name
+%define UgfxSvgXml_name_end     24
+%define UgfxSvgXml_attrs        32      ; start tags: attributes from here ...
+%define UgfxSvgXml_tag_end      40      ; ... to here ('>' or the '/' of '/>')
+%define UgfxSvgXml_self         48      ; u32 self-closing
+%define UgfxSvgXml_SIZE         56
+%define UgfxSvgAttr_cur         0       ; 0 = the first attribute
+%define UgfxSvgAttr_name        8
+%define UgfxSvgAttr_name_end    16
+%define UgfxSvgAttr_val         24
+%define UgfxSvgAttr_val_end     32
+%define UgfxSvgAttr_SIZE        40
+
 ; Gradient colour stop (UgfxStop_SIZE bytes, an array of them per gradient)
 %define UgfxStop_offset         0       ; f64 position, clamped to [0, 1] and to the previous stop
 %define UgfxStop_color          8       ; u32 straight (not premultiplied) BGRA, 0xAARRGGBB
