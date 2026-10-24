@@ -1,0 +1,81 @@
+{
+  "comment": "Open icon sets built into UIC packs by tools/build_icons.py. Each set is fetched at the pinned commit; every folder listed becomes one pack. Only sets whose licence allows redistribution are listed.",
+  "sets": [
+    {
+      "id": "lucide",
+      "name": "Lucide",
+      "repo": "https://github.com/lucide-icons/lucide.git",
+      "commit": "7faf87628a1ad6175975bc595344337ce14a7db4",
+      "licence": "ISC",
+      "licence_file": "LICENSE",
+      "attribution": "Lucide Contributors (Lucide is a fork of Feather, by Cole Bemis, MIT)",
+      "packs": {"lucide": "icons"}
+    },
+    {
+      "id": "tabler",
+      "name": "Tabler Icons",
+      "repo": "https://github.com/tabler/tabler-icons.git",
+      "commit": "a4ce1404bc6d24d3c365afe7b258d6bf6f48d62d",
+      "licence": "MIT",
+      "licence_file": "LICENSE",
+      "attribution": "Paweł Kuna",
+      "packs": {"tabler-outline": "icons/outline", "tabler-filled": "icons/filled"}
+    },
+    {
+      "id": "bootstrap",
+      "name": "Bootstrap Icons",
+      "repo": "https://github.com/twbs/icons.git",
+      "commit": "e568465481c0c541f63a78f6452d09387711d489",
+      "licence": "MIT",
+      "licence_file": "LICENSE",
+      "attribution": "The Bootstrap Authors",
+      "packs": {"bootstrap": "icons"}
+    },
+    {
+      "id": "heroicons",
+      "name": "Heroicons",
+      "repo": "https://github.com/tailwindlabs/heroicons.git",
+      "commit": "616b7a4dbbf3d011760af8066262cd5c6b3868f3",
+      "licence": "MIT",
+      "licence_file": "LICENSE",
+      "attribution": "Tailwind Labs, Inc.",
+      "packs": {"hero-outline": "optimized/24/outline", "hero-solid": "optimized/24/solid",
+                "hero-mini": "optimized/20/solid", "hero-micro": "optimized/16/solid"}
+    },
+    {
+      "id": "mdi",
+      "name": "Material Design Icons (Pictogrammers)",
+      "repo": "https://github.com/Templarian/MaterialDesign-SVG.git",
+      "commit": "9e04201d4557e729822fb57f62a316c3dea1d4a8",
+      "licence": "Apache-2.0",
+      "licence_file": "LICENSE",
+      "attribution": "Pictogrammers (Austin Andrews and contributors); includes Google Material icons",
+      "packs": {"mdi": "svg"}
+    },
+    {
+      "id": "fontawesome",
+      "name": "Font Awesome Free",
+      "repo": "https://github.com/FortAwesome/Font-Awesome.git",
+      "commit": "14c65a3747d0f3b751f15831fc719236aea8729d",
+      "licence": "CC-BY-4.0",
+      "licence_file": "LICENSE.txt",
+      "attribution": "Fonticons, Inc. (https://fontawesome.com); icons under CC BY 4.0. Brand icons show trademarks of their owners and may only be used to represent them.",
+      "packs": {"fa-solid": "svgs/solid", "fa-regular": "svgs/regular", "fa-brands": "svgs/brands"}
+    },
+    {
+      "id": "phosphor",
+      "name": "Phosphor Icons",
+      "repo": "https://github.com/phosphor-icons/core.git",
+      "commit": "2b75f3ad12b420c9504ef05df8d2564a28f8500e",
+      "licence": "MIT",
+      "licence_file": "LICENSE",
+      "attribution": "Phosphor Icons (Helena Zhang, Tobias Fried)",
+      "packs": {"phosphor": "assets/regular", "phosphor-thin": "assets/thin", "phosphor-light": "assets/light",
+                "phosphor-bold": "assets/bold", "phosphor-fill": "assets/fill", "phosphor-duotone": "assets/duotone"}
+    }
+  ],
+  "excluded": {
+    "flaticon": "Proprietary licences (free with attribution or by subscription) that do not allow redistributing the icons as part of an icon library; cannot be bundled.",
+    "remixicon": "Moved from Apache 2.0 to its own Remix Icon License; left out until those terms are reviewed."
+  }
+}
