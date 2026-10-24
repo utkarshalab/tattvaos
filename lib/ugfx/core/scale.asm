@@ -2,9 +2,7 @@
 ; Scale — Nearest Neighbor and Bilinear Scaling
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/color.inc"
+%include "ugfx.inc"
 
 section .text
 
