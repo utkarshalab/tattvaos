@@ -65,7 +65,7 @@ CTX_OPS = {'new_path': (30, 0), 'fill': (31, 0), 'stroke': (32, 0), 'clip': (33,
            'fill_rect': (50, 4), 'stroke_rect': (51, 4), 'draw_image': (52, None), 'clear': (53, 1),
            'begin_layer': (54, 1), 'end_layer': (55, 0), 'uic': (56, None), 'svg': (57, None),
            'clip_begin': (58, 0), 'clip_add': (59, 0), 'clip_end': (60, 0),
-           'begin_mask': (61, 0), 'end_mask': (62, 1)}
+           'begin_mask': (61, 0), 'end_mask': (62, 1), 'clip_stroke': (63, 0)}
 PATH_OPS = ('move', 'line', 'quad', 'cubic', 'close', 'rect', 'ellipse', 'circle')
 
 
@@ -158,6 +158,10 @@ class Ref:
                 self.stroke_path(self.path)
             elif name == 'clip':
                 cov = self.coverage(self.path, st['rule'])
+                st['clip'] = cov if st['clip'] is None else div255(cov * st['clip'])
+            elif name == 'clip_stroke':
+                extra = [('dash', *st['dash'])] if st['dash'] else []
+                cov = self.coverage(self.path + extra + [('stroke', *st['style'])], 0)
                 st['clip'] = cov if st['clip'] is None else div255(cov * st['clip'])
             elif name == 'clip_begin':
                 self.union = np.zeros((H, W), np.int64)
@@ -315,6 +319,13 @@ def cases(rng):
                             ('begin_mask',), ('fill_color', 0xFFFFFFFF), ('fill_rect', 0, 0, 24, 32),
                             ('end_mask', 0), ('end_layer',), ('begin_mask',), ('fill_color', 0xFFFFFFFF)]
                            + circle + [('fill',), ('end_mask', 0), ('end_layer',)])
+    yield "clip stroke", ([('stroke_style', 5, 4, 1, 1)] + tri + [('clip_stroke',), ('new_path',),
+                          ('fill_color', 0xFFFFC000), ('fill_rect', 0, 0, 48, 32)])
+    yield "clip stroke dashed", ([('stroke_style', 4, 10, 0, 0), ('dash', 1, [6, 3]), ('rule', 1)] + circle +
+                                 [('clip_stroke',), ('new_path',), ('fill_color', 0xFF40C0FF), ('fill_rect', 0, 0, 48, 32)])
+    yield "clip stroke transformed", ([('translate', 24, 16), ('scale', 1.5, 0.75), ('stroke_style', 3, 4, 2, 2),
+                                       ('move', -12, 0), ('line', 12, 0), ('clip_stroke',), ('new_path',),
+                                       ('fill_color', 0xFFFF40FF), ('fill_rect', -24, -20, 48, 40)])
     yield "clip mask reused", ([('save',)] + circle + [('clip',), ('new_path',), ('restore',),
                                ('save',)] + tri + [('clip',), ('new_path',), ('fill_rect', 0, 0, 48, 32), ('restore',),
                                ('fill_color', 0x5000FFFF), ('fill_rect', 0, 0, 48, 32)])
