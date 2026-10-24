@@ -17,6 +17,7 @@ own and calls these instead.
 | File | Contents |
 |---|---|
 | `affine2.asm` | 2×3 affine transforms `{a, b, c, d, e, f}`: identity, translate, scale, rotate, skew, multiply (`m1 * m2` applies `m2` first), determinant, invert (fails cleanly on singular or non-finite input), apply to a point, a vector or an array of points |
+| `arc.asm` | Elliptical arcs: the point at an angle, and an arc as up to four cubics (handles `4/3 tan(θ/4)`, within 0.03% of the ellipse) |
 | `bezier.asm` | Quadratic and cubic Beziers: evaluate, tangent, de Casteljau split, and the segment count that keeps a polyline within a tolerance (Wang's formula, capped at 4096) |
 
 ## Conventions
@@ -37,6 +38,5 @@ curve, and polylines from the segment count staying within the tolerance.
 
 ## Planned
 
-Rounded rectangles and ellipse geometry, elliptical-arc to cubic conversion,
-curve bounds and extrema, closest point and intersection, path measuring
+Endpoint-form (SVG) arc conversion, curve bounds and extrema, closest point and intersection, path measuring
 (arc length) and perspective transforms — added as `lib/ugfx` reaches them.
