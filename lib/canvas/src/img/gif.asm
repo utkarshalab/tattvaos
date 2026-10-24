@@ -531,7 +531,8 @@ gif_decode_first:
     jmp .new_gather
 .new_gathered:
     mov eax, [rsp + 16]
-    imul rax, [rsp + 20]
+    mov ecx, [rsp + 20]               ; height is a dword; palette follows it
+    imul rax, rcx
     test rax, rax
     jz .new_bad_stack
     mov [rsp + 64], rax
@@ -548,6 +549,8 @@ gif_decode_first:
     mov r8, [rsp + 72]
     mov r9, [rsp + 64]
     call lzw_decode_gif
+    test rax, rax
+    js .new_bad_stack                 ; negative errno
     cmp rax, [rsp + 64]
     jb .new_bad_stack
     mov rdi, rbx
@@ -617,11 +620,11 @@ gif_decode_first:
     jae .new_next_pixel
     mov rdx, [rsp + 24]
     lea rdx, [rdx + rcx * 2]
-    add rdx, rcx
-    movzx eax, byte [rdx + 2]
-    shl eax, 16
+    add rdx, rcx                      ; palette entry: R, G, B
+    movzx eax, byte [rdx]
+    shl eax, 16                       ; R into byte 2 of BGRA
     mov ah, [rdx + 1]
-    mov al, [rdx]
+    mov al, [rdx + 2]
     or eax, 0xFF000000
     mov rdx, [rsp + 80]
     mov rdi, [rdx + PixBuf_data]
