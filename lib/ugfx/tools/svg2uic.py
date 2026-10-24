@@ -77,6 +77,9 @@ def flatten(doc, warnings, name):
     """UIC has no layers: a group's opacity goes into each item inside it."""
     items, alphas = [], [255]
     for it in doc.items:
+        if isinstance(it, svgmodel.MarkerItem):
+            warnings.append(f"{name}: marker left out")
+            continue
         if isinstance(it, svgmodel.Group):
             if it.kind == "begin":
                 alphas.append(alphas[-1] * it.alpha // 255)
