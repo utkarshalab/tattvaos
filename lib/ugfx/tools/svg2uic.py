@@ -87,9 +87,23 @@ def convert(text, name, design_size=0):
                 setattr(it, attr, ("colour", a << 24 | rgb))
                 warnings.append(f"{name}: gradient drawn as its average colour")
     vb = doc.viewbox
+    w, h = doc.width, doc.height
+    if vb is not None and w and w > 0 and h and h > 0:
+        # the viewBox goes into width x height first: bake that in
+        a = svgmodel.fit(vb, w, h, doc.par)
+        for it in doc.items:
+            it.matrix = svgmodel.mul(a, it.matrix)
+        vb = [0.0, 0.0, w, h]
+    elif vb is not None and doc.par != (5, 0) and vb[2] != vb[3]:
+        # UIC centres its viewBox; a square of the larger side, with the
+        # alignment baked in, maps the same way
+        side = max(vb[2], vb[3])
+        a = svgmodel.fit(vb, side, side, doc.par)
+        for it in doc.items:
+            it.matrix = svgmodel.mul(a, it.matrix)
+        vb = [0.0, 0.0, side, side]
     if vb is None:
-        vb = [0.0, 0.0, doc.width if doc.width and doc.width > 0 else 300.0,
-              doc.height if doc.height and doc.height > 0 else 150.0]
+        vb = [0.0, 0.0, w if w and w > 0 else 300.0, h if h and h > 0 else 150.0]
     paints = [p for it in doc.items for p in (it.fill, it.stroke) if p]
     uses_current = any(p[0] == "current" for p in paints)
     rgbs = []
