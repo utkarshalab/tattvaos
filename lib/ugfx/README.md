@@ -42,7 +42,8 @@ lib/ugfx/
     ├── flatten.asm       ← curves to polylines; path length
     ├── dash.asm          ← dash patterns along lines and curves
     ├── paint.asm         ← paints: solid; linear, radial, two-circle and conic gradients; image patterns
-    └── context.asm       ← drawing context: state, save/restore, fill/stroke/clip, images, layers
+    ├── context.asm       ← drawing context: state, save/restore, fill/stroke/clip, images, layers
+    └── list.asm          ← display lists: record context calls, replay them
 ```
 
 ## 2. Planned
@@ -232,7 +233,24 @@ fill rules, rects, images, clear, layers with opacity, under clips,
 nested and reused, random sequences) and 7 invalid ones, against a Python
 context assembled from the separately checked pieces.
 
-## 9. Using it
+## 9. Display lists
+
+A `UgfxList` records drawing to replay later: `ugfx_list_<call>(list, ...)`
+takes the same arguments as `ugfx_ctx_<call>`, and
+`ugfx_list_replay(list, ctx)` runs the records through a context - any
+number of times, onto any context. Records are 8-byte aligned (opcode,
+length, payload). Paths, transforms, colours, styles, rects and dash
+intervals are copied in; paints are copied by value, but gradient tables
+and images are referenced and must outlive the list. Replayed paths are
+read-only views into the list. The record stream is also the command
+format a GPU backend will take.
+
+Tests: `tests/host/list_check.py` runs every ctx_check script drawn
+directly, recorded and replayed once, and replayed twice: replay equals
+direct drawing byte for byte, two replays equal the script drawn twice,
+failures match; plus a stress list of hundreds of records and long curves.
+
+## 10. Using it
 
 Assemble with `-I lib/ugfx/include/` and include `ugfx.inc`. Functions follow
 the System V register order and return negative error codes. Allocating
