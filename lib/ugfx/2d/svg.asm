@@ -28,6 +28,10 @@
 %include "ugfx.inc"
 
 extern arena_alloc
+extern ugfx_svg_xml_next
+extern ugfx_svg_xml_attr
+extern ugfx_svg_lookup
+extern ugfx_svg_trim
 extern ugfx_path_init
 extern ugfx_path_move_to
 extern ugfx_path_line_to
@@ -125,8 +129,6 @@ extern ugfx_ctx_stroke
 
 ; parser frame (r15)
 %define P_SVG           0
-%define P_CUR           8               ; cursor
-%define P_END           16
 %define P_STACK         24
 %define P_DEPTH         32              ; u32
 %define P_ELEM          36              ; u32
@@ -143,12 +145,10 @@ extern ugfx_ctx_stroke
 %define P_VB            200
 %define P_VB_END        208
 %define P_OPACITY       216             ; f64 the element's own opacity
-%define P_NAME          224
-%define P_NAME_END      232
-%define P_VAL           240
-%define P_VAL_END       248
 %define P_ARC           256             ; f64[24]
-%define P_SIZE          456
+%define P_XML           456             ; UgfxSvgXml
+%define P_ATTR          (P_XML + UgfxSvgXml_SIZE)       ; UgfxSvgAttr
+%define P_SIZE          (((P_ATTR + UgfxSvgAttr_SIZE + 15) & ~15) + 8)
 
 section .rodata
 align 8
@@ -235,35 +235,6 @@ svg_word_nonzero:   db "nonzero"
 
 section .text
 
-; rdi = text, rsi = its end, rdx = table -> eax = id, or -1 (exact match)
-svg_lookup:
-    mov r8, rsi
-    sub r8, rdi                         ; length
-.entry:
-    movzx ecx, byte [rdx]
-    test ecx, ecx
-    jz .none
-    cmp rcx, r8
-    jne .next
-    xor r9d, r9d
-.byte:
-    cmp r9d, ecx
-    jae .hit
-    movzx eax, byte [rdi + r9]
-    cmp al, [rdx + 1 + r9]
-    jne .next
-    inc r9d
-    jmp .byte
-.hit:
-    movzx eax, byte [rdx + 1 + rcx]
-    ret
-.next:
-    lea rdx, [rdx + rcx + 2]
-    jmp .entry
-.none:
-    mov eax, -1
-    ret
-
 ; rdi = text, rsi = end (trimmed), rdx = word, ecx = length -> ZF = equal
 svg_word:
     mov rax, rsi
@@ -292,41 +263,10 @@ svg_word:
 svg_word_trimmed:
     push rdi
     push rsi
-    call svg_trim
+    call ugfx_svg_trim
     call svg_word
     pop rsi
     pop rdi
-    ret
-
-; rdi / rsi -> trimmed of spaces, tabs, newlines and "!important"
-svg_trim:
-.front:
-    cmp rdi, rsi
-    jae .done
-    movzx eax, byte [rdi]
-    cmp al, ' '
-    ja .back
-    inc rdi
-    jmp .front
-.back:
-    cmp rsi, rdi
-    jbe .done
-    movzx eax, byte [rsi - 1]
-    cmp al, ' '
-    ja .important
-    dec rsi
-    jmp .back
-.important:
-    ; drop a trailing "!important"
-    mov rax, rsi
-    sub rax, rdi
-    cmp rax, 10
-    jb .done
-    cmp byte [rsi - 10], '!'
-    jne .done
-    sub rsi, 10
-    jmp .back
-.done:
     ret
 
 ; -----------------------------------------------------------------------------
@@ -352,9 +292,9 @@ ugfx_svg_parse:
     mov dword [rdi + UgfxSvg_count], 0
     mov dword [rdi + UgfxSvg_cap], 0
     mov dword [rdi + UgfxSvg_has], 0
-    mov [r15 + P_CUR], rdx
+    mov [r15 + P_XML + UgfxSvgXml_cur], rdx
     add rdx, rcx
-    mov [r15 + P_END], rdx
+    mov [r15 + P_XML + UgfxSvgXml_end], rdx
     mov dword [r15 + P_DEPTH], 0
     mov dword [r15 + P_ROOT], 0
     mov dword [r15 + P_ERR], 0
@@ -386,128 +326,21 @@ ugfx_svg_parse:
 .token:
     cmp dword [r15 + P_ERR], 0
     jne .finish
-    ; the next '<'
-    mov rdi, [r15 + P_CUR]
-    mov rsi, [r15 + P_END]
-.find_lt:
-    cmp rdi, rsi
-    jae .finish
-    cmp byte [rdi], '<'
-    je .lt
-    inc rdi
-    jmp .find_lt
-.lt:
-    lea rax, [rdi + 1]
-    cmp rax, rsi
-    jae .finish
-    movzx eax, byte [rdi + 1]
-    cmp al, '!'
-    je .bang
-    cmp al, '?'
-    je .pi
-    cmp al, '/'
-    je .end_tag
-    jmp .start_tag
-.bang:
-    ; <!-- ... -->, <![CDATA[ ... ]]>, else to '>'
-    lea rax, [rdi + 4]
-    cmp rax, rsi
-    ja .bang_plain
-    cmp word [rdi + 2], '--'
-    jne .bang_cdata
-    lea rdi, [rdi + 4]
-    mov edx, '-->'
-    mov ecx, 3
-    call svg_skip_past
-    jmp .token
-.bang_cdata:
-    lea rax, [rdi + 9]
-    cmp rax, rsi
-    ja .bang_plain
-    cmp dword [rdi + 2], '[CDA'
-    jne .bang_plain
-    lea rdi, [rdi + 9]
-    mov edx, ']]>'
-    mov ecx, 3
-    call svg_skip_past
-    jmp .token
-.bang_plain:
-    inc rdi
-    mov edx, '>'
-    mov ecx, 1
-    call svg_skip_past
-    jmp .token
-.pi:
-    lea rdi, [rdi + 2]
-    mov edx, '?>'
-    mov ecx, 2
-    call svg_skip_past
-    jmp .token
-.end_tag:
-    inc rdi
-    mov edx, '>'
-    mov ecx, 1
-    call svg_skip_past
-    cmp dword [r15 + P_DEPTH], 0
+    lea rdi, [r15 + P_XML]
+    call ugfx_svg_xml_next
+    test eax, eax
+    jz .finish
+    cmp eax, 2
+    jne .start_tag
+    cmp dword [r15 + P_DEPTH], 0        ; an end tag
     je .token
     dec dword [r15 + P_DEPTH]
     jmp .token
 .start_tag:
-    inc rdi
-    mov r12, rdi                        ; name
-.name:
-    cmp rdi, rsi
-    jae .finish
-    movzx eax, byte [rdi]
-    cmp al, ' '
-    jbe .name_end
-    cmp al, '/'
-    je .name_end
-    cmp al, '>'
-    je .name_end
-    inc rdi
-    jmp .name
-.name_end:
-    mov r13, rdi                        ; name end = attributes start
-    ; the tag's end, quotes respected
-    xor ecx, ecx                        ; open quote
-.tag_scan:
-    cmp rdi, rsi
-    jae .finish                         ; unterminated tag: stop
-    movzx eax, byte [rdi]
-    test ecx, ecx
-    jnz .in_quote
-    cmp al, '>'
-    je .tag_end
-    cmp al, '"'
-    je .quote
-    cmp al, 39
-    je .quote
-    inc rdi
-    jmp .tag_scan
-.quote:
-    mov ecx, eax
-    inc rdi
-    jmp .tag_scan
-.in_quote:
-    cmp eax, ecx
-    jne .quoted_byte
-    xor ecx, ecx
-.quoted_byte:
-    inc rdi
-    jmp .tag_scan
-.tag_end:
-    lea rax, [rdi + 1]
-    mov [r15 + P_CUR], rax
-    mov dword [r15 + P_SELF], 0
-    cmp rdi, r13
-    jbe .tag_closed
-    cmp byte [rdi - 1], '/'
-    jne .tag_closed
-    mov dword [r15 + P_SELF], 1
-    dec rdi
-.tag_closed:
-    mov [r15 + P_TAGEND], rdi
+    mov rax, [r15 + P_XML + UgfxSvgXml_tag_end]
+    mov [r15 + P_TAGEND], rax
+    mov eax, [r15 + P_XML + UgfxSvgXml_self]
+    mov [r15 + P_SELF], eax
     ; push the state
     mov eax, [r15 + P_DEPTH]
     cmp eax, SVG_MAX_DEPTH
@@ -520,10 +353,10 @@ ugfx_svg_parse:
     rep movsb
     inc dword [r15 + P_DEPTH]
     ; the element
-    mov rdi, r12
-    mov rsi, r13
+    mov rdi, [r15 + P_XML + UgfxSvgXml_name]
+    mov rsi, [r15 + P_XML + UgfxSvgXml_name_end]
     lea rdx, [rel svg_elements]
-    call svg_lookup
+    call ugfx_svg_lookup
     cmp eax, -1
     jne .known
     xor eax, eax                        ; unknown: a group
@@ -557,41 +390,9 @@ ugfx_svg_parse:
     add rsp, P_SIZE
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
-; rdi = from, edx = up to 4 bytes to find, ecx = their count; r15 frame
-;   -> P_CUR just past them, or the end
-svg_skip_past:
-    mov rsi, [r15 + P_END]
-.at:
-    lea rax, [rdi + rcx]
-    cmp rax, rsi
-    ja .end
-    xor r8d, r8d
-.cmp:
-    cmp r8d, ecx
-    jae .found
-    mov r9d, edx
-    push rcx
-    lea ecx, [r8 * 8]
-    shr r9d, cl
-    pop rcx
-    cmp [rdi + r8], r9b
-    jne .next
-    inc r8d
-    jmp .cmp
-.next:
-    inc rdi
-    jmp .at
-.found:
-    add rdi, rcx
-    mov [r15 + P_CUR], rdi
-    ret
-.end:
-    mov [r15 + P_CUR], rsi
-    ret
-
 ; -----------------------------------------------------------------------------
-; svg_element — r15 = frame, rbx = the element's state, r13 = attributes,
-;   P_TAGEND = their end: reads attributes and style, then builds the shape
+; svg_element — r15 = frame, rbx = the element's state,
+;   P_XML = its tag: reads attributes and style, then builds the shape
 ; -----------------------------------------------------------------------------
 svg_element:
     push r12
@@ -611,74 +412,22 @@ svg_element:
     inc ecx
     cmp ecx, G_COUNT
     jb .zero_geom
-    mov r12, r13                        ; cursor
+    mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
 .attr:
-    mov rdi, r12
-    mov rsi, [r15 + P_TAGEND]
-.attr_ws:
-    cmp rdi, rsi
-    jae .attrs_done
-    cmp byte [rdi], ' '
-    ja .attr_name
-    inc rdi
-    jmp .attr_ws
-.attr_name:
-    mov [r15 + P_NAME], rdi
-.attr_name_scan:
-    cmp rdi, rsi
-    jae .attrs_done
-    movzx eax, byte [rdi]
-    cmp al, '='
-    je .attr_name_end
-    cmp al, ' '
-    jbe .attr_name_end
-    inc rdi
-    jmp .attr_name_scan
-.attr_name_end:
-    mov [r15 + P_NAME_END], rdi
-.attr_eq:
-    cmp rdi, rsi
-    jae .attrs_done
-    movzx eax, byte [rdi]
-    inc rdi
-    cmp al, '='
-    je .attr_quote
-    cmp al, ' '
-    jbe .attr_eq
-    jmp .attrs_done                     ; a name without a value: stop
-.attr_quote:
-    cmp rdi, rsi
-    jae .attrs_done
-    movzx ecx, byte [rdi]
-    inc rdi
-    cmp cl, '"'
-    je .attr_value
-    cmp cl, 39
-    je .attr_value
-    cmp cl, ' '
-    jbe .attr_quote
-    jmp .attrs_done
-.attr_value:
-    mov [r15 + P_VAL], rdi
-.attr_value_scan:
-    cmp rdi, rsi
-    jae .attrs_done
-    cmp [rdi], cl
-    je .attr_value_end
-    inc rdi
-    jmp .attr_value_scan
-.attr_value_end:
-    mov [r15 + P_VAL_END], rdi
-    lea r12, [rdi + 1]
+    lea rdi, [r15 + P_XML]
+    lea rsi, [r15 + P_ATTR]
+    call ugfx_svg_xml_attr
+    test eax, eax
+    jz .attrs_done
     ; dispatch
-    mov rdi, [r15 + P_NAME]
-    mov rsi, [r15 + P_NAME_END]
+    mov rdi, [r15 + P_ATTR + UgfxSvgAttr_name]
+    mov rsi, [r15 + P_ATTR + UgfxSvgAttr_name_end]
     lea rdx, [rel svg_attributes]
-    call svg_lookup
+    call ugfx_svg_lookup
     cmp eax, -1
     je .attr
-    mov rdi, [r15 + P_VAL]
-    mov rsi, [r15 + P_VAL_END]
+    mov rdi, [r15 + P_ATTR + UgfxSvgAttr_val]
+    mov rsi, [r15 + P_ATTR + UgfxSvgAttr_val_end]
     cmp eax, A_STYLE
     je .attr_style
     cmp eax, A_D
@@ -755,9 +504,9 @@ svg_element:
 .decl_value:
     mov rdi, r12
     mov rsi, r13
-    call svg_trim
+    call ugfx_svg_trim
     lea rdx, [rel svg_attributes]
-    call svg_lookup
+    call ugfx_svg_lookup
     lea r12, [r14 + 1]
     cmp eax, A_LAST_PROP
     ja .decl                            ; not a style property (or unknown)
@@ -949,7 +698,7 @@ svg_property:
     mov ecx, 5
     push rdi
     push rsi
-    call svg_trim
+    call ugfx_svg_trim
     mov rax, rsi
     sub rax, rdi
     cmp rax, 5
