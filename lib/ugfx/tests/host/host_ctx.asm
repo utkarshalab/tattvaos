@@ -28,6 +28,8 @@
 ;       expected x y size weight n colour x n: open the pack, look the
 ;       name up (exit 5 unless the index is `expected`; -2 = any), and
 ;       draw it onto the context (directly, also when recording)
+;    57 svg bytes <document, padded to 8> current_colour x y size: parse the
+;       document and draw it onto the context (exit 5 if parsing fails)
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 setup error, 4 write error,
 ;   5 a call returned an error, 6 unknown opcode.
 ; Development-machine tool only.
@@ -106,6 +108,8 @@ extern ugfx_list_init
 extern ugfx_uic_open
 extern ugfx_uic_find
 extern ugfx_uic_draw
+extern ugfx_svg_parse
+extern ugfx_svg_draw
 extern ugfx_list_replay
 
 %define SYS_WRITE   1
@@ -231,6 +235,8 @@ _start:
     jb .bad_op
     cmp rax, 56
     je .c_uic
+    cmp rax, 57
+    je .c_svg
     cmp rax, 55
     ja .bad_op
     sub rax, 30
@@ -501,6 +507,26 @@ _start:
     cvttsd2si r8, qword [r14 + 48]
     lea r14, [r14 + 56 + r8 * 8]
     jmp .next
+.c_svg:
+    cvttsd2si rcx, qword [r14]          ; bytes
+    lea rdx, [r14 + 8]
+    lea rax, [rcx + 7]
+    and rax, -8
+    lea r14, [rdx + rax]
+    lea rdi, [rel svg]
+    lea rsi, [rel arena_state]
+    call ugfx_svg_parse
+    test rax, rax
+    jnz .call_fail
+    lea rdi, [rel svg]
+    lea rsi, [rel ctx]
+    cvttsd2si rdx, qword [r14]          ; current colour
+    movsd xmm0, [r14 + 8]
+    movsd xmm1, [r14 + 16]
+    movsd xmm2, [r14 + 24]
+    add r14, 32
+    call ugfx_svg_draw
+    jmp .checked
 .c_fill_rect:
     mov rax, [rel fns + 6 * 8]   ; fill_rect
     jmp .ctx_rect
@@ -737,6 +763,8 @@ uic_bytes:      resq 1
 uic_name:       resq 1
 uic_name_len:   resq 1
 uic_colours:    resd 16
+alignb 16
+svg:            resb UgfxSvg_SIZE
 fns:            resq 32
 alignb 16
 path:           resb UgfxPath_SIZE
