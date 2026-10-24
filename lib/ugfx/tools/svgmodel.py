@@ -31,13 +31,16 @@ MAX_USES = 8                                        # <use> instances inside ins
 SHAPES = {"path", "rect", "circle", "ellipse", "line", "polyline", "polygon"}
 PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "fill-rule",
          "fill-opacity", "stroke-opacity", "opacity", "display", "font-size", "color", "visibility",
-         "stroke-dasharray", "stroke-dashoffset", "paint-order", "clip-path", "clip-rule", "mask"}
+         "stroke-dasharray", "stroke-dashoffset", "paint-order", "clip-path", "clip-rule", "mask",
+         "marker-start", "marker-mid", "marker-end", "marker"}
+MARKED = {"path", "line", "polyline", "polygon"}
 MAX_CLIPS = 4
 INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "stroke-linecap": ["cap"],
             "stroke-linejoin": ["join"], "stroke-miterlimit": ["miter"], "fill-rule": ["rule"],
             "fill-opacity": ["fill_op"], "stroke-opacity": ["stroke_op"], "font-size": ["font"],
             "color": ["color"], "visibility": ["hidden"], "stroke-dasharray": ["dash"],
-            "stroke-dashoffset": ["dash_off"], "paint-order": ["order"], "clip-rule": ["cliprule"]}
+            "stroke-dashoffset": ["dash_off"], "paint-order": ["order"], "clip-rule": ["cliprule"],
+            "marker-start": ["m0"], "marker-mid": ["m1"], "marker-end": ["m2"], "marker": ["m0", "m1", "m2"]}
 DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset", "clip-path", "mask")
 GEOM = ("x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "y1", "x2", "y2")
 AXIS = dict(x="x", y="y", width="x", height="y", rx="x", ry="y", cx="x", cy="y", r="d",
@@ -241,6 +244,107 @@ class Pattern:
     matrix: list = field(default_factory=lambda: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
     viewbox: object = None
     par: tuple = (5, 0)
+
+
+@dataclass
+class Marker:
+    items: list                                     # its content
+    units: int = 0                                  # 1 = userSpaceOnUse, 0 = strokeWidth
+    orient: int = 0                                 # 0 angle, 1 auto, 2 auto-start-reverse
+    clip: int = 1
+    angle: float = 0.0
+    ref: list = field(default_factory=lambda: [0.0, 0.0])
+    size: list = field(default_factory=lambda: [3.0, 3.0])
+    vbm: object = None                              # viewBox -> viewport, or None
+
+
+@dataclass
+class MarkerItem:
+    matrix: list                                    # marker space -> doc
+    marker: object
+
+
+def vertices(path):
+    """svg_vertices: [x, y, in, out, flags] per vertex."""
+    vs, cur, start, first, opened = [], [0.0, 0.0], [0.0, 0.0], 0, False
+
+    def nonzero(d):
+        return d[0] != 0.0 or d[1] != 0.0
+
+    def seg(ds, de, p):
+        nonlocal cur, start, first, opened
+        if not opened:
+            start = list(cur)
+            vs.append([cur[0], cur[1], 0.0, 0.0, 0])
+            first, opened = len(vs) - 1, True
+        last = vs[-1]
+        if not last[4] & 2:
+            last[3] = math.atan2(ds[1], ds[0])
+            last[4] |= 2
+        cur = [p[0], p[1]]
+        vs.append([p[0], p[1], math.atan2(de[1], de[0]), 0.0, 1])
+
+    for c in path:
+        op = c[0]
+        if op == 'move':
+            cur = [c[1], c[2]]
+            start = list(cur)
+            vs.append([c[1], c[2], 0.0, 0.0, 0])
+            first, opened = len(vs) - 1, True
+        elif op == 'line':
+            d = [c[1] - cur[0], c[2] - cur[1]]
+            seg(d, d, c[1:3])
+        elif op == 'quad':
+            ds = [c[1] - cur[0], c[2] - cur[1]]
+            if not nonzero(ds):
+                ds = [c[3] - cur[0], c[4] - cur[1]]
+            de = [c[3] - c[1], c[4] - c[2]]
+            if not nonzero(de):
+                de = [c[3] - cur[0], c[4] - cur[1]]
+            seg(ds, de, c[3:5])
+        elif op == 'cubic':
+            ds = [c[1] - cur[0], c[2] - cur[1]]
+            if not nonzero(ds):
+                ds = [c[3] - cur[0], c[4] - cur[1]]
+            if not nonzero(ds):
+                ds = [c[5] - cur[0], c[6] - cur[1]]
+            de = [c[5] - c[3], c[6] - c[4]]
+            if not nonzero(de):
+                de = [c[5] - c[1], c[6] - c[2]]
+            if not nonzero(de):
+                de = [c[5] - cur[0], c[6] - cur[1]]
+            seg(ds, de, c[5:7])
+        elif op == 'close':
+            if not opened:
+                continue
+            d = [start[0] - cur[0], start[1] - cur[1]]
+            if nonzero(d):
+                seg(d, d, list(start))
+            last, f = vs[-1], vs[first]
+            if f[4] & 2:
+                last[3] = f[3]
+                last[4] |= 2
+            if last is not f and last[4] & 1:
+                f[2] = last[2]
+                f[4] |= 1
+            opened = False
+            cur = list(start)
+    return vs
+
+
+def marker_angle(v):
+    if v[4] == 3:
+        d = v[3] - v[2]
+        if d > math.pi:
+            d = d - 2 * math.pi
+        elif -math.pi > d:
+            d = d + 2 * math.pi
+        return v[2] + d * 0.5
+    if v[4] == 1:
+        return v[2]
+    if v[4] == 2:
+        return v[3]
+    return 0.0
 
 
 @dataclass
@@ -1179,7 +1283,7 @@ def parse(text):
     default = dict(m=[1.0, 0, 0, 1.0, 0, 0], fill=("colour", 0xFF000000), stroke=("none", 0xFF000000),
                    fill_op=1.0, stroke_op=1.0, op=1.0, sw=1.0, miter=4.0, join=0, cap=0, rule=0, skip=False,
                    font=16.0, vw=300.0, vh=150.0, color=None, hidden=False, order=0, dash=None, dash_off=0.0,
-                   cliprule=0)
+                   cliprule=0, m0=None, m1=None, m2=None)
     seen_root = [False]
     clipmode = [0]                                  # 1: a clip's content (geometry only)
     compiling = [0]                                 # clipPaths / masks being compiled
@@ -1251,6 +1355,74 @@ def parse(text):
             if not rec.items:
                 rec.items = base.items
 
+    def marker_attrs(rec, el, st):
+        """svg_marker_attrs."""
+        raw, vb, mpar = ["0", "0", "3", "3"], None, (5, 0)
+        for name, value in el.attrib.items():
+            name = name.split('}')[-1]
+            if name in ("refX", "refY", "markerWidth", "markerHeight"):
+                raw[("refX", "refY", "markerWidth", "markerHeight").index(name)] = value
+            elif name == "markerUnits":
+                rec.units = int(trim(value) == "userSpaceOnUse")
+            elif name == "overflow":
+                rec.clip = int(trim(value) not in ("visible", "auto"))
+            elif name == "preserveAspectRatio":
+                mpar = par(value)
+            elif name == "orient":
+                t = trim(value)
+                if t in ("auto", "auto-start-reverse"):
+                    rec.orient = 1 if t == "auto" else 2
+                else:
+                    rec.orient = 0
+                    v, _ = number(t, 0)
+                    rec.angle = v * 0.017453292519943295 if v is not None else 0.0
+            elif name == "viewBox":
+                vals, i = [], 0
+                while len(vals) < 4:
+                    v, i = number(value, i)
+                    if v is None:
+                        break
+                    vals.append(v)
+                if len(vals) == 4:
+                    vb = vals if vals[2] > 0 and vals[3] > 0 else None
+        vals = []
+        for i, v in enumerate(raw):
+            val, _ = length(v, "x" if i % 2 == 0 else "y", st)
+            vals.append(val if val is not None else 0.0)
+        rec.ref, rec.size = vals[:2], vals[2:]
+        if vb and rec.size[0] > 0 and rec.size[1] > 0:
+            rec.vbm = fit(vb, rec.size[0], rec.size[1], mpar)
+            rec.ref = [rec.vbm[0] * rec.ref[0] + rec.vbm[4], rec.vbm[3] * rec.ref[1] + rec.vbm[5]]
+
+    def markers(tag, st, path, uses):
+        """svg_markers: marker items at the path's vertices."""
+        recs = []
+        for k in ("m0", "m1", "m2"):
+            v = st[k]
+            r = url_ref(v) if v else None
+            recs.append(compile_ref(r[0], "marker", st, uses) if r else None)
+        vs = vertices(path)
+        if not vs:
+            return
+        order = [(0, recs[0], True)] + [(i, recs[1], False) for i in range(1, len(vs) - 1)] + \
+            [(len(vs) - 1, recs[2], False)]
+        for i, rec, is_start in order:
+            if rec is None or not rec.items or not (rec.size[0] > 0 and rec.size[1] > 0):
+                continue
+            v = vs[i]
+            a = marker_angle(v)
+            if rec.orient == 0:
+                a = rec.angle
+            elif rec.orient == 2 and is_start:
+                a = a + math.pi
+            c, s = math.cos(a), math.sin(a)
+            k = st["sw"] if rec.units == 0 else 1.0
+            m = mul(st["m"], [1.0, 0.0, 0.0, 1.0, v[0], v[1]])
+            m = mul(m, [c, s, 0.0 - s, c, 0.0, 0.0])
+            m = mul(m, [k, 0.0, 0.0, k, 0.0, 0.0])
+            m = mul(m, [1.0, 0.0, 0.0, 1.0, 0.0 - rec.ref[0], 0.0 - rec.ref[1]])
+            doc.items.append(MarkerItem(m, rec))
+
     def clip_ref(raw, st, uses):
         return ref(raw, "clip-path", "clip", st, uses)
 
@@ -1259,7 +1431,7 @@ def parse(text):
 
     def compile_ref(cid, kind, st, uses):
         el = ids.get(cid)
-        want = {"clip": "clipPath", "mask": "mask", "pattern": "pattern"}[kind]
+        want = {"clip": "clipPath", "mask": "mask", "pattern": "pattern", "marker": "marker"}[kind]
         if compiling[0] >= MAX_CLIPS or el is None or el.tag.split('}')[-1] != want:
             return None
         compiling[0] += 1
@@ -1268,10 +1440,12 @@ def parse(text):
         saved_mode, clipmode[0] = clipmode[0], int(kind == "clip")
         walk(el, base, uses, kind)
         clipmode[0] = saved_mode
-        rec = {"clip": Clip, "mask": Mask, "pattern": Pattern}[kind](doc.items)
+        rec = {"clip": Clip, "mask": Mask, "pattern": Pattern, "marker": Marker}[kind](doc.items)
         doc.items = saved
         if kind == "pattern":
             pattern_attrs(rec, el, st, uses)
+        elif kind == "marker":
+            marker_attrs(rec, el, st)
         elif kind == "clip":
             for name, value in el.attrib.items():
                 name = name.split('}')[-1]
@@ -1331,6 +1505,16 @@ def parse(text):
             o = paint_order(value)
             if o is not None:
                 st["order"] = o
+        elif name in ("marker-start", "marker-mid", "marker-end", "marker"):
+            t = trim(value)
+            if t == "none":
+                v = None
+            elif t[:4].lower() == "url(":
+                v = t
+            else:
+                return
+            for k in INHERITS[name]:
+                st[k] = v
         elif name == "clip-rule":
             t = trim(value)
             if t in ("evenodd", "nonzero"):
@@ -1391,7 +1575,7 @@ def parse(text):
         st = dict(parent)
         symroot = tag == "symbol" and isinstance(inst, tuple)
         cliproot = (tag == "clipPath" and inst == "clip") or (tag == "mask" and inst == "mask") or \
-            (tag == "pattern" and inst == "pattern")
+            (tag == "pattern" and inst == "pattern") or (tag == "marker" and inst == "marker")
         if (takes_part(tag) or symroot or cliproot) and not conditions(el):
             return
         if tag in SKIP and not (symroot or cliproot):
@@ -1591,7 +1775,8 @@ def parse(text):
             return
         fill = st["fill"][0] != "none"
         stroke = st["stroke"][0] != "none" and st["sw"] > 0
-        if not (fill or stroke):
+        marked = tag in MARKED and not clipmode[0] and (st["m0"] or st["m1"] or st["m2"])
+        if not (fill or stroke or marked):
             return
         rec = clip_ref(raw, st, uses)
         mrec = mask_ref(raw, st, uses)
@@ -1611,9 +1796,14 @@ def parse(text):
             begin = Group("begin", int(own * 255.0 + 0.5) if group else 255, rec, list(st["m"]), mask=mrec)
             if rec or mrec:
                 begin.bbox = group_bbox(begin, [item])
-            doc.items += [begin, item, Group("end", begin.alpha, rec, mask=mrec, begin=begin)]
+            doc.items += [begin, item]
+            if marked:
+                markers(tag, st, path, uses)
+            doc.items.append(Group("end", begin.alpha, rec, mask=mrec, begin=begin))
         else:
             doc.items.append(item)
+            if marked:
+                markers(tag, st, path, uses)
 
     def geometry(tag, g):
         path = []
