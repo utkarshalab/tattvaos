@@ -159,7 +159,8 @@ extern panic_null_ptr
 %define UgfxRaster_open     64          ; u32 a contour is open
 %define UgfxRaster_error    68          ; u32 sticky -ENOMEM from cell growth
 %define UgfxRaster_clip     72          ; const UgfxMask* applied to every fill, or 0
-%define UgfxRaster_SIZE     80
+%define UgfxRaster_alpha    80          ; u32 0..255 multiplies every fill's coverage (255 at init)
+%define UgfxRaster_SIZE     88
 
 ; Coverage mask (caller-allocated, UgfxMask_SIZE bytes; ugfx_mask_init)
 %define UgfxMask_width      0           ; u64 pixels
@@ -249,6 +250,42 @@ extern panic_null_ptr
 %define UGFX_FILTER_NEAREST     0
 %define UGFX_FILTER_BILINEAR    1
 %define UGFX_GRADIENT_LUT       1024
+
+; Drawing context state (2d/context.asm; saved and restored as a whole)
+%define UgfxState_transform     0       ; f64[6] user -> device
+%define UgfxState_tolerance     48      ; f64 device pixels
+%define UgfxState_clip          56      ; const UgfxMask* or 0
+%define UgfxState_clip_owned    64      ; u32 the clip mask belongs to this depth
+%define UgfxState_rule          68      ; u32 UGFX_FILL_*
+%define UgfxState_alpha         72      ; u32 global alpha 0..255
+%define UgfxState_is_layer      76      ; u32 this depth was opened by begin_layer
+%define UgfxState_layer_alpha   80      ; u32 the layer's opacity
+%define UgfxState_target        88      ; PixBuf* drawn into
+%define UgfxState_fill_paint    96      ; UgfxPaint
+%define UgfxState_fill_matrix   256     ; f64[6] paint -> user (follows the paint)
+%define UgfxState_stroke_paint  304     ; UgfxPaint
+%define UgfxState_stroke_matrix 464     ; f64[6]
+%define UgfxState_stroke        512     ; UgfxStroke
+%define UgfxState_dash          536     ; UgfxDash (intervals 0: no dash)
+%define UgfxState_SIZE          560
+
+; Drawing context (caller-allocated, UgfxContext_SIZE bytes; ugfx_ctx_init)
+%define UgfxContext_arena       0
+%define UgfxContext_root        8       ; PixBuf* the context draws into
+%define UgfxContext_raster      16      ; UgfxRaster
+%define UgfxContext_path_a      104     ; scratch UgfxPaths (dashes, strokes, rects)
+%define UgfxContext_path_b      160
+%define UgfxContext_path_c      216
+%define UgfxContext_stack       272     ; UgfxState[UGFX_CTX_MAX_DEPTH]
+%define UgfxContext_masks       280     ; UgfxMask[UGFX_CTX_MAX_DEPTH + 2]: per depth + scratch
+%define UgfxContext_layers      288     ; PixBuf*[UGFX_CTX_MAX_DEPTH + 1]
+%define UgfxContext_depth       296     ; u32 saved states
+%define UgfxContext_tmp_paint   304     ; UgfxPaint
+%define UgfxContext_tmp_m       464     ; f64[6]
+%define UgfxContext_tmp_m2      512     ; f64[6]
+%define UgfxContext_state       560     ; UgfxState (the current one)
+%define UgfxContext_SIZE        1120
+%define UGFX_CTX_MAX_DEPTH      32
 
 ; Gradient colour stop (UgfxStop_SIZE bytes, an array of them per gradient)
 %define UgfxStop_offset         0       ; f64 position, clamped to [0, 1] and to the previous stop
