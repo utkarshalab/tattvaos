@@ -29,7 +29,7 @@ from raster_check import reference_coverage  # noqa: E402
 OPS = {'move': (0, 2), 'line': (1, 2), 'quad': (2, 4), 'cubic': (3, 6), 'close': (4, 0),
        'rect': (5, 4), 'rrect': (6, 5), 'rrect4': (7, 8), 'ellipse': (8, 4), 'circle': (9, 3),
        'arc': (10, 6), 'pie': (11, 6), 'ring': (12, 6), 'polygon': (13, None),
-       'star': (14, 6), 'transform': (15, 6)}
+       'star': (14, 6), 'transform': (15, 6), 'stroke': (16, 4)}
 SAMPLES = 256        # reference points per curve or full turn
 
 
