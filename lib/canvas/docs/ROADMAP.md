@@ -257,16 +257,18 @@
 
 ## G2D — 2D graphics engine
 
+Lives in `lib/ugfx`: `2d/` on the shared `core/` that 3D will also use. Math (vectors, matrices, fixed point, curve evaluation) comes from `lib/umath`.
+
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| G2D-01 | Primitives: fill, blit, line, circle, rect clip | P1 | ◐ `gfx/*` (line/circle simplified) |
-| G2D-02 | Region math with SIMD band operations | P3 | ◐ `gfx/region` |
-| G2D-03 | Vector paths: moves, lines, quadratic and cubic Béziers, arcs, fill rules | P2 | ◐ orphans `render/path_*`, `gfx/arc`, `polygon_fill` |
+| G2D-01 | Primitives: fill, blit, line, circle, rect clip | P1 | ◐ `ugfx/core`, `ugfx/2d` (line/circle simplified) |
+| G2D-02 | Region math with SIMD band operations | P3 | ◐ `ugfx/core/region` |
+| G2D-03 | Vector paths: moves, lines, quadratic and cubic Béziers, arcs, fill rules | P2 | ◐ orphans `render/path_*`, `ugfx/2d/arc`, `ugfx/2d/path`, `polygon_fill` |
 | G2D-04 | Strokes: width, joins, caps, dashes | P2 | ◐ orphan `render/strokes` |
 | G2D-05 | Gradients: linear, radial, conic | P2 | ◐ orphan `render/gradients` |
 | G2D-06 | Analytic coverage anti-aliasing; optional MSAA | P2 | |
 | G2D-07 | Filters: blur, shadow, color matrix, saturation | P3 | |
-| G2D-08 | Rounded rectangles and window shadows | P2 | ◐ orphan `gfx/rounded_rect` |
+| G2D-08 | Rounded rectangles and window shadows | P2 | ◐ unbuilt `ugfx/2d/rounded_rect` |
 | G2D-09 | Clip stacks and alpha masks | P2 | |
 | G2D-10 | Full Porter-Duff and separable blend modes | P3 | |
 | G2D-11 | Nine-patch / border-image drawing | P2 | |
