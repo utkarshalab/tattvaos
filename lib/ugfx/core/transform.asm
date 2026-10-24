@@ -2,9 +2,7 @@
 ; Transform — Rotate, Flip (90/180/270, horizontal/vertical)
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/canvas_client.inc"
+%include "ugfx.inc"
 
 extern blit_copy
 
