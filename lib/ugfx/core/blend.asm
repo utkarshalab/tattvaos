@@ -2,11 +2,7 @@
 ; Blend Operations — Porter-Duff Compositing, Alpha Blending
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
-%include "inc/errors.inc"
-%include "inc/fixed.inc"
-%include "inc/canvas_client.inc"
+%include "ugfx.inc"
 
 extern memcopy
 
