@@ -24,6 +24,10 @@
 ;    50 fill_rect x y w h   51 stroke_rect x y w h
 ;    52 draw_image x y w h iw ih colour x (iw * ih)
 ;    53 clear c   54 begin_layer a   55 end_layer
+;    56 uic bytes <pack, padded to 8> name_len <name, padded to 8> pixels
+;       expected x y size weight n colour x n: open the pack, look the
+;       name up (exit 5 unless the index is `expected`; -2 = any), and
+;       draw it onto the context (directly, also when recording)
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 setup error, 4 write error,
 ;   5 a call returned an error, 6 unknown opcode.
 ; Development-machine tool only.
@@ -99,6 +103,9 @@ extern ugfx_list_stroke_rect
 extern ugfx_list_transform
 extern ugfx_list_translate
 extern ugfx_list_init
+extern ugfx_uic_open
+extern ugfx_uic_find
+extern ugfx_uic_draw
 extern ugfx_list_replay
 
 %define SYS_WRITE   1
@@ -222,6 +229,8 @@ _start:
     jb .path_op
     cmp rax, 30
     jb .bad_op
+    cmp rax, 56
+    je .c_uic
     cmp rax, 55
     ja .bad_op
     sub rax, 30
@@ -432,6 +441,66 @@ _start:
     xor esi, esi
     call [rel fns + 12 * 8]   ; set_dash
     jmp .checked
+.c_uic:
+    cvttsd2si rcx, qword [r14]          ; pack bytes
+    lea rdx, [r14 + 8]                  ; pack
+    lea rax, [rcx + 7]
+    and rax, -8
+    lea r14, [rdx + rax]
+    mov [rel uic_pack], rdx
+    mov [rel uic_bytes], rcx
+    cvttsd2si rcx, qword [r14]          ; name length
+    lea rdx, [r14 + 8]
+    mov [rel uic_name], rdx
+    mov [rel uic_name_len], rcx
+    lea rax, [rcx + 7]
+    and rax, -8
+    lea r14, [rdx + rax]
+    lea rdi, [rel uic]
+    lea rsi, [rel arena_state]
+    mov rdx, [rel uic_pack]
+    mov rcx, [rel uic_bytes]
+    call ugfx_uic_open
+    test rax, rax
+    jnz .call_fail
+    lea rdi, [rel uic]
+    mov rsi, [rel uic_name]
+    mov edx, [rel uic_name_len]
+    cvttsd2si ecx, qword [r14]          ; pixels
+    call ugfx_uic_find
+    cvttsd2si rdx, qword [r14 + 8]      ; expected
+    cmp rdx, -2
+    je .uic_any
+    cmp rax, rdx
+    jne .call_fail
+.uic_any:
+    test rax, rax
+    js .uic_skip
+    mov esi, eax
+    cvttsd2si r8, qword [r14 + 48]      ; colours
+    lea rcx, [rel uic_colours]
+    xor edx, edx
+.uic_colour:
+    cmp rdx, r8
+    jae .uic_colours_done
+    cvttsd2si rax, qword [r14 + 56 + rdx * 8]
+    mov [rcx + rdx * 4], eax
+    inc rdx
+    jmp .uic_colour
+.uic_colours_done:
+    movsd xmm0, [r14 + 16]
+    movsd xmm1, [r14 + 24]
+    movsd xmm2, [r14 + 32]
+    movsd xmm3, [r14 + 40]
+    lea r14, [r14 + 56 + r8 * 8]
+    lea rdi, [rel uic]
+    lea rdx, [rel ctx]
+    call ugfx_uic_draw
+    jmp .checked
+.uic_skip:
+    cvttsd2si r8, qword [r14 + 48]
+    lea r14, [r14 + 56 + r8 * 8]
+    jmp .next
 .c_fill_rect:
     mov rax, [rel fns + 6 * 8]   ; fill_rect
     jmp .ctx_rect
@@ -661,6 +730,13 @@ ctx:            resb UgfxContext_SIZE
 alignb 16
 list:           resb UgfxList_SIZE
 obj:            resq 1
+alignb 16
+uic:            resb UgfxUic_SIZE
+uic_pack:       resq 1
+uic_bytes:      resq 1
+uic_name:       resq 1
+uic_name_len:   resq 1
+uic_colours:    resd 16
 fns:            resq 32
 alignb 16
 path:           resb UgfxPath_SIZE
