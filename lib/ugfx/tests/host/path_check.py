@@ -30,7 +30,7 @@ OPS = {'move': (0, 2), 'line': (1, 2), 'quad': (2, 4), 'cubic': (3, 6), 'close':
        'rect': (5, 4), 'rrect': (6, 5), 'rrect4': (7, 8), 'ellipse': (8, 4), 'circle': (9, 3),
        'arc': (10, 6), 'pie': (11, 6), 'ring': (12, 6), 'polygon': (13, None),
        'star': (14, 6), 'transform': (15, 6), 'stroke': (16, 4), 'dash': (17, None),
-       'flatten': (18, 0), 'length': (19, 2)}
+       'flatten': (18, 0), 'length': (19, 2), 'paint': (20, None), 'paint_transform': (21, 6)}
 SAMPLES = 256        # reference points per curve or full turn
 
 
@@ -44,6 +44,10 @@ def script(w, h, rule, cmds, matrix=None, tol=0.02, color=0xFFFFFFFF, bg=0):
         if name == 'polygon':
             pts = args[0]
             out += struct.pack("<d", len(pts)) + b"".join(struct.pack("<2d", *p) for p in pts)
+        elif name == 'paint':
+            kind, spread, geom, stops = args
+            out += struct.pack("<7d", kind, spread, *geom, len(stops))
+            out += b"".join(struct.pack("<2d", o, c) for o, c in stops)
         elif name == 'dash':
             offset, intervals = args
             out += struct.pack(f"<2d{len(intervals)}d", offset, len(intervals), *intervals)
