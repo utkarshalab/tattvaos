@@ -39,7 +39,8 @@ def premul(c):
 
 
 def expected_calls(doc, current, x, y, size):
-    out = [('save',), ('transform', *svgmodel.root_matrix(doc, x, y, size)), ('dash', 0, [])]
+    t = svgmodel.root_matrix(doc, x, y, size)
+    out = [('save',), ('transform', *t), ('dash', 0, [])]
 
     def paint(p):
         kind, c = p
@@ -49,7 +50,33 @@ def expected_calls(doc, current, x, y, size):
 
     for it in doc.items:
         if isinstance(it, svgmodel.Group):
-            out.append(('begin_layer', it.alpha) if it.kind == "begin" else ('end_layer',))
+            if it.kind == "begin":
+                if it.clip:
+                    out.append(('save',))
+                    rec = it.clip
+                    while rec:
+                        out += [('set_transform', *t), ('transform', *it.matrix)]
+                        clip_items = rec.items
+                        if rec.units:
+                            w, h = it.bbox[2] - it.bbox[0], it.bbox[3] - it.bbox[1]
+                            if w > 0 and h > 0:
+                                out.append(('transform', w, 0.0, 0.0, h, it.bbox[0], it.bbox[1]))
+                            else:
+                                clip_items = []
+                        out.append(('clip_begin',))
+                        for c in clip_items:
+                            out += [('save',), ('transform', *c.matrix), ('rule', c.rule), ('new_path',)] + \
+                                c.path + [('clip_add',), ('restore',)]
+                        out.append(('clip_end',))
+                        rec = rec.next
+                    out.append(('set_transform', *t))
+                if it.alpha < 255:
+                    out.append(('begin_layer', it.alpha))
+            else:
+                if it.alpha < 255:
+                    out.append(('end_layer',))
+                if it.clip:
+                    out.append(('restore',))
             continue
         out += [('save',), ('transform', *it.matrix)]
         fill, stroke = [], []
@@ -323,6 +350,34 @@ CASES = [
                         '<rect x="8" y="8" width="16" height="16" fill="#07e"/></svg><g opacity="0">'
                         '<rect width="24" height="24"/></g><g style="opacity:50%" stroke="#000" stroke-width="3">'
                         '<path d="M2 22L22 12" fill="none"/><path d="M2 12L22 22" fill="none"/></g>'), False),
+    ("clip path", svg('<defs><clipPath id="c"><circle cx="12" cy="12" r="9"/><rect x="2" y="2" width="6" height="6" '
+                      'transform="rotate(10 5 5)"/></clipPath></defs><g clip-path="url(#c)"><rect width="24" height="12" '
+                      'fill="#d33"/><rect y="12" width="24" height="12" fill="#33d"/></g>'
+                      '<rect x="16" y="16" width="8" height="8" fill="#0a0" clip-path="url(#c)" opacity=".7" '
+                      'stroke="#000"/>'), True),
+    ("clip rules", svg('<clipPath id="star" clip-rule="evenodd"><path d="M12 1L19 22L1 8H23L5 22Z"/></clipPath>'
+                       '<clipPath id="nz"><path d="M12 1L19 22L1 8H23L5 22Z" style="clip-rule:nonzero"/></clipPath>'
+                       '<rect width="12" height="24" fill="#f80" clip-path="url(#star)"/>'
+                       '<rect x="12" width="12" height="24" fill="#08f" clip-path="url(#nz)"/>'), False),
+    ("clip bbox units", svg('<clipPath id="o" clipPathUnits="objectBoundingBox"><circle cx=".5" cy=".5" r=".5"/>'
+                            '</clipPath><rect x="2" y="2" width="20" height="10" fill="#a0a" clip-path="url(#o)"/>'
+                            '<g clip-path="url(#o)" transform="translate(0 12)"><rect x="4" width="6" height="10" '
+                            'fill="#0aa"/><rect x="14" y="2" width="6" height="8" fill="#aa0"/></g>'
+                            '<g clip-path="url(#o)"><rect width="0" height="5"/></g>'), True),
+    ("clip chained", svg('<clipPath id="a"><rect x="2" y="2" width="14" height="20"/></clipPath>'
+                         '<clipPath id="b" clip-path="url(#a)"><circle cx="12" cy="12" r="10"/></clipPath>'
+                         '<clipPath id="self" clip-path="url(#self)"><rect width="24" height="4"/></clipPath>'
+                         '<rect width="24" height="24" fill="#5b5" clip-path="url(#b)"/>'
+                         '<rect y="20" width="24" height="4" fill="#b55" clip-path="url(#self)"/>'), True),
+    ("clip content", svg('<defs><path id="tri" d="M0 0L8 0L4 7Z"/></defs><clipPath id="u" transform="translate(2 2)">'
+                         '<use href="#tri"/><use href="#tri" x="10"/><rect x="0" y="12" width="20" height="4" '
+                         'display="none"/><rect x="0" y="12" width="20" height="4" visibility="hidden"/>'
+                         '<rect x="0" y="18" width="20" height="3" fill="none"/></clipPath>'
+                         '<rect width="24" height="24" fill="#333" clip-path="url(#u)"/>'
+                         '<rect width="4" height="4" fill="#f00" clip-path="url(#tri)"/>'
+                         '<rect x="20" width="4" height="4" fill="#0f0" clip-path="url(#nothing)"/>'
+                         '<rect x="20" y="20" width="4" height="4" fill="#00f" style="clip-path:none" '
+                         'clip-path="url(#u)"/>'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
