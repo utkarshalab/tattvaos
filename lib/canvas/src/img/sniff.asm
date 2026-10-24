@@ -282,7 +282,7 @@ image_sniff_chk_qoi:
     leave
     ret
 .not_dng:
-    cmp dword [rdi],0x62617266
+    cmp dword [rdi],0x62726166       ; "farb"
     jne image_sniff_not_farbfeld
     cmp dword [rdi+4],0x646C6566
     jne image_sniff_not_farbfeld
