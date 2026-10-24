@@ -608,7 +608,7 @@ DEFINE_STRUCT_OFFSET GpuDevice, enabled, 73
 %define GpuDevice.size 80
 %define GpuDevice_size 80
 
-; PixBuf — layout written by pixbuf_create (src/gfx/pixbuf.asm). "size" is
+; PixBuf — layout written by pixbuf_create (lib/ugfx/core/pixbuf.asm, see lib/ugfx/include/ugfx.inc). "size" is
 ; the pixel-data size field; PixBuf_SIZE is the whole object.
 DEFINE_STRUCT_OFFSET PixBuf, width, 0
 DEFINE_STRUCT_OFFSET PixBuf, height, 8
