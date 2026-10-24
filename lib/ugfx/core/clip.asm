@@ -2,8 +2,7 @@
 ; Clip — Rectangle Clipping Operations
 ; ============================================================================
 
-%include "inc/abi.inc"
-%include "inc/macros.inc"
+%include "ugfx.inc"
 
 ; struct offsets (hoisted above use)
 %define Rect_x1    0
