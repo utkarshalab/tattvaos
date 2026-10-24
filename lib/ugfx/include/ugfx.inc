@@ -333,7 +333,11 @@ extern panic_null_ptr
 %define UgfxSvgItem_fill_pm     160     ; f64[6] paint -> element space
 %define UgfxSvgItem_stroke_paint 208
 %define UgfxSvgItem_stroke_pm   216
-%define UgfxSvgItem_SIZE        264
+%define UgfxSvgItem_order       264     ; u32 1: stroke before fill (paint-order)
+%define UgfxSvgItem_dash        272     ; const f64* (even count), 0 = solid
+%define UgfxSvgItem_dash_n      280     ; u32
+%define UgfxSvgItem_dash_off    288     ; f64
+%define UgfxSvgItem_SIZE        296
 
 ; SVG reading state (2d/svg_xml.asm)
 %define UgfxSvgXml_cur          0       ; next byte to read
