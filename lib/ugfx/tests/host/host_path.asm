@@ -14,6 +14,7 @@
 ;    12 ring_sector cx cy r_outer r_inner start sweep
 ;    13 polygon n x0 y0 ... (n as f64)       14 star cx cy ro ri tips rotation
 ;    15 transform a b c d e f
+;    16 stroke width miter_limit join cap: the path becomes its stroke outline
 ;   The path is rasterized with the matrix (if any) and tolerance, filled
 ;   with the colour over the background, and written as BGRA.
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 raster error, 4 write error,
@@ -45,6 +46,8 @@ extern ugfx_path_add_pie
 extern ugfx_path_add_ring_sector
 extern ugfx_path_add_polygon
 extern ugfx_path_add_star
+extern ugfx_path_stroke
+extern ugfx_path_reset
 
 %define SYS_WRITE   1
 %define SYS_OPEN    2
@@ -73,6 +76,7 @@ op_table:
     dq ugfx_path_add_polygon, -1
     dq ugfx_path_add_star, -1
     dq ugfx_path_transform, -1
+    dq ugfx_path_stroke, -1
 OP_COUNT equ ($ - op_table) / 16
 
 section .text
@@ -143,6 +147,15 @@ _start:
     call ugfx_path_init
     test rax, rax
     jnz .raster_fail
+    lea rdi, [rel path2]
+    lea rsi, [rel arena_state]
+    call ugfx_path_init
+    test rax, rax
+    jnz .raster_fail
+    lea rax, [rel path]
+    mov [rel cur_path], rax
+    lea rax, [rel path2]
+    mov [rel other_path], rax
     ; commands
     mov r12, [rbx + 80]                 ; count
     lea r14, [rbx + 88]                 ; cursor
@@ -172,14 +185,17 @@ _start:
     movsd xmm4, [r14 + 32]
     movsd xmm5, [r14 + 40]
     lea r14, [r14 + rcx * 8]
-    lea rdi, [rel path]
+    mov rdi, [rel cur_path]
     call r15
     test rax, rax
     jnz .command_fail
     dec r12
     jmp .command
 .special:
-    lea rdi, [rel path]
+    mov rdi, [rel cur_path]
+    lea rax, [rel ugfx_path_stroke]
+    cmp r15, rax
+    je .sp_stroke
     lea rax, [rel ugfx_path_add_rounded_rect_radii]
     cmp r15, rax
     je .sp_radii
@@ -193,6 +209,31 @@ _start:
     mov rsi, r14
     add r14, 48
     call r15
+    dec r12
+    jmp .command
+.sp_stroke:
+    movsd xmm0, [r14]
+    movsd [rel stroke_style + UgfxStroke_width], xmm0
+    movsd xmm0, [r14 + 8]
+    movsd [rel stroke_style + UgfxStroke_miter_limit], xmm0
+    cvttsd2si eax, qword [r14 + 16]
+    mov [rel stroke_style + UgfxStroke_join], eax
+    cvttsd2si eax, qword [r14 + 24]
+    mov [rel stroke_style + UgfxStroke_cap], eax
+    add r14, 32
+    mov rdi, [rel other_path]
+    call ugfx_path_reset
+    mov rdi, [rel other_path]
+    mov rsi, [rel cur_path]
+    lea rdx, [rel stroke_style]
+    movsd xmm0, [rbx + 72]
+    call ugfx_path_stroke
+    test rax, rax
+    jnz .command_fail
+    mov rax, [rel cur_path]
+    mov rdx, [rel other_path]
+    mov [rel cur_path], rdx
+    mov [rel other_path], rax
     dec r12
     jmp .command
 .sp_radii:
@@ -232,7 +273,7 @@ _start:
     dec r12
     jmp .command
 .commands_done:
-    lea rdi, [rel path]
+    mov rdi, [rel cur_path]
     lea rsi, [rel raster]
     xor edx, edx
     cmp dword [rbx + 20], 0
@@ -328,5 +369,10 @@ pixbuf:         resq 1
 raster:         resb UgfxRaster_SIZE
 alignb 16
 path:           resb UgfxPath_SIZE
+alignb 16
+path2:          resb UgfxPath_SIZE
+cur_path:       resq 1
+other_path:     resq 1
+stroke_style:   resb UgfxStroke_SIZE
 alignb 4096
 arena_memory:   resb ARENA_BYTES
