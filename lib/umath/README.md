@@ -14,7 +14,7 @@ Part of the `lib/` category in Utkarsha OS.
 
 ## Status
 
-Nine modules have real, numerically-verified implementations (checked by
+Ten modules have real, numerically-verified implementations (checked by
 `tests/run_tests.sh`, see below):
 
 ```text
@@ -36,6 +36,8 @@ cpuid/    Tier 0    CPU feature detection + SSE2 fallbacks for every
                      faster instruction (umath runs on any x86-64 CPU)
 geom/     Tier 1    2D affine transforms, Bezier eval/tangent/split and
                      tolerance-based segment counts (f64; used by lib/ugfx)
+integer/  Tier 0-1  gcd/lcm/Bezout, isqrt/icbrt/ilog2/ilog10, mulmod/powmod/
+                     modinv/ipow, deterministic is_prime, factorial/binomial
 ```
 
 Every other directory listed below is scaffolded (created, named, given a
