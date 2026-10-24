@@ -48,6 +48,9 @@ def expected_calls(doc, current, x, y, size):
         return premul(c)
 
     for it in doc.items:
+        if isinstance(it, svgmodel.Group):
+            out.append(('begin_layer', it.alpha) if it.kind == "begin" else ('end_layer',))
+            continue
         out += [('save',), ('transform', *it.matrix)]
         fill, stroke = [], []
         if it.fill:
@@ -309,6 +312,17 @@ CASES = [
                            'viewBox="0 0 24 12" preserveAspectRatio="xMinYMax meet"'), False),
     ("root par slice", svg('<rect width="24" height="12" fill="#753"/><circle cx="12" cy="6" r="6" fill="#3af"/>',
                            'viewBox="0 0 24 12" width="10" height="20" preserveAspectRatio="xMaxYMin slice"'), False),
+    ("group opacity", svg('<g opacity=".5"><rect x="2" y="2" width="12" height="12" fill="#c00"/>'
+                          '<rect x="8" y="8" width="12" height="12" fill="#00c"/><g opacity=".6">'
+                          '<circle cx="18" cy="6" r="5" fill="#0a0"/><circle cx="20" cy="9" r="4" fill="#aa0"/></g></g>'
+                          '<rect x="2" y="16" width="8" height="6" fill="#0cc" stroke="#000" stroke-width="2" '
+                          'opacity=".5"/><rect x="13" y="16" width="8" height="6" fill="#c0c" opacity=".5"/>'
+                          '<use href="#u" x="1" y="1" opacity="0.4"/><g id="u" opacity="1">'
+                          '<circle cx="4" cy="20" r="2" fill="#000"/><circle cx="5" cy="21" r="2" fill="#fff"/></g>'), False),
+    ("opacity svg", svg('<svg opacity=".7" width="24" height="24"><rect width="16" height="16" fill="#e70"/>'
+                        '<rect x="8" y="8" width="16" height="16" fill="#07e"/></svg><g opacity="0">'
+                        '<rect width="24" height="24"/></g><g style="opacity:50%" stroke="#000" stroke-width="3">'
+                        '<path d="M2 22L22 12" fill="none"/><path d="M2 12L22 22" fill="none"/></g>'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
