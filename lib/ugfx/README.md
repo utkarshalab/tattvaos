@@ -30,7 +30,7 @@ lib/ugfx/
 │   ├── scale.asm         ← nearest and bilinear scaling
 │   ├── transform.asm     ← 90/180/270 rotation and flips
 │   ├── raster.asm        ← anti-aliased area-coverage rasterizer (nonzero, even-odd)
-│   └── span.asm          ← span compositor: coverage rows into pixels (src-over)
+│   └── span.asm          ← span compositor: coverage rows into pixels (src-over), one colour or per pixel
 └── 2d/                   ← 2D shapes and paths
     ├── line.asm          ← line segments
     ├── circle.asm        ← circles and ellipses
@@ -39,7 +39,8 @@ lib/ugfx/
     ├── shapes.asm        ← rect, rounded rect, ellipse, circle, arc, pie, ring sector, polygon, star
     ├── stroke.asm        ← stroke outlines: width, miter/round/bevel joins, butt/round/square caps
     ├── flatten.asm       ← curves to polylines; path length
-    └── dash.asm          ← dash patterns along lines and curves
+    ├── dash.asm          ← dash patterns along lines and curves
+    └── paint.asm         ← paints: solid, linear, radial and conic gradients
 ```
 
 ## 2. Planned
@@ -47,7 +48,7 @@ lib/ugfx/
 | Area | Contents |
 |---|---|
 | `core/` | Clip masks and more span operations (gradients, images) for the span compositor; draw-command lists for CPU and GPU backends |
-| `2d/` | Device hairlines, gradients, patterns, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
+| `2d/` | Device hairlines, focal radial gradients, image patterns, and the rest of [`docs/COMPONENTS.md`](docs/COMPONENTS.md) |
 | `3d/` | Meshes, vertex transform, clipping, triangle setup, depth test, shading, textures |
 | `backend/` | CPU (scalar and SIMD) now; GPU later through Canvas's command rings |
 | `tests/` | Host-run tests against a reference renderer and golden images |
@@ -123,7 +124,38 @@ arc-length reference stroked with the same pieces as `stroke_check.py`;
 invalid patterns; flattened fills against the originals; lengths of
 lines, polygons, circles and curves.
 
-## 6. Using it
+## 6. Paint
+
+`ugfx_raster_fill_paint(raster, pixbuf, paint, rule)` fills like
+`ugfx_raster_fill` with a `UgfxPaint` under the coverage: the sweep calls
+the paint's own span function, which colours each visible run in chunks
+and blends it with `ugfx_span_blend_colors` (one colour per pixel, the
+same source-over rounding as solid fills).
+
+| Constructor | Paint |
+|---|---|
+| `ugfx_paint_solid(paint, colour)` | one premultiplied colour |
+| `ugfx_paint_linear(paint, arena, stops, n, spread, x0, y0, x1, y1)` | t along p0 → p1 |
+| `ugfx_paint_radial(paint, arena, stops, n, spread, cx, cy, r)` | t = distance / r |
+| `ugfx_paint_conic(paint, arena, stops, n, cx, cy, start)` | t = angle in turns from `start` |
+| `ugfx_paint_set_transform(paint, m)` | paint space → device space (ellipses, rotation, skew) |
+
+Stops are `UgfxStop` (position, straight BGRA colour). Positions are
+clamped to [0, 1] and to the previous stop, so equal positions give hard
+edges; before the first and after the last stop the end colours continue.
+Colours are interpolated premultiplied into a 1024-entry table per
+gradient. Spread: pad, repeat, reflect. Each pixel centre goes back to
+paint space through the inverse transform (`umath_affine2_invert`); the
+conic angle comes from `umath_atan2_f64`, fractions from
+`umath_floor_f64_fractional`.
+
+Tests: `tests/host/paint_check.py` - 30 gradient cases (every kind and
+spread, transparent and translucent stops, hard edges, unordered and
+out-of-range positions, a single stop, transformed, elliptical and skewed
+paints, anti-aliased shapes over a background, random) compared with a
+reference built the same way, bit-exact; and invalid paints.
+
+## 7. Using it
 
 Assemble with `-I lib/ugfx/include/` and include `ugfx.inc`. Functions follow
 the System V register order and return negative error codes. Allocating
