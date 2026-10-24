@@ -97,7 +97,14 @@ extern ugfx_ctx_stroke
 %define S_FONT          160             ; f64 font-size (user units) for em / ex
 %define S_VW            168             ; f64 the viewport, for percentages
 %define S_VH            176
-%define S_SIZE          184
+%define S_COLOR_SET     184             ; u32 the color property was given
+%define S_COLOR         188             ; u32 straight BGRA, for currentColor
+%define S_HIDDEN        192             ; u32 visibility hidden / collapse
+%define S_ORDER         196             ; u32 1: stroke before fill
+%define S_DASH          200             ; f64* (even count) or 0
+%define S_DASH_N        208             ; u32, 0 = solid
+%define S_DASH_OFF      216             ; f64
+%define S_SIZE          224
 
 ; elements
 %define E_GROUP         0
@@ -143,7 +150,12 @@ extern ugfx_ctx_stroke
 %define A_OPACITY       10
 %define A_DISPLAY       11
 %define A_FONT_SIZE     12
-%define A_LAST_PROP     12              ; ids up to here are style properties too
+%define A_COLOR         13
+%define A_VISIBILITY    14
+%define A_DASHARRAY     15
+%define A_DASHOFFSET    16
+%define A_PAINT_ORDER   17
+%define A_LAST_PROP     17              ; ids up to here are style properties too
 %define A_TRANSFORM     40
 %define A_STYLE         41
 %define A_D             42
@@ -198,7 +210,11 @@ extern ugfx_ctx_stroke
 %define P_FONT_RAW_END  (P_FONT_RAW + 8)
 %define P_SW_RAW        (P_FONT_RAW + 16)               ; stroke-width as written
 %define P_SW_RAW_END    (P_FONT_RAW + 24)
-%define P_SIZE          (((P_FONT_RAW + 32 + 15) & ~15) + 8)
+%define P_DASH_RAW      (P_FONT_RAW + 32)               ; stroke-dasharray as written
+%define P_DASH_RAW_END  (P_FONT_RAW + 40)
+%define P_DOFF_RAW      (P_FONT_RAW + 48)               ; stroke-dashoffset as written
+%define P_DOFF_RAW_END  (P_FONT_RAW + 56)
+%define P_SIZE          (((P_FONT_RAW + 64 + 15) & ~15) + 8)
 
 section .rodata
 align 8
@@ -269,6 +285,11 @@ svg_attributes:
     NAME "opacity", A_OPACITY
     NAME "display", A_DISPLAY
     NAME "font-size", A_FONT_SIZE
+    NAME "color", A_COLOR
+    NAME "visibility", A_VISIBILITY
+    NAME "stroke-dasharray", A_DASHARRAY
+    NAME "stroke-dashoffset", A_DASHOFFSET
+    NAME "paint-order", A_PAINT_ORDER
     NAME "transform", A_TRANSFORM
     NAME "style", A_STYLE
     NAME "d", A_D
@@ -303,6 +324,41 @@ svg_font_words:
     NAME "larger", 8
     NAME "smaller", 9
     db 0
+; what inherit copies from the parent: id, state offset (u16), bytes
+%macro INHERITS 3
+    db %1
+    dw %2
+    db %3
+%endmacro
+svg_inherit_fields:
+    INHERITS A_FILL, S_FILL_KIND, 8
+    INHERITS A_FILL, S_FILL_ID, 16
+    INHERITS A_FILL, S_FILL_FB, 4
+    INHERITS A_STROKE, S_STROKE_KIND, 8
+    INHERITS A_STROKE, S_STROKE_ID, 16
+    INHERITS A_STROKE, S_STROKE_FB, 4
+    INHERITS A_SW, S_SW, 8
+    INHERITS A_CAP, S_CAP, 4
+    INHERITS A_JOIN, S_JOIN, 4
+    INHERITS A_MITER, S_MITER, 8
+    INHERITS A_RULE, S_RULE, 4
+    INHERITS A_FILL_OP, S_FILL_OP, 8
+    INHERITS A_STROKE_OP, S_STROKE_OP, 8
+    INHERITS A_FONT_SIZE, S_FONT, 8
+    INHERITS A_COLOR, S_COLOR_SET, 8
+    INHERITS A_VISIBILITY, S_HIDDEN, 4
+    INHERITS A_DASHARRAY, S_DASH, 16
+    INHERITS A_DASHOFFSET, S_DASH_OFF, 8
+    INHERITS A_PAINT_ORDER, S_ORDER, 4
+    db 0
+svg_word_inherit:   db "inherit"
+svg_word_visible:   db "visible"
+svg_word_hidden:    db "hidden"
+svg_word_collapse:  db "collapse"
+svg_word_normal:    db "normal"
+svg_word_fill:      db "fill"
+svg_word_stroke:    db "stroke"
+svg_word_markers:   db "markers"
 svg_word_none:      db "none"
 svg_word_butt:      db "butt"
 svg_word_round:     db "round"
@@ -408,6 +464,13 @@ ugfx_svg_parse:
     movsd [rbx + S_VW], xmm0
     movsd xmm0, [rel svg_default_h]
     movsd [rbx + S_VH], xmm0
+    xor eax, eax
+    mov [rbx + S_COLOR_SET], eax
+    mov [rbx + S_HIDDEN], eax
+    mov [rbx + S_ORDER], eax
+    mov [rbx + S_DASH], rax
+    mov [rbx + S_DASH_N], eax
+    mov [rbx + S_DASH_OFF], rax
     ; gradients first: url(#id) may name one defined further on
     lea rdi, [r15 + P_DEFS]
     mov rax, [r15 + P_SVG]
@@ -557,6 +620,8 @@ svg_element:
     mov dword [r15 + P_GRAW], 0
     mov qword [r15 + P_FONT_RAW], 0
     mov qword [r15 + P_SW_RAW], 0
+    mov qword [r15 + P_DASH_RAW], 0
+    mov qword [r15 + P_DOFF_RAW], 0
     mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
 .attr:
     lea rdi, [r15 + P_XML]
@@ -977,6 +1042,13 @@ svg_property:
     push r13
     sub rsp, 8
     mov r12d, eax
+    push rdi
+    push rsi
+    IS_WORD inherit
+    pop rsi
+    pop rdi
+    je .inherit
+    mov eax, r12d
     cmp eax, A_FILL
     je .paint
     cmp eax, A_STROKE
@@ -995,6 +1067,16 @@ svg_property:
     je .display
     cmp eax, A_FONT_SIZE
     je .font_size
+    cmp eax, A_COLOR
+    je .color
+    cmp eax, A_VISIBILITY
+    je .visibility
+    cmp eax, A_DASHARRAY
+    je .dasharray
+    cmp eax, A_DASHOFFSET
+    je .dashoffset
+    cmp eax, A_PAINT_ORDER
+    je .paint_order
     ; opacities: a number (or a percentage), clamped to [0, 1]
     mov r13, rsi
     call ugfx_svg_number
@@ -1090,6 +1172,43 @@ svg_property:
     mov [r15 + P_FONT_RAW], rdi
     mov [r15 + P_FONT_RAW_END], rsi
     jmp .out
+.dasharray:
+    mov [r15 + P_DASH_RAW], rdi
+    mov [r15 + P_DASH_RAW_END], rsi
+    jmp .out
+.dashoffset:
+    mov [r15 + P_DOFF_RAW], rdi
+    mov [r15 + P_DOFF_RAW_END], rsi
+    jmp .out
+.color:
+    call ugfx_svg_colour                ; a colour; currentColor keeps the parent's
+    cmp eax, 1
+    jne .out
+    mov dword [rbx + S_COLOR_SET], 1
+    mov [rbx + S_COLOR], edx
+    jmp .out
+.visibility:
+    IS_WORD visible
+    mov eax, 0
+    je .visibility_set
+    IS_WORD hidden
+    mov eax, 1
+    je .visibility_set
+    IS_WORD collapse
+    mov eax, 1
+    jne .out
+.visibility_set:
+    mov [rbx + S_HIDDEN], eax
+    jmp .out
+.paint_order:
+    call svg_paint_order
+    test eax, eax
+    js .out
+    mov [rbx + S_ORDER], eax
+    jmp .out
+.inherit:
+    call svg_inherit
+    jmp .out
 .miter:
     call ugfx_svg_number
     test rax, rax
@@ -1159,6 +1278,256 @@ svg_property:
     pop r12
     ret
 
+; r12d = A_* given as inherit, rbx = state (its parent just below it), r15 =
+;   frame: the parent's value, and nothing pending from earlier declarations
+svg_inherit:
+    lea rsi, [rel svg_inherit_fields]
+.field:
+    movzx eax, byte [rsi]
+    test eax, eax
+    jz .pending
+    cmp eax, r12d
+    jne .next
+    movzx ecx, word [rsi + 1]
+    movzx edx, byte [rsi + 3]
+    lea rdi, [rbx + rcx]
+    lea r8, [rbx + rcx - S_SIZE]
+.copy:
+    mov al, [r8]
+    mov [rdi], al
+    inc r8
+    inc rdi
+    dec edx
+    jnz .copy
+.next:
+    add rsi, 4
+    jmp .field
+.pending:
+    cmp r12d, A_SW
+    jne .not_sw
+    mov qword [r15 + P_SW_RAW], 0
+.not_sw:
+    cmp r12d, A_FONT_SIZE
+    jne .not_font
+    mov qword [r15 + P_FONT_RAW], 0
+.not_font:
+    cmp r12d, A_DASHARRAY
+    jne .not_dash
+    mov qword [r15 + P_DASH_RAW], 0
+.not_dash:
+    cmp r12d, A_DASHOFFSET
+    jne .not_doff
+    mov qword [r15 + P_DOFF_RAW], 0
+.not_doff:
+    cmp r12d, A_OPACITY
+    jne .done
+    movsd xmm0, [rel svg_one]           ; not inherited: the initial value
+    movsd [r15 + P_OPACITY], xmm0
+.done:
+    ret
+
+; rdi / rsi = paint-order -> eax = 1 when stroke comes before fill, 0
+;   otherwise, -1 for an invalid value (normal, or fill / stroke / markers
+;   in some order)
+svg_paint_order:
+    push r12
+    push r13
+    push r14
+    call ugfx_svg_trim
+    mov r12, rdi
+    mov r13, rsi
+    lea rdx, [rel svg_word_normal]
+    mov ecx, 6
+    call svg_word
+    mov eax, 0
+    je .out
+    mov r14d, -1
+.token:
+    cmp r12, r13
+    jae .end
+    cmp byte [r12], ' '
+    ja .word
+    inc r12
+    jmp .token
+.word:
+    mov rdi, r12
+.word_end:
+    cmp rdi, r13
+    jae .have_word
+    cmp byte [rdi], ' '
+    jbe .have_word
+    inc rdi
+    jmp .word_end
+.have_word:
+    mov rsi, rdi
+    mov rdi, r12
+    mov r12, rsi
+    push rdi
+    push rsi
+    lea rdx, [rel svg_word_fill]
+    mov ecx, 4
+    call svg_word
+    pop rsi
+    pop rdi
+    mov eax, 0
+    je .first
+    push rdi
+    push rsi
+    lea rdx, [rel svg_word_stroke]
+    mov ecx, 6
+    call svg_word
+    pop rsi
+    pop rdi
+    mov eax, 1
+    je .first
+    lea rdx, [rel svg_word_markers]
+    mov ecx, 7
+    call svg_word
+    je .token
+    mov eax, -1
+    jmp .out
+.first:
+    test r14d, r14d
+    jns .token
+    mov r14d, eax
+    jmp .token
+.end:
+    xor eax, eax
+    test r14d, r14d
+    js .out
+    mov eax, r14d
+.out:
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; rdi / rsi = a dash list, rdx = where the values go (0: only count them),
+;   rbx = state -> eax = count (-1: invalid: a negative value or something
+;   that is not a length), xmm0 = their sum
+svg_dash_pass:
+    push r12
+    push r13
+    push r14
+    sub rsp, 16
+    mov r12, rdi
+    mov r13, rsi
+    mov r14, rdx
+    mov dword [rsp], 0
+    xorpd xmm0, xmm0
+    movsd [rsp + 8], xmm0
+.value:
+    mov rdi, r12
+    mov rsi, r13
+    mov edx, AX_D
+    call svg_length
+    test rax, rax
+    jz .tail
+    xorpd xmm1, xmm1
+    ucomisd xmm0, xmm1
+    jb .invalid
+    mov r12, rax
+    mov ecx, [rsp]
+    test r14, r14
+    jz .counted
+    movsd [r14 + rcx * 8], xmm0
+.counted:
+    inc dword [rsp]
+    movsd xmm1, [rsp + 8]
+    addsd xmm1, xmm0
+    movsd [rsp + 8], xmm1
+    jmp .value
+.tail:
+    cmp r12, r13                        ; only separators may follow
+    jae .ok
+    movzx eax, byte [r12]
+    inc r12
+    cmp al, ','
+    je .tail
+    cmp al, ' '
+    je .tail
+    cmp al, 9
+    je .tail
+    cmp al, 10
+    je .tail
+    cmp al, 13
+    je .tail
+.invalid:
+    mov eax, -1
+    jmp .out
+.ok:
+    mov eax, [rsp]
+    movsd xmm0, [rsp + 8]
+.out:
+    add rsp, 16
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; rdi / rsi = stroke-dasharray (trimmed, not none), rbx = state, r15 =
+;   frame: S_DASH / S_DASH_N, an odd list repeated to make it even; solid
+;   when it is invalid or adds up to 0
+svg_dash_list:
+    push r12
+    push r13
+    push r14
+    mov r12, rdi
+    mov r13, rsi
+    xor edx, edx
+    call svg_dash_pass
+    test eax, eax
+    jle .none
+    xorpd xmm1, xmm1
+    ucomisd xmm0, xmm1
+    jbe .none
+    mov r14d, eax
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    mov esi, r14d
+    shl esi, 4                          ; room for the list twice
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov [rbx + S_DASH], rax
+    mov rdi, r12
+    mov rsi, r13
+    mov rdx, rax
+    call svg_dash_pass
+    mov eax, r14d
+    test eax, 1
+    jz .even
+    mov rsi, [rbx + S_DASH]
+    lea rdi, [rsi + r14 * 8]
+    mov ecx, r14d
+    shl ecx, 3
+    rep movsb
+    lea eax, [r14 + r14]
+.even:
+    mov [rbx + S_DASH_N], eax
+    jmp .out
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.none:
+    mov dword [rbx + S_DASH_N], 0
+.out:
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; eax = paint kind, edx = colour, rbx = state -> currentColor becomes the
+;   color property's colour where one was given
+svg_current:
+    cmp eax, 2
+    jne .done
+    cmp dword [rbx + S_COLOR_SET], 0
+    je .done
+    mov eax, 1
+    mov edx, [rbx + S_COLOR]
+.done:
+    ret
+
 ; -----------------------------------------------------------------------------
 ; svg_lengths — r15 = frame, rbx = state, attributes and styles read: the
 ;   lengths written with units, in order: font-size (em and % of the
@@ -1177,16 +1546,42 @@ svg_lengths:
 .stroke_width:
     mov rdi, [r15 + P_SW_RAW]
     test rdi, rdi
-    jz .geometry
+    jz .dashes
     mov rsi, [r15 + P_SW_RAW_END]
     mov edx, AX_D
     call svg_length
     test rax, rax
-    jz .geometry
+    jz .dashes
     xorpd xmm1, xmm1
     ucomisd xmm0, xmm1
-    jb .geometry                        ; negative: ignored
+    jb .dashes                          ; negative: ignored
     movsd [rbx + S_SW], xmm0
+.dashes:
+    mov rdi, [r15 + P_DASH_RAW]
+    test rdi, rdi
+    jz .dash_offset
+    mov rsi, [r15 + P_DASH_RAW_END]
+    call ugfx_svg_trim
+    push rdi
+    push rsi
+    IS_WORD none
+    pop rsi
+    pop rdi
+    jne .dash_list
+    mov dword [rbx + S_DASH_N], 0
+    jmp .dash_offset
+.dash_list:
+    call svg_dash_list
+.dash_offset:
+    mov rdi, [r15 + P_DOFF_RAW]
+    test rdi, rdi
+    jz .geometry
+    mov rsi, [r15 + P_DOFF_RAW_END]
+    mov edx, AX_D
+    call svg_length
+    test rax, rax
+    jz .geometry
+    movsd [rbx + S_DASH_OFF], xmm0
 .geometry:
     xor r12d, r12d
 .slot:
@@ -1381,6 +1776,8 @@ svg_shape:
     push r12
     push r13
     push r14
+    cmp dword [rbx + S_HIDDEN], 0
+    jne .shape_out                      ; visibility hidden: nothing of its own
     ; paints that draw
     xor r13d, r13d
     cmp dword [rbx + S_FILL_KIND], 0
@@ -1456,6 +1853,7 @@ svg_shape:
     xor ecx, ecx
     call svg_resolve
 .fill_kind:
+    call svg_current
     mov [r12 + UgfxSvgItem_fill_kind], eax
     mov edi, edx
     movsd xmm0, [rbx + S_FILL_OP]
@@ -1471,6 +1869,7 @@ svg_shape:
     mov ecx, 1
     call svg_resolve
 .stroke_kind:
+    call svg_current
     mov [r12 + UgfxSvgItem_stroke_kind], eax
     mov edi, edx
     movsd xmm0, [rbx + S_STROKE_OP]
@@ -1486,6 +1885,14 @@ svg_shape:
     movsd [r12 + UgfxSvgItem_width], xmm0
     movsd xmm0, [rbx + S_MITER]
     movsd [r12 + UgfxSvgItem_miter], xmm0
+    mov eax, [rbx + S_ORDER]
+    mov [r12 + UgfxSvgItem_order], eax
+    mov rax, [rbx + S_DASH]
+    mov [r12 + UgfxSvgItem_dash], rax
+    mov eax, [rbx + S_DASH_N]
+    mov [r12 + UgfxSvgItem_dash_n], eax
+    movsd xmm0, [rbx + S_DASH_OFF]
+    movsd [r12 + UgfxSvgItem_dash_off], xmm0
     inc dword [r14 + UgfxSvg_count]
     jmp .shape_out
 .nomem:
@@ -1955,7 +2362,8 @@ svg_rounded_rect:
 %define V_STYLE     40                  ; UgfxStroke
 %define V_TMP       64                  ; f64[3]
 %define V_ALPHA     88                  ; u32 the context's alpha on entry
-%define V_SIZE      104
+%define V_DASH      104                 ; UgfxDash
+%define V_SIZE      136
 
 global ugfx_svg_draw
 ugfx_svg_draw:
@@ -2067,9 +2475,19 @@ ugfx_svg_draw:
     mov rdi, r13
     lea rsi, [r12 + UgfxSvgItem_matrix]
     call ugfx_ctx_transform
+    ; fill then stroke, or the other way round (paint-order)
+    xor r15d, r15d
+.pass:
+    cmp r15d, 2
+    jae .item_done
+    mov eax, r15d
+    xor eax, [r12 + UgfxSvgItem_order]
+    inc r15d
+    test eax, eax
+    jnz .stroke
     mov eax, [r12 + UgfxSvgItem_fill_kind]
     test eax, eax
-    jz .no_fill
+    jz .pass
     cmp eax, 3
     jne .fill_colour
     mov rdi, r13
@@ -2080,6 +2498,9 @@ ugfx_svg_draw:
     call .paint_alpha
     jmp .fill_rule
 .fill_colour:
+    mov edi, 0xFF000000
+    call .paint_alpha                   ; back to the entry alpha
+    mov eax, [r12 + UgfxSvgItem_fill_kind]
     mov edi, [r12 + UgfxSvgItem_fill]
     call .paint_colour
     mov rdi, r13
@@ -2094,10 +2515,11 @@ ugfx_svg_draw:
     call ugfx_ctx_fill
     test rax, rax
     jnz .item_fail
-.no_fill:
+    jmp .pass
+.stroke:
     mov eax, [r12 + UgfxSvgItem_stroke_kind]
     test eax, eax
-    jz .item_done
+    jz .pass
     cmp eax, 3
     jne .stroke_colour
     mov rdi, r13
@@ -2128,11 +2550,24 @@ ugfx_svg_draw:
     mov rdi, r13
     lea rsi, [rsp + V_STYLE]
     call ugfx_ctx_set_stroke_style
+    cmp dword [r12 + UgfxSvgItem_dash_n], 0
+    je .solid
+    mov rax, [r12 + UgfxSvgItem_dash]
+    mov [rsp + V_DASH + UgfxDash_intervals], rax
+    mov eax, [r12 + UgfxSvgItem_dash_n]
+    mov [rsp + V_DASH + UgfxDash_count], eax
+    movsd xmm0, [r12 + UgfxSvgItem_dash_off]
+    movsd [rsp + V_DASH + UgfxDash_offset], xmm0
+    mov rdi, r13
+    lea rsi, [rsp + V_DASH]
+    call ugfx_ctx_set_dash
+.solid:
     mov rdi, r13
     lea rsi, [r12 + UgfxSvgItem_path]
     call ugfx_ctx_stroke
     test rax, rax
     jnz .item_fail
+    jmp .pass
 .item_done:
     mov rdi, r13
     call ugfx_ctx_restore
