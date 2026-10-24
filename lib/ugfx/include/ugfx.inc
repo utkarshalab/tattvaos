@@ -267,7 +267,8 @@ extern panic_null_ptr
 %define UgfxState_stroke_matrix 464     ; f64[6]
 %define UgfxState_stroke        512     ; UgfxStroke
 %define UgfxState_dash          536     ; UgfxDash (intervals 0: no dash)
-%define UgfxState_SIZE          560
+%define UgfxState_mask          560     ; const UgfxMask* a layer composites through (end_mask)
+%define UgfxState_SIZE          568
 
 ; Drawing context (caller-allocated, UgfxContext_SIZE bytes; ugfx_ctx_init)
 %define UgfxContext_arena       0
@@ -284,8 +285,12 @@ extern panic_null_ptr
 %define UgfxContext_tmp_m       464     ; f64[6]
 %define UgfxContext_tmp_m2      512     ; f64[6]
 %define UgfxContext_state       560     ; UgfxState (the current one)
-%define UgfxContext_union       1120    ; u32 a union clip is being built (clip_begin .. clip_end)
-%define UgfxContext_SIZE        1128
+%define UgfxContext_union       1128    ; u32 a union clip is being built (clip_begin .. clip_end)
+%define UgfxContext_lmasks      1136    ; UgfxMask[UGFX_CTX_MAX_DEPTH + 1]: layer masks, per depth
+%define UgfxContext_SIZE        1144
+; ugfx_ctx_end_mask modes
+%define UGFX_MASK_LUMINANCE     0
+%define UGFX_MASK_ALPHA         1
 %define UGFX_CTX_MAX_DEPTH      32
 
 ; Display list (caller-allocated, UgfxList_SIZE bytes; 2d/list.asm)
