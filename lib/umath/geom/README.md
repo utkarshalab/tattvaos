@@ -17,8 +17,8 @@ own and calls these instead.
 | File | Contents |
 |---|---|
 | `affine2.asm` | 2×3 affine transforms `{a, b, c, d, e, f}`: identity, translate, scale, rotate, skew, multiply (`m1 * m2` applies `m2` first), determinant, invert (fails cleanly on singular or non-finite input), apply to a point, a vector or an array of points |
-| `arc.asm` | Elliptical arcs: the point at an angle, and an arc as up to four cubics (handles `4/3 tan(θ/4)`, within 0.03% of the ellipse) |
-| `bezier.asm` | Quadratic and cubic Beziers: evaluate, tangent, de Casteljau split, and the segment count that keeps a polyline within a tolerance (Wang's formula, capped at 4096) |
+| `arc.asm` | Elliptical arcs: the point at an angle, an arc as up to four cubics (handles `4/3 tan(θ/4)`, within 0.03% of the ellipse), and SVG end-point arcs (radii, rotation, large-arc and sweep flags; SVG 1.1 F.6.5-F.6.6) as cubics |
+| `bezier.asm` | Quadratic and cubic Beziers: evaluate, tangent, de Casteljau split, tight bounds (the curve at the derivative's roots), and the segment count that keeps a polyline within a tolerance (Wang's formula, capped at 4096) |
 
 ## Conventions
 
@@ -34,9 +34,12 @@ own and calls these instead.
 `tests/test_geom.py`, run by `tests/run_tests.sh`: transforms against direct
 formulas, multiply/invert round trips, singular and non-finite inverses,
 curve evaluation against the Bernstein form, split halves retracing the
-curve, and polylines from the segment count staying within the tolerance.
+curve, polylines from the segment count staying within the tolerance,
+SVG arcs against the specification's algorithm (on the ellipse, exact end
+point, direction, scaled radii, degenerate cases), and tight bounds bit
+for bit against a Python port, containing and touching the curve.
 
 ## Planned
 
-Endpoint-form (SVG) arc conversion, curve bounds and extrema, closest point and intersection, path measuring
-(arc length) and perspective transforms — added as `lib/ugfx` reaches them.
+Closest point and intersection, path measuring (arc length) and perspective
+transforms — added as `lib/ugfx` reaches them.
