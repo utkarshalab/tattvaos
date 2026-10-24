@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check ugfx paints: linear, radial, two-circle radial and conic gradients,
-spreads, stops, paint transforms and compositing under anti-aliased
-coverage.
+image patterns, spreads and extend modes, stops, paint transforms and
+compositing under anti-aliased coverage.
 
 Usage: paint_check.py <host_path binary> [--seed N]
 
@@ -11,7 +11,10 @@ premultiplied, rounded to nearest), maps each pixel centre through the
 inverse paint transform to t, applies the spread, and picks the entry
 round(t * 1023). For two-circle gradients t is the larger root of
 |p - c(t)| = r(t) with r(t) >= 0 (each chosen t is checked against that
-equation), and pixels on no circle stay unpainted. The shape's coverage comes from filling it once in solid
+equation), and pixels on no circle stay unpainted. Image patterns are
+sampled the same way: the pixel centre in image space, clamped to
++/- 2^52, nearest (floor) or bilinear (around p - 0.5, weights summed in
+ugfx's order, rounded to nearest), each axis wrapped by its extend mode. The shape's coverage comes from filling it once in solid
 white over transparent black; the expected pixel is that coverage applied
 to the gradient colour, composited source-over onto the background with
 ugfx's exact rounding. Each channel must match within 1, except a few
@@ -33,6 +36,8 @@ from path_check import run_tool, script  # noqa: E402
 LUT = 1024
 PAD, REPEAT, REFLECT = 0, 1, 2
 LINEAR, RADIAL, CONIC, RADIAL2 = 1, 2, 3, 4
+NONE = 3
+NEAREST, BILINEAR = 0, 1
 
 
 def lut(stops):
@@ -130,6 +135,101 @@ def radial2_t(px, py, x0, y0, r0, x1, y1, r1):
     scale = 1 + np.abs(tt) * (abs(dx) + abs(dy) + abs(dr)) + abs(r0)
     assert np.all(np.abs(np.where(ok, resid, 0)) <= 1e-6 * scale), "radial2 reference"
     return np.where(ok, t, 0.0), ok
+
+
+def wrap(i, size, mode):
+    """Index per extend mode, -1 outside for NONE."""
+    if mode == REPEAT:
+        return np.mod(i, size)
+    if mode == REFLECT:
+        m = np.mod(i, 2 * size)
+        return np.where(m >= size, 2 * size - 1 - m, m)
+    if mode == NONE:
+        return np.where((i < 0) | (i >= size), -1, i)
+    return np.clip(i, 0, size - 1)
+
+
+def texel(img, i, j, ex, ey):
+    h, w = img.shape
+    ii, jj = wrap(i, w, ex), wrap(j, h, ey)
+    ok = (ii >= 0) & (jj >= 0)
+    return np.where(ok, img[np.maximum(jj, 0), np.maximum(ii, 0)], 0)
+
+
+def image_colours(w, h, img, ex, ey, filt, matrix):
+    inv = invert(matrix) if matrix else [1, 0, 0, 1, 0, 0]
+    ys, xs = np.mgrid[0:h, 0:w].astype(np.float64)
+    xs += 0.5
+    ys += 0.5
+    u = inv[0] * xs + inv[2] * ys + inv[4]
+    v = inv[1] * xs + inv[3] * ys + inv[5]
+    lim = 2.0 ** 52
+
+    def fl(x):
+        x = np.minimum(np.maximum(np.nan_to_num(x, nan=-lim), -lim), lim)
+        f = np.floor(x)
+        return f, f.astype(np.int64)
+
+    if filt == NEAREST:
+        return texel(img, fl(u)[1], fl(v)[1], ex, ey)
+    u, v = u - 0.5, v - 0.5
+    (fu, i), (fv, j) = fl(u), fl(v)
+    fx, fy = np.minimum(np.maximum(u, -lim), lim) - fu, np.minimum(np.maximum(v, -lim), lim) - fv
+    t = [texel(img, i, j, ex, ey), texel(img, i + 1, j, ex, ey),
+         texel(img, i, j + 1, ex, ey), texel(img, i + 1, j + 1, ex, ey)]
+    wts = [(1 - fx) * (1 - fy), fx * (1 - fy), (1 - fx) * fy, fx * fy]
+    out = np.zeros(u.shape, np.int64)
+    for k in range(4):
+        acc = ((t[0] >> (8 * k)) & 255) * wts[0]
+        acc = acc + ((t[1] >> (8 * k)) & 255) * wts[1]
+        acc = acc + ((t[2] >> (8 * k)) & 255) * wts[2]
+        acc = acc + ((t[3] >> (8 * k)) & 255) * wts[3]
+        out |= np.rint(acc).astype(np.int64) << (8 * k)
+    return out
+
+
+def random_image(rng, w, h):
+    img = np.zeros((h, w), np.int64)
+    for y in range(h):
+        for x in range(w):
+            a = rng.choice([255, 255, rng.randint(0, 255)])
+            b, g, r = (rng.randint(0, a) for _ in range(3))
+            img[y, x] = b | g << 8 | r << 16 | a << 24
+    return img
+
+
+def image_cases(rng):
+    W, H = 48, 32
+    full = [('rect', 0, 0, W, H)]
+    img = random_image(rng, 7, 5)
+    rot = [math.cos(0.5) * 3, math.sin(0.5) * 3, -math.sin(0.5) * 3, math.cos(0.5) * 3, 18, 2]
+    yield "image pad", full, img, PAD, PAD, NEAREST, [1, 0, 0, 1, 10, 8]
+    yield "image repeat", full, img, REPEAT, REPEAT, NEAREST, None
+    yield "image reflect", full, img, REFLECT, REFLECT, NEAREST, [1, 0, 0, 1, -3, -2]
+    yield "image none", full, img, NONE, NONE, NEAREST, [1, 0, 0, 1, 20, 12]
+    yield "image mixed", full, img, REPEAT, PAD, NEAREST, [1, 0, 0, 1, 5, 10]
+    yield "image none/reflect", full, img, NONE, REFLECT, NEAREST, [1, 0, 0, 1, 12, 0]
+    yield "nearest 4x", full, img, REPEAT, REFLECT, NEAREST, [4, 0, 0, 4, 2, 1]
+    yield "bilinear 4x", full, img, REPEAT, REFLECT, BILINEAR, [4, 0, 0, 4, 2, 1]
+    yield "bilinear pad", full, img, PAD, PAD, BILINEAR, [5, 0, 0, 5, 6, 4]
+    yield "bilinear none", full, img, NONE, NONE, BILINEAR, [4.5, 0, 0, 4.5, 8.25, 5.75]
+    yield "bilinear identity", full, img, REPEAT, REPEAT, BILINEAR, None
+    yield "bilinear half shift", full, img, REPEAT, REPEAT, BILINEAR, [1, 0, 0, 1, 0.5, 0.25]
+    yield "bilinear rotated", full, img, REPEAT, REPEAT, BILINEAR, rot
+    yield "nearest rotated", full, img, REFLECT, NONE, NEAREST, rot
+    yield "bilinear down", full, random_image(rng, 30, 20), REFLECT, REPEAT, BILINEAR, [0.37, 0, 0, 0.41, 3, 1]
+    yield "skewed", full, img, REPEAT, REPEAT, BILINEAR, [3, 0, 1.5, 3, 0, 0]
+    yield "far away", full, img, REPEAT, REFLECT, BILINEAR, [2, 0, 0, 2, -1e7, 3e6]
+    yield "1x1 image", full, random_image(rng, 1, 1), REPEAT, NONE, BILINEAR, [6, 0, 0, 6, 20, 10]
+    yield "circle over bg", [('circle', 24, 16, 13.3)], img, REPEAT, REPEAT, BILINEAR, [3, 0, 0, 3, 1, 1]
+    for i in range(6):
+        im = random_image(rng, rng.randint(1, 9), rng.randint(1, 9))
+        s, a = rng.uniform(0.5, 6), rng.uniform(-3, 3)
+        m = [s * math.cos(a), s * math.sin(a), -s * math.sin(a) * rng.uniform(0.5, 1.5), s * math.cos(a),
+             rng.uniform(-20, 40), rng.uniform(-20, 30)]
+        shape = [('ellipse', rng.uniform(10, 38), rng.uniform(8, 24), rng.uniform(5, 20), rng.uniform(4, 14))]
+        yield (f"random image {i}", shape, im, rng.choice([PAD, REPEAT, REFLECT, NONE]),
+               rng.choice([PAD, REPEAT, REFLECT, NONE]), rng.choice([NEAREST, BILINEAR]), m)
 
 
 def div255(x):
@@ -230,6 +330,26 @@ def main():
             ok = off <= 3
             failed += not ok
             print(f"{'ok  ' if ok else 'FAIL'}  {name:20} max_diff={int(diff.max()):3d} pixels_off={off}")
+        for name, shape, img, ex, ey, filt, matrix in image_cases(rng):
+            total += 1
+            w, h = 48, 32
+            pixels = [int(p) for p in img.reshape(-1)]
+            cmds = shape + [('image', img.shape[1], img.shape[0], ex, ey, filt, pixels)]
+            if matrix:
+                cmds.append(('paint_transform', *matrix))
+            got, rc = run_tool(tool, d, script(w, h, 0, cmds, None, 0.02, 0xFFFFFFFF, bg), w, h)
+            cov, rc2 = run_tool(tool, d, script(w, h, 0, shape, None, 0.02, 0xFFFFFFFF, 0), w, h)
+            if got is None or cov is None:
+                print(f"FAIL  {name:20} exit {rc} {rc2}")
+                failed += 1
+                continue
+            want = composite(image_colours(w, h, img, ex, ey, filt, matrix), cov[..., 3], bg)
+            want_px = np.stack([(want >> (8 * k)) & 255 for k in range(4)], axis=-1)
+            diff = np.abs(got - want_px).max(axis=-1)
+            off = int((diff > 1).sum())
+            ok = off <= 3
+            failed += not ok
+            print(f"{'ok  ' if ok else 'FAIL'}  {name:20} max_diff={int(diff.max()):3d} pixels_off={off}")
         seg = [('rect', 0, 0, 8, 8)]
         two = [(0.0, 0xFFFF0000), (1.0, 0xFF0000FF)]
         for name, cmds in (("linear p0 = p1", [('paint', LINEAR, PAD, [3, 3, 3, 3], two)]),
@@ -242,6 +362,9 @@ def main():
                            ("radial2 r0 < 0", [('paint', RADIAL2, PAD, [3, 3, -1, 5, 5, 4], two)]),
                            ("radial2 same circle", [('paint', RADIAL2, PAD, [3, 3, 2, 3, 3, 2], two)]),
                            ("radial2 nan", [('paint', RADIAL2, PAD, [3, 3, 2, math.nan, 3, 2], two)]),
+                           ("image bad extend", [('image', 2, 2, 4, 0, 0, [0xFF000000] * 4)]),
+                           ("image bad filter", [('image', 2, 2, 0, 0, 2, [0xFF000000] * 4)]),
+                           ("image zero size", [('image', 0, 2, 0, 0, 0, [])]),
                            ("singular transform", [('paint', LINEAR, PAD, [0, 0, 8, 0], two),
                                                    ('paint_transform', 1, 2, 2, 4, 0, 0)])):
             total += 1
