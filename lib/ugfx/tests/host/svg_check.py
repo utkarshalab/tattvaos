@@ -115,6 +115,18 @@ def item_calls(items, current, t):
         return premul(c)
 
     for it in items:
+        if isinstance(it, svgmodel.MarkerItem):
+            mk = it.marker
+            out += [('save',), ('set_transform', *t), ('transform', *it.matrix)]
+            if mk.clip:
+                out += [('transform', mk.size[0], 0.0, 0.0, mk.size[1], 0.0, 0.0), ('new_path',),
+                        ('rect', 0.0, 0.0, 1.0, 1.0), ('clip',), ('set_transform', *t), ('transform', *it.matrix)]
+            base = svgmodel.mul(t, it.matrix)
+            if mk.vbm:
+                out.append(('transform', *mk.vbm))
+                base = svgmodel.mul(base, mk.vbm)
+            out += item_calls(mk.items, current, base) + [('restore',)]
+            continue
         if isinstance(it, svgmodel.Group):
             if it.kind == "begin":
                 if it.clip:
@@ -537,6 +549,26 @@ CASES = [
                          '<g clip-path="url(#cp)"><circle cx="4" cy="4" r="4" fill="#e80"/></g></pattern>'
                          '<g transform="translate(4 2)" mask="url(#m)"><rect width="12" height="12" fill="#08e"/></g>'
                          '<rect x="2" y="14" width="20" height="9" fill="url(#p)" transform="rotate(-5 12 18)"/>'), True),
+    ("markers", svg('<defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="3" '
+                    'markerHeight="3" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#c00"/></marker>'
+                    '<marker id="dot" markerWidth="2" markerHeight="2" refX="1" refY="1" markerUnits="userSpaceOnUse">'
+                    '<circle cx="1" cy="1" r="1" fill="#06c"/></marker></defs>'
+                    '<path d="M3 20L10 8L16 16L21 4" fill="none" stroke="#333" stroke-width="1.5" '
+                    'marker-start="url(#arrow)" marker-mid="url(#dot)" marker-end="url(#arrow)"/>'), True),
+    ("marker shapes", svg('<marker id="sq" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="45" '
+                          'markerUnits="userSpaceOnUse"><rect x="1" y="1" width="2" height="2" fill="#0a0"/></marker>'
+                          '<marker id="big" markerWidth="2" markerHeight="2" refX="1" refY="1" overflow="visible">'
+                          '<circle cx="1" cy="1" r="2" fill="#a0a" fill-opacity=".7"/></marker>'
+                          '<polygon points="4,4 12,3 20,8 14,14" fill="none" stroke="#000" style="marker:url(#sq)"/>'
+                          '<polyline points="3,20 8,16 13,21" fill="none" stroke="#000" marker-mid="url(#big)" '
+                          'stroke-width="2"/><line x1="15" y1="20" x2="22" y2="17" marker-end="url(#sq)"/>'
+                          '<g marker-start="url(#sq)"><path d="M18 2Q22 2 22 6" fill="none" stroke="#048" '
+                          'marker-start="none"/></g>'), True),
+    ("marker curves", svg('<marker id="tick" markerWidth="1" markerHeight="4" refX=".5" refY="2" orient="auto">'
+                          '<rect width="1" height="4" fill="#e60"/></marker>'
+                          '<path d="M2 6C6 0 10 12 14 6S22 2 22 8M3 14h8v6h-8z M14 14Q18 22 22 14" fill="#fec" '
+                          'stroke="#444" marker-start="url(#tick)" marker-mid="url(#tick)" marker-end="url(#tick)" '
+                          'opacity=".8"/>'), True),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
