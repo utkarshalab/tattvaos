@@ -223,16 +223,23 @@ extern panic_null_ptr
 %define UgfxPaint_lut           24      ; u32[UGFX_GRADIENT_LUT] premultiplied BGRA
 %define UgfxPaint_inverse       32      ; f64[6] device -> paint space
 %define UgfxPaint_geom          80      ; f64[8] gradient geometry (see 2d/paint.asm)
-%define UgfxPaint_SIZE          144
+%define UgfxPaint_image         144     ; const PixBuf* (image paints)
+%define UgfxPaint_filter        152     ; u32 UGFX_FILTER_* (image paints)
+%define UgfxPaint_extend_y      156     ; u32 UGFX_SPREAD_* down the image (spread is across)
+%define UgfxPaint_SIZE          160
 
 %define UGFX_PAINT_SOLID        0
 %define UGFX_PAINT_LINEAR       1
 %define UGFX_PAINT_RADIAL       2
 %define UGFX_PAINT_CONIC        3
 %define UGFX_PAINT_RADIAL2      4       ; two circles (focal, two-point conical)
+%define UGFX_PAINT_IMAGE        5       ; image pattern
 %define UGFX_SPREAD_PAD         0
 %define UGFX_SPREAD_REPEAT      1
 %define UGFX_SPREAD_REFLECT     2
+%define UGFX_SPREAD_NONE        3       ; images only: transparent outside
+%define UGFX_FILTER_NEAREST     0
+%define UGFX_FILTER_BILINEAR    1
 %define UGFX_GRADIENT_LUT       1024
 
 ; Gradient colour stop (UgfxStop_SIZE bytes, an array of them per gradient)
