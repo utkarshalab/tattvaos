@@ -14,6 +14,7 @@ from Python's).
 
 Development-machine tooling only; not part of any OS image.
 """
+import math
 import os
 import subprocess
 import sys
@@ -43,8 +44,68 @@ def expected_calls(doc, current, x, y, size):
     return [('save',), ('transform', *t), ('dash', 0, [])] + item_calls(doc.items, current, t) + [('restore',)]
 
 
+def floor_or_none(v):
+    """svg_pattern_paint's floor: None past 2^30 (or NaN)."""
+    if v != v or abs(v) >= 1073741824.0:
+        return None
+    return math.floor(v)
+
+
+def pattern_calls(rec, it, stroke, alpha, current, t):
+    """svg_pattern_paint: the tiles covering the item, in its space t x it.matrix."""
+    if not rec.items:
+        return []
+    b = it.bbox
+    bw, bh = b[2] - b[0], b[3] - b[1]
+    rx, ry, rw, rh = rec.rect
+    if rec.units:
+        rx, ry, rw, rh = rx * bw + b[0], ry * bh + b[1], rw * bw, rh * bh
+    if not (rw > 0 and rh > 0):
+        return []
+    c = list(b)
+    if stroke:
+        e = it.width * max(it.miter, 1.5) * 0.5
+        c = [c[0] - e, c[1] - e, c[2] + e, c[3] + e]
+    inv = svgmodel.invert(rec.matrix)
+    if inv is None:
+        return []
+    pts = [(inv[0] * x + inv[2] * y + inv[4], inv[1] * x + inv[3] * y + inv[5])
+           for x, y in ((c[0], c[1]), (c[2], c[1]), (c[0], c[3]), (c[2], c[3]))]
+    p = [min(q[0] for q in pts), min(q[1] for q in pts), max(q[0] for q in pts), max(q[1] for q in pts)]
+    i0 = floor_or_none((p[0] - rx) / rw)
+    i1 = floor_or_none(0.0 - (p[2] - rx) / rw)
+    j0 = floor_or_none((p[1] - ry) / rh)
+    j1 = floor_or_none(0.0 - (p[3] - ry) / rh)
+    if None in (i0, i1, j0, j1):
+        return []
+    i1, j1 = -i1, -j1
+    if i1 - i0 <= 0 or j1 - j0 <= 0 or i1 - i0 > 4096 or j1 - j0 > 4096 or (i1 - i0) * (j1 - j0) > 4096:
+        return []
+    tb = svgmodel.mul(t, it.matrix)
+    out = [('begin_layer', alpha)] if alpha < 255 else []
+    for j in range(j0, j1):
+        for i in range(i0, i1):
+            move = [1.0, 0.0, 0.0, 1.0, i * rw + rx, j * rh + ry]
+            out += [('save',), ('set_transform', *tb), ('transform', *rec.matrix), ('transform', *move),
+                    ('transform', rw, 0.0, 0.0, rh, 0.0, 0.0), ('new_path',), ('rect', 0.0, 0.0, 1.0, 1.0), ('clip',),
+                    ('set_transform', *tb), ('transform', *rec.matrix), ('transform', *move)]
+            base = svgmodel.mul(svgmodel.mul(tb, rec.matrix), move)
+            if rec.viewbox:
+                m = svgmodel.fit(rec.viewbox, rw, rh, rec.par)
+                out.append(('transform', *m))
+                base = svgmodel.mul(base, m)
+            elif rec.content:
+                m = [bw, 0.0, 0.0, bh, 0.0, 0.0]
+                out.append(('transform', *m))
+                base = svgmodel.mul(base, m)
+            out += item_calls(rec.items, current, base) + [('restore',)]
+    if alpha < 255:
+        out.append(('end_layer',))
+    return out
+
+
 def item_calls(items, current, t):
-    """The calls svg_draw_list makes for an item list."""
+    """The calls svg_draw_list makes for an item list (t: the context's transform when it begins)."""
     out = []
 
     def paint(p):
@@ -87,11 +148,13 @@ def item_calls(items, current, t):
                     out += [('begin_mask',), ('set_transform', *t), ('transform', *b.matrix),
                             ('transform', rw, 0.0, 0.0, rh, rx, ry), ('new_path',), ('rect', 0.0, 0.0, 1.0, 1.0),
                             ('clip',), ('set_transform', *t), ('transform', *b.matrix)]
+                    base = svgmodel.mul(t, b.matrix)
                     if not mk.content:
-                        out += item_calls(mk.items, current, t)
+                        out += item_calls(mk.items, current, base)
                     elif bw > 0 and bh > 0:
-                        out.append(('transform', bw, 0.0, 0.0, bh, b.bbox[0], b.bbox[1]))
-                        out += item_calls(mk.items, current, t)
+                        m = [bw, 0.0, 0.0, bh, b.bbox[0], b.bbox[1]]
+                        out.append(('transform', *m))
+                        out += item_calls(mk.items, current, svgmodel.mul(base, m))
                     out += [('end_mask', mk.mode), ('end_layer',)]
                 elif it.alpha < 255:
                     out.append(('end_layer',))
@@ -100,14 +163,23 @@ def item_calls(items, current, t):
             continue
         out += [('save',), ('transform', *it.matrix)]
         fill, stroke = [], []
-        if it.fill:
+        if it.fill and it.fill[0] == 'pattern':
+            fill += [('save',), ('rule', it.rule), ('new_path',)] + it.path + [('clip',)]
+            fill += pattern_calls(it.fill[1], it, 0, it.fill[2], current, t) + [('restore',)]
+        elif it.fill:
             if it.fill[0] == 'paint':
                 _, kind, spread, geom, stops, m, a = it.fill
                 fill += [('fill_gradient', kind, spread, geom, stops, m), ('alpha', a)]
             else:
                 fill += [('alpha', 255), ('fill_color', paint(it.fill))]
             fill += [('rule', it.rule), ('new_path',)] + it.path + [('fill',)]
-        if it.stroke:
+        if it.stroke and it.stroke[0] == 'pattern':
+            stroke += [('stroke_style', it.width, it.miter, it.join, it.cap)]
+            if it.dash:
+                stroke.append(('dash', it.dash_off, it.dash))
+            stroke += [('save',), ('new_path',)] + it.path + [('clip_stroke',)]
+            stroke += pattern_calls(it.stroke[1], it, 1, it.stroke[2], current, t) + [('restore',)]
+        elif it.stroke:
             if it.stroke[0] == 'paint':
                 _, kind, spread, geom, stops, m, a = it.stroke
                 stroke += [('stroke_gradient', kind, spread, geom, stops, m), ('alpha', a)]
@@ -432,6 +504,39 @@ CASES = [
                         '<clipPath id="cp"><rect x="2" width="20" height="24"/></clipPath>'
                         '<rect x="4" y="18" width="16" height="4" fill="#e62" mask="url(#self)"/>'
                         '<rect x="4" y="14" width="2" height="2" mask="url(#cp)"/>'), True),
+    ("pattern basic", svg('<defs><pattern id="ch" width="6" height="6" patternUnits="userSpaceOnUse">'
+                          '<rect width="3" height="3" fill="#222"/><rect x="3" y="3" width="3" height="3" fill="#222"/>'
+                          '</pattern></defs><rect x="1" y="1" width="22" height="10" fill="url(#ch) #f00"/>'
+                          '<circle cx="12" cy="17" r="6" fill="url(#ch)" fill-opacity=".6"/>'), False),
+    ("pattern bbox", svg('<pattern id="d" width=".25" height=".5"><circle cx="2" cy="2" r="1.5" fill="#06c"/>'
+                         '</pattern><pattern id="c" width="25%" height="50%" patternContentUnits="objectBoundingBox">'
+                         '<rect width=".2" height=".3" fill="#c60"/></pattern>'
+                         '<rect x="2" y="2" width="16" height="8" fill="url(#d)" stroke="#000" stroke-width=".5"/>'
+                         '<rect x="4" y="13" width="16" height="9" fill="url(#c)"/>'), False),
+    ("pattern transform", svg('<pattern id="s" width="4" height="4" patternUnits="userSpaceOnUse" '
+                              'patternTransform="rotate(30) scale(1.5)"><rect width="2" height="4" fill="#3a3"/>'
+                              '</pattern><pattern id="v" width="8" height="8" patternUnits="userSpaceOnUse" '
+                              'viewBox="0 0 2 2" preserveAspectRatio="none"><circle cx="1" cy="1" r=".8" fill="#a3a"/>'
+                              '</pattern><path d="M2 2H22V12H2Z" fill="url(#s)" transform="translate(0 .5)"/>'
+                              '<rect x="2" y="14" width="20" height="8" fill="url(#v)" opacity=".8"/>'), True),
+    ("pattern stroke", svg('<pattern id="st" width="2" height="2" patternUnits="userSpaceOnUse">'
+                           '<rect width="1" height="2" fill="#e33"/><rect x="1" width="1" height="2" fill="#33e"/>'
+                           '</pattern><circle cx="12" cy="12" r="8" fill="none" stroke="url(#st)" stroke-width="4" '
+                           'stroke-dasharray="6 2"/>'), False),
+    ("pattern href", svg('<pattern id="base" width="6" height="6" patternUnits="userSpaceOnUse">'
+                         '<circle cx="3" cy="3" r="2" fill="#0aa"/></pattern>'
+                         '<pattern id="moved" href="#base" x="3" patternTransform="scale(.5)"/>'
+                         '<pattern id="own" href="#base"><rect width="6" height="3" fill="#a0a"/></pattern>'
+                         '<pattern id="loop" href="#loop" width="5" height="5" patternUnits="userSpaceOnUse"/>'
+                         '<rect width="12" height="12" fill="url(#moved)"/><rect x="12" width="12" height="12" '
+                         'fill="url(#own)"/><rect y="12" width="12" height="12" fill="url(#loop) #888"/>'
+                         '<rect x="12" y="12" width="12" height="12" fill="url(#empty) #444"/>'), False),
+    ("nested bases", svg('<clipPath id="cp"><rect width="6" height="6"/></clipPath>'
+                         '<mask id="m"><g clip-path="url(#cp)" transform="translate(2 2)"><rect width="20" height="20" '
+                         'fill="#fff"/></g></mask><pattern id="p" width="8" height="8" patternUnits="userSpaceOnUse">'
+                         '<g clip-path="url(#cp)"><circle cx="4" cy="4" r="4" fill="#e80"/></g></pattern>'
+                         '<g transform="translate(4 2)" mask="url(#m)"><rect width="12" height="12" fill="#08e"/></g>'
+                         '<rect x="2" y="14" width="20" height="9" fill="url(#p)" transform="rotate(-5 12 18)"/>'), True),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
