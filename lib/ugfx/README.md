@@ -41,7 +41,8 @@ lib/ugfx/
     ├── stroke.asm        ← stroke outlines: width, miter/round/bevel joins, butt/round/square caps
     ├── flatten.asm       ← curves to polylines; path length
     ├── dash.asm          ← dash patterns along lines and curves
-    └── paint.asm         ← paints: solid; linear, radial, two-circle and conic gradients; image patterns
+    ├── paint.asm         ← paints: solid; linear, radial, two-circle and conic gradients; image patterns
+    └── context.asm       ← drawing context: state, save/restore, fill/stroke/clip, images, layers
 ```
 
 ## 2. Planned
@@ -198,7 +199,40 @@ clipped solid, gradient and image fills, a transformed clip, random
 sequences) against a reference that rebuilds the clip as an A8 array;
 pixel-exact.
 
-## 8. Using it
+## 8. Drawing context
+
+`UgfxContext` is the API the rest of the system draws through. It keeps a
+state - transform, clip, fill and stroke paints (each with a paint to user
+matrix), stroke style, dash, global alpha, fill rule, tolerance, target -
+that `ugfx_ctx_save` / `ugfx_ctx_restore` push and pop (32 deep).
+
+| Call | |
+|---|---|
+| `ugfx_ctx_init(ctx, arena, pixbuf)` | defaults: identity, no clip, black paints, width 1, miter 10 |
+| `ugfx_ctx_set_transform`, `_transform`, `_translate`, `_scale`, `_rotate` | user → device |
+| `ugfx_ctx_set_fill_color`, `_set_fill_paint`, `_set_stroke_color`, `_set_stroke_paint` | paints in user space |
+| `ugfx_ctx_set_stroke_style`, `_set_dash`, `_set_alpha`, `_set_fill_rule`, `_set_tolerance` | |
+| `ugfx_ctx_fill`, `_stroke`, `_clip` | a UgfxPath in user space |
+| `ugfx_ctx_fill_rect`, `_stroke_rect`, `_draw_image`, `_clear` | |
+| `ugfx_ctx_begin_layer(ctx, alpha)`, `_end_layer` | offscreen group, composited once |
+
+Strokes and dashes are built in user space and transformed afterwards, so
+non-uniform scales stretch them as HTML canvas does. Clips intersect by
+rendering under the current clip; each save depth owns at most one mask
+from a pool, so clip memory is bounded. A layer draws into a transparent
+buffer of the target's size with no clip and full alpha, and is
+composited at layer alpha x global alpha under the restored clip, so clip
+edges are not counted twice. Global alpha multiplies coverage in the
+rasterizer (`ugfx_raster_set_alpha`).
+
+Tests: `tests/host/ctx_check.py` drives `tests/host/host_ctx` with 33
+scripts (state through save/restore, user-space gradients, sheared and
+turned strokes, dashes on and off, nested and repeated clips, alpha,
+fill rules, rects, images, clear, layers with opacity, under clips,
+nested and reused, random sequences) and 7 invalid ones, against a Python
+context assembled from the separately checked pieces.
+
+## 9. Using it
 
 Assemble with `-I lib/ugfx/include/` and include `ugfx.inc`. Functions follow
 the System V register order and return negative error codes. Allocating
