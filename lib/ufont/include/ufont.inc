@@ -29,7 +29,9 @@
 %define UfontFont_ascent        116     ; i32 ascender (font units, up)
 %define UfontFont_descent       120     ; i32 descender (font units, down: positive)
 %define UfontFont_have          124     ; u8 tables found (bits)
-%define UfontFont_SIZE          128
+%define UfontFont_arena         128     ; the arena it was opened with (its cache lives there)
+%define UfontFont_cache         136     ; outline records by glyph (0: none decoded yet)
+%define UfontFont_SIZE          144
 
 ; UfontSet: faces by family, weight and style
 %define UFONT_SET_MAX           32
