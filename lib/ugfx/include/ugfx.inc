@@ -364,7 +364,10 @@ extern panic_null_ptr
 %define UgfxSvg_font_fn         96      ; glyphs: fn(user, UgfxSvgFont*, code point, xmm0 = size,
                                         ; UgfxPath* (0: the advance only), arena) -> xmm0 =
                                         ; advance; the outline appended at that size, y down,
-                                        ; origin on the baseline (ugfx_svg_parse_opts)
+                                        ; origin on the baseline (ugfx_svg_parse_opts). Code
+                                        ; point -1 asks for the font's ascent (xmm0) and
+                                        ; descent (xmm1) at the size, both positive (0: not
+                                        ; known; 0.8 and 0.2 of the size are taken)
 %define UgfxSvg_font_user       104
 %define UgfxSvg_SIZE            112
 ; ugfx_svg_parse_opts' options (caller-filled; 0 = none)
