@@ -317,6 +317,55 @@ extern ugfx_ctx_draw_image
 %define FA_OFFSET       28
 %define FA_FUNITS       29
 %define FA_PUNITS       30
+%define FA_BASEFREQ     31              ; .. FA_LIGHT_COLOR: through svg_fe_q_attrs
+%define FA_OCTAVES      32
+%define FA_SEED         33
+%define FA_STITCH       34
+%define FA_ORDER        35
+%define FA_KERNEL       36
+%define FA_DIVISOR      37
+%define FA_BIAS         38
+%define FA_TARGETX      39
+%define FA_TARGETY      40
+%define FA_EDGE         41
+%define FA_PRESERVE     42
+%define FA_SCALE        43
+%define FA_XCHAN        44
+%define FA_YCHAN        45
+%define FA_SURFACE      46
+%define FA_DIFFUSE_K    47
+%define FA_SPECULAR_K   48
+%define FA_SPEC_EXP     49
+%define FA_LIGHT_COLOR  50
+%define FA_AZIMUTH      51              ; lights'
+%define FA_ELEVATION    52
+%define FA_Z            53
+%define FA_PAX          54              ; .. 56 pointsAtZ
+%define FA_CONE         57
+%define FA_HREF         58              ; feImage's
+%define FA_PAR          59
+
+; svg elements inside a filter
+%define FW_MERGENODE    12
+%define FW_FUNCR        13              ; .. 16 feFuncA
+%define FW_DROPSHADOW   11
+%define FW_TURBULENCE   17
+%define FW_IMAGE        18
+%define FW_CONVOLVE     19
+%define FW_DISPLACE     20
+%define FW_DIFFUSE      21
+%define FW_SPECULAR     22
+%define FW_DISTANT      23              ; lights (children)
+%define FW_POINT        24
+%define FW_SPOT         25
+
+; svg_fe_q_attrs kinds
+%define QK_NUMBER       0
+%define QK_PAIR         1               ; one number for both, or two
+%define QK_TEXT         2               ; kept as written (values)
+%define QK_WORD         3               ; a keyword's index
+%define QK_COLOUR       4               ; ARGB
+%define QK_TWICE        5               ; a number into the slot and the next
 %define A_TRANSFORM     40
 %define A_STYLE         41
 %define A_D             42
@@ -648,11 +697,14 @@ svg_fe_words:
     NAME "feFuncB", 15
     NAME "feFuncA", 16
     NAME "feTurbulence", 17
-    NAME "feImage", 17
-    NAME "feConvolveMatrix", 17
-    NAME "feDisplacementMap", 17
-    NAME "feDiffuseLighting", 17
-    NAME "feSpecularLighting", 17
+    NAME "feImage", 18
+    NAME "feConvolveMatrix", 19
+    NAME "feDisplacementMap", 20
+    NAME "feDiffuseLighting", 21
+    NAME "feSpecularLighting", 22
+    NAME "feDistantLight", 23
+    NAME "fePointLight", 24
+    NAME "feSpotLight", 25
     db 0
 svg_fe_attrs:
     NAME "in", FA_IN
@@ -685,6 +737,36 @@ svg_fe_attrs:
     NAME "offset", FA_OFFSET
     NAME "filterUnits", FA_FUNITS
     NAME "primitiveUnits", FA_PUNITS
+    NAME "baseFrequency", FA_BASEFREQ
+    NAME "numOctaves", FA_OCTAVES
+    NAME "seed", FA_SEED
+    NAME "stitchTiles", FA_STITCH
+    NAME "order", FA_ORDER
+    NAME "kernelMatrix", FA_KERNEL
+    NAME "divisor", FA_DIVISOR
+    NAME "bias", FA_BIAS
+    NAME "targetX", FA_TARGETX
+    NAME "targetY", FA_TARGETY
+    NAME "edgeMode", FA_EDGE
+    NAME "preserveAlpha", FA_PRESERVE
+    NAME "scale", FA_SCALE
+    NAME "xChannelSelector", FA_XCHAN
+    NAME "yChannelSelector", FA_YCHAN
+    NAME "surfaceScale", FA_SURFACE
+    NAME "diffuseConstant", FA_DIFFUSE_K
+    NAME "specularConstant", FA_SPECULAR_K
+    NAME "specularExponent", FA_SPEC_EXP
+    NAME "lighting-color", FA_LIGHT_COLOR
+    NAME "azimuth", FA_AZIMUTH
+    NAME "elevation", FA_ELEVATION
+    NAME "z", FA_Z
+    NAME "pointsAtX", FA_PAX
+    NAME "pointsAtY", FA_PAX + 1
+    NAME "pointsAtZ", FA_PAX + 2
+    NAME "limitingConeAngle", FA_CONE
+    NAME "href", FA_HREF
+    NAME "xlink:href", FA_HREF
+    NAME "preserveAspectRatio", FA_PAR
     db 0
 svg_fe_keywords:
     NAME "SourceGraphic", 1
@@ -729,7 +811,68 @@ svg_cif_words:
     NAME "linearRGB", 2
     NAME "auto", 3
     db 0
+svg_fe_turb_types:
+    NAME "fractalNoise", 1
+    NAME "turbulence", 2
+    db 0
+svg_fe_stitch:
+    NAME "noStitch", 1
+    NAME "stitch", 2
+    db 0
+svg_fe_edges:
+    NAME "duplicate", 1
+    NAME "wrap", 2
+    NAME "none", 3
+    db 0
+svg_fe_bools:
+    NAME "false", 1
+    NAME "true", 2
+    db 0
+svg_fe_channels:
+    NAME "R", 1
+    NAME "G", 2
+    NAME "B", 3
+    NAME "A", 4
+    db 0
+; FA_BASEFREQ .. FA_LIGHT_COLOR: the elements (FW_* from, to), the q slot,
+;   the kind (QK_*) | a given bit << 3
+svg_fe_q_attrs:
+    db FW_TURBULENCE, FW_TURBULENCE, 0, QK_PAIR             ; baseFrequency
+    db FW_TURBULENCE, FW_TURBULENCE, 2, QK_NUMBER           ; numOctaves
+    db FW_TURBULENCE, FW_TURBULENCE, 3, QK_NUMBER           ; seed
+    db FW_TURBULENCE, FW_TURBULENCE, 4, QK_WORD             ; stitchTiles
+    db FW_CONVOLVE, FW_CONVOLVE, 0, QK_PAIR                 ; order
+    db FW_CONVOLVE, FW_CONVOLVE, 0, QK_TEXT                 ; kernelMatrix
+    db FW_CONVOLVE, FW_CONVOLVE, 2, QK_NUMBER | 8 << 3      ; divisor
+    db FW_CONVOLVE, FW_CONVOLVE, 3, QK_NUMBER               ; bias
+    db FW_CONVOLVE, FW_CONVOLVE, 4, QK_NUMBER | 9 << 3      ; targetX
+    db FW_CONVOLVE, FW_CONVOLVE, 5, QK_NUMBER | 10 << 3     ; targetY
+    db FW_CONVOLVE, FW_CONVOLVE, 6, QK_WORD                 ; edgeMode
+    db FW_CONVOLVE, FW_CONVOLVE, 7, QK_WORD                 ; preserveAlpha
+    db FW_DISPLACE, FW_DISPLACE, 0, QK_TWICE                ; scale
+    db FW_DISPLACE, FW_DISPLACE, 2, QK_WORD                 ; xChannelSelector
+    db FW_DISPLACE, FW_DISPLACE, 3, QK_WORD                 ; yChannelSelector
+    db FW_DIFFUSE, FW_SPECULAR, 0, QK_NUMBER                ; surfaceScale
+    db FW_DIFFUSE, FW_DIFFUSE, 1, QK_NUMBER                 ; diffuseConstant
+    db FW_SPECULAR, FW_SPECULAR, 1, QK_NUMBER               ; specularConstant
+    db FW_SPECULAR, FW_SPECULAR, 2, QK_NUMBER               ; specularExponent
+    db FW_DIFFUSE, FW_SPECULAR, 4, QK_COLOUR                ; lighting-color
+; the engine type of FW_TURBULENCE .. FW_SPECULAR
+svg_fe_newer_types:
+    db FE_TURBULENCE, FE_IMAGE, FE_CONVOLVE, FE_DISPLACE, FE_DIFFUSE, FE_SPECULAR
 align 8
+; their q defaults (FW_TURBULENCE .. FW_SPECULAR)
+svg_fe_q_defaults:
+    dq 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0      ; octaves 1, type turbulence
+    dq 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+    dq 3.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0      ; order 3
+    dq 0.0, 0.0, 3.0, 3.0, 0.0, 0.0, 0.0, 0.0      ; channels A
+    dq 1.0, 1.0, 1.0, 0.0, 4294967295.0, 0.0, 0.0, 0.0     ; white light
+    dq 1.0, 1.0, 1.0, 0.0, 4294967295.0, 0.0, 0.0, 0.0
+svg_fe_zeros:       times 10 dq 0.0
+svg_fe_2p20:        dq 1048576.0
+svg_fe_m2p20:       dq -1048576.0
+svg_fe_m2:          dq -2.0
 svg_fe_two:         dq 2.0
 svg_m2p30:          dq -1073741824.0
 svg_cm_identity:    dq 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0
@@ -4691,11 +4834,6 @@ svg_filter_ref:
 %define FC_NMERGE   (FC_MERGE + 128)    ; u32
 %define FC_SIZE     (((FC_NMERGE + 8 + 15) & ~15) + 8)
 
-; svg elements inside a filter
-%define FW_MERGENODE    12
-%define FW_FUNCR        13              ; .. 16 feFuncA
-%define FW_DROPSHADOW   11
-%define FW_OTHER        17              ; a primitive not supported
 
 ; -----------------------------------------------------------------------------
 ; svg_filter_compile — rsi / rdx = an id, r15 = frame, rbx = the referencing
@@ -4840,8 +4978,10 @@ svg_filter_compile:
     jle .skip                           ; not a primitive
     cmp eax, FW_MERGENODE
     jb .begin
-    cmp eax, FW_OTHER
-    jne .skip                           ; a child out of place
+    cmp eax, FW_TURBULENCE
+    jb .skip                            ; a child out of place
+    cmp eax, FW_SPECULAR
+    ja .skip
 .begin:
     call svg_fe_begin                   ; r12 = the new one (0: full)
     cmp dword [rbp + FC_XML + UgfxSvgXml_self], 0
@@ -4855,8 +4995,11 @@ svg_filter_compile:
     jz .skip
     cmp eax, FW_MERGENODE
     jb .skip
-    cmp eax, FW_OTHER
-    jae .skip
+    cmp eax, FW_FUNCR + 3
+    jbe .is_child
+    cmp eax, FW_DISTANT
+    jb .skip
+.is_child:
     call svg_fe_child
 .skip:
     cmp dword [rbp + FC_XML + UgfxSvgXml_self], 0
@@ -5016,6 +5159,26 @@ svg_fe_begin:
     inc ecx
     cmp ecx, 4
     jb .func
+    ; the newer primitives' parameters (q): feTurbulence baseFrequency x, y,
+    ; numOctaves, seed, stitchTiles, type (1 turbulence); feConvolveMatrix
+    ; order x, y, divisor, bias, targetX, targetY, edgeMode (0 duplicate 1
+    ; wrap 2 none), preserveAlpha; feDisplacementMap scale (twice), x and y
+    ; channels (0 R .. 3 A); lighting surfaceScale, the constant,
+    ; specularExponent, -, lighting-color
+    mov dword [r12 + UgfxSvgFe_par], 5  ; xMidYMid meet
+    movsd [r12 + UgfxSvgFe_light + 48], xmm0    ; a spot's exponent 1
+    mov eax, [r12 + UgfxSvgFe_code]
+    sub eax, FW_TURBULENCE
+    jb .no_q
+    cmp eax, FW_SPECULAR - FW_TURBULENCE
+    ja .no_q
+    shl eax, 6
+    lea rsi, [rel svg_fe_q_defaults]
+    add rsi, rax
+    lea rdi, [r12 + UgfxSvgFe_q]
+    mov ecx, 64
+    rep movsb
+.no_q:
     mov qword [rbp + FC_ATTR + UgfxSvgAttr_cur], 0
 .attr:
     call svg_fe_next_attr
@@ -5030,6 +5193,8 @@ svg_fe_begin:
 ; r14d = FA_*, rdi / rsi = its value, r12 = the primitive, r13 = the filter
 svg_fe_attr:
     sub rsp, 8
+    cmp r14d, FA_BASEFREQ
+    jae .newer
     cmp r14d, FA_IN
     je .input
     cmp r14d, FA_IN2
@@ -5197,6 +5362,8 @@ svg_fe_attr:
     movsd [r12 + UgfxSvgFe_k + rcx * 8], xmm0
     jmp .out
 .type:
+    cmp dword [r12 + UgfxSvgFe_code], FW_TURBULENCE
+    je .turb_type
     call ugfx_svg_trim
     lea rdx, [rel svg_fe_cm_types]
     call ugfx_svg_lookup
@@ -5204,6 +5371,115 @@ svg_fe_attr:
     jle .out
     dec eax
     mov [r12 + UgfxSvgFe_cm_type], eax
+    jmp .out
+.turb_type:
+    lea r8, [r12 + UgfxSvgFe_q + 40]
+    lea rdx, [rel svg_fe_turb_types]
+    jmp .q_lookup
+.newer:
+    cmp r14d, FA_HREF
+    je .href
+    cmp r14d, FA_PAR
+    je .par
+    cmp r14d, FA_LIGHT_COLOR
+    ja .out                             ; a light's, not a primitive's
+    lea eax, [r14 - FA_BASEFREQ]
+    lea rdx, [rel svg_fe_q_attrs]
+    lea rdx, [rdx + rax * 4]
+    mov ecx, [r12 + UgfxSvgFe_code]
+    movzx eax, byte [rdx]
+    cmp ecx, eax
+    jb .out
+    movzx eax, byte [rdx + 1]
+    cmp ecx, eax
+    ja .out                             ; not this element's
+    movzx eax, byte [rdx + 2]
+    lea r8, [r12 + UgfxSvgFe_q + rax * 8]
+    movzx eax, byte [rdx + 3]           ; kind | given bit << 3
+    mov ecx, eax
+    and ecx, 7
+    cmp ecx, QK_PAIR
+    jne .q_kind
+    mov ecx, 11                         ; (an unused given bit)
+    jmp .pair
+.q_kind:
+    cmp ecx, QK_TEXT
+    je .q_text
+    cmp ecx, QK_WORD
+    je .q_word
+    cmp ecx, QK_COLOUR
+    je .q_colour
+    push r8
+    push rax
+    call ugfx_svg_number
+    pop rcx
+    pop r8
+    test rax, rax
+    jz .out
+    movsd [r8], xmm0
+    mov eax, ecx
+    and eax, 7
+    cmp eax, QK_TWICE
+    jne .q_given
+    movsd [r8 + 8], xmm0
+.q_given:
+    shr ecx, 3
+    jz .out
+    bts dword [r12 + UgfxSvgFe_given], ecx
+    jmp .out
+.q_text:
+    mov [r12 + UgfxSvgFe_values], rdi
+    mov [r12 + UgfxSvgFe_values_end], rsi
+    jmp .out
+.q_word:
+    lea rdx, [rel svg_fe_stitch]
+    cmp r14d, FA_STITCH
+    je .q_lookup
+    lea rdx, [rel svg_fe_edges]
+    cmp r14d, FA_EDGE
+    je .q_lookup
+    lea rdx, [rel svg_fe_bools]
+    cmp r14d, FA_PRESERVE
+    je .q_lookup
+    lea rdx, [rel svg_fe_channels]
+.q_lookup:
+    ; r8 = the slot, rdx = the words: the index of the one given
+    push r8
+    push rdx
+    call ugfx_svg_trim
+    mov rdx, [rsp]
+    call ugfx_svg_lookup
+    pop rdx
+    pop r8
+    cmp eax, 0
+    jle .out
+    dec eax
+    cvtsi2sd xmm0, eax
+    movsd [r8], xmm0
+    jmp .out
+.q_colour:
+    push r8
+    sub rsp, 8
+    call ugfx_svg_colour
+    add rsp, 8
+    pop r8
+    cmp eax, 1
+    jne .out
+    mov eax, edx
+    cvtsi2sd xmm0, rax
+    movsd [r8], xmm0
+    jmp .out
+.href:
+    cmp dword [r12 + UgfxSvgFe_code], FW_IMAGE
+    jne .out
+    mov [r12 + UgfxSvgFe_values], rdi
+    mov [r12 + UgfxSvgFe_values_end], rsi
+    jmp .out
+.par:
+    cmp dword [r12 + UgfxSvgFe_code], FW_IMAGE
+    jne .out
+    call svg_par
+    mov [r12 + UgfxSvgFe_par], eax
 .out:
     add rsp, 8
     ret
@@ -5274,6 +5550,8 @@ svg_fe_child:
     sub rsp, 8
     mov ebx, eax
     mov qword [rbp + FC_ATTR + UgfxSvgAttr_cur], 0
+    cmp ebx, FW_DISTANT
+    jae .light
     cmp ebx, FW_MERGENODE
     jne .func
     ; feMergeNode: its input (none given: the previous result)
@@ -5340,6 +5618,58 @@ svg_fe_child:
     mov [rbp + FC_TABLES + rax], rdi
     mov [rbp + FC_TABLES + rax + 8], rsi
     jmp .f_attr
+.light:
+    ; a lighting primitive's first light: its numbers into light[]
+    cmp dword [r12 + UgfxSvgFe_light_type], 0
+    jne .out
+    cmp dword [r12 + UgfxSvgFe_code], FW_DIFFUSE
+    jb .out
+    lea eax, [rbx - FW_DISTANT + 1]
+    mov [r12 + UgfxSvgFe_light_type], eax
+.l_attr:
+    call svg_fe_next_attr
+    jc .out
+    cmp ebx, FW_DISTANT
+    jne .l_point
+    lea ecx, [rax - FA_AZIMUTH]         ; azimuth 0, elevation 1
+    cmp ecx, 1
+    ja .l_attr
+    jmp .l_number
+.l_point:
+    xor ecx, ecx
+    cmp eax, FA_X
+    je .l_number
+    inc ecx
+    cmp eax, FA_Y
+    je .l_number
+    inc ecx
+    cmp eax, FA_Z
+    je .l_number
+    cmp ebx, FW_SPOT
+    jne .l_attr
+    lea ecx, [rax - FA_PAX + 3]         ; pointsAt 3 .. 5
+    cmp eax, FA_PAX
+    jb .l_spot
+    cmp eax, FA_PAX + 2
+    jbe .l_number
+.l_spot:
+    mov ecx, 6
+    cmp eax, FA_SPEC_EXP
+    je .l_number
+    mov ecx, 7
+    cmp eax, FA_CONE
+    jne .l_attr
+.l_number:
+    mov [rsp], ecx
+    call ugfx_svg_number
+    test rax, rax
+    jz .l_attr
+    mov ecx, [rsp]
+    movsd [r12 + UgfxSvgFe_light + rcx * 8], xmm0
+    cmp ecx, 7
+    jne .l_attr
+    mov dword [r12 + UgfxSvgFe_cone], 1
+    jmp .l_attr
 .out:
     add rsp, 8
     pop rbx
@@ -5404,6 +5734,36 @@ svg_fe_finish:
     je .shadow
     cmp eax, FE_TILE + 1
     jbe .engine
+    cmp eax, FW_TURBULENCE
+    jb .nothing
+    cmp eax, FW_SPECULAR
+    ja .nothing
+    lea rcx, [rel svg_fe_newer_types]
+    movzx eax, byte [rcx + rax - FW_TURBULENCE]
+    mov [r12 + UgfxSvgFe_type], eax
+    cmp eax, FE_CONVOLVE
+    je .convolve
+    cmp eax, FE_IMAGE
+    je .image
+    cmp eax, FE_DISPLACE
+    je .out
+    mov ecx, 10                         ; turbulence: room for its matrix and tile
+    cmp eax, FE_TURBULENCE
+    je .room
+    cmp dword [r12 + UgfxSvgFe_light_type], 0
+    je .nothing                         ; lighting without a light
+    mov ecx, 6                          ; room for the light in device space
+.room:
+    lea rsi, [rel svg_fe_zeros]
+    call svg_fe_list
+    jmp .out
+.convolve:
+    call svg_fe_kernel
+    jmp .out
+.image:
+    call svg_fe_image
+    jmp .out
+.nothing:
     ; not supported: a flood of nothing
     mov dword [r12 + UgfxSvgFe_type], FE_FLOOD
     mov dword [r12 + UgfxSvgFe_flood], 0
@@ -5655,6 +6015,188 @@ svg_fe_numbers:
     pop r12
     ret
 
+; xmm0 -> eax = it as a whole number; CF set when it is not one (or beyond
+;   +-2^20)
+svg_fe_whole:
+    ucomisd xmm0, [rel svg_fe_2p20]
+    jp .bad
+    jae .bad
+    ucomisd xmm0, [rel svg_fe_m2p20]
+    jbe .bad
+    cvttsd2si eax, xmm0
+    cvtsi2sd xmm1, eax
+    ucomisd xmm1, xmm0
+    jne .bad
+    clc
+    ret
+.bad:
+    stc
+    ret
+
+; r12 = a convolution, r15 = frame: its kernel from kernelMatrix (exactly
+;   orderX x orderY numbers, orders whole in 1 .. 64), the divisor (not
+;   given or 0: the kernel's sum, 1 when that is 0) and the targets (not
+;   given: order / 2, else whole and inside the kernel); anything else
+;   makes it pass its input through (an offset of nothing)
+svg_fe_kernel:
+    push r14
+    push rbx
+    sub rsp, 8
+    movsd xmm0, [r12 + UgfxSvgFe_q]
+    call svg_fe_whole
+    jc .pass
+    cmp eax, 1
+    jl .pass
+    cmp eax, 64
+    jg .pass
+    mov ebx, eax                        ; orderX
+    movsd xmm0, [r12 + UgfxSvgFe_q + 8]
+    call svg_fe_whole
+    jc .pass
+    cmp eax, 1
+    jl .pass
+    cmp eax, 64
+    jg .pass
+    mov r14d, eax                       ; orderY
+    imul eax, ebx
+    mov [rsp], eax
+    mov rdi, [r12 + UgfxSvgFe_values]
+    mov rsi, [r12 + UgfxSvgFe_values_end]
+    xor edx, edx
+    call svg_fe_numbers
+    cmp eax, [rsp]
+    jne .pass
+    ; the targets
+    bt dword [r12 + UgfxSvgFe_given], 9
+    jc .tx_given
+    mov eax, ebx
+    shr eax, 1
+    cvtsi2sd xmm0, eax
+    movsd [r12 + UgfxSvgFe_q + 32], xmm0
+    jmp .ty
+.tx_given:
+    movsd xmm0, [r12 + UgfxSvgFe_q + 32]
+    call svg_fe_whole
+    jc .pass
+    test eax, eax
+    js .pass
+    cmp eax, ebx
+    jge .pass
+.ty:
+    bt dword [r12 + UgfxSvgFe_given], 10
+    jc .ty_given
+    mov eax, r14d
+    shr eax, 1
+    cvtsi2sd xmm0, eax
+    movsd [r12 + UgfxSvgFe_q + 40], xmm0
+    jmp .kernel
+.ty_given:
+    movsd xmm0, [r12 + UgfxSvgFe_q + 40]
+    call svg_fe_whole
+    jc .pass
+    test eax, eax
+    js .pass
+    cmp eax, r14d
+    jge .pass
+.kernel:
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    mov esi, [rsp]
+    lea esi, [rsi * 8 + 8]
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov [r12 + UgfxSvgFe_var], rax
+    mov ecx, [rsp]
+    mov [r12 + UgfxSvgFe_nvar], ecx
+    mov rdx, rax
+    mov rdi, [r12 + UgfxSvgFe_values]
+    mov rsi, [r12 + UgfxSvgFe_values_end]
+    call svg_fe_numbers
+    ; the divisor
+    xorpd xmm1, xmm1
+    bt dword [r12 + UgfxSvgFe_given], 8
+    jnc .sum
+    movsd xmm0, [r12 + UgfxSvgFe_q + 16]
+    ucomisd xmm0, xmm1
+    jne .done
+.sum:
+    mov rdx, [r12 + UgfxSvgFe_var]
+    mov ecx, [rsp]
+    xorpd xmm0, xmm0
+    xor eax, eax
+.add:
+    addsd xmm0, [rdx + rax * 8]
+    inc eax
+    cmp eax, ecx
+    jb .add
+    ucomisd xmm0, xmm1
+    jne .divisor
+    movsd xmm0, [rel svg_one]
+.divisor:
+    movsd [r12 + UgfxSvgFe_q + 16], xmm0
+    jmp .done
+.pass:
+    mov dword [r12 + UgfxSvgFe_type], FE_OFFSET
+    xorpd xmm0, xmm0
+    movsd [r12 + UgfxSvgFe_dxy], xmm0
+    movsd [r12 + UgfxSvgFe_dxy + 8], xmm0
+    jmp .done
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.done:
+    add rsp, 8
+    pop rbx
+    pop r14
+    ret
+
+; r12 = an feImage, r15 = frame: its href through UgfxSvg_image_fn (a data:
+;   URI's bytes, else the reference) - the PixBuf as its var; nothing drawn
+;   without one
+svg_fe_image:
+    push r13
+    push r14
+    sub rsp, 8
+    mov r14, [r15 + P_SVG]
+    cmp qword [r14 + UgfxSvg_image_fn], 0
+    je .none
+    mov rdi, [r12 + UgfxSvgFe_values]
+    test rdi, rdi
+    jz .none
+    mov rsi, [r12 + UgfxSvgFe_values_end]
+    mov r13, rdi
+    mov [rsp], rsi
+    call svg_data_uri
+    xor ecx, ecx
+    test rax, rax
+    jnz .call
+    mov rax, r13
+    mov rdx, [rsp]
+    sub rdx, r13
+    mov ecx, 1
+.call:
+    mov rdi, [r14 + UgfxSvg_image_user]
+    mov rsi, rax
+    mov r8, [r14 + UgfxSvg_arena]
+    call [r14 + UgfxSvg_image_fn]
+    test rax, rax
+    jle .none
+    cmp qword [rax + PixBuf_width], 0
+    jle .none
+    cmp qword [rax + PixBuf_height], 0
+    jle .none
+    mov [r12 + UgfxSvgFe_var], rax
+    mov dword [r12 + UgfxSvgFe_nvar], 0
+    jmp .out
+.none:
+    mov dword [r12 + UgfxSvgFe_type], FE_FLOOD
+    mov dword [r12 + UgfxSvgFe_flood], 0
+.out:
+    add rsp, 8
+    pop r14
+    pop r13
+    ret
+
 ; r12 = a drop shadow (stdDeviation, dx, dy default 2), r13 = the filter:
 ;   six primitives in its place - the input's alpha, blurred, offset, the
 ;   flood colour in it, merged under the input; the last takes its result
@@ -5762,7 +6304,9 @@ svg_fe_shadow:
 %define FD_R        80                  ; f64 x, y, w, h: the region in user space
 %define FD_S        112                 ; f64 sx, sy
 %define FD_U        128                 ; f64 x, y, w, h: a rect
-%define FD_SIZE     168
+%define FD_T        160                 ; f64[6] scratch
+%define FD_V        208                 ; f64[6] scratch
+%define FD_SIZE     264
 
 svg_filter_device:
     push r12
@@ -5861,6 +6405,8 @@ svg_filter_device:
     cmp ecx, 8
     jb .p_clear
     mov eax, [r13 + UgfxSvgFe_type]
+    cmp eax, FE_CONVOLVE
+    jae .newer
     cmp eax, FE_FLOOD
     je .flood
     cmp eax, FE_OFFSET
@@ -5918,6 +6464,230 @@ svg_filter_device:
     mulsd xmm3, xmm1
     addsd xmm2, xmm3
     movsd [rbx + UgfxFe_p + 8], xmm2
+    jmp .next
+.newer:
+    ; q as the parameters, then what depends on the space
+    xor ecx, ecx
+.q:
+    mov rax, [r13 + UgfxSvgFe_q + rcx * 8]
+    mov [rbx + UgfxFe_p + rcx * 8], rax
+    inc ecx
+    cmp ecx, 8
+    jb .q
+    mov eax, [r13 + UgfxSvgFe_type]
+    cmp eax, FE_DISPLACE
+    je .displace
+    cmp eax, FE_TURBULENCE
+    je .turbulence
+    cmp eax, FE_IMAGE
+    je .image
+    cmp eax, FE_DIFFUSE
+    jae .lighting
+    jmp .next                           ; convolution: in device pixels as it is
+.displace:
+    lea rsi, [r13 + UgfxSvgFe_q]
+    lea rdi, [rbx + UgfxFe_p]
+    call .lengths
+    jmp .next
+.turbulence:
+    ; var: device -> user (or bbox units) space, then the tile (the
+    ; subregion in that space)
+    mov rdi, [rbx + UgfxFe_var]
+    test rdi, rdi
+    jz .next
+    movsd xmm0, [rsp + FD_U]
+    movsd xmm1, [rsp + FD_U + 8]
+    movsd xmm2, [rsp + FD_U + 16]
+    movsd xmm3, [rsp + FD_U + 24]
+    cmp dword [r12 + UgfxSvgFilter_prim_units], 0
+    je .t_tile
+    subsd xmm0, [rsp + FD_B]
+    divsd xmm0, [rsp + FD_B + 16]
+    subsd xmm1, [rsp + FD_B + 8]
+    divsd xmm1, [rsp + FD_B + 24]
+    divsd xmm2, [rsp + FD_B + 16]
+    divsd xmm3, [rsp + FD_B + 24]
+.t_tile:
+    movsd [rdi + 48], xmm0
+    movsd [rdi + 56], xmm1
+    movsd [rdi + 64], xmm2
+    movsd [rdi + 72], xmm3
+    xor ecx, ecx
+.t_m:
+    mov rax, [rsp + FD_M + rcx * 8]
+    mov [rsp + FD_T + rcx * 8], rax
+    inc ecx
+    cmp ecx, 6
+    jb .t_m
+    cmp dword [r12 + UgfxSvgFilter_prim_units], 0
+    je .t_invert
+    ; M x [bw 0 0 bh bx by]
+    xorpd xmm0, xmm0
+    movsd xmm1, [rsp + FD_B + 16]
+    movsd [rsp + FD_V], xmm1
+    movsd [rsp + FD_V + 8], xmm0
+    movsd [rsp + FD_V + 16], xmm0
+    movsd xmm1, [rsp + FD_B + 24]
+    movsd [rsp + FD_V + 24], xmm1
+    movsd xmm1, [rsp + FD_B]
+    movsd [rsp + FD_V + 32], xmm1
+    movsd xmm1, [rsp + FD_B + 8]
+    movsd [rsp + FD_V + 40], xmm1
+    lea rdi, [rsp + FD_T]
+    lea rsi, [rsp + FD_M]
+    lea rdx, [rsp + FD_V]
+    call umath_affine2_multiply
+.t_invert:
+    mov rdi, [rbx + UgfxFe_var]
+    lea rsi, [rsp + FD_T]
+    call umath_affine2_invert
+    test eax, eax
+    jz .next
+    mov rdi, [rbx + UgfxFe_var]         ; singular: all one point
+    xor eax, eax
+    mov ecx, 48
+    rep stosb
+    jmp .next
+.image:
+    ; the image fitted (preserveAspectRatio) into the subregion, its box's
+    ; corners through M: p = x, y, w, h of their bounds
+    mov rax, [rbx + UgfxFe_var]
+    test rax, rax
+    jz .next
+    xorpd xmm0, xmm0
+    movsd [rsp + FD_V], xmm0
+    movsd [rsp + FD_V + 8], xmm0
+    cvtsi2sd xmm0, qword [rax + PixBuf_width]
+    movsd [rsp + FD_V + 16], xmm0
+    cvtsi2sd xmm0, qword [rax + PixBuf_height]
+    movsd [rsp + FD_V + 24], xmm0
+    movsd xmm0, [rsp + FD_U + 16]
+    movsd xmm1, [rsp + FD_U + 24]
+    xorpd xmm2, xmm2
+    ucomisd xmm0, xmm2
+    jbe .next
+    ucomisd xmm1, xmm2
+    jbe .next
+    lea rdi, [rsp + FD_T]
+    lea rsi, [rsp + FD_V]
+    mov edx, [r13 + UgfxSvgFe_par]
+    call svg_fit
+    movsd xmm0, [rsp + FD_U]
+    addsd xmm0, [rsp + FD_T + 32]       ; x0
+    movsd xmm1, [rsp + FD_U + 8]
+    addsd xmm1, [rsp + FD_T + 40]       ; y0
+    movsd xmm2, [rsp + FD_V + 16]
+    mulsd xmm2, [rsp + FD_T]
+    addsd xmm2, xmm0                    ; x1
+    movsd xmm3, [rsp + FD_V + 24]
+    mulsd xmm3, [rsp + FD_T + 24]
+    addsd xmm3, xmm1                    ; y1
+    movsd [rsp + FD_V], xmm0
+    movsd [rsp + FD_V + 8], xmm1
+    movsd [rsp + FD_V + 16], xmm2
+    movsd [rsp + FD_V + 24], xmm3
+    lea rsi, [rsp + FD_V]
+    call .through
+    lea rsi, [rsp + FD_V + 16]
+    call .through
+    xor ecx, ecx
+.i_axis:
+    movsd xmm0, [rsp + FD_V + rcx * 8]
+    movsd xmm1, [rsp + FD_V + 16 + rcx * 8]
+    movapd xmm2, xmm0
+    minsd xmm2, xmm1
+    maxsd xmm0, xmm1
+    subsd xmm0, xmm2
+    movsd [rbx + UgfxFe_p + rcx * 8], xmm2
+    movsd [rbx + UgfxFe_p + 16 + rcx * 8], xmm0
+    inc ecx
+    cmp ecx, 2
+    jb .i_axis
+    jmp .next
+.lighting:
+    ; p3 the light (0 distant 1 point 2 spot), p5 its exponent, p6 cos of
+    ; its cone (-2: none); var the light in device space
+    mov eax, [r13 + UgfxSvgFe_light_type]
+    dec eax
+    cvtsi2sd xmm0, eax
+    movsd [rbx + UgfxFe_p + 24], xmm0
+    movsd xmm0, [r13 + UgfxSvgFe_light + 48]
+    movsd [rbx + UgfxFe_p + 40], xmm0
+    movsd xmm0, [rel svg_fe_m2]
+    cmp dword [r13 + UgfxSvgFe_cone], 0
+    je .l_cone
+    movsd xmm0, [r13 + UgfxSvgFe_light + 56]
+    andpd xmm0, [rel svg_abs_mask]
+    mulsd xmm0, [rel svg_deg]
+    call umath_cos_f64
+.l_cone:
+    movsd [rbx + UgfxFe_p + 48], xmm0
+    mov rdi, [rbx + UgfxFe_var]
+    test rdi, rdi
+    jz .next
+    cmp dword [r13 + UgfxSvgFe_light_type], 1
+    jne .l_points
+    ; distant: (cos az cos el, sin az cos el, sin el), (x, y) through M's
+    ; linear part at its own length
+    movsd xmm0, [r13 + UgfxSvgFe_light + 8]
+    mulsd xmm0, [rel svg_deg]
+    movsd [rsp + FD_V], xmm0
+    call umath_cos_f64
+    movsd [rsp + FD_V + 8], xmm0        ; cos el
+    movsd xmm0, [rsp + FD_V]
+    call umath_sin_f64
+    mov rdi, [rbx + UgfxFe_var]
+    movsd [rdi + 16], xmm0
+    movsd xmm0, [r13 + UgfxSvgFe_light]
+    mulsd xmm0, [rel svg_deg]
+    movsd [rsp + FD_V], xmm0
+    call umath_cos_f64
+    mulsd xmm0, [rsp + FD_V + 8]
+    movsd [rsp + FD_V + 16], xmm0       ; Lx
+    movsd xmm0, [rsp + FD_V]
+    call umath_sin_f64
+    mulsd xmm0, [rsp + FD_V + 8]        ; Ly
+    movsd xmm1, xmm0
+    movsd xmm0, [rsp + FD_V + 16]
+    movsd xmm2, [rsp + FD_M]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + FD_M + 16]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3                    ; dx
+    movsd xmm3, [rsp + FD_M + 8]
+    mulsd xmm3, xmm0
+    movsd xmm4, [rsp + FD_M + 24]
+    mulsd xmm4, xmm1
+    addsd xmm3, xmm4                    ; dy
+    movapd xmm4, xmm2
+    mulsd xmm4, xmm2
+    movapd xmm5, xmm3
+    mulsd xmm5, xmm3
+    addsd xmm4, xmm5
+    sqrtsd xmm4, xmm4                   ; |d|
+    mulsd xmm0, xmm0
+    mulsd xmm1, xmm1
+    addsd xmm0, xmm1
+    sqrtsd xmm0, xmm0                   ; |L's x, y|
+    xorpd xmm5, xmm5
+    ucomisd xmm4, xmm5
+    jbe .l_distant
+    divsd xmm0, xmm4
+    mulsd xmm2, xmm0
+    mulsd xmm3, xmm0
+.l_distant:
+    mov rdi, [rbx + UgfxFe_var]
+    movsd [rdi], xmm2
+    movsd [rdi + 8], xmm3
+    jmp .next
+.l_points:
+    lea rsi, [r13 + UgfxSvgFe_light]
+    mov rdi, [rbx + UgfxFe_var]
+    call .light_point
+    lea rsi, [r13 + UgfxSvgFe_light + 24]
+    mov rdi, [rbx + UgfxFe_var]
+    add rdi, 24
+    call .light_point
 .next:
     inc r14d
     jmp .prim
@@ -5928,6 +6698,67 @@ svg_filter_device:
     pop r14
     pop r13
     pop r12
+    ret
+; rsi = f64 x, y: through M, in place (frame at rsp + 8)
+.through:
+    movsd xmm0, [rsi]
+    movsd xmm1, [rsi + 8]
+    movsd xmm2, [rsp + 8 + FD_M]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + 8 + FD_M + 16]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    addsd xmm2, [rsp + 8 + FD_M + 32]
+    movsd xmm3, [rsp + 8 + FD_M + 8]
+    mulsd xmm3, xmm0
+    movsd xmm4, [rsp + 8 + FD_M + 24]
+    mulsd xmm4, xmm1
+    addsd xmm3, xmm4
+    addsd xmm3, [rsp + 8 + FD_M + 40]
+    movsd [rsi], xmm2
+    movsd [rsi + 8], xmm3
+    ret
+; rsi = a light's x, y, z (primitiveUnits), rdi = out: in device space - x,
+;   y through M, z by the mean of M's scales (bbox units: x, y on the bbox,
+;   z of sqrt((bw bw + bh bh) / 2)) (frame at rsp + 8)
+.light_point:
+    movsd xmm0, [rsi]
+    movsd xmm1, [rsi + 8]
+    movsd xmm5, [rsi + 16]
+    cmp dword [r12 + UgfxSvgFilter_prim_units], 0
+    je .lp_user
+    mulsd xmm0, [rsp + 8 + FD_B + 16]
+    addsd xmm0, [rsp + 8 + FD_B]
+    mulsd xmm1, [rsp + 8 + FD_B + 24]
+    addsd xmm1, [rsp + 8 + FD_B + 8]
+    movsd xmm2, [rsp + 8 + FD_B + 16]
+    mulsd xmm2, xmm2
+    movsd xmm3, [rsp + 8 + FD_B + 24]
+    mulsd xmm3, xmm3
+    addsd xmm2, xmm3
+    mulsd xmm2, [rel svg_half]
+    sqrtsd xmm2, xmm2
+    mulsd xmm5, xmm2
+.lp_user:
+    movsd xmm2, [rsp + 8 + FD_M]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + 8 + FD_M + 16]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    addsd xmm2, [rsp + 8 + FD_M + 32]
+    movsd [rdi], xmm2
+    movsd xmm2, [rsp + 8 + FD_M + 8]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + 8 + FD_M + 24]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    addsd xmm2, [rsp + 8 + FD_M + 40]
+    movsd [rdi + 8], xmm2
+    movsd xmm2, [rsp + 8 + FD_S]
+    addsd xmm2, [rsp + 8 + FD_S + 8]
+    mulsd xmm2, [rel svg_half]
+    mulsd xmm5, xmm2
+    movsd [rdi + 16], xmm5
     ret
 ; rsi = f64 x, y (lengths), rdi = out: x (bw) sx, y (bh) sy (frame at
 ;   rsp + 8)
