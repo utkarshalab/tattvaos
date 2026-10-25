@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
-"""A model of src/font/sfnt.asm and src/font/fontset.asm for checking SVG text.
+"""A model of lib/ufont (sfnt/sfnt.asm, match/fontset.asm) for checking it and SVG text.
 
-    fonts = FontSet(directory)     the shipped fonts found there (fontset_standard)
-    fonts.font_fn                  ugfx's font callback as fontset_svg_font answers it,
+    fonts = FontSet(directory)     the shipped fonts found there (ufont_standard)
+    face = fonts.face(family, weight, style)   the face ufont_set_face picks; face.std is
+                                   its index in ufont_standard
+    face.glyph(cp), face.advance(gid), face.outline(gid, scale)
+                                   ufont_glyph / ufont_advance / ufont_outline
+    fonts.font_fn                  ugfx's font callback as ufont_svg_font answers it,
                                    in svgmodel's form: font_fn((family, weight, style),
                                    code point, size, outline) -> (advance, path) or,
                                    for code point -1, (ascent, descent)
@@ -19,7 +23,7 @@ import sys
 from fontTools.ttLib import TTFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "..", "ugfx", "tools"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "ugfx", "tools"))
 import svgmodel  # noqa: E402
 
 STANDARD = [
@@ -50,8 +54,8 @@ ALIASES = {"sans-serif": "Noto Sans", "system-ui": "Noto Sans", "ui-sans-serif":
 
 
 class Face:
-    def __init__(self, path, family, weight, italic):
-        self.family, self.weight, self.italic = family, weight, italic
+    def __init__(self, path, family, weight, italic, std=-1):
+        self.family, self.weight, self.italic, self.std = family, weight, italic, std
         self.font = TTFont(path)
         self.upem = self.font["head"].unitsPerEm
         hhea = self.font["hhea"]
@@ -140,7 +144,7 @@ class Face:
 
 class FontSet:
     def __init__(self, directory):
-        self.faces = [Face(os.path.join(directory, f), fam, w, it) for f, fam, w, it in STANDARD
+        self.faces = [Face(os.path.join(directory, f), fam, w, it, i) for i, (f, fam, w, it) in enumerate(STANDARD)
                       if os.path.exists(os.path.join(directory, f))]
 
     def family(self, name, want):
