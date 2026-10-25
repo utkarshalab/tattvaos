@@ -3,19 +3,19 @@
 ; =============================================================================
 ; Applying GSUB / GPOS lookups to the buffer, as HarfBuzz does:
 ;
-;   ap_run_table(edi = 0 GSUB / 1 GPOS)   every stage's lookups, each over the
+;   ufl_ap_run_table(edi = 0 GSUB / 1 GPOS)   every stage's lookups, each over the
 ;       run (GSUB forward through the output side, reverse-chaining lookups
 ;       backward in place, GPOS in place), the stage's pause after it
-;   ap_apply_subtables(rdi = lookup)  -> eax 1 when a subtable applied at idx
-;   ap_check(rsi = record, edi = match props) -> eax 1 / 0 (skipped by the
+;   ufl_ap_apply_subtables(rdi = lookup)  -> eax 1 when a subtable applied at idx
+;   ufl_ap_check(rsi = record, edi = match props) -> eax 1 / 0 (skipped by the
 ;       lookup flags: ignored classes, mark filtering set, attachment type)
-;   sk_init / sk_reset / sk_check / sk_next / sk_prev / sk_may_skip
+;   ufl_sk_init / ufl_sk_reset / ufl_sk_check / ufl_sk_next / ufl_sk_prev / ufl_sk_may_skip
 ;       the skipping iterator (SK_* on the caller's stack)
-;   ap_match_input, ap_match_backtrack, ap_match_lookahead, ap_ligate,
-;   ap_apply_records, ap_context      matching sequences and contexts
-;   ap_set_class, ap_replace_glyph, ap_replace_inplace, ap_replace_lig,
-;   ap_output_component               substitutions that keep glyph props
-;   ap_would_apply(edi = lookup index, rsi = glyphs (u32), edx = count,
+;   ufl_ap_match_input, ufl_ap_match_backtrack, ufl_ap_match_lookahead, ufl_ap_ligate,
+;   ufl_ap_apply_records, ufl_ap_context      matching sequences and contexts
+;   ufl_ap_set_class, ufl_ap_replace_glyph, ufl_ap_replace_inplace, ufl_ap_replace_lig,
+;   ufl_ap_output_component               substitutions that keep glyph props
+;   ufl_ap_would_apply(edi = lookup index, rsi = glyphs (u32), edx = count,
 ;       ecx = zero context) -> eax 1 / 0   would a GSUB lookup apply to
 ;       exactly these glyphs (flags and context ignored)
 ; =============================================================================
@@ -23,32 +23,32 @@
 %include "ufont.inc"
 %include "shape.inc"
 
-extern otl_table
-extern otl_lookup
-extern otl_glyph_props
-extern otl_mark_set_covers
-extern ot_coverage
-extern ot_class
-extern ot_off16
-extern buf_cur
-extern buf_clear_output
-extern buf_sync
-extern buf_next_glyph
-extern buf_replace_glyph
-extern buf_output_glyph
-extern buf_move_to
-extern buf_merge_clusters
-extern buf_next_serial
-extern gsub_apply
-extern gpos_apply
+extern ufl_otl_table
+extern ufl_otl_lookup
+extern ufl_otl_glyph_props
+extern ufl_otl_mark_set_covers
+extern ufl_ot_coverage
+extern ufl_ot_class
+extern ufl_ot_off16
+extern ufl_buf_cur
+extern ufl_buf_clear_output
+extern ufl_buf_sync
+extern ufl_buf_next_glyph
+extern ufl_buf_replace_glyph
+extern ufl_buf_output_glyph
+extern ufl_buf_move_to
+extern ufl_buf_merge_clusters
+extern ufl_buf_next_serial
+extern ufl_gsub_apply
+extern ufl_gpos_apply
 
 section .text
 
 ; ----------------------------------------------------------------------------
-; ap_check — rsi = record, edi = match props -> eax 1 / 0
+; ufl_ap_check — rsi = record, edi = match props -> eax 1 / 0
 ; ----------------------------------------------------------------------------
-global ap_check
-ap_check:
+global ufl_ap_check
+ufl_ap_check:
     movzx eax, word [rsi + GI_PROPS]
     mov ecx, eax
     and ecx, edi
@@ -71,7 +71,7 @@ ap_check:
     sub rsp, 8
     shr edi, 16
     mov esi, [rsi + GI_GLYPH]
-    call otl_mark_set_covers
+    call ufl_otl_mark_set_covers
     add rsp, 8
     ret
 .yes:
@@ -84,9 +84,9 @@ ap_check:
 ; ----------------------------------------------------------------------------
 ; the skipping iterator
 ; ----------------------------------------------------------------------------
-; sk_init — rdi = SK, esi = context match (1: backtrack / lookahead)
-global sk_init
-sk_init:
+; ufl_sk_init — rdi = SK, esi = context match (1: backtrack / lookahead)
+global ufl_sk_init
+ufl_sk_init:
     xor eax, eax
     cmp byte [r15 + S_GPOS], 0
     je .gsub
@@ -127,9 +127,9 @@ sk_init:
     mov [rdi + SK_ARR], rax
     ret
 
-; sk_reset — rdi = SK, esi = start, edx = items
-global sk_reset
-sk_reset:
+; ufl_sk_reset — rdi = SK, esi = start, edx = items
+global ufl_sk_reset
+ufl_sk_reset:
     mov [rdi + SK_IDX], esi
     mov [rdi + SK_NUM], edx
     mov eax, [r15 + S_LEN]
@@ -147,9 +147,9 @@ sk_reset:
     mov [rdi + SK_SYL], eax
     ret
 
-; sk_matcher — rdi = SK, rsi = MB: matched against it
-global sk_matcher
-sk_matcher:
+; ufl_sk_matcher — rdi = SK, rsi = MB: matched against it
+global ufl_sk_matcher
+ufl_sk_matcher:
     mov eax, [rsi + MB_TYPE]
     mov [rdi + SK_MTYPE], eax
     mov rax, [rsi + MB_DATA]
@@ -158,16 +158,16 @@ sk_matcher:
     mov [rdi + SK_MBASE], rax
     ret
 
-; sk_may_skip — rdi = SK, rsi = record -> eax 0 no, 1 yes, 2 maybe
-global sk_may_skip
-sk_may_skip:
+; ufl_sk_may_skip — rdi = SK, rsi = record -> eax 0 no, 1 yes, 2 maybe
+global ufl_sk_may_skip
+ufl_sk_may_skip:
     push rbx
     push r12
     sub rsp, 8
     mov rbx, rdi
     mov r12, rsi
     mov edi, [rbx + SK_PROPS]
-    call ap_check
+    call ufl_ap_check
     test eax, eax
     jz .yes
     xor eax, eax
@@ -222,7 +222,7 @@ sk_value:
     mov rdi, [rdi + SK_MBASE]
     mov rsi, [r15 + S_TEND]
     mov edx, [rbx + GI_GLYPH]
-    call ot_class
+    call ufl_ot_class
     pop r8
     cmp eax, r8d
     sete al
@@ -239,7 +239,7 @@ sk_value:
     jae .no
     mov edx, [rbx + GI_GLYPH]
     sub rsp, 8
-    call ot_coverage
+    call ufl_ot_coverage
     add rsp, 8
     not eax
     test eax, eax
@@ -252,10 +252,10 @@ sk_value:
     pop rbx
     ret
 
-; sk_check — rdi = SK, rsi = record, edx = item -> eax 0 skip, 1 match,
+; ufl_sk_check — rdi = SK, rsi = record, edx = item -> eax 0 skip, 1 match,
 ;   2 no match
-global sk_check
-sk_check:
+global ufl_sk_check
+ufl_sk_check:
     push rbx
     push r12
     push r13
@@ -264,7 +264,7 @@ sk_check:
     mov rbx, rdi
     mov r12, rsi
     mov r13d, edx
-    call sk_may_skip
+    call ufl_sk_may_skip
     cmp eax, 1
     je .skip
     mov r14d, eax                       ; 0 no, 2 maybe
@@ -312,9 +312,9 @@ sk_check:
     pop rbx
     ret
 
-; sk_next — rdi = SK, esi = item -> eax 1 matched (SK_IDX on it) / 0
-global sk_next
-sk_next:
+; ufl_sk_next — rdi = SK, esi = item -> eax 1 matched (SK_IDX on it) / 0
+global ufl_sk_next
+ufl_sk_next:
     push rbx
     push r12
     sub rsp, 8
@@ -331,7 +331,7 @@ sk_next:
     add rsi, [r15 + S_INFO]
     mov rdi, rbx
     mov edx, r12d
-    call sk_check
+    call ufl_sk_check
     cmp eax, 1
     je .match
     cmp eax, 2
@@ -349,9 +349,9 @@ sk_next:
     pop rbx
     ret
 
-; sk_prev — rdi = SK, esi = item: walks SK_ARR -> eax 1 / 0
-global sk_prev
-sk_prev:
+; ufl_sk_prev — rdi = SK, esi = item: walks SK_ARR -> eax 1 / 0
+global ufl_sk_prev
+ufl_sk_prev:
     push rbx
     push r12
     sub rsp, 8
@@ -368,7 +368,7 @@ sk_prev:
     add rsi, [rbx + SK_ARR]
     mov rdi, rbx
     mov edx, r12d
-    call sk_check
+    call ufl_sk_check
     cmp eax, 1
     je .match
     cmp eax, 2
@@ -389,10 +389,10 @@ sk_prev:
 ; ----------------------------------------------------------------------------
 ; substitutions keeping glyph props
 ; ----------------------------------------------------------------------------
-; ap_set_class — rdi = record, esi = glyph, edx = class guess, ecx = 1
+; ufl_ap_set_class — rdi = record, esi = glyph, edx = class guess, ecx = 1
 ;   ligature / 2 component
-global ap_set_class
-ap_set_class:
+global ufl_ap_set_class
+ufl_ap_set_class:
     push rbx
     push r12
     push r13
@@ -413,7 +413,7 @@ ap_set_class:
     and eax, GP_PRESERVE
     mov r12d, eax
     mov edi, esi
-    call otl_glyph_props
+    call ufl_otl_glyph_props
     or eax, r12d
     jmp .set
 .guess:
@@ -429,66 +429,66 @@ ap_set_class:
     ret
 
 ; esi = glyph
-global ap_replace_glyph
-ap_replace_glyph:
+global ufl_ap_replace_glyph
+ufl_ap_replace_glyph:
     push rbx
     mov ebx, esi
-    call buf_cur
+    call ufl_buf_cur
     mov rdi, rax
     mov esi, ebx
     xor edx, edx
     xor ecx, ecx
-    call ap_set_class
+    call ufl_ap_set_class
     mov esi, ebx
-    call buf_replace_glyph
+    call ufl_buf_replace_glyph
     pop rbx
     ret
 
-global ap_replace_inplace
-ap_replace_inplace:
+global ufl_ap_replace_inplace
+ufl_ap_replace_inplace:
     push rbx
     mov ebx, esi
-    call buf_cur
+    call ufl_buf_cur
     mov rdi, rax
     mov esi, ebx
     xor edx, edx
     xor ecx, ecx
-    call ap_set_class
-    call buf_cur
+    call ufl_ap_set_class
+    call ufl_buf_cur
     mov [rax + GI_GLYPH], ebx
     pop rbx
     ret
 
 ; esi = glyph, edx = class guess
-global ap_replace_lig
-ap_replace_lig:
+global ufl_ap_replace_lig
+ufl_ap_replace_lig:
     push rbx
     mov ebx, esi
     push rdx
-    call buf_cur
+    call ufl_buf_cur
     pop rdx
     mov rdi, rax
     mov esi, ebx
     mov ecx, 1
-    call ap_set_class
+    call ufl_ap_set_class
     mov esi, ebx
-    call buf_replace_glyph
+    call ufl_buf_replace_glyph
     pop rbx
     ret
 
-global ap_output_component
-ap_output_component:
+global ufl_ap_output_component
+ufl_ap_output_component:
     push rbx
     mov ebx, esi
     push rdx
-    call buf_cur
+    call ufl_buf_cur
     pop rdx
     mov rdi, rax
     mov esi, ebx
     mov ecx, 2
-    call ap_set_class
+    call ufl_ap_set_class
     mov esi, ebx
-    call buf_output_glyph
+    call ufl_buf_output_glyph
     pop rbx
     ret
 
@@ -520,7 +520,7 @@ ap_output_component:
 %endmacro
 
 ; ----------------------------------------------------------------------------
-; ap_match_input — rdi = MB of the items after the first, esi = count (with
+; ufl_ap_match_input — rdi = MB of the items after the first, esi = count (with
 ;   the first), rdx = match positions (u32 x count) -> eax 1 / 0, ecx = end,
 ;   edx = components in all
 ; ----------------------------------------------------------------------------
@@ -534,8 +534,8 @@ ap_output_component:
 %define MI_I       84
 %define MI_SIZE    96
 
-global ap_match_input
-ap_match_input:
+global ufl_ap_match_input
+ufl_ap_match_input:
     push rbx
     push r12
     push r13
@@ -545,18 +545,18 @@ ap_match_input:
     mov rbx, rdi
     lea rdi, [rsp + MI_SK]
     xor esi, esi
-    call sk_init
+    call ufl_sk_init
     lea rdi, [rsp + MI_SK]
     mov esi, [r15 + S_IDX]
     mov edx, [rsp + MI_COUNT]
     dec edx
-    call sk_reset
+    call ufl_sk_reset
     lea rdi, [rsp + MI_SK]
     mov rsi, rbx
-    call sk_matcher
+    call ufl_sk_matcher
     mov dword [rsp + MI_TOTAL], 0
     mov dword [rsp + MI_LIGBASE], 0
-    call buf_cur
+    call ufl_buf_cur
     LIG_ID ecx, rax
     mov [rsp + MI_FID], ecx
     LIG_COMP ecx, rax
@@ -568,7 +568,7 @@ ap_match_input:
     jae .matched
     lea rdi, [rsp + MI_SK]
     lea esi, [rax - 1]
-    call sk_next
+    call ufl_sk_next
     test eax, eax
     jz .fail
     mov eax, [rsp + MI_I]
@@ -616,7 +616,7 @@ ap_match_input:
     shl rsi, 5
     add rsi, r10
     lea rdi, [rsp + MI_SK]
-    call sk_may_skip
+    call ufl_sk_may_skip
     cmp eax, 1
     jne .ligbase
     mov dword [rsp + MI_LIGBASE], 2
@@ -637,7 +637,7 @@ ap_match_input:
     inc dword [rsp + MI_I]
     jmp .item
 .matched:
-    call buf_cur
+    call ufl_buf_cur
     NUM_COMPS ecx, rax
     add [rsp + MI_TOTAL], ecx
     mov rdx, [rsp + MI_MP]
@@ -658,18 +658,18 @@ ap_match_input:
     ret
 
 ; ----------------------------------------------------------------------------
-; ap_match_backtrack — rdi = MB -> eax 1 / 0
-; ap_match_lookahead — rdi = MB, esi = start (after the input) -> eax 1 / 0
+; ufl_ap_match_backtrack — rdi = MB -> eax 1 / 0
+; ufl_ap_match_lookahead — rdi = MB, esi = start (after the input) -> eax 1 / 0
 ; ----------------------------------------------------------------------------
-global ap_match_backtrack
-ap_match_backtrack:
+global ufl_ap_match_backtrack
+ufl_ap_match_backtrack:
     push rbx
     push r12
     sub rsp, SK_SIZE + 16
     mov rbx, rdi
     mov rdi, rsp
     mov esi, 1
-    call sk_init
+    call ufl_sk_init
     mov rax, [r15 + S_INFO]
     mov ecx, [r15 + S_IDX]
     cmp byte [r15 + S_HAVEOUT], 0
@@ -683,20 +683,20 @@ ap_match_backtrack:
     mov edx, [rbx + MB_COUNT]
     push rcx
     sub rsp, 8
-    call sk_reset
+    call ufl_sk_reset
     add rsp, 8
     pop rcx
     mov [rsp + SK_IDX], ecx
     mov rdi, rsp
     mov rsi, rbx
-    call sk_matcher
+    call ufl_sk_matcher
     xor r12d, r12d
 .item:
     cmp r12d, [rbx + MB_COUNT]
     jae .yes
     mov rdi, rsp
     mov esi, r12d
-    call sk_prev
+    call ufl_sk_prev
     test eax, eax
     jz .no
     inc r12d
@@ -712,8 +712,8 @@ ap_match_backtrack:
     pop rbx
     ret
 
-global ap_match_lookahead
-ap_match_lookahead:
+global ufl_ap_match_lookahead
+ufl_ap_match_lookahead:
     push rbx
     push r12
     sub rsp, SK_SIZE + 16
@@ -721,21 +721,21 @@ ap_match_lookahead:
     mov r12d, esi
     mov rdi, rsp
     mov esi, 1
-    call sk_init
+    call ufl_sk_init
     mov rdi, rsp
     lea esi, [r12 - 1]
     mov edx, [rbx + MB_COUNT]
-    call sk_reset
+    call ufl_sk_reset
     mov rdi, rsp
     mov rsi, rbx
-    call sk_matcher
+    call ufl_sk_matcher
     xor r12d, r12d
 .item:
     cmp r12d, [rbx + MB_COUNT]
     jae .yes
     mov rdi, rsp
     mov esi, r12d
-    call sk_next
+    call ufl_sk_next
     test eax, eax
     jz .no
     inc r12d
@@ -752,7 +752,7 @@ ap_match_lookahead:
     ret
 
 ; ----------------------------------------------------------------------------
-; ap_ligate — edi = count, rsi = match positions, edx = match end, ecx =
+; ufl_ap_ligate — edi = count, rsi = match positions, edx = match end, ecx =
 ;   ligature glyph, r8d = components in all
 ; ----------------------------------------------------------------------------
 %define LG_COUNT  0
@@ -769,8 +769,8 @@ ap_match_lookahead:
 %define LG_I      48
 %define LG_SIZE   64
 
-global ap_ligate
-ap_ligate:
+global ufl_ap_ligate
+ufl_ap_ligate:
     push rbx
     push r12
     push r13
@@ -781,7 +781,7 @@ ap_ligate:
     mov [rsp + LG_GLYPH], ecx
     mov [rsp + LG_TOTAL], r8d
     mov esi, [r15 + S_IDX]
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
     ; a base or mark ligature: all components after the first are marks
     mov rbx, [rsp + LG_MP]
     mov r8, [r15 + S_INFO]
@@ -818,12 +818,12 @@ ap_ligate:
     jnz .first
     mov r12d, GP_LIGATURE
 .serial:
-    call buf_next_serial
+    call ufl_buf_next_serial
     and eax, 7
     jz .serial
     mov [rsp + LG_ID], eax
 .first:
-    call buf_cur
+    call ufl_buf_cur
     mov r13, rax
     LIG_ID ecx, r13
     mov [rsp + LG_LASTID], ecx
@@ -845,7 +845,7 @@ ap_ligate:
 .replace:
     mov esi, [rsp + LG_GLYPH]
     mov edx, r12d
-    call ap_replace_lig
+    call ufl_ap_replace_lig
     mov dword [rsp + LG_I], 1
 .comp:
     mov ecx, [rsp + LG_I]
@@ -859,7 +859,7 @@ ap_ligate:
     jae .component
     test r12d, r12d
     jz .pass
-    call buf_cur
+    call ufl_buf_cur
     LIG_COMP ecx, rax
     test ecx, ecx
     jnz .have_comp
@@ -878,10 +878,10 @@ ap_ligate:
     or ecx, edx
     mov [rax + GI_LIG], cl
 .pass:
-    call buf_next_glyph
+    call ufl_buf_next_glyph
     jmp .between
 .component:
-    call buf_cur
+    call ufl_buf_cur
     LIG_ID ecx, rax
     mov [rsp + LG_LASTID], ecx
     NUM_COMPS ecx, rax
@@ -931,10 +931,10 @@ ap_ligate:
     ret
 
 ; ----------------------------------------------------------------------------
-; ap_recurse — edi = lookup index -> eax 1 applied / 0
+; ufl_ap_recurse — edi = lookup index -> eax 1 applied / 0
 ; ----------------------------------------------------------------------------
-global ap_recurse
-ap_recurse:
+global ufl_ap_recurse
+ufl_ap_recurse:
     push rbx
     push r12
     sub rsp, 8
@@ -945,17 +945,17 @@ ap_recurse:
     movzx edi, di
     mov esi, edi
     movzx edi, byte [r15 + S_GPOS]
-    call otl_lookup
+    call ufl_otl_lookup
     test rax, rax
     jz .no
     mov rbx, rax
     dec dword [r15 + S_NEST]
     mov r12d, [r15 + S_LPROPS]
     mov rdi, rbx
-    call ap_lookup_props
+    call ufl_ap_lookup_props
     mov [r15 + S_LPROPS], eax
     mov rdi, rbx
-    call ap_apply_subtables
+    call ufl_ap_apply_subtables
     mov [r15 + S_LPROPS], r12d
     inc dword [r15 + S_NEST]
     jmp .out
@@ -967,10 +967,10 @@ ap_recurse:
     pop rbx
     ret
 
-; ap_lookup_props — rdi = lookup -> eax = flags (| filtering set << 16; the
+; ufl_ap_lookup_props — rdi = lookup -> eax = flags (| filtering set << 16; the
 ;   set flag dropped when GDEF has no such set)
-global ap_lookup_props
-ap_lookup_props:
+global ufl_ap_lookup_props
+ufl_ap_lookup_props:
     BE16 eax, [rdi + 2]
     test eax, LF_FILTER_SET
     jz .out
@@ -989,10 +989,10 @@ ap_lookup_props:
 .out:
     ret
 
-; ap_subtable — rdi = lookup, esi = i -> rax = subtable (extensions
+; ufl_ap_subtable — rdi = lookup, esi = i -> rax = subtable (extensions
 ;   followed), edx = its type; rax 0 when out of bounds
-global ap_subtable
-ap_subtable:
+global ufl_ap_subtable
+ufl_ap_subtable:
     push rbx
     mov rbx, rdi
     BE16 r8d, [rbx]                     ; type
@@ -1036,10 +1036,10 @@ ap_subtable:
     ret
 
 ; ----------------------------------------------------------------------------
-; ap_apply_subtables — rdi = lookup -> eax 1 / 0
+; ufl_ap_apply_subtables — rdi = lookup -> eax 1 / 0
 ; ----------------------------------------------------------------------------
-global ap_apply_subtables
-ap_apply_subtables:
+global ufl_ap_apply_subtables
+ufl_ap_apply_subtables:
     push rbx
     push r12
     push r13
@@ -1051,7 +1051,7 @@ ap_apply_subtables:
     jae .no
     mov rdi, rbx
     mov esi, r13d
-    call ap_subtable
+    call ufl_ap_subtable
     inc r13d
     test rax, rax
     jz .sub
@@ -1059,10 +1059,10 @@ ap_apply_subtables:
     mov esi, edx
     cmp byte [r15 + S_GPOS], 0
     jne .gpos
-    call gsub_apply
+    call ufl_gsub_apply
     jmp .done
 .gpos:
-    call gpos_apply
+    call ufl_gpos_apply
 .done:
     test eax, eax
     jz .sub
@@ -1077,7 +1077,7 @@ ap_apply_subtables:
     ret
 
 ; ----------------------------------------------------------------------------
-; ap_apply_records — edi = count, rsi = match positions, rdx = lookup records
+; ufl_ap_apply_records — edi = count, rsi = match positions, rdx = lookup records
 ;   (u16 sequence index, u16 lookup index), ecx = records, r8d = match end
 ; ----------------------------------------------------------------------------
 %define AR_MP      0                    ; u32 x MAX_CONTEXT (own copy)
@@ -1090,8 +1090,8 @@ ap_apply_subtables:
 %define AR_IDX     284
 %define AR_SIZE    288
 
-global ap_apply_records
-ap_apply_records:
+global ufl_ap_apply_records
+ufl_ap_apply_records:
     push rbx
     push r12
     push r13
@@ -1136,9 +1136,9 @@ ap_apply_records:
     cmp [rsp + rbx * 4], eax
     jae .rec
     mov esi, [rsp + rbx * 4]
-    call buf_move_to
+    call ufl_buf_move_to
     mov edi, r12d
-    call ap_recurse
+    call ufl_ap_recurse
     test eax, eax
     jz .rec
     call ar_total_len
@@ -1220,7 +1220,7 @@ ap_apply_records:
     jmp .fix
 .done:
     mov esi, [rsp + AR_END]
-    call buf_move_to
+    call ufl_buf_move_to
     add rsp, AR_SIZE
     pop r13
     pop r12
@@ -1239,7 +1239,7 @@ ar_total_len:
     ret
 
 ; ----------------------------------------------------------------------------
-; ap_context_apply — rdi = context block (CB_*) -> eax 1 / 0
+; ufl_ap_context_apply — rdi = context block (CB_*) -> eax 1 / 0
 ; ----------------------------------------------------------------------------
 %define CB_BACK    0                    ; MB
 %define CB_INPUT   24                   ; MB (items after the first)
@@ -1253,8 +1253,8 @@ ar_total_len:
 %define CA_END     264
 %define CA_SIZE    272
 
-global ap_context_apply
-ap_context_apply:
+global ufl_ap_context_apply
+ufl_ap_context_apply:
     push rbx
     sub rsp, CA_SIZE
     mov rbx, rdi
@@ -1264,17 +1264,17 @@ ap_context_apply:
     cmp esi, MAX_CONTEXT
     ja .no
     mov rdx, rsp
-    call ap_match_input
+    call ufl_ap_match_input
     test eax, eax
     jz .no
     mov [rsp + CA_END], ecx
     lea rdi, [rbx + CB_BACK]
-    call ap_match_backtrack
+    call ufl_ap_match_backtrack
     test eax, eax
     jz .no
     lea rdi, [rbx + CB_LOOK]
     mov esi, [rsp + CA_END]
-    call ap_match_lookahead
+    call ufl_ap_match_lookahead
     test eax, eax
     jz .no
     mov edi, [rbx + CB_INPUT + MB_COUNT]
@@ -1283,7 +1283,7 @@ ap_context_apply:
     mov rdx, [rbx + CB_RECS]
     mov ecx, [rbx + CB_NRECS]
     mov r8d, [rsp + CA_END]
-    call ap_apply_records
+    call ufl_ap_apply_records
     mov eax, 1
     jmp .out
 .no:
@@ -1294,7 +1294,7 @@ ap_context_apply:
     ret
 
 ; ----------------------------------------------------------------------------
-; ap_context — rdi = subtable, esi = 1 chained / 0 plain -> eax 1 / 0
+; ufl_ap_context — rdi = subtable, esi = 1 chained / 0 plain -> eax 1 / 0
 ;   (context and chained context substitution and positioning, formats 1-3)
 ; ----------------------------------------------------------------------------
 %define CX_CB      0                    ; the context block
@@ -1315,8 +1315,8 @@ ap_context_apply:
     cmp r11, [r15 + S_TEND]
 %endmacro
 
-global ap_context
-ap_context:
+global ufl_ap_context
+ufl_ap_context:
     push rbx
     push r12
     push r13
@@ -1330,7 +1330,7 @@ ap_context:
     ja .no
     BE16 eax, [rbx]
     mov [rsp + CX_FMT], eax
-    call buf_cur
+    call ufl_buf_cur
     mov r14d, [rax + GI_GLYPH]          ; the current glyph
     ; nothing else matched by default
     xor eax, eax
@@ -1347,11 +1347,11 @@ ap_context:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 2
-    call ot_off16
+    call ufl_ot_off16
     mov rdi, rax
     mov rsi, [r15 + S_TEND]
     mov edx, r14d
-    call ot_coverage
+    call ufl_ot_coverage
     cmp eax, -1
     je .no
     BE16 ecx, [rbx + 4]
@@ -1362,17 +1362,17 @@ ap_context:
     ja .no
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
-    call ot_off16
+    call ufl_ot_off16
     jmp .rule_set
 .f2:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 2
-    call ot_off16
+    call ufl_ot_off16
     mov rdi, rax
     mov rsi, [r15 + S_TEND]
     mov edx, r14d
-    call ot_coverage
+    call ufl_ot_coverage
     cmp eax, -1
     je .no
     xor ebp, ebp                        ; offset of the class sets' count
@@ -1381,7 +1381,7 @@ ap_context:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 4
-    call ot_off16
+    call ufl_ot_off16
     mov [rsp + CX_ICD], rax
     mov qword [rsp + CX_BCD], 0
     mov qword [rsp + CX_LCD], 0
@@ -1393,24 +1393,24 @@ ap_context:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 4
-    call ot_off16
+    call ufl_ot_off16
     mov [rsp + CX_BCD], rax
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 6
-    call ot_off16
+    call ufl_ot_off16
     mov [rsp + CX_ICD], rax
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 8
-    call ot_off16
+    call ufl_ot_off16
     mov [rsp + CX_LCD], rax
     mov ebp, 10
 .f2_class:
     mov rdi, [rsp + CX_ICD]
     mov rsi, [r15 + S_TEND]
     mov edx, r14d
-    call ot_class
+    call ufl_ot_class
     BE16 ecx, [rbx + rbp]
     cmp eax, ecx
     jae .no
@@ -1419,7 +1419,7 @@ ap_context:
     ja .no
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
-    call ot_off16
+    call ufl_ot_off16
 .rule_set:
     test rax, rax
     jz .no
@@ -1440,7 +1440,7 @@ ap_context:
     mov rdi, [rsp + CX_SET]
     mov rsi, [r15 + S_TEND]
     lea edx, [rax * 2 + 2]
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .rule
     mov r12, rax                        ; the rule
@@ -1467,7 +1467,7 @@ ap_context:
     test eax, eax
     jz .rule
     lea rdi, [rsp + CX_CB]
-    call ap_context_apply
+    call ufl_ap_context_apply
     test eax, eax
     jz .rule
     jmp .yes
@@ -1497,11 +1497,11 @@ ap_context:
     cmp rdi, rsi
     jae .no
     mov edx, r14d
-    call ot_coverage
+    call ufl_ot_coverage
     cmp eax, -1
     je .no
     lea rdi, [rsp + CX_CB]
-    call ap_context_apply
+    call ufl_ap_context_apply
     test eax, eax
     jnz .yes
 .no:
@@ -1621,7 +1621,7 @@ ap_is_reverse:
     jne .out
     sub rsp, 8
     xor esi, esi
-    call ap_subtable
+    call ufl_ap_subtable
     add rsp, 8
     xor eax, eax
     test rax, rax
@@ -1631,10 +1631,10 @@ ap_is_reverse:
     ret
 
 ; ----------------------------------------------------------------------------
-; ap_run_table — edi = 0 GSUB / 1 GPOS
+; ufl_ap_run_table — edi = 0 GSUB / 1 GPOS
 ; ----------------------------------------------------------------------------
-global ap_run_table
-ap_run_table:
+global ufl_ap_run_table
+ufl_ap_run_table:
     push rbx
     push rbp
     push r12
@@ -1642,7 +1642,7 @@ ap_run_table:
     push r14
     mov ebp, edi
     mov [r15 + S_GPOS], bpl
-    call otl_table
+    call ufl_otl_table
     mov [r15 + S_TABLE], rax
     mov [r15 + S_TEND], rdx
     mov dword [r15 + S_NEST], MAX_NESTING
@@ -1663,13 +1663,13 @@ ap_run_table:
     inc r13d
     mov edi, ebp
     mov esi, [rbx + LK_INDEX]
-    call otl_lookup
+    call ufl_otl_lookup
     test rax, rax
     jz .lookup
     push rax
     sub rsp, 8
     mov rdi, rax
-    call ap_lookup_props
+    call ufl_ap_lookup_props
     mov [r15 + S_LPROPS], eax
     mov al, [rbx + LK_AZWNJ]
     mov [r15 + S_AZWNJ], al
@@ -1693,7 +1693,7 @@ ap_run_table:
     jnz .reverse
     test ebp, ebp
     jnz .forward
-    call buf_clear_output
+    call ufl_buf_clear_output
 .forward:
     mov dword [r15 + S_IDX], 0
 .fwd:
@@ -1706,7 +1706,7 @@ ap_run_table:
     jnz .fwd
     test ebp, ebp
     jnz .gpos_next
-    call buf_next_glyph
+    call ufl_buf_next_glyph
     jmp .fwd
 .gpos_next:
     inc dword [r15 + S_IDX]
@@ -1714,7 +1714,7 @@ ap_run_table:
 .fwd_done:
     test ebp, ebp
     jnz .lookup
-    call buf_sync
+    call ufl_buf_sync
     jmp .lookup
 .reverse:
     mov eax, [r15 + S_LEN]
@@ -1754,17 +1754,17 @@ ap_run_table:
 ap_try:
     push rbx
     mov rbx, rdi
-    call buf_cur
+    call ufl_buf_cur
     mov ecx, [rax + GI_MASK]
     test ecx, [r15 + S_LMASK]
     jz .no
     mov rsi, rax
     mov edi, [r15 + S_LPROPS]
-    call ap_check
+    call ufl_ap_check
     test eax, eax
     jz .no
     mov rdi, rbx
-    call ap_apply_subtables
+    call ufl_ap_apply_subtables
     pop rbx
     ret
 .no:
@@ -1773,7 +1773,7 @@ ap_try:
     ret
 
 ; ----------------------------------------------------------------------------
-; ap_would_apply — edi = GSUB lookup index, rsi = glyphs (u32), edx = count,
+; ufl_ap_would_apply — edi = GSUB lookup index, rsi = glyphs (u32), edx = count,
 ;   ecx = zero context -> eax 1 / 0
 ; ----------------------------------------------------------------------------
 %define WA_GLYPHS  0
@@ -1784,11 +1784,11 @@ ap_try:
 %define WA_ST      32
 %define WA_SIZE    48
 
-extern gsub_would_apply
-extern gsub_covers
+extern ufl_gsub_would_apply
+extern ufl_gsub_covers
 
-global ap_would_apply
-ap_would_apply:
+global ufl_ap_would_apply
+ufl_ap_would_apply:
     push rbx
     push r12
     push r13
@@ -1802,12 +1802,12 @@ ap_would_apply:
     ; the GSUB table as the current one
     mov byte [r15 + S_GPOS], 0
     xor edi, edi
-    call otl_table
+    call ufl_otl_table
     mov [r15 + S_TABLE], rax
     mov [r15 + S_TEND], rdx
     xor edi, edi
     mov esi, ebx
-    call otl_lookup
+    call ufl_otl_lookup
     test rax, rax
     jz .no
     mov [rsp + WA_LOOKUP], rax
@@ -1819,7 +1819,7 @@ ap_would_apply:
     jae .no
     mov rdi, [rsp + WA_LOOKUP]
     mov esi, r13d
-    call ap_subtable
+    call ufl_ap_subtable
     inc r13d
     test rax, rax
     jz .cover
@@ -1827,7 +1827,7 @@ ap_would_apply:
     mov esi, edx
     mov rdx, [rsp + WA_GLYPHS]
     mov edx, [rdx]
-    call gsub_covers
+    call ufl_gsub_covers
     test eax, eax
     jz .cover
     xor r13d, r13d
@@ -1836,7 +1836,7 @@ ap_would_apply:
     jae .no
     mov rdi, [rsp + WA_LOOKUP]
     mov esi, r13d
-    call ap_subtable
+    call ufl_ap_subtable
     inc r13d
     test rax, rax
     jz .sub
@@ -1845,7 +1845,7 @@ ap_would_apply:
     mov rdx, [rsp + WA_GLYPHS]
     mov ecx, [rsp + WA_COUNT]
     mov r8d, [rsp + WA_ZERO]
-    call gsub_would_apply
+    call ufl_gsub_would_apply
     test eax, eax
     jz .sub
     mov eax, 1
