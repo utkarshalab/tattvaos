@@ -8,6 +8,7 @@
 ;   ufont_set_add(set, data, length, family, weight, italic)  -> 0, -errno
 ;   ufont_set_face(set, UgfxSvgFont*)                       -> face or 0
 ;   ufont_svg_font                          ugfx's font callback (user = set)
+;   ufont_svg_shape                         ugfx's shaping callback (user = set)
 ;   ufont_standard, ufont_standard_count    the fonts lib/ufont ships
 ;
 ; A set holds up to UFONT_SET_MAX faces: a TrueType font (sfnt.asm, its bytes
@@ -22,7 +23,17 @@
 ; fonts those names mean). The first name with a face in the set is used,
 ; else Noto Sans, else the first face. Within a family the face matching
 ; the style first, then the weight (bold from 600), is taken. A character
-; the face lacks comes from Noto Sans in that style, if it has it.
+; the face lacks comes from Noto Sans in that style if it has it, else from
+; the first face in the set that has it (same weight and style, then same
+; weight, then any).
+;
+; Shaping (ufont_svg_shape): a run is split where the face or the script
+; changes - each character's face as above, marks and default ignorables
+; staying in the face before them; characters of no script of their own
+; (common, inherited) taking the script before them, at the start the
+; first one after - and each part shaped by ufont_shape. Its glyphs come
+; back as keys (bit 31, the face's index in the set << 16, the glyph) that
+; ufont_svg_font then draws.
 ; =============================================================================
 
 %include "ugfx.inc"
@@ -32,6 +43,13 @@ extern ufont_open
 extern ufont_glyph
 extern ufont_advance
 extern ufont_outline
+extern ufont_shape
+extern ufl_ucd_gc
+extern ufl_ucd_script
+extern ufl_ucd_scripts
+extern ufl_uc_is_mark_gc
+extern ufl_uc_is_default_ignorable
+extern arena_alloc
 
 section .rodata
 fs_noto_sans:       db "Noto Sans", 0
@@ -40,6 +58,8 @@ fs_noto_mono:       db "Noto Sans Mono", 0
 fs_lib_sans:        db "Liberation Sans", 0
 fs_lib_serif:       db "Liberation Serif", 0
 fs_lib_mono:        db "Liberation Mono", 0
+fs_deva_sans:       db "Noto Sans Devanagari", 0
+fs_deva_serif:      db "Noto Serif Devanagari", 0
 
 ; alias, family
 align 8
@@ -89,7 +109,7 @@ section .data
 align 8
 global ufont_standard
 global ufont_standard_count
-ufont_standard_count: dq 22
+ufont_standard_count: dq 26
 ufont_standard:
     dq fsf_0, fs_noto_sans
     dd 400, 0
@@ -135,6 +155,14 @@ ufont_standard:
     dd 400, 1
     dq fsf_21, fs_lib_mono
     dd 700, 1
+    dq fsf_22, fs_deva_sans
+    dd 400, 0
+    dq fsf_23, fs_deva_sans
+    dd 700, 0
+    dq fsf_24, fs_deva_serif
+    dd 400, 0
+    dq fsf_25, fs_deva_serif
+    dd 700, 0
 section .rodata
 fsf_0:  db "NotoSans-Regular.ttf", 0
 fsf_1:  db "NotoSans-Bold.ttf", 0
@@ -158,6 +186,10 @@ fsf_18: db "LiberationMono-Regular.ttf", 0
 fsf_19: db "LiberationMono-Bold.ttf", 0
 fsf_20: db "LiberationMono-Italic.ttf", 0
 fsf_21: db "LiberationMono-BoldItalic.ttf", 0
+fsf_22: db "NotoSansDevanagari-Regular.ttf", 0
+fsf_23: db "NotoSansDevanagari-Bold.ttf", 0
+fsf_24: db "NotoSerifDevanagari-Regular.ttf", 0
+fsf_25: db "NotoSerifDevanagari-Bold.ttf", 0
 
 section .text
 
@@ -488,45 +520,37 @@ ufont_svg_font:
     mulsd xmm1, [rsp + SV_SCALE]
     jmp .out
 .glyph:
+    test r13d, r13d
+    jns .character
+    ; a glyph key: the face's index, the glyph
+    mov eax, r13d
+    shr eax, 16
+    and eax, 0x7FFF
+    cmp eax, [rbx + UfontSet_count]
+    jae .key_glyph
+    imul rax, rax, UfontFace_SIZE
+    lea r15, [rbx + UfontSet_faces + rax]
+.key_glyph:
+    movzx r12d, r13w
+    jmp .scaled
+.character:
+    ; the face that has it
+    mov rdi, r15
     mov esi, r13d
-    call ufont_glyph
-    mov r12d, eax
-    test eax, eax
-    jnz .have
-    ; not in this face: Noto Sans in the style, if it has it
-    lea rdi, [rel fs_noto_sans]
-    call fs_strend
     mov rax, [rsp + SV_DESC]
-    xor edx, edx
-    cmp dword [rax + UgfxSvgFont_weight], 600
-    jb .fb_weight
-    or edx, 1
-.fb_weight:
-    cmp dword [rax + UgfxSvgFont_style], 0
-    je .fb_style
-    or edx, 2
-.fb_style:
-    call fs_family
-    test rax, rax
-    jz .have
-    cmp rax, r15
-    je .have
-    mov r12, rax
-    mov rdi, [r12 + UfontFace_font]
+    call fs_want
+    call fs_char_face
+    mov r15, rax
+    mov rdi, [r15 + UfontFace_font]
     mov esi, r13d
     call ufont_glyph
-    test eax, eax
-    jz .notdef
-    mov r15, r12
     mov r12d, eax
+.scaled:
     mov rdi, [r15 + UfontFace_font]
     cvtsi2sd xmm1, dword [rdi + UfontFont_upem]
     movsd xmm0, [rsp + SV_SIZE]
     divsd xmm0, xmm1
     movsd [rsp + SV_SCALE], xmm0
-    jmp .have
-.notdef:
-    xor r12d, r12d
 .have:
     mov rdi, [r15 + UfontFace_font]
     mov esi, r12d
@@ -550,6 +574,375 @@ ufont_svg_font:
     xorpd xmm1, xmm1
 .out:
     add rsp, SV_FRAME
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; rax = UgfxSvgFont* -> edx = bold (1) | italic (2) wanted
+fs_want:
+    xor edx, edx
+    cmp dword [rax + UgfxSvgFont_weight], 600
+    jb .weight
+    or edx, 1
+.weight:
+    cmp dword [rax + UgfxSvgFont_style], 0
+    je .out
+    or edx, 2
+.out:
+    ret
+
+; ----------------------------------------------------------------------------
+; fs_char_face — rbx = UfontSet*, rdi = the face asked for, esi = a code
+;   point, edx = bold | italic wanted -> rax = the face to draw it from: that
+;   face if it has it, else Noto Sans in the style, else the first face with
+;   it (same weight and style, then same weight, then any), else that face
+; ----------------------------------------------------------------------------
+fs_char_face:
+    push r12
+    push r13
+    push r14
+    push r15
+    push rbp
+    mov r12, rdi
+    mov r13d, esi
+    mov r14d, edx
+    mov rdi, [r12 + UfontFace_font]
+    call ufont_glyph
+    test eax, eax
+    jnz .asked
+    lea rdi, [rel fs_noto_sans]
+    call fs_strend
+    mov edx, r14d
+    call fs_family
+    test rax, rax
+    jz .scan
+    cmp rax, r12
+    je .scan
+    mov r15, rax
+    mov rdi, [r15 + UfontFace_font]
+    mov esi, r13d
+    call ufont_glyph
+    test eax, eax
+    jz .scan
+    mov rax, r15
+    jmp .out
+.scan:
+    mov ebp, 3                          ; what must match: 3, then 1, then 0
+.pass:
+    xor r15d, r15d
+.face:
+    cmp r15d, [rbx + UfontSet_count]
+    jae .pass_next
+    imul rax, r15, UfontFace_SIZE
+    lea rdi, [rbx + UfontSet_faces + rax]
+    xor eax, eax
+    cmp dword [rdi + UfontFace_weight], 600
+    setae al
+    mov ecx, [rdi + UfontFace_italic]
+    and ecx, 1
+    shl ecx, 1
+    or eax, ecx
+    xor eax, r14d
+    test eax, ebp
+    jnz .face_next
+    push rdi
+    sub rsp, 8
+    mov rdi, [rdi + UfontFace_font]
+    mov esi, r13d
+    call ufont_glyph
+    add rsp, 8
+    pop rdi
+    test eax, eax
+    jz .face_next
+    mov rax, rdi
+    jmp .out
+.face_next:
+    inc r15d
+    jmp .face
+.pass_next:
+    test ebp, ebp
+    jz .asked
+    shr ebp, 1                          ; 3 -> 1 -> 0
+    jmp .pass
+.asked:
+    mov rax, r12
+.out:
+    pop rbp
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; ----------------------------------------------------------------------------
+; ufont_svg_shape — ugfx's shaping callback (UgfxSvg_shape_fn): rdi =
+;   UfontSet*, rsi = UgfxSvgFont*, rdx = code points (u32), ecx = count,
+;   xmm0 = size, r8 = arena -> rax = UgfxSvgGlyph records (0: none), edx =
+;   how many
+; ----------------------------------------------------------------------------
+%define SS_DESC     0
+%define SS_CPS      8
+%define SS_N        16                  ; u32
+%define SS_WANT     20                  ; u32
+%define SS_SIZE     24                  ; f64
+%define SS_ARENA    32
+%define SS_FACES    40                  ; UfontFace* per character
+%define SS_SCRIPTS  48                  ; u32 script index per character
+%define SS_OUT      56                  ; UgfxSvgGlyph records
+%define SS_COUNT    64                  ; u32
+%define SS_CAP      68                  ; u32
+%define SS_A        72                  ; u32 the part's start
+%define SS_B        76                  ; u32 its end
+%define SS_SCALE    80                  ; f64
+%define SS_KEY      88                  ; u32 the face's index << 16 | bit 31
+%define SS_FRAME    96
+
+global ufont_svg_shape
+ufont_svg_shape:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, SS_FRAME
+    mov rbx, rdi
+    mov [rsp + SS_DESC], rsi
+    mov [rsp + SS_CPS], rdx
+    mov [rsp + SS_N], ecx
+    movsd [rsp + SS_SIZE], xmm0
+    mov [rsp + SS_ARENA], r8
+    mov rax, rsi
+    call fs_want
+    mov [rsp + SS_WANT], edx
+    test ecx, ecx
+    jz .none
+    call ufont_set_face
+    test rax, rax
+    jz .none
+    mov r12, rax                        ; the face asked for
+    ; arrays
+    mov rdi, [rsp + SS_ARENA]
+    mov esi, [rsp + SS_N]
+    shl esi, 3
+    call arena_alloc
+    test rax, rax
+    jz .none
+    mov [rsp + SS_FACES], rax
+    mov rdi, [rsp + SS_ARENA]
+    mov esi, [rsp + SS_N]
+    shl esi, 2
+    call arena_alloc
+    test rax, rax
+    jz .none
+    mov [rsp + SS_SCRIPTS], rax
+    mov eax, [rsp + SS_N]
+    lea eax, [rax * 2 + 16]
+    mov [rsp + SS_CAP], eax
+    mov dword [rsp + SS_COUNT], 0
+    mov rdi, [rsp + SS_ARENA]
+    mov esi, eax
+    shl esi, 5
+    call arena_alloc
+    test rax, rax
+    jz .none
+    mov [rsp + SS_OUT], rax
+    ; each character's face
+    xor r13d, r13d
+.faces:
+    cmp r13d, [rsp + SS_N]
+    jae .scripts
+    mov rax, [rsp + SS_CPS]
+    mov r14d, [rax + r13 * 4]
+    test r13d, r13d
+    jz .own_face
+    mov edi, r14d
+    call ufl_ucd_gc
+    mov edi, eax
+    call ufl_uc_is_mark_gc
+    test eax, eax
+    jnz .prev_face
+    mov edi, r14d
+    call ufl_uc_is_default_ignorable
+    test eax, eax
+    jz .own_face
+.prev_face:
+    mov rax, [rsp + SS_FACES]
+    mov rcx, [rax + r13 * 8 - 8]
+    mov [rax + r13 * 8], rcx
+    jmp .faces_next
+.own_face:
+    mov rdi, r12
+    mov esi, r14d
+    mov edx, [rsp + SS_WANT]
+    call fs_char_face
+    mov rcx, [rsp + SS_FACES]
+    mov [rcx + r13 * 8], rax
+.faces_next:
+    inc r13d
+    jmp .faces
+.scripts:
+    ; strong scripts, then the weak ones resolved
+    xor r13d, r13d
+    xor r15d, r15d                      ; the first strong (0: none)
+.strong:
+    cmp r13d, [rsp + SS_N]
+    jae .resolve
+    mov rax, [rsp + SS_CPS]
+    mov edi, [rax + r13 * 4]
+    call ufl_ucd_script
+    cmp eax, 3
+    jae .is_strong
+    xor eax, eax
+    jmp .store
+.is_strong:
+    test r15d, r15d
+    jnz .store
+    mov r15d, eax
+.store:
+    mov rcx, [rsp + SS_SCRIPTS]
+    mov [rcx + r13 * 4], eax
+    inc r13d
+    jmp .strong
+.resolve:
+    mov rcx, [rsp + SS_SCRIPTS]
+    xor r13d, r13d
+.res:
+    cmp r13d, [rsp + SS_N]
+    jae .parts
+    mov eax, [rcx + r13 * 4]
+    test eax, eax
+    jz .weak
+    mov r15d, eax
+    jmp .res_next
+.weak:
+    mov [rcx + r13 * 4], r15d
+.res_next:
+    inc r13d
+    jmp .res
+.parts:
+    mov dword [rsp + SS_A], 0
+.part:
+    mov eax, [rsp + SS_A]
+    cmp eax, [rsp + SS_N]
+    jae .done
+    mov rdx, [rsp + SS_FACES]
+    mov r14, [rdx + rax * 8]            ; its face
+    mov rcx, [rsp + SS_SCRIPTS]
+    mov r15d, [rcx + rax * 4]           ; its script
+    lea r13d, [rax + 1]
+.part_end:
+    cmp r13d, [rsp + SS_N]
+    jae .part_have
+    cmp [rdx + r13 * 8], r14
+    jne .part_have
+    cmp [rcx + r13 * 4], r15d
+    jne .part_have
+    inc r13d
+    jmp .part_end
+.part_have:
+    mov [rsp + SS_B], r13d
+    ; the key's face index, the scale
+    mov rax, r14
+    lea rcx, [rbx + UfontSet_faces]
+    sub rax, rcx
+    xor edx, edx
+    mov ecx, UfontFace_SIZE
+    div rcx
+    shl eax, 16
+    or eax, 0x80000000
+    mov [rsp + SS_KEY], eax
+    mov rdi, [r14 + UfontFace_font]
+    cvtsi2sd xmm1, dword [rdi + UfontFont_upem]
+    movsd xmm0, [rsp + SS_SIZE]
+    divsd xmm0, xmm1
+    movsd [rsp + SS_SCALE], xmm0
+    ; shaped: the script's ISO tag (none for a part of no script)
+    xor r8d, r8d
+    test r15d, r15d
+    jz .tagged
+    imul eax, r15d, 12
+    lea rcx, [rel ufl_ucd_scripts]
+    mov r8d, [rcx + rax]
+.tagged:
+    mov rdi, [r14 + UfontFace_font]
+    mov rsi, [rsp + SS_ARENA]
+    mov eax, [rsp + SS_A]
+    mov rdx, [rsp + SS_CPS]
+    lea rdx, [rdx + rax * 4]
+    mov ecx, [rsp + SS_B]
+    sub ecx, eax
+    xor r9d, r9d
+    call ufont_shape
+    test rax, rax
+    jz .none
+    mov r12, rax                        ; its glyphs
+    mov r13d, edx
+    ; room for them
+    mov eax, [rsp + SS_COUNT]
+    add eax, r13d
+    cmp eax, [rsp + SS_CAP]
+    jbe .room
+    lea r15d, [rax * 2]
+    mov rdi, [rsp + SS_ARENA]
+    mov esi, r15d
+    shl esi, 5
+    call arena_alloc
+    test rax, rax
+    jz .none
+    mov rsi, [rsp + SS_OUT]
+    mov rdi, rax
+    mov ecx, [rsp + SS_COUNT]
+    shl ecx, 5
+    rep movsb
+    mov [rsp + SS_OUT], rax
+    mov [rsp + SS_CAP], r15d
+.room:
+    xor ecx, ecx
+.copy:
+    cmp ecx, r13d
+    jae .part_next
+    imul eax, ecx, UfontGlyph_SIZE
+    lea rsi, [r12 + rax]
+    mov eax, [rsp + SS_COUNT]
+    shl rax, 5
+    add rax, [rsp + SS_OUT]
+    mov edx, [rsi + UfontGlyph_glyph]
+    and edx, 0xFFFF
+    or edx, [rsp + SS_KEY]
+    mov [rax + UgfxSvgGlyph_key], edx
+    mov edx, [rsi + UfontGlyph_cluster]
+    add edx, [rsp + SS_A]
+    mov [rax + UgfxSvgGlyph_cluster], edx
+    cvtsi2sd xmm0, dword [rsi + UfontGlyph_xa]
+    mulsd xmm0, [rsp + SS_SCALE]
+    movsd [rax + UgfxSvgGlyph_adv], xmm0
+    cvtsi2sd xmm0, dword [rsi + UfontGlyph_xo]
+    mulsd xmm0, [rsp + SS_SCALE]
+    movsd [rax + UgfxSvgGlyph_xo], xmm0
+    cvtsi2sd xmm1, dword [rsi + UfontGlyph_yo]
+    mulsd xmm1, [rsp + SS_SCALE]
+    xorpd xmm0, xmm0
+    subsd xmm0, xmm1
+    movsd [rax + UgfxSvgGlyph_yo], xmm0
+    inc dword [rsp + SS_COUNT]
+    inc ecx
+    jmp .copy
+.part_next:
+    mov eax, [rsp + SS_B]
+    mov [rsp + SS_A], eax
+    jmp .part
+.done:
+    mov rax, [rsp + SS_OUT]
+    mov edx, [rsp + SS_COUNT]
+    jmp .out
+.none:
+    xor eax, eax
+    xor edx, edx
+.out:
+    add rsp, SS_FRAME
     pop r15
     pop r14
     pop r13
