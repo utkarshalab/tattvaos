@@ -287,7 +287,34 @@ extern panic_null_ptr
 %define UgfxContext_state       560     ; UgfxState (the current one)
 %define UgfxContext_union       1128    ; u32 a union clip is being built (clip_begin .. clip_end)
 %define UgfxContext_lmasks      1136    ; UgfxMask[UGFX_CTX_MAX_DEPTH + 1]: layer masks, per depth
-%define UgfxContext_SIZE        1144
+%define UgfxContext_fbufs       1144    ; PixBuf*[FE_POOL]: filter buffers, made when first used
+%define UgfxContext_SIZE        1152
+
+; Filter graph (2d/filter.asm): device-space primitives over a layer
+%define UgfxFilter_region       0       ; i32 x0, y0, x1, y1 (device pixels, x1 / y1 excluded)
+%define UgfxFilter_count        16      ; u32 primitives (at most 16)
+%define UgfxFilter_prims        24      ; UgfxFe[]
+%define UgfxFilter_SIZE         32
+%define UgfxFe_type             0       ; u32 FE_*
+%define UgfxFe_in1              4       ; i32 -1 SourceGraphic, -2 SourceAlpha, -3 nothing,
+%define UgfxFe_in2              8       ;     >= 0 an earlier primitive's result
+%define UgfxFe_linear           12      ; u32 1: in linearRGB
+%define UgfxFe_sub              16      ; i32 x0, y0, x1, y1: its subregion
+%define UgfxFe_p                32      ; f64[8] parameters
+%define UgfxFe_var              96      ; f64* a list
+%define UgfxFe_nvar             104     ; u32
+%define UgfxFe_SIZE             112
+%define FE_FLOOD                0
+%define FE_OFFSET               1
+%define FE_BLUR                 2
+%define FE_MERGE                3
+%define FE_BLEND                4
+%define FE_COMPOSITE            5
+%define FE_COLORMATRIX          6
+%define FE_TRANSFER             7
+%define FE_MORPHOLOGY           8
+%define FE_TILE                 9
+%define FE_POOL                 21      ; buffers a filter run takes
 ; ugfx_ctx_end_mask modes
 %define UGFX_MASK_LUMINANCE     0
 %define UGFX_MASK_ALPHA         1
