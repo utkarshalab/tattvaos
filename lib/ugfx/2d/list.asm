@@ -54,6 +54,7 @@ extern ugfx_ctx_clip_end
 extern ugfx_ctx_begin_mask
 extern ugfx_ctx_end_mask
 extern ugfx_ctx_clip_stroke
+extern ugfx_ctx_filter
 
 %define LIST_INITIAL    4096
 
@@ -86,7 +87,8 @@ extern ugfx_ctx_clip_stroke
 %define LOP_BEGIN_MASK      26
 %define LOP_END_MASK        27
 %define LOP_CLIP_STROKE     28
-%define LOP_LAST            28
+%define LOP_FILTER          29
+%define LOP_LAST            29
 
 section .text
 
@@ -308,6 +310,29 @@ global ugfx_list_clear
 ugfx_list_clear:
     mov eax, LOP_CLEAR
     jmp ls_u32_entry
+; ugfx_list_filter — rdi = list, rsi = UgfxFilter*: recorded by reference
+;   (it must outlive the list)
+global ugfx_list_filter
+ugfx_list_filter:
+    test rdi, rdi
+    jz ls_bad
+    test rsi, rsi
+    jz ls_bad
+    push rbx
+    mov rbx, rsi
+    mov esi, LOP_FILTER
+    mov edx, 8
+    call ls_begin
+    test rax, rax
+    jz .lf_error
+    mov [rax], rbx
+    xor eax, eax
+    pop rbx
+    ret
+.lf_error:
+    movsxd rax, dword [rdi + UgfxList_error]
+    pop rbx
+    ret
 global ugfx_list_end_mask
 ugfx_list_end_mask:
     mov eax, LOP_END_MASK
@@ -671,6 +696,10 @@ ugfx_list_replay:
 .r_clip_stroke:
     lea rax, [rel ugfx_ctx_clip_stroke]
     jmp .r_path
+.r_filter:
+    mov rsi, [r15]
+    call ugfx_ctx_filter
+    jmp .rp_check
 .r_set_transform:
     mov rsi, r15
     call ugfx_ctx_set_transform
@@ -817,7 +846,7 @@ replay_jumps:
     dq ugfx_list_replay.r_clip_begin, ugfx_list_replay.r_clip_add
     dq ugfx_list_replay.r_clip_end
     dq ugfx_list_replay.r_begin_mask, ugfx_list_replay.r_end_mask
-    dq ugfx_list_replay.r_clip_stroke
+    dq ugfx_list_replay.r_clip_stroke, ugfx_list_replay.r_filter
 
 global ugfx_list_version
 ugfx_list_version: dq 0x010000
