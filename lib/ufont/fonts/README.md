@@ -1,10 +1,11 @@
-# Canvas fonts
+# lib/ufont fonts
 
-The fonts Canvas ships, read by `src/font/sfnt.asm` and chosen by
-`src/font/fontset.asm` (its `fontset_standard` table lists these files with
+The fonts lib/ufont ships, read by `sfnt/sfnt.asm` and chosen by
+`match/fontset.asm` (its `ufont_standard` table lists these files with
 their family, weight and style). They install read-only to
-`/app/lib/canvas/fonts/`; whoever starts Canvas loads them into a font set
-(`fontset_init`, `fontset_add`) and hands it to `svg_set_fonts`.
+`/app/lib/ufont/fonts/`; a program loads them into a font set
+(`ufont_set_init`, `ufont_set_add`) — Canvas then hands its set to
+`svg_set_fonts`.
 
 | Family | Files | Licence |
 |---|---|---|
@@ -45,7 +46,7 @@ names (and Arimo, Tinos, Cousine) map to it.
 ## What is not covered yet
 
 Scripts that need shaping (Devanagari and the other Indic scripts, Arabic)
-wait for text shaping (docs/ROADMAP.md TXT-04 / TXT-05); their Noto
-families join the set then. Colour emoji need colour glyph tables, which
-`sfnt.asm` does not read. A character no shipped face has draws as the
+wait for text shaping (../README.md, Next); their Noto families join the
+set then. Colour emoji need colour glyph tables, which `sfnt.asm` does
+not read. A character no shipped face has draws as the
 face's missing-glyph box.
