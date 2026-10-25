@@ -14,3 +14,4 @@
 %include "lib/umath/math_fn/hypot_f64.asm"
 %include "lib/umath/scalar/fmod_f64.asm"
 %include "lib/umath/scalar/floor_f64.asm"
+%include "lib/umath/math_fn/pow_f64.asm"
