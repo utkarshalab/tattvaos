@@ -509,7 +509,8 @@ extern panic_null_ptr
 %define UgfxSvgXml_attrs        32      ; start tags: attributes from here ...
 %define UgfxSvgXml_tag_end      40      ; ... to here ('>' or the '/' of '/>')
 %define UgfxSvgXml_self         48      ; u32 self-closing
-%define UgfxSvgXml_SIZE         56
+%define UgfxSvgXml_arena        56      ; Arena* for decoded attribute values (0: as written)
+%define UgfxSvgXml_SIZE         64
 %define UgfxSvgAttr_cur         0       ; 0 = the first attribute
 %define UgfxSvgAttr_name        8
 %define UgfxSvgAttr_name_end    16
