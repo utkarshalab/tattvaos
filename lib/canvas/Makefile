@@ -686,7 +686,7 @@ HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
 HOST_TESTS    := $(addprefix $(HOSTDIR)/test_,$(HOST_SUITES))
 
-$(HOSTDIR)/%.o: tests/host/%.asm
+$(HOSTDIR)/%.o: tests/host/%.asm $(UFONT_DIR)/include/ufont.inc $(UGFX_DIR)/include/ugfx.inc
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -o $@ $<
 
