@@ -22,6 +22,7 @@
 | [`cal/`](cal/) | Calendar and date utilities |
 | [`ucmp/`](ucmp/) | Compression — LZ4, Zstd, fast block compression |
 | [`ugfx/`](ugfx/) | Graphics — pixel buffers, compositing, 2D drawing (3D later) on one shared core |
+| [`ufont/`](ufont/) | Fonts — TrueType reading, family / weight / style matching, the shipped fonts; outlines into ugfx paths |
 | [`regex/`](regex/) | Regex engine — minimal, no backtracking |
 | [`uparser/`](uparser/) | Parser combinators for config and protocol formats |
 | [`hw/`](hw/) | Hardware utility library — shared across drivers |
