@@ -4,15 +4,15 @@
 ; The Indic shaper (Devanagari), as HarfBuzz's: tools/indic.py models it step
 ; for step.
 ;
-;   indic_collect_features    locl / ccmp, then nukt, akhn, rphf, rkrf, pref,
+;   ufl_indic_collect_features    locl / ccmp, then nukt, akhn, rphf, rkrf, pref,
 ;                             blwf, abvf, half, pstf, vatu, cjct a stage each
 ;                             between initial and final reordering, then init,
 ;                             pres, abvs, blws, psts, haln; all per syllable
-;   indic_override_features   liga off
-;   indic_data_create         old or new spec (deva / dev2), feature masks
-;   indic_preprocess          vowel constraints: a dotted circle between a
+;   ufl_indic_override_features   liga off
+;   ufl_indic_data_create         old or new spec (deva / dev2), feature masks
+;   ufl_indic_preprocess          vowel constraints: a dotted circle between a
 ;                             vowel and a sign that would read as another vowel
-;   indic_setup_masks         each character's category and position
+;   ufl_indic_setup_masks         each character's category and position
 ;   pauses: syllables (the generated automaton), initial reordering
 ;   (consonant positions from the font, dotted circles for broken clusters,
 ;   base, reph, positions, sort, masks), final reordering (pre-base matra,
@@ -26,28 +26,28 @@
 %include "ufont.inc"
 %include "shape.inc"
 
-extern indic_chars
-extern indic_chars_count
-extern indic_classes
-extern indic_dfa
-extern indic_dfa_classes
-extern indic_accept
-extern map_add_feature
-extern map_enable
-extern map_disable
-extern map_add_gsub_pause
-extern map_get_1_mask
-extern map_stage_lookups
-extern ap_would_apply
-extern norm_glyph
-extern buf_clear_output
-extern buf_sync
-extern buf_next_glyph
-extern buf_out_slot
-extern buf_output_info
-extern buf_merge_clusters
-extern buf_move_record
-extern buf_reverse
+extern ufl_indic_chars
+extern ufl_indic_chars_count
+extern ufl_indic_classes
+extern ufl_indic_dfa
+extern ufl_indic_dfa_classes
+extern ufl_indic_accept
+extern ufl_map_add_feature
+extern ufl_map_enable
+extern ufl_map_disable
+extern ufl_map_add_gsub_pause
+extern ufl_map_get_1_mask
+extern ufl_map_stage_lookups
+extern ufl_ap_would_apply
+extern ufl_norm_glyph
+extern ufl_buf_clear_output
+extern ufl_buf_sync
+extern ufl_buf_next_glyph
+extern ufl_buf_out_slot
+extern ufl_buf_output_info
+extern ufl_buf_merge_clusters
+extern ufl_buf_move_record
+extern ufl_buf_reverse
 
 ; categories
 %define X 0
@@ -163,42 +163,42 @@ in_flag:
 ; ----------------------------------------------------------------------------
 ; the plan
 ; ----------------------------------------------------------------------------
-global indic_collect_features
-indic_collect_features:
+global ufl_indic_collect_features
+ufl_indic_collect_features:
     push rbx
     push r12
     sub rsp, 8
     lea rdi, [rel in_setup_syllables]
-    call map_add_gsub_pause
+    call ufl_map_add_gsub_pause
     mov edi, 'locl'
     mov esi, F_PER_SYLLABLE
     mov edx, 1
-    call map_enable
+    call ufl_map_enable
     mov edi, 'ccmp'
     mov esi, F_PER_SYLLABLE
     mov edx, 1
-    call map_enable
+    call ufl_map_enable
     lea rdi, [rel in_initial_reordering]
-    call map_add_gsub_pause
+    call ufl_map_add_gsub_pause
     lea rbx, [rel in_features]
     xor r12d, r12d
 .basic:
     mov edi, [rbx + r12 * 8]
     mov esi, [rbx + r12 * 8 + 4]
     mov edx, 1
-    call map_add_feature
+    call ufl_map_add_feature
     xor edi, edi
-    call map_add_gsub_pause
+    call ufl_map_add_gsub_pause
     inc r12d
     cmp r12d, IN_BASIC
     jb .basic
     lea rdi, [rel in_final_reordering]
-    call map_add_gsub_pause
+    call ufl_map_add_gsub_pause
 .other:
     mov edi, [rbx + r12 * 8]
     mov esi, [rbx + r12 * 8 + 4]
     mov edx, 1
-    call map_add_feature
+    call ufl_map_add_feature
     inc r12d
     cmp r12d, IN_FEATURES
     jb .other
@@ -207,18 +207,18 @@ indic_collect_features:
     pop rbx
     ret
 
-global indic_override_features
-indic_override_features:
+global ufl_indic_override_features
+ufl_indic_override_features:
     sub rsp, 8
     mov edi, 'liga'
-    call map_disable
+    call ufl_map_disable
     xor edi, edi
-    call map_add_gsub_pause
+    call ufl_map_add_gsub_pause
     add rsp, 8
     ret
 
-global indic_data_create
-indic_data_create:
+global ufl_indic_data_create
+ufl_indic_data_create:
     push rbx
     push r12
     sub rsp, 8
@@ -238,7 +238,7 @@ indic_data_create:
     test dword [rbx + r12 * 8 + 4], F_GLOBAL
     jnz .set
     mov edi, [rbx + r12 * 8]
-    call map_get_1_mask
+    call ufl_map_get_1_mask
 .set:
     mov [r15 + S_IMASK + r12 * 4], eax
     inc r12d
@@ -263,7 +263,7 @@ in_would:
     mov r14d, edx
     mov esi, edi
     xor edi, edi
-    call map_stage_lookups
+    call ufl_map_stage_lookups
     mov rbx, rax
     mov r12d, ecx
 .each:
@@ -273,7 +273,7 @@ in_would:
     mov rsi, r13
     mov edx, r14d
     movzx ecx, byte [r15 + S_IZERO]
-    call ap_would_apply
+    call ufl_ap_would_apply
     add rbx, LK_SIZE
     dec r12d
     test eax, eax
@@ -291,14 +291,14 @@ in_would:
     ret
 
 ; ----------------------------------------------------------------------------
-; indic_preprocess: vowel constraints (Devanagari)
+; ufl_indic_preprocess: vowel constraints (Devanagari)
 ; ----------------------------------------------------------------------------
-global indic_preprocess
-indic_preprocess:
+global ufl_indic_preprocess
+ufl_indic_preprocess:
     push rbx
     push r12
     push r13
-    call buf_clear_output
+    call ufl_buf_clear_output
     mov dword [r15 + S_IDX], 0
     mov r12d, [r15 + S_LEN]             ; count
 .loop:
@@ -350,15 +350,15 @@ indic_preprocess:
     jae .next
     cmp dword [rbx + 64 + GI_CP], 0x0907
     jne .next
-    call buf_next_glyph
+    call ufl_buf_next_glyph
 .yes:
     mov r13d, 1
 .next:
-    call buf_next_glyph
+    call ufl_buf_next_glyph
     test r13d, r13d
     jz .loop
     ; a copy of the current character as a dotted circle, then the character
-    call buf_out_slot
+    call ufl_buf_out_slot
     RECM rsi, [r15 + S_IDX]
     movdqu xmm0, [rsi]
     movdqu xmm1, [rsi + 16]
@@ -366,10 +366,10 @@ indic_preprocess:
     movdqu [rdi + 16], xmm1
     mov dword [rdi + GI_CP], 0x25CC
     and byte [rdi + GI_UF], ~UF_CONT
-    call buf_next_glyph
+    call ufl_buf_next_glyph
     jmp .loop
 .done:
-    call buf_sync
+    call ufl_buf_sync
     pop r13
     pop r12
     pop rbx
@@ -382,10 +382,10 @@ vc_090f: dw 0x0945, 0x0946, 0x0947, 0
 section .text
 
 ; ----------------------------------------------------------------------------
-; indic_setup_masks: categories and positions
+; ufl_indic_setup_masks: categories and positions
 ; ----------------------------------------------------------------------------
-global indic_setup_masks
-indic_setup_masks:
+global ufl_indic_setup_masks
+ufl_indic_setup_masks:
     push rbx
     xor ebx, ebx
 .each:
@@ -404,9 +404,9 @@ indic_setup_masks:
 
 ; esi = code point -> al = category, dl = position (keeps rdi)
 in_lookup:
-    lea r8, [rel indic_chars]
+    lea r8, [rel ufl_indic_chars]
     xor r9d, r9d
-    mov r10d, [rel indic_chars_count]
+    mov r10d, [rel ufl_indic_chars_count]
 .search:
     cmp r9d, r10d
     jae .none
@@ -438,8 +438,8 @@ in_setup_syllables:
     push r13
     push r14
     push rbp
-    lea r12, [rel indic_classes]
-    lea r13, [rel indic_dfa]
+    lea r12, [rel ufl_indic_classes]
+    lea r13, [rel ufl_indic_dfa]
     mov ebp, 1                          ; serial
     xor ebx, ebx                        ; p
 .syllable:
@@ -456,13 +456,13 @@ in_setup_syllables:
     movzx eax, byte [rax + GI_CAT]
     and eax, 63
     movzx eax, byte [r12 + rax]         ; class
-    imul ecx, [rel indic_dfa_classes]
+    imul ecx, [rel ufl_indic_dfa_classes]
     add ecx, eax
     movzx ecx, byte [r13 + rcx]
     cmp ecx, 255
     je .have
     inc r8d
-    lea rax, [rel indic_accept]
+    lea rax, [rel ufl_indic_accept]
     movzx eax, byte [rax + rcx]
     cmp eax, 255
     je .step
@@ -562,7 +562,7 @@ in_virama:
     jne .out
     sub rsp, 8
     mov edi, 0x094D
-    call norm_glyph
+    call ufl_norm_glyph
     add rsp, 8
     mov [r15 + S_IVIRAMA], eax
 .out:
@@ -646,11 +646,11 @@ in_dotted_circles:
     cmp byte [r15 + S_IBROKEN], 0
     je .out
     mov edi, 0x25CC
-    call norm_glyph
+    call ufl_norm_glyph
     test eax, eax
     jz .out
     mov r13d, eax
-    call buf_clear_output
+    call ufl_buf_clear_output
     mov dword [r15 + S_IDX], 0
     xor r12d, r12d                      ; last syllable
 .each:
@@ -692,17 +692,17 @@ in_dotted_circles:
     jne .put
     cmp byte [rbx + GI_CAT], REPHA
     jne .put
-    call buf_next_glyph
+    call ufl_buf_next_glyph
     jmp .repha
 .put:
     mov rsi, rsp
-    call buf_output_info
+    call ufl_buf_output_info
     jmp .each
 .next:
-    call buf_next_glyph
+    call ufl_buf_next_glyph
     jmp .each
 .done:
-    call buf_sync
+    call ufl_buf_sync
 .out:
     add rsp, 32
     pop r13
@@ -888,7 +888,7 @@ in_initial_syllable:
     jbe .attach
     mov esi, ebx
     mov edx, r12d
-    call buf_move_record
+    call ufl_buf_move_record
 .attach:
     ; joiners, nuktas, register shifters, medials and halants take the
     ; position before them
@@ -1012,7 +1012,7 @@ in_initial_syllable:
     cmp edx, ebx
     je .sort_next
     mov esi, ebx
-    call buf_move_record
+    call ufl_buf_move_record
 .sort_next:
     inc ebx
     jmp .sort_i
@@ -1052,7 +1052,7 @@ in_initial_syllable:
     mov esi, eax
     mov edx, [rsp + IR_LLM]
     inc edx
-    call buf_reverse
+    call ufl_buf_reverse
     mov r13d, [rsp + IR_FLM]            ; i
     mov ebx, r13d                       ; j
 .lm:
@@ -1064,7 +1064,7 @@ in_initial_syllable:
     jz .lm_next
     mov esi, r13d
     lea edx, [rbx + 1]
-    call buf_reverse
+    call ufl_buf_reverse
     lea r13d, [rbx + 1]
 .lm_next:
     inc ebx
@@ -1113,14 +1113,14 @@ in_initial_syllable:
     mov esi, [rsp + IR_BASE]
 .cyc_lo:
     lea edx, [r13 + 1]
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
 .cyc_next:
     inc ebx
     jmp .cyc
 .merge_all:
     mov esi, [rsp + IR_BASE]
     mov edx, [rsp + IR_END]
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
 .restore:
     mov ebx, [rsp + IR_START]
     mov eax, [rsp + IR_SYL]
@@ -1503,7 +1503,7 @@ in_final_syllable:
 .pm_move:
     mov esi, r13d
     mov edx, r12d
-    call buf_move_record
+    call ufl_buf_move_record
     mov esi, r12d
     mov edx, [rsp + FR_BASE]
     inc edx
@@ -1511,7 +1511,7 @@ in_final_syllable:
     jbe .pm_m
     mov edx, [rsp + FR_END]
 .pm_m:
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
     dec r12d
 .pm_next:
     dec ebx
@@ -1531,7 +1531,7 @@ in_final_syllable:
     jbe .pmo_m
     mov edx, [rsp + FR_END]
 .pmo_m:
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
     jmp .reph
 .pmo_next:
     inc ebx
@@ -1615,10 +1615,10 @@ in_final_syllable:
 .reph_move:
     mov esi, [rsp + FR_START]
     lea edx, [r12 + 1]
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
     mov esi, [rsp + FR_START]
     mov edx, r12d
-    call buf_move_record
+    call ufl_buf_move_record
     mov eax, [rsp + FR_BASE]
     cmp [rsp + FR_START], eax
     jae .pref
@@ -1680,10 +1680,10 @@ in_final_syllable:
 .pf_move:
     mov esi, r12d
     lea edx, [rbx + 1]
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
     mov esi, ebx
     mov edx, r12d
-    call buf_move_record
+    call ufl_buf_move_record
     mov eax, [rsp + FR_BASE]
     cmp r12d, eax
     ja .init
