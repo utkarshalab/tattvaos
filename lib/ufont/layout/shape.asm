@@ -11,19 +11,20 @@
 ;
 ; Left to right, one run. The steps: Unicode properties and grapheme
 ; clusters; the plan (the script's tags in the font, its features; the
-; Indic shaper for Devanagari unless the font has only DFLT / latn for it);
+; Indic shaper for the nine Indic scripts unless the font has only DFLT /
+; latn for them);
 ; Indic vowel constraints; normalization against the font; feature masks
 ; (fractions around U+2044, Indic syllables later); GSUB; advances; spaces
 ; the font lacks widened; GPOS (or the kern table when GPOS has no kerning
 ; for the script); mark widths zeroed (not for Indic); default ignorables
-; zero-width, drawn as the space glyph; mark offsets made relative to the
-; glyphs before them.
+; zero-width, drawn as the space glyph; mark and cursive offsets chained
+; through the glyphs they attach to.
 ;
 ; A font cannot make shaping run away: lookups recurse at most 64 deep and
 ; 1024 x the text's length times in all (at least 16384), and the buffer
 ; grows to 64 x the text at most (then ufont_shape fails).
 ;
-; Not done yet: cursive attachment, right-to-left runs, fonts without GPOS
+; Not done yet: right-to-left runs, fonts without GPOS
 ; (no fallback mark placement), Devanagari fonts made for the Universal
 ; Shaping Engine (dev3), the rand feature's random alternates.
 ; =============================================================================
@@ -80,6 +81,7 @@ sh_features:
     dd 'liga', F_GLOBAL
     dd 'rclt', F_GLOBAL
 sh_features_end:
+sh_indic: dd 'Deva', 'Beng', 'Guru', 'Gujr', 'Orya', 'Taml', 'Telu', 'Knda', 'Mlym', 0
 
 section .text
 
@@ -200,12 +202,21 @@ ufont_shape:
     call ufl_otl_select
     mov edi, 1
     call ufl_otl_select
-    ; the shaper: Indic for Devanagari unless the font only has DFLT / latn
+    ; the shaper: Indic for the nine Indic scripts unless the font only has
+    ; DFLT / latn for them
     mov eax, [r15 + S_SCRIPT]
     imul eax, eax, 12
     lea rdx, [rel ufl_ucd_scripts]
-    cmp dword [rdx + rax], 'Deva'
-    jne .plan
+    mov eax, [rdx + rax]
+    lea rdx, [rel sh_indic]
+.indic_script:
+    cmp dword [rdx], 0
+    je .plan
+    cmp [rdx], eax
+    je .indic
+    add rdx, 4
+    jmp .indic_script
+.indic:
     mov eax, [r15 + S_CHOSEN]
     cmp eax, 'DFLT'
     je .plan
@@ -1042,6 +1053,15 @@ sh_propagate:
     mov edi, r13d
     dec esi
     call sh_propagate
+    test dword [r12 + GPOS_TYPE], 2
+    jz .mark
+    ; cursive: the vertical offset of the glyph it hangs from
+    imul eax, r13d, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    mov ecx, [rax + GPOS_YO]
+    add [r12 + GPOS_YO], ecx
+    jmp .out
+.mark:
     test dword [r12 + GPOS_TYPE], 1
     jz .out
     imul eax, r13d, GPOS_SIZE
