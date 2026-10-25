@@ -735,7 +735,7 @@ css_nth:
 .bad:
     stc
 .out:
-    add rsp, 8
+    lea rsp, [rsp + 8]                  ; (CF kept)
     pop r12
     pop rbx
     ret
