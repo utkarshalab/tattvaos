@@ -401,8 +401,27 @@ def data_uri(href):
 FE_WORDS = {"feFlood": 1, "feOffset": 2, "feGaussianBlur": 3, "feMerge": 4, "feBlend": 5, "feComposite": 6,
             "feColorMatrix": 7, "feComponentTransfer": 8, "feMorphology": 9, "feTile": 10, "feDropShadow": 11,
             "feMergeNode": 12, "feFuncR": 13, "feFuncG": 14, "feFuncB": 15, "feFuncA": 16, "feTurbulence": 17,
-            "feImage": 17, "feConvolveMatrix": 17, "feDisplacementMap": 17, "feDiffuseLighting": 17,
-            "feSpecularLighting": 17}
+            "feImage": 18, "feConvolveMatrix": 19, "feDisplacementMap": 20, "feDiffuseLighting": 21,
+            "feSpecularLighting": 22, "feDistantLight": 23, "fePointLight": 24, "feSpotLight": 25}
+FE_NEWER_TYPES = {17: 12, 18: 15, 19: 10, 20: 11, 21: 13, 22: 14}
+FE_Q_DEFAULTS = {17: [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0], 18: [0.0] * 8,
+                 19: [3.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 20: [0.0, 0.0, 3.0, 3.0, 0.0, 0.0, 0.0, 0.0],
+                 21: [1.0, 1.0, 1.0, 0.0, 4294967295.0, 0.0, 0.0, 0.0],
+                 22: [1.0, 1.0, 1.0, 0.0, 4294967295.0, 0.0, 0.0, 0.0]}
+# svg_fe_q_attrs: name -> (codes from, to, q slot, kind, given bit)
+FE_Q_ATTRS = {"baseFrequency": (17, 17, 0, "pair", 0), "numOctaves": (17, 17, 2, "number", 0),
+              "seed": (17, 17, 3, "number", 0), "stitchTiles": (17, 17, 4, ["noStitch", "stitch"], 0),
+              "order": (19, 19, 0, "pair", 0), "kernelMatrix": (19, 19, 0, "text", 0),
+              "divisor": (19, 19, 2, "number", 8), "bias": (19, 19, 3, "number", 0),
+              "targetX": (19, 19, 4, "number", 9), "targetY": (19, 19, 5, "number", 10),
+              "edgeMode": (19, 19, 6, ["duplicate", "wrap", "none"], 0),
+              "preserveAlpha": (19, 19, 7, ["false", "true"], 0), "scale": (20, 20, 0, "twice", 0),
+              "xChannelSelector": (20, 20, 2, ["R", "G", "B", "A"], 0),
+              "yChannelSelector": (20, 20, 3, ["R", "G", "B", "A"], 0),
+              "surfaceScale": (21, 22, 0, "number", 0), "diffuseConstant": (21, 21, 1, "number", 0),
+              "specularConstant": (22, 22, 1, "number", 0), "specularExponent": (22, 22, 2, "number", 0),
+              "lighting-color": (21, 22, 4, "colour", 0)}
+DEG = 0.017453292519943295
 FE_KEYWORDS = {"SourceGraphic": -1, "SourceAlpha": -2, "BackgroundImage": -3, "BackgroundAlpha": -3,
                "FillPaint": -3, "StrokePaint": -3}
 FE_MODES = ["normal", "multiply", "screen", "darken", "lighten"]
@@ -452,7 +471,7 @@ def fe_length(v, axis, obb, st):
     return val
 
 
-def filter_compile(el, st):
+def filter_compile(el, st, image_fn=None):
     """svg_filter_compile."""
     f = Filter()
     raw = ["-10%", "-10%", "120%", "120%"]
@@ -471,7 +490,7 @@ def filter_compile(el, st):
     f.region = [fe_length(v, i % 2, f.units, st) for i, v in enumerate(raw)]
     for child in el:
         code = FE_WORDS.get(child.tag.split('}')[-1])
-        if code is None or 12 <= code <= 16 or len(f.prims) >= 16:
+        if code is None or 12 <= code <= 16 or code >= 23 or len(f.prims) >= 16:
             continue
         p = fe_begin(f, child, code)
         funcs = [[0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0] for _ in range(4)]
@@ -485,6 +504,8 @@ def filter_compile(el, st):
                         inp = fe_input(f, len(f.prims) - 1, trim(value))
                 if len(merge) < 16:
                     merge.append(float(len(f.prims) - 2 if inp == -4 else inp))
+            elif c is not None and c >= 23:
+                fe_light(p, sub, c)
             elif c is not None and 13 <= c <= 16:
                 ch = c - 13
                 for name, value in sub.attrib.items():
@@ -499,8 +520,32 @@ def filter_compile(el, st):
                         n, _ = number(value, 0)
                         if n is not None:
                             funcs[ch][("slope", "intercept", "amplitude", "exponent", "offset").index(name) + 1] = n
-        fe_finish(f, p, st, funcs, tables, merge)
+        fe_finish(f, p, st, funcs, tables, merge, image_fn)
     return f
+
+
+def fe_light(p, el, c):
+    """svg_fe_child's lights: the first, in a lighting primitive."""
+    if p["light_type"] or p["code"] < 21:
+        return
+    p["light_type"] = c - 22
+    for name, value in el.attrib.items():
+        name = name.split('}')[-1]
+        if c == 23:
+            slot = {"azimuth": 0, "elevation": 1}.get(name)
+        else:
+            slot = {"x": 0, "y": 1, "z": 2}.get(name)
+            if slot is None and c == 25:
+                slot = {"pointsAtX": 3, "pointsAtY": 4, "pointsAtZ": 5, "specularExponent": 6,
+                        "limitingConeAngle": 7}.get(name)
+        if slot is None:
+            continue
+        n, _ = number(value, 0)
+        if n is None:
+            continue
+        p["light"][slot] = n
+        if slot == 7:
+            p["cone"] = 1
 
 
 def fe_input(f, idx, v):
@@ -515,7 +560,8 @@ def fe_input(f, idx, v):
 def fe_begin(f, el, code):
     p = dict(code=code, type=0, in1=-4, in2=-4, linear=f.linear, given=set(), sub=[0.0] * 4, raw=[None] * 4,
              std=[0.0, 0.0], dxy=[0.0, 0.0], radius=[0.0, 0.0], k=[0.0] * 4, op=0, cm_type=0, flood=0xFF000000,
-             flood_op=1.0, values=None, var=[], name=None)
+             flood_op=1.0, values=None, var=[], name=None, q=list(FE_Q_DEFAULTS.get(code, [0.0] * 8)),
+             light=[0.0] * 6 + [1.0, 0.0], light_type=0, cone=0, par=(5, 0), image=None)
     f.prims.append(p)
     idx = len(f.prims) - 1
     for name, value in el.attrib.items():
@@ -573,14 +619,100 @@ def fe_begin(f, el, code):
                 p["k"][int(name[1]) - 1] = n
         elif name == "type":
             t = trim(value)
-            if t in ("matrix", "saturate", "hueRotate", "luminanceToAlpha"):
+            if code == 17:
+                if t in ("fractalNoise", "turbulence"):
+                    p["q"][5] = float(("fractalNoise", "turbulence").index(t))
+            elif t in ("matrix", "saturate", "hueRotate", "luminanceToAlpha"):
                 p["cm_type"] = ("matrix", "saturate", "hueRotate", "luminanceToAlpha").index(t)
         elif name == "values":
             p["values"] = value
+        elif name in ("href", "xlink:href", "preserveAspectRatio"):
+            if code == 18:
+                if name == "preserveAspectRatio":
+                    p["par"] = par(value)
+                else:
+                    p["values"] = value
+        elif name in FE_Q_ATTRS:
+            lo, hi, slot, kind, bit = FE_Q_ATTRS[name]
+            if not lo <= code <= hi:
+                continue
+            if kind == "pair":
+                v1, i = number(value, 0)
+                if v1 is None:
+                    continue
+                p["q"][slot] = p["q"][slot + 1] = v1
+                v2, _ = number(value, i)
+                if v2 is not None:
+                    p["q"][slot + 1] = v2
+            elif kind == "text":
+                p["values"] = value
+            elif kind == "colour":
+                k, c = colour(value)
+                if k == "colour":
+                    p["q"][slot] = float(c)
+            elif isinstance(kind, list):
+                t = trim(value)
+                if t in kind:
+                    p["q"][slot] = float(kind.index(t))
+            else:
+                n, _ = number(value, 0)
+                if n is None:
+                    continue
+                p["q"][slot] = n
+                if kind == "twice":
+                    p["q"][slot + 1] = n
+                if bit:
+                    p["given"].add(bit)
     return p
 
 
-def fe_finish(f, p, st, funcs, tables, merge):
+def fe_whole(v):
+    """svg_fe_whole: an int, or None."""
+    if v != v or not -1048576.0 < v < 1048576.0 or float(int(v)) != v:
+        return None
+    return int(v)
+
+
+def fe_kernel(p):
+    """svg_fe_kernel."""
+    ox, oy = fe_whole(p["q"][0]), fe_whole(p["q"][1])
+    ok = ox is not None and oy is not None and 1 <= ox <= 64 and 1 <= oy <= 64
+    vals = numbers(p["values"]) if ok else []
+    if ok:
+        ok = len(vals) == ox * oy
+    for bit, slot, order in ((9, 4, ox), (10, 5, oy)):
+        if not ok:
+            break
+        if bit in p["given"]:
+            t = fe_whole(p["q"][slot])
+            ok = t is not None and 0 <= t < order
+        else:
+            p["q"][slot] = float(order >> 1)
+    if not ok:
+        p["type"], p["dxy"] = 1, [0.0, 0.0]
+        return
+    p["var"] = vals
+    if not (8 in p["given"] and p["q"][2] != 0):
+        s = 0.0
+        for v in vals:
+            s = s + v
+        p["q"][2] = s if s != 0 else 1.0
+
+
+def fe_image(p, image_fn):
+    """svg_fe_image."""
+    href = p["values"]
+    got = None
+    if image_fn is not None and href is not None:
+        data = data_uri(href)
+        got = image_fn(data, 0) if data is not None else image_fn(href, 1)
+    if got is None or not (got[0] > 0 and got[1] > 0):
+        p["type"], p["flood"] = 0, 0
+        return
+    p["image"] = got
+
+
+def fe_finish(f, p, st, funcs, tables, merge, image_fn=None):
     idx = f.prims.index(p)
     for key in ("in1", "in2"):
         if p[key] == -4:
@@ -593,6 +725,20 @@ def fe_finish(f, p, st, funcs, tables, merge):
     code = p["code"]
     if code == 11:
         fe_shadow(f, p, idx)
+        return
+    if code in FE_NEWER_TYPES:
+        t = p["type"] = FE_NEWER_TYPES[code]
+        if t == 10:
+            fe_kernel(p)
+        elif t == 15:
+            fe_image(p, image_fn)
+        elif t == 12:
+            p["var"] = [0.0] * 10
+        elif t in (13, 14):
+            if p["light_type"]:
+                p["var"] = [0.0] * 6
+            else:
+                p["type"], p["flood"] = 0, 0
         return
     if code > 10:
         p["type"], p["flood"] = 0, 0
@@ -652,6 +798,15 @@ def fe_shadow(f, p, k):
     copies[4].update(type=3, var=[float(k + 4), float(src)])
 
 
+def _div(a, b):
+    """IEEE division (divsd)."""
+    if b == 0:
+        if a == 0 or a != a:
+            return math.nan
+        return math.copysign(math.inf, a) * math.copysign(1.0, b)
+    return a / b
+
+
 def _floor(v):
     if v != v:
         return 0
@@ -708,11 +863,64 @@ def filter_device(f, item, t):
                 dx, dy = dx * bw, dy * bh
             q[0] = m[0] * dx + m[2] * dy
             q[1] = m[1] * dx + m[3] * dy
+        elif t_ >= 10:
+            q = list(p["q"])
+            var = list(p["var"])
+            if t_ == 11:
+                q[0], q[1] = lengths(p["q"][0:2])
+            elif t_ == 12:
+                tile = list(u)
+                tm = m
+                if f.prim_units:
+                    tile = [_div(u[0] - bx, bw), _div(u[1] - by, bh), _div(u[2], bw), _div(u[3], bh)]
+                    tm = mul(m, [bw, 0.0, 0.0, bh, bx, by])
+                inv = invert(tm)
+                var = (inv if inv is not None else [0.0] * 6) + tile
+            elif t_ == 15:
+                iw, ih, img = p["image"]
+                if u[2] > 0 and u[3] > 0:
+                    fm = fit([0.0, 0.0, float(iw), float(ih)], u[2], u[3], p["par"])
+                    x0, y0 = u[0] + fm[4], u[1] + fm[5]
+                    x1, y1 = float(iw) * fm[0] + x0, float(ih) * fm[3] + y0
+                    X0, Y0 = m[0] * x0 + m[2] * y0 + m[4], m[1] * x0 + m[3] * y0 + m[5]
+                    X1, Y1 = m[0] * x1 + m[2] * y1 + m[4], m[1] * x1 + m[3] * y1 + m[5]
+                    q[0], q[2] = min(X0, X1), max(X0, X1) - min(X0, X1)
+                    q[1], q[3] = min(Y0, Y1), max(Y0, Y1) - min(Y0, Y1)
+                var = [float(iw), float(ih)] + [float(v) for v in (img.reshape(-1) if hasattr(img, "reshape") else img)]
+            elif t_ in (13, 14):
+                light = p["light"]
+                q[3] = float(p["light_type"] - 1)
+                q[5] = light[6]
+                q[6] = math.cos(abs(light[7]) * DEG) if p["cone"] else -2.0
+                if p["light_type"] == 1:
+                    el = light[1] * DEG
+                    ce = math.cos(el)
+                    lz = math.sin(el)
+                    az = light[0] * DEG
+                    lx = math.cos(az) * ce
+                    ly = math.sin(az) * ce
+                    dx = m[0] * lx + m[2] * ly
+                    dy = m[1] * lx + m[3] * ly
+                    n = math.sqrt(dx * dx + dy * dy)
+                    h = math.sqrt(lx * lx + ly * ly)
+                    if n > 0:
+                        k = h / n
+                        dx, dy = dx * k, dy * k
+                    var = [dx, dy, lz, 0.0, 0.0, 0.0]
+                else:
+                    var = []
+                    for x, y, z in (light[0:3], light[3:6]):
+                        if f.prim_units:
+                            x, y = x * bw + bx, y * bh + by
+                            z = z * math.sqrt((bw * bw + bh * bh) * 0.5)
+                        var += [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5], z * ((sx + sy) * 0.5)]
         else:
             q[0] = float(p["op"])
             q[1:5] = p["k"]
+        if t_ < 10:
+            var = list(p["var"])
         out.append(dict(type=t_, in1=p["in1"], in2=p["in2"], linear=p["linear"], sub=device(u), p=q,
-                        var=list(p["var"])))
+                        var=var))
     return device(reg_user), out
 
 
@@ -1939,7 +2147,7 @@ def parse(text, image_fn=None, font_fn=None):
         el = ids.get(r[0]) if r else None
         if el is None or el.tag.split('}')[-1] != "filter":
             return None
-        return filter_compile(el, st)
+        return filter_compile(el, st, image_fn)
 
     def compile_ref(cid, kind, st, uses):
         el = ids.get(cid)
