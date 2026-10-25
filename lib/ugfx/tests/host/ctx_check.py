@@ -375,6 +375,37 @@ def cases(rng):
     yield "filter offset tile", art + [('filter', reg, [
         fe(F.OFFSET, p=(-3.4, 2.5), sub=(8, 6, 20, 16)), fe(F.TILE, in1=0)]), ('end_layer',)]
     yield "filter empty", art + [('filter', reg, []), ('end_layer',)]
+    yield "filter convolve", art + [('filter', reg, [
+        fe(F.CONVOLVE, p=(3, 3, 1.0, 0.0, 1, 1, 0, 0), var=(0, -1, 0, -1, 5, -1, 0, -1, 0), sub=(2, 1, 24, 31)),
+        fe(F.CONVOLVE, in1=-1, p=(3, 2, 2.5, 0.1, 2, 0, 1, 1), var=(1, 0.5, 0, 0.5, 1, 0.25), sub=(24, 1, 46, 20)),
+        fe(F.CONVOLVE, in1=-1, p=(2, 2, 4.0, 0.0, 0, 1, 2, 0), var=(1, 1, 1, 1), sub=(24, 20, 46, 31)),
+        fe(F.MERGE, var=(0, 1, 2))]), ('end_layer',)]
+    yield "filter displace", art + [('filter', reg, [
+        fe(F.TURBULENCE, p=(0.11, 0.07, 2, 3, 0, 0), var=(1, 0, 0, 1, 0, 0)),
+        fe(F.DISPLACE, in1=-1, in2=0, p=(9.0, -6.0, 0, 3))]), ('end_layer',)]
+    yield "filter turbulence", art + [('filter', reg, [
+        fe(F.TURBULENCE, linear=1, p=(0.05, 0.08, 3, -7.6, 0, 1), var=(0.5, 0.1, -0.2, 0.8, 3, -2), sub=(2, 1, 24, 31)),
+        fe(F.TURBULENCE, p=(0.13, 0.13, 2, 41, 1, 0), var=(1, 0, 0, 1, 0, 0, 24, 1, 22, 30), sub=(24, 1, 46, 31)),
+        fe(F.MERGE, var=(0, 1))]), ('end_layer',)]
+
+    el, az = math.radians(50), math.radians(30)
+    dist = (math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el))
+    yield "filter diffuse", art + [('filter', reg, [
+        fe(F.BLUR, in1=-2, p=(1.5, 1.5)),
+        fe(F.DIFFUSE, in1=0, linear=1, p=(3.0, 1.2, 1, 0, float(0xFFFFE0A0)), var=dist, sub=(2, 1, 24, 31)),
+        fe(F.DIFFUSE, in1=0, p=(-2.0, 0.9, 1, 1, float(0xFFA0E0FF)), var=(30, 8, 20), sub=(24, 1, 46, 31)),
+        fe(F.MERGE, var=(1, 2))]), ('end_layer',)]
+    yield "filter specular", art + [('filter', reg, [
+        fe(F.BLUR, in1=-2, p=(2.0, 2.0)),
+        fe(F.SPECULAR, in1=0, p=(4.0, 1.0, 8, 0, float(0xFFFFFFFF)), var=dist, sub=(2, 1, 24, 31)),
+        fe(F.SPECULAR, in1=0, linear=1, p=(5.0, 1.5, 3, 2, float(0xFFFFC080), 2, math.cos(math.radians(40))),
+           var=(36, 4, 30, 30, 20, 0), sub=(24, 1, 46, 31)),
+        fe(F.MERGE, var=(-1, 1, 2))]), ('end_layer',)]
+    pix = [0xFF0000FF, 0x80008000, 0xFFFF0000, 0x00000000, 0xFF404040, 0xC0C0C000]
+    yield "filter image", art + [('filter', reg, [
+        fe(F.IMAGE, p=(5.0, 3.5, 17.0, 12.0), var=[3, 2] + pix, sub=(2, 1, 24, 31)),
+        fe(F.IMAGE, linear=1, p=(26.0, 6.0, 15.5, 20.0), var=[2, 3] + pix, sub=(24, 1, 46, 31)),
+        fe(F.MERGE, var=(0, 1, -1))]), ('end_layer',)]
     yield "clip mask reused", ([('save',)] + circle + [('clip',), ('new_path',), ('restore',),
                                ('save',)] + tri + [('clip',), ('new_path',), ('fill_rect', 0, 0, 48, 32), ('restore',),
                                ('fill_color', 0x5000FFFF), ('fill_rect', 0, 0, 48, 32)])
