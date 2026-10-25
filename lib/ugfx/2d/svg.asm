@@ -70,6 +70,14 @@
 ; markerWidth x markerHeight unless overflow is visible or auto. Markers
 ; draw after the shape, inside its group, even when it has no paint.
 ;
+; filter="url(#id)": the filter's primitives - feFlood, feOffset,
+; feGaussianBlur, feMerge(Node), feBlend, feComposite, feColorMatrix,
+; feComponentTransfer (feFuncR/G/B/A), feMorphology, feTile,
+; feDropShadow (as six of those) - with in / in2 / result, subregions,
+; filterUnits / primitiveUnits and color-interpolation-filters, run over
+; the element's layer (2d/filter.asm); the other primitives give
+; nothing.
+;
 ; image: with ugfx_svg_parse_ex's image_fn, a data: URI (base64 or
 ; percent-encoded) is decoded and its bytes handed over (kind 0), any
 ; other href as it is (kind 1); the PixBuf it returns is placed in x, y,
@@ -106,6 +114,10 @@ extern umath_affine2_invert
 extern umath_affine2_rotate
 extern umath_affine2_scale
 extern umath_atan2_f64
+extern umath_cos_f64
+extern ugfx_svg_same
+extern umath_sin_f64
+extern ugfx_ctx_filter
 extern ugfx_path_bounds_tight
 extern ugfx_ctx_set_transform
 extern ugfx_ctx_clip_begin
@@ -276,7 +288,35 @@ extern ugfx_ctx_draw_image
 %define A_TEXT_ANCHOR   28
 %define A_LETTER_SP     29
 %define A_WORD_SP       30
-%define A_LAST_PROP     30              ; ids up to here are style properties too
+%define A_FILTER        31
+%define A_LAST_PROP     31              ; ids up to here are style properties too
+
+; filter attributes
+%define FA_IN           1
+%define FA_IN2          2
+%define FA_RESULT       3
+%define FA_X            4
+%define FA_Y            5
+%define FA_WIDTH        6
+%define FA_HEIGHT       7
+%define FA_CIF          8
+%define FA_STDDEV       9
+%define FA_DX           10
+%define FA_DY           11
+%define FA_FLOOD_COLOR  12
+%define FA_FLOOD_OP     13
+%define FA_MODE         14
+%define FA_OPERATOR     15
+%define FA_K1           16
+%define FA_K4           19
+%define FA_TYPE         20
+%define FA_VALUES       21
+%define FA_RADIUS       22
+%define FA_TABLE        23
+%define FA_SLOPE        24
+%define FA_OFFSET       28
+%define FA_FUNITS       29
+%define FA_PUNITS       30
 %define A_TRANSFORM     40
 %define A_STYLE         41
 %define A_D             42
@@ -372,7 +412,10 @@ extern ugfx_ctx_draw_image
 %define P_GLYPH_CP      (P_FONT_RAW + 384)              ; u32 the glyph svg_geometry builds
 %define P_GLYPH_SIZE    (P_FONT_RAW + 392)              ; f64
 %define P_GLYPH_FONT    (P_FONT_RAW + 400)              ; UgfxSvgFont
-%define P_SIZE          (((P_FONT_RAW + 424 + 15) & ~15) + 8)
+%define P_FILTER        (P_FONT_RAW + 424)              ; filter as written (0: none)
+%define P_FILTER_END    (P_FONT_RAW + 432)
+%define P_FILTERREC     (P_FONT_RAW + 440)              ; the compiled filter for a group
+%define P_SIZE          (((P_FONT_RAW + 448 + 15) & ~15) + 8)
 
 ; a vertex, for markers
 %define VX_X            0               ; f64
@@ -486,6 +529,7 @@ svg_attributes:
     NAME "text-anchor", A_TEXT_ANCHOR
     NAME "letter-spacing", A_LETTER_SP
     NAME "word-spacing", A_WORD_SP
+    NAME "filter", A_FILTER
     NAME "transform", A_TRANSFORM
     NAME "style", A_STYLE
     NAME "d", A_D
@@ -586,6 +630,116 @@ svg_anchor_words:
     NAME "middle", 2
     NAME "end", 3
     db 0
+svg_fe_words:
+    NAME "feFlood", 1
+    NAME "feOffset", 2
+    NAME "feGaussianBlur", 3
+    NAME "feMerge", 4
+    NAME "feBlend", 5
+    NAME "feComposite", 6
+    NAME "feColorMatrix", 7
+    NAME "feComponentTransfer", 8
+    NAME "feMorphology", 9
+    NAME "feTile", 10
+    NAME "feDropShadow", 11
+    NAME "feMergeNode", 12
+    NAME "feFuncR", 13
+    NAME "feFuncG", 14
+    NAME "feFuncB", 15
+    NAME "feFuncA", 16
+    NAME "feTurbulence", 17
+    NAME "feImage", 17
+    NAME "feConvolveMatrix", 17
+    NAME "feDisplacementMap", 17
+    NAME "feDiffuseLighting", 17
+    NAME "feSpecularLighting", 17
+    db 0
+svg_fe_attrs:
+    NAME "in", FA_IN
+    NAME "in2", FA_IN2
+    NAME "result", FA_RESULT
+    NAME "x", FA_X
+    NAME "y", FA_Y
+    NAME "width", FA_WIDTH
+    NAME "height", FA_HEIGHT
+    NAME "color-interpolation-filters", FA_CIF
+    NAME "stdDeviation", FA_STDDEV
+    NAME "dx", FA_DX
+    NAME "dy", FA_DY
+    NAME "flood-color", FA_FLOOD_COLOR
+    NAME "flood-opacity", FA_FLOOD_OP
+    NAME "mode", FA_MODE
+    NAME "operator", FA_OPERATOR
+    NAME "k1", FA_K1
+    NAME "k2", FA_K1 + 1
+    NAME "k3", FA_K1 + 2
+    NAME "k4", FA_K4
+    NAME "type", FA_TYPE
+    NAME "values", FA_VALUES
+    NAME "radius", FA_RADIUS
+    NAME "tableValues", FA_TABLE
+    NAME "slope", FA_SLOPE
+    NAME "intercept", FA_SLOPE + 1
+    NAME "amplitude", FA_SLOPE + 2
+    NAME "exponent", FA_SLOPE + 3
+    NAME "offset", FA_OFFSET
+    NAME "filterUnits", FA_FUNITS
+    NAME "primitiveUnits", FA_PUNITS
+    db 0
+svg_fe_keywords:
+    NAME "SourceGraphic", 1
+    NAME "SourceAlpha", 2
+    NAME "BackgroundImage", 3
+    NAME "BackgroundAlpha", 3
+    NAME "FillPaint", 3
+    NAME "StrokePaint", 3
+    db 0
+svg_fe_modes:
+    NAME "normal", 1
+    NAME "multiply", 2
+    NAME "screen", 3
+    NAME "darken", 4
+    NAME "lighten", 5
+    db 0
+svg_fe_operators:
+    NAME "over", 1
+    NAME "in", 2
+    NAME "out", 3
+    NAME "atop", 4
+    NAME "xor", 5
+    NAME "arithmetic", 6
+    NAME "erode", 7
+    NAME "dilate", 8
+    db 0
+svg_fe_cm_types:
+    NAME "matrix", 1
+    NAME "saturate", 2
+    NAME "hueRotate", 3
+    NAME "luminanceToAlpha", 4
+    db 0
+svg_fe_func_types:
+    NAME "identity", 1
+    NAME "table", 2
+    NAME "discrete", 3
+    NAME "linear", 4
+    NAME "gamma", 5
+    db 0
+svg_cif_words:
+    NAME "sRGB", 1
+    NAME "linearRGB", 2
+    NAME "auto", 3
+    db 0
+align 8
+svg_fe_two:         dq 2.0
+svg_m2p30:          dq -1073741824.0
+svg_cm_identity:    dq 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0
+svg_cm_luminance:   dq 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2125, 0.7154, 0.0721, 0.0, 0.0
+svg_cm_alpha:       dq 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0
+svg_cm_sat_a:       dq 0.213, 0.715, 0.072, 0.0, 0.0, 0.213, 0.715, 0.072, 0.0, 0.0, 0.213, 0.715, 0.072, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0
+svg_cm_sat_b:       dq 0.787, -0.715, -0.072, 0.0, 0.0, -0.213, 0.285, -0.072, 0.0, 0.0, -0.213, -0.715, 0.928, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+svg_cm_hue_a:       dq 0.213, 0.715, 0.072, 0.0, 0.0, 0.213, 0.715, 0.072, 0.0, 0.0, 0.213, 0.715, 0.072, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0
+svg_cm_hue_b:       dq 0.787, -0.715, -0.072, 0.0, 0.0, -0.213, 0.285, -0.072, 0.0, 0.0, -0.213, -0.715, 0.928, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+svg_cm_hue_c:       dq -0.213, -0.715, 0.928, 0.0, 0.0, 0.143, 0.14, -0.283, 0.0, 0.0, -0.787, 0.715, 0.072, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 svg_word_preserve:  db "preserve"
 svg_marker_words:
     NAME "markerUnits", 1
@@ -1130,6 +1284,7 @@ svg_element:
     mov dword [r15 + P_PAR], PAR_DEFAULT
     mov qword [r15 + P_CLIP], 0
     mov qword [r15 + P_MASK], 0
+    mov qword [r15 + P_FILTER], 0
     mov qword [r15 + P_ATTR + UgfxSvgAttr_cur], 0
 .attr:
     lea rdi, [r15 + P_XML]
@@ -1280,8 +1435,12 @@ svg_element:
     mov [r15 + P_CLIPREC], rax
     call svg_mask_ref
     mov [r15 + P_MASKREC], rax
+    call svg_filter_ref
+    mov [r15 + P_FILTERREC], rax
     test rax, rax
     jnz .open
+    cmp qword [r15 + P_MASKREC], 0
+    jne .open
     cmp qword [r15 + P_CLIPREC], 0
     jne .open
     movsd xmm0, [r15 + P_OPACITY]
@@ -1554,6 +1713,7 @@ svg_view_clip:
     mov rax, [r15 + P_CLIPREC]
     mov [r12 + UgfxSvgItem_clip], rax
     mov qword [r12 + UgfxSvgItem_mask], 0
+    mov qword [r12 + UgfxSvgItem_filter], 0
     xor ecx, ecx
 .m:
     mov rax, [rbx + S_M + rcx * 8]
@@ -2075,6 +2235,8 @@ svg_property:
     je .clip_rule
     cmp eax, A_MASK
     je .mask
+    cmp eax, A_FILTER
+    je .filter
     cmp eax, A_FONT_FAMILY
     jae .text_prop
     cmp eax, A_MARKER_START
@@ -2218,6 +2380,14 @@ svg_property:
     IS_WORD none
     jne .out
     mov qword [r15 + P_CLIP], 0
+    jmp .out
+.filter:
+    call ugfx_svg_trim
+    mov [r15 + P_FILTER], rdi
+    mov [r15 + P_FILTER_END], rsi
+    IS_WORD none
+    jne .out
+    mov qword [r15 + P_FILTER], 0
     jmp .out
 .text_prop:
     cmp eax, A_FONT_FAMILY
@@ -2494,6 +2664,10 @@ svg_inherit:
     jne .not_ws
     mov qword [r15 + P_WS_RAW], 0
 .not_ws:
+    cmp r12d, A_FILTER
+    jne .not_filter
+    mov qword [r15 + P_FILTER], 0       ; not inherited: none
+.not_filter:
     cmp r12d, A_OPACITY
     jne .done
     movsd xmm0, [rel svg_one]           ; not inherited: the initial value
@@ -2759,6 +2933,8 @@ svg_group_open:
     mov [r12 + UgfxSvgItem_clip], rax
     mov rax, [r15 + P_MASKREC]
     mov [r12 + UgfxSvgItem_mask], rax
+    mov rax, [r15 + P_FILTERREC]
+    mov [r12 + UgfxSvgItem_filter], rax
     xor ecx, ecx
 .m:
     mov rax, [rbx + S_M + rcx * 8]
@@ -2801,6 +2977,7 @@ svg_group_end:
     add rcx, [rax + UgfxSvg_items]
     mov rdx, [rcx + UgfxSvgItem_clip]
     or rdx, [rcx + UgfxSvgItem_mask]
+    or rdx, [rcx + UgfxSvgItem_filter]
     jz .room
     mov edi, r12d
     mov esi, [rax + UgfxSvg_count]
@@ -4476,6 +4653,1424 @@ svg_text_finish:
     ret
 
 ; -----------------------------------------------------------------------------
+; Filters. filter="url(#id)" compiles that filter (svg_filter_compile) from
+; its tag and children into user-space primitives (UgfxSvgFe); a group with
+; one draws into a layer, and at its END svg_filter_device turns them into
+; device space (the element's matrix, its bbox for objectBoundingBox) and
+; ugfx_ctx_filter runs them over the layer, before mask and opacity.
+; -----------------------------------------------------------------------------
+
+; svg_filter_ref — r15 = frame, rbx = state -> rax = the element's compiled
+;   filter (0: none, not a filter, or in a clip's content)
+svg_filter_ref:
+    sub rsp, 8
+    xor eax, eax
+    cmp dword [r15 + P_CLIPMODE], 0
+    jne .out
+    mov rdi, [r15 + P_FILTER]
+    test rdi, rdi
+    jz .out
+    mov rsi, [r15 + P_FILTER_END]
+    call svg_url_ref
+    test rax, rax
+    jz .out
+    mov rsi, rax
+    call svg_filter_compile
+.out:
+    add rsp, 8
+    ret
+
+; the compile's context (rbp)
+%define FC_XML      0                   ; UgfxSvgXml over the filter
+%define FC_ATTR     (FC_XML + UgfxSvgXml_SIZE)
+%define FC_RAW      (FC_ATTR + UgfxSvgAttr_SIZE)    ; the region as written
+%define FC_FUNCS    (FC_RAW + 64)       ; f64[4][7] feFuncR..A: type, slope, intercept,
+                                        ; amplitude, exponent, offset, n
+%define FC_TABLES   (FC_FUNCS + 224)    ; (text, end)[4] their tableValues
+%define FC_MERGE    (FC_TABLES + 64)    ; f64[16] feMergeNode inputs
+%define FC_NMERGE   (FC_MERGE + 128)    ; u32
+%define FC_SIZE     (((FC_NMERGE + 8 + 15) & ~15) + 8)
+
+; svg elements inside a filter
+%define FW_MERGENODE    12
+%define FW_FUNCR        13              ; .. 16 feFuncA
+%define FW_DROPSHADOW   11
+%define FW_OTHER        17              ; a primitive not supported
+
+; -----------------------------------------------------------------------------
+; svg_filter_compile — rsi / rdx = an id, r15 = frame, rbx = the referencing
+;   state -> rax = UgfxSvgFilter* (0: none, not a filter, out of memory)
+; -----------------------------------------------------------------------------
+svg_filter_compile:
+    push r12
+    push r13
+    push r14
+    push rbp
+    sub rsp, FC_SIZE
+    mov rbp, rsp
+    xor r13d, r13d
+    lea rdi, [r15 + P_DEFS]
+    call ugfx_svg_defs_id
+    test rax, rax
+    jz .out
+    mov r12, rax
+    mov rcx, [r15 + P_XML + UgfxSvgXml_end]
+    lea rdx, [r12 + 8]
+    cmp rdx, rcx
+    ja .out
+    cmp dword [r12 + 1], 'filt'
+    jne .out
+    cmp word [r12 + 5], 'er'
+    jne .out
+    movzx eax, byte [r12 + 7]
+    cmp al, '>'
+    je .is_filter
+    cmp al, '/'
+    je .is_filter
+    cmp al, ' '
+    ja .out
+.is_filter:
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    mov esi, UgfxSvgFilter_SIZE + 16 * UgfxSvgFe_SIZE + 16 * UgfxFe_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov r13, rax
+    mov rdi, rax
+    xor eax, eax
+    mov ecx, UgfxSvgFilter_SIZE + 16 * UgfxSvgFe_SIZE + 16 * UgfxFe_SIZE
+    rep stosb
+    lea rax, [r13 + UgfxSvgFilter_SIZE]
+    mov [r13 + UgfxSvgFilter_prims], rax
+    lea rax, [r13 + UgfxSvgFilter_SIZE + 16 * UgfxSvgFe_SIZE]
+    mov [r13 + UgfxSvgFilter_dev + UgfxFilter_prims], rax
+    mov dword [r13 + UgfxSvgFilter_units], 1
+    mov dword [r13 + UgfxSvgFilter_linear], 1
+    ; the filter's own tag
+    mov [rbp + FC_XML + UgfxSvgXml_cur], r12
+    mov rax, [r15 + P_XML + UgfxSvgXml_end]
+    mov [rbp + FC_XML + UgfxSvgXml_end], rax
+    lea rdi, [rbp + FC_XML]
+    call ugfx_svg_xml_next
+    cmp eax, 1
+    jne .out
+    lea rax, [rel svg_m10]
+    mov [rbp + FC_RAW], rax
+    mov [rbp + FC_RAW + 16], rax
+    add rax, 4
+    mov [rbp + FC_RAW + 8], rax
+    mov [rbp + FC_RAW + 24], rax
+    lea rax, [rel svg_120]
+    mov [rbp + FC_RAW + 32], rax
+    mov [rbp + FC_RAW + 48], rax
+    add rax, 4
+    mov [rbp + FC_RAW + 40], rax
+    mov [rbp + FC_RAW + 56], rax
+    mov qword [rbp + FC_ATTR + UgfxSvgAttr_cur], 0
+.f_attr:
+    call svg_fe_next_attr               ; eax = FA_*, rdi / rsi = value
+    jc .f_region
+    cmp eax, FA_X
+    jb .f_other
+    cmp eax, FA_HEIGHT
+    ja .f_other
+    sub eax, FA_X
+    shl eax, 4
+    mov [rbp + FC_RAW + rax], rdi
+    mov [rbp + FC_RAW + rax + 8], rsi
+    jmp .f_attr
+.f_other:
+    cmp eax, FA_CIF
+    jne .f_units
+    call svg_fe_cif
+    js .f_attr
+    mov [r13 + UgfxSvgFilter_linear], eax
+    jmp .f_attr
+.f_units:
+    mov r14d, eax
+    cmp eax, FA_FUNITS
+    je .f_unit
+    cmp eax, FA_PUNITS
+    jne .f_attr
+.f_unit:
+    call svg_fe_obb
+    cmp r14d, FA_FUNITS
+    jne .f_punits
+    mov [r13 + UgfxSvgFilter_units], eax
+    jmp .f_attr
+.f_punits:
+    mov [r13 + UgfxSvgFilter_prim_units], eax
+    jmp .f_attr
+.f_region:
+    xor r14d, r14d
+.f_value:
+    cmp r14d, 4
+    jae .children
+    mov eax, r14d
+    shl eax, 4
+    mov rdi, [rbp + FC_RAW + rax]
+    mov rsi, [rbp + FC_RAW + rax + 8]
+    mov edx, r14d
+    and edx, 1
+    mov ecx, [r13 + UgfxSvgFilter_units]
+    call svg_fe_length
+    movsd [r13 + UgfxSvgFilter_region + r14 * 8], xmm0
+    inc r14d
+    jmp .f_value
+.children:
+    cmp dword [rbp + FC_XML + UgfxSvgXml_self], 0
+    jne .out
+    xor r14d, r14d                      ; depth below the filter
+    xor r12d, r12d                      ; the primitive (0: none)
+.token:
+    lea rdi, [rbp + FC_XML]
+    call ugfx_svg_xml_next
+    test eax, eax
+    jz .out
+    cmp eax, 2
+    je .end_tag
+    mov rdi, [rbp + FC_XML + UgfxSvgXml_name]
+    mov rsi, [rbp + FC_XML + UgfxSvgXml_name_end]
+    lea rdx, [rel svg_fe_words]
+    call ugfx_svg_lookup
+    test r14d, r14d
+    jnz .child
+    cmp eax, 0
+    jle .skip                           ; not a primitive
+    cmp eax, FW_MERGENODE
+    jb .begin
+    cmp eax, FW_OTHER
+    jne .skip                           ; a child out of place
+.begin:
+    call svg_fe_begin                   ; r12 = the new one (0: full)
+    cmp dword [rbp + FC_XML + UgfxSvgXml_self], 0
+    jne .finish
+    inc r14d
+    jmp .token
+.child:
+    cmp r14d, 1
+    jne .skip
+    test r12, r12
+    jz .skip
+    cmp eax, FW_MERGENODE
+    jb .skip
+    cmp eax, FW_OTHER
+    jae .skip
+    call svg_fe_child
+.skip:
+    cmp dword [rbp + FC_XML + UgfxSvgXml_self], 0
+    jne .token
+    inc r14d
+    jmp .token
+.end_tag:
+    test r14d, r14d
+    jz .out                             ; the filter's own end
+    dec r14d
+    jnz .token
+.finish:
+    test r12, r12
+    jz .token
+    call svg_fe_finish
+    xor r12d, r12d
+    jmp .token
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+    xor r13d, r13d
+.out:
+    mov rax, r13
+    add rsp, FC_SIZE
+    pop rbp
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; rbp = context -> the next attribute of the tag in FC_XML: eax = FA_* (0:
+;   unknown), rdi / rsi = its value; CF set when none is left
+svg_fe_next_attr:
+    sub rsp, 8
+    lea rdi, [rbp + FC_XML]
+    lea rsi, [rbp + FC_ATTR]
+    call ugfx_svg_xml_attr
+    test eax, eax
+    jz .none
+    mov rdi, [rbp + FC_ATTR + UgfxSvgAttr_name]
+    mov rsi, [rbp + FC_ATTR + UgfxSvgAttr_name_end]
+    lea rdx, [rel svg_fe_attrs]
+    call ugfx_svg_lookup
+    cmp eax, 0
+    jg .known
+    xor eax, eax
+.known:
+    mov rdi, [rbp + FC_ATTR + UgfxSvgAttr_val]
+    mov rsi, [rbp + FC_ATTR + UgfxSvgAttr_val_end]
+    add rsp, 8
+    clc
+    ret
+.none:
+    add rsp, 8
+    stc
+    ret
+
+; rdi / rsi = a value -> eax = 1 when it is objectBoundingBox
+svg_fe_obb:
+    sub rsp, 8
+    call ugfx_svg_trim
+    lea rdx, [rel svg_word_obb]
+    mov ecx, 17
+    call svg_word
+    sete al
+    movzx eax, al
+    add rsp, 8
+    ret
+
+; rdi / rsi = a value, edx = 0 x-like / 1 y-like, ecx = 1 bbox units, rbx =
+;   state -> xmm0 = a fraction (a percentage / 100), or a user length; 0
+;   if it does not parse
+svg_fe_length:
+    sub rsp, 24
+    test ecx, ecx
+    jnz .fraction
+    call svg_length
+    test rax, rax
+    jnz .out
+    xorpd xmm0, xmm0
+    jmp .out
+.fraction:
+    mov [rsp], rsi
+    call ugfx_svg_number
+    test rax, rax
+    jz .zero
+    cmp rax, [rsp]
+    jae .out
+    cmp byte [rax], '%'
+    jne .out
+    mulsd xmm0, [rel svg_hundredth]
+    jmp .out
+.zero:
+    xorpd xmm0, xmm0
+.out:
+    add rsp, 24
+    ret
+
+; rdi / rsi = color-interpolation-filters -> eax = 1 linearRGB, 0 sRGB /
+;   auto; SF set when invalid
+svg_fe_cif:
+    sub rsp, 8
+    call ugfx_svg_trim
+    lea rdx, [rel svg_cif_words]
+    call ugfx_svg_lookup
+    add rsp, 8
+    cmp eax, 0
+    jle .bad
+    xor ecx, ecx
+    cmp eax, 2
+    sete cl                             ; 1 sRGB, 2 linearRGB, 3 auto
+    mov eax, ecx
+    test eax, eax
+    ret
+.bad:
+    mov eax, -1
+    test eax, eax
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_fe_begin — eax = FW_*, rbp = context (the tag in FC_XML), r13 = the
+;   filter -> r12 = a new UgfxSvgFe from the tag's attributes (0: no room)
+; -----------------------------------------------------------------------------
+svg_fe_begin:
+    push r14
+    xor r12d, r12d
+    mov ecx, [r13 + UgfxSvgFilter_count]
+    cmp ecx, 16
+    jae .out
+    inc dword [r13 + UgfxSvgFilter_count]
+    imul r12, rcx, UgfxSvgFe_SIZE
+    add r12, [r13 + UgfxSvgFilter_prims]
+    mov [r12 + UgfxSvgFe_code], eax
+    mov dword [r12 + UgfxSvgFe_in1], -4 ; (none given)
+    mov dword [r12 + UgfxSvgFe_in2], -4
+    mov eax, [r13 + UgfxSvgFilter_linear]
+    mov [r12 + UgfxSvgFe_linear], eax
+    mov dword [r12 + UgfxSvgFe_flood], 0xFF000000
+    movsd xmm0, [rel svg_one]
+    movsd [r12 + UgfxSvgFe_flood_op], xmm0
+    ; the children's defaults: feFuncs identity (slope 1, amplitude 1,
+    ; exponent 1), no merge nodes
+    mov dword [rbp + FC_NMERGE], 0
+    xor ecx, ecx
+.func:
+    imul eax, ecx, 56
+    xorpd xmm1, xmm1
+    movsd [rbp + FC_FUNCS + rax], xmm1
+    movsd [rbp + FC_FUNCS + rax + 8], xmm0
+    movsd [rbp + FC_FUNCS + rax + 16], xmm1
+    movsd [rbp + FC_FUNCS + rax + 24], xmm0
+    movsd [rbp + FC_FUNCS + rax + 32], xmm0
+    movsd [rbp + FC_FUNCS + rax + 40], xmm1
+    movsd [rbp + FC_FUNCS + rax + 48], xmm1
+    mov eax, ecx
+    shl eax, 4
+    mov qword [rbp + FC_TABLES + rax], 0
+    inc ecx
+    cmp ecx, 4
+    jb .func
+    mov qword [rbp + FC_ATTR + UgfxSvgAttr_cur], 0
+.attr:
+    call svg_fe_next_attr
+    jc .out
+    mov r14d, eax
+    call svg_fe_attr
+    jmp .attr
+.out:
+    pop r14
+    ret
+
+; r14d = FA_*, rdi / rsi = its value, r12 = the primitive, r13 = the filter
+svg_fe_attr:
+    sub rsp, 8
+    cmp r14d, FA_IN
+    je .input
+    cmp r14d, FA_IN2
+    je .input
+    cmp r14d, FA_RESULT
+    je .result
+    cmp r14d, FA_X
+    jb .out
+    cmp r14d, FA_HEIGHT
+    jbe .box
+    cmp r14d, FA_CIF
+    je .cif
+    cmp r14d, FA_STDDEV
+    je .stddev
+    cmp r14d, FA_RADIUS
+    je .radius
+    cmp r14d, FA_DX
+    je .dx
+    cmp r14d, FA_DY
+    je .dy
+    cmp r14d, FA_FLOOD_COLOR
+    je .flood_color
+    cmp r14d, FA_FLOOD_OP
+    je .flood_op
+    cmp r14d, FA_MODE
+    je .mode
+    cmp r14d, FA_OPERATOR
+    je .operator
+    cmp r14d, FA_K1
+    jb .out
+    cmp r14d, FA_K4
+    jbe .k
+    cmp r14d, FA_TYPE
+    je .type
+    cmp r14d, FA_VALUES
+    jne .out
+    mov [r12 + UgfxSvgFe_values], rdi
+    mov [r12 + UgfxSvgFe_values_end], rsi
+    jmp .out
+.input:
+    call ugfx_svg_trim
+    call svg_fe_input
+    mov ecx, UgfxSvgFe_in1
+    cmp r14d, FA_IN
+    je .in_set
+    mov ecx, UgfxSvgFe_in2
+.in_set:
+    mov [r12 + rcx], eax
+    jmp .out
+.result:
+    call ugfx_svg_trim
+    mov [r12 + UgfxSvgFe_name], rdi
+    mov [r12 + UgfxSvgFe_name_end], rsi
+    jmp .out
+.box:
+    lea ecx, [r14 - FA_X]
+    bts dword [r12 + UgfxSvgFe_given], ecx
+    shl ecx, 4
+    mov [r12 + UgfxSvgFe_raw + rcx], rdi
+    mov [r12 + UgfxSvgFe_raw + rcx + 8], rsi
+    jmp .out
+.cif:
+    call svg_fe_cif
+    js .out
+    mov [r12 + UgfxSvgFe_linear], eax
+    jmp .out
+.stddev:
+    lea r8, [r12 + UgfxSvgFe_std]
+    mov ecx, 4
+    jmp .pair
+.radius:
+    lea r8, [r12 + UgfxSvgFe_radius]
+    mov ecx, 7
+.pair:
+    ; one number for both, or x then y
+    bts dword [r12 + UgfxSvgFe_given], ecx
+    push r8
+    push rsi
+    call ugfx_svg_number
+    pop rsi
+    pop r8
+    test rax, rax
+    jz .out
+    movsd [r8], xmm0
+    movsd [r8 + 8], xmm0
+    mov rdi, rax
+    push r8
+    sub rsp, 8
+    call ugfx_svg_number
+    add rsp, 8
+    pop r8
+    test rax, rax
+    jz .out
+    movsd [r8 + 8], xmm0
+    jmp .out
+.dx:
+    bts dword [r12 + UgfxSvgFe_given], 5
+    call ugfx_svg_number
+    test rax, rax
+    jz .out
+    movsd [r12 + UgfxSvgFe_dxy], xmm0
+    jmp .out
+.dy:
+    bts dword [r12 + UgfxSvgFe_given], 6
+    call ugfx_svg_number
+    test rax, rax
+    jz .out
+    movsd [r12 + UgfxSvgFe_dxy + 8], xmm0
+    jmp .out
+.flood_color:
+    call ugfx_svg_colour
+    cmp eax, 1
+    jne .out
+    mov [r12 + UgfxSvgFe_flood], edx
+    jmp .out
+.flood_op:
+    push rsi
+    sub rsp, 8
+    call ugfx_svg_number
+    add rsp, 8
+    pop rsi
+    test rax, rax
+    jz .out
+    cmp rax, rsi
+    jae .flood_clamp
+    cmp byte [rax], '%'
+    jne .flood_clamp
+    mulsd xmm0, [rel svg_hundredth]
+.flood_clamp:
+    xorpd xmm1, xmm1
+    maxsd xmm0, xmm1
+    minsd xmm0, [rel svg_one]
+    movsd [r12 + UgfxSvgFe_flood_op], xmm0
+    jmp .out
+.mode:
+    lea rdx, [rel svg_fe_modes]
+    jmp .word
+.operator:
+    lea rdx, [rel svg_fe_operators]
+.word:
+    push rdx
+    sub rsp, 8
+    call ugfx_svg_trim
+    add rsp, 8
+    pop rdx
+    call ugfx_svg_lookup
+    cmp eax, 0
+    jle .out
+    dec eax
+    cmp eax, 6
+    jb .op_set
+    sub eax, 6                          ; erode 0 / dilate 1
+.op_set:
+    mov [r12 + UgfxSvgFe_op], eax
+    jmp .out
+.k:
+    lea ecx, [r14 - FA_K1]
+    push rcx
+    sub rsp, 8
+    call ugfx_svg_number
+    add rsp, 8
+    pop rcx
+    test rax, rax
+    jz .out
+    movsd [r12 + UgfxSvgFe_k + rcx * 8], xmm0
+    jmp .out
+.type:
+    call ugfx_svg_trim
+    lea rdx, [rel svg_fe_cm_types]
+    call ugfx_svg_lookup
+    cmp eax, 0
+    jle .out
+    dec eax
+    mov [r12 + UgfxSvgFe_cm_type], eax
+.out:
+    add rsp, 8
+    ret
+
+; rdi / rsi = an in / in2 value, r12 = this primitive, r13 = the filter ->
+;   eax = -1 SourceGraphic, -2 SourceAlpha, -3 the other keywords, the
+;   index of the last earlier primitive with that result name, else -4
+svg_fe_input:
+    push r14
+    push rdi
+    push rsi
+    lea rdx, [rel svg_fe_keywords]
+    call ugfx_svg_lookup
+    pop rsi
+    pop rdi
+    cmp eax, 0
+    jle .named
+    cmp eax, 3
+    jbe .keyword
+    mov eax, 3
+.keyword:
+    neg eax
+    jmp .out
+.named:
+    mov r14, r12
+.earlier:
+    cmp r14, [r13 + UgfxSvgFilter_prims]
+    jbe .none
+    sub r14, UgfxSvgFe_SIZE
+    mov rdx, [r14 + UgfxSvgFe_name]
+    test rdx, rdx
+    jz .earlier
+    mov rcx, [r14 + UgfxSvgFe_name_end]
+    push rdi
+    push rsi
+    call ugfx_svg_same
+    pop rsi
+    pop rdi
+    jne .earlier
+    mov rax, r14
+    sub rax, [r13 + UgfxSvgFilter_prims]
+    xor edx, edx
+    mov ecx, UgfxSvgFe_SIZE
+    div ecx
+    jmp .out
+.none:
+    mov eax, -4
+.out:
+    pop r14
+    ret
+
+; r12 = a primitive, r13 = the filter -> eax = its index
+svg_fe_index:
+    mov rax, r12
+    sub rax, [r13 + UgfxSvgFilter_prims]
+    xor edx, edx
+    mov ecx, UgfxSvgFe_SIZE
+    div ecx
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_fe_child — eax = FW_MERGENODE / FW_FUNCR..A, the tag in FC_XML, r12 =
+;   its primitive
+; -----------------------------------------------------------------------------
+svg_fe_child:
+    push r14
+    push rbx
+    sub rsp, 8
+    mov ebx, eax
+    mov qword [rbp + FC_ATTR + UgfxSvgAttr_cur], 0
+    cmp ebx, FW_MERGENODE
+    jne .func
+    ; feMergeNode: its input (none given: the previous result)
+    mov r14d, -4
+.node:
+    call svg_fe_next_attr
+    jc .node_done
+    cmp eax, FA_IN
+    jne .node
+    call ugfx_svg_trim
+    call svg_fe_input
+    mov r14d, eax
+    jmp .node
+.node_done:
+    mov eax, [rbp + FC_NMERGE]
+    cmp eax, 16
+    jae .out
+    inc dword [rbp + FC_NMERGE]
+    cmp r14d, -4
+    jne .node_set
+    call svg_fe_index
+    lea r14d, [rax - 1]                 ; the previous, -1 for the first
+.node_set:
+    mov eax, [rbp + FC_NMERGE]
+    dec eax
+    cvtsi2sd xmm0, r14d
+    movsd [rbp + FC_MERGE + rax * 8], xmm0
+    jmp .out
+.func:
+    lea r14d, [rbx - FW_FUNCR]
+.f_attr:
+    call svg_fe_next_attr
+    jc .out
+    cmp eax, FA_TYPE
+    je .f_type
+    cmp eax, FA_TABLE
+    je .f_table
+    cmp eax, FA_SLOPE
+    jb .f_attr
+    cmp eax, FA_OFFSET
+    ja .f_attr
+    lea ebx, [rax - FA_SLOPE + 1]       ; slope 1 .. offset 5
+    call ugfx_svg_number
+    test rax, rax
+    jz .f_attr
+    imul eax, r14d, 56
+    lea eax, [rax + rbx * 8]
+    movsd [rbp + FC_FUNCS + rax], xmm0
+    jmp .f_attr
+.f_type:
+    call ugfx_svg_trim
+    lea rdx, [rel svg_fe_func_types]
+    call ugfx_svg_lookup
+    cmp eax, 0
+    jle .f_attr
+    dec eax
+    cvtsi2sd xmm0, eax
+    imul eax, r14d, 56
+    movsd [rbp + FC_FUNCS + rax], xmm0
+    jmp .f_attr
+.f_table:
+    mov eax, r14d
+    shl eax, 4
+    mov [rbp + FC_TABLES + rax], rdi
+    mov [rbp + FC_TABLES + rax + 8], rsi
+    jmp .f_attr
+.out:
+    add rsp, 8
+    pop rbx
+    pop r14
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_fe_finish — r12 = a primitive read with its children, rbp = context,
+;   r13 = the filter, rbx = the referencing state: inputs defaulted, the
+;   subregion resolved, its engine type and lists; a drop shadow becomes
+;   six primitives
+; -----------------------------------------------------------------------------
+svg_fe_finish:
+    push r14
+    push rbx
+    sub rsp, 8
+    ; inputs not given: the previous result, SourceGraphic for the first
+    call svg_fe_index
+    dec eax
+    cmp dword [r12 + UgfxSvgFe_in1], -4
+    jne .in1
+    mov [r12 + UgfxSvgFe_in1], eax
+.in1:
+    cmp dword [r12 + UgfxSvgFe_in2], -4
+    jne .in2
+    mov [r12 + UgfxSvgFe_in2], eax
+.in2:
+    ; the subregion as given (primitiveUnits)
+    xor r14d, r14d
+.sub:
+    cmp r14d, 4
+    jae .kind
+    bt dword [r12 + UgfxSvgFe_given], r14d
+    jnc .sub_next
+    mov eax, r14d
+    shl eax, 4
+    mov rdi, [r12 + UgfxSvgFe_raw + rax]
+    mov rsi, [r12 + UgfxSvgFe_raw + rax + 8]
+    mov edx, r14d
+    and edx, 1
+    mov ecx, [r13 + UgfxSvgFilter_prim_units]
+    call svg_fe_length
+    movsd [r12 + UgfxSvgFe_sub + r14 * 8], xmm0
+.sub_next:
+    inc r14d
+    jmp .sub
+.kind:
+    ; flood-opacity into the colour's alpha
+    mov eax, [r12 + UgfxSvgFe_flood]
+    mov ecx, eax
+    shr ecx, 24
+    cvtsi2sd xmm0, ecx
+    mulsd xmm0, [r12 + UgfxSvgFe_flood_op]
+    addsd xmm0, [rel svg_half]
+    cvttsd2si ecx, xmm0
+    shl ecx, 24
+    and eax, 0x00FFFFFF
+    or eax, ecx
+    mov [r12 + UgfxSvgFe_flood], eax
+    mov eax, [r12 + UgfxSvgFe_code]
+    cmp eax, FW_DROPSHADOW
+    je .shadow
+    cmp eax, FE_TILE + 1
+    jbe .engine
+    ; not supported: a flood of nothing
+    mov dword [r12 + UgfxSvgFe_type], FE_FLOOD
+    mov dword [r12 + UgfxSvgFe_flood], 0
+    jmp .out
+.engine:
+    dec eax
+    mov [r12 + UgfxSvgFe_type], eax
+    cmp eax, FE_MERGE
+    je .merge
+    cmp eax, FE_COLORMATRIX
+    je .matrix
+    cmp eax, FE_TRANSFER
+    jne .out
+    call svg_fe_transfer_list
+    jmp .out
+.merge:
+    mov ecx, [rbp + FC_NMERGE]
+    lea rsi, [rbp + FC_MERGE]
+    call svg_fe_list
+    jmp .out
+.matrix:
+    call svg_fe_matrix
+    jmp .out
+.shadow:
+    call svg_fe_shadow
+.out:
+    add rsp, 8
+    pop rbx
+    pop r14
+    ret
+
+; ecx = values, rsi = f64[] -> the primitive's (r12) list, in the arena
+svg_fe_list:
+    push rsi
+    push rcx
+    sub rsp, 8
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    lea esi, [rcx * 8 + 8]
+    call arena_alloc
+    add rsp, 8
+    pop rcx
+    pop rsi
+    test rax, rax
+    jz .nomem
+    mov [r12 + UgfxSvgFe_var], rax
+    mov [r12 + UgfxSvgFe_nvar], ecx
+    mov rdi, rax
+    shl ecx, 3
+    rep movsb
+    ret
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+    ret
+
+; r12 = a colour matrix: its 20 values - matrix (exactly 20 given, else the
+;   identity), saturate (A + B s, s default 1), hueRotate (A + B cos + C sin
+;   of the degrees), luminanceToAlpha
+svg_fe_matrix:
+    push r14
+    push rbx
+    sub rsp, 184                        ; f64[20], angle, cos, sin
+    xor ebx, ebx
+    mov r14, [r12 + UgfxSvgFe_values]
+.value:
+    test r14, r14
+    jz .have
+    cmp ebx, 20
+    jae .have
+    mov rdi, r14
+    mov rsi, [r12 + UgfxSvgFe_values_end]
+    call ugfx_svg_number
+    test rax, rax
+    jz .have
+    mov r14, rax
+    movsd [rsp + rbx * 8], xmm0
+    inc ebx
+    jmp .value
+.have:
+    mov eax, [r12 + UgfxSvgFe_cm_type]
+    cmp eax, 1
+    je .saturate
+    cmp eax, 2
+    je .hue
+    cmp eax, 3
+    je .luminance
+    cmp ebx, 20
+    je .set
+    lea rsi, [rel svg_cm_identity]
+    jmp .copy
+.luminance:
+    lea rsi, [rel svg_cm_luminance]
+.copy:
+    lea rdi, [rsp]
+    mov ecx, 160
+    rep movsb
+    jmp .set
+.saturate:
+    movsd xmm2, [rel svg_one]
+    test ebx, ebx
+    jz .sat_s
+    movsd xmm2, [rsp]
+.sat_s:
+    xor ecx, ecx
+.sat:
+    lea rax, [rel svg_cm_sat_b]
+    movsd xmm0, [rax + rcx * 8]
+    mulsd xmm0, xmm2
+    lea rax, [rel svg_cm_sat_a]
+    addsd xmm0, [rax + rcx * 8]
+    movsd [rsp + rcx * 8], xmm0
+    inc ecx
+    cmp ecx, 20
+    jb .sat
+    jmp .set
+.hue:
+    xorpd xmm0, xmm0
+    test ebx, ebx
+    jz .angle
+    movsd xmm0, [rsp]
+.angle:
+    mulsd xmm0, [rel svg_deg]
+    movsd [rsp + 160], xmm0
+    call umath_cos_f64
+    movsd [rsp + 168], xmm0
+    movsd xmm0, [rsp + 160]
+    call umath_sin_f64
+    movsd [rsp + 176], xmm0
+    xor ecx, ecx
+.hue_entry:
+    lea rax, [rel svg_cm_hue_b]
+    movsd xmm0, [rax + rcx * 8]
+    mulsd xmm0, [rsp + 168]
+    lea rax, [rel svg_cm_hue_a]
+    addsd xmm0, [rax + rcx * 8]
+    lea rax, [rel svg_cm_hue_c]
+    movsd xmm1, [rax + rcx * 8]
+    mulsd xmm1, [rsp + 176]
+    addsd xmm0, xmm1
+    movsd [rsp + rcx * 8], xmm0
+    inc ecx
+    cmp ecx, 20
+    jb .hue_entry
+.set:
+    mov ecx, 20
+    lea rsi, [rsp]
+    call svg_fe_list
+    add rsp, 184
+    pop rbx
+    pop r14
+    ret
+
+; r12 = a component transfer, rbp = context (FC_FUNCS / FC_TABLES): the
+;   list R G B A of (type, slope, intercept, amplitude, exponent, offset, n,
+;   the table)
+svg_fe_transfer_list:
+    push r14
+    push rbx
+    push r13
+    xor r14d, r14d                      ; values in the tables
+    xor ebx, ebx
+.count:
+    cmp ebx, 4
+    jae .alloc
+    mov eax, ebx
+    shl eax, 4
+    mov rdi, [rbp + FC_TABLES + rax]
+    mov rsi, [rbp + FC_TABLES + rax + 8]
+    xor edx, edx
+    call svg_fe_numbers
+    add r14d, eax
+    imul ecx, ebx, 56
+    cvtsi2sd xmm0, eax
+    movsd [rbp + FC_FUNCS + rcx + 48], xmm0
+    inc ebx
+    jmp .count
+.alloc:
+    lea esi, [r14 + 28]
+    mov r13d, esi
+    shl esi, 3
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov [r12 + UgfxSvgFe_var], rax
+    mov [r12 + UgfxSvgFe_nvar], r13d
+    mov r14, rax                        ; where the next goes
+    xor ebx, ebx
+.fill:
+    cmp ebx, 4
+    jae .out
+    imul ecx, ebx, 56
+    lea rsi, [rbp + FC_FUNCS + rcx]
+    mov rdi, r14
+    mov ecx, 56
+    rep movsb
+    mov r14, rdi
+    mov eax, ebx
+    shl eax, 4
+    mov rdi, [rbp + FC_TABLES + rax]
+    mov rsi, [rbp + FC_TABLES + rax + 8]
+    mov rdx, r14
+    call svg_fe_numbers
+    lea r14, [r14 + rax * 8]
+    inc ebx
+    jmp .fill
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.out:
+    pop r13
+    pop rbx
+    pop r14
+    ret
+
+; rdi / rsi = numbers (rdi 0: none), rdx = where they go (0: only counted)
+;   -> eax = how many
+svg_fe_numbers:
+    push r12
+    push r13
+    push r14
+    push rbx
+    sub rsp, 8
+    xor r14d, r14d
+    test rdi, rdi
+    jz .done
+    mov r12, rdi
+    mov r13, rsi
+    mov rbx, rdx
+.next:
+    mov rdi, r12
+    mov rsi, r13
+    call ugfx_svg_number
+    test rax, rax
+    jz .done
+    mov r12, rax
+    test rbx, rbx
+    jz .counted
+    movsd [rbx + r14 * 8], xmm0
+.counted:
+    inc r14d
+    jmp .next
+.done:
+    mov eax, r14d
+    add rsp, 8
+    pop rbx
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; r12 = a drop shadow (stdDeviation, dx, dy default 2), r13 = the filter:
+;   six primitives in its place - the input's alpha, blurred, offset, the
+;   flood colour in it, merged under the input; the last takes its result
+;   name
+svg_fe_shadow:
+    push r14
+    push rbx
+    sub rsp, 24
+    mov eax, [r13 + UgfxSvgFilter_count]
+    add eax, 5
+    cmp eax, 16
+    ja .none
+    mov [r13 + UgfxSvgFilter_count], eax
+    ; defaults: 2
+    movsd xmm0, [rel svg_fe_two]
+    bt dword [r12 + UgfxSvgFe_given], 4
+    jc .std
+    movsd [r12 + UgfxSvgFe_std], xmm0
+    movsd [r12 + UgfxSvgFe_std + 8], xmm0
+.std:
+    bt dword [r12 + UgfxSvgFe_given], 5
+    jc .dx
+    movsd [r12 + UgfxSvgFe_dxy], xmm0
+.dx:
+    bt dword [r12 + UgfxSvgFe_given], 6
+    jc .dy
+    movsd [r12 + UgfxSvgFe_dxy + 8], xmm0
+.dy:
+    ; five copies after it (same subregion, colour space, parameters)
+    mov r14, r12
+    mov ebx, 5
+.copy:
+    lea rdi, [r14 + UgfxSvgFe_SIZE]
+    mov rsi, r12
+    mov ecx, UgfxSvgFe_SIZE
+    rep movsb
+    add r14, UgfxSvgFe_SIZE
+    mov qword [r14 + UgfxSvgFe_name], 0
+    dec ebx
+    jnz .copy
+    ; the last keeps the name
+    mov rax, [r12 + UgfxSvgFe_name]
+    mov [r14 + UgfxSvgFe_name], rax
+    mov rax, [r12 + UgfxSvgFe_name_end]
+    mov [r14 + UgfxSvgFe_name_end], rax
+    mov qword [r12 + UgfxSvgFe_name], 0
+    call svg_fe_index
+    mov ebx, eax                        ; k
+    mov r14d, [r12 + UgfxSvgFe_in1]     ; the input
+    ; k: the input's alpha
+    mov dword [r12 + UgfxSvgFe_type], FE_COLORMATRIX
+    lea rsi, [rel svg_cm_alpha]
+    mov ecx, 20
+    call svg_fe_list
+    ; k + 1: blurred
+    add r12, UgfxSvgFe_SIZE
+    mov dword [r12 + UgfxSvgFe_type], FE_BLUR
+    mov [r12 + UgfxSvgFe_in1], ebx
+    ; k + 2: offset
+    add r12, UgfxSvgFe_SIZE
+    mov dword [r12 + UgfxSvgFe_type], FE_OFFSET
+    lea eax, [rbx + 1]
+    mov [r12 + UgfxSvgFe_in1], eax
+    ; k + 3: the flood
+    add r12, UgfxSvgFe_SIZE
+    mov dword [r12 + UgfxSvgFe_type], FE_FLOOD
+    ; k + 4: the flood in the offset alpha
+    add r12, UgfxSvgFe_SIZE
+    mov dword [r12 + UgfxSvgFe_type], FE_COMPOSITE
+    lea eax, [rbx + 3]
+    mov [r12 + UgfxSvgFe_in1], eax
+    lea eax, [rbx + 2]
+    mov [r12 + UgfxSvgFe_in2], eax
+    mov dword [r12 + UgfxSvgFe_op], 1   ; in
+    ; k + 5: merged under the input
+    add r12, UgfxSvgFe_SIZE
+    mov dword [r12 + UgfxSvgFe_type], FE_MERGE
+    lea eax, [rbx + 4]
+    cvtsi2sd xmm0, eax
+    movsd [rsp], xmm0
+    cvtsi2sd xmm0, r14d
+    movsd [rsp + 8], xmm0
+    lea rsi, [rsp]
+    mov ecx, 2
+    call svg_fe_list
+    jmp .out
+.none:
+    mov dword [r12 + UgfxSvgFe_type], FE_FLOOD
+    mov dword [r12 + UgfxSvgFe_flood], 0
+.out:
+    add rsp, 24
+    pop rbx
+    pop r14
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_filter_device — rdi = UgfxSvgFilter*, rsi = the group's BEGIN / END
+;   item (matrix, bbox), rdx = the list's transform -> rax = its UgfxFilter
+;   in device space (the region and subregions through M = T x matrix as
+;   bounding boxes; lengths scaled by |M's columns|, objectBoundingBox
+;   values by the bbox first; offsets through M's linear part)
+; -----------------------------------------------------------------------------
+%define FD_M        0                   ; f64[6]
+%define FD_B        48                  ; f64 bx, by, bw, bh
+%define FD_R        80                  ; f64 x, y, w, h: the region in user space
+%define FD_S        112                 ; f64 sx, sy
+%define FD_U        128                 ; f64 x, y, w, h: a rect
+%define FD_SIZE     168
+
+svg_filter_device:
+    push r12
+    push r13
+    push r14
+    push rbx
+    sub rsp, FD_SIZE
+    mov r12, rdi
+    mov r13, rsi
+    lea rdi, [rsp + FD_M]
+    mov rsi, rdx
+    lea rdx, [r13 + UgfxSvgItem_matrix]
+    call umath_affine2_multiply
+    ; the bbox
+    movsd xmm0, [r13 + UgfxSvgItem_bbox]
+    movsd [rsp + FD_B], xmm0
+    movsd xmm1, [r13 + UgfxSvgItem_bbox + 8]
+    movsd [rsp + FD_B + 8], xmm1
+    movsd xmm2, [r13 + UgfxSvgItem_bbox + 16]
+    subsd xmm2, xmm0
+    movsd [rsp + FD_B + 16], xmm2
+    movsd xmm3, [r13 + UgfxSvgItem_bbox + 24]
+    subsd xmm3, xmm1
+    movsd [rsp + FD_B + 24], xmm3
+    ; sx = |(a, b)|, sy = |(c, d)|
+    movsd xmm0, [rsp + FD_M]
+    mulsd xmm0, xmm0
+    movsd xmm1, [rsp + FD_M + 8]
+    mulsd xmm1, xmm1
+    addsd xmm0, xmm1
+    sqrtsd xmm0, xmm0
+    movsd [rsp + FD_S], xmm0
+    movsd xmm0, [rsp + FD_M + 16]
+    mulsd xmm0, xmm0
+    movsd xmm1, [rsp + FD_M + 24]
+    mulsd xmm1, xmm1
+    addsd xmm0, xmm1
+    sqrtsd xmm0, xmm0
+    movsd [rsp + FD_S + 8], xmm0
+    ; the region
+    lea rsi, [r12 + UgfxSvgFilter_region]
+    lea rdi, [rsp + FD_R]
+    mov ecx, [r12 + UgfxSvgFilter_units]
+    call .units
+    lea rsi, [rsp + FD_R]
+    lea rdi, [r12 + UgfxSvgFilter_dev + UgfxFilter_region]
+    call .device
+    mov eax, [r12 + UgfxSvgFilter_count]
+    mov [r12 + UgfxSvgFilter_dev + UgfxFilter_count], eax
+    xor r14d, r14d
+.prim:
+    cmp r14d, [r12 + UgfxSvgFilter_count]
+    jae .done
+    imul rsi, r14, UgfxSvgFe_SIZE
+    add rsi, [r12 + UgfxSvgFilter_prims]
+    imul rdi, r14, UgfxFe_SIZE
+    add rdi, [r12 + UgfxSvgFilter_dev + UgfxFilter_prims]
+    mov rbx, rdi
+    mov r13, rsi
+    mov eax, [r13 + UgfxSvgFe_type]
+    mov [rbx + UgfxFe_type], eax
+    mov eax, [r13 + UgfxSvgFe_in1]
+    mov [rbx + UgfxFe_in1], eax
+    mov eax, [r13 + UgfxSvgFe_in2]
+    mov [rbx + UgfxFe_in2], eax
+    mov eax, [r13 + UgfxSvgFe_linear]
+    mov [rbx + UgfxFe_linear], eax
+    mov rax, [r13 + UgfxSvgFe_var]
+    mov [rbx + UgfxFe_var], rax
+    mov eax, [r13 + UgfxSvgFe_nvar]
+    mov [rbx + UgfxFe_nvar], eax
+    ; the subregion: given values (primitiveUnits), else the region's
+    lea rsi, [r13 + UgfxSvgFe_sub]
+    lea rdi, [rsp + FD_U]
+    mov ecx, [r12 + UgfxSvgFilter_prim_units]
+    call .units
+    xor ecx, ecx
+.sub_part:
+    bt dword [r13 + UgfxSvgFe_given], ecx
+    jc .sub_given
+    mov rax, [rsp + FD_R + rcx * 8]
+    mov [rsp + FD_U + rcx * 8], rax
+.sub_given:
+    inc ecx
+    cmp ecx, 4
+    jb .sub_part
+    lea rsi, [rsp + FD_U]
+    lea rdi, [rbx + UgfxFe_sub]
+    call .device
+    ; the parameters
+    xorpd xmm0, xmm0
+    xor ecx, ecx
+.p_clear:
+    movsd [rbx + UgfxFe_p + rcx * 8], xmm0
+    inc ecx
+    cmp ecx, 8
+    jb .p_clear
+    mov eax, [r13 + UgfxSvgFe_type]
+    cmp eax, FE_FLOOD
+    je .flood
+    cmp eax, FE_OFFSET
+    je .offset
+    cmp eax, FE_BLUR
+    je .blur
+    cmp eax, FE_MORPHOLOGY
+    je .morph
+    ; blend / composite: the mode / operator, k1..k4
+    cvtsi2sd xmm0, dword [r13 + UgfxSvgFe_op]
+    movsd [rbx + UgfxFe_p], xmm0
+    xor ecx, ecx
+.k:
+    movsd xmm0, [r13 + UgfxSvgFe_k + rcx * 8]
+    movsd [rbx + UgfxFe_p + 8 + rcx * 8], xmm0
+    inc ecx
+    cmp ecx, 4
+    jb .k
+    jmp .next
+.flood:
+    mov eax, [r13 + UgfxSvgFe_flood]
+    cvtsi2sd xmm0, rax
+    movsd [rbx + UgfxFe_p], xmm0
+    jmp .next
+.blur:
+    lea rsi, [r13 + UgfxSvgFe_std]
+    lea rdi, [rbx + UgfxFe_p]
+    call .lengths
+    jmp .next
+.morph:
+    cvtsi2sd xmm0, dword [r13 + UgfxSvgFe_op]
+    movsd [rbx + UgfxFe_p], xmm0
+    lea rsi, [r13 + UgfxSvgFe_radius]
+    lea rdi, [rbx + UgfxFe_p + 8]
+    call .lengths
+    jmp .next
+.offset:
+    ; (dx, dy) in bbox units if so, then M's linear part
+    movsd xmm0, [r13 + UgfxSvgFe_dxy]
+    movsd xmm1, [r13 + UgfxSvgFe_dxy + 8]
+    cmp dword [r12 + UgfxSvgFilter_prim_units], 0
+    je .offset_user
+    mulsd xmm0, [rsp + FD_B + 16]
+    mulsd xmm1, [rsp + FD_B + 24]
+.offset_user:
+    movsd xmm2, [rsp + FD_M]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + FD_M + 16]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    movsd [rbx + UgfxFe_p], xmm2
+    movsd xmm2, [rsp + FD_M + 8]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + FD_M + 24]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    movsd [rbx + UgfxFe_p + 8], xmm2
+.next:
+    inc r14d
+    jmp .prim
+.done:
+    lea rax, [r12 + UgfxSvgFilter_dev]
+    add rsp, FD_SIZE
+    pop rbx
+    pop r14
+    pop r13
+    pop r12
+    ret
+; rsi = f64 x, y (lengths), rdi = out: x (bw) sx, y (bh) sy (frame at
+;   rsp + 8)
+.lengths:
+    movsd xmm0, [rsi]
+    movsd xmm1, [rsi + 8]
+    cmp dword [r12 + UgfxSvgFilter_prim_units], 0
+    je .l_user
+    mulsd xmm0, [rsp + 8 + FD_B + 16]
+    mulsd xmm1, [rsp + 8 + FD_B + 24]
+.l_user:
+    mulsd xmm0, [rsp + 8 + FD_S]
+    mulsd xmm1, [rsp + 8 + FD_S + 8]
+    movsd [rdi], xmm0
+    movsd [rdi + 8], xmm1
+    ret
+; rsi = x, y, w, h, ecx = 1 bbox units, rdi = out: in user space (bbox:
+;   x = bx + x bw, y = by + y bh, w bw, h bh) (frame at rsp + 8)
+.units:
+    movsd xmm0, [rsi]
+    movsd xmm1, [rsi + 8]
+    movsd xmm2, [rsi + 16]
+    movsd xmm3, [rsi + 24]
+    test ecx, ecx
+    jz .u_set
+    mulsd xmm0, [rsp + 8 + FD_B + 16]
+    addsd xmm0, [rsp + 8 + FD_B]
+    mulsd xmm1, [rsp + 8 + FD_B + 24]
+    addsd xmm1, [rsp + 8 + FD_B + 8]
+    mulsd xmm2, [rsp + 8 + FD_B + 16]
+    mulsd xmm3, [rsp + 8 + FD_B + 24]
+.u_set:
+    movsd [rdi], xmm0
+    movsd [rdi + 8], xmm1
+    movsd [rdi + 16], xmm2
+    movsd [rdi + 24], xmm3
+    ret
+; rsi = a user rect, rdi = out i32 x0, y0, x1, y1: its corners through M,
+;   floor of the least, ceil of the greatest (within +-2^30) (frame at
+;   rsp + 8)
+.device:
+    push r8
+    sub rsp, 64                         ; (frame at rsp + 80)
+    ; corners (x, y), (x + w, y), (x, y + h), (x + w, y + h)
+    movsd xmm0, [rsi]
+    movsd xmm1, [rsi + 8]
+    movsd xmm2, xmm0
+    addsd xmm2, [rsi + 16]
+    movsd xmm3, xmm1
+    addsd xmm3, [rsi + 24]
+    movsd [rsp], xmm0
+    movsd [rsp + 8], xmm1
+    movsd [rsp + 16], xmm2
+    movsd [rsp + 24], xmm3
+    xor r8d, r8d
+.corner:
+    cmp r8d, 4
+    jae .rounded
+    mov eax, r8d
+    and eax, 1
+    shl eax, 4
+    movsd xmm0, [rsp + rax]             ; x or x + w
+    mov eax, r8d
+    shr eax, 1
+    shl eax, 4
+    movsd xmm1, [rsp + 8 + rax]         ; y or y + h
+    movsd xmm2, [rsp + 80 + FD_M]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + 80 + FD_M + 16]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    addsd xmm2, [rsp + 80 + FD_M + 32]  ; x'
+    movsd xmm4, [rsp + 80 + FD_M + 8]
+    mulsd xmm4, xmm0
+    movsd xmm3, [rsp + 80 + FD_M + 24]
+    mulsd xmm3, xmm1
+    addsd xmm4, xmm3
+    addsd xmm4, [rsp + 80 + FD_M + 40]  ; y'
+    test r8d, r8d
+    jnz .grow
+    movsd [rsp + 32], xmm2
+    movsd [rsp + 40], xmm4
+    movsd [rsp + 48], xmm2
+    movsd [rsp + 56], xmm4
+    jmp .corner_next
+.grow:
+    movsd xmm0, [rsp + 32]
+    minsd xmm0, xmm2
+    movsd [rsp + 32], xmm0
+    movsd xmm0, [rsp + 40]
+    minsd xmm0, xmm4
+    movsd [rsp + 40], xmm0
+    movsd xmm0, [rsp + 48]
+    maxsd xmm0, xmm2
+    movsd [rsp + 48], xmm0
+    movsd xmm0, [rsp + 56]
+    maxsd xmm0, xmm4
+    movsd [rsp + 56], xmm0
+.corner_next:
+    inc r8d
+    jmp .corner
+.rounded:
+    movsd xmm0, [rsp + 32]
+    call .floor
+    mov [rdi], eax
+    movsd xmm0, [rsp + 40]
+    call .floor
+    mov [rdi + 4], eax
+    movsd xmm0, [rsp + 48]
+    xorpd xmm1, xmm1
+    subsd xmm1, xmm0
+    movapd xmm0, xmm1
+    call .floor
+    neg eax
+    mov [rdi + 8], eax
+    movsd xmm0, [rsp + 56]
+    xorpd xmm1, xmm1
+    subsd xmm1, xmm0
+    movapd xmm0, xmm1
+    call .floor
+    neg eax
+    mov [rdi + 12], eax
+    add rsp, 64
+    pop r8
+    ret
+; xmm0 -> eax = floor, clamped to +-2^30 (NaN: 0)
+.floor:
+    ucomisd xmm0, xmm0
+    jp .nan
+    maxsd xmm0, [rel svg_m2p30]
+    minsd xmm0, [rel svg_2p30]
+    cvttsd2si eax, xmm0
+    cvtsi2sd xmm1, eax
+    ucomisd xmm1, xmm0
+    jbe .floored
+    dec eax
+.floored:
+    ret
+.nan:
+    xor eax, eax
+    ret
+
+; -----------------------------------------------------------------------------
 ; svg_markers — r15 = frame (P_VERTS / P_NVERTS), rbx = the shape's state:
 ;   marker items at its vertices - marker-start at the first, marker-mid
 ;   at the others, marker-end at the last (a lone vertex has both ends)
@@ -5954,6 +7549,12 @@ svg_shape:
     jz .no_mask
     or r13d, 16
 .no_mask:
+    call svg_filter_ref
+    mov [r15 + P_FILTERREC], rax
+    test rax, rax
+    jz .no_filter
+    or r13d, 64
+.no_filter:
     ; opacity: a group around fill and stroke together (bit 4), else baked
     movsd xmm0, [r15 + P_OPACITY]
     ucomisd xmm0, [rel svg_one]
@@ -6062,7 +7663,7 @@ svg_shape:
     movsd xmm0, [rbx + S_DASH_OFF]
     movsd [r12 + UgfxSvgItem_dash_off], xmm0
     inc dword [r14 + UgfxSvg_count]
-    test r13d, 4 | 8 | 16
+    test r13d, 4 | 8 | 16 | 64
     jz .ungrouped
     ; BEGIN, the shape, END
     lea rsi, [r12 + UgfxSvgItem_SIZE - 1]
@@ -6090,7 +7691,14 @@ svg_shape:
     xor eax, eax
 .begin_mask:
     mov [r12 + UgfxSvgItem_mask], rax
-    or rcx, rax                         ; a bbox for either
+    or rcx, rax                         ; a bbox for any of them
+    mov rax, [r15 + P_FILTERREC]
+    test r13d, 64
+    jnz .begin_filter
+    xor eax, eax
+.begin_filter:
+    mov [r12 + UgfxSvgItem_filter], rax
+    or rcx, rax
     xor edx, edx
 .begin_m:
     mov rax, [r12 + UgfxSvgItem_SIZE + UgfxSvgItem_matrix + rdx * 8]
@@ -7103,8 +8711,10 @@ svg_draw_list:
     lea rsi, [rsp + L_T]
     call ugfx_ctx_set_transform
 .begin_layer:
-    ; a layer for opacity or a mask
+    ; a layer for opacity, a mask or a filter
     cmp qword [r12 + UgfxSvgItem_mask], 0
+    jne .layer
+    cmp qword [r12 + UgfxSvgItem_filter], 0
     jne .layer
     cmp dword [r12 + UgfxSvgItem_alpha], 255
     jae .next_item
@@ -7120,9 +8730,24 @@ svg_draw_list:
 .end:
     cmp dword [rsp + L_OPEN], 0
     je .next_item
+    ; the filter over the layer first
+    mov rdi, [r12 + UgfxSvgItem_filter]
+    test rdi, rdi
+    jz .unfiltered
+    mov rsi, r12
+    lea rdx, [rsp + L_T]
+    call svg_filter_device
+    mov rdi, r13
+    mov rsi, rax
+    call ugfx_ctx_filter
+    test rax, rax
+    jnz .fail
+.unfiltered:
     mov r15, [r12 + UgfxSvgItem_mask]
     test r15, r15
     jnz .masked
+    cmp qword [r12 + UgfxSvgItem_filter], 0
+    jne .end_layer
     cmp dword [r12 + UgfxSvgItem_alpha], 255
     jae .end_clip
     jmp .end_layer
