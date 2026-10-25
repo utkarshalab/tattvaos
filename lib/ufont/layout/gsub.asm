@@ -3,13 +3,13 @@
 ; =============================================================================
 ; GSUB subtables at the buffer's current glyph:
 ;
-;   gsub_apply(rdi = subtable, esi = type) -> eax 1 applied / 0
+;   ufl_gsub_apply(rdi = subtable, esi = type) -> eax 1 applied / 0
 ;       1 single, 2 multiple, 3 alternate (the feature's value picks),
 ;       4 ligature, 5 context, 6 chained context, 8 reverse chaining single
 ;       (only at the top level; never through a context lookup)
-;   gsub_covers(rdi = subtable, esi = type, edx = glyph) -> eax 1 / 0
+;   ufl_gsub_covers(rdi = subtable, esi = type, edx = glyph) -> eax 1 / 0
 ;       is the glyph in the subtable's (first) coverage
-;   gsub_would_apply(rdi = subtable, esi = type, rdx = glyphs (u32), ecx =
+;   ufl_gsub_would_apply(rdi = subtable, esi = type, rdx = glyphs (u32), ecx =
 ;       count, r8d = zero context) -> eax 1 / 0
 ;       would the subtable substitute exactly these glyphs (HarfBuzz's
 ;       would_apply: no flags, no context unless allowed)
@@ -18,20 +18,20 @@
 %include "ufont.inc"
 %include "shape.inc"
 
-extern ot_coverage
-extern ot_class
-extern ot_off16
-extern buf_cur
-extern buf_skip_glyph
-extern buf_delete_glyph
-extern ap_replace_glyph
-extern ap_replace_inplace
-extern ap_output_component
-extern ap_match_input
-extern ap_match_backtrack
-extern ap_match_lookahead
-extern ap_ligate
-extern ap_context
+extern ufl_ot_coverage
+extern ufl_ot_class
+extern ufl_ot_off16
+extern ufl_buf_cur
+extern ufl_buf_skip_glyph
+extern ufl_buf_delete_glyph
+extern ufl_ap_replace_glyph
+extern ufl_ap_replace_inplace
+extern ufl_ap_output_component
+extern ufl_ap_match_input
+extern ufl_ap_match_backtrack
+extern ufl_ap_match_lookahead
+extern ufl_ap_ligate
+extern ufl_ap_context
 
 section .text
 
@@ -46,11 +46,11 @@ gs_cov2:
     mov rsi, [r15 + S_TEND]
     push rdx
     mov edx, 2
-    call ot_off16
+    call ufl_ot_off16
     pop rdx
     mov rdi, rax
     mov rsi, [r15 + S_TEND]
-    jmp ot_coverage
+    jmp ufl_ot_coverage
 
 ; rbx = subtable, eax = index -> rax = the table at the offset array (count
 ;   at 4, offsets at 6) entry, 0
@@ -63,16 +63,16 @@ gs_array_entry:
     ja .none
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
-    jmp ot_off16
+    jmp ufl_ot_off16
 .none:
     xor eax, eax
     ret
 
 ; ----------------------------------------------------------------------------
-; gsub_apply
+; ufl_gsub_apply
 ; ----------------------------------------------------------------------------
-global gsub_apply
-gsub_apply:
+global ufl_gsub_apply
+ufl_gsub_apply:
     push rbx
     push r12
     push r13
@@ -83,7 +83,7 @@ gsub_apply:
     mov r12d, esi
     INSIDE rbx, 6
     ja .no
-    call buf_cur
+    call ufl_buf_cur
     mov r13, rax                        ; the current record
     mov r14d, [rax + GI_GLYPH]
     cmp r12d, 5
@@ -114,7 +114,7 @@ gsub_apply:
     movsx ecx, cx                       ; delta
     lea esi, [r14 + rcx]
     movzx esi, si
-    call ap_replace_glyph
+    call ufl_ap_replace_glyph
     jmp .yes
 .single2:
     cmp ebp, 2
@@ -126,7 +126,7 @@ gsub_apply:
     INSIDE rbx, rdx
     ja .no
     BE16 esi, [rbx + rax * 2 + 6]
-    call ap_replace_glyph
+    call ufl_ap_replace_glyph
     jmp .yes
 .multiple:
     cmp ebp, 1
@@ -161,25 +161,25 @@ gsub_apply:
     jae .mult_done
     cmp dword [rsp + 4], 0
     jne .mult_keep
-    call buf_cur
+    call ufl_buf_cur
     mov ecx, r14d
     and ecx, 0x0F
     mov [rax + GI_LIG], cl
 .mult_keep:
     BE16 esi, [rbp + r14 * 2 + 2]
     mov edx, [rsp]
-    call ap_output_component
+    call ufl_ap_output_component
     inc r14d
     jmp .mult_each
 .mult_done:
-    call buf_skip_glyph
+    call ufl_buf_skip_glyph
     jmp .yes
 .mult_one:
     BE16 esi, [rbp + 2]
-    call ap_replace_glyph
+    call ufl_ap_replace_glyph
     jmp .yes
 .mult_none:
-    call buf_delete_glyph
+    call ufl_buf_delete_glyph
     jmp .yes
 .alternate:
     cmp ebp, 1
@@ -206,7 +206,7 @@ gsub_apply:
     cmp eax, ecx
     ja .no
     BE16 esi, [rbp + rax * 2]           ; alternates[index - 1]
-    call ap_replace_glyph
+    call ufl_ap_replace_glyph
     jmp .yes
 .ligature:
     cmp ebp, 1
@@ -231,7 +231,7 @@ gsub_apply:
     mov rdi, rbp
     mov rsi, [r15 + S_TEND]
     lea edx, [rax * 2 + 2]
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .lig_each
     mov r12, rax                        ; the ligature
@@ -246,7 +246,7 @@ gsub_apply:
     cmp ecx, 1
     jne .lig_match
     BE16 esi, [r12]
-    call ap_replace_glyph
+    call ufl_ap_replace_glyph
     jmp .yes
 .lig_match:
     cmp ecx, MAX_CONTEXT
@@ -263,7 +263,7 @@ gsub_apply:
     mov rdi, rsp
     mov esi, [rsp + MB_SIZE + 8 + 264]
     lea rdx, [rsp + MB_SIZE + 8]
-    call ap_match_input
+    call ufl_ap_match_input
     add rsp, MB_SIZE + 8
     test eax, eax
     jz .lig_each
@@ -272,17 +272,17 @@ gsub_apply:
     mov r8d, edx                        ; total components
     mov edx, ecx                        ; match end
     BE16 ecx, [r12]                     ; the ligature glyph
-    call ap_ligate
+    call ufl_ap_ligate
     jmp .yes
 .context:
     mov rdi, rbx
     xor esi, esi
-    call ap_context
+    call ufl_ap_context
     jmp .out
 .chain:
     mov rdi, rbx
     mov esi, 1
-    call ap_context
+    call ufl_ap_context
     jmp .out
 .reverse:
     cmp dword [r15 + S_NEST], MAX_NESTING
@@ -325,17 +325,17 @@ gsub_apply:
     BE16 r12d, [r8 + rbp * 2 + 2]
 .rev_have:
     mov rdi, rsp
-    call ap_match_backtrack
+    call ufl_ap_match_backtrack
     test eax, eax
     jz .no
     lea rdi, [rsp + 32]
     mov esi, [r15 + S_IDX]
     inc esi
-    call ap_match_lookahead
+    call ufl_ap_match_lookahead
     test eax, eax
     jz .no
     mov esi, r12d
-    call ap_replace_inplace
+    call ufl_ap_replace_inplace
 .yes:
     mov eax, 1
     jmp .out
@@ -351,10 +351,10 @@ gsub_apply:
     ret
 
 ; ----------------------------------------------------------------------------
-; gsub_covers — rdi = subtable, esi = type, edx = glyph -> eax 1 / 0
+; ufl_gsub_covers — rdi = subtable, esi = type, edx = glyph -> eax 1 / 0
 ; ----------------------------------------------------------------------------
-global gsub_covers
-gsub_covers:
+global ufl_gsub_covers
+ufl_gsub_covers:
     push rbx
     push r12
     push r13
@@ -401,11 +401,11 @@ gsub_covers:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
 .first:
-    call ot_off16
+    call ufl_ot_off16
     mov rdi, rax
     mov rsi, [r15 + S_TEND]
     mov edx, r12d
-    call ot_coverage
+    call ufl_ot_coverage
 .result:
     cmp eax, -1
     je .no
@@ -420,7 +420,7 @@ gsub_covers:
     ret
 
 ; ----------------------------------------------------------------------------
-; gsub_would_apply — rdi = subtable, esi = type, rdx = glyphs, ecx = count,
+; ufl_gsub_would_apply — rdi = subtable, esi = type, rdx = glyphs, ecx = count,
 ;   r8d = zero context -> eax 1 / 0
 ; ----------------------------------------------------------------------------
 %define WS_GLYPHS 0
@@ -434,8 +434,8 @@ gsub_covers:
 %define WS_CD     40
 %define WS_SIZE   48
 
-global gsub_would_apply
-gsub_would_apply:
+global ufl_gsub_would_apply
+ufl_gsub_would_apply:
     push rbx
     push r12
     push r13
@@ -491,7 +491,7 @@ gsub_would_apply:
     mov rsi, [r15 + S_TEND]
     lea edx, [r13 * 2 + 2]
     inc r13d
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .lig
     INSIDE rax, 4
@@ -540,12 +540,12 @@ gsub_would_apply:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, ebp
-    call ot_off16
+    call ufl_ot_off16
     mov [rsp + WS_CD], rax
     mov rdi, rax
     mov rsi, [r15 + S_TEND]
     mov edx, r14d
-    call ot_class
+    call ufl_ot_class
     BE16 ecx, [rbx + r12]
     cmp eax, ecx
     jae .no
@@ -554,7 +554,7 @@ gsub_would_apply:
     ja .no
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
-    call ot_off16
+    call ufl_ot_off16
 .set:
     test rax, rax
     jz .no
@@ -572,7 +572,7 @@ gsub_would_apply:
     mov rdi, [rsp + WS_SET]
     mov rsi, [r15 + S_TEND]
     lea edx, [rax * 2 + 2]
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .rule
     mov r8, rax
@@ -625,7 +625,7 @@ gsub_would_apply:
     push rsi
     sub rsp, 8
     mov rsi, [r15 + S_TEND]
-    call ot_class
+    call ufl_ot_class
     add rsp, 8
     pop rsi
     cmp eax, r13d
@@ -685,7 +685,7 @@ gsub_would_apply:
     mov edx, [rax + r12 * 4]
     push r8
     sub rsp, 8
-    call ot_coverage
+    call ufl_ot_coverage
     add rsp, 8
     pop r8
     cmp eax, -1
