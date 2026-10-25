@@ -1,13 +1,16 @@
-; ============================================================================
-; fontset — fonts by family, weight and style, for SVG text through lib/ugfx
-; ============================================================================
-;   fontset_init(set, arena)
-;   fontset_add(set, data, length, family, weight, italic)  -> 0, -errno
-;   fontset_face(set, UgfxSvgFont*)                          -> face or 0
-;   fontset_svg_font                                ugfx's font callback
-;   fontset_standard, fontset_standard_count        the fonts Canvas ships
+; =============================================================================
+; Utkarsha OS — lib/ufont/match/fontset.asm
+; =============================================================================
+; Fonts by family, weight and style, and the font callback lib/ugfx's SVG
+; text asks.
 ;
-; A set holds up to FONTSET_MAX faces: a TrueType font (sfnt.asm, its bytes
+;   ufont_set_init(set, arena)
+;   ufont_set_add(set, data, length, family, weight, italic)  -> 0, -errno
+;   ufont_set_face(set, UgfxSvgFont*)                       -> face or 0
+;   ufont_svg_font                          ugfx's font callback (user = set)
+;   ufont_standard, ufont_standard_count    the fonts lib/ufont ships
+;
+; A set holds up to UFONT_SET_MAX faces: a TrueType font (sfnt.asm, its bytes
 ; kept by the caller) with a family name, a weight and italic or not.
 ; font-family is read as CSS has it: a comma list of names, quoted or not,
 ; compared without case. The generic names and some common ones stand for
@@ -20,15 +23,15 @@
 ; else Noto Sans, else the first face. Within a family the face matching
 ; the style first, then the weight (bold from 600), is taken. A character
 ; the face lacks comes from Noto Sans in that style, if it has it.
-; ============================================================================
+; =============================================================================
 
 %include "ugfx.inc"
-%include "inc/sfnt.inc"
+%include "ufont.inc"
 
-extern sfnt_open
-extern sfnt_glyph
-extern sfnt_advance
-extern sfnt_outline
+extern ufont_open
+extern ufont_glyph
+extern ufont_advance
+extern ufont_outline
 
 section .rodata
 fs_noto_sans:       db "Noto Sans", 0
@@ -81,13 +84,13 @@ fsa_16: db "Courier New", 0
 fsa_17: db "Courier", 0
 fsa_18: db "Cousine", 0
 
-; the shipped fonts: file, family, weight, italic (FSTD_*)
+; the shipped fonts: file, family, weight, italic (UfontStd)
 section .data
 align 8
-global fontset_standard
-global fontset_standard_count
-fontset_standard_count: dq 22
-fontset_standard:
+global ufont_standard
+global ufont_standard_count
+ufont_standard_count: dq 22
+ufont_standard:
     dq fsf_0, fs_noto_sans
     dd 400, 0
     dq fsf_1, fs_noto_sans
@@ -159,22 +162,22 @@ fsf_21: db "LiberationMono-BoldItalic.ttf", 0
 section .text
 
 ; ----------------------------------------------------------------------------
-; fontset_init — rdi = FontSet* (FS_SIZE bytes), rsi = arena
+; ufont_set_init — rdi = UfontSet* (UfontSet_SIZE bytes), rsi = arena
 ; ----------------------------------------------------------------------------
-global fontset_init
-fontset_init:
-    mov [rdi + FS_ARENA], rsi
-    mov dword [rdi + FS_COUNT], 0
+global ufont_set_init
+ufont_set_init:
+    mov [rdi + UfontSet_arena], rsi
+    mov dword [rdi + UfontSet_count], 0
     ret
 
 ; ----------------------------------------------------------------------------
-; fontset_add — rdi = FontSet*, rsi = data, rdx = length (kept as long as
+; ufont_set_add — rdi = UfontSet*, rsi = data, rdx = length (kept as long as
 ;   the set), rcx = family (NUL-terminated, kept), r8d = weight, r9d = 1
 ;   italic -> rax = 0, -EINVAL (not a usable font), -ENOMEM (memory, or
 ;   the set is full)
 ; ----------------------------------------------------------------------------
-global fontset_add
-fontset_add:
+global ufont_set_add
+ufont_set_add:
     push rbx
     push r12
     push r13
@@ -184,22 +187,22 @@ fontset_add:
     mov r12, rcx
     mov r13d, r8d
     mov r14d, r9d
-    mov eax, [rbx + FS_COUNT]
-    cmp eax, FONTSET_MAX
+    mov eax, [rbx + UfontSet_count]
+    cmp eax, UFONT_SET_MAX
     jae .full
-    mov rdi, [rbx + FS_ARENA]
-    call sfnt_open                      ; (rsi, rdx as given)
+    mov rdi, [rbx + UfontSet_arena]
+    call ufont_open                      ; (rsi, rdx as given)
     test rax, rax
     jz .bad
     mov r15, rax
-    mov eax, [rbx + FS_COUNT]
-    inc dword [rbx + FS_COUNT]
-    imul rax, rax, FC_SIZE
-    lea rax, [rbx + FS_FACES + rax]
-    mov [rax + FC_NAME], r12
-    mov [rax + FC_WEIGHT], r13d
-    mov [rax + FC_ITALIC], r14d
-    mov [rax + FC_FONT], r15
+    mov eax, [rbx + UfontSet_count]
+    inc dword [rbx + UfontSet_count]
+    imul rax, rax, UfontFace_SIZE
+    lea rax, [rbx + UfontSet_faces + rax]
+    mov [rax + UfontFace_family], r12
+    mov [rax + UfontFace_weight], r13d
+    mov [rax + UfontFace_italic], r14d
+    mov [rax + UfontFace_font], r15
     xor eax, eax
     jmp .out
 .full:
@@ -216,11 +219,11 @@ fontset_add:
     ret
 
 ; ----------------------------------------------------------------------------
-; fontset_face — rdi = FontSet*, rsi = UgfxSvgFont* -> rax = the face (FC_*)
+; ufont_set_face — rdi = UfontSet*, rsi = UgfxSvgFont* -> rax = the face (UfontFace)
 ;   for its family list, weight and style; 0 when the set is empty
 ; ----------------------------------------------------------------------------
-global fontset_face
-fontset_face:
+global ufont_set_face
+ufont_set_face:
     push rbx
     push r12
     push r13
@@ -322,9 +325,9 @@ fontset_face:
     test rax, rax
     jnz .out
     xor eax, eax
-    cmp dword [rbx + FS_COUNT], 0
+    cmp dword [rbx + UfontSet_count], 0
     je .out
-    lea rax, [rbx + FS_FACES]
+    lea rax, [rbx + UfontSet_faces]
 .out:
     pop r15
     pop r14
@@ -378,7 +381,7 @@ fs_same:
     or eax, 1                           ; ZF = 0
     ret
 
-; rbx = FontSet*, rdi / rsi = a family name, edx = bold (1) | italic (2)
+; rbx = UfontSet*, rdi / rsi = a family name, edx = bold (1) | italic (2)
 ;   wanted -> rax = its face matching the style first, then the weight; 0
 ;   when the family is not in the set
 fs_family:
@@ -394,13 +397,13 @@ fs_family:
     mov dword [rsp], -1                 ; its score
     xor ecx, ecx
 .face:
-    cmp ecx, [rbx + FS_COUNT]
+    cmp ecx, [rbx + UfontSet_count]
     jae .done
-    imul rax, rcx, FC_SIZE
-    lea r8, [rbx + FS_FACES + rax]
+    imul rax, rcx, UfontFace_SIZE
+    lea r8, [rbx + UfontSet_faces + rax]
     mov rdi, r12
     mov rsi, r13
-    mov rdx, [r8 + FC_NAME]
+    mov rdx, [r8 + UfontFace_family]
     push rcx
     push r8
     call fs_same
@@ -409,9 +412,9 @@ fs_family:
     jne .next
     ; score: style matches 2, weight matches 1
     xor eax, eax
-    cmp dword [r8 + FC_WEIGHT], 600
+    cmp dword [r8 + UfontFace_weight], 600
     setae al
-    mov edx, [r8 + FC_ITALIC]
+    mov edx, [r8 + UfontFace_italic]
     and edx, 1
     shl edx, 1
     or eax, edx                         ; its bold | italic
@@ -442,7 +445,7 @@ fs_family:
     ret
 
 ; ----------------------------------------------------------------------------
-; fontset_svg_font — ugfx's font callback (UgfxSvg_font_fn): rdi = FontSet*,
+; ufont_svg_font — ugfx's font callback (UgfxSvg_font_fn): rdi = UfontSet*,
 ;   rsi = UgfxSvgFont*, edx = code point (-1: ascent / descent), xmm0 = size,
 ;   rcx = UgfxPath* (0: the advance only), r8 = arena -> xmm0 = advance (or
 ;   ascent, xmm1 descent); the outline appended at that size
@@ -454,8 +457,8 @@ fs_family:
 %define SV_ADV      32                  ; f64
 %define SV_FRAME    48
 
-global fontset_svg_font
-fontset_svg_font:
+global ufont_svg_font
+ufont_svg_font:
     push rbx
     push r12
     push r13
@@ -468,25 +471,25 @@ fontset_svg_font:
     movsd [rsp + SV_SIZE], xmm0
     mov r14, rcx
     mov [rsp + SV_ARENA], r8
-    call fontset_face
+    call ufont_set_face
     test rax, rax
     jz .nothing
     mov r15, rax
-    mov rdi, [r15 + FC_FONT]
-    cvtsi2sd xmm1, dword [rdi + SF_UPEM]
+    mov rdi, [r15 + UfontFace_font]
+    cvtsi2sd xmm1, dword [rdi + UfontFont_upem]
     movsd xmm0, [rsp + SV_SIZE]
     divsd xmm0, xmm1
     movsd [rsp + SV_SCALE], xmm0
     cmp r13d, -1
     jne .glyph
-    cvtsi2sd xmm0, dword [rdi + SF_ASC]
+    cvtsi2sd xmm0, dword [rdi + UfontFont_ascent]
     mulsd xmm0, [rsp + SV_SCALE]
-    cvtsi2sd xmm1, dword [rdi + SF_DESC]
+    cvtsi2sd xmm1, dword [rdi + UfontFont_descent]
     mulsd xmm1, [rsp + SV_SCALE]
     jmp .out
 .glyph:
     mov esi, r13d
-    call sfnt_glyph
+    call ufont_glyph
     mov r12d, eax
     test eax, eax
     jnz .have
@@ -509,15 +512,15 @@ fontset_svg_font:
     cmp rax, r15
     je .have
     mov r12, rax
-    mov rdi, [r12 + FC_FONT]
+    mov rdi, [r12 + UfontFace_font]
     mov esi, r13d
-    call sfnt_glyph
+    call ufont_glyph
     test eax, eax
     jz .notdef
     mov r15, r12
     mov r12d, eax
-    mov rdi, [r15 + FC_FONT]
-    cvtsi2sd xmm1, dword [rdi + SF_UPEM]
+    mov rdi, [r15 + UfontFace_font]
+    cvtsi2sd xmm1, dword [rdi + UfontFont_upem]
     movsd xmm0, [rsp + SV_SIZE]
     divsd xmm0, xmm1
     movsd [rsp + SV_SCALE], xmm0
@@ -525,20 +528,20 @@ fontset_svg_font:
 .notdef:
     xor r12d, r12d
 .have:
-    mov rdi, [r15 + FC_FONT]
+    mov rdi, [r15 + UfontFace_font]
     mov esi, r12d
-    call sfnt_advance
+    call ufont_advance
     cvtsi2sd xmm0, eax
     mulsd xmm0, [rsp + SV_SCALE]
     movsd [rsp + SV_ADV], xmm0
     test r14, r14
     jz .advance
-    mov rdi, [r15 + FC_FONT]
+    mov rdi, [r15 + UfontFace_font]
     mov esi, r12d
     mov rdx, r14
     movsd xmm0, [rsp + SV_SCALE]
     mov rcx, [rsp + SV_ARENA]
-    call sfnt_outline
+    call ufont_outline
 .advance:
     movsd xmm0, [rsp + SV_ADV]
     jmp .out
@@ -555,5 +558,5 @@ fontset_svg_font:
     ret
 
 section .data
-global fontset_version
-fontset_version: dq 0x010000
+global ufont_set_version
+ufont_set_version: dq 0x010000
