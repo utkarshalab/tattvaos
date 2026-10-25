@@ -371,6 +371,38 @@ _start:
     lea rcx, [r14 + 136]
     mov [rbx + UgfxFe_var], rcx         ; (the script stays mapped)
     lea r14, [rcx + rax * 8]
+    cmp dword [rbx + UgfxFe_type], FE_IMAGE
+    jne .cf_next
+    ; an image's list is [w, h, pixels]: made a PixBuf
+    lea rdi, [rel arena_state]
+    mov rsi, [rbx + UgfxFe_var]
+    cvttsd2si rax, qword [rsi]
+    cvttsd2si rcx, qword [rsi + 8]
+    imul rax, rcx
+    lea rsi, [PixBuf_size_total + rax * 4]
+    call arena_alloc
+    test rax, rax
+    jz .bad_op
+    mov rsi, [rbx + UgfxFe_var]
+    cvttsd2si rcx, qword [rsi]
+    mov [rax + PixBuf_width], rcx
+    shl rcx, 2
+    mov [rax + PixBuf_stride], rcx
+    cvttsd2si rcx, qword [rsi + 8]
+    mov [rax + PixBuf_height], rcx
+    lea rdx, [rax + PixBuf_size_total]
+    mov [rax + PixBuf_data], rdx
+    imul rcx, [rax + PixBuf_width]
+    mov [rbx + UgfxFe_var], rax
+    xor r8d, r8d
+.cf_pixel:
+    cmp r8, rcx
+    jae .cf_next
+    cvttsd2si r9, qword [rsi + 16 + r8 * 8]
+    mov [rdx + r8 * 4], r9d
+    inc r8
+    jmp .cf_pixel
+.cf_next:
     add rbx, UgfxFe_SIZE
     inc r13d
     jmp .cf_prim
