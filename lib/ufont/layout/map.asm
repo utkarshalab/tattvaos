@@ -8,14 +8,14 @@
 ; the lookups of every stage, sorted by index with duplicates merged, the
 ; required feature's lookups in the stage of its tag (else the first).
 ;
-;   map_init                                 the builder's arrays (state)
-;   map_add_feature(edi = tag, esi = flags, edx = value)
-;   map_enable(edi = tag, esi = flags, edx = value)   flags | F_GLOBAL
-;   map_disable(edi = tag)
-;   map_add_gsub_pause(rdi = routine or 0)
-;   map_compile                              -> eax 0 / -1 (no memory)
-;   map_get_mask(edi = tag), map_get_1_mask(edi = tag) -> eax (0: not found)
-;   map_stage_lookups(edi = table, esi = tag) -> rax = LK records of the
+;   ufl_map_init                                 the builder's arrays (state)
+;   ufl_map_add_feature(edi = tag, esi = flags, edx = value)
+;   ufl_map_enable(edi = tag, esi = flags, edx = value)   flags | F_GLOBAL
+;   ufl_map_disable(edi = tag)
+;   ufl_map_add_gsub_pause(rdi = routine or 0)
+;   ufl_map_compile                              -> eax 0 / -1 (no memory)
+;   ufl_map_get_mask(edi = tag), ufl_map_get_1_mask(edi = tag) -> eax (0: not found)
+;   ufl_map_stage_lookups(edi = table, esi = tag) -> rax = LK records of the
 ;       feature's stage, ecx = how many
 ; =============================================================================
 
@@ -23,10 +23,10 @@
 %include "shape.inc"
 
 extern arena_alloc
-extern otl_feature_index
-extern otl_feature_tag
-extern otl_feature_lookups
-extern otl_lookup_count
+extern ufl_otl_feature_index
+extern ufl_otl_feature_tag
+extern ufl_otl_feature_lookups
+extern ufl_otl_lookup_count
 
 section .text
 
@@ -43,8 +43,8 @@ map_alloc:
 .ok:
     ret
 
-global map_init
-map_init:
+global ufl_map_init
+ufl_map_init:
     sub rsp, 8
     mov dword [r15 + S_NFI], 0
     mov dword [r15 + S_CUR], 0
@@ -74,19 +74,19 @@ map_init:
     add rsp, 8
     ret
 
-global map_enable
-map_enable:
+global ufl_map_enable
+ufl_map_enable:
     or esi, F_GLOBAL
-    jmp map_add_feature
+    jmp ufl_map_add_feature
 
-global map_disable
-map_disable:
+global ufl_map_disable
+ufl_map_disable:
     mov esi, F_GLOBAL
     xor edx, edx
-    jmp map_add_feature
+    jmp ufl_map_add_feature
 
-global map_add_feature
-map_add_feature:
+global ufl_map_add_feature
+ufl_map_add_feature:
     mov eax, [r15 + S_NFI]
     cmp eax, MAX_FEATURES
     jae .full
@@ -109,8 +109,8 @@ map_add_feature:
 .full:
     ret
 
-global map_add_gsub_pause
-map_add_gsub_pause:
+global ufl_map_add_gsub_pause
+ufl_map_add_gsub_pause:
     mov eax, [r15 + S_NPA]
     cmp eax, MAX_PAUSES - 1
     jae .full
@@ -126,7 +126,7 @@ map_add_gsub_pause:
     ret
 
 ; ----------------------------------------------------------------------------
-; map_compile
+; ufl_map_compile
 ; ----------------------------------------------------------------------------
 %define MC_REQIDX   0                   ; [2] required feature index (-1)
 %define MC_REQTAG   8                   ; [2]
@@ -139,8 +139,8 @@ map_add_gsub_pause:
 %define MC_NLOOKUPS 44                  ; lookups the table has
 %define MC_SIZE     48
 
-global map_compile
-map_compile:
+global ufl_map_compile
+ufl_map_compile:
     push rbx
     push rbp
     push r12
@@ -156,11 +156,6 @@ map_compile:
     mov dword [r15 + S_NFEATS], 0
     xor ebx, ebx
 .arrays:
-    mov edi, MAX_LOOKUPS * LK_SIZE
-    call map_alloc
-    test rax, rax
-    jz .fail
-    mov [r15 + S_LK + rbx * 8], rax
     mov dword [r15 + S_NLK + rbx * 4], 0
     mov edi, MAX_PAUSES * ST_SIZE
     call map_alloc
@@ -185,7 +180,7 @@ map_compile:
     je .req_next
     mov [rsp + MC_REQIDX + rbx * 4], esi
     mov edi, ebx
-    call otl_feature_tag
+    call ufl_otl_feature_tag
     mov [rsp + MC_REQTAG + rbx * 4], eax
 .req_next:
     inc ebx
@@ -329,7 +324,7 @@ map_compile:
 .not_req:
     mov edi, ecx
     mov esi, [r14 + FI_TAG]
-    call otl_feature_index
+    call ufl_otl_feature_index
     mov ecx, [rsp + 16 + MC_T]
     mov rdx, [rsp + 8]
     mov [rdx + FM_INDEX + rcx * 4], eax
@@ -383,6 +378,48 @@ map_compile:
     inc ebx
     jmp .feature
 .features_done:
+    ; the lookup arrays: room for every lookup of every feature found (and
+    ; the required one)
+    mov dword [rsp + MC_T], 0
+.room:
+    mov ecx, [rsp + MC_T]
+    xor ebp, ebp                        ; entries
+    mov esi, [rsp + MC_REQIDX + rcx * 4]
+    cmp esi, -1
+    je .room_features
+    mov edi, ecx
+    call ufl_otl_feature_lookups
+    add ebp, ecx
+.room_features:
+    xor ebx, ebx
+.room_f:
+    cmp ebx, [r15 + S_NFEATS]
+    jae .room_alloc
+    imul eax, ebx, FM_SIZE
+    add rax, [r15 + S_FEATS]
+    mov ecx, [rsp + MC_T]
+    mov esi, [rax + FM_INDEX + rcx * 4]
+    cmp esi, -1
+    je .room_next
+    mov edi, ecx
+    call ufl_otl_feature_lookups
+    add ebp, ecx
+.room_next:
+    inc ebx
+    jmp .room_f
+.room_alloc:
+    mov ecx, [rsp + MC_T]
+    mov [r15 + S_LKCAP + rcx * 4], ebp
+    imul edi, ebp, LK_SIZE
+    add edi, LK_SIZE
+    call map_alloc
+    test rax, rax
+    jz .fail
+    mov ecx, [rsp + MC_T]
+    mov [r15 + S_LK + rcx * 8], rax
+    inc dword [rsp + MC_T]
+    cmp dword [rsp + MC_T], 2
+    jb .room
     ; the last pause of each table
     mov rdi, 0
     call map_add_gsub_pause_end
@@ -391,7 +428,7 @@ map_compile:
 .table:
     mov ecx, [rsp + MC_T]
     mov edi, ecx
-    call otl_lookup_count
+    call ufl_otl_lookup_count
     mov [rsp + MC_NLOOKUPS], eax
     mov dword [rsp + MC_STAGE], 0
     mov dword [rsp + MC_PI], 0
@@ -525,7 +562,7 @@ map_add_lookups:
     mov ebx, edi
     mov r12d, edx
     mov r13d, ecx
-    call otl_feature_lookups
+    call ufl_otl_feature_lookups
     mov r14, rax
     mov ebp, ecx
     mov r9d, [rsp + 48 + MC_NLOOKUPS]   ; 5 pushes + return address
@@ -538,7 +575,7 @@ map_add_lookups:
     cmp eax, r9d
     jae .each
     mov ecx, [r15 + S_NLK + rbx * 4]
-    cmp ecx, MAX_LOOKUPS
+    cmp ecx, [r15 + S_LKCAP + rbx * 4]
     jae .done
     imul ecx, ecx, LK_SIZE
     add rcx, [r15 + S_LK + rbx * 8]
@@ -642,11 +679,11 @@ map_sort_stage:
     ret
 
 ; ----------------------------------------------------------------------------
-; map_get_mask / map_get_1_mask — edi = tag -> eax
-; map_feature — edi = tag -> rax = FM record, 0
+; ufl_map_get_mask / ufl_map_get_1_mask — edi = tag -> eax
+; ufl_map_feature — edi = tag -> rax = FM record, 0
 ; ----------------------------------------------------------------------------
-global map_feature
-map_feature:
+global ufl_map_feature
+ufl_map_feature:
     mov rax, [r15 + S_FEATS]
     mov ecx, [r15 + S_NFEATS]
 .loop:
@@ -662,18 +699,18 @@ map_feature:
 .out:
     ret
 
-global map_get_mask
-map_get_mask:
-    call map_feature
+global ufl_map_get_mask
+ufl_map_get_mask:
+    call ufl_map_feature
     test rax, rax
     jz .out
     mov eax, [rax + FM_MASK]
 .out:
     ret
 
-global map_get_1_mask
-map_get_1_mask:
-    call map_feature
+global ufl_map_get_1_mask
+ufl_map_get_1_mask:
+    call ufl_map_feature
     test rax, rax
     jz .out
     mov eax, [rax + FM_MASK1]
@@ -681,14 +718,14 @@ map_get_1_mask:
     ret
 
 ; ----------------------------------------------------------------------------
-; map_stage_lookups — edi = table, esi = tag -> rax = LK records, ecx = count
+; ufl_map_stage_lookups — edi = table, esi = tag -> rax = LK records, ecx = count
 ; ----------------------------------------------------------------------------
-global map_stage_lookups
-map_stage_lookups:
+global ufl_map_stage_lookups
+ufl_map_stage_lookups:
     push rbx
     mov ebx, edi
     mov edi, esi
-    call map_feature
+    call ufl_map_feature
     test rax, rax
     jz .none
     mov eax, [rax + FM_STAGE + rbx * 4]
