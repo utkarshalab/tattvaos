@@ -137,6 +137,7 @@ extern ugfx_path_line_to
 extern ugfx_path_cubic_to
 extern ugfx_path_close
 extern ugfx_path_add_rect
+extern ugfx_path_reset
 extern ugfx_path_add_circle
 extern ugfx_path_add_ellipse
 extern ugfx_svg_number
@@ -209,7 +210,12 @@ extern ugfx_ctx_draw_image
 %define S_WSPACE        328             ; f64 word-spacing
 %define S_PRESERVE      336             ; u32 xml:space="preserve"
 %define S_LISTS         344             ; x, y, dx, dy, rotate records (values, u32 count, u32 first char)
-%define S_SIZE          384
+%define S_BSHIFT        384             ; f64 baseline-shift so far in this text (up)
+%define S_DBASE         392             ; u32 dominant-baseline (svg_baseline_words - 1)
+%define S_TPATH         396             ; u32 2: a textPath element, 1: inside one
+%define S_DECOR         400             ; the states declaring underline, overline,
+                                        ; line-through (their paints; 0: none)
+%define S_SIZE          432
 
 ; elements
 %define E_GROUP         0
@@ -234,6 +240,8 @@ extern ugfx_ctx_draw_image
 %define E_IMAGE         19
 %define E_TSPAN         20
 %define E_GLYPH         21              ; (a text glyph, for svg_geometry)
+%define E_TEXTPATH      22
+%define E_DECOR         23              ; (a text decoration's rectangle, P_DEC)
 %define SVG_MAX_CLIPS   4               ; clipPaths / masks compiling inside each other
 %define K_CLIP          2               ; compile kinds (and P_INST for their roots)
 %define K_MASK          3
@@ -290,7 +298,10 @@ extern ugfx_ctx_draw_image
 %define A_LETTER_SP     29
 %define A_WORD_SP       30
 %define A_FILTER        31
-%define A_LAST_PROP     31              ; ids up to here are style properties too
+%define A_BSHIFT        32              ; baseline-shift
+%define A_DBASE         33              ; dominant-baseline, alignment-baseline
+%define A_DECOR         34              ; text-decoration
+%define A_LAST_PROP     34              ; ids up to here are style properties too
 
 ; filter attributes
 %define FA_IN           1
@@ -380,6 +391,7 @@ extern ugfx_ctx_draw_image
 %define A_DY            50
 %define A_ROTATE        51
 %define A_XMLSPACE      52
+%define A_STARTOFF      53              ; textPath startOffset
 %define A_GEOM          64              ; + G_* slot
 
 ; lengths: what a percentage is of
@@ -465,7 +477,33 @@ extern ugfx_ctx_draw_image
 %define P_FILTER        (P_FONT_RAW + 424)              ; filter as written (0: none)
 %define P_FILTER_END    (P_FONT_RAW + 432)
 %define P_FILTERREC     (P_FONT_RAW + 440)              ; the compiled filter for a group
-%define P_SIZE          (((P_FONT_RAW + 448 + 15) & ~15) + 8)
+%define P_BS_RAW        (P_FONT_RAW + 448)              ; baseline-shift as written
+%define P_SO_RAW        (P_FONT_RAW + 464)              ; startOffset as written
+%define P_DEC           (P_FONT_RAW + 480)              ; f64 x, y, w, h: a decoration's rectangle
+%define P_TP_PTS        (P_FONT_RAW + 512)              ; the textPath's points (TP_*; 0: not on one)
+%define P_TP_NPTS       (P_FONT_RAW + 520)              ; u32
+%define P_TP_CHUNK      (P_FONT_RAW + 524)              ; u32 the open chunk is on it
+%define P_TP_LEN        (P_FONT_RAW + 528)              ; f64 its length
+%define P_TP_Y0         (P_FONT_RAW + 536)              ; f64 y where it started
+%define P_TP_RECS       (P_FONT_RAW + 544)              ; the chunk's glyph placements (TR_*)
+%define P_TP_NRECS      (P_FONT_RAW + 552)              ; u32
+%define P_TP_RECCAP     (P_FONT_RAW + 556)              ; u32
+%define P_SIZE          (((P_FONT_RAW + 560 + 15) & ~15) + 8)
+
+; a textPath point
+%define TP_X            0
+%define TP_Y            8
+%define TP_DIST         16              ; f64 along the path
+%define TP_NEW          24              ; u64 1: a subpath starts here
+%define TP_SIZE         32
+%define TP_STEPS        32              ; line segments per curve
+; a glyph placed on a textPath (its chunk ends before it is put there)
+%define TR_ITEM         0               ; u32
+%define TR_X            8               ; f64 its x along the path
+%define TR_PERP         16              ; f64 its y off the path
+%define TR_ADV          24              ; f64 its advance
+%define TR_ROT          32              ; f64 its rotate
+%define TR_SIZE         40
 
 ; a vertex, for markers
 %define VX_X            0               ; f64
@@ -537,6 +575,7 @@ svg_elements:
     NAME "marker", E_MARKER
     NAME "image", E_IMAGE
     NAME "tspan", E_TSPAN
+    NAME "textPath", E_TEXTPATH
     NAME "marker", E_SKIP
     NAME "text", E_TEXT
     NAME "switch", E_SWITCH
@@ -578,6 +617,11 @@ svg_attributes:
     NAME "font-style", A_FONT_STYLE
     NAME "text-anchor", A_TEXT_ANCHOR
     NAME "letter-spacing", A_LETTER_SP
+    NAME "baseline-shift", A_BSHIFT
+    NAME "dominant-baseline", A_DBASE
+    NAME "alignment-baseline", A_DBASE
+    NAME "text-decoration", A_DECOR
+    NAME "startOffset", A_STARTOFF
     NAME "word-spacing", A_WORD_SP
     NAME "filter", A_FILTER
     NAME "transform", A_TRANSFORM
@@ -656,6 +700,7 @@ svg_inherit_fields:
     INHERITS A_TEXT_ANCHOR, S_ANCHOR, 4
     INHERITS A_LETTER_SP, S_LSPACE, 8
     INHERITS A_WORD_SP, S_WSPACE, 8
+    INHERITS A_DBASE, S_DBASE, 4
     db 0
 svg_weight_words:
     NAME "normal", 1
@@ -667,6 +712,34 @@ svg_style_words:
     NAME "normal", 1
     NAME "italic", 2
     NAME "oblique", 3
+    db 0
+svg_baseline_words:
+    NAME "auto", 1
+    NAME "alphabetic", 1
+    NAME "use-script", 1
+    NAME "no-change", 1
+    NAME "reset-size", 1
+    NAME "middle", 2
+    NAME "central", 3
+    NAME "hanging", 4
+    NAME "mathematical", 5
+    NAME "text-before-edge", 6
+    NAME "text-top", 6
+    NAME "before-edge", 6
+    NAME "text-after-edge", 7
+    NAME "text-bottom", 7
+    NAME "after-edge", 7
+    NAME "ideographic", 7
+    db 0
+svg_bshift_words:
+    NAME "baseline", 1
+    NAME "sub", 2
+    NAME "super", 3
+    db 0
+svg_decor_words:
+    NAME "underline", 1
+    NAME "overline", 2
+    NAME "line-through", 3
     db 0
 svg_anchor_words:
     NAME "start", 1
@@ -868,6 +941,14 @@ svg_fe_2p20:        dq 1048576.0
 svg_fe_m2p20:       dq -1048576.0
 svg_fe_m2:          dq -2.0
 svg_fe_two:         dq 2.0
+svg_0_8:            dq 0.8
+svg_0_2:            dq 0.2
+svg_m0_2:           dq -0.2
+svg_0_4:            dq 0.4
+svg_0_05:           dq 0.05
+svg_0_375:          dq 0.375
+svg_tp_steps:       dq 32.0
+svg_three:          dq 3.0
 svg_m2p30:          dq -1073741824.0
 svg_cm_identity:    dq 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0
 svg_cm_luminance:   dq 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2125, 0.7154, 0.0721, 0.0, 0.0
@@ -1140,6 +1221,12 @@ svg_parse_common:
     mov [rbx + S_LISTS + 16], rax
     mov [rbx + S_LISTS + 24], rax
     mov [rbx + S_LISTS + 32], rax
+    mov [rbx + S_BSHIFT], rax
+    mov [rbx + S_DBASE], eax
+    mov [rbx + S_TPATH], eax
+    mov [rbx + S_DECOR], rax
+    mov [rbx + S_DECOR + 8], rax
+    mov [rbx + S_DECOR + 16], rax
     ; gradients first: url(#id) may name one defined further on
     lea rdi, [r15 + P_DEFS]
     mov rax, [r15 + P_SVG]
@@ -1217,6 +1304,16 @@ svg_walk:
     mov eax, [r15 + P_DEPTH]
     imul rdi, rax, S_SIZE
     add rdi, [r15 + P_STACK]            ; the element it closes
+    cmp dword [rdi + S_TPATH], 2
+    jne .not_path_end
+    cmp dword [rdi + S_SKIP], 0
+    jne .not_path_end
+    push rdi
+    sub rsp, 8
+    call svg_textpath_end
+    add rsp, 8
+    pop rdi
+.not_path_end:
     cmp dword [rdi + S_INTEXT], 2
     jne .close_group
     push rdi
@@ -1251,6 +1348,10 @@ svg_walk:
     je .not_in_text
     mov dword [rbx + S_INTEXT], 1       ; inside a text element
 .not_in_text:
+    cmp dword [rbx + S_TPATH], 0
+    je .not_on_path
+    mov dword [rbx + S_TPATH], 1        ; inside a textPath
+.not_on_path:
     inc dword [r15 + P_DEPTH]
     ; the element
     mov rdi, [r15 + P_XML + UgfxSvgXml_name]
@@ -1334,6 +1435,8 @@ svg_walk:
     mov [rbx + S_SWITCH], ecx
     cmp eax, E_TSPAN
     je .tspan
+    cmp eax, E_TEXTPATH
+    je .textpath
     cmp eax, E_TEXT
     jne .not_text
     cmp dword [rbx + S_INTEXT], 0
@@ -1342,6 +1445,13 @@ svg_walk:
 .tspan:
     cmp dword [rbx + S_INTEXT], 0
     je .no_drawing                      ; a tspan outside text
+    jmp .chosen
+.textpath:
+    cmp dword [rbx + S_INTEXT], 0
+    je .no_drawing                      ; outside text
+    cmp dword [rbx + S_TPATH], 0
+    jne .no_drawing                     ; inside another
+    mov dword [rbx + S_TPATH], 2
     jmp .chosen
 .not_text:
     cmp eax, E_FOREIGN
@@ -1360,6 +1470,12 @@ svg_walk:
 .element_done:
     cmp dword [r15 + P_SELF], 0
     je .token
+    cmp dword [rbx + S_TPATH], 2
+    jne .self_text
+    cmp dword [rbx + S_SKIP], 0
+    jne .self_text
+    call svg_textpath_end
+.self_text:
     cmp dword [rbx + S_INTEXT], 2
     jne .self_group
     call svg_text_finish
@@ -1413,6 +1529,8 @@ svg_element:
     mov qword [r15 + P_HREF_RAW], 0
     mov qword [r15 + P_LS_RAW], 0
     mov qword [r15 + P_WS_RAW], 0
+    mov qword [r15 + P_BS_RAW], 0
+    mov qword [r15 + P_SO_RAW], 0
     mov qword [r15 + P_DX_RAW], 0
     mov qword [r15 + P_DY_RAW], 0
     mov qword [r15 + P_ROT_RAW], 0
@@ -1461,6 +1579,8 @@ svg_element:
     je .attr_par
     cmp eax, A_XMLSPACE
     je .attr_space
+    cmp eax, A_STARTOFF
+    je .attr_startoff
     cmp eax, A_DX
     jb .not_list
     cmp eax, A_ROTATE
@@ -1473,6 +1593,10 @@ svg_element:
 .attr_style:
     mov [r15 + P_STYLE], rdi
     mov [r15 + P_STYLE_END], rsi
+    jmp .attr
+.attr_startoff:
+    mov [r15 + P_SO_RAW], rdi
+    mov [r15 + P_SO_RAW + 8], rsi
     jmp .attr
 .attr_d:
     mov [r15 + P_D], rdi
@@ -1602,6 +1726,8 @@ svg_element:
     je .text
     cmp eax, E_TSPAN
     je .tspan_lists
+    cmp eax, E_TEXTPATH
+    je .textpath
     cmp eax, E_SVG
     je .root
     cmp eax, E_PATH
@@ -1621,6 +1747,9 @@ svg_element:
     jmp .element_out
 .tspan_lists:
     call svg_text_lists
+    jmp .element_out
+.textpath:
+    call svg_textpath_start
     jmp .element_out
 .root:
     cmp dword [r15 + P_ROOT], 0
@@ -2341,6 +2470,12 @@ svg_property:
     pop rdi
     je .inherit
     mov eax, r12d
+    cmp eax, A_BSHIFT
+    je .bshift
+    cmp eax, A_DBASE
+    je .dbase
+    cmp eax, A_DECOR
+    je .decor
     cmp eax, A_FILL
     je .paint
     cmp eax, A_STROKE
@@ -2404,6 +2539,50 @@ svg_property:
 .fill_op:
     movsd [rbx + S_FILL_OP], xmm0
     jmp .out
+.bshift:
+    ; resolved with the other lengths (it may be in em)
+    mov [r15 + P_BS_RAW], rdi
+    mov [r15 + P_BS_RAW + 8], rsi
+    jmp .out
+.dbase:
+    call ugfx_svg_trim
+    lea rdx, [rel svg_baseline_words]
+    call ugfx_svg_lookup
+    cmp eax, 0
+    jle .out
+    dec eax
+    mov [rbx + S_DBASE], eax
+    jmp .out
+.decor:
+    ; each of underline / overline / line-through named: this element's
+    ; paints draw it (ancestors' lines stay)
+    call ugfx_svg_trim
+    mov r12, rdi
+    mov r13, rsi
+.decor_word:
+    cmp r12, r13
+    jae .out
+    cmp byte [r12], ' '
+    ja .decor_start
+    inc r12
+    jmp .decor_word
+.decor_start:
+    mov rdi, r12
+.decor_end:
+    cmp r12, r13
+    jae .decor_lookup
+    cmp byte [r12], ' '
+    jbe .decor_lookup
+    inc r12
+    jmp .decor_end
+.decor_lookup:
+    mov rsi, r12
+    lea rdx, [rel svg_decor_words]
+    call ugfx_svg_lookup
+    cmp eax, 0
+    jle .decor_word
+    mov [rbx + S_DECOR + rax * 8 - 8], rbx
+    jmp .decor_word
 .stroke_op:
     movsd [rbx + S_STROKE_OP], xmm0
     jmp .out
@@ -2800,6 +2979,10 @@ svg_inherit:
     jne .not_ls
     mov qword [r15 + P_LS_RAW], 0
 .not_ls:
+    cmp r12d, A_BSHIFT
+    jne .not_bs
+    mov qword [r15 + P_BS_RAW], 0
+.not_bs:
     cmp r12d, A_WORD_SP
     jne .not_ws
     mov qword [r15 + P_WS_RAW], 0
@@ -4199,6 +4382,12 @@ svg_text_start:
     mov dword [r15 + P_TX_SPACE], 0
     mov dword [r15 + P_TX_ANY], 0
     mov dword [r15 + P_TX_CHUNK], 0
+    xor eax, eax
+    mov [rbx + S_BSHIFT], rax
+    mov [r15 + P_TP_PTS], rax
+    mov [r15 + P_TP_CHUNK], eax
+    mov [r15 + P_TP_NRECS], eax
+    mov [r15 + P_TP_Y0], rax
     xor ecx, ecx
 .m:
     mov rax, [rbx + S_M + rcx * 8]
@@ -4500,12 +4689,30 @@ svg_text_cp:
 
 ; -----------------------------------------------------------------------------
 ; svg_text_char — edi = a code point, rbx = its state, r15 = frame: placed
-;   (lists, chunk), its glyph emitted, the position advanced
+;   (lists, chunk), its glyph emitted with its decorations, the position
+;   advanced. The baseline moves by dominant-baseline (from the font's
+;   ascent and descent: middle and central the em box's centre, hanging
+;   0.8 ascent, mathematical 0.5 ascent, text-before-edge the ascent,
+;   text-after-edge / ideographic the descent) and baseline-shift.
+;   Decorations are rectangles a twentieth of the size thick across the
+;   character's advance - underline at half the descent below, overline
+;   at the ascent above, line-through at 0.375 ascent - drawn with the
+;   paints of the element that asked for them, under / over the glyph
+;   (line-through over it). On a textPath each item is noted for
+;   svg_text_finish to put on the path.
 ; -----------------------------------------------------------------------------
 %define TC_M        0                   ; f64[6]
 %define TC_ROT      48                  ; f64
 %define TC_ADV      56
-%define TC_SIZE     64
+%define TC_ASC      64
+%define TC_DESC     72
+%define TC_GY       80                  ; the baseline's offset (down)
+%define TC_STEP     88                  ; to the next character
+%define TC_X        96                  ; the next x
+%define TC_PERP     104                 ; y off a textPath
+%define TC_BASE     112                 ; f64[6] the glyph's place (no rotation)
+%define TC_FIRST    160                 ; u32 the first item of a call
+%define TC_SIZE     176
 
 svg_text_char:
     push r12
@@ -4517,7 +4724,7 @@ svg_text_char:
     cmp qword [r14 + UgfxSvg_font_fn], 0
     je .out
     mov r13d, [r15 + P_TX_COUNT]
-    ; absolute x / y: a new chunk there
+    ; absolute x / y: a new chunk there (y not on a textPath)
     mov edi, 0
     call .list_value
     jc .no_x
@@ -4526,6 +4733,8 @@ svg_text_char:
     movsd xmm0, [rsp + TC_ADV]
     movsd [r15 + P_TX_X], xmm0
 .no_x:
+    cmp qword [r15 + P_TP_PTS], 0
+    jne .no_y
     mov edi, 1
     call .list_value
     jc .no_y
@@ -4565,7 +4774,8 @@ svg_text_char:
     mulsd xmm0, [rel svg_deg]
 .rotated:
     movsd [rsp + TC_ROT], xmm0
-    ; the chunk: its first character's anchor and x, its first item
+    ; the chunk: its first character's anchor and x, its first item, on a
+    ; path or not
     cmp dword [r15 + P_TX_CHUNK], 0
     jne .in_chunk
     mov eax, [r14 + UgfxSvg_count]
@@ -4575,8 +4785,12 @@ svg_text_char:
     movsd [r15 + P_TX_CX], xmm0
     mov eax, [rbx + S_ANCHOR]
     mov [r15 + P_TX_ANCHOR], eax
+    xor eax, eax
+    cmp qword [r15 + P_TP_PTS], 0
+    setne al
+    mov [r15 + P_TP_CHUNK], eax
 .in_chunk:
-    ; the font, the advance
+    ; the font, the advance, the metrics
     mov rax, [rbx + S_FAMILY]
     mov [r15 + P_GLYPH_FONT + UgfxSvgFont_family], rax
     mov rax, [rbx + S_FAMILY + 8]
@@ -4595,41 +4809,51 @@ svg_text_char:
     mov r8, [r14 + UgfxSvg_arena]
     call [r14 + UgfxSvg_font_fn]
     movsd [rsp + TC_ADV], xmm0
-    ; the glyph: a shape at translate(x, y) x rotate, no opacity / clip /
-    ; mask of its own (the elements' groups carry those)
-    cmp r12d, ' '
-    je .placed
-    lea rdi, [r15 + P_TX_SAVEM]
-    lea rsi, [rbx + S_M]
-    mov ecx, 48
-    rep movsb
-    lea rdi, [rsp + TC_M]
-    movsd xmm0, [r15 + P_TX_X]
-    movsd xmm1, [r15 + P_TX_Y]
-    call umath_affine2_translate
-    lea rdi, [rbx + S_M]
-    mov rsi, rdi
-    lea rdx, [rsp + TC_M]
-    call umath_affine2_multiply
-    lea rdi, [rsp + TC_M]
-    movsd xmm0, [rsp + TC_ROT]
-    call umath_affine2_rotate
-    lea rdi, [rbx + S_M]
-    mov rsi, rdi
-    lea rdx, [rsp + TC_M]
-    call umath_affine2_multiply
-    mov dword [r15 + P_ELEM], E_GLYPH
-    movsd xmm0, [rel svg_one]
-    movsd [r15 + P_OPACITY], xmm0
-    mov qword [r15 + P_CLIP], 0
-    mov qword [r15 + P_MASK], 0
-    call svg_shape
-    lea rdi, [rbx + S_M]
-    lea rsi, [r15 + P_TX_SAVEM]
-    mov ecx, 48
-    rep movsb
-.placed:
-    ; x += advance + letter-spacing (+ word-spacing after a space)
+    mov rdi, [r14 + UgfxSvg_font_user]
+    lea rsi, [r15 + P_GLYPH_FONT]
+    mov edx, -1                         ; ascent, descent
+    xor ecx, ecx
+    movsd xmm0, [rbx + S_FONT]
+    mov r8, [r14 + UgfxSvg_arena]
+    call [r14 + UgfxSvg_font_fn]
+    xorpd xmm2, xmm2
+    ucomisd xmm0, xmm2
+    ja .metrics
+    movsd xmm0, [rbx + S_FONT]
+    mulsd xmm0, [rel svg_0_8]
+    movsd xmm1, [rbx + S_FONT]
+    mulsd xmm1, [rel svg_0_2]
+.metrics:
+    movsd [rsp + TC_ASC], xmm0
+    movsd [rsp + TC_DESC], xmm1
+    ; the baseline: dominant-baseline, then baseline-shift
+    xorpd xmm0, xmm0
+    mov eax, [rbx + S_DBASE]
+    cmp eax, 3
+    jb .base_centre
+    movsd xmm0, [rsp + TC_ASC]
+    mulsd xmm0, [rel svg_0_8]
+    je .based                           ; hanging
+    movsd xmm0, [rsp + TC_ASC]
+    mulsd xmm0, [rel svg_half]
+    cmp eax, 4
+    je .based                           ; mathematical
+    movsd xmm0, [rsp + TC_ASC]
+    cmp eax, 5
+    je .based                           ; text-before-edge
+    xorpd xmm0, xmm0
+    subsd xmm0, [rsp + TC_DESC]         ; text-after-edge
+    jmp .based
+.base_centre:
+    test eax, eax
+    jz .based
+    movsd xmm0, [rsp + TC_ASC]
+    subsd xmm0, [rsp + TC_DESC]
+    mulsd xmm0, [rel svg_half]
+.based:
+    subsd xmm0, [rbx + S_BSHIFT]
+    movsd [rsp + TC_GY], xmm0
+    ; the next x, the step to it
     movsd xmm0, [r15 + P_TX_X]
     addsd xmm0, [rsp + TC_ADV]
     addsd xmm0, [rbx + S_LSPACE]
@@ -4637,6 +4861,63 @@ svg_text_char:
     jne .advanced
     addsd xmm0, [rbx + S_WSPACE]
 .advanced:
+    movsd [rsp + TC_X], xmm0
+    subsd xmm0, [r15 + P_TX_X]
+    movsd [rsp + TC_STEP], xmm0
+    ; y off a path; the place: S_M x translate(x, y + gy)
+    movsd xmm0, [r15 + P_TX_Y]
+    subsd xmm0, [r15 + P_TP_Y0]
+    addsd xmm0, [rsp + TC_GY]
+    movsd [rsp + TC_PERP], xmm0
+    lea rdi, [rsp + TC_M]
+    movsd xmm0, [r15 + P_TX_X]
+    movsd xmm1, [r15 + P_TX_Y]
+    addsd xmm1, [rsp + TC_GY]
+    call umath_affine2_translate
+    lea rdi, [rsp + TC_BASE]
+    lea rsi, [rbx + S_M]
+    lea rdx, [rsp + TC_M]
+    call umath_affine2_multiply
+    ; underline, overline
+    xor ecx, ecx
+    call .decoration
+    mov ecx, 1
+    call .decoration
+    ; the glyph: a shape at the place x rotate, no opacity / clip / mask /
+    ; filter of its own (the elements' groups carry those)
+    cmp r12d, ' '
+    je .line_through
+    lea rdi, [r15 + P_TX_SAVEM]
+    lea rsi, [rbx + S_M]
+    mov ecx, 48
+    rep movsb
+    lea rdi, [rsp + TC_M]
+    movsd xmm0, [rsp + TC_ROT]
+    call umath_affine2_rotate
+    lea rdi, [rbx + S_M]
+    lea rsi, [rsp + TC_BASE]
+    lea rdx, [rsp + TC_M]
+    call umath_affine2_multiply
+    mov dword [r15 + P_ELEM], E_GLYPH
+    movsd xmm0, [rel svg_one]
+    movsd [r15 + P_OPACITY], xmm0
+    mov qword [r15 + P_CLIP], 0
+    mov qword [r15 + P_MASK], 0
+    mov qword [r15 + P_FILTER], 0
+    mov eax, [r14 + UgfxSvg_count]
+    mov [rsp + TC_FIRST], eax
+    call svg_shape
+    lea rdi, [rbx + S_M]
+    lea rsi, [r15 + P_TX_SAVEM]
+    mov ecx, 48
+    rep movsb
+    movsd xmm3, [rsp + TC_ROT]
+    call .placed
+.line_through:
+    mov ecx, 2
+    call .decoration
+    ; on to the next
+    movsd xmm0, [rsp + TC_X]
     movsd [r15 + P_TX_X], xmm0
     inc dword [r15 + P_TX_COUNT]
 .out:
@@ -4662,15 +4943,173 @@ svg_text_char:
 .none:
     stc
     ret
+; ecx = 0 underline, 1 overline, 2 line-through: its rectangle at the
+;   place, if an element asked for it (frame at rsp + 8)
+.decoration:
+    mov rdi, [rbx + S_DECOR + rcx * 8]
+    test rdi, rdi
+    jz .d_none
+    sub rsp, 8                          ; (frame at rsp + 16)
+    movsd xmm1, [rbx + S_FONT]
+    mulsd xmm1, [rel svg_0_05]          ; thickness
+    movsd xmm0, [rsp + 16 + TC_DESC]
+    mulsd xmm0, [rel svg_half]
+    test ecx, ecx
+    jz .d_centre
+    xorpd xmm0, xmm0
+    subsd xmm0, [rsp + 16 + TC_ASC]
+    cmp ecx, 1
+    je .d_centre
+    movsd xmm2, [rsp + 16 + TC_ASC]
+    mulsd xmm2, [rel svg_0_375]
+    xorpd xmm0, xmm0
+    subsd xmm0, xmm2
+.d_centre:
+    movsd xmm2, xmm1
+    mulsd xmm2, [rel svg_half]
+    subsd xmm0, xmm2
+    xorpd xmm2, xmm2
+    movsd [r15 + P_DEC], xmm2
+    movsd [r15 + P_DEC + 8], xmm0
+    movsd xmm0, [rsp + 16 + TC_STEP]
+    movsd [r15 + P_DEC + 16], xmm0
+    movsd [r15 + P_DEC + 24], xmm1
+    mov eax, [r14 + UgfxSvg_count]
+    mov [rsp + 16 + TC_FIRST], eax
+    lea rsi, [rsp + 16 + TC_BASE]
+    call svg_text_decor
+    xorpd xmm3, xmm3
+    add rsp, 8
+    jmp .placed_8
+.d_none:
+    ret
+; xmm3 = the rotate: the items from TC_FIRST noted when on a textPath
+;   (frame at rsp + 8)
+.placed:
+.placed_8:
+    cmp dword [r15 + P_TP_CHUNK], 0
+    je .p_out
+    mov edi, [rsp + 8 + TC_FIRST]
+    movsd xmm0, [r15 + P_TX_X]
+    movsd xmm1, [rsp + 8 + TC_PERP]
+    movsd xmm2, [rsp + 8 + TC_ADV]
+    sub rsp, 8
+    call svg_text_record
+    add rsp, 8
+.p_out:
+    ret
+
+; svg_text_decor — rdi = the state declaring a decoration, rsi = f64[6] the
+;   glyph's place, r15 = frame (P_DEC set): its rectangle drawn with that
+;   state's paints there
+svg_text_decor:
+    push rbx
+    push r12
+    sub rsp, 8
+    mov rbx, rdi
+    mov r12, rsi
+    lea rdi, [r15 + P_TX_SAVEM]
+    lea rsi, [rbx + S_M]
+    mov ecx, 48
+    rep movsb
+    lea rdi, [rbx + S_M]
+    mov rsi, r12
+    mov ecx, 48
+    rep movsb
+    mov dword [r15 + P_ELEM], E_DECOR
+    movsd xmm0, [rel svg_one]
+    movsd [r15 + P_OPACITY], xmm0
+    mov qword [r15 + P_CLIP], 0
+    mov qword [r15 + P_MASK], 0
+    mov qword [r15 + P_FILTER], 0
+    call svg_shape
+    lea rdi, [rbx + S_M]
+    lea rsi, [r15 + P_TX_SAVEM]
+    mov ecx, 48
+    rep movsb
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; svg_text_record — edi = an item, xmm0 = x, xmm1 = y off the path, xmm2 =
+;   advance, xmm3 = rotate, r15 = frame: the items from it on noted
+svg_text_record:
+    push r12
+    push r13
+    push r14
+    sub rsp, 32
+    movsd [rsp], xmm0
+    movsd [rsp + 8], xmm1
+    movsd [rsp + 16], xmm2
+    movsd [rsp + 24], xmm3
+    mov r12d, edi
+    mov r14, [r15 + P_SVG]
+.item:
+    cmp r12d, [r14 + UgfxSvg_count]
+    jae .out
+    mov eax, [r15 + P_TP_NRECS]
+    cmp eax, [r15 + P_TP_RECCAP]
+    jb .room
+    mov r13d, [r15 + P_TP_RECCAP]
+    add r13d, r13d
+    cmp r13d, 64
+    jae .grow
+    mov r13d, 64
+.grow:
+    mov rdi, [r14 + UgfxSvg_arena]
+    imul esi, r13d, TR_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov rdi, rax
+    mov rsi, [r15 + P_TP_RECS]
+    mov ecx, [r15 + P_TP_NRECS]
+    imul ecx, ecx, TR_SIZE
+    rep movsb
+    mov [r15 + P_TP_RECS], rax
+    mov [r15 + P_TP_RECCAP], r13d
+.room:
+    mov eax, [r15 + P_TP_NRECS]
+    inc dword [r15 + P_TP_NRECS]
+    imul rdi, rax, TR_SIZE
+    add rdi, [r15 + P_TP_RECS]
+    mov [rdi + TR_ITEM], r12d
+    movsd xmm0, [rsp]
+    movsd [rdi + TR_X], xmm0
+    movsd xmm0, [rsp + 8]
+    movsd [rdi + TR_PERP], xmm0
+    movsd xmm0, [rsp + 16]
+    movsd [rdi + TR_ADV], xmm0
+    movsd xmm0, [rsp + 24]
+    movsd [rdi + TR_ROT], xmm0
+    inc r12d
+    jmp .item
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.out:
+    add rsp, 32
+    pop r14
+    pop r13
+    pop r12
+    ret
 
 ; -----------------------------------------------------------------------------
-; svg_text_finish — r15 = frame: the open chunk ends; middle / end anchors
-;   shift its items along the text's x axis by - advance / 2 or - advance
-;   (D = M x translate(shift, 0) x M^-1 before each item's matrix)
+; svg_text_finish — r15 = frame: the open chunk ends. Middle / end anchors
+;   shift it along the text's x axis by - advance / 2 or - advance (D = M x
+;   translate(shift, 0) x M^-1 before each item's matrix); a chunk on a
+;   textPath instead puts each noted item at the path's point where the
+;   middle of its character (shifted) falls, turned to the path - M x
+;   [c s -s c px py] x translate(-advance / 2, y off) x rotate - and
+;   empties those off either end
 ; -----------------------------------------------------------------------------
 %define TF_INV      0                   ; f64[6]
 %define TF_D        48                  ; f64[6]
-%define TF_SIZE     112
+%define TF_A        96                  ; f64[6]
+%define TF_E        144                 ; f64[6]
+%define TF_SHIFT    192                 ; f64
+%define TF_I        200                 ; u32
+%define TF_SIZE     208
 
 svg_text_finish:
     push r12
@@ -4682,15 +5121,21 @@ svg_text_finish:
     jz .out
     mov dword [r15 + P_TX_CHUNK], 0
     dec r12d                            ; its first item
+    xorpd xmm0, xmm0
     mov eax, [r15 + P_TX_ANCHOR]
     test eax, eax
-    jz .out
+    jz .shifted
     movsd xmm0, [r15 + P_TX_CX]
     subsd xmm0, [r15 + P_TX_X]          ; - advance
     cmp eax, 1
-    jne .shift
+    jne .shifted
     mulsd xmm0, [rel svg_half]
-.shift:
+.shifted:
+    cmp dword [r15 + P_TP_CHUNK], 0
+    jne .on_path
+    mov eax, [r15 + P_TX_ANCHOR]
+    test eax, eax
+    jz .out
     lea rdi, [rsp + TF_D]
     xorpd xmm1, xmm1
     call umath_affine2_translate
@@ -4719,11 +5164,536 @@ svg_text_finish:
     call umath_affine2_multiply
     inc r12d
     jmp .item
+.on_path:
+    mov dword [r15 + P_TP_CHUNK], 0
+    movsd [rsp + TF_SHIFT], xmm0
+    mov r14, [r15 + P_SVG]
+    mov dword [rsp + TF_I], 0
+.rec:
+    mov eax, [rsp + TF_I]
+    cmp eax, [r15 + P_TP_NRECS]
+    jae .placed
+    imul r13, rax, TR_SIZE
+    add r13, [r15 + P_TP_RECS]
+    mov eax, [r13 + TR_ITEM]
+    imul r12, rax, UgfxSvgItem_SIZE
+    add r12, [r14 + UgfxSvg_items]
+    ; the middle of its character, along the path
+    movsd xmm0, [r13 + TR_X]
+    addsd xmm0, [rsp + TF_SHIFT]
+    movsd xmm1, [r13 + TR_ADV]
+    mulsd xmm1, [rel svg_half]
+    addsd xmm0, xmm1
+    call svg_textpath_at
+    jc .off
+    movsd [rsp + TF_A], xmm2
+    movsd [rsp + TF_A + 8], xmm3
+    xorpd xmm4, xmm4
+    subsd xmm4, xmm3
+    movsd [rsp + TF_A + 16], xmm4
+    movsd [rsp + TF_A + 24], xmm2
+    movsd [rsp + TF_A + 32], xmm0
+    movsd [rsp + TF_A + 40], xmm1
+    lea rdi, [rsp + TF_D]
+    lea rsi, [r15 + P_TX_M]
+    lea rdx, [rsp + TF_A]
+    call umath_affine2_multiply
+    movsd xmm1, [r13 + TR_ADV]
+    mulsd xmm1, [rel svg_half]
+    xorpd xmm0, xmm0
+    subsd xmm0, xmm1
+    movsd xmm1, [r13 + TR_PERP]
+    lea rdi, [rsp + TF_A]
+    call umath_affine2_translate
+    lea rdi, [rsp + TF_E]
+    lea rsi, [rsp + TF_D]
+    lea rdx, [rsp + TF_A]
+    call umath_affine2_multiply
+    lea rdi, [rsp + TF_A]
+    movsd xmm0, [r13 + TR_ROT]
+    call umath_affine2_rotate
+    lea rdi, [r12 + UgfxSvgItem_matrix]
+    lea rsi, [rsp + TF_E]
+    lea rdx, [rsp + TF_A]
+    call umath_affine2_multiply
+    jmp .rec_next
+.off:
+    lea rdi, [r12 + UgfxSvgItem_path]
+    call ugfx_path_reset
+.rec_next:
+    inc dword [rsp + TF_I]
+    jmp .rec
+.placed:
+    mov dword [r15 + P_TP_NRECS], 0
 .out:
     add rsp, TF_SIZE
     pop r14
     pop r13
     pop r12
+    ret
+
+; -----------------------------------------------------------------------------
+; textPath: its href names a path (its own transform applied); its text is
+; laid out along it from startOffset (a length, or a percentage of the
+; path's length): x is the distance along the path, y the distance off it
+; (dy moves it, an absolute y does not). Curves are followed as TP_STEPS
+; straight pieces each. A missing or unusable path draws none of it.
+; After it, text goes on from the point its last character reached.
+; -----------------------------------------------------------------------------
+
+; svg_textpath_start — r15 = frame, rbx = the textPath's state
+svg_textpath_start:
+    push r12
+    sub rsp, 16
+    call svg_text_finish
+    mov qword [r15 + P_TP_PTS], 0
+    mov rsi, [r15 + P_HREF]
+    test rsi, rsi
+    jz .bad
+    lea rdi, [r15 + P_DEFS]
+    mov rdx, [r15 + P_HREF_END]
+    call ugfx_svg_defs_id
+    test rax, rax
+    jz .bad
+    mov rdi, rax
+    call svg_textpath_points
+    jc .bad
+    ; startOffset
+    xorpd xmm0, xmm0
+    movsd [rsp], xmm0
+    mov rdi, [r15 + P_SO_RAW]
+    test rdi, rdi
+    jz .offset
+    mov rsi, [r15 + P_SO_RAW + 8]
+    mov r12, rsi
+    push rdi
+    sub rsp, 8
+    call ugfx_svg_number
+    add rsp, 8
+    pop rdi
+    test rax, rax
+    jz .so_length
+    cmp rax, r12
+    jae .so_length
+    cmp byte [rax], '%'
+    jne .so_length
+    mulsd xmm0, [rel svg_hundredth]
+    mulsd xmm0, [r15 + P_TP_LEN]
+    movsd [rsp], xmm0
+    jmp .offset
+.so_length:
+    mov rsi, r12
+    mov edx, AX_X
+    call svg_length
+    test rax, rax
+    jz .offset
+    movsd [rsp], xmm0
+.offset:
+    movsd xmm0, [rsp]
+    movsd [r15 + P_TX_X], xmm0
+    movsd xmm0, [r15 + P_TX_Y]
+    movsd [r15 + P_TP_Y0], xmm0
+    jmp .out
+.bad:
+    mov qword [r15 + P_TP_PTS], 0
+    mov dword [rbx + S_SKIP], 1
+.out:
+    add rsp, 16
+    pop r12
+    ret
+
+; svg_textpath_end — r15 = frame: its last chunk placed; the text position
+;   the path's point where its text ended (within the path)
+svg_textpath_end:
+    sub rsp, 8
+    call svg_text_finish
+    cmp qword [r15 + P_TP_PTS], 0
+    je .out
+    movsd xmm0, [r15 + P_TX_X]
+    xorpd xmm1, xmm1
+    maxsd xmm0, xmm1
+    minsd xmm0, [r15 + P_TP_LEN]
+    call svg_textpath_at
+    jc .clear
+    movsd [r15 + P_TX_X], xmm0
+    movsd [r15 + P_TX_Y], xmm1
+.clear:
+    mov qword [r15 + P_TP_PTS], 0
+.out:
+    add rsp, 8
+    ret
+
+; svg_textpath_at — xmm0 = a distance, r15 = frame (on a path) -> CF clear:
+;   xmm0, xmm1 = the point there, xmm2, xmm3 = the direction (cos, sin);
+;   CF set off the path
+svg_textpath_at:
+    xorpd xmm1, xmm1
+    ucomisd xmm0, xmm1
+    jb .off
+    ucomisd xmm0, [r15 + P_TP_LEN]
+    ja .off
+    mov rdx, [r15 + P_TP_PTS]
+    mov ecx, [r15 + P_TP_NPTS]
+    mov eax, 1
+.seg:
+    cmp eax, ecx
+    jae .off
+    imul r8, rax, TP_SIZE
+    add r8, rdx
+    cmp qword [r8 + TP_NEW], 0
+    jne .next
+    movsd xmm1, [r8 + TP_DIST]
+    movsd xmm2, xmm1
+    subsd xmm2, [r8 - TP_SIZE + TP_DIST]    ; its length
+    xorpd xmm3, xmm3
+    ucomisd xmm2, xmm3
+    jbe .next
+    ucomisd xmm0, xmm1
+    ja .next
+    movsd xmm4, xmm0
+    subsd xmm4, [r8 - TP_SIZE + TP_DIST]
+    divsd xmm4, xmm2                    ; f
+    movsd xmm5, [r8 + TP_X]
+    subsd xmm5, [r8 - TP_SIZE + TP_X]   ; dx
+    movsd xmm6, [r8 + TP_Y]
+    subsd xmm6, [r8 - TP_SIZE + TP_Y]   ; dy
+    movsd xmm0, xmm5
+    mulsd xmm0, xmm4
+    addsd xmm0, [r8 - TP_SIZE + TP_X]
+    movsd xmm1, xmm6
+    mulsd xmm1, xmm4
+    addsd xmm1, [r8 - TP_SIZE + TP_Y]
+    movsd xmm3, xmm6
+    divsd xmm3, xmm2
+    divsd xmm5, xmm2
+    movsd xmm2, xmm5
+    clc
+    ret
+.next:
+    inc eax
+    jmp .seg
+.off:
+    stc
+    ret
+
+; -----------------------------------------------------------------------------
+; svg_textpath_points — rdi = the '<' of the element named, r15 = frame
+;   -> CF clear with P_TP_PTS / NPTS / LEN: a path element's outline (d,
+;   through its transform) as points with their distances along it; CF set
+;   when it is not a path or has none
+; -----------------------------------------------------------------------------
+%define TQ_XML      0                   ; UgfxSvgXml
+%define TQ_ATTR     UgfxSvgXml_SIZE     ; UgfxSvgAttr
+%define TQ_PATH     (TQ_ATTR + UgfxSvgAttr_SIZE)    ; UgfxPath
+%define TQ_TM       (TQ_PATH + UgfxPath_SIZE)       ; f64[6]
+%define TQ_D        (TQ_TM + 48)        ; d as written (text, end)
+%define TQ_CUR      (TQ_D + 16)         ; f64 x, y: the current point
+%define TQ_START    (TQ_CUR + 16)       ; f64 x, y: the subpath's start
+%define TQ_P        (TQ_START + 16)     ; f64[6] a curve's points after the current
+%define TQ_I        (TQ_P + 48)         ; u32 verb, u32 point
+%define TQ_SIZE     (((TQ_I + 8 + 15) & ~15) + 8)
+
+svg_textpath_points:
+    push r12
+    push r13
+    push r14
+    push rbx
+    sub rsp, TQ_SIZE
+    mov r12, rdi
+    ; a path element
+    mov rax, [r15 + P_XML + UgfxSvgXml_end]
+    lea rcx, [r12 + 6]
+    cmp rcx, rax
+    ja .bad
+    cmp dword [r12 + 1], 'path'
+    jne .bad
+    movzx eax, byte [r12 + 5]
+    cmp al, '>'
+    je .is_path
+    cmp al, '/'
+    je .is_path
+    cmp al, ' '
+    ja .bad
+.is_path:
+    ; its d and transform
+    mov [rsp + TQ_XML + UgfxSvgXml_cur], r12
+    mov rax, [r15 + P_XML + UgfxSvgXml_end]
+    mov [rsp + TQ_XML + UgfxSvgXml_end], rax
+    mov rax, [r15 + P_XML + UgfxSvgXml_arena]
+    mov [rsp + TQ_XML + UgfxSvgXml_arena], rax
+    lea rdi, [rsp + TQ_XML]
+    call ugfx_svg_xml_next
+    cmp eax, 1
+    jne .bad
+    lea rdi, [rsp + TQ_TM]
+    call umath_affine2_identity
+    mov qword [rsp + TQ_D], 0
+    mov qword [rsp + TQ_ATTR + UgfxSvgAttr_cur], 0
+.attr:
+    lea rdi, [rsp + TQ_XML]
+    lea rsi, [rsp + TQ_ATTR]
+    call ugfx_svg_xml_attr
+    test eax, eax
+    jz .attrs_done
+    mov rdi, [rsp + TQ_ATTR + UgfxSvgAttr_name]
+    mov rsi, [rsp + TQ_ATTR + UgfxSvgAttr_name_end]
+    lea rdx, [rel svg_attributes]
+    call ugfx_svg_lookup
+    mov rdi, [rsp + TQ_ATTR + UgfxSvgAttr_val]
+    mov rsi, [rsp + TQ_ATTR + UgfxSvgAttr_val_end]
+    cmp eax, A_D
+    je .attr_d
+    cmp eax, A_TRANSFORM
+    jne .attr
+    lea rdx, [rsp + TQ_TM]
+    call ugfx_svg_transform
+    jmp .attr
+.attr_d:
+    mov [rsp + TQ_D], rdi
+    mov [rsp + TQ_D + 8], rsi
+    jmp .attr
+.attrs_done:
+    mov rdi, [rsp + TQ_D]
+    test rdi, rdi
+    jz .bad
+    lea rdi, [rsp + TQ_PATH]
+    mov rax, [r15 + P_SVG]
+    mov rsi, [rax + UgfxSvg_arena]
+    call ugfx_path_init
+    test rax, rax
+    jnz .bad
+    mov rdi, [rsp + TQ_D]
+    mov rsi, [rsp + TQ_D + 8]
+    lea rdx, [rsp + TQ_PATH]
+    call ugfx_svg_path_data             ; (what parses, up to an error)
+    ; room: TP_STEPS points a verb at most
+    mov eax, [rsp + TQ_PATH + UgfxPath_verb_count]
+    test eax, eax
+    jz .bad
+    imul eax, eax, TP_STEPS * TP_SIZE
+    mov esi, eax
+    mov rax, [r15 + P_SVG]
+    mov rdi, [rax + UgfxSvg_arena]
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov [r15 + P_TP_PTS], rax
+    mov dword [r15 + P_TP_NPTS], 0
+    xorpd xmm0, xmm0
+    movsd [r15 + P_TP_LEN], xmm0
+    movsd [rsp + TQ_CUR], xmm0
+    movsd [rsp + TQ_CUR + 8], xmm0
+    movsd [rsp + TQ_START], xmm0
+    movsd [rsp + TQ_START + 8], xmm0
+    mov dword [rsp + TQ_I], 0           ; the verb
+    mov dword [rsp + TQ_I + 4], 0       ; the point
+.verb:
+    mov eax, [rsp + TQ_I]
+    cmp eax, [rsp + TQ_PATH + UgfxPath_verb_count]
+    jae .done
+    inc dword [rsp + TQ_I]
+    mov rcx, [rsp + TQ_PATH + UgfxPath_verbs]
+    movzx r13d, byte [rcx + rax]
+    mov ecx, [rsp + TQ_I + 4]
+    shl rcx, 4
+    add rcx, [rsp + TQ_PATH + UgfxPath_points]   ; its first point
+    cmp r13d, PATH_VERB_MOVE
+    je .move
+    cmp r13d, PATH_VERB_LINE
+    je .line
+    cmp r13d, PATH_VERB_QUAD
+    je .curve
+    cmp r13d, PATH_VERB_CUBIC
+    je .curve
+    cmp r13d, PATH_VERB_CLOSE
+    jne .done
+    movsd xmm0, [rsp + TQ_START]
+    movsd xmm1, [rsp + TQ_START + 8]
+    xor edx, edx
+    call .emit
+    movsd xmm0, [rsp + TQ_START]
+    movsd [rsp + TQ_CUR], xmm0
+    movsd xmm0, [rsp + TQ_START + 8]
+    movsd [rsp + TQ_CUR + 8], xmm0
+    jmp .verb
+.move:
+    inc dword [rsp + TQ_I + 4]
+    movsd xmm0, [rcx]
+    movsd xmm1, [rcx + 8]
+    movsd [rsp + TQ_CUR], xmm0
+    movsd [rsp + TQ_CUR + 8], xmm1
+    movsd [rsp + TQ_START], xmm0
+    movsd [rsp + TQ_START + 8], xmm1
+    mov edx, 1
+    call .emit
+    jmp .verb
+.line:
+    inc dword [rsp + TQ_I + 4]
+    movsd xmm0, [rcx]
+    movsd xmm1, [rcx + 8]
+    movsd [rsp + TQ_CUR], xmm0
+    movsd [rsp + TQ_CUR + 8], xmm1
+    xor edx, edx
+    call .emit
+    jmp .verb
+.curve:
+    ; its points (2 or 3) after the current one, then TP_STEPS samples
+    mov r14d, 2
+    cmp r13d, PATH_VERB_QUAD
+    je .copy
+    mov r14d, 3
+.copy:
+    add [rsp + TQ_I + 4], r14d
+    xor edx, edx
+.copy_point:
+    movsd xmm0, [rcx + rdx * 8]
+    movsd [rsp + TQ_P + rdx * 8], xmm0
+    inc edx
+    lea eax, [r14 * 2]
+    cmp edx, eax
+    jb .copy_point
+    mov ebx, 1
+.sample:
+    cvtsi2sd xmm7, ebx
+    divsd xmm7, [rel svg_tp_steps]      ; t
+    movsd xmm6, [rel svg_one]
+    subsd xmm6, xmm7                    ; 1 - t
+    cmp r14d, 2
+    jne .cubic
+    ; (1 - t)^2 p0 + 2 (1 - t) t p1 + t^2 p2
+    movapd xmm2, xmm6
+    mulsd xmm2, xmm6                    ; a
+    movsd xmm3, [rel svg_fe_two]
+    mulsd xmm3, xmm6
+    mulsd xmm3, xmm7                    ; b
+    movapd xmm4, xmm7
+    mulsd xmm4, xmm7                    ; c
+    movapd xmm0, xmm2
+    mulsd xmm0, [rsp + TQ_CUR]
+    movapd xmm5, xmm3
+    mulsd xmm5, [rsp + TQ_P]
+    addsd xmm0, xmm5
+    movapd xmm5, xmm4
+    mulsd xmm5, [rsp + TQ_P + 16]
+    addsd xmm0, xmm5
+    movapd xmm1, xmm2
+    mulsd xmm1, [rsp + TQ_CUR + 8]
+    movapd xmm5, xmm3
+    mulsd xmm5, [rsp + TQ_P + 8]
+    addsd xmm1, xmm5
+    movapd xmm5, xmm4
+    mulsd xmm5, [rsp + TQ_P + 24]
+    addsd xmm1, xmm5
+    jmp .sampled
+.cubic:
+    ; (1 - t)^3 p0 + 3 (1 - t)^2 t p1 + 3 (1 - t) t^2 p2 + t^3 p3
+    movapd xmm2, xmm6
+    mulsd xmm2, xmm6
+    mulsd xmm2, xmm6                    ; a
+    movsd xmm3, [rel svg_three]
+    mulsd xmm3, xmm6
+    mulsd xmm3, xmm6
+    mulsd xmm3, xmm7                    ; b
+    movsd xmm4, [rel svg_three]
+    mulsd xmm4, xmm6
+    mulsd xmm4, xmm7
+    mulsd xmm4, xmm7                    ; c
+    movapd xmm5, xmm7
+    mulsd xmm5, xmm7
+    mulsd xmm5, xmm7                    ; d
+    movapd xmm0, xmm2
+    mulsd xmm0, [rsp + TQ_CUR]
+    movapd xmm8, xmm3
+    mulsd xmm8, [rsp + TQ_P]
+    addsd xmm0, xmm8
+    movapd xmm8, xmm4
+    mulsd xmm8, [rsp + TQ_P + 16]
+    addsd xmm0, xmm8
+    movapd xmm8, xmm5
+    mulsd xmm8, [rsp + TQ_P + 32]
+    addsd xmm0, xmm8
+    movapd xmm1, xmm2
+    mulsd xmm1, [rsp + TQ_CUR + 8]
+    movapd xmm8, xmm3
+    mulsd xmm8, [rsp + TQ_P + 8]
+    addsd xmm1, xmm8
+    movapd xmm8, xmm4
+    mulsd xmm8, [rsp + TQ_P + 24]
+    addsd xmm1, xmm8
+    movapd xmm8, xmm5
+    mulsd xmm8, [rsp + TQ_P + 40]
+    addsd xmm1, xmm8
+.sampled:
+    xor edx, edx
+    call .emit
+    inc ebx
+    cmp ebx, TP_STEPS
+    jbe .sample
+    ; the current point: the curve's end
+    lea eax, [r14 * 2 - 2]
+    movsd xmm0, [rsp + TQ_P + rax * 8]
+    movsd [rsp + TQ_CUR], xmm0
+    movsd xmm0, [rsp + TQ_P + rax * 8 + 8]
+    movsd [rsp + TQ_CUR + 8], xmm0
+    jmp .verb
+.done:
+    cmp dword [r15 + P_TP_NPTS], 0
+    je .bad
+    clc
+    jmp .out
+.nomem:
+    mov dword [r15 + P_ERR], -(ENOMEM)
+.bad:
+    mov qword [r15 + P_TP_PTS], 0
+    stc
+.out:
+    lea rsp, [rsp + TQ_SIZE]            ; (CF kept)
+    pop rbx
+    pop r14
+    pop r13
+    pop r12
+    ret
+; xmm0, xmm1 = a point, edx = 1 when a subpath starts: through the
+;   transform, its distance, appended (frame at rsp + 8)
+.emit:
+    movsd xmm2, [rsp + 8 + TQ_TM]
+    mulsd xmm2, xmm0
+    movsd xmm3, [rsp + 8 + TQ_TM + 16]
+    mulsd xmm3, xmm1
+    addsd xmm2, xmm3
+    addsd xmm2, [rsp + 8 + TQ_TM + 32]  ; x
+    movsd xmm3, [rsp + 8 + TQ_TM + 8]
+    mulsd xmm3, xmm0
+    movsd xmm4, [rsp + 8 + TQ_TM + 24]
+    mulsd xmm4, xmm1
+    addsd xmm3, xmm4
+    addsd xmm3, [rsp + 8 + TQ_TM + 40]  ; y
+    mov eax, [r15 + P_TP_NPTS]
+    imul r8, rax, TP_SIZE
+    add r8, [r15 + P_TP_PTS]
+    test eax, eax
+    jnz .e_after
+    mov edx, 1                          ; the first starts one
+.e_after:
+    test edx, edx
+    jnz .e_store
+    movapd xmm4, xmm2
+    subsd xmm4, [r8 - TP_SIZE + TP_X]
+    mulsd xmm4, xmm4
+    movapd xmm5, xmm3
+    subsd xmm5, [r8 - TP_SIZE + TP_Y]
+    mulsd xmm5, xmm5
+    addsd xmm4, xmm5
+    sqrtsd xmm4, xmm4
+    addsd xmm4, [r15 + P_TP_LEN]
+    movsd [r15 + P_TP_LEN], xmm4
+.e_store:
+    movsd [r8 + TP_X], xmm2
+    movsd [r8 + TP_Y], xmm3
+    movsd xmm4, [r15 + P_TP_LEN]
+    movsd [r8 + TP_DIST], xmm4
+    mov [r8 + TP_NEW], rdx
+    inc dword [r15 + P_TP_NPTS]
     ret
 
 ; -----------------------------------------------------------------------------
@@ -8033,6 +9003,55 @@ svg_lengths:
     lea r12, [r15 + P_WS_RAW]
     lea r13, [rbx + S_WSPACE]
     call .spacing
+    ; baseline-shift on a text's tspan / textPath: added to its parent's
+    ; (baseline 0, sub -0.2 em, super 0.4 em, a percentage of font-size, a
+    ; length)
+    mov rdi, [r15 + P_BS_RAW]
+    test rdi, rdi
+    jz .dash_offset
+    cmp dword [rbx + S_INTEXT], 1
+    jne .dash_offset
+    mov rsi, [r15 + P_BS_RAW + 8]
+    call ugfx_svg_trim
+    push rdi
+    push rsi
+    lea rdx, [rel svg_bshift_words]
+    call ugfx_svg_lookup
+    pop rsi
+    pop rdi
+    xorpd xmm0, xmm0
+    cmp eax, 1
+    je .bs_add
+    movsd xmm0, [rbx + S_FONT]
+    mulsd xmm0, [rel svg_m0_2]
+    cmp eax, 2
+    je .bs_add
+    movsd xmm0, [rbx + S_FONT]
+    mulsd xmm0, [rel svg_0_4]
+    cmp eax, 3
+    je .bs_add
+    push rdi
+    push rsi
+    call ugfx_svg_number
+    pop rsi
+    pop rdi
+    test rax, rax
+    jz .bs_length
+    cmp rax, rsi
+    jae .bs_length
+    cmp byte [rax], '%'
+    jne .bs_length
+    mulsd xmm0, [rel svg_hundredth]
+    mulsd xmm0, [rbx + S_FONT]
+    jmp .bs_add
+.bs_length:
+    mov edx, AX_Y
+    call svg_length
+    test rax, rax
+    jz .dash_offset
+.bs_add:
+    addsd xmm0, [rbx + S_BSHIFT]
+    movsd [rbx + S_BSHIFT], xmm0
 .dash_offset:
     mov rdi, [r15 + P_DOFF_RAW]
     test rdi, rdi
@@ -8779,6 +9798,8 @@ svg_geometry:
     mov eax, [r15 + P_ELEM]
     cmp eax, E_GLYPH
     je .glyph
+    cmp eax, E_DECOR
+    je .decor
     cmp eax, E_PATH
     je .path
     cmp eax, E_POLYLINE
@@ -8898,6 +9919,20 @@ svg_geometry:
     mov rsi, [r15 + P_D_END]
     mov rdx, rbx
     call ugfx_svg_path_data
+    jmp .out
+.decor:
+    ; a decoration: its rectangle, if it has an area
+    xorpd xmm7, xmm7
+    movsd xmm2, [r15 + P_DEC + 16]
+    ucomisd xmm2, xmm7
+    jbe .empty
+    movsd xmm3, [r15 + P_DEC + 24]
+    ucomisd xmm3, xmm7
+    jbe .empty
+    mov rdi, rbx
+    movsd xmm0, [r15 + P_DEC]
+    movsd xmm1, [r15 + P_DEC + 8]
+    call ugfx_path_add_rect
     jmp .out
 .glyph:
     ; the font's outline at the size
