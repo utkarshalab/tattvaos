@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check SVG text in Canvas: the shipped fonts through src/font/sfnt.asm and fontset.asm.
+"""Check SVG text in Canvas: lib/ufont's fonts through its sfnt reader and font sets.
 
 Usage: svg_text_check.py <host_decode> <ugfx host_ctx> <font directory>
 
@@ -8,7 +8,7 @@ Every lib/ugfx svg_check.py document with text, and the documents below
 from composite glyphs, Greek, Cyrillic, characters a face lacks, sizes,
 transforms, decorations, textPath), is decoded by Canvas with the fonts
 (host_decode ... <font directory>) and compared with the context calls
-svgmodel derives using canvas_fonts.FontSet - the same glyphs and
+svgmodel derives using lib/ufont's fontmodel.FontSet - the same glyphs and
 arithmetic - drawn by ugfx's host_ctx. The images must be identical. Damaged fonts
 (truncated, bytes changed) must never crash the decoder.
 
@@ -23,8 +23,9 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 UGFX = os.path.join(HERE, "..", "..", "..", "ugfx")
-sys.path[:0] = [HERE, os.path.join(UGFX, "tests", "host"), os.path.join(UGFX, "tools")]
-import canvas_fonts  # noqa: E402
+UFONT = os.path.join(HERE, "..", "..", "..", "ufont")
+sys.path[:0] = [HERE, os.path.join(UFONT, "tools"), os.path.join(UGFX, "tests", "host"), os.path.join(UGFX, "tools")]
+import fontmodel  # noqa: E402
 import ctx_check  # noqa: E402
 import svgmodel  # noqa: E402
 from svg_check import CASES, expected_calls, farbfeld  # noqa: E402
@@ -80,7 +81,7 @@ DOCS = [
 
 def main():
     decode_tool, ctx_tool, font_dir = (os.path.abspath(p) for p in sys.argv[1:4])
-    fonts = canvas_fonts.FontSet(font_dir)
+    fonts = fontmodel.FontSet(font_dir)
     cases = [(n, t, trig) for n, t, trig in CASES if "<text" in t]
     cases += [(n, t, False) for n, t in [d[:2] for d in DOCS if len(d) == 2]]
     cases += [d for d in DOCS if len(d) == 3]
