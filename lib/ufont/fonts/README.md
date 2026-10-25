@@ -17,6 +17,14 @@ their family, weight and style). They install read-only to
 | Liberation Mono | Regular, Bold, Italic, BoldItalic | SIL OFL 1.1 — `LICENSE-Liberation.txt` |
 | Noto Sans Devanagari | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Devanagari.txt` |
 | Noto Serif Devanagari | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Devanagari.txt` |
+| Noto Sans Bengali | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
+| Noto Sans Gurmukhi | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
+| Noto Sans Gujarati | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
+| Noto Sans Oriya | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
+| Noto Sans Tamil | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
+| Noto Sans Telugu | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
+| Noto Sans Kannada | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
+| Noto Sans Malayalam | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
 
 Noto is the default for everything: no family, `sans-serif`, `serif`,
 `monospace` and the `ui-*` / `system-ui` names. Liberation has the same
@@ -46,15 +54,26 @@ names (and Arimo, Tinos, Cousine) map to it.
   and NotoSerifDevanagari-v2.006, the `unhinted/ttf` static Regular and
   Bold, unmodified (they cover Devanagari, Vedic Extensions, Devanagari
   Extended, the dotted circle and basic Latin).
+- Noto Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada,
+  Malayalam: the notofonts/<script> releases
+  NotoSansBengali-v3.011
+  NotoSansGurmukhi-v2.004
+  NotoSansGujarati-v2.106
+  NotoSansOriya-v2.007
+  NotoSansTamil-v2.004
+  NotoSansTelugu-v2.005
+  NotoSansKannada-v2.006
+  NotoSansMalayalam-v2.104
+  - the `unhinted/ttf` static Regular and Bold, unmodified.
 - Liberation: liberationfonts/liberation-fonts 2.1.5
   (`liberation-fonts-ttf-2.1.5.tar.gz`), unmodified. "Liberation" is a
   Reserved Font Name under its licence, so these files are not subset.
 
 ## What is not covered yet
 
-The Devanagari faces are in `ufont_standard` (families "Noto Sans
-Devanagari" and "Noto Serif Devanagari"); Devanagari text in any other
-family falls back to them and is shaped by the Indic shaper. The other
-Indic scripts and Arabic follow. Colour emoji need colour glyph tables, which `sfnt.asm` does
+The Indic faces are in `ufont_standard` (families "Noto Sans
+Devanagari", "Noto Serif Devanagari", "Noto Sans Bengali" and so on);
+text in those scripts in any other family falls back to them and is
+shaped by the Indic shaper. Arabic follows. Colour emoji need colour glyph tables, which `sfnt.asm` does
 not read. A character no shipped face has draws as the
 face's missing-glyph box.
