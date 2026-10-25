@@ -300,13 +300,18 @@ defines; 17 lookups by name and size; 30 corrupt packs refused.
 list of items; `ugfx_svg_draw(svg, ctx, current_colour, x, y, size)` draws
 it through a context into the square (x, y, size): the viewBox through
 the root's preserveAspectRatio into width x height when both are given,
-that box centred in the square. `ugfx_svg_parse_opts` adds two callbacks:
-an image decoder (a `data:` URI's bytes, or any other href) and a font
-(a glyph's advance and outline at a size); `ugfx_svg_parse_ex` takes the
-image decoder alone. Without them images and text draw nothing. The
-font callback also answers code point -1 with the font's ascent and
-descent (for baselines and decorations; 0.8 / 0.2 em when it does not
-know).
+that box centred in the square. `ugfx_svg_parse_opts` adds callbacks:
+an image decoder (a `data:` URI's bytes, or any other href), a font (a
+glyph's advance and outline at a size) and optionally a shaper;
+`ugfx_svg_parse_ex` takes the image decoder alone. Without them images
+and text draw nothing. The font callback also answers code point -1 with
+the font's ascent and descent (for baselines and decorations; 0.8 / 0.2
+em when it does not know). With a shaper (`shape_fn`) a text node's
+characters are shaped in runs - a character with its own x / y / dx / dy
+/ rotate starts a new run - and placed glyph by glyph (the shaper's
+advances and offsets, spacing per character a glyph ends); its glyphs
+come back to the font callback as keys (bit 31 set). Without one each
+character is placed on its own.
 
 Static SVG 1.1 (and the SVG 2 / CSS pieces documents use):
 
@@ -344,7 +349,8 @@ Static SVG 1.1 (and the SVG 2 / CSS pieces documents use):
   preserveAspectRatio.
 - Text: `text` / `tspan` with x / y / dx / dy / rotate lists, white space
   (and xml:space), entities, text-anchor, letter / word spacing, font
-  family / weight / style / size; glyphs from the font callback.
+  family / weight / style / size; glyphs from the font callback, shaped
+  by the shape callback when there is one.
   `textPath` (a path, its transform, startOffset; characters placed by
   the middle of their advance and turned to the path, off-path ones
   dropped, anchors along it), baseline-shift (sub, super, lengths,
