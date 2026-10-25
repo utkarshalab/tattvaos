@@ -539,40 +539,6 @@ DEFINE_STRUCT_OFFSET Server, transfer_count, 64
 %define Server.size 72
 %define Server_size 72
 
-; TtfFont
-DEFINE_STRUCT_OFFSET TtfFont, cmap, 0
-DEFINE_STRUCT_OFFSET TtfFont, dir, 8
-DEFINE_STRUCT_OFFSET TtfFont, num_tables, 16
-DEFINE_STRUCT_OFFSET TtfFont, kern, 24
-DEFINE_STRUCT_OFFSET TtfFont, hmtx, 32
-DEFINE_STRUCT_OFFSET TtfFont, hhea, 40
-DEFINE_STRUCT_OFFSET TtfFont, glyf, 48
-DEFINE_STRUCT_OFFSET TtfFont, head, 56
-DEFINE_STRUCT_OFFSET TtfFont, maxp, 64
-DEFINE_STRUCT_OFFSET TtfFont, hmtx_count, 72
-DEFINE_STRUCT_OFFSET TtfFont, num_glyphs, 80
-DEFINE_STRUCT_OFFSET TtfFont, loca, 88
-DEFINE_STRUCT_OFFSET TtfFont, loca_format, 96
-DEFINE_STRUCT_OFFSET TtfFont, units_per_em, 100
-DEFINE_STRUCT_OFFSET TtfFont, data, 108
-DEFINE_STRUCT_OFFSET TtfFont, data_len, 116
-%define TtfFont_SIZE 124
-%define TtfFont.size 124
-%define TtfFont_size 124
-
-; GlyfOut
-DEFINE_STRUCT_OFFSET GlyfOut, verbs, 0
-DEFINE_STRUCT_OFFSET GlyfOut, coords, 8
-DEFINE_STRUCT_OFFSET GlyfOut, count, 16
-DEFINE_STRUCT_OFFSET GlyfOut, cap, 24
-DEFINE_STRUCT_OFFSET GlyfOut, x_min, 32
-DEFINE_STRUCT_OFFSET GlyfOut, y_min, 36
-DEFINE_STRUCT_OFFSET GlyfOut, x_max, 40
-DEFINE_STRUCT_OFFSET GlyfOut, y_max, 44
-%define GlyfOut_SIZE 48
-%define GlyfOut.size 48
-%define GlyfOut_size 48
-
 ; Region
 DEFINE_STRUCT_OFFSET Region, rects, 0
 DEFINE_STRUCT_OFFSET Region, count, 8
