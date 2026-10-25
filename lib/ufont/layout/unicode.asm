@@ -3,15 +3,15 @@
 ; =============================================================================
 ; Character properties for shaping, over the generated tables (ucd.asm):
 ;
-;   uc_set_props(rdi = GI record, esi = code point)
+;   ufl_uc_set_props(rdi = GI record, esi = code point)
 ;       the record's character, general category, default-ignorable / joiner /
 ;       hidden flags, and for marks the continuation flag and modified
 ;       combining class (as HarfBuzz keeps them)
-;   uc_decompose(edi = ab) -> eax 1 / 0, edx = a, ecx = b (0: a singleton)
-;   uc_compose(edi = a, esi = b) -> eax = ab, 0 none
-;   uc_space_type(edi) -> eax = the space fallback type (0: not a space)
-;   uc_is_vs(edi) -> eax 1 for a variation selector
-;   uc_is_mark_gc(edi = general category) -> eax 1 for Mn / Mc / Me
+;   ufl_uc_decompose(edi = ab) -> eax 1 / 0, edx = a, ecx = b (0: a singleton)
+;   ufl_uc_compose(edi = a, esi = b) -> eax = ab, 0 none
+;   ufl_uc_space_type(edi) -> eax = the space fallback type (0: not a space)
+;   ufl_uc_is_vs(edi) -> eax 1 for a variation selector
+;   ufl_uc_is_mark_gc(edi = general category) -> eax 1 for Mn / Mc / Me
 ;
 ; Hangul syllables are composed and decomposed arithmetically.
 ; =============================================================================
@@ -19,12 +19,12 @@
 %include "ufont.inc"
 %include "shape.inc"
 
-extern ucd_gc
-extern ucd_mcc
-extern ucd_decomp
-extern ucd_decomp_count
-extern ucd_comp
-extern ucd_comp_count
+extern ufl_ucd_gc
+extern ufl_ucd_mcc
+extern ufl_ucd_decomp
+extern ufl_ucd_decomp_count
+extern ufl_ucd_comp
+extern ufl_ucd_comp_count
 
 %define SBASE 0xAC00
 %define LBASE 0x1100
@@ -39,10 +39,10 @@ extern ucd_comp_count
 section .text
 
 ; ----------------------------------------------------------------------------
-; uc_is_default_ignorable — edi = code point -> eax 1 / 0
+; ufl_uc_is_default_ignorable — edi = code point -> eax 1 / 0
 ; ----------------------------------------------------------------------------
-global uc_is_default_ignorable
-uc_is_default_ignorable:
+global ufl_uc_is_default_ignorable
+ufl_uc_is_default_ignorable:
     xor eax, eax
     cmp edi, 0x00AD
     je .yes
@@ -93,8 +93,8 @@ uc_is_default_ignorable:
     mov eax, 1
     ret
 
-global uc_is_mark_gc
-uc_is_mark_gc:
+global ufl_uc_is_mark_gc
+ufl_uc_is_mark_gc:
     xor eax, eax
     cmp edi, GC_MC
     jb .no
@@ -104,8 +104,8 @@ uc_is_mark_gc:
 .no:
     ret
 
-global uc_is_vs
-uc_is_vs:
+global ufl_uc_is_vs
+ufl_uc_is_vs:
     xor eax, eax
     mov ecx, edi
     sub ecx, 0xFE00
@@ -127,24 +127,24 @@ uc_is_vs:
     ret
 
 ; ----------------------------------------------------------------------------
-; uc_set_props — rdi = GI record, esi = code point
+; ufl_uc_set_props — rdi = GI record, esi = code point
 ; ----------------------------------------------------------------------------
-global uc_set_props
-uc_set_props:
+global ufl_uc_set_props
+ufl_uc_set_props:
     push rbx
     push r12
     mov rbx, rdi
     mov r12d, esi
     mov [rbx + GI_CP], esi
     mov edi, esi
-    call ucd_gc
+    call ufl_ucd_gc
     mov [rbx + GI_GC], al
     mov byte [rbx + GI_UF], 0
     mov byte [rbx + GI_MCC], 0
     cmp r12d, 0x80
     jb .done
     mov edi, r12d
-    call uc_is_default_ignorable
+    call ufl_uc_is_default_ignorable
     test eax, eax
     jz .mark
     mov al, UF_IGN
@@ -176,12 +176,12 @@ uc_set_props:
     mov [rbx + GI_UF], al
 .mark:
     movzx edi, byte [rbx + GI_GC]
-    call uc_is_mark_gc
+    call ufl_uc_is_mark_gc
     test eax, eax
     jz .done
     or byte [rbx + GI_UF], UF_CONT
     mov edi, r12d
-    call ucd_mcc
+    call ufl_ucd_mcc
     mov [rbx + GI_MCC], al
 .done:
     pop r12
@@ -189,10 +189,10 @@ uc_set_props:
     ret
 
 ; ----------------------------------------------------------------------------
-; uc_decompose — edi = ab -> eax 1 found / 0, edx = a, ecx = b
+; ufl_uc_decompose — edi = ab -> eax 1 found / 0, edx = a, ecx = b
 ; ----------------------------------------------------------------------------
-global uc_decompose
-uc_decompose:
+global ufl_uc_decompose
+ufl_uc_decompose:
     mov eax, edi
     sub eax, SBASE
     cmp eax, SCOUNT
@@ -225,9 +225,9 @@ uc_decompose:
     mov eax, 1
     ret
 .table:
-    lea r8, [rel ucd_decomp]
+    lea r8, [rel ufl_ucd_decomp]
     xor r9d, r9d                        ; lo
-    mov r10d, [rel ucd_decomp_count]    ; hi
+    mov r10d, [rel ufl_ucd_decomp_count]    ; hi
 .search:
     cmp r9d, r10d
     jae .none
@@ -253,10 +253,10 @@ uc_decompose:
     ret
 
 ; ----------------------------------------------------------------------------
-; uc_compose — edi = a, esi = b -> eax = ab (0: none)
+; ufl_uc_compose — edi = a, esi = b -> eax = ab (0: none)
 ; ----------------------------------------------------------------------------
-global uc_compose
-uc_compose:
+global ufl_uc_compose
+ufl_uc_compose:
     ; LV + T
     mov eax, edi
     sub eax, SBASE
@@ -287,9 +287,9 @@ uc_compose:
     lea eax, [rax + rcx + SBASE]
     ret
 .table:
-    lea r8, [rel ucd_comp]
+    lea r8, [rel ufl_ucd_comp]
     xor r9d, r9d
-    mov r10d, [rel ucd_comp_count]
+    mov r10d, [rel ufl_ucd_comp_count]
 .search:
     cmp r9d, r10d
     jae .none
@@ -323,7 +323,7 @@ uc_compose:
     ret
 
 ; ----------------------------------------------------------------------------
-; uc_space_type — edi = code point -> eax = HarfBuzz's space type (0 none)
+; ufl_uc_space_type — edi = code point -> eax = HarfBuzz's space type (0 none)
 ; ----------------------------------------------------------------------------
 %define SP_EM 1
 %define SP_EM_2 2
@@ -338,8 +338,8 @@ uc_compose:
 %define SP_PUNCTUATION 20
 %define SP_NARROW 21
 
-global uc_space_type
-uc_space_type:
+global ufl_uc_space_type
+ufl_uc_space_type:
     xor eax, eax
     cmp edi, 0x20
     je .space
