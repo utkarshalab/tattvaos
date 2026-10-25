@@ -5,10 +5,12 @@
 ;
 ;   svg_probe(data, len)                         -> 1 if it looks like SVG
 ;   svg_render(arena, data, len, width, height)  -> PixBuf* or 0
+;   svg_set_fonts(FontSet*)                      the fonts for text (0: none)
 ;
 ; Parsing and drawing are ugfx's (2d/svg.asm; see lib/ugfx/README.md);
 ; images inside the document (data: URIs) decode through image_decode,
-; so any format Canvas reads can be embedded. The image is the
+; so any format Canvas reads can be embedded; text uses the font set given
+; to svg_set_fonts (font/fontset.asm; none: text draws nothing). The image is the
 ; requested size, or the document's own (viewBox, else width / height,
 ; else 300 x 150) when width or height is 0; the drawing is fitted and
 ; centred, transparent around it, currentColor black.
@@ -22,7 +24,8 @@
 %include "ugfx.inc"
 
 extern pixbuf_create
-extern ugfx_svg_parse_ex
+extern ugfx_svg_parse_opts
+extern fontset_svg_font
 extern image_decode
 extern ugfx_svg_draw
 extern ugfx_ctx_init
@@ -36,7 +39,8 @@ extern ugfx_ctx_init
 %define F_PIX       (F_W + 16)
 %define F_SIDE      (F_W + 24)          ; f64
 %define F_CTX       (F_W + 32)          ; UgfxContext
-%define F_SIZE      ((F_CTX + UgfxContext_SIZE + 15) & ~15)
+%define F_OPT       (F_CTX + UgfxContext_SIZE)          ; UgfxSvgOptions
+%define F_SIZE      ((F_OPT + UgfxSvgOptions_SIZE + 15) & ~15)
 
 section .rodata
 align 8
@@ -45,7 +49,19 @@ svg_default_h:      dq 150.0
 svg_half:           dq 0.5
 svg_max_side:       dq 16384.0
 
+section .bss
+align 8
+svg_fonts:          resq 1              ; FontSet* (0: none)
+
 section .text
+
+; ---------------------------------------------------------------------------
+; svg_set_fonts — rdi = FontSet* (kept) or 0: the fonts SVG text is drawn in
+; ---------------------------------------------------------------------------
+global svg_set_fonts
+svg_set_fonts:
+    mov [rel svg_fonts], rdi
+    ret
 
 ; ---------------------------------------------------------------------------
 ; svg_probe — rdi = data, rsi = length -> rax = 1 if "<svg" appears in the
@@ -111,13 +127,23 @@ svg_render:
     jz .fail
     test rsi, rsi
     jz .fail
+    lea rax, [rel svg_image]
+    mov [rsp + F_OPT + UgfxSvgOptions_image_fn], rax
+    mov qword [rsp + F_OPT + UgfxSvgOptions_image_user], 0
+    xor eax, eax
+    mov rcx, [rel svg_fonts]
+    test rcx, rcx
+    jz .fonts
+    lea rax, [rel fontset_svg_font]
+.fonts:
+    mov [rsp + F_OPT + UgfxSvgOptions_font_fn], rax
+    mov [rsp + F_OPT + UgfxSvgOptions_font_user], rcx
     lea rdi, [rsp + F_SVG]
     mov rcx, rdx
     mov rdx, rsi
     mov rsi, rbx
-    lea r8, [rel svg_image]
-    xor r9d, r9d
-    call ugfx_svg_parse_ex
+    lea r8, [rsp + F_OPT]
+    call ugfx_svg_parse_opts
     test rax, rax
     jnz .fail
     ; the size: requested, else the document's
