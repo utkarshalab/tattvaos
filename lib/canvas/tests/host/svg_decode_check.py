@@ -40,10 +40,10 @@ def own_size(text):
     return max(w, 1), max(h, 1)
 
 
-def decode(tool, d, data):
+def decode(tool, d, data, font_dir=None):
     src, raw = os.path.join(d, "in.svg"), os.path.join(d, "out.raw")
     open(src, "wb").write(data)
-    r = subprocess.run([tool, src, raw], capture_output=True, timeout=60)
+    r = subprocess.run([tool, src, raw] + ([font_dir] if font_dir else []), capture_output=True, timeout=60)
     if r.returncode:
         return None, r.returncode
     b = open(raw, "rb").read()
@@ -57,7 +57,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="canvas_svg.") as d:
         for name, text, _ in CASES:
             if "<text" in text:
-                continue                # ugfx's checks draw text with a test font; Canvas's fonts differ
+                continue                # text: svg_text_check.py, with the real fonts
             total += 1
             got, rc = decode(decode_tool, d, text.encode())
             w, h = own_size(text)
