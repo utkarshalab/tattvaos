@@ -18,10 +18,10 @@ extern arena_alloc
 section .text
 
 ; ----------------------------------------------------------------------------
-; buf_ensure — esi = records needed -> eax = 0, or -1 (out of memory)
+; ufl_buf_ensure — esi = records needed -> eax = 0, or -1 (out of memory)
 ; ----------------------------------------------------------------------------
-global buf_ensure
-buf_ensure:
+global ufl_buf_ensure
+ufl_buf_ensure:
     cmp esi, [r15 + S_CAP]
     jbe .ok
     cmp dword [r15 + S_MAXLEN], 0
@@ -87,14 +87,14 @@ buf_ensure:
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_out_slot -> rdi = the next output record (S_OUTLEN counts it); the
+; ufl_buf_out_slot -> rdi = the next output record (S_OUTLEN counts it); the
 ;   dummy record when memory ran out
 ; ----------------------------------------------------------------------------
-global buf_out_slot
-buf_out_slot:
+global ufl_buf_out_slot
+ufl_buf_out_slot:
     mov esi, [r15 + S_OUTLEN]
     inc esi
-    call buf_ensure
+    call ufl_buf_ensure
     test eax, eax
     jnz .dummy
     mov edi, [r15 + S_OUTLEN]
@@ -115,23 +115,23 @@ buf_out_slot:
 %endmacro
 
 ; ----------------------------------------------------------------------------
-; buf_clear_output / buf_sync
+; ufl_buf_clear_output / ufl_buf_sync
 ; ----------------------------------------------------------------------------
-global buf_clear_output
-buf_clear_output:
+global ufl_buf_clear_output
+ufl_buf_clear_output:
     mov dword [r15 + S_OUTLEN], 0
     mov byte [r15 + S_HAVEOUT], 1
     ret
 
-global buf_sync
-buf_sync:
+global ufl_buf_sync
+ufl_buf_sync:
     ; the rest of the input follows the output
     mov eax, [r15 + S_IDX]
 .rest:
     cmp eax, [r15 + S_LEN]
     jae .swap
     push rax
-    call buf_out_slot
+    call ufl_buf_out_slot
     pop rax
     mov esi, eax
     shl rsi, 5
@@ -152,23 +152,23 @@ buf_sync:
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_cur -> rax = &info[idx]
+; ufl_buf_cur -> rax = &info[idx]
 ; ----------------------------------------------------------------------------
-global buf_cur
-buf_cur:
+global ufl_buf_cur
+ufl_buf_cur:
     mov eax, [r15 + S_IDX]
     shl rax, 5
     add rax, [r15 + S_INFO]
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_next_glyph: the current record to the output (when there is one)
+; ufl_buf_next_glyph: the current record to the output (when there is one)
 ; ----------------------------------------------------------------------------
-global buf_next_glyph
-buf_next_glyph:
+global ufl_buf_next_glyph
+ufl_buf_next_glyph:
     cmp byte [r15 + S_HAVEOUT], 0
     je .skip
-    call buf_out_slot
+    call ufl_buf_out_slot
     mov esi, [r15 + S_IDX]
     shl rsi, 5
     add rsi, [r15 + S_INFO]
@@ -178,33 +178,33 @@ buf_next_glyph:
     ret
 
 ; esi = n
-global buf_next_glyphs
-buf_next_glyphs:
+global ufl_buf_next_glyphs
+ufl_buf_next_glyphs:
     push rbx
     mov ebx, esi
 .loop:
     test ebx, ebx
     jz .done
-    call buf_next_glyph
+    call ufl_buf_next_glyph
     dec ebx
     jmp .loop
 .done:
     pop rbx
     ret
 
-global buf_skip_glyph
-buf_skip_glyph:
+global ufl_buf_skip_glyph
+ufl_buf_skip_glyph:
     inc dword [r15 + S_IDX]
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_output_glyph — esi = glyph: a copy of the current record with that glyph
-;   to the output -> rdi = it. buf_replace_glyph also consumes the current.
+; ufl_buf_output_glyph — esi = glyph: a copy of the current record with that glyph
+;   to the output -> rdi = it. ufl_buf_replace_glyph also consumes the current.
 ; ----------------------------------------------------------------------------
-global buf_output_glyph
-buf_output_glyph:
+global ufl_buf_output_glyph
+ufl_buf_output_glyph:
     push rsi
-    call buf_out_slot
+    call ufl_buf_out_slot
     pop rdx
     mov esi, [r15 + S_IDX]
     shl rsi, 5
@@ -213,26 +213,26 @@ buf_output_glyph:
     mov [rdi + GI_GLYPH], edx
     ret
 
-global buf_replace_glyph
-buf_replace_glyph:
-    call buf_output_glyph
+global ufl_buf_replace_glyph
+ufl_buf_replace_glyph:
+    call ufl_buf_output_glyph
     inc dword [r15 + S_IDX]
     ret
 
 ; rsi = a record: copied to the output
-global buf_output_info
-buf_output_info:
+global ufl_buf_output_info
+ufl_buf_output_info:
     push rsi
-    call buf_out_slot
+    call ufl_buf_out_slot
     pop rsi
     COPY_GI
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_delete_glyph: the current record goes; its cluster joins a neighbour's
+; ufl_buf_delete_glyph: the current record goes; its cluster joins a neighbour's
 ; ----------------------------------------------------------------------------
-global buf_delete_glyph
-buf_delete_glyph:
+global ufl_buf_delete_glyph
+ufl_buf_delete_glyph:
     mov rdx, [r15 + S_INFO]
     mov eax, [r15 + S_IDX]
     mov ecx, eax
@@ -270,16 +270,16 @@ buf_delete_glyph:
     jae .done
     mov esi, eax
     lea edx, [rax + 2]
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
 .done:
     inc dword [r15 + S_IDX]
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_next_serial -> eax = a ligature serial (1 .. 255)
+; ufl_buf_next_serial -> eax = a ligature serial (1 .. 255)
 ; ----------------------------------------------------------------------------
-global buf_next_serial
-buf_next_serial:
+global ufl_buf_next_serial
+ufl_buf_next_serial:
     movzx eax, byte [r15 + S_SERIAL]
     inc al
     jnz .ok
@@ -289,11 +289,11 @@ buf_next_serial:
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_move_to — esi = output position: the output made exactly that long,
+; ufl_buf_move_to — esi = output position: the output made exactly that long,
 ;   taking from or giving back to the input
 ; ----------------------------------------------------------------------------
-global buf_move_to
-buf_move_to:
+global ufl_buf_move_to
+ufl_buf_move_to:
     cmp byte [r15 + S_HAVEOUT], 0
     jne .out
     mov [r15 + S_IDX], esi
@@ -328,7 +328,7 @@ buf_move_to:
     mov esi, [r15 + S_LEN]
     add esi, r12d
     sub esi, eax
-    call buf_ensure
+    call ufl_buf_ensure
     test eax, eax
     jnz .done
     mov ecx, [r15 + S_LEN]
@@ -369,7 +369,7 @@ buf_move_to:
 
 ; next_glyph with the output on (move_to's copying)
 buf_next_glyph_forced:
-    call buf_out_slot
+    call ufl_buf_out_slot
     mov esi, [r15 + S_IDX]
     shl rsi, 5
     add rsi, [r15 + S_INFO]
@@ -378,11 +378,11 @@ buf_next_glyph_forced:
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_merge_clusters — esi = start, edx = end (input positions): one cluster,
+; ufl_buf_merge_clusters — esi = start, edx = end (input positions): one cluster,
 ;   the smallest of theirs, spreading to neighbours sharing theirs
 ; ----------------------------------------------------------------------------
-global buf_merge_clusters
-buf_merge_clusters:
+global ufl_buf_merge_clusters
+ufl_buf_merge_clusters:
     mov eax, edx
     sub eax, esi
     cmp eax, 2
@@ -472,10 +472,10 @@ buf_merge_clusters:
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_merge_out_clusters — esi = start, edx = end (output positions)
+; ufl_buf_merge_out_clusters — esi = start, edx = end (output positions)
 ; ----------------------------------------------------------------------------
-global buf_merge_out_clusters
-buf_merge_out_clusters:
+global ufl_buf_merge_out_clusters
+ufl_buf_merge_out_clusters:
     mov eax, edx
     sub eax, esi
     cmp eax, 2
@@ -548,11 +548,11 @@ buf_merge_out_clusters:
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_sort — esi = start, edx = end, ecx = offset of a u8 key: input records
+; ufl_buf_sort — esi = start, edx = end, ecx = offset of a u8 key: input records
 ;   sorted by it, stably (insertion), clusters merged over what moves
 ; ----------------------------------------------------------------------------
-global buf_sort
-buf_sort:
+global ufl_buf_sort
+ufl_buf_sort:
     push rbx
     push r12
     push r13
@@ -587,7 +587,7 @@ buf_sort:
     push rcx
     mov esi, ecx
     lea edx, [rbx + 1]
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
     pop rcx
     mov r8, [r15 + S_INFO]
     ; info[i] to j, the rest up one
@@ -623,11 +623,11 @@ buf_sort:
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_move_record — esi = from, edx = to (input positions): the record moves
+; ufl_buf_move_record — esi = from, edx = to (input positions): the record moves
 ;   there, those between shift by one (no cluster change)
 ; ----------------------------------------------------------------------------
-global buf_move_record
-buf_move_record:
+global ufl_buf_move_record
+ufl_buf_move_record:
     mov r8, [r15 + S_INFO]
     mov eax, esi
     shl rax, 5
@@ -666,10 +666,10 @@ buf_move_record:
     ret
 
 ; ----------------------------------------------------------------------------
-; buf_reverse — esi = start, edx = end: input records reversed
+; ufl_buf_reverse — esi = start, edx = end: input records reversed
 ; ----------------------------------------------------------------------------
-global buf_reverse
-buf_reverse:
+global ufl_buf_reverse
+ufl_buf_reverse:
     mov r8, [r15 + S_INFO]
     dec edx
 .loop:
