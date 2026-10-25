@@ -10,7 +10,8 @@
 ; Parsing and drawing are ugfx's (2d/svg.asm; see lib/ugfx/README.md);
 ; images inside the document (data: URIs) decode through image_decode,
 ; so any format Canvas reads can be embedded; text uses the font set given
-; to svg_set_fonts (a lib/ufont set; none: text draws nothing). The image is the
+; to svg_set_fonts (a lib/ufont set, text shaped by it; none: text draws
+; nothing). The image is the
 ; requested size, or the document's own (viewBox, else width / height,
 ; else 300 x 150) when width or height is 0; the drawing is fitted and
 ; centred, transparent around it, currentColor black.
@@ -26,6 +27,7 @@
 extern pixbuf_create
 extern ugfx_svg_parse_opts
 extern ufont_svg_font
+extern ufont_svg_shape
 extern image_decode
 extern ugfx_svg_draw
 extern ugfx_ctx_init
@@ -131,13 +133,16 @@ svg_render:
     mov [rsp + F_OPT + UgfxSvgOptions_image_fn], rax
     mov qword [rsp + F_OPT + UgfxSvgOptions_image_user], 0
     xor eax, eax
+    xor r10d, r10d
     mov rcx, [rel svg_fonts]
     test rcx, rcx
     jz .fonts
     lea rax, [rel ufont_svg_font]
+    lea r10, [rel ufont_svg_shape]
 .fonts:
     mov [rsp + F_OPT + UgfxSvgOptions_font_fn], rax
     mov [rsp + F_OPT + UgfxSvgOptions_font_user], rcx
+    mov [rsp + F_OPT + UgfxSvgOptions_shape_fn], r10
     lea rdi, [rsp + F_SVG]
     mov rcx, rdx
     mov rdx, rsi
