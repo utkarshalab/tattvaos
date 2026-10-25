@@ -367,21 +367,35 @@ extern panic_null_ptr
                                         ; origin on the baseline (ugfx_svg_parse_opts). Code
                                         ; point -1 asks for the font's ascent (xmm0) and
                                         ; descent (xmm1) at the size, both positive (0: not
-                                        ; known; 0.8 and 0.2 of the size are taken)
+                                        ; known; 0.8 and 0.2 of the size are taken). A code
+                                        ; point with bit 31 set is a glyph key from shape_fn
 %define UgfxSvg_font_user       104
-%define UgfxSvg_SIZE            112
+%define UgfxSvg_shape_fn        112     ; runs: fn(user, UgfxSvgFont*, code points (u32),
+                                        ; count, xmm0 = size, arena) -> rax = UgfxSvgGlyph
+                                        ; records (0: not shaped), edx = how many; user is
+                                        ; font_user. Without it each character is placed
+                                        ; on its own (font_fn's advance)
+%define UgfxSvg_SIZE            120
 ; ugfx_svg_parse_opts' options (caller-filled; 0 = none)
 %define UgfxSvgOptions_image_fn     0
 %define UgfxSvgOptions_image_user   8
 %define UgfxSvgOptions_font_fn      16
 %define UgfxSvgOptions_font_user    24
-%define UgfxSvgOptions_SIZE         32
+%define UgfxSvgOptions_shape_fn     32
+%define UgfxSvgOptions_SIZE         40
 ; the font a glyph is asked for
 %define UgfxSvgFont_family      0       ; font-family as written (0: none)
 %define UgfxSvgFont_family_end  8
 %define UgfxSvgFont_weight      16      ; u32 100 .. 900 (400 normal, 700 bold)
 %define UgfxSvgFont_style       20      ; u32 0 normal, 1 italic, 2 oblique
 %define UgfxSvgFont_SIZE        24
+; a shaped glyph (shape_fn's output), in user units at the size, left to right
+%define UgfxSvgGlyph_key        0       ; u32 glyph key (bit 31 set) handed back to font_fn
+%define UgfxSvgGlyph_cluster    4       ; u32 the first of the characters it stands for
+%define UgfxSvgGlyph_adv        8       ; f64 advance
+%define UgfxSvgGlyph_xo         16      ; f64 x offset
+%define UgfxSvgGlyph_yo         24      ; f64 y offset (down)
+%define UgfxSvgGlyph_SIZE       32
 
 %define UgfxSvgItem_matrix      0       ; f64[6] element -> viewBox space
 %define UgfxSvgItem_path        48      ; UgfxPath
