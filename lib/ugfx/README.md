@@ -49,7 +49,8 @@ lib/ugfx/
     ├── svg.asm           ← SVG documents: elements, styles, shapes, drawing
     ├── svg_xml.asm       ← SVG's XML layer: tags, attributes, shared string helpers
     ├── svg_defs.asm      ← SVG definitions found first: gradients (url(#id)), CSS rules, element ids
-    └── svg_syntax.asm    ← SVG attribute grammars: numbers, colours, transforms, path data
+    ├── svg_syntax.asm    ← SVG attribute grammars: numbers, colours, transforms, path data
+    └── filter.asm        ← filter effects: a primitive graph over a layer (blur, offset, merge, ...)
 ```
 
 ## 2. Planned
