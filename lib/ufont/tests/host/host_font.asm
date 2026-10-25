@@ -4,11 +4,13 @@
 ; Host tool for tests/host/font_check.py (development machine only).
 ;
 ;   host_font o <font.ttf> <in.bin> <out.bin>
-;       in:  f64 size, u32 n, u32 code points[n]
+;       in:  f64 size, f64 size2, u32 n, u32 code points[n]
 ;       out: u32 status (0, 1 font refused), u32 units per em, i32 ascent,
 ;            i32 descent; then per code point: u32 glyph, u32 advance,
 ;            i32 outline status, u32 verbs, u32 points, the verbs (bytes),
-;            the points (f64 x, y) - the outline at size / units per em
+;            the points (f64 x, y) - the outline at size / units per em;
+;            then the code points again at size2 (outlines now replayed
+;            from the font's cache)
 ;   host_font m <font directory> <in.bin> <out.bin>
 ;       the shipped fonts found there in a set (ufont_standard order);
 ;       in:  u32 n, then per query u32 weight, u32 style, u32 length
@@ -96,19 +98,24 @@ _start:
     call put32                          ; ascent
     pop rax
     call put32                          ; descent
+    mov qword [rel pass], 0
+.pass:
     cvtsi2sd xmm1, dword [rbx + UfontFont_upem]
-    movsd xmm0, [r15]
+    mov rax, [rel pass]
+    movsd xmm0, [r15 + rax * 8]
     divsd xmm0, xmm1
     movsd [rel scale], xmm0
-    mov r12d, [r15 + 8]                 ; n
-    add r15, 12
+    mov r12d, [r15 + 16]                ; n
+    lea rax, [r15 + 20]
+    mov [rel cursor], rax
 .cp:
     test r12d, r12d
-    jz write_out
+    jz .pass_done
     dec r12d
     mov rdi, rbx
-    mov esi, [r15]
-    add r15, 4
+    mov rax, [rel cursor]
+    mov esi, [rax]
+    add qword [rel cursor], 4
     call ufont_glyph
     mov r13d, eax
     call put32
@@ -138,6 +145,11 @@ _start:
     shl ecx, 4
     call put_bytes
     jmp .cp
+.pass_done:
+    inc qword [rel pass]
+    cmp qword [rel pass], 2
+    jb .pass
+    jmp write_out
 
     ; ---- matching
 match_mode:
@@ -370,6 +382,8 @@ arena:      resq 2
 out_buf:    resq 1
 out_at:     resq 1
 scale:      resq 1
+pass:       resq 1
+cursor:     resq 1
 path:       resb UgfxPath_SIZE
 desc:       resb UgfxSvgFont_SIZE
 alignb 16
