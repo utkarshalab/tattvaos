@@ -1778,8 +1778,161 @@ def css_skip(t, i):
     return i
 
 
+CSS_IDENT = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+CSS_PSEUDO = {"first-child": 5, "last-child": 6, "root": 7, "nth-child": 8, "nth-last-child": 9, "only-child": 10}
+CSS_OPS = {"=": 1, "~=": 2, "|=": 3, "^=": 4, "$=": 5, "*=": 6}
+
+
+def _css_run(t, i):
+    while i < len(t) and t[i] in CSS_IDENT:
+        i += 1
+    return i
+
+
+def _css_ws(t, i):
+    while i < len(t) and ord(t[i]) <= 32:
+        i += 1
+    return i
+
+
+def _css_digits(t, i):
+    j = i
+    while j < len(t) and '0' <= t[j] <= '9':
+        j += 1
+    if j == i or j - i > 6:
+        return None, i
+    return int(t[i:j]), j
+
+
+def css_nth(t):
+    """an+b inside :nth-child() -> (a, b), or None."""
+    t = trim(t)
+    if t == "odd":
+        return 2, 1
+    if t == "even":
+        return 2, 0
+    i, sign = 0, 1
+    if i < len(t) and t[i] in "+-":
+        sign = -1 if t[i] == '-' else 1
+        i += 1
+    num, j = _css_digits(t, i)
+    if num is None and j != i:
+        return None
+    i = j
+    if i < len(t) and t[i] in "nN":
+        a = sign * (1 if num is None else num)
+        i = _css_ws(t, i + 1)
+        if i == len(t):
+            return a, 0
+        if t[i] not in "+-":
+            return None
+        s = -1 if t[i] == '-' else 1
+        i = _css_ws(t, i + 1)
+        b, i = _css_digits(t, i)
+        if b is None or i != len(t):
+            return None
+        return a, s * b
+    if num is None or i != len(t):
+        return None
+    return 0, sign * num
+
+
+def css_compile(sel):
+    """One selector -> (specificity, simples) or None when not supported. A simple is (kind, op, new
+    compound, combinator to the one before, name, value, a, b): kinds 1 type, 2 class, 3 id, 4 attribute,
+    5 first-child, 6 last-child, 7 root, 8 nth-child, 9 nth-last-child, 10 only-child, 12 *; combinators
+    1 descendant, 2 child, 3 next sibling, 4 later sibling."""
+    simples, spec, i, n, new, comb = [], 0, 0, len(sel), True, 0
+    while i < n:
+        c = sel[i]
+        if ord(c) <= 32 or c in ">+~":
+            if new:
+                return None
+            i = _css_ws(sel, i)
+            comb = 1
+            if i < n and sel[i] in ">+~":
+                comb = ">+~".index(sel[i]) + 2
+                i = _css_ws(sel, i + 1)
+            new = True
+            continue
+        op, name, value, a, b = 0, None, None, 0, 0
+        if c == '*' or c in CSS_IDENT:
+            if not new:
+                return None
+            if c == '*':
+                kind, i = 12, i + 1
+            else:
+                j = _css_run(sel, i)
+                kind, name, i = 1, sel[i:j], j
+                spec += 1
+        elif c in ".#":
+            j = _css_run(sel, i + 1)
+            if j == i + 1:
+                return None
+            kind, name, i = (2 if c == '.' else 3), sel[i + 1:j], j
+            spec += 100 if c == '.' else 10000
+        elif c == '[':
+            i = _css_ws(sel, i + 1)
+            j = _css_run(sel, i)
+            if j == i:
+                return None
+            name, i = sel[i:j], _css_ws(sel, j)
+            kind = 4
+            if i < n and sel[i] == ']':
+                i += 1
+            else:
+                if sel[i:i + 1] == '=':
+                    op, i = 1, i + 1
+                elif sel[i:i + 2] in CSS_OPS:
+                    op, i = CSS_OPS[sel[i:i + 2]], i + 2
+                else:
+                    return None
+                i = _css_ws(sel, i)
+                if i < n and sel[i] in "\"'":
+                    j = sel.find(sel[i], i + 1)
+                    if j < 0:
+                        return None
+                    value, i = sel[i + 1:j], j + 1
+                else:
+                    j = _css_run(sel, i)
+                    if j == i:
+                        return None
+                    value, i = sel[i:j], j
+                i = _css_ws(sel, i)
+                if i >= n or sel[i] != ']':
+                    return None
+                i += 1
+            spec += 100
+        elif c == ':':
+            j = _css_run(sel, i + 1)
+            kind = CSS_PSEUDO.get(sel[i + 1:j])
+            if kind is None:
+                return None
+            i = j
+            if kind in (8, 9):
+                if i >= n or sel[i] != '(':
+                    return None
+                j = sel.find(')', i + 1)
+                if j < 0:
+                    return None
+                ab = css_nth(sel[i + 1:j])
+                if ab is None:
+                    return None
+                (a, b), i = ab, j + 1
+            spec += 100
+        else:
+            return None
+        simples.append((kind, op, new, comb, name, value, a, b))
+        new, comb = False, 0
+        if len(simples) > 32:
+            return None
+    if new or sum(1 for x in simples if x[2]) > 16:
+        return None
+    return spec, simples
+
+
 def css_rules(text):
-    """The supported rules of a style sheet: (kind, spec, name, elem, declarations)."""
+    """The supported rules of a style sheet: (specificity, simples, declarations)."""
     rules, i = [], 0
     while True:
         i = css_skip(text, i)
@@ -1810,31 +1963,102 @@ def css_rules(text):
             sel = trim(sel)
             if not sel:
                 continue
-            if sel == '*':
-                rules.append((5, 0, None, None, decls))
-            elif sel[0] in '.#':
-                if IDENT.fullmatch(sel[1:]):
-                    rules.append((2, 10, sel[1:], None, decls) if sel[0] == '.' else (3, 100, sel[1:], None, decls))
-            elif '.' in sel:
-                elem, cls = sel.split('.', 1)
-                if elem and IDENT.fullmatch(elem) and IDENT.fullmatch(cls):
-                    rules.append((4, 11, cls, elem, decls))
-            elif IDENT.fullmatch(sel):
-                rules.append((1, 1, sel, None, decls))
-    return sorted(rules, key=lambda r: r[1])          # stable: document order within a specificity
+            got = css_compile(sel)
+            if got is not None:
+                rules.append((got[0], got[1], decls))
+    return rules
 
 
-def css_matches(rule, tag, el_id, classes):
-    kind, _, name, elem, _ = rule
-    if kind == 5:
+class CssTree:
+    """The document's elements: parents and siblings (ugfx_svg_defs_scan's element table)."""
+
+    def __init__(self, root):
+        self.parent, self.kids = {root: None}, {}
+        for p in root.iter():
+            kids = list(p)
+            self.kids[p] = kids
+            for c in kids:
+                self.parent[c] = p
+
+    def siblings(self, el):
+        p = self.parent.get(el)
+        return [el] if p is None else self.kids[p]
+
+
+def _css_nth_ok(a, b, i):
+    if a == 0:
+        return i == b
+    d = i - b
+    return d % a == 0 and d // a >= 0
+
+
+def _css_simple(s, el, tree):
+    kind, op, _, _, name, value, a, b = s
+    if kind == 12:
         return True
     if kind == 1:
-        return tag == name
+        return el.tag.split('}')[-1] == name
+    if kind == 2:
+        return name in re.split(r"[\x00- ]+", el.attrib.get("class", ""))
     if kind == 3:
-        return el_id == name
-    if kind == 4 and tag != elem:
+        return el.attrib.get("id") == name
+    if kind == 4:
+        v = el.attrib.get(name)
+        if v is None:
+            return False
+        if op == 0:
+            return True
+        if op == 1:
+            return v == value
+        if op == 2:
+            return value != "" and all(ord(ch) > 32 for ch in value) and value in re.split(r"[\x00- ]+", v)
+        if op == 3:
+            return v == value or v.startswith(value + "-")
+        if value == "":
+            return False
+        return v.startswith(value) if op == 4 else v.endswith(value) if op == 5 else value in v
+    if kind == 7:
+        return tree.parent.get(el) is None
+    sib = tree.siblings(el)
+    k = sib.index(el)
+    if kind == 5:
+        return k == 0
+    if kind == 6:
+        return k == len(sib) - 1
+    if kind == 10:
+        return len(sib) == 1
+    if kind == 8:
+        return _css_nth_ok(a, b, k + 1)
+    return _css_nth_ok(a, b, len(sib) - k)
+
+
+def css_match(simples, end, el, tree):
+    """Do simples[:end] (whose last compound ends at end) match el?"""
+    start = end - 1
+    while not simples[start][2]:
+        start -= 1
+    if not all(_css_simple(s, el, tree) for s in simples[start:end]):
         return False
-    return name in classes
+    if start == 0:
+        return True
+    comb = simples[start][3]
+    if comb in (1, 2):
+        p = tree.parent.get(el)
+        while p is not None:
+            if css_match(simples, start, p, tree):
+                return True
+            if comb == 2:
+                return False
+            p = tree.parent.get(p)
+        return False
+    sib = tree.siblings(el)
+    k = sib.index(el)
+    for j in range(k - 1, -1, -1):
+        if css_match(simples, start, sib[j], tree):
+            return True
+        if comb == 3:
+            return False
+    return False
 
 
 def trim(v):
@@ -1855,7 +2079,8 @@ def parse(text, image_fn=None, font_fn=None):
     for el in root.iter():
         if el.tag.split('}')[-1] == "style" and el.text:
             rules += css_rules(el.text)
-    rules.sort(key=lambda r: r[1])
+    rules.sort(key=lambda r: r[0])                 # stable: document order within a specificity
+    tree = CssTree(root)
     ids = {}
     for el in root.iter():
         if "id" in el.attrib:
@@ -2360,7 +2585,7 @@ def parse(text, image_fn=None, font_fn=None):
                     geom[name] = value
                 elif name in GEOM:
                     own[1]["geom:" + name] = value
-            for decls in [r[4] for r in rules if css_matches(r, tag, el_id, classes)] + ([style] if style else []):
+            for decls in [r[2] for r in rules if css_match(r[1], len(r[1]), el, tree)] + ([style] if style else []):
                 for decl in decls.split(';'):
                     if ':' not in decl:
                         continue
