@@ -106,7 +106,8 @@ GFX_SRCS := \
     $(UGFX_DIR)/2d/svg_syntax.asm \
     $(UGFX_DIR)/2d/svg_xml.asm \
     $(UGFX_DIR)/2d/svg_defs.asm \
-    $(UGFX_DIR)/2d/svg.asm
+    $(UGFX_DIR)/2d/svg.asm \
+    $(UGFX_DIR)/2d/filter.asm
 GFX_OBJS := $(patsubst $(UGFX_DIR)/%.asm,$(OBJDIR)/ugfx/%.o,$(GFX_SRCS))
 
 # Protocol (C4)
