@@ -529,7 +529,12 @@ extern panic_null_ptr
 %define UgfxSvgDefs_ids         40      ; (id, id end, tag start) of every element with an id
 %define UgfxSvgDefs_nids        48      ; u32
 %define UgfxSvgDefs_idcap       52      ; u32
-%define UgfxSvgDefs_SIZE        56
+%define UgfxSvgDefs_elems       56      ; the document's elements in order (tag, parent,
+                                        ; siblings), for CSS selectors
+%define UgfxSvgDefs_nelems      64      ; u32
+%define UgfxSvgDefs_elemcap     68      ; u32
+%define UgfxSvgDefs_end         72      ; the document's end
+%define UgfxSvgDefs_SIZE        80
 
 ; An element as CSS selectors see it (2d/svg_defs.asm, ugfx_svg_defs_rule)
 %define UgfxSvgSel_name         0       ; element name
@@ -538,7 +543,8 @@ extern panic_null_ptr
 %define UgfxSvgSel_id_end       24
 %define UgfxSvgSel_class        32      ; its class attribute (0 = none)
 %define UgfxSvgSel_class_end    40
-%define UgfxSvgSel_SIZE         48
+%define UgfxSvgSel_tag          48      ; the '<' of its start tag in the document
+%define UgfxSvgSel_SIZE         56
 
 ; Gradient colour stop (UgfxStop_SIZE bytes, an array of them per gradient)
 %define UgfxStop_offset         0       ; f64 position, clamped to [0, 1] and to the previous stop
