@@ -135,15 +135,15 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
-| C2D-074 | Gaussian and box blur (separable) | P3 | | 001 |
-| C2D-075 | Drop and inner shadows | P3 | | 074 |
+| C2D-074 | Gaussian and box blur (separable) | P3 | ◐ `2d/filter` Gaussian as three box blurs per axis | 001 |
+| C2D-075 | Drop and inner shadows | P3 | ◐ drop shadow (SVG feDropShadow as a filter graph); inner pending | 074 |
 | C2D-076 | Backdrop blur | P3 | | 074, 087 |
-| C2D-077 | Colour matrix filters | P3 | | |
-| C2D-078 | Morphology (dilate, erode) | P4 | | |
+| C2D-077 | Colour matrix filters | P3 | ✓ `2d/filter` colour matrix, component transfer, sRGB / linearRGB | |
+| C2D-078 | Morphology (dilate, erode) | P4 | ✓ `2d/filter` | |
 | C2D-079 | Convolution kernels | P4 | | |
 | C2D-080 | Displacement and turbulence | P4 | | |
 | C2D-081 | Lighting filters | P5 | | |
-| C2D-082 | Filter graph | P4 | | 074–081 |
+| C2D-082 | Filter graph | P4 | ◐ `2d/filter` + ugfx_ctx_filter: flood, offset, blur, merge, blend, composite, colour matrix, transfer, morphology, tile | 074–081 |
 
 ## 12. Drawing API and state
 
@@ -161,7 +161,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | ID | Component | Phase | State | Depends |
 |---|---|---|---|---|
 | C2D-089 | UIC icon format (layers, colour slots, stroke weights) | P2 | ✓ `2d/uic`, `docs/UIC.md`, `tools/uic.py`, `tools/svg2uic.py` | 038, 085 |
-| C2D-090 | SVG rendering | P2 | ◐ `2d/svg` icon subset (shapes, paths, styles, transforms, gradients, CSS rules, use / symbol); text, clip paths, masks, filters pending | 024, 084 |
+| C2D-090 | SVG rendering | P2 | ◐ `2d/svg` static SVG 1.1: structure, viewports, paint (gradients, patterns), CSS, groups, clip paths, masks, markers, images, text, filters; textPath, text decoration and five filter primitives pending | 024, 084 |
 | C2D-091 | Vector animation | P4 | | 085 |
 | C2D-092 | Vector export (print, PDF-style) | P4 | | 085 |
 
