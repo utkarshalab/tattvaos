@@ -6,7 +6,9 @@ Usage: font_check.py <host_font> <font directory>
 - glyphs: for every shipped font, every code point its cmap maps plus some it
   does not (outside the BMP, unassigned, private use): the glyph ufont_glyph
   finds, its advance, and the outline ufont_outline writes into a ugfx path
-  at an uneven size - verbs and points identical to tools/fontmodel.py.
+  at an uneven size - verbs and points identical to tools/fontmodel.py; then
+  all again at another size, the outlines now replayed from the font's
+  cache.
 - metrics: units per em, ascent and descent.
 - matching: ufont_set_face over family lists (generic names, aliases, quoted,
   case, unknown names, none) x weights 100..900 x normal / italic / oblique
@@ -27,6 +29,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
 import fontmodel  # noqa: E402
 
 SIZE = 37.25
+SIZE2 = 11.6
 VERBS = {'move': (0, 1), 'line': (1, 1), 'quad': (2, 2), 'close': (5, 0)}
 EXTRA = [0x10FFFF, 0x1F600, 0x4E00, 0xE000, 0xFFFF, 0x0378, 0x0000, 0x0009]
 
@@ -49,7 +52,7 @@ def check_glyphs(tool, d, path, face):
     cps = sorted(face.cmap) + EXTRA
     src = os.path.join(d, "in.bin")
     out = os.path.join(d, "out.bin")
-    open(src, "wb").write(struct.pack("<dI", SIZE, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
+    open(src, "wb").write(struct.pack("<ddI", SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
     rc = run(tool, "o", path, src, out)
     if rc:
         return f"exit {rc}"
@@ -57,19 +60,21 @@ def check_glyphs(tool, d, path, face):
     status, upem, asc, desc = struct.unpack_from("<IIii", b)
     if status or (upem, asc, desc) != (face.upem, face.asc, face.desc):
         return f"metrics {status, upem, asc, desc} want {(0, face.upem, face.asc, face.desc)}"
-    at, s, bad = 16, SIZE / face.upem, []
-    for cp in cps:
-        gid, adv, st, nv, npts = struct.unpack_from("<IIiII", b, at)
-        at += 20
-        verbs = list(b[at:at + nv])
-        at += nv
-        pts = list(struct.unpack_from(f"<{2 * npts}d", b, at))
-        at += 16 * npts
-        wgid = face.glyph(cp)
-        wverbs, wpts = path_of(face.outline(wgid, s))
-        if (gid, adv, st, verbs, pts) != (wgid, face.advance(wgid), 0, wverbs, wpts):
-            bad.append(cp)
-    return f"{len(bad)} code points differ, first U+{bad[0]:04X}" if bad else None
+    at, bad = 16, []
+    for size in (SIZE, SIZE2):
+        s = size / face.upem
+        for cp in cps:
+            gid, adv, st, nv, npts = struct.unpack_from("<IIiII", b, at)
+            at += 20
+            verbs = list(b[at:at + nv])
+            at += nv
+            pts = list(struct.unpack_from(f"<{2 * npts}d", b, at))
+            at += 16 * npts
+            wgid = face.glyph(cp)
+            wverbs, wpts = path_of(face.outline(wgid, s))
+            if (gid, adv, st, verbs, pts) != (wgid, face.advance(wgid), 0, wverbs, wpts):
+                bad.append((size, cp))
+    return f"{len(bad)} differ, first {bad[0][1]:04X} at size {bad[0][0]}" if bad else None
 
 
 def check_matching(tool, d, font_dir, fonts):
@@ -112,7 +117,7 @@ def main():
         rng = random.Random(11)
         cps = list(range(32, 0x250)) + list(range(0x370, 0x530))
         src = os.path.join(d, "in.bin")
-        open(src, "wb").write(struct.pack("<dI", SIZE, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
+        open(src, "wb").write(struct.pack("<ddI", SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
         crashes = runs = 0
         for name in ("NotoSans-Regular.ttf", "NotoSerif-Bold.ttf", "LiberationSans-Italic.ttf"):
             data = open(os.path.join(font_dir, name), "rb").read()
