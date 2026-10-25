@@ -25,11 +25,11 @@ are written as X, which is what the Indic grammar makes of them.
 layout/indic_table.asm also carries the syllable grammar of tools/indic.py
 compiled to a DFA (tools/syllable.py):
 
-    indic_chars, indic_chars_count  dd code point, db category, position, 0, 0
+    ufl_indic_chars, ufl_indic_chars_count  dd code point, db category, position, 0, 0
                                     (sorted; characters not listed: X / END)
-    indic_classes                   db the grammar's class of categories 0 .. 63
-    indic_dfa, indic_dfa_classes    db next state per state and class (0xFF: none)
-    indic_accept                    db the syllable type a match ending in a state
+    ufl_indic_classes                   db the grammar's class of categories 0 .. 63
+    ufl_indic_dfa, ufl_indic_dfa_classes    db next state per state and class (0xFF: none)
+    ufl_indic_accept                    db the syllable type a match ending in a state
                                     has (0xFF: none)
 
 Development-machine tooling only; not part of any OS image.
@@ -213,21 +213,21 @@ def main():
            '',
            'section .rodata',
            'align 4',
-           'global indic_chars', 'global indic_chars_count', 'global indic_classes', 'global indic_dfa',
-           'global indic_dfa_classes', 'global indic_accept',
-           f'indic_chars_count: dd {len(t)}',
-           f'indic_dfa_classes: dd {len(trans[0])}',
-           'indic_chars:']
+           'global ufl_indic_chars', 'global ufl_indic_chars_count', 'global ufl_indic_classes', 'global ufl_indic_dfa',
+           'global ufl_indic_dfa_classes', 'global ufl_indic_accept',
+           f'ufl_indic_chars_count: dd {len(t)}',
+           f'ufl_indic_dfa_classes: dd {len(trans[0])}',
+           'ufl_indic_chars:']
     for u in sorted(t):
         out.append(f'    dd 0x{u:04X}')
         out.append(f'    db {t[u][0]}, {t[u][1]}, 0, 0')
-    out.append('indic_classes:')
+    out.append('ufl_indic_classes:')
     cls = [classes.get(c, 0) for c in range(64)]
     out += ['    db ' + ', '.join(str(v) for v in cls[i:i + 16]) for i in range(0, 64, 16)]
-    out.append('indic_dfa:')
+    out.append('ufl_indic_dfa:')
     for row in trans:
         out.append('    db ' + ', '.join(str(v if v >= 0 else 255) for v in row))
-    out.append('indic_accept:')
+    out.append('ufl_indic_accept:')
     acc = [a if a >= 0 else 255 for a in accept]
     out += ['    db ' + ', '.join(str(v) for v in acc[i:i + 16]) for i in range(0, len(acc), 16)]
     path = os.path.join(HERE, '..', 'layout', 'indic_table.asm')
