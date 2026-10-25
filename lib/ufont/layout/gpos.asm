@@ -4,7 +4,7 @@
 ; GPOS subtables at the buffer's current glyph, positions in S_POS (font
 ; units, y up):
 ;
-;   gpos_apply(rdi = subtable, esi = type) -> eax 1 applied / 0
+;   ufl_gpos_apply(rdi = subtable, esi = type) -> eax 1 applied / 0
 ;       1 single, 2 pair (glyph pairs and classes), 4 mark to base, 5 mark to
 ;       ligature (the component the mark belongs to), 6 mark to mark,
 ;       7 context, 8 chained context. Cursive attachment (3) is not applied
@@ -16,16 +16,16 @@
 %include "ufont.inc"
 %include "shape.inc"
 
-extern ot_coverage
-extern ot_class
-extern ot_off16
-extern buf_cur
-extern sk_init
-extern sk_reset
-extern sk_check
-extern sk_next
-extern sk_prev
-extern ap_context
+extern ufl_ot_coverage
+extern ufl_ot_class
+extern ufl_ot_off16
+extern ufl_buf_cur
+extern ufl_sk_init
+extern ufl_sk_reset
+extern ufl_sk_check
+extern ufl_sk_next
+extern ufl_sk_prev
+extern ufl_ap_context
 
 section .text
 
@@ -81,11 +81,11 @@ gp_value:
 gp_cov:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
-    call ot_off16
+    call ufl_ot_off16
     mov rdi, rax
     mov rsi, [r15 + S_TEND]
     mov edx, r14d
-    jmp ot_coverage
+    jmp ufl_ot_coverage
 
 ; rdi = anchor table (0: none) -> eax = x, edx = y
 gp_anchor:
@@ -116,10 +116,10 @@ gp_anchor:
 %define GF_SIZE    80
 
 ; ----------------------------------------------------------------------------
-; gpos_apply
+; ufl_gpos_apply
 ; ----------------------------------------------------------------------------
-global gpos_apply
-gpos_apply:
+global ufl_gpos_apply
+ufl_gpos_apply:
     push rbx
     push r12
     push r13
@@ -130,7 +130,7 @@ gpos_apply:
     mov r12d, esi
     INSIDE rbx, 6
     ja .no
-    call buf_cur
+    call ufl_buf_cur
     mov r13, rax
     mov r14d, [rax + GI_GLYPH]
     BE16 ebp, [rbx]                     ; format
@@ -194,14 +194,14 @@ gpos_apply:
     ja .no
     lea rdi, [rsp + GF_SK]
     xor esi, esi
-    call sk_init
+    call ufl_sk_init
     lea rdi, [rsp + GF_SK]
     mov esi, [r15 + S_IDX]
     mov edx, 1
-    call sk_reset
+    call ufl_sk_reset
     lea rdi, [rsp + GF_SK]
     xor esi, esi
-    call sk_next
+    call ufl_sk_next
     test eax, eax
     jz .no
     mov eax, [rsp + GF_SK + SK_IDX]
@@ -219,7 +219,7 @@ gpos_apply:
     ja .no
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .no
     mov rbp, rax                        ; the pair set
@@ -267,20 +267,20 @@ gpos_apply:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 8
-    call ot_off16
+    call ufl_ot_off16
     mov rdi, rax
     mov rsi, [r15 + S_TEND]
     mov edx, r14d
-    call ot_class
+    call ufl_ot_class
     mov r12d, eax                       ; class 1
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 10
-    call ot_off16
+    call ufl_ot_off16
     mov rdi, rax
     mov rsi, [r15 + S_TEND]
     mov edx, r13d
-    call ot_class                       ; class 2
+    call ufl_ot_class                       ; class 2
     BE16 ecx, [rbx + 12]
     cmp r12d, ecx
     jae .no
@@ -343,7 +343,7 @@ gpos_apply:
     ; the base: the closest glyph before that is not a mark
     lea rdi, [rsp + GF_SK]
     xor esi, esi
-    call sk_init
+    call ufl_sk_init
     mov dword [rsp + GF_SK + SK_PROPS], 8   ; ignore marks
     mov eax, [r15 + S_IDX]
     cmp [r15 + S_LASTBASEUNTIL], eax
@@ -362,7 +362,7 @@ gpos_apply:
     lea rdi, [rsp + GF_SK]
     mov rsi, rax
     xor edx, edx
-    call sk_check
+    call ufl_sk_check
     cmp eax, 1
     jne .lb_next
     cmp dword [rsp + GF_T], 4
@@ -407,7 +407,7 @@ gpos_apply:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 10
-    call ot_off16                       ; base / ligature array
+    call ufl_ot_off16                       ; base / ligature array
     test rax, rax
     jz .no
     mov rbp, rax
@@ -429,7 +429,7 @@ gpos_apply:
     ja .no
     mov rdi, rbp
     mov rsi, [r15 + S_TEND]
-    call ot_off16                       ; the ligature attach
+    call ufl_ot_off16                       ; the ligature attach
     test rax, rax
     jz .no
     mov rbp, rax
@@ -439,7 +439,7 @@ gpos_apply:
     test ecx, ecx
     jz .no
     ; the component the mark belongs to, else the last
-    call buf_cur
+    call ufl_buf_cur
     movzx edx, byte [rax + GI_LIG]
     mov r8d, edx
     shr r8d, 5                          ; mark's id
@@ -504,17 +504,17 @@ gpos_apply:
     jz .no
     lea rdi, [rsp + GF_SK]
     xor esi, esi
-    call sk_init
+    call ufl_sk_init
     mov eax, [r15 + S_LPROPS]
     and eax, ~LF_IGNORE_FLAGS
     mov [rsp + GF_SK + SK_PROPS], eax
     lea rdi, [rsp + GF_SK]
     mov esi, [r15 + S_IDX]
     mov edx, 1
-    call sk_reset
+    call ufl_sk_reset
     lea rdi, [rsp + GF_SK]
     xor esi, esi
-    call sk_prev
+    call ufl_sk_prev
     test eax, eax
     jz .no
     mov eax, [rsp + GF_SK + SK_IDX]
@@ -525,7 +525,7 @@ gpos_apply:
     test word [r12 + GI_PROPS], GP_MARK
     jz .no
     ; same base, or same ligature component, or one of them a ligature
-    call buf_cur
+    call ufl_buf_cur
     movzx ecx, byte [rax + GI_LIG]      ; mark 1
     movzx edx, byte [r12 + GI_LIG]      ; mark 2
     mov r8d, ecx
@@ -573,7 +573,7 @@ gpos_apply:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 10
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .no
     mov rdi, rax
@@ -584,12 +584,12 @@ gpos_apply:
 .context:
     mov rdi, rbx
     xor esi, esi
-    call ap_context
+    call ufl_ap_context
     jmp .out
 .chain:
     mov rdi, rbx
     mov esi, 1
-    call ap_context
+    call ufl_ap_context
     jmp .out
 .yes:
     mov eax, 1
@@ -616,7 +616,7 @@ gp_mark_record:
     mov rdi, rbx
     mov rsi, [r15 + S_TEND]
     mov edx, 8
-    call ot_off16
+    call ufl_ot_off16
     pop rdi
     lea r10, [rsp + 8]
     test rax, rax
