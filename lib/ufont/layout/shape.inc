@@ -11,7 +11,6 @@
 %define MAX_CONTEXT     64
 %define MAX_FEATURES    96              ; features the plan can hold
 %define MAX_PAUSES      32              ; pauses per table
-%define MAX_LOOKUPS     2048            ; lookup entries per table in the plan
 
 ; the buffer
 %define S_FONT          0               ; UfontFont*
@@ -62,7 +61,7 @@
 %define S_NMARKSETS     272             ; u32
 %define S_GDEFEND       280
 ; the run
-%define S_SCRIPT        288             ; u32 script index (ucd_scripts)
+%define S_SCRIPT        288             ; u32 script index (ufl_ucd_scripts)
 %define S_LANG          292             ; u32 language system tag (0: default)
 %define S_KERNMASK      296             ; u32
 %define S_SR            304             ; [2] script record found (0: none)
@@ -74,6 +73,7 @@
 %define S_IMASK         328             ; [17] u32 feature masks (indic_features order)
 %define S_OPS           400             ; i32 lookup recursions left (a runaway font's limit)
 %define S_MAXLEN        404             ; u32 records the buffer may grow to
+%define S_LKCAP         408             ; [2] u32 lookup entries the plan's arrays hold
 %define S_DUMMY         448             ; a record written when memory runs out
 %define S_SIZE          480
 
