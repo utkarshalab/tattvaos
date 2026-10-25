@@ -5,22 +5,22 @@
 ; UnicodeData.txt, Scripts.txt, DerivedNormalizationProps.txt and
 ; PropertyValueAliases.txt; do not edit.
 ;
-;   ucd_gc(edi = code point)     -> eax general category (HarfBuzz order: Cc 0
+;   ufl_ucd_gc(edi = code point)     -> eax general category (HarfBuzz order: Cc 0
 ;                                   ... Zs 29; Cn past the last code point)
-;   ucd_mcc(edi)                 -> eax modified combining class (marks only)
-;   ucd_script(edi)              -> eax script index (0 unknown, 1 common,
+;   ufl_ucd_mcc(edi)                 -> eax modified combining class (marks only)
+;   ufl_ucd_script(edi)              -> eax script index (0 unknown, 1 common,
 ;                                   2 inherited)
-;   ucd_scripts                  -> per script: dd ISO 15924 code, old
+;   ufl_ucd_scripts                  -> per script: dd ISO 15924 code, old
 ;                                   OpenType tag, new tag (0: none)
-;   ucd_decomp, ucd_decomp_count -> dd ab, a, b (b 0: a singleton), by ab
-;   ucd_comp, ucd_comp_count     -> dd a, b, ab, by a then b
-;   ucd_pict, ucd_pict_count     -> dd first, last: Extended_Pictographic
+;   ufl_ucd_decomp, ufl_ucd_decomp_count -> dd ab, a, b (b 0: a singleton), by ab
+;   ufl_ucd_comp, ufl_ucd_comp_count     -> dd a, b, ab, by a then b
+;   ufl_ucd_pict, ufl_ucd_pict_count     -> dd first, last: Extended_Pictographic
 ; =============================================================================
 
 section .text
 
-global ucd_gc
-ucd_gc:
+global ufl_ucd_gc
+ufl_ucd_gc:
     mov eax, 2
     cmp edi, 0x10FFFF
     ja .out
@@ -44,8 +44,8 @@ ucd_gc:
 .out:
     ret
 
-global ucd_mcc
-ucd_mcc:
+global ufl_ucd_mcc
+ufl_ucd_mcc:
     mov eax, 0
     cmp edi, 0x10FFFF
     ja .out
@@ -69,8 +69,8 @@ ucd_mcc:
 .out:
     ret
 
-global ucd_script
-ucd_script:
+global ufl_ucd_script
+ufl_ucd_script:
     mov eax, 0
     cmp edi, 0x10FFFF
     ja .out
@@ -4258,10 +4258,10 @@ ucd_sct_3:
     db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 align 4
-global ucd_scripts
-global ucd_scripts_count
-ucd_scripts_count: dd 175
-ucd_scripts:
+global ufl_ucd_scripts
+global ufl_ucd_scripts_count
+ufl_ucd_scripts_count: dd 175
+ufl_ucd_scripts:
     dd 'Zzzz', 'DFLT', 0
     dd 'Zyyy', 'DFLT', 0
     dd 'Zinh', 'DFLT', 0
@@ -4438,10 +4438,10 @@ ucd_scripts:
     dd 'Tols', 'tols', 0
     dd 'Berf', 'berf', 0
 
-global ucd_decomp
-global ucd_decomp_count
-ucd_decomp_count: dd 2081
-ucd_decomp:
+global ufl_ucd_decomp
+global ufl_ucd_decomp_count
+ufl_ucd_decomp_count: dd 2081
+ufl_ucd_decomp:
     dd 0xC0, 0x41, 0x300
     dd 0xC1, 0x41, 0x301
     dd 0xC2, 0x41, 0x302
@@ -6524,10 +6524,10 @@ ucd_decomp:
     dd 0x2FA1C, 0x9F3B, 0x0
     dd 0x2FA1D, 0x2A600, 0x0
 
-global ucd_comp
-global ucd_comp_count
-ucd_comp_count: dd 961
-ucd_comp:
+global ufl_ucd_comp
+global ufl_ucd_comp_count
+ufl_ucd_comp_count: dd 961
+ufl_ucd_comp:
     dd 0x3C, 0x338, 0x226E
     dd 0x3D, 0x338, 0x2260
     dd 0x3E, 0x338, 0x226F
@@ -7490,10 +7490,10 @@ ucd_comp:
     dd 0x16D67, 0x16D67, 0x16D68
     dd 0x16D69, 0x16D67, 0x16D6A
 
-global ucd_pict
-global ucd_pict_count
-ucd_pict_count: dd 156
-ucd_pict:
+global ufl_ucd_pict
+global ufl_ucd_pict_count
+ufl_ucd_pict_count: dd 156
+ufl_ucd_pict:
     dd 0xA9, 0xA9
     dd 0xAE, 0xAE
     dd 0x203C, 0x203C
