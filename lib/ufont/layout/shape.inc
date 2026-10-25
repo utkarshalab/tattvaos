@@ -74,6 +74,13 @@
 %define S_OPS           400             ; i32 lookup recursions left (a runaway font's limit)
 %define S_MAXLEN        404             ; u32 records the buffer may grow to
 %define S_LKCAP         408             ; [2] u32 lookup entries the plan's arrays hold
+%define S_ICP           416             ; u32 the script's virama
+%define S_IREPHPOS      420             ; u8 where reph goes
+%define S_IREPHMODE     421             ; u8 0 implicit, 1 explicit (Ra, halant, ZWJ), 2 a repha character
+%define S_IBLWF         422             ; u8 0 below forms before and after the base, 1 after only
+%define S_IKIND         423             ; u8 the script's own paths: 1 Kannada, 2 Malayalam, 3 Tamil, 4 Devanagari
+%define S_IVC           424             ; vowel constraint pairs (u16 vowel, u16 sign)
+%define S_IVCN          432             ; u32 how many
 %define S_DUMMY         448             ; a record written when memory runs out
 %define S_SIZE          480
 
