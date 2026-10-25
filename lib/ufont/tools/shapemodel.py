@@ -18,6 +18,8 @@ import unicodedata
 from fontTools import unicodedata as fud
 from fontTools.ttLib import TTFont
 
+from ucd_data import EXTENDED_PICTOGRAPHIC
+
 # glyph props (GDEF classes, as HarfBuzz keeps them)
 BASE, LIGATURE, MARK = 0x02, 0x04, 0x08
 SUBSTITUTED, LIGATED, MULTIPLIED = 0x10, 0x20, 0x40
@@ -81,6 +83,14 @@ def is_default_ignorable(ch):
     if plane == 0x0E:
         return 0xE0000 <= ch <= 0xE0FFF
     return False
+
+
+def is_regional_indicator(cp):
+    return 0x1F1E6 <= cp <= 0x1F1FF
+
+
+def is_extended_pictographic(cp):
+    return any(lo <= cp <= hi for lo, hi in EXTENDED_PICTOGRAPHIC)
 
 
 def is_variation_selector(cp):
@@ -347,15 +357,15 @@ class Buffer:
             return
         info = self.info
         cluster = min(info[i].cluster for i in range(start, end))
-        while end < len(info) and info[end - 1].cluster == info[end].cluster:
-            end += 1
-        while start and info[start - 1].cluster == info[start].cluster:
-            start -= 1
-        if self.have_output and start == 0 or (self.have_output and start == self.idx):
-            pass
-        if self.have_output and start <= self.idx:
-            # the part already moved to out
-            i = len(self.out)
+        if cluster != info[end - 1].cluster:
+            while end < len(info) and info[end - 1].cluster == info[end].cluster:
+                end += 1
+        if cluster != info[start].cluster:
+            while self.idx < start and info[start - 1].cluster == info[start].cluster:
+                start -= 1
+        if self.idx == start and info[start].cluster != cluster:
+            # continued in what has gone to the output already
+            i = len(self.out) if self.have_output else 0
             while i and self.out[i - 1].cluster == info[start].cluster:
                 self.out[i - 1].cluster = cluster
                 i -= 1
@@ -929,7 +939,10 @@ def ligate_input(c, count, match_positions, match_end, lig_glyph, total):
             break
     is_lig = not is_base_lig and not is_mark_lig
     klass = LIGATURE if is_lig else 0
-    lig_id = b.next_serial() if is_lig else 0
+    lig_id = 0
+    if is_lig:
+        while not lig_id:                               # 3 bits, never 0
+            lig_id = b.next_serial() & 7
     last_lig_id = b.cur().lig_id()
     last_num = b.cur().lig_num_comps()
     so_far = last_num
@@ -1204,6 +1217,8 @@ def apply_gsub(c, t, st):
     if t in (5, 6):
         return apply_context(c, st, t)
     if t == 8:
+        if c.nesting != MAX_NESTING:
+            return False                                  # never through a context lookup
         cov = st.Coverage
         ci = coverage_index(cov, name)
         if ci is None:
@@ -1409,7 +1424,8 @@ def run_table(c, m, gpos):
             c.last_base, c.last_base_until = -1, 0
             if not b.info or not c.lookup_mask:
                 continue
-            if lk.LookupType == 8 and not gpos:
+            first = next(subtables(lk), (None, None))[0]
+            if first == 8 and not gpos:
                 b.idx = len(b.info) - 1
                 while b.idx >= 0:
                     cur = b.cur()
@@ -1607,8 +1623,6 @@ def normalize(b, font, shaper=None):
                         st.glyph = g
                         st.set_unicode(comp)
                         continue
-            if starter < len(b.out) - 1 and prev.mcc > cur.mcc:
-                starter = len(b.out)
         b.next_glyph()
         if b.out[-1].mcc == 0:
             starter = len(b.out) - 1
@@ -1635,11 +1649,24 @@ def shape(font, cps, script=None, language=None, shaper=None):
         script = guess_script(cps)
     infos = [Info(cp, i) for i, cp in enumerate(cps)]
     b = Buffer(infos)
-    # ZWJ (and an Extended_Pictographic after it) continues a grapheme
+    # graphemes: marks, emoji modifiers, regional indicator pairs, ZWJ (and an Extended_Pictographic
+    # after it), halfwidth katakana voiced marks and tags continue the one before
     i = 0
     while i < len(infos):
-        if infos[i].zwj:
-            infos[i].cont = True
+        inf = infos[i]
+        if inf.cp >= 0x80 and inf.gc not in ('Ll', 'Lu', 'Lt', 'Lo', 'Zs'):
+            if inf.gc == 'Sk' and 0x1F3FB <= inf.cp <= 0x1F3FF:
+                inf.cont = True
+            elif i and is_regional_indicator(inf.cp):
+                if is_regional_indicator(infos[i - 1].cp) and not infos[i - 1].cont:
+                    inf.cont = True
+            elif inf.zwj:
+                inf.cont = True
+                if i + 1 < len(infos) and is_extended_pictographic(infos[i + 1].cp):
+                    i += 1
+                    infos[i].cont = True
+            elif 0xFF9E <= inf.cp <= 0xFF9F or 0xE0020 <= inf.cp <= 0xE007F:
+                inf.cont = True
         i += 1
     # grapheme clusters
     if any(cp >= 0x80 for cp in cps):
@@ -1682,6 +1709,7 @@ def shape(font, cps, script=None, language=None, shaper=None):
     # masks, glyphs
     for inf in b.info:
         inf.mask = m.global_mask
+    fractions(b, m)
     if shaper:
         shaper.setup_masks(b, font)
     has_gpos_kern = gpos_ls is not None and any(
@@ -1737,6 +1765,33 @@ def shape(font, cps, script=None, language=None, shaper=None):
             g = space
         out.append((g, inf.cluster, p.xa, p.ya, p.xo, p.yo))
     return out
+
+
+def fractions(b, m):
+    """Digits around a fraction slash take numr / frac / dnom."""
+    frac, numr, dnom = m.get_1_mask('frac'), m.get_1_mask('numr'), m.get_1_mask('dnom')
+    if not (frac or (numr and dnom)):
+        return
+    info = b.info
+    i = 0
+    while i < len(info):
+        if info[i].cp == 0x2044:
+            start, end = i, i + 1
+            while start and info[start - 1].gc == 'Nd':
+                start -= 1
+            while end < len(info) and info[end].gc == 'Nd':
+                end += 1
+            if start == i or end == i + 1:
+                i += 1
+                continue
+            for j in range(start, i):
+                info[j].mask |= numr | frac
+            info[i].mask |= frac
+            for j in range(i + 1, end):
+                info[j].mask |= frac | dnom
+            i = end
+            continue
+        i += 1
 
 
 def kern_table(font, b, mask):
