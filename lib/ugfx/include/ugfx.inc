@@ -466,7 +466,8 @@ extern panic_null_ptr
 %define UgfxSvgFe_in1           8       ; i32 (UgfxFe's)
 %define UgfxSvgFe_in2           12
 %define UgfxSvgFe_linear        16      ; u32
-%define UgfxSvgFe_given         20      ; u32 bits 0-3 x y w h, 4 stdDeviation, 5 dx, 6 dy, 7 radius
+%define UgfxSvgFe_given         20      ; u32 bits 0-3 x y w h, 4 stdDeviation, 5 dx, 6 dy, 7 radius,
+                                        ; 8 divisor, 9 targetX, 10 targetY
 %define UgfxSvgFe_sub           24      ; f64 x, y, w, h (primitiveUnits) where given
 %define UgfxSvgFe_raw           56      ; (text, end)[4] as written
 %define UgfxSvgFe_std           120     ; f64 x, y
@@ -477,13 +478,21 @@ extern panic_null_ptr
 %define UgfxSvgFe_cm_type       204     ; u32 0 matrix 1 saturate 2 hueRotate 3 luminanceToAlpha
 %define UgfxSvgFe_flood         208     ; u32 flood-color (ARGB; opacity in its alpha once finished)
 %define UgfxSvgFe_flood_op      216     ; f64
-%define UgfxSvgFe_values        224     ; values as written
+%define UgfxSvgFe_values        224     ; values (kernelMatrix, feImage's href) as written
 %define UgfxSvgFe_values_end    232
 %define UgfxSvgFe_var           240     ; f64* (UgfxFe's list)
 %define UgfxSvgFe_nvar          248     ; u32
 %define UgfxSvgFe_name          256     ; result as written
 %define UgfxSvgFe_name_end      264
-%define UgfxSvgFe_SIZE          272
+%define UgfxSvgFe_q             272     ; f64[8] turbulence, convolution, displacement and
+                                        ; lighting parameters (svg_fe_begin lists them)
+%define UgfxSvgFe_light         336     ; f64[8] its light: azimuth, elevation (degrees) /
+                                        ; x, y, z, pointsAt x, y, z, specularExponent,
+                                        ; limitingConeAngle
+%define UgfxSvgFe_light_type    400     ; u32 0 none, 1 distant, 2 point, 3 spot
+%define UgfxSvgFe_cone          404     ; u32 1: limitingConeAngle given
+%define UgfxSvgFe_par           408     ; u32 feImage's preserveAspectRatio (as UgfxSvg_par)
+%define UgfxSvgFe_SIZE          416
 ; item kinds: a shape, or the start / end of a group drawn as one layer
 %define UGFX_SVG_SHAPE          0
 %define UGFX_SVG_BEGIN          1
