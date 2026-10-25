@@ -24,7 +24,7 @@ NASMFLAGS   := -f elf64 -g -F dwarf \
                -I inc/ \
                -I src/ \
                -I ../ugfx/include/ \
-               -I ../ufont/include/
+               -I ../ufont/include/ -I ../ufont/layout/
 
 # Linker Flags (Utkarsha image format)
 LDFLAGS     := -nostdlib -static -z max-page-size=0x1000 \
@@ -184,7 +184,19 @@ IMG_SRCS := \
 UFONT_DIR := ../ufont
 FONT_SRCS := \
     $(UFONT_DIR)/sfnt/sfnt.asm \
-    $(UFONT_DIR)/match/fontset.asm
+    $(UFONT_DIR)/match/fontset.asm \
+    $(UFONT_DIR)/layout/shape.asm \
+    $(UFONT_DIR)/layout/buffer.asm \
+    $(UFONT_DIR)/layout/unicode.asm \
+    $(UFONT_DIR)/layout/normalize.asm \
+    $(UFONT_DIR)/layout/otl.asm \
+    $(UFONT_DIR)/layout/map.asm \
+    $(UFONT_DIR)/layout/apply.asm \
+    $(UFONT_DIR)/layout/gsub.asm \
+    $(UFONT_DIR)/layout/gpos.asm \
+    $(UFONT_DIR)/layout/indic.asm \
+    $(UFONT_DIR)/layout/ucd.asm \
+    $(UFONT_DIR)/layout/indic_table.asm
 FONT_OBJS := $(patsubst $(UFONT_DIR)/%.asm,$(OBJDIR)/ufont/%.o,$(FONT_SRCS))
 
 # Color management (C25)
@@ -506,7 +518,7 @@ $(OBJDIR)/ugfx/%.o: $(UGFX_DIR)/%.asm $(UGFX_DIR)/include/ugfx.inc
 	$(NASM) $(NASMFLAGS) -I ../../ -o $@ $<
 	@echo "  ASM    $<"
 
-$(OBJDIR)/ufont/%.o: $(UFONT_DIR)/%.asm $(UFONT_DIR)/include/ufont.inc $(UGFX_DIR)/include/ugfx.inc
+$(OBJDIR)/ufont/%.o: $(UFONT_DIR)/%.asm $(UFONT_DIR)/include/ufont.inc $(UFONT_DIR)/layout/shape.inc $(UGFX_DIR)/include/ugfx.inc
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -o $@ $<
 	@echo "  ASM    $<"
