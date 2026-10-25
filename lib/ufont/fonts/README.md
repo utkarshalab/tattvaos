@@ -52,9 +52,9 @@ names (and Arimo, Tinos, Cousine) map to it.
 
 ## What is not covered yet
 
-The Devanagari faces are not in `ufont_standard` yet: Devanagari needs
-text shaping, which is modelled (`tools/shapemodel.py`, `tools/indic.py`)
-and being written in assembly (../README.md, Next); they join the set
-with it. The other Indic scripts and Arabic follow. Colour emoji need colour glyph tables, which `sfnt.asm` does
+The Devanagari faces are in `ufont_standard` (families "Noto Sans
+Devanagari" and "Noto Serif Devanagari"); Devanagari text in any other
+family falls back to them and is shaped by the Indic shaper. The other
+Indic scripts and Arabic follow. Colour emoji need colour glyph tables, which `sfnt.asm` does
 not read. A character no shipped face has draws as the
 face's missing-glyph box.
