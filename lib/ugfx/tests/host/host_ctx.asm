@@ -34,6 +34,8 @@
 ;       host_font
 ;    58 clip_begin   59 clip_add (the current path)   60 clip_end
 ;    61 begin_mask   62 end_mask mode   63 clip_stroke (the current path)
+;    64 filter x0 y0 x1 y1 n, then per primitive: type in1 in2 linear sx0
+;       sy0 sx1 sy1 p0..p7 nvar var x nvar
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 setup error, 4 write error,
 ;   5 a call returned an error, 6 unknown opcode.
 ; Development-machine tool only.
@@ -73,6 +75,8 @@ extern ugfx_list_begin_mask
 extern ugfx_list_end_mask
 extern ugfx_ctx_clip_stroke
 extern ugfx_list_clip_stroke
+extern ugfx_ctx_filter
+extern ugfx_list_filter
 extern ugfx_ctx_save
 extern ugfx_ctx_restore
 extern ugfx_ctx_set_transform
@@ -266,6 +270,8 @@ _start:
     je .c_end_mask
     cmp rax, 63
     je .c_clip_stroke
+    cmp rax, 64
+    je .c_filter
     cmp rax, 55
     ja .bad_op
     sub rax, 30
@@ -314,6 +320,67 @@ _start:
 .c_clip_stroke:
     mov rax, [rel fns + 30 * 8]   ; clip_stroke
     jmp .ctx_path
+.c_filter:
+    ; a UgfxFilter from the script, in the arena (rbx, r13 kept)
+    push rbx
+    push r13
+    lea rdi, [rel arena_state]
+    mov esi, UgfxFilter_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .bad_op
+    mov r15, rax
+    xor ecx, ecx
+.cf_region:
+    cvttsd2si rax, qword [r14 + rcx * 8]
+    mov [r15 + UgfxFilter_region + rcx * 4], eax
+    inc ecx
+    cmp ecx, 4
+    jb .cf_region
+    cvttsd2si rax, qword [r14 + 32]
+    mov [r15 + UgfxFilter_count], eax
+    add r14, 40
+    lea rdi, [rel arena_state]
+    imul esi, eax, UgfxFe_SIZE
+    add esi, 8
+    call arena_alloc
+    test rax, rax
+    jz .bad_op
+    mov [r15 + UgfxFilter_prims], rax
+    mov rbx, rax
+    xor r13d, r13d
+.cf_prim:
+    cmp r13d, [r15 + UgfxFilter_count]
+    jae .cf_done
+    xor ecx, ecx
+.cf_int:
+    cvttsd2si rax, qword [r14 + rcx * 8]
+    mov [rbx + rcx * 4], eax            ; type, in1, in2, linear, sub x4
+    inc ecx
+    cmp ecx, 8
+    jb .cf_int
+    xor ecx, ecx
+.cf_p:
+    mov rax, [r14 + 64 + rcx * 8]
+    mov [rbx + UgfxFe_p + rcx * 8], rax
+    inc ecx
+    cmp ecx, 8
+    jb .cf_p
+    cvttsd2si rax, qword [r14 + 128]
+    mov [rbx + UgfxFe_nvar], eax
+    lea rcx, [r14 + 136]
+    mov [rbx + UgfxFe_var], rcx         ; (the script stays mapped)
+    lea r14, [rcx + rax * 8]
+    add rbx, UgfxFe_SIZE
+    inc r13d
+    jmp .cf_prim
+.cf_done:
+    pop r13
+    pop rbx
+    mov rdi, [rel obj]
+    mov rsi, r15
+    call [rel fns + 31 * 8]   ; filter
+    jmp .checked
 .c_clip:
     mov rax, [rel fns + 2 * 8]   ; clip
 .ctx_path:
@@ -933,6 +1000,7 @@ ctx_fns:
     dq ugfx_ctx_begin_mask
     dq ugfx_ctx_end_mask
     dq ugfx_ctx_clip_stroke
+    dq ugfx_ctx_filter
 list_fns:
     dq ugfx_list_begin_layer
     dq ugfx_list_clear
@@ -965,7 +1033,8 @@ list_fns:
     dq ugfx_list_begin_mask
     dq ugfx_list_end_mask
     dq ugfx_list_clip_stroke
-FN_COUNT equ 31
+    dq ugfx_list_filter
+FN_COUNT equ 32
 ctx_jumps:
     dq _start.c_new_path, _start.c_fill, _start.c_stroke, _start.c_clip
     dq _start.c_save, _start.c_restore, _start.c_set_transform, _start.c_transform
