@@ -400,7 +400,8 @@ extern panic_null_ptr
                                         ; a shape's own bounds when a paint is a pattern
 %define UgfxSvgItem_mask        344     ; const UgfxSvgMask* (BEGIN / END), 0 = none
 %define UgfxSvgItem_marker      352     ; const UgfxSvgMarker* (UGFX_SVG_MARKER)
-%define UgfxSvgItem_SIZE        360
+%define UgfxSvgItem_filter      360     ; UgfxSvgFilter* (BEGIN / END), 0 = none
+%define UgfxSvgItem_SIZE        368
 ; a clipPath's content, compiled for one element (items are shapes; next:
 ; the clipPath's own clip-path, intersected)
 %define UgfxSvgClip_items       0       ; UgfxSvgItem[]
@@ -444,6 +445,39 @@ extern panic_null_ptr
 %define UgfxSvgMarker_has_vb    112     ; u32
 %define UgfxSvgMarker_path      120     ; UgfxPath: the unit square
 %define UgfxSvgMarker_SIZE      176
+; a filter compiled for one element: user-space primitives, and room for
+; their device form (svg_filter_device fills it before each run)
+%define UgfxSvgFilter_units     0       ; u32 filterUnits: 1 objectBoundingBox (the default)
+%define UgfxSvgFilter_prim_units 4      ; u32 primitiveUnits: 1 objectBoundingBox
+%define UgfxSvgFilter_linear    8       ; u32 color-interpolation-filters: 1 linearRGB
+%define UgfxSvgFilter_count     12      ; u32 primitives (at most 16)
+%define UgfxSvgFilter_region    16      ; f64 x, y, w, h in filterUnits
+%define UgfxSvgFilter_prims     48      ; UgfxSvgFe[16]
+%define UgfxSvgFilter_dev       56      ; UgfxFilter
+%define UgfxSvgFilter_SIZE      88
+%define UgfxSvgFe_code          0       ; u32 its element
+%define UgfxSvgFe_type          4       ; u32 FE_*
+%define UgfxSvgFe_in1           8       ; i32 (UgfxFe's)
+%define UgfxSvgFe_in2           12
+%define UgfxSvgFe_linear        16      ; u32
+%define UgfxSvgFe_given         20      ; u32 bits 0-3 x y w h, 4 stdDeviation, 5 dx, 6 dy, 7 radius
+%define UgfxSvgFe_sub           24      ; f64 x, y, w, h (primitiveUnits) where given
+%define UgfxSvgFe_raw           56      ; (text, end)[4] as written
+%define UgfxSvgFe_std           120     ; f64 x, y
+%define UgfxSvgFe_dxy           136     ; f64 dx, dy
+%define UgfxSvgFe_radius        152     ; f64 x, y
+%define UgfxSvgFe_k             168     ; f64 k1..k4
+%define UgfxSvgFe_op            200     ; u32 mode / operator / erode-dilate
+%define UgfxSvgFe_cm_type       204     ; u32 0 matrix 1 saturate 2 hueRotate 3 luminanceToAlpha
+%define UgfxSvgFe_flood         208     ; u32 flood-color (ARGB; opacity in its alpha once finished)
+%define UgfxSvgFe_flood_op      216     ; f64
+%define UgfxSvgFe_values        224     ; values as written
+%define UgfxSvgFe_values_end    232
+%define UgfxSvgFe_var           240     ; f64* (UgfxFe's list)
+%define UgfxSvgFe_nvar          248     ; u32
+%define UgfxSvgFe_name          256     ; result as written
+%define UgfxSvgFe_name_end      264
+%define UgfxSvgFe_SIZE          272
 ; item kinds: a shape, or the start / end of a group drawn as one layer
 %define UGFX_SVG_SHAPE          0
 %define UGFX_SVG_BEGIN          1
