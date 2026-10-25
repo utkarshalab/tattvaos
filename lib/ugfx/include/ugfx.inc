@@ -314,6 +314,12 @@ extern panic_null_ptr
 %define FE_TRANSFER             7
 %define FE_MORPHOLOGY           8
 %define FE_TILE                 9
+%define FE_CONVOLVE             10
+%define FE_DISPLACE             11
+%define FE_TURBULENCE           12
+%define FE_DIFFUSE              13
+%define FE_SPECULAR             14
+%define FE_IMAGE                15
 %define FE_POOL                 21      ; buffers a filter run takes
 ; ugfx_ctx_end_mask modes
 %define UGFX_MASK_LUMINANCE     0
