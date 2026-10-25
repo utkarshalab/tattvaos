@@ -12,47 +12,47 @@
 ; decomposes every character first (no short cut), keeps U+0931 / U+09DC /
 ; U+09DD / U+0B94 whole and composes nothing onto a mark.
 ;
-;   norm_run                  the buffer normalized; GI_GLYPH set for every record
-;   norm_glyph(edi = cp)      -> eax the font's glyph, 0 none
-;   norm_variation(edi = cp, esi = selector) -> eax glyph, 0 none
+;   ufl_norm_run                  the buffer normalized; GI_GLYPH set for every record
+;   ufl_norm_glyph(edi = cp)      -> eax the font's glyph, 0 none
+;   ufl_norm_variation(edi = cp, esi = selector) -> eax glyph, 0 none
 ; =============================================================================
 
 %include "ufont.inc"
 %include "shape.inc"
 
 extern ufont_glyph
-extern uc_set_props
-extern uc_decompose
-extern uc_compose
-extern uc_space_type
-extern uc_is_vs
-extern uc_is_mark_gc
-extern ucd_gc
-extern buf_clear_output
-extern buf_sync
-extern buf_next_glyph
-extern buf_skip_glyph
-extern buf_out_slot
-extern buf_sort
-extern buf_merge_out_clusters
+extern ufl_uc_set_props
+extern ufl_uc_decompose
+extern ufl_uc_compose
+extern ufl_uc_space_type
+extern ufl_uc_is_vs
+extern ufl_uc_is_mark_gc
+extern ufl_ucd_gc
+extern ufl_buf_clear_output
+extern ufl_buf_sync
+extern ufl_buf_next_glyph
+extern ufl_buf_skip_glyph
+extern ufl_buf_out_slot
+extern ufl_buf_sort
+extern ufl_buf_merge_out_clusters
 
 section .text
 
 ; ----------------------------------------------------------------------------
-; norm_glyph — edi = code point -> eax = glyph (0: the font has none)
+; ufl_norm_glyph — edi = code point -> eax = glyph (0: the font has none)
 ; ----------------------------------------------------------------------------
-global norm_glyph
-norm_glyph:
+global ufl_norm_glyph
+ufl_norm_glyph:
     mov esi, edi
     mov rdi, [r15 + S_FONT]
     jmp ufont_glyph
 
 ; ----------------------------------------------------------------------------
-; norm_variation — edi = code point, esi = variation selector -> eax = glyph
+; ufl_norm_variation — edi = code point, esi = variation selector -> eax = glyph
 ;   (0: no variant; the default variant is the nominal glyph)
 ; ----------------------------------------------------------------------------
-global norm_variation
-norm_variation:
+global ufl_norm_variation
+ufl_norm_variation:
     push rbx
     push r12
     push r13
@@ -131,7 +131,7 @@ norm_variation:
 .default:
     pop rdx
     mov edi, r12d
-    call norm_glyph
+    call ufl_norm_glyph
     jmp .out
 .def_none:
     pop rdx
@@ -193,7 +193,7 @@ norm_variation:
 ; the shaper's decomposition: edi = ab -> eax 1 / 0, edx = a, ecx = b
 nm_decompose:
     cmp byte [r15 + S_SHAPER], 1
-    jne uc_decompose
+    jne ufl_uc_decompose
     cmp edi, 0x0931
     je .no
     cmp edi, 0x09DC
@@ -202,7 +202,7 @@ nm_decompose:
     je .no
     cmp edi, 0x0B94
     je .no
-    jmp uc_decompose
+    jmp ufl_uc_decompose
 .no:
     xor eax, eax
     ret
@@ -210,22 +210,22 @@ nm_decompose:
 ; the shaper's composition: edi = a, esi = b -> eax = ab, 0 none
 nm_compose:
     cmp byte [r15 + S_SHAPER], 1
-    jne uc_compose
+    jne ufl_uc_compose
     push rdi
     push rsi
     sub rsp, 8
-    call ucd_gc
+    call ufl_ucd_gc
     mov edi, eax
-    call uc_is_mark_gc
+    call ufl_uc_is_mark_gc
     add rsp, 8
     pop rsi
     pop rdi
     test eax, eax
     jnz .no
     cmp edi, 0x09AF
-    jne uc_compose
+    jne ufl_uc_compose
     cmp esi, 0x09BC
-    jne uc_compose
+    jne ufl_uc_compose
     mov eax, 0x09DF
     ret
 .no:
@@ -238,7 +238,7 @@ nm_next_char:
     shl rax, 5
     add rax, [r15 + S_INFO]
     mov [rax + GI_GLYPH], esi
-    jmp buf_next_glyph
+    jmp ufl_buf_next_glyph
 
 ; a copy of the current record as another character to the output: edi = u,
 ;   esi = glyph
@@ -248,7 +248,7 @@ nm_output_char:
     push r13
     mov r12d, edi
     mov r13d, esi
-    call buf_out_slot
+    call ufl_buf_out_slot
     mov rbx, rdi
     mov esi, [r15 + S_IDX]
     shl rsi, 5
@@ -260,7 +260,7 @@ nm_output_char:
     mov [rbx + GI_GLYPH], r13d
     mov rdi, rbx
     mov esi, r12d
-    call uc_set_props
+    call ufl_uc_set_props
     pop r13
     pop r12
     pop rbx
@@ -285,13 +285,13 @@ nm_decomp:
     test r13d, r13d
     jz .a
     mov edi, r13d
-    call norm_glyph
+    call ufl_norm_glyph
     test eax, eax
     jz .zero
     mov r14d, eax
 .a:
     mov edi, r12d
-    call norm_glyph
+    call ufl_norm_glyph
     mov ebx, eax                        ; a's glyph (0: none)
     test ebp, ebp
     jz .deeper
@@ -352,7 +352,7 @@ nm_decompose_current:
     add rax, [r15 + S_INFO]
     mov r13d, [rax + GI_CP]
     mov edi, r13d
-    call norm_glyph
+    call ufl_norm_glyph
     mov ebx, eax
     test r12d, r12d
     jz .decomp
@@ -364,7 +364,7 @@ nm_decompose_current:
     call nm_decomp
     test eax, eax
     jz .whole
-    call buf_skip_glyph
+    call ufl_buf_skip_glyph
     jmp .out
 .whole:
     test ebx, ebx
@@ -376,13 +376,13 @@ nm_decompose_current:
     cmp byte [rax + GI_GC], GC_ZS
     jne .hyphen
     mov edi, r13d
-    call uc_space_type
+    call ufl_uc_space_type
     test eax, eax
     jz .hyphen
     push rax
     sub rsp, 8
     mov edi, 0x20
-    call norm_glyph
+    call ufl_norm_glyph
     add rsp, 8
     pop rcx
     test eax, eax
@@ -397,7 +397,7 @@ nm_decompose_current:
     cmp r13d, 0x2011
     jne .next
     mov edi, 0x2010
-    call norm_glyph
+    call ufl_norm_glyph
     mov ebx, eax
 .next:
     mov esi, ebx
@@ -414,7 +414,7 @@ nm_next_nominal:
     shl rax, 5
     add rax, [r15 + S_INFO]
     mov edi, [rax + GI_CP]
-    call norm_glyph
+    call ufl_norm_glyph
     mov esi, eax
     jmp nm_next_char
 
@@ -424,7 +424,7 @@ nm_is_vs_at:
     shl rax, 5
     add rax, [r15 + S_INFO]
     mov edi, [rax + GI_CP]
-    jmp uc_is_vs
+    jmp ufl_uc_is_vs
 
 ; is record i (edi) a mark -> eax
 nm_is_mark_at:
@@ -432,13 +432,13 @@ nm_is_mark_at:
     shl rax, 5
     add rax, [r15 + S_INFO]
     movzx edi, byte [rax + GI_GC]
-    jmp uc_is_mark_gc
+    jmp ufl_uc_is_mark_gc
 
 ; ----------------------------------------------------------------------------
-; norm_run
+; ufl_norm_run
 ; ----------------------------------------------------------------------------
-global norm_run
-norm_run:
+global ufl_norm_run
+ufl_norm_run:
     push rbx
     push rbp
     push r12
@@ -449,7 +449,7 @@ norm_run:
     je .mode
     inc ebp
 .mode:
-    call buf_clear_output
+    call ufl_buf_clear_output
     mov r12d, [r15 + S_LEN]             ; count
     mov r13d, 1                         ; all simple
 .cluster:
@@ -524,12 +524,12 @@ norm_run:
     add rax, [r15 + S_INFO]
     mov edi, [rax + GI_CP]
     mov esi, [rax + 32 + GI_CP]
-    call norm_variation
+    call ufl_norm_variation
     test eax, eax
     jz .vs_nominal
     mov esi, eax
     call nm_next_char
-    call buf_skip_glyph
+    call ufl_buf_skip_glyph
     jmp .vs_after
 .vs_nominal:
     call nm_next_nominal
@@ -552,7 +552,7 @@ norm_run:
     call nm_next_nominal
     jmp .cluster
 .decomposed:
-    call buf_sync
+    call ufl_buf_sync
     test r13d, r13d
     jnz .cgj
     ; marks in combining-class order
@@ -587,17 +587,17 @@ norm_run:
     mov esi, ebx
     mov edx, r14d
     mov ecx, GI_MCC
-    call buf_sort
+    call ufl_buf_sort
 .run_next:
     mov ebx, r14d
     jmp .reorder
 .reordered:
     call nm_cgj
     ; compose
-    call buf_clear_output
+    call ufl_buf_clear_output
     mov r12d, [r15 + S_LEN]
     xor ebx, ebx                        ; starter (output position)
-    call buf_next_glyph
+    call ufl_buf_next_glyph
 .compose:
     cmp [r15 + S_IDX], r12d
     jae .composed
@@ -606,7 +606,7 @@ norm_run:
     add rax, [r15 + S_INFO]
     mov r14, rax                        ; cur
     movzx edi, byte [rax + GI_GC]
-    call uc_is_mark_gc
+    call ufl_uc_is_mark_gc
     test eax, eax
     jz .no_compose
     mov eax, [r15 + S_OUTLEN]
@@ -629,15 +629,15 @@ norm_run:
     jz .no_compose
     mov ebp, eax                        ; composed
     mov edi, eax
-    call norm_glyph
+    call ufl_norm_glyph
     test eax, eax
     jz .no_compose_restore
     push rax
     sub rsp, 8
-    call buf_next_glyph
+    call ufl_buf_next_glyph
     mov esi, ebx
     mov edx, [r15 + S_OUTLEN]
-    call buf_merge_out_clusters
+    call ufl_buf_merge_out_clusters
     dec dword [r15 + S_OUTLEN]
     add rsp, 8
     pop rax
@@ -646,11 +646,11 @@ norm_run:
     add rdi, [r15 + S_OUT]
     mov [rdi + GI_GLYPH], eax
     mov esi, ebp
-    call uc_set_props
+    call ufl_uc_set_props
     jmp .compose
 .no_compose_restore:
 .no_compose:
-    call buf_next_glyph
+    call ufl_buf_next_glyph
     mov eax, [r15 + S_OUTLEN]
     dec eax
     mov ecx, eax
@@ -661,7 +661,7 @@ norm_run:
     mov ebx, eax
     jmp .compose
 .composed:
-    call buf_sync
+    call ufl_buf_sync
     jmp .out
 .cgj:
     call nm_cgj
