@@ -34,33 +34,33 @@
 extern arena_alloc
 extern ufont_glyph
 extern ufont_advance
-extern ucd_script
-extern ucd_scripts
-extern ucd_scripts_count
-extern ucd_pict
-extern ucd_pict_count
-extern uc_set_props
-extern buf_ensure
-extern buf_merge_clusters
-extern norm_run
-extern norm_glyph
-extern otl_gdef_init
-extern otl_glyph_props
-extern otl_select
-extern otl_feature_index
-extern map_init
-extern map_add_feature
-extern map_enable
-extern map_add_gsub_pause
-extern map_compile
-extern map_get_mask
-extern map_get_1_mask
-extern ap_run_table
-extern indic_collect_features
-extern indic_override_features
-extern indic_data_create
-extern indic_preprocess
-extern indic_setup_masks
+extern ufl_ucd_script
+extern ufl_ucd_scripts
+extern ufl_ucd_scripts_count
+extern ufl_ucd_pict
+extern ufl_ucd_pict_count
+extern ufl_uc_set_props
+extern ufl_buf_ensure
+extern ufl_buf_merge_clusters
+extern ufl_norm_run
+extern ufl_norm_glyph
+extern ufl_otl_gdef_init
+extern ufl_otl_glyph_props
+extern ufl_otl_select
+extern ufl_otl_feature_index
+extern ufl_map_init
+extern ufl_map_add_feature
+extern ufl_map_enable
+extern ufl_map_add_gsub_pause
+extern ufl_map_compile
+extern ufl_map_get_mask
+extern ufl_map_get_1_mask
+extern ufl_ap_run_table
+extern ufl_indic_collect_features
+extern ufl_indic_override_features
+extern ufl_indic_data_create
+extern ufl_indic_preprocess
+extern ufl_indic_setup_masks
 
 section .rodata
 ; common and horizontal features: tag, flags
@@ -124,7 +124,7 @@ ufont_shape:
     mov dword [r15 + S_IVIRAMA], -1
     ; the characters
     lea esi, [r14 + 8]
-    call buf_ensure
+    call ufl_buf_ensure
     test eax, eax
     jnz .fail
     xor ebp, ebp
@@ -141,7 +141,7 @@ ufont_shape:
     pop rdi
     mov [rdi + GI_CLUSTER], ebp
     mov esi, [r13 + rbp * 4]
-    call uc_set_props
+    call ufl_uc_set_props
     inc ebp
     jmp .chars
 .chars_done:
@@ -172,9 +172,9 @@ ufont_shape:
     test eax, eax
     jz .guess
     xor ecx, ecx
-    lea rdx, [rel ucd_scripts]
+    lea rdx, [rel ufl_ucd_scripts]
 .find_script:
-    cmp ecx, [rel ucd_scripts_count]
+    cmp ecx, [rel ufl_ucd_scripts_count]
     jae .script_done
     imul r8d, ecx, 12
     cmp [rdx + r8], eax
@@ -190,20 +190,20 @@ ufont_shape:
     cmp ebp, r14d
     jae .script_done
     mov edi, [r13 + rbp * 4]
-    call ucd_script
+    call ufl_ucd_script
     inc ebp
     cmp eax, 3
     jb .guess_next
     mov [r15 + S_SCRIPT], eax
 .script_done:
     xor edi, edi
-    call otl_select
+    call ufl_otl_select
     mov edi, 1
-    call otl_select
+    call ufl_otl_select
     ; the shaper: Indic for Devanagari unless the font only has DFLT / latn
     mov eax, [r15 + S_SCRIPT]
     imul eax, eax, 12
-    lea rdx, [rel ucd_scripts]
+    lea rdx, [rel ufl_ucd_scripts]
     cmp dword [rdx + rax], 'Deva'
     jne .plan
     mov eax, [r15 + S_CHOSEN]
@@ -217,59 +217,59 @@ ufont_shape:
     je .plan                            ; Universal Shaping Engine fonts: not yet
     mov byte [r15 + S_SHAPER], 1
 .plan:
-    call map_init
+    call ufl_map_init
     test eax, eax
     jnz .fail
     mov edi, 'rvrn'
     xor esi, esi
     mov edx, 1
-    call map_enable
+    call ufl_map_enable
     xor edi, edi
-    call map_add_gsub_pause
+    call ufl_map_add_gsub_pause
     mov edi, 'ltra'
     xor esi, esi
     mov edx, 1
-    call map_enable
+    call ufl_map_enable
     mov edi, 'ltrm'
     xor esi, esi
     mov edx, 1
-    call map_enable
+    call ufl_map_enable
     mov edi, 'frac'
     xor esi, esi
     mov edx, 1
-    call map_add_feature
+    call ufl_map_add_feature
     mov edi, 'numr'
     xor esi, esi
     mov edx, 1
-    call map_add_feature
+    call ufl_map_add_feature
     mov edi, 'dnom'
     xor esi, esi
     mov edx, 1
-    call map_add_feature
+    call ufl_map_add_feature
     mov edi, 'rand'
     mov esi, F_RANDOM
     mov edx, 255
-    call map_enable
+    call ufl_map_enable
     mov edi, 'Harf'
     xor esi, esi
     mov edx, 1
-    call map_enable
+    call ufl_map_enable
     mov edi, 'HARF'
     xor esi, esi
     mov edx, 1
-    call map_enable
+    call ufl_map_enable
     cmp byte [r15 + S_SHAPER], 1
     jne .common
-    call indic_collect_features
+    call ufl_indic_collect_features
 .common:
     mov edi, 'Buzz'
     xor esi, esi
     mov edx, 1
-    call map_enable
+    call ufl_map_enable
     mov edi, 'BUZZ'
     xor esi, esi
     mov edx, 1
-    call map_enable
+    call ufl_map_enable
     lea rbp, [rel sh_features]
 .feat:
     lea rax, [rel sh_features_end]
@@ -278,24 +278,24 @@ ufont_shape:
     mov edi, [rbp]
     mov esi, [rbp + 4]
     mov edx, 1
-    call map_add_feature
+    call ufl_map_add_feature
     add rbp, 8
     jmp .feat
 .feat_done:
     cmp byte [r15 + S_SHAPER], 1
     jne .compile
-    call indic_override_features
+    call ufl_indic_override_features
 .compile:
-    call map_compile
+    call ufl_map_compile
     test eax, eax
     jnz .fail
-    call otl_gdef_init
+    call ufl_otl_gdef_init
     cmp byte [r15 + S_SHAPER], 1
     jne .normalize
-    call indic_data_create
-    call indic_preprocess
+    call ufl_indic_data_create
+    call ufl_indic_preprocess
 .normalize:
-    call norm_run
+    call ufl_norm_run
     ; masks
     mov eax, [r15 + S_GMASK]
     xor ecx, ecx
@@ -312,7 +312,7 @@ ufont_shape:
     call sh_fractions
     cmp byte [r15 + S_SHAPER], 1
     jne .gsub
-    call indic_setup_masks
+    call ufl_indic_setup_masks
 .gsub:
     ; glyph classes: GDEF's, else from Unicode (nonspacing marks are marks)
     xor ebp, ebp
@@ -326,7 +326,7 @@ ufont_shape:
     cmp qword [r15 + S_CLASSDEF], 0
     je .synth
     mov edi, [r12 + GI_GLYPH]
-    call otl_glyph_props
+    call ufl_otl_glyph_props
     jmp .set_props
 .synth:
     mov eax, GP_BASE
@@ -341,7 +341,7 @@ ufont_shape:
     jmp .props
 .props_done:
     xor edi, edi
-    call ap_run_table
+    call ufl_ap_run_table
     cmp byte [r15 + S_ERR], 0
     jne .fail
     ; advances
@@ -378,11 +378,11 @@ ufont_shape:
     ; GPOS, or the kern table
     mov edi, 1
     mov esi, 'kern'
-    call otl_feature_index
+    call ufl_otl_feature_index
     mov ebp, eax                        ; GPOS kern feature (-1 none)
     mov byte [r15 + S_HASATTACH], 0
     mov edi, 1
-    call ap_run_table
+    call ufl_ap_run_table
     mov rax, [r15 + S_FONT]
     cmp qword [rax + UfontFont_gpos], 0
     je .kern
@@ -390,7 +390,7 @@ ufont_shape:
     jne .zero_marks
 .kern:
     mov edi, 'kern'
-    call map_get_mask
+    call ufl_map_get_mask
     mov [r15 + S_KERNMASK], eax
     call sh_kern_table
 .zero_marks:
@@ -448,7 +448,7 @@ ufont_shape:
 .output:
     ; ignorables drawn as the space glyph (dropped without one)
     mov edi, 0x20
-    call norm_glyph
+    call ufl_norm_glyph
     mov [rsp + 8], eax
     mov eax, [r15 + S_LEN]
     imul eax, eax, UfontGlyph_SIZE
@@ -620,7 +620,7 @@ sh_graphemes:
     jnz .g_next
     mov esi, r13d
     mov edx, ebx
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
     mov r13d, ebx
 .g_next:
     inc ebx
@@ -628,7 +628,7 @@ sh_graphemes:
 .last:
     mov esi, r13d
     mov edx, [r15 + S_LEN]
-    call buf_merge_clusters
+    call ufl_buf_merge_clusters
 .out:
     pop r13
     pop r12
@@ -637,9 +637,9 @@ sh_graphemes:
 
 ; edi = code point -> eax 1 when Extended_Pictographic
 sh_is_pict:
-    lea r8, [rel ucd_pict]
+    lea r8, [rel ufl_ucd_pict]
     xor r9d, r9d
-    mov r10d, [rel ucd_pict_count]
+    mov r10d, [rel ufl_ucd_pict_count]
 .search:
     cmp r9d, r10d
     jae .no
@@ -671,13 +671,13 @@ sh_fractions:
     push r14
     push rbp
     mov edi, 'frac'
-    call map_get_1_mask
+    call ufl_map_get_1_mask
     mov r12d, eax
     mov edi, 'numr'
-    call map_get_1_mask
+    call ufl_map_get_1_mask
     mov r13d, eax
     mov edi, 'dnom'
-    call map_get_1_mask
+    call ufl_map_get_1_mask
     mov r14d, eax
     test r12d, r12d
     jnz .go
@@ -822,7 +822,7 @@ sh_fallback_spaces:
     jae .next
     push rdi
     sub rsp, 8
-    call norm_glyph
+    call ufl_norm_glyph
     add rsp, 8
     pop rdi
     test eax, eax
@@ -831,11 +831,11 @@ sh_fallback_spaces:
     jmp .digit
 .punct:
     mov edi, 0x2E
-    call norm_glyph
+    call ufl_norm_glyph
     test eax, eax
     jnz .width
     mov edi, 0x2C
-    call norm_glyph
+    call ufl_norm_glyph
     test eax, eax
     jz .next
 .width:
@@ -864,9 +864,9 @@ sh_fallback_spaces:
 ;   subtables) over the run, marks skipped; half the value on the first
 ;   glyph's advance, the rest on the second's advance and offset
 ; ----------------------------------------------------------------------------
-extern sk_init
-extern sk_reset
-extern sk_next
+extern ufl_sk_init
+extern ufl_sk_reset
+extern ufl_sk_next
 
 sh_kern_table:
     push rbx
@@ -940,14 +940,14 @@ sh_kern_table:
     mov [r15 + S_IDX], ebx
     mov rdi, rsp
     xor esi, esi
-    call sk_init
+    call ufl_sk_init
     mov rdi, rsp
     mov esi, ebx
     mov edx, 1
-    call sk_reset
+    call ufl_sk_reset
     mov rdi, rsp
     xor esi, esi
-    call sk_next
+    call ufl_sk_next
     test eax, eax
     jz .pair_next
     ; the pair's value
