@@ -30,6 +30,7 @@ import tempfile
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import filter_ref  # noqa: E402
 import paint_check  # noqa: E402
 from path_check import OPS, run_tool, script  # noqa: E402
 from paint_check import (LINEAR, RADIAL, CONIC, PAD, REPEAT, REFLECT, BILINEAR,  # noqa: E402
@@ -65,7 +66,7 @@ CTX_OPS = {'new_path': (30, 0), 'fill': (31, 0), 'stroke': (32, 0), 'clip': (33,
            'fill_rect': (50, 4), 'stroke_rect': (51, 4), 'draw_image': (52, None), 'clear': (53, 1),
            'begin_layer': (54, 1), 'end_layer': (55, 0), 'uic': (56, None), 'svg': (57, None),
            'clip_begin': (58, 0), 'clip_add': (59, 0), 'clip_end': (60, 0),
-           'begin_mask': (61, 0), 'end_mask': (62, 1), 'clip_stroke': (63, 0)}
+           'begin_mask': (61, 0), 'end_mask': (62, 1), 'clip_stroke': (63, 0), 'filter': (64, None)}
 PATH_OPS = ('move', 'line', 'quad', 'cubic', 'close', 'rect', 'ellipse', 'circle')
 
 
@@ -82,6 +83,14 @@ def encode(cmds):
             geom = list(geom) + [0.0] * (6 - len(geom))
             out += struct.pack("<9d", kind, spread, *geom, len(stops))
             out += b"".join(struct.pack("<2d", o, c) for o, c in stops) + struct.pack("<6d", *m)
+        elif name == 'filter':
+            region, prims = a
+            out += struct.pack("<5d", *region, len(prims))
+            for pr in prims:
+                p = list(pr["p"]) + [0.0] * (8 - len(pr["p"]))
+                var = pr.get("var", [])
+                out += struct.pack(f"<8d8dd{len(var)}d", pr["type"], pr["in1"], pr["in2"], pr["linear"],
+                                   *pr["sub"], *p, len(var), *var)
         elif name == 'dash':
             off, iv = a
             out += struct.pack(f"<2d{len(iv)}d", off, len(iv), *iv)
@@ -159,6 +168,9 @@ class Ref:
             elif name == 'clip':
                 cov = self.coverage(self.path, st['rule'])
                 st['clip'] = cov if st['clip'] is None else div255(cov * st['clip'])
+            elif name == 'filter':
+                t = st['target']
+                self.bufs[t] = filter_ref.apply(self.bufs[t], a[0], a[1])
             elif name == 'clip_stroke':
                 extra = [('dash', *st['dash'])] if st['dash'] else []
                 cov = self.coverage(self.path + extra + [('stroke', *st['style'])], 0)
@@ -326,6 +338,43 @@ def cases(rng):
     yield "clip stroke transformed", ([('translate', 24, 16), ('scale', 1.5, 0.75), ('stroke_style', 3, 4, 2, 2),
                                        ('move', -12, 0), ('line', 12, 0), ('clip_stroke',), ('new_path',),
                                        ('fill_color', 0xFFFF40FF), ('fill_rect', -24, -20, 48, 40)])
+    def fe(kind, in1=-1, in2=-3, linear=0, sub=(0, 0, 48, 32), p=(), var=()):
+        return dict(type=kind, in1=in1, in2=in2, linear=linear, sub=sub, p=list(p), var=list(var))
+
+    art = ([('begin_layer', 255), ('fill_color', 0xFF2060E0)] + circle + [('fill',), ('new_path',),
+           ('fill_color', 0xC0F08020)] + tri + [('fill',), ('new_path',)])
+    reg = (2, 1, 46, 31)
+    F = filter_ref
+    yield "filter blur", art + [('filter', reg, [fe(F.BLUR, p=(2.0, 1.2))]), ('end_layer',)]
+    yield "filter blur linear", art + [('filter', reg, [fe(F.BLUR, linear=1, p=(1.0, 3.5), sub=(4, 2, 40, 30))]),
+                                       ('end_layer',)]
+    yield "filter shadow", art + [('filter', (0, 0, 48, 32), [
+        fe(F.BLUR, in1=-2, p=(1.5, 1.5)), fe(F.OFFSET, in1=0, p=(2.4, 1.6)),
+        fe(F.FLOOD, p=(float(0x80301000),)), fe(F.COMPOSITE, in1=2, in2=1, p=(1,)),
+        fe(F.MERGE, var=(3, -1))]), ('end_layer',)]
+    yield "filter blend modes", art + [('filter', reg, [
+        fe(F.FLOOD, p=(float(0xFF80C040),), sub=(10, 4, 40, 28))] + [
+        fe(F.BLEND, in1=0, in2=-1, p=(m,)) for m in range(5)] + [
+        fe(F.MERGE, var=(1, 2, 3, 4, 5))]), ('end_layer',)]
+    yield "filter composite ops", art + [('filter', reg, [
+        fe(F.FLOOD, p=(float(0xA0FF0000),), sub=(16, 0, 48, 20))] + [
+        fe(F.COMPOSITE, in1=-1, in2=0, p=(op,)) for op in range(5)] + [
+        fe(F.COMPOSITE, in1=-1, in2=0, p=(5, 0.5, 0.3, 0.6, -0.1)),
+        fe(F.MERGE, var=(1, 3, 6))]), ('end_layer',)]
+    yield "filter color matrix", art + [('filter', reg, [
+        fe(F.COLORMATRIX, linear=1, var=(0.2, 0.7, 0.1, 0, 0.05, 0.1, 0.3, 0.6, 0, 0, 0.6, 0.2, 0.2, 0, 0.1,
+                                         0, 0, 0, 0.8, 0.1))]), ('end_layer',)]
+    yield "filter transfer", art + [('filter', reg, [
+        fe(F.TRANSFER, var=(1, 0, 0, 0, 0, 0, 3, 0.0, 0.8, 0.4,
+                            2, 0, 0, 0, 0, 0, 4, 0.0, 0.3, 0.7, 1.0,
+                            3, 0.5, 0.2, 0, 0, 0, 0,
+                            0, 0, 0, 0, 0, 0, 0))]), ('end_layer',)]
+    yield "filter morphology", art + [('filter', reg, [
+        fe(F.MORPHOLOGY, p=(0, 1.0, 2.0)), fe(F.MORPHOLOGY, in1=-1, p=(1, 2.0, 1.0)),
+        fe(F.COMPOSITE, in1=0, in2=1, p=(4,))]), ('end_layer',)]
+    yield "filter offset tile", art + [('filter', reg, [
+        fe(F.OFFSET, p=(-3.4, 2.5), sub=(8, 6, 20, 16)), fe(F.TILE, in1=0)]), ('end_layer',)]
+    yield "filter empty", art + [('filter', reg, []), ('end_layer',)]
     yield "clip mask reused", ([('save',)] + circle + [('clip',), ('new_path',), ('restore',),
                                ('save',)] + tri + [('clip',), ('new_path',), ('fill_rect', 0, 0, 48, 32), ('restore',),
                                ('fill_color', 0x5000FFFF), ('fill_rect', 0, 0, 48, 32)])
