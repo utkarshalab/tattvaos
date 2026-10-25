@@ -11,6 +11,7 @@
 ;                               with xml's arena set, a value holding
 ;                               entities comes back decoded (a copy)
 ;   ugfx_svg_xml_entity(at, end)        an entity -> its code point
+;   ugfx_svg_xml_decode(text, end, arena)   a copy with entities decoded
 ;   ugfx_svg_xml_text_end(xml, name, length)
 ;                               where the element just started ends: the
 ;                               '<' of its closing tag (for <style> text)
@@ -309,31 +310,81 @@ ugfx_svg_xml_attr:
     ret
 
 ; r9 = UgfxSvgAttr* (a value with an '&'), rax = arena: the value decoded
-;   (entities, as text is) into a copy there; kept as written if out of
-;   memory. Decoding never lengthens, so the copy is the value's size.
+;   into a copy there; kept as written if out of memory
 xml_decode_value:
+    push r9
+    sub rsp, 8
+    mov rdx, rax
+    mov rdi, [r9 + UgfxSvgAttr_val]
+    mov rsi, [r9 + UgfxSvgAttr_val_end]
+    call ugfx_svg_xml_decode
+    add rsp, 8
+    pop r9
+    test rax, rax
+    jz .out
+    mov [r9 + UgfxSvgAttr_val], rax
+    mov [r9 + UgfxSvgAttr_val_end], rdx
+.out:
+    ret
+
+; -----------------------------------------------------------------------------
+; ugfx_svg_xml_decode — rdi / rsi = text, rdx = arena -> rax / rdx = a copy
+;   in the arena with its entities decoded (ugfx_svg_xml_entity, as UTF-8)
+;   and CDATA sections kept as they are; rax = 0 when out of memory.
+;   Decoding never lengthens text, so the copy is its size.
+; -----------------------------------------------------------------------------
+global ugfx_svg_xml_decode
+ugfx_svg_xml_decode:
     push rbx
     push r12
     push r13
     push r14
     sub rsp, 8
-    mov r14, r9
-    mov rdi, rax
-    mov rsi, [r14 + UgfxSvgAttr_val_end]
-    sub rsi, [r14 + UgfxSvgAttr_val]
+    mov r12, rdi
+    mov r13, rsi
+    mov rdi, rdx
+    mov rsi, r13
+    sub rsi, r12
+    jnz .alloc
+    inc rsi
+.alloc:
     call arena_alloc
     test rax, rax
     jz .out
+    mov r14, rax                        ; the copy
     mov rbx, rax                        ; where it goes
-    mov r12, [r14 + UgfxSvgAttr_val]
-    mov r13, [r14 + UgfxSvgAttr_val_end]
-    mov [r14 + UgfxSvgAttr_val], rax
 .byte:
     cmp r12, r13
     jae .end
     movzx eax, byte [r12]
     cmp al, '&'
     je .entity
+    cmp al, '<'
+    jne .plain
+    ; <![CDATA[ ... ]]> as it is
+    lea rcx, [r12 + 9]
+    cmp rcx, r13
+    ja .plain
+    cmp dword [r12], '<![C'
+    jne .plain
+    cmp dword [r12 + 4], 'DATA'
+    jne .plain
+    cmp byte [r12 + 8], '['
+    jne .plain
+    mov rdi, r12
+    mov rsi, r13
+    mov edx, ']]>'
+    mov ecx, 3
+    call xml_skip_past
+.cdata:
+    cmp r12, rax
+    jae .byte
+    mov cl, [r12]
+    mov [rbx], cl
+    inc rbx
+    inc r12
+    jmp .cdata
+.plain:
     mov [rbx], al
     inc rbx
     inc r12
@@ -399,9 +450,9 @@ xml_decode_value:
     add rbx, 4
     jmp .byte
 .end:
-    mov [r14 + UgfxSvgAttr_val_end], rbx
+    mov rax, r14
+    mov rdx, rbx
 .out:
-    mov r9, r14
     add rsp, 8
     pop r14
     pop r13
