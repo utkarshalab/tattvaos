@@ -42,7 +42,8 @@ lib/ugfx/
     ├── flatten.asm       ← curves to polylines; path length
     ├── dash.asm          ← dash patterns along lines and curves
     ├── paint.asm         ← paints: solid; linear, radial, two-circle and conic gradients; image patterns
-    ├── context.asm       ← drawing context: state, save/restore, fill/stroke/clip, images, layers
+    ├── context.asm       ← drawing context: state, save/restore, fill/stroke/clip (and union and
+    │                       stroke clips), images, layers, masks, filters
     ├── list.asm          ← display lists: record context calls, replay them
     ├── uic.asm           ← UIC icon packs: open (validate), find, draw
     ├── svg.asm           ← SVG documents: elements, styles, shapes, drawing
@@ -295,42 +296,59 @@ defines; 17 lookups by name and size; 30 corrupt packs refused.
 ## 11. SVG
 
 `ugfx_svg_parse(svg, arena, data, size)` reads an SVG document once into a
-list of items (transform, path, fill and stroke: none, a colour or
-currentColor, opacities folded into the alpha); `ugfx_svg_draw(svg, ctx,
-current_colour, x, y, size)` draws it through a context, the viewBox
-fitted and centred in the square.
+list of items; `ugfx_svg_draw(svg, ctx, current_colour, x, y, size)` draws
+it through a context into the square (x, y, size): the viewBox through
+the root's preserveAspectRatio into width x height when both are given,
+that box centred in the square. `ugfx_svg_parse_opts` adds two callbacks:
+an image decoder (a `data:` URI's bytes, or any other href) and a font
+(a glyph's advance and outline at a size); `ugfx_svg_parse_ex` takes the
+image decoder alone. Without them images and text draw nothing.
 
-The subset is what icon sets use: `svg`, `g`, `path` (all commands,
-arcs through `umath_arc_svg_to_cubics`), `rect` (elliptical corners),
-`circle`, `ellipse`, `line`, `polyline`, `polygon`; fill, stroke and
-their opacities, stroke width / caps / joins / miter limit, fill-rule,
-opacity, display, transforms, `style` declarations (which override the
-attributes) and every CSS colour form icons use. Fills and strokes can be
-`url(#id)` linear and radial gradients (focal points and radii,
-objectBoundingBox or userSpaceOnUse, percentages, gradientTransform,
-spreadMethod, href chains, stop opacity), found by a first pass over the
-whole document, with the fallback colour when the id names nothing;
-bounding boxes are tight (`ugfx_path_bounds_tight`). `<style>` sheets
-apply too: selectors `element`, `.class`, `#id`, `element.class`, `*` and
-lists, cascaded by specificity then order, between the presentation
-attributes and the `style` attribute (`!important` is not
-distinguished); other selectors and at-rules are skipped. `<use>`
-(`href` or `xlink:href`) draws the element it names again, as its child,
-after `translate(x, y)`; an instanced `<symbol>` maps its viewBox into the
-use's width and height (xMidYMid meet). Instances nest up to 8 deep,
-which also ends reference cycles. `defs`, `clipPath`,
-`mask`, gradients, `text` and similar are skipped with their contents;
-other elements act as groups. Opacity is applied per item rather than as
-a group. `tools/svgmodel.py` models the same subset in Python.
+Static SVG 1.1 (and the SVG 2 / CSS pieces documents use):
 
-Tests: `tests/host/svg_check.py` - 37 documents (every path command
-absolute and relative, smooth reflections, arcs with every flag and
-tiny or zero radii, packed numbers, every shape, transforms, nested
-groups, styles, currentColor, colour syntaxes, fill rules, display,
-skipped content, viewBox fallbacks, Lucide-, Material- and Font
-Awesome-style icons, syntax errors), each drawn two ways, compared with
-the context calls svgmodel.py derives - all exact; plus 4 refused and 1
-truncated document.
+- Structure: `svg` (root and nested viewports, preserveAspectRatio, slice
+  clipped), `g`, `defs`, `symbol`, `use` (nesting up to 8, cycles end
+  there), `switch` with requiredExtensions / systemLanguage (en), `a`
+  and unknown elements as groups.
+- Shapes: `path` (every command; arcs through umath), `rect` (elliptical
+  corners), `circle`, `ellipse`, `line`, `polyline`, `polygon`.
+- Paint: fill / stroke as colours (every CSS form: 148 names, #rgb..,
+  rgb() / hsl() with alpha), currentColor and the `color` property,
+  linear and radial gradients (objectBoundingBox / userSpaceOnUse,
+  gradientTransform, spreadMethod, href chains), patterns (vector tiles,
+  patternUnits / patternContentUnits / patternTransform / viewBox,
+  href); fill-rule, opacities, stroke width / caps / joins / miter
+  limit, dasharray / dashoffset, paint-order, visibility, display.
+- Units: px pt pc mm cm in em ex %, font-size keywords; `inherit`.
+- Styling: presentation attributes, `<style>` sheets (element, .class,
+  #id, element.class, *, lists; specificity then order), `style`.
+- Groups: opacity on a group is one layer; clip-path (clipPath with
+  clip-rule, clipPathUnits, nested clip-paths), mask (luminance or
+  alpha, maskUnits / maskContentUnits, the region), filter.
+- Markers: marker-start / -mid / -end on path, line, polyline, polygon
+  (orient auto / auto-start-reverse / angle, markerUnits, refX / refY,
+  viewBox, overflow).
+- Images: `image` through the decoder callback, placed by
+  preserveAspectRatio.
+- Text: `text` / `tspan` with x / y / dx / dy / rotate lists, white space
+  (and xml:space), entities, text-anchor, letter / word spacing, font
+  family / weight / style / size; glyphs from the font callback.
+- Filters (2d/filter.asm): feFlood, feOffset, feGaussianBlur, feMerge,
+  feBlend, feComposite (with arithmetic), feColorMatrix,
+  feComponentTransfer, feMorphology, feTile, feDropShadow; named
+  results, subregions, filterUnits / primitiveUnits,
+  color-interpolation-filters.
+
+Not yet: textPath, baseline shifts and text decoration, feTurbulence,
+feImage, feConvolveMatrix, feDisplacementMap and the lighting filters
+(they give nothing), CSS selectors beyond the ones above.
+
+`tools/svgmodel.py` models all of it in Python with the same arithmetic.
+Tests: `tests/host/svg_check.py` - over a hundred documents covering each
+feature, each drawn at two sizes and compared with the context calls the
+model derives, exact (within 1 on 3 pixels where umath's trigonometry
+meets Python's); plus refused and truncated documents.
+`tests/host/filter_ref.py` models the filter engine for ctx_check.
 
 ## 12. Using it
 
