@@ -151,9 +151,9 @@ SPACE_TYPES = {0x20: SPACE, 0xA0: SPACE, 0x2000: SPACE_EM_2, 0x2001: SPACE_EM, 0
 
 
 # OpenType script tags for Unicode scripts (HarfBuzz: the new Indic tags first)
-SCRIPT_TAGS = {'Deva': ['dev2', 'deva'], 'Beng': ['bng2', 'beng'], 'Guru': ['gur2', 'guru'],
-               'Gujr': ['gjr2', 'gujr'], 'Orya': ['ory2', 'orya'], 'Taml': ['tml2', 'taml'],
-               'Telu': ['tel2', 'telu'], 'Knda': ['knd2', 'knda'], 'Mlym': ['mlm2', 'mlym'],
+SCRIPT_TAGS = {'Deva': ['dev3', 'dev2', 'deva'], 'Beng': ['bng3', 'bng2', 'beng'], 'Guru': ['gur3', 'gur2', 'guru'],
+               'Gujr': ['gjr3', 'gjr2', 'gujr'], 'Orya': ['ory3', 'ory2', 'orya'], 'Taml': ['tml3', 'tml2', 'taml'],
+               'Telu': ['tel3', 'tel2', 'telu'], 'Knda': ['knd3', 'knd2', 'knda'], 'Mlym': ['mlm3', 'mlm2', 'mlym'],
                'Mymr': ['mym2', 'mymr'], 'Hira': ['kana'], 'Kana': ['kana'], 'Laoo': ['lao '],
                'Yiii': ['yi  '], 'Nkoo': ['nko '], 'Vaii': ['vai ']}
 
@@ -731,6 +731,7 @@ class Ctx:
         self.nesting = MAX_NESTING
         self.last_base, self.last_base_until = -1, 0
         self.per_syllable = False
+        self.rtl = False
 
     # glyph properties against the lookup flags
     def check_glyph_property(self, info, match_props):
@@ -1293,6 +1294,67 @@ def mark_apply(c, mark_rec, base_anchor, glyph_pos):
     return True
 
 
+def reverse_cursive_minor_offset(pos, i, new_parent):
+    chain, typ = pos[i].chain, pos[i].type
+    if not chain or not (typ & ATTACH_CURSIVE):
+        return
+    pos[i].chain = 0
+    j = i + chain
+    if j == new_parent:
+        return
+    reverse_cursive_minor_offset(pos, j, new_parent)
+    pos[j].yo = 0 - pos[i].yo
+    pos[j].chain = 0 - chain
+    pos[j].type = typ
+
+
+def cursive(c, st, name):
+    """Cursive attachment: the previous glyph's exit anchor meets this one's entry anchor."""
+    b = c.buf
+    recs = st.EntryExitRecord
+    ci = coverage_index(st.Coverage, name)
+    this = recs[ci] if ci is not None and ci < len(recs) else None
+    if this is None or this.EntryAnchor is None:
+        return False
+    sk = Skippy(c, False)
+    sk.reset(b.idx, 1, len(b.info))
+    if not sk.prev(b.info):
+        return False
+    pi = coverage_index(st.Coverage, c.font.order[b.info[sk.idx].glyph])
+    prev = recs[pi] if pi is not None and pi < len(recs) else None
+    if prev is None or prev.ExitAnchor is None:
+        return False
+    i, j = sk.idx, b.idx
+    exit_x, exit_y = anchor_xy(prev.ExitAnchor)
+    entry_x, entry_y = anchor_xy(this.EntryAnchor)
+    pos = b.pos
+    if not c.rtl:
+        pos[i].xa = exit_x + pos[i].xo
+        d = entry_x + pos[j].xo
+        pos[j].xa -= d
+        pos[j].xo -= d
+    else:
+        d = exit_x + pos[i].xo
+        pos[i].xa -= d
+        pos[i].xo -= d
+        pos[j].xa = entry_x + pos[j].xo
+    child, parent = i, j
+    yoff = entry_y - exit_y
+    if not (c.lookup_props & 1):                          # not RightToLeft: the later glyph hangs
+        child, parent = parent, child
+        yoff = 0 - yoff
+    reverse_cursive_minor_offset(pos, child, parent)
+    pos[child].chain = parent - child
+    pos[child].type = ATTACH_CURSIVE
+    c.has_attachment = True
+    pos[child].yo = yoff
+    if pos[parent].chain == 0 - pos[child].chain:
+        pos[parent].chain = 0
+        pos[parent].yo = 0
+    b.idx += 1
+    return True
+
+
 def apply_gpos(c, t, st):
     b = c.buf
     name = glyph_name(c, b.cur())
@@ -1341,7 +1403,7 @@ def apply_gpos(c, t, st):
         b.idx = pos
         return True
     if t == 3:
-        return False                                      # cursive: not in the shipped fonts yet
+        return cursive(c, st, name)
     if t in (4, 5):
         mi = coverage_index(st.MarkCoverage, name)
         if mi is None:
@@ -1631,9 +1693,9 @@ def normalize(b, font, shaper=None):
 
 # ---------------------------------------------------------------- the shaper
 def pick_shaper(script, gsub_script):
-    """HarfBuzz's shaper choice: Devanagari through the Indic shaper unless the font's GSUB only
-    has DFLT / latn for it; everything else the default shaper (None)."""
-    if script == 'Deva':
+    """HarfBuzz's shaper choice: the nine Indic scripts through the Indic shaper unless the font's
+    GSUB only has DFLT / latn for them; everything else the default shaper (None)."""
+    if script in ('Deva', 'Beng', 'Guru', 'Gujr', 'Orya', 'Taml', 'Telu', 'Knda', 'Mlym'):
         tag = gsub_script.ScriptTag if gsub_script is not None else None
         if tag in ('DFLT', 'latn'):
             return None
@@ -1863,7 +1925,9 @@ def propagate(pos, i, nesting):
     if j >= len(pos) or j < 0 or not nesting:
         return
     propagate(pos, j, nesting - 1)
-    if typ & ATTACH_MARK:
+    if typ & ATTACH_CURSIVE:
+        pos[i].yo += pos[j].yo
+    elif typ & ATTACH_MARK:
         pos[i].xo += pos[j].xo
         pos[i].yo += pos[j].yo
         for k in range(j, i):
