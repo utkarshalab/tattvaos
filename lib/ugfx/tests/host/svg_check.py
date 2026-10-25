@@ -154,9 +154,12 @@ def item_calls(items, current, t):
                         out.append(('clip_end',))
                         rec = rec.next
                     out.append(('set_transform', *t))
-                if it.mask or it.alpha < 255:
+                if it.mask or it.filter or it.alpha < 255:
                     out.append(('begin_layer', it.alpha))
             else:
+                if it.filter:
+                    region, prims = svgmodel.filter_device(it.filter, it.begin, t)
+                    out.append(('filter', region, prims))
                 if it.mask:
                     b, mk = it.begin, it.mask
                     bw, bh = b.bbox[2] - b.bbox[0], b.bbox[3] - b.bbox[1]
@@ -174,7 +177,7 @@ def item_calls(items, current, t):
                         out.append(('transform', *m))
                         out += item_calls(mk.items, current, svgmodel.mul(base, m))
                     out += [('end_mask', mk.mode), ('end_layer',)]
-                elif it.alpha < 255:
+                elif it.filter or it.alpha < 255:
                     out.append(('end_layer',))
                 if it.clip:
                     out.append(('restore',))
@@ -653,6 +656,41 @@ CASES = [
                         'height="6"/></clipPath><text x="2" y="18" font-size="5" fill="none" stroke="#080" '
                         'stroke-dasharray="1 .5">open<tspan opacity=".5" fill="#c0c" font-size="3">half</tspan></text>'
                         '<tspan x="2" y="22">alone</tspan>'), False),
+    ("filter blur", svg('<filter id="b"><feGaussianBlur stdDeviation="1.5"/></filter>'
+                        '<filter id="u" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">'
+                        '<feGaussianBlur stdDeviation="2 .5"/></filter>'
+                        '<circle cx="7" cy="7" r="5" fill="#c33" filter="url(#b)"/>'
+                        '<g filter="url(#u)" transform="translate(12 0)"><rect x="1" y="2" width="9" height="9" '
+                        'fill="#36c"/></g><rect x="3" y="14" width="18" height="7" fill="#3a3" stroke="#000" '
+                        'style="filter:url(#b)" opacity=".7"/>'), False),
+    ("filter shadow", svg('<filter id="s" x="-20%" y="-20%" width="160%" height="160%"><feDropShadow dx="1.5" '
+                          'dy="1" stdDeviation="1" flood-color="#000" flood-opacity=".6"/></filter>'
+                          '<filter id="m"><feOffset in="SourceAlpha" dx="2" dy="2" result="o"/>'
+                          '<feGaussianBlur in="o" stdDeviation="1" result="b"/><feMerge><feMergeNode in="b"/>'
+                          '<feMergeNode in="SourceGraphic"/></feMerge></filter>'
+                          '<rect x="3" y="3" width="8" height="8" rx="2" fill="#fa0" filter="url(#s)"/>'
+                          '<circle cx="17" cy="16" r="5" fill="#0af" filter="url(#m)"/>'), False),
+    ("filter color", svg('<filter id="g"><feColorMatrix type="saturate" values="0"/></filter>'
+                         '<filter id="h"><feColorMatrix type="hueRotate" values="90"/></filter>'
+                         '<filter id="t" color-interpolation-filters="sRGB"><feComponentTransfer>'
+                         '<feFuncR type="table" tableValues="1 0"/><feFuncG type="discrete" tableValues="0 .5 1"/>'
+                         '<feFuncB type="linear" slope=".5" intercept=".25"/></feComponentTransfer></filter>'
+                         '<filter id="f" filterUnits="userSpaceOnUse" x="0" y="12" width="24" height="12">'
+                         '<feFlood flood-color="#8c4" flood-opacity=".5" result="fl"/>'
+                         '<feComposite in="SourceGraphic" in2="fl" operator="arithmetic" k2=".7" k3=".5"/>'
+                         '<feBlend in2="fl" mode="multiply"/></filter>'
+                         '<g fill="#e53"><rect x="1" y="1" width="6" height="10" filter="url(#g)"/>'
+                         '<rect x="9" y="1" width="6" height="10" filter="url(#h)"/>'
+                         '<rect x="17" y="1" width="6" height="10" filter="url(#t)"/>'
+                         '<circle cx="12" cy="18" r="5" fill="#26d" filter="url(#f)"/></g>'), True),
+    ("filter misc", svg('<filter id="mo" primitiveUnits="objectBoundingBox"><feMorphology operator="dilate" '
+                        'radius=".08"/></filter><filter id="ti" x="0" y="0" width="1" height="1" primitiveUnits="userSpaceOnUse">'
+                        '<feOffset dx="0" dy="0" x="13" y="2" width="3" height="4"/>'
+                        '<feTile/></filter><filter id="un"><feTurbulence baseFrequency=".1"/></filter>'
+                        '<path d="M3 3L10 6L4 10Z" fill="#555" filter="url(#mo)"/>'
+                        '<g filter="url(#ti)"><rect x="13" y="2" width="2" height="2" fill="#a3c"/><rect x="15" y="4" width="1" height="2" fill="#3ac"/><rect x="21" y="10" width="1" height="1"/></g>'
+                        '<rect x="2" y="14" width="8" height="8" fill="#000" filter="url(#un)"/>'
+                        '<rect x="14" y="14" width="8" height="8" fill="#0a0" filter="url(#nothing)"/>'), False),
     ("lucide style", svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
                          'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
                          'stroke-linejoin="round"'), True),
