@@ -114,7 +114,8 @@ cut off (recursion 64 deep and 1024 x the text in all; the buffer at most
 | `ufont_set_init(set, arena)` | an empty set (`UfontSet_SIZE` bytes, up to 32 faces) |
 | `ufont_set_add(set, data, length, family, weight, italic)` | open a font and add it under a family name → 0, -EINVAL, -ENOMEM |
 | `ufont_set_face(set, UgfxSvgFont*)` | the face for a CSS `font-family` list, weight and style → `UfontFace*` |
-| `ufont_svg_font` | lib/ugfx's SVG font callback (`UgfxSvg_font_fn`, user = the set): advances, outlines, ascent / descent |
+| `ufont_svg_font` | lib/ugfx's SVG font callback (`UgfxSvg_font_fn`, user = the set): advances, outlines, ascent / descent; glyph keys from `ufont_svg_shape` |
+| `ufont_svg_shape` | lib/ugfx's SVG shaping callback (`UgfxSvg_shape_fn`): a run split by face and script, each part through `ufont_shape` |
 | `ufont_standard`, `ufont_standard_count` | the shipped fonts: file name, family, weight, italic (`UfontStd`) |
 
 Matching: the family list is read as CSS has it (comma separated, quoted
@@ -126,7 +127,12 @@ Times New Roman, Times, Tinos: Liberation Serif; Courier New, Courier,
 Cousine: Liberation Mono. The first name with a face in the set wins,
 else Noto Sans, else the first face. Within a family the style is matched
 first, then the weight (bold from 600). A character the face lacks comes
-from Noto Sans in the same style.
+from Noto Sans in the same style, else from the first face in the set
+that has it (same weight and style, then same weight, then any) - so
+Devanagari in any family is drawn from Noto Sans Devanagari. When
+shaping, marks and default ignorables stay in the face before them, and
+a run is shaped in parts where the face or the script changes (common
+and inherited characters joining the script before them).
 
 Loading: a program maps each `ufont_standard` file from the fonts
 directory — installed read-only at `/app/lib/ufont/fonts/` — and adds it
@@ -138,7 +144,8 @@ documents. Canvas hands its set to `svg_set_fonts`.
 ## 3. Fonts
 
 `fonts/` holds Noto Sans, Noto Serif and Noto Sans Mono (subset to Latin,
-Greek and Cyrillic with common symbols) and Liberation Sans, Serif and
+Greek and Cyrillic with common symbols, layout tables kept), Noto Sans
+and Noto Serif Devanagari (unmodified) and Liberation Sans, Serif and
 Mono (unmodified, for documents naming Arial / Helvetica, Times New Roman
 and Courier New, whose character widths they share). Sources, the exact
 subsetting command and the licences (SIL OFL 1.1): `fonts/README.md`.
@@ -177,8 +184,6 @@ calls.
 
 ## 5. Next
 
-- Shaped text in drawing: ugfx's SVG text and Canvas through ufont_shape,
-  the Devanagari faces in `ufont_standard` and the fallback.
 - The other Indic scripts (Bengali, Gurmukhi, Gujarati, Oriya, Tamil,
   Telugu, Kannada, Malayalam), right-to-left runs and Arabic, cursive
   attachment, fallback mark placement for fonts without GPOS.
