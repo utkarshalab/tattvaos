@@ -10,6 +10,8 @@
 ;   ufont_metrics(font)                     -> units per em, ascent, descent
 ;   ufont_outline(font, glyph, path, scale, arena)
 ;                                           -> 0, -EINVAL, -ENOMEM
+;       (outlines are kept per font once decoded: a glyph's contours in
+;       font units, replayed at any scale; not shared between threads)
 ;
 ; A font is the file's bytes as they are (kept by the caller) and an index
 ; of its tables; every table, glyph and offset is checked against the data
@@ -28,6 +30,7 @@
 %include "ufont.inc"
 
 extern arena_alloc
+extern ugfx_path_init
 extern ugfx_path_move_to
 extern ugfx_path_line_to
 extern ugfx_path_quad_to
@@ -40,6 +43,7 @@ extern umath_affine2_multiply
 section .rodata
 align 8
 sf_half:            dq 0.5
+sf_one:             dq 1.0
 sf_f2dot14:         dq 0x3F10000000000000   ; 1 / 16384
 sf_identity:        dq 1.0, 0.0, 0.0, 1.0, 0.0, 0.0
 
@@ -86,6 +90,7 @@ ufont_open:
     rep stosb
     mov [rbx + UfontFont_data], r12
     mov [rbx + UfontFont_len], r13
+    mov [rbx + UfontFont_arena], r15
     ; the table directory
     BE16 r14d, [r12 + 4]                ; numTables
     lea rax, [r14 * 8]
@@ -425,17 +430,184 @@ ufont_metrics:
 
 ; ----------------------------------------------------------------------------
 ; ufont_outline — rdi = UfontFont*, esi = glyph, rdx = UgfxPath*, xmm0 =
-;   scale (pixels per font unit), rcx = arena (scratch for points) -> rax =
-;   0, -EINVAL (damaged), -ENOMEM; the contours appended
+;   scale (pixels per font unit), rcx = arena (scratch) -> rax = 0, -EINVAL
+;   (damaged), -ENOMEM; the contours appended. The first time a glyph is
+;   asked for its outline is decoded at scale 1 (y already down) and kept
+;   in the font's arena; then and later it is replayed times the scale -
+;   the same numbers a direct decode at the scale gives.
 ; ----------------------------------------------------------------------------
+%define OC_SCALE    0                   ; f64
+%define OC_PATH     8                   ; UgfxPath: the glyph at scale 1
+%define OC_SIZE     64
+
+; a record: u32 verbs, u32 points, the verbs (padded to 8), the points
+%define OR_VERBS    0
+%define OR_POINTS   4
+%define OR_DATA     8
+
+global ufont_outline
+ufont_outline:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, OC_SIZE
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13, rdx
+    mov r14, rcx
+    movsd [rsp + OC_SCALE], xmm0
+    cmp r12d, [rbx + UfontFont_nglyphs]
+    jae .bad
+    ; the table of records
+    mov r15, [rbx + UfontFont_cache]
+    test r15, r15
+    jnz .table
+    mov rdi, [rbx + UfontFont_arena]
+    mov esi, [rbx + UfontFont_nglyphs]
+    shl esi, 3
+    call arena_alloc
+    test rax, rax
+    jz .direct                          ; no room for it: decode each time
+    mov r15, rax
+    mov rdi, rax
+    mov ecx, [rbx + UfontFont_nglyphs]
+    xor eax, eax
+    rep stosq
+    mov [rbx + UfontFont_cache], r15
+.table:
+    mov rax, [r15 + r12 * 8]
+    test rax, rax
+    jnz .replay
+    ; decoded once at scale 1, into a record
+    lea rdi, [rsp + OC_PATH]
+    mov rsi, r14
+    call ugfx_path_init
+    test rax, rax
+    jnz .out
+    mov rdi, rbx
+    mov esi, r12d
+    lea rdx, [rsp + OC_PATH]
+    movsd xmm0, [rel sf_one]
+    mov rcx, r14
+    call uf_decode
+    test rax, rax
+    jnz .out
+    mov ecx, [rsp + OC_PATH + UgfxPath_verb_count]
+    add ecx, 7
+    and ecx, -8
+    mov eax, [rsp + OC_PATH + UgfxPath_point_count]
+    shl eax, 4
+    lea esi, [rcx + rax + OR_DATA]
+    mov rdi, [rbx + UfontFont_arena]
+    call arena_alloc
+    test rax, rax
+    jz .unkept
+    mov rdx, rax
+    mov ecx, [rsp + OC_PATH + UgfxPath_verb_count]
+    mov [rdx + OR_VERBS], ecx
+    mov eax, [rsp + OC_PATH + UgfxPath_point_count]
+    mov [rdx + OR_POINTS], eax
+    lea rdi, [rdx + OR_DATA]
+    mov rsi, [rsp + OC_PATH + UgfxPath_verbs]
+    rep movsb
+    mov ecx, [rdx + OR_VERBS]
+    add ecx, 7
+    and ecx, -8
+    lea rdi, [rdx + OR_DATA + rcx]
+    mov rsi, [rsp + OC_PATH + UgfxPath_points]
+    mov ecx, [rdx + OR_POINTS]
+    shl ecx, 4
+    rep movsb
+    mov [r15 + r12 * 8], rdx
+    mov rax, rdx
+.replay:
+    ; rax = the record: each verb with its points times the scale
+    mov r15, rax
+    mov ecx, [r15 + OR_VERBS]
+    lea r12, [r15 + OR_DATA]            ; the verbs
+    add ecx, 7
+    and ecx, -8
+    lea r14, [r15 + OR_DATA + rcx]      ; the points
+    mov r15d, [r15 + OR_VERBS]
+.verb:
+    test r15d, r15d
+    jz .done
+    dec r15d
+    movzx eax, byte [r12]
+    inc r12
+    cmp eax, PATH_VERB_CLOSE
+    je .close
+    movsd xmm0, [r14]
+    mulsd xmm0, [rsp + OC_SCALE]
+    movsd xmm1, [r14 + 8]
+    mulsd xmm1, [rsp + OC_SCALE]
+    add r14, 16
+    mov rdi, r13
+    cmp eax, PATH_VERB_MOVE
+    je .move
+    cmp eax, PATH_VERB_LINE
+    je .line
+    movsd xmm2, [r14]
+    mulsd xmm2, [rsp + OC_SCALE]
+    movsd xmm3, [r14 + 8]
+    mulsd xmm3, [rsp + OC_SCALE]
+    add r14, 16
+    call ugfx_path_quad_to
+    jmp .verb_done
+.move:
+    call ugfx_path_move_to
+    jmp .verb_done
+.line:
+    call ugfx_path_line_to
+    jmp .verb_done
+.close:
+    mov rdi, r13
+    call ugfx_path_close
+.verb_done:
+    test rax, rax
+    jnz .out
+    jmp .verb
+.done:
+    xor eax, eax
+    jmp .out
+.unkept:
+    ; no room to keep it: drawn from this decode instead
+    mov rdi, rbx
+    mov esi, r12d
+    mov rdx, r13
+    movsd xmm0, [rsp + OC_SCALE]
+    mov rcx, r14
+    call uf_decode
+    jmp .out
+.direct:
+    mov rdi, rbx
+    mov esi, r12d
+    mov rdx, r13
+    movsd xmm0, [rsp + OC_SCALE]
+    mov rcx, r14
+    call uf_decode
+    jmp .out
+.bad:
+    mov rax, -EINVAL
+.out:
+    add rsp, OC_SIZE
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; uf_decode — as ufont_outline, decoding the glyph every time
 %define OL_FONT     0
 %define OL_PATH     8
 %define OL_ARENA    16
 %define OL_SCALE    24                  ; f64
 %define OL_SIZE     32
 
-global ufont_outline
-ufont_outline:
+uf_decode:
     push rbx
     sub rsp, OL_SIZE
     mov [rsp + OL_FONT], rdi
