@@ -177,16 +177,12 @@ extern canvas_layer_create
 extern toplevel_destroy
 extern toplevel_schedule_configure
 
-; Font
-extern cmap_glyph_id
 ; Keymap
 extern keymap_lookup_keysym
 extern keymap_is_modifier
 extern keymap_create_default
 ; Cursor
 extern cursor_create_default
-extern cmap_be16
-extern outline_decode_points
 
 ; Security
 extern audit_log
@@ -555,27 +551,6 @@ extern stroke_cap_round
 extern stroke_cap_square
 extern dash_pattern_get_length
 
-; Font primitives
-extern font_load_ttf
-extern font_get_glyph
-extern font_get_glyph_metrics
-extern font_face_create
-extern font_render_glyph
-extern font_render_text
-extern font_kerning
-extern glyph_cache_get
-extern glyph_cache_put
-
-; Font rasterization
-extern glyph_rasterize
-
-; Font text layout
-extern text_layout_create
-extern text_layout_set_text
-extern text_layout_draw
-extern text_layout_get_bounds
-extern font_render_glyph_run
-
 ; PNG codec
 extern png_probe
 extern png_decode
@@ -741,16 +716,6 @@ extern path_render
 extern path_render_gradient
 extern path_render_pattern
 extern path_hit_test
-
-; Font rasterization
-extern glyph_rasterize
-
-; Text layout
-extern text_layout_create
-extern text_layout_set_text
-extern text_layout_draw
-extern text_layout_get_bounds
-extern font_render_glyph_run
 
 ; Image transforms
 extern image_scale
