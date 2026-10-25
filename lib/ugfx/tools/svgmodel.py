@@ -33,7 +33,8 @@ PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", 
          "fill-opacity", "stroke-opacity", "opacity", "display", "font-size", "color", "visibility",
          "stroke-dasharray", "stroke-dashoffset", "paint-order", "clip-path", "clip-rule", "mask",
          "marker-start", "marker-mid", "marker-end", "marker", "font-family", "font-weight", "font-style",
-         "text-anchor", "letter-spacing", "word-spacing", "filter"}
+         "text-anchor", "letter-spacing", "word-spacing", "filter", "baseline-shift", "dominant-baseline",
+         "alignment-baseline", "text-decoration"}
 MARKED = {"path", "line", "polyline", "polygon"}
 MAX_CLIPS = 4
 INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "stroke-linecap": ["cap"],
@@ -43,9 +44,14 @@ INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "str
             "stroke-dashoffset": ["dash_off"], "paint-order": ["order"], "clip-rule": ["cliprule"],
             "marker-start": ["m0"], "marker-mid": ["m1"], "marker-end": ["m2"], "marker": ["m0", "m1", "m2"],
             "font-family": ["family"], "font-weight": ["weight"], "font-style": ["fstyle"],
-            "text-anchor": ["anchor"], "letter-spacing": ["lspace"], "word-spacing": ["wspace"]}
+            "text-anchor": ["anchor"], "letter-spacing": ["lspace"], "word-spacing": ["wspace"],
+            "dominant-baseline": ["dbase"], "alignment-baseline": ["dbase"]}
 DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset", "clip-path", "mask",
-            "letter-spacing", "word-spacing", "filter")
+            "letter-spacing", "word-spacing", "filter", "baseline-shift")
+BASELINES = {"auto": 0, "alphabetic": 0, "use-script": 0, "no-change": 0, "reset-size": 0, "middle": 1,
+             "central": 2, "hanging": 3, "mathematical": 4, "text-before-edge": 5, "text-top": 5,
+             "before-edge": 5, "text-after-edge": 6, "text-bottom": 6, "after-edge": 6, "ideographic": 6}
+TP_STEPS = 32                                       # line segments per curve along a textPath
 GEOM = ("x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "y1", "x2", "y2")
 AXIS = dict(x="x", y="y", width="x", height="y", rx="x", ry="y", cx="x", cy="y", r="d",
             x1="x", y1="y", x2="x", y2="y")
@@ -2089,7 +2095,8 @@ def parse(text, image_fn=None, font_fn=None):
                    fill_op=1.0, stroke_op=1.0, op=1.0, sw=1.0, miter=4.0, join=0, cap=0, rule=0, skip=False,
                    font=16.0, vw=300.0, vh=150.0, color=None, hidden=False, order=0, dash=None, dash_off=0.0,
                    cliprule=0, m0=None, m1=None, m2=None, family=None, weight=400, fstyle=0, anchor=0,
-                   intext=0, lspace=0.0, wspace=0.0, preserve=0, lists=(None,) * 5)
+                   intext=0, lspace=0.0, wspace=0.0, preserve=0, lists=(None,) * 5, bshift=0.0, dbase=0,
+                   tpath=0, decor=(None, None, None))
     tx = {}                                         # the text layout (one text element at a time)
     seen_root = [False]
     clipmode = [0]                                  # 1: a clip's content (geometry only)
@@ -2218,7 +2225,7 @@ def parse(text, image_fn=None, font_fn=None):
             text_finish()
             tx["x"] = v
         v = list_value(st, 1, c)
-        if v is not None:
+        if v is not None and not tx["onpath"]:
             text_finish()
             tx["y"] = v
         v = list_value(st, 2, c)
@@ -2232,32 +2239,171 @@ def parse(text, image_fn=None, font_fn=None):
             i = c - rec[1]
             rot = rec[0][i if i < len(rec[0]) else len(rec[0]) - 1] * 0.017453292519943295
         if not tx["chunk"]:
-            tx.update(chunk=len(doc.items) + 1, cx=tx["x"], anchor=st["anchor"])
+            tx.update(chunk=len(doc.items) + 1, cx=tx["x"], anchor=st["anchor"], chunkpath=tx["onpath"])
         font = (st["family"], st["weight"], st["fstyle"])
-        adv, _ = font_fn(font, cp, st["font"], False)
-        if cp != 32:
-            _, path = font_fn(font, cp, st["font"], True)
-            gst = dict(st)
-            m = mul(st["m"], [1.0, 0.0, 0.0, 1.0, tx["x"], tx["y"]])
-            cs, sn = math.cos(rot), math.sin(rot)
-            gst["m"] = mul(m, [cs, sn, 0.0 - sn, cs, 0.0, 0.0])
-            shape("glyph", {"glyph": path}, gst, 1.0, {}, uses)
+        s = st["font"]
+        adv, _ = font_fn(font, cp, s, False)
+        asc, desc = font_fn(font, -1, s, False)
+        if not asc > 0:
+            asc, desc = s * 0.8, s * 0.2
+        gy = (0.0, (asc - desc) * 0.5, (asc - desc) * 0.5, asc * 0.8, asc * 0.5, asc, 0.0 - desc)[st["dbase"]]
+        gy = gy - st["bshift"]
         x = tx["x"] + adv + st["lspace"]
         if cp == 32:
             x = x + st["wspace"]
+        step = x - tx["x"]
+        y = tx["y"] + gy
+        perp = tx["y"] - tx["y0"] + gy
+        base = mul(st["m"], [1.0, 0.0, 0.0, 1.0, tx["x"], y])
+
+        def emitted(first, r):
+            if tx["onpath"]:
+                for i in range(first, len(doc.items)):
+                    tx["recs"].append((i, tx["x"], perp, adv, r))
+
+        def decoration(k):
+            dst = st["decor"][k]
+            if dst is None:
+                return
+            t = s * 0.05
+            centre = (desc * 0.5, 0.0 - asc, 0.0 - asc * 0.375)[k]
+            d = dict(dst)
+            d["m"] = list(base)
+            first = len(doc.items)
+            shape("decor", {"rect": (0.0, centre - t * 0.5, step, t)}, d, 1.0, {}, uses)
+            emitted(first, 0.0)
+
+        decoration(0)
+        decoration(1)
+        if cp != 32:
+            _, path = font_fn(font, cp, s, True)
+            gst = dict(st)
+            cs, sn = math.cos(rot), math.sin(rot)
+            gst["m"] = mul(base, [cs, sn, 0.0 - sn, cs, 0.0, 0.0])
+            first = len(doc.items)
+            shape("glyph", {"glyph": path}, gst, 1.0, {}, uses)
+            emitted(first, rot)
+        decoration(2)
         tx["x"] = x
         tx["count"] = c + 1
+
+    def tp_points(target):
+        """svg_textpath_points: a path element's outline as points (x, y, distance, starts a subpath)."""
+        if target is None or target.tag.split('}')[-1] != "path":
+            return None
+        cmds = path_data(target.attrib.get("d", ""))
+        tm = transform_list(target.attrib["transform"], [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]) \
+            if "transform" in target.attrib else None
+        if tm is None:
+            tm = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+        raw, cur, start = [], (0.0, 0.0), (0.0, 0.0)
+        for c in cmds:
+            if c[0] == 'move':
+                raw.append((c[1], c[2], 1))
+                cur = start = (c[1], c[2])
+            elif c[0] == 'line':
+                raw.append((c[1], c[2], 0))
+                cur = (c[1], c[2])
+            elif c[0] in ('quad', 'cubic'):
+                for i in range(1, TP_STEPS + 1):
+                    t = i / TP_STEPS
+                    mt = 1.0 - t
+                    if c[0] == 'quad':
+                        a, b, d = mt * mt, 2.0 * mt * t, t * t
+                        px = a * cur[0] + b * c[1] + d * c[3]
+                        py = a * cur[1] + b * c[2] + d * c[4]
+                    else:
+                        a, b, d, e = mt * mt * mt, 3.0 * mt * mt * t, 3.0 * mt * t * t, t * t * t
+                        px = a * cur[0] + b * c[1] + d * c[3] + e * c[5]
+                        py = a * cur[1] + b * c[2] + d * c[4] + e * c[6]
+                    raw.append((px, py, 0))
+                cur = (c[-2], c[-1])
+            elif c[0] == 'close':
+                raw.append((start[0], start[1], 0))
+                cur = start
+        pts, dist = [], 0.0
+        for x, y, new in raw:
+            px = tm[0] * x + tm[2] * y + tm[4]
+            py = tm[1] * x + tm[3] * y + tm[5]
+            if pts and not new:
+                dx, dy = px - pts[-1][0], py - pts[-1][1]
+                dist = dist + math.sqrt(dx * dx + dy * dy)
+            pts.append((px, py, dist, new or not pts))
+        return pts, dist
+
+    def tp_at(pts, m):
+        """svg_textpath_at: the point and direction at distance m, or None off the path."""
+        if not 0.0 <= m <= pts[1]:
+            return None
+        p = pts[0]
+        for k in range(1, len(p)):
+            if p[k][3]:
+                continue
+            s0, s1 = p[k - 1][2], p[k][2]
+            ln = s1 - s0
+            if not ln > 0 or m > s1:
+                continue
+            f = (m - s0) / ln
+            x0, y0 = p[k - 1][0], p[k - 1][1]
+            dx, dy = p[k][0] - x0, p[k][1] - y0
+            return x0 + dx * f, y0 + dy * f, dx / ln, dy / ln
+        return None
+
+    def textpath_start(st, href, el):
+        """svg_textpath_start."""
+        text_finish()
+        pts = tp_points(ids.get(href) if href is not None else None)
+        if pts is None or not pts[0]:
+            st["skip"] = True
+            return
+        so, raw = 0.0, el.attrib.get("startOffset")
+        if raw is not None:
+            n, j = number(raw, 0)
+            if n is not None and j < len(raw) and raw[j] == '%':
+                so = n * 0.01 * pts[1]
+            else:
+                v, _ = length(raw, "x", st)
+                if v is not None:
+                    so = v
+        tx.update(x=so, y0=tx["y"], onpath=pts)
+
+    def textpath_end():
+        """svg_textpath_end: the chunk placed; text goes on from where the path text ended."""
+        text_finish()
+        pts = tx["onpath"]
+        tx["onpath"] = None
+        if pts is None:
+            return
+        m = min(max(tx["x"], 0.0), pts[1])
+        at = tp_at(pts, m)
+        if at is not None:
+            tx["x"], tx["y"] = at[0], at[1]
 
     def text_finish():
         """svg_text_finish: middle / end anchors shift the chunk's items."""
         if not tx.get("chunk"):
             return
         start, tx["chunk"] = tx["chunk"] - 1, 0
+        shift = 0.0
+        if tx["anchor"]:
+            shift = tx["cx"] - tx["x"]
+            if tx["anchor"] == 1:
+                shift = shift * 0.5
+        pts, tx["chunkpath"] = tx["chunkpath"], None
+        if pts is not None:
+            recs, tx["recs"] = tx["recs"], []
+            for i, x, perp, adv, r in recs:
+                it = doc.items[i]
+                at = tp_at(pts, x + shift + adv * 0.5)
+                if at is None:
+                    it.path = []
+                    continue
+                px, py, c, s = at
+                m = mul(mul(tx["m"], [c, s, 0.0 - s, c, px, py]), [1.0, 0.0, 0.0, 1.0, 0.0 - adv * 0.5, perp])
+                it.matrix = mul(m, [math.cos(r), math.sin(r), 0.0 - math.sin(r), math.cos(r), 0.0, 0.0])
+            return
         if not tx["anchor"]:
             return
-        shift = tx["cx"] - tx["x"]
-        if tx["anchor"] == 1:
-            shift = shift * 0.5
         inv = invert(tx["m"])
         if inv is None:
             return
@@ -2460,6 +2606,16 @@ def parse(text, image_fn=None, font_fn=None):
                 return
             for k in INHERITS[name]:
                 st[k] = v
+        elif name in ("dominant-baseline", "alignment-baseline"):
+            t = trim(value)
+            if t in BASELINES:
+                st["dbase"] = BASELINES[t]
+        elif name == "text-decoration":
+            decor = list(st["decor"])
+            for w in re.split(r"[\x00- ]+", trim(value)):
+                if w in ("underline", "overline", "line-through"):
+                    decor[("underline", "overline", "line-through").index(w)] = st
+            st["decor"] = tuple(decor)
         elif name == "font-family":
             st["family"] = trim(value)
         elif name == "font-weight":
@@ -2551,6 +2707,12 @@ def parse(text, image_fn=None, font_fn=None):
             return
         if tag in SKIP and not (symroot or cliproot) and tag != "text":
             st["skip"] = True
+        if tag == "textPath" and (not st["intext"] or st["tpath"]):
+            st["skip"] = True
+        if tag == "textPath" and not st["skip"]:
+            st["tpath"] = 2
+        elif st["tpath"]:
+            st["tpath"] = 1
         if (tag == "text" and st["intext"]) or (tag == "tspan" and not st["intext"]) or \
                 (tag == "text" and font_fn is None and False):
             st["skip"] = True
@@ -2614,6 +2776,23 @@ def parse(text, image_fn=None, font_fn=None):
                         v, _ = length(t, "x", st)
                         if v is not None:
                             st[field_] = v
+            if "baseline-shift" in raw and st["intext"] == 1:
+                t = trim(raw["baseline-shift"])
+                v = None
+                if t == "baseline":
+                    v = 0.0
+                elif t == "sub":
+                    v = st["font"] * -0.2
+                elif t == "super":
+                    v = st["font"] * 0.4
+                else:
+                    n, j = number(t, 0)
+                    if n is not None and j < len(t) and t[j] == '%':
+                        v = n * 0.01 * st["font"]
+                    else:
+                        v, _ = length(t, "y", st)
+                if v is not None:
+                    st["bshift"] = st["bshift"] + v
             if "stroke-dashoffset" in raw:
                 v, _ = length(raw["stroke-dashoffset"], "d", st)
                 if v is not None:
@@ -2639,10 +2818,14 @@ def parse(text, image_fn=None, font_fn=None):
                     vp = symbol_map(st, geom, inst)
                 if tag == "text":
                     st["intext"] = 2
-                    tx.update(x=0.0, y=0.0, count=0, space=0, any=0, chunk=0, cx=0.0, anchor=0, m=list(st["m"]))
+                    st["bshift"] = 0.0
+                    tx.update(x=0.0, y=0.0, count=0, space=0, any=0, chunk=0, cx=0.0, anchor=0, m=list(st["m"]),
+                              onpath=None, chunkpath=None, recs=[], y0=0.0)
                     text_lists(st, el, lists_raw)
                 elif tag == "tspan":
                     text_lists(st, el, lists_raw)
+                elif tag == "textPath":
+                    textpath_start(st, href, el)
                 elif tag == "image":
                     image(geom, st, href_raw)
                 elif tag == "use":
@@ -2698,6 +2881,8 @@ def parse(text, image_fn=None, font_fn=None):
             walk(child, st, uses)
             if intext and child.tail:
                 text_node(child.tail, st, uses)
+        if st["tpath"] == 2 and not st["skip"]:
+            textpath_end()
         if st["intext"] == 2 and not st["skip"]:
             text_finish()
         if vp:
@@ -2836,6 +3021,9 @@ def parse(text, image_fn=None, font_fn=None):
             path = [('move', g.get("x1", 0.0), g.get("y1", 0.0)), ('line', g.get("x2", 0.0), g.get("y2", 0.0))]
         elif tag in ("polyline", "polygon"):
             path = points(g.get("points", ""), tag == "polygon")
+        elif tag == "decor":
+            x, y, w, h = g["rect"]
+            path = [('rect', x, y, w, h)] if w > 0 and h > 0 else []
         elif tag == "glyph":
             path = g["glyph"]
         else:
