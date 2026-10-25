@@ -23,7 +23,8 @@ NASMFLAGS   := -f elf64 -g -F dwarf \
                -D DEBUG_BUILD=1 \
                -I inc/ \
                -I src/ \
-               -I ../ugfx/include/
+               -I ../ugfx/include/ \
+               -I ../ufont/include/
 
 # Linker Flags (Utkarsha image format)
 LDFLAGS     := -nostdlib -static -z max-page-size=0x1000 \
@@ -179,19 +180,12 @@ IMG_SRCS := \
     $(SRCDIR)/img/webp_predict.asm \
     $(SRCDIR)/img/svg.asm
 
-# Fonts (C22)
+# Fonts (C22): lib/ufont, assembled into this build like lib/ugfx
+UFONT_DIR := ../ufont
 FONT_SRCS := \
-    $(SRCDIR)/font/ttf.asm \
-    $(SRCDIR)/font/ttf_tables.asm \
-    $(SRCDIR)/font/cmap.asm \
-    $(SRCDIR)/font/glyf.asm \
-    $(SRCDIR)/font/outline.asm \
-    $(SRCDIR)/font/flatten.asm \
-    $(SRCDIR)/font/scanline.asm \
-    $(SRCDIR)/font/glyph_cache.asm \
-    $(SRCDIR)/font/kern.asm \
-    $(SRCDIR)/font/metrics.asm \
-    $(SRCDIR)/font/fallback.asm     $(SRCDIR)/font/sfnt.asm     $(SRCDIR)/font/fontset.asm
+    $(UFONT_DIR)/sfnt/sfnt.asm \
+    $(UFONT_DIR)/match/fontset.asm
+FONT_OBJS := $(patsubst $(UFONT_DIR)/%.asm,$(OBJDIR)/ufont/%.o,$(FONT_SRCS))
 
 # Color management (C25)
 COLOR_SRCS := \
@@ -413,7 +407,7 @@ A11Y_SRCS := \
 ALL_SRCS    := $(UT_SRCS) $(CORE_SRCS) $(GFX_SRCS) $(PROTO_SRCS) $(IMG_SRCS) $(COLOR_SRCS) $(FONT_SRCS) $(SERVER_SRCS) $(RENDER_SRCS) $(GPU_SRCS) $(BACKEND_SRCS) $(DCN_SRCS) $(OUTPUT_SRCS) $(INPUT_SRCS) $(SHELL_SRCS) $(POLICY_SRCS) $(DATA_SRCS) $(SECURITY_SRCS) $(SESSION_SRCS) $(GOVERNANCE_SRCS) $(OBS_SRCS) $(CODEC_SRCS) $(REMOTE_SRCS) $(TEXT_SRCS) $(A11Y_SRCS)
 
 # Object Files
-ALL_OBJS    := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(filter $(SRCDIR)/%,$(ALL_SRCS))) $(GFX_OBJS)
+ALL_OBJS    := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(filter $(SRCDIR)/%,$(ALL_SRCS))) $(GFX_OBJS) $(FONT_OBJS)
 UT_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(UT_SRCS))
 
 # ---------------------------------------------------------------------------
@@ -500,7 +494,7 @@ $(OBJDIR)/ugfx/core/umath_unit.o: $(wildcard ../umath/geom/*.asm ../umath/math_f
 $(OBJDIR)/shell/icons.o: assets/icons/ui.uic
 
 # Canvas sources that use ugfx's structures (a UgfxContext on the stack)
-$(OBJDIR)/shell/icons.o $(OBJDIR)/img/svg.o $(OBJDIR)/font/sfnt.o $(OBJDIR)/font/fontset.o: $(UGFX_DIR)/include/ugfx.inc inc/sfnt.inc
+$(OBJDIR)/shell/icons.o $(OBJDIR)/img/svg.o: $(UGFX_DIR)/include/ugfx.inc
 
 # rebuild assets/icons/ui.uic from assets/icons/ui/*.svg (development machine: python3)
 .PHONY: ui-icons
@@ -510,6 +504,11 @@ ui-icons:
 $(OBJDIR)/ugfx/%.o: $(UGFX_DIR)/%.asm $(UGFX_DIR)/include/ugfx.inc
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I ../../ -o $@ $<
+	@echo "  ASM    $<"
+
+$(OBJDIR)/ufont/%.o: $(UFONT_DIR)/%.asm $(UFONT_DIR)/include/ufont.inc $(UGFX_DIR)/include/ugfx.inc
+	@mkdir -p $(dir $@)
+	$(NASM) $(NASMFLAGS) -o $@ $<
 	@echo "  ASM    $<"
 
 # ---------------------------------------------------------------------------
@@ -548,18 +547,17 @@ UNIT_SRCS := \
     tests/unit/test_rfb.asm \
     tests/unit/test_inflate.asm \
     tests/unit/test_png.asm \
-    tests/unit/test_webp.asm \
-    tests/unit/test_ttf.asm
+    tests/unit/test_webp.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
 # Test runner image
-$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(UNIT_OBJS) $(UT_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_OBJS) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(UNIT_OBJS) $(UT_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_OBJS) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_OBJS) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
 
 # Golden test image
-$(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(UT_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_OBJS) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(UT_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GFX_OBJS) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_OBJS) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
@@ -603,7 +601,7 @@ BENCH_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(BENCH_SRCS))
 FUZZ_EXTRA_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(FUZZ_SRCS))
 
 # Fuzz runner image
-$(IMAGEDIR)/fuzz_runner.img: $(OBJDIR)/tests/fuzz/fuzz_driver.o $(FUZZ_EXTRA_OBJS) $(UT_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
+$(IMAGEDIR)/fuzz_runner.img: $(OBJDIR)/tests/fuzz/fuzz_driver.o $(FUZZ_EXTRA_OBJS) $(UT_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(PROTO_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(IMG_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(COLOR_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(FONT_OBJS) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(RENDER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GPU_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(BACKEND_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DCN_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(INPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SHELL_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(POLICY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(DATA_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(TEXT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(A11Y_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SECURITY_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SESSION_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(GOVERNANCE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OBS_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(CODEC_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(REMOTE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
@@ -700,7 +698,7 @@ host-check: host
 	@set -e; for t in $(HOST_TESTS); do $$t; done
 	$(MAKE) -C ../ugfx host
 	python3 tests/host/svg_decode_check.py $(HOSTDIR)/host_decode ../ugfx/$(BUILDDIR)/host_ctx
-	python3 tests/host/svg_text_check.py $(HOSTDIR)/host_decode ../ugfx/$(BUILDDIR)/host_ctx assets/fonts
+	python3 tests/host/svg_text_check.py $(HOSTDIR)/host_decode ../ugfx/$(BUILDDIR)/host_ctx ../ufont/fonts
 	python3 tests/host/ui_icons_check.py $(HOSTDIR)/host_ui ../ugfx/$(BUILDDIR)/host_ctx
 	python3 tests/host/compare_images.py $(HOSTDIR)/host_decode
 
