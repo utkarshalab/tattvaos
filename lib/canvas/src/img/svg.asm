@@ -5,12 +5,12 @@
 ;
 ;   svg_probe(data, len)                         -> 1 if it looks like SVG
 ;   svg_render(arena, data, len, width, height)  -> PixBuf* or 0
-;   svg_set_fonts(FontSet*)                      the fonts for text (0: none)
+;   svg_set_fonts(UfontSet*)                     the fonts for text (0: none)
 ;
 ; Parsing and drawing are ugfx's (2d/svg.asm; see lib/ugfx/README.md);
 ; images inside the document (data: URIs) decode through image_decode,
 ; so any format Canvas reads can be embedded; text uses the font set given
-; to svg_set_fonts (font/fontset.asm; none: text draws nothing). The image is the
+; to svg_set_fonts (a lib/ufont set; none: text draws nothing). The image is the
 ; requested size, or the document's own (viewBox, else width / height,
 ; else 300 x 150) when width or height is 0; the drawing is fitted and
 ; centred, transparent around it, currentColor black.
@@ -25,7 +25,7 @@
 
 extern pixbuf_create
 extern ugfx_svg_parse_opts
-extern fontset_svg_font
+extern ufont_svg_font
 extern image_decode
 extern ugfx_svg_draw
 extern ugfx_ctx_init
@@ -51,12 +51,12 @@ svg_max_side:       dq 16384.0
 
 section .bss
 align 8
-svg_fonts:          resq 1              ; FontSet* (0: none)
+svg_fonts:          resq 1              ; UfontSet* (0: none)
 
 section .text
 
 ; ---------------------------------------------------------------------------
-; svg_set_fonts — rdi = FontSet* (kept) or 0: the fonts SVG text is drawn in
+; svg_set_fonts — rdi = UfontSet* (kept) or 0: the fonts SVG text is drawn in
 ; ---------------------------------------------------------------------------
 global svg_set_fonts
 svg_set_fonts:
@@ -134,7 +134,7 @@ svg_render:
     mov rcx, [rel svg_fonts]
     test rcx, rcx
     jz .fonts
-    lea rax, [rel fontset_svg_font]
+    lea rax, [rel ufont_svg_font]
 .fonts:
     mov [rsp + F_OPT + UgfxSvgOptions_font_fn], rax
     mov [rsp + F_OPT + UgfxSvgOptions_font_user], rcx
