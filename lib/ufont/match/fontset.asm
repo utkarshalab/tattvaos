@@ -11,7 +11,7 @@
 ;   ufont_svg_shape                         ugfx's shaping callback (user = set)
 ;   ufont_standard, ufont_standard_count    the fonts lib/ufont ships
 ;
-; A set holds up to UFONT_SET_MAX faces: a TrueType font (sfnt.asm, its bytes
+; A set holds up to UFONT_SET_MAX (64) faces: a TrueType font (sfnt.asm, its bytes
 ; kept by the caller) with a family name, a weight and italic or not.
 ; font-family is read as CSS has it: a comma list of names, quoted or not,
 ; compared without case. The generic names and some common ones stand for
@@ -60,6 +60,14 @@ fs_lib_serif:       db "Liberation Serif", 0
 fs_lib_mono:        db "Liberation Mono", 0
 fs_deva_sans:       db "Noto Sans Devanagari", 0
 fs_deva_serif:      db "Noto Serif Devanagari", 0
+fs_bengali:        db "Noto Sans Bengali", 0
+fs_gurmukhi:       db "Noto Sans Gurmukhi", 0
+fs_gujarati:       db "Noto Sans Gujarati", 0
+fs_oriya:          db "Noto Sans Oriya", 0
+fs_tamil:          db "Noto Sans Tamil", 0
+fs_telugu:         db "Noto Sans Telugu", 0
+fs_kannada:        db "Noto Sans Kannada", 0
+fs_malayalam:      db "Noto Sans Malayalam", 0
 
 ; alias, family
 align 8
@@ -109,7 +117,7 @@ section .data
 align 8
 global ufont_standard
 global ufont_standard_count
-ufont_standard_count: dq 26
+ufont_standard_count: dq 42
 ufont_standard:
     dq fsf_0, fs_noto_sans
     dd 400, 0
@@ -163,6 +171,38 @@ ufont_standard:
     dd 400, 0
     dq fsf_25, fs_deva_serif
     dd 700, 0
+    dq fsf_26, fs_bengali
+    dd 400, 0
+    dq fsf_27, fs_bengali
+    dd 700, 0
+    dq fsf_28, fs_gurmukhi
+    dd 400, 0
+    dq fsf_29, fs_gurmukhi
+    dd 700, 0
+    dq fsf_30, fs_gujarati
+    dd 400, 0
+    dq fsf_31, fs_gujarati
+    dd 700, 0
+    dq fsf_32, fs_oriya
+    dd 400, 0
+    dq fsf_33, fs_oriya
+    dd 700, 0
+    dq fsf_34, fs_tamil
+    dd 400, 0
+    dq fsf_35, fs_tamil
+    dd 700, 0
+    dq fsf_36, fs_telugu
+    dd 400, 0
+    dq fsf_37, fs_telugu
+    dd 700, 0
+    dq fsf_38, fs_kannada
+    dd 400, 0
+    dq fsf_39, fs_kannada
+    dd 700, 0
+    dq fsf_40, fs_malayalam
+    dd 400, 0
+    dq fsf_41, fs_malayalam
+    dd 700, 0
 section .rodata
 fsf_0:  db "NotoSans-Regular.ttf", 0
 fsf_1:  db "NotoSans-Bold.ttf", 0
@@ -190,6 +230,22 @@ fsf_22: db "NotoSansDevanagari-Regular.ttf", 0
 fsf_23: db "NotoSansDevanagari-Bold.ttf", 0
 fsf_24: db "NotoSerifDevanagari-Regular.ttf", 0
 fsf_25: db "NotoSerifDevanagari-Bold.ttf", 0
+fsf_26: db "NotoSansBengali-Regular.ttf", 0
+fsf_27: db "NotoSansBengali-Bold.ttf", 0
+fsf_28: db "NotoSansGurmukhi-Regular.ttf", 0
+fsf_29: db "NotoSansGurmukhi-Bold.ttf", 0
+fsf_30: db "NotoSansGujarati-Regular.ttf", 0
+fsf_31: db "NotoSansGujarati-Bold.ttf", 0
+fsf_32: db "NotoSansOriya-Regular.ttf", 0
+fsf_33: db "NotoSansOriya-Bold.ttf", 0
+fsf_34: db "NotoSansTamil-Regular.ttf", 0
+fsf_35: db "NotoSansTamil-Bold.ttf", 0
+fsf_36: db "NotoSansTelugu-Regular.ttf", 0
+fsf_37: db "NotoSansTelugu-Bold.ttf", 0
+fsf_38: db "NotoSansKannada-Regular.ttf", 0
+fsf_39: db "NotoSansKannada-Bold.ttf", 0
+fsf_40: db "NotoSansMalayalam-Regular.ttf", 0
+fsf_41: db "NotoSansMalayalam-Bold.ttf", 0
 
 section .text
 
