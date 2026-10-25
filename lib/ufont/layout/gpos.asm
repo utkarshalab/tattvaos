@@ -5,10 +5,11 @@
 ; units, y up):
 ;
 ;   ufl_gpos_apply(rdi = subtable, esi = type) -> eax 1 applied / 0
-;       1 single, 2 pair (glyph pairs and classes), 4 mark to base, 5 mark to
-;       ligature (the component the mark belongs to), 6 mark to mark,
-;       7 context, 8 chained context. Cursive attachment (3) is not applied
-;       yet. Values: x / y placement and x advance (horizontal text); device
+;       1 single, 2 pair (glyph pairs and classes), 3 cursive (exit anchor
+;       to entry anchor; the later glyph hangs from the earlier one unless the
+;       lookup says right to left), 4 mark to base, 5 mark to ligature (the
+;       component the mark belongs to), 6 mark to mark, 7 context, 8 chained
+;       context. Values: x / y placement and x advance (horizontal text); device
 ;       tables are for hinted sizes and are not applied, as with HarfBuzz at
 ;       font-unit scale.
 ; =============================================================================
@@ -142,6 +143,8 @@ ufl_gpos_apply:
     je .single
     cmp r12d, 2
     je .pair
+    cmp r12d, 3
+    je .cursive
     cmp r12d, 4
     je .mark_base
     cmp r12d, 5
@@ -581,6 +584,102 @@ ufl_gpos_apply:
     call gp_matrix_anchor
     jmp .attach
 
+.cursive:
+    cmp ebp, 1
+    jne .no
+    mov edx, 2
+    call gp_cov
+    cmp eax, -1
+    je .no
+    mov edi, eax
+    call gp_entry_exit
+    test rax, rax
+    jz .no
+    mov rdi, rax
+    call gp_anchor                      ; this glyph's entry
+    mov [rsp + GF_MARK], eax            ; entry x
+    mov [rsp + GF_MARK + 4], edx        ; entry y
+    lea rdi, [rsp + GF_SK]
+    xor esi, esi
+    call ufl_sk_init
+    lea rdi, [rsp + GF_SK]
+    mov esi, [r15 + S_IDX]
+    mov edx, 1
+    call ufl_sk_reset
+    lea rdi, [rsp + GF_SK]
+    xor esi, esi
+    call ufl_sk_prev
+    test eax, eax
+    jz .no
+    mov eax, [rsp + GF_SK + SK_IDX]
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    push r14
+    mov r14d, [rax + GI_GLYPH]
+    mov edx, 2
+    call gp_cov
+    pop r14
+    cmp eax, -1
+    je .no
+    mov edi, eax
+    call gp_entry_exit
+    test rdx, rdx
+    jz .no
+    mov rdi, rdx
+    call gp_anchor                      ; the previous glyph's exit
+    mov r8d, eax                        ; exit x
+    mov r9d, edx                        ; exit y
+    mov r12d, [rsp + GF_SK + SK_IDX]    ; i
+    mov r13d, [r15 + S_IDX]             ; j
+    ; horizontal, left to right
+    imul eax, r12d, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    mov ecx, r8d
+    add ecx, [rax + GPOS_XO]
+    mov [rax + GPOS_XA], ecx
+    imul eax, r13d, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    mov ecx, [rsp + GF_MARK]
+    add ecx, [rax + GPOS_XO]
+    sub [rax + GPOS_XA], ecx
+    sub [rax + GPOS_XO], ecx
+    ; the child hangs from the parent
+    mov ecx, [rsp + GF_MARK + 4]
+    sub ecx, r9d                        ; entry y - exit y
+    mov ebx, r12d                       ; child
+    mov ebp, r13d                       ; parent
+    test dword [r15 + S_LPROPS], 1      ; right to left
+    jnz .curs_dir
+    xchg ebx, ebp
+    neg ecx
+.curs_dir:
+    push rcx
+    sub rsp, 8
+    mov edi, ebx
+    mov esi, ebp
+    call gp_reverse_cursive
+    add rsp, 8
+    pop rcx
+    imul eax, ebx, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    mov edx, ebp
+    sub edx, ebx
+    mov [rax + GPOS_CHAIN], edx
+    mov dword [rax + GPOS_TYPE], 2
+    mov [rax + GPOS_YO], ecx
+    mov byte [r15 + S_HASATTACH], 1
+    ; the parent attached to the child: separated
+    imul r8d, ebp, GPOS_SIZE
+    add r8, [r15 + S_POS]
+    neg edx
+    cmp [r8 + GPOS_CHAIN], edx
+    jne .curs_done
+    mov dword [r8 + GPOS_CHAIN], 0
+    mov dword [r8 + GPOS_YO], 0
+.curs_done:
+    inc dword [r15 + S_IDX]
+    jmp .yes
+
 .context:
     mov rdi, rbx
     xor esi, esi
@@ -600,6 +699,77 @@ ufl_gpos_apply:
     add rsp, GF_SIZE
     pop rbp
     pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; gp_entry_exit — edi = coverage index; rbx = a cursive subtable -> rax =
+;   its entry anchor, rdx = its exit anchor (0 when absent or past the list)
+gp_entry_exit:
+    xor eax, eax
+    xor edx, edx
+    BE16 ecx, [rbx + 4]                 ; records
+    cmp edi, ecx
+    jae .out
+    lea r8, [rdi * 4 + 10]
+    lea r9, [rbx + r8]
+    cmp r9, [r15 + S_TEND]
+    ja .out
+    BE16 ecx, [rbx + rdi * 4 + 6]       ; entry
+    test ecx, ecx
+    jz .exit
+    lea rax, [rbx + rcx]
+    cmp rax, [r15 + S_TEND]
+    jb .exit
+    xor eax, eax
+.exit:
+    BE16 ecx, [rbx + rdi * 4 + 8]
+    test ecx, ecx
+    jz .out
+    lea rdx, [rbx + rcx]
+    cmp rdx, [r15 + S_TEND]
+    jb .out
+    xor edx, edx
+.out:
+    ret
+
+; gp_reverse_cursive — edi = glyph, esi = its new parent: a cursive chain
+;   it had is turned round so its old tree hangs from it
+gp_reverse_cursive:
+    push rbx
+    push r12
+    push r13
+    mov ebx, edi
+    mov r13d, esi
+    imul eax, ebx, GPOS_SIZE
+    mov r12, [r15 + S_POS]
+    add r12, rax                        ; pos[i]
+    mov ecx, [r12 + GPOS_CHAIN]
+    test ecx, ecx
+    jz .out
+    test dword [r12 + GPOS_TYPE], 2
+    jz .out
+    mov dword [r12 + GPOS_CHAIN], 0
+    lea edi, [rbx + rcx]                ; j
+    cmp edi, r13d
+    je .out
+    push rcx
+    push rdi
+    mov esi, r13d
+    call gp_reverse_cursive
+    pop rdi
+    pop rcx
+    imul eax, edi, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    mov edx, [r12 + GPOS_YO]
+    neg edx
+    mov [rax + GPOS_YO], edx
+    neg ecx
+    mov [rax + GPOS_CHAIN], ecx
+    mov edx, [r12 + GPOS_TYPE]
+    mov [rax + GPOS_TYPE], edx
+.out:
     pop r13
     pop r12
     pop rbx
