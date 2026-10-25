@@ -419,10 +419,10 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | TXT-01 | TrueType loading, cmap, glyf, composites | P1 | ✓ `lib/ufont` sfnt (cmap 4 / 12, simple and composite glyphs, metrics), used for SVG text; the old `font/*` scaffold removed |
-| TXT-02 | Scanline anti-aliased rasterization and glyph cache | P1 | ◐ outlines rasterized as lib/ugfx paths; glyph cache pending in `lib/ufont` |
-| TXT-03 | Kerning and metrics | P2 | ◐ metrics in `lib/ufont`; kerning pending |
-| TXT-04 | Text shaping: ligatures, contextual forms, mark positioning | P2 | |
-| TXT-05 | Indic scripts first-class: Devanagari conjuncts, matras, reph | P2 | → TXT-04 |
+| TXT-02 | Scanline anti-aliased rasterization and glyph cache | P1 | ✓ outlines rasterized as lib/ugfx paths; outlines cached per font in `lib/ufont` |
+| TXT-03 | Kerning and metrics | P2 | ✓ metrics in `lib/ufont`; kerning through GPOS (or the kern table) when SVG text is shaped |
+| TXT-04 | Text shaping: ligatures, contextual forms, mark positioning | P2 | ✓ `lib/ufont` `ufont_shape` (OpenType GSUB / GPOS as HarfBuzz), SVG text shaped in runs |
+| TXT-05 | Indic scripts first-class: Devanagari conjuncts, matras, reph | P2 | ◐ Devanagari (the Indic shaper, Noto Sans / Serif Devanagari); the other Indic scripts pending |
 | TXT-06 | Bidirectional text | P2 | |
 | TXT-07 | Line breaking and hyphenation | P2 | |
 | TXT-08 | Unicode normalization, grapheme clusters, emoji ZWJ sequences | P2 | ◐ `core/utf8` (simplified) |
