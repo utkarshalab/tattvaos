@@ -998,7 +998,7 @@ panic_null_ptr:
 
 section .data
 align 8
-svg_options:    dq host_image, 0, host_font, 0
+svg_options:    dq host_image, 0, host_font, 0, 0  ; no shape_fn: characters placed one by one
 hf_space:       dq 0.3
 hf_ascent:      dq 0.75
 hf_descent:     dq 0.25
