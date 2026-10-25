@@ -12,7 +12,7 @@ UMATHFLAGS := -f elf64 -g -F dwarf -I ../../
 BUILDDIR  := build
 
 CORE_SRCS := core/pixbuf.asm core/span.asm core/raster.asm core/mask.asm
-PATH_SRCS := 2d/path.asm 2d/shapes.asm 2d/stroke.asm 2d/flatten.asm 2d/dash.asm 2d/paint.asm 2d/context.asm 2d/list.asm 2d/uic.asm 2d/svg_syntax.asm 2d/svg_xml.asm 2d/svg_defs.asm 2d/svg.asm
+PATH_SRCS := 2d/path.asm 2d/shapes.asm 2d/stroke.asm 2d/flatten.asm 2d/dash.asm 2d/paint.asm 2d/context.asm 2d/list.asm 2d/uic.asm 2d/svg_syntax.asm 2d/svg_xml.asm 2d/svg_defs.asm 2d/svg.asm 2d/filter.asm
 CORE_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(CORE_SRCS))
 PATH_OBJS := $(patsubst %.asm,$(BUILDDIR)/%.o,$(PATH_SRCS)) $(BUILDDIR)/core/umath_unit.o
 
