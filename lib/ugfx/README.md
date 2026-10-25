@@ -303,7 +303,10 @@ the root's preserveAspectRatio into width x height when both are given,
 that box centred in the square. `ugfx_svg_parse_opts` adds two callbacks:
 an image decoder (a `data:` URI's bytes, or any other href) and a font
 (a glyph's advance and outline at a size); `ugfx_svg_parse_ex` takes the
-image decoder alone. Without them images and text draw nothing.
+image decoder alone. Without them images and text draw nothing. The
+font callback also answers code point -1 with the font's ascent and
+descent (for baselines and decorations; 0.8 / 0.2 em when it does not
+know).
 
 Static SVG 1.1 (and the SVG 2 / CSS pieces documents use):
 
@@ -321,8 +324,16 @@ Static SVG 1.1 (and the SVG 2 / CSS pieces documents use):
   href); fill-rule, opacities, stroke width / caps / joins / miter
   limit, dasharray / dashoffset, paint-order, visibility, display.
 - Units: px pt pc mm cm in em ex %, font-size keywords; `inherit`.
-- Styling: presentation attributes, `<style>` sheets (element, .class,
-  #id, element.class, *, lists; specificity then order), `style`.
+  Entities (named and character references) in attribute values and
+  style sheets.
+- Styling: presentation attributes, `<style>` sheets, `style`. Selectors:
+  type, `*`, `.class`, `#id`, `[attr]` and `= ~= |= ^= $= *=`,
+  `:first-child`, `:last-child`, `:only-child`, `:root`,
+  `:nth-child()` / `:nth-last-child()` (an+b, odd, even), descendant,
+  `>`, `+` and `~` combinators, comma lists; specificity then order.
+  Other pseudo-classes (never true of a still picture), pseudo-elements
+  and namespaces leave that selector out. Elements in a `use` instance
+  match where they are written.
 - Groups: opacity on a group is one layer; clip-path (clipPath with
   clip-rule, clipPathUnits, nested clip-paths), mask (luminance or
   alpha, maskUnits / maskContentUnits, the region), filter.
@@ -334,18 +345,26 @@ Static SVG 1.1 (and the SVG 2 / CSS pieces documents use):
 - Text: `text` / `tspan` with x / y / dx / dy / rotate lists, white space
   (and xml:space), entities, text-anchor, letter / word spacing, font
   family / weight / style / size; glyphs from the font callback.
+  `textPath` (a path, its transform, startOffset; characters placed by
+  the middle of their advance and turned to the path, off-path ones
+  dropped, anchors along it), baseline-shift (sub, super, lengths,
+  percentages, nested), dominant-baseline / alignment-baseline (from the
+  font's ascent and descent), text-decoration underline / overline /
+  line-through in the declaring element's paints.
 - Filters (2d/filter.asm): feFlood, feOffset, feGaussianBlur, feMerge,
   feBlend, feComposite (with arithmetic), feColorMatrix,
-  feComponentTransfer, feMorphology, feTile, feDropShadow; named
+  feComponentTransfer, feMorphology, feTile, feDropShadow,
+  feConvolveMatrix, feDisplacementMap, feTurbulence (the specification's
+  noise, stitchTiles), feDiffuseLighting / feSpecularLighting (distant,
+  point and spot lights), feImage (through the image callback); named
   results, subregions, filterUnits / primitiveUnits,
   color-interpolation-filters.
 
-Not yet: textPath, baseline shifts and text decoration, feTurbulence,
-feImage, feConvolveMatrix, feDisplacementMap and the lighting filters
-(they give nothing), CSS selectors beyond the ones above.
+Left out on purpose: animation, scripting and interaction (a still
+picture), foreignObject, feImage naming an element, and SVG fonts.
 
 `tools/svgmodel.py` models all of it in Python with the same arithmetic.
-Tests: `tests/host/svg_check.py` - over a hundred documents covering each
+Tests: `tests/host/svg_check.py` - over a hundred twenty documents covering each
 feature, each drawn at two sizes and compared with the context calls the
 model derives, exact (within 1 on 3 pixels where umath's trigonometry
 meets Python's); plus refused and truncated documents.
