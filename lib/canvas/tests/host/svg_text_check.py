@@ -6,11 +6,14 @@ Usage: svg_text_check.py <host_decode> <ugfx host_ctx> <font directory>
 Every lib/ugfx svg_check.py document with text, and the documents below
 (families, generic names and aliases, weights and styles, Latin accents
 from composite glyphs, Greek, Cyrillic, characters a face lacks, sizes,
-transforms, decorations, textPath), is decoded by Canvas with the fonts
-(host_decode ... <font directory>) and compared with the context calls
-svgmodel derives using lib/ufont's fontmodel.FontSet - the same glyphs and
-arithmetic - drawn by ugfx's host_ctx. The images must be identical. Damaged fonts
-(truncated, bytes changed) must never crash the decoder.
+transforms, decorations, textPath; shaping: ligatures, kerning, combining
+marks, Devanagari conjuncts, reph and matras, mixed scripts falling back
+between faces, positioned characters splitting runs), is decoded by Canvas
+with the fonts (host_decode ... <font directory>) and compared with the
+context calls svgmodel derives using lib/ufont's fontmodel.FontSet - the
+same glyphs, shaping (tools/shapemodel.py) and arithmetic - drawn by ugfx's
+host_ctx. The images must be identical. Damaged fonts (truncated, bytes
+changed) must never crash the decoder.
 
 Development-machine tooling only; not part of any OS image.
 """
@@ -76,6 +79,28 @@ DOCS = [
     ("text path", svg('<path id="c" d="M10 100 C60 10 180 10 230 100" fill="none" stroke="#ccc"/>'
                       '<text font-size="15" font-family="serif" fill="#036"><textPath href="#c" '
                       'startOffset="50%" text-anchor="middle">Along the curve, Ελλάδα</textPath></text>')),
+    ("shaping latin", svg('<text x="4" y="22" font-size="18" font-family="serif">office affluent fjord '
+                          'ﬀ AVATAR Tyre</text>'
+                          '<text x="4" y="46" font-size="18">á ệ q̣̇ '
+                          'ḯ Ǆ 1⁄2 3⁄4</text>'
+                          '<text x="4" y="70" font-size="18" font-family="Arial">WAVE To. Yo, LT</text>'
+                          '<text x="4" y="94" font-size="16" letter-spacing="1.5" word-spacing="4">'
+                          'spaced office ffi</text>'
+                          '<text x="4" y="114" font-size="14" font-family="monospace">fi fl ffi -></text>')),
+    ("shaping devanagari", svg('<text x="4" y="26" font-size="22">नमस्ते हिन्दी संस्कृत</text>'
+                               '<text x="4" y="56" font-size="22" font-family="serif">कृष्ण धर्म '
+                               'विद्यार्थी क्षत्रिय</text>'
+                               '<text x="4" y="86" font-size="20" font-weight="bold">र्कि श्री '
+                               'प्रार्थना ज़िंदगी</text>'
+                               '<text x="4" y="112" font-size="16" text-decoration="underline">Hindi हिन्दी '
+                               'and English, ॐ १२३</text>')),
+    ("shaping positions", svg('<text x="4 30 60" y="30" font-size="20">ffi नमस्ते</text>'
+                              '<text x="4" y="60" dx="0 0 3" font-size="20" font-family="serif">office '
+                              'क्षि</text>'
+                              '<text x="4" y="92" font-size="20" rotate="0 10">fi <tspan fill="#a00">'
+                              'fl</tspan> ffl <tspan font-weight="bold">हिन्दी</tspan></text>'
+                              '<text x="236" y="114" font-size="14" text-anchor="end">anchored '
+                              'संस्कृत ﬃ</text>')),
 ]
 
 
@@ -93,7 +118,7 @@ def main():
             w, h = own_size(text)
             ctx_check.W, ctx_check.H, ctx_check.BG = w, h, 0
             side = float(max(w, h))
-            doc = svgmodel.parse(text, farbfeld, fonts.font_fn)
+            doc = svgmodel.parse(text, farbfeld, fonts.font_fn, fonts.shape_fn)
             cmds = expected_calls(doc, 0xFF000000, (w - side) * 0.5, (h - side) * 0.5, side)
             sp, raw = os.path.join(d, "c.bin"), os.path.join(d, "c.raw")
             open(sp, "wb").write(ctx_check.encode(cmds))
