@@ -691,6 +691,14 @@ CASES = [
                         '<g filter="url(#ti)"><rect x="13" y="2" width="2" height="2" fill="#a3c"/><rect x="15" y="4" width="1" height="2" fill="#3ac"/><rect x="21" y="10" width="1" height="1"/></g>'
                         '<rect x="2" y="14" width="8" height="8" fill="#000" filter="url(#un)"/>'
                         '<rect x="14" y="14" width="8" height="8" fill="#0a0" filter="url(#nothing)"/>'), False),
+    ("attribute entities", svg('<linearGradient id="g&amp;1"><stop offset="0" stop-color="&#x23;ff0"/>'
+                               '<stop offset="&#49;" stop-color="&#35;0&#x30;f"/></linearGradient>'
+                               '<rect x="1" y="1" width="10" height="10" fill="&#35;0a0"/>'
+                               '<path d="M13&#32;1&#x20;L23&#9;1L23 11z" fill="url(&#35;g&amp;1)"/>'
+                               '<rect x="1" y="13" width="10" height="10" style="fill:#c00;stroke:&#x23;00f;'
+                               'stroke-width:1&#46;5"/>'
+                               '<g transform="translate(&#49;3 1&#51;)"><circle cx="5" cy="5" r="4" '
+                               'fill="&#x72;gb(10, 90, 200)" opacity="&#48;.6"/></g>'), False),
     ("filter turbulence", svg('<filter id="fn" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" '
                               'baseFrequency=".15 .3" numOctaves="3" seed="7.8"/></filter>'
                               '<filter id="st" filterUnits="userSpaceOnUse" x="12" y="0" width="12" height="12" '
