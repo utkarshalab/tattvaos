@@ -418,16 +418,16 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| TXT-01 | TrueType loading, cmap, glyf, composites | P1 | ◐ `font/sfnt` (cmap 4 / 12, simple and composite glyphs, metrics) used for SVG text; older `font/*` scaffold not yet replaced |
-| TXT-02 | Scanline anti-aliased rasterization and glyph cache | P1 | ◐ `font/scanline`, `glyph_cache` |
-| TXT-03 | Kerning and metrics | P2 | ◐ `font/kern`, `metrics` |
+| TXT-01 | TrueType loading, cmap, glyf, composites | P1 | ✓ `lib/ufont` sfnt (cmap 4 / 12, simple and composite glyphs, metrics), used for SVG text; the old `font/*` scaffold removed |
+| TXT-02 | Scanline anti-aliased rasterization and glyph cache | P1 | ◐ outlines rasterized as lib/ugfx paths; glyph cache pending in `lib/ufont` |
+| TXT-03 | Kerning and metrics | P2 | ◐ metrics in `lib/ufont`; kerning pending |
 | TXT-04 | Text shaping: ligatures, contextual forms, mark positioning | P2 | |
 | TXT-05 | Indic scripts first-class: Devanagari conjuncts, matras, reph | P2 | → TXT-04 |
 | TXT-06 | Bidirectional text | P2 | |
-| TXT-07 | Line breaking and hyphenation | P2 | ◐ orphan `font/text_layout` |
+| TXT-07 | Line breaking and hyphenation | P2 | |
 | TXT-08 | Unicode normalization, grapheme clusters, emoji ZWJ sequences | P2 | ◐ `core/utf8` (simplified) |
-| TXT-09 | Font discovery and matching (family, weight, style) | P2 | ◐ `font/fontset`: CSS family lists, generic names and aliases, weight / style; shipped fonts in `assets/fonts` |
-| TXT-10 | Per-script fallback chains | P2 | ◐ `font/fallback` |
+| TXT-09 | Font discovery and matching (family, weight, style) | P2 | ◐ `lib/ufont` font sets: CSS family lists, generic names and aliases, weight / style; shipped fonts in `lib/ufont/fonts` |
+| TXT-10 | Per-script fallback chains | P2 | ◐ `lib/ufont`: Noto Sans for characters a face lacks |
 | TXT-11 | OpenType CFF outlines, WOFF/WOFF2, font collections | P3 | |
 | TXT-12 | Variable fonts | P3 | |
 | TXT-13 | Color emoji (COLR/CPAL, bitmap tables) | P3 | |
