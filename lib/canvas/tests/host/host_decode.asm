@@ -5,7 +5,7 @@
 ; (u32 width, height, stride, format) followed by width*4 bytes per row.
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 decode failed, 4 write error.
 ; Used by tests/host/compare_images.py to check decoders against a reference.
-; With a font directory, the fonts Canvas ships (fontset_standard) found
+; With a font directory, the fonts lib/ufont ships (ufont_standard) found
 ; there are loaded for SVG text (svg_set_fonts).
 ; ============================================================================
 
@@ -13,7 +13,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
-%include "inc/sfnt.inc"
+%include "ufont.inc"
 
 %define HOST_SYS_READ   0
 %define HOST_SYS_WRITE  1
@@ -27,10 +27,10 @@ extern arena_init
 extern image_decode
 extern ut_mem_alloc
 extern ut_task_exit
-extern fontset_init
-extern fontset_add
-extern fontset_standard
-extern fontset_standard_count
+extern ufont_set_init
+extern ufont_set_add
+extern ufont_standard
+extern ufont_standard_count
 extern svg_set_fonts
 
 section .text
@@ -195,7 +195,7 @@ map_file:
     pop rbx
     ret
 
-; load_fonts: each fontset_standard file found in font_dir into font_set
+; load_fonts: each ufont_standard file found in font_dir into font_set
 ;   (those missing or not usable are left out), then svg_set_fonts
 load_fonts:
     push rbx
@@ -203,13 +203,13 @@ load_fonts:
     push r13
     lea rdi, [rel font_set]
     lea rsi, [rel decode_arena]
-    call fontset_init
+    call ufont_set_init
     xor r12d, r12d
 .font:
-    cmp r12, [rel fontset_standard_count]
+    cmp r12, [rel ufont_standard_count]
     jae .done
-    imul rbx, r12, FSTD_SIZE
-    lea rax, [rel fontset_standard]
+    imul rbx, r12, UfontStd_SIZE
+    lea rax, [rel ufont_standard]
     add rbx, rax
     ; font_dir / file
     lea rdi, [rel font_path]
@@ -228,7 +228,7 @@ load_fonts:
 .slash:
     mov byte [rdi], '/'
     inc rdi
-    mov rsi, [rbx + FSTD_FILE]
+    mov rsi, [rbx + UfontStd_file]
 .file:
     cmp rdi, r13
     jae .next
@@ -244,10 +244,10 @@ load_fonts:
     js .next
     lea rdi, [rel font_set]
     mov rsi, rax
-    mov rcx, [rbx + FSTD_FAMILY]
-    mov r8d, [rbx + FSTD_WEIGHT]
-    mov r9d, [rbx + FSTD_ITALIC]
-    call fontset_add
+    mov rcx, [rbx + UfontStd_family]
+    mov r8d, [rbx + UfontStd_weight]
+    mov r9d, [rbx + UfontStd_italic]
+    call ufont_set_add
 .next:
     inc r12
     jmp .font
@@ -301,5 +301,5 @@ decode_arena:   resb 64
 out_header:     resd 4
 alignb 8
 font_dir:       resq 1
-font_set:       resb FS_SIZE
+font_set:       resb UfontSet_SIZE
 font_path:      resb 4096
