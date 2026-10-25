@@ -413,7 +413,7 @@ canvas/
 │   │   ├── lzw.asm                    # C23
 │   │   ├── gif.asm                    # C23
 │   │   ├── bmp.asm                    # C23
-│   │   └── svg.asm                    # C23  SVG through lib/ugfx (2d/svg)
+│   │   └── svg.asm                    # C23  SVG through lib/ugfx (2d/svg); text in a font set
 │   │
 │   ├── font/                          # TrueType rendering
 │   │   ├── ttf.asm                    # C22
@@ -426,7 +426,9 @@ canvas/
 │   │   ├── glyph_cache.asm            # C22
 │   │   ├── kern.asm                   # C22
 │   │   ├── metrics.asm                # C22
-│   │   └── fallback.asm               # C22
+│   │   ├── fallback.asm               # C22
+│   │   ├── sfnt.asm                   # C22  TrueType reader for SVG text: cmap 4 / 12, composites, into ugfx paths
+│   │   └── fontset.asm                # C22  faces by CSS family / weight / style; ugfx's font callback
 │   │
 │   ├── codec/                         # compression for remote display
 │   │   ├── deflate.asm                # C26  compressor
@@ -594,9 +596,8 @@ canvas/
 │       └── results/                   # recorded benchmark results per hardware
 │
 ├── assets/
-│   ├── fonts/
-│   │   ├── default.ttf                # C22  default proportional font (choose an open-licence font)
-│   │   └── mono.ttf                   # C22
+│   ├── fonts/                         # C22  Noto Sans / Serif / Sans Mono (subset), Liberation Sans /
+│   │                                  #      Serif / Mono; README.md: sources, subsetting, licences
 │   ├── cursors/                       # C14  default cursor theme PNGs (arrow, hand, text, wait, resize, ...)
 │   ├── icons/                         # C14  built-in UI icons: ui/*.svg (Lucide, ISC) -> ui.uic, embedded
 │   └── wallpapers/
