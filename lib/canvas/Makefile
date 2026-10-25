@@ -191,7 +191,7 @@ FONT_SRCS := \
     $(SRCDIR)/font/glyph_cache.asm \
     $(SRCDIR)/font/kern.asm \
     $(SRCDIR)/font/metrics.asm \
-    $(SRCDIR)/font/fallback.asm
+    $(SRCDIR)/font/fallback.asm     $(SRCDIR)/font/sfnt.asm     $(SRCDIR)/font/fontset.asm
 
 # Color management (C25)
 COLOR_SRCS := \
@@ -500,7 +500,7 @@ $(OBJDIR)/ugfx/core/umath_unit.o: $(wildcard ../umath/geom/*.asm ../umath/math_f
 $(OBJDIR)/shell/icons.o: assets/icons/ui.uic
 
 # Canvas sources that use ugfx's structures (a UgfxContext on the stack)
-$(OBJDIR)/shell/icons.o $(OBJDIR)/img/svg.o: $(UGFX_DIR)/include/ugfx.inc
+$(OBJDIR)/shell/icons.o $(OBJDIR)/img/svg.o $(OBJDIR)/font/sfnt.o $(OBJDIR)/font/fontset.o: $(UGFX_DIR)/include/ugfx.inc inc/sfnt.inc
 
 # rebuild assets/icons/ui.uic from assets/icons/ui/*.svg (development machine: python3)
 .PHONY: ui-icons
@@ -700,6 +700,7 @@ host-check: host
 	@set -e; for t in $(HOST_TESTS); do $$t; done
 	$(MAKE) -C ../ugfx host
 	python3 tests/host/svg_decode_check.py $(HOSTDIR)/host_decode ../ugfx/$(BUILDDIR)/host_ctx
+	python3 tests/host/svg_text_check.py $(HOSTDIR)/host_decode ../ugfx/$(BUILDDIR)/host_ctx assets/fonts
 	python3 tests/host/ui_icons_check.py $(HOSTDIR)/host_ui ../ugfx/$(BUILDDIR)/host_ctx
 	python3 tests/host/compare_images.py $(HOSTDIR)/host_decode
 
