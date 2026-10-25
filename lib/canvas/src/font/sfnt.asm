@@ -1,0 +1,1001 @@
+; ============================================================================
+; sfnt — TrueType fonts (glyf outlines) for drawing text through lib/ugfx
+; ============================================================================
+;   sfnt_open(arena, data, length)          -> SfntFont* or 0
+;   sfnt_glyph(font, code point)            -> glyph id (0: none)
+;   sfnt_advance(font, glyph)               -> advance width (font units)
+;   sfnt_outline(font, glyph, path, scale, arena)
+;                                           -> 0, -EINVAL, -ENOMEM
+;
+; A font is the file's bytes as they are (kept by the caller) and an index
+; of its tables; every table, glyph and offset is checked against the data
+; before it is read. cmap: format 12 (Unicode full repertoire) when there
+; is one, else format 4 (Unicode BMP); platform 3 encodings 10 / 1 and
+; platform 0. Metrics: hhea ascender / descender. Outlines: simple glyphs
+; (quadratic contours, implied on-curve points between off-curve ones)
+; and composite glyphs (x / y offsets, a scale, x and y scales or a 2 x 2
+; matrix in F2Dot14, scaled offsets when the flag asks; components placed
+; by matching points are taken at offset 0), nested 6 deep at most. The
+; outline goes into a ugfx path at scale (pixels per font unit), y down,
+; the origin on the baseline. Hinting instructions are not run.
+; ============================================================================
+
+%include "ugfx.inc"
+%include "inc/sfnt.inc"
+
+extern arena_alloc
+extern ugfx_path_move_to
+extern ugfx_path_line_to
+extern ugfx_path_quad_to
+extern ugfx_path_close
+extern umath_affine2_multiply
+
+%define SFNT_MAX_DEPTH  6
+%define SFNT_MAX_POINTS 16384
+
+section .rodata
+align 8
+sf_half:            dq 0.5
+sf_f2dot14:         dq 0x3F10000000000000   ; 1 / 16384
+sf_identity:        dq 1.0, 0.0, 0.0, 1.0, 0.0, 0.0
+
+section .text
+
+; a big-endian u16, zero-extended
+%macro BE16 2                           ; %1 = 32-bit reg, %2 = address
+    movzx %1, word %2
+    bswap %1
+    shr %1, 16
+%endmacro
+
+; ----------------------------------------------------------------------------
+; sfnt_open — rdi = arena, rsi = data, rdx = length -> rax = SfntFont* (0:
+;   not a TrueType font with glyf outlines, damaged, or out of memory)
+; ----------------------------------------------------------------------------
+global sfnt_open
+sfnt_open:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    mov r15, rdi                        ; arena
+    mov r12, rsi                        ; data
+    mov r13, rdx                        ; length
+    cmp r13, 12
+    jb .bad
+    mov eax, [r12]
+    cmp eax, 0x00000100                 ; 00 01 00 00
+    je .version
+    cmp eax, 'true'
+    jne .bad
+.version:
+    mov rdi, r15
+    mov esi, SF_SIZE
+    call arena_alloc
+    test rax, rax
+    jz .bad
+    mov rbx, rax
+    mov rdi, rbx
+    xor eax, eax
+    mov ecx, SF_SIZE
+    rep stosb
+    mov [rbx + SF_DATA], r12
+    mov [rbx + SF_LEN], r13
+    ; the table directory
+    BE16 r14d, [r12 + 4]                ; numTables
+    lea rax, [r14 * 8]
+    lea rax, [rax * 2 + 12]
+    cmp rax, r13
+    ja .bad
+    lea r15, [r12 + 12]
+.table:
+    test r14d, r14d
+    jz .tables_done
+    dec r14d
+    mov eax, [r15 + 8]
+    bswap eax                           ; offset
+    mov ecx, [r15 + 12]
+    bswap ecx                           ; length
+    lea rdx, [rax + rcx]
+    cmp rdx, r13
+    ja .next_table                      ; out of the file: as if absent
+    lea rdx, [r12 + rax]                ; the table
+    mov eax, [r15]
+    cmp eax, 'head'
+    je .head
+    cmp eax, 'maxp'
+    je .maxp
+    cmp eax, 'hhea'
+    je .hhea
+    cmp eax, 'hmtx'
+    je .hmtx
+    cmp eax, 'loca'
+    je .loca
+    cmp eax, 'glyf'
+    je .glyf
+    cmp eax, 'cmap'
+    jne .next_table
+    mov [rbx + SF_CMAPT], rdx
+    mov [rbx + SF_CMAPT_LEN], rcx
+    jmp .next_table
+.head:
+    cmp ecx, 54
+    jb .bad
+    BE16 eax, [rdx + 18]
+    mov [rbx + SF_UPEM], eax
+    BE16 eax, [rdx + 50]
+    mov [rbx + SF_LOCA_FMT], eax
+    or byte [rbx + SF_HAVE], 1
+    jmp .next_table
+.maxp:
+    cmp ecx, 6
+    jb .bad
+    BE16 eax, [rdx + 4]
+    mov [rbx + SF_NGLYPHS], eax
+    or byte [rbx + SF_HAVE], 2
+    jmp .next_table
+.hhea:
+    cmp ecx, 36
+    jb .bad
+    BE16 eax, [rdx + 4]
+    movsx eax, ax
+    mov [rbx + SF_ASC], eax
+    BE16 eax, [rdx + 6]
+    movsx eax, ax
+    neg eax
+    mov [rbx + SF_DESC], eax
+    BE16 eax, [rdx + 34]
+    mov [rbx + SF_NHM], eax
+    or byte [rbx + SF_HAVE], 4
+    jmp .next_table
+.hmtx:
+    mov [rbx + SF_HMTX], rdx
+    mov [rbx + SF_HMTX_LEN], rcx
+    or byte [rbx + SF_HAVE], 8
+    jmp .next_table
+.loca:
+    mov [rbx + SF_LOCA], rdx
+    mov [rbx + SF_LOCA_LEN], rcx
+    or byte [rbx + SF_HAVE], 16
+    jmp .next_table
+.glyf:
+    mov [rbx + SF_GLYF], rdx
+    mov [rbx + SF_GLYF_LEN], rcx
+    or byte [rbx + SF_HAVE], 32
+.next_table:
+    add r15, 16
+    jmp .table
+.tables_done:
+    cmp byte [rbx + SF_HAVE], 63
+    jne .bad
+    cmp qword [rbx + SF_CMAPT], 0
+    je .bad
+    ; sizes the other tables need
+    mov eax, [rbx + SF_UPEM]
+    cmp eax, 16
+    jb .bad
+    cmp eax, 16384
+    ja .bad
+    mov eax, [rbx + SF_LOCA_FMT]
+    cmp eax, 1
+    ja .bad
+    mov eax, [rbx + SF_NHM]
+    test eax, eax
+    jz .bad
+    cmp eax, [rbx + SF_NGLYPHS]
+    ja .bad
+    shl rax, 2
+    cmp rax, [rbx + SF_HMTX_LEN]
+    ja .bad
+    mov eax, [rbx + SF_NGLYPHS]
+    test eax, eax
+    jz .bad
+    inc rax
+    mov ecx, [rbx + SF_LOCA_FMT]
+    inc ecx
+    shl rax, cl                         ; (n + 1) x 2 or 4
+    cmp rax, [rbx + SF_LOCA_LEN]
+    ja .bad
+    call sfnt_pick_cmap
+    test eax, eax
+    jz .bad
+    mov rax, rbx
+    jmp .out
+.bad:
+    xor eax, eax
+.out:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; rbx = font: its cmap subtable (format 12 Unicode over format 4) -> eax =
+;   1 found, 0 none
+sfnt_pick_cmap:
+    push r12
+    push r13
+    push r14
+    mov r12, [rbx + SF_CMAPT]
+    mov r13, [rbx + SF_CMAPT_LEN]
+    cmp r13, 4
+    jb .none
+    BE16 r14d, [r12 + 2]                ; records
+    lea rax, [r14 * 8 + 4]
+    cmp rax, r13
+    ja .none
+    xor r8d, r8d                        ; the best score so far
+    lea r9, [r12 + 4]
+.record:
+    test r14d, r14d
+    jz .done
+    dec r14d
+    BE16 eax, [r9]                      ; platform
+    BE16 ecx, [r9 + 2]                  ; encoding
+    mov edx, [r9 + 4]
+    bswap edx                           ; offset
+    add r9, 8
+    ; a Unicode encoding: platform 0, or 3 with 1 / 10
+    cmp eax, 0
+    je .unicode
+    cmp eax, 3
+    jne .record
+    cmp ecx, 1
+    je .unicode
+    cmp ecx, 10
+    jne .record
+.unicode:
+    lea rax, [rdx + 8]
+    cmp rax, r13
+    ja .record
+    lea rsi, [r12 + rdx]
+    BE16 eax, [rsi]                     ; format
+    cmp eax, 4
+    je .format4
+    cmp eax, 12
+    jne .record
+    mov ecx, [rsi + 4]
+    bswap ecx                           ; length
+    mov r10d, 2
+    jmp .score
+.format4:
+    BE16 ecx, [rsi + 2]
+    mov r10d, 1
+.score:
+    lea rax, [rdx + rcx]
+    cmp rax, r13
+    jbe .fits
+    mov rcx, r13                        ; clipped to the table
+    sub rcx, rdx
+.fits:
+    cmp r10d, r8d
+    jbe .record
+    mov r8d, r10d
+    mov [rbx + SF_CMAP], rsi
+    mov [rbx + SF_CMAP_LEN], rcx
+    mov eax, 4
+    cmp r10d, 1
+    je .fmt
+    mov eax, 12
+.fmt:
+    mov [rbx + SF_CMAP_FMT], eax
+    jmp .record
+.done:
+    xor eax, eax
+    test r8d, r8d
+    setnz al
+    jmp .out
+.none:
+    xor eax, eax
+.out:
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; ----------------------------------------------------------------------------
+; sfnt_glyph — rdi = SfntFont*, esi = code point -> eax = its glyph (0: the
+;   font has none)
+; ----------------------------------------------------------------------------
+global sfnt_glyph
+sfnt_glyph:
+    push rbx
+    mov r8, [rdi + SF_CMAP]
+    mov r9, [rdi + SF_CMAP_LEN]
+    cmp dword [rdi + SF_CMAP_FMT], 12
+    je .format12
+    ; format 4: segments (end, start, delta, range offset)
+    cmp esi, 0xFFFF
+    ja .none
+    cmp r9, 14
+    jb .none
+    BE16 ecx, [r8 + 6]                  ; 2 x segments
+    lea rax, [rcx * 4 + 16]
+    cmp rax, r9
+    ja .none
+    xor edx, edx                        ; 2 x segment
+.segment:
+    cmp edx, ecx
+    jae .none
+    BE16 eax, [r8 + 14 + rdx]           ; end
+    cmp esi, eax
+    jbe .found4
+    add edx, 2
+    jmp .segment
+.found4:
+    lea r10, [r8 + 16 + rcx]            ; starts
+    BE16 eax, [r10 + rdx]
+    cmp esi, eax
+    jb .none
+    mov r11d, esi
+    sub r11d, eax                       ; cp - start
+    lea r10, [r10 + rcx]                ; deltas
+    BE16 ebx, [r10 + rdx]
+    lea r10, [r10 + rcx]                ; range offsets
+    BE16 eax, [r10 + rdx]
+    test eax, eax
+    jnz .ranged
+    lea eax, [rsi + rbx]
+    movzx eax, ax
+    jmp .check
+.ranged:
+    ; &rangeOffset[i] + rangeOffset + 2 (cp - start)
+    lea r10, [r10 + rdx]
+    add r10, rax
+    lea r10, [r10 + r11 * 2]
+    lea rax, [r10 + 2]
+    sub rax, r8
+    cmp rax, r9
+    ja .none
+    BE16 eax, [r10]
+    test eax, eax
+    jz .none
+    add eax, ebx
+    movzx eax, ax
+    jmp .check
+.format12:
+    cmp r9, 16
+    jb .none
+    mov ecx, [r8 + 12]
+    bswap ecx                           ; groups
+    mov rax, rcx
+    imul rax, rax, 12
+    add rax, 16
+    cmp rax, r9
+    ja .none
+    lea r10, [r8 + 16]
+.group:
+    test ecx, ecx
+    jz .none
+    dec ecx
+    mov eax, [r10]
+    bswap eax                           ; start
+    mov edx, [r10 + 4]
+    bswap edx                           ; end
+    add r10, 12
+    cmp esi, eax
+    jb .group
+    cmp esi, edx
+    ja .group
+    mov edx, [r10 - 4]
+    bswap edx                           ; its first glyph
+    sub esi, eax
+    lea eax, [rdx + rsi]
+.check:
+    cmp eax, [rdi + SF_NGLYPHS]
+    jb .out
+.none:
+    xor eax, eax
+.out:
+    pop rbx
+    ret
+
+; ----------------------------------------------------------------------------
+; sfnt_advance — rdi = SfntFont*, esi = glyph -> eax = its advance (font
+;   units; past the metrics' end, the last one's)
+; ----------------------------------------------------------------------------
+global sfnt_advance
+sfnt_advance:
+    mov ecx, [rdi + SF_NHM]
+    dec ecx
+    cmp esi, ecx
+    jbe .have
+    mov esi, ecx
+.have:
+    mov rdx, [rdi + SF_HMTX]
+    BE16 eax, [rdx + rsi * 4]
+    ret
+
+; ----------------------------------------------------------------------------
+; sfnt_outline — rdi = SfntFont*, esi = glyph, rdx = UgfxPath*, xmm0 =
+;   scale (pixels per font unit), rcx = arena (scratch for points) -> rax =
+;   0, -EINVAL (damaged), -ENOMEM; the contours appended
+; ----------------------------------------------------------------------------
+%define OL_FONT     0
+%define OL_PATH     8
+%define OL_ARENA    16
+%define OL_SCALE    24                  ; f64
+%define OL_SIZE     32
+
+global sfnt_outline
+sfnt_outline:
+    push rbx
+    sub rsp, OL_SIZE
+    mov [rsp + OL_FONT], rdi
+    mov [rsp + OL_PATH], rdx
+    mov [rsp + OL_ARENA], rcx
+    movsd [rsp + OL_SCALE], xmm0
+    mov rbx, rsp                        ; the context
+    lea rdx, [rel sf_identity]
+    xor ecx, ecx                        ; depth
+    call sfnt_glyph_emit
+    add rsp, OL_SIZE
+    pop rbx
+    ret
+
+; rbx = context, esi = glyph, rdx = f64[6] font units -> font units here,
+;   ecx = depth -> rax = 0 or -errno
+%define GE_M        0                   ; f64[6] this glyph's transform
+%define GE_C        48                  ; f64[6] a component's
+%define GE_DATA     96                  ; its bytes
+%define GE_END      104
+%define GE_DEPTH    112                 ; u32
+%define GE_T        120                 ; f64[6] the component's in all
+%define GE_SIZE     168
+
+sfnt_glyph_emit:
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, GE_SIZE
+    mov [rsp + GE_DEPTH], ecx
+    mov rax, [rdx]
+    mov [rsp + GE_M], rax
+    mov rax, [rdx + 8]
+    mov [rsp + GE_M + 8], rax
+    mov rax, [rdx + 16]
+    mov [rsp + GE_M + 16], rax
+    mov rax, [rdx + 24]
+    mov [rsp + GE_M + 24], rax
+    mov rax, [rdx + 32]
+    mov [rsp + GE_M + 32], rax
+    mov rax, [rdx + 40]
+    mov [rsp + GE_M + 40], rax
+    ; where its bytes are (loca)
+    mov rdi, [rbx + OL_FONT]
+    cmp esi, [rdi + SF_NGLYPHS]
+    jae .bad
+    mov r8, [rdi + SF_LOCA]
+    cmp dword [rdi + SF_LOCA_FMT], 0
+    jne .long
+    BE16 eax, [r8 + rsi * 2]
+    BE16 ecx, [r8 + rsi * 2 + 2]
+    add rax, rax
+    add rcx, rcx
+    jmp .located
+.long:
+    mov eax, [r8 + rsi * 4]
+    bswap eax
+    mov ecx, [r8 + rsi * 4 + 4]
+    bswap ecx
+.located:
+    cmp rax, rcx
+    jae .empty                          ; no outline (or a backward entry)
+    cmp rcx, [rdi + SF_GLYF_LEN]
+    ja .bad
+    mov r12, [rdi + SF_GLYF]
+    lea r13, [r12 + rcx]                ; its end
+    add r12, rax                        ; its start
+    lea rax, [r12 + 10]
+    cmp rax, r13
+    ja .bad
+    mov [rsp + GE_DATA], r12
+    mov [rsp + GE_END], r13
+    BE16 eax, [r12]
+    movsx eax, ax                       ; contours
+    test eax, eax
+    js .composite
+    jz .empty
+    mov ecx, eax
+    lea rdx, [rsp + GE_M]
+    mov rdi, r12
+    mov rsi, r13
+    call sfnt_simple
+    jmp .out
+.composite:
+    cmp dword [rsp + GE_DEPTH], SFNT_MAX_DEPTH
+    jae .bad
+    add r12, 10
+.component:
+    lea rax, [r12 + 4]
+    cmp rax, r13
+    ja .bad
+    BE16 r14d, [r12]                    ; flags
+    BE16 r15d, [r12 + 2]                ; glyph
+    add r12, 4
+    ; the offsets (or matched points: taken as 0)
+    test r14d, 1
+    jz .byte_args
+    lea rax, [r12 + 4]
+    cmp rax, r13
+    ja .bad
+    BE16 eax, [r12]
+    movsx eax, ax
+    BE16 ecx, [r12 + 2]
+    movsx ecx, cx
+    add r12, 4
+    jmp .args
+.byte_args:
+    lea rax, [r12 + 2]
+    cmp rax, r13
+    ja .bad
+    movsx eax, byte [r12]
+    movsx ecx, byte [r12 + 1]
+    add r12, 2
+.args:
+    test r14d, 2
+    jnz .xy
+    xor eax, eax
+    xor ecx, ecx
+.xy:
+    cvtsi2sd xmm4, eax
+    cvtsi2sd xmm5, ecx
+    ; the matrix: identity, a scale, x and y scales, or 2 x 2
+    movsd xmm0, [rel sf_identity]
+    xorpd xmm1, xmm1
+    xorpd xmm2, xmm2
+    movsd xmm3, xmm0
+    test r14d, 0x0008
+    jz .not_scale
+    lea rax, [r12 + 2]
+    cmp rax, r13
+    ja .bad
+    call .f2dot14
+    movsd xmm3, xmm0
+    jmp .matrix
+.not_scale:
+    test r14d, 0x0040
+    jz .not_xy_scale
+    lea rax, [r12 + 4]
+    cmp rax, r13
+    ja .bad
+    call .f2dot14
+    movsd xmm6, xmm0
+    call .f2dot14
+    movsd xmm3, xmm0
+    movsd xmm0, xmm6
+    jmp .matrix
+.not_xy_scale:
+    test r14d, 0x0080
+    jz .matrix
+    lea rax, [r12 + 8]
+    cmp rax, r13
+    ja .bad
+    call .f2dot14
+    movsd xmm6, xmm0                    ; xscale
+    call .f2dot14
+    movsd xmm1, xmm0                    ; scale01
+    call .f2dot14
+    movsd xmm2, xmm0                    ; scale10
+    call .f2dot14
+    movsd xmm3, xmm0                    ; yscale
+    movsd xmm0, xmm6
+.matrix:
+    movsd [rsp + GE_C], xmm0
+    movsd [rsp + GE_C + 8], xmm1
+    movsd [rsp + GE_C + 16], xmm2
+    movsd [rsp + GE_C + 24], xmm3
+    test r14d, 0x0800                   ; SCALED_COMPONENT_OFFSET
+    jz .offset
+    ; the offset through the matrix
+    movsd xmm6, xmm0
+    mulsd xmm6, xmm4
+    movsd xmm7, xmm2
+    mulsd xmm7, xmm5
+    addsd xmm6, xmm7
+    mulsd xmm1, xmm4
+    mulsd xmm3, xmm5
+    addsd xmm1, xmm3
+    movsd xmm4, xmm6
+    movsd xmm5, xmm1
+.offset:
+    movsd [rsp + GE_C + 32], xmm4
+    movsd [rsp + GE_C + 40], xmm5
+    ; this one's transform after ours: M x C
+    lea rdi, [rsp + GE_T]
+    lea rsi, [rsp + GE_M]
+    lea rdx, [rsp + GE_C]
+    call umath_affine2_multiply
+    mov esi, r15d
+    lea rdx, [rsp + GE_T]
+    mov ecx, [rsp + GE_DEPTH]
+    inc ecx
+    call sfnt_glyph_emit
+    test rax, rax
+    jnz .out
+    test r14d, 0x0020                   ; MORE_COMPONENTS
+    jnz .component
+.empty:
+    xor eax, eax
+    jmp .out
+.bad:
+    mov rax, -EINVAL
+.out:
+    add rsp, GE_SIZE
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    ret
+; r12 -> xmm0 = the F2Dot14 there, r12 past it
+.f2dot14:
+    BE16 eax, [r12]
+    movsx eax, ax
+    cvtsi2sd xmm0, eax
+    mulsd xmm0, [rel sf_f2dot14]
+    add r12, 2
+    ret
+
+; rdi / rsi = a simple glyph's bytes, ecx = contours, rdx = f64[6] its
+;   transform, rbx = context -> rax = 0 or -errno: its points decoded, its
+;   contours appended
+%define SG_M        0                   ; f64[6]
+%define SG_ENDS     48                  ; the endPts array
+%define SG_N        56                  ; u32 points
+%define SG_C        60                  ; u32 contours
+%define SG_X        64                  ; i32[n]
+%define SG_Y        72                  ; i32[n]
+%define SG_F        80                  ; u8[n] flags
+%define SG_K        88                  ; u32 the contour
+%define SG_FIRST    92                  ; u32 its first point
+%define SG_START    96                  ; f64 x, y: where it starts
+%define SG_CTRL     112                 ; f64 x, y: a pending control point
+%define SG_HAVE     128                 ; u32 one is pending
+%define SG_I        132                 ; u32 the step through it
+%define SG_SIZE     136
+
+sfnt_simple:
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, SG_SIZE
+    mov r12, rdi
+    mov r13, rsi
+    mov [rsp + SG_C], ecx
+    mov rax, [rdx]
+    mov [rsp + SG_M], rax
+    mov rax, [rdx + 8]
+    mov [rsp + SG_M + 8], rax
+    mov rax, [rdx + 16]
+    mov [rsp + SG_M + 16], rax
+    mov rax, [rdx + 24]
+    mov [rsp + SG_M + 24], rax
+    mov rax, [rdx + 32]
+    mov [rsp + SG_M + 32], rax
+    mov rax, [rdx + 40]
+    mov [rsp + SG_M + 40], rax
+    ; endPts (increasing), instructions skipped
+    lea r14, [r12 + 10]
+    mov [rsp + SG_ENDS], r14
+    lea rax, [r14 + rcx * 2 + 2]
+    cmp rax, r13
+    ja .bad
+    mov edx, -1
+    xor r8d, r8d
+.ends:
+    cmp r8d, ecx
+    jae .ends_done
+    BE16 eax, [r14 + r8 * 2]
+    cmp eax, edx
+    jle .bad
+    mov edx, eax
+    inc r8d
+    jmp .ends
+.ends_done:
+    inc edx
+    cmp edx, SFNT_MAX_POINTS
+    ja .bad
+    mov [rsp + SG_N], edx
+    lea r14, [r14 + rcx * 2]
+    BE16 eax, [r14]
+    lea r14, [r14 + rax + 2]            ; the flags
+    cmp r14, r13
+    ja .bad
+    ; scratch: x, y, flags
+    mov rax, [rbx + OL_ARENA]
+    mov rdi, rax
+    mov esi, edx
+    imul esi, esi, 9
+    add esi, 8
+    call arena_alloc
+    test rax, rax
+    jz .nomem
+    mov [rsp + SG_X], rax
+    mov ecx, [rsp + SG_N]
+    lea rdx, [rax + rcx * 4]
+    mov [rsp + SG_Y], rdx
+    lea rdx, [rdx + rcx * 4]
+    mov [rsp + SG_F], rdx
+    ; flags, with repeats
+    mov r15, rdx
+    xor r8d, r8d
+.flag:
+    cmp r8d, ecx
+    jae .flags_done
+    cmp r14, r13
+    jae .bad
+    movzx eax, byte [r14]
+    inc r14
+    mov [r15 + r8], al
+    inc r8d
+    test al, 8
+    jz .flag
+    cmp r14, r13
+    jae .bad
+    movzx r9d, byte [r14]
+    inc r14
+.repeat:
+    test r9d, r9d
+    jz .flag
+    cmp r8d, ecx
+    jae .bad
+    mov [r15 + r8], al
+    inc r8d
+    dec r9d
+    jmp .repeat
+.flags_done:
+    ; x then y: short (sign in bit 4 / 5), same, or a 16-bit delta
+    mov rdi, [rsp + SG_X]
+    mov r9d, 0x02                       ; short
+    mov r10d, 0x10                      ; same / positive
+    call .coords
+    test eax, eax
+    jnz .bad
+    mov rdi, [rsp + SG_Y]
+    mov r9d, 0x04
+    mov r10d, 0x20
+    call .coords
+    test eax, eax
+    jnz .bad
+    ; the contours
+    mov dword [rsp + SG_K], 0
+    mov dword [rsp + SG_FIRST], 0
+.contour:
+    mov eax, [rsp + SG_K]
+    cmp eax, [rsp + SG_C]
+    jae .done
+    mov rdx, [rsp + SG_ENDS]
+    BE16 r14d, [rdx + rax * 2]
+    inc r14d                            ; its end (exclusive)
+    mov r15d, [rsp + SG_FIRST]          ; its first
+    mov [rsp + SG_FIRST], r14d
+    inc dword [rsp + SG_K]
+    mov r12d, r14d
+    sub r12d, r15d                      ; points in it
+    jz .contour
+    call .emit_contour
+    test rax, rax
+    jnz .out
+    jmp .contour
+.done:
+    xor eax, eax
+    jmp .out
+.nomem:
+    mov rax, -ENOMEM
+    jmp .out
+.bad:
+    mov rax, -EINVAL
+.out:
+    add rsp, SG_SIZE
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    ret
+; rdi = i32[n] out, r9d = the short flag, r10d = the same / positive flag,
+;   r14 = the bytes (moved on) -> eax = 0, 1 if they run out (frame at
+;   rsp + 8)
+.coords:
+    mov r11, [rsp + 8 + SG_F]
+    mov ecx, [rsp + 8 + SG_N]
+    xor r8d, r8d
+    xor edx, edx                        ; the running value
+.c_next:
+    cmp r8d, ecx
+    jae .c_ok
+    movzx eax, byte [r11 + r8]
+    test eax, r9d
+    jz .c_long
+    cmp r14, r13
+    jae .c_bad
+    movzx esi, byte [r14]
+    inc r14
+    test eax, r10d
+    jnz .c_add
+    neg esi
+.c_add:
+    add edx, esi
+    jmp .c_store
+.c_long:
+    test eax, r10d
+    jnz .c_store                        ; the same as before
+    lea rsi, [r14 + 2]
+    cmp rsi, r13
+    ja .c_bad
+    BE16 esi, [r14]
+    movsx esi, si
+    add r14, 2
+    add edx, esi
+.c_store:
+    mov [rdi + r8 * 4], edx
+    inc r8d
+    jmp .c_next
+.c_ok:
+    xor eax, eax
+    ret
+.c_bad:
+    mov eax, 1
+    ret
+; r15d = a contour's first point, r12d = its count: moved to its start, its
+;   quadratic pieces, closed (frame at rsp + 8)
+.emit_contour:
+    ; the start: the first point if on the curve, else the last if it is,
+    ; else between them; the points after it in order
+    mov r11, [rsp + 8 + SG_F]
+    mov eax, r15d
+    test byte [r11 + rax], 1
+    jz .start_last
+    call .point                         ; xmm0, xmm1 of point eax
+    mov r13d, r15d
+    inc r13d                            ; next to visit
+    lea r14d, [r12 - 1]                 ; how many
+    jmp .started
+.start_last:
+    lea eax, [r15 + r12 - 1]
+    test byte [r11 + rax], 1
+    jz .start_mid
+    call .point
+    mov r13d, r15d
+    lea r14d, [r12 - 1]
+    jmp .started
+.start_mid:
+    mov eax, r15d
+    call .point
+    movsd xmm6, xmm0
+    movsd xmm7, xmm1
+    lea eax, [r15 + r12 - 1]
+    call .point
+    addsd xmm0, xmm6
+    mulsd xmm0, [rel sf_half]
+    addsd xmm1, xmm7
+    mulsd xmm1, [rel sf_half]
+    mov r13d, r15d
+    mov r14d, r12d
+.started:
+    movsd [rsp + 8 + SG_START], xmm0
+    movsd [rsp + 8 + SG_START + 8], xmm1
+    mov dword [rsp + 8 + SG_HAVE], 0
+    call .emit_move
+    test rax, rax
+    jnz .ec_out
+.ec_point:
+    test r14d, r14d
+    jz .ec_close
+    dec r14d
+    mov eax, r13d
+    inc r13d
+    mov r11, [rsp + 8 + SG_F]
+    movzx ecx, byte [r11 + rax]
+    mov [rsp + 8 + SG_I], ecx
+    call .point
+    test dword [rsp + 8 + SG_I], 1
+    jz .ec_off
+    ; on the curve: a line, or the quad a pending control point makes
+    cmp dword [rsp + 8 + SG_HAVE], 0
+    je .ec_line
+    mov dword [rsp + 8 + SG_HAVE], 0
+    movsd xmm2, xmm0
+    movsd xmm3, xmm1
+    movsd xmm0, [rsp + 8 + SG_CTRL]
+    movsd xmm1, [rsp + 8 + SG_CTRL + 8]
+    call .emit_quad
+    jmp .ec_next
+.ec_line:
+    call .emit_line
+    jmp .ec_next
+.ec_off:
+    cmp dword [rsp + 8 + SG_HAVE], 0
+    je .ec_pend
+    ; two off the curve: the quad to the point between them
+    movsd xmm6, xmm0
+    movsd xmm7, xmm1
+    movsd xmm2, xmm0
+    addsd xmm2, [rsp + 8 + SG_CTRL]
+    mulsd xmm2, [rel sf_half]
+    movsd xmm3, xmm1
+    addsd xmm3, [rsp + 8 + SG_CTRL + 8]
+    mulsd xmm3, [rel sf_half]
+    movsd xmm0, [rsp + 8 + SG_CTRL]
+    movsd xmm1, [rsp + 8 + SG_CTRL + 8]
+    movsd [rsp + 8 + SG_CTRL], xmm6
+    movsd [rsp + 8 + SG_CTRL + 8], xmm7
+    call .emit_quad
+    jmp .ec_next
+.ec_pend:
+    movsd [rsp + 8 + SG_CTRL], xmm0
+    movsd [rsp + 8 + SG_CTRL + 8], xmm1
+    mov dword [rsp + 8 + SG_HAVE], 1
+    xor eax, eax
+.ec_next:
+    test rax, rax
+    jnz .ec_out
+    jmp .ec_point
+.ec_close:
+    cmp dword [rsp + 8 + SG_HAVE], 0
+    je .ec_closed
+    movsd xmm0, [rsp + 8 + SG_CTRL]
+    movsd xmm1, [rsp + 8 + SG_CTRL + 8]
+    movsd xmm2, [rsp + 8 + SG_START]
+    movsd xmm3, [rsp + 8 + SG_START + 8]
+    call .emit_quad
+    test rax, rax
+    jnz .ec_out
+.ec_closed:
+    mov rdi, [rbx + OL_PATH]
+    sub rsp, 8
+    call ugfx_path_close
+    add rsp, 8
+.ec_out:
+    ret
+; eax = a point -> xmm0, xmm1 = it through the transform (font units)
+;   (frame at rsp + 16)
+.point:
+    mov rdx, [rsp + 16 + SG_X]
+    cvtsi2sd xmm2, dword [rdx + rax * 4]
+    mov rdx, [rsp + 16 + SG_Y]
+    cvtsi2sd xmm3, dword [rdx + rax * 4]
+    movsd xmm0, [rsp + 16 + SG_M]
+    mulsd xmm0, xmm2
+    movsd xmm4, [rsp + 16 + SG_M + 16]
+    mulsd xmm4, xmm3
+    addsd xmm0, xmm4
+    addsd xmm0, [rsp + 16 + SG_M + 32]
+    movsd xmm1, [rsp + 16 + SG_M + 8]
+    mulsd xmm1, xmm2
+    movsd xmm4, [rsp + 16 + SG_M + 24]
+    mulsd xmm4, xmm3
+    addsd xmm1, xmm4
+    addsd xmm1, [rsp + 16 + SG_M + 40]
+    ret
+; font units -> pixels, y down: x s, 0 - y s (xmm0 / xmm1)
+%macro TO_PIXELS 2
+    mulsd %1, [rbx + OL_SCALE]
+    mulsd %2, [rbx + OL_SCALE]
+    xorpd xmm5, xmm5
+    subsd xmm5, %2
+    movsd %2, xmm5
+%endmacro
+.emit_move:
+    TO_PIXELS xmm0, xmm1
+    mov rdi, [rbx + OL_PATH]
+    call ugfx_path_move_to
+    ret
+.emit_line:
+    TO_PIXELS xmm0, xmm1
+    mov rdi, [rbx + OL_PATH]
+    call ugfx_path_line_to
+    ret
+.emit_quad:
+    TO_PIXELS xmm0, xmm1
+    TO_PIXELS xmm2, xmm3
+    mov rdi, [rbx + OL_PATH]
+    call ugfx_path_quad_to
+    ret
+
+section .data
+global sfnt_version
+sfnt_version: dq 0x010000
