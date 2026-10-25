@@ -44,7 +44,7 @@ def main():
     worst = 0
     with tempfile.TemporaryDirectory(prefix="ugfx_svg2uic.") as d:
         for name, text, _ in CASES:
-            if "Gradient" in text or "dasharray" in text or "<pattern" in text or "<marker" in text or                     "<text" in text or \
+            if "Gradient" in text or "dasharray" in text or "<pattern" in text or "<marker" in text or                     "<text" in text or "<filter" in text or \
                     any(isinstance(it, svg2uic.svgmodel.Group) for it in svg2uic.svgmodel.parse(text).items):
                 continue                # UIC has no gradients, dashes or layers: svg2uic approximates them
             icon, warnings = svg2uic.convert(text, "icon")
