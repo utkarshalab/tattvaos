@@ -915,7 +915,8 @@ host_image:
     ret
 
 ; host_font — the test font: rdi = user, rsi = UgfxSvgFont*, edx = code
-;   point, xmm0 = size s, rcx = UgfxPath* or 0 -> xmm0 = advance: a space
+;   point (-1: ascent 0.75 s in xmm0, descent 0.25 s in xmm1), xmm0 = size
+;   s, rcx = UgfxPath* or 0 -> xmm0 = advance: a space
 ;   0.3 s; else ((cp mod 7) x 0.08 + 0.4) s, x 1.25 at weight >= 600, and
 ;   the outline a box (0.05 s, -0.7 s, advance - 0.1 s, 0.7 s), odd code
 ;   points with a notch (0.05 s, -0.9 s, 0.15 s, 0.15 s)
@@ -927,6 +928,14 @@ host_font:
     movsd [rsp], xmm0                   ; s
     mov rbx, rcx
     mov r12d, edx
+    cmp edx, -1
+    jne .hf_char
+    ; the metrics: ascent 0.75 s, descent 0.25 s
+    movsd xmm1, xmm0
+    mulsd xmm1, [rel hf_descent]
+    mulsd xmm0, [rel hf_ascent]
+    jmp .hf_out
+.hf_char:
     cmp edx, ' '
     jne .hf_glyph
     mulsd xmm0, [rel hf_space]
@@ -991,6 +1000,8 @@ section .data
 align 8
 svg_options:    dq host_image, 0, host_font, 0
 hf_space:       dq 0.3
+hf_ascent:      dq 0.75
+hf_descent:     dq 0.25
 hf_step:        dq 0.08
 hf_base:        dq 0.4
 hf_bold:        dq 1.25
