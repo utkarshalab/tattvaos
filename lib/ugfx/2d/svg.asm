@@ -1403,6 +1403,8 @@ svg_element:
     jb .zero_geom
     mov rax, [r15 + P_XML + UgfxSvgXml_name]
     mov [r15 + P_SEL + UgfxSvgSel_name], rax
+    dec rax
+    mov [r15 + P_SEL + UgfxSvgSel_tag], rax
     mov rax, [r15 + P_XML + UgfxSvgXml_name_end]
     mov [r15 + P_SEL + UgfxSvgSel_name_end], rax
     mov qword [r15 + P_SEL + UgfxSvgSel_id], 0
