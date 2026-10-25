@@ -44,7 +44,7 @@
 %define UfontFont_SIZE          224
 
 ; UfontSet: faces by family, weight and style
-%define UFONT_SET_MAX           32
+%define UFONT_SET_MAX           64
 %define UfontFace_family        0       ; family name (NUL-terminated, kept)
 %define UfontFace_weight        8       ; u32 100 .. 900
 %define UfontFace_italic        12      ; u32 1: italic
