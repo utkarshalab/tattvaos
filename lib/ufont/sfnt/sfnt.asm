@@ -123,6 +123,14 @@ ufont_open:
     je .loca
     cmp eax, 'glyf'
     je .glyf
+    cmp eax, 'GDEF'
+    je .gdef
+    cmp eax, 'GSUB'
+    je .gsub
+    cmp eax, 'GPOS'
+    je .gpos
+    cmp eax, 'kern'
+    je .kern
     cmp eax, 'cmap'
     jne .next_table
     mov [rbx + UfontFont_cmapt], rdx
@@ -172,6 +180,22 @@ ufont_open:
     mov [rbx + UfontFont_glyf], rdx
     mov [rbx + UfontFont_glyf_len], rcx
     or byte [rbx + UfontFont_have], 32
+    jmp .next_table
+.gdef:
+    mov [rbx + UfontFont_gdef], rdx
+    mov [rbx + UfontFont_gdef_len], rcx
+    jmp .next_table
+.gsub:
+    mov [rbx + UfontFont_gsub], rdx
+    mov [rbx + UfontFont_gsub_len], rcx
+    jmp .next_table
+.gpos:
+    mov [rbx + UfontFont_gpos], rdx
+    mov [rbx + UfontFont_gpos_len], rcx
+    jmp .next_table
+.kern:
+    mov [rbx + UfontFont_kern], rdx
+    mov [rbx + UfontFont_kern_len], rcx
 .next_table:
     add r15, 16
     jmp .table
@@ -246,9 +270,31 @@ uf_pick_cmap:
     mov edx, [r9 + 4]
     bswap edx                           ; offset
     add r9, 8
+    ; variation sequences: platform 0 encoding 5, format 14
+    test eax, eax
+    jnz .not14
+    cmp ecx, 5
+    jne .unicode
+    lea rax, [rdx + 10]
+    cmp rax, r13
+    ja .record
+    lea rsi, [r12 + rdx]
+    BE16 eax, [rsi]
+    cmp eax, 14
+    jne .record
+    mov ecx, [rsi + 2]
+    bswap ecx                           ; length
+    lea rax, [rdx + rcx]
+    cmp rax, r13
+    jbe .fits14
+    mov rcx, r13
+    sub rcx, rdx
+.fits14:
+    mov [rbx + UfontFont_cmap14], rsi
+    mov [rbx + UfontFont_cmap14_len], rcx
+    jmp .record
+.not14:
     ; a Unicode encoding: platform 0, or 3 with 1 / 10
-    cmp eax, 0
-    je .unicode
     cmp eax, 3
     jne .record
     cmp ecx, 1
