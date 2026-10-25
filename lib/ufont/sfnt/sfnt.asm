@@ -1,10 +1,14 @@
-; ============================================================================
-; sfnt — TrueType fonts (glyf outlines) for drawing text through lib/ugfx
-; ============================================================================
-;   sfnt_open(arena, data, length)          -> SfntFont* or 0
-;   sfnt_glyph(font, code point)            -> glyph id (0: none)
-;   sfnt_advance(font, glyph)               -> advance width (font units)
-;   sfnt_outline(font, glyph, path, scale, arena)
+; =============================================================================
+; Utkarsha OS — lib/ufont/sfnt/sfnt.asm
+; =============================================================================
+; TrueType fonts (glyf outlines): reading them for drawing text through
+; lib/ugfx paths.
+;
+;   ufont_open(arena, data, length)         -> UfontFont* or 0
+;   ufont_glyph(font, code point)           -> glyph id (0: none)
+;   ufont_advance(font, glyph)              -> advance width (font units)
+;   ufont_metrics(font)                     -> units per em, ascent, descent
+;   ufont_outline(font, glyph, path, scale, arena)
 ;                                           -> 0, -EINVAL, -ENOMEM
 ;
 ; A font is the file's bytes as they are (kept by the caller) and an index
@@ -18,10 +22,10 @@
 ; by matching points are taken at offset 0), nested 6 deep at most. The
 ; outline goes into a ugfx path at scale (pixels per font unit), y down,
 ; the origin on the baseline. Hinting instructions are not run.
-; ============================================================================
+; =============================================================================
 
 %include "ugfx.inc"
-%include "inc/sfnt.inc"
+%include "ufont.inc"
 
 extern arena_alloc
 extern ugfx_path_move_to
@@ -30,8 +34,8 @@ extern ugfx_path_quad_to
 extern ugfx_path_close
 extern umath_affine2_multiply
 
-%define SFNT_MAX_DEPTH  6
-%define SFNT_MAX_POINTS 16384
+%define UFONT_MAX_DEPTH  6
+%define UFONT_MAX_POINTS 16384
 
 section .rodata
 align 8
@@ -49,11 +53,11 @@ section .text
 %endmacro
 
 ; ----------------------------------------------------------------------------
-; sfnt_open — rdi = arena, rsi = data, rdx = length -> rax = SfntFont* (0:
+; ufont_open — rdi = arena, rsi = data, rdx = length -> rax = UfontFont* (0:
 ;   not a TrueType font with glyf outlines, damaged, or out of memory)
 ; ----------------------------------------------------------------------------
-global sfnt_open
-sfnt_open:
+global ufont_open
+ufont_open:
     push rbx
     push r12
     push r13
@@ -71,17 +75,17 @@ sfnt_open:
     jne .bad
 .version:
     mov rdi, r15
-    mov esi, SF_SIZE
+    mov esi, UfontFont_SIZE
     call arena_alloc
     test rax, rax
     jz .bad
     mov rbx, rax
     mov rdi, rbx
     xor eax, eax
-    mov ecx, SF_SIZE
+    mov ecx, UfontFont_SIZE
     rep stosb
-    mov [rbx + SF_DATA], r12
-    mov [rbx + SF_LEN], r13
+    mov [rbx + UfontFont_data], r12
+    mov [rbx + UfontFont_len], r13
     ; the table directory
     BE16 r14d, [r12 + 4]                ; numTables
     lea rax, [r14 * 8]
@@ -116,88 +120,88 @@ sfnt_open:
     je .glyf
     cmp eax, 'cmap'
     jne .next_table
-    mov [rbx + SF_CMAPT], rdx
-    mov [rbx + SF_CMAPT_LEN], rcx
+    mov [rbx + UfontFont_cmapt], rdx
+    mov [rbx + UfontFont_cmapt_len], rcx
     jmp .next_table
 .head:
     cmp ecx, 54
     jb .bad
     BE16 eax, [rdx + 18]
-    mov [rbx + SF_UPEM], eax
+    mov [rbx + UfontFont_upem], eax
     BE16 eax, [rdx + 50]
-    mov [rbx + SF_LOCA_FMT], eax
-    or byte [rbx + SF_HAVE], 1
+    mov [rbx + UfontFont_loca_fmt], eax
+    or byte [rbx + UfontFont_have], 1
     jmp .next_table
 .maxp:
     cmp ecx, 6
     jb .bad
     BE16 eax, [rdx + 4]
-    mov [rbx + SF_NGLYPHS], eax
-    or byte [rbx + SF_HAVE], 2
+    mov [rbx + UfontFont_nglyphs], eax
+    or byte [rbx + UfontFont_have], 2
     jmp .next_table
 .hhea:
     cmp ecx, 36
     jb .bad
     BE16 eax, [rdx + 4]
     movsx eax, ax
-    mov [rbx + SF_ASC], eax
+    mov [rbx + UfontFont_ascent], eax
     BE16 eax, [rdx + 6]
     movsx eax, ax
     neg eax
-    mov [rbx + SF_DESC], eax
+    mov [rbx + UfontFont_descent], eax
     BE16 eax, [rdx + 34]
-    mov [rbx + SF_NHM], eax
-    or byte [rbx + SF_HAVE], 4
+    mov [rbx + UfontFont_nhm], eax
+    or byte [rbx + UfontFont_have], 4
     jmp .next_table
 .hmtx:
-    mov [rbx + SF_HMTX], rdx
-    mov [rbx + SF_HMTX_LEN], rcx
-    or byte [rbx + SF_HAVE], 8
+    mov [rbx + UfontFont_hmtx], rdx
+    mov [rbx + UfontFont_hmtx_len], rcx
+    or byte [rbx + UfontFont_have], 8
     jmp .next_table
 .loca:
-    mov [rbx + SF_LOCA], rdx
-    mov [rbx + SF_LOCA_LEN], rcx
-    or byte [rbx + SF_HAVE], 16
+    mov [rbx + UfontFont_loca], rdx
+    mov [rbx + UfontFont_loca_len], rcx
+    or byte [rbx + UfontFont_have], 16
     jmp .next_table
 .glyf:
-    mov [rbx + SF_GLYF], rdx
-    mov [rbx + SF_GLYF_LEN], rcx
-    or byte [rbx + SF_HAVE], 32
+    mov [rbx + UfontFont_glyf], rdx
+    mov [rbx + UfontFont_glyf_len], rcx
+    or byte [rbx + UfontFont_have], 32
 .next_table:
     add r15, 16
     jmp .table
 .tables_done:
-    cmp byte [rbx + SF_HAVE], 63
+    cmp byte [rbx + UfontFont_have], 63
     jne .bad
-    cmp qword [rbx + SF_CMAPT], 0
+    cmp qword [rbx + UfontFont_cmapt], 0
     je .bad
     ; sizes the other tables need
-    mov eax, [rbx + SF_UPEM]
+    mov eax, [rbx + UfontFont_upem]
     cmp eax, 16
     jb .bad
     cmp eax, 16384
     ja .bad
-    mov eax, [rbx + SF_LOCA_FMT]
+    mov eax, [rbx + UfontFont_loca_fmt]
     cmp eax, 1
     ja .bad
-    mov eax, [rbx + SF_NHM]
+    mov eax, [rbx + UfontFont_nhm]
     test eax, eax
     jz .bad
-    cmp eax, [rbx + SF_NGLYPHS]
+    cmp eax, [rbx + UfontFont_nglyphs]
     ja .bad
     shl rax, 2
-    cmp rax, [rbx + SF_HMTX_LEN]
+    cmp rax, [rbx + UfontFont_hmtx_len]
     ja .bad
-    mov eax, [rbx + SF_NGLYPHS]
+    mov eax, [rbx + UfontFont_nglyphs]
     test eax, eax
     jz .bad
     inc rax
-    mov ecx, [rbx + SF_LOCA_FMT]
+    mov ecx, [rbx + UfontFont_loca_fmt]
     inc ecx
     shl rax, cl                         ; (n + 1) x 2 or 4
-    cmp rax, [rbx + SF_LOCA_LEN]
+    cmp rax, [rbx + UfontFont_loca_len]
     ja .bad
-    call sfnt_pick_cmap
+    call uf_pick_cmap
     test eax, eax
     jz .bad
     mov rax, rbx
@@ -214,12 +218,12 @@ sfnt_open:
 
 ; rbx = font: its cmap subtable (format 12 Unicode over format 4) -> eax =
 ;   1 found, 0 none
-sfnt_pick_cmap:
+uf_pick_cmap:
     push r12
     push r13
     push r14
-    mov r12, [rbx + SF_CMAPT]
-    mov r13, [rbx + SF_CMAPT_LEN]
+    mov r12, [rbx + UfontFont_cmapt]
+    mov r13, [rbx + UfontFont_cmapt_len]
     cmp r13, 4
     jb .none
     BE16 r14d, [r12 + 2]                ; records
@@ -273,14 +277,14 @@ sfnt_pick_cmap:
     cmp r10d, r8d
     jbe .record
     mov r8d, r10d
-    mov [rbx + SF_CMAP], rsi
-    mov [rbx + SF_CMAP_LEN], rcx
+    mov [rbx + UfontFont_cmap], rsi
+    mov [rbx + UfontFont_cmap_len], rcx
     mov eax, 4
     cmp r10d, 1
     je .fmt
     mov eax, 12
 .fmt:
-    mov [rbx + SF_CMAP_FMT], eax
+    mov [rbx + UfontFont_cmap_fmt], eax
     jmp .record
 .done:
     xor eax, eax
@@ -296,15 +300,15 @@ sfnt_pick_cmap:
     ret
 
 ; ----------------------------------------------------------------------------
-; sfnt_glyph — rdi = SfntFont*, esi = code point -> eax = its glyph (0: the
+; ufont_glyph — rdi = UfontFont*, esi = code point -> eax = its glyph (0: the
 ;   font has none)
 ; ----------------------------------------------------------------------------
-global sfnt_glyph
-sfnt_glyph:
+global ufont_glyph
+ufont_glyph:
     push rbx
-    mov r8, [rdi + SF_CMAP]
-    mov r9, [rdi + SF_CMAP_LEN]
-    cmp dword [rdi + SF_CMAP_FMT], 12
+    mov r8, [rdi + UfontFont_cmap]
+    mov r9, [rdi + UfontFont_cmap_len]
+    cmp dword [rdi + UfontFont_cmap_fmt], 12
     je .format12
     ; format 4: segments (end, start, delta, range offset)
     cmp esi, 0xFFFF
@@ -384,7 +388,7 @@ sfnt_glyph:
     sub esi, eax
     lea eax, [rdx + rsi]
 .check:
-    cmp eax, [rdi + SF_NGLYPHS]
+    cmp eax, [rdi + UfontFont_nglyphs]
     jb .out
 .none:
     xor eax, eax
@@ -393,23 +397,34 @@ sfnt_glyph:
     ret
 
 ; ----------------------------------------------------------------------------
-; sfnt_advance — rdi = SfntFont*, esi = glyph -> eax = its advance (font
+; ufont_advance — rdi = UfontFont*, esi = glyph -> eax = its advance (font
 ;   units; past the metrics' end, the last one's)
 ; ----------------------------------------------------------------------------
-global sfnt_advance
-sfnt_advance:
-    mov ecx, [rdi + SF_NHM]
+global ufont_advance
+ufont_advance:
+    mov ecx, [rdi + UfontFont_nhm]
     dec ecx
     cmp esi, ecx
     jbe .have
     mov esi, ecx
 .have:
-    mov rdx, [rdi + SF_HMTX]
+    mov rdx, [rdi + UfontFont_hmtx]
     BE16 eax, [rdx + rsi * 4]
     ret
 
 ; ----------------------------------------------------------------------------
-; sfnt_outline — rdi = SfntFont*, esi = glyph, rdx = UgfxPath*, xmm0 =
+; ufont_metrics — rdi = UfontFont* -> eax = units per em, edx = ascent, ecx =
+;   descent (font units, both positive for a usual font)
+; ----------------------------------------------------------------------------
+global ufont_metrics
+ufont_metrics:
+    mov eax, [rdi + UfontFont_upem]
+    mov edx, [rdi + UfontFont_ascent]
+    mov ecx, [rdi + UfontFont_descent]
+    ret
+
+; ----------------------------------------------------------------------------
+; ufont_outline — rdi = UfontFont*, esi = glyph, rdx = UgfxPath*, xmm0 =
 ;   scale (pixels per font unit), rcx = arena (scratch for points) -> rax =
 ;   0, -EINVAL (damaged), -ENOMEM; the contours appended
 ; ----------------------------------------------------------------------------
@@ -419,8 +434,8 @@ sfnt_advance:
 %define OL_SCALE    24                  ; f64
 %define OL_SIZE     32
 
-global sfnt_outline
-sfnt_outline:
+global ufont_outline
+ufont_outline:
     push rbx
     sub rsp, OL_SIZE
     mov [rsp + OL_FONT], rdi
@@ -430,7 +445,7 @@ sfnt_outline:
     mov rbx, rsp                        ; the context
     lea rdx, [rel sf_identity]
     xor ecx, ecx                        ; depth
-    call sfnt_glyph_emit
+    call uf_glyph_emit
     add rsp, OL_SIZE
     pop rbx
     ret
@@ -445,7 +460,7 @@ sfnt_outline:
 %define GE_T        120                 ; f64[6] the component's in all
 %define GE_SIZE     168
 
-sfnt_glyph_emit:
+uf_glyph_emit:
     push r12
     push r13
     push r14
@@ -466,10 +481,10 @@ sfnt_glyph_emit:
     mov [rsp + GE_M + 40], rax
     ; where its bytes are (loca)
     mov rdi, [rbx + OL_FONT]
-    cmp esi, [rdi + SF_NGLYPHS]
+    cmp esi, [rdi + UfontFont_nglyphs]
     jae .bad
-    mov r8, [rdi + SF_LOCA]
-    cmp dword [rdi + SF_LOCA_FMT], 0
+    mov r8, [rdi + UfontFont_loca]
+    cmp dword [rdi + UfontFont_loca_fmt], 0
     jne .long
     BE16 eax, [r8 + rsi * 2]
     BE16 ecx, [r8 + rsi * 2 + 2]
@@ -484,9 +499,9 @@ sfnt_glyph_emit:
 .located:
     cmp rax, rcx
     jae .empty                          ; no outline (or a backward entry)
-    cmp rcx, [rdi + SF_GLYF_LEN]
+    cmp rcx, [rdi + UfontFont_glyf_len]
     ja .bad
-    mov r12, [rdi + SF_GLYF]
+    mov r12, [rdi + UfontFont_glyf]
     lea r13, [r12 + rcx]                ; its end
     add r12, rax                        ; its start
     lea rax, [r12 + 10]
@@ -503,10 +518,10 @@ sfnt_glyph_emit:
     lea rdx, [rsp + GE_M]
     mov rdi, r12
     mov rsi, r13
-    call sfnt_simple
+    call uf_simple
     jmp .out
 .composite:
-    cmp dword [rsp + GE_DEPTH], SFNT_MAX_DEPTH
+    cmp dword [rsp + GE_DEPTH], UFONT_MAX_DEPTH
     jae .bad
     add r12, 10
 .component:
@@ -613,7 +628,7 @@ sfnt_glyph_emit:
     lea rdx, [rsp + GE_T]
     mov ecx, [rsp + GE_DEPTH]
     inc ecx
-    call sfnt_glyph_emit
+    call uf_glyph_emit
     test rax, rax
     jnz .out
     test r14d, 0x0020                   ; MORE_COMPONENTS
@@ -657,7 +672,7 @@ sfnt_glyph_emit:
 %define SG_I        132                 ; u32 the step through it
 %define SG_SIZE     136
 
-sfnt_simple:
+uf_simple:
     push r12
     push r13
     push r14
@@ -697,7 +712,7 @@ sfnt_simple:
     jmp .ends
 .ends_done:
     inc edx
-    cmp edx, SFNT_MAX_POINTS
+    cmp edx, UFONT_MAX_POINTS
     ja .bad
     mov [rsp + SG_N], edx
     lea r14, [r14 + rcx * 2]
@@ -997,5 +1012,5 @@ sfnt_simple:
     ret
 
 section .data
-global sfnt_version
-sfnt_version: dq 0x010000
+global ufont_sfnt_version
+ufont_sfnt_version: dq 0x010000
