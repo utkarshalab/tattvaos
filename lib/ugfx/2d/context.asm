@@ -33,6 +33,10 @@
 ; layer once, at alpha x the restored global alpha, under the restored clip
 ; (group opacity, without double-counting clip edges).
 ;
+; Filters: ugfx_ctx_filter runs a filter graph (2d/filter.asm) over the
+; current layer in place, before it is composited; its buffers come from
+; a pool made the first time.
+;
 ; Masks: inside a layer, ugfx_ctx_begin_mask opens another layer for the
 ; mask's content; ugfx_ctx_end_mask(mode) turns it into a coverage mask
 ; (luminance x alpha, or alpha) for the layer below, which end_layer then
@@ -45,6 +49,7 @@
 
 extern arena_alloc
 extern pixbuf_create
+extern ugfx_filter_run
 extern ugfx_raster_init
 extern ugfx_raster_reset
 extern ugfx_raster_set_clip
@@ -144,6 +149,10 @@ ugfx_ctx_init:
     call ctx_alloc_zero
     jz .init_nomem
     mov [rbx + UgfxContext_lmasks], rax
+    mov esi, FE_POOL * 8
+    call ctx_alloc_zero
+    jz .init_nomem
+    mov [rbx + UgfxContext_fbufs], rax
     ; the default state
     mov qword [rbx + ST(mask)], 0
     lea rdi, [rbx + ST(transform)]
@@ -1110,6 +1119,54 @@ ugfx_ctx_end_layer:
     mov rax, -(ENOMEM)
     mov r15, [rbx + ST(clip)]
     jmp .el_out
+
+; -----------------------------------------------------------------------------
+; ugfx_ctx_filter — rdi = ctx, rsi = const UgfxFilter* (device space) -> rax =
+;   0, -EINVAL (not in a layer, or a bad graph), -ENOMEM: the current
+;   layer filtered in place
+; -----------------------------------------------------------------------------
+global ugfx_ctx_filter
+ugfx_ctx_filter:
+    test rdi, rdi
+    jz ctx_bad
+    test rsi, rsi
+    jz ctx_bad
+    cmp dword [rdi + ST(is_layer)], 1
+    jne ctx_bad
+    PROLOGUE_SAVE rbx, r12, r13
+    mov rbx, rdi
+    mov r12, rsi
+    ; the buffers, made once
+    xor r13d, r13d
+.fbuf:
+    cmp r13d, FE_POOL
+    jae .run
+    mov rax, [rbx + UgfxContext_fbufs]
+    cmp qword [rax + r13 * 8], 0
+    jne .fbuf_next
+    mov rax, [rbx + UgfxContext_root]
+    mov rdi, [rbx + UgfxContext_arena]
+    mov rsi, [rax + PixBuf_width]
+    mov rdx, [rax + PixBuf_height]
+    mov rcx, [rax + PixBuf_format]
+    call pixbuf_create
+    test rax, rax
+    jle .nomem
+    mov rcx, [rbx + UgfxContext_fbufs]
+    mov [rcx + r13 * 8], rax
+.fbuf_next:
+    inc r13d
+    jmp .fbuf
+.run:
+    mov rdi, r12
+    mov rsi, [rbx + ST(target)]
+    mov rdx, [rbx + UgfxContext_fbufs]
+    call ugfx_filter_run
+    jmp .out
+.nomem:
+    mov rax, -(ENOMEM)
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; -----------------------------------------------------------------------------
 ; ugfx_ctx_begin_mask — rdi = ctx -> rax = 0, -errno: a layer for a mask's
