@@ -33,7 +33,7 @@ PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", 
          "fill-opacity", "stroke-opacity", "opacity", "display", "font-size", "color", "visibility",
          "stroke-dasharray", "stroke-dashoffset", "paint-order", "clip-path", "clip-rule", "mask",
          "marker-start", "marker-mid", "marker-end", "marker", "font-family", "font-weight", "font-style",
-         "text-anchor", "letter-spacing", "word-spacing"}
+         "text-anchor", "letter-spacing", "word-spacing", "filter"}
 MARKED = {"path", "line", "polyline", "polygon"}
 MAX_CLIPS = 4
 INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "stroke-linecap": ["cap"],
@@ -45,7 +45,7 @@ INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "str
             "font-family": ["family"], "font-weight": ["weight"], "font-style": ["fstyle"],
             "text-anchor": ["anchor"], "letter-spacing": ["lspace"], "word-spacing": ["wspace"]}
 DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset", "clip-path", "mask",
-            "letter-spacing", "word-spacing")
+            "letter-spacing", "word-spacing", "filter")
 GEOM = ("x", "y", "width", "height", "rx", "ry", "cx", "cy", "r", "x1", "y1", "x2", "y2")
 AXIS = dict(x="x", y="y", width="x", height="y", rx="x", ry="y", cx="x", cy="y", r="d",
             x1="x", y1="y", x2="x", y2="y")
@@ -398,6 +398,324 @@ def data_uri(href):
     return bytes(out)
 
 
+FE_WORDS = {"feFlood": 1, "feOffset": 2, "feGaussianBlur": 3, "feMerge": 4, "feBlend": 5, "feComposite": 6,
+            "feColorMatrix": 7, "feComponentTransfer": 8, "feMorphology": 9, "feTile": 10, "feDropShadow": 11,
+            "feMergeNode": 12, "feFuncR": 13, "feFuncG": 14, "feFuncB": 15, "feFuncA": 16, "feTurbulence": 17,
+            "feImage": 17, "feConvolveMatrix": 17, "feDisplacementMap": 17, "feDiffuseLighting": 17,
+            "feSpecularLighting": 17}
+FE_KEYWORDS = {"SourceGraphic": -1, "SourceAlpha": -2, "BackgroundImage": -3, "BackgroundAlpha": -3,
+               "FillPaint": -3, "StrokePaint": -3}
+FE_MODES = ["normal", "multiply", "screen", "darken", "lighten"]
+FE_OPERATORS = ["over", "in", "out", "atop", "xor", "arithmetic"]
+CM_IDENT = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+CM_LUM = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2125, 0.7154, 0.0721, 0.0, 0.0]
+CM_ALPHA = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+CM_SAT_A = [0.213, 0.715, 0.072, 0.0, 0.0, 0.213, 0.715, 0.072, 0.0, 0.0, 0.213, 0.715, 0.072, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+CM_SAT_B = [0.787, -0.715, -0.072, 0.0, 0.0, -0.213, 0.285, -0.072, 0.0, 0.0, -0.213, -0.715, 0.928, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+CM_HUE_C = [-0.213, -0.715, 0.928, 0.0, 0.0, 0.143, 0.14, -0.283, 0.0, 0.0, -0.787, 0.715, 0.072, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+
+@dataclass
+class Filter:
+    units: int = 1                                  # filterUnits: 1 objectBoundingBox
+    prim_units: int = 0
+    linear: int = 1
+    region: list = field(default_factory=lambda: [0.0] * 4)
+    prims: list = field(default_factory=list)       # dicts (svg_filter_compile's UgfxSvgFe)
+
+
+def numbers(v):
+    out, i = [], 0
+    while v is not None:
+        n, i = number(v, i)
+        if n is None:
+            break
+        out.append(n)
+    return out
+
+
+def fe_cif(v):
+    t = trim(v)
+    return {"sRGB": 0, "linearRGB": 1, "auto": 0}.get(t)
+
+
+def fe_length(v, axis, obb, st):
+    """svg_fe_length."""
+    if not obb:
+        val, _ = length(v, "x" if axis == 0 else "y", st)
+        return val if val is not None else 0.0
+    val, j = number(v, 0)
+    if val is None:
+        return 0.0
+    if j < len(v) and v[j] == '%':
+        val = val * 0.01
+    return val
+
+
+def filter_compile(el, st):
+    """svg_filter_compile."""
+    f = Filter()
+    raw = ["-10%", "-10%", "120%", "120%"]
+    for name, value in el.attrib.items():
+        name = name.split('}')[-1]
+        if name in ("x", "y", "width", "height"):
+            raw[("x", "y", "width", "height").index(name)] = value
+        elif name == "color-interpolation-filters":
+            c = fe_cif(value)
+            if c is not None:
+                f.linear = c
+        elif name == "filterUnits":
+            f.units = int(trim(value) == "objectBoundingBox")
+        elif name == "primitiveUnits":
+            f.prim_units = int(trim(value) == "objectBoundingBox")
+    f.region = [fe_length(v, i % 2, f.units, st) for i, v in enumerate(raw)]
+    for child in el:
+        code = FE_WORDS.get(child.tag.split('}')[-1])
+        if code is None or 12 <= code <= 16 or len(f.prims) >= 16:
+            continue
+        p = fe_begin(f, child, code)
+        funcs = [[0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0] for _ in range(4)]
+        tables, merge = [None] * 4, []
+        for sub in child:
+            c = FE_WORDS.get(sub.tag.split('}')[-1])
+            if c == 12:
+                inp = -4
+                for name, value in sub.attrib.items():
+                    if name.split('}')[-1] == "in":
+                        inp = fe_input(f, len(f.prims) - 1, trim(value))
+                if len(merge) < 16:
+                    merge.append(float(len(f.prims) - 2 if inp == -4 else inp))
+            elif c is not None and 13 <= c <= 16:
+                ch = c - 13
+                for name, value in sub.attrib.items():
+                    name = name.split('}')[-1]
+                    if name == "type":
+                        t = trim(value)
+                        if t in ("identity", "table", "discrete", "linear", "gamma"):
+                            funcs[ch][0] = float(("identity", "table", "discrete", "linear", "gamma").index(t))
+                    elif name == "tableValues":
+                        tables[ch] = value
+                    elif name in ("slope", "intercept", "amplitude", "exponent", "offset"):
+                        n, _ = number(value, 0)
+                        if n is not None:
+                            funcs[ch][("slope", "intercept", "amplitude", "exponent", "offset").index(name) + 1] = n
+        fe_finish(f, p, st, funcs, tables, merge)
+    return f
+
+
+def fe_input(f, idx, v):
+    if v in FE_KEYWORDS:
+        return FE_KEYWORDS[v]
+    for i in range(idx - 1, -1, -1):
+        if f.prims[i]["name"] is not None and f.prims[i]["name"] == v:
+            return i
+    return -4
+
+
+def fe_begin(f, el, code):
+    p = dict(code=code, type=0, in1=-4, in2=-4, linear=f.linear, given=set(), sub=[0.0] * 4, raw=[None] * 4,
+             std=[0.0, 0.0], dxy=[0.0, 0.0], radius=[0.0, 0.0], k=[0.0] * 4, op=0, cm_type=0, flood=0xFF000000,
+             flood_op=1.0, values=None, var=[], name=None)
+    f.prims.append(p)
+    idx = len(f.prims) - 1
+    for name, value in el.attrib.items():
+        name = name.split('}')[-1]
+        if name in ("in", "in2"):
+            p["in1" if name == "in" else "in2"] = fe_input(f, idx, trim(value))
+        elif name == "result":
+            p["name"] = trim(value)
+        elif name in ("x", "y", "width", "height"):
+            i = ("x", "y", "width", "height").index(name)
+            p["given"].add(i)
+            p["raw"][i] = value
+        elif name == "color-interpolation-filters":
+            c = fe_cif(value)
+            if c is not None:
+                p["linear"] = c
+        elif name in ("stdDeviation", "radius"):
+            key = "std" if name == "stdDeviation" else "radius"
+            p["given"].add(4 if key == "std" else 7)
+            v1, i = number(value, 0)
+            if v1 is None:
+                continue
+            p[key] = [v1, v1]
+            v2, _ = number(value, i)
+            if v2 is not None:
+                p[key][1] = v2
+        elif name in ("dx", "dy"):
+            p["given"].add(5 if name == "dx" else 6)
+            n, _ = number(value, 0)
+            if n is not None:
+                p["dxy"][0 if name == "dx" else 1] = n
+        elif name == "flood-color":
+            kind, c = colour(value)
+            if kind == "colour":
+                p["flood"] = c
+        elif name == "flood-opacity":
+            n, j = number(value, 0)
+            if n is not None:
+                if j < len(value) and value[j] == '%':
+                    n = n * 0.01
+                p["flood_op"] = min(max(n, 0.0), 1.0)
+        elif name == "mode":
+            t = trim(value)
+            if t in FE_MODES:
+                p["op"] = FE_MODES.index(t)
+        elif name == "operator":
+            t = trim(value)
+            if t in FE_OPERATORS:
+                p["op"] = FE_OPERATORS.index(t)
+            elif t in ("erode", "dilate"):
+                p["op"] = int(t == "dilate")
+        elif name in ("k1", "k2", "k3", "k4"):
+            n, _ = number(value, 0)
+            if n is not None:
+                p["k"][int(name[1]) - 1] = n
+        elif name == "type":
+            t = trim(value)
+            if t in ("matrix", "saturate", "hueRotate", "luminanceToAlpha"):
+                p["cm_type"] = ("matrix", "saturate", "hueRotate", "luminanceToAlpha").index(t)
+        elif name == "values":
+            p["values"] = value
+    return p
+
+
+def fe_finish(f, p, st, funcs, tables, merge):
+    idx = f.prims.index(p)
+    for key in ("in1", "in2"):
+        if p[key] == -4:
+            p[key] = idx - 1
+    for i in range(4):
+        if i in p["given"]:
+            p["sub"][i] = fe_length(p["raw"][i], i % 2, f.prim_units, st)
+    a = int((p["flood"] >> 24) * p["flood_op"] + 0.5)
+    p["flood"] = a << 24 | (p["flood"] & 0xFFFFFF)
+    code = p["code"]
+    if code == 11:
+        fe_shadow(f, p, idx)
+        return
+    if code > 10:
+        p["type"], p["flood"] = 0, 0
+        return
+    p["type"] = code - 1
+    if p["type"] == 3:
+        p["var"] = list(merge)
+    elif p["type"] == 6:
+        vals = numbers(p["values"])[:20]
+        if p["cm_type"] == 1:
+            s = vals[0] if vals else 1.0
+            p["var"] = [b * s + a_ for a_, b in zip(CM_SAT_A, CM_SAT_B)]
+        elif p["cm_type"] == 2:
+            ang = (vals[0] if vals else 0.0) * 0.017453292519943295
+            c, sn = math.cos(ang), math.sin(ang)
+            p["var"] = [b * c + a_ + cc * sn for a_, b, cc in zip(CM_SAT_A, CM_SAT_B, CM_HUE_C)]
+        elif p["cm_type"] == 3:
+            p["var"] = list(CM_LUM)
+        else:
+            p["var"] = vals if len(vals) == 20 else list(CM_IDENT)
+    elif p["type"] == 7:
+        var = []
+        for ch in range(4):
+            t = numbers(tables[ch])
+            row = list(funcs[ch])
+            row[6] = float(len(t))
+            var += row + t
+        p["var"] = var
+
+
+def fe_shadow(f, p, k):
+    """svg_fe_shadow: six primitives."""
+    if len(f.prims) + 5 > 16:
+        p["type"], p["flood"] = 0, 0
+        return
+    if 4 not in p["given"]:
+        p["std"] = [2.0, 2.0]
+    if 5 not in p["given"]:
+        p["dxy"][0] = 2.0
+    if 6 not in p["given"]:
+        p["dxy"][1] = 2.0
+    name, src = p["name"], p["in1"]
+    copies = []
+    for _ in range(5):
+        q = dict(p)
+        q["std"], q["dxy"], q["radius"], q["k"] = list(p["std"]), list(p["dxy"]), list(p["radius"]), list(p["k"])
+        q["name"] = None
+        copies.append(q)
+    p["name"] = None
+    copies[-1]["name"] = name
+    f.prims[k + 1:k + 1] = copies
+    p["type"], p["var"] = 6, list(CM_ALPHA)
+    copies[0].update(type=2, in1=k)
+    copies[1].update(type=1, in1=k + 1)
+    copies[2].update(type=0)
+    copies[3].update(type=5, in1=k + 3, in2=k + 2, op=1)
+    copies[4].update(type=3, var=[float(k + 4), float(src)])
+
+
+def _floor(v):
+    if v != v:
+        return 0
+    v = min(max(v, -1073741824.0), 1073741824.0)
+    return math.floor(v)
+
+
+def filter_device(f, item, t):
+    """svg_filter_device -> (region, prims) for ugfx_ctx_filter."""
+    m = mul(t, item.matrix)
+    bx, by = item.bbox[0], item.bbox[1]
+    bw, bh = item.bbox[2] - bx, item.bbox[3] - by
+    sx = math.sqrt(m[0] * m[0] + m[1] * m[1])
+    sy = math.sqrt(m[2] * m[2] + m[3] * m[3])
+
+    def units(r, obb):
+        if not obb:
+            return list(r)
+        return [r[0] * bw + bx, r[1] * bh + by, r[2] * bw, r[3] * bh]
+
+    def device(r):
+        xs, ys = [], []
+        for cx, cy in ((r[0], r[1]), (r[0] + r[2], r[1]), (r[0], r[1] + r[3]), (r[0] + r[2], r[1] + r[3])):
+            xs.append(m[0] * cx + m[2] * cy + m[4])
+            ys.append(m[1] * cx + m[3] * cy + m[5])
+        x0, y0, x1, y1 = xs[0], ys[0], xs[0], ys[0]
+        for x, y in zip(xs[1:], ys[1:]):
+            x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+        return (_floor(x0), _floor(y0), -_floor(0.0 - x1), -_floor(0.0 - y1))
+
+    def lengths(v):
+        a, b = v
+        if f.prim_units:
+            a, b = a * bw, b * bh
+        return [a * sx, b * sy]
+
+    reg_user = units(f.region, f.units)
+    out = []
+    for p in f.prims:
+        u = units(p["sub"], f.prim_units)
+        u = [u[i] if i in p["given"] else reg_user[i] for i in range(4)]
+        q = [0.0] * 8
+        t_ = p["type"]
+        if t_ == 0:
+            q[0] = float(p["flood"])
+        elif t_ == 2:
+            q[0], q[1] = lengths(p["std"])
+        elif t_ == 8:
+            q[0] = float(p["op"])
+            q[1], q[2] = lengths(p["radius"])
+        elif t_ == 1:
+            dx, dy = p["dxy"]
+            if f.prim_units:
+                dx, dy = dx * bw, dy * bh
+            q[0] = m[0] * dx + m[2] * dy
+            q[1] = m[1] * dx + m[3] * dy
+        else:
+            q[0] = float(p["op"])
+            q[1:5] = p["k"]
+        out.append(dict(type=t_, in1=p["in1"], in2=p["in2"], linear=p["linear"], sub=device(u), p=q,
+                        var=list(p["var"])))
+    return device(reg_user), out
+
+
 @dataclass
 class Group:
     kind: str                                       # "begin" / "end"
@@ -407,6 +725,7 @@ class Group:
     bbox: list = None                               # its content's bounds in its space
     mask: object = None                             # Mask
     begin: object = None                            # an end's begin
+    filter: object = None                           # Filter
 
 
 def invert(m):
@@ -1609,6 +1928,19 @@ def parse(text, image_fn=None, font_fn=None):
     def mask_ref(raw, st, uses):
         return ref(raw, "mask", "mask", st, uses)
 
+    def filter_ref(raw, st):
+        v = raw.get("filter")
+        if clipmode[0] or v is None:
+            return None
+        t = trim(v)
+        if t == "none" or t[:4].lower() != "url(":
+            return None
+        r = url_ref(t)
+        el = ids.get(r[0]) if r else None
+        if el is None or el.tag.split('}')[-1] != "filter":
+            return None
+        return filter_compile(el, st)
+
     def compile_ref(cid, kind, st, uses):
         el = ids.get(cid)
         want = {"clip": "clipPath", "mask": "mask", "pattern": "pattern", "marker": "marker"}[kind]
@@ -1864,8 +2196,10 @@ def parse(text, image_fn=None, font_fn=None):
                 if tag not in SHAPES and not clipmode[0] and not cliproot:
                     rec = clip_ref(raw, st, uses)
                     mrec = mask_ref(raw, st, uses)
-                    if rec or mrec or own[0] < 1.0:
-                        opened = Group("begin", int(own[0] * 255.0 + 0.5), rec, list(st["m"]), mask=mrec)
+                    frec = filter_ref(raw, st)
+                    if rec or mrec or frec or own[0] < 1.0:
+                        opened = Group("begin", int(own[0] * 255.0 + 0.5), rec, list(st["m"]), mask=mrec,
+                                       filter=frec)
                         doc.items.append(opened)
                         opened_at = len(doc.items)
                 if symroot:
@@ -1937,9 +2271,10 @@ def parse(text, image_fn=None, font_fn=None):
             vp[0].bbox = group_bbox(vp[0], doc.items[vp[1]:])
             doc.items.append(Group("end", 255, vp[0].clip, begin=vp[0]))
         if opened:
-            if opened.clip or opened.mask:
+            if opened.clip or opened.mask or opened.filter:
                 opened.bbox = group_bbox(opened, doc.items[opened_at:])
-            doc.items.append(Group("end", opened.alpha, opened.clip, mask=opened.mask, begin=opened))
+            doc.items.append(Group("end", opened.alpha, opened.clip, mask=opened.mask, begin=opened,
+                                   filter=opened.filter))
 
     def symbol_map(st, geom, wh):
         vp = view_clip(st, 0.0, 0.0, wh[0], wh[1])
@@ -2019,6 +2354,7 @@ def parse(text, image_fn=None, font_fn=None):
             return
         rec = clip_ref(raw, st, uses)
         mrec = mask_ref(raw, st, uses)
+        frec = filter_ref(raw, st)
         group = own < 1.0 and fill and stroke
         if own < 1.0 and not group:
             st["op"] = own * st["op"]
@@ -2031,14 +2367,15 @@ def parse(text, image_fn=None, font_fn=None):
                     st["order"], st["dash"], st["dash_off"])
         if (f and f[0] == "pattern") or (s and s[0] == "pattern"):
             item.bbox = tight_bounds(path)
-        if group or rec or mrec:
-            begin = Group("begin", int(own * 255.0 + 0.5) if group else 255, rec, list(st["m"]), mask=mrec)
-            if rec or mrec:
+        if group or rec or mrec or frec:
+            begin = Group("begin", int(own * 255.0 + 0.5) if group else 255, rec, list(st["m"]), mask=mrec,
+                          filter=frec)
+            if rec or mrec or frec:
                 begin.bbox = group_bbox(begin, [item])
             doc.items += [begin, item]
             if marked:
                 markers(tag, st, path, uses)
-            doc.items.append(Group("end", begin.alpha, rec, mask=mrec, begin=begin))
+            doc.items.append(Group("end", begin.alpha, rec, mask=mrec, begin=begin, filter=frec))
         else:
             doc.items.append(item)
             if marked:
