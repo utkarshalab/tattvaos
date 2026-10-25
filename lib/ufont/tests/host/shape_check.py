@@ -3,11 +3,11 @@
 
 Usage: shape_check.py <host_shape> <font directory> [cases per font]
 
-For every shipped font: words in Latin, Greek, Cyrillic and Devanagari,
-then random strings - characters the font maps mixed with combining marks,
-joiners, spaces, ligature letters and default ignorables, and random
-Devanagari syllables (consonant clusters, reph, nukta, matras, signs, broken
-clusters). Every glyph, cluster, advance and offset ufont_shape gives must
+For every shipped font: words in Latin, Greek, Cyrillic and the Indic
+scripts, then random strings - characters the font maps mixed with
+combining marks, joiners, spaces, ligature letters and default ignorables,
+and random syllables in the font's Indic script (consonant clusters, reph,
+nukta, matras, signs, joiners, broken clusters). Every glyph, cluster, advance and offset ufont_shape gives must
 equal the model's. Noto Sans Devanagari altered four ways (only the old
 'deva' script, only DFLT, no GSUB, no GDEF) takes the shaper down its other
 paths. When uharfbuzz is installed the model is also compared with
@@ -26,6 +26,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "tools"))
 import shapemodel as sm  # noqa: E402
+from indic_data import TABLE  # noqa: E402
 
 try:
     import uharfbuzz as hb
@@ -76,6 +77,56 @@ def devanagari(rng):
             out.append(rng.choice(MATRA + SIGNS + [0x094D, 0x200C, 0x200D, 0x25CC, 0x00A0]))
         else:
             out.append(rng.choice((0x20, 0x41, 0x2D, 0x31)))
+    return out
+
+
+INDIC_BLOCKS = {'Bengali': 0x0980, 'Gurmukhi': 0x0A00, 'Gujarati': 0x0A80, 'Oriya': 0x0B00, 'Tamil': 0x0B80,
+                'Telugu': 0x0C00, 'Kannada': 0x0C80, 'Malayalam': 0x0D00}
+INDIC_WORDS = '''বাংলা ভাষা কর্ম সূর্য্য ক্ষ জ্ঞ র‍্যাব কি কো কৌ র্কি শ্রী ਪੰਜਾਬੀ ਗੁਰਮੁਖੀ ਕਿ ਸ੍ਵ ਪ੍ਰ ਖ਼ ਕੌ
+ગુજરાતી ભાષા કર્મ ક્ષ જ્ઞ કિ ર્કિ શ્રી ଓଡ଼ିଆ ଭାଷା କର୍ମ କ୍ଷ କି କୋ ର୍କି தமிழ் மொழி கொ கோ கௌ க்ஷ ஸ்ரீ
+తెలుగు భాష కర్మ క్ష కి కొ కౌ ర్కి శ్రీ ర‍్క ಕನ್ನಡ ಭಾಷೆ ಕರ್ಮ ಕ್ಷ ಕಿ ಕೊ ರ್ಕಿ ಶ್ರೀ ರ್‍ಕ ರ‍್ಕ
+മലയാളം ഭാഷ കർമ്മ ക്ഷ കി കൊ കൌ ർക്ക ശ്രീ ന്റെ'''.split()
+
+
+def indic(rng, base):
+    """Random syllables of the Indic script whose block starts at base."""
+    p = {}
+    for u in range(base, base + 0x80):
+        p.setdefault(TABLE.get(u, (0, 14))[0], []).append(u)
+    virama = (p.get(4) or [base + 0x4D])[0]
+    cons, vow = p.get(1, []) + p.get(15, []), p.get(2, [])
+    matra = p.get(7, []) + p.get(13, [])
+    signs = p.get(8, []) + p.get(9, []) + p.get(3, []) + p.get(57, [])
+    out = []
+    for _ in range(rng.randint(1, 4)):
+        r = rng.random()
+        if r < 0.75 and cons:
+            if rng.random() < 0.2 and p.get(15):
+                out += [p[15][0], virama]
+                if rng.random() < 0.2:
+                    out.append(0x200D)
+            for k in range(rng.choice((1, 1, 2, 2, 3))):
+                if k:
+                    out.append(virama)
+                    if rng.random() < 0.15:
+                        out.append(rng.choice((0x200C, 0x200D)))
+                out.append(rng.choice(cons))
+                if rng.random() < 0.1 and p.get(3):
+                    out.append(rng.choice(p[3]))
+            if rng.random() < 0.7 and matra:
+                out.append(rng.choice(matra))
+            if rng.random() < 0.15:
+                out.append(virama)
+            if rng.random() < 0.3 and signs:
+                out.append(rng.choice(signs))
+        elif r < 0.85 and vow:
+            out.append(rng.choice(vow))
+            if rng.random() < 0.5 and (matra or signs):
+                out.append(rng.choice(matra + signs))
+        elif r < 0.95:
+            out.append(rng.choice(matra + signs + [virama, 0x200C, 0x200D, 0x25CC]))
+        else:
+            out.append(rng.choice((0x20, 0x41, 0x2D)))
     return out
 
 
@@ -218,10 +269,15 @@ def main():
             rtl = lambda c: 0x0590 <= c <= 0x08FF or 0xFB1D <= c <= 0xFDFF or 0xFE70 <= c <= 0xFEFF  # noqa: E731
             cmap = sorted(c for c in font.cmap if not rtl(c))
             marks = [c for c in cmap if sm.is_mark_gc(sm.gc(c))] + [0x0301, 0x0308, 0x0323, 0x0327, 0x0345]
-            cases = [[ord(c) for c in w] for w in WORDS]
+            cases = [[ord(c) for c in w] for w in WORDS + INDIC_WORDS]
+            script = next((k for k in INDIC_BLOCKS if k in name), None)
             for _ in range(per_font):
-                cases.append(devanagari(rng) if "Devanagari" in name or rng.random() < 0.2
-                             else general(rng, cmap, marks))
+                if script:
+                    cases.append(indic(rng, INDIC_BLOCKS[script]))
+                elif "Devanagari" in name or rng.random() < 0.2:
+                    cases.append(devanagari(rng))
+                else:
+                    cases.append(general(rng, cmap, marks))
             total += 1
             failed += not check_font(tool, path, name, cases, d)
         for path in altered(font_dir, d):
