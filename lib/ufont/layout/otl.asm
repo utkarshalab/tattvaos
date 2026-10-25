@@ -5,35 +5,35 @@
 ; against the end of its table before anything is read through it; what is
 ; out of bounds reads as absent (an empty coverage, class 0, no lookup).
 ;
-;   ot_coverage(rdi = coverage, rsi = table end, edx = glyph) -> eax index, -1
-;   ot_class(rdi = class definition, rsi = end, edx = glyph) -> eax class
-;   ot_off16(rdi = base, rsi = end, edx = byte offset of the field) -> rax =
+;   ufl_ot_coverage(rdi = coverage, rsi = table end, edx = glyph) -> eax index, -1
+;   ufl_ot_class(rdi = class definition, rsi = end, edx = glyph) -> eax class
+;   ufl_ot_off16(rdi = base, rsi = end, edx = byte offset of the field) -> rax =
 ;       base + the u16 offset there, 0 when null or out of bounds
-;   otl_gdef_init               GDEF's class definitions and mark sets (state)
-;   otl_glyph_props(edi = glyph) -> eax GDEF props (class bits, attachment
+;   ufl_otl_gdef_init               GDEF's class definitions and mark sets (state)
+;   ufl_otl_glyph_props(edi = glyph) -> eax GDEF props (class bits, attachment
 ;       class << 8)
-;   otl_mark_set_covers(edi = set, esi = glyph) -> eax 1 / 0
-;   otl_select(edi = 0 GSUB / 1 GPOS)  script and language system for the run
-;   otl_feature_index(edi = table, esi = tag) -> eax its index in the language
+;   ufl_otl_mark_set_covers(edi = set, esi = glyph) -> eax 1 / 0
+;   ufl_otl_select(edi = 0 GSUB / 1 GPOS)  script and language system for the run
+;   ufl_otl_feature_index(edi = table, esi = tag) -> eax its index in the language
 ;       system, -1
-;   otl_feature_lookups(edi = table, esi = feature index) -> rax = the lookup
+;   ufl_otl_feature_lookups(edi = table, esi = feature index) -> rax = the lookup
 ;       indices (big-endian u16), ecx = how many
-;   otl_lookup(edi = table, esi = lookup index) -> rax = the lookup, 0
-;   otl_table(edi = table) -> rax = base, rdx = end (0, 0 when absent)
+;   ufl_otl_lookup(edi = table, esi = lookup index) -> rax = the lookup, 0
+;   ufl_otl_table(edi = table) -> rax = base, rdx = end (0, 0 when absent)
 ; =============================================================================
 
 %include "ufont.inc"
 %include "shape.inc"
 
-extern ucd_scripts
+extern ufl_ucd_scripts
 
 section .text
 
 ; ----------------------------------------------------------------------------
-; ot_off16 — rdi = base, rsi = end, edx = field offset -> rax
+; ufl_ot_off16 — rdi = base, rsi = end, edx = field offset -> rax
 ; ----------------------------------------------------------------------------
-global ot_off16
-ot_off16:
+global ufl_ot_off16
+ufl_ot_off16:
     test rdi, rdi
     jz .none
     lea rax, [rdi + rdx + 2]
@@ -51,11 +51,11 @@ ot_off16:
     ret
 
 ; ----------------------------------------------------------------------------
-; ot_coverage — rdi = coverage table, rsi = end, edx = glyph -> eax = index
+; ufl_ot_coverage — rdi = coverage table, rsi = end, edx = glyph -> eax = index
 ;   (-1: not covered)
 ; ----------------------------------------------------------------------------
-global ot_coverage
-ot_coverage:
+global ufl_ot_coverage
+ufl_ot_coverage:
     test rdi, rdi
     jz .none
     lea rax, [rdi + 4]
@@ -125,10 +125,10 @@ ot_coverage:
     ret
 
 ; ----------------------------------------------------------------------------
-; ot_class — rdi = class definition, rsi = end, edx = glyph -> eax = class
+; ufl_ot_class — rdi = class definition, rsi = end, edx = glyph -> eax = class
 ; ----------------------------------------------------------------------------
-global ot_class
-ot_class:
+global ufl_ot_class
+ufl_ot_class:
     test rdi, rdi
     jz .zero
     lea rax, [rdi + 6]
@@ -184,10 +184,10 @@ ot_class:
     ret
 
 ; ----------------------------------------------------------------------------
-; otl_gdef_init
+; ufl_otl_gdef_init
 ; ----------------------------------------------------------------------------
-global otl_gdef_init
-otl_gdef_init:
+global ufl_otl_gdef_init
+ufl_otl_gdef_init:
     push rbx
     push r12
     sub rsp, 8
@@ -211,12 +211,12 @@ otl_gdef_init:
     mov rdi, rbx
     mov rsi, r12
     mov edx, 4
-    call ot_off16
+    call ufl_ot_off16
     mov [r15 + S_CLASSDEF], rax
     mov rdi, rbx
     mov rsi, r12
     mov edx, 10
-    call ot_off16
+    call ufl_ot_off16
     mov [r15 + S_MARKATTACH], rax
     BE16 eax, [rbx + 2]                 ; minor version
     cmp eax, 2
@@ -224,7 +224,7 @@ otl_gdef_init:
     mov rdi, rbx
     mov rsi, r12
     mov edx, 12
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .out
     lea rcx, [rax + 4]
@@ -246,16 +246,16 @@ otl_gdef_init:
     ret
 
 ; ----------------------------------------------------------------------------
-; otl_glyph_props — edi = glyph -> eax
+; ufl_otl_glyph_props — edi = glyph -> eax
 ; ----------------------------------------------------------------------------
-global otl_glyph_props
-otl_glyph_props:
+global ufl_otl_glyph_props
+ufl_otl_glyph_props:
     push rbx
     mov ebx, edi
     mov rdi, [r15 + S_CLASSDEF]
     mov rsi, [r15 + S_GDEFEND]
     mov edx, ebx
-    call ot_class
+    call ufl_ot_class
     cmp eax, 1
     je .base
     cmp eax, 2
@@ -274,7 +274,7 @@ otl_glyph_props:
     mov rdi, [r15 + S_MARKATTACH]
     mov rsi, [r15 + S_GDEFEND]
     mov edx, ebx
-    call ot_class
+    call ufl_ot_class
     movzx eax, al
     shl eax, 8
     or eax, GP_MARK
@@ -283,10 +283,10 @@ otl_glyph_props:
     ret
 
 ; ----------------------------------------------------------------------------
-; otl_mark_set_covers — edi = set, esi = glyph -> eax 1 / 0
+; ufl_otl_mark_set_covers — edi = set, esi = glyph -> eax 1 / 0
 ; ----------------------------------------------------------------------------
-global otl_mark_set_covers
-otl_mark_set_covers:
+global ufl_otl_mark_set_covers
+ufl_otl_mark_set_covers:
     xor eax, eax
     cmp edi, [r15 + S_NMARKSETS]
     jae .out
@@ -301,7 +301,7 @@ otl_mark_set_covers:
     jae .no
     mov rdi, rax
     mov rsi, r9
-    call ot_coverage
+    call ufl_ot_coverage
     not eax                             ; -1 -> 0
     test eax, eax
     setnz al
@@ -313,11 +313,11 @@ otl_mark_set_covers:
     ret
 
 ; ----------------------------------------------------------------------------
-; otl_table — edi = 0 GSUB / 1 GPOS -> rax = base, rdx = end (0 absent or
+; ufl_otl_table — edi = 0 GSUB / 1 GPOS -> rax = base, rdx = end (0 absent or
 ;   damaged header)
 ; ----------------------------------------------------------------------------
-global otl_table
-otl_table:
+global ufl_otl_table
+ufl_otl_table:
     mov rcx, [r15 + S_FONT]
     test edi, edi
     jnz .gpos
@@ -342,11 +342,11 @@ otl_table:
     ret
 
 ; ----------------------------------------------------------------------------
-; otl_select — edi = table: the script record (tags of the run's script, then
+; ufl_otl_select — edi = table: the script record (tags of the run's script, then
 ;   DFLT, dflt, latn) and language system; S_SR, S_CHOSEN, S_LS
 ; ----------------------------------------------------------------------------
-global otl_select
-otl_select:
+global ufl_otl_select
+ufl_otl_select:
     push rbx
     push rbp
     push r12
@@ -357,7 +357,7 @@ otl_select:
     mov qword [r15 + S_SR + rbp * 8], 0
     mov qword [r15 + S_LS + rbp * 8], 0
     mov dword [r15 + S_CHOSEN + rbp * 4], 0xFFFF
-    call otl_table
+    call ufl_otl_table
     test rax, rax
     jz .out
     mov r12, rax                        ; table
@@ -365,7 +365,7 @@ otl_select:
     mov rdi, r12
     mov rsi, r13
     mov edx, 4
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .out
     mov r14, rax                        ; script list
@@ -375,7 +375,7 @@ otl_select:
     cmp eax, 3
     jb .defaults
     imul eax, eax, 12
-    lea rcx, [rel ucd_scripts]
+    lea rcx, [rel ufl_ucd_scripts]
     add rcx, rax
     mov eax, [rcx + 8]                  ; new tag
     test eax, eax
@@ -462,13 +462,13 @@ otl_select:
     lea rdi, [rbx]
     mov rsi, r13
     lea edx, [rax + 8]
-    call ot_off16
+    call ufl_ot_off16
     jmp .ls
 .default:
     mov rdi, rbx
     mov rsi, r13
     xor edx, edx
-    call ot_off16
+    call ufl_ot_off16
 .ls:
     test rax, rax
     jz .out
@@ -498,14 +498,14 @@ otl_feature_record:
     push r12
     sub rsp, 8
     mov r12d, esi
-    call otl_table
+    call ufl_otl_table
     test rax, rax
     jz .none
     mov rbx, rdx
     mov rdi, rax
     mov rsi, rdx
     mov edx, 6
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .none
     lea rcx, [rax + 2]
@@ -530,10 +530,10 @@ otl_feature_record:
     ret
 
 ; ----------------------------------------------------------------------------
-; otl_feature_tag — edi = table, esi = feature index -> eax = tag (0 none)
+; ufl_otl_feature_tag — edi = table, esi = feature index -> eax = tag (0 none)
 ; ----------------------------------------------------------------------------
-global otl_feature_tag
-otl_feature_tag:
+global ufl_otl_feature_tag
+ufl_otl_feature_tag:
     sub rsp, 8
     call otl_feature_record
     add rsp, 8
@@ -546,11 +546,11 @@ otl_feature_tag:
     ret
 
 ; ----------------------------------------------------------------------------
-; otl_feature_index — edi = table, esi = tag -> eax = the first feature index
+; ufl_otl_feature_index — edi = table, esi = tag -> eax = the first feature index
 ;   in the language system with that tag, -1
 ; ----------------------------------------------------------------------------
-global otl_feature_index
-otl_feature_index:
+global ufl_otl_feature_index
+ufl_otl_feature_index:
     push rbx
     push rbp
     push r12
@@ -568,7 +568,7 @@ otl_feature_index:
     jae .none
     BE16 esi, [rbx + r14 * 2 + 6]
     mov edi, ebp
-    call otl_feature_tag
+    call ufl_otl_feature_tag
     cmp eax, r12d
     je .found
     inc r14d
@@ -587,11 +587,11 @@ otl_feature_index:
     ret
 
 ; ----------------------------------------------------------------------------
-; otl_feature_lookups — edi = table, esi = feature index -> rax = lookup
+; ufl_otl_feature_lookups — edi = table, esi = feature index -> rax = lookup
 ;   indices (big-endian u16), ecx = count (0 when absent)
 ; ----------------------------------------------------------------------------
-global otl_feature_lookups
-otl_feature_lookups:
+global ufl_otl_feature_lookups
+ufl_otl_feature_lookups:
     push rbx
     push r12
     push r13
@@ -601,7 +601,7 @@ otl_feature_lookups:
     jz .none
     mov rbx, rax
     mov edi, r12d
-    call otl_table
+    call ufl_otl_table
     mov r13, rdx                        ; end
     BE16 ecx, [rbx + 4]
     mov rdi, rax
@@ -609,7 +609,7 @@ otl_feature_lookups:
     mov edx, 6
     push rcx
     sub rsp, 8
-    call ot_off16                       ; the feature list
+    call ufl_ot_off16                       ; the feature list
     add rsp, 8
     pop rcx
     test rax, rax
@@ -634,11 +634,11 @@ otl_feature_lookups:
     ret
 
 ; ----------------------------------------------------------------------------
-; otl_lookup_count — edi = table -> eax
-; otl_lookup — edi = table, esi = index -> rax = the lookup table, 0
+; ufl_otl_lookup_count — edi = table -> eax
+; ufl_otl_lookup — edi = table, esi = index -> rax = the lookup table, 0
 ; ----------------------------------------------------------------------------
-global otl_lookup_count
-otl_lookup_count:
+global ufl_otl_lookup_count
+ufl_otl_lookup_count:
     sub rsp, 8
     call otl_lookup_list
     add rsp, 8
@@ -647,14 +647,14 @@ otl_lookup_count:
 ; -> rax = lookup list, ecx = count, rdx = end
 otl_lookup_list:
     push rbx
-    call otl_table
+    call ufl_otl_table
     test rax, rax
     jz .none
     mov rbx, rdx
     mov rdi, rax
     mov rsi, rdx
     mov edx, 8
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .none
     lea rcx, [rax + 2]
@@ -675,8 +675,8 @@ otl_lookup_list:
     pop rbx
     ret
 
-global otl_lookup
-otl_lookup:
+global ufl_otl_lookup
+ufl_otl_lookup:
     push rbx
     mov ebx, esi
     call otl_lookup_list_ptr
@@ -687,7 +687,7 @@ otl_lookup:
     mov rdi, rax
     mov rsi, rdx
     lea edx, [rbx * 2 + 2]
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .none
     lea rcx, [rax + 6]
@@ -703,14 +703,14 @@ otl_lookup:
 ; -> rax = lookup list pointer, ecx = count, rdx = end
 otl_lookup_list_ptr:
     push rbx
-    call otl_table
+    call ufl_otl_table
     test rax, rax
     jz .none
     mov rbx, rdx
     mov rdi, rax
     mov rsi, rdx
     mov edx, 8
-    call ot_off16
+    call ufl_ot_off16
     test rax, rax
     jz .none
     lea rcx, [rax + 2]
