@@ -8,15 +8,15 @@
 
 section .rodata
 align 4
-global indic_chars
-global indic_chars_count
-global indic_classes
-global indic_dfa
-global indic_dfa_classes
-global indic_accept
-indic_chars_count: dd 1201
-indic_dfa_classes: dd 20
-indic_chars:
+global ufl_indic_chars
+global ufl_indic_chars_count
+global ufl_indic_classes
+global ufl_indic_dfa
+global ufl_indic_dfa_classes
+global ufl_indic_accept
+ufl_indic_chars_count: dd 1201
+ufl_indic_dfa_classes: dd 20
+ufl_indic_chars:
     dd 0x002D
     db 10, 4, 0, 0
     dd 0x0030
@@ -2419,12 +2419,12 @@ indic_chars:
     db 10, 4, 0, 0
     dd 0x116E3
     db 10, 4, 0, 0
-indic_classes:
+ufl_indic_classes:
     db 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     db 16, 17, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     db 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 0, 0, 0, 0, 0, 0
-indic_dfa:
+ufl_indic_dfa:
     db 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11, 12, 8, 13, 14, 15, 16, 17, 18
     db 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255
     db 255, 255, 255, 19, 20, 21, 22, 23, 24, 25, 255, 255, 26, 23, 255, 255, 27, 255, 255, 24
@@ -2596,7 +2596,7 @@ indic_dfa:
     db 255, 255, 255, 255, 29, 93, 93, 32, 33, 34, 255, 255, 255, 32, 255, 255, 36, 255, 255, 33
     db 255, 255, 255, 255, 57, 59, 59, 60, 61, 62, 255, 255, 255, 60, 255, 255, 64, 255, 255, 61
     db 255, 255, 255, 255, 255, 88, 255, 255, 89, 25, 255, 255, 255, 40, 255, 255, 255, 255, 255, 89
-indic_accept:
+ufl_indic_accept:
     db 255, 5, 0, 1, 4, 4, 5, 5, 4, 4, 4, 2, 4, 4, 0, 4
     db 3, 5, 5, 0, 0, 255, 0, 0, 0, 0, 0, 0, 1, 1, 255, 1
     db 1, 1, 1, 1, 1, 4, 4, 255, 4, 4, 4, 4, 4, 4, 4, 4
