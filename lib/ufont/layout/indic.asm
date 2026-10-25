@@ -1,7 +1,8 @@
 ; =============================================================================
 ; Utkarsha OS — lib/ufont/layout/indic.asm
 ; =============================================================================
-; The Indic shaper (Devanagari), as HarfBuzz's: tools/indic.py models it step
+; The Indic shaper - Devanagari, Bengali, Gurmukhi, Gujarati, Oriya, Tamil,
+; Telugu, Kannada, Malayalam - as HarfBuzz's: tools/indic.py models it step
 ; for step.
 ;
 ;   ufl_indic_collect_features    locl / ccmp, then nukt, akhn, rphf, rkrf, pref,
@@ -18,9 +19,13 @@
 ;   base, reph, positions, sort, masks), final reordering (pre-base matra,
 ;   reph, pref, init)
 ;
-; Devanagari's configuration: virama U+094D, reph formed from Ra + halant
-; and placed before post-base consonants, below forms before and after the
-; base.
+; Each script's configuration (in_configs): its virama; where reph goes
+; (Devanagari, Gujarati before post-base consonants; Bengali after the
+; subjoined ones; Gurmukhi before them; Oriya, Malayalam after the main
+; consonant; Tamil, Telugu, Kannada after post-base consonants); how it is
+; formed (Ra + halant; Telugu Ra + halant + ZWJ; Malayalam a repha
+; character); below forms before and after the base, or after only
+; (Telugu, Kannada); its vowel constraints.
 ; =============================================================================
 
 %include "ufont.inc"
@@ -32,6 +37,7 @@ extern ufl_indic_classes
 extern ufl_indic_dfa
 extern ufl_indic_dfa_classes
 extern ufl_indic_accept
+extern ufl_ucd_scripts
 extern ufl_map_add_feature
 extern ufl_map_enable
 extern ufl_map_disable
@@ -72,6 +78,18 @@ extern ufl_buf_reverse
 ; positions
 %define START 0
 %define RA_TO_BECOME_REPH 1
+%define BEFORE_SUB 7
+%define AFTER_SUB 9
+%define BEFORE_POST 10
+%define AFTER_POST 12
+; reph modes, script kinds
+%define REPH_IMPLICIT 0
+%define REPH_EXPLICIT 1
+%define REPH_LOG 2
+%define KIND_KNDA 1
+%define KIND_MLYM 2
+%define KIND_TAML 3
+%define KIND_DEVA 4
 %define PRE_M 2
 %define PRE_C 3
 %define BASE_C 4
@@ -120,6 +138,85 @@ in_features:                            ; tag, flags (the first eleven: a stage 
     dd 'haln', F_GLOBAL | F_MANUAL_JOINERS | F_PER_SYLLABLE
 %define IN_FEATURES 17
 %define IN_BASIC 11
+
+; per script: ISO tag, virama, reph position, reph mode, below-forms mode,
+; kind, vowel constraint count, the pairs
+%define IC_TAG      0
+%define IC_VIRAMA   4
+%define IC_REPHPOS  8
+%define IC_REPHMODE 9
+%define IC_BLWF     10
+%define IC_KIND     11
+%define IC_VCN      12
+%define IC_VC       16
+%define IC_SIZE     24
+align 8
+in_configs:
+    dd 'Deva', 0x094D
+    db BEFORE_POST, REPH_IMPLICIT, 0, KIND_DEVA
+    dd (vc_deva_end - vc_deva) / 4
+    dq vc_deva
+    dd 'Beng', 0x09CD
+    db AFTER_SUB, REPH_IMPLICIT, 0, 0
+    dd (vc_beng_end - vc_beng) / 4
+    dq vc_beng
+    dd 'Guru', 0x0A4D
+    db BEFORE_SUB, REPH_IMPLICIT, 0, 0
+    dd (vc_guru_end - vc_guru) / 4
+    dq vc_guru
+    dd 'Gujr', 0x0ACD
+    db BEFORE_POST, REPH_IMPLICIT, 0, 0
+    dd (vc_gujr_end - vc_gujr) / 4
+    dq vc_gujr
+    dd 'Orya', 0x0B4D
+    db AFTER_MAIN, REPH_IMPLICIT, 0, 0
+    dd (vc_orya_end - vc_orya) / 4
+    dq vc_orya
+    dd 'Taml', 0x0BCD
+    db AFTER_POST, REPH_IMPLICIT, 0, KIND_TAML
+    dd (vc_taml_end - vc_taml) / 4
+    dq vc_taml
+    dd 'Telu', 0x0C4D
+    db AFTER_POST, REPH_EXPLICIT, 1, 0
+    dd (vc_telu_end - vc_telu) / 4
+    dq vc_telu
+    dd 'Knda', 0x0CCD
+    db AFTER_POST, REPH_IMPLICIT, 1, KIND_KNDA
+    dd (vc_knda_end - vc_knda) / 4
+    dq vc_knda
+    dd 'Mlym', 0x0D4D
+    db AFTER_MAIN, REPH_LOG, 0, KIND_MLYM
+    dd (vc_mlym_end - vc_mlym) / 4
+    dq vc_mlym
+in_configs_end:
+
+; vowel constraints: (vowel, sign) pairs that read as another vowel
+vc_deva:
+    dw 0x0905, 0x093A, 0x0905, 0x093B, 0x0905, 0x093E, 0x0905, 0x0945, 0x0905, 0x0946, 0x0905, 0x0949
+    dw 0x0905, 0x094A, 0x0905, 0x094B, 0x0905, 0x094C, 0x0905, 0x094F, 0x0905, 0x0956, 0x0905, 0x0957
+    dw 0x0906, 0x093A, 0x0906, 0x0945, 0x0906, 0x0946, 0x0906, 0x0947, 0x0906, 0x0948
+    dw 0x0909, 0x0941, 0x090F, 0x0945, 0x090F, 0x0946, 0x090F, 0x0947
+vc_deva_end:
+vc_beng: dw 0x0985, 0x09BE, 0x098B, 0x09C3, 0x098C, 0x09E2
+vc_beng_end:
+vc_guru:
+    dw 0x0A05, 0x0A3E, 0x0A05, 0x0A48, 0x0A05, 0x0A4C, 0x0A72, 0x0A3F, 0x0A72, 0x0A40, 0x0A72, 0x0A47
+    dw 0x0A73, 0x0A41, 0x0A73, 0x0A42, 0x0A73, 0x0A4B
+vc_guru_end:
+vc_gujr:
+    dw 0x0A85, 0x0ABE, 0x0A85, 0x0AC5, 0x0A85, 0x0AC7, 0x0A85, 0x0AC8, 0x0A85, 0x0AC9, 0x0A85, 0x0ACB
+    dw 0x0A85, 0x0ACC, 0x0AC5, 0x0ABE
+vc_gujr_end:
+vc_orya: dw 0x0B05, 0x0B3E, 0x0B0F, 0x0B57, 0x0B13, 0x0B57
+vc_orya_end:
+vc_taml: dw 0x0B85, 0x0BC2
+vc_taml_end:
+vc_telu: dw 0x0C12, 0x0C4C, 0x0C12, 0x0C55, 0x0C3F, 0x0C55, 0x0C46, 0x0C55, 0x0C4A, 0x0C55
+vc_telu_end:
+vc_knda: dw 0x0C89, 0x0CBE, 0x0C8B, 0x0CBE, 0x0C92, 0x0CCC
+vc_knda_end:
+vc_mlym: dw 0x0D07, 0x0D57, 0x0D09, 0x0D57, 0x0D0E, 0x0D46, 0x0D12, 0x0D3E, 0x0D12, 0x0D57
+vc_mlym_end:
 
 section .text
 
@@ -227,10 +324,47 @@ ufl_indic_data_create:
     shr eax, 24
     cmp eax, '2'
     setne byte [r15 + S_IOLD]
-    mov al, [r15 + S_IOLD]
-    xor al, 1
-    mov [r15 + S_IZERO], al
     mov dword [r15 + S_IVIRAMA], -1
+    ; the script's configuration (Devanagari's when it has none)
+    mov eax, [r15 + S_SCRIPT]
+    imul eax, eax, 12
+    lea rcx, [rel ufl_ucd_scripts]
+    mov eax, [rcx + rax]
+    lea rbx, [rel in_configs]
+.config:
+    lea rcx, [rel in_configs_end]
+    cmp rbx, rcx
+    jae .config_default
+    cmp [rbx + IC_TAG], eax
+    je .config_found
+    add rbx, IC_SIZE
+    jmp .config
+.config_default:
+    lea rbx, [rel in_configs]
+.config_found:
+    mov eax, [rbx + IC_VIRAMA]
+    mov [r15 + S_ICP], eax
+    mov al, [rbx + IC_REPHPOS]
+    mov [r15 + S_IREPHPOS], al
+    mov al, [rbx + IC_REPHMODE]
+    mov [r15 + S_IREPHMODE], al
+    mov al, [rbx + IC_BLWF]
+    mov [r15 + S_IBLWF], al
+    mov al, [rbx + IC_KIND]
+    mov [r15 + S_IKIND], al
+    mov eax, [rbx + IC_VCN]
+    mov [r15 + S_IVCN], eax
+    mov rax, [rbx + IC_VC]
+    mov [r15 + S_IVC], rax
+    ; zero-context would-substitute in the new spec (not Malayalam)
+    xor eax, eax
+    cmp byte [r15 + S_IOLD], 0
+    jne .zero
+    cmp byte [r15 + S_IKIND], KIND_MLYM
+    je .zero
+    inc eax
+.zero:
+    mov [r15 + S_IZERO], al
     lea rbx, [rel in_features]
     xor r12d, r12d
 .mask:
@@ -291,7 +425,7 @@ in_would:
     ret
 
 ; ----------------------------------------------------------------------------
-; ufl_indic_preprocess: vowel constraints (Devanagari)
+; ufl_indic_preprocess: vowel constraints
 ; ----------------------------------------------------------------------------
 global ufl_indic_preprocess
 ufl_indic_preprocess:
@@ -310,47 +444,35 @@ ufl_indic_preprocess:
     RECM rbx, [r15 + S_IDX]
     mov eax, [rbx + GI_CP]
     mov ecx, [rbx + 32 + GI_CP]
-    cmp eax, 0x0905
-    je .a
-    cmp eax, 0x0906
-    je .aa
-    cmp eax, 0x0909
-    je .u
-    cmp eax, 0x090F
-    je .e
+    ; Devanagari: Ra, halant, I
+    cmp byte [r15 + S_IKIND], KIND_DEVA
+    jne .pairs
     cmp eax, 0x0930
-    je .ra
-    jmp .next
-.a:
-    lea rdx, [rel vc_0905]
-    jmp .in_list
-.aa:
-    lea rdx, [rel vc_0906]
-    jmp .in_list
-.e:
-    lea rdx, [rel vc_090f]
-.in_list:
-    movzx eax, word [rdx]
-    test eax, eax
-    jz .next
-    cmp eax, ecx
-    je .yes
-    add rdx, 2
-    jmp .in_list
-.u:
-    cmp ecx, 0x0941
-    je .yes
-    jmp .next
-.ra:
+    jne .pairs
     cmp ecx, 0x094D
-    jne .next
-    mov eax, [r15 + S_IDX]
-    add eax, 2
-    cmp eax, r12d
-    jae .next
+    jne .pairs
+    mov edx, [r15 + S_IDX]
+    add edx, 2
+    cmp edx, r12d
+    jae .pairs
     cmp dword [rbx + 64 + GI_CP], 0x0907
-    jne .next
+    jne .pairs
     call ufl_buf_next_glyph
+    jmp .yes
+.pairs:
+    mov rdx, [r15 + S_IVC]
+    mov r8d, [r15 + S_IVCN]
+.pair:
+    test r8d, r8d
+    jz .next
+    movzx r9d, word [rdx]
+    movzx r10d, word [rdx + 2]
+    add rdx, 4
+    dec r8d
+    cmp r9d, eax
+    jne .pair
+    cmp r10d, ecx
+    jne .pair
 .yes:
     mov r13d, 1
 .next:
@@ -375,11 +497,6 @@ ufl_indic_preprocess:
     pop rbx
     ret
 
-section .rodata
-vc_0905: dw 0x093A, 0x093B, 0x093E, 0x0945, 0x0946, 0x0949, 0x094A, 0x094B, 0x094C, 0x094F, 0x0956, 0x0957, 0
-vc_0906: dw 0x093A, 0x0945, 0x0946, 0x0947, 0x0948, 0
-vc_090f: dw 0x0945, 0x0946, 0x0947, 0
-section .text
 
 ; ----------------------------------------------------------------------------
 ; ufl_indic_setup_masks: categories and positions
@@ -561,7 +678,7 @@ in_virama:
     cmp eax, -1
     jne .out
     sub rsp, 8
-    mov edi, 0x094D
+    mov edi, [r15 + S_ICP]
     call ufl_norm_glyph
     add rsp, 8
     mov [r15 + S_IVIRAMA], eax
@@ -738,18 +855,69 @@ in_initial_syllable:
     mov [rsp + IR_BASE], esi
     mov dword [rsp + IR_REPH], 0
     mov [rsp + IR_LIMIT], edi
-    ; reph: Ra, halant (not followed by a joiner) that rphf would substitute
+    ; Kannada: Ra, halant, ZWJ become Ra, ZWJ, halant (no reph)
+    cmp byte [r15 + S_IKIND], KIND_KNDA
+    jne .reph
+    lea eax, [rdi + 3]
+    cmp eax, esi
+    ja .reph
+    REC rbx, rdi
+    mov rdi, rbx
+    mov esi, 1 << RA
+    call in_is
+    test eax, eax
+    jz .reph
+    lea rdi, [rbx + 32]
+    mov esi, 1 << H
+    call in_is
+    test eax, eax
+    jz .reph
+    lea rdi, [rbx + 64]
+    mov esi, 1 << ZWJ
+    call in_is
+    test eax, eax
+    jz .reph
+    mov esi, [rsp + IR_START]
+    inc esi
+    lea edx, [rsi + 2]
+    call ufl_buf_merge_clusters
+    RECM rbx, [rsp + IR_START]
+    movdqu xmm0, [rbx + 32]
+    movdqu xmm1, [rbx + 48]
+    movdqu xmm2, [rbx + 64]
+    movdqu xmm3, [rbx + 80]
+    movdqu [rbx + 32], xmm2
+    movdqu [rbx + 48], xmm3
+    movdqu [rbx + 64], xmm0
+    movdqu [rbx + 80], xmm1
+.reph:
+    ; reph: Ra, halant (not followed by a joiner; Telugu: followed by ZWJ)
+    ; that rphf would substitute; Malayalam: a repha character
+    mov edi, [rsp + IR_START]
+    mov esi, [rsp + IR_END]
+    cmp byte [r15 + S_IREPHMODE], REPH_LOG
+    je .log_repha
     cmp dword [r15 + S_IMASK + IM_RPHF * 4], 0
     je .base_search
     lea eax, [rdi + 3]
     cmp eax, esi
     ja .base_search
     REC rbx, rdi
+    mov dword [rsp + IR_G + 8], 0
+    cmp byte [r15 + S_IREPHMODE], REPH_EXPLICIT
+    je .explicit
     lea rdi, [rbx + 64]
     mov esi, JOINER_FLAGS
     call in_is
     test eax, eax
     jnz .base_search
+    jmp .reph_glyphs
+.explicit:
+    cmp byte [rbx + 64 + GI_CAT], ZWJ
+    jne .base_search
+    mov eax, [rbx + 64 + GI_GLYPH]
+    mov [rsp + IR_G + 8], eax
+.reph_glyphs:
     mov eax, [rbx + GI_GLYPH]
     mov [rsp + IR_G], eax
     mov eax, [rbx + 32 + GI_GLYPH]
@@ -759,9 +927,24 @@ in_initial_syllable:
     mov edx, 2
     call in_would
     test eax, eax
+    jnz .reph_found
+    cmp byte [r15 + S_IREPHMODE], REPH_EXPLICIT
+    jne .base_search
+    mov edi, 'rphf'
+    lea rsi, [rsp + IR_G]
+    mov edx, 3
+    call in_would
+    test eax, eax
     jz .base_search
+.reph_found:
     mov eax, [rsp + IR_START]
     add eax, 2
+    jmp .lim
+.log_repha:
+    REC rbx, rdi
+    cmp byte [rbx + GI_CAT], REPHA
+    jne .base_search
+    lea eax, [rdi + 1]
 .lim:
     cmp eax, [rsp + IR_END]
     jae .lim_done
@@ -878,6 +1061,12 @@ in_initial_syllable:
     call in_is
     test eax, eax
     jnz .os_check
+    cmp byte [r15 + S_IKIND], KIND_KNDA
+    jne .os_j_next
+    REC rax, r12
+    cmp byte [rax + GI_CAT], H
+    je .os_check
+.os_j_next:
     dec r12d
     jmp .os_j
 .os_check:
@@ -1149,6 +1338,8 @@ in_initial_syllable:
     mov eax, [r15 + S_IMASK + IM_HALF * 4]
     cmp byte [r15 + S_IOLD], 0
     jne .m_pre_mask
+    cmp byte [r15 + S_IBLWF], 0
+    jne .m_pre_mask
     or eax, [r15 + S_IMASK + IM_BLWF * 4]
 .m_pre_mask:
     mov ebx, [rsp + IR_START]
@@ -1176,6 +1367,8 @@ in_initial_syllable:
     ; old-spec Devanagari: Ra, halant before the base take below forms
     cmp byte [r15 + S_IOLD], 0
     je .m_pref
+    cmp byte [r15 + S_IKIND], KIND_DEVA
+    jne .m_pref
     mov ebx, [rsp + IR_START]
 .mo:
     lea eax, [rbx + 1]
@@ -1401,6 +1594,55 @@ in_final_syllable:
     cmp ebx, [rsp + FR_END]
     je .b_done
 .b_back:
+    ; Malayalam: a below-base consonant after halants is the base
+    cmp byte [r15 + S_IKIND], KIND_MLYM
+    jne .b_back2
+    lea r12d, [rbx + 1]
+.ml:
+    cmp r12d, [rsp + FR_END]
+    jae .b_back2
+.ml_j1:
+    cmp r12d, [rsp + FR_END]
+    jae .b_back2
+    REC rdi, r12
+    mov esi, JOINER_FLAGS
+    call in_is
+    test eax, eax
+    jz .ml_h
+    inc r12d
+    jmp .ml_j1
+.ml_h:
+    REC rdi, r12
+    mov esi, 1 << H
+    call in_is
+    test eax, eax
+    jz .b_back2
+    inc r12d
+.ml_j2:
+    cmp r12d, [rsp + FR_END]
+    jae .ml_next
+    REC rdi, r12
+    mov esi, JOINER_FLAGS
+    call in_is
+    test eax, eax
+    jz .ml_c
+    inc r12d
+    jmp .ml_j2
+.ml_c:
+    REC rdi, r12
+    mov esi, CONSONANT_FLAGS
+    call in_is
+    test eax, eax
+    jz .ml_next
+    REC rax, r12
+    cmp byte [rax + GI_POS], BELOW_C
+    jne .ml_next
+    mov ebx, r12d
+    mov byte [rax + GI_POS], BASE_C
+.ml_next:
+    inc r12d
+    jmp .ml
+.b_back2:
     cmp ebx, [rsp + FR_START]
     jbe .b_done
     REC rax, rbx
@@ -1447,8 +1689,13 @@ in_final_syllable:
     dec r12d                            ; new pos
     mov eax, [rsp + FR_BASE]
     cmp eax, [rsp + FR_END]
-    jne .search
+    jne .search_kind
     dec r12d
+.search_kind:
+    cmp byte [r15 + S_IKIND], KIND_MLYM
+    je .s_done
+    cmp byte [r15 + S_IKIND], KIND_TAML
+    je .s_done
 .search:
     cmp r12d, [rsp + FR_START]
     jbe .s_have
@@ -1556,7 +1803,7 @@ in_final_syllable:
     sete dl
     xor eax, edx
     jz .pref
-    ; after a halant before the base
+    ; after a halant before the base (steps 2 and 5)
     mov r12d, [rsp + FR_START]
     inc r12d
 .rh:
@@ -1581,7 +1828,49 @@ in_final_syllable:
     inc r12d
     jmp .reph_move
 .rh_end:
-    ; at the end, before syllable modifiers and Vedic signs
+    ; after the main consonant (step 3), after the subjoined ones (step 4)
+    movzx eax, byte [r15 + S_IREPHPOS]
+    cmp eax, AFTER_MAIN
+    je .after_main
+    cmp eax, AFTER_SUB
+    je .after_sub
+    jmp .reph_end
+.after_main:
+    mov r12d, [rsp + FR_BASE]
+.am:
+    lea eax, [r12 + 1]
+    cmp eax, [rsp + FR_END]
+    jae .am_done
+    REC rcx, rax
+    cmp byte [rcx + GI_POS], AFTER_MAIN
+    ja .am_done
+    inc r12d
+    jmp .am
+.am_done:
+    cmp r12d, [rsp + FR_END]
+    jb .reph_move
+    jmp .reph_end
+.after_sub:
+    mov r12d, [rsp + FR_BASE]
+.as:
+    lea eax, [r12 + 1]
+    cmp eax, [rsp + FR_END]
+    jae .as_done
+    REC rcx, rax
+    movzx ecx, byte [rcx + GI_POS]
+    cmp ecx, POST_C
+    je .as_done
+    cmp ecx, AFTER_POST
+    je .as_done
+    cmp ecx, SMVD
+    je .as_done
+    inc r12d
+    jmp .as
+.as_done:
+    cmp r12d, [rsp + FR_END]
+    jb .reph_move
+.reph_end:
+    ; at the end, before syllable modifiers and Vedic signs (step 6)
     mov r12d, [rsp + FR_END]
     dec r12d
 .rs:
@@ -1649,6 +1938,10 @@ in_final_syllable:
     cmp ecx, GP_LIGATED
     jne .init
     mov r12d, [rsp + FR_BASE]           ; new pos
+    cmp byte [r15 + S_IKIND], KIND_MLYM
+    je .pf_halant
+    cmp byte [r15 + S_IKIND], KIND_TAML
+    je .pf_halant
 .pf_back:
     cmp r12d, [rsp + FR_START]
     jbe .pf_halant
