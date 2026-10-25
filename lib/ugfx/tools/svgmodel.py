@@ -2074,9 +2074,11 @@ def trim(v):
     return v
 
 
-def parse(text, image_fn=None, font_fn=None):
+def parse(text, image_fn=None, font_fn=None, shape_fn=None):
     """image_fn(bytes or href, kind) -> (width, height, image) or None, as ugfx_svg_parse_ex's;
-    font_fn((family, weight, style), code point, size, outline) -> (advance, path)."""
+    font_fn((family, weight, style), code point, size, outline) -> (advance, path);
+    shape_fn((family, weight, style), code points, size) -> [(glyph key, cluster, advance,
+    x offset, y offset down)] or None: text runs shaped (ugfx's UgfxSvg_shape_fn)."""
     import xml.etree.ElementTree as ET
     root = ET.fromstring(text)
     doc = Doc()
@@ -2196,44 +2198,87 @@ def parse(text, image_fn=None, font_fn=None):
             return None
         return rec[0][c - rec[1]]
 
+    run = {"cps": [], "st": None}
+
     def text_node(s, st, uses):
         for ch in s:
             text_cp(ord(ch), st, uses)
+        text_flush(uses)
+
+    def positioned(st, c):
+        """Does the character have its own x, y, dx, dy or rotate value (it starts a run)."""
+        if any(list_value(st, k, c) is not None for k in range(4)):
+            return True
+        rec = st["lists"][4]
+        return rec is not None and 0 <= c - rec[1] < len(rec[0])
+
+    def text_put(cp, st, uses):
+        """svg_text_put: without shaping placed at once, else into the run."""
+        if shape_fn is None or font_fn is None:
+            text_char(cp, st, uses)
+            return
+        if run["cps"] and positioned(st, tx["count"] + len(run["cps"])):
+            text_flush(uses)
+        run["cps"].append(cp)
+        run["st"] = st
+
+    def text_flush(uses):
+        """svg_text_flush: the run shaped, its glyphs placed."""
+        cps, st = run["cps"], run["st"]
+        run["cps"] = []
+        if not cps:
+            return
+        glyphs = shape_fn((st["family"], st["weight"], st["fstyle"]), cps, st["font"])
+        if glyphs is None:
+            for cp in cps:
+                text_char(cp, st, uses)
+            return
+        start = tx["count"]
+        for i, (key, cl, adv, xo, yo) in enumerate(glyphs):
+            nxt = glyphs[i + 1][1] if i + 1 < len(glyphs) else len(cps)
+            nch = nxt - cl if nxt != cl else 0
+            spaces = sum(1 for c in cps[cl:cl + nch] if c == 32)
+            blank = nch == 1 and cps[cl] == 32
+            tx["count"] = start + cl
+            text_char(key, st, uses, (adv, xo, yo, nch, spaces, i == 0, blank))
+        tx["count"] = start + len(cps)
 
     def text_cp(cp, st, uses):
         """svg_text_cp: white space, then the character."""
         if cp in (32, 9, 10, 13):
             if st["preserve"]:
                 tx["any"] = 1
-                text_char(32, st, uses)
+                text_put(32, st, uses)
             elif tx["any"]:
                 tx["space"] = 1
             return
         if tx["space"]:
             tx["space"] = 0
-            text_char(32, st, uses)
+            text_put(32, st, uses)
         tx["any"] = 1
-        text_char(cp, st, uses)
+        text_put(cp, st, uses)
 
-    def text_char(cp, st, uses):
-        """svg_text_char."""
+    def text_char(cp, st, uses, g=None):
+        """svg_text_char; g = a shaped glyph (advance, x offset, y offset, characters, spaces,
+        first of its run, blank) with cp its key."""
         if font_fn is None:
             return
         c = tx["count"]
-        v = list_value(st, 0, c)
-        if v is not None:
-            text_finish()
-            tx["x"] = v
-        v = list_value(st, 1, c)
-        if v is not None and not tx["onpath"]:
-            text_finish()
-            tx["y"] = v
-        v = list_value(st, 2, c)
-        if v is not None:
-            tx["x"] = v + tx["x"]
-        v = list_value(st, 3, c)
-        if v is not None:
-            tx["y"] = v + tx["y"]
+        if g is None or g[5]:
+            v = list_value(st, 0, c)
+            if v is not None:
+                text_finish()
+                tx["x"] = v
+            v = list_value(st, 1, c)
+            if v is not None and not tx["onpath"]:
+                text_finish()
+                tx["y"] = v
+            v = list_value(st, 2, c)
+            if v is not None:
+                tx["x"] = v + tx["x"]
+            v = list_value(st, 3, c)
+            if v is not None:
+                tx["y"] = v + tx["y"]
         rot, rec = 0.0, st["lists"][4]
         if rec is not None and rec[0]:
             i = c - rec[1]
@@ -2242,15 +2287,21 @@ def parse(text, image_fn=None, font_fn=None):
             tx.update(chunk=len(doc.items) + 1, cx=tx["x"], anchor=st["anchor"], chunkpath=tx["onpath"])
         font = (st["family"], st["weight"], st["fstyle"])
         s = st["font"]
-        adv, _ = font_fn(font, cp, s, False)
+        if g is None:
+            adv, _ = font_fn(font, cp, s, False)
+        else:
+            adv = g[0]
         asc, desc = font_fn(font, -1, s, False)
         if not asc > 0:
             asc, desc = s * 0.8, s * 0.2
         gy = (0.0, (asc - desc) * 0.5, (asc - desc) * 0.5, asc * 0.8, asc * 0.5, asc, 0.0 - desc)[st["dbase"]]
         gy = gy - st["bshift"]
-        x = tx["x"] + adv + st["lspace"]
-        if cp == 32:
-            x = x + st["wspace"]
+        if g is None:
+            x = tx["x"] + adv + st["lspace"]
+            if cp == 32:
+                x = x + st["wspace"]
+        else:
+            x = tx["x"] + adv + st["lspace"] * g[3] + st["wspace"] * g[4]
         step = x - tx["x"]
         y = tx["y"] + gy
         perp = tx["y"] - tx["y0"] + gy
@@ -2275,11 +2326,12 @@ def parse(text, image_fn=None, font_fn=None):
 
         decoration(0)
         decoration(1)
-        if cp != 32:
+        if (g is None and cp != 32) or (g is not None and not g[6]):
             _, path = font_fn(font, cp, s, True)
             gst = dict(st)
             cs, sn = math.cos(rot), math.sin(rot)
-            gst["m"] = mul(base, [cs, sn, 0.0 - sn, cs, 0.0, 0.0])
+            gbase = base if g is None else mul(st["m"], [1.0, 0.0, 0.0, 1.0, tx["x"] + g[1], y + g[2]])
+            gst["m"] = mul(gbase, [cs, sn, 0.0 - sn, cs, 0.0, 0.0])
             first = len(doc.items)
             shape("glyph", {"glyph": path}, gst, 1.0, {}, uses)
             emitted(first, rot)
