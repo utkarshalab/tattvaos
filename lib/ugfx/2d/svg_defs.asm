@@ -198,6 +198,7 @@ ugfx_svg_defs_scan:
     mov [r15 + SC_XML + UgfxSvgXml_cur], rdx
     add rdx, rcx
     mov [r15 + SC_XML + UgfxSvgXml_end], rdx
+    mov [r15 + SC_XML + UgfxSvgXml_arena], rsi
 .token:
     lea rdi, [r15 + SC_XML]
     call ugfx_svg_xml_next
