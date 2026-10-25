@@ -91,6 +91,22 @@ def ccc(cp):
     return unicodedata.combining(chr(cp))
 
 
+# HarfBuzz's modified combining classes: Hebrew, Arabic, Syriac, Telugu, Thai, Lao and Tibetan
+# points reordered the way fonts expect
+_MCC = list(range(256))
+_MCC[10:27] = [22, 15, 16, 17, 23, 18, 19, 20, 21, 14, 24, 12, 25, 13, 10, 11, 26]
+_MCC[27:37] = [28, 29, 30, 31, 32, 33, 27, 34, 35, 36]
+_MCC[84], _MCC[91], _MCC[103], _MCC[130], _MCC[132] = 4, 5, 3, 132, 131
+
+
+def modified_ccc(cp):
+    if cp in (0x1A60, 0x0FC6):
+        return 254
+    if cp == 0x0F39:
+        return 127
+    return _MCC[ccc(cp)]
+
+
 def decompose2(ab):
     """HarfBuzz's canonical decomposition: ab -> (a, b) (b 0 for a singleton), or None."""
     d = unicodedata.decomposition(chr(ab))
@@ -175,7 +191,7 @@ class Info:
                     self.hidden = True
             if is_mark_gc(cat):
                 self.cont = True
-                self.mcc = ccc(cp)
+                self.mcc = modified_ccc(cp)
 
     def copy(self):
         n = Info.__new__(Info)
@@ -315,6 +331,11 @@ class Buffer:
             self.idx += count
         elif i < len(self.out):
             count = len(self.out) - i
+            if self.idx < count:
+                # not enough consumed input to rewind into: shift the rest forward
+                shift = count - self.idx
+                self.info[self.idx:self.idx] = [None] * shift
+                self.idx += shift
             self.idx -= count
             self.info[self.idx:self.idx + count] = self.out[i:]
             del self.out[i:]
@@ -1419,6 +1440,15 @@ def run_table(c, m, gpos):
 
 
 # ---------------------------------------------------------------- normalization
+def cgj(b):
+    """A combining grapheme joiner stays visible to GSUB / GPOS unless it sits between marks it
+    keeps from reordering."""
+    info = b.info
+    for i in range(1, len(info) - 1):
+        if info[i].cp == 0x034F and (info[i + 1].mcc == 0 or info[i - 1].mcc <= info[i + 1].mcc):
+            info[i].hidden = False
+
+
 def normalize(b, font, shaper=None):
     """HarfBuzz's composed-diacritics normalization against the font (an Indic shaper: no
     short circuit, its own decompose / compose exceptions)."""
@@ -1539,6 +1569,7 @@ def normalize(b, font, shaper=None):
                 decompose_current(False)
     b.sync()
     if all_simple:
+        cgj(b)
         return
     # reorder marks by combining class
     i = 0
@@ -1553,6 +1584,7 @@ def normalize(b, font, shaper=None):
         if end - i <= 32:
             b.sort(i, end, lambda inf: inf.mcc)
         i = end
+    cgj(b)
     # recompose
     b.clear_output()
     count = len(b.info)
