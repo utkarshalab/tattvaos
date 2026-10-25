@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""A model of lib/ufont's Indic shaper (Devanagari), used by tools/shapemodel.py.
+"""A model of lib/ufont's Indic shaper, used by tools/shapemodel.py: Devanagari, Bengali,
+Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada and Malayalam.
 
 It does what HarfBuzz's Indic shaper does, step for step, so the two agree glyph
 for glyph:
 
 - vowel constraints: a dotted circle between an independent vowel and a sign
-  that would make it look like another vowel (U+0905 U+093E, ...);
+  that would make it look like another vowel (U+0905 U+093E, ...), per script;
 - normalization without the short circuit (every character decomposed against
   the font first), U+0931 never decomposed, nothing composed onto a mark;
 - each character's syllable category and position (tools/indic_data.py) and
@@ -86,6 +87,32 @@ MACHINE = syl.dfa(GRAMMAR, [X, C, V, N, H, ZWNJ, ZWJ, M, SM, A, PLACEHOLDER, DOT
 # script configurations: has old spec, virama, reph position, reph mode, blwf mode
 CONFIGS = {
     'Deva': (True, 0x094D, BEFORE_POST, REPH_IMPLICIT, BLWF_PRE_AND_POST),
+    'Beng': (True, 0x09CD, AFTER_SUB, REPH_IMPLICIT, BLWF_PRE_AND_POST),
+    'Guru': (True, 0x0A4D, BEFORE_SUB, REPH_IMPLICIT, BLWF_PRE_AND_POST),
+    'Gujr': (True, 0x0ACD, BEFORE_POST, REPH_IMPLICIT, BLWF_PRE_AND_POST),
+    'Orya': (True, 0x0B4D, AFTER_MAIN, REPH_IMPLICIT, BLWF_PRE_AND_POST),
+    'Taml': (True, 0x0BCD, AFTER_POST, REPH_IMPLICIT, BLWF_PRE_AND_POST),
+    'Telu': (True, 0x0C4D, AFTER_POST, REPH_EXPLICIT, BLWF_POST_ONLY),
+    'Knda': (True, 0x0CCD, AFTER_POST, REPH_IMPLICIT, BLWF_POST_ONLY),
+    'Mlym': (True, 0x0D4D, AFTER_MAIN, REPH_LOG_REPHA, BLWF_PRE_AND_POST),
+}
+INDIC_SCRIPTS = tuple(CONFIGS)
+
+# vowel constraints: per script, the pairs (vowel, sign) that read as another vowel
+VOWEL_CONSTRAINTS = {
+    'Deva': [(0x0905, b) for b in (0x093A, 0x093B, 0x093E, 0x0945, 0x0946, 0x0949, 0x094A, 0x094B, 0x094C,
+                                   0x094F, 0x0956, 0x0957)] +
+            [(0x0906, b) for b in (0x093A, 0x0945, 0x0946, 0x0947, 0x0948)] + [(0x0909, 0x0941)] +
+            [(0x090F, b) for b in (0x0945, 0x0946, 0x0947)],
+    'Beng': [(0x0985, 0x09BE), (0x098B, 0x09C3), (0x098C, 0x09E2)],
+    'Guru': [(0x0A05, b) for b in (0x0A3E, 0x0A48, 0x0A4C)] + [(0x0A72, b) for b in (0x0A3F, 0x0A40, 0x0A47)] +
+            [(0x0A73, b) for b in (0x0A41, 0x0A42, 0x0A4B)],
+    'Gujr': [(0x0A85, b) for b in (0x0ABE, 0x0AC5, 0x0AC7, 0x0AC8, 0x0AC9, 0x0ACB, 0x0ACC)] + [(0x0AC5, 0x0ABE)],
+    'Orya': [(0x0B05, 0x0B3E), (0x0B0F, 0x0B57), (0x0B13, 0x0B57)],
+    'Taml': [(0x0B85, 0x0BC2)],
+    'Telu': [(0x0C12, 0x0C4C), (0x0C12, 0x0C55), (0x0C3F, 0x0C55), (0x0C46, 0x0C55), (0x0C4A, 0x0C55)],
+    'Knda': [(0x0C89, 0x0CBE), (0x0C8B, 0x0CBE), (0x0C92, 0x0CCC)],
+    'Mlym': [(0x0D07, 0x0D57), (0x0D09, 0x0D57), (0x0D0E, 0x0D46), (0x0D12, 0x0D3E), (0x0D12, 0x0D57)],
 }
 
 # the features: (tag, flags); the first eleven one stage each before final reordering
@@ -191,24 +218,16 @@ class IndicShaper:
         """Vowel constraints: a dotted circle where a vowel and a sign would read as another vowel."""
         b.clear_output()
         count = len(b.info)
-        if self.script == 'Deva':
+        pairs = set(VOWEL_CONSTRAINTS.get(self.script, ()))
+        if pairs:
             b.idx = 0
             while b.idx + 1 < count:
-                matched = False
                 u, nxt = b.cur().cp, b.info[b.idx + 1].cp
-                if u == 0x0905:
-                    matched = nxt in (0x093A, 0x093B, 0x093E, 0x0945, 0x0946, 0x0949, 0x094A, 0x094B, 0x094C,
-                                      0x094F, 0x0956, 0x0957)
-                elif u == 0x0906:
-                    matched = nxt in (0x093A, 0x0945, 0x0946, 0x0947, 0x0948)
-                elif u == 0x0909:
-                    matched = nxt == 0x0941
-                elif u == 0x090F:
-                    matched = nxt in (0x0945, 0x0946, 0x0947)
-                elif u == 0x0930:
-                    if nxt == 0x094D and b.idx + 2 < count and b.info[b.idx + 2].cp == 0x0907:
-                        b.next_glyph()
-                        matched = True
+                matched = (u, nxt) in pairs
+                if self.script == 'Deva' and u == 0x0930 and nxt == 0x094D and b.idx + 2 < count and \
+                        b.info[b.idx + 2].cp == 0x0907:
+                    b.next_glyph()
+                    matched = True
                 b.next_glyph()
                 if matched:
                     dc = b.cur().copy()
@@ -305,6 +324,11 @@ class IndicShaper:
     def initial_reordering_consonant_syllable(self, b, start, end):
         info = b.info
         mask = self.mask
+        if self.script == 'Knda' and start + 3 <= end and is_one_of(info[start], flag(RA)) and \
+                is_one_of(info[start + 1], flag(H)) and is_one_of(info[start + 2], flag(ZWJ)):
+            # Ra, halant, ZWJ: the joiner first, so Ra + halant forms no reph
+            b.merge_clusters(start + 1, start + 3)
+            info[start + 1], info[start + 2] = info[start + 2], info[start + 1]
         base = end
         has_reph = False
         # the base consonant, and whether the syllable starts with a reph
