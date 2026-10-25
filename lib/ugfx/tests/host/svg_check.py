@@ -230,6 +230,8 @@ def farbfeld(data, kind):
 
 def test_font(font, cp, s, outline):
     """host_font."""
+    if cp == -1:
+        return 0.75 * s, 0.25 * s
     if cp == 32:
         return 0.3 * s, []
     adv = ((cp % 7) * 0.08 + 0.4) * s
@@ -656,6 +658,41 @@ CASES = [
                         'height="6"/></clipPath><text x="2" y="18" font-size="5" fill="none" stroke="#080" '
                         'stroke-dasharray="1 .5">open<tspan opacity=".5" fill="#c0c" font-size="3">half</tspan></text>'
                         '<tspan x="2" y="22">alone</tspan>'), False),
+    ("text baselines", svg('<path d="M0 6h24M0 14h24M0 22h24" stroke="#ccc" stroke-width=".2"/>'
+                           '<text x="1" y="6" font-size="4">a<tspan dominant-baseline="middle">b</tspan>'
+                           '<tspan dominant-baseline="central">c</tspan><tspan dominant-baseline="hanging">d</tspan>'
+                           '<tspan dominant-baseline="mathematical">e</tspan>'
+                           '<tspan alignment-baseline="text-before-edge">f</tspan>'
+                           '<tspan style="dominant-baseline:ideographic">g</tspan></text>'
+                           '<text x="1" y="14" font-size="4" dominant-baseline="text-after-edge">h<tspan '
+                           'dominant-baseline="auto">i</tspan>j<tspan dominant-baseline="inherit">k</tspan></text>'
+                           '<text x="1" y="22" font-size="4" baseline-shift="9">x<tspan baseline-shift="super">2'
+                           '<tspan baseline-shift="super" font-size="2">n</tspan></tspan>y<tspan baseline-shift="sub">'
+                           'i</tspan><tspan baseline-shift="-1.5">q</tspan><tspan baseline-shift="50%">r<tspan>s'
+                           '</tspan><tspan baseline-shift="baseline">t</tspan></tspan><tspan baseline-shift=".5em">u'
+                           '</tspan><tspan baseline-shift="bogus">v</tspan></text>'), False),
+    ("text decoration", svg('<text x="1" y="6" font-size="4" text-decoration="underline" fill="#036">under me</text>'
+                            '<text x="1" y="12" font-size="4" fill="#a30" style="text-decoration:overline line-through">'
+                            'two<tspan fill="#0a0" text-decoration="underline" letter-spacing=".5">lines</tspan></text>'
+                            '<text x="12" y="18" font-size="4" text-anchor="middle" text-decoration="line-through" '
+                            'fill="none" stroke="#000" stroke-width=".3">mid dle<tspan fill="#c0c" stroke="none" '
+                            'text-decoration="underline blink">x</tspan></text>'
+                            '<g text-decoration="underline"><text x="1" y="23" font-size="3" word-spacing="1" '
+                            'text-decoration="none">a b <tspan dy="-1" text-decoration="overline" fill="#08f">c</tspan>'
+                            '</text></g>'), False),
+    ("text path", svg('<defs><path id="p" d="M2 12 C6 2 12 2 14 8 S20 18 23 10"/>'
+                      '<path id="q" d="M2 22 H12 V16 Q18 14 22 20" transform="translate(0 -1)"/>'
+                      '<path id="two" d="M1 2h8M14 2h8"/><rect id="notpath" width="5" height="5"/></defs>'
+                      '<use href="#p" fill="none" stroke="#ddd" stroke-width=".3"/>'
+                      '<text font-size="3" fill="#036"><textPath href="#p">along the curve far beyond</textPath></text>'
+                      '<text font-size="2.5" fill="#a30" text-anchor="middle"><textPath href="#q" startOffset="50%" '
+                      'text-decoration="underline">mid<tspan dy="-1" fill="#0a0">dle</tspan></textPath> on</text>'
+                      '<text font-size="2.5"><textPath xlink:href="#two" startOffset="3" xmlns:xlink='
+                      '"http://www.w3.org/1999/xlink">split text</textPath></text>'
+                      '<text font-size="2.5" fill="#909"><textPath href="#q" startOffset="-2">ab<textPath href="#p">'
+                      'no</textPath>cd</textPath><textPath href="#notpath">none</textPath><textPath href="#gone">'
+                      'none</textPath><textPath href="#p" startOffset="80%" text-anchor="end">end</textPath></text>'),
+     False),
     ("filter blur", svg('<filter id="b"><feGaussianBlur stdDeviation="1.5"/></filter>'
                         '<filter id="u" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">'
                         '<feGaussianBlur stdDeviation="2 .5"/></filter>'
