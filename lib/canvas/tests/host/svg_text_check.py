@@ -7,7 +7,8 @@ Every lib/ugfx svg_check.py document with text, and the documents below
 (families, generic names and aliases, weights and styles, Latin accents
 from composite glyphs, Greek, Cyrillic, characters a face lacks, sizes,
 transforms, decorations, textPath; shaping: ligatures, kerning, combining
-marks, Devanagari conjuncts, reph and matras, mixed scripts falling back
+marks, Devanagari conjuncts, reph and matras, the other Indic scripts,
+mixed scripts falling back
 between faces, positioned characters splitting runs), is decoded by Canvas
 with the fonts (host_decode ... <font directory>) and compared with the
 context calls svgmodel derives using lib/ufont's fontmodel.FontSet - the
@@ -94,6 +95,11 @@ DOCS = [
                                'प्रार्थना ज़िंदगी</text>'
                                '<text x="4" y="112" font-size="16" text-decoration="underline">Hindi हिन्दी '
                                'and English, ॐ १२३</text>')),
+    ("shaping indic", svg('<text x="4" y="16" font-size="13">বাংলা কর্ম শ্রী ਪੰਜਾਬੀ ਪ੍ਰ</text>'
+                          '<text x="4" y="38" font-size="13">ગુજરાતી ક્ષ ଓଡ଼ିଆ କର୍ମ</text>'
+                          '<text x="4" y="60" font-size="13" font-weight="bold">தமிழ் கொ తెలుగు ర్కి</text>'
+                          '<text x="4" y="84" font-size="13" font-family="serif">ಕನ್ನಡ ರ್ಕಿ മലയാളം ന്റെ</text>'
+                          '<text x="4" y="108" font-size="12">mixed: हिन्दी বাংলা தமிழ் and Latin</text>')),
     ("shaping positions", svg('<text x="4 30 60" y="30" font-size="20">ffi नमस्ते</text>'
                               '<text x="4" y="60" dx="0 0 3" font-size="20" font-family="serif">office '
                               'क्षि</text>'
