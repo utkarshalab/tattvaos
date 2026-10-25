@@ -116,6 +116,7 @@ extern umath_affine2_scale
 extern umath_atan2_f64
 extern umath_cos_f64
 extern ugfx_svg_same
+extern ugfx_svg_xml_entity
 extern umath_sin_f64
 extern ugfx_ctx_filter
 extern ugfx_path_bounds_tight
@@ -656,13 +657,6 @@ svg_inherit_fields:
     INHERITS A_LETTER_SP, S_LSPACE, 8
     INHERITS A_WORD_SP, S_WSPACE, 8
     db 0
-svg_entities:
-    NAME "amp", '&'
-    NAME "lt", '<'
-    NAME "gt", '>'
-    NAME "quot", '"'
-    NAME "apos", 39
-    db 0
 svg_weight_words:
     NAME "normal", 1
     NAME "bold", 2
@@ -1085,6 +1079,7 @@ svg_parse_common:
     mov [r15 + P_XML + UgfxSvgXml_cur], rdx
     add rdx, rcx
     mov [r15 + P_XML + UgfxSvgXml_end], rdx
+    mov [r15 + P_XML + UgfxSvgXml_arena], rsi
     mov dword [r15 + P_DEPTH], 0
     mov dword [r15 + P_ROOT], 0
     mov dword [r15 + P_ERR], 0
@@ -1705,7 +1700,7 @@ svg_element:
 %define U_ELEM      (U_SELF + 4)
 %define U_TAGEND    (U_SELF + 8)
 %define U_M         (U_SELF + 16)       ; f64[6]
-%define U_SIZE      (U_M + 48 + 16)       ; calls at rsp = 0 (mod 16)
+%define U_SIZE      (((U_M + 48 + 15) & ~15) + 8)   ; calls at rsp = 0 (mod 16)
 
 svg_use:
     push r12
@@ -4452,78 +4447,12 @@ svg_text_node:
     mov eax, edx
 .utf8_out:
     ret
-; r12 at '&' -> eax = &amp; &lt; &gt; &quot; &apos; &#nn; &#xhh; (else '&'),
-;   r12 past it
+; r12 at '&' -> eax = its character (ugfx_svg_xml_entity), r12 past it
 .decode_entity:
-    mov r8, r12
-    inc r8
-.entity_end:
-    cmp r8, r13
-    jae .literal
-    cmp byte [r8], ';'
-    je .entity_named
-    mov rax, r8
-    sub rax, r12
-    cmp rax, 12
-    ja .literal
-    inc r8
-    jmp .entity_end
-.entity_named:
-    lea rdi, [r12 + 1]
-    mov rsi, r8
-    mov rax, rsi
-    sub rax, rdi
-    cmp rax, 2
-    jb .literal
-    cmp byte [rdi], '#'
-    je .numeric
-    push rdi
-    push rsi
-    lea rdx, [rel svg_entities]
-    call ugfx_svg_lookup
-    pop rsi
-    pop rdi
-    cmp eax, 0
-    jle .literal
-    lea r12, [rsi + 1]
-    ret
-.numeric:
-    inc rdi
-    xor eax, eax
-    mov ecx, 10
-    movzx edx, byte [rdi]
-    or edx, 0x20
-    cmp edx, 'x'
-    jne .digit
-    inc rdi
-    mov ecx, 16
-.digit:
-    cmp rdi, rsi
-    jae .numeric_done
-    movzx edx, byte [rdi]
-    sub edx, '0'
-    cmp edx, 9
-    jbe .digit_value
-    movzx edx, byte [rdi]
-    or edx, 0x20
-    sub edx, 'a' - 10
-    cmp edx, 10
-    jb .literal
-.digit_value:
-    cmp edx, ecx
-    jae .literal
-    imul eax, ecx
-    add eax, edx
-    cmp eax, 0x10FFFF
-    ja .literal
-    inc rdi
-    jmp .digit
-.numeric_done:
-    lea r12, [rsi + 1]
-    ret
-.literal:
-    mov eax, '&'
-    inc r12
+    mov rdi, r12
+    mov rsi, r13
+    call ugfx_svg_xml_entity
+    mov r12, rdx
     ret
 
 ; edi = a code point, rbx = its state, r15 = frame: white space handled,
@@ -4889,6 +4818,8 @@ svg_filter_compile:
     mov [rbp + FC_XML + UgfxSvgXml_cur], r12
     mov rax, [r15 + P_XML + UgfxSvgXml_end]
     mov [rbp + FC_XML + UgfxSvgXml_end], rax
+    mov rax, [r15 + P_XML + UgfxSvgXml_arena]
+    mov [rbp + FC_XML + UgfxSvgXml_arena], rax
     lea rdi, [rbp + FC_XML]
     call ugfx_svg_xml_next
     cmp eax, 1
@@ -7839,6 +7770,8 @@ svg_compile:
     mov [rsp + CC_XML + UgfxSvgXml_cur], r12
     mov rax, [r15 + P_XML + UgfxSvgXml_end]
     mov [rsp + CC_XML + UgfxSvgXml_end], rax
+    mov rax, [r15 + P_XML + UgfxSvgXml_arena]
+    mov [rsp + CC_XML + UgfxSvgXml_arena], rax
     lea rdi, [rsp + CC_XML]
     call ugfx_svg_xml_next
     test eax, eax
