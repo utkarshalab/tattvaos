@@ -7,7 +7,10 @@
 ;   ugfx_svg_xml_next(xml)      next start or end tag -> 1 start, 2 end, 0 end
 ;                               of input (or a tag left open)
 ;   ugfx_svg_xml_attr(xml, at)  next attribute of the current start tag
-;                               -> 1 (name and value ranges), 0 none left
+;                               -> 1 (name and value ranges), 0 none left;
+;                               with xml's arena set, a value holding
+;                               entities comes back decoded (a copy)
+;   ugfx_svg_xml_entity(at, end)        an entity -> its code point
 ;   ugfx_svg_xml_text_end(xml, name, length)
 ;                               where the element just started ends: the
 ;                               '<' of its closing tag (for <style> text)
@@ -21,6 +24,8 @@
 ; =============================================================================
 
 %include "ugfx.inc"
+
+extern arena_alloc
 
 section .text
 
@@ -216,6 +221,7 @@ ugfx_svg_xml_next:
 ; -----------------------------------------------------------------------------
 global ugfx_svg_xml_attr
 ugfx_svg_xml_attr:
+    mov r10, rdi
     mov r9, rsi
     mov rsi, [rdi + UgfxSvgXml_tag_end]
     mov rax, [r9 + UgfxSvgAttr_cur]
@@ -280,11 +286,210 @@ ugfx_svg_xml_attr:
     mov [r9 + UgfxSvgAttr_val_end], rdi
     inc rdi
     mov [r9 + UgfxSvgAttr_cur], rdi
+    ; entities in it: decoded into the arena when there is one
+    mov rax, [r10 + UgfxSvgXml_arena]
+    test rax, rax
+    jz .done
+    mov rdi, [r9 + UgfxSvgAttr_val]
+.amp:
+    cmp rdi, [r9 + UgfxSvgAttr_val_end]
+    jae .done
+    cmp byte [rdi], '&'
+    je .decode
+    inc rdi
+    jmp .amp
+.decode:
+    call xml_decode_value
+.done:
     mov eax, 1
     ret
 .none:
     mov [r9 + UgfxSvgAttr_cur], rsi
     xor eax, eax
+    ret
+
+; r9 = UgfxSvgAttr* (a value with an '&'), rax = arena: the value decoded
+;   (entities, as text is) into a copy there; kept as written if out of
+;   memory. Decoding never lengthens, so the copy is the value's size.
+xml_decode_value:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 8
+    mov r14, r9
+    mov rdi, rax
+    mov rsi, [r14 + UgfxSvgAttr_val_end]
+    sub rsi, [r14 + UgfxSvgAttr_val]
+    call arena_alloc
+    test rax, rax
+    jz .out
+    mov rbx, rax                        ; where it goes
+    mov r12, [r14 + UgfxSvgAttr_val]
+    mov r13, [r14 + UgfxSvgAttr_val_end]
+    mov [r14 + UgfxSvgAttr_val], rax
+.byte:
+    cmp r12, r13
+    jae .end
+    movzx eax, byte [r12]
+    cmp al, '&'
+    je .entity
+    mov [rbx], al
+    inc rbx
+    inc r12
+    jmp .byte
+.entity:
+    mov rdi, r12
+    mov rsi, r13
+    call ugfx_svg_xml_entity
+    mov r12, rdx
+    ; eax as UTF-8
+    cmp eax, 0x80
+    jae .two
+    mov [rbx], al
+    inc rbx
+    jmp .byte
+.two:
+    cmp eax, 0x800
+    jae .three
+    mov edx, eax
+    shr edx, 6
+    or dl, 0xC0
+    mov [rbx], dl
+    and al, 0x3F
+    or al, 0x80
+    mov [rbx + 1], al
+    add rbx, 2
+    jmp .byte
+.three:
+    cmp eax, 0x10000
+    jae .four
+    mov edx, eax
+    shr edx, 12
+    or dl, 0xE0
+    mov [rbx], dl
+    mov edx, eax
+    shr edx, 6
+    and dl, 0x3F
+    or dl, 0x80
+    mov [rbx + 1], dl
+    and al, 0x3F
+    or al, 0x80
+    mov [rbx + 2], al
+    add rbx, 3
+    jmp .byte
+.four:
+    mov edx, eax
+    shr edx, 18
+    or dl, 0xF0
+    mov [rbx], dl
+    mov edx, eax
+    shr edx, 12
+    and dl, 0x3F
+    or dl, 0x80
+    mov [rbx + 1], dl
+    mov edx, eax
+    shr edx, 6
+    and dl, 0x3F
+    or dl, 0x80
+    mov [rbx + 2], dl
+    and al, 0x3F
+    or al, 0x80
+    mov [rbx + 3], al
+    add rbx, 4
+    jmp .byte
+.end:
+    mov [r14 + UgfxSvgAttr_val_end], rbx
+.out:
+    mov r9, r14
+    add rsp, 8
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; ugfx_svg_xml_entity — rdi = an '&', rsi = the text's end -> eax = the
+;   code point of &amp; &lt; &gt; &quot; &apos; &#nn; &#xhh; and rdx just
+;   past its ';'; anything else is a plain '&': eax = '&', rdx = rdi + 1
+; -----------------------------------------------------------------------------
+global ugfx_svg_xml_entity
+ugfx_svg_xml_entity:
+    push rbx
+    push r12
+    push r13
+    mov r12, rdi
+    mov r13, rsi
+    lea r8, [r12 + 1]
+.end:
+    cmp r8, r13
+    jae .literal
+    cmp byte [r8], ';'
+    je .named
+    mov rax, r8
+    sub rax, r12
+    cmp rax, 12
+    ja .literal
+    inc r8
+    jmp .end
+.named:
+    lea rdi, [r12 + 1]
+    mov rsi, r8
+    mov rax, rsi
+    sub rax, rdi
+    cmp rax, 2
+    jb .literal
+    cmp byte [rdi], '#'
+    je .numeric
+    mov rbx, rsi
+    lea rdx, [rel xml_entities]
+    call ugfx_svg_lookup
+    cmp eax, 0
+    jle .literal
+    lea rdx, [rbx + 1]
+    jmp .out
+.numeric:
+    inc rdi
+    xor eax, eax
+    mov ecx, 10
+    movzx edx, byte [rdi]
+    or edx, 0x20
+    cmp edx, 'x'
+    jne .digit
+    inc rdi
+    mov ecx, 16
+.digit:
+    cmp rdi, rsi
+    jae .numeric_done
+    movzx edx, byte [rdi]
+    sub edx, '0'
+    cmp edx, 9
+    jbe .digit_value
+    movzx edx, byte [rdi]
+    or edx, 0x20
+    sub edx, 'a' - 10
+    cmp edx, 10
+    jb .literal
+.digit_value:
+    cmp edx, ecx
+    jae .literal
+    imul eax, ecx
+    add eax, edx
+    cmp eax, 0x10FFFF
+    ja .literal
+    inc rdi
+    jmp .digit
+.numeric_done:
+    lea rdx, [rsi + 1]
+    jmp .out
+.literal:
+    mov eax, '&'
+    lea rdx, [r12 + 1]
+.out:
+    pop r13
+    pop r12
+    pop rbx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -411,6 +616,15 @@ ugfx_svg_same:
     jmp .byte
 .done:
     ret
+
+section .rodata
+xml_entities:
+    db 3, "amp", '&'
+    db 2, "lt", '<'
+    db 2, "gt", '>'
+    db 4, "quot", '"'
+    db 4, "apos", 39
+    db 0
 
 section .data
 global ugfx_svg_xml_version
