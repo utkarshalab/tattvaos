@@ -35,6 +35,9 @@ extern ufl_buf_skip_glyph
 extern ufl_buf_out_slot
 extern ufl_buf_sort
 extern ufl_buf_merge_out_clusters
+extern ufl_arabic_reorder_marks
+extern ufl_hebrew_reorder_marks
+extern ufl_hebrew_compose
 
 section .text
 
@@ -209,6 +212,8 @@ nm_decompose:
 
 ; the shaper's composition: edi = a, esi = b -> eax = ab, 0 none
 nm_compose:
+    cmp byte [r15 + S_SHAPER], 3
+    je ufl_hebrew_compose
     cmp byte [r15 + S_SHAPER], 1
     jne ufl_uc_compose
     push rdi
@@ -533,6 +538,10 @@ ufl_norm_run:
     jmp .vs_after
 .vs_nominal:
     call nm_next_nominal
+    mov eax, [r15 + S_IDX]              ; the selector, kept for GSUB: a format character now
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    mov byte [rax + GI_GC], GC_CF
 .vs_after:
     mov eax, [r15 + S_IDX]
     cmp eax, ebx
@@ -588,6 +597,17 @@ ufl_norm_run:
     mov edx, r14d
     mov ecx, GI_MCC
     call ufl_buf_sort
+    ; the shaper's own mark order
+    mov esi, ebx
+    mov edx, r14d
+    cmp byte [r15 + S_SHAPER], 2
+    jne .run_hebrew
+    call ufl_arabic_reorder_marks
+    jmp .run_next
+.run_hebrew:
+    cmp byte [r15 + S_SHAPER], 3
+    jne .run_next
+    call ufl_hebrew_reorder_marks
 .run_next:
     mov ebx, r14d
     jmp .reorder
