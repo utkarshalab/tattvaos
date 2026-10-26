@@ -68,6 +68,10 @@ fs_tamil:          db "Noto Sans Tamil", 0
 fs_telugu:         db "Noto Sans Telugu", 0
 fs_kannada:        db "Noto Sans Kannada", 0
 fs_malayalam:      db "Noto Sans Malayalam", 0
+fs_arabic_sans:    db "Noto Sans Arabic", 0
+fs_arabic_naskh:   db "Noto Naskh Arabic", 0
+fs_hebrew_sans:    db "Noto Sans Hebrew", 0
+fs_hebrew_serif:   db "Noto Serif Hebrew", 0
 
 ; alias, family
 align 8
@@ -117,7 +121,7 @@ section .data
 align 8
 global ufont_standard
 global ufont_standard_count
-ufont_standard_count: dq 42
+ufont_standard_count: dq 50
 ufont_standard:
     dq fsf_0, fs_noto_sans
     dd 400, 0
@@ -203,6 +207,22 @@ ufont_standard:
     dd 400, 0
     dq fsf_41, fs_malayalam
     dd 700, 0
+    dq fsf_42, fs_arabic_sans
+    dd 400, 0
+    dq fsf_43, fs_arabic_sans
+    dd 700, 0
+    dq fsf_44, fs_arabic_naskh
+    dd 400, 0
+    dq fsf_45, fs_arabic_naskh
+    dd 700, 0
+    dq fsf_46, fs_hebrew_sans
+    dd 400, 0
+    dq fsf_47, fs_hebrew_sans
+    dd 700, 0
+    dq fsf_48, fs_hebrew_serif
+    dd 400, 0
+    dq fsf_49, fs_hebrew_serif
+    dd 700, 0
 section .rodata
 fsf_0:  db "NotoSans-Regular.ttf", 0
 fsf_1:  db "NotoSans-Bold.ttf", 0
@@ -246,6 +266,14 @@ fsf_38: db "NotoSansKannada-Regular.ttf", 0
 fsf_39: db "NotoSansKannada-Bold.ttf", 0
 fsf_40: db "NotoSansMalayalam-Regular.ttf", 0
 fsf_41: db "NotoSansMalayalam-Bold.ttf", 0
+fsf_42: db "NotoSansArabic-Regular.ttf", 0
+fsf_43: db "NotoSansArabic-Bold.ttf", 0
+fsf_44: db "NotoNaskhArabic-Regular.ttf", 0
+fsf_45: db "NotoNaskhArabic-Bold.ttf", 0
+fsf_46: db "NotoSansHebrew-Regular.ttf", 0
+fsf_47: db "NotoSansHebrew-Bold.ttf", 0
+fsf_48: db "NotoSerifHebrew-Regular.ttf", 0
+fsf_49: db "NotoSerifHebrew-Bold.ttf", 0
 
 section .text
 
