@@ -27,6 +27,10 @@
 
 [BITS 64]
 
+%ifdef SHA512_DEFAULT_REL
+default rel
+%endif
+
 %include "lib/crypto/uhash/sha512/sha512.inc"
 
 section .rodata
