@@ -4,6 +4,22 @@ A native x86-64 assembly command shell. The shell core has no heap,
 libc, or Linux syscall dependency. I/O goes through a caller-supplied frontend.
 The runnable build provides builtins, the calculator, and persistent UXFS v2
 file/directory commands. External application loading is not implemented.
+`vcs diff` compares the repository worktree with HEAD, `vcs diff --staged`
+compares indexed paths, `vcs diff ID1 ID2` compares commits, and
+`vcs diff FILE1 FILE2` retains direct regular-file comparison. None modifies storage.
+It returns 0 for identical files, 1 for differences and 2 for errors. Output uses
+space/minus/plus line prefixes, escapes control/non-ASCII bytes as `\xHH`, and
+marks missing final newlines. Limits are 256 lines and the UXFS 4096-byte file
+capacity. `vcs init [DIRECTORY]` creates versioned repository metadata in an
+existing directory (default: current), preserving files and validating existing
+metadata without rewriting it. `vcs status`, staging, commit/log/show,
+restore/checkout, refs, merge/conflicts, rebase, signed identities, and `vcs check` implement a
+bounded local workflow: 15 regular files per snapshot, unchanged blob reuse,
+atomic UXFS publication, and SHA-256 integrity records from `lib/crypto`.
+These changes are implemented but not built/tested yet; validation was deferred.
+Multiline messages use repeated `-m` paragraphs or `-F FILE`; normal log output
+preserves and indents LF-separated lines, while `log --oneline` escapes them.
+`vcs --help` shows usage.
 See the [persistent volume guide](../../storage/uxfs/PERSISTENT_VOLUME.md) for
 formatting, attaching an image, bounds, recovery semantics and tests.
 
