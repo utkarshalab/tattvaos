@@ -171,6 +171,7 @@ def syllables(b):
 class IndicShaper:
     zero_width_marks = 'none'
     no_short_circuit = True
+    fallback_position = False
 
     def __init__(self, script):
         self.script = script
