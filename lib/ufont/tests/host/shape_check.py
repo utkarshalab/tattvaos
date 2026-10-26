@@ -3,14 +3,20 @@
 
 Usage: shape_check.py <host_shape> <font directory> [cases per font]
 
-For every shipped font: words in Latin, Greek, Cyrillic and the Indic
-scripts, then random strings - characters the font maps mixed with
-combining marks, joiners, spaces, ligature letters and default ignorables,
-and random syllables in the font's Indic script (consonant clusters, reph,
-nukta, matras, signs, joiners, broken clusters). Every glyph, cluster, advance and offset ufont_shape gives must
+For every shipped font: words in Latin, Greek, Cyrillic, the Indic
+scripts, Arabic and Hebrew, then random strings - characters the font maps
+mixed with combining marks, joiners, spaces, ligature letters and default
+ignorables; random syllables in the font's Indic script (consonant
+clusters, reph, nukta, matras, signs, joiners, broken clusters); random
+Arabic or Hebrew (letters, harakat and points, modifier marks, tatweel,
+joiners, digits, mirrored brackets) for those fonts, shaped right to
+left. Every glyph, cluster, advance and offset ufont_shape gives must
 equal the model's. Noto Sans Devanagari altered four ways (only the old
 'deva' script, only DFLT, no GSUB, no GDEF) takes the shaper down its other
-paths. When uharfbuzz is installed the model is also compared with
+paths; Noto Sans, Noto Sans Arabic, Noto Sans Hebrew and Noto Sans
+Devanagari without GPOS, GSUB or GDEF (or all three) take the fallbacks -
+marks placed by combining class, Arabic forms and ligatures from
+presentation forms, the kern table. When uharfbuzz is installed the model is also compared with
 HarfBuzz on the same cases (the model is meant to be HarfBuzz step for
 step). Truncated and corrupted fonts must not crash host_shape.
 
@@ -85,7 +91,7 @@ INDIC_BLOCKS = {'Bengali': 0x0980, 'Gurmukhi': 0x0A00, 'Gujarati': 0x0A80, 'Oriy
 INDIC_WORDS = '''বাংলা ভাষা কর্ম সূর্য্য ক্ষ জ্ঞ র‍্যাব কি কো কৌ র্কি শ্রী ਪੰਜਾਬੀ ਗੁਰਮੁਖੀ ਕਿ ਸ੍ਵ ਪ੍ਰ ਖ਼ ਕੌ
 ગુજરાતી ભાષા કર્મ ક્ષ જ્ઞ કિ ર્કિ શ્રી ଓଡ଼ିଆ ଭାଷା କର୍ମ କ୍ଷ କି କୋ ର୍କି தமிழ் மொழி கொ கோ கௌ க்ஷ ஸ்ரீ
 తెలుగు భాష కర్మ క్ష కి కొ కౌ ర్కి శ్రీ ర‍్క ಕನ್ನಡ ಭಾಷೆ ಕರ್ಮ ಕ್ಷ ಕಿ ಕೊ ರ್ಕಿ ಶ್ರೀ ರ್‍ಕ ರ‍್ಕ
-മലയാളം ഭാഷ കർമ്മ ക്ഷ കി കൊ കൌ ർക്ക ശ്രീ ന്റെ'''.split()
+മലയാളം ഭാഷ കർമ്മ ക്ഷ കി കൊ കൌ ർക്ക ശ്രീ ന്റെ പ̇ െപ̇'''.split()
 
 
 def indic(rng, base):
@@ -127,6 +133,29 @@ def indic(rng, base):
             out.append(rng.choice(matra + signs + [virama, 0x200C, 0x200D, 0x25CC]))
         else:
             out.append(rng.choice((0x20, 0x41, 0x2D)))
+    return out
+
+
+RTL_WORDS = '''العربية مرحبا بالعالم لا لأ لإ لآ الله محمد قُرْآن كِتَابٌ مـــد (نص) [قوس] ١٢٣
+بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ سلام‌دنیا فارسی گچپژ اردو ٹڈڑ ه‍ ‍ه‍ ‍ه ئٔ آٓ
+שלום עולם עִבְרִית בְּרֵאשִׁית שָׁלוֹם (סוגריים) אָ בַּ שׁ שׂ וּ יִ ײַ אַ כֿ פֿ'''.split()
+
+
+def rtl_text(rng, arabic):
+    """Random Arabic or Hebrew."""
+    if arabic:
+        letters = list(range(0x0621, 0x063B)) + list(range(0x0641, 0x064B)) + [0x0671, 0x067E, 0x0686, 0x0698,
+                                                                              0x06A9, 0x06AF, 0x06CC, 0x06D2]
+        marks = list(range(0x064B, 0x0660)) + [0x0670, 0x06D6, 0x06DC, 0x06E3, 0x06E7, 0x06E8]
+        other = [0x0640, 0x200C, 0x200D, 0x20, 0x28, 0x29, 0x5B, 0x5D, 0x0660, 0x0661, 0x31, 0x2E, 0x060C, 0x061F]
+    else:
+        letters = list(range(0x05D0, 0x05EB)) + [0x05F0, 0x05F1, 0x05F2]
+        marks = list(range(0x05B0, 0x05BE)) + [0x05BF, 0x05C1, 0x05C2, 0x05C4, 0x05C5, 0x05C7, 0x0591, 0x0596, 0x05A5]
+        other = [0x20, 0x28, 0x29, 0x05BE, 0x05F3, 0x31, 0x2E, 0x200D, 0x200C]
+    out = []
+    for _ in range(rng.randint(1, 14)):
+        r = rng.random()
+        out.append(rng.choice(letters if r < 0.6 else marks if r < 0.85 else other))
     return out
 
 
@@ -206,6 +235,30 @@ def altered(font_dir, d):
     return out
 
 
+def stripped(font_dir, d):
+    """Fonts without their layout tables (positioning by fallback, Arabic fallback shaping from
+    presentation forms, the kern table): Noto Sans, Noto Sans Arabic and Noto Sans Hebrew without
+    GPOS, GSUB, GDEF or all three; Noto Sans Devanagari without GPOS or all three."""
+    from fontTools.ttLib import TTFont
+    out = []
+    for name, kinds in (("NotoSans-Regular.ttf", ("GPOS", "GSUB", "GDEF", "all")),
+                        ("NotoSansArabic-Regular.ttf", ("GPOS", "GSUB", "GDEF", "all")),
+                        ("NotoSansHebrew-Regular.ttf", ("GPOS", "GSUB", "GDEF", "all")),
+                        ("NotoSansDevanagari-Regular.ttf", ("GPOS", "all"))):
+        src = os.path.join(font_dir, name)
+        if not os.path.exists(src):
+            continue
+        for kind in kinds:
+            f = TTFont(src)
+            for t in (("GPOS", "GSUB", "GDEF") if kind == "all" else (kind,)):
+                if t in f:
+                    del f[t]
+            path = os.path.join(d, name.replace("-Regular.ttf", f"-no-{kind}.ttf"))
+            f.save(path)
+            out.append(path)
+    return out
+
+
 def check_font(tool, path, name, cases, d):
     font = sm.Font(path)
     status, got = run(tool, path, cases, d)
@@ -266,13 +319,14 @@ def main():
         for name in sorted(f for f in os.listdir(font_dir) if f.endswith(".ttf")):
             path = os.path.join(font_dir, name)
             font = sm.Font(path)
-            rtl = lambda c: 0x0590 <= c <= 0x08FF or 0xFB1D <= c <= 0xFDFF or 0xFE70 <= c <= 0xFEFF  # noqa: E731
-            cmap = sorted(c for c in font.cmap if not rtl(c))
+            cmap = sorted(font.cmap)
             marks = [c for c in cmap if sm.is_mark_gc(sm.gc(c))] + [0x0301, 0x0308, 0x0323, 0x0327, 0x0345]
-            cases = [[ord(c) for c in w] for w in WORDS + INDIC_WORDS]
+            cases = [[ord(c) for c in w] for w in WORDS + INDIC_WORDS + RTL_WORDS]
             script = next((k for k in INDIC_BLOCKS if k in name), None)
             for _ in range(per_font):
-                if script:
+                if "Arabic" in name or "Hebrew" in name:
+                    cases.append(rtl_text(rng, "Arabic" in name))
+                elif script:
                     cases.append(indic(rng, INDIC_BLOCKS[script]))
                 elif "Devanagari" in name or rng.random() < 0.2:
                     cases.append(devanagari(rng))
@@ -284,6 +338,21 @@ def main():
             cases = [[ord(c) for c in w] for w in WORDS] + [devanagari(rng) for _ in range(per_font)]
             total += 1
             failed += not check_font(tool, path, "NotoSansDevanagari " + os.path.basename(path)[:-4], cases, d)
+        for path in stripped(font_dir, d):
+            name = os.path.basename(path)
+            font = sm.Font(path)
+            cmap = sorted(font.cmap)
+            marks = [c for c in cmap if sm.is_mark_gc(sm.gc(c))] + [0x0301, 0x0308, 0x0323, 0x0327, 0x0345]
+            cases = [[ord(c) for c in w] for w in WORDS + RTL_WORDS]
+            for _ in range(per_font):
+                if "Arabic" in name or "Hebrew" in name:
+                    cases.append(rtl_text(rng, "Arabic" in name))
+                elif "Devanagari" in name:
+                    cases.append(devanagari(rng))
+                else:
+                    cases.append(general(rng, cmap, marks))
+            total += 1
+            failed += not check_font(tool, path, name[:-4], cases, d)
         runs, crashes = damage(tool, font_dir, d, rng)
         total += 1
         failed += crashes > 0
