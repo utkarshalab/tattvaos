@@ -602,8 +602,9 @@ map_add_lookups:
     pop rbx
     ret
 
-; sort the stage's lookups (from MC_LAST) by index, stably, merging equal
-; indices: masks or-ed, auto joiners and-ed. Caller's frame at [rsp + 8].
+; sort the stage's lookups (from MC_LAST) by index as HarfBuzz does (not
+; stably: the merge keeps the first's flags), merging equal indices: masks
+; or-ed, auto joiners and-ed. Caller's frame at [rsp + 8].
 map_sort_stage:
     push rbx
     push r12
@@ -611,34 +612,16 @@ map_sort_stage:
     mov ecx, [rsp + 32 + MC_T]
     mov r12, [r15 + S_LK + rcx * 8]
     mov r13d, [rsp + 32 + MC_LAST]      ; start
-    mov r8d, [r15 + S_NLK + rcx * 4]    ; end
-    lea ebx, [r13 + 1]
-.sort:
-    cmp ebx, r8d
-    jae .sorted
-    imul eax, ebx, LK_SIZE
-    mov r9, [r12 + rax]
-    mov r10d, [r12 + rax + 8]
-    mov edx, ebx
-.in:
-    cmp edx, r13d
-    jbe .put
-    imul eax, edx, LK_SIZE
-    cmp [r12 + rax - LK_SIZE + LK_INDEX], r9d
-    jbe .put
-    mov r11, [r12 + rax - LK_SIZE]
-    mov [r12 + rax], r11
-    mov r11d, [r12 + rax - LK_SIZE + 8]
-    mov [r12 + rax + 8], r11d
-    dec edx
-    jmp .in
-.put:
-    imul eax, edx, LK_SIZE
-    mov [r12 + rax], r9
-    mov [r12 + rax + 8], r10d
-    inc ebx
-    jmp .sort
+    mov esi, [r15 + S_NLK + rcx * 4]
+    sub esi, r13d
+    cmp esi, 2
+    jb .sorted
+    imul edi, r13d, LK_SIZE
+    add rdi, r12
+    call map_qsort
 .sorted:
+    mov ecx, [rsp + 32 + MC_T]
+    mov r8d, [r15 + S_NLK + rcx * 4]    ; end
     ; merge
     cmp r13d, r8d
     jae .out
@@ -676,6 +659,224 @@ map_sort_stage:
     pop r13
     pop r12
     pop rbx
+    ret
+
+; ----------------------------------------------------------------------------
+; map_qsort — rdi = LK records, esi = count: by index, as HarfBuzz's hb_qsort
+;   (sort_r_simple): insertion sort below 10, else a three-way quicksort on
+;   the median of the second, middle and second-last records
+; ----------------------------------------------------------------------------
+%define QS_PRE      0                   ; the right end of the equal items
+%define QS_PIVOT    8                   ; the pivot's index
+%define QS_LAST     16
+%define QS_SIZE     32
+
+map_qsort:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    sub rsp, QS_SIZE
+    mov rbx, rdi                        ; b
+    mov eax, esi
+    imul rax, rax, LK_SIZE
+    lea r12, [rbx + rax]                ; end
+    cmp esi, 10
+    jae .quick
+    lea r13, [rbx + LK_SIZE]            ; pi
+.ins:
+    cmp r13, r12
+    jae .out
+    mov r14, r13                        ; pj
+.ins_in:
+    cmp r14, rbx
+    jbe .ins_next
+    mov eax, [r14 - LK_SIZE + LK_INDEX]
+    cmp eax, [r14 + LK_INDEX]
+    jbe .ins_next
+    lea rdi, [r14 - LK_SIZE]
+    mov rsi, r14
+    mov ecx, 1
+    call qs_swapn
+    sub r14, LK_SIZE
+    jmp .ins_in
+.ins_next:
+    add r13, LK_SIZE
+    jmp .ins
+.quick:
+    lea rax, [r12 - LK_SIZE]
+    mov [rsp + QS_LAST], rax
+    lea r8, [rbx + LK_SIZE]             ; the median of these
+    mov eax, esi
+    shr eax, 1
+    imul rax, rax, LK_SIZE
+    lea r9, [rbx + rax]
+    mov r10, [rsp + QS_LAST]
+    sub r10, LK_SIZE
+    mov eax, [r8 + LK_INDEX]
+    cmp eax, [r9 + LK_INDEX]
+    jbe .m1
+    xchg r8, r9
+.m1:
+    mov eax, [r9 + LK_INDEX]
+    cmp eax, [r10 + LK_INDEX]
+    jbe .m2
+    xchg r9, r10
+    mov eax, [r8 + LK_INDEX]
+    cmp eax, [r9 + LK_INDEX]
+    jbe .m2
+    xchg r8, r9
+.m2:
+    mov rsi, [rsp + QS_LAST]            ; the pivot to the end
+    cmp r9, rsi
+    je .pivot
+    mov rdi, r9
+    mov ecx, 1
+    call qs_swapn
+.pivot:
+    mov rax, [rsp + QS_LAST]
+    mov eax, [rax + LK_INDEX]
+    mov [rsp + QS_PIVOT], eax
+    mov rbp, rbx                        ; ple
+    mov r13, rbx                        ; pl
+    mov r14, [rsp + QS_LAST]            ; pr
+    mov [rsp + QS_PRE], r14
+.outer:
+    cmp r13, r14
+    jae .partitioned
+.left:
+    ; from the left: equal items to the far left, up to a greater one
+    cmp r13, r14
+    jae .left_done
+    mov eax, [r13 + LK_INDEX]
+    cmp eax, [rsp + QS_PIVOT]
+    ja .left_done
+    jne .left_next
+    cmp rbp, r13
+    jae .left_equal
+    mov rdi, rbp
+    mov rsi, r13
+    mov ecx, 1
+    call qs_swapn
+.left_equal:
+    add rbp, LK_SIZE
+.left_next:
+    add r13, LK_SIZE
+    jmp .left
+.left_done:
+    cmp r13, r14
+    jae .partitioned
+.right:
+    ; from the right: equal items to the far right, down to a lesser one
+    cmp r13, r14
+    jae .outer
+    sub r14, LK_SIZE
+    mov eax, [r14 + LK_INDEX]
+    cmp eax, [rsp + QS_PIVOT]
+    ja .right
+    jb .right_less
+    sub qword [rsp + QS_PRE], LK_SIZE
+    cmp r14, [rsp + QS_PRE]
+    jae .right
+    mov rdi, r14
+    mov rsi, [rsp + QS_PRE]
+    mov ecx, 1
+    call qs_swapn
+    jmp .right
+.right_less:
+    cmp r13, r14
+    jae .right_swapped
+    mov rdi, r13
+    mov rsi, r14
+    mov ecx, 1
+    call qs_swapn
+.right_swapped:
+    add r13, LK_SIZE
+    jmp .outer
+.partitioned:
+    mov r13, r14                        ; pl = pr
+    ; the equal items into the middle
+    mov rdi, rbx
+    mov rsi, rbp
+    sub rsi, rbx
+    mov rdx, r13
+    sub rdx, rbp
+    call qs_blocks
+    mov rdi, r14
+    mov rsi, [rsp + QS_PRE]
+    sub rsi, r14
+    mov rdx, r12
+    sub rdx, [rsp + QS_PRE]
+    call qs_blocks
+    ; the lesser and the greater
+    mov rax, r13
+    sub rax, rbp
+    xor edx, edx
+    mov ecx, LK_SIZE
+    div rcx
+    mov rdi, rbx
+    mov esi, eax
+    call map_qsort
+    mov rax, [rsp + QS_PRE]
+    sub rax, r14
+    mov rdi, r12
+    sub rdi, rax
+    xor edx, edx
+    mov ecx, LK_SIZE
+    div rcx
+    mov esi, eax
+    call map_qsort
+.out:
+    add rsp, QS_SIZE
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+    ret
+
+; rdi, rsi = records, ecx = how many: swapped
+qs_swapn:
+    test ecx, ecx
+    jz .out
+    mov rax, [rdi]
+    mov rdx, [rsi]
+    mov [rdi], rdx
+    mov [rsi], rax
+    mov eax, [rdi + 8]
+    mov edx, [rsi + 8]
+    mov [rdi + 8], edx
+    mov [rsi + 8], eax
+    add rdi, LK_SIZE
+    add rsi, LK_SIZE
+    dec ecx
+    jmp qs_swapn
+.out:
+    ret
+
+; rdi = start, rsi / rdx = two adjacent blocks' bytes: put in the opposite
+;   order with the smallest swap
+qs_blocks:
+    test rsi, rsi
+    jz .out
+    test rdx, rdx
+    jz .out
+    cmp rsi, rdx
+    jbe .second
+    mov rax, rdx                        ; first nb bytes with those after na
+    lea rsi, [rdi + rsi]
+    jmp .swap
+.second:
+    mov rax, rsi
+    lea rsi, [rdi + rdx]
+.swap:
+    xor edx, edx
+    mov ecx, LK_SIZE
+    div rcx
+    mov ecx, eax
+    jmp qs_swapn
+.out:
     ret
 
 ; ----------------------------------------------------------------------------
