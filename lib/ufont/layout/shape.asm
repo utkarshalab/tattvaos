@@ -24,7 +24,11 @@
 ; 1024 x the text's length times in all (at least 16384), and the buffer
 ; grows to 64 x the text at most (then ufont_shape fails).
 ;
-; Not done yet: right-to-left runs, fonts without GPOS
+; Right-to-left scripts (Arabic, Hebrew, ...) are shaped in logical order,
+; mirrored characters swapped or given rtlm, and the glyphs come back in
+; visual order (clusters descending).
+;
+; Not done yet: fonts without GPOS
 ; (no fallback mark placement), Devanagari fonts made for the Universal
 ; Shaping Engine (dev3), the rand feature's random alternates.
 ; =============================================================================
@@ -62,6 +66,14 @@ extern ufl_indic_override_features
 extern ufl_indic_data_create
 extern ufl_indic_preprocess
 extern ufl_indic_setup_masks
+extern ufl_arabic_collect_features
+extern ufl_arabic_data_create
+extern ufl_arabic_setup_masks
+extern ufl_hebrew_data_create
+extern ufl_fb_recategorize
+extern ufl_fb_position
+extern ufl_ucd_mirror
+extern ufl_ucd_mirror_count
 
 section .rodata
 ; common and horizontal features: tag, flags
@@ -82,6 +94,10 @@ sh_features:
     dd 'rclt', F_GLOBAL
 sh_features_end:
 sh_indic: dd 'Deva', 'Beng', 'Guru', 'Gujr', 'Orya', 'Taml', 'Telu', 'Knda', 'Mlym', 0
+; written right to left (HarfBuzz's list)
+sh_rtl: dd 'Arab', 'Hebr', 'Syrc', 'Thaa', 'Cprt', 'Khar', 'Phnx', 'Nkoo', 'Lydi', 'Avst', 'Armi', 'Phli'
+        dd 'Prti', 'Sarb', 'Orkh', 'Samr', 'Mand', 'Merc', 'Mero', 'Mani', 'Mend', 'Nbat', 'Narb', 'Palm'
+        dd 'Phlp', 'Hatr', 'Adlm', 'Rohg', 'Sogo', 'Sogd', 'Elym', 'Chrs', 'Yezi', 'Ougr', 'Gara', 'Sidt', 0
 
 section .text
 
@@ -202,12 +218,40 @@ ufont_shape:
     call ufl_otl_select
     mov edi, 1
     call ufl_otl_select
-    ; the shaper: Indic for the nine Indic scripts unless the font only has
-    ; DFLT / latn for them
+    ; the direction
     mov eax, [r15 + S_SCRIPT]
     imul eax, eax, 12
     lea rdx, [rel ufl_ucd_scripts]
     mov eax, [rdx + rax]
+    lea rdx, [rel sh_rtl]
+.rtl_script:
+    cmp dword [rdx], 0
+    je .shaper
+    cmp [rdx], eax
+    je .rtl
+    add rdx, 4
+    jmp .rtl_script
+.rtl:
+    mov byte [r15 + S_RTL], 1
+.shaper:
+    ; the shaper: Arabic for Arabic (and Syriac when the font has a script
+    ; for it), Hebrew, Indic for the nine Indic scripts unless the font only
+    ; has DFLT / latn for them
+    cmp eax, 'Arab'
+    je .arabic
+    cmp eax, 'Syrc'
+    jne .hebrew
+    cmp dword [r15 + S_CHOSEN], 'DFLT'
+    je .plan
+.arabic:
+    mov byte [r15 + S_SHAPER], 2
+    jmp .plan
+.hebrew:
+    cmp eax, 'Hebr'
+    jne .indic_scripts
+    mov byte [r15 + S_SHAPER], 3
+    jmp .plan
+.indic_scripts:
     lea rdx, [rel sh_indic]
 .indic_script:
     cmp dword [rdx], 0
@@ -237,6 +281,8 @@ ufont_shape:
     call ufl_map_enable
     xor edi, edi
     call ufl_map_add_gsub_pause
+    cmp byte [r15 + S_RTL], 0
+    jne .rtl_features
     mov edi, 'ltra'
     xor esi, esi
     mov edx, 1
@@ -245,6 +291,17 @@ ufont_shape:
     xor esi, esi
     mov edx, 1
     call ufl_map_enable
+    jmp .directed
+.rtl_features:
+    mov edi, 'rtla'
+    xor esi, esi
+    mov edx, 1
+    call ufl_map_enable
+    mov edi, 'rtlm'
+    xor esi, esi
+    mov edx, 1
+    call ufl_map_add_feature
+.directed:
     mov edi, 'frac'
     xor esi, esi
     mov edx, 1
@@ -270,8 +327,13 @@ ufont_shape:
     mov edx, 1
     call ufl_map_enable
     cmp byte [r15 + S_SHAPER], 1
-    jne .common
+    jne .arabic_features
     call ufl_indic_collect_features
+    jmp .common
+.arabic_features:
+    cmp byte [r15 + S_SHAPER], 2
+    jne .common
+    call ufl_arabic_collect_features
 .common:
     mov edi, 'Buzz'
     xor esi, esi
@@ -301,13 +363,7 @@ ufont_shape:
     test eax, eax
     jnz .fail
     call ufl_otl_gdef_init
-    cmp byte [r15 + S_SHAPER], 1
-    jne .normalize
-    call ufl_indic_data_create
-    call ufl_indic_preprocess
-.normalize:
-    call ufl_norm_run
-    ; masks
+    ; masks: the global features everywhere
     mov eax, [r15 + S_GMASK]
     xor ecx, ecx
 .mask:
@@ -320,11 +376,43 @@ ufont_shape:
     inc ecx
     jmp .mask
 .masked:
+    movzx eax, byte [r15 + S_SHAPER]
+    cmp eax, 1
+    jne .data_arabic
+    call ufl_indic_data_create
+    call ufl_indic_preprocess
+    jmp .mirror
+.data_arabic:
+    cmp eax, 2
+    jne .data_hebrew
+    call ufl_arabic_data_create
+    jmp .mirror
+.data_hebrew:
+    cmp eax, 3
+    jne .mirror
+    call ufl_hebrew_data_create
+.mirror:
+    cmp byte [r15 + S_RTL], 0
+    je .normalize
+    call sh_mirror
+.normalize:
+    call ufl_norm_run
     call sh_fractions
-    cmp byte [r15 + S_SHAPER], 1
-    jne .gsub
+    movzx eax, byte [r15 + S_SHAPER]
+    cmp eax, 1
+    jne .masks_arabic
     call ufl_indic_setup_masks
+    jmp .gsub
+.masks_arabic:
+    cmp eax, 2
+    jne .gsub
+    call ufl_arabic_setup_masks
 .gsub:
+    call sh_plan_flags
+    test byte [r15 + S_PFLAGS], PF_FBMARKS
+    jz .classes
+    call ufl_fb_recategorize
+.classes:
     ; glyph classes: GDEF's, else from Unicode (nonspacing marks are marks)
     xor ebp, ebp
 .props:
@@ -386,27 +474,38 @@ ufont_shape:
     jmp .adv
 .adv_done:
     call sh_fallback_spaces
-    ; GPOS, or the kern table
-    mov edi, 1
-    mov esi, 'kern'
-    call ufl_otl_feature_index
-    mov ebp, eax                        ; GPOS kern feature (-1 none)
+    ; GPOS, the kern table
     mov byte [r15 + S_HASATTACH], 0
+    test byte [r15 + S_PFLAGS], PF_GPOS
+    jz .kern
     mov edi, 1
     call ufl_ap_run_table
-    mov rax, [r15 + S_FONT]
-    cmp qword [rax + UfontFont_gpos], 0
-    je .kern
-    cmp ebp, -1
-    jne .zero_marks
 .kern:
+    test byte [r15 + S_PFLAGS], PF_KERN
+    jz .zero_marks
     mov edi, 'kern'
     call ufl_map_get_mask
     mov [r15 + S_KERNMASK], eax
+    ; right to left its pairs are visual: the run reversed while it applies
+    cmp byte [r15 + S_RTL], 0
+    je .kern_apply
+    call sh_reverse
+.kern_apply:
     call sh_kern_table
+    cmp byte [r15 + S_RTL], 0
+    je .zero_marks
+    call sh_reverse
 .zero_marks:
+    ; mark advances zeroed (not Indic); left to right, when the plan adjusts,
+    ; their offsets take it back
     cmp byte [r15 + S_SHAPER], 1
     je .ignorables
+    xor r8d, r8d
+    test byte [r15 + S_PFLAGS], PF_ADJUST
+    jz .zm_adjust
+    cmp byte [r15 + S_RTL], 0
+    sete r8b
+.zm_adjust:
     xor ebp, ebp
 .zm:
     cmp ebp, [r15 + S_LEN]
@@ -418,6 +517,13 @@ ufont_shape:
     jz .zm_next
     imul ecx, ebp, GPOS_SIZE
     add rcx, [r15 + S_POS]
+    test r8d, r8d
+    jz .zm_zero
+    mov eax, [rcx + GPOS_XA]
+    sub [rcx + GPOS_XO], eax
+    mov eax, [rcx + GPOS_YA]
+    sub [rcx + GPOS_YO], eax
+.zm_zero:
     mov dword [rcx + GPOS_XA], 0
     mov dword [rcx + GPOS_YA], 0
 .zm_next:
@@ -446,17 +552,25 @@ ufont_shape:
     jmp .ig
 .ig_done:
     cmp byte [r15 + S_HASATTACH], 0
-    je .output
+    je .fallback
     xor ebp, ebp
 .prop:
     cmp ebp, [r15 + S_LEN]
-    jae .output
+    jae .fallback
     mov edi, ebp
     mov esi, MAX_NESTING
     call sh_propagate
     inc ebp
     jmp .prop
+.fallback:
+    test byte [r15 + S_PFLAGS], PF_FBMARKS
+    jz .output
+    call ufl_fb_position
 .output:
+    cmp byte [r15 + S_RTL], 0
+    je .visual
+    call sh_reverse
+.visual:
     ; ignorables drawn as the space glyph (dropped without one)
     mov edi, 0x20
     call ufl_norm_glyph
@@ -644,6 +758,103 @@ sh_graphemes:
     pop r13
     pop r12
     pop rbx
+    ret
+
+; ----------------------------------------------------------------------------
+; sh_mirror: right to left, characters with a bidi mirror the font has become
+;   it; the others take rtlm
+; ----------------------------------------------------------------------------
+sh_mirror:
+    push rbx
+    push r12
+    push r13
+    mov edi, 'rtlm'
+    call ufl_map_get_1_mask
+    mov r13d, eax
+    xor ebx, ebx
+.each:
+    cmp ebx, [r15 + S_LEN]
+    jae .out
+    mov r12, rbx
+    shl r12, 5
+    add r12, [r15 + S_INFO]
+    mov edi, [r12 + GI_CP]
+    lea r8, [rel ufl_ucd_mirror]
+    xor r9d, r9d
+    mov r10d, [rel ufl_ucd_mirror_count]
+.search:
+    cmp r9d, r10d
+    jae .no_mirror
+    lea r11d, [r9 + r10]
+    shr r11d, 1
+    cmp edi, [r8 + r11 * 8]
+    je .found
+    jb .lo
+    lea r9d, [r11 + 1]
+    jmp .search
+.lo:
+    mov r10d, r11d
+    jmp .search
+.found:
+    mov edi, [r8 + r11 * 8 + 4]
+    push rdi
+    sub rsp, 8
+    call ufl_norm_glyph
+    add rsp, 8
+    pop rdi
+    test eax, eax
+    jz .no_mirror
+    mov [r12 + GI_CP], edi
+    jmp .next
+.no_mirror:
+    or [r12 + GI_MASK], r13d
+.next:
+    inc ebx
+    jmp .each
+.out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; sh_reverse: glyphs and positions in visual order
+sh_reverse:
+    xor ecx, ecx
+    mov edx, [r15 + S_LEN]
+    dec edx
+.loop:
+    cmp ecx, edx
+    jge .done
+    mov r8, rcx
+    shl r8, 5
+    add r8, [r15 + S_INFO]
+    mov r9, rdx
+    shl r9, 5
+    add r9, [r15 + S_INFO]
+    movdqu xmm0, [r8]
+    movdqu xmm1, [r8 + 16]
+    movdqu xmm2, [r9]
+    movdqu xmm3, [r9 + 16]
+    movdqu [r8], xmm2
+    movdqu [r8 + 16], xmm3
+    movdqu [r9], xmm0
+    movdqu [r9 + 16], xmm1
+    imul r8d, ecx, GPOS_SIZE
+    add r8, [r15 + S_POS]
+    imul r9d, edx, GPOS_SIZE
+    add r9, [r15 + S_POS]
+    movdqu xmm0, [r8]
+    mov rax, [r8 + 16]
+    movdqu xmm1, [r9]
+    mov r10, [r9 + 16]
+    movdqu [r8], xmm1
+    mov [r8 + 16], r10
+    movdqu [r9], xmm0
+    mov [r9 + 16], rax
+    inc ecx
+    dec edx
+    jmp .loop
+.done:
     ret
 
 ; edi = code point -> eax 1 when Extended_Pictographic
@@ -871,6 +1082,99 @@ sh_fallback_spaces:
     ret
 
 ; ----------------------------------------------------------------------------
+; sh_plan_flags: how the run is positioned (S_PFLAGS) - GPOS (the Hebrew
+;   shaper: only from a font's hebr script); the kern table when the font has
+;   one, GPOS does not kern the script and the shaper positions by fallback
+;   (not Indic); marks adjusted without GPOS (unless cross-stream kerning
+;   moves them), and then placed by fallback (not Indic)
+; ----------------------------------------------------------------------------
+sh_plan_flags:
+    push rbx
+    xor ebx, ebx
+    mov rax, [r15 + S_FONT]
+    cmp qword [rax + UfontFont_gpos], 0
+    je .kern_table
+    cmp byte [r15 + S_SHAPER], 3
+    jne .gpos
+    cmp dword [r15 + S_CHOSEN + 4], 'hebr'
+    jne .kern_table
+.gpos:
+    or ebx, PF_GPOS
+    mov edi, 1
+    mov esi, 'kern'
+    call ufl_otl_feature_index
+    cmp eax, -1
+    je .kern_table
+    or ebx, PF_GPOSKERN
+.kern_table:
+    call sh_kern_info
+    test eax, 1
+    jz .adjust
+    test ebx, PF_GPOSKERN
+    jnz .adjust
+    cmp byte [r15 + S_SHAPER], 1
+    je .adjust
+    or ebx, PF_KERN
+.adjust:
+    test ebx, PF_GPOS
+    jnz .done
+    test ebx, PF_KERN
+    jz .adjusts
+    test eax, 2
+    jnz .done
+.adjusts:
+    or ebx, PF_ADJUST
+    cmp byte [r15 + S_SHAPER], 1
+    je .done
+    or ebx, PF_FBMARKS
+.done:
+    mov [r15 + S_PFLAGS], bl
+    pop rbx
+    ret
+
+; sh_kern_info -> eax: 1 the font has a kern table (version 0, subtables),
+;   2 one of its subtables is cross-stream
+sh_kern_info:
+    xor eax, eax
+    mov rcx, [r15 + S_FONT]
+    mov rsi, [rcx + UfontFont_kern]
+    test rsi, rsi
+    jz .out
+    mov rdx, [rcx + UfontFont_kern_len]
+    add rdx, rsi                        ; end
+    lea rcx, [rsi + 4]
+    cmp rcx, rdx
+    ja .out
+    cmp word [rsi], 0
+    jne .out
+    movzx ecx, word [rsi + 2]
+    xchg cl, ch
+    test ecx, ecx
+    jz .out
+    mov eax, 1
+    add rsi, 4
+.subtable:
+    test ecx, ecx
+    jz .out
+    dec ecx
+    lea rdi, [rsi + 6]
+    cmp rdi, rdx
+    ja .out
+    test byte [rsi + 5], 4              ; coverage: cross-stream
+    jz .length
+    or eax, 2
+    ret
+.length:
+    movzx edi, word [rsi + 2]
+    rol di, 8
+    cmp edi, 6
+    jb .out
+    add rsi, rdi
+    jmp .subtable
+.out:
+    ret
+
+; ----------------------------------------------------------------------------
 ; sh_kern_table: the legacy kern table (version 0, format 0 horizontal
 ;   subtables) over the run, marks skipped; half the value on the first
 ;   glyph's advance, the rest on the second's advance and offset
@@ -1070,6 +1374,8 @@ sh_propagate:
     add [r12 + GPOS_XO], ecx
     mov ecx, [rax + GPOS_YO]
     add [r12 + GPOS_YO], ecx
+    cmp byte [r15 + S_RTL], 0
+    jne .k_rtl
 .k:
     cmp r13d, ebx
     jae .out
@@ -1081,6 +1387,20 @@ sh_propagate:
     sub [r12 + GPOS_YO], ecx
     inc r13d
     jmp .k
+.k_rtl:
+    ; right to left: the advances after the base up to the mark itself
+    inc r13d
+.kr:
+    cmp r13d, ebx
+    ja .out
+    imul eax, r13d, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    mov ecx, [rax + GPOS_XA]
+    add [r12 + GPOS_XO], ecx
+    mov ecx, [rax + GPOS_YA]
+    add [r12 + GPOS_YO], ecx
+    inc r13d
+    jmp .kr
 .out:
     pop r13
     pop r12
