@@ -4,8 +4,8 @@
 Usage: ucd_table.py <ucd directory>
 
 The directory holds the Unicode 17.0.0 UnicodeData.txt, Scripts.txt,
-DerivedNormalizationProps.txt, PropertyValueAliases.txt and emoji-data.txt.
-Written:
+DerivedNormalizationProps.txt, PropertyValueAliases.txt, emoji-data.txt,
+ArabicShaping.txt and BidiMirroring.txt. Written:
 
 - general category and modified combining class of every code point, and
   its script (an index into the script table), as three-level tables:
@@ -18,8 +18,16 @@ Written:
 - canonical compositions (a, b -> ab) of primary composites, sorted by a, b;
 - per script: its ISO 15924 code and the OpenType script tags fonts use for
   it (the old tag, and for Indic scripts the new one: 'dev2' and so on);
-- the Extended_Pictographic ranges (a ZWJ joins one to the grapheme before),
-  also as tools/ucd_data.py for the model.
+- the Extended_Pictographic ranges (a ZWJ joins one to the grapheme before);
+- Arabic joining types (U 0, L 1, R 2, D / C 3, Alaph 4, Dalath-Rish 5,
+  T 7; characters not listed: T for Mn / Me / Cf, else U) and the bidi
+  mirrored pairs;
+- for Arabic fallback shaping (fonts with presentation forms but no
+  Arabic GSUB): each letter's initial / medial / final / isolated form, and
+  the lam-alef and other ligatures (two and three letters, shadda with a
+  haraka) between those forms, from UnicodeData's presentation-form
+  decompositions as HarfBuzz derives them;
+  the last two lists also as tools/ucd_data.py for the model.
 
 Hangul syllables are composed and decomposed arithmetically (layout code),
 not listed.
@@ -111,6 +119,68 @@ def tag(s):
     return "'" + s + "'"
 
 
+# the presentation-form ligatures Arabic fallback shaping makes (HarfBuzz's subset), and three
+# private-use ones it adds
+ARABIC_LIGATURES = (
+    0xF2EE, 0xFC08, 0xFC0E, 0xFC12, 0xFC32, 0xFC3F, 0xFC40, 0xFC41, 0xFC42, 0xFC44, 0xFC4E, 0xFC5E, 0xFC60, 0xFC61,
+    0xFC62, 0xFC6A, 0xFC6D, 0xFC6F, 0xFC70, 0xFC73, 0xFC75, 0xFC86, 0xFC8F, 0xFC91, 0xFC94, 0xFC9C, 0xFC9D, 0xFC9E,
+    0xFC9F, 0xFCA1, 0xFCA2, 0xFCA3, 0xFCA4, 0xFCA8, 0xFCAA, 0xFCAC, 0xFCB0, 0xFCC9, 0xFCCA, 0xFCCB, 0xFCCC, 0xFCCD,
+    0xFCCE, 0xFCCF, 0xFCD0, 0xFCD1, 0xFCD2, 0xFCD3, 0xFCD5, 0xFCDA, 0xFCDB, 0xFCDC, 0xFCDD, 0xFD30, 0xFD88, 0xFEF5,
+    0xFEF6, 0xFEF7, 0xFEF8, 0xFEF9, 0xFEFA, 0xFEFB, 0xFEFC, 0xF201, 0xF211, 0xF2EE)
+ARABIC_PUA = ["F201;PUA ARABIC LIGATURE LELLAH ISOLATED FORM;Lo;0;AL;<isolated> 0644 0644 0647;;;;N;;;;;",
+              "F211;PUA ARABIC LIGATURE LAM WITH MEEM WITH JEEM INITIAL FORM;Lo;0;AL;<initial> 0644 0645 062C;;;;N;;;;;",
+              "F2EE;PUA ARABIC LIGATURE SHADDA WITH FATHATAN ISOLATED FORM;Lo;0;AL;<isolated> 0020 064B 0651;;;;N;;;;;"]
+
+
+def arabic_fallback(ucd):
+    """-> (shapes {u: (initial, medial, final, isolated)}, 2-ligatures {first: [(second, lig)]}, mark
+    ligatures {first: [(second, lig)]}, 3-ligatures {first: [(second, third, lig)]}), first and the
+    components being presentation forms (marks: the characters)."""
+    shapes, ligatures = {}, {}
+    lines = open(os.path.join(ucd, 'UnicodeData.txt'), encoding='utf-8').read().splitlines() + ARABIC_PUA
+    for line in lines:
+        f = [x.strip() for x in line.split(';')]
+        if f[5][0:1] != '<':
+            continue
+        items = f[5].split(' ')
+        shape, items = items[0][1:-1], tuple(int(x, 16) for x in items[1:])
+        c = int(f[0], 16)
+        if shape not in ('initial', 'medial', 'isolated', 'final'):
+            continue
+        if len(items) != 1:
+            if items[0] == 0x0020:                      # a mark ligature: visual order, a space first
+                items = items[:0:-1]
+                shape = None
+            if c not in ARABIC_LIGATURES:
+                continue
+            ligatures.setdefault(items, {})[shape] = c
+        else:
+            shapes.setdefault(items[0], {})[shape] = c
+    forms = {u: tuple(sh.get(k, 0) for k in ('initial', 'medial', 'final', 'isolated')) for u, sh in shapes.items()}
+    l2, l3, lm = {}, {}, {}
+    for key, by_shape in ligatures.items():
+        for shape, c in by_shape.items():
+            if len(key) == 3:
+                if shape == 'isolated':
+                    liga = (shapes[key[0]]['initial'], shapes[key[1]]['medial'], shapes[key[2]]['final'])
+                elif shape == 'final':
+                    liga = (shapes[key[0]]['medial'], shapes[key[1]]['medial'], shapes[key[2]]['final'])
+                else:
+                    liga = (shapes[key[0]]['initial'], shapes[key[1]]['medial'], shapes[key[2]]['medial'])
+                l3.setdefault(liga[0], []).append((liga[1], liga[2], c))
+            elif shape is None:
+                lm.setdefault(key[0], []).append((key[1], c))
+            else:
+                if shape == 'isolated':
+                    liga = (shapes[key[0]]['initial'], shapes[key[1]]['final'])
+                elif shape == 'final':
+                    liga = (shapes[key[0]]['medial'], shapes[key[1]]['final'])
+                else:
+                    liga = (shapes[key[0]]['initial'], shapes[key[1]]['medial'])
+                l2.setdefault(liga[0], []).append((liga[1], c))
+    return forms, l2, lm, l3
+
+
 def main():
     ucd = sys.argv[1]
     gc, ccc, decomp = unicode_data(ucd)
@@ -148,6 +218,22 @@ def main():
                 pict[-1] = (pict[-1][0], hi)
             else:
                 pict.append((lo, hi))
+    joining = {}
+    for line in open(os.path.join(ucd, 'ArabicShaping.txt'), encoding='utf-8'):
+        f = [x.strip() for x in line.split('#')[0].split(';')]
+        if len(f) < 4:
+            continue
+        t = {'U': 0, 'L': 1, 'R': 2, 'D': 3, 'C': 3, 'T': 7}[f[2]]
+        if f[3] == 'ALAPH':
+            t = 4
+        elif f[3] == 'DALATH RISH':
+            t = 5
+        joining[int(f[0], 16)] = t
+    mirror = {}
+    for line in open(os.path.join(ucd, 'BidiMirroring.txt'), encoding='utf-8'):
+        f = [x.strip() for x in line.split('#')[0].split(';')]
+        if len(f) >= 2 and f[0]:
+            mirror[int(f[0], 16)] = int(f[1], 16)
     out = ['; =============================================================================',
            '; Utkarsha OS — lib/ufont/layout/ucd.asm',
            '; =============================================================================',
@@ -165,6 +251,12 @@ def main():
            ';   ufl_ucd_decomp, ufl_ucd_decomp_count -> dd ab, a, b (b 0: a singleton), by ab',
            ';   ufl_ucd_comp, ufl_ucd_comp_count     -> dd a, b, ab, by a then b',
            ';   ufl_ucd_pict, ufl_ucd_pict_count     -> dd first, last: Extended_Pictographic',
+           ';   ufl_ucd_joining, ..._count   -> dd code point | joining type << 24, sorted',
+           ';   ufl_ucd_mirror, ..._count    -> dd code point, its mirror, sorted',
+           ';   ufl_ucd_arforms (_first, _last) -> per letter dw initial, medial,',
+           ';                                   final, isolated presentation forms',
+           ';   ufl_ucd_arlig3 / arlig2 / arligm -> Arabic fallback ligatures: dw first,',
+           ';                                   count, then the rest and the ligature',
            '; =============================================================================',
            '',
            'section .text',
@@ -219,11 +311,47 @@ def main():
     out += ['', 'global ufl_ucd_pict', 'global ufl_ucd_pict_count', f'ufl_ucd_pict_count: dd {len(pict)}', 'ufl_ucd_pict:']
     for lo, hi in pict:
         out.append(f'    dd 0x{lo:X}, 0x{hi:X}')
+    out += ['', 'global ufl_ucd_joining', 'global ufl_ucd_joining_count',
+            f'ufl_ucd_joining_count: dd {len(joining)}', 'ufl_ucd_joining:']
+    for u in sorted(joining):
+        out.append(f'    dd 0x{u:X} | ({joining[u]} << 24)')
+    out += ['', 'global ufl_ucd_mirror', 'global ufl_ucd_mirror_count',
+            f'ufl_ucd_mirror_count: dd {len(mirror)}', 'ufl_ucd_mirror:']
+    for u in sorted(mirror):
+        out.append(f'    dd 0x{u:X}, 0x{mirror[u]:X}')
     lines = ['"""Unicode 17.0.0 data the shaping model needs beyond Python\'s unicodedata - generated by',
-             'tools/ucd_table.py from emoji-data.txt; do not edit."""',
+             'tools/ucd_table.py from emoji-data.txt, ArabicShaping.txt and BidiMirroring.txt; do not edit."""',
              'EXTENDED_PICTOGRAPHIC = [']
     lines += [f'    (0x{lo:X}, 0x{hi:X}),' for lo, hi in pict]
     lines.append(']')
+    lines.append('JOINING = {')
+    lines += [f'    0x{u:X}: {joining[u]},' for u in sorted(joining)]
+    lines.append('}')
+    lines.append('MIRROR = {')
+    lines += [f'    0x{u:X}: 0x{mirror[u]:X},' for u in sorted(mirror)]
+    lines.append('}')
+    # Arabic fallback shaping
+    forms, l2, lm, l3 = arabic_fallback(ucd)
+    first, last = min(forms), max(forms)
+    out += ['', 'global ufl_ucd_arforms', 'global ufl_ucd_arforms_first', 'global ufl_ucd_arforms_last',
+            f'ufl_ucd_arforms_first: dd 0x{first:X}', f'ufl_ucd_arforms_last: dd 0x{last:X}',
+            'ufl_ucd_arforms:                       ; initial, medial, final, isolated']
+    for u in range(first, last + 1):
+        out.append('    dw ' + ', '.join(f'0x{x:X}' for x in forms.get(u, (0, 0, 0, 0))))
+    for name, table, n in (('ufl_ucd_arlig3', l3, 3), ('ufl_ucd_arlig2', l2, 2), ('ufl_ucd_arligm', lm, 2)):
+        out += ['', f'global {name}', f'{name}:                    ; first, count, then (components, ligature)']
+        for f0 in sorted(table):
+            out.append(f'    dw 0x{f0:X}, {len(table[f0])}')
+            for t in table[f0]:
+                out.append('    dw ' + ', '.join(f'0x{x:X}' for x in t))
+        out.append('    dw 0')
+    lines.append('ARABIC_FORMS = {')
+    lines += [f'    0x{u:X}: {tuple(forms[u])},' for u in sorted(forms)]
+    lines.append('}')
+    for name, table in (('ARABIC_LIG3', l3), ('ARABIC_LIG2', l2), ('ARABIC_LIGM', lm)):
+        lines.append(f'{name} = {{')
+        lines += [f'    0x{f0:X}: {table[f0]!r},' for f0 in sorted(table)]
+        lines.append('}')
     open(os.path.join(HERE, 'ucd_data.py'), 'w', encoding='utf-8', newline='\n').write('\n'.join(lines) + '\n')
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     open(OUT, 'w', encoding='utf-8', newline='\n').write('\n'.join(out) + '\n')
