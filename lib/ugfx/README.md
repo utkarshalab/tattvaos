@@ -309,9 +309,12 @@ the font's ascent and descent (for baselines and decorations; 0.8 / 0.2
 em when it does not know). With a shaper (`shape_fn`) a text node's
 characters are shaped in runs - a character with its own x / y / dx / dy
 / rotate starts a new run - and placed glyph by glyph (the shaper's
-advances and offsets, spacing per character a glyph ends); its glyphs
-come back to the font callback as keys (bit 31 set). Without one each
-character is placed on its own.
+advances and offsets, spacing per character a glyph ends) in the order
+the shaper returns them - visual order, so a right-to-left run (Arabic,
+Hebrew) is drawn left to right from its first character's position; its
+glyphs come back to the font callback as keys (bit 31 set). Runs are
+placed left to right as they come: there is no bidirectional reordering
+between them yet. Without a shaper each character is placed on its own.
 
 Static SVG 1.1 (and the SVG 2 / CSS pieces documents use):
 
