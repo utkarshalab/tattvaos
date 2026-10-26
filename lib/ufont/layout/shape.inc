@@ -24,7 +24,7 @@
 %define S_HAVEOUT       48              ; u8
 %define S_SERIAL        49              ; u8 ligature serial
 %define S_ERR           50              ; u8 out of memory
-%define S_SHAPER        51              ; u8 0 default, 1 Indic
+%define S_SHAPER        51              ; u8 0 default, 1 Indic, 2 Arabic, 3 Hebrew
 %define S_POS           56              ; GPOS_* records
 ; the plan
 %define S_GMASK         64              ; u32 global mask
@@ -81,8 +81,20 @@
 %define S_IKIND         423             ; u8 the script's own paths: 1 Kannada, 2 Malayalam, 3 Tamil, 4 Devanagari
 %define S_IVC           424             ; vowel constraint pairs (u16 vowel, u16 sign)
 %define S_IVCN          432             ; u32 how many
+%define S_RTL           436             ; u8 right to left
+%define S_AMARKPOS      437             ; u8 Hebrew: the plan has mark positioning
+%define S_PFLAGS        438             ; u8 PF_* positioning plan
+%define S_AFB           440             ; Arabic fallback lookups (0: none)
 %define S_DUMMY         448             ; a record written when memory runs out
-%define S_SIZE          480
+%define S_AMASK         480             ; [8] u32 Arabic form masks (isol .. init, none)
+%define S_SIZE          512
+
+; the positioning plan
+%define PF_GPOS         0x01            ; GPOS applies
+%define PF_GPOSKERN     0x02            ; and has kerning for the script
+%define PF_KERN         0x04            ; the legacy kern table applies
+%define PF_ADJUST       0x08            ; marks' offsets take their advance back
+%define PF_FBMARKS      0x10            ; marks placed by fallback (no GPOS)
 
 ; plan records
 %define FI_TAG          0               ; builder features
