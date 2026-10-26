@@ -3,7 +3,7 @@
 ; Project  : Utkarsha VCS (vcs)
 ; Author   : Utkarsha Lab
 ; License  : Apache-2.0
-; Description: Commit signing — Ed25519, post-quantum ready.
+; Description: Commit signing through the shared Ed25519 library.
 ; =============================================================================
 
 %ifndef VCS_POLICY_SIGNING_ASM
@@ -12,6 +12,9 @@
 %include "include/vcs.inc"
 
 bits 64
+default rel
+
+extern ed25519_sign,ed25519_verify,ed25519_public_from_seed
 
 section .text
 
@@ -22,9 +25,19 @@ section .text
 ; -----------------------------------------------------------------------------
 global signing_sign
 signing_sign:
-    PROLOGUE_SAVE rbx
-    xor     rax, rax
-    EPILOGUE_RESTORE rbx
+    push    rbx
+    mov     rcx, rdx
+    mov     rdx, 32
+    xchg    rdi, rsi
+    call    ed25519_sign
+    cmp     rax, 1
+    jne     .failed
+    xor     eax, eax
+    jmp     .done
+.failed:
+    mov     eax, VCS_ERR_GENERIC
+.done:
+    pop     rbx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -34,9 +47,35 @@ signing_sign:
 ; -----------------------------------------------------------------------------
 global signing_verify
 signing_verify:
-    PROLOGUE_SAVE rbx
-    xor     rax, rax
-    EPILOGUE_RESTORE rbx
+    push    rbx
+    mov     rcx, rsi
+    mov     rsi, rdi
+    mov     rdi, rdx
+    mov     rdx, 32
+    call    ed25519_verify
+    cmp     rax, 1
+    jne     .invalid
+    xor     eax, eax
+    jmp     .done
+.invalid:
+    mov     eax, VCS_ERR_CORRUPT
+.done:
+    pop     rbx
+    ret
+
+; RDI = public-key output, RSI = 32-byte private seed.
+global signing_public_from_seed
+signing_public_from_seed:
+    push    rbx
+    call    ed25519_public_from_seed
+    cmp     rax, 1
+    jne     .failed
+    xor     eax, eax
+    jmp     .done
+.failed:
+    mov     eax, VCS_ERR_GENERIC
+.done:
+    pop     rbx
     ret
 
 ; -----------------------------------------------------------------------------
@@ -46,9 +85,9 @@ signing_verify:
 ; -----------------------------------------------------------------------------
 global signing_key_generate
 signing_key_generate:
-    PROLOGUE_SAVE rbx
-    xor     rax, rax
-    EPILOGUE_RESTORE rbx
+    push    rbx
+    mov     eax, VCS_ERR_UNSUPPORTED
+    pop     rbx
     ret
 
 %endif ; VCS_POLICY_SIGNING_ASM
