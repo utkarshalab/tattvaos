@@ -1,0 +1,24 @@
+; Private local snapshot format. Little endian, no native pointers on disk.
+%ifndef VCS_REPOSITORY_INC
+%define VCS_REPOSITORY_INC
+%define VR_FILES 15
+%define VR_HEADER 256
+%define VR_ENTRY 256
+%define VR_PATH 240
+%define VR_BLOB 240
+%define VR_SIZE 248
+%define VR_MESSAGE 40
+%define VR_MESSAGE_MAX 215
+%define VR_MERGE_MESSAGE_MAX 207
+%define VR_SECOND_PARENT 248
+%define VR_MERGE_FLAG 0x8000000000000000
+%define VR_MAX_ID 0x00ffffffffffffff
+%define VR_COM_MAGIC 0x314d4f4353435655 ; UVCSCOM1
+%define VR_REPO_MAGIC 0x3150455253435655 ; UVCSREP1
+%define VR_REPO_VERSION 2
+%define VR_ID_MAGIC 0x314e444953435655 ; UVCSIDN1
+%define VR_ID_SIZE 80
+%define VR_ID_NAME_MAX 31
+%define VR_SIG_MAGIC 0x3147495353435655 ; UVCSSIG1
+%define VR_SIG_SIZE 160
+%endif
