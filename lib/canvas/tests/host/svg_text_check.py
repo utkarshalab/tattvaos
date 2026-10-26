@@ -8,6 +8,7 @@ Every lib/ugfx svg_check.py document with text, and the documents below
 from composite glyphs, Greek, Cyrillic, characters a face lacks, sizes,
 transforms, decorations, textPath; shaping: ligatures, kerning, combining
 marks, Devanagari conjuncts, reph and matras, the other Indic scripts,
+Arabic joining, lam-alef and harakat, Hebrew points, right to left,
 mixed scripts falling back
 between faces, positioned characters splitting runs), is decoded by Canvas
 with the fonts (host_decode ... <font directory>) and compared with the
@@ -107,6 +108,15 @@ DOCS = [
                               'fl</tspan> ffl <tspan font-weight="bold">हिन्दी</tspan></text>'
                               '<text x="236" y="114" font-size="14" text-anchor="end">anchored '
                               'संस्कृत ﬃ</text>')),
+    ("shaping arabic", svg('<text x="4" y="26" font-size="22">مرحبا بالعالم العربية</text>'
+                           '<text x="4" y="56" font-size="22" font-family="Noto Naskh Arabic">بِسْمِ اللَّهِ '
+                           'لا لأ</text>'
+                           '<text x="4" y="86" font-size="18" font-weight="bold">کتاب فارسی (قوس) ١٢٣</text>'
+                           '<text x="236" y="112" font-size="14" text-anchor="end">Arabic: سلام‌دنیا مـــد</text>')),
+    ("shaping hebrew", svg('<text x="4" y="28" font-size="22">שלום עולם עברית</text>'
+                           '<text x="4" y="60" font-size="22" font-family="serif">בְּרֵאשִׁית שָׁלוֹם</text>'
+                           '<text x="4" y="90" font-size="18" font-weight="bold">(סוגריים) [אב] 2026</text>'
+                           '<text x="4" y="114" font-size="14">mixed: עברית العربية हिन्दी Latin</text>')),
 ]
 
 
