@@ -18,6 +18,8 @@
 ;   ufl_ap_would_apply(edi = lookup index, rsi = glyphs (u32), edx = count,
 ;       ecx = zero context) -> eax 1 / 0   would a GSUB lookup apply to
 ;       exactly these glyphs (flags and context ignored)
+;   ufl_ap_apply_lookup(rdi = GSUB lookup, esi = mask)   one lookup over the
+;       run, forward (a shaper's own lookups, inside S_TABLE .. S_TEND)
 ; =============================================================================
 
 %include "ufont.inc"
@@ -1769,6 +1771,44 @@ ap_try:
     ret
 .no:
     xor eax, eax
+    pop rbx
+    ret
+
+; ----------------------------------------------------------------------------
+; ufl_ap_apply_lookup — rdi = GSUB lookup, esi = mask
+; ----------------------------------------------------------------------------
+global ufl_ap_apply_lookup
+ufl_ap_apply_lookup:
+    push rbx
+    mov rbx, rdi
+    cmp dword [r15 + S_LEN], 0
+    je .out
+    test esi, esi
+    jz .out
+    mov [r15 + S_LMASK], esi
+    mov byte [r15 + S_GPOS], 0
+    mov byte [r15 + S_AZWNJ], 1
+    mov byte [r15 + S_AZWJ], 1
+    mov byte [r15 + S_PERSYL], 0
+    mov dword [r15 + S_LASTBASE], -1
+    mov dword [r15 + S_LASTBASEUNTIL], 0
+    call ufl_ap_lookup_props
+    mov [r15 + S_LPROPS], eax
+    call ufl_buf_clear_output
+    mov dword [r15 + S_IDX], 0
+.fwd:
+    mov eax, [r15 + S_IDX]
+    cmp eax, [r15 + S_LEN]
+    jae .done
+    mov rdi, rbx
+    call ap_try
+    test eax, eax
+    jnz .fwd
+    call ufl_buf_next_glyph
+    jmp .fwd
+.done:
+    call ufl_buf_sync
+.out:
     pop rbx
     ret
 
