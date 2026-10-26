@@ -1,0 +1,25 @@
+%ifndef VCS_WIRE_INC
+%define VCS_WIRE_INC
+%define VCS_WIRE_MAGIC       0x31454c444e425655
+%define VCS_WIRE_VERSION     1
+%define VCS_WIRE_HEADER      160
+%define VCS_WIRE_MAX_PAYLOAD (256*1024)
+%define VW_MAGIC 0
+%define VW_VERSION 8
+%define VW_OPERATION 12
+%define VW_PAYLOAD 16
+%define VW_OBJECTS 24
+%define VW_REPOSITORY 32
+%define VW_DIGEST 40
+%define VW_PUBLIC 72
+%define VW_SIGNATURE 104
+%define VCS_WIRE_FETCH 1
+%define VCS_WIRE_PUSH 2
+%define VCS_WIRE_CLONE 3
+%define VCS_WIRE_PATCH 4
+%define VCS_XFER_HEADER 0
+%define VCS_XFER_PAYLOAD 1
+%define VCS_XFER_DONE 2
+%define VCS_XFER_FAILED 3
+%define VCS_XFER_AGAIN 1
+%endif
