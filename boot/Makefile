@@ -44,6 +44,20 @@ USH_SRCS := $(shell find $(ROOT)/apps/ush/src $(ROOT)/apps/ush/inc \
             $(ROOT)/apps/ush/Makefile $(ROOT)/apps/uedit/Makefile $(ROOT)/apps/ush/scripts/kernel_bundle.py \
             $(ROOT)/storage/uxfs/volume.asm $(ROOT)/storage/uxfs/volume.inc
 USH_LAYOUT = $(ROOT)/apps/ush/build/kernel/layout.inc
+USH_SRCS += $(ROOT)/apps/vcs/src/merge/diff.asm $(wildcard $(ROOT)/apps/vcs/include/*.inc) $(ROOT)/apps/vcs/Makefile
+USH_SRCS += $(ROOT)/apps/vcs/src/merge/repo_diff.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/store/repository.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/store/history.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/store/refs.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/store/worktree.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/store/stage.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/store/identity.asm $(ROOT)/apps/vcs/src/policy/signing.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/merge/integrate.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/merge/rebase.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/merge/pick.asm
+USH_SRCS += $(ROOT)/lib/crypto/uhash/sha256/sha256.asm $(ROOT)/lib/crypto/uhash/sha256/sha256.inc
+USH_SRCS += $(ROOT)/lib/crypto/uhash/sha512/sha512.asm $(ROOT)/lib/crypto/uhash/sha512/sha512.inc
+USH_SRCS += $(wildcard $(ROOT)/lib/crypto/usign/ed25519/*.asm $(ROOT)/lib/crypto/usign/ed25519/*.inc)
 
 BOOT_SRCS := $(shell find $(KERNEL_DIR)/stage1 $(KERNEL_DIR)/stage2 \
                           $(KERNEL_DIR)/survive $(KERNEL_DIR)/tpm \
