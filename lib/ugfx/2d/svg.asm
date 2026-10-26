@@ -493,7 +493,7 @@ extern ugfx_ctx_draw_image
 %define P_RUN_CAP       (P_FONT_RAW + 572)              ; u32
 %define P_RUN_STATE     (P_FONT_RAW + 576)              ; its element's state
 %define P_TXG_ON        (P_FONT_RAW + 584)              ; u32 svg_text_char places a shaped glyph:
-%define P_TXG_FIRST     (P_FONT_RAW + 588)              ; u32   the run's first (lists apply)
+%define P_TXG_FIRST     (P_FONT_RAW + 588)              ; u32   the run's first: its first character + 1 (lists apply), else 0
 %define P_TXG_ADV       (P_FONT_RAW + 592)              ; f64   its advance
 %define P_TXG_XO        (P_FONT_RAW + 600)              ; f64   its offset
 %define P_TXG_YO        (P_FONT_RAW + 608)              ; f64
@@ -4905,7 +4905,10 @@ svg_text_flush:
     mov [r15 + P_TXG_BLANK], edx
     xor edx, edx
     test ebp, ebp
-    sete dl
+    jnz .first
+    mov edx, [rsp + TF_START]
+    inc edx
+.first:
     mov [r15 + P_TXG_FIRST], edx
     movsd xmm0, [r13 + UgfxSvgGlyph_adv]
     movsd [r15 + P_TXG_ADV], xmm0
@@ -4973,11 +4976,14 @@ svg_text_char:
     cmp qword [r14 + UgfxSvg_font_fn], 0
     je .out
     mov r13d, [r15 + P_TX_COUNT]
-    ; a shaped glyph takes the lists' x, y, dx, dy only as its run's first
+    ; a shaped glyph takes the lists' x, y, dx, dy only as its run's first,
+    ; at the run's first character (right to left that is not the glyph's)
     cmp dword [r15 + P_TXG_ON], 0
     je .lists
-    cmp dword [r15 + P_TXG_FIRST], 0
-    je .no_dy
+    mov eax, [r15 + P_TXG_FIRST]
+    test eax, eax
+    jz .no_dy
+    lea r13d, [rax - 1]
 .lists:
     ; absolute x / y: a new chunk there (y not on a textPath)
     mov edi, 0
@@ -5010,6 +5016,7 @@ svg_text_char:
     addsd xmm0, [r15 + P_TX_Y]
     movsd [r15 + P_TX_Y], xmm0
 .no_dy:
+    mov r13d, [r15 + P_TX_COUNT]
     ; rotate: its value, else its last, else 0 (degrees)
     xorpd xmm0, xmm0
     mov rax, [rbx + S_LISTS + 32]
