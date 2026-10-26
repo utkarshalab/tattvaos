@@ -63,6 +63,8 @@ VCS_ERR_IO        equ 4
 VCS_ERR_CORRUPT   equ 5
 VCS_ERR_CONFLICT  equ 6
 VCS_ERR_PERM      equ 7
+VCS_ERR_USAGE     equ 8
+VCS_ERR_UNSUPPORTED equ 9
 
 ; -----------------------------------------------------------------------------
 ; UFS integration: result codes from UFS calls
