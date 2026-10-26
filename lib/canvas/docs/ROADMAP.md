@@ -421,9 +421,9 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | TXT-01 | TrueType loading, cmap, glyf, composites | P1 | ✓ `lib/ufont` sfnt (cmap 4 / 12, simple and composite glyphs, metrics), used for SVG text; the old `font/*` scaffold removed |
 | TXT-02 | Scanline anti-aliased rasterization and glyph cache | P1 | ✓ outlines rasterized as lib/ugfx paths; outlines cached per font in `lib/ufont` |
 | TXT-03 | Kerning and metrics | P2 | ✓ metrics in `lib/ufont`; kerning through GPOS (or the kern table) when SVG text is shaped |
-| TXT-04 | Text shaping: ligatures, contextual forms, mark positioning | P2 | ✓ `lib/ufont` `ufont_shape` (OpenType GSUB / GPOS as HarfBuzz), SVG text shaped in runs |
+| TXT-04 | Text shaping: ligatures, contextual forms, mark positioning | P2 | ✓ `lib/ufont` `ufont_shape` (OpenType GSUB / GPOS as HarfBuzz; Arabic joining and Hebrew shapers, fallback shaping and mark placement for fonts without layout tables), SVG text shaped in runs; Noto Arabic and Hebrew faces shipped |
 | TXT-05 | Indic scripts first-class: Devanagari conjuncts, matras, reph | P2 | ✓ the Indic shaper in `lib/ufont` for Devanagari, Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada, Malayalam; their Noto faces shipped |
-| TXT-06 | Bidirectional text | P2 | |
+| TXT-06 | Bidirectional text | P2 | ◐ right-to-left runs shaped and drawn in visual order (`lib/ufont`); the bidirectional algorithm (reordering mixed runs, numbers inside right-to-left text) not yet |
 | TXT-07 | Line breaking and hyphenation | P2 | |
 | TXT-08 | Unicode normalization, grapheme clusters, emoji ZWJ sequences | P2 | ◐ `core/utf8` (simplified) |
 | TXT-09 | Font discovery and matching (family, weight, style) | P2 | ◐ `lib/ufont` font sets: CSS family lists, generic names and aliases, weight / style; shipped fonts in `lib/ufont/fonts` |
