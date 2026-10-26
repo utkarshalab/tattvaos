@@ -25,6 +25,10 @@ their family, weight and style). They install read-only to
 | Noto Sans Telugu | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
 | Noto Sans Kannada | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
 | Noto Sans Malayalam | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Indic.txt` |
+| Noto Sans Arabic | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Arabic-Hebrew.txt` |
+| Noto Naskh Arabic | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Arabic-Hebrew.txt` |
+| Noto Sans Hebrew | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Arabic-Hebrew.txt` |
+| Noto Serif Hebrew | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Arabic-Hebrew.txt` |
 
 Noto is the default for everything: no family, `sans-serif`, `serif`,
 `monospace` and the `ui-*` / `system-ui` names. Liberation has the same
@@ -65,15 +69,22 @@ names (and Arimo, Tinos, Cousine) map to it.
   NotoSansKannada-v2.006
   NotoSansMalayalam-v2.104
   - the `unhinted/ttf` static Regular and Bold, unmodified.
+- Noto Arabic and Hebrew: the notofonts/arabic releases
+  NotoSansArabic-v2.013 and NotoNaskhArabic-v2.021 and the
+  notofonts/hebrew releases NotoSansHebrew-v3.001 and
+  NotoSerifHebrew-v2.004, the `unhinted/ttf` static Regular and Bold,
+  unmodified.
 - Liberation: liberationfonts/liberation-fonts 2.1.5
   (`liberation-fonts-ttf-2.1.5.tar.gz`), unmodified. "Liberation" is a
   Reserved Font Name under its licence, so these files are not subset.
 
 ## What is not covered yet
 
-The Indic faces are in `ufont_standard` (families "Noto Sans
-Devanagari", "Noto Serif Devanagari", "Noto Sans Bengali" and so on);
-text in those scripts in any other family falls back to them and is
-shaped by the Indic shaper. Arabic follows. Colour emoji need colour glyph tables, which `sfnt.asm` does
-not read. A character no shipped face has draws as the
+The Indic, Arabic and Hebrew faces are in `ufont_standard` (families
+"Noto Sans Devanagari", "Noto Sans Bengali", "Noto Sans Arabic", "Noto
+Naskh Arabic", "Noto Sans Hebrew" and so on); text in those scripts in
+any other family falls back to them (Arabic to Noto Sans Arabic first,
+Hebrew to Noto Sans Hebrew) and is shaped by the script's shaper, right
+to left for Arabic and Hebrew. Colour emoji need colour glyph tables,
+which `sfnt.asm` does not read. A character no shipped face has draws as the
 face's missing-glyph box.
