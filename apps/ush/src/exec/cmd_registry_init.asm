@@ -7,7 +7,7 @@ extern cmd_echo,cmd_help,cmd_exit,cmd_true,cmd_false,cmd_status,cmd_env
 extern cmd_export,cmd_unset,cmd_history,cmd_calc,cmd_version
 extern cmd_pwd,cmd_ls,cmd_cd,cmd_cat,cmd_touch,cmd_mkdir,cmd_cp,cmd_mv,cmd_write
 extern cmd_rm,cmd_rmdir,cmd_stat,cmd_df,cmd_du,cmd_append,cmd_head,cmd_tail,cmd_wc,cmd_grep,cmd_find,cmd_hexdump,cmd_clear,cmd_uptime,cmd_sleep,cmd_shutdown,cmd_reboot
-extern cmd_uedit
+extern cmd_uedit,cmd_vcs
 section .rodata
 %macro NAME 3
  %1_name: db %2,0
@@ -52,6 +52,7 @@ NAME sleep,'sleep','sleep SECONDS - 0..86400, yields to scheduler'
 NAME shutdown,'shutdown','Flush storage and power off the native guest'
 NAME reboot,'reboot','Flush storage and reboot the native guest'
 NAME uedit,'uedit','uedit FILE - terminal text editor, Ctrl-S save / Ctrl-Q quit'
+NAME vcs,'vcs','vcs init/status/add/reset/staged/commit/log/show/restore/checkout/branch/tag/refs/diff'
 section .data
 %macro ENTRY 4
 %1_entry:
@@ -104,8 +105,10 @@ ENTRY sleep,cmd_sleep,2,2
 ENTRY shutdown,cmd_shutdown,1,1
 ENTRY reboot,cmd_reboot,1,1
 ENTRY uedit,cmd_uedit,2,2
+ENTRY vcs,cmd_vcs,1,256
 section .data.rel.ro
 entries: dq uedit_entry,rm_entry,rmdir_entry,stat_entry,df_entry,du_entry,append_entry,head_entry,tail_entry,wc_entry,grep_entry,find_entry,hexdump_entry,clear_entry,uptime_entry,sleep_entry,shutdown_entry,reboot_entry,pwd_entry,ls_entry,cd_entry,cat_entry,touch_entry,mkdir_entry,cp_entry,mv_entry,write_entry,version_entry,calc_entry,history_entry,unset_entry,export_entry,env_entry,status_entry,false_entry,true_entry,exit_entry,help_entry,echo_entry
+ dq vcs_entry
 entries_end:
 section .text
 global cmd_registry_init
