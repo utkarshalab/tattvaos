@@ -8,6 +8,7 @@
 ;   ufont_glyph(font, code point)           -> glyph id (0: none)
 ;   ufont_advance(font, glyph)              -> advance width (font units)
 ;   ufont_metrics(font)                     -> units per em, ascent, descent
+;   ufont_extents(font, glyph)              -> its box (bearing from hmtx); 0 without glyf
 ;   ufont_outline(font, glyph, path, scale, arena)
 ;                                           -> 0, -EINVAL, -ENOMEM
 ;       (outlines are kept per font once decoded: a glyph's contours in
@@ -461,6 +462,106 @@ ufont_advance:
 .have:
     mov rdx, [rdi + UfontFont_hmtx]
     BE16 eax, [rdx + rsi * 4]
+    ret
+
+; ----------------------------------------------------------------------------
+; ufont_extents — rdi = UfontFont*, esi = glyph -> eax 1 (0: no such glyph),
+;   ecx = x bearing (the hmtx left side bearing), edx = y bearing (top),
+;   r8d = width, r9d = height (negative); font units, y up; all 0 for an
+;   empty glyph
+; ----------------------------------------------------------------------------
+global ufont_extents
+ufont_extents:
+    xor eax, eax
+    cmp qword [rdi + UfontFont_glyf], 0
+    je .out
+    cmp esi, [rdi + UfontFont_nglyphs]
+    jae .out
+    mov r8, [rdi + UfontFont_loca]
+    cmp dword [rdi + UfontFont_loca_fmt], 0
+    jne .long
+    BE16 eax, [r8 + rsi * 2]
+    BE16 ecx, [r8 + rsi * 2 + 2]
+    add rax, rax
+    add rcx, rcx
+    jmp .located
+.long:
+    mov eax, [r8 + rsi * 4]
+    bswap eax
+    mov ecx, [r8 + rsi * 4 + 4]
+    bswap ecx
+.located:
+    lea rdx, [rax + 10]
+    cmp rax, rcx
+    jae .empty
+    cmp rdx, rcx
+    ja .empty
+    cmp rcx, [rdi + UfontFont_glyf_len]
+    ja .empty
+    mov r10, [rdi + UfontFont_glyf]
+    add r10, rax
+    cmp word [r10], 0                   ; no contours
+    je .empty
+    ; the box: xMin, yMin, xMax, yMax
+    movzx eax, word [r10 + 2]
+    xchg al, ah
+    movsx eax, ax
+    movzx ecx, word [r10 + 6]
+    xchg cl, ch
+    movsx ecx, cx
+    cmp eax, ecx
+    jle .x_sorted
+    xchg eax, ecx
+.x_sorted:
+    mov r8d, ecx
+    sub r8d, eax                        ; width
+    mov r11d, eax                       ; min x: the bearing without hmtx
+    movzx eax, word [r10 + 4]
+    xchg al, ah
+    movsx eax, ax
+    movzx ecx, word [r10 + 8]
+    xchg cl, ch
+    movsx ecx, cx
+    cmp eax, ecx
+    jle .y_sorted
+    xchg eax, ecx
+.y_sorted:
+    mov edx, ecx                        ; top
+    mov r9d, eax
+    sub r9d, ecx                        ; height (negative)
+    ; the left side bearing from hmtx
+    mov ecx, r11d
+    mov r10, [rdi + UfontFont_hmtx]
+    mov eax, [rdi + UfontFont_nhm]
+    cmp esi, eax
+    jae .lsb_array
+    lea r11, [rsi * 4 + 4]
+    cmp r11, [rdi + UfontFont_hmtx_len]
+    ja .have
+    movzx ecx, word [r10 + rsi * 4 + 2]
+    jmp .lsb
+.lsb_array:
+    mov r11d, esi
+    sub r11d, eax
+    add r11d, r11d
+    lea r11, [r11 + rax * 4]
+    lea rax, [r11 + 2]
+    cmp rax, [rdi + UfontFont_hmtx_len]
+    ja .have
+    movzx ecx, word [r10 + r11]
+.lsb:
+    xchg cl, ch
+    movsx ecx, cx
+.have:
+    mov eax, 1
+.out:
+    ret
+.empty:
+    xor ecx, ecx
+    xor edx, edx
+    xor r8d, r8d
+    xor r9d, r9d
+    mov eax, 1
     ret
 
 ; ----------------------------------------------------------------------------
