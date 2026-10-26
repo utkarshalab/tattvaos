@@ -44,6 +44,12 @@
 
 [BITS 64]
 
+%ifdef ED25519_EXTERNAL_SHA512
+default rel
+%include "lib/crypto/uhash/sha512/sha512.inc"
+extern sha512_init,sha512_update,sha512_final
+%endif
+
 %include "lib/crypto/usign/ed25519/ed25519.inc"
 %include "lib/crypto/usign/ed25519/fe25519.asm"
 %include "lib/crypto/usign/ed25519/sc25519.asm"
@@ -69,7 +75,9 @@ ed25519_rejects:    dq 0
 
 section .text
 
+%ifndef ED25519_NO_KEYGEN
 global ed25519_keygen
+%endif
 global ed25519_sign
 global ed25519_verify
 global ed25519_available
@@ -353,6 +361,7 @@ ed25519_public_from_seed:
 ; would be derived from whatever the buffer already held — reproducible, and
 ; catastrophically so.
 ; -----------------------------------------------------------------------------
+%ifndef ED25519_NO_KEYGEN
 align 32
 ed25519_keygen:
     push rbx
@@ -386,6 +395,7 @@ ed25519_keygen:
     pop r12
     pop rbx
     ret
+%endif
 
 ; -----------------------------------------------------------------------------
 ; ed25519_sign
