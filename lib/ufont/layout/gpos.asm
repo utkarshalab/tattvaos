@@ -631,7 +631,10 @@ ufl_gpos_apply:
     mov r9d, edx                        ; exit y
     mov r12d, [rsp + GF_SK + SK_IDX]    ; i
     mov r13d, [r15 + S_IDX]             ; j
-    ; horizontal, left to right
+    cmp byte [r15 + S_RTL], 0
+    jne .curs_rtl
+    ; left to right: the previous glyph's advance ends at its exit, this one
+    ; starts at its entry
     imul eax, r12d, GPOS_SIZE
     add rax, [r15 + S_POS]
     mov ecx, r8d
@@ -643,6 +646,22 @@ ufl_gpos_apply:
     add ecx, [rax + GPOS_XO]
     sub [rax + GPOS_XA], ecx
     sub [rax + GPOS_XO], ecx
+    jmp .curs_cross
+.curs_rtl:
+    ; right to left: the previous glyph starts at its exit, this one's
+    ; advance ends at its entry
+    imul eax, r12d, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    mov ecx, r8d
+    add ecx, [rax + GPOS_XO]
+    sub [rax + GPOS_XA], ecx
+    sub [rax + GPOS_XO], ecx
+    imul eax, r13d, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    mov ecx, [rsp + GF_MARK]
+    add ecx, [rax + GPOS_XO]
+    mov [rax + GPOS_XA], ecx
+.curs_cross:
     ; the child hangs from the parent
     mov ecx, [rsp + GF_MARK + 4]
     sub ecx, r9d                        ; entry y - exit y
