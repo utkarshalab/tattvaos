@@ -18,7 +18,7 @@ import unicodedata
 from fontTools import unicodedata as fud
 from fontTools.ttLib import TTFont
 
-from ucd_data import EXTENDED_PICTOGRAPHIC
+from ucd_data import EXTENDED_PICTOGRAPHIC, MIRROR
 
 # glyph props (GDEF classes, as HarfBuzz keeps them)
 BASE, LIGATURE, MARK = 0x02, 0x04, 0x08
@@ -156,6 +156,12 @@ SCRIPT_TAGS = {'Deva': ['dev3', 'dev2', 'deva'], 'Beng': ['bng3', 'bng2', 'beng'
                'Telu': ['tel3', 'tel2', 'telu'], 'Knda': ['knd3', 'knd2', 'knda'], 'Mlym': ['mlm3', 'mlm2', 'mlym'],
                'Mymr': ['mym2', 'mymr'], 'Hira': ['kana'], 'Kana': ['kana'], 'Laoo': ['lao '],
                'Yiii': ['yi  '], 'Nkoo': ['nko '], 'Vaii': ['vai ']}
+
+
+# scripts written right to left (HarfBuzz's hb_script_get_horizontal_direction)
+RTL_SCRIPTS = {'Arab', 'Hebr', 'Syrc', 'Thaa', 'Cprt', 'Khar', 'Phnx', 'Nkoo', 'Lydi', 'Avst', 'Armi', 'Phli', 'Prti',
+               'Sarb', 'Orkh', 'Samr', 'Mand', 'Merc', 'Mero', 'Mani', 'Mend', 'Nbat', 'Narb', 'Palm', 'Phlp',
+               'Hatr', 'Adlm', 'Rohg', 'Sogo', 'Sogd', 'Elym', 'Chrs', 'Yezi', 'Ougr', 'Gara', 'Sidt'}
 
 
 def script_tags(script):
@@ -429,8 +435,12 @@ class Font:
         self.marksets = [set(c.glyphs) for c in gdef.MarkGlyphSetsDef.Coverage] \
             if gdef and getattr(gdef, 'MarkGlyphSetsDef', None) else []
         self.kern = []
+        self.has_kerning = self.has_cross_kerning = False
         if 'kern' in self.tt and getattr(self.tt['kern'], 'version', 1) == 0:
+            self.has_kerning = bool(self.tt['kern'].kernTables)
             for st in self.tt['kern'].kernTables:
+                if getattr(st, 'coverage', 0) & 4:
+                    self.has_cross_kerning = True
                 # horizontal, not cross-stream, not variation, format 0
                 if getattr(st, 'format', None) == 0 and (st.coverage & 1) and not (st.coverage & 0x0C):
                     self.kern.append({(self.gid[a], self.gid[b_]): v for (a, b_), v in st.kernTable.items()})
@@ -461,6 +471,18 @@ class Font:
         if k == 3:
             return MARK | (self.markattach.get(self.order[g], 0) << 8)
         return 0
+
+    def extents(self, g):
+        """HarfBuzz's glyph extents from glyf: (x bearing = the hmtx left side bearing, y bearing =
+        top, width, height (negative)); zeros for an empty glyph."""
+        if 'glyf' not in self.tt:
+            return None
+        gl = self.tt['glyf'][self.order[g]]
+        if not hasattr(gl, 'xMin') or gl.numberOfContours == 0:
+            return [0, 0, 0, 0]
+        lsb = self.hmtx[self.order[g]][1]
+        return [lsb, max(gl.yMin, gl.yMax), max(gl.xMin, gl.xMax) - min(gl.xMin, gl.xMax),
+                min(gl.yMin, gl.yMax) - max(gl.yMin, gl.yMax)]
 
     def mark_set_covers(self, s, g):
         return s < len(self.marksets) and self.order[g] in self.marksets[s]
@@ -611,7 +633,7 @@ class MapBuilder:
                 shift, mask = next_bit, (1 << (next_bit + bits)) - (1 << next_bit)
                 next_bit += bits
                 m.global_mask |= (default << shift) & mask
-            m.features[tag] = (mask, (1 << shift) & mask, (s0, s1))
+            m.features[tag] = (mask, (1 << shift) & mask, (s0, s1), not found)
             feats.append((tag, index, (s0, s1), mask, not (flags & F_MANUAL_ZWNJ), not (flags & F_MANUAL_ZWJ),
                           bool(flags & F_RANDOM), bool(flags & F_PER_SYLLABLE)))
         pauses = [self.pauses[0] + [(self.current[0], None)], self.pauses[1] + [(self.current[1], None)]]
@@ -629,7 +651,8 @@ class MapBuilder:
                         for li in tables[t].FeatureList.FeatureRecord[index[t]].Feature.LookupListIndex:
                             if li < nlookups:
                                 lookups.append(Lookup(li, mask, az, aj, rnd, ps))
-                part = sorted(lookups[last:], key=lambda lk: lk.index)
+                part = lookups[last:]
+                hb_qsort(part, lambda lk: lk.index)
                 del lookups[last:]
                 for lk in part:
                     if len(lookups) > last and lookups[-1].index == lk.index:
@@ -643,6 +666,80 @@ class MapBuilder:
                     m.stages[t].append((last, pauses[t][pi][1]))
                     pi += 1
         return m
+
+
+def hb_qsort(a, key):
+    """HarfBuzz's hb_qsort (sort_r_simple), in place: insertion sort below 10 items, else a
+    three-way quicksort on the median of the second, middle and second-last. Not stable - which
+    of two equal items comes first (the lookup merge keeps the first's flags) is HarfBuzz's."""
+    def swapn(x, y, n):
+        for k in range(n):
+            a[x + k], a[y + k] = a[y + k], a[x + k]
+
+    def blocks(p, na, nb):
+        if na > 0 and nb > 0:
+            if na > nb:
+                swapn(p, p + na, nb)
+            else:
+                swapn(p, p + nb, na)
+
+    def cmp(i, j):
+        ki, kj = key(a[i]), key(a[j])
+        return (ki > kj) - (ki < kj)
+
+    def sort(b, nel):
+        end = b + nel
+        if nel < 10:
+            for pi in range(b + 1, end):
+                pj = pi
+                while pj > b and cmp(pj - 1, pj) > 0:
+                    swapn(pj - 1, pj, 1)
+                    pj -= 1
+            return
+        last = b + nel - 1
+        l0, l1, l2 = b + 1, b + nel // 2, last - 1
+        if cmp(l0, l1) > 0:
+            l0, l1 = l1, l0
+        if cmp(l1, l2) > 0:
+            l1, l2 = l2, l1
+            if cmp(l0, l1) > 0:
+                l0, l1 = l1, l0
+        if l1 != last:
+            swapn(l1, last, 1)
+        pivot = last
+        ple = pl = b
+        pre = pr = last
+        while pl < pr:
+            while pl < pr:
+                c = cmp(pl, pivot)
+                if c > 0:
+                    break
+                if c == 0:
+                    if ple < pl:
+                        swapn(ple, pl, 1)
+                    ple += 1
+                pl += 1
+            if pl >= pr:
+                break
+            while pl < pr:
+                pr -= 1
+                c = cmp(pr, pivot)
+                if c == 0:
+                    pre -= 1
+                    if pr < pre:
+                        swapn(pr, pre, 1)
+                elif c < 0:
+                    if pl < pr:
+                        swapn(pl, pr, 1)
+                    pl += 1
+                    break
+        pl = pr
+        blocks(b, ple - b, pl - ple)
+        blocks(pr, pre - pr, end - pre)
+        sort(b, pl - ple)
+        sort(end - (pre - pr), pre - pr)
+
+    sort(0, len(a))
 
 
 # ---------------------------------------------------------------- would-substitute (Indic plans)
@@ -1471,6 +1568,28 @@ def apply_gpos(c, t, st):
 
 
 # ---------------------------------------------------------------- running a table
+def apply_lookup(c, lk, mask):
+    """One GSUB lookup over the run with a mask (HarfBuzz's hb_ot_layout_substitute_lookup)."""
+    b = c.buf
+    if not b.info or not mask:
+        return
+    c.lookup_props = lookup_props(lk, c.font)
+    c.auto_zwnj = c.auto_zwj = True
+    c.lookup_mask = mask
+    c.per_syllable = False
+    c.last_base, c.last_base_until = -1, 0
+    b.clear_output()
+    b.idx = 0
+    while b.idx < len(b.info):
+        cur = b.cur()
+        applied = False
+        if (cur.mask & mask) and c.check_glyph_property(cur, c.lookup_props):
+            applied = apply_subtables(c, lk)
+        if not applied:
+            b.next_glyph()
+    b.sync()
+
+
 def run_table(c, m, gpos):
     """The table's lookups stage by stage, each stage's pause after it."""
     b = c.buf
@@ -1633,6 +1752,7 @@ def normalize(b, font, shaper=None):
                     else:
                         g = font.nominal(b.cur().cp)
                         next_char(0 if g is None else g)
+                        b.cur().gc = 'Cf'             # the selector, kept for GSUB: a format character now
                     while b.idx < end and is_variation_selector(b.cur().cp):
                         g = font.nominal(b.cur().cp)
                         next_char(0 if g is None else g)
@@ -1661,6 +1781,8 @@ def normalize(b, font, shaper=None):
             end += 1
         if end - i <= 32:
             b.sort(i, end, lambda inf: inf.mcc)
+            if shaper is not None and hasattr(shaper, 'reorder_marks'):
+                shaper.reorder_marks(b, i, end)
         i = end
     cgj(b)
     # recompose
@@ -1694,7 +1816,8 @@ def normalize(b, font, shaper=None):
 # ---------------------------------------------------------------- the shaper
 def pick_shaper(script, gsub_script):
     """HarfBuzz's shaper choice: the nine Indic scripts through the Indic shaper unless the font's
-    GSUB only has DFLT / latn for them; everything else the default shaper (None)."""
+    GSUB only has DFLT / latn for them; Arabic (and Syriac when the font has a script for it) through
+    the Arabic shaper; Hebrew through the Hebrew one; everything else the default shaper (None)."""
     if script in ('Deva', 'Beng', 'Guru', 'Gujr', 'Orya', 'Taml', 'Telu', 'Knda', 'Mlym'):
         tag = gsub_script.ScriptTag if gsub_script is not None else None
         if tag in ('DFLT', 'latn'):
@@ -1703,6 +1826,15 @@ def pick_shaper(script, gsub_script):
             raise NotImplementedError('the Universal Shaping Engine (deva / dev3 fonts)')
         from indic import IndicShaper
         return IndicShaper(script)
+    if script in ('Arab', 'Syrc'):
+        tag = gsub_script.ScriptTag if gsub_script is not None else None
+        if tag != 'DFLT' or script == 'Arab':
+            from arabic import ArabicShaper
+            return ArabicShaper(script)
+        return None
+    if script == 'Hebr':
+        from arabic import HebrewShaper
+        return HebrewShaper(script)
     return None
 
 
@@ -1744,11 +1876,16 @@ def shape(font, cps, script=None, language=None, shaper=None):
     if shaper is None:
         shaper = pick_shaper(script, gsub_s)
     # the plan
+    rtl = script in RTL_SCRIPTS
     mb = MapBuilder()
     mb.enable_feature('rvrn')
     mb.add_gsub_pause(None)
-    mb.enable_feature('ltra')
-    mb.enable_feature('ltrm')
+    if rtl:
+        mb.enable_feature('rtla')
+        mb.add_feature('rtlm')
+    else:
+        mb.enable_feature('ltra')
+        mb.enable_feature('ltrm')
     for tag in ('frac', 'numr', 'dnom'):
         mb.add_feature(tag)
     mb.enable_feature('rand', F_RANDOM, MAX_VALUE)
@@ -1763,21 +1900,40 @@ def shape(font, cps, script=None, language=None, shaper=None):
     if shaper:
         shaper.override_features(mb)
     m = mb.compile((font.gsub, font.gpos), (gsub_s, gpos_s), (gsub_ls, gpos_ls))
+    for inf in b.info:
+        inf.mask = m.global_mask
     if shaper:
         shaper.data_create(m, font)
         shaper.preprocess_text(b, font)
+    if rtl:
+        # mirrored characters where the font has the mirror, else rtlm
+        rtlm = m.get_1_mask('rtlm')
+        for inf in b.info:
+            mc = MIRROR.get(inf.cp)
+            if mc is None or font.nominal(mc) is None:
+                inf.mask |= rtlm
+            else:
+                inf.cp = mc
     # normalization
     normalize(b, font, shaper)
     # masks, glyphs
-    for inf in b.info:
-        inf.mask = m.global_mask
     fractions(b, m)
     if shaper:
         shaper.setup_masks(b, font)
     has_gpos_kern = gpos_ls is not None and any(
         font.gpos.FeatureList.FeatureRecord[i].FeatureTag == 'kern' for i in gpos_ls.FeatureIndex)
     apply_gpos = font.gpos is not None
-    apply_kern = bool(font.kern) and not (has_gpos_kern and apply_gpos)
+    if shaper is not None and getattr(shaper, 'gpos_tag', None) and \
+            (gpos_s is None or gpos_s.ScriptTag != shaper.gpos_tag):
+        apply_gpos = False                                # GPOS only for the shaper's own script
+    fallback_position = shaper.fallback_position if shaper else True
+    zero_marks = shaper.zero_width_marks if shaper else 'late'
+    # the legacy kern table: only for shapers that position by fallback (not Indic)
+    apply_kern = font.has_kerning and not (has_gpos_kern and apply_gpos) and fallback_position
+    adjust_marks = not apply_gpos and (not apply_kern or not font.has_cross_kerning)
+    fallback_marks = adjust_marks and fallback_position
+    if fallback_marks:
+        recategorize_marks(b)
     # GSUB
     for inf in b.info:
         inf.props = font.glyph_props(inf.glyph)
@@ -1798,24 +1954,33 @@ def shape(font, cps, script=None, language=None, shaper=None):
         p.xa = font.advance(inf.glyph)
     fallback_spaces(b, font)
     attached = False
-    if font.gpos:
+    if font.gpos and apply_gpos:
         c = Ctx(font, b, font.gpos, True)
         c.has_attachment = False
+        c.rtl = rtl
         run_table(c, m, True)
         attached = c.has_attachment
     if apply_kern:
-        kern_table(font, b, m.get_mask('kern'))
-    zero_marks = shaper.zero_width_marks if shaper else 'late'
+        kern_table(font, b, m.get_mask('kern'), rtl)
     if zero_marks == 'late':
         for inf, p in zip(b.info, b.pos):
             if inf.is_mark():
+                if adjust_marks and not rtl:
+                    p.xo -= p.xa
+                    p.yo -= p.ya
                 p.xa = p.ya = 0
     for inf, p in zip(b.info, b.pos):
         if inf.is_default_ignorable():
             p.xa = p.ya = p.xo = p.yo = 0
     if attached:
         for i in range(len(b.pos)):
-            propagate(b.pos, i, MAX_NESTING)
+            propagate(b.pos, i, MAX_NESTING, rtl)
+    if fallback_marks:
+        fallback_mark_position(b, font, rtl, adjust_marks and not rtl)
+    if rtl:
+        # visual order
+        b.info.reverse()
+        b.pos.reverse()
     # default ignorables hidden: the space glyph
     space = font.nominal(0x20)
     out = []
@@ -1827,6 +1992,186 @@ def shape(font, cps, script=None, language=None, shaper=None):
             g = space
         out.append((g, inf.cluster, p.xa, p.ya, p.xo, p.yo))
     return out
+
+
+# ---------------------------------------------------------------- fallback mark positioning
+CC_ATTACHED_BELOW_LEFT, CC_ATTACHED_BELOW, CC_ATTACHED_ABOVE, CC_ATTACHED_ABOVE_RIGHT = 200, 202, 214, 216
+CC_BELOW_LEFT, CC_BELOW, CC_BELOW_RIGHT, CC_LEFT, CC_RIGHT = 218, 220, 222, 224, 226
+CC_ABOVE_LEFT, CC_ABOVE, CC_ABOVE_RIGHT, CC_DOUBLE_BELOW, CC_DOUBLE_ABOVE = 228, 230, 232, 233, 234
+
+
+def tdiv(a, b):
+    """C's integer division (toward zero)."""
+    q = abs(a) // abs(b)
+    return q if (a >= 0) == (b > 0) else -q
+
+
+def recategorize(u, klass):
+    if klass >= 200:
+        return klass
+    if (u & ~0xFF) == 0x0E00:
+        if klass == 0:
+            if u in (0x0E31, 0x0E34, 0x0E35, 0x0E36, 0x0E37, 0x0E47, 0x0E4C, 0x0E4D, 0x0E4E):
+                klass = CC_ABOVE_RIGHT
+            elif u in (0x0EB1, 0x0EB4, 0x0EB5, 0x0EB6, 0x0EB7, 0x0EBB, 0x0ECC, 0x0ECD):
+                klass = CC_ABOVE
+            elif u == 0x0EBC:
+                klass = CC_BELOW
+        elif u == 0x0E3A:
+            klass = CC_BELOW_RIGHT
+    # modified classes (Hebrew, Arabic, Syriac, Thai, Lao, Tibetan)
+    table = {22: CC_BELOW, 15: CC_BELOW, 16: CC_BELOW, 17: CC_BELOW, 23: CC_BELOW, 18: CC_BELOW, 19: CC_BELOW,
+             20: CC_BELOW, 21: CC_BELOW, 24: CC_BELOW, 25: CC_BELOW, 13: CC_ATTACHED_ABOVE, 10: CC_ABOVE_RIGHT,
+             11: CC_ABOVE_LEFT, 14: CC_ABOVE_LEFT, 26: CC_ABOVE,
+             28: CC_ABOVE, 29: CC_ABOVE, 31: CC_ABOVE, 32: CC_ABOVE, 27: CC_ABOVE, 34: CC_ABOVE, 35: CC_ABOVE,
+             36: CC_ABOVE, 30: CC_BELOW, 33: CC_BELOW, 3: CC_BELOW_RIGHT, 107: CC_ABOVE_RIGHT, 118: CC_BELOW,
+             122: CC_ABOVE, 129: CC_BELOW, 132: CC_ABOVE, 131: CC_BELOW}
+    return table.get(klass, klass)
+
+
+def recategorize_marks(b):
+    for inf in b.info:
+        if inf.gc == 'Mn':
+            inf.mcc = recategorize(inf.cp, inf.mcc)
+
+
+def position_mark(font, b, base, i, klass, rtl):
+    me = font.extents(b.info[i].glyph)
+    if me is None:
+        return
+    y_gap = font.tt['head'].unitsPerEm // 16
+    pos = b.pos[i]
+    pos.xo = pos.yo = 0
+    # x
+    if klass in (CC_DOUBLE_BELOW, CC_DOUBLE_ABOVE):
+        if not rtl:
+            pos.xo += base[0] + base[2] - tdiv(me[2], 2) - me[0]
+        else:
+            pos.xo += base[0] - tdiv(me[2], 2) - me[0]
+    elif klass in (CC_ATTACHED_BELOW_LEFT, CC_BELOW_LEFT, CC_ABOVE_LEFT):
+        pos.xo += base[0] - me[0]
+    elif klass in (CC_ATTACHED_ABOVE_RIGHT, CC_BELOW_RIGHT, CC_ABOVE_RIGHT):
+        pos.xo += base[0] + base[2] - me[2] - me[0]
+    else:
+        pos.xo += base[0] + tdiv(base[2] - me[2], 2) - me[0]
+    # y
+    if klass in (CC_DOUBLE_BELOW, CC_BELOW_LEFT, CC_BELOW, CC_BELOW_RIGHT, CC_ATTACHED_BELOW_LEFT,
+                 CC_ATTACHED_BELOW):
+        if klass in (CC_DOUBLE_BELOW, CC_BELOW_LEFT, CC_BELOW, CC_BELOW_RIGHT):
+            base[3] -= y_gap
+        pos.yo = base[1] + base[3] - me[1]
+        if (y_gap > 0) == (pos.yo > 0):
+            base[3] -= pos.yo
+            pos.yo = 0
+        base[3] += me[3]
+    elif klass in (CC_DOUBLE_ABOVE, CC_ABOVE_LEFT, CC_ABOVE, CC_ABOVE_RIGHT, CC_ATTACHED_ABOVE,
+                   CC_ATTACHED_ABOVE_RIGHT):
+        if klass in (CC_DOUBLE_ABOVE, CC_ABOVE_LEFT, CC_ABOVE, CC_ABOVE_RIGHT):
+            base[1] += y_gap
+            base[3] -= y_gap
+        pos.yo = base[1] - (me[1] + me[3])
+        if (y_gap > 0) != (pos.yo > 0):
+            correction = tdiv(0 - pos.yo, 2)
+            base[1] += correction
+            base[3] -= correction
+            pos.yo += correction
+        base[1] -= me[3]
+        base[3] += me[3]
+
+
+def zero_mark_advances(b, start, end, adjust):
+    for i in range(start, end):
+        if b.info[i].gc == 'Mn':
+            if adjust:
+                b.pos[i].xo -= b.pos[i].xa
+                b.pos[i].yo -= b.pos[i].ya
+            b.pos[i].xa = b.pos[i].ya = 0
+
+
+def position_around_base(b, font, base, end, rtl, adjust):
+    be = font.extents(b.info[base].glyph)
+    if be is None:
+        zero_mark_advances(b, base + 1, end, adjust)
+        return
+    be[1] += b.pos[base].yo
+    be[0] = 0
+    be[2] = font.advance(b.info[base].glyph)
+    lig_id = b.info[base].lig_id()
+    num = b.info[base].lig_num_comps()
+    x_offset = y_offset = 0
+    if not rtl:
+        x_offset -= b.pos[base].xa
+        y_offset -= b.pos[base].ya
+    comp = list(be)
+    last_comp = -1
+    last_cc = 255
+    cluster = list(be)
+    for i in range(base + 1, end):
+        if b.info[i].mcc:
+            if num > 1:
+                this_id = b.info[i].lig_id()
+                this_comp = b.info[i].lig_comp() - 1     # unsigned in HarfBuzz: -1 is out of range
+                if not lig_id or lig_id != this_id or not 0 <= this_comp < num:
+                    this_comp = num - 1
+                if last_comp != this_comp:
+                    last_comp = this_comp
+                    last_cc = 255
+                    comp = list(be)
+                    if not rtl:
+                        comp[0] += tdiv(this_comp * comp[2], num)
+                    else:
+                        comp[0] += tdiv((num - 1 - this_comp) * comp[2], num)
+                    comp[2] = tdiv(comp[2], num)
+            cc = b.info[i].mcc
+            if last_cc != cc:
+                last_cc = cc
+                cluster = list(comp)
+            position_mark(font, b, cluster, i, cc, rtl)
+            b.pos[i].xa = b.pos[i].ya = 0
+            b.pos[i].xo += x_offset
+            b.pos[i].yo += y_offset
+        else:
+            if not rtl:
+                x_offset -= b.pos[i].xa
+                y_offset -= b.pos[i].ya
+            else:
+                x_offset += b.pos[i].xa
+                y_offset += b.pos[i].ya
+
+
+def is_unicode_mark(inf):
+    return is_mark_gc(inf.gc)
+
+
+def position_cluster(b, font, start, end, rtl, adjust):
+    if end - start < 2:
+        return
+    i = start
+    while i < end:
+        if not is_unicode_mark(b.info[i]):
+            j = i + 1
+            while j < end:
+                if b.info[j].hidden or b.info[j].is_default_ignorable():
+                    j += 1
+                    continue
+                if not is_unicode_mark(b.info[j]):
+                    break
+                j += 1
+            position_around_base(b, font, i, j, rtl, adjust)
+            i = j - 1
+        i += 1
+
+
+def fallback_mark_position(b, font, rtl, adjust):
+    """HarfBuzz's mark positioning for fonts without GPOS: marks around their base by combining
+    class and glyph extents."""
+    start = 0
+    for i in range(1, len(b.info)):
+        inf = b.info[i]
+        if not is_unicode_mark(inf) and not inf.hidden and not inf.is_default_ignorable():
+            position_cluster(b, font, start, i, rtl, adjust)
+            start = i
+    position_cluster(b, font, start, len(b.info), rtl, adjust)
 
 
 def fractions(b, m):
@@ -1856,9 +2201,22 @@ def fractions(b, m):
         i += 1
 
 
-def kern_table(font, b, mask):
+def kern_table(font, b, mask, rtl=False):
     """The legacy kern table (format 0), each subtable over the run: marks skipped, the value split
-    between the pair (half on the first's advance, the rest on the second's advance and offset)."""
+    between the pair (half on the first's advance, the rest on the second's advance and offset).
+    Right to left the pairs are visual: the run is reversed while the table applies."""
+    if rtl:
+        b.info.reverse()
+        b.pos.reverse()
+    try:
+        _kern_subtables(font, b, mask)
+    finally:
+        if rtl:
+            b.info.reverse()
+            b.pos.reverse()
+
+
+def _kern_subtables(font, b, mask):
     c = Ctx(font, b, font.gpos or font.gsub or _Empty(), True)
     c.lookup_props = 8
     c.lookup_mask = mask
@@ -1916,7 +2274,7 @@ def fallback_spaces(b, font):
             p.xa = int(p.xa / 2)
 
 
-def propagate(pos, i, nesting):
+def propagate(pos, i, nesting, rtl=False):
     chain, typ = pos[i].chain, pos[i].type
     if not chain:
         return
@@ -1924,12 +2282,17 @@ def propagate(pos, i, nesting):
     j = i + chain
     if j >= len(pos) or j < 0 or not nesting:
         return
-    propagate(pos, j, nesting - 1)
+    propagate(pos, j, nesting - 1, rtl)
     if typ & ATTACH_CURSIVE:
         pos[i].yo += pos[j].yo
     elif typ & ATTACH_MARK:
         pos[i].xo += pos[j].xo
         pos[i].yo += pos[j].yo
-        for k in range(j, i):
-            pos[i].xo -= pos[k].xa
-            pos[i].yo -= pos[k].ya
+        if not rtl:
+            for k in range(j, i):
+                pos[i].xo -= pos[k].xa
+                pos[i].yo -= pos[k].ya
+        else:
+            for k in range(j + 1, i + 1):
+                pos[i].xo += pos[k].xa
+                pos[i].yo += pos[k].ya
