@@ -2240,7 +2240,7 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
             spaces = sum(1 for c in cps[cl:cl + nch] if c == 32)
             blank = nch == 1 and cps[cl] == 32
             tx["count"] = start + cl
-            text_char(key, st, uses, (adv, xo, yo, nch, spaces, i == 0, blank))
+            text_char(key, st, uses, (adv, xo, yo, nch, spaces, start if i == 0 else None, blank))
         tx["count"] = start + len(cps)
 
     def text_cp(cp, st, uses):
@@ -2260,23 +2260,26 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
 
     def text_char(cp, st, uses, g=None):
         """svg_text_char; g = a shaped glyph (advance, x offset, y offset, characters, spaces,
-        first of its run, blank) with cp its key."""
+        the run's first character when it is the run's first glyph (else None), blank) with cp
+        its key."""
         if font_fn is None:
             return
         c = tx["count"]
-        if g is None or g[5]:
-            v = list_value(st, 0, c)
+        if g is None or g[5] is not None:
+            # the run's position: its first character's (right to left, not the first glyph's)
+            pc = c if g is None else g[5]
+            v = list_value(st, 0, pc)
             if v is not None:
                 text_finish()
                 tx["x"] = v
-            v = list_value(st, 1, c)
+            v = list_value(st, 1, pc)
             if v is not None and not tx["onpath"]:
                 text_finish()
                 tx["y"] = v
-            v = list_value(st, 2, c)
+            v = list_value(st, 2, pc)
             if v is not None:
                 tx["x"] = v + tx["x"]
-            v = list_value(st, 3, c)
+            v = list_value(st, 3, pc)
             if v is not None:
                 tx["y"] = v + tx["y"]
         rot, rec = 0.0, st["lists"][4]
