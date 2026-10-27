@@ -1,0 +1,10 @@
+%ifndef VCS_GIT_PACK_INC
+%define VCS_GIT_PACK_INC
+
+%define GIT_HASH_SIZE 32
+%define GIT_PACK_BLOB 3
+%define GIT_PACK_TREE 2
+%define GIT_PACK_COMMIT 1
+%define GIT_PACK_MAX_OBJECT 65535
+
+%endif
