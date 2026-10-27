@@ -35,3 +35,7 @@ consume this plan bottom-up before nested paths can be advertised.
 Upload-pack now delegates all path validation and hierarchy discovery to this
 planner. Root-only plans continue through the canonical serializer; nested
 plans stop explicitly at the remaining bottom-up serialization boundary.
+
+The planner also maps every manifest file to its exact directory record. This
+removes prefix guessing from the serializer and makes root files, nested files,
+and missing/corrupt parent records explicit before object bytes are emitted.
