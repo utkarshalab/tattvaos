@@ -2,7 +2,7 @@ NASM ?= nasm
 LD ?= ld
 AR ?= ar
 BUILD ?= build
-OBJECTS := $(BUILD)/cli.o $(BUILD)/diff.o $(BUILD)/repo_diff.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/sync.o $(BUILD)/bridge.o $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o
+OBJECTS := $(BUILD)/cli.o $(BUILD)/diff.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/sync.o $(BUILD)/protocol.o $(BUILD)/client.o $(BUILD)/server.o $(BUILD)/stream.o $(BUILD)/plan.o $(BUILD)/policy.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/bridge.o $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o
 .PHONY: all native test
 all: native
 native: $(BUILD)/vcs-native.o $(BUILD)/libvcs.a
@@ -14,6 +14,8 @@ $(BUILD)/diff.o: src/merge/diff.asm include/diff.inc include/vcs.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ $< -o $@
 $(BUILD)/repo_diff.o: src/merge/repo_diff.asm include/diff.inc include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/blame.o: src/merge/blame.asm include/diff.inc include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/integrate.o: src/merge/integrate.asm include/vcs.inc include/repository.inc include/diff.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/rebase.o: src/merge/rebase.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
@@ -21,6 +23,22 @@ $(BUILD)/rebase.o: src/merge/rebase.asm include/vcs.inc include/repository.inc .
 $(BUILD)/pick.o: src/merge/pick.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/sync.o: src/sync/sync.asm include/vcs.inc include/wire.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/protocol.o: src/sync/protocol.asm include/vcs.inc include/sync_protocol.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/client.o: src/sync/client.asm include/vcs.inc include/wire.inc include/sync_protocol.inc include/client.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/server.o: src/sync/server.asm include/vcs.inc include/wire.inc include/sync_protocol.inc include/server.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/stream.o: src/sync/stream.asm include/vcs.inc include/wire.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/plan.o: src/sync/plan.asm include/vcs.inc include/repository.inc include/bundle.inc ../../storage/uxfs/volume.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/policy.o: src/sync/policy.asm include/vcs.inc include/sync_protocol.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/bundle.o: src/sync/bundle.asm include/vcs.inc include/repository.inc include/bundle.inc include/wire.inc ../../storage/uxfs/volume.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/remote.o: src/sync/remote.asm include/vcs.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/bridge.o: src/bridge/bridge.asm include/vcs.inc include/wire.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -46,7 +64,7 @@ $(BUILD)/ed25519.o: ../../lib/crypto/usign/ed25519/ed25519.asm ../../lib/crypto/
 	$(NASM) -w+error -dED25519_NO_KEYGEN -dED25519_EXTERNAL_SHA512 -f elf64 -I ../../ $< -o $@
 $(BUILD)/volume.o: ../../storage/uxfs/volume.asm ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ../../ $< -o $@
-$(BUILD)/repository.so: $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/repo_diff.o $(BUILD)/diff.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o $(BUILD)/volume.o
+$(BUILD)/repository.so: $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/diff.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/protocol.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o $(BUILD)/volume.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/vcs-native.o: $(OBJECTS)
 	$(LD) -r -z noexecstack -o $@ $^
