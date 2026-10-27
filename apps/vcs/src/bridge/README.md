@@ -39,3 +39,7 @@ plans stop explicitly at the remaining bottom-up serialization boundary.
 The planner also maps every manifest file to its exact directory record. This
 removes prefix guessing from the serializer and makes root files, nested files,
 and missing/corrupt parent records explicit before object bytes are emitted.
+
+Direct-entry descriptors now have a canonical in-place sorter. It implements
+Git's tree comparison rule by treating directory names as if suffixed with `/`
+and file names as NUL-terminated, making tree byte order deterministic.
