@@ -137,6 +137,10 @@ Upload-pack now consumes that plan for every snapshot, making it the single
 path-safety and hierarchy authority. Nested plans still stop at the explicit
 bottom-up serializer boundary rather than being interpreted inconsistently.
 
+Manifest files are now mapped to explicit planned parent directories before
+serialization. Missing hierarchy records fail as corruption instead of falling
+back to an incorrect root tree.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
