@@ -13,7 +13,7 @@ plan_count: resq 1
 prefix: resb VR_PATH
 
 section .text
-global git_tree_plan,git_tree_file_parents
+global git_tree_plan,git_tree_file_parents,git_tree_sort_entries
 ; RDI=validated manifest, RSI=record buffer, RDX=record capacity.
 ; Returns RAX=status, RDX=record count. Record zero is the root directory.
 git_tree_plan:
@@ -307,6 +307,117 @@ git_tree_file_parents:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; Canonically sort direct Git tree-entry descriptors in place.
+; RDI=array of GIT_TREE_ENTRY records, RSI=count.
+git_tree_sort_entries:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ mov rbp,rdi
+ mov r12,rsi
+ cmp r12,1
+ jbe .sort_ok
+ mov r13d,1
+.sort_outer:
+ cmp r13,r12
+ jae .sort_ok
+ mov rax,r13
+ imul rax,GIT_TREE_ENTRY
+ add rax,rbp
+ mov r14,[rax+GTE_NAME]
+ mov r15,[rax+GTE_HASH]
+ mov rbx,[rax+GTE_KIND]
+ mov r11,r13
+.sort_inner:
+ test r11,r11
+ jz .sort_place
+ mov rax,r11
+ dec rax
+ imul rax,GIT_TREE_ENTRY
+ add rax,rbp
+ mov r10,rax
+ mov rdi,[rax+GTE_NAME]
+ mov rsi,[rax+GTE_KIND]
+ mov rdx,r14
+ mov rcx,rbx
+ call compare_entry_names
+ cmp eax,0
+ jle .sort_place
+ ; Shift the preceding descriptor one slot to the right.
+ mov rdx,[r10+GTE_NAME]
+ mov rsi,[r10+GTE_HASH]
+ mov rdi,[r10+GTE_KIND]
+ mov [r10+GIT_TREE_ENTRY+GTE_NAME],rdx
+ mov [r10+GIT_TREE_ENTRY+GTE_HASH],rsi
+ mov [r10+GIT_TREE_ENTRY+GTE_KIND],rdi
+ dec r11
+ jmp .sort_inner
+.sort_place:
+ mov rax,r11
+ imul rax,GIT_TREE_ENTRY
+ add rax,rbp
+ mov [rax+GTE_NAME],r14
+ mov [rax+GTE_HASH],r15
+ mov [rax+GTE_KIND],rbx
+ inc r13
+ jmp .sort_outer
+.sort_ok:
+ xor eax,eax
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+; Git compares a directory as if its name ended in '/', a file in NUL.
+; RDI=name A, RSI=kind A, RDX=name B, RCX=kind B -> signed EAX.
+compare_entry_names:
+ xor r8d,r8d
+.name_byte:
+ movzx eax,byte [rdi+r8]
+ movzx r9d,byte [rdx+r8]
+ test al,al
+ jnz .a_ready
+ cmp rsi,GTE_DIRECTORY
+ jne .a_ready
+ mov al,'/'
+.a_ready:
+ test r9b,r9b
+ jnz .b_ready
+ cmp rcx,GTE_DIRECTORY
+ jne .b_ready
+ mov r9b,'/'
+.b_ready:
+ cmp al,r9b
+ jne .different
+ test al,al
+ jz .equal
+ cmp al,'/'
+ jne .next_byte
+ ; Equal virtual slashes mean identical directory names.
+ cmp rsi,GTE_DIRECTORY
+ jne .next_byte
+ cmp rcx,GTE_DIRECTORY
+ je .equal
+.next_byte:
+ inc r8
+ cmp r8,VR_PATH
+ jb .name_byte
+.equal: xor eax,eax
+ ret
+.different:
+ movzx eax,al
+ movzx r9d,r9b
+ sub eax,r9d
  ret
 
 ; RDI=depth, prefix global. RDX remains next source offset on return.
