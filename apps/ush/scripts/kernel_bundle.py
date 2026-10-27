@@ -85,6 +85,7 @@ def prepare():
         'CLOCK_HOOK':names['ush_clock_hook']-addresses[3],
         'SLEEP_HOOK':names['ush_sleep_hook']-addresses[3],
         'POWER_HOOK':names['ush_power_hook']-addresses[3],
+        'YIELD_HOOK':names['ush_yield_hook']-addresses[3],
     }
     for name,blob in blobs.items():
         publish(OUT/(name+'.bin'),blob)
