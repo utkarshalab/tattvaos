@@ -42,13 +42,44 @@ and 1 MiB per input. Scratch and output buffers belong to the caller; insufficie
 capacity never partially writes output. See [the diff contract](docs/specs/07-merge-model.md)
 and `include/diff.inc` for layouts and register conventions.
 
-Ush implements the local workflow documented below. The expanded history,
-staging, refs, merge, rebase, and repository-aware diff code is awaiting
-validation at the user's request. Git-compatible patch serialization and Git
-interchange remain unimplemented. The obsolete generic `diff_trees` and
+Ush implements the local and native synchronization workflows documented below.
+The expanded history, staging, refs, merge, rebase, blame, repository-aware
+diff, signed patch, and network code is awaiting validation at the user's
+request. Git interchange remains unimplemented. The obsolete generic `diff_trees` and
 `diff_emit` ABI entries still return unsupported; `vcs_repo_diff` is the bounded
 UXFS-aware implementation used by Ush. No UFS format is invented
 by this file-level implementation.
+
+The native sync layer also has a bounded `UVCSBND1` object codec.
+`vcs_bundle_export` serializes one validated first-parent commit with its digest,
+optional signature, and exact blobs. `vcs_bundle_validate` authenticates the
+payload without mutating UXFS. After trusted wire authentication,
+`vcs_bundle_publish` atomically remaps the parent, commit, and blob IDs into the
+destination object store without moving HEAD or refs. Ush exposes these APIs
+through signed patch and native fetch/push/clone commands.
+
+Native TCP setup is non-blocking as well: begin, poll, and close APIs let the
+owning Ush task yield during handshake progress. VCS never treats a socket in
+`SYN_SENT` as ready to carry repository bytes.
+
+Signed request/response negotiation, cooperative client/server state machines,
+single-peer bundle streaming, and first-parent range planning are implemented
+internally. Planning matches both native integrity digests and imported
+`UVCSMAP1` mappings, emits commits oldest-first, caps a session at 64 bundles,
+and rejects divergence. The user-facing adapter is linked only into native Ush;
+host Ush intentionally does not link kernel `unet` symbols.
+
+Native `fetch` imports the missing range without moving HEAD. `push` advertises,
+reconnects with an exact count, and uploads that range. `clone` requires the
+current initialized repository to be unborn. `serve` handles one authenticated
+fetch/clone transaction or both connections of one push, then returns to Ush.
+Every polling loop invokes the scheduler yield hook; host commands return an
+explicit native-only error.
+
+`blame FILE` walks first-parent history and attributes each current line to the
+commit where its exact bytes last changed. Each row includes the 16-digit commit
+ID and verified signer name; commits without a trusted signature are reported
+as `unsigned`. Like the line diff engine, blame is bounded to 256 lines.
 
 ## Using diff from Ush
 
@@ -110,6 +141,7 @@ vcs commit -F /commit-message
 vcs log
 vcs log --oneline
 vcs show [HEAD|16-HEX-ID]
+vcs blame FILE
 vcs restore PATH
 vcs add PATH... | --all
 vcs reset PATH... | --all
@@ -140,7 +172,33 @@ vcs cherry-pick ID [--sign SEED_FILE]
 vcs revert ID [--sign SEED_FILE]
 vcs cherry-pick|revert --continue [--sign SEED_FILE]
 vcs cherry-pick|revert --abort
+vcs patch export ID FILE SEED_FILE
+vcs patch inspect FILE
+vcs patch import FILE [SEED_FILE]
+vcs patch apply FILE [SEED_FILE]
+vcs remote
+vcs remote add NAME IPV4 PORT
+vcs remote remove NAME
+vcs fetch REMOTE SEED_FILE [REF]
+vcs push REMOTE SEED_FILE [REF]
+vcs clone REMOTE SEED_FILE [REF]
+vcs serve PORT SEED_FILE
 ```
+
+`patch export` writes a signed wire frame containing one validated first-parent
+commit. `inspect` verifies the trusted transport signer, bundle structure,
+object digest, and embedded commit signature without changing the repository.
+`import` atomically remaps the commit into the local object store without moving
+HEAD. `apply` imports it and then runs the normal cherry-pick/conflict workflow.
+The optional seed locally signs remapped and applied commits; it is required
+when repository policy requires signatures. Patch files currently inherit
+UXFS's 4096-byte file limit; larger bundles are reserved for streamed `unet`
+transfer.
+
+`remote add` stores a validated literal IPv4 endpoint under repository metadata;
+remote names use the same bounded safe alphabet as refs. `remote` lists names
+and endpoints, while `remote remove` deletes one record atomically. Hostname and
+DNS handling remain deferred until the native resolver is integrated.
 
 `status` compares working files with the current snapshot and displays `A`, `M`
 and `D` for added, modified and deleted paths. Status returns 0 even when files
@@ -266,7 +324,7 @@ commit` without allocating objects or updating storage. History objects use
 explicit ownership through manifests and refs; no tracing/background garbage
 collector exists. Removal requires an explicit operation that proves an object
 has no live owner. History rewriting never mutates or frees an existing object.
-Timestamps and network/Git interoperability are outside the current scope.
+Timestamps and Git interoperability are outside the current scope.
 The single repository identity is a local trust anchor, not a certificate or
 remote identity claim. Local IDs are sequence numbers, not cryptographic content hashes. The
 private on-disk format is specified in [Storage Layout](docs/specs/04-storage-layout.md).
