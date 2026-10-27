@@ -6,7 +6,23 @@ bits 64
 default rel
 extern sha256_init,sha256_update,sha256_final
 extern signing_public_from_seed,signing_sign,signing_verify
-extern unet_send,unet_recv
+extern unet_socket,unet_bind,unet_listen,unet_accept,unet_connect
+extern unet_get_state,unet_close,unet_send,unet_recv
+
+%define VCS_AF_INET 2
+%define VCS_SOCK_STREAM 1
+%define VCS_TCP_SYN_SENT 2
+%define VCS_TCP_ESTABLISHED 4
+
+struc vcs_sockaddr_in
+ .family: resw 1
+ .port: resw 1
+ .addr: resd 1
+ .zero: resb 8
+endstruc
+
+section .bss
+sync_address: resb vcs_sockaddr_in_size
 
 struc vcs_xfer
  .state: resd 1
@@ -28,6 +44,132 @@ endstruc
 section .text
 global vcs_sync_send_begin,vcs_sync_receive_begin,vcs_sync_step
 global vcs_sync_unet_send,vcs_sync_unet_receive
+global vcs_sync_connect_begin,vcs_sync_connect_poll,vcs_sync_close
+global vcs_sync_listen_begin,vcs_sync_accept_poll
+global vcs_sync_result
+
+; Start a non-blocking native TCP connection. EDI=network-order IPv4,
+; ESI=host-order port. EAX=fd or negative failure.
+vcs_sync_connect_begin:
+ push rbx
+ push r12
+ push r13
+ mov ebx,edi
+ mov r12d,esi
+ mov edi,VCS_AF_INET
+ mov esi,VCS_SOCK_STREAM
+ xor edx,edx
+ call unet_socket
+ test eax,eax
+ js .connect_done
+ mov r13d,eax
+ mov word [sync_address+vcs_sockaddr_in.family],VCS_AF_INET
+ mov [sync_address+vcs_sockaddr_in.port],r12w
+ mov [sync_address+vcs_sockaddr_in.addr],ebx
+ mov qword [sync_address+vcs_sockaddr_in.zero],0
+ mov edi,r13d
+ lea rsi,[sync_address]
+ mov edx,vcs_sockaddr_in_size
+ call unet_connect
+ test eax,eax
+ jz .connect_ok
+ mov edi,r13d
+ call unet_close
+ mov eax,-1
+ jmp .connect_done
+.connect_ok:
+ mov eax,r13d
+.connect_done:
+ pop r13
+ pop r12
+ pop rbx
+ ret
+
+; EDI=fd. EAX=VCS_OK, VCS_XFER_AGAIN, or VCS_ERR_IO.
+vcs_sync_connect_poll:
+ call unet_get_state
+ cmp eax,VCS_TCP_ESTABLISHED
+ je .connected
+ cmp eax,VCS_TCP_SYN_SENT
+ je .connecting
+ mov eax,VCS_ERR_IO
+ ret
+.connected:
+ xor eax,eax
+ ret
+.connecting:
+ mov eax,VCS_XFER_AGAIN
+ ret
+
+vcs_sync_close:
+ jmp unet_close
+
+; EDI=network-order local IPv4 (zero means stack default), ESI=port.
+; EAX=listening fd or negative failure.
+vcs_sync_listen_begin:
+ push rbx
+ push r12
+ push r13
+ mov ebx,edi
+ mov r12d,esi
+ mov edi,VCS_AF_INET
+ mov esi,VCS_SOCK_STREAM
+ xor edx,edx
+ call unet_socket
+ test eax,eax
+ js .listen_done
+ mov r13d,eax
+ mov word [sync_address+vcs_sockaddr_in.family],VCS_AF_INET
+ mov [sync_address+vcs_sockaddr_in.port],r12w
+ mov [sync_address+vcs_sockaddr_in.addr],ebx
+ mov qword [sync_address+vcs_sockaddr_in.zero],0
+ mov edi,r13d
+ lea rsi,[sync_address]
+ mov edx,vcs_sockaddr_in_size
+ call unet_bind
+ test eax,eax
+ jnz .listen_fail
+ mov edi,r13d
+ mov esi,8
+ call unet_listen
+ test eax,eax
+ jnz .listen_fail
+ mov eax,r13d
+ jmp .listen_done
+.listen_fail:
+ mov edi,r13d
+ call unet_close
+ mov eax,-1
+.listen_done:
+ pop r13
+ pop r12
+ pop rbx
+ ret
+
+; EDI=listener fd. EAX=accepted fd or -1 when no peer is ready.
+vcs_sync_accept_poll:
+ xor esi,esi
+ xor edx,edx
+ jmp unet_accept
+
+; Inspect a completed transfer without exposing its internal layout.
+; RDI=transfer. RAX=status, RDX=payload, RCX=length, R8D=operation.
+vcs_sync_result:
+ test rdi,rdi
+ jz .result_usage
+ cmp dword [rdi+vcs_xfer.state],VCS_XFER_DONE
+ jne .result_again
+ mov rdx,[rdi+vcs_xfer.payload]
+ mov rcx,[rdi+vcs_xfer.payload_len]
+ mov r8d,[rdi+vcs_xfer.operation]
+ xor eax,eax
+ ret
+.result_usage:
+ mov eax,VCS_ERR_USAGE
+ ret
+.result_again:
+ mov eax,VCS_XFER_AGAIN
+ ret
 
 ; rdi=state, esi=operation, rdx=payload, rcx=length, r8=object count,
 ; r9=repository id; stack: seed32, send(ctx,bytes,length), context.
