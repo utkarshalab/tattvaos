@@ -15,3 +15,9 @@ until object negotiation is present.
 first-parent chain, oldest first, with unique marks across the stream. Sequential
 updates to the same Git branch preserve that linear ancestry; merge second
 parents are intentionally not represented by this bounded bridge.
+
+`pack.asm` provides the object foundation for Git repositories using
+`extensions.objectFormat=sha256`: canonical Git object hashing and a bounded
+non-delta PACK v2 writer. Entries use valid zlib stored blocks with Adler-32,
+and the completed pack carries its required SHA-256 trailer. Objects are capped
+at 65535 bytes and callers must declare the exact object count.
