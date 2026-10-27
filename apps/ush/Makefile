@@ -2,13 +2,13 @@ NASM ?= nasm
 LD ?= ld
 BUILD ?= build
 CORE := main io/frontend parser/tokenizer parser/chain exec/dispatcher exec/cmd_registry_init exec/builtins/core exec/builtins/files exec/builtins/filetools exec/builtins/system exec/builtins/uedit env/environment line/history line/editor
-CORE += exec/builtins/vcs
-CORE_OBJS := ../vcs/build/diff.o ../vcs/build/repo_diff.o ../uedit/build/uedit-native.o $(BUILD)/uxfs-volume.o $(addprefix $(BUILD)/,$(addsuffix .o,$(CORE)))
-CORE_OBJS += ../vcs/build/repository.o ../vcs/build/history.o ../vcs/build/refs.o ../vcs/build/worktree.o ../vcs/build/stage.o ../vcs/build/identity.o ../vcs/build/signing.o ../vcs/build/integrate.o ../vcs/build/rebase.o ../vcs/build/pick.o ../vcs/build/sha256.o ../vcs/build/sha512.o ../vcs/build/ed25519.o
+CORE_OBJS := ../vcs/build/diff.o ../vcs/build/repo_diff.o ../vcs/build/blame.o ../uedit/build/uedit-native.o $(BUILD)/uxfs-volume.o $(addprefix $(BUILD)/,$(addsuffix .o,$(CORE)))
+CORE_OBJS += ../vcs/build/repository.o ../vcs/build/history.o ../vcs/build/refs.o ../vcs/build/worktree.o ../vcs/build/stage.o ../vcs/build/identity.o ../vcs/build/signing.o ../vcs/build/integrate.o ../vcs/build/rebase.o ../vcs/build/pick.o ../vcs/build/bundle.o ../vcs/build/remote.o ../vcs/build/sha256.o ../vcs/build/sha512.o ../vcs/build/ed25519.o
 CALC := calc scientific float_format session cli math
 CALC_OBJS := $(addprefix $(BUILD)/calculator/,$(addsuffix .o,$(CALC)))
 CALC_DEPS := $(wildcard ../calculator/src/*.asm ../calculator/src/*.inc ../../lib/umath/math_fn/*.asm ../../lib/umath/scalar/*.asm ../../lib/umath/cpuid/*.asm)
 HEADERS := $(wildcard inc/*.inc ../../storage/uxfs/volume.inc ../uedit/inc/*.inc ../vcs/include/*.inc)
+VCS_NET_OBJS := ../vcs/build/sync.o ../vcs/build/protocol.o ../vcs/build/client.o ../vcs/build/server.o ../vcs/build/stream.o ../vcs/build/plan.o ../vcs/build/policy.o
 
 .PHONY: all native test run
 all: $(BUILD)/ush native
@@ -18,6 +18,8 @@ native: $(BUILD)/ush-native.o
 	$(MAKE) -C ../vcs build/diff.o
 ../vcs/build/repo_diff.o: ../vcs/src/merge/repo_diff.asm ../vcs/include/diff.inc ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/repo_diff.o
+../vcs/build/blame.o: ../vcs/src/merge/blame.asm ../vcs/include/diff.inc ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+	$(MAKE) -C ../vcs build/blame.o
 ../vcs/build/repository.o: ../vcs/src/store/repository.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/repository.o
 ../vcs/build/history.o: ../vcs/src/store/history.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
@@ -38,6 +40,12 @@ native: $(BUILD)/ush-native.o
 	$(MAKE) -C ../vcs build/rebase.o
 ../vcs/build/pick.o: ../vcs/src/merge/pick.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/pick.o
+../vcs/build/bundle.o: ../vcs/src/sync/bundle.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../vcs/include/bundle.inc ../vcs/include/wire.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+	$(MAKE) -C ../vcs build/bundle.o
+../vcs/build/remote.o: ../vcs/src/sync/remote.asm ../vcs/include/vcs.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+	$(MAKE) -C ../vcs build/remote.o
+../vcs/build/sync.o ../vcs/build/protocol.o ../vcs/build/client.o ../vcs/build/server.o ../vcs/build/stream.o ../vcs/build/plan.o ../vcs/build/policy.o: $(wildcard ../vcs/src/sync/*.asm ../vcs/include/*.inc) ../vcs/Makefile
+	$(MAKE) -C ../vcs build/$(notdir $@)
 ../vcs/build/sha256.o: ../../lib/crypto/uhash/sha256/sha256.asm ../../lib/crypto/uhash/sha256/sha256.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/sha256.o
 ../vcs/build/sha512.o: ../../lib/crypto/uhash/sha512/sha512.asm ../../lib/crypto/uhash/sha512/sha512.inc ../vcs/Makefile
@@ -56,14 +64,22 @@ $(BUILD)/%.o: src/%.asm $(HEADERS)
 	mkdir -p $(dir $@)
 	$(NASM) -w+error -f elf64 -I ./ -I ../vcs/ -I ../../ $< -o $@
 
+$(BUILD)/exec/builtins/vcs-host.o: src/exec/builtins/vcs.asm $(HEADERS)
+	mkdir -p $(dir $@)
+	$(NASM) -w+error -dVCS_NETWORK_STUB -f elf64 -I ./ -I ../vcs/ -I ../../ $< -o $@
+
+$(BUILD)/exec/builtins/vcs-native.o: src/exec/builtins/vcs.asm $(HEADERS)
+	mkdir -p $(dir $@)
+	$(NASM) -w+error -dVCS_NETWORK_NATIVE -f elf64 -I ./ -I ../vcs/ -I ../../ $< -o $@
+
 $(BUILD)/calculator/%.o: ../calculator/src/%.asm $(CALC_DEPS)
 	mkdir -p $(dir $@)
 	$(NASM) -w+error -f elf64 -I ../calculator/ -I ../../ $< -o $@
 
-$(BUILD)/ush: $(CORE_OBJS) $(CALC_OBJS) $(BUILD)/host.o $(BUILD)/host_disk.o $(BUILD)/host_platform.o
+$(BUILD)/ush: $(CORE_OBJS) $(BUILD)/exec/builtins/vcs-host.o $(CALC_OBJS) $(BUILD)/host.o $(BUILD)/host_disk.o $(BUILD)/host_platform.o
 	$(LD) -z noexecstack -o $@ $^
 
-$(BUILD)/ush-native.o: $(CORE_OBJS) $(CALC_OBJS) $(BUILD)/io/uart.o $(BUILD)/io/ata.o
+$(BUILD)/ush-native.o: $(CORE_OBJS) $(BUILD)/exec/builtins/vcs-native.o $(VCS_NET_OBJS) $(CALC_OBJS) $(BUILD)/io/uart.o $(BUILD)/io/ata.o
 	$(LD) -r -z noexecstack -o $@ $^
 
 run: $(BUILD)/ush
@@ -73,14 +89,17 @@ $(BUILD)/native-test.o: tests/host/native.asm $(HEADERS)
 	mkdir -p $(dir $@)
 	$(NASM) -w+error -f elf64 -I ./ $< -o $@
 
-$(BUILD)/native-test: $(BUILD)/native-test.o $(BUILD)/ush-native.o
+$(BUILD)/net-stubs.o: tests/host/net_stubs.asm | $(BUILD)
+	$(NASM) -w+error -f elf64 $< -o $@
+
+$(BUILD)/native-test: $(BUILD)/native-test.o $(BUILD)/net-stubs.o $(BUILD)/ush-native.o
 	$(LD) -z noexecstack -o $@ $^
 
 $(BUILD)/platform-test.o: tests/host/platform.asm $(HEADERS)
 	mkdir -p $(dir $@)
 	$(NASM) -w+error -f elf64 -I ./ $< -o $@
 
-$(BUILD)/platform-test: $(BUILD)/platform-test.o $(BUILD)/ush-native.o
+$(BUILD)/platform-test: $(BUILD)/platform-test.o $(BUILD)/net-stubs.o $(BUILD)/ush-native.o
 	$(LD) -z noexecstack -o $@ $^
 
 $(BUILD)/uxfs-volume.so: $(BUILD)/uxfs-volume.o
