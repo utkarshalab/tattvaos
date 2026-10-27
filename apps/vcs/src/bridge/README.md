@@ -31,3 +31,7 @@ tree construction is implemented, preventing invalid Git tree representations.
 deduplicates directory prefixes, records depth and parent indices, and bounds a
 snapshot to 64 Git tree records. The upload-pack serializer still needs to
 consume this plan bottom-up before nested paths can be advertised.
+
+Upload-pack now delegates all path validation and hierarchy discovery to this
+planner. Root-only plans continue through the canonical serializer; nested
+plans stop explicitly at the remaining bottom-up serialization boundary.
