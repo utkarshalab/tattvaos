@@ -128,6 +128,11 @@ into canonical blobs, a lexically sorted tree, and a deterministic root commit.
 It returns the Git SHA-256 commit ID and emits the corresponding pack. Nested
 paths remain rejected until recursive Git tree construction is available.
 
+Recursive-tree planning is implemented separately: nested paths are validated,
+directory prefixes are deduplicated, and explicit depth/parent relationships are
+bounded to 64 tree records. Bottom-up tree serialization into upload-pack is the
+remaining integration step before nested snapshots become serveable.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
