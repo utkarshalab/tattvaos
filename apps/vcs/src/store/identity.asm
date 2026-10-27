@@ -16,6 +16,8 @@ identity_path: resb 240
 identity_public: resb 32
 identity_digest: resb 32
 identity_number: resb 16
+resolved_name: resb 32
+resolve_phase: resq 1
 policy_path: resb 240
 trust_path: resb 240
 
@@ -40,6 +42,75 @@ hex_digits: db '0123456789abcdef'
 
 section .text
 global vcs_signature_policy,vcs_signature_prepare
+global vcs_identity_trust_key
+
+; RDI=32-byte public key. Return VCS_OK only for an active or retained identity
+; that has not been revoked in this repository.
+vcs_identity_trust_key:
+ push rbx
+ push r12
+ mov r12,rdi
+ cmp qword [uxv_ready],1
+ jne .trust_io
+ call vcs_repo_discover
+ test eax,eax
+ jnz .trust_done
+ mov rdi,r12
+ mov sil,'x'
+ call make_key_path
+ test eax,eax
+ jnz .trust_corrupt
+ lea rdi,[trust_path]
+ call uxv_find
+ test rax,rax
+ jnz .trust_permission
+ call make_identity_path
+ test eax,eax
+ jnz .trust_corrupt
+ lea rdi,[identity_path]
+ call uxv_find
+ test rax,rax
+ jz .trust_archive
+ mov rbx,rax
+ call validate_identity
+ test eax,eax
+ jnz .trust_corrupt
+ lea rdi,[rbx+UV_DATA+16]
+ mov rsi,r12
+ mov ecx,32
+ repe cmpsb
+ je .trust_ok
+.trust_archive:
+ mov rdi,r12
+ mov sil,'i'
+ call make_key_path
+ test eax,eax
+ jnz .trust_corrupt
+ lea rdi,[trust_path]
+ call uxv_find
+ test rax,rax
+ jz .trust_permission
+ mov rbx,rax
+ call validate_identity
+ test eax,eax
+ jnz .trust_corrupt
+ lea rdi,[rbx+UV_DATA+16]
+ mov rsi,r12
+ mov ecx,32
+ repe cmpsb
+ jne .trust_permission
+.trust_ok:
+ xor eax,eax
+ jmp .trust_done
+.trust_permission: mov eax,VCS_ERR_PERM
+ jmp .trust_done
+.trust_corrupt: mov eax,VCS_ERR_CORRUPT
+ jmp .trust_done
+.trust_io: mov eax,VCS_ERR_IO
+.trust_done:
+ pop r12
+ pop rbx
+ ret
 
 ; Repository commit policy. RDX=1 requires a signature, RDX=0 permits unsigned.
 ; Missing policy metadata means optional signing.
@@ -855,6 +926,57 @@ vcs_identity:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; Resolve a commit's verified signer without rendering terminal output.
+; RDI=commit ID. RAX=VCS status, RDX=NUL-terminated identity name on success.
+global vcs_identity_name
+vcs_identity_name:
+ push rbx
+ mov rbx,rdi
+ lea rdi,[resolved_name]
+ xor eax,eax
+ mov ecx,4
+ rep stosq
+ mov qword [resolve_phase],0
+ mov edi,3
+ mov rsi,rbx
+ xor edx,edx
+ lea r8,[resolve_capture]
+ call vcs_identity
+ test eax,eax
+ jnz .resolve_done
+ cmp qword [resolve_phase],5
+ jne .resolve_corrupt
+ lea rdx,[resolved_name]
+ cmp byte [rdx],0
+ je .resolve_corrupt
+ xor eax,eax
+.resolve_done:
+ pop rbx
+ ret
+.resolve_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+ pop rbx
+ ret
+
+; Verification emits five chunks; chunk four is the already validated name.
+resolve_capture:
+ mov rax,[resolve_phase]
+ inc qword [resolve_phase]
+ cmp rax,3
+ jne .capture_done
+ test rsi,rsi
+ jz .capture_done
+ cmp rsi,VR_ID_NAME_MAX
+ ja .capture_done
+ lea r8,[resolved_name]
+ mov rcx,rsi
+ mov rsi,rdi
+ mov rdi,r8
+ rep movsb
+ mov byte [rdi],0
+.capture_done:
  ret
 
 ; RAX = 0/invalid or identity node. Returns EAX=0 when valid.
