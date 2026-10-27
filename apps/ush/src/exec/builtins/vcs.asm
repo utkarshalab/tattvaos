@@ -12,6 +12,9 @@ extern vcs_policy,vcs_verify_all
 extern vcs_pick
 extern vcs_repo_diff
 extern vcs_blame
+extern vcs_stash
+extern vcs_bisect
+extern bridge_git_export,bridge_git_export_history,bridge_git_import
 extern vcs_bundle_export,vcs_bundle_seal,vcs_bundle_open,vcs_bundle_publish
 extern vcs_remote
 %ifdef VCS_NETWORK_NATIVE
@@ -53,6 +56,16 @@ commit_name: db 'commit',0
 log_name: db 'log',0
 show_name: db 'show',0
 blame_name: db 'blame',0
+stash_name: db 'stash',0
+bisect_name: db 'bisect',0
+git_name: db 'git',0
+export_history_name: db 'export-history',0
+start_name: db 'start',0
+good_name: db 'good',0
+bad_name: db 'bad',0
+list_name: db 'list',0
+pop_name: db 'pop',0
+drop_name: db 'drop',0
 restore_name: db 'restore',0
 branch_name: db 'branch',0
 tag_name: db 'tag',0
@@ -113,9 +126,11 @@ remote_usage: db 'Remote: vcs remote | remote add NAME IPV4 PORT | remote remove
 network_usage: db 'Network: vcs fetch|push|clone REMOTE SEED_FILE [REF] | vcs serve PORT SEED_FILE',10,0
 network_native_only: db 'vcs: networking is available only in native TattvaOS',10,0
 patch_exported: db 'Exported signed patch',10,0
+git_exported: db 'Exported Git fast-import stream',10,0
+git_imported: db 'Imported Git fast-import snapshot',10,0
 patch_valid: db 'Patch signature and objects valid',10,0
 patch_imported: db 'Imported commit ',0
-usage: db 'Usage: vcs diff FILE1 FILE2',10,'       vcs init [DIRECTORY]',10,'       vcs status',10,'       vcs check [--signatures]',10,'       vcs add PATH... | --all',10,'       vcs reset PATH... | --all',10,'       vcs staged',10,'       vcs commit "MESSAGE"',10,'       vcs commit --sign SEED_FILE "MESSAGE"',10,'       vcs commit -m "TITLE" [-m "BODY" ...]',10,'       vcs commit -F FILE',10,'       vcs log [--oneline]',10,'       vcs show [HEAD|16-HEX-ID]',10,'       vcs blame FILE',10,'       vcs restore PATH',10,'       vcs checkout ID|BRANCH --force',10,'       vcs branch|tag NAME [ID]',10,'       vcs branch|tag -d NAME',10,'       vcs refs',10,'       vcs merge ID|BRANCH',10,'       vcs conflicts',10,'       vcs resolve PATH',10,'       vcs merge --continue MESSAGE [--sign SEED_FILE]',10,'       vcs merge --abort',10,'       vcs rebase ID|BRANCH [--sign SEED_FILE]',10,'       vcs rebase --continue [--sign SEED_FILE]',10,'       vcs rebase --abort',10,'       vcs identity [NAME SEED_FILE]',10,'       vcs identity --rotate NAME SEED_FILE',10,'       vcs identity --revoke NAME',10,'       vcs policy [require-signed|allow-unsigned]',10,'       vcs sign [HEAD|ID] SEED_FILE',10,'       vcs verify [HEAD|ID]',10,'       vcs cherry-pick|revert ID [--sign SEED_FILE]',10,'       vcs cherry-pick|revert --continue [--sign SEED_FILE]',10,'       vcs cherry-pick|revert --abort',10,'Exit: 0 success/identical, 1 different, 2 error.',10,0
+usage: db 'Usage: vcs diff FILE1 FILE2',10,'       vcs init [DIRECTORY]',10,'       vcs status',10,'       vcs check [--signatures]',10,'       vcs add PATH... | --all',10,'       vcs reset PATH... | --all',10,'       vcs staged',10,'       vcs commit "MESSAGE"',10,'       vcs commit --sign SEED_FILE "MESSAGE"',10,'       vcs commit -m "TITLE" [-m "BODY" ...]',10,'       vcs commit -F FILE',10,'       vcs log [--oneline]',10,'       vcs show [HEAD|16-HEX-ID]',10,'       vcs blame FILE',10,'       vcs stash [MESSAGE] | list | apply | pop | drop',10,'       vcs stash --sign SEED_FILE [MESSAGE]',10,'       vcs bisect start GOOD BAD',10,'       vcs bisect good|bad|status|reset',10,'       vcs git export ID|BRANCH FILE',10,'       vcs git export-history ID|BRANCH FILE',10,'       vcs git import FILE [SEED_FILE]',10,'       vcs restore PATH',10,'       vcs checkout ID|BRANCH --force',10,'       vcs branch|tag NAME [ID]',10,'       vcs branch|tag -d NAME',10,'       vcs refs',10,'       vcs merge ID|BRANCH',10,'       vcs conflicts',10,'       vcs resolve PATH',10,'       vcs merge --continue MESSAGE [--sign SEED_FILE]',10,'       vcs merge --abort',10,'       vcs rebase ID|BRANCH [--sign SEED_FILE]',10,'       vcs rebase --continue [--sign SEED_FILE]',10,'       vcs rebase --abort',10,'       vcs identity [NAME SEED_FILE]',10,'       vcs identity --rotate NAME SEED_FILE',10,'       vcs identity --revoke NAME',10,'       vcs policy [require-signed|allow-unsigned]',10,'       vcs sign [HEAD|ID] SEED_FILE',10,'       vcs verify [HEAD|ID]',10,'       vcs cherry-pick|revert ID [--sign SEED_FILE]',10,'       vcs cherry-pick|revert --continue [--sign SEED_FILE]',10,'       vcs cherry-pick|revert --abort',10,'Exit: 0 success/identical, 1 different, 2 error.',10,0
 bad: db 'vcs: invalid arguments or files; run vcs --help',10,0
 limit: db 'vcs: diff supports at most 256 lines per file',10,0
 header: db '--- FILE1',10,'+++ FILE2',10,0
@@ -169,6 +184,21 @@ cmd_vcs:
  call ush_streq
  test eax,eax
  jz .blame
+ mov rdi,[r12+8]
+ lea rsi,[stash_name]
+ call ush_streq
+ test eax,eax
+ jz .stash
+ mov rdi,[r12+8]
+ lea rsi,[bisect_name]
+ call ush_streq
+ test eax,eax
+ jz .bisect
+ mov rdi,[r12+8]
+ lea rsi,[git_name]
+ call ush_streq
+ test eax,eax
+ jz .git
  mov rdi,[r12+8]
  lea rsi,[restore_name]
  call ush_streq
@@ -557,6 +587,257 @@ cmd_vcs:
  jz .done
  lea rdi,[history_error]
  jmp .error
+.stash:
+ cmp r13,2
+ je .stash_save_default
+ cmp r13,3
+ je .stash_one
+ mov rdi,[r12+16]
+ lea rsi,[sign_option]
+ call ush_streq
+ test eax,eax
+ jnz .bad
+ cmp r13,4
+ je .stash_signed_default
+ cmp r13,5
+ jne .bad
+ mov rdi,[r12+24]
+ call seed_file
+ test rax,rax
+ jz .bad
+ mov rdx,rax
+ mov rsi,[r12+32]
+ jmp .stash_save
+.stash_signed_default:
+ mov rdi,[r12+24]
+ call seed_file
+ test rax,rax
+ jz .bad
+ mov rdx,rax
+ xor esi,esi
+ jmp .stash_save
+.stash_one:
+ mov rdi,[r12+16]
+ lea rsi,[sign_option]
+ call ush_streq
+ test eax,eax
+ jz .bad
+ mov rdi,[r12+16]
+ lea rsi,[list_name]
+ call ush_streq
+ test eax,eax
+ jz .stash_list
+ mov rdi,[r12+16]
+ lea rsi,[apply_name]
+ call ush_streq
+ test eax,eax
+ jz .stash_apply
+ mov rdi,[r12+16]
+ lea rsi,[pop_name]
+ call ush_streq
+ test eax,eax
+ jz .stash_pop
+ mov rdi,[r12+16]
+ lea rsi,[drop_name]
+ call ush_streq
+ test eax,eax
+ jz .stash_drop
+ mov rsi,[r12+16]
+ xor edx,edx
+ jmp .stash_save
+.stash_save_default:
+ xor esi,esi
+ xor edx,edx
+.stash_save:
+ xor edi,edi
+ jmp .stash_call
+.stash_list:
+ mov edi,1
+ jmp .stash_no_args
+.stash_apply:
+ mov edi,2
+ jmp .stash_no_args
+.stash_pop:
+ mov edi,3
+ jmp .stash_no_args
+.stash_drop:
+ mov edi,4
+.stash_no_args:
+ xor esi,esi
+ xor edx,edx
+.stash_call:
+ lea rcx,[frontend_write]
+ call vcs_stash
+ test eax,eax
+ jz .done
+ lea rdi,[history_error]
+ jmp .error
+.bisect:
+ cmp r13,3
+ je .bisect_action
+ cmp r13,5
+ jne .bad
+ mov rdi,[r12+16]
+ lea rsi,[start_name]
+ call ush_streq
+ test eax,eax
+ jnz .bad
+ mov rdi,[r12+24]
+ call resolve_commitish
+ jc .bad
+ mov r14,rax
+ mov rdi,[r12+32]
+ call resolve_commitish
+ jc .bad
+ mov rdx,rax
+ mov rsi,r14
+ xor edi,edi
+ jmp .bisect_call
+.bisect_action:
+ mov rdi,[r12+16]
+ lea rsi,[good_name]
+ call ush_streq
+ test eax,eax
+ jz .bisect_good
+ mov rdi,[r12+16]
+ lea rsi,[bad_name]
+ call ush_streq
+ test eax,eax
+ jz .bisect_bad
+ mov rdi,[r12+16]
+ lea rsi,[status_name]
+ call ush_streq
+ test eax,eax
+ jz .bisect_status
+ mov rdi,[r12+16]
+ lea rsi,[reset_name]
+ call ush_streq
+ test eax,eax
+ jnz .bad
+ mov edi,4
+ jmp .bisect_no_args
+.bisect_good:
+ mov edi,1
+ jmp .bisect_no_args
+.bisect_bad:
+ mov edi,2
+ jmp .bisect_no_args
+.bisect_status:
+ mov edi,3
+.bisect_no_args:
+ xor esi,esi
+ xor edx,edx
+.bisect_call:
+ lea rcx,[frontend_write]
+ call vcs_bisect
+ test eax,eax
+ jz .done
+ lea rdi,[history_error]
+ jmp .error
+.git:
+ xor r15d,r15d
+ mov rdi,[r12+16]
+ lea rsi,[export_name]
+ call ush_streq
+ test eax,eax
+ jz .git_export
+ mov rdi,[r12+16]
+ lea rsi,[export_history_name]
+ call ush_streq
+ test eax,eax
+ jnz .git_import_check
+ mov r15d,1
+.git_export:
+ cmp r13,5
+ jne .bad
+ mov rdi,[r12+24]
+ call resolve_commitish
+ jc .bad
+ mov r14,rax
+ mov rdi,r14
+ lea rsi,[patch_frame]
+ mov edx,4096
+ test r15d,r15d
+ jnz .git_export_history
+ call bridge_git_export
+ jmp .git_export_result
+.git_export_history:
+ call bridge_git_export_history
+.git_export_result:
+ test eax,eax
+ jnz .patch_failed
+ mov r14,rdx
+ mov rdi,[r12+32]
+ lea rsi,[restore_path]
+ call uxv_normalize
+ test rax,rax
+ js .patch_failed
+ lea rdi,[restore_path]
+ call uxv_find
+ test rax,rax
+ jnz .git_export_existing
+ call uxv_free
+ test rax,rax
+ jz .patch_failed
+.git_export_existing:
+ cmp qword [rax+UV_TYPE],1
+ jne .patch_failed
+ mov rbx,rax
+ mov rdi,rbx
+ call patch_clear_node
+ mov rdi,rbx
+ lea rsi,[restore_path]
+ mov ecx,240
+ rep movsb
+ mov qword [rbx+UV_TYPE],1
+ mov [rbx+UV_SIZE],r14
+ lea rdi,[rbx+UV_DATA]
+ lea rsi,[patch_frame]
+ mov rcx,r14
+ rep movsb
+ call uxv_commit
+ test rax,rax
+ js .patch_failed
+ lea rdi,[git_exported]
+ call frontend_write_str
+ xor eax,eax
+ jmp .done
+.git_import_check:
+ mov rdi,[r12+16]
+ lea rsi,[import_name]
+ call ush_streq
+ test eax,eax
+ jnz .bad
+ cmp r13,4
+ jb .bad
+ cmp r13,5
+ ja .bad
+ xor r15d,r15d
+ cmp r13,4
+ je .git_import_file
+ mov rdi,[r12+32]
+ call seed_file
+ test rax,rax
+ jz .bad
+ mov r15,rax
+.git_import_file:
+ mov rdi,[r12+24]
+ call fs_resolve
+ test rax,rax
+ jz .bad
+ cmp qword [rax+UV_TYPE],1
+ jne .bad
+ mov rsi,[rax+UV_SIZE]
+ lea rdi,[rax+UV_DATA]
+ mov rdx,r15
+ lea rcx,[frontend_write]
+ call bridge_git_import
+ test eax,eax
+ jnz .patch_failed
+ lea rdi,[git_imported]
+ call frontend_write_str
+ xor eax,eax
+ jmp .done
 .restore:
  cmp r13,3
  jne .bad
@@ -1795,6 +2076,28 @@ parse_port_arg:
  pop r14
  pop r13
  pop r12
+ pop rbx
+ ret
+; Resolve an explicit 16-digit ID or a local branch name. CF reports failure.
+resolve_commitish:
+ push rbx
+ mov rbx,rdi
+ call parse_commit_id
+ jnc .resolved
+ mov edi,5
+ mov rsi,rbx
+ xor edx,edx
+ lea rcx,[frontend_write]
+ call vcs_ref
+ test eax,eax
+ jnz .failed
+ mov rax,rdx
+.resolved:
+ clc
+ pop rbx
+ ret
+.failed:
+ stc
  pop rbx
  ret
 ; Exactly 16 lowercase/uppercase hexadecimal digits, nonzero.
