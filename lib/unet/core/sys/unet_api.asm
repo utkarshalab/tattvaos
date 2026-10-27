@@ -51,6 +51,7 @@ global unet_accept
 global unet_send
 global unet_recv
 global unet_close
+global unet_get_state
 
 align 64
 unet_ephemeral_alloc_init:
@@ -491,6 +492,19 @@ unet_close:
 .done:
     xor eax, eax
     pop rbx
+    ret
+
+; unet_get_state — return the public TCP_STATE_* value for an fd, or -1.
+; This keeps non-blocking clients from reaching into socket_table internals.
+align 64
+unet_get_state:
+    call socket_lookup
+    test rax, rax
+    jz .state_fail
+    mov eax, [rax + socket_t.state]
+    ret
+.state_fail:
+    mov eax, -1
     ret
 
 %endif ; GUARD_UNET_CORE_SYS_UNET_API_ASM
