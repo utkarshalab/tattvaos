@@ -141,6 +141,9 @@ Manifest files are now mapped to explicit planned parent directories before
 serialization. Missing hierarchy records fail as corruption instead of falling
 back to an incorrect root tree.
 
+Direct file and child-directory descriptors can now be sorted with Git's
+canonical tree ordering, including the virtual `/` suffix used for subtrees.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
