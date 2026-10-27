@@ -13,7 +13,7 @@ plan_count: resq 1
 prefix: resb VR_PATH
 
 section .text
-global git_tree_plan
+global git_tree_plan,git_tree_file_parents
 ; RDI=validated manifest, RSI=record buffer, RDX=record capacity.
 ; Returns RAX=status, RDX=record count. Record zero is the root directory.
 git_tree_plan:
@@ -195,6 +195,111 @@ git_tree_plan:
  jmp .done
 .corrupt: mov eax,VCS_ERR_CORRUPT
 .done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+; Map every manifest file to its planned parent directory.
+; RDI=manifest, RSI=plan, RDX=plan count, RCX=VR_FILES-byte output.
+; Returns RAX=status. Root files map to zero.
+git_tree_file_parents:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jz .map_usage
+ test rsi,rsi
+ jz .map_usage
+ test rcx,rcx
+ jz .map_usage
+ test rdx,rdx
+ jz .map_usage
+ cmp rdx,GIT_TREE_MAX
+ ja .map_usage
+ mov rbp,rdi
+ mov r12,rsi
+ mov r13,rdx
+ mov r14,rcx
+ mov r15,[rbp+24]
+ cmp r15,VR_FILES
+ ja .map_corrupt
+ xor ebx,ebx
+.map_file:
+ cmp rbx,r15
+ jae .map_ok
+ mov rax,rbx
+ shl rax,8
+ add rax,rbp
+ add rax,VR_HEADER
+ xor ecx,ecx
+ xor edx,edx
+.map_scan:
+ cmp rcx,VR_PATH
+ jae .map_corrupt
+ mov sil,[rax+rcx]
+ test sil,sil
+ jz .map_scanned
+ cmp sil,'/'
+ jne .map_next_byte
+ lea rdx,[rcx+1]
+.map_next_byte:
+ inc rcx
+ jmp .map_scan
+.map_scanned:
+ test rcx,rcx
+ jz .map_corrupt
+ test rdx,rdx
+ jz .map_root
+ cmp rdx,VR_PATH
+ jae .map_corrupt
+ lea rsi,[rax]
+ lea rdi,[prefix]
+ mov rcx,rdx
+ rep movsb
+ mov byte [prefix+rdx],0
+ mov r8d,1
+.map_find:
+ cmp r8,r13
+ jae .map_corrupt
+ mov r9,r8
+ shl r9,8
+ add r9,r12
+ xor ecx,ecx
+.map_compare:
+ mov al,[prefix+rcx]
+ cmp al,[r9+GT_PATH+rcx]
+ jne .map_find_next
+ test al,al
+ jz .map_found
+ inc rcx
+ cmp rcx,VR_PATH
+ jb .map_compare
+.map_find_next:
+ inc r8
+ jmp .map_find
+.map_found:
+ mov [r14+rbx],r8b
+ jmp .map_next
+.map_root:
+ mov byte [r14+rbx],0
+.map_next:
+ inc rbx
+ jmp .map_file
+.map_ok: xor eax,eax
+ jmp .map_done
+.map_usage: mov eax,VCS_ERR_USAGE
+ jmp .map_done
+.map_corrupt: mov eax,VCS_ERR_CORRUPT
+.map_done:
  add rsp,8
  pop r15
  pop r14
