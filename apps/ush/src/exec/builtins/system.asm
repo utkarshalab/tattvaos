@@ -5,10 +5,11 @@ bits 64
 default rel
 extern frontend_write_str,ush_print_number,ush_parse_uint,uxv_sync
 section .bss
-global ush_clock_hook,ush_sleep_hook,ush_power_hook
+global ush_clock_hook,ush_sleep_hook,ush_power_hook,ush_yield_hook
 ush_clock_hook: resq 1
 ush_sleep_hook: resq 1
 ush_power_hook: resq 1
+ush_yield_hook: resq 1
 section .rodata
 clear_text: db 27,'[2J',27,'[H',0
 seconds: db ' seconds',10,0
