@@ -1,0 +1,336 @@
+; Bounded Git SHA-256 snapshot object graph and PACK construction.
+%include "include/vcs.inc"
+%include "include/repository.inc"
+%include "include/git_pack.inc"
+%include "storage/uxfs/volume.inc"
+bits 64
+default rel
+
+extern vcs_load_manifest,vcs_object_name,vcs_object_path
+extern uxv_find
+extern git_object_hash,git_pack_begin,git_pack_add,git_pack_finish
+
+section .bss
+up_manifest: resq 1
+up_count: resq 1
+up_indices: resb VR_FILES
+up_blob_hashes: resb VR_FILES*GIT_HASH_SIZE
+up_tree: resb 8192
+up_tree_size: resq 1
+up_tree_hash: resb GIT_HASH_SIZE
+up_commit: resb 512
+up_commit_size: resq 1
+up_commit_hash: resb GIT_HASH_SIZE
+up_decimal: resb 20
+up_output: resq 1
+up_capacity: resq 1
+up_oid_output: resq 1
+up_entry: resq 1
+up_sort_key: resb 1
+
+section .rodata
+blob_type: db 'blob'
+tree_type: db 'tree'
+commit_type: db 'commit'
+tree_prefix: db 'tree '
+tree_prefix_len equ $-tree_prefix
+identity: db 'author Tattva VCS <vcs@tattva.local> 0 +0000',10,'committer Tattva VCS <vcs@tattva.local> 0 +0000',10,10
+identity_len equ $-identity
+mode: db '100644 '
+mode_len equ $-mode
+hex: db '0123456789abcdef'
+
+section .text
+global git_snapshot_pack
+; RDI=VCS commit ID, RSI=pack output, RDX=capacity, RCX=32-byte Git commit OID.
+git_snapshot_pack:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jz .usage
+ test rsi,rsi
+ jz .usage
+ test rcx,rcx
+ jz .usage
+ mov [up_output],rsi
+ mov [up_capacity],rdx
+ mov [up_oid_output],rcx
+ call vcs_load_manifest
+ test rax,rax
+ jz .corrupt
+ mov [up_manifest],rax
+ mov rbp,rax
+ mov r15,[rbp+24]
+ mov [up_count],r15
+ ; Smart serving currently rejects nested paths until recursive trees land.
+ xor ebx,ebx
+.validate_paths:
+ cmp rbx,r15
+ jae .hash_blobs
+ mov rax,rbx
+ shl rax,8
+ add rax,rbp
+ add rax,VR_HEADER
+ mov byte [up_indices+rbx],bl
+ xor ecx,ecx
+.path_byte:
+ cmp byte [rax+rcx],0
+ je .path_ok
+ cmp byte [rax+rcx],'/'
+ je .unsupported
+ inc ecx
+ cmp ecx,VR_PATH
+ jb .path_byte
+ jmp .corrupt
+.path_ok:
+ test ecx,ecx
+ jz .corrupt
+ inc rbx
+ jmp .validate_paths
+.hash_blobs:
+ xor ebx,ebx
+.blob:
+ cmp rbx,r15
+ jae .sort
+ mov rax,rbx
+ shl rax,8
+ add rax,rbp
+ add rax,VR_HEADER
+ mov [up_entry],rax
+ mov rdi,[rax+VR_BLOB]
+ mov sil,'b'
+ call vcs_object_name
+ test eax,eax
+ jnz .corrupt
+ lea rdi,[vcs_object_path]
+ call uxv_find
+ test rax,rax
+ jz .corrupt
+ cmp qword [rax+UV_TYPE],1
+ jne .corrupt
+ mov rcx,rbx
+ shl rcx,8
+ add rcx,rbp
+ add rcx,VR_HEADER
+ mov rdx,[rcx+VR_SIZE]
+ cmp [rax+UV_SIZE],rdx
+ jne .corrupt
+ mov rax,rbx
+ imul rax,GIT_HASH_SIZE
+ lea r8,[up_blob_hashes+rax]
+ lea rdi,[blob_type]
+ mov esi,4
+ lea rcx,[rax+UV_DATA]
+ xchg rdx,rcx
+ call git_object_hash
+ test eax,eax
+ jnz .done
+ inc rbx
+ jmp .blob
+.sort:
+ ; Stable insertion sort by raw path bytes.
+ mov ebx,1
+.sort_outer:
+ cmp rbx,r15
+ jae .build_tree
+ mov al,[up_indices+rbx]
+ mov [up_sort_key],al
+ mov r13,rbx
+.sort_inner:
+ test r13,r13
+ jz .sort_place
+ movzx edi,byte [up_indices+r13-1]
+ movzx esi,byte [up_sort_key]
+ call compare_paths
+ cmp eax,0
+ jle .sort_place
+ mov al,[up_indices+r13-1]
+ mov [up_indices+r13],al
+ dec r13
+ jmp .sort_inner
+.sort_place:
+ mov al,[up_sort_key]
+ mov [up_indices+r13],al
+ inc rbx
+ jmp .sort_outer
+.build_tree:
+ lea rdi,[up_tree]
+ xor ebx,ebx
+.tree_entry:
+ cmp rbx,r15
+ jae .tree_ready
+ lea rsi,[mode]
+ mov ecx,mode_len
+ rep movsb
+ movzx eax,byte [up_indices+rbx]
+ mov rdx,rax
+ shl rax,8
+ add rax,rbp
+ add rax,VR_HEADER
+ mov rsi,rax
+.tree_path:
+ lodsb
+ stosb
+ test al,al
+ jnz .tree_path
+ imul rdx,GIT_HASH_SIZE
+ lea rsi,[up_blob_hashes+rdx]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
+ inc rbx
+ jmp .tree_entry
+.tree_ready:
+ lea rax,[up_tree]
+ sub rdi,rax
+ mov [up_tree_size],rdi
+ lea rdi,[tree_type]
+ mov esi,4
+ lea rdx,[up_tree]
+ mov rcx,[up_tree_size]
+ lea r8,[up_tree_hash]
+ call git_object_hash
+ test eax,eax
+ jnz .done
+ ; Commit body: tree line, deterministic fallback identity, exact VCS message.
+ lea rdi,[up_commit]
+ lea rsi,[tree_prefix]
+ mov ecx,tree_prefix_len
+ rep movsb
+ lea rsi,[up_tree_hash]
+ mov ecx,GIT_HASH_SIZE
+.tree_hex:
+ lodsb
+ movzx edx,al
+ shr edx,4
+ lea r8,[hex]
+ mov dl,[r8+rdx]
+ mov [rdi],dl
+ movzx edx,al
+ and edx,15
+ mov dl,[r8+rdx]
+ mov [rdi+1],dl
+ add rdi,2
+ loop .tree_hex
+ mov byte [rdi],10
+ inc rdi
+ lea rsi,[identity]
+ mov ecx,identity_len
+ rep movsb
+ mov rcx,[rbp+32]
+ btr rcx,63
+ lea rsi,[rbp+VR_MESSAGE]
+ rep movsb
+ lea rax,[up_commit]
+ sub rdi,rax
+ mov [up_commit_size],rdi
+ lea rdi,[commit_type]
+ mov esi,6
+ lea rdx,[up_commit]
+ mov rcx,[up_commit_size]
+ lea r8,[up_commit_hash]
+ call git_object_hash
+ test eax,eax
+ jnz .done
+ lea rsi,[up_commit_hash]
+ mov rdi,[up_oid_output]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
+ ; Emit every object exactly once.
+ mov rdi,[up_output]
+ mov rsi,[up_capacity]
+ mov rdx,r15
+ add edx,2
+ call git_pack_begin
+ test eax,eax
+ jnz .done
+ xor ebx,ebx
+.pack_blob:
+ cmp rbx,r15
+ jae .pack_tree
+ mov rax,rbx
+ shl rax,8
+ add rax,rbp
+ add rax,VR_HEADER
+ mov [up_entry],rax
+ mov rdi,[rax+VR_BLOB]
+ mov sil,'b'
+ call vcs_object_name
+ test eax,eax
+ jnz .corrupt
+ lea rdi,[vcs_object_path]
+ call uxv_find
+ test rax,rax
+ jz .corrupt
+ mov edi,GIT_PACK_BLOB
+ lea rsi,[rax+UV_DATA]
+ mov rcx,[up_entry]
+ mov rdx,[rcx+VR_SIZE]
+ call git_pack_add
+ test eax,eax
+ jnz .done
+ inc rbx
+ jmp .pack_blob
+.pack_tree:
+ mov edi,GIT_PACK_TREE
+ lea rsi,[up_tree]
+ mov rdx,[up_tree_size]
+ call git_pack_add
+ test eax,eax
+ jnz .done
+ mov edi,GIT_PACK_COMMIT
+ lea rsi,[up_commit]
+ mov rdx,[up_commit_size]
+ call git_pack_add
+ test eax,eax
+ jnz .done
+ call git_pack_finish
+ jmp .done
+.usage: mov eax,VCS_ERR_USAGE
+ jmp .done
+.unsupported: mov eax,VCS_ERR_UNSUPPORTED
+ jmp .done
+.corrupt: mov eax,VCS_ERR_CORRUPT
+.done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+; EDI/ESI are manifest entry indices. EAX signed lexical comparison.
+compare_paths:
+ mov rax,rdi
+ shl rax,8
+ add rax,[up_manifest]
+ add rax,VR_HEADER
+ mov rdx,rsi
+ shl rdx,8
+ add rdx,[up_manifest]
+ add rdx,VR_HEADER
+ xor ecx,ecx
+.compare:
+ movzx edi,byte [rax+rcx]
+ movzx esi,byte [rdx+rcx]
+ cmp edi,esi
+ jne .different
+ test edi,edi
+ jz .equal
+ inc ecx
+ cmp ecx,VR_PATH
+ jb .compare
+.equal: xor eax,eax
+ ret
+.different:
+ mov eax,edi
+ sub eax,esi
+ ret
+
+section .note.GNU-stack noalloc noexec nowrite progbits
