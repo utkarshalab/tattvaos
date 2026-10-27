@@ -2,6 +2,7 @@
 %include "include/vcs.inc"
 %include "include/repository.inc"
 %include "include/git_pack.inc"
+%include "include/git_tree.inc"
 %include "storage/uxfs/volume.inc"
 bits 64
 default rel
@@ -9,6 +10,7 @@ default rel
 extern vcs_load_manifest,vcs_object_name,vcs_object_path
 extern uxv_find
 extern git_object_hash,git_pack_begin,git_pack_add,git_pack_finish
+extern git_tree_plan
 
 section .bss
 up_manifest: resq 1
@@ -27,6 +29,7 @@ up_capacity: resq 1
 up_oid_output: resq 1
 up_entry: resq 1
 up_sort_key: resb 1
+up_tree_plan: resb GIT_TREE_MAX*GIT_TREE_RECORD
 
 section .rodata
 blob_type: db 'blob'
@@ -67,31 +70,23 @@ git_snapshot_pack:
  mov rbp,rax
  mov r15,[rbp+24]
  mov [up_count],r15
- ; Smart serving currently rejects nested paths until recursive trees land.
+ ; The shared planner is the sole path-validation and hierarchy authority.
+ mov rdi,rbp
+ lea rsi,[up_tree_plan]
+ mov edx,GIT_TREE_MAX
+ call git_tree_plan
+ test eax,eax
+ jnz .done
+ cmp rdx,1
+ ja .unsupported
+ ; Root-only plans continue through the existing canonical serializer.
  xor ebx,ebx
-.validate_paths:
+.initialize_indices:
  cmp rbx,r15
  jae .hash_blobs
- mov rax,rbx
- shl rax,8
- add rax,rbp
- add rax,VR_HEADER
  mov byte [up_indices+rbx],bl
- xor ecx,ecx
-.path_byte:
- cmp byte [rax+rcx],0
- je .path_ok
- cmp byte [rax+rcx],'/'
- je .unsupported
- inc ecx
- cmp ecx,VR_PATH
- jb .path_byte
- jmp .corrupt
-.path_ok:
- test ecx,ecx
- jz .corrupt
  inc rbx
- jmp .validate_paths
+ jmp .initialize_indices
 .hash_blobs:
  xor ebx,ebx
 .blob:
