@@ -1,14 +1,27 @@
 ; UXFS command adapter. Single console owns these bounded buffers.
 %include "storage/uxfs/volume.inc"
 %include "apps/vcs/include/diff.inc"
+%include "apps/vcs/include/client.inc"
+%include "apps/vcs/include/server.inc"
 bits 64
 default rel
 extern uxv_ready,fs_resolve,ush_streq,diff_files,frontend_write,frontend_write_str
-extern uxv_normalize
+extern uxv_normalize,uxv_find,uxv_free,uxv_commit
 extern vcs_repo_init,vcs_history,vcs_history_signed,vcs_ref,vcs_checkout,vcs_stage,vcs_merge,vcs_rebase,vcs_identity
 extern vcs_policy,vcs_verify_all
 extern vcs_pick
 extern vcs_repo_diff
+extern vcs_blame
+extern vcs_bundle_export,vcs_bundle_seal,vcs_bundle_open,vcs_bundle_publish
+extern vcs_remote
+%ifdef VCS_NETWORK_NATIVE
+extern vcs_sync_client_begin,vcs_sync_client_step,vcs_sync_client_close
+extern vcs_sync_server_begin,vcs_sync_server_step,vcs_sync_server_rearm,vcs_sync_server_close
+extern vcs_sync_plan_head_digest,vcs_sync_policy_ids
+extern vcs_stream_send_begin,vcs_stream_receive_begin,vcs_stream_step
+extern vcs_sync_plan,vcs_sync_repository_policy,vcs_sync_policy_ids
+extern ush_yield_hook,vcs_repo_head
+%endif
 section .bss
 alignb 8
 request: resb vcs_diff_request_size
@@ -19,6 +32,19 @@ rendered: resb 4096*4+2
 commit_message: resb 216
 commit_seed: resq 1
 restore_path: resb 240
+patch_payload: resb 3936
+patch_frame: resb 4096
+%ifdef VCS_NETWORK_NATIVE
+net_client: resb vcs_client_size
+net_server: resb vcs_server_size
+net_ids: resq 64
+net_count: resq 1
+net_seed: resq 1
+net_ref: resq 1
+net_operation: resd 1
+net_ip: resd 1
+net_port: resd 1
+%endif
 section .rodata
 diff_name: db 'diff',0
 init_name: db 'init',0
@@ -26,6 +52,7 @@ status_name: db 'status',0
 commit_name: db 'commit',0
 log_name: db 'log',0
 show_name: db 'show',0
+blame_name: db 'blame',0
 restore_name: db 'restore',0
 branch_name: db 'branch',0
 tag_name: db 'tag',0
@@ -45,6 +72,17 @@ verify_name: db 'verify',0
 policy_name: db 'policy',0
 cherry_pick_name: db 'cherry-pick',0
 revert_name: db 'revert',0
+patch_name: db 'patch',0
+export_name: db 'export',0
+inspect_name: db 'inspect',0
+import_name: db 'import',0
+apply_name: db 'apply',0
+remote_name: db 'remote',0
+remove_name: db 'remove',0
+fetch_name: db 'fetch',0
+push_name: db 'push',0
+clone_name: db 'clone',0
+serve_name: db 'serve',0
 signatures_option: db '--signatures',0
 staged_option: db '--staged',0
 sign_option: db '--sign',0
@@ -70,7 +108,14 @@ init_error: db 'vcs: init failed (directory, metadata conflict, capacity, or I/O
 help_name: db '--help',0
 help_word: db 'help',0
 repo_diff_usage: db 'Repository diff: vcs diff | vcs diff --staged | vcs diff ID1 ID2',10,0
-usage: db 'Usage: vcs diff FILE1 FILE2',10,'       vcs init [DIRECTORY]',10,'       vcs status',10,'       vcs check [--signatures]',10,'       vcs add PATH... | --all',10,'       vcs reset PATH... | --all',10,'       vcs staged',10,'       vcs commit "MESSAGE"',10,'       vcs commit --sign SEED_FILE "MESSAGE"',10,'       vcs commit -m "TITLE" [-m "BODY" ...]',10,'       vcs commit -F FILE',10,'       vcs log [--oneline]',10,'       vcs show [HEAD|16-HEX-ID]',10,'       vcs restore PATH',10,'       vcs checkout ID|BRANCH --force',10,'       vcs branch|tag NAME [ID]',10,'       vcs branch|tag -d NAME',10,'       vcs refs',10,'       vcs merge ID|BRANCH',10,'       vcs conflicts',10,'       vcs resolve PATH',10,'       vcs merge --continue MESSAGE [--sign SEED_FILE]',10,'       vcs merge --abort',10,'       vcs rebase ID|BRANCH [--sign SEED_FILE]',10,'       vcs rebase --continue [--sign SEED_FILE]',10,'       vcs rebase --abort',10,'       vcs identity [NAME SEED_FILE]',10,'       vcs identity --rotate NAME SEED_FILE',10,'       vcs identity --revoke NAME',10,'       vcs policy [require-signed|allow-unsigned]',10,'       vcs sign [HEAD|ID] SEED_FILE',10,'       vcs verify [HEAD|ID]',10,'       vcs cherry-pick|revert ID [--sign SEED_FILE]',10,'       vcs cherry-pick|revert --continue [--sign SEED_FILE]',10,'       vcs cherry-pick|revert --abort',10,'Exit: 0 success/identical, 1 different, 2 error.',10,0
+patch_usage: db 'Patch: vcs patch export ID FILE SEED_FILE | inspect FILE | import FILE [SEED_FILE] | apply FILE [SEED_FILE]',10,0
+remote_usage: db 'Remote: vcs remote | remote add NAME IPV4 PORT | remote remove NAME',10,0
+network_usage: db 'Network: vcs fetch|push|clone REMOTE SEED_FILE [REF] | vcs serve PORT SEED_FILE',10,0
+network_native_only: db 'vcs: networking is available only in native TattvaOS',10,0
+patch_exported: db 'Exported signed patch',10,0
+patch_valid: db 'Patch signature and objects valid',10,0
+patch_imported: db 'Imported commit ',0
+usage: db 'Usage: vcs diff FILE1 FILE2',10,'       vcs init [DIRECTORY]',10,'       vcs status',10,'       vcs check [--signatures]',10,'       vcs add PATH... | --all',10,'       vcs reset PATH... | --all',10,'       vcs staged',10,'       vcs commit "MESSAGE"',10,'       vcs commit --sign SEED_FILE "MESSAGE"',10,'       vcs commit -m "TITLE" [-m "BODY" ...]',10,'       vcs commit -F FILE',10,'       vcs log [--oneline]',10,'       vcs show [HEAD|16-HEX-ID]',10,'       vcs blame FILE',10,'       vcs restore PATH',10,'       vcs checkout ID|BRANCH --force',10,'       vcs branch|tag NAME [ID]',10,'       vcs branch|tag -d NAME',10,'       vcs refs',10,'       vcs merge ID|BRANCH',10,'       vcs conflicts',10,'       vcs resolve PATH',10,'       vcs merge --continue MESSAGE [--sign SEED_FILE]',10,'       vcs merge --abort',10,'       vcs rebase ID|BRANCH [--sign SEED_FILE]',10,'       vcs rebase --continue [--sign SEED_FILE]',10,'       vcs rebase --abort',10,'       vcs identity [NAME SEED_FILE]',10,'       vcs identity --rotate NAME SEED_FILE',10,'       vcs identity --revoke NAME',10,'       vcs policy [require-signed|allow-unsigned]',10,'       vcs sign [HEAD|ID] SEED_FILE',10,'       vcs verify [HEAD|ID]',10,'       vcs cherry-pick|revert ID [--sign SEED_FILE]',10,'       vcs cherry-pick|revert --continue [--sign SEED_FILE]',10,'       vcs cherry-pick|revert --abort',10,'Exit: 0 success/identical, 1 different, 2 error.',10,0
 bad: db 'vcs: invalid arguments or files; run vcs --help',10,0
 limit: db 'vcs: diff supports at most 256 lines per file',10,0
 header: db '--- FILE1',10,'+++ FILE2',10,0
@@ -119,6 +164,11 @@ cmd_vcs:
  call ush_streq
  test eax,eax
  jz .show
+ mov rdi,[r12+8]
+ lea rsi,[blame_name]
+ call ush_streq
+ test eax,eax
+ jz .blame
  mov rdi,[r12+8]
  lea rsi,[restore_name]
  call ush_streq
@@ -214,6 +264,36 @@ cmd_vcs:
  call ush_streq
  test eax,eax
  jz .revert
+ mov rdi,[r12+8]
+ lea rsi,[patch_name]
+ call ush_streq
+ test eax,eax
+ jz .patch
+ mov rdi,[r12+8]
+ lea rsi,[remote_name]
+ call ush_streq
+ test eax,eax
+ jz .remote
+ mov rdi,[r12+8]
+ lea rsi,[fetch_name]
+ call ush_streq
+ test eax,eax
+ jz .fetch
+ mov rdi,[r12+8]
+ lea rsi,[push_name]
+ call ush_streq
+ test eax,eax
+ jz .push
+ mov rdi,[r12+8]
+ lea rsi,[clone_name]
+ call ush_streq
+ test eax,eax
+ jz .clone
+ mov rdi,[r12+8]
+ lea rsi,[serve_name]
+ call ush_streq
+ test eax,eax
+ jz .serve
  mov rdi,r13
  cmp rdi,2
  jne .arguments
@@ -384,6 +464,12 @@ cmd_vcs:
 .help:
  lea rdi,[repo_diff_usage]
  call frontend_write_str
+ lea rdi,[patch_usage]
+ call frontend_write_str
+ lea rdi,[remote_usage]
+ call frontend_write_str
+ lea rdi,[network_usage]
+ call frontend_write_str
  lea rdi,[usage]
  call frontend_write_str
 .identical:
@@ -454,6 +540,23 @@ cmd_vcs:
  xor esi,esi
  mov edi,4
  jmp .history
+.blame:
+ cmp r13,3
+ jne .bad
+ cmp qword [uxv_ready],1
+ jne .bad
+ mov rdi,[r12+16]
+ lea rsi,[restore_path]
+ call uxv_normalize
+ test rax,rax
+ js .bad
+ lea rdi,[restore_path]
+ lea rsi,[frontend_write]
+ call vcs_blame
+ test eax,eax
+ jz .done
+ lea rdi,[history_error]
+ jmp .error
 .restore:
  cmp r13,3
  jne .bad
@@ -943,6 +1046,553 @@ cmd_vcs:
  jz .done
  lea rdi,[history_error]
  jmp .error
+.fetch:
+%ifdef VCS_NETWORK_NATIVE
+ mov dword [net_operation],1
+ jmp .network_receive
+%else
+ jmp .network_unsupported
+%endif
+.clone:
+%ifdef VCS_NETWORK_NATIVE
+ mov dword [net_operation],3
+ jmp .network_receive
+%else
+ jmp .network_unsupported
+%endif
+.push:
+%ifdef VCS_NETWORK_NATIVE
+ mov dword [net_operation],2
+ jmp .network_push
+%else
+ jmp .network_unsupported
+%endif
+.serve:
+%ifdef VCS_NETWORK_NATIVE
+ jmp .network_serve
+%else
+ jmp .network_unsupported
+%endif
+.network_unsupported:
+ lea rdi,[network_native_only]
+ jmp .error
+%ifdef VCS_NETWORK_NATIVE
+.network_arguments:
+ cmp r13,4
+ jb .network_args_bad
+ cmp r13,5
+ ja .network_args_bad
+ mov rdi,[r12+24]
+ call seed_file
+ test rax,rax
+ jz .network_args_bad
+ mov [net_seed],rax
+ mov qword [net_ref],0
+ cmp r13,5
+ jne .network_remote
+ mov rax,[r12+32]
+ mov [net_ref],rax
+.network_remote:
+ mov edi,3
+ mov rsi,[r12+16]
+ xor edx,edx
+ xor ecx,ecx
+ lea r8,[frontend_write]
+ call vcs_remote
+ test eax,eax
+ jnz .network_args_done
+ mov [net_ip],edx
+ mov [net_port],ecx
+.network_args_done:
+ ret
+.network_args_bad:
+ mov eax,VCS_ERR_USAGE
+ ret
+.network_receive:
+ call .network_arguments
+ test eax,eax
+ jnz .patch_failed
+ xor edi,edi
+ xor esi,esi
+ lea rdx,[net_ids]
+ mov ecx,64
+ call vcs_sync_plan
+ test eax,eax
+ jnz .patch_failed
+ cmp dword [net_operation],3
+ jne .network_receive_have
+ test r8,r8
+ jnz .patch_failed
+.network_receive_have:
+ push qword 0
+ push qword [net_seed]
+ lea rdi,[net_client]
+ mov esi,[net_operation]
+ mov edx,[net_ip]
+ mov ecx,[net_port]
+ cmp dword [net_operation],3
+ je .network_clone_digest
+ lea r8,[vcs_sync_plan_head_digest]
+ jmp .network_receive_call
+.network_clone_digest:
+ xor r8d,r8d
+.network_receive_call:
+ mov r9,[net_ref]
+ call vcs_sync_client_begin
+ add rsp,16
+ test eax,eax
+ jnz .patch_failed
+ call .network_client_wait
+ test eax,eax
+ jnz .patch_failed
+ mov rbx,[net_client+vcs_client.bundle_count]
+ xor r15d,r15d
+.network_receive_bundle:
+ cmp r15,rbx
+ jae .network_client_done
+ mov edi,[net_client+vcs_client.fd]
+ mov esi,[net_operation]
+ mov rdx,[net_seed]
+ call vcs_stream_receive_begin
+ test eax,eax
+ jnz .network_client_fail
+ call .network_stream_wait
+ test eax,eax
+ jnz .network_client_fail
+ inc r15
+ jmp .network_receive_bundle
+.network_client_done:
+ lea rdi,[net_client]
+ call vcs_sync_client_close
+ xor eax,eax
+ jmp .done
+.network_client_fail:
+ push rax
+ lea rdi,[net_client]
+ call vcs_sync_client_close
+ pop rax
+ jmp .patch_failed
+.network_push:
+ call .network_arguments
+ test eax,eax
+ jnz .patch_failed
+ ; Advertisement round: obtain the remote head digest.
+ push qword 0
+ push qword [net_seed]
+ lea rdi,[net_client]
+ mov esi,2
+ mov edx,[net_ip]
+ mov ecx,[net_port]
+ xor r8d,r8d
+ mov r9,[net_ref]
+ call vcs_sync_client_begin
+ add rsp,16
+ test eax,eax
+ jnz .patch_failed
+ call .network_client_wait
+ test eax,eax
+ jnz .network_client_fail
+ lea rdi,[net_client]
+ call vcs_sync_client_close
+ lea rdi,[net_client+vcs_client.head_digest]
+ mov rsi,[net_ref]
+ lea rdx,[net_ids]
+ mov ecx,64
+ call vcs_sync_plan
+ test eax,eax
+ jnz .patch_failed
+ mov [net_count],rdx
+ test rdx,rdx
+ jz .done
+ ; Declared upload round.
+ push qword [net_count]
+ push qword [net_seed]
+ lea rdi,[net_client]
+ mov esi,2
+ mov edx,[net_ip]
+ mov ecx,[net_port]
+ lea r8,[net_client+vcs_client.head_digest]
+ mov r9,[net_ref]
+ call vcs_sync_client_begin
+ add rsp,16
+ test eax,eax
+ jnz .patch_failed
+ call .network_client_wait
+ test eax,eax
+ jnz .network_client_fail
+ xor r15d,r15d
+.network_push_bundle:
+ cmp r15,[net_count]
+ jae .network_client_done
+ mov edi,[net_client+vcs_client.fd]
+ lea rax,[net_ids]
+ mov rsi,[rax+r15*8]
+ mov edx,2
+ mov rcx,[net_seed]
+ call vcs_stream_send_begin
+ test eax,eax
+ jnz .network_client_fail
+ call .network_stream_wait
+ test eax,eax
+ jnz .network_client_fail
+ inc r15
+ jmp .network_push_bundle
+.network_serve:
+ cmp r13,4
+ jne .bad
+ mov rdi,[r12+16]
+ call parse_port_arg
+ test eax,eax
+ jnz .bad
+ mov r14d,edx
+ mov rdi,[r12+24]
+ call seed_file
+ test rax,rax
+ jz .bad
+ mov [net_seed],rax
+ lea rdi,[net_server]
+ xor esi,esi
+ mov edx,r14d
+ mov rcx,rax
+ lea r8,[vcs_sync_repository_policy]
+ call vcs_sync_server_begin
+ test eax,eax
+ jnz .patch_failed
+.network_server_wait:
+ lea rdi,[net_server]
+ call vcs_sync_server_step
+ cmp eax,1
+ jne .network_server_ready
+ call .network_yield
+ test eax,eax
+ jz .network_server_wait
+ jmp .network_server_fail
+.network_server_ready:
+ test eax,eax
+ jnz .network_server_fail
+ mov eax,[net_server+vcs_server.operation]
+ cmp eax,2
+ je .network_server_receive
+ mov rbx,[net_server+vcs_server.outgoing_count]
+ xor r15d,r15d
+.network_server_send_loop:
+ cmp r15,rbx
+ jae .network_server_done
+ mov edi,[net_server+vcs_server.client]
+ lea rax,[vcs_sync_policy_ids]
+ mov rsi,[rax+r15*8]
+ mov edx,[net_server+vcs_server.operation]
+ mov rcx,[net_seed]
+ call vcs_stream_send_begin
+ test eax,eax
+ jnz .network_server_fail
+ call .network_stream_wait
+ test eax,eax
+ jnz .network_server_fail
+ inc r15
+ jmp .network_server_send_loop
+.network_server_receive:
+ mov rbx,[net_server+vcs_server.incoming_count]
+ test rbx,rbx
+ jnz .network_server_recv_start
+ lea rdi,[net_server]
+ call vcs_sync_server_rearm
+ test eax,eax
+ jnz .network_server_fail
+ jmp .network_server_wait
+.network_server_recv_start:
+ xor r15d,r15d
+.network_server_recv_loop:
+ cmp r15,rbx
+ jae .network_server_done
+ mov edi,[net_server+vcs_server.client]
+ mov esi,2
+ mov rdx,[net_seed]
+ call vcs_stream_receive_begin
+ test eax,eax
+ jnz .network_server_fail
+ call .network_stream_wait
+ test eax,eax
+ jnz .network_server_fail
+ inc r15
+ jmp .network_server_recv_loop
+.network_server_done:
+ lea rdi,[net_server]
+ call vcs_sync_server_close
+ xor eax,eax
+ jmp .done
+.network_server_fail:
+ push rax
+ lea rdi,[net_server]
+ call vcs_sync_server_close
+ pop rax
+ jmp .patch_failed
+.network_client_wait:
+ lea rdi,[net_client]
+ call vcs_sync_client_step
+ cmp eax,1
+ jne .network_wait_done
+ call .network_yield
+ test eax,eax
+ jz .network_client_wait
+.network_wait_done:
+ ret
+.network_stream_wait:
+ call vcs_stream_step
+ cmp eax,1
+ jne .network_stream_done
+ call .network_yield
+ test eax,eax
+ jz .network_stream_wait
+.network_stream_done:
+ ret
+.network_yield:
+ mov rax,[ush_yield_hook]
+ test rax,rax
+ jz .network_yield_bad
+ call rax
+ xor eax,eax
+ ret
+.network_yield_bad:
+ mov eax,VCS_ERR_IO
+ ret
+parse_port_arg:
+ xor edx,edx
+ xor ecx,ecx
+.net_port_digit:
+ movzx eax,byte [rdi]
+ test al,al
+ jz .net_port_end
+ cmp al,'0'
+ jb .net_port_bad
+ cmp al,'9'
+ ja .net_port_bad
+ imul edx,edx,10
+ sub al,'0'
+ movzx eax,al
+ add edx,eax
+ cmp edx,65535
+ ja .net_port_bad
+ inc rdi
+ inc ecx
+ cmp ecx,5
+ jbe .net_port_digit
+.net_port_bad: mov eax,1
+ ret
+.net_port_end:
+ test ecx,ecx
+ jz .net_port_bad
+ test edx,edx
+ jz .net_port_bad
+ xor eax,eax
+ ret
+%endif
+.remote:
+ cmp r13,2
+ je .remote_list
+ cmp r13,4
+ je .remote_remove
+ cmp r13,6
+ jne .bad
+ mov rdi,[r12+16]
+ lea rsi,[add_name]
+ call ush_streq
+ test eax,eax
+ jnz .bad
+ mov edi,1
+ mov rsi,[r12+24]
+ mov rdx,[r12+32]
+ mov rcx,[r12+40]
+ lea r8,[frontend_write]
+ jmp .remote_call
+.remote_remove:
+ mov rdi,[r12+16]
+ lea rsi,[remove_name]
+ call ush_streq
+ test eax,eax
+ jnz .bad
+ mov edi,2
+ mov rsi,[r12+24]
+ xor edx,edx
+ xor ecx,ecx
+ lea r8,[frontend_write]
+ jmp .remote_call
+.remote_list:
+ xor edi,edi
+ xor esi,esi
+ xor edx,edx
+ xor ecx,ecx
+ lea r8,[frontend_write]
+.remote_call:
+ call vcs_remote
+ test eax,eax
+ jz .done
+ lea rdi,[history_error]
+ jmp .error
+.patch:
+ cmp r13,4
+ jb .bad
+ mov rdi,[r12+16]
+ lea rsi,[export_name]
+ call ush_streq
+ test eax,eax
+ jz .patch_export
+ mov rdi,[r12+16]
+ lea rsi,[inspect_name]
+ call ush_streq
+ test eax,eax
+ jz .patch_inspect
+ mov rdi,[r12+16]
+ lea rsi,[import_name]
+ call ush_streq
+ test eax,eax
+ jz .patch_import
+ mov rdi,[r12+16]
+ lea rsi,[apply_name]
+ call ush_streq
+ test eax,eax
+ jz .patch_apply
+ jmp .bad
+.patch_export:
+ cmp r13,6
+ jne .bad
+ mov rdi,[r12+24]
+ call parse_commit_id
+ jc .bad
+ mov r14,rax
+ mov rdi,[r12+40]
+ call seed_file
+ test rax,rax
+ jz .bad
+ mov r15,rax
+ mov rdi,r14
+ lea rsi,[patch_payload]
+ mov edx,3936
+ call vcs_bundle_export
+ test eax,eax
+ jnz .patch_failed
+ mov r14,rdx
+ lea rdi,[patch_frame]
+ mov esi,4096
+ lea rdx,[patch_payload]
+ mov rcx,r14
+ mov r8d,4
+ mov r9,r15
+ call vcs_bundle_seal
+ test eax,eax
+ jnz .patch_failed
+ mov r14,rdx
+ mov rdi,[r12+32]
+ lea rsi,[restore_path]
+ call uxv_normalize
+ test rax,rax
+ js .patch_failed
+ lea rdi,[restore_path]
+ call uxv_find
+ test rax,rax
+ jnz .patch_export_existing
+ call uxv_free
+ test rax,rax
+ jz .patch_failed
+.patch_export_existing:
+ cmp qword [rax+UV_TYPE],1
+ jne .patch_failed
+ mov rbx,rax
+ mov rdi,rbx
+ call patch_clear_node
+ mov rdi,rbx
+ lea rsi,[restore_path]
+ mov ecx,240
+ rep movsb
+ mov qword [rbx+UV_TYPE],1
+ mov [rbx+UV_SIZE],r14
+ lea rdi,[rbx+UV_DATA]
+ lea rsi,[patch_frame]
+ mov rcx,r14
+ rep movsb
+ call uxv_commit
+ test rax,rax
+ js .patch_failed
+ lea rdi,[patch_exported]
+ call frontend_write_str
+ xor eax,eax
+ jmp .done
+.patch_inspect:
+ cmp r13,4
+ jne .bad
+ mov r15d,1
+ jmp .patch_open
+.patch_import:
+ cmp r13,5
+ ja .bad
+ xor r15d,r15d
+ jmp .patch_open
+.patch_apply:
+ cmp r13,5
+ ja .bad
+ mov r15d,2
+.patch_open:
+ xor r14d,r14d
+ cmp r13,5
+ jne .patch_file
+ mov rdi,[r12+32]
+ call seed_file
+ test rax,rax
+ jz .bad
+ mov r14,rax
+.patch_file:
+ cmp qword [uxv_ready],1
+ jne .patch_failed
+ mov rdi,[r12+24]
+ call fs_resolve
+ test rax,rax
+ jz .patch_failed
+ cmp qword [rax+UV_TYPE],1
+ jne .patch_failed
+ mov rsi,[rax+UV_SIZE]
+ cmp rsi,4096
+ ja .patch_failed
+ lea rdi,[rax+UV_DATA]
+ call vcs_bundle_open
+ test eax,eax
+ jnz .patch_failed
+ cmp r8d,4
+ jne .patch_failed
+ cmp r15d,1
+ jne .patch_publish
+ lea rdi,[patch_valid]
+ call frontend_write_str
+ xor eax,eax
+ jmp .done
+.patch_publish:
+ mov rdi,rdx
+ mov rsi,rcx
+ mov rdx,r14
+ call vcs_bundle_publish
+ test eax,eax
+ jnz .patch_failed
+ mov rbx,rdx
+ cmp r15d,2
+ je .patch_apply_commit
+ lea rdi,[patch_imported]
+ call frontend_write_str
+ mov rdi,rbx
+ call patch_print_id
+ xor eax,eax
+ jmp .done
+.patch_apply_commit:
+ xor edi,edi
+ mov rsi,rbx
+ lea rdx,[frontend_write]
+ mov rcx,r14
+ call vcs_pick
+ test eax,eax
+ jnz .patch_failed
+ xor eax,eax
+ jmp .done
+.patch_failed:
+ lea rdi,[history_error]
+ jmp .error
 .commit:
  cmp r13,3
  jb .bad
@@ -1201,4 +1851,27 @@ seed_file:
 .seed_bad:
  xor eax,eax
  ret
+
+patch_clear_node:
+ xor eax,eax
+ mov ecx,UV_NODE/8
+ rep stosq
+ ret
+
+patch_print_id:
+ lea rsi,[rendered]
+ mov ecx,16
+ lea rdx,[hex]
+.patch_id_digit:
+ rol rdi,4
+ mov rax,rdi
+ and eax,15
+ mov al,[rdx+rax]
+ mov [rsi],al
+ inc rsi
+ loop .patch_id_digit
+ mov byte [rsi],10
+ lea rdi,[rendered]
+ mov esi,17
+ jmp frontend_write
 section .note.GNU-stack noalloc noexec nowrite progbits
