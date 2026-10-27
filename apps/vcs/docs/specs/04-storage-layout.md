@@ -219,6 +219,23 @@ records, and blobs. No background/tracing GC exists;
 future explicit pruning must prove an object has no live owner before releasing
 its UXFS record. Packing and Git interchange remain outside the current scope.
 
+## Stash stack
+
+`.vcs/stash` is a bounded `UVCSST1` file. Its 16-byte header contains the magic
+and an entry count, followed by 16-byte records containing a hidden snapshot
+commit ID and the HEAD ID on which it was based. Entries are ordered oldest to
+newest. Hidden snapshots use the ordinary manifest, integrity, blob, and
+optional signature formats, so normal validation and three-way replay apply.
+Removing a stack record does not implicitly reclaim its objects.
+
+## Bisect state
+
+`.vcs/bisect` is an 80-byte `UVCSBIS1` record containing the original HEAD,
+known-good, known-bad, current test commit, and the original active branch name.
+All commit IDs are validated on every command, and GOOD must occur on BAD's
+first-parent chain. State is persisted before each detached checkout. Reset
+restores the recorded HEAD and branch before deleting the state record.
+
 ## Test Vectors
 
 `make -C apps/vcs test` exercises the NASM initializer linked to the actual NASM
