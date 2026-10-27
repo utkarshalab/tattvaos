@@ -118,6 +118,11 @@ marks and sequential commits on `refs/heads/main`; Git therefore reconstructs
 the original linear ancestry. Merge second parents are flattened onto the
 first-parent view. The same 4096-byte UXFS output bound applies.
 
+The smart-serving foundation supports Git SHA-256 object identifiers and
+non-delta PACK v2 output with zlib stored blocks, Adler-32 validation, declared
+object counts, and a SHA-256 pack trailer. Negotiation and native socket serving
+are still pending, so VCS does not yet advertise a cloneable Git endpoint.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
