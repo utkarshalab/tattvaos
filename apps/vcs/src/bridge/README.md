@@ -26,3 +26,8 @@ at 65535 bytes and callers must declare the exact object count.
 Git SHA-256 blob, sorted tree, and commit objects, returns the commit OID, and
 emits each object once into PACK v2. Nested paths are rejected until recursive
 tree construction is implemented, preventing invalid Git tree representations.
+
+`tree.asm` now supplies the recursive-tree planner: it validates every path,
+deduplicates directory prefixes, records depth and parent indices, and bounds a
+snapshot to 64 Git tree records. The upload-pack serializer still needs to
+consume this plan bottom-up before nested paths can be advertised.
