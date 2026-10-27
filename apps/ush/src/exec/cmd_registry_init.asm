@@ -52,7 +52,7 @@ NAME sleep,'sleep','sleep SECONDS - 0..86400, yields to scheduler'
 NAME shutdown,'shutdown','Flush storage and power off the native guest'
 NAME reboot,'reboot','Flush storage and reboot the native guest'
 NAME uedit,'uedit','uedit FILE - terminal text editor, Ctrl-S save / Ctrl-Q quit'
-NAME vcs,'vcs','vcs init/status/add/reset/staged/commit/log/show/restore/checkout/branch/tag/refs/diff'
+NAME vcs,'vcs','Local history, refs, merge/rebase, signed patches, and integrity'
 section .data
 %macro ENTRY 4
 %1_entry:
