@@ -45,7 +45,8 @@ and `include/diff.inc` for layouts and register conventions.
 Ush implements the local and native synchronization workflows documented below.
 The expanded history, staging, refs, merge, rebase, blame, repository-aware
 diff, signed patch, and network code is awaiting validation at the user's
-request. Git interchange remains unimplemented. The obsolete generic `diff_trees` and
+request. Bounded Git snapshot/history import and export are available;
+smart-protocol serving remains unimplemented. The obsolete generic `diff_trees` and
 `diff_emit` ABI entries still return unsupported; `vcs_repo_diff` is the bounded
 UXFS-aware implementation used by Ush. No UFS format is invented
 by this file-level implementation.
@@ -80,6 +81,42 @@ explicit native-only error.
 commit where its exact bytes last changed. Each row includes the 16-digit commit
 ID and verified signer name; commits without a trusted signature are reported
 as `unsigned`. Like the line diff engine, blame is bounded to 256 lines.
+
+`stash` saves the complete changed worktree as a validated hidden snapshot and
+restores the original HEAD. The optional message is stored with that snapshot;
+repositories that require signed commits use `--sign SEED_FILE`. `stash list`
+prints newest first. `apply` replays the newest stash through the same bounded
+three-way engine used by cherry-pick, leaving results staged and preserving the
+stash. `pop` removes the reference only after a conflict-free apply, while
+`drop` removes it without applying. Conflicted pops retain their stash entry.
+The stack holds at most 255 entries; removed hidden objects remain retained.
+
+`bisect start GOOD BAD` begins a persistent first-parent binary search, where
+GOOD and BAD may be 16-digit IDs or local branches. It requires a clean
+worktree, records the original HEAD and branch, then checks out bounded midpoint
+commits detached. Mark each result with `bisect good` or `bisect bad`; once the
+bounds are adjacent VCS reports and checks out the first bad commit. `status`
+prints the current bounds, and `reset` restores the original HEAD and branch.
+
+`git export ID|BRANCH FILE` writes a real Git fast-import stream for one
+validated snapshot. Import it in a Git repository with `git fast-import < FILE`.
+The stream contains marked blobs, one root commit on `refs/heads/main`, exact
+message and file bytes, and safely quoted paths. The UXFS output-file limit is
+4096 bytes, so larger snapshots currently fail with a capacity error instead of
+producing a truncated stream. `git import FILE [SEED_FILE]` accepts the same
+bounded stream in an unborn, otherwise-empty VCS repository and creates a normal
+integrity-checked commit. The source stream must be outside the target repository
+so it is not mistaken for imported content. A seed is required when signed
+commit policy is enabled. Sequential streams from `export-history` are imported
+commit-by-commit, replacing each worktree snapshot and reconstructing the same
+linear first-parent ancestry. A failed later commit restores the preceding
+imported snapshot. Smart serving remains pending.
+
+`git export-history ID|BRANCH FILE` walks the selected commit's complete
+first-parent history oldest-first. It emits globally unique blob and commit
+marks and sequential commits on `refs/heads/main`; Git therefore reconstructs
+the original linear ancestry. Merge second parents are flattened onto the
+first-parent view. The same 4096-byte UXFS output bound applies.
 
 ## Using diff from Ush
 
@@ -142,6 +179,20 @@ vcs log
 vcs log --oneline
 vcs show [HEAD|16-HEX-ID]
 vcs blame FILE
+vcs stash [MESSAGE]
+vcs stash --sign SEED_FILE [MESSAGE]
+vcs stash list
+vcs stash apply
+vcs stash pop
+vcs stash drop
+vcs bisect start GOOD BAD
+vcs bisect good
+vcs bisect bad
+vcs bisect status
+vcs bisect reset
+vcs git export ID|BRANCH FILE
+vcs git export-history ID|BRANCH FILE
+vcs git import FILE [SEED_FILE]
 vcs restore PATH
 vcs add PATH... | --all
 vcs reset PATH... | --all
