@@ -30,6 +30,8 @@ kernel_ush_fiber:
     mov [kernel_ush_bss+KERNEL_USH_SLEEP_HOOK_OFFSET],rax
     mov rax,kernel_ush_power
     mov [kernel_ush_bss+KERNEL_USH_POWER_HOOK_OFFSET],rax
+    mov rax,kernel_ush_yield
+    mov [kernel_ush_bss+KERNEL_USH_YIELD_HOOK_OFFSET],rax
     mov rsi,kernel_ush_started
     call uart_print_str
     mov rdi,kernel_ush_data+KERNEL_USH_UART_OFFSET
