@@ -133,6 +133,10 @@ directory prefixes are deduplicated, and explicit depth/parent relationships are
 bounded to 64 tree records. Bottom-up tree serialization into upload-pack is the
 remaining integration step before nested snapshots become serveable.
 
+Upload-pack now consumes that plan for every snapshot, making it the single
+path-safety and hierarchy authority. Nested plans still stop at the explicit
+bottom-up serializer boundary rather than being interpreted inconsistently.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
