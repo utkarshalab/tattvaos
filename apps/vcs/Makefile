@@ -2,7 +2,7 @@ NASM ?= nasm
 LD ?= ld
 AR ?= ar
 BUILD ?= build
-OBJECTS := $(BUILD)/cli.o $(BUILD)/diff.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/sync.o $(BUILD)/protocol.o $(BUILD)/client.o $(BUILD)/server.o $(BUILD)/stream.o $(BUILD)/plan.o $(BUILD)/policy.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/bridge.o $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o
+OBJECTS := $(BUILD)/cli.o $(BUILD)/diff.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/sync.o $(BUILD)/protocol.o $(BUILD)/client.o $(BUILD)/server.o $(BUILD)/stream.o $(BUILD)/plan.o $(BUILD)/policy.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/bridge.o $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/stash.o $(BUILD)/bisect.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o
 .PHONY: all native test
 all: native
 native: $(BUILD)/vcs-native.o $(BUILD)/libvcs.a
@@ -40,7 +40,7 @@ $(BUILD)/bundle.o: src/sync/bundle.asm include/vcs.inc include/repository.inc in
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/remote.o: src/sync/remote.asm include/vcs.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/bridge.o: src/bridge/bridge.asm include/vcs.inc include/wire.inc | $(BUILD)
+$(BUILD)/bridge.o: src/bridge/bridge.asm include/vcs.inc include/wire.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/repository.o: src/store/repository.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -51,6 +51,10 @@ $(BUILD)/refs.o: src/store/refs.asm include/vcs.inc include/repository.inc ../..
 $(BUILD)/worktree.o: src/store/worktree.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/stage.o: src/store/stage.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/stash.o: src/store/stash.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/bisect.o: src/store/bisect.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/identity.o: src/store/identity.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -64,7 +68,7 @@ $(BUILD)/ed25519.o: ../../lib/crypto/usign/ed25519/ed25519.asm ../../lib/crypto/
 	$(NASM) -w+error -dED25519_NO_KEYGEN -dED25519_EXTERNAL_SHA512 -f elf64 -I ../../ $< -o $@
 $(BUILD)/volume.o: ../../storage/uxfs/volume.asm ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ../../ $< -o $@
-$(BUILD)/repository.so: $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/diff.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/protocol.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o $(BUILD)/volume.o
+$(BUILD)/repository.so: $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/stash.o $(BUILD)/bisect.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/diff.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/protocol.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o $(BUILD)/volume.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/vcs-native.o: $(OBJECTS)
 	$(LD) -r -z noexecstack -o $@ $^
