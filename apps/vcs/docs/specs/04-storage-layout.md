@@ -136,6 +136,12 @@ same UXFS transaction as the manifest, digest, HEAD, and attached branch.
 
 ### Workflow and publication
 
+Native remotes are regular 16-byte `.vcs/remote.NAME` records. They contain the
+`VCREMOT1` magic, four network-order IPv4 bytes, a nonzero host-order port, and
+two reserved zero bytes. Names use 1..32 safe ASCII ref characters. Creation
+and removal use an atomic UXFS volume transaction; malformed records make
+remote operations fail as corrupt.
+
 `status` identifies additions/modifications/deletions by path and exact byte
 comparison against HEAD. It includes all regular files under the repository and
 excludes `.vcs` components at every depth. There is no ignore-file hierarchy,
