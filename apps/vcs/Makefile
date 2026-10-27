@@ -46,7 +46,7 @@ $(BUILD)/pack.o: src/bridge/pack.asm include/vcs.inc include/git_pack.inc ../../
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/tree.o: src/bridge/tree.asm include/vcs.inc include/repository.inc include/git_tree.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/upload_pack.o: src/bridge/upload_pack.asm include/vcs.inc include/repository.inc include/git_pack.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/upload_pack.o: src/bridge/upload_pack.asm include/vcs.inc include/repository.inc include/git_pack.inc include/git_tree.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/repository.o: src/store/repository.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
