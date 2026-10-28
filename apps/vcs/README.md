@@ -159,6 +159,10 @@ Protocol-v2 response encoding now covers capability advertisement,
 packfile delivery for `fetch`. Native request parsing and socket ownership remain
 to be connected before advertising a live endpoint.
 
+Request parsing now recognizes protocol-v2 delimiter packets, validates command
+headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
+`fetch` requests. Native socket-session ownership remains pending.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
