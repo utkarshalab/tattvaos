@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CLUSTER_CLUSTER_ASM
 %define GUARD_STORAGE_UXFS_CLUSTER_CLUSTER_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/cluster/cluster.asm
+; Utkarsha OS — lib/storage/uxfs/cluster/cluster.asm
 ; =============================================================================
 ; Production-Grade Ceph / GlusterFS CRUSH Distributed Cloud Storage Router.
 ;
@@ -15,7 +15,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_CLUSTER_MAX_REPLICAS    4
 
