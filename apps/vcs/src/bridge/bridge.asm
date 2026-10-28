@@ -11,7 +11,7 @@ extern vcs_repo_discover,vcs_repo_root,vcs_repo_root_size,vcs_repo_head
 extern vcs_history,vcs_history_signed,vcs_checkout
 extern uxv_find,uxv_free,uxv_normalize,uxv_nodes
 extern git_protocol_v2_advertise,git_protocol_v2_parse_request
-extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_history_pack
+extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_history_pack,git_history_oid
 extern git_first_parent_plan
 
 section .bss
@@ -1525,6 +1525,10 @@ bridge_git_serve:
  mov rbx,rdx                    ; operation
  mov r12,rcx                    ; wanted OID or zero
  mov [serve_flags],r8           ; ls-refs request flags
+ cmp rbx,1
+ je .serve_refs_oid
+ cmp rbx,2
+ jne .serve_corrupt
  mov rdi,rbp
  lea rsi,[serve_pack]
  mov edx,VCS_WIRE_MAX_PAYLOAD
@@ -1533,10 +1537,6 @@ bridge_git_serve:
  test eax,eax
  jnz .serve_done
  mov r13,rdx                    ; pack length
- cmp rbx,1
- je .serve_refs
- cmp rbx,2
- jne .serve_corrupt
  lea rdi,[serve_oid]
  mov rsi,r12
  mov ecx,32
@@ -1548,6 +1548,12 @@ bridge_git_serve:
  mov rcx,r15
  call git_protocol_v2_fetch
  jmp .serve_done
+.serve_refs_oid:
+ mov rdi,rbp
+ lea rsi,[serve_oid]
+ call git_history_oid
+ test eax,eax
+ jnz .serve_done
 .serve_refs:
  lea rdi,[serve_oid]
  mov rsi,[serve_flags]
