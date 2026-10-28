@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_JOURNAL_JOURNAL_ASM
 %define GUARD_STORAGE_UXFS_JOURNAL_JOURNAL_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/journal/journal.asm
+; Utkarsha OS — lib/storage/uxfs/journal/journal.asm
 ; =============================================================================
 ; ext4 Fast-Commit & Write-Ahead Logging (WAL) Transaction Journal.
 ;
@@ -9,7 +9,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_WAL_MAGIC               0x4A4F5552
 %define UXFS_WAL_BLOCK_DESCRIPTOR    1
