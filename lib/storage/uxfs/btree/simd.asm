@@ -2,7 +2,7 @@
 %define GUARD_STORAGE_UXFS_BTREE_SIMD_ASM
  
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/btree/simd.asm
+; Utkarsha OS — lib/storage/uxfs/btree/simd.asm
 ; =============================================================================
 ; Elite Hardware AVX-512 & AVX2 SIMD Parallel Vector Search Engine for UXFS B-Trees.
 ;
@@ -19,7 +19,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 section .text
 
