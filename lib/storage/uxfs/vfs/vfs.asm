@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_VFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_VFS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/vfs.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/vfs.asm
 ; =============================================================================
 ; Production-Grade POSIX Virtual File System (VFS) Layer in 64-bit Assembly.
 ;
@@ -23,7 +23,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define POSIX_O_RDONLY              0x0000
 %define POSIX_O_WRONLY              0x0001
@@ -63,9 +63,9 @@ global vfs_readlink
 global vfs_rename
 global vfs_chmod
 
-; extern uxfs_btree_lookup -> defined in storage/uxfs/btree/cow.asm (single-unit build: no extern needed)
-; extern uxfs_btree_insert -> defined in storage/uxfs/btree/cow.asm (single-unit build: no extern needed)
-; extern uxfs_ag_alloc_block -> defined in storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
+; extern uxfs_btree_lookup -> defined in lib/storage/uxfs/btree/cow.asm (single-unit build: no extern needed)
+; extern uxfs_btree_insert -> defined in lib/storage/uxfs/btree/cow.asm (single-unit build: no extern needed)
+; extern uxfs_ag_alloc_block -> defined in lib/storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
 
 ; -----------------------------------------------------------------------------
 ; vfs_init
