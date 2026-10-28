@@ -10,7 +10,7 @@
 
 [BITS 64]
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 %include "lib/ulib/map.inc"
 %include "security/usrauth/usrauth.inc"
 
