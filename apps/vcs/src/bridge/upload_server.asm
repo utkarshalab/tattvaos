@@ -15,7 +15,8 @@ extern vcs_sync_unet_send,vcs_sync_unet_receive
 %define GIT_SERVER_RECEIVE      4
 %define GIT_SERVER_RESPOND      5
 %define GIT_SERVER_DONE         6
-%define GIT_REQUEST_CAP         4096
+; Holds command headers, one want, 64 SHA-256 haves, done, and pkt framing.
+%define GIT_REQUEST_CAP         8192
 %define GIT_RESPONSE_CAP        (VCS_WIRE_MAX_PAYLOAD+128)
 
 section .bss
