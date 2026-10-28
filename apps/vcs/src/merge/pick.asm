@@ -1,7 +1,7 @@
 ; Durable single-commit cherry-pick and revert using the shared replay engine.
 %include "include/vcs.inc"
 %include "include/repository.inc"
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 bits 64
 default rel
 
