@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_PAGECACHE_ASM
 %define GUARD_STORAGE_UXFS_CACHE_PAGECACHE_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/cache/pagecache.asm
+; Utkarsha OS — lib/storage/uxfs/cache/pagecache.asm
 ; =============================================================================
 ; 4KB Page Cache — Descriptor Table, Reference Counting & Writeback Tracking.
 ;
@@ -30,7 +30,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_PC_SLOTS                4096        ; Power of two: mask indexing
 %define UXFS_PC_SLOT_MASK            (UXFS_PC_SLOTS - 1)
