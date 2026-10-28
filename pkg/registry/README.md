@@ -29,7 +29,7 @@ pkg/registry/
 
 ```text
 pkg/registry/ depends on:
-  → storage/uxfs/   (filesystem storage)
+  → lib/storage/uxfs/   (filesystem storage)
   → lib/io/         (file I/O)
 ```
 
