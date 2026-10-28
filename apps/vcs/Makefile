@@ -44,7 +44,7 @@ $(BUILD)/bridge.o: src/bridge/bridge.asm include/vcs.inc include/wire.inc includ
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/pack.o: src/bridge/pack.asm include/vcs.inc include/git_pack.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/tree.o: src/bridge/tree.asm include/vcs.inc include/repository.inc include/git_tree.inc | $(BUILD)
+$(BUILD)/tree.o: src/bridge/tree.asm include/vcs.inc include/repository.inc include/git_tree.inc include/git_pack.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/upload_pack.o: src/bridge/upload_pack.asm include/vcs.inc include/repository.inc include/git_pack.inc include/git_tree.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
