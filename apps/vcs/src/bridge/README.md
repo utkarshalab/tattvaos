@@ -16,6 +16,11 @@ first-parent chain, oldest first, with unique marks across the stream. Sequentia
 updates to the same Git branch preserve that linear ancestry; merge second
 parents are intentionally not represented by this bounded bridge.
 
+`history_plan.asm` owns the shared first-parent walk used by history export and
+the developing history-aware upload pack. It validates every manifest, bounds
+the chain by caller capacity, and returns commit IDs newest-first so consumers
+can choose forward or reverse emission without repeating ancestry validation.
+
 `pack.asm` provides the object foundation for Git repositories using
 `extensions.objectFormat=sha256`: canonical Git object hashing and a bounded
 non-delta PACK v2 writer. Entries use valid zlib stored blocks with Adler-32,
