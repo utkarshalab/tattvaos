@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_UWAL_INC
 %define GUARD_STORAGE_UWAL_UWAL_INC
 ; =============================================================================
-; Utkarsha OS — storage/uwal/uwal.inc
+; Utkarsha OS — lib/storage/uwal/uwal.inc
 ; =============================================================================
 ; Master Schema Header for UWAL (Unikernel Write-Ahead Log).
 ;
@@ -9,12 +9,12 @@
 ; UWAL module.
 ;
 ; UWAL is a general-purpose durable log. It is deliberately SEPARATE from the
-; filesystem metadata journal in storage/uxfs/journal: uxfs journals its own
+; filesystem metadata journal in lib/storage/uxfs/journal: uxfs journals its own
 ; metadata through its own block layer, while UWAL serves udb and any other
 ; client needing durability. Layering a database log on top of a filesystem
 ; log causes double journaling — every commit written twice, two fsyncs for
 ; one guarantee — which is precisely what "no redundant block layers" in
-; storage/README.md rules out.
+; lib/storage/README.md rules out.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM)
