@@ -15,6 +15,7 @@ request_want: resb 32
 request_operation: resq 1
 request_flags: resq 1
 request_format: resb 1
+request_agent: resb 1
 request_done: resb 1
 request_want_set: resb 1
 
@@ -25,6 +26,8 @@ fetch_command: db 'command=fetch',10
 fetch_command_len equ $-fetch_command
 format_line: db 'object-format=sha256',10
 format_line_len equ $-format_line
+agent_prefix: db 'agent='
+agent_prefix_len equ $-agent_prefix
 want_prefix: db 'want '
 done_line: db 'done',10
 symrefs_line: db 'symrefs',10
@@ -66,6 +69,7 @@ git_protocol_v2_parse_request:
  mov qword [request_operation],0
  mov qword [request_flags],0
  mov byte [request_format],0
+ mov byte [request_agent],0
  mov byte [request_done],0
  mov byte [request_want_set],0
  call next_packet
@@ -99,8 +103,18 @@ git_protocol_v2_parse_request:
  mov esi,format_line_len
  call packet_equal
  test eax,eax
- jnz .headers                    ; ignore bounded agent/session headers
+ jnz .agent_header
+ cmp byte [request_format],0
+ jne .corrupt
  mov byte [request_format],1
+ jmp .headers
+.agent_header:
+ call validate_agent_header
+ test eax,eax
+ jnz .corrupt
+ cmp byte [request_agent],0
+ jne .corrupt
+ mov byte [request_agent],1
  jmp .headers
 .arguments:
  cmp byte [request_format],1
@@ -244,6 +258,40 @@ packet_equal:
 .equal_done:
  pop rdx
  pop rcx
+ ret
+
+; Accept one printable, newline-terminated agent header and no other command
+; header extensions. RDX/RCX are the current decoded packet payload.
+validate_agent_header:
+ cmp rcx,agent_prefix_len+2
+ jb .agent_bad
+ cmp rcx,256
+ ja .agent_bad
+ cmp byte [rdx+rcx-1],10
+ jne .agent_bad
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[agent_prefix]
+ mov ecx,agent_prefix_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .agent_bad
+ lea rdi,[rdx+agent_prefix_len]
+ sub rcx,agent_prefix_len+1
+.agent_byte:
+ mov al,[rdi]
+ cmp al,32
+ jb .agent_bad
+ cmp al,126
+ ja .agent_bad
+ inc rdi
+ loop .agent_byte
+ xor eax,eax
+ ret
+.agent_bad:
+ mov eax,VCS_ERR_CORRUPT
  ret
 
 ; Inspect the current RDX/RCX packet as a ref-prefix argument. The filter bit
