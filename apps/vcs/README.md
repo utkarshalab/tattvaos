@@ -147,6 +147,10 @@ canonical tree ordering, including the virtual `/` suffix used for subtrees.
 Direct-entry collection now joins planned parent mappings with blob and child
 tree hashes and returns each directory's descriptors in canonical Git order.
 
+The tree emitter now serializes canonical descriptors into exact Git tree
+objects, computes their SHA-256 IDs, and inserts them into PACK v2 with bounded
+capacity checks.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
