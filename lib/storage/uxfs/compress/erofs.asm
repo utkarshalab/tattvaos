@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_COMPRESS_EROFS_ASM
 %define GUARD_STORAGE_UXFS_COMPRESS_EROFS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/compress/erofs.asm
+; Utkarsha OS — lib/storage/uxfs/compress/erofs.asm
 ; =============================================================================
 ; EROFS (Enhanced Read-Only File System) Compatibility Driver.
 ;
@@ -30,7 +30,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define EROFS_MAGIC_NUMBER          0xE0F5E1E2
 %define EROFS_SUPER_OFFSET          1024        ; Superblock sits after the boot sector
