@@ -25,6 +25,7 @@ extern vcs_stream_send_begin,vcs_stream_receive_begin,vcs_stream_step
 extern vcs_sync_plan,vcs_sync_repository_policy,vcs_sync_policy_ids
 extern git_upload_server_begin,git_upload_server_step,git_upload_server_rearm
 extern git_upload_server_close
+extern uart_poll_cancel
 extern ush_yield_hook,vcs_repo_head
 %endif
 section .bss
@@ -896,6 +897,8 @@ cmd_vcs:
  push rax
  call git_upload_server_close
  pop rax
+ cmp eax,130
+ je .done
  jmp .patch_failed
 %else
  lea rdi,[network_native_only]
@@ -1731,7 +1734,13 @@ cmd_vcs:
  test rax,rax
  jz .network_yield_bad
  call rax
+ call uart_poll_cancel
+ test eax,eax
+ jnz .network_cancelled
  xor eax,eax
+ ret
+.network_cancelled:
+ mov eax,130
  ret
 .network_yield_bad:
  mov eax,VCS_ERR_IO
@@ -1971,6 +1980,8 @@ parse_port_arg:
  xor eax,eax
  jmp .done
 .patch_failed:
+ cmp eax,130
+ je .done
  lea rdi,[history_error]
  jmp .error
 .commit:
