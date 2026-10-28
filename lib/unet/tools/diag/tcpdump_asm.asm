@@ -6,7 +6,7 @@
 ; Packet Capture (net tcpdump / PCAP) Tool with Direct UXFS Storage Streaming.
 ;
 ; Delegates:
-;   - Raw PCAP File Logging           -> storage/uxfs/journal/ & storage/uxfs/uxfs.asm
+;   - Raw PCAP File Logging           -> lib/storage/uxfs/journal/ & lib/storage/uxfs/uxfs.asm
 ;   - High-Precision Cycle Timestamp  -> lib/time/tsc.asm (`rdtsc_get_cycles`)
 ;   - In-NIC Hardware Filter Offload  -> unet/ebpf/smartnic_offload.asm
 ;
