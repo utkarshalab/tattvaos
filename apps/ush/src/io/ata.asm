@@ -1,6 +1,6 @@
 ; Bounded PIO on SECONDARY MASTER only (ports 170/376). Never probes/writes
 ; the primary boot device. QEMU IDE test backend; not an AHCI/NVMe driver.
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 bits 64
 default rel
 extern uxv_read,uxv_write,uxv_flush
