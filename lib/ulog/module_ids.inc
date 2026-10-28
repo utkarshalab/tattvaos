@@ -49,7 +49,7 @@
 %define MOD_CRYPTO_USSL         0x0023
 %define MOD_CRYPTO_UX509        0x0024
 
-; ---- storage/ (0x03xx) --------------------------------------------------------
+; ---- lib/storage/ (0x03xx) --------------------------------------------------------
 %define MOD_STORAGE_UXFS        0x0030
 %define MOD_STORAGE_UWAL        0x0031
 %define MOD_STORAGE_UBXP        0x0032
