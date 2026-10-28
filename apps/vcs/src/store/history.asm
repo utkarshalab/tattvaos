@@ -6,7 +6,7 @@
 ; Caller owns console/volume serialization. No syscalls, heap, or C runtime.
 %include "include/vcs.inc"
 %include "include/repository.inc"
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 %include "lib/crypto/uhash/sha256/sha256.inc"
 bits 64
 default rel
