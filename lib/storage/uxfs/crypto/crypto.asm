@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CRYPTO_CRYPTO_ASM
 %define GUARD_STORAGE_UXFS_CRYPTO_CRYPTO_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/crypto/crypto.asm
+; Utkarsha OS — lib/storage/uxfs/crypto/crypto.asm
 ; =============================================================================
 ; AES-256-XTS Storage Block Encryption via AES-NI.
 ;
@@ -37,7 +37,7 @@
 ; Target:  x86-64 (64-bit NASM, AES-NI + SSE2)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_AES256_ROUNDS           14
 %define UXFS_AES256_RK_BYTES         240     ; 15 round keys x 16 bytes
