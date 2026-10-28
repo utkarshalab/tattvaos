@@ -1,6 +1,6 @@
 ; UXFS/frontend adapter only. The editing engine and terminal UI live in Uedit.
 %include "inc/frontend.inc"
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 %include "apps/uedit/inc/uedit.inc"
 bits 64
 default rel
