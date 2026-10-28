@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_COMPRESS_COMPRESS_ASM
 %define GUARD_STORAGE_UXFS_COMPRESS_COMPRESS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/compress/compress.asm
+; Utkarsha OS — lib/storage/uxfs/compress/compress.asm
 ; =============================================================================
 ; Inline Transparent Block Compression with Incompressible-Data Fallback.
 ;
@@ -28,7 +28,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 %include "lib/ucmp/include/ucmp.inc"
 
 %define UXFS_CBLOCK_HEADER          8
