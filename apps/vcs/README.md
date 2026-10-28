@@ -167,8 +167,10 @@ recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
 responses. It is allocation-free and buffer bounded. `upload_server.asm` owns
 the native nonblocking session, including the Git daemon handshake and
 same-connection `ls-refs` to `fetch` transition used by
-`vcs git serve PORT [ID|BRANCH]`. With no selector the command exports `HEAD`;
-an explicit commit or branch publishes that selected snapshot as remote `main`.
+`vcs git serve PORT [ID|BRANCH] [--clients COUNT]`. With no selector the command
+exports `HEAD`; an explicit commit or branch publishes that selected snapshot as
+remote `main`. The safe default serves one client, while `--clients` reuses the
+listener for a bounded number of sequential sessions.
 
 ## Using diff from Ush
 
@@ -245,7 +247,7 @@ vcs bisect reset
 vcs git export ID|BRANCH FILE
 vcs git export-history ID|BRANCH FILE
 vcs git import FILE [SEED_FILE]
-vcs git serve PORT [ID|BRANCH]
+vcs git serve PORT [ID|BRANCH] [--clients COUNT]
 vcs restore PATH
 vcs add PATH... | --all
 vcs reset PATH... | --all
