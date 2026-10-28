@@ -1,6 +1,6 @@
 ; Persistent native remote endpoints stored in repository metadata.
 %include "include/vcs.inc"
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 bits 64
 default rel
 
