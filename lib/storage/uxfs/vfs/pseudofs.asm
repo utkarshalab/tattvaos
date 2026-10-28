@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_PSEUDOFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_PSEUDOFS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/pseudofs.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/pseudofs.asm
 ; =============================================================================
 ; Synthetic /proc and /sys Pseudo Filesystem Engine for UXFS in 64-bit Assembly.
 ;
@@ -14,7 +14,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 section .data
 align 16
