@@ -868,7 +868,20 @@ cmd_vcs:
  jz .git_serve_wait
 .git_serve_done:
  test eax,eax
- jnz .git_serve_fail
+ jz .git_serve_complete
+ cmp qword [net_count],1
+ jbe .git_serve_fail
+ push rax
+ call git_upload_server_rearm
+ test eax,eax
+ jnz .git_serve_rearm_fail
+ pop rax
+ dec qword [net_count]
+ jmp .git_serve_wait
+.git_serve_rearm_fail:
+ add rsp,8
+ jmp .git_serve_fail
+.git_serve_complete:
  dec qword [net_count]
  jz .git_serve_close
  call git_upload_server_rearm
