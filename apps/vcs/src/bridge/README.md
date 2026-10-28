@@ -86,7 +86,8 @@ explicit flushes.
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires exactly one SHA-256 object-format header, accepts at most one printable
 bounded `agent=` header, rejects unadvertised header extensions, accepts bounded
-`ls-refs` filters, and validates one 64-hex `want`, up to 64 ordered SHA-256
+`ls-refs` filters plus the standard `symrefs`, `peel`, and `unborn` arguments,
+and validates one 64-hex `want`, up to 64 ordered SHA-256
 `have` lines, and `done` for fetch. This accepts both initial clones and
 incremental client negotiations while intentionally returning a complete pack.
 Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
@@ -97,7 +98,10 @@ requests remain unsupported and are not advertised.
 `ref-prefix` arguments are applied to the exported `HEAD` and
 `refs/heads/main` names. Multiple prefixes form a union, an explicit nonmatching
 filter produces an empty flushed response, and an unfiltered request returns
-both refs.
+both refs. `peel` produces no attribute because this bounded endpoint exports
+only commit refs, while `unborn` is accepted consistently with the advertised
+capability and produces no marker for the required existing selected commit.
+Duplicate or unknown arguments are rejected.
 
 `bridge_git_serve` now composes advertisement, request parsing, hash-only tip
 discovery for `ls-refs`, complete first-parent history-pack generation and
