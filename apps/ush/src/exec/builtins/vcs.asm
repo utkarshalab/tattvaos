@@ -1,5 +1,5 @@
 ; UXFS command adapter. Single console owns these bounded buffers.
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 %include "apps/vcs/include/diff.inc"
 %include "apps/vcs/include/client.inc"
 %include "apps/vcs/include/server.inc"
