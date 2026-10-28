@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_EXFAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_EXFAT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/exfat.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/exfat.asm
 ; =============================================================================
 ; Production-Grade exFAT (Extended File Allocation Table) Compatibility Driver.
 ;
@@ -15,7 +15,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define EXFAT_SUPER_MAGIC           0x2054414658452020  ; "EXFAT   "
 
