@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CRYPTO_PQC_ASM
 %define GUARD_STORAGE_UXFS_CRYPTO_PQC_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/crypto/pqc.asm
+; Utkarsha OS — lib/storage/uxfs/crypto/pqc.asm
 ; =============================================================================
 ; NIST ML-KEM-1024 Post-Quantum Volume Master Key Wrapping.
 ;
@@ -34,7 +34,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 ; ML-KEM-1024 parameter set sizes (NIST FIPS 203).
 %define UXFS_MLKEM_PK_BYTES          1568
