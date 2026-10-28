@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_CLONE_ASM
 %define GUARD_STORAGE_UXFS_VFS_CLONE_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/clone.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/clone.asm
 ; =============================================================================
 ; APFS / ReFS Zero-Cost O(1) Instant File & Directory Cloning Engine for UXFS.
 ;
@@ -12,7 +12,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 %include "lib/crypto/ucrypt/guards/ct_guard.asm"
 
 section .text
@@ -20,8 +20,8 @@ section .text
 global uxfs_clone_file
 global uxfs_clone_directory
 
-; extern uxfs_ag_alloc_block -> defined in storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
-; extern uxfs_btree_insert -> defined in storage/uxfs/btree/cow.asm (single-unit build: no extern needed)
+; extern uxfs_ag_alloc_block -> defined in lib/storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
+; extern uxfs_btree_insert -> defined in lib/storage/uxfs/btree/cow.asm (single-unit build: no extern needed)
 
 ; -----------------------------------------------------------------------------
 ; uxfs_clone_file
