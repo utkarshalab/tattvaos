@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_TYPES_BYTES_ASM
 %define GUARD_STORAGE_UBXP_TYPES_BYTES_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/types/bytes.asm
+; Utkarsha OS — lib/storage/ubxp/types/bytes.asm
 ; =============================================================================
 ; UBXP Length-Delimited Codec — byte blobs, UTF-8 strings and nested frames.
 ;
@@ -19,7 +19,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 section .text
 
