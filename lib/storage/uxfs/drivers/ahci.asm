@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_AHCI_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_AHCI_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/drivers/ahci.asm
+; Utkarsha OS — lib/storage/uxfs/drivers/ahci.asm
 ; =============================================================================
 ; Production-Grade SATA HDD & SATA SSD AHCI Controller Driver.
 ;
@@ -15,7 +15,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define AHCI_PORT_CMD_ST            0x0001      ; Start command engine
 %define AHCI_PORT_CMD_FRE           0x0010      ; FIS Receive Enable
