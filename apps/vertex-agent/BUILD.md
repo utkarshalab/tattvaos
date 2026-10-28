@@ -12,7 +12,7 @@ All dependencies must exist in Utkarsha source tree:
 |--------|------|--------|
 | `serve/userve` | `serve/userve/` | 🚧 HTTP/3+QUIC server |
 | `net/unet` | `net/unet/` | ✅ Network stack |
-| `storage/uxfs` | `storage/uxfs/` | ✅ Filesystem |
+| `lib/storage/uxfs` | `lib/storage/uxfs/` | ✅ Filesystem |
 | `security/usrauth` | `security/usrauth/` | ✅ Capabilities |
 | `kernel/sched` | `kernel/sched/` | ✅ Fiber scheduler |
 | `kernel/mm` | `kernel/mm/` | ✅ Memory management |
