@@ -45,7 +45,7 @@ Linux terminal (src/host.asm)       Native COM1 (src/io/uart.asm)
 | `../uedit/src/` | Bounded editing engine and VT terminal session |
 | `src/exec/builtins/system.asm` | Clear/time/wait/power handlers and platform hooks |
 | `src/host_platform.asm` | Linux boot clock and nanosleep; no host power control |
-| `../../storage/uxfs/volume.asm` | Validated dual-bank persistent UXFS v2 store |
+| `../../lib/storage/uxfs/volume.asm` | Validated dual-bank persistent UXFS v2 store |
 | `src/host_disk.asm` | Explicit disk image, locking, pread/pwrite/fsync callbacks |
 | `src/io/ata.asm` | Native secondary-master IDE transfers/flush, bounded polling |
 | `src/host.asm` | Linux-only startup, terminal detection, read/write/exit |
@@ -139,7 +139,7 @@ mounts a valid existing image or leaves filesystem commands unavailable; it neve
 formats a disk. Mutations commit an inactive bank and flush before publishing its
 checksummed generation header. Runtime I/O failures disable the mount. Namespace
 and directory moves are preflighted before mutation; all operations are serialized
-on the cooperative BSP console. See [the volume contract](../../storage/uxfs/PERSISTENT_VOLUME.md).
+on the cooperative BSP console. See [the volume contract](../../lib/storage/uxfs/PERSISTENT_VOLUME.md).
 
 The private native platform hooks return boot-monotonic nanoseconds, wait with
 cooperative `fiber_yield`, and invoke chipset power control. The bundle publishes
