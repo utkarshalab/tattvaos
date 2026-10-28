@@ -35,12 +35,13 @@ hp_commit_size: resq 1
 hp_commit_hash: resb GIT_HASH_SIZE
 hp_parent_hash: resb GIT_HASH_SIZE
 hp_tip_output: resq 1
+hp_pack_mode: resb 1
 
 section .rodata
 blob_type: db 'blob'
 
 section .text
-global git_history_pack
+global git_history_pack,git_history_oid
 
 ; RDI=VCS tip, RSI=PACK output, RDX=capacity, RCX=32-byte Git tip OID output.
 git_history_pack:
@@ -52,44 +53,69 @@ git_history_pack:
  push r15
  sub rsp,8
  test rdi,rdi
- jz .usage
+ jz history_usage
  test rsi,rsi
- jz .usage
+ jz history_usage
  test rcx,rcx
- jz .usage
+ jz history_usage
+ mov byte [hp_pack_mode],1
  mov r12,rsi
  mov r13,rdx
  mov [hp_tip_output],rcx
+ jmp history_encode
+
+; RDI=VCS tip, RSI=32-byte Git tip OID output.
+; Hashes blobs, trees, and parent-linked commits without constructing a PACK.
+git_history_oid:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jz history_usage
+ test rsi,rsi
+ jz history_usage
+ mov byte [hp_pack_mode],0
+ mov [hp_tip_output],rsi
+ xor r12d,r12d
+ xor r13d,r13d
+
+history_encode:
  lea rsi,[hp_ids]
  mov edx,UV_NODES
  call git_first_parent_plan
  test eax,eax
- jnz .done
+ jnz history_done
  mov [hp_count],rdx
  mov qword [hp_objects],0
  xor ebx,ebx
 .preflight:
+ cmp byte [hp_pack_mode],0
+ je .begin_history
  cmp rbx,[hp_count]
  jae .begin_pack
  lea rax,[hp_ids]
  mov rdi,[rax+rbx*8]
  call vcs_load_manifest
  test rax,rax
- jz .corrupt
+ jz history_corrupt
  mov rbp,rax
  mov rdi,rbp
  lea rsi,[hp_plan]
  mov edx,GIT_TREE_MAX
  call git_tree_plan
  test eax,eax
- jnz .done
+ jnz history_done
  mov rax,[rbp+24]
  add rax,rdx
  inc rax
  add [hp_objects],rax
- jc .space
+ jc history_space
  cmp qword [hp_objects],0xffffffff
- ja .space
+ ja history_space
  inc rbx
  jmp .preflight
 .begin_pack:
@@ -98,7 +124,8 @@ git_history_pack:
  mov rdx,[hp_objects]
  call git_pack_begin_unique
  test eax,eax
- jnz .done
+ jnz history_done
+.begin_history:
  lea rdi,[hp_parent_hash]
  xor eax,eax
  mov ecx,GIT_HASH_SIZE/8
@@ -112,7 +139,7 @@ git_history_pack:
  mov rdi,[rax+r14*8]
  call vcs_load_manifest
  test rax,rax
- jz .corrupt
+ jz history_corrupt
  mov rbp,rax
  mov [hp_manifest],rax
  mov rdi,rbp
@@ -120,7 +147,7 @@ git_history_pack:
  mov edx,GIT_TREE_MAX
  call git_tree_plan
  test eax,eax
- jnz .done
+ jnz history_done
  mov [hp_plan_count],rdx
  xor ebx,ebx
 .hash_blob:
@@ -134,13 +161,13 @@ git_history_pack:
  mov sil,'b'
  call vcs_object_name
  test eax,eax
- jnz .corrupt
+ jnz history_corrupt
  lea rdi,[vcs_object_path]
  call uxv_find
  test rax,rax
- jz .corrupt
+ jz history_corrupt
  cmp qword [rax+UV_TYPE],1
- jne .corrupt
+ jne history_corrupt
  mov [hp_node],rax
  mov rdx,rbx
  shl rdx,8
@@ -148,7 +175,7 @@ git_history_pack:
  add rdx,VR_HEADER
  mov rcx,[rdx+VR_SIZE]
  cmp [rax+UV_SIZE],rcx
- jne .corrupt
+ jne history_corrupt
  mov rax,rbx
  imul rax,GIT_HASH_SIZE
  lea r8,[hp_blob_hashes]
@@ -159,7 +186,7 @@ git_history_pack:
  lea rdx,[rax+UV_DATA]
  call git_object_hash
  test eax,eax
- jnz .done
+ jnz history_done
  inc rbx
  jmp .hash_blob
 .map_files:
@@ -169,7 +196,7 @@ git_history_pack:
  lea rcx,[hp_file_parents]
  call git_tree_file_parents
  test eax,eax
- jnz .done
+ jnz history_done
  xor ebx,ebx
 .emit_blob:
  cmp rbx,[rbp+24]
@@ -183,17 +210,20 @@ git_history_pack:
  mov sil,'b'
  call vcs_object_name
  test eax,eax
- jnz .corrupt
+ jnz history_corrupt
  lea rdi,[vcs_object_path]
  call uxv_find
  test rax,rax
- jz .corrupt
+ jz history_corrupt
+ cmp byte [hp_pack_mode],0
+ je .next_blob
  mov edi,GIT_PACK_BLOB
  lea rsi,[rax+UV_DATA]
  mov rdx,[r15+VR_SIZE]
  call git_pack_add
  test eax,eax
- jnz .done
+ jnz history_done
+.next_blob:
  inc rbx
  jmp .emit_blob
 .emit_trees:
@@ -218,10 +248,14 @@ git_history_pack:
  lea rax,[hp_tree_buffer]
  mov [hp_emit_request+GTEP_BUFFER],rax
  mov qword [hp_emit_request+GTEP_BUFFER_CAPACITY],32768
+ xor eax,eax
+ cmp byte [hp_pack_mode],0
+ setz al
+ mov [hp_emit_request+GTEP_HASH_ONLY],rax
  lea rdi,[hp_emit_request]
  call git_tree_emit_plan
  test eax,eax
- jnz .done
+ jnz history_done
  lea rdi,[hp_commit_request]
  xor eax,eax
  mov ecx,git_commit_request_size/8
@@ -248,14 +282,17 @@ git_history_pack:
  lea rdi,[hp_commit_request]
  call git_commit_encode
  test eax,eax
- jnz .done
+ jnz history_done
  mov [hp_commit_size],rdx
+ cmp byte [hp_pack_mode],0
+ je .commit_hashed
  mov edi,GIT_PACK_COMMIT
  lea rsi,[hp_commit]
  mov rdx,[hp_commit_size]
  call git_pack_add
  test eax,eax
- jnz .done
+ jnz history_done
+.commit_hashed:
  lea rsi,[hp_commit_hash]
  lea rdi,[hp_parent_hash]
  mov ecx,GIT_HASH_SIZE
@@ -267,17 +304,23 @@ git_history_pack:
  mov ecx,GIT_HASH_SIZE
  rep movsb
 .finish_pack:
+ cmp byte [hp_pack_mode],0
+ je .finish_oid
  call git_pack_finish
- jmp .done
-.usage:
+ jmp history_done
+.finish_oid:
+ mov edx,GIT_HASH_SIZE
+ xor eax,eax
+ jmp history_done
+history_usage:
  mov eax,VCS_ERR_USAGE
- jmp .done
-.space:
+ jmp history_done
+history_space:
  mov eax,VCS_ERR_NO_MEM
- jmp .done
-.corrupt:
+ jmp history_done
+history_corrupt:
  mov eax,VCS_ERR_CORRUPT
-.done:
+history_done:
  add rsp,8
  pop r15
  pop r14
