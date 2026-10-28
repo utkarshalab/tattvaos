@@ -77,7 +77,7 @@ git_protocol_v2_advertise:
  ret
 
 ; RDI=32-byte commit OID, RSI=flags, RDX=output, RCX=capacity.
-; Flag bit 0 includes HEAD's symref-target attribute.
+; Flags: bit 0 symrefs, bit 1 HEAD, bit 2 main, bit 3 prefix filter active.
 git_protocol_v2_ls_refs:
  push rbx
  push r12
@@ -106,6 +106,11 @@ git_protocol_v2_ls_refs:
  mov [rdi+1],al
  add rdi,2
  loop .oid
+ test r13b,8
+ jz .emit_head
+ test r13b,2
+ jz .maybe_main
+.emit_head:
  test r13b,1
  jz .plain_head
  lea rsi,[head_symref_suffix]
@@ -123,6 +128,12 @@ git_protocol_v2_ls_refs:
  call proto_packet
  test eax,eax
  jnz .done
+.maybe_main:
+ test r13b,8
+ jz .emit_main
+ test r13b,4
+ jz .flush_refs
+.emit_main:
  lea rdi,[proto_oid_line+64]
  lea rsi,[ref_suffix]
  mov ecx,ref_suffix_len
@@ -132,6 +143,7 @@ git_protocol_v2_ls_refs:
  call proto_packet
  test eax,eax
  jnz .done
+.flush_refs:
  call proto_flush
  test eax,eax
  jnz .done
