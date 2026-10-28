@@ -67,4 +67,6 @@ two-phase buffer API. Native socket polling remains the outer transport owner.
 `upload_server.asm` owns that native transport. It accepts one `git://` client,
 validates the bounded `git-upload-pack /` daemon request and its `version=2`
 parameter before advertising, handles partial nonblocking I/O, serves one
-protocol-v2 command, and closes both sockets on every terminal path.
+`ls-refs` followed by `fetch` on the same protocol-v2 connection, and closes
+both sockets on every terminal path. A direct `fetch` is also accepted, while
+repeated reference discovery is rejected as an invalid session sequence.
