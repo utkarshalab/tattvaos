@@ -84,9 +84,11 @@ responses. All records use bounded pkt-lines and explicit flushes.
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires exactly one SHA-256 object-format header, accepts at most one printable
 bounded `agent=` header, rejects unadvertised header extensions, accepts bounded
-`ls-refs` filters, and validates one 64-hex `want` plus `done` for fetch.
+`ls-refs` filters, and validates one 64-hex `want`, up to 64 ordered SHA-256
+`have` lines, and `done` for fetch. This accepts both initial clones and
+incremental client negotiations while intentionally returning a complete pack.
 Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
-accepted because the returned complete non-delta snapshot pack satisfies them;
+accepted because the returned complete non-delta history pack satisfies them;
 depth and object-filter requests remain unsupported and are not advertised.
 
 `ref-prefix` arguments are applied to the exported `HEAD` and
