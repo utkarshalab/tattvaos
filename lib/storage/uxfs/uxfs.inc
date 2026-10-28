@@ -1,5 +1,5 @@
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/uxfs.inc
+; Utkarsha OS — lib/storage/uxfs/uxfs.inc
 ; =============================================================================
 ; Master Schema Header for UXFS (Unikernel Extended File System).
 ;
