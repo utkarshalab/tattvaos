@@ -24,9 +24,10 @@ extern vcs_sync_plan_head_digest,vcs_sync_policy_ids
 extern vcs_stream_send_begin,vcs_stream_receive_begin,vcs_stream_step
 extern vcs_sync_plan,vcs_sync_repository_policy,vcs_sync_policy_ids
 extern git_upload_server_begin,git_upload_server_step,git_upload_server_rearm
+extern git_upload_server_progress,git_upload_server_has_client
 extern git_upload_server_close
 extern uart_poll_cancel
-extern ush_yield_hook,vcs_repo_head
+extern ush_clock_hook,ush_yield_hook,vcs_repo_head
 %endif
 section .bss
 alignb 8
@@ -45,6 +46,9 @@ net_client: resb vcs_client_size
 net_server: resb vcs_server_size
 net_ids: resq 64
 net_count: resq 1
+net_timeout: resq 1
+net_deadline: resq 1
+net_progress: resq 1
 net_seed: resq 1
 net_ref: resq 1
 net_operation: resd 1
@@ -129,6 +133,7 @@ patch_usage: db 'Patch: vcs patch export ID FILE SEED_FILE | inspect FILE | impo
 remote_usage: db 'Remote: vcs remote | remote add NAME IPV4 PORT | remote remove NAME',10,0
 network_usage: db 'Network: vcs fetch|push|clone REMOTE SEED_FILE [REF] | vcs serve PORT SEED_FILE | vcs git serve PORT [ID|BRANCH] [--clients COUNT]',10,0
 network_native_only: db 'vcs: networking is available only in native TattvaOS',10,0
+git_timeout_error: db 'vcs: Git client idle timeout',10,0
 patch_exported: db 'Exported signed patch',10,0
 git_exported: db 'Exported Git fast-import stream',10,0
 git_imported: db 'Imported Git fast-import snapshot',10,0
@@ -823,6 +828,8 @@ cmd_vcs:
  jnz .bad
  mov r14d,edx
  mov qword [net_count],1
+ mov qword [net_timeout],30000000000
+ mov qword [net_progress],-1
  mov r15,[vcs_repo_head]
  cmp r13,4
  je .git_serve_commit
@@ -864,9 +871,43 @@ cmd_vcs:
  call git_upload_server_step
  cmp eax,VCS_XFER_AGAIN
  jne .git_serve_done
+.git_serve_idle:
+ call git_upload_server_has_client
+ test eax,eax
+ jz .git_serve_yield
+ call git_upload_server_progress
+ cmp rax,[net_progress]
+ jne .git_serve_refresh
+ mov rax,[ush_clock_hook]
+ test rax,rax
+ jz .git_serve_clock_fail
+ call rax
+ test rax,rax
+ js .git_serve_clock_fail
+ cmp rax,[net_deadline]
+ jae .git_serve_timeout
+ jmp .git_serve_yield
+.git_serve_refresh:
+ mov [net_progress],rax
+ mov rax,[ush_clock_hook]
+ test rax,rax
+ jz .git_serve_clock_fail
+ call rax
+ test rax,rax
+ js .git_serve_clock_fail
+ add rax,[net_timeout]
+ jc .git_serve_clock_fail
+ mov [net_deadline],rax
+.git_serve_yield:
  call .network_yield
  test eax,eax
  jz .git_serve_wait
+ jmp .git_serve_fail
+.git_serve_timeout:
+ mov eax,124
+ jmp .git_serve_done
+.git_serve_clock_fail:
+ mov eax,VCS_ERR_IO
  jmp .git_serve_fail
 .git_serve_done:
  test eax,eax
@@ -899,7 +940,15 @@ cmd_vcs:
  pop rax
  cmp eax,130
  je .done
+ cmp eax,124
+ je .git_serve_timeout_report
  jmp .patch_failed
+.git_serve_timeout_report:
+ push rax
+ lea rdi,[git_timeout_error]
+ call frontend_write_str
+ pop rax
+ jmp .done
 %else
  lea rdi,[network_native_only]
  jmp .error
