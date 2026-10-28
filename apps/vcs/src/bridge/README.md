@@ -59,3 +59,7 @@ After completion `tree_hashes[0]` is the canonical root tree ID.
 `upload_protocol.asm` encodes Git protocol-v2 capability advertisement,
 SHA-256 `ls-refs` output for `refs/heads/main`, and chunked side-band `fetch`
 packfile responses. All records use bounded pkt-lines and explicit flushes.
+
+`upload_request.asm` parses protocol-v2 command headers and delimiter packets,
+requires SHA-256 object format, accepts bounded `ls-refs` filters, and validates
+one 64-hex `want` plus `done` for fetch.
