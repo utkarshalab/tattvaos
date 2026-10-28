@@ -11,7 +11,7 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[4]
-spec = importlib.util.spec_from_file_location('mkvolume', ROOT/'storage/uxfs/mkvolume.py')
+spec = importlib.util.spec_from_file_location('mkvolume', ROOT/'lib/storage/uxfs/mkvolume.py')
 fmt = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fmt)
 EXE = str(Path(sys.argv[1]).resolve())
