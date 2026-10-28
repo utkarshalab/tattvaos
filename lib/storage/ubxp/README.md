@@ -16,7 +16,7 @@ length-delimited format built for zero-copy decoding and forward compatibility.
 ## 📁 Directory & File Architecture
 
 ```text
-storage/ubxp/
+lib/storage/ubxp/
 ├── ubxp.asm                # Master dispatcher, CPU probe, encode entry points
 ├── ubxp.inc                # Wire constants, frame layout, cursor/descriptor structs
 ├── frame/                  # Framing & Integrity Layer
