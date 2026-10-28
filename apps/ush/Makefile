@@ -7,7 +7,7 @@ CORE_OBJS += ../vcs/build/repository.o ../vcs/build/history.o ../vcs/build/refs.
 CALC := calc scientific float_format session cli math
 CALC_OBJS := $(addprefix $(BUILD)/calculator/,$(addsuffix .o,$(CALC)))
 CALC_DEPS := $(wildcard ../calculator/src/*.asm ../calculator/src/*.inc ../../lib/umath/math_fn/*.asm ../../lib/umath/scalar/*.asm ../../lib/umath/cpuid/*.asm)
-HEADERS := $(wildcard inc/*.inc ../../storage/uxfs/volume.inc ../uedit/inc/*.inc ../vcs/include/*.inc)
+HEADERS := $(wildcard inc/*.inc ../../lib/storage/uxfs/volume.inc ../uedit/inc/*.inc ../vcs/include/*.inc)
 VCS_NET_OBJS := ../vcs/build/sync.o ../vcs/build/protocol.o ../vcs/build/client.o ../vcs/build/server.o ../vcs/build/stream.o ../vcs/build/plan.o ../vcs/build/policy.o ../vcs/build/upload_server.o
 
 .PHONY: all native test run
@@ -16,39 +16,39 @@ native: $(BUILD)/ush-native.o
 
 ../vcs/build/diff.o: ../vcs/src/merge/diff.asm ../vcs/include/diff.inc ../vcs/include/vcs.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/diff.o
-../vcs/build/repo_diff.o: ../vcs/src/merge/repo_diff.asm ../vcs/include/diff.inc ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/repo_diff.o: ../vcs/src/merge/repo_diff.asm ../vcs/include/diff.inc ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/repo_diff.o
-../vcs/build/blame.o: ../vcs/src/merge/blame.asm ../vcs/include/diff.inc ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/blame.o: ../vcs/src/merge/blame.asm ../vcs/include/diff.inc ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/blame.o
-../vcs/build/repository.o: ../vcs/src/store/repository.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/repository.o: ../vcs/src/store/repository.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/repository.o
-../vcs/build/history.o: ../vcs/src/store/history.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/history.o: ../vcs/src/store/history.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/history.o
-../vcs/build/refs.o: ../vcs/src/store/refs.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/refs.o: ../vcs/src/store/refs.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/refs.o
-../vcs/build/worktree.o: ../vcs/src/store/worktree.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/worktree.o: ../vcs/src/store/worktree.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/worktree.o
-../vcs/build/stage.o: ../vcs/src/store/stage.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/stage.o: ../vcs/src/store/stage.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/stage.o
-../vcs/build/stash.o: ../vcs/src/store/stash.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/stash.o: ../vcs/src/store/stash.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/stash.o
-../vcs/build/bisect.o: ../vcs/src/store/bisect.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/bisect.o: ../vcs/src/store/bisect.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/bisect.o
-../vcs/build/identity.o: ../vcs/src/store/identity.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/identity.o: ../vcs/src/store/identity.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/identity.o
 ../vcs/build/signing.o: ../vcs/src/policy/signing.asm ../vcs/include/vcs.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/signing.o
-../vcs/build/integrate.o: ../vcs/src/merge/integrate.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../vcs/include/diff.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/integrate.o: ../vcs/src/merge/integrate.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../vcs/include/diff.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/integrate.o
-../vcs/build/rebase.o: ../vcs/src/merge/rebase.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/rebase.o: ../vcs/src/merge/rebase.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/rebase.o
-../vcs/build/pick.o: ../vcs/src/merge/pick.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/pick.o: ../vcs/src/merge/pick.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/pick.o
-../vcs/build/bundle.o: ../vcs/src/sync/bundle.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../vcs/include/bundle.inc ../vcs/include/wire.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/bundle.o: ../vcs/src/sync/bundle.asm ../vcs/include/vcs.inc ../vcs/include/repository.inc ../vcs/include/bundle.inc ../vcs/include/wire.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/bundle.o
-../vcs/build/remote.o: ../vcs/src/sync/remote.asm ../vcs/include/vcs.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/remote.o: ../vcs/src/sync/remote.asm ../vcs/include/vcs.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/remote.o
-../vcs/build/bridge.o: ../vcs/src/bridge/bridge.asm ../vcs/include/vcs.inc ../vcs/include/wire.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
+../vcs/build/bridge.o: ../vcs/src/bridge/bridge.asm ../vcs/include/vcs.inc ../vcs/include/wire.inc ../vcs/include/repository.inc ../../lib/storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/bridge.o
 ../vcs/build/pack.o ../vcs/build/tree.o ../vcs/build/commit.o ../vcs/build/history_plan.o ../vcs/build/history_pack.o ../vcs/build/upload_pack.o ../vcs/build/upload_protocol.o ../vcs/build/upload_request.o ../vcs/build/upload_server.o: $(wildcard ../vcs/src/bridge/*.asm ../vcs/include/*.inc) ../vcs/Makefile
 	$(MAKE) -C ../vcs build/$(notdir $@)
@@ -64,7 +64,7 @@ native: $(BUILD)/ush-native.o
 ../uedit/build/uedit-native.o: $(wildcard ../uedit/src/*.asm ../uedit/inc/*.inc) ../uedit/Makefile $(wildcard ../../lib/str/utf8/decode.asm ../../lib/str/utf8/encode.asm ../../lib/str/unicode/tables/category_table.asm ../../lib/str/unicode/tables/eaw_table.asm ../../lib/str/arch/common/*.inc)
 	$(MAKE) -C ../uedit native
 
-$(BUILD)/uxfs-volume.o: ../../storage/uxfs/volume.asm ../../storage/uxfs/volume.inc
+$(BUILD)/uxfs-volume.o: ../../lib/storage/uxfs/volume.asm ../../lib/storage/uxfs/volume.inc
 	mkdir -p $(dir $@)
 	$(NASM) -w+error -f elf64 -I ../../ $< -o $@
 
