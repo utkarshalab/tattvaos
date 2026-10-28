@@ -151,6 +151,10 @@ The tree emitter now serializes canonical descriptors into exact Git tree
 objects, computes their SHA-256 IDs, and inserts them into PACK v2 with bounded
 capacity checks.
 
+Directory orchestration now runs deepest-first, making every child tree hash
+available before its parent is encoded and leaving the canonical root ID in the
+tree-hash table for commit construction.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
