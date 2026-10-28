@@ -91,11 +91,11 @@ still terminate immediately.
 
 After a terminal response, `git_upload_server_rearm` closes only the client and
 returns the retained listener to its accept state. Ush uses this for successful
-sessions and delivered protocol rejections in an explicit bounded
-`--clients COUNT`. It can also discard a failed post-accept client without
-reopening the listener; pre-accept and invalid states cannot rearm. The default
-remains one session so the foreground shell cannot enter an uninterruptible
-daemon loop.
+sessions and delivered protocol rejections in bounded `--clients COUNT` and
+continuous `--daemon` modes. It can also discard a failed or timed-out
+post-accept client without reopening the listener; pre-accept and invalid states
+cannot rearm. The default remains one session, and daemon mode relies on the
+native Ctrl-C cancellation path for clean termination.
 
 The server publishes a monotonic progress generation and a client-presence
 query without exposing mutable session storage. Ush uses them with its native
