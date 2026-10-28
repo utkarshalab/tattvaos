@@ -169,6 +169,11 @@ failure. Ordinary bytes typed during a wait are retained in a bounded 64-byte
 UART pushback ring for the line editor; excess input is dropped instead of
 growing command-time storage.
 
+`vcs git serve PORT [ID|BRANCH]` serves one client by default. Add
+`--clients COUNT` for a finite batch or `--daemon` to retain the listener until
+Ctrl-C; these modes are mutually exclusive. `--timeout SECONDS` sets the
+accepted-client idle deadline from 1 through 3600 seconds and defaults to 30.
+
 This first editor handles printable ASCII and the listed basic VT key sequences.
 It renders a horizontally scrolling 64-character viewport, intended for terminals
 at least 72 columns wide. Unicode grapheme widths, modified arrow keys, completion
