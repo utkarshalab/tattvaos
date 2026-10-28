@@ -316,7 +316,7 @@ upm install keep/upd/vertex-agent-<ver>.upk
 |--------|--------|-------|
 | `serve/userve` | 🚧 | gRPC server (HTTP/2 or QUIC) |
 | `net/unet` | ✅ | Namespaces, IPAM, socket API |
-| `storage/uxfs` | ✅ | Overlayfs, snapshots, bind mounts |
+| `lib/storage/uxfs` | ✅ | Overlayfs, snapshots, bind mounts |
 | `security/usrauth` | ✅ | Capabilities, delegation, MLS |
 | `kernel/sched` | ✅ | Fibers, affinity, quotas |
 | `kernel/mm` | ✅ | Arenas, quotas |
