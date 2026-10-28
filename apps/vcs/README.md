@@ -173,7 +173,9 @@ remote `main`. The safe default serves one client, while `--clients` reuses the
 listener for a bounded number of sequential sessions. A malformed client gets
 its protocol error and consumes one declared slot without stopping later
 clients. A connected client that drops is closed and consumes one slot as well;
-listener initialization and shell-yield failures remain terminal.
+listener initialization and shell-yield failures remain terminal. Native Ctrl-C
+closes the active sockets and returns shell status 130 without classifying the
+interruption as a repository failure.
 
 ## Using diff from Ush
 
