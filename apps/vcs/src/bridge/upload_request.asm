@@ -12,12 +12,14 @@ section .bss
 request_cursor: resq 1
 request_left: resq 1
 request_want: resb 32
+request_have: resb 32
 request_operation: resq 1
 request_flags: resq 1
 request_format: resb 1
 request_agent: resb 1
 request_done: resb 1
 request_want_set: resb 1
+request_have_count: resb 1
 
 section .rodata
 ls_command: db 'command=ls-refs',10
@@ -72,6 +74,7 @@ git_protocol_v2_parse_request:
  mov byte [request_agent],0
  mov byte [request_done],0
  mov byte [request_want_set],0
+ mov byte [request_have_count],0
  call next_packet
  test eax,eax
  jnz .done
@@ -131,18 +134,22 @@ git_protocol_v2_parse_request:
  jz .finish
  cmp qword [request_operation],GIT_REQUEST_LS_REFS
  je .ls_argument
+ cmp byte [request_done],0
+ jne .corrupt
  cmp rcx,69
  jne .fetch_done_check
  cmp dword [rdx],0x746e6177      ; "want"
- jne .fetch_done_check
+ jne .fetch_have_check
  cmp byte [rdx+4],' '
  jne .corrupt
  cmp byte [request_want_set],0
  jne .corrupt
+ cmp byte [request_have_count],0
+ jne .corrupt
  lea rsi,[rdx+5]
  lea rdi,[request_want]
  mov ecx,32
-.hex_byte:
+.want_hex_byte:
  call hex_nibble
  jc .corrupt
  shl al,4
@@ -151,10 +158,36 @@ git_protocol_v2_parse_request:
  jc .corrupt
  or al,bl
  stosb
- loop .hex_byte
+ loop .want_hex_byte
  cmp byte [rsi],10
  jne .corrupt
  mov byte [request_want_set],1
+ jmp .argument
+.fetch_have_check:
+ cmp dword [rdx],0x65766168      ; "have"
+ jne .fetch_done_check
+ cmp byte [rdx+4],' '
+ jne .corrupt
+ cmp byte [request_want_set],1
+ jne .corrupt
+ cmp byte [request_have_count],64
+ jae .corrupt
+ lea rsi,[rdx+5]
+ lea rdi,[request_have]
+ mov ecx,32
+.have_hex_byte:
+ call hex_nibble
+ jc .corrupt
+ shl al,4
+ mov bl,al
+ call hex_nibble
+ jc .corrupt
+ or al,bl
+ stosb
+ loop .have_hex_byte
+ cmp byte [rsi],10
+ jne .corrupt
+ inc byte [request_have_count]
  jmp .argument
 .fetch_done_check:
  lea rdi,[done_line]
