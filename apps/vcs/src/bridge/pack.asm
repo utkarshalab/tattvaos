@@ -13,6 +13,10 @@ pack_cursor: resq 1
 pack_left: resq 1
 pack_expected: resd 1
 pack_written: resd 1
+pack_unique: resd 1
+pack_seen_count: resd 1
+pack_seen: resb 4096*GIT_HASH_SIZE
+pack_object_hash: resb GIT_HASH_SIZE
 pack_ctx: resb sha256_ctx_t_size
 object_ctx: resb sha256_ctx_t_size
 object_header: resb 32
@@ -20,9 +24,13 @@ pack_header: resb 16
 
 section .rodata
 pack_magic: db 'PACK'
+commit_type: db 'commit'
+tree_type: db 'tree'
+blob_type: db 'blob'
 
 section .text
-global git_object_hash,git_pack_begin,git_pack_add,git_pack_finish
+global git_object_hash,git_pack_begin,git_pack_begin_unique
+global git_pack_add,git_pack_finish
 
 ; RDI=ASCII type, RSI=type length, RDX=data, RCX=data length, R8=32-byte digest.
 git_object_hash:
@@ -102,6 +110,19 @@ git_object_hash:
 
 ; RDI=output, RSI=capacity, EDX=object count.
 git_pack_begin:
+ mov dword [pack_unique],0
+ jmp pack_begin_common
+
+; Begin a pack whose RDX object count is an upper bound. Duplicate OIDs are
+; skipped and the final unique count is patched before the trailer is hashed.
+git_pack_begin_unique:
+ cmp rdx,4096
+ jbe .unique_ok
+ mov eax,VCS_ERR_NO_MEM
+ ret
+.unique_ok:
+ mov dword [pack_unique],1
+pack_begin_common:
  test rdi,rdi
  jz .usage
  cmp rsi,44                       ; header plus SHA-256 trailer
@@ -111,6 +132,7 @@ git_pack_begin:
  mov [pack_left],rsi
  mov [pack_expected],edx
  mov dword [pack_written],0
+ mov dword [pack_seen_count],0
  mov eax,[pack_magic]
  mov [rdi],eax
  mov dword [rdi+4],0x02000000      ; version 2, big endian
@@ -149,6 +171,52 @@ git_pack_add:
  mov eax,[pack_written]
  cmp eax,[pack_expected]
  jae .usage
+ cmp dword [pack_unique],0
+ je .encode
+ lea rdi,[commit_type]
+ mov esi,6
+ cmp r12d,GIT_PACK_COMMIT
+ je .hash_candidate
+ lea rdi,[tree_type]
+ mov esi,4
+ cmp r12d,GIT_PACK_TREE
+ je .hash_candidate
+ lea rdi,[blob_type]
+.hash_candidate:
+ mov rdx,r13
+ mov rcx,r14
+ lea r8,[pack_object_hash]
+ call git_object_hash
+ test eax,eax
+ jnz .done
+ xor ecx,ecx
+.seen:
+ cmp ecx,[pack_seen_count]
+ jae .remember
+ mov eax,ecx
+ imul rax,GIT_HASH_SIZE
+ lea rdi,[pack_seen]
+ add rdi,rax
+ lea rsi,[pack_object_hash]
+ push rcx
+ mov ecx,GIT_HASH_SIZE
+ repe cmpsb
+ pop rcx
+ je .duplicate
+ inc ecx
+ jmp .seen
+.remember:
+ mov eax,[pack_seen_count]
+ cmp eax,4096
+ jae .space
+ imul rax,GIT_HASH_SIZE
+ lea rdi,[pack_seen]
+ add rdi,rax
+ lea rsi,[pack_object_hash]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
+ inc dword [pack_seen_count]
+.encode:
  ; Encode the pack object header into a temporary buffer.
  lea rdi,[pack_header]
  mov rax,r14
@@ -234,6 +302,9 @@ git_pack_add:
  inc dword [pack_written]
  xor eax,eax
  jmp .done
+.duplicate:
+ xor eax,eax
+ jmp .done
 .space: mov eax,VCS_ERR_NO_MEM
  jmp .done
 .usage: mov eax,VCS_ERR_USAGE
@@ -250,9 +321,18 @@ git_pack_add:
 ; Finalize checksum. RAX=status, RDX=complete pack length.
 git_pack_finish:
  push rbx
+ cmp dword [pack_unique],0
+ je .exact_count
+ mov eax,[pack_written]
+ mov rdx,[pack_start]
+ bswap eax
+ mov [rdx+8],eax
+ jmp .count_ready
+.exact_count:
  mov eax,[pack_written]
  cmp eax,[pack_expected]
  jne .usage
+.count_ready:
  cmp qword [pack_left],GIT_HASH_SIZE
  jb .space
  mov rbx,[pack_cursor]
