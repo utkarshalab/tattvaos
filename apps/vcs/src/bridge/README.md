@@ -33,6 +33,11 @@ feeds every generated commit OID into its child's parent line. Repeated objects
 are removed by the bounded unique-pack writer before the final object count and
 checksum are published; capacity exhaustion fails the whole response.
 
+Reference discovery uses the same canonical history encoder in hash-only mode.
+It computes the advertised tip through blob, recursive-tree, and parent-linked
+commit hashing without allocating or serializing a PACK; only `fetch` pays the
+bounded pack-construction cost.
+
 `pack.asm` provides the object foundation for Git repositories using
 `extensions.objectFormat=sha256`: canonical Git object hashing and a bounded
 non-delta PACK v2 writer. Entries use valid zlib stored blocks with Adler-32,
@@ -89,10 +94,10 @@ depth and object-filter requests remain unsupported and are not advertised.
 filter produces an empty flushed response, and an unfiltered request returns
 both refs.
 
-`bridge_git_serve` now composes advertisement, request parsing, complete
-first-parent history-pack generation, tip-OID validation, `ls-refs`, and `fetch`
-responses behind a bounded two-phase buffer API. Native socket polling remains
-the outer transport owner.
+`bridge_git_serve` now composes advertisement, request parsing, hash-only tip
+discovery for `ls-refs`, complete first-parent history-pack generation and
+tip-OID validation for `fetch`, and both responses behind a bounded two-phase
+buffer API. Native socket polling remains the outer transport owner.
 
 `upload_server.asm` owns that native transport. It accepts one `git://` client,
 validates the bounded `git-upload-pack /` daemon request and its `version=2`
