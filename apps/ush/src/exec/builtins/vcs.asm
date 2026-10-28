@@ -23,7 +23,8 @@ extern vcs_sync_server_begin,vcs_sync_server_step,vcs_sync_server_rearm,vcs_sync
 extern vcs_sync_plan_head_digest,vcs_sync_policy_ids
 extern vcs_stream_send_begin,vcs_stream_receive_begin,vcs_stream_step
 extern vcs_sync_plan,vcs_sync_repository_policy,vcs_sync_policy_ids
-extern git_upload_server_begin,git_upload_server_step,git_upload_server_close
+extern git_upload_server_begin,git_upload_server_step,git_upload_server_rearm
+extern git_upload_server_close
 extern ush_yield_hook,vcs_repo_head
 %endif
 section .bss
@@ -97,6 +98,7 @@ fetch_name: db 'fetch',0
 push_name: db 'push',0
 clone_name: db 'clone',0
 serve_name: db 'serve',0
+clients_option: db '--clients',0
 signatures_option: db '--signatures',0
 staged_option: db '--staged',0
 sign_option: db '--sign',0
@@ -124,7 +126,7 @@ help_word: db 'help',0
 repo_diff_usage: db 'Repository diff: vcs diff | vcs diff --staged | vcs diff ID1 ID2',10,0
 patch_usage: db 'Patch: vcs patch export ID FILE SEED_FILE | inspect FILE | import FILE [SEED_FILE] | apply FILE [SEED_FILE]',10,0
 remote_usage: db 'Remote: vcs remote | remote add NAME IPV4 PORT | remote remove NAME',10,0
-network_usage: db 'Network: vcs fetch|push|clone REMOTE SEED_FILE [REF] | vcs serve PORT SEED_FILE | vcs git serve PORT [ID|BRANCH]',10,0
+network_usage: db 'Network: vcs fetch|push|clone REMOTE SEED_FILE [REF] | vcs serve PORT SEED_FILE | vcs git serve PORT [ID|BRANCH] [--clients COUNT]',10,0
 network_native_only: db 'vcs: networking is available only in native TattvaOS',10,0
 patch_exported: db 'Exported signed patch',10,0
 git_exported: db 'Exported Git fast-import stream',10,0
@@ -812,20 +814,42 @@ cmd_vcs:
 %ifdef VCS_NETWORK_NATIVE
  cmp r13,4
  jb .bad
- cmp r13,5
+ cmp r13,7
  ja .bad
  mov rdi,[r12+24]
  call parse_port_arg
  test eax,eax
  jnz .bad
  mov r14d,edx
+ mov qword [net_count],1
  mov r15,[vcs_repo_head]
  cmp r13,4
  je .git_serve_commit
+ cmp r13,6
+ je .git_serve_clients
  mov rdi,[r12+32]
  call resolve_commitish
  jc .bad
  mov r15,rax
+.git_serve_clients:
+ cmp r13,6
+ jb .git_serve_commit
+ mov rax,r13
+ sub rax,2
+ mov rdi,[r12+rax*8]
+ lea rsi,[clients_option]
+ call ush_streq
+ test eax,eax
+ jnz .bad
+ mov rax,r13
+ dec rax
+ mov rdi,[r12+rax*8]
+ call parse_port_arg
+ test eax,eax
+ jnz .bad
+ test edx,edx
+ jz .bad
+ mov [net_count],rdx
 .git_serve_commit:
  test r15,r15
  jz .patch_failed
@@ -843,12 +867,22 @@ cmd_vcs:
  test eax,eax
  jz .git_serve_wait
 .git_serve_done:
+ test eax,eax
+ jnz .git_serve_fail
+ dec qword [net_count]
+ jz .git_serve_close
+ call git_upload_server_rearm
+ test eax,eax
+ jnz .git_serve_fail
+ jmp .git_serve_wait
+.git_serve_close:
+ call git_upload_server_close
+ jmp .done
+.git_serve_fail:
  push rax
  call git_upload_server_close
  pop rax
- test eax,eax
- jnz .patch_failed
- jmp .done
+ jmp .patch_failed
 %else
  lea rdi,[network_native_only]
  jmp .error
