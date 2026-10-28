@@ -4,7 +4,7 @@
 bits 64
 default rel
 
-extern bridge_git_serve,bridge_pkt_decode
+extern bridge_git_serve,bridge_pkt_decode,git_protocol_v2_parse_request
 extern vcs_sync_listen_begin,vcs_sync_accept_poll,vcs_sync_close
 extern vcs_sync_unet_send,vcs_sync_unet_receive
 
@@ -22,8 +22,10 @@ server_state: resd 1
 server_listener: resd 1
 server_client: resd 1
 server_commit: resq 1
+server_operation: resq 1
 server_offset: resq 1
 server_length: resq 1
+server_seen_refs: resb 1
 server_request: resb GIT_REQUEST_CAP
 server_response: resb GIT_RESPONSE_CAP
 
@@ -46,6 +48,7 @@ git_upload_server_begin:
  mov dword [server_client],-1
  mov qword [server_offset],0
  mov qword [server_length],0
+ mov byte [server_seen_refs],0
  call vcs_sync_listen_begin
  test eax,eax
  js .begin_io
@@ -143,6 +146,15 @@ git_upload_server_step:
  mov dword [server_state],GIT_SERVER_RECEIVE
  jmp .again
 .response_done:
+ cmp qword [server_operation],1
+ jne .response_terminal
+ cmp byte [server_seen_refs],1
+ jne .corrupt
+ mov qword [server_offset],0
+ mov qword [server_length],0
+ mov dword [server_state],GIT_SERVER_RECEIVE
+ jmp .again
+.response_terminal:
  mov dword [server_state],GIT_SERVER_DONE
 .complete:
  xor eax,eax
@@ -159,6 +171,18 @@ git_upload_server_step:
  add rdi,[server_length]
  cmp dword [rdi-4],'0000'
  jne .again
+ lea rdi,[server_request]
+ mov rsi,[server_length]
+ call git_protocol_v2_parse_request
+ test eax,eax
+ jnz .return
+ mov [server_operation],rdx
+ cmp rdx,1
+ jne .dispatch_request
+ cmp byte [server_seen_refs],0
+ jne .corrupt
+ mov byte [server_seen_refs],1
+.dispatch_request:
  mov edi,1
  lea rsi,[server_request]
  mov rdx,[server_length]
