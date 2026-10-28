@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_REFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_REFS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/refs.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/refs.asm
 ; =============================================================================
 ; Microsoft ReFS (Resilient File System) Read Compatibility Driver.
 ;
@@ -30,7 +30,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define REFS_SUPER_MAGIC            0x53466552  ; "ReFS" at boot sector offset 3
 %define REFS_PAGE_MAGIC             0x5047534D  ; "MSGP" metadata page
