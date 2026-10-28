@@ -424,7 +424,7 @@ apps/ubrowse/
 │   │   ├── no_speculation.asm         # B18  no prefetch, preconnect or hints
 │   │   └── permissions.asm            # B18
 │   │
-│   ├── storage/
+│   ├── lib/storage/
 │   │   ├── state.asm                  # B19  partitioned state manager; implements lib/web's storage provider
 │   │   ├── partition_store.asm        # B19
 │   │   ├── vault.asm                  # B19  encrypted persistent profile
@@ -767,7 +767,7 @@ lib/web/src/
 ├── streams/                           # B45  fetch streaming, streams API, WebSocket and SSE APIs over the network provider
 ├── workers/                           # B46  dedicated and shared workers, structured clone, message channels
 ├── idb/                               # B47  IndexedDB (b-tree, transactions, indexes, cursors) over the storage provider
-├── cachestorage/                      # B47  Cache API
+├── cachelib/storage/                      # B47  Cache API
 ├── opfs/                              # B47  origin private file system
 ├── webcomp/                           # B48  custom elements, shadow DOM, templates, slots
 ├── css_modern/                        # B49  container queries, :has(), nesting, @layer, @scope, subgrid,
