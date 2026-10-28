@@ -866,6 +866,7 @@ cmd_vcs:
  call .network_yield
  test eax,eax
  jz .git_serve_wait
+ jmp .git_serve_fail
 .git_serve_done:
  test eax,eax
  jz .git_serve_complete
