@@ -1,5 +1,5 @@
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/tests/roundtrip.asm
+; Utkarsha OS — lib/storage/ubxp/tests/roundtrip.asm
 ; =============================================================================
 ; UBXP Self-Checking Round-Trip Test Harness.
 ;
@@ -21,7 +21,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 %define UBXP_TEST_BUF_SIZE           4096
 
