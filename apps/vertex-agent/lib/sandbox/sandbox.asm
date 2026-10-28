@@ -13,7 +13,7 @@
 %include "lib/ulib/map.inc"
 %include "security/usrauth/usrauth.inc"
 %include "net/unet/unet.inc"
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 section .text
 
