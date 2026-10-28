@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_NVME_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_NVME_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/drivers/nvme.asm
+; Utkarsha OS — lib/storage/uxfs/drivers/nvme.asm
 ; =============================================================================
 ; Production-Grade PCIe NVMe 1.4 Storage Driver with Hardware Doorbell Rings.
 ;
@@ -16,7 +16,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define NVME_REG_CAP                0x00        ; Controller Capabilities (64-bit)
 %define NVME_REG_VS                 0x08        ; Version (32-bit)
