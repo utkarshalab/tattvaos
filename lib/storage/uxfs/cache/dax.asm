@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_DAX_ASM
 %define GUARD_STORAGE_UXFS_CACHE_DAX_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/cache/dax.asm
+; Utkarsha OS — lib/storage/uxfs/cache/dax.asm
 ; =============================================================================
 ; Direct Access (DAX) Persistent Memory Mapping & Durability Primitives.
 ;
@@ -31,7 +31,7 @@
 ; Target:  x86-64 (64-bit NASM, CLWB/CLFLUSHOPT)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_DAX_MAX_REGIONS         8
 %define UXFS_DAX_CACHELINE           64
