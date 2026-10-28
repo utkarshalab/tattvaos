@@ -9,7 +9,7 @@ section .bss
 proto_start: resq 1
 proto_cursor: resq 1
 proto_left: resq 1
-proto_oid_line: resb 96
+proto_oid_line: resb 128
 proto_sideband: resb 65515
 
 section .rodata
@@ -25,6 +25,10 @@ object_format: db 'object-format=sha256',10
 object_format_len equ $-object_format
 ref_suffix: db ' refs/heads/main',10
 ref_suffix_len equ $-ref_suffix
+head_suffix: db ' HEAD',10
+head_suffix_len equ $-head_suffix
+head_symref_suffix: db ' HEAD symref-target:refs/heads/main',10
+head_symref_suffix_len equ $-head_symref_suffix
 packfile: db 'packfile',10
 packfile_len equ $-packfile
 flush: db '0000'
@@ -72,16 +76,18 @@ git_protocol_v2_advertise:
  pop rbx
  ret
 
-; RDI=32-byte commit OID, RSI=output, RDX=capacity.
+; RDI=32-byte commit OID, RSI=flags, RDX=output, RCX=capacity.
+; Flag bit 0 includes HEAD's symref-target attribute.
 git_protocol_v2_ls_refs:
  push rbx
  push r12
- sub rsp,8
+ push r13
  test rdi,rdi
  jz .usage
  mov r12,rdi
- mov rdi,rsi
- mov rsi,rdx
+ mov r13,rsi
+ mov rdi,rdx
+ mov rsi,rcx
  call proto_begin
  test eax,eax
  jnz .done
@@ -100,6 +106,24 @@ git_protocol_v2_ls_refs:
  mov [rdi+1],al
  add rdi,2
  loop .oid
+ test r13b,1
+ jz .plain_head
+ lea rsi,[head_symref_suffix]
+ mov ecx,head_symref_suffix_len
+ mov ebx,head_symref_suffix_len
+ jmp .append_head
+.plain_head:
+ lea rsi,[head_suffix]
+ mov ecx,head_suffix_len
+ mov ebx,head_suffix_len
+.append_head:
+ rep movsb
+ lea rdi,[proto_oid_line]
+ lea rsi,[rbx+64]
+ call proto_packet
+ test eax,eax
+ jnz .done
+ lea rdi,[proto_oid_line+64]
  lea rsi,[ref_suffix]
  mov ecx,ref_suffix_len
  rep movsb
@@ -115,7 +139,7 @@ git_protocol_v2_ls_refs:
  jmp .done
 .usage: mov eax,VCS_ERR_USAGE
 .done:
- add rsp,8
+ pop r13
  pop r12
  pop rbx
  ret
