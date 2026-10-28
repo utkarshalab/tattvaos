@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_DRIVERS_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_DRIVERS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/drivers/drivers.asm
+; Utkarsha OS — lib/storage/uxfs/drivers/drivers.asm
 ; =============================================================================
 ; Master Storage Hardware Driver Dispatcher & Module Aggregator.
 ;
@@ -18,12 +18,12 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/drivers/nvme.asm"
-%include "storage/uxfs/drivers/nvme_zns.asm"
-%include "storage/uxfs/drivers/usb_storage.asm"
-%include "storage/uxfs/drivers/ahci.asm"
-%include "storage/uxfs/drivers/sdhci.asm"
-%include "storage/uxfs/drivers/virtio_blk.asm"
-%include "storage/uxfs/drivers/nvme_of.asm"
+%include "lib/storage/uxfs/drivers/nvme.asm"
+%include "lib/storage/uxfs/drivers/nvme_zns.asm"
+%include "lib/storage/uxfs/drivers/usb_storage.asm"
+%include "lib/storage/uxfs/drivers/ahci.asm"
+%include "lib/storage/uxfs/drivers/sdhci.asm"
+%include "lib/storage/uxfs/drivers/virtio_blk.asm"
+%include "lib/storage/uxfs/drivers/nvme_of.asm"
 
 %endif ; GUARD_STORAGE_UXFS_DRIVERS_DRIVERS_ASM
