@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_TMPFS_ASM
 %define GUARD_STORAGE_UXFS_CACHE_TMPFS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/cache/tmpfs.asm
+; Utkarsha OS — lib/storage/uxfs/cache/tmpfs.asm
 ; =============================================================================
 ; In-Memory Temporary RAM Filesystem (tmpfs) Engine for UXFS.
 ;
@@ -11,7 +11,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define TMPFS_MAX_FILES               256
 
