@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_FAT32_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_FAT32_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/fat32.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/fat32.asm
 ; =============================================================================
 ; Production-Grade FAT32 & exFAT External USB Drive Compatibility Driver.
 ;
@@ -15,7 +15,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define FAT32_ATTR_READ_ONLY        0x01
 %define FAT32_ATTR_HIDDEN           0x02
