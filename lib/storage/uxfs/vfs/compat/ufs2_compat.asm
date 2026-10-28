@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_UFS2_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_UFS2_COMPAT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/ufs2_compat.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/ufs2_compat.asm
 ; =============================================================================
 ; Production-Grade FreeBSD / Unix UFS2 (FFS2) Compatibility Driver.
 ;
@@ -14,7 +14,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UFS2_SUPER_MAGIC            0x19540119          ; UFS2 Magic constant
 
