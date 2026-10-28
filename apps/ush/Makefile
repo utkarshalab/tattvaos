@@ -8,7 +8,7 @@ CALC := calc scientific float_format session cli math
 CALC_OBJS := $(addprefix $(BUILD)/calculator/,$(addsuffix .o,$(CALC)))
 CALC_DEPS := $(wildcard ../calculator/src/*.asm ../calculator/src/*.inc ../../lib/umath/math_fn/*.asm ../../lib/umath/scalar/*.asm ../../lib/umath/cpuid/*.asm)
 HEADERS := $(wildcard inc/*.inc ../../storage/uxfs/volume.inc ../uedit/inc/*.inc ../vcs/include/*.inc)
-VCS_NET_OBJS := ../vcs/build/sync.o ../vcs/build/protocol.o ../vcs/build/client.o ../vcs/build/server.o ../vcs/build/stream.o ../vcs/build/plan.o ../vcs/build/policy.o
+VCS_NET_OBJS := ../vcs/build/sync.o ../vcs/build/protocol.o ../vcs/build/client.o ../vcs/build/server.o ../vcs/build/stream.o ../vcs/build/plan.o ../vcs/build/policy.o ../vcs/build/upload_server.o
 
 .PHONY: all native test run
 all: $(BUILD)/ush native
@@ -50,7 +50,7 @@ native: $(BUILD)/ush-native.o
 	$(MAKE) -C ../vcs build/remote.o
 ../vcs/build/bridge.o: ../vcs/src/bridge/bridge.asm ../vcs/include/vcs.inc ../vcs/include/wire.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/bridge.o
-../vcs/build/pack.o ../vcs/build/tree.o ../vcs/build/upload_pack.o ../vcs/build/upload_protocol.o ../vcs/build/upload_request.o: $(wildcard ../vcs/src/bridge/*.asm ../vcs/include/*.inc) ../vcs/Makefile
+../vcs/build/pack.o ../vcs/build/tree.o ../vcs/build/upload_pack.o ../vcs/build/upload_protocol.o ../vcs/build/upload_request.o ../vcs/build/upload_server.o: $(wildcard ../vcs/src/bridge/*.asm ../vcs/include/*.inc) ../vcs/Makefile
 	$(MAKE) -C ../vcs build/$(notdir $@)
 ../vcs/build/sync.o ../vcs/build/protocol.o ../vcs/build/client.o ../vcs/build/server.o ../vcs/build/stream.o ../vcs/build/plan.o ../vcs/build/policy.o: $(wildcard ../vcs/src/sync/*.asm ../vcs/include/*.inc) ../vcs/Makefile
 	$(MAKE) -C ../vcs build/$(notdir $@)
