@@ -123,10 +123,9 @@ non-delta PACK v2 output with zlib stored blocks, Adler-32 validation, declared
 object counts, and a SHA-256 pack trailer. Negotiation and native socket serving
 are still pending, so VCS does not yet advertise a cloneable Git endpoint.
 
-The upload-pack object builder converts one validated snapshot with flat paths
-into canonical blobs, a lexically sorted tree, and a deterministic root commit.
-It returns the Git SHA-256 commit ID and emits the corresponding pack. Nested
-paths remain rejected until recursive Git tree construction is available.
+The upload-pack object builder converts one validated snapshot into canonical
+blobs, recursively nested and sorted trees, and a deterministic root commit. It
+returns the Git SHA-256 commit ID and emits the corresponding pack.
 
 Recursive-tree planning is implemented separately: nested paths are validated,
 directory prefixes are deduplicated, and explicit depth/parent relationships are
