@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_UWAL_ASM
 %define GUARD_STORAGE_UWAL_UWAL_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uwal/uwal.asm
+; Utkarsha OS — lib/storage/uwal/uwal.asm
 ; =============================================================================
 ; Master UWAL (Unikernel Write-Ahead Log) Subsystem Dispatcher.
 ;
@@ -13,36 +13,36 @@
 ;
 ; UWAL is a general-purpose durable log serving udb and any other client that
 ; needs crash consistency. It is deliberately separate from the filesystem
-; metadata journal in storage/uxfs/journal: each stack owns its own log and
+; metadata journal in lib/storage/uxfs/journal: each stack owns its own log and
 ; addresses the block device directly, which is what "no redundant block
-; layers" in storage/README.md requires. Stacking a database log on a
+; layers" in lib/storage/README.md requires. Stacking a database log on a
 ; filesystem log would journal every commit twice.
 ;
 ; Author:  Utkarsha Labs
 ; Target:  x86-64 (64-bit NASM flat binary)
 ; =============================================================================
 
-%include "storage/uwal/uwal.inc"
+%include "lib/storage/uwal/uwal.inc"
 
 ; -----------------------------------------------------------------------------
 ; Durability Layer — included first: everything above it issues barriers.
 ; -----------------------------------------------------------------------------
-%include "storage/uwal/fsync.asm"
+%include "lib/storage/uwal/fsync.asm"
 
 ; -----------------------------------------------------------------------------
 ; Segment Ring
 ; -----------------------------------------------------------------------------
-%include "storage/uwal/segment.asm"
+%include "lib/storage/uwal/segment.asm"
 
 ; -----------------------------------------------------------------------------
 ; Core Append Path
 ; -----------------------------------------------------------------------------
-%include "storage/uwal/wal.asm"
+%include "lib/storage/uwal/wal.asm"
 
 ; -----------------------------------------------------------------------------
 ; Crash Recovery
 ; -----------------------------------------------------------------------------
-%include "storage/uwal/recovery.asm"
+%include "lib/storage/uwal/recovery.asm"
 
 section .text
 
