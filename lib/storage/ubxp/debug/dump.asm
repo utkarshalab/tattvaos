@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_DEBUG_DUMP_ASM
 %define GUARD_STORAGE_UBXP_DEBUG_DUMP_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/debug/dump.asm
+; Utkarsha OS — lib/storage/ubxp/debug/dump.asm
 ; =============================================================================
 ; UBXP Human-Readable Frame Rendering.
 ;
@@ -23,7 +23,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 section .rodata
 
