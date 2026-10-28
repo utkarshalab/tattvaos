@@ -118,6 +118,11 @@ marks and sequential commits on `refs/heads/main`; Git therefore reconstructs
 the original linear ancestry. Merge second parents are flattened onto the
 first-parent view. The same 4096-byte UXFS output bound applies.
 
+History export and smart-pack development share one bounded first-parent
+planner. It validates each manifest and returns the selected chain newest-first;
+fast-import reverses that plan for oldest-first emission, while upload-pack can
+consume the same validated ancestry as Git commit parents are added.
+
 The smart-serving foundation supports Git SHA-256 object identifiers and
 non-delta PACK v2 output with zlib stored blocks, Adler-32 validation, declared
 object counts, and a SHA-256 pack trailer. Negotiation and native socket serving
