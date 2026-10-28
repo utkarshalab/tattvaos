@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_BTREE_COW_ASM
 %define GUARD_STORAGE_UXFS_BTREE_COW_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/btree/cow.asm
+; Utkarsha OS — lib/storage/uxfs/btree/cow.asm
 ; =============================================================================
 ; World-Class Production Btrfs Copy-on-Write (CoW) B-Tree Indexing Engine.
 ;
@@ -19,7 +19,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_BTREE_MAX_KEYS          254
 %define UXFS_BTREE_MIN_KEYS          127
@@ -61,8 +61,8 @@ global uxfs_btree_delete
 global uxfs_btree_self_heal
 global uxfs_btree_rcu_free_node
 
-; extern uxfs_ag_alloc_block -> defined in storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
-; extern uxfs_ag_free_block -> defined in storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
+; extern uxfs_ag_alloc_block -> defined in lib/storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
+; extern uxfs_ag_free_block -> defined in lib/storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
 ; extern uhash_blake3 -> defined in crypto/uhash/uhash.asm (single-unit build: no extern needed)
 
 ; -----------------------------------------------------------------------------
