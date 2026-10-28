@@ -11,7 +11,7 @@ extern vcs_repo_discover,vcs_repo_root,vcs_repo_root_size,vcs_repo_head
 extern vcs_history,vcs_history_signed,vcs_checkout
 extern uxv_find,uxv_free,uxv_normalize,uxv_nodes
 extern git_protocol_v2_advertise,git_protocol_v2_parse_request
-extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_snapshot_pack
+extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_history_pack
 extern git_first_parent_plan
 
 section .bss
@@ -1529,7 +1529,7 @@ bridge_git_serve:
  lea rsi,[serve_pack]
  mov edx,VCS_WIRE_MAX_PAYLOAD
  lea rcx,[serve_oid]
- call git_snapshot_pack
+ call git_history_pack
  test eax,eax
  jnz .serve_done
  mov r13,rdx                    ; pack length
