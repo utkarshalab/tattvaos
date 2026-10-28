@@ -163,6 +163,12 @@ The calculator uses the same editor; Ctrl-C discards only its current input,
 Ctrl-D returns to Ush, and shell-history recall is disabled inside its smaller
 input buffer. Cancelled input is not saved in history.
 
+Native VCS network waits poll COM1 after each scheduler yield. Ctrl-C closes the
+active network sockets and returns status 130 without printing a repository
+failure. Ordinary bytes typed during a wait are retained in a bounded 64-byte
+UART pushback ring for the line editor; excess input is dropped instead of
+growing command-time storage.
+
 This first editor handles printable ASCII and the listed basic VT key sequences.
 It renders a horizontally scrolling 64-character viewport, intended for terminals
 at least 72 columns wide. Unicode grapheme widths, modified arrow keys, completion
