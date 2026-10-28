@@ -144,6 +144,9 @@ back to an incorrect root tree.
 Direct file and child-directory descriptors can now be sorted with Git's
 canonical tree ordering, including the virtual `/` suffix used for subtrees.
 
+Direct-entry collection now joins planned parent mappings with blob and child
+tree hashes and returns each directory's descriptors in canonical Git order.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
