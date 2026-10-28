@@ -26,11 +26,20 @@ request supplies tree OID, optional parent OID, exact message bytes, output
 capacity, and hash destination. Snapshot upload-pack now uses this encoder with
 no parent; history upload will feed the previous encoded commit OID.
 
+`history_pack.asm` now performs that history upload. It preflights the complete
+first-parent plan and declared object count before opening PACK v2, then walks
+oldest-first, emits each snapshot's validated blobs and recursive trees, and
+feeds every generated commit OID into its child's parent line. Repeated objects
+are removed by the bounded unique-pack writer before the final object count and
+checksum are published; capacity exhaustion fails the whole response.
+
 `pack.asm` provides the object foundation for Git repositories using
 `extensions.objectFormat=sha256`: canonical Git object hashing and a bounded
 non-delta PACK v2 writer. Entries use valid zlib stored blocks with Adler-32,
-and the completed pack carries its required SHA-256 trailer. Objects are capped
-at 65535 bytes and callers must declare the exact object count.
+and the completed pack carries its required SHA-256 trailer. Exact-count mode
+serves snapshots; unique mode accepts a bounded candidate maximum, removes
+duplicate OIDs, and patches the final count before hashing. Objects are capped
+at 65535 bytes.
 
 `upload_pack.asm` converts one validated VCS snapshot into canonical Git SHA-256
 blob, recursive tree, and commit objects, returns the commit OID, and emits each
@@ -80,9 +89,10 @@ depth and object-filter requests remain unsupported and are not advertised.
 filter produces an empty flushed response, and an unfiltered request returns
 both refs.
 
-`bridge_git_serve` now composes advertisement, request parsing, recursive pack
-generation, OID validation, `ls-refs`, and `fetch` responses behind a bounded
-two-phase buffer API. Native socket polling remains the outer transport owner.
+`bridge_git_serve` now composes advertisement, request parsing, complete
+first-parent history-pack generation, tip-OID validation, `ls-refs`, and `fetch`
+responses behind a bounded two-phase buffer API. Native socket polling remains
+the outer transport owner.
 
 `upload_server.asm` owns that native transport. It accepts one `git://` client,
 validates the bounded `git-upload-pack /` daemon request and its `version=2`
