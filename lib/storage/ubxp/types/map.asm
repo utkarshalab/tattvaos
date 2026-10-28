@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_TYPES_MAP_ASM
 %define GUARD_STORAGE_UBXP_TYPES_MAP_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/types/map.asm
+; Utkarsha OS — lib/storage/ubxp/types/map.asm
 ; =============================================================================
 ; UBXP Map Codec — Key/Value Association as Repeated Entries.
 ;
@@ -24,7 +24,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 %define UBXP_MAP_KEY_FIELD           1
 %define UBXP_MAP_VALUE_FIELD         2
