@@ -58,11 +58,12 @@ SHA-256 `ls-refs` output for `HEAD` and `refs/heads/main`, optional
 responses. All records use bounded pkt-lines and explicit flushes.
 
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
-requires SHA-256 object format, accepts bounded `ls-refs` filters, and validates
-one 64-hex `want` plus `done` for fetch. Standard `thin-pack`, `no-progress`,
-`ofs-delta`, and `include-tag` hints are accepted because the returned complete
-non-delta snapshot pack satisfies them; depth and object-filter requests remain
-unsupported and are not advertised.
+requires exactly one SHA-256 object-format header, accepts at most one printable
+bounded `agent=` header, rejects unadvertised header extensions, accepts bounded
+`ls-refs` filters, and validates one 64-hex `want` plus `done` for fetch.
+Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
+accepted because the returned complete non-delta snapshot pack satisfies them;
+depth and object-filter requests remain unsupported and are not advertised.
 
 `ref-prefix` arguments are applied to the exported `HEAD` and
 `refs/heads/main` names. Multiple prefixes form a union, an explicit nonmatching
