@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_BTRFS_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_BTRFS_COMPAT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/btrfs_compat.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/btrfs_compat.asm
 ; =============================================================================
 ; Production-Grade Btrfs (B-Tree File System) Linux CoW Driver.
 ;
@@ -14,7 +14,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define BTRFS_SUPER_MAGIC           0x4D5F535F          ; "_Btrfs_" magic prefix
 
