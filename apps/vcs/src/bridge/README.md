@@ -47,3 +47,7 @@ and file names as NUL-terminated, making tree byte order deterministic.
 The planner can now collect one directory's direct files and child directories
 into descriptors, attach their blob/tree hashes, derive child basenames, enforce
 capacity, and return the entries already in canonical Git order.
+
+Canonical descriptors can now be encoded into exact Git tree bytes (`100644`
+files and `40000` subtrees), SHA-256 object-hashed, and appended directly to the
+active PACK v2 writer. Capacity and malformed names fail before partial success.
