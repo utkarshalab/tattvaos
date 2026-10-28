@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_DEDUP_ASM
 %define GUARD_STORAGE_UXFS_CACHE_DEDUP_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/cache/dedup.asm
+; Utkarsha OS — lib/storage/uxfs/cache/dedup.asm
 ; =============================================================================
 ; BLAKE3 Content-Addressed Storage Block Deduplication Engine.
 ;
@@ -12,7 +12,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 section .text
 
@@ -20,9 +20,9 @@ global uxfs_dedup_init
 global uxfs_dedup_query
 global uxfs_dedup_insert
 
-; extern uxfs_tiny_hash_init -> defined in storage/uxfs/cache/tinypointer_hash.asm (single-unit build: no extern needed)
-; extern uxfs_tiny_hash_lookup -> defined in storage/uxfs/cache/tinypointer_hash.asm (single-unit build: no extern needed)
-; extern uxfs_tiny_hash_insert -> defined in storage/uxfs/cache/tinypointer_hash.asm (single-unit build: no extern needed)
+; extern uxfs_tiny_hash_init -> defined in lib/storage/uxfs/cache/tinypointer_hash.asm (single-unit build: no extern needed)
+; extern uxfs_tiny_hash_lookup -> defined in lib/storage/uxfs/cache/tinypointer_hash.asm (single-unit build: no extern needed)
+; extern uxfs_tiny_hash_insert -> defined in lib/storage/uxfs/cache/tinypointer_hash.asm (single-unit build: no extern needed)
 ; extern uhash_blake3 -> defined in crypto/uhash/uhash.asm (single-unit build: no extern needed)
 
 ; -----------------------------------------------------------------------------
