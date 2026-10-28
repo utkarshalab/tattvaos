@@ -3,6 +3,7 @@
 %include "include/repository.inc"
 %include "include/git_pack.inc"
 %include "include/git_tree.inc"
+%include "include/git_commit.inc"
 %include "storage/uxfs/volume.inc"
 bits 64
 default rel
@@ -11,6 +12,7 @@ extern vcs_load_manifest,vcs_object_name,vcs_object_path
 extern uxv_find
 extern git_object_hash,git_pack_begin,git_pack_add,git_pack_finish
 extern git_tree_plan,git_tree_file_parents,git_tree_emit_plan
+extern git_commit_encode
 
 section .bss
 up_manifest: resq 1
@@ -23,6 +25,7 @@ up_tree_hash: resb GIT_HASH_SIZE
 up_commit: resb 512
 up_commit_size: resq 1
 up_commit_hash: resb GIT_HASH_SIZE
+up_commit_request: resb git_commit_request_size
 up_decimal: resb 20
 up_output: resq 1
 up_capacity: resq 1
@@ -41,14 +44,8 @@ up_recursive_started: resq 1
 section .rodata
 blob_type: db 'blob'
 tree_type: db 'tree'
-commit_type: db 'commit'
-tree_prefix: db 'tree '
-tree_prefix_len equ $-tree_prefix
-identity: db 'author Tattva VCS <vcs@tattva.local> 0 +0000',10,'committer Tattva VCS <vcs@tattva.local> 0 +0000',10,10
-identity_len equ $-identity
 mode: db '100644 '
 mode_len equ $-mode
-hex: db '0123456789abcdef'
 
 section .text
 global git_snapshot_pack
@@ -273,46 +270,27 @@ git_snapshot_pack:
  test eax,eax
  jnz .done
 .recursive_commit:
- ; Commit body: tree line, deterministic fallback identity, exact VCS message.
- lea rdi,[up_commit]
- lea rsi,[tree_prefix]
- mov ecx,tree_prefix_len
- rep movsb
- lea rsi,[up_tree_hash]
- mov ecx,GIT_HASH_SIZE
-.tree_hex:
- lodsb
- movzx edx,al
- shr edx,4
- lea r8,[hex]
- mov dl,[r8+rdx]
- mov [rdi],dl
- movzx edx,al
- and edx,15
- mov dl,[r8+rdx]
- mov [rdi+1],dl
- add rdi,2
- loop .tree_hex
- mov byte [rdi],10
- inc rdi
- lea rsi,[identity]
- mov ecx,identity_len
- rep movsb
- mov rcx,[rbp+32]
- btr rcx,63
- lea rsi,[rbp+VR_MESSAGE]
- rep movsb
+ lea rdi,[up_commit_request]
+ xor eax,eax
+ mov ecx,git_commit_request_size/8
+ rep stosq
+ lea rax,[up_tree_hash]
+ mov [up_commit_request+git_commit_request.tree],rax
+ lea rax,[rbp+VR_MESSAGE]
+ mov [up_commit_request+git_commit_request.message],rax
+ mov rax,[rbp+32]
+ btr rax,63
+ mov [up_commit_request+git_commit_request.message_len],rax
  lea rax,[up_commit]
- sub rdi,rax
- mov [up_commit_size],rdi
- lea rdi,[commit_type]
- mov esi,6
- lea rdx,[up_commit]
- mov rcx,[up_commit_size]
- lea r8,[up_commit_hash]
- call git_object_hash
+ mov [up_commit_request+git_commit_request.output],rax
+ mov qword [up_commit_request+git_commit_request.capacity],512
+ lea rax,[up_commit_hash]
+ mov [up_commit_request+git_commit_request.hash],rax
+ lea rdi,[up_commit_request]
+ call git_commit_encode
  test eax,eax
  jnz .done
+ mov [up_commit_size],rdx
  lea rsi,[up_commit_hash]
  mov rdi,[up_oid_output]
  mov ecx,GIT_HASH_SIZE
