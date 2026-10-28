@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_APFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_APFS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/apfs.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/apfs.asm
 ; =============================================================================
 ; Production-Grade APFS (Apple File System) macOS Container Driver.
 ;
@@ -14,7 +14,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define APFS_CONTAINER_MAGIC        0x4253584E          ; "NXSB" (Nx SuperBlock)
 %define APFS_VOLUME_MAGIC           0x42535041          ; "APSB" (Ap SuperBlock)
