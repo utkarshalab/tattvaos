@@ -155,18 +155,19 @@ available before its parent is encoded and leaving the canonical root ID in the
 tree-hash table for commit construction.
 
 Protocol-v2 response encoding now covers capability advertisement,
-`object-format=sha256`, `ls-refs` for the main branch, and chunked side-band
-packfile delivery for `fetch`. Native request parsing and socket ownership remain
-to be connected before advertising a live endpoint.
+`object-format=sha256`, `ls-refs` for `HEAD` and the main branch, optional HEAD
+symref metadata, and chunked side-band packfile delivery for `fetch`.
 
 Request parsing now recognizes protocol-v2 delimiter packets, validates command
 headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
-`fetch` requests. Native socket-session ownership remains pending.
+`fetch` requests with standard non-delta negotiation hints.
 
 The Git serving dispatcher now connects advertisement, strict request parsing,
 recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
 responses. It is allocation-free and buffer bounded; the remaining step is the
-native nonblocking socket-session wrapper.
+responses. It is allocation-free and buffer bounded. `upload_server.asm` owns
+the native nonblocking session, including the Git daemon handshake and
+same-connection `ls-refs` to `fetch` transition used by `vcs git serve PORT`.
 
 ## Using diff from Ush
 
