@@ -1,7 +1,7 @@
 ; Serialized BSP-only UXFS v2 volume. Callbacks use SysV:
 ; read/write(rdi=LBA,rsi=sector count,rdx=buffer), flush() -> 0 or negative.
 ; No autoformat, borrowed disk buffers, allocation, or success-only I/O stubs.
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 bits 64
 default rel
 section .bss
