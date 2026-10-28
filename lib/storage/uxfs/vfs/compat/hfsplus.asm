@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_HFSPLUS_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_HFSPLUS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/hfsplus.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/hfsplus.asm
 ; =============================================================================
 ; Apple HFS+ (Mac OS Extended) Compatibility Driver.
 ;
@@ -28,7 +28,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define HFSPLUS_MAGIC               0x2B48      ; "H+" after byte swap
 %define HFSPLUSX_MAGIC              0x5848      ; "HX" case-sensitive variant
