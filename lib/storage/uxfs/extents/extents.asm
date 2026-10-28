@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_EXTENTS_EXTENTS_ASM
 %define GUARD_STORAGE_UXFS_EXTENTS_EXTENTS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/extents/extents.asm
+; Utkarsha OS — lib/storage/uxfs/extents/extents.asm
 ; =============================================================================
 ; Production-Grade ext4 Extents Tree for Contiguous Block Mapping.
 ;
@@ -15,7 +15,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_EXTENT_MAGIC            0xF30A
 
