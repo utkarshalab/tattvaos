@@ -11,9 +11,10 @@ plan_output: resq 1
 plan_capacity: resq 1
 plan_count: resq 1
 prefix: resb VR_PATH
+entry_names: resb GIT_TREE_MAX*VR_PATH
 
 section .text
-global git_tree_plan,git_tree_file_parents,git_tree_sort_entries
+global git_tree_plan,git_tree_file_parents,git_tree_collect_entries,git_tree_sort_entries
 ; RDI=validated manifest, RSI=record buffer, RDX=record capacity.
 ; Returns RAX=status, RDX=record count. Record zero is the root directory.
 git_tree_plan:
@@ -307,6 +308,169 @@ git_tree_file_parents:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; RDI=GIT_TREE_COLLECT_REQUEST. Returns RDX=direct entry count.
+git_tree_collect_entries:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ mov rbp,rdi
+ test rbp,rbp
+ jz .collect_usage
+ mov r15,[rbp+GTC_CAPACITY]
+ test r15,r15
+ jz .collect_usage
+ xor r12d,r12d
+ xor r13d,r13d
+ mov rbx,[rbp+GTC_MANIFEST]
+ mov r14,[rbx+24]
+.collect_file:
+ cmp r12,r14
+ jae .collect_dirs
+ mov rax,[rbp+GTC_FILE_PARENTS]
+ movzx ecx,byte [rax+r12]
+ cmp rcx,[rbp+GTC_DIRECTORY]
+ jne .file_next
+ cmp r13,r15
+ jae .collect_full
+ mov rax,r12
+ shl rax,8
+ add rax,rbx
+ add rax,VR_HEADER
+ mov rdi,rax
+ xor ecx,ecx
+.basename_scan:
+ mov dl,[rax]
+ test dl,dl
+ jz .file_entry
+ cmp dl,'/'
+ jne .basename_next
+ lea rdi,[rax+1]
+.basename_next:
+ inc rax
+ inc ecx
+ cmp ecx,VR_PATH
+ jb .basename_scan
+ jmp .collect_corrupt
+.file_entry:
+ call collect_slot
+ mov [rax+GTE_NAME],rdi
+ mov rcx,[rbp+GTC_BLOB_HASHES]
+ mov rdx,r12
+ imul rdx,GIT_TREE_HASH_SIZE
+ add rcx,rdx
+ mov [rax+GTE_HASH],rcx
+ mov qword [rax+GTE_KIND],GTE_FILE
+ inc r13
+.file_next:
+ inc r12
+ jmp .collect_file
+.collect_dirs:
+ mov r12d,1
+.dir_loop:
+ cmp r12,[rbp+GTC_PLAN_COUNT]
+ jae .collect_sort
+ mov rax,r12
+ shl rax,8
+ add rax,[rbp+GTC_PLAN]
+ mov rcx,[rbp+GTC_DIRECTORY]
+ cmp [rax+GT_PARENT],rcx
+ jne .dir_next
+ cmp r13,r15
+ jae .collect_full
+ mov r14,rax
+ mov rdi,r13
+ imul rdi,VR_PATH
+ lea rdi,[entry_names+rdi]
+ call copy_dir_basename
+ test eax,eax
+ jnz .collect_corrupt
+ call collect_slot
+ mov [rax+GTE_NAME],rdi
+ mov rcx,[rbp+GTC_TREE_HASHES]
+ mov rdx,r12
+ imul rdx,GIT_TREE_HASH_SIZE
+ add rcx,rdx
+ mov [rax+GTE_HASH],rcx
+ mov qword [rax+GTE_KIND],GTE_DIRECTORY
+ inc r13
+.dir_next:
+ inc r12
+ jmp .dir_loop
+.collect_sort:
+ mov rdi,[rbp+GTC_OUTPUT]
+ mov rsi,r13
+ call git_tree_sort_entries
+ mov rdx,r13
+ xor eax,eax
+ jmp .collect_done
+.collect_usage: mov eax,VCS_ERR_USAGE
+ jmp .collect_done
+.collect_full: mov eax,VCS_ERR_NO_MEM
+ jmp .collect_done
+.collect_corrupt: mov eax,VCS_ERR_CORRUPT
+.collect_done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+collect_slot:
+ mov rax,r13
+ imul rax,GIT_TREE_ENTRY
+ add rax,[rbp+GTC_OUTPUT]
+ ret
+
+copy_dir_basename:
+ ; R14=plan record, RDI=destination.
+ lea rsi,[r14+GT_PATH]
+ mov r9,rdi
+ xor ecx,ecx
+ mov rdx,rsi
+.dir_name_scan:
+ mov al,[rsi+rcx]
+ test al,al
+ jz .dir_name_end
+ cmp al,'/'
+ jne .dir_name_next
+ lea rdx,[rsi+rcx+1]
+.dir_name_next:
+ inc ecx
+ cmp ecx,VR_PATH
+ jb .dir_name_scan
+ mov eax,1
+ ret
+.dir_name_end:
+ cmp rdx,rsi
+ je .dir_name_root
+ ; Trailing slash made RDX point at NUL; find the preceding component.
+ dec rcx
+ mov r8,rcx
+.dir_name_back:
+ test r8,r8
+ jz .dir_name_copy
+ dec r8
+ cmp byte [rsi+r8],'/'
+ jne .dir_name_back
+ inc r8
+.dir_name_copy:
+ lea rsi,[rsi+r8]
+ sub rcx,r8
+ rep movsb
+ mov byte [rdi],0
+ mov rdi,r9
+ xor eax,eax
+ ret
+.dir_name_root: mov eax,1
  ret
 
 ; Canonically sort direct Git tree-entry descriptors in place.
