@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_XFS_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_XFS_COMPAT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/xfs_compat.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/xfs_compat.asm
 ; =============================================================================
 ; Production-Grade XFS Enterprise Linux Storage Compatibility Driver.
 ;
@@ -14,7 +14,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define XFS_SUPER_MAGIC             0x58465342          ; "XFSB"
 %define XFS_DINODE_MAGIC            0x494E              ; "IN"
