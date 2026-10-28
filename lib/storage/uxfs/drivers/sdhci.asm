@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_SDHCI_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_SDHCI_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/drivers/sdhci.asm
+; Utkarsha OS — lib/storage/uxfs/drivers/sdhci.asm
 ; =============================================================================
 ; SD Host Controller (SDHCI) Driver with ADMA2 Scatter-Gather.
 ;
@@ -29,7 +29,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 ; SDHCI register offsets from the controller's MMIO base.
 %define SDHCI_REG_SDMA_ADDR         0x00
