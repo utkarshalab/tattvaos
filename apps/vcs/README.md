@@ -174,7 +174,9 @@ symref metadata, and chunked side-band packfile delivery for `fetch`.
 
 Request parsing now recognizes protocol-v2 delimiter packets, validates command
 headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
-`fetch` requests with standard non-delta negotiation hints.
+`fetch` requests with up to 64 ordered SHA-256 `have` lines and standard
+non-delta negotiation hints. Existing clients can therefore negotiate a
+follow-up fetch, while the server still returns a complete history pack.
 
 The Git serving dispatcher now connects advertisement, strict request parsing,
 recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
