@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_ARC_ASM
 %define GUARD_STORAGE_UXFS_CACHE_ARC_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/cache/arc.asm
+; Utkarsha OS — lib/storage/uxfs/cache/arc.asm
 ; =============================================================================
 ; OpenZFS Adaptive Replacement Cache (ARC) Dual-List (T1 MRU / T2 MFU) Page Cache.
 ;
@@ -14,7 +14,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_ARC_MAX_PAGES            1024
 
