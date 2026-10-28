@@ -10,6 +10,8 @@ extern vcs_load_manifest,vcs_object_name,vcs_object_path
 extern vcs_repo_discover,vcs_repo_root,vcs_repo_root_size,vcs_repo_head
 extern vcs_history,vcs_history_signed,vcs_checkout
 extern uxv_find,uxv_free,uxv_normalize,uxv_nodes
+extern git_protocol_v2_advertise,git_protocol_v2_parse_request
+extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_snapshot_pack
 
 section .bss
 export_cursor: resq 1
@@ -34,6 +36,8 @@ import_previous_head: resq 1
 history_ids: resq UV_NODES
 history_count: resq 1
 history_mark: resq 1
+serve_pack: resb VCS_WIRE_MAX_PAYLOAD
+serve_oid: resb 32
 
 section .rodata
 hex: db '0123456789abcdef'
@@ -1490,7 +1494,86 @@ node_is_target:
  ret
 
 bridge_git_serve:
- mov eax,VCS_ERR_UNSUPPORTED
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jnz .serve_request
+ mov rdi,rcx
+ mov rsi,r8
+ call git_protocol_v2_advertise
+ jmp .serve_done
+.serve_request:
+ cmp rdi,1
+ jne .serve_usage
+ test rsi,rsi
+ jz .serve_usage
+ test rdx,rdx
+ jz .serve_usage
+ test rcx,rcx
+ jz .serve_usage
+ test r8,r8
+ jz .serve_usage
+ test r9,r9
+ jz .serve_usage
+ mov r12,rsi                    ; request
+ mov r13,rdx                    ; request length
+ mov r14,rcx                    ; response
+ mov r15,r8                     ; response capacity
+ mov rbp,r9                     ; VCS commit ID
+ mov rdi,r12
+ mov rsi,r13
+ call git_protocol_v2_parse_request
+ test eax,eax
+ jnz .serve_done
+ mov rbx,rdx                    ; operation
+ mov r12,rcx                    ; wanted OID or zero
+ mov rdi,rbp
+ lea rsi,[serve_pack]
+ mov edx,VCS_WIRE_MAX_PAYLOAD
+ lea rcx,[serve_oid]
+ call git_snapshot_pack
+ test eax,eax
+ jnz .serve_done
+ mov r13,rdx                    ; pack length
+ cmp rbx,1
+ je .serve_refs
+ cmp rbx,2
+ jne .serve_corrupt
+ lea rdi,[serve_oid]
+ mov rsi,r12
+ mov ecx,32
+ repe cmpsb
+ jne .serve_missing
+ lea rdi,[serve_pack]
+ mov rsi,r13
+ mov rdx,r14
+ mov rcx,r15
+ call git_protocol_v2_fetch
+ jmp .serve_done
+.serve_refs:
+ lea rdi,[serve_oid]
+ mov rsi,r14
+ mov rdx,r15
+ call git_protocol_v2_ls_refs
+ jmp .serve_done
+.serve_usage: mov eax,VCS_ERR_USAGE
+ jmp .serve_done
+.serve_corrupt: mov eax,VCS_ERR_CORRUPT
+ jmp .serve_done
+.serve_missing: mov eax,VCS_ERR_NOT_FOUND
+.serve_done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
  ret
 
 bridge_silent:
