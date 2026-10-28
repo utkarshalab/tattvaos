@@ -96,3 +96,8 @@ sessions and delivered protocol rejections in an explicit bounded
 reopening the listener; pre-accept and invalid states cannot rearm. The default
 remains one session so the foreground shell cannot enter an uninterruptible
 daemon loop.
+
+The server publishes a monotonic progress generation and a client-presence
+query without exposing mutable session storage. Ush uses them with its native
+monotonic clock hook to enforce an idle deadline only after accept; each accepted
+connection, receive, send, or rearm transition advances the generation.
