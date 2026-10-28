@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_UBXP_ASM
 %define GUARD_STORAGE_UBXP_UBXP_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/ubxp.asm
+; Utkarsha OS — lib/storage/ubxp/ubxp.asm
 ; =============================================================================
 ; Master UBXP (Unikernel Binary eXchange Protocol) Subsystem Dispatcher.
 ;
@@ -19,36 +19,36 @@
 ; Target:  x86-64 (64-bit NASM flat binary)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 ; -----------------------------------------------------------------------------
 ; Frame Layer
 ; -----------------------------------------------------------------------------
-%include "storage/ubxp/frame/varint.asm"
-%include "storage/ubxp/frame/frame.asm"
+%include "lib/storage/ubxp/frame/varint.asm"
+%include "lib/storage/ubxp/frame/frame.asm"
 
 ; -----------------------------------------------------------------------------
 ; Type Layer
 ; -----------------------------------------------------------------------------
-%include "storage/ubxp/types/primitive.asm"
-%include "storage/ubxp/types/bytes.asm"
-%include "storage/ubxp/types/nested.asm"
-%include "storage/ubxp/types/repeated.asm"
-%include "storage/ubxp/types/map.asm"
+%include "lib/storage/ubxp/types/primitive.asm"
+%include "lib/storage/ubxp/types/bytes.asm"
+%include "lib/storage/ubxp/types/nested.asm"
+%include "lib/storage/ubxp/types/repeated.asm"
+%include "lib/storage/ubxp/types/map.asm"
 
 ; -----------------------------------------------------------------------------
 ; Schema Layer
 ; -----------------------------------------------------------------------------
-%include "storage/ubxp/schema/schema.asm"
-%include "storage/ubxp/schema/evolution.asm"
-%include "storage/ubxp/schema/unknown.asm"
-%include "storage/ubxp/schema/descriptor.asm"
-%include "storage/ubxp/schema/canonical.asm"
+%include "lib/storage/ubxp/schema/schema.asm"
+%include "lib/storage/ubxp/schema/evolution.asm"
+%include "lib/storage/ubxp/schema/unknown.asm"
+%include "lib/storage/ubxp/schema/descriptor.asm"
+%include "lib/storage/ubxp/schema/canonical.asm"
 
 ; -----------------------------------------------------------------------------
 ; Diagnostics
 ; -----------------------------------------------------------------------------
-%include "storage/ubxp/debug/dump.asm"
+%include "lib/storage/ubxp/debug/dump.asm"
 
 section .data
 align 8
