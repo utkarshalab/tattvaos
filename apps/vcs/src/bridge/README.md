@@ -64,6 +64,11 @@ one 64-hex `want` plus `done` for fetch. Standard `thin-pack`, `no-progress`,
 non-delta snapshot pack satisfies them; depth and object-filter requests remain
 unsupported and are not advertised.
 
+`ref-prefix` arguments are applied to the exported `HEAD` and
+`refs/heads/main` names. Multiple prefixes form a union, an explicit nonmatching
+filter produces an empty flushed response, and an unfiltered request returns
+both refs.
+
 `bridge_git_serve` now composes advertisement, request parsing, recursive pack
 generation, OID validation, `ls-refs`, and `fetch` responses behind a bounded
 two-phase buffer API. Native socket polling remains the outer transport owner.
