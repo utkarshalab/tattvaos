@@ -45,7 +45,7 @@ The host gate additionally verifies full record capacity, unchanged disk bytes
 on preflight failures, directory-move cycle/path-overflow rejection, recovery
 from a corrupt newest bank, and actual NASM commit behavior under partial body,
 partial header and flush failures. Invalid checksummed namespace metadata is
-rejected. See [the volume contract](../../../storage/uxfs/PERSISTENT_VOLUME.md)
+rejected. See [the volume contract](../../../lib/storage/uxfs/PERSISTENT_VOLUME.md)
 for format, limits and the explicit formatting/attachment procedure. This is a
 bounded working UXFS v2 path, not qualification of the legacy VFS stubs or their
 advanced feature claims.
