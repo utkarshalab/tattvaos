@@ -12,6 +12,7 @@ extern vcs_history,vcs_history_signed,vcs_checkout
 extern uxv_find,uxv_free,uxv_normalize,uxv_nodes
 extern git_protocol_v2_advertise,git_protocol_v2_parse_request
 extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_snapshot_pack
+extern git_first_parent_plan
 
 section .bss
 export_cursor: resq 1
@@ -381,24 +382,14 @@ bridge_git_export_history:
  mov [export_start],rsi
  mov [export_cursor],rsi
  mov [export_left],rdx
- mov qword [history_count],0
  mov qword [history_mark],0
- mov r12,rdi
-.collect:
- mov rax,[history_count]
- cmp rax,UV_NODES
- jae .capacity
- lea rdx,[history_ids]
- mov [rdx+rax*8],r12
- inc qword [history_count]
- mov rdi,r12
- call vcs_load_manifest
- test rax,rax
- jz .corrupt
- mov r12,[rax+16]
- test r12,r12
- jnz .collect
- mov r13,[history_count]
+ lea rsi,[history_ids]
+ mov edx,UV_NODES
+ call git_first_parent_plan
+ test eax,eax
+ jnz .done
+ mov [history_count],rdx
+ mov r13,rdx
 .emit_commit:
  test r13,r13
  jz .finish
