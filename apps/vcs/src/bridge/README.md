@@ -22,10 +22,10 @@ non-delta PACK v2 writer. Entries use valid zlib stored blocks with Adler-32,
 and the completed pack carries its required SHA-256 trailer. Objects are capped
 at 65535 bytes and callers must declare the exact object count.
 
-`upload_pack.asm` converts one validated flat-path VCS snapshot into canonical
-Git SHA-256 blob, sorted tree, and commit objects, returns the commit OID, and
-emits each object once into PACK v2. Nested paths are rejected until recursive
-tree construction is implemented, preventing invalid Git tree representations.
+`upload_pack.asm` converts one validated VCS snapshot into canonical Git SHA-256
+blob, recursive tree, and commit objects, returns the commit OID, and emits each
+object once into PACK v2. Tree planning and emission handle nested paths
+deepest-first.
 
 `tree.asm` now supplies the recursive-tree planner: it validates every path,
 deduplicates directory prefixes, records depth and parent indices, and bounds a
