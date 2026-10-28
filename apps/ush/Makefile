@@ -3,7 +3,7 @@ LD ?= ld
 BUILD ?= build
 CORE := main io/frontend parser/tokenizer parser/chain exec/dispatcher exec/cmd_registry_init exec/builtins/core exec/builtins/files exec/builtins/filetools exec/builtins/system exec/builtins/uedit env/environment line/history line/editor
 CORE_OBJS := ../vcs/build/diff.o ../vcs/build/repo_diff.o ../vcs/build/blame.o ../uedit/build/uedit-native.o $(BUILD)/uxfs-volume.o $(addprefix $(BUILD)/,$(addsuffix .o,$(CORE)))
-CORE_OBJS += ../vcs/build/repository.o ../vcs/build/history.o ../vcs/build/refs.o ../vcs/build/worktree.o ../vcs/build/stage.o ../vcs/build/stash.o ../vcs/build/bisect.o ../vcs/build/identity.o ../vcs/build/signing.o ../vcs/build/integrate.o ../vcs/build/rebase.o ../vcs/build/pick.o ../vcs/build/bundle.o ../vcs/build/remote.o ../vcs/build/bridge.o ../vcs/build/pack.o ../vcs/build/tree.o ../vcs/build/commit.o ../vcs/build/history_plan.o ../vcs/build/upload_pack.o ../vcs/build/upload_protocol.o ../vcs/build/upload_request.o ../vcs/build/sha256.o ../vcs/build/sha512.o ../vcs/build/ed25519.o
+CORE_OBJS += ../vcs/build/repository.o ../vcs/build/history.o ../vcs/build/refs.o ../vcs/build/worktree.o ../vcs/build/stage.o ../vcs/build/stash.o ../vcs/build/bisect.o ../vcs/build/identity.o ../vcs/build/signing.o ../vcs/build/integrate.o ../vcs/build/rebase.o ../vcs/build/pick.o ../vcs/build/bundle.o ../vcs/build/remote.o ../vcs/build/bridge.o ../vcs/build/pack.o ../vcs/build/tree.o ../vcs/build/commit.o ../vcs/build/history_plan.o ../vcs/build/history_pack.o ../vcs/build/upload_pack.o ../vcs/build/upload_protocol.o ../vcs/build/upload_request.o ../vcs/build/sha256.o ../vcs/build/sha512.o ../vcs/build/ed25519.o
 CALC := calc scientific float_format session cli math
 CALC_OBJS := $(addprefix $(BUILD)/calculator/,$(addsuffix .o,$(CALC)))
 CALC_DEPS := $(wildcard ../calculator/src/*.asm ../calculator/src/*.inc ../../lib/umath/math_fn/*.asm ../../lib/umath/scalar/*.asm ../../lib/umath/cpuid/*.asm)
@@ -50,7 +50,7 @@ native: $(BUILD)/ush-native.o
 	$(MAKE) -C ../vcs build/remote.o
 ../vcs/build/bridge.o: ../vcs/src/bridge/bridge.asm ../vcs/include/vcs.inc ../vcs/include/wire.inc ../vcs/include/repository.inc ../../storage/uxfs/volume.inc ../vcs/Makefile
 	$(MAKE) -C ../vcs build/bridge.o
-../vcs/build/pack.o ../vcs/build/tree.o ../vcs/build/commit.o ../vcs/build/history_plan.o ../vcs/build/upload_pack.o ../vcs/build/upload_protocol.o ../vcs/build/upload_request.o ../vcs/build/upload_server.o: $(wildcard ../vcs/src/bridge/*.asm ../vcs/include/*.inc) ../vcs/Makefile
+../vcs/build/pack.o ../vcs/build/tree.o ../vcs/build/commit.o ../vcs/build/history_plan.o ../vcs/build/history_pack.o ../vcs/build/upload_pack.o ../vcs/build/upload_protocol.o ../vcs/build/upload_request.o ../vcs/build/upload_server.o: $(wildcard ../vcs/src/bridge/*.asm ../vcs/include/*.inc) ../vcs/Makefile
 	$(MAKE) -C ../vcs build/$(notdir $@)
 ../vcs/build/sync.o ../vcs/build/protocol.o ../vcs/build/client.o ../vcs/build/server.o ../vcs/build/stream.o ../vcs/build/plan.o ../vcs/build/policy.o: $(wildcard ../vcs/src/sync/*.asm ../vcs/include/*.inc) ../vcs/Makefile
 	$(MAKE) -C ../vcs build/$(notdir $@)
