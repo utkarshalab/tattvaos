@@ -1,15 +1,15 @@
 # src/bridge
 
-Git bridge: fast-import export plus packet-line framing for future smart
-protocol negotiation.
+Git bridge: fast-import interchange, Git SHA-256 object generation, and bounded
+protocol-v2 upload serving.
 
 `bridge_git_export` emits one validated VCS snapshot as a real Git fast-import
 stream with marked blobs, a root commit, deterministic fallback identity, exact
 message bytes, and C-style quoted paths. `bridge_git_import` parses one or more
 sequential snapshots into an unborn repository, validates global marks and
 paths, replaces each working snapshot, and creates ordinary integrity-checked,
-optionally signed VCS commits. Smart serving remains explicitly unsupported
-until object negotiation is present.
+optionally signed VCS commits. Smart serving exports one selected snapshot and
+therefore accepts only that advertised commit as a fetch target.
 
 `bridge_git_export_history` emits up to `UV_NODES` commits from a selected
 first-parent chain, oldest first, with unique marks across the stream. Sequential
@@ -27,14 +27,10 @@ blob, recursive tree, and commit objects, returns the commit OID, and emits each
 object once into PACK v2. Tree planning and emission handle nested paths
 deepest-first.
 
-`tree.asm` now supplies the recursive-tree planner: it validates every path,
+`tree.asm` supplies the recursive-tree planner: it validates every path,
 deduplicates directory prefixes, records depth and parent indices, and bounds a
-snapshot to 64 Git tree records. The upload-pack serializer still needs to
-consume this plan bottom-up before nested paths can be advertised.
-
-Upload-pack now delegates all path validation and hierarchy discovery to this
-planner. Root-only plans continue through the canonical serializer; nested
-plans stop explicitly at the remaining bottom-up serialization boundary.
+snapshot to 64 Git tree records. Upload-pack consumes the plan bottom-up so
+nested paths are represented by canonical child-tree objects.
 
 The planner also maps every manifest file to its exact directory record. This
 removes prefix guessing from the serializer and makes root files, nested files,
@@ -67,3 +63,8 @@ one 64-hex `want` plus `done` for fetch.
 `bridge_git_serve` now composes advertisement, request parsing, recursive pack
 generation, OID validation, `ls-refs`, and `fetch` responses behind a bounded
 two-phase buffer API. Native socket polling remains the outer transport owner.
+
+`upload_server.asm` owns that native transport. It accepts one `git://` client,
+validates the bounded `git-upload-pack /` daemon request and its `version=2`
+parameter before advertising, handles partial nonblocking I/O, serves one
+protocol-v2 command, and closes both sockets on every terminal path.
