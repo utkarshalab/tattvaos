@@ -379,7 +379,7 @@ PTE_PAT            equ (1 << 7) ; Page Attribute Table index bit (for PTEs)
 PTE_NX             equ (1 << 63); No-Execute (requires LME.NXE enabled)
 
 ; ---- Virtio-Blk Status Codes -----------------------------------------------
-; IO_-prefixed to stay clear of storage/uxfs/drivers/virtio_blk.asm's own
+; IO_-prefixed to stay clear of lib/storage/uxfs/drivers/virtio_blk.asm's own
 ; %define VIRTIO_BLK_S_OK/IOERR/UNSUPP — that file's copy is a preprocessor
 ; macro, so once both are reachable in the same build (as of unet/drivers/
 ; e1000.asm's %include "lib/io/io.inc", the first thing that ever pulled
