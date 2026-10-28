@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_SCHEMA_CANONICAL_ASM
 %define GUARD_STORAGE_UBXP_SCHEMA_CANONICAL_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/schema/canonical.asm
+; Utkarsha OS — lib/storage/ubxp/schema/canonical.asm
 ; =============================================================================
 ; UBXP Canonical Form — Deterministic Encoding Verification.
 ;
@@ -31,7 +31,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 section .text
 
