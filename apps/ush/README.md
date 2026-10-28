@@ -20,7 +20,7 @@ These changes are implemented but not built/tested yet; validation was deferred.
 Multiline messages use repeated `-m` paragraphs or `-F FILE`; normal log output
 preserves and indents LF-separated lines, while `log --oneline` escapes them.
 `vcs --help` shows usage.
-See the [persistent volume guide](../../storage/uxfs/PERSISTENT_VOLUME.md) for
+See the [persistent volume guide](../../lib/storage/uxfs/PERSISTENT_VOLUME.md) for
 formatting, attaching an image, bounds, recovery semantics and tests.
 
 ## Build and run
