@@ -1,5 +1,5 @@
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/ubxp.inc
+; Utkarsha OS — lib/storage/ubxp/ubxp.inc
 ; =============================================================================
 ; Master Schema Header for UBXP (Unikernel Binary eXchange Protocol).
 ;
