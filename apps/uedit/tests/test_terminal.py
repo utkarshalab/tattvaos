@@ -16,7 +16,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[3]
 EXE = str(Path(sys.argv[1]).resolve())
-spec = importlib.util.spec_from_file_location('mkvolume', ROOT/'storage/uxfs/mkvolume.py')
+spec = importlib.util.spec_from_file_location('mkvolume', ROOT/'lib/storage/uxfs/mkvolume.py')
 fmt = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fmt)
 
