@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_SECURITY_ACL_ASM
 %define GUARD_STORAGE_UXFS_SECURITY_ACL_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/security/acl.asm
+; Utkarsha OS — lib/storage/uxfs/security/acl.asm
 ; =============================================================================
 ; POSIX.1e Access Control Lists.
 ;
@@ -43,7 +43,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 ; Entry tags, in the canonical ordering an on-disk ACL must follow.
 %define UXFS_ACL_USER_OBJ           0x01    ; The owning user
