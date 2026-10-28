@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_EXT4_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_EXT4_COMPAT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/ext4_compat.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/ext4_compat.asm
 ; =============================================================================
 ; Production-Grade ext2/ext3/ext4 External Linux Partition Compatibility Driver.
 ;
@@ -17,7 +17,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define EXT4_SUPER_MAGIC            0xEF53
 
