@@ -37,12 +37,18 @@ ofs_delta_line: db 'ofs-delta',10
 ofs_delta_line_len equ $-ofs_delta_line
 include_tag_line: db 'include-tag',10
 include_tag_line_len equ $-include_tag_line
+ref_prefix_marker: db 'ref-prefix '
+ref_prefix_marker_len equ $-ref_prefix_marker
+head_ref: db 'HEAD'
+head_ref_len equ $-head_ref
+main_ref: db 'refs/heads/main'
+main_ref_len equ $-main_ref
 
 section .text
 global git_protocol_v2_parse_request
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
-; R8=ls-refs flags (bit 0 requests symref targets).
+; R8=ls-refs flags: bit 0 symrefs, bit 1 HEAD, bit 2 main, bit 3 filtered.
 git_protocol_v2_parse_request:
  push rbp
  push rbx
@@ -171,7 +177,10 @@ git_protocol_v2_parse_request:
  mov esi,symrefs_line_len
  call packet_equal
  test eax,eax
- jnz .argument                  ; peel/ref-prefix are bounded response filters
+ jz .ls_symrefs
+ call parse_ref_prefix
+ jmp .argument                 ; peel and unknown bounded filters are ignored
+.ls_symrefs:
  or qword [request_flags],1
  jmp .argument
 .finish:
@@ -233,6 +242,68 @@ packet_equal:
 .not_equal:
  mov eax,1
 .equal_done:
+ pop rdx
+ pop rcx
+ ret
+
+; Inspect the current RDX/RCX packet as a ref-prefix argument. The filter bit
+; distinguishes an explicit filter that matches no exported refs from no filter.
+parse_ref_prefix:
+ cmp rcx,ref_prefix_marker_len+1
+ jb .not_prefix
+ cmp byte [rdx+rcx-1],10
+ jne .not_prefix
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[ref_prefix_marker]
+ mov ecx,ref_prefix_marker_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .not_prefix
+ or qword [request_flags],8
+ lea rdx,[rdx+ref_prefix_marker_len]
+ sub rcx,ref_prefix_marker_len+1
+ lea rdi,[head_ref]
+ mov esi,head_ref_len
+ call ref_has_prefix
+ test eax,eax
+ jz .check_main
+ or qword [request_flags],2
+.check_main:
+ lea rdi,[main_ref]
+ mov esi,main_ref_len
+ call ref_has_prefix
+ test eax,eax
+ jz .prefix_done
+ or qword [request_flags],4
+.prefix_done:
+ xor eax,eax
+ ret
+.not_prefix:
+ mov eax,1
+ ret
+
+; RDI=ref, RSI=ref length, RDX=prefix, RCX=prefix length. EAX=1 on match.
+ref_has_prefix:
+ push rcx
+ push rdx
+ push rsi
+ cmp rcx,rsi
+ ja .prefix_no
+ test rcx,rcx
+ jz .prefix_yes
+ mov rsi,rdx
+ repe cmpsb
+ jne .prefix_no
+.prefix_yes:
+ mov eax,1
+ jmp .prefix_result
+.prefix_no:
+ xor eax,eax
+.prefix_result:
+ pop rsi
  pop rdx
  pop rcx
  ret
