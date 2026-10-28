@@ -2,7 +2,7 @@
 %include "include/vcs.inc"
 %include "include/wire.inc"
 %include "include/repository.inc"
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 bits 64
 default rel
 
