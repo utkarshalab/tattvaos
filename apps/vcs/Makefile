@@ -2,7 +2,7 @@ NASM ?= nasm
 LD ?= ld
 AR ?= ar
 BUILD ?= build
-OBJECTS := $(BUILD)/cli.o $(BUILD)/diff.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/sync.o $(BUILD)/protocol.o $(BUILD)/client.o $(BUILD)/server.o $(BUILD)/stream.o $(BUILD)/plan.o $(BUILD)/policy.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/bridge.o $(BUILD)/pack.o $(BUILD)/tree.o $(BUILD)/history_plan.o $(BUILD)/upload_pack.o $(BUILD)/upload_protocol.o $(BUILD)/upload_request.o $(BUILD)/upload_server.o $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/stash.o $(BUILD)/bisect.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o
+OBJECTS := $(BUILD)/cli.o $(BUILD)/diff.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/sync.o $(BUILD)/protocol.o $(BUILD)/client.o $(BUILD)/server.o $(BUILD)/stream.o $(BUILD)/plan.o $(BUILD)/policy.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/bridge.o $(BUILD)/pack.o $(BUILD)/tree.o $(BUILD)/commit.o $(BUILD)/history_plan.o $(BUILD)/upload_pack.o $(BUILD)/upload_protocol.o $(BUILD)/upload_request.o $(BUILD)/upload_server.o $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/stash.o $(BUILD)/bisect.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o
 .PHONY: all native test
 all: native
 native: $(BUILD)/vcs-native.o $(BUILD)/libvcs.a
@@ -46,9 +46,11 @@ $(BUILD)/pack.o: src/bridge/pack.asm include/vcs.inc include/git_pack.inc ../../
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/tree.o: src/bridge/tree.asm include/vcs.inc include/repository.inc include/git_tree.inc include/git_pack.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/commit.o: src/bridge/commit.asm include/vcs.inc include/git_commit.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/history_plan.o: src/bridge/history_plan.asm include/vcs.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/upload_pack.o: src/bridge/upload_pack.asm include/vcs.inc include/repository.inc include/git_pack.inc include/git_tree.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/upload_pack.o: src/bridge/upload_pack.asm include/vcs.inc include/repository.inc include/git_pack.inc include/git_tree.inc include/git_commit.inc ../../storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/upload_protocol.o: src/bridge/upload_protocol.asm include/vcs.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
