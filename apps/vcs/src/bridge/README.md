@@ -79,3 +79,6 @@ parameter before advertising, handles partial nonblocking I/O, serves one
 `ls-refs` followed by `fetch` on the same protocol-v2 connection, and closes
 both sockets on every terminal path. A direct `fetch` is also accepted, while
 repeated reference discovery is rejected as an invalid session sequence.
+Empty-queue send/receive results are retried only while the accepted socket is
+still established, so a peer FIN or failed connection terminates the command
+instead of leaving Ush in a permanent poll loop.
