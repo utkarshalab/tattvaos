@@ -177,6 +177,12 @@ listener initialization and shell-yield failures remain terminal. Native Ctrl-C
 closes the active sockets and returns shell status 130 without classifying the
 interruption as a repository failure.
 
+Once a client is accepted, Git serving applies a 30-second monotonic idle
+deadline. Accept, receive, and send progress refresh the deadline; waiting for
+the next client does not start it. Expiry closes that client and consumes one
+bounded slot when more clients remain. A final timeout closes the listener,
+prints a specific diagnostic, and returns status 124.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
