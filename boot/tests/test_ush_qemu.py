@@ -416,7 +416,7 @@ if __name__=='__main__':
     elif options.uedit_test:
         with tempfile.TemporaryDirectory(prefix='utkarsha-uedit-') as directory:
             disk=Path(directory)/'data.uxfs'
-            subprocess.run(['python3',str(ROOT/'storage/uxfs/mkvolume.py'),str(disk)],check=True)
+            subprocess.run(['python3',str(ROOT/'lib/storage/uxfs/mkvolume.py'),str(disk)],check=True)
             subprocess.run([str(ROOT/'apps/ush/build/ush'),'--disk',str(disk),'-c',"write /crlf 'line\r\n'"],check=True)
             for phase in ('create','verify'):
                 test(options.firmware,options.smp,options.strict_nx,disk,editor_phase=phase)
@@ -426,7 +426,7 @@ if __name__=='__main__':
     elif options.power_test:
         with tempfile.TemporaryDirectory(prefix='utkarsha-power-') as directory:
             disk=Path(directory)/'data.uxfs'
-            subprocess.run(['python3',str(ROOT/'storage/uxfs/mkvolume.py'),str(disk)],check=True)
+            subprocess.run(['python3',str(ROOT/'lib/storage/uxfs/mkvolume.py'),str(disk)],check=True)
             for action in ('reboot','shutdown'):
                 test(options.firmware,options.smp,options.strict_nx,disk,power_action=action)
                 content=subprocess.check_output([str(ROOT/'apps/ush/build/ush'),'--disk',str(disk),'-c','cat /power-note'])
@@ -435,7 +435,7 @@ if __name__=='__main__':
     elif options.storage_test:
         with tempfile.TemporaryDirectory(prefix='utkarsha-uxfs-') as directory:
             disk=Path(directory)/'data.uxfs'
-            subprocess.run(['python3',str(ROOT/'storage/uxfs/mkvolume.py'),str(disk)],check=True)
+            subprocess.run(['python3',str(ROOT/'lib/storage/uxfs/mkvolume.py'),str(disk)],check=True)
             for phase in ('create','verify'):
                 test(options.firmware,options.smp,options.strict_nx,disk,phase)
         print('UXFS QEMU persistence across two independent boots: PASS')
