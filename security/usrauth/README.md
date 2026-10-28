@@ -34,7 +34,7 @@ named user is granted `rw` but the mask permits only `r-x`. The correct answer i
   L0  IDENTITY      passkey / Argon2id / TPM attestation / mTLS / code signature
         |           -> an assertion; long-term secrets never traverse the wire
   L1  TOKEN         ed25519-signed, offline-attenuable, PoP-bound, TTL + epoch
-        |           -> encoded with storage/ubxp
+        |           -> encoded with lib/storage/ubxp
   L2  SUBJECT       identity + groups + capabilities + integrity level + MLS label
         |              + entitlements. Immutable; changes only via checked transition
   L3  CAPABILITY    unforgeable handle + rights bits, attenuate-on-pass
@@ -43,7 +43,7 @@ named user is granted `rw` but the mask permits only `r-x`. The correct answer i
         |
   L5  MANDATORY     type enforcement + integrity + MLS      <- CAN ONLY DENY
         |
-  L6  AUDIT         hash-chained decision log -> storage/uwal
+  L6  AUDIT         hash-chained decision log -> lib/storage/uwal
 ```
 
 ### Decision function
@@ -100,7 +100,7 @@ carries.
 
 **Attestation-rooted local identity.** In a unikernel there is no user database to
 compromise. Subject identity derives from measured boot state via TPM PCR unsealing
-([`storage/uxfs/crypto/vault.asm`](../../storage/uxfs/crypto/vault.asm)), so no
+([`lib/storage/uxfs/crypto/vault.asm`](../../lib/storage/uxfs/crypto/vault.asm)), so no
 shared secret exists anywhere to be stolen.
 
 ---
@@ -155,7 +155,7 @@ security/usrauth/
 │   ├── integrity.asm       Integrity levels (Biba)
 │   └── mls.asm             MLS categories (Bell-LaPadula)
 ├── audit/                  L6
-│   └── decision_log.asm    Hash-chained records -> storage/uwal
+│   └── decision_log.asm    Hash-chained records -> lib/storage/uwal
 └── tests/
     ├── usrauth_test.asm    24 semantic tests, one bit of the mask each
     ├── harness.asm         Clock + entropy doubles, result reporting
@@ -180,10 +180,10 @@ security/usrauth/
 | **Monotonic trusted time** | `lib/time/mono.asm` — `mono_clock_gettime`, `mono_get_nanos` |
 | CSPRNG | `lib/urand/` |
 | Constant-time compare | `ucrypt_ct_memcmp` |
-| Token serialization | `storage/ubxp/` |
-| Audit log substrate | `storage/uwal/` |
-| DAC input for L4 | `storage/uxfs/security/acl.asm`, `xattr.asm` |
-| Device attestation | `storage/uxfs/crypto/vault.asm` |
+| Token serialization | `lib/storage/ubxp/` |
+| Audit log substrate | `lib/storage/uwal/` |
+| DAC input for L4 | `lib/storage/uxfs/security/acl.asm`, `xattr.asm` |
+| Device attestation | `lib/storage/uxfs/crypto/vault.asm` |
 
 Trusted monotonic time matters more than it appears: without it, every TTL and token
 expiry is decorative, because an attacker controlling the clock never expires.
