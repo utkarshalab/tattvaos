@@ -12,7 +12,7 @@ anything it does not know about never touched the data.
 ## 📁 Directory & File Architecture
 
 ```text
-storage/uwal/
+lib/storage/uwal/
 ├── uwal.asm                # Master dispatcher, subsystem init/shutdown
 ├── uwal.inc                # Record layout, segment geometry, durability modes
 ├── wal.asm                 # Append path, LSN assignment, CRC32C record framing
@@ -35,7 +35,7 @@ guarantee. Ceph shipped exactly that as FileStore-on-XFS and rewrote the whole
 backend as BlueStore against the raw block device to escape it. Postgres on a raw
 device and InnoDB's own tablespace exist for the same reason.
 
-This is what [`storage/README.md`](../README.md) means by *"No redundant block
+This is what [`lib/storage/README.md`](../README.md) means by *"No redundant block
 layers. Direct hardware queue submission."* Each stack owns its log and addresses
 the device directly.
 
