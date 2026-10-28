@@ -6,7 +6,7 @@
 ; HTTP/1.1 Web Server Engine with Direct UXFS Zero-Copy Static File Streaming.
 ;
 ; Delegates:
-;   - Static Asset File IO Read      -> storage/uxfs/vfs/ & storage/uxfs/uxfs.asm
+;   - Static Asset File IO Read      -> lib/storage/uxfs/vfs/ & lib/storage/uxfs/uxfs.asm
 ;   - TLS 1.3 HTTPS Encryption        -> crypto/utls/ & crypto/ucrypt/
 ;   - HTTP Header Token Parsing      -> lib/uparser/ & lib/str/
 ;
@@ -33,7 +33,7 @@ global http1_init
 global http1_process_request
 global http1_stream_uxfs_file
 
-; TODO: these two symbols are not defined by storage/uxfs. The subsystem's public
+; TODO: these two symbols are not defined by lib/storage/uxfs. The subsystem's public
 ; file API is vfs_open / vfs_read / vfs_close. Wire the streaming path below to
 ; those (with proper argument marshalling) before this module is linked.
 
