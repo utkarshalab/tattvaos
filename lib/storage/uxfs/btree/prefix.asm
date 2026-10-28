@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_BTREE_PREFIX_ASM
 %define GUARD_STORAGE_UXFS_BTREE_PREFIX_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/btree/prefix.asm
+; Utkarsha OS — lib/storage/uxfs/btree/prefix.asm
 ; =============================================================================
 ; Path Prefix Compression Dictionary Engine for UXFS B-Trees.
 ;
@@ -15,7 +15,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_BTREE_PREFIX_SLOTS       1024
 %define UXFS_BTREE_PREFIX_MAX_LEN     256
