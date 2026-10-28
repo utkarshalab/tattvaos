@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_SECURITY_XATTR_ASM
 %define GUARD_STORAGE_UXFS_SECURITY_XATTR_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/security/xattr.asm
+; Utkarsha OS — lib/storage/uxfs/security/xattr.asm
 ; =============================================================================
 ; Extended Attribute Store (namespaced inode metadata).
 ;
@@ -39,7 +39,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_XATTR_MAGIC            0x58415454      ; "XATT"
 %define UXFS_XATTR_BLOCK_SIZE       UXFS_BLOCK_SIZE
