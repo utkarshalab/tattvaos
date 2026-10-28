@@ -18,7 +18,7 @@ entry_names: resb GIT_TREE_MAX*VR_PATH
 collect_request: resb GIT_TREE_COLLECT_REQUEST
 
 section .text
-global git_tree_plan,git_tree_file_parents,git_tree_collect_entries,git_tree_sort_entries,git_tree_emit_entries,git_tree_emit_plan
+global git_tree_plan,git_tree_file_parents,git_tree_collect_entries,git_tree_sort_entries,git_tree_emit_entries,git_tree_hash_entries,git_tree_emit_plan
 ; RDI=validated manifest, RSI=record buffer, RDX=record capacity.
 ; Returns RAX=status, RDX=record count. Record zero is the root directory.
 git_tree_plan:
@@ -592,6 +592,15 @@ compare_entry_names:
 ; RDI=entries, RSI=count, RDX=output, RCX=capacity, R8=32-byte hash output.
 ; Returns RAX=status, RDX=encoded tree length.
 git_tree_emit_entries:
+ xor r9d,r9d
+ jmp git_tree_encode_entries
+
+; Encode and hash one canonical tree without appending it to a PACK.
+; Arguments and results match git_tree_emit_entries.
+git_tree_hash_entries:
+ mov r9d,1
+
+git_tree_encode_entries:
  push rbp
  push rbx
  push r12
@@ -599,6 +608,7 @@ git_tree_emit_entries:
  push r14
  push r15
  sub rsp,8
+ mov [rsp],r9
  test rdi,rdi
  jz .emit_usage
  test rdx,rdx
@@ -675,12 +685,15 @@ git_tree_emit_entries:
  call git_object_hash
  test eax,eax
  jnz .emit_done
+ cmp qword [rsp],0
+ jnz .emit_hashed
  mov edi,GIT_PACK_TREE
  mov rsi,r13
  mov rdx,r10
  call git_pack_add
  test eax,eax
  jnz .emit_done
+.emit_hashed:
  mov rdx,r10
  xor eax,eax
  jmp .emit_done
@@ -779,7 +792,13 @@ git_tree_emit_plan:
  mov rax,r13
  imul rax,GIT_TREE_HASH_SIZE
  add r8,rax
+ cmp qword [rbp+GTEP_HASH_ONLY],0
+ jne .hash_directory
  call git_tree_emit_entries
+ jmp .directory_encoded
+.hash_directory:
+ call git_tree_hash_entries
+.directory_encoded:
  test eax,eax
  jnz .plan_done
 .directory_next:
