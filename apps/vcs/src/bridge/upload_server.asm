@@ -4,7 +4,8 @@
 bits 64
 default rel
 
-extern bridge_git_serve,bridge_pkt_decode,git_protocol_v2_parse_request
+extern bridge_git_serve,bridge_pkt_decode,bridge_pkt_encode
+extern git_protocol_v2_parse_request
 extern vcs_sync_listen_begin,vcs_sync_accept_poll,vcs_sync_connect_poll,vcs_sync_close
 extern vcs_sync_unet_send,vcs_sync_unet_receive
 
@@ -23,6 +24,7 @@ server_listener: resd 1
 server_client: resd 1
 server_commit: resq 1
 server_operation: resq 1
+server_result: resd 1
 server_offset: resq 1
 server_length: resq 1
 server_seen_refs: resb 1
@@ -34,6 +36,8 @@ upload_service: db 'git-upload-pack /',0
 upload_service_len equ $-upload_service-1
 version_parameter: db 'version=2',0
 version_parameter_len equ $-version_parameter-1
+error_payload: db 'ERR tattva-vcs: request rejected',10
+error_payload_len equ $-error_payload
 
 section .text
 global git_upload_server_begin,git_upload_server_step,git_upload_server_close
@@ -48,6 +52,7 @@ git_upload_server_begin:
  mov dword [server_client],-1
  mov qword [server_offset],0
  mov qword [server_length],0
+ mov dword [server_result],VCS_OK
  mov byte [server_seen_refs],0
  call vcs_sync_listen_begin
  test eax,eax
@@ -102,14 +107,14 @@ git_upload_server_step:
  cmp eax,VCS_XFER_AGAIN
  je .again
  test eax,eax
- jnz .return
+ jnz .protocol_error
  cmp r8,[server_length]
  jne .corrupt
  mov rdi,rdx
  mov rsi,rcx
  call .validate_service_request
  test eax,eax
- jnz .return
+ jnz .protocol_error
  xor edi,edi
  xor esi,esi
  xor edx,edx
@@ -118,7 +123,7 @@ git_upload_server_step:
  xor r9d,r9d
  call bridge_git_serve
  test eax,eax
- jnz .return
+ jnz .protocol_error
  mov [server_length],rdx
  mov qword [server_offset],0
  mov dword [server_state],GIT_SERVER_ADVERTISE
@@ -157,7 +162,7 @@ git_upload_server_step:
 .response_terminal:
  mov dword [server_state],GIT_SERVER_DONE
 .complete:
- xor eax,eax
+ mov eax,[server_result]
  ret
 .receive:
  call .receive_request_bytes
@@ -175,7 +180,7 @@ git_upload_server_step:
  mov rsi,[server_length]
  call git_protocol_v2_parse_request
  test eax,eax
- jnz .return
+ jnz .protocol_error
  mov [server_operation],rdx
  cmp rdx,1
  jne .dispatch_request
@@ -191,7 +196,7 @@ git_upload_server_step:
  mov r9,[server_commit]
  call bridge_git_serve
  test eax,eax
- jnz .return
+ jnz .protocol_error
  mov [server_length],rdx
  mov qword [server_offset],0
  mov dword [server_state],GIT_SERVER_RESPOND
@@ -270,13 +275,27 @@ git_upload_server_step:
 .bad_service:
  mov eax,VCS_ERR_UNSUPPORTED
  ret
+.protocol_error:
+ mov [server_result],eax
+ mov qword [server_operation],2
+ lea rdi,[error_payload]
+ mov esi,error_payload_len
+ lea rdx,[server_response]
+ mov ecx,GIT_RESPONSE_CAP
+ call bridge_pkt_encode
+ test eax,eax
+ jnz .return
+ mov [server_length],rdx
+ mov qword [server_offset],0
+ mov dword [server_state],GIT_SERVER_RESPOND
+ jmp .again
 .again:
  mov eax,VCS_XFER_AGAIN
 .return:
  ret
 .corrupt:
  mov eax,VCS_ERR_CORRUPT
- ret
+ jmp .protocol_error
 
 ; Close any live client and listener. Safe after partial initialization.
 git_upload_server_close:
