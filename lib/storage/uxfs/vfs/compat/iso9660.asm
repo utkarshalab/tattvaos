@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_ISO9660_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_ISO9660_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/iso9660.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/iso9660.asm
 ; =============================================================================
 ; ISO 9660 / ECMA-119 Optical & Cloud-Init Image Driver.
 ;
@@ -29,7 +29,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define ISO9660_SECTOR_SIZE         2048
 %define ISO9660_VD_START_SECTOR     16          ; Descriptor set begins here
