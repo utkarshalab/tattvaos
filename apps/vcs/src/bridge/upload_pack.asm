@@ -10,7 +10,7 @@ default rel
 extern vcs_load_manifest,vcs_object_name,vcs_object_path
 extern uxv_find
 extern git_object_hash,git_pack_begin,git_pack_add,git_pack_finish
-extern git_tree_plan
+extern git_tree_plan,git_tree_file_parents,git_tree_emit_plan
 
 section .bss
 up_manifest: resq 1
@@ -30,6 +30,13 @@ up_oid_output: resq 1
 up_entry: resq 1
 up_sort_key: resb 1
 up_tree_plan: resb GIT_TREE_MAX*GIT_TREE_RECORD
+up_plan_count: resq 1
+up_file_parents: resb VR_FILES
+up_tree_hashes: resb GIT_TREE_MAX*GIT_TREE_HASH_SIZE
+up_tree_entries: resb (VR_FILES+GIT_TREE_MAX)*GIT_TREE_ENTRY
+up_emit_request: resb GIT_TREE_EMIT_PLAN_REQUEST
+up_recursive_tree: resb 32768
+up_recursive_started: resq 1
 
 section .rodata
 blob_type: db 'blob'
@@ -63,6 +70,7 @@ git_snapshot_pack:
  mov [up_output],rsi
  mov [up_capacity],rdx
  mov [up_oid_output],rcx
+ mov qword [up_recursive_started],0
  call vcs_load_manifest
  test rax,rax
  jz .corrupt
@@ -77,9 +85,7 @@ git_snapshot_pack:
  call git_tree_plan
  test eax,eax
  jnz .done
- cmp rdx,1
- ja .unsupported
- ; Root-only plans continue through the existing canonical serializer.
+ mov [up_plan_count],rdx
  xor ebx,ebx
 .initialize_indices:
  cmp rbx,r15
@@ -91,7 +97,7 @@ git_snapshot_pack:
  xor ebx,ebx
 .blob:
  cmp rbx,r15
- jae .sort
+ jae .recursive_pack
  mov rax,rbx
  shl rax,8
  add rax,rbp
@@ -127,6 +133,81 @@ git_snapshot_pack:
  jnz .done
  inc rbx
  jmp .blob
+.recursive_pack:
+ mov rdi,rbp
+ lea rsi,[up_tree_plan]
+ mov rdx,[up_plan_count]
+ lea rcx,[up_file_parents]
+ call git_tree_file_parents
+ test eax,eax
+ jnz .done
+ mov rdi,[up_output]
+ mov rsi,[up_capacity]
+ mov rdx,r15
+ add rdx,[up_plan_count]
+ inc rdx
+ call git_pack_begin
+ test eax,eax
+ jnz .done
+ mov qword [up_recursive_started],1
+ xor ebx,ebx
+.recursive_blob_pack:
+ cmp rbx,r15
+ jae .recursive_trees
+ mov rax,rbx
+ shl rax,8
+ add rax,rbp
+ add rax,VR_HEADER
+ mov [up_entry],rax
+ mov rdi,[rax+VR_BLOB]
+ mov sil,'b'
+ call vcs_object_name
+ test eax,eax
+ jnz .corrupt
+ lea rdi,[vcs_object_path]
+ call uxv_find
+ test rax,rax
+ jz .corrupt
+ mov rcx,[up_entry]
+ mov edi,GIT_PACK_BLOB
+ lea rsi,[rax+UV_DATA]
+ mov rdx,[rcx+VR_SIZE]
+ call git_pack_add
+ test eax,eax
+ jnz .done
+ inc rbx
+ jmp .recursive_blob_pack
+.recursive_trees:
+ lea rdi,[up_emit_request]
+ xor eax,eax
+ mov ecx,GIT_TREE_EMIT_PLAN_REQUEST/8
+ rep stosq
+ mov [up_emit_request+GTEP_MANIFEST],rbp
+ lea rax,[up_tree_plan]
+ mov [up_emit_request+GTEP_PLAN],rax
+ mov rax,[up_plan_count]
+ mov [up_emit_request+GTEP_PLAN_COUNT],rax
+ lea rax,[up_file_parents]
+ mov [up_emit_request+GTEP_FILE_PARENTS],rax
+ lea rax,[up_blob_hashes]
+ mov [up_emit_request+GTEP_BLOB_HASHES],rax
+ lea rax,[up_tree_hashes]
+ mov [up_emit_request+GTEP_TREE_HASHES],rax
+ lea rax,[up_tree_entries]
+ mov [up_emit_request+GTEP_ENTRIES],rax
+ mov qword [up_emit_request+GTEP_ENTRY_CAPACITY],VR_FILES+GIT_TREE_MAX
+ lea rax,[up_recursive_tree]
+ mov [up_emit_request+GTEP_BUFFER],rax
+ mov qword [up_emit_request+GTEP_BUFFER_CAPACITY],32768
+ lea rdi,[up_emit_request]
+ call git_tree_emit_plan
+ test eax,eax
+ jnz .done
+ lea rsi,[up_tree_hashes]
+ lea rdi,[up_tree_hash]
+ mov ecx,GIT_TREE_HASH_SIZE
+ rep movsb
+ jmp .recursive_commit
 .sort:
  ; Stable insertion sort by raw path bytes.
  mov ebx,1
@@ -191,6 +272,7 @@ git_snapshot_pack:
  call git_object_hash
  test eax,eax
  jnz .done
+.recursive_commit:
  ; Commit body: tree line, deterministic fallback identity, exact VCS message.
  lea rdi,[up_commit]
  lea rsi,[tree_prefix]
@@ -235,6 +317,8 @@ git_snapshot_pack:
  mov rdi,[up_oid_output]
  mov ecx,GIT_HASH_SIZE
  rep movsb
+ cmp qword [up_recursive_started],0
+ jne .recursive_commit_pack
  ; Emit every object exactly once.
  mov rdi,[up_output]
  mov rsi,[up_capacity]
@@ -277,6 +361,15 @@ git_snapshot_pack:
  call git_pack_add
  test eax,eax
  jnz .done
+ mov edi,GIT_PACK_COMMIT
+ lea rsi,[up_commit]
+ mov rdx,[up_commit_size]
+ call git_pack_add
+ test eax,eax
+ jnz .done
+ call git_pack_finish
+ jmp .done
+.recursive_commit_pack:
  mov edi,GIT_PACK_COMMIT
  lea rsi,[up_commit]
  mov rdx,[up_commit_size]
