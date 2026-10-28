@@ -20,7 +20,12 @@ align 8
 ; Optional native scheduler callback. Zero keeps standalone polling behavior.
 global uart_idle_hook
 uart_idle_hook: resq 1
+uart_pending: resb 64
+uart_pending_head: resd 1
+uart_pending_tail: resd 1
+uart_pending_count: resd 1
 section .text
+global uart_poll_cancel
 uart_init:
  sub rsp,8
  call uxv_ata_init
@@ -60,6 +65,17 @@ uart_put:
  ret
 uart_get:
  sub rsp,8
+ cmp dword [uart_pending_count],0
+ je .wait
+ mov ecx,[uart_pending_head]
+ lea rdx,[uart_pending]
+ mov al,[rdx+rcx]
+ inc ecx
+ and ecx,63
+ mov [uart_pending_head],ecx
+ dec dword [uart_pending_count]
+ add rsp,8
+ ret
 .wait:
  mov dx,0x3fd
  in al,dx
@@ -74,6 +90,33 @@ uart_get:
  mov dx,0x3f8
  in al,dx
  add rsp,8
+ ret
+
+; Nonblocking command-time Ctrl-C poll. Ordinary input is preserved for the
+; line editor in a bounded pushback ring. EAX=1 cancelled, 0 no cancellation.
+uart_poll_cancel:
+ mov dx,0x3fd
+ in al,dx
+ test al,1
+ jz .not_cancelled
+ mov dx,0x3f8
+ in al,dx
+ cmp al,3
+ je .cancelled
+ cmp dword [uart_pending_count],64
+ jae .not_cancelled
+ mov ecx,[uart_pending_tail]
+ lea rdx,[uart_pending]
+ mov [rdx+rcx],al
+ inc ecx
+ and ecx,63
+ mov [uart_pending_tail],ecx
+ inc dword [uart_pending_count]
+.not_cancelled:
+ xor eax,eax
+ ret
+.cancelled:
+ mov eax,1
  ret
 uart_read_char:
  sub rsp,8
