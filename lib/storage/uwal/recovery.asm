@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_RECOVERY_ASM
 %define GUARD_STORAGE_UWAL_RECOVERY_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uwal/recovery.asm
+; Utkarsha OS — lib/storage/uwal/recovery.asm
 ; =============================================================================
 ; UWAL Crash Recovery — Tail Discovery, Transaction Resolution & Replay.
 ;
@@ -32,7 +32,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uwal/uwal.inc"
+%include "lib/storage/uwal/uwal.inc"
 
 %define UWAL_MAX_HANDLERS            8
 %define UWAL_MAX_TXNS                4096    ; Committed-transaction table size
