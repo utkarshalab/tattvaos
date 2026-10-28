@@ -12,7 +12,7 @@
 
 %include "obs/umetric/umetric.inc"
 %include "net/unet/unet.inc"
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 %include "kernel/sched/sched.inc"
 %include "lib/ulib/vec.inc"
 
