@@ -82,3 +82,8 @@ repeated reference discovery is rejected as an invalid session sequence.
 Empty-queue send/receive results are retried only while the accepted socket is
 still established, so a peer FIN or failed connection terminates the command
 instead of leaving Ush in a permanent poll loop.
+
+Malformed and unsupported requests receive a bounded Git `ERR` pkt-line before
+the connection closes. The server preserves and returns the original VCS error
+after the nonblocking error response is fully sent; unwritable transport errors
+still terminate immediately.
