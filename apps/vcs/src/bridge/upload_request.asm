@@ -21,6 +21,8 @@ request_done: resb 1
 request_want_set: resb 1
 request_have_count: resb 1
 request_wait_done: resb 1
+request_peel: resb 1
+request_unborn: resb 1
 
 section .rodata
 ls_command: db 'command=ls-refs',10
@@ -35,6 +37,10 @@ want_prefix: db 'want '
 done_line: db 'done',10
 symrefs_line: db 'symrefs',10
 symrefs_line_len equ $-symrefs_line
+peel_line: db 'peel',10
+peel_line_len equ $-peel_line
+unborn_line: db 'unborn',10
+unborn_line_len equ $-unborn_line
 thin_pack_line: db 'thin-pack',10
 thin_pack_line_len equ $-thin_pack_line
 no_progress_line: db 'no-progress',10
@@ -79,6 +85,8 @@ git_protocol_v2_parse_request:
  mov byte [request_want_set],0
  mov byte [request_have_count],0
  mov byte [request_wait_done],0
+ mov byte [request_peel],0
+ mov byte [request_unborn],0
  call next_packet
  test eax,eax
  jnz .done
@@ -237,10 +245,34 @@ git_protocol_v2_parse_request:
  call packet_equal
  test eax,eax
  jz .ls_symrefs
+ lea rdi,[peel_line]
+ mov esi,peel_line_len
+ call packet_equal
+ test eax,eax
+ jz .ls_peel
+ lea rdi,[unborn_line]
+ mov esi,unborn_line_len
+ call packet_equal
+ test eax,eax
+ jz .ls_unborn
  call parse_ref_prefix
- jmp .argument                 ; peel and unknown bounded filters are ignored
+ test eax,eax
+ jnz .corrupt
+ jmp .argument
 .ls_symrefs:
+ test qword [request_flags],1
+ jnz .corrupt
  or qword [request_flags],1
+ jmp .argument
+.ls_peel:
+ cmp byte [request_peel],0
+ jne .corrupt
+ mov byte [request_peel],1
+ jmp .argument
+.ls_unborn:
+ cmp byte [request_unborn],0
+ jne .corrupt
+ mov byte [request_unborn],1
  jmp .argument
 .finish:
  cmp qword [request_left],0
