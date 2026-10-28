@@ -2,13 +2,13 @@
 ; Utkarsha OS — lib/ulog/ulog.asm
 ; =============================================================================
 ; Top-level aggregator for the structured logger — mirrors the pattern
-; crypto/uhash/uhash.asm, storage/uxfs/uxfs.asm, and unet/unet.asm already
+; crypto/uhash/uhash.asm, lib/storage/uxfs/uxfs.asm, and unet/unet.asm already
 ; use: kernel/entry.asm includes this one file, and everything else in
 ; lib/ulog/ is reached from here, in dependency order.
 ;
 ; Depends only on lib/mem, lib/time, lib/io, and kernel/drivers/serial —
 ; all already earlier in kernel/entry.asm's include chain. Does not import
-; from unet/, storage/, crypto/, or security/ — see sinks/net_transport.asm
+; from unet/, lib/storage/, crypto/, or security/ — see sinks/net_transport.asm
 ; and sinks/file_transport.asm for how those boundaries are respected.
 ;
 ; Author:  Utkarsha Labs
