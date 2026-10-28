@@ -138,6 +138,8 @@ bridge_pkt_decode:
  jb .nibble
  test eax,eax
  jz .flush
+ cmp eax,2
+ jbe .special
  cmp eax,4
  jb .decode_corrupt
  cmp rax,rsi
@@ -151,6 +153,14 @@ bridge_pkt_decode:
  xor edx,edx
  xor ecx,ecx
  mov r8d,4
+ xor r9d,r9d
+ xor eax,eax
+ ret
+.special:
+ xor edx,edx
+ xor ecx,ecx
+ mov r8d,4
+ mov r9,rax
  xor eax,eax
  ret
 .decode_again:
