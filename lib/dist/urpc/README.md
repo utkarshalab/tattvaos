@@ -30,7 +30,7 @@ dist/urpc/
 ```text
 dist/urpc/ depends on:
   → dist/udist/   (distributed runtime)
-  → storage/ubxp/ (BXP binary protocol)
+  → lib/storage/ubxp/ (BXP binary protocol)
   → unet/         (network transport)
 ```
 
