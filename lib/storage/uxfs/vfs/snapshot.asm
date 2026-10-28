@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_SNAPSHOT_ASM
 %define GUARD_STORAGE_UXFS_VFS_SNAPSHOT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/snapshot.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/snapshot.asm
 ; =============================================================================
 ; Frozen Root CoW B-Tree File System Snapshots & Rollback Engine.
 ;
@@ -14,7 +14,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_MAX_SNAPSHOTS            64
 
