@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CRYPTO_VAULT_ASM
 %define GUARD_STORAGE_UXFS_CRYPTO_VAULT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/crypto/vault.asm
+; Utkarsha OS — lib/storage/uxfs/crypto/vault.asm
 ; =============================================================================
 ; TPM 2.0 Master Key Vault — TIS Transport & PCR-Bound Unsealing.
 ;
@@ -28,7 +28,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 ; -----------------------------------------------------------------------------
 ; TIS MMIO layout. Locality 0 is the one an OS normally drives.
