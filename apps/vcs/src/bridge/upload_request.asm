@@ -20,6 +20,7 @@ request_agent: resb 1
 request_done: resb 1
 request_want_set: resb 1
 request_have_count: resb 1
+request_wait_done: resb 1
 
 section .rodata
 ls_command: db 'command=ls-refs',10
@@ -42,6 +43,8 @@ ofs_delta_line: db 'ofs-delta',10
 ofs_delta_line_len equ $-ofs_delta_line
 include_tag_line: db 'include-tag',10
 include_tag_line_len equ $-include_tag_line
+wait_done_line: db 'wait-for-done',10
+wait_done_line_len equ $-wait_done_line
 ref_prefix_marker: db 'ref-prefix '
 ref_prefix_marker_len equ $-ref_prefix_marker
 head_ref: db 'HEAD'
@@ -75,6 +78,7 @@ git_protocol_v2_parse_request:
  mov byte [request_done],0
  mov byte [request_want_set],0
  mov byte [request_have_count],0
+ mov byte [request_wait_done],0
  call next_packet
  test eax,eax
  jnz .done
@@ -214,7 +218,15 @@ git_protocol_v2_parse_request:
  mov esi,include_tag_line_len
  call packet_equal
  test eax,eax
+ jz .argument
+ lea rdi,[wait_done_line]
+ mov esi,wait_done_line_len
+ call packet_equal
+ test eax,eax
  jnz .corrupt
+ cmp byte [request_wait_done],0
+ jne .corrupt
+ mov byte [request_wait_done],1
  jmp .argument
 .fetch_done:
  mov byte [request_done],1
