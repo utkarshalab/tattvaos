@@ -163,6 +163,11 @@ Request parsing now recognizes protocol-v2 delimiter packets, validates command
 headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
 `fetch` requests. Native socket-session ownership remains pending.
 
+The Git serving dispatcher now connects advertisement, strict request parsing,
+recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
+responses. It is allocation-free and buffer bounded; the remaining step is the
+native nonblocking socket-session wrapper.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
