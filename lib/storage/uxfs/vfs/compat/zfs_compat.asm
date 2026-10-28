@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_ZFS_COMPAT_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_ZFS_COMPAT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/zfs_compat.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/zfs_compat.asm
 ; =============================================================================
 ; Production-Grade OpenZFS Storage Pool Compatibility Driver.
 ;
@@ -14,7 +14,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define ZFS_UBERBLOCK_MAGIC         0x00BAB10C          ; ZFS Uberblock magic
 
