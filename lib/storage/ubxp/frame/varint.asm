@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_FRAME_VARINT_ASM
 %define GUARD_STORAGE_UBXP_FRAME_VARINT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/frame/varint.asm
+; Utkarsha OS — lib/storage/ubxp/frame/varint.asm
 ; =============================================================================
 ; LEB128 Variable-Length Integer Codec & Zig-Zag Signed Mapping.
 ;
@@ -17,7 +17,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 section .text
 
