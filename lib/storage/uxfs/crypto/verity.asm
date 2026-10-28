@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CRYPTO_VERITY_ASM
 %define GUARD_STORAGE_UXFS_CRYPTO_VERITY_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/crypto/verity.asm
+; Utkarsha OS — lib/storage/uxfs/crypto/verity.asm
 ; =============================================================================
 ; dm-verity Merkle Tree Block Integrity Verification.
 ;
@@ -33,7 +33,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_VERITY_DIGEST_BYTES     32
 %define UXFS_VERITY_BLOCK_BYTES      4096
