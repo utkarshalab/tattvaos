@@ -12,15 +12,15 @@ $(BUILD)/cli.o: src/cli/cli.asm include/vcs.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ $< -o $@
 $(BUILD)/diff.o: src/merge/diff.asm include/diff.inc include/vcs.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ $< -o $@
-$(BUILD)/repo_diff.o: src/merge/repo_diff.asm include/diff.inc include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/repo_diff.o: src/merge/repo_diff.asm include/diff.inc include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/blame.o: src/merge/blame.asm include/diff.inc include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/blame.o: src/merge/blame.asm include/diff.inc include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/integrate.o: src/merge/integrate.asm include/vcs.inc include/repository.inc include/diff.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/integrate.o: src/merge/integrate.asm include/vcs.inc include/repository.inc include/diff.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/rebase.o: src/merge/rebase.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/rebase.o: src/merge/rebase.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/pick.o: src/merge/pick.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/pick.o: src/merge/pick.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/sync.o: src/sync/sync.asm include/vcs.inc include/wire.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -32,15 +32,15 @@ $(BUILD)/server.o: src/sync/server.asm include/vcs.inc include/wire.inc include/
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/stream.o: src/sync/stream.asm include/vcs.inc include/wire.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/plan.o: src/sync/plan.asm include/vcs.inc include/repository.inc include/bundle.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/plan.o: src/sync/plan.asm include/vcs.inc include/repository.inc include/bundle.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/policy.o: src/sync/policy.asm include/vcs.inc include/sync_protocol.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/bundle.o: src/sync/bundle.asm include/vcs.inc include/repository.inc include/bundle.inc include/wire.inc ../../storage/uxfs/volume.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
+$(BUILD)/bundle.o: src/sync/bundle.asm include/vcs.inc include/repository.inc include/bundle.inc include/wire.inc ../../lib/storage/uxfs/volume.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/remote.o: src/sync/remote.asm include/vcs.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/remote.o: src/sync/remote.asm include/vcs.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/bridge.o: src/bridge/bridge.asm include/vcs.inc include/wire.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/bridge.o: src/bridge/bridge.asm include/vcs.inc include/wire.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/pack.o: src/bridge/pack.asm include/vcs.inc include/git_pack.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -50,9 +50,9 @@ $(BUILD)/commit.o: src/bridge/commit.asm include/vcs.inc include/git_commit.inc 
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/history_plan.o: src/bridge/history_plan.asm include/vcs.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/history_pack.o: src/bridge/history_pack.asm include/vcs.inc include/repository.inc include/git_pack.inc include/git_tree.inc include/git_commit.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/history_pack.o: src/bridge/history_pack.asm include/vcs.inc include/repository.inc include/git_pack.inc include/git_tree.inc include/git_commit.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/upload_pack.o: src/bridge/upload_pack.asm include/vcs.inc include/repository.inc include/git_pack.inc include/git_tree.inc include/git_commit.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/upload_pack.o: src/bridge/upload_pack.asm include/vcs.inc include/repository.inc include/git_pack.inc include/git_tree.inc include/git_commit.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/upload_protocol.o: src/bridge/upload_protocol.asm include/vcs.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -60,21 +60,21 @@ $(BUILD)/upload_request.o: src/bridge/upload_request.asm include/vcs.inc | $(BUI
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/upload_server.o: src/bridge/upload_server.asm include/vcs.inc include/wire.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/repository.o: src/store/repository.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/repository.o: src/store/repository.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/history.o: src/store/history.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/history.o: src/store/history.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/refs.o: src/store/refs.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/refs.o: src/store/refs.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/worktree.o: src/store/worktree.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/worktree.o: src/store/worktree.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/stage.o: src/store/stage.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/stage.o: src/store/stage.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/stash.o: src/store/stash.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/stash.o: src/store/stash.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/bisect.o: src/store/bisect.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/bisect.o: src/store/bisect.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/identity.o: src/store/identity.asm include/vcs.inc include/repository.inc ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/identity.o: src/store/identity.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/signing.o: src/policy/signing.asm include/vcs.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -84,7 +84,7 @@ $(BUILD)/sha512.o: ../../lib/crypto/uhash/sha512/sha512.asm ../../lib/crypto/uha
 	$(NASM) -w+error -dSHA512_DEFAULT_REL -f elf64 -I ../../ $< -o $@
 $(BUILD)/ed25519.o: ../../lib/crypto/usign/ed25519/ed25519.asm ../../lib/crypto/usign/ed25519/ed25519.inc ../../lib/crypto/usign/ed25519/fe25519.asm ../../lib/crypto/usign/ed25519/sc25519.asm ../../lib/crypto/usign/ed25519/ge25519.asm | $(BUILD)
 	$(NASM) -w+error -dED25519_NO_KEYGEN -dED25519_EXTERNAL_SHA512 -f elf64 -I ../../ $< -o $@
-$(BUILD)/volume.o: ../../storage/uxfs/volume.asm ../../storage/uxfs/volume.inc | $(BUILD)
+$(BUILD)/volume.o: ../../lib/storage/uxfs/volume.asm ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ../../ $< -o $@
 $(BUILD)/repository.so: $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/stash.o $(BUILD)/bisect.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/diff.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/protocol.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o $(BUILD)/volume.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
