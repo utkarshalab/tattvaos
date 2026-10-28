@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CACHE_TINYPOINTER_HASH_ASM
 %define GUARD_STORAGE_UXFS_CACHE_TINYPOINTER_HASH_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/cache/tinypointer_hash.asm
+; Utkarsha OS — lib/storage/uxfs/cache/tinypointer_hash.asm
 ; =============================================================================
 ; Breakthrough Krapivin-Farach-Colton-Kuszmaul (2025) Tiny-Pointer Hash Table.
 ;
@@ -14,7 +14,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_TINY_HASH_SLOTS         65536
 %define UXFS_TINY_POINTER_MASK       0x0F
