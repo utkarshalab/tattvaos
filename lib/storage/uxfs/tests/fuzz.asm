@@ -1,5 +1,5 @@
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/tests/fuzz.asm
+; Utkarsha OS — lib/storage/uxfs/tests/fuzz.asm
 ; =============================================================================
 ; Production-Grade Power-Fail WAL Journal Crash-Consistency Fuzzing Engine.
 ;
@@ -12,7 +12,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 section .text
 
