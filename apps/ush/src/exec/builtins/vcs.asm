@@ -23,6 +23,7 @@ extern vcs_sync_server_begin,vcs_sync_server_step,vcs_sync_server_rearm,vcs_sync
 extern vcs_sync_plan_head_digest,vcs_sync_policy_ids
 extern vcs_stream_send_begin,vcs_stream_receive_begin,vcs_stream_step
 extern vcs_sync_plan,vcs_sync_repository_policy,vcs_sync_policy_ids
+extern git_upload_server_begin,git_upload_server_step,git_upload_server_close
 extern ush_yield_hook,vcs_repo_head
 %endif
 section .bss
@@ -123,7 +124,7 @@ help_word: db 'help',0
 repo_diff_usage: db 'Repository diff: vcs diff | vcs diff --staged | vcs diff ID1 ID2',10,0
 patch_usage: db 'Patch: vcs patch export ID FILE SEED_FILE | inspect FILE | import FILE [SEED_FILE] | apply FILE [SEED_FILE]',10,0
 remote_usage: db 'Remote: vcs remote | remote add NAME IPV4 PORT | remote remove NAME',10,0
-network_usage: db 'Network: vcs fetch|push|clone REMOTE SEED_FILE [REF] | vcs serve PORT SEED_FILE',10,0
+network_usage: db 'Network: vcs fetch|push|clone REMOTE SEED_FILE [REF] | vcs serve PORT SEED_FILE | vcs git serve PORT',10,0
 network_native_only: db 'vcs: networking is available only in native TattvaOS',10,0
 patch_exported: db 'Exported signed patch',10,0
 git_exported: db 'Exported Git fast-import stream',10,0
@@ -735,6 +736,11 @@ cmd_vcs:
  lea rdi,[history_error]
  jmp .error
 .git:
+ mov rdi,[r12+16]
+ lea rsi,[serve_name]
+ call ush_streq
+ test eax,eax
+ jz .git_serve
  xor r15d,r15d
  mov rdi,[r12+16]
  lea rsi,[export_name]
@@ -802,6 +808,41 @@ cmd_vcs:
  call frontend_write_str
  xor eax,eax
  jmp .done
+.git_serve:
+%ifdef VCS_NETWORK_NATIVE
+ cmp r13,4
+ jne .bad
+ mov rdi,[r12+24]
+ call parse_port_arg
+ test eax,eax
+ jnz .bad
+ mov r14d,edx
+ mov rdx,[vcs_repo_head]
+ test rdx,rdx
+ jz .patch_failed
+ xor edi,edi
+ mov esi,r14d
+ call git_upload_server_begin
+ test eax,eax
+ jnz .patch_failed
+.git_serve_wait:
+ call git_upload_server_step
+ cmp eax,VCS_XFER_AGAIN
+ jne .git_serve_done
+ call .network_yield
+ test eax,eax
+ jz .git_serve_wait
+.git_serve_done:
+ push rax
+ call git_upload_server_close
+ pop rax
+ test eax,eax
+ jnz .patch_failed
+ jmp .done
+%else
+ lea rdi,[network_native_only]
+ jmp .error
+%endif
 .git_import_check:
  mov rdi,[r12+16]
  lea rsi,[import_name]
