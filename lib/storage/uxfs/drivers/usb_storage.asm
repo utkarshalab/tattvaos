@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_USB_STORAGE_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_USB_STORAGE_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/drivers/usb_storage.asm
+; Utkarsha OS — lib/storage/uxfs/drivers/usb_storage.asm
 ; =============================================================================
 ; Production-Grade USB 3.0 / 2.0 Mass Storage Pendrive Driver (xHCI / BOT).
 ;
@@ -18,7 +18,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define USB_CBW_SIGNATURE           0x43425355          ; "USBC"
 %define USB_CSW_SIGNATURE           0x53425355          ; "USBS"
