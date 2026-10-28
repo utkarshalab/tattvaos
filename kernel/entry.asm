@@ -149,9 +149,9 @@ kernel_text_start:
                                      ; ulog_full_init runs still work.
 %include "lib/crypto/ux509/ux509.asm"
 %include "lib/ucmp/ucmp.asm"
-%include "storage/ubxp/ubxp.asm"
-%include "storage/uxfs/uxfs.asm"
-%include "storage/uwal/uwal.asm"    ; After uxfs: uses its NVMe driver
+%include "lib/storage/ubxp/ubxp.asm"
+%include "lib/storage/uxfs/uxfs.asm"
+%include "lib/storage/uwal/uwal.asm"    ; After uxfs: uses its NVMe driver
 %include "security/usrauth/usrauth.asm"   ; Reference monitor; needs crypto + time
 %include "lib/unet/unet.asm"
 
