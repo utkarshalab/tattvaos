@@ -25,6 +25,7 @@ server_client: resd 1
 server_commit: resq 1
 server_operation: resq 1
 server_result: resd 1
+server_progress: resq 1
 server_offset: resq 1
 server_length: resq 1
 server_seen_refs: resb 1
@@ -41,6 +42,7 @@ error_payload_len equ $-error_payload
 
 section .text
 global git_upload_server_begin,git_upload_server_step,git_upload_server_rearm
+global git_upload_server_progress,git_upload_server_has_client
 global git_upload_server_close
 
 ; EDI=local IPv4 (zero selects the stack default), ESI=host-order port,
@@ -54,6 +56,7 @@ git_upload_server_begin:
  mov qword [server_offset],0
  mov qword [server_length],0
  mov dword [server_result],VCS_OK
+ mov qword [server_progress],0
  mov byte [server_seen_refs],0
  call vcs_sync_listen_begin
  test eax,eax
@@ -92,6 +95,7 @@ git_upload_server_step:
  test eax,eax
  js .again
  mov [server_client],eax
+ inc qword [server_progress]
  mov qword [server_offset],0
  mov qword [server_length],0
  mov dword [server_state],GIT_SERVER_SERVICE
@@ -143,6 +147,7 @@ git_upload_server_step:
  test rax,rax
  jz .peer_status
  add [server_offset],rax
+ inc qword [server_progress]
  jmp .again
 .sent:
  cmp dword [server_state],GIT_SERVER_ADVERTISE
@@ -218,6 +223,7 @@ git_upload_server_step:
  test rax,rax
  jz .peer_status
  add [server_length],rax
+ inc qword [server_progress]
  xor eax,eax
  ret
 
@@ -319,10 +325,21 @@ git_upload_server_rearm:
  mov qword [server_length],0
  mov byte [server_seen_refs],0
  mov dword [server_state],GIT_SERVER_ACCEPT
+ inc qword [server_progress]
  xor eax,eax
  ret
 .rearm_usage:
  mov eax,VCS_ERR_USAGE
+ ret
+
+git_upload_server_progress:
+ mov rax,[server_progress]
+ ret
+
+git_upload_server_has_client:
+ xor eax,eax
+ cmp dword [server_client],0
+ setge al
  ret
 
 ; Close any live client and listener. Safe after partial initialization.
