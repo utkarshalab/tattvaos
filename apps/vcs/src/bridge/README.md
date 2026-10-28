@@ -63,3 +63,7 @@ packfile responses. All records use bounded pkt-lines and explicit flushes.
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires SHA-256 object format, accepts bounded `ls-refs` filters, and validates
 one 64-hex `want` plus `done` for fetch.
+
+`bridge_git_serve` now composes advertisement, request parsing, recursive pack
+generation, OID validation, `ls-refs`, and `fetch` responses behind a bounded
+two-phase buffer API. Native socket polling remains the outer transport owner.
