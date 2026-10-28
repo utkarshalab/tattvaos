@@ -86,7 +86,7 @@ pub struct MetricsConfig {
 }
 ```
 
-- **Sources**: `kernel/`, `net/`, `storage/`, `ai/`, `serve/` (all emit Prometheus metrics)
+- **Sources**: `kernel/`, `net/`, `lib/storage/`, `ai/`, `serve/` (all emit Prometheus metrics)
 - **Aggregation**: Local Prometheus (embedded) or remote write
 - **Cardinality control**: Label enforcement, drop high-cardinality labels
 
@@ -204,7 +204,7 @@ audit = {
 ## Integration
 
 - **Upstream**: `ugate` (routes `/api/sys/*` here, restricted to internal CIDR via `niti`)
-- **Downstream**: `kernel/` (metrics), `net/` (network stats), `storage/` (disk), `ai/` (GPU), `runtime/` (runtime metrics)
+- **Downstream**: `kernel/` (metrics), `net/` (network stats), `lib/storage/` (disk), `ai/` (GPU), `runtime/` (runtime metrics)
 - **External**: Prometheus/Thanos (metrics), etcd/Consul (config), Loki/ES (audit), pprof tools (debug)
 
 ## Metrics
