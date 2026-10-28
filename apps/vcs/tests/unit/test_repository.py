@@ -6,7 +6,7 @@ import struct
 import sys
 
 root = Path(__file__).resolve().parents[4]
-spec = importlib.util.spec_from_file_location('mkvolume',root/'storage/uxfs/mkvolume.py')
+spec = importlib.util.spec_from_file_location('mkvolume',root/'lib/storage/uxfs/mkvolume.py')
 fmt = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fmt)
 lib = C.CDLL(str(Path(sys.argv[1]).resolve()))
