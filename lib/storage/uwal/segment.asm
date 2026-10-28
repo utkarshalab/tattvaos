@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_SEGMENT_ASM
 %define GUARD_STORAGE_UWAL_SEGMENT_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uwal/segment.asm
+; Utkarsha OS — lib/storage/uwal/segment.asm
 ; =============================================================================
 ; UWAL Segment Ring — Allocation, Sealing & Reclamation.
 ;
@@ -29,7 +29,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uwal/uwal.inc"
+%include "lib/storage/uwal/uwal.inc"
 
 section .data
 align 64
