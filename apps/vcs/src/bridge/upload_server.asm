@@ -40,7 +40,8 @@ error_payload: db 'ERR tattva-vcs: request rejected',10
 error_payload_len equ $-error_payload
 
 section .text
-global git_upload_server_begin,git_upload_server_step,git_upload_server_close
+global git_upload_server_begin,git_upload_server_step,git_upload_server_rearm
+global git_upload_server_close
 
 ; EDI=local IPv4 (zero selects the stack default), ESI=host-order port,
 ; RDX=VCS commit ID. EAX=VCS_OK or an error.
@@ -296,6 +297,29 @@ git_upload_server_step:
 .corrupt:
  mov eax,VCS_ERR_CORRUPT
  jmp .protocol_error
+
+; Close the completed client and retain the listener for another bounded
+; session using the same immutable commit snapshot.
+git_upload_server_rearm:
+ cmp dword [server_state],GIT_SERVER_DONE
+ jne .rearm_usage
+ mov edi,[server_client]
+ test edi,edi
+ js .rearm_state
+ call vcs_sync_close
+.rearm_state:
+ mov dword [server_client],-1
+ mov dword [server_result],VCS_OK
+ mov qword [server_operation],0
+ mov qword [server_offset],0
+ mov qword [server_length],0
+ mov byte [server_seen_refs],0
+ mov dword [server_state],GIT_SERVER_ACCEPT
+ xor eax,eax
+ ret
+.rearm_usage:
+ mov eax,VCS_ERR_USAGE
+ ret
 
 ; Close any live client and listener. Safe after partial initialization.
 git_upload_server_close:
