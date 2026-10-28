@@ -15,9 +15,10 @@ plan_capacity: resq 1
 plan_count: resq 1
 prefix: resb VR_PATH
 entry_names: resb GIT_TREE_MAX*VR_PATH
+collect_request: resb GIT_TREE_COLLECT_REQUEST
 
 section .text
-global git_tree_plan,git_tree_file_parents,git_tree_collect_entries,git_tree_sort_entries,git_tree_emit_entries
+global git_tree_plan,git_tree_file_parents,git_tree_collect_entries,git_tree_sort_entries,git_tree_emit_entries,git_tree_emit_plan
 ; RDI=validated manifest, RSI=record buffer, RDX=record capacity.
 ; Returns RAX=status, RDX=record count. Record zero is the root directory.
 git_tree_plan:
@@ -689,6 +690,110 @@ git_tree_emit_entries:
  jmp .emit_done
 .emit_corrupt: mov eax,VCS_ERR_CORRUPT
 .emit_done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+; Emit every planned directory deepest-first into the active PACK writer.
+; RDI=GIT_TREE_EMIT_PLAN_REQUEST. Root hash is tree_hashes[0].
+git_tree_emit_plan:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ mov rbp,rdi
+ test rbp,rbp
+ jz .plan_usage
+ mov r12,[rbp+GTEP_PLAN_COUNT]
+ test r12,r12
+ jz .plan_usage
+ cmp r12,GIT_TREE_MAX
+ ja .plan_usage
+ ; Find the maximum directory depth.
+ xor r13d,r13d
+ xor r14d,r14d
+.depth_scan:
+ cmp r13,r12
+ jae .depth_ready
+ mov rax,r13
+ shl rax,8
+ add rax,[rbp+GTEP_PLAN]
+ mov rdx,[rax+GT_DEPTH]
+ cmp rdx,r14
+ jbe .depth_next
+ mov r14,rdx
+.depth_next:
+ inc r13
+ jmp .depth_scan
+.depth_ready:
+.depth_level:
+ xor r13d,r13d
+.directory_scan:
+ cmp r13,r12
+ jae .level_done
+ mov rax,r13
+ shl rax,8
+ add rax,[rbp+GTEP_PLAN]
+ cmp [rax+GT_DEPTH],r14
+ jne .directory_next
+ ; Populate the direct-entry collection request.
+ lea rdi,[collect_request]
+ xor eax,eax
+ mov ecx,GIT_TREE_COLLECT_REQUEST/8
+ rep stosq
+ mov rax,[rbp+GTEP_MANIFEST]
+ mov [collect_request+GTC_MANIFEST],rax
+ mov rax,[rbp+GTEP_PLAN]
+ mov [collect_request+GTC_PLAN],rax
+ mov rax,[rbp+GTEP_PLAN_COUNT]
+ mov [collect_request+GTC_PLAN_COUNT],rax
+ mov rax,[rbp+GTEP_FILE_PARENTS]
+ mov [collect_request+GTC_FILE_PARENTS],rax
+ mov rax,[rbp+GTEP_BLOB_HASHES]
+ mov [collect_request+GTC_BLOB_HASHES],rax
+ mov rax,[rbp+GTEP_TREE_HASHES]
+ mov [collect_request+GTC_TREE_HASHES],rax
+ mov [collect_request+GTC_DIRECTORY],r13
+ mov rax,[rbp+GTEP_ENTRIES]
+ mov [collect_request+GTC_OUTPUT],rax
+ mov rax,[rbp+GTEP_ENTRY_CAPACITY]
+ mov [collect_request+GTC_CAPACITY],rax
+ lea rdi,[collect_request]
+ call git_tree_collect_entries
+ test eax,eax
+ jnz .plan_done
+ mov r15,rdx
+ mov rdi,[rbp+GTEP_ENTRIES]
+ mov rsi,r15
+ mov rdx,[rbp+GTEP_BUFFER]
+ mov rcx,[rbp+GTEP_BUFFER_CAPACITY]
+ mov r8,[rbp+GTEP_TREE_HASHES]
+ mov rax,r13
+ imul rax,GIT_TREE_HASH_SIZE
+ add r8,rax
+ call git_tree_emit_entries
+ test eax,eax
+ jnz .plan_done
+.directory_next:
+ inc r13
+ jmp .directory_scan
+.level_done:
+ test r14,r14
+ jz .plan_ok
+ dec r14
+ jmp .depth_level
+.plan_ok: xor eax,eax
+ jmp .plan_done
+.plan_usage: mov eax,VCS_ERR_USAGE
+.plan_done:
  add rsp,8
  pop r15
  pop r14
