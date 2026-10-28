@@ -72,7 +72,7 @@ From the repository root in Linux/WSL:
 ```sh
 make -C apps/ush all
 # Create once; the formatter refuses to overwrite an existing image.
-python3 storage/uxfs/mkvolume.py apps/ush/build/data.uxfs
+python3 lib/storage/uxfs/mkvolume.py apps/ush/build/data.uxfs
 apps/ush/build/ush --disk apps/ush/build/data.uxfs
 ```
 
@@ -84,7 +84,7 @@ invocations cannot enter Uedit.
 make -C boot run UXFS_IMAGE=../apps/ush/build/data.uxfs
 ```
 
-See the [UXFS contract](../../storage/uxfs/PERSISTENT_VOLUME.md) for explicit image
+See the [UXFS contract](../../lib/storage/uxfs/PERSISTENT_VOLUME.md) for explicit image
 attachment and recovery. Uedit never formats a disk. `make -C apps/uedit` produces
 `build/uedit-native.o`, a callable app without heap, libc, unresolved symbols or
 host syscalls. Ush supplies terminal/storage callbacks. The shared library is a
