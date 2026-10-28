@@ -13,7 +13,7 @@
 %include "lib/ulib/map.inc"
 %include "lib/ulib/ring.inc"
 %include "net/uhttp/uhttp.inc"
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 %include "crypto/usign/usign.inc"
 %include "pkg/registry/registry.inc"
 
