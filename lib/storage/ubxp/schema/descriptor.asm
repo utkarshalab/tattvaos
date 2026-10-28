@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_SCHEMA_DESCRIPTOR_ASM
 %define GUARD_STORAGE_UBXP_SCHEMA_DESCRIPTOR_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/schema/descriptor.asm
+; Utkarsha OS — lib/storage/ubxp/schema/descriptor.asm
 ; =============================================================================
 ; UBXP Schema Descriptors — Reflection, Validation & Presence Tracking.
 ;
@@ -27,7 +27,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 section .text
 
