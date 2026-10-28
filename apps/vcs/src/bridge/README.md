@@ -91,5 +91,7 @@ still terminate immediately.
 After a terminal response, `git_upload_server_rearm` closes only the client and
 returns the retained listener to its accept state. Ush uses this for successful
 sessions and delivered protocol rejections in an explicit bounded
-`--clients COUNT`; transport failures cannot rearm. The default remains one
-session so the foreground shell cannot enter an uninterruptible daemon loop.
+`--clients COUNT`. It can also discard a failed post-accept client without
+reopening the listener; pre-accept and invalid states cannot rearm. The default
+remains one session so the foreground shell cannot enter an uninterruptible
+daemon loop.
