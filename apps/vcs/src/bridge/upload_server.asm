@@ -5,7 +5,7 @@ bits 64
 default rel
 
 extern bridge_git_serve,bridge_pkt_decode,git_protocol_v2_parse_request
-extern vcs_sync_listen_begin,vcs_sync_accept_poll,vcs_sync_close
+extern vcs_sync_listen_begin,vcs_sync_accept_poll,vcs_sync_connect_poll,vcs_sync_close
 extern vcs_sync_unet_send,vcs_sync_unet_receive
 
 %define GIT_SERVER_ACCEPT       1
@@ -133,9 +133,9 @@ git_upload_server_step:
  mov rdx,rax
  call vcs_sync_unet_send
  test rax,rax
- js .again
+ js .peer_status
  test rax,rax
- jz .again
+ jz .peer_status
  add [server_offset],rax
  jmp .again
 .sent:
@@ -208,11 +208,21 @@ git_upload_server_step:
  mov rdx,rax
  call vcs_sync_unet_receive
  test rax,rax
- js .again
+ js .peer_status
  test rax,rax
- jz .again
+ jz .peer_status
  add [server_length],rax
  xor eax,eax
+ ret
+
+; Native unet reports an empty queue and socket failure with the same negative
+; result. Retry only while the accepted TCP socket remains established.
+.peer_status:
+ mov edi,[server_client]
+ call vcs_sync_connect_poll
+ test eax,eax
+ jz .again
+ mov eax,VCS_ERR_IO
  ret
 
 ; Require the upload-pack service for the root repository and protocol v2.
