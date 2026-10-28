@@ -18,7 +18,7 @@
 - **Load balancing** → `ulb` (selects storage node)
 - **Audit logging** → `uaudit`
 - **Protocol framing** → `uhttp`
-- **Data persistence** → `storage/` (the actual storage engine)
+- **Data persistence** → `lib/storage/` (the actual storage engine)
 
 ## Architecture
 
@@ -38,7 +38,7 @@ Request (ugate → userve)
 │         ▼                ▼                  │                  │
 │  ┌─────────────────────────────────────────┴──────────────┐   │
 │  │              Storage Backend Client                     │   │
-│  │  (gRPC to storage/ engine)                              │   │
+│  │  (gRPC to lib/storage/ engine)                              │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -82,7 +82,7 @@ PUT /bucket/key
                  │
                  ▼
 ┌─────────────────────────────────────┐
-│ storage/engine: Write object        │
+│ lib/storage/engine: Write object        │
 │   - Erasure coding / replication    │
 │   - Metadata index update           │
 │   - ETag = MD5 (or custom)          │
@@ -183,7 +183,7 @@ notifications = {
 ## Integration
 
 - **Upstream**: `ugate` (routes `/api/store/*` here), `ulb` (selects storage gateway node)
-- **Downstream**: `storage/` engine (gRPC: `ObjectService`, `BucketService`, `MultipartService`)
+- **Downstream**: `lib/storage/` engine (gRPC: `ObjectService`, `BucketService`, `MultipartService`)
 - **External**: `uevent`/`ukafka` (notifications), CDN (CloudFront, Cloudflare via origin shield)
 
 ## Metrics
