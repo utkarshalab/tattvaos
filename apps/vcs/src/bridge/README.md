@@ -51,3 +51,7 @@ capacity, and return the entries already in canonical Git order.
 Canonical descriptors can now be encoded into exact Git tree bytes (`100644`
 files and `40000` subtrees), SHA-256 object-hashed, and appended directly to the
 active PACK v2 writer. Capacity and malformed names fail before partial success.
+
+The plan emitter now walks maximum depth back to root, gathers each directory's
+direct entries, emits and hashes the tree, and stores that hash for its parent.
+After completion `tree_hashes[0]` is the canonical root tree ID.
