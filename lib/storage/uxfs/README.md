@@ -7,7 +7,7 @@
 ## 📁 Directory & File Architecture
 
 ```
-storage/uxfs/
+lib/storage/uxfs/
 ├── uxfs.asm                    # Master Subsystem Dispatcher Entry Point
 ├── uxfs.inc                    # Core UXFS Structures & Constant Definitions
 ├── btree/                      # Next-Gen CoW B-Tree Subsystem
@@ -60,7 +60,7 @@ storage/uxfs/
 
 ## ⚡ Key Architectural Breakthroughs
 
-1. **2025 Krapivin Tiny-Pointer Hash Engine** ([`cache/tinypointer_hash.asm`](file:///c:/Users/rajku/Projects/UtkarshaLab/tattvaos/storage/uxfs/cache/tinypointer_hash.asm)): Implements the landmark Jan 2025 computer science paper by Andrew Krapivin, Martín Farach-Colton, and William Kuszmaul. Uses 4-bit displacement pointers embedded into slot headers to achieve $\mathcal{O}(1)$ constant time lookup latency even at **99.9% table load factor**.
-2. **AVX-512 Parallel B-Tree Search** ([`btree/simd.asm`](file:///c:/Users/rajku/Projects/UtkarshaLab/tattvaos/storage/uxfs/btree/simd.asm)): Evaluates 8 64-bit keys in parallel using 512-bit ZMM vector registers (`vpcmpeqq`, `vpbroadcastq`, `vpgatherqq`), producing sub-10ns index queries.
-3. **Lock-Free RCU Epoch Garbage Collector** ([`btree/rcu.asm`](file:///c:/Users/rajku/Projects/UtkarshaLab/tattvaos/storage/uxfs/btree/rcu.asm)): Enables zero-lock concurrency across 100,000+ simultaneous worker threads.
-4. **Post-Quantum Key Wrapping** ([`crypto/pqc.asm`](file:///c:/Users/rajku/Projects/UtkarshaLab/tattvaos/storage/uxfs/crypto/pqc.asm)): Integrates NIST ML-KEM-1024 lattice cryptography to secure master volume keys against quantum decryption.
+1. **2025 Krapivin Tiny-Pointer Hash Engine** ([`cache/tinypointer_hash.asm`](file:///c:/Users/rajku/Projects/UtkarshaLab/tattvaos/lib/storage/uxfs/cache/tinypointer_hash.asm)): Implements the landmark Jan 2025 computer science paper by Andrew Krapivin, Martín Farach-Colton, and William Kuszmaul. Uses 4-bit displacement pointers embedded into slot headers to achieve $\mathcal{O}(1)$ constant time lookup latency even at **99.9% table load factor**.
+2. **AVX-512 Parallel B-Tree Search** ([`btree/simd.asm`](file:///c:/Users/rajku/Projects/UtkarshaLab/tattvaos/lib/storage/uxfs/btree/simd.asm)): Evaluates 8 64-bit keys in parallel using 512-bit ZMM vector registers (`vpcmpeqq`, `vpbroadcastq`, `vpgatherqq`), producing sub-10ns index queries.
+3. **Lock-Free RCU Epoch Garbage Collector** ([`btree/rcu.asm`](file:///c:/Users/rajku/Projects/UtkarshaLab/tattvaos/lib/storage/uxfs/btree/rcu.asm)): Enables zero-lock concurrency across 100,000+ simultaneous worker threads.
+4. **Post-Quantum Key Wrapping** ([`crypto/pqc.asm`](file:///c:/Users/rajku/Projects/UtkarshaLab/tattvaos/lib/storage/uxfs/crypto/pqc.asm)): Integrates NIST ML-KEM-1024 lattice cryptography to secure master volume keys against quantum decryption.
