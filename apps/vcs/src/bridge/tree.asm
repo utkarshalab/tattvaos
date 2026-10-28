@@ -2,8 +2,11 @@
 %include "include/vcs.inc"
 %include "include/repository.inc"
 %include "include/git_tree.inc"
+%include "include/git_pack.inc"
 bits 64
 default rel
+
+extern git_object_hash,git_pack_add
 
 section .bss
 plan_manifest: resq 1
@@ -14,7 +17,7 @@ prefix: resb VR_PATH
 entry_names: resb GIT_TREE_MAX*VR_PATH
 
 section .text
-global git_tree_plan,git_tree_file_parents,git_tree_collect_entries,git_tree_sort_entries
+global git_tree_plan,git_tree_file_parents,git_tree_collect_entries,git_tree_sort_entries,git_tree_emit_entries
 ; RDI=validated manifest, RSI=record buffer, RDX=record capacity.
 ; Returns RAX=status, RDX=record count. Record zero is the root directory.
 git_tree_plan:
@@ -583,6 +586,124 @@ compare_entry_names:
  movzx r9d,r9b
  sub eax,r9d
  ret
+
+; Encode one canonically sorted directory, hash it, and append it to PACK v2.
+; RDI=entries, RSI=count, RDX=output, RCX=capacity, R8=32-byte hash output.
+; Returns RAX=status, RDX=encoded tree length.
+git_tree_emit_entries:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jz .emit_usage
+ test rdx,rdx
+ jz .emit_usage
+ test r8,r8
+ jz .emit_usage
+ mov rbp,rdi
+ mov r12,rsi
+ mov r13,rdx
+ mov r14,rcx
+ mov r15,r8
+ xor ebx,ebx
+ xor r10d,r10d
+.emit_entry:
+ cmp rbx,r12
+ jae .emit_hash
+ mov rax,rbx
+ imul rax,GIT_TREE_ENTRY
+ add rax,rbp
+ mov r9,rax
+ cmp qword [rax+GTE_KIND],GTE_DIRECTORY
+ je .emit_directory
+ lea rsi,[tree_file_mode]
+ mov ecx,tree_file_mode_len
+ jmp .emit_mode
+.emit_directory:
+ lea rsi,[tree_directory_mode]
+ mov ecx,tree_directory_mode_len
+.emit_mode:
+ mov r11,rcx
+ mov rax,r10
+ add rax,rcx
+ cmp rax,r14
+ ja .emit_space
+ lea rdi,[r13+r10]
+ rep movsb
+ add r10,r11
+ mov rsi,[r9+GTE_NAME]
+ xor ecx,ecx
+.emit_name_length:
+ cmp ecx,VR_PATH
+ jae .emit_corrupt
+ cmp byte [rsi+rcx],0
+ je .emit_name_ready
+ inc ecx
+ jmp .emit_name_length
+.emit_name_ready:
+ test ecx,ecx
+ jz .emit_corrupt
+ mov r11,rcx
+ mov rax,r10
+ add rax,rcx
+ add rax,1+GIT_HASH_SIZE
+ cmp rax,r14
+ ja .emit_space
+ lea rdi,[r13+r10]
+ rep movsb
+ add r10,r11
+ mov byte [r13+r10],0
+ inc r10
+ mov rsi,[r9+GTE_HASH]
+ lea rdi,[r13+r10]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
+ add r10,GIT_HASH_SIZE
+ inc rbx
+ jmp .emit_entry
+.emit_hash:
+ lea rdi,[tree_object_type]
+ mov esi,4
+ mov rdx,r13
+ mov rcx,r10
+ mov r8,r15
+ call git_object_hash
+ test eax,eax
+ jnz .emit_done
+ mov edi,GIT_PACK_TREE
+ mov rsi,r13
+ mov rdx,r10
+ call git_pack_add
+ test eax,eax
+ jnz .emit_done
+ mov rdx,r10
+ xor eax,eax
+ jmp .emit_done
+.emit_usage: mov eax,VCS_ERR_USAGE
+ jmp .emit_done
+.emit_space: mov eax,VCS_ERR_NO_MEM
+ jmp .emit_done
+.emit_corrupt: mov eax,VCS_ERR_CORRUPT
+.emit_done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+section .rodata
+tree_file_mode: db '100644 '
+tree_file_mode_len equ $-tree_file_mode
+tree_directory_mode: db '40000 '
+tree_directory_mode_len equ $-tree_directory_mode
+tree_object_type: db 'tree'
 
 ; RDI=depth, prefix global. RDX remains next source offset on return.
 add_directory:
