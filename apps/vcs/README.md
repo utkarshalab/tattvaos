@@ -180,6 +180,9 @@ non-delta negotiation hints. Existing clients can therefore negotiate a
 follow-up fetch, while the server still returns a complete history pack.
 The advertised `wait-for-done` feature keeps capable clients within this
 bounded one-request negotiation model before pack generation.
+`ls-refs` handles `symrefs`, `peel`, `unborn`, and unioned `ref-prefix`
+arguments explicitly; duplicate and unknown queries are rejected instead of
+being silently ignored.
 
 The Git serving dispatcher now connects advertisement, strict request parsing,
 recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
