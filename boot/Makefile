@@ -65,6 +65,7 @@ USH_SRCS += $(ROOT)/apps/vcs/src/sync/client.asm $(ROOT)/apps/vcs/src/sync/serve
 USH_SRCS += $(ROOT)/apps/vcs/src/sync/stream.asm $(ROOT)/apps/vcs/src/sync/plan.asm $(ROOT)/apps/vcs/src/sync/policy.asm
 USH_SRCS += $(ROOT)/apps/vcs/src/bridge/bridge.asm
 USH_SRCS += $(ROOT)/apps/vcs/src/bridge/pack.asm $(ROOT)/apps/vcs/src/bridge/tree.asm
+USH_SRCS += $(ROOT)/apps/vcs/src/bridge/history_plan.asm
 USH_SRCS += $(ROOT)/apps/vcs/src/bridge/upload_pack.asm $(ROOT)/apps/vcs/src/bridge/upload_protocol.asm $(ROOT)/apps/vcs/src/bridge/upload_request.asm $(ROOT)/apps/vcs/src/bridge/upload_server.asm
 USH_SRCS += $(ROOT)/lib/crypto/uhash/sha256/sha256.asm $(ROOT)/lib/crypto/uhash/sha256/sha256.inc
 USH_SRCS += $(ROOT)/lib/crypto/uhash/sha512/sha512.asm $(ROOT)/lib/crypto/uhash/sha512/sha512.inc
