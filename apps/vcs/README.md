@@ -172,7 +172,8 @@ exports `HEAD`; an explicit commit or branch publishes that selected snapshot as
 remote `main`. The safe default serves one client, while `--clients` reuses the
 listener for a bounded number of sequential sessions. A malformed client gets
 its protocol error and consumes one declared slot without stopping later
-clients; socket and listener failures remain terminal.
+clients. A connected client that drops is closed and consumes one slot as well;
+listener initialization and shell-yield failures remain terminal.
 
 ## Using diff from Ush
 
