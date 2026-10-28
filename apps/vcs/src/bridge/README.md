@@ -87,3 +87,8 @@ Malformed and unsupported requests receive a bounded Git `ERR` pkt-line before
 the connection closes. The server preserves and returns the original VCS error
 after the nonblocking error response is fully sent; unwritable transport errors
 still terminate immediately.
+
+After a successful terminal response, `git_upload_server_rearm` closes only the
+client and returns the retained listener to its accept state. Ush uses this for
+an explicit bounded `--clients COUNT`; the default remains one session so the
+foreground shell cannot enter an uninterruptible daemon loop.
