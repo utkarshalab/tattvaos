@@ -15,7 +15,7 @@ From the repository root in Linux/WSL:
 
 ```sh
 make -C apps/ush
-python3 storage/uxfs/mkvolume.py apps/ush/build/data.uxfs
+python3 lib/storage/uxfs/mkvolume.py apps/ush/build/data.uxfs
 apps/ush/build/ush --disk apps/ush/build/data.uxfs
 ```
 
