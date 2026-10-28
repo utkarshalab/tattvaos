@@ -38,6 +38,7 @@ history_count: resq 1
 history_mark: resq 1
 serve_pack: resb VCS_WIRE_MAX_PAYLOAD
 serve_oid: resb 32
+serve_flags: resq 1
 
 section .rodata
 hex: db '0123456789abcdef'
@@ -1532,6 +1533,7 @@ bridge_git_serve:
  jnz .serve_done
  mov rbx,rdx                    ; operation
  mov r12,rcx                    ; wanted OID or zero
+ mov [serve_flags],r8           ; ls-refs request flags
  mov rdi,rbp
  lea rsi,[serve_pack]
  mov edx,VCS_WIRE_MAX_PAYLOAD
@@ -1557,8 +1559,9 @@ bridge_git_serve:
  jmp .serve_done
 .serve_refs:
  lea rdi,[serve_oid]
- mov rsi,r14
- mov rdx,r15
+ mov rsi,[serve_flags]
+ mov rdx,r14
+ mov rcx,r15
  call git_protocol_v2_ls_refs
  jmp .serve_done
 .serve_usage: mov eax,VCS_ERR_USAGE
