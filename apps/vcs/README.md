@@ -170,7 +170,9 @@ same-connection `ls-refs` to `fetch` transition used by
 `vcs git serve PORT [ID|BRANCH] [--clients COUNT]`. With no selector the command
 exports `HEAD`; an explicit commit or branch publishes that selected snapshot as
 remote `main`. The safe default serves one client, while `--clients` reuses the
-listener for a bounded number of sequential sessions.
+listener for a bounded number of sequential sessions. A malformed client gets
+its protocol error and consumes one declared slot without stopping later
+clients; socket and listener failures remain terminal.
 
 ## Using diff from Ush
 
