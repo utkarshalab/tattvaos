@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_NVME_ZNS_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_NVME_ZNS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/drivers/nvme_zns.asm
+; Utkarsha OS — lib/storage/uxfs/drivers/nvme_zns.asm
 ; =============================================================================
 ; NVMe Zoned Namespaces (ZNS) Driver.
 ;
@@ -37,7 +37,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define NVME_ZNS_OPCODE_ZONE_APPEND 0x7D
 %define NVME_ZNS_OPCODE_ZONE_MGMT   0x79
