@@ -42,7 +42,7 @@ USH_SRCS := $(shell find $(ROOT)/apps/ush/src $(ROOT)/apps/ush/inc \
             $(ROOT)/lib/str/unicode/tables/category_table.asm $(ROOT)/lib/str/unicode/tables/eaw_table.asm \
             $(wildcard $(ROOT)/lib/str/arch/common/*.inc) \
             $(ROOT)/apps/ush/Makefile $(ROOT)/apps/uedit/Makefile $(ROOT)/apps/ush/scripts/kernel_bundle.py \
-            $(ROOT)/storage/uxfs/volume.asm $(ROOT)/storage/uxfs/volume.inc
+            $(ROOT)/lib/storage/uxfs/volume.asm $(ROOT)/lib/storage/uxfs/volume.inc
 USH_LAYOUT = $(ROOT)/apps/ush/build/kernel/layout.inc
 USH_SRCS += $(ROOT)/apps/vcs/src/merge/diff.asm $(wildcard $(ROOT)/apps/vcs/include/*.inc) $(ROOT)/apps/vcs/Makefile
 USH_SRCS += $(ROOT)/apps/vcs/src/merge/repo_diff.asm
