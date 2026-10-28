@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_SCHEMA_SCHEMA_ASM
 %define GUARD_STORAGE_UBXP_SCHEMA_SCHEMA_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/schema/schema.asm
+; Utkarsha OS — lib/storage/ubxp/schema/schema.asm
 ; =============================================================================
 ; UBXP Field Tag Composition & Wire-Type Dispatch.
 ;
@@ -19,7 +19,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 section .text
 
