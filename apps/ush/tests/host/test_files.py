@@ -8,7 +8,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
-spec = importlib.util.spec_from_file_location('mkvolume', ROOT/'storage/uxfs/mkvolume.py')
+spec = importlib.util.spec_from_file_location('mkvolume', ROOT/'lib/storage/uxfs/mkvolume.py')
 fmt = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fmt)
 EXE = Path(sys.argv[1]).resolve()
@@ -88,7 +88,7 @@ with tempfile.TemporaryDirectory() as work:
     assert denied.returncode == 2
     assert disk.read_bytes() == before
     # Formatter exclusively creates new files.
-    result = subprocess.run([sys.executable, str(ROOT/'storage/uxfs/mkvolume.py'), str(disk)],
+    result = subprocess.run([sys.executable, str(ROOT/'lib/storage/uxfs/mkvolume.py'), str(disk)],
                             capture_output=True)
     assert result.returncode != 0 and disk.read_bytes() == before
 
