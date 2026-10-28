@@ -12,7 +12,7 @@
 %include "lib/ulib/vec.inc"
 %include "lib/ulib/map.inc"
 %include "security/usrauth/usrauth.inc"
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 section .text
 
