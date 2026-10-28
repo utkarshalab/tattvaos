@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_DRIVERS_NVME_OF_ASM
 %define GUARD_STORAGE_UXFS_DRIVERS_NVME_OF_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/drivers/nvme_of.asm
+; Utkarsha OS — lib/storage/uxfs/drivers/nvme_of.asm
 ; =============================================================================
 ; NVMe over Fabrics (NVMe-oF) Transport Driver.
 ;
@@ -32,7 +32,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define NVME_OF_OPCODE_FABRICS      0x7F
 %define NVME_OF_FCTYPE_PROP_SET     0x00
