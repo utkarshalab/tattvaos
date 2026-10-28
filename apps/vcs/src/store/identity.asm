@@ -1,7 +1,7 @@
 ; Repository identities, rotation/revocation, and Ed25519 signature sidecars.
 %include "include/vcs.inc"
 %include "include/repository.inc"
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 bits 64
 default rel
 
