@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_WAL_ASM
 %define GUARD_STORAGE_UWAL_WAL_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uwal/wal.asm
+; Utkarsha OS — lib/storage/uwal/wal.asm
 ; =============================================================================
 ; UWAL Core — Append Path, LSN Assignment & Record Framing.
 ;
@@ -26,7 +26,7 @@
 ; Target:  x86-64 (64-bit NASM, SSE4.2)
 ; =============================================================================
 
-%include "storage/uwal/uwal.inc"
+%include "lib/storage/uwal/uwal.inc"
 
 section .data
 align 64
