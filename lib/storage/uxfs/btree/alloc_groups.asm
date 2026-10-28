@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_BTREE_ALLOC_GROUPS_ASM
 %define GUARD_STORAGE_UXFS_BTREE_ALLOC_GROUPS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/btree/alloc_groups.asm
+; Utkarsha OS — lib/storage/uxfs/btree/alloc_groups.asm
 ; =============================================================================
 ; XFS-Grade Allocation Groups (AG) & Fast Hardware Bitmask Storage Allocator.
 ;
@@ -17,7 +17,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_AG_MAX_GROUPS           16
 %define UXFS_AG_BITMAP_QWORDS        64                  ; 4096 blocks per AG
