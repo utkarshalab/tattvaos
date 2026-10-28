@@ -126,8 +126,11 @@ consume the same validated ancestry as Git commit parents are added.
 Git commit serialization is also shared behind a bounded request ABI. It emits
 canonical tree and optional parent lines, deterministic fallback identity, exact
 message bytes, and the resulting SHA-256 object ID. The snapshot pack uses the
-same parent-capable encoder with a null parent until history pack orchestration
-feeds successive ancestry OIDs.
+same parent-capable encoder. Smart serving now preflights the complete selected
+first-parent chain, emits every snapshot oldest-first into one PACK, and feeds
+successive commit OIDs into child parent lines. The unique-pack writer removes
+repeated object IDs before patching the final count and SHA-256 trailer; the
+fixed pack capacity fails atomically if the history does not fit.
 
 The smart-serving foundation supports Git SHA-256 object identifiers and
 non-delta PACK v2 output with zlib stored blocks, Adler-32 validation, declared
