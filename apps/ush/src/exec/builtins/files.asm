@@ -1,5 +1,5 @@
 ; Real UXFS volume commands. No simulated VFS or host filesystem passthrough.
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 bits 64
 default rel
 extern uxv_mount,uxv_ready,uxv_nodes,uxv_cwd,uxv_find,uxv_free
