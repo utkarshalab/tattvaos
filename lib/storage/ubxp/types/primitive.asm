@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_TYPES_PRIMITIVE_ASM
 %define GUARD_STORAGE_UBXP_TYPES_PRIMITIVE_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/types/primitive.asm
+; Utkarsha OS — lib/storage/ubxp/types/primitive.asm
 ; =============================================================================
 ; UBXP Scalar Type Codec — booleans, integers and fixed-width words.
 ;
@@ -18,7 +18,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 section .text
 
