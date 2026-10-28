@@ -1,7 +1,7 @@
 ; Local branch/tag refs over validated commit IDs. Serialized with UXFS owner.
 %include "include/vcs.inc"
 %include "include/repository.inc"
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 bits 64
 default rel
 extern uxv_ready,uxv_nodes,uxv_find,uxv_commit
