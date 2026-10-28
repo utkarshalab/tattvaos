@@ -29,7 +29,7 @@ need one without hand-rolling table-indexing code each time.
 
 ```
 lut/ depends on:
-  → memory/  (table storage/allocation)
+  → memory/  (table lib/storage/allocation)
 
 lut/ is depended on by:
   → hash/          (hash table backing store)
