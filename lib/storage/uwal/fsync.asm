@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UWAL_FSYNC_ASM
 %define GUARD_STORAGE_UWAL_FSYNC_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uwal/fsync.asm
+; Utkarsha OS — lib/storage/uwal/fsync.asm
 ; =============================================================================
 ; UWAL Durability Layer — Device Barriers, Group Commit & Block Transport.
 ;
@@ -30,7 +30,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uwal/uwal.inc"
+%include "lib/storage/uwal/uwal.inc"
 
 section .data
 align 64
