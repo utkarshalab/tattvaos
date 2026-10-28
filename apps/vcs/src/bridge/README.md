@@ -79,7 +79,9 @@ After completion `tree_hashes[0]` is the canonical root tree ID.
 `upload_protocol.asm` encodes Git protocol-v2 capability advertisement,
 SHA-256 `ls-refs` output for `HEAD` and `refs/heads/main`, optional
 `symref-target:refs/heads/main` metadata, and chunked side-band `fetch` packfile
-responses. All records use bounded pkt-lines and explicit flushes.
+responses. Fetch advertises `wait-for-done`, matching the server's bounded
+single-request negotiation model. All records use bounded pkt-lines and
+explicit flushes.
 
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires exactly one SHA-256 object-format header, accepts at most one printable
@@ -89,7 +91,8 @@ bounded `agent=` header, rejects unadvertised header extensions, accepts bounded
 incremental client negotiations while intentionally returning a complete pack.
 Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
 accepted because the returned complete non-delta history pack satisfies them;
-depth and object-filter requests remain unsupported and are not advertised.
+the advertised `wait-for-done` hint is accepted once. Depth and object-filter
+requests remain unsupported and are not advertised.
 
 `ref-prefix` arguments are applied to the exported `HEAD` and
 `refs/heads/main` names. Multiple prefixes form a union, an explicit nonmatching
