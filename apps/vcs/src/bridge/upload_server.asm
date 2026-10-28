@@ -298,16 +298,20 @@ git_upload_server_step:
  mov eax,VCS_ERR_CORRUPT
  jmp .protocol_error
 
-; Close the completed client and retain the listener for another bounded
-; session using the same immutable commit snapshot.
+; Close a completed or failed accepted client and retain the listener for
+; another bounded session using the same immutable commit snapshot.
 git_upload_server_rearm:
- cmp dword [server_state],GIT_SERVER_DONE
- jne .rearm_usage
+ mov eax,[server_state]
+ cmp eax,GIT_SERVER_SERVICE
+ jb .rearm_usage
+ cmp eax,GIT_SERVER_DONE
+ ja .rearm_usage
+ cmp dword [server_listener],0
+ jl .rearm_usage
+ cmp dword [server_client],0
+ jl .rearm_usage
  mov edi,[server_client]
- test edi,edi
- js .rearm_state
  call vcs_sync_close
-.rearm_state:
  mov dword [server_client],-1
  mov dword [server_result],VCS_OK
  mov qword [server_operation],0
