@@ -21,7 +21,7 @@ utkarsha/
 ├── lib/                    ← all u-libraries (foundation stack)
 ├── crypto/                 ← crypto stack
 ├── net/                    ← network stack
-├── storage/                ← filesystem + database
+├── lib/storage/                ← filesystem + database
 ├── ai/                     ← inference + training stack
 ├── serve/                  ← serving + security layer
 ├── tools/                  ← coretools + devtools
@@ -567,10 +567,10 @@ net/
 
 ---
 
-## storage/ — Storage Stack
+## lib/storage/ — Storage Stack
 
 ```
-storage/
+lib/storage/
 ├── uxfs/                    ← Utkarsha filesystem
 │   ├── inode.asm           ← inode structure (includes TTL field)
 │   ├── journal.asm         ← journaling
@@ -957,7 +957,7 @@ obs/
 │   │   │   ├── alloc_bench.asm
 │   │   │   ├── bandwidth_bench.asm
 │   │   │   └── cache_bench.asm
-│   │   ├── storage/
+│   │   ├── lib/storage/
 │   │   │   ├── udb_bench.asm
 │   │   │   └── io_bench.asm
 │   │   ├── network/
@@ -1311,8 +1311,8 @@ third_party/
 13. crypto/uhash/
 14. crypto/ucrypt/
 15. kernel/                 ← kernel (needs lib/ + crypto/)
-16. storage/uxfs/ + storage/uwal/ + storage/ubxp/
-17. storage/udb/
+16. lib/storage/uxfs/ + lib/storage/uwal/ + lib/storage/ubxp/
+17. lib/storage/udb/
 18. net/unet/ + net/udns/ + net/uhttp/
 19. crypto/uSSL/ + net/uSSH/
 20. serve/                  ← serving layer
