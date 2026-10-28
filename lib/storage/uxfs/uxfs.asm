@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_UXFS_ASM
 %define GUARD_STORAGE_UXFS_UXFS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/uxfs.asm
+; Utkarsha OS — lib/storage/uxfs/uxfs.asm
 ; =============================================================================
 ; Master UXFS (Unikernel Extended File System & Universal Multi-OS Storage).
 ;
@@ -17,72 +17,72 @@
 ; Target:  x86-64 (64-bit NASM flat binary)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 %include "lib/crypto/ucrypt/guards/ct_guard.asm"
 
 ; -----------------------------------------------------------------------------
 ; VFS Subsystem & Multi-OS Compatibility Drivers
 ; -----------------------------------------------------------------------------
-%include "storage/uxfs/vfs/vfs.asm"
-%include "storage/uxfs/vfs/overlayfs.asm"
-%include "storage/uxfs/vfs/clone.asm"
-%include "storage/uxfs/vfs/snapshot.asm"
-%include "storage/uxfs/vfs/pseudofs.asm"
+%include "lib/storage/uxfs/vfs/vfs.asm"
+%include "lib/storage/uxfs/vfs/overlayfs.asm"
+%include "lib/storage/uxfs/vfs/clone.asm"
+%include "lib/storage/uxfs/vfs/snapshot.asm"
+%include "lib/storage/uxfs/vfs/pseudofs.asm"
 
 ; Universal Multi-OS Compatibility Suite
-%include "storage/uxfs/vfs/compat/ntfs.asm"
-%include "storage/uxfs/vfs/compat/exfat.asm"
-%include "storage/uxfs/vfs/compat/fat32.asm"
-%include "storage/uxfs/vfs/compat/refs.asm"
-%include "storage/uxfs/vfs/compat/apfs.asm"
-%include "storage/uxfs/vfs/compat/hfsplus.asm"
-%include "storage/uxfs/vfs/compat/ext4_compat.asm"
-%include "storage/uxfs/vfs/compat/btrfs_compat.asm"
-%include "storage/uxfs/vfs/compat/xfs_compat.asm"
-%include "storage/uxfs/vfs/compat/ufs2_compat.asm"
-%include "storage/uxfs/vfs/compat/zfs_compat.asm"
-%include "storage/uxfs/vfs/compat/squashfs.asm"
-%include "storage/uxfs/vfs/compat/iso9660.asm"
+%include "lib/storage/uxfs/vfs/compat/ntfs.asm"
+%include "lib/storage/uxfs/vfs/compat/exfat.asm"
+%include "lib/storage/uxfs/vfs/compat/fat32.asm"
+%include "lib/storage/uxfs/vfs/compat/refs.asm"
+%include "lib/storage/uxfs/vfs/compat/apfs.asm"
+%include "lib/storage/uxfs/vfs/compat/hfsplus.asm"
+%include "lib/storage/uxfs/vfs/compat/ext4_compat.asm"
+%include "lib/storage/uxfs/vfs/compat/btrfs_compat.asm"
+%include "lib/storage/uxfs/vfs/compat/xfs_compat.asm"
+%include "lib/storage/uxfs/vfs/compat/ufs2_compat.asm"
+%include "lib/storage/uxfs/vfs/compat/zfs_compat.asm"
+%include "lib/storage/uxfs/vfs/compat/squashfs.asm"
+%include "lib/storage/uxfs/vfs/compat/iso9660.asm"
 
 ; 2025 Krapivin Tiny-Pointer Cache & Page Cache Suite
-%include "storage/uxfs/cache/pagecache.asm"
-%include "storage/uxfs/cache/arc.asm"
-%include "storage/uxfs/cache/dax.asm"
-%include "storage/uxfs/cache/dedup.asm"
-%include "storage/uxfs/cache/tinypointer_hash.asm"
-%include "storage/uxfs/cache/tmpfs.asm"
+%include "lib/storage/uxfs/cache/pagecache.asm"
+%include "lib/storage/uxfs/cache/arc.asm"
+%include "lib/storage/uxfs/cache/dax.asm"
+%include "lib/storage/uxfs/cache/dedup.asm"
+%include "lib/storage/uxfs/cache/tinypointer_hash.asm"
+%include "lib/storage/uxfs/cache/tmpfs.asm"
 
 ; Post-Quantum & AES-256-XTS Storage Encryption Suite
-%include "storage/uxfs/crypto/crypto.asm"
-%include "storage/uxfs/crypto/pqc.asm"
-%include "storage/uxfs/crypto/fscrypt.asm"
-%include "storage/uxfs/crypto/verity.asm"
-%include "storage/uxfs/crypto/vault.asm"
+%include "lib/storage/uxfs/crypto/crypto.asm"
+%include "lib/storage/uxfs/crypto/pqc.asm"
+%include "lib/storage/uxfs/crypto/fscrypt.asm"
+%include "lib/storage/uxfs/crypto/verity.asm"
+%include "lib/storage/uxfs/crypto/vault.asm"
 
 ; Master CoW B-Tree Engine & Sub-modules
-%include "storage/uxfs/btree/cow.asm"
-%include "storage/uxfs/btree/alloc_groups.asm"
-%include "storage/uxfs/btree/prefix.asm"
-%include "storage/uxfs/btree/rcu.asm"
-%include "storage/uxfs/btree/simd.asm"
+%include "lib/storage/uxfs/btree/cow.asm"
+%include "lib/storage/uxfs/btree/alloc_groups.asm"
+%include "lib/storage/uxfs/btree/prefix.asm"
+%include "lib/storage/uxfs/btree/rcu.asm"
+%include "lib/storage/uxfs/btree/simd.asm"
 
-%include "storage/uxfs/extents/extents.asm"
-%include "storage/uxfs/compress/compress.asm"
-%include "storage/uxfs/compress/erofs.asm"
-%include "storage/uxfs/cluster/cluster.asm"
-%include "storage/uxfs/cluster/erasure.asm"
-%include "storage/uxfs/limits/quota.asm"
+%include "lib/storage/uxfs/extents/extents.asm"
+%include "lib/storage/uxfs/compress/compress.asm"
+%include "lib/storage/uxfs/compress/erofs.asm"
+%include "lib/storage/uxfs/cluster/cluster.asm"
+%include "lib/storage/uxfs/cluster/erasure.asm"
+%include "lib/storage/uxfs/limits/quota.asm"
 
 ; -----------------------------------------------------------------------------
 ; Security — extended attributes and POSIX ACLs. The forthcoming auth module
 ; builds on these rather than on raw mode bits.
 ; -----------------------------------------------------------------------------
-%include "storage/uxfs/security/xattr.asm"
-%include "storage/uxfs/security/acl.asm"
+%include "lib/storage/uxfs/security/xattr.asm"
+%include "lib/storage/uxfs/security/acl.asm"
 
 ; Storage Hardware Driver Aggregator Module
-%include "storage/uxfs/drivers/drivers.asm"
-%include "storage/uxfs/journal/journal.asm"
+%include "lib/storage/uxfs/drivers/drivers.asm"
+%include "lib/storage/uxfs/journal/journal.asm"
 
 section .text
 
