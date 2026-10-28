@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_BTREE_RCU_ASM
 %define GUARD_STORAGE_UXFS_BTREE_RCU_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/btree/rcu.asm
+; Utkarsha OS — lib/storage/uxfs/btree/rcu.asm
 ; =============================================================================
 ; Lock-Free Read-Copy-Update (RCU) Epoch Recycling & Memory Reclaim Engine.
 ;
@@ -15,7 +15,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_RCU_MAX_THREADS          1024
 %define UXFS_RCU_QUEUE_CAPACITY       4096
@@ -45,7 +45,7 @@ global uxfs_rcu_advance_epoch
 global uxfs_rcu_defer_free
 global uxfs_rcu_reclaim_garbage
 
-; extern uxfs_ag_free_block -> defined in storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
+; extern uxfs_ag_free_block -> defined in lib/storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
 
 ; -----------------------------------------------------------------------------
 ; uxfs_rcu_init
