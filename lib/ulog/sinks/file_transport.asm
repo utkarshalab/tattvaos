@@ -1,7 +1,7 @@
 ; =============================================================================
 ; Utkarsha OS — lib/ulog/sinks/file_transport.asm
 ; =============================================================================
-; The sink_iface.inc contract over storage/uxfs. uxfs_write_file is still a
+; The sink_iface.inc contract over lib/storage/uxfs. uxfs_write_file is still a
 ; fail-closed stub in kernel/unimplemented.asm as of this writing — that's
 ; fine, and expected: this sink will start actually writing bytes the day
 ; that stub gets a real body, with no change needed here. A short/zero
@@ -94,7 +94,7 @@ file_sink_write:
 
 ; -----------------------------------------------------------------------------
 ; file_sink_flush — best effort; real fsync-equivalent lands with
-; storage/uwal once its durability primitives are wired up here.
+; lib/storage/uwal once its durability primitives are wired up here.
 ; -----------------------------------------------------------------------------
 global file_sink_flush
 file_sink_flush:
