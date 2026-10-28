@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_COMPAT_SQUASHFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_COMPAT_SQUASHFS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/compat/squashfs.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/compat/squashfs.asm
 ; =============================================================================
 ; SquashFS Read-Only Compressed Filesystem Driver.
 ;
@@ -30,7 +30,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 %include "lib/ucmp/include/ucmp.inc"
 
 %define SQUASHFS_MAGIC              0x73717368  ; "hsqs"
