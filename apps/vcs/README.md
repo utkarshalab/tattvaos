@@ -167,10 +167,11 @@ recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
 responses. It is allocation-free and buffer bounded. `upload_server.asm` owns
 the native nonblocking session, including the Git daemon handshake and
 same-connection `ls-refs` to `fetch` transition used by
-`vcs git serve PORT [ID|BRANCH] [--clients COUNT]`. With no selector the command
-exports `HEAD`; an explicit commit or branch publishes that selected snapshot as
-remote `main`. The safe default serves one client, while `--clients` reuses the
-listener for a bounded number of sequential sessions. A malformed client gets
+`vcs git serve PORT [ID|BRANCH] [--clients COUNT|--daemon] [--timeout SECONDS]`.
+With no selector the command exports `HEAD`; an explicit commit or branch
+publishes that selected snapshot as remote `main`. The safe default serves one
+client, `--clients` reuses the listener for a bounded number of sequential
+sessions, and `--daemon` serves until Ctrl-C. A malformed client gets
 its protocol error and consumes one declared slot without stopping later
 clients. A connected client that drops is closed and consumes one slot as well;
 listener initialization and shell-yield failures remain terminal. Native Ctrl-C
@@ -181,7 +182,9 @@ Once a client is accepted, Git serving applies a 30-second monotonic idle
 deadline. Accept, receive, and send progress refresh the deadline; waiting for
 the next client does not start it. Expiry closes that client and consumes one
 bounded slot when more clients remain. A final timeout closes the listener,
-prints a specific diagnostic, and returns status 124.
+prints a specific diagnostic, and returns status 124. `--timeout SECONDS`
+selects a value from 1 through 3600; it applies equally to bounded and daemon
+sessions.
 
 ## Using diff from Ush
 
@@ -258,7 +261,7 @@ vcs bisect reset
 vcs git export ID|BRANCH FILE
 vcs git export-history ID|BRANCH FILE
 vcs git import FILE [SEED_FILE]
-vcs git serve PORT [ID|BRANCH] [--clients COUNT]
+vcs git serve PORT [ID|BRANCH] [--clients COUNT|--daemon] [--timeout SECONDS]
 vcs restore PATH
 vcs add PATH... | --all
 vcs reset PATH... | --all
