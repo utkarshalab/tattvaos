@@ -1,7 +1,7 @@
 ; UXFS v2 repository initialization. Serialized with the owning volume/console.
 %include "include/vcs.inc"
 %include "include/repository.inc"
-%include "storage/uxfs/volume.inc"
+%include "lib/storage/uxfs/volume.inc"
 bits 64
 default rel
 extern uxv_ready,uxv_nodes,uxv_normalize,uxv_find,uxv_commit
