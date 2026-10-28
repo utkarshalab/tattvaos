@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_CLUSTER_ERASURE_ASM
 %define GUARD_STORAGE_UXFS_CLUSTER_ERASURE_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/cluster/erasure.asm
+; Utkarsha OS — lib/storage/uxfs/cluster/erasure.asm
 ; =============================================================================
 ; Reed-Solomon (k+m) Erasure Coding over GF(2^8).
 ;
@@ -31,7 +31,7 @@
 ; Target:  x86-64 (64-bit NASM)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 %define UXFS_EC_FIELD_SIZE           256
 %define UXFS_EC_POLY                 0x11D   ; x^8+x^4+x^3+x^2+1
