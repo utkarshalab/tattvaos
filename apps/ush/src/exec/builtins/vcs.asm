@@ -124,7 +124,7 @@ help_word: db 'help',0
 repo_diff_usage: db 'Repository diff: vcs diff | vcs diff --staged | vcs diff ID1 ID2',10,0
 patch_usage: db 'Patch: vcs patch export ID FILE SEED_FILE | inspect FILE | import FILE [SEED_FILE] | apply FILE [SEED_FILE]',10,0
 remote_usage: db 'Remote: vcs remote | remote add NAME IPV4 PORT | remote remove NAME',10,0
-network_usage: db 'Network: vcs fetch|push|clone REMOTE SEED_FILE [REF] | vcs serve PORT SEED_FILE | vcs git serve PORT',10,0
+network_usage: db 'Network: vcs fetch|push|clone REMOTE SEED_FILE [REF] | vcs serve PORT SEED_FILE | vcs git serve PORT [ID|BRANCH]',10,0
 network_native_only: db 'vcs: networking is available only in native TattvaOS',10,0
 patch_exported: db 'Exported signed patch',10,0
 git_exported: db 'Exported Git fast-import stream',10,0
@@ -811,17 +811,27 @@ cmd_vcs:
 .git_serve:
 %ifdef VCS_NETWORK_NATIVE
  cmp r13,4
- jne .bad
+ jb .bad
+ cmp r13,5
+ ja .bad
  mov rdi,[r12+24]
  call parse_port_arg
  test eax,eax
  jnz .bad
  mov r14d,edx
- mov rdx,[vcs_repo_head]
- test rdx,rdx
+ mov r15,[vcs_repo_head]
+ cmp r13,4
+ je .git_serve_commit
+ mov rdi,[r12+32]
+ call resolve_commitish
+ jc .bad
+ mov r15,rax
+.git_serve_commit:
+ test r15,r15
  jz .patch_failed
  xor edi,edi
  mov esi,r14d
+ mov rdx,r15
  call git_upload_server_begin
  test eax,eax
  jnz .patch_failed
