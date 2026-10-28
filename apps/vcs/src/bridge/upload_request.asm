@@ -13,6 +13,7 @@ request_cursor: resq 1
 request_left: resq 1
 request_want: resb 32
 request_operation: resq 1
+request_flags: resq 1
 request_format: resb 1
 request_done: resb 1
 request_want_set: resb 1
@@ -26,6 +27,8 @@ format_line: db 'object-format=sha256',10
 format_line_len equ $-format_line
 want_prefix: db 'want '
 done_line: db 'done',10
+symrefs_line: db 'symrefs',10
+symrefs_line_len equ $-symrefs_line
 thin_pack_line: db 'thin-pack',10
 thin_pack_line_len equ $-thin_pack_line
 no_progress_line: db 'no-progress',10
@@ -38,7 +41,8 @@ include_tag_line_len equ $-include_tag_line
 section .text
 global git_protocol_v2_parse_request
 ; RDI=complete request, RSI=length.
-; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs.
+; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
+; R8=ls-refs flags (bit 0 requests symref targets).
 git_protocol_v2_parse_request:
  push rbp
  push rbx
@@ -54,6 +58,7 @@ git_protocol_v2_parse_request:
  mov [request_cursor],rdi
  mov [request_left],rsi
  mov qword [request_operation],0
+ mov qword [request_flags],0
  mov byte [request_format],0
  mov byte [request_done],0
  mov byte [request_want_set],0
@@ -105,7 +110,7 @@ git_protocol_v2_parse_request:
  test rcx,rcx
  jz .finish
  cmp qword [request_operation],GIT_REQUEST_LS_REFS
- je .argument                    ; peel/symrefs/ref-prefix are response filters
+ je .ls_argument
  cmp rcx,69
  jne .fetch_done_check
  cmp dword [rdx],0x746e6177      ; "want"
@@ -161,6 +166,14 @@ git_protocol_v2_parse_request:
 .fetch_done:
  mov byte [request_done],1
  jmp .argument
+.ls_argument:
+ lea rdi,[symrefs_line]
+ mov esi,symrefs_line_len
+ call packet_equal
+ test eax,eax
+ jnz .argument                  ; peel/ref-prefix are bounded response filters
+ or qword [request_flags],1
+ jmp .argument
 .finish:
  cmp qword [request_left],0
  jne .corrupt
@@ -172,10 +185,12 @@ git_protocol_v2_parse_request:
  cmp byte [request_want_set],1
  jne .corrupt
  lea rcx,[request_want]
+ xor r8d,r8d
  xor eax,eax
  jmp .done
 .finish_ls:
  xor ecx,ecx
+ mov r8,[request_flags]
  xor eax,eax
  jmp .done
 .usage: mov eax,VCS_ERR_USAGE
