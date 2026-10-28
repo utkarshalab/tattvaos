@@ -154,6 +154,11 @@ Directory orchestration now runs deepest-first, making every child tree hash
 available before its parent is encoded and leaving the canonical root ID in the
 tree-hash table for commit construction.
 
+Protocol-v2 response encoding now covers capability advertisement,
+`object-format=sha256`, `ls-refs` for the main branch, and chunked side-band
+packfile delivery for `fetch`. Native request parsing and socket ownership remain
+to be connected before advertising a live endpoint.
+
 ## Using diff from Ush
 
 Run `vcs diff FILE1 FILE2` on two regular files in the mounted UXFS volume.
