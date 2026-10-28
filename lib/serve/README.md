@@ -63,7 +63,7 @@
 | [`uapp/`](uapp/) | Native app serving — capability routing, sandbox IPC | `apps/` |
 | [`uweb/`](uweb/) | Browser/hosted app serving — DOM streaming, WASM, Service Workers | `browser/`, `hosted/` |
 | [`uai/`](uai/) | AI inference serving — model routing, KV cache, batching | `ai/uinfer` |
-| [`ustore/`](ustore/) | Object/storage serving — S3-compatible, range requests, resumable | `storage/` |
+| [`ustore/`](ustore/) | Object/storage serving — S3-compatible, range requests, resumable | `lib/storage/` |
 | [`usys/`](usys/) | System API serving — kernel metrics, config, debugging | `kernel/` |
 
 ### AI-Specific Endpoints (Optional)
@@ -222,7 +222,7 @@ dom_streaming = true
 | `browser/` | `uweb` handles DOM streaming, WASM fetch, Service Workers |
 | `hosted/` | `uweb` serves hosted web apps with isolation |
 | `ai/uinfer` | `uai` routes to inference engine with KV cache, batching |
-| `storage/` | `ustore` provides S3-compatible object API |
+| `lib/storage/` | `ustore` provides S3-compatible object API |
 | `net/` | `uhttp`/`ugrpc`/`uws` protocol implementations |
 
 ---
