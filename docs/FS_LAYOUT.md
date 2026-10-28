@@ -611,7 +611,7 @@ There are two builds of the system image, both using this same layout:
 | [`kernel/drivers/`](../kernel/drivers/) | `boot/kernel.img`, or `boot/mod/` when loadable | devices appear in `sys/dev/` |
 | [`platform/`](../platform/) | `boot/loader/`, `boot/kernel.img` | each image is built for one architecture; only that architecture's code is present |
 | [`security/`](../security/) (`usrauth`) | `boot/kernel.img` | the reference monitor; records in `sec/`, audit in `keep/log/sec/` |
-| [`storage/uxfs/`](../storage/uxfs/) | `boot/kernel.img`; storage drivers may be `boot/mod/` | the filesystem that implements this layout |
+| [`lib/storage/uxfs/`](../lib/storage/uxfs/) | `boot/kernel.img`; storage drivers may be `boot/mod/` | the filesystem that implements this layout |
 
 #### B. Shipped in `app/`
 
@@ -624,7 +624,7 @@ There are two builds of the system image, both using this same layout:
 | [`utasm/`](../utasm/) | `app/lib/` | — |
 | [`dist/`](../dist/) | `app/lib/` | cluster state → `data/<app>/`; remote storage → `vol/att/` |
 | [`ai/`](../ai/) — `uinfer`, `ubatch`, `decode`, `kernels`, `memory`, `models`, `tokenize`, `formats`, `umodel`, `uoptim`, `utrain`, `distributed` | `app/lib/` | base models `app/model/`; fine-tunes `data/<app>/ai/`; live state `sys/ai/`; defaults `conf/ai` |
-| [`storage/udb/`](../storage/udb/), [`storage/uwal/`](../storage/uwal/), [`storage/uobject/`](../storage/uobject/), [`storage/ubxp/`](../storage/ubxp/) | `app/lib/` (`uwal` also linked into `boot/kernel.img` for the audit log) | databases in `data/<app>/` |
+| [`lib/storage/udb/`](../lib/storage/udb/), [`lib/storage/uwal/`](../lib/storage/uwal/), [`lib/storage/uobject/`](../lib/storage/uobject/), [`lib/storage/ubxp/`](../lib/storage/ubxp/) | `app/lib/` (`uwal` also linked into `boot/kernel.img` for the audit log) | databases in `data/<app>/` |
 | [`obs/`](../obs/) — `umetric`, `utrace`, `umark` | `app/lib/` | reads `sys/`; exports to `keep/log/` |
 | [`obs/`](../obs/) — `uprof`, `uflame`, `uleak`, `usym`, `umap_proc`, `utopology` | `app/cmd/` | read `sys/tasks/`, `sys/mem`, `sys/cpu` |
 | [`obs/`](../obs/) — `udash`, `utui` | `app/udash/`, `app/utui/` | metrics history in `data/<app>/` |
@@ -670,58 +670,58 @@ Sub-projects inside the libraries above that keep runtime data of their own:
 | Folder | Responsibility | Implemented by |
 |---|---|---|
 | `boot/` | `loader/` — load, verify, measure | [`boot/stage1/`](../boot/stage1/), [`boot/stage2/`](../boot/stage2/), [`boot/uefi/`](../boot/uefi/), [`boot/tpm/`](../boot/tpm/), [`platform/`](../platform/) |
-| | `kernel.img`, `mod/` | [`kernel/`](../kernel/), [`security/`](../security/), [`storage/uxfs/`](../storage/uxfs/), [`platform/`](../platform/) — see §9.1 A |
+| | `kernel.img`, `mod/` | [`kernel/`](../kernel/), [`security/`](../security/), [`lib/storage/uxfs/`](../lib/storage/uxfs/), [`platform/`](../platform/) — see §9.1 A |
 | | signature check | [`crypto/usign/`](../crypto/usign/), [`kernel/security/`](../kernel/security/) |
-| | image integrity at runtime | [`storage/uxfs/crypto/verity.asm`](../storage/uxfs/crypto/verity.asm) |
-| | `prev/` rollback | [`storage/uxfs/vfs/snapshot.asm`](../storage/uxfs/vfs/snapshot.asm) |
-| `sys/` | synthetic tree | [`storage/uxfs/vfs/pseudofs.asm`](../storage/uxfs/vfs/pseudofs.asm) |
+| | image integrity at runtime | [`lib/storage/uxfs/crypto/verity.asm`](../lib/storage/uxfs/crypto/verity.asm) |
+| | `prev/` rollback | [`lib/storage/uxfs/vfs/snapshot.asm`](../lib/storage/uxfs/vfs/snapshot.asm) |
+| `sys/` | synthetic tree | [`lib/storage/uxfs/vfs/pseudofs.asm`](../lib/storage/uxfs/vfs/pseudofs.asm) |
 | | `tasks/` | [`kernel/sched/`](../kernel/sched/) |
 | | `mem`, `cpu` | [`kernel/mm/`](../kernel/mm/), [`lib/hw/`](../lib/hw/) |
 | | `log` ring | [`lib/ulog/`](../lib/ulog/) |
 | | `users/` | [`security/usrauth/subject/`](../security/usrauth/subject/) |
-| | `dev/` | [`kernel/drivers/`](../kernel/drivers/), [`storage/uxfs/drivers/`](../storage/uxfs/drivers/), [`lib/io/`](../lib/io/) |
+| | `dev/` | [`kernel/drivers/`](../kernel/drivers/), [`lib/storage/uxfs/drivers/`](../lib/storage/uxfs/drivers/), [`lib/io/`](../lib/io/) |
 | | `net/` | [`unet/core/`](../unet/core/), [`unet/dns/`](../unet/dns/), [`unet/routing/`](../unet/routing/) |
 | | `ai/` | [`ai/uinfer/`](../ai/uinfer/), [`ai/ubatch/`](../ai/ubatch/), [`ai/memory/`](../ai/memory/), [`lib/hw/ugpu/`](../lib/hw/ugpu/) |
-| | `run/` | [`storage/uxfs/cache/tmpfs.asm`](../storage/uxfs/cache/tmpfs.asm), [`kernel/ipc/`](../kernel/ipc/) |
-| `conf/` | storage | [`storage/uxfs/`](../storage/uxfs/) |
-| | record encoding | candidate: [`storage/ubxp/`](../storage/ubxp/) — not yet decided |
+| | `run/` | [`lib/storage/uxfs/cache/tmpfs.asm`](../lib/storage/uxfs/cache/tmpfs.asm), [`kernel/ipc/`](../kernel/ipc/) |
+| `conf/` | storage | [`lib/storage/uxfs/`](../lib/storage/uxfs/) |
+| | record encoding | candidate: [`lib/storage/ubxp/`](../lib/storage/ubxp/) — not yet decided |
 | `sec/` | access decisions | [`security/usrauth/`](../security/usrauth/) — `identity/`, `subject/`, `capability/`, `policy/`, `mandatory/`, `token/` |
 | | credential hashes | [`crypto/upass/`](../crypto/upass/), [`crypto/ukdf/`](../crypto/ukdf/) |
 | | `keys/`, `trust/` | [`crypto/ux509/`](../crypto/ux509/), [`crypto/usign/`](../crypto/usign/) |
-| | encryption at rest, TPM unseal | [`storage/uxfs/crypto/`](../storage/uxfs/crypto/), [`boot/tpm/`](../boot/tpm/) |
+| | encryption at rest, TPM unseal | [`lib/storage/uxfs/crypto/`](../lib/storage/uxfs/crypto/), [`boot/tpm/`](../boot/tpm/) |
 | | remote identity | [`serve/uauth/`](../serve/uauth/) — a client of `usrauth`, never a second authority |
 | | `fw/` firewall rules | [`serve/niti/`](../serve/niti/) — the firewall |
 | `app/` | see §9.1 | |
-| | read-only layers | [`storage/uxfs/compress/`](../storage/uxfs/compress/), [`storage/uxfs/vfs/overlayfs.asm`](../storage/uxfs/vfs/overlayfs.asm), [`storage/uxfs/crypto/verity.asm`](../storage/uxfs/crypto/verity.asm) |
+| | read-only layers | [`lib/storage/uxfs/compress/`](../lib/storage/uxfs/compress/), [`lib/storage/uxfs/vfs/overlayfs.asm`](../lib/storage/uxfs/vfs/overlayfs.asm), [`lib/storage/uxfs/crypto/verity.asm`](../lib/storage/uxfs/crypto/verity.asm) |
 | | manifest → capabilities | [`security/usrauth/capability/`](../security/usrauth/capability/) |
-| | mapped model weights | [`storage/uxfs/cache/dax.asm`](../storage/uxfs/cache/dax.asm), [`storage/uxfs/cache/pagecache.asm`](../storage/uxfs/cache/pagecache.asm) |
-| `data/` | files | [`storage/uxfs/`](../storage/uxfs/) |
-| | databases, durability | [`storage/udb/`](../storage/udb/), [`storage/uwal/`](../storage/uwal/), [`storage/uobject/`](../storage/uobject/) |
+| | mapped model weights | [`lib/storage/uxfs/cache/dax.asm`](../lib/storage/uxfs/cache/dax.asm), [`lib/storage/uxfs/cache/pagecache.asm`](../lib/storage/uxfs/cache/pagecache.asm) |
+| `data/` | files | [`lib/storage/uxfs/`](../lib/storage/uxfs/) |
+| | databases, durability | [`lib/storage/udb/`](../lib/storage/udb/), [`lib/storage/uwal/`](../lib/storage/uwal/), [`lib/storage/uobject/`](../lib/storage/uobject/) |
 | | `ai/` — training, fine-tuning | [`ai/utrain/`](../ai/utrain/), [`ai/uoptim/`](../ai/uoptim/) |
-| | `cache/` | [`storage/uxfs/cache/`](../storage/uxfs/cache/) |
-| `user/` | files, quotas | [`storage/uxfs/`](../storage/uxfs/), [`storage/uxfs/limits/quota.asm`](../storage/uxfs/limits/quota.asm) |
-| | per-home encryption | [`storage/uxfs/crypto/fscrypt.asm`](../storage/uxfs/crypto/fscrypt.asm) |
+| | `cache/` | [`lib/storage/uxfs/cache/`](../lib/storage/uxfs/cache/) |
+| `user/` | files, quotas | [`lib/storage/uxfs/`](../lib/storage/uxfs/), [`lib/storage/uxfs/limits/quota.asm`](../lib/storage/uxfs/limits/quota.asm) |
+| | per-home encryption | [`lib/storage/uxfs/crypto/fscrypt.asm`](../lib/storage/uxfs/crypto/fscrypt.asm) |
 | `share/` | group access | [`security/usrauth/policy/relation.asm`](../security/usrauth/policy/relation.asm) |
-| `keep/` | `log/` | [`lib/ulog/`](../lib/ulog/), [`obs/`](../obs/), [`storage/uwal/`](../storage/uwal/) |
+| `keep/` | `log/` | [`lib/ulog/`](../lib/ulog/), [`obs/`](../obs/), [`lib/storage/uwal/`](../lib/storage/uwal/) |
 | | `log/sec/` | [`security/usrauth/audit/`](../security/usrauth/audit/) |
-| | `bak/` | [`storage/uxfs/vfs/snapshot.asm`](../storage/uxfs/vfs/snapshot.asm), [`storage/uxfs/vfs/clone.asm`](../storage/uxfs/vfs/clone.asm), [`storage/uxfs/cache/dedup.asm`](../storage/uxfs/cache/dedup.asm) |
+| | `bak/` | [`lib/storage/uxfs/vfs/snapshot.asm`](../lib/storage/uxfs/vfs/snapshot.asm), [`lib/storage/uxfs/vfs/clone.asm`](../lib/storage/uxfs/vfs/clone.asm), [`lib/storage/uxfs/cache/dedup.asm`](../lib/storage/uxfs/cache/dedup.asm) |
 | | `dump/` | [`boot/survive/`](../boot/survive/) |
 | | `upd/` | [`pkg/registry/`](../pkg/registry/), [`pkg/format/`](../pkg/format/) |
-| `tmp/` | RAM filesystem | [`storage/uxfs/cache/tmpfs.asm`](../storage/uxfs/cache/tmpfs.asm) |
+| `tmp/` | RAM filesystem | [`lib/storage/uxfs/cache/tmpfs.asm`](../lib/storage/uxfs/cache/tmpfs.asm) |
 | | `script/` execution | [`tools/coretools/`](../tools/coretools/) (`ush`) |
-| `vol/` | `ext/` devices | [`storage/uxfs/drivers/`](../storage/uxfs/drivers/) |
-| | `att/` remote | [`storage/uxfs/drivers/nvme_of.asm`](../storage/uxfs/drivers/nvme_of.asm), [`unet/san/`](../unet/san/), [`storage/uobject/`](../storage/uobject/), [`dist/`](../dist/) |
-| | foreign formats | [`storage/uxfs/vfs/compat/`](../storage/uxfs/vfs/compat/) |
+| `vol/` | `ext/` devices | [`lib/storage/uxfs/drivers/`](../lib/storage/uxfs/drivers/) |
+| | `att/` remote | [`lib/storage/uxfs/drivers/nvme_of.asm`](../lib/storage/uxfs/drivers/nvme_of.asm), [`unet/san/`](../unet/san/), [`lib/storage/uobject/`](../lib/storage/uobject/), [`dist/`](../dist/) |
+| | foreign formats | [`lib/storage/uxfs/vfs/compat/`](../lib/storage/uxfs/vfs/compat/) |
 
 ### 9.3 Shared by every folder
 
 | Concern | Implemented by |
 |---|---|
-| Path lookup, mounts, namespace | [`storage/uxfs/vfs/vfs.asm`](../storage/uxfs/vfs/vfs.asm) |
-| On-disk tree, allocation | [`storage/uxfs/btree/`](../storage/uxfs/btree/), [`storage/uxfs/extents/`](../storage/uxfs/extents/) |
-| Crash consistency | [`storage/uxfs/journal/`](../storage/uxfs/journal/), [`storage/uwal/`](../storage/uwal/) |
-| Signed read-only layers under writable state | [`storage/uxfs/vfs/overlayfs.asm`](../storage/uxfs/vfs/overlayfs.asm) |
-| Per-object security attributes | [`storage/uxfs/security/`](../storage/uxfs/security/) |
+| Path lookup, mounts, namespace | [`lib/storage/uxfs/vfs/vfs.asm`](../lib/storage/uxfs/vfs/vfs.asm) |
+| On-disk tree, allocation | [`lib/storage/uxfs/btree/`](../lib/storage/uxfs/btree/), [`lib/storage/uxfs/extents/`](../lib/storage/uxfs/extents/) |
+| Crash consistency | [`lib/storage/uxfs/journal/`](../lib/storage/uxfs/journal/), [`lib/storage/uwal/`](../lib/storage/uwal/) |
+| Signed read-only layers under writable state | [`lib/storage/uxfs/vfs/overlayfs.asm`](../lib/storage/uxfs/vfs/overlayfs.asm) |
+| Per-object security attributes | [`lib/storage/uxfs/security/`](../lib/storage/uxfs/security/) |
 | Every access decision | [`security/usrauth/`](../security/usrauth/) |
 
 ---
