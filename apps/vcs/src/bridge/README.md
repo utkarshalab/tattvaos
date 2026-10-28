@@ -58,7 +58,10 @@ packfile responses. All records use bounded pkt-lines and explicit flushes.
 
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires SHA-256 object format, accepts bounded `ls-refs` filters, and validates
-one 64-hex `want` plus `done` for fetch.
+one 64-hex `want` plus `done` for fetch. Standard `thin-pack`, `no-progress`,
+`ofs-delta`, and `include-tag` hints are accepted because the returned complete
+non-delta snapshot pack satisfies them; depth and object-filter requests remain
+unsupported and are not advertised.
 
 `bridge_git_serve` now composes advertisement, request parsing, recursive pack
 generation, OID validation, `ls-refs`, and `fetch` responses behind a bounded
