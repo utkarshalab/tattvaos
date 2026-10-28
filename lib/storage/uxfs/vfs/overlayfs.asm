@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UXFS_VFS_OVERLAYFS_ASM
 %define GUARD_STORAGE_UXFS_VFS_OVERLAYFS_ASM
 ; =============================================================================
-; Utkarsha OS — storage/uxfs/vfs/overlayfs.asm
+; Utkarsha OS — lib/storage/uxfs/vfs/overlayfs.asm
 ; =============================================================================
 ; Production-Grade OverlayFS Multi-Layer Container Union Mount Engine.
 ;
@@ -15,7 +15,7 @@
 ; Target:  x86-64 (64-bit)
 ; =============================================================================
 
-%include "storage/uxfs/uxfs.inc"
+%include "lib/storage/uxfs/uxfs.inc"
 
 struc uxfs_overlayfs_mount_t
     .lower_root_inode:   resq 1      ; Inode ID of read-only lower directory
@@ -31,8 +31,8 @@ global uxfs_overlayfs_lookup
 global uxfs_overlayfs_cow_copyup
 global uxfs_overlayfs_check_whiteout
 
-; extern vfs_lookup_path -> defined in storage/uxfs/vfs/vfs.asm (single-unit build: no extern needed)
-; extern uxfs_ag_alloc_block -> defined in storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
+; extern vfs_lookup_path -> defined in lib/storage/uxfs/vfs/vfs.asm (single-unit build: no extern needed)
+; extern uxfs_ag_alloc_block -> defined in lib/storage/uxfs/btree/alloc_groups.asm (single-unit build: no extern needed)
 
 ; -----------------------------------------------------------------------------
 ; uxfs_overlayfs_init
