@@ -26,6 +26,14 @@ format_line: db 'object-format=sha256',10
 format_line_len equ $-format_line
 want_prefix: db 'want '
 done_line: db 'done',10
+thin_pack_line: db 'thin-pack',10
+thin_pack_line_len equ $-thin_pack_line
+no_progress_line: db 'no-progress',10
+no_progress_line_len equ $-no_progress_line
+ofs_delta_line: db 'ofs-delta',10
+ofs_delta_line_len equ $-ofs_delta_line
+include_tag_line: db 'include-tag',10
+include_tag_line_len equ $-include_tag_line
 
 section .text
 global git_protocol_v2_parse_request
@@ -128,7 +136,29 @@ git_protocol_v2_parse_request:
  mov esi,done_line_len
  call packet_equal
  test eax,eax
+ jz .fetch_done
+ lea rdi,[thin_pack_line]
+ mov esi,thin_pack_line_len
+ call packet_equal
+ test eax,eax
+ jz .argument
+ lea rdi,[no_progress_line]
+ mov esi,no_progress_line_len
+ call packet_equal
+ test eax,eax
+ jz .argument
+ lea rdi,[ofs_delta_line]
+ mov esi,ofs_delta_line_len
+ call packet_equal
+ test eax,eax
+ jz .argument
+ lea rdi,[include_tag_line]
+ mov esi,include_tag_line_len
+ call packet_equal
+ test eax,eax
  jnz .corrupt
+ jmp .argument
+.fetch_done:
  mov byte [request_done],1
  jmp .argument
 .finish:
@@ -176,13 +206,20 @@ next_packet:
 
 ; Current packet RDX/RCX compared with RDI/RSI. EAX=0 equal.
 packet_equal:
+ push rcx
+ push rdx
  cmp rcx,rsi
  jne .not_equal
+ mov rsi,rdx
  repe cmpsb
  jne .not_equal
  xor eax,eax
- ret
-.not_equal: mov eax,1
+ jmp .equal_done
+.not_equal:
+ mov eax,1
+.equal_done:
+ pop rdx
+ pop rcx
  ret
 
 ; Read one hexadecimal nibble from RSI, advance, CF on invalid.
