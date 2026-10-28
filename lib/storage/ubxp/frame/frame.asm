@@ -1,7 +1,7 @@
 %ifndef GUARD_STORAGE_UBXP_FRAME_FRAME_ASM
 %define GUARD_STORAGE_UBXP_FRAME_FRAME_ASM
 ; =============================================================================
-; Utkarsha OS — storage/ubxp/frame/frame.asm
+; Utkarsha OS — lib/storage/ubxp/frame/frame.asm
 ; =============================================================================
 ; UBXP Frame Header Emission, Validation & Bounds-Checked Cursor Primitives.
 ;
@@ -21,7 +21,7 @@
 ; Target:  x86-64 (64-bit NASM, SSE4.2)
 ; =============================================================================
 
-%include "storage/ubxp/ubxp.inc"
+%include "lib/storage/ubxp/ubxp.inc"
 
 section .text
 
