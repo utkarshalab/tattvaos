@@ -164,10 +164,11 @@ headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
 
 The Git serving dispatcher now connects advertisement, strict request parsing,
 recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
-responses. It is allocation-free and buffer bounded; the remaining step is the
 responses. It is allocation-free and buffer bounded. `upload_server.asm` owns
 the native nonblocking session, including the Git daemon handshake and
-same-connection `ls-refs` to `fetch` transition used by `vcs git serve PORT`.
+same-connection `ls-refs` to `fetch` transition used by
+`vcs git serve PORT [ID|BRANCH]`. With no selector the command exports `HEAD`;
+an explicit commit or branch publishes that selected snapshot as remote `main`.
 
 ## Using diff from Ush
 
@@ -244,6 +245,7 @@ vcs bisect reset
 vcs git export ID|BRANCH FILE
 vcs git export-history ID|BRANCH FILE
 vcs git import FILE [SEED_FILE]
+vcs git serve PORT [ID|BRANCH]
 vcs restore PATH
 vcs add PATH... | --all
 vcs reset PATH... | --all
