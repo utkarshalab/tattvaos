@@ -21,6 +21,11 @@ the developing history-aware upload pack. It validates every manifest, bounds
 the chain by caller capacity, and returns commit IDs newest-first so consumers
 can choose forward or reverse emission without repeating ancestry validation.
 
+`commit.asm` owns canonical Git SHA-256 commit-body serialization. A bounded
+request supplies tree OID, optional parent OID, exact message bytes, output
+capacity, and hash destination. Snapshot upload-pack now uses this encoder with
+no parent; history upload will feed the previous encoded commit OID.
+
 `pack.asm` provides the object foundation for Git repositories using
 `extensions.objectFormat=sha256`: canonical Git object hashing and a bounded
 non-delta PACK v2 writer. Entries use valid zlib stored blocks with Adler-32,
