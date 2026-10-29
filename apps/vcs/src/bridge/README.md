@@ -96,6 +96,11 @@ accepted because the returned complete non-delta history pack satisfies them;
 the advertised `wait-for-done` hint is accepted once. Depth and object-filter
 requests remain unsupported and are not advertised.
 
+All validated `have` identities are retained in request order as one immutable
+bounded view. The history encoder records every canonical first-parent commit
+OID and can locate the newest matching history index, providing a trustworthy
+cut point for the incremental pack builder without trusting client hashes.
+
 When `sideband-all` is requested, every ordinary response pkt-line—including
 section headers and wanted-ref records—carries channel 1. Delimiter and flush
 packets remain unmodified, and pack chunks retain their existing channel byte.
