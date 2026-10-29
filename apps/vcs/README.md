@@ -194,8 +194,9 @@ leaving protocol delimiter and flush packets untouched.
 Partial clone requests support `blob:none`, `tree:N` for N=0..255, and
 `blob:limit=N[kmg]`. Tree filters omit trees and blobs at depth N or deeper.
 Blob-limit suffixes use binary units and saturate above the 65535-byte object
-ceiling. Canonical hashing is retained for every omitted object. Duplicate,
-combined, and other forms remain errors.
+ceiling. `combine:` intersects two or three unique supported filters and accepts
+literal or `%3A`-encoded component colons. Canonical hashing is retained for
+every omitted object; malformed or unknown combinations remain errors.
 Depth-limited fetch accepts one `deepen N` for N=1..255, combines it with the
 negotiated common-history cut, and emits a correctly delimited `shallow-info`
 boundary only when older history was actually excluded.
