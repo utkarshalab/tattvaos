@@ -120,7 +120,7 @@ git_history_pack_cut:
  mov [hp_filter_limit],al
  mov rax,r9
  shr rax,32
- and eax,65535
+ and eax,0x1ffff
  mov [hp_blob_limit],rax
  mov rax,r9
  shr rax,16
