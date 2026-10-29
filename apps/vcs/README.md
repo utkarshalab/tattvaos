@@ -213,7 +213,10 @@ the common commit as the first missing commit's parent.
 The Git serving dispatcher now connects advertisement, strict request parsing,
 recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
 responses. It is allocation-free and buffer bounded. `upload_server.asm` owns
-the native nonblocking session, including the Git daemon handshake and
+the native nonblocking session, including exact NUL-delimited Git daemon
+handshake parsing for `version=2`, one optional bounded printable `host=`, and
+the required empty extra-parameter separator. Unknown bounded extras are ignored;
+duplicate versions and malformed framing are rejected. This is followed by the
 same-connection `ls-refs` to `fetch` transition used by
 `vcs git serve PORT [ID|BRANCH] [--clients COUNT|--daemon] [--timeout SECONDS]`.
 With no selector the command exports `HEAD`; an explicit commit or branch
