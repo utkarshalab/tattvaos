@@ -1541,6 +1541,7 @@ bridge_git_serve:
  lea rsi,[serve_pack]
  mov edx,VCS_WIRE_MAX_PAYLOAD
  lea rcx,[serve_oid]
+ mov r9,[serve_flags]
  call git_history_pack_cut
  test eax,eax
  jnz .serve_done
