@@ -1647,7 +1647,7 @@ bridge_git_serve:
  je .serve_negotiate_ack
  call git_protocol_v2_shallow
  test rdx,rdx
- jnz .serve_negotiate_ack
+ jnz .serve_client_shallow
  mov r8,r13
  jmp .serve_pack
 .serve_negotiate_ack:
