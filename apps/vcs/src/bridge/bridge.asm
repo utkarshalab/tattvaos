@@ -1645,7 +1645,8 @@ bridge_git_serve:
  jnz .serve_negotiate_ack
  cmp r13,-1
  je .serve_negotiate_ack
- test qword [serve_flags],256
+ call git_protocol_v2_shallow
+ test rdx,rdx
  jnz .serve_negotiate_ack
  mov r8,r13
  jmp .serve_pack
