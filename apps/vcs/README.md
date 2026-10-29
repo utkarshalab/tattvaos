@@ -170,8 +170,8 @@ tree-hash table for commit construction.
 
 Protocol-v2 response encoding now covers capability advertisement,
 `object-format=sha256`, `ls-refs` for `HEAD` and the main branch, optional HEAD
-symref metadata, `fetch=wait-for-done ref-in-want`, and chunked side-band
-packfile delivery for `fetch`.
+symref metadata, `fetch=wait-for-done ref-in-want sideband-all`, and chunked
+side-band packfile delivery for `fetch`.
 
 Request parsing now recognizes protocol-v2 delimiter packets, validates command
 headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
@@ -186,6 +186,8 @@ being silently ignored.
 Clients may fetch `refs/heads/main` directly with `want-ref`; the response
 returns its canonical SHA-256 identity in a `wanted-refs` section before the
 packfile.
+`sideband-all` multiplexes response headers and ref records on channel 1 while
+leaving protocol delimiter and flush packets untouched.
 
 The Git serving dispatcher now connects advertisement, strict request parsing,
 recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
