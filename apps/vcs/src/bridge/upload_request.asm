@@ -63,6 +63,20 @@ filter_tree_prefix: db 'filter tree:'
 filter_tree_prefix_len equ $-filter_tree_prefix
 filter_blob_limit_prefix: db 'filter blob:limit='
 filter_blob_limit_prefix_len equ $-filter_blob_limit_prefix
+filter_combine_prefix: db 'filter combine:'
+filter_combine_prefix_len equ $-filter_combine_prefix
+component_blob_none: db 'blob:none'
+component_blob_none_len equ $-component_blob_none
+component_blob_none_encoded: db 'blob%3Anone'
+component_blob_none_encoded_len equ $-component_blob_none_encoded
+component_tree: db 'tree:'
+component_tree_len equ $-component_tree
+component_tree_encoded: db 'tree%3A'
+component_tree_encoded_len equ $-component_tree_encoded
+component_blob_limit: db 'blob:limit='
+component_blob_limit_len equ $-component_blob_limit
+component_blob_limit_encoded: db 'blob%3Alimit='
+component_blob_limit_encoded_len equ $-component_blob_limit_encoded
 deepen_prefix: db 'deepen '
 deepen_prefix_len equ $-deepen_prefix
 want_ref_line: db 'want-ref refs/heads/main',10
@@ -302,6 +316,11 @@ git_protocol_v2_parse_request:
  or qword [request_flags],32
  jmp .argument
 .fetch_filter_check:
+ call parse_combine_filter
+ test eax,eax
+ jz .argument
+ cmp eax,1
+ jne .corrupt
  lea rdi,[filter_blob_none_line]
  mov esi,filter_blob_none_line_len
  call packet_equal
@@ -691,6 +710,260 @@ parse_tree_filter:
  ret
 .tree_bad:
  mov eax,VCS_ERR_CORRUPT
+ ret
+
+; Parse `filter combine:<part>+<part>[+<part>]\n`. Supported components are
+; the bounded blob:none, blob:limit, and tree filters, with raw or %-encoded
+; colons. EAX=1 means that the packet is not a combine filter.
+parse_combine_filter:
+ cmp rcx,filter_combine_prefix_len+4
+ jb .combine_not
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[filter_combine_prefix]
+ mov ecx,filter_combine_prefix_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .combine_not
+ test qword [request_flags],704
+ jnz .combine_bad
+ cmp byte [rdx+rcx-1],10
+ jne .combine_bad
+ push r12
+ push r13
+ push r14
+ mov r12,rdx
+ add r12,filter_combine_prefix_len
+ lea r13,[rdx+rcx-1]
+ xor r14d,r14d
+.combine_part:
+ cmp r12,r13
+ jae .combine_bad_saved
+ cmp r14,3
+ jae .combine_bad_saved
+ mov rdi,r12
+.combine_scan:
+ cmp rdi,r13
+ jae .combine_part_ready
+ cmp byte [rdi],'+'
+ je .combine_part_ready
+ inc rdi
+ jmp .combine_scan
+.combine_part_ready:
+ mov rsi,rdi
+ sub rsi,r12
+ test rsi,rsi
+ jz .combine_bad_saved
+ push rdi
+ mov rdi,r12
+ call parse_filter_component
+ pop rdi
+ test eax,eax
+ jnz .combine_bad_saved
+ inc r14
+ cmp rdi,r13
+ jae .combine_finish
+ lea r12,[rdi+1]
+ jmp .combine_part
+.combine_finish:
+ cmp r14,2
+ jb .combine_bad_saved
+ pop r14
+ pop r13
+ pop r12
+ xor eax,eax
+ ret
+.combine_bad_saved:
+ pop r14
+ pop r13
+ pop r12
+.combine_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+.combine_not:
+ mov eax,1
+ ret
+
+; RDI=component, RSI=length. Apply one unique supported component.
+parse_filter_component:
+ push r12
+ push r13
+ push r14
+ push r15
+ mov r12,rdi
+ mov r13,rsi
+ lea rdi,[component_blob_none]
+ mov esi,component_blob_none_len
+ call component_equal
+ test eax,eax
+ jz .component_blob_none
+ lea rdi,[component_blob_none_encoded]
+ mov esi,component_blob_none_encoded_len
+ call component_equal
+ test eax,eax
+ jz .component_blob_none
+ lea rdi,[component_tree]
+ mov esi,component_tree_len
+ call component_prefix
+ test eax,eax
+ jz .component_tree_raw
+ lea rdi,[component_tree_encoded]
+ mov esi,component_tree_encoded_len
+ call component_prefix
+ test eax,eax
+ jz .component_tree_encoded
+ lea rdi,[component_blob_limit]
+ mov esi,component_blob_limit_len
+ call component_prefix
+ test eax,eax
+ jz .component_limit_raw
+ lea rdi,[component_blob_limit_encoded]
+ mov esi,component_blob_limit_encoded_len
+ call component_prefix
+ test eax,eax
+ jz .component_limit_encoded
+ jmp .component_bad
+.component_blob_none:
+ test qword [request_flags],64
+ jnz .component_bad
+ or qword [request_flags],64
+ jmp .component_ok
+.component_tree_raw:
+ mov r14,component_tree_len
+ jmp .component_tree
+.component_tree_encoded:
+ mov r14,component_tree_encoded_len
+.component_tree:
+ test qword [request_flags],128
+ jnz .component_bad
+ mov r15,r13
+ sub r15,r14
+ test r15,r15
+ jz .component_bad
+ cmp r15,3
+ ja .component_bad
+ lea rsi,[r12+r14]
+ xor eax,eax
+.component_tree_digit:
+ movzx edx,byte [rsi]
+ cmp dl,'0'
+ jb .component_bad
+ cmp dl,'9'
+ ja .component_bad
+ imul eax,eax,10
+ sub dl,'0'
+ movzx edx,dl
+ add eax,edx
+ cmp eax,255
+ ja .component_bad
+ inc rsi
+ dec r15
+ jnz .component_tree_digit
+ mov edx,eax
+ shl rdx,24
+ or rdx,128
+ or qword [request_flags],rdx
+ jmp .component_ok
+.component_limit_raw:
+ mov r14,component_blob_limit_len
+ jmp .component_limit
+.component_limit_encoded:
+ mov r14,component_blob_limit_encoded_len
+.component_limit:
+ test qword [request_flags],512
+ jnz .component_bad
+ mov r15,r13
+ sub r15,r14
+ test r15,r15
+ jz .component_bad
+ lea rsi,[r12+r14]
+ xor r8d,r8d
+ mov dl,[rsi+r15-1]
+ or dl,32
+ cmp dl,'k'
+ je .component_limit_k
+ cmp dl,'m'
+ je .component_limit_m
+ cmp dl,'g'
+ je .component_limit_g
+ jmp .component_limit_digits
+.component_limit_k:
+ mov r8d,10
+ jmp .component_limit_suffix
+.component_limit_m:
+ mov r8d,20
+ jmp .component_limit_suffix
+.component_limit_g:
+ mov r8d,30
+.component_limit_suffix:
+ dec r15
+ jz .component_bad
+.component_limit_digits:
+ cmp r15,10
+ ja .component_bad
+ xor eax,eax
+ mov rcx,r15
+.component_limit_digit:
+ movzx edx,byte [rsi]
+ cmp dl,'0'
+ jb .component_bad
+ cmp dl,'9'
+ ja .component_bad
+ cmp rax,65536
+ jae .component_limit_next
+ imul rax,rax,10
+ sub dl,'0'
+ movzx edx,dl
+ add rax,rdx
+ cmp rax,65536
+ jbe .component_limit_next
+ mov eax,65536
+.component_limit_next:
+ inc rsi
+ loop .component_limit_digit
+ cmp rax,65536
+ jae .component_limit_store
+ mov ecx,r8d
+ shl rax,cl
+ cmp rax,65536
+ jbe .component_limit_store
+ mov eax,65536
+.component_limit_store:
+ mov rdx,rax
+ shl rdx,32
+ or rdx,512
+ or qword [request_flags],rdx
+.component_ok:
+ xor eax,eax
+ jmp .component_done
+.component_bad:
+ mov eax,VCS_ERR_CORRUPT
+.component_done:
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ ret
+
+; Compare the saved R12/R13 component with RDI/RSI.
+component_equal:
+ cmp r13,rsi
+ jne component_not_equal
+ jmp component_compare
+component_prefix:
+ cmp r13,rsi
+ jb component_not_equal
+component_compare:
+ mov rcx,rsi
+ mov rsi,r12
+ repe cmpsb
+ jne component_not_equal
+ xor eax,eax
+ ret
+component_not_equal:
+ mov eax,1
  ret
 
 ; Inspect the current RDX/RCX packet as a ref-prefix argument. The filter bit
