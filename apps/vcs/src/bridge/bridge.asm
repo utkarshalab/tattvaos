@@ -12,7 +12,9 @@ extern vcs_history,vcs_history_signed,vcs_checkout
 extern uxv_find,uxv_free,uxv_normalize,uxv_nodes
 extern git_protocol_v2_advertise,git_protocol_v2_parse_request
 extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_history_oid
-extern git_protocol_v2_haves,git_history_pack_cut,git_history_find_common
+extern git_protocol_v2_haves,git_protocol_v2_shallow
+extern git_history_pack_cut,git_history_find_common
+extern git_history_set_unshallow
 extern git_first_parent_plan
 
 section .bss
@@ -1538,6 +1540,10 @@ bridge_git_serve:
  test eax,eax
  jnz .serve_done
 .serve_common:
+ xor edi,edi
+ call git_history_set_unshallow
+ test qword [serve_flags],1024
+ jnz .serve_relative
  call git_protocol_v2_haves
  mov rsi,rax
  mov rdi,rbp
@@ -1545,6 +1551,37 @@ bridge_git_serve:
  test eax,eax
  jnz .serve_done
  mov r8,rdx
+ jmp .serve_pack
+.serve_relative:
+ call git_protocol_v2_shallow
+ cmp rdx,1
+ jne .serve_corrupt
+ mov r13,rax
+ mov rdi,r13
+ call git_history_set_unshallow
+ mov rdi,rbp
+ mov rsi,r13
+ mov edx,1
+ call git_history_find_common
+ test eax,eax
+ jnz .serve_done
+ cmp rdx,-1
+ je .serve_corrupt
+ mov rax,[serve_flags]
+ shr rax,16
+ and eax,255
+ lea rdx,[rdx+rax+1]
+ cmp rdx,255
+ jbe .serve_relative_depth
+ mov edx,255
+.serve_relative_depth:
+ mov rax,0xff0000
+ not rax
+ and [serve_flags],rax
+ shl rdx,16
+ or [serve_flags],rdx
+ mov r8,-1
+.serve_pack:
  mov rdi,rbp
  lea rsi,[serve_pack]
  mov edx,VCS_WIRE_MAX_PAYLOAD
