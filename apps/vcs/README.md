@@ -170,8 +170,8 @@ tree-hash table for commit construction.
 
 Protocol-v2 response encoding now covers capability advertisement,
 `object-format=sha256`, `ls-refs` for `HEAD` and the main branch, optional HEAD
-symref metadata, `fetch=wait-for-done ref-in-want sideband-all filter`, and
-chunked side-band packfile delivery for `fetch`.
+symref metadata, `fetch=wait-for-done ref-in-want sideband-all filter shallow`,
+and chunked side-band packfile delivery for `fetch`.
 The bridge advertises `server-option` and accepts up to eight bounded option
 headers per command. Values are validated but currently have no semantic effect.
 
@@ -195,6 +195,9 @@ Partial clone requests support the exact bounded filters `blob:none` and
 `tree:0`. Canonical blob and recursive-tree hashing is retained; `blob:none`
 omits blob objects, while `tree:0` returns only the commit chain. Duplicate,
 combined, and other filter forms remain explicit errors.
+Depth-limited fetch accepts one `deepen N` for N=1..255, combines it with the
+negotiated common-history cut, and emits a correctly delimited `shallow-info`
+boundary only when older history was actually excluded.
 All validated `have` identities are retained in a bounded request view. The
 canonical history encoder can locate the newest matching first-parent commit,
 forming the cut point for minimal incremental pack construction while retaining
