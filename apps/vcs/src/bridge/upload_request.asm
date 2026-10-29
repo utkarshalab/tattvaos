@@ -52,6 +52,8 @@ include_tag_line: db 'include-tag',10
 include_tag_line_len equ $-include_tag_line
 wait_done_line: db 'wait-for-done',10
 wait_done_line_len equ $-wait_done_line
+sideband_all_line: db 'sideband-all',10
+sideband_all_line_len equ $-sideband_all_line
 want_ref_line: db 'want-ref refs/heads/main',10
 want_ref_line_len equ $-want_ref_line
 ref_prefix_marker: db 'ref-prefix '
@@ -65,7 +67,7 @@ section .text
 global git_protocol_v2_parse_request
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
-; R8 flags: ls-refs uses bits 0..3; fetch bit 4 selects main by want-ref.
+; R8 flags: ls-refs uses bits 0..3; fetch bit 4 is want-ref, bit 5 sideband-all.
 git_protocol_v2_parse_request:
  push rbp
  push rbx
@@ -254,10 +256,20 @@ git_protocol_v2_parse_request:
  mov esi,wait_done_line_len
  call packet_equal
  test eax,eax
- jnz .corrupt
+ jnz .fetch_sideband_all_check
  cmp byte [request_wait_done],0
  jne .corrupt
  mov byte [request_wait_done],1
+ jmp .argument
+.fetch_sideband_all_check:
+ lea rdi,[sideband_all_line]
+ mov esi,sideband_all_line_len
+ call packet_equal
+ test eax,eax
+ jnz .corrupt
+ test qword [request_flags],32
+ jnz .corrupt
+ or qword [request_flags],32
  jmp .argument
 .fetch_done:
  mov byte [request_done],1
@@ -310,12 +322,13 @@ git_protocol_v2_parse_request:
  cmp byte [request_want_ref],1
  jne .corrupt
  xor ecx,ecx
- mov r8d,16
+ mov r8,[request_flags]
+ or r8,16
  xor eax,eax
  jmp .done
 .finish_want:
  lea rcx,[request_want]
- xor r8d,r8d
+ mov r8,[request_flags]
  xor eax,eax
  jmp .done
 .finish_ls:
