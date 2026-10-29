@@ -23,6 +23,8 @@ fetch_cap: db 'fetch=wait-for-done ref-in-want sideband-all filter',10
 fetch_cap_len equ $-fetch_cap
 object_format: db 'object-format=sha256',10
 object_format_len equ $-object_format
+server_option_cap: db 'server-option',10
+server_option_cap_len equ $-server_option_cap
 ref_suffix: db ' refs/heads/main',10
 ref_suffix_len equ $-ref_suffix
 head_suffix: db ' HEAD',10
@@ -68,6 +70,11 @@ git_protocol_v2_advertise:
  jnz .done
  lea rdi,[object_format]
  mov esi,object_format_len
+ call proto_packet
+ test eax,eax
+ jnz .done
+ lea rdi,[server_option_cap]
+ mov esi,server_option_cap_len
  call proto_packet
  test eax,eax
  jnz .done
