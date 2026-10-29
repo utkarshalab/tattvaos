@@ -1542,8 +1542,11 @@ bridge_git_serve:
 .serve_common:
  xor edi,edi
  call git_history_set_unshallow
+ call git_protocol_v2_shallow
+ test rdx,rdx
+ jnz .serve_client_shallow
  test qword [serve_flags],1024
- jnz .serve_relative
+ jnz .serve_corrupt
  call git_protocol_v2_haves
  mov rsi,rax
  mov rdi,rbp
@@ -1552,8 +1555,7 @@ bridge_git_serve:
  jnz .serve_done
  mov r8,rdx
  jmp .serve_pack
-.serve_relative:
- call git_protocol_v2_shallow
+.serve_client_shallow:
  cmp rdx,1
  jne .serve_corrupt
  mov r13,rax
@@ -1567,6 +1569,8 @@ bridge_git_serve:
  jnz .serve_done
  cmp rdx,-1
  je .serve_corrupt
+ test qword [serve_flags],1024
+ jz .serve_absolute_shallow
  mov rax,[serve_flags]
  shr rax,16
  and eax,255
@@ -1580,6 +1584,7 @@ bridge_git_serve:
  and [serve_flags],rax
  shl rdx,16
  or [serve_flags],rdx
+.serve_absolute_shallow:
  mov r8,-1
 .serve_pack:
  mov rdi,rbp
