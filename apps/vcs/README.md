@@ -197,13 +197,15 @@ the packfile. A single object-ID want may accompany the named refs and must matc
 the same selected tip.
 `sideband-all` multiplexes response headers and ref records on channel 1 while
 leaving protocol delimiter and flush packets untouched.
-Partial clone requests support `blob:none`, `tree:N` for N=0..255, and
-`blob:limit=N[kmg]`. Tree filters omit trees and blobs at depth N or deeper.
-Blob-limit suffixes use binary units and saturate above the 65535-byte object
-ceiling. `combine:` intersects two or three unique supported filters and accepts
-fully percent-encoded components within a fixed 64-byte decoded bound. Canonical
-hashing is retained for every omitted object; malformed or unknown combinations
-remain errors.
+Partial clone requests support `blob:none`, `tree:N` for N=0..255,
+`blob:limit=N[kmg]`, and `object:type=(tag|commit|tree|blob)`. Tree filters omit
+trees and blobs at depth N or deeper. Blob-limit suffixes use binary units and
+saturate above the 65535-byte object ceiling. Object-type filtering retains the
+explicitly requested tip commit and emits matching supporting objects while
+omitting nonmatching parent commits. `combine:` intersects two through four
+unique supported filters and accepts fully percent-encoded components within a
+fixed 64-byte decoded bound. Canonical hashing is retained for every omitted
+object; malformed or unknown combinations remain errors.
 Depth-limited fetch accepts one `deepen N` for N=1..255, combines it with the
 negotiated common-history cut, and emits a correctly delimited `shallow-info`
 boundary only when older history was actually excluded.
