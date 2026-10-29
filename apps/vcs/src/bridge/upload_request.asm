@@ -24,6 +24,7 @@ request_wait_done: resb 1
 request_peel: resb 1
 request_unborn: resb 1
 request_want_ref: resb 1
+request_server_options: resb 1
 
 section .rodata
 ls_command: db 'command=ls-refs',10
@@ -34,6 +35,8 @@ format_line: db 'object-format=sha256',10
 format_line_len equ $-format_line
 agent_prefix: db 'agent='
 agent_prefix_len equ $-agent_prefix
+server_option_prefix: db 'server-option='
+server_option_prefix_len equ $-server_option_prefix
 want_prefix: db 'want '
 done_line: db 'done',10
 symrefs_line: db 'symrefs',10
@@ -98,6 +101,7 @@ git_protocol_v2_parse_request:
  mov byte [request_peel],0
  mov byte [request_unborn],0
  mov byte [request_want_ref],0
+ mov byte [request_server_options],0
  call next_packet
  test eax,eax
  jnz .done
@@ -137,10 +141,18 @@ git_protocol_v2_parse_request:
 .agent_header:
  call validate_agent_header
  test eax,eax
- jnz .corrupt
+ jnz .server_option_header
  cmp byte [request_agent],0
  jne .corrupt
  mov byte [request_agent],1
+ jmp .headers
+.server_option_header:
+ call validate_server_option_header
+ test eax,eax
+ jnz .corrupt
+ cmp byte [request_server_options],8
+ jae .corrupt
+ inc byte [request_server_options]
  jmp .headers
 .arguments:
  cmp byte [request_format],1
@@ -445,6 +457,40 @@ validate_agent_header:
  xor eax,eax
  ret
 .agent_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; Accept one advertised server-option capability with 1..128 value bytes.
+; NUL and embedded LF are forbidden; the packet's final LF is framing.
+validate_server_option_header:
+ cmp rcx,server_option_prefix_len+2
+ jb .option_bad
+ cmp rcx,server_option_prefix_len+129
+ ja .option_bad
+ cmp byte [rdx+rcx-1],10
+ jne .option_bad
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[server_option_prefix]
+ mov ecx,server_option_prefix_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .option_bad
+ lea rdi,[rdx+server_option_prefix_len]
+ sub rcx,server_option_prefix_len+1
+.option_byte:
+ mov al,[rdi]
+ test al,al
+ jz .option_bad
+ cmp al,10
+ je .option_bad
+ inc rdi
+ loop .option_byte
+ xor eax,eax
+ ret
+.option_bad:
  mov eax,VCS_ERR_CORRUPT
  ret
 
