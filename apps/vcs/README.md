@@ -170,8 +170,8 @@ tree-hash table for commit construction.
 
 Protocol-v2 response encoding now covers capability advertisement,
 `object-format=sha256`, `ls-refs` for `HEAD` and the main branch, optional HEAD
-symref metadata, `fetch=wait-for-done ref-in-want sideband-all`, and chunked
-side-band packfile delivery for `fetch`.
+symref metadata, `fetch=wait-for-done ref-in-want sideband-all filter`, and
+chunked side-band packfile delivery for `fetch`.
 
 Request parsing now recognizes protocol-v2 delimiter packets, validates command
 headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
@@ -189,6 +189,9 @@ returns its canonical SHA-256 identity in a `wanted-refs` section before the
 packfile.
 `sideband-all` multiplexes response headers and ref records on channel 1 while
 leaving protocol delimiter and flush packets untouched.
+Partial clone requests support the exact bounded filter `blob:none`: canonical
+blob hashes still feed tree identities, while blob payload objects are omitted
+from the returned PACK. Other filter forms remain explicit errors.
 All validated `have` identities are retained in a bounded request view. The
 canonical history encoder can locate the newest matching first-parent commit,
 forming the cut point for minimal incremental pack construction while retaining
