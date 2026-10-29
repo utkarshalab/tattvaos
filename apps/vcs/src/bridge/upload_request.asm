@@ -25,6 +25,7 @@ request_peel: resb 1
 request_unborn: resb 1
 request_want_ref: resb 1
 request_server_options: resb 1
+request_filter_component: resb 64
 
 section .rodata
 ls_command: db 'command=ls-refs',10
@@ -67,16 +68,10 @@ filter_combine_prefix: db 'filter combine:'
 filter_combine_prefix_len equ $-filter_combine_prefix
 component_blob_none: db 'blob:none'
 component_blob_none_len equ $-component_blob_none
-component_blob_none_encoded: db 'blob%3Anone'
-component_blob_none_encoded_len equ $-component_blob_none_encoded
 component_tree: db 'tree:'
 component_tree_len equ $-component_tree
-component_tree_encoded: db 'tree%3A'
-component_tree_encoded_len equ $-component_tree_encoded
 component_blob_limit: db 'blob:limit='
 component_blob_limit_len equ $-component_blob_limit
-component_blob_limit_encoded: db 'blob%3Alimit='
-component_blob_limit_encoded_len equ $-component_blob_limit_encoded
 deepen_prefix: db 'deepen '
 deepen_prefix_len equ $-deepen_prefix
 want_ref_line: db 'want-ref refs/heads/main',10
@@ -713,8 +708,8 @@ parse_tree_filter:
  ret
 
 ; Parse `filter combine:<part>+<part>[+<part>]\n`. Supported components are
-; the bounded blob:none, blob:limit, and tree filters, with raw or %-encoded
-; colons. EAX=1 means that the packet is not a combine filter.
+; the bounded blob:none, blob:limit, and tree filters. Components are decoded
+; from Git's percent encoding before validation. EAX=1 means not a combine.
 parse_combine_filter:
  cmp rcx,filter_combine_prefix_len+4
  jb .combine_not
@@ -758,7 +753,11 @@ parse_combine_filter:
  jz .combine_bad_saved
  push rdi
  mov rdi,r12
+ call decode_filter_component
+ test eax,eax
+ jnz .combine_bad_separator
  call parse_filter_component
+.combine_bad_separator:
  pop rdi
  test eax,eax
  jnz .combine_bad_saved
@@ -799,31 +798,16 @@ parse_filter_component:
  call component_equal
  test eax,eax
  jz .component_blob_none
- lea rdi,[component_blob_none_encoded]
- mov esi,component_blob_none_encoded_len
- call component_equal
- test eax,eax
- jz .component_blob_none
  lea rdi,[component_tree]
  mov esi,component_tree_len
  call component_prefix
  test eax,eax
  jz .component_tree_raw
- lea rdi,[component_tree_encoded]
- mov esi,component_tree_encoded_len
- call component_prefix
- test eax,eax
- jz .component_tree_encoded
  lea rdi,[component_blob_limit]
  mov esi,component_blob_limit_len
  call component_prefix
  test eax,eax
  jz .component_limit_raw
- lea rdi,[component_blob_limit_encoded]
- mov esi,component_blob_limit_encoded_len
- call component_prefix
- test eax,eax
- jz .component_limit_encoded
  jmp .component_bad
 .component_blob_none:
  test qword [request_flags],64
@@ -832,9 +816,6 @@ parse_filter_component:
  jmp .component_ok
 .component_tree_raw:
  mov r14,component_tree_len
- jmp .component_tree
-.component_tree_encoded:
- mov r14,component_tree_encoded_len
 .component_tree:
  test qword [request_flags],128
  jnz .component_bad
@@ -868,9 +849,6 @@ parse_filter_component:
  jmp .component_ok
 .component_limit_raw:
  mov r14,component_blob_limit_len
- jmp .component_limit
-.component_limit_encoded:
- mov r14,component_blob_limit_encoded_len
 .component_limit:
  test qword [request_flags],512
  jnz .component_bad
@@ -964,6 +942,78 @@ component_compare:
  ret
 component_not_equal:
  mov eax,1
+ ret
+
+; Decode one bounded percent-encoded combine component.
+; RDI=input, RSI=length -> RDI=scratch, RSI=decoded length, RAX=status.
+decode_filter_component:
+ test rsi,rsi
+ jz .decode_component_bad
+ cmp rsi,64
+ ja .decode_component_bad
+ mov r8,rdi
+ mov r9,rsi
+ lea r10,[request_filter_component]
+ mov r11,r10
+.decode_component_byte:
+ test r9,r9
+ jz .decode_component_done
+ mov al,[r8]
+ cmp al,'%'
+ jne .decode_component_store
+ cmp r9,3
+ jb .decode_component_bad
+ mov al,[r8+1]
+ call filter_hex_nibble
+ jc .decode_component_bad
+ shl al,4
+ mov dl,al
+ mov al,[r8+2]
+ call filter_hex_nibble
+ jc .decode_component_bad
+ or al,dl
+ add r8,3
+ sub r9,3
+ jmp .decode_component_value
+.decode_component_store:
+ inc r8
+ dec r9
+.decode_component_value:
+ test al,al
+ jz .decode_component_bad
+ mov [r11],al
+ inc r11
+ jmp .decode_component_byte
+.decode_component_done:
+ lea rdi,[request_filter_component]
+ mov rsi,r11
+ sub rsi,rdi
+ xor eax,eax
+ ret
+.decode_component_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; AL=hex digit, returns AL=value and CF on invalid input.
+filter_hex_nibble:
+ cmp al,'0'
+ jb .filter_hex_bad
+ cmp al,'9'
+ jbe .filter_hex_number
+ or al,32
+ cmp al,'a'
+ jb .filter_hex_bad
+ cmp al,'f'
+ ja .filter_hex_bad
+ sub al,'a'-10
+ clc
+ ret
+.filter_hex_number:
+ sub al,'0'
+ clc
+ ret
+.filter_hex_bad:
+ stc
  ret
 
 ; Inspect the current RDX/RCX packet as a ref-prefix argument. The filter bit
