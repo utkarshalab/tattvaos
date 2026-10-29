@@ -84,6 +84,11 @@ responses. Fetch advertises `wait-for-done`, `ref-in-want`, `sideband-all`, and
 requests, whole-response multiplexing, and partial clones. All records use
 bounded pkt-lines and explicit flushes.
 
+The advertisement also publishes `server-option`. Each command may carry up to
+eight `server-option=<value>` headers with 1..128 value bytes; empty values,
+NUL, embedded LF, and overflow are rejected. Valid options are intentionally
+ignored until Tattva VCS defines option-specific behavior.
+
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires exactly one SHA-256 object-format header, accepts at most one printable
 bounded `agent=` header, rejects unadvertised header extensions, accepts bounded
