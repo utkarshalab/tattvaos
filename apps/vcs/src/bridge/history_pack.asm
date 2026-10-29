@@ -49,6 +49,8 @@ hp_tree_depth: resq 1
 hp_depth: resq 1
 hp_shallow_valid: resb 1
 hp_shallow_hash: resb GIT_HASH_SIZE
+hp_unshallow_valid: resb 1
+hp_unshallow_hash: resb GIT_HASH_SIZE
 
 section .rodata
 blob_type: db 'blob'
@@ -56,6 +58,7 @@ blob_type: db 'blob'
 section .text
 global git_history_pack,git_history_pack_cut,git_history_oid
 global git_history_find_common,git_history_shallow
+global git_history_set_unshallow,git_history_unshallow
 
 ; RDI=VCS tip, RSI=PACK output, RDX=capacity, RCX=32-byte Git tip OID output.
 git_history_pack:
@@ -80,6 +83,7 @@ git_history_pack:
  mov qword [hp_tree_depth],0
  mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
+ mov byte [hp_unshallow_valid],0
  mov r12,rsi
  mov r13,rdx
  mov [hp_tip_output],rcx
@@ -555,6 +559,29 @@ git_history_shallow:
  je .shallow_done
  lea rax,[hp_shallow_hash]
 .shallow_done:
+ ret
+
+; Set or clear the client boundary to report as unshallow for the next
+; bridge-generated pack. RDI=32-byte OID or null.
+git_history_set_unshallow:
+ mov byte [hp_unshallow_valid],0
+ test rdi,rdi
+ jz .set_unshallow_done
+ lea rsi,[rdi]
+ lea rdi,[hp_unshallow_hash]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
+ mov byte [hp_unshallow_valid],1
+.set_unshallow_done:
+ ret
+
+; Return the client boundary associated with the most recent relative pack.
+git_history_unshallow:
+ xor eax,eax
+ cmp byte [hp_unshallow_valid],0
+ je .unshallow_done
+ lea rax,[hp_unshallow_hash]
+.unshallow_done:
  ret
 
 section .note.GNU-stack noalloc noexec nowrite progbits
