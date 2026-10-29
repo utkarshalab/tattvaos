@@ -172,6 +172,8 @@ Protocol-v2 response encoding now covers capability advertisement,
 `object-format=sha256`, `ls-refs` for `HEAD` and the main branch, optional HEAD
 symref metadata, `fetch=wait-for-done ref-in-want sideband-all filter`, and
 chunked side-band packfile delivery for `fetch`.
+The bridge advertises `server-option` and accepts up to eight bounded option
+headers per command. Values are validated but currently have no semantic effect.
 
 Request parsing now recognizes protocol-v2 delimiter packets, validates command
 headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
