@@ -111,7 +111,8 @@ global git_protocol_v2_shallow
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
 ; bit 6 blob:none, bit 7 tree filter, bit 8 deepen, bit 9 blob:limit,
 ; bit 10 deepen-relative, bit 11 want-ref HEAD, bit 12 want-ref main,
-; bit 13 negotiation-only (no done), bit 14 object:type filter;
+; bit 13 negotiation-only (no done), bit 14 object:type filter,
+; bit 15 wait-for-done;
 ; history depth is at bits 16..23, tree depth at bits 24..31, and the blob
 ; limit at bits 32..48. Object type is at bits 49..51.
 git_protocol_v2_parse_request:
@@ -348,6 +349,7 @@ git_protocol_v2_parse_request:
  cmp byte [request_wait_done],0
  jne .corrupt
  mov byte [request_wait_done],1
+ or qword [request_flags],32768
  jmp .argument
 .fetch_sideband_all_check:
  lea rdi,[sideband_all_line]
