@@ -38,6 +38,12 @@ wanted_refs: db 'wanted-refs',10
 wanted_refs_len equ $-wanted_refs
 shallow_info: db 'shallow-info',10
 shallow_info_len equ $-shallow_info
+acknowledgments: db 'acknowledgments',10
+acknowledgments_len equ $-acknowledgments
+ack_prefix: db 'ACK '
+ack_prefix_len equ $-ack_prefix
+nak_line: db 'NAK',10
+nak_line_len equ $-nak_line
 shallow_prefix: db 'shallow '
 shallow_prefix_len equ $-shallow_prefix
 unshallow_prefix: db 'unshallow '
@@ -48,6 +54,7 @@ hex: db '0123456789abcdef'
 
 section .text
 global git_protocol_v2_advertise,git_protocol_v2_ls_refs,git_protocol_v2_fetch
+global git_protocol_v2_acknowledge
 
 ; RDI=output, RSI=capacity -> RAX=status, RDX=length.
 git_protocol_v2_advertise:
@@ -327,6 +334,78 @@ git_protocol_v2_fetch:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; Negotiation-only response. RDI=packed common OIDs, RSI=count,
+; RDX=output, RCX=capacity, R8=fetch flags. No ready or pack is emitted.
+git_protocol_v2_acknowledge:
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ mov rbx,rdi
+ mov r12,rsi
+ mov r15,r8
+ mov rdi,rdx
+ mov rsi,rcx
+ call proto_begin
+ test eax,eax
+ jnz .ack_done
+ lea rdi,[acknowledgments]
+ mov esi,acknowledgments_len
+ call fetch_packet
+ test eax,eax
+ jnz .ack_done
+ test r12,r12
+ jz .ack_nak
+.ack_common:
+ lea rdi,[proto_oid_line]
+ lea rsi,[ack_prefix]
+ mov ecx,ack_prefix_len
+ rep movsb
+ lea r8,[hex]
+ mov rsi,rbx
+ mov ecx,32
+.ack_oid:
+ movzx eax,byte [rsi]
+ inc rsi
+ mov edx,eax
+ shr edx,4
+ mov dl,[r8+rdx]
+ mov [rdi],dl
+ and eax,15
+ mov al,[r8+rax]
+ mov [rdi+1],al
+ add rdi,2
+ loop .ack_oid
+ mov byte [rdi],10
+ lea rdi,[proto_oid_line]
+ mov esi,ack_prefix_len+64+1
+ call fetch_packet
+ test eax,eax
+ jnz .ack_done
+ add rbx,32
+ dec r12
+ jnz .ack_common
+ jmp .ack_record_done
+.ack_nak:
+ lea rdi,[nak_line]
+ mov esi,nak_line_len
+ call fetch_packet
+.ack_record_done:
+ test eax,eax
+ jnz .ack_done
+ call proto_flush
+ test eax,eax
+ jnz .ack_done
+ call proto_finish
+.ack_done:
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
  ret
 
 ; RDI=record prefix, RSI=prefix length, RDX=32-byte OID.
