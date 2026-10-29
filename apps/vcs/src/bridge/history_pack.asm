@@ -42,6 +42,7 @@ hp_cutoff: resq 1
 hp_limit: resq 1
 hp_parent_valid: resb 1
 hp_filter_blobs: resb 1
+hp_filter_trees: resb 1
 
 section .rodata
 blob_type: db 'blob'
@@ -66,6 +67,7 @@ git_history_pack:
  jz history_usage
  mov byte [hp_pack_mode],1
  mov byte [hp_filter_blobs],0
+ mov byte [hp_filter_trees],0
  mov qword [hp_cutoff],-1
  mov r12,rsi
  mov r13,rdx
@@ -73,7 +75,7 @@ git_history_pack:
  jmp history_encode
 
 ; RDI=tip, RSI=PACK, RDX=capacity, RCX=tip OID, R8=common index/-1,
-; R9 flags (bit 6 omits blobs).
+; R9 flags (bit 6 omits blobs, bit 7 omits trees and blobs).
 ; A nonnegative index must come from git_history_find_common immediately prior.
 git_history_pack_cut:
  push rbp
@@ -99,6 +101,10 @@ git_history_pack_cut:
  test r9,64
  setnz al
  mov [hp_filter_blobs],al
+ xor eax,eax
+ test r9,128
+ setnz al
+ mov [hp_filter_trees],al
  mov [hp_cutoff],r8
  mov r12,rsi
  mov r13,rdx
@@ -121,6 +127,7 @@ git_history_oid:
  jz history_usage
  mov byte [hp_pack_mode],0
  mov byte [hp_filter_blobs],0
+ mov byte [hp_filter_trees],0
  mov qword [hp_cutoff],-1
  mov [hp_tip_output],rsi
  xor r12d,r12d
@@ -282,6 +289,8 @@ history_encode:
  je .next_blob
  cmp byte [hp_filter_blobs],0
  jne .next_blob
+ cmp byte [hp_filter_trees],0
+ jne .next_blob
  mov edi,GIT_PACK_BLOB
  lea rsi,[rax+UV_DATA]
  mov rdx,[r15+VR_SIZE]
@@ -316,6 +325,10 @@ history_encode:
  xor eax,eax
  cmp byte [hp_pack_mode],0
  setz al
+ cmp byte [hp_filter_trees],0
+ je .tree_mode_ready
+ mov eax,1
+.tree_mode_ready:
  mov [hp_emit_request+GTEP_HASH_ONLY],rax
  lea rdi,[hp_emit_request]
  call git_tree_emit_plan
