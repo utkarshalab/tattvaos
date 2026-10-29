@@ -80,8 +80,10 @@ shallow_prefix: db 'shallow '
 shallow_prefix_len equ $-shallow_prefix
 deepen_relative_line: db 'deepen-relative',10
 deepen_relative_line_len equ $-deepen_relative_line
-want_ref_line: db 'want-ref refs/heads/main',10
-want_ref_line_len equ $-want_ref_line
+want_ref_main_line: db 'want-ref refs/heads/main',10
+want_ref_main_line_len equ $-want_ref_main_line
+want_ref_head_line: db 'want-ref HEAD',10
+want_ref_head_line_len equ $-want_ref_head_line
 ref_prefix_marker: db 'ref-prefix '
 ref_prefix_marker_len equ $-ref_prefix_marker
 head_ref: db 'HEAD'
@@ -96,7 +98,7 @@ global git_protocol_v2_shallow
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
 ; bit 6 blob:none, bit 7 tree filter, bit 8 deepen, bit 9 blob:limit,
-; bit 10 deepen-relative;
+; bit 10 deepen-relative, bit 11 want-ref HEAD;
 ; history depth is at bits 16..23, tree depth at bits 24..31, and the blob
 ; limit at bits 32..48.
 git_protocol_v2_parse_request:
@@ -195,11 +197,16 @@ git_protocol_v2_parse_request:
  je .ls_argument
  cmp byte [request_done],0
  jne .corrupt
- lea rdi,[want_ref_line]
- mov esi,want_ref_line_len
+ lea rdi,[want_ref_main_line]
+ mov esi,want_ref_main_line_len
  call packet_equal
  test eax,eax
- jz .fetch_want_ref
+ jz .fetch_want_ref_main
+ lea rdi,[want_ref_head_line]
+ mov esi,want_ref_head_line_len
+ call packet_equal
+ test eax,eax
+ jz .fetch_want_ref_head
  cmp rcx,69
  jne .fetch_done_check
  cmp dword [rdx],0x746e6177      ; "want"
@@ -260,7 +267,9 @@ git_protocol_v2_parse_request:
  jne .corrupt
  inc byte [request_have_count]
  jmp .argument
-.fetch_want_ref:
+.fetch_want_ref_head:
+ or qword [request_flags],2048
+.fetch_want_ref_main:
  cmp byte [request_want_set],0
  jne .corrupt
  cmp byte [request_want_ref],0
