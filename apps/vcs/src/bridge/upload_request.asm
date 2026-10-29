@@ -13,6 +13,7 @@ request_cursor: resq 1
 request_left: resq 1
 request_want: resb 32
 request_have: resb 64*32
+request_shallow: resb 32
 request_operation: resq 1
 request_flags: resq 1
 request_format: resb 1
@@ -25,6 +26,7 @@ request_peel: resb 1
 request_unborn: resb 1
 request_want_ref: resb 1
 request_server_options: resb 1
+request_shallow_count: resb 1
 request_filter_component: resb 64
 
 section .rodata
@@ -74,6 +76,10 @@ component_blob_limit: db 'blob:limit='
 component_blob_limit_len equ $-component_blob_limit
 deepen_prefix: db 'deepen '
 deepen_prefix_len equ $-deepen_prefix
+shallow_prefix: db 'shallow '
+shallow_prefix_len equ $-shallow_prefix
+deepen_relative_line: db 'deepen-relative',10
+deepen_relative_line_len equ $-deepen_relative_line
 want_ref_line: db 'want-ref refs/heads/main',10
 want_ref_line_len equ $-want_ref_line
 ref_prefix_marker: db 'ref-prefix '
@@ -85,10 +91,12 @@ main_ref_len equ $-main_ref
 
 section .text
 global git_protocol_v2_parse_request,git_protocol_v2_haves
+global git_protocol_v2_shallow
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
-; bit 6 blob:none, bit 7 tree filter, bit 8 deepen, bit 9 blob:limit;
+; bit 6 blob:none, bit 7 tree filter, bit 8 deepen, bit 9 blob:limit,
+; bit 10 deepen-relative;
 ; history depth is at bits 16..23, tree depth at bits 24..31, and the blob
 ; limit at bits 32..48.
 git_protocol_v2_parse_request:
@@ -117,6 +125,7 @@ git_protocol_v2_parse_request:
  mov byte [request_unborn],0
  mov byte [request_want_ref],0
  mov byte [request_server_options],0
+ mov byte [request_shallow_count],0
  call next_packet
  test eax,eax
  jnz .done
@@ -261,11 +270,26 @@ git_protocol_v2_parse_request:
  mov byte [request_want_ref],1
  jmp .argument
 .fetch_done_check:
+ call parse_shallow
+ test eax,eax
+ jz .argument
+ cmp eax,1
+ jne .corrupt
  call parse_deepen
  test eax,eax
  jz .argument
  cmp eax,1
  jne .corrupt
+ lea rdi,[deepen_relative_line]
+ mov esi,deepen_relative_line_len
+ call packet_equal
+ test eax,eax
+ jnz .fetch_done_line
+ test qword [request_flags],1024
+ jnz .corrupt
+ or qword [request_flags],1024
+ jmp .argument
+.fetch_done_line:
  lea rdi,[done_line]
  mov esi,done_line_len
  call packet_equal
@@ -382,6 +406,17 @@ git_protocol_v2_parse_request:
  je .finish_ls
  cmp byte [request_done],1
  jne .corrupt
+ test qword [request_flags],1024
+ jz .finish_no_relative
+ test qword [request_flags],256
+ jz .corrupt
+ cmp byte [request_shallow_count],1
+ jne .corrupt
+ jmp .finish_fetch_ready
+.finish_no_relative:
+ cmp byte [request_shallow_count],0
+ jne .corrupt
+.finish_fetch_ready:
  cmp byte [request_want_set],1
  je .finish_want
  cmp byte [request_want_ref],1
@@ -419,6 +454,17 @@ git_protocol_v2_parse_request:
 git_protocol_v2_haves:
  lea rax,[request_have]
  movzx edx,byte [request_have_count]
+ ret
+
+; Return the single client shallow boundary from the most recent parse.
+; RAX=32-byte OID or null, RDX=count (0 or 1).
+git_protocol_v2_shallow:
+ movzx edx,byte [request_shallow_count]
+ xor eax,eax
+ test edx,edx
+ jz .shallow_done
+ lea rax,[request_shallow]
+.shallow_done:
  ret
 
 next_packet:
@@ -570,6 +616,48 @@ parse_deepen:
  mov eax,1
  ret
 .deepen_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; Parse one `shallow <64-hex>\n` declaration. EAX=1 means not this argument.
+parse_shallow:
+ cmp rcx,shallow_prefix_len+64+1
+ jne .shallow_not
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[shallow_prefix]
+ mov ecx,shallow_prefix_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .shallow_not
+ cmp byte [request_shallow_count],0
+ jne .shallow_bad
+ cmp byte [rdx+rcx-1],10
+ jne .shallow_bad
+ lea rsi,[rdx+shallow_prefix_len]
+ lea rdi,[request_shallow]
+ mov ecx,32
+.shallow_hex_byte:
+ call hex_nibble
+ jc .shallow_bad
+ shl al,4
+ mov bl,al
+ call hex_nibble
+ jc .shallow_bad
+ or al,bl
+ stosb
+ loop .shallow_hex_byte
+ cmp byte [rsi],10
+ jne .shallow_bad
+ mov byte [request_shallow_count],1
+ xor eax,eax
+ ret
+.shallow_not:
+ mov eax,1
+ ret
+.shallow_bad:
  mov eax,VCS_ERR_CORRUPT
  ret
 
