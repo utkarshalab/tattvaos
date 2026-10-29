@@ -794,6 +794,13 @@ git_tree_emit_plan:
  add r8,rax
  cmp qword [rbp+GTEP_HASH_ONLY],0
  jne .hash_directory
+ mov rax,[rbp+GTEP_TREE_LIMIT]
+ test rax,rax
+ jz .emit_directory
+ dec rax
+ cmp r14,rax
+ jae .hash_directory
+.emit_directory:
  call git_tree_emit_entries
  jmp .directory_encoded
 .hash_directory:
