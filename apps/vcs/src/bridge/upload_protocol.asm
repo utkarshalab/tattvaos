@@ -4,7 +4,7 @@ bits 64
 default rel
 
 extern bridge_pkt_encode
-extern git_history_shallow
+extern git_history_shallow,git_history_unshallow
 
 section .bss
 proto_start: resq 1
@@ -40,6 +40,8 @@ shallow_info: db 'shallow-info',10
 shallow_info_len equ $-shallow_info
 shallow_prefix: db 'shallow '
 shallow_prefix_len equ $-shallow_prefix
+unshallow_prefix: db 'unshallow '
+unshallow_prefix_len equ $-unshallow_prefix
 flush: db '0000'
 delim: db '0001'
 hex: db '0123456789abcdef'
@@ -195,39 +197,37 @@ git_protocol_v2_fetch:
  test r15,256
  jz .wanted_section
  call git_history_shallow
- test rax,rax
- jz .wanted_section
  mov rbx,rax
+ call git_history_unshallow
+ mov r14,rax
+ test rbx,rbx
+ jnz .shallow_section
+ test r14,r14
+ jz .wanted_section
+.shallow_section:
  lea rdi,[shallow_info]
  mov esi,shallow_info_len
  call fetch_packet
  test eax,eax
  jnz .done
- lea rdi,[proto_oid_line]
- lea rsi,[shallow_prefix]
- mov ecx,shallow_prefix_len
- rep movsb
- lea r8,[hex]
- mov rsi,rbx
- mov ecx,32
-.shallow_oid:
- movzx eax,byte [rsi]
- inc rsi
- mov edx,eax
- shr edx,4
- mov dl,[r8+rdx]
- mov [rdi],dl
- and eax,15
- mov al,[r8+rax]
- mov [rdi+1],al
- add rdi,2
- loop .shallow_oid
- mov byte [rdi],10
- lea rdi,[proto_oid_line]
- mov esi,shallow_prefix_len+64+1
- call fetch_packet
+ test r14,r14
+ jz .emit_new_shallow
+ lea rdi,[unshallow_prefix]
+ mov esi,unshallow_prefix_len
+ mov rdx,r14
+ call fetch_boundary
  test eax,eax
  jnz .done
+.emit_new_shallow:
+ test rbx,rbx
+ jz .finish_shallow_section
+ lea rdi,[shallow_prefix]
+ mov esi,shallow_prefix_len
+ mov rdx,rbx
+ call fetch_boundary
+ test eax,eax
+ jnz .done
+.finish_shallow_section:
  call proto_delim
  test eax,eax
  jnz .done
@@ -310,6 +310,44 @@ git_protocol_v2_fetch:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; RDI=record prefix, RSI=prefix length, RDX=32-byte OID.
+fetch_boundary:
+ push rbx
+ push r12
+ push r13
+ push r14
+ mov r12,rdi
+ mov r13,rsi
+ mov rbx,rdx
+ lea rdi,[proto_oid_line]
+ mov rsi,r12
+ mov rcx,r13
+ rep movsb
+ lea r8,[hex]
+ mov rsi,rbx
+ mov ecx,32
+.boundary_oid:
+ movzx eax,byte [rsi]
+ inc rsi
+ mov edx,eax
+ shr edx,4
+ mov dl,[r8+rdx]
+ mov [rdi],dl
+ and eax,15
+ mov al,[r8+rax]
+ mov [rdi+1],al
+ add rdi,2
+ loop .boundary_oid
+ mov byte [rdi],10
+ lea rdi,[proto_oid_line]
+ lea rsi,[r13+64+1]
+ call fetch_packet
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
  ret
 
 ; Apply protocol-v2 sideband-all channel 1 to a non-special fetch record.
