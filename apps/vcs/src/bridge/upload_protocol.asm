@@ -19,7 +19,7 @@ agent: db 'agent=tattva-vcs/1',10
 agent_len equ $-agent
 ls_refs_cap: db 'ls-refs=unborn',10
 ls_refs_cap_len equ $-ls_refs_cap
-fetch_cap: db 'fetch=wait-for-done ref-in-want sideband-all',10
+fetch_cap: db 'fetch=wait-for-done ref-in-want sideband-all filter',10
 fetch_cap_len equ $-fetch_cap
 object_format: db 'object-format=sha256',10
 object_format_len equ $-object_format
