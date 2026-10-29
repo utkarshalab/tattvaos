@@ -66,6 +66,8 @@ filter_tree_prefix: db 'filter tree:'
 filter_tree_prefix_len equ $-filter_tree_prefix
 filter_blob_limit_prefix: db 'filter blob:limit='
 filter_blob_limit_prefix_len equ $-filter_blob_limit_prefix
+filter_object_type_prefix: db 'filter object:type='
+filter_object_type_prefix_len equ $-filter_object_type_prefix
 filter_combine_prefix: db 'filter combine:'
 filter_combine_prefix_len equ $-filter_combine_prefix
 component_blob_none: db 'blob:none'
@@ -74,6 +76,16 @@ component_tree: db 'tree:'
 component_tree_len equ $-component_tree
 component_blob_limit: db 'blob:limit='
 component_blob_limit_len equ $-component_blob_limit
+component_object_type: db 'object:type='
+component_object_type_len equ $-component_object_type
+type_tag: db 'tag'
+type_tag_len equ $-type_tag
+type_commit: db 'commit'
+type_commit_len equ $-type_commit
+type_tree: db 'tree'
+type_tree_len equ $-type_tree
+type_blob: db 'blob'
+type_blob_len equ $-type_blob
 deepen_prefix: db 'deepen '
 deepen_prefix_len equ $-deepen_prefix
 shallow_prefix: db 'shallow '
@@ -99,9 +111,9 @@ global git_protocol_v2_shallow
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
 ; bit 6 blob:none, bit 7 tree filter, bit 8 deepen, bit 9 blob:limit,
 ; bit 10 deepen-relative, bit 11 want-ref HEAD, bit 12 want-ref main,
-; bit 13 negotiation-only (no done);
+; bit 13 negotiation-only (no done), bit 14 object:type filter;
 ; history depth is at bits 16..23, tree depth at bits 24..31, and the blob
-; limit at bits 32..48.
+; limit at bits 32..48. Object type is at bits 49..51.
 git_protocol_v2_parse_request:
  push rbp
  push rbx
@@ -364,12 +376,17 @@ git_protocol_v2_parse_request:
  cmp eax,1
  jne .corrupt
 .fetch_filter_blob_limit:
+ call parse_object_type_filter
+ test eax,eax
+ jz .argument
+ cmp eax,1
+ jne .corrupt
  call parse_blob_limit
  test eax,eax
  jnz .corrupt
  jmp .argument
 .fetch_filter_blob_none:
- test qword [request_flags],704
+ test qword [request_flags],17088
  jnz .corrupt
  or qword [request_flags],64
  jmp .argument
@@ -697,7 +714,7 @@ parse_blob_limit:
  pop rcx
  pop rdx
  jne .limit_bad
- test qword [request_flags],704
+ test qword [request_flags],17088
  jnz .limit_bad
  cmp byte [rdx+rcx-1],10
  jne .limit_bad
@@ -780,7 +797,7 @@ parse_tree_filter:
  pop rcx
  pop rdx
  jne .tree_not
- test qword [request_flags],704
+ test qword [request_flags],17088
  jnz .tree_bad
  cmp byte [rdx+rcx-1],10
  jne .tree_bad
@@ -833,7 +850,7 @@ parse_combine_filter:
  pop rcx
  pop rdx
  jne .combine_not
- test qword [request_flags],704
+ test qword [request_flags],17088
  jnz .combine_bad
  cmp byte [rdx+rcx-1],10
  jne .combine_bad
@@ -847,7 +864,7 @@ parse_combine_filter:
 .combine_part:
  cmp r12,r13
  jae .combine_bad_saved
- cmp r14,3
+ cmp r14,4
  jae .combine_bad_saved
  mov rdi,r12
 .combine_scan:
@@ -919,6 +936,11 @@ parse_filter_component:
  call component_prefix
  test eax,eax
  jz .component_limit_raw
+ lea rdi,[component_object_type]
+ mov esi,component_object_type_len
+ call component_prefix
+ test eax,eax
+ jz .component_object_type
  jmp .component_bad
 .component_blob_none:
  test qword [request_flags],64
@@ -1024,6 +1046,20 @@ parse_filter_component:
  shl rdx,32
  or rdx,512
  or qword [request_flags],rdx
+ jmp .component_ok
+.component_object_type:
+ test qword [request_flags],16384
+ jnz .component_bad
+ lea rdi,[r12+component_object_type_len]
+ mov rsi,r13
+ sub rsi,component_object_type_len
+ call parse_object_type_value
+ test eax,eax
+ jz .component_bad
+ mov edx,eax
+ shl rdx,49
+ or rdx,16384
+ or qword [request_flags],rdx
 .component_ok:
  xor eax,eax
  jmp .component_done
@@ -1125,6 +1161,87 @@ filter_hex_nibble:
  ret
 .filter_hex_bad:
  stc
+ ret
+
+; Parse standalone `filter object:type=(tag|commit|tree|blob)\n`.
+; EAX=1 means not this filter.
+parse_object_type_filter:
+ cmp rcx,filter_object_type_prefix_len+4
+ jb .object_type_not
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[filter_object_type_prefix]
+ mov ecx,filter_object_type_prefix_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .object_type_not
+ test qword [request_flags],17088
+ jnz .object_type_bad
+ cmp byte [rdx+rcx-1],10
+ jne .object_type_bad
+ lea rdi,[rdx+filter_object_type_prefix_len]
+ sub rcx,filter_object_type_prefix_len+1
+ mov rsi,rcx
+ call parse_object_type_value
+ test eax,eax
+ jz .object_type_bad
+ mov edx,eax
+ shl rdx,49
+ or rdx,16384
+ or qword [request_flags],rdx
+ xor eax,eax
+ ret
+.object_type_not:
+ mov eax,1
+ ret
+.object_type_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; RDI=value, RSI=length. Return EAX type: 1 tag, 2 commit, 3 tree, 4 blob.
+parse_object_type_value:
+ push r12
+ push r13
+ mov r12,rdi
+ mov r13,rsi
+ lea rdi,[type_tag]
+ mov esi,type_tag_len
+ call component_equal
+ test eax,eax
+ jz .object_type_tag
+ lea rdi,[type_commit]
+ mov esi,type_commit_len
+ call component_equal
+ test eax,eax
+ jz .object_type_commit
+ lea rdi,[type_tree]
+ mov esi,type_tree_len
+ call component_equal
+ test eax,eax
+ jz .object_type_tree
+ lea rdi,[type_blob]
+ mov esi,type_blob_len
+ call component_equal
+ test eax,eax
+ jz .object_type_blob
+ xor eax,eax
+ jmp .object_type_done
+.object_type_tag:
+ mov eax,1
+ jmp .object_type_done
+.object_type_commit:
+ mov eax,2
+ jmp .object_type_done
+.object_type_tree:
+ mov eax,3
+ jmp .object_type_done
+.object_type_blob:
+ mov eax,4
+.object_type_done:
+ pop r13
+ pop r12
  ret
 
 ; Inspect the current RDX/RCX packet as a ref-prefix argument. The filter bit
