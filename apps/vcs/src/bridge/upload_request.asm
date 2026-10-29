@@ -12,7 +12,7 @@ section .bss
 request_cursor: resq 1
 request_left: resq 1
 request_want: resb 32
-request_have: resb 32
+request_have: resb 64*32
 request_operation: resq 1
 request_flags: resq 1
 request_format: resb 1
@@ -64,7 +64,7 @@ main_ref: db 'refs/heads/main'
 main_ref_len equ $-main_ref
 
 section .text
-global git_protocol_v2_parse_request
+global git_protocol_v2_parse_request,git_protocol_v2_haves
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
 ; R8 flags: ls-refs uses bits 0..3; fetch bit 4 is want-ref, bit 5 sideband-all.
@@ -201,7 +201,9 @@ git_protocol_v2_parse_request:
  cmp byte [request_have_count],64
  jae .corrupt
  lea rsi,[rdx+5]
- lea rdi,[request_have]
+ movzx eax,byte [request_have_count]
+ shl rax,5
+ lea rdi,[request_have+rax]
  mov ecx,32
 .have_hex_byte:
  call hex_nibble
@@ -347,6 +349,13 @@ git_protocol_v2_parse_request:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; Return the immutable have set from the most recent successful parse.
+; RAX=32-byte record array, RDX=count (0..64).
+git_protocol_v2_haves:
+ lea rax,[request_have]
+ movzx edx,byte [request_have_count]
  ret
 
 next_packet:
