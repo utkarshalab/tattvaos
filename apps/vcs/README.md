@@ -189,7 +189,8 @@ being silently ignored.
 Clients may fetch either `HEAD` or `refs/heads/main` directly with `want-ref`;
 one request may name either or both unique refs. The response returns every
 requested name and canonical SHA-256 identity in a `wanted-refs` section before
-the packfile.
+the packfile. A single object-ID want may accompany the named refs and must match
+the same selected tip.
 `sideband-all` multiplexes response headers and ref records on channel 1 while
 leaving protocol delimiter and flush packets untouched.
 Partial clone requests support `blob:none`, `tree:N` for N=0..255, and
