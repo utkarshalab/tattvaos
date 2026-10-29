@@ -11,10 +11,12 @@ extern vcs_repo_discover,vcs_repo_root,vcs_repo_root_size,vcs_repo_head
 extern vcs_history,vcs_history_signed,vcs_checkout
 extern uxv_find,uxv_free,uxv_normalize,uxv_nodes
 extern git_protocol_v2_advertise,git_protocol_v2_parse_request
-extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_history_oid
+extern git_protocol_v2_ls_refs,git_protocol_v2_fetch
+extern git_protocol_v2_acknowledge,git_history_oid
 extern git_protocol_v2_haves,git_protocol_v2_shallow
 extern git_history_pack_cut,git_history_find_common
 extern git_history_set_unshallow
+extern git_history_common
 extern git_first_parent_plan
 
 section .bss
@@ -1542,6 +1544,8 @@ bridge_git_serve:
 .serve_common:
  xor edi,edi
  call git_history_set_unshallow
+ test qword [serve_flags],8192
+ jnz .serve_negotiate
  call git_protocol_v2_shallow
  test rdx,rdx
  jnz .serve_client_shallow
@@ -1611,6 +1615,34 @@ bridge_git_serve:
  mov r8,[serve_flags]
  lea r9,[serve_oid]
  call git_protocol_v2_fetch
+ jmp .serve_done
+.serve_negotiate:
+ mov rdi,rbp
+ lea rsi,[serve_oid]
+ call git_history_oid
+ test eax,eax
+ jnz .serve_done
+ test r12,r12
+ jz .serve_negotiate_haves
+ lea rdi,[serve_oid]
+ mov rsi,r12
+ mov ecx,32
+ repe cmpsb
+ jne .serve_missing
+.serve_negotiate_haves:
+ call git_protocol_v2_haves
+ mov rsi,rax
+ mov rdi,rbp
+ call git_history_find_common
+ test eax,eax
+ jnz .serve_done
+ call git_history_common
+ mov rdi,rax
+ mov rsi,rdx
+ mov rdx,r14
+ mov rcx,r15
+ mov r8,[serve_flags]
+ call git_protocol_v2_acknowledge
  jmp .serve_done
 .serve_refs_oid:
  mov rdi,rbp
