@@ -61,6 +61,8 @@ filter_blob_none_line: db 'filter blob:none',10
 filter_blob_none_line_len equ $-filter_blob_none_line
 filter_tree_zero_line: db 'filter tree:0',10
 filter_tree_zero_line_len equ $-filter_tree_zero_line
+deepen_prefix: db 'deepen '
+deepen_prefix_len equ $-deepen_prefix
 want_ref_line: db 'want-ref refs/heads/main',10
 want_ref_line_len equ $-want_ref_line
 ref_prefix_marker: db 'ref-prefix '
@@ -75,7 +77,7 @@ global git_protocol_v2_parse_request,git_protocol_v2_haves
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
-; bit 6 blob:none, bit 7 tree:0.
+; bit 6 blob:none, bit 7 tree:0, bit 8 deepen; depth is stored at bits 16..23.
 git_protocol_v2_parse_request:
  push rbp
  push rbx
@@ -246,6 +248,11 @@ git_protocol_v2_parse_request:
  mov byte [request_want_ref],1
  jmp .argument
 .fetch_done_check:
+ call parse_deepen
+ test eax,eax
+ jz .argument
+ cmp eax,1
+ jne .corrupt
  lea rdi,[done_line]
  mov esi,done_line_len
  call packet_equal
@@ -491,6 +498,59 @@ validate_server_option_header:
  xor eax,eax
  ret
 .option_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; Parse `deepen N\n`, where N is 1..255. EAX=1 means not this argument.
+parse_deepen:
+ cmp rcx,deepen_prefix_len+2
+ jb .deepen_not
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[deepen_prefix]
+ mov ecx,deepen_prefix_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .deepen_not
+ test qword [request_flags],256
+ jnz .deepen_bad
+ cmp byte [rdx+rcx-1],10
+ jne .deepen_bad
+ lea rsi,[rdx+deepen_prefix_len]
+ sub rcx,deepen_prefix_len+1
+ test rcx,rcx
+ jz .deepen_bad
+ cmp rcx,3
+ ja .deepen_bad
+ xor eax,eax
+.deepen_digit:
+ movzx edx,byte [rsi]
+ cmp dl,'0'
+ jb .deepen_bad
+ cmp dl,'9'
+ ja .deepen_bad
+ imul eax,eax,10
+ sub dl,'0'
+ movzx edx,dl
+ add eax,edx
+ inc rsi
+ loop .deepen_digit
+ test eax,eax
+ jz .deepen_bad
+ cmp eax,255
+ ja .deepen_bad
+ mov rdx,rax
+ shl rdx,16
+ or rdx,256
+ or qword [request_flags],rdx
+ xor eax,eax
+ ret
+.deepen_not:
+ mov eax,1
+ ret
+.deepen_bad:
  mov eax,VCS_ERR_CORRUPT
  ret
 
