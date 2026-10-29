@@ -43,6 +43,8 @@ hp_limit: resq 1
 hp_parent_valid: resb 1
 hp_filter_blobs: resb 1
 hp_filter_trees: resb 1
+hp_filter_limit: resb 1
+hp_blob_limit: resq 1
 hp_depth: resq 1
 hp_shallow_valid: resb 1
 hp_shallow_hash: resb GIT_HASH_SIZE
@@ -72,6 +74,8 @@ git_history_pack:
  mov byte [hp_pack_mode],1
  mov byte [hp_filter_blobs],0
  mov byte [hp_filter_trees],0
+ mov byte [hp_filter_limit],0
+ mov qword [hp_blob_limit],0
  mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
  mov r12,rsi
@@ -80,7 +84,7 @@ git_history_pack:
  jmp history_encode
 
 ; RDI=tip, RSI=PACK, RDX=capacity, RCX=tip OID, R8=common index/-1,
-; R9 flags (bit 6 omits blobs, bit 7 omits trees and blobs).
+; R9 flags (bit 6 blob:none, bit 7 tree:0, bit 9 blob:limit).
 ; A nonnegative index must come from git_history_find_common immediately prior.
 git_history_pack_cut:
  push rbp
@@ -110,6 +114,14 @@ git_history_pack_cut:
  test r9,128
  setnz al
  mov [hp_filter_trees],al
+ xor eax,eax
+ test r9,512
+ setnz al
+ mov [hp_filter_limit],al
+ mov rax,r9
+ shr rax,32
+ and eax,65535
+ mov [hp_blob_limit],rax
  mov rax,r9
  shr rax,16
  and eax,255
@@ -137,6 +149,8 @@ git_history_oid:
  mov byte [hp_pack_mode],0
  mov byte [hp_filter_blobs],0
  mov byte [hp_filter_trees],0
+ mov byte [hp_filter_limit],0
+ mov qword [hp_blob_limit],0
  mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
  mov [hp_tip_output],rsi
@@ -323,6 +337,12 @@ history_encode:
  jne .next_blob
  cmp byte [hp_filter_trees],0
  jne .next_blob
+ cmp byte [hp_filter_limit],0
+ je .emit_blob_object
+ mov rdx,[hp_blob_limit]
+ cmp [r15+VR_SIZE],rdx
+ jae .next_blob
+.emit_blob_object:
  mov edi,GIT_PACK_BLOB
  lea rsi,[rax+UV_DATA]
  mov rdx,[r15+VR_SIZE]
