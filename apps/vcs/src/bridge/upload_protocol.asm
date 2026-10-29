@@ -44,6 +44,8 @@ ack_prefix: db 'ACK '
 ack_prefix_len equ $-ack_prefix
 nak_line: db 'NAK',10
 nak_line_len equ $-nak_line
+ready_line: db 'ready',10
+ready_line_len equ $-ready_line
 shallow_prefix: db 'shallow '
 shallow_prefix_len equ $-shallow_prefix
 unshallow_prefix: db 'unshallow '
@@ -202,6 +204,22 @@ git_protocol_v2_fetch:
  call proto_begin
  test eax,eax
  jnz .done
+ test r15,8192
+ jz .fetch_shallow
+ lea rdi,[acknowledgments]
+ mov esi,acknowledgments_len
+ call fetch_packet
+ test eax,eax
+ jnz .done
+ lea rdi,[ready_line]
+ mov esi,ready_line_len
+ call fetch_packet
+ test eax,eax
+ jnz .done
+ call proto_delim
+ test eax,eax
+ jnz .done
+.fetch_shallow:
  test r15,256
  jz .wanted_section
  call git_history_shallow
