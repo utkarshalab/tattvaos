@@ -188,6 +188,9 @@ returns its canonical SHA-256 identity in a `wanted-refs` section before the
 packfile.
 `sideband-all` multiplexes response headers and ref records on channel 1 while
 leaving protocol delimiter and flush packets untouched.
+All validated `have` identities are retained in a bounded request view. The
+canonical history encoder can locate the newest matching first-parent commit,
+forming the cut point for minimal incremental pack construction.
 
 The Git serving dispatcher now connects advertisement, strict request parsing,
 recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
