@@ -23,6 +23,7 @@ request_have_count: resb 1
 request_wait_done: resb 1
 request_peel: resb 1
 request_unborn: resb 1
+request_want_ref: resb 1
 
 section .rodata
 ls_command: db 'command=ls-refs',10
@@ -51,6 +52,8 @@ include_tag_line: db 'include-tag',10
 include_tag_line_len equ $-include_tag_line
 wait_done_line: db 'wait-for-done',10
 wait_done_line_len equ $-wait_done_line
+want_ref_line: db 'want-ref refs/heads/main',10
+want_ref_line_len equ $-want_ref_line
 ref_prefix_marker: db 'ref-prefix '
 ref_prefix_marker_len equ $-ref_prefix_marker
 head_ref: db 'HEAD'
@@ -62,7 +65,7 @@ section .text
 global git_protocol_v2_parse_request
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
-; R8=ls-refs flags: bit 0 symrefs, bit 1 HEAD, bit 2 main, bit 3 filtered.
+; R8 flags: ls-refs uses bits 0..3; fetch bit 4 selects main by want-ref.
 git_protocol_v2_parse_request:
  push rbp
  push rbx
@@ -87,6 +90,7 @@ git_protocol_v2_parse_request:
  mov byte [request_wait_done],0
  mov byte [request_peel],0
  mov byte [request_unborn],0
+ mov byte [request_want_ref],0
  call next_packet
  test eax,eax
  jnz .done
@@ -148,6 +152,11 @@ git_protocol_v2_parse_request:
  je .ls_argument
  cmp byte [request_done],0
  jne .corrupt
+ lea rdi,[want_ref_line]
+ mov esi,want_ref_line_len
+ call packet_equal
+ test eax,eax
+ jz .fetch_want_ref
  cmp rcx,69
  jne .fetch_done_check
  cmp dword [rdx],0x746e6177      ; "want"
@@ -155,6 +164,8 @@ git_protocol_v2_parse_request:
  cmp byte [rdx+4],' '
  jne .corrupt
  cmp byte [request_want_set],0
+ jne .corrupt
+ cmp byte [request_want_ref],0
  jne .corrupt
  cmp byte [request_have_count],0
  jne .corrupt
@@ -181,7 +192,10 @@ git_protocol_v2_parse_request:
  cmp byte [rdx+4],' '
  jne .corrupt
  cmp byte [request_want_set],1
+ je .fetch_have_ready
+ cmp byte [request_want_ref],1
  jne .corrupt
+.fetch_have_ready:
  cmp byte [request_have_count],64
  jae .corrupt
  lea rsi,[rdx+5]
@@ -200,6 +214,15 @@ git_protocol_v2_parse_request:
  cmp byte [rsi],10
  jne .corrupt
  inc byte [request_have_count]
+ jmp .argument
+.fetch_want_ref:
+ cmp byte [request_want_set],0
+ jne .corrupt
+ cmp byte [request_want_ref],0
+ jne .corrupt
+ cmp byte [request_have_count],0
+ jne .corrupt
+ mov byte [request_want_ref],1
  jmp .argument
 .fetch_done_check:
  lea rdi,[done_line]
@@ -283,7 +306,14 @@ git_protocol_v2_parse_request:
  cmp byte [request_done],1
  jne .corrupt
  cmp byte [request_want_set],1
+ je .finish_want
+ cmp byte [request_want_ref],1
  jne .corrupt
+ xor ecx,ecx
+ mov r8d,16
+ xor eax,eax
+ jmp .done
+.finish_want:
  lea rcx,[request_want]
  xor r8d,r8d
  xor eax,eax
