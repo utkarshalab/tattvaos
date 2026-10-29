@@ -89,8 +89,8 @@ requires exactly one SHA-256 object-format header, accepts at most one printable
 bounded `agent=` header, rejects unadvertised header extensions, accepts bounded
 `ls-refs` filters plus the standard `symrefs`, `peel`, and `unborn` arguments,
 and validates either one 64-hex `want` or `want-ref refs/heads/main`, up to 64
-ordered SHA-256 `have` lines, and `done` for fetch. This accepts initial clones and
-incremental client negotiations while intentionally returning a complete pack.
+ordered SHA-256 `have` lines, and `done` for fetch. This accepts initial clones
+and incremental client negotiations with a bounded common-history cut.
 Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
 accepted because the returned complete non-delta history pack satisfies them;
 the advertised `wait-for-done` hint is accepted once. Depth and object-filter
@@ -100,6 +100,9 @@ All validated `have` identities are retained in request order as one immutable
 bounded view. The history encoder records every canonical first-parent commit
 OID and can locate the newest matching history index, providing a trustworthy
 cut point for the incremental pack builder without trusting client hashes.
+Only newer commits and their snapshot objects are emitted; the first missing
+commit retains the common OID as its parent. A client already holding the tip
+receives a valid zero-object pack with the ordinary checksum trailer.
 
 When `sideband-all` is requested, every ordinary response pkt-line—including
 section headers and wanted-ref records—carries channel 1. Delimiter and flush
@@ -118,9 +121,9 @@ capability and produces no marker for the required existing selected commit.
 Duplicate or unknown arguments are rejected.
 
 `bridge_git_serve` now composes advertisement, request parsing, hash-only tip
-discovery for `ls-refs`, complete first-parent history-pack generation and
-tip-OID validation for `fetch`, and both responses behind a bounded two-phase
-buffer API. Native socket polling remains the outer transport owner.
+discovery for `ls-refs`, common-history incremental pack generation and tip-OID
+validation for `fetch`, and both responses behind a bounded two-phase buffer
+API. Native socket polling remains the outer transport owner.
 
 `upload_server.asm` owns that native transport. It accepts one `git://` client,
 validates the bounded `git-upload-pack /` daemon request and its `version=2`
