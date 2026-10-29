@@ -41,6 +41,7 @@ hp_tip_scratch: resb GIT_HASH_SIZE
 hp_cutoff: resq 1
 hp_limit: resq 1
 hp_parent_valid: resb 1
+hp_filter_blobs: resb 1
 
 section .rodata
 blob_type: db 'blob'
@@ -64,13 +65,15 @@ git_history_pack:
  test rcx,rcx
  jz history_usage
  mov byte [hp_pack_mode],1
+ mov byte [hp_filter_blobs],0
  mov qword [hp_cutoff],-1
  mov r12,rsi
  mov r13,rdx
  mov [hp_tip_output],rcx
  jmp history_encode
 
-; RDI=VCS tip, RSI=PACK output, RDX=capacity, RCX=tip OID, R8=common index/-1.
+; RDI=tip, RSI=PACK, RDX=capacity, RCX=tip OID, R8=common index/-1,
+; R9 flags (bit 6 omits blobs).
 ; A nonnegative index must come from git_history_find_common immediately prior.
 git_history_pack_cut:
  push rbp
@@ -92,6 +95,10 @@ git_history_pack_cut:
  jae history_usage
 .cut_ready:
  mov byte [hp_pack_mode],1
+ xor eax,eax
+ test r9,64
+ setnz al
+ mov [hp_filter_blobs],al
  mov [hp_cutoff],r8
  mov r12,rsi
  mov r13,rdx
@@ -113,6 +120,7 @@ git_history_oid:
  test rsi,rsi
  jz history_usage
  mov byte [hp_pack_mode],0
+ mov byte [hp_filter_blobs],0
  mov qword [hp_cutoff],-1
  mov [hp_tip_output],rsi
  xor r12d,r12d
@@ -272,6 +280,8 @@ history_encode:
  jz history_corrupt
  cmp byte [hp_pack_mode],0
  je .next_blob
+ cmp byte [hp_filter_blobs],0
+ jne .next_blob
  mov edi,GIT_PACK_BLOB
  lea rsi,[rax+UV_DATA]
  mov rdx,[r15+VR_SIZE]
