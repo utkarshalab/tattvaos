@@ -96,10 +96,11 @@ accepted because the returned complete non-delta history pack satisfies them;
 the advertised `wait-for-done` hint is accepted once. Depth and object-filter
 requests remain unsupported and are not advertised.
 
-The bounded filter implementation accepts exactly `filter blob:none`. Blob
-contents are still loaded and hashed so every tree and commit identity remains
-canonical, but blob objects are omitted from the PACK. Duplicate filters and
-all other filter specifications are rejected.
+The bounded filter implementation accepts exactly `filter blob:none` and
+`filter tree:0`. Blob contents and recursive trees are still encoded and hashed
+so every identity remains canonical. `blob:none` omits blob objects; `tree:0`
+omits tree and blob objects, returning the commit chain only. Duplicate,
+combined, and all other filter specifications are rejected.
 
 All validated `have` identities are retained in request order as one immutable
 bounded view. The history encoder records every canonical first-parent commit
