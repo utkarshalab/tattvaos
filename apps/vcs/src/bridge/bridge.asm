@@ -1530,6 +1530,14 @@ bridge_git_serve:
  je .serve_refs_oid
  cmp rbx,2
  jne .serve_corrupt
+ test qword [serve_flags],256
+ jz .serve_common
+ mov rdi,rbp
+ lea rsi,[serve_oid]
+ call git_history_oid
+ test eax,eax
+ jnz .serve_done
+.serve_common:
  call git_protocol_v2_haves
  mov rsi,rax
  mov rdi,rbp
