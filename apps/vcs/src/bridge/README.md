@@ -79,10 +79,10 @@ After completion `tree_hashes[0]` is the canonical root tree ID.
 `upload_protocol.asm` encodes Git protocol-v2 capability advertisement,
 SHA-256 `ls-refs` output for `HEAD` and `refs/heads/main`, optional
 `symref-target:refs/heads/main` metadata, and chunked side-band `fetch` packfile
-responses. Fetch advertises `wait-for-done`, `ref-in-want`, and `sideband-all`,
-matching the bounded negotiation model, allowing direct main-ref requests, and
-supporting whole-response multiplexing. All records use bounded pkt-lines and
-explicit flushes.
+responses. Fetch advertises `wait-for-done`, `ref-in-want`, `sideband-all`, and
+`filter`, matching the bounded negotiation model, allowing direct main-ref
+requests, whole-response multiplexing, and partial clones. All records use
+bounded pkt-lines and explicit flushes.
 
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires exactly one SHA-256 object-format header, accepts at most one printable
@@ -95,6 +95,11 @@ Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
 accepted because the returned complete non-delta history pack satisfies them;
 the advertised `wait-for-done` hint is accepted once. Depth and object-filter
 requests remain unsupported and are not advertised.
+
+The bounded filter implementation accepts exactly `filter blob:none`. Blob
+contents are still loaded and hashed so every tree and commit identity remains
+canonical, but blob objects are omitted from the PACK. Duplicate filters and
+all other filter specifications are rejected.
 
 All validated `have` identities are retained in request order as one immutable
 bounded view. The history encoder records every canonical first-parent commit
