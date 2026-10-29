@@ -11,7 +11,8 @@ extern vcs_repo_discover,vcs_repo_root,vcs_repo_root_size,vcs_repo_head
 extern vcs_history,vcs_history_signed,vcs_checkout
 extern uxv_find,uxv_free,uxv_normalize,uxv_nodes
 extern git_protocol_v2_advertise,git_protocol_v2_parse_request
-extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_history_pack,git_history_oid
+extern git_protocol_v2_ls_refs,git_protocol_v2_fetch,git_history_oid
+extern git_protocol_v2_haves,git_history_pack_cut,git_history_find_common
 extern git_first_parent_plan
 
 section .bss
@@ -1529,11 +1530,18 @@ bridge_git_serve:
  je .serve_refs_oid
  cmp rbx,2
  jne .serve_corrupt
+ call git_protocol_v2_haves
+ mov rsi,rax
+ mov rdi,rbp
+ call git_history_find_common
+ test eax,eax
+ jnz .serve_done
+ mov r8,rdx
  mov rdi,rbp
  lea rsi,[serve_pack]
  mov edx,VCS_WIRE_MAX_PAYLOAD
  lea rcx,[serve_oid]
- call git_history_pack
+ call git_history_pack_cut
  test eax,eax
  jnz .serve_done
  mov r13,rdx                    ; pack length
