@@ -121,7 +121,11 @@ exactly one client `shallow` OID, requires it to match the canonical first-paren
 chain, and extends the requested depth from that boundary. The response marks
 the old boundary `unshallow` and reports a new `shallow` boundary when history
 still remains. Relative packs deliberately repeat the already-held prefix so
-they remain complete and non-delta. Other shallow arguments are rejected.
+they remain complete and non-delta. Ordinary `deepen N` also accepts one
+canonical client boundary, treats N as an absolute tip depth, and returns the
+same boundary-change records. If the absolute boundary is unchanged, the
+redundant `unshallow`/`shallow` pair is suppressed. Other shallow arguments are
+rejected.
 
 All validated `have` identities are retained in request order as one immutable
 bounded view. The history encoder records every canonical first-parent commit
