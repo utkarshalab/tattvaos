@@ -184,10 +184,12 @@ to newer commits and snapshot objects; a tip match returns an empty valid pack.
 The advertised `wait-for-done` feature keeps capable clients within this
 bounded negotiation model before pack generation. A fetch round with haves but
 without `done` now returns an `ACK` for every canonical common `have` in request
-order, or one `NAK`. `wait-for-done`, missing common history, and shallow-depth
-changes leave the native connection open without `ready` or pack data. Otherwise
-a common base permits `ready` plus the pack in the same terminal response. A
-terminal `done` request omits acknowledgments and proceeds to pack generation.
+order, or one `NAK`. `wait-for-done`, missing common history, and requests that
+declare an existing client shallow boundary leave the native connection open
+without `ready` or pack data. Otherwise a common base permits `ready` plus
+the pack in the same terminal response, including new depth-limited fetches that
+need a `shallow-info` section. A terminal `done` request omits acknowledgments
+and proceeds to pack generation.
 `ls-refs` handles `symrefs`, `peel`, `unborn`, and unioned `ref-prefix`
 arguments explicitly; duplicate and unknown queries are rejected instead of
 being silently ignored.
