@@ -407,15 +407,17 @@ git_protocol_v2_parse_request:
  cmp byte [request_done],1
  jne .corrupt
  test qword [request_flags],1024
- jz .finish_no_relative
+ jz .finish_shallow_state
  test qword [request_flags],256
  jz .corrupt
  cmp byte [request_shallow_count],1
  jne .corrupt
  jmp .finish_fetch_ready
-.finish_no_relative:
+.finish_shallow_state:
  cmp byte [request_shallow_count],0
- jne .corrupt
+ je .finish_fetch_ready
+ test qword [request_flags],256
+ jz .corrupt
 .finish_fetch_ready:
  cmp byte [request_want_set],1
  je .finish_want
