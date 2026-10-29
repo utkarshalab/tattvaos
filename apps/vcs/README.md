@@ -189,9 +189,10 @@ returns its canonical SHA-256 identity in a `wanted-refs` section before the
 packfile.
 `sideband-all` multiplexes response headers and ref records on channel 1 while
 leaving protocol delimiter and flush packets untouched.
-Partial clone requests support the exact bounded filter `blob:none`: canonical
-blob hashes still feed tree identities, while blob payload objects are omitted
-from the returned PACK. Other filter forms remain explicit errors.
+Partial clone requests support the exact bounded filters `blob:none` and
+`tree:0`. Canonical blob and recursive-tree hashing is retained; `blob:none`
+omits blob objects, while `tree:0` returns only the commit chain. Duplicate,
+combined, and other filter forms remain explicit errors.
 All validated `have` identities are retained in a bounded request view. The
 canonical history encoder can locate the newest matching first-parent commit,
 forming the cut point for minimal incremental pack construction while retaining
