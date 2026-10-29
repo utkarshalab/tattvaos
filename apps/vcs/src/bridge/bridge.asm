@@ -45,6 +45,7 @@ history_mark: resq 1
 serve_pack: resb VCS_WIRE_MAX_PAYLOAD
 serve_oid: resb 32
 serve_flags: resq 1
+serve_response_terminal: resb 1
 
 section .rodata
 hex: db '0123456789abcdef'
@@ -73,6 +74,7 @@ committer_prefix_len equ $-committer_prefix
 section .text
 global bridge_pkt_encode,bridge_pkt_decode
 global bridge_git_import,bridge_git_export,bridge_git_export_history,bridge_git_serve
+global bridge_git_serve_terminal
 
 ; Encode one Git pkt-line.
 ; rdi=payload, rsi=length, rdx=output, rcx=capacity
@@ -1498,6 +1500,7 @@ bridge_git_serve:
  push r14
  push r15
  sub rsp,8
+ mov byte [serve_response_terminal],0
  test rdi,rdi
  jnz .serve_request
  mov rdi,rcx
@@ -1608,6 +1611,7 @@ bridge_git_serve:
  repe cmpsb
  jne .serve_missing
 .serve_fetch:
+ mov byte [serve_response_terminal],1
  lea rdi,[serve_pack]
  mov rsi,r13
  mov rdx,r14
@@ -1636,6 +1640,16 @@ bridge_git_serve:
  call git_history_find_common
  test eax,eax
  jnz .serve_done
+ mov r13,rdx
+ test qword [serve_flags],32768
+ jnz .serve_negotiate_ack
+ cmp r13,-1
+ je .serve_negotiate_ack
+ test qword [serve_flags],256
+ jnz .serve_negotiate_ack
+ mov r8,r13
+ jmp .serve_pack
+.serve_negotiate_ack:
  call git_history_common
  mov rdi,rax
  mov rsi,rdx
@@ -1670,6 +1684,10 @@ bridge_git_serve:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+bridge_git_serve_terminal:
+ movzx eax,byte [serve_response_terminal]
  ret
 
 bridge_silent:
