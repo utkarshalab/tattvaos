@@ -54,6 +54,8 @@ wait_done_line: db 'wait-for-done',10
 wait_done_line_len equ $-wait_done_line
 sideband_all_line: db 'sideband-all',10
 sideband_all_line_len equ $-sideband_all_line
+filter_blob_none_line: db 'filter blob:none',10
+filter_blob_none_line_len equ $-filter_blob_none_line
 want_ref_line: db 'want-ref refs/heads/main',10
 want_ref_line_len equ $-want_ref_line
 ref_prefix_marker: db 'ref-prefix '
@@ -67,7 +69,8 @@ section .text
 global git_protocol_v2_parse_request,git_protocol_v2_haves
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
-; R8 flags: ls-refs uses bits 0..3; fetch bit 4 is want-ref, bit 5 sideband-all.
+; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
+; bit 6 blob:none.
 git_protocol_v2_parse_request:
  push rbp
  push rbx
@@ -268,10 +271,20 @@ git_protocol_v2_parse_request:
  mov esi,sideband_all_line_len
  call packet_equal
  test eax,eax
- jnz .corrupt
+ jnz .fetch_filter_check
  test qword [request_flags],32
  jnz .corrupt
  or qword [request_flags],32
+ jmp .argument
+.fetch_filter_check:
+ lea rdi,[filter_blob_none_line]
+ mov esi,filter_blob_none_line_len
+ call packet_equal
+ test eax,eax
+ jnz .corrupt
+ test qword [request_flags],64
+ jnz .corrupt
+ or qword [request_flags],64
  jmp .argument
 .fetch_done:
  mov byte [request_done],1
