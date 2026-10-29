@@ -94,13 +94,21 @@ requires exactly one SHA-256 object-format header, accepts at most one printable
 bounded `agent=` header, rejects unadvertised header extensions, accepts bounded
 `ls-refs` filters plus the standard `symrefs`, `peel`, and `unborn` arguments,
 and validates either one 64-hex `want` or one `want-ref` naming advertised
-`HEAD` or `refs/heads/main`, up to 64 ordered SHA-256 `have` lines, and `done`
-for fetch. This accepts initial clones and incremental client negotiations with
-a bounded common-history cut.
+`HEAD` or `refs/heads/main`, and up to 64 ordered SHA-256 `have` lines. A fetch
+with `done` produces the pack response; a round with haves but no `done` produces
+only bounded acknowledgments. This accepts initial clones and incremental client
+negotiations with a bounded common-history cut.
 Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
 accepted because the returned complete non-delta history pack satisfies them;
 the advertised `wait-for-done` hint is accepted once. The bounded depth and
 object-filter forms described below are advertised and parsed explicitly.
+
+Negotiation-only rounds return an `acknowledgments` section containing an `ACK`
+for every canonical common `have` in request order, or one `NAK` when none are
+common, followed by a flush. They never emit `ready` or a pack, including when
+`wait-for-done` is present. The native server keeps the same connection open for
+the next fetch round; a later request with `done` omits acknowledgments and
+proceeds to the pack as required by protocol v2.
 
 The bounded filter implementation accepts `filter blob:none`, `filter tree:N`
 for N=0..255, and `filter blob:limit=N[kmg]`. Decimal blob limits use bytes;
@@ -168,6 +176,8 @@ matches are rejected. The server handles partial nonblocking I/O and serves one
 `ls-refs` followed by `fetch` on the same protocol-v2 connection, and closes
 both sockets on every terminal path. A direct `fetch` is also accepted, while
 repeated reference discovery is rejected as an invalid session sequence.
+Negotiation-only fetch responses also return to receive state, allowing bounded
+multi-round have exchange before the terminal pack response.
 Empty-queue send/receive results are retried only while the accepted socket is
 still established, so a peer FIN or failed connection terminates the command
 instead of leaving Ush in a permanent poll loop.
