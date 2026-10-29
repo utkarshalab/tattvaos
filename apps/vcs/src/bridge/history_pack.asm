@@ -45,6 +45,7 @@ hp_filter_blobs: resb 1
 hp_filter_trees: resb 1
 hp_filter_limit: resb 1
 hp_blob_limit: resq 1
+hp_tree_depth: resq 1
 hp_depth: resq 1
 hp_shallow_valid: resb 1
 hp_shallow_hash: resb GIT_HASH_SIZE
@@ -76,6 +77,7 @@ git_history_pack:
  mov byte [hp_filter_trees],0
  mov byte [hp_filter_limit],0
  mov qword [hp_blob_limit],0
+ mov qword [hp_tree_depth],0
  mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
  mov r12,rsi
@@ -84,7 +86,7 @@ git_history_pack:
  jmp history_encode
 
 ; RDI=tip, RSI=PACK, RDX=capacity, RCX=tip OID, R8=common index/-1,
-; R9 flags (bit 6 blob:none, bit 7 tree:0, bit 9 blob:limit).
+; R9 flags (bit 6 blob:none, bit 7 tree filter, bit 9 blob:limit).
 ; A nonnegative index must come from git_history_find_common immediately prior.
 git_history_pack_cut:
  push rbp
@@ -123,6 +125,10 @@ git_history_pack_cut:
  and eax,0x1ffff
  mov [hp_blob_limit],rax
  mov rax,r9
+ shr rax,24
+ and eax,255
+ mov [hp_tree_depth],rax
+ mov rax,r9
  shr rax,16
  and eax,255
  mov [hp_depth],rax
@@ -151,6 +157,7 @@ git_history_oid:
  mov byte [hp_filter_trees],0
  mov byte [hp_filter_limit],0
  mov qword [hp_blob_limit],0
+ mov qword [hp_tree_depth],0
  mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
  mov [hp_tip_output],rsi
@@ -336,7 +343,15 @@ history_encode:
  cmp byte [hp_filter_blobs],0
  jne .next_blob
  cmp byte [hp_filter_trees],0
- jne .next_blob
+ je .blob_limit_check
+ movzx edx,byte [hp_file_parents+rbx]
+ shl rdx,8
+ lea rdx,[hp_plan+rdx]
+ mov rdx,[rdx+GT_DEPTH]
+ inc rdx
+ cmp rdx,[hp_tree_depth]
+ jae .next_blob
+.blob_limit_check:
  cmp byte [hp_filter_limit],0
  je .emit_blob_object
  mov rdx,[hp_blob_limit]
@@ -377,11 +392,13 @@ history_encode:
  xor eax,eax
  cmp byte [hp_pack_mode],0
  setz al
+ mov [hp_emit_request+GTEP_HASH_ONLY],rax
  cmp byte [hp_filter_trees],0
  je .tree_mode_ready
- mov eax,1
+ mov rax,[hp_tree_depth]
+ inc rax
+ mov [hp_emit_request+GTEP_TREE_LIMIT],rax
 .tree_mode_ready:
- mov [hp_emit_request+GTEP_HASH_ONLY],rax
  lea rdi,[hp_emit_request]
  call git_tree_emit_plan
  test eax,eax
