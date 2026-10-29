@@ -37,6 +37,9 @@
 %define GTEP_BUFFER 64
 %define GTEP_BUFFER_CAPACITY 72
 %define GTEP_HASH_ONLY 80
-%define GIT_TREE_EMIT_PLAN_REQUEST 88
+; Zero emits every tree. Otherwise this is the exclusive tree depth plus one,
+; allowing a requested tree:0 limit to remain distinct from no filter.
+%define GTEP_TREE_LIMIT 88
+%define GIT_TREE_EMIT_PLAN_REQUEST 96
 
 %endif
