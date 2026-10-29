@@ -98,7 +98,8 @@ global git_protocol_v2_shallow
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
 ; bit 6 blob:none, bit 7 tree filter, bit 8 deepen, bit 9 blob:limit,
-; bit 10 deepen-relative, bit 11 want-ref HEAD, bit 12 want-ref main;
+; bit 10 deepen-relative, bit 11 want-ref HEAD, bit 12 want-ref main,
+; bit 13 negotiation-only (no done);
 ; history depth is at bits 16..23, tree depth at bits 24..31, and the blob
 ; limit at bits 32..48.
 git_protocol_v2_parse_request:
@@ -417,7 +418,11 @@ git_protocol_v2_parse_request:
  cmp rdx,GIT_REQUEST_LS_REFS
  je .finish_ls
  cmp byte [request_done],1
- jne .corrupt
+ je .finish_done_ready
+ cmp byte [request_have_count],0
+ je .corrupt
+ or qword [request_flags],8192
+.finish_done_ready:
  test qword [request_flags],1024
  jz .finish_shallow_state
  test qword [request_flags],256
