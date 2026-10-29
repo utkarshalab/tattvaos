@@ -107,8 +107,9 @@ suffixes expand in binary units and saturate above the 65535-byte object ceiling
 Blob contents and recursive trees are still encoded and hashed so every identity
 remains canonical. `blob:none` omits all blobs; `tree:N` omits trees and blobs at
 depth N or deeper; and `blob:limit` omits blobs whose size is at least the
-expanded limit. Duplicate, combined, and all other filter specifications are
-rejected.
+expanded limit. `combine:` intersects two or three unique supported filters;
+component colons may be literal or encoded as `%3A`. Empty, duplicate, nested,
+and unknown components are rejected.
 
 Shallow fetch accepts exactly one `deepen N` with `N` in 1..255. The pack limit
 is the tighter of N and the common-history cut. When depth truncates history,
