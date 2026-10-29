@@ -79,9 +79,10 @@ After completion `tree_hashes[0]` is the canonical root tree ID.
 `upload_protocol.asm` encodes Git protocol-v2 capability advertisement,
 SHA-256 `ls-refs` output for `HEAD` and `refs/heads/main`, optional
 `symref-target:refs/heads/main` metadata, and chunked side-band `fetch` packfile
-responses. Fetch advertises `wait-for-done` and `ref-in-want`, matching the
-server's bounded single-request negotiation model and allowing direct requests
-for `refs/heads/main`. All records use bounded pkt-lines and explicit flushes.
+responses. Fetch advertises `wait-for-done`, `ref-in-want`, and `sideband-all`,
+matching the bounded negotiation model, allowing direct main-ref requests, and
+supporting whole-response multiplexing. All records use bounded pkt-lines and
+explicit flushes.
 
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires exactly one SHA-256 object-format header, accepts at most one printable
@@ -94,6 +95,10 @@ Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
 accepted because the returned complete non-delta history pack satisfies them;
 the advertised `wait-for-done` hint is accepted once. Depth and object-filter
 requests remain unsupported and are not advertised.
+
+When `sideband-all` is requested, every ordinary response pkt-line—including
+section headers and wanted-ref records—carries channel 1. Delimiter and flush
+packets remain unmodified, and pack chunks retain their existing channel byte.
 
 `want-ref` fetches emit the required `wanted-refs` section with the canonical
 SHA-256 tip and a delimiter before the side-band packfile section. Object-ID
