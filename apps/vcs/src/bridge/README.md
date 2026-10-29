@@ -105,10 +105,12 @@ object-filter forms described below are advertised and parsed explicitly.
 
 Negotiation-only rounds return an `acknowledgments` section containing an `ACK`
 for every canonical common `have` in request order, or one `NAK` when none are
-common, followed by a flush. They never emit `ready` or a pack, including when
-`wait-for-done` is present. The native server keeps the same connection open for
-the next fetch round; a later request with `done` omits acknowledgments and
-proceeds to the pack as required by protocol v2.
+common, followed by a flush. With `wait-for-done`, a missing common base, or
+shallow-depth changes, they never emit `ready` or a pack and the native server
+keeps the same connection open. Otherwise a canonical common base permits an
+`acknowledgments` section containing `ready`, a delimiter, and the pack response
+in the same round; that session becomes terminal. A later request with `done`
+also omits acknowledgments and proceeds directly to the pack as required.
 
 The bounded filter implementation accepts `filter blob:none`, `filter tree:N`
 for N=0..255, `filter blob:limit=N[kmg]`, and
@@ -180,8 +182,9 @@ matches are rejected. The server handles partial nonblocking I/O and serves one
 `ls-refs` followed by `fetch` on the same protocol-v2 connection, and closes
 both sockets on every terminal path. A direct `fetch` is also accepted, while
 repeated reference discovery is rejected as an invalid session sequence.
-Negotiation-only fetch responses also return to receive state, allowing bounded
-multi-round have exchange before the terminal pack response.
+Acknowledgment-only fetch responses return to receive state, allowing bounded
+multi-round have exchange before either `ready` or `done` produces the terminal
+pack response.
 Empty-queue send/receive results are retried only while the accepted socket is
 still established, so a peer FIN or failed connection terminates the command
 instead of leaving Ush in a permanent poll loop.
