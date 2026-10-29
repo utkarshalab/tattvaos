@@ -161,9 +161,14 @@ git_upload_server_step:
  jmp .again
 .response_done:
  cmp qword [server_operation],1
- jne .response_terminal
+ je .response_refs_done
+ cmp qword [server_operation],3
+ je .response_continue
+ jmp .response_terminal
+.response_refs_done:
  cmp byte [server_seen_refs],1
  jne .corrupt
+.response_continue:
  mov qword [server_offset],0
  mov qword [server_length],0
  mov dword [server_state],GIT_SERVER_RECEIVE
@@ -191,6 +196,10 @@ git_upload_server_step:
  test eax,eax
  jnz .protocol_error
  mov [server_operation],rdx
+ test r8,8192
+ jz .request_operation_ready
+ mov qword [server_operation],3
+.request_operation_ready:
  cmp rdx,1
  jne .dispatch_request
  cmp byte [server_seen_refs],0
