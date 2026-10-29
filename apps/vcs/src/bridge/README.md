@@ -79,10 +79,10 @@ After completion `tree_hashes[0]` is the canonical root tree ID.
 `upload_protocol.asm` encodes Git protocol-v2 capability advertisement,
 SHA-256 `ls-refs` output for `HEAD` and `refs/heads/main`, optional
 `symref-target:refs/heads/main` metadata, and chunked side-band `fetch` packfile
-responses. Fetch advertises `wait-for-done`, `ref-in-want`, `sideband-all`, and
-`filter`, matching the bounded negotiation model, allowing direct main-ref
-requests, whole-response multiplexing, and partial clones. All records use
-bounded pkt-lines and explicit flushes.
+responses. Fetch advertises `wait-for-done`, `ref-in-want`, `sideband-all`,
+`filter`, and `shallow`, matching the bounded negotiation model, direct main-ref
+requests, multiplexing, partial clones, and depth-limited history. All records
+use bounded pkt-lines and explicit flushes.
 
 The advertisement also publishes `server-option`. Each command may carry up to
 eight `server-option=<value>` headers with 1..128 value bytes; empty values,
@@ -106,6 +106,13 @@ The bounded filter implementation accepts exactly `filter blob:none` and
 so every identity remains canonical. `blob:none` omits blob objects; `tree:0`
 omits tree and blob objects, returning the commit chain only. Duplicate,
 combined, and all other filter specifications are rejected.
+
+Shallow fetch accepts exactly one `deepen N` with `N` in 1..255. The pack limit
+is the tighter of N and the common-history cut. When depth truncates history,
+the oldest emitted canonical commit retains its real parent and is reported in
+a `shallow-info` section before wanted refs and pack data. Requests that exceed
+available or missing history need no shallow marker. Other shallow arguments
+remain unsupported and are rejected.
 
 All validated `have` identities are retained in request order as one immutable
 bounded view. The history encoder records every canonical first-parent commit
