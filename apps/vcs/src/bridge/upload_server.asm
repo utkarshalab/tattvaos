@@ -38,6 +38,8 @@ upload_service: db 'git-upload-pack /',0
 upload_service_len equ $-upload_service-1
 version_parameter: db 'version=2',0
 version_parameter_len equ $-version_parameter-1
+host_parameter: db 'host='
+host_parameter_len equ $-host_parameter
 error_payload: db 'ERR tattva-vcs: request rejected',10
 error_payload_len equ $-error_payload
 
@@ -238,7 +240,9 @@ git_upload_server_step:
  mov eax,VCS_ERR_IO
  ret
 
-; Require the upload-pack service for the root repository and protocol v2.
+; Require the root upload-pack service and exact NUL-delimited protocol-v2
+; parameters. One printable bounded host value precedes the required empty
+; separator; unknown bounded extra parameters are ignored as Git requires.
 ; RDI=decoded payload, RSI=payload length.
 .validate_service_request:
  cmp rsi,upload_service_len+1+version_parameter_len+1
@@ -256,27 +260,88 @@ git_upload_server_step:
  jne .bad_service
  inc rdi
  sub rsi,upload_service_len+1
-.find_version:
- cmp rsi,version_parameter_len
+ xor r8d,r8d                    ; exact version=2 seen
+ ; The optional host parameter is the only token before the empty separator.
+ cmp rsi,host_parameter_len
  jb .bad_service
- lea rdx,[version_parameter]
- mov r8,rdi
- mov ecx,version_parameter_len
-.version_bytes:
- mov al,[r8]
- cmp al,[rdx]
- jne .next_parameter_byte
- inc r8
- inc rdx
- loop .version_bytes
- cmp rsi,version_parameter_len
- je .service_ok
- cmp byte [r8],0
- je .service_ok
-.next_parameter_byte:
+ cmp dword [rdi],0x74736f68    ; "host"
+ jne .parameter_separator
+ cmp byte [rdi+4],'='
+ jne .parameter_separator
+ xor r11d,r11d
+.host_end:
+ cmp r11,rsi
+ jae .bad_service
+ cmp byte [rdi+r11],0
+ je .host_ready
+ inc r11
+ jmp .host_end
+.host_ready:
+ cmp r11,host_parameter_len+1
+ jb .bad_service
+ cmp r11,host_parameter_len+255
+ ja .bad_service
+ mov eax,host_parameter_len
+.host_byte:
+ cmp rax,r11
+ jae .host_done
+ mov cl,[rdi+rax]
+ cmp cl,33
+ jb .bad_service
+ cmp cl,126
+ ja .bad_service
+ inc rax
+ jmp .host_byte
+.host_done:
+ lea rax,[r11+1]
+ add rdi,rax
+ sub rsi,rax
+.parameter_separator:
+ test rsi,rsi
+ jz .bad_service
+ cmp byte [rdi],0
+ jne .bad_service
  inc rdi
  dec rsi
- jmp .find_version
+ test rsi,rsi
+ jz .bad_service
+.extra_parameter:
+ xor r11d,r11d
+.extra_end:
+ cmp r11,rsi
+ jae .bad_service
+ cmp byte [rdi+r11],0
+ je .extra_ready
+ inc r11
+ jmp .extra_end
+.extra_ready:
+ test r11,r11
+ jz .bad_service
+ cmp r11,255
+ ja .bad_service
+ cmp r11,version_parameter_len
+ jne .next_extra
+ xor eax,eax
+ lea rdx,[version_parameter]
+.version_byte:
+ cmp rax,r11
+ jae .version_ok
+ mov cl,[rdi+rax]
+ cmp cl,[rdx+rax]
+ jne .next_extra
+ inc rax
+ jmp .version_byte
+.version_ok:
+ test r8b,r8b
+ jnz .bad_service
+ mov r8b,1
+.next_extra:
+ lea rax,[r11+1]
+ add rdi,rax
+ sub rsi,rax
+ jnz .extra_parameter
+ cmp r8b,1
+ jne .bad_service
 .service_ok:
  xor eax,eax
  ret
