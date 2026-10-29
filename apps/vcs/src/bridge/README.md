@@ -106,11 +106,13 @@ object-filter forms described below are advertised and parsed explicitly.
 Negotiation-only rounds return an `acknowledgments` section containing an `ACK`
 for every canonical common `have` in request order, or one `NAK` when none are
 common, followed by a flush. With `wait-for-done`, a missing common base, or
-shallow-depth changes, they never emit `ready` or a pack and the native server
-keeps the same connection open. Otherwise a canonical common base permits an
-`acknowledgments` section containing `ready`, a delimiter, and the pack response
-in the same round; that session becomes terminal. A later request with `done`
-also omits acknowledgments and proceeds directly to the pack as required.
+declared existing client shallow state, they never emit `ready` or a pack and
+the native server keeps the same connection open. Otherwise a canonical common
+base permits an `acknowledgments` section containing `ready`, a delimiter, and
+the pack response in the same round; that session becomes terminal. A new
+depth-limited fetch without an old client boundary may include `shallow-info`
+after `ready`. A later request with `done` also omits acknowledgments and
+proceeds directly to the pack as required.
 
 The bounded filter implementation accepts `filter blob:none`, `filter tree:N`
 for N=0..255, `filter blob:limit=N[kmg]`, and
