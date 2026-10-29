@@ -201,6 +201,10 @@ remain errors.
 Depth-limited fetch accepts one `deepen N` for N=1..255, combines it with the
 negotiated common-history cut, and emits a correctly delimited `shallow-info`
 boundary only when older history was actually excluded.
+Relative deepening accepts one canonical client `shallow` boundary plus
+`deepen-relative`, expands depth from that first-parent position, and emits the
+required `unshallow` and replacement `shallow` records. Its bounded non-delta
+pack may repeat the client's existing prefix to remain independently complete.
 All validated `have` identities are retained in a bounded request view. The
 canonical history encoder can locate the newest matching first-parent commit,
 forming the cut point for minimal incremental pack construction while retaining
