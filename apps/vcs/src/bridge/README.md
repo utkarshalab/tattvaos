@@ -93,9 +93,10 @@ ignored until Tattva VCS defines option-specific behavior.
 requires exactly one SHA-256 object-format header, accepts at most one printable
 bounded `agent=` header, rejects unadvertised header extensions, accepts bounded
 `ls-refs` filters plus the standard `symrefs`, `peel`, and `unborn` arguments,
-and validates either one 64-hex `want` or `want-ref refs/heads/main`, up to 64
-ordered SHA-256 `have` lines, and `done` for fetch. This accepts initial clones
-and incremental client negotiations with a bounded common-history cut.
+and validates either one 64-hex `want` or one `want-ref` naming advertised
+`HEAD` or `refs/heads/main`, up to 64 ordered SHA-256 `have` lines, and `done`
+for fetch. This accepts initial clones and incremental client negotiations with
+a bounded common-history cut.
 Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
 accepted because the returned complete non-delta history pack satisfies them;
 the advertised `wait-for-done` hint is accepted once. The bounded depth and
@@ -139,9 +140,10 @@ When `sideband-all` is requested, every ordinary response pkt-line—including
 section headers and wanted-ref records—carries channel 1. Delimiter and flush
 packets remain unmodified, and pack chunks retain their existing channel byte.
 
-`want-ref` fetches emit the required `wanted-refs` section with the canonical
-SHA-256 tip and a delimiter before the side-band packfile section. Object-ID
-wants retain strict equality with the selected advertised tip.
+`want-ref` fetches accept either advertised `HEAD` or `refs/heads/main` and emit
+the required `wanted-refs` section with the requested name, canonical SHA-256
+tip, and a delimiter before the side-band packfile section. Only one direct ref
+may be requested. Object-ID wants retain strict equality with the selected tip.
 
 `ref-prefix` arguments are applied to the exported `HEAD` and
 `refs/heads/main` names. Multiple prefixes form a union, an explicit nonmatching
