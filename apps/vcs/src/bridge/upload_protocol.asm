@@ -4,6 +4,7 @@ bits 64
 default rel
 
 extern bridge_pkt_encode
+extern git_history_shallow
 
 section .bss
 proto_start: resq 1
@@ -19,7 +20,7 @@ agent: db 'agent=tattva-vcs/1',10
 agent_len equ $-agent
 ls_refs_cap: db 'ls-refs=unborn',10
 ls_refs_cap_len equ $-ls_refs_cap
-fetch_cap: db 'fetch=wait-for-done ref-in-want sideband-all filter',10
+fetch_cap: db 'fetch=wait-for-done ref-in-want sideband-all filter shallow',10
 fetch_cap_len equ $-fetch_cap
 object_format: db 'object-format=sha256',10
 object_format_len equ $-object_format
@@ -35,6 +36,10 @@ packfile: db 'packfile',10
 packfile_len equ $-packfile
 wanted_refs: db 'wanted-refs',10
 wanted_refs_len equ $-wanted_refs
+shallow_info: db 'shallow-info',10
+shallow_info_len equ $-shallow_info
+shallow_prefix: db 'shallow '
+shallow_prefix_len equ $-shallow_prefix
 flush: db '0000'
 delim: db '0001'
 hex: db '0123456789abcdef'
@@ -187,6 +192,46 @@ git_protocol_v2_fetch:
  call proto_begin
  test eax,eax
  jnz .done
+ test r15,256
+ jz .wanted_section
+ call git_history_shallow
+ test rax,rax
+ jz .wanted_section
+ mov rbx,rax
+ lea rdi,[shallow_info]
+ mov esi,shallow_info_len
+ call fetch_packet
+ test eax,eax
+ jnz .done
+ lea rdi,[proto_oid_line]
+ lea rsi,[shallow_prefix]
+ mov ecx,shallow_prefix_len
+ rep movsb
+ lea r8,[hex]
+ mov rsi,rbx
+ mov ecx,32
+.shallow_oid:
+ movzx eax,byte [rsi]
+ inc rsi
+ mov edx,eax
+ shr edx,4
+ mov dl,[r8+rdx]
+ mov [rdi],dl
+ and eax,15
+ mov al,[r8+rax]
+ mov [rdi+1],al
+ add rdi,2
+ loop .shallow_oid
+ mov byte [rdi],10
+ lea rdi,[proto_oid_line]
+ mov esi,shallow_prefix_len+64+1
+ call fetch_packet
+ test eax,eax
+ jnz .done
+ call proto_delim
+ test eax,eax
+ jnz .done
+.wanted_section:
  test r15b,16
  jz .packfile_section
  test rbp,rbp
