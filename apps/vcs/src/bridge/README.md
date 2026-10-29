@@ -111,12 +111,16 @@ the next fetch round; a later request with `done` omits acknowledgments and
 proceeds to the pack as required by protocol v2.
 
 The bounded filter implementation accepts `filter blob:none`, `filter tree:N`
-for N=0..255, and `filter blob:limit=N[kmg]`. Decimal blob limits use bytes;
+for N=0..255, `filter blob:limit=N[kmg]`, and
+`filter object:type=(tag|commit|tree|blob)`. Decimal blob limits use bytes;
 suffixes expand in binary units and saturate above the 65535-byte object ceiling.
-Blob contents and recursive trees are still encoded and hashed so every identity
-remains canonical. `blob:none` omits all blobs; `tree:N` omits trees and blobs at
-depth N or deeper; and `blob:limit` omits blobs whose size is at least the
-expanded limit. `combine:` intersects two or three unique supported filters.
+Blob contents, recursive trees, and commits are still encoded and hashed so every
+identity remains canonical. `blob:none` omits all blobs; `tree:N` omits trees and
+blobs at depth N or deeper; and `blob:limit` omits blobs whose size is at least
+the expanded limit. Object-type filtering emits matching supporting objects;
+the explicitly requested tip commit remains present for connectivity, while
+nonmatching parent commits may be omitted. `combine:` intersects two through
+four unique supported filters.
 Each component is fully percent-decoded into a 64-byte fixed buffer before
 validation. Invalid escapes, decoded NUL, overflow, empty, duplicate, nested,
 and unknown components are rejected.
