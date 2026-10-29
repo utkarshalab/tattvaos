@@ -177,7 +177,8 @@ Request parsing now recognizes protocol-v2 delimiter packets, validates command
 headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
 `fetch` requests with up to 64 ordered SHA-256 `have` lines and standard
 non-delta negotiation hints. Existing clients can therefore negotiate a
-follow-up fetch, while the server still returns a complete history pack.
+follow-up fetch. The newest matching first-parent `have` cuts the returned pack
+to newer commits and snapshot objects; a tip match returns an empty valid pack.
 The advertised `wait-for-done` feature keeps capable clients within this
 bounded one-request negotiation model before pack generation.
 `ls-refs` handles `symrefs`, `peel`, `unborn`, and unioned `ref-prefix`
@@ -190,7 +191,8 @@ packfile.
 leaving protocol delimiter and flush packets untouched.
 All validated `have` identities are retained in a bounded request view. The
 canonical history encoder can locate the newest matching first-parent commit,
-forming the cut point for minimal incremental pack construction.
+forming the cut point for minimal incremental pack construction while retaining
+the common commit as the first missing commit's parent.
 
 The Git serving dispatcher now connects advertisement, strict request parsing,
 recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
