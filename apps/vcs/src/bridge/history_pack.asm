@@ -46,6 +46,8 @@ hp_filter_trees: resb 1
 hp_filter_limit: resb 1
 hp_blob_limit: resq 1
 hp_tree_depth: resq 1
+hp_filter_type: resb 1
+hp_object_type: resb 1
 hp_depth: resq 1
 hp_shallow_valid: resb 1
 hp_shallow_hash: resb GIT_HASH_SIZE
@@ -84,6 +86,8 @@ git_history_pack:
  mov byte [hp_filter_limit],0
  mov qword [hp_blob_limit],0
  mov qword [hp_tree_depth],0
+ mov byte [hp_filter_type],0
+ mov byte [hp_object_type],0
  mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
  mov byte [hp_unshallow_valid],0
@@ -93,7 +97,8 @@ git_history_pack:
  jmp history_encode
 
 ; RDI=tip, RSI=PACK, RDX=capacity, RCX=tip OID, R8=common index/-1,
-; R9 flags (bit 6 blob:none, bit 7 tree filter, bit 9 blob:limit).
+; R9 flags (bit 6 blob:none, bit 7 tree filter, bit 9 blob:limit,
+; bit 14 object:type; type value in bits 49..51).
 ; A nonnegative index must come from git_history_find_common immediately prior.
 git_history_pack_cut:
  push rbp
@@ -135,6 +140,14 @@ git_history_pack_cut:
  shr rax,24
  and eax,255
  mov [hp_tree_depth],rax
+ xor eax,eax
+ test r9,16384
+ setnz al
+ mov [hp_filter_type],al
+ mov rax,r9
+ shr rax,49
+ and eax,7
+ mov [hp_object_type],al
  mov rax,r9
  shr rax,16
  and eax,255
@@ -165,6 +178,8 @@ git_history_oid:
  mov byte [hp_filter_limit],0
  mov qword [hp_blob_limit],0
  mov qword [hp_tree_depth],0
+ mov byte [hp_filter_type],0
+ mov byte [hp_object_type],0
  mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
  mov [hp_tip_output],rsi
@@ -349,6 +364,11 @@ history_encode:
  je .next_blob
  cmp byte [hp_filter_blobs],0
  jne .next_blob
+ cmp byte [hp_filter_type],0
+ je .blob_tree_filter
+ cmp byte [hp_object_type],4
+ jne .next_blob
+.blob_tree_filter:
  cmp byte [hp_filter_trees],0
  je .blob_limit_check
  movzx edx,byte [hp_file_parents+rbx]
@@ -406,6 +426,12 @@ history_encode:
  inc rax
  mov [hp_emit_request+GTEP_TREE_LIMIT],rax
 .tree_mode_ready:
+ cmp byte [hp_filter_type],0
+ je .tree_type_ready
+ cmp byte [hp_object_type],3
+ je .tree_type_ready
+ mov qword [hp_emit_request+GTEP_HASH_ONLY],1
+.tree_type_ready:
  lea rdi,[hp_emit_request]
  call git_tree_emit_plan
  test eax,eax
@@ -438,6 +464,13 @@ history_encode:
  mov [hp_commit_size],rdx
  cmp byte [hp_pack_mode],0
  je .commit_hashed
+ cmp byte [hp_filter_type],0
+ je .emit_commit_object
+ cmp byte [hp_object_type],2
+ je .emit_commit_object
+ test r14,r14
+ jnz .commit_hashed
+.emit_commit_object:
  mov edi,GIT_PACK_COMMIT
  lea rsi,[hp_commit]
  mov rdx,[hp_commit_size]
