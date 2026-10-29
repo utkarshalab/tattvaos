@@ -101,11 +101,12 @@ accepted because the returned complete non-delta history pack satisfies them;
 the advertised `wait-for-done` hint is accepted once. Depth and object-filter
 requests remain unsupported and are not advertised.
 
-The bounded filter implementation accepts exactly `filter blob:none` and
-`filter tree:0`. Blob contents and recursive trees are still encoded and hashed
-so every identity remains canonical. `blob:none` omits blob objects; `tree:0`
-omits tree and blob objects, returning the commit chain only. Duplicate,
-combined, and all other filter specifications are rejected.
+The bounded filter implementation accepts `filter blob:none`, `filter tree:0`,
+and decimal `filter blob:limit=N` for N=0..65535. Blob contents and recursive
+trees are still encoded and hashed so every identity remains canonical.
+`blob:none` omits all blobs, `tree:0` returns only commits, and `blob:limit`
+omits blobs whose size is at least N. Duplicate, combined, suffixed, and all
+other filter specifications are rejected.
 
 Shallow fetch accepts exactly one `deepen N` with `N` in 1..255. The pack limit
 is the tighter of N and the common-history cut. When depth truncates history,
