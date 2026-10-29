@@ -1537,15 +1537,20 @@ bridge_git_serve:
  test eax,eax
  jnz .serve_done
  mov r13,rdx                    ; pack length
+ test qword [serve_flags],16
+ jnz .serve_fetch
  lea rdi,[serve_oid]
  mov rsi,r12
  mov ecx,32
  repe cmpsb
  jne .serve_missing
+.serve_fetch:
  lea rdi,[serve_pack]
  mov rsi,r13
  mov rdx,r14
  mov rcx,r15
+ mov r8,[serve_flags]
+ lea r9,[serve_oid]
  call git_protocol_v2_fetch
  jmp .serve_done
 .serve_refs_oid:
