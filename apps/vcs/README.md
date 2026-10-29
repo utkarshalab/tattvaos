@@ -191,10 +191,10 @@ returns its canonical SHA-256 identity in a `wanted-refs` section before the
 packfile.
 `sideband-all` multiplexes response headers and ref records on channel 1 while
 leaving protocol delimiter and flush packets untouched.
-Partial clone requests support the exact bounded filters `blob:none` and
-`tree:0`. Canonical blob and recursive-tree hashing is retained; `blob:none`
-omits blob objects, while `tree:0` returns only the commit chain. Duplicate,
-combined, and other filter forms remain explicit errors.
+Partial clone requests support `blob:none`, `tree:0`, and decimal
+`blob:limit=N` for N=0..65535. Canonical blob and recursive-tree hashing is
+retained; the limit form omits blobs whose size is at least N. Duplicate,
+combined, suffixed, and other filter forms remain explicit errors.
 Depth-limited fetch accepts one `deepen N` for N=1..255, combines it with the
 negotiated common-history cut, and emits a correctly delimited `shallow-info`
 boundary only when older history was actually excluded.
