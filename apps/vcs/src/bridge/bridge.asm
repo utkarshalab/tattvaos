@@ -1596,8 +1596,8 @@ bridge_git_serve:
  test eax,eax
  jnz .serve_done
  mov r13,rdx                    ; pack length
- test qword [serve_flags],16
- jnz .serve_fetch
+ test r12,r12
+ jz .serve_fetch
  lea rdi,[serve_oid]
  mov rsi,r12
  mov ecx,32
