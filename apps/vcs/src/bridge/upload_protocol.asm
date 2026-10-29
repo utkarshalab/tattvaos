@@ -19,7 +19,7 @@ agent: db 'agent=tattva-vcs/1',10
 agent_len equ $-agent
 ls_refs_cap: db 'ls-refs=unborn',10
 ls_refs_cap_len equ $-ls_refs_cap
-fetch_cap: db 'fetch=wait-for-done ref-in-want',10
+fetch_cap: db 'fetch=wait-for-done ref-in-want sideband-all',10
 fetch_cap_len equ $-fetch_cap
 object_format: db 'object-format=sha256',10
 object_format_len equ $-object_format
@@ -160,7 +160,7 @@ git_protocol_v2_ls_refs:
  ret
 
 ; RDI=pack, RSI=length, RDX=output, RCX=capacity, R8=flags, R9=tip OID.
-; Flag bit 4 emits the requested main ref before the packfile section.
+; Bit 4 emits the requested main ref; bit 5 side-bands every response record.
 git_protocol_v2_fetch:
  push rbp
  push rbx
@@ -186,7 +186,7 @@ git_protocol_v2_fetch:
  jz .usage
  lea rdi,[wanted_refs]
  mov esi,wanted_refs_len
- call proto_packet
+ call fetch_packet
  test eax,eax
  jnz .done
  lea rdi,[proto_oid_line]
@@ -210,7 +210,7 @@ git_protocol_v2_fetch:
  rep movsb
  lea rdi,[proto_oid_line]
  mov esi,64+ref_suffix_len
- call proto_packet
+ call fetch_packet
  test eax,eax
  jnz .done
  call proto_delim
@@ -219,7 +219,7 @@ git_protocol_v2_fetch:
 .packfile_section:
  lea rdi,[packfile]
  mov esi,packfile_len
- call proto_packet
+ call fetch_packet
  test eax,eax
  jnz .done
 .chunk:
@@ -259,6 +259,21 @@ git_protocol_v2_fetch:
  pop rbx
  pop rbp
  ret
+
+; Apply protocol-v2 sideband-all channel 1 to a non-special fetch record.
+; RDI=payload, RSI=length. R15 carries fetch flags.
+fetch_packet:
+ test r15b,32
+ jz proto_packet
+ mov r14,rsi
+ mov rsi,rdi
+ lea rdi,[proto_sideband+1]
+ mov rcx,r14
+ rep movsb
+ mov byte [proto_sideband],1
+ lea rdi,[proto_sideband]
+ lea rsi,[r14+1]
+ jmp proto_packet
 
 proto_begin:
  test rdi,rdi
