@@ -19,7 +19,7 @@ agent: db 'agent=tattva-vcs/1',10
 agent_len equ $-agent
 ls_refs_cap: db 'ls-refs=unborn',10
 ls_refs_cap_len equ $-ls_refs_cap
-fetch_cap: db 'fetch=wait-for-done',10
+fetch_cap: db 'fetch=wait-for-done ref-in-want',10
 fetch_cap_len equ $-fetch_cap
 object_format: db 'object-format=sha256',10
 object_format_len equ $-object_format
@@ -31,7 +31,10 @@ head_symref_suffix: db ' HEAD symref-target:refs/heads/main',10
 head_symref_suffix_len equ $-head_symref_suffix
 packfile: db 'packfile',10
 packfile_len equ $-packfile
+wanted_refs: db 'wanted-refs',10
+wanted_refs_len equ $-wanted_refs
 flush: db '0000'
+delim: db '0001'
 hex: db '0123456789abcdef'
 
 section .text
@@ -156,7 +159,8 @@ git_protocol_v2_ls_refs:
  pop rbx
  ret
 
-; RDI=pack, RSI=pack length, RDX=output, RCX=capacity.
+; RDI=pack, RSI=length, RDX=output, RCX=capacity, R8=flags, R9=tip OID.
+; Flag bit 4 emits the requested main ref before the packfile section.
 git_protocol_v2_fetch:
  push rbp
  push rbx
@@ -169,11 +173,50 @@ git_protocol_v2_fetch:
  jz .usage
  mov r12,rdi
  mov r13,rsi
+ mov r15,r8
+ mov rbp,r9
  mov rdi,rdx
  mov rsi,rcx
  call proto_begin
  test eax,eax
  jnz .done
+ test r15b,16
+ jz .packfile_section
+ test rbp,rbp
+ jz .usage
+ lea rdi,[wanted_refs]
+ mov esi,wanted_refs_len
+ call proto_packet
+ test eax,eax
+ jnz .done
+ lea rdi,[proto_oid_line]
+ lea r8,[hex]
+ mov rsi,rbp
+ mov ecx,32
+.wanted_oid:
+ movzx eax,byte [rsi]
+ inc rsi
+ mov edx,eax
+ shr edx,4
+ mov dl,[r8+rdx]
+ mov [rdi],dl
+ and eax,15
+ mov al,[r8+rax]
+ mov [rdi+1],al
+ add rdi,2
+ loop .wanted_oid
+ lea rsi,[ref_suffix]
+ mov ecx,ref_suffix_len
+ rep movsb
+ lea rdi,[proto_oid_line]
+ mov esi,64+ref_suffix_len
+ call proto_packet
+ test eax,eax
+ jnz .done
+ call proto_delim
+ test eax,eax
+ jnz .done
+.packfile_section:
  lea rdi,[packfile]
  mov esi,packfile_len
  call proto_packet
@@ -246,6 +289,19 @@ proto_flush:
  jb .space
  mov rdi,[proto_cursor]
  mov eax,[flush]
+ mov [rdi],eax
+ add qword [proto_cursor],4
+ sub qword [proto_left],4
+ xor eax,eax
+ ret
+.space: mov eax,VCS_ERR_NO_MEM
+ ret
+
+proto_delim:
+ cmp qword [proto_left],4
+ jb .space
+ mov rdi,[proto_cursor]
+ mov eax,[delim]
  mov [rdi],eax
  add qword [proto_cursor],4
  sub qword [proto_left],4
