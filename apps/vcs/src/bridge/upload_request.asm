@@ -562,7 +562,7 @@ parse_deepen:
  mov eax,VCS_ERR_CORRUPT
  ret
 
-; Parse `filter blob:limit=N\n`, with decimal N in 0..65535.
+; Parse `filter blob:limit=N[kmg]\n`; scaled values saturate at 65536.
 parse_blob_limit:
  cmp rcx,filter_blob_limit_prefix_len+2
  jb .limit_bad
@@ -583,7 +583,29 @@ parse_blob_limit:
  sub rcx,filter_blob_limit_prefix_len+1
  test rcx,rcx
  jz .limit_bad
- cmp rcx,5
+ xor r8d,r8d
+ mov dl,[rsi+rcx-1]
+ or dl,32
+ cmp dl,'k'
+ je .limit_k
+ cmp dl,'m'
+ je .limit_m
+ cmp dl,'g'
+ je .limit_g
+ jmp .limit_digits_ready
+.limit_k:
+ mov r8d,10
+ jmp .limit_suffix
+.limit_m:
+ mov r8d,20
+ jmp .limit_suffix
+.limit_g:
+ mov r8d,30
+.limit_suffix:
+ dec rcx
+ jz .limit_bad
+.limit_digits_ready:
+ cmp rcx,10
  ja .limit_bad
  xor eax,eax
 .limit_digit:
@@ -592,14 +614,26 @@ parse_blob_limit:
  jb .limit_bad
  cmp dl,'9'
  ja .limit_bad
- imul eax,eax,10
+ cmp rax,65536
+ jae .limit_next
+ imul rax,rax,10
  sub dl,'0'
  movzx edx,dl
- add eax,edx
- cmp eax,65535
- ja .limit_bad
+ add rax,rdx
+ cmp rax,65536
+ jbe .limit_next
+ mov eax,65536
+.limit_next:
  inc rsi
  loop .limit_digit
+ cmp rax,65536
+ jae .limit_store
+ mov ecx,r8d
+ shl rax,cl
+ cmp rax,65536
+ jbe .limit_store
+ mov eax,65536
+.limit_store:
  mov rdx,rax
  shl rdx,32
  or rdx,512
