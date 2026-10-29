@@ -4,7 +4,8 @@
 bits 64
 default rel
 
-extern bridge_git_serve,bridge_pkt_decode,bridge_pkt_encode
+extern bridge_git_serve,bridge_git_serve_terminal
+extern bridge_pkt_decode,bridge_pkt_encode
 extern git_protocol_v2_parse_request
 extern vcs_sync_listen_begin,vcs_sync_accept_poll,vcs_sync_connect_poll,vcs_sync_close
 extern vcs_sync_unet_send,vcs_sync_unet_receive
@@ -216,6 +217,13 @@ git_upload_server_step:
  test eax,eax
  jnz .protocol_error
  mov [server_length],rdx
+ cmp qword [server_operation],3
+ jne .response_operation_ready
+ call bridge_git_serve_terminal
+ test eax,eax
+ jz .response_operation_ready
+ mov qword [server_operation],2
+.response_operation_ready:
  mov qword [server_offset],0
  mov dword [server_state],GIT_SERVER_RESPOND
  jmp .again
