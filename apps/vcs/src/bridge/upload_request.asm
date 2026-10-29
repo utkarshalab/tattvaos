@@ -98,7 +98,7 @@ global git_protocol_v2_shallow
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
 ; bit 6 blob:none, bit 7 tree filter, bit 8 deepen, bit 9 blob:limit,
-; bit 10 deepen-relative, bit 11 want-ref HEAD;
+; bit 10 deepen-relative, bit 11 want-ref HEAD, bit 12 want-ref main;
 ; history depth is at bits 16..23, tree depth at bits 24..31, and the blob
 ; limit at bits 32..48.
 git_protocol_v2_parse_request:
@@ -243,8 +243,8 @@ git_protocol_v2_parse_request:
  jne .corrupt
  cmp byte [request_want_set],1
  je .fetch_have_ready
- cmp byte [request_want_ref],1
- jne .corrupt
+ cmp byte [request_want_ref],0
+ je .corrupt
 .fetch_have_ready:
  cmp byte [request_have_count],64
  jae .corrupt
@@ -268,15 +268,22 @@ git_protocol_v2_parse_request:
  inc byte [request_have_count]
  jmp .argument
 .fetch_want_ref_head:
+ test qword [request_flags],2048
+ jnz .corrupt
  or qword [request_flags],2048
+ jmp .fetch_want_ref
 .fetch_want_ref_main:
+ test qword [request_flags],4096
+ jnz .corrupt
+ or qword [request_flags],4096
+.fetch_want_ref:
  cmp byte [request_want_set],0
- jne .corrupt
- cmp byte [request_want_ref],0
  jne .corrupt
  cmp byte [request_have_count],0
  jne .corrupt
- mov byte [request_want_ref],1
+ cmp byte [request_want_ref],2
+ jae .corrupt
+ inc byte [request_want_ref]
  jmp .argument
 .fetch_done_check:
  call parse_shallow
@@ -430,8 +437,8 @@ git_protocol_v2_parse_request:
 .finish_fetch_ready:
  cmp byte [request_want_set],1
  je .finish_want
- cmp byte [request_want_ref],1
- jne .corrupt
+ cmp byte [request_want_ref],0
+ je .corrupt
  xor ecx,ecx
  mov r8,[request_flags]
  or r8,16
