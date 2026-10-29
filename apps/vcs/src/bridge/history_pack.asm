@@ -51,6 +51,8 @@ hp_shallow_valid: resb 1
 hp_shallow_hash: resb GIT_HASH_SIZE
 hp_unshallow_valid: resb 1
 hp_unshallow_hash: resb GIT_HASH_SIZE
+hp_common_count: resq 1
+hp_common_hashes: resb 64*GIT_HASH_SIZE
 
 section .rodata
 blob_type: db 'blob'
@@ -59,6 +61,7 @@ section .text
 global git_history_pack,git_history_pack_cut,git_history_oid
 global git_history_find_common,git_history_shallow
 global git_history_set_unshallow,git_history_unshallow
+global git_history_common
 
 ; RDI=VCS tip, RSI=PACK output, RDX=capacity, RCX=32-byte Git tip OID output.
 git_history_pack:
@@ -510,6 +513,7 @@ git_history_find_common:
  sub rsp,8
  test rdi,rdi
  jz .common_usage
+ mov qword [hp_common_count],0
  test rdx,rdx
  jz .common_none
  test rsi,rsi
@@ -545,7 +549,41 @@ git_history_find_common:
  inc rbx
  jmp .common_history
 .common_found:
- mov rdx,rbx
+ mov r15,rbx
+ xor r14d,r14d
+.collect_have:
+ cmp r14,r13
+ jae .common_collected
+ xor ebx,ebx
+.collect_history:
+ cmp rbx,[hp_count]
+ jae .collect_next_have
+ mov rax,rbx
+ imul rax,GIT_HASH_SIZE
+ lea rdi,[hp_commit_hashes+rax]
+ mov rax,r14
+ imul rax,GIT_HASH_SIZE
+ lea rsi,[r12+rax]
+ mov ecx,GIT_HASH_SIZE
+ repe cmpsb
+ je .collect_store
+ inc rbx
+ jmp .collect_history
+.collect_store:
+ mov rax,[hp_common_count]
+ imul rax,GIT_HASH_SIZE
+ lea rdi,[hp_common_hashes+rax]
+ mov rax,r14
+ imul rax,GIT_HASH_SIZE
+ lea rsi,[r12+rax]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
+ inc qword [hp_common_count]
+.collect_next_have:
+ inc r14
+ jmp .collect_have
+.common_collected:
+ mov rdx,r15
  xor eax,eax
  jmp .common_done
 .common_none:
@@ -594,6 +632,12 @@ git_history_unshallow:
  je .unshallow_done
  lea rax,[hp_unshallow_hash]
 .unshallow_done:
+ ret
+
+; Return all canonical common have OIDs in request order.
+git_history_common:
+ lea rax,[hp_common_hashes]
+ mov rdx,[hp_common_count]
  ret
 
 section .note.GNU-stack noalloc noexec nowrite progbits
