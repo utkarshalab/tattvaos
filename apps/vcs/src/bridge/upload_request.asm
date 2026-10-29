@@ -215,8 +215,6 @@ git_protocol_v2_parse_request:
  jne .corrupt
  cmp byte [request_want_set],0
  jne .corrupt
- cmp byte [request_want_ref],0
- jne .corrupt
  cmp byte [request_have_count],0
  jne .corrupt
  lea rsi,[rdx+5]
@@ -277,8 +275,6 @@ git_protocol_v2_parse_request:
  jnz .corrupt
  or qword [request_flags],4096
 .fetch_want_ref:
- cmp byte [request_want_set],0
- jne .corrupt
  cmp byte [request_have_count],0
  jne .corrupt
  cmp byte [request_want_ref],2
@@ -447,6 +443,10 @@ git_protocol_v2_parse_request:
 .finish_want:
  lea rcx,[request_want]
  mov r8,[request_flags]
+ cmp byte [request_want_ref],0
+ je .finish_want_ready
+ or r8,16
+.finish_want_ready:
  xor eax,eax
  jmp .done
 .finish_ls:
