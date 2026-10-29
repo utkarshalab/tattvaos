@@ -59,8 +59,8 @@ sideband_all_line: db 'sideband-all',10
 sideband_all_line_len equ $-sideband_all_line
 filter_blob_none_line: db 'filter blob:none',10
 filter_blob_none_line_len equ $-filter_blob_none_line
-filter_tree_zero_line: db 'filter tree:0',10
-filter_tree_zero_line_len equ $-filter_tree_zero_line
+filter_tree_prefix: db 'filter tree:'
+filter_tree_prefix_len equ $-filter_tree_prefix
 filter_blob_limit_prefix: db 'filter blob:limit='
 filter_blob_limit_prefix_len equ $-filter_blob_limit_prefix
 deepen_prefix: db 'deepen '
@@ -79,8 +79,9 @@ global git_protocol_v2_parse_request,git_protocol_v2_haves
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
-; bit 6 blob:none, bit 7 tree:0, bit 8 deepen, bit 9 blob:limit;
-; depth is at bits 16..23 and the blob limit at bits 32..47.
+; bit 6 blob:none, bit 7 tree filter, bit 8 deepen, bit 9 blob:limit;
+; history depth is at bits 16..23, tree depth at bits 24..31, and the blob
+; limit at bits 32..48.
 git_protocol_v2_parse_request:
  push rbp
  push rbx
@@ -306,15 +307,11 @@ git_protocol_v2_parse_request:
  call packet_equal
  test eax,eax
  jz .fetch_filter_blob_none
- lea rdi,[filter_tree_zero_line]
- mov esi,filter_tree_zero_line_len
- call packet_equal
+ call parse_tree_filter
  test eax,eax
- jnz .fetch_filter_blob_limit
- test qword [request_flags],704
- jnz .corrupt
- or qword [request_flags],128
- jmp .argument
+ jz .argument
+ cmp eax,1
+ jne .corrupt
 .fetch_filter_blob_limit:
  call parse_blob_limit
  test eax,eax
@@ -641,6 +638,58 @@ parse_blob_limit:
  xor eax,eax
  ret
 .limit_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; Parse `filter tree:N\n`, where the exclusive depth N is in 0..255.
+; EAX=1 means that the packet is not a tree filter.
+parse_tree_filter:
+ cmp rcx,filter_tree_prefix_len+2
+ jb .tree_not
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[filter_tree_prefix]
+ mov ecx,filter_tree_prefix_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .tree_not
+ test qword [request_flags],704
+ jnz .tree_bad
+ cmp byte [rdx+rcx-1],10
+ jne .tree_bad
+ lea rsi,[rdx+filter_tree_prefix_len]
+ sub rcx,filter_tree_prefix_len+1
+ test rcx,rcx
+ jz .tree_bad
+ cmp rcx,3
+ ja .tree_bad
+ xor eax,eax
+.tree_digit:
+ movzx edx,byte [rsi]
+ cmp dl,'0'
+ jb .tree_bad
+ cmp dl,'9'
+ ja .tree_bad
+ imul eax,eax,10
+ sub dl,'0'
+ movzx edx,dl
+ add eax,edx
+ cmp eax,255
+ ja .tree_bad
+ inc rsi
+ loop .tree_digit
+ mov edx,eax
+ shl rdx,24
+ or rdx,128
+ or [request_flags],rdx
+ xor eax,eax
+ ret
+.tree_not:
+ mov eax,1
+ ret
+.tree_bad:
  mov eax,VCS_ERR_CORRUPT
  ret
 
