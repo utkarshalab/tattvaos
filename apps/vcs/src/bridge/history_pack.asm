@@ -462,6 +462,18 @@ history_encode:
  rep movsb
  cmp byte [hp_pack_mode],0
  je .finish_oid
+ cmp byte [hp_shallow_valid],0
+ je .finish_pack_write
+ cmp byte [hp_unshallow_valid],0
+ je .finish_pack_write
+ lea rdi,[hp_shallow_hash]
+ lea rsi,[hp_unshallow_hash]
+ mov ecx,GIT_HASH_SIZE
+ repe cmpsb
+ jne .finish_pack_write
+ mov byte [hp_shallow_valid],0
+ mov byte [hp_unshallow_valid],0
+.finish_pack_write:
  call git_pack_finish
  jmp history_done
 .finish_oid:
