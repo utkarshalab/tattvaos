@@ -182,7 +182,11 @@ non-delta negotiation hints. Existing clients can therefore negotiate a
 follow-up fetch. The newest matching first-parent `have` cuts the returned pack
 to newer commits and snapshot objects; a tip match returns an empty valid pack.
 The advertised `wait-for-done` feature keeps capable clients within this
-bounded one-request negotiation model before pack generation.
+bounded negotiation model before pack generation. A fetch round with haves but
+without `done` now returns an `ACK` for every canonical common `have` in request
+order, or one `NAK`; it emits no `ready` or pack and leaves the native connection
+open for the next round. A terminal `done` request omits acknowledgments and
+proceeds to pack generation.
 `ls-refs` handles `symrefs`, `peel`, `unborn`, and unioned `ref-prefix`
 arguments explicitly; duplicate and unknown queries are rejected instead of
 being silently ignored.
