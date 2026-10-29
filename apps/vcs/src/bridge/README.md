@@ -116,8 +116,12 @@ Shallow fetch accepts exactly one `deepen N` with `N` in 1..255. The pack limit
 is the tighter of N and the common-history cut. When depth truncates history,
 the oldest emitted canonical commit retains its real parent and is reported in
 a `shallow-info` section before wanted refs and pack data. Requests that exceed
-available or missing history need no shallow marker. Other shallow arguments
-remain unsupported and are rejected.
+available or missing history need no shallow marker. `deepen-relative` accepts
+exactly one client `shallow` OID, requires it to match the canonical first-parent
+chain, and extends the requested depth from that boundary. The response marks
+the old boundary `unshallow` and reports a new `shallow` boundary when history
+still remains. Relative packs deliberately repeat the already-held prefix so
+they remain complete and non-delta. Other shallow arguments are rejected.
 
 All validated `have` identities are retained in request order as one immutable
 bounded view. The history encoder records every canonical first-parent commit
