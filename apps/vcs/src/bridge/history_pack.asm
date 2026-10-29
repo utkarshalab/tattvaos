@@ -43,12 +43,16 @@ hp_limit: resq 1
 hp_parent_valid: resb 1
 hp_filter_blobs: resb 1
 hp_filter_trees: resb 1
+hp_depth: resq 1
+hp_shallow_valid: resb 1
+hp_shallow_hash: resb GIT_HASH_SIZE
 
 section .rodata
 blob_type: db 'blob'
 
 section .text
-global git_history_pack,git_history_pack_cut,git_history_oid,git_history_find_common
+global git_history_pack,git_history_pack_cut,git_history_oid
+global git_history_find_common,git_history_shallow
 
 ; RDI=VCS tip, RSI=PACK output, RDX=capacity, RCX=32-byte Git tip OID output.
 git_history_pack:
@@ -68,6 +72,7 @@ git_history_pack:
  mov byte [hp_pack_mode],1
  mov byte [hp_filter_blobs],0
  mov byte [hp_filter_trees],0
+ mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
  mov r12,rsi
  mov r13,rdx
@@ -105,6 +110,10 @@ git_history_pack_cut:
  test r9,128
  setnz al
  mov [hp_filter_trees],al
+ mov rax,r9
+ shr rax,16
+ and eax,255
+ mov [hp_depth],rax
  mov [hp_cutoff],r8
  mov r12,rsi
  mov r13,rdx
@@ -128,6 +137,7 @@ git_history_oid:
  mov byte [hp_pack_mode],0
  mov byte [hp_filter_blobs],0
  mov byte [hp_filter_trees],0
+ mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
  mov [hp_tip_output],rsi
  xor r12d,r12d
@@ -141,6 +151,7 @@ history_encode:
  jnz history_done
  mov [hp_count],rdx
  mov byte [hp_parent_valid],0
+ mov byte [hp_shallow_valid],0
  mov rax,[hp_cutoff]
  cmp rax,-1
  je .full_history
@@ -157,6 +168,27 @@ history_encode:
 .full_history:
  mov [hp_limit],rdx
 .history_limit_ready:
+ mov rax,[hp_depth]
+ test rax,rax
+ jz .depth_ready
+ cmp [hp_limit],rax
+ jbe .depth_ready
+ mov [hp_limit],rax
+ imul rax,GIT_HASH_SIZE
+ lea rsi,[hp_commit_hashes+rax]
+ lea rdi,[hp_parent_hash]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
+ mov byte [hp_parent_valid],1
+ mov rax,[hp_limit]
+ dec rax
+ imul rax,GIT_HASH_SIZE
+ lea rsi,[hp_commit_hashes+rax]
+ lea rdi,[hp_shallow_hash]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
+ mov byte [hp_shallow_valid],1
+.depth_ready:
  mov qword [hp_objects],0
  xor ebx,ebx
 .preflight:
@@ -477,6 +509,15 @@ git_history_find_common:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; Return the shallow boundary OID from the most recent pack, or null.
+git_history_shallow:
+ xor eax,eax
+ cmp byte [hp_shallow_valid],0
+ je .shallow_done
+ lea rax,[hp_shallow_hash]
+.shallow_done:
  ret
 
 section .note.GNU-stack noalloc noexec nowrite progbits
