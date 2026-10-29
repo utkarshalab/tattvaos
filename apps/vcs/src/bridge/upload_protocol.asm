@@ -174,8 +174,8 @@ git_protocol_v2_ls_refs:
  ret
 
 ; RDI=pack, RSI=length, RDX=output, RCX=capacity, R8=flags, R9=tip OID.
-; Bit 4 emits a wanted ref, bit 5 side-bands every response record, and bit 11
-; selects HEAD instead of refs/heads/main for the wanted-ref record.
+; Bit 4 emits wanted refs, bit 5 side-bands every response record, bit 11
+; selects HEAD, and bit 12 selects refs/heads/main.
 git_protocol_v2_fetch:
  push rbp
  push rbx
@@ -263,18 +263,25 @@ git_protocol_v2_fetch:
  lea rsi,[head_suffix]
  mov ecx,head_suffix_len
  mov ebx,head_suffix_len
- jmp .wanted_suffix
-.wanted_main:
- lea rsi,[ref_suffix]
- mov ecx,ref_suffix_len
- mov ebx,ref_suffix_len
-.wanted_suffix:
  rep movsb
  lea rdi,[proto_oid_line]
  lea rsi,[rbx+64]
  call fetch_packet
  test eax,eax
  jnz .done
+.wanted_main:
+ test r15,4096
+ jz .wanted_done
+ lea rdi,[proto_oid_line+64]
+ lea rsi,[ref_suffix]
+ mov ecx,ref_suffix_len
+ rep movsb
+ lea rdi,[proto_oid_line]
+ mov esi,64+ref_suffix_len
+ call fetch_packet
+ test eax,eax
+ jnz .done
+.wanted_done:
  call proto_delim
  test eax,eax
  jnz .done
