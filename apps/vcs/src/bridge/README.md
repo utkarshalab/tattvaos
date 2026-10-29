@@ -143,8 +143,8 @@ packets remain unmodified, and pack chunks retain their existing channel byte.
 `want-ref` fetches accept either advertised `HEAD` or `refs/heads/main` and emit
 the required `wanted-refs` section with each requested name, canonical SHA-256
 tip, and a delimiter before the side-band packfile section. A fetch may request
-one or both unique names; duplicates and any mixture with an object-ID want are
-rejected. Object-ID wants retain strict equality with the selected tip.
+one or both unique names; duplicates are rejected. One object-ID `want` may be
+combined with those refs, but it still must equal the selected canonical tip.
 
 `ref-prefix` arguments are applied to the exported `HEAD` and
 `refs/heads/main` names. Multiple prefixes form a union, an explicit nonmatching
