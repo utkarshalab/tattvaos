@@ -33,15 +33,17 @@ hp_commit_request: resb git_commit_request_size
 hp_commit: resb 512
 hp_commit_size: resq 1
 hp_commit_hash: resb GIT_HASH_SIZE
+hp_commit_hashes: resb UV_NODES*GIT_HASH_SIZE
 hp_parent_hash: resb GIT_HASH_SIZE
 hp_tip_output: resq 1
 hp_pack_mode: resb 1
+hp_tip_scratch: resb GIT_HASH_SIZE
 
 section .rodata
 blob_type: db 'blob'
 
 section .text
-global git_history_pack,git_history_oid
+global git_history_pack,git_history_oid,git_history_find_common
 
 ; RDI=VCS tip, RSI=PACK output, RDX=capacity, RCX=32-byte Git tip OID output.
 git_history_pack:
@@ -293,6 +295,12 @@ history_encode:
  test eax,eax
  jnz history_done
 .commit_hashed:
+ mov rax,r14
+ imul rax,GIT_HASH_SIZE
+ lea rdi,[hp_commit_hashes+rax]
+ lea rsi,[hp_commit_hash]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
  lea rsi,[hp_commit_hash]
  lea rdi,[hp_parent_hash]
  mov ecx,GIT_HASH_SIZE
@@ -321,6 +329,72 @@ history_space:
 history_corrupt:
  mov eax,VCS_ERR_CORRUPT
 history_done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+; RDI=VCS tip, RSI=packed 32-byte have OIDs, RDX=count (0..64).
+; Returns RAX=status and RDX=newest matching first-parent index, or -1.
+git_history_find_common:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jz .common_usage
+ test rdx,rdx
+ jz .common_none
+ test rsi,rsi
+ jz .common_usage
+ cmp rdx,64
+ ja .common_usage
+ mov r12,rsi
+ mov r13,rdx
+ lea rsi,[hp_tip_scratch]
+ call git_history_oid
+ test eax,eax
+ jnz .common_done
+ xor ebx,ebx
+.common_history:
+ cmp rbx,[hp_count]
+ jae .common_none
+ xor r14d,r14d
+.common_have:
+ cmp r14,r13
+ jae .common_next_history
+ mov rax,rbx
+ imul rax,GIT_HASH_SIZE
+ lea rdi,[hp_commit_hashes+rax]
+ mov rax,r14
+ imul rax,GIT_HASH_SIZE
+ lea rsi,[r12+rax]
+ mov ecx,GIT_HASH_SIZE
+ repe cmpsb
+ je .common_found
+ inc r14
+ jmp .common_have
+.common_next_history:
+ inc rbx
+ jmp .common_history
+.common_found:
+ mov rdx,rbx
+ xor eax,eax
+ jmp .common_done
+.common_none:
+ mov rdx,-1
+ xor eax,eax
+ jmp .common_done
+.common_usage:
+ mov eax,VCS_ERR_USAGE
+.common_done:
  add rsp,8
  pop r15
  pop r14
