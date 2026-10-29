@@ -61,6 +61,8 @@ filter_blob_none_line: db 'filter blob:none',10
 filter_blob_none_line_len equ $-filter_blob_none_line
 filter_tree_zero_line: db 'filter tree:0',10
 filter_tree_zero_line_len equ $-filter_tree_zero_line
+filter_blob_limit_prefix: db 'filter blob:limit='
+filter_blob_limit_prefix_len equ $-filter_blob_limit_prefix
 deepen_prefix: db 'deepen '
 deepen_prefix_len equ $-deepen_prefix
 want_ref_line: db 'want-ref refs/heads/main',10
@@ -77,7 +79,8 @@ global git_protocol_v2_parse_request,git_protocol_v2_haves
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
-; bit 6 blob:none, bit 7 tree:0, bit 8 deepen; depth is stored at bits 16..23.
+; bit 6 blob:none, bit 7 tree:0, bit 8 deepen, bit 9 blob:limit;
+; depth is at bits 16..23 and the blob limit at bits 32..47.
 git_protocol_v2_parse_request:
  push rbp
  push rbx
@@ -307,13 +310,18 @@ git_protocol_v2_parse_request:
  mov esi,filter_tree_zero_line_len
  call packet_equal
  test eax,eax
- jnz .corrupt
- test qword [request_flags],192
+ jnz .fetch_filter_blob_limit
+ test qword [request_flags],704
  jnz .corrupt
  or qword [request_flags],128
  jmp .argument
+.fetch_filter_blob_limit:
+ call parse_blob_limit
+ test eax,eax
+ jnz .corrupt
+ jmp .argument
 .fetch_filter_blob_none:
- test qword [request_flags],192
+ test qword [request_flags],704
  jnz .corrupt
  or qword [request_flags],64
  jmp .argument
@@ -551,6 +559,54 @@ parse_deepen:
  mov eax,1
  ret
 .deepen_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; Parse `filter blob:limit=N\n`, with decimal N in 0..65535.
+parse_blob_limit:
+ cmp rcx,filter_blob_limit_prefix_len+2
+ jb .limit_bad
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[filter_blob_limit_prefix]
+ mov ecx,filter_blob_limit_prefix_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .limit_bad
+ test qword [request_flags],704
+ jnz .limit_bad
+ cmp byte [rdx+rcx-1],10
+ jne .limit_bad
+ lea rsi,[rdx+filter_blob_limit_prefix_len]
+ sub rcx,filter_blob_limit_prefix_len+1
+ test rcx,rcx
+ jz .limit_bad
+ cmp rcx,5
+ ja .limit_bad
+ xor eax,eax
+.limit_digit:
+ movzx edx,byte [rsi]
+ cmp dl,'0'
+ jb .limit_bad
+ cmp dl,'9'
+ ja .limit_bad
+ imul eax,eax,10
+ sub dl,'0'
+ movzx edx,dl
+ add eax,edx
+ cmp eax,65535
+ ja .limit_bad
+ inc rsi
+ loop .limit_digit
+ mov rdx,rax
+ shl rdx,32
+ or rdx,512
+ or qword [request_flags],rdx
+ xor eax,eax
+ ret
+.limit_bad:
  mov eax,VCS_ERR_CORRUPT
  ret
 
