@@ -186,9 +186,9 @@ bounded one-request negotiation model before pack generation.
 `ls-refs` handles `symrefs`, `peel`, `unborn`, and unioned `ref-prefix`
 arguments explicitly; duplicate and unknown queries are rejected instead of
 being silently ignored.
-Clients may fetch `refs/heads/main` directly with `want-ref`; the response
-returns its canonical SHA-256 identity in a `wanted-refs` section before the
-packfile.
+Clients may fetch either `HEAD` or `refs/heads/main` directly with `want-ref`;
+the response returns the requested name and canonical SHA-256 identity in a
+`wanted-refs` section before the packfile.
 `sideband-all` multiplexes response headers and ref records on channel 1 while
 leaving protocol delimiter and flush packets untouched.
 Partial clone requests support `blob:none`, `tree:N` for N=0..255, and
