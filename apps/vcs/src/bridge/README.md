@@ -153,8 +153,11 @@ validation for `fetch`, and both responses behind a bounded two-phase buffer
 API. Native socket polling remains the outer transport owner.
 
 `upload_server.asm` owns that native transport. It accepts one `git://` client,
-validates the bounded `git-upload-pack /` daemon request and its `version=2`
-parameter before advertising, handles partial nonblocking I/O, serves one
+validates the bounded `git-upload-pack /` daemon request, an optional printable
+255-byte `host=` value, the required empty separator, and an exact `version=2`
+extra parameter before advertising. NUL-delimited unknown extras are bounded and
+ignored as Git requires; duplicate versions, unterminated fields, and substring
+matches are rejected. The server handles partial nonblocking I/O and serves one
 `ls-refs` followed by `fetch` on the same protocol-v2 connection, and closes
 both sockets on every terminal path. A direct `fetch` is also accepted, while
 repeated reference discovery is rejected as an invalid session sequence.
