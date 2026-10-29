@@ -38,12 +38,15 @@ hp_parent_hash: resb GIT_HASH_SIZE
 hp_tip_output: resq 1
 hp_pack_mode: resb 1
 hp_tip_scratch: resb GIT_HASH_SIZE
+hp_cutoff: resq 1
+hp_limit: resq 1
+hp_parent_valid: resb 1
 
 section .rodata
 blob_type: db 'blob'
 
 section .text
-global git_history_pack,git_history_oid,git_history_find_common
+global git_history_pack,git_history_pack_cut,git_history_oid,git_history_find_common
 
 ; RDI=VCS tip, RSI=PACK output, RDX=capacity, RCX=32-byte Git tip OID output.
 git_history_pack:
@@ -61,6 +64,35 @@ git_history_pack:
  test rcx,rcx
  jz history_usage
  mov byte [hp_pack_mode],1
+ mov qword [hp_cutoff],-1
+ mov r12,rsi
+ mov r13,rdx
+ mov [hp_tip_output],rcx
+ jmp history_encode
+
+; RDI=VCS tip, RSI=PACK output, RDX=capacity, RCX=tip OID, R8=common index/-1.
+; A nonnegative index must come from git_history_find_common immediately prior.
+git_history_pack_cut:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jz history_usage
+ test rsi,rsi
+ jz history_usage
+ test rcx,rcx
+ jz history_usage
+ cmp r8,-1
+ je .cut_ready
+ cmp r8,[hp_count]
+ jae history_usage
+.cut_ready:
+ mov byte [hp_pack_mode],1
+ mov [hp_cutoff],r8
  mov r12,rsi
  mov r13,rdx
  mov [hp_tip_output],rcx
@@ -81,6 +113,7 @@ git_history_oid:
  test rsi,rsi
  jz history_usage
  mov byte [hp_pack_mode],0
+ mov qword [hp_cutoff],-1
  mov [hp_tip_output],rsi
  xor r12d,r12d
  xor r13d,r13d
@@ -92,12 +125,29 @@ history_encode:
  test eax,eax
  jnz history_done
  mov [hp_count],rdx
+ mov byte [hp_parent_valid],0
+ mov rax,[hp_cutoff]
+ cmp rax,-1
+ je .full_history
+ cmp rax,rdx
+ jae history_usage
+ mov [hp_limit],rax
+ imul rax,GIT_HASH_SIZE
+ lea rsi,[hp_commit_hashes+rax]
+ lea rdi,[hp_parent_hash]
+ mov ecx,GIT_HASH_SIZE
+ rep movsb
+ mov byte [hp_parent_valid],1
+ jmp .history_limit_ready
+.full_history:
+ mov [hp_limit],rdx
+.history_limit_ready:
  mov qword [hp_objects],0
  xor ebx,ebx
 .preflight:
  cmp byte [hp_pack_mode],0
  je .begin_history
- cmp rbx,[hp_count]
+ cmp rbx,[hp_limit]
  jae .begin_pack
  lea rax,[hp_ids]
  mov rdi,[rax+rbx*8]
@@ -128,11 +178,14 @@ history_encode:
  test eax,eax
  jnz history_done
 .begin_history:
+ cmp byte [hp_parent_valid],0
+ jne .parent_ready
  lea rdi,[hp_parent_hash]
  xor eax,eax
  mov ecx,GIT_HASH_SIZE/8
  rep stosq
- mov r14,[hp_count]
+.parent_ready:
+ mov r14,[hp_limit]
 .snapshot:
  test r14,r14
  jz .finish_pack
@@ -264,9 +317,7 @@ history_encode:
  rep stosq
  lea rax,[hp_tree_hashes]
  mov [hp_commit_request+git_commit_request.tree],rax
- mov rax,[hp_count]
- dec rax
- cmp r14,rax
+ cmp byte [hp_parent_valid],0
  je .root_commit
  lea rax,[hp_parent_hash]
  mov [hp_commit_request+git_commit_request.parent],rax
@@ -305,13 +356,14 @@ history_encode:
  lea rdi,[hp_parent_hash]
  mov ecx,GIT_HASH_SIZE
  rep movsb
+ mov byte [hp_parent_valid],1
  test r14,r14
  jnz .snapshot
- lea rsi,[hp_commit_hash]
+.finish_pack:
+ lea rsi,[hp_commit_hashes]
  mov rdi,[hp_tip_output]
  mov ecx,GIT_HASH_SIZE
  rep movsb
-.finish_pack:
  cmp byte [hp_pack_mode],0
  je .finish_oid
  call git_pack_finish
