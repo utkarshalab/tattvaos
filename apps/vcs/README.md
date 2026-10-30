@@ -181,6 +181,10 @@ headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
 non-delta negotiation hints. Existing clients can therefore negotiate a
 follow-up fetch. The newest matching first-parent `have` cuts the returned pack
 to newer commits and snapshot objects; a tip match returns an empty valid pack.
+Acknowledgment-only rounds retain their deduplicated have view for the same
+connection and merge later haves up to 64 unique identities; terminal `ready`
+or `done` responses therefore use common history learned across all rounds.
+New and rearmed clients begin with no retained negotiation state.
 The advertised `wait-for-done` feature keeps capable clients within this
 bounded negotiation model before pack generation. A fetch round with haves but
 without `done` now returns an `ACK` for every canonical common `have` in request
@@ -219,10 +223,12 @@ required `unshallow` and replacement `shallow` records. Its bounded non-delta
 pack may repeat the client's existing prefix to remain independently complete.
 Absolute `deepen N` accepts the same boundary declaration, rebuilds the complete
 tip prefix at depth N, and suppresses boundary records when the result is a no-op.
-All validated `have` identities are retained in a bounded request view. The
-canonical history encoder can locate the newest matching first-parent commit,
-forming the cut point for minimal incremental pack construction while retaining
-the common commit as the first missing commit's parent.
+All validated `have` identities are retained in a bounded request view. Across
+acknowledgment-only rounds, the server promotes and merges that view into a
+connection-scoped set of at most 64 unique OIDs. The canonical history encoder
+can locate the newest matching first-parent commit, forming the cut point for
+minimal incremental pack construction while retaining the common commit as the
+first missing commit's parent.
 
 The Git serving dispatcher now connects advertisement, strict request parsing,
 recursive snapshot-pack generation, wanted-OID validation, and protocol-v2
