@@ -184,7 +184,10 @@ to newer commits and snapshot objects; a tip match returns an empty valid pack.
 Acknowledgment-only rounds retain their deduplicated have view for the same
 connection and merge later haves up to 64 unique identities; terminal `ready`
 or `done` responses therefore use common history learned across all rounds.
-New and rearmed clients begin with no retained negotiation state.
+At most 64 acknowledgment-only continuations are accepted per client; a
+terminal `done` may follow the final continuation, but another continuation is
+rejected. New and rearmed clients begin with no retained negotiation state or
+round count.
 The advertised `wait-for-done` feature keeps capable clients within this
 bounded negotiation model before pack generation. A fetch round with haves but
 without `done` now returns an `ACK` for every canonical common `have` in request
