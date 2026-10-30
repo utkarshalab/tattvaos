@@ -7,6 +7,7 @@ default rel
 extern bridge_git_serve,bridge_git_serve_terminal
 extern bridge_pkt_decode,bridge_pkt_encode
 extern git_protocol_v2_parse_request
+extern git_protocol_v2_clear_haves,git_protocol_v2_retain_haves
 extern vcs_sync_listen_begin,vcs_sync_accept_poll,vcs_sync_connect_poll,vcs_sync_close
 extern vcs_sync_unet_send,vcs_sync_unet_receive
 
@@ -66,6 +67,7 @@ git_upload_server_begin:
  test eax,eax
  js .begin_io
  mov [server_listener],eax
+ call git_protocol_v2_clear_haves
  mov dword [server_state],GIT_SERVER_ACCEPT
  xor eax,eax
  ret
@@ -224,6 +226,12 @@ git_upload_server_step:
  jz .response_operation_ready
  mov qword [server_operation],2
 .response_operation_ready:
+ cmp qword [server_operation],3
+ jne .response_haves_ready
+ call git_protocol_v2_retain_haves
+ test eax,eax
+ jnz .protocol_error
+.response_haves_ready:
  mov qword [server_offset],0
  mov dword [server_state],GIT_SERVER_RESPOND
  jmp .again
@@ -399,6 +407,7 @@ git_upload_server_rearm:
  jl .rearm_usage
  cmp dword [server_client],0
  jl .rearm_usage
+ call git_protocol_v2_clear_haves
  mov edi,[server_client]
  call vcs_sync_close
  mov dword [server_client],-1
