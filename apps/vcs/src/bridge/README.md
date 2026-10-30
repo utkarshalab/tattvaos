@@ -191,7 +191,10 @@ repeated reference discovery is rejected as an invalid session sequence.
 Acknowledgment-only fetch responses return to receive state, allowing bounded
 multi-round have exchange before either `ready` or `done` produces the terminal
 pack response. Each continuation promotes its deduplicated have view so the
-terminal pack cut includes common history learned in earlier rounds.
+terminal pack cut includes common history learned in earlier rounds. A client
+may complete at most 64 acknowledgment-only continuations, matching the unique
+have capacity; a following terminal `done` remains valid, while another
+continuation receives a protocol error. Rearming clears the round count.
 Empty-queue send/receive results are retried only while the accepted socket is
 still established, so a peer FIN or failed connection terminates the command
 instead of leaving Ush in a permanent poll loop.
