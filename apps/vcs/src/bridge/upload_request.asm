@@ -32,6 +32,7 @@ request_want_ref: resb 1
 request_server_options: resb 1
 request_shallow_count: resb 1
 request_fetch_hints: resb 1
+request_prefix_masks: resb 1
 request_filter_component: resb 64
 
 section .rodata
@@ -149,6 +150,7 @@ git_protocol_v2_parse_request:
  mov byte [request_server_options],0
  mov byte [request_shallow_count],0
  mov byte [request_fetch_hints],0
+ mov byte [request_prefix_masks],0
  call next_packet
  test eax,eax
  jnz .done
@@ -1382,6 +1384,7 @@ parse_ref_prefix:
  pop rdx
  jne .not_prefix
  or qword [request_flags],8
+ xor r8d,r8d
  lea rdx,[rdx+ref_prefix_marker_len]
  sub rcx,ref_prefix_marker_len+1
  lea rdi,[head_ref]
@@ -1389,12 +1392,26 @@ parse_ref_prefix:
  call ref_has_prefix
  test eax,eax
  jz .check_main
- or qword [request_flags],2
+ or r8b,1
 .check_main:
  lea rdi,[main_ref]
  mov esi,main_ref_len
  call ref_has_prefix
  test eax,eax
+ jz .prefix_class
+ or r8b,2
+.prefix_class:
+ mov eax,1
+ mov cl,r8b
+ shl eax,cl
+ test byte [request_prefix_masks],al
+ jnz .prefix_bad
+ or byte [request_prefix_masks],al
+ test r8b,1
+ jz .prefix_main
+ or qword [request_flags],2
+.prefix_main:
+ test r8b,2
  jz .prefix_done
  or qword [request_flags],4
 .prefix_done:
@@ -1402,6 +1419,9 @@ parse_ref_prefix:
  ret
 .not_prefix:
  mov eax,1
+ ret
+.prefix_bad:
+ mov eax,VCS_ERR_CORRUPT
  ret
 
 ; RDI=ref, RSI=ref length, RDX=prefix, RCX=prefix length. EAX=1 on match.
