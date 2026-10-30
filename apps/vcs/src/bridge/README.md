@@ -171,7 +171,10 @@ combined with those refs, but it still must equal the selected canonical tip.
 `ref-prefix` arguments are applied to the exported `HEAD` and
 `refs/heads/main` names. Multiple prefixes form a union, an explicit nonmatching
 filter produces an empty flushed response, and an unfiltered request returns
-both refs. `peel` produces no attribute because this bounded endpoint exports
+both refs. Prefixes are classified by whether they match neither ref, `HEAD`,
+main, or both; a second prefix with the same result is rejected as redundant,
+bounding the union to four semantic classes without retaining client strings.
+`peel` produces no attribute because this bounded endpoint exports
 only commit refs, while `unborn` is accepted consistently with the advertised
 capability and produces no marker for the required existing selected commit.
 Duplicate or unknown arguments are rejected.
