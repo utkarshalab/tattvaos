@@ -99,8 +99,10 @@ with `done` produces the pack response; a round with haves but no `done` produce
 only bounded acknowledgments. This accepts initial clones and incremental client
 negotiations with a bounded common-history cut.
 Standard `thin-pack`, `no-progress`, `ofs-delta`, and `include-tag` hints are
-accepted because the returned complete non-delta history pack satisfies them;
-the advertised `wait-for-done` hint is accepted once. The bounded depth and
+accepted once each because the returned complete non-delta history pack
+satisfies them; duplicate hints are rejected with the other duplicate request
+options instead of consuming the bounded request buffer repeatedly.
+The advertised `wait-for-done` hint is accepted once. The bounded depth and
 object-filter forms described below are advertised and parsed explicitly.
 
 Negotiation-only rounds return an `acknowledgments` section containing an `ACK`
