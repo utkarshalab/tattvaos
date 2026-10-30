@@ -146,9 +146,12 @@ redundant `unshallow`/`shallow` pair is suppressed. Other shallow arguments are
 rejected.
 
 All validated `have` identities are retained in request order as one immutable
-bounded view. The history encoder records every canonical first-parent commit
-OID and can locate the newest matching history index, providing a trustworthy
-cut point for the incremental pack builder without trusting client hashes.
+bounded view. After an acknowledgment-only round, its deduplicated view becomes
+connection state and is merged with later `have` lines up to 64 unique OIDs.
+The history encoder records every canonical first-parent commit OID and can
+locate the newest matching history index across the accumulated view, providing
+a trustworthy cut point for the incremental pack builder without trusting
+client hashes. A new or rearmed client starts with an empty retained view.
 Only newer commits and their snapshot objects are emitted; the first missing
 commit retains the common OID as its parent. A client already holding the tip
 receives a valid zero-object pack with the ordinary checksum trailer.
@@ -187,7 +190,8 @@ both sockets on every terminal path. A direct `fetch` is also accepted, while
 repeated reference discovery is rejected as an invalid session sequence.
 Acknowledgment-only fetch responses return to receive state, allowing bounded
 multi-round have exchange before either `ready` or `done` produces the terminal
-pack response.
+pack response. Each continuation promotes its deduplicated have view so the
+terminal pack cut includes common history learned in earlier rounds.
 Empty-queue send/receive results are retried only while the accepted socket is
 still established, so a peer FIN or failed connection terminates the command
 instead of leaving Ush in a permanent poll loop.
