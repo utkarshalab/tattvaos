@@ -17,6 +17,7 @@ extern vcs_sync_unet_send,vcs_sync_unet_receive
 %define GIT_SERVER_RECEIVE      4
 %define GIT_SERVER_RESPOND      5
 %define GIT_SERVER_DONE         6
+%define GIT_NEGOTIATION_ROUNDS 64
 ; Holds command headers, one want, 64 SHA-256 haves, done, and pkt framing.
 %define GIT_REQUEST_CAP         8192
 %define GIT_RESPONSE_CAP        (VCS_WIRE_MAX_PAYLOAD+128)
@@ -32,6 +33,7 @@ server_progress: resq 1
 server_offset: resq 1
 server_length: resq 1
 server_seen_refs: resb 1
+server_negotiation_rounds: resb 1
 server_request: resb GIT_REQUEST_CAP
 server_response: resb GIT_RESPONSE_CAP
 
@@ -63,6 +65,7 @@ git_upload_server_begin:
  mov dword [server_result],VCS_OK
  mov qword [server_progress],0
  mov byte [server_seen_refs],0
+ mov byte [server_negotiation_rounds],0
  call vcs_sync_listen_begin
  test eax,eax
  js .begin_io
@@ -228,9 +231,12 @@ git_upload_server_step:
 .response_operation_ready:
  cmp qword [server_operation],3
  jne .response_haves_ready
+ cmp byte [server_negotiation_rounds],GIT_NEGOTIATION_ROUNDS
+ jae .corrupt
  call git_protocol_v2_retain_haves
  test eax,eax
  jnz .protocol_error
+ inc byte [server_negotiation_rounds]
 .response_haves_ready:
  mov qword [server_offset],0
  mov dword [server_state],GIT_SERVER_RESPOND
@@ -416,6 +422,7 @@ git_upload_server_rearm:
  mov qword [server_offset],0
  mov qword [server_length],0
  mov byte [server_seen_refs],0
+ mov byte [server_negotiation_rounds],0
  mov dword [server_state],GIT_SERVER_ACCEPT
  inc qword [server_progress]
  xor eax,eax
