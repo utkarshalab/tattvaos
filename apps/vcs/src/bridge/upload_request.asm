@@ -13,6 +13,8 @@ request_cursor: resq 1
 request_left: resq 1
 request_want: resb 32
 request_have: resb 64*32
+request_prior_have: resb 64*32
+request_have_view: resb 64*32
 request_shallow: resb 32
 request_operation: resq 1
 request_flags: resq 1
@@ -21,6 +23,8 @@ request_agent: resb 1
 request_done: resb 1
 request_want_set: resb 1
 request_have_count: resb 1
+request_prior_have_count: resb 1
+request_have_view_count: resb 1
 request_wait_done: resb 1
 request_peel: resb 1
 request_unborn: resb 1
@@ -106,6 +110,7 @@ main_ref_len equ $-main_ref
 section .text
 global git_protocol_v2_parse_request,git_protocol_v2_haves
 global git_protocol_v2_shallow
+global git_protocol_v2_clear_haves,git_protocol_v2_retain_haves
 ; RDI=complete request, RSI=length.
 ; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
@@ -436,6 +441,10 @@ git_protocol_v2_parse_request:
  mov rdx,[request_operation]
  cmp rdx,GIT_REQUEST_LS_REFS
  je .finish_ls
+ call build_have_view
+ test eax,eax
+ jnz .corrupt
+ mov rdx,[request_operation]
  cmp byte [request_done],1
  je .finish_done_ready
  cmp byte [request_have_count],0
@@ -494,8 +503,96 @@ git_protocol_v2_parse_request:
 ; Return the immutable have set from the most recent successful parse.
 ; RAX=32-byte record array, RDX=count (0..64).
 git_protocol_v2_haves:
- lea rax,[request_have]
- movzx edx,byte [request_have_count]
+ lea rax,[request_have_view]
+ movzx edx,byte [request_have_view_count]
+ ret
+
+; Clear connection-retained have state for a new native session.
+git_protocol_v2_clear_haves:
+ mov byte [request_prior_have_count],0
+ mov byte [request_have_view_count],0
+ xor eax,eax
+ ret
+
+; Promote the most recent deduplicated view for the next fetch round.
+git_protocol_v2_retain_haves:
+ movzx edx,byte [request_have_view_count]
+ cmp edx,64
+ ja .retain_haves_bad
+ lea rsi,[request_have_view]
+ lea rdi,[request_prior_have]
+ mov ecx,edx
+ shl ecx,5
+ rep movsb
+ mov [request_prior_have_count],dl
+ xor eax,eax
+ ret
+.retain_haves_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; Merge retained and current haves into one unique view. EAX=status.
+build_have_view:
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ movzx r12d,byte [request_prior_have_count]
+ cmp r12,64
+ ja .have_view_bad
+ lea rsi,[request_prior_have]
+ lea rdi,[request_have_view]
+ mov rcx,r12
+ shl rcx,5
+ rep movsb
+ mov [request_have_view_count],r12b
+ movzx r13d,byte [request_have_count]
+ xor r14d,r14d
+.have_view_current:
+ cmp r14,r13
+ jae .have_view_ok
+ mov rax,r14
+ shl rax,5
+ lea r15,[request_have+rax]
+ xor ebx,ebx
+.have_view_existing:
+ cmp rbx,r12
+ jae .have_view_append
+ mov rax,rbx
+ shl rax,5
+ lea rdi,[request_have_view+rax]
+ mov rsi,r15
+ mov ecx,32
+ repe cmpsb
+ je .have_view_next
+ inc rbx
+ jmp .have_view_existing
+.have_view_append:
+ cmp r12,64
+ jae .have_view_bad
+ mov rax,r12
+ shl rax,5
+ lea rdi,[request_have_view+rax]
+ mov rsi,r15
+ mov ecx,32
+ rep movsb
+ inc r12
+ mov [request_have_view_count],r12b
+.have_view_next:
+ inc r14
+ jmp .have_view_current
+.have_view_ok:
+ xor eax,eax
+ jmp .have_view_done
+.have_view_bad:
+ mov eax,VCS_ERR_CORRUPT
+.have_view_done:
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
  ret
 
 ; Return the single client shallow boundary from the most recent parse.
