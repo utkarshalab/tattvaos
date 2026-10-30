@@ -178,9 +178,12 @@ headers per command. Values are validated but currently have no semantic effect.
 Request parsing now recognizes protocol-v2 delimiter packets, validates command
 headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
 `fetch` requests with up to 64 ordered SHA-256 `have` lines and standard
-non-delta negotiation hints. Existing clients can therefore negotiate a
-follow-up fetch. The newest matching first-parent `have` cuts the returned pack
-to newer commits and snapshot objects; a tip match returns an empty valid pack.
+non-delta negotiation hints. Each standard `thin-pack`, `no-progress`,
+`ofs-delta`, and `include-tag` hint is accepted at most once; duplicates are
+rejected consistently with other one-shot fetch options. Existing clients can
+therefore negotiate a follow-up fetch. The newest matching first-parent `have`
+cuts the returned pack to newer commits and snapshot objects; a tip match
+returns an empty valid pack.
 Acknowledgment-only rounds retain their deduplicated have view for the same
 connection and merge later haves up to 64 unique identities; terminal `ready`
 or `done` responses therefore use common history learned across all rounds.
