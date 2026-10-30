@@ -31,6 +31,7 @@ request_unborn: resb 1
 request_want_ref: resb 1
 request_server_options: resb 1
 request_shallow_count: resb 1
+request_fetch_hints: resb 1
 request_filter_component: resb 64
 
 section .rodata
@@ -147,6 +148,7 @@ git_protocol_v2_parse_request:
  mov byte [request_want_ref],0
  mov byte [request_server_options],0
  mov byte [request_shallow_count],0
+ mov byte [request_fetch_hints],0
  call next_packet
  test eax,eax
  jnz .done
@@ -330,22 +332,22 @@ git_protocol_v2_parse_request:
  mov esi,thin_pack_line_len
  call packet_equal
  test eax,eax
- jz .argument
+ jz .fetch_hint_thin
  lea rdi,[no_progress_line]
  mov esi,no_progress_line_len
  call packet_equal
  test eax,eax
- jz .argument
+ jz .fetch_hint_no_progress
  lea rdi,[ofs_delta_line]
  mov esi,ofs_delta_line_len
  call packet_equal
  test eax,eax
- jz .argument
+ jz .fetch_hint_ofs_delta
  lea rdi,[include_tag_line]
  mov esi,include_tag_line_len
  call packet_equal
  test eax,eax
- jz .argument
+ jz .fetch_hint_include_tag
  lea rdi,[wait_done_line]
  mov esi,wait_done_line_len
  call packet_equal
@@ -365,6 +367,26 @@ git_protocol_v2_parse_request:
  test qword [request_flags],32
  jnz .corrupt
  or qword [request_flags],32
+ jmp .argument
+.fetch_hint_thin:
+ test byte [request_fetch_hints],1
+ jnz .corrupt
+ or byte [request_fetch_hints],1
+ jmp .argument
+.fetch_hint_no_progress:
+ test byte [request_fetch_hints],2
+ jnz .corrupt
+ or byte [request_fetch_hints],2
+ jmp .argument
+.fetch_hint_ofs_delta:
+ test byte [request_fetch_hints],4
+ jnz .corrupt
+ or byte [request_fetch_hints],4
+ jmp .argument
+.fetch_hint_include_tag:
+ test byte [request_fetch_hints],8
+ jnz .corrupt
+ or byte [request_fetch_hints],8
  jmp .argument
 .fetch_filter_check:
  call parse_combine_filter
