@@ -202,8 +202,9 @@ boundaries are canonically validated and moved using the same absolute or
 relative rules as a `done` fetch. A terminal `done` request omits acknowledgments
 and proceeds to pack generation.
 `ls-refs` handles `symrefs`, `peel`, `unborn`, and unioned `ref-prefix`
-arguments explicitly; duplicate and unknown queries are rejected instead of
-being silently ignored.
+arguments explicitly. Prefixes are reduced to their `HEAD`/main match class;
+semantically redundant prefixes, duplicate options, and unknown queries are
+rejected instead of being silently ignored.
 Clients may fetch either `HEAD` or `refs/heads/main` directly with `want-ref`;
 one request may name either or both unique refs. The response returns every
 requested name and canonical SHA-256 identity in a `wanted-refs` section before
