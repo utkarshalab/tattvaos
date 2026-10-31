@@ -8,6 +8,7 @@
 ;   ufont_open_face(arena, data, length, i) -> a collection's face i (a single
 ;                                              font: i 0) or 0
 ;   (a WOFF or WOFF2 font is unpacked into the arena first)
+;   ufont_set_variations(font, settings, n) -> a variable font's axes set (sfnt/var.asm)
 ;   ufont_faces(data, length)               -> the faces in it (1 for a single
 ;                                              font, 0 for neither)
 ;   ufont_glyph(font, code point)           -> glyph id (0: none)
@@ -48,6 +49,9 @@ extern ufl_cff_open
 extern ufl_cff_outline
 extern ufl_woff_unpack
 extern ufl_woff2_unpack
+extern ufl_var_init
+extern ufl_var_advance
+extern ufl_var_outline
 
 %define UFONT_MAX_DEPTH  6
 %define UFONT_MAX_POINTS 16384
@@ -206,6 +210,14 @@ ufont_open_face:
     je .kern
     cmp eax, 'CFF '
     je .cff
+    cmp eax, 'fvar'
+    je .fvar
+    cmp eax, 'avar'
+    je .avar
+    cmp eax, 'gvar'
+    je .gvar
+    cmp eax, 'HVAR'
+    je .hvar
     cmp eax, 'cmap'
     jne .next_table
     mov [rbx + UfontFont_cmapt], rdx
@@ -275,6 +287,22 @@ ufont_open_face:
 .cff:
     mov [rbx + UfontFont_cff], rdx
     mov [rbx + UfontFont_cff_len], rcx
+    jmp .next_table
+.fvar:
+    mov [rbx + UfontFont_fvar], rdx
+    mov [rbx + UfontFont_fvar_len], rcx
+    jmp .next_table
+.avar:
+    mov [rbx + UfontFont_avar], rdx
+    mov [rbx + UfontFont_avar_len], rcx
+    jmp .next_table
+.gvar:
+    mov [rbx + UfontFont_gvar], rdx
+    mov [rbx + UfontFont_gvar_len], rcx
+    jmp .next_table
+.hvar:
+    mov [rbx + UfontFont_hvar], rdx
+    mov [rbx + UfontFont_hvar_len], rcx
 .next_table:
     add r15, 16
     jmp .table
@@ -331,6 +359,7 @@ ufont_open_face:
     call uf_pick_cmap
     test eax, eax
     jz .bad
+    call ufl_var_init
     mov rax, rbx
     jmp .out
 .bad:
@@ -584,6 +613,7 @@ ufont_glyph:
 ; ----------------------------------------------------------------------------
 global ufont_advance
 ufont_advance:
+    mov r8d, esi
     mov ecx, [rdi + UfontFont_nhm]
     dec ecx
     cmp esi, ecx
@@ -592,7 +622,13 @@ ufont_advance:
 .have:
     mov rdx, [rdi + UfontFont_hmtx]
     BE16 eax, [rdx + rsi * 4]
+    cmp dword [rdi + UfontFont_varied], 0
+    jne .varied
     ret
+.varied:
+    mov esi, r8d                        ; HVAR's delta
+    mov edx, eax
+    jmp ufl_var_advance
 
 ; ----------------------------------------------------------------------------
 ; ufont_extents — rdi = UfontFont*, esi = glyph -> eax 1 (0: no such glyph),
@@ -897,6 +933,11 @@ ufont_outline:
 uf_decode:
     cmp qword [rdi + UfontFont_glyf], 0
     je ufl_cff_outline                  ; CFF outlines
+    cmp dword [rdi + UfontFont_varied], 0
+    je .static
+    cmp qword [rdi + UfontFont_gvar], 0
+    jne ufl_var_outline                 ; varied by gvar
+.static:
     push rbx
     sub rsp, OL_SIZE
     mov [rsp + OL_FONT], rdi
