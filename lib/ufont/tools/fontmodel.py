@@ -257,7 +257,17 @@ class FontSet:
         adv = face.advance(gid) * s
         return adv, (face.outline(gid, s) if outline else [])
 
-    def shape_fn(self, font, cps, size):
+    def bidi_fn(self, cps, direction):
+        """ugfx's bidi callback (ufont_svg_bidi): -> (levels (None: removed by X9), paragraph
+        level) for direction 0 left to right, 1 right to left."""
+        import bidi
+        if not hasattr(self, '_bidi'):
+            self._bidi = bidi.from_data()
+        cls, br = self._bidi
+        return bidi.resolve([cls(u) for u in cps], direction, [br(u) for u in cps])
+
+    def shape_fn(self, font, cps, size, direction=None):
+        """direction: 0 / 1 a bidi run's (the parts in visual order), None the scripts'."""
         import shapemodel as sm
         from fontTools import unicodedata as fud
         family, weight, style = font
@@ -278,7 +288,8 @@ class FontSet:
         for sc in strong:
             last = sc if sc is not None else last
             scripts.append(last)
-        out, a = [], 0
+        parts, a = [], 0
+        d = None if direction is None else ('rtl' if direction else 'ltr')
         while a < len(cps):
             b = a + 1
             while b < len(cps) and faces[b] is faces[a] and scripts[b] == scripts[a]:
@@ -286,7 +297,10 @@ class FontSet:
             face = faces[a]
             s = size / face.upem
             k = self.faces.index(face)
-            for g, cl, xa, ya, xo, yo in sm.shape(face.shaper(), cps[a:b], script=scripts[a]):
-                out.append((0x80000000 | (k << 16) | g, a + cl, xa * s, xo * s, 0.0 - yo * s))
+            parts.append([(0x80000000 | (k << 16) | g, a + cl, xa * s, xo * s, 0.0 - yo * s)
+                          for g, cl, xa, ya, xo, yo in sm.shape(face.shaper(), cps[a:b], script=scripts[a],
+                                                               direction=d)])
             a = b
-        return out
+        if direction:
+            parts.reverse()                     # right to left: the last part leftmost
+        return [g for p in parts for g in p]
