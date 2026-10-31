@@ -850,6 +850,33 @@ ufl_arabic_setup_masks:
     inc ebx
     jmp .char
 .masks:
+    ; Mongolian (through the Universal Shaping Engine): free variation
+    ; selectors take their base's form
+    mov eax, [r15 + S_SCRIPT]
+    imul eax, eax, 12
+    lea rcx, [rel ufl_ucd_scripts]
+    cmp dword [rcx + rax], 'Mong'
+    jne .forms
+    mov ebx, 1
+.fvs:
+    cmp ebx, [r15 + S_LEN]
+    jae .forms
+    mov rax, rbx
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    mov ecx, [rax + GI_CP]
+    cmp ecx, 0x180F
+    je .fvs_copy
+    sub ecx, 0x180B
+    cmp ecx, 2
+    ja .fvs_next
+.fvs_copy:
+    mov cl, [rax - 32 + GI_CAT]
+    mov [rax + GI_CAT], cl
+.fvs_next:
+    inc ebx
+    jmp .fvs
+.forms:
     xor ebx, ebx
 .mask:
     cmp ebx, [r15 + S_LEN]
