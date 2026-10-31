@@ -10,7 +10,9 @@
 ; is not normalized. Spaces the font lacks become its space glyph (widened
 ; later); a non-breaking hyphen it lacks, its hyphen. The Indic shaper
 ; decomposes every character first (no short cut), keeps U+0931 / U+09DC /
-; U+09DD / U+0B94 whole and composes nothing onto a mark. The Hangul
+; U+09DD / U+0B94 whole and composes nothing onto a mark; the Khmer shaper
+; also takes no short cut, splits U+17BE .. U+17C0 / U+17C4 / U+17C5 into
+; U+17C1 + the vowel and composes nothing onto a mark. The Hangul
 ; shaper always takes the short way and recomposes nothing.
 ;
 ;   ufl_norm_run                  the buffer normalized; GI_GLYPH set for every record
@@ -196,6 +198,8 @@ ufl_norm_variation:
 
 ; the shaper's decomposition: edi = ab -> eax 1 / 0, edx = a, ecx = b
 nm_decompose:
+    cmp byte [r15 + S_SHAPER], 6
+    je .khmer
     cmp byte [r15 + S_SHAPER], 1
     jne ufl_uc_decompose
     cmp edi, 0x0931
@@ -210,13 +214,31 @@ nm_decompose:
 .no:
     xor eax, eax
     ret
+.khmer:
+    ; split vowels without a Unicode decomposition: U+17C1 + the vowel
+    cmp edi, 0x17BE
+    jb ufl_uc_decompose
+    cmp edi, 0x17C0
+    jbe .split
+    cmp edi, 0x17C4
+    jb ufl_uc_decompose
+    cmp edi, 0x17C5
+    ja ufl_uc_decompose
+.split:
+    mov edx, 0x17C1
+    mov ecx, edi
+    mov eax, 1
+    ret
 
 ; the shaper's composition: edi = a, esi = b -> eax = ab, 0 none
 nm_compose:
     cmp byte [r15 + S_SHAPER], 3
     je ufl_hebrew_compose
+    cmp byte [r15 + S_SHAPER], 6
+    je .mark_first
     cmp byte [r15 + S_SHAPER], 1
     jne ufl_uc_compose
+.mark_first:
     push rdi
     push rsi
     sub rsp, 8
@@ -228,6 +250,8 @@ nm_compose:
     pop rdi
     test eax, eax
     jnz .no
+    cmp byte [r15 + S_SHAPER], 6
+    je ufl_uc_compose
     cmp edi, 0x09AF
     jne ufl_uc_compose
     cmp esi, 0x09BC
@@ -450,8 +474,10 @@ ufl_norm_run:
     push r12
     push r13
     push r14
-    xor ebp, ebp                        ; shortest unless the Indic shaper
+    xor ebp, ebp                        ; shortest unless the Indic or Khmer shaper
     cmp byte [r15 + S_SHAPER], 1
+    je .mode
+    cmp byte [r15 + S_SHAPER], 6
     je .mode
     inc ebp
 .mode:
