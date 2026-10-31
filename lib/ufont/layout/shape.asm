@@ -12,7 +12,7 @@
 ; Left to right, one run. The steps: Unicode properties and grapheme
 ; clusters; the plan (the script's tags in the font, its features; the
 ; Indic shaper for the nine Indic scripts unless the font has only DFLT /
-; latn for them; the Arabic, Hebrew, Thai / Lao and Hangul shapers);
+; latn for them; the Arabic, Hebrew, Thai / Lao, Hangul and Khmer shapers);
 ; Indic vowel constraints; normalization against the font; feature masks
 ; (fractions around U+2044, Indic syllables later); GSUB; advances; spaces
 ; the font lacks widened; GPOS (or the kern table when GPOS has no kerning
@@ -76,6 +76,9 @@ extern ufl_hangul_override_features
 extern ufl_hangul_data_create
 extern ufl_hangul_preprocess
 extern ufl_hangul_setup_masks
+extern ufl_khmer_collect_features
+extern ufl_khmer_override_features
+extern ufl_khmer_data_create
 extern ufl_fb_recategorize
 extern ufl_fb_position
 extern ufl_ucd_mirror
@@ -267,6 +270,11 @@ ufont_shape:
     mov byte [r15 + S_SHAPER], 3
     jmp .plan
 .thai:
+    cmp eax, 'Khmr'
+    jne .hangul
+    mov byte [r15 + S_SHAPER], 6
+    jmp .plan
+.hangul:
     cmp eax, 'Hang'
     jne .thai_script
     mov byte [r15 + S_SHAPER], 5
@@ -365,8 +373,13 @@ ufont_shape:
     jmp .common
 .hangul_features:
     cmp byte [r15 + S_SHAPER], 5
-    jne .common
+    jne .khmer_features
     call ufl_hangul_collect_features
+    jmp .common
+.khmer_features:
+    cmp byte [r15 + S_SHAPER], 6
+    jne .common
+    call ufl_khmer_collect_features
 .common:
     mov edi, 'Buzz'
     xor esi, esi
@@ -394,8 +407,13 @@ ufont_shape:
     jmp .compile
 .hangul_override:
     cmp byte [r15 + S_SHAPER], 5
-    jne .compile
+    jne .khmer_override
     call ufl_hangul_override_features
+    jmp .compile
+.khmer_override:
+    cmp byte [r15 + S_SHAPER], 6
+    jne .compile
+    call ufl_khmer_override_features
 .compile:
     call ufl_map_compile
     test eax, eax
@@ -438,9 +456,14 @@ ufont_shape:
     jmp .mirror
 .data_hangul:
     cmp eax, 5
-    jne .mirror
+    jne .data_khmer
     call ufl_hangul_data_create
     call ufl_hangul_preprocess
+    jmp .mirror
+.data_khmer:
+    cmp eax, 6
+    jne .mirror
+    call ufl_khmer_data_create
 .mirror:
     cmp byte [r15 + S_RTL], 0
     je .normalize
@@ -460,8 +483,13 @@ ufont_shape:
     jmp .gsub
 .masks_hangul:
     cmp eax, 5
-    jne .gsub
+    jne .masks_khmer
     call ufl_hangul_setup_masks
+    jmp .gsub
+.masks_khmer:
+    cmp eax, 6
+    jne .gsub
+    call ufl_indic_setup_masks          ; the categories (the shared table)
 .gsub:
     call sh_plan_flags
     test byte [r15 + S_PFLAGS], PF_FBMARKS
@@ -551,11 +579,13 @@ ufont_shape:
     je .zero_marks
     call sh_reverse
 .zero_marks:
-    ; mark advances zeroed (not Indic, not Hangul); left to right, when the
-    ; plan adjusts, their offsets take it back
+    ; mark advances zeroed (not Indic, Hangul or Khmer); left to right, when
+    ; the plan adjusts, their offsets take it back
     cmp byte [r15 + S_SHAPER], 1
     je .ignorables
     cmp byte [r15 + S_SHAPER], 5
+    je .ignorables
+    cmp byte [r15 + S_SHAPER], 6
     je .ignorables
     xor r8d, r8d
     test byte [r15 + S_PFLAGS], PF_ADJUST
@@ -1326,11 +1356,13 @@ sh_plan_flags:
     ret
 
 ; sh_fallback_position -> ZF clear when the shaper positions by fallback (not
-;   Indic, not Thai); eax kept
+;   Indic, Thai or Khmer); eax kept
 sh_fallback_position:
     cmp byte [r15 + S_SHAPER], 1
     je .out
     cmp byte [r15 + S_SHAPER], 4
+    je .out
+    cmp byte [r15 + S_SHAPER], 6
 .out:
     ret
 
