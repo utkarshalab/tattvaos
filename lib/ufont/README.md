@@ -58,7 +58,7 @@ lib/ufont/
 │   ├── bidi.py           ← the bidirectional algorithm, modelled on UAX #9
 │   ├── cff.py            ← CFF outlines modelled (sfnt/cff.asm follows it)
 │   ├── brotlimodel.py    ← Brotli decompression modelled (sfnt/brotli.asm follows it)
-│   ├── brotli_table.py   ← generates sfnt/brotli_tables.asm, include/brotli_dict.bin
+│   ├── brotli_table.py   ← generates sfnt/brotli_tables.asm, include/brotli_dict.dat
 │   ├── syllable.py       ← syllable grammars compiled to automata
 │   ├── ucd_table.py      ← generates layout/ucd.asm, ucd_data.py
 │   └── indic_table.py    ← generates layout/indic_table.asm, indic_data.py
@@ -122,7 +122,7 @@ Brotli (`sfnt/brotli.asm`) is complete for decoding: window sizes,
 metadata, uncompressed and compressed meta-blocks, block switching,
 context modes and maps, simple and complex prefix codes, the distance
 codes and the static dictionary with its 121 transforms - the dictionary
-(`include/brotli_dict.bin`) and the tables are RFC 7932's, checked against
+(`include/brotli_dict.dat`) and the tables are RFC 7932's, checked against
 the CRC-32 values the RFC gives.
 
 ### Shaping (layout/shape.asm)
