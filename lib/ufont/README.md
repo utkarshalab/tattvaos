@@ -25,7 +25,8 @@ lib/ufont/
 ├── include/
 │   └── ufont.inc         ← layouts: UfontFont, UfontSet / UfontFace, UfontStd
 ├── sfnt/
-│   └── sfnt.asm          ← TrueType reading: tables, cmap, advances, metrics, outlines
+│   ├── sfnt.asm          ← TrueType / OpenType reading: tables, cmap, advances, metrics, outlines
+│   └── cff.asm           ← CFF outlines: INDEXes, DICTs, Type 2 charstrings
 ├── match/
 │   └── fontset.asm       ← font sets: CSS family lists, weight / style; ugfx's font callback
 ├── layout/               ← text shaping
@@ -51,12 +52,14 @@ lib/ufont/
 │   ├── shapemodel.py     ← shaping modelled on HarfBuzz (indic.py: the Indic shaper,
 │   │                       arabic.py: the Arabic and Hebrew shapers)
 │   ├── bidi.py           ← the bidirectional algorithm, modelled on UAX #9
+│   ├── cff.py            ← CFF outlines modelled (sfnt/cff.asm follows it)
 │   ├── syllable.py       ← syllable grammars compiled to automata
 │   ├── ucd_table.py      ← generates layout/ucd.asm, ucd_data.py
 │   └── indic_table.py    ← generates layout/indic_table.asm, indic_data.py
 └── tests/host/
     ├── host_font.asm     ← host tool: glyphs, metrics, matching
     ├── font_check.py     ← checks host_font against fontmodel
+    ├── cff_fonts.py      ← CFF test fonts made from the shipped ones
     ├── host_shape.asm    ← host tool: shaping
     ├── shape_check.py    ← checks host_shape against shapemodel (and it against HarfBuzz)
     ├── host_bidi.asm     ← host tool: bidirectional levels and order
@@ -88,10 +91,15 @@ format 12 (preferred) or 4 on a Unicode encoding; simple glyphs (flag
 repeats, short and long coordinates, implied on-curve points between
 off-curve ones) and composite glyphs (offsets, a scale, x and y scales or
 a 2 x 2 matrix, scaled offsets when flagged; point-matched components at
-offset 0), six levels deep at most, 16384 points per glyph at most; the
-layout tables GDEF, GSUB, GPOS and kern, and cmap format 14 (variation
-sequences) for shaping. Not read: hinting instructions, CFF outlines,
-variations, colour glyphs.
+offset 0), six levels deep at most, 16384 points per glyph at most; CFF
+outlines in OpenType fonts ('OTTO'): the Top DICT's CharStrings and
+Private DICT (local Subrs), or for a CID-keyed font the FDArray and
+FDSelect (formats 0 and 3), Type 2 charstrings - all drawing operators
+(cubic curves, the four flexes), stems and hint masks skipped, the width
+dropped, local and global subroutines 10 deep; the layout tables GDEF,
+GSUB, GPOS and kern, and cmap format 14 (variation sequences) for
+shaping. Not read: hinting, CFF2 and variations, seac accents, colour
+glyphs.
 
 ### Shaping (layout/shape.asm)
 
@@ -208,6 +216,10 @@ subsetting command and the licences (SIL OFL 1.1): `fonts/README.md`.
   the advance and the outline's verbs and points identical to fontTools'
   reading through `tools/fontmodel.py`;
 - the metrics;
+- the same for OpenType fonts with CFF outlines made from the shipped ones
+  (`tests/host/cff_fonts.py`: plain, CID-keyed, subroutinized with hints,
+  both), the model `tools/cff.py` itself equal to fontTools' charstring
+  drawing on them;
 - 567 matching queries (family lists with generic names, aliases, quotes,
   case and unknown names, weights 100 to 900, normal / italic / oblique);
 - truncated and corrupted fonts never crash the reader.
@@ -246,4 +258,4 @@ calls.
   (L1 per line).
 - The Arabic stch feature (Syriac abbreviation marks); the Universal
   Shaping Engine, Thai / Lao, Khmer and Myanmar shapers.
-- CFF outlines, WOFF / WOFF2, font collections; variable fonts.
+- CFF2, WOFF / WOFF2, font collections; variable fonts.
