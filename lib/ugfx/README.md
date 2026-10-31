@@ -306,15 +306,20 @@ glyph's advance and outline at a size) and optionally a shaper;
 `ugfx_svg_parse_ex` takes the image decoder alone. Without them images
 and text draw nothing. The font callback also answers code point -1 with
 the font's ascent and descent (for baselines and decorations; 0.8 / 0.2
-em when it does not know). With a shaper (`shape_fn`) a text node's
-characters are shaped in runs - a character with its own x / y / dx / dy
-/ rotate starts a new run - and placed glyph by glyph (the shaper's
-advances and offsets, spacing per character a glyph ends) in the order
-the shaper returns them - visual order, so a right-to-left run (Arabic,
-Hebrew) is drawn left to right from its first character's position; its
-glyphs come back to the font callback as keys (bit 31 set). Runs are
-placed left to right as they come: there is no bidirectional reordering
-between them yet. Without a shaper each character is placed on its own.
+em when it does not know). With a shaper (`shape_fn`) the characters
+gather into segments - across text nodes and tspans, up to an absolute x
+or y, a textPath's start or end, a group inside the text or the text's
+end. A segment gets its bidirectional levels from the bidi callback
+(`bidi_fn`, in the `direction` of its first character's element; without
+one every run is at that direction), is split into runs (an element, a
+level, a character with its own x / y / dx / dy / rotate each), and each
+run is shaped in its direction and the runs placed in visual order (L2
+over the runs; the shaper returns a right-to-left run's glyphs in visual
+order), glyph by glyph: the shaper's advances and offsets, spacing for
+the characters of a glyph's cluster. Its glyphs come back to the font
+callback as keys (bit 31 set). `direction="rtl"` also makes text-anchor
+start the right end (end the left). Without a shaper each character is
+placed on its own.
 
 Static SVG 1.1 (and the SVG 2 / CSS pieces documents use):
 
