@@ -1891,16 +1891,18 @@ def normalize(b, font, shaper=None):
 # ---------------------------------------------------------------- the shaper
 def pick_shaper(script, gsub_script):
     """HarfBuzz's shaper choice: the nine Indic scripts through the Indic shaper unless the font's
-    GSUB only has DFLT / latn for them; Arabic (and Syriac when the font has a script for it) through
-    the Arabic shaper; Hebrew through the Hebrew one; Thai and Lao through the Thai one; Hangul through the Hangul one; Khmer through the Khmer one; Myanmar through the Myanmar one
-    unless the font has only DFLT, latn or the old mymr script; everything
-    else the default shaper (None)."""
+    GSUB only has DFLT / latn for them (its xxx3 script: the Universal Shaping Engine); the Universal
+    Shaping Engine's scripts through it unless the font has only DFLT / latn; Arabic (and Syriac
+    when the font has a script for it) through the Arabic shaper; Hebrew, Thai and Lao, Hangul and
+    Khmer through their own; Myanmar through its own unless the font has only DFLT, latn or the old
+    mymr script; everything else the default shaper (None)."""
     if script in ('Deva', 'Beng', 'Guru', 'Gujr', 'Orya', 'Taml', 'Telu', 'Knda', 'Mlym'):
         tag = gsub_script.ScriptTag if gsub_script is not None else None
         if tag in ('DFLT', 'latn'):
             return None
         if tag is not None and tag[3] == '3':
-            raise NotImplementedError('the Universal Shaping Engine (deva / dev3 fonts)')
+            from use import UseShaper
+            return UseShaper(script)
         from indic import IndicShaper
         return IndicShaper(script)
     if script in ('Arab', 'Syrc'):
@@ -1912,6 +1914,13 @@ def pick_shaper(script, gsub_script):
     if script == 'Hebr':
         from arabic import HebrewShaper
         return HebrewShaper(script)
+    from use import SCRIPTS as USE_SCRIPTS
+    if script in USE_SCRIPTS:
+        tag = gsub_script.ScriptTag if gsub_script is not None else None
+        if tag in ('DFLT', 'latn'):
+            return None
+        from use import UseShaper
+        return UseShaper(script)
     if script == 'Mymr':
         tag = gsub_script.ScriptTag if gsub_script is not None else None
         if tag in ('DFLT', 'latn', 'mymr'):
