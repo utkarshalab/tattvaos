@@ -9,6 +9,8 @@ from composite glyphs, Greek, Cyrillic, characters a face lacks, sizes,
 transforms, decorations, textPath; shaping: ligatures, kerning, combining
 marks, Devanagari conjuncts, reph and matras, the other Indic scripts,
 Arabic joining, lam-alef and harakat, Hebrew points, right to left,
+bidirectional text: mixed runs reordered, numbers and brackets, the
+direction property, embeddings and isolates,
 mixed scripts falling back
 between faces, positioned characters splitting runs), is decoded by Canvas
 with the fonts (host_decode ... <font directory>) and compared with the
@@ -117,6 +119,11 @@ DOCS = [
                            '<text x="4" y="60" font-size="22" font-family="serif">בְּרֵאשִׁית שָׁלוֹם</text>'
                            '<text x="4" y="90" font-size="18" font-weight="bold">(סוגריים) [אב] 2026</text>'
                            '<text x="4" y="114" font-size="14">mixed: עברית العربية हिन्दी Latin</text>')),
+    ("bidi", svg('<text x="4" y="20" font-size="15">Hello שלום (עולם) world 2026!</text>'
+                 '<text x="4" y="42" font-size="15">العدد 123 و (٤٥٦) [ok]</text>'
+                 '<text x="236" y="64" font-size="15" direction="rtl">שלום abc <tspan fill="#a00">def</tspan> 7.5%</text>'
+                 '<text x="120" y="86" font-size="14" text-anchor="middle" direction="rtl">‏(مرحبا) a→b</text>'
+                 '<text x="4" y="108" font-size="13">A&#x202B;B ג&#x202C;C &#x2067;ד e&#x2069; f</text>')),
 ]
 
 
@@ -134,7 +141,7 @@ def main():
             w, h = own_size(text)
             ctx_check.W, ctx_check.H, ctx_check.BG = w, h, 0
             side = float(max(w, h))
-            doc = svgmodel.parse(text, farbfeld, fonts.font_fn, fonts.shape_fn)
+            doc = svgmodel.parse(text, farbfeld, fonts.font_fn, fonts.shape_fn, fonts.bidi_fn)
             cmds = expected_calls(doc, 0xFF000000, (w - side) * 0.5, (h - side) * 0.5, side)
             sp, raw = os.path.join(d, "c.bin"), os.path.join(d, "c.raw")
             open(sp, "wb").write(ctx_check.encode(cmds))
