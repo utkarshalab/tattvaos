@@ -16,7 +16,8 @@ equal the model's. Noto Sans Devanagari altered four ways (only the old
 paths; Noto Sans, Noto Sans Arabic, Noto Sans Hebrew and Noto Sans
 Devanagari without GPOS, GSUB or GDEF (or all three) take the fallbacks -
 marks placed by combining class, Arabic forms and ligatures from
-presentation forms, the kern table. When uharfbuzz is installed the model is also compared with
+presentation forms, the kern table. Some cases are shaped in a direction asked for (as bidi runs are),
+left to right or right to left against their script. When uharfbuzz is installed the model is also compared with
 HarfBuzz on the same cases (the model is meant to be HarfBuzz step for
 step). Truncated and corrupted fonts must not crash host_shape.
 
@@ -174,11 +175,18 @@ def general(rng, cmap, marks):
     return cps
 
 
+def split(case):
+    """A case: code points, or (code points, 'ltr' / 'rtl') shaped in that direction."""
+    return (case, None) if isinstance(case, list) else case
+
+
 def run(tool, font, cases, d):
     src, out = os.path.join(d, "in.bin"), os.path.join(d, "out.bin")
     blob = struct.pack("<I", len(cases))
-    for cps in cases:
-        blob += struct.pack("<III", 0, 0, len(cps)) + struct.pack(f"<{len(cps)}I", *cps)
+    for case in cases:
+        cps, direction = split(case)
+        blob += struct.pack("<IIII", 0, 0, {None: 0, "ltr": 1, "rtl": 2}[direction], len(cps))
+        blob += struct.pack(f"<{len(cps)}I", *cps)
     open(src, "wb").write(blob)
     r = subprocess.run([tool, font, src, out], capture_output=True, timeout=600)
     if r.returncode:
@@ -202,9 +210,12 @@ def harfbuzz(path, cases):
     face = hb.Face(hb.Blob.from_file_path(path))
     font = hb.Font(face)
     out = []
-    for cps in cases:
+    for case in cases:
+        cps, direction = split(case)
         buf = hb.Buffer()
         buf.add_codepoints(cps)
+        if direction:
+            buf.direction = direction
         buf.guess_segment_properties()
         hb.shape(font, buf, {})
         out.append([(i.codepoint, i.cluster, p.x_advance, p.y_advance, p.x_offset, p.y_offset)
@@ -262,11 +273,11 @@ def stripped(font_dir, d):
 def check_font(tool, path, name, cases, d):
     font = sm.Font(path)
     status, got = run(tool, path, cases, d)
-    want = [sm.shape(font, cps, script=sm.guess_script(cps)) for cps in cases]
+    want = [sm.shape(font, cps, script=sm.guess_script(cps), direction=dr) for cps, dr in map(split, cases)]
     if got is None:
         bad = [f"host_shape exit {status}"]
     else:
-        bad = [(cps, g, w) for cps, g, w in zip(cases, got, want) if (g and [tuple(x) for x in g]) != w]
+        bad = [(split(c)[0], g, w) for c, g, w in zip(cases, got, want) if (g and [tuple(x) for x in g]) != w]
     note = ""
     if hb is not None:
         hbres = harfbuzz(path, cases)
@@ -332,6 +343,13 @@ def main():
                     cases.append(devanagari(rng))
                 else:
                     cases.append(general(rng, cmap, marks))
+            # some shaped in a direction asked for (a bidi run's), with brackets and digits
+            common = [0x28, 0x29, 0x5B, 0x5D, 0x31, 0x32, 0x20, 0x2E, 0x2044, 0x0660, 0x0661, 0x1F1EE, 0x1F1F3]
+            plain = list(cases)
+            for _ in range(per_font // 5):
+                cps = list(rng.choice(plain)) if rng.random() < 0.7 else []
+                cps += [rng.choice(common) for _ in range(rng.randint(0 if cps else 1, 4))]
+                cases.append((cps, rng.choice(("ltr", "rtl"))))
             total += 1
             failed += not check_font(tool, path, name, cases, d)
         for path in altered(font_dir, d):
