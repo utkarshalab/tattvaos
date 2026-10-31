@@ -3,7 +3,7 @@
 ; =============================================================================
 ; Host tool for tests/host/font_check.py (development machine only).
 ;
-;   host_font o <font.ttf> <in.bin> <out.bin>
+;   host_font o[i] <font.ttf> <in.bin> <out.bin>   (i: a collection's face, a digit)
 ;       in:  f64 size, f64 size2, u32 n, u32 code points[n]
 ;       out: u32 status (0, 1 font refused), u32 units per em, i32 ascent,
 ;            i32 descent; then per code point: u32 glyph, u32 advance,
@@ -34,6 +34,7 @@
 
 extern ugfx_path_init
 extern ufont_open
+extern ufont_open_face
 extern ufont_glyph
 extern ufont_advance
 extern ufont_metrics
@@ -81,7 +82,14 @@ _start:
     js read_fail
     lea rdi, [rel arena]
     mov rsi, rax
-    call ufont_open
+    xor ecx, ecx                        ; the face: o0 .. o9
+    movzx eax, byte [rbx + 1]
+    sub eax, '0'
+    cmp eax, 9
+    ja .face
+    mov ecx, eax
+.face:
+    call ufont_open_face
     mov rbx, rax
     xor eax, eax
     test rbx, rbx
