@@ -109,6 +109,10 @@ class Face:
             elif uni and t.format == 4 and cmap is None:
                 cmap = t
         self.cmap = cmap.cmap
+        self.cff = None
+        if 'CFF ' in self.font:
+            import cff
+            self.cff = cff.CFF(self.font.getTableData('CFF '))
 
     def glyph(self, cp):
         name = self.cmap.get(cp) if cp >= 0 else None
@@ -125,6 +129,17 @@ class Face:
 
     def outline(self, gid, s):
         out = []
+        if self.cff is not None:
+            # CFF: font units to the size, y down
+            for c in self.cff.outline(gid):
+                if c[0] == 'close':
+                    out.append(c)
+                    continue
+                pts = []
+                for k in range(1, len(c), 2):
+                    pts += [c[k] * s, 0.0 - c[k + 1] * s]
+                out.append((c[0], *pts))
+            return out
         self._emit(gid, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], s, out, 0)
         return out
 
