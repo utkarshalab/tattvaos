@@ -37,7 +37,7 @@ SHORT = [(0, 0), (1, 0), (2, 0), (3, 0), (0, -1), (0, 1), (0, -2), (0, 2), (0, -
 def dictionary():
     global _DICT
     if _DICT is None:
-        _DICT = open(os.path.join(HERE, '..', 'include', 'brotli_dict.bin'), 'rb').read()
+        _DICT = open(os.path.join(HERE, '..', 'include', 'brotli_dict.dat'), 'rb').read()
     return _DICT
 
 
