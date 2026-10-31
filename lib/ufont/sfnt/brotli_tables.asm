@@ -12,7 +12,7 @@
 ;                                 3..11 omit first 1..9, 12..20 omit last 1..9,
 ;                                 u16 suffix at, u8 suffix length, u8 0) into
 ;   ufl_br_pool                   the prefixes and suffixes
-;   ufl_br_dict                   the static dictionary (include/brotli_dict.bin)
+;   ufl_br_dict                   the static dictionary (include/brotli_dict.dat)
 ; =============================================================================
 
 section .rodata
@@ -588,5 +588,5 @@ ufl_br_pool:
 align 8
 global ufl_br_dict
 ufl_br_dict:
-    incbin "brotli_dict.bin"
+    incbin "brotli_dict.dat"
 
