@@ -12,7 +12,8 @@
 ; decomposes every character first (no short cut), keeps U+0931 / U+09DC /
 ; U+09DD / U+0B94 whole and composes nothing onto a mark; the Khmer shaper
 ; also takes no short cut, splits U+17BE .. U+17C0 / U+17C4 / U+17C5 into
-; U+17C1 + the vowel and composes nothing onto a mark. The Hangul
+; U+17C1 + the vowel and composes nothing onto a mark; the Myanmar shaper
+; takes no short cut either. The Hangul
 ; shaper always takes the short way and recomposes nothing.
 ;
 ;   ufl_norm_run                  the buffer normalized; GI_GLYPH set for every record
@@ -474,10 +475,12 @@ ufl_norm_run:
     push r12
     push r13
     push r14
-    xor ebp, ebp                        ; shortest unless the Indic or Khmer shaper
+    xor ebp, ebp                        ; shortest unless Indic, Khmer or Myanmar
     cmp byte [r15 + S_SHAPER], 1
     je .mode
     cmp byte [r15 + S_SHAPER], 6
+    je .mode
+    cmp byte [r15 + S_SHAPER], 7
     je .mode
     inc ebp
 .mode:
