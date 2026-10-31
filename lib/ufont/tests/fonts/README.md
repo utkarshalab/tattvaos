@@ -12,6 +12,24 @@ only; not installed).
 | NotoSansLao-Regular.ttf | Noto Sans Lao (shape_check: the Thai shaper for Lao) | SIL OFL 1.1 — `OFL-Noto.txt` |
 | NotoSansKhmer-Regular.ttf | Noto Sans Khmer (shape_check: the Khmer shaper) | SIL OFL 1.1 — `OFL-Noto.txt` |
 | NotoSansMyanmar-Regular.ttf | Noto Sans Myanmar (shape_check: the Myanmar shaper, and retagged mymr for the default one) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansSinhala-Regular.ttf | Sinhala (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSerifTibetan-Regular.ttf | Tibetan (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansJavanese-Regular.ttf | Javanese (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansBalinese-Regular.ttf | Balinese (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansTaiTham-Regular.ttf | Tai Tham (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansMongolian-Regular.ttf | Mongolian (Arabic-style joining, variation selectors) (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansNKo-Regular.ttf | N'Ko (right to left, joining) (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansAdlam-Regular.ttf | Adlam (right to left, joining) (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansChakma-Regular.ttf | Chakma (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansBatak-Regular.ttf | Batak (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansBuginese-Regular.ttf | Buginese (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansCham-Regular.ttf | Cham (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansNewa-Regular.ttf | Newa (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansTirhuta-Regular.ttf | Tirhuta (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansKayahLi-Regular.ttf | Kayah Li (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansSundanese-Regular.ttf | Sundanese (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansTaiViet-Regular.ttf | Tai Viet (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansPhagsPa-Regular.ttf | Phags-pa (joining) (shape_check: the Universal Shaping Engine) | SIL OFL 1.1 — `OFL-Noto.txt` |
 | NotoSansKR-Regular.otf | Noto Sans KR (CFF), subset to ASCII, the jamo blocks, tone marks, U+25CC and U+AC00..B2E3 (shape_check: the Hangul shaper; syllables past the subset are decomposed) | SIL OFL 1.1 — `OFL-Noto.txt` |
 
 The `-Regular.ttf` fonts are notofonts.github.io's
