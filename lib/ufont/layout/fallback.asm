@@ -156,7 +156,7 @@ ufl_fb_zero:
     xor r8d, r8d                        ; adjust
     test byte [r15 + S_PFLAGS], PF_ADJUST
     jz .each
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     sete r8b
 .each:
     cmp edi, esi
@@ -328,7 +328,7 @@ fb_around:
     ; left to right the marks come after the base's advance: offset back
     xor eax, eax
     xor ecx, ecx
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     jne .offsets
     imul edx, ebx, GPOS_SIZE
     add rdx, [r15 + S_POS]
@@ -356,7 +356,7 @@ fb_around:
     ; not a mark (class 0): the offsets move past it
     mov ecx, [rdx + GPOS_XA]
     mov edi, [rdx + GPOS_YA]
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     jne .add
     neg ecx
     neg edi
@@ -393,7 +393,7 @@ fb_around:
     movdqu xmm0, [rsp + FA_BASE]
     movdqu [rsp + FA_COMP], xmm0
     mov eax, edi                        ; its slot of the advance (right to left: from the end)
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     je .slot
     lea eax, [r14 - 1]
     sub eax, edi
@@ -509,7 +509,7 @@ fb_mark:
     sar eax, 1
     mov ecx, eax
     mov eax, [r12]
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     jne .x_double_rtl
     add eax, [r12 + 8]
 .x_double_rtl:
