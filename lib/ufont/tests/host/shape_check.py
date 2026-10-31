@@ -175,6 +175,9 @@ def general(rng, cmap, marks):
     return cps
 
 
+VARIATIONS = {}                         # the axes host_shape sets (variable fonts)
+
+
 def split(case):
     """A case: code points, or (code points, 'ltr' / 'rtl') shaped in that direction."""
     return (case, None) if isinstance(case, list) else case
@@ -182,7 +185,9 @@ def split(case):
 
 def run(tool, font, cases, d):
     src, out = os.path.join(d, "in.bin"), os.path.join(d, "out.bin")
-    blob = struct.pack("<I", len(cases))
+    blob = struct.pack("<I", len(VARIATIONS)) + b"".join(
+        struct.pack("<4sf", t.encode(), v) for t, v in VARIATIONS.items())
+    blob += struct.pack("<I", len(cases))
     for case in cases:
         cps, direction = split(case)
         blob += struct.pack("<IIII", 0, 0, {None: 0, "ltr": 1, "rtl": 2}[direction], len(cps))
@@ -209,6 +214,8 @@ def run(tool, font, cases, d):
 def harfbuzz(path, cases):
     face = hb.Face(hb.Blob.from_file_path(path))
     font = hb.Font(face)
+    if VARIATIONS:
+        font.set_variations(VARIATIONS)
     out = []
     for case in cases:
         cps, direction = split(case)
@@ -272,6 +279,8 @@ def stripped(font_dir, d):
 
 def check_font(tool, path, name, cases, d):
     font = sm.Font(path)
+    if VARIATIONS:
+        font.set_variations(VARIATIONS)
     status, got = run(tool, path, cases, d)
     want = [sm.shape(font, cps, script=sm.guess_script(cps), direction=dr) for cps, dr in map(split, cases)]
     if got is None:
@@ -311,9 +320,9 @@ def damage(tool, font_dir, d, rng):
             p = os.path.join(d, "damaged.ttf")
             open(p, "wb").write(v)
             src, out = os.path.join(d, "in.bin"), os.path.join(d, "out.bin")
-            blob = struct.pack("<I", len(cases))
+            blob = struct.pack("<II", 0, len(cases))                 # no axes set
             for cps in cases:
-                blob += struct.pack("<III", 0, 0, len(cps)) + struct.pack(f"<{len(cps)}I", *cps)
+                blob += struct.pack("<IIII", 0, 0, 0, len(cps)) + struct.pack(f"<{len(cps)}I", *cps)
             open(src, "wb").write(blob)
             r = subprocess.run([tool, p, src, out], capture_output=True, timeout=600)
             runs += 1
