@@ -12,7 +12,7 @@
 ; Left to right, one run. The steps: Unicode properties and grapheme
 ; clusters; the plan (the script's tags in the font, its features; the
 ; Indic shaper for the nine Indic scripts unless the font has only DFLT /
-; latn for them; the Arabic, Hebrew, Thai / Lao, Hangul and Khmer shapers);
+; latn for them; the Arabic, Hebrew, Thai / Lao, Hangul, Khmer and Myanmar shapers);
 ; Indic vowel constraints; normalization against the font; feature masks
 ; (fractions around U+2044, Indic syllables later); GSUB; advances; spaces
 ; the font lacks widened; GPOS (or the kern table when GPOS has no kerning
@@ -79,6 +79,7 @@ extern ufl_hangul_setup_masks
 extern ufl_khmer_collect_features
 extern ufl_khmer_override_features
 extern ufl_khmer_data_create
+extern ufl_myanmar_collect_features
 extern ufl_fb_recategorize
 extern ufl_fb_position
 extern ufl_ucd_mirror
@@ -270,6 +271,19 @@ ufont_shape:
     mov byte [r15 + S_SHAPER], 3
     jmp .plan
 .thai:
+    cmp eax, 'Mymr'
+    jne .khmer
+    ; Myanmar unless the font has only DFLT, latn or the old mymr
+    mov ecx, [r15 + S_CHOSEN]
+    cmp ecx, 'DFLT'
+    je .plan
+    cmp ecx, 'latn'
+    je .plan
+    cmp ecx, 'mymr'
+    je .plan
+    mov byte [r15 + S_SHAPER], 7
+    jmp .plan
+.khmer:
     cmp eax, 'Khmr'
     jne .hangul
     mov byte [r15 + S_SHAPER], 6
@@ -378,8 +392,13 @@ ufont_shape:
     jmp .common
 .khmer_features:
     cmp byte [r15 + S_SHAPER], 6
-    jne .common
+    jne .myanmar_features
     call ufl_khmer_collect_features
+    jmp .common
+.myanmar_features:
+    cmp byte [r15 + S_SHAPER], 7
+    jne .common
+    call ufl_myanmar_collect_features
 .common:
     mov edi, 'Buzz'
     xor esi, esi
@@ -488,7 +507,10 @@ ufont_shape:
     jmp .gsub
 .masks_khmer:
     cmp eax, 6
+    je .masks_table
+    cmp eax, 7
     jne .gsub
+.masks_table:
     call ufl_indic_setup_masks          ; the categories (the shared table)
 .gsub:
     call sh_plan_flags
@@ -557,6 +579,11 @@ ufont_shape:
     jmp .adv
 .adv_done:
     call sh_fallback_spaces
+    ; Myanmar: mark advances zeroed before GPOS
+    cmp byte [r15 + S_SHAPER], 7
+    jne .gpos
+    call sh_zero_marks
+.gpos:
     ; GPOS, the kern table
     mov byte [r15 + S_HASATTACH], 0
     test byte [r15 + S_PFLAGS], PF_GPOS
@@ -579,43 +606,17 @@ ufont_shape:
     je .zero_marks
     call sh_reverse
 .zero_marks:
-    ; mark advances zeroed (not Indic, Hangul or Khmer); left to right, when
-    ; the plan adjusts, their offsets take it back
-    cmp byte [r15 + S_SHAPER], 1
+    ; mark advances zeroed (not Indic, Hangul or Khmer; Myanmar's were before
+    ; GPOS)
+    movzx eax, byte [r15 + S_SHAPER]
+    cmp eax, 1
     je .ignorables
-    cmp byte [r15 + S_SHAPER], 5
-    je .ignorables
-    cmp byte [r15 + S_SHAPER], 6
-    je .ignorables
-    xor r8d, r8d
-    test byte [r15 + S_PFLAGS], PF_ADJUST
-    jz .zm_adjust
-    cmp byte [r15 + S_BRTL], 0
-    sete r8b
-.zm_adjust:
-    xor ebp, ebp
-.zm:
-    cmp ebp, [r15 + S_LEN]
-    jae .ignorables
-    mov rax, rbp
-    shl rax, 5
-    add rax, [r15 + S_INFO]
-    test word [rax + GI_PROPS], GP_MARK
-    jz .zm_next
-    imul ecx, ebp, GPOS_SIZE
-    add rcx, [r15 + S_POS]
-    test r8d, r8d
-    jz .zm_zero
-    mov eax, [rcx + GPOS_XA]
-    sub [rcx + GPOS_XO], eax
-    mov eax, [rcx + GPOS_YA]
-    sub [rcx + GPOS_YO], eax
-.zm_zero:
-    mov dword [rcx + GPOS_XA], 0
-    mov dword [rcx + GPOS_YA], 0
-.zm_next:
-    inc ebp
-    jmp .zm
+    cmp eax, 5
+    jb .zero_late
+    cmp eax, 7
+    jbe .ignorables
+.zero_late:
+    call sh_zero_marks
 .ignorables:
     xor ebp, ebp
 .ig:
@@ -720,6 +721,41 @@ ufont_shape:
     pop r12
     pop rbp
     pop rbx
+    ret
+
+; sh_zero_marks: mark advances zeroed; left to right, when the plan adjusts,
+;   their offsets take them back
+sh_zero_marks:
+    xor r8d, r8d
+    test byte [r15 + S_PFLAGS], PF_ADJUST
+    jz .adjust
+    cmp byte [r15 + S_BRTL], 0
+    sete r8b
+.adjust:
+    xor edx, edx
+.each:
+    cmp edx, [r15 + S_LEN]
+    jae .done
+    mov rax, rdx
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    test word [rax + GI_PROPS], GP_MARK
+    jz .next
+    imul ecx, edx, GPOS_SIZE
+    add rcx, [r15 + S_POS]
+    test r8d, r8d
+    jz .zero
+    mov eax, [rcx + GPOS_XA]
+    sub [rcx + GPOS_XO], eax
+    mov eax, [rcx + GPOS_YA]
+    sub [rcx + GPOS_YO], eax
+.zero:
+    mov dword [rcx + GPOS_XA], 0
+    mov dword [rcx + GPOS_YA], 0
+.next:
+    inc edx
+    jmp .each
+.done:
     ret
 
 ; rax = record -> ecx 1 for a default ignorable not substituted
@@ -1356,13 +1392,15 @@ sh_plan_flags:
     ret
 
 ; sh_fallback_position -> ZF clear when the shaper positions by fallback (not
-;   Indic, Thai or Khmer); eax kept
+;   Indic, Thai, Khmer or Myanmar); eax kept
 sh_fallback_position:
     cmp byte [r15 + S_SHAPER], 1
     je .out
     cmp byte [r15 + S_SHAPER], 4
     je .out
     cmp byte [r15 + S_SHAPER], 6
+    je .out
+    cmp byte [r15 + S_SHAPER], 7
 .out:
     ret
 
