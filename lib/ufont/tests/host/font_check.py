@@ -10,6 +10,9 @@ Usage: font_check.py <host_font> <font directory>
   all again at another size, the outlines now replayed from the font's
   cache.
 - metrics: units per em, ascent and descent.
+- CFF: the same for OpenType fonts with CFF outlines made from the shipped
+  ones (tests/host/cff_fonts.py: plain, CID-keyed, subroutinized with stem
+  hints and hint masks, both).
 - matching: ufont_set_face over family lists (generic names, aliases, quoted,
   case, unknown names, none) x weights 100..900 x normal / italic / oblique
   picks the face the model picks.
@@ -30,7 +33,7 @@ import fontmodel  # noqa: E402
 
 SIZE = 37.25
 SIZE2 = 11.6
-VERBS = {'move': (0, 1), 'line': (1, 1), 'quad': (2, 2), 'close': (5, 0)}
+VERBS = {'move': (0, 1), 'line': (1, 1), 'quad': (2, 2), 'cubic': (3, 3), 'close': (5, 0)}
 EXTRA = [0x10FFFF, 0x1F600, 0x4E00, 0xE000, 0xFFFF, 0x0378, 0x0000, 0x0009]
 
 
@@ -110,6 +113,20 @@ def main():
             failed += err is not None
             print(f"{'ok  ' if err is None else 'FAIL'}  glyphs {name:32} {len(face.cmap):5} mapped"
                   + (f"  {err}" if err else ""))
+        # CFF outlines: test fonts made from the shipped ones (cff_fonts.py)
+        import cff_fonts
+        for name, src, kw in (("cff", "NotoSans-Regular.ttf", {}),
+                              ("cff-cid", "NotoSans-Regular.ttf", {"cid": True}),
+                              ("cff-subrs-hints", "NotoSerif-Italic.ttf", {"subrs": True}),
+                              ("cff-cid-subrs", "NotoSansDevanagari-Regular.ttf", {"cid": True, "subrs": True})):
+            path = os.path.join(d, name + ".otf")
+            cff_fonts.make_cff(os.path.join(font_dir, src), path, **kw)
+            face = fontmodel.Face(path, "Test CFF", 400, 0)
+            err = check_glyphs(tool, d, path, face)
+            total += 1
+            failed += err is not None
+            print(f"{'ok  ' if err is None else 'FAIL'}  glyphs {name + ' (' + src + ')':32} {len(face.cmap):5} mapped"
+                  + (f"  {err}" if err else ""))
         err, n = check_matching(tool, d, font_dir, fonts)
         total += 1
         failed += err is not None
@@ -119,8 +136,8 @@ def main():
         src = os.path.join(d, "in.bin")
         open(src, "wb").write(struct.pack("<ddI", SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
         crashes = runs = 0
-        for name in ("NotoSans-Regular.ttf", "NotoSerif-Bold.ttf", "LiberationSans-Italic.ttf"):
-            data = open(os.path.join(font_dir, name), "rb").read()
+        for name in ("NotoSans-Regular.ttf", "NotoSerif-Bold.ttf", "LiberationSans-Italic.ttf", "cff-cid-subrs.otf"):
+            data = open(os.path.join(d if name.endswith(".otf") else font_dir, name), "rb").read()
             variants = [data[:n] for n in (0, 11, 12, 13, 64, 300, 2000, len(data) // 2, len(data) - 1)]
             for _ in range(60):
                 b = bytearray(data)
