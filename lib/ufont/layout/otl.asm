@@ -590,11 +590,13 @@ ufl_otl_feature_index:
 ; ufl_otl_feature_lookups — edi = table, esi = feature index -> rax = lookup
 ;   indices (big-endian u16), ecx = count (0 when absent)
 ; ----------------------------------------------------------------------------
+extern ufl_var_feature
 global ufl_otl_feature_lookups
 ufl_otl_feature_lookups:
     push rbx
     push r12
     push r13
+    push rsi                            ; the feature index
     mov r12d, edi
     call otl_feature_record
     test rax, rax
@@ -615,6 +617,20 @@ ufl_otl_feature_lookups:
     test rax, rax
     jz .none
     add rax, rcx                        ; the feature table
+    ; a feature variation's alternate, when the coordinates choose one
+    push rax
+    mov edi, r12d
+    call ufl_otl_table
+    mov rdi, rax
+    mov rsi, rdx
+    mov edx, [rsp + 8]                  ; (the feature index, below)
+    mov r8, [r15 + S_FONT]
+    call ufl_var_feature
+    pop rcx
+    test rax, rax
+    jnz .feature
+    mov rax, rcx
+.feature:
     lea rcx, [rax + 4]
     cmp rcx, r13
     ja .none
@@ -628,6 +644,7 @@ ufl_otl_feature_lookups:
     xor eax, eax
     xor ecx, ecx
 .out:
+    add rsp, 8
     pop r13
     pop r12
     pop rbx
