@@ -125,6 +125,8 @@ ufont_shape:
     mov r14d, ecx                       ; count
     mov [rsp], r8d                      ; script
     mov [rsp + 4], r9d                  ; language
+    shr r8, 32
+    mov [rsp + 12], r8d                 ; direction (0 the script's, 1 ltr, 2 rtl)
     mov rdi, r12
     mov esi, S_SIZE
     call arena_alloc
@@ -234,6 +236,13 @@ ufont_shape:
 .rtl:
     mov byte [r15 + S_RTL], 1
 .shaper:
+    ; a direction asked for overrides the script's
+    mov ecx, [rsp + 12]
+    test ecx, ecx
+    jz .shaper_pick
+    dec ecx
+    mov [r15 + S_RTL], cl
+.shaper_pick:
     ; the shaper: Arabic for Arabic (and Syriac when the font has a script
     ; for it), Hebrew, Indic for the nine Indic scripts unless the font only
     ; has DFLT / latn for them
@@ -376,6 +385,7 @@ ufont_shape:
     inc ecx
     jmp .mask
 .masked:
+    call sh_native
     movzx eax, byte [r15 + S_SHAPER]
     cmp eax, 1
     jne .data_arabic
@@ -487,12 +497,12 @@ ufont_shape:
     call ufl_map_get_mask
     mov [r15 + S_KERNMASK], eax
     ; right to left its pairs are visual: the run reversed while it applies
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     je .kern_apply
     call sh_reverse
 .kern_apply:
     call sh_kern_table
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     je .zero_marks
     call sh_reverse
 .zero_marks:
@@ -503,7 +513,7 @@ ufont_shape:
     xor r8d, r8d
     test byte [r15 + S_PFLAGS], PF_ADJUST
     jz .zm_adjust
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     sete r8b
 .zm_adjust:
     xor ebp, ebp
@@ -567,7 +577,7 @@ ufont_shape:
     jz .output
     call ufl_fb_position
 .output:
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     je .visual
     call sh_reverse
 .visual:
@@ -948,6 +958,9 @@ sh_fractions:
     or r9d, r12d                        ; before
     mov r10d, r12d
     or r10d, r14d                       ; after
+    cmp byte [r15 + S_BRTL], 0          ; right to left: the denominator first
+    je .pre
+    xchg r9d, r10d
 .pre:
     cmp ecx, ebx
     jae .slash
@@ -1079,6 +1092,139 @@ sh_fallback_spaces:
     pop r13
     pop r12
     pop rbx
+    ret
+
+; ----------------------------------------------------------------------------
+; sh_native: the buffer in its script's own direction (S_BRTL) - when the
+;   run goes the other way, its graphemes reversed (HarfBuzz's
+;   ensure_native_direction; numbers alone in a right-to-left script are
+;   left to right; scripts of no direction stay as asked)
+; ----------------------------------------------------------------------------
+sh_native_none: dd 'Hung', 'Ital', 'Runr', 'Tfng', 0
+
+sh_native:
+    push rbx
+    push rbp
+    push r12
+    mov al, [r15 + S_RTL]
+    mov [r15 + S_BRTL], al
+    mov eax, [r15 + S_SCRIPT]
+    imul eax, eax, 12
+    lea rdx, [rel ufl_ucd_scripts]
+    mov eax, [rdx + rax]
+    lea rdx, [rel sh_native_none]
+.none:
+    cmp dword [rdx], 0
+    je .known
+    cmp [rdx], eax
+    je .out
+    add rdx, 4
+    jmp .none
+.known:
+    xor ebx, ebx                        ; native: 0 ltr, 1 rtl
+    lea rdx, [rel sh_rtl]
+.rtl_list:
+    cmp dword [rdx], 0
+    je .have
+    cmp [rdx], eax
+    je .rtl
+    add rdx, 4
+    jmp .rtl_list
+.rtl:
+    mov ebx, 1
+    cmp byte [r15 + S_RTL], 0
+    jne .have
+    ; asked left to right: numbers (or regional indicators) without letters
+    xor ebp, ebp                        ; number seen
+    xor ecx, ecx
+.scan:
+    cmp ecx, [r15 + S_LEN]
+    jae .scanned
+    mov rdx, rcx
+    shl rdx, 5
+    add rdx, [r15 + S_INFO]
+    movzx eax, byte [rdx + GI_GC]
+    cmp eax, 5                          ; Ll .. Lu
+    jb .not_letter
+    cmp eax, 9
+    jbe .have
+.not_letter:
+    cmp eax, 13                         ; Nd
+    je .number
+    mov eax, [rdx + GI_CP]
+    sub eax, 0x1F1E6
+    cmp eax, 0x1F1FF - 0x1F1E6
+    ja .scan_next
+.number:
+    mov ebp, 1
+.scan_next:
+    inc ecx
+    jmp .scan
+.scanned:
+    test ebp, ebp
+    jz .have
+    xor ebx, ebx
+.have:
+    movzx eax, byte [r15 + S_RTL]
+    cmp eax, ebx
+    je .out
+    mov [r15 + S_BRTL], bl
+    ; each grapheme reversed, then the whole: graphemes in reverse order
+    xor r12d, r12d
+.group:
+    cmp r12d, [r15 + S_LEN]
+    jae .whole
+    lea ebp, [r12 + 1]
+.group_end:
+    cmp ebp, [r15 + S_LEN]
+    jae .group_have
+    mov rdx, rbp
+    shl rdx, 5
+    add rdx, [r15 + S_INFO]
+    test byte [rdx + GI_UF], UF_CONT
+    jz .group_have
+    inc ebp
+    jmp .group_end
+.group_have:
+    mov edi, r12d
+    mov esi, ebp
+    call sh_reverse_info
+    mov r12d, ebp
+    jmp .group
+.whole:
+    xor edi, edi
+    mov esi, [r15 + S_LEN]
+    call sh_reverse_info
+.out:
+    pop r12
+    pop rbp
+    pop rbx
+    ret
+
+; edi = start, esi = end: those GI records reversed
+sh_reverse_info:
+    lea edx, [rsi - 1]
+.loop:
+    cmp edi, edx
+    jge .done
+    mov r8, rdi
+    shl r8, 5
+    add r8, [r15 + S_INFO]
+    mov r9, rdx
+    shl r9, 5
+    add r9, [r15 + S_INFO]
+    movdqu xmm0, [r8]
+    movdqu xmm1, [r8 + 16]
+    movdqu xmm2, [r9]
+    movdqu xmm3, [r9 + 16]
+    movdqu [r8], xmm2
+    movdqu [r8 + 16], xmm3
+    movdqu [r9], xmm0
+    movdqu [r9 + 16], xmm1
+    inc edi
+    dec edx
+    jmp .loop
+.done:
     ret
 
 ; ----------------------------------------------------------------------------
@@ -1374,7 +1520,7 @@ sh_propagate:
     add [r12 + GPOS_XO], ecx
     mov ecx, [rax + GPOS_YO]
     add [r12 + GPOS_YO], ecx
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     jne .k_rtl
 .k:
     cmp r13d, ebx
