@@ -9,9 +9,10 @@
 ;       to entry anchor; the later glyph hangs from the earlier one unless the
 ;       lookup says right to left), 4 mark to base, 5 mark to ligature (the
 ;       component the mark belongs to), 6 mark to mark, 7 context, 8 chained
-;       context. Values: x / y placement and x advance (horizontal text); device
-;       tables are for hinted sizes and are not applied, as with HarfBuzz at
-;       font-unit scale.
+;       context. Values: x / y placement and x advance (horizontal text), with
+;       their variation devices' deltas in a variable font (anchors' too);
+;       hinting device tables need a size and are not applied, as with
+;       HarfBuzz at font-unit scale.
 ; =============================================================================
 
 %include "ufont.inc"
@@ -27,6 +28,7 @@ extern ufl_sk_check
 extern ufl_sk_next
 extern ufl_sk_prev
 extern ufl_ap_context
+extern ufl_var_device
 
 section .text
 
@@ -43,8 +45,9 @@ gp_value_size:
     add eax, eax
     ret
 
-; rsi = value record, ecx = format, rdi = GPOS_* position: x / y placement
-;   and x advance added
+; rsi = value record, ecx = format, rdi = GPOS_* position, r8 = the base its
+;   device offsets are from: x / y placement and x advance added, and in a
+;   variable font their variation devices' deltas
 gp_value:
     test ecx, 1
     jz .ypla
@@ -63,12 +66,71 @@ gp_value:
     add rsi, 2
 .xadv:
     test ecx, 4
-    jz .done
+    jz .yadv
     movzx eax, word [rsi]
     xchg al, ah
     movsx eax, ax
     add [rdi + GPOS_XA], eax
+    add rsi, 2
+.yadv:
+    test ecx, 8
+    jz .devices
+    add rsi, 2
+.devices:
+    test ecx, 0x70
+    jz .done
+    mov rax, [r15 + S_FONT]
+    cmp dword [rax + UfontFont_varied], 0
+    je .done
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 8
+    mov rbx, rdi
+    mov r12d, ecx
+    mov r13, rsi
+    mov r14, r8
+    test r12d, 0x10                     ; x placement
+    jz .dev_y
+    call .device
+    add [rbx + GPOS_XO], eax
+    add r13, 2
+.dev_y:
+    test r12d, 0x20
+    jz .dev_xa
+    call .device
+    add [rbx + GPOS_YO], eax
+    add r13, 2
+.dev_xa:
+    test r12d, 0x40
+    jz .dev_done
+    call .device
+    add [rbx + GPOS_XA], eax
+.dev_done:
+    add rsp, 8
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
 .done:
+    ret
+; the device at r13's offset from r14 -> eax its delta
+.device:
+    xor eax, eax
+    lea rcx, [r13 + 2]
+    cmp rcx, [r15 + S_TEND]
+    ja .dev_out
+    BE16 ecx, [r13]
+    test ecx, ecx
+    jz .dev_out
+    lea rdi, [r14 + rcx]
+    mov rsi, [r15 + S_TEND]
+    mov r8, [r15 + S_FONT]
+    sub rsp, 8
+    call ufl_var_device
+    add rsp, 8
+.dev_out:
     ret
 
 ; the position record of glyph eax -> rax
@@ -88,7 +150,8 @@ gp_cov:
     mov edx, r14d
     jmp ufl_ot_coverage
 
-; rdi = anchor table (0: none) -> eax = x, edx = y
+; rdi = anchor table (0: none) -> eax = x, edx = y (format 3 in a variable
+;   font: with its devices' deltas)
 gp_anchor:
     xor eax, eax
     xor edx, edx
@@ -106,6 +169,42 @@ gp_anchor:
     movzx edx, word [rdi + 4]
     xchg dl, dh
     movsx edx, dx
+    cmp ecx, 2                          ; format 3
+    jne .out
+    mov rcx, [r15 + S_FONT]
+    cmp dword [rcx + UfontFont_varied], 0
+    je .out
+    INSIDE rdi, 10
+    ja .out
+    push rbx
+    push r12
+    push r13
+    mov rbx, rdi
+    mov r12d, eax
+    mov r13d, edx
+    BE16 ecx, [rbx + 6]                 ; x device
+    test ecx, ecx
+    jz .y
+    lea rdi, [rbx + rcx]
+    mov rsi, [r15 + S_TEND]
+    mov r8, [r15 + S_FONT]
+    call ufl_var_device
+    add r12d, eax
+.y:
+    BE16 ecx, [rbx + 8]
+    test ecx, ecx
+    jz .anchored
+    lea rdi, [rbx + rcx]
+    mov rsi, [r15 + S_TEND]
+    mov r8, [r15 + S_FONT]
+    call ufl_var_device
+    add r13d, eax
+.anchored:
+    mov eax, r12d
+    mov edx, r13d
+    pop r13
+    pop r12
+    pop rbx
 .out:
     ret
 
@@ -114,7 +213,8 @@ gp_anchor:
 %define GF_CLASS   64
 %define GF_BASE    72                   ; base glyph position
 %define GF_T       76
-%define GF_SIZE    80
+%define GF_VBASE   80                   ; value records' device base
+%define GF_SIZE    96
 
 ; ----------------------------------------------------------------------------
 ; ufl_gpos_apply
@@ -183,6 +283,7 @@ ufl_gpos_apply:
     ja .no
     POS_OF [r15 + S_IDX]
     mov rdi, rax
+    mov r8, rbx                         ; devices from the subtable
     call gp_value
     inc dword [r15 + S_IDX]
     jmp .yes
@@ -263,6 +364,7 @@ ufl_gpos_apply:
     add rsi, 2
     mov r12, rsi                        ; value 1
     lea r13, [rsi + r8]                 ; value 2
+    mov [rsp + GF_VBASE], rbp           ; devices from the pair set
     jmp .pair_values
 .pair2:
     cmp ebp, 2
@@ -305,6 +407,7 @@ ufl_gpos_apply:
     ja .no
     mov r12, rsi
     lea r13, [rsi + r8]
+    mov [rsp + GF_VBASE], rbx           ; devices from the subtable
 .pair_values:
     BE16 ecx, [rbx + 4]
     test ecx, ecx
@@ -312,6 +415,7 @@ ufl_gpos_apply:
     POS_OF [r15 + S_IDX]
     mov rdi, rax
     mov rsi, r12
+    mov r8, [rsp + GF_VBASE]
     call gp_value
 .second:
     mov ebp, [rsp + GF_SK + SK_IDX]
@@ -321,6 +425,7 @@ ufl_gpos_apply:
     POS_OF ebp
     mov rdi, rax
     mov rsi, r13
+    mov r8, [rsp + GF_VBASE]
     call gp_value
     inc ebp
 .pair_done:
