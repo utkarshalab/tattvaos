@@ -15,7 +15,7 @@ UGFXFLAGS := -f elf64 -g -F dwarf -D DEBUG_BUILD=1 -I $(UGFX)/include/
 UMATHFLAGS := -f elf64 -g -F dwarf -I ../../
 BUILDDIR  := build
 
-SRCS      := sfnt/sfnt.asm sfnt/cff.asm sfnt/woff.asm match/fontset.asm              layout/ucd.asm layout/indic_table.asm layout/unicode.asm layout/buffer.asm              layout/normalize.asm layout/otl.asm layout/map.asm layout/apply.asm layout/gsub.asm              layout/gpos.asm layout/shape.asm layout/indic.asm layout/arabic.asm layout/fallback.asm layout/bidi.asm
+SRCS      := sfnt/sfnt.asm sfnt/cff.asm sfnt/woff.asm sfnt/woff2.asm sfnt/brotli.asm sfnt/brotli_tables.asm match/fontset.asm              layout/ucd.asm layout/indic_table.asm layout/unicode.asm layout/buffer.asm              layout/normalize.asm layout/otl.asm layout/map.asm layout/apply.asm layout/gsub.asm              layout/gpos.asm layout/shape.asm layout/indic.asm layout/arabic.asm layout/fallback.asm layout/bidi.asm
 OBJS      := $(patsubst %.asm,$(BUILDDIR)/%.o,$(SRCS))
 UGFX_OBJS := $(BUILDDIR)/ugfx/2d/path.o $(BUILDDIR)/ugfx/core/raster.o $(BUILDDIR)/ugfx/core/span.o \
              $(BUILDDIR)/ugfx/core/mask.o $(BUILDDIR)/ugfx/core/umath_unit.o              $(BUILDDIR)/canvas/inflate.o
@@ -48,11 +48,15 @@ $(BUILDDIR)/host_shape: $(BUILDDIR)/tests/host/host_shape.o $(OBJS) $(UGFX_OBJS)
 $(BUILDDIR)/host_bidi: $(BUILDDIR)/tests/host/host_bidi.o $(OBJS) $(UGFX_OBJS)
 	$(LD) -nostdlib -static -e _start -o $@ $^
 
-host: $(BUILDDIR)/host_font $(BUILDDIR)/host_shape $(BUILDDIR)/host_bidi
+$(BUILDDIR)/host_brotli: $(BUILDDIR)/tests/host/host_brotli.o $(OBJS) $(UGFX_OBJS)
+	$(LD) -nostdlib -static -e _start -o $@ $^
+
+host: $(BUILDDIR)/host_font $(BUILDDIR)/host_shape $(BUILDDIR)/host_bidi $(BUILDDIR)/host_brotli
 
 host-check: host
 	python3 tests/host/font_check.py $(BUILDDIR)/host_font fonts
 	python3 tests/host/shape_check.py $(BUILDDIR)/host_shape fonts
+	python3 tests/host/brotli_check.py $(BUILDDIR)/host_brotli
 	@if [ -n "$(UCD)" ]; then python3 tests/host/bidi_check.py $(UCD) $(BUILDDIR)/host_bidi; 	else echo "bidi_check skipped: make host-check UCD=<Unicode 17 UCD directory with BidiTest.txt>"; fi
 
 clean:
