@@ -92,11 +92,11 @@ ALIASES = {"sans-serif": "Noto Sans", "system-ui": "Noto Sans", "ui-sans-serif":
 
 
 class Face:
-    def __init__(self, path, family, weight, italic, std=-1):
+    def __init__(self, path, family, weight, italic, std=-1, index=0):
         self.family, self.weight, self.italic, self.std = family, weight, italic, std
         self.path = path
         self._shaper = None
-        self.font = TTFont(path)
+        self.font = TTFont(path, fontNumber=index) if index or path.endswith('.ttc') else TTFont(path)
         self.upem = self.font["head"].unitsPerEm
         hhea = self.font["hhea"]
         self.asc, self.desc = hhea.ascent, -hhea.descent
