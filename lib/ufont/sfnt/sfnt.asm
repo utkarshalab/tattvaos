@@ -1,8 +1,8 @@
 ; =============================================================================
 ; Utkarsha OS — lib/ufont/sfnt/sfnt.asm
 ; =============================================================================
-; TrueType fonts (glyf outlines): reading them for drawing text through
-; lib/ugfx paths.
+; TrueType and OpenType fonts (glyf outlines, or CFF ones through
+; sfnt/cff.asm): reading them for drawing text through lib/ugfx paths.
 ;
 ;   ufont_open(arena, data, length)         -> UfontFont* or 0
 ;   ufont_glyph(font, code point)           -> glyph id (0: none)
@@ -22,9 +22,10 @@
 ; (quadratic contours, implied on-curve points between off-curve ones)
 ; and composite glyphs (x / y offsets, a scale, x and y scales or a 2 x 2
 ; matrix in F2Dot14, scaled offsets when the flag asks; components placed
-; by matching points are taken at offset 0), nested 6 deep at most. The
-; outline goes into a ugfx path at scale (pixels per font unit), y down,
-; the origin on the baseline. Hinting instructions are not run.
+; by matching points are taken at offset 0), nested 6 deep at most; for
+; an OpenType font with a CFF table ('OTTO'), its Type 2 charstrings
+; (cubic curves). The outline goes into a ugfx path at scale (pixels per
+; font unit), y down, the origin on the baseline. Hinting is not run.
 ; =============================================================================
 
 %include "ugfx.inc"
@@ -37,6 +38,9 @@ extern ugfx_path_line_to
 extern ugfx_path_quad_to
 extern ugfx_path_close
 extern umath_affine2_multiply
+extern ugfx_path_cubic_to
+extern ufl_cff_open
+extern ufl_cff_outline
 
 %define UFONT_MAX_DEPTH  6
 %define UFONT_MAX_POINTS 16384
@@ -59,7 +63,8 @@ section .text
 
 ; ----------------------------------------------------------------------------
 ; ufont_open — rdi = arena, rsi = data, rdx = length -> rax = UfontFont* (0:
-;   not a TrueType font with glyf outlines, damaged, or out of memory)
+;   not a TrueType font with glyf outlines nor an OpenType one with CFF
+;   outlines, damaged, or out of memory)
 ; ----------------------------------------------------------------------------
 global ufont_open
 ufont_open:
@@ -75,6 +80,8 @@ ufont_open:
     jb .bad
     mov eax, [r12]
     cmp eax, 0x00000100                 ; 00 01 00 00
+    je .version
+    cmp eax, 'OTTO'
     je .version
     cmp eax, 'true'
     jne .bad
@@ -132,6 +139,8 @@ ufont_open:
     je .gpos
     cmp eax, 'kern'
     je .kern
+    cmp eax, 'CFF '
+    je .cff
     cmp eax, 'cmap'
     jne .next_table
     mov [rbx + UfontFont_cmapt], rdx
@@ -197,14 +206,29 @@ ufont_open:
 .kern:
     mov [rbx + UfontFont_kern], rdx
     mov [rbx + UfontFont_kern_len], rcx
+    jmp .next_table
+.cff:
+    mov [rbx + UfontFont_cff], rdx
+    mov [rbx + UfontFont_cff_len], rcx
 .next_table:
     add r15, 16
     jmp .table
 .tables_done:
-    cmp byte [rbx + UfontFont_have], 63
+    ; head, maxp, hhea, hmtx, and loca / glyf or CFF
+    movzx eax, byte [rbx + UfontFont_have]
+    and eax, 15
+    cmp eax, 15
     jne .bad
     cmp qword [rbx + UfontFont_cmapt], 0
     je .bad
+    movzx eax, byte [rbx + UfontFont_have]
+    and eax, 48
+    cmp eax, 48
+    je .glyf_font
+    mov qword [rbx + UfontFont_glyf], 0
+    cmp qword [rbx + UfontFont_cff], 0
+    je .bad
+.glyf_font:
     ; sizes the other tables need
     mov eax, [rbx + UfontFont_upem]
     cmp eax, 16
@@ -225,12 +249,20 @@ ufont_open:
     mov eax, [rbx + UfontFont_nglyphs]
     test eax, eax
     jz .bad
+    cmp qword [rbx + UfontFont_glyf], 0
+    jne .loca_size
+    call ufl_cff_open
+    test eax, eax
+    jz .bad
+    jmp .cmap
+.loca_size:
     inc rax
     mov ecx, [rbx + UfontFont_loca_fmt]
     inc ecx
     shl rax, cl                         ; (n + 1) x 2 or 4
     cmp rax, [rbx + UfontFont_loca_len]
     ja .bad
+.cmap:
     call uf_pick_cmap
     test eax, eax
     jz .bad
@@ -701,7 +733,17 @@ ufont_outline:
     movsd xmm3, [r14 + 8]
     mulsd xmm3, [rsp + OC_SCALE]
     add r14, 16
+    cmp eax, PATH_VERB_CUBIC
+    je .cubic
     call ugfx_path_quad_to
+    jmp .verb_done
+.cubic:
+    movsd xmm4, [r14]
+    mulsd xmm4, [rsp + OC_SCALE]
+    movsd xmm5, [r14 + 8]
+    mulsd xmm5, [rsp + OC_SCALE]
+    add r14, 16
+    call ugfx_path_cubic_to
     jmp .verb_done
 .move:
     call ugfx_path_move_to
@@ -755,6 +797,8 @@ ufont_outline:
 %define OL_SIZE     32
 
 uf_decode:
+    cmp qword [rdi + UfontFont_glyf], 0
+    je ufl_cff_outline                  ; CFF outlines
     push rbx
     sub rsp, OL_SIZE
     mov [rsp + OL_FONT], rdi
