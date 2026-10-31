@@ -4,7 +4,8 @@
 ; Host tool for tests/host/font_check.py (development machine only).
 ;
 ;   host_font o[i] <font.ttf> <in.bin> <out.bin>   (i: a collection's face, a digit)
-;       in:  f64 size, f64 size2, u32 n, u32 code points[n]
+;       in:  u32 settings, (u32 axis tag, f32 value) per setting (a variable
+;            font's axes), f64 size, f64 size2, u32 n, u32 code points[n]
 ;       out: u32 status (0, 1 font refused), u32 units per em, i32 ascent,
 ;            i32 descent; then per code point: u32 glyph, u32 advance,
 ;            i32 outline status, u32 verbs, u32 points, the verbs (bytes),
@@ -39,6 +40,7 @@ extern ufont_glyph
 extern ufont_advance
 extern ufont_metrics
 extern ufont_outline
+extern ufont_set_variations
 extern ufont_set_init
 extern ufont_set_add
 extern ufont_set_face
@@ -97,6 +99,13 @@ _start:
     call put32
     test rbx, rbx
     jz write_out
+    ; the axes set, then past the settings
+    mov rdi, rbx
+    lea rsi, [r15 + 4]
+    mov edx, [r15]
+    call ufont_set_variations
+    mov eax, [r15]
+    lea r15, [r15 + rax * 8 + 4]
     mov rdi, rbx
     call ufont_metrics
     push rcx
