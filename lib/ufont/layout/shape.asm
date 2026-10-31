@@ -12,7 +12,7 @@
 ; Left to right, one run. The steps: Unicode properties and grapheme
 ; clusters; the plan (the script's tags in the font, its features; the
 ; Indic shaper for the nine Indic scripts unless the font has only DFLT /
-; latn for them);
+; latn for them; the Arabic, Hebrew and Thai / Lao shapers);
 ; Indic vowel constraints; normalization against the font; feature masks
 ; (fractions around U+2044, Indic syllables later); GSUB; advances; spaces
 ; the font lacks widened; GPOS (or the kern table when GPOS has no kerning
@@ -70,6 +70,7 @@ extern ufl_arabic_collect_features
 extern ufl_arabic_data_create
 extern ufl_arabic_setup_masks
 extern ufl_hebrew_data_create
+extern ufl_thai_preprocess
 extern ufl_fb_recategorize
 extern ufl_fb_position
 extern ufl_ucd_mirror
@@ -257,8 +258,16 @@ ufont_shape:
     jmp .plan
 .hebrew:
     cmp eax, 'Hebr'
-    jne .indic_scripts
+    jne .thai
     mov byte [r15 + S_SHAPER], 3
+    jmp .plan
+.thai:
+    cmp eax, 'Thai'
+    je .thai_lao
+    cmp eax, 'Laoo'
+    jne .indic_scripts
+.thai_lao:
+    mov byte [r15 + S_SHAPER], 4
     jmp .plan
 .indic_scripts:
     lea rdx, [rel sh_indic]
@@ -399,8 +408,13 @@ ufont_shape:
     jmp .mirror
 .data_hebrew:
     cmp eax, 3
-    jne .mirror
+    jne .data_thai
     call ufl_hebrew_data_create
+    jmp .mirror
+.data_thai:
+    cmp eax, 4
+    jne .mirror
+    call ufl_thai_preprocess
 .mirror:
     cmp byte [r15 + S_RTL], 0
     je .normalize
@@ -1258,8 +1272,8 @@ sh_plan_flags:
     jz .adjust
     test ebx, PF_GPOSKERN
     jnz .adjust
-    cmp byte [r15 + S_SHAPER], 1
-    je .adjust
+    call sh_fallback_position
+    jz .adjust
     or ebx, PF_KERN
 .adjust:
     test ebx, PF_GPOS
@@ -1270,12 +1284,21 @@ sh_plan_flags:
     jnz .done
 .adjusts:
     or ebx, PF_ADJUST
-    cmp byte [r15 + S_SHAPER], 1
-    je .done
+    call sh_fallback_position
+    jz .done
     or ebx, PF_FBMARKS
 .done:
     mov [r15 + S_PFLAGS], bl
     pop rbx
+    ret
+
+; sh_fallback_position -> ZF clear when the shaper positions by fallback (not
+;   Indic, not Thai); eax kept
+sh_fallback_position:
+    cmp byte [r15 + S_SHAPER], 1
+    je .out
+    cmp byte [r15 + S_SHAPER], 4
+.out:
     ret
 
 ; sh_kern_info -> eax: 1 the font has a kern table (version 0, subtables),
