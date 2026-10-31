@@ -81,9 +81,10 @@
 %define S_IKIND         423             ; u8 the script's own paths: 1 Kannada, 2 Malayalam, 3 Tamil, 4 Devanagari
 %define S_IVC           424             ; vowel constraint pairs (u16 vowel, u16 sign)
 %define S_IVCN          432             ; u32 how many
-%define S_RTL           436             ; u8 right to left
+%define S_RTL           436             ; u8 right to left asked for (the plan, mirroring)
 %define S_AMARKPOS      437             ; u8 Hebrew: the plan has mark positioning
 %define S_PFLAGS        438             ; u8 PF_* positioning plan
+%define S_BRTL          439             ; u8 the buffer right to left (the script's own direction)
 %define S_AFB           440             ; Arabic fallback lookups (0: none)
 %define S_DUMMY         448             ; a record written when memory runs out
 %define S_AMASK         480             ; [8] u32 Arabic form masks (isol .. init, none)
