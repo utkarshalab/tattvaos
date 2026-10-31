@@ -129,7 +129,8 @@ ufl_sk_init:
     mov [rdi + SK_ARR], rax
     ret
 
-; ufl_sk_reset — rdi = SK, esi = start, edx = items
+; ufl_sk_reset — rdi = SK, esi = start, edx = items; the syllable it stays in
+;   is the current glyph's wherever it starts (HarfBuzz 12)
 global ufl_sk_reset
 ufl_sk_reset:
     mov [rdi + SK_IDX], esi
@@ -137,12 +138,10 @@ ufl_sk_reset:
     mov eax, [r15 + S_LEN]
     mov [rdi + SK_END], eax
     xor eax, eax
-    cmp esi, [r15 + S_IDX]
-    jne .syl
-    cmp esi, [r15 + S_LEN]
+    mov edx, [r15 + S_IDX]
+    cmp edx, [r15 + S_LEN]
     jae .syl
     mov rcx, [r15 + S_INFO]
-    mov edx, esi
     shl rdx, 5
     movzx eax, byte [rcx + rdx + GI_SYL]
 .syl:
