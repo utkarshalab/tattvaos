@@ -60,7 +60,9 @@ def check_glyphs(tool, d, path, face, index=0):
     cps = sorted(face.cmap) + EXTRA
     src = os.path.join(d, "in.bin")
     out = os.path.join(d, "out.bin")
-    open(src, "wb").write(struct.pack("<ddI", SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
+    var = getattr(face, "settings", {})
+    head = struct.pack("<I", len(var)) + b"".join(struct.pack("<4sf", t.encode(), v) for t, v in var.items())
+    open(src, "wb").write(head + struct.pack("<ddI", SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
     rc = run(tool, "o%d" % index, path, src, out)
     if rc:
         return f"exit {rc}"
@@ -186,7 +188,7 @@ def main():
         rng = random.Random(11)
         cps = list(range(32, 0x250)) + list(range(0x370, 0x530))
         src = os.path.join(d, "in.bin")
-        open(src, "wb").write(struct.pack("<ddI", SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
+        open(src, "wb").write(struct.pack("<IddI", 0, SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
         crashes = runs = 0
         for name in ("NotoSans-Regular.ttf", "NotoSerif-Bold.ttf", "LiberationSans-Italic.ttf", "cff-cid-subrs.otf",
                      "woff.woff", "woff2-hmtx.woff2"):
