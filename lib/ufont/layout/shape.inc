@@ -24,7 +24,7 @@
 %define S_HAVEOUT       48              ; u8
 %define S_SERIAL        49              ; u8 ligature serial
 %define S_ERR           50              ; u8 out of memory
-%define S_SHAPER        51              ; u8 0 default, 1 Indic, 2 Arabic, 3 Hebrew, 4 Thai, 5 Hangul
+%define S_SHAPER        51              ; u8 0 default, 1 Indic, 2 Arabic, 3 Hebrew, 4 Thai, 5 Hangul, 6 Khmer
 %define S_POS           56              ; GPOS_* records
 ; the plan
 %define S_GMASK         64              ; u32 global mask
