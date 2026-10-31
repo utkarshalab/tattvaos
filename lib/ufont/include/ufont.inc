@@ -47,7 +47,21 @@
                                         ; Global Subrs, local Subrs, FDArray (24 bytes each)
 %define UfontFont_fdselect      336     ; a CID font's FDSelect
 %define UfontFont_cid           344     ; u32 1: CID-keyed
-%define UfontFont_SIZE          352
+%define UfontFont_fvar          352     ; variations (sfnt/var.asm; 0: none)
+%define UfontFont_fvar_len      360
+%define UfontFont_avar          368
+%define UfontFont_avar_len      376
+%define UfontFont_gvar          384
+%define UfontFont_gvar_len      392
+%define UfontFont_hvar          400
+%define UfontFont_hvar_len      408
+%define UfontFont_coords        416     ; i32 per axis: the normalized coordinates (2.14)
+%define UfontFont_naxes         424     ; u32
+%define UfontFont_varied        428     ; u32 1: a coordinate is not 0
+%define UfontFont_varstore      432     ; GDEF's item variation store (0: none)
+%define UfontFont_varstore_end  440
+%define UfontFont_vscratch      448     ; varied outlines' scratch (0: not yet)
+%define UfontFont_SIZE          456
 
 ; UfontSet: faces by family, weight and style
 %define UFONT_SET_MAX           64
