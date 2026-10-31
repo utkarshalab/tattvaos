@@ -12,7 +12,8 @@
 ; Left to right, one run. The steps: Unicode properties and grapheme
 ; clusters; the plan (the script's tags in the font, its features; the
 ; Indic shaper for the nine Indic scripts unless the font has only DFLT /
-; latn for them; the Arabic, Hebrew, Thai / Lao, Hangul, Khmer and Myanmar shapers);
+; latn for them; the Arabic, Hebrew, Thai / Lao, Hangul, Khmer and Myanmar shapers, the
+; Universal Shaping Engine);
 ; Indic vowel constraints; normalization against the font; feature masks
 ; (fractions around U+2044, Indic syllables later); GSUB; advances; spaces
 ; the font lacks widened; GPOS (or the kern table when GPOS has no kerning
@@ -80,6 +81,10 @@ extern ufl_khmer_collect_features
 extern ufl_khmer_override_features
 extern ufl_khmer_data_create
 extern ufl_myanmar_collect_features
+extern ufl_use_collect_features
+extern ufl_use_data_create
+extern ufl_use_preprocess
+extern ufl_use_setup_masks
 extern ufl_fb_recategorize
 extern ufl_fb_position
 extern ufl_ucd_mirror
@@ -104,6 +109,15 @@ sh_features:
     dd 'rclt', F_GLOBAL
 sh_features_end:
 sh_indic: dd 'Deva', 'Beng', 'Guru', 'Gujr', 'Orya', 'Taml', 'Telu', 'Knda', 'Mlym', 0
+; the Universal Shaping Engine's scripts (HarfBuzz's list)
+sh_use: dd 'Tibt', 'Mong', 'Sinh', 'Buhd', 'Hano', 'Tglg', 'Tagb', 'Limb', 'Tale', 'Bugi', 'Khar', 'Sylo'
+        dd 'Tfng', 'Bali', 'Nkoo', 'Phag', 'Cham', 'Kali', 'Lepc', 'Rjng', 'Saur', 'Sund', 'Egyp', 'Java'
+        dd 'Kthi', 'Mtei', 'Lana', 'Tavt', 'Batk', 'Brah', 'Mand', 'Cakm', 'Plrd', 'Shrd', 'Takr', 'Dupl'
+        dd 'Gran', 'Khoj', 'Sind', 'Mahj', 'Mani', 'Modi', 'Hmng', 'Phlp', 'Sidd', 'Tirh', 'Ahom', 'Mult'
+        dd 'Adlm', 'Bhks', 'Marc', 'Newa', 'Gonm', 'Soyo', 'Zanb', 'Dogr', 'Gong', 'Rohg', 'Maka', 'Medf'
+        dd 'Sogo', 'Sogd', 'Elym', 'Nand', 'Hmnp', 'Wcho', 'Chrs', 'Diak', 'Kits', 'Yezi', 'Cpmn', 'Ougr'
+        dd 'Tnsa', 'Toto', 'Vith', 'Kawi', 'Nagm', 'Gara', 'Gukh', 'Krai', 'Onao', 'Sunu', 'Todr', 'Tutg'
+        dd 'Berf', 'Sidt', 'Tayo', 'Tols', 0
 ; written right to left (HarfBuzz's list)
 sh_rtl: dd 'Arab', 'Hebr', 'Syrc', 'Thaa', 'Cprt', 'Khar', 'Phnx', 'Nkoo', 'Lydi', 'Avst', 'Armi', 'Phli'
         dd 'Prti', 'Sarb', 'Orkh', 'Samr', 'Mand', 'Merc', 'Mero', 'Mani', 'Mend', 'Nbat', 'Narb', 'Palm'
@@ -271,6 +285,25 @@ ufont_shape:
     mov byte [r15 + S_SHAPER], 3
     jmp .plan
 .thai:
+    ; the Universal Shaping Engine's scripts unless the font has only DFLT /
+    ; latn for them
+    lea rdx, [rel sh_use]
+.use_script:
+    cmp dword [rdx], 0
+    je .myanmar
+    cmp [rdx], eax
+    je .use
+    add rdx, 4
+    jmp .use_script
+.use:
+    mov ecx, [r15 + S_CHOSEN]
+    cmp ecx, 'DFLT'
+    je .plan
+    cmp ecx, 'latn'
+    je .plan
+    mov byte [r15 + S_SHAPER], 8
+    jmp .plan
+.myanmar:
     cmp eax, 'Mymr'
     jne .khmer
     ; Myanmar unless the font has only DFLT, latn or the old mymr
@@ -319,7 +352,10 @@ ufont_shape:
     mov ecx, eax
     shr ecx, 24
     cmp ecx, '3'
-    je .plan                            ; Universal Shaping Engine fonts: not yet
+    jne .indic_shaper
+    mov byte [r15 + S_SHAPER], 8        ; a xxx3 font: the Universal Shaping Engine
+    jmp .plan
+.indic_shaper:
     mov byte [r15 + S_SHAPER], 1
 .plan:
     call ufl_map_init
@@ -397,8 +433,13 @@ ufont_shape:
     jmp .common
 .myanmar_features:
     cmp byte [r15 + S_SHAPER], 7
-    jne .common
+    jne .use_features
     call ufl_myanmar_collect_features
+    jmp .common
+.use_features:
+    cmp byte [r15 + S_SHAPER], 8
+    jne .common
+    call ufl_use_collect_features
 .common:
     mov edi, 'Buzz'
     xor esi, esi
@@ -481,8 +522,14 @@ ufont_shape:
     jmp .mirror
 .data_khmer:
     cmp eax, 6
-    jne .mirror
+    jne .data_use
     call ufl_khmer_data_create
+    jmp .mirror
+.data_use:
+    cmp eax, 8
+    jne .mirror
+    call ufl_use_data_create
+    call ufl_use_preprocess
 .mirror:
     cmp byte [r15 + S_RTL], 0
     je .normalize
@@ -509,7 +556,11 @@ ufont_shape:
     cmp eax, 6
     je .masks_table
     cmp eax, 7
+    je .masks_table
+    cmp eax, 8
     jne .gsub
+    call ufl_use_setup_masks
+    jmp .gsub
 .masks_table:
     call ufl_indic_setup_masks          ; the categories (the shared table)
 .gsub:
@@ -579,9 +630,9 @@ ufont_shape:
     jmp .adv
 .adv_done:
     call sh_fallback_spaces
-    ; Myanmar: mark advances zeroed before GPOS
+    ; Myanmar and the Universal Shaping Engine: mark advances zeroed before GPOS
     cmp byte [r15 + S_SHAPER], 7
-    jne .gpos
+    jb .gpos
     call sh_zero_marks
 .gpos:
     ; GPOS, the kern table
@@ -606,15 +657,13 @@ ufont_shape:
     je .zero_marks
     call sh_reverse
 .zero_marks:
-    ; mark advances zeroed (not Indic, Hangul or Khmer; Myanmar's were before
-    ; GPOS)
+    ; mark advances zeroed (not Indic, Hangul or Khmer; Myanmar's and the
+    ; Universal Shaping Engine's were before GPOS)
     movzx eax, byte [r15 + S_SHAPER]
     cmp eax, 1
     je .ignorables
     cmp eax, 5
-    jb .zero_late
-    cmp eax, 7
-    jbe .ignorables
+    jae .ignorables
 .zero_late:
     call sh_zero_marks
 .ignorables:
@@ -1392,7 +1441,7 @@ sh_plan_flags:
     ret
 
 ; sh_fallback_position -> ZF clear when the shaper positions by fallback (not
-;   Indic, Thai, Khmer or Myanmar); eax kept
+;   Indic, Thai, Khmer, Myanmar or the Universal Shaping Engine); eax kept
 sh_fallback_position:
     cmp byte [r15 + S_SHAPER], 1
     je .out
@@ -1401,6 +1450,8 @@ sh_fallback_position:
     cmp byte [r15 + S_SHAPER], 6
     je .out
     cmp byte [r15 + S_SHAPER], 7
+    je .out
+    cmp byte [r15 + S_SHAPER], 8
 .out:
     ret
 
