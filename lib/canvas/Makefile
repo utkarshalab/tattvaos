@@ -197,6 +197,7 @@ FONT_SRCS := \
     $(UFONT_DIR)/layout/indic.asm \
     $(UFONT_DIR)/layout/arabic.asm \
     $(UFONT_DIR)/layout/fallback.asm \
+    $(UFONT_DIR)/layout/bidi.asm \
     $(UFONT_DIR)/layout/ucd.asm \
     $(UFONT_DIR)/layout/indic_table.asm
 FONT_OBJS := $(patsubst $(UFONT_DIR)/%.asm,$(OBJDIR)/ufont/%.o,$(FONT_SRCS))
