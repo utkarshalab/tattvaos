@@ -10,7 +10,7 @@ ignorables; random syllables in the font's Indic script (consonant
 clusters, reph, nukta, matras, signs, joiners, broken clusters); random
 Arabic or Hebrew (letters, harakat and points, modifier marks, tatweel,
 joiners, digits, mirrored brackets) for those fonts, shaped right to
-left; Thai, Lao, Korean and the other test fonts' scripts (tests/fonts), and Noto Sans
+left; Thai, Lao, Korean, Khmer and the other test fonts' scripts (tests/fonts), and Noto Sans
 Thai made an old PUA font (no thai GSUB). Every glyph, cluster, advance and offset ufont_shape gives must
 equal the model's. Noto Sans Devanagari altered four ways (only the old
 'deva' script, only DFLT, no GSUB, no GDEF) takes the shaper down its other
@@ -213,10 +213,37 @@ def hangul(rng):
     return out
 
 
+def khmer(rng):
+    """Random Khmer syllables: consonants (robat and the like after some), coeng + consonant or RO
+    (two or three of them), split and pre-base vowels, signs, joiners; and broken clusters."""
+    cons = list(range(0x1780, 0x17A3))
+    out = []
+    for _ in range(rng.randint(1, 5)):
+        r = rng.random()
+        if r < 0.75:
+            out.append(rng.choice(cons))
+            if rng.random() < 0.15:
+                if rng.random() < 0.3:
+                    out.append(rng.choice((0x200C, 0x200D)))
+                out.append(rng.choice((0x17C9, 0x17CA, 0x17CC)))
+            for _ in range(rng.choice((0, 0, 1, 1, 2, 3))):
+                out += [0x17D2, rng.choice(cons + [0x179A] * 6 + list(range(0x17A3, 0x17B4)))]
+            for _ in range(rng.choice((0, 1, 1, 2))):
+                out.append(rng.choice(list(range(0x17B6, 0x17C6)) + [0x17C1, 0x17C2, 0x17C3] * 2))
+            for _ in range(rng.choice((0, 0, 1, 2))):
+                out.append(rng.choice(list(range(0x17C6, 0x17D2)) + [0x17D3, 0x17DD, 0x200C, 0x200D]))
+        elif r < 0.85:
+            out.append(rng.choice(list(range(0x17A3, 0x17B4)) + [0x25CC, 0x17D9, 0x00A0]))
+        else:
+            out.append(rng.choice(list(range(0x17B6, 0x17D4)) + [0x17D2, 0x20, 0x17E0, 0x17D4]))
+    return out
+
+
 # the test fonts' scripts (tests/fonts/<name>-Regular.ttf / .otf): the text they are shaped with
-SCRIPT_TEXT = {'Thai': thai, 'Lao': lao, 'KR': hangul}
+SCRIPT_TEXT = {'Thai': thai, 'Lao': lao, 'KR': hangul, 'Khmer': khmer}
 SCRIPT_WORDS = """สวัสดี ภาษาไทย น้ำ ทำ กำลัง ปั้ม ฟ้า ญู ฐู ปิ่น ป่า ฎุ ญุ ปั่น ก่ำ ก้ำ ดํ่า ไก่ เป็น
-ສະບາຍດີ ພາສາລາວ ນ້ຳ ທຳ ກຳລັງ ປັ້ນ ຫຼວງ ເປັນ 한국어 안녕하세요 한글 〮한 ᄒᆞᆫ 〯ᄀᆞ""".split()
+ສະບາຍດີ ພາສາລາວ ນ້ຳ ທຳ ກຳລັງ ປັ້ນ ຫຼວງ ເປັນ 한국어 안녕하세요 한글 〮한 ᄒᆞᆫ 〯ᄀᆞ
+ភាសាខ្មែរ ស្រី ក្រុង ព្រះ ខ្ញុំ សួស្តី កើត ស្ត្រី""".split()
 
 
 def general(rng, cmap, marks):
