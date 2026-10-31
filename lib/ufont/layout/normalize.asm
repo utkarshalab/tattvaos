@@ -13,7 +13,8 @@
 ; U+09DD / U+0B94 whole and composes nothing onto a mark; the Khmer shaper
 ; also takes no short cut, splits U+17BE .. U+17C0 / U+17C4 / U+17C5 into
 ; U+17C1 + the vowel and composes nothing onto a mark; the Myanmar shaper
-; takes no short cut either. The Hangul
+; takes no short cut either, nor does the Universal Shaping Engine (which
+; composes nothing onto a mark). The Hangul
 ; shaper always takes the short way and recomposes nothing.
 ;
 ;   ufl_norm_run                  the buffer normalized; GI_GLYPH set for every record
@@ -237,6 +238,8 @@ nm_compose:
     je ufl_hebrew_compose
     cmp byte [r15 + S_SHAPER], 6
     je .mark_first
+    cmp byte [r15 + S_SHAPER], 8
+    je .mark_first
     cmp byte [r15 + S_SHAPER], 1
     jne ufl_uc_compose
 .mark_first:
@@ -251,8 +254,8 @@ nm_compose:
     pop rdi
     test eax, eax
     jnz .no
-    cmp byte [r15 + S_SHAPER], 6
-    je ufl_uc_compose
+    cmp byte [r15 + S_SHAPER], 1
+    jne ufl_uc_compose
     cmp edi, 0x09AF
     jne ufl_uc_compose
     cmp esi, 0x09BC
@@ -475,13 +478,11 @@ ufl_norm_run:
     push r12
     push r13
     push r14
-    xor ebp, ebp                        ; shortest unless Indic, Khmer or Myanmar
+    xor ebp, ebp                        ; shortest unless Indic, Khmer, Myanmar, USE
     cmp byte [r15 + S_SHAPER], 1
     je .mode
     cmp byte [r15 + S_SHAPER], 6
-    je .mode
-    cmp byte [r15 + S_SHAPER], 7
-    je .mode
+    jae .mode
     inc ebp
 .mode:
     call ufl_buf_clear_output
