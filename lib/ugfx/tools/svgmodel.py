@@ -34,7 +34,7 @@ PROPS = {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", 
          "stroke-dasharray", "stroke-dashoffset", "paint-order", "clip-path", "clip-rule", "mask",
          "marker-start", "marker-mid", "marker-end", "marker", "font-family", "font-weight", "font-style",
          "text-anchor", "letter-spacing", "word-spacing", "filter", "baseline-shift", "dominant-baseline",
-         "alignment-baseline", "text-decoration"}
+         "alignment-baseline", "text-decoration", "direction"}
 MARKED = {"path", "line", "polyline", "polygon"}
 MAX_CLIPS = 4
 INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "stroke-linecap": ["cap"],
@@ -45,7 +45,7 @@ INHERITS = {"fill": ["fill"], "stroke": ["stroke"], "stroke-width": ["sw"], "str
             "marker-start": ["m0"], "marker-mid": ["m1"], "marker-end": ["m2"], "marker": ["m0", "m1", "m2"],
             "font-family": ["family"], "font-weight": ["weight"], "font-style": ["fstyle"],
             "text-anchor": ["anchor"], "letter-spacing": ["lspace"], "word-spacing": ["wspace"],
-            "dominant-baseline": ["dbase"], "alignment-baseline": ["dbase"]}
+            "dominant-baseline": ["dbase"], "alignment-baseline": ["dbase"], "direction": ["dir"]}
 DEFERRED = ("stroke-width", "font-size", "stroke-dasharray", "stroke-dashoffset", "clip-path", "mask",
             "letter-spacing", "word-spacing", "filter", "baseline-shift")
 BASELINES = {"auto": 0, "alphabetic": 0, "use-script": 0, "no-change": 0, "reset-size": 0, "middle": 1,
@@ -2074,11 +2074,14 @@ def trim(v):
     return v
 
 
-def parse(text, image_fn=None, font_fn=None, shape_fn=None):
+def parse(text, image_fn=None, font_fn=None, shape_fn=None, bidi_fn=None):
     """image_fn(bytes or href, kind) -> (width, height, image) or None, as ugfx_svg_parse_ex's;
     font_fn((family, weight, style), code point, size, outline) -> (advance, path);
-    shape_fn((family, weight, style), code points, size) -> [(glyph key, cluster, advance,
-    x offset, y offset down)] or None: text runs shaped (ugfx's UgfxSvg_shape_fn)."""
+    shape_fn((family, weight, style), code points, size, direction (0 / 1)) -> [(glyph key, cluster,
+    advance, x offset, y offset down)] in visual order, or None: text runs shaped (ugfx's
+    UgfxSvg_shape_fn). bidi_fn(code points, direction) -> (levels, paragraph level) (UgfxSvg_bidi_fn):
+    the bidirectional levels of a text segment (None: removed), without it every run at the
+    paragraph's."""
     import xml.etree.ElementTree as ET
     root = ET.fromstring(text)
     doc = Doc()
@@ -2098,7 +2101,7 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
                    font=16.0, vw=300.0, vh=150.0, color=None, hidden=False, order=0, dash=None, dash_off=0.0,
                    cliprule=0, m0=None, m1=None, m2=None, family=None, weight=400, fstyle=0, anchor=0,
                    intext=0, lspace=0.0, wspace=0.0, preserve=0, lists=(None,) * 5, bshift=0.0, dbase=0,
-                   tpath=0, decor=(None, None, None))
+                   tpath=0, decor=(None, None, None), dir=0)
     tx = {}                                         # the text layout (one text element at a time)
     seen_root = [False]
     clipmode = [0]                                  # 1: a clip's content (geometry only)
@@ -2189,7 +2192,7 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
                     break
                 vals.append(val)
                 i = j
-            lists[k] = (vals, tx["count"])
+            lists[k] = (vals, tx["count"] + len(run["cps"]))
         st["lists"] = tuple(lists)
 
     def list_value(st, k, c):
@@ -2198,12 +2201,11 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
             return None
         return rec[0][c - rec[1]]
 
-    run = {"cps": [], "st": None}
+    run = {"cps": [], "uses": 0}
 
     def text_node(s, st, uses):
         for ch in s:
             text_cp(ord(ch), st, uses)
-        text_flush(uses)
 
     def positioned(st, c):
         """Does the character have its own x, y, dx, dy or rotate value (it starts a run)."""
@@ -2213,35 +2215,81 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
         return rec is not None and 0 <= c - rec[1] < len(rec[0])
 
     def text_put(cp, st, uses):
-        """svg_text_put: without shaping placed at once, else into the run."""
+        """svg_text_put: without shaping placed at once, else into the segment (an absolute x or y
+        starts a new one)."""
         if shape_fn is None or font_fn is None:
             text_char(cp, st, uses)
             return
-        if run["cps"] and positioned(st, tx["count"] + len(run["cps"])):
-            text_flush(uses)
-        run["cps"].append(cp)
-        run["st"] = st
+        c = tx["count"] + len(run["cps"])
+        if run["cps"] and (list_value(st, 0, c) is not None or
+                           (list_value(st, 1, c) is not None and not tx["onpath"])):
+            text_flush()
+        run["cps"].append((cp, st))
+        run["uses"] = uses
 
-    def text_flush(uses):
-        """svg_text_flush: the run shaped, its glyphs placed."""
-        cps, st = run["cps"], run["st"]
+    def visual_runs(levels):
+        """L2 over runs: their indices left to right."""
+        idx, lv = list(range(len(levels))), list(levels)
+        hi = max(lv)
+        odd = [x for x in lv if x & 1]
+        lo = min(odd) if odd else hi + 1
+        for level in range(hi, lo - 1, -1):
+            k = 0
+            while k < len(idx):
+                if lv[k] >= level:
+                    a = k
+                    while k < len(idx) and lv[k] >= level:
+                        k += 1
+                    idx[a:k], lv[a:k] = idx[a:k][::-1], lv[a:k][::-1]
+                else:
+                    k += 1
+        return idx
+
+    def text_flush():
+        """svg_text_flush: the segment's bidirectional levels; runs (a style, a level, a positioned
+        character each) shaped in their direction and placed in visual order."""
+        pend, uses = run["cps"], run["uses"]
         run["cps"] = []
-        if not cps:
-            return
-        glyphs = shape_fn((st["family"], st["weight"], st["fstyle"]), cps, st["font"])
-        if glyphs is None:
-            for cp in cps:
-                text_char(cp, st, uses)
+        if not pend:
             return
         start = tx["count"]
-        for i, (key, cl, adv, xo, yo) in enumerate(glyphs):
-            nxt = glyphs[i + 1][1] if i + 1 < len(glyphs) else len(cps)
-            nch = nxt - cl if nxt != cl else 0
-            spaces = sum(1 for c in cps[cl:cl + nch] if c == 32)
-            blank = nch == 1 and cps[cl] == 32
-            tx["count"] = start + cl
-            text_char(key, st, uses, (adv, xo, yo, nch, spaces, start if i == 0 else None, blank))
-        tx["count"] = start + len(cps)
+        cps, sts = [p[0] for p in pend], [p[1] for p in pend]
+        n = len(cps)
+        base = sts[0]["dir"]
+        levels, para = bidi_fn(cps, base) if bidi_fn is not None else ([base] * n, base)
+        lv, last = [], para
+        for v in levels:
+            last = v if v is not None else last
+            lv.append(last)
+        runs, a = [], 0
+        for i in range(1, n + 1):
+            if i == n or sts[i] is not sts[a] or lv[i] != lv[a] or positioned(sts[i], start + i):
+                runs.append((a, i))
+                a = i
+        # the segment's first character's position, then the runs left to right
+        text_position(sts[0], start)
+        for r in visual_runs([lv[a] for a, _ in runs]):
+            a, b = runs[r]
+            st = sts[a]
+            glyphs = shape_fn((st["family"], st["weight"], st["fstyle"]), cps[a:b], st["font"], lv[a] & 1)
+            if glyphs is None:
+                for j in range(a, b):
+                    tx["count"] = start + j
+                    text_char(cps[j], st, uses, lists=j != 0)
+                continue
+            m = b - a
+            for i, (key, cl, adv, xo, yo) in enumerate(glyphs):
+                # the characters of its cluster (on the cluster's last glyph): spacing
+                nch = 0
+                if i + 1 == len(glyphs) or glyphs[i + 1][1] != cl:
+                    end = min([g[1] for g in glyphs if g[1] > cl] + [m])
+                    nch = end - cl
+                spaces = sum(1 for c in cps[a + cl:a + cl + nch] if c == 32)
+                blank = nch == 1 and cps[a + cl] == 32
+                tx["count"] = start + a + cl
+                first = start + a if i == 0 and a else None
+                text_char(key, st, uses, (adv, xo, yo, nch, spaces, first, blank))
+        tx["count"] = start + n
 
     def text_cp(cp, st, uses):
         """svg_text_cp: white space, then the character."""
@@ -2258,36 +2306,41 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
         tx["any"] = 1
         text_put(cp, st, uses)
 
-    def text_char(cp, st, uses, g=None):
+    def text_position(st, c):
+        """svg_text_position: character c's x / y (a new chunk), dx / dy."""
+        v = list_value(st, 0, c)
+        if v is not None:
+            text_finish()
+            tx["x"] = v
+        v = list_value(st, 1, c)
+        if v is not None and not tx["onpath"]:
+            text_finish()
+            tx["y"] = v
+        v = list_value(st, 2, c)
+        if v is not None:
+            tx["x"] = v + tx["x"]
+        v = list_value(st, 3, c)
+        if v is not None:
+            tx["y"] = v + tx["y"]
+
+    def text_char(cp, st, uses, g=None, lists=True):
         """svg_text_char; g = a shaped glyph (advance, x offset, y offset, characters, spaces,
-        the run's first character when it is the run's first glyph (else None), blank) with cp
-        its key."""
+        its run's first character when it is the run's first glyph and that is not the segment's
+        first (else None), blank) with cp its key. lists: a character's own position applies."""
         if font_fn is None:
             return
         c = tx["count"]
-        if g is None or g[5] is not None:
-            # the run's position: its first character's (right to left, not the first glyph's)
-            pc = c if g is None else g[5]
-            v = list_value(st, 0, pc)
-            if v is not None:
-                text_finish()
-                tx["x"] = v
-            v = list_value(st, 1, pc)
-            if v is not None and not tx["onpath"]:
-                text_finish()
-                tx["y"] = v
-            v = list_value(st, 2, pc)
-            if v is not None:
-                tx["x"] = v + tx["x"]
-            v = list_value(st, 3, pc)
-            if v is not None:
-                tx["y"] = v + tx["y"]
+        if g is None and lists:
+            text_position(st, c)
+        elif g is not None and g[5] is not None:
+            text_position(st, g[5])
         rot, rec = 0.0, st["lists"][4]
         if rec is not None and rec[0]:
             i = c - rec[1]
             rot = rec[0][i if i < len(rec[0]) else len(rec[0]) - 1] * 0.017453292519943295
         if not tx["chunk"]:
-            tx.update(chunk=len(doc.items) + 1, cx=tx["x"], anchor=st["anchor"], chunkpath=tx["onpath"])
+            anchor = st["anchor"] if not st["dir"] or st["anchor"] == 1 else 2 - st["anchor"]
+            tx.update(chunk=len(doc.items) + 1, cx=tx["x"], anchor=anchor, chunkpath=tx["onpath"])
         font = (st["family"], st["weight"], st["fstyle"])
         s = st["font"]
         if g is None:
@@ -2406,6 +2459,7 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
 
     def textpath_start(st, href, el):
         """svg_textpath_start."""
+        text_flush()
         text_finish()
         pts = tp_points(ids.get(href) if href is not None else None)
         if pts is None or not pts[0]:
@@ -2424,6 +2478,7 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
 
     def textpath_end():
         """svg_textpath_end: the chunk placed; text goes on from where the path text ended."""
+        text_flush()
         text_finish()
         pts = tx["onpath"]
         tx["onpath"] = None
@@ -2695,6 +2750,10 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
             t = trim(value)
             if t in ("start", "middle", "end"):
                 st["anchor"] = ("start", "middle", "end").index(t)
+        elif name == "direction":
+            t = trim(value)
+            if t in ("ltr", "rtl"):
+                st["dir"] = ("ltr", "rtl").index(t)
         elif name == "clip-rule":
             t = trim(value)
             if t in ("evenodd", "nonzero"):
@@ -2865,6 +2924,8 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
                     mrec = mask_ref(raw, st, uses)
                     frec = filter_ref(raw, st)
                     if rec or mrec or frec or own[0] < 1.0:
+                        if st["intext"]:
+                            text_flush()                # a group inside text ends the segment
                         opened = Group("begin", int(own[0] * 255.0 + 0.5), rec, list(st["m"]), mask=mrec,
                                        filter=frec)
                         doc.items.append(opened)
@@ -2939,11 +3000,14 @@ def parse(text, image_fn=None, font_fn=None, shape_fn=None):
         if st["tpath"] == 2 and not st["skip"]:
             textpath_end()
         if st["intext"] == 2 and not st["skip"]:
+            text_flush()
             text_finish()
         if vp:
             vp[0].bbox = group_bbox(vp[0], doc.items[vp[1]:])
             doc.items.append(Group("end", 255, vp[0].clip, begin=vp[0]))
         if opened:
+            if st["intext"] and not st["skip"]:
+                text_flush()
             if opened.clip or opened.mask or opened.filter:
                 opened.bbox = group_bbox(opened, doc.items[opened_at:])
             doc.items.append(Group("end", opened.alpha, opened.clip, mask=opened.mask, begin=opened,
