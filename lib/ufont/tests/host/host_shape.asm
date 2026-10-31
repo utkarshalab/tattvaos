@@ -5,7 +5,9 @@
 ;
 ;   host_shape <font.ttf> <in.bin> <out.bin>
 ;       in:  u32 cases; per case u32 script (ISO 15924 tag bytes, 0: from
-;            the text), u32 language system tag, u32 n, u32 code points[n]
+;            the text), u32 language system tag, u32 direction (0 the
+;            script's, 1 left to right, 2 right to left), u32 n, u32 code
+;            points[n]
 ;       out: u32 status (0, 1 font refused); per case u32 glyphs
 ;            (0xFFFFFFFF: ufont_shape failed), then per glyph u32 glyph,
 ;            u32 cluster, i32 x advance, y advance, x offset, y offset
@@ -78,12 +80,15 @@ _start:
     mov [rel arena], rax
     mov rdi, rbx
     lea rsi, [rel arena]
-    lea rdx, [r13 + 12]
-    mov ecx, [r13 + 8]
-    mov r8d, [r13]
+    lea rdx, [r13 + 16]
+    mov ecx, [r13 + 12]
+    mov r8d, [r13 + 8]                  ; script | direction << 32
+    shl r8, 32
+    mov eax, [r13]
+    or r8, rax
     mov r9d, [r13 + 4]
-    mov eax, [r13 + 8]
-    lea r13, [r13 + rax * 4 + 12]
+    mov eax, [r13 + 12]
+    lea r13, [r13 + rax * 4 + 16]
     call ufont_shape
     test rax, rax
     jnz .ok
