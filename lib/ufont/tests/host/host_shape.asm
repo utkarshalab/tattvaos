@@ -4,7 +4,8 @@
 ; Host tool for tests/host/shape_check.py (development machine only).
 ;
 ;   host_shape <font.ttf> <in.bin> <out.bin>
-;       in:  u32 cases; per case u32 script (ISO 15924 tag bytes, 0: from
+;       in:  u32 settings, (u32 axis tag, f32 value) per setting (a variable
+;            font's axes, ufont_set_variations); u32 cases; per case u32 script (ISO 15924 tag bytes, 0: from
 ;            the text), u32 language system tag, u32 direction (0 the
 ;            script's, 1 left to right, 2 right to left), u32 n, u32 code
 ;            points[n]
@@ -28,6 +29,7 @@
 
 extern ufont_open
 extern ufont_shape
+extern ufont_set_variations
 
 section .text
 
@@ -70,6 +72,15 @@ _start:
     jz write_out
     mov rax, [rel arena]
     mov [rel arena_mark], rax           ; the font's index stays
+    ; the axes set
+    mov rdi, rbx
+    lea rsi, [r15 + 4]
+    mov edx, [r15]
+    call ufont_set_variations
+    mov eax, [r15]
+    lea r15, [r15 + rax * 8 + 4]
+    mov rax, [rel arena]
+    mov [rel arena_mark], rax
     mov r12d, [r15]                     ; cases
     lea r13, [r15 + 4]
 .case:
