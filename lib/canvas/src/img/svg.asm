@@ -28,6 +28,7 @@ extern pixbuf_create
 extern ugfx_svg_parse_opts
 extern ufont_svg_font
 extern ufont_svg_shape
+extern ufont_svg_bidi
 extern image_decode
 extern ugfx_svg_draw
 extern ugfx_ctx_init
@@ -134,15 +135,18 @@ svg_render:
     mov qword [rsp + F_OPT + UgfxSvgOptions_image_user], 0
     xor eax, eax
     xor r10d, r10d
+    xor r11d, r11d
     mov rcx, [rel svg_fonts]
     test rcx, rcx
     jz .fonts
     lea rax, [rel ufont_svg_font]
     lea r10, [rel ufont_svg_shape]
+    lea r11, [rel ufont_svg_bidi]
 .fonts:
     mov [rsp + F_OPT + UgfxSvgOptions_font_fn], rax
     mov [rsp + F_OPT + UgfxSvgOptions_font_user], rcx
     mov [rsp + F_OPT + UgfxSvgOptions_shape_fn], r10
+    mov [rsp + F_OPT + UgfxSvgOptions_bidi_fn], r11
     lea rdi, [rsp + F_SVG]
     mov rcx, rdx
     mov rdx, rsi
