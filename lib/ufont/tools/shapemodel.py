@@ -956,7 +956,8 @@ class Skippy:
         self.num_items = num_items
         self.end = buf_len
         b = self.c.buf
-        self.syllable = b.cur().syllable if start == b.idx else 0
+        # the current glyph's syllable wherever the iterator starts (HarfBuzz 12)
+        self.syllable = b.cur().syllable if b.idx < len(b.info) else 0
 
     def may_skip(self, info):
         if not self.c.check_glyph_property(info, self.lookup_props):
@@ -1891,7 +1892,8 @@ def normalize(b, font, shaper=None):
 def pick_shaper(script, gsub_script):
     """HarfBuzz's shaper choice: the nine Indic scripts through the Indic shaper unless the font's
     GSUB only has DFLT / latn for them; Arabic (and Syriac when the font has a script for it) through
-    the Arabic shaper; Hebrew through the Hebrew one; Thai and Lao through the Thai one; Hangul through the Hangul one; Khmer through the Khmer one; everything
+    the Arabic shaper; Hebrew through the Hebrew one; Thai and Lao through the Thai one; Hangul through the Hangul one; Khmer through the Khmer one; Myanmar through the Myanmar one
+    unless the font has only DFLT, latn or the old mymr script; everything
     else the default shaper (None)."""
     if script in ('Deva', 'Beng', 'Guru', 'Gujr', 'Orya', 'Taml', 'Telu', 'Knda', 'Mlym'):
         tag = gsub_script.ScriptTag if gsub_script is not None else None
@@ -1910,6 +1912,12 @@ def pick_shaper(script, gsub_script):
     if script == 'Hebr':
         from arabic import HebrewShaper
         return HebrewShaper(script)
+    if script == 'Mymr':
+        tag = gsub_script.ScriptTag if gsub_script is not None else None
+        if tag in ('DFLT', 'latn', 'mymr'):
+            return None
+        from myanmar import MyanmarShaper
+        return MyanmarShaper(script)
     if script == 'Khmr':
         from khmer import KhmerShaper
         return KhmerShaper(script)
@@ -2067,6 +2075,8 @@ def shape(font, cps, script=None, language=None, shaper=None, direction=None):
     for inf, p in zip(b.info, b.pos):
         p.xa = font.advance(inf.glyph)
     fallback_spaces(b, font)
+    if zero_marks == 'early':
+        zero_marks_by_gdef(b, adjust_marks and not brtl)
     attached = False
     if font.gpos and apply_gpos:
         c = Ctx(font, b, font.gpos, True)
@@ -2077,12 +2087,7 @@ def shape(font, cps, script=None, language=None, shaper=None, direction=None):
     if apply_kern:
         kern_table(font, b, m.get_mask('kern'), brtl)
     if zero_marks == 'late':
-        for inf, p in zip(b.info, b.pos):
-            if inf.is_mark():
-                if adjust_marks and not brtl:
-                    p.xo -= p.xa
-                    p.yo -= p.ya
-                p.xa = p.ya = 0
+        zero_marks_by_gdef(b, adjust_marks and not brtl)
     for inf, p in zip(b.info, b.pos):
         if inf.is_default_ignorable():
             p.xa = p.ya = p.xo = p.yo = 0
@@ -2106,6 +2111,16 @@ def shape(font, cps, script=None, language=None, shaper=None, direction=None):
             g = space
         out.append((g, inf.cluster, p.xa, p.ya, p.xo, p.yo))
     return out
+
+
+def zero_marks_by_gdef(b, adjust):
+    """Marks' advances zeroed (their offsets taking them back when adjust)."""
+    for inf, p in zip(b.info, b.pos):
+        if inf.is_mark():
+            if adjust:
+                p.xo -= p.xa
+                p.yo -= p.ya
+            p.xa = p.ya = 0
 
 
 # ---------------------------------------------------------------- fallback mark positioning
