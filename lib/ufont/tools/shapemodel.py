@@ -458,7 +458,55 @@ class Font:
         return None if n is None else self.gid[n]
 
     def advance(self, g):
-        return self.hmtx[self.order[g]][0]
+        a = self.hmtx[self.order[g]][0]
+        if getattr(self, 'coords', None) and 'HVAR' in self.tt:
+            import varmodel
+            a = max(0, a + varmodel.roundf(varmodel.hvar_delta(self.raw('HVAR'), g, self.coords)))
+        return a
+
+    def raw(self, tag):
+        """A table's bytes, read once."""
+        if not hasattr(self, '_raw'):
+            self._raw = {}
+        if tag not in self._raw:
+            self._raw[tag] = self.tt.getTableData(tag)
+        return self._raw[tag]
+
+    def set_variations(self, settings):
+        """Axis values ({tag: value}): advances (HVAR), GPOS adjustments (GDEF's variation store)
+        and feature variations follow the normalized coordinates (varmodel)."""
+        import varmodel
+        self.coords = []
+        self.var_store = None
+        if 'fvar' in self.tt:
+            avar = self.raw('avar') if 'avar' in self.tt else None
+            self.coords = varmodel.normalize(self.raw('fvar'), avar, settings)
+            if 'GDEF' in self.tt:
+                gdef = self.raw('GDEF')
+                if varmodel.u32(gdef, 0) >= 0x00010003 and varmodel.u32(gdef, 14):
+                    self.var_store = varmodel.ItemStore(gdef, varmodel.u32(gdef, 14))
+        return self.coords
+
+    def device(self, dev):
+        """A device table's adjustment: a VariationIndex one's rounded delta (HarfBuzz applies
+        devices only with coordinates set; hinting ones need a ppem, which there is not)."""
+        if dev is None or not getattr(self, 'coords', None) or dev.DeltaFormat != 0x8000 or self.var_store is None:
+            return 0
+        import varmodel
+        return varmodel.roundf(self.var_store.delta(dev.StartSize, dev.EndSize, self.coords))
+
+    def feature_lookups(self, t, fi):
+        """Feature fi's lookups in GSUB (t 0) / GPOS (1): its FeatureVariations alternate when the
+        coordinates select one."""
+        table = (self.gsub, self.gpos)[t]
+        if 'fvar' in self.tt:                           # (with no axis values set: at the default)
+            import varmodel
+            raw = self.raw(('GSUB', 'GPOS')[t])
+            alt = varmodel.feature_variation(raw, getattr(self, 'coords', None) or []).get(fi)
+            if alt is not None:
+                n = varmodel.u16(raw, alt + 2)
+                return [varmodel.u16(raw, alt + 4 + 2 * k) for k in range(n)]
+        return table.FeatureList.FeatureRecord[fi].Feature.LookupListIndex
 
     def glyph_props(self, g):
         if self.classdef is None:
@@ -573,7 +621,7 @@ class MapBuilder:
     def add_gsub_pause(self, func):
         self.add_pause(0, func)
 
-    def compile(self, tables, scripts, langsyss):
+    def compile(self, tables, scripts, langsyss, font=None):
         m = Map()
         for t in range(2):
             if scripts[t] is not None:
@@ -643,12 +691,14 @@ class MapBuilder:
             pi = last = 0
             for stage in range(pauses[t][-1][0] + 1):
                 if req[t][0] is not None and req_stage[t] == stage:
-                    for li in tables[t].FeatureList.FeatureRecord[req[t][0]].Feature.LookupListIndex:
+                    for li in (font.feature_lookups(t, req[t][0]) if font else
+                               tables[t].FeatureList.FeatureRecord[req[t][0]].Feature.LookupListIndex):
                         if li < nlookups:
                             lookups.append(Lookup(li, GLOBAL_MASK))
                 for tag, index, stages, mask, az, aj, rnd, ps in feats:
                     if stages[t] == stage and index[t] is not None:
-                        for li in tables[t].FeatureList.FeatureRecord[index[t]].Feature.LookupListIndex:
+                        for li in (font.feature_lookups(t, index[t]) if font else
+                                   tables[t].FeatureList.FeatureRecord[index[t]].Feature.LookupListIndex):
                             if li < nlookups:
                                 lookups.append(Lookup(li, mask, az, aj, rnd, ps))
                 part = lookups[last:]
@@ -1341,11 +1391,20 @@ def value(c, fmt_rec, pos):
         v = getattr(fmt_rec, attr, None)
         if v:
             setattr(pos, field, getattr(pos, field) + v)
+    # variation devices (with coordinates)
+    for attr, field in (('XPlaDevice', 'xo'), ('YPlaDevice', 'yo'), ('XAdvDevice', 'xa')):
+        dev = getattr(fmt_rec, attr, None)
+        if dev is not None:
+            setattr(pos, field, getattr(pos, field) + c.font.device(dev))
     return True
 
 
-def anchor_xy(a):
-    return a.XCoordinate, a.YCoordinate
+def anchor_xy(c, a):
+    x, y = a.XCoordinate, a.YCoordinate
+    if a.Format == 3:
+        x += c.font.device(getattr(a, 'XDeviceTable', None))
+        y += c.font.device(getattr(a, 'YDeviceTable', None))
+    return x, y
 
 
 def find_base(c, accept_multiplied):
@@ -1379,8 +1438,8 @@ def mark_apply(c, mark_rec, base_anchor, glyph_pos):
     if base_anchor is None:
         return False
     b = c.buf
-    mx, my = anchor_xy(mark_rec.MarkAnchor)
-    bx, by = anchor_xy(base_anchor)
+    mx, my = anchor_xy(c, mark_rec.MarkAnchor)
+    bx, by = anchor_xy(c, base_anchor)
     o = b.pos[b.idx]
     o.xo = bx - mx
     o.yo = by - my
@@ -1422,8 +1481,8 @@ def cursive(c, st, name):
     if prev is None or prev.ExitAnchor is None:
         return False
     i, j = sk.idx, b.idx
-    exit_x, exit_y = anchor_xy(prev.ExitAnchor)
-    entry_x, entry_y = anchor_xy(this.EntryAnchor)
+    exit_x, exit_y = anchor_xy(c, prev.ExitAnchor)
+    entry_x, entry_y = anchor_xy(c, this.EntryAnchor)
     pos = b.pos
     if not c.rtl:
         pos[i].xa = exit_x + pos[i].xo
@@ -1901,7 +1960,7 @@ def shape(font, cps, script=None, language=None, shaper=None, direction=None):
         mb.add_feature(tag, flags)
     if shaper:
         shaper.override_features(mb)
-    m = mb.compile((font.gsub, font.gpos), (gsub_s, gpos_s), (gsub_ls, gpos_ls))
+    m = mb.compile((font.gsub, font.gpos), (gsub_s, gpos_s), (gsub_ls, gpos_ls), font)
     for inf in b.info:
         inf.mask = m.global_mask
     if shaper:
