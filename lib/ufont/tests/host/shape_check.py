@@ -10,12 +10,13 @@ ignorables; random syllables in the font's Indic script (consonant
 clusters, reph, nukta, matras, signs, joiners, broken clusters); random
 Arabic or Hebrew (letters, harakat and points, modifier marks, tatweel,
 joiners, digits, mirrored brackets) for those fonts, shaped right to
-left; Thai, Lao, Korean, Khmer, Myanmar and the other test fonts'
-scripts (tests/fonts), Noto Sans Thai made an old PUA font (no thai
-GSUB) and Noto Sans Myanmar retagged mymr. Every glyph, cluster, advance
-and offset ufont_shape gives must equal the model's. Noto Sans Devanagari altered four ways (only the old
-'deva' script, only DFLT, no GSUB, no GDEF) takes the shaper down its other
-paths; Noto Sans, Noto Sans Arabic, Noto Sans Hebrew and Noto Sans
+left; Thai, Lao, Korean, Khmer, Myanmar and the Universal Shaping
+Engine's scripts (the test fonts in tests/fonts), Noto Sans Thai made an
+old PUA font (no thai GSUB) and Noto Sans Myanmar retagged mymr. Every
+glyph, cluster, advance and offset ufont_shape gives must equal the
+model's. Noto Sans Devanagari altered five ways (only the old 'deva'
+script, only DFLT, no GSUB, no GDEF, dev3) takes the shaper down its
+other paths; Noto Sans, Noto Sans Arabic, Noto Sans Hebrew and Noto Sans
 Devanagari without GPOS, GSUB or GDEF (or all three) take the fallbacks -
 marks placed by combining class, Arabic forms and ligatures from
 presentation forms, the kern table. Some cases are shaped in a direction asked for (as bidi runs are),
@@ -266,6 +267,55 @@ def myanmar(rng):
     return out
 
 
+def use_text(font):
+    """Random text for a Universal Shaping Engine font: syllable-like runs of its main script's
+    characters by USE category (repha, bases, consonant modifiers, halant + base, medials,
+    vowels, vowel modifiers, finals, joiners) and stray characters -> (script, generator)."""
+    from collections import Counter
+    from use_data import TABLE as USE
+    import use
+    counts = Counter(sm.fud.script(chr(u)) for u in font.cmap)
+    script = next((s for s, _ in counts.most_common() if s in use.SCRIPTS), None)
+    if script is None:
+        return None, None
+    by = {}
+    for u in font.cmap:
+        if sm.fud.script(chr(u)) in (script, 'Zinh', 'Zyyy') and u >= 0x80:
+            by.setdefault(USE.get(u, 0), []).append(u)
+    every = [u for us in by.values() for u in us]
+
+    def gen(rng):
+        def pick(*cats):
+            pool = [u for c in cats for u in by.get(c, [])]
+            return [rng.choice(pool)] if pool else []
+        out = []
+        for _ in range(rng.randint(1, 4)):
+            if rng.random() < 0.75:
+                if rng.random() < 0.15:
+                    out += pick(18)
+                out += pick(1, 1, 1, 5) or pick(1)
+                for _ in range(rng.choice((0, 0, 1))):
+                    out += pick(31, 32)
+                for _ in range(rng.choice((0, 0, 1, 2))):
+                    out += pick(12, 44, 53, 48) + pick(1)
+                for _ in range(rng.choice((0, 1))):
+                    out += pick(11, 27, 28, 29, 30)
+                for _ in range(rng.choice((0, 1, 1, 2))):
+                    out += pick(22, 33, 34, 35)
+                for _ in range(rng.choice((0, 1))):
+                    out += pick(23, 37, 38, 39)
+                for _ in range(rng.choice((0, 0, 1))):
+                    out += pick(24, 25, 26, 45, 46, 47)
+                if rng.random() < 0.1:
+                    out += pick(12, 44, 56)
+                if rng.random() < 0.05:
+                    out.append(rng.choice((0x200C, 0x200D, 0x034F, 0xFE00)))
+            else:
+                out.append(rng.choice(every + [0x25CC, 0x20, 0x200C]))
+        return out or [0x25CC]
+    return script, gen
+
+
 # the test fonts' scripts (tests/fonts/<name>-Regular.ttf / .otf): the text they are shaped with
 SCRIPT_TEXT = {'Thai': thai, 'Lao': lao, 'KR': hangul, 'Khmer': khmer, 'Myanmar': myanmar}
 SCRIPT_WORDS = """สวัสดี ภาษาไทย น้ำ ทำ กำลัง ปั้ม ฟ้า ญู ฐู ปิ่น ป่า ฎุ ญุ ปั่น ก่ำ ก้ำ ดํ่า ไก่ เป็น
@@ -345,15 +395,21 @@ def harfbuzz(path, cases):
 
 
 def altered(font_dir, d):
-    """Noto Sans Devanagari made old-spec only, DFLT only, without GSUB, without GDEF."""
+    """Noto Sans Devanagari made old-spec only, DFLT only, without GSUB, without GDEF, and with
+    its dev2 script tagged dev3 (the Universal Shaping Engine then)."""
     from fontTools.ttLib import TTFont
     src = os.path.join(font_dir, "NotoSansDevanagari-Regular.ttf")
     out = []
     if not os.path.exists(src):
         return out
-    for kind in ("old-spec", "DFLT-only", "no-GSUB", "no-GDEF"):
+    for kind in ("old-spec", "DFLT-only", "no-GSUB", "no-GDEF", "dev3"):
         f = TTFont(src)
-        if kind in ("old-spec", "DFLT-only"):
+        if kind == "dev3":
+            for t in ("GSUB", "GPOS"):
+                for r in f[t].table.ScriptList.ScriptRecord:
+                    if r.ScriptTag == "dev2":
+                        r.ScriptTag = "dev3"
+        elif kind in ("old-spec", "DFLT-only"):
             drop = ("dev2",) if kind == "old-spec" else ("dev2", "deva")
             for t in ("GSUB", "GPOS"):
                 sl = f[t].table.ScriptList
@@ -460,11 +516,25 @@ def check_font(tool, path, name, cases, d):
 
 
 def damage(tool, font_dir, d, rng):
-    """Truncated and corrupted fonts: host_shape may refuse them, never crash."""
-    cases = [[ord(c) for c in w] for w in WORDS[:60]]
+    """Truncated and corrupted fonts: host_shape may refuse them, never crash. The shipped fonts
+    with Latin and Devanagari words; the Thai, Korean, Khmer, Myanmar, Javanese and Mongolian test
+    fonts with their own text (the other shapers' paths)."""
+    words = [[ord(c) for c in w] for w in WORDS[:60]]
+    test_fonts = os.path.join(HERE, "..", "fonts")
+    fonts = [(os.path.join(font_dir, n), words) for n in ("NotoSans-Regular.ttf", "NotoSansDevanagari-Regular.ttf",
+                                                          "LiberationSerif-Italic.ttf")]
+    for name, gen in (("NotoSansThai-Regular.ttf", thai), ("NotoSansKR-Regular.otf", hangul),
+                      ("NotoSansKhmer-Regular.ttf", khmer), ("NotoSansMyanmar-Regular.ttf", myanmar),
+                      ("NotoSansJavanese-Regular.ttf", None), ("NotoSansMongolian-Regular.ttf", None)):
+        path = os.path.join(test_fonts, name)
+        if not os.path.exists(path):
+            continue
+        if gen is None:
+            _, gen = use_text(sm.Font(path))
+        fonts.append((path, [gen(rng) for _ in range(40)]))
     runs = crashes = 0
-    for name in ("NotoSans-Regular.ttf", "NotoSansDevanagari-Regular.ttf", "LiberationSerif-Italic.ttf"):
-        data = open(os.path.join(font_dir, name), "rb").read()
+    for path, cases in fonts:
+        data = open(path, "rb").read()
         variants = [data[:n] for n in (12, 300, 4000, len(data) // 3, len(data) - 1)]
         for _ in range(50):
             b = bytearray(data)
@@ -523,10 +593,14 @@ def main():
         for path in script_fonts + thai_pua(d) + myanmar_old(d):
             name = os.path.basename(path)[:-4]
             gen = next((g for k, g in SCRIPT_TEXT.items() if k in name), None)
+            many = 2
+            if gen is None:
+                _, gen = use_text(sm.Font(path))
+                many = 1
             if gen is None:
                 continue
             cases = [[ord(c) for c in w] for w in SCRIPT_WORDS + WORDS[:40]]
-            cases += [gen(rng) for _ in range(per_font * 2)]
+            cases += [gen(rng) for _ in range(per_font * many)]
             total += 1
             failed += not check_font(tool, path, name, cases, d)
         for path in altered(font_dir, d):
