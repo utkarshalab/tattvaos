@@ -10,7 +10,8 @@ ignorables; random syllables in the font's Indic script (consonant
 clusters, reph, nukta, matras, signs, joiners, broken clusters); random
 Arabic or Hebrew (letters, harakat and points, modifier marks, tatweel,
 joiners, digits, mirrored brackets) for those fonts, shaped right to
-left. Every glyph, cluster, advance and offset ufont_shape gives must
+left; Thai, Lao and the other test fonts' scripts (tests/fonts), and Noto Sans
+Thai made an old PUA font (no thai GSUB). Every glyph, cluster, advance and offset ufont_shape gives must
 equal the model's. Noto Sans Devanagari altered four ways (only the old
 'deva' script, only DFLT, no GSUB, no GDEF) takes the shaper down its other
 paths; Noto Sans, Noto Sans Arabic, Noto Sans Hebrew and Noto Sans
@@ -160,6 +161,38 @@ def rtl_text(rng, arabic):
     return out
 
 
+def _pick(rng, groups, most=14):
+    """Up to most characters, each from one of (weight, characters) groups."""
+    out = []
+    for _ in range(rng.randint(1, most)):
+        r, acc = rng.random(), 0
+        for w, g in groups:
+            acc += w
+            if r < acc:
+                break
+        out.append(rng.choice(g))
+    return out
+
+
+def thai(rng):
+    """Random Thai: consonants, SARA AM, vowels, above marks and tone marks, leading vowels, digits."""
+    return _pick(rng, [(0.45, list(range(0x0E01, 0x0E2F))), (0.15, [0x0E33] * 3 + list(range(0x0E30, 0x0E3B))),
+                       (0.25, list(range(0x0E47, 0x0E4F)) + [0x0E31, 0x0E34, 0x0E35, 0x0E36, 0x0E37]),
+                       (0.1, list(range(0x0E40, 0x0E46)) + list(range(0x0E50, 0x0E5C))),
+                       (0.05, [0x20, 0x200B, 0x200D, 0x25CC, 0x31])])
+
+
+def lao(rng):
+    """Random Lao: Thai's shapes moved to the Lao block."""
+    return [c + 0x80 if 0x0E00 <= c < 0x0E80 else c for c in thai(rng)]
+
+
+# the test fonts' scripts (tests/fonts/<name>-Regular.ttf): the text they are shaped with
+SCRIPT_TEXT = {'Thai': thai, 'Lao': lao}
+SCRIPT_WORDS = """สวัสดี ภาษาไทย น้ำ ทำ กำลัง ปั้ม ฟ้า ญู ฐู ปิ่น ป่า ฎุ ญุ ปั่น ก่ำ ก้ำ ดํ่า ไก่ เป็น
+ສະບາຍດີ ພາສາລາວ ນ້ຳ ທຳ ກຳລັງ ປັ້ນ ຫຼວງ ເປັນ""".split()
+
+
 def general(rng, cmap, marks):
     special = [ord(x) for x in "fiflAVTWYLPoaeyv.,-'\"ffi"] + [0x200D, 0x200C, 0xAD, 0x20, 0xA0, 0x2009, 0x2011,
                                                                  0x034F, 0xFE0F, 0x2044, 0x31, 0x32]
@@ -277,6 +310,31 @@ def stripped(font_dir, d):
     return out
 
 
+def thai_pua(d):
+    """Noto Sans Thai as an old Thai font: no thai GSUB script, PUA glyphs (Windows' code points
+    for some characters, the Mac's for the others)."""
+    from fontTools.ttLib import TTFont
+    from thai import PUA
+    src = os.path.join(HERE, "..", "fonts", "NotoSansThai-Regular.ttf")
+    if not os.path.exists(src):
+        return []
+    f = TTFont(src)
+    order = f.getGlyphOrder()
+    k = 0
+    for t in f["cmap"].tables:
+        if t.isUnicode():
+            for rows in PUA.values():
+                for i, (_, win, mac) in enumerate(rows):
+                    t.cmap[win if i % 3 else mac] = order[10 + k % 40]
+                    k += 1
+    sl = f["GSUB"].table.ScriptList
+    sl.ScriptRecord = [r for r in sl.ScriptRecord if r.ScriptTag != "thai"]
+    sl.ScriptCount = len(sl.ScriptRecord)
+    path = os.path.join(d, "NotoSansThai-PUA.ttf")
+    f.save(path)
+    return [path]
+
+
 def check_font(tool, path, name, cases, d):
     font = sm.Font(path)
     if VARIATIONS:
@@ -359,6 +417,19 @@ def main():
                 cps = list(rng.choice(plain)) if rng.random() < 0.7 else []
                 cps += [rng.choice(common) for _ in range(rng.randint(0 if cps else 1, 4))]
                 cases.append((cps, rng.choice(("ltr", "rtl"))))
+            total += 1
+            failed += not check_font(tool, path, name, cases, d)
+        # the test fonts of other scripts, and an old (PUA) Thai font
+        test_fonts = os.path.join(HERE, "..", "fonts")
+        script_fonts = [os.path.join(test_fonts, f) for f in sorted(os.listdir(test_fonts))
+                        if f.endswith("-Regular.ttf")]
+        for path in script_fonts + thai_pua(d):
+            name = os.path.basename(path)[:-4]
+            gen = next((g for k, g in SCRIPT_TEXT.items() if k in name), None)
+            if gen is None:
+                continue
+            cases = [[ord(c) for c in w] for w in SCRIPT_WORDS + WORDS[:40]]
+            cases += [gen(rng) for _ in range(per_font * 2)]
             total += 1
             failed += not check_font(tool, path, name, cases, d)
         for path in altered(font_dir, d):
