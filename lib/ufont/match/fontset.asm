@@ -9,6 +9,7 @@
 ;   ufont_set_face(set, UgfxSvgFont*)                       -> face or 0
 ;   ufont_svg_font                          ugfx's font callback (user = set)
 ;   ufont_svg_shape                         ugfx's shaping callback (user = set)
+;   ufont_svg_bidi                          ugfx's bidi callback
 ;   ufont_standard, ufont_standard_count    the fonts lib/ufont ships
 ;
 ; A set holds up to UFONT_SET_MAX (64) faces: a TrueType font (sfnt.asm, its bytes
@@ -31,9 +32,11 @@
 ; changes - each character's face as above, marks and default ignorables
 ; staying in the face before them; characters of no script of their own
 ; (common, inherited) taking the script before them, at the start the
-; first one after - and each part shaped by ufont_shape. Its glyphs come
-; back as keys (bit 31, the face's index in the set << 16, the glyph) that
-; ufont_svg_font then draws.
+; first one after - and each part shaped by ufont_shape in the direction
+; ugfx asks for (a bidi run's; right to left the parts last first). Its
+; glyphs come back as keys (bit 31, the face's index in the set << 16, the
+; glyph) that ufont_svg_font then draws. ufont_svg_bidi gives ugfx a text
+; segment's bidirectional levels (ufont_bidi).
 ; =============================================================================
 
 %include "ugfx.inc"
@@ -764,8 +767,9 @@ fs_char_face:
 ; ----------------------------------------------------------------------------
 ; ufont_svg_shape — ugfx's shaping callback (UgfxSvg_shape_fn): rdi =
 ;   UfontSet*, rsi = UgfxSvgFont*, rdx = code points (u32), ecx = count,
-;   xmm0 = size, r8 = arena -> rax = UgfxSvgGlyph records (0: none), edx =
-;   how many
+;   xmm0 = size, r8 = arena, r9d = direction (0 left to right, 1 right to
+;   left: the parts last first) -> rax = UgfxSvgGlyph records in visual
+;   order (0: none), edx = how many
 ; ----------------------------------------------------------------------------
 %define SS_DESC     0
 %define SS_CPS      8
@@ -782,7 +786,11 @@ fs_char_face:
 %define SS_B        76                  ; u32 its end
 %define SS_SCALE    80                  ; f64
 %define SS_KEY      88                  ; u32 the face's index << 16 | bit 31
-%define SS_FRAME    96
+%define SS_DIR      92                  ; u32
+%define SS_BOUNDS   96                  ; u32 the parts' starts, then the end
+%define SS_NPARTS   104                 ; u32
+%define SS_K        108                 ; u32 the part being shaped
+%define SS_FRAME    112
 
 global ufont_svg_shape
 ufont_svg_shape:
@@ -798,6 +806,8 @@ ufont_svg_shape:
     mov [rsp + SS_N], ecx
     movsd [rsp + SS_SIZE], xmm0
     mov [rsp + SS_ARENA], r8
+    and r9d, 1
+    mov [rsp + SS_DIR], r9d
     mov rax, rsi
     call fs_want
     mov [rsp + SS_WANT], edx
@@ -907,27 +917,62 @@ ufont_svg_shape:
     inc r13d
     jmp .res
 .parts:
-    mov dword [rsp + SS_A], 0
-.part:
-    mov eax, [rsp + SS_A]
+    ; the parts: where the face or the script changes
+    mov rdi, [rsp + SS_ARENA]
+    mov esi, [rsp + SS_N]
+    lea esi, [rsi * 4 + 8]
+    call arena_alloc
+    test rax, rax
+    jz .none
+    mov [rsp + SS_BOUNDS], rax
+    mov r8, rax
+    mov rdx, [rsp + SS_FACES]
+    mov rcx, [rsp + SS_SCRIPTS]
+    xor eax, eax                        ; start
+    xor r9d, r9d                        ; parts
+.bound:
     cmp eax, [rsp + SS_N]
-    jae .done
+    jae .bounds_done
+    mov [r8 + r9 * 4], eax
+    inc r9d
+    mov r14, [rdx + rax * 8]
+    mov r15d, [rcx + rax * 4]
+    lea r13d, [rax + 1]
+.bound_end:
+    cmp r13d, [rsp + SS_N]
+    jae .bound_have
+    cmp [rdx + r13 * 8], r14
+    jne .bound_have
+    cmp [rcx + r13 * 4], r15d
+    jne .bound_have
+    inc r13d
+    jmp .bound_end
+.bound_have:
+    mov eax, r13d
+    jmp .bound
+.bounds_done:
+    mov [r8 + r9 * 4], eax
+    mov [rsp + SS_NPARTS], r9d
+    ; left to right the first part first, right to left the last
+    xor eax, eax
+    cmp dword [rsp + SS_DIR], 0
+    je .first_part
+    lea eax, [r9 - 1]
+.first_part:
+    mov [rsp + SS_K], eax
+.part:
+    mov eax, [rsp + SS_K]
+    cmp eax, [rsp + SS_NPARTS]
+    jae .done                           ; (past either end: unsigned)
+    mov r8, [rsp + SS_BOUNDS]
+    mov ecx, [r8 + rax * 4 + 4]
+    mov [rsp + SS_B], ecx
+    mov eax, [r8 + rax * 4]
+    mov [rsp + SS_A], eax
     mov rdx, [rsp + SS_FACES]
     mov r14, [rdx + rax * 8]            ; its face
     mov rcx, [rsp + SS_SCRIPTS]
     mov r15d, [rcx + rax * 4]           ; its script
-    lea r13d, [rax + 1]
-.part_end:
-    cmp r13d, [rsp + SS_N]
-    jae .part_have
-    cmp [rdx + r13 * 8], r14
-    jne .part_have
-    cmp [rcx + r13 * 4], r15d
-    jne .part_have
-    inc r13d
-    jmp .part_end
-.part_have:
-    mov [rsp + SS_B], r13d
     ; the key's face index, the scale
     mov rax, r14
     lea rcx, [rbx + UfontSet_faces]
@@ -958,6 +1003,10 @@ ufont_svg_shape:
     lea rdx, [rdx + rax * 4]
     mov ecx, [rsp + SS_B]
     sub ecx, eax
+    mov r9d, [rsp + SS_DIR]             ; the direction asked for: 1 ltr, 2 rtl
+    inc r9d
+    shl r9, 32
+    or r8, r9
     xor r9d, r9d
     call ufont_shape
     test rax, rax
@@ -1015,8 +1064,12 @@ ufont_svg_shape:
     inc ecx
     jmp .copy
 .part_next:
-    mov eax, [rsp + SS_B]
-    mov [rsp + SS_A], eax
+    mov eax, 1
+    cmp dword [rsp + SS_DIR], 0
+    je .step
+    mov eax, -1
+.step:
+    add [rsp + SS_K], eax
     jmp .part
 .done:
     mov rax, [rsp + SS_OUT]
@@ -1033,6 +1086,18 @@ ufont_svg_shape:
     pop r12
     pop rbx
     ret
+
+; ----------------------------------------------------------------------------
+; ufont_svg_bidi — ugfx's bidi callback (UgfxSvg_bidi_fn): rdi = UfontSet*
+;   (unused), rsi = code points, edx = count, ecx = direction, r8 = levels
+;   (u8 per character, 255 removed), r9 = arena -> eax the paragraph level
+;   (-1: out of memory) - ufont_bidi
+; ----------------------------------------------------------------------------
+extern ufont_bidi
+global ufont_svg_bidi
+ufont_svg_bidi:
+    mov rdi, r9
+    jmp ufont_bidi
 
 section .data
 global ufont_set_version
