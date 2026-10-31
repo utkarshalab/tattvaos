@@ -118,7 +118,14 @@ def modified_ccc(cp):
 
 
 def decompose2(ab):
-    """HarfBuzz's canonical decomposition: ab -> (a, b) (b 0 for a singleton), or None."""
+    """HarfBuzz's canonical decomposition: ab -> (a, b) (b 0 for a singleton), or None. Hangul
+    syllables arithmetically: LVT -> LV, T and LV -> L, V."""
+    s = ab - 0xAC00
+    if 0 <= s < 11172:
+        ti = s % 28
+        if ti:
+            return ab - ti, 0x11A7 + ti
+        return 0x1100 + s // 588, 0x1161 + s % 588 // 28
     d = unicodedata.decomposition(chr(ab))
     if not d or d.startswith('<'):
         return None
@@ -138,6 +145,10 @@ for _cp in range(0x110000):
 
 
 def compose(a, b):
+    if 0x1100 <= a < 0x1113 and 0x1161 <= b < 0x1176:
+        return 0xAC00 + (a - 0x1100) * 588 + (b - 0x1161) * 28
+    if 0 <= a - 0xAC00 < 11172 and (a - 0xAC00) % 28 == 0 and 0x11A7 < b < 0x11C3:
+        return a + b - 0x11A7
     return _COMPOSE.get((a, b))
 
 
@@ -1707,7 +1718,9 @@ def cgj(b):
 
 def normalize(b, font, shaper=None):
     """HarfBuzz's composed-diacritics normalization against the font (an Indic shaper: no
-    short circuit, its own decompose / compose exceptions)."""
+    short circuit, its own decompose / compose exceptions; a shaper whose normalization is
+    'none', Hangul: always the short circuit, nothing recomposed)."""
+    none = getattr(shaper, 'normalization', None) == 'none'
     short = shaper is None or not shaper.no_short_circuit
     decompose2_ = shaper.decompose if shaper else decompose2
     compose_ = shaper.compose if shaper else compose
@@ -1823,7 +1836,7 @@ def normalize(b, font, shaper=None):
                 next_char(0 if g is None else g)
         else:
             while b.idx < end:
-                decompose_current(False)
+                decompose_current(none)
     b.sync()
     if all_simple:
         cgj(b)
@@ -1844,6 +1857,8 @@ def normalize(b, font, shaper=None):
                 shaper.reorder_marks(b, i, end)
         i = end
     cgj(b)
+    if none:
+        return
     # recompose
     b.clear_output()
     count = len(b.info)
@@ -1876,7 +1891,7 @@ def normalize(b, font, shaper=None):
 def pick_shaper(script, gsub_script):
     """HarfBuzz's shaper choice: the nine Indic scripts through the Indic shaper unless the font's
     GSUB only has DFLT / latn for them; Arabic (and Syriac when the font has a script for it) through
-    the Arabic shaper; Hebrew through the Hebrew one; Thai and Lao through the Thai one; everything
+    the Arabic shaper; Hebrew through the Hebrew one; Thai and Lao through the Thai one; Hangul through the Hangul one; everything
     else the default shaper (None)."""
     if script in ('Deva', 'Beng', 'Guru', 'Gujr', 'Orya', 'Taml', 'Telu', 'Knda', 'Mlym'):
         tag = gsub_script.ScriptTag if gsub_script is not None else None
@@ -1895,6 +1910,9 @@ def pick_shaper(script, gsub_script):
     if script == 'Hebr':
         from arabic import HebrewShaper
         return HebrewShaper(script)
+    if script == 'Hang':
+        from hangul import HangulShaper
+        return HangulShaper(script)
     if script in ('Thai', 'Laoo'):
         from thai import ThaiShaper
         sh = ThaiShaper(script)
