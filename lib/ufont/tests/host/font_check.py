@@ -14,6 +14,8 @@ Usage: font_check.py <host_font> <font directory>
   ones (tests/host/cff_fonts.py: plain, CID-keyed, subroutinized with stem
   hints and hint masks, both).
 - WOFF: a TrueType and a CFF font in WOFF 1.0 (tables inflated).
+- WOFF2: TrueType fonts with glyf / loca (and hmtx) transformed - hinted,
+  composites - and a CFF font, through Brotli.
 - collections: both faces of a TrueType collection made from two shipped
   fonts, by index.
 - matching: ufont_set_face over family lists (generic names, aliases, quoted,
@@ -157,6 +159,26 @@ def main():
             failed += err is not None
             print(f"{'ok  ' if err is None else 'FAIL'}  glyphs {name:32} {len(face.cmap):5} mapped"
                   + (f"  {err}" if err else ""))
+        # WOFF2: glyf / loca transformed (unhinted and hinted, composites, instructions), hmtx
+        # transformed too, a CFF font
+        from fontTools.ttLib import woff2
+        for name, src, tables in (("woff2", os.path.join(font_dir, "NotoSans-Regular.ttf"), None),
+                                  ("woff2-hmtx", os.path.join(font_dir, "LiberationSerif-Italic.ttf"),
+                                   {"glyf", "loca", "hmtx"}),
+                                  ("woff2-indic", os.path.join(font_dir, "NotoSansDevanagari-Bold.ttf"),
+                                   {"glyf", "loca", "hmtx"}),
+                                  ("woff2-cff", os.path.join(d, "cff-cid-subrs.otf"), None)):
+            wpath = os.path.join(d, name + ".woff2")
+            if tables is None:
+                woff2.compress(src, wpath)
+            else:
+                woff2.compress(src, wpath, transform_tables=tables)
+            face = fontmodel.Face(wpath, "Test WOFF2", 400, 0)
+            err = check_glyphs(tool, d, wpath, face)
+            total += 1
+            failed += err is not None
+            print(f"{'ok  ' if err is None else 'FAIL'}  glyphs {name:32} {len(face.cmap):5} mapped"
+                  + (f"  {err}" if err else ""))
         err, n = check_matching(tool, d, font_dir, fonts)
         total += 1
         failed += err is not None
@@ -167,7 +189,7 @@ def main():
         open(src, "wb").write(struct.pack("<ddI", SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
         crashes = runs = 0
         for name in ("NotoSans-Regular.ttf", "NotoSerif-Bold.ttf", "LiberationSans-Italic.ttf", "cff-cid-subrs.otf",
-                     "woff.woff"):
+                     "woff.woff", "woff2-hmtx.woff2"):
             data = open(os.path.join(font_dir if name.endswith(".ttf") else d, name), "rb").read()
             variants = [data[:n] for n in (0, 11, 12, 13, 64, 300, 2000, len(data) // 2, len(data) - 1)]
             for _ in range(60):
