@@ -7,7 +7,7 @@
 ;   ufont_open(arena, data, length)         -> UfontFont* or 0
 ;   ufont_open_face(arena, data, length, i) -> a collection's face i (a single
 ;                                              font: i 0) or 0
-;   (a WOFF font is unpacked into the arena first)
+;   (a WOFF or WOFF2 font is unpacked into the arena first)
 ;   ufont_faces(data, length)               -> the faces in it (1 for a single
 ;                                              font, 0 for neither)
 ;   ufont_glyph(font, code point)           -> glyph id (0: none)
@@ -47,6 +47,7 @@ extern ugfx_path_cubic_to
 extern ufl_cff_open
 extern ufl_cff_outline
 extern ufl_woff_unpack
+extern ufl_woff2_unpack
 
 %define UFONT_MAX_DEPTH  6
 %define UFONT_MAX_POINTS 16384
@@ -90,7 +91,19 @@ ufont_open_face:
     mov ebp, ecx
     cmp r13, 12
     jb .bad
-    ; WOFF: unpacked into the font it wraps first
+    ; WOFF2 / WOFF: unpacked into the font they wrap first
+    cmp dword [r12], 'wOF2'
+    jne .not_woff2
+    mov rdi, r15
+    mov rsi, r12
+    mov rdx, r13
+    call ufl_woff2_unpack
+    test rax, rax
+    jz .bad
+    mov r12, rax
+    mov r13, rdx
+    jmp .unwrapped
+.not_woff2:
     cmp dword [r12], 'wOFF'
     jne .unwrapped
     mov rdi, r15
