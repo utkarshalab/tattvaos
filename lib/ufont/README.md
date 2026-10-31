@@ -26,7 +26,8 @@ lib/ufont/
 │   └── ufont.inc         ← layouts: UfontFont, UfontSet / UfontFace, UfontStd
 ├── sfnt/
 │   ├── sfnt.asm          ← TrueType / OpenType reading: tables, cmap, advances, metrics, outlines
-│   └── cff.asm           ← CFF outlines: INDEXes, DICTs, Type 2 charstrings
+│   ├── cff.asm           ← CFF outlines: INDEXes, DICTs, Type 2 charstrings
+│   └── woff.asm          ← WOFF 1.0: unpacked into the font it wraps
 ├── match/
 │   └── fontset.asm       ← font sets: CSS family lists, weight / style; ugfx's font callback
 ├── layout/               ← text shaping
@@ -67,7 +68,8 @@ lib/ufont/
 ```
 
 Programs assemble the sources into their own builds (Canvas does through
-`UFONT_DIR`, as it does for ugfx); they provide `arena_alloc` and link
+`UFONT_DIR`, as it does for ugfx); they provide `arena_alloc` and
+`inflate` (RFC 1951, for WOFF; Canvas's `src/img/inflate.asm`) and link
 ugfx's path code. Include paths: `lib/ufont/include` and `lib/ugfx/include`.
 
 ---
@@ -78,7 +80,9 @@ ugfx's path code. Include paths: `lib/ufont/include` and `lib/ugfx/include`.
 
 | Call | Does |
 |---|---|
-| `ufont_open(arena, data, length)` | index a TrueType font (the bytes stay the caller's) → `UfontFont*` or 0 |
+| `ufont_open(arena, data, length)` | index a TrueType / OpenType font (the bytes stay the caller's; a WOFF font is unpacked into the arena; a collection's first face) → `UfontFont*` or 0 |
+| `ufont_open_face(arena, data, length, i)` | a collection's (TTC / OTC) face i → `UfontFont*` or 0 |
+| `ufont_faces(data, length)` | the faces in it: a collection's count, 1 for a single font, 0 neither |
 | `ufont_glyph(font, code point)` | the glyph for a character → glyph id, 0 when the font has none |
 | `ufont_advance(font, glyph)` | its advance width in font units |
 | `ufont_metrics(font)` | units per em, ascent, descent (font units) |
@@ -98,7 +102,10 @@ FDSelect (formats 0 and 3), Type 2 charstrings - all drawing operators
 (cubic curves, the four flexes), stems and hint masks skipped, the width
 dropped, local and global subroutines 10 deep; the layout tables GDEF,
 GSUB, GPOS and kern, and cmap format 14 (variation sequences) for
-shaping. Not read: hinting, CFF2 and variations, seac accents, colour
+shaping. Collections ('ttcf': each face's table directory, tables from
+the file's start). WOFF 1.0: the table directory rebuilt, each table
+inflated from zlib (or copied when stored) to exactly its length. Not
+read: hinting, CFF2 and variations, seac accents, WOFF2, colour
 glyphs.
 
 ### Shaping (layout/shape.asm)
@@ -258,4 +265,4 @@ calls.
   (L1 per line).
 - The Arabic stch feature (Syriac abbreviation marks); the Universal
   Shaping Engine, Thai / Lao, Khmer and Myanmar shapers.
-- CFF2, WOFF / WOFF2, font collections; variable fonts.
+- CFF2, WOFF2; variable fonts.
