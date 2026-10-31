@@ -209,6 +209,8 @@ FONT_SRCS := \
     $(UFONT_DIR)/layout/syllabic.asm \
     $(UFONT_DIR)/layout/khmer.asm \
     $(UFONT_DIR)/layout/myanmar.asm \
+    $(UFONT_DIR)/layout/use.asm \
+    $(UFONT_DIR)/layout/use_table.asm \
     $(UFONT_DIR)/layout/ucd.asm \
     $(UFONT_DIR)/layout/indic_table.asm
 FONT_OBJS := $(patsubst $(UFONT_DIR)/%.asm,$(OBJDIR)/ufont/%.o,$(FONT_SRCS))
