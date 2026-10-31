@@ -10,7 +10,8 @@
 ; is not normalized. Spaces the font lacks become its space glyph (widened
 ; later); a non-breaking hyphen it lacks, its hyphen. The Indic shaper
 ; decomposes every character first (no short cut), keeps U+0931 / U+09DC /
-; U+09DD / U+0B94 whole and composes nothing onto a mark.
+; U+09DD / U+0B94 whole and composes nothing onto a mark. The Hangul
+; shaper always takes the short way and recomposes nothing.
 ;
 ;   ufl_norm_run                  the buffer normalized; GI_GLYPH set for every record
 ;   ufl_norm_glyph(edi = cp)      -> eax the font's glyph, 0 none
@@ -512,6 +513,8 @@ ufl_norm_run:
     cmp [r15 + S_IDX], ebx
     jae .cluster
     xor edi, edi
+    cmp byte [r15 + S_SHAPER], 5        ; Hangul: always the short circuit
+    sete dil
     call nm_decompose_current
     jmp .multi
 .vs_cluster:
@@ -613,6 +616,8 @@ ufl_norm_run:
     jmp .reorder
 .reordered:
     call nm_cgj
+    cmp byte [r15 + S_SHAPER], 5        ; Hangul: nothing recomposed
+    je .out
     ; compose
     call ufl_buf_clear_output
     mov r12d, [r15 + S_LEN]
