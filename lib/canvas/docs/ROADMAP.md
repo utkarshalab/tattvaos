@@ -429,7 +429,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | TXT-09 | Font discovery and matching (family, weight, style) | P2 | ◐ `lib/ufont` font sets: CSS family lists, generic names and aliases, weight / style; shipped fonts in `lib/ufont/fonts` |
 | TXT-10 | Per-script fallback chains | P2 | ◐ `lib/ufont`: Noto Sans for characters a face lacks |
 | TXT-11 | OpenType CFF outlines, WOFF/WOFF2, font collections | P3 | ✓ `lib/ufont`: CFF outlines (CID-keyed too), WOFF 1.0, WOFF2 (its own Brotli decoder), collections |
-| TXT-12 | Variable fonts | P3 | |
+| TXT-12 | Variable fonts | P3 | ◐ `lib/ufont`: axes (fvar, avar), gvar outlines, HVAR, GPOS variations, feature variations; CFF2 and MVAR not yet; SVG / CSS axes not yet asked for |
 | TXT-13 | Color emoji (COLR/CPAL, bitmap tables) | P3 | |
 | TXT-14 | Hinting, subpixel positioning, LCD filtering | P3 | |
 | TXT-15 | Per-display text tuning: gamma, contrast, stem darkening, optical sizing | P3 | |
