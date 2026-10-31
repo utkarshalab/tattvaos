@@ -11,6 +11,7 @@ only; not installed).
 | NotoSansThai-Regular.ttf | Noto Sans Thai (shape_check: the Thai shaper, and made an old PUA font) | SIL OFL 1.1 — `OFL-Noto.txt` |
 | NotoSansLao-Regular.ttf | Noto Sans Lao (shape_check: the Thai shaper for Lao) | SIL OFL 1.1 — `OFL-Noto.txt` |
 | NotoSansKhmer-Regular.ttf | Noto Sans Khmer (shape_check: the Khmer shaper) | SIL OFL 1.1 — `OFL-Noto.txt` |
+| NotoSansMyanmar-Regular.ttf | Noto Sans Myanmar (shape_check: the Myanmar shaper, and retagged mymr for the default one) | SIL OFL 1.1 — `OFL-Noto.txt` |
 | NotoSansKR-Regular.otf | Noto Sans KR (CFF), subset to ASCII, the jamo blocks, tone marks, U+25CC and U+AC00..B2E3 (shape_check: the Hangul shaper; syllables past the subset are decomposed) | SIL OFL 1.1 — `OFL-Noto.txt` |
 
 The `-Regular.ttf` fonts are notofonts.github.io's
