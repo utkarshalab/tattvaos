@@ -13,6 +13,9 @@ Usage: font_check.py <host_font> <font directory>
 - CFF: the same for OpenType fonts with CFF outlines made from the shipped
   ones (tests/host/cff_fonts.py: plain, CID-keyed, subroutinized with stem
   hints and hint masks, both).
+- WOFF: a TrueType and a CFF font in WOFF 1.0 (tables inflated).
+- collections: both faces of a TrueType collection made from two shipped
+  fonts, by index.
 - matching: ufont_set_face over family lists (generic names, aliases, quoted,
   case, unknown names, none) x weights 100..900 x normal / italic / oblique
   picks the face the model picks.
@@ -51,12 +54,12 @@ def path_of(cmds):
     return verbs, pts
 
 
-def check_glyphs(tool, d, path, face):
+def check_glyphs(tool, d, path, face, index=0):
     cps = sorted(face.cmap) + EXTRA
     src = os.path.join(d, "in.bin")
     out = os.path.join(d, "out.bin")
     open(src, "wb").write(struct.pack("<ddI", SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
-    rc = run(tool, "o", path, src, out)
+    rc = run(tool, "o%d" % index, path, src, out)
     if rc:
         return f"exit {rc}"
     b = open(out, "rb").read()
@@ -127,6 +130,33 @@ def main():
             failed += err is not None
             print(f"{'ok  ' if err is None else 'FAIL'}  glyphs {name + ' (' + src + ')':32} {len(face.cmap):5} mapped"
                   + (f"  {err}" if err else ""))
+        # a collection: two fonts in one file, each face by its index
+        from fontTools.ttLib import TTFont, TTCollection
+        ttc = TTCollection()
+        ttc.fonts = [TTFont(os.path.join(font_dir, "NotoSans-Regular.ttf")),
+                     TTFont(os.path.join(font_dir, "NotoSerif-Bold.ttf"))]
+        tpath = os.path.join(d, "pair.ttc")
+        ttc.save(tpath)
+        for i in range(2):
+            face = fontmodel.Face(tpath, "Test TTC", 400, 0, index=i)
+            err = check_glyphs(tool, d, tpath, face, i)
+            total += 1
+            failed += err is not None
+            print(f"{'ok  ' if err is None else 'FAIL'}  glyphs {'collection face ' + str(i):32} {len(face.cmap):5} mapped"
+                  + (f"  {err}" if err else ""))
+        # WOFF: a TrueType and a CFF font wrapped (zlib tables, some stored)
+        for name, src in (("woff", os.path.join(font_dir, "NotoSans-Bold.ttf")),
+                          ("woff-cff", os.path.join(d, "cff-cid-subrs.otf"))):
+            f = TTFont(src)
+            f.flavor = "woff"
+            wpath = os.path.join(d, name + ".woff")
+            f.save(wpath)
+            face = fontmodel.Face(wpath, "Test WOFF", 400, 0)
+            err = check_glyphs(tool, d, wpath, face)
+            total += 1
+            failed += err is not None
+            print(f"{'ok  ' if err is None else 'FAIL'}  glyphs {name:32} {len(face.cmap):5} mapped"
+                  + (f"  {err}" if err else ""))
         err, n = check_matching(tool, d, font_dir, fonts)
         total += 1
         failed += err is not None
@@ -136,8 +166,9 @@ def main():
         src = os.path.join(d, "in.bin")
         open(src, "wb").write(struct.pack("<ddI", SIZE, SIZE2, len(cps)) + struct.pack(f"<{len(cps)}I", *cps))
         crashes = runs = 0
-        for name in ("NotoSans-Regular.ttf", "NotoSerif-Bold.ttf", "LiberationSans-Italic.ttf", "cff-cid-subrs.otf"):
-            data = open(os.path.join(d if name.endswith(".otf") else font_dir, name), "rb").read()
+        for name in ("NotoSans-Regular.ttf", "NotoSerif-Bold.ttf", "LiberationSans-Italic.ttf", "cff-cid-subrs.otf",
+                     "woff.woff"):
+            data = open(os.path.join(font_dir if name.endswith(".ttf") else d, name), "rb").read()
             variants = [data[:n] for n in (0, 11, 12, 13, 64, 300, 2000, len(data) // 2, len(data) - 1)]
             for _ in range(60):
                 b = bytearray(data)
