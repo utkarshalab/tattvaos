@@ -2,7 +2,9 @@
 # lib/ufont — Font Library: host build and tests
 # Programs normally assemble ufont sources into their own builds (Canvas does
 # through UFONT_DIR); this Makefile builds the library's own test tool. ufont
-# writes outlines into lib/ugfx paths, so the tool links ugfx's path code.
+# writes outlines into lib/ugfx paths, so the tool links ugfx's path code;
+# WOFF fonts need inflate, which the tool takes from Canvas (as Canvas
+# itself provides it to ufont).
 # ============================================================================
 
 NASM      := nasm
@@ -13,10 +15,10 @@ UGFXFLAGS := -f elf64 -g -F dwarf -D DEBUG_BUILD=1 -I $(UGFX)/include/
 UMATHFLAGS := -f elf64 -g -F dwarf -I ../../
 BUILDDIR  := build
 
-SRCS      := sfnt/sfnt.asm sfnt/cff.asm match/fontset.asm              layout/ucd.asm layout/indic_table.asm layout/unicode.asm layout/buffer.asm              layout/normalize.asm layout/otl.asm layout/map.asm layout/apply.asm layout/gsub.asm              layout/gpos.asm layout/shape.asm layout/indic.asm layout/arabic.asm layout/fallback.asm layout/bidi.asm
+SRCS      := sfnt/sfnt.asm sfnt/cff.asm sfnt/woff.asm match/fontset.asm              layout/ucd.asm layout/indic_table.asm layout/unicode.asm layout/buffer.asm              layout/normalize.asm layout/otl.asm layout/map.asm layout/apply.asm layout/gsub.asm              layout/gpos.asm layout/shape.asm layout/indic.asm layout/arabic.asm layout/fallback.asm layout/bidi.asm
 OBJS      := $(patsubst %.asm,$(BUILDDIR)/%.o,$(SRCS))
 UGFX_OBJS := $(BUILDDIR)/ugfx/2d/path.o $(BUILDDIR)/ugfx/core/raster.o $(BUILDDIR)/ugfx/core/span.o \
-             $(BUILDDIR)/ugfx/core/mask.o $(BUILDDIR)/ugfx/core/umath_unit.o
+             $(BUILDDIR)/ugfx/core/mask.o $(BUILDDIR)/ugfx/core/umath_unit.o              $(BUILDDIR)/canvas/inflate.o
 
 .PHONY: all host host-check clean
 all: host
@@ -28,6 +30,10 @@ $(BUILDDIR)/%.o: %.asm include/ufont.inc layout/shape.inc $(UGFX)/include/ugfx.i
 $(BUILDDIR)/ugfx/core/umath_unit.o: $(UGFX)/core/umath_unit.asm
 	@mkdir -p $(dir $@)
 	$(NASM) $(UMATHFLAGS) -o $@ $<
+
+$(BUILDDIR)/canvas/inflate.o: ../canvas/src/img/inflate.asm
+	@mkdir -p $(dir $@)
+	$(NASM) -f elf64 -g -F dwarf -I ../canvas/ -o $@ $<
 
 $(BUILDDIR)/ugfx/%.o: $(UGFX)/%.asm $(UGFX)/include/ugfx.inc
 	@mkdir -p $(dir $@)
