@@ -10,9 +10,10 @@ ignorables; random syllables in the font's Indic script (consonant
 clusters, reph, nukta, matras, signs, joiners, broken clusters); random
 Arabic or Hebrew (letters, harakat and points, modifier marks, tatweel,
 joiners, digits, mirrored brackets) for those fonts, shaped right to
-left; Thai, Lao, Korean, Khmer and the other test fonts' scripts (tests/fonts), and Noto Sans
-Thai made an old PUA font (no thai GSUB). Every glyph, cluster, advance and offset ufont_shape gives must
-equal the model's. Noto Sans Devanagari altered four ways (only the old
+left; Thai, Lao, Korean, Khmer, Myanmar and the other test fonts'
+scripts (tests/fonts), Noto Sans Thai made an old PUA font (no thai
+GSUB) and Noto Sans Myanmar retagged mymr. Every glyph, cluster, advance
+and offset ufont_shape gives must equal the model's. Noto Sans Devanagari altered four ways (only the old
 'deva' script, only DFLT, no GSUB, no GDEF) takes the shaper down its other
 paths; Noto Sans, Noto Sans Arabic, Noto Sans Hebrew and Noto Sans
 Devanagari without GPOS, GSUB or GDEF (or all three) take the fallbacks -
@@ -239,11 +240,38 @@ def khmer(rng):
     return out
 
 
+def myanmar(rng):
+    """Random Myanmar syllables: kinzi, consonants (Mon, Shan and others), variation selectors,
+    stacked consonants, medials, vowels (pre-base ones repeated), tones, asat, joiners."""
+    cons = list(range(0x1000, 0x1021)) + [0x103F, 0x104E] + list(range(0x1050, 0x1056)) +         list(range(0x105A, 0x105E))
+    medials = (0x103B, 0x103C, 0x103D, 0x103E, 0x105E, 0x105F, 0x1060, 0x1082, 0x103A)
+    vowels = list(range(0x102B, 0x1036)) + [0x1031] * 3 + [0x1084, 0x1056, 0x1057, 0x1062, 0x1067]
+    tones = (0x1036, 0x1037, 0x1038, 0x103A, 0x1032, 0x1087, 0x1089, 0x108F, 0x1063, 0x109A, 0x200C, 0x200D)
+    out = []
+    for _ in range(rng.randint(1, 4)):
+        if rng.random() < 0.8:
+            if rng.random() < 0.1:
+                out += [0x1004, 0x103A, 0x1039]
+            out.append(rng.choice(cons + [0x1021, 0x1023, 0x1025, 0x1027, 0x25CC]))
+            if rng.random() < 0.1:
+                out.append(rng.choice((0xFE00, 0xFE01)))
+            for _ in range(rng.choice((0, 0, 0, 1, 2))):
+                out += [0x1039, rng.choice(cons)]
+            out += [rng.choice(medials) for _ in range(rng.choice((0, 1, 1, 2)))]
+            out += [rng.choice(vowels) for _ in range(rng.choice((0, 1, 1, 2, 3)))]
+            out += [rng.choice(tones) for _ in range(rng.choice((0, 1, 1, 2)))]
+        else:
+            out.append(rng.choice(list(range(0x102B, 0x1040)) + [0x104A, 0x104B, 0x20, 0x1040, 0x1041, 0xA9E5,
+                                                                  0xAA7B]))
+    return out
+
+
 # the test fonts' scripts (tests/fonts/<name>-Regular.ttf / .otf): the text they are shaped with
-SCRIPT_TEXT = {'Thai': thai, 'Lao': lao, 'KR': hangul, 'Khmer': khmer}
+SCRIPT_TEXT = {'Thai': thai, 'Lao': lao, 'KR': hangul, 'Khmer': khmer, 'Myanmar': myanmar}
 SCRIPT_WORDS = """สวัสดี ภาษาไทย น้ำ ทำ กำลัง ปั้ม ฟ้า ญู ฐู ปิ่น ป่า ฎุ ญุ ปั่น ก่ำ ก้ำ ดํ่า ไก่ เป็น
 ສະບາຍດີ ພາສາລາວ ນ້ຳ ທຳ ກຳລັງ ປັ້ນ ຫຼວງ ເປັນ 한국어 안녕하세요 한글 〮한 ᄒᆞᆫ 〯ᄀᆞ
-ភាសាខ្មែរ ស្រី ក្រុង ព្រះ ខ្ញុំ សួស្តី កើត ស្ត្រី""".split()
+ភាសាខ្មែរ ស្រី ក្រុង ព្រះ ខ្ញុំ សួស្តី កើត ស្ត្រី
+မြန်မာဘာသာ မင်္ဂလာပါ သင်္ချိုင်း ကျွန်ုပ် ပြည်ထောင်စု""".split()
 
 
 def general(rng, cmap, marks):
@@ -388,6 +416,22 @@ def thai_pua(d):
     return [path]
 
 
+def myanmar_old(d):
+    """Noto Sans Myanmar with its mym2 script tagged the old mymr (the default shaper then)."""
+    from fontTools.ttLib import TTFont
+    src = os.path.join(HERE, "..", "fonts", "NotoSansMyanmar-Regular.ttf")
+    if not os.path.exists(src):
+        return []
+    f = TTFont(src)
+    for t in ("GSUB", "GPOS"):
+        for r in f[t].table.ScriptList.ScriptRecord:
+            if r.ScriptTag == "mym2":
+                r.ScriptTag = "mymr"
+    path = os.path.join(d, "NotoSansMyanmar-mymr.ttf")
+    f.save(path)
+    return [path]
+
+
 def check_font(tool, path, name, cases, d):
     font = sm.Font(path)
     if VARIATIONS:
@@ -476,7 +520,7 @@ def main():
         test_fonts = os.path.join(HERE, "..", "fonts")
         script_fonts = [os.path.join(test_fonts, f) for f in sorted(os.listdir(test_fonts))
                         if f.endswith(("-Regular.ttf", "-Regular.otf"))]
-        for path in script_fonts + thai_pua(d):
+        for path in script_fonts + thai_pua(d) + myanmar_old(d):
             name = os.path.basename(path)[:-4]
             gen = next((g for k, g in SCRIPT_TEXT.items() if k in name), None)
             if gen is None:
