@@ -15,7 +15,7 @@ UGFXFLAGS := -f elf64 -g -F dwarf -D DEBUG_BUILD=1 -I $(UGFX)/include/
 UMATHFLAGS := -f elf64 -g -F dwarf -I ../../
 BUILDDIR  := build
 
-SRCS      := sfnt/sfnt.asm sfnt/cff.asm sfnt/woff.asm sfnt/woff2.asm sfnt/brotli.asm sfnt/brotli_tables.asm sfnt/var.asm match/fontset.asm              layout/ucd.asm layout/indic_table.asm layout/unicode.asm layout/buffer.asm              layout/normalize.asm layout/otl.asm layout/map.asm layout/apply.asm layout/gsub.asm              layout/gpos.asm layout/shape.asm layout/indic.asm layout/arabic.asm layout/fallback.asm layout/bidi.asm layout/thai.asm layout/hangul.asm layout/syllabic.asm layout/khmer.asm
+SRCS      := sfnt/sfnt.asm sfnt/cff.asm sfnt/woff.asm sfnt/woff2.asm sfnt/brotli.asm sfnt/brotli_tables.asm sfnt/var.asm match/fontset.asm              layout/ucd.asm layout/indic_table.asm layout/unicode.asm layout/buffer.asm              layout/normalize.asm layout/otl.asm layout/map.asm layout/apply.asm layout/gsub.asm              layout/gpos.asm layout/shape.asm layout/indic.asm layout/arabic.asm layout/fallback.asm layout/bidi.asm layout/thai.asm layout/hangul.asm layout/syllabic.asm layout/khmer.asm layout/myanmar.asm
 OBJS      := $(patsubst %.asm,$(BUILDDIR)/%.o,$(SRCS))
 UGFX_OBJS := $(BUILDDIR)/ugfx/2d/path.o $(BUILDDIR)/ugfx/core/raster.o $(BUILDDIR)/ugfx/core/span.o \
              $(BUILDDIR)/ugfx/core/mask.o $(BUILDDIR)/ugfx/core/umath_unit.o              $(BUILDDIR)/canvas/inflate.o
