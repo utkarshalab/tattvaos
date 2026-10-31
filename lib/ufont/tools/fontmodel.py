@@ -112,7 +112,7 @@ class Face:
         self.cff = None
         if 'CFF ' in self.font:
             import cff
-            self.cff = cff.CFF(self.font.getTableData('CFF '))
+            self.cff = cff.CFF(self.raw('CFF '))
 
     def glyph(self, cp):
         name = self.cmap.get(cp) if cp >= 0 else None
@@ -125,10 +125,33 @@ class Face:
         return self._shaper
 
     def advance(self, gid):
-        return self.font["hmtx"][self.order[gid]][0]
+        a = self.font["hmtx"][self.order[gid]][0]
+        if any(getattr(self, 'coords', [])) and 'HVAR' in self.font:
+            import varmodel
+            a = max(0, a + varmodel.roundf(varmodel.hvar_delta(self.raw('HVAR'), gid, self.coords)))
+        return a
+
+    def raw(self, tag):
+        """A table's bytes, read once."""
+        if not hasattr(self, '_raw'):
+            self._raw = {}
+        if tag not in self._raw:
+            self._raw[tag] = self.font.getTableData(tag)
+        return self._raw[tag]
+
+    def set_variations(self, settings):
+        """Axis values ({tag: value}) -> the normalized coordinates outlines vary by (varmodel)."""
+        import varmodel
+        self.coords = []
+        if 'fvar' in self.font:
+            avar = self.raw('avar') if 'avar' in self.font else None
+            self.coords = varmodel.normalize(self.raw('fvar'), avar, settings)
+        return self.coords
 
     def outline(self, gid, s):
         out = []
+        if any(getattr(self, 'coords', [])) and 'gvar' in self.font and self.cff is None:
+            return self._var_outline(gid, s)
         if self.cff is not None:
             # CFF: font units to the size, y down
             for c in self.cff.outline(gid):
@@ -141,6 +164,108 @@ class Face:
                 out.append((c[0], *pts))
             return out
         self._emit(gid, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], s, out, 0)
+        return out
+
+    def _var_points(self, gid, depth):
+        """HarfBuzz's Glyph::get_points with variations: -> (points [x, y] doubles with the four
+        phantoms last, on-curve flags, contour ends)."""
+        import varmodel
+        g = self.font['glyf'][self.order[gid]]
+        adv, lsb = self.font['hmtx'][self.order[gid]]
+        pts, on, ends = [], [], []
+        comps = []
+        if g.isComposite():
+            for c in g.components:
+                anchored = not hasattr(c, 'x')
+                tx, ty = (0.0, 0.0) if anchored else (float(c.x), float(c.y))
+                pts.append([tx, ty])
+                on.append(1)
+                ends.append(len(pts) - 1)
+                comps.append(c)
+        elif hasattr(g, 'coordinates') and g.numberOfContours > 0:
+            pts = [[float(x), float(y)] for x, y in g.coordinates]
+            on = [f & 1 for f in g.flags]
+            ends = list(g.endPtsOfContours)
+        xmin = getattr(g, 'xMin', 0) if hasattr(g, 'xMin') else 0
+        hd = float(xmin - lsb) if (g.isComposite() or pts) else float(0 - lsb)
+        phantoms = [[hd, 0.0], [adv + hd, 0.0], [0.0, 0.0], [0.0, 0.0]]
+        allp = pts + phantoms
+        if any(self.coords) and 'gvar' in self.font:
+            ds = varmodel.gvar_deltas(self.raw('gvar'), gid, self.coords, allp, ends)
+            for p, d in zip(allp, ds):
+                p[0] += d[0]
+                p[1] += d[1]
+        phantoms = allp[-4:]
+        if not g.isComposite():
+            return allp[:-4], on, ends, phantoms
+        out, oon, oends = [], [], []
+        for k, c in enumerate(comps):
+            cp, con, cends, cph = self._var_points(self.order.index(c.glyphName), depth + 1)
+            if c.flags & 0x200:                         # USE_MY_METRICS
+                phantoms = [list(p) for p in cph]
+            a, b, cc, d = 1.0, 0.0, 0.0, 1.0
+            if hasattr(c, 'transform'):
+                (a, b), (cc, d) = c.transform
+            tx, ty = allp[k]
+            moved = []
+            for x, y in cp:
+                if c.flags & 0x800:                     # scaled offsets: translate, then transform
+                    x, y = x + tx, y + ty
+                    x, y = a * x + cc * y, b * x + d * y
+                else:
+                    x, y = a * x + cc * y, b * x + d * y
+                    x, y = x + tx, y + ty
+                moved.append([x, y])
+            base = len(out)
+            out += moved
+            oon += con
+            oends += [base + e for e in cends]
+        return out, oon, oends, phantoms
+
+    def _var_outline(self, gid, s):
+        pts, on, ends, phantoms = self._var_points(gid, 0)
+        shift = phantoms[0][0]
+        if shift:
+            for p in pts:
+                p[0] -= shift
+        out = []
+
+        def px(p):
+            return p[0] * s, 0.0 - p[1] * s
+
+        first = 0
+        for end in ends:
+            idx = list(range(first, end + 1))
+            first = end + 1
+            if not idx:
+                continue
+            fl = [on[i] for i in idx]
+            if fl[0]:
+                start, seq = pts[idx[0]], idx[1:]
+            elif fl[-1]:
+                start, seq = pts[idx[-1]], idx[:-1]
+            else:
+                p0, p1 = pts[idx[0]], pts[idx[-1]]
+                start, seq = ((p1[0] + p0[0]) * 0.5, (p1[1] + p0[1]) * 0.5), idx
+            out.append(('move', *px(start)))
+            ctrl = None
+            for i in seq:
+                p = pts[i]
+                if on[i]:
+                    if ctrl is not None:
+                        out.append(('quad', *px(ctrl), *px(p)))
+                        ctrl = None
+                    else:
+                        out.append(('line', *px(p)))
+                elif ctrl is not None:
+                    mid = ((p[0] + ctrl[0]) * 0.5, (p[1] + ctrl[1]) * 0.5)
+                    out.append(('quad', *px(ctrl), *px(mid)))
+                    ctrl = p
+                else:
+                    ctrl = p
+            if ctrl is not None:
+                out.append(('quad', *px(ctrl), *px(start)))
+            out.append(('close',))
         return out
 
     def _emit(self, gid, m, s, out, depth):
