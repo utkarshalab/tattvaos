@@ -5,6 +5,11 @@
 ; sfnt/cff.asm): reading them for drawing text through lib/ugfx paths.
 ;
 ;   ufont_open(arena, data, length)         -> UfontFont* or 0
+;   ufont_open_face(arena, data, length, i) -> a collection's face i (a single
+;                                              font: i 0) or 0
+;   (a WOFF font is unpacked into the arena first)
+;   ufont_faces(data, length)               -> the faces in it (1 for a single
+;                                              font, 0 for neither)
 ;   ufont_glyph(font, code point)           -> glyph id (0: none)
 ;   ufont_advance(font, glyph)              -> advance width (font units)
 ;   ufont_metrics(font)                     -> units per em, ascent, descent
@@ -41,6 +46,7 @@ extern umath_affine2_multiply
 extern ugfx_path_cubic_to
 extern ufl_cff_open
 extern ufl_cff_outline
+extern ufl_woff_unpack
 
 %define UFONT_MAX_DEPTH  6
 %define UFONT_MAX_POINTS 16384
@@ -68,17 +74,61 @@ section .text
 ; ----------------------------------------------------------------------------
 global ufont_open
 ufont_open:
+    xor ecx, ecx
+global ufont_open_face
+ufont_open_face:
     push rbx
     push r12
     push r13
     push r14
     push r15
+    push rbp
+    sub rsp, 8
     mov r15, rdi                        ; arena
     mov r12, rsi                        ; data
     mov r13, rdx                        ; length
+    mov ebp, ecx
     cmp r13, 12
     jb .bad
+    ; WOFF: unpacked into the font it wraps first
+    cmp dword [r12], 'wOFF'
+    jne .unwrapped
+    mov rdi, r15
+    mov rsi, r12
+    mov rdx, r13
+    call ufl_woff_unpack
+    test rax, rax
+    jz .bad
+    mov r12, rax
+    mov r13, rdx
+    cmp r13, 12
+    jb .bad
+.unwrapped:
+    ; a collection ('ttcf'): face i's table directory (its tables' offsets
+    ; are from the file's start, as a single font's)
     mov eax, [r12]
+    cmp eax, 'ttcf'
+    jne .single
+    mov ecx, [r12 + 8]
+    bswap ecx                           ; faces
+    cmp ebp, ecx
+    jae .bad
+    lea rax, [rbp * 4 + 16]
+    cmp rax, r13
+    ja .bad
+    mov eax, [r12 + rbp * 4 + 12]
+    bswap eax
+    lea rcx, [rax + 12]
+    cmp rcx, r13
+    ja .bad
+    lea rbp, [r12 + rax]
+    mov eax, [rbp]
+    jmp .magic
+.single:
+    test ebp, ebp
+    jnz .bad
+    mov rbp, r12                        ; the directory
+.magic:
     cmp eax, 0x00000100                 ; 00 01 00 00
     je .version
     cmp eax, 'OTTO'
@@ -100,12 +150,14 @@ ufont_open:
     mov [rbx + UfontFont_len], r13
     mov [rbx + UfontFont_arena], r15
     ; the table directory
-    BE16 r14d, [r12 + 4]                ; numTables
+    BE16 r14d, [rbp + 4]                ; numTables
     lea rax, [r14 * 8]
     lea rax, [rax * 2 + 12]
+    add rax, rbp
+    sub rax, r12
     cmp rax, r13
     ja .bad
-    lea r15, [r12 + 12]
+    lea r15, [rbp + 12]
 .table:
     test r14d, r14d
     jz .tables_done
@@ -271,11 +323,44 @@ ufont_open:
 .bad:
     xor eax, eax
 .out:
+    add rsp, 8
+    pop rbp
     pop r15
     pop r14
     pop r13
     pop r12
     pop rbx
+    ret
+
+; ----------------------------------------------------------------------------
+; ufont_faces — rdi = data, rsi = length -> eax the faces: a collection's
+;   count, 1 for a single font, 0 for neither
+; ----------------------------------------------------------------------------
+global ufont_faces
+ufont_faces:
+    xor eax, eax
+    cmp rsi, 12
+    jb .out
+    mov ecx, [rdi]
+    cmp ecx, 'ttcf'
+    je .collection
+    cmp ecx, 0x00000100
+    je .one
+    cmp ecx, 'OTTO'
+    je .one
+    cmp ecx, 'true'
+    jne .out
+.one:
+    mov eax, 1
+    ret
+.collection:
+    mov eax, [rdi + 8]
+    bswap eax
+    lea rcx, [rax * 4 + 12]
+    cmp rcx, rsi
+    jbe .out
+    xor eax, eax
+.out:
     ret
 
 ; rbx = font: its cmap subtable (format 12 Unicode over format 4) -> eax =
