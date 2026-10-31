@@ -371,25 +371,33 @@ extern panic_null_ptr
                                         ; point with bit 31 set is a glyph key from shape_fn
 %define UgfxSvg_font_user       104
 %define UgfxSvg_shape_fn        112     ; runs: fn(user, UgfxSvgFont*, code points (u32),
-                                        ; count, xmm0 = size, arena) -> rax = UgfxSvgGlyph
-                                        ; records (0: not shaped), edx = how many; user is
-                                        ; font_user. Without it each character is placed
-                                        ; on its own (font_fn's advance)
-%define UgfxSvg_SIZE            120
+                                        ; count, xmm0 = size, arena, r9d = direction (0
+                                        ; left to right, 1 right to left)) -> rax =
+                                        ; UgfxSvgGlyph records in visual order (0: not
+                                        ; shaped), edx = how many; user is font_user.
+                                        ; Without it each character is placed on its own
+                                        ; (font_fn's advance)
+%define UgfxSvg_bidi_fn         120     ; levels: fn(user, code points (u32), count,
+                                        ; direction (0 / 1), levels (u8 per character; 255:
+                                        ; none of its own), arena) -> eax the paragraph
+                                        ; level (-1: none). Without it every run is at the
+                                        ; text's direction
+%define UgfxSvg_SIZE            128
 ; ugfx_svg_parse_opts' options (caller-filled; 0 = none)
 %define UgfxSvgOptions_image_fn     0
 %define UgfxSvgOptions_image_user   8
 %define UgfxSvgOptions_font_fn      16
 %define UgfxSvgOptions_font_user    24
 %define UgfxSvgOptions_shape_fn     32
-%define UgfxSvgOptions_SIZE         40
+%define UgfxSvgOptions_bidi_fn      40
+%define UgfxSvgOptions_SIZE         48
 ; the font a glyph is asked for
 %define UgfxSvgFont_family      0       ; font-family as written (0: none)
 %define UgfxSvgFont_family_end  8
 %define UgfxSvgFont_weight      16      ; u32 100 .. 900 (400 normal, 700 bold)
 %define UgfxSvgFont_style       20      ; u32 0 normal, 1 italic, 2 oblique
 %define UgfxSvgFont_SIZE        24
-; a shaped glyph (shape_fn's output), in user units at the size, left to right
+; a shaped glyph (shape_fn's output), in user units at the size, in visual order
 %define UgfxSvgGlyph_key        0       ; u32 glyph key (bit 31 set) handed back to font_fn
 %define UgfxSvgGlyph_cluster    4       ; u32 the first of the characters it stands for
 %define UgfxSvgGlyph_adv        8       ; f64 advance
