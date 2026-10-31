@@ -41,7 +41,13 @@
 %define UfontFont_kern_len      200
 %define UfontFont_cmap14        208     ; cmap format 14 (variation sequences; 0: none)
 %define UfontFont_cmap14_len    216
-%define UfontFont_SIZE          224
+%define UfontFont_cff           224     ; the CFF table (0: glyf outlines)
+%define UfontFont_cff_len       232
+%define UfontFont_cffix         240     ; its INDEXes as found (sfnt/cff.asm): CharStrings,
+                                        ; Global Subrs, local Subrs, FDArray (24 bytes each)
+%define UfontFont_fdselect      336     ; a CID font's FDSelect
+%define UfontFont_cid           344     ; u32 1: CID-keyed
+%define UfontFont_SIZE          352
 
 ; UfontSet: faces by family, weight and style
 %define UFONT_SET_MAX           64
