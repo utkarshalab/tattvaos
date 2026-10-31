@@ -184,6 +184,7 @@ IMG_SRCS := \
 UFONT_DIR := ../ufont
 FONT_SRCS := \
     $(UFONT_DIR)/sfnt/sfnt.asm \
+    $(UFONT_DIR)/sfnt/cff.asm \
     $(UFONT_DIR)/match/fontset.asm \
     $(UFONT_DIR)/layout/shape.asm \
     $(UFONT_DIR)/layout/buffer.asm \
