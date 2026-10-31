@@ -10,7 +10,7 @@ ignorables; random syllables in the font's Indic script (consonant
 clusters, reph, nukta, matras, signs, joiners, broken clusters); random
 Arabic or Hebrew (letters, harakat and points, modifier marks, tatweel,
 joiners, digits, mirrored brackets) for those fonts, shaped right to
-left; Thai, Lao and the other test fonts' scripts (tests/fonts), and Noto Sans
+left; Thai, Lao, Korean and the other test fonts' scripts (tests/fonts), and Noto Sans
 Thai made an old PUA font (no thai GSUB). Every glyph, cluster, advance and offset ufont_shape gives must
 equal the model's. Noto Sans Devanagari altered four ways (only the old
 'deva' script, only DFLT, no GSUB, no GDEF) takes the shaper down its other
@@ -187,10 +187,36 @@ def lao(rng):
     return [c + 0x80 if 0x0E00 <= c < 0x0E80 else c for c in thai(rng)]
 
 
-# the test fonts' scripts (tests/fonts/<name>-Regular.ttf): the text they are shaped with
-SCRIPT_TEXT = {'Thai': thai, 'Lao': lao}
+def hangul(rng):
+    """Random Korean: <L,V(,T)> jamo (modern and old), syllables (some the font lacks, LV ones
+    followed by trailing jamo), tone marks, stray jamo."""
+    lead = list(range(0x1100, 0x1113)) + list(range(0x1113, 0x1160, 7)) + list(range(0xA960, 0xA97D, 5))
+    vowel = list(range(0x1161, 0x1176)) + list(range(0x1176, 0x11A8, 6)) + list(range(0xD7B0, 0xD7C7, 5))
+    trail = list(range(0x11A8, 0x11C3)) + list(range(0x11C3, 0x1200, 8)) + list(range(0xD7CB, 0xD7FC, 7))
+    out = []
+    for _ in range(rng.randint(1, 8)):
+        r = rng.random()
+        if r < 0.35:
+            out += [rng.choice(lead), rng.choice(vowel)] + ([rng.choice(trail)] if rng.random() < 0.5 else [])
+        elif r < 0.65:
+            k = rng.random()
+            out.append(0xAC00 + (rng.randrange(11172) if k < 0.4 else rng.randrange(1764) if k < 0.8
+                                 else 28 * rng.randrange(399)))
+            if rng.random() < 0.4:
+                out.append(rng.choice(trail))
+        elif r < 0.75:
+            out.append(rng.choice((0x302E, 0x302F)))
+        elif r < 0.9:
+            out.append(rng.choice(lead + vowel + trail))
+        else:
+            out.append(rng.choice((0x20, 0x41, 0x25CC, 0x0301, 0x200D, 0x3131)))
+    return out
+
+
+# the test fonts' scripts (tests/fonts/<name>-Regular.ttf / .otf): the text they are shaped with
+SCRIPT_TEXT = {'Thai': thai, 'Lao': lao, 'KR': hangul}
 SCRIPT_WORDS = """สวัสดี ภาษาไทย น้ำ ทำ กำลัง ปั้ม ฟ้า ญู ฐู ปิ่น ป่า ฎุ ญุ ปั่น ก่ำ ก้ำ ดํ่า ไก่ เป็น
-ສະບາຍດີ ພາສາລາວ ນ້ຳ ທຳ ກຳລັງ ປັ້ນ ຫຼວງ ເປັນ""".split()
+ສະບາຍດີ ພາສາລາວ ນ້ຳ ທຳ ກຳລັງ ປັ້ນ ຫຼວງ ເປັນ 한국어 안녕하세요 한글 〮한 ᄒᆞᆫ 〯ᄀᆞ""".split()
 
 
 def general(rng, cmap, marks):
@@ -422,7 +448,7 @@ def main():
         # the test fonts of other scripts, and an old (PUA) Thai font
         test_fonts = os.path.join(HERE, "..", "fonts")
         script_fonts = [os.path.join(test_fonts, f) for f in sorted(os.listdir(test_fonts))
-                        if f.endswith("-Regular.ttf")]
+                        if f.endswith(("-Regular.ttf", "-Regular.otf"))]
         for path in script_fonts + thai_pua(d):
             name = os.path.basename(path)[:-4]
             gen = next((g for k, g in SCRIPT_TEXT.items() if k in name), None)
