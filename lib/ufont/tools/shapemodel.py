@@ -1891,7 +1891,7 @@ def normalize(b, font, shaper=None):
 def pick_shaper(script, gsub_script):
     """HarfBuzz's shaper choice: the nine Indic scripts through the Indic shaper unless the font's
     GSUB only has DFLT / latn for them; Arabic (and Syriac when the font has a script for it) through
-    the Arabic shaper; Hebrew through the Hebrew one; Thai and Lao through the Thai one; Hangul through the Hangul one; everything
+    the Arabic shaper; Hebrew through the Hebrew one; Thai and Lao through the Thai one; Hangul through the Hangul one; Khmer through the Khmer one; everything
     else the default shaper (None)."""
     if script in ('Deva', 'Beng', 'Guru', 'Gujr', 'Orya', 'Taml', 'Telu', 'Knda', 'Mlym'):
         tag = gsub_script.ScriptTag if gsub_script is not None else None
@@ -1910,6 +1910,9 @@ def pick_shaper(script, gsub_script):
     if script == 'Hebr':
         from arabic import HebrewShaper
         return HebrewShaper(script)
+    if script == 'Khmr':
+        from khmer import KhmerShaper
+        return KhmerShaper(script)
     if script == 'Hang':
         from hangul import HangulShaper
         return HangulShaper(script)
