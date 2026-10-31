@@ -631,7 +631,7 @@ ufl_gpos_apply:
     mov r9d, edx                        ; exit y
     mov r12d, [rsp + GF_SK + SK_IDX]    ; i
     mov r13d, [r15 + S_IDX]             ; j
-    cmp byte [r15 + S_RTL], 0
+    cmp byte [r15 + S_BRTL], 0
     jne .curs_rtl
     ; left to right: the previous glyph's advance ends at its exit, this one
     ; starts at its entry
