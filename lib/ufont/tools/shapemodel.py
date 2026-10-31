@@ -1838,7 +1838,8 @@ def pick_shaper(script, gsub_script):
     return None
 
 
-def shape(font, cps, script=None, language=None, shaper=None):
+def shape(font, cps, script=None, language=None, shaper=None, direction=None):
+    """direction: 'ltr' / 'rtl' (a bidi run's), None: the script's."""
     if script is None:
         script = guess_script(cps)
     infos = [Info(cp, i) for i, cp in enumerate(cps)]
@@ -1876,7 +1877,8 @@ def shape(font, cps, script=None, language=None, shaper=None):
     if shaper is None:
         shaper = pick_shaper(script, gsub_s)
     # the plan
-    rtl = script in RTL_SCRIPTS
+    # the direction asked for: the plan's (rtla / rtlm) and mirroring
+    rtl = (script in RTL_SCRIPTS) if direction is None else direction == 'rtl'
     mb = MapBuilder()
     mb.enable_feature('rvrn')
     mb.add_gsub_pause(None)
@@ -1904,6 +1906,32 @@ def shape(font, cps, script=None, language=None, shaper=None):
         inf.mask = m.global_mask
     if shaper:
         shaper.data_create(m, font)
+    # the script's own direction: graphemes reversed into it when the run goes the other way
+    # (numbers alone in a right-to-left script are left to right)
+    brtl = rtl
+    native = 'rtl' if script in RTL_SCRIPTS else None if script in ('Hung', 'Ital', 'Runr', 'Tfng') else 'ltr'
+    if native == 'rtl' and not rtl:
+        number = letter = False
+        for inf in b.info:
+            if inf.gc in ('Lu', 'Ll', 'Lt', 'Lm', 'Lo'):
+                letter = True
+                break
+            if inf.gc == 'Nd' or is_regional_indicator(inf.cp):
+                number = True
+        if number and not letter:
+            native = 'ltr'
+    if native is not None and (native == 'rtl') != rtl:
+        groups, cur = [], []
+        for inf in b.info:
+            if cur and not inf.cont:
+                groups.append(cur)
+                cur = []
+            cur.append(inf)
+        if cur:
+            groups.append(cur)
+        b.info = [inf for g in reversed(groups) for inf in g]
+        brtl = not rtl
+    if shaper:
         shaper.preprocess_text(b, font)
     if rtl:
         # mirrored characters where the font has the mirror, else rtlm
@@ -1917,7 +1945,7 @@ def shape(font, cps, script=None, language=None, shaper=None):
     # normalization
     normalize(b, font, shaper)
     # masks, glyphs
-    fractions(b, m)
+    fractions(b, m, brtl)
     if shaper:
         shaper.setup_masks(b, font)
     has_gpos_kern = gpos_ls is not None and any(
@@ -1957,15 +1985,15 @@ def shape(font, cps, script=None, language=None, shaper=None):
     if font.gpos and apply_gpos:
         c = Ctx(font, b, font.gpos, True)
         c.has_attachment = False
-        c.rtl = rtl
+        c.rtl = brtl
         run_table(c, m, True)
         attached = c.has_attachment
     if apply_kern:
-        kern_table(font, b, m.get_mask('kern'), rtl)
+        kern_table(font, b, m.get_mask('kern'), brtl)
     if zero_marks == 'late':
         for inf, p in zip(b.info, b.pos):
             if inf.is_mark():
-                if adjust_marks and not rtl:
+                if adjust_marks and not brtl:
                     p.xo -= p.xa
                     p.yo -= p.ya
                 p.xa = p.ya = 0
@@ -1974,10 +2002,10 @@ def shape(font, cps, script=None, language=None, shaper=None):
             p.xa = p.ya = p.xo = p.yo = 0
     if attached:
         for i in range(len(b.pos)):
-            propagate(b.pos, i, MAX_NESTING, rtl)
+            propagate(b.pos, i, MAX_NESTING, brtl)
     if fallback_marks:
-        fallback_mark_position(b, font, rtl, adjust_marks and not rtl)
-    if rtl:
+        fallback_mark_position(b, font, brtl, adjust_marks and not brtl)
+    if brtl:
         # visual order
         b.info.reverse()
         b.pos.reverse()
@@ -2174,8 +2202,8 @@ def fallback_mark_position(b, font, rtl, adjust):
     position_cluster(b, font, start, len(b.info), rtl, adjust)
 
 
-def fractions(b, m):
-    """Digits around a fraction slash take numr / frac / dnom."""
+def fractions(b, m, rtl=False):
+    """Digits around a fraction slash take numr / frac / dnom (right to left: dnom before it)."""
     frac, numr, dnom = m.get_1_mask('frac'), m.get_1_mask('numr'), m.get_1_mask('dnom')
     if not (frac or (numr and dnom)):
         return
@@ -2191,11 +2219,12 @@ def fractions(b, m):
             if start == i or end == i + 1:
                 i += 1
                 continue
+            pre, post = (frac | dnom, numr | frac) if rtl else (numr | frac, frac | dnom)
             for j in range(start, i):
-                info[j].mask |= numr | frac
+                info[j].mask |= pre
             info[i].mask |= frac
             for j in range(i + 1, end):
-                info[j].mask |= frac | dnom
+                info[j].mask |= post
             i = end
             continue
         i += 1
