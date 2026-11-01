@@ -74,7 +74,7 @@ rule_create:
 
     ; Allocate rule
     mov rdi, [rbx + Server.arena]
-    mov rsi, Rule_SIZE
+    mov rsi, Rule_size
     call arena_alloc
     test rax, rax
     jz .oom
