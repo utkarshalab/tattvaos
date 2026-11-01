@@ -10,8 +10,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define AccelProfile_SIZE 32
 %define ACCEL_FLAT        0
 %define ACCEL_ADAPTIVE    1
 %define ACCEL_CUSTOM      2
@@ -25,7 +23,6 @@ struc AccelProfile
     .decel_factor:  resq 1
     .custom_fn:     resq 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; pointer_accel_create
