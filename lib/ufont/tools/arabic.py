@@ -6,7 +6,8 @@ Arabic (and Syriac), as HarfBuzz's Arabic shaper:
 - each character's joining type (Unicode's ArabicShaping, tools/ucd_data.py;
   unlisted marks and format characters transparent) runs a joining state
   machine that gives every joining character its form - isolated, final,
-  medial, initial, and Syriac's fin2, fin3, med2 - as a feature mask;
+  medial, initial, and Syriac's fin2, fin3, med2 - as a feature mask; stch (Syriac
+  abbreviation marks) stretched over their word after positioning;
 - the plan: stch, then ccmp / locl, the form features one stage each, then
   rlig, calt, liga, clig, mset - ZWJ not skipped by them (it breaks
   ligatures in Arabic);
@@ -31,7 +32,9 @@ from ucd_data import JOINING, ARABIC_FORMS, ARABIC_LIG2, ARABIC_LIG3, ARABIC_LIG
 
 # joining types
 JT_U, JT_L, JT_R, JT_D, ALAPH, DALATH_RISH, JT_T = 0, 1, 2, 3, 4, 5, 7
-ISOL, FINA, FIN2, FIN3, MEDI, MED2, INIT, NONE = range(8)
+ISOL, FINA, FIN2, FIN3, MEDI, MED2, INIT, NONE, STCH_FIXED, STCH_REPEATING = range(10)
+# general categories stch stretches over (HarfBuzz's HB_ARABIC_GENERAL_CATEGORY_IS_WORD)
+WORD_GC = {'Cn', 'Co', 'Lm', 'Lo', 'Mc', 'Me', 'Mn', 'Nd', 'Nl', 'No', 'Sc', 'Sk', 'Sm', 'So'}
 FEATURES = ['isol', 'fina', 'fin2', 'fin3', 'medi', 'med2', 'init']
 
 # (prev action, current action, next state) per state and joining type
@@ -159,8 +162,8 @@ class ArabicShaper:
 
     def data_create(self, m, font):
         self.masks = [m.get_1_mask(tag) for tag in FEATURES] + [0]
-        if m.get_1_mask('stch'):
-            raise NotImplementedError('the stch feature')
+        self.has_stch = bool(m.get_1_mask('stch'))
+        self.stch = False
         fallback = self.script == 'Arab'
         for tag in FEATURES:
             f = m.features.get(tag)
@@ -178,7 +181,98 @@ class ArabicShaper:
             self.fallback = [(m.get_1_mask(tag), lk) for tag, lk in plan if m.get_1_mask(tag) and lk]
 
     def record_stch(self, b):
-        pass                                            # no stch in the plan (data_create)
+        """stch just applied: what it multiplied is a fixed tile (even components) or a repeating
+        one (odd), kept in the record (cat) for postprocess."""
+        if not self.has_stch:
+            return
+        for inf in b.info:
+            if inf.multiplied():
+                inf.cat = STCH_REPEATING if inf.lig_comp() % 2 else STCH_FIXED
+                self.stch = True
+
+    def postprocess(self, b, font, rtl):
+        """stch: each run of tiles (visual order) stretched over the rest of its word before it -
+        the repeating tiles repeated, squeezed a little when one more fits better."""
+        if not self.stch:
+            return
+        if not rtl:
+            b.info.reverse()
+            b.pos.reverse()
+        tile = (STCH_FIXED, STCH_REPEATING)
+        extra = 0
+        for step in ('measure', 'cut'):
+            info, pos = b.info, b.pos
+            count = len(info)
+            out_info = [None] * (count + extra)
+            out_pos = [None] * (count + extra)
+            j = count + extra
+            i = count
+            while i:
+                if info[i - 1].cat not in tile:
+                    if step == 'cut':
+                        j -= 1
+                        out_info[j], out_pos[j] = info[i - 1], pos[i - 1]
+                    i -= 1
+                    continue
+                w_total = w_fixed = w_repeating = 0
+                n_fixed = n_repeating = 0
+                end = i
+                while i and info[i - 1].cat in tile:
+                    i -= 1
+                    width = font.advance(info[i].glyph)
+                    if info[i].cat == STCH_FIXED:
+                        w_fixed += width
+                        n_fixed += 1
+                    else:
+                        w_repeating += width
+                        n_repeating += 1
+                start = context = i
+                while context and info[context - 1].cat not in tile and \
+                        (info[context - 1].is_default_ignorable() or info[context - 1].gc in WORD_GC):
+                    context -= 1
+                    w_total += pos[context].xa
+                n_copies = 0
+                w_remaining = w_total - w_fixed
+                if w_remaining > w_repeating > 0:
+                    n_copies = w_remaining // w_repeating - 1
+                overlap = 0
+                shortfall = w_remaining - w_repeating * (n_copies + 1)
+                if shortfall > 0 and n_repeating > 0:
+                    n_copies += 1
+                    excess = (n_copies + 1) * w_repeating - w_remaining
+                    if excess > 0:
+                        overlap = excess // (n_copies * n_repeating)
+                        w_remaining = 0
+                if step == 'measure':
+                    extra += n_copies * n_repeating
+                else:
+                    x_offset = sm.tdiv(w_remaining, 2)
+                    for k in range(end, start, -1):
+                        width = font.advance(info[k - 1].glyph)
+                        repeat = 1 + (n_copies if info[k - 1].cat == STCH_REPEATING else 0)
+                        pos[k - 1].xa = 0
+                        for n in range(repeat):
+                            if rtl:
+                                x_offset -= width
+                                if n > 0:
+                                    x_offset += overlap
+                            pos[k - 1].xo = x_offset
+                            j -= 1
+                            out_info[j] = info[k - 1]
+                            p = sm.Pos()
+                            p.xa, p.ya, p.xo, p.yo = pos[k - 1].xa, pos[k - 1].ya, pos[k - 1].xo, pos[k - 1].yo
+                            out_pos[j] = p
+                            if not rtl:
+                                x_offset += width
+                                if n > 0:
+                                    x_offset -= overlap
+            if step == 'measure' and count + extra > self.max_len:
+                break                                   # cannot grow that far: not stretched
+            if step == 'cut':
+                b.info, b.pos = out_info, out_pos
+        if not rtl:
+            b.info.reverse()
+            b.pos.reverse()
 
     def fallback_shape(self, b):
         if not self.do_fallback or not self.fallback:
@@ -188,7 +282,7 @@ class ArabicShaper:
             sm.apply_lookup(c, lk, mask)
 
     def preprocess_text(self, b, font):
-        pass
+        self.max_len = max(64 * len(b.info), 16384)     # what the buffer may grow to (HarfBuzz's)
 
     def decompose(self, ab):
         return sm.decompose2(ab)
