@@ -77,17 +77,17 @@ _start:
     test rax, rax
     js .call_fail
     mov ecx, [rbx]
-    mov [rel pix + PixBuf_width], rcx
+    mov [rel pix + PixBuf.width], rcx
     mov edx, [rbx + 4]
-    mov [rel pix + PixBuf_height], rdx
+    mov [rel pix + PixBuf.height], rdx
     shl rcx, 2
-    mov [rel pix + PixBuf_stride], rcx
-    mov [rel pix + PixBuf_data], rax
+    mov [rel pix + PixBuf.stride], rcx
+    mov [rel pix + PixBuf.data], rax
     imul rcx, rdx
     cmp rcx, HOST_BUF_SIZE
     ja .call_fail
-    mov [rel pix + PixBuf_size], rcx
-    mov qword [rel pix + PixBuf_refcount], 1
+    mov [rel pix + PixBuf.size], rcx
+    mov qword [rel pix + PixBuf.refcount], 1
     mov rdi, rax
     shr rcx, 2
     mov eax, [rbx + 8]
@@ -135,9 +135,9 @@ _start:
     mov [rel decoration + Decoration.titlebar_height], eax
     cvttsd2si eax, qword [r14 + 8]
     mov [rel decoration + Decoration.border_width], eax
-    mov rax, [rel pix + PixBuf_data]
+    mov rax, [rel pix + PixBuf.data]
     mov [rel draw_state + DecorationDrawState.framebuffer], rax
-    mov rax, [rel pix + PixBuf_stride]
+    mov rax, [rel pix + PixBuf.stride]
     mov [rel draw_state + DecorationDrawState.stride], rax
     mov eax, [rbx]
     mov [rel draw_state + DecorationDrawState.width], eax
@@ -180,7 +180,7 @@ _start:
     lea r14, [r14 + 56 + rcx * 8]
     lea rdi, [rel draw_state]
     lea rsi, [rel decoration]
-    mov rdx, [rel pix + PixBuf_data]
+    mov rdx, [rel pix + PixBuf.data]
     call decoration_draw_frame
     test rax, rax
     jnz .call_fail
@@ -195,8 +195,8 @@ _start:
     test rax, rax
     js .write_fail
     mov r14, rax
-    mov rsi, [rel pix + PixBuf_data]
-    mov rdx, [rel pix + PixBuf_size]
+    mov rsi, [rel pix + PixBuf.data]
+    mov rdx, [rel pix + PixBuf.size]
 .write:
     test rdx, rdx
     jz .ok
@@ -230,9 +230,9 @@ _start:
 
 section .bss
 alignb 16
-pix:            resb PixBuf_SIZE
+pix:            resb PixBuf_size
 toplevel:       resb 256
-decoration:     resb Decoration_SIZE
-draw_state:     resb DecorationDrawState_SIZE
+decoration:     resb Decoration_size
+draw_state:     resb DecorationDrawState_size
 alignb 16
 buttons:        resb MAX_BUTTONS * BUTTON_NODE
