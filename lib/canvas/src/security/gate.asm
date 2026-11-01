@@ -41,7 +41,7 @@ gate_init:
     mov qword [rbx + Server.arena], r12
 
     mov rdi, r12
-    mov rsi, Gate_SIZE
+    mov rsi, Gate_size
     call arena_alloc
     test rax, rax
     jz .oom
