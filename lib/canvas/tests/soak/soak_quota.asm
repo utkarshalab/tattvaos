@@ -16,17 +16,7 @@ section .text
 ; ============================================================================
 global soak_quota_main
 soak_quota_main:
-    PROLOGUE
-    xor rax, rax
-    ret
-
-; ============================================================================
-; surface_create (stub)
-; ============================================================================
-global surface_create
-surface_create:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
