@@ -36,7 +36,8 @@ seat_session_init:
     mov byte [rbx + SeatSession.locked], 0
     mov qword [rbx + SeatSession.lock_surface], 0
     mov qword [rbx + SeatSession.idle_timer], 0
-    mov qword [rbx + SeatSession.idle_timeout], 300000000000  ; 5 minutes
+    mov rcx, 300000000000               ; 5 minutes: wider than an immediate store
+    mov [rbx + SeatSession.idle_timeout], rcx
     mov dword [rbx + SeatSession.inhibit_count], 0
     mov qword [rbx + SeatSession.power_inhibit], 0
 
