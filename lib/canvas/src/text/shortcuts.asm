@@ -55,7 +55,7 @@ shortcut_register:
 
     ; Allocate shortcut
     mov rdi, [rbx + Server.arena]
-    mov rsi, Shortcut_SIZE
+    mov rsi, Shortcut_size
     call arena_alloc
     test rax, rax
     jz .oom
