@@ -92,7 +92,8 @@ ignored until Tattva VCS defines option-specific behavior.
 
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires exactly one SHA-256 object-format header, accepts at most one printable
-bounded `agent=` header, rejects unadvertised header extensions, accepts bounded
+bounded `agent=` header using ASCII 33..126 (space is forbidden by protocol),
+rejects unadvertised header extensions, accepts bounded
 `ls-refs` filters plus the standard `symrefs`, `peel`, and `unborn` arguments,
 and validates either one 64-hex `want` or one `want-ref` naming advertised
 `HEAD` or `refs/heads/main`, and up to 64 ordered SHA-256 `have` lines. A fetch
