@@ -3,6 +3,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 
@@ -65,7 +66,7 @@ tga_decode:
     test rax,rax
     jz .bad
     mov rbx,rax
-    mov rdi,[rbx+PixBuf_data]
+    mov rdi,[rbx+PixBuf.data]
     mov r8,r10
     imul r8,r11                    ; pixels remaining
     xor r9d,r9d                    ; packet remaining
