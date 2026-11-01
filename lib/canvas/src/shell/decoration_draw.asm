@@ -45,11 +45,11 @@ decoration_draw_init:
     ASSERT_PTR r12
 
     ; Default theme colors (active)
-    mov dword [rbx + DecorationDrawState_titlebar_color], 0xFF2D2D2D  ; Dark gray
-    mov dword [rbx + DecorationDrawState_border_color], 0xFF1A1A1A    ; Darker gray
-    mov dword [rbx + DecorationDrawState_button_bg_color], 0xFF3D3D3D ; Medium gray
-    mov dword [rbx + DecorationDrawState_button_fg_color], 0xFFFFFFFF ; White
-    mov dword [rbx + DecorationDrawState_inactive_alpha], 0x80808080  ; 50% alpha
+    mov dword [rbx + DecorationDrawState.titlebar_color], 0xFF2D2D2D  ; Dark gray
+    mov dword [rbx + DecorationDrawState.border_color], 0xFF1A1A1A    ; Darker gray
+    mov dword [rbx + DecorationDrawState.button_bg_color], 0xFF3D3D3D ; Medium gray
+    mov dword [rbx + DecorationDrawState.button_fg_color], 0xFFFFFFFF ; White
+    mov dword [rbx + DecorationDrawState.inactive_alpha], 0x80808080  ; 50% alpha
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
@@ -223,23 +223,23 @@ decoration_draw_button:
     je .disabled
 
 .normal:
-    mov r14, [rbx + DecorationDrawState_button_bg_color]
-    mov r15, [rbx + DecorationDrawState_button_fg_color]
+    mov r14, [rbx + DecorationDrawState.button_bg_color]
+    mov r15, [rbx + DecorationDrawState.button_fg_color]
     jmp .draw
 
 .hover:
-    mov r14, [rbx + DecorationDrawState_button_bg_color]
-    mov r15, [rbx + DecorationDrawState_button_fg_color]
+    mov r14, [rbx + DecorationDrawState.button_bg_color]
+    mov r15, [rbx + DecorationDrawState.button_fg_color]
     jmp .draw
 
 .pressed:
-    mov r14, [rbx + DecorationDrawState_button_bg_color]
-    mov r15, [rbx + DecorationDrawState_button_fg_color]
+    mov r14, [rbx + DecorationDrawState.button_bg_color]
+    mov r15, [rbx + DecorationDrawState.button_fg_color]
     jmp .draw
 
 .disabled:
-    mov r14, [rbx + DecorationDrawState_button_bg_color]
-    mov r15, [rbx + DecorationDrawState_button_fg_color]
+    mov r14, [rbx + DecorationDrawState.button_bg_color]
+    mov r15, [rbx + DecorationDrawState.button_fg_color]
     jmp .draw
 
 .draw:
@@ -273,22 +273,22 @@ decoration_draw_button:
     cmp eax,DECOR_ICON_TYPES
     jae .no_icon
     ; the framebuffer as a PixBuf (rows down to the button's bottom at least)
-    sub rsp,PixBuf_SIZE
+    sub rsp,PixBuf_size
     mov ecx,[rbx + DecorationDrawState.width]
-    mov [rsp + PixBuf_width],rcx
+    mov [rsp + PixBuf.width],rcx
     mov ecx,[rbx + DecorationDrawState.height]
     mov edx,[r12+4]
     add edx,[r12+12]
     cmp ecx,edx
     cmovb ecx,edx
-    mov [rsp + PixBuf_height],rcx
-    mov [rsp + PixBuf_stride],r9
-    mov qword [rsp + PixBuf_format],0
-    mov [rsp + PixBuf_data],r13
+    mov [rsp + PixBuf.height],rcx
+    mov [rsp + PixBuf.stride],r9
+    mov qword [rsp + PixBuf.format],0
+    mov [rsp + PixBuf.data],r13
     imul rcx,r9
-    mov [rsp + PixBuf_size],rcx
-    mov qword [rsp + PixBuf_refcount],1
-    mov qword [rsp + PixBuf_arena],0
+    mov [rsp + PixBuf.size],rcx
+    mov qword [rsp + PixBuf.refcount],1
+    mov qword [rsp + PixBuf.arena],0
     ; the square: 3/4 of the button's height, centred in the button
     cvtsi2sd xmm2,dword [r12+12]
     mulsd xmm2,[rel decor_three_quarters]
@@ -310,7 +310,7 @@ decoration_draw_button:
     mov rdi,rsp
     mov ecx,r15d
     call canvas_icon_draw
-    add rsp,PixBuf_SIZE
+    add rsp,PixBuf_size
 .no_icon:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
