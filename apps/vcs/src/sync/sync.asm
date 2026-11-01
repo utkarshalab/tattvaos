@@ -325,7 +325,8 @@ vcs_sync_step:
 .phase_done:
  cmp dword [rbx+vcs_xfer.state],VCS_XFER_HEADER
  jne .finish
- cmp qword [rbx+vcs_xfer.header+VW_MAGIC],VCS_WIRE_MAGIC
+ mov rax,VCS_WIRE_MAGIC
+ cmp [rbx+vcs_xfer.header+VW_MAGIC],rax
  jne .bad_frame
  cmp dword [rbx+vcs_xfer.header+VW_VERSION],VCS_WIRE_VERSION
  jne .bad_frame
