@@ -88,12 +88,13 @@ memmove:
     ; dest > src: copy backward
     lea rdi, [rbx + r13 - 1]
     lea rsi, [r12 + r13 - 1]
+    mov rcx, r13                ; the count rep movsb takes
     std
     rep movsb
     cld
-    
+
 .done:
-    mov rax, rdi
+    mov rax, rbx                ; the destination
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
