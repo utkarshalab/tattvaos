@@ -10,12 +10,10 @@
 extern memcopy
 %include "inc/canvas_client.inc"
 
-; struct offsets (hoisted above use)
 %define DEFLATE_STORED     0
 %define DEFLATE_FIXED      1
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; deflate_compress
