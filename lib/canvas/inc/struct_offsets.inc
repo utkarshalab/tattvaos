@@ -538,7 +538,9 @@ struc Client
     .ping_serial:             resq 1
     .ratelimit:               resq 1
     .verified:                resb 1
-    resb 119
+    resb 7
+    .region:                  resq 1
+    resb 112
 endstruc
 
 struc ClientConn
