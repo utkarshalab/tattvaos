@@ -29,18 +29,18 @@ wire_encode_request:
     ASSERT_PTR r12
 
     ; Validate payload length
-    mov rax, [r12 + MsgHdr_len]
+    mov rax, [r12 + MsgHdr.len]
     cmp rax, MAX_PAYLOAD_SIZE
     ja .too_large
 
     ; Write header
-    mov rax, [r12 + MsgHdr_obj]
+    mov rax, [r12 + MsgHdr.obj]
     mov [rbx + 0], eax
-    mov ax, [r12 + MsgHdr_opcode]
+    mov ax, [r12 + MsgHdr.opcode]
     mov [rbx + 4], ax
-    mov ax, [r12 + MsgHdr_flags]
+    mov ax, [r12 + MsgHdr.flags]
     mov [rbx + 6], ax
-    mov eax, [r12 + MsgHdr_len]
+    mov eax, [r12 + MsgHdr.len]
     mov [rbx + 8], eax
 
     ; Copy payload
@@ -49,12 +49,12 @@ wire_encode_request:
     mov rdi, rbx
     add rdi, 12
     mov rsi, r13
-    mov rcx, [r12 + MsgHdr_len]
+    mov rcx, [r12 + MsgHdr.len]
     call memcopy
 
 .no_payload:
     mov rax, 12
-    add rax, [r12 + MsgHdr_len]
+    add rax, [r12 + MsgHdr.len]
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -78,13 +78,13 @@ wire_decode_header:
     ASSERT_PTR r12
 
     mov eax, [rbx + 0]
-    mov [r12 + MsgHdr_obj], eax
+    mov [r12 + MsgHdr.obj], eax
     mov ax, [rbx + 4]
-    mov [r12 + MsgHdr_opcode], ax
+    mov [r12 + MsgHdr.opcode], ax
     mov ax, [rbx + 6]
-    mov [r12 + MsgHdr_flags], ax
+    mov [r12 + MsgHdr.flags], ax
     mov eax, [rbx + 8]
-    mov [r12 + MsgHdr_len], eax
+    mov [r12 + MsgHdr.len], eax
 
     ; Validate
     cmp eax, MAX_PAYLOAD_SIZE
@@ -209,7 +209,6 @@ wire_decode_handles:
     ret
 
 section .data
-
 
 global wire_version
 wire_version: dq 0x010000
