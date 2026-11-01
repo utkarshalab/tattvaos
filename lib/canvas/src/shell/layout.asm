@@ -7,6 +7,7 @@
 %include "inc/errors.inc"
 %include "inc/shell.inc"
 %include "inc/externs.inc"
+%include "inc/rect.inc"
 
 section .text
 
@@ -237,10 +238,10 @@ layout_apply:
     ASSERT_PTR r12
 
     ; Get workspace rect
-    mov r12d, [rsi + Rect_x]
-    mov r13d, [rsi + Rect_y]
-    mov r14d, [rsi + Rect_width]
-    mov r15d, [rsi + Rect_height]
+    mov r12d, [rsi + Rect.x]
+    mov r13d, [rsi + Rect.y]
+    mov r14d, [rsi + Rect.width]
+    mov r15d, [rsi + Rect.height]
 
     ; Apply layout from root
     mov rax, [rbx + LAYOUT_ROOT]
