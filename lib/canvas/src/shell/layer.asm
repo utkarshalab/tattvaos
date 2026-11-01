@@ -6,6 +6,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/shell.inc"
+%include "inc/backend.inc"
 
 extern surface_set_size
 
@@ -27,50 +28,50 @@ layer_create:
     ASSERT_PTR r12
     ASSERT_PTR r13
 
-    mov qword [rbx + LAYER_SURFACE], r13
-    mov qword [rbx + LAYER_SHELL], r12
-    mov dword [rbx + LAYER_LAYER], r14d
-    mov qword [rbx + LAYER_NAMESPACE], r15
+    mov qword [rbx + Layer.surface], r13
+    mov qword [rbx + Layer.shell], r12
+    mov dword [rbx + Layer.layer], r14d
+    mov qword [rbx + Layer.namespace], r15
 
     ; Defaults
-    mov dword [rbx + LAYER_ANCHOR], 0
-    mov dword [rbx + LAYER_EXCLUSIVE_ZONE], 0
-    mov dword [rbx + LAYER_KEYBOARD_INT], KEYBOARD_NONE
-    mov dword [rbx + LAYER_WIDTH], 0
-    mov dword [rbx + LAYER_HEIGHT], 0
-    mov dword [rbx + LAYER_MARGIN_TOP], 0
-    mov dword [rbx + LAYER_MARGIN_RIGHT], 0
-    mov dword [rbx + LAYER_MARGIN_BOTTOM], 0
-    mov dword [rbx + LAYER_MARGIN_LEFT], 0
+    mov dword [rbx + Layer.anchor], 0
+    mov dword [rbx + Layer.exclusive_zone], 0
+    mov dword [rbx + Layer.keyboard_int], KEYBOARD_NONE
+    mov dword [rbx + Layer.width], 0
+    mov dword [rbx + Layer.height], 0
+    mov dword [rbx + Layer.margin_top], 0
+    mov dword [rbx + Layer.margin_right], 0
+    mov dword [rbx + Layer.margin_bottom], 0
+    mov dword [rbx + Layer.margin_left], 0
 
     ; Validate layer
     cmp r14d, LAYER_OVERLAY
     jg .invalid
 
     ; Get output for this layer
-    mov r15, [r12 + SHELL_OUTPUTS]
+    mov r15, [r12 + Shell.outputs]
 .find_output:
     test r15, r15
     jz .no_output
-    mov r14, [r15 + OUTPUT_CURRENT_SURFACE]
+    mov r14, [r15 + Output.current_surface]
     test r14, r14
     jz .next_output
-    mov [rbx + LAYER_OUTPUT], r15
+    mov [rbx + Layer.output], r15
     jmp .output_found
 .next_output:
-    mov r15, [r15 + OUTPUT_NEXT]
+    mov r15, [r15 + Output.next]
     jmp .find_output
 
 .no_output:
     ; Use first output
-    mov r15, [r12 + SHELL_OUTPUTS]
-    mov [rbx + LAYER_OUTPUT], r15
+    mov r15, [r12 + Shell.outputs]
+    mov [rbx + Layer.output], r15
 
 .output_found:
     ; Link into shell's layer list
-    mov rax, [r12 + SHELL_LAYERS]
-    mov [rbx + LAYER_NEXT], rax
-    mov [r12 + SHELL_LAYERS], rbx
+    mov rax, [r12 + Shell.layers]
+    mov [rbx + Layer.next], rax
+    mov [r12 + Shell.layers], rbx
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
@@ -92,7 +93,7 @@ layer_destroy:
     ASSERT_PTR rbx
 
     ; Unlink from shell
-    mov r12, [rbx + LAYER_SHELL]
+    mov r12, [rbx + Layer.shell]
     call .unlink_from_shell
 
     xor rax, rax
@@ -100,20 +101,20 @@ layer_destroy:
     ret
 
 .unlink_from_shell:
-    mov rax, [r12 + SHELL_LAYERS]
+    mov rax, [r12 + Shell.layers]
     test rax, rax
     jz .done
 
     cmp rax, rbx
     jne .find_prev
-    mov rax, [rbx + LAYER_NEXT]
-    mov [r12 + SHELL_LAYERS], rax
+    mov rax, [rbx + Layer.next]
+    mov [r12 + Shell.layers], rax
     jmp .done
 
 .find_prev:
     mov r12, rax
 .prev_loop:
-    mov rax, [r12 + LAYER_NEXT]
+    mov rax, [r12 + Layer.next]
     test rax, rax
     jz .done
     cmp rax, rbx
@@ -122,8 +123,8 @@ layer_destroy:
     jmp .prev_loop
 
 .unlink:
-    mov rax, [rbx + LAYER_NEXT]
-    mov [r12 + LAYER_NEXT], rax
+    mov rax, [rbx + Layer.next]
+    mov [r12 + Layer.next], rax
 
 .done:
     ret
@@ -142,7 +143,7 @@ layer_set_anchor:
     test esi, ~0xF
     jnz .invalid
 
-    mov dword [rbx + LAYER_ANCHOR], esi
+    mov dword [rbx + Layer.anchor], esi
     xor rax, rax
     leave
     ret
@@ -162,7 +163,7 @@ layer_set_exclusive_zone:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + LAYER_EXCLUSIVE_ZONE], esi
+    mov dword [rbx + Layer.exclusive_zone], esi
     xor rax, rax
     leave
     ret
@@ -188,7 +189,7 @@ layer_set_keyboard_interactivity:
     ret
 
 .valid:
-    mov dword [rbx + LAYER_KEYBOARD_INT], esi
+    mov dword [rbx + Layer.keyboard_int], esi
     xor rax, rax
     leave
     ret
@@ -203,11 +204,11 @@ layer_set_size:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + LAYER_WIDTH], esi
-    mov dword [rbx + LAYER_HEIGHT], edx
+    mov dword [rbx + Layer.width], esi
+    mov dword [rbx + Layer.height], edx
 
     ; Update surface
-    mov rax, [rbx + LAYER_SURFACE]
+    mov rax, [rbx + Layer.surface]
     test rax, rax
     jz .done
     mov rdi, rax
@@ -228,10 +229,10 @@ layer_set_margin:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + LAYER_MARGIN_TOP], esi
-    mov dword [rbx + LAYER_MARGIN_RIGHT], edx
-    mov dword [rbx + LAYER_MARGIN_BOTTOM], ecx
-    mov dword [rbx + LAYER_MARGIN_LEFT], r8d
+    mov dword [rbx + Layer.margin_top], esi
+    mov dword [rbx + Layer.margin_right], edx
+    mov dword [rbx + Layer.margin_bottom], ecx
+    mov dword [rbx + Layer.margin_left], r8d
 
     xor rax, rax
     leave
@@ -244,7 +245,7 @@ layer_set_margin:
 global layer_get_output
 layer_get_output:
     PROLOGUE
-    mov rax, [rdi + LAYER_OUTPUT]
+    mov rax, [rdi + Layer.output]
     leave
     ret
 
