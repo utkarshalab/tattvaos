@@ -64,23 +64,35 @@
 %define UfontFont_SIZE          456
 
 ; UfontSet: faces by family, weight and style
-%define UFONT_SET_MAX           64
+%define UFONT_SET_MAX           512
 %define UfontFace_family        0       ; family name (NUL-terminated, kept)
 %define UfontFace_weight        8       ; u32 100 .. 900
 %define UfontFace_italic        12      ; u32 1: italic
-%define UfontFace_font          16      ; UfontFont*
-%define UfontFace_SIZE          24
+%define UfontFace_font          16      ; UfontFont* (0: not opened yet)
+%define UfontFace_std           24      ; UfontStd* of a shipped face opened when needed (0: none)
+%define UfontFace_state         32      ; u32 UFS_*
+%define UfontFace_data          40      ; its bytes (once loaded)
+%define UfontFace_len           48
+%define UfontFace_SIZE          56
+%define UFS_OPEN                0       ; font is open
+%define UFS_LAZY                1       ; not opened yet (std says what to load)
+%define UFS_FAILED              2       ; could not be loaded or opened
 %define UfontSet_arena          0
 %define UfontSet_count          8       ; u32
-%define UfontSet_faces          16      ; UfontFace[UFONT_SET_MAX]
+%define UfontSet_loader         16      ; loader(rdi = user, rsi = file name) -> rax data (0: none), rdx length
+%define UfontSet_user           24
+%define UfontSet_faces          32      ; UfontFace[UFONT_SET_MAX]
 %define UfontSet_SIZE           (UfontSet_faces + UFONT_SET_MAX * UfontFace_SIZE)
 
-; ufont_standard records: the fonts lib/ufont ships
+; ufont_standard records: the fonts lib/ufont ships (match/standard.asm)
 %define UfontStd_file           0       ; file name (NUL-terminated)
 %define UfontStd_family         8       ; family name
 %define UfontStd_weight         16      ; u32
 %define UfontStd_italic         20      ; u32
-%define UfontStd_SIZE           24
+%define UfontStd_face           24      ; u32 the face in a collection (0: a single font)
+%define UfontStd_ncover         28      ; u32 coverage ranges
+%define UfontStd_cover          32      ; dd first, last per range: what it has beyond Noto Sans Regular
+%define UfontStd_SIZE           40
 
 ; ---------------------------------------------------------------- shaping (layout/)
 ; UfontGlyph: one glyph of a shaped run (ufont_shape's output), font units,
