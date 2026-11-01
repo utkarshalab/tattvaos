@@ -11,9 +11,6 @@
 extern arena_alloc
 %include "inc/struct_offsets.inc"
 
-; struct offsets (hoisted above use)
-%define FrameMark_SIZE    60
-%define FrameTimeline_SIZE    40
 %define FRAME_TIMELINE_DEPTH  64
 
 section .text
@@ -25,7 +22,6 @@ section .text
 ; FrameTimeline struct layout (manual offsets)
 ; Offsets defined in inc/struct_offsets.inc
 ; ----------
-
 
 ; ---------------------------------------------------------------------------
 ; frame_timeline_init
