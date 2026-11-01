@@ -5,11 +5,9 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 
-; struct offsets (hoisted above use)
 %define ADLER_MOD  65521
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; adler32
