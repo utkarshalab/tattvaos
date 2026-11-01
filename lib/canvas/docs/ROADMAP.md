@@ -89,7 +89,7 @@
 | FND-04 | Fix test and mock symbol collisions so all test images link | P0 | |
 | FND-05 | Makefile: `all` without `test`; no duplicate `linker.ld`; add `GFX_SRCS` to the replay image; one owner for `linker.ld` | P0 | |
 | FND-06 | Release build mode (`DEBUG_BUILD=0`), warnings as errors | P0 | |
-| FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | |
+| FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | ✓ 36 files in `attic/` (see its README); `native_planes`, `invariants` wired in; every `.asm` under `src/` and `tests/` is now built |
 | FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | ✓ `lib/canvas/.gitattributes`: LF everywhere, `*.uic` binary |
 | FND-09 | Host test shim: `ut_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | |
 | FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | → FND-09 |
@@ -171,7 +171,7 @@
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | PRO-01 | Real `canvas_connect`: channel pair, handshake, capability grant | P1 | ◐ local-only today |
-| PRO-02 | `cwpgen`: generate dispatch tables, server stubs and client stubs from `proto/*.cwp` | P1 | ◐ TODO in `tools/cwpgen` |
+| PRO-02 | `cwpgen`: generate dispatch tables, server stubs and client stubs from `proto/*.cwp` | P1 | ◐ TODO in `src/tools/cwpgen.asm` |
 | PRO-03 | Capability negotiation: interfaces invisible without grant | P2 | ◐ stub in `proto/negotiate` |
 | PRO-04 | Error objects and protocol error reporting | P1 | ◐ `proto/errors` |
 | PRO-05 | Per-interface versioning with downgrade negotiation | P2 | ◐ `proto/versioning` |
