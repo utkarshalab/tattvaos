@@ -46,7 +46,8 @@ watchdog_init:
     jz .oom
     mov r13, rax
     mov qword [r13 + Watchdog.server], rbx
-    mov qword [r13 + Watchdog.timeout_ns], WATCHDOG_DEFAULT_TIMEOUT
+    mov rax, WATCHDOG_DEFAULT_TIMEOUT    ; wider than an immediate store
+    mov [r13 + Watchdog.timeout_ns], rax
     mov qword [r13 + Watchdog.timer], 0
     mov qword [r13 + Watchdog.suspects], 0
     mov qword [r13 + Watchdog.kills], 0
