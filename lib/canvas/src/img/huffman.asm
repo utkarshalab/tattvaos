@@ -8,9 +8,6 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
-; struct offsets (hoisted above use)
-%define HuffDec_SIZE    304
-
 section .text
 
 ; HuffDec struct layout (manual offsets to avoid NASM preprocessor issues)
