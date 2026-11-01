@@ -8,12 +8,10 @@
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 extern toplevel_set_position
 extern zorder_top
-
-; struct offsets (hoisted above use)
-%define PolicyFloating_SIZE    24
 
 section .text
 
@@ -21,7 +19,6 @@ section .text
 ; Offsets defined in inc/struct_offsets.inc
 
 ; ----------
-
 
 ; ---------------------------------------------------------------------------
 ; policy_floating_init
