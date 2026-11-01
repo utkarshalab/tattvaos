@@ -3,6 +3,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern arena_alloc
 extern memcopy
@@ -1079,7 +1080,7 @@ tiff_decode:
     imul ecx,[rsp+L_OUTW]
     add ecx,eax
     shl rcx,2
-    add rcx,[rbx+PixBuf_data]
+    add rcx,[rbx+PixBuf.data]
     cmp dword [rsp+L_PLANAR],2
     je .planar_pixel
     cmp dword [rsp+L_BITS],8
@@ -1253,7 +1254,7 @@ tiff_decode:
     imul ecx,[rsp+8+L_OUTW]
     add ecx,eax
     shl rcx,2
-    add rcx,[rbx+PixBuf_data]
+    add rcx,[rbx+PixBuf.data]
     mov r14,rcx
     pop rax
     cmp dword [rsp+L_PHOTO],3
