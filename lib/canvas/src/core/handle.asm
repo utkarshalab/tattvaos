@@ -6,23 +6,10 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%define HANDLE_MODULE
+%include "inc/handle.inc"
 
 extern arena_alloc
-
-; struct offsets (hoisted above use)
-%define HandleTable_entries    0
-%define HandleTable.entries 0
-%define HandleTable_capacity   8
-%define HandleTable.capacity 8
-%define HandleTable_mask       16
-%define HandleTable.mask 16
-%define HandleTable_count      24
-%define HandleTable.count 24
-%define HandleTable_next_index 32
-%define HandleTable.next_index 32
-%define HandleTable_arena      40
-%define HandleTable.arena 40
-%define HandleTable_size       48
 
 section .text
 
@@ -277,7 +264,6 @@ handle_table_clear:
     ret
 
 section .data
-
 
 global handle_version
 handle_version: dq 0x010000
