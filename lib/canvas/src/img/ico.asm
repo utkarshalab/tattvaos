@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 extern png_decode
@@ -77,7 +78,7 @@ ico_decode:
     jz .bad
     mov rbx,rax
     lea r8,[rsi+40]
-    mov r9,[rbx+PixBuf_data]
+    mov r9,[rbx+PixBuf.data]
     xor r10d,r10d
 .row:
     cmp r10d,[rsp+4]
@@ -88,7 +89,7 @@ ico_decode:
     imul eax,[rsp]
     shl eax,2
     lea rsi,[r8+rax]
-    mov rax,[rbx+PixBuf_stride]
+    mov rax,[rbx+PixBuf.stride]
     imul rax,r10
     lea rdi,[r9+rax]
     mov ecx,[rsp]
