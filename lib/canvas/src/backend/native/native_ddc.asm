@@ -7,17 +7,16 @@
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/backend.inc"
 
 extern ut_i2c_read
 extern ut_i2c_write
 
-; struct offsets (hoisted above use)
 %define DDC_ADDR_EDID      0x50
 %define DDC_ADDR_EDID_EXT  0x30
 %define DDC_SEGMENT_ADDR   0x30
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; ddc_read_edid
