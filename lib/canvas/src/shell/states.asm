@@ -8,11 +8,11 @@
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
+%include "inc/backend.inc"
 
 extern zorder_remove
 extern zorder_insert
 
-; struct offsets (hoisted above use)
 %define TOPLEVEL_STATE_DEFAULT     0
 %define TOPLEVEL_STATE_MAXIMIZED   1
 %define TOPLEVEL_STATE_FULLSCREEN  2
@@ -27,8 +27,6 @@ extern zorder_insert
 %define STATE_FLAG_ACTIVATED    (1 << 5)
 
 section .text
-
-
 
 ; ---------------------------------------------------------------------------
 ; states_init
