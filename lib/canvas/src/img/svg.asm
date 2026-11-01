@@ -216,8 +216,8 @@ svg_render:
     js .fail
     mov r12, rax
     ; transparent
-    mov rdi, [r12 + PixBuf_data]
-    mov rcx, [r12 + PixBuf_size]
+    mov rdi, [r12 + PixBuf.data]
+    mov rcx, [r12 + PixBuf.size]
     xor eax, eax
     rep stosb
     lea rdi, [rsp + F_CTX]
