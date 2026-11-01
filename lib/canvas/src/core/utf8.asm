@@ -1,6 +1,17 @@
 ; ============================================================================
 ; UTF-8 — Validation, Decoding, Encoding
 ; ============================================================================
+; Strict UTF-8 (RFC 3629): no overlong forms, no surrogates (U+D800 ..
+; U+DFFF), nothing above U+10FFFF, continuation bytes 10xxxxxx.
+;
+;   utf8_decode(buf, len, out*)   -> bytes of the first character (1 .. 4),
+;                                    its code point in *out (u32); 0 when the
+;                                    buffer is empty or does not start with a
+;                                    valid character
+;   utf8_validate(buf, len)       -> 0 valid, -EILSEQ
+;   utf8_encode(cp, buf, size)    -> bytes written (1 .. 4), 0 when the code
+;                                    point is not a scalar value or does not fit
+; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -9,274 +20,203 @@
 section .text
 
 ; ---------------------------------------------------------------------------
-; utf8_validate
-;   Validate UTF-8 sequence
-;   IN:  rdi = buffer, rsi = length
-;   OUT: rax = 0 if valid, negative error
-; ---------------------------------------------------------------------------
-global utf8_validate
-utf8_validate:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-
-    test r12, r12
-    jz .done
-
-.loop:
-    movzx rax, byte [rbx]
-    test rax, 0x80
-    jz .ascii
-
-    ; Multi-byte sequence
-    test rax, 0xE0
-    jz .invalid
-    test rax, 0xF0
-    jz .two_byte
-    test rax, 0xF8
-    jz .three_byte
-    test rax, 0xFC
-    jz .four_byte
-    jmp .invalid
-
-.two_byte:
-    cmp r12, 2
-    jb .invalid
-    inc rbx
-    movzx rax, byte [rbx]
-    test rax, 0xC0
-    jnz .invalid_cont
-    sub r12, 2
-    add rbx, 2
-    jmp .loop
-
-.three_byte:
-    cmp r12, 3
-    jb .invalid
-    inc rbx
-    movzx rax, byte [rbx]
-    test rax, 0xC0
-    jnz .invalid_cont
-    inc rbx
-    movzx rax, byte [rbx]
-    test rax, 0xC0
-    jnz .invalid_cont
-    sub r12, 3
-    add rbx, 3
-    jmp .loop
-
-.four_byte:
-    cmp r12, 4
-    jb .invalid
-    inc rbx
-    movzx rax, byte [rbx]
-    test rax, 0xC0
-    jnz .invalid_cont
-    inc rbx
-    movzx rax, byte [rbx]
-    test rax, 0xC0
-    jnz .invalid_cont
-    inc rbx
-    movzx rax, byte [rbx]
-    test rax, 0xC0
-    jnz .invalid_cont
-    sub r12, 4
-    add rbx, 4
-    jmp .loop
-
-.ascii:
-    inc rbx
-    dec r12
-    jnz .loop
-
-.done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.invalid:
-    mov rax, -(EILSEQ)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-.invalid_cont:
-    mov rax, -(EILSEQ)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; utf8_decode
-;   Decode next UTF-8 codepoint
-;   IN:  rdi = buffer, rsi = length, rdx = out_codepoint
-;   OUT: rax = bytes consumed, 0 if invalid/end
+; utf8_decode — rdi = buffer, rsi = length, rdx = u32 *out -> rax
 ; ---------------------------------------------------------------------------
 global utf8_decode
 utf8_decode:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
     test rsi, rsi
-    jz .done
-
-    movzx rax, byte [rbx]
-    test rax, 0x80
-    jz .ascii
-
-    test rax, 0xE0
     jz .invalid
-    test rax, 0xF0
-    jz .two_byte
-    test rax, 0xF8
-    jz .three_byte
-    test rax, 0xFC
-    jz .four_byte
-    jmp .invalid
-
-.two_byte:
+    movzx eax, byte [rdi]
+    cmp eax, 0x80
+    jb .one
+    cmp eax, 0xC2                       ; 0x80 .. 0xC1: continuation or overlong
+    jb .invalid
+    cmp eax, 0xE0
+    jb .two
+    cmp eax, 0xF0
+    jb .three
+    cmp eax, 0xF5
+    jb .four
+.invalid:
+    xor eax, eax
+    ret
+.one:
+    mov [rdx], eax
+    mov eax, 1
+    ret
+.two:
     cmp rsi, 2
     jb .invalid
-    movzx rdx, byte [rbx + 1]
-    test rdx, 0xC0
-    jnz .invalid
-    mov rax, [rdx]
-    and rax, 0x1F
-    shl rax, 6
-    mov rdx, [rbx + 1]
-    and rdx, 0x3F
-    or rax, rdx
-    mov [rdx], rax
-    mov rax, 2
-    EPILOGUE_RESTORE rbx
+    and eax, 0x1F
+    movzx ecx, byte [rdi + 1]
+    xor ecx, 0x80
+    cmp ecx, 0x3F
+    ja .invalid
+    shl eax, 6
+    or eax, ecx
+    mov [rdx], eax
+    mov eax, 2
     ret
-
-.three_byte:
+.three:
     cmp rsi, 3
     jb .invalid
-    ; Simplified
-    mov rax, 3
-    EPILOGUE_RESTORE rbx
+    and eax, 0x0F
+    movzx ecx, byte [rdi + 1]
+    xor ecx, 0x80
+    cmp ecx, 0x3F
+    ja .invalid
+    shl eax, 6
+    or eax, ecx
+    movzx ecx, byte [rdi + 2]
+    xor ecx, 0x80
+    cmp ecx, 0x3F
+    ja .invalid
+    shl eax, 6
+    or eax, ecx
+    cmp eax, 0x800                      ; overlong
+    jb .invalid
+    mov ecx, eax
+    sub ecx, 0xD800                     ; a surrogate
+    cmp ecx, 0x7FF
+    jbe .invalid
+    mov [rdx], eax
+    mov eax, 3
     ret
-
-.four_byte:
+.four:
     cmp rsi, 4
     jb .invalid
-    mov rax, 4
-    EPILOGUE_RESTORE rbx
-    ret
-
-.ascii:
-    mov [rdx], rax
-    mov rax, 1
-    EPILOGUE_RESTORE rbx
-    ret
-
-.invalid:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
-
-.done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
+    and eax, 0x07
+    mov r8d, 1
+.four_cont:
+    movzx ecx, byte [rdi + r8]
+    xor ecx, 0x80
+    cmp ecx, 0x3F
+    ja .invalid
+    shl eax, 6
+    or eax, ecx
+    inc r8d
+    cmp r8d, 4
+    jb .four_cont
+    cmp eax, 0x10000                    ; overlong
+    jb .invalid
+    cmp eax, 0x10FFFF
+    ja .invalid
+    mov [rdx], eax
+    mov eax, 4
     ret
 
 ; ---------------------------------------------------------------------------
-; utf8_encode
-;   Encode codepoint to UTF-8
-;   IN:  rdi = codepoint, rsi = buffer, rdx = buffer_size
-;   OUT: rax = bytes written, 0 if too large
+; utf8_validate — rdi = buffer, rsi = length -> rax = 0, -EILSEQ
+; ---------------------------------------------------------------------------
+global utf8_validate
+utf8_validate:
+    push rbx
+    push r12
+    sub rsp, 8
+    mov rbx, rdi
+    mov r12, rsi
+.loop:
+    test r12, r12
+    jz .valid
+    mov rdi, rbx
+    mov rsi, r12
+    lea rdx, [rsp]
+    call utf8_decode
+    test rax, rax
+    jz .bad
+    add rbx, rax
+    sub r12, rax
+    jmp .loop
+.valid:
+    xor eax, eax
+    jmp .out
+.bad:
+    mov rax, -(EILSEQ)
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; ---------------------------------------------------------------------------
+; utf8_encode — rdi = code point, rsi = buffer, rdx = buffer size -> rax
 ; ---------------------------------------------------------------------------
 global utf8_encode
 utf8_encode:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rsi
-
-    cmp rbx, 0x80
-    jb .one_byte
-    cmp rbx, 0x800
-    jb .two_byte
-    cmp rbx, 0x10000
-    jb .three_byte
-    cmp rbx, 0x110000
-    jb .four_byte
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
+    mov eax, edi
+    cmp rdi, 0x80
+    jb .one
+    cmp rdi, 0x800
+    jb .two
+    mov ecx, edi
+    sub ecx, 0xD800
+    cmp ecx, 0x7FF
+    jbe .none                           ; a surrogate is no scalar value
+    cmp rdi, 0x10000
+    jb .three
+    cmp rdi, 0x110000
+    jb .four
+.none:
+    xor eax, eax
     ret
-
-.one_byte:
+.one:
     cmp rdx, 1
-    jb .done
-    mov [rsi], bl
-    mov rax, 1
-    EPILOGUE_RESTORE rbx
+    jb .none
+    mov [rsi], al
+    mov eax, 1
     ret
-
-.two_byte:
+.two:
     cmp rdx, 2
-    jb .done
-    mov eax, ebx
+    jb .none
     shr eax, 6
     or eax, 0xC0
     mov [rsi], al
-    mov eax, ebx
+    mov eax, edi
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 1], al
-    mov rax, 2
-    EPILOGUE_RESTORE rbx
+    mov eax, 2
     ret
-
-.three_byte:
+.three:
     cmp rdx, 3
-    jb .done
-    mov eax, ebx
+    jb .none
     shr eax, 12
     or eax, 0xE0
     mov [rsi], al
-    mov eax, ebx
+    mov eax, edi
     shr eax, 6
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 1], al
-    mov eax, ebx
+    mov eax, edi
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 2], al
-    mov rax, 3
-    EPILOGUE_RESTORE rbx
+    mov eax, 3
     ret
-
-.four_byte:
+.four:
     cmp rdx, 4
-    jb .done
-    mov eax, ebx
+    jb .none
     shr eax, 18
     or eax, 0xF0
     mov [rsi], al
-    mov eax, ebx
+    mov eax, edi
     shr eax, 12
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 1], al
-    mov eax, ebx
+    mov eax, edi
     shr eax, 6
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 2], al
-    mov eax, ebx
+    mov eax, edi
     and eax, 0x3F
     or eax, 0x80
     mov [rsi + 3], al
-    mov rax, 4
-    EPILOGUE_RESTORE rbx
-    ret
-
-.done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
+    mov eax, 4
     ret
 
 section .data
 global utf8_version
-utf8_version: dq 0x010000
+utf8_version: dq 0x010100
