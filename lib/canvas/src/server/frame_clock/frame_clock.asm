@@ -11,19 +11,6 @@
 extern output_schedule_vblank
 extern ut_timer_cancel
 
-; struct offsets (hoisted above use)
-%define FrameClock_output      0
-%define FrameClock.output 0
-%define FrameClock_refresh_ns  8
-%define FrameClock.refresh_ns 8
-%define FrameClock_next_vblank 16
-%define FrameClock.next_vblank 16
-%define FrameClock_phase       24
-%define FrameClock.phase 24
-%define FrameClock_callbacks   32
-%define FrameClock.callbacks 32
-%define FrameClock_size        40
-
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -227,7 +214,6 @@ frame_clock_deinit:
     ret
 
 section .data
-
 
 global frame_clock_version
 frame_clock_version: dq 0x010000
