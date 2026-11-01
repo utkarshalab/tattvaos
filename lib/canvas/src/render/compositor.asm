@@ -22,19 +22,6 @@ extern sw_render_begin_frame
 extern sw_render_surface
 extern sw_render_end_frame
 
-; struct offsets (hoisted above use)
-%define Compositor_server        0
-%define Compositor.server 0
-%define Compositor_renderer      8
-%define Compositor.renderer 8
-%define Compositor_arena         16
-%define Compositor.arena 16
-%define Compositor_damage_ring   24
-%define Compositor.damage_ring 24
-%define Compositor_frame_seq     32
-%define Compositor.frame_seq 32
-%define Compositor_size          40
-
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -55,7 +42,7 @@ compositor_init:
 
     mov qword [rbx + Compositor.server], r12
     mov rdi, r13
-    mov rsi, Renderer_SIZE
+    mov rsi, Renderer_size
     call arena_alloc
     test rax, rax
     jz .init_oom
@@ -293,7 +280,6 @@ compositor_frame_callback:
     ret
 
 section .data
-
 
 global compositor_version
 compositor_version: dq 0x010000
