@@ -37,8 +37,10 @@ idle_init:
     test rax,rax
     jz .oom
     mov [rax + IdleManager.server],rbx
-    mov qword [rax + IdleManager.idle_timeout],DEFAULT_IDLE_TIMEOUT
-    mov qword [rax + IdleManager.warning_time],DEFAULT_WARNING_TIME
+    mov rcx, DEFAULT_IDLE_TIMEOUT       ; wider than an immediate store
+    mov [rax + IdleManager.idle_timeout], rcx
+    mov rcx, DEFAULT_WARNING_TIME
+    mov [rax + IdleManager.warning_time], rcx
     mov qword [rax + IdleManager.timer],0
     mov qword [rax + IdleManager.callbacks],0
     mov dword [rax + IdleManager.inhibit_count],0
