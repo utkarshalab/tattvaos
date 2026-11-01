@@ -23,7 +23,12 @@
 ;   ufl_arabic_reorder_marks(esi = start, edx = end)
 ;                                 modifier combining marks (TR53) before the
 ;                                 other marks of their class
-; Not done: the stch stretching feature.
+;   ufl_arabic_stch               after positioning (visual order): each run
+;                                 of stch tiles (what stch multiplied: even
+;                                 components fixed, odd ones repeating)
+;                                 stretched over the rest of its word, the
+;                                 repeating tiles repeated (squeezed a little
+;                                 when one more fits better)
 ;
 ; Hebrew:
 ;   ufl_hebrew_data_create        does the plan position marks
@@ -56,6 +61,7 @@ extern ufl_ucd_arlig3
 extern ufl_ucd_arlig2
 extern ufl_ucd_arligm
 extern arena_alloc
+extern ufont_advance
 
 ; the fallback lookups' block: dd count, dd bytes used, then (dd mask, dd
 ; offset) per lookup, the lookups from AFB_LOOKUPS; scratch after AFB_SIZE
@@ -118,7 +124,7 @@ ufl_arabic_collect_features:
     xor esi, esi
     mov edx, 1
     call ufl_map_enable
-    xor edi, edi
+    lea rdi, [rel ar_record_stch]
     call ufl_map_add_gsub_pause
     mov edi, 'ccmp'
     mov esi, F_MANUAL_ZWJ
@@ -896,6 +902,388 @@ ufl_arabic_setup_masks:
     pop r13
     pop r12
     pop rbx
+    ret
+
+; ----------------------------------------------------------------------------
+; stch
+; ----------------------------------------------------------------------------
+%define STCH_FIXED      8               ; GI_CAT of a tile (the joining action's slot)
+%define STCH_REPEATING  9
+%define S_ASTCH         S_IBROKEN       ; u8 a tile was recorded (the Indic slot)
+; general categories a stretch covers: Cn Co Lm Lo Mc Me Mn Nd Nl No Sc Sk Sm So
+%define AR_WORD_GC      (1 << 2) | (1 << 3) | (1 << 6) | (1 << 7) | (0xF << 10) | (0x3 << 14) | (0xF << 23)
+
+; the pause after stch: what it multiplied recorded as tiles
+ar_record_stch:
+    sub rsp, 8
+    mov edi, 'stch'
+    call ufl_map_get_1_mask
+    test eax, eax
+    jz .out
+    xor ecx, ecx
+.each:
+    cmp ecx, [r15 + S_LEN]
+    jae .out
+    mov rax, rcx
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    test word [rax + GI_PROPS], GP_MULTIPLIED
+    jz .next
+    movzx edx, byte [rax + GI_LIG]
+    test edx, 0x10                      ; a ligature base: component 0
+    jz .comp
+    xor edx, edx
+.comp:
+    and edx, 1
+    add edx, STCH_FIXED                 ; odd components repeat
+    mov [rax + GI_CAT], dl
+    mov byte [r15 + S_ASTCH], 1
+.next:
+    inc ecx
+    jmp .each
+.out:
+    add rsp, 8
+    ret
+
+; the run (records and positions) reversed
+ar_reverse:
+    xor ecx, ecx
+    mov edx, [r15 + S_LEN]
+.loop:
+    dec edx
+    cmp ecx, edx
+    jge .done
+    mov r8, rcx
+    shl r8, 5
+    add r8, [r15 + S_INFO]
+    mov r9, rdx
+    shl r9, 5
+    add r9, [r15 + S_INFO]
+    movdqu xmm0, [r8]
+    movdqu xmm1, [r8 + 16]
+    movdqu xmm2, [r9]
+    movdqu xmm3, [r9 + 16]
+    movdqu [r8], xmm2
+    movdqu [r8 + 16], xmm3
+    movdqu [r9], xmm0
+    movdqu [r9 + 16], xmm1
+    imul r8d, ecx, GPOS_SIZE
+    add r8, [r15 + S_POS]
+    imul r9d, edx, GPOS_SIZE
+    add r9, [r15 + S_POS]
+    movdqu xmm0, [r8]
+    mov r10, [r8 + 16]
+    movdqu xmm1, [r9]
+    mov r11, [r9 + 16]
+    movdqu [r8], xmm1
+    mov [r8 + 16], r11
+    movdqu [r9], xmm0
+    mov [r9 + 16], r10
+    inc ecx
+    jmp .loop
+.done:
+    ret
+
+; esi = record index -> ZF clear when it is a tile (rax = the record)
+%macro TILE 1
+    mov rax, %1
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    movzx edx, byte [rax + GI_CAT]
+    sub edx, STCH_FIXED
+    cmp edx, 1
+%endmacro
+
+; the frame
+%define ST_EXTRA    0                   ; u32 glyphs the stretch adds
+%define ST_STEP     4                   ; 0 measure, 1 cut
+%define ST_INFO     8                   ; the new records
+%define ST_POS      16                  ; the new positions
+%define ST_J        24                  ; u32 the write head (cut)
+%define ST_TOTAL    28                  ; i32 the rest of the word's width
+%define ST_FIXED    32                  ; i32 the fixed tiles'
+%define ST_REP      36                  ; i32 the repeating tiles'
+%define ST_NREP     40                  ; u32
+%define ST_END      44                  ; u32
+%define ST_START    48                  ; u32
+%define ST_COPIES   52                  ; i32 extra copies of each repeating tile
+%define ST_OVERLAP  56                  ; i32
+%define ST_REMAIN   60                  ; i32
+%define ST_XOFF     64                  ; i32
+%define ST_COUNT    68                  ; u32 the run's length
+%define ST_SIZE     72
+
+global ufl_arabic_stch
+ufl_arabic_stch:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    sub rsp, ST_SIZE + 8
+    cmp byte [r15 + S_ASTCH], 0
+    je .out
+    cmp byte [r15 + S_BRTL], 0
+    jne .rtl
+    call ar_reverse
+.rtl:
+    mov dword [rsp + ST_EXTRA], 0
+    mov dword [rsp + ST_STEP], 0
+.step:
+    mov eax, [r15 + S_LEN]
+    mov [rsp + ST_COUNT], eax
+    cmp dword [rsp + ST_STEP], 0
+    je .scan
+    ; cut: the new arrays, written from the end
+    add eax, [rsp + ST_EXTRA]
+    mov [rsp + ST_J], eax
+    mov ebx, eax
+    shl rax, 5
+    lea rsi, [rax + 8]
+    mov rdi, [r15 + S_ARENA]
+    call arena_alloc
+    test rax, rax
+    jz .unreverse
+    mov [rsp + ST_INFO], rax
+    imul esi, ebx, GPOS_SIZE
+    add rsi, 8
+    mov rdi, [r15 + S_ARENA]
+    call arena_alloc
+    test rax, rax
+    jz .unreverse
+    mov [rsp + ST_POS], rax
+.scan:
+    mov r12d, [rsp + ST_COUNT]          ; i
+.each:
+    test r12d, r12d
+    jz .step_done
+    lea ebx, [r12 - 1]
+    TILE rbx
+    jbe .tiles
+    ; not a tile: copied as it is (cut)
+    cmp dword [rsp + ST_STEP], 0
+    je .skip
+    mov esi, ebx
+    call ar_put
+.skip:
+    dec r12d
+    jmp .each
+.tiles:
+    xor eax, eax
+    mov [rsp + ST_TOTAL], eax
+    mov [rsp + ST_FIXED], eax
+    mov [rsp + ST_REP], eax
+    mov [rsp + ST_NREP], eax
+    mov [rsp + ST_END], r12d
+.tile:
+    test r12d, r12d
+    jz .tiled
+    lea ebx, [r12 - 1]
+    TILE rbx
+    ja .tiled
+    dec r12d
+    mov r13, rax
+    mov esi, [r13 + GI_GLYPH]
+    mov rdi, [r15 + S_FONT]
+    call ufont_advance
+    cmp byte [r13 + GI_CAT], STCH_FIXED
+    jne .repeating
+    add [rsp + ST_FIXED], eax
+    jmp .tile
+.repeating:
+    add [rsp + ST_REP], eax
+    inc dword [rsp + ST_NREP]
+    jmp .tile
+.tiled:
+    mov [rsp + ST_START], r12d
+    ; the rest of the word before them (ignorables and word characters)
+    mov r13d, r12d                      ; context
+.context:
+    test r13d, r13d
+    jz .measured
+    lea ebx, [r13 - 1]
+    TILE rbx
+    jbe .measured
+    test byte [rax + GI_UF], UF_IGN
+    jz .word
+    test word [rax + GI_PROPS], GP_SUBSTITUTED
+    jz .in_word
+.word:
+    movzx ecx, byte [rax + GI_GC]
+    mov edx, AR_WORD_GC
+    bt edx, ecx
+    jnc .measured
+.in_word:
+    dec r13d
+    imul ecx, r13d, GPOS_SIZE
+    add rcx, [r15 + S_POS]
+    mov eax, [rcx + GPOS_XA]
+    add [rsp + ST_TOTAL], eax
+    jmp .context
+.measured:
+    ; the copies: as many repeats as fit, one more squeezed in when short
+    xor ebp, ebp                        ; n_copies
+    mov eax, [rsp + ST_TOTAL]
+    sub eax, [rsp + ST_FIXED]
+    mov [rsp + ST_REMAIN], eax
+    mov ecx, [rsp + ST_REP]
+    cmp eax, ecx
+    jle .fit
+    test ecx, ecx
+    jle .fit
+    cdq
+    idiv ecx
+    lea ebp, [rax - 1]
+.fit:
+    mov dword [rsp + ST_OVERLAP], 0
+    lea eax, [rbp + 1]
+    imul eax, [rsp + ST_REP]
+    mov ecx, [rsp + ST_REMAIN]
+    sub ecx, eax                        ; shortfall
+    jle .copies
+    cmp dword [rsp + ST_NREP], 0
+    je .copies
+    inc ebp
+    lea eax, [rbp + 1]
+    imul eax, [rsp + ST_REP]
+    sub eax, [rsp + ST_REMAIN]          ; excess
+    jle .copies
+    mov ecx, ebp
+    imul ecx, [rsp + ST_NREP]
+    cdq
+    idiv ecx
+    mov [rsp + ST_OVERLAP], eax
+    mov dword [rsp + ST_REMAIN], 0
+.copies:
+    mov [rsp + ST_COPIES], ebp
+    cmp dword [rsp + ST_STEP], 0
+    jne .cut
+    mov eax, ebp
+    imul eax, [rsp + ST_NREP]
+    add [rsp + ST_EXTRA], eax
+    jmp .each                           ; i is the start now
+.cut:
+    mov eax, [rsp + ST_REMAIN]
+    cdq
+    mov ecx, 2
+    idiv ecx
+    mov [rsp + ST_XOFF], eax
+    mov r13d, [rsp + ST_END]            ; k
+.k:
+    cmp r13d, [rsp + ST_START]
+    ja .k_tile
+    mov r12d, [rsp + ST_START]          ; i is the start again
+    jmp .each
+.k_tile:
+    lea ebx, [r13 - 1]
+    mov rax, rbx
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    mov r14, rax
+    mov esi, [r14 + GI_GLYPH]
+    mov rdi, [r15 + S_FONT]
+    call ufont_advance
+    mov ebp, eax                        ; width
+    mov ecx, 1                          ; repeat
+    cmp byte [r14 + GI_CAT], STCH_REPEATING
+    jne .repeat
+    add ecx, [rsp + ST_COPIES]
+.repeat:
+    imul eax, ebx, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    mov dword [rax + GPOS_XA], 0
+    xor r12d, r12d                      ; n
+.n:
+    cmp r12d, ecx
+    jae .k_next
+    push rcx
+    push rax
+    cmp byte [r15 + S_BRTL], 0
+    je .ltr_before
+    sub [rsp + 16 + ST_XOFF], ebp
+    test r12d, r12d
+    jz .ltr_before
+    mov edx, [rsp + 16 + ST_OVERLAP]
+    add [rsp + 16 + ST_XOFF], edx
+.ltr_before:
+    mov edx, [rsp + 16 + ST_XOFF]
+    mov rax, [rsp]
+    mov [rax + GPOS_XO], edx
+    mov esi, ebx
+    lea rdi, [rsp + 16]
+    call ar_put_frame
+    cmp byte [r15 + S_BRTL], 0
+    jne .n_done
+    add [rsp + 16 + ST_XOFF], ebp
+    test r12d, r12d
+    jz .n_done
+    mov edx, [rsp + 16 + ST_OVERLAP]
+    sub [rsp + 16 + ST_XOFF], edx
+.n_done:
+    pop rax
+    pop rcx
+    inc r12d
+    jmp .n
+.k_next:
+    dec r13d
+    jmp .k
+.step_done:
+    cmp dword [rsp + ST_STEP], 0
+    jne .install
+    ; measured: within what the buffer may grow to?
+    mov eax, [rsp + ST_COUNT]
+    add eax, [rsp + ST_EXTRA]
+    cmp eax, [r15 + S_MAXLEN]
+    ja .unreverse
+    mov dword [rsp + ST_STEP], 1
+    jmp .step
+.install:
+    mov rax, [rsp + ST_INFO]
+    mov [r15 + S_INFO], rax
+    mov rax, [rsp + ST_POS]
+    mov [r15 + S_POS], rax
+    mov eax, [rsp + ST_COUNT]
+    add eax, [rsp + ST_EXTRA]
+    mov [r15 + S_LEN], eax
+.unreverse:
+    cmp byte [r15 + S_BRTL], 0
+    jne .out
+    call ar_reverse
+.out:
+    add rsp, ST_SIZE + 8
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+    ret
+
+; ar_put — esi = a record index; the frame at rsp + 8: the record and its
+;   position copied to the new arrays' next slot from the end
+ar_put:
+    lea rdi, [rsp + 8]
+; ar_put_frame — esi = a record index, rdi = the frame
+ar_put_frame:
+    dec dword [rdi + ST_J]
+    mov ecx, [rdi + ST_J]
+    mov rax, rsi
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    mov rdx, rcx
+    shl rdx, 5
+    add rdx, [rdi + ST_INFO]
+    movdqu xmm0, [rax]
+    movdqu xmm1, [rax + 16]
+    movdqu [rdx], xmm0
+    movdqu [rdx + 16], xmm1
+    imul eax, esi, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    imul edx, ecx, GPOS_SIZE
+    add rdx, [rdi + ST_POS]
+    movdqu xmm0, [rax]
+    mov r8, [rax + 16]
+    movdqu [rdx], xmm0
+    mov [rdx + 16], r8
     ret
 
 ; rax = record -> ZF set when it is a modifier combining mark
