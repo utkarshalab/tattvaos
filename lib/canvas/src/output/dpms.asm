@@ -8,13 +8,13 @@
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 extern canvas_timer_create
 extern canvas_timer_set_callback
 extern canvas_timer_arm
 extern backend_dpms
 
-; struct offsets (hoisted above use)
 %define DPMS_ON       0
 %define DPMS_STANDBY  1
 %define DPMS_SUSPEND  2
@@ -25,7 +25,6 @@ extern backend_dpms
 %define DPMS_STATE_OFF        3
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; dpms_init
@@ -188,7 +187,6 @@ dpms_idle_handler:
 
 section .data
 dpms_idle_timer: dq 0
-
 
 global dpms_version
 dpms_version: dq 0x010000
