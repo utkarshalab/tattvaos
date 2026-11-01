@@ -406,12 +406,6 @@ native_flip:
     jnz .fail
     
 .no_fence:
-%macro PLANE_ADDR 1
-    mov rax, r15
-    imul rax, PLANE_STRIDE
-    add rax, r14
-    add rax, %1
-%endmacro
     
     PLANE_ADDR PLANE_SURFACE_ADDRESS_NEXT
     mov [rax], r13
