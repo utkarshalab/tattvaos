@@ -330,6 +330,12 @@ HOST_NONE ut_tls_read
 HOST_NONE ut_tls_write
 HOST_NONE ut_tls_close
 HOST_NONE ut_tls_peer_cert
+HOST_NONE ut_i2c_read
+HOST_NONE ut_i2c_write
+HOST_NONE ut_irq_register
+HOST_NONE ut_timer_register
+HOST_NONE ut_timer_cancel
+HOST_NONE ut_time_sleep_ns
 
 ; ---------------------------------------------------------------------------
 ; ut_time_now_ns
