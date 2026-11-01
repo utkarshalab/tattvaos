@@ -16,17 +16,7 @@ section .text
 ; ============================================================================
 global soak_hotplug_main
 soak_hotplug_main:
-    PROLOGUE
-    xor rax, rax
-    ret
-
-; ============================================================================
-; output_layout_apply (stub)
-; ============================================================================
-global output_layout_apply
-output_layout_apply:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
