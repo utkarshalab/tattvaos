@@ -128,7 +128,7 @@
 | SRV-01 | Wire `canvasd_init`: arena → handle tables → backend → outputs → input → shell | P1 | ◐ all stages empty today |
 | SRV-02 | Event loop dispatch for IRQ, channel, timer and input | P1 | ◐ handlers are bare `ret` |
 | SRV-03 | Server arena via `core/arena` instead of ad-hoc globals | P1 | |
-| SRV-04 | Client accept, registry and teardown | P1 | ◐ `server/client` |
+| SRV-04 | Client accept, registry and teardown | P1 | ✓ `server/client`: one memory region per client, freed whole; host-tested (`test_client`) |
 | SRV-05 | Fair round-robin client dispatch per loop iteration | P2 | ◐ `governance/scheduler` |
 | SRV-06 | Config loading: server, outputs, seats, policy, rules files | P2 | ◐ `core/config` |
 | SRV-07 | Live config reload without restart | P3 | |
@@ -201,13 +201,13 @@
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| SUR-01 | Surface create, attach, damage, commit with double-buffered state | P1 | ◐ `server/surface`, `server/commit` |
-| SUR-02 | Shared-memory buffers with ownership transfer and release | P1 | ◐ `server/buffer` |
+| SUR-01 | Surface create, attach, damage, commit with double-buffered state | P1 | ✓ `server/surface`, `server/commit`; host-tested (`test_surface`) |
+| SUR-02 | Shared-memory buffers with ownership transfer and release | P1 | ◐ `server/buffer`: pixels in their own region, released on replace; sharing with a client still needs KRN-03 |
 | SUR-03 | Fences and timelines on every buffer (explicit sync) | P1 | ◐ `server/fence`, `server/timeline` |
 | SUR-04 | Subsurfaces with sync/desync modes | P2 | ◐ `server/subsurface` |
 | SUR-05 | Opaque, input and damage regions | P1 | ◐ `server/regions` |
 | SUR-06 | Buffer transforms and scale | P2 | ◐ `server/surface_transform` |
-| SUR-07 | Frame callbacks | P1 | ◐ `server/frame_clock` |
+| SUR-07 | Frame callbacks | P1 | ◐ fired at commit: must move to frame completion. Each callback and presentation feedback allocates per frame and must be recycled |
 | SUR-08 | Surface opacity and transforms applied by the server without client re-render | P3 | |
 | SUR-09 | Per-surface alpha modifier | P3 | |
 | SUR-10 | Single-pixel buffers: solid colors with no memory | P3 | |
