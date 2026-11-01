@@ -49,7 +49,6 @@ delta_encode_tile:
     ja .full
     mov [rbx + rax], r8w
     mov [rbx + rax + 2], edx
-    mov dword [rbx + rax + 2], edx
     add rax, 6
 .skip:
     inc rcx
@@ -95,7 +94,7 @@ delta_decode_tile:
     mov edx, [r12 + rax + 2]
     cmp rcx, r15
     jae .fail
-    mov [r14 + rcx * 4], edx
+    xor [r14 + rcx * 4], edx            ; cur = prev ^ delta
     add rax, 6
     jmp .loop
 .done:
