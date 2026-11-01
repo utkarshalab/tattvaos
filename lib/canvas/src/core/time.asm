@@ -46,13 +46,15 @@ ut_time_ms_to_ns:
 ; ut_time_add_ns
 ;   Add nanoseconds to timestamp
 ;   IN:  rdi = base_ns, rsi = add_ns
-;   OUT: rax = result_ns
+;   OUT: rax = result_ns (saturated at the largest time on overflow)
 ; ---------------------------------------------------------------------------
 global ut_time_add_ns
 ut_time_add_ns:
-    PROLOGUE
+    mov rax, rdi
     add rax, rsi
-    leave
+    jnc .ok
+    mov rax, -1
+.ok:
     ret
 
 ; ---------------------------------------------------------------------------
@@ -63,15 +65,12 @@ ut_time_add_ns:
 ; ---------------------------------------------------------------------------
 global ut_time_sub_ns
 ut_time_sub_ns:
-    PROLOGUE
+    xor eax, eax
     cmp rdi, rsi
     jb .underflow
+    mov rax, rdi
     sub rax, rsi
-    leave
-    ret
 .underflow:
-    xor rax, rax
-    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -101,16 +100,15 @@ canvas_timer_create:
     mov qword [rax + 16], 0        ; callback
     mov dword [rax + 24], r13d     ; flags
     mov qword [rax + 32], 0        ; user_data
-    
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fail:
     mov rax, -(EINVAL)
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -134,11 +132,13 @@ canvas_timer_arm:
     mov rbx, rdi
     ASSERT_PTR rbx
     
+    sub rsp, 8                      ; 16-byte aligned at the call
     call ut_time_now_ns
+    add rsp, 8
     add rax, [rbx + 0]  ; interval
     mov [rbx + 8], rax  ; next_fire
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
