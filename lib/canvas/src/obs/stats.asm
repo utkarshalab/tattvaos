@@ -101,13 +101,16 @@ stats_add:
 ; ---------------------------------------------------------------------------
 global stats_commit
 stats_commit:
-    PROLOGUE
-    ASSERT_PTR rdi
-    inc qword [rdi + ClientStats.commits]
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned at the call
+    mov rbx, rdi
+    ASSERT_PTR rbx
+    inc qword [rbx + ClientStats.commits]
     call ut_time_now_ns
-    mov [rdi + ClientStats.last_commit], rax
+    mov [rbx + ClientStats.last_commit], rax
     xor rax, rax
-    leave
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
