@@ -318,7 +318,8 @@ history_encode:
  inc rax
  add [hp_objects],rax
  jc history_space
- cmp qword [hp_objects],0xffffffff
+ mov eax,0xffffffff
+ cmp [hp_objects],rax
  ja history_space
  inc rbx
  jmp .preflight
