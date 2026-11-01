@@ -1,11 +1,18 @@
 # lib/ufont fonts
 
 The fonts lib/ufont ships, read by `sfnt/sfnt.asm` and chosen by
-`match/fontset.asm` (its `ufont_standard` table lists these files with
-their family, weight and style). They install read-only to
-`/app/lib/ufont/fonts/`; a program loads them into a font set
-(`ufont_set_init`, `ufont_set_add`) — Canvas then hands its set to
+`match/fontset.asm`. `match/standard.asm` (generated from these files by
+`tools/fonts_table.py`) lists every face with its family, weight, style,
+collection index and coverage. They install read-only to
+`/app/lib/ufont/fonts/`; a program puts them in a font set with
+`ufont_set_standard` (each file mapped by the program's loader the first
+time the set needs that face - text in a script opens only its font) or
+loads its own with `ufont_set_add` — Canvas then hands its set to
 `svg_set_fonts`.
+
+English (Latin) text uses Noto Sans and the families below it in the
+table; every other script has its Noto font, chosen by fallback for the
+characters the asked-for face lacks.
 
 | Family | Files | Licence |
 |---|---|---|
@@ -29,6 +36,9 @@ their family, weight and style). They install read-only to
 | Noto Naskh Arabic | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Arabic-Hebrew.txt` |
 | Noto Sans Hebrew | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Arabic-Hebrew.txt` |
 | Noto Serif Hebrew | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Arabic-Hebrew.txt` |
+| Noto Sans CJK SC, TC, HK, JP, KR and Noto Sans Mono CJK (the same five) | Regular, Bold (`NotoSansCJK-Regular.ttc`, `NotoSansCJK-Bold.ttc`: ten faces each) | SIL OFL 1.1 — `LICENSE-Noto-CJK.txt` |
+| The other scripts, Regular and Bold: Noto Nastaliq Urdu, Noto Sans Adlam, Noto Sans Armenian, Noto Sans Balinese, Noto Sans Bamum, Noto Sans Bassa Vah, Noto Sans Canadian Aboriginal, Noto Sans Cham, Noto Sans Cherokee, Noto Sans Duployan, Noto Sans Ethiopic, Noto Sans Georgian, Noto Sans Gunjala Gondi, Noto Sans Hanifi Rohingya, Noto Sans Javanese, Noto Sans Kawi, Noto Sans Kayah Li, Noto Sans Khmer, Noto Sans Lao, Noto Sans Lisu, Noto Sans Medefaidrin, Noto Sans Meetei Mayek, Noto Sans Myanmar, Noto Sans Nag Mundari, Noto Sans New Tai Lue, Noto Sans Ol Chiki, Noto Sans Sinhala, Noto Sans Sora Sompeng, Noto Sans Sundanese, Noto Sans Symbols, Noto Sans Tai Tham, Noto Sans Tangsa, Noto Sans Thaana, Noto Sans Thai, Noto Sans Vithkuqi, Noto Serif Hentaigana, Noto Serif NP Hmong, Noto Serif Tibetan, Noto Serif Toto, Noto Serif Yezidi | Regular, Bold | SIL OFL 1.1 — `OFL-Noto-Scripts.txt` |
+| The other scripts, Regular only: Noto Music, Noto Sans Anatolian Hieroglyphs, Noto Sans Avestan, Noto Sans Batak, Noto Sans Bhaiksuki, Noto Sans Brahmi, Noto Sans Buginese, Noto Sans Buhid, Noto Sans Carian, Noto Sans Caucasian Albanian, Noto Sans Chakma, Noto Sans Chorasmian, Noto Sans Coptic, Noto Sans Cuneiform, Noto Sans Cypriot, Noto Sans Cypro Minoan, Noto Sans Deseret, Noto Sans Egyptian Hieroglyphs, Noto Sans Elbasan, Noto Sans Elymaic, Noto Sans Glagolitic, Noto Sans Gothic, Noto Sans Grantha, Noto Sans Hanunoo, Noto Sans Hatran, Noto Sans Imperial Aramaic, Noto Sans Indic Siyaq Numbers, Noto Sans Inscriptional Pahlavi, Noto Sans Inscriptional Parthian, Noto Sans Kaithi, Noto Sans Kharoshthi, Noto Sans Khojki, Noto Sans Khudawadi, Noto Sans Lepcha, Noto Sans Limbu, Noto Sans Linear A, Noto Sans Linear B, Noto Sans Lycian, Noto Sans Lydian, Noto Sans Mahajani, Noto Sans Mandaic, Noto Sans Manichaean, Noto Sans Marchen, Noto Sans Masaram Gondi, Noto Sans Math, Noto Sans Mayan Numerals, Noto Sans Mende Kikakui, Noto Sans Meroitic, Noto Sans Miao, Noto Sans Modi, Noto Sans Mongolian, Noto Sans Mro, Noto Sans Multani, Noto Sans NKo, Noto Sans Nabataean, Noto Sans Nandinagari, Noto Sans Newa, Noto Sans Nushu, Noto Sans Ogham, Noto Sans Old Hungarian, Noto Sans Old Italic, Noto Sans Old North Arabian, Noto Sans Old Permic, Noto Sans Old Persian, Noto Sans Old Sogdian, Noto Sans Old South Arabian, Noto Sans Old Turkic, Noto Sans Osage, Noto Sans Osmanya, Noto Sans Pahawh Hmong, Noto Sans Palmyrene, Noto Sans Pau Cin Hau, Noto Sans PhagsPa, Noto Sans Phoenician, Noto Sans Psalter Pahlavi, Noto Sans Rejang, Noto Sans Runic, Noto Sans Samaritan, Noto Sans Saurashtra, Noto Sans Sharada, Noto Sans Shavian, Noto Sans Siddham, Noto Sans SignWriting, Noto Sans Sogdian, Noto Sans Soyombo, Noto Sans Sunuwar, Noto Sans Syloti Nagri, Noto Sans Symbols 2, Noto Sans Syriac, Noto Sans Tagalog, Noto Sans Tagbanwa, Noto Sans Tai Le, Noto Sans Tai Viet, Noto Sans Takri, Noto Sans Tamil Supplement, Noto Sans Tifinagh, Noto Sans Tirhuta, Noto Sans Ugaritic, Noto Sans Vai, Noto Sans Wancho, Noto Sans Warang Citi, Noto Sans Yi, Noto Sans Zanabazar Square, Noto Serif Ahom, Noto Serif Dives Akuru, Noto Serif Dogra, Noto Serif Khitan Small Script, Noto Serif Makasar, Noto Serif Old Uyghur, Noto Serif Ottoman Siyaq, Noto Serif Tangut, Noto Serif Todhri | Regular | SIL OFL 1.1 — `OFL-Noto-Scripts.txt` |
 
 Noto is the default for everything: no family, `sans-serif`, `serif`,
 `monospace` and the `ui-*` / `system-ui` names. Liberation has the same
@@ -74,17 +84,30 @@ names (and Arimo, Tinos, Cousine) map to it.
   notofonts/hebrew releases NotoSansHebrew-v3.001 and
   NotoSerifHebrew-v2.004, the `unhinted/ttf` static Regular and Bold,
   unmodified.
+- The other scripts: notofonts.github.io's `fonts/<family>/unhinted/ttf/`
+  Regular and Bold (where there is a Bold), main as of 2026-10-31,
+  unmodified: one Noto Sans family per script, a Noto Serif one where the
+  script has no Sans (Ahom, Dives Akuru, Dogra, Hentaigana, Khitan Small
+  Script, Makasar, Nyiakeng Puachue Hmong, Old Uyghur, Ottoman Siyaq,
+  Tangut, Tibetan, Todhri, Toto, Yezidi), Noto Nastaliq Urdu, Noto Sans
+  Math, Symbols, Symbols 2 and Noto Music. Left out: the UI, Looped,
+  Unjoined, Display and test variants, Kufi and Rashi, the Syriac Eastern /
+  Western forms, Znamenny and Traditional Nushu.
+- Noto Sans CJK: notofonts/noto-cjk `Sans/OTC/NotoSansCJK-Regular.ttc` and
+  `NotoSansCJK-Bold.ttc` (version 2.004), unmodified. Fallback takes the
+  Simplified Chinese face for Han (no language yet picks the region); all
+  ten faces have Hangul and kana.
 - Liberation: liberationfonts/liberation-fonts 2.1.5
   (`liberation-fonts-ttf-2.1.5.tar.gz`), unmodified. "Liberation" is a
   Reserved Font Name under its licence, so these files are not subset.
 
 ## What is not covered yet
 
-The Indic, Arabic and Hebrew faces are in `ufont_standard` (families
-"Noto Sans Devanagari", "Noto Sans Bengali", "Noto Sans Arabic", "Noto
-Naskh Arabic", "Noto Sans Hebrew" and so on); text in those scripts in
-any other family falls back to them (Arabic to Noto Sans Arabic first,
-Hebrew to Noto Sans Hebrew) and is shaped by the script's shaper, right
-to left for Arabic and Hebrew. Colour emoji need colour glyph tables,
-which `sfnt.asm` does not read. A character no shipped face has draws as the
-face's missing-glyph box.
+Every script's face is in `ufont_standard` under its family name ("Noto
+Sans Devanagari", "Noto Sans Thai", "Noto Sans CJK JP" and so on); text
+in a script in any other family falls back to it (Arabic to Noto Sans
+Arabic first, Hebrew to Noto Sans Hebrew) and is shaped by the script's
+shaper. Han text takes the Simplified Chinese forms whatever its language
+(choosing the region by language is to come). Colour emoji need colour
+glyph tables, which `sfnt.asm` does not read. A character no shipped face
+has draws as the face's missing-glyph box.
