@@ -6,13 +6,11 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/ut.inc"
-%include "inc/server_offsets.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
 extern a11y_reader_hooks_notify
 
-; struct offsets (hoisted above use)
 %define A11Y_EVENT_FOCUS_CHANGED      1
 %define A11Y_EVENT_STATE_CHANGED      2
 %define A11Y_EVENT_NAME_CHANGED       3
@@ -28,7 +26,6 @@ extern a11y_reader_hooks_notify
 %define A11Y_EVENT_WINDOW_CLOSED      11
 
 section .text
-
 
 struc A11yEvent
     .type:      resd 1
