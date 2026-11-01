@@ -6,11 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/ut.inc"
-%include "inc/server_offsets.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
 %define CALLBACK_FOCUS_CHANGED      1
 %define CALLBACK_STATE_CHANGED      2
 %define CALLBACK_NAME_CHANGED       3
@@ -36,7 +34,6 @@ struc A11yCallback
     .user_data:     resq 1
     .next:          resq 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; a11y_reader_hooks_init
