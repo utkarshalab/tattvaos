@@ -17,26 +17,6 @@ extern ring_available
 extern msgbuf_write
 extern msgbuf_read
 
-; struct offsets (hoisted above use)
-%define Channel_msg_ring      0
-%define Channel.msg_ring 0
-%define Channel_handle_ring   8
-%define Channel.handle_ring 8
-%define Channel_client        16
-%define Channel_server        24
-%define Channel_size          32
-%define ChannelPair_server_to_client         0
-%define ChannelPair.server_to_client 0
-%define ChannelPair_client_to_server         8
-%define ChannelPair.client_to_server 8
-%define ChannelPair_server_to_client_handles 16
-%define ChannelPair.server_to_client_handles 16
-%define ChannelPair_client_to_server_handles 24
-%define ChannelPair.client_to_server_handles 24
-%define ChannelPair_arena                    32
-%define ChannelPair.arena 32
-%define ChannelPair_size                     40
-
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -216,8 +196,6 @@ channel_pending:
     ret
 
 section .data
-
-
 
 global channel_version
 channel_version: dq 0x010000
