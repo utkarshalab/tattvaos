@@ -1,0 +1,6 @@
+# Sources are LF in the repository and in every working tree, whatever the
+# machine's own line-ending setting.
+* text=auto eol=lf
+
+# binary data: never converted
+*.uic binary
