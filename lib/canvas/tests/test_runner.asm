@@ -26,6 +26,7 @@ extern test_rfb_suite
 extern test_inflate_suite
 extern test_png_suite
 extern test_webp_suite
+extern test_vec_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -105,6 +106,10 @@ test_runner_init:
 
     ; Test WebP container, VP8L entropy, and inverse transforms
     call test_webp_suite
+    add rbx, rax
+
+    ; Test vectors and lists
+    call test_vec_suite
     add rbx, rax
 
     ; Final summary
