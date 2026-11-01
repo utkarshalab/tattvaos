@@ -153,11 +153,11 @@ test_png_decode_rgba:
     call png_decode
     test rax,rax
     jz .fail
-    cmp qword [rax+PixBuf_width],1
+    cmp qword [rax+PixBuf.width],1
     jne .fail
-    cmp qword [rax+PixBuf_height],1
+    cmp qword [rax+PixBuf.height],1
     jne .fail
-    mov rdx,[rax+PixBuf_data]
+    mov rdx,[rax+PixBuf.data]
     cmp dword [rdx],0xffff0000
     jne .fail
     xor eax,eax
