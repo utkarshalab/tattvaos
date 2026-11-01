@@ -39,7 +39,7 @@ power_init:
     ASSERT_PTR r12
 
     mov rdi,r12
-    mov rsi,PowerManager_SIZE
+    mov rsi,PowerManager_size
     call arena_alloc
     test rax,rax
     jz .oom
