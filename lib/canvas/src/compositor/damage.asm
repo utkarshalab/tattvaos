@@ -31,10 +31,10 @@ damage_init:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov [rbx + DAMAGE_RECTS], rax
-    mov dword [rbx + DAMAGE_COUNT], 0
-    mov dword [rbx + DAMAGE_CAPACITY], 32
-    mov [rbx + DAMAGE_ARENA], r12
+    mov [rbx + Damage.rects], rax
+    mov dword [rbx + Damage.count], 0
+    mov dword [rbx + Damage.capacity], 32
+    mov [rbx + Damage.arena], r12
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
@@ -78,23 +78,23 @@ damage_add_rect:
     test r15d, r15d
     jle .done
 
-    mov eax, [rbx + DAMAGE_COUNT]
+    mov eax, [rbx + Damage.count]
     test eax, eax
     jz .first_rect
 
     ; Try to merge with existing rects
-    mov r14, [rbx + DAMAGE_RECTS]
-    mov ecx, [rbx + DAMAGE_COUNT]
+    mov r14, [rbx + Damage.rects]
+    mov ecx, [rbx + Damage.count]
 
 .merge_loop:
     test ecx, ecx
     jz .add_new
 
     ; Check overlap with current rect
-    mov eax, [r14 + DamageRect_X]
-    mov edx, [r14 + DamageRect_Y]
-    mov r8d, [r14 + DamageRect_W]
-    mov r9d, [r14 + DamageRect_H]
+    mov eax, [r14 + DamageRect.x]
+    mov edx, [r14 + DamageRect.y]
+    mov r8d, [r14 + DamageRect.w]
+    mov r9d, [r14 + DamageRect.h]
 
     ; Quick reject: rects don't overlap
     mov eax, r12d
@@ -134,7 +134,7 @@ damage_add_rect:
     ; Real implementation uses region union
 
 .next_rect:
-    add r14, DamageRect_SIZE
+    add r14, DamageRect_size
     dec ecx
     jmp .merge_loop
 
@@ -144,15 +144,15 @@ damage_add_rect:
     test rax, rax
     jnz .done
 
-    mov r14, [rbx + DAMAGE_RECTS]
-    mov eax, [rbx + DAMAGE_COUNT]
-    imul eax, DamageRect_SIZE
+    mov r14, [rbx + Damage.rects]
+    mov eax, [rbx + Damage.count]
+    imul eax, DamageRect_size
     add r14, rax
-    mov [r14 + DamageRect_X], r12d
-    mov [r14 + DamageRect_Y], r13d
-    mov [r14 + DamageRect_W], r14d
-    mov [r14 + DamageRect_H], r15d
-    inc dword [rbx + DAMAGE_COUNT]
+    mov [r14 + DamageRect.x], r12d
+    mov [r14 + DamageRect.y], r13d
+    mov [r14 + DamageRect.w], r14d
+    mov [r14 + DamageRect.h], r15d
+    inc dword [rbx + Damage.count]
 
 .first_rect:
     ; First rect - just add
@@ -160,12 +160,12 @@ damage_add_rect:
     test rax, rax
     jnz .done
 
-    mov r14, [rbx + DAMAGE_RECTS]
-    mov [r14 + DamageRect_X], r12d
-    mov [r14 + DamageRect_Y], r13d
-    mov [r14 + DamageRect_W], r14d
-    mov [r14 + DamageRect_H], r15d
-    inc dword [rbx + DAMAGE_COUNT]
+    mov r14, [rbx + Damage.rects]
+    mov [r14 + DamageRect.x], r12d
+    mov [r14 + DamageRect.y], r13d
+    mov [r14 + DamageRect.w], r14d
+    mov [r14 + DamageRect.h], r15d
+    inc dword [rbx + Damage.count]
 
 .done:
     xor rax, rax
@@ -173,15 +173,15 @@ damage_add_rect:
     ret
 
 .ensure_capacity:
-    mov eax, [rbx + DAMAGE_COUNT]
-    cmp eax, [rbx + DAMAGE_CAPACITY]
+    mov eax, [rbx + Damage.count]
+    cmp eax, [rbx + Damage.capacity]
     jl .cap_ok
 
     ; Grow capacity
-    mov eax, [rbx + DAMAGE_CAPACITY]
+    mov eax, [rbx + Damage.capacity]
     shl eax, 1
-    imul eax, DamageRect_SIZE
-    mov rdi, [rbx + DAMAGE_ARENA]
+    imul eax, DamageRect_size
+    mov rdi, [rbx + Damage.arena]
     mov rsi, rax
     call arena_alloc
     test rax, rax
@@ -189,15 +189,15 @@ damage_add_rect:
 
     ; Copy old data
     mov rdi, rax
-    mov rsi, [rbx + DAMAGE_RECTS]
-    mov ecx, [rbx + DAMAGE_COUNT]
-    imul ecx, DamageRect_SIZE
+    mov rsi, [rbx + Damage.rects]
+    mov ecx, [rbx + Damage.count]
+    imul ecx, DamageRect_size
     call memcopy
 
-    mov [rbx + DAMAGE_RECTS], rax
-    mov eax, [rbx + DAMAGE_CAPACITY]
+    mov [rbx + Damage.rects], rax
+    mov eax, [rbx + Damage.capacity]
     shl eax, 1
-    mov [rbx + DAMAGE_CAPACITY], eax
+    mov [rbx + Damage.capacity], eax
     xor rax, rax
     ret
 
@@ -223,7 +223,7 @@ damage_get_rects:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov eax, [rbx + DAMAGE_COUNT]
+    mov eax, [rbx + Damage.count]
     cmp eax, edx
     cmovg eax, edx
 
@@ -231,9 +231,9 @@ damage_get_rects:
     jz .done
 
     mov rdi, r12
-    mov rsi, [rbx + DAMAGE_RECTS]
+    mov rsi, [rbx + Damage.rects]
     mov ecx, eax
-    imul ecx, DamageRect_SIZE
+    imul ecx, DamageRect_size
     call memcopy
 
 .done:
@@ -247,7 +247,7 @@ damage_get_rects:
 global damage_clear
 damage_clear:
     PROLOGUE
-    mov dword [rdi + DAMAGE_COUNT], 0
+    mov dword [rdi + Damage.count], 0
     xor rax, rax
     leave
     ret
@@ -267,24 +267,24 @@ damage_intersect_rect:
     ASSERT_PTR rbx
 
     ; Clip each damage rect to the intersection
-    mov r14, [rbx + DAMAGE_RECTS]
-    mov ecx, [rbx + DAMAGE_COUNT]
+    mov r14, [rbx + Damage.rects]
+    mov ecx, [rbx + Damage.count]
 
 .clip_loop:
     test ecx, ecx
     jz .done
 
     ; Clip current rect
-    mov eax, [r14 + DamageRect_X]
-    mov edx, [r14 + DamageRect_Y]
-    mov r8d, [r14 + DamageRect_W]
-    mov r9d, [r14 + DamageRect_H]
+    mov eax, [r14 + DamageRect.x]
+    mov edx, [r14 + DamageRect.y]
+    mov r8d, [r14 + DamageRect.w]
+    mov r9d, [r14 + DamageRect.h]
 
     ; Intersect with r12,r13,r14,r15
     call rect_intersect_clip
     ; ... clip logic here
 
-    add r14, DamageRect_SIZE
+    add r14, DamageRect_size
     dec ecx
     jmp .clip_loop
 
