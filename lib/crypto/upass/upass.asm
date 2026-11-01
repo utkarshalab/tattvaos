@@ -13,7 +13,8 @@
 ;
 ; Three layers, each defeating a different attacker:
 ;
-;   Stage 1  mk     = Argon2id(password, salt, secret=pepper, ad=uid, m, t, p)
+;   Stage 1  mk     = uxpw(pre, salt, m, t, p, tag=32 B)   ; lib/crypto/uxpw
+;                     pre = SHA256("UPASS-MK-v1" || pwd || LE32 uid || pepper)
 ;   Stage 2  dk     = HMAC-SHA256(pepper, "UPASS-KDF-v1" || uid || mk)
 ;   Stage 3  stored = dk XOR HMAC-SHA256(device_key, "UPASS-WRAP-v1" || salt)
 ;
@@ -24,13 +25,15 @@
 ; | Database + pepper     | Stage 3 — device key never leaves the TPM   |
 ; | Powered-off machine   | Stage 3 — TPM refuses on changed PCRs       |
 ;
-; THE PEPPER GOES INSIDE STAGE 1, not only after it. Argon2 has a secret
-; parameter K for exactly this. Mixing the pepper in only afterwards would let
-; an attacker who holds the database but not the pepper pay the memory-hard
-; cost ONCE per password guess and then try candidate peppers cheaply against
-; that result. Feeding it to Argon2 makes every (password, pepper) pair cost a
-; full memory-hard evaluation. Stage 2 keeps the pepper as well, so a weakness
-; in either construction still leaves the other standing.
+; THE PEPPER GOES INSIDE STAGE 1, not only after it. uxpw has no secret
+; parameter, so the pepper rides in the preimage that becomes uxpw's password.
+; The fold is a domain-separated SHA-256, not a raw concatenation into uxpw's
+; 1024-byte password field: passwords run arbitrary lengths, and a fixed
+; 32-byte shape keeps the KDF's input uniform. An attacker who holds the
+; database but not the pepper pays one full memory-hard evaluation per
+; (password, pepper) pair — guessing candidate peppers cheaply against a
+; cached stretch is not possible. Stage 2 keeps the pepper as well, so a
+; weakness in either construction still leaves the other standing.
 ;
 ; Stage 3 is a REVERSIBLE wrap, not another hash. That is deliberate: baking a
 ; device identity into the digest makes credentials unrecoverable the moment a
@@ -43,9 +46,10 @@
 ; share it. A fixed keystream XORed across many records would let an attacker
 ; cancel it out by XORing two stored values together.
 ;
-; PBKDF2 RECORDS STILL VERIFY. The record carries its own algorithm and cost, so
-; credentials written before Argon2id existed authenticate normally and are
-; rewritten at current policy on the next successful login. A migration that
+; OLD RECORDS STILL VERIFY. The record carries its own algorithm and cost, so
+; credentials written before the current primitive existed authenticate
+; normally and are rewritten at current policy on the next successful login:
+; PBKDF2 rows (not memory-hard) and Argon2id rows alike. A migration that
 ; required every user to reset their password would, in practice, be deployed
 ; by nobody.
 ;
@@ -57,7 +61,9 @@
 
 %define UPASS_VERSION           1
 %define UPASS_ALGO_PBKDF2       1       ; Legacy; verified, then upgraded
-%define UPASS_ALGO_ARGON2ID     2       ; Current
+%define UPASS_ALGO_ARGON2ID     2       ; Legacy; verified, then upgraded
+%define UPASS_ALGO_UXPW         3       ; Current: dash-core memory-hard
+                                        ; (spec: lib/crypto/uxpw/uxpw.md)
 
 %define UPASS_SALT_BYTES        16
 %define UPASS_DIGEST_BYTES      32
@@ -65,35 +71,49 @@
 
 ; Current policy. Raise over time; rehash-on-verify upgrades records in place.
 ;
-; 16 MiB / 3 passes / 1 lane. RFC 9106's second recommended profile is 64 MiB
-; with 4 lanes; the memory is halved to stay inside the Argon2 arena, and lanes
-; are pinned to 1 because extra lanes only pay off when they run in parallel.
-; Adding lanes on a single thread shortens the dependency chain each lane must
-; follow — it makes the hash cheaper to attack, not more expensive.
-%define UPASS_MIN_M_COST        16384
-%define UPASS_MIN_T_COST        3
-%define UPASS_DEFAULT_M_COST    16384
-%define UPASS_DEFAULT_T_COST    3
-%define UPASS_DEFAULT_LANES     1
+; uxpw v1: m=96 MiB, t=3, p=1 verifies in ~0.6 s warm on the reference dev
+; box — mid-band of the 0.4–0.6 s login budget. Memory is the dominant
+; attacker cost, so it is named first and carried in the record.
+; Lanes stay at 1: without parallel execution extra lanes only shorten the
+; dependency chain each lane must follow — it makes the hash cheaper to
+; attack, not more expensive.
+%define UPASS_UXPW_MIN_M_COST        98304      ; 96 MiB: rehash floor
+%define UPASS_UXPW_MIN_T_COST        3
+%define UPASS_UXPW_DEFAULT_M_COST    98304
+%define UPASS_UXPW_DEFAULT_T_COST    3
+%define UPASS_UXPW_DEFAULT_LANES     1
 
-; There is deliberately no PBKDF2 cost floor: a PBKDF2 record is upgraded on
-; sight whatever its iteration count, because no number of iterations makes it
-; memory-hard. A floor here would imply some PBKDF2 records are good enough.
+; Static arena for uxpw, same contract argon2.asm keeps: sized at build time
+; and the requested cost clamped to it. There is no allocator to call at this
+; level, and a password hash that can fail on allocation is a password hash
+; that fails open under memory pressure. The 1 MiB beyond the default absorbs
+; the 4p rounding of m' (at most 4p-1 = 255 KiB above the requested m).
+; NOT REENTRANT, like the argon2 arena: password checking is serialised by
+; the caller; concurrent use would overwrite shared state.
+%define UPASS_UXPW_ARENA_KIB         99328      ; default + rounding headroom
+%define UPASS_UXPW_MAX_M_COST        (UPASS_UXPW_ARENA_KIB - 1024)
+
+; There is deliberately no PBKDF2 cost floor, and under this policy no
+; Argon2id cost floor either: any record not laid down on the current
+; primitive is upgraded on sight. A floor would imply that some pre-uxpw
+; records are good enough, and each is replaced the first time it is
+; honestly verified.
 
 ; -----------------------------------------------------------------------------
 ; On-disk credential record. Parameters are stored per record so policy can
 ; rise without invalidating anything already written.
 ;
-; t_cost carries Argon2id passes or PBKDF2 iterations depending on .algo; the
-; two never coexist in one record, and reading it under the wrong algorithm
-; would be a verification failure rather than a silent weakening.
+; t_cost carries uxpw passes, Argon2id passes or PBKDF2 iterations depending
+; on .algo; the three never coexist in one record, and reading it under the
+; wrong algorithm would be a verification failure rather than a silent
+; weakening.
 ; -----------------------------------------------------------------------------
 struc upass_record_t
     .version:           resd 1      ; UPASS_VERSION
     .algo:              resd 1      ; UPASS_ALGO_*
-    .m_cost:            resd 1      ; KiB of memory (Argon2id only)
+    .m_cost:            resd 1      ; KiB of memory (uxpw / Argon2id)
     .t_cost:            resd 1      ; Passes, or PBKDF2 iterations
-    .lanes:             resd 1      ; Argon2id only
+    .lanes:             resd 1      ; uxpw / Argon2id only
     .reserved:          resd 1
     .salt:              resb UPASS_SALT_BYTES
     .digest:            resb UPASS_DIGEST_BYTES     ; Wrapped
@@ -112,13 +132,23 @@ upass_scratch_mk:   times UPASS_DIGEST_BYTES db 0
 upass_scratch_dk:   times UPASS_DIGEST_BYTES db 0
 upass_scratch_ks:   times UPASS_DIGEST_BYTES db 0
 upass_scratch_in:   times 128 db 0
-upass_scratch_ad:   dd 0            ; uid as Argon2 associated data
+upass_scratch_ad:   dd 0            ; uid as Argon2 associated data / fold staging
+
+; Stage-1 fold state: domain-separated preimage for uxpw (arbitrary-length
+; passwords stream through SHA-256 into the 32 bytes uxpw takes).
+upass_fold_ctx:     resb sha256_ctx_t_size
+upass_fold_pre:     resb 32
+
+; uxpw arena — 96 MiB of BSS, deliberately (see the policy block above).
+upass_uxpw_arena:   resb UPASS_UXPW_ARENA_KIB * 1024
 
 upass_hashes:       dq 0
 upass_verifies:     dq 0
 upass_rejects:      dq 0
 
 section .rodata
+upass_mk_label:     db "UPASS-MK-v1"
+upass_mk_label_len equ $ - upass_mk_label
 upass_kdf_label:    db "UPASS-KDF-v1"
 upass_kdf_label_len equ $ - upass_kdf_label
 upass_wrap_label:   db "UPASS-WRAP-v1"
@@ -226,6 +256,8 @@ upass_derive:
     ; ---- Stage 1: memory-hard stretch ----
     ; Dispatch on the record's own algorithm, so a credential written under an
     ; older scheme still authenticates instead of locking its owner out.
+    cmp dword [r13 + upass_record_t.algo], UPASS_ALGO_UXPW
+    je .dv_uxpw
     cmp dword [r13 + upass_record_t.algo], UPASS_ALGO_PBKDF2
     je .dv_pbkdf2
 
@@ -257,6 +289,70 @@ upass_derive:
     mov rdi, rsp
     call argon2id_hash_ex
     add rsp, argon2_params_t_size
+    test eax, eax
+    jnz .dv_inval
+    jmp .dv_stage2
+
+.dv_uxpw:
+    ; ---- Stage 1: uxpw over the dash core, pepper folded into the preimage ----
+    ; Fold (see the header): a domain-separated SHA-256 so arbitrary-length
+    ; passwords and the pepper all reach the KDF in one fixed 32-byte shape.
+    lea rdi, [upass_fold_ctx]
+    call sha256_init
+
+    lea rdi, [upass_fold_ctx]
+    lea rsi, [upass_mk_label]
+    mov rdx, upass_mk_label_len
+    call sha256_update
+
+    lea rdi, [upass_fold_ctx]
+    mov rsi, rbx                     ; password bytes
+    mov rdx, r12                     ; password length (0 accepted)
+    call sha256_update
+
+    mov dword [upass_scratch_ad], r14d   ; uid as LE32
+    lea rdi, [upass_fold_ctx]
+    lea rsi, [upass_scratch_ad]
+    mov rdx, 4
+    call sha256_update
+
+    lea rdi, [upass_fold_ctx]
+    lea rsi, [upass_pepper]
+    mov rdx, UPASS_KEY_BYTES
+    call sha256_update
+
+    lea rdi, [upass_fold_ctx]
+    lea rsi, [upass_fold_pre]
+    call sha256_final
+
+    ; The record's cost is clamped to this build's arena: an old record may
+    ; name a larger m than today's build reserves, and clamping outperforms
+    ; overrunning the arena the way argon2.asm's contract does.
+    mov eax, [r13 + upass_record_t.m_cost]
+    cmp eax, UPASS_UXPW_MAX_M_COST
+    jbe .dvw_m
+    mov eax, UPASS_UXPW_MAX_M_COST
+.dvw_m:
+    sub rsp, 80                      ; uxpw_ctx_t: 10 x u64
+    mov [rsp + 8], rax               ; m (KiB, clamped above; eax zeroes upper)
+    lea rax, [upass_uxpw_arena]
+    mov [rsp + 0], rax               ; mem
+    mov eax, [r13 + upass_record_t.t_cost]
+    mov [rsp + 16], rax              ; t
+    mov eax, [r13 + upass_record_t.lanes]
+    mov [rsp + 24], rax              ; p
+    lea rax, [upass_fold_pre]
+    mov [rsp + 32], rax              ; pwd
+    mov qword [rsp + 40], 32         ; pwdlen
+    lea rax, [r13 + upass_record_t.salt]
+    mov [rsp + 48], rax              ; salt
+    mov qword [rsp + 56], UPASS_SALT_BYTES
+    mov qword [rsp + 64], UPASS_DIGEST_BYTES  ; taglen
+    lea rax, [upass_scratch_mk]
+    mov [rsp + 72], rax              ; out
+    mov rdi, rsp
+    call uxpw_hash
+    add rsp, 80
     test eax, eax
     jnz .dv_inval
     jmp .dv_stage2
@@ -377,10 +473,10 @@ upass_hash:
     jz .uh_inval
 
     mov dword [r13 + upass_record_t.version], UPASS_VERSION
-    mov dword [r13 + upass_record_t.algo], UPASS_ALGO_ARGON2ID
-    mov dword [r13 + upass_record_t.m_cost], UPASS_DEFAULT_M_COST
-    mov dword [r13 + upass_record_t.t_cost], UPASS_DEFAULT_T_COST
-    mov dword [r13 + upass_record_t.lanes], UPASS_DEFAULT_LANES
+    mov dword [r13 + upass_record_t.algo], UPASS_ALGO_UXPW
+    mov dword [r13 + upass_record_t.m_cost], UPASS_UXPW_DEFAULT_M_COST
+    mov dword [r13 + upass_record_t.t_cost], UPASS_UXPW_DEFAULT_T_COST
+    mov dword [r13 + upass_record_t.lanes], UPASS_UXPW_DEFAULT_LANES
     mov dword [r13 + upass_record_t.reserved], 0
 
     ; Fresh salt per record: without it, identical passwords collide and one
@@ -514,15 +610,16 @@ upass_needs_rehash:
     cmp dword [rdi + upass_record_t.version], UPASS_VERSION
     jb .nr_yes                      ; Older scheme version
 
-    ; Any record not on the current algorithm is upgraded on sight. A PBKDF2
-    ; record is not broken, but it is not memory-hard, and the one moment the
-    ; plaintext is legitimately available is the moment to fix that.
-    cmp dword [rdi + upass_record_t.algo], UPASS_ALGO_ARGON2ID
+    ; Any record not on the current primitive is upgraded on sight — PBKDF2
+    ; rows (not memory-hard at all) and Argon2id rows (memory-hard, but not
+    ; on today's construction) alike. The one moment the plaintext is
+    ; legitimately available is the moment to fix that.
+    cmp dword [rdi + upass_record_t.algo], UPASS_ALGO_UXPW
     jne .nr_yes
 
-    cmp dword [rdi + upass_record_t.m_cost], UPASS_MIN_M_COST
+    cmp dword [rdi + upass_record_t.m_cost], UPASS_UXPW_MIN_M_COST
     jb .nr_yes
-    cmp dword [rdi + upass_record_t.t_cost], UPASS_MIN_T_COST
+    cmp dword [rdi + upass_record_t.t_cost], UPASS_UXPW_MIN_T_COST
     jb .nr_yes
 
 .nr_no:

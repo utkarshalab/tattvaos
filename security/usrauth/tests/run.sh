@@ -33,6 +33,8 @@ cat > "$BUILD/root.asm" <<'ASM'
 %include "lib/urand/urand.asm"
 %include "lib/crypto/ukdf/pbkdf2/pbkdf2.asm"
 %include "lib/crypto/ukdf/argon2/argon2.asm"
+%include "lib/crypto/uhash/dash/dash.asm"
+%include "lib/crypto/uxpw/uxpw.asm"
 %include "lib/crypto/upass/upass.asm"
 %include "lib/crypto/usign/ed25519/ed25519.asm"
 %include "lib/crypto/usign/ecdsa/ecdsa_p256.asm"

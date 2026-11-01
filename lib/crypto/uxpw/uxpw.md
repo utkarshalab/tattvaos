@@ -19,7 +19,7 @@ labeled or parsed as `$argon2…`. They are NOT interoperable with anybody.
 
 | Param | Meaning | Range | Default profile LOGIN |
 |---|---|---|---|
-| m | memory, KiB | 8·p ≤ m ≤ 2^22 | 65536 |
+| m | memory, KiB | 8·p ≤ m ≤ 2^22 | 98304 (96 MiB) |
 | t | passes | 1 ≤ t ≤ 4096 | 3 |
 | p | lanes | 1 ≤ p ≤ 64 | 1 |
 | salt | raw bytes | 8..64 | 16 (urand) |
@@ -27,8 +27,8 @@ labeled or parsed as `$argon2…`. They are NOT interoperable with anybody.
 | tag | output bytes | 16..64 | 32 |
 | v | spec version | 1 | 1 |
 
-Effective memory: `m' = 4·p·floor(m / (4·p))` KiB (multiple of 4p, ≥ 8p because
-of the m floor). Blocks: 1 KiB = 128 qwords. `lane_len = m'/p` blocks,
+Effective memory: `m' = 4·p·ceil(m / (4·p))` KiB, floored at `8·p` (a multiple
+of 4p, never below 8p). Blocks: 1 KiB = 128 qwords. `lane_len = m'/p` blocks,
 `seg_len = lane_len/4` blocks (4 slices per pass), `nblk = m'` total blocks.
 Caller supplies the `m'` KiB buffer (8-byte min alignment; 64 recommended for
 speed). Lanes are filled sequentially (threads may parallelize later without
@@ -260,5 +260,12 @@ grounded on the official dash primitives (verified separately):
   limits — -2/-3/-4/-5 (`tmp/verify/errs.sh`).
 
 Timing (WSL on the dev box, warm): asm ~0.39 s, ref ~0.28 s at
-m=64 MiB, t=3, p=1. Default-profile cost is a pending decision (0.22–0.39 s
-measured vs the 0.4–0.6 s target band).
+m=64 MiB, t=3, p=1; asm ~0.62 s, ref ~0.43 s at m=96 MiB, t=3, p=1
+(verify cost scales linearly in m; 128 MiB would sit at ~0.77 s, over the
+0.4-0.6 s login budget).
+
+Cost decision (2026-11-01): default profile m=96 MiB (98304 KiB), t=3, p=1 —
+m' is 4p-aligned there (98304 = 384·256) and the measured asm verify lands at
+the top edge of the 0.4-0.6 s band. Adopted as the credential-hash policy in
+`crypto/upass` (algo 3), which folds the pepper into a domain-separated
+SHA-256 preimage fed to uxpw.

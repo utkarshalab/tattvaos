@@ -12,6 +12,8 @@
 | [`ucrypt/`](ucrypt/) | Encryption — symmetric, asymmetric, KDF, MAC, PQC |
 | [`uhash/`](uhash/) | Hash functions — BLAKE3, SHA-256, SHA-512 |
 | [`ukdf/`](ukdf/) | Key derivation — HKDF, PBKDF2, Argon2 |
+| [`uxpw/`](uxpw/) | uxpw v1 — tattvaos-native memory-hard password hashing over the dash core (the credential KDF) |
+| [`upass/`](upass/) | Password records — layered stretch (uxpw), pepper, device binding, rehash-on-verify |
 | [`urand/`](urand/) | CSPRNG — hardware RNG, Fortuna, ChaCha20-based |
 | [`usign/`](usign/) | Digital signatures — RSA, ECDSA, Ed25519 |
 | [`utls/`](utls/) | TLS 1.2/1.3 — handshake, record layer, session management |

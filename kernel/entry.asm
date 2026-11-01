@@ -123,7 +123,9 @@ kernel_text_start:
 %include "lib/crypto/ukdf/pbkdf2/pbkdf2.asm"
 %include "lib/crypto/ukdf/ukdf.asm"
 %include "lib/crypto/ucrypt/ucrypt.asm"
-%include "lib/crypto/upass/upass.asm"   ; After ucrypt/ukdf: needs hmac + argon2id
+%include "lib/crypto/uhash/dash/dash.asm"
+%include "lib/crypto/uxpw/uxpw.asm"
+%include "lib/crypto/upass/upass.asm"   ; After ucrypt/ukdf/dash: needs hmac + argon2id + uxpw
 %include "lib/time/delay.asm"
 %include "lib/time/timer_wheel.asm"
 %include "lib/time/tsc.asm"         ; Before mono: supplies tsc_read/elapsed
