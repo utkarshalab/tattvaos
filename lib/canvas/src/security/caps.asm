@@ -9,7 +9,6 @@
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
 %define CAP_DISPLAY     (1 << 0)
 %define CAP_BUFFER      (1 << 1)
 %define CAP_SURFACE     (1 << 2)
