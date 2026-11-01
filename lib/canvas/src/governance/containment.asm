@@ -12,8 +12,6 @@ extern arena_alloc
 extern audit_log
 extern client_disconnect
 
-; struct offsets (hoisted above use)
-%define Containment_SIZE    24
 %define FAULT_PROTO_VIOLATION   1
 %define FAULT_OOM               2
 %define FAULT_TIMEOUT           3
@@ -27,7 +25,6 @@ struc Containment
     .faults:         resq 1
     .contained:      resq 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; containment_init
