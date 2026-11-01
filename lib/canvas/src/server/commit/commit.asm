@@ -12,24 +12,7 @@ extern list_push_back
 extern presentation_queue
 extern region_clear
 extern region_copy
-
-; Server-side surface layout (kept local until compositor/client surfaces are
-; split into separately named public structures).
-%define S_ID 0
-%define S_CURRENT 48
-%define S_PENDING 176
-%define S_FRAME_SEQ 296
-%define SS_BUFFER 0
-%define SS_BUF_X 8
-%define SS_BUF_Y 12
-%define SS_DAMAGE 16
-%define SS_OPAQUE 24
-%define SS_INPUT 32
-%define SS_TRANSFORM 40
-%define SS_SCALE 44
-%define SS_SUBSURFACES 52
-%define SS_FRAME_CBS 60
-%define SS_PENDING 68
+extern region_union
 
 %define BUFFER_ALLOCATED 1
 
@@ -50,17 +33,17 @@ commit_surface:
     jz .invalid
     test r12, r12
     jz .invalid
-    cmp byte [r12 + S_PENDING + SS_PENDING], 1
+    cmp dword [r12 + Surface.pending + SurfaceState.pending], 1
     jne .done
-    mov r14, [r12 + S_CURRENT + SS_BUFFER]
+    mov r14, [r12 + Surface.current + SurfaceState.buffer]
     mov rdi, r12
     call surface_apply_state
     test rax, rax
     js .out
-    inc qword [r12 + S_FRAME_SEQ]
+    inc qword [r12 + Surface.frame_seq]
     mov rdi, rbx
     mov rsi, r12
-    mov rdx, [r12 + S_FRAME_SEQ]
+    mov rdx, [r12 + Surface.frame_seq]
     call presentation_queue
     test rax, rax
     js .out
@@ -83,49 +66,50 @@ commit_surface:
 surface_apply_state:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
-    lea r12, [rbx + S_CURRENT]
-    lea r13, [rbx + S_PENDING]
-    mov rax, [r13 + SS_BUFFER]
-    mov [r12 + SS_BUFFER], rax
-    mov eax, [r13 + SS_BUF_X]
-    mov [r12 + SS_BUF_X], eax
-    mov eax, [r13 + SS_BUF_Y]
-    mov [r12 + SS_BUF_Y], eax
-    mov eax, [r13 + SS_TRANSFORM]
-    mov [r12 + SS_TRANSFORM], eax
-    mov rax, [r13 + SS_SCALE]
-    mov [r12 + SS_SCALE], rax
+    lea r12, [rbx + Surface.current]
+    lea r13, [rbx + Surface.pending]
+    mov rax, [r13 + SurfaceState.buffer]
+    mov [r12 + SurfaceState.buffer], rax
+    mov eax, [r13 + SurfaceState.buf_x]
+    mov [r12 + SurfaceState.buf_x], eax
+    mov eax, [r13 + SurfaceState.buf_y]
+    mov [r12 + SurfaceState.buf_y], eax
+    mov eax, [r13 + SurfaceState.transform]
+    mov [r12 + SurfaceState.transform], eax
+    mov rax, [r13 + SurfaceState.scale]
+    mov [r12 + SurfaceState.scale], rax
 
-    mov rdi, [r12 + SS_DAMAGE]
-    mov rsi, [r13 + SS_DAMAGE]
-    call region_copy
+    ; Damage adds up until the compositor takes it for a frame
+    mov rdi, [r12 + SurfaceState.damage]
+    mov rsi, [r13 + SurfaceState.damage]
+    call region_union
     test rax, rax
     js .out
-    mov rdi, [r13 + SS_DAMAGE]
+    mov rdi, [r13 + SurfaceState.damage]
     call region_clear
-    mov rdi, [r12 + SS_OPAQUE]
-    mov rsi, [r13 + SS_OPAQUE]
+    mov rdi, [r12 + SurfaceState.opaque]
+    mov rsi, [r13 + SurfaceState.opaque]
     call region_copy
     test rax, rax
     js .out
-    mov rdi, [r12 + SS_INPUT]
-    mov rsi, [r13 + SS_INPUT]
+    mov rdi, [r12 + SurfaceState.input]
+    mov rsi, [r13 + SurfaceState.input]
     call region_copy
     test rax, rax
     js .out
 
     ; Transfer pending one-shot callbacks to the current batch.
 .move_callback:
-    mov rdi, [r13 + SS_FRAME_CBS]
+    mov rdi, [r13 + SurfaceState.frame_cbs]
     call list_pop_front
     test rax, rax
     jz .callbacks_done
     mov rsi, rax
-    mov rdi, [r12 + SS_FRAME_CBS]
+    mov rdi, [r12 + SurfaceState.frame_cbs]
     call list_push_back
     jmp .move_callback
 .callbacks_done:
-    mov byte [r13 + SS_PENDING], 0
+    mov dword [r13 + SurfaceState.pending], 0
     xor eax, eax
 .out:
     EPILOGUE_RESTORE rbx, r12, r13
@@ -135,7 +119,7 @@ surface_apply_state:
 surface_fire_frame_callbacks:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
-    mov r12, [rbx + S_CURRENT + SS_FRAME_CBS]
+    mov r12, [rbx + Surface.current + SurfaceState.frame_cbs]
 .loop:
     mov rdi, r12
     call list_pop_front
@@ -147,7 +131,7 @@ surface_fire_frame_callbacks:
     jz .loop
     mov rdi, rbx
     mov rsi, [r13 + 24]
-    mov rdx, [rbx + S_FRAME_SEQ]
+    mov rdx, [rbx + Surface.frame_seq]
     call r14
     jmp .loop
 .done:
@@ -164,15 +148,15 @@ surface_release_old_buffer:
     mov r13, rdx
     test r13, r13
     jz .done
-    cmp r13, [r12 + S_CURRENT + SS_BUFFER]
+    cmp r13, [r12 + Surface.current + SurfaceState.buffer]
     je .done
     mov rdi, [rbx + Server.buffer_table]
     mov rsi, r13
     call handle_resolve
     test rax, rax
     jz .done
-    mov byte [rax + Buffer.state], BUFFER_ALLOCATED
-    mov edx, [rax + Buffer.release_fence]
+    mov qword [rax + Buffer.state], BUFFER_ALLOCATED
+    mov rdx, [rax + Buffer.release_fence]
     test edx, edx
     jz .done
     mov rdi, rbx
@@ -203,7 +187,7 @@ commit_transaction:
     mov rax, [r12 + r14 * 8]
     test rax, rax
     jz .fail
-    cmp byte [rax + S_PENDING + SS_PENDING], 1
+    cmp dword [rax + Surface.pending + SurfaceState.pending], 1
     jne .fail
     inc r14
     jmp .validate
@@ -217,7 +201,7 @@ commit_transaction:
     call surface_apply_state
     test rax, rax
     js .out
-    inc qword [r15 + S_FRAME_SEQ]
+    inc qword [r15 + Surface.frame_seq]
     inc r14
     jmp .apply
 .publish_begin:
@@ -228,7 +212,7 @@ commit_transaction:
     mov r15, [r12 + r14 * 8]
     mov rdi, rbx
     mov rsi, r15
-    mov rdx, [r15 + S_FRAME_SEQ]
+    mov rdx, [r15 + Surface.frame_seq]
     call presentation_queue
     test rax, rax
     js .out
