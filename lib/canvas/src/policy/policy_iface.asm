@@ -9,16 +9,12 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 
-; struct offsets (hoisted above use)
-%define Policy_SIZE    80
-
 section .text
 
 ; Policy struct layout (manual offsets)
 ; Offsets defined in inc/struct_offsets.inc
 
 ; ----------
-
 
 ; ---------------------------------------------------------------------------
 ; policy_init
