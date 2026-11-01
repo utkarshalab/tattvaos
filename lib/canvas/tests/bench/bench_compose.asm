@@ -16,17 +16,7 @@ section .text
 ; ============================================================================
 global bench_compose_main
 bench_compose_main:
-    PROLOGUE
-    xor rax, rax
-    ret
-
-; ============================================================================
-; compositor_composite (stub)
-; ============================================================================
-global compositor_composite
-compositor_composite:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
