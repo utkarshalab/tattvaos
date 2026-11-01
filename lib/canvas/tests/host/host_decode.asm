@@ -5,8 +5,8 @@
 ; (u32 width, height, stride, format) followed by width*4 bytes per row.
 ; Exit status: 0 ok, 1 usage, 2 read error, 3 decode failed, 4 write error.
 ; Used by tests/host/compare_images.py to check decoders against a reference.
-; With a font directory, the fonts lib/ufont ships (ufont_standard) found
-; there are loaded for SVG text (svg_set_fonts).
+; With a font directory, the fonts lib/ufont ships (ufont_set_standard) are
+; opened from there as SVG text needs them (svg_set_fonts).
 ; ============================================================================
 
 %include "inc/abi.inc"
@@ -29,8 +29,7 @@ extern ut_mem_alloc
 extern ut_task_exit
 extern ufont_set_init
 extern ufont_set_add
-extern ufont_standard
-extern ufont_standard_count
+extern ufont_set_standard
 extern svg_set_fonts
 
 section .text
@@ -195,67 +194,58 @@ map_file:
     pop rbx
     ret
 
-; load_fonts: each ufont_standard file found in font_dir into font_set
-;   (those missing or not usable are left out), then svg_set_fonts
+; load_fonts: the shipped fonts in font_set (ufont_set_standard: each mapped
+;   from font_dir when the set needs it; those missing are passed over),
+;   then svg_set_fonts
 load_fonts:
-    push rbx
-    push r12
-    push r13
+    sub rsp, 8
     lea rdi, [rel font_set]
     lea rsi, [rel decode_arena]
     call ufont_set_init
-    xor r12d, r12d
-.font:
-    cmp r12, [rel ufont_standard_count]
-    jae .done
-    imul rbx, r12, UfontStd_SIZE
-    lea rax, [rel ufont_standard]
-    add rbx, rax
-    ; font_dir / file
-    lea rdi, [rel font_path]
-    mov rsi, [rel font_dir]
-    lea r13, [rdi + 4000]
+    lea rdi, [rel font_set]
+    lea rsi, [rel load_font]
+    mov rdx, [rel font_dir]
+    call ufont_set_standard
+    lea rdi, [rel font_set]
+    call svg_set_fonts
+    add rsp, 8
+    ret
+
+; load_font — the set's loader: rdi = the font directory, rsi = a shipped
+;   file's name -> rax = its bytes mapped (0: missing), rdx = their length
+load_font:
+    push rbx
+    lea rbx, [rel font_path]
+    lea rcx, [rbx + 4000]
 .dir:
-    cmp rdi, r13
-    jae .next
-    mov al, [rsi]
+    cmp rbx, rcx
+    jae .none
+    mov al, [rdi]
     test al, al
     jz .slash
-    mov [rdi], al
+    mov [rbx], al
+    inc rbx
     inc rdi
-    inc rsi
     jmp .dir
 .slash:
-    mov byte [rdi], '/'
-    inc rdi
-    mov rsi, [rbx + UfontStd_file]
+    mov byte [rbx], '/'
+    inc rbx
 .file:
-    cmp rdi, r13
-    jae .next
+    cmp rbx, rcx
+    jae .none
     mov al, [rsi]
-    mov [rdi], al
-    inc rdi
+    mov [rbx], al
+    inc rbx
     inc rsi
     test al, al
     jnz .file
     lea rdi, [rel font_path]
     call map_file
     test rax, rax
-    js .next
-    lea rdi, [rel font_set]
-    mov rsi, rax
-    mov rcx, [rbx + UfontStd_family]
-    mov r8d, [rbx + UfontStd_weight]
-    mov r9d, [rbx + UfontStd_italic]
-    call ufont_set_add
-.next:
-    inc r12
-    jmp .font
-.done:
-    lea rdi, [rel font_set]
-    call svg_set_fonts
-    pop r13
-    pop r12
+    jns .out
+.none:
+    xor eax, eax
+.out:
     pop rbx
     ret
 
