@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global fuzz_target_keymap
 fuzz_target_keymap:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ fuzz_target_keymap:
 ; ============================================================================
 global fuzz_target_config
 fuzz_target_config:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
