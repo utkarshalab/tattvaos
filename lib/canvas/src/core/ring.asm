@@ -6,25 +6,9 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/ring.inc"
 
 extern arena_alloc
-
-; struct offsets (hoisted above use)
-%define Ring_buffer      0
-%define Ring.buffer 0
-%define Ring_capacity    8
-%define Ring.capacity 8
-%define Ring_mask        16
-%define Ring.mask 16
-%define Ring_head        24
-%define Ring.head 24
-%define Ring_tail        32
-%define Ring.tail 32
-%define Ring_element_size 40
-%define Ring.element_size 40
-%define Ring_arena       48
-%define Ring.arena 48
-%define Ring_size        56
 
 section .text
 
@@ -277,7 +261,6 @@ memcopy:
     ret
 
 section .data
-
 
 global ring_version
 ring_version: dq 0x010000
