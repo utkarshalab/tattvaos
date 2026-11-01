@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global test_map_main
 test_map_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ test_map_main:
 ; ============================================================================
 global test_map_init
 test_map_init:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -34,8 +32,7 @@ test_map_init:
 ; ============================================================================
 global test_map_put_get
 test_map_put_get:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
