@@ -10,6 +10,7 @@
 %include "inc/caps.inc"
 
 extern arena_alloc
+extern handle_table_create
 extern handle_create
 extern handle_destroy
 extern handle_resolve
@@ -21,6 +22,8 @@ extern region_clear
 extern region_copy
 extern region_add_rect
 
+%define SURFACE_HANDLES        4096
+
 %define SURFACE_ROLE_NONE      0
 %define SURFACE_ROLE_TOPLEVEL  1
 %define SURFACE_ROLE_POPUP     2
@@ -28,24 +31,6 @@ extern region_add_rect
 %define SURFACE_ROLE_SUBSURFACE 4
 
 section .text
-
-global frame_callback_init
-frame_callback_init:
-    test rdi, rdi
-    jz .callback_invalid
-    test rsi, rsi
-    jz .callback_invalid
-    mov [rsi + FrameCallback.surface], rdi
-    mov [rsi + FrameCallback.seq], edx
-    mov qword [rsi + FrameCallback.timestamp], 0
-    mov rax, [rdi + Surface.pending + SurfaceState.frame_cbs]
-    mov [rsi + FrameCallback.next], rax
-    mov [rdi + Surface.pending + SurfaceState.frame_cbs], rsi
-    xor eax, eax
-    ret
-.callback_invalid:
-    mov rax, -(EINVAL)
-    ret
 
 ; ---------------------------------------------------------------------------
 ; surface_init
@@ -61,9 +46,15 @@ surface_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov qword [rbx + Server.surface_table], 0
-    mov qword [rbx + Server.arena], r12
-    xor rax, rax
+    mov [rbx + Server.arena], r12
+    mov rdi, r12
+    mov esi, SURFACE_HANDLES
+    call handle_table_create
+    mov [rbx + Server.surface_table], rax
+    test rax, rax
+    mov rax, -(ENOMEM)
+    mov ecx, 0
+    cmovnz rax, rcx
     EPILOGUE_RESTORE rbx, r12
     ret
 
@@ -81,10 +72,11 @@ surface_create:
     mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
+    mov r15, [r12 + Client.arena]       ; a surface lives with its client
 
     ; Allocate surface
     ; Surface includes double-buffered state (current + pending)
-    mov rdi, [rbx + Server.arena]
+    mov rdi, r15
     mov rsi, Surface_size
     call arena_alloc
     test rax, rax
@@ -92,42 +84,21 @@ surface_create:
     mov r14, rax        ; surface*
 
     ; Initialize surface
-    mov qword [r14 + Surface.id], 0
-    mov dword [r14 + Surface.role], 0
-    mov qword [r14 + Surface.role_data], 0
-    mov dword [r14 + Surface.output], 0
-    mov qword [r14 + Surface.z_order], 0
-    mov qword [r14 + Surface.client], r12
-    mov qword [r14 + 296], 0       ; server-private presentation sequence
+    mov rdi, rax
+    xor eax, eax
+    mov ecx, Surface_size
+    rep stosb
+    mov [r14 + Surface.role], r13
+    mov [r14 + Surface.client], r12
 
     ; Initialize current state
-    mov qword [r14 + Surface.current + SurfaceState.buffer], 0
-    mov dword [r14 + Surface.current + SurfaceState.buf_x], 0
-    mov dword [r14 + Surface.current + SurfaceState.buf_y], 0
-    mov qword [r14 + Surface.current + SurfaceState.damage], 0
-    mov qword [r14 + Surface.current + SurfaceState.opaque], 0
-    mov qword [r14 + Surface.current + SurfaceState.input], 0
-    mov dword [r14 + Surface.current + SurfaceState.transform], 0
     mov qword [r14 + Surface.current + SurfaceState.scale], FIX_ONE
-    mov qword [r14 + Surface.current + SurfaceState.subsurfaces], 0
-    mov qword [r14 + Surface.current + SurfaceState.frame_cbs], 0
-    mov byte [r14 + Surface.current + SurfaceState.pending], 0
 
     ; Initialize pending state (same)
-    mov qword [r14 + Surface.pending + SurfaceState.buffer], 0
-    mov dword [r14 + Surface.pending + SurfaceState.buf_x], 0
-    mov dword [r14 + Surface.pending + SurfaceState.buf_y], 0
-    mov qword [r14 + Surface.pending + SurfaceState.damage], 0
-    mov qword [r14 + Surface.pending + SurfaceState.opaque], 0
-    mov qword [r14 + Surface.pending + SurfaceState.input], 0
-    mov dword [r14 + Surface.pending + SurfaceState.transform], 0
     mov qword [r14 + Surface.pending + SurfaceState.scale], FIX_ONE
-    mov qword [r14 + Surface.pending + SurfaceState.subsurfaces], 0
-    mov qword [r14 + Surface.pending + SurfaceState.frame_cbs], 0
-    mov byte [r14 + Surface.pending + SurfaceState.pending], 0
 
     ; Create damage region
-    mov rdi, [rbx + Server.arena]
+    mov rdi, r15
     call region_init
     test rax, rax
     jnz .damage_ok
@@ -135,14 +106,14 @@ surface_create:
 
 .damage_ok:
     mov qword [r14 + Surface.current + SurfaceState.damage], rax
-    mov rdi, [rbx + Server.arena]
+    mov rdi, r15
     call region_init
     test rax, rax
     jz .oom
     mov qword [r14 + Surface.pending + SurfaceState.damage], rax
 
     ; Create opaque region
-    mov rdi, [rbx + Server.arena]
+    mov rdi, r15
     call region_init
     test rax, rax
     jnz .opaque_ok
@@ -150,14 +121,14 @@ surface_create:
 
 .opaque_ok:
     mov qword [r14 + Surface.current + SurfaceState.opaque], rax
-    mov rdi, [rbx + Server.arena]
+    mov rdi, r15
     call region_init
     test rax, rax
     jz .oom
     mov qword [r14 + Surface.pending + SurfaceState.opaque], rax
 
     ; Create input region
-    mov rdi, [rbx + Server.arena]
+    mov rdi, r15
     call region_init
     test rax, rax
     jnz .input_ok
@@ -165,53 +136,51 @@ surface_create:
 
 .input_ok:
     mov qword [r14 + Surface.current + SurfaceState.input], rax
-    mov rdi, [rbx + Server.arena]
+    mov rdi, r15
     call region_init
     test rax, rax
     jz .oom
     mov qword [r14 + Surface.pending + SurfaceState.input], rax
 
     ; Create subsurface list
-    mov rdi, [rbx + Server.arena]
+    mov rdi, r15
     mov rsi, 24
     call arena_alloc
     test rax, rax
     jz .oom
-    mov rdi, rax
-    mov r12, rax
+    mov r13, rax
+    mov rdi, r13
     call list_init
-.sub_ok:
-    mov qword [r14 + Surface.current + SurfaceState.subsurfaces], r12
-    mov rdi, [rbx + Server.arena]
+    mov qword [r14 + Surface.current + SurfaceState.subsurfaces], r13
+    mov rdi, r15
     mov rsi, 24
     call arena_alloc
     test rax, rax
     jz .oom
-    mov r12, rax
-    mov rdi, r12
+    mov r13, rax
+    mov rdi, r13
     call list_init
-    mov qword [r14 + Surface.pending + SurfaceState.subsurfaces], r12
+    mov qword [r14 + Surface.pending + SurfaceState.subsurfaces], r13
 
     ; Create frame callback list
-    mov rdi, [rbx + Server.arena]
+    mov rdi, r15
     mov rsi, 24
     call arena_alloc
     test rax, rax
     jz .oom
-    mov r12, rax
-    mov rdi, r12
+    mov r13, rax
+    mov rdi, r13
     call list_init
-.fc_ok:
-    mov qword [r14 + Surface.current + SurfaceState.frame_cbs], r12
-    mov rdi, [rbx + Server.arena]
+    mov qword [r14 + Surface.current + SurfaceState.frame_cbs], r13
+    mov rdi, r15
     mov rsi, 24
     call arena_alloc
     test rax, rax
     jz .oom
-    mov r12, rax
-    mov rdi, r12
+    mov r13, rax
+    mov rdi, r13
     call list_init
-    mov qword [r14 + Surface.pending + SurfaceState.frame_cbs], r12
+    mov qword [r14 + Surface.pending + SurfaceState.frame_cbs], r13
 
     ; Create handle
     mov rdi, [rbx + Server.surface_table]
@@ -219,9 +188,10 @@ surface_create:
     call handle_create
     test rax, rax
     jz .oom
-    mov [r14 + Surface.id], eax
-
-    mov rax, [r14 + Surface.id]
+    mov [r14 + Surface.id], rax
+    mov rcx, [r12 + Client.surfaces]
+    mov [r14 + Surface.client_next], rcx
+    mov [r12 + Client.surfaces], r14
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -232,11 +202,13 @@ surface_create:
 
 ; ---------------------------------------------------------------------------
 ; surface_destroy
-;   Destroy surface
+;   Destroy surface; its memory stays with the client until it leaves
+;   IN:  rdi = server*, rsi = surface_handle
+;   OUT: rax = 0 OK, -ENOENT
 ; ---------------------------------------------------------------------------
 global surface_destroy
 surface_destroy:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
@@ -246,27 +218,67 @@ surface_destroy:
     call handle_resolve
     test rax, rax
     jz .not_found
-    mov rbx, rax
+    mov r13, rax
+
+    ; Off the client's list
+    mov rcx, [r13 + Surface.client]
+    lea rcx, [rcx + Client.surfaces]
+.find:
+    mov rax, [rcx]
+    test rax, rax
+    jz .unlinked
+    cmp rax, r13
+    je .unlink
+    lea rcx, [rax + Surface.client_next]
+    jmp .find
+.unlink:
+    mov rax, [r13 + Surface.client_next]
+    mov [rcx], rax
+.unlinked:
 
     ; Destroy regions
-    mov rdi, [rbx + Surface.current + SurfaceState.damage]
+    mov rdi, [r13 + Surface.current + SurfaceState.damage]
     call region_destroy
-    mov rdi, [rbx + Surface.current + SurfaceState.opaque]
+    mov rdi, [r13 + Surface.current + SurfaceState.opaque]
     call region_destroy
-    mov rdi, [rbx + Surface.current + SurfaceState.input]
+    mov rdi, [r13 + Surface.current + SurfaceState.input]
     call region_destroy
 
     ; Destroy handle
-    mov rdi, [rdi + Server.surface_table]
+    mov rdi, [rbx + Server.surface_table]
     mov rsi, r12
     call handle_destroy
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .not_found:
     mov rax, -(ENOENT)
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+; ---------------------------------------------------------------------------
+; surface_destroy_client
+;   Destroy every surface of a client
+;   IN:  rdi = server*, rsi = client*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global surface_destroy_client
+surface_destroy_client:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+.next:
+    mov rax, [r12 + Client.surfaces]
+    test rax, rax
+    jz .done
+    mov rdi, rbx
+    mov rsi, [rax + Surface.id]
+    call surface_destroy
+    jmp .next
+.done:
+    xor eax, eax
     EPILOGUE_RESTORE rbx, r12
     ret
 
@@ -278,35 +290,41 @@ surface_destroy:
 ; ---------------------------------------------------------------------------
 global surface_attach
 surface_attach:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     mov r14d, ecx
+    mov r15d, r8d
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
+    test r13, r13                       ; 0: detach
+    jz .set
     mov rdi, [rbx + Server.buffer_table]
     mov rsi, r13
     call handle_resolve
     test rax, rax
     jz .bad_buffer
 
+.set:
     ; Set on pending state
     lea rax, [r12 + Surface.pending]
     mov qword [rax + SurfaceState.buffer], r13
     mov dword [rax + SurfaceState.buf_x], r14d
-    mov dword [rax + SurfaceState.buf_y], r8d
-    mov byte [rax + SurfaceState.pending], 1
+    mov dword [rax + SurfaceState.buf_y], r15d
+    mov dword [rax + SurfaceState.pending], 1
 
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .bad_buffer:
     mov rax, -(EBUF_FORMAT)
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
+    jmp .out
 
 ; ---------------------------------------------------------------------------
 ; surface_damage
@@ -326,7 +344,7 @@ surface_damage:
     ASSERT_PTR r12
 
     lea r13, [r12 + Surface.pending]
-    sub rsp, 16
+    sub rsp, 24                         ; the rect; 16-byte aligned
     mov dword [rsp], edx
     mov dword [rsp + 4], ecx
     mov dword [rsp + 8], r8d
@@ -336,15 +354,15 @@ surface_damage:
     call region_add_rect
     test rax, rax
     jnz .fail
-    mov byte [r13 + SurfaceState.pending], 1
+    mov dword [r13 + SurfaceState.pending], 1
     xor rax, rax
-    add rsp, 16
+    add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .fail:
     mov rax, -(ESURF_DAMAGE)
-    add rsp, 16
+    add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -376,7 +394,7 @@ surface_set_opaque_region:
     mov rdi, [rax + SurfaceState.opaque]
     call region_clear
 .mark:
-    mov byte [r12 + Surface.pending + SurfaceState.pending], 1
+    mov dword [r12 + Surface.pending + SurfaceState.pending], 1
     xor eax, eax
 .out:
     EPILOGUE_RESTORE rbx, r12
@@ -411,7 +429,7 @@ surface_set_input_region:
     mov rdi, [r12 + Surface.pending + SurfaceState.input]
     call region_clear
 .mark:
-    mov byte [r12 + Surface.pending + SurfaceState.pending], 1
+    mov dword [r12 + Surface.pending + SurfaceState.pending], 1
     xor eax, eax
 .out:
     EPILOGUE_RESTORE rbx, r12
@@ -436,7 +454,7 @@ surface_set_transform:
     cmp edx, 5
     ja .invalid_transform
     mov dword [rax + SurfaceState.transform], edx
-    mov byte [rax + SurfaceState.pending], 1
+    mov dword [rax + SurfaceState.pending], 1
     xor rax, rax
     leave
     ret
@@ -459,7 +477,7 @@ surface_set_scale:
     jle .invalid_scale
     lea rax, [rsi + Surface.pending]
     mov qword [rax + SurfaceState.scale], rdx
-    mov byte [rax + SurfaceState.pending], 1
+    mov dword [rax + SurfaceState.pending], 1
     xor rax, rax
     leave
     ret
@@ -484,7 +502,8 @@ surface_frame_callback:
 
     test r13, r13
     jz .invalid
-    mov rdi, [rbx + Server.arena]
+    mov rax, [r12 + Surface.client]
+    mov rdi, [rax + Client.arena]
     mov rsi, 32
     call arena_alloc
     test rax, rax
@@ -496,7 +515,7 @@ surface_frame_callback:
     mov rsi, rax
     mov rdi, [r12 + Surface.pending + SurfaceState.frame_cbs]
     call list_push_back
-    mov byte [r12 + Surface.pending + SurfaceState.pending], 1
+    mov dword [r12 + Surface.pending + SurfaceState.pending], 1
     xor eax, eax
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
@@ -512,4 +531,4 @@ surface_frame_callback:
 section .data
 
 global surface_version
-surface_version: dq 0x010000
+surface_version: dq 0x010100
