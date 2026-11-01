@@ -45,8 +45,8 @@ icc_probe:
     mov eax, [rdi + 0]
     test eax, eax
     jz .no
-    ; check 'acsp' at offset 80
-    cmp dword [rdi + 80], 0x70736361  ; "acsp" LE
+    ; check 'acsp' at offset 36 of the header
+    cmp dword [rdi + 36], 0x70736361  ; "acsp" LE
     jne .no
     mov rax, 1
     leave
