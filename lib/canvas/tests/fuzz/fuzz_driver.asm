@@ -15,8 +15,7 @@ section .text
 ; ============================================================================
 global fuzz_driver_main
 fuzz_driver_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
