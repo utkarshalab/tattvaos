@@ -20,7 +20,7 @@ rfb_recv_cut_text:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     ASSERT_PTR rbx
-    mov r12, [rbx + RfbClient_conn]
+    mov r12, [rbx + RfbClient.conn]
     sub rsp, 16
     ; 3 bytes padding + u32 length BE
     mov rdi, r12
@@ -37,9 +37,9 @@ rfb_recv_cut_text:
     test r13d, r13d
     jz .done
     ; alloc + read text
-    mov rax, [rbx + RfbClient_server]
-    mov rax, [rax + RfbServer_server]
-    mov rdi, [rax + Server_arena]
+    mov rax, [rbx + RfbClient.server]
+    mov rax, [rax + RfbServer.server]
+    mov rdi, [rax + Server.arena]
     mov rsi, r13
     call arena_alloc
     test rax, rax
@@ -52,8 +52,8 @@ rfb_recv_cut_text:
     test rax, rax
     jnz .fail
     ; set server clipboard text/plain
-    mov rax, [rbx + RfbClient_server]
-    mov rax, [rax + RfbServer_server]
+    mov rax, [rbx + RfbClient.server]
+    mov rax, [rax + RfbServer.server]
     mov rdi, rax
     mov rsi, 0  ; source client: remote
     mov rdx, mime_text_plain
@@ -84,7 +84,7 @@ rfb_send_cut_text:
     mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    mov r14, [rbx + RfbClient_conn]
+    mov r14, [rbx + RfbClient.conn]
     sub rsp, 16
     mov byte [rsp + 0], 3  ; ServerCutText
     mov byte [rsp + 1], 0
