@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 
@@ -202,8 +203,8 @@ bc_decode:
     cmp edx,[rsp+4]
     jae .pixel_next
     mov r8,[rsp+24]
-    mov r9,[r8+PixBuf_data]
-    mov rcx,[r8+PixBuf_stride]
+    mov r9,[r8+PixBuf.data]
+    mov rcx,[r8+PixBuf.stride]
     imul rcx,rdx
     add r9,rcx
     mov [r9+rdi*4],eax
