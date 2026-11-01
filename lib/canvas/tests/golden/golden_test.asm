@@ -1,13 +1,15 @@
 ; ============================================================================
 ; Golden Test — Golden Master Tests for Visual Regression
 ; ============================================================================
+; The image entry on Utkarsha; the frames are in tests/unit/test_golden.asm,
+; which also runs on the host.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/ut.inc"
-%include "inc/test.inc"
-%include "inc/externs.inc"
+
+extern test_golden_suite
+extern ut_task_exit
 
 section .text
 
@@ -16,14 +18,11 @@ section .text
 ; ============================================================================
 global golden_test_main
 golden_test_main:
-    xor eax, eax
-    ret
-
-; ============================================================================
-; DRM_FORMAT_BGRA8888 constant
-; ============================================================================
-%define DRM_FORMAT_BGRA8888 0x41524742
+    and rsp, -16
+    call test_golden_suite
+    mov rdi, rax
+    call ut_task_exit
 
 section .data
 global golden_test_version
-golden_test_version: dq 0x010000
+golden_test_version: dq 0x010100
