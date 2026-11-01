@@ -30,6 +30,7 @@ extern test_vec_suite
 extern test_tree_suite
 extern test_misc_suite
 extern test_gpu_suite
+extern test_proto_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -125,6 +126,10 @@ test_runner_init:
 
     ; Test GFX9 PM4 packets and the command ring
     call test_gpu_suite
+    add rbx, rax
+
+    ; Test wire framing and message buffers
+    call test_proto_suite
     add rbx, rax
 
     ; Final summary
