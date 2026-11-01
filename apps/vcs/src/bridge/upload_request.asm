@@ -685,7 +685,7 @@ validate_agent_header:
  sub rcx,agent_prefix_len+1
 .agent_byte:
  mov al,[rdi]
- cmp al,32
+ cmp al,33
  jb .agent_bad
  cmp al,126
  ja .agent_bad
