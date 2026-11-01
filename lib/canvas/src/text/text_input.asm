@@ -24,7 +24,6 @@
 %define TEXT_CONTENT_HINT_SENSITIVE    (1 << 6)
 %define TEXT_CONTENT_HINT_LATIN        (1 << 6)
 %define TEXT_CONTENT_HINT_MULTILINE    (1 << 9)
-%define TextInput.next 88
 
 section .text
 
@@ -65,7 +64,7 @@ text_input_create:
 
     ; Allocate TextInput
     mov rdi, [rbx + Server.arena]
-    mov rsi, TextInput_SIZE
+    mov rsi, TextInput_size
     call arena_alloc
     test rax, rax
     jz .oom
