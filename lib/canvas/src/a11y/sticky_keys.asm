@@ -6,11 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/ut.inc"
-%include "inc/server_offsets.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
 %define MOD_SHIFT      (1 << 0)
 %define MOD_CTRL       (1 << 1)
 %define MOD_ALT        (1 << 2)
@@ -29,7 +27,6 @@ struc StickyKeys
     .press_count:       resd 1
     .last_key_time:     resq 1
 endstruc
-
 
 global sticky_keys_init
 sticky_keys_init:
