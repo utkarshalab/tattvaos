@@ -3,6 +3,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 
@@ -81,7 +82,7 @@ raw_decode:
     test rax,rax
     jz .bad
     mov [rsp+16],rax
-    mov r15,[rax+PixBuf_data]
+    mov r15,[rax+PixBuf.data]
     xor r10d,r10d                 ; y
 .row:
     cmp r10d,[rsp+4]
@@ -90,7 +91,7 @@ raw_decode:
     imul eax,[rsp+8]
     lea r8,[r12+rax]              ; source row
     mov rax,[rsp+16]
-    mov eax,[rax+PixBuf_stride]
+    mov eax,[rax+PixBuf.stride]
     imul eax,r10d
     lea r9,[r15+rax]              ; destination row
     xor r11d,r11d                 ; x
