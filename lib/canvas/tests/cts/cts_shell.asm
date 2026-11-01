@@ -26,7 +26,6 @@ test_cts_toplevel_create:
 
 test_name_cts_toplevel_create: db "cts toplevel create", 0
 
-
 section .data
 global cts_shell_version
 cts_shell_version: dq 0x010000
