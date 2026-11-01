@@ -11,9 +11,6 @@ extern arena_alloc
 extern ut_time_now_ns
 extern ut_log_write
 
-; struct offsets (hoisted above use)
-%define FaultDump_SIZE    104
-
 section .text
 
 ; FaultDump struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
