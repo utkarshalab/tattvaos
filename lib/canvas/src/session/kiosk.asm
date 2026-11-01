@@ -43,7 +43,7 @@ kiosk_create:
 
     ; Allocate kiosk session
     mov rdi, [rbx + Server.arena]
-    mov rsi, KioskSession_SIZE
+    mov rsi, KioskSession_size
     call arena_alloc
     test rax, rax
     jz .oom
