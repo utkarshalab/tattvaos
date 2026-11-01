@@ -85,6 +85,35 @@ handle_table_init:
     ret
 
 ; ---------------------------------------------------------------------------
+; handle_table_create
+;   Allocate and initialize a handle table
+;   IN:  rdi = arena, rsi = capacity (power of 2)
+;   OUT: rax = table*, 0 on failure
+; ---------------------------------------------------------------------------
+global handle_table_create
+handle_table_create:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8
+    mov rbx, rdi
+    mov r12, rsi
+    mov esi, HandleTable_size
+    call arena_alloc
+    test rax, rax
+    jz .out
+    mov r13, rax
+    mov rdi, r13
+    mov rsi, rbx
+    mov rdx, r12
+    call handle_table_init
+    test rax, rax
+    mov eax, 0
+    cmovz rax, r13
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+; ---------------------------------------------------------------------------
 ; handle_create
 ;   Create new handle for object
 ;   IN:  rdi = table, rsi = object_ptr
