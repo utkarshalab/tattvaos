@@ -10,22 +10,11 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define Focus_SIZE 48
 %define FOCUS_STATE_NONE    0
 %define FOCUS_STATE_ENTER   1
 %define FOCUS_STATE_LEAVE   2
 
 section .text
-
-struc Focus
-    .seat:          resq 1
-    .surface:       resq 1
-    .serial:        resq 1
-    .keys:          resq 1
-    .modifiers:     resd 1
-endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; focus_init
