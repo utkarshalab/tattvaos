@@ -74,7 +74,7 @@ prompts_show:
     cmp qword [rbx + Server.prompt_count], 0
     jne .busy
     mov rdi, [rbx + Server.arena]
-    mov rsi, Prompt_SIZE
+    mov rsi, Prompt_size
     call arena_alloc
     test rax, rax
     jz .oom
