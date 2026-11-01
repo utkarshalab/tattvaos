@@ -8,24 +8,26 @@
 %include "inc/ut.inc"
 %include "inc/caps.inc"
 %include "inc/channel.inc"
+%include "inc/handle.inc"
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
-extern arena_create
-extern arena_destroy
+extern arena_init
 extern client_registry_init
 extern client_registry_add
+extern client_registry_remove
+extern client_registry_find
 extern handle_table_init
 extern channel_init
-extern client_send_caps
-extern auth_send_caps
-extern rbtree_find
-extern rbtree_remove
+extern auth_handshake
 
 %define CLIENT_CONNECTING   1
 %define CLIENT_ACTIVE       2
 %define CLIENT_THROTTLED    3
 %define CLIENT_DEAD         4
+
+%define CLIENT_REGION_BYTES (1024 * 1024)  ; channels take most of it
+%define CLIENT_OBJECTS      4096
 
 section .text
 
@@ -55,7 +57,7 @@ client_init:
     test rax, rax
     js .init_out
     mov [rbx + Server.client_registry], r13
-    mov qword [rel next_client_id], 1
+    mov qword [rbx + Server.next_client_id], 1
     mov qword [rbx + Server.arena], r12
     xor rax, rax
 .init_out:
@@ -68,123 +70,132 @@ client_init:
 
 ; ---------------------------------------------------------------------------
 ; client_accept
-;   Accept new client connection
-;   IN:  rdi = server*, rsi = client_channel_pair*
+;   Accept new client connection. A client owns one memory region holding its
+;   arena, Client, object table, channels and registry node, so that a
+;   disconnect frees everything at once whatever order clients leave in.
+;   IN:  rdi = server*, rsi = ChannelPair* (filled in for the client's end),
+;        rdx = capabilities wanted
 ;   OUT: rax = client_id, negative error
 ; ---------------------------------------------------------------------------
 global client_accept
 client_accept:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, ChannelPair_size + 8       ; the pair + 8: 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
+    mov [rsp + ChannelPair_size], rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Allocate client ID
-    mov rax, [rel next_client_id]
-    inc qword [rel next_client_id]
-    mov r13, rax        ; client_id
+    ; The client's region, starting with its arena
+    mov edi, CLIENT_REGION_BYTES
+    xor esi, esi
+    call ut_mem_alloc
+    test rax, rax
+    js .out
+    mov r13, rax                        ; arena*
+    mov r15, r8                         ; region handle
+    mov rdi, r13
+    lea rsi, [r13 + Arena_size]
+    mov edx, CLIENT_REGION_BYTES - Arena_size
+    call arena_init
 
-    ; Allocate client struct
-    mov rdi, r12
-    mov rsi, 256        ; Client struct size
+    mov rdi, r13
+    mov esi, Client_size
     call arena_alloc
     test rax, rax
     jz .oom
-    mov r14, rax        ; client*
+    mov r14, rax                        ; client*
+    mov rdi, rax
+    xor eax, eax
+    mov ecx, Client_size
+    rep stosb
 
-    ; Initialize client
-    mov qword [r14 + Client.id], r13
+    mov rax, [rbx + Server.next_client_id]
+    inc qword [rbx + Server.next_client_id]
+    mov [r14 + Client.id], rax
     mov qword [r14 + Client.trust_profile], TRUST_STANDARD
-    mov qword [r14 + Client.caps], 0
-    mov qword [r14 + Client.arena], 0
-    mov qword [r14 + Client.obj_table], 0
-    mov qword [r14 + Client.tx_ring], 0
-    mov qword [r14 + Client.rx_ring], 0
-    mov qword [r14 + Client.handle_tx], 0
-    mov qword [r14 + Client.handle_rx], 0
-    mov qword [r14 + Client.quota], 0
-    mov qword [r14 + Client.last_ping], 0
+    mov [r14 + Client.arena], r13
+    mov [r14 + Client.region], r15
     mov byte [r14 + Client.state], CLIENT_CONNECTING
 
-    ; Create per-client arena
-    mov rdi, r12
-    mov rsi, 64 * 1024    ; 64KB initial
-    lea rdx, [r14 + Client.arena]
-    call arena_create
+    ; Object table
+    mov rdi, r13
+    mov esi, HandleTable_size
+    call arena_alloc
     test rax, rax
-    jnz .arena_ok
-
-    ; Cleanup on arena failure
-    jmp .oom
-
-.arena_ok:
-    ; Initialize client object table
-    mov rdi, [r14 + Client.arena]
-    mov rsi, [r14 + Client.arena]
-    mov rdx, 4096
+    jz .oom
+    mov [r14 + Client.obj_table], rax
+    mov rdi, rax
+    mov rsi, r13
+    mov edx, CLIENT_OBJECTS
     call handle_table_init
     test rax, rax
-    jnz .objtable_ok
-    jmp .oom
+    js .fail
 
-.objtable_ok:
-    mov qword [r14 + Client.obj_table], rax
-
-    ; Initialize channel pair
-    mov rdi, [r14 + Client.tx_ring]
-    mov rsi, [r14 + Client.arena]
-    mov rdx, 256
-    mov rcx, 16
+    ; Channels: the server writes what the client reads
+    mov rdi, rsp
+    mov rsi, r13
+    xor edx, edx
+    xor ecx, ecx
     call channel_init
     test rax, rax
-    jnz .oom
+    js .fail
+    mov rax, [rsp + ChannelPair.server_to_client]
+    mov [r14 + Client.rx_ring], rax
+    mov rax, [rsp + ChannelPair.client_to_server]
+    mov [r14 + Client.tx_ring], rax
+    mov rax, [rsp + ChannelPair.server_to_client_handles]
+    mov [r14 + Client.handle_rx], rax
+    mov rax, [rsp + ChannelPair.client_to_server_handles]
+    mov [r14 + Client.handle_tx], rax
+    mov rdi, r12
+    mov rsi, rsp
+    mov ecx, ChannelPair_size
+    rep movsb
 
     mov rdi, [rbx + Server.client_registry]
-    mov rsi, r13
+    mov rsi, [r14 + Client.id]
     mov rdx, r14
-    mov rcx, [rbx + Server.arena]
+    mov rcx, r13
     call client_registry_add
     test rax, rax
-    js .registry_fail
+    js .fail
 
-    ; Send capabilities negotiation
+    ; Grant capabilities; the client reads them first
     mov rdi, r14
-    mov rsi, [r14 + Client.caps]
-    call client_send_caps
+    mov rsi, [rsp + ChannelPair_size]
+    call auth_handshake
+    test rax, rax
+    js .unlink
 
     mov byte [r14 + Client.state], CLIENT_ACTIVE
-    mov rax, r13
+    mov rax, [r14 + Client.id]
+.out:
+    add rsp, ChannelPair_size + 8
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
-
+.unlink:
+    mov r13, rax
+    mov rdi, [rbx + Server.client_registry]
+    mov rsi, [r14 + Client.id]
+    call client_registry_remove
+    mov rax, r13
+    jmp .fail
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-.registry_fail:
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-; ---------------------------------------------------------------------------
-; client_send_caps
-;   Send capabilities to client during handshake
-; ---------------------------------------------------------------------------
-client_send_caps:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, r14
-    mov r12, [rbx + Client.caps]
-    mov rdi, rbx
-    mov rsi, r12
-    call auth_send_caps
-    EPILOGUE_RESTORE rbx, r12
-    ret
+.fail:
+    mov r13, rax
+    mov rdi, r15
+    call ut_mem_free
+    mov rax, r13
+    jmp .out
 
 ; ---------------------------------------------------------------------------
 ; client_disconnect
-;   Clean up client on disconnect
+;   Clean up client on disconnect: everything it owned goes with its region
 ;   IN:  rdi = server*, rsi = client_id
-;   OUT: rax = 0 OK
+;   OUT: rax = 0 OK, -ESRCH
 ; ---------------------------------------------------------------------------
 global client_disconnect
 client_disconnect:
@@ -196,7 +207,7 @@ client_disconnect:
     ; Find client
     mov rdi, [rbx + Server.client_registry]
     mov rsi, r12
-    call rbtree_find
+    call client_registry_find
     test rax, rax
     jz .not_found
     mov r13, rax
@@ -204,14 +215,13 @@ client_disconnect:
     ; Mark state
     mov byte [r13 + Client.state], CLIENT_DEAD
 
-    ; Destroy client arena (frees everything)
-    mov rdi, [r13 + Client.arena]
-    call arena_destroy
-
-    ; Remove from registry
+    ; Unlink first: the registry node lives in the region
     mov rdi, [rbx + Server.client_registry]
     mov rsi, r12
-    call rbtree_remove
+    call client_registry_remove
+
+    mov rdi, [r13 + Client.region]
+    call ut_mem_free
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
@@ -230,22 +240,13 @@ client_disconnect:
 ; ---------------------------------------------------------------------------
 global client_get
 client_get:
-    PROLOGUE
     ASSERT_PTR rdi
-    mov rax, [rdi + Server.client_registry]
-    test rax, rax
-    jz .not_found
-    call rbtree_find
-    leave
-    ret
-.not_found:
-    xor rax, rax
-    leave
+    mov rdi, [rdi + Server.client_registry]
+    test rdi, rdi
+    jnz client_registry_find
+    xor eax, eax
     ret
 
 section .data
 global client_version
-client_version: dq 0x010000
-section .bss
-align 8
-next_client_id: resq 1
+client_version: dq 0x010100
