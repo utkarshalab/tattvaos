@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global fuzz_target_wire
 fuzz_target_wire:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
