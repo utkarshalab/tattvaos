@@ -762,6 +762,19 @@ host-check: host
 	python3 tests/host/ui_icons_check.py $(HOSTDIR)/host_ui ../ugfx/$(BUILDDIR)/host_ctx
 	python3 tests/host/compare_images.py $(HOSTDIR)/host_decode
 
+# Every image must keep W^X: no segment both writable and executable.
+.PHONY: wx-check
+wx-check: all
+	@for f in $(IMAGEDIR)/*.img; do 	    if readelf -lW $$f | awk '$$1 == "LOAD" && $$7 ~ /W/ && $$7 ~ /E/' | grep -q .; then 	        echo "wx-check: $$f has a writable and executable segment"; exit 1; 	    fi; 	done
+	@echo "wx-check: every image is W^X"
+
+# Everything a change must pass: the layout check, all images and test images
+# in debug and release, W^X, and the host suites and conformance checks. The
+# golden and fuzz images are built here; their suites are still to be written.
+.PHONY: check
+check: all test wx-check host-check release
+	@echo "check: passed"
+
 .PHONY: fuzz
 fuzz: $(IMAGEDIR)/fuzz_runner.img
 	@echo "Running fuzz tests..."
@@ -853,6 +866,8 @@ help:
 	@echo "  cts          Run conformance suite"
 	@echo "  host         Build host test binaries (development machine)"
 	@echo "  host-check   Run host unit suites and decoder conformance"
+	@echo "  check        Everything a change must pass"
+	@echo "  release      Build with debug checks compiled out"
 	@echo "  clean        Remove build artifacts"
 	@echo "  distclean    Remove build directory"
 	@echo "  asm-check    Syntax-check all assembly files"
