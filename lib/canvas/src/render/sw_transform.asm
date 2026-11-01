@@ -7,7 +7,6 @@
 %include "inc/errors.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
 %define TRANSFORM_NORMAL    0
 %define TRANSFORM_FLIP_H    4
 %define TRANSFORM_FLIP_V    8
