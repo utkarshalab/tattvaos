@@ -8,6 +8,8 @@
 %include "inc/fixed.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/render.inc"
+%include "inc/backend.inc"
 
 extern handle_resolve
 extern sw_scale_bilinear
@@ -18,7 +20,6 @@ extern sw_scale_nearest
 %define SCALE_BICUBIC    2
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; scale_fractional_init
