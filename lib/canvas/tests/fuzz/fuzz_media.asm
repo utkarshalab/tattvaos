@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global fuzz_target_png
 fuzz_target_png:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ fuzz_target_png:
 ; ============================================================================
 global fuzz_target_jpeg
 fuzz_target_jpeg:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -34,8 +32,7 @@ fuzz_target_jpeg:
 ; ============================================================================
 global fuzz_target_gif
 fuzz_target_gif:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -43,8 +40,7 @@ fuzz_target_gif:
 ; ============================================================================
 global fuzz_target_ttf
 fuzz_target_ttf:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -52,8 +48,7 @@ fuzz_target_ttf:
 ; ============================================================================
 global fuzz_target_icc
 fuzz_target_icc:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -61,8 +56,7 @@ fuzz_target_icc:
 ; ============================================================================
 global fuzz_target_rfb
 fuzz_target_rfb:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
