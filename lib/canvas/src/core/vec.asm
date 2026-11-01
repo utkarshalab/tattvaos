@@ -1,6 +1,16 @@
 ; ============================================================================
 ; Vector — Growable Array (Arena-Aware)
 ; ============================================================================
+; Elements of a fixed size in one arena block; growing doubles the block
+; (a new one, the old left to the arena).
+;
+;   vec_init(vec, arena, element_size, capacity)  -> 0, -EINVAL, -ENOMEM
+;   vec_push(vec, element*)                       -> its index, -ENOMEM
+;   vec_pop(vec, out*)                            -> 0, -EINVAL (empty)
+;   vec_get(vec, index)                           -> element*, 0 out of range
+;   vec_set(vec, index, element*)                 -> 0, -EINVAL out of range
+;   vec_length(vec), vec_clear(vec)
+; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -9,16 +19,11 @@
 extern arena_alloc
 extern memcopy
 
-; struct offsets (hoisted above use)
-%define Vec_data        0
+; struct offsets (struct_offsets.inc has the same)
 %define Vec.data 0
-%define Vec_capacity    8
 %define Vec.capacity 8
-%define Vec_length      16
 %define Vec.length 16
-%define Vec_element_size 24
 %define Vec.element_size 24
-%define Vec_arena       32
 %define Vec.arena 32
 %define Vec_size        40
 
@@ -26,7 +31,6 @@ section .text
 
 ; ---------------------------------------------------------------------------
 ; vec_init
-;   Initialize vector
 ;   IN:  rdi = vec pointer (Vec*)
 ;        rsi = arena
 ;        rdx = element_size
@@ -35,45 +39,47 @@ section .text
 ; ---------------------------------------------------------------------------
 global vec_init
 vec_init:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi        ; vec
     mov r12, rsi        ; arena
     mov r13, rdx        ; element_size
+    mov r14, rcx        ; capacity
     ASSERT_PTR rbx
     ASSERT_PTR r12
     test r13, r13
-    jnz .ok
-    mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-.ok:
-    test rcx, rcx
+    jz .bad
+    test r14, r14
     jnz .has_cap
-    mov rcx, 16
+    mov r14, 16
 .has_cap:
-    ; Allocate buffer
+    mov rax, r13
+    mul r14
+    jo .bad
     mov rdi, r12
-    mov rsi, r13
-    imul rsi, rcx
+    mov rsi, rax
     call arena_alloc
     test rax, rax
     jz .oom
     mov qword [rbx + Vec.data], rax
-    mov qword [rbx + Vec.capacity], rcx
+    mov qword [rbx + Vec.capacity], r14
     mov qword [rbx + Vec.length], 0
     mov qword [rbx + Vec.element_size], r13
     mov qword [rbx + Vec.arena], r12
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.bad:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
 ; vec_push
-;   Append element to vector
+;   Append element to vector (doubling the block when full)
 ;   IN:  rdi = vec, rsi = element_ptr
 ;   OUT: rax = index, negative error
 ; ---------------------------------------------------------------------------
@@ -84,56 +90,40 @@ vec_push:
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-
     mov rax, [rbx + Vec.length]
-    mov rcx, [rbx + Vec.capacity]
-    cmp rax, rcx
-    jae .grow
-
-    ; Copy element
-    mov rdi, [rbx + Vec.data]
-    mov rsi, r12
-    mov rdx, [rbx + Vec.element_size]
-    call memcopy
-    mov qword [rbx + Vec.length], rax
-    inc qword [rbx + Vec.length]
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-.grow:
-    ; Double capacity
-    lea rcx, [rcx * 2]
+    cmp rax, [rbx + Vec.capacity]
+    jb .store
+    ; full: a block twice the size, the elements copied over
+    mov r13, [rbx + Vec.capacity]
+    add r13, r13                        ; new capacity
+    jc .oom
+    mov rax, [rbx + Vec.element_size]
+    mul r13
+    jo .oom
     mov rdi, [rbx + Vec.arena]
-    mov rsi, [rbx + Vec.element_size]
-    imul rsi, rcx
+    mov rsi, rax
     call arena_alloc
     test rax, rax
     jz .oom
-
-    ; Copy old data
+    mov r14, rax                        ; new block
     mov rdi, rax
     mov rsi, [rbx + Vec.data]
     mov rdx, [rbx + Vec.element_size]
     imul rdx, [rbx + Vec.length]
     call memcopy
-
-    mov qword [rbx + Vec.data], rax
-    mov qword [rbx + Vec.capacity], rcx
-    ; Now push
-    mov rax, [rbx + Vec.length]
-    mov rdi, [rbx + Vec.data]
-    add rdi, rax
-    imul rax, [rbx + Vec.element_size]
-    add rdi, rax
+    mov [rbx + Vec.data], r14
+    mov [rbx + Vec.capacity], r13
+.store:
+    mov rdi, [rbx + Vec.length]
+    imul rdi, [rbx + Vec.element_size]
+    add rdi, [rbx + Vec.data]
     mov rsi, r12
     mov rdx, [rbx + Vec.element_size]
     call memcopy
+    mov rax, [rbx + Vec.length]         ; its index
     inc qword [rbx + Vec.length]
-    mov rax, [rbx + Vec.length]
-    dec rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
-
 .oom:
     mov rax, -(ENOMEM)
     EPILOGUE_RESTORE rbx, r12, r13, r14
@@ -141,9 +131,9 @@ vec_push:
 
 ; ---------------------------------------------------------------------------
 ; vec_pop
-;   Remove and return last element
+;   Remove the last element, copied to out_ptr
 ;   IN:  rdi = vec, rsi = out_ptr
-;   OUT: rax = 0 OK, EINVAL if empty
+;   OUT: rax = 0 OK, -EINVAL if empty
 ; ---------------------------------------------------------------------------
 global vec_pop
 vec_pop:
@@ -152,7 +142,6 @@ vec_pop:
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-
     mov rax, [rbx + Vec.length]
     test rax, rax
     jz .empty
@@ -164,7 +153,7 @@ vec_pop:
     add rsi, rax
     mov rdx, [rbx + Vec.element_size]
     call memcopy
-    xor rax, rax
+    xor eax, eax
     EPILOGUE_RESTORE rbx, r12
     ret
 .empty:
@@ -174,16 +163,14 @@ vec_pop:
 
 ; ---------------------------------------------------------------------------
 ; vec_get
-;   Get element pointer by index
 ;   IN:  rdi = vec, rsi = index
-;   OUT: rax = element_ptr, 0 if OOB
+;   OUT: rax = element_ptr, 0 if out of range
 ; ---------------------------------------------------------------------------
 global vec_get
 vec_get:
     PROLOGUE
     ASSERT_PTR rdi
-    mov rax, [rdi + Vec.length]
-    cmp rsi, rax
+    cmp rsi, [rdi + Vec.length]
     jae .oob
     imul rsi, [rdi + Vec.element_size]
     mov rax, [rdi + Vec.data]
@@ -191,7 +178,7 @@ vec_get:
     leave
     ret
 .oob:
-    xor rax, rax
+    xor eax, eax
     leave
     ret
 
@@ -199,7 +186,7 @@ vec_get:
 ; vec_set
 ;   Set element at index
 ;   IN:  rdi = vec, rsi = index, rdx = element_ptr
-;   OUT: rax = 0 OK, EINVAL if OOB
+;   OUT: rax = 0 OK, -EINVAL if out of range
 ; ---------------------------------------------------------------------------
 global vec_set
 vec_set:
@@ -207,8 +194,7 @@ vec_set:
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
-    mov rax, [rbx + Vec.length]
-    cmp r12, rax
+    cmp r12, [rbx + Vec.length]
     jae .oob
     imul r12, [rbx + Vec.element_size]
     mov rdi, [rbx + Vec.data]
@@ -216,7 +202,7 @@ vec_set:
     mov rsi, rdx
     mov rdx, [rbx + Vec.element_size]
     call memcopy
-    xor rax, rax
+    xor eax, eax
     EPILOGUE_RESTORE rbx, r12
     ret
 .oob:
@@ -225,36 +211,19 @@ vec_set:
     ret
 
 ; ---------------------------------------------------------------------------
-; vec_length
-;   Get current length
-;   IN:  rdi = vec
-;   OUT: rax = length
+; vec_length / vec_clear
 ; ---------------------------------------------------------------------------
 global vec_length
 vec_length:
-    PROLOGUE
-    ASSERT_PTR rdi
     mov rax, [rdi + Vec.length]
-    leave
     ret
 
-; ---------------------------------------------------------------------------
-; vec_clear
-;   Clear vector (length = 0)
-;   IN:  rdi = vec
-;   OUT: rax = 0 OK
-; ---------------------------------------------------------------------------
 global vec_clear
 vec_clear:
-    PROLOGUE
-    ASSERT_PTR rdi
     mov qword [rdi + Vec.length], 0
-    xor rax, rax
-    leave
+    xor eax, eax
     ret
 
 section .data
-
-
 global vec_version
-vec_version: dq 0x010000
+vec_version: dq 0x010100
