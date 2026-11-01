@@ -12,6 +12,8 @@ proto_cursor: resq 1
 proto_left: resq 1
 proto_oid_line: resb 128
 proto_sideband: resb 65515
+proto_session_line: resb 44
+proto_session_valid: resb 1
 
 section .rodata
 version: db 'version 2',10
@@ -30,6 +32,8 @@ object_format: db 'object-format=sha256',10
 object_format_len equ $-object_format
 server_option_cap: db 'server-option',10
 server_option_cap_len equ $-server_option_cap
+session_prefix: db 'session-id='
+session_prefix_len equ $-session_prefix
 ref_suffix: db ' refs/heads/main',10
 ref_suffix_len equ $-ref_suffix
 head_suffix: db ' HEAD',10
@@ -62,6 +66,43 @@ section .text
 global git_protocol_v2_advertise,git_protocol_v2_ls_refs,git_protocol_v2_fetch
 global git_protocol_v2_acknowledge
 global git_protocol_v2_object_info
+global git_protocol_v2_set_session_id
+
+; RDI=16-byte process/session identifier. EAX=status.
+git_protocol_v2_set_session_id:
+ test rdi,rdi
+ jz .session_usage
+ mov rsi,rdi
+ lea rdi,[proto_session_line]
+ lea rdx,[session_prefix]
+ mov rcx,session_prefix_len
+.session_prefix_copy:
+ mov al,[rdx]
+ mov [rdi],al
+ inc rdx
+ inc rdi
+ loop .session_prefix_copy
+ lea r8,[hex]
+ mov ecx,16
+.session_byte:
+ movzx eax,byte [rsi]
+ inc rsi
+ mov edx,eax
+ shr edx,4
+ mov dl,[r8+rdx]
+ mov [rdi],dl
+ and eax,15
+ mov al,[r8+rax]
+ mov [rdi+1],al
+ add rdi,2
+ loop .session_byte
+ mov byte [rdi],10
+ mov byte [proto_session_valid],1
+ xor eax,eax
+ ret
+.session_usage:
+ mov eax,VCS_ERR_USAGE
+ ret
 
 ; RDI=output, RSI=capacity -> RAX=status, RDX=length.
 git_protocol_v2_advertise:
@@ -99,6 +140,14 @@ git_protocol_v2_advertise:
  call proto_packet
  test eax,eax
  jnz .done
+ cmp byte [proto_session_valid],0
+ je .session_advertised
+ lea rdi,[proto_session_line]
+ mov esi,session_prefix_len+32+1
+ call proto_packet
+ test eax,eax
+ jnz .done
+.session_advertised:
  lea rdi,[server_option_cap]
  mov esi,server_option_cap_len
  call proto_packet
