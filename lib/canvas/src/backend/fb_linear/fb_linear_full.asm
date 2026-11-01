@@ -41,15 +41,15 @@ fb_linear_init:
     rep stosb
     
     ; Save framebuffer info from config
-    mov rax, [r12 + Config_fb_base]
-    mov qword [rbx + Backend_fb_base], rax
-    mov rax, [r12 + Config_fb_size]
-    mov qword [rbx + Backend_fb_size], rax
+    mov rax, [r12 + Config.fb_base]
+    mov qword [rbx + Backend.fb_base], rax
+    mov rax, [r12 + Config.fb_size]
+    mov qword [rbx + Backend.fb_size], rax
     
     ; Zero output list
-    mov qword [rbx + Backend_outputs], 0
-    mov qword [rbx + Backend_output_count], 0
-    mov qword [rbx + Backend_layout_bounds], 0
+    mov qword [rbx + Backend.outputs], 0
+    mov qword [rbx + Backend.output_count], 0
+    mov qword [rbx + Backend.layout_bounds], 0
     
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
@@ -64,15 +64,15 @@ fb_linear_deinit:
     mov rbx, rdi
     ASSERT_PTR rbx
     
-    mov rdi, [rbx + Backend_outputs]
+    mov rdi, [rbx + Backend.outputs]
     test rdi, rdi
     jz .done
 .destroy_loop:
     test rdi, rdi
     jz .done
-    mov rax, [rdi + Output_next]
+    mov rax, [rdi + Output.next]
     mov rsi, rdi
-    mov rdi, [rbx + Backend_arena]
+    mov rdi, [rbx + Backend.arena]
     call arena_free
     mov rdi, rax
     jmp .destroy_loop
@@ -95,43 +95,43 @@ fb_linear_modeset:
     ASSERT_PTR r13
     
     ; Validate mode matches framebuffer
-    mov eax, [r13 + Mode_width]
+    mov eax, [r13 + Mode.width]
     test eax, eax
     jz .bad_mode
-    mov eax, [r13 + Mode_height]
+    mov eax, [r13 + Mode.height]
     test eax, eax
     jz .bad_mode
     
     ; Check stride matches
-    mov eax, [r13 + Mode_width]
+    mov eax, [r13 + Mode.width]
     shl eax, 2
-    cmp eax, [r12 + Output_stride]
+    cmp eax, [r12 + Output.stride]
     jne .bad_mode
     
     ; Update output
-    mov eax, [r13 + Mode_width]
-    mov [r12 + Output_width], eax
-    mov eax, [r13 + Mode_height]
-    mov [r12 + Output_height], eax
-    mov qword [r12 + Output_current_mode], r13
+    mov eax, [r13 + Mode.width]
+    mov [r12 + Output.width], eax
+    mov eax, [r13 + Mode.height]
+    mov [r12 + Output.height], eax
+    mov qword [r12 + Output.current_mode], r13
     
     ; Create surface pointing to framebuffer
-    mov rax, [r12 + Output_current_surface]
+    mov rax, [r12 + Output.current_surface]
     test rax, rax
     jnz .update_surface
     
     ; Allocate surface struct
-    mov rdi, [rbx + Backend_arena]
+    mov rdi, [rbx + Backend.arena]
     mov rsi, Surface_size
     call arena_alloc
     test rax, rax
     jz .oom
     mov r12, rax
-    mov [rbx + Output_current_surface], rax
+    mov [rbx + Output.current_surface], rax
     
     ; Initialize surface
-    mov rax, [rbx + Backend_fb_base]
-    mov [r12 + Surface_current], rax
+    mov rax, [rbx + Backend.fb_base]
+    mov [r12 + Surface.current], rax
     mov eax, [r13 + Mode.width]
     mov [r12 + Surface.width], eax
     mov eax, [r13 + Mode.height]
@@ -142,23 +142,23 @@ fb_linear_modeset:
     mov [r12 + Surface.stride], eax
     mov qword [r12 + Surface.buffer], 0
     mov qword [r12 + Surface.damage], 0
-    mov qword [r12 + Output_current_surface], rax
-    mov rax, [rbx + Backend_fb_base]
-    mov qword [r12 + Buffer_base], rax
-    mov qword [r12 + Surface_buffer], rax
+    mov qword [r12 + Output.current_surface], rax
+    mov rax, [rbx + Backend.fb_base]
+    mov qword [r12 + Buffer.base], rax
+    mov qword [r12 + Surface.buffer], rax
     jmp .done
     
 .update_surface:
     ; Update existing surface
-    mov [rax + Surface_current], rax
-    mov eax, [r13 + Mode_width]
-    mov [rax + Surface_width], eax
-    mov eax, [r13 + Mode_height]
-    mov [rax + Surface_height], eax
-    mov dword [rax + Surface_format], DRM_FORMAT_BGRA8888
-    mov eax, [r13 + Mode_width]
+    mov [rax + Surface.current], rax
+    mov eax, [r13 + Mode.width]
+    mov [rax + Surface.width], eax
+    mov eax, [r13 + Mode.height]
+    mov [rax + Surface.height], eax
+    mov dword [rax + Surface.format], DRM_FORMAT_BGRA8888
+    mov eax, [r13 + Mode.width]
     shl eax, 2
-    mov [rax + Surface_stride], eax
+    mov [rax + Surface.stride], eax
     jmp .done
     
 .done:
@@ -191,7 +191,7 @@ fb_linear_flip:
     ; Wait for acquire fence
     test r14, r14
     jz .no_fence
-    mov rdi, [rbx + Backend_server]
+    mov rdi, [rbx + Backend.server]
     mov rsi, r14
     call fence_wait
     test rax, rax
@@ -199,33 +199,33 @@ fb_linear_flip:
 .no_fence:
     
     ; Get surface
-    mov rax, [r12 + Output_current_surface]
+    mov rax, [r12 + Output.current_surface]
     test rax, rax
     jz .no_surface
     mov rbx, rax
     
     ; Get new buffer
-    mov rax, [r13 + Buffer_base]
+    mov rax, [r13 + Buffer.base]
     test rax, rax
     jz .fail
     
     ; Check if double-buffered
-    mov r15, [rbx + Surface_current]
-    mov rax, [rbx + Surface_stride]
-    imul rax, [rbx + Surface_height]
+    mov r15, [rbx + Surface.current]
+    mov rax, [rbx + Surface.stride]
+    imul rax, [rbx + Surface.height]
     
     ; Copy new buffer to framebuffer
-    mov rdi, [rbx + Backend_fb_base]
+    mov rdi, [rbx + Backend.fb_base]
     mov rsi, rax
     mov rdx, r15
     call memcopy
     
     ; Update surface buffer pointer
-    mov [rbx + Surface_current], r13
-    mov [rbx + Surface_buffer], r13
+    mov [rbx + Surface.current], r13
+    mov [rbx + Surface.buffer], r13
     
     ; Signal release fence
-    mov rdi, [rbx + Backend_server]
+    mov rdi, [rbx + Backend.server]
     mov rsi, r14
     call fence_signal
     
