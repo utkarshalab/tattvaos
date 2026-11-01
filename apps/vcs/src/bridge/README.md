@@ -207,6 +207,9 @@ both sockets on every terminal path. A direct `fetch` is also accepted, while
 repeated reference discovery is rejected as an invalid session sequence.
 Successful `object-info` commands are nonterminal and may be repeated within the
 same session without changing reference-discovery or fetch negotiation state.
+A lone flush packet in receive state is accepted as the protocol-v2 empty
+request: it produces no response, completes the client successfully, and leaves
+the retained listener eligible for the ordinary rearm path.
 Acknowledgment-only fetch responses return to receive state, allowing bounded
 multi-round have exchange before either `ready` or `done` produces the terminal
 pack response. Each continuation promotes its deduplicated have view so the
