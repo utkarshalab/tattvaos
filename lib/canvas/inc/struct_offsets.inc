@@ -1592,6 +1592,7 @@ struc Surface
     .height:                  resq 1
     .stride:                  resq 1
     .subsurfaces:             resq 1
+    .cb_free:                 resq 1    ; spent frame callback nodes
     .current:                 resb SurfaceState_size
     .pending:                 resb SurfaceState_size
 endstruc
