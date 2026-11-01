@@ -31,7 +31,6 @@ struc ClientEvent
     .b:     resd 1
     .c:     resd 1
 endstruc
-%define ClientEvent_size    24
 
 ; Present info (mirrors render.inc)
 struc ClientPresentInfo
@@ -41,6 +40,5 @@ struc ClientPresentInfo
     .refresh_ns:      resq 1
     .flags:           resd 1
 endstruc
-%define ClientPresentInfo_size  32
 
 %endif ; __CANVAS_CLIENT_INC__
