@@ -5,6 +5,7 @@
 %include "inc/errors.inc"
 %include "inc/image.inc"
 %include "inc/fixed.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 extern fix_sqrt
@@ -51,7 +52,7 @@ sensor_process:
     test rax,rax
     jz .bad
     mov [rsp+8],rax
-    mov r15,[rax+PixBuf_data]
+    mov r15,[rax+PixBuf.data]
     xor eax,eax
     mov [rsp+16],eax              ; y
 .row:
@@ -264,10 +265,10 @@ sensor_process:
     shr rax,8
     mov [rsp+92],eax              ; B8
     mov rax,[rsp+8]
-    mov rdi,[rax+PixBuf_data]
+    mov rdi,[rax+PixBuf.data]
     mov eax,[rsp+16]
     mov rdx,[rsp+8]
-    imul rax,[rdx+PixBuf_stride]
+    imul rax,[rdx+PixBuf.stride]
     add rdi,rax
     mov eax,[rsp+20]
     lea rdi,[rdi+rax*4]
