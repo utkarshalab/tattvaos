@@ -496,27 +496,31 @@ struc AuditLog
     .count:                   resq 1
 endstruc
 
+; Fields are qwords so that a dword store and a qword read agree; the header
+; is zeroed when created.
 struc Buffer
-    .handle:                  resd 1
+    .handle:                  resq 1
     .generation:              resq 1
-    .height:                  resd 1
-    .stride:                  resd 1
-    .format:                  resd 1
+    .width:                   resq 1
+    .height:                  resq 1
+    .stride:                  resq 1
+    .format:                  resq 1
     .modifier:                resq 1
     .base:                    resq 1
     .dma_addr:                resq 1
     .size:                    resq 1
-    .acquire_fence:           resd 1
-    .release_fence:           resd 1
-    .timeline:                resd 1
+    .acquire_fence:           resq 1
+    .release_fence:           resq 1
+    .timeline:                resq 1
     .acquire_point:           resq 1
     .release_point:           resq 1
-    .state:                   resd 1
-    .refcount:                resd 1
+    .state:                   resq 1
+    .refcount:                resq 1
     .client_id:               resq 1
-    resb 4
     .gpu_bo:                  resq 1
-    .width:                   resq 1
+    .client:                  resq 1
+    .client_next:             resq 1    ; the client's buffers
+    .region:                  resq 1    ; the pixels' memory region
 endstruc
 
 struc Client
@@ -540,7 +544,9 @@ struc Client
     .verified:                resb 1
     resb 7
     .region:                  resq 1
-    resb 112
+    .surfaces:                resq 1    ; its Surfaces, through client_next
+    .buffers:                 resq 1    ; its Buffers, through client_next
+    resb 96
 endstruc
 
 struc ClientConn
@@ -1549,6 +1555,25 @@ struc Shortcut
     .next:                    resq 1
 endstruc
 
+; One side of a surface's double-buffered state; embedded twice in Surface.
+struc SurfaceState
+    .buffer:                  resq 1    ; buffer handle, 0: none
+    .buf_x:                   resd 1
+    .buf_y:                   resd 1
+    .damage:                  resq 1
+    .opaque:                  resq 1
+    .input:                   resq 1
+    .scale:                   resq 1
+    .subsurfaces:             resq 1
+    .frame_cbs:               resq 1
+    .transform:               resd 1
+    .pending:                 resd 1
+    .width:                   resd 1
+    .height:                  resd 1
+    .stride:                  resd 1
+    resd 1
+endstruc
+
 struc Surface
     .id:                      resq 1
     .role:                    resq 1
@@ -1556,42 +1581,19 @@ struc Surface
     .output:                  resq 1
     .z_order:                 resq 1
     .client:                  resq 1
-    .current:                 resq 1
-    resb 8
+    .client_next:             resq 1    ; the client's surfaces
     .z_order_next:            resq 1
     .z_order_prev:            resq 1
-    resb 8
     .frame_seq:               resq 1
-    resb 80
-    .pending:                 resq 1
     .buffer:                  resq 1
     .damage:                  resq 1
-    .format:                  resd 1
-    resb 4
+    .format:                  resq 1
+    .width:                   resq 1
     .height:                  resq 1
     .stride:                  resq 1
     .subsurfaces:             resq 1
-    .width:                   resd 1
-    resb 68
-endstruc
-
-struc SurfaceState
-    .buffer:                  resq 1
-    .buf_x:                   resd 1
-    .buf_y:                   resd 1
-    .damage:                  resq 1
-    .opaque:                  resq 1
-    .input:                   resq 1
-    .transform:               resd 1
-    .scale:                   resq 1
-    .subsurfaces:             resq 1
-    .frame_cbs:               resq 1
-    .pending:                 resq 1
-    resb 20
-    .stride:                  resd 1
-    .height:                  resd 1
-    .width:                   resd 1
-    resb 4
+    .current:                 resb SurfaceState_size
+    .pending:                 resb SurfaceState_size
 endstruc
 
 struc Tablet
