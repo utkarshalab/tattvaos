@@ -175,41 +175,10 @@ cpuid_init:
 ;   IN:  rdi = feature mask
 ; ---------------------------------------------------------------------------
 patch_dispatch:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov [cpu_feature_mask], rbx
-
-    ; Patch blend_dispatch
-    mov rax, rbx
-    and rax, CPU_HAS_AVX512F | CPU_HAS_AVX512BW | CPU_HAS_AVX512VL
-    cmp rax, CPU_HAS_AVX512F | CPU_HAS_AVX512BW | CPU_HAS_AVX512VL
-    jne .check_avx2
-    mov rax, blend_avx512
-    jmp .patch_blend
-.check_avx2:
-    test rbx, CPU_HAS_AVX2
-    jz .check_sse2
-    mov rax, blend_avx2
-    jmp .patch_blend
-.check_sse2:
-    test rbx, CPU_HAS_SSE2
-    jz .patch_scalar
-    mov rax, blend_sse2
-    jmp .patch_blend
-.patch_scalar:
-    mov rax, blend_scalar
-.patch_blend:
-    ; Self-modifying code: patch the jmp at blend_dispatch
-    mov r12, blend_dispatch
-    mov word [r12], 0xE9      ; JMP rel32
-    sub rax, r12
-    sub rax, 5
-    mov dword [r12 + 1], eax
-
-    ; Other primitives have their own stable dispatch entry points.
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    ; Text is not writable (W^X): nothing is patched. A SIMD choice belongs
+    ; in a function pointer in data.
+    mov [cpu_feature_mask], rdi
+    xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
