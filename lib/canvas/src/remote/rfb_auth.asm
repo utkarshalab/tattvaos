@@ -15,7 +15,7 @@ rfb_auth:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     ASSERT_PTR rbx
-    mov r12, [rbx + RfbClient_conn]
+    mov r12, [rbx + RfbClient.conn]
     sub rsp, 16
     mov dword [rsp + 0], 0x01000000
     mov rdi, r12
