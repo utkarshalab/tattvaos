@@ -604,7 +604,8 @@ UNIT_SRCS := \
     tests/unit/test_tree.asm \
     tests/unit/test_misc.asm \
     tests/unit/test_gpu.asm \
-    tests/unit/test_proto.asm
+    tests/unit/test_proto.asm \
+    tests/unit/test_client.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
 # What the test images link: everything the server links but its entry (server/main)
@@ -729,7 +730,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree misc gpu proto region quota tile_diff \
+HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client region quota tile_diff \
                  inflate icc record_replay rfb webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
