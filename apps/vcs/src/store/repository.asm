@@ -97,7 +97,8 @@ vcs_repo_init:
 .known_last:
  cmp rcx,rdx
  ja .conflict
- cmp rdx,VR_MAX_ID
+ mov r8,VR_MAX_ID
+ cmp rdx,r8
  ja .conflict
  xor eax,eax
  mov edx,1
