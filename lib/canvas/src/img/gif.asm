@@ -403,7 +403,7 @@ gif_decode_first:
     jz .new_bad_stack
     mov qword [rsp + 24], 0     ; palette
     mov qword [rsp + 32], 0     ; palette entries
-    mov qword [rsp + 40], -1    ; transparent index
+    mov dword [rsp + 40], -1    ; transparent index
     movzx eax, byte [r12 + 10]
     lea r14, [r12 + 13]
     lea r15, [r13 - 13]
@@ -438,7 +438,7 @@ gif_decode_first:
     test byte [r14 + 3], 1
     jz .new_skip_extension
     movzx eax, byte [r14 + 6]
-    mov [rsp + 40], rax
+    mov [rsp + 40], eax
 .new_skip_extension:
     add r14, 2
     sub r15, 2
@@ -615,7 +615,7 @@ gif_decode_first:
     add eax, r14d
     mov rdx, [rsp + 72]
     movzx ecx, byte [rdx + rax]
-    cmp rcx, [rsp + 40]
+    cmp ecx, [rsp + 40]              ; a dword: packed flags live at +44
     je .new_next_pixel
     cmp rcx, [rsp + 32]
     jae .new_next_pixel
