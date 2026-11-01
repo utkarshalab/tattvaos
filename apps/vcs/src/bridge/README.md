@@ -84,6 +84,13 @@ responses. Fetch advertises `wait-for-done`, `ref-in-want`, `sideband-all`,
 requests, multiplexing, partial clones, and depth-limited history. All records
 use bounded pkt-lines and explicit flushes.
 
+The advertisement also exposes `object-info`. A request must select `size` once
+and may list 1..32 unique or repeated SHA-256 OIDs. Canonical history traversal
+hashes every reachable commit, tree, and blob body, records its exact uncompressed
+size, and returns `OID SIZE` records in request order. Any missing OID rejects the
+whole command with the ordinary protocol error; successful responses flush and
+leave the connection available for `ls-refs`, another `object-info`, or `fetch`.
+
 The advertisement also publishes `server-option`. Each command may carry up to
 eight `server-option=<value>` headers with 1..128 value bytes; empty values,
 NUL, embedded LF, overflow, and exact duplicate values are rejected. Distinct
@@ -183,8 +190,9 @@ Duplicate or unknown arguments are rejected.
 
 `bridge_git_serve` now composes advertisement, request parsing, hash-only tip
 discovery for `ls-refs`, common-history incremental pack generation and tip-OID
-validation for `fetch`, and both responses behind a bounded two-phase buffer
-API. Native socket polling remains the outer transport owner.
+validation for `fetch`, canonical object-size lookup for `object-info`, and all
+responses behind a bounded two-phase buffer API. Native socket polling remains
+the outer transport owner.
 
 `upload_server.asm` owns that native transport. It accepts one `git://` client,
 validates the bounded `git-upload-pack /` daemon request, an optional printable
@@ -197,6 +205,8 @@ handles partial nonblocking I/O and serves one
 `ls-refs` followed by `fetch` on the same protocol-v2 connection, and closes
 both sockets on every terminal path. A direct `fetch` is also accepted, while
 repeated reference discovery is rejected as an invalid session sequence.
+Successful `object-info` commands are nonterminal and may be repeated within the
+same session without changing reference-discovery or fetch negotiation state.
 Acknowledgment-only fetch responses return to receive state, allowing bounded
 multi-round have exchange before either `ready` or `done` produces the terminal
 pack response. Each continuation promotes its deduplicated have view so the
