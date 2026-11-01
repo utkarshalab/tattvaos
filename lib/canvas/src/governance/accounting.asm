@@ -10,9 +10,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define Accounting_SIZE    48
-
 section .text
 
 struc Accounting
