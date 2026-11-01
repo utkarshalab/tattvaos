@@ -56,7 +56,7 @@ lock_create:
 
     ; Allocate LockScreen
     mov rdi, [rbx + Server.arena]
-    mov rsi, LockScreen_SIZE
+    mov rsi, LockScreen_size
     call arena_alloc
     test rax, rax
     jz .oom
