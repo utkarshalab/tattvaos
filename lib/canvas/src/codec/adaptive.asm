@@ -9,8 +9,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define AdaptiveCtx_SIZE    56
 %define ENC_RAW       0
 %define ENC_RLE       1
 %define ENC_DEFLATE   2
@@ -28,7 +26,6 @@ struc AdaptiveCtx
     .bytes_deflate:  resq 1
     .bytes_delta:    resq 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; adaptive_init
