@@ -9,10 +9,9 @@
 %include "inc/externs.inc"
 %include "inc/caps.inc"
 
-; struct offsets (hoisted above use)
-%define SubsurfaceData_sync   0
-%define SubsurfaceData.sync 0
-%define SubsurfaceData_size   1
+struc SubsurfaceData
+    .sync:                    resb 1
+endstruc
 
 section .text
 
