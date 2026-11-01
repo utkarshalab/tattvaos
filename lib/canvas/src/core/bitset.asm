@@ -1,27 +1,31 @@
 ; ============================================================================
 ; Bitset — Fixed-Size Bit Array Operations
 ; ============================================================================
+; A Bitset is { words: u64*, bits: u64 } (16 bytes); the words come from an
+; arena, (bits + 63) / 64 of them, zeroed. Bits past the count stay 0.
+;
+;   bitset_init(set, bit_count, arena)    -> 0, -EINVAL (no bits), -ENOMEM
+;   bitset_set / _clear / _flip(set, i)   -> 0, -ERANGE (i out of range)
+;   bitset_test(set, i)                   -> 1 / 0, -ERANGE
+;   bitset_count(set)                     -> bits set
+;   bitset_find_first(set)                -> lowest set bit, -1 none
+;   bitset_clear_all(set)                 -> 0
+; ============================================================================
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/canvas_client.inc"
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define Bitset_words    0
-%define Bitset_count    8
+%define Bitset_words    0               ; u64* words
+%define Bitset_count    8               ; u64 bits
 %define Bitset_size     16
 
 section .text
 
-
 ; ---------------------------------------------------------------------------
-; bitset_init
-;   Initialize bitset
-;   IN:  rdi = Bitset*, rsi = bit_count, rdx = arena
-;   OUT: rax = 0 OK, negative error
+; bitset_init — rdi = Bitset*, rsi = bit_count, rdx = arena -> rax
 ; ---------------------------------------------------------------------------
 global bitset_init
 bitset_init:
@@ -31,37 +35,30 @@ bitset_init:
     mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r13
-
     test r12, r12
-    jnz .ok
-    mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-.ok:
-    ; Calculate words needed
-    mov rax, r12
-    add rax, 63
-    shr rax, 6
-    mov r12, rax
-
-    ; Allocate words array
+    jz .bad
+    lea rsi, [r12 + 63]
+    shr rsi, 6
+    shl rsi, 3                          ; bytes of words
     mov rdi, r13
-    mov rsi, rax
-    shl rsi, 3
+    push rsi
+    sub rsp, 8
     call arena_alloc
+    add rsp, 8
+    pop rcx
     test rax, rax
     jz .oom
-
-    mov qword [rbx + Bitset_words], rax
-    mov qword [rbx + Bitset_count], r12
-
-    ; Zero initialize
+    mov [rbx + Bitset_words], rax
+    mov [rbx + Bitset_count], r12
     mov rdi, rax
-    mov rcx, r12
-    xor rax, rax
+    shr rcx, 3
+    xor eax, eax
     rep stosq
-
-    xor rax, rax
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.bad:
+    mov rax, -(EINVAL)
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
@@ -69,213 +66,120 @@ bitset_init:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
-; ---------------------------------------------------------------------------
-; bitset_set
-;   Set bit
-;   IN:  rdi = Bitset*, rsi = bit_index
-;   OUT: rax = 0 OK
-; ---------------------------------------------------------------------------
+; the bit operations: rdi = Bitset*, rsi = index -> rcx = its word's address,
+; rsi = its bit; jae %1 when the index is out of range
+%macro BIT_ADDRESS 1
+    cmp rsi, [rdi + Bitset_count]
+    jae %1
+    mov rcx, rsi
+    shr rcx, 6
+    shl rcx, 3
+    add rcx, [rdi + Bitset_words]
+    and esi, 63
+%endmacro
+
 global bitset_set
 bitset_set:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-
-    cmp r12, [rbx + Bitset_count]
-    jae .oob
-
-    mov rax, r12
-    shr rax, 6
-    mov rcx, r12
-    and rcx, 63
-    bts qword [rbx + Bitset_words + rax * 8], rcx
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    BIT_ADDRESS .oob
+    bts [rcx], rsi
+    xor eax, eax
     ret
 .oob:
     mov rax, -(ERANGE)
-    EPILOGUE_RESTORE rbx, r12
     ret
 
-; ---------------------------------------------------------------------------
-; bitset_clear
-;   Clear bit
-;   IN:  rdi = Bitset*, rsi = bit_index
-;   OUT: rax = 0 OK
-; ---------------------------------------------------------------------------
 global bitset_clear
 bitset_clear:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-
-    cmp r12, [rbx + Bitset_count]
-    jae .oob
-
-    mov rax, r12
-    shr rax, 6
-    mov rcx, r12
-    and rcx, 63
-    btr qword [rbx + Bitset_words + rax * 8], rcx
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    BIT_ADDRESS .oob
+    btr [rcx], rsi
+    xor eax, eax
     ret
 .oob:
     mov rax, -(ERANGE)
-    EPILOGUE_RESTORE rbx, r12
     ret
 
-; ---------------------------------------------------------------------------
-; bitset_test
-;   Test bit
-;   IN:  rdi = Bitset*, rsi = bit_index
-;   OUT: rax = 1 if set, 0 if clear, ERANGE if OOB
-; ---------------------------------------------------------------------------
-global bitset_test
-bitset_test:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-
-    cmp r12, [rbx + Bitset_count]
-    jae .oob
-
-    mov rax, r12
-    shr rax, 6
-    mov rcx, r12
-    and rcx, 63
-    bt qword [rbx + Bitset_words + rax * 8], rcx
-    setc al
-    movzx rax, al
-    EPILOGUE_RESTORE rbx, r12
-    ret
-.oob:
-    mov rax, -(ERANGE)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-; ---------------------------------------------------------------------------
-; bitset_flip
-;   Flip bit
-;   IN:  rdi = Bitset*, rsi = bit_index
-;   OUT: rax = 0 OK
-; ---------------------------------------------------------------------------
 global bitset_flip
 bitset_flip:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-
-    cmp r12, [rbx + Bitset_count]
-    jae .oob
-
-    mov rax, r12
-    shr rax, 6
-    mov rcx, r12
-    and rcx, 63
-    btc qword [rbx + Bitset_words + rax * 8], rcx
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    BIT_ADDRESS .oob
+    btc [rcx], rsi
+    xor eax, eax
     ret
 .oob:
     mov rax, -(ERANGE)
-    EPILOGUE_RESTORE rbx, r12
+    ret
+
+global bitset_test
+bitset_test:
+    BIT_ADDRESS .oob
+    xor eax, eax
+    bt [rcx], rsi
+    setc al
+    ret
+.oob:
+    mov rax, -(ERANGE)
     ret
 
 ; ---------------------------------------------------------------------------
-; bitset_count
-;   Count set bits (population count)
-;   IN:  rdi = Bitset*
-;   OUT: rax = count
+; bitset_count — rdi = Bitset* -> rax = bits set
 ; ---------------------------------------------------------------------------
 global bitset_count
 bitset_count:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov r12, [rbx + Bitset_words]
-    mov r13, [r12]
-    xor rax, rax
-    test r13, r13
-    jz .done
-
-    mov r12, r13
-    mov rcx, [rbx + Bitset_count]
-    mov rcx, [rcx + 8]  ; word array pointer? Wait, Bitset_words is at offset 0
-
-    mov rdi, [rbx + Bitset_words]
-    mov rcx, [rbx + Bitset_count]
-    ; rdi = words array, rcx = word count
-    xor rax, rax
+    mov rsi, [rdi + Bitset_words]
+    mov rcx, [rdi + Bitset_count]
+    add rcx, 63
+    shr rcx, 6
+    xor eax, eax
 .loop:
-    popcnt rdx, [rdi]
+    test rcx, rcx
+    jz .done
+    popcnt rdx, [rsi]
     add rax, rdx
-    add rdi, 8
+    add rsi, 8
     dec rcx
-    jnz .loop
+    jmp .loop
 .done:
-    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
-; bitset_find_first
-;   Find first set bit
-;   IN:  rdi = Bitset*
-;   OUT: rax = bit index, -1 if none
+; bitset_find_first — rdi = Bitset* -> rax = lowest set bit, -1 none
 ; ---------------------------------------------------------------------------
 global bitset_find_first
 bitset_find_first:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov r12, [rbx + Bitset_words]
-    mov r13, [rbx + Bitset_count]
-    mov rdi, r12
-    xor rax, rax
+    mov rsi, [rdi + Bitset_words]
+    mov rcx, [rdi + Bitset_count]
+    add rcx, 63
+    shr rcx, 6
+    xor eax, eax                        ; the word's first bit
 .loop:
-    test r13, r13
-    jz .not_found
-    bsf rdx, [rdi]
+    test rcx, rcx
+    jz .none
+    bsf rdx, [rsi]
     jnz .found
     add rax, 64
-    add rdi, 8
-    dec r13
-    jnz .loop
-.not_found:
-    mov rax, -1
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
+    add rsi, 8
+    dec rcx
+    jmp .loop
 .found:
     add rax, rdx
-    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+.none:
+    mov rax, -1
     ret
 
 ; ---------------------------------------------------------------------------
-; bitset_clear_all
-;   Clear all bits
-;   IN:  rdi = Bitset*
-;   OUT: rax = 0 OK
+; bitset_clear_all — rdi = Bitset* -> rax = 0
 ; ---------------------------------------------------------------------------
 global bitset_clear_all
 bitset_clear_all:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov r12, [rbx + Bitset_count]
-    mov rdi, [rbx + Bitset_words]
-    xor rax, rax
+    mov rcx, [rdi + Bitset_count]
+    add rcx, 63
+    shr rcx, 6
+    mov rdi, [rdi + Bitset_words]
+    xor eax, eax
     rep stosq
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    xor eax, eax
     ret
 
 section .data
 global bitset_version
-bitset_version: dq 0x010000
+bitset_version: dq 0x010100
