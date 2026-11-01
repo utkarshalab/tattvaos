@@ -6,17 +6,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-
-; struct offsets (hoisted above use)
-%define Arena_base    0
-%define Arena.base 0
-%define Arena_cursor  8
-%define Arena.cursor 8
-%define Arena_limit   16
-%define Arena.limit 16
-%define Arena_parent  24
-%define Arena.parent 24
-%define Arena_size    32
+%include "inc/struct_offsets.inc"
 
 section .text
 
