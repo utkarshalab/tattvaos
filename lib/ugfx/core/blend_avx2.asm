@@ -6,6 +6,8 @@
 
 extern blend_sse2
 
+default rel
+
 section .text
 
 global blend_avx2
