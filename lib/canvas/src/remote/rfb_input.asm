@@ -133,11 +133,13 @@ rfb_forward_key:
     cmp eax, 'z'
     ja .special
     sub eax, 'a'
-    movzx edx, byte [rel rfb_letter_codes + rax]
+    lea rdx, [rel rfb_letter_codes]
+    movzx edx, byte [rdx + rax]
     jmp .inject
 .upper:
     sub eax, 'A'
-    movzx edx, byte [rel rfb_letter_codes + rax]
+    lea rdx, [rel rfb_letter_codes]
+    movzx edx, byte [rdx + rax]
     jmp .inject
 .digit:
     cmp eax, '0'
@@ -145,7 +147,8 @@ rfb_forward_key:
     cmp eax, '9'
     ja .special
     sub eax, '0'
-    movzx edx, byte [rel rfb_digit_codes + rax]
+    lea rdx, [rel rfb_digit_codes]
+    movzx edx, byte [rdx + rax]
     jmp .inject
 .special:
     mov edx, 28                 ; Return
