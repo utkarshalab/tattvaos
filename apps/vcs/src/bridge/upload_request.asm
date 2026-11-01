@@ -7,6 +7,7 @@ extern bridge_pkt_decode
 
 %define GIT_REQUEST_LS_REFS 1
 %define GIT_REQUEST_FETCH 2
+%define GIT_REQUEST_OBJECT_INFO 3
 
 section .bss
 request_cursor: resq 1
@@ -35,6 +36,9 @@ request_server_option_values: resb 8*128
 request_shallow_count: resb 1
 request_fetch_hints: resb 1
 request_prefix_masks: resb 1
+request_info_size: resb 1
+request_info_count: resb 1
+request_info_oids: resb 32*32
 request_filter_component: resb 64
 
 section .rodata
@@ -42,6 +46,8 @@ ls_command: db 'command=ls-refs',10
 ls_command_len equ $-ls_command
 fetch_command: db 'command=fetch',10
 fetch_command_len equ $-fetch_command
+object_info_command: db 'command=object-info',10
+object_info_command_len equ $-object_info_command
 format_line: db 'object-format=sha256',10
 format_line_len equ $-format_line
 agent_prefix: db 'agent='
@@ -106,6 +112,10 @@ want_ref_head_line: db 'want-ref HEAD',10
 want_ref_head_line_len equ $-want_ref_head_line
 ref_prefix_marker: db 'ref-prefix '
 ref_prefix_marker_len equ $-ref_prefix_marker
+info_size_line: db 'size',10
+info_size_line_len equ $-info_size_line
+info_oid_prefix: db 'oid '
+info_oid_prefix_len equ $-info_oid_prefix
 head_ref: db 'HEAD'
 head_ref_len equ $-head_ref
 main_ref: db 'refs/heads/main'
@@ -116,7 +126,8 @@ global git_protocol_v2_parse_request,git_protocol_v2_haves
 global git_protocol_v2_shallow
 global git_protocol_v2_clear_haves,git_protocol_v2_retain_haves
 ; RDI=complete request, RSI=length.
-; RAX=status, RDX=operation, RCX=32-byte wanted OID or zero for ls-refs,
+; RAX=status, RDX=operation, RCX=32-byte wanted OID, zero for ls-refs, or the
+; packed object-info OID array. Object-info returns its count in R8; otherwise
 ; R8 flags: ls-refs bits 0..3; fetch bit 4 want-ref, bit 5 sideband-all,
 ; bit 6 blob:none, bit 7 tree filter, bit 8 deepen, bit 9 blob:limit,
 ; bit 10 deepen-relative, bit 11 want-ref HEAD, bit 12 want-ref main,
@@ -153,6 +164,8 @@ git_protocol_v2_parse_request:
  mov byte [request_shallow_count],0
  mov byte [request_fetch_hints],0
  mov byte [request_prefix_masks],0
+ mov byte [request_info_size],0
+ mov byte [request_info_count],0
  call next_packet
  test eax,eax
  jnz .done
@@ -167,7 +180,15 @@ git_protocol_v2_parse_request:
  mov esi,fetch_command_len
  call packet_equal
  test eax,eax
+ jz .fetch
+ lea rdi,[object_info_command]
+ mov esi,object_info_command_len
+ call packet_equal
+ test eax,eax
  jnz .corrupt
+ mov qword [request_operation],GIT_REQUEST_OBJECT_INFO
+ jmp .headers
+.fetch:
  mov qword [request_operation],GIT_REQUEST_FETCH
  jmp .headers
 .ls:
@@ -220,6 +241,8 @@ git_protocol_v2_parse_request:
  jz .finish
  cmp qword [request_operation],GIT_REQUEST_LS_REFS
  je .ls_argument
+ cmp qword [request_operation],GIT_REQUEST_OBJECT_INFO
+ je .info_argument
  cmp byte [request_done],0
  jne .corrupt
  lea rdi,[want_ref_main_line]
@@ -446,6 +469,42 @@ git_protocol_v2_parse_request:
  test eax,eax
  jnz .corrupt
  jmp .argument
+.info_argument:
+ lea rdi,[info_size_line]
+ mov esi,info_size_line_len
+ call packet_equal
+ test eax,eax
+ jz .info_size
+ cmp rcx,info_oid_prefix_len+64+1
+ jne .corrupt
+ cmp dword [rdx],0x2064696f       ; "oid "
+ jne .corrupt
+ cmp byte [request_info_count],32
+ jae .corrupt
+ lea rsi,[rdx+info_oid_prefix_len]
+ movzx eax,byte [request_info_count]
+ shl rax,5
+ lea rdi,[request_info_oids+rax]
+ mov ecx,32
+.info_hex_byte:
+ call hex_nibble
+ jc .corrupt
+ shl al,4
+ mov bl,al
+ call hex_nibble
+ jc .corrupt
+ or al,bl
+ stosb
+ loop .info_hex_byte
+ cmp byte [rsi],10
+ jne .corrupt
+ inc byte [request_info_count]
+ jmp .argument
+.info_size:
+ cmp byte [request_info_size],0
+ jne .corrupt
+ mov byte [request_info_size],1
+ jmp .argument
 .ls_symrefs:
  test qword [request_flags],1
  jnz .corrupt
@@ -467,6 +526,8 @@ git_protocol_v2_parse_request:
  mov rdx,[request_operation]
  cmp rdx,GIT_REQUEST_LS_REFS
  je .finish_ls
+ cmp rdx,GIT_REQUEST_OBJECT_INFO
+ je .finish_info
  call build_have_view
  test eax,eax
  jnz .corrupt
@@ -511,6 +572,15 @@ git_protocol_v2_parse_request:
 .finish_ls:
  xor ecx,ecx
  mov r8,[request_flags]
+ xor eax,eax
+ jmp .done
+.finish_info:
+ cmp byte [request_info_size],1
+ jne .corrupt
+ movzx r8d,byte [request_info_count]
+ test r8,r8
+ jz .corrupt
+ lea rcx,[request_info_oids]
  xor eax,eax
  jmp .done
 .usage: mov eax,VCS_ERR_USAGE
