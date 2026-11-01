@@ -951,11 +951,12 @@ dng_decode:
     ret
 
 ; Read one TIFF SHORT/LONG scalar from the current entry.
+; (.scalar, .meta_value, .meta_fixed and .array_value are called: locals are 8 above rsp)
 .scalar:
     mov eax,r8d
     cmp ecx,3
     jne .scalar_done
-    cmp dword [rsp+D_BE],0
+    cmp dword [rsp+8+D_BE],0
     je .scalar_le
     shr eax,16
     ret
@@ -980,7 +981,7 @@ dng_decode:
     cmp edx,2
     ja .meta_short_indirect
     mov rax,rdi
-    cmp dword [rsp+D_BE],0
+    cmp dword [rsp+8+D_BE],0
     je .meta_short_le
     test r9d,r9d
     jz .meta_short_be_first
@@ -1007,7 +1008,7 @@ dng_decode:
     ja .meta_bad
     lea rdi,[rdi+r9*2]
     add rdi,r12
-    mov esi,[rsp+D_BE]
+    mov esi,[rsp+8+D_BE]
     call tiff_read_u16
     clc
     ret
@@ -1023,7 +1024,7 @@ dng_decode:
     ja .meta_bad
     lea rdi,[rdi+r9*4]
     add rdi,r12
-    mov esi,[rsp+D_BE]
+    mov esi,[rsp+8+D_BE]
     call tiff_read_u32
     clc
     ret
@@ -1033,11 +1034,11 @@ dng_decode:
     ja .meta_bad
     lea r10,[rdi+r9*8]
     lea rdi,[r12+r10]
-    mov esi,[rsp+D_BE]
+    mov esi,[rsp+8+D_BE]
     call tiff_read_u32
     mov r11d,eax
     lea rdi,[r12+r10+4]
-    mov esi,[rsp+D_BE]
+    mov esi,[rsp+8+D_BE]
     call tiff_read_u32
     test eax,eax
     jz .meta_bad
@@ -1066,11 +1067,11 @@ dng_decode:
     ja .fixed_bad
     lea r10,[rdi+rcx*8]
     lea rdi,[r12+r10]
-    mov esi,[rsp+D_BE]
+    mov esi,[rsp+8+D_BE]
     call tiff_read_u32
     mov r11d,eax
     lea rdi,[r12+r10+4]
-    mov esi,[rsp+D_BE]
+    mov esi,[rsp+8+D_BE]
     call tiff_read_u32
     test eax,eax
     jz .fixed_bad
@@ -1104,7 +1105,7 @@ dng_decode:
     ret
 
 .array_value:
-    cmp dword [rsp+D_NSTRIPS],1
+    cmp dword [rsp+8+D_NSTRIPS],1
     jne .array_indirect
     test edx,edx
     jnz .array_bad
@@ -1113,7 +1114,7 @@ dng_decode:
     cmp esi,3
     jne .array_bad
     mov rax,rdi
-    cmp dword [rsp+D_BE],0
+    cmp dword [rsp+8+D_BE],0
     je .array_short_le
     shr rax,16
     clc
@@ -1136,7 +1137,7 @@ dng_decode:
     ja .array_bad
     lea rdi,[rdi+rdx*4]
     add rdi,r12
-    mov esi,[rsp+D_BE]
+    mov esi,[rsp+8+D_BE]
     call tiff_read_u32
     clc
     ret
@@ -1146,7 +1147,7 @@ dng_decode:
     ja .array_bad
     lea rdi,[rdi+rdx*2]
     add rdi,r12
-    mov esi,[rsp+D_BE]
+    mov esi,[rsp+8+D_BE]
     call tiff_read_u16
     clc
     ret
