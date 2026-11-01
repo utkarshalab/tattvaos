@@ -90,7 +90,7 @@
 | FND-05 | Makefile: `all` without `test`; no duplicate `linker.ld`; add `GFX_SRCS` to the replay image; one owner for `linker.ld` | P0 | |
 | FND-06 | Release build mode (`DEBUG_BUILD=0`), warnings as errors | P0 | |
 | FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | |
-| FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | |
+| FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | ✓ `lib/canvas/.gitattributes`: LF everywhere, `*.uic` binary |
 | FND-09 | Host test shim: `ut_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | |
 | FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | → FND-09 |
 | FND-11 | Separate text/rodata/data segments in the linker script (W^X images) | P0 | ld warns about RWX segments today |
@@ -283,7 +283,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| GPU-01 | Fix PM4 type-3 header encoding (type in bits 30–31) | P0 | Bug in `gpu/family/gfx9.asm` |
+| GPU-01 | Fix PM4 type-3 header encoding (type in bits 30–31) | P0 | ✓ `gpu/family/gfx9.asm`: headers, counts, DMA_DATA fill/copy, RELEASE_MEM fence; ring wrap fixed; host-tested (`test_gpu`) |
 | GPU-02 | GPU compositor: textured quads, blending, damage clipping | P3 | ◐ `render/gpu_*` |
 | GPU-03 | Command ring, fences, memory manager on the first family | P3 | ◐ `gpu/*` |
 | GPU-04 | GPU hang detection and reset recovery | P3 | |
