@@ -2,6 +2,9 @@
 ; Headless Backend — Complete Implementation
 ; Frames kept in memory, no display hardware
 ; ============================================================================
+; An output's framebuffer is a memory region of BGRA pixels, read by whoever
+; wants the frame (tests, remote sharing). A new or resized framebuffer is
+; wholly damaged, so the next composite paints all of it.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -13,54 +16,95 @@
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
-extern arena_free
 extern fence_signal
-extern pixbuf_create
-extern pixbuf_destroy
+extern region_add_rect
+extern region_init
 
 section .text
 
 ; ---------------------------------------------------------------------------
 ; headless_init
 ;   Initialize headless backend
-;   IN:  rdi = backend*, rsi = config*
+;   IN:  rdi = backend* (arena and server already set), rsi = config*
 ;   OUT: rax = 0 OK, negative error
 ; ---------------------------------------------------------------------------
 global headless_init
 headless_init:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    
+    mov r13, [rbx + Backend.arena]
+    mov r14, [rbx + Backend.server]
+
     ; Zero backend state
     mov rdi, rbx
     mov rcx, Backend_size
     xor eax, eax
     rep stosb
-    
-    ; Save config
+
+    mov [rbx + Backend.arena], r13
+    mov [rbx + Backend.server], r14
     mov [rbx + Backend.config], r12
-    
-    ; Initialize output list
-    mov qword [rbx + Backend.outputs], 0
-    mov qword [rbx + Backend.output_count], 0
-    mov qword [rbx + Backend.layout_bounds], 0
-    
+
     ; Create virtual frame clock
-    mov rdi, [rbx + Backend.arena]
+    mov rdi, r13
     mov rsi, FrameClock_size
     call arena_alloc
     test rax, rax
     jz .oom
     mov qword [rbx + Backend.frame_clock], rax
-    
+
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .oom:
     mov rax, -(ENOMEM)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+
+; ---------------------------------------------------------------------------
+; headless_framebuffer
+;   Give an output a framebuffer of width x height, freeing any old one, and
+;   damage all of it
+;   IN:  rdi = output*, rsi = width, rdx = height
+;   OUT: rax = 0 OK, negative error
+; ---------------------------------------------------------------------------
+headless_framebuffer:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 24                         ; a rect; 16-byte aligned
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13d, edx
+
+    mov rdi, [rbx + Output.fb_region]
+    test rdi, rdi
+    jz .allocate
+    call ut_mem_free
+    mov qword [rbx + Output.fb_region], 0
+.allocate:
+    lea rdi, [r12 * 4]
+    imul rdi, r13
+    xor esi, esi
+    call ut_mem_alloc
+    test rax, rax
+    js .out
+    mov [rbx + Output.framebuffer], rax
+    mov [rbx + Output.fb_region], r8
+    mov [rbx + Output.width], r12d
+    mov [rbx + Output.height], r13d
+    lea rax, [r12 * 4]
+    mov [rbx + Output.stride], rax
+
+    mov qword [rsp], 0                  ; x, y
+    mov [rsp + 8], r12d
+    mov [rsp + 12], r13d
+    mov rdi, [rbx + Output.damage]
+    mov rsi, rsp
+    call region_add_rect
+.out:
+    add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
@@ -73,25 +117,24 @@ headless_init:
 global headless_deinit
 headless_deinit:
     PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-    
-    ; Destroy all outputs
-    mov rdi, [rbx + Backend.outputs]
-    test rdi, rdi
+    sub rsp, 8
+    mov rbx, [rdi + Backend.outputs]
+    mov qword [rdi + Backend.outputs], 0
+    mov qword [rdi + Backend.output_count], 0
+.next:
+    test rbx, rbx
     jz .done
-.destroy_loop:
+    mov rdi, [rbx + Output.fb_region]
     test rdi, rdi
-    jz .done
-    mov rax, [rdi + Output.next]
-    ; Free output resources
-    mov rsi, rdi
-    mov rdi, [rbx + Backend.arena]
-    call arena_free
-    mov rdi, rax
-    jmp .destroy_loop
+    jz .no_framebuffer
+    call ut_mem_free
+    mov qword [rbx + Output.fb_region], 0
+.no_framebuffer:
+    mov rbx, [rbx + Output.next]
+    jmp .next
 .done:
-    xor rax, rax
+    xor eax, eax
+    add rsp, 8
     EPILOGUE_RESTORE rbx
     ret
 
@@ -103,179 +146,93 @@ headless_deinit:
 ; ---------------------------------------------------------------------------
 global headless_modeset
 headless_modeset:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rsi
+    mov r12, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    ASSERT_PTR r13
-    
+
     ; Validate mode
-    mov eax, [r13 + Mode.width]
-    test eax, eax
+    mov esi, [r12 + Mode.width]
+    mov edx, [r12 + Mode.height]
+    test esi, esi
     jz .bad_mode
-    mov eax, [r13 + Mode.height]
-    test eax, eax
+    test edx, edx
     jz .bad_mode
-    
-    ; Update output dimensions
-    mov eax, [r13 + Mode.width]
-    mov [r12 + Output.width], eax
-    mov eax, [r13 + Mode.height]
-    mov [r12 + Output.height], eax
-    
-    ; Allocate backing pixbuf if needed
-    mov rax, [r12 + Output.current_surface]
-    test rax, rax
-    jnz .update_surface
-    
-    ; Create new surface
-    mov rdi, [rbx + Backend.arena]
-    mov esi, [r13 + Mode.width]
-    mov edx, [r13 + Mode.height]
-    mov rcx, DRM_FORMAT_BGRA8888
-    call pixbuf_create
-    test rax, rax
-    jz .oom
-    mov [r12 + Output.current_surface], rax
-    jmp .done
-    
-.update_surface:
-    ; Check if surface needs resize
-    mov eax, [rax + Surface.width]
-    cmp eax, [r13 + Mode.width]
+
+    cmp esi, [rbx + Output.width]
     jne .resize
-    mov eax, [rax + Surface.height]
-    cmp eax, [r13 + Mode.height]
+    cmp edx, [rbx + Output.height]
     je .done
-    
 .resize:
-    ; Destroy old surface
-    mov rdi, [rbx + Backend.arena]
-    mov rsi, rax
-    call pixbuf_destroy
-    ; Create new surface
-    mov rdi, [rbx + Backend.arena]
-    mov esi, [r13 + Mode.width]
-    mov edx, [r13 + Mode.height]
-    mov rcx, DRM_FORMAT_BGRA8888
-    call pixbuf_create
+    mov rdi, rbx
+    call headless_framebuffer
     test rax, rax
-    jz .oom
-    mov [r12 + Output.current_surface], rax
-    
+    js .out
 .done:
-    mov qword [r12 + Output.current_mode], r13
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    mov [rbx + Output.current_mode], r12
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12
     ret
 .bad_mode:
     mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-.oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
 ; headless_flip
-;   Page flip (no-op for headless, just damage tracking)
+;   Page flip: the frame is already in memory, only the fence remains
 ;   IN:  rdi = controller*, rsi = output*, rdx = buffer*, rcx = fence*
 ;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
 global headless_flip
 headless_flip:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    mov r14, rcx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    
-    ; Update surface buffer pointer
-    mov rax, [r12 + Output.current_surface]
-    test rax, rax
+    test rcx, rcx
     jz .done
-    mov [rax + Surface.buffer], r13
-    
-    ; Signal acquire fence if present
-    test r14, r14
-    jz .done
-    mov rdi, [rbx + Backend.server]
-    mov rsi, r14
+    mov rdi, [rdi + Backend.server]
+    mov rsi, rcx
+    sub rsp, 8
     call fence_signal
-    
+    add rsp, 8
 .done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
 ; headless_vblank_wait
-;   Wait for vblank (simulated with timer)
-;   IN:  rdi = controller*, rsi = output*, rdx = timeout_ns
-;   OUT: rax = 0 OK, -ETIMEDOUT on timeout
+;   Wait for vblank: there is no display to wait for
+;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global headless_vblank_wait
 headless_vblank_wait:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    
-    ; Get current time
-    call ut_time_now_ns
-    mov rbx, rax
-    add rbx, r13
-    
-.wait_loop:
-    call ut_time_now_ns
-    cmp rax, rbx
-    jae .timeout
-    ; Yield (in real impl, would wait on IRQ)
-    pause
-    jmp .wait_loop
-    
-.timeout:
-    mov rax, -(ETIMEDOUT)
-    EPILOGUE_RESTORE rbx, r12, r13
+    xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
 ; headless_hotplug
 ;   Handle hotplug events (simulated)
-;   IN:  rdi = controller*
-;   OUT: rax = 0 OK
+;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global headless_hotplug
 headless_hotplug:
-    PROLOGUE
-    xor rax, rax
-    leave
+    xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
 ; headless_cursor
 ;   Set cursor (no-op for headless)
-;   IN:  rdi = controller*, rsi = output*, rdx = buffer*, rcx = hot_x, r8 = hot_y
-;   OUT: rax = 0 OK
+;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global headless_cursor
 headless_cursor:
-    PROLOGUE
-    xor rax, rax
-    leave
+    xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
 ; headless_create_virtual_output
-;   Create a virtual output for headless backend
-;   IN:  rdi = backend*, rsi = width, rdx = height, rcx = format
+;   Create a virtual output for headless backend, last in the output list
+;   IN:  rdi = backend*, rsi = width, rdx = height, rcx = format (BGRA only)
 ;   OUT: rax = output*, 0 on error
 ; ---------------------------------------------------------------------------
 global headless_create_virtual_output
@@ -284,71 +241,61 @@ headless_create_virtual_output:
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
-    mov r14, rcx
     ASSERT_PTR rbx
-    
+
     ; Allocate output structure
     mov rdi, [rbx + Backend.arena]
     mov rsi, Output_size
     call arena_alloc
     test rax, rax
-    jz .oom
-    mov rbx, rax
-    
-    ; Initialize output
-    mov qword [rbx + Output.x], 0
-    mov qword [rbx + Output.y], 0
-    mov [rbx + Output.width], r12d
-    mov [rbx + Output.height], r13d
-    mov byte [rbx + Output.connected], 1
-    mov qword [rbx + Output.controller], rdi
-    mov dword [rbx + Output.crtc_index], 0
-    mov qword [rbx + Output.current_surface], 0
-    mov qword [rbx + Output.current_mode], 0
-    mov qword [rbx + Output.surfaces], 0
-    mov qword [rbx + Output.toplevels], 0
-    mov qword [rbx + Output.hotplug_callback], 0
-    mov qword [rbx + Output.next], 0
-    mov dword [rbx + Output.stride], 0
-    
-    ; Create initial surface
-    mov rdi, [rdi + Backend.arena]
-    mov esi, r12d
-    mov edx, r13d
-    mov rcx, r14
-    call pixbuf_create
+    jz .fail
+    mov r14, rax
+    mov rdi, rax
+    xor eax, eax
+    mov ecx, Output_size
+    rep stosb
+    mov [r14 + Output.backend], rbx
+    mov [r14 + Output.controller], rbx
+    mov byte [r14 + Output.connected], 1
+
+    mov rdi, [rbx + Backend.arena]
+    call region_init
     test rax, rax
-    jz .oom
-    mov [rbx + Output.current_surface], rax
-    
-    ; Add to output list
-    mov rdi, [rdi + Backend.outputs]
-    test rdi, rdi
-    jz .first_output
-    mov rsi, rdi
+    jz .fail
+    mov [r14 + Output.damage], rax
+
+    mov rdi, r14
+    mov rsi, r12
+    mov rdx, r13
+    call headless_framebuffer
+    test rax, rax
+    js .fail
+
+    ; Last in the list; the server's list is the backend's
+    lea rcx, [rbx + Backend.outputs]
 .find_end:
-    mov rax, [rsi + Output.next]
+    mov rax, [rcx]
     test rax, rax
     jz .append
-    mov rsi, rax
+    lea rcx, [rax + Output.next]
     jmp .find_end
 .append:
-    mov [rsi + Output.next], rbx
-    jmp .done
-.first_output:
-    mov rdi, [rdi + Backend.arena]
-    mov qword [rdi + Backend.outputs], rbx
-    inc qword [rdi + Backend.output_count]
-    
-.done:
-    mov rax, rbx
+    mov [rcx], r14
+    inc qword [rbx + Backend.output_count]
+    mov rax, [rbx + Backend.server]
+    test rax, rax
+    jz .linked
+    mov rcx, [rbx + Backend.outputs]
+    mov [rax + Server.outputs], rcx
+.linked:
+    mov rax, r14
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
-.oom:
-    mov rax, 0
+.fail:
+    xor eax, eax
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 section .data
 global headless_backend_version
-headless_backend_version: dq 0x010000
+headless_backend_version: dq 0x010100
