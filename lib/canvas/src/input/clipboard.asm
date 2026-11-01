@@ -28,7 +28,7 @@ clipboard_set:
     jnz .has_clipboard
 
     ; Create clipboard
-    mov rdi, 80  ; Clipboard_SIZE
+    mov rdi, 80  ; Clipboard_size
     call arena_alloc
     test rax, rax
     jz .oom
