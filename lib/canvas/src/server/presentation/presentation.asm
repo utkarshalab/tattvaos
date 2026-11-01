@@ -21,9 +21,6 @@ struc Feedback
     resb 24
 endstruc
 
-%define SERVER_SURFACE_ID 0
-%define SERVER_SURFACE_CLIENT 40
-%define SERVER_CLIENT_RX_RING 48
 %define CWP_OBJ_PRESENT 25
 %define CWP_PRESENT_EVENT_FEEDBACK 2
 %define PRESENT_KIND_VSYNC 0
@@ -134,7 +131,7 @@ presentation_complete:
     call presentation_unlock
 
     ; Payload is surface handle + alignment + PresentInfo.
-    mov eax, [r12 + SERVER_SURFACE_ID]
+    mov eax, [r12 + Surface.id]
     mov [rsp + 16], eax
     mov dword [rsp + 20], 0
     lea rdi, [rsp + 24]
@@ -145,10 +142,10 @@ presentation_complete:
     mov word [rsp + 4], CWP_PRESENT_EVENT_FEEDBACK
     mov word [rsp + 6], CWP_MSG_FLAG_IS_EVENT
     mov dword [rsp + 8], 40
-    mov rax, [r12 + SERVER_SURFACE_CLIENT]
+    mov rax, [r12 + Surface.client]
     test rax, rax
     jz .ok
-    mov rdi, [rax + SERVER_CLIENT_RX_RING]
+    mov rdi, [rax + Client.rx_ring]
     test rdi, rdi
     jz .ok
     mov rsi, rsp
