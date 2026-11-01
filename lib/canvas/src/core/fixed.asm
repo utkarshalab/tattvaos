@@ -82,9 +82,9 @@ global fix_div
 fix_div:
     PROLOGUE_SAVE rdx
     mov rax, rdi
-    cqo
-    sal rax, FIX_SHIFT
-    rcl rdx, 1
+    cqo                         ; rdx:rax = a, then shifted left 16 as one number
+    shld rdx, rax, FIX_SHIFT
+    shl rax, FIX_SHIFT
     idiv rsi
     EPILOGUE_RESTORE rdx
     ret
@@ -121,40 +121,34 @@ fix_sub:
 ; ---------------------------------------------------------------------------
 global fix_sqrt
 fix_sqrt:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    test rbx, rbx
-    jz .zero
-
-    ; Initial guess: value / 2
-    mov rax, rbx
-    sar rax, 1
-    test rax, rax
-    jnz .iterate
-    mov rax, FIX_ONE
-
-.iterate:
-    mov r12, rax
-    mov rax, rbx
-    cqo
-    idiv r12
-    add rax, r12
-    sar rax, 1
-    cmp rax, r12
-    jge .check_converge
-    mov rax, r12
-.check_converge:
-    sub rax, r12
-    cmp rax, 1
-    jg .iterate
-    cmp rax, -1
-    jl .iterate
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.zero:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    ; sqrt of a Q16.16 x is the integer sqrt of x << 16 (x < 2^47); negative: 0
+    xor eax, eax
+    test rdi, rdi
+    jle .out
+    mov rcx, rdi
+    shl rcx, FIX_SHIFT          ; the radicand
+    mov rdx, 1 << 62            ; the highest power of four
+.top:
+    cmp rdx, rcx
+    jbe .loop
+    shr rdx, 2
+    jmp .top
+.loop:
+    test rdx, rdx
+    jz .out
+    lea r8, [rax + rdx]
+    cmp rcx, r8
+    jb .smaller
+    sub rcx, r8
+    shr rax, 1
+    add rax, rdx
+    jmp .next
+.smaller:
+    shr rax, 1
+.next:
+    shr rdx, 2
+    jmp .loop
+.out:
     ret
 
 ; ---------------------------------------------------------------------------
@@ -187,6 +181,7 @@ fix_lerp:
     sub rbx, rdi
     imul rbx, rdx
     sar rbx, FIX_SHIFT
+    mov rax, rdi                ; a + t * (b - a)
     add rax, rbx
     EPILOGUE_RESTORE rbx
     ret
