@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 extern arena_alloc
@@ -178,7 +179,7 @@ psd_decode:
     test rax,rax
     jz .bad
     mov rbx,rax
-    mov rdi,[rbx+PixBuf_data]
+    mov rdi,[rbx+PixBuf.data]
     mov rsi,[rsp+32]
     xor r10,r10
 .pixel:
