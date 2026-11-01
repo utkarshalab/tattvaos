@@ -10,22 +10,7 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define Quota_SIZE    56
-
 section .text
-
-struc Quota
-    .max_mem:        resq 1
-    .used_mem:       resq 1
-    .max_surfs:      resd 1
-    .used_surfs:     resd 1
-    .max_bufs:       resd 1
-    .used_bufs:      resd 1
-    .max_objs:       resd 1
-    .used_objs:      resd 1
-    .client:         resq 1
-endstruc
 
 ; ---------------------------------------------------------------------------
 ; quota_init
