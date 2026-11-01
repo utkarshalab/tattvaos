@@ -70,7 +70,7 @@ trust_create_default_profiles:
     
     ; Create trusted profile
     mov rdi, [rbx + Server.arena]
-    mov rsi, TrustProfile_SIZE
+    mov rsi, TrustProfile_size
     call arena_alloc
     test rax, rax
     jz .fail
@@ -93,7 +93,7 @@ trust_create_default_profiles:
     
     ; Create standard profile
     mov rdi, [rbx + Server.arena]
-    mov rsi, TrustProfile_SIZE
+    mov rsi, TrustProfile_size
     call arena_alloc
     test rax, rax
     jz .fail
@@ -115,7 +115,7 @@ trust_create_default_profiles:
     
     ; Create sandboxed profile
     mov rdi, [rbx + Server.arena]
-    mov rsi, TrustProfile_SIZE
+    mov rsi, TrustProfile_size
     call arena_alloc
     test rax, rax
     jz .fail
@@ -174,7 +174,7 @@ trust_create_profile:
     jnz .exists
 
     mov rdi, [rbx + Server.arena]
-    mov rsi, TrustProfile_SIZE
+    mov rsi, TrustProfile_size
     call arena_alloc
     test rax, rax
     jz .create_oom
