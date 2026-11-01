@@ -129,9 +129,9 @@ jpeg_huff_decode:
     test rax, rax
     jz .fail
     mov rdx, [r12]
-    shl rdx, 1
     mov rcx, rdx
-    shr rcx, 63
+    shr rcx, 63                     ; the top bit is the next one
+    shl rdx, 1
     mov [r12], rdx
     dec qword [r12 + 8]
     shl r13d, 1
