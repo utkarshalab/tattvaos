@@ -8,6 +8,7 @@ extern bridge_git_serve,bridge_git_serve_terminal
 extern bridge_pkt_decode,bridge_pkt_encode
 extern git_protocol_v2_parse_request
 extern git_protocol_v2_clear_haves,git_protocol_v2_retain_haves
+extern git_protocol_v2_set_session_id
 extern vcs_sync_listen_begin,vcs_sync_accept_poll,vcs_sync_connect_poll,vcs_sync_close
 extern vcs_sync_unet_send,vcs_sync_unet_receive
 
@@ -35,6 +36,8 @@ server_offset: resq 1
 server_length: resq 1
 server_seen_refs: resb 1
 server_negotiation_rounds: resb 1
+server_session_generation: resq 1
+server_session_id: resb 16
 server_request: resb GIT_REQUEST_CAP
 server_response: resb GIT_RESPONSE_CAP
 
@@ -71,6 +74,24 @@ git_upload_server_begin:
  test eax,eax
  js .begin_io
  mov [server_listener],eax
+ inc qword [server_session_generation]
+ rdtsc
+ shl rdx,32
+ or rax,rdx
+ xor rax,[server_commit]
+ mov [server_session_id],rax
+ rdtsc
+ shl rdx,32
+ or rax,rdx
+ xor rax,[server_session_generation]
+ mov edx,[server_listener]
+ shl rdx,32
+ xor rax,rdx
+ mov [server_session_id+8],rax
+ lea rdi,[server_session_id]
+ call git_protocol_v2_set_session_id
+ test eax,eax
+ jnz .begin_io
  call git_protocol_v2_clear_haves
  mov dword [server_state],GIT_SERVER_ACCEPT
  xor eax,eax
