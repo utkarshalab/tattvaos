@@ -111,6 +111,35 @@ msgbuf_init:
     ret
 
 ; ---------------------------------------------------------------------------
+; msgbuf_create
+;   Allocate and initialize a message buffer
+;   IN:  rdi = arena, rsi = capacity (0: 4096)
+;   OUT: rax = MsgBuf*, 0 on failure
+; ---------------------------------------------------------------------------
+global msgbuf_create
+msgbuf_create:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8
+    mov rbx, rdi
+    mov r12, rsi
+    mov rsi, MsgBuf_size
+    call arena_alloc
+    test rax, rax
+    jz .out
+    mov r13, rax
+    mov rdi, r13
+    mov rsi, rbx
+    mov rdx, r12
+    call msgbuf_init
+    test rax, rax
+    mov eax, 0
+    cmovz rax, r13
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+; ---------------------------------------------------------------------------
 ; msgbuf_write
 ;   Write one message
 ;   IN:  rdi = msgbuf*, rsi = msg_hdr*, rdx = payload (may be 0 when hdr.len is 0)
