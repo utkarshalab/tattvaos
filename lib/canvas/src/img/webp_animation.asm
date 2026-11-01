@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 %define FOURCC_RIFF 0x46464952
 %define FOURCC_WEBP 0x50424557
@@ -257,20 +258,20 @@ webp_composite_frame:
     mov eax,[rbx+WebPCompositeState.width]
     test eax,eax
     jz .composite_bad
-    cmp rax,[r13+PixBuf_width]
+    cmp rax,[r13+PixBuf.width]
     ja .composite_bad
     add eax,[rbx+WebPCompositeState.x]
     jc .composite_bad
-    cmp rax,[r12+PixBuf_width]
+    cmp rax,[r12+PixBuf.width]
     ja .composite_bad
     mov eax,[rbx+WebPCompositeState.height]
     test eax,eax
     jz .composite_bad
-    cmp rax,[r13+PixBuf_height]
+    cmp rax,[r13+PixBuf.height]
     ja .composite_bad
     add eax,[rbx+WebPCompositeState.y]
     jc .composite_bad
-    cmp rax,[r12+PixBuf_height]
+    cmp rax,[r12+PixBuf.height]
     ja .composite_bad
     xor r14d,r14d
 .composite_row:
@@ -278,14 +279,14 @@ webp_composite_frame:
     jae .composite_ok
     mov eax,r14d
     add eax,[rbx+WebPCompositeState.y]
-    imul rax,[r12+PixBuf_stride]
-    add rax,[r12+PixBuf_data]
+    imul rax,[r12+PixBuf.stride]
+    add rax,[r12+PixBuf.data]
     mov edx,[rbx+WebPCompositeState.x]
     lea rax,[rax+rdx*4]
     mov [rsp],rax
     mov eax,r14d
-    imul rax,[r13+PixBuf_stride]
-    add rax,[r13+PixBuf_data]
+    imul rax,[r13+PixBuf.stride]
+    add rax,[r13+PixBuf.data]
     mov [rsp+8],rax
     xor r15d,r15d
 .composite_pixel:
@@ -396,21 +397,21 @@ webp_dispose_background:
     mov rax,r12
     add rax,r14
     jc .dispose_bad
-    cmp rax,[rbx+PixBuf_width]
+    cmp rax,[rbx+PixBuf.width]
     ja .dispose_bad
     mov rax,r13
     add rax,r15
     jc .dispose_bad
-    cmp rax,[rbx+PixBuf_height]
+    cmp rax,[rbx+PixBuf.height]
     ja .dispose_bad
     mov rax,r13
-    imul rax,[rbx+PixBuf_stride]
-    add rax,[rbx+PixBuf_data]
+    imul rax,[rbx+PixBuf.stride]
+    add rax,[rbx+PixBuf.data]
     lea rdi,[rax+r12*4]
     mov esi,r9d
     mov rdx,r14
     mov rcx,r15
-    mov r8,[rbx+PixBuf_stride]
+    mov r8,[rbx+PixBuf.stride]
     call fill_solid
     jmp .dispose_out
 .dispose_bad:
@@ -490,11 +491,11 @@ webp_decode_animation:
     test rax,rax
     jle .decode_fail
     mov [rsp+40],rax                    ; working canvas
-    mov rdi,[rax+PixBuf_data]
+    mov rdi,[rax+PixBuf.data]
     mov esi,[r14+WebPAnimation.background]
     mov edx,[r14+WebPAnimation.width]
     mov ecx,[r14+WebPAnimation.height]
-    mov r8,[rax+PixBuf_stride]
+    mov r8,[rax+PixBuf.stride]
     call fill_solid
 
     mov eax,[r12+4]
@@ -587,10 +588,10 @@ webp_decode_animation:
     jz .decode_fail
     mov [rsp+128],rax                   ; decoded frame
     mov ecx,[rsp+72]
-    cmp rcx,[rax+PixBuf_width]
+    cmp rcx,[rax+PixBuf.width]
     jne .decode_fail
     mov ecx,[rsp+76]
-    cmp rcx,[rax+PixBuf_height]
+    cmp rcx,[rax+PixBuf.height]
     jne .decode_fail
     cmp dword [rsp+120],WEBP_CODEC_VP8
     jne .frame_alpha_done
@@ -635,15 +636,15 @@ webp_decode_animation:
     test rax,rax
     jle .decode_fail
     mov [rsp+128],rax
-    mov rdi,[rax+PixBuf_data]
+    mov rdi,[rax+PixBuf.data]
     mov rax,[rsp+40]
-    mov rsi,[rax+PixBuf_data]
+    mov rsi,[rax+PixBuf.data]
     mov edx,[r14+WebPAnimation.width]
     mov ecx,[r14+WebPAnimation.height]
     mov rax,[rsp+128]
-    mov r8,[rax+PixBuf_stride]
+    mov r8,[rax+PixBuf.stride]
     mov rax,[rsp+40]
-    mov r9,[rax+PixBuf_stride]
+    mov r9,[rax+PixBuf.stride]
     call blit_copy
     mov ecx,[rsp+56]
     mov rdi,[r14+WebPAnimation.frames]
