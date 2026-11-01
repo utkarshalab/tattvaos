@@ -7,13 +7,13 @@
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/backend.inc"
 
 extern arena_alloc
 extern crp_share_broadcast
 extern rfb_server_update
 extern virtual_output_create
 
-; struct offsets (hoisted above use)
 %define _RemoteBackend_size 24
 
 section .text
