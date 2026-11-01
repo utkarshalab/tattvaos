@@ -7,6 +7,7 @@
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern arena_alloc
 extern lzw_decode_gif
@@ -236,12 +237,12 @@ gif_apply_disposal:
     mov rax, r13
     add rax, r15
     jc .dispose_invalid
-    cmp rax, [rbx + PixBuf_width]
+    cmp rax, [rbx + PixBuf.width]
     ja .dispose_invalid
     mov rax, r14
     add rax, r9
     jc .dispose_invalid
-    cmp rax, [rbx + PixBuf_height]
+    cmp rax, [rbx + PixBuf.height]
     ja .dispose_invalid
     cmp r10d, 1
     jbe .dispose_keep
@@ -257,30 +258,30 @@ gif_apply_disposal:
     jmp .dispose_out
 .dispose_background:
     mov rax, r14
-    imul rax, [rbx + PixBuf_stride]
-    add rax, [rbx + PixBuf_data]
+    imul rax, [rbx + PixBuf.stride]
+    add rax, [rbx + PixBuf.data]
     lea rdi, [rax + r13 * 4]
     mov esi, r11d
     mov rdx, r15
     mov rcx, r9
-    mov r8, [rbx + PixBuf_stride]
+    mov r8, [rbx + PixBuf.stride]
     call fill_solid
     jmp .dispose_out
 .dispose_restore:
     test r12, r12
     jz .dispose_invalid
     mov rax, r14
-    imul rax, [rbx + PixBuf_stride]
-    add rax, [rbx + PixBuf_data]
+    imul rax, [rbx + PixBuf.stride]
+    add rax, [rbx + PixBuf.data]
     lea rdi, [rax + r13 * 4]
     mov rax, r14
-    imul rax, [r12 + PixBuf_stride]
-    add rax, [r12 + PixBuf_data]
+    imul rax, [r12 + PixBuf.stride]
+    add rax, [r12 + PixBuf.data]
     lea rsi, [rax + r13 * 4]
     mov rdx, r15
     mov rcx, r9
-    mov r8, [rbx + PixBuf_stride]
-    mov r9, [r12 + PixBuf_stride]
+    mov r8, [rbx + PixBuf.stride]
+    mov r9, [r12 + PixBuf.stride]
     call blit_copy
     jmp .dispose_out
 .dispose_out:
@@ -297,20 +298,20 @@ gif_clone_canvas:
     ASSERT_PTR rbx
     ASSERT_PTR r12
     mov rdi, rbx
-    mov rsi, [r12 + PixBuf_width]
-    mov rdx, [r12 + PixBuf_height]
-    mov rcx, [r12 + PixBuf_format]
+    mov rsi, [r12 + PixBuf.width]
+    mov rdx, [r12 + PixBuf.height]
+    mov rcx, [r12 + PixBuf.format]
     call pixbuf_create
     test rax, rax
     js .clone_out
     jz .clone_oom
     mov r13, rax
-    mov rdi, [r13 + PixBuf_data]
-    mov rsi, [r12 + PixBuf_data]
-    mov rdx, [r12 + PixBuf_width]
-    mov rcx, [r12 + PixBuf_height]
-    mov r8, [r13 + PixBuf_stride]
-    mov r9, [r12 + PixBuf_stride]
+    mov rdi, [r13 + PixBuf.data]
+    mov rsi, [r12 + PixBuf.data]
+    mov rdx, [r12 + PixBuf.width]
+    mov rcx, [r12 + PixBuf.height]
+    mov r8, [r13 + PixBuf.stride]
+    mov r9, [r12 + PixBuf.stride]
     call blit_copy
     test rax, rax
     jnz .clone_out
@@ -331,27 +332,27 @@ gif_composite_canvas:
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    mov rax, [rbx + PixBuf_width]
-    cmp rax, [r12 + PixBuf_width]
+    mov rax, [rbx + PixBuf.width]
+    cmp rax, [r12 + PixBuf.width]
     jne .composite_invalid
-    mov r13, [rbx + PixBuf_height]
-    cmp r13, [r12 + PixBuf_height]
+    mov r13, [rbx + PixBuf.height]
+    cmp r13, [r12 + PixBuf.height]
     jne .composite_invalid
     xor r14d, r14d
 .composite_row:
     cmp r14, r13
     jae .composite_done
     mov rax, r14
-    imul rax, [rbx + PixBuf_stride]
-    add rax, [rbx + PixBuf_data]
+    imul rax, [rbx + PixBuf.stride]
+    add rax, [rbx + PixBuf.data]
     mov rdi, rax
     mov rax, r14
-    imul rax, [r12 + PixBuf_stride]
-    add rax, [r12 + PixBuf_data]
+    imul rax, [r12 + PixBuf.stride]
+    add rax, [r12 + PixBuf.data]
     mov rsi, rax
     xor r15d, r15d
 .composite_pixel:
-    cmp r15, [rbx + PixBuf_width]
+    cmp r15, [rbx + PixBuf.width]
     jae .composite_next_row
     mov eax, [rsi + r15 * 4]
     test eax, 0xFF000000
@@ -562,11 +563,11 @@ gif_decode_first:
     jz .new_oom_stack
     js .new_oom_stack
     mov [rsp + 80], rax
-    mov rdi, [rax + PixBuf_data]
+    mov rdi, [rax + PixBuf.data]
     xor esi, esi
     mov edx, [rsp]
     mov ecx, [rsp + 4]
-    mov r8, [rax + PixBuf_stride]
+    mov r8, [rax + PixBuf.stride]
     call fill_solid
     xor r13d, r13d             ; image y
 .new_row:
@@ -627,10 +628,10 @@ gif_decode_first:
     mov al, [rdx + 2]
     or eax, 0xFF000000
     mov rdx, [rsp + 80]
-    mov rdi, [rdx + PixBuf_data]
+    mov rdi, [rdx + PixBuf.data]
     mov ecx, [rsp + 88]
     add ecx, [rsp + 12]
-    imul rcx, [rdx + PixBuf_stride]
+    imul rcx, [rdx + PixBuf.stride]
     add rdi, rcx
     mov ecx, r14d
     add ecx, [rsp + 8]
