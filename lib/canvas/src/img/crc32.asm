@@ -42,7 +42,7 @@ crc32:
     and eax, 1
     neg rax
     shr r15, 1
-    and rax, 0x82F63B78
+    and eax, 0x82F63B78             ; 32-bit: the polynomial, high half clear
     xor r15, rax
     dec ecx
     jnz .bit
