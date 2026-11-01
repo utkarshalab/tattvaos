@@ -26,6 +26,7 @@ hp_plan_count: resq 1
 hp_file_parents: resb VR_FILES
 hp_blob_hashes: resb VR_FILES*GIT_HASH_SIZE
 hp_tree_hashes: resb GIT_TREE_MAX*GIT_TREE_HASH_SIZE
+hp_tree_sizes: resq GIT_TREE_MAX
 hp_entries: resb (VR_FILES+GIT_TREE_MAX)*GIT_TREE_ENTRY
 hp_emit_request: resb GIT_TREE_EMIT_PLAN_REQUEST
 hp_tree_buffer: resb 32768
@@ -55,12 +56,18 @@ hp_unshallow_valid: resb 1
 hp_unshallow_hash: resb GIT_HASH_SIZE
 hp_common_count: resq 1
 hp_common_hashes: resb 64*GIT_HASH_SIZE
+hp_query_mode: resb 1
+hp_query_oids: resq 1
+hp_query_count: resq 1
+hp_query_sizes: resq 1
+hp_query_found: resq 1
 
 section .rodata
 blob_type: db 'blob'
 
 section .text
 global git_history_pack,git_history_pack_cut,git_history_oid
+global git_history_object_sizes
 global git_history_find_common,git_history_shallow
 global git_history_set_unshallow,git_history_unshallow
 global git_history_common
@@ -81,6 +88,7 @@ git_history_pack:
  test rcx,rcx
  jz history_usage
  mov byte [hp_pack_mode],1
+ mov byte [hp_query_mode],0
  mov byte [hp_filter_blobs],0
  mov byte [hp_filter_trees],0
  mov byte [hp_filter_limit],0
@@ -120,6 +128,7 @@ git_history_pack_cut:
  jae history_usage
 .cut_ready:
  mov byte [hp_pack_mode],1
+ mov byte [hp_query_mode],0
  xor eax,eax
  test r9,64
  setnz al
@@ -173,6 +182,7 @@ git_history_oid:
  test rsi,rsi
  jz history_usage
  mov byte [hp_pack_mode],0
+ mov byte [hp_query_mode],0
  mov byte [hp_filter_blobs],0
  mov byte [hp_filter_trees],0
  mov byte [hp_filter_limit],0
@@ -183,6 +193,58 @@ git_history_oid:
  mov qword [hp_depth],0
  mov qword [hp_cutoff],-1
  mov [hp_tip_output],rsi
+ xor r12d,r12d
+ xor r13d,r13d
+ jmp history_encode
+
+; RDI=tip, RSI=packed 32-byte OIDs, RDX=count (1..32), RCX=u64 sizes,
+; R8=found-byte array. Resolve canonical commit, tree, and blob body sizes.
+git_history_object_sizes:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jz history_usage
+ test rsi,rsi
+ jz history_usage
+ test rdx,rdx
+ jz history_usage
+ cmp rdx,32
+ ja history_usage
+ test rcx,rcx
+ jz history_usage
+ test r8,r8
+ jz history_usage
+ mov [hp_query_oids],rsi
+ mov [hp_query_count],rdx
+ mov [hp_query_sizes],rcx
+ mov [hp_query_found],r8
+ push rdi
+ mov rdi,rcx
+ xor eax,eax
+ mov rcx,rdx
+ rep stosq
+ mov rdi,r8
+ mov rcx,rdx
+ rep stosb
+ pop rdi
+ mov byte [hp_query_mode],1
+ mov byte [hp_pack_mode],0
+ mov byte [hp_filter_blobs],0
+ mov byte [hp_filter_trees],0
+ mov byte [hp_filter_limit],0
+ mov qword [hp_blob_limit],0
+ mov qword [hp_tree_depth],0
+ mov byte [hp_filter_type],0
+ mov byte [hp_object_type],0
+ mov qword [hp_depth],0
+ mov qword [hp_cutoff],-1
+ lea rax,[hp_tip_scratch]
+ mov [hp_tip_output],rax
  xor r12d,r12d
  xor r13d,r13d
 
@@ -332,6 +394,18 @@ history_encode:
  call git_object_hash
  test eax,eax
  jnz history_done
+ cmp byte [hp_query_mode],0
+ je .blob_query_done
+ mov rax,rbx
+ imul rax,GIT_HASH_SIZE
+ lea rdi,[hp_blob_hashes+rax]
+ mov rax,rbx
+ shl rax,8
+ add rax,rbp
+ add rax,VR_HEADER
+ mov rsi,[rax+VR_SIZE]
+ call query_match
+.blob_query_done:
  inc rbx
  jmp .hash_blob
 .map_files:
@@ -416,6 +490,8 @@ history_encode:
  lea rax,[hp_tree_buffer]
  mov [hp_emit_request+GTEP_BUFFER],rax
  mov qword [hp_emit_request+GTEP_BUFFER_CAPACITY],32768
+ lea rax,[hp_tree_sizes]
+ mov [hp_emit_request+GTEP_TREE_SIZES],rax
  xor eax,eax
  cmp byte [hp_pack_mode],0
  setz al
@@ -436,6 +512,20 @@ history_encode:
  call git_tree_emit_plan
  test eax,eax
  jnz history_done
+ cmp byte [hp_query_mode],0
+ je .tree_query_done
+ xor ebx,ebx
+.tree_query:
+ cmp rbx,[hp_plan_count]
+ jae .tree_query_done
+ mov rax,rbx
+ imul rax,GIT_HASH_SIZE
+ lea rdi,[hp_tree_hashes+rax]
+ mov rsi,[hp_tree_sizes+rbx*8]
+ call query_match
+ inc rbx
+ jmp .tree_query
+.tree_query_done:
  lea rdi,[hp_commit_request]
  xor eax,eax
  mov ecx,git_commit_request_size/8
@@ -462,6 +552,12 @@ history_encode:
  test eax,eax
  jnz history_done
  mov [hp_commit_size],rdx
+ cmp byte [hp_query_mode],0
+ je .commit_query_done
+ lea rdi,[hp_commit_hash]
+ mov rsi,rdx
+ call query_match
+.commit_query_done:
  cmp byte [hp_pack_mode],0
  je .commit_hashed
  cmp byte [hp_filter_type],0
@@ -513,6 +609,12 @@ history_encode:
  call git_pack_finish
  jmp history_done
 .finish_oid:
+ cmp byte [hp_query_mode],0
+ je .finish_oid_hash
+ mov rdx,[hp_query_count]
+ xor eax,eax
+ jmp history_done
+.finish_oid_hash:
  mov edx,GIT_HASH_SIZE
  xor eax,eax
  jmp history_done
@@ -532,6 +634,40 @@ history_done:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; RDI=32-byte object hash, RSI=canonical body size.
+query_match:
+ push rbx
+ push r12
+ push r13
+ push r14
+ mov r12,rdi
+ mov r13,rsi
+ xor ebx,ebx
+.query_next:
+ cmp rbx,[hp_query_count]
+ jae .query_done
+ mov rax,rbx
+ imul rax,GIT_HASH_SIZE
+ add rax,[hp_query_oids]
+ mov rdi,r12
+ mov rsi,rax
+ mov ecx,GIT_HASH_SIZE
+ repe cmpsb
+ jne .query_skip
+ mov rax,[hp_query_sizes]
+ mov [rax+rbx*8],r13
+ mov rax,[hp_query_found]
+ mov byte [rax+rbx],1
+.query_skip:
+ inc rbx
+ jmp .query_next
+.query_done:
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
  ret
 
 ; RDI=VCS tip, RSI=packed 32-byte have OIDs, RDX=count (0..64).
