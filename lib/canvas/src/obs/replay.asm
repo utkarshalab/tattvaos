@@ -12,9 +12,6 @@
 extern arena_alloc
 %include "inc/struct_offsets.inc"
 
-; struct offsets (hoisted above use)
-%define Replayer_SIZE    48
-
 section .text
 
 ; Replayer struct layout (manual offsets)
