@@ -38,7 +38,6 @@ extern remote_backend_vblank_wait
 extern remote_backend_hotplug
 extern remote_backend_cursor
 
-; struct offsets (hoisted above use)
 %define BACKEND_HEADLESS    1
 %define BACKEND_FB_LINEAR   2
 %define BACKEND_NATIVE      3
@@ -510,7 +509,6 @@ backend_cursor:
     ret
 
 section .data
-
 
 global backend_version
 backend_version: dq 0x010000
