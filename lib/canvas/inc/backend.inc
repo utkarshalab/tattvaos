@@ -90,6 +90,7 @@ struc Output
     .vrr_min_refresh:         resq 1
     .x:                       resq 1
     .y:                       resq 1
+    .fb_region:               resq 1
 endstruc
 
 ; Mode Structure
