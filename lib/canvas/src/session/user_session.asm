@@ -48,7 +48,7 @@ user_session_create:
 
     ; Allocate session
     mov rdi,[r14 + Server.arena]
-    mov rsi, UserSession_SIZE
+    mov rsi, UserSession_size
     call arena_alloc
     test rax, rax
     jz .oom
