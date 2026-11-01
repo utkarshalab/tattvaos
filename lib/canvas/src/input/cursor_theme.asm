@@ -10,8 +10,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define CursorTheme_SIZE 40
 %define MAX_CURSORS_PER_THEME  64
 
 section .text
@@ -23,7 +21,6 @@ struc CursorTheme
     .size:          resd 1
     .fallback:      resq 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; cursor_theme_init
@@ -37,7 +34,7 @@ cursor_theme_init:
     ASSERT_PTR r12
 
     mov rdi, r12
-    mov rsi, CursorTheme_size
+    mov rsi, CursorTheme.size
     call arena_alloc
     test rax, rax
     jz .oom
@@ -74,7 +71,7 @@ cursor_theme_load:
 
     ; Allocate theme
     mov rdi, [rbx + Server.arena]
-    mov rsi, CursorTheme_size
+    mov rsi, CursorTheme.size
     call arena_alloc
     test rax, rax
     jz .oom
