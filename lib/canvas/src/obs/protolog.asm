@@ -11,9 +11,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define ProtoLog_SIZE    56
-%define ProtoLogEntry_SIZE    40
 %define PROTOLOG_DEFAULT_CAPACITY 2048
 %define PROTOLOG_DIR_C2S      0
 %define PROTOLOG_DIR_S2C      1
@@ -23,7 +20,6 @@ section .text
 ; ProtoLog struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
 ; ProtoLogEntry struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
-
 
 ; ---------------------------------------------------------------------------
 ; protolog_init
