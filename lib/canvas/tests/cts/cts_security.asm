@@ -26,7 +26,6 @@ test_cts_sandboxed_has_no_capture:
 
 test_name_cts_sandboxed_has_no_capture: db "cts sandboxed has no capture", 0
 
-
 section .data
 global cts_security_version
 cts_security_version: dq 0x010000
