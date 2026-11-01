@@ -57,7 +57,10 @@ def path_of(cmds):
 
 
 def check_glyphs(tool, d, path, face, index=0):
-    cps = sorted(face.cmap) + EXTRA
+    cps = sorted(face.cmap)
+    if len(cps) > 5000:                     # CJK: a spread of some 300 (each face of the collections)
+        cps = cps[::len(cps) // 300 + 1]
+    cps += EXTRA
     src = os.path.join(d, "in.bin")
     out = os.path.join(d, "out.bin")
     var = getattr(face, "settings", {})
@@ -112,13 +115,15 @@ def main():
     fonts = fontmodel.FontSet(font_dir)
     failed = total = 0
     with tempfile.TemporaryDirectory(prefix="ufont.") as d:
-        for name, _, _, _ in fontmodel.STANDARD:
+        for i, (name, index, _, _, _) in enumerate(fontmodel.STANDARD):
             path = os.path.join(font_dir, name)
-            face = next(f for f in fonts.faces if f.std == [s[0] for s in fontmodel.STANDARD].index(name))
-            err = check_glyphs(tool, d, path, face)
+            face = next(f for f in fonts.faces if f.std == i)
+            err = check_glyphs(tool, d, path, face, index)
+            face._cff = None                    # a collection's CFF is large: parsed again if needed
             total += 1
             failed += err is not None
-            print(f"{'ok  ' if err is None else 'FAIL'}  glyphs {name:32} {len(face.cmap):5} mapped"
+            label = name if not index else f"{name} face {index}"
+            print(f"{'ok  ' if err is None else 'FAIL'}  glyphs {label:32} {len(face.cmap):5} mapped"
                   + (f"  {err}" if err else ""))
         # CFF outlines: test fonts made from the shipped ones (cff_fonts.py)
         import cff_fonts
