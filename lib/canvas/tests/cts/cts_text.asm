@@ -26,7 +26,6 @@ test_cts_text_connect:
 
 test_name_cts_text_connect: db "cts text connect", 0
 
-
 section .data
 global cts_text_version
 cts_text_version: dq 0x010000
