@@ -10,17 +10,13 @@
 extern arena_alloc
 extern toplevel_schedule_configure
 
-; struct offsets (hoisted above use)
-%define LayoutEngine_SIZE    40
 %define LAYOUT_NODE_LEAF    0
 %define LAYOUT_NODE_HSPLIT  1
 %define LAYOUT_NODE_VSPLIT  2
-%define LayoutNode_SIZE    64
 
 section .text
 
 ; LayoutEngine struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
-
 
 ; LayoutNode struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
 
