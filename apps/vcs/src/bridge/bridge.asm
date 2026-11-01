@@ -12,9 +12,10 @@ extern vcs_history,vcs_history_signed,vcs_checkout
 extern uxv_find,uxv_free,uxv_normalize,uxv_nodes
 extern git_protocol_v2_advertise,git_protocol_v2_parse_request
 extern git_protocol_v2_ls_refs,git_protocol_v2_fetch
-extern git_protocol_v2_acknowledge,git_history_oid
+extern git_protocol_v2_acknowledge,git_protocol_v2_object_info,git_history_oid
 extern git_protocol_v2_haves,git_protocol_v2_shallow
 extern git_history_pack_cut,git_history_find_common
+extern git_history_object_sizes
 extern git_history_set_unshallow
 extern git_history_common
 extern git_first_parent_plan
@@ -45,6 +46,8 @@ history_mark: resq 1
 serve_pack: resb VCS_WIRE_MAX_PAYLOAD
 serve_oid: resb 32
 serve_flags: resq 1
+serve_info_sizes: resq 32
+serve_info_found: resb 32
 serve_response_terminal: resb 1
 
 section .rodata
@@ -1535,6 +1538,8 @@ bridge_git_serve:
  mov [serve_flags],r8           ; ls-refs request flags
  cmp rbx,1
  je .serve_refs_oid
+ cmp rbx,3
+ je .serve_object_info
  cmp rbx,2
  jne .serve_corrupt
  test qword [serve_flags],256
@@ -1671,6 +1676,38 @@ bridge_git_serve:
  mov rdx,r14
  mov rcx,r15
  call git_protocol_v2_ls_refs
+ jmp .serve_done
+.serve_object_info:
+ test r12,r12
+ jz .serve_corrupt
+ mov r13,[serve_flags]
+ test r13,r13
+ jz .serve_corrupt
+ cmp r13,32
+ ja .serve_corrupt
+ mov rdi,rbp
+ mov rsi,r12
+ mov rdx,r13
+ lea rcx,[serve_info_sizes]
+ lea r8,[serve_info_found]
+ call git_history_object_sizes
+ test eax,eax
+ jnz .serve_done
+ xor ebx,ebx
+.serve_info_found:
+ cmp rbx,r13
+ jae .serve_info_encode
+ cmp byte [serve_info_found+rbx],1
+ jne .serve_missing
+ inc rbx
+ jmp .serve_info_found
+.serve_info_encode:
+ mov rdi,r12
+ lea rsi,[serve_info_sizes]
+ mov rdx,r13
+ mov rcx,r14
+ mov r8,r15
+ call git_protocol_v2_object_info
  jmp .serve_done
 .serve_usage: mov eax,VCS_ERR_USAGE
  jmp .serve_done
