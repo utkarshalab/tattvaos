@@ -26,7 +26,6 @@ test_cts_server_survives_churn:
 
 test_name_cts_server_survives_churn: db "cts server survives churn", 0
 
-
 section .data
 global cts_governance_version
 cts_governance_version: dq 0x010000
