@@ -53,7 +53,7 @@ ime_bridge_create:
     ASSERT_PTR r12
 
     mov rdi, [rbx + Seat.ime_arena]
-    mov rsi, IMEBridge_SIZE
+    mov rsi, IMEBridge_size
     call arena_alloc
     test rax, rax
     jz .oom
