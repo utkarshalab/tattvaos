@@ -577,22 +577,8 @@ $(OBJDIR)/ufont/%.o: $(UFONT_DIR)/%.asm $(UFONT_DIR)/include/ufont.inc $(UFONT_D
 	$(NASM) $(NASMFLAGS) -o $@ $<
 	@echo "  ASM    $<"
 
-# ---------------------------------------------------------------------------
-# Linker Script
-# ---------------------------------------------------------------------------
-
-linker.ld:
-	@printf '%s\n' \
-		'ENTRY(canvasd_init)' \
-		'SECTIONS' \
-		'{' \
-		'    . = 0x200000;' \
-		'    .text : { *(.text*) }' \
-		'    .rodata : { *(.rodata*) }' \
-		'    .data : { *(.data*) }' \
-		'    .bss : { *(.bss*) *(COMMON) }' \
-		'    /DISCARD/ : { *(.note.*) *(.comment*) }' \
-		'}' > $@
+# linker.ld (tracked, W^X segments) is the one link layout; nothing generates
+# or deletes it.
 
 # ---------------------------------------------------------------------------
 # Test Targets
@@ -816,11 +802,10 @@ cts: $(IMAGEDIR)/cts_runner.img
 .PHONY: clean
 clean:
 	rm -rf $(BUILDDIR)
-	rm -f linker.ld
 
 .PHONY: distclean
 distclean: clean
-	rm -rf $(BUILDDIR)
+	rm -rf build
 
 # ---------------------------------------------------------------------------
 # Development Helpers
