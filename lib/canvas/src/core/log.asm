@@ -6,6 +6,8 @@
 %include "inc/macros.inc"
 %include "inc/ut.inc"
 
+default rel
+
 section .text
 
 global log_init
