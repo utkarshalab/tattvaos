@@ -20,6 +20,8 @@ extern client_registry_find
 extern handle_table_init
 extern channel_init
 extern auth_handshake
+extern surface_destroy_client
+extern buffer_destroy_client
 
 %define CLIENT_CONNECTING   1
 %define CLIENT_ACTIVE       2
@@ -214,6 +216,14 @@ client_disconnect:
 
     ; Mark state
     mov byte [r13 + Client.state], CLIENT_DEAD
+
+    ; What the server tables know of it
+    mov rdi, rbx
+    mov rsi, r13
+    call surface_destroy_client
+    mov rdi, rbx
+    mov rsi, r13
+    call buffer_destroy_client
 
     ; Unlink first: the registry node lives in the region
     mov rdi, [rbx + Server.client_registry]
