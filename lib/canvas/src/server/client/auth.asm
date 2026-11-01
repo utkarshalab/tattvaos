@@ -14,9 +14,6 @@
 extern msgbuf_write
 
 section .text
-%define AUTH_CLIENT_TRUST 8
-%define AUTH_CLIENT_CAPS 16
-%define AUTH_CLIENT_RX 48
 %define DISPLAY_EVENT_CAPABILITIES 0
 
 ; ---------------------------------------------------------------------------
@@ -55,7 +52,7 @@ auth_handshake:
     call auth_send_caps
     test rax, rax
     js .out
-    mov rax, [rbx + AUTH_CLIENT_CAPS]
+    mov rax, [rbx + Client.caps]
 
 .out:
     EPILOGUE_RESTORE rbx, r12, r13
@@ -73,7 +70,7 @@ auth_send_caps:
     mov word [rsp + 6], CWP_MSG_FLAG_IS_EVENT
     mov dword [rsp + 8], 8
     mov [rsp + 16], r12
-    mov rdi, [rbx + AUTH_CLIENT_RX]
+    mov rdi, [rbx + Client.rx_ring]
     test rdi, rdi
     jz .not_connected
     mov rsi, rsp
