@@ -11,7 +11,6 @@ extern configure_ack
 extern configure_create
 extern decoration_create_for_toplevel
 extern decoration_destroy
-extern frame_callback_init
 extern surface_destroy
 extern surface_set_position
 
@@ -233,11 +232,6 @@ toplevel_schedule_configure:
     mov r12, [rbx + Toplevel.shell]
     mov rsi, rax
     call .add_configure
-
-    ; Schedule frame callback
-    mov rdi, [rbx + Toplevel.surface]
-    lea rsi, [rbx + Toplevel.frame_cb]
-    call frame_callback_init
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
