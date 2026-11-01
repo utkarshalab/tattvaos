@@ -8,6 +8,7 @@
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern arena_alloc
 extern pixbuf_create
@@ -20,7 +21,6 @@ extern jpeg_upsample_component
 extern jpeg_write_color_mcu
 extern jpeg_expect_restart
 
-; struct offsets (hoisted above use)
 %define JPEG_SOI       0xD8FF
 %define JPEG_EOI       0xD9FF
 %define JPEG_SOF0      0xC0FF
@@ -33,7 +33,6 @@ extern jpeg_expect_restart
 %define JPEG_HUFF_TABLE_SIZE 1556
 
 section .text
-
 
 struc JpegImage
     .width:         resd 1
@@ -640,8 +639,8 @@ jpeg_decode_scan:
     cmp eax, [rbx + JpegImage.height]
     jae .gray_block_done
     mov r8d, eax
-    imul r8, [r15 + PixBuf_stride]
-    add r8, [r15 + PixBuf_data]
+    imul r8, [r15 + PixBuf.stride]
+    add r8, [r15 + PixBuf.data]
     xor r11d, r11d                 ; local x
 .gray_copy_x:
     mov eax, [rsp + 168]
