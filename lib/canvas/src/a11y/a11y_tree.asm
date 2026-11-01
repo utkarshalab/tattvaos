@@ -6,11 +6,9 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/ut.inc"
-%include "inc/server_offsets.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
 %define A11Y_ROLE_WINDOW          1
 %define A11Y_ROLE_BUTTON          2
 %define A11Y_ROLE_LINK            3
@@ -78,8 +76,6 @@ struc A11yNode
     .height:            resd 1
     .transform:         resq 1
 endstruc
-
-
 
 global a11y_tree_init
 a11y_tree_init:
