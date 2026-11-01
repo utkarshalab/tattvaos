@@ -7,11 +7,10 @@
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 %include "inc/fixed.inc"
-%include "inc/server_offsets.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
+%include "inc/backend.inc"
 
-; struct offsets (hoisted above use)
 %define MAGNIFIER_MIN_SCALE    0x10000      ; 1.0
 %define MAGNIFIER_MAX_SCALE    0x100000     ; 16.0
 
@@ -30,7 +29,6 @@ struc Magnifier
     .source_output:     resq 1
     .target_output:     resq 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; magnifier_init
