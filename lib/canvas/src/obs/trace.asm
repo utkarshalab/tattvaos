@@ -12,9 +12,6 @@ extern arena_alloc
 %include "inc/struct_offsets.inc"
 %include "inc/trace.inc"
 
-; struct offsets (hoisted above use)
-%define Trace_SIZE    56
-%define TraceEvent_SIZE    40
 %define TRACE_DEFAULT_CAPACITY  4096
 
 section .text
@@ -26,7 +23,6 @@ section .text
 ; TraceEvent struct layout (manual offsets)
 ; Offsets defined in inc/struct_offsets.inc
 ; ----------
-
 
 ; ---------------------------------------------------------------------------
 ; trace_init
