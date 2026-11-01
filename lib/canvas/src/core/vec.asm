@@ -20,12 +20,13 @@ extern arena_alloc
 extern memcopy
 
 ; struct offsets (struct_offsets.inc has the same)
-%define Vec.data 0
-%define Vec.capacity 8
-%define Vec.length 16
-%define Vec.element_size 24
-%define Vec.arena 32
-%define Vec_size        40
+struc Vec
+    .data:                    resq 1
+    .capacity:                resq 1
+    .length:                  resq 1
+    .element_size:            resq 1
+    .arena:                   resq 1
+endstruc
 
 section .text
 
