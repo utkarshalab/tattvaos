@@ -444,7 +444,24 @@ UT_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(UT_SRCS))
 # ---------------------------------------------------------------------------
 
 .PHONY: all
-all: server client tools clients
+all: layout-check server client tools clients
+
+# ---------------------------------------------------------------------------
+# Layout check: every object's fields live in its one struc. Fails on a
+# struct field %define'd outside a struc, on DEFINE_STRUCT_OFFSET, and on a
+# struc name defined in more than one file (NASM itself rejects a struc
+# label defined twice within one file).
+# ---------------------------------------------------------------------------
+LAYOUT_DIRS := src inc tests tools
+
+.PHONY: layout-check
+layout-check:
+	@! grep -rnE '^\s*%(x?define|assign)\s+[A-Z][A-Za-z0-9]*\.[a-z]' --include='*.asm' --include='*.inc' $(LAYOUT_DIRS) \
+	    || { echo "layout-check: struct fields defined outside their struc (above)"; exit 1; }
+	@! grep -rn 'DEFINE_STRUCT_OFFSET' --include='*.asm' --include='*.inc' $(LAYOUT_DIRS) \
+	    || { echo "layout-check: DEFINE_STRUCT_OFFSET is retired; use a struc"; exit 1; }
+	@d=$$(grep -rhoE '^\s*struc\s+\w+' --include='*.asm' --include='*.inc' $(LAYOUT_DIRS) | awk '{print $$2}' | sort | uniq -d); \
+	    if [ -n "$$d" ]; then echo "layout-check: struc defined in more than one file: $$d"; exit 1; fi
 
 # ---------------------------------------------------------------------------
 # Build Targets
