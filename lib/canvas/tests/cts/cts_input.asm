@@ -26,7 +26,6 @@ test_cts_input_connect:
 
 test_name_cts_input_connect: db "cts input connect", 0
 
-
 section .data
 global cts_input_version
 cts_input_version: dq 0x010000
