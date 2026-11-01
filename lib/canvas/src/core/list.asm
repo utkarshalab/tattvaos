@@ -55,7 +55,7 @@ list_push_back:
 
     mov [rax + ListNode_next], rsi
     mov [rsi + ListNode_prev], rax
-    mov [rsi + ListNode_next], 0
+    mov qword [rsi + ListNode_next], 0
     mov [rbx + List_tail], rsi
     inc qword [rbx + List_count]
     xor rax, rax
@@ -65,8 +65,8 @@ list_push_back:
 .empty:
     mov [rbx + List_head], rsi
     mov [rbx + List_tail], rsi
-    mov [rsi + ListNode_prev], 0
-    mov [rsi + ListNode_next], 0
+    mov qword [rsi + ListNode_prev], 0
+    mov qword [rsi + ListNode_next], 0
     mov qword [rbx + List_count], 1
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -91,7 +91,7 @@ list_push_front:
 
     mov [rax + ListNode_prev], rsi
     mov [rsi + ListNode_next], rax
-    mov [rsi + ListNode_prev], 0
+    mov qword [rsi + ListNode_prev], 0
     mov [rbx + List_head], rsi
     inc qword [rbx + List_count]
     xor rax, rax
@@ -101,8 +101,8 @@ list_push_front:
 .empty:
     mov [rbx + List_head], rsi
     mov [rbx + List_tail], rsi
-    mov [rsi + ListNode_prev], 0
-    mov [rsi + ListNode_next], 0
+    mov qword [rsi + ListNode_prev], 0
+    mov qword [rsi + ListNode_next], 0
     mov qword [rbx + List_count], 1
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -167,16 +167,16 @@ list_pop_front:
     mov [rbx + List_head], rcx
     test rcx, rcx
     jz .was_last
-    mov [rcx + ListNode_prev], 0
+    mov qword [rcx + ListNode_prev], 0
     jmp .done
 
 .was_last:
-    mov [rbx + List_tail], 0
+    mov qword [rbx + List_tail], 0
 
 .done:
     dec qword [rbx + List_count]
-    mov [rax + ListNode_prev], 0
-    mov [rax + ListNode_next], 0
+    mov qword [rax + ListNode_prev], 0
+    mov qword [rax + ListNode_next], 0
     EPILOGUE_RESTORE rbx
     ret
 
@@ -203,16 +203,16 @@ list_pop_back:
     mov [rbx + List_tail], rcx
     test rcx, rcx
     jz .was_last
-    mov [rcx + ListNode_next], 0
+    mov qword [rcx + ListNode_next], 0
     jmp .done
 
 .was_last:
-    mov [rbx + List_head], 0
+    mov qword [rbx + List_head], 0
 
 .done:
     dec qword [rbx + List_count]
-    mov [rax + ListNode_prev], 0
-    mov [rax + ListNode_next], 0
+    mov qword [rax + ListNode_prev], 0
+    mov qword [rax + ListNode_next], 0
     EPILOGUE_RESTORE rbx
     ret
 
