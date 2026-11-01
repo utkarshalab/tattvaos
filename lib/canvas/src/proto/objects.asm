@@ -11,6 +11,7 @@
 struc Obj
     .interface_id:            resw 1
     .version:                 resw 1
+    resd 1
     .refcount:                resq 1
     .data_ptr:                resq 1
 endstruc
@@ -55,21 +56,18 @@ objects_create:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Allocate object header
-    ; struct Object { interface_id, version, refcount, data_ptr }
-    push r12
-    mov rdi, r12
-    mov rsi, 32
+    ; Allocate object header from the table's arena
+    mov rdi, [rbx + HandleTable.arena]
+    mov rsi, Obj_size
     call arena_alloc
-    pop r12
     test rax, rax
     jz .oom
 
     ; Fill object header
-    mov [rax + 0], r13w        ; interface_id
-    mov [rax + 2], r14w        ; version
-    mov qword [rax + 4], 1     ; refcount
-    mov [rax + 12], r12        ; data_ptr
+    mov [rax + Obj.interface_id], r13w
+    mov [rax + Obj.version], r14w
+    mov qword [rax + Obj.refcount], 1
+    mov [rax + Obj.data_ptr], r12
 
     ; Create handle
     mov rdi, rbx
@@ -94,9 +92,10 @@ objects_create:
 ; ---------------------------------------------------------------------------
 global objects_resolve
 objects_resolve:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     mov r12, rsi
+    mov r13, rdx                ; expected interface
     ASSERT_PTR rbx
 
     ; Resolve handle
@@ -107,17 +106,17 @@ objects_resolve:
     jz .invalid
 
     ; Check interface ID
-    cmp word [rax + 0], dx
+    cmp [rax + Obj.interface_id], r13w
     jne .invalid
 
     ; Return data pointer
-    mov rax, [rax + 12]
-    EPILOGUE_RESTORE rbx, r12
+    mov rax, [rax + Obj.data_ptr]
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 .invalid:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -131,7 +130,6 @@ objects_destroy:
     PROLOGUE
     ASSERT_PTR rdi
 
-    mov rax, rsi
     call handle_destroy
     leave
     ret
@@ -150,7 +148,7 @@ objects_ref:
     test rax, rax
     jz .invalid
 
-    lock inc qword [rax + 4]
+    lock inc qword [rax + Obj.refcount]
     xor rax, rax
     EPILOGUE_RESTORE rbx
     ret
@@ -166,32 +164,31 @@ objects_ref:
 ; ---------------------------------------------------------------------------
 global objects_unref
 objects_unref:
-    PROLOGUE_SAVE rbx
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov r12, rsi
     ASSERT_PTR rbx
 
     call handle_resolve
     test rax, rax
     jz .invalid
 
-    lock dec qword [rax + 4]
+    lock dec qword [rax + Obj.refcount]
     jnz .done
 
     ; Refcount hit zero - destroy
-    push rax
     mov rdi, rbx
     mov rsi, r12
     call handle_destroy
-    pop rax
-    ; Free object memory via arena (handled by arena_free_all on client disconnect)
+    ; Object memory goes with the client's arena on disconnect
 .done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 .invalid:
     mov rax, -(ENOENT)
-    EPILOGUE_RESTORE rbx
+    EPILOGUE_RESTORE rbx, r12
     ret
 
 ; ---------------------------------------------------------------------------
