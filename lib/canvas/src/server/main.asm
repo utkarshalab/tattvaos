@@ -8,6 +8,8 @@
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 
+default rel
+
 section .text
 
 ; ---------------------------------------------------------------------------
