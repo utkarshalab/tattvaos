@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global test_handle_main
 test_handle_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ test_handle_main:
 ; ============================================================================
 global test_handle_basic
 test_handle_basic:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
