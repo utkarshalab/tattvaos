@@ -6,7 +6,6 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 
-; struct offsets (hoisted above use)
 %define FIX_SHIFT    16
 
 section .text
