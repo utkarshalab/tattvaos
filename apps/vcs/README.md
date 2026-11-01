@@ -171,7 +171,7 @@ tree-hash table for commit construction.
 Protocol-v2 response encoding now covers capability advertisement,
 `object-format=sha256`, `ls-refs` for `HEAD` and the main branch, optional HEAD
 symref metadata, `fetch=wait-for-done ref-in-want sideband-all filter shallow`,
-and chunked side-band packfile delivery for `fetch`.
+`object-info`, and chunked side-band packfile delivery for `fetch`.
 The bridge advertises `server-option` and accepts up to eight bounded option
 headers per command. Values are validated and exact duplicates are rejected;
 distinct options currently have no semantic effect.
@@ -186,6 +186,12 @@ rejected consistently with other one-shot fetch options. Existing clients can
 therefore negotiate a follow-up fetch. The newest matching first-parent `have`
 cuts the returned pack to newer commits and snapshot objects; a tip match
 returns an empty valid pack.
+
+`object-info` accepts one required `size` attribute and 1..32 SHA-256 object
+queries. It resolves exact uncompressed body sizes for canonical commits, trees,
+and blobs across the selected first-parent history, preserves request order in
+the response, rejects a command containing any missing object, and leaves the
+native protocol-v2 connection reusable after success.
 Acknowledgment-only rounds retain their deduplicated have view for the same
 connection and merge later haves up to 64 unique identities; terminal `ready`
 or `done` responses therefore use common history learned across all rounds.
