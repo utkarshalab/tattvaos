@@ -6,6 +6,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 section .text
 
@@ -96,9 +97,9 @@ jpeg_write_color_mcu:
     mov [rsp + 16], r10
     mov [rsp + 24], r11
     ASSERT_PTR rbx
-    cmp r8, [rbx + PixBuf_width]
+    cmp r8, [rbx + PixBuf.width]
     jae .write_invalid
-    cmp r9, [rbx + PixBuf_height]
+    cmp r9, [rbx + PixBuf.height]
     jae .write_invalid
     test r10, r10
     jz .write_invalid
@@ -110,10 +111,10 @@ jpeg_write_color_mcu:
     jae .write_done
     mov rax, [rsp + 8]
     add rax, r15
-    cmp rax, [rbx + PixBuf_height]
+    cmp rax, [rbx + PixBuf.height]
     jae .write_done
-    imul rax, [rbx + PixBuf_stride]
-    add rax, [rbx + PixBuf_data]
+    imul rax, [rbx + PixBuf.stride]
+    add rax, [rbx + PixBuf.data]
     mov rcx, [rsp]
     lea rdi, [rax + rcx * 4]
     mov rax, r15
@@ -121,7 +122,7 @@ jpeg_write_color_mcu:
     lea rsi, [r12 + rax * 2]
     lea rdx, [r13 + rax * 2]
     lea rcx, [r14 + rax * 2]
-    mov r8, [rbx + PixBuf_width]
+    mov r8, [rbx + PixBuf.width]
     sub r8, [rsp]
     cmp r8, [rsp + 16]
     jbe .write_count_ready
