@@ -12,13 +12,11 @@
 extern rfb_recv_cut_text
 extern virtual_input_inject
 
-; struct offsets (hoisted above use)
 %define RFB_MSG_POINTER_EVENT  5
 %define RFB_MSG_KEY_EVENT      4
 %define RFB_MSG_CUT_TEXT       6
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; rfb_poll_input
@@ -30,7 +28,7 @@ rfb_poll_input:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     ASSERT_PTR rbx
-    mov r12, [rbx + RfbClient_conn]
+    mov r12, [rbx + RfbClient.conn]
     sub rsp, 16
     ; poll: try 1-byte read with zero timeout? ut_tls_read blocks;
     ; caller only invokes when waitset signals readability
@@ -106,8 +104,8 @@ rfb_forward_pointer:
     mov rbx, rdi
     ASSERT_PTR rbx
     ; rsi = x, rdx = y, rcx = buttons
-    mov rdi, [rbx + RfbClient_server]
-    mov rdi, [rdi + RfbServer_server]
+    mov rdi, [rbx + RfbClient.server]
+    mov rdi, [rdi + RfbServer.server]
     mov r8, -1  ; remote device id
     call virtual_input_inject
     EPILOGUE_RESTORE rbx, r12
@@ -178,8 +176,8 @@ rfb_forward_key:
     cmp eax, 0xff53
     jne .unsupported
 .inject:
-    mov rdi, [rbx + RfbClient_server]
-    mov rdi, [rdi + RfbServer_server]
+    mov rdi, [rbx + RfbClient.server]
+    mov rdi, [rdi + RfbServer.server]
     mov rsi, INPUT_EVENT_KEY
     mov rcx, r12
     mov r8, -1
