@@ -75,7 +75,7 @@ keyboard_create:
     ; If keyboard capability, set as seat keyboard
     test r14d, DEVICE_CAP_KEYBOARD
     jz .done
-    mov [r12 + SEAT_KEYBOARD], rbx
+    mov [r12 + Seat.keyboard], rbx
 
     ; Create default keymap
     call keymap_create_default
@@ -208,7 +208,7 @@ keyboard_key:
 .send_event:
     ; Send key event to focus
     mov rax, [rbx + InputDevice_SEAT]
-    mov rax, [rax + SEAT_KEYBOARD_FOCUS]
+    mov rax, [rax + Seat.keyboard_focus]
     test rax, rax
     jz .done
 
@@ -416,7 +416,7 @@ keyboard_repeat:
 
     ; Send repeat event
     mov rax, [rbx + InputDevice_SEAT]
-    mov rax, [rax + SEAT_KEYBOARD_FOCUS]
+    mov rax, [rax + Seat.keyboard_focus]
     test rax, rax
     jz .reschedule
 
