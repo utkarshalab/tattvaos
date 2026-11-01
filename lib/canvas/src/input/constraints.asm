@@ -10,9 +10,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define Constraints_SIZE 32
-
 section .text
 
 struc Constraints
@@ -144,19 +141,19 @@ constraints_apply:
 
     ; Clamp to confine rect
     mov eax, [r12]
-    mov edx, [rbx + Constraints.confine_rect + Rect_x1]
+    mov edx, [rbx + Constraints.confine_rect + Rect.x1]
     cmp eax, edx
     cmovl eax, edx
-    mov edx, [rbx + Constraints.confine_rect + Rect_x2]
+    mov edx, [rbx + Constraints.confine_rect + Rect.x2]
     cmp eax, edx
     cmovg eax, edx
     mov [r12], eax
 
     mov eax, [r13]
-    mov edx, [rbx + Constraints.confine_rect + Rect_y1]
+    mov edx, [rbx + Constraints.confine_rect + Rect.y1]
     cmp eax, edx
     cmovl eax, edx
-    mov edx, [rbx + Constraints.confine_rect + Rect_y2]
+    mov edx, [rbx + Constraints.confine_rect + Rect.y2]
     cmp eax, edx
     cmovg eax, edx
     mov [r13], eax
