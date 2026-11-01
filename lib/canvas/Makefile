@@ -50,6 +50,9 @@ LDFLAGS     := -nostdlib -static -z max-page-size=0x1000 \
 SRCDIR      := src
 INCDIR      := inc
 BUILDDIR    := build$(MODE_DIR)
+
+# Layouts live in headers: a changed header reassembles everything
+HEADERS     := $(wildcard inc/*.inc)
 OBJDIR      := $(BUILDDIR)/obj
 IMAGEDIR    := $(BUILDDIR)/img
 LIBDIR      := $(BUILDDIR)/lib
@@ -548,7 +551,7 @@ $(CLIENT_IMGS): $(IMAGEDIR)/%.img: $(OBJDIR)/clients/%.o $(LIBDIR)/canvas_client
 # Compilation Rules
 # ---------------------------------------------------------------------------
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.asm
+$(OBJDIR)/%.o: $(SRCDIR)/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -o $@ $<
 	@echo "  ASM    $<"
@@ -567,12 +570,12 @@ $(OBJDIR)/shell/icons.o $(OBJDIR)/img/svg.o: $(UGFX_DIR)/include/ugfx.inc
 ui-icons:
 	python3 ../ugfx/tools/svg2uic.py assets/icons/ui.uic assets/icons/ui
 
-$(OBJDIR)/ugfx/%.o: $(UGFX_DIR)/%.asm $(UGFX_DIR)/include/ugfx.inc
+$(OBJDIR)/ugfx/%.o: $(UGFX_DIR)/%.asm $(UGFX_DIR)/include/ugfx.inc $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I ../../ -o $@ $<
 	@echo "  ASM    $<"
 
-$(OBJDIR)/ufont/%.o: $(UFONT_DIR)/%.asm $(UFONT_DIR)/include/ufont.inc $(UFONT_DIR)/layout/shape.inc $(UGFX_DIR)/include/ugfx.inc
+$(OBJDIR)/ufont/%.o: $(UFONT_DIR)/%.asm $(UFONT_DIR)/include/ufont.inc $(UFONT_DIR)/layout/shape.inc $(UGFX_DIR)/include/ugfx.inc $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -o $@ $<
 	@echo "  ASM    $<"
@@ -619,7 +622,7 @@ $(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(UNIT_OBJS) $(UT_OBJ
 	@echo "  IMG    $@"
 
 # Golden test image
-$(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(UT_OBJS) $(TEST_LIB_OBJS) linker.ld
+$(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(OBJDIR)/tests/unit/test_golden.o $(UT_OBJS) $(TEST_LIB_OBJS) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -e golden_test_main -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
@@ -684,42 +687,42 @@ test: $(IMAGEDIR)/test_runner.img $(IMAGEDIR)/golden_test.img $(IMAGEDIR)/fuzz_r
 # Test Compilation Rules
 # ---------------------------------------------------------------------------
 
-$(OBJDIR)/tests/%.o: tests/%.asm
+$(OBJDIR)/tests/%.o: tests/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
 
-$(OBJDIR)/tests/golden/%.o: tests/golden/%.asm
+$(OBJDIR)/tests/golden/%.o: tests/golden/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
 
-$(OBJDIR)/tests/fuzz/%.o: tests/fuzz/%.asm
+$(OBJDIR)/tests/fuzz/%.o: tests/fuzz/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
 
-$(OBJDIR)/tests/replay/%.o: tests/replay/%.asm
+$(OBJDIR)/tests/replay/%.o: tests/replay/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
 
-$(OBJDIR)/tests/input/%.o: tests/input/%.asm
+$(OBJDIR)/tests/input/%.o: tests/input/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
 
-$(OBJDIR)/tests/soak/%.o: tests/soak/%.asm
+$(OBJDIR)/tests/soak/%.o: tests/soak/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
 
-$(OBJDIR)/tests/bench/%.o: tests/bench/%.asm
+$(OBJDIR)/tests/bench/%.o: tests/bench/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
 
-$(OBJDIR)/tests/cts/%.o: tests/cts/%.asm
+$(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
@@ -731,17 +734,17 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface region quota tile_diff \
+HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden region quota tile_diff \
                  inflate icc record_replay rfb webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
 HOST_TESTS    := $(addprefix $(HOSTDIR)/test_,$(HOST_SUITES))
 
-$(HOSTDIR)/%.o: tests/host/%.asm $(UFONT_DIR)/include/ufont.inc $(UGFX_DIR)/include/ugfx.inc
+$(HOSTDIR)/%.o: tests/host/%.asm $(UFONT_DIR)/include/ufont.inc $(UGFX_DIR)/include/ugfx.inc $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -o $@ $<
 
-$(HOSTDIR)/runner_%.o: tests/host/host_runner.asm
+$(HOSTDIR)/runner_%.o: tests/host/host_runner.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -D HOST_SUITE=test_$*_suite -o $@ $<
 
