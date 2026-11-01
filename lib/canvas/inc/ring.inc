@@ -6,10 +6,14 @@
 %define __RING_INC__
 
 ; Ring struct offsets
-%define Ring_buffer    0
-%define Ring_capacity  8
-%define Ring_head      16
-%define Ring_tail      24
-%define Ring_size      32
+struc Ring
+    .buffer:                  resq 1
+    .capacity:                resq 1
+    .mask:                    resq 1
+    .head:                    resq 1
+    .tail:                    resq 1
+    .element_size:            resq 1
+    .arena:                   resq 1
+endstruc
 
 %endif ; __RING_INC__
