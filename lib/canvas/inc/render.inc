@@ -39,6 +39,7 @@ struc FrameCtx
     .color_transform:  resq 1
     .rotation:                resq 1
     .scale:                   resq 1
+    .server:                  resq 1
 endstruc
 
 ; Present Info (returned by end_frame)
