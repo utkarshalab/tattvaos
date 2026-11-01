@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 extern arena_alloc
@@ -176,8 +177,8 @@ hdr_decode:
     sub r13,rax
 .convert:
     mov rax,[rsp+16]
-    mov rdi,[rax+PixBuf_data]
-    mov rax,[rax+PixBuf_stride]
+    mov rdi,[rax+PixBuf.data]
+    mov rax,[rax+PixBuf.stride]
     imul rax,r14
     add rdi,rax
     mov rsi,[rsp+8]
