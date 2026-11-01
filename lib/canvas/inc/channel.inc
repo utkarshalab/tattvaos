@@ -5,11 +5,12 @@
 %ifndef __CHANNEL_INC__
 %define __CHANNEL_INC__
 
-%define MsgHdr_obj      0
-%define MsgHdr_opcode   4
-%define MsgHdr_flags    6
-%define MsgHdr_len      8
-%define MsgHdr_size     12
+struc MsgHdr
+    .obj:                     resd 1
+    .opcode:                  resw 1
+    .flags:                   resw 1
+    .len:                     resq 1
+endstruc
 
 %define MsgFlag_NEED_ACK     0x0001
 %define MsgFlag_HAS_HANDLES  0x0002
