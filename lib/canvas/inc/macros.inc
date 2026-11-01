@@ -10,9 +10,17 @@
 ; Build-Time Configuration
 ; ---------------------------------------------------------------------------
 
+; Defaults for a debug build; the Makefile sets them per mode (-D), and a
+; value given on the command line wins.
+%ifndef DEBUG_BUILD
 %define DEBUG_BUILD     1       ; 1 = debug checks enabled, 0 = release
+%endif
+%ifndef PARANOID_CHECKS
 %define PARANOID_CHECKS 1       ; Extra bounds checks in hot paths
+%endif
+%ifndef TRAP_ON_PANIC
 %define TRAP_ON_PANIC   1       ; 1 = int3 on panic, 0 = halt
+%endif
 
 ; ---------------------------------------------------------------------------
 ; Compile-Time Assertions
