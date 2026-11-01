@@ -7,14 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
 %define CRP_ENC_RAW       0
 %define CRP_ENC_RLE       1
 %define CRP_ENC_DEFLATE   2
 %define CRP_ENC_DELTA     3
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; crp_encode_tile
