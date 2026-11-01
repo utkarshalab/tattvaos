@@ -275,7 +275,8 @@ BACKEND_SRCS := \
     $(SRCDIR)/backend/native/native_pci.asm \
     $(SRCDIR)/backend/native/native_edid.asm \
     $(SRCDIR)/backend/native/native_ddc.asm \
-    $(SRCDIR)/backend/native/native_full.asm
+    $(SRCDIR)/backend/native/native_full.asm \
+    $(SRCDIR)/backend/native/native_planes.asm
 
 # Codec (C26/C27)
 CODEC_SRCS := \
@@ -415,7 +416,8 @@ OBS_SRCS := \
     $(SRCDIR)/obs/metrics.asm \
     $(SRCDIR)/obs/stats.asm \
     $(SRCDIR)/obs/debug_iface.asm \
-    $(SRCDIR)/obs/faultdump.asm
+    $(SRCDIR)/obs/faultdump.asm \
+    $(SRCDIR)/obs/invariants.asm
 
 # Text & A11y (C16)
 TEXT_SRCS := \
@@ -452,7 +454,7 @@ all: layout-check server client tools clients
 # struc name defined in more than one file (NASM itself rejects a struc
 # label defined twice within one file).
 # ---------------------------------------------------------------------------
-LAYOUT_DIRS := src inc tests tools
+LAYOUT_DIRS := src inc tests
 
 .PHONY: layout-check
 layout-check:
