@@ -16,12 +16,12 @@ section .text
 ; ---------------------------------------------------------------------------
 ; wire_encode_request
 ;   Encode request message
-;   IN:  rdi = buffer, rsi = msg_hdr*, rdx = payload_ptr, rcx = payload_len
+;   IN:  rdi = buffer, rsi = msg_hdr*, rdx = payload_ptr (hdr.len bytes)
 ;   OUT: rax = total_bytes, negative error
 ; ---------------------------------------------------------------------------
 global wire_encode_request
 wire_encode_request:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi        ; buffer
     mov r12, rsi        ; msg_hdr*
     mov r13, rdx        ; payload
@@ -29,38 +29,41 @@ wire_encode_request:
     ASSERT_PTR r12
 
     ; Validate payload length
-    mov rax, [r12 + MsgHdr.len]
-    cmp rax, MAX_PAYLOAD_SIZE
+    mov r14d, [r12 + MsgHdr.len]
+    cmp r14, MAX_PAYLOAD_SIZE
     ja .too_large
 
     ; Write header
-    mov rax, [r12 + MsgHdr.obj]
+    mov eax, [r12 + MsgHdr.obj]
     mov [rbx + 0], eax
     mov ax, [r12 + MsgHdr.opcode]
     mov [rbx + 4], ax
     mov ax, [r12 + MsgHdr.flags]
     mov [rbx + 6], ax
-    mov eax, [r12 + MsgHdr.len]
-    mov [rbx + 8], eax
+    mov [rbx + 8], r14d
 
     ; Copy payload
-    test r13, r13
+    test r14, r14
     jz .no_payload
-    mov rdi, rbx
-    add rdi, 12
+    test r13, r13
+    jz .invalid
+    lea rdi, [rbx + 12]
     mov rsi, r13
-    mov rcx, [r12 + MsgHdr.len]
+    mov rdx, r14
     call memcopy
 
 .no_payload:
-    mov rax, 12
-    add rax, [r12 + MsgHdr.len]
-    EPILOGUE_RESTORE rbx, r12, r13
+    lea rax, [r14 + 12]
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 .too_large:
     mov rax, -(EMSGSIZE)
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+.invalid:
+    mov rax, -(EINVAL)
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
@@ -143,72 +146,61 @@ wire_validate_message:
 
 ; ---------------------------------------------------------------------------
 ; wire_encode_handles
-;   Encode handle array
+;   Encode handle array: a u32 count, then the u32 handles
 ;   IN:  rdi = buffer, rsi = handle_array*, rdx = count
 ;   OUT: rax = bytes_written
 ; ---------------------------------------------------------------------------
 global wire_encode_handles
 wire_encode_handles:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned at the call
+    mov rbx, rdx
+    ASSERT_PTR rdi
+    ASSERT_PTR rsi
 
-    mov eax, edx
-    mov [rbx], eax        ; count
-    test rdx, rdx
-    jz .done
-
-    mov rcx, rdx
-    shl rcx, 2            ; * 4 bytes per handle
-    mov rdi, rbx
+    mov [rdi], ebx                      ; count
     add rdi, 4
-    mov rsi, r12
+    shl rdx, 2                          ; bytes
     call memcopy
-    mov rax, rdx
-    shl rax, 2
-    add rax, 4
-
-.done:
-    EPILOGUE_RESTORE rbx, r12
+    lea rax, [rbx * 4 + 4]
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
 ; wire_decode_handles
 ;   Decode handle array
 ;   IN:  rdi = buffer, rsi = handle_array*, rdx = max_count
-;   OUT: rax = actual_count, negative error
+;   OUT: rax = actual_count, -ENOSPC if more than max_count
 ; ---------------------------------------------------------------------------
 global wire_decode_handles
 wire_decode_handles:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned at the call
+    ASSERT_PTR rdi
+    ASSERT_PTR rsi
 
-    mov eax, [rbx]
-    cmp eax, edx
+    mov ebx, [rdi]                      ; count
+    cmp rbx, rdx
     ja .too_many
 
-    mov rcx, rax
-    shl rcx, 2
-    mov rdi, r12
-    mov rsi, rbx
-    add rsi, 4
+    mov rax, rdi
+    mov rdi, rsi
+    lea rsi, [rax + 4]
+    lea rdx, [rbx * 4]
     call memcopy
-    mov rax, rcx
-    shr rax, 2
-    EPILOGUE_RESTORE rbx, r12
+    mov rax, rbx
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
     ret
 
 .too_many:
     mov rax, -(ENOSPC)
-    EPILOGUE_RESTORE rbx, r12
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
     ret
 
 section .data
 
 global wire_version
-wire_version: dq 0x010000
+wire_version: dq 0x010100
