@@ -34,7 +34,6 @@ server_result: resd 1
 server_progress: resq 1
 server_offset: resq 1
 server_length: resq 1
-server_seen_refs: resb 1
 server_negotiation_rounds: resb 1
 server_session_generation: resq 1
 server_session_id: resb 16
@@ -68,7 +67,6 @@ git_upload_server_begin:
  mov qword [server_length],0
  mov dword [server_result],VCS_OK
  mov qword [server_progress],0
- mov byte [server_seen_refs],0
  mov byte [server_negotiation_rounds],0
  call vcs_sync_listen_begin
  test eax,eax
@@ -189,15 +187,12 @@ git_upload_server_step:
  jmp .again
 .response_done:
  cmp qword [server_operation],1
- je .response_refs_done
+ je .response_continue
  cmp qword [server_operation],3
  je .response_continue
  cmp qword [server_operation],4
  je .response_continue
  jmp .response_terminal
-.response_refs_done:
- cmp byte [server_seen_refs],1
- jne .corrupt
 .response_continue:
  mov qword [server_offset],0
  mov qword [server_length],0
@@ -238,11 +233,6 @@ git_upload_server_step:
  jz .request_operation_ready
  mov qword [server_operation],4
 .request_operation_ready:
- cmp rdx,1
- jne .dispatch_request
- cmp byte [server_seen_refs],0
- jne .corrupt
- mov byte [server_seen_refs],1
 .dispatch_request:
  mov edi,1
  lea rsi,[server_request]
@@ -457,7 +447,6 @@ git_upload_server_rearm:
  mov qword [server_operation],0
  mov qword [server_offset],0
  mov qword [server_length],0
- mov byte [server_seen_refs],0
  mov byte [server_negotiation_rounds],0
  mov dword [server_state],GIT_SERVER_ACCEPT
  inc qword [server_progress]
