@@ -298,7 +298,8 @@ tm_move_up:
     xor ecx, ecx
 .up:
     lea edx, [rcx + 1]                  ; pattern: byte i is i + 1
-    cmp [rel buf_a + 3 + rcx], dl
+    lea r8, [rel buf_a]
+    cmp [r8 + rcx + 3], dl
     FAIL_IF ne
     inc ecx
     cmp ecx, 10
@@ -319,7 +320,8 @@ tm_move_down:
     xor ecx, ecx
 .down:
     lea edx, [rcx + 4]
-    cmp [rel buf_a + rcx], dl
+    lea r8, [rel buf_a]
+    cmp [r8 + rcx], dl
     FAIL_IF ne
     inc ecx
     cmp ecx, 10
@@ -374,7 +376,8 @@ pattern:
     xor ecx, ecx
 .fill:
     lea eax, [rcx + 1]
-    mov [rel buf_a + rcx], al
+    lea r8, [rel buf_a]
+    mov [r8 + rcx], al
     inc ecx
     cmp ecx, 64
     jb .fill
