@@ -8,9 +8,6 @@
 %include "inc/colorm.inc"
 %include "inc/fixed.inc"
 
-; struct offsets (hoisted above use)
-%define Trc_SIZE    56
-
 section .text
 
 struc Trc
