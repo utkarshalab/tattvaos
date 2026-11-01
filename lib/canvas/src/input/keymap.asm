@@ -10,11 +10,9 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
 %define KEYMAP_MAX_KEYCODES    256
 %define KEYMAP_LEVELS          4
 %define KEYMAP_GROUPS          4
-%define Keymap_SIZE    48
 %define KEYSYM_NONE       0
 %define KEYSYM_MOD_SHIFT  0xFFE1
 %define KEYSYM_MOD_CTRL   0xFFE3
@@ -43,7 +41,6 @@ keymap_destroy:
     xor eax, eax
     ret
 
-
 struc Keymap
     .name:          resq 1
     .keycodes:      resq 1
@@ -57,8 +54,6 @@ struc KeyEntry
     .keycode:       resb 1
     .levels:        resd KEYMAP_LEVELS * KEYMAP_GROUPS
 endstruc
-%define KeyEntry_size    (1 + 4 * KEYMAP_LEVELS * KEYMAP_GROUPS)
-
 
 ; ---------------------------------------------------------------------------
 ; keymap_init
