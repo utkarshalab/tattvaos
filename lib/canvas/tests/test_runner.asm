@@ -27,6 +27,7 @@ extern test_inflate_suite
 extern test_png_suite
 extern test_webp_suite
 extern test_vec_suite
+extern test_tree_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -110,6 +111,10 @@ test_runner_init:
 
     ; Test vectors and lists
     call test_vec_suite
+    add rbx, rax
+
+    ; Test the red-black tree, bitsets and UTF-8
+    call test_tree_suite
     add rbx, rax
 
     ; Final summary
