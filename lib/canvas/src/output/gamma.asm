@@ -8,11 +8,11 @@
 %include "inc/fixed.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 extern arena_alloc
 extern memcopy
 
-; struct offsets (hoisted above use)
 %define GAMMA_ENTRIES    256
 %define GAMMA_CHANNELS   3
 %define GAMMA_LUT_SIZE   (GAMMA_ENTRIES * GAMMA_CHANNELS * 2)  ; 1536 bytes
