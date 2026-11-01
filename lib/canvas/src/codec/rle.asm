@@ -49,11 +49,7 @@ rle_encode:
     ; run: len = rcx (2..128), need 2 bytes
     cmp r15, r14
     jae .full
-    mov rdx, rcx
-    dec rdx
-    neg dl
-    dec dl  ; -(n-1)-? packbits: header = 1-n
-    ; header = -(rcx-1)
+    ; header = -(n - 1), then the byte
     mov eax, ecx
     dec eax
     neg al
@@ -61,7 +57,6 @@ rle_encode:
     inc r15
     cmp r15, r14
     jae .full
-    mov [r13 + r15], al
     mov al, [rbx]
     mov [r13 + r15], al
     inc r15
@@ -101,7 +96,9 @@ rle_encode:
     add rdi, r15
     mov rsi, rbx
     mov rdx, rcx
+    push rcx                            ; memcopy keeps no count
     call memcopy
+    pop rcx
     add rbx, rcx
     add r15, rcx
     sub r12, rcx
@@ -149,7 +146,9 @@ rle_decode:
     add rdi, r15
     mov rsi, rbx
     mov rdx, rax
+    push rax                            ; memcopy returns the destination
     call memcopy
+    pop rax
     add rbx, rax
     sub r12, rax
     add r15, rax
