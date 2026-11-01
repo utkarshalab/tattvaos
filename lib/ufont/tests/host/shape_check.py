@@ -316,8 +316,25 @@ def use_text(font):
     return script, gen
 
 
+def syriac(rng):
+    """Random Syriac: letters, points, the abbreviation mark (stretched by stch), tatweel, joiners."""
+    letters = list(range(0x0710, 0x0730)) + list(range(0x074D, 0x0750))
+    out = []
+    for _ in range(rng.randint(1, 10)):
+        r = rng.random()
+        if r < 0.15:
+            out.append(0x070F)
+        elif r < 0.7:
+            out.append(rng.choice(letters))
+        elif r < 0.9:
+            out.append(rng.choice(range(0x0730, 0x074B)))
+        else:
+            out.append(rng.choice((0x20, 0x200C, 0x200D, 0x0640, 0x31, 0x0660)))
+    return out
+
+
 # the test fonts' scripts (tests/fonts/<name>-Regular.ttf / .otf): the text they are shaped with
-SCRIPT_TEXT = {'Thai': thai, 'Lao': lao, 'KR': hangul, 'Khmer': khmer, 'Myanmar': myanmar}
+SCRIPT_TEXT = {'Thai': thai, 'Lao': lao, 'KR': hangul, 'Khmer': khmer, 'Myanmar': myanmar, 'Syriac': syriac}
 SCRIPT_WORDS = """สวัสดี ภาษาไทย น้ำ ทำ กำลัง ปั้ม ฟ้า ญู ฐู ปิ่น ป่า ฎุ ญุ ปั่น ก่ำ ก้ำ ดํ่า ไก่ เป็น
 ສະບາຍດີ ພາສາລາວ ນ້ຳ ທຳ ກຳລັງ ປັ້ນ ຫຼວງ ເປັນ 한국어 안녕하세요 한글 〮한 ᄒᆞᆫ 〯ᄀᆞ
 ភាសាខ្មែរ ស្រី ក្រុង ព្រះ ខ្ញុំ សួស្តី កើត ស្ត្រី
@@ -340,6 +357,11 @@ def general(rng, cmap, marks):
 
 
 VARIATIONS = {}                         # the axes host_shape sets (variable fonts)
+
+
+def sm_standard():
+    from standard_data import STANDARD
+    return STANDARD
 
 
 def split(case):
@@ -447,12 +469,12 @@ def stripped(font_dir, d):
     return out
 
 
-def thai_pua(d):
+def thai_pua(font_dir, d):
     """Noto Sans Thai as an old Thai font: no thai GSUB script, PUA glyphs (Windows' code points
     for some characters, the Mac's for the others)."""
     from fontTools.ttLib import TTFont
     from thai import PUA
-    src = os.path.join(HERE, "..", "fonts", "NotoSansThai-Regular.ttf")
+    src = os.path.join(font_dir, "NotoSansThai-Regular.ttf")
     if not os.path.exists(src):
         return []
     f = TTFont(src)
@@ -472,10 +494,10 @@ def thai_pua(d):
     return [path]
 
 
-def myanmar_old(d):
+def myanmar_old(font_dir, d):
     """Noto Sans Myanmar with its mym2 script tagged the old mymr (the default shaper then)."""
     from fontTools.ttLib import TTFont
-    src = os.path.join(HERE, "..", "fonts", "NotoSansMyanmar-Regular.ttf")
+    src = os.path.join(font_dir, "NotoSansMyanmar-Regular.ttf")
     if not os.path.exists(src):
         return []
     f = TTFont(src)
@@ -526,7 +548,7 @@ def damage(tool, font_dir, d, rng):
     for name, gen in (("NotoSansThai-Regular.ttf", thai), ("NotoSansKR-Regular.otf", hangul),
                       ("NotoSansKhmer-Regular.ttf", khmer), ("NotoSansMyanmar-Regular.ttf", myanmar),
                       ("NotoSansJavanese-Regular.ttf", None), ("NotoSansMongolian-Regular.ttf", None)):
-        path = os.path.join(test_fonts, name)
+        path = os.path.join(test_fonts if name.endswith(".otf") else font_dir, name)
         if not os.path.exists(path):
             continue
         if gen is None:
@@ -561,7 +583,9 @@ def main():
     rng = random.Random(23)
     failed = total = 0
     with tempfile.TemporaryDirectory(prefix="ufont-shape.") as d:
-        for name in sorted(f for f in os.listdir(font_dir) if f.endswith(".ttf")):
+        # the Latin, Indic, Arabic and Hebrew faces: the words of all of them and their own scripts
+        first = [s[0] for s in sm_standard()[:50]]
+        for name in sorted(f for f in os.listdir(font_dir) if f in first):
             path = os.path.join(font_dir, name)
             font = sm.Font(path)
             cmap = sorted(font.cmap)
@@ -586,21 +610,30 @@ def main():
                 cases.append((cps, rng.choice(("ltr", "rtl"))))
             total += 1
             failed += not check_font(tool, path, name, cases, d)
-        # the test fonts of other scripts, and an old (PUA) Thai font
+        # the other shipped faces (every other script), the test fonts (Korean), an old (PUA)
+        # Thai font and Myanmar retagged mymr: text in their script - Thai, Lao, Khmer, Myanmar and
+        # Korean the most, the Universal Shaping Engine's scripts, then the rest (the default
+        # shaper's: Armenian, Georgian, Ethiopic, symbols, ...)
         test_fonts = os.path.join(HERE, "..", "fonts")
-        script_fonts = [os.path.join(test_fonts, f) for f in sorted(os.listdir(test_fonts))
-                        if f.endswith(("-Regular.ttf", "-Regular.otf"))]
-        for path in script_fonts + thai_pua(d) + myanmar_old(d):
+        script_fonts = [os.path.join(font_dir, f) for f in sorted(os.listdir(font_dir))
+                        if f.endswith(".ttf") and f not in first]
+        script_fonts += [os.path.join(test_fonts, f) for f in sorted(os.listdir(test_fonts))
+                         if f.endswith(("-Regular.ttf", "-Regular.otf"))]
+        for path in script_fonts + thai_pua(font_dir, d) + myanmar_old(font_dir, d):
             name = os.path.basename(path)[:-4]
             gen = next((g for k, g in SCRIPT_TEXT.items() if k in name), None)
             many = 2
             if gen is None:
-                _, gen = use_text(sm.Font(path))
+                font = sm.Font(path)
+                _, gen = use_text(font)
                 many = 1
             if gen is None:
-                continue
+                cmap = sorted(u for u in font.cmap if u >= 0x80) or sorted(font.cmap)
+                marks = [c for c in cmap if sm.is_mark_gc(sm.gc(c))] + [0x0301, 0x0308]
+                gen = (lambda cm, mk: lambda r: general(r, cm, mk))(cmap, marks)
+                many = 1 / 3
             cases = [[ord(c) for c in w] for w in SCRIPT_WORDS + WORDS[:40]]
-            cases += [gen(rng) for _ in range(per_font * many)]
+            cases += [gen(rng) for _ in range(int(per_font * many))]
             total += 1
             failed += not check_font(tool, path, name, cases, d)
         for path in altered(font_dir, d):
