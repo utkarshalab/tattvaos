@@ -363,12 +363,12 @@ region_subtract_rect:
     mov eax, [rsp + 4]
     add eax, [rsp + 12]
     mov [rsp + 20], eax
-    mov eax, [r10 + 8]
-    mov [rsp + 24], eax
-    mov edx, [r10 + 4]
+    mov edx, [r10 + 4]                  ; height: source bottom - intersection bottom
     add edx, [r10 + 12]
     sub edx, eax
     mov [rsp + 28], edx
+    mov eax, [r10 + 8]
+    mov [rsp + 24], eax
     lea rsi, [rsp + 16]
     call .append_nonempty
     ; left and right strips span the intersection height
@@ -388,12 +388,12 @@ region_subtract_rect:
     mov eax, [rsp]
     add eax, [rsp + 8]
     mov [rsp + 16], eax
-    mov eax, [rsp + 4]
-    mov [rsp + 20], eax
-    mov edx, [r10]
+    mov edx, [r10]                      ; width: source right - intersection right
     add edx, [r10 + 8]
     sub edx, eax
     mov [rsp + 24], edx
+    mov eax, [rsp + 4]
+    mov [rsp + 20], eax
     mov eax, [rsp + 12]
     mov [rsp + 28], eax
     lea rsi, [rsp + 16]
