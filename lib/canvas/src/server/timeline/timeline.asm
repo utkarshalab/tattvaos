@@ -14,18 +14,13 @@ extern handle_destroy
 extern handle_resolve
 extern handle_table_init
 
-; struct offsets (hoisted above use)
-%define Timeline_handle        0
-%define Timeline.handle 0
-%define Timeline_generation    4
-%define Timeline.generation 4
-%define Timeline_current_point 8
-%define Timeline.current_point 8
-%define Timeline_waiters       16
-%define Timeline.waiters 16
-%define Timeline_client_id     24
-%define Timeline.client_id 24
-%define Timeline_size          32
+struc Timeline
+    .handle:                  resd 1
+    .generation:              resd 1
+    .current_point:           resq 1
+    .waiters:                 resq 1
+    .client_id:               resq 1
+endstruc
 
 section .text
 
@@ -267,7 +262,6 @@ timeline_get_point:
     ret
 
 section .data
-
 
 global timeline_version
 timeline_version: dq 0x010000
