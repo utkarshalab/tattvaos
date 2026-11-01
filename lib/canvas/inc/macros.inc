@@ -112,7 +112,13 @@
     %endif
 %endmacro
 
+; ASSERT_ALIGNED reg, constant: reg is a multiple of the constant (a power
+; of two). A register as the second operand would assemble as test reg, reg
+; (NASM drops the - 1), so it is refused.
 %macro ASSERT_ALIGNED 2
+    %ifnnum %2
+        %error "ASSERT_ALIGNED: the alignment must be a constant"
+    %endif
     %if DEBUG_BUILD
         test %1, %2 - 1
         jz %%ok
