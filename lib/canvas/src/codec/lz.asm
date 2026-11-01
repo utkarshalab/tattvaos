@@ -9,12 +9,10 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
 %define LZ_WINDOW_BITS   15
 %define LZ_HASH_BITS     14
 %define LZ_MIN_MATCH     3
 %define LZ_MAX_MATCH     258
-%define LzCtx_SIZE    24
 
 section .text
 
