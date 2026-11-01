@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global replay_test_main
 replay_test_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
