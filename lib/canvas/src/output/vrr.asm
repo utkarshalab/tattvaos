@@ -8,6 +8,7 @@
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 extern backend_vrr_enable
 extern backend_vrr_disable
@@ -18,7 +19,6 @@ extern backend_vrr_set_range
 %define VRR_FLAG_HDMI_VRR   (1 << 2)
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; vrr_init
@@ -169,7 +169,6 @@ vrr_is_active:
     ret
 
 section .data
-
 
 global vrr_version
 vrr_version: dq 0x010000
