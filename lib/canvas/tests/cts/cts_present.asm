@@ -26,7 +26,6 @@ test_cts_frame_callback_fires:
 
 test_name_cts_frame_callback_fires: db "cts frame callback fires", 0
 
-
 section .data
 global cts_present_version
 cts_present_version: dq 0x010000
