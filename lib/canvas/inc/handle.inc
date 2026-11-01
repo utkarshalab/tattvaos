@@ -15,15 +15,17 @@
 %define HANDLE_MAX_GEN       (1 << HANDLE_GEN_BITS)     ; 4,096
 
 ; HandleTable struct offsets
-%define HandleTable_entries    0
-%define HandleTable_capacity   8
-%define HandleTable_mask       16
-%define HandleTable_count      24
-%define HandleTable_next_index 32
-%define HandleTable_arena      40
-%define HandleTable_SIZE       48
+struc HandleTable
+    .entries:                 resq 1
+    .capacity:                resq 1
+    .mask:                    resq 1
+    .count:                   resq 1
+    .next_index:              resq 1
+    .arena:                   resq 1
+endstruc
 
-; External functions
+; External functions (src/core/handle.asm defines HANDLE_MODULE: it is their home)
+%ifndef HANDLE_MODULE
 extern handle_table_init
 extern handle_create
 extern handle_destroy
@@ -31,5 +33,6 @@ extern handle_resolve
 extern handle_acquire
 extern handle_release
 extern handle_get_generation
+%endif
 
 %endif ; __HANDLE_INC__
