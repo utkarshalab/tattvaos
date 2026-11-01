@@ -8,10 +8,9 @@
 %include "inc/fixed.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 section .text
-
-
 
 ; ---------------------------------------------------------------------------
 ; mode_init
