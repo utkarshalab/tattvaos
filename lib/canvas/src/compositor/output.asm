@@ -7,6 +7,7 @@
 %include "inc/errors.inc"
 %include "inc/compositor.inc"
 %include "inc/externs.inc"
+%include "inc/backend.inc"
 
 section .text
 
@@ -27,22 +28,22 @@ output_create:
     ASSERT_PTR r14
 
     ; Initialize output struct
-    mov qword [rbx + OUTPUT_BACKEND], r12
-    mov dword [rbx + OUTPUT_CRTC_INDEX], r13d
-    mov qword [rbx + OUTPUT_CURRENT_MODE], r14
+    mov qword [rbx + Output.backend], r12
+    mov dword [rbx + Output.crtc_index], r13d
+    mov qword [rbx + Output.current_mode], r14
 
     ; Copy mode info
     mov eax, [r14 + Mode.width]
-    mov [rbx + OUTPUT_WIDTH], eax
+    mov [rbx + Output.width], eax
     mov eax, [r14 + Mode.height]
-    mov [rbx + OUTPUT_HEIGHT], eax
+    mov [rbx + Output.height], eax
 
     ; Default state
-    mov byte [rbx + OUTPUT_CONNECTED], 1
-    mov dword [rbx + OUTPUT_SCALE], 1
-    mov byte [rbx + OUTPUT_ROTATION], ROTATE_0
-    mov byte [rbx + OUTPUT_DPMS_STATE], DPMS_ON
-    mov qword [rbx + OUTPUT_DPMS_TIMEOUT], 0
+    mov byte [rbx + Output.connected], 1
+    mov dword [rbx + Output.scale], 1
+    mov byte [rbx + Output.rotation], ROTATE_0
+    mov byte [rbx + Output.dpms_state], DPMS_ON
+    mov qword [rbx + Output.dpms_timeout], 0
 
     ; Allocate damage region
     mov rdi, rbx
@@ -56,7 +57,7 @@ output_create:
     call arena_alloc
     test rax, rax
     jz .init_fail
-    mov [rbx + OUTPUT_GAMMA_LUT], rax
+    mov [rbx + Output.gamma_lut], rax
 
     ; Initialize identity gamma
     mov rdi, rax
@@ -98,7 +99,7 @@ output_destroy:
     call damage_destroy
 
     ; Free gamma LUT
-    mov rdi, [rbx + OUTPUT_GAMMA_LUT]
+    mov rdi, [rbx + Output.gamma_lut]
     test rdi, rdi
     jz .done
     ; Arena handles it
@@ -127,8 +128,8 @@ output_set_mode:
     ASSERT_PTR r12
 
     ; Call backend modeset
-    mov rdi, [rbx + OUTPUT_BACKEND]
-    mov rsi, [rbx + OUTPUT_CRTC_INDEX]
+    mov rdi, [rbx + Output.backend]
+    mov rsi, [rbx + Output.crtc_index]
     mov rdx, r12
     call backend_modeset
     test rax, rax
@@ -136,16 +137,16 @@ output_set_mode:
 
     ; Update cached mode
     mov rax, [r12 + Mode.width]
-    mov [rbx + OUTPUT_WIDTH], eax
+    mov [rbx + Output.width], eax
     mov rax, [r12 + Mode.height]
-    mov [rbx + OUTPUT_HEIGHT], eax
-    mov [rbx + OUTPUT_CURRENT_MODE], r12
+    mov [rbx + Output.height], eax
+    mov [rbx + Output.current_mode], r12
 
     ; Update stride
-    mov eax, [rbx + OUTPUT_WIDTH]
+    mov eax, [rbx + Output.width]
     mov ecx, 4  ; bytes per pixel (BGRA8888)
     imul eax, ecx
-    mov [rbx + OUTPUT_STRIDE], eax
+    mov [rbx + Output.stride], eax
 
     ; Reallocate framebuffer if needed
     call .realloc_framebuffer
@@ -165,15 +166,15 @@ output_set_mode:
 
 .realloc_framebuffer:
     ; Calculate size
-    mov eax, [rbx + OUTPUT_WIDTH]
-    imul eax, [rbx + OUTPUT_HEIGHT]
+    mov eax, [rbx + Output.width]
+    imul eax, [rbx + Output.height]
     imul eax, 4  ; BGRA8888
-    mov rdi, [rbx + OUTPUT_BACKEND]
+    mov rdi, [rbx + Output.backend]
     mov rsi, rax
     call arena_alloc
     test rax, rax
     jz .fb_fail
-    mov [rbx + OUTPUT_FRAMEBUFFER], rax
+    mov [rbx + Output.framebuffer], rax
     ret
 
 .fb_fail:
@@ -202,35 +203,35 @@ output_dpms:
     jmp .done
 
 .dpms_on:
-    mov rdi, [rbx + OUTPUT_BACKEND]
-    mov rsi, [rbx + OUTPUT_CRTC_INDEX]
+    mov rdi, [rbx + Output.backend]
+    mov rsi, [rbx + Output.crtc_index]
     mov rdx, 1  ; on
     call backend_dpms
-    mov byte [rbx + OUTPUT_DPMS_STATE], DPMS_ON
+    mov byte [rbx + Output.dpms_state], DPMS_ON
     jmp .done
 
 .dpms_standby:
-    mov rdi, [rbx + OUTPUT_BACKEND]
-    mov rsi, [rbx + OUTPUT_CRTC_INDEX]
+    mov rdi, [rbx + Output.backend]
+    mov rsi, [rbx + Output.crtc_index]
     mov rdx, 2
     call backend_dpms
-    mov byte [rbx + OUTPUT_DPMS_STATE], DPMS_STANDBY
+    mov byte [rbx + Output.dpms_state], DPMS_STANDBY
     jmp .done
 
 .dpms_suspend:
-    mov rdi, [rbx + OUTPUT_BACKEND]
-    mov rsi, [rbx + OUTPUT_CRTC_INDEX]
+    mov rdi, [rbx + Output.backend]
+    mov rsi, [rbx + Output.crtc_index]
     mov rdx, 3
     call backend_dpms
-    mov byte [rbx + OUTPUT_DPMS_STATE], DPMS_SUSPEND
+    mov byte [rbx + Output.dpms_state], DPMS_SUSPEND
     jmp .done
 
 .dpms_off:
-    mov rdi, [rbx + OUTPUT_BACKEND]
-    mov rsi, [rbx + OUTPUT_CRTC_INDEX]
+    mov rdi, [rbx + Output.backend]
+    mov rsi, [rbx + Output.crtc_index]
     mov rdx, 4
     call backend_dpms
-    mov byte [rbx + OUTPUT_DPMS_STATE], DPMS_OFF
+    mov byte [rbx + Output.dpms_state], DPMS_OFF
     jmp .done
 
 .done:
@@ -252,13 +253,13 @@ output_set_scale:
     cmp esi, 8
     jg .invalid
 
-    mov dword [rbx + OUTPUT_SCALE], esi
+    mov dword [rbx + Output.scale], esi
 
     ; Update stride
-    mov eax, [rbx + OUTPUT_WIDTH]
+    mov eax, [rbx + Output.width]
     imul eax, esi
     imul eax, 4
-    mov [rbx + OUTPUT_STRIDE], eax
+    mov [rbx + Output.stride], eax
 
     ; Reallocate framebuffer
     call .realloc_framebuffer
@@ -273,16 +274,16 @@ output_set_scale:
     ret
 
 .realloc_framebuffer:
-    mov eax, [rbx + OUTPUT_WIDTH]
-    imul eax, [rbx + OUTPUT_SCALE]
-    imul eax, [rbx + OUTPUT_HEIGHT]
+    mov eax, [rbx + Output.width]
+    imul eax, [rbx + Output.scale]
+    imul eax, [rbx + Output.height]
     imul eax, 4
-    mov rdi, [rbx + OUTPUT_BACKEND]
+    mov rdi, [rbx + Output.backend]
     mov rsi, rax
     call arena_alloc
     test rax, rax
     jz .fb_fail
-    mov [rbx + OUTPUT_FRAMEBUFFER], rax
+    mov [rbx + Output.framebuffer], rax
     ret
 
 .fb_fail:
@@ -310,10 +311,10 @@ output_set_rotation:
     jmp .done
 
 .valid:
-    mov byte [rbx + OUTPUT_ROTATION], sil
+    mov byte [rbx + Output.rotation], sil
     ; Backend rotation
-    mov rdi, [rbx + OUTPUT_BACKEND]
-    mov rsi, [rbx + OUTPUT_CRTC_INDEX]
+    mov rdi, [rbx + Output.backend]
+    mov rsi, [rbx + Output.crtc_index]
     mov rdx, rsi
     call backend_dpms  ; reuse for rotation
     xor rax, rax
@@ -349,11 +350,11 @@ output_schedule_frame:
 global output_get_info
 output_get_info:
     PROLOGUE
-    mov rax, [rdi + OUTPUT_WIDTH]
-    mov rdx, [rdi + OUTPUT_HEIGHT]
-    mov r8d, [rdi + OUTPUT_SCALE]
-    mov r9b, [rdi + OUTPUT_ROTATION]
-    mov r10b, [rdi + OUTPUT_DPMS_STATE]
+    mov rax, [rdi + Output.width]
+    mov rdx, [rdi + Output.height]
+    mov r8d, [rdi + Output.scale]
+    mov r9b, [rdi + Output.rotation]
+    mov r10b, [rdi + Output.dpms_state]
     xor rax, rax
     leave
     ret
