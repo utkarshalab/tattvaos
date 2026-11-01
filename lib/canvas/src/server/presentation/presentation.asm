@@ -6,23 +6,20 @@
 %include "inc/cwp.inc"
 %include "inc/channel.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/render.inc"
+%include "inc/backend.inc"
 
 extern arena_alloc
 extern memcopy
 extern msgbuf_write
 
-%define PresentInfo.kind 0
-%define PresentInfo.seq 4
-%define PresentInfo.time 12
-%define PresentInfo.refresh_ns 20
-%define PresentInfo.flags 28
-%define PresentInfo_size 32
-
-%define Feedback.next 0
-%define Feedback.surface 8
-%define Feedback.completed 16
-%define Feedback.info 24
-%define Feedback_size 56
+struc Feedback
+    .next:                    resq 1
+    .surface:                 resq 1
+    .completed:               resq 1
+    .info:                    resq 1
+    resb 24
+endstruc
 
 %define SERVER_SURFACE_ID 0
 %define SERVER_SURFACE_CLIENT 40
