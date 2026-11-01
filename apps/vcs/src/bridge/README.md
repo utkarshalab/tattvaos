@@ -97,10 +97,18 @@ NUL, embedded LF, overflow, and exact duplicate values are rejected. Distinct
 validated options are retained only for duplicate detection and are otherwise
 ignored until Tattva VCS defines option-specific behavior.
 
+Native serving advertises a 128-bit lowercase hexadecimal `session-id` for
+cross-command correlation. It mixes the timestamp counter with the selected
+commit, listener handle, and a monotonic server generation; it is not an
+authentication secret. A client may return one `session-id=` capability with a
+nonempty whitespace-free ASCII 33..126 value in a packet of at most 256 bytes.
+Duplicate, empty, whitespace, control, DEL, and overflow values are rejected.
+
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
 requires exactly one SHA-256 object-format header, accepts at most one printable
 bounded `agent=` header using ASCII 33..126 (space is forbidden by protocol),
-rejects unadvertised header extensions, accepts bounded
+accepts the bounded client session identifier above, rejects unadvertised header
+extensions, accepts bounded
 `ls-refs` filters plus the standard `symrefs`, `peel`, and `unborn` arguments,
 and validates either one 64-hex `want` or one `want-ref` naming advertised
 `HEAD` or `refs/heads/main`, and up to 64 ordered SHA-256 `have` lines. A fetch
