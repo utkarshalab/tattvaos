@@ -578,7 +578,8 @@ UNIT_SRCS := \
     tests/unit/test_png.asm \
     tests/unit/test_webp.asm \
     tests/unit/test_vec.asm \
-    tests/unit/test_tree.asm
+    tests/unit/test_tree.asm \
+    tests/unit/test_misc.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
 # What the test images link: everything the server links but its entry (server/main)
@@ -703,7 +704,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree webp png jpeg
+HOST_SUITES   := arena str map handle ring vec tree misc webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
 HOST_TESTS    := $(addprefix $(HOSTDIR)/test_,$(HOST_SUITES))
