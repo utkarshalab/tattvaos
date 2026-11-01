@@ -86,13 +86,13 @@
 | FND-01 | Single source of truth for struct layouts: one `struc` per object; delete all local offset `%define`s | P0 | ✓ 202 objects, one `struc` each: shared ones in `inc/struct_offsets.inc`, subsystem ones in their header, private ones in their module; `server_offsets.inc` and `DEFINE_STRUCT_OFFSET` retired |
 | FND-02 | Build check that fails on duplicate or conflicting struct offsets | P0 | ✓ `make layout-check` (part of `all`) |
 | FND-03 | Extern/global consistency: each module header declares its exports; nothing redefines a global | P0 | |
-| FND-04 | Fix test and mock symbol collisions so all test images link | P0 | |
+| FND-04 | Fix test and mock symbol collisions so all test images link | P0 | ✓ `make test` links all 4 images; 19 real unit suites |
 | FND-05 | Makefile: `all` without `test`; no duplicate `linker.ld`; add `GFX_SRCS` to the replay image; one owner for `linker.ld` | P0 | ✓ the tracked `linker.ld` is the only copy |
 | FND-06 | Release build mode (`DEBUG_BUILD=0`), warnings as errors | P0 | ✓ `make release` (`MODE=release`, `build/release/`); `-Werror` in both modes; the 24 warnings fixed |
 | FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | ✓ 36 files in `attic/` (see its README); `native_planes`, `invariants` wired in; every `.asm` under `src/` and `tests/` is now built |
 | FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | ✓ `lib/canvas/.gitattributes`: LF everywhere, `*.uic` binary |
 | FND-09 | Host test shim: `ut_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | ✓ `tests/host/ut_host.asm`, `make host` |
-| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | → FND-09 |
+| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ◐ `make check`: layout, debug and release images, W^X, 19 unit suites, SVG, icon and image conformance. Golden and fuzz images only link: their suites are stubs (→ P1) |
 | FND-11 | Separate text/rodata/data segments in the linker script (W^X images) | P0 | ✓ R-X, R--, RW- segments on their own pages; all 23 images checked |
 | FND-12 | Dual-assembler CI: NASM and utasm both green, outputs compared byte for byte | P1 | 12 files currently utasm-only failures |
 | FND-13 | Static lint: register-use and ABI conventions, missing `ret`, stack alignment | P2 | 77 accesses wider than their field remain (e.g. `webp_vp8_filter`, `fb_linear`, `decoration_draw`) |
@@ -579,7 +579,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| MED-01 | Decoder test coverage for every supported format | P0 | ◐ PNG, JPEG, WebP tests exist |
+| MED-01 | Decoder test coverage for every supported format | P0 | ◐ corpus compared against a reference decoder; 53 of 57 pass, the rest are MED-20, MED-21 |
 | MED-02 | Generic `image_decode` with format sniffing | P1 | ◐ `img/sniff` |
 | MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | |
 | MED-04 | Decode-to-scale for JPEG and WebP | P3 | |
@@ -598,6 +598,8 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | MED-17 | Subtitle and caption rendering service | P4 | |
 | MED-18 | Video quality pipeline: deinterlace, scaling filters, sharpening | P4 | |
 | MED-19 | Camera preview pipeline | P4 | ◐ `img/camera` (decode only) |
+| MED-20 | Progressive JPEG decoding | P2 | Known gap in `compare_images.py`; the decoder detects it and stops |
+| MED-21 | Fix VP8L decoding (lossless WebP and VP8L-coded alpha) | P1 | Known gap: 3 corpus files fail |
 
 ## REM — Capture, remote and casting
 
