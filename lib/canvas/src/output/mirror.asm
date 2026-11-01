@@ -8,6 +8,7 @@
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 extern output_set_mode
 extern output_layout_apply
