@@ -22,39 +22,6 @@ extern auth_send_caps
 extern rbtree_find
 extern rbtree_remove
 
-; struct offsets (hoisted above use)
-%define Server_client_registry   0
-%define Server.client_registry 0
-%define Server_next_client_id    8
-%define Server.next_client_id 8
-%define Server_arena             16
-%define Server.arena 16
-%define Server_size              24
-%define Client_id               0
-%define Client.id 0
-%define Client_trust_profile    8
-%define Client.trust_profile 8
-%define Client_caps             16
-%define Client.caps 16
-%define Client_arena            24
-%define Client.arena 24
-%define Client_obj_table        32
-%define Client.obj_table 32
-%define Client_tx_ring          40
-%define Client.tx_ring 40
-%define Client_rx_ring          48
-%define Client.rx_ring 48
-%define Client_handle_tx        56
-%define Client.handle_tx 56
-%define Client_handle_rx        64
-%define Client.handle_rx 64
-%define Client_quota            72
-%define Client.quota 72
-%define Client_last_ping        104
-%define Client.last_ping 104
-%define Client_state            112
-%define Client.state 112
-%define Client_size             256
 %define CLIENT_CONNECTING   1
 %define CLIENT_ACTIVE       2
 %define CLIENT_THROTTLED    3
