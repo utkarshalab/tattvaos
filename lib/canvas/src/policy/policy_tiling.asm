@@ -8,12 +8,11 @@
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 extern arena_alloc
 extern toplevel_schedule_configure
 
-; struct offsets (hoisted above use)
-%define PolicyTiling_SIZE    56
 ; LayoutNode_size is supplied by struct_offsets.inc.
 %define NODE_TYPE_LEAF    0
 %define NODE_TYPE_SPLIT_H 1
@@ -38,9 +37,6 @@ endstruc
 ; Offsets defined in inc/struct_offsets.inc
 
 ; ----------
-
-
-
 
 ; ---------------------------------------------------------------------------
 ; policy_tiling_init
