@@ -144,7 +144,8 @@ multiseat_add_seat:
     mov byte [rax + SeatSession.locked],0
     mov qword [rax + SeatSession.lock_surface],0
     mov qword [rax + SeatSession.idle_timer],0
-    mov qword [rax + SeatSession.idle_timeout],300000000000
+    mov rcx, 300000000000               ; 5 minutes: wider than an immediate store
+    mov [rax + SeatSession.idle_timeout], rcx
     mov dword [rax + SeatSession.inhibit_count],0
     mov qword [rax + SeatSession.power_inhibit],0
 
