@@ -30,6 +30,7 @@ extern buffer_init
 extern buffer_create
 extern buffer_attach
 extern commit_surface
+extern surface_fire_frame_callbacks
 
 %define HEAP_SIZE (1024 * 1024)
 
@@ -367,12 +368,28 @@ ts_frame_callback:
     cmp qword [rel cb_user], 0
     jne .fail                           ; pending until the commit
     COMMIT
+    cmp qword [rel cb_user], 0
+    jne .fail                           ; and until the frame is done
+    mov rdi, [rel surface]
+    call surface_fire_frame_callbacks
     cmp qword [rel cb_user], 55
     jne .fail
     mov rax, [rel surface]
     cmp [rel cb_surface], rax
     jne .fail
     cmp qword [rel cb_seq], 1
+    jne .fail
+    mov rax, [rel surface]              ; the spent node waits to be reused
+    mov rcx, [rax + Surface.cb_free]
+    test rcx, rcx
+    jz .fail
+    lea rdi, [rel server]
+    mov rsi, [rel surface]
+    lea rdx, [rel frame_cb]
+    mov ecx, 56
+    call surface_frame_callback
+    mov rax, [rel surface]
+    cmp qword [rax + Surface.cb_free], 0
     jne .fail
     PASS
 
