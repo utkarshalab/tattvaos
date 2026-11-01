@@ -52,15 +52,18 @@ tga_decode:
     add eax,18
     cmp rax,r13
     ja .bad
+    movzx ecx,byte [r12+17]        ; descriptor: bit 5 set = rows run top down
     add r12,rax
     sub r13,rax
     push r10
     push r11
+    push rcx
     mov rdi,rbx
     mov rsi,r10
     mov rdx,r11
     mov rcx,DRM_FORMAT_BGRA8888
     call pixbuf_create
+    pop rcx
     pop r11
     pop r10
     test rax,rax
@@ -69,6 +72,19 @@ tga_decode:
     mov rdi,[rbx+PixBuf.data]
     mov r8,r10
     imul r8,r11                    ; pixels remaining
+    mov rsi,r10                    ; width
+    mov rdx,r10                    ; left in this row
+    mov eax,[rbx+PixBuf.stride]
+    test ecx,0x20
+    jnz .top_down
+    dec r11                        ; start at the last row, step up
+    imul r11,rax
+    add rdi,r11
+    neg rax
+.top_down:
+    lea r10,[r10*4]
+    mov r11,rax
+    sub r11,r10                    ; end of a row -> start of the next
     xor r9d,r9d                    ; packet remaining
     xor ecx,ecx                    ; packet is RLE
 .pixel:
@@ -107,15 +123,19 @@ tga_decode:
     jb .bad
     cmp r15d,8
     jne .color
-    mov al,[r12]
-    movzx r10d,al
-    imul r10d,0x00010101
-    or r10d,0xFF000000
+    movzx eax,byte [r12]
+    imul eax,eax,0x00010101
+    or eax,0xFF000000
     jmp .sample_ready
 .color:
-    mov eax,[r12]
     cmp r15d,24
-    jne .sample_ready
+    je .color24
+    mov eax,[r12]
+    jmp .sample_ready
+.color24:
+    movzx eax,byte [r12+2]
+    shl eax,16
+    mov ax,[r12]
     or eax,0xFF000000
 .sample_ready:
     mov r10d,eax
@@ -129,6 +149,10 @@ tga_decode:
     add rdi,4
     dec r8
     dec r9
+    dec rdx
+    jnz .pixel
+    mov rdx,rsi
+    add rdi,r11
     jmp .pixel
 .done:
     mov rax,rbx
