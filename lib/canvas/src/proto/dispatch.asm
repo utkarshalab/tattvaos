@@ -81,7 +81,7 @@ dispatch_register:
 .has_table:
     mov rdi, [rbx + Dispatch.table]
     mov rax, r12
-    imul rax, 0x9E3779B1
+    imul eax, eax, 0x9E3779B1       ; Fibonacci hash of the 32-bit id
     shr rax, 16
     and rax, 255
     mov r15, 256
@@ -152,7 +152,7 @@ dispatch_call:
     mov rdi, [rbx + Dispatch.table]
     test rdi, rdi
     jz .not_found
-    imul rax, 0x9E3779B1
+    imul eax, eax, 0x9E3779B1       ; Fibonacci hash of the 32-bit id
     shr rax, 16
     and rax, 255
     mov r13, 256
