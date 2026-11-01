@@ -12,20 +12,14 @@
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
-%define FbLinearState_fb_base     0
-%define FbLinearState.fb_base 0
-%define FbLinearState_width       8
-%define FbLinearState.width 8
-%define FbLinearState_height      12
-%define FbLinearState.height 12
-%define FbLinearState_stride      16
-%define FbLinearState.stride 16
-%define FbLinearState_format      20
-%define FbLinearState.format 20
-%define FbLinearState_back_buffer 24
-%define FbLinearState.back_buffer 24
-%define FbLinearState_size        32
+struc FbLinearState
+    .fb_base:                 resq 1
+    .width:                   resd 1
+    .height:                  resd 1
+    .stride:                  resd 1
+    .format:                  resd 1
+    .back_buffer:             resq 1
+endstruc
 
 section .text
 
@@ -379,7 +373,6 @@ fb_linear_create_output:
     ret
 
 section .data
-
 
 global fb_linear_version
 fb_linear_version: dq 0x010000
