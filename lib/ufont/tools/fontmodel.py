@@ -36,53 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..", "ugfx", "tools"))
 import svgmodel  # noqa: E402
 
-STANDARD = [
-    ("NotoSans-Regular.ttf", "Noto Sans", 400, 0), ("NotoSans-Bold.ttf", "Noto Sans", 700, 0),
-    ("NotoSans-Italic.ttf", "Noto Sans", 400, 1), ("NotoSans-BoldItalic.ttf", "Noto Sans", 700, 1),
-    ("NotoSerif-Regular.ttf", "Noto Serif", 400, 0), ("NotoSerif-Bold.ttf", "Noto Serif", 700, 0),
-    ("NotoSerif-Italic.ttf", "Noto Serif", 400, 1), ("NotoSerif-BoldItalic.ttf", "Noto Serif", 700, 1),
-    ("NotoSansMono-Regular.ttf", "Noto Sans Mono", 400, 0), ("NotoSansMono-Bold.ttf", "Noto Sans Mono", 700, 0),
-    ("LiberationSans-Regular.ttf", "Liberation Sans", 400, 0),
-    ("LiberationSans-Bold.ttf", "Liberation Sans", 700, 0),
-    ("LiberationSans-Italic.ttf", "Liberation Sans", 400, 1),
-    ("LiberationSans-BoldItalic.ttf", "Liberation Sans", 700, 1),
-    ("LiberationSerif-Regular.ttf", "Liberation Serif", 400, 0),
-    ("LiberationSerif-Bold.ttf", "Liberation Serif", 700, 0),
-    ("LiberationSerif-Italic.ttf", "Liberation Serif", 400, 1),
-    ("LiberationSerif-BoldItalic.ttf", "Liberation Serif", 700, 1),
-    ("LiberationMono-Regular.ttf", "Liberation Mono", 400, 0),
-    ("LiberationMono-Bold.ttf", "Liberation Mono", 700, 0),
-    ("LiberationMono-Italic.ttf", "Liberation Mono", 400, 1),
-    ("LiberationMono-BoldItalic.ttf", "Liberation Mono", 700, 1),
-    ("NotoSansDevanagari-Regular.ttf", "Noto Sans Devanagari", 400, 0),
-    ("NotoSansDevanagari-Bold.ttf", "Noto Sans Devanagari", 700, 0),
-    ("NotoSerifDevanagari-Regular.ttf", "Noto Serif Devanagari", 400, 0),
-    ("NotoSerifDevanagari-Bold.ttf", "Noto Serif Devanagari", 700, 0),
-    ("NotoSansBengali-Regular.ttf", "Noto Sans Bengali", 400, 0),
-    ("NotoSansBengali-Bold.ttf", "Noto Sans Bengali", 700, 0),
-    ("NotoSansGurmukhi-Regular.ttf", "Noto Sans Gurmukhi", 400, 0),
-    ("NotoSansGurmukhi-Bold.ttf", "Noto Sans Gurmukhi", 700, 0),
-    ("NotoSansGujarati-Regular.ttf", "Noto Sans Gujarati", 400, 0),
-    ("NotoSansGujarati-Bold.ttf", "Noto Sans Gujarati", 700, 0),
-    ("NotoSansOriya-Regular.ttf", "Noto Sans Oriya", 400, 0),
-    ("NotoSansOriya-Bold.ttf", "Noto Sans Oriya", 700, 0),
-    ("NotoSansTamil-Regular.ttf", "Noto Sans Tamil", 400, 0),
-    ("NotoSansTamil-Bold.ttf", "Noto Sans Tamil", 700, 0),
-    ("NotoSansTelugu-Regular.ttf", "Noto Sans Telugu", 400, 0),
-    ("NotoSansTelugu-Bold.ttf", "Noto Sans Telugu", 700, 0),
-    ("NotoSansKannada-Regular.ttf", "Noto Sans Kannada", 400, 0),
-    ("NotoSansKannada-Bold.ttf", "Noto Sans Kannada", 700, 0),
-    ("NotoSansMalayalam-Regular.ttf", "Noto Sans Malayalam", 400, 0),
-    ("NotoSansMalayalam-Bold.ttf", "Noto Sans Malayalam", 700, 0),
-    ("NotoSansArabic-Regular.ttf", "Noto Sans Arabic", 400, 0),
-    ("NotoSansArabic-Bold.ttf", "Noto Sans Arabic", 700, 0),
-    ("NotoNaskhArabic-Regular.ttf", "Noto Naskh Arabic", 400, 0),
-    ("NotoNaskhArabic-Bold.ttf", "Noto Naskh Arabic", 700, 0),
-    ("NotoSansHebrew-Regular.ttf", "Noto Sans Hebrew", 400, 0),
-    ("NotoSansHebrew-Bold.ttf", "Noto Sans Hebrew", 700, 0),
-    ("NotoSerifHebrew-Regular.ttf", "Noto Serif Hebrew", 400, 0),
-    ("NotoSerifHebrew-Bold.ttf", "Noto Serif Hebrew", 700, 0),
-]
+from standard_data import STANDARD  # noqa: E402  (file, face index, family, weight, italic)
 ALIASES = {"sans-serif": "Noto Sans", "system-ui": "Noto Sans", "ui-sans-serif": "Noto Sans",
            "cursive": "Noto Sans", "fantasy": "Noto Sans", "serif": "Noto Serif", "ui-serif": "Noto Serif",
            "monospace": "Noto Sans Mono", "ui-monospace": "Noto Sans Mono", "arial": "Liberation Sans",
@@ -94,7 +48,7 @@ ALIASES = {"sans-serif": "Noto Sans", "system-ui": "Noto Sans", "ui-sans-serif":
 class Face:
     def __init__(self, path, family, weight, italic, std=-1, index=0):
         self.family, self.weight, self.italic, self.std = family, weight, italic, std
-        self.path = path
+        self.path, self.index = path, index
         self._shaper = None
         self.font = TTFont(path, fontNumber=index) if index or path.endswith('.ttc') else TTFont(path)
         self.upem = self.font["head"].unitsPerEm
@@ -109,10 +63,15 @@ class Face:
             elif uni and t.format == 4 and cmap is None:
                 cmap = t
         self.cmap = cmap.cmap
-        self.cff = None
-        if 'CFF ' in self.font:
+        self._cff = None
+
+    @property
+    def cff(self):
+        """The CFF outlines (parsed the first time they are needed), None for glyf."""
+        if self._cff is None and 'CFF ' in self.font:
             import cff
-            self.cff = cff.CFF(self.raw('CFF '))
+            self._cff = cff.CFF(self.raw('CFF '))
+        return self._cff
 
     def glyph(self, cp):
         name = self.cmap.get(cp) if cp >= 0 else None
@@ -121,7 +80,7 @@ class Face:
     def shaper(self):
         if self._shaper is None:
             import shapemodel
-            self._shaper = shapemodel.Font(self.path)
+            self._shaper = shapemodel.Font(self.path, self.index)
         return self._shaper
 
     def advance(self, gid):
@@ -330,8 +289,8 @@ class Face:
 
 class FontSet:
     def __init__(self, directory):
-        self.faces = [Face(os.path.join(directory, f), fam, w, it, i) for i, (f, fam, w, it) in enumerate(STANDARD)
-                      if os.path.exists(os.path.join(directory, f))]
+        self.faces = [Face(os.path.join(directory, f), fam, w, it, i, k)
+                      for i, (f, k, fam, w, it) in enumerate(STANDARD) if os.path.exists(os.path.join(directory, f))]
 
     def family(self, name, want):
         best, score = None, -1
