@@ -211,8 +211,9 @@ are scanned, including the required version token; duplicate versions,
 unterminated fields, overflow, and substring matches are rejected. The server
 handles partial nonblocking I/O and serves one
 `ls-refs` followed by `fetch` on the same protocol-v2 connection, and closes
-both sockets on every terminal path. A direct `fetch` is also accepted, while
-repeated reference discovery is rejected as an invalid session sequence.
+both sockets on every terminal path. A direct `fetch` is also accepted.
+Successful `ls-refs` commands are repeatable and nonterminal, allowing clients
+to refresh reference filters without changing fetch negotiation state.
 Successful `object-info` commands are nonterminal and may be repeated within the
 same session without changing reference-discovery or fetch negotiation state.
 A lone flush packet in receive state is accepted as the protocol-v2 empty
