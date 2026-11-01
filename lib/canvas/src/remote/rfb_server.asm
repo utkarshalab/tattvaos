@@ -31,7 +31,7 @@ rfb_server_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
     mov rdi, [rbx + Server.arena]
-    mov rsi, RfbServer_SIZE
+    mov rsi, RfbServer_size
     call arena_alloc
     test rax, rax
     jz .oom
@@ -96,7 +96,7 @@ rfb_server_accept:
     ; allocate client
     mov rdi, [rbx + RfbServer.server]
     mov rdi, [rdi + Server.arena]
-    mov rsi, RfbClient_SIZE
+    mov rsi, RfbClient_size
     call arena_alloc
     test rax, rax
     jz .oom
