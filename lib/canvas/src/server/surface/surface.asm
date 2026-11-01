@@ -21,6 +21,8 @@ extern region_destroy
 extern region_clear
 extern region_copy
 extern region_add_rect
+extern compositor_remove_surface
+extern presentation_forget
 
 %define SURFACE_HANDLES        4096
 
@@ -219,6 +221,13 @@ surface_destroy:
     test rax, rax
     jz .not_found
     mov r13, rax
+
+    ; Off its output and any outstanding feedback
+    mov rdi, rbx
+    mov rsi, r13
+    call compositor_remove_surface
+    mov rdi, r13
+    call presentation_forget
 
     ; Off the client's list
     mov rcx, [r13 + Surface.client]
@@ -502,12 +511,20 @@ surface_frame_callback:
 
     test r13, r13
     jz .invalid
+    mov rax, [r12 + Surface.cb_free]    ; a spent node, or a new one
+    test rax, rax
+    jz .new_node
+    mov rcx, [rax]
+    mov [r12 + Surface.cb_free], rcx
+    jmp .have_node
+.new_node:
     mov rax, [r12 + Surface.client]
     mov rdi, [rax + Client.arena]
     mov rsi, 32
     call arena_alloc
     test rax, rax
     jz .oom
+.have_node:
     mov qword [rax], 0
     mov qword [rax + 8], 0
     mov [rax + 16], r13
