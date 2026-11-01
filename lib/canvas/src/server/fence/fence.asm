@@ -14,23 +14,8 @@ extern handle_destroy
 extern handle_resolve
 extern handle_table_init
 
-; struct offsets (hoisted above use)
-%define Fence_handle       0
-%define Fence.handle 0
-%define Fence_generation   4
-%define Fence.generation 4
-%define Fence_type         8
-%define Fence.type 8
-%define Fence_signaled     12
-%define Fence.signaled 12
-%define Fence_waiters      16
-%define Fence.waiters 16
-%define Fence_client_id    24
-%define Fence.client_id 24
-%define Fence_size         32
 %define FENCE_CPU     0
 %define FENCE_GPU     1
-%define FENCE_TIMELINE 2
 
 section .text
 
@@ -293,8 +278,6 @@ fence_get_status:
     ret
 
 section .data
-
-
 
 global fence_version
 fence_version: dq 0x010000
