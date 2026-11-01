@@ -98,21 +98,21 @@ png_decode:
     je .chunk_idat
     cmp r14d, PNG_IEND
     je .chunk_iend
-    cmp r14d, PNG_tRNS
+    cmp r14d, PNG.tRNS
     je .chunk_trns
-    cmp r14d, PNG_gAMA
+    cmp r14d, PNG.gAMA
     je .chunk_gama
-    cmp r14d, PNG_cHRM
+    cmp r14d, PNG.cHRM
     je .chunk_chrm
-    cmp r14d, PNG_sRGB
+    cmp r14d, PNG.sRGB
     je .chunk_srgb
-    cmp r14d, PNG_iCCP
+    cmp r14d, PNG.iCCP
     je .chunk_iccp
-    cmp r14d, PNG_bKGD
+    cmp r14d, PNG.bKGD
     je .chunk_bkgd
-    cmp r14d, PNG_pHYs
+    cmp r14d, PNG.pHYs
     je .chunk_phys
-    cmp r14d, PNG_sBIT
+    cmp r14d, PNG.sBIT
     je .chunk_sbit
 
     ; Unknown chunk - skip
@@ -384,7 +384,7 @@ png_decode:
     jne .truncated
     mov ax, [r12]
     bswap ax
-    mov [rbx + PNG_TRNS], ax
+    mov [rbx + PNG.tRNS], ax
     mov [rbx + PNG_TRNS_SZ], 2
     ret
 
@@ -394,10 +394,10 @@ png_decode:
     ; Store RGB transparency
     mov eax, [r12]
     bswap eax
-    mov [rbx + PNG_TRNS], eax
+    mov [rbx + PNG.tRNS], eax
     mov eax, [r12 + 4]
     bswap eax
-    mov [rbx + PNG_TRNS + 4], eax
+    mov [rbx + PNG.tRNS + 4], eax
     mov [rbx + PNG_TRNS_SZ], 6
     ret
 
@@ -408,7 +408,7 @@ png_decode:
     call arena_alloc
     test rax, rax
     jz .truncated
-    mov [rbx + PNG_TRNS], rax
+    mov [rbx + PNG.tRNS], rax
     mov [rbx + PNG_TRNS_SZ], r15d
     ; Initialize to opaque
     mov rdi, rax
@@ -453,14 +453,14 @@ png_decode:
     cmp r15d, 1
     jne .truncated
     movzx eax, byte [r12]
-    mov [rbx + PNG_SRGB], al
+    mov [rbx + PNG.sRGB], al
     ret
 
 .parse_iccp:
     ; ICC Profile - store for later
     ; Name (null-terminated) + compression method + compressed profile
     ; Simplified: just store pointer
-    mov [rbx + PNG_ICCP], r12
+    mov [rbx + PNG.iCCP], r12
     mov [rbx + PNG_ICCP_SZ], r15d
     ret
 
@@ -480,7 +480,7 @@ png_decode:
     jne .truncated
     mov ax, [r12]
     bswap ax
-    mov [rbx + PNG_BKGD], ax
+    mov [rbx + PNG.bKGD], ax
     ret
 
 .bkgd_rgb:
@@ -488,17 +488,17 @@ png_decode:
     jne .truncated
     mov eax, [r12]
     bswap eax
-    mov [rbx + PNG_BKGD], eax
+    mov [rbx + PNG.bKGD], eax
     mov eax, [r12 + 4]
     bswap eax
-    mov [rbx + PNG_BKGD + 4], eax
+    mov [rbx + PNG.bKGD + 4], eax
     ret
 
 .bkgd_palette:
     cmp r15d, 1
     jne .truncated
     movzx eax, byte [r12]
-    mov [rbx + PNG_BKGD], al
+    mov [rbx + PNG.bKGD], al
     ret
 
 .parse_phys:
@@ -506,12 +506,12 @@ png_decode:
     jne .truncated
     mov eax, [r12]
     bswap eax
-    mov [rbx + PNG_PHYS], eax
+    mov [rbx + PNG.pHYs], eax
     mov eax, [r12 + 4]
     bswap eax
-    mov [rbx + PNG_PHYS + 4], eax
+    mov [rbx + PNG.pHYs + 4], eax
     movzx eax, byte [r12 + 8]
-    mov [rbx + PNG_PHYS + 8], al
+    mov [rbx + PNG.pHYs + 8], al
     ret
 
 .parse_sbit:
@@ -534,7 +534,7 @@ png_decode:
 .sbit_3: cmp r15d, 3; je .sbit_done; ret
 .sbit_4: cmp r15d, 4; je .sbit_done; ret
 .sbit_done:
-    mov rdi, [rbx + PNG_SBIT]
+    mov rdi, [rbx + PNG.sBIT]
     test rdi, rdi
     jnz .sbit_has
     mov rdi, r14
@@ -542,9 +542,9 @@ png_decode:
     call arena_alloc
     test rax, rax
     jz .truncated
-    mov [rbx + PNG_SBIT], rax
+    mov [rbx + PNG.sBIT], rax
 .sbit_has:
-    mov rdi, [rbx + PNG_SBIT]
+    mov rdi, [rbx + PNG.sBIT]
     mov rsi, r12
     mov ecx, r15d
     call memcopy
