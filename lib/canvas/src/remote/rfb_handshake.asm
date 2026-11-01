@@ -11,12 +11,10 @@
 %include "inc/externs.inc"
 extern rfb_auth
 
-; struct offsets (hoisted above use)
 %define RFB_VERSION_LEN   12
 %define RFB_SEC_TLS       18  ; VeNCrypt-style TLS tunnel (our own subset)
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; rfb_handshake
@@ -27,7 +25,7 @@ rfb_handshake:
     PROLOGUE_SAVE rbx, r12, r13
     mov rbx, rdi
     ASSERT_PTR rbx
-    mov r12, [rbx + RfbClient_conn]
+    mov r12, [rbx + RfbClient.conn]
     ; 1. send server version
     mov rdi, r12
     mov rsi, rfb_version_str
@@ -131,7 +129,7 @@ rfb_client_init:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     ASSERT_PTR rbx
-    mov r12, [rbx + RfbClient_conn]
+    mov r12, [rbx + RfbClient.conn]
     sub rsp, 8
     mov rdi, r12
     mov rsi, rsp
@@ -159,7 +157,7 @@ rfb_server_init_msg:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     ASSERT_PTR rbx
-    mov r12, [rbx + RfbClient_conn]
+    mov r12, [rbx + RfbClient.conn]
     sub rsp, 32
     ; width/height from virtual output
     mov rax, [rbx + RfbClient.server]
