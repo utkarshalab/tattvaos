@@ -26,7 +26,6 @@ test_cts_clipboard_roundtrip:
 
 test_name_cts_clipboard_roundtrip: db "cts clipboard roundtrip", 0
 
-
 section .data
 global cts_data_version
 cts_data_version: dq 0x010000
