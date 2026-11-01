@@ -197,7 +197,7 @@ native_init_controller:
 .skip_bar2:
     ; Store controller info
     mov [r14 + Server.pci_dev], r13
-    mov [r14 + Server.irq], 0
+    mov qword [r14 + Server.irq], 0
     movzx eax, byte [r13 + PciDevice.irq]
     mov [r14 + Server.irq], rax
 
