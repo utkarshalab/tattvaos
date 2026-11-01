@@ -31,6 +31,7 @@ extern test_tree_suite
 extern test_misc_suite
 extern test_gpu_suite
 extern test_proto_suite
+extern test_client_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -130,6 +131,10 @@ test_runner_init:
 
     ; Test wire framing and message buffers
     call test_proto_suite
+    add rbx, rax
+
+    ; Test client accept and teardown
+    call test_client_suite
     add rbx, rax
 
     ; Final summary
