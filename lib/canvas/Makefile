@@ -191,6 +191,7 @@ FONT_SRCS := \
     $(UFONT_DIR)/sfnt/brotli_tables.asm \
     $(UFONT_DIR)/sfnt/var.asm \
     $(UFONT_DIR)/match/fontset.asm \
+    $(UFONT_DIR)/match/standard.asm \
     $(UFONT_DIR)/layout/shape.asm \
     $(UFONT_DIR)/layout/buffer.asm \
     $(UFONT_DIR)/layout/unicode.asm \
