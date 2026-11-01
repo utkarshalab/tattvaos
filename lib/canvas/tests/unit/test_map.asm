@@ -295,7 +295,8 @@ tmap_grow:
     call fresh
     xor ebx, ebx
 .put:
-    lea rsi, [rel keys + rbx * 8]
+    lea rsi, [rel keys]
+    lea rsi, [rsi + rbx * 8]
     mov dword [rsi], 'key_'
     mov [rsi + 4], ebx
     lea rdi, [rel map]
@@ -316,7 +317,8 @@ tmap_grow:
     xor ebx, ebx
 .get:
     lea rdi, [rel map]
-    lea rsi, [rel keys + rbx * 8]
+    lea rsi, [rel keys]
+    lea rsi, [rsi + rbx * 8]
     mov edx, 8
     call map_get
     lea rcx, [rbx + 1000]
