@@ -10,17 +10,31 @@
 %define PNG_PLTE      0x504C5445  ; Palette
 %define PNG_IDAT      0x49444154  ; Image Data
 %define PNG_IEND      0x49454E44  ; Image End
-%define PNG_tRNS      0x74524E53  ; Transparency
-%define PNG_gAMA      0x67414D41  ; Gamma
-%define PNG_cHRM      0x6348524D  ; Chromaticity
-%define PNG_sRGB      0x73524742  ; sRGB
-%define PNG_iCCP      0x69434350  ; ICC Profile
-%define PNG_tEXt      0x74455874  ; Textual Data
-%define PNG_zTXt      0x7A545874  ; Compressed Text
-%define PNG_iTXt      0x69545874  ; International Text
-%define PNG_bKGD      0x624B4744  ; Background
-%define PNG_pHYs      0x70485973  ; Physical Pixel Dimensions
-%define PNG_sBIT      0x73424954  ; Significant Bits
+struc PNG
+    resb 1649100612
+    .bKGD:                    resq 1
+    resb 16583425
+    .cHRM:                    resq 1
+    resb 66648812
+    .gAMA:                    resq 1
+    resb 33682951
+    .iCCP:                    resq 1
+    resb 1119516
+    .iTXt:                    resq 1
+    resb 116654327
+    .pHYs:                    resq 1
+    resb 49934297
+    .sBIT:                    resq 1
+    resb 1048038
+    .sRGB:                    resq 1
+    resb 15929642
+    .tEXt:                    resq 1
+    resb 849367
+    .tRNS:                    resq 1
+    resb 100796953
+    .zTXt:                    resq 1
+    resb 4
+endstruc
 
 ; Color types
 %define PNG_COLOR_GRAY       0
@@ -50,22 +64,15 @@
 %define PNG_INTERLACE   12
 %define PNG_PALETTE     16
 %define PNG_PALETTE_SZ  24
-%define PNG_TRNS        32
 %define PNG_TRNS_SZ     40
 %define PNG_GAMMA       48
 %define PNG_CHROMA      56
-%define PNG_SRGB        64
-%define PNG_ICCP        72
 %define PNG_ICCP_SZ     80
-%define PNG_BKGD        88
-%define PNG_PHYS        96
-%define PNG_SBIT        104
 %define PNG_IDAT_BUF    112
 %define PNG_IDAT_LEN    120
 %define PNG_IDAT_CAP    128
 %define PNG_ARENA       136
 %define PNG_PIXBUF      144
-%define PNG_SIZE        152
 
 ; Decoder state
 %define PNGDEC_STATE      0
