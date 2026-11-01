@@ -7,6 +7,7 @@
 %include "inc/errors.inc"
 %include "inc/protocol.inc"
 %include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
 
 section .text
 
@@ -31,7 +32,7 @@ protocol_dispatch:
     mov r13, [r12 + MESSAGE_SENDER_OFFSET]
 
     ; Resolve object
-    mov rdi, [rbx + ClientConn_SERVER_CHAN]
+    mov rdi, [rbx + ClientConn.server_chan]
     mov rsi, r13
     call handle_resolve
     test rax, rax
