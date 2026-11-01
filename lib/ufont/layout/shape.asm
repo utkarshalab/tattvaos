@@ -71,6 +71,7 @@ extern ufl_arabic_collect_features
 extern ufl_arabic_data_create
 extern ufl_arabic_setup_masks
 extern ufl_hebrew_data_create
+extern ufl_arabic_stch
 extern ufl_thai_preprocess
 extern ufl_hangul_collect_features
 extern ufl_hangul_override_features
@@ -705,10 +706,17 @@ ufont_shape:
     call ufl_fb_position
 .output:
     cmp byte [r15 + S_BRTL], 0
-    je .visual
+    je .hide
     call sh_reverse
+.hide:
+    call sh_hide
+.stch:
+    ; Arabic: stch tiles stretched (visual order)
+    cmp byte [r15 + S_SHAPER], 2
+    jne .visual
+    call ufl_arabic_stch
 .visual:
-    ; ignorables drawn as the space glyph (dropped without one)
+    ; ignorables drawn as the space glyph (sh_hide deleted them without one)
     mov edi, 0x20
     call ufl_norm_glyph
     mov [rsp + 8], eax
@@ -805,6 +813,99 @@ sh_zero_marks:
     inc edx
     jmp .each
 .done:
+    ret
+
+; sh_hide: without a space glyph, default ignorables deleted (visual order),
+;   each one's cluster merged into a neighbour's as HarfBuzz's
+;   delete_glyphs_inplace does: kept if the next shares its cluster, else
+;   into the glyphs kept before it (when smaller), else into the next one
+sh_hide:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    sub rsp, 8
+    mov edi, 0x20
+    call ufl_norm_glyph
+    test eax, eax
+    jnz .out
+    xor ebx, ebx                        ; i
+    xor ebp, ebp                        ; j: kept
+.each:
+    cmp ebx, [r15 + S_LEN]
+    jae .done
+    mov rax, rbx
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    call sh_is_ignorable
+    test ecx, ecx
+    jz .keep
+    mov r12d, [rax + GI_CLUSTER]
+    lea edx, [rbx + 1]
+    cmp edx, [r15 + S_LEN]
+    jae .back
+    cmp [rax + 32 + GI_CLUSTER], r12d
+    je .next                            ; the cluster survives
+.back:
+    test ebp, ebp
+    jz .forward
+    mov rax, rbp
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    mov r13d, [rax - 32 + GI_CLUSTER]
+    cmp r12d, r13d
+    jae .next
+    mov ecx, ebp
+.back_each:
+    test ecx, ecx
+    jz .next
+    mov rax, rcx
+    shl rax, 5
+    add rax, [r15 + S_INFO]
+    cmp [rax - 32 + GI_CLUSTER], r13d
+    jne .next
+    mov [rax - 32 + GI_CLUSTER], r12d
+    dec ecx
+    jmp .back_each
+.forward:
+    lea edx, [rbx + 1]
+    cmp edx, [r15 + S_LEN]
+    jae .next
+    mov esi, ebx
+    add edx, 1
+    call ufl_buf_merge_clusters
+    jmp .next
+.keep:
+    cmp ebp, ebx
+    je .kept
+    mov rcx, rbp
+    shl rcx, 5
+    add rcx, [r15 + S_INFO]
+    movdqu xmm0, [rax]
+    movdqu xmm1, [rax + 16]
+    movdqu [rcx], xmm0
+    movdqu [rcx + 16], xmm1
+    imul eax, ebx, GPOS_SIZE
+    add rax, [r15 + S_POS]
+    imul ecx, ebp, GPOS_SIZE
+    add rcx, [r15 + S_POS]
+    movdqu xmm0, [rax]
+    mov rdx, [rax + 16]
+    movdqu [rcx], xmm0
+    mov [rcx + 16], rdx
+.kept:
+    inc ebp
+.next:
+    inc ebx
+    jmp .each
+.done:
+    mov [r15 + S_LEN], ebp
+.out:
+    add rsp, 8
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
     ret
 
 ; rax = record -> ecx 1 for a default ignorable not substituted
