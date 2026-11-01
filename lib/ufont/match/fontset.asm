@@ -6,14 +6,19 @@
 ;
 ;   ufont_set_init(set, arena)
 ;   ufont_set_add(set, data, length, family, weight, italic)  -> 0, -errno
+;   ufont_set_standard(set, loader, user)   the shipped fonts, opened when needed
 ;   ufont_set_face(set, UgfxSvgFont*)                       -> face or 0
 ;   ufont_svg_font                          ugfx's font callback (user = set)
 ;   ufont_svg_shape                         ugfx's shaping callback (user = set)
 ;   ufont_svg_bidi                          ugfx's bidi callback
 ;   ufont_standard, ufont_standard_count    the fonts lib/ufont ships
 ;
-; A set holds up to UFONT_SET_MAX (64) faces: a TrueType font (sfnt.asm, its bytes
-; kept by the caller) with a family name, a weight and italic or not.
+; A set holds up to UFONT_SET_MAX (512) faces: a TrueType font (sfnt.asm, its bytes
+; kept by the caller) with a family name, a weight and italic or not. The
+; shipped faces (ufont_standard) can be added without their bytes: each is
+; loaded (the caller's loader maps the file; a collection's faces share it)
+; and opened the first time it is chosen, or when fallback needs a character
+; its coverage has; one that cannot be loaded is passed over from then on.
 ; font-family is read as CSS has it: a comma list of names, quoted or not,
 ; compared without case. The generic names and some common ones stand for
 ; the shipped families - sans-serif, system-ui, ui-sans-serif, cursive,
@@ -43,6 +48,9 @@
 %include "ufont.inc"
 
 extern ufont_open
+extern ufont_open_face
+extern ufont_standard
+extern ufont_standard_count
 extern ufont_glyph
 extern ufont_advance
 extern ufont_outline
@@ -61,20 +69,6 @@ fs_noto_mono:       db "Noto Sans Mono", 0
 fs_lib_sans:        db "Liberation Sans", 0
 fs_lib_serif:       db "Liberation Serif", 0
 fs_lib_mono:        db "Liberation Mono", 0
-fs_deva_sans:       db "Noto Sans Devanagari", 0
-fs_deva_serif:      db "Noto Serif Devanagari", 0
-fs_bengali:        db "Noto Sans Bengali", 0
-fs_gurmukhi:       db "Noto Sans Gurmukhi", 0
-fs_gujarati:       db "Noto Sans Gujarati", 0
-fs_oriya:          db "Noto Sans Oriya", 0
-fs_tamil:          db "Noto Sans Tamil", 0
-fs_telugu:         db "Noto Sans Telugu", 0
-fs_kannada:        db "Noto Sans Kannada", 0
-fs_malayalam:      db "Noto Sans Malayalam", 0
-fs_arabic_sans:    db "Noto Sans Arabic", 0
-fs_arabic_naskh:   db "Noto Naskh Arabic", 0
-fs_hebrew_sans:    db "Noto Sans Hebrew", 0
-fs_hebrew_serif:   db "Noto Serif Hebrew", 0
 
 ; alias, family
 align 8
@@ -119,165 +113,6 @@ fsa_16: db "Courier New", 0
 fsa_17: db "Courier", 0
 fsa_18: db "Cousine", 0
 
-; the shipped fonts: file, family, weight, italic (UfontStd)
-section .data
-align 8
-global ufont_standard
-global ufont_standard_count
-ufont_standard_count: dq 50
-ufont_standard:
-    dq fsf_0, fs_noto_sans
-    dd 400, 0
-    dq fsf_1, fs_noto_sans
-    dd 700, 0
-    dq fsf_2, fs_noto_sans
-    dd 400, 1
-    dq fsf_3, fs_noto_sans
-    dd 700, 1
-    dq fsf_4, fs_noto_serif
-    dd 400, 0
-    dq fsf_5, fs_noto_serif
-    dd 700, 0
-    dq fsf_6, fs_noto_serif
-    dd 400, 1
-    dq fsf_7, fs_noto_serif
-    dd 700, 1
-    dq fsf_8, fs_noto_mono
-    dd 400, 0
-    dq fsf_9, fs_noto_mono
-    dd 700, 0
-    dq fsf_10, fs_lib_sans
-    dd 400, 0
-    dq fsf_11, fs_lib_sans
-    dd 700, 0
-    dq fsf_12, fs_lib_sans
-    dd 400, 1
-    dq fsf_13, fs_lib_sans
-    dd 700, 1
-    dq fsf_14, fs_lib_serif
-    dd 400, 0
-    dq fsf_15, fs_lib_serif
-    dd 700, 0
-    dq fsf_16, fs_lib_serif
-    dd 400, 1
-    dq fsf_17, fs_lib_serif
-    dd 700, 1
-    dq fsf_18, fs_lib_mono
-    dd 400, 0
-    dq fsf_19, fs_lib_mono
-    dd 700, 0
-    dq fsf_20, fs_lib_mono
-    dd 400, 1
-    dq fsf_21, fs_lib_mono
-    dd 700, 1
-    dq fsf_22, fs_deva_sans
-    dd 400, 0
-    dq fsf_23, fs_deva_sans
-    dd 700, 0
-    dq fsf_24, fs_deva_serif
-    dd 400, 0
-    dq fsf_25, fs_deva_serif
-    dd 700, 0
-    dq fsf_26, fs_bengali
-    dd 400, 0
-    dq fsf_27, fs_bengali
-    dd 700, 0
-    dq fsf_28, fs_gurmukhi
-    dd 400, 0
-    dq fsf_29, fs_gurmukhi
-    dd 700, 0
-    dq fsf_30, fs_gujarati
-    dd 400, 0
-    dq fsf_31, fs_gujarati
-    dd 700, 0
-    dq fsf_32, fs_oriya
-    dd 400, 0
-    dq fsf_33, fs_oriya
-    dd 700, 0
-    dq fsf_34, fs_tamil
-    dd 400, 0
-    dq fsf_35, fs_tamil
-    dd 700, 0
-    dq fsf_36, fs_telugu
-    dd 400, 0
-    dq fsf_37, fs_telugu
-    dd 700, 0
-    dq fsf_38, fs_kannada
-    dd 400, 0
-    dq fsf_39, fs_kannada
-    dd 700, 0
-    dq fsf_40, fs_malayalam
-    dd 400, 0
-    dq fsf_41, fs_malayalam
-    dd 700, 0
-    dq fsf_42, fs_arabic_sans
-    dd 400, 0
-    dq fsf_43, fs_arabic_sans
-    dd 700, 0
-    dq fsf_44, fs_arabic_naskh
-    dd 400, 0
-    dq fsf_45, fs_arabic_naskh
-    dd 700, 0
-    dq fsf_46, fs_hebrew_sans
-    dd 400, 0
-    dq fsf_47, fs_hebrew_sans
-    dd 700, 0
-    dq fsf_48, fs_hebrew_serif
-    dd 400, 0
-    dq fsf_49, fs_hebrew_serif
-    dd 700, 0
-section .rodata
-fsf_0:  db "NotoSans-Regular.ttf", 0
-fsf_1:  db "NotoSans-Bold.ttf", 0
-fsf_2:  db "NotoSans-Italic.ttf", 0
-fsf_3:  db "NotoSans-BoldItalic.ttf", 0
-fsf_4:  db "NotoSerif-Regular.ttf", 0
-fsf_5:  db "NotoSerif-Bold.ttf", 0
-fsf_6:  db "NotoSerif-Italic.ttf", 0
-fsf_7:  db "NotoSerif-BoldItalic.ttf", 0
-fsf_8:  db "NotoSansMono-Regular.ttf", 0
-fsf_9:  db "NotoSansMono-Bold.ttf", 0
-fsf_10: db "LiberationSans-Regular.ttf", 0
-fsf_11: db "LiberationSans-Bold.ttf", 0
-fsf_12: db "LiberationSans-Italic.ttf", 0
-fsf_13: db "LiberationSans-BoldItalic.ttf", 0
-fsf_14: db "LiberationSerif-Regular.ttf", 0
-fsf_15: db "LiberationSerif-Bold.ttf", 0
-fsf_16: db "LiberationSerif-Italic.ttf", 0
-fsf_17: db "LiberationSerif-BoldItalic.ttf", 0
-fsf_18: db "LiberationMono-Regular.ttf", 0
-fsf_19: db "LiberationMono-Bold.ttf", 0
-fsf_20: db "LiberationMono-Italic.ttf", 0
-fsf_21: db "LiberationMono-BoldItalic.ttf", 0
-fsf_22: db "NotoSansDevanagari-Regular.ttf", 0
-fsf_23: db "NotoSansDevanagari-Bold.ttf", 0
-fsf_24: db "NotoSerifDevanagari-Regular.ttf", 0
-fsf_25: db "NotoSerifDevanagari-Bold.ttf", 0
-fsf_26: db "NotoSansBengali-Regular.ttf", 0
-fsf_27: db "NotoSansBengali-Bold.ttf", 0
-fsf_28: db "NotoSansGurmukhi-Regular.ttf", 0
-fsf_29: db "NotoSansGurmukhi-Bold.ttf", 0
-fsf_30: db "NotoSansGujarati-Regular.ttf", 0
-fsf_31: db "NotoSansGujarati-Bold.ttf", 0
-fsf_32: db "NotoSansOriya-Regular.ttf", 0
-fsf_33: db "NotoSansOriya-Bold.ttf", 0
-fsf_34: db "NotoSansTamil-Regular.ttf", 0
-fsf_35: db "NotoSansTamil-Bold.ttf", 0
-fsf_36: db "NotoSansTelugu-Regular.ttf", 0
-fsf_37: db "NotoSansTelugu-Bold.ttf", 0
-fsf_38: db "NotoSansKannada-Regular.ttf", 0
-fsf_39: db "NotoSansKannada-Bold.ttf", 0
-fsf_40: db "NotoSansMalayalam-Regular.ttf", 0
-fsf_41: db "NotoSansMalayalam-Bold.ttf", 0
-fsf_42: db "NotoSansArabic-Regular.ttf", 0
-fsf_43: db "NotoSansArabic-Bold.ttf", 0
-fsf_44: db "NotoNaskhArabic-Regular.ttf", 0
-fsf_45: db "NotoNaskhArabic-Bold.ttf", 0
-fsf_46: db "NotoSansHebrew-Regular.ttf", 0
-fsf_47: db "NotoSansHebrew-Bold.ttf", 0
-fsf_48: db "NotoSerifHebrew-Regular.ttf", 0
-fsf_49: db "NotoSerifHebrew-Bold.ttf", 0
-
 section .text
 
 ; ----------------------------------------------------------------------------
@@ -287,6 +122,8 @@ global ufont_set_init
 ufont_set_init:
     mov [rdi + UfontSet_arena], rsi
     mov dword [rdi + UfontSet_count], 0
+    mov qword [rdi + UfontSet_loader], 0
+    mov qword [rdi + UfontSet_user], 0
     ret
 
 ; ----------------------------------------------------------------------------
@@ -322,6 +159,10 @@ ufont_set_add:
     mov [rax + UfontFace_weight], r13d
     mov [rax + UfontFace_italic], r14d
     mov [rax + UfontFace_font], r15
+    mov qword [rax + UfontFace_std], 0
+    mov dword [rax + UfontFace_state], UFS_OPEN
+    mov qword [rax + UfontFace_data], 0
+    mov qword [rax + UfontFace_len], 0
     xor eax, eax
     jmp .out
 .full:
@@ -335,6 +176,146 @@ ufont_set_add:
     pop r13
     pop r12
     pop rbx
+    ret
+
+; ----------------------------------------------------------------------------
+; ufont_set_standard — rdi = UfontSet*, rsi = loader (rdi = user, rsi = a
+;   shipped file's name -> rax = its bytes, 0 when it cannot be had; rdx =
+;   their length; they must stay as long as the set), rdx = user -> rax = 0,
+;   -ENOMEM when the set filled up first: every shipped face added, none
+;   loaded yet
+; ----------------------------------------------------------------------------
+global ufont_set_standard
+ufont_set_standard:
+    mov [rdi + UfontSet_loader], rsi
+    mov [rdi + UfontSet_user], rdx
+    lea rsi, [rel ufont_standard]
+    xor ecx, ecx
+.each:
+    cmp rcx, [rel ufont_standard_count]
+    jae .done
+    mov eax, [rdi + UfontSet_count]
+    cmp eax, UFONT_SET_MAX
+    jae .full
+    inc dword [rdi + UfontSet_count]
+    imul rax, rax, UfontFace_SIZE
+    lea rax, [rdi + UfontSet_faces + rax]
+    mov rdx, [rsi + UfontStd_family]
+    mov [rax + UfontFace_family], rdx
+    mov edx, [rsi + UfontStd_weight]
+    mov [rax + UfontFace_weight], edx
+    mov edx, [rsi + UfontStd_italic]
+    mov [rax + UfontFace_italic], edx
+    mov qword [rax + UfontFace_font], 0
+    mov [rax + UfontFace_std], rsi
+    mov dword [rax + UfontFace_state], UFS_LAZY
+    mov qword [rax + UfontFace_data], 0
+    mov qword [rax + UfontFace_len], 0
+    add rsi, UfontStd_SIZE
+    inc ecx
+    jmp .each
+.done:
+    xor eax, eax
+    ret
+.full:
+    mov rax, -(ENOMEM)
+    ret
+
+; fs_open — rbx = UfontSet*, rdi = a face -> rax = its UfontFont* (0: it
+;   cannot be had): a lazy face loaded (its file's bytes from another face of
+;   the same file, else the loader) and opened now
+fs_open:
+    mov eax, [rdi + UfontFace_state]
+    cmp eax, UFS_OPEN
+    je .open
+    cmp eax, UFS_LAZY
+    je .load
+    xor eax, eax
+    ret
+.open:
+    mov rax, [rdi + UfontFace_font]
+    ret
+.load:
+    push r12
+    push r13
+    push r14
+    mov r12, rdi
+    mov r13, [r12 + UfontFace_std]
+    mov dword [r12 + UfontFace_state], UFS_FAILED   ; unless it opens
+    ; the file already loaded for another face?
+    xor ecx, ecx
+.shared:
+    cmp ecx, [rbx + UfontSet_count]
+    jae .loader
+    imul rax, rcx, UfontFace_SIZE
+    lea rax, [rbx + UfontSet_faces + rax]
+    inc ecx
+    mov rdx, [rax + UfontFace_std]
+    test rdx, rdx
+    jz .shared
+    cmp qword [rax + UfontFace_data], 0
+    je .shared
+    mov rdx, [rdx + UfontStd_file]
+    cmp rdx, [r13 + UfontStd_file]
+    jne .shared
+    mov rsi, [rax + UfontFace_data]
+    mov rdx, [rax + UfontFace_len]
+    jmp .have
+.loader:
+    mov rax, [rbx + UfontSet_loader]
+    test rax, rax
+    jz .fail
+    mov rdi, [rbx + UfontSet_user]
+    mov rsi, [r13 + UfontStd_file]
+    call rax
+    test rax, rax
+    jz .fail
+    mov rsi, rax
+.have:
+    mov [r12 + UfontFace_data], rsi
+    mov [r12 + UfontFace_len], rdx
+    mov rdi, [rbx + UfontSet_arena]
+    mov ecx, [r13 + UfontStd_face]
+    call ufont_open_face
+    test rax, rax
+    jz .fail
+    mov [r12 + UfontFace_font], rax
+    mov dword [r12 + UfontFace_state], UFS_OPEN
+    jmp .out
+.fail:
+    xor eax, eax
+.out:
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; fs_covers — rdi = a lazy face, esi = a code point -> ZF clear when its
+;   coverage (what it has beyond Noto Sans Regular) holds the code point
+fs_covers:
+    mov r8, [rdi + UfontFace_std]
+    mov r9, [r8 + UfontStd_cover]
+    xor ecx, ecx                        ; lo
+    mov edx, [r8 + UfontStd_ncover]     ; hi
+.search:
+    cmp ecx, edx
+    jae .no
+    lea eax, [rcx + rdx]
+    shr eax, 1
+    cmp esi, [r9 + rax * 8]
+    jb .lower
+    cmp esi, [r9 + rax * 8 + 4]
+    jbe .yes
+    lea ecx, [rax + 1]
+    jmp .search
+.lower:
+    mov edx, eax
+    jmp .search
+.yes:
+    or eax, 1                           ; ZF clear
+    ret
+.no:
+    xor eax, eax                        ; ZF set
     ret
 
 ; ----------------------------------------------------------------------------
@@ -443,10 +424,20 @@ ufont_set_face:
     call fs_family
     test rax, rax
     jnz .out
+    ; the first face that opens
+    xor r12d, r12d
+.first:
     xor eax, eax
-    cmp dword [rbx + UfontSet_count], 0
-    je .out
-    lea rax, [rbx + UfontSet_faces]
+    cmp r12d, [rbx + UfontSet_count]
+    jae .out
+    imul rdi, r12, UfontFace_SIZE
+    lea rdi, [rbx + UfontSet_faces + rdi]
+    mov r13, rdi
+    call fs_open
+    inc r12d
+    test rax, rax
+    jz .first
+    mov rax, r13
 .out:
     pop r15
     pop r14
@@ -501,9 +492,40 @@ fs_same:
     ret
 
 ; rbx = UfontSet*, rdi / rsi = a family name, edx = bold (1) | italic (2)
-;   wanted -> rax = its face matching the style first, then the weight; 0
-;   when the family is not in the set
+;   wanted -> rax = its face matching the style first, then the weight (one
+;   that opens); 0 when the family is not in the set
 fs_family:
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, 8
+    mov r12, rdi
+    mov r13, rsi
+    mov r14d, edx
+.again:
+    mov rdi, r12
+    mov rsi, r13
+    mov edx, r14d
+    call fs_family_best
+    test rax, rax
+    jz .out
+    mov r15, rax
+    mov rdi, rax
+    call fs_open
+    test rax, rax
+    jz .again                           ; it failed (now marked): the next best
+    mov rax, r15
+.out:
+    add rsp, 8
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    ret
+
+; fs_family's choice among the faces not known to fail
+fs_family_best:
     push r12
     push r13
     push r14
@@ -522,6 +544,8 @@ fs_family:
     lea r8, [rbx + UfontSet_faces + rax]
     mov rdi, r12
     mov rsi, r13
+    cmp dword [r8 + UfontFace_state], UFS_FAILED
+    je .next
     mov rdx, [r8 + UfontFace_family]
     push rcx
     push r8
@@ -682,10 +706,11 @@ fs_want:
     ret
 
 ; ----------------------------------------------------------------------------
-; fs_char_face — rbx = UfontSet*, rdi = the face asked for, esi = a code
-;   point, edx = bold | italic wanted -> rax = the face to draw it from: that
-;   face if it has it, else Noto Sans in the style, else the first face with
-;   it (same weight and style, then same weight, then any), else that face
+; fs_char_face — rbx = UfontSet*, rdi = the face asked for (open), esi = a
+;   code point, edx = bold | italic wanted -> rax = the face to draw it from:
+;   that face if it has it, else Noto Sans in the style, else the first face
+;   with it (same weight and style, then same weight, then any; a face not
+;   opened yet only when its coverage has the character), else that face
 ; ----------------------------------------------------------------------------
 fs_char_face:
     push r12
@@ -737,9 +762,27 @@ fs_char_face:
     jnz .face_next
     push rdi
     sub rsp, 8
+    mov eax, [rdi + UfontFace_state]
+    cmp eax, UFS_FAILED
+    je .not_here
+    cmp eax, UFS_LAZY
+    jne .opened
+    mov esi, r13d
+    call fs_covers
+    jz .not_here
+    mov rdi, [rsp + 8]
+    call fs_open
+    test rax, rax
+    jz .not_here
+    mov rdi, [rsp + 8]
+.opened:
     mov rdi, [rdi + UfontFace_font]
     mov esi, r13d
     call ufont_glyph
+    jmp .tried
+.not_here:
+    xor eax, eax
+.tried:
     add rsp, 8
     pop rdi
     test eax, eax
