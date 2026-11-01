@@ -14,19 +14,10 @@ extern str_cmp
 extern states_fullscreen
 
 ; PolicyKiosk struct offsets (manual)
-%define PolicyKiosk_BASE        0
-%define PolicyKiosk_SERVER      8
-%define PolicyKiosk_DATA        16
-%define PolicyKiosk_ALLOWED_APP_ID 24
-%define PolicyKiosk_ALLOW_EXIT  32
-%define PolicyKiosk_AUTO_RESTART 33
-%define PolicyKiosk_SIZE        40
 
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
-
-; struct offsets (hoisted above use)
-%define PolicyKiosk_SIZE    40
+%include "inc/backend.inc"
 
 section .text
 
