@@ -101,14 +101,14 @@ preedit_add_attribute:
     test rax, rax
     jnz .attr_have_array
     mov rdi, r12
-    mov rsi, 64 * PreeditAttribute_SIZE
+    mov rsi, 64 * PreeditAttribute_size
     call arena_alloc
     test rax, rax
     jz .attr_oom
     mov [rbx + PreeditString.attributes], rax
 .attr_have_array:
     mov edx, [rbx + PreeditString.attr_count]
-    imul rdx, PreeditAttribute_SIZE
+    imul rdx, PreeditAttribute_size
     add rax, rdx
     mov [rax + PreeditAttribute.type], r13d
     mov [rax + PreeditAttribute.start], r14d
