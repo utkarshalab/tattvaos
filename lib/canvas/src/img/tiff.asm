@@ -647,11 +647,11 @@ tiff_decode:
     ja .bad
     mov r15d,[rsp+L_ENCROW]
     imul r15,r9                         ; expected bytes
-    mov rdx,[rsp+L_RASTER]
     mov eax,r14d
-    xor ecx,ecx
+    xor edx,edx                         ; the dividend is edx:eax
     div dword [rsp+L_SPP]               ; eax = plane
     mov ecx,eax
+    mov rdx,[rsp+L_RASTER]
     imul ecx,[rsp+L_H]
     imul ecx,[rsp+L_ENCROW]
     add rdx,rcx
