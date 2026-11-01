@@ -13,6 +13,7 @@
 %define HOST_SYS_WRITE          1
 %define HOST_SYS_MMAP           9
 %define HOST_SYS_MUNMAP         11
+%define HOST_SYS_SCHED_YIELD    24
 %define HOST_SYS_CLOCK_GETTIME  228
 %define HOST_SYS_EXIT_GROUP     231
 %define HOST_SYS_GETRANDOM      318
@@ -280,6 +281,35 @@ ut_mem_free:
     ret
 .null:
     mov rax, -(EINVAL)
+    ret
+
+; ---------------------------------------------------------------------------
+; ut_dma_alloc / ut_dma_free
+;   IN: rdi = size, rsi = alignment (at most a page) — OUT: rax = CPU
+;   address or negative error, rdx = the device address (the same here)
+;   Ordinary page-aligned memory: nothing on the host reads it as a device.
+; ---------------------------------------------------------------------------
+global ut_dma_alloc
+ut_dma_alloc:
+    sub rsp, 8
+    xor esi, esi
+    call ut_mem_alloc
+    add rsp, 8
+    ret
+
+global ut_dma_free
+ut_dma_free:
+    jmp ut_mem_free
+
+; ---------------------------------------------------------------------------
+; ut_wait_yield
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global ut_wait_yield
+ut_wait_yield:
+    mov eax, HOST_SYS_SCHED_YIELD
+    syscall
+    xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
