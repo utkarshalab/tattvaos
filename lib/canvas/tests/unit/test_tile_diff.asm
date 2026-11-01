@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global test_tile_diff_main
 test_tile_diff_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ test_tile_diff_main:
 ; ============================================================================
 global test_rle_roundtrip
 test_rle_roundtrip:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -34,17 +32,7 @@ test_rle_roundtrip:
 ; ============================================================================
 global test_delta_all_same
 test_delta_all_same:
-    PROLOGUE
-    xor rax, rax
-    ret
-
-; ============================================================================
-; memcopy (stub)
-; ============================================================================
-global memcopy
-memcopy:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
