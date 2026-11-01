@@ -32,8 +32,17 @@ struc Backend
     .arena:          resq 1
     .server:         resq 1
     .name:           resq 1
+    .capabilities:            resq 1
+    .config:                  resq 1
+    .cursor_x:                resd 1
+    resb 4
+    .cursor_y:                resd 1
+    resb 4
+    .fb_base:                 resq 1
+    .fb_size:                 resq 1
+    .frame_clock:             resq 1
+    .layout_bounds:           resq 1
 endstruc
-%define Backend_size      96
 
 ; Output Structure
 struc Output
@@ -55,8 +64,33 @@ struc Output
     .frame_clock:     resq 1
     .damage:          resq 1
     .next:            resq 1
+    resb 3
+    .connected:               resb 1
+    resb 7
+    .controller:              resq 1
+    .controller_ptr:          resq 1
+    .crtc_index:              resq 1
+    .current_surface:         resq 1
+    .dpms_state:              resb 1
+    resb 7
+    .dpms_timeout:            resq 1
+    .edid:                    resq 1
+    .hotplug_callback:        resq 1
+    .hpd_irq:                 resd 1
+    resb 4
+    .hpd_register:            resd 1
+    resb 4
+    .i2c_bus:                 resq 1
+    .surfaces:                resq 1
+    .toplevels:               resq 1
+    .vrr_caps:                resq 1
+    .vrr_flags:               resd 1
+    resb 4
+    .vrr_max_refresh:         resq 1
+    .vrr_min_refresh:         resq 1
+    .x:                       resq 1
+    .y:                       resq 1
 endstruc
-%define Output_size         128
 
 ; Mode Structure
 struc Mode
@@ -65,8 +99,38 @@ struc Mode
     .refresh_ns:    resq 1
     .flags:         resd 1
     .name:          resq 1
+    resb 4
+    .hactive:                 resw 1
+    resb 6
+    .hblank:                  resw 1
+    resb 6
+    .hborder:                 resb 1
+    resb 7
+    .height_mm:               resw 1
+    resb 6
+    .hsync_end:               resq 1
+    .hsync_offset:            resw 1
+    resb 6
+    .hsync_start:             resq 1
+    .hsync_width:             resw 1
+    resb 6
+    .htotal:                  resq 1
+    .pixel_clock:             resq 1
+    .vactive:                 resw 1
+    resb 6
+    .vblank:                  resw 1
+    resb 6
+    .vborder:                 resb 1
+    resb 7
+    .vsync_end:               resq 1
+    .vsync_offset:            resw 1
+    resb 6
+    .vsync_start:             resq 1
+    .vsync_width:             resw 1
+    resb 6
+    .vtotal:                  resq 1
+    .width_mm:                resw 1
 endstruc
-%define Mode_size             32
 
 ; Mode Flags
 %define MODE_FLAG_INTERLACED   (1 << 0)
@@ -78,7 +142,6 @@ struc Point
     .x: resd 1
     .y: resd 1
 endstruc
-%define Point_size            8
 
 ; Config Structure (for backend init)
 struc Config
@@ -87,8 +150,10 @@ struc Config
     .fb_height:     resd 1
     .fb_stride:     resd 1
     .fb_format:     resd 1
+    .fb_size:                 resq 1
+    .flags:                   resq 1
+    .mode:                    resq 1
 endstruc
-%define Config_size           32
 
 ; Backend Function Pointers
 %macro BACKEND_FUNCS 0
