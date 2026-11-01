@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 extern arena_alloc
@@ -93,9 +94,9 @@ pcx_decode:
     rep stosb
     jmp .decode_row
 .convert:
-    mov rax,[rbx+PixBuf_stride]
+    mov rax,[rbx+PixBuf.stride]
     imul rax,r14
-    add rax,[rbx+PixBuf_data]
+    add rax,[rbx+PixBuf.data]
     mov rdi,rax
     xor r15d,r15d
 .pixel:
