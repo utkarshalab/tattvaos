@@ -356,10 +356,17 @@ calls.
 
 ---
 
-## 5. Next
+## 5. Future expansion
 
-- Line breaking (UAX #14) for wrapped text, and bidi over several lines
-  (L1 per line).
-- Choosing a CJK region (and other language-dependent faces) by the
-  text's language.
-- CFF2 (variable CFF outlines), MVAR, avar 2.
+Set aside for now (the scripts' shaping and fonts are done; other modules
+come first):
+
+- Line breaking (UAX #14) and hyphenation for wrapped text, with breaks
+  between syllables for Thai, Lao, Khmer and Myanmar (dictionaries later),
+  and bidi over several lines (L1 per line); a paragraph layout call.
+- Language-dependent faces: the CJK region (Japanese, Korean, Traditional
+  Chinese forms) and the OpenType language system chosen by the text's
+  language.
+- Variable fonts: CFF2 (variable CFF outlines), MVAR, avar 2; SVG / CSS
+  axis settings.
+- Colour emoji (COLR / CPAL, bitmap tables), hinting, vertical CJK text.
