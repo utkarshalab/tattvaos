@@ -32,7 +32,7 @@ idle_init:
     ASSERT_PTR r12
 
     mov rdi,r12
-    mov rsi,IdleManager_SIZE
+    mov rsi,IdleManager_size
     call arena_alloc
     test rax,rax
     jz .oom
