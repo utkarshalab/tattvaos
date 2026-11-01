@@ -84,7 +84,7 @@ seat_create_default:
     ASSERT_PTR r12
 
     ; Allocate seat
-    mov rdi, 72  ; Seat_SIZE
+    mov rdi, 72  ; Seat_size
     call arena_alloc
     test rax, rax
     jz .oom
