@@ -65,7 +65,7 @@ move_resize_start:
 
     ; Allocate move/resize state
     mov rdi, [rbx + Server.arena]
-    mov rsi, MoveResize_SIZE
+    mov rsi, MoveResize_size
     call arena_alloc
     test rax, rax
     jz .oom
