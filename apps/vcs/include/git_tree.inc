@@ -40,6 +40,8 @@
 ; Zero emits every tree. Otherwise this is the exclusive tree depth plus one,
 ; allowing a requested tree:0 limit to remain distinct from no filter.
 %define GTEP_TREE_LIMIT 88
-%define GIT_TREE_EMIT_PLAN_REQUEST 96
+; Optional u64 size array indexed like GTEP_TREE_HASHES.
+%define GTEP_TREE_SIZES 96
+%define GIT_TREE_EMIT_PLAN_REQUEST 104
 
 %endif
