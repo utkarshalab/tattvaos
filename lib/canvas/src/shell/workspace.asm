@@ -24,17 +24,17 @@ workspace_create:
     ASSERT_PTR r12
     ASSERT_PTR r13
 
-    mov qword [rbx + WORKSPACE_OUTPUT], r13
-    mov dword [rbx + WORKSPACE_IDX], r14d
-    mov qword [rbx + WORKSPACE_LAYOUT], 0
-    mov qword [rbx + WORKSPACE_TOPLEVELS], 0
-    mov qword [rbx + WORKSPACE_NAME], 0
+    mov qword [rbx + Workspace.output], r13
+    mov dword [rbx + Workspace.idx], r14d
+    mov qword [rbx + Workspace.layout], 0
+    mov qword [rbx + Workspace.toplevels], 0
+    mov qword [rbx + Workspace.name], 0
 
     ; Link into shell's workspace list
-    mov rax, [r12 + SHELL_WORKSPACES]
-    mov [rbx + WORKSPACE_NEXT], rax
-    mov [r12 + SHELL_WORKSPACES], rbx
-    inc dword [r12 + SHELL_WORKSPACE_COUNT]
+    mov rax, [r12 + Shell.workspaces]
+    mov [rbx + Workspace.next], rax
+    mov [r12 + Shell.workspaces], rbx
+    inc dword [r12 + Shell.workspace_count]
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
@@ -54,7 +54,7 @@ workspace_destroy:
     ; ...
 
     ; Unlink from shell
-    mov r12, [rbx + WORKSPACE_SHELL]
+    mov r12, [rbx + Workspace.shell]
     call .unlink_from_shell
 
     xor rax, rax
@@ -62,20 +62,20 @@ workspace_destroy:
     ret
 
 .unlink_from_shell:
-    mov rax, [r12 + SHELL_WORKSPACES]
+    mov rax, [r12 + Shell.workspaces]
     test rax, rax
     jz .done
 
     cmp rax, rbx
     jne .find_prev
-    mov rax, [rbx + WORKSPACE_NEXT]
-    mov [r12 + SHELL_WORKSPACES], rax
+    mov rax, [rbx + Workspace.next]
+    mov [r12 + Shell.workspaces], rax
     jmp .done
 
 .find_prev:
     mov r12, rax
 .prev_loop:
-    mov rax, [r12 + WORKSPACE_NEXT]
+    mov rax, [r12 + Workspace.next]
     test rax, rax
     jz .done
     cmp rax, rbx
@@ -84,9 +84,9 @@ workspace_destroy:
     jmp .prev_loop
 
 .unlink:
-    mov rax, [rbx + WORKSPACE_NEXT]
-    mov [r12 + WORKSPACE_NEXT], rax
-    dec dword [r12 + SHELL_WORKSPACE_COUNT]
+    mov rax, [rbx + Workspace.next]
+    mov [r12 + Workspace.next], rax
+    dec dword [r12 + Shell.workspace_count]
 
 .done:
     ret
@@ -103,8 +103,8 @@ workspace_set_active:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov [r12 + SHELL_ACTIVE_WS], rbx
-    mov eax, [rbx + WORKSPACE_IDX]
+    mov [r12 + Shell.active_ws], rbx
+    mov eax, [rbx + Workspace.idx]
     mov dword [r12 + SHELL_ACTIVE_WS_IDX], eax
 
     ; Hide all toplevels on other workspaces, show this one
@@ -125,7 +125,7 @@ workspace_set_active:
 global workspace_get_active
 workspace_get_active:
     PROLOGUE
-    mov rax, [rdi + SHELL_ACTIVE_WS]
+    mov rax, [rdi + Shell.active_ws]
     leave
     ret
 
@@ -142,10 +142,10 @@ workspace_add_toplevel:
     ASSERT_PTR r12
 
     ; Link into workspace's toplevel list
-    mov rax, [rbx + WORKSPACE_TOPLEVELS]
-    mov [r12 + TOPLEVEL_NEXT_WS], rax
-    mov [rbx + WORKSPACE_TOPLEVELS], r12
-    mov [r12 + TOPLEVEL_WORKSPACE], rbx
+    mov rax, [rbx + Workspace.toplevels]
+    mov [r12 + Toplevel.next_ws], rax
+    mov [rbx + Workspace.toplevels], r12
+    mov [r12 + Toplevel.workspace], rbx
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
@@ -164,20 +164,20 @@ workspace_remove_toplevel:
     ASSERT_PTR r12
 
     ; Unlink from workspace's toplevel list
-    mov rax, [rbx + WORKSPACE_TOPLEVELS]
+    mov rax, [rbx + Workspace.toplevels]
     test rax, rax
     jz .done
 
     cmp rax, r12
     jne .find_prev
-    mov rax, [r12 + TOPLEVEL_NEXT_WS]
-    mov [rbx + WORKSPACE_TOPLEVELS], rax
+    mov rax, [r12 + Toplevel.next_ws]
+    mov [rbx + Workspace.toplevels], rax
     jmp .done
 
 .find_prev:
-    mov rax, [rbx + WORKSPACE_TOPLEVELS]
+    mov rax, [rbx + Workspace.toplevels]
 .prev_loop:
-    mov rdx, [rax + TOPLEVEL_NEXT_WS]
+    mov rdx, [rax + Toplevel.next_ws]
     test rdx, rdx
     jz .done
     cmp rdx, r12
@@ -186,11 +186,11 @@ workspace_remove_toplevel:
     jmp .prev_loop
 
 .unlink:
-    mov rdx, [r12 + TOPLEVEL_NEXT_WS]
-    mov [rax + TOPLEVEL_NEXT_WS], rdx
+    mov rdx, [r12 + Toplevel.next_ws]
+    mov [rax + Toplevel.next_ws], rdx
 
 .done:
-    mov qword [r12 + TOPLEVEL_WORKSPACE], 0
+    mov qword [r12 + Toplevel.workspace], 0
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
     ret
@@ -202,7 +202,7 @@ workspace_remove_toplevel:
 global workspace_get_toplevels
 workspace_get_toplevels:
     PROLOGUE
-    mov rax, [rdi + WORKSPACE_TOPLEVELS]
+    mov rax, [rdi + Workspace.toplevels]
     leave
     ret
 
