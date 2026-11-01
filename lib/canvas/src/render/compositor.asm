@@ -2,6 +2,10 @@
 ; Compositor — Damage-Driven Composition Driver
 ; Coordinates renderer, damage tracking, frame scheduling
 ; ============================================================================
+; Each output keeps its surfaces bottom to top in Output.surfaces, linked by
+; z_order_next / z_order_prev. A frame moves each surface's committed damage
+; to the output, redraws every damaged rectangle from the background up, then
+; tells the surfaces their frame is done. Nothing damaged means no frame.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -12,15 +16,21 @@
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
-extern direct_scanout_check
-extern direct_scanout_enable
 extern frame_clock_schedule
+extern handle_resolve
+extern presentation_complete
+extern rect_intersect
+extern region_add_rect
 extern region_clear
 extern region_is_empty
+extern surface_fire_frame_callbacks
 extern sw_render_init
 extern sw_render_begin_frame
+extern sw_render_rect
 extern sw_render_surface
 extern sw_render_end_frame
+
+%define COMPOSITOR_BG_COLOR 0xFF202030  ; opaque BGRA
 
 section .text
 
@@ -50,6 +60,7 @@ compositor_init:
     mov qword [rbx + Compositor.arena], r13
     mov qword [rbx + Compositor.damage_ring], 0
     mov qword [rbx + Compositor.frame_seq], 0
+    mov dword [rbx + Compositor.bg_color], COMPOSITOR_BG_COLOR
 
     ; Initialize software renderer
     mov rdi, [rbx + Compositor.renderer]
@@ -70,159 +81,285 @@ compositor_init:
 ; ---------------------------------------------------------------------------
 global compositor_deinit
 compositor_deinit:
-    PROLOGUE
-    xor rax, rax
-    leave
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; compositor_add_surface
+;   Put a surface on an output, above everything already there
+;   IN:  rdi = output*, rsi = surface*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global compositor_add_surface
+compositor_add_surface:
+    ASSERT_PTR rdi
+    ASSERT_PTR rsi
+    mov [rsi + Surface.output], rdi
+    mov qword [rsi + Surface.z_order_next], 0
+    mov qword [rsi + Surface.z_order_prev], 0
+    mov rax, [rdi + Output.surfaces]
+    test rax, rax
+    jnz .walk
+    mov [rdi + Output.surfaces], rsi
+    jmp .done
+.walk:
+    mov rcx, [rax + Surface.z_order_next]
+    test rcx, rcx
+    jz .append
+    mov rax, rcx
+    jmp .walk
+.append:
+    mov [rax + Surface.z_order_next], rsi
+    mov [rsi + Surface.z_order_prev], rax
+.done:
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; compositor_remove_surface
+;   Take a surface off its output; what it covered needs redrawing
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global compositor_remove_surface
+compositor_remove_surface:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 24                         ; a rect; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    mov r13, [r12 + Surface.output]
+    test r13, r13
+    jz .done
+
+    ; Its area, if it was showing anything
+    mov rsi, [r12 + Surface.current + SurfaceState.buffer]
+    test rsi, rsi
+    jz .unlink
+    mov rdi, [rbx + Server.buffer_table]
+    call handle_resolve
+    test rax, rax
+    jz .unlink
+    mov ecx, [r12 + Surface.current + SurfaceState.buf_x]
+    mov [rsp], ecx
+    mov ecx, [r12 + Surface.current + SurfaceState.buf_y]
+    mov [rsp + 4], ecx
+    mov rcx, [rax + Buffer.width]
+    mov [rsp + 8], ecx
+    mov rcx, [rax + Buffer.height]
+    mov [rsp + 12], ecx
+    mov rdi, [r13 + Output.damage]
+    mov rsi, rsp
+    call region_add_rect
+
+.unlink:
+    mov rax, [r12 + Surface.z_order_prev]
+    mov rcx, [r12 + Surface.z_order_next]
+    test rax, rax
+    jz .was_bottom
+    mov [rax + Surface.z_order_next], rcx
+    jmp .after
+.was_bottom:
+    mov [r13 + Output.surfaces], rcx
+.after:
+    test rcx, rcx
+    jz .cleared
+    mov [rcx + Surface.z_order_prev], rax
+.cleared:
+    mov qword [r12 + Surface.output], 0
+.done:
+    xor eax, eax
+    add rsp, 24
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
 ; compositor_composite
 ;   Composite all outputs for current frame
 ;   IN:  rdi = compositor*
-;   OUT: rax = 0 OK
+;   OUT: rax = 0 OK, negative error
 ; ---------------------------------------------------------------------------
 global compositor_composite
 compositor_composite:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov r12, [rbx + Compositor.server]
-    mov r13, [r12 + Server.outputs]
-    test r13, r13
-    jz .done
-
+    mov rax, [rbx + Compositor.server]
+    mov r12, [rax + Server.outputs]
 .output_loop:
-    ; Composite each output
-    push r13
-    push r12
-    push rbx
-    mov rdi, r13
-    mov rsi, rbx
+    test r12, r12
+    jz .done
+    mov rdi, rbx
+    mov rsi, r12
     call compositor_composite_output
     test rax, rax
-    jnz .output_fail
-
-    pop rbx
-    pop r12
-    pop r13
-    mov r13, [r13 + Output.next]
-    test r13, r13
-    jnz .output_loop
-    jmp .done
-
-.output_fail:
-    pop rbx
-    pop r12
-    pop r13
-    jmp .fail
-
+    js .out
+    mov r12, [r12 + Output.next]
+    jmp .output_loop
 .done:
-    ; Increment frame sequence
-    inc qword [rbx + Compositor.frame_seq]
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12
     ret
 
-.fail:
-    mov rax, -(EIO)
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+; ---------------------------------------------------------------------------
+; compositor_collect_damage
+;   Move committed surface damage to the output, in output coordinates
+;   IN:  rdi = output*
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+compositor_collect_damage:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    sub rsp, 32                         ; a rect; 16-byte aligned
+    mov rbx, rdi
+    mov r12, [rbx + Output.surfaces]
+.surface:
+    test r12, r12
+    jz .done
+    mov r13, [r12 + Surface.current + SurfaceState.damage]
+    xor r14d, r14d
+.rect:
+    cmp r14, [r13 + Region.count]
+    jae .surface_done
+    mov rax, r14
+    shl rax, 4
+    add rax, [r13 + Region.rects]
+    mov ecx, [rax]
+    add ecx, [r12 + Surface.current + SurfaceState.buf_x]
+    mov [rsp], ecx
+    mov ecx, [rax + 4]
+    add ecx, [r12 + Surface.current + SurfaceState.buf_y]
+    mov [rsp + 4], ecx
+    mov rcx, [rax + 8]                  ; width, height
+    mov [rsp + 8], rcx
+    mov rdi, [rbx + Output.damage]
+    mov rsi, rsp
+    call region_add_rect
+    test rax, rax
+    js .out
+    inc r14
+    jmp .rect
+.surface_done:
+    mov rdi, r13
+    call region_clear
+    mov r12, [r12 + Surface.z_order_next]
+    jmp .surface
+.done:
+    xor eax, eax
+.out:
+    add rsp, 32
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
 ; compositor_composite_output
 ;   Composite single output
-;   IN:  rdi = output*
-;   OUT: rax = 0 OK
+;   IN:  rdi = compositor*, rsi = output*
+;   OUT: rax = 0 OK, negative error
 ; ---------------------------------------------------------------------------
 compositor_composite_output:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, FrameCtx_size + 64 + 8     ; ctx, whole output, clipped rect
     mov rbx, rdi
-    mov r14, rsi
+    mov r12, rsi
     ASSERT_PTR rbx
+    ASSERT_PTR r12
 
-    ; Get output damage
-    mov r12, [rbx + Output.damage]
-    test r12, r12
-    jz .no_damage
+%define L_BOUNDS    (FrameCtx_size)
+%define L_CLIP      (FrameCtx_size + 16)
 
-    ; Check for direct scanout candidate
-    mov r13, [rbx + Output.surfaces]
+    mov r13, [r12 + Output.damage]
     test r13, r13
-    jz .no_surfaces
+    jz .idle
 
-    ; Check for direct scanout candidate
-    call direct_scanout_check
+    mov rdi, r12
+    call compositor_collect_damage
     test rax, rax
-    jz .composite_normal
-
-    ; Direct scanout path
-    call direct_scanout_enable
-    test rax, rax
-    jz .composite_normal
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.composite_normal:
-    mov r13, [r14 + Compositor.renderer]
-    ; Begin frame
+    js .out
     mov rdi, r13
-    mov rsi, rbx
-    mov rdx, r12
+    call region_is_empty
+    test rax, rax
+    jnz .idle
+
+    mov rdi, [rbx + Compositor.renderer]
+    mov rsi, r12
+    mov rdx, r13
+    mov rcx, rsp
     call sw_render_begin_frame
-    test rax, rax
-    jnz .fail
-    mov r14, rax  ; frame_ctx
 
-    ; Output surfaces are maintained in compositor z-order.
-    mov r15, [rbx + Output.surfaces]
-.surface_loop:
-    test r15, r15
-    jz .surface_done
+    mov dword [rsp + L_BOUNDS], 0
+    mov dword [rsp + L_BOUNDS + 4], 0
+    mov eax, [r12 + Output.width]
+    mov [rsp + L_BOUNDS + 8], eax
+    mov eax, [r12 + Output.height]
+    mov [rsp + L_BOUNDS + 12], eax
 
-    ; Render surface
-    push r15
-    push r14
-    push rbx
-    mov rdi, r14
-    mov rsi, r15
-    mov rdx, [rbx + Output.damage]
-    call sw_render_surface
-    test rax, rax
-    jnz .fail
-
-    pop rbx
-    pop r14
-    pop r15
-    mov r15, [r15 + Surface.z_order_next]
-    jmp .surface_loop
-
-.surface_done:
-    ; End frame
-    push rbx
-    mov rdi, r13
+    ; Every damaged rectangle, background first and each surface over it
+    xor r14d, r14d
+.rect:
+    cmp r14, [r13 + Region.count]
+    jae .rendered
+    lea rdi, [rsp + L_CLIP]
     mov rsi, r14
-    call sw_render_end_frame
-    pop rbx
+    shl rsi, 4
+    add rsi, [r13 + Region.rects]
+    lea rdx, [rsp + L_BOUNDS]
+    call rect_intersect
     test rax, rax
-    jnz .fail
+    jnz .next_rect
+    mov rdi, rsp
+    lea rsi, [rsp + L_CLIP]
+    mov edx, [rbx + Compositor.bg_color]
+    call sw_render_rect
+    mov r15, [r12 + Output.surfaces]
+.surface:
+    test r15, r15
+    jz .next_rect
+    mov rdi, rsp
+    mov rsi, r15
+    lea rdx, [rsp + L_CLIP]
+    call sw_render_surface
+    mov r15, [r15 + Surface.z_order_next]
+    jmp .surface
+.next_rect:
+    inc r14
+    jmp .rect
 
-    ; Clear damage for next frame
-    mov rdi, [rbx + Output.damage]
+.rendered:
+    mov rdi, [rbx + Compositor.renderer]
+    mov rsi, rsp
+    call sw_render_end_frame
+    mov rdi, r13
     call region_clear
+    inc qword [rbx + Compositor.frame_seq]
 
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
+    ; The frame is done: callbacks, then presentation feedback
+    call ut_time_now_ns
+    mov r14, rax
+    mov r13, [rbx + Compositor.server]
+    mov r15, [r12 + Output.surfaces]
+.finish:
+    test r15, r15
+    jz .idle
+    mov rdi, r15
+    call surface_fire_frame_callbacks
+.feedback:
+    mov rdi, r13
+    mov rsi, r15
+    mov rdx, r14
+    call presentation_complete
+    test rax, rax
+    jz .feedback                        ; until none is outstanding
+    mov r15, [r15 + Surface.z_order_next]
+    jmp .finish
 
-.no_damage:
-.no_surfaces:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.fail:
-    mov rax, -(EIO)
+.idle:
+    xor eax, eax
+.out:
+    add rsp, FrameCtx_size + 64 + 8
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -240,7 +377,7 @@ compositor_schedule_frame:
 
     ; Schedule frame clock callback
     mov rdi, [r12 + Output.frame_clock]
-    mov rsi, compositor_frame_callback
+    lea rsi, [rel compositor_frame_callback]
     mov rdx, r12
     call frame_clock_schedule
 
@@ -282,4 +419,4 @@ compositor_frame_callback:
 section .data
 
 global compositor_version
-compositor_version: dq 0x010000
+compositor_version: dq 0x010100
