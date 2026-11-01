@@ -92,7 +92,7 @@
 | FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | ✓ 36 files in `attic/` (see its README); `native_planes`, `invariants` wired in; every `.asm` under `src/` and `tests/` is now built |
 | FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | ✓ `lib/canvas/.gitattributes`: LF everywhere, `*.uic` binary |
 | FND-09 | Host test shim: `ut_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | ✓ `tests/host/ut_host.asm`, `make host` |
-| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ◐ `make check`: layout, debug and release images, W^X, 19 unit suites, SVG, icon and image conformance. Golden and fuzz images only link: their suites are stubs (→ P1) |
+| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ◐ `make check`: layout, debug and release images, W^X, 23 unit suites, SVG, icon and image conformance. Golden frames run; the fuzz suites are still stubs |
 | FND-11 | Separate text/rodata/data segments in the linker script (W^X images) | P0 | ✓ R-X, R--, RW- segments on their own pages; all 23 images checked |
 | FND-12 | Dual-assembler CI: NASM and utasm both green, outputs compared byte for byte | P1 | 12 files currently utasm-only failures |
 | FND-13 | Static lint: register-use and ABI conventions, missing `ret`, stack alignment | P2 | 77 accesses wider than their field remain (e.g. `webp_vp8_filter`, `fb_linear`, `decoration_draw`) |
@@ -207,7 +207,7 @@
 | SUR-04 | Subsurfaces with sync/desync modes | P2 | ◐ `server/subsurface` |
 | SUR-05 | Opaque, input and damage regions | P1 | ◐ `server/regions` |
 | SUR-06 | Buffer transforms and scale | P2 | ◐ `server/surface_transform` |
-| SUR-07 | Frame callbacks | P1 | ◐ fired at commit: must move to frame completion. Each callback and presentation feedback allocates per frame and must be recycled |
+| SUR-07 | Frame callbacks | P1 | ✓ fired when the frame is done; callback nodes and presentation records are reused |
 | SUR-08 | Surface opacity and transforms applied by the server without client re-render | P3 | |
 | SUR-09 | Per-surface alpha modifier | P3 | |
 | SUR-10 | Single-pixel buffers: solid colors with no memory | P3 | |
@@ -226,7 +226,7 @@
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| CMP-01 | Damage-driven software composition into the output buffer | P1 | ◐ `render/compositor`, `render/sw_render` |
+| CMP-01 | Damage-driven software composition into the output buffer | P1 | ✓ `render/compositor`, `render/sw_render`, checked by golden frames. 1:1 only: scale, transform and SIMD blending are still to come |
 | CMP-02 | Buffer-age tracking for partial redraws | P2 | ◐ `render/damage_ring` |
 | CMP-03 | Composition order: background → scanout → planes → surfaces → decorations → overlays → cursor | P2 | |
 | CMP-04 | Complete SIMD blend paths (SSE2, AVX2, AVX-512) with runtime dispatch | P2 | ◐ AVX2/512 "simplified" |
@@ -302,7 +302,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| OUT-01 | `headless` and `fb_linear` backends wired and tested | P1 | ◐ `backend/*_full.asm` |
+| OUT-01 | `headless` and `fb_linear` backends wired and tested | P1 | ◐ `headless` done and tested; `fb_linear` still to do |
 | OUT-02 | Native modeset on the first display family | P2 | ◐ `backend/family/amd/dcn` |
 | OUT-03 | Vblank IRQ path with accurate timestamps | P2 | ◐ `native_vblank.asm` (unlisted) |
 | OUT-04 | Hardware cursor and overlay planes | P2 | ◐ `native_planes.asm` (unlisted) |
@@ -842,7 +842,7 @@ All items run on-device, opt-in, behind capability gates.
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | QA-01 | Unit suites green on the host shim | P0 | → FND-09 |
-| QA-02 | Golden-image tests with a real corpus | P1 | ◐ harness exists, data empty |
+| QA-02 | Golden-image tests with a real corpus | P1 | ◐ `tests/unit/test_golden.asm`: frames checked against checksums computed outside the code; more scenes to add |
 | QA-03 | Continuous fuzzing of every parser: wire, images, fonts, ICC, EDID, keymaps, config | P2 | ◐ `tests/fuzz` |
 | QA-04 | Structure-aware wire-protocol fuzzer | P3 | |
 | QA-05 | Conformance suite that connects real clients | P2 | ◐ `tests/cts` (TODO) |
