@@ -10,44 +10,6 @@
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
-%define Buffer_handle        0
-%define Buffer.handle 0
-%define Buffer_generation    4
-%define Buffer.generation 4
-%define Buffer_width         8
-%define Buffer.width 8
-%define Buffer_height        12
-%define Buffer.height 12
-%define Buffer_stride        16
-%define Buffer.stride 16
-%define Buffer_format        20
-%define Buffer.format 20
-%define Buffer_modifier      24
-%define Buffer.modifier 24
-%define Buffer_base          32
-%define Buffer.base 32
-%define Buffer_dma_addr      40
-%define Buffer.dma_addr 40
-%define Buffer_size          48
-%define Buffer.size 48
-%define Buffer_acquire_fence 56
-%define Buffer.acquire_fence 56
-%define Buffer_release_fence 60
-%define Buffer.release_fence 60
-%define Buffer_timeline      64
-%define Buffer.timeline 64
-%define Buffer_acquire_point 68
-%define Buffer.acquire_point 68
-%define Buffer_release_point 76
-%define Buffer.release_point 76
-%define Buffer_state         84
-%define Buffer.state 84
-%define Buffer_refcount      88
-%define Buffer.refcount 88
-%define Buffer_client_id     92
-%define Buffer.client_id 92
-%define Buffer_size          96
 %define Buffer_FREE       0
 %define Buffer_ALLOCATED  1
 %define Buffer_ATTACHED   2
@@ -313,8 +275,6 @@ buffer_attach:
     ret
 
 section .data
-
-
 
 global buffer_version
 buffer_version: dq 0x010000
