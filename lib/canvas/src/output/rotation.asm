@@ -7,6 +7,7 @@
 %include "inc/errors.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 extern backend_modeset
 
