@@ -421,8 +421,8 @@ class Buffer:
 
 # ---------------------------------------------------------------- font
 class Font:
-    def __init__(self, path):
-        self.tt = TTFont(path)
+    def __init__(self, path, index=0):
+        self.tt = TTFont(path, fontNumber=index) if index or path.endswith(('.ttc', '.otc')) else TTFont(path)
         self.order = self.tt.getGlyphOrder()
         self.gid = {n: i for i, n in enumerate(self.order)}
         cmap = None
@@ -2109,17 +2109,43 @@ def shape(font, cps, script=None, language=None, shaper=None, direction=None):
         # visual order
         b.info.reverse()
         b.pos.reverse()
-    # default ignorables hidden: the space glyph
+    hide_ignorables(b, font)
+    if shaper is not None and hasattr(shaper, 'postprocess'):
+        shaper.postprocess(b, font, brtl)
+    return [(inf.glyph, inf.cluster, p.xa, p.ya, p.xo, p.yo) for inf, p in zip(b.info, b.pos)]
+
+
+def hide_ignorables(b, font):
+    """HarfBuzz's hb_ot_hide_default_ignorables (visual order): default ignorables drawn as the
+    space glyph, or without one deleted, each one's cluster merged into a neighbour's."""
     space = font.nominal(0x20)
-    out = []
-    for inf, p in zip(b.info, b.pos):
-        g = inf.glyph
-        if inf.is_default_ignorable():
-            if space is None:
+    info, pos = b.info, b.pos
+    if space is not None:
+        for inf in info:
+            if inf.is_default_ignorable():
+                inf.glyph = space
+        return
+    keep_info, keep_pos = [], []
+    n = len(info)
+    for i in range(n):
+        if info[i].is_default_ignorable():
+            cluster = info[i].cluster
+            if i + 1 < n and cluster == info[i + 1].cluster:
+                continue                                # the cluster survives
+            if keep_info:
+                if cluster < keep_info[-1].cluster:
+                    old = keep_info[-1].cluster
+                    k = len(keep_info)
+                    while k and keep_info[k - 1].cluster == old:
+                        keep_info[k - 1].cluster = cluster
+                        k -= 1
                 continue
-            g = space
-        out.append((g, inf.cluster, p.xa, p.ya, p.xo, p.yo))
-    return out
+            if i + 1 < n:
+                b.merge_clusters(i, i + 2)
+            continue
+        keep_info.append(info[i])
+        keep_pos.append(pos[i])
+    b.info, b.pos = keep_info, keep_pos
 
 
 def zero_marks_by_gdef(b, adjust):
