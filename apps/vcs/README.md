@@ -263,6 +263,9 @@ duplicate versions, token overflow, and malformed framing are rejected. This is
 followed by the
 same-connection `ls-refs` to `fetch` transition used by
 `vcs git serve PORT [ID|BRANCH] [--clients COUNT|--daemon] [--timeout SECONDS]`.
+Reference discovery may be repeated on that connection and remains nonterminal;
+each request independently applies its `ls-refs` filters without altering fetch
+negotiation state.
 With no selector the command exports `HEAD`; an explicit commit or branch
 publishes that selected snapshot as remote `main`. The safe default serves one
 client, `--clients` reuses the listener for a bounded number of sequential
