@@ -6,30 +6,16 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
 
 section .text
 
 ; ============================================================================
 ; TextInput Struct
 ; ============================================================================
-%define TextInput_SEAT           0
-%define TextInput_SURFACE        8
-%define TextInput_CONTENT_TYPE   16
-%define TextInput_CONTENT_HINT   20
 %define TextInput_SURROUNDING    24
-%define TextInput_CURSOR         32
-%define TextInput_ANCHOR         36
-%define TextInput_PREEDIT        40
-%define TextInput_CONTENT_PURPOSE 48
-%define TextInput_CONTENT_HINT    52
-%define TextInput_PREEDIT_START  56
-%define TextInput_PREEDIT_END    60
-%define TextInput_COMMIT_TEXT    64
 %define TextInput_DELETE_SURROUND 72
-%define TextInput_KEYSYM         80
-%define TextInput_STATE          84
 %define TextInput_PREEDIT_BUF    88
-%define TextInput_SIZE           96
 
 ; Content types
 %define CONTENT_TYPE_NORMAL       0
@@ -64,22 +50,22 @@ text_input_create:
     ASSERT_PTR r12
     ASSERT_PTR r13
 
-    mov qword [rbx + TextInput_SEAT], r12
-    mov qword [rbx + TextInput_SURFACE], r13
-    mov dword [rbx + TextInput_CONTENT_TYPE], CONTENT_TYPE_NORMAL
-    mov dword [rbx + TextInput_CONTENT_HINT], CONTENT_HINT_NONE
+    mov qword [rbx + TextInput.seat], r12
+    mov qword [rbx + TextInput.surface], r13
+    mov dword [rbx + TextInput.content_type], CONTENT_TYPE_NORMAL
+    mov dword [rbx + TextInput.content_hint], CONTENT_HINT_NONE
     mov qword [rbx + TextInput_SURROUNDING], 0
-    mov dword [rbx + TextInput_CURSOR], 0
-    mov dword [rbx + TextInput_ANCHOR], 0
-    mov qword [rbx + TextInput_PREEDIT], 0
-    mov dword [rbx + TextInput_CONTENT_PURPOSE], 0
-    mov dword [rbx + TextInput_CONTENT_HINT], CONTENT_HINT_NONE
-    mov dword [rbx + TextInput_PREEDIT_START], 0
-    mov dword [rbx + TextInput_PREEDIT_END], 0
-    mov qword [rbx + TextInput_COMMIT_TEXT], 0
+    mov dword [rbx + TextInput.cursor], 0
+    mov dword [rbx + TextInput.anchor], 0
+    mov qword [rbx + TextInput.preedit], 0
+    mov dword [rbx + TextInput.content_purpose], 0
+    mov dword [rbx + TextInput.content_hint], CONTENT_HINT_NONE
+    mov dword [rbx + TextInput.preedit_start], 0
+    mov dword [rbx + TextInput.preedit_end], 0
+    mov qword [rbx + TextInput.commit_text], 0
     mov dword [rbx + TextInput_DELETE_SURROUND], 0
-    mov dword [rbx + TextInput_KEYSYM], 0
-    mov dword [rbx + TextInput_STATE], 0
+    mov dword [rbx + TextInput.keysym], 0
+    mov dword [rbx + TextInput.state], 0
 
     ; Link to seat
     mov rax, [r12 + Seat_TEXT_INPUTS]
@@ -101,11 +87,11 @@ text_input_destroy:
     ASSERT_PTR rbx
 
     ; Unlink from seat
-    mov r12, [rbx + TextInput_SEAT]
+    mov r12, [rbx + TextInput.seat]
     call .unlink_from_seat
 
     ; Destroy preedit buffer
-    mov rax, [rbx + TextInput_PREEDIT]
+    mov rax, [rbx + TextInput.preedit]
     test rax, rax
     jz .done
     call buffer_destroy
@@ -116,7 +102,7 @@ text_input_destroy:
     ret
 
 .unlink_from_seat:
-    mov r12, [rbx + TextInput_SEAT]
+    mov r12, [rbx + TextInput.seat]
     mov rax, [r12 + Seat_TEXT_INPUTS]
     test rax, rax
     jz .done
@@ -155,11 +141,11 @@ text_input_set_content_type:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + TextInput_CONTENT_TYPE], esi
-    mov dword [rbx + TextInput_CONTENT_HINT], edx
+    mov dword [rbx + TextInput.content_type], esi
+    mov dword [rbx + TextInput.content_hint], edx
 
     ; Notify IME
-    mov rax, [rbx + TextInput_SURFACE]
+    mov rax, [rbx + TextInput.surface]
     test rax, rax
     jz .done
     mov rdi, rax
@@ -179,10 +165,10 @@ text_input_set_content_hint:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + TextInput_CONTENT_HINT], esi
+    mov dword [rbx + TextInput.content_hint], esi
 
     ; Notify IME
-    mov rax, [rbx + TextInput_SURFACE]
+    mov rax, [rbx + TextInput.surface]
     test rax, rax
     jz .done
     mov rdi, rax
@@ -207,11 +193,11 @@ text_input_set_surrounding_text:
     ASSERT_PTR r12
 
     mov qword [rbx + TextInput_SURROUNDING], r12
-    mov dword [rbx + TextInput_CURSOR], r13d
-    mov dword [rbx + TextInput_ANCHOR], r14d
+    mov dword [rbx + TextInput.cursor], r13d
+    mov dword [rbx + TextInput.anchor], r14d
 
     ; Notify IME
-    mov rax, [rbx + TextInput_SURFACE]
+    mov rax, [rbx + TextInput.surface]
     test rax, rax
     jz .done
     mov rdi, rax
@@ -234,8 +220,8 @@ text_input_set_cursor:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + TextInput_CURSOR], esi
-    mov dword [rbx + TextInput_ANCHOR], edx
+    mov dword [rbx + TextInput.cursor], esi
+    mov dword [rbx + TextInput.anchor], edx
 
     xor rax, rax
     leave
@@ -257,12 +243,12 @@ text_input_set_preedit:
     ASSERT_PTR r12
 
     ; Store preedit string
-    mov qword [rbx + TextInput_PREEDIT], r12
-    mov dword [rbx + TextInput_PREEDIT_START], r14d
-    mov dword [rbx + TextInput_PREEDIT_END], r15d
+    mov qword [rbx + TextInput.preedit], r12
+    mov dword [rbx + TextInput.preedit_start], r14d
+    mov dword [rbx + TextInput.preedit_end], r15d
 
     ; Render preedit
-    mov rax, [rbx + TextInput_SURFACE]
+    mov rax, [rbx + TextInput.surface]
     test rax, rax
     jz .done
     mov rdi, rax
@@ -284,10 +270,10 @@ text_input_commit:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov qword [rbx + TextInput_COMMIT_TEXT], r12
+    mov qword [rbx + TextInput.commit_text], r12
 
     ; Send to surface
-    mov rax, [rbx + TextInput_SURFACE]
+    mov rax, [rbx + TextInput.surface]
     test rax, rax
     jz .done
     mov rdi, rax
@@ -314,7 +300,7 @@ text_input_delete_surrounding:
     mov dword [rbx + TextInput_DELETE_SURROUND + 4], r13d
 
     ; Notify surface
-    mov rax, [rbx + TextInput_SURFACE]
+    mov rax, [rbx + TextInput.surface]
     test rax, rax
     jz .done
     mov rdi, rax
@@ -337,11 +323,11 @@ text_input_keysym:
     mov r14d, ecx       ; time
     ASSERT_PTR rbx
 
-    mov dword [rbx + TextInput_KEYSYM], r12d
-    mov dword [rbx + TextInput_STATE], r13d
+    mov dword [rbx + TextInput.keysym], r12d
+    mov dword [rbx + TextInput.state], r13d
 
     ; Send to surface
-    mov rax, [rbx + TextInput_SURFACE]
+    mov rax, [rbx + TextInput.surface]
     test rax, rax
     jz .done
     mov rdi, rax
@@ -364,10 +350,10 @@ text_input_set_state:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + TextInput_STATE], esi
+    mov dword [rbx + TextInput.state], esi
 
     ; Notify IME
-    mov rax, [rbx + TextInput_SURFACE]
+    mov rax, [rbx + TextInput.surface]
     test rax, rax
     jz .done
     mov rdi, rax
@@ -388,17 +374,17 @@ text_input_reset:
     ASSERT_PTR rbx
 
     ; Clear preedit
-    mov qword [rbx + TextInput_PREEDIT], 0
-    mov dword [rbx + TextInput_PREEDIT_START], 0
-    mov dword [rbx + TextInput_PREEDIT_END], 0
+    mov qword [rbx + TextInput.preedit], 0
+    mov dword [rbx + TextInput.preedit_start], 0
+    mov dword [rbx + TextInput.preedit_end], 0
 
     ; Clear commit text
-    mov qword [rbx + TextInput_COMMIT_TEXT], 0
+    mov qword [rbx + TextInput.commit_text], 0
 
     ; Reset state
-    mov dword [rbx + TextInput_STATE], 0
-    mov dword [rbx + TextInput_CURSOR], 0
-    mov dword [rbx + TextInput_ANCHOR], 0
+    mov dword [rbx + TextInput.state], 0
+    mov dword [rbx + TextInput.cursor], 0
+    mov dword [rbx + TextInput.anchor], 0
     mov dword [rbx + TextInput_DELETE_SURROUND], 0
 
     xor rax, rax
