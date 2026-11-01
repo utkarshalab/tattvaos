@@ -36,35 +36,35 @@ toplevel_create:
     ASSERT_PTR r13
 
     ; Initialize toplevel
-    mov qword [rbx + TOPLEVEL_SURFACE], r13
-    mov qword [rbx + TOPLEVEL_SHELL], r12
-    mov dword [rbx + TOPLEVEL_STATE], TOPLEVEL_STATE_DEFAULT
-    mov dword [rbx + TOPLEVEL_PENDING_STATE], TOPLEVEL_STATE_DEFAULT
-    mov dword [rbx + TOPLEVEL_CONFIGURE_SERIAL], 0
-    mov dword [rbx + TOPLEVEL_CAPABILITIES], TOPLEVEL_CAP_MINIMIZE | TOPLEVEL_CAP_MAXIMIZE | TOPLEVEL_CAP_FULLSCREEN | TOPLEVEL_CAP_CLOSE
-    mov dword [rbx + TOPLEVEL_WIDTH], 800
-    mov dword [rbx + TOPLEVEL_HEIGHT], 600
-    mov dword [rbx + TOPLEVEL_SAVED_WIDTH], 800
-    mov dword [rbx + TOPLEVEL_SAVED_HEIGHT], 600
-    mov qword [rbx + TOPLEVEL_DECORATION], 0
-    mov dword [rbx + TOPLEVEL_X], 0
-    mov dword [rbx + TOPLEVEL_Y], 0
+    mov qword [rbx + Toplevel.surface], r13
+    mov qword [rbx + Toplevel.shell], r12
+    mov dword [rbx + Toplevel.state], TOPLEVEL_STATE_DEFAULT
+    mov dword [rbx + Toplevel.pending_state], TOPLEVEL_STATE_DEFAULT
+    mov dword [rbx + Toplevel.configure_serial], 0
+    mov dword [rbx + Toplevel.capabilities], TOPLEVEL_CAP_MINIMIZE | TOPLEVEL_CAP_MAXIMIZE | TOPLEVEL_CAP_FULLSCREEN | TOPLEVEL_CAP_CLOSE
+    mov dword [rbx + Toplevel.width], 800
+    mov dword [rbx + Toplevel.height], 600
+    mov dword [rbx + Toplevel.saved_width], 800
+    mov dword [rbx + Toplevel.saved_height], 600
+    mov qword [rbx + Toplevel.decoration], 0
+    mov dword [rbx + Toplevel.x], 0
+    mov dword [rbx + Toplevel.y], 0
 
     ; Set title
     test r14, r14
     jz .no_title
     ; Copy title string (simplified)
-    mov qword [rbx + TOPLEVEL_TITLE], r14
+    mov qword [rbx + Toplevel.title], r14
 .no_title:
     test r15, r15
     jz .no_app_id
-    mov qword [rbx + TOPLEVEL_APP_ID], r15
+    mov qword [rbx + Toplevel.app_id], r15
 .no_app_id:
 
     ; Link into shell's toplevel list
-    mov rax, [r12 + SHELL_TOPLEVELS]
-    mov [rbx + TOPLEVEL_NEXT_WS], rax
-    mov [r12 + SHELL_TOPLEVELS], rbx
+    mov rax, [r12 + Shell.toplevels]
+    mov [rbx + Toplevel.next_ws], rax
+    mov [r12 + Shell.toplevels], rbx
 
     ; Create server-side decoration
     call decoration_create_for_toplevel
@@ -84,18 +84,18 @@ toplevel_destroy:
     ASSERT_PTR rbx
 
     ; Unlink from shell's list
-    mov r12, [rbx + TOPLEVEL_SHELL]
+    mov r12, [rbx + Toplevel.shell]
     call .unlink_from_shell
 
     ; Destroy decoration
-    mov rax, [rbx + TOPLEVEL_DECORATION]
+    mov rax, [rbx + Toplevel.decoration]
     test rax, rax
     jz .no_decor
     call decoration_destroy
 .no_decor:
 
     ; Destroy surface
-    mov rax, [rbx + TOPLEVEL_SURFACE]
+    mov rax, [rbx + Toplevel.surface]
     test rax, rax
     jz .no_surf
     call surface_destroy
@@ -106,20 +106,20 @@ toplevel_destroy:
     ret
 
 .unlink_from_shell:
-    mov rax, [r12 + SHELL_TOPLEVELS]
+    mov rax, [r12 + Shell.toplevels]
     test rax, rax
     jz .done
 
     cmp rax, rbx
     jne .find_prev
-    mov rax, [rbx + TOPLEVEL_NEXT_WS]
-    mov [r12 + SHELL_TOPLEVELS], rax
+    mov rax, [rbx + Toplevel.next_ws]
+    mov [r12 + Shell.toplevels], rax
     jmp .done
 
 .find_prev:
     mov r12, rax
 .prev_loop:
-    mov rax, [r12 + TOPLEVEL_NEXT_WS]
+    mov rax, [r12 + Toplevel.next_ws]
     test rax, rax
     jz .done
     cmp rax, rbx
@@ -128,8 +128,8 @@ toplevel_destroy:
     jmp .prev_loop
 
 .unlink:
-    mov rax, [rbx + TOPLEVEL_NEXT_WS]
-    mov [r12 + TOPLEVEL_NEXT_WS], rax
+    mov rax, [rbx + Toplevel.next_ws]
+    mov [r12 + Toplevel.next_ws], rax
 
 .done:
     ret
@@ -149,16 +149,16 @@ toplevel_set_state:
     jnz .invalid
 
     ; Save old state for restoration
-    mov eax, [rbx + TOPLEVEL_STATE]
+    mov eax, [rbx + Toplevel.state]
     test esi, TOPLEVEL_STATE_MAXIMIZED
     jz .not_max
-    mov eax, [rbx + TOPLEVEL_WIDTH]
-    mov [rbx + TOPLEVEL_SAVED_WIDTH], eax
-    mov eax, [rbx + TOPLEVEL_HEIGHT]
-    mov [rbx + TOPLEVEL_SAVED_HEIGHT], eax
+    mov eax, [rbx + Toplevel.width]
+    mov [rbx + Toplevel.saved_width], eax
+    mov eax, [rbx + Toplevel.height]
+    mov [rbx + Toplevel.saved_height], eax
 .not_max:
 
-    mov dword [rbx + TOPLEVEL_PENDING_STATE], esi
+    mov dword [rbx + Toplevel.pending_state], esi
 
     ; Schedule configure
     call toplevel_schedule_configure
@@ -179,7 +179,7 @@ toplevel_set_state:
 global toplevel_get_state
 toplevel_get_state:
     PROLOGUE
-    mov eax, [rdi + TOPLEVEL_STATE]
+    mov eax, [rdi + Toplevel.state]
     leave
     ret
 
@@ -193,7 +193,7 @@ toplevel_set_title:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov qword [rbx + TOPLEVEL_TITLE], rsi
+    mov qword [rbx + Toplevel.title], rsi
     xor rax, rax
     EPILOGUE_RESTORE rbx
     ret
@@ -208,7 +208,7 @@ toplevel_set_app_id:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov qword [rbx + TOPLEVEL_APP_ID], rsi
+    mov qword [rbx + Toplevel.app_id], rsi
     xor rax, rax
     EPILOGUE_RESTORE rbx
     ret
@@ -230,13 +230,13 @@ toplevel_schedule_configure:
     jnz .fail
 
     ; Add to shell's configure list
-    mov r12, [rbx + TOPLEVEL_SHELL]
+    mov r12, [rbx + Toplevel.shell]
     mov rsi, rax
     call .add_configure
 
     ; Schedule frame callback
-    mov rdi, [rbx + TOPLEVEL_SURFACE]
-    lea rsi, [rbx + TOPLEVEL_FRAME_CB]
+    mov rdi, [rbx + Toplevel.surface]
+    lea rsi, [rbx + Toplevel.frame_cb]
     call frame_callback_init
 
     xor rax, rax
@@ -249,10 +249,10 @@ toplevel_schedule_configure:
 
 .add_configure:
     ; Add to shell's configure list
-    mov rax, [r12 + SHELL_CONFIGURE_LIST]
-    mov [rax + CONFIGURE_NEXT], rax
-    mov [r12 + SHELL_CONFIGURE_LIST], rax
-    inc dword [r12 + SHELL_CONFIGURE_COUNT]
+    mov rax, [r12 + Shell.configure_list]
+    mov [rax + Configure.next], rax
+    mov [r12 + Shell.configure_list], rax
+    inc dword [r12 + Shell.configure_count]
     ret
 
 ; ============================================================================
@@ -268,30 +268,30 @@ toplevel_configure:
     ASSERT_PTR r12
 
     ; Apply width/height
-    mov eax, [r12 + CONFIGURE_WIDTH]
+    mov eax, [r12 + Configure.width]
     test eax, eax
     jz .no_width
-    mov [rbx + TOPLEVEL_WIDTH], eax
-    mov [rbx + TOPLEVEL_PENDING_WIDTH], eax
+    mov [rbx + Toplevel.width], eax
+    mov [rbx + Toplevel.pending_width], eax
 .no_width:
 
-    mov eax, [r12 + CONFIGURE_HEIGHT]
+    mov eax, [r12 + Configure.height]
     test eax, eax
     jz .no_height
-    mov [rbx + TOPLEVEL_HEIGHT], eax
-    mov [rbx + TOPLEVEL_PENDING_HEIGHT], eax
+    mov [rbx + Toplevel.height], eax
+    mov [rbx + Toplevel.pending_height], eax
 .no_height:
 
     ; Apply states
-    mov eax, [r12 + CONFIGURE_STATES]
+    mov eax, [r12 + Configure.states]
     test eax, eax
     jz .no_states
-    mov dword [rbx + TOPLEVEL_STATE], eax
+    mov dword [rbx + Toplevel.state], eax
 .no_states:
 
     ; Save serial
-    mov eax, [r12 + CONFIGURE_SERIAL]
-    mov [rbx + TOPLEVEL_CONFIGURE_SERIAL], eax
+    mov eax, [r12 + Configure.serial]
+    mov [rbx + Toplevel.configure_serial], eax
 
     ; Acknowledge configure
     mov rdi, r12
@@ -311,16 +311,16 @@ toplevel_set_position:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + TOPLEVEL_X], esi
-    mov dword [rbx + TOPLEVEL_Y], edx
+    mov dword [rbx + Toplevel.x], esi
+    mov dword [rbx + Toplevel.y], edx
 
     ; Update surface position
-    mov rax, [rbx + TOPLEVEL_SURFACE]
+    mov rax, [rbx + Toplevel.surface]
     test rax, rax
     jz .done
     mov rdi, rax
-    mov esi, dword [rbx + TOPLEVEL_X]
-    mov edx, dword [rbx + TOPLEVEL_Y]
+    mov esi, dword [rbx + Toplevel.x]
+    mov edx, dword [rbx + Toplevel.y]
     call surface_set_position
 
 .done:
@@ -335,8 +335,8 @@ toplevel_set_position:
 global toplevel_get_size
 toplevel_get_size:
     PROLOGUE
-    mov eax, [rdi + TOPLEVEL_WIDTH]
-    mov edx, [rdi + TOPLEVEL_HEIGHT]
+    mov eax, [rdi + Toplevel.width]
+    mov edx, [rdi + Toplevel.height]
     leave
     ret
 
@@ -347,7 +347,7 @@ toplevel_get_size:
 global toplevel_is_maximized
 toplevel_is_maximized:
     PROLOGUE
-    mov eax, [rdi + TOPLEVEL_STATE]
+    mov eax, [rdi + Toplevel.state]
     test eax, TOPLEVEL_STATE_MAXIMIZED
     jz .false
     mov eax, 1
@@ -361,7 +361,7 @@ toplevel_is_maximized:
 global toplevel_is_fullscreen
 toplevel_is_fullscreen:
     PROLOGUE
-    mov eax, [rdi + TOPLEVEL_STATE]
+    mov eax, [rdi + Toplevel.state]
     test eax, TOPLEVEL_STATE_FULLSCREEN
     jz .false
     mov eax, 1
@@ -375,7 +375,7 @@ toplevel_is_fullscreen:
 global toplevel_is_tiled
 toplevel_is_tiled:
     PROLOGUE
-    mov eax, [rdi + TOPLEVEL_STATE]
+    mov eax, [rdi + Toplevel.state]
     test eax, TOPLEVEL_STATE_TILED
     jz .false
     mov eax, 1
