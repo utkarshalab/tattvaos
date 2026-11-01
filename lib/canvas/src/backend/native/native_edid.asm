@@ -7,16 +7,14 @@
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/backend.inc"
 
-; struct offsets (hoisted above use)
 %define EDID_BLOCKS  1
 %define EDID_SIZE    128
-%define Edid_sizeof  128
 
 extern arena_alloc
 
 section .text
-
 
 struc Edid
     .header:          resb 8
@@ -45,6 +43,8 @@ struc Edid
     .detailed:        resb 72
     .extensions:      resb 1
     .checksum:        resb 1
+    resb 2
+    .sizeof:                  resq 1
 endstruc
 
 ; ---------------------------------------------------------------------------
@@ -247,13 +247,13 @@ edid_find_preferred_mode:
     mov rdi, [rax + Backend.arena]
     test rdi, rdi
     jz .no_mode
-    mov rsi, Mode_SIZE
+    mov rsi, Mode_size
     call arena_alloc
     test rax, rax
     jz .no_mode
     mov r15, rax
     mov rdi, r15
-    mov rcx, Mode_SIZE / 8
+    mov rcx, Mode_size / 8
     xor eax, eax
     rep stosq
 
