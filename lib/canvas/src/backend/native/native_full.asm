@@ -33,7 +33,7 @@ native_init:
     ASSERT_PTR r12
     
     mov rdi, rbx
-    mov rcx, Backend.size
+    mov rcx, Backend_size
     xor eax, eax
     rep stosb
     
