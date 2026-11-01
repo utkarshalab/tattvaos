@@ -10,18 +10,13 @@
 extern arena_alloc
 extern memcopy
 
-; struct offsets (hoisted above use)
-%define MsgBuf_buf       0
-%define MsgBuf.buf 0
-%define MsgBuf_capacity  8
-%define MsgBuf.capacity 8
-%define MsgBuf_read_pos  16
-%define MsgBuf.read_pos 16
-%define MsgBuf_write_pos 24
-%define MsgBuf.write_pos 24
-%define MsgBuf_arena     32
-%define MsgBuf.arena 32
-%define MsgBuf_size      40
+struc MsgBuf
+    .buf:                     resq 1
+    .capacity:                resq 1
+    .read_pos:                resq 1
+    .write_pos:               resq 1
+    .arena:                   resq 1
+endstruc
 
 section .text
 
@@ -79,7 +74,7 @@ msgbuf_write:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov r14, [r12 + MsgHdr_len]
+    mov r14, [r12 + MsgHdr.len]
     add r14, 12          ; header size
 
     ; Check space
@@ -117,7 +112,7 @@ msgbuf_write:
     add rdi, rax
     add rdi, 12
     mov rsi, r13
-    mov rcx, [r12 + MsgHdr_len]
+    mov rcx, [r12 + MsgHdr.len]
     call memcopy
 
 .no_payload:
@@ -166,7 +161,7 @@ msgbuf_read:
     call memcopy
 
     ; Validate payload length
-    mov rdx, [r12 + MsgHdr_len]
+    mov rdx, [r12 + MsgHdr.len]
     cmp rdx, r14
     ja .payload_too_large
 
@@ -289,7 +284,6 @@ msgbuf_free_space:
     ret
 
 section .data
-
 
 global msgbuf_version
 msgbuf_version: dq 0x010000
