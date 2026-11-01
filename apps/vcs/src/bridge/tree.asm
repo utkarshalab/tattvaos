@@ -808,6 +808,10 @@ git_tree_emit_plan:
 .directory_encoded:
  test eax,eax
  jnz .plan_done
+ mov rax,[rbp+GTEP_TREE_SIZES]
+ test rax,rax
+ jz .directory_next
+ mov [rax+r13*8],rdx
 .directory_next:
  inc r13
  jmp .directory_scan
