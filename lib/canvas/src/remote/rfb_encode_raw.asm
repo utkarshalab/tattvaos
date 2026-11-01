@@ -8,11 +8,9 @@
 %include "inc/ut.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
 %define RFB_ENC_RAW    0
 
 section .text
-
 
 global rfb_send_rect_header
 rfb_send_rect_header:
