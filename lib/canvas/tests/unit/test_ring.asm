@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global test_ring_main
 test_ring_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ test_ring_main:
 ; ============================================================================
 global test_ring_basic
 test_ring_basic:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
