@@ -43,7 +43,6 @@ test_cts_buffer_attach_commit:
 
 test_name_cts_buffer_attach_commit: db "cts buffer attach commit", 0
 
-
 section .data
 global cts_surface_version
 cts_surface_version: dq 0x010000
