@@ -13,7 +13,8 @@
 ;            then the code points again at size2 (outlines now replayed
 ;            from the font's cache)
 ;   host_font m <font directory> <in.bin> <out.bin>
-;       the shipped fonts found there in a set (ufont_standard order);
+;       the shipped fonts in a set (ufont_set_standard: each mapped from
+;       there when the set needs it; ufont_standard order);
 ;       in:  u32 n, then per query u32 weight, u32 style, u32 length
 ;            (0xFFFFFFFF: no family), the family's bytes
 ;       out: per query i32 the face's index in ufont_standard (-1: none)
@@ -43,9 +44,8 @@ extern ufont_outline
 extern ufont_set_variations
 extern ufont_set_init
 extern ufont_set_add
+extern ufont_set_standard
 extern ufont_set_face
-extern ufont_standard
-extern ufont_standard_count
 
 section .text
 
@@ -173,58 +173,11 @@ match_mode:
     lea rdi, [rel set]
     lea rsi, [rel arena]
     call ufont_set_init
-    xor ebx, ebx
-.font:
-    cmp rbx, [rel ufont_standard_count]
-    jae .queries
-    imul rax, rbx, UfontStd_SIZE
-    lea rcx, [rel ufont_standard]
-    lea r13, [rcx + rax]                ; its record
-    ; directory / file
-    lea rdi, [rel name_buf]
-    mov rsi, r12
-.dir:
-    mov al, [rsi]
-    test al, al
-    jz .slash
-    mov [rdi], al
-    inc rdi
-    inc rsi
-    jmp .dir
-.slash:
-    mov byte [rdi], '/'
-    inc rdi
-    mov rsi, [r13 + UfontStd_file]
-.file:
-    mov al, [rsi]
-    mov [rdi], al
-    inc rdi
-    inc rsi
-    test al, al
-    jnz .file
-    lea rdi, [rel name_buf]
-    call map_file
-    test rax, rax
-    js .next_font
+    ; the shipped faces, each mapped from the directory when the set needs it
     lea rdi, [rel set]
-    mov rsi, rax
-    mov rcx, [r13 + UfontStd_family]
-    mov r8d, [r13 + UfontStd_weight]
-    mov r9d, [r13 + UfontStd_italic]
-    push rbx
-    sub rsp, 8
-    call ufont_set_add
-    add rsp, 8
-    pop rbx
-    test rax, rax
-    jnz .next_font
-    mov eax, [rel set + UfontSet_count]
-    dec eax
-    lea rcx, [rel face_std]
-    mov [rcx + rax * 4], ebx            ; the face's standard index
-.next_font:
-    inc rbx
-    jmp .font
+    lea rsi, [rel load_font]
+    mov rdx, r12
+    call ufont_set_standard
 .queries:
     mov r12d, [r15]
     add r15, 4
@@ -259,8 +212,7 @@ match_mode:
     xor edx, edx
     mov ecx, UfontFace_SIZE
     div ecx
-    lea rcx, [rel face_std]
-    mov ecx, [rcx + rax * 4]
+    mov ecx, eax                        ; the set's faces are ufont_standard's
 .answer:
     mov eax, ecx
     call put32
@@ -334,6 +286,38 @@ map_anon:
 
 ; rdi = path -> rax = its bytes (read-only mapping), rdx = length; rax < 0
 ;   when it cannot be read or is empty
+; load_font — the set's loader: rdi = the font directory, rsi = a shipped
+;   file's name -> rax = its bytes mapped (0: missing), rdx = their length
+load_font:
+    push rbx
+    lea rbx, [rel name_buf]
+.dir:
+    mov al, [rdi]
+    test al, al
+    jz .slash
+    mov [rbx], al
+    inc rbx
+    inc rdi
+    jmp .dir
+.slash:
+    mov byte [rbx], '/'
+    inc rbx
+.file:
+    mov al, [rsi]
+    mov [rbx], al
+    inc rbx
+    inc rsi
+    test al, al
+    jnz .file
+    lea rdi, [rel name_buf]
+    call map_file
+    test rax, rax
+    jns .out
+    xor eax, eax
+.out:
+    pop rbx
+    ret
+
 map_file:
     push rbx
     push r12
@@ -405,5 +389,4 @@ path:       resb UgfxPath_SIZE
 desc:       resb UgfxSvgFont_SIZE
 alignb 16
 set:        resb UfontSet_SIZE
-face_std:   resd UFONT_SET_MAX
 name_buf:   resb 4096
