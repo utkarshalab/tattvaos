@@ -6,21 +6,15 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
 
-; struct offsets (hoisted above use)
-%define BufferPool_buffers  0
-%define BufferPool.buffers 0
-%define BufferPool_count    8
-%define BufferPool.count 8
-%define BufferPool_capacity 16
-%define BufferPool.capacity 16
-%define BufferPool_arena    24
-%define BufferPool.arena 24
-%define BufferPool_size     32
-%define Buffer_width         8
-%define Buffer_height       12
-%define Buffer_format       20
-%define Buffer_state        84
+struc BufferPool
+    .buffers:                 resq 1
+    .count:                   resq 1
+    .capacity:                resq 1
+    .arena:                   resq 1
+endstruc
+
 %define Buffer_FREE          0
 %define Buffer_ALLOCATED     1
 %define Buffer_ATTACHED      2
@@ -72,15 +66,15 @@ buffer_pool_acquire:
     cmp rdx, rcx
     jae .not_found
     mov rax, [rdi + rdx * 8]
-    cmp byte [rax + Buffer_state], Buffer_FREE
+    cmp byte [rax + Buffer.state], Buffer_FREE
     jne .next
-    cmp dword [rax + Buffer_width], r12d
+    cmp dword [rax + Buffer.width], r12d
     jne .next
-    cmp dword [rax + Buffer_height], r13d
+    cmp dword [rax + Buffer.height], r13d
     jne .next
-    cmp dword [rax + Buffer_format], r14d
+    cmp dword [rax + Buffer.format], r14d
     jne .next
-    mov byte [rax + Buffer_state], Buffer_ALLOCATED
+    mov byte [rax + Buffer.state], Buffer_ALLOCATED
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 .next:
@@ -105,9 +99,9 @@ buffer_pool_release:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    cmp byte [r12 + Buffer_state], Buffer_ATTACHED
+    cmp byte [r12 + Buffer.state], Buffer_ATTACHED
     je .busy
-    cmp byte [r12 + Buffer_state], Buffer_SCANOUT
+    cmp byte [r12 + Buffer.state], Buffer_SCANOUT
     je .busy
 
     mov rdi, [rbx + BufferPool.buffers]
@@ -155,7 +149,7 @@ buffer_pool_release:
     mov rcx, [rbx + BufferPool.count]
     mov [rdi + rcx * 8], r12
     inc qword [rbx + BufferPool.count]
-    mov byte [r12 + Buffer_state], Buffer_FREE
+    mov byte [r12 + Buffer.state], Buffer_FREE
 .already_pooled:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
@@ -170,7 +164,6 @@ buffer_pool_release:
     ret
 
 section .data
-
 
 global buffer_pool_version
 buffer_pool_version: dq 0x010000
