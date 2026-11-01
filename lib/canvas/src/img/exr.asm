@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 extern fill_solid
@@ -120,11 +121,11 @@ exr_decode:
     jz .bad
     mov [rsp+32],rax
     ; Initialize alpha and RGB deterministically.
-    mov rdi,[rax+PixBuf_data]
+    mov rdi,[rax+PixBuf.data]
     mov esi,0xFF000000
     mov edx,[rsp+8]
     mov ecx,[rsp+12]
-    mov r8,[rax+PixBuf_stride]
+    mov r8,[rax+PixBuf.stride]
     call fill_solid
     xor r11d,r11d
 .chunk:
@@ -182,8 +183,8 @@ exr_decode:
     cmp dword [rsp+44],255
     je .sample_next
     mov rdx,[rsp+32]
-    mov rdi,[rdx+PixBuf_data]
-    mov rdx,[rdx+PixBuf_stride]
+    mov rdi,[rdx+PixBuf.data]
+    mov rdx,[rdx+PixBuf.stride]
     imul rdx,[rsp+40]
     add rdi,rdx
     mov edx,[rsp+44]
