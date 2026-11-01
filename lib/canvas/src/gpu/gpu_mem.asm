@@ -11,9 +11,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define GpuMemMgr_SIZE 56
-%define GpuBo_SIZE 64
 %define GPU_PLACE_GTT      1
 %define GPU_PLACE_VRAM     2
 %define GPU_PLACE_VISIBLE   4
@@ -43,8 +40,6 @@ struc GpuBo
     .refcount:      resd 1
     .next:          resq 1
 endstruc
-
-
 
 ; ---------------------------------------------------------------------------
 ; gpu_mem_init
@@ -104,7 +99,7 @@ gpu_bo_create:
     ; alloc BO header from server arena
     mov rax, [rbx + GpuDevice.server]
     mov rdi, [rax + Server.arena]
-    mov rsi, GpuBo_size
+    mov rsi, GpuBo.size
     call arena_alloc
     test rax, rax
     jz .oom
