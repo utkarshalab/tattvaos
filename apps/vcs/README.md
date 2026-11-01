@@ -192,6 +192,9 @@ queries. It resolves exact uncompressed body sizes for canonical commits, trees,
 and blobs across the selected first-parent history, preserves request order in
 the response, rejects a command containing any missing object, and leaves the
 native protocol-v2 connection reusable after success.
+A lone protocol-v2 flush packet is handled as a clean empty request: the current
+client session completes without an error response and daemon modes may rearm
+the retained listener for the next client.
 Acknowledgment-only rounds retain their deduplicated have view for the same
 connection and merge later haves up to 64 unique identities; terminal `ready`
 or `done` responses therefore use common history learned across all rounds.
