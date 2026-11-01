@@ -199,6 +199,14 @@ git_upload_server_step:
  add rdi,[server_length]
  cmp dword [rdi-4],'0000'
  jne .again
+ cmp qword [server_length],4
+ jne .request_ready
+ mov dword [server_result],VCS_OK
+ mov dword [server_state],GIT_SERVER_DONE
+ inc qword [server_progress]
+ xor eax,eax
+ ret
+.request_ready:
  lea rdi,[server_request]
  mov rsi,[server_length]
  call git_protocol_v2_parse_request
