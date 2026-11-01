@@ -32,6 +32,7 @@ extern test_misc_suite
 extern test_gpu_suite
 extern test_proto_suite
 extern test_client_suite
+extern test_surface_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -135,6 +136,10 @@ test_runner_init:
 
     ; Test client accept and teardown
     call test_client_suite
+    add rbx, rax
+
+    ; Test surfaces, buffers and commits
+    call test_surface_suite
     add rbx, rax
 
     ; Final summary
