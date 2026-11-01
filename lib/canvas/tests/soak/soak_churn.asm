@@ -16,26 +16,7 @@ section .text
 ; ============================================================================
 global soak_churn_main
 soak_churn_main:
-    PROLOGUE
-    xor rax, rax
-    ret
-
-; ============================================================================
-; surface_create (stub)
-; ============================================================================
-global surface_create
-surface_create:
-    PROLOGUE
-    xor rax, rax
-    ret
-
-; ============================================================================
-; commit_surface (stub)
-; ============================================================================
-global commit_surface
-commit_surface:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
