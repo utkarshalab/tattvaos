@@ -7,7 +7,6 @@
 %include "inc/errors.inc"
 %include "inc/struct_offsets.inc"
 
-; struct offsets (hoisted above use)
 %define INV_OK              0
 %define INV_ZORDER_CYCLE    1
 %define INV_DANGLING_PARENT 2
@@ -15,7 +14,6 @@
 %define INV_STALE_HANDLE    4
 
 section .text
-
 
 ; ---------------------------------------------------------------------------
 ; invariants_check_all
