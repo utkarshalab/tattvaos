@@ -133,7 +133,7 @@ dispatch_register:
 global dispatch_call
 dispatch_call:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    sub rsp, 16
+    sub rsp, 24                         ; 16-byte aligned at the handler
     mov [rsp], r9
     mov [rsp + 8], r10
     mov rbx, rdi
@@ -179,13 +179,13 @@ dispatch_call:
     mov rdx, [rsp]
     mov rcx, [rsp + 8]
     call rax
-    add rsp, 16
+    add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 .not_found:
     mov rax, -(ECWP_OPCODE)
-    add rsp, 16
+    add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
