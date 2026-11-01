@@ -131,8 +131,6 @@ struc PixelFormat
     .reserved:    resb 13
 endstruc
 
-%define PixelFormat_size 32
-
 ; ---------------------------------------------------------------------------
 ; Standard Format Descriptors
 ; ---------------------------------------------------------------------------
