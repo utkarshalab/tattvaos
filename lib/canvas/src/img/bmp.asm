@@ -10,6 +10,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 extern arena_alloc
@@ -387,8 +388,8 @@ bmp_row_pointers:
     add r12, rax
     mov rdx, [rbx + B_PIXBUF]
     mov eax, [rbx + B_ROW]
-    imul rax, [rdx + PixBuf_stride]
-    mov r13, [rdx + PixBuf_data]
+    imul rax, [rdx + PixBuf.stride]
+    mov r13, [rdx + PixBuf.data]
     add r13, rax
     ret
 
@@ -645,8 +646,8 @@ bmp_decode_rle:
     mov rsi, [rbx + B_INDEXES]
     add rsi, rcx
     mov rdx, [rbx + B_PIXBUF]
-    imul rax, [rdx + PixBuf_stride]
-    mov rdi, [rdx + PixBuf_data]
+    imul rax, [rdx + PixBuf.stride]
+    mov rdi, [rdx + PixBuf.data]
     add rdi, rax
     xor ecx, ecx
 .rle_px:
