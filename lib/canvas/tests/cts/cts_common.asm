@@ -50,8 +50,7 @@ cts_disconnect:
 ; ============================================================================
 global cts_create_surface
 cts_create_surface:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -60,8 +59,7 @@ cts_create_surface:
 ; ============================================================================
 global cts_present
 cts_present:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -70,8 +68,7 @@ cts_present:
 ; ============================================================================
 global cts_wait_for_frame
 cts_wait_for_frame:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 %endif ; __CTS_COMMON_ASM__
