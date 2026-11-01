@@ -424,12 +424,12 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | TXT-04 | Text shaping: ligatures, contextual forms, mark positioning | P2 | ✓ `lib/ufont` `ufont_shape` (OpenType GSUB / GPOS as HarfBuzz; Arabic joining, Hebrew, Thai / Lao, Hangul, Khmer and Myanmar shapers and the Universal Shaping Engine for HarfBuzz's 88 USE scripts; fallback shaping and mark placement for fonts without layout tables), SVG text shaped in runs; Noto Arabic and Hebrew faces shipped |
 | TXT-05 | Indic scripts first-class: Devanagari conjuncts, matras, reph | P2 | ✓ the Indic shaper in `lib/ufont` for Devanagari, Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada, Malayalam; their Noto faces shipped |
 | TXT-06 | Bidirectional text | P2 | ✓ the Unicode Bidirectional Algorithm in `lib/ufont` (`ufont_bidi`, Unicode's conformance tests); SVG text reordered by it in lib/ugfx (runs shaped in their direction, the `direction` property) |
-| TXT-07 | Line breaking and hyphenation | P2 | |
+| TXT-07 | Line breaking and hyphenation | P2 | deferred: future expansion (`lib/ufont` README §5) |
 | TXT-08 | Unicode normalization, grapheme clusters, emoji ZWJ sequences | P2 | ◐ `core/utf8` (simplified) |
-| TXT-09 | Font discovery and matching (family, weight, style) | P2 | ◐ `lib/ufont` font sets: CSS family lists, generic names and aliases, weight / style; shipped fonts in `lib/ufont/fonts` |
-| TXT-10 | Per-script fallback chains | P2 | ◐ `lib/ufont`: Noto Sans for characters a face lacks |
+| TXT-09 | Font discovery and matching (family, weight, style) | P2 | ✓ `lib/ufont` font sets: CSS family lists, generic names and aliases, weight / style; every shipped face (`ufont_set_standard`) opened when text needs it |
+| TXT-10 | Per-script fallback chains | P2 | ✓ `lib/ufont`: a Noto font for every script (152 families, Noto Sans CJK) shipped; a character a face lacks from Noto Sans, else the first face whose coverage has it; the CJK region by language deferred (future expansion) |
 | TXT-11 | OpenType CFF outlines, WOFF/WOFF2, font collections | P3 | ✓ `lib/ufont`: CFF outlines (CID-keyed too), WOFF 1.0, WOFF2 (its own Brotli decoder), collections |
-| TXT-12 | Variable fonts | P3 | ◐ `lib/ufont`: axes (fvar, avar), gvar outlines, HVAR, GPOS variations, feature variations; CFF2 and MVAR not yet; SVG / CSS axes not yet asked for |
+| TXT-12 | Variable fonts | P3 | ◐ `lib/ufont`: axes (fvar, avar), gvar outlines, HVAR, GPOS variations, feature variations; CFF2, MVAR and SVG / CSS axes deferred (future expansion) |
 | TXT-13 | Color emoji (COLR/CPAL, bitmap tables) | P3 | |
 | TXT-14 | Hinting, subpixel positioning, LCD filtering | P3 | |
 | TXT-15 | Per-display text tuning: gamma, contrast, stem darkening, optical sizing | P3 | |
