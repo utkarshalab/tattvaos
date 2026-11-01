@@ -11,9 +11,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define Metrics_SIZE    88
-
 section .text
 
 ; Metrics struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
