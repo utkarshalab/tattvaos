@@ -31,8 +31,6 @@ extern region_copy
 %define SS_FRAME_CBS 60
 %define SS_PENDING 68
 
-%define BUFFER_RELEASE_FENCE 60
-%define BUFFER_STATE 84
 %define BUFFER_ALLOCATED 1
 
 section .text
@@ -173,8 +171,8 @@ surface_release_old_buffer:
     call handle_resolve
     test rax, rax
     jz .done
-    mov byte [rax + BUFFER_STATE], BUFFER_ALLOCATED
-    mov edx, [rax + BUFFER_RELEASE_FENCE]
+    mov byte [rax + Buffer.state], BUFFER_ALLOCATED
+    mov edx, [rax + Buffer.release_fence]
     test edx, edx
     jz .done
     mov rdi, rbx
