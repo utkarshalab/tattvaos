@@ -43,7 +43,6 @@ test_cts_sync_serial_monotonic:
 
 test_name_cts_sync_serial_monotonic: db "cts sync serial monotonic", 0
 
-
 section .data
 global cts_core_version
 cts_core_version: dq 0x010000
