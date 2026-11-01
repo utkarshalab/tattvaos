@@ -11,9 +11,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define ClientStats_SIZE    104
-
 section .text
 
 ; ClientStats struct layout (manual offsets)
