@@ -30,6 +30,8 @@ request_peel: resb 1
 request_unborn: resb 1
 request_want_ref: resb 1
 request_server_options: resb 1
+request_server_option_lengths: resb 8
+request_server_option_values: resb 8*128
 request_shallow_count: resb 1
 request_fetch_hints: resb 1
 request_prefix_masks: resb 1
@@ -196,11 +198,11 @@ git_protocol_v2_parse_request:
  mov byte [request_agent],1
  jmp .headers
 .server_option_header:
+ cmp byte [request_server_options],8
+ jae .corrupt
  call validate_server_option_header
  test eax,eax
  jnz .corrupt
- cmp byte [request_server_options],8
- jae .corrupt
  inc byte [request_server_options]
  jmp .headers
 .arguments:
@@ -715,6 +717,8 @@ validate_server_option_header:
  jne .option_bad
  lea rdi,[rdx+server_option_prefix_len]
  sub rcx,server_option_prefix_len+1
+ mov r10,rdi
+ mov r11,rcx
 .option_byte:
  mov al,[rdi]
  test al,al
@@ -723,6 +727,31 @@ validate_server_option_header:
  je .option_bad
  inc rdi
  loop .option_byte
+ movzx r8d,byte [request_server_options]
+ xor r9d,r9d
+.option_duplicate:
+ cmp r9,r8
+ jae .option_store
+ cmp byte [request_server_option_lengths+r9],r11b
+ jne .option_next
+ mov rax,r9
+ shl rax,7
+ lea rdi,[request_server_option_values+rax]
+ mov rsi,r10
+ mov rcx,r11
+ repe cmpsb
+ je .option_bad
+.option_next:
+ inc r9
+ jmp .option_duplicate
+.option_store:
+ mov byte [request_server_option_lengths+r8],r11b
+ mov rax,r8
+ shl rax,7
+ lea rdi,[request_server_option_values+rax]
+ mov rsi,r10
+ mov rcx,r11
+ rep movsb
  xor eax,eax
  ret
 .option_bad:
