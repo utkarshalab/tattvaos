@@ -23,29 +23,31 @@
 %define RB_RED     0
 %define RB_BLACK   1
 
-%define RBNode_left    0
-%define RBNode_right   8
-%define RBNode_parent  16
-%define RBNode_color   24               ; u8
-%define RBNode_key     32
-%define RBNode_value   40
-%define RBNode_size    48
+struc RBNode
+    .left:                    resq 1
+    .right:                   resq 1
+    .parent:                  resq 1
+    .color:                   resq 1
+    .key:                     resq 1
+    .value:                   resq 1
+endstruc
 
-%define RBTree_root    0
-%define RBTree_count   8
-%define RBTree_size    16
+struc RBTree
+    .root:                    resq 1
+    .count:                   resq 1
+endstruc
 
-%define L   RBNode_left
-%define R   RBNode_right
-%define P   RBNode_parent
-%define C   RBNode_color
+%define L   RBNode.left
+%define R   RBNode.right
+%define P   RBNode.parent
+%define C   RBNode.color
 
 section .text
 
 global rbtree_init
 rbtree_init:
-    mov qword [rdi + RBTree_root], 0
-    mov qword [rdi + RBTree_count], 0
+    mov qword [rdi + RBTree.root], 0
+    mov qword [rdi + RBTree.count], 0
     xor eax, eax
     ret
 
@@ -65,7 +67,7 @@ rb_rotate_left:
     mov [rax + P], rcx
     test rcx, rcx
     jnz .child
-    mov [rbx + RBTree_root], rax
+    mov [rbx + RBTree.root], rax
     jmp .link
 .child:
     cmp [rcx + L], rdi
@@ -92,7 +94,7 @@ rb_rotate_right:
     mov [rax + P], rcx
     test rcx, rcx
     jnz .child
-    mov [rbx + RBTree_root], rax
+    mov [rbx + RBTree.root], rax
     jmp .link
 .child:
     cmp [rcx + L], rdi
@@ -119,15 +121,15 @@ rbtree_insert:
     jz .invalid
     ; find the place (or the key)
     xor r8d, r8d                        ; parent
-    mov rax, [rbx + RBTree_root]
+    mov rax, [rbx + RBTree.root]
 .find:
     test rax, rax
     jz .place
     mov r8, rax
-    cmp rsi, [rax + RBNode_key]
+    cmp rsi, [rax + RBNode.key]
     jl .left
     jg .right
-    mov [rax + RBNode_value], rdx       ; present: the value replaced
+    mov [rax + RBNode.value], rdx       ; present: the value replaced
     jmp .ok
 .left:
     mov rax, [rax + L]
@@ -140,15 +142,15 @@ rbtree_insert:
     mov qword [rcx + R], 0
     mov [rcx + P], r8
     mov byte [rcx + C], RB_RED
-    mov [rcx + RBNode_key], rsi
-    mov [rcx + RBNode_value], rdx
-    inc qword [rbx + RBTree_count]
+    mov [rcx + RBNode.key], rsi
+    mov [rcx + RBNode.value], rdx
+    inc qword [rbx + RBTree.count]
     test r8, r8
     jnz .under
-    mov [rbx + RBTree_root], rcx
+    mov [rbx + RBTree.root], rcx
     jmp .fixup
 .under:
-    cmp rsi, [r8 + RBNode_key]
+    cmp rsi, [r8 + RBNode.key]
     jl .under_left
     mov [r8 + R], rcx
     jmp .fixup
@@ -217,7 +219,7 @@ rbtree_insert:
     call rb_rotate_left
     jmp .loop
 .done:
-    mov rax, [rbx + RBTree_root]
+    mov rax, [rbx + RBTree.root]
     mov byte [rax + C], RB_BLACK
 .ok:
     xor eax, eax
@@ -237,14 +239,14 @@ rbtree_insert:
 ; ---------------------------------------------------------------------------
 global rbtree_find
 rbtree_find:
-    mov rax, [rdi + RBTree_root]
+    mov rax, [rdi + RBTree.root]
 .loop:
     test rax, rax
     jz .none
-    cmp rsi, [rax + RBNode_key]
+    cmp rsi, [rax + RBNode.key]
     jl .left
     jg .right
-    mov rax, [rax + RBNode_value]
+    mov rax, [rax + RBNode.value]
     ret
 .left:
     mov rax, [rax + L]
@@ -261,7 +263,7 @@ rb_transplant:                          ; rdi = u, rsi = v
     mov rax, [rdi + P]
     test rax, rax
     jnz .child
-    mov [rbx + RBTree_root], rsi
+    mov [rbx + RBTree.root], rsi
     jmp .parent
 .child:
     cmp [rax + L], rdi
@@ -298,11 +300,11 @@ rbtree_remove:
     mov rbx, rdi
     test rbx, rbx
     jz .invalid
-    mov r12, [rbx + RBTree_root]        ; z
+    mov r12, [rbx + RBTree.root]        ; z
 .find:
     test r12, r12
     jz .not_found
-    cmp rsi, [r12 + RBNode_key]
+    cmp rsi, [r12 + RBNode.key]
     jl .find_left
     jg .find_right
     jmp .found
@@ -377,12 +379,12 @@ rbtree_remove:
     mov qword [r12 + L], 0
     mov qword [r12 + R], 0
     mov qword [r12 + P], 0
-    dec qword [rbx + RBTree_count]
+    dec qword [rbx + RBTree.count]
     cmp r15d, RB_BLACK
     jne .ok
     ; a black node gone: fix up from x (r13, maybe 0) under r14
 .fix:
-    cmp r13, [rbx + RBTree_root]
+    cmp r13, [rbx + RBTree.root]
     je .fix_done
     IS_BLACK r13
     jne .fix_done
@@ -428,7 +430,7 @@ rbtree_remove:
 .l_rotate:
     mov rdi, r14
     call rb_rotate_left
-    mov r13, [rbx + RBTree_root]
+    mov r13, [rbx + RBTree.root]
     jmp .fix_done
 .x_right:
     ; mirrored: x is the right child
@@ -471,7 +473,7 @@ rbtree_remove:
 .r_rotate:
     mov rdi, r14
     call rb_rotate_right
-    mov r13, [rbx + RBTree_root]
+    mov r13, [rbx + RBTree.root]
 .fix_done:
     test r13, r13
     jz .ok
@@ -497,7 +499,7 @@ rbtree_remove:
 ; ---------------------------------------------------------------------------
 global rbtree_min
 rbtree_min:
-    mov rax, [rdi + RBTree_root]
+    mov rax, [rdi + RBTree.root]
     test rax, rax
     jz .empty
 .loop:
@@ -507,7 +509,7 @@ rbtree_min:
     mov rax, rcx
     jmp .loop
 .found:
-    mov rax, [rax + RBNode_key]
+    mov rax, [rax + RBNode.key]
     ret
 .empty:
     xor eax, eax
@@ -515,7 +517,7 @@ rbtree_min:
 
 global rbtree_max
 rbtree_max:
-    mov rax, [rdi + RBTree_root]
+    mov rax, [rdi + RBTree.root]
     test rax, rax
     jz .empty
 .loop:
@@ -525,7 +527,7 @@ rbtree_max:
     mov rax, rcx
     jmp .loop
 .found:
-    mov rax, [rax + RBNode_key]
+    mov rax, [rax + RBNode.key]
     ret
 .empty:
     xor eax, eax
@@ -533,7 +535,7 @@ rbtree_max:
 
 global rbtree_count
 rbtree_count:
-    mov rax, [rdi + RBTree_count]
+    mov rax, [rdi + RBTree.count]
     ret
 
 section .data
