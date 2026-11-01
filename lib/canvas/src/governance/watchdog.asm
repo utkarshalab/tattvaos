@@ -16,8 +16,6 @@ extern msgbuf_write
 extern ut_time_now_ns
 extern ut_timer_register
 
-; struct offsets (hoisted above use)
-%define Watchdog_SIZE    40
 %define WATCHDOG_DEFAULT_TIMEOUT  5000000000  ; 5 seconds
 %define WATCHDOG_PING_INTERVAL    1000000000  ; 1 second
 
@@ -30,7 +28,6 @@ struc Watchdog
     .suspects:       resq 1
     .kills:          resq 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; watchdog_init
@@ -185,10 +182,10 @@ watchdog_ping_client:
     call ut_time_now_ns
     mov [rbx + Client.ping_serial], rax
     sub rsp, 32
-    mov dword [rsp + MsgHdr_obj], CWP_OBJ_DISPLAY
-    mov word [rsp + MsgHdr_opcode], 2
-    mov word [rsp + MsgHdr_flags], CWP_MSG_FLAG_IS_EVENT
-    mov dword [rsp + MsgHdr_len], 8
+    mov dword [rsp + MsgHdr.obj], CWP_OBJ_DISPLAY
+    mov word [rsp + MsgHdr.opcode], 2
+    mov word [rsp + MsgHdr.flags], CWP_MSG_FLAG_IS_EVENT
+    mov dword [rsp + MsgHdr.len], 8
     mov [rsp + 16], rax
     mov rdi, [rbx + Client.rx_ring]
     test rdi, rdi
