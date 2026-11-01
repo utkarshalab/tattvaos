@@ -27,6 +27,7 @@ endstruc
 ; External functions (src/core/handle.asm defines HANDLE_MODULE: it is their home)
 %ifndef HANDLE_MODULE
 extern handle_table_init
+extern handle_table_create
 extern handle_create
 extern handle_destroy
 extern handle_resolve
