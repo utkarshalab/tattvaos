@@ -59,6 +59,7 @@ server_option_prefix: db 'server-option='
 server_option_prefix_len equ $-server_option_prefix
 want_prefix: db 'want '
 done_line: db 'done',10
+done_line_len equ $-done_line
 symrefs_line: db 'symrefs',10
 symrefs_line_len equ $-symrefs_line
 peel_line: db 'peel',10
