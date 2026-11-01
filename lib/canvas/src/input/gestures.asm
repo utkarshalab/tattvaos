@@ -7,13 +7,11 @@
 %include "inc/errors.inc"
 %include "inc/fixed.inc"
 
-; struct offsets (hoisted above use)
 %define GESTURE_PINCH       1
 %define GESTURE_SWIPE       2
 %define GESTURE_ROTATE      3
 %define GESTURE_TAP         4
 %define GESTURE_HOLD        5
-%define Gesture_SIZE 64
 %define GESTURE_STATE_NONE     0
 %define GESTURE_STATE_STARTED  1
 %define GESTURE_STATE_UPDATED  2
@@ -21,7 +19,6 @@
 %define GESTURE_STATE_CANCELLED 4
 
 section .text
-
 
 struc Gesture
     .type:          resd 1
@@ -39,7 +36,6 @@ struc Gesture
     .velocity_y:    resd 1
     .timer:         resq 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; gestures_init
