@@ -19,17 +19,17 @@ crp_session_create:
     mov r13b, dl
     ASSERT_PTR rbx
     mov rdi, [rbx + Server.arena]
-    mov rsi, CrpSession_SIZE
+    mov rsi, CrpSession_size
     call arena_alloc
     test rax, rax
     jz .oom
-    mov qword [rax + CrpSession_server], rbx
-    mov qword [rax + CrpSession_conn], r12
-    mov byte [rax + CrpSession_view_only], r13b
-    mov qword [rax + CrpSession_seq], 0
-    mov rdx, [rbx + CrpServer_sessions]
-    mov [rax + CrpSession_next], rdx
-    mov [rbx + CrpServer_sessions], rax
+    mov qword [rax + CrpSession.server], rbx
+    mov qword [rax + CrpSession.conn], r12
+    mov byte [rax + CrpSession.view_only], r13b
+    mov qword [rax + CrpSession.seq], 0
+    mov rdx, [rbx + CrpServer.sessions]
+    mov [rax + CrpSession.next], rdx
+    mov [rbx + CrpServer.sessions], rax
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 .oom:
@@ -44,14 +44,14 @@ crp_session_destroy:
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    mov rax, [rbx + CrpServer_sessions]
+    mov rax, [rbx + CrpServer.sessions]
     test rax, rax
     jz .not_found
     cmp rax, r12
     je .remove_head
     mov rbx, rax
 .find:
-    mov rax, [rax + CrpSession_next]
+    mov rax, [rax + CrpSession.next]
     test rax, rax
     jz .not_found
     cmp rax, r12
@@ -59,14 +59,14 @@ crp_session_destroy:
     mov rbx, rax
     jmp .find
 .remove_head:
-    mov rax, [r12 + CrpSession_next]
-    mov [rbx + CrpServer_sessions], rax
+    mov rax, [r12 + CrpSession.next]
+    mov [rbx + CrpServer.sessions], rax
     jmp .close
 .remove_mid:
-    mov rax, [r12 + CrpSession_next]
-    mov [rbx + CrpSession_next], rax
+    mov rax, [r12 + CrpSession.next]
+    mov [rbx + CrpSession.next], rax
 .close:
-    mov rdi, [r12 + CrpSession_conn]
+    mov rdi, [r12 + CrpSession.conn]
     call ut_tls_close
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
