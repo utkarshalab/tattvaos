@@ -44,6 +44,7 @@ blit_copy:
     mov rdx, r14
     imul rdx, rax
     call memcopy_fast
+    xor eax, eax                    ; 0 as documented (not memcopy_fast's result)
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
