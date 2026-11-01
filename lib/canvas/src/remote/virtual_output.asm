@@ -33,7 +33,7 @@ virtual_output_create:
     test r13, r13
     jz .invalid
     mov rdi, [rbx + Server.arena]
-    mov rsi, VirtualOutput_SIZE
+    mov rsi, VirtualOutput_size
     call arena_alloc
     test rax, rax
     jz .oom
