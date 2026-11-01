@@ -85,7 +85,7 @@ token_create:
 
     ; Allocate token
     mov rdi, [rbx + Server.arena]
-    mov rsi, Token_SIZE
+    mov rsi, Token_size
     call arena_alloc
     test rax, rax
     jz .oom
