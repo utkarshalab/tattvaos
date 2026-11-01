@@ -1,27 +1,38 @@
 ; ============================================================================
 ; SipHash-2-4 — Keyed Hash for Capability Tokens
 ; ============================================================================
+; v0 .. v3 live in r8 .. r11; the message word in rax. Leaf functions: no
+; callee-saved registers touched.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 
 section .text
 
-%define SIPROUND \
-    vaddq   v0, v0, v1 ;\
-    vrotl   v1, v1, 13 ;\
-    vxorq   v1, v1, v0 ;\
-    vrotl   v0, v0, 32 ;\
-    vaddq   v2, v2, v3 ;\
-    vrotl   v3, v3, 16 ;\
-    vxorq   v3, v3, v2 ;\
-    vaddq   v0, v0, v3 ;\
-    vrotl   v3, v3, 21 ;\
-    vxorq   v3, v3, v0 ;\
-    vaddq   v2, v2, v1 ;\
-    vrotl   v1, v1, 17 ;\
-    vxorq   v1, v1, v2 ;\
-    vrotl   v2, v2, 32
+%macro SIPROUND 0
+    add r8, r9
+    rol r9, 13
+    xor r9, r8
+    rol r8, 32
+    add r10, r11
+    rol r11, 16
+    xor r11, r10
+    add r8, r11
+    rol r11, 21
+    xor r11, r8
+    add r10, r9
+    rol r9, 17
+    xor r9, r10
+    rol r10, 32
+%endmacro
+
+; one message word rax into the state: v3 ^= m, two rounds, v0 ^= m
+%macro SIPWORD 0
+    xor r11, rax
+    SIPROUND
+    SIPROUND
+    xor r8, rax
+%endmacro
 
 ; ---------------------------------------------------------------------------
 ; siphash24
@@ -31,165 +42,55 @@ section .text
 ; ---------------------------------------------------------------------------
 global siphash24
 siphash24:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    ASSERT_PTR rbx
-    ASSERT_PTR r13
+    mov r8, 0x736f6d6570736575          ; "somepseu" ^ k0
+    mov r9, 0x646f72616e646f6d          ; "dorandom" ^ k1
+    mov r10, 0x6c7967656e657261         ; "lygenera" ^ k0
+    mov r11, 0x7465646279746573         ; "tedbytes" ^ k1
+    mov rax, [rdx]
+    xor r8, rax
+    xor r10, rax
+    mov rax, [rdx + 8]
+    xor r9, rax
+    xor r11, rax
 
-    ; Load key (k0, k1)
-    mov rax, [r13]
-    mov rdx, [r13 + 8]
-
-    ; Initialize state
-    mov r14, 0x736f6d6570736575  ; "somepseu"
-    mov r15, 0x646f72616e646f6d  ; "dorandom"
-    xor r14, rax
-    xor r15, rdx
-
-    mov r8, r14    ; v0
-    mov r9, r15    ; v1
-    mov r10, r14   ; v2
-    xor r10, r15   ; v3 = v2 ^ k1
-
-    ; Process full 8-byte blocks
-    mov rcx, r12
-    shr rcx, 3
-    test rcx, rcx
-    jz .final
-
-.block_loop:
-    mov r11, [rbx]
-    xor r11, r10
-    add r8, r11
-    ; SIPROUND x2
-    ; Round 1
-    add r8, r9
-    rol r9, 13
-    xor r9, r8
-    rol r8, 32
-    add r10, r15
-    rol r15, 16
-    xor r15, r10
-    add r8, r15
-    rol r15, 21
-    xor r15, r8
-    add r10, r9
-    rol r9, 17
-    xor r9, r10
-    rol r10, 32
-    ; Round 2
-    add r8, r9
-    rol r9, 13
-    xor r9, r8
-    rol r8, 32
-    add r10, r15
-    rol r15, 16
-    xor r15, r10
-    add r8, r15
-    rol r15, 21
-    xor r15, r8
-    add r10, r9
-    rol r9, 17
-    xor r9, r10
-    rol r10, 32
-
-    add rbx, 8
+    mov rcx, rsi
+    shr rcx, 3                          ; full 8-byte words
+    jz .tail
+.word:
+    mov rax, [rdi]
+    SIPWORD
+    add rdi, 8
     dec rcx
-    jnz .block_loop
+    jnz .word
 
-.final:
-    ; Remaining bytes
-    mov rcx, r12
-    and rcx, 7
-    test rcx, rcx
+.tail:
+    ; the last word: the 0 .. 7 bytes left, little endian, length in the top byte
+    mov rcx, rsi
+    and ecx, 7
+    xor eax, eax
+.byte:
+    test ecx, ecx
     jz .last
-
-    mov r11, 0
-    mov rdx, rbx
-.rem_loop:
-    movzx rax, byte [rdx]
-    shl rax, cl
-    or r11, rax
-    inc rdx
-    dec rcx
-    jnz .rem_loop
-
-    shl r11, 56
-    xor r11, 0x80
-    xor r10, r11
-
-    ; SIPROUND x2
-    add r8, r9
-    rol r9, 13
-    xor r9, r8
-    rol r8, 32
-    add r10, r15
-    rol r15, 16
-    xor r15, r10
-    add r8, r15
-    rol r15, 21
-    xor r15, r8
-    add r10, r9
-    rol r9, 17
-    xor r9, r10
-    rol r10, 32
-
-    add r8, r9
-    rol r9, 13
-    xor r9, r8
-    rol r8, 32
-    add r10, r15
-    rol r15, 16
-    xor r15, r10
-    add r8, r15
-    rol r15, 21
-    xor r15, r8
-    add r10, r9
-    rol r9, 17
-    xor r9, r10
-    rol r10, 32
-
+    dec ecx
+    shl rax, 8
+    movzx edx, byte [rdi + rcx]
+    or rax, rdx
+    jmp .byte
 .last:
-    xor r10, r12
-    xor r8, r10
-    xor r9, r15
-    add r8, r9
-    rol r9, 13
-    xor r9, r8
-    rol r8, 32
-    add r10, r15
-    rol r15, 16
-    xor r15, r10
-    add r8, r15
-    rol r15, 21
-    xor r15, r8
-    add r10, r9
-    rol r9, 17
-    xor r9, r10
-    rol r10, 32
+    mov rdx, rsi
+    shl rdx, 56
+    or rax, rdx
+    SIPWORD
 
-    ; Finalization
-    xor r15, 0xee
-    add r10, r15
-    rol r15, 16
-    xor r15, r10
-    add r8, r15
-    rol r15, 21
-    xor r15, r8
-    add r10, r9
-    rol r9, 17
-    xor r9, r10
-    rol r10, 32
-
-    ; Output v0 ^ v1 ^ v2 ^ v3
-    xor r8, r9
-    xor r8, r10
-    xor r8, r15
+    xor r10, 0xff
+    SIPROUND
+    SIPROUND
+    SIPROUND
+    SIPROUND
     mov rax, r8
-
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    xor rax, r9
+    xor rax, r10
+    xor rax, r11
     ret
 
 ; ---------------------------------------------------------------------------
@@ -200,15 +101,16 @@ siphash24:
 ; ---------------------------------------------------------------------------
 global siphash24_verify
 siphash24_verify:
-    PROLOGUE_SAVE rbx
+    push rbx
     mov rbx, rcx
     call siphash24
+    xor ecx, ecx
     cmp rax, rbx
-    sete al
-    movzx rax, al
-    EPILOGUE_RESTORE rbx
+    sete cl
+    mov eax, ecx
+    pop rbx
     ret
 
 section .data
 global siphash_version
-siphash_version: dq 0x010000
+siphash_version: dq 0x010100
