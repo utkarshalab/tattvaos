@@ -26,7 +26,6 @@ test_cts_output_connect:
 
 test_name_cts_output_connect: db "cts output connect", 0
 
-
 section .data
 global cts_output_version
 cts_output_version: dq 0x010000
