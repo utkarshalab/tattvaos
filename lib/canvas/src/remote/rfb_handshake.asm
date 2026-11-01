@@ -103,7 +103,9 @@ rfb_check_version:
     ; "RFB 003.00x\n"
     cmp dword [rdi], 0x20424652  ; "RFB "
     jne .no
-    cmp word [rdi + 4], 0x3030   ; "00"
+    cmp dword [rdi + 4], 0x2E333030  ; "003."
+    jne .no
+    cmp word [rdi + 8], 0x3030   ; "00"
     jne .no
     movzx eax, byte [rdi + 10]
     cmp al, '3'
