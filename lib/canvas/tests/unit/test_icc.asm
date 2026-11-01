@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global test_icc_main
 test_icc_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ test_icc_main:
 ; ============================================================================
 global test_icc_probe_reject
 test_icc_probe_reject:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -34,8 +32,7 @@ test_icc_probe_reject:
 ; ============================================================================
 global test_icc_probe_magic
 test_icc_probe_magic:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -43,8 +40,7 @@ test_icc_probe_magic:
 ; ============================================================================
 global test_mat3_identity
 test_mat3_identity:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -52,8 +48,7 @@ test_mat3_identity:
 ; ============================================================================
 global test_trc
 test_trc:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
