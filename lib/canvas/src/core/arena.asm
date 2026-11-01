@@ -59,15 +59,17 @@ arena_init:
 ; ---------------------------------------------------------------------------
 global arena_create
 arena_create:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8
     mov rbx, rdi        ; parent
     mov r12, rdx        ; child arena struct
+    mov r13, rsi        ; size (kept across the call)
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
     ; Allocate from parent
     mov rdi, rbx
-    mov rsi, rsi        ; size
+    mov rsi, r13
     mov rdx, 16         ; alignment
     call arena_alloc_aligned
     test rax, rax
@@ -76,15 +78,17 @@ arena_create:
     ; Initialize child arena
     mov qword [r12 + Arena.base], rax
     mov qword [r12 + Arena.cursor], rax
-    lea rdx, [rax + rsi]
+    lea rdx, [rax + r13]
     mov qword [r12 + Arena.limit], rdx
     mov qword [r12 + Arena.parent], rbx
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 .fail:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
     ret
 
 ; ---------------------------------------------------------------------------
@@ -139,12 +143,18 @@ arena_alloc_aligned:
     jnz .has_align
     mov rdx, 16
 .has_align:
-    ASSERT_ALIGNED rdx, rdx        ; power of 2 check (rdx & (rdx-1) == 0)
+%if DEBUG_BUILD
+    lea rcx, [rdx - 1]              ; a power of two: align & (align - 1) == 0
+    test rdx, rcx
+    jz .pow2
+    call panic_unaligned
+.pow2:
+%endif
     mov rcx, [rdi + Arena.cursor]
-    ; Align cursor up
+    ; Align cursor up: (cursor + align - 1) & -align
     add rcx, rdx
     dec rcx
-    not rdx
+    neg rdx
     and rcx, rdx
     mov rdx, [rdi + Arena.limit]
     lea rax, [rcx + rsi]
@@ -298,10 +308,12 @@ arena_destroy:
     test rax, rax
     jz .no_parent
     ; Return memory to parent by rewinding parent to our base
+    mov rsi, [rdi + Arena.base]     ; ours, not the parent's
     push rdi
+    sub rsp, 8
     mov rdi, rax
-    mov rsi, [rdi + Arena.base]
     call arena_rewind
+    add rsp, 8
     pop rdi
 .no_parent:
     xor rax, rax
