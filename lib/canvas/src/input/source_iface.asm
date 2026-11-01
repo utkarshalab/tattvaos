@@ -7,17 +7,12 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
-; struct offsets (hoisted above use)
 %define INPUT_SOURCE_TV       1
 %define INPUT_SOURCE_VIRTUAL  2
-%define InputSource_SIZE    48
-%define InputEvent_SIZE     24
 
 section .text
 
-
 ; InputSource struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
-
 
 struc InputEvent
     .type:      resd 1
