@@ -8,12 +8,12 @@
 %include "inc/errors.inc"
 %include "inc/handle.inc"
 
-; struct offsets (hoisted above use)
-%define Obj_interface_id  0
-%define Obj_version       2
-%define Obj_refcount      4
-%define Obj_data_ptr      12
-%define Obj_size          20
+struc Obj
+    .interface_id:            resw 1
+    .version:                 resw 1
+    .refcount:                resq 1
+    .data_ptr:                resq 1
+endstruc
 
 section .text
 
@@ -209,7 +209,6 @@ objects_lookup:
     ret
 
 section .data
-
 
 global objects_version
 objects_version: dq 0x010000
