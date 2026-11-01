@@ -16,8 +16,6 @@ extern pixbuf_create
 extern cursor_theme_load
 extern cursor_theme_get_cursor
 
-; struct offsets (hoisted above use)
-%define Cursor_SIZE 48
 %define CURSOR_DEFAULT      0
 %define CURSOR_TEXT         1
 %define CURSOR_POINTER      2
