@@ -47,8 +47,6 @@ commit_surface:
     call presentation_queue
     test rax, rax
     js .out
-    mov rdi, r12
-    call surface_fire_frame_callbacks
     mov rdi, rbx
     mov rsi, r12
     mov rdx, r14
@@ -115,7 +113,10 @@ surface_apply_state:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
-; Callback nodes are arena-owned: prev,next,fn,user_data.
+; The frame carrying this surface is done. Callback nodes are prev, next, fn,
+; user_data; once fired they wait in Surface.cb_free for the next request.
+; IN surface*.
+global surface_fire_frame_callbacks
 surface_fire_frame_callbacks:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
@@ -127,6 +128,9 @@ surface_fire_frame_callbacks:
     jz .done
     mov r13, rax
     mov r14, [r13 + 16]
+    mov rax, [rbx + Surface.cb_free]
+    mov [r13], rax
+    mov [rbx + Surface.cb_free], r13
     test r14, r14
     jz .loop
     mov rdi, rbx
@@ -216,8 +220,6 @@ commit_transaction:
     call presentation_queue
     test rax, rax
     js .out
-    mov rdi, r15
-    call surface_fire_frame_callbacks
     inc r14
     jmp .publish
 .done:
