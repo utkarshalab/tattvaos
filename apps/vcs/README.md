@@ -177,7 +177,8 @@ headers per command. Values are validated and exact duplicates are rejected;
 distinct options currently have no semantic effect.
 
 Request parsing now recognizes protocol-v2 delimiter packets, validates command
-headers and SHA-256 negotiation, and accepts bounded `ls-refs` or single-want
+headers and SHA-256 negotiation, enforces space-free printable ASCII for the
+optional client `agent=`, and accepts bounded `ls-refs` or single-want
 `fetch` requests with up to 64 ordered SHA-256 `have` lines and standard
 non-delta negotiation hints. Each standard `thin-pack`, `no-progress`,
 `ofs-delta`, and `include-tag` hint is accepted at most once; duplicates are
