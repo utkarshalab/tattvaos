@@ -6,6 +6,8 @@
 
 extern blend_scalar
 
+default rel
+
 section .text
 
 global blend_sse2
