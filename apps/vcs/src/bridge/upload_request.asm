@@ -21,6 +21,7 @@ request_operation: resq 1
 request_flags: resq 1
 request_format: resb 1
 request_agent: resb 1
+request_session_id: resb 1
 request_done: resb 1
 request_want_set: resb 1
 request_have_count: resb 1
@@ -52,6 +53,8 @@ format_line: db 'object-format=sha256',10
 format_line_len equ $-format_line
 agent_prefix: db 'agent='
 agent_prefix_len equ $-agent_prefix
+session_id_prefix: db 'session-id='
+session_id_prefix_len equ $-session_id_prefix
 server_option_prefix: db 'server-option='
 server_option_prefix_len equ $-server_option_prefix
 want_prefix: db 'want '
@@ -153,6 +156,7 @@ git_protocol_v2_parse_request:
  mov qword [request_flags],0
  mov byte [request_format],0
  mov byte [request_agent],0
+ mov byte [request_session_id],0
  mov byte [request_done],0
  mov byte [request_want_set],0
  mov byte [request_have_count],0
@@ -213,10 +217,18 @@ git_protocol_v2_parse_request:
 .agent_header:
  call validate_agent_header
  test eax,eax
- jnz .server_option_header
+ jnz .session_id_header
  cmp byte [request_agent],0
  jne .corrupt
  mov byte [request_agent],1
+ jmp .headers
+.session_id_header:
+ call validate_session_id_header
+ test eax,eax
+ jnz .server_option_header
+ cmp byte [request_session_id],0
+ jne .corrupt
+ mov byte [request_session_id],1
  jmp .headers
 .server_option_header:
  cmp byte [request_server_options],8
@@ -764,6 +776,42 @@ validate_agent_header:
  xor eax,eax
  ret
 .agent_bad:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; Accept one printable, whitespace-free client session identifier.
+validate_session_id_header:
+ cmp rcx,session_id_prefix_len+2
+ jb .session_bad
+ cmp rcx,256
+ ja .session_bad
+ cmp byte [rdx+rcx-1],10
+ jne .session_bad
+ push rdx
+ push rcx
+ mov rdi,rdx
+ lea rsi,[session_id_prefix]
+ mov ecx,session_id_prefix_len
+ repe cmpsb
+ pop rcx
+ pop rdx
+ jne .session_not
+ lea rdi,[rdx+session_id_prefix_len]
+ sub rcx,session_id_prefix_len+1
+.session_char:
+ mov al,[rdi]
+ cmp al,33
+ jb .session_bad
+ cmp al,126
+ ja .session_bad
+ inc rdi
+ loop .session_char
+ xor eax,eax
+ ret
+.session_not:
+ mov eax,1
+ ret
+.session_bad:
  mov eax,VCS_ERR_CORRUPT
  ret
 
