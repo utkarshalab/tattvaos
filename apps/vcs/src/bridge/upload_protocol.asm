@@ -20,6 +20,10 @@ agent: db 'agent=tattva-vcs/1',10
 agent_len equ $-agent
 ls_refs_cap: db 'ls-refs=unborn',10
 ls_refs_cap_len equ $-ls_refs_cap
+object_info_cap: db 'object-info',10
+object_info_cap_len equ $-object_info_cap
+info_size_line: db 'size',10
+info_size_line_len equ $-info_size_line
 fetch_cap: db 'fetch=wait-for-done ref-in-want sideband-all filter shallow',10
 fetch_cap_len equ $-fetch_cap
 object_format: db 'object-format=sha256',10
@@ -57,6 +61,7 @@ hex: db '0123456789abcdef'
 section .text
 global git_protocol_v2_advertise,git_protocol_v2_ls_refs,git_protocol_v2_fetch
 global git_protocol_v2_acknowledge
+global git_protocol_v2_object_info
 
 ; RDI=output, RSI=capacity -> RAX=status, RDX=length.
 git_protocol_v2_advertise:
@@ -76,6 +81,11 @@ git_protocol_v2_advertise:
  jnz .done
  lea rdi,[ls_refs_cap]
  mov esi,ls_refs_cap_len
+ call proto_packet
+ test eax,eax
+ jnz .done
+ lea rdi,[object_info_cap]
+ mov esi,object_info_cap_len
  call proto_packet
  test eax,eax
  jnz .done
@@ -99,6 +109,117 @@ git_protocol_v2_advertise:
  jnz .done
  call proto_finish
 .done:
+ pop rbx
+ ret
+
+; RDI=packed 32-byte OIDs, RSI=u64 sizes, RDX=count (1..32),
+; RCX=output, R8=capacity.
+git_protocol_v2_object_info:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jz .info_usage
+ test rsi,rsi
+ jz .info_usage
+ test rdx,rdx
+ jz .info_usage
+ cmp rdx,32
+ ja .info_usage
+ mov r12,rdi
+ mov r13,rsi
+ mov r14,rdx
+ mov rdi,rcx
+ mov rsi,r8
+ call proto_begin
+ test eax,eax
+ jnz .info_done
+ lea rdi,[info_size_line]
+ mov esi,info_size_line_len
+ call proto_packet
+ test eax,eax
+ jnz .info_done
+ xor ebx,ebx
+.info_record:
+ cmp rbx,r14
+ jae .info_flush
+ lea rdi,[proto_oid_line]
+ lea r8,[hex]
+ mov rax,rbx
+ shl rax,5
+ lea rsi,[r12+rax]
+ mov ecx,32
+.info_oid:
+ movzx eax,byte [rsi]
+ inc rsi
+ mov edx,eax
+ shr edx,4
+ mov dl,[r8+rdx]
+ mov [rdi],dl
+ and eax,15
+ mov al,[r8+rax]
+ mov [rdi+1],al
+ add rdi,2
+ loop .info_oid
+ mov byte [rdi],' '
+ inc rdi
+ mov rax,[r13+rbx*8]
+ call append_u64_decimal
+ mov byte [rdi],10
+ inc rdi
+ mov rsi,rdi
+ lea rdi,[proto_oid_line]
+ sub rsi,rdi
+ call proto_packet
+ test eax,eax
+ jnz .info_done
+ inc rbx
+ jmp .info_record
+.info_flush:
+ call proto_flush
+ test eax,eax
+ jnz .info_done
+ call proto_finish
+ jmp .info_done
+.info_usage:
+ mov eax,VCS_ERR_USAGE
+.info_done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+; RAX=value, RDI=output cursor. Return advanced RDI.
+append_u64_decimal:
+ push rbx
+ push rcx
+ push rdx
+ sub rsp,32
+ lea rbx,[rsp+32]
+ xor ecx,ecx
+ mov r10,10
+.decimal_digit:
+ xor edx,edx
+ div r10
+ add dl,'0'
+ dec rbx
+ mov [rbx],dl
+ inc ecx
+ test rax,rax
+ jnz .decimal_digit
+ mov rsi,rbx
+ rep movsb
+ add rsp,32
+ pop rdx
+ pop rcx
  pop rbx
  ret
 
