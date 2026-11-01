@@ -8,6 +8,7 @@
 %include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/externs.inc"
+%include "inc/backend.inc"
 
 section .text
 
