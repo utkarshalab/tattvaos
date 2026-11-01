@@ -148,16 +148,26 @@ errors_from_errno:
     leave
     ret
 
-.einval:    mov rax, ECWP_PAYLOAD; jmp .mapped
-.enomem:    mov rax, ECWP_PARSE; jmp .mapped
-.eacces:    mov rax, ECWP_CAP; jmp .mapped
-.enospc:    mov rax, ECWP_FULL; jmp .mapped
-.enosys:    mov rax, ECWP_OPCODE; jmp .mapped
-.eperm:     mov rax, ECWP_CAP; jmp .mapped
-.enoent:    mov rax, ECWP_OBJECT; jmp .mapped
-.ebusy:     mov rax, ECWP_PARSE; jmp .mapped
-.etimedout: mov rax, ECWP_PARSE; jmp .mapped
-.eintr:     mov rax, ECWP_PARSE; jmp .mapped
+.einval:    mov rax, ECWP_PAYLOAD
+    jmp .mapped
+.enomem:    mov rax, ECWP_PARSE
+    jmp .mapped
+.eacces:    mov rax, ECWP_CAP
+    jmp .mapped
+.enospc:    mov rax, ECWP_FULL
+    jmp .mapped
+.enosys:    mov rax, ECWP_OPCODE
+    jmp .mapped
+.eperm:     mov rax, ECWP_CAP
+    jmp .mapped
+.enoent:    mov rax, ECWP_OBJECT
+    jmp .mapped
+.ebusy:     mov rax, ECWP_PARSE
+    jmp .mapped
+.etimedout: mov rax, ECWP_PARSE
+    jmp .mapped
+.eintr:     mov rax, ECWP_PARSE
+    jmp .mapped
 .eio:       mov rax, ECWP_PARSE
 .mapped:
     leave
