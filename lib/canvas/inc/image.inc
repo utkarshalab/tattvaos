@@ -64,7 +64,6 @@ struc WebPInfo
     .xmp:            resq 1
     .xmp_len:        resq 1
 endstruc
-%define WebPInfo_size 96
 
 struc WebPAnimationInfo
     .width:          resd 1
@@ -75,7 +74,6 @@ struc WebPAnimationInfo
     .background:     resd 1       ; BGRA, as stored by ANIM
     .reserved:       resd 1
 endstruc
-%define WebPAnimationInfo_size 32
 
 struc WebPCompositeState
     .canvas:         resq 1       ; destination PixBuf
@@ -87,7 +85,6 @@ struc WebPCompositeState
     .blend:          resd 1       ; 0=replace, nonzero=source-over
     .reserved:       resd 1
 endstruc
-%define WebPCompositeState_size 40
 
 struc WebPAnimation
     .width:          resd 1
@@ -103,7 +100,6 @@ struc WebPAnimation
     .blends:         resq 1       ; uint8[frame_count], 1=source-over
     .arena:          resq 1
 endstruc
-%define WebPAnimation_size 72
 
 struc WebPBitReader
     .cursor:         resq 1
@@ -112,7 +108,6 @@ struc WebPBitReader
     .count:          resd 1
     .reserved:       resd 1
 endstruc
-%define WebPBitReader_size 32
 
 %define WEBP_HUFF_MAX_SYMBOLS 2328
 %define WEBP_HUFF_COUNTS       0
@@ -136,7 +131,6 @@ struc WebPVP8LState
     .width:          resd 1
     .cache_bits:     resd 1
 endstruc
-%define WebPVP8LState_size 40
 
 struc WebPIndexState
     .packed:         resq 1
@@ -149,7 +143,6 @@ struc WebPIndexState
     .width_bits:     resd 1
     .reserved:       resd 1
 endstruc
-%define WebPIndexState_size 48
 
 struc WebPPredictState
     .pixels:         resq 1
@@ -159,7 +152,6 @@ struc WebPPredictState
     .size_bits:      resd 1
     .mode_count:     resd 1
 endstruc
-%define WebPPredictState_size 32
 
 struc WebPMetaState
     .groups:         resq 1
@@ -170,7 +162,6 @@ struc WebPMetaState
     .prefix_bits:    resd 1
     .reserved:       resd 1
 endstruc
-%define WebPMetaState_size 40
 
 struc WebPBoolReader
     .cursor:         resq 1
@@ -180,7 +171,6 @@ struc WebPBoolReader
     .count:          resd 1
     .error:          resd 1
 endstruc
-%define WebPBoolReader_size 32
 
 struc WebPVP8Info
     .width:          resd 1
@@ -192,7 +182,6 @@ struc WebPVP8Info
     .tokens:         resq 1
     .tokens_len:     resq 1
 endstruc
-%define WebPVP8Info_size 48
 
 struc WebPYUVState
     .y:              resq 1
@@ -206,7 +195,6 @@ struc WebPYUVState
     .output_stride:  resd 1
     .reserved:       resd 1
 endstruc
-%define WebPYUVState_size 56
 
 struc WebPVP8Config
     .color_space:       resd 1
@@ -230,7 +218,6 @@ struc WebPVP8Config
     .ref_lf_deltas:     resd 4
     .mode_lf_deltas:    resd 4
 endstruc
-%define WebPVP8Config_size 144
 
 struc WebPVP8Partitions
     .count:           resd 1
@@ -238,7 +225,6 @@ struc WebPVP8Partitions
     .data:            resq 8
     .length:          resq 8
 endstruc
-%define WebPVP8Partitions_size 136
 
 %define VP8_TOKEN_ZERO  0
 %define VP8_TOKEN_ONE   1
@@ -274,7 +260,6 @@ struc WebPVP8ResidualState
     .y_mode:          resd 1
     .reserved:        resd 1
 endstruc
-%define WebPVP8ResidualState_size 48
 
 struc WebPVP8QuantFactors
     .y1_dc:           resw 1
@@ -284,13 +269,11 @@ struc WebPVP8QuantFactors
     .y2_dc:           resw 1
     .y2_ac:           resw 1
 endstruc
-%define WebPVP8QuantFactors_size 12
 
 struc WebPVP8Modes
     .y_mode:          resd 1
     .uv_mode:         resd 1
 endstruc
-%define WebPVP8Modes_size 8
 
 struc WebPVP8MBHeader
     .segment_id:      resd 1
@@ -299,7 +282,6 @@ struc WebPVP8MBHeader
     .uv_mode:         resd 1
     .b_modes:         resb 16
 endstruc
-%define WebPVP8MBHeader_size 32
 
 struc WebPVP8ReconstructState
     .y:               resq 1
@@ -309,7 +291,6 @@ struc WebPVP8ReconstructState
     .y_stride:        resd 1
     .uv_stride:       resd 1
 endstruc
-%define WebPVP8ReconstructState_size 40
 
 ; Macroblock prediction over padded Y/U/V planes. Each plane pointer addresses
 ; the macroblock origin and must expose one initialized row/column above/left.
@@ -321,7 +302,6 @@ struc WebPVP8PredictMBState
     .y_stride:        resd 1
     .uv_stride:       resd 1
 endstruc
-%define WebPVP8PredictMBState_size 40
 
 struc WebPVP8FramePlanes
     .y:               resq 1
@@ -332,7 +312,6 @@ struc WebPVP8FramePlanes
     .coded_width:     resd 1
     .coded_height:    resd 1
 endstruc
-%define WebPVP8FramePlanes_size 40
 
 struc WebPVP8RenderMBState
     .config:          resq 1
@@ -346,7 +325,6 @@ struc WebPVP8RenderMBState
     .mb_flags:        resd 1          ; VP8_MB_* frame-edge flags
     .reserved:        resd 1
 endstruc
-%define WebPVP8RenderMBState_size 64
 
 ; Macroblock position flags for edge-dependent prediction (RFC 6386 12.2/12.3).
 %define VP8_MB_LEFT_EDGE   1          ; mb_x == 0
@@ -369,7 +347,6 @@ struc WebPVP8FilterFrameState
     .mb_cols:         resd 1
     .mb_rows:         resd 1
 endstruc
-%define WebPVP8FilterFrameState_size 56
 
 ; Headerless/raw raster formats. These use RawImageDesc and are never sniffed.
 %define RAW_FMT_RGB24       1
@@ -395,7 +372,6 @@ struc RawImageDesc
     .stride2:        resd 1
     .plane2_offset:  resq 1
 endstruc
-%define RawImageDesc_size 40
 
 ; Camera sensor mosaic formats and processing metadata.
 %define SENSOR_CFA_RGGB 0
@@ -425,7 +401,6 @@ struc SensorImageDesc
     .crop_x:         resd 1
     .crop_y:         resd 1
 endstruc
-%define SensorImageDesc_size 104
 
 struc GifAnimationInfo
     .width:          resd 1
@@ -434,7 +409,6 @@ struc GifAnimationInfo
     .loop_count:     resd 1       ; 0 means infinite
     .duration_cs:    resq 1
 endstruc
-%define GifAnimationInfo_size 24
 
 struc GifAnimation
     .width:          resd 1
@@ -447,17 +421,8 @@ struc GifAnimation
     .disposals:      resq 1       ; uint8[frame_count]
     .arena:          resq 1
 endstruc
-%define GifAnimation_size 56
 
 ; PixBuf field offsets (mirrors pixbuf.asm layout)
-%define PixBuf_width     0
-%define PixBuf_height    8
-%define PixBuf_stride    16
-%define PixBuf_format    24
-%define PixBuf_data      32
-%define PixBuf_size      40
-%define PixBuf_refcount  48
-%define PixBuf_arena     56
 
 ; DRM formats (subset, mirrors color.inc)
 %ifndef DRM_FORMAT_BGRA8888
