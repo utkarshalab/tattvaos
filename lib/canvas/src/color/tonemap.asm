@@ -8,9 +8,6 @@
 %include "inc/colorm.inc"
 %include "inc/fixed.inc"
 
-; struct offsets (hoisted above use)
-%define HdrMeta_SIZE    20
-
 section .text
 
 struc HdrMeta
