@@ -115,12 +115,8 @@
 ; Seat
 ; ============================================================================
 %define SEAT_POINTER        0
-%define SEAT_KEYBOARD       8
-%define SEAT_TOUCH          16
-%define SEAT_NAME           24
 %define SEAT_CAPABILITIES   32
 %define SEAT_POINTER_FOCUS  40
-%define SEAT_KEYBOARD_FOCUS 48
 %define SEAT_DEVICES        56
 %define SEAT_SELECTION      64
 %define SEAT_SIZE           72
