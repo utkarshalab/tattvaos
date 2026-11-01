@@ -378,7 +378,8 @@ add_path:
  cmp rcx,VR_FILES
  jae .full
  imul rcx,240
- lea rdi,[index_data+16+rcx]
+ lea rdi,[index_data+16]
+ add rdi,rcx
  mov rsi,rbx
  mov ecx,240
  rep movsb
@@ -398,7 +399,8 @@ remove_path:
  jae .done
  mov rax,rdx
  imul rax,240
- lea rsi,[index_data+16+rax]
+ lea rsi,[index_data+16]
+ add rsi,rax
  mov rdi,rbx
  call same_name
  test eax,eax
