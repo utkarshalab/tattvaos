@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern arena_alloc
 extern pixbuf_create
@@ -350,7 +351,7 @@ webp_vp8_decode:
     mov rax,[rsp+F_PLANES+WebPVP8FramePlanes.v]
     mov [rdi+WebPYUVState.v],rax
     mov rax,[rsp+F_PIXBUF]
-    mov rdx,[rax+PixBuf_data]
+    mov rdx,[rax+PixBuf.data]
     mov [rdi+WebPYUVState.output],rdx
     mov edx,[rsp+F_INFO+WebPVP8Info.width]
     mov [rdi+WebPYUVState.width],edx
@@ -360,7 +361,7 @@ webp_vp8_decode:
     mov [rdi+WebPYUVState.y_stride],edx
     mov edx,[rsp+F_PLANES+WebPVP8FramePlanes.uv_stride]
     mov [rdi+WebPYUVState.uv_stride],edx
-    mov edx,[rax+PixBuf_stride]
+    mov edx,[rax+PixBuf.stride]
     mov [rdi+WebPYUVState.output_stride],edx
     call webp_vp8_yuv420_to_bgra
     test eax,eax
