@@ -28,6 +28,8 @@ extern blend_dispatch
 %define CPU_HAS_AVX512BW  (1 << 9)
 %define CPU_HAS_AVX512VL  (1 << 10)
 
+default rel
+
 section .text
 
 ; ---------------------------------------------------------------------------
