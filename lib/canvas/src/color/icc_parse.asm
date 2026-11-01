@@ -11,8 +11,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define IccProfile_SIZE    112
 %define ICC_MAGIC_SIZE_OFF   0
 %define ICC_TAG_COUNT_OFF    128
 
@@ -34,7 +32,6 @@ struc IccProfile
     .has_matrix:    resb 1
     .has_trc:       resb 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; icc_probe
@@ -77,7 +74,7 @@ icc_parse:
     test rax, rax
     jz .bad
     mov rdi, rbx
-    mov rsi, IccProfile_size
+    mov rsi, IccProfile.size
     call arena_alloc
     test rax, rax
     jz .oom
