@@ -44,7 +44,7 @@ touch_create:
     mov dword [rbx + TOUCH_ACTIVE], 0
     mov qword [rbx + TOUCH_SURFACE], 0
     mov rdi, [r12 + Seat.arena]
-    mov rsi, TOUCH_MAX_SLOTS * TouchSlot_SIZE
+    mov rsi, TOUCH_MAX_SLOTS * TouchSlot_size
     call arena_alloc
     test rax, rax
     jz .oom
@@ -53,7 +53,7 @@ touch_create:
 .init:
     mov dword [rax + SLOT_ID], -1
     mov byte [rax + SLOT_ACTIVE], 0
-    add rax, TouchSlot_SIZE
+    add rax, TouchSlot_size
     inc ecx
     cmp ecx, TOUCH_MAX_SLOTS
     jb .init
@@ -238,7 +238,7 @@ touch_get_slot:
     cmp esi, TOUCH_MAX_SLOTS
     jae .invalid
     mov eax, esi
-    imul rax, TouchSlot_SIZE
+    imul rax, TouchSlot_size
     add rax, [rdi + TOUCH_SLOTS]
     ret
 .invalid:
@@ -247,7 +247,7 @@ touch_get_slot:
 
 touch_slot_ptr:
     mov eax, r12d
-    imul rax, TouchSlot_SIZE
+    imul rax, TouchSlot_size
     add rax, [rbx + TOUCH_SLOTS]
     ret
 
@@ -262,7 +262,7 @@ touch_find_id:
     cmp dword [rax + SLOT_ID], r12d
     je .found
 .next:
-    add rax, TouchSlot_SIZE
+    add rax, TouchSlot_size
     inc ecx
     jmp .loop
 .missing:
