@@ -184,7 +184,8 @@ lock_authenticate:
     jl .verify
     call ut_time_now_ns
     sub rax,[r12 + LockScreen.lock_time]
-    cmp rax,LOCKOUT_DURATION
+    mov rcx, LOCKOUT_DURATION           ; wider than an immediate compare
+    cmp rax, rcx
     jb .lockout
     mov dword [r12 + LockScreen.attempts],0
 .verify:
