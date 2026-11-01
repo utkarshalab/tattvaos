@@ -9,6 +9,7 @@
 %include "inc/ut.inc"
 %include "inc/caps.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/backend.inc"
 
 extern gate_check
 extern metrics_snapshot
