@@ -11,9 +11,6 @@
 extern arena_alloc
 extern gpu_ring_submit
 
-; struct offsets (hoisted above use)
-%define GpuFenceMgr_SIZE 32
-
 section .text
 
 struc GpuFenceMgr
