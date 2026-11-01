@@ -957,6 +957,10 @@ prepare_merge_state:
  mov [conflict_node],rax
  xor eax,eax
  ret
+.conflict: mov eax,VCS_ERR_CONFLICT
+ ret
+.bad: mov eax,VCS_ERR_CORRUPT
+ ret
 
 prepare_replay_state:
  mov qword [conflict_node],0
@@ -976,10 +980,6 @@ prepare_replay_state:
  jne .conflict
  mov [conflict_node],rax
  xor eax,eax
- ret
-.conflict: mov eax,VCS_ERR_CONFLICT
- ret
-.bad: mov eax,VCS_ERR_CORRUPT
  ret
 .conflict: mov eax,VCS_ERR_CONFLICT
  ret
@@ -1337,7 +1337,8 @@ discover:
 .last_present:
  cmp rcx,rdx
  ja .corrupt
- cmp rdx,VR_MAX_ID
+ mov r8,VR_MAX_ID
+ cmp rdx,r8
  ja .corrupt
  mov [format_node],rax
  mov [last_id],rdx
@@ -1925,6 +1926,9 @@ find_work:
 .yes: mov rax,rsi
  pop rbx
  ret
+.no: xor eax,eax
+ pop rbx
+ ret
 
 ; If .vcs/index exists, build the prospective snapshot from staged paths and
 ; retain HEAD blobs for every unstaged path. Without an index, commit-all remains.
@@ -2053,7 +2057,8 @@ apply_index:
  jae .ok
  mov rax,r12
  shl rax,8
- lea r13,[current+rax]
+ lea r13,[current]
+ add r13,rax
  mov rdi,r13
  call find_old
  test rax,rax
@@ -2110,7 +2115,8 @@ find_current:
  jae .no
  mov rax,rcx
  shl rax,8
- lea rsi,[current+rax]
+ lea rsi,[current]
+ add rsi,rax
  mov rdi,r9
  call same_name
  test eax,eax
@@ -2147,7 +2153,8 @@ append_work:
  cmp rcx,VR_FILES
  jae .full
  shl rcx,8
- lea rdi,[work+rcx]
+ lea rdi,[work]
+ add rdi,rcx
  mov ecx,VR_ENTRY/8
  rep movsq
  inc qword [work_count]
@@ -2162,7 +2169,8 @@ append_old:
  cmp rcx,VR_FILES
  jae .full
  shl rcx,8
- lea rdi,[work+rcx]
+ lea rdi,[work]
+ add rdi,rcx
  mov rsi,rbx
  mov ecx,240
  rep movsb
@@ -2175,7 +2183,8 @@ append_old:
  jz .corrupt
  mov rcx,[work_count]
  shl rcx,8
- lea rdx,[work+rcx]
+ lea rdx,[work]
+ add rdx,rcx
  mov [rdx+240],rax
  mov [rdx+248],rbx
  inc qword [work_count]
