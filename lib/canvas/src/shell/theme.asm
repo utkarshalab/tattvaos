@@ -36,7 +36,7 @@ theme_init:
 
     ; Create default theme
     mov rdi, r12
-    mov rsi, Theme_SIZE
+    mov rsi, Theme_size
     call arena_alloc
     test rax, rax
     jz .oom
@@ -76,7 +76,7 @@ theme_create_default:
     ASSERT_PTR r13
 
     mov rdi, [rbx + Server.arena]
-    mov rsi, Theme_SIZE
+    mov rsi, Theme_size
     call arena_alloc
     test rax, rax
     jz .oom
@@ -125,7 +125,7 @@ theme_set_colors:
 
 .create_colors:
     mov rdi, [rbx + Server.arena]
-    mov rsi, ThemeColors_SIZE
+    mov rsi, ThemeColors_size
     call arena_alloc
     test rax, rax
     jz .oom
