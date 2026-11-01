@@ -9,7 +9,7 @@ struc MsgHdr
     .obj:                     resd 1
     .opcode:                  resw 1
     .flags:                   resw 1
-    .len:                     resq 1
+    .len:                     resd 1
 endstruc
 
 %define MsgFlag_NEED_ACK     0x0001
