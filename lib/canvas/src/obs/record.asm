@@ -12,21 +12,14 @@
 extern arena_alloc
 extern memcopy
 
-; struct offsets (hoisted above use)
-%define Recorder_file    64
-%define Recorder.file    64
-%define Recorder_SIZE    72
 %define CWPREC_MAGIC     0x52505743  ; "CWPR"
 %define CWPREC_VERSION   1
-%define CwprecHeader_SIZE    40
-%define CwprecFrame_SIZE    16
 
 section .text
 
 ; Recorder struct layout (manual offsets)
 ; Offsets defined in inc/struct_offsets.inc
 ; ----------
-
 
 struc CwprecHeader
     .magic:          resd 1
