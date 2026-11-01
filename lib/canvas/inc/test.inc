@@ -9,6 +9,8 @@
 %include "inc/macros.inc"
 %include "inc/ut.inc"
 
+default rel
+
 ; ---------------------------------------------------------------------------
 ; Test Statistics (in .bss)
 ; ---------------------------------------------------------------------------
@@ -50,11 +52,9 @@ current_test:   resq 1
     mov rax, [test_failed]
     test rax, rax
     jz .all_passed
-    mov rax, 1
-    ret
+    mov eax, 1
 .all_passed:
-    xor rax, rax
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 %endmacro
 
 %macro TEST_CASE 1
@@ -80,47 +80,6 @@ current_test:   resq 1
     cmp %1, %2
     je %%pass
     call test_assert_eq_fail
-    jmp %%done
-%%pass:
-    call test_assert_pass
-%%done:
-%endmacro
-
-%macro TEST_ASSERT_NE 2
-    cmp %1, %2
-    jne %%pass
-    call test_assert_ne_fail
-    jmp %%done
-%%pass:
-    call test_assert_pass
-%%done:
-%endmacro
-
-%macro TEST_ASSERT_PTR 1
-    test %1, %1
-    jnz %%pass
-    call test_assert_null_fail
-    jmp %%done
-%%pass:
-    call test_assert_pass
-%%done:
-%endmacro
-
-%macro TEST_ASSERT_ERROR 1
-    ; %1 = register with return value, expect negative
-    test %1, %1
-    js %%pass
-    call test_assert_error_fail
-    jmp %%done
-%%pass:
-    call test_assert_pass
-%%done:
-%endmacro
-
-%macro TEST_ASSERT_OK 1
-    test %1, %1
-    jns %%pass
-    call test_assert_ok_fail
     jmp %%done
 %%pass:
     call test_assert_pass
