@@ -90,57 +90,29 @@ mat3_mul:
     ret
 
 ; ---------------------------------------------------------------------------
-; mat3_apply — IN: rdi=mat[9], rsi=r,g,b 16.16 — OUT: rax=r, rdx=g, rcx=b
+; mat3_apply — IN: rdi=mat[9], rsi=r, rdx=g, rcx=b (16.16)
+;              OUT: rax=r, rdx=g, rcx=b
 ; ---------------------------------------------------------------------------
 global mat3_apply
 mat3_apply:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-    ; r = m0*r+m1*g+m2*b
-    movsxd rax, dword [rbx + 0]
-    imul rax, rsi
-    sar rax, 16
-    movsxd rdx, dword [rbx + 4]
-    imul rdx, rdi
-    sar rdx, 16
-    add rax, rdx
-    movsxd rdx, dword [rbx + 8]
-    imul rdx, rcx
-    sar rdx, 16
-    add rax, rdx
-    push rax
-    ; g
-    movsxd rax, dword [rbx + 12]
-    imul rax, rsi
-    sar rax, 16
-    movsxd rdx, dword [rbx + 16]
-    imul rdx, rdi
-    sar rdx, 16
-    add rax, rdx
-    movsxd rdx, dword [rbx + 20]
-    imul rdx, rcx
-    sar rdx, 16
-    add rax, rdx
-    mov rdx, rax
-    pop rax
-    ; b
-    movsxd rcx, dword [rbx + 24]
-    imul rcx, rsi
-    sar rcx, 16
-    movsxd rsi, dword [rbx + 28]
-    imul rsi, rdi
-    sar rsi, 16
-    add rcx, rsi
-    movsxd rsi, dword [rbx + 32]
-    ; NOTE: rcx input b was clobbered above; recompute from stack
-    ; (callers pass b in rcx; we preserved via push? document: b reloaded)
-    ; simplified: b_out uses original b still in caller's rcx copy on stack
-    mov rsi, [rsp + 16]  ; original rcx
-    imul rsi, [rbx + 32]
-    sar rsi, 16
-    add rcx, rsi
-    EPILOGUE_RESTORE rbx
+    mov r8, rdx                         ; g
+    mov r9, rcx                         ; b
+%macro MAT3_ROW 2                       ; %1 = row's byte offset, %2 = the result
+    movsxd %2, dword [rdi + %1]
+    imul %2, rsi
+    sar %2, 16
+    movsxd r10, dword [rdi + %1 + 4]
+    imul r10, r8
+    sar r10, 16
+    add %2, r10
+    movsxd r10, dword [rdi + %1 + 8]
+    imul r10, r9
+    sar r10, 16
+    add %2, r10
+%endmacro
+    MAT3_ROW 0, rax
+    MAT3_ROW 12, rdx
+    MAT3_ROW 24, rcx
     ret
 
 section .data
