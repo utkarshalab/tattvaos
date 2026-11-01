@@ -13,8 +13,6 @@ extern arena_alloc
 extern memcopy
 extern ut_time_now_ns
 
-; struct offsets (hoisted above use)
-%define AuditEntry_SIZE    48
 %define AUDIT_ACTION_CAP_GRANT      1
 %define AUDIT_ACTION_CAP_REVOKE     2
 %define AUDIT_ACTION_CAP_CHECK      3
@@ -31,19 +29,6 @@ extern ut_time_now_ns
 
 section .text
 
-struc AuditEntry
-    .timestamp:    resq 1
-    .client_id:    resq 1
-    .action:       resd 1
-    .capability:   resq 1
-    .result:       resd 1
-    .details_len:  resq 1
-    .details:      resq 1
-endstruc
-
-
-
-
 ; ---------------------------------------------------------------------------
 ; audit_init
 ; ---------------------------------------------------------------------------
@@ -57,7 +42,7 @@ audit_init:
 
     ; Allocate the log header and backing entries separately.
     mov rdi, r12
-    mov rsi, AuditLog_SIZE
+    mov rsi, AuditLog_size
     call arena_alloc
     test rax, rax
     jz .oom
@@ -70,10 +55,10 @@ audit_init:
     jz .oom
 
     mov qword [r13 + AuditLog.buffer], rax
-    mov qword [r13 + AuditLog.capacity], AUDIT_LOG_SIZE / AuditEntry_SIZE
+    mov qword [r13 + AuditLog.capacity], AUDIT_LOG_SIZE / AuditEntry_size
     mov qword [r13 + AuditLog.head], 0
     mov qword [r13 + AuditLog.tail], 0
-    mov qword [r13 + AuditLog.element_size], AuditEntry_SIZE
+    mov qword [r13 + AuditLog.element_size], AuditEntry_size
     mov qword [r13 + AuditLog.count], 0
 
     mov qword [rbx + Server.audit_log], r13
@@ -109,22 +94,22 @@ audit_log:
     jz .no_log
 
     mov rax, [rbx + AuditLog.head]
-    imul rax, AuditEntry_SIZE
+    imul rax, AuditEntry_size
     mov rdi, [rbx + AuditLog.buffer]
     add rdi, rax
     mov [rsp + 16], rdi
 
     call ut_time_now_ns
     mov rdi, [rsp + 16]
-    mov [rdi + AuditEntry_timestamp], rax
-    mov [rdi + AuditEntry_client_id], r13
-    mov [rdi + AuditEntry_action], r12d
-    mov [rdi + AuditEntry_capability], r14
-    mov [rdi + AuditEntry_result], r15d
+    mov [rdi + AuditEntry.timestamp], rax
+    mov [rdi + AuditEntry.client_id], r13
+    mov [rdi + AuditEntry.action], r12d
+    mov [rdi + AuditEntry.capability], r14
+    mov [rdi + AuditEntry.result], r15d
     mov rax, [rsp + 8]
-    mov [rdi + AuditEntry_details_len], rax
+    mov [rdi + AuditEntry.details_len], rax
     mov rax, [rsp]
-    mov [rdi + AuditEntry_details], rax
+    mov [rdi + AuditEntry.details], rax
 
     mov rax, [rbx + AuditLog.head]
     inc rax
@@ -181,14 +166,14 @@ audit_query:
     cmp r13, r15
     jae .query_done
     mov rax, r14
-    imul rax, AuditEntry_SIZE
+    imul rax, AuditEntry_size
     mov rsi, [rbx + AuditLog.buffer]
     add rsi, rax
     mov rdi, r12
     mov rax, r13
-    imul rax, AuditEntry_SIZE
+    imul rax, AuditEntry_size
     add rdi, rax
-    mov rdx, AuditEntry_SIZE
+    mov rdx, AuditEntry_size
     call memcopy
     inc r14
     cmp r14, [rbx + AuditLog.capacity]
