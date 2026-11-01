@@ -6,27 +6,17 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
 
 section .text
 
 ; ============================================================================
 ; IMEBridge Struct
 ; ============================================================================
-%define IMEBridge_SEAT          0
-%define IMEBridge_ACTIVE_IME    8
-%define IMEBridge_AVAILABLE_IMES 16
-%define IMEBridge_IME_COUNT     24
-%define IMEBridge_FOCUSED_TEXT_INPUT 28
-%define IMEBridge_SIZE         32
 
 ; ============================================================================
 ; IMEInfo Struct
 ; ============================================================================
-%define IMEInfo_NAME           0
-%define IMEInfo_ENGINE         8
-%define IMEInfo_CAPABILITIES   16
-%define IMEInfo_LANGUAGE       24
-%define IMEInfo_SIZE           32
 
 ; IME capabilities
 %define IME_CAP_PREEDIT        (1 << 0)
@@ -49,11 +39,11 @@ ime_bridge_create:
     ASSERT_PTR r12
     ASSERT_PTR r13
 
-    mov qword [rbx + IMEBridge_SEAT], r12
-    mov qword [rbx + IMEBridge_ACTIVE_IME], 0
-    mov qword [rbx + IMEBridge_AVAILABLE_IMES], 0
-    mov dword [rbx + IMEBridge_IME_COUNT], 0
-    mov qword [rbx + IMEBridge_FOCUSED_TEXT_INPUT], 0
+    mov qword [rbx + IMEBridge.seat], r12
+    mov qword [rbx + IMEBridge.active_ime], 0
+    mov qword [rbx + IMEBridge.available_imes], 0
+    mov dword [rbx + IMEBridge.ime_count], 0
+    mov qword [rbx + IMEBridge.focused_text_input], 0
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
@@ -86,21 +76,21 @@ ime_bridge_register:
     ASSERT_PTR r13
 
     ; Allocate IME info
-    mov rdi, 32  ; IMEInfo_SIZE
+    mov rdi, 32  ; IMEInfo_size
     call arena_alloc
     test rax, rax
     jz .oom
 
-    mov qword [rax + IMEInfo_NAME], r12
-    mov qword [rax + IMEInfo_ENGINE], r13
-    mov dword [rax + IMEInfo_CAPABILITIES], r14d
-    mov qword [rax + IMEInfo_LANGUAGE], 0
+    mov qword [rax + IMEInfo.name], r12
+    mov qword [rax + IMEInfo.engine], r13
+    mov dword [rax + IMEInfo.capabilities], r14d
+    mov qword [rax + IMEInfo.language], 0
 
     ; Add to available list
-    mov r12, [rbx + IMEBridge_AVAILABLE_IMES]
+    mov r12, [rbx + IMEBridge.available_imes]
     mov [rax + IMEInfo_NEXT], r12
-    mov [rbx + IMEBridge_AVAILABLE_IMES], rax
-    inc dword [rbx + IMEBridge_IME_COUNT]
+    mov [rbx + IMEBridge.available_imes], rax
+    inc dword [rbx + IMEBridge.ime_count]
 
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -125,12 +115,12 @@ ime_bridge_activate:
     ASSERT_PTR r12
 
     ; Find IME engine
-    mov rax, [rbx + IMEBridge_AVAILABLE_IMES]
+    mov rax, [rbx + IMEBridge.available_imes]
 .find_loop:
     test rax, rax
     jz .not_found
 
-    mov r12, [rax + IMEInfo_NAME]
+    mov r12, [rax + IMEInfo.name]
     mov r13, rsi
     call str_cmp
     test rax, rax
@@ -146,8 +136,8 @@ ime_bridge_activate:
 
 .found:
     ; Activate IME
-    mov [rbx + IMEBridge_ACTIVE_IME], rax
-    mov qword [rbx + IMEBridge_FOCUSED_TEXT_INPUT], r12
+    mov [rbx + IMEBridge.active_ime], rax
+    mov qword [rbx + IMEBridge.focused_text_input], r12
 
     ; Notify text input
     mov rdi, r12
@@ -168,15 +158,15 @@ ime_bridge_deactivate:
     ASSERT_PTR rbx
 
     ; Get active text input
-    mov r12, [rbx + IMEBridge_FOCUSED_TEXT_INPUT]
+    mov r12, [rbx + IMEBridge.focused_text_input]
     test r12, r12
     jz .done
 
     ; Reset text input state
     call text_input_reset
 
-    mov qword [rbx + IMEBridge_ACTIVE_IME], 0
-    mov qword [rbx + IMEBridge_FOCUSED_TEXT_INPUT], 0
+    mov qword [rbx + IMEBridge.active_ime], 0
+    mov qword [rbx + IMEBridge.focused_text_input], 0
 
     xor rax, rax
     leave
@@ -195,7 +185,7 @@ ime_bridge_commit:
     ASSERT_PTR r12
 
     ; Get focused text input
-    mov r12, [rbx + IMEBridge_FOCUSED_TEXT_INPUT]
+    mov r12, [rbx + IMEBridge.focused_text_input]
     test r12, r12
     jz .done
 
@@ -223,7 +213,7 @@ ime_bridge_preedit:
     ASSERT_PTR rbx
 
     ; Get focused text input
-    mov r12, [rbx + IMEBridge_FOCUSED_TEXT_INPUT]
+    mov r12, [rbx + IMEBridge.focused_text_input]
     test r12, r12
     jz .done
 
@@ -252,7 +242,7 @@ ime_bridge_delete_surrounding:
     ASSERT_PTR rbx
 
     ; Get focused text input
-    mov r12, [rbx + IMEBridge_FOCUSED_TEXT_INPUT]
+    mov r12, [rbx + IMEBridge.focused_text_input]
     test r12, r12
     jz .done
 
