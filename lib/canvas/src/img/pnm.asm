@@ -3,6 +3,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 
@@ -86,7 +87,7 @@ pnm_decode:
     test rax,rax
     jz .bad
     mov rbx,rax
-    mov rdi,[rbx+PixBuf_data]
+    mov rdi,[rbx+PixBuf.data]
     imul r10,r11
 .pixels:
     test r10,r10
@@ -104,12 +105,12 @@ pnm_decode:
     inc r14
     jmp .alpha
 .bitmap:
-    mov rax,[rbx+PixBuf_width]
-    imul rax,[rbx+PixBuf_height]
+    mov rax,[rbx+PixBuf.width]
+    imul rax,[rbx+PixBuf.height]
     sub rax,r10                    ; linear output index
     xor edx,edx
-    div qword [rbx+PixBuf_width]   ; rax=row, rdx=column
-    mov rcx,[rbx+PixBuf_width]
+    div qword [rbx+PixBuf.width]   ; rax=row, rdx=column
+    mov rcx,[rbx+PixBuf.width]
     add rcx,7
     shr rcx,3
     imul rax,rcx
