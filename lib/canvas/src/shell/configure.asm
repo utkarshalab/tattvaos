@@ -30,15 +30,15 @@ configure_create:
     jz .oom
 
     ; Initialize
-    mov dword [rax + CONFIGURE_SERIAL], 0
-    mov qword [rax + CONFIGURE_SURFACE], rbx
-    mov dword [rax + CONFIGURE_WIDTH], 0
-    mov dword [rax + CONFIGURE_HEIGHT], 0
-    mov dword [rax + CONFIGURE_STATES], 0
-    mov qword [rax + CONFIGURE_CALLBACK], 0
-    mov qword [rax + CONFIGURE_USER_DATA], 0
+    mov dword [rax + Configure.serial], 0
+    mov qword [rax + Configure.surface], rbx
+    mov dword [rax + Configure.width], 0
+    mov dword [rax + Configure.height], 0
+    mov dword [rax + Configure.states], 0
+    mov qword [rax + Configure.callback], 0
+    mov qword [rax + Configure.user_data], 0
     mov qword [rax + CONFIGURE_ACK_CB], 0
-    mov qword [rax + CONFIGURE_NEXT], 0
+    mov qword [rax + Configure.next], 0
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
@@ -92,8 +92,8 @@ configure_set_size:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + CONFIGURE_WIDTH], esi
-    mov dword [rbx + CONFIGURE_HEIGHT], edx
+    mov dword [rbx + Configure.width], esi
+    mov dword [rbx + Configure.height], edx
     xor rax, rax
     leave
     ret
@@ -108,7 +108,7 @@ configure_set_states:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + CONFIGURE_STATES], esi
+    mov dword [rbx + Configure.states], esi
     xor rax, rax
     leave
     ret
@@ -123,7 +123,7 @@ configure_set_serial:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + CONFIGURE_SERIAL], esi
+    mov dword [rbx + Configure.serial], esi
     xor rax, rax
     leave
     ret
