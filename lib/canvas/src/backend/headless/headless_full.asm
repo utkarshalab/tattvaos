@@ -36,7 +36,7 @@ headless_init:
     
     ; Zero backend state
     mov rdi, rbx
-    mov rcx, Backend.size
+    mov rcx, Backend_size
     xor eax, eax
     rep stosb
     
