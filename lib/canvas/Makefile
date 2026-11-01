@@ -701,7 +701,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str webp png jpeg
+HOST_SUITES   := arena str map webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
 HOST_TESTS    := $(addprefix $(HOSTDIR)/test_,$(HOST_SUITES))
