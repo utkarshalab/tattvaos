@@ -83,8 +83,8 @@
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| FND-01 | Single source of truth for struct layouts: one `struc` per object; delete all local offset `%define`s | P0 | 52 conflicting offsets in 111 files today |
-| FND-02 | Build check that fails on duplicate or conflicting struct offsets | P0 | → FND-01 |
+| FND-01 | Single source of truth for struct layouts: one `struc` per object; delete all local offset `%define`s | P0 | ✓ 202 objects, one `struc` each: shared ones in `inc/struct_offsets.inc`, subsystem ones in their header, private ones in their module; `server_offsets.inc` and `DEFINE_STRUCT_OFFSET` retired |
+| FND-02 | Build check that fails on duplicate or conflicting struct offsets | P0 | ✓ `make layout-check` (part of `all`) |
 | FND-03 | Extern/global consistency: each module header declares its exports; nothing redefines a global | P0 | |
 | FND-04 | Fix test and mock symbol collisions so all test images link | P0 | |
 | FND-05 | Makefile: `all` without `test`; no duplicate `linker.ld`; add `GFX_SRCS` to the replay image; one owner for `linker.ld` | P0 | |
@@ -95,7 +95,7 @@
 | FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | → FND-09 |
 | FND-11 | Separate text/rodata/data segments in the linker script (W^X images) | P0 | ld warns about RWX segments today |
 | FND-12 | Dual-assembler CI: NASM and utasm both green, outputs compared byte for byte | P1 | 12 files currently utasm-only failures |
-| FND-13 | Static lint: register-use and ABI conventions, missing `ret`, stack alignment | P2 | |
+| FND-13 | Static lint: register-use and ABI conventions, missing `ret`, stack alignment | P2 | 77 accesses wider than their field remain (e.g. `webp_vp8_filter`, `fb_linear`, `decoration_draw`) |
 | FND-14 | Reproducible builds: identical image hashes from identical source | P3 | |
 | FND-15 | Binary size budget per subsystem, tracked in CI | P3 | |
 | FND-16 | Modular build profiles: minimal (kiosk), standard (desktop), full (workstation) | P3 | |
