@@ -9,13 +9,12 @@
 %include "inc/channel.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 extern arena_alloc
 extern channel_send
 extern channel_recv
 
-; struct offsets (hoisted above use)
-%define PolicyExternal_SIZE    56
 %define POLICY_OP_CONNECT       1
 %define POLICY_OP_LAYOUT        2
 %define POLICY_OP_FOCUS         3
@@ -132,10 +131,10 @@ policy_external_send_request:
     sub rsp, 16
     mov rax, [rbx + PolicyExternal.client]
     mov eax, [rax + Client.id]
-    mov [rsp + MsgHdr_obj], eax
-    mov [rsp + MsgHdr_opcode], r12w
-    mov word [rsp + MsgHdr_flags], MsgFlag_NEED_ACK
-    mov [rsp + MsgHdr_len], r14d
+    mov [rsp + MsgHdr.obj], eax
+    mov [rsp + MsgHdr.opcode], r12w
+    mov word [rsp + MsgHdr.flags], MsgFlag_NEED_ACK
+    mov [rsp + MsgHdr.len], r14d
     mov rsi, rsp
     mov rdx, r13
     xor rcx, rcx
@@ -172,7 +171,7 @@ policy_external_receive_response:
     call channel_recv
     test rax, rax
     js .out
-    cmp word [rsp + MsgHdr_opcode], POLICY_OP_RESPONSE
+    cmp word [rsp + MsgHdr.opcode], POLICY_OP_RESPONSE
     je .out
     mov rax, -(EPROTO)
 .out:
