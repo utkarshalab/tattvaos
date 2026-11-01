@@ -171,6 +171,8 @@ git_upload_server_step:
  je .response_refs_done
  cmp qword [server_operation],3
  je .response_continue
+ cmp qword [server_operation],4
+ je .response_continue
  jmp .response_terminal
 .response_refs_done:
  cmp byte [server_seen_refs],1
@@ -205,7 +207,7 @@ git_upload_server_step:
  mov [server_operation],rdx
  test r8,8192
  jz .request_operation_ready
- mov qword [server_operation],3
+ mov qword [server_operation],4
 .request_operation_ready:
  cmp rdx,1
  jne .dispatch_request
@@ -223,14 +225,14 @@ git_upload_server_step:
  test eax,eax
  jnz .protocol_error
  mov [server_length],rdx
- cmp qword [server_operation],3
+ cmp qword [server_operation],4
  jne .response_operation_ready
  call bridge_git_serve_terminal
  test eax,eax
  jz .response_operation_ready
  mov qword [server_operation],2
 .response_operation_ready:
- cmp qword [server_operation],3
+ cmp qword [server_operation],4
  jne .response_haves_ready
  cmp byte [server_negotiation_rounds],GIT_NEGOTIATION_ROUNDS
  jae .corrupt
