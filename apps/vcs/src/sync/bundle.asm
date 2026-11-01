@@ -865,7 +865,8 @@ vcs_bundle_publish:
 .publish_parent_ready:
  mov r13,[vcs_repo_last]
  inc r13
- cmp r13,VR_MAX_ID
+ mov rax,VR_MAX_ID
+ cmp r13,rax
  ja .publish_capacity
  mov rcx,[bundle_manifest_size]
  lea rdi,[publish_manifest]
