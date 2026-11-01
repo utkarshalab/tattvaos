@@ -142,6 +142,9 @@ handle_create:
     mov rcx, [r13 + r15 + 8]
     inc ecx
     and ecx, 0xFFF            ; 12-bit generation
+    jnz .generation
+    inc ecx                   ; 0 is never used, so a handle is never 0
+.generation:
     mov [r13 + r15], r12       ; obj_ptr
     mov [r13 + r15 + 8], rcx
 
@@ -174,36 +177,26 @@ handle_create:
 ; ---------------------------------------------------------------------------
 global handle_resolve
 handle_resolve:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-
-    mov eax, r12d
+    PROLOGUE
+    ASSERT_PTR rdi
+    mov eax, esi
     and eax, 0xFFFFF          ; 20-bit index
-    mov ecx, r12d
+    mov ecx, esi
     shr ecx, 20               ; 12-bit generation
     and ecx, 0xFFF
-
-    cmp eax, [rbx + HandleTable.capacity]
+    cmp rax, [rdi + HandleTable.capacity]
     jae .invalid
-
-    mov rbx, [rbx + HandleTable.entries]
-    mov r15, rax
-    shl r15, 4
-    mov rdx, [rbx + r15 + 8]  ; stored generation
-    cmp edx, ecx
+    mov rdx, [rdi + HandleTable.entries]
+    shl rax, 4
+    add rdx, rax
+    cmp [rdx + 8], rcx        ; stored generation
     jne .invalid
-
-    mov r15, rax
-    shl r15, 4
-    mov rax, [rbx + r15]      ; obj_ptr
-    EPILOGUE_RESTORE rbx, r12
+    mov rax, [rdx]            ; obj_ptr (0 for a free slot)
+    leave
     ret
-
 .invalid:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    xor eax, eax
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -214,38 +207,30 @@ handle_resolve:
 ; ---------------------------------------------------------------------------
 global handle_destroy
 handle_destroy:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-
-    mov eax, r12d
+    PROLOGUE
+    ASSERT_PTR rdi
+    mov eax, esi
     and eax, 0xFFFFF
-    mov ecx, r12d
+    mov ecx, esi
     shr ecx, 20
     and ecx, 0xFFF
-
-    cmp eax, [rbx + HandleTable.capacity]
+    cmp rax, [rdi + HandleTable.capacity]
     jae .invalid
-
-    mov rbx, [rbx + HandleTable.entries]
-    mov r15, rax
-    shl r15, 4
-    mov rdx, [rbx + r15 + 8]
-    cmp edx, ecx
+    mov rdx, [rdi + HandleTable.entries]
+    shl rax, 4
+    add rdx, rax
+    cmp [rdx + 8], rcx        ; the handle's generation
     jne .invalid
-
-    mov r15, rax
-    shl r15, 4
-    mov qword [rbx + r15], 0
-    dec qword [rbx + HandleTable.count]
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
+    cmp qword [rdx], 0        ; already free (destroyed before)
+    je .invalid
+    mov qword [rdx], 0
+    dec qword [rdi + HandleTable.count]
+    xor eax, eax
+    leave
     ret
-
 .invalid:
     mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12
+    leave
     ret
 
 ; ---------------------------------------------------------------------------
