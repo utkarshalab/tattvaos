@@ -131,15 +131,15 @@ str_dup_arena:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov r13, rax
-    
-    ; Copy string
+    mov rbx, rax                ; the copy (r13 keeps the size)
+
+    ; Copy string, with its terminator
     mov rdi, rax
     mov rsi, r12
     mov rdx, r13
     call memcopy
-    
-    mov rax, r13
+
+    mov rax, rbx
     EPILOGUE_RESTORE rbx, r12, r13
     ret
     
@@ -165,53 +165,52 @@ str_dup_arena:
 ; ---------------------------------------------------------------------------
 global str_cat_arena
 str_cat_arena:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     ASSERT_PTR rbx
     ASSERT_PTR r12
     ASSERT_PTR r13
-    
+
     ; Get lengths
     mov rdi, r12
     call str_len
-    mov r14, rax
-    
+    mov r14, rax                ; first
+
     mov rdi, r13
     call str_len
-    add rax, r14
-    inc rax
-    
-    ; Allocate
+    mov r15, rax                ; second
+
+    ; Allocate both and the terminator
     mov rdi, rbx
-    mov rsi, rax
+    lea rsi, [r14 + r15 + 1]
     call arena_alloc
     test rax, rax
     jz .oom
     mov rbx, rax
-    
+
     ; Copy first string
     mov rdi, rax
     mov rsi, r12
     mov rdx, r14
     call memcopy
-    
-    ; Copy second string
-    lea rdi, [rax + r14]
+
+    ; Copy second string, with its terminator
+    lea rdi, [rbx + r14]
     mov rsi, r13
-    mov rdx, [rsp + 40] ; second string length
-    call str_len
-    mov rdx, rax
-    inc rdx
+    lea rdx, [r15 + 1]
     call memcopy
-    
+
     mov rax, rbx
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .oom:
     xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
@@ -235,11 +234,11 @@ str_find_char:
     jmp .loop
 .found:
     mov rax, rbx
-    leave
+    EPILOGUE_RESTORE rbx            ; rbx is the caller's
     ret
 .not_found:
     xor rax, rax
-    leave
+    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
