@@ -71,10 +71,5 @@
 %define GlyphOut_SIZE       40
 
 ; Rect struct
-%define Rect_x              0
-%define Rect_y              4
-%define Rect_width          8
-%define Rect_height         12
-%define Rect_SIZE           16
 
 %endif ; __GEOMETRY_INC__
