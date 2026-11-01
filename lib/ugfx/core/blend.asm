@@ -137,83 +137,61 @@ blend_over:
 
 ; ---------------------------------------------------------------------------
 ; blend_over_premul
-;   Porter-Duff OVER (premultiplied alpha)
-;   dst = src + dst * (1 - src_alpha)
+;   Porter-Duff OVER (premultiplied alpha), each channel:
+;   dst = src + round(dst * (255 - src_alpha) / 255), capped at 255
 ;   IN:  rdi = dest (BGRA premul), rsi = src (BGRA premul), rdx = count
+;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
+%macro OVER_CHANNEL 1                   ; shift %1; ecx = 255 - alpha
+    mov eax, r9d
+    shr eax, %1
+    and eax, 255
+    imul eax, ecx
+    add eax, 128
+    mov edx, eax
+    shr edx, 8
+    add eax, edx
+    shr eax, 8
+    mov edx, r8d
+    shr edx, %1
+    and edx, 255
+    add eax, edx
+    cmp eax, 255
+    jbe %%fits
+    mov eax, 255
+%%fits:
+    shl eax, %1
+    or r10d, eax
+%endmacro
+
 global blend_over_premul
 blend_over_premul:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    test r13, r13
+    mov r11, rdx
+    xor eax, eax
+    test r11, r11
     jz .done
-    
 .loop:
-    ; Load source (premultiplied BGRA)
-    mov eax, [r12]
-    mov r8b, al
-    shr eax, 8
-    mov r9b, al
-    shr eax, 8
-    mov r10b, al
-    shr eax, 8
-    mov r11b, al
-    
-    test r11b, r11b
-    jz .next_pixel
-    cmp r11b, 255
-    je .full_alpha
-    
-    movzx ecx, byte [rbx]
-    movzx edx, byte [rbx + 1]
-    movzx r8d, byte [rbx + 2]
-    movzx r9d, byte [rbx + 3]
-    
-    mov r10d, 255
-    sub r10d, r11d
-    
-    ; For premultiplied: dst = src + dst * (1 - src_alpha)
-    ; src is already multiplied by its alpha
-    imul ecx, r10d
-    shr ecx, 8
-    add ecx, [rsi]
-    mov [rdi], cl
-    
-    imul edx, r10d
-    shr edx, 8
-    add edx, [rsi + 1]
-    mov [rdi + 1], dl
-    
-    imul r8d, r10d
-    shr r8d, 8
-    add r8d, [rsi + 2]
-    mov [rdi + 2], r8b
-    
-    imul r9d, r10d
-    shr r9d, 8
-    add r9d, r11d
-    mov [rdi + 3], r9b
-    
-    jmp .next_pixel
-    
-.full_alpha:
-    mov eax, [r12]
-    mov [rdi], eax
-    jmp .next_pixel
-    
-.next_pixel:
+    mov r8d, [rsi]
+    mov ecx, r8d
+    shr ecx, 24                         ; alpha
+    cmp ecx, 255
+    je .copy
+    xor ecx, 255                        ; 255 - alpha
+    mov r9d, [rdi]
+    xor r10d, r10d
+    OVER_CHANNEL 0
+    OVER_CHANNEL 8
+    OVER_CHANNEL 16
+    OVER_CHANNEL 24
+    mov r8d, r10d
+.copy:
+    mov [rdi], r8d
     add rsi, 4
     add rdi, 4
-    dec r13
+    dec r11
     jnz .loop
-    
+    xor eax, eax
 .done:
-    xor rax, rax
-    leave
     ret
 
 ; ---------------------------------------------------------------------------
@@ -279,87 +257,11 @@ blend_src_over:
 ; ---------------------------------------------------------------------------
 ; blend_scalar
 ;   Scalar fallback for SIMD blend functions
-;   IN:  rdi = dest (BGRA), rsi = src (BGRA), rdx = count, rcx = flags
+;   IN:  rdi = dest (BGRA), rsi = src (BGRA), rdx = count
 ; ---------------------------------------------------------------------------
 global blend_scalar
 blend_scalar:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    mov r14d, ecx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    test r13, r13
-    jz .done
-    
-.loop:
-    ; Load source pixel (BGRA)
-    mov eax, [r12]
-    mov r8b, al           ; B
-    shr eax, 8
-    mov r9b, al           ; G
-    shr eax, 8
-    mov r10b, al          ; R
-    shr eax, 8
-    mov r11b, al          ; A (0-255)
-    
-    test r11b, r11b
-    jz .skip_alpha
-    cmp r11b, 255
-    je .full_alpha
-    
-    ; General case
-    movzx ecx, byte [rbx]       ; dst B
-    movzx edx, byte [rbx + 1]   ; dst G
-    movzx r8d, byte [rbx + 2]   ; dst R
-    movzx r9d, byte [rbx + 3]   ; dst A
-    
-    mov r10d, 255
-    sub r10d, r11d              ; 255 - src_alpha
-    
-    imul ecx, r10d
-    shr ecx, 8
-    add ecx, [rsi]
-    mov [rdi], cl
-    
-    imul edx, r10d
-    shr edx, 8
-    add edx, [rsi + 1]
-    mov [rdi + 1], dl
-    
-    imul r8d, r10d
-    shr r8d, 8
-    add r8d, [rsi + 2]
-    mov [rdi + 2], r8b
-    
-    imul r9d, r10d
-    shr r9d, 8
-    add r9d, r11d
-    mov [rdi + 3], r9b
-    
-    jmp .next_pixel
-    
-.full_alpha:
-    ; Just copy source
-    mov eax, [r12]
-    mov [rdi], eax
-    jmp .next_pixel
-    
-.skip_alpha:
-    ; Source fully transparent - skip
-    jmp .next_pixel
-    
-.next_pixel:
-    add rsi, 4
-    add rdi, 4
-    dec r13
-    jnz .loop
-    
-.done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
+    jmp blend_over_premul
 
 ; ---------------------------------------------------------------------------
 ; blend_dst_over
