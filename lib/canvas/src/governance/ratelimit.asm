@@ -10,9 +10,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define RateLimit_SIZE    64
-
 section .text
 
 struc RateLimit
