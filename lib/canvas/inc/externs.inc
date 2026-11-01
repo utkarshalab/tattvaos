@@ -118,8 +118,6 @@ extern ring_peek
 extern ring_available
 extern ring_free
 extern ring_clear
-extern arena_create
-extern arena_destroy
 extern rbtree_init
 extern rbtree_insert
 extern rbtree_remove
@@ -201,11 +199,9 @@ extern auth_send_caps
 extern rect_intersect
 extern rect_copy
 ; Toplevel
-extern toplevel_destroy
 ; Channel
 extern channel_init
 ; Toplevel
-extern toplevel_schedule_configure
 ; Handle
 extern handle_resolve
 extern handle_create
@@ -222,9 +218,6 @@ extern region_clear
 extern region_is_empty
 extern surface_transform_rect
 extern region_intersect_rect
-extern region_intersect_rect
-extern region_clear
-extern region_is_empty
 
 ; GPU
 extern gpu_ring_write
@@ -322,7 +315,6 @@ extern layout_destroy
 extern surface_create
 extern surface_set_position
 extern surface_set_size
-extern commit_surface
 
 ; Remote display
 extern virtual_output_damage
@@ -341,162 +333,36 @@ extern sw_render_flush
 extern sw_render_version
 extern direct_scanout_check
 extern direct_scanout_enable
-extern frame_clock_schedule
-extern region_clear
-extern region_is_empty
 
 ; Remote display
 extern rfb_client_update
-extern rfb_tls_write_all
-extern rfb_tls_read_all
-extern clipboard_set
 extern output_create
 extern tile_diff_init
 extern tile_diff_update
 
 ; Software rendering
-extern sw_render_init
-extern sw_render_deinit
-extern sw_render_begin_frame
-extern sw_render_surface
-extern sw_render_rect
-extern sw_render_end_frame
-extern sw_render_flush
-extern sw_render_version
-extern direct_scanout_check
-extern direct_scanout_enable
-extern frame_clock_schedule
-extern region_clear
-extern region_is_empty
 
 ; Remote display
-extern rfb_client_update
-extern rfb_tls_write_all
-extern rfb_tls_read_all
-extern clipboard_set
-extern output_create
-extern tile_diff_init
-extern tile_diff_update
 
 ; Software rendering
-extern sw_render_init
-extern sw_render_deinit
-extern sw_render_begin_frame
-extern sw_render_surface
-extern sw_render_rect
-extern sw_render_end_frame
-extern sw_render_flush
-extern sw_render_version
-extern direct_scanout_check
-extern direct_scanout_enable
-extern frame_clock_schedule
-extern region_clear
-extern region_is_empty
 
 ; Remote display
-extern rfb_client_update
-extern rfb_tls_write_all
-extern rfb_tls_read_all
-extern clipboard_set
-extern output_create
-extern tile_diff_init
-extern tile_diff_update
 
 ; Software rendering
-extern sw_render_init
-extern sw_render_deinit
-extern sw_render_begin_frame
-extern sw_render_surface
-extern sw_render_rect
-extern sw_render_end_frame
-extern sw_render_flush
-extern sw_render_version
-extern direct_scanout_check
-extern direct_scanout_enable
-extern frame_clock_schedule
-extern region_clear
-extern region_is_empty
 
 ; Remote display
-extern rfb_client_update
-extern rfb_tls_write_all
-extern rfb_tls_read_all
-extern clipboard_set
-extern output_create
-extern tile_diff_init
-extern tile_diff_update
 
 ; Software rendering
-extern sw_render_init
-extern sw_render_deinit
-extern sw_render_begin_frame
-extern sw_render_surface
-extern sw_render_rect
-extern sw_render_end_frame
-extern sw_render_flush
-extern sw_render_version
-extern direct_scanout_check
-extern direct_scanout_enable
-extern frame_clock_schedule
-extern region_clear
-extern region_is_empty
 
 ; Remote display
-extern rfb_client_update
-extern rfb_tls_write_all
-extern rfb_tls_read_all
-extern clipboard_set
-extern output_create
-extern tile_diff_init
-extern tile_diff_update
 
 ; Software rendering
-extern sw_render_init
-extern sw_render_deinit
-extern sw_render_begin_frame
-extern sw_render_surface
-extern sw_render_rect
-extern sw_render_end_frame
-extern sw_render_flush
-extern sw_render_version
-extern direct_scanout_check
-extern direct_scanout_enable
-extern frame_clock_schedule
-extern region_clear
-extern region_is_empty
 
 ; Remote display
-extern rfb_client_update
-extern rfb_tls_write_all
-extern rfb_tls_read_all
-extern clipboard_set
-extern output_create
-extern tile_diff_init
-extern tile_diff_update
 
 ; Software rendering
-extern sw_render_init
-extern sw_render_deinit
-extern sw_render_begin_frame
-extern sw_render_surface
-extern sw_render_rect
-extern sw_render_end_frame
-extern sw_render_flush
-extern sw_render_version
-extern direct_scanout_check
-extern direct_scanout_enable
-extern frame_clock_schedule
-extern region_clear
-extern region_is_empty
 
 ; Remote display
-extern rfb_client_update
-extern rfb_tls_write_all
-extern rfb_tls_read_all
-extern clipboard_set
-extern output_create
-extern tile_diff_init
-extern tile_diff_update
 
 ; Geometry primitives
 extern line_draw
@@ -647,75 +513,24 @@ extern debug_scene_dump
 extern record_start
 extern record_stop
 extern replay_run_file
-extern trace_set_mask
 extern debug_client_list
 extern debug_surface_list
 extern debug_layer_list
 
 ; CTS/Testing functions
 extern canvas_get_caps
-extern surface_create
-extern surface_set_position
-extern surface_set_size
-extern commit_surface
-extern canvas_surface_destroy
-extern handle_resolve
-extern memcopy
 extern output_layout_apply
 extern wire_validate_message
 extern wire_decode_header
 extern wire_decode_handles
 extern gif_probe
-extern fuzz_target_png
-extern fuzz_target_jpeg
-extern fuzz_target_gif
-extern fuzz_target_ttf
-extern fuzz_target_icc
-extern fuzz_target_rfb
-extern fuzz_target_wire
-extern fuzz_target_keymap
-extern fuzz_target_config
-extern fuzz_target_png
-extern fuzz_target_jpeg
-extern fuzz_target_gif
-extern fuzz_target_ttf
-extern fuzz_target_icc
-extern fuzz_target_rfb
-extern surface_create
-extern surface_set_position
-extern surface_set_size
-extern commit_surface
-extern canvas_surface_destroy
-extern handle_resolve
-extern memcopy
-extern output_layout_apply
-extern wire_validate_message
-extern wire_decode_header
-extern wire_decode_handles
-extern gif_probe
-extern debug_scene_dump
-extern record_start
-extern record_stop
-extern replay_run_file
-extern trace_set_mask
-extern debug_client_list
-extern debug_surface_list
-extern debug_layer_list
 extern composer_composite
 
 ; Path tessellation
-extern path_tessellate
-extern path_bounds
-extern path_length
 
 ; Polygon fill
-extern polygon_fill
 
 ; Path rendering
-extern path_render
-extern path_render_gradient
-extern path_render_pattern
-extern path_hit_test
 
 ; Image transforms
 extern image_scale
@@ -734,40 +549,16 @@ extern gpu_wait_idle
 extern gpu_get_stats
 
 ; Core allocator (needed by many modules)
-extern arena_alloc
-extern arena_alloc_aligned
-extern arena_init
-extern arena_create_child
-extern arena_destroy_child
-extern arena_free
-extern arena_create
-extern arena_destroy
 
 ; Memory operations
-extern memcopy
-extern memset
-extern memcmp
-extern blit_copy
 
 ; GPU operations
-extern gpu_ring_write
-extern gpu_fence_init
 
 ; Backend operations
-extern backend_modeset
-extern backend_dpms
 extern backend_flip
 extern backend_vblank_wait
 extern backend_hotplug
 extern backend_cursor
-extern canvas_get_caps
-extern surface_create
-extern surface_set_position
-extern surface_set_size
-extern commit_surface
-extern canvas_surface_destroy
-extern handle_resolve
-extern output_layout_apply
 
 ; Compositor
 extern damage_init
@@ -777,9 +568,7 @@ extern damage_get_rects
 extern damage_clear
 extern damage_intersect_rect
 
-extern output_create
 extern output_destroy
-extern output_set_mode
 extern output_dpms
 extern output_set_scale
 extern output_set_rotation
@@ -797,10 +586,7 @@ extern surface_set_transform
 extern surface_set_scale
 extern frame_callback_init
 
-extern frame_clock_init
 extern frame_clock_deinit
-extern frame_clock_schedule
-extern frame_clock_schedule_vblank
 extern frame_clock_vblank_handler
 extern frame_clock_get_refresh
 extern frame_clock_set_refresh
@@ -819,12 +605,10 @@ extern seat_set_focus
 
 ; Shell
 extern toplevel_create
-extern toplevel_destroy
 extern toplevel_set_state
 extern toplevel_get_state
 extern toplevel_set_title
 extern toplevel_set_app_id
-extern toplevel_schedule_configure
 extern toplevel_configure
 extern toplevel_set_position
 extern toplevel_get_size
