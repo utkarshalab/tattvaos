@@ -5,6 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern jpeg_probe
 extern jpeg_huff_build
@@ -34,8 +35,6 @@ extern dng_decode
 extern sensor_sample
 extern jpeg_lossless_decode
 extern dng_prepare_color_matrix
-
-%define HuffTable_SIZE 1556
 
 section .text
 
@@ -522,12 +521,12 @@ test_gif_disposal:
     ret
 
 init_test_pixbuf:
-    mov qword [rdi + PixBuf_width], 4
-    mov qword [rdi + PixBuf_height], 3
-    mov qword [rdi + PixBuf_stride], 16
-    mov qword [rdi + PixBuf_format], DRM_FORMAT_BGRA8888
-    mov [rdi + PixBuf_data], rsi
-    mov qword [rdi + PixBuf_size], 48
+    mov qword [rdi + PixBuf.width], 4
+    mov qword [rdi + PixBuf.height], 3
+    mov qword [rdi + PixBuf.stride], 16
+    mov qword [rdi + PixBuf.format], DRM_FORMAT_BGRA8888
+    mov [rdi + PixBuf.data], rsi
+    mov qword [rdi + PixBuf.size], 48
     ret
 
 global test_gif_decode_animation
@@ -559,7 +558,7 @@ test_gif_decode_animation:
     cmp qword [rdx + 8], 0
     je .decode_animation_fail
     mov rdx, [rdx]
-    mov rdx, [rdx + PixBuf_data]
+    mov rdx, [rdx + PixBuf.data]
     cmp dword [rdx], 0xFF000000
     jne .decode_animation_fail
     xor eax, eax
@@ -648,7 +647,7 @@ test_tiff_endian_decode:
     call tiff_decode
     test rax,rax
     jz .fail
-    mov rdx,[rax+PixBuf_data]
+    mov rdx,[rax+PixBuf.data]
     cmp dword [rdx],0xffffffff
     jne .fail
     lea rdi,[rel gif_test_arena]
@@ -657,7 +656,7 @@ test_tiff_endian_decode:
     call tiff_decode
     test rax,rax
     jz .fail
-    mov rdx,[rax+PixBuf_data]
+    mov rdx,[rax+PixBuf.data]
     cmp dword [rdx],0xff202020
     jne .fail
     lea rdi,[rel gif_test_arena]
@@ -666,7 +665,7 @@ test_tiff_endian_decode:
     call tiff_decode
     test rax,rax
     jz .fail
-    mov rdx,[rax+PixBuf_data]
+    mov rdx,[rax+PixBuf.data]
     cmp dword [rdx],0xffffffff
     jne .fail
     cmp dword [rdx+4],0xff000000
@@ -677,7 +676,7 @@ test_tiff_endian_decode:
     call tiff_decode
     test rax,rax
     jz .fail
-    mov rdx,[rax+PixBuf_data]
+    mov rdx,[rax+PixBuf.data]
     cmp dword [rdx],0xff7f7f7f
     jne .fail
     xor eax,eax
@@ -756,11 +755,11 @@ test_dng_tiled_decode:
     call dng_decode
     test rax,rax
     jz .fail
-    cmp qword [rax+PixBuf_width],2
+    cmp qword [rax+PixBuf.width],2
     jne .fail
-    cmp qword [rax+PixBuf_height],1
+    cmp qword [rax+PixBuf.height],1
     jne .fail
-    cmp qword [rax+PixBuf_data],0
+    cmp qword [rax+PixBuf.data],0
     je .fail
     xor eax,eax
     ret
@@ -966,16 +965,16 @@ tiff_tile_end:
 
 section .bss
 alignb 16
-huff_table:    resb HuffTable_SIZE
+huff_table:    resb HuffTable_size
 bitreader:     resq 2
 alignb 16
 idct_block:    resw 64
 alignb 16
 entropy_reader: resb 32
 alignb 16
-dc_zero_table:  resb HuffTable_SIZE
+dc_zero_table:  resb HuffTable_size
 alignb 16
-ac_eob_table:   resb HuffTable_SIZE
+ac_eob_table:   resb HuffTable_size
 dc_predictor:   resd 1
 color_output:   resd 3
 alignb 16
