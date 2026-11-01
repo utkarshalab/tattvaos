@@ -16,7 +16,6 @@ extern png_unfilter
 extern png_adam7_expand
 extern crc32_ieee
 
-; struct offsets (hoisted above use)
 %define PNG_SIG0  0x474E5089
 %define PNG_SIG1  0x0A1A0A0D
 %define PNG_CT_GRAY       0
@@ -27,9 +26,7 @@ extern crc32_ieee
 
 section .text
 
-
 ; PngImage struct layout (manual offsets)\n; Offsets defined in inc/struct_offsets.inc\n\n; ----------\n
-
 
 ; ---------------------------------------------------------------------------
 ; png_probe
