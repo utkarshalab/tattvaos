@@ -175,6 +175,10 @@ symref metadata, `fetch=wait-for-done ref-in-want sideband-all filter shallow`,
 The bridge advertises `server-option` and accepts up to eight bounded option
 headers per command. Values are validated and exact duplicates are rejected;
 distinct options currently have no semantic effect.
+Native advertisements also include a 128-bit hexadecimal `session-id` derived
+from process-local timing and generation state for diagnostics, not security.
+One nonempty whitespace-free printable client session ID is accepted per command
+within a 256-byte packet; duplicates and malformed values are rejected.
 
 Request parsing now recognizes protocol-v2 delimiter packets, validates command
 headers and SHA-256 negotiation, enforces space-free printable ASCII for the
