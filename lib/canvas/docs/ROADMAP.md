@@ -88,7 +88,7 @@
 | FND-03 | Extern/global consistency: each module header declares its exports; nothing redefines a global | P0 | |
 | FND-04 | Fix test and mock symbol collisions so all test images link | P0 | |
 | FND-05 | Makefile: `all` without `test`; no duplicate `linker.ld`; add `GFX_SRCS` to the replay image; one owner for `linker.ld` | P0 | |
-| FND-06 | Release build mode (`DEBUG_BUILD=0`), warnings as errors | P0 | |
+| FND-06 | Release build mode (`DEBUG_BUILD=0`), warnings as errors | P0 | ✓ `make release` (`MODE=release`, `build/release/`); `-Werror` in both modes; the 24 warnings fixed |
 | FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | ✓ 36 files in `attic/` (see its README); `native_planes`, `invariants` wired in; every `.asm` under `src/` and `tests/` is now built |
 | FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | ✓ `lib/canvas/.gitattributes`: LF everywhere, `*.uic` binary |
 | FND-09 | Host test shim: `ut_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | |
