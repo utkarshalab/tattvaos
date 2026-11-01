@@ -188,8 +188,10 @@ API. Native socket polling remains the outer transport owner.
 validates the bounded `git-upload-pack /` daemon request, an optional printable
 255-byte `host=` value, the required empty separator, and an exact `version=2`
 extra parameter before advertising. NUL-delimited unknown extras are bounded and
-ignored as Git requires; duplicate versions, unterminated fields, and substring
-matches are rejected. The server handles partial nonblocking I/O and serves one
+ignored as Git requires. At most 16 extra parameters of at most 255 bytes each
+are scanned, including the required version token; duplicate versions,
+unterminated fields, overflow, and substring matches are rejected. The server
+handles partial nonblocking I/O and serves one
 `ls-refs` followed by `fetch` on the same protocol-v2 connection, and closes
 both sockets on every terminal path. A direct `fetch` is also accepted, while
 repeated reference discovery is rejected as an invalid session sequence.
