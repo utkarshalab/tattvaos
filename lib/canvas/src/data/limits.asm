@@ -10,15 +10,12 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
 %define LIMITS_DEFAULT_CLIPBOARD    (1024 * 1024)      ; 1MB
 %define LIMITS_DEFAULT_SELECTION    (1024 * 1024)      ; 1MB
 %define LIMITS_DEFAULT_DND          (10 * 1024 * 1024) ; 10MB
 %define LIMITS_DEFAULT_OFFER_MIMES  16
 %define LIMITS_RATE_MSG_PER_SEC     1000
 %define LIMITS_RATE_BYTES_PER_SEC   (10 * 1024 * 1024) ; 10MB/s
-%define Limits_SIZE    56
-%define ClientLimits_SIZE    48
 
 section .text
 
