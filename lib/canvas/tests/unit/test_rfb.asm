@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global test_rfb_main
 test_rfb_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ test_rfb_main:
 ; ============================================================================
 global test_rfb_version_check
 test_rfb_version_check:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -34,8 +32,7 @@ test_rfb_version_check:
 ; ============================================================================
 global test_rfb_version_reject
 test_rfb_version_reject:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
