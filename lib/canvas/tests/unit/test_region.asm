@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global test_region_main
 test_region_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ test_region_main:
 ; ============================================================================
 global test_region_init
 test_region_init:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -34,8 +32,7 @@ test_region_init:
 ; ============================================================================
 global test_region_add_rect
 test_region_add_rect:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
