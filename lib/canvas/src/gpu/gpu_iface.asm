@@ -13,8 +13,6 @@ extern gpu_mem_init
 extern gpu_fence_init
 extern gpu_ring_init
 
-; struct offsets (hoisted above use)
-%define GpuDevice_SIZE    72
 %define GPU_FAMILY_UNKNOWN   0
 %define GPU_FAMILY_GFX9      0x0900
 %define GPU_FAMILY_GFX10     0x0A00
@@ -29,7 +27,6 @@ section .text
 ; Offsets defined in inc/struct_offsets.inc
 
 ; ------------------
-
 
 ; ---------------------------------------------------------------------------
 ; gpu_init
