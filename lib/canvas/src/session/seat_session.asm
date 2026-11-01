@@ -24,7 +24,7 @@ seat_session_init:
     ASSERT_PTR r12
 
     mov rdi, [rbx + Server.arena]
-    mov rsi, SeatSession_SIZE
+    mov rsi, SeatSession_size
     call arena_alloc
     test rax, rax
     jz .oom
