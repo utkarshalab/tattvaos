@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern arena_alloc
 extern pixbuf_create
@@ -102,8 +103,8 @@ webp_alpha_apply_raw:
     shr eax,2
     and eax,3
     mov [rsp],eax                     ; predictor filter
-    mov r14d,[rbx+PixBuf_width]
-    mov r15d,[rbx+PixBuf_height]
+    mov r14d,[rbx+PixBuf.width]
+    mov r15d,[rbx+PixBuf.height]
     test r14d,r14d
     jz .alpha_bad
     test r15d,r15d
@@ -150,11 +151,11 @@ webp_alpha_apply_raw:
     call webp_vp8l_decode
     test rax,rax
     jz .alpha_bad
-    mov r12,[rax+PixBuf_data]
+    mov r12,[rax+PixBuf.data]
     inc r12                          ; green byte carries alpha
     mov dword [rsp+16],4
 .alpha_source_ready:
-    mov r13,[rbx+PixBuf_data]
+    mov r13,[rbx+PixBuf.data]
     mov dword [rsp+4],0               ; y
 .alpha_row:
     mov dword [rsp+8],0               ; x
@@ -166,7 +167,7 @@ webp_alpha_apply_raw:
     imul ecx,[rsp+16]
     movzx edx,byte [r12+rcx]
     mov ecx,[rsp+4]
-    imul ecx,[rbx+PixBuf_stride]
+    imul ecx,[rbx+PixBuf.stride]
     mov esi,[rsp+8]
     shl esi,2
     add ecx,esi
@@ -187,7 +188,7 @@ webp_alpha_apply_raw:
     cmp dword [rsp+4],0
     je .gradient_no_above
     mov esi,[rsp+12]
-    sub esi,[rbx+PixBuf_stride]
+    sub esi,[rbx+PixBuf.stride]
     movzx esi,byte [r13+rsi+3]
 .gradient_no_above:
     add ecx,esi
@@ -196,7 +197,7 @@ webp_alpha_apply_raw:
     cmp dword [rsp+4],0
     je .gradient_clip
     mov esi,[rsp+12]
-    sub esi,[rbx+PixBuf_stride]
+    sub esi,[rbx+PixBuf.stride]
     movzx esi,byte [r13+rsi-1]
     sub ecx,esi
 .gradient_clip:
@@ -214,7 +215,7 @@ webp_alpha_apply_raw:
     cmp dword [rsp+4],0
     je .alpha_store
     mov ecx,[rsp+12]
-    sub ecx,[rbx+PixBuf_stride]
+    sub ecx,[rbx+PixBuf.stride]
     movzx ecx,byte [r13+rcx+3]
     add edx,ecx
     jmp .alpha_wrap
@@ -234,7 +235,7 @@ webp_alpha_apply_raw:
     jmp .alpha_wrap
 .alpha_vertical_above:
     mov ecx,[rsp+12]
-    sub ecx,[rbx+PixBuf_stride]
+    sub ecx,[rbx+PixBuf.stride]
     movzx ecx,byte [r13+rcx+3]
     add edx,ecx
 .alpha_wrap:
@@ -434,7 +435,7 @@ webp_vp8l_decode:
     jle .vp8l_bad
     mov r12,rax
     mov [rsp+192],rax                  ; PixBuf
-    mov r13,[rax+PixBuf_data]
+    mov r13,[rax+PixBuf.data]
     cmp dword [rsp+180],0
     je .main_buffer_ready
     mov eax,[rsp+168]
@@ -480,7 +481,7 @@ webp_vp8l_decode:
     mov rax,[rsp+200]
     mov [rdi+WebPIndexState.packed],rax
     mov rax,[rsp+192]
-    mov rax,[rax+PixBuf_data]
+    mov rax,[rax+PixBuf.data]
     mov [rdi+WebPIndexState.output],rax
     mov rax,[r15+TX_DATA]
     mov [rdi+WebPIndexState.palette],rax
@@ -498,7 +499,7 @@ webp_vp8l_decode:
     test rax,rax
     js .vp8l_bad
     mov rax,[rsp+192]
-    mov rax,[rax+PixBuf_data]
+    mov rax,[rax+PixBuf.data]
     mov [rsp+200],rax
     mov eax,[r15+TX_WIDTH]
     mov [rsp+168],eax
