@@ -62,6 +62,24 @@ presentation_queue:
     jz .invalid
     test r12, r12
     jz .invalid
+
+    ; A completed record is reused, so frames allocate nothing once running
+    call presentation_lock
+    mov r14, [rel feedback_head]
+.free_record:
+    test r14, r14
+    jz .none_free
+    cmp qword [r14 + Feedback.completed], 0
+    jne .reuse
+    mov r14, [r14 + Feedback.next]
+    jmp .free_record
+.reuse:
+    mov [r14 + Feedback.surface], r12
+    mov qword [r14 + Feedback.completed], 0
+.none_free:
+    call presentation_unlock
+    test r14, r14
+    jnz .fill
     mov rdi, [rbx + Server.arena]
     mov rsi, Feedback_size
     call arena_alloc
@@ -70,6 +88,12 @@ presentation_queue:
     mov r14, rax
     mov [r14 + Feedback.surface], r12
     mov qword [r14 + Feedback.completed], 0
+    call presentation_lock
+    mov rax, [rel feedback_head]
+    mov [r14 + Feedback.next], rax
+    mov [rel feedback_head], r14
+    call presentation_unlock
+.fill:
     mov dword [r14 + Feedback.info + PresentInfo.kind], PRESENT_KIND_VSYNC
     mov qword [r14 + Feedback.info + PresentInfo.seq], r13
     mov qword [r14 + Feedback.info + PresentInfo.time], 0
@@ -84,11 +108,6 @@ presentation_queue:
     mov rax, [rax + FrameClock.refresh_ns]
     mov [r14 + Feedback.info + PresentInfo.refresh_ns], rax
 .link:
-    call presentation_lock
-    mov rax, [rel feedback_head]
-    mov [r14 + Feedback.next], rax
-    mov [rel feedback_head], r14
-    call presentation_unlock
     xor eax, eax
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
@@ -99,6 +118,29 @@ presentation_queue:
 .oom:
     mov rax, -(ENOMEM)
     EPILOGUE_RESTORE rbx, r12, r13, r14
+    ret
+
+; A surface is going away: its records are free for reuse. IN surface*.
+global presentation_forget
+presentation_forget:
+    sub rsp, 8
+    mov rsi, rdi
+    call presentation_lock
+    mov rax, [rel feedback_head]
+.next:
+    test rax, rax
+    jz .done
+    cmp [rax + Feedback.surface], rsi
+    jne .skip
+    mov qword [rax + Feedback.surface], 0
+    mov qword [rax + Feedback.completed], 1
+.skip:
+    mov rax, [rax + Feedback.next]
+    jmp .next
+.done:
+    call presentation_unlock
+    xor eax, eax
+    add rsp, 8
     ret
 
 ; Complete the oldest outstanding feedback for a surface and emit its event.
