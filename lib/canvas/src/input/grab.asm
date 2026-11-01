@@ -28,8 +28,6 @@ grab_destroy:
     xor eax, eax
     ret
 
-; struct offsets (hoisted above use)
-%define Grab_SIZE 56
 %define GRAB_NONE       0
 %define GRAB_POINTER    1
 %define GRAB_KEYBOARD   2
