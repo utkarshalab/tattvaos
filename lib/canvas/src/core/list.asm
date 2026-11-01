@@ -5,19 +5,9 @@
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
-
-; struct offsets (hoisted above use)
-%define ListNode_prev  0
-%define ListNode_next  8
-%define ListNode_size  16
-%define List_head      0
-%define List_tail      8
-%define List_count     16
-%define List_size      24
+%include "inc/struct_offsets.inc"
 
 section .text
-
-
 
 ; ---------------------------------------------------------------------------
 ; list_init
@@ -29,9 +19,9 @@ global list_init
 list_init:
     PROLOGUE
     ASSERT_PTR rdi
-    mov qword [rdi + List_head], 0
-    mov qword [rdi + List_tail], 0
-    mov qword [rdi + List_count], 0
+    mov qword [rdi + List.head], 0
+    mov qword [rdi + List.tail], 0
+    mov qword [rdi + List.count], 0
     xor rax, rax
     leave
     ret
@@ -49,25 +39,25 @@ list_push_back:
     ASSERT_PTR rbx
     ASSERT_PTR rsi
 
-    mov rax, [rbx + List_tail]
+    mov rax, [rbx + List.tail]
     test rax, rax
     jz .empty
 
-    mov [rax + ListNode_next], rsi
-    mov [rsi + ListNode_prev], rax
-    mov qword [rsi + ListNode_next], 0
-    mov [rbx + List_tail], rsi
-    inc qword [rbx + List_count]
+    mov [rax + ListNode.next], rsi
+    mov [rsi + ListNode.prev], rax
+    mov qword [rsi + ListNode.next], 0
+    mov [rbx + List.tail], rsi
+    inc qword [rbx + List.count]
     xor rax, rax
     EPILOGUE_RESTORE rbx
     ret
 
 .empty:
-    mov [rbx + List_head], rsi
-    mov [rbx + List_tail], rsi
-    mov qword [rsi + ListNode_prev], 0
-    mov qword [rsi + ListNode_next], 0
-    mov qword [rbx + List_count], 1
+    mov [rbx + List.head], rsi
+    mov [rbx + List.tail], rsi
+    mov qword [rsi + ListNode.prev], 0
+    mov qword [rsi + ListNode.next], 0
+    mov qword [rbx + List.count], 1
     xor rax, rax
     EPILOGUE_RESTORE rbx
     ret
@@ -85,25 +75,25 @@ list_push_front:
     ASSERT_PTR rbx
     ASSERT_PTR rsi
 
-    mov rax, [rbx + List_head]
+    mov rax, [rbx + List.head]
     test rax, rax
     jz .empty
 
-    mov [rax + ListNode_prev], rsi
-    mov [rsi + ListNode_next], rax
-    mov qword [rsi + ListNode_prev], 0
-    mov [rbx + List_head], rsi
-    inc qword [rbx + List_count]
+    mov [rax + ListNode.prev], rsi
+    mov [rsi + ListNode.next], rax
+    mov qword [rsi + ListNode.prev], 0
+    mov [rbx + List.head], rsi
+    inc qword [rbx + List.count]
     xor rax, rax
     EPILOGUE_RESTORE rbx
     ret
 
 .empty:
-    mov [rbx + List_head], rsi
-    mov [rbx + List_tail], rsi
-    mov qword [rsi + ListNode_prev], 0
-    mov qword [rsi + ListNode_next], 0
-    mov qword [rbx + List_count], 1
+    mov [rbx + List.head], rsi
+    mov [rbx + List.tail], rsi
+    mov qword [rsi + ListNode.prev], 0
+    mov qword [rsi + ListNode.next], 0
+    mov qword [rbx + List.count], 1
     xor rax, rax
     EPILOGUE_RESTORE rbx
     ret
@@ -121,28 +111,28 @@ list_remove:
     ASSERT_PTR rbx
     ASSERT_PTR rsi
 
-    mov rax, [rsi + ListNode_prev]
-    mov rcx, [rsi + ListNode_next]
+    mov rax, [rsi + ListNode.prev]
+    mov rcx, [rsi + ListNode.next]
 
     test rax, rax
     jz .head
-    mov [rax + ListNode_next], rcx
+    mov [rax + ListNode.next], rcx
     jmp .check_tail
 
 .head:
-    mov [rbx + List_head], rcx
+    mov [rbx + List.head], rcx
 
 .check_tail:
     test rcx, rcx
     jz .tail
-    mov [rcx + ListNode_prev], rax
+    mov [rcx + ListNode.prev], rax
     jmp .done
 
 .tail:
-    mov [rbx + List_tail], rax
+    mov [rbx + List.tail], rax
 
 .done:
-    dec qword [rbx + List_count]
+    dec qword [rbx + List.count]
     xor rax, rax
     EPILOGUE_RESTORE rbx
     ret
@@ -159,24 +149,24 @@ list_pop_front:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov rax, [rbx + List_head]
+    mov rax, [rbx + List.head]
     test rax, rax
     jz .empty
 
-    mov rcx, [rax + ListNode_next]
-    mov [rbx + List_head], rcx
+    mov rcx, [rax + ListNode.next]
+    mov [rbx + List.head], rcx
     test rcx, rcx
     jz .was_last
-    mov qword [rcx + ListNode_prev], 0
+    mov qword [rcx + ListNode.prev], 0
     jmp .done
 
 .was_last:
-    mov qword [rbx + List_tail], 0
+    mov qword [rbx + List.tail], 0
 
 .done:
-    dec qword [rbx + List_count]
-    mov qword [rax + ListNode_prev], 0
-    mov qword [rax + ListNode_next], 0
+    dec qword [rbx + List.count]
+    mov qword [rax + ListNode.prev], 0
+    mov qword [rax + ListNode.next], 0
     EPILOGUE_RESTORE rbx
     ret
 
@@ -195,24 +185,24 @@ list_pop_back:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov rax, [rbx + List_tail]
+    mov rax, [rbx + List.tail]
     test rax, rax
     jz .empty
 
-    mov rcx, [rax + ListNode_prev]
-    mov [rbx + List_tail], rcx
+    mov rcx, [rax + ListNode.prev]
+    mov [rbx + List.tail], rcx
     test rcx, rcx
     jz .was_last
-    mov qword [rcx + ListNode_next], 0
+    mov qword [rcx + ListNode.next], 0
     jmp .done
 
 .was_last:
-    mov qword [rbx + List_head], 0
+    mov qword [rbx + List.head], 0
 
 .done:
-    dec qword [rbx + List_count]
-    mov qword [rax + ListNode_prev], 0
-    mov qword [rax + ListNode_next], 0
+    dec qword [rbx + List.count]
+    mov qword [rax + ListNode.prev], 0
+    mov qword [rax + ListNode.next], 0
     EPILOGUE_RESTORE rbx
     ret
 
@@ -231,7 +221,7 @@ global list_count
 list_count:
     PROLOGUE
     ASSERT_PTR rdi
-    mov rax, [rdi + List_count]
+    mov rax, [rdi + List.count]
     leave
     ret
 
@@ -245,7 +235,7 @@ global list_empty
 list_empty:
     PROLOGUE
     ASSERT_PTR rdi
-    mov rax, [rdi + List_count]
+    mov rax, [rdi + List.count]
     test rax, rax
     jz .empty
     xor rax, rax
