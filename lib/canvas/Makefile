@@ -17,10 +17,25 @@ LD          := ld
 OBJCOPY     := objcopy
 STRIP       := strip
 
+# Build mode: make (debug) or make release (MODE=release)
+#   debug    DEBUG_BUILD=1, PARANOID_CHECKS=1: assertions and checks on; build/
+#   release  DEBUG_BUILD=0, PARANOID_CHECKS=0: checks compiled out; build/release/
+# Both treat every assembler warning as an error.
+MODE        ?= debug
+ifeq ($(MODE),release)
+MODE_FLAGS  := -D DEBUG_BUILD=0 -D PARANOID_CHECKS=0 -D TRAP_ON_PANIC=0
+MODE_DIR    := /release
+else ifeq ($(MODE),debug)
+MODE_FLAGS  := -D DEBUG_BUILD=1 -D PARANOID_CHECKS=1 -D TRAP_ON_PANIC=1
+MODE_DIR    :=
+else
+$(error MODE must be debug or release, not '$(MODE)')
+endif
+
 # NASM Flags
-NASMFLAGS   := -f elf64 -g -F dwarf \
+NASMFLAGS   := -f elf64 -g -F dwarf -Werror \
                -D __UT__ \
-               -D DEBUG_BUILD=1 \
+               $(MODE_FLAGS) \
                -I inc/ \
                -I src/ \
                -I ../ugfx/include/ \
@@ -34,7 +49,7 @@ LDFLAGS     := -nostdlib -static -z max-page-size=0x1000 \
 # Directories
 SRCDIR      := src
 INCDIR      := inc
-BUILDDIR    := build
+BUILDDIR    := build$(MODE_DIR)
 OBJDIR      := $(BUILDDIR)/obj
 IMAGEDIR    := $(BUILDDIR)/img
 LIBDIR      := $(BUILDDIR)/lib
@@ -445,8 +460,11 @@ UT_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(UT_SRCS))
 # Default Target
 # ---------------------------------------------------------------------------
 
-.PHONY: all
+.PHONY: all release
 all: layout-check server client tools clients
+
+release:
+	$(MAKE) MODE=release all
 
 # ---------------------------------------------------------------------------
 # Layout check: every object's fields live in its one struc. Fails on a
