@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global test_quota_main
 test_quota_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ test_quota_main:
 ; ============================================================================
 global test_quota_mem_ok
 test_quota_mem_ok:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -34,8 +32,7 @@ test_quota_mem_ok:
 ; ============================================================================
 global test_quota_mem_exceeded
 test_quota_mem_exceeded:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -43,8 +40,7 @@ test_quota_mem_exceeded:
 ; ============================================================================
 global test_quota_mem_unlimited
 test_quota_mem_unlimited:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -52,8 +48,7 @@ test_quota_mem_unlimited:
 ; ============================================================================
 global test_quota_surf_ok
 test_quota_surf_ok:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
