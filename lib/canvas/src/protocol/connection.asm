@@ -7,22 +7,13 @@
 %include "inc/errors.inc"
 %include "inc/protocol.inc"
 %include "inc/externs.inc"
+%include "inc/struct_offsets.inc"
 
 section .text
 
 ; ============================================================================
 ; ClientConn Struct
 ; ============================================================================
-%define ClientConn_SERVER_CHAN   0
-%define ClientConn_TX_RING       8
-%define ClientConn_RX_RING       16
-%define ClientConn_HANDLE_TX     24
-%define ClientConn_HANDLE_RX     32
-%define ClientConn_CAPS_WANTED   40
-%define ClientConn_CAPS_GRANTED  48
-%define ClientConn_NEXT_OBJ      56
-%define ClientConn_ARENA         64
-%define ClientConn_SIZE          72
 
 ; ============================================================================
 ; canvas_connect
@@ -37,7 +28,7 @@ canvas_connect:
     ASSERT_PTR r12
 
     ; Allocate client connection
-    mov rdi, 72  ; ClientConn_SIZE
+    mov rdi, 72  ; ClientConn_size
     mov rsi, [rbx + Server_ARENA]
     call arena_alloc
     test rax, rax
@@ -48,15 +39,15 @@ canvas_connect:
     mov r15, r12        ; channel
 
     ; Initialize client connection
-    mov qword [r13 + ClientConn_SERVER_CHAN], r15
-    mov qword [r13 + ClientConn_TX_RING], 0
-    mov qword [r13 + ClientConn_RX_RING], 0
-    mov qword [r13 + ClientConn_HANDLE_TX], 0
-    mov qword [r13 + ClientConn_HANDLE_RX], 0
-    mov dword [r13 + ClientConn_CAPS_WANTED], 0
-    mov dword [r13 + ClientConn_CAPS_GRANTED], 0
-    mov dword [r13 + ClientConn_NEXT_OBJ], 1
-    mov qword [r13 + ClientConn_ARENA], [rbx + Server_ARENA]
+    mov qword [r13 + ClientConn.server_chan], r15
+    mov qword [r13 + ClientConn.tx_ring], 0
+    mov qword [r13 + ClientConn.rx_ring], 0
+    mov qword [r13 + ClientConn.handle_tx], 0
+    mov qword [r13 + ClientConn.handle_rx], 0
+    mov dword [r13 + ClientConn.caps_wanted], 0
+    mov dword [r13 + ClientConn.caps_granted], 0
+    mov dword [r13 + ClientConn.next_obj], 1
+    mov qword [r13 + ClientConn.arena], [rbx + Server_ARENA]
 
     ; Allocate TX ring buffer
     mov rdi, [rbx + Server_ARENA]
@@ -64,7 +55,7 @@ canvas_connect:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov [r13 + ClientConn_TX_RING], rax
+    mov [r13 + ClientConn.tx_ring], rax
 
     ; Initialize TX ring
     mov qword [rax + RingBuffer_BUFFER], rax
@@ -80,7 +71,7 @@ canvas_connect:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov [r13 + ClientConn_RX_RING], rax
+    mov [r13 + ClientConn.rx_ring], rax
 
     ; Initialize RX ring
     mov qword [rax + RingBuffer_BUFFER], rax
@@ -112,7 +103,7 @@ canvas_connect:
     call arena_alloc
     test rax, rax
     jz .fail
-    mov [r13 + ClientConn_HANDLE_TX], rax
+    mov [r13 + ClientConn.handle_tx], rax
 
     ; Allocate RX handle table
     mov rdi, [rbx + Server_ARENA]
@@ -120,7 +111,7 @@ canvas_connect:
     call arena_alloc
     test rax, rax
     jz .fail
-    mov [r13 + ClientConn_HANDLE_RX], rax
+    mov [r13 + ClientConn.handle_rx], rax
 
     xor rax, rax
     ret
@@ -132,7 +123,7 @@ canvas_connect:
 .send_initial_events:
     ; The first object is always the display; global enumeration is requested
     ; explicitly through DISPLAY_GET_REGISTRY.
-    mov dword [r13 + ClientConn_NEXT_OBJ], OBJECT_ID_DISPLAY + 1
+    mov dword [r13 + ClientConn.next_obj], OBJECT_ID_DISPLAY + 1
     xor eax, eax
     ret
 
@@ -150,23 +141,23 @@ canvas_disconnect:
     call .destroy_objects
 
     ; Free ring buffers
-    mov rax, [rbx + ClientConn_TX_RING]
+    mov rax, [rbx + ClientConn.tx_ring]
     test rax, rax
     jz .tx_done
     ; arena_free would be called here
 .tx_done:
-    mov rax, [rbx + ClientConn_RX_RING]
+    mov rax, [rbx + ClientConn.rx_ring]
     test rax, rax
     jz .rx_done
 .rx_done:
 
     ; Free handle tables
-    mov rax, [rbx + ClientConn_HANDLE_TX]
+    mov rax, [rbx + ClientConn.handle_tx]
     test rax, rax
     jz .tx_ht_done
     ; arena_free
 .tx_ht_done:
-    mov rax, [rbx + ClientConn_HANDLE_RX]
+    mov rax, [rbx + ClientConn.handle_rx]
     test rax, rax
     jz .rx_ht_done
 .rx_ht_done:
@@ -189,7 +180,7 @@ canvas_process_events:
     ASSERT_PTR rbx
 
     ; Read messages from RX ring
-    mov rdi, [rbx + ClientConn_RX_RING]
+    mov rdi, [rbx + ClientConn.rx_ring]
     call wire_read_message
     test rax, rax
     jnz .no_message
