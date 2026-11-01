@@ -9,6 +9,7 @@
 %include "inc/fixed.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
+%include "inc/backend.inc"
 
 extern config_parse
 extern arena_alloc
@@ -26,7 +27,6 @@ extern frame_clock_vblank
 
 section .text
 %define FIX_ONE                0x10000
-%define FrameClock_phase       24
 
 section .text
 
@@ -203,7 +203,7 @@ output_schedule_vblank:
     call ut_timer_register
     test rax, rax
     js .schedule_out
-    mov [rbx + FrameClock_phase], rax
+    mov [rbx + FrameClock.phase], rax
 .schedule_out:
     EPILOGUE_RESTORE rbx
     ret
@@ -213,7 +213,7 @@ output_schedule_vblank:
 
 ; Utkarsha timer callback: rdi=user_data, rsi=fire timestamp.
 output_vblank_timer:
-    mov qword [rdi + FrameClock_phase], 0
+    mov qword [rdi + FrameClock.phase], 0
     jmp frame_clock_vblank
 
 ; ---------------------------------------------------------------------------
@@ -462,11 +462,6 @@ output_mirror:
 
 section .data
 outputs_config_path: db '/conf/canvas/outputs.conf', 0
-
-
-
-
-
 
 global output_version
 output_version: dq 0x010000
