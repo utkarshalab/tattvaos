@@ -12,21 +12,11 @@
 section .text
 
 ; ============================================================================
-; fuzz_target_wire (stub)
+; fuzz_target_objects (stub)
 ; ============================================================================
-global fuzz_target_wire
-fuzz_target_wire:
-    PROLOGUE
-    xor rax, rax
-    ret
-
-; ============================================================================
-; handle_resolve (stub)
-; ============================================================================
-global handle_resolve
-handle_resolve:
-    PROLOGUE
-    xor rax, rax
+global fuzz_target_objects
+fuzz_target_objects:
+    xor eax, eax
     ret
 
 section .data
