@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 extern bc_decode
@@ -32,7 +33,7 @@ texture_copy_32:
     test rax,rax
     jz .bad
     mov rbx,rax
-    mov rdi,[rbx+PixBuf_data]
+    mov rdi,[rbx+PixBuf.data]
     imul r14,r15
 .pixel:
     test r14,r14
