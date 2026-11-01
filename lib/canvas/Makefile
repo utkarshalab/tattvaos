@@ -577,7 +577,8 @@ UNIT_SRCS := \
     tests/unit/test_inflate.asm \
     tests/unit/test_png.asm \
     tests/unit/test_webp.asm \
-    tests/unit/test_vec.asm \n    tests/unit/test_tree.asm
+    tests/unit/test_vec.asm \
+    tests/unit/test_tree.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
 # What the test images link: everything the server links but its entry (server/main)
