@@ -14,6 +14,7 @@
 %include "inc/errors.inc"
 %include "inc/image.inc"
 %include "ufont.inc"
+%include "inc/struct_offsets.inc"
 
 %define HOST_SYS_READ   0
 %define HOST_SYS_WRITE  1
@@ -96,13 +97,13 @@ _start:
     js .write_fail
     mov r14, rax
 
-    mov eax, [rbx + PixBuf_width]
+    mov eax, [rbx + PixBuf.width]
     mov [rel out_header], eax
-    mov eax, [rbx + PixBuf_height]
+    mov eax, [rbx + PixBuf.height]
     mov [rel out_header + 4], eax
-    mov eax, [rbx + PixBuf_stride]
+    mov eax, [rbx + PixBuf.stride]
     mov [rel out_header + 8], eax
-    mov eax, [rbx + PixBuf_format]
+    mov eax, [rbx + PixBuf.format]
     mov [rel out_header + 12], eax
     lea rsi, [rel out_header]
     mov edx, 16
@@ -110,9 +111,9 @@ _start:
     test rax, rax
     js .write_fail
 
-    mov r12, [rbx + PixBuf_data]
-    mov r13, [rbx + PixBuf_height]
-    mov r15, [rbx + PixBuf_width]
+    mov r12, [rbx + PixBuf.data]
+    mov r13, [rbx + PixBuf.height]
+    mov r15, [rbx + PixBuf.width]
     shl r15, 2
 .row:
     test r13, r13
@@ -122,7 +123,7 @@ _start:
     call write_all
     test rax, rax
     js .write_fail
-    add r12, [rbx + PixBuf_stride]
+    add r12, [rbx + PixBuf.stride]
     dec r13
     jmp .row
 
