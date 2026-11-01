@@ -9,13 +9,11 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
 %define LZW_MAX_BITS     12
 %define LZW_TABLE_SIZE   4096
 %define LzwState_SIZE    16384
 
 section .text
-
 
 ; LzwState struct layout (manual offsets to avoid NASM preprocessor issues)
 ; Offsets defined in inc/struct_offsets.inc
