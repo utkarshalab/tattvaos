@@ -3,6 +3,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/backend.inc"
 
 extern backend_flip
 extern handle_resolve
