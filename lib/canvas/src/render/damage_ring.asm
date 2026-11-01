@@ -8,21 +8,15 @@
 %include "inc/errors.inc"
 %include "inc/externs.inc"
 
-; struct offsets (hoisted above use)
 %define DAMAGE_RING_SIZE    64  ; Number of frames to track
-%define DamageRing_buffers  0
-%define DamageRing.buffers 0
-%define DamageRing_regions  8
-%define DamageRing.regions 8
-%define DamageRing_head     16
-%define DamageRing.head 16
-%define DamageRing_count    24
-%define DamageRing.count 24
-%define DamageRing_size     32
+struc DamageRing
+    .buffers:                 resq 1
+    .regions:                 resq 1
+    .head:                    resq 1
+    .count:                   resq 1
+endstruc
 
 section .text
-
-
 
 ; ---------------------------------------------------------------------------
 ; damage_ring_init
@@ -45,7 +39,7 @@ damage_ring_init:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov qword [rbx + DamageRing_buffers], rax
+    mov qword [rbx + DamageRing.buffers], rax
 
     ; Allocate region array
     mov rdi, r12
@@ -54,10 +48,10 @@ damage_ring_init:
     call arena_alloc
     test rax, rax
     jz .oom
-    mov qword [rbx + DamageRing_regions], rax
+    mov qword [rbx + DamageRing.regions], rax
 
-    mov qword [rbx + DamageRing_head], 0
-    mov qword [rbx + DamageRing_count], 0
+    mov qword [rbx + DamageRing.head], 0
+    mov qword [rbx + DamageRing.count], 0
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12
