@@ -21,47 +21,6 @@ extern region_clear
 extern region_copy
 extern region_add_rect
 
-; struct offsets (hoisted above use)
-%define Surface_id            0
-%define Surface.id 0
-%define Surface_role          8
-%define Surface.role 8
-%define Surface_role_data     16
-%define Surface.role_data 16
-%define Surface_output        24
-%define Surface.output 24
-%define Surface_z_order       32
-%define Surface.z_order 32
-%define Surface_client        40
-%define Surface.client 40
-%define Surface_current       48
-%define Surface.current 48
-%define Surface_pending       176
-%define Surface.pending 176
-%define Surface_size          304
-%define SurfaceState_buffer      0
-%define SurfaceState.buffer 0
-%define SurfaceState_buf_x       8
-%define SurfaceState.buf_x 8
-%define SurfaceState_buf_y       12
-%define SurfaceState.buf_y 12
-%define SurfaceState_damage      16
-%define SurfaceState.damage 16
-%define SurfaceState_opaque      24
-%define SurfaceState.opaque 24
-%define SurfaceState_input       32
-%define SurfaceState.input 32
-%define SurfaceState_transform   40
-%define SurfaceState.transform 40
-%define SurfaceState_scale       44
-%define SurfaceState.scale 44
-%define SurfaceState_subsurfaces 52
-%define SurfaceState.subsurfaces 52
-%define SurfaceState_frame_cbs   60
-%define SurfaceState.frame_cbs 60
-%define SurfaceState_pending     68
-%define SurfaceState.pending 68
-%define SurfaceState_size        72
 %define SURFACE_ROLE_NONE      0
 %define SURFACE_ROLE_TOPLEVEL  1
 %define SURFACE_ROLE_POPUP     2
@@ -551,9 +510,6 @@ surface_frame_callback:
     ret
 
 section .data
-
-
-
 
 global surface_version
 surface_version: dq 0x010000
