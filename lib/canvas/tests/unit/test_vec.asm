@@ -11,6 +11,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
 
 extern vec_init
 extern vec_push
@@ -29,10 +30,6 @@ extern list_count
 extern list_empty
 extern arena_init
 
-%define L_HEAD      0                   ; List / ListNode fields
-%define L_TAIL      8
-%define N_PREV      0
-%define N_NEXT      8
 
 section .text
 
@@ -273,18 +270,18 @@ tl_order:
     lea rsi, [rel node_c]
     call list_push_front
     lea rcx, [rel node_c]
-    cmp [rel list + L_HEAD], rcx
+    cmp [rel list + List.head], rcx
     FAIL_IF ne
     lea rcx, [rel node_a]
-    cmp [rel node_c + N_NEXT], rcx
+    cmp [rel node_c + ListNode.next], rcx
     FAIL_IF ne
     lea rcx, [rel node_b]
-    cmp [rel node_a + N_NEXT], rcx
+    cmp [rel node_a + ListNode.next], rcx
     FAIL_IF ne
-    cmp [rel list + L_TAIL], rcx
+    cmp [rel list + List.tail], rcx
     FAIL_IF ne
     lea rcx, [rel node_a]
-    cmp [rel node_b + N_PREV], rcx
+    cmp [rel node_b + ListNode.prev], rcx
     FAIL_IF ne
     lea rdi, [rel list]
     call list_count
@@ -297,20 +294,20 @@ tl_cleared_whole:
     sub rsp, 8
     call fresh_list
     mov rax, -1
-    mov [rel node_a + N_PREV], rax
-    mov [rel node_a + N_NEXT], rax
+    mov [rel node_a + ListNode.prev], rax
+    mov [rel node_a + ListNode.next], rax
     lea rdi, [rel list]
     lea rsi, [rel node_a]
     call list_push_back
-    cmp qword [rel node_a + N_PREV], 0
+    cmp qword [rel node_a + ListNode.prev], 0
     FAIL_IF ne
-    cmp qword [rel node_a + N_NEXT], 0
+    cmp qword [rel node_a + ListNode.next], 0
     FAIL_IF ne
     lea rdi, [rel list]
     call list_pop_front
-    cmp qword [rel list + L_HEAD], 0
+    cmp qword [rel list + List.head], 0
     FAIL_IF ne
-    cmp qword [rel list + L_TAIL], 0
+    cmp qword [rel list + List.tail], 0
     FAIL_IF ne
     PASS
 
@@ -323,18 +320,18 @@ tl_remove:
     lea rsi, [rel node_b]
     call list_remove
     lea rcx, [rel node_c]
-    cmp [rel node_a + N_NEXT], rcx
+    cmp [rel node_a + ListNode.next], rcx
     FAIL_IF ne
     lea rcx, [rel node_a]
-    cmp [rel node_c + N_PREV], rcx
+    cmp [rel node_c + ListNode.prev], rcx
     FAIL_IF ne
     lea rdi, [rel list]
     lea rsi, [rel node_a]
     call list_remove
     lea rcx, [rel node_c]
-    cmp [rel list + L_HEAD], rcx
+    cmp [rel list + List.head], rcx
     FAIL_IF ne
-    cmp qword [rel node_c + N_PREV], 0
+    cmp qword [rel node_c + ListNode.prev], 0
     FAIL_IF ne
     lea rdi, [rel list]
     lea rsi, [rel node_c]
@@ -343,9 +340,9 @@ tl_remove:
     call list_empty
     cmp rax, 1
     FAIL_IF ne
-    cmp qword [rel list + L_HEAD], 0
+    cmp qword [rel list + List.head], 0
     FAIL_IF ne
-    cmp qword [rel list + L_TAIL], 0
+    cmp qword [rel list + List.tail], 0
     FAIL_IF ne
     PASS
 
@@ -406,6 +403,6 @@ vec:        resq 5
 elem:       resq 1
 out:        resq 1
 list:       resq 3
-node_a:     resq 2
-node_b:     resq 2
-node_c:     resq 2
+node_a:     resb ListNode_size
+node_b:     resb ListNode_size
+node_c:     resb ListNode_size
