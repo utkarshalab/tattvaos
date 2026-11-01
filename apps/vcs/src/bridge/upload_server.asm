@@ -18,6 +18,7 @@ extern vcs_sync_unet_send,vcs_sync_unet_receive
 %define GIT_SERVER_RESPOND      5
 %define GIT_SERVER_DONE         6
 %define GIT_NEGOTIATION_ROUNDS 64
+%define GIT_EXTRA_PARAMETERS   16
 ; Holds command headers, one want, 64 SHA-256 haves, done, and pkt framing.
 %define GIT_REQUEST_CAP         8192
 %define GIT_RESPONSE_CAP        (VCS_WIRE_MAX_PAYLOAD+128)
@@ -292,6 +293,7 @@ git_upload_server_step:
  inc rdi
  sub rsi,upload_service_len+1
  xor r8d,r8d                    ; exact version=2 seen
+ xor r9d,r9d                    ; bounded extra-parameter count
  ; The optional host parameter is the only token before the empty separator.
  cmp rsi,host_parameter_len
  jb .bad_service
@@ -350,6 +352,9 @@ git_upload_server_step:
  jz .bad_service
  cmp r11,255
  ja .bad_service
+ cmp r9b,GIT_EXTRA_PARAMETERS
+ jae .bad_service
+ inc r9b
  cmp r11,version_parameter_len
  jne .next_extra
  xor eax,eax
