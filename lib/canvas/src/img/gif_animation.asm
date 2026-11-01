@@ -6,6 +6,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern arena_alloc
 extern memcopy
@@ -124,11 +125,11 @@ gif_decode_animation:
     test rax, rax
     jle .fail
     mov [rsp + 56], rax             ; working canvas
-    mov rdi, [rax + PixBuf_data]
+    mov rdi, [rax + PixBuf.data]
     mov esi, [rsp + 92]
     mov edx, [r15 + GifAnimation.width]
     mov ecx, [r15 + GifAnimation.height]
-    mov r8, [rax + PixBuf_stride]
+    mov r8, [rax + PixBuf.stride]
     call fill_solid
     mov qword [rsp + 48], 0         ; pending GCE pointer
     mov qword [rsp + 64], 0         ; saved pre-frame canvas
