@@ -10,8 +10,6 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define Scheduler_SIZE    40
 %define SCHED_DEFAULT_QUANTUM   32  ; messages per turn
 
 section .text
@@ -23,7 +21,6 @@ struc Scheduler
     .served:         resq 1
     .starved:        resq 1
 endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; scheduler_init
