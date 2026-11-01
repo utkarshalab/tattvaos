@@ -16,8 +16,7 @@ section .text
 ; ============================================================================
 global test_record_replay_main
 test_record_replay_main:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -25,8 +24,7 @@ test_record_replay_main:
 ; ============================================================================
 global test_record_inactive_by_default
 test_record_inactive_by_default:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -34,8 +32,7 @@ test_record_inactive_by_default:
 ; ============================================================================
 global test_stats_offsets
 test_stats_offsets:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 ; ============================================================================
@@ -43,8 +40,7 @@ test_stats_offsets:
 ; ============================================================================
 global test_metrics_offsets
 test_metrics_offsets:
-    PROLOGUE
-    xor rax, rax
+    xor eax, eax
     ret
 
 section .data
