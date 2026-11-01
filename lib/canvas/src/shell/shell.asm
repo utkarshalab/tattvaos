@@ -6,6 +6,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/shell.inc"
+%include "inc/backend.inc"
 
 extern layer_destroy
 extern policy_init
@@ -36,26 +37,26 @@ shell_create:
     ASSERT_PTR r13
     ASSERT_PTR r14
 
-    mov qword [rbx + SHELL_SERVER], r12
-    mov qword [rbx + SHELL_SEAT], r13
-    mov qword [rbx + SHELL_ARENA], r14
-    mov qword [rbx + SHELL_TOPLEVELS], 0
-    mov qword [rbx + SHELL_POPUPS], 0
-    mov qword [rbx + SHELL_LAYERS], 0
-    mov qword [rbx + SHELL_WORKSPACES], 0
-    mov qword [rbx + SHELL_ACTIVE_WS], 0
-    mov dword [rbx + SHELL_WORKSPACE_COUNT], 0
-    mov qword [rbx + SHELL_CONFIGURE_LIST], 0
-    mov dword [rbx + SHELL_CONFIGURE_COUNT], 0
-    mov qword [rbx + SHELL_POLICY], 0
-    mov qword [rbx + SHELL_THEME], 0
+    mov qword [rbx + Shell.server], r12
+    mov qword [rbx + Shell.seat], r13
+    mov qword [rbx + Shell.arena], r14
+    mov qword [rbx + Shell.toplevels], 0
+    mov qword [rbx + Shell.popups], 0
+    mov qword [rbx + Shell.layers], 0
+    mov qword [rbx + Shell.workspaces], 0
+    mov qword [rbx + Shell.active_ws], 0
+    mov dword [rbx + Shell.workspace_count], 0
+    mov qword [rbx + Shell.configure_list], 0
+    mov dword [rbx + Shell.configure_count], 0
+    mov qword [rbx + Shell.policy], 0
+    mov qword [rbx + Shell.theme], 0
 
     ; Create default workspaces
     call .create_default_workspaces
 
     ; Initialize default policy (floating)
     call policy_init
-    mov qword [rbx + SHELL_POLICY], rax
+    mov qword [rbx + Shell.policy], rax
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
@@ -63,8 +64,8 @@ shell_create:
 
 .create_default_workspaces:
     ; Create workspace for each output
-    mov r12, [rbx + SHELL_SERVER]
-    mov r12, [r12 + SERVER_OUTPUTS]
+    mov r12, [rbx + Shell.server]
+    mov r12, [r12 + Server.outputs]
 .ws_loop:
     test r12, r12
     jz .done
@@ -74,7 +75,7 @@ shell_create:
     mov rdx, r12
     call workspace_create
 
-    mov r12, [r12 + OUTPUT_NEXT]
+    mov r12, [r12 + Output.next]
     jmp .ws_loop
 
 .done:
@@ -91,55 +92,55 @@ shell_destroy:
     ASSERT_PTR rbx
 
     ; Destroy all toplevels
-    mov rax, [rbx + SHELL_TOPLEVELS]
+    mov rax, [rbx + Shell.toplevels]
 .toplevel_loop:
     test rax, rax
     jz .toplevels_done
     push rax
     call toplevel_destroy
     pop rax
-    mov rax, [rax + TOPLEVEL_NEXT_WS]
+    mov rax, [rax + Toplevel.next_ws]
     jmp .toplevel_loop
 
 .toplevels_done:
     ; Destroy all popups
-    mov rax, [rbx + SHELL_POPUPS]
+    mov rax, [rbx + Shell.popups]
 .popup_loop:
     test rax, rax
     jz .popups_done
     push rax
     call popup_destroy
     pop rax
-    mov rax, [rax + POPUP_NEXT]
+    mov rax, [rax + Popup.next]
     jmp .popup_loop
 
 .popups_done:
     ; Destroy all layers
-    mov rax, [rbx + SHELL_LAYERS]
+    mov rax, [rbx + Shell.layers]
 .layer_loop:
     test rax, rax
     jz .layers_done
     push rax
     call layer_destroy
     pop rax
-    mov rax, [rax + LAYER_NEXT]
+    mov rax, [rax + Layer.next]
     jmp .layer_loop
 
 .layers_done:
     ; Destroy workspaces
-    mov rax, [rbx + SHELL_WORKSPACES]
+    mov rax, [rbx + Shell.workspaces]
 .ws_loop:
     test rax, rax
     jz .workspaces_done
     push rax
     call workspace_destroy
     pop rax
-    mov rax, [rax + WORKSPACE_NEXT]
+    mov rax, [rax + Workspace.next]
     jmp .ws_loop
 
 .workspaces_done:
     ; Destroy policy
-    mov rax, [rbx + SHELL_POLICY]
+    mov rax, [rbx + Shell.policy]
     test rax, rax
     jz .done
     ; policy_destroy would be called here
@@ -162,16 +163,16 @@ shell_get_toplevel_at:
     ASSERT_PTR rbx
 
     ; Iterate toplevels from top to bottom (Z-order)
-    mov rax, [rbx + SHELL_TOPLEVELS]
+    mov rax, [rbx + Shell.toplevels]
 .tl_loop:
     test rax, rax
     jz .not_found
 
     ; Check if point is within toplevel
-    mov r14d, [rax + TOPLEVEL_X]
-    mov r15d, [rax + TOPLEVEL_Y]
-    mov r14d, [rax + TOPLEVEL_WIDTH]
-    mov r15d, [rax + TOPLEVEL_HEIGHT]
+    mov r14d, [rax + Toplevel.x]
+    mov r15d, [rax + Toplevel.y]
+    mov r14d, [rax + Toplevel.width]
+    mov r15d, [rax + Toplevel.height]
 
     ; Check bounds
     cmp r12d, r14d
@@ -187,7 +188,7 @@ shell_get_toplevel_at:
     jmp .found
 
 .next_tl:
-    mov rax, [rax + TOPLEVEL_NEXT_WS]
+    mov rax, [rax + Toplevel.next_ws]
     jmp .tl_loop
 
 .found:
@@ -211,18 +212,18 @@ shell_focus_toplevel:
     ASSERT_PTR rbx
 
     ; Update focus
-    mov rax, [rbx + SHELL_SEAT]
+    mov rax, [rbx + Shell.seat]
     mov rdi, rax
     mov rsi, r12
     call seat_set_focus
 
     ; Call policy focus change
-    mov rax, [rbx + SHELL_POLICY]
+    mov rax, [rbx + Shell.policy]
     test rax, rax
     jz .done
     mov rdi, rax
     mov rsi, r12
-    call qword [rax + POLICY_FOCUS_CHANGE]
+    call qword [rax + Policy.focus_change]
 
 .done:
     xor rax, rax
@@ -236,8 +237,8 @@ shell_focus_toplevel:
 global shell_get_active_toplevel
 shell_get_active_toplevel:
     PROLOGUE
-    mov rax, [rdi + SHELL_SEAT]
-    mov rax, [rax + SEAT_FOCUS]
+    mov rax, [rdi + Shell.seat]
+    mov rax, [rax + Seat.focus]
     leave
     ret
 
@@ -264,7 +265,7 @@ shell_new_toplevel:
     jnz .fail
 
     ; Add to workspace
-    mov rax, [rbx + SHELL_ACTIVE_WS]
+    mov rax, [rbx + Shell.active_ws]
     test rax, rax
     jz .fail
     mov rdi, rax
@@ -272,12 +273,12 @@ shell_new_toplevel:
     call workspace_add_toplevel
 
     ; Call policy new window
-    mov rax, [rbx + SHELL_POLICY]
+    mov rax, [rbx + Shell.policy]
     test rax, rax
     jz .done
     mov rdi, rax
     mov rsi, rax
-    call qword [rax + POLICY_NEW_WINDOW]
+    call qword [rax + Policy.new_window]
 
 .done:
     xor rax, rax
@@ -301,11 +302,11 @@ shell_close_toplevel:
     ASSERT_PTR r12
 
     ; Call policy close
-    mov rax, [rbx + SHELL_POLICY]
+    mov rax, [rbx + Shell.policy]
     test rax, rax
     jz .direct
     mov rdi, rax
-    call qword [rax + POLICY_CLOSE_WINDOW]
+    call qword [rax + Policy.close_window]
 
 .direct:
     call toplevel_destroy
@@ -325,20 +326,20 @@ shell_maximize_toplevel:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov eax, [r12 + TOPLEVEL_STATE]
+    mov eax, [r12 + Toplevel.state]
     test eax, TOPLEVEL_STATE_MAXIMIZED
     jz .do_maximize
 
     ; Restore
-    mov eax, [r12 + TOPLEVEL_STATE]
+    mov eax, [r12 + Toplevel.state]
     and eax, ~TOPLEVEL_STATE_MAXIMIZED
-    mov dword [r12 + TOPLEVEL_PENDING_STATE], eax
+    mov dword [r12 + Toplevel.pending_state], eax
     jmp .schedule
 
 .do_maximize:
-    mov eax, [r12 + TOPLEVEL_STATE]
+    mov eax, [r12 + Toplevel.state]
     or eax, TOPLEVEL_STATE_MAXIMIZED
-    mov dword [r12 + TOPLEVEL_PENDING_STATE], eax
+    mov dword [r12 + Toplevel.pending_state], eax
 
 .schedule:
     call toplevel_schedule_configure
@@ -358,20 +359,20 @@ shell_fullscreen_toplevel:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov eax, [r12 + TOPLEVEL_STATE]
+    mov eax, [r12 + Toplevel.state]
     test eax, TOPLEVEL_STATE_FULLSCREEN
     jz .do_fullscreen
 
     ; Exit fullscreen
-    mov eax, [r12 + TOPLEVEL_STATE]
+    mov eax, [r12 + Toplevel.state]
     and eax, ~TOPLEVEL_STATE_FULLSCREEN
-    mov dword [r12 + TOPLEVEL_PENDING_STATE], eax
+    mov dword [r12 + Toplevel.pending_state], eax
     jmp .schedule
 
 .do_fullscreen:
-    mov eax, [r12 + TOPLEVEL_STATE]
+    mov eax, [r12 + Toplevel.state]
     or eax, TOPLEVEL_STATE_FULLSCREEN
-    mov dword [r12 + TOPLEVEL_PENDING_STATE], eax
+    mov dword [r12 + Toplevel.pending_state], eax
 
 .schedule:
     call toplevel_schedule_configure
@@ -394,7 +395,7 @@ shell_set_policy:
     ASSERT_PTR r13
 
     ; Destroy old policy
-    mov rax, [rbx + SHELL_POLICY]
+    mov rax, [rbx + Shell.policy]
     test rax, rax
     jz .create_new
     ; policy_destroy would go here
@@ -405,7 +406,7 @@ shell_set_policy:
     mov rdx, r13
     mov rcx, r14
     call policy_init
-    mov [rbx + SHELL_POLICY], rax
+    mov [rbx + Shell.policy], rax
 
     xor rax, rax
     leave
@@ -418,7 +419,7 @@ shell_set_policy:
 global shell_get_toplevels
 shell_get_toplevels:
     PROLOGUE
-    mov rax, [rdi + SHELL_TOPLEVELS]
+    mov rax, [rdi + Shell.toplevels]
     leave
     ret
 
@@ -429,7 +430,7 @@ shell_get_toplevels:
 global shell_get_popups
 shell_get_popups:
     PROLOGUE
-    mov rax, [rdi + SHELL_POPUPS]
+    mov rax, [rdi + Shell.popups]
     leave
     ret
 
@@ -440,7 +441,7 @@ shell_get_popups:
 global shell_get_layers
 shell_get_layers:
     PROLOGUE
-    mov rax, [rdi + SHELL_LAYERS]
+    mov rax, [rdi + Shell.layers]
     leave
     ret
 
@@ -451,7 +452,7 @@ shell_get_layers:
 global shell_get_outputs
 shell_get_outputs:
     PROLOGUE
-    mov rax, [rdi + SHELL_OUTPUTS]
+    mov rax, [rdi + Shell.outputs]
     leave
     ret
 
