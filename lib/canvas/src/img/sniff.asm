@@ -341,6 +341,8 @@ image_sniff_not_farbfeld:
     cmp eax,2
     jne .not_ico
 .is_ico:
+    cmp word [rdi+4],0                 ; no images: a TGA can start 00 00 02 00
+    je .not_ico
     mov rax,IMAGE_FMT_ICO
     leave
     ret
