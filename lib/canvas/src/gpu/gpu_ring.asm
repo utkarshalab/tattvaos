@@ -7,29 +7,13 @@
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 %include "inc/canvas_client.inc"
+%include "inc/gpu_ring.inc"
 
 extern arena_alloc
 extern memcopy
 extern gpu_fence_signal_irq
 
-; struct offsets (hoisted above use)
-%define GpuRing_SIZE 64
-%define GPU_RING_DEFAULT_DW   4096  ; 16KB
-
 section .text
-
-struc GpuRing
-    .gpu:           resq 1
-    .type:          resd 1
-    .buf_cpu:       resq 1
-    .buf_dma:       resq 1
-    .size_dw:       resd 1
-    .wptr:          resd 1
-    .rptr_shadow:   resd 1
-    .doorbell:      resq 1
-    .fence_next:    resq 1
-endstruc
-
 
 ; ---------------------------------------------------------------------------
 ; gpu_ring_init
@@ -88,12 +72,15 @@ gpu_ring_init:
 
 ; ---------------------------------------------------------------------------
 ; gpu_ring_write
-;   Append dwords to ring (no wrap check beyond capacity)
+;   Append dwords to the ring at wptr, wrapping at the end (the caller keeps
+;   the unread part smaller than the ring)
 ;   IN: rdi = ring*, rsi = dwords*, rdx = count
+;   OUT: rax = 0, or -ENOSPC when count is larger than the ring
 ; ---------------------------------------------------------------------------
 global gpu_ring_write
 gpu_ring_write:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8                          ; 16-byte aligned at the calls
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -105,45 +92,33 @@ gpu_ring_write:
     ja .full
 .write:
     test r13, r13
-    jz .done
-    mov ecx, [rbx + GpuRing.size_dw]
-    sub ecx, r14d
-    cmp r13, rcx
-    jbe .contig
-    ; split write (wrap)
+    jz .store
+    mov r15d, [rbx + GpuRing.size_dw]
+    sub r15d, r14d                      ; room before the end
+    cmp r13, r15
+    cmovb r15, r13                      ; this piece
     mov rdi, [rbx + GpuRing.buf_cpu]
     lea rdi, [rdi + r14 * 4]
     mov rsi, r12
-    mov rdx, rcx
-    shl rdx, 2
+    lea rdx, [r15 * 4]
     call memcopy
-    shl rcx, 2
-    add r12, rcx
-    sub r13, rcx
-    shr rcx, 2
-    xor r14d, r14d
+    lea r12, [r12 + r15 * 4]
+    sub r13, r15
+    add r14d, r15d
+    cmp r14d, [rbx + GpuRing.size_dw]
+    jb .write
+    xor r14d, r14d                      ; wrapped
     jmp .write
-.contig:
-    mov rdi, [rbx + GpuRing.buf_cpu]
-    lea rdi, [rdi + r14 * 4]
-    mov rsi, r12
-    mov rdx, r13
-    shl rdx, 2
-    call memcopy
-    add r14d, r13d
-    mov eax, [rbx + GpuRing.size_dw]
-    cmp r14d, eax
-    jb .store
-    xor r14d, r14d
 .store:
     mov [rbx + GpuRing.wptr], r14d
-.done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .full:
     mov rax, -(ENOSPC)
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
