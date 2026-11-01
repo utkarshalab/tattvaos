@@ -105,7 +105,8 @@ vcs_checkout:
  jnz .corrupt
  mov r14,r12
  imul r14,240
- lea rdi,[checkout_paths+r14]
+ lea rdi,[checkout_paths]
+ add rdi,r14
  call uxv_find
  test rax,rax
  jz .parent
@@ -211,7 +212,8 @@ vcs_checkout:
  mov r14,r12
  imul r14,240
  mov rdi,rbx
- lea rsi,[checkout_paths+r14]
+ lea rsi,[checkout_paths]
+ add rsi,r14
  mov ecx,240
  rep movsb
  mov qword [rbx+UV_TYPE],1
@@ -267,7 +269,8 @@ vcs_checkout:
  mov qword [rbx+UV_TYPE],1
  xor ecx,ecx
 .active_length:
- cmp byte [active_name+rcx],0
+ lea rax,[active_name]
+ cmp byte [rax+rcx],0
  je .active_length_done
  inc ecx
  jmp .active_length
@@ -333,7 +336,8 @@ build_path:
 .root_length:
  cmp rax,239
  ja .bad
- lea rdi,[checkout_paths+r8]
+ lea rdi,[checkout_paths]
+ add rdi,r8
  xor eax,eax
  mov ecx,30
  rep stosq
@@ -343,7 +347,8 @@ build_path:
  xor ecx,ecx
 .copy_root:
  lea rsi,[vcs_repo_root]
- lea rdi,[checkout_paths+r8]
+ lea rdi,[checkout_paths]
+ add rdi,r8
  rep movsb
  mov byte [rdi],'/'
  inc rdi
@@ -384,7 +389,8 @@ build_active_path:
 ; rdi target index; parent must already be a directory.
 parent_exists:
  imul rdi,240
- lea rsi,[checkout_paths+rdi]
+ lea rsi,[checkout_paths]
+ add rsi,rdi
  lea rdi,[parent_path]
  mov ecx,240
  rep movsb
