@@ -313,6 +313,25 @@ ut_wait_yield:
     ret
 
 ; ---------------------------------------------------------------------------
+; Services the host does not have: linked by modules a suite pulls in, and
+; failing with -EINVAL if a test ever reaches them
+; ---------------------------------------------------------------------------
+%macro HOST_NONE 1
+global %1
+%1:
+    mov rax, -(EINVAL)
+    ret
+%endmacro
+
+HOST_NONE ut_tls_listen
+HOST_NONE ut_tls_accept
+HOST_NONE ut_tls_connect
+HOST_NONE ut_tls_read
+HOST_NONE ut_tls_write
+HOST_NONE ut_tls_close
+HOST_NONE ut_tls_peer_cert
+
+; ---------------------------------------------------------------------------
 ; ut_time_now_ns
 ;   OUT: rax = monotonic nanoseconds
 ; ---------------------------------------------------------------------------
