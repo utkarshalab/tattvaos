@@ -5,23 +5,14 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
 
 extern jpeg_bits_get
 
-; struct offsets (hoisted above use)
-%define HuffTable_SIZE 1556
-
 section .text
 
-struc HuffTable
-    .counts:        resb 16
-    .symbols:       resb 256
-    .max_syms:      resd 1
-    .codes:         resd 256
-    .sizes:         resb 256
-endstruc
-%if HuffTable_size != HuffTable_SIZE
-    %error "HuffTable_SIZE does not match the structure layout"
+%if HuffTable_size != HuffTable_size
+    %error "HuffTable_size does not match the structure layout"
 %endif
 
 ; ---------------------------------------------------------------------------
