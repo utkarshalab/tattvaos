@@ -18,9 +18,10 @@
 
 extern arena_alloc
 
-%define Bitset_words    0               ; u64* words
-%define Bitset_count    8               ; u64 bits
-%define Bitset_size     16
+struc Bitset
+    .words:                   resq 1
+    .count:                   resq 1
+endstruc
 
 section .text
 
@@ -48,8 +49,8 @@ bitset_init:
     pop rcx
     test rax, rax
     jz .oom
-    mov [rbx + Bitset_words], rax
-    mov [rbx + Bitset_count], r12
+    mov [rbx + Bitset.words], rax
+    mov [rbx + Bitset.count], r12
     mov rdi, rax
     shr rcx, 3
     xor eax, eax
@@ -69,12 +70,12 @@ bitset_init:
 ; the bit operations: rdi = Bitset*, rsi = index -> rcx = its word's address,
 ; rsi = its bit; jae %1 when the index is out of range
 %macro BIT_ADDRESS 1
-    cmp rsi, [rdi + Bitset_count]
+    cmp rsi, [rdi + Bitset.count]
     jae %1
     mov rcx, rsi
     shr rcx, 6
     shl rcx, 3
-    add rcx, [rdi + Bitset_words]
+    add rcx, [rdi + Bitset.words]
     and esi, 63
 %endmacro
 
@@ -124,8 +125,8 @@ bitset_test:
 ; ---------------------------------------------------------------------------
 global bitset_count
 bitset_count:
-    mov rsi, [rdi + Bitset_words]
-    mov rcx, [rdi + Bitset_count]
+    mov rsi, [rdi + Bitset.words]
+    mov rcx, [rdi + Bitset.count]
     add rcx, 63
     shr rcx, 6
     xor eax, eax
@@ -145,8 +146,8 @@ bitset_count:
 ; ---------------------------------------------------------------------------
 global bitset_find_first
 bitset_find_first:
-    mov rsi, [rdi + Bitset_words]
-    mov rcx, [rdi + Bitset_count]
+    mov rsi, [rdi + Bitset.words]
+    mov rcx, [rdi + Bitset.count]
     add rcx, 63
     shr rcx, 6
     xor eax, eax                        ; the word's first bit
@@ -171,10 +172,10 @@ bitset_find_first:
 ; ---------------------------------------------------------------------------
 global bitset_clear_all
 bitset_clear_all:
-    mov rcx, [rdi + Bitset_count]
+    mov rcx, [rdi + Bitset.count]
     add rcx, 63
     shr rcx, 6
-    mov rdi, [rdi + Bitset_words]
+    mov rdi, [rdi + Bitset.words]
     xor eax, eax
     rep stosq
     xor eax, eax
