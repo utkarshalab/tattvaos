@@ -7,16 +7,12 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 
-; struct offsets (hoisted above use)
-%define Dispatch_table    0
-%define Dispatch.table 0
-%define Dispatch_count    8
-%define Dispatch.count 8
-%define Dispatch_capacity 16
-%define Dispatch.capacity 16
-%define Dispatch_arena    24
-%define Dispatch.arena 24
-%define Dispatch_size     32
+struc Dispatch
+    .table:                   resq 1
+    .count:                   resq 1
+    .capacity:                resq 1
+    .arena:                   resq 1
+endstruc
 
 section .text
 
@@ -194,7 +190,6 @@ dispatch_call:
     ret
 
 section .data
-
 
 global dispatch_version
 dispatch_version: dq 0x010000
