@@ -956,8 +956,9 @@ tiff_decode:
     jmp .return
 
 ; Resolve one SHORT/LONG array element.
+; (called, so its locals sit 8 bytes above rsp)
 .array_value:
-    cmp dword [rsp+L_NSTRIPS],1
+    cmp dword [rsp+8+L_NSTRIPS],1
     jne .indirect
     test edx,edx
     jnz .array_bad
@@ -966,7 +967,7 @@ tiff_decode:
     cmp esi,3
     jne .array_bad
     mov rax,rdi
-    cmp dword [rsp+L_BE],0
+    cmp dword [rsp+8+L_BE],0
     je .array_inline_short_le
     shr rax,16
     clc
@@ -989,7 +990,7 @@ tiff_decode:
     ja .array_bad
     lea rdi,[rdi+rdx*4]
     add rdi,r12
-    mov esi,[rsp+L_BE]
+    mov esi,[rsp+8+L_BE]
     call tiff_read_u32
     clc
     ret
@@ -999,7 +1000,7 @@ tiff_decode:
     ja .array_bad
     lea rdi,[rdi+rdx*2]
     add rdi,r12
-    mov esi,[rsp+L_BE]
+    mov esi,[rsp+8+L_BE]
     call tiff_read_u16
     clc
     ret
@@ -1007,19 +1008,20 @@ tiff_decode:
     stc
     ret
 
+; Rotate / flip the raster into the output (called: locals 8 bytes above rsp)
 .compose:
-    mov rsi,[rsp+L_RASTER]
+    mov rsi,[rsp+8+L_RASTER]
     xor r10d,r10d
 .cy:
-    cmp r10d,[rsp+L_H]
+    cmp r10d,[rsp+8+L_H]
     jae .composed
     xor r11d,r11d
 .cx:
-    cmp r11d,[rsp+L_W]
+    cmp r11d,[rsp+8+L_W]
     jae .next_y
     mov eax,r11d
     mov ecx,r10d
-    mov edx,[rsp+L_ORIENT]
+    mov edx,[rsp+8+L_ORIENT]
     cmp edx,2
     je .o2
     cmp edx,3
@@ -1036,20 +1038,20 @@ tiff_decode:
     je .o8
     jmp .mapped
 .o2:
-    mov eax,[rsp+L_W]
+    mov eax,[rsp+8+L_W]
     dec eax
     sub eax,r11d
     jmp .mapped
 .o3:
-    mov eax,[rsp+L_W]
+    mov eax,[rsp+8+L_W]
     dec eax
     sub eax,r11d
-    mov ecx,[rsp+L_H]
+    mov ecx,[rsp+8+L_H]
     dec ecx
     sub ecx,r10d
     jmp .mapped
 .o4:
-    mov ecx,[rsp+L_H]
+    mov ecx,[rsp+8+L_H]
     dec ecx
     sub ecx,r10d
     jmp .mapped
@@ -1058,39 +1060,39 @@ tiff_decode:
     mov ecx,r11d
     jmp .mapped
 .o6:
-    mov eax,[rsp+L_H]
+    mov eax,[rsp+8+L_H]
     dec eax
     sub eax,r10d
     mov ecx,r11d
     jmp .mapped
 .o7:
-    mov eax,[rsp+L_H]
+    mov eax,[rsp+8+L_H]
     dec eax
     sub eax,r10d
-    mov ecx,[rsp+L_W]
+    mov ecx,[rsp+8+L_W]
     dec ecx
     sub ecx,r11d
     jmp .mapped
 .o8:
     mov eax,r10d
-    mov ecx,[rsp+L_W]
+    mov ecx,[rsp+8+L_W]
     dec ecx
     sub ecx,r11d
 .mapped:
-    imul ecx,[rsp+L_OUTW]
+    imul ecx,[rsp+8+L_OUTW]
     add ecx,eax
     shl rcx,2
     add rcx,[rbx+PixBuf.data]
-    cmp dword [rsp+L_PLANAR],2
+    cmp dword [rsp+8+L_PLANAR],2
     je .planar_pixel
-    cmp dword [rsp+L_BITS],8
+    cmp dword [rsp+8+L_BITS],8
     jb .packed_pixel
-    cmp dword [rsp+L_BITS],16
+    cmp dword [rsp+8+L_BITS],16
     je .pixel16
-    cmp dword [rsp+L_SAMPLES],1
+    cmp dword [rsp+8+L_SAMPLES],1
     jne .rgb
     mov al,[rsi]
-    cmp dword [rsp+L_PHOTO],0
+    cmp dword [rsp+8+L_PHOTO],0
     jne .gray_ready
     not al
 .gray_ready:
@@ -1108,7 +1110,7 @@ tiff_decode:
     mov al,[rsi]
     mov [rcx+2],al
     mov byte [rcx+3],255
-    cmp dword [rsp+L_SAMPLES],4
+    cmp dword [rsp+8+L_SAMPLES],4
     jne .rgb3
     mov al,[rsi+3]
     mov [rcx+3],al
@@ -1118,14 +1120,14 @@ tiff_decode:
     add rsi,3
     jmp .pixel_done
 .pixel16:
-    cmp dword [rsp+L_SAMPLES],1
+    cmp dword [rsp+8+L_SAMPLES],1
     jne .rgb16
     mov al,[rsi]
-    cmp dword [rsp+L_BE],0
+    cmp dword [rsp+8+L_BE],0
     jne .gray16_value
     mov al,[rsi+1]
 .gray16_value:
-    cmp dword [rsp+L_PHOTO],0
+    cmp dword [rsp+8+L_PHOTO],0
     jne .gray16_ready
     not al
 .gray16_ready:
@@ -1136,7 +1138,7 @@ tiff_decode:
     add rsi,2
     jmp .pixel_done
 .rgb16:
-    cmp dword [rsp+L_BE],0
+    cmp dword [rsp+8+L_BE],0
     je .rgb16_le
     mov al,[rsi+4]
     mov [rcx],al
@@ -1145,7 +1147,7 @@ tiff_decode:
     mov al,[rsi]
     mov [rcx+2],al
     mov byte [rcx+3],255
-    cmp dword [rsp+L_SAMPLES],4
+    cmp dword [rsp+8+L_SAMPLES],4
     jne .rgb16_3
     mov al,[rsi+6]
     mov [rcx+3],al
@@ -1159,7 +1161,7 @@ tiff_decode:
     mov al,[rsi+1]
     mov [rcx+2],al
     mov byte [rcx+3],255
-    cmp dword [rsp+L_SAMPLES],4
+    cmp dword [rsp+8+L_SAMPLES],4
     jne .rgb16_3
     mov al,[rsi+7]
     mov [rcx+3],al
@@ -1170,22 +1172,22 @@ tiff_decode:
     jmp .pixel_done
 .packed_pixel:
     mov eax,r10d
-    imul eax,[rsp+L_ROWBYTES]
+    imul eax,[rsp+8+L_ROWBYTES]
     mov edx,r11d
-    imul edx,[rsp+L_BITS]
+    imul edx,[rsp+8+L_BITS]
     mov edi,edx
     shr edx,3
     add eax,edx
-    mov rdx,[rsp+L_RASTER]
+    mov rdx,[rsp+8+L_RASTER]
     movzx eax,byte [rdx+rax]
     and edi,7
     mov edx,8
-    sub edx,[rsp+L_BITS]
+    sub edx,[rsp+8+L_BITS]
     sub edx,edi
     mov ecx,edx
     shr eax,cl
     mov edx,1
-    mov ecx,[rsp+L_BITS]
+    mov ecx,[rsp+8+L_BITS]
     shl edx,cl
     dec edx
     and eax,edx                        ; palette/gray sample
@@ -1193,7 +1195,7 @@ tiff_decode:
     push rax
     mov eax,r11d
     mov ecx,r10d
-    mov edx,[rsp+8+L_ORIENT]
+    mov edx,[rsp+16+L_ORIENT]
     cmp edx,2
     je .packed_o2
     cmp edx,3
@@ -1210,20 +1212,20 @@ tiff_decode:
     je .packed_o8
     jmp .packed_mapped
 .packed_o2:
-    mov eax,[rsp+8+L_W]
+    mov eax,[rsp+16+L_W]
     dec eax
     sub eax,r11d
     jmp .packed_mapped
 .packed_o3:
-    mov eax,[rsp+8+L_W]
+    mov eax,[rsp+16+L_W]
     dec eax
     sub eax,r11d
-    mov ecx,[rsp+8+L_H]
+    mov ecx,[rsp+16+L_H]
     dec ecx
     sub ecx,r10d
     jmp .packed_mapped
 .packed_o4:
-    mov ecx,[rsp+8+L_H]
+    mov ecx,[rsp+16+L_H]
     dec ecx
     sub ecx,r10d
     jmp .packed_mapped
@@ -1232,40 +1234,41 @@ tiff_decode:
     mov ecx,r11d
     jmp .packed_mapped
 .packed_o6:
-    mov eax,[rsp+8+L_H]
+    mov eax,[rsp+16+L_H]
     dec eax
     sub eax,r10d
     mov ecx,r11d
     jmp .packed_mapped
 .packed_o7:
-    mov eax,[rsp+8+L_H]
+    mov eax,[rsp+16+L_H]
     dec eax
     sub eax,r10d
-    mov ecx,[rsp+8+L_W]
+    mov ecx,[rsp+16+L_W]
     dec ecx
     sub ecx,r11d
     jmp .packed_mapped
 .packed_o8:
     mov eax,r10d
-    mov ecx,[rsp+8+L_W]
+    mov ecx,[rsp+16+L_W]
     dec ecx
     sub ecx,r11d
 .packed_mapped:
-    imul ecx,[rsp+8+L_OUTW]
+    imul ecx,[rsp+16+L_OUTW]
     add ecx,eax
     shl rcx,2
     add rcx,[rbx+PixBuf.data]
     mov r14,rcx
     pop rax
-    cmp dword [rsp+L_PHOTO],3
+    cmp dword [rsp+8+L_PHOTO],3
     je .palette_pixel
     imul eax,255
-    mov edx,1
-    mov ecx,[rsp+L_BITS]
-    shl edx,cl
-    dec edx
-    div edx
-    cmp dword [rsp+L_PHOTO],0
+    mov r8d,1                          ; scale by the sample's largest value
+    mov ecx,[rsp+8+L_BITS]
+    shl r8d,cl
+    dec r8d
+    xor edx,edx
+    div r8d
+    cmp dword [rsp+8+L_PHOTO],0
     jne .packed_gray_ready
     not al
 .packed_gray_ready:
@@ -1275,14 +1278,14 @@ tiff_decode:
     mov byte [r14+3],255
     jmp .pixel_done
 .palette_pixel:
-    mov rdi,[rsp+L_CMAP]
+    mov rdi,[rsp+8+L_CMAP]
     add rdi,r12
     mov edx,1
-    mov ecx,[rsp+L_BITS]
+    mov ecx,[rsp+8+L_BITS]
     shl edx,cl                         ; entries per color
     mov r8d,eax
     shl r8d,1
-    cmp dword [rsp+L_BE],0
+    cmp dword [rsp+8+L_BE],0
     jne .palette_values
     inc r8d
 .palette_values:
@@ -1301,15 +1304,15 @@ tiff_decode:
     jmp .pixel_done
 .planar_pixel:
     mov eax,r10d
-    imul eax,[rsp+L_W]
+    imul eax,[rsp+8+L_W]
     add eax,r11d                        ; sample index
-    mov rdi,[rsp+L_RASTER]
-    cmp dword [rsp+L_BITS],16
+    mov rdi,[rsp+8+L_RASTER]
+    cmp dword [rsp+8+L_BITS],16
     je .planar16
-    cmp dword [rsp+L_SAMPLES],1
+    cmp dword [rsp+8+L_SAMPLES],1
     jne .planar8_rgb
     mov al,[rdi+rax]
-    cmp dword [rsp+L_PHOTO],0
+    cmp dword [rsp+8+L_PHOTO],0
     jne .planar8_gray_ready
     not al
 .planar8_gray_ready:
@@ -1319,8 +1322,8 @@ tiff_decode:
     mov byte [rcx+3],255
     jmp .pixel_done
 .planar8_rgb:
-    mov edx,[rsp+L_W]
-    imul edx,[rsp+L_H]                  ; plane bytes
+    mov edx,[rsp+8+L_W]
+    imul edx,[rsp+8+L_H]                  ; plane bytes
     mov r8d,eax
     mov al,[rdi+r8]
     mov [rcx+2],al
@@ -1331,7 +1334,7 @@ tiff_decode:
     mov al,[rdi+r8]
     mov [rcx],al
     mov byte [rcx+3],255
-    cmp dword [rsp+L_SAMPLES],4
+    cmp dword [rsp+8+L_SAMPLES],4
     jne .pixel_done
     add r8d,edx
     mov al,[rdi+r8]
@@ -1339,15 +1342,15 @@ tiff_decode:
     jmp .pixel_done
 .planar16:
     shl eax,1
-    cmp dword [rsp+L_SAMPLES],1
+    cmp dword [rsp+8+L_SAMPLES],1
     jne .planar16_rgb
     mov r8d,eax
     mov al,[rdi+r8]
-    cmp dword [rsp+L_BE],0
+    cmp dword [rsp+8+L_BE],0
     jne .planar16_gray_value
     mov al,[rdi+r8+1]
 .planar16_gray_value:
-    cmp dword [rsp+L_PHOTO],0
+    cmp dword [rsp+8+L_PHOTO],0
     jne .planar16_gray_ready
     not al
 .planar16_gray_ready:
@@ -1357,11 +1360,11 @@ tiff_decode:
     mov byte [rcx+3],255
     jmp .pixel_done
 .planar16_rgb:
-    mov edx,[rsp+L_W]
-    imul edx,[rsp+L_H]
+    mov edx,[rsp+8+L_W]
+    imul edx,[rsp+8+L_H]
     shl edx,1                           ; plane bytes
     mov r8d,eax
-    cmp dword [rsp+L_BE],0
+    cmp dword [rsp+8+L_BE],0
     jne .planar16_rgb_values
     inc r8d
 .planar16_rgb_values:
@@ -1374,7 +1377,7 @@ tiff_decode:
     mov al,[rdi+r8]
     mov [rcx],al
     mov byte [rcx+3],255
-    cmp dword [rsp+L_SAMPLES],4
+    cmp dword [rsp+8+L_SAMPLES],4
     jne .pixel_done
     add r8d,edx
     mov al,[rdi+r8]
