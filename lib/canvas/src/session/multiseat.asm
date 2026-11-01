@@ -24,7 +24,7 @@ multiseat_init:
 
     mov [rbx + Server.arena],r12
     mov rdi,r12
-    mov rsi,Multiseat_SIZE
+    mov rsi,Multiseat_size
     call arena_alloc
     test rax,rax
     jz .oom
@@ -131,7 +131,7 @@ multiseat_add_seat:
     ; Create session for this seat
     mov rax,[rbx + Multiseat.server]
     mov rdi,[rax + Server.arena]
-    mov rsi, SeatSession_SIZE
+    mov rsi, SeatSession_size
     call arena_alloc
     test rax, rax
     jz .oom
