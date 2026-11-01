@@ -9,24 +9,10 @@
 
 extern arena_alloc
 
-; struct offsets (hoisted above use)
-%define TileDiff_SIZE    48
 %define TILE_DEFAULT_W   64
 %define TILE_DEFAULT_H   64
 
 section .text
-
-struc TileDiff
-    .tile_w:        resd 1
-    .tile_h:        resd 1
-    .cols:          resd 1
-    .rows:          resd 1
-    .prev_crc:      resq 1
-    .dirty:         resq 1
-    .dirty_count:   resq 1
-    .arena:         resq 1
-endstruc
-
 
 global tile_diff_init
 tile_diff_init:
@@ -243,4 +229,3 @@ tile_diff_is_dirty:
 section .data
 global tile_diff_version
 tile_diff_version: dq 0x010000
-
