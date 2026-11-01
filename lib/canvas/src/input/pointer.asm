@@ -364,7 +364,7 @@ pointer_grab:
     ; Create grab
     mov rdi, [rbx + InputDevice_SEAT]
     mov rdi, [rdi + Seat.arena]
-    mov rsi, Grab_SIZE
+    mov rsi, Grab_size
     call arena_alloc
     test rax, rax
     jz .fail
