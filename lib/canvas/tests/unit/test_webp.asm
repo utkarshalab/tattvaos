@@ -3,6 +3,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern webp_probe
 extern webp_inspect
@@ -109,18 +110,18 @@ test_webp_suite:
 .animation_fail:
     inc ebx
 .animation_done:
-    mov qword [rel webp_composite_canvas+PixBuf_width],1
-    mov qword [rel webp_composite_canvas+PixBuf_height],1
-    mov qword [rel webp_composite_canvas+PixBuf_stride],4
-    mov qword [rel webp_composite_canvas+PixBuf_format],DRM_FORMAT_BGRA8888
-    mov qword [rel webp_composite_source+PixBuf_width],1
-    mov qword [rel webp_composite_source+PixBuf_height],1
-    mov qword [rel webp_composite_source+PixBuf_stride],4
-    mov qword [rel webp_composite_source+PixBuf_format],DRM_FORMAT_BGRA8888
+    mov qword [rel webp_composite_canvas+PixBuf.width],1
+    mov qword [rel webp_composite_canvas+PixBuf.height],1
+    mov qword [rel webp_composite_canvas+PixBuf.stride],4
+    mov qword [rel webp_composite_canvas+PixBuf.format],DRM_FORMAT_BGRA8888
+    mov qword [rel webp_composite_source+PixBuf.width],1
+    mov qword [rel webp_composite_source+PixBuf.height],1
+    mov qword [rel webp_composite_source+PixBuf.stride],4
+    mov qword [rel webp_composite_source+PixBuf.format],DRM_FORMAT_BGRA8888
     lea rax,[rel webp_composite_canvas_pixels]
-    mov [rel webp_composite_canvas+PixBuf_data],rax
+    mov [rel webp_composite_canvas+PixBuf.data],rax
     lea rax,[rel webp_composite_frame_pixels]
-    mov [rel webp_composite_source+PixBuf_data],rax
+    mov [rel webp_composite_source+PixBuf.data],rax
     mov dword [rel webp_composite_canvas_pixels],0xff0000ff
     mov dword [rel webp_composite_frame_pixels],0x80ff0000
     lea rdi,[rel webp_composite_state]
@@ -1044,10 +1045,10 @@ test_webp_suite:
     jne .recon_fail
     lea rdi,[rel webp_alpha_pixbuf]
     lea rax,[rel webp_alpha_pixels]
-    mov [rdi+PixBuf_data],rax
-    mov dword [rdi+PixBuf_width],2
-    mov dword [rdi+PixBuf_height],2
-    mov dword [rdi+PixBuf_stride],8
+    mov [rdi+PixBuf.data],rax
+    mov dword [rdi+PixBuf.width],2
+    mov dword [rdi+PixBuf.height],2
+    mov dword [rdi+PixBuf.stride],8
     lea rsi,[rel webp_alpha_raw]
     mov edx,webp_alpha_raw_end-webp_alpha_raw
     call webp_alpha_apply_raw
@@ -1069,10 +1070,10 @@ test_webp_suite:
     mov qword [rel webp_entropy_arena+24],0
     lea rdi,[rel webp_alpha_pixbuf]
     lea rax,[rel webp_alpha_compressed_pixels]
-    mov [rdi+PixBuf_data],rax
-    mov dword [rdi+PixBuf_width],17
-    mov dword [rdi+PixBuf_height],17
-    mov dword [rdi+PixBuf_stride],68
+    mov [rdi+PixBuf.data],rax
+    mov dword [rdi+PixBuf.width],17
+    mov dword [rdi+PixBuf.height],17
+    mov dword [rdi+PixBuf.stride],68
     lea rsi,[rel webp_alpha_compressed]
     mov edx,webp_alpha_compressed_end-webp_alpha_compressed
     lea rcx,[rel webp_entropy_arena]
@@ -1247,7 +1248,7 @@ test_webp_suite:
     call webp_vp8l_decode
     test rax,rax
     jz .vp8l_integration_fail
-    mov rax,[rax+PixBuf_data]
+    mov rax,[rax+PixBuf.data]
     cmp dword [rax],0xff112233
     jne .vp8l_integration_fail
     lea rax,[rel webp_entropy_arena_data]
@@ -1258,7 +1259,7 @@ test_webp_suite:
     call webp_vp8l_decode
     test rax,rax
     jz .vp8l_integration_fail
-    mov rax,[rax+PixBuf_data]
+    mov rax,[rax+PixBuf.data]
     cmp dword [rax],0xff332255
     je .vp8l_integration_done
 .vp8l_integration_fail:
@@ -1668,11 +1669,11 @@ test_webp_suite:
     call webp_decode
     test rax,rax
     jz .lossy_decode_fail
-    cmp dword [rax+PixBuf_width],2
+    cmp dword [rax+PixBuf.width],2
     jne .lossy_decode_fail
-    cmp dword [rax+PixBuf_height],2
+    cmp dword [rax+PixBuf.height],2
     jne .lossy_decode_fail
-    mov rax,[rax+PixBuf_data]
+    mov rax,[rax+PixBuf.data]
     cmp byte [rax+3],255
     jne .lossy_decode_fail
     lea rax,[rel webp_entropy_arena_data]
@@ -1683,14 +1684,14 @@ test_webp_suite:
     call webp_decode
     test rax,rax
     jz .lossy_decode_fail
-    cmp dword [rax+PixBuf_width],17
+    cmp dword [rax+PixBuf.width],17
     jne .lossy_decode_fail
-    cmp dword [rax+PixBuf_height],17
+    cmp dword [rax+PixBuf.height],17
     jne .lossy_decode_fail
-    mov ecx,[rax+PixBuf_stride]
+    mov ecx,[rax+PixBuf.stride]
     imul ecx,16
     add ecx,16*4+3
-    mov rax,[rax+PixBuf_data]
+    mov rax,[rax+PixBuf.data]
     cmp byte [rax+rcx],255
     je .lossy_decode_done
 .lossy_decode_fail:
@@ -1717,9 +1718,9 @@ test_webp_suite:
     jne .animation_decode_fail
     mov rcx,[rax+WebPAnimation.frames]
     mov rcx,[rcx]
-    cmp qword [rcx+PixBuf_width],2
+    cmp qword [rcx+PixBuf.width],2
     jne .animation_decode_fail
-    cmp qword [rcx+PixBuf_height],2
+    cmp qword [rcx+PixBuf.height],2
     je .animation_decode_done
 .animation_decode_fail:
     inc ebx
@@ -1914,8 +1915,8 @@ alignb 8
 webp_info: resb WebPInfo_size
 webp_animation_info: resb WebPAnimationInfo_size
 align 8
-webp_composite_canvas: resb PixBuf_size
-webp_composite_source: resb PixBuf_size
+webp_composite_canvas: resb PixBuf.size
+webp_composite_source: resb PixBuf.size
 webp_composite_state: resb WebPCompositeState_size
 webp_composite_canvas_pixels: resd 1
 webp_composite_frame_pixels: resd 1
@@ -1963,7 +1964,7 @@ webp_vp8_render_mb_state: resb WebPVP8RenderMBState_size
 webp_vp8_plane_arena: resq 4
 webp_vp8_plane_arena_data: resb 4096
 webp_vp8_filter_pixels: resb 8
-webp_alpha_pixbuf: resb PixBuf_size
+webp_alpha_pixbuf: resb PixBuf.size
 webp_alpha_pixels: resb 16
 webp_alpha_compressed_pixels: resb 17*17*4
 alignb 16
