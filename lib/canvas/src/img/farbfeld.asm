@@ -2,6 +2,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 
@@ -44,7 +45,7 @@ farbfeld_decode:
     test rax,rax
     jz .bad
     mov rbx,rax
-    mov rdi,[rbx+PixBuf_data]
+    mov rdi,[rbx+PixBuf.data]
     add r12,16
     imul r14,r15
 .pixel:
