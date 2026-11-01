@@ -86,7 +86,8 @@ use bounded pkt-lines and explicit flushes.
 
 The advertisement also publishes `server-option`. Each command may carry up to
 eight `server-option=<value>` headers with 1..128 value bytes; empty values,
-NUL, embedded LF, and overflow are rejected. Valid options are intentionally
+NUL, embedded LF, overflow, and exact duplicate values are rejected. Distinct
+validated options are retained only for duplicate detection and are otherwise
 ignored until Tattva VCS defines option-specific behavior.
 
 `upload_request.asm` parses protocol-v2 command headers and delimiter packets,
