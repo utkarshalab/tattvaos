@@ -3,6 +3,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/image.inc"
+%include "inc/struct_offsets.inc"
 
 extern pixbuf_create
 
@@ -44,7 +45,7 @@ qoi_decode:
     test rax,rax
     jz .bad
     mov rbx,rax
-    mov r14,[rbx+PixBuf_data]
+    mov r14,[rbx+PixBuf.data]
     mov r15,r10
     imul r15,r11
     add r12,14
