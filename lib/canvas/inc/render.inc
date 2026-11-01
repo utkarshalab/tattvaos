@@ -26,7 +26,6 @@ struc RenderIface
     .flush:            resq 1
     .caps:             resq 1
 endstruc
-%define RenderIface_size      48
 
 ; Frame Context (per-frame state)
 struc FrameCtx
@@ -38,8 +37,9 @@ struc FrameCtx
     .width:            resd 1
     .height:           resd 1
     .color_transform:  resq 1
+    .rotation:                resq 1
+    .scale:                   resq 1
 endstruc
-%define FrameCtx_size         64
 
 ; Present Info (returned by end_frame)
 struc PresentInfo
@@ -49,7 +49,6 @@ struc PresentInfo
     .refresh_ns:      resq 1
     .flags:           resd 1
 endstruc
-%define PresentInfo_size      32
 
 ; Present Kinds
 %define PRESENT_KIND_VSYNC    0
