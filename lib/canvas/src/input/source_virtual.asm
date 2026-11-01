@@ -15,10 +15,6 @@ extern ring_init
 extern ring_push
 extern ut_time_now_ns
 
-; struct offsets (hoisted above use)
-%define InputSource_virtual_ring  48
-%define InputSource_virtual_size  56
-
 section .text
 
 global input_source_virtual_init
