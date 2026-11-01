@@ -25,8 +25,8 @@ policy_init:
     ASSERT_PTR r12
     ASSERT_PTR r14
 
-    mov qword [rbx + POLICY_SERVER], r12
-    mov dword [rbx + POLICY_TYPE], r13d
+    mov qword [rbx + Policy.server], r12
+    mov dword [rbx + Policy.type], r13d
 
     ; Initialize based on type
     cmp r13d, 0
@@ -65,12 +65,12 @@ policy_floating_init:
     mov rbx, rdi
     ASSERT_PTR rbx
 
-    mov dword [rbx + POLICY_TYPE], 0
-    mov qword [rbx + POLICY_CONFIGURE], policy_floating_configure
-    mov qword [rbx + POLICY_FOCUS_CHANGE], policy_floating_focus
-    mov qword [rbx + POLICY_NEW_WINDOW], policy_floating_new_window
-    mov qword [rbx + POLICY_CLOSE_WINDOW], policy_floating_close
-    mov qword [rbx + POLICY_WS_CHANGED], policy_floating_ws_changed
+    mov dword [rbx + Policy.type], 0
+    mov qword [rbx + Policy.configure], policy_floating_configure
+    mov qword [rbx + Policy.focus_change], policy_floating_focus
+    mov qword [rbx + Policy.new_window], policy_floating_new_window
+    mov qword [rbx + Policy.close_window], policy_floating_close
+    mov qword [rbx + Policy.ws_changed], policy_floating_ws_changed
 
     xor rax, rax
     EPILOGUE_RESTORE rbx
@@ -90,13 +90,13 @@ policy_tiling_init:
     ASSERT_PTR r12
     ASSERT_PTR r13
 
-    mov dword [rbx + POLICY_TYPE], 1
-    mov qword [rbx + POLICY_CONFIGURE], policy_tiling_configure
-    mov qword [rbx + POLICY_FOCUS_CHANGE], policy_tiling_focus
-    mov qword [rbx + POLICY_NEW_WINDOW], policy_tiling_new_window
-    mov qword [rbx + POLICY_CLOSE_WINDOW], policy_tiling_close
-    mov qword [rbx + POLICY_WS_CHANGED], policy_tiling_ws_changed
-    mov qword [rbx + POLICY_LAYOUT], 0  ; layout engine
+    mov dword [rbx + Policy.type], 1
+    mov qword [rbx + Policy.configure], policy_tiling_configure
+    mov qword [rbx + Policy.focus_change], policy_tiling_focus
+    mov qword [rbx + Policy.new_window], policy_tiling_new_window
+    mov qword [rbx + Policy.close_window], policy_tiling_close
+    mov qword [rbx + Policy.ws_changed], policy_tiling_ws_changed
+    mov qword [rbx + Policy.layout], 0  ; layout engine
 
     ; Create layout engine
     mov rdi, rbx
@@ -124,15 +124,15 @@ policy_kiosk_init:
     ASSERT_PTR r13
     ASSERT_PTR r14
 
-    mov dword [rbx + POLICY_TYPE], 2
-    mov qword [rbx + POLICY_CONFIGURE], policy_kiosk_configure
-    mov qword [rbx + POLICY_FOCUS_CHANGE], policy_kiosk_focus
-    mov qword [rbx + POLICY_NEW_WINDOW], policy_kiosk_new_window
-    mov qword [rbx + POLICY_CLOSE_WINDOW], policy_kiosk_close
-    mov qword [rbx + POLICY_WS_CHANGED], policy_kiosk_ws_changed
+    mov dword [rbx + Policy.type], 2
+    mov qword [rbx + Policy.configure], policy_kiosk_configure
+    mov qword [rbx + Policy.focus_change], policy_kiosk_focus
+    mov qword [rbx + Policy.new_window], policy_kiosk_new_window
+    mov qword [rbx + Policy.close_window], policy_kiosk_close
+    mov qword [rbx + Policy.ws_changed], policy_kiosk_ws_changed
 
     ; Store kiosk config
-    mov qword [rbx + POLICY_KIOSK_ALLOWED_APP], r14
+    mov qword [rbx + Policy.kiosk_allowed_app], r14
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13, r14
@@ -211,7 +211,7 @@ policy_tiling_configure:
     ASSERT_PTR r12
 
     ; Get layout engine
-    mov rax, [rbx + POLICY_LAYOUT]
+    mov rax, [rbx + Policy.layout]
     test rax, rax
     jz .no_layout
 
@@ -247,7 +247,7 @@ policy_tiling_new_window:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov rax, [rbx + POLICY_LAYOUT]
+    mov rax, [rbx + Policy.layout]
     test rax, rax
     jz .no_layout
 
@@ -268,7 +268,7 @@ policy_tiling_close:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov rax, [rbx + POLICY_LAYOUT]
+    mov rax, [rbx + Policy.layout]
     test rax, rax
     jz .no_layout
 
@@ -288,7 +288,7 @@ policy_tiling_ws_changed:
     mov r12, rsi
     ASSERT_PTR rbx
 
-    mov rax, [rbx + POLICY_LAYOUT]
+    mov rax, [rbx + Policy.layout]
     test rax, rax
     jz .no_layout
 
@@ -314,9 +314,9 @@ policy_kiosk_configure:
     ASSERT_PTR r12
 
     ; Force fullscreen state
-    mov eax, [r12 + CONFIGURE_STATES]
+    mov eax, [r12 + Configure.states]
     or eax, TOPLEVEL_STATE_FULLSCREEN
-    mov [r12 + CONFIGURE_STATES], eax
+    mov [r12 + Configure.states], eax
 
     ; No decorations
     call toplevel_configure
@@ -333,8 +333,8 @@ policy_kiosk_focus:
     ASSERT_PTR r12
 
     ; Check if this is the allowed app
-    mov rax, [rbx + POLICY_KIOSK_ALLOWED_APP]
-    mov rdx, [r12 + TOPLEVEL_APP_ID]
+    mov rax, [rbx + Policy.kiosk_allowed_app]
+    mov rdx, [r12 + Toplevel.app_id]
     cmp rax, rdx
     je .allow
 
@@ -357,8 +357,8 @@ policy_kiosk_new_window:
     ASSERT_PTR r12
 
     ; Check if this is the allowed app
-    mov rax, [rbx + POLICY_KIOSK_ALLOWED_APP]
-    mov rdx, [r12 + TOPLEVEL_APP_ID]
+    mov rax, [rbx + Policy.kiosk_allowed_app]
+    mov rdx, [r12 + Toplevel.app_id]
     cmp rax, rdx
     je .allow
 
@@ -381,8 +381,8 @@ policy_kiosk_close:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov rax, [rbx + POLICY_KIOSK_ALLOWED_APP]
-    mov rdx, [r12 + TOPLEVEL_APP_ID]
+    mov rax, [rbx + Policy.kiosk_allowed_app]
+    mov rdx, [r12 + Toplevel.app_id]
     cmp rax, rdx
     je .restart
     xor rax, rax
