@@ -45,6 +45,8 @@ webp_huff_build:
 .validate:
     test r15d,r15d
     jz .bad
+    cmp r15d,1
+    je .one_symbol
     mov edx,1
     mov ecx,1
 .slots:
@@ -55,10 +57,7 @@ webp_huff_build:
     cmp ecx,16
     jb .slots
     test edx,edx
-    jz .canonical
-    cmp r15d,1                       ; VP8L simple one-symbol tree
-    jne .bad
-.canonical:
+    jnz .bad
     xor r8d,r8d                      ; canonical code
     xor r9d,r9d                      ; first symbol index
     xor r10d,r10d                    ; previous count
@@ -97,6 +96,18 @@ webp_huff_build:
     xor eax,eax
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
     ret
+.one_symbol:
+    ; Whatever its length, a lone symbol costs no bits
+    xor eax,eax
+.find_symbol:
+    cmp byte [r12+rax],0
+    jne .found_symbol
+    inc rax
+    jmp .find_symbol
+.found_symbol:
+    mov [rbx+WEBP_HUFF_FIRST_CODE],eax
+    mov dword [rbx+WEBP_HUFF_COUNTS],1
+    jmp .ok
 .bad:
     mov rax,-EINVAL
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
@@ -261,7 +272,7 @@ webp_huff_read:
     call webp_huff_build
     test rax,rax
     js .read_bad
-    mov dword [rsp+8],r12d           ; symbol limit
+    mov dword [rsp+8],r12d           ; tokens to read (max_symbol)
     mov rdi,rbx
     mov esi,1
     call webp_bits_get
@@ -288,8 +299,11 @@ webp_huff_read:
     mov dword [rsp+16],0             ; previous nonzero length
 .lengths_loop:
     mov eax,[rsp+12]
-    cmp eax,[rsp+8]
+    cmp eax,r12d
     jae .build
+    cmp dword [rsp+8],0
+    je .build
+    dec dword [rsp+8]
     mov rdi,r15
     mov rsi,rbx
     call webp_huff_decode
@@ -332,7 +346,7 @@ webp_huff_read:
     mov ecx,[rsp+12]
     mov edx,ecx
     add edx,[rsp+20]
-    cmp edx,[rsp+8]
+    cmp edx,r12d
     ja .read_bad
     xor eax,eax
     cmp dword [rsp+28],16
