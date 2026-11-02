@@ -579,7 +579,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| MED-01 | Decoder test coverage for every supported format | P0 | ◐ corpus compared against a reference decoder; 53 of 57 pass, the rest are MED-20, MED-21 |
+| MED-01 | Decoder test coverage for every supported format | P0 | ◐ corpus compared against a reference decoder; everything passes but progressive JPEG (MED-20) |
 | MED-02 | Generic `image_decode` with format sniffing | P1 | ◐ `img/sniff` |
 | MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | |
 | MED-04 | Decode-to-scale for JPEG and WebP | P3 | |
@@ -599,7 +599,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | MED-18 | Video quality pipeline: deinterlace, scaling filters, sharpening | P4 | |
 | MED-19 | Camera preview pipeline | P4 | ◐ `img/camera` (decode only) |
 | MED-20 | Progressive JPEG decoding | P2 | Known gap in `compare_images.py`; the decoder detects it and stops |
-| MED-21 | Fix VP8L decoding (lossless WebP and VP8L-coded alpha) | P1 | Known gap: 3 corpus files fail |
+| MED-21 | Fix VP8L decoding (lossless WebP and VP8L-coded alpha) | P1 | ✓ exact against the reference decoder, with palette, gradient, noise and large-image cases in the corpus |
 
 ## REM — Capture, remote and casting
 
