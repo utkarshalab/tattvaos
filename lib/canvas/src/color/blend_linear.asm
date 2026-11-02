@@ -21,14 +21,14 @@ blend_linear_row:
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
-    mov r14d, ecx
-    mov r15d, r8d
     ASSERT_PTR rbx
     ASSERT_PTR r12
     test r13, r13
     jz .done
     extern srgb_to_linear_lut
     extern linear_to_srgb_lut
+    lea r14, [rel srgb_to_linear_lut]
+    lea r15, [rel linear_to_srgb_lut]
 .loop:
     mov eax, [r12]      ; src BGRA
     mov edx, [rbx]      ; dst BGRA
@@ -40,19 +40,19 @@ blend_linear_row:
     je .opaque
     ; decode src rgb to linear
     movzx ecx, al
-    movzx ecx, word [srgb_to_linear_lut + rcx * 2]
+    movzx ecx, word [r14 + rcx * 2]
     mov r9d, ecx        ; src_b lin
     movzx ecx, ah
     shr eax, 16
-    movzx ecx, word [srgb_to_linear_lut + rcx * 2]
+    movzx ecx, word [r14 + rcx * 2]
     mov r10d, ecx       ; src_g lin
     movzx ecx, al
-    movzx ecx, word [srgb_to_linear_lut + rcx * 2]
+    movzx ecx, word [r14 + rcx * 2]
     mov r11d, ecx       ; src_r lin
     ; decode dst rgb to linear
     mov eax, edx
     movzx ecx, al
-    movzx ecx, word [srgb_to_linear_lut + rcx * 2]
+    movzx ecx, word [r14 + rcx * 2]
     ; dst_b lin in ecx; blend: out = src + dst*(255-a)/255
     mov edi, 255
     sub edi, r8d
@@ -70,14 +70,14 @@ blend_linear_row:
     jbe .ok_bi
     mov ecx, 4095
 .ok_bi:
-    movzx ecx, word [linear_to_srgb_lut + rcx * 2]
+    movzx ecx, word [r15 + rcx * 2]
     shr ecx, 8
     mov [rbx], cl
     ; green
     mov eax, edx
     shr eax, 8
     movzx ecx, al
-    movzx ecx, word [srgb_to_linear_lut + rcx * 2]
+    movzx ecx, word [r14 + rcx * 2]
     imul ecx, edi
     shr ecx, 8
     add r10d, ecx
@@ -91,14 +91,14 @@ blend_linear_row:
     jbe .ok_gi
     mov ecx, 4095
 .ok_gi:
-    movzx ecx, word [linear_to_srgb_lut + rcx * 2]
+    movzx ecx, word [r15 + rcx * 2]
     shr ecx, 8
     mov [rbx + 1], cl
     ; red
     mov eax, edx
     shr eax, 16
     movzx ecx, al
-    movzx ecx, word [srgb_to_linear_lut + rcx * 2]
+    movzx ecx, word [r14 + rcx * 2]
     imul ecx, edi
     shr ecx, 8
     add r11d, ecx
@@ -112,7 +112,7 @@ blend_linear_row:
     jbe .ok_ri
     mov ecx, 4095
 .ok_ri:
-    movzx ecx, word [linear_to_srgb_lut + rcx * 2]
+    movzx ecx, word [r15 + rcx * 2]
     shr ecx, 8
     mov [rbx + 2], cl
     ; alpha: src_over
