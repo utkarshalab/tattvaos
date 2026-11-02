@@ -199,7 +199,7 @@ fence_wait:
     jc .timed_out
     mov [rsp + 8], rax
 .wait:
-    call ut_wait_yield
+    call ut_yield
     mov rax, [rsp]
     cmp byte [rax + Fence.signaled], 1
     je .signaled
