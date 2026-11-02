@@ -71,12 +71,12 @@ ut_wait_wait:
     EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
-; ut_wait_yield
+; ut_yield
 ;   Yield CPU to other tasks (cooperative)
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
-global ut_wait_yield
-ut_wait_yield:
+global ut_yield
+ut_yield:
     PROLOGUE
     mov rax, SYS_WAIT_YIELD
     syscall
