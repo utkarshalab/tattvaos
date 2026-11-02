@@ -178,98 +178,67 @@ decoration_get_border_width:
 
 ; ============================================================================
 ; decoration_hit_test
-;   Hit test for decoration (returns which part was hit)
+;   Hit test for decoration
+;   IN:  rdi = decoration*, rsi = x, rdx = y
+;   OUT: rax = button type, 100 titlebar, 200 .. 203 left, right, top, bottom
+;        border, 0 client area
 ; ============================================================================
 global decoration_hit_test
 decoration_hit_test:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12d, esi  ; x
-    mov r13d, edx  ; y
-    ASSERT_PTR rbx
+    ASSERT_PTR rdi
+    ; The titlebar: a button, or its background
+    cmp edx, [rdi + Decoration.titlebar_h]
+    jge .borders
+    mov r8, [rdi + Decoration.buttons]
+    mov ecx, [rdi + Decoration.button_count]
+.button:
+    test ecx, ecx
+    jz .titlebar
+    test r8, r8
+    jz .titlebar
+    mov eax, esi                        ; inside rect x, y, w, h (i32)?
+    sub eax, [r8 + DECOR_BTN_RECT]
+    jl .next_button
+    cmp eax, [r8 + DECOR_BTN_RECT + 8]
+    jge .next_button
+    mov eax, edx
+    sub eax, [r8 + DECOR_BTN_RECT + 4]
+    jl .next_button
+    cmp eax, [r8 + DECOR_BTN_RECT + 12]
+    jge .next_button
+    movzx eax, byte [r8 + DECOR_BTN_TYPE]
+    ret
+.next_button:
+    mov r8, [r8 + DECOR_BTN_NEXT]
+    dec ecx
+    jmp .button
+.titlebar:
+    mov eax, 100
+    ret
 
-    ; Check titlebar
-    mov eax, [rbx + Decoration.titlebar_h]
-    cmp r13d, eax
-    jge .check_border
-
-    ; In titlebar area - check buttons
-    mov r12, [rbx + Decoration.buttons]
-    mov r13d, [rbx + Decoration.button_count]
-.btn_loop:
-    test r13d, r13d
-    jz .titlebar_bg
-    push r13
-    mov r13, [r12 + DECOR_BTN_RECT]
-    mov r14d, [r13 + Rect.x]
-    mov r15d, [r13 + Rect.y]
-    mov r14d, [r13 + Rect.width]
-    mov r15d, [r13 + Rect.height]
-    pop r13
-
-    ; Check if hit
-    mov eax, r12d
-    sub eax, r14d
-    cmp eax, r14d
-    jge .not_this_btn
-    mov eax, r13d
-    sub eax, r15d
-    cmp eax, r15d
-    jge .not_this_btn
-
-    ; Hit button - return type
-    movzx eax, byte [r12 + DECOR_BTN_TYPE]
-    jmp .hit
-
-.not_this_btn:
-    mov r12, [r12 + DECOR_BTN_NEXT]
-    dec r13d
-    jmp .btn_loop
-
-.titlebar_bg:
-    mov eax, 100  ; Titlebar background
-    jmp .hit
-
-.check_border:
-    ; Check borders
-    mov eax, [rbx + Decoration.border_w]
-    mov r12d, [rbx + Decoration.toplevel]
-    mov r13, [r12 + Toplevel.width]
-    mov r14d, [r12 + Toplevel.height]
-
-    ; Left border
-    cmp r12d, eax
-    jge .check_right
-    mov eax, 200  ; Left border
-    jmp .hit
-
-.check_right:
-    sub r13d, eax
-    cmp r12d, r13d
-    jl .check_top
-    mov eax, 201  ; Right border
-    jmp .hit
-
-.check_top:
-    mov eax, [rbx + Decoration.titlebar_h]
-    add eax, [rbx + Decoration.border_w]
-    cmp r13d, eax
-    jge .check_bottom
-    mov eax, 202  ; Top border
-    jmp .hit
-
-.check_bottom:
-    sub r13d, [rbx + Decoration.border_w]
-    cmp r13d, r14d
-    jl .client
-    mov eax, 203  ; Bottom border
-    jmp .hit
-
-.client:
-    mov eax, 0  ; Client area
-
-.hit:
-    EPILOGUE_RESTORE rbx, r12, r13
+.borders:
+    mov r8, [rdi + Decoration.toplevel]
+    mov ecx, [rdi + Decoration.border_w]
+    mov eax, 200                        ; left
+    cmp esi, ecx
+    jl .out
+    mov r9d, [r8 + Toplevel.width]
+    sub r9d, ecx
+    mov eax, 201                        ; right
+    cmp esi, r9d
+    jge .out
+    mov r9d, [rdi + Decoration.titlebar_h]
+    add r9d, ecx
+    mov eax, 202                        ; top, under the titlebar
+    cmp edx, r9d
+    jl .out
+    mov r9d, [r8 + Toplevel.height]
+    sub r9d, ecx
+    mov eax, 203                        ; bottom
+    cmp edx, r9d
+    jge .out
+    xor eax, eax                        ; client area
+.out:
     ret
 
 ; ============================================================================
