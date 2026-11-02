@@ -546,7 +546,9 @@ struc Client
     .region:                  resq 1
     .surfaces:                resq 1    ; its Surfaces, through client_next
     .buffers:                 resq 1    ; its Buffers, through client_next
-    resb 96
+    .server:                  resq 1
+    .next_client:             resq 1    ; Server.client_list
+    resb 80
 endstruc
 
 struc ClientConn
@@ -1512,6 +1514,9 @@ struc Server
     .mmio_base:               resq 1
     .mmio_size:               resq 1
     .next_client_id:          resq 1
+    .client_list:             resq 1    ; every client, newest first
+    .compositor:              resq 1
+    .dispatch:                resq 1
     .output_count:            resq 1
     .pci_dev:                 resq 1
     .sticky_keys:             resq 1
