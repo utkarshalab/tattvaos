@@ -34,7 +34,7 @@ LOSSY_PSNR_FLOOR = 30.0
 # entry is removed. Tracked in docs/ROADMAP.md (MED-20, MED-21).
 KNOWN_GAPS = {
     "progressive.jpg": "progressive JPEG is not implemented",
-    "lossless.webp": "VP8L decoding fails",
+    "lossless.webp": "VP8L decoding is wrong",
     "lossless_alpha.webp": "VP8L decoding is wrong",
     "lossy_alpha.webp": "VP8L-coded alpha plane fails",
 }
