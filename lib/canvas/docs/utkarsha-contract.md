@@ -199,7 +199,7 @@ ut_waitset_remove
 
 ; Yield CPU to other tasks (cooperative)
 ;   out: rax = 0
-ut_wait_yield
+ut_yield
 
 ; Wake specific task (by task_id from ut_task)
 ;   in:  rdi = task_id
