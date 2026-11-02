@@ -83,13 +83,11 @@ frame_clock_schedule:
     jz .invalid
     mov rdi, 32
     xor esi, esi
-    mov eax, SYS_MEM_ALLOC
-    syscall
+    call ut_mem_alloc
     test rax, rax
     jz .oom
-    test rax, rax
     js .out
-    mov qword [rax], 0
+    mov [rax], r8                       ; the region handle frees the node
     mov rcx, [rbx + FrameClock.callbacks]
     mov [rax + 8], rcx
     mov [rax + 16], r12
@@ -138,10 +136,9 @@ frame_clock_vblank:
     mov rsi, [r13 + 24]
     call qword [r13 + 16]
     mov rax, [rbx + FrameClock.phase]
-    mov rdi, r13
+    mov rdi, [r13]
     mov r13, rax
-    mov eax, SYS_MEM_FREE
-    syscall
+    call ut_mem_free
     test r13, r13
     jnz .callback_loop
 
@@ -203,9 +200,8 @@ frame_clock_deinit:
     test r12, r12
     jz .deinit_done
     mov rbx, [r12 + 8]
-    mov rdi, r12
-    mov eax, SYS_MEM_FREE
-    syscall
+    mov rdi, [r12]
+    call ut_mem_free
     mov r12, rbx
     jmp .free_loop
 .deinit_done:
