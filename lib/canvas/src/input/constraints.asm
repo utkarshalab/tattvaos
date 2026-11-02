@@ -14,7 +14,10 @@ section .text
 
 struc Constraints
     .confined:      resb 1
-    .confine_rect:  resb Rect_size
+    .confine_x1:    resd 1
+    .confine_y1:    resd 1
+    .confine_x2:    resd 1
+    .confine_y2:    resd 1
     .locked:        resb 1
     .lock_x:        resd 1
     .lock_y:        resd 1
@@ -68,10 +71,14 @@ constraints_confine:
     jz .disable
 
     mov byte [rbx + Constraints.confined], 1
-    mov rax, [rsi]
-    mov [rbx + Constraints.confine_rect], rax
-    mov rax, [rsi + 8]
-    mov [rbx + Constraints.confine_rect + 8], rax
+    mov eax, [rsi]                      ; x1, y1, x2, y2 as i32
+    mov [rbx + Constraints.confine_x1], eax
+    mov eax, [rsi + 4]
+    mov [rbx + Constraints.confine_y1], eax
+    mov eax, [rsi + 8]
+    mov [rbx + Constraints.confine_x2], eax
+    mov eax, [rsi + 12]
+    mov [rbx + Constraints.confine_y2], eax
     xor eax, eax
     EPILOGUE_RESTORE rbx
     ret
@@ -141,19 +148,19 @@ constraints_apply:
 
     ; Clamp to confine rect
     mov eax, [r12]
-    mov edx, [rbx + Constraints.confine_rect + Rect.x1]
+    mov edx, [rbx + Constraints.confine_x1]
     cmp eax, edx
     cmovl eax, edx
-    mov edx, [rbx + Constraints.confine_rect + Rect.x2]
+    mov edx, [rbx + Constraints.confine_x2]
     cmp eax, edx
     cmovg eax, edx
     mov [r12], eax
 
     mov eax, [r13]
-    mov edx, [rbx + Constraints.confine_rect + Rect.y1]
+    mov edx, [rbx + Constraints.confine_y1]
     cmp eax, edx
     cmovl eax, edx
-    mov edx, [rbx + Constraints.confine_rect + Rect.y2]
+    mov edx, [rbx + Constraints.confine_y2]
     cmp eax, edx
     cmovg eax, edx
     mov [r13], eax
