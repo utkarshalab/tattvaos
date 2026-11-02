@@ -54,14 +54,22 @@ policy_external_init:
     mov qword [rbx + PolicyExternal.pending_requests], 0
 
     ; Set function pointers
-    mov qword [rdi + Policy.layout], policy_external_layout
-    mov qword [rdi + Policy.configure], policy_external_configure
-    mov qword [rdi + Policy.focus_change], policy_external_focus_change
-    mov qword [rdi + Policy.new_window], policy_external_new_window
-    mov qword [rdi + Policy.close_window], policy_external_close_window
-    mov qword [rdi + Policy.workspace_changed], policy_external_workspace_changed
-    mov qword [rdi + Policy.tile_window], policy_external_tile_window
-    mov qword [rdi + Policy.window_configured], policy_external_window_configured
+    lea r11, [rel policy_external_layout]
+    mov [rdi + Policy.layout], r11
+    lea r11, [rel policy_external_configure]
+    mov [rdi + Policy.configure], r11
+    lea r11, [rel policy_external_focus_change]
+    mov [rdi + Policy.focus_change], r11
+    lea r11, [rel policy_external_new_window]
+    mov [rdi + Policy.new_window], r11
+    lea r11, [rel policy_external_close_window]
+    mov [rdi + Policy.close_window], r11
+    lea r11, [rel policy_external_workspace_changed]
+    mov [rdi + Policy.workspace_changed], r11
+    lea r11, [rel policy_external_tile_window]
+    mov [rdi + Policy.tile_window], r11
+    lea r11, [rel policy_external_window_configured]
+    mov [rdi + Policy.window_configured], r11
 
     ; Create channel to external policy process
     call policy_external_create_channel
