@@ -53,15 +53,10 @@ webp_palette_expand:
 .palette_next:
     cmp rcx,rsi
     jae .palette_done
-    mov eax,[rdi+rcx*4]
-    mov edx,[rdi+rcx*4-4]
-    add eax,edx
-    mov r8d,[rdi+rcx*4]
-    xor r8d,edx
-    xor r8d,eax
-    and r8d,0x01010100
-    sub eax,r8d
-    mov [rdi+rcx*4],eax
+    movd xmm0,[rdi+rcx*4]
+    movd xmm1,[rdi+rcx*4-4]
+    paddb xmm0,xmm1
+    movd [rdi+rcx*4],xmm0
     inc rcx
     jmp .palette_next
 .palette_done:
