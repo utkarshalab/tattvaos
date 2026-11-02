@@ -243,9 +243,11 @@ webp_inverse_predictor:
     add eax,r15d
     jc .image_bad
     shr eax,cl
-    imul rax,[rsp+20]
+    mov edx,[rsp+20]                   ; both are 32-bit
+    imul rax,rdx
     jo .image_bad
-    cmp rax,[rbx+WebPPredictState.mode_count]
+    mov edx,[rbx+WebPPredictState.mode_count]
+    cmp rax,rdx
     ja .image_bad
     mov dword [rsp],0                  ; y
 .image_row:
