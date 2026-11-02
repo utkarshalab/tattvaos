@@ -34,9 +34,6 @@ LOSSY_PSNR_FLOOR = 30.0
 # entry is removed. Tracked in docs/ROADMAP.md (MED-20, MED-21).
 KNOWN_GAPS = {
     "progressive.jpg": "progressive JPEG is not implemented",
-    "lossless.webp": "VP8L decoding is wrong",
-    "lossless_alpha.webp": "VP8L decoding is wrong",
-    "lossy_alpha.webp": "VP8L-coded alpha plane fails",
 }
 
 
@@ -224,7 +221,44 @@ def build_corpus(d):
     add("image.tga", "exact", lambda p: im.save(p, "TGA"))
     add("image.ppm", "exact", lambda p: im.save(p, "PPM"))
     add("image.ff", "exact", lambda p: write_farbfeld(p, ima))
+    vp8l_variants(add)
     return cases
+
+
+def vp8l_variants(add):
+    """Lossless WebP by what each image makes the encoder use: palettes of
+    every index width, the predictor, colour transform and cache on gradients
+    and noise, long distances, and entropy groups on a large image."""
+    r = random.Random(13)
+
+    def image(w, h, pixel):
+        im = Image.new("RGB", (w, h))
+        im.putdata([pixel(x, y) for y in range(h) for x in range(w)])
+        return im
+
+    def noise(x, y):
+        return (r.randrange(256), r.randrange(256), r.randrange(256))
+
+    def gradient(x, y):
+        return (x & 255, y & 255, (x + y) * 2 & 255)
+
+    def regions(x, y):
+        return (x // 64 * 80 & 255, y // 64 * 80 & 255, (x // 8 + y // 8) * 40 & 255)
+
+    variants = [("solid", 16, 16, lambda x, y: (10, 200, 30)),
+                ("gradient", 200, 150, gradient),
+                ("noise", 64, 64, noise),
+                ("regions", 640, 480, regions)]
+    for colours in (2, 4, 16, 100):
+        palette = [noise(0, 0) for _ in range(colours)]
+        variants.append((f"palette{colours}", 48, 32,
+                         lambda x, y, p=palette: p[r.randrange(len(p))]))
+    for name, w, h, pixel in variants:
+        im = image(w, h, pixel)
+        for method in (0, 6):
+            add(f"vp8l_{name}_m{method}.webp", "exact",
+                lambda p, im=im, m=method: im.save(p, "WEBP", lossless=True,
+                                                   quality=100, method=m))
 
 
 def canvas_decode(tool, path, out):
