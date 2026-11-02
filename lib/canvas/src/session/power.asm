@@ -54,8 +54,7 @@ power_init:
     mov [rbx + Server.arena],r12
     lea rdi,[rel power_event_callback]
     mov rsi,rax
-    mov rax,SYS_POWER_REG_CB
-    syscall
+    call ut_power_register_callback
     test rax,rax
     js .register_fail
 
