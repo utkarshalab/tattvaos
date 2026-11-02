@@ -331,9 +331,7 @@ layout_node_apply:
     mov r13, [r12 + Toplevel.surface]
     test r13, r13
     jz .done
-    mov r14, [r13 + Surface.pending]
-    test r14, r14
-    jz .done
+    lea r14, [r13 + Surface.pending]
 
     mov eax, [rbx + LayoutNode.x]
     mov [r14 + SurfaceState.buf_x], eax
