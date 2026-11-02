@@ -263,7 +263,7 @@ edid_find_preferred_mode:
     and ecx, 0xF0
     shl ecx, 4
     or eax, ecx
-    mov [r15 + Mode.width], rax
+    mov [r15 + Mode.width], eax
     mov r8d, eax
     movzx eax, byte [r13 + 3]
     movzx ecx, byte [r13 + 4]
@@ -278,7 +278,7 @@ edid_find_preferred_mode:
     and ecx, 0xF0
     shl ecx, 4
     or eax, ecx
-    mov [r15 + Mode.height], rax
+    mov [r15 + Mode.height], eax
     mov r9d, eax
     movzx eax, byte [r13 + 6]
     movzx ecx, byte [r13 + 7]
@@ -340,7 +340,7 @@ edid_find_preferred_mode:
     jz .not_interlaced
     or ecx, MODE_FLAG_INTERLACED
 .not_interlaced:
-    mov [r15 + Mode.flags], rcx
+    mov [r15 + Mode.flags], ecx
     mov [r12 + Output.current_mode], r15
     mov rax, r15
     jmp .preferred_out
