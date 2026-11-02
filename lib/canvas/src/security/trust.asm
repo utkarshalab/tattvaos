@@ -76,7 +76,8 @@ trust_create_default_profiles:
     jz .fail
     mov r12, rax
     
-    mov qword [r12 + TrustProfile.name], trusted_name
+    lea r11, [rel trusted_name]
+    mov [r12 + TrustProfile.name], r11
     mov qword [r12 + TrustProfile.caps], -1  ; all capabilities
     mov qword [r12 + TrustProfile.quota_mem], 0  ; unlimited
     mov dword [r12 + TrustProfile.quota_surfs], -1
@@ -99,7 +100,8 @@ trust_create_default_profiles:
     jz .fail
     mov r13, rax
     
-    mov qword [r13 + TrustProfile.name], standard_name
+    lea r11, [rel standard_name]
+    mov [r13 + TrustProfile.name], r11
     mov qword [r13 + TrustProfile.caps], CAP_DISPLAY | CAP_BUFFER | CAP_SURFACE | CAP_PRESENT | CAP_OUTPUT | CAP_SEAT | CAP_INPUT | CAP_CLIPBOARD
     mov qword [r13 + TrustProfile.quota_mem], 512 * 1024 * 1024
     mov dword [r13 + TrustProfile.quota_surfs], 64
@@ -121,7 +123,8 @@ trust_create_default_profiles:
     jz .fail
     mov r14, rax
     
-    mov qword [r14 + TrustProfile.name], sandboxed_name
+    lea r11, [rel sandboxed_name]
+    mov [r14 + TrustProfile.name], r11
     mov qword [r14 + TrustProfile.caps], CAP_DISPLAY | CAP_BUFFER | CAP_SURFACE | CAP_PRESENT
     mov qword [r14 + TrustProfile.quota_mem], 128 * 1024 * 1024
     mov dword [r14 + TrustProfile.quota_surfs], 16
