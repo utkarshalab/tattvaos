@@ -68,7 +68,8 @@ UT_SRCS := \
     $(SRCDIR)/ut/ut_log.asm \
     $(SRCDIR)/ut/ut_entropy.asm \
     $(SRCDIR)/ut/ut_wait.asm \
-    $(SRCDIR)/ut/ut_platform.asm
+    $(SRCDIR)/ut/ut_platform.asm \
+    $(SRCDIR)/core/panic.asm
 
 # Core Library (C1)
 CORE_SRCS := \
@@ -465,7 +466,7 @@ UT_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(UT_SRCS))
 # ---------------------------------------------------------------------------
 
 .PHONY: all release
-all: layout-check server client tools clients
+all: layout-check server ubf client tools clients
 
 release:
 	$(MAKE) MODE=release all
@@ -493,11 +494,23 @@ layout-check:
 
 # Canvas Server Image (canvasd)
 server: $(IMAGEDIR)/canvasd.img
+ubf: $(UBF)
 
 $(IMAGEDIR)/canvasd.img: $(ALL_OBJS) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -o $@ $(ALL_OBJS)
 	@echo "  IMG    $@"
+
+# The same program as a UBF: the kernel's exports take the place of src/ut.
+# UBF_REQUIRED must resolve at load; every other ut_ name is a weak import
+# whose stub returns -ENOSYS until the kernel exports it.
+UBF          := $(IMAGEDIR)/canvasd.ubf
+UBF_OBJS     := $(filter-out $(UT_OBJS),$(ALL_OBJS)) $(OBJDIR)/core/panic.o
+UBF_REQUIRED := ut_mem_alloc,ut_mem_free,ut_time_now_ns,ut_log_write,ut_fb_info,ut_yield
+
+$(UBF): $(UBF_OBJS) ubf.ld tools/ubfpack.py
+	@mkdir -p $(IMAGEDIR)
+	@python3 tools/ubfpack.py -o $@ --script ubf.ld --entry canvasd_init 	    --require $(UBF_REQUIRED) $(UBF_OBJS)
 
 # Client Library (relocatable object)
 CLIENT_SRCS := \
@@ -760,6 +773,9 @@ $(HOSTDIR)/host_decode: $(HOSTDIR)/host_decode.o $(HOSTDIR)/ut_host.o $(HOST_LIB
 $(HOSTDIR)/host_ui: $(HOSTDIR)/host_ui.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
 	$(LD) $(HOST_LDFLAGS) -o $@ $^
 
+$(HOSTDIR)/ubf_run: $(HOSTDIR)/ubf_run.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
+	$(LD) $(HOST_LDFLAGS) -o $@ $^
+
 .PHONY: host host-check
 host: $(HOST_TESTS) $(HOSTDIR)/host_decode $(HOSTDIR)/host_ui
 
@@ -770,6 +786,13 @@ host-check: host
 	python3 tests/host/svg_text_check.py $(HOSTDIR)/host_decode ../ugfx/$(BUILDDIR)/host_ctx ../ufont/fonts
 	python3 tests/host/ui_icons_check.py $(HOSTDIR)/host_ui ../ugfx/$(BUILDDIR)/host_ctx
 	python3 tests/host/compare_images.py $(HOSTDIR)/host_decode
+
+# The UBF passes the loader's checks, then runs to its first frame on what the
+# kernel exports.
+.PHONY: ubf-check
+ubf-check: $(UBF) $(HOSTDIR)/ubf_run
+	python3 tests/host/ubf_check.py $(UBF) $(UBF_REQUIRED)
+	$(HOSTDIR)/ubf_run $(UBF)
 
 # Every image must keep W^X: no segment both writable and executable.
 .PHONY: wx-check
@@ -798,11 +821,12 @@ pic-check: all
 	@echo "pic-check: every object is position independent"
 
 # Everything a change must pass: the layout and field checks, all images and
-# test images in debug and release, W^X and position independence, and the host
-# suites and conformance checks. The fuzz images are built here; their suites
-# are still to be written.
+# test images in debug and release, W^X and position independence, the host
+# suites and conformance checks, and the UBF in both modes. The fuzz images are
+# built here; their suites are still to be written.
 .PHONY: check
-check: field-width-check all test wx-check pic-check host-check release
+check: field-width-check all test wx-check pic-check host-check ubf-check release
+	$(MAKE) MODE=release ubf-check
 	@echo "check: passed"
 
 .PHONY: fuzz
@@ -886,6 +910,8 @@ help:
 	@echo ""
 	@echo "  all          Build everything (default)"
 	@echo "  server       Build canvasd server image"
+	@echo "  ubf          Pack canvasd as a UBF program"
+	@echo "  ubf-check    Validate the UBF and run it to its first frame"
 	@echo "  client       Build canvas_client.o library"
 	@echo "  tools        Build development tools"
 	@echo "  clients      Build reference client images"
