@@ -332,6 +332,17 @@ compositor_composite_output:
     mov rdi, [rbx + Compositor.renderer]
     mov rsi, rsp
     call sw_render_end_frame
+
+    ; A backend with real display memory takes the damage now
+    mov rdi, [r12 + Output.backend]
+    mov rax, [rdi + Backend.flip]
+    test rax, rax
+    jz .presented
+    mov rsi, r12
+    mov rdx, r13
+    xor ecx, ecx
+    call rax
+.presented:
     mov rdi, r13
     call region_clear
     inc qword [rbx + Compositor.frame_seq]
