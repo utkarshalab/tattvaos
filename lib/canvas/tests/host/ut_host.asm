@@ -302,11 +302,11 @@ ut_dma_free:
     jmp ut_mem_free
 
 ; ---------------------------------------------------------------------------
-; ut_wait_yield
+; ut_yield
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
-global ut_wait_yield
-ut_wait_yield:
+global ut_yield
+ut_yield:
     mov eax, HOST_SYS_SCHED_YIELD
     syscall
     xor eax, eax
@@ -323,6 +323,11 @@ global %1
     ret
 %endmacro
 
+HOST_NONE ut_wait_wake_task
+HOST_NONE ut_power_register_callback
+HOST_NONE ut_fs_open
+HOST_NONE ut_fs_pwrite
+HOST_NONE ut_fs_close
 HOST_NONE ut_tls_listen
 HOST_NONE ut_tls_accept
 HOST_NONE ut_tls_connect
