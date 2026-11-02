@@ -172,6 +172,10 @@ client_accept:
     js .unlink
 
     mov byte [r14 + Client.state], CLIENT_ACTIVE
+    mov [r14 + Client.server], rbx
+    mov rax, [rbx + Server.client_list]
+    mov [r14 + Client.next_client], rax
+    mov [rbx + Server.client_list], r14
     mov rax, [r14 + Client.id]
 .out:
     add rsp, ChannelPair_size + 8
@@ -216,6 +220,21 @@ client_disconnect:
 
     ; Mark state
     mov byte [r13 + Client.state], CLIENT_DEAD
+
+    ; Off the list the event loop walks
+    lea rcx, [rbx + Server.client_list]
+.find:
+    mov rax, [rcx]
+    test rax, rax
+    jz .unlisted
+    cmp rax, r13
+    je .unlist
+    lea rcx, [rax + Client.next_client]
+    jmp .find
+.unlist:
+    mov rax, [r13 + Client.next_client]
+    mov [rcx], rax
+.unlisted:
 
     ; What the server tables know of it
     mov rdi, rbx
