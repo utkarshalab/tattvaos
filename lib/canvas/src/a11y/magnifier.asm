@@ -207,9 +207,9 @@ magnifier_update:
     test rax, rax
     je .update_window
 
-    mov r13, [rax + Surface.current + SurfaceState.buf_x]
+    mov r13d, [rax + Surface.current + SurfaceState.buf_x]
     mov [rbx + Magnifier.x], r13d
-    mov r13, [rax + Surface.current + SurfaceState.buf_y]
+    mov r13d, [rax + Surface.current + SurfaceState.buf_y]
     mov [rbx + Magnifier.y], r13d
 
 .update_window:
