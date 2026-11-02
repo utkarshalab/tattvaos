@@ -34,6 +34,7 @@ extern test_proto_suite
 extern test_client_suite
 extern test_surface_suite
 extern test_server_suite
+extern test_fields_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -145,6 +146,10 @@ test_runner_init:
 
     ; Test the server end to end
     call test_server_suite
+    add rbx, rax
+
+    ; Test field access regressions and the linear framebuffer
+    call test_fields_suite
     add rbx, rax
 
     ; Final summary
