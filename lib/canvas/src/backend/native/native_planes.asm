@@ -10,6 +10,11 @@
 %include "inc/externs.inc"
 %include "inc/backend.inc"
 
+%define DCN_CURSOR_CONTROL           0x2000
+%define DCN_CURSOR_SURFACE_ADDRESS   0x2010
+%define DCN_CURSOR_SIZE              0x2020
+%define DCN_CURSOR_POSITION          0x2030
+
 section .text
 
 global native_planes_init
@@ -168,12 +173,6 @@ native_cursor_move:
 
 .fail_move:
     RETURN_ERROR EIO
-
-section .rodata
-DCN_CURSOR_CONTROL:           dd 0x2000
-DCN_CURSOR_SURFACE_ADDRESS:   dd 0x2010
-DCN_CURSOR_SIZE:              dd 0x2020
-DCN_CURSOR_POSITION:          dd 0x2030
 
 section .data
 global native_planes_version
