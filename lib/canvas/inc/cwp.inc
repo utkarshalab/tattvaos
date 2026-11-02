@@ -21,6 +21,7 @@
 %define CWP_MSG_FLAG_HAS_HANDLES   0x0002
 %define CWP_MSG_FLAG_IS_EVENT      0x0004
 %define CWP_MSG_FLAG_TRANSACTION   0x0008
+%define CWP_MSG_FLAG_REPLY         0x0010   ; answers the request with this opcode
 
 ; Object types
 %define CWP_OBJ_DISPLAY            1
