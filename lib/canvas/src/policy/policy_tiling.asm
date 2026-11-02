@@ -60,14 +60,22 @@ policy_tiling_init:
     mov byte [rbx + PolicyTiling.smart_borders], 1
 
     ; Set function pointers
-    mov qword [rdi + Policy.layout], policy_tiling_layout
-    mov qword [rdi + Policy.configure], policy_tiling_configure
-    mov qword [rdi + Policy.focus_change], policy_tiling_focus_change
-    mov qword [rdi + Policy.new_window], policy_tiling_new_window
-    mov qword [rdi + Policy.close_window], policy_tiling_close_window
-    mov qword [rdi + Policy.workspace_changed], policy_tiling_workspace_changed
-    mov qword [rdi + Policy.tile_window], policy_tiling_tile_window
-    mov qword [rdi + Policy.window_configured], policy_tiling_window_configured
+    lea r11, [rel policy_tiling_layout]
+    mov [rdi + Policy.layout], r11
+    lea r11, [rel policy_tiling_configure]
+    mov [rdi + Policy.configure], r11
+    lea r11, [rel policy_tiling_focus_change]
+    mov [rdi + Policy.focus_change], r11
+    lea r11, [rel policy_tiling_new_window]
+    mov [rdi + Policy.new_window], r11
+    lea r11, [rel policy_tiling_close_window]
+    mov [rdi + Policy.close_window], r11
+    lea r11, [rel policy_tiling_workspace_changed]
+    mov [rdi + Policy.workspace_changed], r11
+    lea r11, [rel policy_tiling_tile_window]
+    mov [rdi + Policy.tile_window], r11
+    lea r11, [rel policy_tiling_window_configured]
+    mov [rdi + Policy.window_configured], r11
 
     ; Initialize layout tree
     call layout_tree_init
