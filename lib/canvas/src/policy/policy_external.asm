@@ -224,8 +224,8 @@ policy_external_send_layout_request:
     mov rbx, rdi
     mov r12, rsi
     mov r15, rsi
-    mov r13, [r12 + Output.width]
-    mov r14, [r12 + Output.height]
+    mov r13d, [r12 + Output.width]
+    mov r14d, [r12 + Output.height]
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
