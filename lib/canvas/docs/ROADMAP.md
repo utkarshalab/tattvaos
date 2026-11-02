@@ -95,7 +95,7 @@
 | FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ◐ `make check`: layout, debug and release images, W^X, 24 unit suites, SVG, icon and image conformance. Golden frames run; the fuzz suites are still stubs |
 | FND-11 | Separate text/rodata/data segments in the linker script (W^X images) | P0 | ✓ R-X, R--, RW- segments on their own pages; all 23 images checked |
 | FND-12 | Dual-assembler CI: NASM and utasm both green, outputs compared byte for byte | P1 | 12 files currently utasm-only failures |
-| FND-13 | Static lint: register-use and ABI conventions, missing `ret`, stack alignment | P2 | 77 accesses wider than their field remain (e.g. `webp_vp8_filter`, `fb_linear`, `decoration_draw`) |
+| FND-13 | Static lint: register-use and ABI conventions, missing `ret`, stack alignment | P2 | ◐ `make field-width-check` (part of `check`): no access wider than a struc field. Stack locals are not covered |
 | FND-14 | Reproducible builds: identical image hashes from identical source | P3 | |
 | FND-15 | Binary size budget per subsystem, tracked in CI | P3 | |
 | FND-16 | Modular build profiles: minimal (kiosk), standard (desktop), full (workstation) | P3 | |
@@ -302,7 +302,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| OUT-01 | `headless` and `fb_linear` backends wired and tested | P1 | ◐ `headless` done and tested; `fb_linear` still to do |
+| OUT-01 | `headless` and `fb_linear` backends wired and tested | P1 | ✓ both host-tested; `fb_linear` copies only damage; `main.asm` takes the framebuffer from `boot_info`, not yet run on Utkarsha |
 | OUT-02 | Native modeset on the first display family | P2 | ◐ `backend/family/amd/dcn` |
 | OUT-03 | Vblank IRQ path with accurate timestamps | P2 | ◐ `native_vblank.asm` (unlisted) |
 | OUT-04 | Hardware cursor and overlay planes | P2 | ◐ `native_planes.asm` (unlisted) |
