@@ -109,7 +109,7 @@ record_start:
     mov [rbx + Recorder.start_time], rax
     mov byte [rbx + Recorder.active], 1
     mov rdi, [rbx + Recorder.path]
-    SYSCALL SYS_FS_OPEN
+    call ut_fs_open
     test rax, rax
     js .oom
     mov [rbx + Recorder.file], rax
@@ -126,7 +126,7 @@ record_start:
     mov rsi, rsp
     mov rdx, CwprecHeader_size
     xor rcx, rcx
-    SYSCALL SYS_FS_PWRITE
+    call ut_fs_pwrite
     cmp rax, CwprecHeader_size
     jne .write_fail
     add rsp, CwprecHeader_size
@@ -136,7 +136,7 @@ record_start:
 .write_fail:
     add rsp, CwprecHeader_size
     mov rdi, [rbx + Recorder.file]
-    SYSCALL SYS_FS_CLOSE
+    call ut_fs_close
     mov byte [rbx + Recorder.active], 0
     mov rax, -(EIO)
     EPILOGUE_RESTORE rbx, r12, r13
@@ -185,7 +185,7 @@ record_frame:
     imul rcx, CwprecFrame_size
     add rcx, [rbx + Recorder.bytes]
     add rcx, CwprecHeader_size
-    SYSCALL SYS_FS_PWRITE
+    call ut_fs_pwrite
     cmp rax, CwprecFrame_size
     jne .frame_fail
     mov rdi, [rbx + Recorder.file]
@@ -196,7 +196,7 @@ record_frame:
     imul rcx, CwprecFrame_size
     add rcx, [rbx + Recorder.bytes]
     add rcx, CwprecHeader_size
-    SYSCALL SYS_FS_PWRITE
+    call ut_fs_pwrite
     cmp rax, r14
     jne .frame_fail
     add rsp, CwprecFrame_size
@@ -235,10 +235,10 @@ record_stop:
     mov rsi, rsp
     mov rdx, 8
     mov rcx, 8
-    SYSCALL SYS_FS_PWRITE
+    call ut_fs_pwrite
     add rsp, 8
     mov rdi, [rbx + Recorder.file]
-    SYSCALL SYS_FS_CLOSE
+    call ut_fs_close
     mov qword [rbx + Recorder.file], 0
 .done:
     xor rax, rax
