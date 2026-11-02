@@ -33,6 +33,7 @@ extern test_gpu_suite
 extern test_proto_suite
 extern test_client_suite
 extern test_surface_suite
+extern test_server_suite
 
 ; ---------------------------------------------------------------------------
 ; test_runner_init
@@ -140,6 +141,10 @@ test_runner_init:
 
     ; Test surfaces, buffers and commits
     call test_surface_suite
+    add rbx, rax
+
+    ; Test the server end to end
+    call test_server_suite
     add rbx, rax
 
     ; Final summary
