@@ -55,7 +55,8 @@ webp_decode_image:
     call webp_bits_get
     test rax,rax
     js .bad
-    inc eax
+    test eax,eax                      ; stored as is, 1 .. 11
+    jz .bad
     cmp eax,11
     ja .bad
     mov [rsp+80],eax
