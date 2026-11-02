@@ -611,7 +611,8 @@ UNIT_SRCS := \
     tests/unit/test_proto.asm \
     tests/unit/test_client.asm \
     tests/unit/test_surface.asm \
-    tests/unit/test_server.asm
+    tests/unit/test_server.asm \
+    tests/unit/test_fields.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
 # What the test images link: everything the server links but its entry (server/main)
@@ -736,7 +737,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server region quota tile_diff \
+HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server fields region quota tile_diff \
                  inflate icc record_replay rfb webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
@@ -773,14 +774,23 @@ host-check: host
 # Every image must keep W^X: no segment both writable and executable.
 .PHONY: wx-check
 wx-check: all
-	@for f in $(IMAGEDIR)/*.img; do 	    if readelf -lW $$f | awk '$$1 == "LOAD" && $$7 ~ /W/ && $$7 ~ /E/' | grep -q .; then 	        echo "wx-check: $$f has a writable and executable segment"; exit 1; 	    fi; 	done
+	@for f in $(IMAGEDIR)/*.img; do \
+	    if readelf -lW $$f | awk '$$1 == "LOAD" && $$7 ~ /W/ && $$7 ~ /E/' | grep -q .; then \
+	        echo "wx-check: $$f has a writable and executable segment"; exit 1; \
+	    fi; \
+	done
 	@echo "wx-check: every image is W^X"
 
-# Everything a change must pass: the layout check, all images and test images
-# in debug and release, W^X, and the host suites and conformance checks. The
-# golden and fuzz images are built here; their suites are still to be written.
+# No access may be wider than the struc field it names.
+.PHONY: field-width-check
+field-width-check:
+	@python3 tests/host/field_width_check.py .
+
+# Everything a change must pass: the layout and field checks, all images and
+# test images in debug and release, W^X, and the host suites and conformance
+# checks. The fuzz images are built here; their suites are still to be written.
 .PHONY: check
-check: all test wx-check host-check release
+check: field-width-check all test wx-check host-check release
 	@echo "check: passed"
 
 .PHONY: fuzz
