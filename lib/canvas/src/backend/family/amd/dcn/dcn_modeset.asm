@@ -60,7 +60,7 @@ dcn_modeset:
     call dcn_crtc_enable
 
     ; Update output state
-    mov rax, [r13 + Mode.width]
+    mov eax, [r13 + Mode.width]
     mov [r12 + Output.width], eax
     mov eax, [r13 + Mode.height]
     mov [r12 + Output.height], eax
