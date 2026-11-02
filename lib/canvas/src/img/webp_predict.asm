@@ -20,7 +20,7 @@ global webp_predict_basic
 global webp_predict_pixel
 webp_predict_basic:
 webp_predict_pixel:
-    cmp edi,13
+    cmp edi,15
     ja .bad
     mov r9d,esi                        ; L
     mov r10d,edx                       ; T
@@ -51,7 +51,9 @@ webp_predict_pixel:
     je .mode11
     cmp edi,12
     je .mode12
-    jmp .mode13
+    cmp edi,13
+    je .mode13
+    jmp .mode0
 .mode10:
     ; Average2(Average2(L,TL), Average2(T,TR)).
     AVG2 eax,r9d,r11d,edi
@@ -144,6 +146,9 @@ webp_predict_pixel:
     and edx,0xff
     neg edx
     add edx,eax                       ; average - TL
+    mov esi,edx
+    shr esi,31                        ; rounds the halving toward zero
+    add edx,esi
     sar edx,1
     add eax,edx                       ; average + (average-TL)/2
     xor edx,edx
@@ -197,13 +202,10 @@ webp_predict_pixel:
 ; Add packed bytes independently modulo 256.
 ; residual,predictor -> packed ARGB.
 webp_add_pixels:
-    mov eax,edi
-    add eax,esi
-    mov edx,edi
-    xor edx,esi
-    xor edx,eax
-    and edx,0x01010100                 ; carries crossing byte lanes
-    sub eax,edx
+    movd xmm0,edi
+    movd xmm1,esi
+    paddb xmm0,xmm1
+    movd eax,xmm0
     ret
 
 ; WebPPredictState* -> 0 or -EINVAL.
@@ -287,9 +289,7 @@ webp_inverse_predictor:
     add eax,edx
     mov eax,[r13+rax*4]
     shr eax,8
-    and eax,0xff
-    cmp eax,13
-    ja .image_bad
+    and eax,15
     mov edi,eax
 .neighbors_ready:
     mov eax,[rsp+8]
