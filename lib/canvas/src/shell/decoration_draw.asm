@@ -223,23 +223,23 @@ decoration_draw_button:
     je .disabled
 
 .normal:
-    mov r14, [rbx + DecorationDrawState.button_bg_color]
-    mov r15, [rbx + DecorationDrawState.button_fg_color]
+    mov r14d, [rbx + DecorationDrawState.button_bg_color]
+    mov r15d, [rbx + DecorationDrawState.button_fg_color]
     jmp .draw
 
 .hover:
-    mov r14, [rbx + DecorationDrawState.button_bg_color]
-    mov r15, [rbx + DecorationDrawState.button_fg_color]
+    mov r14d, [rbx + DecorationDrawState.button_bg_color]
+    mov r15d, [rbx + DecorationDrawState.button_fg_color]
     jmp .draw
 
 .pressed:
-    mov r14, [rbx + DecorationDrawState.button_bg_color]
-    mov r15, [rbx + DecorationDrawState.button_fg_color]
+    mov r14d, [rbx + DecorationDrawState.button_bg_color]
+    mov r15d, [rbx + DecorationDrawState.button_fg_color]
     jmp .draw
 
 .disabled:
-    mov r14, [rbx + DecorationDrawState.button_bg_color]
-    mov r15, [rbx + DecorationDrawState.button_fg_color]
+    mov r14d, [rbx + DecorationDrawState.button_bg_color]
+    mov r15d, [rbx + DecorationDrawState.button_fg_color]
     jmp .draw
 
 .draw:
