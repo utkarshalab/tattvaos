@@ -299,6 +299,9 @@ extern ut_log_set_level
 extern ut_log_get_level
 extern ut_log_flush
 
+; Framebuffer: fills a 32-byte block, see docs/KERNEL_NEEDS.md
+extern ut_fb_info
+
 ; Entropy
 extern ut_entropy_get
 extern ut_entropy_u64
@@ -309,7 +312,7 @@ extern ut_waitset_create
 extern ut_waitset_add
 extern ut_waitset_remove
 extern ut_wait_wait
-extern ut_wait_yield
+extern ut_yield
 extern ut_wait_wake_task
 
 ; Task
@@ -341,6 +344,7 @@ extern ut_fs_list
 extern ut_fs_open
 extern ut_fs_pread
 extern ut_fs_close
+extern ut_fs_pwrite
 
 ; PCI
 extern ut_pci_for_each
