@@ -246,6 +246,7 @@ COLOR_SRCS := \
 # Server Core (C5-C8)
 SERVER_SRCS := \
     $(SRCDIR)/server/main.asm \
+    $(SRCDIR)/server/server_core.asm \
     $(SRCDIR)/server/client/client.asm \
     $(SRCDIR)/server/client/client_registry.asm \
     $(SRCDIR)/server/client/auth.asm \
@@ -609,7 +610,8 @@ UNIT_SRCS := \
     tests/unit/test_gpu.asm \
     tests/unit/test_proto.asm \
     tests/unit/test_client.asm \
-    tests/unit/test_surface.asm
+    tests/unit/test_surface.asm \
+    tests/unit/test_server.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
 # What the test images link: everything the server links but its entry (server/main)
@@ -734,7 +736,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden region quota tile_diff \
+HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server region quota tile_diff \
                  inflate icc record_replay rfb webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
