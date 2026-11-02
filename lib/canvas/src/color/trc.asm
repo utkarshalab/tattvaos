@@ -107,7 +107,8 @@ trc_apply:
     mov rdi, 4095
 .srgb_ok:
     extern linear_to_srgb_lut
-    movzx eax, word [linear_to_srgb_lut + rdi * 2]
+    lea r11, [rel linear_to_srgb_lut]
+    movzx eax, word [r11 + rdi*2]
     shl eax, 8  ; u16 -> 16.16 approx
     EPILOGUE_RESTORE rbx, r12
     ret
