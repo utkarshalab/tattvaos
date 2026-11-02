@@ -203,8 +203,8 @@ global surface_set_cursor
 surface_set_cursor:
     test rdi, rdi
     jz .bad
-    mov [rdi + Pointer.x], rsi
-    mov [rdi + Pointer.y], rdx
+    mov [rdi + Pointer.x], esi
+    mov [rdi + Pointer.y], edx
     xor eax, eax
     ret
 .bad:
