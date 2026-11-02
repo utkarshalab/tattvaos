@@ -28,6 +28,7 @@ extern region_add_rect
 extern server_init
 extern server_poll
 extern surface_set_cursor
+extern webp_predict_pixel
 
 %define HEAP_SIZE (1024 * 1024)
 %define FB_W 16
@@ -51,6 +52,7 @@ test_fields_main:
     CASE tf_cursor_keeps_neighbour
     CASE tf_hit_test
     CASE tf_confine
+    CASE tf_webp_predict
     CASE tf_fb_refused
     CASE tf_fb_frame
     CASE tf_fb_only_damage
@@ -139,6 +141,35 @@ tf_confine:
     cmp dword [rel px], 30
     jne .fail
     cmp dword [rel py], 20
+    jne .fail
+    PASS
+
+; predictor rules of the format: mode 13 halves toward zero, 14 and 15 are black
+tf_webp_predict:
+    sub rsp, 8
+    mov edi, 13
+    mov esi, 0xFF0A0A0A                 ; L: all channels 10 (alpha 255)
+    mov edx, 0xFF0A0A0A                 ; T
+    mov ecx, 0xFF0D0D0D                 ; TL: 13; 10 + (10 - 13) / 2 = 9
+    xor r8d, r8d
+    call webp_predict_pixel
+    cmp eax, 0xFF090909
+    jne .fail
+    mov edi, 14
+    mov esi, 1
+    mov edx, 2
+    mov ecx, 3
+    mov r8d, 4
+    call webp_predict_pixel
+    cmp eax, 0xFF000000
+    jne .fail
+    mov edi, 15
+    call webp_predict_pixel
+    cmp eax, 0xFF000000
+    jne .fail
+    mov edi, 16                         ; no such mode
+    call webp_predict_pixel
+    cmp rax, -(EINVAL)
     jne .fail
     PASS
 
