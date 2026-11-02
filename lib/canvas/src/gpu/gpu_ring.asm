@@ -171,7 +171,7 @@ gpu_ring_wait_empty:
     call ut_time_now_ns
     cmp rax, r12
     jae .timeout
-    call ut_wait_yield
+    call ut_yield
     jmp .poll
 .timeout:
     mov rax, -(ETIMEDOUT)
