@@ -43,14 +43,22 @@ policy_kiosk_init:
     mov byte [rbx + PolicyKiosk.auto_restart], 1
 
     ; Set function pointers
-    mov qword [rdi + Policy.layout], policy_kiosk_layout
-    mov qword [rdi + Policy.configure], policy_kiosk_configure
-    mov qword [rdi + Policy.focus_change], policy_kiosk_focus_change
-    mov qword [rdi + Policy.new_window], policy_kiosk_new_window
-    mov qword [rdi + Policy.close_window], policy_kiosk_close_window
-    mov qword [rdi + Policy.workspace_changed], policy_kiosk_workspace_changed
-    mov qword [rdi + Policy.tile_window], policy_kiosk_tile_window
-    mov qword [rdi + Policy.window_configured], policy_kiosk_window_configured
+    lea r11, [rel policy_kiosk_layout]
+    mov [rdi + Policy.layout], r11
+    lea r11, [rel policy_kiosk_configure]
+    mov [rdi + Policy.configure], r11
+    lea r11, [rel policy_kiosk_focus_change]
+    mov [rdi + Policy.focus_change], r11
+    lea r11, [rel policy_kiosk_new_window]
+    mov [rdi + Policy.new_window], r11
+    lea r11, [rel policy_kiosk_close_window]
+    mov [rdi + Policy.close_window], r11
+    lea r11, [rel policy_kiosk_workspace_changed]
+    mov [rdi + Policy.workspace_changed], r11
+    lea r11, [rel policy_kiosk_tile_window]
+    mov [rdi + Policy.tile_window], r11
+    lea r11, [rel policy_kiosk_window_configured]
+    mov [rdi + Policy.window_configured], r11
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
