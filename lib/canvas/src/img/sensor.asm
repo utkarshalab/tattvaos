@@ -205,15 +205,18 @@ sensor_process:
 .color:
     ; White balance in 16.16.
     mov eax,[rsp+60]
-    imul rax,[r14+SensorImageDesc.wb_r]
+    movsxd rcx,dword [r14+SensorImageDesc.wb_r]
+    imul rax,rcx
     sar rax,16
     mov [rsp+60],eax
     mov eax,[rsp+64]
-    imul rax,[r14+SensorImageDesc.wb_g]
+    movsxd rcx,dword [r14+SensorImageDesc.wb_g]
+    imul rax,rcx
     sar rax,16
     mov [rsp+64],eax
     mov eax,[rsp+68]
-    imul rax,[r14+SensorImageDesc.wb_b]
+    movsxd rcx,dword [r14+SensorImageDesc.wb_b]
+    imul rax,rcx
     sar rax,16
     mov [rsp+68],eax
     ; Signed 3x3 camera RGB -> display-linear RGB.
