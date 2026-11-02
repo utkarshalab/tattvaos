@@ -85,6 +85,7 @@ fresh:
     lea rsi, [rel arena]
     mov edx, 64
     mov ecx, 48
+    xor r8d, r8d
     call server_init
     mov [rel init_result], rax
     lea rdi, [rel server]
