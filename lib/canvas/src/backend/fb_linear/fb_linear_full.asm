@@ -1,7 +1,11 @@
 ; ============================================================================
 ; Framebuffer Linear Backend — Complete Implementation
-; Simple linear framebuffer (VBE/UEFI GOP), page-flip by copy or double-buffer
+; Simple linear framebuffer (VBE/UEFI GOP)
 ; ============================================================================
+; The compositor draws into an output's framebuffer in ordinary memory, the
+; same as headless. After a frame, fb_linear_flip copies each damaged rectangle
+; to the real framebuffer, whose rows may be longer than the output's: reading
+; display memory is slow, so it is only ever written. Pixels are 32-bit BGRX.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -9,13 +13,12 @@
 %include "inc/ut.inc"
 %include "inc/fixed.inc"
 %include "inc/image.inc"
+%include "inc/color.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
 
-extern arena_alloc
-extern arena_free
-extern fence_signal
-extern fence_wait
+extern headless_create_virtual_output
+extern headless_deinit
 extern memcopy
 
 section .text
@@ -23,250 +26,186 @@ section .text
 ; ---------------------------------------------------------------------------
 ; fb_linear_init
 ;   Initialize linear framebuffer backend
-;   IN:  rdi = backend*, rsi = config*
+;   IN:  rdi = backend* (arena and server already set), rsi = config*
 ;   OUT: rax = 0 OK, negative error
 ; ---------------------------------------------------------------------------
 global fb_linear_init
 fb_linear_init:
-    PROLOGUE_SAVE rbx, r12, r13
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    
+    mov r13, [rbx + Backend.arena]
+    mov r14, [rbx + Backend.server]
+
+    mov rax, -(EINVAL)
+    cmp qword [r12 + Config.fb_base], 0
+    je .out
+    cmp dword [r12 + Config.fb_width], 0
+    je .out
+    cmp dword [r12 + Config.fb_height], 0
+    je .out
+    mov ecx, [r12 + Config.fb_width]
+    shl ecx, 2
+    cmp [r12 + Config.fb_stride], ecx
+    jb .out                             ; rows too short for 32-bit pixels
+
     ; Zero backend state
     mov rdi, rbx
     mov rcx, Backend_size
     xor eax, eax
     rep stosb
-    
-    ; Save framebuffer info from config
+
+    mov [rbx + Backend.arena], r13
+    mov [rbx + Backend.server], r14
+    mov [rbx + Backend.config], r12
     mov rax, [r12 + Config.fb_base]
-    mov qword [rbx + Backend.fb_base], rax
+    mov [rbx + Backend.fb_base], rax
     mov rax, [r12 + Config.fb_size]
-    mov qword [rbx + Backend.fb_size], rax
-    
-    ; Zero output list
-    mov qword [rbx + Backend.outputs], 0
-    mov qword [rbx + Backend.output_count], 0
-    mov qword [rbx + Backend.layout_bounds], 0
-    
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    mov [rbx + Backend.fb_size], rax
+    lea rax, [rel fb_linear_flip]
+    mov [rbx + Backend.flip], rax
+
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
+
+; ---------------------------------------------------------------------------
+; fb_linear_create_output
+;   The one output, the size of the framebuffer
+;   IN:  rdi = backend*
+;   OUT: rax = output*, 0 on error
+; ---------------------------------------------------------------------------
+global fb_linear_create_output
+fb_linear_create_output:
+    ASSERT_PTR rdi
+    mov rax, [rdi + Backend.config]
+    mov esi, [rax + Config.fb_width]
+    mov edx, [rax + Config.fb_height]
+    mov ecx, DRM_FORMAT_BGRA8888
+    jmp headless_create_virtual_output
 
 ; ---------------------------------------------------------------------------
 ; fb_linear_deinit
 ; ---------------------------------------------------------------------------
 global fb_linear_deinit
 fb_linear_deinit:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-    
-    mov rdi, [rbx + Backend.outputs]
-    test rdi, rdi
-    jz .done
-.destroy_loop:
-    test rdi, rdi
-    jz .done
-    mov rax, [rdi + Output.next]
-    mov rsi, rdi
-    mov rdi, [rbx + Backend.arena]
-    call arena_free
-    mov rdi, rax
-    jmp .destroy_loop
-.done:
-    xor rax, rax
-    leave
-    ret
+    jmp headless_deinit
 
 ; ---------------------------------------------------------------------------
 ; fb_linear_modeset
+;   The framebuffer has the one mode the firmware set
+;   IN:  rdi = backend*, rsi = output*, rdx = mode*
+;   OUT: rax = 0 OK, -EINVAL
 ; ---------------------------------------------------------------------------
 global fb_linear_modeset
 fb_linear_modeset:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    ASSERT_PTR r13
-    
-    ; Validate mode matches framebuffer
-    mov eax, [r13 + Mode.width]
-    test eax, eax
-    jz .bad_mode
-    mov eax, [r13 + Mode.height]
-    test eax, eax
-    jz .bad_mode
-    
-    ; Check stride matches
-    mov eax, [r13 + Mode.width]
-    shl eax, 2
-    cmp eax, [r12 + Output.stride]
+    ASSERT_PTR rdi
+    ASSERT_PTR rsi
+    ASSERT_PTR rdx
+    mov eax, [rdx + Mode.width]
+    cmp eax, [rsi + Output.width]
     jne .bad_mode
-    
-    ; Update output
-    mov eax, [r13 + Mode.width]
-    mov [r12 + Output.width], eax
-    mov eax, [r13 + Mode.height]
-    mov [r12 + Output.height], eax
-    mov qword [r12 + Output.current_mode], r13
-    
-    ; Create surface pointing to framebuffer
-    mov rax, [r12 + Output.current_surface]
-    test rax, rax
-    jnz .update_surface
-    
-    ; Allocate surface struct
-    mov rdi, [rbx + Backend.arena]
-    mov rsi, Surface_size
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov r12, rax
-    mov [rbx + Output.current_surface], rax
-    
-    ; Initialize surface
-    mov rax, [rbx + Backend.fb_base]
-    mov [r12 + Surface.current], rax
-    mov eax, [r13 + Mode.width]
-    mov [r12 + Surface.width], eax
-    mov eax, [r13 + Mode.height]
-    mov [r12 + Surface.height], eax
-    mov dword [r12 + Surface.format], DRM_FORMAT_BGRA8888
-    mov eax, [r13 + Mode.width]
-    shl eax, 2
-    mov [r12 + Surface.stride], eax
-    mov qword [r12 + Surface.buffer], 0
-    mov qword [r12 + Surface.damage], 0
-    mov qword [r12 + Output.current_surface], rax
-    mov rax, [rbx + Backend.fb_base]
-    mov qword [r12 + Buffer.base], rax
-    mov qword [r12 + Surface.buffer], rax
-    jmp .done
-    
-.update_surface:
-    ; Update existing surface
-    mov [rax + Surface.current], rax
-    mov eax, [r13 + Mode.width]
-    mov [rax + Surface.width], eax
-    mov eax, [r13 + Mode.height]
-    mov [rax + Surface.height], eax
-    mov dword [rax + Surface.format], DRM_FORMAT_BGRA8888
-    mov eax, [r13 + Mode.width]
-    shl eax, 2
-    mov [rax + Surface.stride], eax
-    jmp .done
-    
-.done:
-    xor rax, rax
-    leave
+    mov eax, [rdx + Mode.height]
+    cmp eax, [rsi + Output.height]
+    jne .bad_mode
+    mov [rsi + Output.current_mode], rdx
+    xor eax, eax
     ret
 .bad_mode:
     mov rax, -(EINVAL)
-    leave
-    ret
-.oom:
-    mov rax, -(ENOMEM)
-    leave
     ret
 
 ; ---------------------------------------------------------------------------
 ; fb_linear_flip
+;   Copy the frame's damage to the framebuffer
+;   IN:  rdi = backend*, rsi = output*, rdx = damage region*, rcx = fence (unused)
+;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global fb_linear_flip
 fb_linear_flip:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 24                         ; next rect index, width in bytes
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
-    mov r14, rcx
     ASSERT_PTR rbx
     ASSERT_PTR r12
     ASSERT_PTR r13
-    
-    ; Wait for acquire fence
-    test r14, r14
-    jz .no_fence
-    mov rdi, [rbx + Backend.server]
-    mov rsi, r14
-    call fence_wait
-    test rax, rax
-    jnz .fail
-.no_fence:
-    
-    ; Get surface
-    mov rax, [r12 + Output.current_surface]
-    test rax, rax
-    jz .no_surface
-    mov rbx, rax
-    
-    ; Get new buffer
-    mov rax, [r13 + Buffer.base]
-    test rax, rax
-    jz .fail
-    
-    ; Check if double-buffered
-    mov r15, [rbx + Surface.current]
-    mov rax, [rbx + Surface.stride]
-    imul rax, [rbx + Surface.height]
-    
-    ; Copy new buffer to framebuffer
-    mov rdi, [rbx + Backend.fb_base]
-    mov rsi, rax
-    mov rdx, r15
+    mov qword [rsp], 0
+.rect:
+    mov rax, [rsp]
+    cmp rax, [r13 + Region.count]
+    jae .done
+    inc qword [rsp]
+    shl rax, 4
+    add rax, [r13 + Region.rects]
+
+    ; Clip to the output
+    movsxd rcx, dword [rax]             ; left
+    movsxd rdx, dword [rax + 4]         ; top
+    movsxd r8, dword [rax + 8]
+    add r8, rcx                         ; right
+    movsxd r9, dword [rax + 12]
+    add r9, rdx                         ; bottom
+    xor eax, eax
+    test rcx, rcx
+    cmovs rcx, rax
+    test rdx, rdx
+    cmovs rdx, rax
+    mov eax, [r12 + Output.width]
+    cmp r8, rax
+    cmovg r8, rax
+    mov eax, [r12 + Output.height]
+    cmp r9, rax
+    cmovg r9, rax
+    sub r8, rcx
+    jle .rect
+    sub r9, rdx
+    jle .rect
+
+    shl r8, 2
+    mov [rsp + 8], r8                   ; bytes in a row
+    mov r15, r9                         ; rows
+
+    mov rax, [rbx + Backend.config]
+    mov r14d, [rax + Config.fb_stride]
+    imul r14, rdx
+    lea r14, [r14 + rcx * 4]
+    add r14, [rbx + Backend.fb_base]    ; destination
+    imul rdx, [r12 + Output.stride]
+    lea rax, [rdx + rcx * 4]
+    add rax, [r12 + Output.framebuffer]
+    mov [rsp + 16], rax                 ; source
+.row:
+    mov rdi, r14
+    mov rsi, [rsp + 16]
+    mov rdx, [rsp + 8]
     call memcopy
-    
-    ; Update surface buffer pointer
-    mov [rbx + Surface.current], r13
-    mov [rbx + Surface.buffer], r13
-    
-    ; Signal release fence
-    mov rdi, [rbx + Backend.server]
-    mov rsi, r14
-    call fence_signal
-    
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.fail:
-    mov rax, -(EIO)
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
-.no_surface:
-    mov rax, -(ENODEV)
+    mov rax, [rbx + Backend.config]
+    mov eax, [rax + Config.fb_stride]
+    add r14, rax
+    mov rax, [r12 + Output.stride]
+    add [rsp + 16], rax
+    dec r15
+    jnz .row
+    jmp .rect
+.done:
+    xor eax, eax
+    add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
 ; ---------------------------------------------------------------------------
 ; fb_linear_vblank_wait
+;   The firmware's framebuffer has no vblank to wait for
+;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global fb_linear_vblank_wait
 fb_linear_vblank_wait:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    
-    call ut_time_now_ns
-    mov rbx, rax
-    add rbx, r13
-.wait_loop:
-    call ut_time_now_ns
-    cmp rax, rbx
-    jae .timeout
-    pause
-    jmp .wait_loop
-.timeout:
-    mov rax, -(ETIMEDOUT)
-    EPILOGUE_RESTORE rbx, r12, r13
+    xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
@@ -274,33 +213,22 @@ fb_linear_vblank_wait:
 ; ---------------------------------------------------------------------------
 global fb_linear_hotplug
 fb_linear_hotplug:
-    PROLOGUE
-    xor rax, rax
-    leave
+    xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
 ; fb_linear_cursor
+;   Software cursor: track position
+;   IN:  rdi = backend*, rcx = x, r8 = y
 ; ---------------------------------------------------------------------------
 global fb_linear_cursor
 fb_linear_cursor:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    
-    ; Simple software cursor - just track position
-    mov eax, ecx
-    mov [rbx + Backend.cursor_x], eax
-    mov eax, r8d
-    mov [rbx + Backend.cursor_y], eax
-    
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    ASSERT_PTR rdi
+    mov [rdi + Backend.cursor_x], ecx
+    mov [rdi + Backend.cursor_y], r8d
+    xor eax, eax
     ret
 
 section .data
 global fb_linear_backend_version
-fb_linear_backend_version: dq 0x010000
+fb_linear_backend_version: dq 0x010100
