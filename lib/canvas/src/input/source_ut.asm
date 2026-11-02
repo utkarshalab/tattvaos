@@ -33,13 +33,20 @@ input_source_tv_init:
 
     ; Fill source
     mov dword [r12 + InputSource.type], INPUT_SOURCE_TV
-    mov qword [r12 + InputSource.name], ut_source_name
-    mov qword [r12 + InputSource.init], ut_source_init
-    mov qword [r12 + InputSource.deinit], ut_source_deinit
-    mov qword [r12 + InputSource.start], ut_source_start
-    mov qword [r12 + InputSource.stop], ut_source_stop
-    mov qword [r12 + InputSource.get_device], ut_source_get_device
-    mov qword [r12 + InputSource.grab], ut_source_grab
+    lea r11, [rel ut_source_name]
+    mov [r12 + InputSource.name], r11
+    lea r11, [rel ut_source_init]
+    mov [r12 + InputSource.init], r11
+    lea r11, [rel ut_source_deinit]
+    mov [r12 + InputSource.deinit], r11
+    lea r11, [rel ut_source_start]
+    mov [r12 + InputSource.start], r11
+    lea r11, [rel ut_source_stop]
+    mov [r12 + InputSource.stop], r11
+    lea r11, [rel ut_source_get_device]
+    mov [r12 + InputSource.get_device], r11
+    lea r11, [rel ut_source_grab]
+    mov [r12 + InputSource.grab], r11
 
     ; Register source
     mov rdi, rbx
