@@ -2,6 +2,7 @@
 ; veneers, not a foreign compatibility ABI.
 
 %define UT_BINDING_IMPL 1
+%include "inc/errors.inc"
 %include "inc/ut.inc"
 
 section .text
@@ -13,6 +14,13 @@ global %1
     syscall
     ret
 %endmacro
+
+; A UBF import with no syscall number: in a program image the kernel's export
+; takes its place. Anywhere else there is no framebuffer to report.
+global ut_fb_info
+ut_fb_info:
+    mov rax, -(ENOSYS)
+    ret
 
 UT_SYSCALL ut_task_spawn, SYS_TASK_SPAWN
 UT_SYSCALL ut_task_wait, SYS_TASK_WAIT
@@ -46,6 +54,9 @@ UT_SYSCALL ut_fs_list, SYS_FS_LIST
 UT_SYSCALL ut_fs_open, SYS_FS_OPEN
 UT_SYSCALL ut_fs_pread, SYS_FS_PREAD
 UT_SYSCALL ut_fs_close, SYS_FS_CLOSE
+UT_SYSCALL ut_fs_pwrite, SYS_FS_PWRITE
+
+UT_SYSCALL ut_power_register_callback, SYS_POWER_REG_CB
 
 UT_SYSCALL ut_pci_for_each, SYS_PCI_FOR_EACH
 UT_SYSCALL ut_pci_find_class, SYS_PCI_FIND_CLASS
