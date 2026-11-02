@@ -786,11 +786,23 @@ wx-check: all
 field-width-check:
 	@python3 tests/host/field_width_check.py .
 
+# UBF programs load above 4 GiB: no object may hold a 32-bit absolute address.
+.PHONY: pic-check
+pic-check: all
+	@for o in $(ALL_OBJS); do \
+	    if readelf -rW $$o | awk '/^Relocation section/ { s = $$3 } \
+	            /R_X86_64_32/ && s !~ /debug/' | grep -q .; then \
+	        echo "pic-check: $$o has a 32-bit absolute reference"; exit 1; \
+	    fi; \
+	done
+	@echo "pic-check: every object is position independent"
+
 # Everything a change must pass: the layout and field checks, all images and
-# test images in debug and release, W^X, and the host suites and conformance
-# checks. The fuzz images are built here; their suites are still to be written.
+# test images in debug and release, W^X and position independence, and the host
+# suites and conformance checks. The fuzz images are built here; their suites
+# are still to be written.
 .PHONY: check
-check: field-width-check all test wx-check host-check release
+check: field-width-check all test wx-check pic-check host-check release
 	@echo "check: passed"
 
 .PHONY: fuzz
