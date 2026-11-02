@@ -106,7 +106,7 @@
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| KRN-01 | Agree the syscall ABI with the kernel (numbers, registers, return conventions) | P1 | ◐ proposal in `inc/ut.inc`, `utkarsha-contract.md` |
+| KRN-01 | Agree the syscall ABI with the kernel (numbers, registers, return conventions) | P1 | ◐ the kernel's model is named UBF imports in one address space, not numbered syscalls: what Canvas needs is listed in `docs/KERNEL_NEEDS.md` |
 | KRN-02 | Move every config and asset path to the root layout: config in `/conf`, trust in `/sec/trust`, assets under `/app` | P1 | Contract still uses old paths |
 | KRN-03 | Channel and shared-memory primitives for client↔server rings | P1 | → KRN-01 |
 | KRN-04 | Handle passing between tasks (buffers, fences) | P1 | |
