@@ -34,6 +34,8 @@ extern dispatch_init
 extern dispatch_register
 extern errors_from_errno
 extern errors_send
+extern fb_linear_create_output
+extern fb_linear_init
 extern handle_resolve
 extern headless_create_virtual_output
 extern headless_init
@@ -70,16 +72,20 @@ section .text
 ; ---------------------------------------------------------------------------
 ; server_init
 ;   Start a server: subsystems, a headless output, compositor, request table
-;   IN:  rdi = server*, rsi = arena*, rdx = output width, rcx = output height
+;   IN:  rdi = server*, rsi = arena*, rdx = output width, rcx = output height,
+;        r8 = Config* of a linear framebuffer, whose size then replaces rdx and
+;        rcx (0: headless)
 ;   OUT: rax = 0 OK, negative error
 ; ---------------------------------------------------------------------------
 global server_init
 server_init:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
     mov r14, rcx
+    mov r15, r8
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
@@ -111,6 +117,8 @@ server_init:
     mov [rax + Backend.arena], r12
     mov [rax + Backend.server], rbx
     mov rdi, rax
+    test r15, r15
+    jnz .framebuffer
     lea rsi, [rel server_config]
     call headless_init
     test rax, rax
@@ -120,6 +128,15 @@ server_init:
     mov rdx, r14
     mov ecx, DRM_FORMAT_BGRA8888
     call headless_create_virtual_output
+    jmp .output_made
+.framebuffer:
+    mov rsi, r15
+    call fb_linear_init
+    test rax, rax
+    js .out
+    mov rdi, [rbx + Server.backend]
+    call fb_linear_create_output
+.output_made:
     test rax, rax
     jz .oom
 
@@ -173,7 +190,8 @@ server_init:
 
     xor eax, eax
 .out:
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .oom:
     mov rax, -(ENOMEM)
