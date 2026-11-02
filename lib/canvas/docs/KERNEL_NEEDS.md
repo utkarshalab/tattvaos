@@ -11,6 +11,10 @@ model in [`docs/UBF_SPEC.md`](../../../docs/UBF_SPEC.md) and takes precedence.
 - Canvas builds, and all of it is tested on the development machine through a
   stand-in for these services (`tests/host/ut_host.asm`). It has never run on
   Utkarsha.
+- `make ubf` produces `build/img/canvasd.ubf`, and `make ubf-check` loads it
+  the way §9 of the spec says, offers only the exports in Step 1, and checks
+  its first frame. Those exports are what stands between that test and a real
+  screen.
 - A program reaches the kernel by named UBF imports. Today the kernel exports
   `ut_console_print` and `ut_yield`, and `kernel/syscall` has no table, so the
   numbered syscalls in Canvas's `src/ut/*.asm` reach nothing.
@@ -31,14 +35,24 @@ Canvas already calls these names, so each export only needs to appear in
 | `ut_fb_info` | `rdi` pointer to a 32-byte block | `rax` 0, or negative if there is no framebuffer | the block holds a `u64` virtual address, then `u32` width, height, pitch, format, then a `u64` size, from what `kernel/drivers/gpu/fb.asm` already keeps |
 | `ut_yield` | | | exists |
 
-`ut_fb_info` is new. Canvas's entry reads `boot_info` and maps the framebuffer
-with `ut_mmio_map` today, but in one address space, with `fb_init` already
-having done this work, asking the kernel for the mapped result is simpler, and
-Canvas will change to it. Pixels are 32-bit BGRX; a framebuffer in another
-format needs telling apart through the format field.
+`ut_fb_info` is new. In one address space, with `fb_init` having done the
+mapping, asking the kernel for the result is simpler than mapping it again.
+Pixels are 32-bit BGRX; Canvas does not read the format field yet, so a
+framebuffer in another format would show wrong colours.
+
+These six are the UBF's only required imports. It imports 34 more names, all
+weak: the load succeeds without them, the slot stays 0, and Canvas's stub for
+that name returns `-ENOSYS`. Canvas starts without any of them and yields in
+its loop when `ut_waitset_create` is not there. An export for one of those
+names therefore takes effect with no change to Canvas.
 
 The first test program needs a way to be started: a UBF in the boot self-test
 path, as `kernel/tests/ubf/hello.ubf` is, is enough.
+
+`ubf_start` starts every program on a `FIBER_STACK_SIZE` (16 KiB) stack and does
+not read the header's `stack_size`. The first frame uses about 520 bytes of it.
+Nothing deeper has been measured; text, images and many clients will need more,
+so honouring `stack_size` will matter before the login screen.
 
 ## Step 2: clients in other programs
 
@@ -67,6 +81,8 @@ Only the native display backend, remote sharing and configuration need these:
 ## What Canvas does on its side
 
 - Keeps every object free of 32-bit absolute addresses (`make pic-check`).
-- Produces one UBF from its objects. `utasm -f ubf` takes a single source, so
-  this needs a packing step from the linked objects; Canvas owns that step.
-- Replaces the numbered-syscall bindings in `src/ut/` with these imports.
+- Produces one UBF from its objects with `tools/ubfpack.py`, since `utasm -f ubf`
+  takes a single source.
+- Reaches the kernel only through imports in that UBF; `make ubf-check` fails on
+  a `syscall` instruction in the image. `src/ut/` remains only for the older
+  ELF images.
