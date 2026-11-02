@@ -92,7 +92,7 @@
 | FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | ✓ 36 files in `attic/` (see its README); `native_planes`, `invariants` wired in; every `.asm` under `src/` and `tests/` is now built |
 | FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | ✓ `lib/canvas/.gitattributes`: LF everywhere, `*.uic` binary |
 | FND-09 | Host test shim: `ut_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | ✓ `tests/host/ut_host.asm`, `make host` |
-| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ◐ `make check`: layout, debug and release images, W^X, 23 unit suites, SVG, icon and image conformance. Golden frames run; the fuzz suites are still stubs |
+| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ◐ `make check`: layout, debug and release images, W^X, 24 unit suites, SVG, icon and image conformance. Golden frames run; the fuzz suites are still stubs |
 | FND-11 | Separate text/rodata/data segments in the linker script (W^X images) | P0 | ✓ R-X, R--, RW- segments on their own pages; all 23 images checked |
 | FND-12 | Dual-assembler CI: NASM and utasm both green, outputs compared byte for byte | P1 | 12 files currently utasm-only failures |
 | FND-13 | Static lint: register-use and ABI conventions, missing `ret`, stack alignment | P2 | 77 accesses wider than their field remain (e.g. `webp_vp8_filter`, `fb_linear`, `decoration_draw`) |
@@ -125,9 +125,9 @@
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| SRV-01 | Wire `canvasd_init`: arena → handle tables → backend → outputs → input → shell | P1 | ◐ all stages empty today |
-| SRV-02 | Event loop dispatch for IRQ, channel, timer and input | P1 | ◐ handlers are bare `ret` |
-| SRV-03 | Server arena via `core/arena` instead of ad-hoc globals | P1 | |
+| SRV-01 | Wire `canvasd_init`: arena → handle tables → backend → outputs → input → shell | P1 | ◐ `server/server_core`: arena to compositor on a headless output, host-tested; input and shell still to wire; `main.asm` builds but has not run on Utkarsha |
+| SRV-02 | Event loop dispatch for IRQ, channel, timer and input | P1 | ◐ `server_poll`: client requests with a fair share per turn, then a frame; IRQ, timer and input still to come |
+| SRV-03 | Server arena via `core/arena` instead of ad-hoc globals | P1 | ✓ |
 | SRV-04 | Client accept, registry and teardown | P1 | ✓ `server/client`: one memory region per client, freed whole; host-tested (`test_client`) |
 | SRV-05 | Fair round-robin client dispatch per loop iteration | P2 | ◐ `governance/scheduler` |
 | SRV-06 | Config loading: server, outputs, seats, policy, rules files | P2 | ◐ `core/config` |
@@ -170,10 +170,10 @@
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| PRO-01 | Real `canvas_connect`: channel pair, handshake, capability grant | P1 | ◐ local-only today |
+| PRO-01 | Real `canvas_connect`: channel pair, handshake, capability grant | P1 | ◐ the server's end works (`client_accept`, `test_server`); `canvas_connect` and the client helpers still need KRN-03 |
 | PRO-02 | `cwpgen`: generate dispatch tables, server stubs and client stubs from `proto/*.cwp` | P1 | ◐ TODO in `src/tools/cwpgen.asm` |
 | PRO-03 | Capability negotiation: interfaces invisible without grant | P2 | ◐ stub in `proto/negotiate` |
-| PRO-04 | Error objects and protocol error reporting | P1 | ◐ `proto/errors` |
+| PRO-04 | Error objects and protocol error reporting | P1 | ✓ `proto/errors`: a refused request becomes an error event and the client stays connected |
 | PRO-05 | Per-interface versioning with downgrade negotiation | P2 | ◐ `proto/versioning` |
 | PRO-06 | Protocol extension registry | P3 | |
 | PRO-07 | Runtime introspection: list interfaces and versions | P3 | |
@@ -652,7 +652,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| SEC-01 | Generation-checked handles on every dispatch | P1 | ◐ `core/handle` |
+| SEC-01 | Generation-checked handles on every dispatch | P1 | ◐ `server_core` checks handle and owner on every buffer and surface request; region and other requests still to come |
 | SEC-02 | Trust profiles loaded and enforced | P2 | ◐ `security/trust` |
 | SEC-03 | Capability gate with audit entries for privileged interfaces | P2 | ◐ `security/gate`, `audit` |
 | SEC-04 | Server-drawn permission prompts that clients cannot spoof | P2 | ◐ `security/prompts` |
