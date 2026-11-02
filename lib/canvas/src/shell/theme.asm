@@ -43,7 +43,8 @@ theme_init:
     mov r12, rax
 
     ; Initialize default theme
-    mov qword [r12 + Theme.name], default_theme_name
+    lea r11, [rel default_theme_name]
+    mov [r12 + Theme.name], r11
     mov qword [r12 + Theme.colors], 0
     mov qword [r12 + Theme.font], 0
     mov dword [r12 + Theme.font_size], 12
