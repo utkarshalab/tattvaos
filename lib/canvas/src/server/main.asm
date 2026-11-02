@@ -1,6 +1,6 @@
 ; ============================================================================
 ; Canvas Server Entry Point — main.asm
-; Called by Utkarsha loader as canvasd_init
+; The program's entry point, canvasd_init
 ; ============================================================================
 ; Startup and requests are in server_core.asm. Accepting clients on a real
 ; channel waits for the kernel's channels and handle passing (KRN-03, KRN-04).
@@ -11,7 +11,6 @@
 %include "inc/ut.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
-%include "../../boot/boot_info.inc"
 
 default rel
 
@@ -23,20 +22,27 @@ extern server_poll
 %define DEFAULT_WIDTH       1280
 %define DEFAULT_HEIGHT      800
 
+; What ut_fb_info fills
+%define FB_INFO_BASE        0
+%define FB_INFO_WIDTH       8
+%define FB_INFO_HEIGHT      12
+%define FB_INFO_PITCH       16
+%define FB_INFO_FORMAT      20
+%define FB_INFO_SIZE        24
+%define FB_INFO_BYTES       32
+
 section .text
 
 ; ---------------------------------------------------------------------------
 ; canvasd_init
 ;   Main entry point for Canvas display server
-;   Called by Utkarsha loader after kernel init
-;   IN:  rdi = boot_info pointer (Utkarsha boot info struct)
+;   IN:  rdi = the program's start block (unused)
 ;   OUT: rax = negative error (never returns on success)
 ; ---------------------------------------------------------------------------
 global canvasd_init
 canvasd_init:
     PROLOGUE_SAVE rbx, r12, r13
-    sub rsp, 32 + 8                     ; the capability token key
-    mov r12, rdi                        ; boot info
+    sub rsp, FB_INFO_BYTES + 8
 
     ; Logging first, for early debug output
     mov rdi, LOG_DEBUG
@@ -45,13 +51,9 @@ canvasd_init:
     mov rsi, banner_len
     call ut_log_write
 
-    ; Entropy for capability tokens
-    mov rdi, rsp
-    call ut_entropy_siphash_key
-
     ; The server's arena
     mov edi, SERVER_ARENA_BYTES
-    mov rsi, MEM_DMA
+    xor esi, esi
     call ut_mem_alloc
     test rax, rax
     js .no_arena
@@ -60,27 +62,23 @@ canvasd_init:
     mov edx, SERVER_ARENA_BYTES
     call arena_init
 
-    ; The firmware's framebuffer if the loader passed one, else headless
+    ; The kernel's framebuffer if it has one, else headless
     xor r13d, r13d
-    test r12, r12
-    jz .start
-    mov rdi, [r12 + BOOT_INFO_FB_ADDR_OFF]
-    test rdi, rdi
-    jz .start
-    mov esi, [r12 + BOOT_INFO_FB_PITCH_OFF]
-    mov eax, [r12 + BOOT_INFO_FB_HEIGHT_OFF]
-    imul rsi, rax
-    mov [fb_config + Config.fb_size], rsi
-    mov edx, MMIO_WC
-    call ut_mmio_map
+    mov rdi, rsp
+    call ut_fb_info
     test rax, rax
     js .start
+    mov rax, [rsp + FB_INFO_BASE]
+    test rax, rax
+    jz .start
     mov [fb_config + Config.fb_base], rax
-    mov eax, [r12 + BOOT_INFO_FB_WIDTH_OFF]
+    mov rax, [rsp + FB_INFO_SIZE]
+    mov [fb_config + Config.fb_size], rax
+    mov eax, [rsp + FB_INFO_WIDTH]
     mov [fb_config + Config.fb_width], eax
-    mov eax, [r12 + BOOT_INFO_FB_HEIGHT_OFF]
+    mov eax, [rsp + FB_INFO_HEIGHT]
     mov [fb_config + Config.fb_height], eax
-    mov eax, [r12 + BOOT_INFO_FB_PITCH_OFF]
+    mov eax, [rsp + FB_INFO_PITCH]
     mov [fb_config + Config.fb_stride], eax
     lea r13, [fb_config]
 .start:
@@ -93,16 +91,21 @@ canvasd_init:
     test rax, rax
     js .no_server
 
+    ; Without waitsets the loop yields instead of sleeping
     call ut_waitset_create
-    test rax, rax
-    js .no_waitset
     mov rbx, rax
 
     ; The event loop: whatever woke us, one turn serves it
 .loop:
+    test rbx, rbx
+    js .no_wait
     mov rdi, rbx
     xor esi, esi                        ; no timeout
     call ut_wait_wait
+    jmp .serve
+.no_wait:
+    call ut_yield
+.serve:
     lea rdi, [server]
     call server_poll
     jmp .loop
@@ -114,27 +117,20 @@ canvasd_init:
 .no_server:
     lea rdi, [panic_server_msg]
     mov rsi, panic_server_len
-    jmp .panic
-.no_waitset:
-    lea rdi, [panic_waitset_msg]
-    mov rsi, panic_waitset_len
 .panic:
     call ut_log_write
     PANIC
 
 section .rodata
 
-banner_msg:     db "Canvas Display Server for Utkarsha OS", 10, 0
+banner_msg:     db "Canvas Display Server for Utkarsha OS", 10
 banner_len:     equ $ - banner_msg
 
-panic_oom_msg:  db "PANIC: Failed to allocate server arena", 10, 0
+panic_oom_msg:  db "PANIC: Failed to allocate server arena", 10
 panic_oom_len:  equ $ - panic_oom_msg
 
-panic_server_msg: db "PANIC: Failed to start the server", 10, 0
+panic_server_msg: db "PANIC: Failed to start the server", 10
 panic_server_len: equ $ - panic_server_msg
-
-panic_waitset_msg: db "PANIC: Failed to create main waitset", 10, 0
-panic_waitset_len: equ $ - panic_waitset_msg
 
 section .bss
 
