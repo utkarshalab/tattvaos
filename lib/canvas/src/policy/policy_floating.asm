@@ -38,14 +38,22 @@ policy_floating_init:
     mov qword [rbx + PolicyFloating.data], 0
 
     ; Set function pointers
-    mov qword [rdi + Policy.layout], policy_floating_layout
-    mov qword [rdi + Policy.configure], policy_floating_configure
-    mov qword [rdi + Policy.focus_change], policy_floating_focus_change
-    mov qword [rdi + Policy.new_window], policy_floating_new_window
-    mov qword [rdi + Policy.close_window], policy_floating_close_window
-    mov qword [rdi + Policy.workspace_changed], policy_floating_workspace_changed
-    mov qword [rdi + Policy.tile_window], policy_floating_tile_window
-    mov qword [rdi + Policy.window_configured], policy_floating_window_configured
+    lea r11, [rel policy_floating_layout]
+    mov [rdi + Policy.layout], r11
+    lea r11, [rel policy_floating_configure]
+    mov [rdi + Policy.configure], r11
+    lea r11, [rel policy_floating_focus_change]
+    mov [rdi + Policy.focus_change], r11
+    lea r11, [rel policy_floating_new_window]
+    mov [rdi + Policy.new_window], r11
+    lea r11, [rel policy_floating_close_window]
+    mov [rdi + Policy.close_window], r11
+    lea r11, [rel policy_floating_workspace_changed]
+    mov [rdi + Policy.workspace_changed], r11
+    lea r11, [rel policy_floating_tile_window]
+    mov [rdi + Policy.tile_window], r11
+    lea r11, [rel policy_floating_window_configured]
+    mov [rdi + Policy.window_configured], r11
 
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
