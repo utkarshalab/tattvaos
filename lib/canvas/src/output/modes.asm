@@ -319,8 +319,8 @@ mode_equal:
     cmp eax, [rsi + Mode.pixel_clock]
     jne .diff
 
-    mov rax, [rdi + Mode.flags]
-    cmp rax, [rsi + Mode.flags]
+    mov eax, [rdi + Mode.flags]
+    cmp eax, [rsi + Mode.flags]
     jne .diff
 
     mov rax, 1
