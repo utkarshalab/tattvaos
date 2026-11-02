@@ -209,7 +209,7 @@ timeline_wait:
     jc .timed_out
     mov [rsp + 8], rax
 .wait:
-    call ut_wait_yield
+    call ut_yield
     mov rax, [rsp]
     cmp r13, [rax + Timeline.current_point]
     jbe .reached
