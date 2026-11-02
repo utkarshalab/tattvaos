@@ -60,9 +60,7 @@ invariants_check_surfaces:
     jz .surface_cycle
     cmp qword [r12 + Surface.client], 0
     je .surface_stale
-    mov rax, [r12 + Surface.current]
-    test rax, rax
-    jz .surface_stale
+    lea rax, [r12 + Surface.current]
     cmp dword [rax + SurfaceState.width], 0
     jl .surface_geometry
     cmp dword [rax + SurfaceState.height], 0
