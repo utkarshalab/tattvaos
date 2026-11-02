@@ -70,17 +70,14 @@ fence_signal:
     test r12, r12
     jz .done
     mov r13, [r12 + WaitQueue.next]
-    ; Wake thread (syscall)
     mov rdi, [r12 + WaitQueue.thread]
-    mov rsi, 0
-    SYSCALL SYS_THREAD_WAKE
+    call ut_wait_wake_task
     mov r12, r13
     jmp .wake_loop
     
 .done:
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; fence_wait
@@ -101,10 +98,9 @@ fence_wait:
     test rsi, rsi
     jz .block
     
-    ; Timeout wait
+    ; Timeout wait: r12 is the deadline
     call ut_time_now_ns
-    add rax, rsi
-    mov r12, rax
+    add r12, rax
     
 .wait_loop:
     cmp dword [rbx + Fence.state], FENCE_STATE_SIGNALED
@@ -114,13 +110,11 @@ fence_wait:
     call ut_time_now_ns
     cmp rax, r12
     jae .timeout
-    pause
+    call ut_yield                       ; whoever signals is another fiber
     jmp .wait_loop
     
 .block:
-    ; Add to wait queue
-    ; (simplified - would need proper wait queue management)
-    SYSCALL SYS_THREAD_SLEEP
+    call ut_yield
     jmp .check_state
     
 .check_state:
@@ -132,16 +126,13 @@ fence_wait:
     
 .signaled:
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 .error:
     mov rax, -(EIO)
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 .timeout:
     mov rax, -(ETIMEDOUT)
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; fence_reset
@@ -189,8 +180,7 @@ fence_timeline_init:
     mov qword [rbx + Fence.arena], r12
     
     xor rax, rax
-    leave
-    ret
+    EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
 ; fence_timeline_signal
@@ -219,8 +209,7 @@ fence_timeline_signal:
     mov rsi, [r13 + WaitQueue.value]
     cmp rsi, r12
     jg .next
-    mov rsi, 0
-    SYSCALL SYS_THREAD_WAKE
+    call ut_wait_wake_task
 .next:
     mov r13, r14
     jmp .wake_loop
@@ -260,11 +249,11 @@ fence_timeline_wait:
     call ut_time_now_ns
     cmp rax, r13
     jae .timeout
-    pause
+    call ut_yield
     jmp .wait_loop
     
 .block:
-    SYSCALL SYS_THREAD_SLEEP
+    call ut_yield
     jmp .check
 .check:
     cmp qword [rbx + Fence.value], r12
