@@ -9,10 +9,11 @@ extern webp_huff_decode
 
 section .text
 
-; reader,prefix_code(0..23) -> decoded positive length/distance value.
+; reader,prefix_code -> decoded positive length/distance value. Length codes
+; stop at 23, their alphabet's end; distance codes go on to 39.
 global webp_prefix_value
 webp_prefix_value:
-    cmp esi,23
+    cmp esi,39
     ja .bad
     cmp esi,4
     jae .extended
