@@ -12,7 +12,7 @@
 extern arena_alloc
 extern ut_log_write
 extern ut_time_now_ns
-extern ut_wait_yield
+extern ut_yield
 
 %define PROMPT_STATE_PENDING     0
 %define PROMPT_STATE_ANSWERED    1
@@ -178,7 +178,7 @@ prompts_wait:
     call ut_time_now_ns
     cmp rax, [r12 + Prompt.timeout]
     jae .timed_out
-    call ut_wait_yield
+    call ut_yield
     jmp .wait
 .timed_out:
     mov dword [r12 + Prompt.state], PROMPT_STATE_TIMEOUT
