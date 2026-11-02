@@ -54,7 +54,8 @@ srgb_init:
     shr eax, 1  ; 16.16 -> ~17bit? keep simple: (lin_16_16 * 65535)>>16
     mov ecx, eax
     ; recompute properly: eax currently 16.16 fraction
-    mov [srgb_to_linear_lut + rbx * 2], cx
+    lea r11, [rel srgb_to_linear_lut]
+    mov [r11 + rbx*2], cx
     inc ebx
     jmp .build_to_linear
 .build_to_srgb:
@@ -67,7 +68,8 @@ srgb_init:
     shl eax, 4  ; 0..65520 ≈ 16.16 fraction (ebx/4096)
     mov r12d, eax
     call srgb_encode_one
-    mov [linear_to_srgb_lut + rbx * 2], ax
+    lea r11, [rel linear_to_srgb_lut]
+    mov [r11 + rbx*2], ax
     inc ebx
     jmp .inv_loop
 .done:
@@ -139,7 +141,8 @@ global srgb_to_linear_u8
 srgb_to_linear_u8:
     PROLOGUE
     movzx eax, byte [rdi]
-    movzx eax, word [srgb_to_linear_lut + rax * 2]
+    lea r11, [rel srgb_to_linear_lut]
+    movzx eax, word [r11 + rax*2]
     leave
     ret
 
@@ -154,7 +157,8 @@ srgb_from_linear_u16:
     jbe .ok
     mov rdi, 4095
 .ok:
-    movzx eax, word [linear_to_srgb_lut + rdi * 2]
+    lea r11, [rel linear_to_srgb_lut]
+    movzx eax, word [r11 + rdi*2]
     shr eax, 8  ; to u8
     leave
     ret
