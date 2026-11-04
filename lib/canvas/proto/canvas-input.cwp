@@ -46,8 +46,25 @@ protocol canvas-input 1 {
         ; Treat every key as released
         event leave(time: ulong, surface: handle)
 
-        ; keycode 0-255 as the device reports it; state 1 pressed, 0 released.
-        ; Mapping keycodes to characters is still the client's.
+        ; keycode 0-255 as the device reports it; state 1 pressed, 0 released
         event key(time: ulong, surface: handle, keycode: uint, state: uint)
+
+        enum modifier {
+            shift = 1,
+            caps_lock = 2,
+            ctrl = 4,
+            alt = 8,
+            super = 16,
+            num_lock = 32
+        }
+
+        ; After enter, and after any key that changes them: held is shift,
+        ; ctrl, alt and super; locked is caps_lock and num_lock
+        event modifiers(time: ulong, surface: handle, held: uint, locked: uint)
+
+        ; After the key event of a press that types a character (US layout
+        ; for now); none while ctrl, alt or super is held. modifiers: held
+        ; and locked together.
+        event text(time: ulong, surface: handle, codepoint: uint, modifiers: uint)
     }
 }
