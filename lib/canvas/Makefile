@@ -371,7 +371,8 @@ SHELL_SRCS := \
     $(SRCDIR)/shell/icons.asm \
     $(SRCDIR)/shell/theme.asm \
     $(SRCDIR)/shell/rules.asm \
-    $(SRCDIR)/shell/stacking.asm
+    $(SRCDIR)/shell/stacking.asm \
+    $(SRCDIR)/shell/window.asm
 
 # Policy (C13)
 POLICY_SRCS := \
@@ -626,6 +627,7 @@ UNIT_SRCS := \
     tests/unit/test_server.asm \
     tests/unit/test_input.asm \
     tests/unit/test_greeter.asm \
+    tests/unit/test_window.asm \
     tests/unit/test_fields.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
@@ -751,7 +753,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input greeter fields region quota tile_diff \
+HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input greeter window fields region quota tile_diff \
                  inflate icc record_replay rfb webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
