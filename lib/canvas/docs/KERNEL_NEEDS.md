@@ -90,7 +90,10 @@ so honouring `stack_size` will matter before the login screen.
 
   Absolute positions are in framebuffer pixels. Keycodes are passed to clients
   as they are, so the drivers should agree on one numbering.
-- `ut_timer_register` and `ut_timer_cancel`, for key repeat and idle timeouts.
+- Key repeat needs `ut_wait_wait` to honour its deadline (absolute monotonic
+  nanoseconds): while a key is held the loop passes the time of the next
+  repeat. Without waitsets the loop yields and repeats still come.
+- `ut_timer_register` and `ut_timer_cancel`, for idle timeouts.
 
 ## Later
 
