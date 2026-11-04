@@ -1,0 +1,31 @@
+protocol canvas-shell 1 {
+
+    ; ========================================================================
+    ; Windows, served by src/shell/window.asm. A window is a surface with the
+    ; toplevel role; it is named by its surface's handle. The server, not the
+    ; client, decides where it goes: the first time it shows a buffer it is
+    ; placed at the pointer, kept on the output, and the x, y of attach are
+    ; ignored from then on. Needs the shell capability.
+    ; ========================================================================
+
+    interface cw_toplevel 1 {
+        ; Make the surface a window. A configure event follows at once.
+        request create(surface: handle)
+
+        ; The surface stops being a window; it keeps its place
+        request destroy(surface: handle)
+
+        ; UTF-8, at most 63 bytes
+        request set_title(surface: handle, title: string)
+        request set_app_id(surface: handle, app_id: string)
+
+        ; The client has applied the configure with this serial
+        request ack_configure(surface: handle, serial: uint)
+
+        ; The size the server suggests; 0 x 0: the client picks its own
+        event configure(surface: handle, serial: uint, width: uint, height: uint)
+
+        ; The user asked to close the window; the client decides
+        event close(surface: handle)
+    }
+}
