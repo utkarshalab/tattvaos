@@ -1,9 +1,9 @@
 ; ============================================================================
-; Client Shell Helpers — cw_toplevel requests (proto/canvas-shell.cwp)
+; Client Shell Helpers — cw_toplevel, cw_popup, cw_layer (proto/canvas-shell.cwp)
 ; ============================================================================
-; A window is named by its surface. They need the shell capability. Popups,
-; layers, window states and size limits are not in the protocol yet: those
-; return -ENOSYS.
+; Windows, popups and layers, each named by its surface. Windows and popups
+; need the shell capability, layers the layer capability. Window states and
+; size limits are not in the protocol yet: those return -ENOSYS.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -69,23 +69,89 @@ canvas_toplevel_set_app_id:
     mov r8d, TOPLEVEL_SET_APP_ID
     jmp name_request
 
+; ---------------------------------------------------------------------------
+; canvas_popup_create
+;   A popup at (x, y) on its parent; it gets done when the parent goes
+;   IN:  rdi = conn, esi = surface, edx = parent surface, ecx = x, r8d = y
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_popup_create
+canvas_popup_create:
+    mov r9d, (CWP_OBJ_POPUP << 16) | POPUP_CREATE
+    jmp four_request
+
+; ---------------------------------------------------------------------------
+; canvas_layer_create
+;   A layer; a configure event with its size follows
+;   IN:  rdi = conn, esi = surface, edx = layer (CANVAS_LAYER_*),
+;        ecx = anchors (CANVAS_ANCHOR_*), r8d = margin
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_layer_create
+canvas_layer_create:
+    mov r9d, (CWP_OBJ_LAYER << 16) | LAYER_CREATE
+    jmp four_request
+
+; ---------------------------------------------------------------------------
+; canvas_popup_destroy
+; canvas_layer_destroy
+;   IN:  rdi = conn, esi = surface
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_popup_destroy
+canvas_popup_destroy:
+    sub rsp, 24
+    mov [rsp], esi
+    mov esi, CWP_OBJ_POPUP
+    mov edx, POPUP_DESTROY
+    jmp one_request
+
+global canvas_layer_destroy
+canvas_layer_destroy:
+    sub rsp, 24
+    mov [rsp], esi
+    mov esi, CWP_OBJ_LAYER
+    mov edx, LAYER_DESTROY
+    jmp one_request
+
 ; Not in the protocol yet
 global canvas_toplevel_set_state
 global canvas_toplevel_set_min_size
 global canvas_toplevel_set_max_size
-global canvas_popup_create
-global canvas_layer_create
 canvas_toplevel_set_state:
 canvas_toplevel_set_min_size:
 canvas_toplevel_set_max_size:
-canvas_popup_create:
-canvas_layer_create:
     mov rax, -(ENOSYS)
     ret
 
 ; ---------------------------------------------------------------------------
 ; Local
 ; ---------------------------------------------------------------------------
+
+; Four dwords (esi, edx, ecx, r8d); r9d = interface << 16 | request.
+four_request:
+    sub rsp, 24
+    mov [rsp], esi
+    mov [rsp + 4], edx
+    mov [rsp + 8], ecx
+    mov [rsp + 12], r8d
+    mov esi, r9d
+    shr esi, 16
+    movzx edx, r9w
+    mov rcx, rsp
+    mov r8d, 16
+    call canvas_send
+    add rsp, 24
+    ret
+
+; The surface already at [rsp], 24 bytes reserved: the rest of a one-dword
+; request; esi = interface, edx = request.
+one_request:
+    mov rcx, rsp
+    mov r8d, 4
+    call canvas_send
+    add rsp, 24
+    ret
 
 ; A request carrying only the surface.
 ; rdi = conn, esi = surface, edx = request -> rax
