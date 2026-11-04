@@ -40,7 +40,7 @@ mapping, asking the kernel for the result is simpler than mapping it again.
 Pixels are 32-bit BGRX; Canvas does not read the format field yet, so a
 framebuffer in another format would show wrong colours.
 
-These six are the UBF's only required imports. It imports 34 more names, all
+These six are the UBF's only required imports. It imports 33 more names, all
 weak: the load succeeds without them, the slot stays 0, and Canvas's stub for
 that name returns `-ENOSYS`. Canvas starts without any of them and yields in
 its loop when `ut_waitset_create` is not there. An export for one of those
