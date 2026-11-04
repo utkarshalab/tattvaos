@@ -44,6 +44,9 @@ extern input_dispatch
 extern window_ack_configure
 extern window_create
 extern window_destroy
+extern window_fullscreen
+extern window_maximize
+extern window_minimize
 extern window_layer_create
 extern window_popup_create
 extern window_set_name
@@ -191,6 +194,11 @@ server_init:
     REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_TITLE, h_toplevel_set_title
     REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_APP_ID, h_toplevel_set_app_id
     REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_ACK_CONFIGURE, h_toplevel_ack_configure
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_MAXIMIZED, h_toplevel_set_maximized
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_UNSET_MAXIMIZED, h_toplevel_unset_maximized
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_FULLSCREEN, h_toplevel_set_fullscreen
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_UNSET_FULLSCREEN, h_toplevel_unset_fullscreen
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_MINIMIZED, h_toplevel_set_minimized
     REQUEST CWP_OBJ_POPUP, POPUP_CREATE, h_popup_create
     REQUEST CWP_OBJ_POPUP, POPUP_DESTROY, h_role_destroy_shell
     REQUEST CWP_OBJ_LAYER, LAYER_CREATE, h_layer_create
@@ -569,6 +577,26 @@ HANDLER h_toplevel_ack_configure, 8
     mov esi, [r13 + 4]
     call window_ack_configure
 HANDLER_END
+
+; set_maximized(surface) and the like: (handler, function, 1 set / 0 clear)
+%macro STATE_HANDLER 3
+HANDLER %1, 4
+    NEEDS_CAP CAP_SHELL
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    mov edx, %3
+    call %2
+HANDLER_END
+%endmacro
+STATE_HANDLER h_toplevel_set_maximized, window_maximize, 1
+STATE_HANDLER h_toplevel_unset_maximized, window_maximize, 0
+STATE_HANDLER h_toplevel_set_fullscreen, window_fullscreen, 1
+STATE_HANDLER h_toplevel_unset_fullscreen, window_fullscreen, 0
+STATE_HANDLER h_toplevel_set_minimized, window_minimize, 0
 
 ; cw_popup.create(surface, parent, x, y)
 HANDLER h_popup_create, 16
