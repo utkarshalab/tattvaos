@@ -353,7 +353,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| KEY-01 | Keyboard routed to the focused surface only | P1 | ◐ `input/keyboard`, `input/focus` |
+| KEY-01 | Keyboard routed to the focused surface only | P1 | ◐ `input/input`: keys go to the surface last clicked, as `cw_keyboard` events; held keys released on seat switch; `test_input`. No keymap yet |
 | KEY-02 | Keymap compiler from readable source to binary | P2 | ◐ `input/keymap` |
 | KEY-03 | Multiple layout groups and layout switching | P2 | ◐ group 0 only |
 | KEY-04 | Compose and dead keys | P2 | ◐ `input/compose` |
@@ -375,7 +375,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| PTR-01 | Pointer routing via hit test, enter/leave, buttons, axis | P1 | ◐ `input/pointer`, `input/hittest` |
+| PTR-01 | Pointer routing via hit test, enter/leave, buttons, axis | P1 | ◐ `input/input`: topmost surface under the pointer, input regions, implicit grab while a button is held, `cw_pointer` events; `test_input` |
 | PTR-02 | Acceleration profiles (flat, adaptive, custom curve) per device | P2 | ◐ `input/accel` |
 | PTR-03 | Scroll speed and natural scroll per device | P2 | |
 | PTR-04 | High-resolution scroll events | P2 | |
