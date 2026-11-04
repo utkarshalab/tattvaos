@@ -6,7 +6,9 @@
 ; them on the active seat. server_poll calls input_dispatch once a turn, which
 ; drains the queue:
 ;
-;   keys     go to the surface with keyboard focus
+;   keys     go to the surface with keyboard focus; a held key that is not a
+;            modifier or a lock repeats, checked at the end of each turn
+;            (input_repeat_deadline says when the loop must wake for it)
 ;   pointer  moves within the first output; the topmost surface under it gets
 ;            enter, leave, motion, button and axis events in its own
 ;            coordinates. While a button is held that surface keeps the
@@ -49,6 +51,25 @@ extern region_contains_point
 %define POINTER_MOTION  (CWP_OBJ_POINTER << 16 | 2)
 %define POINTER_BUTTON  (CWP_OBJ_POINTER << 16 | 3)
 %define POINTER_AXIS    (CWP_OBJ_POINTER << 16 | 4)
+
+%define KEY_REPEATED    2               ; cw_keyboard.key state of a repeat
+
+; A held key repeats after half a second, 30 times a second
+%define REPEAT_DELAY_NS     500000000
+%define REPEAT_INTERVAL_NS  33333333
+
+; Keys that do not repeat (evdev numbering)
+%define KEY_LEFTCTRL    29
+%define KEY_LEFTSHIFT   42
+%define KEY_RIGHTSHIFT  54
+%define KEY_LEFTALT     56
+%define KEY_CAPSLOCK    58
+%define KEY_NUMLOCK     69
+%define KEY_SCROLLLOCK  70
+%define KEY_RIGHTCTRL   97
+%define KEY_RIGHTALT    100
+%define KEY_LEFTMETA    125
+%define KEY_RIGHTMETA   126
 
 %define EVENT_SHORT     12              ; time, surface
 %define EVENT_LONG      20              ; time, surface, a, b
@@ -93,6 +114,8 @@ input_init:
     shr ecx, 1
     mov [r12 + InputSeat.y], ecx
 .placed:
+    mov qword [r12 + InputSeat.repeat_delay], REPEAT_DELAY_NS
+    mov qword [r12 + InputSeat.repeat_interval], REPEAT_INTERVAL_NS
     mov [rbx + Server.input_seat], r12
 
     lea rdi, [rel input_kernel_event]
@@ -185,7 +208,7 @@ input_dispatch:
 .next:
     mov eax, [rbx + InputSeat.head]
     cmp eax, [rbx + InputSeat.tail]
-    je .done
+    je .queued
     and eax, INPUT_QUEUE_LEN - 1
     imul eax, eax, RawInput_size
     lea r12, [rbx + InputSeat.queue + rax]
@@ -221,10 +244,53 @@ input_dispatch:
     inc dword [rbx + InputSeat.head]    ; only now may input_submit reuse it
     inc r13
     jmp .next
+.queued:
+    mov rdi, rbx
+    call key_repeat
 .done:
     mov rax, r13
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; input_set_repeat
+;   How a held key repeats on the active seat
+;   IN:  rdi = server*, rsi = delay before the first repeat, ns,
+;        rdx = interval between repeats, ns (0: keys do not repeat)
+;   OUT: rax = 0, -ENODEV with no seat
+; ---------------------------------------------------------------------------
+global input_set_repeat
+input_set_repeat:
+    mov rax, [rdi + Server.input_seat]
+    test rax, rax
+    jz .none
+    mov [rax + InputSeat.repeat_delay], rsi
+    mov [rax + InputSeat.repeat_interval], rdx
+    mov dword [rax + InputSeat.repeat_key], 0
+    xor eax, eax
+    ret
+.none:
+    mov rax, -(ENODEV)
+    ret
+
+; ---------------------------------------------------------------------------
+; input_repeat_deadline
+;   When a held key repeats next, for the event loop to wake by
+;   IN:  rdi = server*
+;   OUT: rax = monotonic ns, 0 if nothing is repeating
+; ---------------------------------------------------------------------------
+global input_repeat_deadline
+input_repeat_deadline:
+    mov rax, [rdi + Server.input_seat]
+    test rax, rax
+    jz .none
+    cmp dword [rax + InputSeat.repeat_key], 0
+    je .none
+    mov rax, [rax + InputSeat.repeat_next]
+    ret
+.none:
+    xor eax, eax
+    ret
 
 ; ---------------------------------------------------------------------------
 ; input_set_seat
@@ -264,6 +330,7 @@ global input_release_all
 input_release_all:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov dword [rbx + InputSeat.repeat_key], 0
     call ut_time_now_ns
     mov [rbx + InputSeat.time], rax
 
@@ -402,6 +469,29 @@ key_event:
     and eax, r8d
 .mark:
     mov [rbx + InputSeat.keys + rdx], al
+
+    ; A press of a key that repeats starts it repeating; letting go of the
+    ; repeating key stops it. Modifiers and locks do not repeat.
+    mov ecx, [r12 + RawInput.code]
+    cmp dword [r12 + RawInput.value], 0
+    jne .press
+    cmp ecx, [rbx + InputSeat.repeat_key]
+    jne .keymap
+    mov dword [rbx + InputSeat.repeat_key], 0
+    jmp .keymap
+.press:
+    cmp qword [rbx + InputSeat.repeat_interval], 0
+    je .keymap
+    mov edi, ecx
+    call key_repeats
+    test eax, eax
+    jz .keymap
+    mov ecx, [r12 + RawInput.code]
+    mov [rbx + InputSeat.repeat_key], ecx
+    mov rax, [rbx + InputSeat.time]
+    add rax, [rbx + InputSeat.repeat_delay]
+    mov [rbx + InputSeat.repeat_next], rax
+.keymap:
     mov rdi, rbx
     mov esi, [r12 + RawInput.code]
     xor edx, edx
@@ -439,6 +529,86 @@ key_event:
     call send_input
 .out:
     EPILOGUE_RESTORE rbx, r12, r13, r14
+
+; The held key again, if it is time: a key event with state 2 and the
+; character it types, as a press would. One repeat a turn; a loop that fell
+; behind does not catch up in a burst.
+; rdi = seat
+key_repeat:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12d, [rbx + InputSeat.repeat_key]
+    test r12d, r12d
+    jz .out
+    cmp qword [rbx + InputSeat.keyboard_focus], 0
+    je .stop
+    call ut_time_now_ns
+    cmp rax, [rbx + InputSeat.repeat_next]
+    jb .out
+    mov [rbx + InputSeat.time], rax
+    mov rcx, [rbx + InputSeat.repeat_next]
+    add rcx, [rbx + InputSeat.repeat_interval]
+    cmp rcx, rax
+    ja .next_set
+    mov rcx, rax
+    add rcx, [rbx + InputSeat.repeat_interval]
+.next_set:
+    mov [rbx + InputSeat.repeat_next], rcx
+    mov rdi, rbx
+    mov rsi, [rbx + InputSeat.keyboard_focus]
+    mov edx, KEYBOARD_KEY
+    mov ecx, EVENT_LONG
+    mov r8d, r12d
+    mov r9d, KEY_REPEATED
+    call send_input
+    mov rdi, rbx
+    mov esi, r12d
+    mov edx, 1
+    call keymap_key
+    test eax, eax
+    jz .out
+    mov r8d, eax
+    mov rdi, rbx
+    mov rsi, [rbx + InputSeat.keyboard_focus]
+    mov edx, KEYBOARD_TEXT
+    mov ecx, EVENT_LONG
+    mov r9d, [rbx + InputSeat.mods]
+    or r9d, [rbx + InputSeat.locks]
+    call send_input
+.out:
+    EPILOGUE_RESTORE rbx, r12
+.stop:
+    mov dword [rbx + InputSeat.repeat_key], 0
+    jmp .out
+
+; edi = keycode -> eax = 1 if holding it repeats: not a modifier or a lock
+key_repeats:
+    xor eax, eax
+    cmp edi, KEY_LEFTCTRL
+    je .no
+    cmp edi, KEY_LEFTSHIFT
+    je .no
+    cmp edi, KEY_RIGHTSHIFT
+    je .no
+    cmp edi, KEY_LEFTALT
+    je .no
+    cmp edi, KEY_CAPSLOCK
+    je .no
+    cmp edi, KEY_NUMLOCK
+    je .no
+    cmp edi, KEY_SCROLLLOCK
+    je .no
+    cmp edi, KEY_RIGHTCTRL
+    je .no
+    cmp edi, KEY_RIGHTALT
+    je .no
+    cmp edi, KEY_LEFTMETA
+    je .no
+    cmp edi, KEY_RIGHTMETA
+    je .no
+    inc eax
+.no:
+    ret
 
 ; Motion moves the pointer by (code, value), position puts it at (code,
 ; value); either way it stays on the first output.
@@ -606,6 +776,7 @@ set_keyboard_focus:
     mov r12, rsi
     cmp r12, [rbx + InputSeat.keyboard_focus]
     je .out
+    mov dword [rbx + InputSeat.repeat_key], 0   ; a new surface, no repeat
     mov rsi, [rbx + InputSeat.keyboard_focus]
     test rsi, rsi
     jz .enter
