@@ -61,6 +61,17 @@
 ; cw_layer
 %define LAYER_CREATE                0
 %define LAYER_DESTROY               1
+%define LAYER_SET_EXCLUSIVE         2
 %define LAYER_EVENT_CONFIGURE       0
+
+; cw_window_list
+%define WINDOW_LIST_SUBSCRIBE       0
+%define WINDOW_LIST_ACTIVATE        1
+%define WINDOW_LIST_CLOSE           2
+%define WINDOW_LIST_MINIMIZE        3
+%define WINDOW_LIST_SET_MAXIMIZED   4
+%define WINDOW_LIST_EVENT_WINDOW    0
+%define WINDOW_LIST_EVENT_REMOVED   1
+%define WINDOW_LIST_EVENT_ACTIVATED 2
 
 %endif
