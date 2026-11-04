@@ -24,6 +24,11 @@ extern canvas_event_loop_once
 extern canvas_event_loop_run
 extern canvas_toplevel_create
 extern canvas_toplevel_set_title
+extern canvas_toplevel_destroy
+extern canvas_toplevel_ack_configure
+extern canvas_toplevel_set_minimized
+extern canvas_popup_destroy
+extern canvas_layer_destroy
 extern canvas_toplevel_set_app_id
 extern canvas_toplevel_set_min_size
 extern canvas_toplevel_set_max_size
