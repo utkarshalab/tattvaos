@@ -37,6 +37,7 @@ extern test_server_suite
 extern test_input_suite
 extern test_greeter_suite
 extern test_window_suite
+extern test_clientlib_suite
 extern test_fields_suite
 
 ; ---------------------------------------------------------------------------
@@ -161,6 +162,10 @@ test_runner_init:
 
     ; Test windows
     call test_window_suite
+    add rbx, rax
+
+    ; Test the client library against the server
+    call test_clientlib_suite
     add rbx, rax
 
     ; Test field access regressions and the linear framebuffer
