@@ -104,10 +104,15 @@ $(BUILD)/policy.so: $(BUILD)/policy.o $(BUILD)/policy_probe.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/policy_probe.o: tests/unit/policy_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
-test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/repository.so
+$(BUILD)/client.so: $(BUILD)/client.o $(BUILD)/client_probe.o
+	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
+$(BUILD)/client_probe.o: tests/unit/client_probe.asm include/vcs.inc include/wire.inc include/client.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ $< -o $@
+test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/repository.so
 	sh scripts/test-cli.sh
 	python3 tests/unit/test_diff.py $(BUILD)/diff.so
 	python3 tests/unit/test_protocol.py $(BUILD)/protocol.so
 	python3 tests/unit/test_policy.py $(BUILD)/policy.so
+	python3 tests/unit/test_client.py $(BUILD)/client.so
 	python3 tests/unit/test_repository.py $(BUILD)/repository.so
 	python3 tests/unit/test_history.py $(BUILD)/repository.so
