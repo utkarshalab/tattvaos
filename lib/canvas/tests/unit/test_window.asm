@@ -19,7 +19,7 @@
 %include "inc/struct_offsets.inc"
 
 extern arena_init
-extern client_accept
+extern client_accept_trusted
 extern handle_resolve
 extern msgbuf_read
 extern msgbuf_write
@@ -52,7 +52,17 @@ extern window_activate
 %define PU_CREATE       0
 %define PU_DONE         0
 %define LY_CREATE       0
+%define LY_DESTROY      1
+%define LY_EXCLUSIVE    2
 %define LY_CONFIGURE    0
+%define WL_SUBSCRIBE    0
+%define WL_ACTIVATE     1
+%define WL_CLOSE        2
+%define WL_MINIMIZE     3
+%define WL_MAXIMIZE     4
+%define WL_WINDOW       0
+%define WL_REMOVED      1
+%define WL_ACTIVATED    2
 
 section .text
 
@@ -82,6 +92,9 @@ test_window_suite:
     CASE tw_fullscreen, CAP_SHELL | CAP_LAYER
     CASE tw_minimize, CAP_SHELL
     CASE tw_state_keys, CAP_SHELL
+    CASE tw_exclusive, CAP_SHELL | CAP_LAYER
+    CASE tw_window_list, CAP_SHELL | CAP_WINDOWS
+    CASE tw_list_needs_cap, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -142,7 +155,7 @@ test_window_suite:
     call virtual_input_inject
 %endmacro
 
-; edi = capabilities: a started server and a client with them
+; edi = capabilities: a started server and a trusted client asking for them
 fresh:
     push rbx
     mov ebx, edi
@@ -159,7 +172,7 @@ fresh:
     lea rdi, [rel server]
     lea rsi, [rel pair]
     mov edx, ebx
-    call client_accept
+    call client_accept_trusted          ; it gets only what it asks for
     call drain
     pop rbx
     ret
@@ -976,6 +989,128 @@ tw_state_keys:
     mov edi, [rel surface_a]
     call surface_of
     cmp qword [rax + Surface.output], 0
+    jne .fail
+    PASS
+
+; a cw_window_list request about window 1 with one more dword
+%macro LIST 2
+    mov dword [rel req], 1
+    mov dword [rel req + 4], %2
+    SEND CWP_OBJ_WINDOW_LIST, %1, 8
+%endmacro
+
+; A panel's exclusive strip is kept from a maximized window; when the
+; panel goes the window fills the output again
+tw_exclusive:
+    sub rsp, 8
+    mov edi, 64
+    mov esi, 8
+    call new_surface
+    mov [rel surface_b], eax
+    mov [rel req], eax
+    mov dword [rel req + 4], 2          ; top
+    mov dword [rel req + 8], 1 | 4 | 8  ; top, left, right
+    mov dword [rel req + 12], 0
+    SEND CWP_OBJ_LAYER, LY_CREATE, 16
+    mov eax, [rel surface_b]
+    mov [rel req], eax
+    mov dword [rel req + 4], 8
+    SEND CWP_OBJ_LAYER, LY_EXCLUSIVE, 8
+    mov edi, [rel surface_b]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    call window_at_10
+    TOPLEVEL TL_SET_MAX, surface_a, 0
+    call poll
+    CONFIGURED 64, 40, 1
+    AT 0, 8
+    mov eax, [rel surface_b]
+    mov [rel req], eax
+    SEND CWP_OBJ_LAYER, LY_DESTROY, 4
+    call poll
+    CONFIGURED 64, 48, 1
+    AT 0, 0
+    PASS
+
+; The window list: every window on subscribing, then names, states, the
+; keyboard, and control by id
+tw_window_list:
+    sub rsp, 8
+    call window_at_10
+    SEND CWP_OBJ_WINDOW_LIST, WL_SUBSCRIBE, 0
+    call poll
+    FIND CWP_OBJ_WINDOW_LIST, WL_WINDOW
+    cmp dword [rel ans], 1
+    jne .fail
+    cmp dword [rel ans + 4], 0
+    jne .fail
+    FIND CWP_OBJ_WINDOW_LIST, WL_ACTIVATED
+    cmp dword [rel ans], 1
+    jne .fail
+
+    mov eax, [rel surface_a]            ; a title it hears of
+    mov [rel req], eax
+    mov dword [rel req + 4], 2
+    mov word [rel req + 8], 'Ed'
+    SEND CWP_OBJ_TOPLEVEL, TL_SET_TITLE, 10
+    call poll
+    FIND CWP_OBJ_WINDOW_LIST, WL_WINDOW
+    cmp dword [rel ans + 8], 'Ed'       ; and the NUL after
+    jne .fail
+
+    LIST WL_MINIMIZE, 0
+    call poll
+    FIND CWP_OBJ_WINDOW_LIST, WL_WINDOW
+    cmp dword [rel ans + 4], 4
+    jne .fail
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp qword [rax + Surface.output], 0
+    jne .fail
+
+    LIST WL_ACTIVATE, 0
+    call poll
+    FIND CWP_OBJ_WINDOW_LIST, WL_WINDOW
+    cmp dword [rel ans + 4], 0
+    jne .fail
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail
+
+    LIST WL_MAXIMIZE, 1
+    call poll
+    CONFIGURED 64, 48, 1
+    LIST WL_CLOSE, 0
+    call poll
+    FIND CWP_OBJ_TOPLEVEL, TL_CLOSE
+    mov eax, [rel surface_a]
+    cmp [rel ans], eax
+    jne .fail
+
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    SEND CWP_OBJ_SURFACE, OP_DESTROY, 4
+    call poll
+    FIND CWP_OBJ_WINDOW_LIST, WL_REMOVED
+    cmp dword [rel ans], 1
+    jne .fail
+    PASS
+
+; Without the windows capability there is no list
+tw_list_needs_cap:
+    sub rsp, 8
+    call window_at_10
+    SEND CWP_OBJ_WINDOW_LIST, WL_SUBSCRIBE, 0
+    call poll
+    mov edi, CWP_OBJ_WINDOW_LIST
+    call any_event
+    test eax, eax
+    jnz .fail
+    cmp qword [rel server + Server.window_lists], 0
     jne .fail
     PASS
 
