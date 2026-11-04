@@ -3,8 +3,9 @@
 ; ============================================================================
 ; test_input_suite -> eax = failed cases (each case returns 0 / 1).
 ; A server on 64x48 and one client with two surfaces: A at (0, 0) and B on top
-; of it at (16, 8), both 32x24. Input goes in through virtual_input_inject and
-; the client reads the cw_pointer and cw_keyboard events that come out.
+; of it at (16, 8), both 32x24; B was shown last, so it has the keyboard. Input
+; goes in through virtual_input_inject and the client reads the cw_pointer and
+; cw_keyboard events that come out.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -57,10 +58,12 @@ test_input_suite:
 %endmacro
     CASE ti_enter_leave
     CASE ti_click_focus
+    CASE ti_raise
     CASE ti_keymap
     CASE ti_held_button
     CASE ti_release_on_switch
     CASE ti_forget_surface
+    CASE ti_unmap
     CASE ti_queue_full
     CASE ti_clamp
     mov eax, ebx
@@ -293,18 +296,23 @@ ti_enter_leave:
     NOTHING
     PASS
 
-; Keys go nowhere until a click focuses a surface, then only to it; a
-; release of a key that is not down is dropped
+; Keys go to the surface shown last until a click focuses another, then only
+; to that one; a release of a key that is not down is dropped
 ti_click_focus:
     sub rsp, 8
     INJECT INPUT_POSITION, 4, 4
     INJECT INPUT_KEY, 30, 1
+    INJECT INPUT_KEY, 30, 0
     call poll
     EXPECT CWP_OBJ_POINTER, P_ENTER, surface_a, 4, 4
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_b, 30, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_b, 'a', 0
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_b, 30, 0
     NOTHING
     INJECT INPUT_BUTTON, 0, 1
     INJECT INPUT_BUTTON, 0, 0
     call poll
+    EXPECT_SHORT CWP_OBJ_KEYBOARD, K_LEAVE, surface_b
     EXPECT_SHORT CWP_OBJ_KEYBOARD, K_ENTER, surface_a
     EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_a, 0, 0
     EXPECT CWP_OBJ_POINTER, P_BUTTON, surface_a, 0, 1
@@ -317,6 +325,20 @@ ti_click_focus:
     EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 31, 1
     EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_a, 's', 0
     EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 31, 0
+    NOTHING
+    PASS
+
+; A click raises the surface: A is now over B where they overlap
+ti_raise:
+    sub rsp, 8
+    INJECT INPUT_POSITION, 4, 4
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    call drain
+    INJECT INPUT_POSITION, 20, 10
+    call poll
+    EXPECT CWP_OBJ_POINTER, P_MOTION, surface_a, 20, 10
     NOTHING
     PASS
 
@@ -377,22 +399,22 @@ ti_keymap:
     NOTHING
     PASS
 
-; While a button is held A keeps the pointer over B; letting go hands it on
+; While a button is held B keeps the pointer over A; letting go hands it on
 ti_held_button:
     sub rsp, 8
-    INJECT INPUT_POSITION, 4, 4
+    INJECT INPUT_POSITION, 20, 10
     INJECT INPUT_BUTTON, 0, 1
     call poll
     call drain
-    INJECT INPUT_POSITION, 20, 10
+    INJECT INPUT_POSITION, 4, 4
     call poll
-    EXPECT CWP_OBJ_POINTER, P_MOTION, surface_a, 20, 10
+    EXPECT CWP_OBJ_POINTER, P_MOTION, surface_b, -12, -4
     NOTHING
     INJECT INPUT_BUTTON, 0, 0
     call poll
-    EXPECT CWP_OBJ_POINTER, P_BUTTON, surface_a, 0, 0
-    EXPECT_SHORT CWP_OBJ_POINTER, P_LEAVE, surface_a
-    EXPECT CWP_OBJ_POINTER, P_ENTER, surface_b, 4, 2
+    EXPECT CWP_OBJ_POINTER, P_BUTTON, surface_b, 0, 0
+    EXPECT_SHORT CWP_OBJ_POINTER, P_LEAVE, surface_b
+    EXPECT CWP_OBJ_POINTER, P_ENTER, surface_a, 4, 4
     NOTHING
     PASS
 
@@ -417,7 +439,8 @@ ti_release_on_switch:
     jne .fail
     PASS
 
-; A destroyed surface holds no focus and gets nothing more
+; A destroyed surface holds no focus and gets nothing more; the keyboard
+; goes to the surface left on top, and with none left to nothing
 ti_forget_surface:
     sub rsp, 8
     INJECT INPUT_POSITION, 4, 4
@@ -429,15 +452,43 @@ ti_forget_surface:
     mov [rel req], eax
     SEND CWP_OBJ_SURFACE, OP_DESTROY, 4
     call poll
-    call drain
+    EXPECT_SHORT CWP_OBJ_KEYBOARD, K_ENTER, surface_b
+    EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_b, 0, 0
+    NOTHING
     mov rax, [rel server + Server.input_seat]
     cmp qword [rax + InputSeat.pointer_focus], 0
-    jne .fail
-    cmp qword [rax + InputSeat.keyboard_focus], 0
     jne .fail
     INJECT INPUT_KEY, 30, 1
     INJECT INPUT_MOTION, 0, 0
     call poll
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_b, 30, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_b, 'a', 0
+    NOTHING
+    mov eax, [rel surface_b]
+    mov [rel req], eax
+    SEND CWP_OBJ_SURFACE, OP_DESTROY, 4
+    call poll
+    NOTHING
+    mov rax, [rel server + Server.input_seat]
+    cmp qword [rax + InputSeat.keyboard_focus], 0
+    jne .fail
+    PASS
+
+; A surface that stops showing a buffer hands the keyboard on, and is told
+ti_unmap:
+    sub rsp, 8
+    mov eax, [rel surface_b]
+    mov [rel req], eax
+    mov dword [rel req + 4], 0          ; no buffer
+    mov qword [rel req + 8], 0
+    mov qword [rel req + 16], 0
+    SEND CWP_OBJ_SURFACE, OP_ATTACH, 24
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_SURFACE, OP_COMMIT, 8
+    call poll
+    EXPECT_SHORT CWP_OBJ_KEYBOARD, K_LEAVE, surface_b
+    EXPECT_SHORT CWP_OBJ_KEYBOARD, K_ENTER, surface_a
+    EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_a, 0, 0
     NOTHING
     PASS
 
