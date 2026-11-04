@@ -4,7 +4,7 @@
 ; A surface that shows its first buffer goes on top of its level and takes
 ; the keyboard, if surfaces at its level take it when they show: windows,
 ; popups, overlay layers and surfaces with no role do; background, bottom and
-; top layers do not (a top layer takes it on a click, the others never). One
+; top layers do not, nor on a click. One
 ; that has the keyboard and stops showing anything, or is destroyed, hands it
 ; to the topmost surface still showing that would take it; with none left,
 ; nothing has it. A destroyed surface is told nothing: its client let it go.
