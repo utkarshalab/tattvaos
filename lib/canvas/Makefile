@@ -370,7 +370,8 @@ SHELL_SRCS := \
     $(SRCDIR)/shell/decoration_draw.asm \
     $(SRCDIR)/shell/icons.asm \
     $(SRCDIR)/shell/theme.asm \
-    $(SRCDIR)/shell/rules.asm
+    $(SRCDIR)/shell/rules.asm \
+    $(SRCDIR)/shell/stacking.asm
 
 # Policy (C13)
 POLICY_SRCS := \
