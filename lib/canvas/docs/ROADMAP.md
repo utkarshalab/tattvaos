@@ -357,7 +357,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | KEY-02 | Keymap compiler from readable source to binary | P2 | ◐ `input/keymap_us`: one built-in US table; Shift, Caps Lock, Num Lock; `cw_keyboard` text and modifiers events |
 | KEY-03 | Multiple layout groups and layout switching | P2 | ◐ group 0 only |
 | KEY-04 | Compose and dead keys | P2 | ◐ `input/compose` |
-| KEY-05 | Key repeat, with per-key-class rates | P2 | |
+| KEY-05 | Key repeat, with per-key-class rates | P2 | ◐ `input/input`: server-side, 500 ms then 30 a second (`input_set_repeat`), state 2 key events with their text; modifiers and locks do not repeat; the loop wakes for it through `input_repeat_deadline`; `test_input`. One rate for every key |
 | KEY-06 | Global shortcuts mediated by the server | P2 | ◐ `text/shortcuts` |
 | KEY-07 | Secure attention sequence that apps can never intercept | P2 | |
 | KEY-08 | Per-device keymaps | P3 | |
@@ -505,7 +505,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | DSK-02 | Panel / taskbar with grouping, pinning, badges | P2 | ◐ `clients/panel` |
 | DSK-03 | Clock and calendar popup | P2 | |
 | DSK-04 | Lock screen | P2 | ◐ `clients/lockscreen`, `session/lock` |
-| DSK-05 | Login greeter with user list and accessibility menu | P2 | |
+| DSK-05 | Login greeter with user list and accessibility menu | P2 | ◐ `session/greeter`: started by canvasd, a password field (dots, Backspace, Esc, Enter to a verify hook, red edge when wrong, text wiped after each check); `test_greeter`, `ubf-check`. No labels until fonts load, no user list, no real verification yet |
 | DSK-06 | Power menu: sleep, restart, shutdown, lock, switch user | P2 | |
 | DSK-07 | App launcher with search | P2 | |
 | DSK-08 | Volume and brightness on-screen displays | P2 | |
