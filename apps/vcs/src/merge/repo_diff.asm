@@ -146,7 +146,8 @@ vcs_repo_diff:
  jae .render_done
  mov rax,r12
  imul rax,RD_ENTRY
- lea rbx,[repo_entries+rax]
+ lea rbx,[repo_entries]
+ add rbx,rax
  call entry_equal
  test eax,eax
  jnz .render_next
@@ -442,9 +443,12 @@ find_or_add:
  jae .append
  mov rax,rcx
  imul rax,RD_ENTRY
- lea rsi,[repo_entries+rax]
+ lea rsi,[repo_entries]
+ add rsi,rax
  mov rdi,rbx
+ mov rdx,rcx
  call same_name
+ mov rcx,rdx
  test eax,eax
  jnz .found
  inc rcx
@@ -454,7 +458,9 @@ find_or_add:
  jae .full
  mov rax,rcx
  imul rax,RD_ENTRY
- lea rax,[repo_entries+rax]
+ lea rdx,[repo_entries]
+ add rax,rdx
+ mov rdx,rax
  mov rdi,rax
  mov rsi,rbx
 .copy:
@@ -463,6 +469,7 @@ find_or_add:
  test al,al
  jnz .copy
  inc qword [repo_count]
+ mov rax,rdx
  pop rbx
  ret
 .found:
@@ -568,6 +575,8 @@ render_entry:
  add rsi,[rbx+vcs_diff_record.new_offset]
 .bytes:
  mov rcx,[rbx+vcs_diff_record.length]
+ test rcx,rcx
+ jz .next_record
  push rcx
  push rsi
  lea r8,[hex]
