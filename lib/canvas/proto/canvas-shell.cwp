@@ -87,6 +87,12 @@ protocol canvas-shell 1 {
         request create(surface: handle, layer: uint, anchor: uint, margin: uint)
         request destroy(surface: handle)
 
+        ; Keep a strip this wide (plus the margin) along the edge it is
+        ; anchored to from maximized windows; 0 keeps none. Anchored to one
+        ; edge of a pair and both or neither of the other, that edge counts;
+        ; anchored any other way, none does.
+        request set_exclusive(surface: handle, size: uint)
+
         ; The size it should be; 0: its own choice that way
         event configure(surface: handle, serial: uint, width: uint, height: uint)
     }
