@@ -7,12 +7,14 @@ protocol canvas-shell 1 {
     ; they go, and the x, y of attach are ignored.
     ;
     ; Surfaces stack in levels, bottom to top: background and bottom layers,
-    ; windows and surfaces with no role, top layers, popups, overlay layers.
+    ; windows and surfaces with no role, top layers, fullscreen windows,
+    ; popups, overlay layers.
     ; Raising a surface takes it to the top of its own level only.
     ; ========================================================================
 
     ; A window: placed at the pointer the first time it shows a buffer, kept
-    ; on the output. Needs the shell capability.
+    ; on the output. Super+Up maximizes it or puts it back, Super+Down
+    ; minimizes it, Alt+F4 asks it to close. Needs the shell capability.
     interface cw_toplevel 1 {
         ; Make the surface a window. A configure event follows at once.
         request create(surface: handle)
@@ -27,8 +29,25 @@ protocol canvas-shell 1 {
         ; The client has applied the configure with this serial
         request ack_configure(surface: handle, serial: uint)
 
-        ; The size the server suggests; 0 x 0: the client picks its own
-        event configure(surface: handle, serial: uint, width: uint, height: uint)
+        ; Maximized fills the output; fullscreen fills it above panels.
+        ; Unset, the window goes back to the place and size it had. A
+        ; configure follows each change.
+        request set_maximized(surface: handle)
+        request unset_maximized(surface: handle)
+        request set_fullscreen(surface: handle)
+        request unset_fullscreen(surface: handle)
+
+        ; Off the screen until the user brings it back; it loses the keyboard
+        request set_minimized(surface: handle)
+
+        enum state {
+            maximized = 1,
+            fullscreen = 2
+        }
+
+        ; The size the server asks for, 0 x 0: the client picks its own; and
+        ; its states
+        event configure(surface: handle, serial: uint, width: uint, height: uint, states: uint)
 
         ; The user asked to close the window; the client decides
         event close(surface: handle)
