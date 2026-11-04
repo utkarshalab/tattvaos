@@ -40,11 +40,12 @@ extern fb_linear_init
 extern handle_resolve
 extern headless_create_virtual_output
 extern headless_init
-extern greeter_step
 extern input_dispatch
 extern window_ack_configure
 extern window_create
 extern window_destroy
+extern window_layer_create
+extern window_popup_create
 extern window_set_name
 extern input_init
 extern msgbuf_read
@@ -190,6 +191,10 @@ server_init:
     REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_TITLE, h_toplevel_set_title
     REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_APP_ID, h_toplevel_set_app_id
     REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_ACK_CONFIGURE, h_toplevel_ack_configure
+    REQUEST CWP_OBJ_POPUP, POPUP_CREATE, h_popup_create
+    REQUEST CWP_OBJ_POPUP, POPUP_DESTROY, h_role_destroy_shell
+    REQUEST CWP_OBJ_LAYER, LAYER_CREATE, h_layer_create
+    REQUEST CWP_OBJ_LAYER, LAYER_DESTROY, h_role_destroy_layer
 
     xor eax, eax
 .out:
@@ -205,8 +210,8 @@ server_init:
 
 ; ---------------------------------------------------------------------------
 ; server_poll
-;   One turn: queued input, the greeter, every client's requests up to its
-;   share, then a frame
+;   One turn: queued input, every client's requests up to its share, then a
+;   frame
 ;   IN:  rdi = server*
 ;   OUT: rax = requests handled, negative error from the compositor
 ; ---------------------------------------------------------------------------
@@ -218,11 +223,6 @@ server_poll:
     ASSERT_PTR rbx
     mov rdi, rbx
     call input_dispatch
-    mov rdi, [rbx + Server.greeter]     ; it reads its input before requests
-    test rdi, rdi
-    jz .clients
-    call greeter_step
-.clients:
     xor r13d, r13d                      ; handled
     mov r12, [rbx + Server.client_list]
 .client:
@@ -568,6 +568,66 @@ HANDLER h_toplevel_ack_configure, 8
     mov rdi, rax
     mov esi, [r13 + 4]
     call window_ack_configure
+HANDLER_END
+
+; cw_popup.create(surface, parent, x, y)
+HANDLER h_popup_create, 16
+    NEEDS_CAP CAP_SHELL
+    mov esi, [r13 + 4]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    push rax
+    push rax                            ; 16-byte aligned
+    mov esi, [r13]
+    call own_surface
+    pop rdx
+    pop rdx
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    mov ecx, [r13 + 8]
+    mov r8d, [r13 + 12]
+    call window_popup_create
+HANDLER_END
+
+; cw_layer.create(surface, layer, anchor, margin)
+HANDLER h_layer_create, 16
+    NEEDS_CAP CAP_LAYER
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    mov edx, [r13 + 4]
+    mov ecx, [r13 + 8]
+    mov r8d, [r13 + 12]
+    call window_layer_create
+HANDLER_END
+
+; cw_popup.destroy(surface), cw_layer.destroy(surface)
+HANDLER h_role_destroy_shell, 4
+    NEEDS_CAP CAP_SHELL
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    call window_destroy
+HANDLER_END
+
+HANDLER h_role_destroy_layer, 4
+    NEEDS_CAP CAP_LAYER
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    call window_destroy
 HANDLER_END
 
 ; A window's name from a (surface, length, bytes) payload; in a handler.
