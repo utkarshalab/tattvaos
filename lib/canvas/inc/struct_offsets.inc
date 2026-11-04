@@ -1542,9 +1542,13 @@ struc InputSeat
     .repeat_delay:            resq 1    ; from a press to its first repeat, ns
     .repeat_interval:         resq 1    ; between repeats, ns; 0: no repeat
     .repeat_key:              resd 1    ; the key repeating, 0: none
-    .moving:                  resq 1    ; Surface* an Alt+drag is moving, 0: none
-    .move_dx:                 resd 1    ; the pointer's place on it
-    .move_dy:                 resd 1
+    .moving:                  resq 1    ; Surface* an Alt+drag holds, 0: none
+    .move_dx:                 resd 1    ; moving: the pointer's place on it;
+    .move_dy:                 resd 1    ; resizing: where the pointer started
+    .move_mode:               resd 1    ; MOVE_MOVE or MOVE_RESIZE
+    .resize_w:                resd 1    ; its size when the resize started
+    .resize_h:                resd 1
+    .move_pad:                resd 1
     .x:                       resd 1    ; pointer, output pixels
     .y:                       resd 1
     .buttons:                 resd 1    ; held buttons, bit n = button n
@@ -1649,6 +1653,11 @@ endstruc
 %define LEVEL_TOP           1
 %define LEVEL_POPUP         2
 %define LEVEL_OVERLAY       3
+
+; What an Alt+drag does (InputSeat.move_mode)
+%define MOVE_MOVE       1
+%define MOVE_RESIZE     2
+%define RESIZE_MIN      16              ; the smallest a resize asks for
 
 ; Layer anchors (proto/canvas-shell.cwp)
 %define ANCHOR_TOP      1
