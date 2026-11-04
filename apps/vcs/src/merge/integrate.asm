@@ -296,7 +296,8 @@ vcs_merge:
  jae .usage
  mov rax,r14
  imul rax,240
- lea rsi,[conflict_paths+rax]
+ lea rsi,[conflict_paths]
+ add rsi,rax
  mov rdi,r15
  call same_name
  test eax,eax
@@ -522,7 +523,8 @@ add_manifest:
  cmp rax,VR_FILES
  jae .full
  imul rax,ME_SIZE
- lea rbx,[merge_entries+rax]
+ lea rbx,[merge_entries]
+ add rbx,rax
  mov rdi,rbx
  mov rsi,r12
  mov ecx,240
@@ -553,7 +555,8 @@ find_entry:
  jae .no
  mov rax,rcx
  imul rax,ME_SIZE
- lea rsi,[merge_entries+rax]
+ lea rsi,[merge_entries]
+ add rsi,rax
  mov rdi,rbx
  call same_name
  test eax,eax
@@ -574,7 +577,8 @@ require_clean:
  jae .scan_extra
  mov rax,r12
  imul rax,ME_SIZE
- lea r13,[merge_entries+rax]
+ lea r13,[merge_entries]
+ add r13,rax
  mov rdi,r13
  call absolute_path
  test eax,eax
@@ -640,7 +644,8 @@ choose_results:
  jae .ok
  mov rax,r12
  imul rax,ME_SIZE
- lea r13,[merge_entries+rax]
+ lea r13,[merge_entries]
+ add r13,rax
  mov rdi,[r13+ME_OURS]
  mov rsi,[r13+ME_THEIRS]
  call entries_equal
@@ -737,7 +742,8 @@ preflight_capacity:
  jae .check
  mov rax,r13
  imul rax,ME_SIZE
- lea r15,[merge_entries+rax]
+ lea r15,[merge_entries]
+ add r15,rax
  cmp qword [r15+ME_NODE],0
  je .missing
  cmp qword [r15+ME_RESULT],0
@@ -776,7 +782,8 @@ publish_merge:
  jae .write
  mov rax,r12
  imul rax,ME_SIZE
- lea r13,[merge_entries+rax]
+ lea r13,[merge_entries]
+ add r13,rax
  cmp qword [r13+ME_RESULT],0
  jne .delete_next
  mov rdi,[r13+ME_NODE]
@@ -793,7 +800,8 @@ publish_merge:
  jae .metadata
  mov rax,r12
  imul rax,ME_SIZE
- lea r13,[merge_entries+rax]
+ lea r13,[merge_entries]
+ add r13,rax
  mov r15,[r13+ME_RESULT]
  test r15,r15
  jz .write_next
@@ -855,7 +863,8 @@ publish_merge:
  mov [rbx+UV_SIZE],rcx
  mov rax,r12
  shl rax,12
- lea rsi,[merged_data+rax]
+ lea rsi,[merged_data]
+ add rsi,rax
  lea rdi,[rbx+UV_DATA]
  rep movsb
 .write_next:
@@ -1176,7 +1185,8 @@ try_diff_merge:
  mov [theirs_hcount],rax
  mov rax,r15
  shl rax,12
- lea rdi,[merged_data+rax]
+ lea rdi,[merged_data]
+ add rdi,rax
  mov [lm_out],rdi
  mov qword [lm_size],0
  xor r12d,r12d                    ; ours hunk index
@@ -1197,10 +1207,12 @@ try_diff_merge:
 .both:
  mov rax,r12
  shl rax,5
- lea rbx,[ours_hunks+rax]
+ lea rbx,[ours_hunks]
+ add rbx,rax
  mov rax,r13
  shl rax,5
- lea r15,[theirs_hunks+rax]
+ lea r15,[theirs_hunks]
+ add r15,rax
  mov rax,[rbx]
  cmp rax,[r15]
  jb .ours_first
@@ -1235,7 +1247,8 @@ try_diff_merge:
  je .take_theirs
  mov rdx,r12
  shl rdx,5
- lea rbx,[ours_hunks+rdx]
+ lea rbx,[ours_hunks]
+ add rbx,rdx
  inc r12
  cmp eax,3
  jne .apply
@@ -1244,7 +1257,8 @@ try_diff_merge:
 .take_theirs:
  mov rdx,r13
  shl rdx,5
- lea rbx,[theirs_hunks+rdx]
+ lea rbx,[theirs_hunks]
+ add rbx,rdx
  inc r13
 .apply:
  cmp [rbx],r14
@@ -1398,7 +1412,8 @@ try_line_merge:
  mov r14,rdx
  mov rax,rcx
  shl rax,12
- lea r15,[merged_data+rax]
+ lea r15,[merged_data]
+ add r15,rax
  mov [lm_out],r15
  mov qword [lm_size],0
  mov rdi,r12
