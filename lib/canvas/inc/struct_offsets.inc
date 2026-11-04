@@ -1517,6 +1517,7 @@ struc Server
     .transfers:               resq 1
     .input_seat:              resq 1    ; the active seat: all input goes to it
     .greeter:                 resq 1    ; the login screen, stepped each turn
+    .windows:                 resq 1    ; every Window, newest first
 endstruc
 
 ; One raw input event, as a source hands it to input_submit
@@ -1628,6 +1629,25 @@ struc Surface
     .cb_free:                 resq 1    ; spent frame callback nodes
     .current:                 resb SurfaceState_size
     .pending:                 resb SurfaceState_size
+    .window:                  resq 1    ; Window* when it is a toplevel, else 0
+endstruc
+
+; A surface with the toplevel role (src/shell/window.asm)
+%define WINDOW_NAME_MAX 63              ; bytes of a title or app id
+struc Window
+    .server:                  resq 1
+    .surface:                 resq 1
+    .next:                    resq 1    ; Server.windows, newest first
+    .x:                       resd 1    ; where the server put it
+    .y:                       resd 1
+    .placed:                  resd 1    ; 1 once it has shown a buffer
+    .serial:                  resd 1    ; of the last configure sent
+    .acked:                   resd 1    ; the last the client applied
+    .title_len:               resd 1
+    .app_id_len:              resd 1
+    .pad:                     resd 1
+    .title:                   resb 64   ; WINDOW_NAME_MAX + 1
+    .app_id:                  resb 64
 endstruc
 
 struc Tablet
