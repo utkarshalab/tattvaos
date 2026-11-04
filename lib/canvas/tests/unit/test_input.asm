@@ -19,6 +19,8 @@
 
 extern arena_init
 extern client_accept
+extern input_repeat_deadline
+extern input_set_repeat
 extern input_set_seat
 extern msgbuf_read
 extern msgbuf_write
@@ -60,6 +62,7 @@ test_input_suite:
     CASE ti_click_focus
     CASE ti_raise
     CASE ti_keymap
+    CASE ti_repeat
     CASE ti_held_button
     CASE ti_release_on_switch
     CASE ti_forget_surface
@@ -397,6 +400,40 @@ ti_keymap:
     EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_a, 4, 2
     EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 46, 1
     NOTHING
+    PASS
+
+; A held key repeats with its text; letting go stops it. Shift does not
+; repeat. No delay here, so the first repeat comes in the turn of the press.
+ti_repeat:
+    sub rsp, 8
+    lea rdi, [rel server]
+    xor esi, esi                        ; no delay
+    mov edx, 1000000000                 ; then one a second
+    call input_set_repeat
+    test rax, rax
+    jnz .fail
+    INJECT INPUT_KEY, 30, 1
+    call poll
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_b, 30, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_b, 'a', 0
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_b, 30, 2
+    EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_b, 'a', 0
+    NOTHING
+    call poll                           ; not a second yet
+    NOTHING
+    INJECT INPUT_KEY, 30, 0
+    call poll
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_b, 30, 0
+    NOTHING
+    INJECT INPUT_KEY, 42, 1
+    call poll
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_b, 42, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_b, 1, 0
+    NOTHING
+    lea rdi, [rel server]
+    call input_repeat_deadline
+    test rax, rax
+    jnz .fail
     PASS
 
 ; While a button is held B keeps the pointer over A; letting go hands it on
