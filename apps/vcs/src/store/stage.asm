@@ -338,16 +338,16 @@ eligible:
  test rax,rax
  jz .no
  mov rcx,[rax+24]
- add rax,VR_HEADER
+ lea r10,[rax+VR_HEADER]
 .find:
  test rcx,rcx
  jz .no
  mov rdi,rbx
- mov rsi,rax
+ mov rsi,r10
  call same_name
  test eax,eax
  jnz .yes
- add rax,VR_ENTRY
+ add r10,VR_ENTRY
  dec rcx
  jmp .find
 .yes: mov eax,1
@@ -361,16 +361,16 @@ add_path:
  push rbx
  mov rbx,rdi
  mov rcx,[index_data+8]
- lea rax,[index_data+16]
+ lea r10,[index_data+16]
 .find:
  test rcx,rcx
  jz .append
  mov rdi,rbx
- mov rsi,rax
+ mov rsi,r10
  call same_name
  test eax,eax
  jnz .ok
- add rax,240
+ add r10,240
  dec rcx
  jmp .find
 .append:
