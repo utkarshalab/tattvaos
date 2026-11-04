@@ -14,7 +14,7 @@ section .text
 global client_main
 client_main:
     PROLOGUE_SAVE rbx, r12, r13
-    mov rdi, CLIENT_CAP_DISPLAY | CLIENT_CAP_BUFFER | CLIENT_CAP_SURFACE | CLIENT_CAP_PRESENT
+    mov rdi, CLIENT_CAP_DISPLAY | CLIENT_CAP_BUFFER | CLIENT_CAP_SURFACE | CLIENT_CAP_PRESENT | CLIENT_CAP_LAYER
     call canvas_connect
     test rax, rax
     jz .fail
@@ -36,6 +36,9 @@ client_main:
     call canvas_surface_attach
     mov rdi, rbx
     mov esi, r12d
+    mov edx, CANVAS_LAYER_TOP
+    mov ecx, CANVAS_ANCHOR_TOP | CANVAS_ANCHOR_LEFT | CANVAS_ANCHOR_RIGHT
+    xor r8d, r8d
     call canvas_layer_create
     ; steady clock loop
 .loop:
