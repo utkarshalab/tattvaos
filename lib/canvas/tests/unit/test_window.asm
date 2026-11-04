@@ -69,6 +69,9 @@ test_window_suite:
     CASE tw_layers, CAP_SHELL | CAP_LAYER
     CASE tw_alt_f4, CAP_SHELL
     CASE tw_alt_drag, CAP_SHELL
+    CASE tw_alt_resize, CAP_SHELL
+    CASE tw_popup_follows, CAP_SHELL
+    CASE tw_popup_dismiss, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -703,6 +706,118 @@ tw_alt_drag:
     jne .fail
     mov rax, [rel server + Server.input_seat]
     cmp qword [rax + InputSeat.moving], 0
+    jne .fail
+    PASS
+
+; Alt+right-drag asks for the window's size plus the pointer's travel; its
+; client sees no button of it
+tw_alt_resize:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    INJECT INPUT_KEY, 56, 1
+    POINTER 12, 12
+    call poll
+    call drain
+    INJECT INPUT_BUTTON, 1, 1
+    INJECT INPUT_POSITION, 30, 22
+    INJECT INPUT_BUTTON, 1, 0
+    call poll
+    FIND CWP_OBJ_TOPLEVEL, TL_CONFIGURE
+    mov eax, [rel surface_a]
+    cmp [rel ans], eax
+    jne .fail
+    cmp dword [rel ans + 8], 16 + 18
+    jne .fail
+    cmp dword [rel ans + 12], 12 + 10
+    jne .fail
+    mov edi, CWP_OBJ_POINTER            ; no button; the pointer may leave,
+    mov esi, 3                          ; the client not having grown yet
+    call find_event
+    test eax, eax
+    jnz .fail
+    mov edi, [rel surface_a]            ; it did not move
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 10
+    jne .fail
+    PASS
+
+; a popup 8x8 at (4, 2) on surface_a -> surface_b
+popup_on_a:
+    sub rsp, 8
+    mov edi, 8
+    mov esi, 8
+    call new_surface
+    mov [rel surface_b], eax
+    mov [rel req], eax
+    mov eax, [rel surface_a]
+    mov [rel req + 4], eax
+    mov dword [rel req + 8], 4
+    mov dword [rel req + 12], 2
+    SEND CWP_OBJ_POPUP, PU_CREATE, 16
+    mov edi, [rel surface_b]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    add rsp, 8
+    ret
+
+; A popup goes along when its window is moved
+tw_popup_follows:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call popup_on_a
+    INJECT INPUT_KEY, 56, 1
+    POINTER 12, 12
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_POSITION, 30, 20
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 28 + 4
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_y], 18 + 2
+    jne .fail
+    PASS
+
+; A press on the popup keeps it; one anywhere else ends it
+tw_popup_dismiss:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call popup_on_a
+    call drain
+    POINTER 16, 14                      ; on the popup
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    mov edi, CWP_OBJ_POPUP
+    call any_event
+    test eax, eax
+    jnz .fail
+    POINTER 60, 40                      ; on nothing
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    FIND CWP_OBJ_POPUP, PU_DONE
+    mov eax, [rel surface_b]
+    cmp [rel ans], eax
+    jne .fail
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp qword [rax + Surface.window], 0
     jne .fail
     PASS
 
