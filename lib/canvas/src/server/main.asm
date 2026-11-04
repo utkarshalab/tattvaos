@@ -17,6 +17,8 @@ default rel
 extern arena_init
 extern greeter_start
 extern greeter_step
+extern taskbar_start
+extern taskbar_step
 extern input_repeat_deadline
 extern server_init
 extern server_poll
@@ -100,6 +102,11 @@ canvasd_init:
     lea rsi, [server_arena]
     call greeter_start
 
+    ; The taskbar, under the login screen until it goes
+    lea rdi, [server]
+    lea rsi, [server_arena]
+    call taskbar_start
+
     ; Without waitsets the loop yields instead of sleeping
     call ut_waitset_create
     mov rbx, rax
@@ -119,10 +126,15 @@ canvasd_init:
 .serve:
     lea rdi, [server]
     call server_poll
-    mov rdi, [server + Server.greeter]  ; the login screen, between turns
+    mov rdi, [server + Server.greeter]  ; the login screen and the taskbar,
+    test rdi, rdi                       ; between turns
+    jz .taskbar
+    call greeter_step
+.taskbar:
+    mov rdi, [server + Server.taskbar]
     test rdi, rdi
     jz .loop
-    call greeter_step
+    call taskbar_step
     jmp .loop
 
 .no_arena:
