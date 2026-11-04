@@ -8,12 +8,11 @@
 %include "inc/struct_offsets.inc"
 %include "inc/canvas_client.inc"
 %include "inc/source_iface.inc"
+%include "inc/event.inc"
 
 extern arena_alloc
 extern input_source_register
-extern ring_init
-extern ring_push
-extern ut_time_now_ns
+extern input_submit
 
 section .text
 
@@ -49,20 +48,6 @@ input_source_virtual_init:
     mov [r12 + InputSource.get_device], r11
     lea r11, [rel virtual_source_grab]
     mov [r12 + InputSource.grab], r11
-
-    ; Event ring for injected events
-    mov rdi, [rbx + Server.arena]
-    mov rsi, 256
-    mov rdx, 24  ; Event size
-    call ring_init
-    test rax, rax
-    jnz .ring_ok
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.ring_ok:
-    mov qword [r12 + InputSource.virtual], rax
 
     ; Register source
     mov rdi, rbx
@@ -116,57 +101,23 @@ virtual_source_grab:
 
 ; ---------------------------------------------------------------------------
 ; virtual_input_inject
-;   Inject input event into virtual source
-;   IN:  rdi = server*, rsi = event_type, rdx = code, rcx = value, r8 = device_id
+;   Inject one raw input event, as if a device had sent it
+;   IN:  rdi = server*, esi = type (INPUT_* in inc/event.inc), edx = code,
+;        ecx = value, r8d = device
+;   OUT: rax = 0, -ENODEV with no seat, -ENOSPC when the queue is full
 ; ---------------------------------------------------------------------------
 global virtual_input_inject
 virtual_input_inject:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    ; Find virtual source
-    mov r12, [rbx + Server.input_sources]
-.find_loop:
-    test r12, r12
-    jz .not_found
-    cmp dword [r12 + InputSource.type], INPUT_SOURCE_VIRTUAL
-    je .found
-    mov r12, [r12 + InputSource.next]
-    jmp .find_loop
-
-.found:
-    ; Push event to ring
-    sub rsp, 24
-    mov [rsp + 0], rsi    ; type
-    mov [rsp + 8], rdx    ; time (will be filled)
-    mov [rsp + 16], rcx   ; code
-    mov [rsp + 20], r8    ; value
-
-    call ut_time_now_ns
-    mov [rsp + 8], rax
-
-    mov rdi, [r12 + InputSource.virtual]
+    PROLOGUE
+    sub rsp, RawInput_size + 8
+    mov [rsp + RawInput.type], esi
+    mov [rsp + RawInput.code], edx
+    mov [rsp + RawInput.value], ecx
+    mov [rsp + RawInput.device], r8d
+    mov qword [rsp + RawInput.time], 0
     mov rsi, rsp
-    call ring_push
-    test rax, rax
-    jz .ring_full
-
-    add rsp, 24
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.ring_full:
-    add rsp, 24
-    mov rax, -(ENOSPC)
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.not_found:
-    mov rax, -(ENOENT)
-    EPILOGUE_RESTORE rbx, r12
-    ret
+    call input_submit
+    EPILOGUE
 
 section .rodata
 virtual_source_name: db "virtual-input", 0
