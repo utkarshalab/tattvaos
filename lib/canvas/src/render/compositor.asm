@@ -116,13 +116,13 @@ compositor_add_surface:
     ret
 
 ; ---------------------------------------------------------------------------
-; compositor_remove_surface
-;   Take a surface off its output; what it covered needs redrawing
+; compositor_damage_surface
+;   What a surface shows needs redrawing on its output
 ;   IN:  rdi = server*, rsi = surface*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
-global compositor_remove_surface
-compositor_remove_surface:
+global compositor_damage_surface
+compositor_damage_surface:
     PROLOGUE_SAVE rbx, r12, r13
     sub rsp, 24                         ; a rect; 16-byte aligned
     mov rbx, rdi
@@ -133,15 +133,13 @@ compositor_remove_surface:
     mov r13, [r12 + Surface.output]
     test r13, r13
     jz .done
-
-    ; Its area, if it was showing anything
     mov rsi, [r12 + Surface.current + SurfaceState.buffer]
     test rsi, rsi
-    jz .unlink
+    jz .done                            ; showing nothing
     mov rdi, [rbx + Server.buffer_table]
     call handle_resolve
     test rax, rax
-    jz .unlink
+    jz .done
     mov ecx, [r12 + Surface.current + SurfaceState.buf_x]
     mov [rsp], ecx
     mov ecx, [r12 + Surface.current + SurfaceState.buf_y]
@@ -153,6 +151,73 @@ compositor_remove_surface:
     mov rdi, [r13 + Output.damage]
     mov rsi, rsp
     call region_add_rect
+.done:
+    xor eax, eax
+    add rsp, 24
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+; ---------------------------------------------------------------------------
+; compositor_raise_surface
+;   Put a surface above everything else on its output
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global compositor_raise_surface
+compositor_raise_surface:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    mov r13, [r12 + Surface.output]
+    test r13, r13
+    jz .done
+    mov rcx, [r12 + Surface.z_order_next]
+    test rcx, rcx
+    jz .done                            ; on top already
+    mov rax, [r12 + Surface.z_order_prev]
+    mov [rcx + Surface.z_order_prev], rax
+    test rax, rax
+    jz .was_bottom
+    mov [rax + Surface.z_order_next], rcx
+    jmp .relink
+.was_bottom:
+    mov [r13 + Output.surfaces], rcx
+.relink:
+    mov rdi, r13
+    mov rsi, r12
+    call compositor_add_surface
+    mov rdi, rbx                        ; it now covers what it did not
+    mov rsi, r12
+    call compositor_damage_surface
+.done:
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+    ret
+
+; ---------------------------------------------------------------------------
+; compositor_remove_surface
+;   Take a surface off its output; what it covered needs redrawing
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global compositor_remove_surface
+compositor_remove_surface:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+
+    mov r13, [r12 + Surface.output]
+    test r13, r13
+    jz .done
+    call compositor_damage_surface      ; its area, if it showed anything
 
 .unlink:
     mov rax, [r12 + Surface.z_order_prev]
@@ -171,7 +236,7 @@ compositor_remove_surface:
     mov qword [r12 + Surface.output], 0
 .done:
     xor eax, eax
-    add rsp, 24
+    add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
