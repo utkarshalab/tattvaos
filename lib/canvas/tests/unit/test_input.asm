@@ -41,6 +41,8 @@ extern virtual_input_inject
 %define K_ENTER     0
 %define K_LEAVE     1
 %define K_KEY       2
+%define K_MODIFIERS 3
+%define K_TEXT      4
 
 section .text
 
@@ -55,6 +57,7 @@ test_input_suite:
 %endmacro
     CASE ti_enter_leave
     CASE ti_click_focus
+    CASE ti_keymap
     CASE ti_held_button
     CASE ti_release_on_switch
     CASE ti_forget_surface
@@ -303,6 +306,7 @@ ti_click_focus:
     INJECT INPUT_BUTTON, 0, 0
     call poll
     EXPECT_SHORT CWP_OBJ_KEYBOARD, K_ENTER, surface_a
+    EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_a, 0, 0
     EXPECT CWP_OBJ_POINTER, P_BUTTON, surface_a, 0, 1
     EXPECT CWP_OBJ_POINTER, P_BUTTON, surface_a, 0, 0
     NOTHING
@@ -311,7 +315,65 @@ ti_click_focus:
     INJECT INPUT_KEY, 31, 0
     call poll
     EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 31, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_a, 's', 0
     EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 31, 0
+    NOTHING
+    PASS
+
+; Shift, Caps Lock and Num Lock choose the character; Ctrl types none
+ti_keymap:
+    sub rsp, 8
+    INJECT INPUT_POSITION, 4, 4
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    call drain
+    INJECT INPUT_KEY, 42, 1             ; Shift
+    INJECT INPUT_KEY, 30, 1             ; a
+    INJECT INPUT_KEY, 30, 0
+    INJECT INPUT_KEY, 3, 1              ; 2
+    INJECT INPUT_KEY, 42, 0
+    call poll
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 42, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_a, 1, 0
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 30, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_a, 'A', 1
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 30, 0
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 3, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_a, '@', 1
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 42, 0
+    EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_a, 0, 0
+    NOTHING
+    INJECT INPUT_KEY, 3, 0
+    INJECT INPUT_KEY, 58, 1             ; Caps Lock on
+    INJECT INPUT_KEY, 58, 0
+    INJECT INPUT_KEY, 48, 1             ; b
+    INJECT INPUT_KEY, 48, 0
+    INJECT INPUT_KEY, 2, 1              ; 1: Caps Lock shifts letters only
+    INJECT INPUT_KEY, 2, 0
+    call poll
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 3, 0
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 58, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_a, 0, 2
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 58, 0
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 48, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_a, 'B', 2
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 48, 0
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 2, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_TEXT, surface_a, '1', 2
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 2, 0
+    NOTHING
+    call drain
+    INJECT INPUT_KEY, 79, 1             ; keypad 1, Num Lock off: nothing
+    INJECT INPUT_KEY, 79, 0
+    INJECT INPUT_KEY, 29, 1             ; Ctrl
+    INJECT INPUT_KEY, 46, 1             ; c: a shortcut, no text
+    call poll
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 79, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 79, 0
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 29, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_MODIFIERS, surface_a, 4, 2
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 46, 1
     NOTHING
     PASS
 
