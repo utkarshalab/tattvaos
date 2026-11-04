@@ -324,6 +324,8 @@ global %1
 %endmacro
 
 HOST_NONE ut_wait_wake_task
+HOST_NONE ut_input_register_callback
+HOST_NONE ut_input_unregister_callback
 HOST_NONE ut_power_register_callback
 HOST_NONE ut_fs_open
 HOST_NONE ut_fs_pwrite
