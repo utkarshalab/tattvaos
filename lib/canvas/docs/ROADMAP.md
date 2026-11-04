@@ -460,7 +460,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| WIN-01 | Toplevel, popup and layer roles with configure/ack | P2 | ◐ `shell/*` |
+| WIN-01 | Toplevel, popup and layer roles with configure/ack | P2 | ◐ `shell/window`: `cw_toplevel` (proto/canvas-shell.cwp) with create, destroy, title, app id, configure/ack, close; the server places a window at the pointer on first show and keeps its position; `Server.windows`; `test_window`. Popups and layers to come; the older `shell/*` files are unreachable |
 | WIN-02 | Floating policy | P2 | ◐ `shell/stacking`: a surface shown for the first time goes on top and takes the keyboard, a click raises it, the keyboard passes to the topmost one left when it goes; `test_input`. `policy/policy_floating` is not yet reachable: no toplevel requests |
 | WIN-03 | Tiling and kiosk policies | P3 | ◐ `policy/*` |
 | WIN-04 | External policy process interface | P3 | ◐ `policy/policy_external` |
