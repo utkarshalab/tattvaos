@@ -1,145 +1,160 @@
 ; ============================================================================
-; Client Buffer Helpers — create/destroy/mmap helpers
+; Client Buffer Helpers — cw_buffer requests
 ; ============================================================================
+; The server makes a buffer and answers with its handle and where its pixels
+; are; the connection keeps both in its buffer table (ClientBuffer records at
+; CLIENT_BUFFER_TABLE), so canvas_buffer_mmap and canvas_buffer_stride need
+; no request.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/ut.inc"
+%include "inc/color.inc"
 %include "inc/canvas_client.inc"
+
+extern canvas_call
+extern canvas_send
 
 section .text
 
-%define CLIENT_BUFFER_COUNT  80
-%define CLIENT_BUFFER_TABLE  256
-%define CLIENT_BUFFER_MAX    128
-%define CLIENT_BUFFER_SIZE   48
-%define CB_ID                0
-%define CB_WIDTH             4
-%define CB_HEIGHT            8
-%define CB_FORMAT            12
-%define CB_STRIDE            16
-%define CB_BYTES             24
-%define CB_DATA              32
-%define CB_REGION            40
-
+; ---------------------------------------------------------------------------
+; canvas_buffer_create
+;   IN:  rdi = conn, esi = width, edx = height, ecx = format (DRM_FORMAT_*)
+;   OUT: rax = the buffer's handle, negative error (-ENOSPC: the table is
+;        full)
+; ---------------------------------------------------------------------------
 global canvas_buffer_create
 canvas_buffer_create:
-    PROLOGUE_SAVE rbx, r12, r13, r14
+    PROLOGUE_SAVE rbx, r12
+    sub rsp, 32                         ; create's payload
     mov rbx, rdi
-    mov r12d, esi
-    mov r13d, edx
-    mov r14d, ecx
-    ASSERT_PTR rbx
-    test r12d, r12d
-    jz .create_fail
-    test r13d, r13d
-    jz .create_fail
-    mov rax, [rbx + CLIENT_BUFFER_COUNT]
-    cmp rax, CLIENT_BUFFER_MAX
-    jae .create_fail
-    imul rdx, rax, CLIENT_BUFFER_SIZE
-    lea rdx, [rbx + rdx + CLIENT_BUFFER_TABLE]
-    mov eax, r12d
-    imul rax, r13
-    jo .create_fail
-    shl rax, 2
-    jo .create_fail
-    mov [rdx + CB_BYTES], rax
-    mov rdi, rax
-    add rdi, 4095
-    and rdi, -4096
-    xor esi, esi
-    push rdx
-    call ut_mem_alloc
-    pop rdx
+    mov rax, -(ENOSPC)
+    cmp qword [rbx + ClientConn.buffer_count], CLIENT_BUFFER_MAX
+    jae .out
+    mov [rsp], esi
+    mov [rsp + 4], edx
+    mov [rsp + 8], ecx
+    mov dword [rsp + 12], 0
+    mov qword [rsp + 16], 0
+    mov esi, CWP_OBJ_BUFFER
+    mov edx, BUFFER_CREATE
+    mov rcx, rsp
+    mov r8d, 24
+    call canvas_call
     test rax, rax
-    js .create_fail
-    mov [rdx + CB_DATA], rax
-    mov [rdx + CB_REGION], r8
-    mov eax, [rbx + ClientConn.next_obj]
-    inc dword [rbx + ClientConn.next_obj]
-    mov [rdx + CB_ID], eax
-    mov [rdx + CB_WIDTH], r12d
-    mov [rdx + CB_HEIGHT], r13d
-    mov [rdx + CB_FORMAT], r14d
-    mov ecx, r12d
-    shl ecx, 2
-    mov [rdx + CB_STRIDE], ecx
-    inc qword [rbx + CLIENT_BUFFER_COUNT]
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-.create_fail:
-    xor eax, eax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
+    js .out
 
+    ; (buffer, pixels) into the table
+    mov rax, [rbx + ClientConn.buffer_count]
+    imul eax, eax, ClientBuffer_size
+    lea r12, [rbx + CLIENT_BUFFER_TABLE + rax]
+    mov eax, [rbx + CLIENT_WIRE + ClientWire.reply]
+    mov [r12 + ClientBuffer.id], eax
+    mov rax, [rbx + CLIENT_WIRE + ClientWire.reply + 8]
+    mov [r12 + ClientBuffer.pixels], rax
+    mov eax, [rsp]
+    mov [r12 + ClientBuffer.width], eax
+    mov ecx, [rsp + 4]
+    mov [r12 + ClientBuffer.height], ecx
+    mov ecx, [rsp + 8]
+    mov [r12 + ClientBuffer.format], ecx
+    shl eax, 2                          ; the server's stride: 4 bytes a pixel,
+    cmp ecx, DRM_FORMAT_RGB565          ; 2 for RGB565, rows to 4 bytes
+    jne .stride
+    shr eax, 1
+    add eax, 3
+    and eax, ~3
+.stride:
+    mov [r12 + ClientBuffer.stride], eax
+    inc qword [rbx + ClientConn.buffer_count]
+    mov eax, [r12 + ClientBuffer.id]
+.out:
+    add rsp, 32
+    EPILOGUE_RESTORE rbx, r12
+
+; ---------------------------------------------------------------------------
+; canvas_buffer_destroy
+;   IN:  rdi = conn, esi = buffer
+;   OUT: rax = 0, -ENOENT if it is not this connection's
+; ---------------------------------------------------------------------------
 global canvas_buffer_destroy
 canvas_buffer_destroy:
     PROLOGUE_SAVE rbx, r12
+    sub rsp, 16
     mov rbx, rdi
-    mov r12d, esi
-    call canvas_find_buffer
+    mov [rsp], esi
+    call find_buffer
     test rax, rax
-    jz .not_found
-    mov rdi, [rax + CB_REGION]
-    push rax
-    call ut_mem_free
-    pop rdx
-    test rax, rax
-    js .destroy_out
-    mov dword [rdx + CB_ID], 0
-.destroy_out:
-    EPILOGUE_RESTORE rbx, r12
-    ret
-.not_found:
+    jz .missing
+    mov r12, rax
+    mov rdi, rbx
+    mov esi, CWP_OBJ_BUFFER
+    mov edx, BUFFER_DESTROY
+    mov rcx, rsp
+    mov r8d, 4
+    call canvas_send
+    ; the last record takes its place
+    dec qword [rbx + ClientConn.buffer_count]
+    mov rax, [rbx + ClientConn.buffer_count]
+    imul eax, eax, ClientBuffer_size
+    lea rsi, [rbx + CLIENT_BUFFER_TABLE + rax]
+    mov rdi, r12
+    mov ecx, ClientBuffer_size
+    rep movsb
+    xor eax, eax
+    jmp .out
+.missing:
     mov rax, -(ENOENT)
+.out:
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12
-    ret
 
+; ---------------------------------------------------------------------------
+; canvas_buffer_mmap
+;   IN:  rdi = conn, esi = buffer
+;   OUT: rax = its pixels, 0 if it is not this connection's
+; ---------------------------------------------------------------------------
 global canvas_buffer_mmap
 canvas_buffer_mmap:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12d, esi
-    call canvas_find_buffer
+    call find_buffer
     test rax, rax
-    jz .mmap_out
-    mov rax, [rax + CB_DATA]
-.mmap_out:
-    EPILOGUE_RESTORE rbx, r12
+    jz .out
+    mov rax, [rax + ClientBuffer.pixels]
+.out:
     ret
 
+; ---------------------------------------------------------------------------
+; canvas_buffer_stride
+;   IN:  rdi = conn, esi = buffer
+;   OUT: rax = bytes from one row to the next, 0 if it is not this
+;        connection's
+; ---------------------------------------------------------------------------
 global canvas_buffer_stride
 canvas_buffer_stride:
-    PROLOGUE_SAVE rbx, r12
-    mov rbx, rdi
-    mov r12d, esi
-    call canvas_find_buffer
+    call find_buffer
     test rax, rax
-    jz .stride_out
-    mov eax, [rax + CB_STRIDE]
-.stride_out:
-    EPILOGUE_RESTORE rbx, r12
+    jz .out
+    mov eax, [rax + ClientBuffer.stride]
+.out:
     ret
 
-canvas_find_buffer:
-    xor ecx, ecx
-    mov rdx, [rbx + CLIENT_BUFFER_COUNT]
-.find_loop:
-    cmp rcx, rdx
-    jae .find_none
-    imul rax, rcx, CLIENT_BUFFER_SIZE
-    lea rax, [rbx + rax + CLIENT_BUFFER_TABLE]
-    cmp [rax + CB_ID], r12d
-    je .find_done
-    inc rcx
-    jmp .find_loop
-.find_none:
+; rdi = conn, esi = buffer -> rax = its ClientBuffer, 0 if none
+find_buffer:
+    lea rax, [rdi + CLIENT_BUFFER_TABLE]
+    mov rcx, [rdi + ClientConn.buffer_count]
+.next:
+    test rcx, rcx
+    jz .none
+    cmp [rax + ClientBuffer.id], esi
+    je .done
+    add rax, ClientBuffer_size
+    dec rcx
+    jmp .next
+.none:
     xor eax, eax
-.find_done:
+.done:
     ret
 
 section .data
 global canvas_buffer_helpers_version
-canvas_buffer_helpers_version: dq 0x010000
+canvas_buffer_helpers_version: dq 0x020000
