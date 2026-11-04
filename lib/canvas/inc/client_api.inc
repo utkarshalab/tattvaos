@@ -29,6 +29,12 @@ extern canvas_toplevel_ack_configure
 extern canvas_toplevel_set_minimized
 extern canvas_popup_destroy
 extern canvas_layer_destroy
+extern canvas_layer_set_exclusive
+extern canvas_window_list_subscribe
+extern canvas_window_activate
+extern canvas_window_close
+extern canvas_window_minimize
+extern canvas_window_set_maximized
 extern canvas_toplevel_set_app_id
 extern canvas_toplevel_set_min_size
 extern canvas_toplevel_set_max_size
