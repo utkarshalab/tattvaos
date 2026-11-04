@@ -780,7 +780,7 @@ server_frame_done:
     mov [rsp + 24], rax
     mov dword [rsp + 32], 0
     mov dword [rsp + MsgHdr.obj], CWP_OBJ_SURFACE
-    mov word [rsp + MsgHdr.opcode], SURFACE_EVENT_FRAME_DONE
+    mov word [rsp + MsgHdr.opcode], SURFACE_EV_FRAME_DONE
     mov word [rsp + MsgHdr.flags], CWP_MSG_FLAG_IS_EVENT
     mov dword [rsp + MsgHdr.len], 20
     mov rax, [rbx + Surface.client]
