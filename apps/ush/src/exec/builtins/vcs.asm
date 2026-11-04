@@ -3,6 +3,7 @@
 %include "apps/vcs/include/diff.inc"
 %include "apps/vcs/include/client.inc"
 %include "apps/vcs/include/server.inc"
+%include "apps/vcs/include/wire.inc"
 bits 64
 default rel
 extern uxv_ready,fs_resolve,ush_streq,diff_files,frontend_write,frontend_write_str
@@ -825,12 +826,13 @@ cmd_vcs:
  cmp r13,9
  ja .bad
  mov rdi,[r12+24]
- call parse_port_arg
+ call .parse_port_arg
  test eax,eax
  jnz .bad
  mov r14d,edx
  mov qword [net_count],1
- mov qword [net_timeout],30000000000
+ mov rax,30000000000
+ mov [net_timeout],rax
  mov qword [net_progress],-1
  mov dword [net_operation],0
  mov r15,[vcs_repo_head]
@@ -883,7 +885,7 @@ cmd_vcs:
  cmp rbx,r13
  jae .bad
  mov rdi,[r12+rbx*8]
- call parse_port_arg
+ call .parse_port_arg
  test eax,eax
  jnz .bad
  test edx,edx
@@ -906,7 +908,7 @@ cmd_vcs:
  cmp rbx,r13
  jae .bad
  mov rdi,[r12+rbx*8]
- call parse_port_arg
+ call .parse_port_arg
  test eax,eax
  jnz .bad
  test edx,edx
@@ -1741,7 +1743,7 @@ cmd_vcs:
  cmp r13,4
  jne .bad
  mov rdi,[r12+16]
- call parse_port_arg
+ call .parse_port_arg
  test eax,eax
  jnz .bad
  mov r14d,edx
@@ -1862,7 +1864,7 @@ cmd_vcs:
 .network_yield_bad:
  mov eax,VCS_ERR_IO
  ret
-parse_port_arg:
+.parse_port_arg:
  xor edx,edx
  xor ecx,ecx
 .net_port_digit:
