@@ -21,6 +21,7 @@ extern handle_table_init
 extern channel_init
 extern auth_handshake
 extern surface_destroy_client
+extern window_list_forget
 extern buffer_destroy_client
 
 %define CLIENT_CONNECTING   1
@@ -78,14 +79,29 @@ client_init:
 ;   IN:  rdi = server*, rsi = ChannelPair* (filled in for the client's end),
 ;        rdx = capabilities wanted
 ;   OUT: rax = client_id, negative error
+;
+; client_accept gives the client the standard trust profile, which grants no
+; privileged capability. client_accept_trusted, for canvasd's own clients
+; (the greeter, a taskbar), gives it the trusted one, until profiles come
+; from the trust store (SEC-02).
 ; ---------------------------------------------------------------------------
 global client_accept
 client_accept:
+    mov ecx, TRUST_STANDARD
+    jmp accept_as
+
+global client_accept_trusted
+client_accept_trusted:
+    mov ecx, TRUST_TRUSTED
+
+; As client_accept; rcx = the trust profile
+accept_as:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    sub rsp, ChannelPair_size + 8       ; the pair + 8: 16-byte aligned
+    sub rsp, ChannelPair_size + 8 + 16  ; the pair, caps wanted, trust
     mov rbx, rdi
     mov r12, rsi
     mov [rsp + ChannelPair_size], rdx
+    mov [rsp + ChannelPair_size + 8], rcx
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
@@ -116,7 +132,8 @@ client_accept:
     mov rax, [rbx + Server.next_client_id]
     inc qword [rbx + Server.next_client_id]
     mov [r14 + Client.id], rax
-    mov qword [r14 + Client.trust_profile], TRUST_STANDARD
+    mov rax, [rsp + ChannelPair_size + 8]
+    mov [r14 + Client.trust_profile], rax
     mov [r14 + Client.arena], r13
     mov [r14 + Client.region], r15
     mov byte [r14 + Client.state], CLIENT_CONNECTING
@@ -178,7 +195,7 @@ client_accept:
     mov [rbx + Server.client_list], r14
     mov rax, [r14 + Client.id]
 .out:
-    add rsp, ChannelPair_size + 8
+    add rsp, ChannelPair_size + 8 + 16
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .unlink:
@@ -236,7 +253,10 @@ client_disconnect:
     mov [rcx], rax
 .unlisted:
 
-    ; What the server tables know of it
+    ; What the server tables know of it, and the window list
+    mov rdi, rbx
+    mov rsi, r13
+    call window_list_forget
     mov rdi, rbx
     mov rsi, r13
     call surface_destroy_client
