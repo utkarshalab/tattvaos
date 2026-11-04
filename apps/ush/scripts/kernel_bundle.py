@@ -18,8 +18,10 @@ import tempfile
 ROOT=Path(__file__).resolve().parents[3]
 OUT=ROOT/'apps/ush/build/kernel'
 OBJECT=ROOT/'apps/ush/build/ush-native.o'
-MAGIC=b'UTKUSH_LAYOUT_V1\0'
+MAGIC=b'UTKUSH_LAYOUT_V2\0'
 SECTIONS=('text','rodata','data','bss')
+IMPORTS=('unet_socket','unet_connect','unet_close','unet_get_state',
+         'unet_bind','unet_listen','unet_accept','unet_send','unet_recv')
 
 def run(*args):
     return subprocess.check_output([str(x) for x in args],text=True)
@@ -32,8 +34,10 @@ def symbols(elf):
             result[parts[0]]=int(parts[2],16)
     return result
 
-def link(directory,addresses,obj):
+def link(directory,addresses,obj,imports):
     script=[]
+    for name,address in zip(IMPORTS,imports):
+        script.append(f'{name} = {address:#x};')
     for name,address in zip(SECTIONS,addresses):
         contents={
             'text':'*(.text*)',
@@ -75,7 +79,8 @@ def prepare():
         obj=work/'input.o'
         obj.write_bytes(objbytes)
         addresses=[0x1000000,0x1100000,0x1200000,0x1300000]
-        names,sizes,blobs=link(work,addresses,obj)
+        imports=[0x1400000+index*0x100 for index in range(len(IMPORTS))]
+        names,sizes,blobs=link(work,addresses,obj,imports)
     offsets={
         'MAIN':names['ush_main']-addresses[0],
         'LOG_BEGIN':names['line_log_begin']-addresses[0],
@@ -110,14 +115,17 @@ def patch(kernel):
     at=raw.find(MAGIC)
     if at<0 or raw.find(MAGIC,at+1)>=0:
         raise ValueError('expected exactly one Ush layout marker')
-    values=struct.unpack_from('<8Q',raw,at+len(MAGIC))
+    values=struct.unpack_from(f'<{8+len(IMPORTS)}Q',raw,at+len(MAGIC))
     addresses=values[:4]
     sizes=dict(zip(SECTIONS,values[4:]))
+    imports=values[8:]
     if sizes!=manifest['sizes']:
         raise ValueError('kernel/app sizes disagree; rebuild preparation')
     base=0x100000
     exec_end=base+struct.unpack_from('<I',raw,24)[0]
     memory_end=base+struct.unpack_from('<Q',raw,32)[0]
+    if any(address<base or address>=exec_end for address in imports):
+        raise ValueError('shell import outside executable kernel range')
     ranges=[]
     for name,address in zip(SECTIONS,addresses):
         end=address+sizes[name]
@@ -134,7 +142,7 @@ def patch(kernel):
         if a[1]>b[0]:
             raise ValueError('overlapping shell ranges')
     with tempfile.TemporaryDirectory(dir=OUT) as work:
-        _,actual,blobs=link(Path(work),addresses,obj)
+        _,actual,blobs=link(Path(work),addresses,obj,imports)
     if actual!=sizes:
         raise ValueError('link changed section sizes')
     for name,address in zip(SECTIONS,addresses):
