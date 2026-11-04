@@ -113,7 +113,7 @@ window_list_changed:
 global window_list_removed
 window_list_removed:
     mov esi, [rsi + Window.number]
-    mov edx, WINDOW_LIST_EVENT_REMOVED
+    mov edx, WINDOW_LIST_EV_REMOVED
     jmp broadcast_number
 
 ; ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ window_list_activated:
     je .same
     mov [rdi + Server.window_active], rax
     mov esi, eax
-    mov edx, WINDOW_LIST_EVENT_ACTIVATED
+    mov edx, WINDOW_LIST_EV_ACTIVATED
     jmp broadcast_number
 .same:
     xor eax, eax
@@ -190,7 +190,7 @@ send_window:
     mov ecx, 64
     rep movsb
     mov dword [rsp + MsgHdr.obj], CWP_OBJ_WINDOW_LIST
-    mov word [rsp + MsgHdr.opcode], WINDOW_LIST_EVENT_WINDOW
+    mov word [rsp + MsgHdr.opcode], WINDOW_LIST_EV_WINDOW
     mov word [rsp + MsgHdr.flags], CWP_MSG_FLAG_IS_EVENT
     mov dword [rsp + MsgHdr.len], WINDOW_EVENT_BYTES
     mov rdi, [rbx + Window.server]
@@ -207,7 +207,7 @@ send_number_activated:
     sub rsp, 40                         ; header at 0, payload at 16
     mov [rsp + 16], edi
     mov dword [rsp + MsgHdr.obj], CWP_OBJ_WINDOW_LIST
-    mov word [rsp + MsgHdr.opcode], WINDOW_LIST_EVENT_ACTIVATED
+    mov word [rsp + MsgHdr.opcode], WINDOW_LIST_EV_ACTIVATED
     mov word [rsp + MsgHdr.flags], CWP_MSG_FLAG_IS_EVENT
     mov dword [rsp + MsgHdr.len], 4
     mov rdi, [rsi + Client.rx_ring]
