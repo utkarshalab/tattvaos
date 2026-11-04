@@ -28,6 +28,10 @@ brought back as it is.
 | `src/input/seat.asm`, `src/input/keyboard.asm`, `src/input/pointer.asm`, `src/input/focus.asm`, `src/input/hittest.asm` | assemble, but never ran: nothing created a seat. Functions saved registers and returned without restoring them, the first device added became the seat itself, and the hit test read a surface size nothing sets | `src/input/input.asm` |
 | `src/input/keymap.asm` | two keys of a US layout | `src/input/keymap_us.asm` |
 | `src/input/source_ut.asm` | a source object for the kernel's input that did nothing; input.asm registers for it directly | `src/input/input.asm` |
+| `src/shell/shell.asm`, `workspace.asm`, `states.asm`, `move_resize.asm`, `rules.asm`, `theme.asm` | assemble, but nothing called them: no request reached a shell. Stack frames popped fewer registers than they pushed, calls passed the wrong arguments, a seat read from a struct that never had one | `src/shell/window.asm`, `src/shell/stacking.asm`, Alt+drag in `src/input/input.asm` |
+| `src/shell/popup.asm`, `src/shell/layer.asm` | the same; their `popup_create` and `layer_create` clashed with the working roles | `src/shell/window.asm` |
+| `src/policy/policy_floating.asm`, `policy_tiling.asm`, `policy_kiosk.asm`, `policy_external.asm`, `layout_engine.asm` | assemble, unreachable; floating's struct overlaid `Policy` field for field | placement and stacking in `src/shell/window.asm`, `stacking.asm` |
+| `src/text/shortcuts.asm` | unreachable | Alt+F4 and Alt+drag in `src/input/input.asm` |
 | `src/protocol/*.asm` (connection, dispatch, wire) | do not assemble; the first wire layer | `src/proto/*` |
 | `src/shell/layout.asm`, `src/shell/policy.asm` | do not assemble | `src/policy/layout_engine.asm`, `src/policy/*` |
 | `tools/cwpgen/main.asm` | does not assemble | `src/tools/cwpgen.asm` |
