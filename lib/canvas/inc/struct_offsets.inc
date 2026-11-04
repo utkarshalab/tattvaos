@@ -1517,6 +1517,7 @@ struc Server
     .transfers:               resq 1
     .input_seat:              resq 1    ; the active seat: all input goes to it
     .greeter:                 resq 1    ; the login screen, stepped each turn
+    .taskbar:                 resq 1    ; the built-in taskbar, likewise
     .windows:                 resq 1    ; every Window, newest first
     .window_seq:              resq 1    ; the last Window.number given
     .window_active:           resq 1    ; the number the window list last said
