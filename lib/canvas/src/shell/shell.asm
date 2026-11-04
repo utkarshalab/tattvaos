@@ -11,7 +11,7 @@
 extern layer_destroy
 extern policy_init
 extern popup_destroy
-extern seat_set_focus
+extern input_focus_surface
 extern toplevel_create
 extern toplevel_destroy
 extern toplevel_schedule_configure
@@ -211,11 +211,14 @@ shell_focus_toplevel:
     mov r12, rsi
     ASSERT_PTR rbx
 
-    ; Update focus
-    mov rax, [rbx + Shell.seat]
-    mov rdi, rax
-    mov rsi, r12
-    call seat_set_focus
+    ; Keyboard focus to its surface; no toplevel: to none
+    mov rdi, [rbx + Shell.server]
+    xor esi, esi
+    test r12, r12
+    jz .focus
+    mov rsi, [r12 + Toplevel.surface]
+.focus:
+    call input_focus_surface
 
     ; Call policy focus change
     mov rax, [rbx + Shell.policy]
@@ -227,8 +230,7 @@ shell_focus_toplevel:
 
 .done:
     xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ============================================================================
 ; shell_get_active_toplevel
