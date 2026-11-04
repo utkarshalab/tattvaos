@@ -16,6 +16,7 @@ default rel
 
 extern arena_init
 extern greeter_start
+extern greeter_step
 extern input_repeat_deadline
 extern server_init
 extern server_poll
@@ -93,7 +94,8 @@ canvasd_init:
     test rax, rax
     js .no_server
 
-    ; The login screen; a screen too small for it starts without one
+    ; The login screen; a screen too small for it starts without one. Its
+    ; calls turn the server while they wait.
     lea rdi, [server]
     lea rsi, [server_arena]
     call greeter_start
@@ -117,6 +119,10 @@ canvasd_init:
 .serve:
     lea rdi, [server]
     call server_poll
+    mov rdi, [server + Server.greeter]  ; the login screen, between turns
+    test rdi, rdi
+    jz .loop
+    call greeter_step
     jmp .loop
 
 .no_arena:
