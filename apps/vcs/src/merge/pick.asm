@@ -177,12 +177,12 @@ vcs_pick:
 .commit_message:
  cmp qword [pick_seed],0
  jne .commit_signed
- mov rsi,[pick_writer]
+ lea rsi,[discard]
  call vcs_history_replay
  jmp .committed
 .commit_signed:
  mov rsi,[pick_seed]
- mov rdx,[pick_writer]
+ lea rdx,[discard]
  call vcs_history_replay_signed
 .committed:
  test eax,eax
@@ -226,7 +226,7 @@ vcs_pick:
  lea rdx,[rax+UV_DATA]
 .abort_checkout:
  mov rdi,[rbx+UV_DATA+24]
- mov rsi,[pick_writer]
+ lea rsi,[discard]
  call vcs_checkout
  test eax,eax
  jnz .done
@@ -383,5 +383,8 @@ clear_node:
 
 emit:
  jmp [pick_writer]
+
+discard:
+ ret
 
 section .note.GNU-stack noalloc noexec nowrite progbits
