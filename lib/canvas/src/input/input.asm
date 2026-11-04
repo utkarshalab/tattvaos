@@ -49,6 +49,7 @@ extern stacking_level
 extern window_close
 extern window_configure
 extern window_dismiss_popups
+extern window_list_activated
 extern window_maximize
 extern window_minimize
 extern window_move
@@ -1000,6 +1001,9 @@ set_keyboard_focus:
     call send_input
 .enter:
     mov [rbx + InputSeat.keyboard_focus], r12
+    mov rdi, [rbx + InputSeat.server]   ; the window list hears of it
+    mov rsi, r12
+    call window_list_activated
     test r12, r12
     jz .out
     mov rdi, rbx
