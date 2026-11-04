@@ -8,8 +8,10 @@
 ; on a fiber-sized stack with a guard page below it.
 ;
 ; ut_fb_info reports a small poisoned framebuffer with a pitch wider than its
-; rows. After a few turns of the program's loop, ut_yield checks every visible
-; pixel holds the background and the bytes past each row are still poison.
+; rows. After a few turns of the program's loop, ut_yield checks the login
+; screen is up: every visible pixel outside the password field holds the
+; greeter's background, every one inside it the field's colours, the caret is
+; drawn, and the bytes past each row are still poison.
 ;
 ; usage: ubf_run <file.ubf>   exit 0 when the frame is right
 ; ============================================================================
@@ -17,6 +19,8 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/channel.inc"
+%include "inc/greeter.inc"
 
 default rel
 
@@ -73,12 +77,17 @@ extern ut_task_exit
 %define DEFAULT_STACK       16384       ; FIBER_STACK_SIZE in the kernel
 
 ; The fake framebuffer
-%define FB_WIDTH            64
-%define FB_HEIGHT           48
-%define FB_PITCH            (80 * 4)
+%define FB_WIDTH            400         ; room for the greeter's field
+%define FB_HEIGHT           80
+%define FB_PITCH            (416 * 4)
 %define FB_POISON           0xDEADBEEF
-%define FB_BACKGROUND       0xFF202030
-%define TURNS_BEFORE_CHECK  4
+%define TURNS_BEFORE_CHECK  6           ; the greeter shows on the third
+
+; Where the greeter puts its field and caret on this framebuffer
+%define FIELD_X             ((FB_WIDTH - GREETER_FIELD_W) / 2)
+%define FIELD_Y             ((FB_HEIGHT - GREETER_FIELD_H) / 2)
+%define CARET_X             (FIELD_X + GREETER_PAD)
+%define CARET_Y             (FIELD_Y + (GREETER_FIELD_H - GREETER_CARET_H) / 2)
 
 section .text
 
@@ -313,14 +322,30 @@ run_yield:
     ret
 .check:
     lea rsi, [framebuffer]
-    mov edx, FB_HEIGHT
+    xor edx, edx                        ; y
 .row:
-    xor ecx, ecx
+    xor ecx, ecx                        ; x
 .pixel:
     mov eax, [rsi + rcx * 4]
     cmp ecx, FB_WIDTH
     jae .past_row
-    cmp eax, FB_BACKGROUND
+    cmp ecx, FIELD_X
+    jb .outside
+    cmp ecx, FIELD_X + GREETER_FIELD_W
+    jae .outside
+    cmp edx, FIELD_Y
+    jb .outside
+    cmp edx, FIELD_Y + GREETER_FIELD_H
+    jae .outside
+    cmp eax, GREETER_BORDER
+    je .pixel_ok
+    cmp eax, GREETER_FIELD
+    je .pixel_ok
+    cmp eax, GREETER_INK
+    je .pixel_ok
+    jmp .wrong_pixel
+.outside:
+    cmp eax, GREETER_BG
     jne .wrong_pixel
     jmp .pixel_ok
 .past_row:
@@ -331,8 +356,12 @@ run_yield:
     cmp ecx, FB_PITCH / 4
     jb .pixel
     add rsi, FB_PITCH
-    dec edx
-    jnz .row
+    inc edx
+    cmp edx, FB_HEIGHT
+    jb .row
+    lea rax, [framebuffer]
+    cmp dword [rax + CARET_Y * FB_PITCH + CARET_X * 4], GREETER_INK
+    jne .wrong_pixel                    ; drawn, not just cleared
 
     ; How much of the stack the server has touched
     mov rcx, [stack_low]
@@ -403,7 +432,7 @@ msg_file:       db "ubf_run: cannot read the file", 10, 0
 msg_map:        db "ubf_run: cannot map the image", 10, 0
 msg_import:     db "ubf_run: nothing exports %s", 10, 0
 msg_returned:   db "ubf_run: the server returned", 10, 0
-msg_pixel:      db "ubf_run: a visible pixel is not the background", 10, 0
+msg_pixel:      db "ubf_run: a visible pixel is not the login screen's", 10, 0
 msg_edge:       db "ubf_run: a write went past the end of a row", 10, 0
 msg_ok:         db "ubf_run: first frame right, %d of %d stack bytes used", 10, 0
 
