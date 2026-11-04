@@ -372,7 +372,7 @@ tb_exclusive:
     js .fail
     cmp dword [rel hdr + MsgHdr.obj], CWP_OBJ_TOPLEVEL
     jne .next
-    cmp word [rel hdr + MsgHdr.opcode], TOPLEVEL_EVENT_CONFIGURE
+    cmp word [rel hdr + MsgHdr.opcode], TOPLEVEL_EV_CONFIGURE
     jne .next
     cmp dword [rel ans + 8], WIDTH
     jne .fail
