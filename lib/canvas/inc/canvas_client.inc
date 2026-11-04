@@ -28,6 +28,7 @@
 %define CLIENT_CAP_PRESENT     (1 << 3)
 %define CLIENT_CAP_SHELL       (1 << 11)
 %define CLIENT_CAP_LAYER       (1 << 12)
+%define CLIENT_CAP_WINDOWS     (1 << 22)
 %define CLIENT_CAP_DATA        (1 << 13)
 
 ; Commit flags
@@ -60,6 +61,10 @@
 %define CANVAS_EV_CLOSE         (CWP_OBJ_TOPLEVEL << 16 | TOPLEVEL_EVENT_CLOSE)
 %define CANVAS_EV_POPUP_DONE    (CWP_OBJ_POPUP << 16 | POPUP_EVENT_DONE)
 %define CANVAS_EV_LAYER_CONFIGURE (CWP_OBJ_LAYER << 16 | LAYER_EVENT_CONFIGURE)
+%define CANVAS_EV_WINDOW        (CWP_OBJ_WINDOW_LIST << 16 | WINDOW_LIST_EVENT_WINDOW)
+%define CANVAS_EV_WINDOW_REMOVED (CWP_OBJ_WINDOW_LIST << 16 | WINDOW_LIST_EVENT_REMOVED)
+%define CANVAS_EV_WINDOW_ACTIVATED (CWP_OBJ_WINDOW_LIST << 16 | WINDOW_LIST_EVENT_ACTIVATED)
+%define CANVAS_STATE_MINIMIZED  4       ; in window list events only
 
 ; cw_toplevel's states, as configure gives them
 %define CANVAS_STATE_MAXIMIZED  1
@@ -76,13 +81,15 @@
 %define CANVAS_ANCHOR_RIGHT     8
 %define CANVAS_ANCHOR_ALL       15
 
-; An event: its type and payload as the server sent it, up to 48 bytes.
+; An event: its type and payload as the server sent it, up to
+; CLIENT_EVENT_DATA bytes (a window list's window event is the longest).
 ; Input events start (time: ulong, surface: handle), so canvas_event_time
 ; reads data[0].
+%define CLIENT_EVENT_DATA      136
 struc ClientEvent
     .type:      resd 1
     .length:    resd 1
-    .data:      resb 48
+    .data:      resb 136        ; CLIENT_EVENT_DATA
 endstruc
 
 ; A buffer the server made for this connection
@@ -110,7 +117,7 @@ struc ClientWire
     .reply:     resb 256        ; the last call's answer
     .arena:     resb Arena_size
     alignb 8
-    .events:    resb 3584       ; CLIENT_EVENTS ClientEvents
+    .events:    resb 9216       ; CLIENT_EVENTS ClientEvents of 144 bytes
 endstruc
 
 ; Present info (mirrors render.inc)
