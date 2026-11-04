@@ -2,9 +2,10 @@
 ; Unit Test — the Login Screen (src/session/greeter.asm)
 ; ============================================================================
 ; test_greeter_suite -> eax = failed cases (each case returns 0 / 1).
-; A server on 400x80 with a greeter, given three turns to show. Keys go in
-; through virtual_input_inject; the cases look at what the greeter drew in its
-; buffer and what it kept of the text.
+; A server on 400x80 with a greeter, a few turns after it started. A turn is
+; server_poll then greeter_step, as in canvasd's loop. Keys go in through
+; virtual_input_inject; the cases look at what the greeter drew in its buffer
+; and what it kept of the text.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -20,6 +21,7 @@ extern arena_init
 extern greeter_done
 extern greeter_set_verify
 extern greeter_start
+extern greeter_step
 extern server_init
 extern server_poll
 extern virtual_input_inject
@@ -114,6 +116,11 @@ poll:
     sub rsp, 8
     lea rdi, [rel server]
     call server_poll
+    mov rdi, [rel server + Server.greeter]
+    test rdi, rdi
+    jz .out
+    call greeter_step
+.out:
     add rsp, 8
     ret
 
@@ -162,7 +169,7 @@ verify_ab:
 ; Cases
 ; ---------------------------------------------------------------------------
 
-; Up on the third turn, with the keyboard: background, an empty field, caret
+; Shown, with the keyboard: background, an empty field, the caret
 tg_shown:
     sub rsp, 8
     mov rax, [rel greeter]
