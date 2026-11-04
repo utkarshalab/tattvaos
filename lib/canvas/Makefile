@@ -451,8 +451,24 @@ A11Y_SRCS := \
     $(SRCDIR)/a11y/magnifier.asm \
     $(SRCDIR)/a11y/high_contrast.asm
 
+# Client library: linked into canvasd (the greeter) and client images
+CLIENT_SRCS := \
+    $(SRCDIR)/client/conn.asm \
+    $(SRCDIR)/client/wire.asm \
+    $(SRCDIR)/client/client.asm \
+    $(SRCDIR)/client/objects.asm \
+    $(SRCDIR)/client/buffer_pool.asm \
+    $(SRCDIR)/client/surface_helpers.asm \
+    $(SRCDIR)/client/buffer_helpers.asm \
+    $(SRCDIR)/client/events.asm \
+    $(SRCDIR)/client/event_loop.asm \
+    $(SRCDIR)/client/input_helpers.asm \
+    $(SRCDIR)/client/shell_helpers.asm \
+    $(SRCDIR)/client/clipboard_helpers.asm \
+    $(SRCDIR)/client/present_helpers.asm
+
 # All Sources
-ALL_SRCS    := $(UT_SRCS) $(CORE_SRCS) $(GFX_SRCS) $(PROTO_SRCS) $(IMG_SRCS) $(COLOR_SRCS) $(FONT_SRCS) $(SERVER_SRCS) $(RENDER_SRCS) $(GPU_SRCS) $(BACKEND_SRCS) $(DCN_SRCS) $(OUTPUT_SRCS) $(INPUT_SRCS) $(SHELL_SRCS) $(POLICY_SRCS) $(DATA_SRCS) $(SECURITY_SRCS) $(SESSION_SRCS) $(GOVERNANCE_SRCS) $(OBS_SRCS) $(CODEC_SRCS) $(REMOTE_SRCS) $(TEXT_SRCS) $(A11Y_SRCS)
+ALL_SRCS    := $(UT_SRCS) $(CORE_SRCS) $(GFX_SRCS) $(PROTO_SRCS) $(IMG_SRCS) $(COLOR_SRCS) $(FONT_SRCS) $(SERVER_SRCS) $(RENDER_SRCS) $(GPU_SRCS) $(BACKEND_SRCS) $(DCN_SRCS) $(OUTPUT_SRCS) $(INPUT_SRCS) $(SHELL_SRCS) $(POLICY_SRCS) $(DATA_SRCS) $(SECURITY_SRCS) $(SESSION_SRCS) $(GOVERNANCE_SRCS) $(OBS_SRCS) $(CODEC_SRCS) $(REMOTE_SRCS) $(TEXT_SRCS) $(A11Y_SRCS) $(CLIENT_SRCS)
 
 # Object Files
 ALL_OBJS    := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(filter $(SRCDIR)/%,$(ALL_SRCS))) $(GFX_OBJS) $(FONT_OBJS)
@@ -512,21 +528,6 @@ $(UBF): $(UBF_OBJS) ubf.ld tools/ubfpack.py
 	@python3 tools/ubfpack.py -o $@ --script ubf.ld --entry canvasd_init \
 	    --require $(UBF_REQUIRED) $(UBF_OBJS)
 
-# Client Library (relocatable object)
-CLIENT_SRCS := \
-    $(SRCDIR)/client/conn.asm \
-    $(SRCDIR)/client/wire.asm \
-    $(SRCDIR)/client/client.asm \
-    $(SRCDIR)/client/objects.asm \
-    $(SRCDIR)/client/buffer_pool.asm \
-    $(SRCDIR)/client/surface_helpers.asm \
-    $(SRCDIR)/client/buffer_helpers.asm \
-    $(SRCDIR)/client/events.asm \
-    $(SRCDIR)/client/event_loop.asm \
-    $(SRCDIR)/client/input_helpers.asm \
-    $(SRCDIR)/client/shell_helpers.asm \
-    $(SRCDIR)/client/clipboard_helpers.asm \
-    $(SRCDIR)/client/present_helpers.asm
 CLIENT_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(CLIENT_SRCS))
 CLIENT_RUNTIME_OBJS := \
     $(OBJDIR)/core/arena.o \
@@ -638,7 +639,7 @@ UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 TEST_LIB_OBJS := $(filter-out $(OBJDIR)/server/main.o,$(ALL_OBJS))
 
 # Test runner image
-$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(UNIT_OBJS) $(CLIENT_OBJS) $(UT_OBJS) $(TEST_LIB_OBJS) linker.ld
+$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(UNIT_OBJS) $(UT_OBJS) $(TEST_LIB_OBJS) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -e test_runner_init -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
@@ -769,9 +770,6 @@ $(HOSTDIR)/%.o: tests/host/%.asm $(UFONT_DIR)/include/ufont.inc $(UGFX_DIR)/incl
 $(HOSTDIR)/runner_%.o: tests/host/host_runner.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -D HOST_SUITE=test_$*_suite -o $@ $<
-
-# The client library suite links the library as well
-$(HOSTDIR)/test_clientlib: $(CLIENT_OBJS)
 
 $(HOSTDIR)/test_%: $(HOSTDIR)/runner_%.o $(OBJDIR)/tests/unit/test_%.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
 	$(LD) $(HOST_LDFLAGS) -o $@ $^
