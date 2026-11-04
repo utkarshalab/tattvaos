@@ -27,6 +27,7 @@
 %define CLIENT_CAP_SURFACE     (1 << 2)
 %define CLIENT_CAP_PRESENT     (1 << 3)
 %define CLIENT_CAP_SHELL       (1 << 11)
+%define CLIENT_CAP_LAYER       (1 << 12)
 %define CLIENT_CAP_DATA        (1 << 13)
 
 ; Commit flags
@@ -57,6 +58,19 @@
 %define CANVAS_EV_TEXT          (CWP_OBJ_KEYBOARD << 16 | KEYBOARD_EV_TEXT)
 %define CANVAS_EV_CONFIGURE     (CWP_OBJ_TOPLEVEL << 16 | TOPLEVEL_EVENT_CONFIGURE)
 %define CANVAS_EV_CLOSE         (CWP_OBJ_TOPLEVEL << 16 | TOPLEVEL_EVENT_CLOSE)
+%define CANVAS_EV_POPUP_DONE    (CWP_OBJ_POPUP << 16 | POPUP_EVENT_DONE)
+%define CANVAS_EV_LAYER_CONFIGURE (CWP_OBJ_LAYER << 16 | LAYER_EVENT_CONFIGURE)
+
+; cw_layer.create's layer and anchors
+%define CANVAS_LAYER_BACKGROUND 0
+%define CANVAS_LAYER_BOTTOM     1
+%define CANVAS_LAYER_TOP        2
+%define CANVAS_LAYER_OVERLAY    3
+%define CANVAS_ANCHOR_TOP       1
+%define CANVAS_ANCHOR_BOTTOM    2
+%define CANVAS_ANCHOR_LEFT      4
+%define CANVAS_ANCHOR_RIGHT     8
+%define CANVAS_ANCHOR_ALL       15
 
 ; An event: its type and payload as the server sent it, up to 48 bytes.
 ; Input events start (time: ulong, surface: handle), so canvas_event_time
