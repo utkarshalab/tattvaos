@@ -25,6 +25,7 @@ extern compositor_remove_surface
 extern presentation_forget
 extern stacking_destroyed
 extern window_destroy
+extern window_parent_gone
 
 %define SURFACE_HANDLES        4096
 
@@ -224,11 +225,14 @@ surface_destroy:
     jz .not_found
     mov r13, rax
 
-    ; No longer a window, out of input focus, off its output, and any
+    ; Its popups done, no role, out of input focus, off its output, and any
     ; outstanding feedback
     mov rdi, rbx
     mov rsi, r13
-    call window_destroy                 ; -EINVAL if it was none: fine
+    call window_parent_gone
+    mov rdi, rbx
+    mov rsi, r13
+    call window_destroy                 ; -EINVAL if it had none: fine
     mov rdi, rbx
     mov rsi, r13
     call stacking_destroyed
