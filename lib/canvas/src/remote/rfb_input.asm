@@ -96,20 +96,54 @@ rfb_poll_input:
     ret
 
 ; ---------------------------------------------------------------------------
-; rfb_forward_pointer — inject into virtual seat
+; rfb_forward_pointer — inject into the active seat
+;   IN: rdi = RfbClient*, esi = x, edx = y, ecx = RFB button mask (bit 0
+;       left, 1 middle, 2 right, 3 wheel up, 4 wheel down)
+; The seat drops a press of a button already down and a release of one already
+; up, so the mask's whole state is sent each time.
 ; ---------------------------------------------------------------------------
+%macro RFB_BUTTON 2                     ; mask bit, INPUT_BUTTON code
+    mov rdi, r13
+    mov esi, INPUT_BUTTON
+    mov edx, %2
+    xor ecx, ecx
+    bt r12d, %1
+    setc cl
+    mov r8d, -1
+    call virtual_input_inject
+%endmacro
+%macro RFB_WHEEL 2                      ; mask bit, steps
+    test r12d, 1 << %1
+    jz %%none
+    mov rdi, r13
+    mov esi, INPUT_AXIS
+    xor edx, edx
+    mov ecx, %2
+    mov r8d, -1
+    call virtual_input_inject
+%%none:
+%endmacro
 global rfb_forward_pointer
 rfb_forward_pointer:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     ASSERT_PTR rbx
-    ; rsi = x, rdx = y, rcx = buttons
-    mov rdi, [rbx + RfbClient.server]
-    mov rdi, [rdi + RfbServer.server]
-    mov r8, -1  ; remote device id
+    mov r12d, ecx
+    mov r13, [rbx + RfbClient.server]
+    mov r13, [r13 + RfbServer.server]
+    mov ecx, edx
+    mov edx, esi
+    mov rdi, r13
+    mov esi, INPUT_POSITION
+    mov r8d, -1                         ; remote device id
     call virtual_input_inject
-    EPILOGUE_RESTORE rbx, r12
-    ret
+    RFB_BUTTON 0, 0
+    RFB_BUTTON 1, 2
+    RFB_BUTTON 2, 1
+    RFB_WHEEL 3, -1
+    RFB_WHEEL 4, 1
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
 ; rfb_forward_key
