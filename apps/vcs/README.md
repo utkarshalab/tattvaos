@@ -44,9 +44,10 @@ and `include/diff.inc` for layouts and register conventions.
 
 Ush implements the local and native synchronization workflows documented below.
 The expanded history, staging, refs, merge, rebase, blame, repository-aware
-diff, signed patch, and network code is awaiting validation at the user's
-request. Bounded Git snapshot/history import and export are available;
-smart-protocol serving remains unimplemented. The obsolete generic `diff_trees` and
+diff, and signed patch paths pass the VCS and Ush host/native gates. Bounded Git
+snapshot/history import and export and protocol-v2 smart serving are available;
+production QEMU execution of the dedicated VCS persistence gate remains pending.
+The obsolete generic `diff_trees` and
 `diff_emit` ABI entries still return unsupported; `vcs_repo_diff` is the bounded
 UXFS-aware implementation used by Ush. No UFS format is invented
 by this file-level implementation.
@@ -132,21 +133,18 @@ successive commit OIDs into child parent lines. The unique-pack writer removes
 repeated object IDs before patching the final count and SHA-256 trailer; the
 fixed pack capacity fails atomically if the history does not fit.
 
-The smart-serving foundation supports Git SHA-256 object identifiers and
+The smart-serving implementation supports Git SHA-256 object identifiers and
 non-delta PACK v2 output with zlib stored blocks, Adler-32 validation, declared
-object counts, and a SHA-256 pack trailer. Negotiation and native socket serving
-are still pending, so VCS does not yet advertise a cloneable Git endpoint.
+object counts, and a SHA-256 pack trailer. Protocol-v2 negotiation and native
+socket serving are connected through `upload_server.asm` and the Ush adapter.
 
 The upload-pack object builder converts one validated snapshot into canonical
 blobs, recursively nested and sorted trees, and a deterministic root commit. It
 returns the Git SHA-256 commit ID and emits the corresponding pack.
 
-Recursive-tree planning is implemented separately: nested paths are validated,
-directory prefixes are deduplicated, and explicit depth/parent relationships are
-bounded to 64 tree records. Bottom-up tree serialization into upload-pack is the
-remaining integration step before nested snapshots become serveable.
-
-Upload-pack now consumes that plan for every snapshot, making it the single
+Recursive-tree planning validates nested paths, deduplicates directory prefixes,
+and bounds explicit depth/parent relationships to 64 tree records. Upload-pack
+consumes that plan for every snapshot, making it the single
 path-safety and hierarchy authority. Nested plans still stop at the explicit
 bottom-up serializer boundary rather than being interpreted inconsistently.
 
@@ -311,9 +309,12 @@ all other two-operand invocations retain the original regular-file comparison.
 
 `make -C apps/ush test` includes persistent-volume integration tests for paths,
 statuses/chaining, exact rendering, binary data, line limits and unchanged image
-bytes. The adapter is part of `ush-native.o`. Earlier diff/init host checks
-passed; the subsequent history changes have not been built or tested yet.
-Production kernel/QEMU validation remains pending.
+bytes, plus history, merge, rebase, cherry-pick, revert, and repository-aware
+diff coverage. The adapter is part of `ush-native.o`. `make -C apps/vcs test`
+and `make -C apps/ush test` pass. The static production-kernel bundle resolves
+native VCS networking against kernel-owned `unet` entry points and passes its
+relocation/bounds test. `make -C boot ush-vcs-test` is the remaining production
+QEMU execution gate.
 
 ## Initialize a repository
 
@@ -328,8 +329,8 @@ write may already have completed, so rollback is not promised.
 See [the bootstrap storage format](docs/specs/04-storage-layout.md). The native
 `vcs_repo_init` API is implemented in `src/store/repository.asm`; its explicit
 UXFS dependencies are resolved by the caller, including the Ush native build.
-Its original implementation was tested with the real volume backend and
-torn-write/flush injection. The history-aware update is awaiting validation.
+Its implementation is tested with the real volume backend and torn-write/flush
+injection, including the history-aware format update.
 
 ## Local history
 
@@ -542,12 +543,16 @@ commit` without allocating objects or updating storage. History objects use
 explicit ownership through manifests and refs; no tracing/background garbage
 collector exists. Removal requires an explicit operation that proves an object
 has no live owner. History rewriting never mutates or frees an existing object.
-Timestamps and Git interoperability are outside the current scope.
+Local commit timestamps remain outside the current format. Git interoperability
+is provided through bounded fast-import export/import and protocol-v2 serving.
 The single repository identity is a local trust anchor, not a certificate or
 remote identity claim. Local IDs are sequence numbers, not cryptographic content hashes. The
 private on-disk format is specified in [Storage Layout](docs/specs/04-storage-layout.md).
 
-**Validation deferred:** the new status/commit/log implementation, initialization
-update, and added native/host regression tests have not been run. The pending
-commands are `make -C apps/vcs test` and `make -C apps/ush test`, followed by
-production kernel/QEMU integration when validation resumes.
+## Validation status
+
+The isolated `make -C apps/vcs test` gate and complete `make -C apps/ush test`
+gate pass, including native-object linkage and persistent UXFS recovery tests.
+The kernel bundle relocation test also passes with executable-range validation
+for every imported `unet` function. The dedicated two-boot production gate is
+`make -C boot ush-vcs-test`; its QEMU execution is still pending.
