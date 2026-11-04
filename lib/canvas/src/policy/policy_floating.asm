@@ -15,10 +15,7 @@ extern zorder_top
 
 section .text
 
-; PolicyFloating struct layout (manual offsets)
-; Offsets defined in inc/struct_offsets.inc
-
-; ----------
+; The policy keeps its server in Policy.server.
 
 ; ---------------------------------------------------------------------------
 ; policy_floating_init
@@ -33,9 +30,7 @@ policy_floating_init:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    mov qword [rbx + PolicyFloating.base], rdi
-    mov qword [rbx + PolicyFloating.server], r12
-    mov qword [rbx + PolicyFloating.data], 0
+    mov qword [rbx + Policy.server], r12
 
     ; Set function pointers
     lea r11, [rel policy_floating_layout]
@@ -146,7 +141,7 @@ policy_floating_focus_change:
 
     test r12,r12
     jz .done
-    mov rdi,[rbx + PolicyFloating.server]
+    mov rdi,[rbx + Policy.server]
     mov rsi,[r12 + Toplevel.surface]
     test rdi,rdi
     jz .done
@@ -170,17 +165,13 @@ policy_floating_new_window:
     ASSERT_PTR rbx
     ASSERT_PTR r12
 
-    ; Get default seat
-    mov r13, [rbx + Server.default_seat]
+    ; Place at the cursor, if there is a seat
+    mov r13, [rbx + Policy.server]
+    mov r13, [r13 + Server.input_seat]
     test r13, r13
     jz .center
-
-    ; Place at cursor
-    mov r13,[r13 + Seat.pointer]
-    test r13,r13
-    jz .center
-    mov esi,[r13 + Pointer.x]
-    mov edx,[r13 + Pointer.y]
+    mov esi,[r13 + InputSeat.x]
+    mov edx,[r13 + InputSeat.y]
     mov rdi,r12
     call toplevel_set_position
     xor eax,eax
