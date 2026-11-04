@@ -160,7 +160,8 @@ vcs_rebase:
  sub rax,r14
  lea rdx,[chain]
  mov rax,[rdx+rax*8]
- mov [state+80+r14*8],rax
+ lea rdx,[state+80]
+ mov [rdx+r14*8],rax
  inc r14
  jmp .reverse_loop
 .write_state:
@@ -223,7 +224,8 @@ vcs_rebase:
  mov rax,[state+32]
  cmp rax,[state+24]
  jae .finalize
- mov r14,[state+80+rax*8]
+ lea rdx,[state+80]
+ mov r14,[rdx+rax*8]
  mov rdi,r14
  call vcs_load_manifest
  test rax,rax
@@ -315,7 +317,8 @@ vcs_rebase:
  mov qword [rbx+UV_TYPE],1
  xor ecx,ecx
 .name_len:
- cmp byte [state+40+rcx],0
+ lea rax,[state+40]
+ cmp byte [rax+rcx],0
  je .name_ready
  inc ecx
  jmp .name_len
@@ -360,7 +363,8 @@ commit_current:
  mov rax,[state+32]
  cmp rax,[state+24]
  jae .bad
- mov rdi,[state+80+rax*8]
+ lea rdx,[state+80]
+ mov rdi,[rdx+rax*8]
  call vcs_load_manifest
  test rax,rax
  jz .bad
