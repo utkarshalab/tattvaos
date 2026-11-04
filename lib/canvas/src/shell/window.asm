@@ -8,8 +8,10 @@
 ;   toplevel  placed the first time it shows a buffer, its top-left at the
 ;             pointer and moved back to fit on the output; it stays there
 ;             until moved (window_move, Alt+drag)
-;   popup     at its offset on its parent, kept on the output; when the
-;             parent goes it gets done and loses the role
+;   popup     at its offset on its parent, kept on the output, and moved
+;             with it; when the parent goes, or a press lands on anything
+;             but a popup, it gets done and loses the role (the client
+;             then destroys it)
 ;   layer     against the output's edges by its anchors and margin
 ;
 ; The role sets the surface's stacking level (LEVEL_*), which the compositor
@@ -219,13 +221,46 @@ window_destroy:
 ; ---------------------------------------------------------------------------
 global window_parent_gone
 window_parent_gone:
+    mov rdx, [rsi + Surface.output]
+    test rdx, rdx
+    jnz end_popups
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; window_dismiss_popups
+;   A press: on a popup it changes nothing; anywhere else every popup gets
+;   done and loses its role
+;   IN:  rdi = server*, rsi = the surface pressed, 0 for none
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global window_dismiss_popups
+window_dismiss_popups:
+    test rsi, rsi
+    jz .all
+    mov rax, [rsi + Surface.window]
+    test rax, rax
+    jz .all
+    cmp dword [rax + Window.kind], ROLE_POPUP
+    jne .all
+    xor eax, eax
+    ret
+.all:
+    mov rdx, [rdi + Server.outputs]
+    xor esi, esi
+    test rdx, rdx
+    jnz end_popups
+    xor eax, eax
+    ret
+
+; Popups on output rdx get done and lose their role: those on parent rsi, or
+; every one when rsi is 0.
+; rdi = server, rsi = parent or 0, rdx = Output* -> rax = 0
+end_popups:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
-    mov rax, [r12 + Surface.output]
-    test rax, rax
-    jz .done
-    mov r13, [rax + Output.surfaces]
+    mov r13, [rdx + Output.surfaces]
 .next:
     test r13, r13
     jz .done
@@ -235,8 +270,11 @@ window_parent_gone:
     jz .skip
     cmp dword [rax + Window.kind], ROLE_POPUP
     jne .skip
+    test r12, r12
+    jz .end
     cmp [rax + Window.parent], r12
     jne .skip
+.end:
     mov rdi, r13
     mov esi, EV_POPUP_DONE
     mov edx, 4
@@ -370,8 +408,50 @@ window_move:
     mov rdi, rbx                        ; where it is
     mov rsi, r12
     call compositor_damage_surface
+    mov rdi, rbx                        ; its popups come along
+    mov rsi, r12
+    call follow_parent
     xor eax, eax
 .out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+
+; Every popup on a surface that moved goes to its offset again, and theirs.
+; rdi = server, rsi = the surface that moved
+follow_parent:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    mov rax, [r12 + Surface.output]
+    test rax, rax
+    jz .done
+    mov r13, [rax + Output.surfaces]
+.next:
+    test r13, r13
+    jz .done
+    mov rax, [r13 + Surface.window]
+    test rax, rax
+    jz .skip
+    cmp dword [rax + Window.kind], ROLE_POPUP
+    jne .skip
+    cmp [rax + Window.parent], r12
+    jne .skip
+    mov rdi, rbx                        ; where it was
+    mov rsi, r13
+    call compositor_damage_surface
+    mov rdi, rbx
+    mov rsi, r13
+    call window_commit
+    mov rdi, rbx                        ; where it is
+    mov rsi, r13
+    call compositor_damage_surface
+    mov rdi, rbx
+    mov rsi, r13
+    call follow_parent
+.skip:
+    mov r13, [r13 + Surface.z_order_next]
+    jmp .next
+.done:
+    xor eax, eax
     EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
