@@ -1,0 +1,450 @@
+; ============================================================================
+; Unit Test — Input Routing (src/input/input.asm)
+; ============================================================================
+; test_input_suite -> eax = failed cases (each case returns 0 / 1).
+; A server on 64x48 and one client with two surfaces: A at (0, 0) and B on top
+; of it at (16, 8), both 32x24. Input goes in through virtual_input_inject and
+; the client reads the cw_pointer and cw_keyboard events that come out.
+
+%include "inc/abi.inc"
+%include "inc/macros.inc"
+%include "inc/errors.inc"
+%include "inc/color.inc"
+%include "inc/cwp.inc"
+%include "inc/channel.inc"
+%include "inc/event.inc"
+%include "inc/backend.inc"
+%include "inc/struct_offsets.inc"
+
+extern arena_init
+extern client_accept
+extern input_set_seat
+extern msgbuf_read
+extern msgbuf_write
+extern server_init
+extern server_poll
+extern virtual_input_inject
+
+%define HEAP_SIZE (2 * 1024 * 1024)
+
+%define OP_CREATE   0
+%define OP_DESTROY  1
+%define OP_ATTACH   2
+%define OP_DAMAGE   3
+%define OP_COMMIT   12
+
+; cw_pointer and cw_keyboard events (proto/canvas-input.cwp)
+%define P_ENTER     0
+%define P_LEAVE     1
+%define P_MOTION    2
+%define P_BUTTON    3
+%define K_ENTER     0
+%define K_LEAVE     1
+%define K_KEY       2
+
+section .text
+
+global test_input_suite
+test_input_suite:
+    push rbx
+    xor ebx, ebx
+%macro CASE 1
+    call fresh
+    call %1
+    add ebx, eax
+%endmacro
+    CASE ti_enter_leave
+    CASE ti_click_focus
+    CASE ti_held_button
+    CASE ti_release_on_switch
+    CASE ti_forget_surface
+    CASE ti_queue_full
+    CASE ti_clamp
+    mov eax, ebx
+    pop rbx
+    ret
+
+%macro PASS 0
+    xor eax, eax
+    add rsp, 8
+    ret
+.fail:
+    mov eax, 1
+    add rsp, 8
+    ret
+%endmacro
+
+; inject type, code, value
+%macro INJECT 3
+    lea rdi, [rel server]
+    mov esi, %1
+    mov edx, %2
+    mov ecx, %3
+    xor r8d, r8d
+    call virtual_input_inject
+%endmacro
+
+; the next event: interface, event, surface variable, a, b
+%macro EXPECT 5
+    call next_input
+    cmp rax, 20
+    jne .fail
+    cmp dword [rel hdr + MsgHdr.obj], %1
+    jne .fail
+    cmp word [rel hdr + MsgHdr.opcode], %2
+    jne .fail
+    mov eax, [rel %3]
+    cmp [rel ans + 8], eax
+    jne .fail
+    cmp dword [rel ans + 12], %4
+    jne .fail
+    cmp dword [rel ans + 16], %5
+    jne .fail
+%endmacro
+
+; the next event carries only (time, surface): interface, event, surface
+%macro EXPECT_SHORT 3
+    call next_input
+    cmp rax, 12
+    jne .fail
+    cmp dword [rel hdr + MsgHdr.obj], %1
+    jne .fail
+    cmp word [rel hdr + MsgHdr.opcode], %2
+    jne .fail
+    mov eax, [rel %3]
+    cmp [rel ans + 8], eax
+    jne .fail
+%endmacro
+
+%macro NOTHING 0
+    call next_input
+    test rax, rax
+    jns .fail
+%endmacro
+
+; send interface, opcode, the first %3 bytes of [req]
+%macro SEND 3
+    mov dword [rel hdr + MsgHdr.obj], %1
+    mov word [rel hdr + MsgHdr.opcode], %2
+    mov word [rel hdr + MsgHdr.flags], 0
+    mov dword [rel hdr + MsgHdr.len], %3
+    call send
+%endmacro
+
+; a started server, client A, and the scene; every message so far read
+fresh:
+    sub rsp, 8
+    lea rdi, [rel arena]
+    lea rsi, [rel heap]
+    mov edx, HEAP_SIZE
+    call arena_init
+    lea rdi, [rel server]
+    lea rsi, [rel arena]
+    mov edx, 64
+    mov ecx, 48
+    xor r8d, r8d
+    call server_init
+    lea rdi, [rel server]
+    lea rsi, [rel pair]
+    xor edx, edx
+    call client_accept
+    call drain
+    mov edi, 0
+    mov esi, 0
+    call scene_surface
+    mov [rel surface_a], eax
+    mov edi, 16
+    mov esi, 8
+    call scene_surface
+    mov [rel surface_b], eax
+    call poll
+    call drain
+    add rsp, 8
+    ret
+
+; a 32x24 surface shown at (edi, esi) -> eax = its handle
+scene_surface:
+    push rbx
+    mov [rel show_x], edi
+    mov [rel show_y], esi
+    mov dword [rel req], 32
+    mov dword [rel req + 4], 24
+    mov dword [rel req + 8], DRM_FORMAT_BGRA8888
+    mov dword [rel req + 12], 0
+    mov qword [rel req + 16], 0
+    SEND CWP_OBJ_BUFFER, OP_CREATE, 24
+    call poll
+    call next_reply
+    mov ebx, [rel ans]
+    SEND CWP_OBJ_SURFACE, OP_CREATE, 0
+    call poll
+    call next_reply
+    mov eax, [rel ans]
+    mov [rel shown], eax
+    mov [rel req], eax
+    mov [rel req + 4], ebx
+    mov eax, [rel show_x]
+    mov [rel req + 8], eax
+    mov eax, [rel show_y]
+    mov [rel req + 12], eax
+    mov qword [rel req + 16], 0
+    SEND CWP_OBJ_SURFACE, OP_ATTACH, 24
+    mov dword [rel req + 4], 0
+    mov dword [rel req + 8], 0
+    mov dword [rel req + 12], 32
+    mov dword [rel req + 16], 24
+    SEND CWP_OBJ_SURFACE, OP_DAMAGE, 20
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_SURFACE, OP_COMMIT, 8
+    call poll
+    mov eax, [rel shown]
+    pop rbx
+    ret
+
+send:
+    sub rsp, 8
+    lea rdi, [rel pair + ChannelPair.client_to_server]
+    mov rdi, [rdi]
+    lea rsi, [rel hdr]
+    lea rdx, [rel req]
+    call msgbuf_write
+    add rsp, 8
+    ret
+
+poll:
+    sub rsp, 8
+    lea rdi, [rel server]
+    call server_poll
+    add rsp, 8
+    ret
+
+; the next message for the client into hdr / ans -> rax = payload length
+next_event:
+    sub rsp, 8
+    lea rdi, [rel pair + ChannelPair.server_to_client]
+    mov rdi, [rdi]
+    lea rsi, [rel hdr]
+    lea rdx, [rel ans]
+    mov ecx, 256
+    call msgbuf_read
+    add rsp, 8
+    ret
+
+; the next reply, skipping events
+next_reply:
+    sub rsp, 8
+.next:
+    call next_event
+    test rax, rax
+    js .done
+    test word [rel hdr + MsgHdr.flags], CWP_MSG_FLAG_REPLY
+    jz .next
+.done:
+    add rsp, 8
+    ret
+
+; the next cw_pointer or cw_keyboard event, skipping every other message
+; (presentation feedback follows frames) -> rax = payload length, negative if
+; none
+next_input:
+    sub rsp, 8
+.next:
+    call next_event
+    test rax, rax
+    js .done
+    cmp dword [rel hdr + MsgHdr.obj], CWP_OBJ_POINTER
+    je .done
+    cmp dword [rel hdr + MsgHdr.obj], CWP_OBJ_KEYBOARD
+    jne .next
+.done:
+    add rsp, 8
+    ret
+
+drain:
+    sub rsp, 8
+.next:
+    call next_event
+    test rax, rax
+    jns .next
+    add rsp, 8
+    ret
+
+; ---------------------------------------------------------------------------
+; Cases
+; ---------------------------------------------------------------------------
+
+; The pointer enters A, crosses onto B, which is on top, and moves there
+ti_enter_leave:
+    sub rsp, 8
+    INJECT INPUT_POSITION, 4, 4
+    call poll
+    EXPECT CWP_OBJ_POINTER, P_ENTER, surface_a, 4, 4
+    NOTHING
+    INJECT INPUT_POSITION, 20, 10
+    call poll
+    EXPECT_SHORT CWP_OBJ_POINTER, P_LEAVE, surface_a
+    EXPECT CWP_OBJ_POINTER, P_ENTER, surface_b, 4, 2
+    INJECT INPUT_MOTION, 1, 1
+    call poll
+    EXPECT CWP_OBJ_POINTER, P_MOTION, surface_b, 5, 3
+    NOTHING
+    PASS
+
+; Keys go nowhere until a click focuses a surface, then only to it; a
+; release of a key that is not down is dropped
+ti_click_focus:
+    sub rsp, 8
+    INJECT INPUT_POSITION, 4, 4
+    INJECT INPUT_KEY, 30, 1
+    call poll
+    EXPECT CWP_OBJ_POINTER, P_ENTER, surface_a, 4, 4
+    NOTHING
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    EXPECT_SHORT CWP_OBJ_KEYBOARD, K_ENTER, surface_a
+    EXPECT CWP_OBJ_POINTER, P_BUTTON, surface_a, 0, 1
+    EXPECT CWP_OBJ_POINTER, P_BUTTON, surface_a, 0, 0
+    NOTHING
+    INJECT INPUT_KEY, 31, 1
+    INJECT INPUT_KEY, 31, 0
+    INJECT INPUT_KEY, 31, 0
+    call poll
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 31, 1
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 31, 0
+    NOTHING
+    PASS
+
+; While a button is held A keeps the pointer over B; letting go hands it on
+ti_held_button:
+    sub rsp, 8
+    INJECT INPUT_POSITION, 4, 4
+    INJECT INPUT_BUTTON, 0, 1
+    call poll
+    call drain
+    INJECT INPUT_POSITION, 20, 10
+    call poll
+    EXPECT CWP_OBJ_POINTER, P_MOTION, surface_a, 20, 10
+    NOTHING
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    EXPECT CWP_OBJ_POINTER, P_BUTTON, surface_a, 0, 0
+    EXPECT_SHORT CWP_OBJ_POINTER, P_LEAVE, surface_a
+    EXPECT CWP_OBJ_POINTER, P_ENTER, surface_b, 4, 2
+    NOTHING
+    PASS
+
+; Switching seats lets go of every held key and button first
+ti_release_on_switch:
+    sub rsp, 8
+    INJECT INPUT_POSITION, 4, 4
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_KEY, 30, 1
+    call poll
+    call drain
+    lea rdi, [rel server]
+    xor esi, esi
+    call input_set_seat
+    test rax, rax
+    jz .fail
+    EXPECT CWP_OBJ_KEYBOARD, K_KEY, surface_a, 30, 0
+    EXPECT CWP_OBJ_POINTER, P_BUTTON, surface_a, 0, 0
+    NOTHING
+    INJECT INPUT_KEY, 30, 1
+    cmp rax, -(ENODEV)
+    jne .fail
+    PASS
+
+; A destroyed surface holds no focus and gets nothing more
+ti_forget_surface:
+    sub rsp, 8
+    INJECT INPUT_POSITION, 4, 4
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    call drain
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    SEND CWP_OBJ_SURFACE, OP_DESTROY, 4
+    call poll
+    call drain
+    mov rax, [rel server + Server.input_seat]
+    cmp qword [rax + InputSeat.pointer_focus], 0
+    jne .fail
+    cmp qword [rax + InputSeat.keyboard_focus], 0
+    jne .fail
+    INJECT INPUT_KEY, 30, 1
+    INJECT INPUT_MOTION, 0, 0
+    call poll
+    NOTHING
+    PASS
+
+; The queue holds INPUT_QUEUE_LEN events between turns, and counts the rest
+ti_queue_full:
+    push rbx
+    push r12
+    sub rsp, 8
+    xor ebx, ebx                        ; accepted
+    mov r12d, INPUT_QUEUE_LEN + 10
+.inject:
+    INJECT INPUT_MOTION, 0, 0
+    test rax, rax
+    jnz .refused
+    inc ebx
+    jmp .counted
+.refused:
+    cmp rax, -(ENOSPC)
+    jne .bad
+.counted:
+    dec r12d
+    jnz .inject
+    cmp ebx, INPUT_QUEUE_LEN
+    jne .bad
+    mov rax, [rel server + Server.input_seat]
+    cmp dword [rax + InputSeat.dropped], 10
+    jne .bad
+    call poll
+    INJECT INPUT_MOTION, 0, 0           ; room again
+    test rax, rax
+    jnz .bad
+    xor eax, eax
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+.bad:
+    mov eax, 1
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; The pointer stays on the output
+ti_clamp:
+    sub rsp, 8
+    INJECT INPUT_POSITION, -5, 1000
+    INJECT INPUT_MOTION, -10, 3
+    call poll
+    mov rax, [rel server + Server.input_seat]
+    cmp dword [rax + InputSeat.x], 0
+    jne .fail
+    cmp dword [rax + InputSeat.y], 47
+    jne .fail
+    PASS
+
+section .bss
+alignb 16
+server:         resb Server_size
+arena:          resb Arena_size
+pair:           resb ChannelPair_size
+hdr:            resb MsgHdr_size
+surface_a:      resd 1
+surface_b:      resd 1
+shown:          resd 1
+show_x:         resd 1
+show_y:         resd 1
+alignb 16
+req:            resb 64
+ans:            resb 256
+alignb 16
+heap:           resb HEAP_SIZE
