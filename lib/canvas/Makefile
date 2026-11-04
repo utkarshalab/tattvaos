@@ -342,21 +342,15 @@ OUTPUT_SRCS := \
 INPUT_SRCS := \
     $(SRCDIR)/input/input.asm \
     $(SRCDIR)/input/source_iface.asm \
-    $(SRCDIR)/input/source_ut.asm \
     $(SRCDIR)/input/source_virtual.asm \
-    $(SRCDIR)/input/seat.asm \
-    $(SRCDIR)/input/keyboard.asm \
-    $(SRCDIR)/input/keymap.asm \
+    $(SRCDIR)/input/keymap_us.asm \
     $(SRCDIR)/input/compose.asm \
-    $(SRCDIR)/input/pointer.asm \
     $(SRCDIR)/input/accel.asm \
     $(SRCDIR)/input/constraints.asm \
     $(SRCDIR)/input/touch.asm \
     $(SRCDIR)/input/gestures.asm \
     $(SRCDIR)/input/tablet.asm \
-    $(SRCDIR)/input/focus.asm \
     $(SRCDIR)/input/grab.asm \
-    $(SRCDIR)/input/hittest.asm \
     $(SRCDIR)/input/cursor.asm \
     $(SRCDIR)/input/cursor_theme.asm \
     $(SRCDIR)/input/data_source.asm \
