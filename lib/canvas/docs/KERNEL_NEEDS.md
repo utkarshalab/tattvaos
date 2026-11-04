@@ -67,8 +67,29 @@ so honouring `stack_size` will matter before the login screen.
 ## Step 3: input
 
 - Keyboard and mouse drivers, then `ut_input_register_callback` and
-  `ut_input_unregister_callback` as Canvas's `src/input/source_ut.asm` uses
-  them. Nothing can be typed on a login screen until this exists.
+  `ut_input_unregister_callback`. Nothing can be typed on a login screen until
+  this exists. Canvas already routes input it is given (`src/input/input.asm`);
+  only the source is missing.
+
+  | Export | In | Out |
+  |---|---|---|
+  | `ut_input_register_callback` | `rdi` function, `rsi` cookie | `rax` 0 or negative error |
+  | `ut_input_unregister_callback` | | `rax` 0 |
+
+  For each event the kernel calls the function with `rdi` a pointer to a
+  24-byte record and `rsi` the cookie. Canvas copies the record before it
+  returns and does not yield, so one call at a time from any fiber is enough.
+
+  | Offset | Size | Field | Meaning |
+  |---|---|---|---|
+  | 0 | 4 | `type` | 1 key, 2 relative motion, 3 absolute position, 4 button, 5 scroll |
+  | 4 | 4 | `code` | key: keycode 0–255; motion: dx; position: x; button: 0 left, 1 right, 2 middle; scroll: 0 vertical, 1 horizontal |
+  | 8 | 4 | `value` | key, button: 1 down, 0 up; motion: dy; position: y; scroll: signed steps |
+  | 12 | 4 | `device` | which device, for later per-device settings |
+  | 16 | 8 | `time` | monotonic nanoseconds; 0 lets Canvas stamp it |
+
+  Absolute positions are in framebuffer pixels. Keycodes are passed to clients
+  as they are, so the drivers should agree on one numbering.
 - `ut_timer_register` and `ut_timer_cancel`, for key repeat and idle timeouts.
 
 ## Later
