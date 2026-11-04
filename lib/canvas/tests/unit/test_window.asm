@@ -2,8 +2,10 @@
 ; Unit Test — Windows (src/shell/window.asm, proto/canvas-shell.cwp)
 ; ============================================================================
 ; test_window_suite -> eax = failed cases (each case returns 0 / 1).
-; A server on 64x48 and one client with the shell capability. The cases send
-; cw_toplevel requests and read the events and the server's own records.
+; A server on 64x48 and one client with the shell capability (and the layer
+; one where layers are made). The cases send cw_toplevel, cw_popup and
+; cw_layer requests, inject input for the shortcuts, and read the events and
+; the server's own records.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -40,6 +42,11 @@ extern virtual_input_inject
 %define TL_SET_APP_ID   3
 %define TL_ACK          4
 %define TL_CONFIGURE    0
+%define TL_CLOSE        1
+%define PU_CREATE       0
+%define PU_DONE         0
+%define LY_CREATE       0
+%define LY_CONFIGURE    0
 
 section .text
 
@@ -58,6 +65,10 @@ test_window_suite:
     CASE tw_names, CAP_SHELL
     CASE tw_list, CAP_SHELL
     CASE tw_needs_cap, 0
+    CASE tw_popup, CAP_SHELL
+    CASE tw_layers, CAP_SHELL | CAP_LAYER
+    CASE tw_alt_f4, CAP_SHELL
+    CASE tw_alt_drag, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -87,6 +98,25 @@ test_window_suite:
     mov [rel req], eax
     mov dword [rel req + 4], %3
     SEND CWP_OBJ_TOPLEVEL, %1, 8
+%endmacro
+
+; inject type, code, value
+%macro INJECT 3
+    lea rdi, [rel server]
+    mov esi, %1
+    mov edx, %2
+    mov ecx, %3
+    xor r8d, r8d
+    call virtual_input_inject
+%endmacro
+
+; the next event of interface %1, event %2 into hdr / ans; .fail if none
+%macro FIND 2
+    mov edi, %1
+    mov esi, %2
+    call find_event
+    test eax, eax
+    jz .fail
 %endmacro
 
 ; the pointer to x, y
@@ -220,6 +250,72 @@ next_toplevel:
     jne .next
 .done:
     add rsp, 8
+    ret
+
+; edi = interface, esi = event -> eax = 1 with it in hdr / ans, 0 if none
+find_event:
+    push rbx
+    push r12
+    sub rsp, 8
+    mov ebx, edi
+    mov r12d, esi
+.next:
+    call next_event
+    test rax, rax
+    js .none
+    test word [rel hdr + MsgHdr.flags], CWP_MSG_FLAG_REPLY
+    jnz .next
+    cmp [rel hdr + MsgHdr.obj], ebx
+    jne .next
+    movzx eax, word [rel hdr + MsgHdr.opcode]
+    cmp eax, r12d
+    jne .next
+    mov eax, 1
+    jmp .out
+.none:
+    xor eax, eax
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; edi = interface -> eax = 1 if any event of it was waiting; reads them all
+any_event:
+    push rbx
+    push r12
+    sub rsp, 8
+    mov ebx, edi
+    xor r12d, r12d
+.next:
+    call next_event
+    test rax, rax
+    js .out
+    cmp [rel hdr + MsgHdr.obj], ebx
+    jne .next
+    mov r12d, 1
+    jmp .next
+.out:
+    mov eax, r12d
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; edi x esi, shown as a window -> eax = the surface
+new_window:
+    push rbx
+    call new_surface
+    mov ebx, eax
+    mov [rel req], eax
+    SEND CWP_OBJ_TOPLEVEL, TL_CREATE, 4
+    mov edi, ebx
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    mov eax, ebx
+    pop rbx
     ret
 
 drain:
@@ -426,6 +522,187 @@ tw_needs_cap:
     cmp qword [rax + Surface.window], 0
     jne .fail
     cmp qword [rel server + Server.windows], 0
+    jne .fail
+    PASS
+
+; A popup sits at its offset on its parent, above it; when the parent goes
+; it is done and loses its role
+tw_popup:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    mov edi, 8
+    mov esi, 8
+    call new_surface
+    mov [rel surface_b], eax
+    mov [rel req], eax
+    mov eax, [rel surface_a]
+    mov [rel req + 4], eax
+    mov dword [rel req + 8], 4
+    mov dword [rel req + 12], 2
+    SEND CWP_OBJ_POPUP, PU_CREATE, 16
+    mov edi, [rel surface_b]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 14
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_y], 12
+    jne .fail
+    cmp qword [rax + Surface.z_order_next], 0
+    jne .fail                           ; on top
+    call drain
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    SEND CWP_OBJ_SURFACE, OP_DESTROY, 4
+    call poll
+    FIND CWP_OBJ_POPUP, PU_DONE
+    mov eax, [rel surface_b]
+    cmp [rel ans], eax
+    jne .fail
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp qword [rax + Surface.window], 0
+    jne .fail
+    PASS
+
+; Layers: a background told the output's size and kept at the bottom, below
+; a window shown after it, and never given the keyboard; a top layer against
+; its edges and above a window raised after it
+tw_layers:
+    sub rsp, 8
+    mov edi, 64
+    mov esi, 48
+    call new_surface
+    mov [rel surface_a], eax
+    mov [rel req], eax
+    mov dword [rel req + 4], 0          ; background
+    mov dword [rel req + 8], 15         ; every edge
+    mov dword [rel req + 12], 0
+    SEND CWP_OBJ_LAYER, LY_CREATE, 16
+    call poll
+    FIND CWP_OBJ_LAYER, LY_CONFIGURE
+    cmp dword [rel ans + 8], 64
+    jne .fail
+    cmp dword [rel ans + 12], 48
+    jne .fail
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer]
+    mov edx, 5                          ; ignored
+    mov ecx, 5
+    call show
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 0
+    jne .fail
+    mov rcx, [rel server + Server.input_seat]
+    cmp qword [rcx + InputSeat.keyboard_focus], 0
+    jne .fail                           ; a background takes no keyboard
+
+    POINTER 0, 0
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.outputs]
+    cmp [rcx + Output.surfaces], rax
+    jne .fail                           ; the background stays the bottom
+    POINTER 40, 40                      ; on the background only
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    mov edi, [rel surface_b]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail                           ; the window keeps it
+
+    mov edi, 60
+    mov esi, 8
+    call new_surface
+    mov [rel surface_a], eax
+    mov [rel req], eax
+    mov dword [rel req + 4], 2          ; top
+    mov dword [rel req + 8], 2 | 4 | 8  ; bottom, left, right
+    mov dword [rel req + 12], 2
+    SEND CWP_OBJ_LAYER, LY_CREATE, 16
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 2
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_y], 38
+    jne .fail
+    POINTER 4, 4                        ; the window, raised by a click
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp qword [rax + Surface.z_order_next], 0
+    jne .fail                           ; the top layer is still on top
+    PASS
+
+; Alt+F4 asks the focused window to close
+tw_alt_f4:
+    sub rsp, 8
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    INJECT INPUT_KEY, 56, 1             ; Alt
+    INJECT INPUT_KEY, 62, 1             ; F4
+    INJECT INPUT_KEY, 62, 0
+    INJECT INPUT_KEY, 56, 0
+    call poll
+    FIND CWP_OBJ_TOPLEVEL, TL_CLOSE
+    mov eax, [rel surface_a]
+    cmp [rel ans], eax
+    jne .fail
+    PASS
+
+; Alt+drag moves the window by the pointer's travel; its client sees no
+; pointer event of it
+tw_alt_drag:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    INJECT INPUT_KEY, 56, 1
+    POINTER 12, 12
+    call poll
+    call drain
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_POSITION, 30, 20
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    mov edi, CWP_OBJ_POINTER
+    call any_event
+    test eax, eax
+    jnz .fail
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 28
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_y], 18
+    jne .fail
+    mov rax, [rel server + Server.input_seat]
+    cmp qword [rax + InputSeat.moving], 0
     jne .fail
     PASS
 
