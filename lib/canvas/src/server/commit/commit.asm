@@ -13,6 +13,8 @@ extern presentation_queue
 extern region_clear
 extern region_copy
 extern region_union
+extern stacking_mapped
+extern stacking_unmapped
 
 %define BUFFER_ALLOCATED 1
 
@@ -51,6 +53,21 @@ commit_surface:
     mov rsi, r12
     mov rdx, r14
     call surface_release_old_buffer
+
+    ; Its first buffer: it is mapped; no buffer any more: unmapped
+    mov rax, [r12 + Surface.current + SurfaceState.buffer]
+    mov rdi, rbx
+    mov rsi, r12
+    test r14, r14
+    jnz .was_mapped
+    test rax, rax
+    jz .done
+    call stacking_mapped
+    jmp .done
+.was_mapped:
+    test rax, rax
+    jnz .done
+    call stacking_unmapped
 .done:
     xor eax, eax
 .out:
