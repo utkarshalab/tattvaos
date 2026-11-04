@@ -322,7 +322,8 @@ parse_ipv4:
 .octet_end:
  test ecx,ecx
  jz .ip_bad
- mov [remote_number+r8],al
+ lea r9,[remote_number]
+ mov [r9+r8],al
  inc r8d
  cmp r8d,4
  je .ip_finish
@@ -374,7 +375,8 @@ emit_ipv4:
  mov [remote_ip],eax
  xor ebx,ebx
 .ip_print:
- movzx edi,byte [remote_ip+rbx]
+ lea rax,[remote_ip]
+ movzx edi,byte [rax+rbx]
  call emit_decimal
  inc ebx
  cmp ebx,4
