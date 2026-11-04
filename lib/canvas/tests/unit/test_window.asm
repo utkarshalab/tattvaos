@@ -26,6 +26,7 @@ extern msgbuf_write
 extern server_init
 extern server_poll
 extern virtual_input_inject
+extern window_activate
 
 %define HEAP_SIZE (2 * 1024 * 1024)
 
@@ -41,6 +42,11 @@ extern virtual_input_inject
 %define TL_SET_TITLE    2
 %define TL_SET_APP_ID   3
 %define TL_ACK          4
+%define TL_SET_MAX      5
+%define TL_UNSET_MAX    6
+%define TL_SET_FULL     7
+%define TL_UNSET_FULL   8
+%define TL_SET_MIN      9
 %define TL_CONFIGURE    0
 %define TL_CLOSE        1
 %define PU_CREATE       0
@@ -72,6 +78,10 @@ test_window_suite:
     CASE tw_alt_resize, CAP_SHELL
     CASE tw_popup_follows, CAP_SHELL
     CASE tw_popup_dismiss, CAP_SHELL
+    CASE tw_maximize, CAP_SHELL
+    CASE tw_fullscreen, CAP_SHELL | CAP_LAYER
+    CASE tw_minimize, CAP_SHELL
+    CASE tw_state_keys, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -334,7 +344,7 @@ drain:
 ; Cases
 ; ---------------------------------------------------------------------------
 
-; create answers with configure(surface, 1, 0, 0); an ack of a serial never
+; create answers with configure(surface, 1, 0, 0, 0); an ack of a serial never
 ; sent is refused, one sent is kept
 tw_configure:
     sub rsp, 8
@@ -345,7 +355,7 @@ tw_configure:
     TOPLEVEL TL_CREATE, surface_a, 0
     call poll
     call next_toplevel
-    cmp rax, 16
+    cmp rax, 20
     jne .fail
     cmp word [rel hdr + MsgHdr.opcode], TL_CONFIGURE
     jne .fail
@@ -355,6 +365,8 @@ tw_configure:
     cmp dword [rel ans + 4], 1
     jne .fail
     cmp qword [rel ans + 8], 0
+    jne .fail
+    cmp dword [rel ans + 16], 0
     jne .fail
     TOPLEVEL TL_ACK, surface_a, 5
     TOPLEVEL TL_ACK, surface_a, 1
@@ -818,6 +830,152 @@ tw_popup_dismiss:
     mov edi, [rel surface_b]
     call surface_of
     cmp qword [rax + Surface.window], 0
+    jne .fail
+    PASS
+
+; the next configure is width %1, height %2, states %3
+%macro CONFIGURED 3
+    FIND CWP_OBJ_TOPLEVEL, TL_CONFIGURE
+    cmp dword [rel ans + 8], %1
+    jne .fail
+    cmp dword [rel ans + 12], %2
+    jne .fail
+    cmp dword [rel ans + 16], %3
+    jne .fail
+%endmacro
+
+; surface_a is at x, y
+%macro AT 2
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], %1
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_y], %2
+    jne .fail
+%endmacro
+
+; a 16x12 window at (10, 10) -> surface_a, every event so far read
+window_at_10:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    add rsp, 8
+    ret
+
+; Maximized it fills the output and is told so; unset it goes back to its
+; place and is asked for its old size
+tw_maximize:
+    sub rsp, 8
+    call window_at_10
+    TOPLEVEL TL_SET_MAX, surface_a, 0
+    call poll
+    CONFIGURED 64, 48, 1
+    AT 0, 0
+    TOPLEVEL TL_SET_MAX, surface_a, 0   ; again: nothing new
+    call poll
+    call next_toplevel
+    test rax, rax
+    jns .fail
+    TOPLEVEL TL_UNSET_MAX, surface_a, 0
+    call poll
+    CONFIGURED 16, 12, 0
+    AT 10, 10
+    PASS
+
+; Fullscreen fills the output above a top layer; unset it goes back under
+tw_fullscreen:
+    sub rsp, 8
+    mov edi, 64
+    mov esi, 8
+    call new_surface
+    mov [rel surface_b], eax
+    mov [rel req], eax
+    mov dword [rel req + 4], 2          ; top
+    mov dword [rel req + 8], 1 | 4 | 8  ; top, left, right
+    mov dword [rel req + 12], 0
+    SEND CWP_OBJ_LAYER, LY_CREATE, 16
+    mov edi, [rel surface_b]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    call window_at_10
+    TOPLEVEL TL_SET_FULL, surface_a, 0
+    call poll
+    CONFIGURED 64, 48, 2
+    AT 0, 0
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp qword [rax + Surface.z_order_next], 0
+    jne .fail                           ; above the panel
+    TOPLEVEL TL_UNSET_FULL, surface_a, 0
+    call poll
+    CONFIGURED 16, 12, 0
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp qword [rax + Surface.z_order_next], 0
+    jne .fail                           ; the panel above it again
+    PASS
+
+; Minimized it leaves the output and the keyboard; activated it is back,
+; on top, with the keyboard
+tw_minimize:
+    sub rsp, 8
+    call window_at_10
+    TOPLEVEL TL_SET_MIN, surface_a, 0
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp qword [rax + Surface.output], 0
+    jne .fail
+    mov rcx, [rel server + Server.input_seat]
+    cmp qword [rcx + InputSeat.keyboard_focus], 0
+    jne .fail
+    mov rcx, [rel server + Server.outputs]
+    cmp qword [rcx + Output.surfaces], 0
+    jne .fail
+    mov edi, [rel surface_a]
+    call surface_of
+    lea rdi, [rel server]
+    mov rsi, rax
+    call window_activate
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.outputs]
+    cmp [rcx + Output.surfaces], rax
+    jne .fail
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail
+    AT 10, 10
+    PASS
+
+; Super+Up maximizes and puts back, Super+Down minimizes; the client sees
+; neither arrow
+tw_state_keys:
+    sub rsp, 8
+    call window_at_10
+    INJECT INPUT_KEY, 125, 1            ; Super
+    INJECT INPUT_KEY, 103, 1            ; Up
+    INJECT INPUT_KEY, 103, 0
+    call poll
+    CONFIGURED 64, 48, 1
+    INJECT INPUT_KEY, 103, 1
+    INJECT INPUT_KEY, 103, 0
+    call poll
+    CONFIGURED 16, 12, 0
+    call drain
+    INJECT INPUT_KEY, 108, 1            ; Down
+    INJECT INPUT_KEY, 108, 0
+    INJECT INPUT_KEY, 125, 0
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp qword [rax + Surface.output], 0
     jne .fail
     PASS
 
