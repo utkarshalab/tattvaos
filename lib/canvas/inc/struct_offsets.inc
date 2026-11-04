@@ -1542,6 +1542,9 @@ struc InputSeat
     .repeat_delay:            resq 1    ; from a press to its first repeat, ns
     .repeat_interval:         resq 1    ; between repeats, ns; 0: no repeat
     .repeat_key:              resd 1    ; the key repeating, 0: none
+    .moving:                  resq 1    ; Surface* an Alt+drag is moving, 0: none
+    .move_dx:                 resd 1    ; the pointer's place on it
+    .move_dy:                 resd 1
     .x:                       resd 1    ; pointer, output pixels
     .y:                       resd 1
     .buttons:                 resd 1    ; held buttons, bit n = button n
@@ -1632,12 +1635,38 @@ struc Surface
     .window:                  resq 1    ; Window* when it is a toplevel, else 0
 endstruc
 
-; A surface with the toplevel role (src/shell/window.asm)
+; A surface with a shell role (src/shell/window.asm): a toplevel window,
+; a popup or a layer
 %define WINDOW_NAME_MAX 63              ; bytes of a title or app id
+%define ROLE_TOPLEVEL   0
+%define ROLE_POPUP      1
+%define ROLE_LAYER      2
+
+; Stacking levels, bottom to top; a surface with no role is at LEVEL_NORMAL
+%define LEVEL_BACKGROUND    -2
+%define LEVEL_BOTTOM        -1
+%define LEVEL_NORMAL        0
+%define LEVEL_TOP           1
+%define LEVEL_POPUP         2
+%define LEVEL_OVERLAY       3
+
+; Layer anchors (proto/canvas-shell.cwp)
+%define ANCHOR_TOP      1
+%define ANCHOR_BOTTOM   2
+%define ANCHOR_LEFT     4
+%define ANCHOR_RIGHT    8
+
 struc Window
     .server:                  resq 1
     .surface:                 resq 1
-    .next:                    resq 1    ; Server.windows, newest first
+    .next:                    resq 1    ; Server.windows (toplevels), newest first
+    .parent:                  resq 1    ; a popup's parent Surface*
+    .kind:                    resd 1    ; ROLE_*
+    .level:                   resd 1    ; LEVEL_*
+    .anchor:                  resd 1    ; a layer's ANCHOR_* bits
+    .margin:                  resd 1    ; a layer's distance from its edges
+    .offset_x:                resd 1    ; a popup's place on its parent
+    .offset_y:                resd 1
     .x:                       resd 1    ; where the server put it
     .y:                       resd 1
     .placed:                  resd 1    ; 1 once it has shown a buffer
