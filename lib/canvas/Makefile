@@ -515,6 +515,7 @@ $(UBF): $(UBF_OBJS) ubf.ld tools/ubfpack.py
 # Client Library (relocatable object)
 CLIENT_SRCS := \
     $(SRCDIR)/client/conn.asm \
+    $(SRCDIR)/client/wire.asm \
     $(SRCDIR)/client/client.asm \
     $(SRCDIR)/client/objects.asm \
     $(SRCDIR)/client/buffer_pool.asm \
@@ -530,7 +531,8 @@ CLIENT_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(CLIENT_SRCS))
 CLIENT_RUNTIME_OBJS := \
     $(OBJDIR)/core/arena.o \
     $(OBJDIR)/core/memops.o \
-    $(OBJDIR)/core/ring.o
+    $(OBJDIR)/core/ring.o \
+    $(OBJDIR)/proto/msgbuf.o
 
 client: $(LIBDIR)/canvas_client.o
 
@@ -628,6 +630,7 @@ UNIT_SRCS := \
     tests/unit/test_input.asm \
     tests/unit/test_greeter.asm \
     tests/unit/test_window.asm \
+    tests/unit/test_clientlib.asm \
     tests/unit/test_fields.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
@@ -635,7 +638,7 @@ UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 TEST_LIB_OBJS := $(filter-out $(OBJDIR)/server/main.o,$(ALL_OBJS))
 
 # Test runner image
-$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(UNIT_OBJS) $(UT_OBJS) $(TEST_LIB_OBJS) linker.ld
+$(IMAGEDIR)/test_runner.img: $(OBJDIR)/tests/test_runner.o $(UNIT_OBJS) $(CLIENT_OBJS) $(UT_OBJS) $(TEST_LIB_OBJS) linker.ld
 	@mkdir -p $(IMAGEDIR)
 	$(LD) $(LDFLAGS) -e test_runner_init -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
@@ -753,7 +756,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input greeter window fields region quota tile_diff \
+HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input greeter window clientlib fields region quota tile_diff \
                  inflate icc record_replay rfb webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
@@ -766,6 +769,9 @@ $(HOSTDIR)/%.o: tests/host/%.asm $(UFONT_DIR)/include/ufont.inc $(UGFX_DIR)/incl
 $(HOSTDIR)/runner_%.o: tests/host/host_runner.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -D HOST_SUITE=test_$*_suite -o $@ $<
+
+# The client library suite links the library as well
+$(HOSTDIR)/test_clientlib: $(CLIENT_OBJS)
 
 $(HOSTDIR)/test_%: $(HOSTDIR)/runner_%.o $(OBJDIR)/tests/unit/test_%.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
 	$(LD) $(HOST_LDFLAGS) -o $@ $^
