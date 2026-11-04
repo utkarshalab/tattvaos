@@ -867,7 +867,7 @@ All items run on-device, opt-in, behind capability gates.
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| DEV-01 | Stable client library ABI with semantic versioning | P2 | ◐ `client/*` |
+| DEV-01 | Stable client library ABI with semantic versioning | P2 | ◐ `client/*`: real requests over a channel pair (`canvas_connect_pair`), calls wait for replies turning a pump, events held in order; buffers, surfaces, frame callbacks, windows; `test_clientlib` against the server. `canvas_connect` waits for KRN-03; clipboard, present and popup/layer helpers are still local stand-ins |
 | DEV-02 | Client SDK reference docs and tutorials | P2 | ◐ `client-guide.md` stub |
 | DEV-03 | Example gallery apps covering every capability | P3 | ◐ `src/clients` |
 | DEV-04 | App template generator | P3 | |
