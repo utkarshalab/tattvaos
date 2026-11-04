@@ -16,6 +16,7 @@
 %include "inc/caps.inc"
 %include "inc/color.inc"
 %include "inc/cwp.inc"
+%include "inc/cwp_ops.inc"
 %include "inc/channel.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
@@ -60,24 +61,6 @@ extern surface_frame_callback
 extern ut_time_now_ns
 
 %define MESSAGES_PER_TURN   64          ; a client's share of one turn
-
-; cw_display, cw_buffer and cw_surface request indexes
-%define DISPLAY_SYNC            1
-%define DISPLAY_GET_VERSION     2
-%define BUFFER_CREATE           0
-%define BUFFER_DESTROY          1
-%define SURFACE_CREATE          0
-%define SURFACE_DESTROY         1
-%define SURFACE_ATTACH          2
-%define SURFACE_DAMAGE          3
-%define SURFACE_FRAME_CALLBACK  11
-%define SURFACE_COMMIT          12
-%define TOPLEVEL_CREATE         0       ; proto/canvas-shell.cwp
-%define TOPLEVEL_DESTROY        1
-%define TOPLEVEL_SET_TITLE      2
-%define TOPLEVEL_SET_APP_ID     3
-%define TOPLEVEL_ACK_CONFIGURE  4
-%define SURFACE_EVENT_FRAME_DONE 0
 
 section .text
 
