@@ -1,6 +1,7 @@
 # Wire Protocol
 
-- Status: Implemented core framing; repository negotiation pending
+- Status: Implemented bounded framing, repository negotiation, range streaming,
+  and native single-peer client/server state machines
 - Version: 1
 - Owner: TBD
 
