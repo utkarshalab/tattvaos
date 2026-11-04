@@ -7,7 +7,10 @@
 ;
 ;   toplevel  placed the first time it shows a buffer, its top-left at the
 ;             pointer and moved back to fit on the output; it stays there
-;             until moved (window_move, Alt+drag)
+;             until moved (window_move, Alt+drag). Maximized or fullscreen
+;             it fills the output (fullscreen above top layers) and goes back
+;             to its place and size after; minimized it leaves the output
+;             until window_activate brings it back.
 ;   popup     at its offset on its parent, kept on the output, and moved
 ;             with it; when the parent goes, or a press lands on anything
 ;             but a popup, it gets done and loses the role (the client
@@ -28,10 +31,16 @@
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
+extern compositor_add_surface
 extern compositor_damage_surface
+extern compositor_raise_surface
+extern compositor_remove_surface
 extern compositor_restack_surface
 extern handle_resolve
+extern input_focus_surface
+extern input_forget_surface
 extern msgbuf_write
+extern stacking_unmapped
 
 ; Events: interface << 16 | event
 %define EV_CONFIGURE    (CWP_OBJ_TOPLEVEL << 16 | TOPLEVEL_EVENT_CONFIGURE)
@@ -345,7 +354,8 @@ window_ack_configure:
 
 ; ---------------------------------------------------------------------------
 ; window_configure
-;   Suggest a window's size; the client answers with ack_configure
+;   Suggest a window's size, with its states; the client answers with
+;   ack_configure
 ;   IN:  rdi = surface* (a window), esi = width, edx = height (0, 0: its own)
 ;   OUT: rax = the serial sent
 ; ---------------------------------------------------------------------------
@@ -357,11 +367,13 @@ window_configure:
     ASSERT_PTR rbx
     mov r8d, esi
     mov r9d, edx
+    mov r11d, [rbx + Window.state]
+    and r11d, WINDOW_MAXIMIZED | WINDOW_FULLSCREEN
     mov ecx, [rbx + Window.serial]
     inc ecx
     mov [rbx + Window.serial], ecx
     mov esi, EV_CONFIGURE
-    mov edx, 16
+    mov edx, 20
     call send_event
     mov eax, [rbx + Window.serial]
     add rsp, 8
@@ -455,6 +467,101 @@ follow_parent:
     EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
+; window_maximize
+; window_fullscreen
+;   Set or clear a window's state; it moves and is asked for its new size
+;   IN:  rdi = server*, rsi = surface*, edx = 1 set, 0 clear
+;   OUT: rax = 0, -EINVAL if it is not a window
+; ---------------------------------------------------------------------------
+global window_maximize
+window_maximize:
+    mov ecx, WINDOW_MAXIMIZED
+    jmp set_state
+
+global window_fullscreen
+window_fullscreen:
+    mov ecx, WINDOW_FULLSCREEN
+    jmp set_state
+
+; ---------------------------------------------------------------------------
+; window_minimize
+;   Off the screen; the keyboard goes on if it had it
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 0, -EINVAL if it is not a window
+; ---------------------------------------------------------------------------
+global window_minimize
+window_minimize:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    call toplevel_of
+    test rax, rax
+    js .out
+    mov r13, rax
+    test dword [r13 + Window.state], WINDOW_MINIMIZED
+    jnz .done
+    mov rax, [r12 + Surface.output]
+    test rax, rax
+    jz .done                            ; not on an output to leave
+    mov [r13 + Window.min_output], rax
+    or dword [r13 + Window.state], WINDOW_MINIMIZED
+    mov rdi, rbx                        ; its popups end
+    mov rsi, r12
+    call window_parent_gone
+    mov rdi, rbx                        ; the keyboard on, while it is still
+    mov rsi, r12                        ; among the others
+    call stacking_unmapped
+    mov rdi, rbx
+    mov rsi, r12
+    call input_forget_surface
+    mov rdi, rbx
+    mov rsi, r12
+    call compositor_remove_surface
+.done:
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; window_activate
+;   Back on the screen if minimized, raised, given the keyboard
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 0, -EINVAL if it is not a window
+; ---------------------------------------------------------------------------
+global window_activate
+window_activate:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    call toplevel_of
+    test rax, rax
+    js .out
+    mov r13, rax
+    test dword [r13 + Window.state], WINDOW_MINIMIZED
+    jz .raise
+    and dword [r13 + Window.state], ~WINDOW_MINIMIZED
+    mov rdi, [r13 + Window.min_output]
+    mov rsi, r12
+    call compositor_add_surface
+    mov rdi, rbx
+    mov rsi, r12
+    call compositor_damage_surface
+.raise:
+    mov rdi, rbx
+    mov rsi, r12
+    call compositor_raise_surface
+    mov rdi, rbx
+    mov rsi, r12
+    call input_focus_surface
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
 ; window_commit
 ;   After a commit: the surface goes where its role puts it
 ;   IN:  rdi = server*, rsi = surface*
@@ -514,6 +621,116 @@ window_commit:
 ; ---------------------------------------------------------------------------
 ; Local
 ; ---------------------------------------------------------------------------
+
+; rsi = surface -> rax = its Window if it is a toplevel, else -EINVAL
+toplevel_of:
+    mov rax, [rsi + Surface.window]
+    test rax, rax
+    jz .invalid
+    cmp dword [rax + Window.kind], ROLE_TOPLEVEL
+    jne .invalid
+    ret
+.invalid:
+    mov rax, -(EINVAL)
+    ret
+
+; Maximized or fullscreen, set (edx = 1) or cleared (0): ecx = the state.
+; With either it fills the output, fullscreen above top layers; with
+; neither it goes back to where and how big it was.
+; rdi = server, rsi = surface -> rax = 0, -EINVAL
+set_state:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    mov r14d, ecx
+    push rdx
+    push rdx                            ; 16-byte aligned
+    call toplevel_of
+    pop rdx
+    pop rdx
+    test rax, rax
+    js .out
+    mov r13, rax
+    mov eax, [r13 + Window.state]
+    test edx, edx
+    jz .clear
+    test eax, r14d
+    jnz .done                           ; set already
+    test eax, WINDOW_MAXIMIZED | WINDOW_FULLSCREEN
+    jnz .set                            ; its own place is kept already
+    mov ecx, [r13 + Window.x]           ; where and how big it was
+    mov [r13 + Window.saved_x], ecx
+    mov ecx, [r13 + Window.y]
+    mov [r13 + Window.saved_y], ecx
+    mov dword [r13 + Window.saved_w], 0
+    mov dword [r13 + Window.saved_h], 0
+    mov rsi, [r12 + Surface.current + SurfaceState.buffer]
+    test rsi, rsi
+    jz .set
+    mov rdi, [rbx + Server.buffer_table]
+    call handle_resolve
+    test rax, rax
+    jz .set
+    mov ecx, [rax + Buffer.width]
+    mov [r13 + Window.saved_w], ecx
+    mov ecx, [rax + Buffer.height]
+    mov [r13 + Window.saved_h], ecx
+.set:
+    or [r13 + Window.state], r14d
+    jmp .apply
+.clear:
+    test eax, r14d
+    jz .done                            ; clear already
+    not r14d
+    and [r13 + Window.state], r14d
+.apply:
+    ; Its level: fullscreen over the top layers, else among the windows
+    mov eax, LEVEL_NORMAL
+    test dword [r13 + Window.state], WINDOW_FULLSCREEN
+    jz .level
+    mov eax, LEVEL_FULLSCREEN
+.level:
+    cmp eax, [r13 + Window.level]
+    je .place
+    mov [r13 + Window.level], eax
+    mov rdi, rbx
+    mov rsi, r12
+    call compositor_restack_surface
+.place:
+    ; Where it goes and the size it is asked for
+    test dword [r13 + Window.state], WINDOW_MAXIMIZED | WINDOW_FULLSCREEN
+    jz .back
+    mov rax, [r12 + Surface.output]
+    test rax, rax
+    jnz .filled
+    mov rax, [rbx + Server.outputs]
+    test rax, rax
+    jz .done
+.filled:
+    mov edx, [rax + Output.x]
+    mov ecx, [rax + Output.y]
+    mov r8d, [rax + Output.width]
+    mov r9d, [rax + Output.height]
+    jmp .go
+.back:
+    mov edx, [r13 + Window.saved_x]
+    mov ecx, [r13 + Window.saved_y]
+    mov r8d, [r13 + Window.saved_w]
+    mov r9d, [r13 + Window.saved_h]
+.go:
+    push r8
+    push r9
+    mov rdi, rbx
+    mov rsi, r12
+    call window_move
+    pop rdx
+    pop rsi
+    mov rdi, r12
+    call window_configure
+.done:
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; A Window for the surface, at the normal level, as a toplevel until told.
 ; rdi = server, rsi = surface -> rax = Window*, -EEXIST, -ENOMEM
@@ -675,12 +892,12 @@ place_by_anchor:
 .done:
     ret
 
-; An event to the surface's client: (surface, a, b, c), edx bytes of it.
+; An event to the surface's client: (surface, a, b, c, d), edx bytes of it.
 ; rdi = surface, esi = interface << 16 | event, edx = length, ecx = a,
-; r8d = b, r9d = c
+; r8d = b, r9d = c, r11d = d
 send_event:
     PROLOGUE
-    sub rsp, 32                         ; header at 0, payload at 16
+    sub rsp, 48                         ; header at 0, payload at 16
     mov rax, [rdi + Surface.client]
     test rax, rax
     jz .out
@@ -689,6 +906,7 @@ send_event:
     mov [rsp + 20], ecx
     mov [rsp + 24], r8d
     mov [rsp + 28], r9d
+    mov [rsp + 32], r11d
     mov r10d, esi
     shr r10d, 16
     mov [rsp + MsgHdr.obj], r10d
