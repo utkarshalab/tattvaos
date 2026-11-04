@@ -3,7 +3,9 @@
 ; Coordinates renderer, damage tracking, frame scheduling
 ; ============================================================================
 ; Each output keeps its surfaces bottom to top in Output.surfaces, linked by
-; z_order_next / z_order_prev. A frame moves each surface's committed damage
+; z_order_next / z_order_prev, in stacking levels (LEVEL_* in
+; inc/struct_offsets.inc; a surface's is its shell role's, LEVEL_NORMAL with
+; none). A surface goes in, or is raised, to the top of its own level. A frame moves each surface's committed damage
 ; to the output, redraws every damaged rectangle from the background up, then
 ; tells the surfaces their frame is done. Nothing damaged means no frame.
 
@@ -31,6 +33,16 @@ extern sw_render_surface
 extern sw_render_end_frame
 
 %define COMPOSITOR_BG_COLOR 0xFF202030  ; opaque BGRA
+
+; %1 = Surface* register -> %2 = its stacking level (32-bit register); uses r10
+%macro LEVEL_OF 2
+    xor %2, %2
+    mov r10, [%1 + Surface.window]
+    test r10, r10
+    jz %%done
+    mov %2, [r10 + Window.level]
+%%done:
+%endmacro
 
 section .text
 
@@ -86,7 +98,7 @@ compositor_deinit:
 
 ; ---------------------------------------------------------------------------
 ; compositor_add_surface
-;   Put a surface on an output, above everything already there
+;   Put a surface on an output, above everything at its level or below
 ;   IN:  rdi = output*, rsi = surface*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -95,22 +107,31 @@ compositor_add_surface:
     ASSERT_PTR rdi
     ASSERT_PTR rsi
     mov [rsi + Surface.output], rdi
-    mov qword [rsi + Surface.z_order_next], 0
-    mov qword [rsi + Surface.z_order_prev], 0
+    LEVEL_OF rsi, r8d
+    xor ecx, ecx                        ; the one it goes above; 0: the bottom
     mov rax, [rdi + Output.surfaces]
-    test rax, rax
-    jnz .walk
-    mov [rdi + Output.surfaces], rsi
-    jmp .done
 .walk:
-    mov rcx, [rax + Surface.z_order_next]
-    test rcx, rcx
-    jz .append
-    mov rax, rcx
+    test rax, rax
+    jz .insert
+    LEVEL_OF rax, r9d
+    cmp r9d, r8d
+    jg .insert                          ; a higher level starts here
+    mov rcx, rax
+    mov rax, [rax + Surface.z_order_next]
     jmp .walk
-.append:
-    mov [rax + Surface.z_order_next], rsi
-    mov [rsi + Surface.z_order_prev], rax
+.insert:
+    mov [rsi + Surface.z_order_prev], rcx
+    mov [rsi + Surface.z_order_next], rax
+    test rax, rax
+    jz .linked_above
+    mov [rax + Surface.z_order_prev], rsi
+.linked_above:
+    test rcx, rcx
+    jz .bottom
+    mov [rcx + Surface.z_order_next], rsi
+    jmp .done
+.bottom:
+    mov [rdi + Output.surfaces], rsi
 .done:
     xor eax, eax
     ret
@@ -159,7 +180,7 @@ compositor_damage_surface:
 
 ; ---------------------------------------------------------------------------
 ; compositor_raise_surface
-;   Put a surface above everything else on its output
+;   Put a surface above everything else at its level on its output
 ;   IN:  rdi = server*, rsi = surface*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -178,6 +199,10 @@ compositor_raise_surface:
     mov rcx, [r12 + Surface.z_order_next]
     test rcx, rcx
     jz .done                            ; on top already
+    LEVEL_OF r12, r8d
+    LEVEL_OF rcx, r9d
+    cmp r9d, r8d
+    jg .done                            ; on top of its level already
     mov rax, [r12 + Surface.z_order_prev]
     mov [rcx + Surface.z_order_prev], rax
     test rax, rax
@@ -198,6 +223,47 @@ compositor_raise_surface:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
     ret
+
+; ---------------------------------------------------------------------------
+; compositor_restack_surface
+;   Its level changed: to the top of its new level, redrawn
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global compositor_restack_surface
+compositor_restack_surface:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    ASSERT_PTR rbx
+    ASSERT_PTR r12
+    mov r13, [r12 + Surface.output]
+    test r13, r13
+    jz .done
+    mov rdi, rbx                        ; what it covered where it was
+    mov rsi, r12
+    call compositor_damage_surface
+    mov rax, [r12 + Surface.z_order_prev]
+    mov rcx, [r12 + Surface.z_order_next]
+    test rcx, rcx
+    jz .no_above
+    mov [rcx + Surface.z_order_prev], rax
+.no_above:
+    test rax, rax
+    jz .was_bottom
+    mov [rax + Surface.z_order_next], rcx
+    jmp .relink
+.was_bottom:
+    mov [r13 + Output.surfaces], rcx
+.relink:
+    mov rdi, r13
+    mov rsi, r12
+    call compositor_add_surface
+.done:
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; compositor_remove_surface
