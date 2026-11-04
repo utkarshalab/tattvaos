@@ -23,7 +23,7 @@ section .text
 global canvas_event_loop_once
 canvas_event_loop_once:
     PROLOGUE_SAVE rbx, r12, r13
-    sub rsp, 72                         ; the event (56); 16-byte aligned
+    sub rsp, 152                        ; the event (144); 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -50,7 +50,7 @@ canvas_event_loop_once:
 .nothing:
     xor eax, eax
 .out:
-    add rsp, 72
+    add rsp, 152
     EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
