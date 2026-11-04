@@ -52,7 +52,8 @@ vcs_sync_repository_policy:
 .push:
  ; Count zero is the signed advertisement round. A nonzero second round
  ; declares the exact number of bundle frames the server will accept.
- test rcx,rcx
+ mov r13,rcx
+ test r13,r13
  jnz .push_accept
  xor edi,edi
  xor esi,esi
@@ -66,9 +67,8 @@ vcs_sync_repository_policy:
  xor eax,eax
  jmp .policy_done
 .push_accept:
- cmp rcx,64
+ cmp r13,64
  ja .usage
- mov [vcs_sync_policy_count],rcx
  xor edi,edi
  xor esi,esi
  lea rdx,[vcs_sync_policy_ids]
@@ -76,6 +76,7 @@ vcs_sync_repository_policy:
  call vcs_sync_plan
  test eax,eax
  jnz .policy_done
+ mov [vcs_sync_policy_count],r13
  mov rdx,r9
  xor ecx,ecx
  xor eax,eax
