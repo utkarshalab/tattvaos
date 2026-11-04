@@ -91,4 +91,32 @@ protocol canvas-shell 1 {
         ; The size it should be; 0: its own choice that way
         event configure(surface: handle, serial: uint, width: uint, height: uint)
     }
+
+    ; Every window, for a taskbar or switcher: a window is named by its id,
+    ; the same for every client. Needs the windows capability, which only
+    ; trusted clients get.
+    interface cw_window_list 1 {
+        ; Send window for every window there is, then activated, then keep
+        ; me told
+        request subscribe()
+
+        request activate(id: uint)              ; back if minimized, raised, the keyboard
+        request close(id: uint)                 ; its client is asked
+        request minimize(id: uint)
+        request set_maximized(id: uint, maximized: bool)
+
+        enum state {
+            maximized = 1,
+            fullscreen = 2,
+            minimized = 4
+        }
+
+        ; A window there is, or one that changed. title and app_id are
+        ; UTF-8, NUL-terminated in 64 bytes.
+        event window(id: uint, states: uint, title: bytes[64], app_id: bytes[64])
+        event removed(id: uint)
+
+        ; The window with the keyboard; 0: none
+        event activated(id: uint)
+    }
 }
