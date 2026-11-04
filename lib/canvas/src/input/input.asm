@@ -33,6 +33,7 @@
 
 extern arena_alloc
 extern handle_resolve
+extern keymap_key
 extern msgbuf_write
 extern region_contains_point
 
@@ -40,6 +41,8 @@ extern region_contains_point
 %define KEYBOARD_ENTER  (CWP_OBJ_KEYBOARD << 16 | 0)
 %define KEYBOARD_LEAVE  (CWP_OBJ_KEYBOARD << 16 | 1)
 %define KEYBOARD_KEY    (CWP_OBJ_KEYBOARD << 16 | 2)
+%define KEYBOARD_MODIFIERS (CWP_OBJ_KEYBOARD << 16 | 3)
+%define KEYBOARD_TEXT   (CWP_OBJ_KEYBOARD << 16 | 4)
 %define POINTER_ENTER   (CWP_OBJ_POINTER << 16 | 0)
 %define POINTER_LEAVE   (CWP_OBJ_POINTER << 16 | 1)
 %define POINTER_MOTION  (CWP_OBJ_POINTER << 16 | 2)
@@ -289,6 +292,15 @@ input_release_all:
     xor eax, eax
     mov ecx, 32
     rep stosb
+    cmp dword [rbx + InputSeat.mods], 0
+    je .buttons                         ; no modifier was held
+    mov dword [rbx + InputSeat.mods], 0
+    mov rsi, [rbx + InputSeat.keyboard_focus]
+    test rsi, rsi
+    jz .buttons
+    mov rdi, rbx
+    call send_modifiers
+.buttons:
 
     xor r12d, r12d                      ; button
 .button:
@@ -309,6 +321,29 @@ input_release_all:
     cmp r12d, 32
     jb .button
     mov dword [rbx + InputSeat.buttons], 0
+    EPILOGUE_RESTORE rbx, r12
+
+; ---------------------------------------------------------------------------
+; input_focus_surface
+;   Give a surface the keyboard focus, as the shell does for a new window
+;   IN:  rdi = server*, rsi = surface* (0: no surface has it)
+;   OUT: rax = 0, -ENODEV with no seat
+; ---------------------------------------------------------------------------
+global input_focus_surface
+input_focus_surface:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, [rdi + Server.input_seat]
+    mov r12, rsi
+    mov rax, -(ENODEV)
+    test rbx, rbx
+    jz .out
+    call ut_time_now_ns
+    mov [rbx + InputSeat.time], rax
+    mov rdi, rbx
+    mov rsi, r12
+    call set_keyboard_focus
+    xor eax, eax
+.out:
     EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
@@ -340,9 +375,10 @@ input_forget_surface:
 
 ; A key goes to the keyboard focus. The seat keeps which keys are down, so a
 ; release of a key that is not down is dropped and input_release_all knows
-; what to let go of.
+; what to let go of. After the key come the modifiers, if they changed, and
+; the character it types, if any (keymap_us.asm).
 key_event:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
     mov ecx, [r12 + RawInput.code]
@@ -365,6 +401,14 @@ key_event:
     and eax, r8d
 .mark:
     mov [rbx + InputSeat.keys + rdx], al
+    mov rdi, rbx
+    mov esi, [r12 + RawInput.code]
+    xor edx, edx
+    cmp dword [r12 + RawInput.value], 0
+    setne dl
+    call keymap_key
+    mov r13d, eax                       ; the character, 0: none
+    mov r14d, ecx                       ; 1: modifiers changed
     mov rsi, [rbx + InputSeat.keyboard_focus]
     test rsi, rsi
     jz .out
@@ -376,8 +420,24 @@ key_event:
     cmp dword [r12 + RawInput.value], 0
     setne r9b
     call send_input
+    test r14d, r14d
+    jz .text
+    mov rdi, rbx
+    mov rsi, [rbx + InputSeat.keyboard_focus]
+    call send_modifiers
+.text:
+    test r13d, r13d
+    jz .out
+    mov rdi, rbx
+    mov rsi, [rbx + InputSeat.keyboard_focus]
+    mov edx, KEYBOARD_TEXT
+    mov ecx, EVENT_LONG
+    mov r8d, r13d
+    mov r9d, [rbx + InputSeat.mods]
+    or r9d, [rbx + InputSeat.locks]
+    call send_input
 .out:
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; Motion moves the pointer by (code, value), position puts it at (code,
 ; value); either way it stays on the first output.
@@ -558,6 +618,9 @@ set_keyboard_focus:
     mov edx, KEYBOARD_ENTER
     mov ecx, EVENT_SHORT
     call send_input
+    mov rdi, rbx                        ; and where the modifiers stand
+    mov rsi, r12
+    call send_modifiers
 .out:
     EPILOGUE_RESTORE rbx, r12
 
@@ -616,6 +679,15 @@ surface_at:
 ; ---------------------------------------------------------------------------
 ; Sending
 ; ---------------------------------------------------------------------------
+
+; The modifiers event: held modifiers and locks (MOD_* in inc/input.inc).
+; rdi = seat, rsi = surface
+send_modifiers:
+    mov r8d, [rdi + InputSeat.mods]
+    mov r9d, [rdi + InputSeat.locks]
+    mov edx, KEYBOARD_MODIFIERS
+    mov ecx, EVENT_LONG
+    jmp send_input
 
 ; An event carrying the pointer in the surface's coordinates.
 ; rdi = seat, rsi = surface, edx = event
