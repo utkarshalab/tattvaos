@@ -358,7 +358,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | KEY-03 | Multiple layout groups and layout switching | P2 | ◐ group 0 only |
 | KEY-04 | Compose and dead keys | P2 | ◐ `input/compose` |
 | KEY-05 | Key repeat, with per-key-class rates | P2 | ◐ `input/input`: server-side, 500 ms then 30 a second (`input_set_repeat`), state 2 key events with their text; modifiers and locks do not repeat; the loop wakes for it through `input_repeat_deadline`; `test_input`. One rate for every key |
-| KEY-06 | Global shortcuts mediated by the server | P2 | ◐ `input/input`: Alt+F4 sends the focused window close, its client getting neither key; Alt+drag; `test_window`. Fixed, not configurable; `text/shortcuts` is unreachable |
+| KEY-06 | Global shortcuts mediated by the server | P2 | ◐ `input/input`: Alt+F4 sends the focused window close, its client getting neither key; Alt+drag; `test_window`. Fixed, not configurable |
 | KEY-07 | Secure attention sequence that apps can never intercept | P2 | |
 | KEY-08 | Per-device keymaps | P3 | |
 | KEY-09 | Per-window layouts | P3 | |
@@ -460,22 +460,22 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| WIN-01 | Toplevel, popup and layer roles with configure/ack | P2 | ◐ `shell/window`: `cw_toplevel`, `cw_popup`, `cw_layer` (proto/canvas-shell.cwp). Windows placed at the pointer on first show and kept there; popups at an offset on their parent, done when it goes; layers against the output's edges by anchor and margin, told their size. Stacking levels (background, bottom, windows, top, popups, overlay) the compositor keeps; `Server.windows`; `test_window`. The older `shell/*` files are unreachable |
+| WIN-01 | Toplevel, popup and layer roles with configure/ack | P2 | ◐ `shell/window`: `cw_toplevel`, `cw_popup`, `cw_layer` (proto/canvas-shell.cwp). Windows placed at the pointer on first show and kept there; popups at an offset on their parent, done when it goes; layers against the output's edges by anchor and margin, told their size. Stacking levels (background, bottom, windows, top, popups, overlay) the compositor keeps; `Server.windows`; `test_window`. |
 | WIN-02 | Floating policy | P2 | ◐ `shell/stacking`: a surface shown for the first time goes on top and takes the keyboard, a click raises it, the keyboard passes to the topmost one left when it goes; `test_input`. `policy/policy_floating` is not yet reachable: no toplevel requests |
-| WIN-03 | Tiling and kiosk policies | P3 | ◐ `policy/*` |
-| WIN-04 | External policy process interface | P3 | ◐ `policy/policy_external` |
+| WIN-03 | Tiling and kiosk policies | P3 | an unreachable draft is in `attic/src/policy` |
+| WIN-04 | External policy process interface | P3 | an unreachable draft is in `attic/src/policy` |
 | WIN-05 | Server-side decorations | P2 | ◐ `shell/decoration*` |
 | WIN-06 | Popup positioning with constraint solving | P2 | ◐ `shell/window`: an offset on the parent, moved back onto the output, moved with the parent; a press on anything but a popup ends them; no flipping or sliding rules |
-| WIN-07 | Interactive move and resize with frame-synced configure | P2 | ◐ Alt+drag moves a window (`input/input`, `window_move`), Alt+right-drag sends it configure with its size plus the travel; its client sees none of the drag; `test_window`. Not frame-synced; `shell/move_resize` is unreachable |
+| WIN-07 | Interactive move and resize with frame-synced configure | P2 | ◐ Alt+drag moves a window (`input/input`, `window_move`), Alt+right-drag sends it configure with its size plus the travel; its client sees none of the drag; `test_window`. Not frame-synced |
 | WIN-08 | Min/max size and aspect constraints | P2 | |
-| WIN-09 | Maximize, minimize, fullscreen and window states | P2 | ◐ `shell/states` |
+| WIN-09 | Maximize, minimize, fullscreen and window states | P2 | an unreachable draft is in `attic/src/shell` |
 | WIN-10 | Modal dialogs: stacking, parent attachment, parent follows | P2 | |
 | WIN-11 | Transient windows on the correct workspace and monitor | P2 | |
 | WIN-12 | Focus-stealing prevention | P2 | |
 | WIN-13 | Startup feedback and app activation | P2 | → PRO-18 |
 | WIN-14 | Urgency / attention hints | P2 | |
 | WIN-15 | Window icons per instance | P2 | |
-| WIN-16 | Workspaces: named, dynamic, per-monitor or global | P2 | ◐ `shell/workspace` |
+| WIN-16 | Workspaces: named, dynamic, per-monitor or global | P2 | an unreachable draft is in `attic/src/shell` |
 | WIN-17 | Workspace follows its monitor on replug | P3 | |
 | WIN-18 | Snapping, edge tiling, quarter tiling | P3 | |
 | WIN-19 | Alt-tab switcher with live thumbnails | P3 | |
@@ -483,7 +483,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | WIN-21 | Touchpad 1:1 workspace switching | P3 | |
 | WIN-22 | Always-on-top, sticky, pinned windows | P3 | |
 | WIN-23 | Picture-in-picture windows | P3 | |
-| WIN-24 | Window rules engine and rules UI | P3 | ◐ `shell/rules` |
+| WIN-24 | Window rules engine and rules UI | P3 | an unreachable draft is in `attic/src/shell` |
 | WIN-25 | Session restore of window positions | P3 | |
 | WIN-26 | Window size snapping to cell grids (terminals) | P3 | |
 | WIN-27 | Undo for window operations | P4 | |
@@ -532,7 +532,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | THM-01 | Design tokens: spacing, radii, motion, colors, as one source | P2 | |
-| THM-02 | Theme engine for server-drawn UI | P2 | ◐ `shell/theme` |
+| THM-02 | Theme engine for server-drawn UI | P2 | an unreachable draft is in `attic/src/shell` |
 | THM-03 | Dark mode and automatic light/dark switching | P3 | |
 | THM-04 | Accent color extracted from wallpaper | P3 | |
 | THM-05 | High-contrast variant of every component | P2 | ◐ `a11y/high_contrast` |
