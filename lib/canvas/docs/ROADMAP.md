@@ -353,7 +353,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| KEY-01 | Keyboard routed to the focused surface only | P1 | ◐ `input/input`: keys go to the surface last clicked, as `cw_keyboard` events; held keys released on seat switch; `test_input`. No keymap yet |
+| KEY-01 | Keyboard routed to the focused surface only | P1 | ◐ `input/input`: keys go to the surface last clicked or last shown (`shell/stacking`), as `cw_keyboard` events; held keys released on seat switch; `test_input` |
 | KEY-02 | Keymap compiler from readable source to binary | P2 | ◐ `input/keymap_us`: one built-in US table; Shift, Caps Lock, Num Lock; `cw_keyboard` text and modifiers events |
 | KEY-03 | Multiple layout groups and layout switching | P2 | ◐ group 0 only |
 | KEY-04 | Compose and dead keys | P2 | ◐ `input/compose` |
@@ -461,7 +461,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | WIN-01 | Toplevel, popup and layer roles with configure/ack | P2 | ◐ `shell/*` |
-| WIN-02 | Floating policy | P2 | ◐ `policy/policy_floating` |
+| WIN-02 | Floating policy | P2 | ◐ `shell/stacking`: a surface shown for the first time goes on top and takes the keyboard, a click raises it, the keyboard passes to the topmost one left when it goes; `test_input`. `policy/policy_floating` is not yet reachable: no toplevel requests |
 | WIN-03 | Tiling and kiosk policies | P3 | ◐ `policy/*` |
 | WIN-04 | External policy process interface | P3 | ◐ `policy/policy_external` |
 | WIN-05 | Server-side decorations | P2 | ◐ `shell/decoration*` |
@@ -637,7 +637,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | A11Y-03 | Keyboard-only operation of all server-drawn UI | P2 | |
 | A11Y-04 | Sticky keys | P2 | ◐ `a11y/sticky_keys` |
 | A11Y-05 | Slow, bounce and mouse keys | P3 | |
-| A11Y-06 | Magnifier following focus and caret | P2 | ◐ `a11y/magnifier` |
+| A11Y-06 | Magnifier following focus and caret | P2 | ◐ `a11y/magnifier`: follows the pointer or the keyboard focus; nothing creates it yet |
 | A11Y-07 | High-contrast mode | P2 | ◐ `a11y/high_contrast` |
 | A11Y-08 | Color filters: color-blind modes, grayscale, inversion | P3 | |
 | A11Y-09 | Reduced motion | P3 | → IXD-01 |
