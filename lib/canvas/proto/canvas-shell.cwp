@@ -1,13 +1,18 @@
 protocol canvas-shell 1 {
 
     ; ========================================================================
-    ; Windows, served by src/shell/window.asm. A window is a surface with the
-    ; toplevel role; it is named by its surface's handle. The server, not the
-    ; client, decides where it goes: the first time it shows a buffer it is
-    ; placed at the pointer, kept on the output, and the x, y of attach are
-    ; ignored from then on. Needs the shell capability.
+    ; Shell roles, served by src/shell/window.asm: windows, popups and
+    ; layers. Each is a surface with that role, named by its surface's
+    ; handle, one role a surface. The server, not the client, decides where
+    ; they go, and the x, y of attach are ignored.
+    ;
+    ; Surfaces stack in levels, bottom to top: background and bottom layers,
+    ; windows and surfaces with no role, top layers, popups, overlay layers.
+    ; Raising a surface takes it to the top of its own level only.
     ; ========================================================================
 
+    ; A window: placed at the pointer the first time it shows a buffer, kept
+    ; on the output. Needs the shell capability.
     interface cw_toplevel 1 {
         ; Make the surface a window. A configure event follows at once.
         request create(surface: handle)
@@ -27,5 +32,44 @@ protocol canvas-shell 1 {
 
         ; The user asked to close the window; the client decides
         event close(surface: handle)
+    }
+
+    ; A menu or tooltip: at (x, y) on its parent's surface, kept on the
+    ; output, above top layers. It takes the keyboard when it shows. It ends
+    ; with done when its parent goes. Needs the shell capability.
+    interface cw_popup 1 {
+        request create(surface: handle, parent: handle, x: int, y: int)
+        request destroy(surface: handle)
+
+        ; It is no longer shown as a popup; the client should destroy it
+        event done(surface: handle)
+    }
+
+    ; A panel, wallpaper or lock screen, placed against the output's edges.
+    ; Anchored to both left and right it is told the output's width, to both
+    ; top and bottom its height; anchored to neither of a pair it is centred
+    ; that way. Background and bottom layers never take the keyboard, top
+    ; ones on a click, overlay ones as soon as they show. Needs the layer
+    ; capability.
+    interface cw_layer 1 {
+        enum layer {
+            background = 0,
+            bottom = 1,
+            top = 2,
+            overlay = 3
+        }
+
+        enum anchor {
+            top = 1,
+            bottom = 2,
+            left = 4,
+            right = 8
+        }
+
+        request create(surface: handle, layer: uint, anchor: uint, margin: uint)
+        request destroy(surface: handle)
+
+        ; The size it should be; 0: its own choice that way
+        event configure(surface: handle, serial: uint, width: uint, height: uint)
     }
 }
