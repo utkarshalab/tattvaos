@@ -158,8 +158,6 @@
 
 ; PolicyExternal
 
-; PolicyFloating
-
 ; PolicyKiosk
 
 ; State flags
@@ -1175,12 +1173,6 @@ struc PolicyExternal
     .capabilities:            resq 1
     .pending_requests:        resq 1
     resb 8
-endstruc
-
-struc PolicyFloating
-    .base:                    resq 1
-    .server:                  resq 1
-    .data:                    resq 1
 endstruc
 
 struc PolicyKiosk
