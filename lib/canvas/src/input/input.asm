@@ -15,7 +15,8 @@
 ;            pointer, so a drag stays with its window.
 ;   a press  on a surface raises it and, unless it is a background, bottom
 ;            or (until clicked) top layer, gives it the keyboard focus
-;   Alt+F4   asks the focused window's client to close it
+;   Alt+F4   asks the focused window's client to close it; Super+Up
+;            maximizes it or puts it back, Super+Down minimizes it
 ;   Alt+drag moves the window under the pointer, Alt+right-drag resizes it
 ;            (configure with the new size); its client sees none of the drag
 ;   a press  on anything but a popup ends every popup (an Alt+drag does not)
@@ -48,6 +49,8 @@ extern stacking_level
 extern window_close
 extern window_configure
 extern window_dismiss_popups
+extern window_maximize
+extern window_minimize
 extern window_move
 
 ; cw_keyboard and cw_pointer events: interface << 16 | event index
@@ -81,6 +84,8 @@ extern window_move
 %define KEY_LEFTMETA    125
 %define KEY_RIGHTMETA   126
 %define KEY_F4          62
+%define KEY_UP          103
+%define KEY_DOWN        108
 
 %define EVENT_SHORT     12              ; time, surface
 %define EVENT_LONG      20              ; time, surface, a, b
@@ -517,25 +522,25 @@ key_event:
     mov r13d, eax                       ; the character, 0: none
     mov r14d, ecx                       ; 1: modifiers changed
 
-    ; Alt+F4 on a window is the server's: its client gets close instead, and
-    ; neither the press nor its release
+    ; A shortcut is the server's: the window's client gets neither the press
+    ; nor its release, and it does not repeat
     cmp dword [r12 + RawInput.value], 0
     je .route
-    cmp dword [r12 + RawInput.code], KEY_F4
-    jne .route
-    test dword [rbx + InputSeat.mods], MOD_ALT
+    mov rdi, rbx
+    mov esi, [r12 + RawInput.code]
+    call shortcut
+    test eax, eax
     jz .route
-    mov rdi, [rbx + InputSeat.keyboard_focus]
-    test rdi, rdi
-    jz .route
-    mov rax, [rdi + Surface.window]
-    test rax, rax
-    jz .route
-    cmp dword [rax + Window.kind], ROLE_TOPLEVEL
-    jne .route
-    call window_close
-    and byte [rbx + InputSeat.keys + KEY_F4 / 8], ~(1 << (KEY_F4 % 8))
-    cmp dword [rbx + InputSeat.repeat_key], KEY_F4
+    mov ecx, [r12 + RawInput.code]
+    mov edx, ecx
+    shr edx, 3
+    and ecx, 7
+    mov al, 1
+    shl al, cl
+    not al
+    and [rbx + InputSeat.keys + rdx], al
+    mov ecx, [r12 + RawInput.code]
+    cmp [rbx + InputSeat.repeat_key], ecx
     jne .out
     mov dword [rbx + InputSeat.repeat_key], 0
     jmp .out
@@ -845,6 +850,54 @@ button_event:
     jne .out
     mov rdi, rbx
     call pointer_retarget
+.out:
+    EPILOGUE_RESTORE rbx, r12
+
+; The server's keys, for the window with the keyboard: Alt+F4, Super+Up,
+; Super+Down.
+; rdi = seat, esi = the keycode pressed -> eax = 1 if it was one
+shortcut:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, [rbx + InputSeat.keyboard_focus]
+    test r12, r12
+    jz .no
+    mov rcx, [r12 + Surface.window]
+    test rcx, rcx
+    jz .no
+    cmp dword [rcx + Window.kind], ROLE_TOPLEVEL
+    jne .no
+    mov edx, [rbx + InputSeat.mods]
+    test edx, MOD_ALT
+    jz .super
+    cmp esi, KEY_F4
+    jne .super
+    mov rdi, r12
+    call window_close
+    jmp .yes
+.super:
+    test edx, MOD_SUPER
+    jz .no
+    cmp esi, KEY_UP
+    je .maximize
+    cmp esi, KEY_DOWN
+    jne .no
+    mov rdi, [rbx + InputSeat.server]
+    mov rsi, r12
+    call window_minimize
+    jmp .yes
+.maximize:
+    xor edx, edx                        ; the other way from how it is
+    test dword [rcx + Window.state], WINDOW_MAXIMIZED
+    setz dl
+    mov rdi, [rbx + InputSeat.server]
+    mov rsi, r12
+    call window_maximize
+.yes:
+    mov eax, 1
+    jmp .out
+.no:
+    xor eax, eax
 .out:
     EPILOGUE_RESTORE rbx, r12
 
