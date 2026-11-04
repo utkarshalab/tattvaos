@@ -8,9 +8,11 @@
 ;   toplevel  placed the first time it shows a buffer, its top-left at the
 ;             pointer and moved back to fit on the output; it stays there
 ;             until moved (window_move, Alt+drag). Maximized or fullscreen
-;             it fills the output (fullscreen above top layers) and goes back
-;             to its place and size after; minimized it leaves the output
-;             until window_activate brings it back.
+;             it fills the output (fullscreen above top layers; maximized
+;             the part layers' exclusive strips leave) and goes back to its
+;             place and size after; minimized it leaves the output until
+;             window_activate brings it back. The window list
+;             (shell/window_list) is told of every toplevel and change.
 ;   popup     at its offset on its parent, kept on the output, and moved
 ;             with it; when the parent goes, or a press lands on anything
 ;             but a popup, it gets done and loses the role (the client
@@ -41,6 +43,8 @@ extern input_focus_surface
 extern input_forget_surface
 extern msgbuf_write
 extern stacking_unmapped
+extern window_list_changed
+extern window_list_removed
 
 ; Events: interface << 16 | event
 %define EV_CONFIGURE    (CWP_OBJ_TOPLEVEL << 16 | TOPLEVEL_EVENT_CONFIGURE)
@@ -69,11 +73,18 @@ window_create:
     mov rax, [rbx + Server.windows]
     mov [r13 + Window.next], rax
     mov [rbx + Server.windows], r13
+    mov eax, [rbx + Server.window_seq]  ; its id in the window list
+    inc eax
+    mov [rbx + Server.window_seq], rax
+    mov [r13 + Window.number], eax
 
     mov rdi, r12                        ; any size it likes, for now
     xor esi, esi
     xor edx, edx
     call window_configure
+    mov rdi, rbx
+    mov rsi, r13
+    call window_list_changed
     xor eax, eax
 .out:
     add rsp, 8
@@ -189,6 +200,25 @@ window_layer_create:
     EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
+; window_layer_exclusive
+;   Keep a strip along a layer's edge from maximized windows
+;   IN:  rdi = server*, rsi = surface*, edx = its width (0: none)
+;   OUT: rax = 0, -EINVAL if it is not a layer
+; ---------------------------------------------------------------------------
+global window_layer_exclusive
+window_layer_exclusive:
+    mov rax, [rsi + Surface.window]
+    test rax, rax
+    jz .invalid
+    cmp dword [rax + Window.kind], ROLE_LAYER
+    jne .invalid
+    mov [rax + Window.exclusive], edx
+    jmp relayout_maximized
+.invalid:
+    mov rax, -(EINVAL)
+    ret
+
+; ---------------------------------------------------------------------------
 ; window_destroy
 ;   The surface loses its role; it stays where it was put, at the normal
 ;   level
@@ -197,30 +227,50 @@ window_layer_create:
 ; ---------------------------------------------------------------------------
 global window_destroy
 window_destroy:
-    mov rax, [rsi + Surface.window]
-    test rax, rax
-    jz .invalid
-    lea rcx, [rdi + Server.windows]
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, [r12 + Surface.window]
+    mov rax, -(EINVAL)
+    test r13, r13
+    jz .out
+    cmp dword [r13 + Window.kind], ROLE_TOPLEVEL
+    jne .unlinked
+    mov rdi, rbx                        ; gone from the window list
+    mov rsi, r13
+    call window_list_removed
+    lea rcx, [rbx + Server.windows]
 .find:
     mov rdx, [rcx]
     test rdx, rdx
     jz .unlinked
-    cmp rdx, rax
+    cmp rdx, r13
     je .unlink
     lea rcx, [rdx + Window.next]
     jmp .find
 .unlink:
-    mov rdx, [rax + Window.next]
+    mov rdx, [r13 + Window.next]
     mov [rcx], rdx
 .unlinked:
-    mov qword [rsi + Surface.window], 0
-    cmp dword [rax + Window.level], LEVEL_NORMAL
-    jne compositor_restack_surface      ; back among the windows
+    mov qword [r12 + Surface.window], 0
+    cmp dword [r13 + Window.level], LEVEL_NORMAL
+    je .layout
+    mov rdi, rbx                        ; back among the windows
+    mov rsi, r12
+    call compositor_restack_surface
+.layout:
+    cmp dword [r13 + Window.kind], ROLE_LAYER
+    jne .done
+    cmp dword [r13 + Window.exclusive], 0
+    je .done
+    mov rdi, rbx                        ; its strip is free again
+    call relayout_maximized
+.done:
     xor eax, eax
-    ret
-.invalid:
-    mov rax, -(EINVAL)
-    ret
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; window_parent_gone
@@ -325,6 +375,12 @@ window_set_name:
     mov rsi, rdx
     rep movsb
     mov byte [rdi], 0
+    cmp dword [rax + Window.kind], ROLE_TOPLEVEL
+    jne .named
+    mov rsi, rax                        ; the window list sees the new name
+    mov rdi, [rax + Window.server]
+    jmp window_list_changed
+.named:
     xor eax, eax
     ret
 .invalid:
@@ -518,6 +574,9 @@ window_minimize:
     mov rdi, rbx
     mov rsi, r12
     call compositor_remove_surface
+    mov rdi, rbx
+    mov rsi, r13
+    call window_list_changed
 .done:
     xor eax, eax
 .out:
@@ -549,6 +608,9 @@ window_activate:
     mov rdi, rbx
     mov rsi, r12
     call compositor_damage_surface
+    mov rdi, rbx
+    mov rsi, r13
+    call window_list_changed
 .raise:
     mov rdi, rbx
     mov rsi, r12
@@ -684,7 +746,28 @@ set_state:
     not r14d
     and [r13 + Window.state], r14d
 .apply:
-    ; Its level: fullscreen over the top layers, else among the windows
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
+    call apply_state
+    mov rdi, rbx
+    mov rsi, r13
+    call window_list_changed
+.done:
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+
+; Level, place and asked-for size from a window's states: fullscreen fills
+; the output above the top layers; maximized fills what the layers' strips
+; leave; neither goes back to where and how big it was.
+; rdi = server, rsi = surface, rdx = its Window
+apply_state:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
     mov eax, LEVEL_NORMAL
     test dword [r13 + Window.state], WINDOW_FULLSCREEN
     jz .level
@@ -697,16 +780,29 @@ set_state:
     mov rsi, r12
     call compositor_restack_surface
 .place:
-    ; Where it goes and the size it is asked for
     test dword [r13 + Window.state], WINDOW_MAXIMIZED | WINDOW_FULLSCREEN
     jz .back
     mov rax, [r12 + Surface.output]
     test rax, rax
-    jnz .filled
+    jnz .output
+    mov rax, [r13 + Window.min_output]  ; minimized: the one it left
+    test rax, rax
+    jnz .output
     mov rax, [rbx + Server.outputs]
     test rax, rax
     jz .done
-.filled:
+.output:
+    test dword [r13 + Window.state], WINDOW_FULLSCREEN
+    jnz .whole
+    mov rdi, rbx
+    mov rsi, rax
+    call usable_area
+    mov r9d, r8d
+    mov r8d, ecx
+    mov ecx, edx
+    mov edx, eax
+    jmp .go
+.whole:
     mov edx, [rax + Output.x]
     mov ecx, [rax + Output.y]
     mov r8d, [rax + Output.width]
@@ -728,9 +824,98 @@ set_state:
     mov rdi, r12
     call window_configure
 .done:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; Every maximized window to the area the layers' strips now leave.
+; rdi = server -> rax = 0
+relayout_maximized:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, [rbx + Server.windows]
+.next:
+    test r12, r12
+    jz .done
+    mov eax, [r12 + Window.state]
+    and eax, WINDOW_MAXIMIZED | WINDOW_FULLSCREEN
+    cmp eax, WINDOW_MAXIMIZED
+    jne .skip
+    mov rdi, rbx
+    mov rsi, [r12 + Window.surface]
+    mov rdx, r12
+    call apply_state
+.skip:
+    mov r12, [r12 + Window.next]
+    jmp .next
+.done:
     xor eax, eax
-.out:
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    EPILOGUE_RESTORE rbx, r12
+
+; The part of an output the layers' exclusive strips leave.
+; rdi = server, rsi = Output* -> eax = x, edx = y, ecx = width, r8d = height
+usable_area:
+    mov eax, [rsi + Output.x]
+    mov edx, [rsi + Output.y]
+    mov ecx, eax
+    add ecx, [rsi + Output.width]       ; the right edge, for now
+    mov r8d, edx
+    add r8d, [rsi + Output.height]      ; the bottom edge
+    mov r9, [rsi + Output.surfaces]
+.next:
+    test r9, r9
+    jz .done
+    mov r10, [r9 + Surface.window]
+    test r10, r10
+    jz .skip
+    cmp dword [r10 + Window.kind], ROLE_LAYER
+    jne .skip
+    mov r11d, [r10 + Window.exclusive]
+    test r11d, r11d
+    jz .skip
+    add r11d, [r10 + Window.margin]
+    mov edi, [r10 + Window.anchor]
+    and edi, ANCHOR_TOP | ANCHOR_BOTTOM
+    cmp edi, ANCHOR_TOP
+    jne .not_top
+    mov edi, [rsi + Output.y]
+    add edi, r11d
+    cmp edx, edi
+    cmovl edx, edi
+    jmp .skip
+.not_top:
+    cmp edi, ANCHOR_BOTTOM
+    jne .sides
+    mov edi, [rsi + Output.y]
+    add edi, [rsi + Output.height]
+    sub edi, r11d
+    cmp r8d, edi
+    cmovg r8d, edi
+    jmp .skip
+.sides:
+    mov edi, [r10 + Window.anchor]
+    and edi, ANCHOR_LEFT | ANCHOR_RIGHT
+    cmp edi, ANCHOR_LEFT
+    jne .not_left
+    mov edi, [rsi + Output.x]
+    add edi, r11d
+    cmp eax, edi
+    cmovl eax, edi
+    jmp .skip
+.not_left:
+    cmp edi, ANCHOR_RIGHT
+    jne .skip
+    mov edi, [rsi + Output.x]
+    add edi, [rsi + Output.width]
+    sub edi, r11d
+    cmp ecx, edi
+    cmovg ecx, edi
+.skip:
+    mov r9, [r9 + Surface.z_order_next]
+    jmp .next
+.done:
+    sub ecx, eax
+    sub r8d, edx
+    ret
 
 ; A Window for the surface, at the normal level, as a toplevel until told.
 ; rdi = server, rsi = surface -> rax = Window*, -EEXIST, -ENOMEM
