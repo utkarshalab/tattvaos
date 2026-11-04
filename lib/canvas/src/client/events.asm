@@ -1,6 +1,8 @@
 ; ============================================================================
-; Client Events — Poll/Parse Incoming Events
+; Client Events — What the Server Sends Unasked
 ; ============================================================================
+; Events held while a call waited come first, in order; then whatever is on
+; the channel. A reply nobody waits for is skipped.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -8,13 +10,15 @@
 %define __EVENTS_INC__
 %include "inc/canvas_client.inc"
 
-extern ring_pop
+extern canvas_wire_event
+extern canvas_wire_read
 
 section .text
 
 ; ---------------------------------------------------------------------------
 ; canvas_event_poll
-;   IN: rdi = conn, rsi = out_event* — OUT: rax = 1 event, 0 none
+;   IN:  rdi = conn, rsi = ClientEvent*
+;   OUT: rax = 1 with an event, 0 with none
 ; ---------------------------------------------------------------------------
 global canvas_event_poll
 canvas_event_poll:
@@ -23,44 +27,55 @@ canvas_event_poll:
     mov r12, rsi
     ASSERT_PTR rbx
     ASSERT_PTR r12
-    mov rdi, [rbx + ClientConn.rx_ring]
-    test rdi, rdi
-    jz .none
-    mov rsi, r12
-    mov rdx, ClientEvent_size
-    call ring_pop
+    lea r8, [rbx + CLIENT_WIRE]
+    mov eax, [r8 + ClientWire.head]
+    cmp eax, [r8 + ClientWire.tail]
+    je .read
+    inc dword [r8 + ClientWire.head]
+    and eax, CLIENT_EVENTS - 1
+    imul eax, eax, ClientEvent_size
+    lea rsi, [r8 + ClientWire.events + rax]
+    mov rdi, r12
+    mov ecx, ClientEvent_size
+    rep movsb
+    jmp .one
+.read:
+    mov rdi, rbx
+    call canvas_wire_read
     test rax, rax
-    jnz .none
-    mov rax, 1
+    js .none
+    test word [rbx + CLIENT_WIRE + ClientWire.in_hdr + MsgHdr.flags], CWP_MSG_FLAG_REPLY
+    jnz .read
+    mov rdi, rbx
+    mov rsi, r12
+    call canvas_wire_event
+.one:
+    mov eax, 1
     EPILOGUE_RESTORE rbx, r12
-    ret
 .none:
-    xor rax, rax
+    xor eax, eax
     EPILOGUE_RESTORE rbx, r12
-    ret
 
 ; ---------------------------------------------------------------------------
-; canvas_event_type — OUT: rax = event type
+; canvas_event_type
+;   IN:  rdi = ClientEvent*
+;   OUT: rax = interface << 16 | event (CANVAS_EV_* in inc/canvas_client.inc)
 ; ---------------------------------------------------------------------------
 global canvas_event_type
 canvas_event_type:
-    PROLOGUE
-    ASSERT_PTR rdi
     mov eax, [rdi + ClientEvent.type]
-    leave
     ret
 
 ; ---------------------------------------------------------------------------
 ; canvas_event_time
+;   IN:  rdi = ClientEvent* of an input event
+;   OUT: rax = when the input happened, monotonic ns
 ; ---------------------------------------------------------------------------
 global canvas_event_time
 canvas_event_time:
-    PROLOGUE
-    ASSERT_PTR rdi
-    mov rax, [rdi + ClientEvent.time]
-    leave
+    mov rax, [rdi + ClientEvent.data]
     ret
 
 section .data
 global canvas_events_version
-canvas_events_version: dq 0x010000
+canvas_events_version: dq 0x020000
