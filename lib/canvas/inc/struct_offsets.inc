@@ -1651,8 +1651,14 @@ endstruc
 %define LEVEL_BOTTOM        -1
 %define LEVEL_NORMAL        0
 %define LEVEL_TOP           1
-%define LEVEL_POPUP         2
-%define LEVEL_OVERLAY       3
+%define LEVEL_FULLSCREEN    2           ; a fullscreen window, over panels
+%define LEVEL_POPUP         3
+%define LEVEL_OVERLAY       4
+
+; A window's states (Window.state; configure's states)
+%define WINDOW_MAXIMIZED    1
+%define WINDOW_FULLSCREEN   2
+%define WINDOW_MINIMIZED    4           ; not told to the client
 
 ; What an Alt+drag does (InputSeat.move_mode)
 %define MOVE_MOVE       1
@@ -1679,6 +1685,12 @@ struc Window
     .x:                       resd 1    ; where the server put it
     .y:                       resd 1
     .placed:                  resd 1    ; 1 once it has shown a buffer
+    .state:                   resd 1    ; WINDOW_* bits
+    .saved_x:                 resd 1    ; its place and size before it was
+    .saved_y:                 resd 1    ; maximized or made fullscreen
+    .saved_w:                 resd 1
+    .saved_h:                 resd 1
+    .min_output:              resq 1    ; the Output* it was minimized from
     .serial:                  resd 1    ; of the last configure sent
     .acked:                   resd 1    ; the last the client applied
     .title_len:               resd 1
