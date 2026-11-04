@@ -67,9 +67,8 @@ protocol canvas-shell 1 {
     ; A panel, wallpaper or lock screen, placed against the output's edges.
     ; Anchored to both left and right it is told the output's width, to both
     ; top and bottom its height; anchored to neither of a pair it is centred
-    ; that way. Background and bottom layers never take the keyboard, top
-    ; ones on a click, overlay ones as soon as they show. Needs the layer
-    ; capability.
+    ; that way. Background, bottom and top layers never take the keyboard,
+    ; overlay ones do as soon as they show. Needs the layer capability.
     interface cw_layer 1 {
         enum layer {
             background = 0,
