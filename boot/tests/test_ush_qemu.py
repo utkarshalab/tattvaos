@@ -16,7 +16,7 @@ ROOT=Path(__file__).resolve().parents[2]
 BOOT=ROOT/'boot'
 LOGS=ROOT/'apps/ush/build'
 
-def test(firmware,smp,strict_nx=False,data_disk=None,storage_phase=None,power_action=None,editor_phase=None,native_time=False):
+def test(firmware,smp,strict_nx=False,data_disk=None,storage_phase=None,power_action=None,editor_phase=None,native_time=False,vcs_phase=None):
     LOGS.mkdir(parents=True,exist_ok=True)
     label=f'{firmware}-{smp}cpu'+('-strictnx' if strict_nx else '')
     if native_time:
@@ -27,6 +27,8 @@ def test(firmware,smp,strict_nx=False,data_disk=None,storage_phase=None,power_ac
         label+='-power-'+power_action
     if editor_phase:
         label+='-uedit-'+editor_phase
+    if vcs_phase:
+        label+='-vcs-'+vcs_phase
     log=LOGS/f'qemu-{label}.log'
     stderr=LOGS/f'qemu-{label}.stderr'
     boot_digest=hashlib.sha256((BOOT/'utkarsha.img').read_bytes()).digest() if firmware=='bios' else None
@@ -321,6 +323,23 @@ def test(firmware,smp,strict_nx=False,data_disk=None,storage_phase=None,power_ac
                     command('cat /saved/moved; echo','UXFS_PERSISTED')
                     command('touch /missing/file')
                     command('echo $?','1')
+                if vcs_phase=='create':
+                    command('mkdir /repo')
+                    command('vcs init /repo','vcs: initialized repository')
+                    command('write /repo/file first')
+                    command('cd /repo; vcs commit base','Committed 0000000000000001')
+                    command('write /repo/file second')
+                    command('cd /repo; vcs commit update','Committed 0000000000000002')
+                    command('cd /repo; vcs check','Integrity OK')
+                    command('cd /repo; vcs status','Working tree clean')
+                elif vcs_phase=='verify':
+                    command('cd /repo; vcs check','Integrity OK')
+                    command('cd /repo; vcs status','Working tree clean')
+                    command('cat /repo/file; echo','second')
+                    command('cd /repo; vcs show HEAD','commit 0000000000000002')
+                    command('cd /repo; vcs checkout 0000000000000001 --force','Checked out 0000000000000001')
+                    command('cat /repo/file; echo','first')
+                    command('cd /repo; vcs checkout 0000000000000002 --force','Checked out 0000000000000002')
                 command('echo USH_QEMU_OK','USH_QEMU_OK')
                 start=len(transcript)
                 command('uptime')
@@ -406,11 +425,12 @@ if __name__=='__main__':
     parser.add_argument('--power-test',action='store_true',help='prove guest reboot and shutdown with QMP and a persistent data image')
     parser.add_argument('--native-time-test',action='store_true',help='fixed RTC: real lib/time + lib/cal app wiring')
     parser.add_argument('--uedit-test',action='store_true',help='edit/save/discard and restore after logs, then verify saved text on a second boot')
+    parser.add_argument('--vcs-test',action='store_true',help='commit, remount, verify, and checkout native VCS history across two boots')
     options=parser.parse_args()
     if options.strict_nx and options.firmware!='ovmf':
         parser.error('--strict-nx requires --firmware ovmf')
-    if sum((options.storage_test,options.power_test,options.uedit_test,options.native_time_test))>1:
-        parser.error('choose one of --storage-test, --power-test, --uedit-test and --native-time-test')
+    if sum((options.storage_test,options.power_test,options.uedit_test,options.native_time_test,options.vcs_test))>1:
+        parser.error('choose one of --storage-test, --power-test, --uedit-test, --vcs-test and --native-time-test')
     if options.native_time_test:
         test(options.firmware,options.smp,options.strict_nx,native_time=True)
     elif options.uedit_test:
@@ -439,5 +459,12 @@ if __name__=='__main__':
             for phase in ('create','verify'):
                 test(options.firmware,options.smp,options.strict_nx,disk,phase)
         print('UXFS QEMU persistence across two independent boots: PASS')
+    elif options.vcs_test:
+        with tempfile.TemporaryDirectory(prefix='utkarsha-vcs-') as directory:
+            disk=Path(directory)/'data.uxfs'
+            subprocess.run(['python3',str(ROOT/'lib/storage/uxfs/mkvolume.py'),str(disk)],check=True)
+            for phase in ('create','verify'):
+                test(options.firmware,options.smp,options.strict_nx,disk,vcs_phase=phase)
+        print('VCS QEMU commit, integrity, checkout and reboot persistence: PASS')
     else:
         test(options.firmware,options.smp,options.strict_nx)
