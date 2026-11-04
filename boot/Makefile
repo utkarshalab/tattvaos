@@ -256,6 +256,10 @@ ush-storage-test: $(IMG) $(UEFI_EFI)
 	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware bios --storage-test
 	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf --storage-test
 
+ush-vcs-test: $(IMG) $(UEFI_EFI)
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware bios --vcs-test
+	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf --smp 4 --vcs-test
+
 ush-uedit-test: $(IMG) $(UEFI_EFI)
 	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware bios --uedit-test
 	python3 $(KERNEL_DIR)/tests/test_ush_qemu.py --firmware ovmf --smp 4 --uedit-test
@@ -322,5 +326,5 @@ clean:
 	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
 	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG) $(UEFI_EFI)
 
-.PHONY: all elf img run debug test test-negative ush-test ush-storage-test ush-power-test ush-uedit-test ush-bundle-check smp-check smp-test vtd-test pci-check pci-msi-test pci-msix-test uefi \
+.PHONY: all elf img run debug test test-negative ush-test ush-storage-test ush-vcs-test ush-power-test ush-uedit-test ush-bundle-check smp-check smp-test vtd-test pci-check pci-msi-test pci-msix-test uefi \
         uefi-check ovmf-test ovmf-strictnx-test clean
