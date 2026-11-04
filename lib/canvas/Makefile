@@ -454,6 +454,9 @@ CLIENT_SRCS := \
     $(SRCDIR)/client/clipboard_helpers.asm \
     $(SRCDIR)/client/present_helpers.asm
 
+# Protocol numbers: inc/cwp_ops.inc is generated from these
+CWP_OPS_PROTOS := proto/canvas-core.cwp proto/canvas-input.cwp proto/canvas-shell.cwp
+
 # Desktop components inside canvasd
 DESKTOP_SRCS := \
     $(SRCDIR)/desktop/taskbar.asm
@@ -469,11 +472,18 @@ UT_OBJS := $(patsubst $(SRCDIR)/%.asm,$(OBJDIR)/%.o,$(UT_SRCS))
 # Default Target
 # ---------------------------------------------------------------------------
 
-.PHONY: all release
-all: layout-check server ubf client tools clients
+.PHONY: all release cwp-ops cwp-check
+all: cwp-check layout-check server ubf client tools clients
 
 release:
 	$(MAKE) MODE=release all
+
+# inc/cwp_ops.inc from the protocol files; cwp-check fails if it is behind
+cwp-ops:
+	python3 tools/cwpgen.py -o inc/cwp_ops.inc $(CWP_OPS_PROTOS)
+
+cwp-check:
+	@python3 tools/cwpgen.py --check -o inc/cwp_ops.inc $(CWP_OPS_PROTOS)
 
 # ---------------------------------------------------------------------------
 # Layout check: every object's fields live in its one struc. Fails on a
