@@ -51,7 +51,7 @@ client_main:
     jz .no_event
     mov rdi, rsp
     call canvas_event_type
-    cmp rax, 1
+    cmp eax, CANVAS_EV_KEY
     je .unlock
 .no_event:
     add rsp, ClientEvent_size
