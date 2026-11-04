@@ -1,9 +1,10 @@
 ; ============================================================================
 ; Client Shell Helpers — cw_toplevel, cw_popup, cw_layer (proto/canvas-shell.cwp)
 ; ============================================================================
-; Windows, popups and layers, each named by its surface. Windows and popups
-; need the shell capability, layers the layer capability. Size limits are not
-; in the protocol yet: those return -ENOSYS.
+; Windows, popups and layers, each named by its surface, and the window
+; list, which names windows by id. Windows and popups need the shell
+; capability, layers the layer capability, the window list the windows
+; capability. Size limits are not in the protocol yet: those return -ENOSYS.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -160,6 +161,69 @@ canvas_toplevel_set_minimized:
     mov edx, TOPLEVEL_SET_MINIMIZED
     jmp surface_request
 
+; ---------------------------------------------------------------------------
+; canvas_layer_set_exclusive
+;   Keep a strip along the layer's edge from maximized windows
+;   IN:  rdi = conn, esi = surface, edx = its width (0: none)
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_layer_set_exclusive
+canvas_layer_set_exclusive:
+    sub rsp, 24
+    mov [rsp], esi
+    mov [rsp + 4], edx
+    mov esi, CWP_OBJ_LAYER
+    mov edx, LAYER_SET_EXCLUSIVE
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 24
+    ret
+
+; ---------------------------------------------------------------------------
+; canvas_window_list_subscribe
+;   window events for every window, then activated, then every change
+;   IN:  rdi = conn
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_window_list_subscribe
+canvas_window_list_subscribe:
+    sub rsp, 24
+    mov esi, CWP_OBJ_WINDOW_LIST
+    mov edx, WINDOW_LIST_SUBSCRIBE
+    mov rcx, rsp
+    xor r8d, r8d
+    call canvas_send
+    add rsp, 24
+    ret
+
+; ---------------------------------------------------------------------------
+; canvas_window_activate, canvas_window_close, canvas_window_minimize
+;   IN:  rdi = conn, esi = the window's id (from a window event)
+;   OUT: rax = 0, negative error
+; canvas_window_set_maximized
+;   IN:  rdi = conn, esi = id, edx = 1 maximized, 0 not
+; ---------------------------------------------------------------------------
+global canvas_window_activate
+canvas_window_activate:
+    mov r9d, WINDOW_LIST_ACTIVATE
+    jmp id_request
+
+global canvas_window_close
+canvas_window_close:
+    mov r9d, WINDOW_LIST_CLOSE
+    jmp id_request
+
+global canvas_window_minimize
+canvas_window_minimize:
+    mov r9d, WINDOW_LIST_MINIMIZE
+    jmp id_request
+
+global canvas_window_set_maximized
+canvas_window_set_maximized:
+    mov r9d, WINDOW_LIST_SET_MAXIMIZED
+    jmp id_request
+
 ; Not in the protocol yet
 global canvas_toplevel_set_min_size
 global canvas_toplevel_set_max_size
@@ -193,6 +257,23 @@ four_request:
 one_request:
     mov rcx, rsp
     mov r8d, 4
+    call canvas_send
+    add rsp, 24
+    ret
+
+; A cw_window_list request: (id, edx); r9d = the request.
+id_request:
+    sub rsp, 24
+    mov [rsp], esi
+    mov [rsp + 4], edx
+    mov esi, CWP_OBJ_WINDOW_LIST
+    mov edx, r9d
+    mov rcx, rsp
+    mov r8d, 4
+    cmp edx, WINDOW_LIST_SET_MAXIMIZED
+    jne .send
+    mov r8d, 8
+.send:
     call canvas_send
     add rsp, 24
     ret
