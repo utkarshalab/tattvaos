@@ -38,6 +38,7 @@
 %define CAP_DEBUG       (1 << 19)
 %define CAP_SESSION     (1 << 20)
 %define CAP_REMOTE      (1 << 21)
+%define CAP_WINDOWS     (1 << 22)       ; list and control every window
 
 ; Surface roles
 %define SURFACE_ROLE_TOPLEVEL   0
