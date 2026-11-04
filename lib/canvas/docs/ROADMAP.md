@@ -188,7 +188,7 @@
 | PRO-16 | Fractional-scale protocol for clients | P2 | ◐ `output/scale_fractional` |
 | PRO-17 | Content-type hints (video, game, photo) for scheduling and VRR | P3 | |
 | PRO-18 | Activation tokens and focus-request protocol | P2 | |
-| PRO-19 | Foreign-toplevel management: taskbars can list and control other windows (privileged) | P2 | |
+| PRO-19 | Foreign-toplevel management: taskbars can list and control other windows (privileged) | P2 | ◐ `shell/window_list`: `cw_window_list` behind `CAP_WINDOWS`: every window with id, states, title and app id on subscribing, then each change, removal and keyboard move; activate, close, minimize, maximize by id; `test_window`. No icons yet |
 | PRO-20 | Presentation timing feedback with precise timestamps | P2 | ◐ `server/presentation` |
 | PRO-21 | Tearing-control protocol | P3 | |
 | PRO-22 | Color-management protocol: buffers tagged with color space and HDR metadata | P3 | |
@@ -468,7 +468,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | WIN-06 | Popup positioning with constraint solving | P2 | ◐ `shell/window`: an offset on the parent, moved back onto the output, moved with the parent; a press on anything but a popup ends them; no flipping or sliding rules |
 | WIN-07 | Interactive move and resize with frame-synced configure | P2 | ◐ Alt+drag moves a window (`input/input`, `window_move`), Alt+right-drag sends it configure with its size plus the travel; its client sees none of the drag; `test_window`. Not frame-synced |
 | WIN-08 | Min/max size and aspect constraints | P2 | |
-| WIN-09 | Maximize, minimize, fullscreen and window states | P2 | ◐ `shell/window`: `cw_toplevel` set/unset maximized and fullscreen, set minimized; configure carries the states; maximized and fullscreen fill the output (fullscreen above top layers) and go back to the window's place and size; minimized leaves the output until `window_activate`; Super+Up, Super+Down; `test_window`. No exclusive zones for panels yet |
+| WIN-09 | Maximize, minimize, fullscreen and window states | P2 | ◐ `shell/window`: `cw_toplevel` set/unset maximized and fullscreen, set minimized; configure carries the states; maximized and fullscreen fill the output (fullscreen above top layers) and go back to the window's place and size; minimized leaves the output until `window_activate`; Super+Up, Super+Down; maximized windows keep out of layers' exclusive strips (`cw_layer.set_exclusive`), re-laid out when a strip changes; `test_window` |
 | WIN-10 | Modal dialogs: stacking, parent attachment, parent follows | P2 | |
 | WIN-11 | Transient windows on the correct workspace and monitor | P2 | |
 | WIN-12 | Focus-stealing prevention | P2 | |
@@ -502,7 +502,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | DSK-01 | Wallpaper with scaling modes, per monitor and per workspace | P2 | ◐ `clients/wallpaper` |
-| DSK-02 | Panel / taskbar with grouping, pinning, badges | P2 | ◐ `clients/panel` |
+| DSK-02 | Panel / taskbar with grouping, pinning, badges | P2 | ◐ `clients/panel`; the server side is there (`cw_window_list`, `cw_layer.set_exclusive`), the panel does not use it yet |
 | DSK-03 | Clock and calendar popup | P2 | |
 | DSK-04 | Lock screen | P2 | ◐ `clients/lockscreen`, `session/lock` |
 | DSK-05 | Login greeter with user list and accessibility menu | P2 | ◐ `session/greeter`: started by canvasd, a client-library overlay layer with a password field (dots, Backspace, Esc, Enter to a verify hook, red edge when wrong, text wiped after each check); `test_greeter`, `ubf-check`. No labels until fonts load, no user list, no real verification yet |
@@ -653,7 +653,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | SEC-01 | Generation-checked handles on every dispatch | P1 | ◐ `server_core` checks handle and owner on every buffer and surface request; region and other requests still to come |
-| SEC-02 | Trust profiles loaded and enforced | P2 | ◐ `security/trust` |
+| SEC-02 | Trust profiles loaded and enforced | P2 | ◐ `security/trust`; every client is accepted standard (no privileged capability) except canvasd's own through `client_accept_trusted`; profiles are not loaded from the trust store yet |
 | SEC-03 | Capability gate with audit entries for privileged interfaces | P2 | ◐ `security/gate`, `audit` |
 | SEC-04 | Server-drawn permission prompts that clients cannot spoof | P2 | ◐ `security/prompts` |
 | SEC-05 | Capability tokens: entropy-seeded, keyed-hash authenticated, constant-time checks | P2 | ◐ `security/token` |
