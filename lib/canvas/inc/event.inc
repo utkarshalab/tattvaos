@@ -63,4 +63,13 @@ endstruc
 %define INPUT_EVENT_ABS       3
 %define INPUT_EVENT_SYN       4
 
+; Raw input (RawInput.type): what a source hands input_submit
+%define INPUT_KEY           1   ; code = keycode 0-255; value = 1 down, 0 up
+%define INPUT_MOTION        2   ; code, value = dx, dy
+%define INPUT_POSITION      3   ; code, value = x, y in output pixels
+%define INPUT_BUTTON        4   ; code = 0 left, 1 right, 2 middle, up to 31;
+                                ; value = 1 down, 0 up
+%define INPUT_AXIS          5   ; code = 0 vertical, 1 horizontal; value =
+                                ; signed steps, positive down or right
+
 %endif ; __EVENT_INC__
