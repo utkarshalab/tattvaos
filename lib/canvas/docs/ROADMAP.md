@@ -502,7 +502,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | DSK-01 | Wallpaper with scaling modes, per monitor and per workspace | P2 | ◐ `clients/wallpaper` |
-| DSK-02 | Panel / taskbar with grouping, pinning, badges | P2 | ◐ `clients/panel`; the server side is there (`cw_window_list`, `cw_layer.set_exclusive`), the panel does not use it yet |
+| DSK-02 | Panel / taskbar with grouping, pinning, badges | P2 | ◐ `desktop/taskbar`: started by canvasd, a top layer along the bottom keeping its strip, a block per window from the window list coloured by app id, grey when minimized, a stripe on the active one; a click activates, on the active one minimizes; `test_taskbar`. No text until fonts load, no grouping, pinning or badges; `clients/panel` is the separate-program sample |
 | DSK-03 | Clock and calendar popup | P2 | |
 | DSK-04 | Lock screen | P2 | ◐ `clients/lockscreen`, `session/lock` |
 | DSK-05 | Login greeter with user list and accessibility menu | P2 | ◐ `session/greeter`: started by canvasd, a client-library overlay layer with a password field (dots, Backspace, Esc, Enter to a verify hook, red edge when wrong, text wiped after each check); `test_greeter`, `ubf-check`. No labels until fonts load, no user list, no real verification yet |
