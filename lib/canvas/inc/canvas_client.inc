@@ -61,6 +61,10 @@
 %define CANVAS_EV_POPUP_DONE    (CWP_OBJ_POPUP << 16 | POPUP_EVENT_DONE)
 %define CANVAS_EV_LAYER_CONFIGURE (CWP_OBJ_LAYER << 16 | LAYER_EVENT_CONFIGURE)
 
+; cw_toplevel's states, as configure gives them
+%define CANVAS_STATE_MAXIMIZED  1
+%define CANVAS_STATE_FULLSCREEN 2
+
 ; cw_layer.create's layer and anchors
 %define CANVAS_LAYER_BACKGROUND 0
 %define CANVAS_LAYER_BOTTOM     1
