@@ -9,7 +9,7 @@ Source of truth for Canvas Wire Protocol. Each `.cwp` file defines one protocol 
 | `canvas-core.cwp` | `cw_display`, `cw_caps`, `cw_buffer`, `cw_fence`, `cw_timeline`, `cw_surface`, `cw_subsurface` | C4 |
 | `canvas-present.cwp` | `cw_present` | C8 |
 | `canvas-output.cwp` | `cw_output` | C11 |
-| `canvas-input.cwp` | `cw_seat`, `cw_pointer`, `w_keyboard`, `cw_touch`, `cw_tablet` | C12 |
+| `canvas-input.cwp` | `cw_pointer`, `cw_keyboard` (touch and tablet to come) | C12 |
 | `canvas-shell.cwp` | `cw_shell`, `cw_toplevel`, `cw_popup`, `cw_layer`, `cw_decoration` | C13 |
 | `canvas-policy.cwp` | `cw_policy` | C13 |
 | `canvas-data.cwp` | `cw_data` | C15 |
