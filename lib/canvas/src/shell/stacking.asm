@@ -33,6 +33,8 @@ stacking_mapped:
     mov rbx, rdi
     mov r12, rsi
     call compositor_raise_surface
+    cmp qword [r12 + Surface.output], 0
+    je .out                             ; minimized: not on show
     mov rdi, r12
     call takes_keyboard_on_show
     test eax, eax
