@@ -15,6 +15,8 @@
 default rel
 
 extern arena_init
+extern greeter_start
+extern input_repeat_deadline
 extern server_init
 extern server_poll
 
@@ -91,6 +93,11 @@ canvasd_init:
     test rax, rax
     js .no_server
 
+    ; The login screen; a screen too small for it starts without one
+    lea rdi, [server]
+    lea rsi, [server_arena]
+    call greeter_start
+
     ; Without waitsets the loop yields instead of sleeping
     call ut_waitset_create
     mov rbx, rax
@@ -99,8 +106,10 @@ canvasd_init:
 .loop:
     test rbx, rbx
     js .no_wait
+    lea rdi, [server]                   ; awake again for a held key's repeat
+    call input_repeat_deadline
     mov rdi, rbx
-    xor esi, esi                        ; no timeout
+    mov rsi, rax                        ; 0: no deadline
     call ut_wait_wait
     jmp .serve
 .no_wait:
