@@ -76,7 +76,7 @@ canvas_call:
 .event:
     cmp dword [rcx + MsgHdr.obj], CWP_OBJ_DISPLAY
     jne .keep
-    cmp word [rcx + MsgHdr.opcode], DISPLAY_EVENT_ERROR
+    cmp word [rcx + MsgHdr.opcode], DISPLAY_EV_ERROR
     jne .keep
     mov r15d, [rbx + CLIENT_WIRE + ClientWire.in_msg + 4]   ; error(object, code, ...)
     neg r15
@@ -127,7 +127,7 @@ canvas_wire_read:
     lea rcx, [rbx + CLIENT_WIRE + ClientWire.in_hdr]
     cmp dword [rcx + MsgHdr.obj], CWP_OBJ_DISPLAY
     jne .out
-    cmp word [rcx + MsgHdr.opcode], DISPLAY_EVENT_CAPS
+    cmp word [rcx + MsgHdr.opcode], DISPLAY_EV_CAPABILITIES
     jne .out
     test word [rcx + MsgHdr.flags], CWP_MSG_FLAG_REPLY
     jnz .out
