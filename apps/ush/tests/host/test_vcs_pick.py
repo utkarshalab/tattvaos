@@ -45,6 +45,6 @@ with tempfile.TemporaryDirectory() as work:
     run('cd repo; vcs cherry-pick 0000000000000001')
     assert run('cat repo/file') == b'base'
     run('cd repo; vcs revert 0000000000000001')
-    run('cat repo/file', 2)
+    run('cat repo/file', 1)
 
 print('Ush pick: PASS (cherry-pick, revert, conflicts, abort, root replay)')
