@@ -354,7 +354,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | KEY-01 | Keyboard routed to the focused surface only | P1 | ◐ `input/input`: keys go to the surface last clicked, as `cw_keyboard` events; held keys released on seat switch; `test_input`. No keymap yet |
-| KEY-02 | Keymap compiler from readable source to binary | P2 | ◐ `input/keymap` |
+| KEY-02 | Keymap compiler from readable source to binary | P2 | ◐ `input/keymap_us`: one built-in US table; Shift, Caps Lock, Num Lock; `cw_keyboard` text and modifiers events |
 | KEY-03 | Multiple layout groups and layout switching | P2 | ◐ group 0 only |
 | KEY-04 | Compose and dead keys | P2 | ◐ `input/compose` |
 | KEY-05 | Key repeat, with per-key-class rates | P2 | |
