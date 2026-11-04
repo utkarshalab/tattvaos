@@ -1,0 +1,53 @@
+protocol canvas-input 1 {
+
+    ; ========================================================================
+    ; Input events, sent by src/input/input.asm. A client gets them only for
+    ; its own surfaces, and only while that surface has the pointer or the
+    ; keyboard. Every event starts (time, surface): time is the monotonic
+    ; nanosecond the input happened, surface the client's handle.
+    ;
+    ; No requests yet: a client receives these without asking.
+    ; ========================================================================
+
+    ; ------------------------------------------------------------------------
+    ; cw_pointer — the pointer over a surface, in surface coordinates
+    ; ------------------------------------------------------------------------
+    interface cw_pointer 1 {
+        enum button {
+            left = 0,
+            right = 1,
+            middle = 2          ; others up to 31
+        }
+
+        enum axis {
+            vertical = 0,       ; positive scrolls down
+            horizontal = 1      ; positive scrolls right
+        }
+
+        event enter(time: ulong, surface: handle, x: int, y: int)
+        event leave(time: ulong, surface: handle)
+        event motion(time: ulong, surface: handle, x: int, y: int)
+
+        ; state 1 pressed, 0 released. A surface that gets a press keeps the
+        ; pointer, and its motion, until every button is up.
+        event button(time: ulong, surface: handle, button: uint, state: uint)
+
+        ; value: signed steps
+        event axis(time: ulong, surface: handle, axis: uint, value: int)
+    }
+
+    ; ------------------------------------------------------------------------
+    ; cw_keyboard — keys for the surface with keyboard focus
+    ; ------------------------------------------------------------------------
+    interface cw_keyboard 1 {
+        ; A press on a surface gives it the focus
+        event enter(time: ulong, surface: handle)
+
+        ; Treat every key as released
+        event leave(time: ulong, surface: handle)
+
+        ; keycode 0-255 as the device reports it; state 1 pressed, 0 released.
+        ; Mapping keycodes to characters is still the client's.
+        event key(time: ulong, surface: handle, keycode: uint, state: uint)
+    }
+}
