@@ -16,7 +16,9 @@
 ;   a press  on a surface raises it and, unless it is a background, bottom
 ;            or (until clicked) top layer, gives it the keyboard focus
 ;   Alt+F4   asks the focused window's client to close it
-;   Alt+drag moves the window under the pointer; its client sees none of it
+;   Alt+drag moves the window under the pointer, Alt+right-drag resizes it
+;            (configure with the new size); its client sees none of the drag
+;   a press  on anything but a popup ends every popup (an Alt+drag does not)
 ;
 ; Server.input_seat is the one place input is routed from. input_set_seat
 ; switches it, first releasing every key and button the old seat holds, so
@@ -44,6 +46,8 @@ extern msgbuf_write
 extern region_contains_point
 extern stacking_level
 extern window_close
+extern window_configure
+extern window_dismiss_popups
 extern window_move
 
 ; cw_keyboard and cw_pointer events: interface << 16 | event index
@@ -679,15 +683,33 @@ pointer_event:
     mov [rbx + InputSeat.x], eax
     mov [rbx + InputSeat.y], ecx
 
-    ; An Alt+drag takes the window along, and nobody hears of the motion
+    ; An Alt+drag takes the window along or resizes it, and nobody hears of
+    ; the motion
     mov rsi, [rbx + InputSeat.moving]
     test rsi, rsi
     jz .route
+    cmp dword [rbx + InputSeat.move_mode], MOVE_RESIZE
+    je .resize
     mov rdi, [rbx + InputSeat.server]
     mov edx, eax
     sub edx, [rbx + InputSeat.move_dx]
     sub ecx, [rbx + InputSeat.move_dy]
     call window_move
+    jmp .out
+.resize:
+    mov rdi, rsi                        ; its size grows with the travel
+    sub eax, [rbx + InputSeat.move_dx]
+    add eax, [rbx + InputSeat.resize_w]
+    mov esi, RESIZE_MIN
+    cmp eax, esi
+    cmovl eax, esi
+    sub ecx, [rbx + InputSeat.move_dy]
+    add ecx, [rbx + InputSeat.resize_h]
+    cmp ecx, esi
+    cmovl ecx, esi
+    mov esi, eax
+    mov edx, ecx
+    call window_configure
     jmp .out
 .route:
 
@@ -720,15 +742,19 @@ button_event:
     ja .out
     cmp qword [rbx + InputSeat.moving], 0
     jne .moving
-    mov eax, [rbx + InputSeat.buttons]
     cmp dword [rsi + RawInput.value], 0
-    je .release
+    je .release_held
 
-    ; Alt+press on a window, no other button down: a move starts
+    mov eax, [rbx + InputSeat.buttons]
+
+    ; Alt+press on a window, no other button down: a move (left) or a
+    ; resize (right) starts
     test dword [rbx + InputSeat.mods], MOD_ALT
     jz .press
     test eax, eax
     jnz .press
+    cmp r12d, 1
+    ja .press                           ; middle and beyond: an ordinary press
     mov rsi, [rbx + InputSeat.pointer_focus]
     test rsi, rsi
     jz .press
@@ -738,19 +764,52 @@ button_event:
     cmp dword [rcx + Window.kind], ROLE_TOPLEVEL
     jne .press
     mov [rbx + InputSeat.moving], rsi
+    test r12d, r12d
+    jnz .start_resize
+    mov dword [rbx + InputSeat.move_mode], MOVE_MOVE
     mov edx, [rbx + InputSeat.x]
     sub edx, [rcx + Window.x]
     mov [rbx + InputSeat.move_dx], edx
     mov edx, [rbx + InputSeat.y]
     sub edx, [rcx + Window.y]
     mov [rbx + InputSeat.move_dy], edx
+    jmp .started
+.start_resize:
+    mov dword [rbx + InputSeat.move_mode], MOVE_RESIZE
+    mov edx, [rbx + InputSeat.x]
+    mov [rbx + InputSeat.move_dx], edx
+    mov edx, [rbx + InputSeat.y]
+    mov [rbx + InputSeat.move_dy], edx
+    mov dword [rbx + InputSeat.resize_w], RESIZE_MIN    ; until its buffer says
+    mov dword [rbx + InputSeat.resize_h], RESIZE_MIN
+    mov rsi, [rsi + Surface.current + SurfaceState.buffer]
+    test rsi, rsi
+    jz .started
+    mov rdi, [rbx + InputSeat.server]
+    mov rdi, [rdi + Server.buffer_table]
+    call handle_resolve
+    test rax, rax
+    jz .started
+    mov ecx, [rax + Buffer.width]
+    mov [rbx + InputSeat.resize_w], ecx
+    mov ecx, [rax + Buffer.height]
+    mov [rbx + InputSeat.resize_h], ecx
+.started:
     mov rdi, rbx
     call click_focus
     jmp .out
+.release_held:
+    mov eax, [rbx + InputSeat.buttons]
+    jmp .release
 
 .press:
-    bts eax, r12d
+    bt eax, r12d
     jc .out
+    mov rdi, [rbx + InputSeat.server]   ; on anything but a popup, it ends
+    mov rsi, [rbx + InputSeat.pointer_focus]    ; the popups
+    call window_dismiss_popups
+    mov eax, [rbx + InputSeat.buttons]
+    bts eax, r12d
     mov [rbx + InputSeat.buttons], eax
     cmp qword [rbx + InputSeat.pointer_focus], 0
     je .out                             ; on no surface: focus stays
