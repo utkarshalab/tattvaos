@@ -28,17 +28,14 @@
 %define GREETER_MAX         64          ; characters kept
 
 ; Its states
-%define GREETER_WAIT_BUFFER     1
-%define GREETER_WAIT_SURFACE    2
 %define GREETER_SHOWN           3
 %define GREETER_DONE            4
-
-%define GREETER_MSG_MAX     64          ; the longest message it reads or sends
 
 ; The greeter itself; channel.inc must come first
 struc Greeter
     .server:        resq 1
     .verify:        resq 1      ; rdi = text, esi = length -> rax 0 if right
+    .conn:          resq 1      ; its client library connection
     .pixels:        resq 1
     .state:         resd 1
     .buffer:        resd 1
@@ -53,16 +50,13 @@ struc Greeter
     .dirty:         resd 1
     .pad:           resd 1
     .pair:          resb ChannelPair_size
-    .in_hdr:        resb MsgHdr_size
-    .out_hdr:       resb MsgHdr_size
     alignb 8
-    .in_msg:        resb 64     ; GREETER_MSG_MAX: sizes are literal for
-    .out_msg:       resb 64     ; GREETER_MSG_MAX   make field-width-check
-    .text:          resb 64     ; GREETER_MAX
-endstruc
+    .event:         resb 56     ; a ClientEvent (inc/canvas_client.inc)
+    .text:          resb 64     ; GREETER_MAX: sizes are literal for
+endstruc                        ; make field-width-check
 
-%if GREETER_MSG_MAX != 64 || GREETER_MAX != 64
-    %error "Greeter: the buffer sizes above must follow the constants"
+%if GREETER_MAX != 64
+    %error "Greeter: the text buffer above must follow GREETER_MAX"
 %endif
 
 %endif
