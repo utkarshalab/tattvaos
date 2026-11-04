@@ -2,8 +2,8 @@
 ; Client Shell Helpers — cw_toplevel, cw_popup, cw_layer (proto/canvas-shell.cwp)
 ; ============================================================================
 ; Windows, popups and layers, each named by its surface. Windows and popups
-; need the shell capability, layers the layer capability. Window states and
-; size limits are not in the protocol yet: those return -ENOSYS.
+; need the shell capability, layers the layer capability. Size limits are not
+; in the protocol yet: those return -ENOSYS.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -114,11 +114,55 @@ canvas_layer_destroy:
     mov edx, LAYER_DESTROY
     jmp one_request
 
-; Not in the protocol yet
+; ---------------------------------------------------------------------------
+; canvas_toplevel_set_state
+;   Ask for maximized and fullscreen set or cleared as the bits say
+;   IN:  rdi = conn, esi = surface, edx = CANVAS_STATE_* bits
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
 global canvas_toplevel_set_state
+canvas_toplevel_set_state:
+    push rbx
+    push r12
+    push r13
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13d, edx
+    mov edx, TOPLEVEL_UNSET_MAXIMIZED
+    test r13d, CANVAS_STATE_MAXIMIZED
+    jz .max
+    mov edx, TOPLEVEL_SET_MAXIMIZED
+.max:
+    call surface_request
+    test rax, rax
+    js .out
+    mov rdi, rbx
+    mov esi, r12d
+    mov edx, TOPLEVEL_UNSET_FULLSCREEN
+    test r13d, CANVAS_STATE_FULLSCREEN
+    jz .full
+    mov edx, TOPLEVEL_SET_FULLSCREEN
+.full:
+    call surface_request
+.out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; ---------------------------------------------------------------------------
+; canvas_toplevel_set_minimized
+;   IN:  rdi = conn, esi = surface
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_toplevel_set_minimized
+canvas_toplevel_set_minimized:
+    mov edx, TOPLEVEL_SET_MINIMIZED
+    jmp surface_request
+
+; Not in the protocol yet
 global canvas_toplevel_set_min_size
 global canvas_toplevel_set_max_size
-canvas_toplevel_set_state:
 canvas_toplevel_set_min_size:
 canvas_toplevel_set_max_size:
     mov rax, -(ENOSYS)
