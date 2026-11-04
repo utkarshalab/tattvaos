@@ -494,7 +494,6 @@ layout-check:
 
 # Canvas Server Image (canvasd)
 server: $(IMAGEDIR)/canvasd.img
-ubf: $(UBF)
 
 $(IMAGEDIR)/canvasd.img: $(ALL_OBJS) linker.ld
 	@mkdir -p $(IMAGEDIR)
@@ -508,9 +507,13 @@ UBF          := $(IMAGEDIR)/canvasd.ubf
 UBF_OBJS     := $(filter-out $(UT_OBJS),$(ALL_OBJS)) $(OBJDIR)/core/panic.o
 UBF_REQUIRED := ut_mem_alloc,ut_mem_free,ut_time_now_ns,ut_log_write,ut_fb_info,ut_yield
 
+# After UBF is defined: a prerequisite expands where its rule is read
+ubf: $(UBF)
+
 $(UBF): $(UBF_OBJS) ubf.ld tools/ubfpack.py
 	@mkdir -p $(IMAGEDIR)
-	@python3 tools/ubfpack.py -o $@ --script ubf.ld --entry canvasd_init 	    --require $(UBF_REQUIRED) $(UBF_OBJS)
+	@python3 tools/ubfpack.py -o $@ --script ubf.ld --entry canvasd_init \
+	    --require $(UBF_REQUIRED) $(UBF_OBJS)
 
 # Client Library (relocatable object)
 CLIENT_SRCS := \
@@ -625,6 +628,7 @@ UNIT_SRCS := \
     tests/unit/test_client.asm \
     tests/unit/test_surface.asm \
     tests/unit/test_server.asm \
+    tests/unit/test_input.asm \
     tests/unit/test_fields.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
@@ -750,7 +754,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server fields region quota tile_diff \
+HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input fields region quota tile_diff \
                  inflate icc record_replay rfb webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
