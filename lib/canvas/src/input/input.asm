@@ -32,6 +32,7 @@
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
+extern compositor_raise_surface
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -508,7 +509,10 @@ button_event:
     mov rsi, [rbx + InputSeat.pointer_focus]
     test rsi, rsi
     jz .out                             ; on no surface: focus stays
+    mov rdi, [rbx + InputSeat.server]   ; a press raises it and focuses it
+    call compositor_raise_surface
     mov rdi, rbx
+    mov rsi, [rbx + InputSeat.pointer_focus]
     call set_keyboard_focus
     mov r9d, 1
     jmp .send
