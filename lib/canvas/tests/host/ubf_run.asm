@@ -81,7 +81,7 @@ extern ut_task_exit
 %define FB_HEIGHT           80
 %define FB_PITCH            (416 * 4)
 %define FB_POISON           0xDEADBEEF
-%define TURNS_BEFORE_CHECK  6           ; the greeter shows on the third
+%define TURNS_BEFORE_CHECK  6           ; the greeter is up after the first
 
 ; Where the greeter puts its field and caret on this framebuffer
 %define FIELD_X             ((FB_WIDTH - GREETER_FIELD_W) / 2)
