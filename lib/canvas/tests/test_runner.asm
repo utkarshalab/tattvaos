@@ -35,6 +35,7 @@ extern test_client_suite
 extern test_surface_suite
 extern test_server_suite
 extern test_input_suite
+extern test_greeter_suite
 extern test_fields_suite
 
 ; ---------------------------------------------------------------------------
@@ -151,6 +152,10 @@ test_runner_init:
 
     ; Test input routing to surfaces
     call test_input_suite
+    add rbx, rax
+
+    ; Test the login screen
+    call test_greeter_suite
     add rbx, rax
 
     ; Test field access regressions and the linear framebuffer
