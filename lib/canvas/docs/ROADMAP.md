@@ -465,8 +465,8 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | WIN-03 | Tiling and kiosk policies | P3 | ◐ `policy/*` |
 | WIN-04 | External policy process interface | P3 | ◐ `policy/policy_external` |
 | WIN-05 | Server-side decorations | P2 | ◐ `shell/decoration*` |
-| WIN-06 | Popup positioning with constraint solving | P2 | ◐ `shell/window`: an offset on the parent, moved back onto the output; no flipping or sliding rules |
-| WIN-07 | Interactive move and resize with frame-synced configure | P2 | ◐ Alt+drag moves a window (`input/input`, `window_move`), its client seeing none of it; `test_window`. No resize yet; `shell/move_resize` is unreachable |
+| WIN-06 | Popup positioning with constraint solving | P2 | ◐ `shell/window`: an offset on the parent, moved back onto the output, moved with the parent; a press on anything but a popup ends them; no flipping or sliding rules |
+| WIN-07 | Interactive move and resize with frame-synced configure | P2 | ◐ Alt+drag moves a window (`input/input`, `window_move`), Alt+right-drag sends it configure with its size plus the travel; its client sees none of the drag; `test_window`. Not frame-synced; `shell/move_resize` is unreachable |
 | WIN-08 | Min/max size and aspect constraints | P2 | |
 | WIN-09 | Maximize, minimize, fullscreen and window states | P2 | ◐ `shell/states` |
 | WIN-10 | Modal dialogs: stacking, parent attachment, parent follows | P2 | |
