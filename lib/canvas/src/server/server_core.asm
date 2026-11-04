@@ -47,6 +47,11 @@ extern window_destroy
 extern window_fullscreen
 extern window_maximize
 extern window_minimize
+extern window_activate
+extern window_close
+extern window_layer_exclusive
+extern window_list_find
+extern window_list_subscribe
 extern window_layer_create
 extern window_popup_create
 extern window_set_name
@@ -203,6 +208,12 @@ server_init:
     REQUEST CWP_OBJ_POPUP, POPUP_DESTROY, h_role_destroy_shell
     REQUEST CWP_OBJ_LAYER, LAYER_CREATE, h_layer_create
     REQUEST CWP_OBJ_LAYER, LAYER_DESTROY, h_role_destroy_layer
+    REQUEST CWP_OBJ_LAYER, LAYER_SET_EXCLUSIVE, h_layer_set_exclusive
+    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_SUBSCRIBE, h_window_list_subscribe
+    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_ACTIVATE, h_window_list_activate
+    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_CLOSE, h_window_list_close
+    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_MINIMIZE, h_window_list_minimize
+    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_SET_MAXIMIZED, h_window_list_set_maximized
 
     xor eax, eax
 .out:
@@ -597,6 +608,70 @@ STATE_HANDLER h_toplevel_unset_maximized, window_maximize, 0
 STATE_HANDLER h_toplevel_set_fullscreen, window_fullscreen, 1
 STATE_HANDLER h_toplevel_unset_fullscreen, window_fullscreen, 0
 STATE_HANDLER h_toplevel_set_minimized, window_minimize, 0
+
+; cw_layer.set_exclusive(surface, size)
+HANDLER h_layer_set_exclusive, 8
+    NEEDS_CAP CAP_LAYER
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    mov edx, [r13 + 4]
+    call window_layer_exclusive
+HANDLER_END
+
+; cw_window_list.subscribe()
+HANDLER h_window_list_subscribe, 0
+    NEEDS_CAP CAP_WINDOWS
+    mov rdi, r14
+    mov rsi, rbx
+    call window_list_subscribe
+HANDLER_END
+
+; cw_window_list requests on a window by id: (handler, least bytes); the
+; body runs with rax = its surface
+%macro WINDOW_LIST_HANDLER 2
+HANDLER %1, %2
+    NEEDS_CAP CAP_WINDOWS
+    mov rdi, r14
+    mov esi, [r13]
+    call window_list_find
+    test rax, rax
+    jz .bad_object
+%endmacro
+
+; activate(id)
+WINDOW_LIST_HANDLER h_window_list_activate, 4
+    mov rdi, r14
+    mov rsi, rax
+    call window_activate
+HANDLER_END
+
+; close(id)
+WINDOW_LIST_HANDLER h_window_list_close, 4
+    mov rdi, rax
+    call window_close
+    xor eax, eax
+HANDLER_END
+
+; minimize(id)
+WINDOW_LIST_HANDLER h_window_list_minimize, 4
+    mov rdi, r14
+    mov rsi, rax
+    call window_minimize
+HANDLER_END
+
+; set_maximized(id, maximized)
+WINDOW_LIST_HANDLER h_window_list_set_maximized, 8
+    mov rdi, r14
+    mov rsi, rax
+    xor edx, edx
+    cmp dword [r13 + 4], 0
+    setne dl
+    call window_maximize
+HANDLER_END
 
 ; cw_popup.create(surface, parent, x, y)
 HANDLER h_popup_create, 16
