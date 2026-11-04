@@ -17,6 +17,7 @@
 section .text
 
 struc Magnifier
+    .server:            resq 1
     .enabled:           resb 1
     .scale:             resq 1
     .follow_mouse:      resb 1
@@ -48,6 +49,7 @@ magnifier_init:
     jz .oom
     mov r13, rax
 
+    mov qword [r13 + Magnifier.server], rbx
     mov byte [r13 + Magnifier.enabled], 0
     mov qword [r13 + Magnifier.scale], FIX_ONE * 2
     mov byte [r13 + Magnifier.follow_mouse], 1
@@ -184,14 +186,14 @@ magnifier_update:
     cmp byte [rbx + Magnifier.follow_mouse], 0
     je .check_focus
 
-    mov r12, [rbx + Server.default_seat]
+    mov r12, [rbx + Magnifier.server]
+    mov r12, [r12 + Server.input_seat]
     test r12, r12
     je .check_focus
 
-    mov r12, [r12 + Seat.pointer]
-    mov eax, [r12 + Pointer.x]
+    mov eax, [r12 + InputSeat.x]
     mov [rbx + Magnifier.x], eax
-    mov eax, [r12 + Pointer.y]
+    mov eax, [r12 + InputSeat.y]
     mov [rbx + Magnifier.y], eax
     jmp .update_window
 
@@ -199,11 +201,12 @@ magnifier_update:
     cmp byte [rbx + Magnifier.follow_focus], 0
     je .update_window
 
-    mov r12, [rbx + Server.focus]
+    mov r12, [rbx + Magnifier.server]
+    mov r12, [r12 + Server.input_seat]
     test r12, r12
     je .update_window
 
-    mov rax, [r12 + Focus.surface]
+    mov rax, [r12 + InputSeat.keyboard_focus]
     test rax, rax
     je .update_window
 
