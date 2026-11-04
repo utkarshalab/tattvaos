@@ -118,7 +118,8 @@ vcs_blame:
  mov [rax+r13*8],rcx
  lea rax,[blame_commit]
  mov [rax+r13*8],r12
- mov byte [blame_active+r13],1
+ lea rax,[blame_active]
+ mov byte [rax+r13],1
  inc r13
 .line_scan:
  cmp rcx,rdx
@@ -183,7 +184,8 @@ vcs_blame:
 .map_line:
  cmp r13,[blame_lines]
  jae .history_next
- cmp byte [blame_active+r13],0
+ lea rax,[blame_active]
+ cmp byte [rax+r13],0
  je .map_next
  lea rax,[blame_current]
  mov r11,[rax+r13*8]
@@ -207,7 +209,8 @@ vcs_blame:
  dec rcx
  jmp .find_equal
 .line_changed:
- mov byte [blame_active+r13],0
+ lea rax,[blame_active]
+ mov byte [rax+r13],0
 .map_next:
  inc r13
  jmp .map_line
@@ -216,7 +219,8 @@ vcs_blame:
 .deactivate_loop:
  cmp r13,[blame_lines]
  jae .history_next
- mov byte [blame_active+r13],0
+ lea rax,[blame_active]
+ mov byte [rax+r13],0
  inc r13
  jmp .deactivate_loop
 .history_next:
