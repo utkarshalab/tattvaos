@@ -145,9 +145,12 @@ align 64
 kernel_ush_rodata:
     incbin "apps/ush/build/kernel/rodata.bin"
 kernel_ush_layout:
-    db 'UTKUSH_LAYOUT_V1',0
+    db 'UTKUSH_LAYOUT_V2',0
     dq kernel_ush_text,kernel_ush_rodata,kernel_ush_data,kernel_ush_bss
     dq KERNEL_USH_TEXT_SIZE,KERNEL_USH_RODATA_SIZE,KERNEL_USH_DATA_SIZE,KERNEL_USH_BSS_SIZE
+    ; Kernel-owned networking imports resolved by the final ELF relocation pass.
+    dq unet_socket,unet_connect,unet_close,unet_get_state
+    dq unet_bind,unet_listen,unet_accept,unet_send,unet_recv
 kernel_ush_started: db '[ush] kernel console starting',13,10,0
 kernel_ush_exited: db '[ush] exited; kernel scheduler continues',13,10,0
 kernel_ush_failed: db 'ERROR: Ush console fiber allocation failed',13,10,0
