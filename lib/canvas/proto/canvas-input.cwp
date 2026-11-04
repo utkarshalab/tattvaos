@@ -46,8 +46,17 @@ protocol canvas-input 1 {
         ; Treat every key as released
         event leave(time: ulong, surface: handle)
 
-        ; keycode 0-255 as the device reports it; state 1 pressed, 0 released
+        ; keycode 0-255 as the device reports it; state 1 pressed, 0
+        ; released, 2 repeated: the key is still held, after a delay and then
+        ; at a steady rate, each repeat followed by its text like a press.
+        ; Modifiers and locks do not repeat.
         event key(time: ulong, surface: handle, keycode: uint, state: uint)
+
+        enum key_state {
+            released = 0,
+            pressed = 1,
+            repeated = 2
+        }
 
         enum modifier {
             shift = 1,
