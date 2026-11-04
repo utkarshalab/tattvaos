@@ -221,9 +221,7 @@ virt_handle_pmem_window_map:
 section .bss
 alignb 64
 
-; ---- 4 unimplemented data symbols ----
-global UCMP_ERR_HEADER_INVALID
-UCMP_ERR_HEADER_INVALID: resb 256
+; ---- Unimplemented data symbols ----
 global msg_security_err
 msg_security_err: resb 256
 global tcpdump_capture
