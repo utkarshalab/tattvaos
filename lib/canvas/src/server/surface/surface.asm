@@ -24,6 +24,7 @@ extern region_add_rect
 extern compositor_remove_surface
 extern presentation_forget
 extern stacking_destroyed
+extern window_destroy
 
 %define SURFACE_HANDLES        4096
 
@@ -223,7 +224,11 @@ surface_destroy:
     jz .not_found
     mov r13, rax
 
-    ; Out of input focus, off its output, and any outstanding feedback
+    ; No longer a window, out of input focus, off its output, and any
+    ; outstanding feedback
+    mov rdi, rbx
+    mov rsi, r13
+    call window_destroy                 ; -EINVAL if it was none: fine
     mov rdi, rbx
     mov rsi, r13
     call stacking_destroyed
