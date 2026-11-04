@@ -26,6 +26,13 @@ vcs_sync_client_begin:
  mov r13d,ecx
  test rbx,rbx
  jz .begin_usage
+ mov dword [rbx+vcs_client.phase],VC_FAILED
+ mov dword [rbx+vcs_client.fd],-1
+ mov qword [rbx+vcs_client.bundle_count],0
+ mov qword [rbx+vcs_client.head_digest],0
+ mov qword [rbx+vcs_client.head_digest+8],0
+ mov qword [rbx+vcs_client.head_digest+16],0
+ mov qword [rbx+vcs_client.head_digest+24],0
  mov rax,[rsp+32]
  test rax,rax
  jz .begin_usage
