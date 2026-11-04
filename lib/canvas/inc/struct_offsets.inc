@@ -1550,6 +1550,8 @@ struc InputSeat
     .head:                    resd 1    ; next event to deliver
     .tail:                    resd 1    ; next free slot
     .dropped:                 resd 1    ; events lost to a full queue
+    .mods:                    resd 1    ; held modifiers, MOD_* in inc/input.inc
+    .locks:                   resd 1    ; MOD_CAPS, MOD_NUM
     .keys:                    resb 32   ; held keycodes 0-255, a bit each
     .queue:                   resb INPUT_QUEUE_LEN * RawInput_size
 endstruc
