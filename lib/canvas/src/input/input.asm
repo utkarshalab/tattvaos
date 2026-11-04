@@ -13,7 +13,10 @@
 ;            enter, leave, motion, button and axis events in its own
 ;            coordinates. While a button is held that surface keeps the
 ;            pointer, so a drag stays with its window.
-;   a press  on a surface gives it the keyboard focus
+;   a press  on a surface raises it and, unless it is a background, bottom
+;            or (until clicked) top layer, gives it the keyboard focus
+;   Alt+F4   asks the focused window's client to close it
+;   Alt+drag moves the window under the pointer; its client sees none of it
 ;
 ; Server.input_seat is the one place input is routed from. input_set_seat
 ; switches it, first releasing every key and button the old seat holds, so
@@ -39,6 +42,9 @@ extern handle_resolve
 extern keymap_key
 extern msgbuf_write
 extern region_contains_point
+extern stacking_level
+extern window_close
+extern window_move
 
 ; cw_keyboard and cw_pointer events: interface << 16 | event index
 %define KEYBOARD_ENTER  (CWP_OBJ_KEYBOARD << 16 | 0)
@@ -70,6 +76,7 @@ extern region_contains_point
 %define KEY_RIGHTALT    100
 %define KEY_LEFTMETA    125
 %define KEY_RIGHTMETA   126
+%define KEY_F4          62
 
 %define EVENT_SHORT     12              ; time, surface
 %define EVENT_LONG      20              ; time, surface, a, b
@@ -331,6 +338,7 @@ input_release_all:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov dword [rbx + InputSeat.repeat_key], 0
+    mov qword [rbx + InputSeat.moving], 0
     call ut_time_now_ns
     mov [rbx + InputSeat.time], rax
 
@@ -431,8 +439,12 @@ input_forget_surface:
     mov qword [rax + InputSeat.pointer_focus], 0
 .keyboard:
     cmp [rax + InputSeat.keyboard_focus], rsi
-    jne .done
+    jne .move
     mov qword [rax + InputSeat.keyboard_focus], 0
+.move:
+    cmp [rax + InputSeat.moving], rsi
+    jne .done
+    mov qword [rax + InputSeat.moving], 0
 .done:
     xor eax, eax
     ret
@@ -500,6 +512,30 @@ key_event:
     call keymap_key
     mov r13d, eax                       ; the character, 0: none
     mov r14d, ecx                       ; 1: modifiers changed
+
+    ; Alt+F4 on a window is the server's: its client gets close instead, and
+    ; neither the press nor its release
+    cmp dword [r12 + RawInput.value], 0
+    je .route
+    cmp dword [r12 + RawInput.code], KEY_F4
+    jne .route
+    test dword [rbx + InputSeat.mods], MOD_ALT
+    jz .route
+    mov rdi, [rbx + InputSeat.keyboard_focus]
+    test rdi, rdi
+    jz .route
+    mov rax, [rdi + Surface.window]
+    test rax, rax
+    jz .route
+    cmp dword [rax + Window.kind], ROLE_TOPLEVEL
+    jne .route
+    call window_close
+    and byte [rbx + InputSeat.keys + KEY_F4 / 8], ~(1 << (KEY_F4 % 8))
+    cmp dword [rbx + InputSeat.repeat_key], KEY_F4
+    jne .out
+    mov dword [rbx + InputSeat.repeat_key], 0
+    jmp .out
+.route:
     mov rsi, [rbx + InputSeat.keyboard_focus]
     test rsi, rsi
     jz .out
@@ -643,6 +679,18 @@ pointer_event:
     mov [rbx + InputSeat.x], eax
     mov [rbx + InputSeat.y], ecx
 
+    ; An Alt+drag takes the window along, and nobody hears of the motion
+    mov rsi, [rbx + InputSeat.moving]
+    test rsi, rsi
+    jz .route
+    mov rdi, [rbx + InputSeat.server]
+    mov edx, eax
+    sub edx, [rbx + InputSeat.move_dx]
+    sub ecx, [rbx + InputSeat.move_dy]
+    call window_move
+    jmp .out
+.route:
+
     ; A held button keeps the surface; otherwise the one under the pointer
     ; takes it, and its enter carries the position
     cmp dword [rbx + InputSeat.buttons], 0
@@ -670,22 +718,55 @@ button_event:
     mov r12d, [rsi + RawInput.code]
     cmp r12d, 31
     ja .out
+    cmp qword [rbx + InputSeat.moving], 0
+    jne .moving
     mov eax, [rbx + InputSeat.buttons]
     cmp dword [rsi + RawInput.value], 0
     je .release
+
+    ; Alt+press on a window, no other button down: a move starts
+    test dword [rbx + InputSeat.mods], MOD_ALT
+    jz .press
+    test eax, eax
+    jnz .press
+    mov rsi, [rbx + InputSeat.pointer_focus]
+    test rsi, rsi
+    jz .press
+    mov rcx, [rsi + Surface.window]
+    test rcx, rcx
+    jz .press
+    cmp dword [rcx + Window.kind], ROLE_TOPLEVEL
+    jne .press
+    mov [rbx + InputSeat.moving], rsi
+    mov edx, [rbx + InputSeat.x]
+    sub edx, [rcx + Window.x]
+    mov [rbx + InputSeat.move_dx], edx
+    mov edx, [rbx + InputSeat.y]
+    sub edx, [rcx + Window.y]
+    mov [rbx + InputSeat.move_dy], edx
+    mov rdi, rbx
+    call click_focus
+    jmp .out
+
+.press:
     bts eax, r12d
     jc .out
     mov [rbx + InputSeat.buttons], eax
-    mov rsi, [rbx + InputSeat.pointer_focus]
-    test rsi, rsi
-    jz .out                             ; on no surface: focus stays
-    mov rdi, [rbx + InputSeat.server]   ; a press raises it and focuses it
-    call compositor_raise_surface
+    cmp qword [rbx + InputSeat.pointer_focus], 0
+    je .out                             ; on no surface: focus stays
     mov rdi, rbx
-    mov rsi, [rbx + InputSeat.pointer_focus]
-    call set_keyboard_focus
+    call click_focus
     mov r9d, 1
     jmp .send
+
+    ; During a move every press is ignored and a release ends it
+.moving:
+    cmp dword [rsi + RawInput.value], 0
+    jne .out
+    mov qword [rbx + InputSeat.moving], 0
+    mov rdi, rbx
+    call pointer_retarget
+    jmp .out
 .release:
     btr eax, r12d
     jnc .out
@@ -707,6 +788,27 @@ button_event:
     call pointer_retarget
 .out:
     EPILOGUE_RESTORE rbx, r12
+
+; A press on the surface under the pointer raises it, and gives it the
+; keyboard unless it is a background or bottom layer.
+; rdi = seat
+click_focus:
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov rdi, [rbx + InputSeat.server]
+    mov rsi, [rbx + InputSeat.pointer_focus]
+    call compositor_raise_surface
+    mov rdi, [rbx + InputSeat.pointer_focus]
+    call stacking_level
+    test eax, eax
+    js .out
+    mov rdi, rbx
+    mov rsi, [rbx + InputSeat.pointer_focus]
+    call set_keyboard_focus
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
 
 ; Scrolling goes to the surface under the pointer
 axis_event:
