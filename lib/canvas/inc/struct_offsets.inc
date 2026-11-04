@@ -1523,6 +1523,35 @@ struc Server
     .trace:                   resq 1
     .transfer_count:          resq 1
     .transfers:               resq 1
+    .input_seat:              resq 1    ; the active seat: all input goes to it
+endstruc
+
+; One raw input event, as a source hands it to input_submit
+struc RawInput
+    .type:                    resd 1    ; INPUT_* in inc/event.inc
+    .code:                    resd 1
+    .value:                   resd 1
+    .device:                  resd 1
+    .time:                    resq 1    ; monotonic ns; 0: stamped on arrival
+endstruc
+
+%define INPUT_QUEUE_LEN       256       ; a power of two
+
+; A seat: one pointer and one keyboard, their focus, and the queue of raw
+; events waiting for the next turn (src/input/input.asm)
+struc InputSeat
+    .server:                  resq 1
+    .pointer_focus:           resq 1    ; Surface* under the pointer, 0: none
+    .keyboard_focus:          resq 1    ; Surface*, 0: none
+    .time:                    resq 1    ; of the event being delivered
+    .x:                       resd 1    ; pointer, output pixels
+    .y:                       resd 1
+    .buttons:                 resd 1    ; held buttons, bit n = button n
+    .head:                    resd 1    ; next event to deliver
+    .tail:                    resd 1    ; next free slot
+    .dropped:                 resd 1    ; events lost to a full queue
+    .keys:                    resb 32   ; held keycodes 0-255, a bit each
+    .queue:                   resb INPUT_QUEUE_LEN * RawInput_size
 endstruc
 
 struc Session
