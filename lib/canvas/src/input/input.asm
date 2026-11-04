@@ -14,7 +14,7 @@
 ;            coordinates. While a button is held that surface keeps the
 ;            pointer, so a drag stays with its window.
 ;   a press  on a surface raises it and, unless it is a background, bottom
-;            or (until clicked) top layer, gives it the keyboard focus
+;            or top layer, gives it the keyboard focus
 ;   Alt+F4   asks the focused window's client to close it; Super+Up
 ;            maximizes it or puts it back, Super+Down minimizes it
 ;   Alt+drag moves the window under the pointer, Alt+right-drag resizes it
@@ -903,7 +903,7 @@ shortcut:
     EPILOGUE_RESTORE rbx, r12
 
 ; A press on the surface under the pointer raises it, and gives it the
-; keyboard unless it is a background or bottom layer.
+; keyboard unless it is a layer below the windows or a top layer.
 ; rdi = seat
 click_focus:
     PROLOGUE_SAVE rbx
@@ -916,6 +916,8 @@ click_focus:
     call stacking_level
     test eax, eax
     js .out
+    cmp eax, LEVEL_TOP
+    je .out                             ; a panel: the window keeps it
     mov rdi, rbx
     mov rsi, [rbx + InputSeat.pointer_focus]
     call set_keyboard_focus
