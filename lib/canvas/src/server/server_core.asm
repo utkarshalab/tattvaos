@@ -39,6 +39,7 @@ extern fb_linear_init
 extern handle_resolve
 extern headless_create_virtual_output
 extern headless_init
+extern greeter_step
 extern input_dispatch
 extern input_init
 extern msgbuf_read
@@ -207,8 +208,8 @@ server_init:
 
 ; ---------------------------------------------------------------------------
 ; server_poll
-;   One turn: queued input, every client's requests up to its share, then a
-;   frame
+;   One turn: queued input, the greeter, every client's requests up to its
+;   share, then a frame
 ;   IN:  rdi = server*
 ;   OUT: rax = requests handled, negative error from the compositor
 ; ---------------------------------------------------------------------------
@@ -220,6 +221,11 @@ server_poll:
     ASSERT_PTR rbx
     mov rdi, rbx
     call input_dispatch
+    mov rdi, [rbx + Server.greeter]     ; it reads its input before requests
+    test rdi, rdi
+    jz .clients
+    call greeter_step
+.clients:
     xor r13d, r13d                      ; handled
     mov r12, [rbx + Server.client_list]
 .client:
