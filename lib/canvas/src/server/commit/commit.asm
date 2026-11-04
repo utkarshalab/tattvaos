@@ -15,6 +15,7 @@ extern region_copy
 extern region_union
 extern stacking_mapped
 extern stacking_unmapped
+extern window_commit
 
 %define BUFFER_ALLOCATED 1
 
@@ -53,6 +54,9 @@ commit_surface:
     mov rsi, r12
     mov rdx, r14
     call surface_release_old_buffer
+    mov rdi, rbx                        ; a window goes where the server puts it
+    mov rsi, r12
+    call window_commit
 
     ; Its first buffer: it is mapped; no buffer any more: unmapped
     mov rax, [r12 + Surface.current + SurfaceState.buffer]
