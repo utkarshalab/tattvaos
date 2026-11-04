@@ -24,7 +24,10 @@ brought back as it is.
 | `src/gpu/gpu_renderer.asm` | does not assemble | `src/render/gpu_render.asm` |
 | `src/input/clipboard.asm`, `src/input/dnd.asm` | do not assemble | `src/data/clipboard.asm`, `src/data/dnd.asm` |
 | `src/input/ime_bridge.asm`, `src/input/text_input.asm` | do not assemble | `src/text/ime_bridge.asm`, `src/text/text_input.asm` |
-| `src/input/manager.asm` | does not assemble | `src/input/input.asm`, `src/input/seat.asm` |
+| `src/input/manager.asm` | does not assemble | `src/input/input.asm` |
+| `src/input/seat.asm`, `src/input/keyboard.asm`, `src/input/pointer.asm`, `src/input/focus.asm`, `src/input/hittest.asm` | assemble, but never ran: nothing created a seat. Functions saved registers and returned without restoring them, the first device added became the seat itself, and the hit test read a surface size nothing sets | `src/input/input.asm` |
+| `src/input/keymap.asm` | two keys of a US layout | `src/input/keymap_us.asm` |
+| `src/input/source_ut.asm` | a source object for the kernel's input that did nothing; input.asm registers for it directly | `src/input/input.asm` |
 | `src/protocol/*.asm` (connection, dispatch, wire) | do not assemble; the first wire layer | `src/proto/*` |
 | `src/shell/layout.asm`, `src/shell/policy.asm` | do not assemble | `src/policy/layout_engine.asm`, `src/policy/*` |
 | `tools/cwpgen/main.asm` | does not assemble | `src/tools/cwpgen.asm` |
