@@ -468,7 +468,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | WIN-06 | Popup positioning with constraint solving | P2 | ◐ `shell/window`: an offset on the parent, moved back onto the output, moved with the parent; a press on anything but a popup ends them; no flipping or sliding rules |
 | WIN-07 | Interactive move and resize with frame-synced configure | P2 | ◐ Alt+drag moves a window (`input/input`, `window_move`), Alt+right-drag sends it configure with its size plus the travel; its client sees none of the drag; `test_window`. Not frame-synced |
 | WIN-08 | Min/max size and aspect constraints | P2 | |
-| WIN-09 | Maximize, minimize, fullscreen and window states | P2 | an unreachable draft is in `attic/src/shell` |
+| WIN-09 | Maximize, minimize, fullscreen and window states | P2 | ◐ `shell/window`: `cw_toplevel` set/unset maximized and fullscreen, set minimized; configure carries the states; maximized and fullscreen fill the output (fullscreen above top layers) and go back to the window's place and size; minimized leaves the output until `window_activate`; Super+Up, Super+Down; `test_window`. No exclusive zones for panels yet |
 | WIN-10 | Modal dialogs: stacking, parent attachment, parent follows | P2 | |
 | WIN-11 | Transient windows on the correct workspace and monitor | P2 | |
 | WIN-12 | Focus-stealing prevention | P2 | |
