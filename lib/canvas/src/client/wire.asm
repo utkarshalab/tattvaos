@@ -151,9 +151,9 @@ canvas_wire_event:
     or eax, ecx
     mov [rsi + ClientEvent.type], eax
     mov ecx, [r8 + ClientWire.in_hdr + MsgHdr.len]
-    cmp ecx, 48
+    cmp ecx, CLIENT_EVENT_DATA
     jbe .sized
-    mov ecx, 48
+    mov ecx, CLIENT_EVENT_DATA
 .sized:
     mov [rsi + ClientEvent.length], ecx
     lea rdi, [rsi + ClientEvent.data]
