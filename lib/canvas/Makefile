@@ -410,7 +410,8 @@ SESSION_SRCS := \
     $(SRCDIR)/session/lock.asm \
     $(SRCDIR)/session/idle.asm \
     $(SRCDIR)/session/kiosk.asm \
-    $(SRCDIR)/session/power.asm
+    $(SRCDIR)/session/power.asm \
+    $(SRCDIR)/session/greeter.asm
 
 # Governance (C19)
 GOVERNANCE_SRCS := \
@@ -624,6 +625,7 @@ UNIT_SRCS := \
     tests/unit/test_surface.asm \
     tests/unit/test_server.asm \
     tests/unit/test_input.asm \
+    tests/unit/test_greeter.asm \
     tests/unit/test_fields.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
 
@@ -749,7 +751,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input fields region quota tile_diff \
+HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input greeter fields region quota tile_diff \
                  inflate icc record_replay rfb webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
