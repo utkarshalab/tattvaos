@@ -1,9 +1,12 @@
 ; ============================================================================
 ; Stacking — Surfaces Coming and Going
 ; ============================================================================
-; A surface that shows its first buffer goes on top of its output and takes
-; the keyboard. One that has the keyboard and stops showing anything, or is
-; destroyed, hands it to the topmost surface still showing; with none left,
+; A surface that shows its first buffer goes on top of its level and takes
+; the keyboard, if surfaces at its level take it when they show: windows,
+; popups, overlay layers and surfaces with no role do; background, bottom and
+; top layers do not (a top layer takes it on a click, the others never). One
+; that has the keyboard and stops showing anything, or is destroyed, hands it
+; to the topmost surface still showing that would take it; with none left,
 ; nothing has it. A destroyed surface is told nothing: its client let it go.
 
 %include "inc/abi.inc"
@@ -30,11 +33,48 @@ stacking_mapped:
     mov rbx, rdi
     mov r12, rsi
     call compositor_raise_surface
+    mov rdi, r12
+    call takes_keyboard_on_show
+    test eax, eax
+    jz .out
     mov rdi, rbx
     mov rsi, r12
     call input_focus_surface
+.out:
     xor eax, eax
     EPILOGUE_RESTORE rbx, r12
+
+; ---------------------------------------------------------------------------
+; stacking_level
+;   IN:  rdi = surface*
+;   OUT: rax = its stacking level (LEVEL_*), sign-extended
+; ---------------------------------------------------------------------------
+global stacking_level
+stacking_level:
+    xor eax, eax
+    mov rcx, [rdi + Surface.window]
+    test rcx, rcx
+    jz .out
+    movsxd rax, dword [rcx + Window.level]
+.out:
+    ret
+
+; rdi = surface -> eax = 1 if it takes the keyboard when it shows
+takes_keyboard_on_show:
+    push rdi
+    call stacking_level
+    pop rdi
+    cmp eax, LEVEL_NORMAL
+    je .yes
+    cmp eax, LEVEL_POPUP
+    je .yes
+    cmp eax, LEVEL_OVERLAY
+    je .yes
+    xor eax, eax
+    ret
+.yes:
+    mov eax, 1
+    ret
 
 ; ---------------------------------------------------------------------------
 ; stacking_unmapped
@@ -101,6 +141,19 @@ focus_topmost:
     je .next
     cmp qword [rax + Surface.current + SurfaceState.buffer], 0
     je .next
+    push rax
+    push rcx
+    push rsi
+    push rdi
+    mov rdi, rax
+    call takes_keyboard_on_show
+    mov edx, eax
+    pop rdi
+    pop rsi
+    pop rcx
+    pop rax
+    test edx, edx
+    jz .next
     mov rcx, rax                        ; bottom to top: the last one wins
 .next:
     mov rax, [rax + Surface.z_order_next]
