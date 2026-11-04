@@ -96,8 +96,13 @@ $(BUILD)/diff.so: $(BUILD)/diff.o $(BUILD)/diff_probe.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/diff_probe.o: tests/unit/diff_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
-test: native $(BUILD)/diff.so $(BUILD)/repository.so
+$(BUILD)/protocol.so: $(BUILD)/protocol.o $(BUILD)/protocol_probe.o
+	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
+$(BUILD)/protocol_probe.o: tests/unit/protocol_probe.asm | $(BUILD)
+	$(NASM) -w+error -f elf64 $< -o $@
+test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/repository.so
 	sh scripts/test-cli.sh
 	python3 tests/unit/test_diff.py $(BUILD)/diff.so
+	python3 tests/unit/test_protocol.py $(BUILD)/protocol.so
 	python3 tests/unit/test_repository.py $(BUILD)/repository.so
 	python3 tests/unit/test_history.py $(BUILD)/repository.so
