@@ -6,6 +6,7 @@
 %define __INPUT_INC__
 
 %include "inc/fixed.inc"
+%include "inc/event.inc"
 %include "inc/geometry.inc"
 
 ; ============================================================================
@@ -45,14 +46,7 @@
 %define KEY_STATE_PRESSED       1
 %define KEY_STATE_REPEAT        2
 
-; Modifier masks
-%define MOD_SHIFT        (1 << 0)
-%define MOD_CAPS         (1 << 1)
-%define MOD_CTRL         (1 << 2)
-%define MOD_ALT          (1 << 3)
-%define MOD_SUPER        (1 << 4)
-%define MOD_NUM          (1 << 5)
-%define MOD_LOGO         (1 << 6)
+; Modifier masks: MOD_* in inc/event.inc
 
 ; ============================================================================
 ; Touch Events
