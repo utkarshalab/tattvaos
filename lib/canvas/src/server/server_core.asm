@@ -41,6 +41,10 @@ extern headless_create_virtual_output
 extern headless_init
 extern greeter_step
 extern input_dispatch
+extern window_ack_configure
+extern window_create
+extern window_destroy
+extern window_set_name
 extern input_init
 extern msgbuf_read
 extern msgbuf_write
@@ -68,6 +72,11 @@ extern ut_time_now_ns
 %define SURFACE_DAMAGE          3
 %define SURFACE_FRAME_CALLBACK  11
 %define SURFACE_COMMIT          12
+%define TOPLEVEL_CREATE         0       ; proto/canvas-shell.cwp
+%define TOPLEVEL_DESTROY        1
+%define TOPLEVEL_SET_TITLE      2
+%define TOPLEVEL_SET_APP_ID     3
+%define TOPLEVEL_ACK_CONFIGURE  4
 %define SURFACE_EVENT_FRAME_DONE 0
 
 section .text
@@ -193,6 +202,11 @@ server_init:
     REQUEST CWP_OBJ_SURFACE, SURFACE_DAMAGE, h_surface_damage
     REQUEST CWP_OBJ_SURFACE, SURFACE_FRAME_CALLBACK, h_surface_frame_callback
     REQUEST CWP_OBJ_SURFACE, SURFACE_COMMIT, h_surface_commit
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_CREATE, h_toplevel_create
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_DESTROY, h_toplevel_destroy
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_TITLE, h_toplevel_set_title
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_APP_ID, h_toplevel_set_app_id
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_ACK_CONFIGURE, h_toplevel_ack_configure
 
     xor eax, eax
 .out:
@@ -522,6 +536,86 @@ HANDLER h_surface_commit, 8
     mov edx, [r13 + 4]
     call commit_surface
 HANDLER_END
+
+; create(surface)
+HANDLER h_toplevel_create, 4
+    NEEDS_CAP CAP_SHELL
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    call window_create
+HANDLER_END
+
+; destroy(surface)
+HANDLER h_toplevel_destroy, 4
+    NEEDS_CAP CAP_SHELL
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    call window_destroy
+HANDLER_END
+
+; set_title(surface, title: string)
+HANDLER h_toplevel_set_title, 8
+    NEEDS_CAP CAP_SHELL
+    xor edx, edx
+    call name_request
+HANDLER_END
+
+; set_app_id(surface, app_id: string)
+HANDLER h_toplevel_set_app_id, 8
+    NEEDS_CAP CAP_SHELL
+    mov edx, 1
+    call name_request
+HANDLER_END
+
+; ack_configure(surface, serial)
+HANDLER h_toplevel_ack_configure, 8
+    NEEDS_CAP CAP_SHELL
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, rax
+    mov esi, [r13 + 4]
+    call window_ack_configure
+HANDLER_END
+
+; A window's name from a (surface, length, bytes) payload; in a handler.
+; edx = 0 title, 1 app id -> rax
+name_request:
+    push r15
+    mov r15d, edx
+    mov eax, [r13 + 4]                  ; the bytes must all be there
+    add rax, 8
+    mov edx, [r12 + MsgHdr.len]
+    cmp rax, rdx
+    ja .short
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .not_own
+    mov rdi, rax
+    mov esi, r15d
+    lea rdx, [r13 + 8]
+    mov ecx, [r13 + 4]
+    call window_set_name
+    pop r15
+    ret
+.short:
+    mov rax, -(ECWP_PAYLOAD)
+    pop r15
+    ret
+.not_own:
+    mov rax, -(ECWP_OBJECT)
+    pop r15
+    ret
 
 ; ---------------------------------------------------------------------------
 ; server_frame_done
