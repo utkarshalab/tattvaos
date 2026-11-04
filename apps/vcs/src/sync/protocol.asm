@@ -21,6 +21,7 @@ vcs_sync_request_encode:
  push r12
  mov rbx,rdi
  mov r12,rcx
+ mov r10,rdx
  mov r11,r8
  cmp esi,VS_OP_PUSH
  je .request_push_count
@@ -31,6 +32,14 @@ vcs_sync_request_encode:
  cmp r11,64
  ja .request_bad_pop
 .request_count_ok:
+ test r12,r12
+ jz .request_inputs_ok
+ mov rdi,r12
+ call valid_ref
+ test eax,eax
+ jz .request_bad_pop
+.request_inputs_ok:
+ mov rdi,rbx
  push rsi
  xor eax,eax
  mov ecx,VS_MESSAGE/8
@@ -42,19 +51,15 @@ vcs_sync_request_encode:
  mov [rbx+VS_OPERATION],esi
  mov qword [rbx+VS_FLAGS],VS_CAP_V1
  mov [rbx+VS_COUNT],r11
- test rdx,rdx
+ test r10,r10
  jz .request_ref
  lea rdi,[rbx+VS_DIGEST]
- mov rsi,rdx
+ mov rsi,r10
  mov ecx,32
  rep movsb
 .request_ref:
  test r12,r12
  jz .request_ok
- mov rdi,r12
- call valid_ref
- test eax,eax
- jz .request_bad_pop
  lea rdi,[rbx+VS_REF]
  mov rsi,r12
  mov ecx,VS_REF_BYTES
@@ -119,7 +124,7 @@ vcs_sync_request_decode:
  call valid_ref
  test eax,eax
  jz .decode_ref_bad
- lea r11,[rdi+VS_REF]
+ mov r11,rdi
  lea eax,[edx+1]
 .decode_ref_zero:
  cmp eax,VS_REF_BYTES
@@ -133,6 +138,7 @@ vcs_sync_request_decode:
  lea r9,[rdi+VS_REF]
 .decode_ok:
  mov edx,r10d
+ mov r11,[rdi+VS_COUNT]
  xor eax,eax
  ret
 .decode_ref_bad:
@@ -148,6 +154,8 @@ vcs_sync_response_encode:
  test rdi,rdi
  jz .response_usage
  cmp esi,VCS_ERR_UNSUPPORTED
+ ja .response_usage
+ cmp rcx,64
  ja .response_usage
  push rbx
  mov rbx,rdi
