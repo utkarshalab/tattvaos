@@ -358,30 +358,17 @@ INPUT_SRCS := \
 
 # Shell (C13)
 SHELL_SRCS := \
-    $(SRCDIR)/shell/shell.asm \
     $(SRCDIR)/shell/toplevel.asm \
-    $(SRCDIR)/shell/popup.asm \
-    $(SRCDIR)/shell/layer.asm \
-    $(SRCDIR)/shell/workspace.asm \
     $(SRCDIR)/shell/configure.asm \
-    $(SRCDIR)/shell/move_resize.asm \
-    $(SRCDIR)/shell/states.asm \
     $(SRCDIR)/shell/decoration.asm \
     $(SRCDIR)/shell/decoration_draw.asm \
     $(SRCDIR)/shell/icons.asm \
-    $(SRCDIR)/shell/theme.asm \
-    $(SRCDIR)/shell/rules.asm \
     $(SRCDIR)/shell/stacking.asm \
     $(SRCDIR)/shell/window.asm
 
 # Policy (C13)
 POLICY_SRCS := \
-    $(SRCDIR)/policy/policy_iface.asm \
-    $(SRCDIR)/policy/policy_floating.asm \
-    $(SRCDIR)/policy/policy_tiling.asm \
-    $(SRCDIR)/policy/policy_kiosk.asm \
-    $(SRCDIR)/policy/policy_external.asm \
-    $(SRCDIR)/policy/layout_engine.asm
+    $(SRCDIR)/policy/policy_iface.asm
 
 # Data (C15)
 DATA_SRCS := \
@@ -440,8 +427,7 @@ OBS_SRCS := \
 TEXT_SRCS := \
     $(SRCDIR)/text/text_input.asm \
     $(SRCDIR)/text/preedit.asm \
-    $(SRCDIR)/text/ime_bridge.asm \
-    $(SRCDIR)/text/shortcuts.asm
+    $(SRCDIR)/text/ime_bridge.asm
 
 A11Y_SRCS := \
     $(SRCDIR)/a11y/a11y_tree.asm \
