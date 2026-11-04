@@ -686,6 +686,9 @@ vcs_history:
  call uxv_commit
  test rax,rax
  js .io
+ mov rax,[new_id]
+ mov [head],rax
+ mov [last_id],rax
  lea rdi,[saved]
  mov esi,saved_len
  call emit
@@ -761,6 +764,7 @@ vcs_history:
  call print_newline
 .log_next:
  mov r12,[r13+16]
+ test r12,r12
  jnz .log_loop
  jmp .ok
 .show:
@@ -2129,23 +2133,24 @@ find_current:
  ret
 find_old:
  mov r9,rdi
- mov rax,[old_manifest]
- test rax,rax
+ mov r10,[old_manifest]
+ test r10,r10
  jz .no
- mov rcx,[rax+24]
- add rax,VR_HEADER
+ mov rcx,[r10+24]
+ add r10,VR_HEADER
 .loop:
  test rcx,rcx
  jz .no
  mov rdi,r9
- mov rsi,rax
+ mov rsi,r10
  call same_name
  test eax,eax
  jnz .yes
- add rax,VR_ENTRY
+ add r10,VR_ENTRY
  dec rcx
  jmp .loop
-.yes: ret
+.yes: mov rax,r10
+ ret
 .no: xor eax,eax
  ret
 append_work:
