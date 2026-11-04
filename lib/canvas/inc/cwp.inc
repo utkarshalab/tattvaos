@@ -49,6 +49,8 @@
 %define CWP_OBJ_TEXT_INPUT        23
 %define CWP_OBJ_ACCESSIBILITY     24
 %define CWP_OBJ_TOPLEVEL          26    ; proto/canvas-shell.cwp
+%define CWP_OBJ_POPUP             27
+%define CWP_OBJ_LAYER             28
 
 ; Opcode ranges (per object type)
 %define CWP_OP_DISPLAY_BASE        0x0000
