@@ -48,4 +48,14 @@
 %define TOPLEVEL_EVENT_CONFIGURE    0
 %define TOPLEVEL_EVENT_CLOSE        1
 
+; cw_popup
+%define POPUP_CREATE                0
+%define POPUP_DESTROY               1
+%define POPUP_EVENT_DONE            0
+
+; cw_layer
+%define LAYER_CREATE                0
+%define LAYER_DESTROY               1
+%define LAYER_EVENT_CONFIGURE       0
+
 %endif
