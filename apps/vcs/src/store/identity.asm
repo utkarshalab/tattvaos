@@ -590,8 +590,6 @@ vcs_identity:
  cmp [r15+16],r14
  jne .corrupt
  mov rcx,[r15+24]
- cmp rcx,[rbx+UV_DATA+8]
- jne .corrupt
  test rcx,rcx
  jz .corrupt
  cmp rcx,VR_ID_NAME_MAX
