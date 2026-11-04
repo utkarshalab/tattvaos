@@ -63,6 +63,15 @@ endstruc
 %define INPUT_EVENT_ABS       3
 %define INPUT_EVENT_SYN       4
 
+; Modifier masks (cw_keyboard modifiers and text events)
+%define MOD_SHIFT        (1 << 0)
+%define MOD_CAPS         (1 << 1)
+%define MOD_CTRL         (1 << 2)
+%define MOD_ALT          (1 << 3)
+%define MOD_SUPER        (1 << 4)
+%define MOD_NUM          (1 << 5)
+%define MOD_LOGO         (1 << 6)
+
 ; Raw input (RawInput.type): what a source hands input_submit
 %define INPUT_KEY           1   ; code = keycode 0-255; value = 1 down, 0 up
 %define INPUT_MOTION        2   ; code, value = dx, dy
