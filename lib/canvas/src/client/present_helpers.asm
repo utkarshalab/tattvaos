@@ -48,7 +48,7 @@ canvas_present_wait:
     jnz .wait
     cmp dword [rcx + MsgHdr.obj], CWP_OBJ_SURFACE
     jne .keep
-    cmp word [rcx + MsgHdr.opcode], SURFACE_EVENT_FRAME_DONE
+    cmp word [rcx + MsgHdr.opcode], SURFACE_EV_FRAME_DONE
     jne .keep
     cmp [rbx + CLIENT_WIRE + ClientWire.in_msg + 4], r12d
     je .done
