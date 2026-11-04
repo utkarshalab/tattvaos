@@ -1,6 +1,10 @@
 ; ============================================================================
-; Client Conn — Connection Setup (channel pair + handshake)
+; Client Conn — Connecting to the Server
 ; ============================================================================
+; canvas_connect_pair takes a channel pair the server has made for this
+; client, as client_accept does inside canvasd. canvas_connect, for other
+; programs, needs the kernel to hand out the server's channels (KRN-03) and
+; fails until it does.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -10,82 +14,88 @@
 
 extern arena_init
 
-; ClientConn struct layout (manual offsets to avoid NASM preprocessor issues)
-%define CLIENT_REGION_SIZE        1048576
-%define CLIENT_HEAP_OFFSET        65536
+section .text
 
 ; ---------------------------------------------------------------------------
 ; canvas_connect
-;   IN: rdi = caps_wanted u64 — OUT: rax = conn* (0 on fail)
+;   IN:  rdi = capabilities wanted
+;   OUT: rax = conn*, 0: no way to reach the server yet
 ; ---------------------------------------------------------------------------
 global canvas_connect
 canvas_connect:
-    PROLOGUE_SAVE rbx, r12
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; canvas_connect_pair
+;   A connection over a channel pair the server made
+;   IN:  rdi = ChannelPair* (the client's end), rsi = pump function, called
+;        with rdi = rdx while a call waits (0: yield instead), rdx = its
+;        argument
+;   OUT: rax = conn*, 0 if there was no memory
+; ---------------------------------------------------------------------------
+global canvas_connect_pair
+canvas_connect_pair:
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
-    mov rdi, CLIENT_REGION_SIZE
-    mov rsi, 0
+    mov r12, rsi
+    mov r13, rdx
+    ASSERT_PTR rbx
+    mov edi, CLIENT_REGION_SIZE
+    xor esi, esi
     call ut_mem_alloc
     test rax, rax
     js .fail
-    mov r12, rax
-    mov [r12 + ClientConn.region_handle], r8
-    mov qword [r12 + ClientConn.server_chan], 0
-    mov qword [r12 + ClientConn.caps_wanted], rbx
-    mov qword [r12 + ClientConn.caps_granted], 0
-    mov dword [r12 + ClientConn.next_obj], 1
-    mov qword [r12 + ClientConn.buffer_count], 0
-    mov qword [r12 + ClientConn.clip_len], 0
-    mov qword [r12 + ClientConn.clip_mime_len], 0
-    mov byte [r12 + ClientConn.present_valid], 0
-    lea rax, [r12 + ClientConn.arena_state]
-    mov [r12 + ClientConn.arena], rax
-    mov rdi, rax
-    lea rsi, [r12 + CLIENT_HEAP_OFFSET]
-    mov rdx, CLIENT_REGION_SIZE - CLIENT_HEAP_OFFSET
+    mov r14, rax
+    mov rdi, rax                        ; everything before the heap starts clear
+    xor eax, eax
+    mov ecx, CLIENT_HEAP_OFFSET
+    rep stosb
+    mov [r14 + ClientConn.region_handle], r8
+
+    mov [r14 + ClientConn.server_chan], rbx
+    mov rax, [rbx + ChannelPair.client_to_server]
+    mov [r14 + ClientConn.tx_ring], rax
+    mov rax, [rbx + ChannelPair.server_to_client]
+    mov [r14 + ClientConn.rx_ring], rax
+    mov dword [r14 + ClientConn.next_obj], 1
+    mov [r14 + CLIENT_WIRE + ClientWire.pump], r12
+    mov [r14 + CLIENT_WIRE + ClientWire.pump_arg], r13
+
+    lea rdi, [r14 + CLIENT_WIRE + ClientWire.arena]
+    mov [r14 + ClientConn.arena], rdi
+    lea rsi, [r14 + CLIENT_HEAP_OFFSET]
+    mov edx, CLIENT_REGION_SIZE - CLIENT_HEAP_OFFSET
     call arena_init
-    test rax, rax
-    js .free_fail
-    ; Canvas clients are native peers. Capabilities are negotiated by intersecting
-    ; with the capabilities implemented by this library instance.
-    mov rax, CLIENT_CAP_DISPLAY | CLIENT_CAP_BUFFER | CLIENT_CAP_SURFACE | CLIENT_CAP_PRESENT | CLIENT_CAP_SHELL | CLIENT_CAP_DATA
-    and rbx, rax
-    mov qword [r12 + ClientConn.caps_granted], rbx
-    mov rax, r12
-    EPILOGUE_RESTORE rbx, r12
-    ret
+    mov rax, r14
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 .fail:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-.free_fail:
-    mov rdi, [r12 + ClientConn.region_handle]
-    call ut_mem_free
-    jmp .fail
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
 ; canvas_disconnect
+;   Free the connection. The server learns of it from its side of the
+;   channel, not from a request.
+;   IN:  rdi = conn
 ; ---------------------------------------------------------------------------
 global canvas_disconnect
 canvas_disconnect:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-    mov rdi, [rbx + ClientConn.region_handle]
-    call ut_mem_free
-    EPILOGUE_RESTORE rbx
-    ret
+    ASSERT_PTR rdi
+    mov rdi, [rdi + ClientConn.region_handle]
+    jmp ut_mem_free
 
 ; ---------------------------------------------------------------------------
 ; canvas_get_caps
+;   IN:  rdi = conn
+;   OUT: rax = the capabilities the server granted, 0 before its grant came
 ; ---------------------------------------------------------------------------
 global canvas_get_caps
 canvas_get_caps:
-    PROLOGUE
     ASSERT_PTR rdi
     mov rax, [rdi + ClientConn.caps_granted]
-    leave
     ret
 
 section .data
 global canvas_conn_version
-canvas_conn_version: dq 0x010000
+canvas_conn_version: dq 0x020000
