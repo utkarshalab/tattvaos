@@ -73,6 +73,7 @@ with tempfile.TemporaryDirectory() as work:
     assert run('cat project/sub/b') == b'new'
     run('cd project; vcs branch -d old')
     run('cd project; vcs tag -d release')
+    before = disk.read_bytes()
     assert run('cd project; vcs refs') == b''
     assert disk.read_bytes() == before
     assert b'already initialized' in run('vcs init project')
@@ -127,6 +128,11 @@ with tempfile.TemporaryDirectory() as work:
     run('cd staged; vcs add b; vcs reset --all')
     assert run('cd staged; vcs staged') == b'No staged paths\n'
     run('cd staged; vcs add --all; vcs commit indexed-rest')
+    # Signed-history behavior is independent of the preceding repositories and
+    # needs its own bounded 64-record UXFS image.
+    disk.write_bytes(fmt.image())
+    run('write /seed 0123456789abcdef0123456789abcdef; '
+        'write /wrong fedcba9876543210fedcba9876543210')
     run('mkdir signed; vcs init signed; write signed/file one; '
         'cd signed; vcs identity signer /seed')
     run('cd signed; vcs commit --sign /seed initial')
