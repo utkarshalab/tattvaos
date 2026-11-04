@@ -1516,6 +1516,7 @@ struc Server
     .transfer_count:          resq 1
     .transfers:               resq 1
     .input_seat:              resq 1    ; the active seat: all input goes to it
+    .greeter:                 resq 1    ; the login screen, stepped each turn
 endstruc
 
 ; One raw input event, as a source hands it to input_submit
@@ -1536,6 +1537,10 @@ struc InputSeat
     .pointer_focus:           resq 1    ; Surface* under the pointer, 0: none
     .keyboard_focus:          resq 1    ; Surface*, 0: none
     .time:                    resq 1    ; of the event being delivered
+    .repeat_next:             resq 1    ; when the held key repeats next, ns
+    .repeat_delay:            resq 1    ; from a press to its first repeat, ns
+    .repeat_interval:         resq 1    ; between repeats, ns; 0: no repeat
+    .repeat_key:              resd 1    ; the key repeating, 0: none
     .x:                       resd 1    ; pointer, output pixels
     .y:                       resd 1
     .buttons:                 resd 1    ; held buttons, bit n = button n
