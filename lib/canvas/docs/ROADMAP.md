@@ -171,7 +171,7 @@
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | PRO-01 | Real `canvas_connect`: channel pair, handshake, capability grant | P1 | ◐ the server's end works (`client_accept`, `test_server`); `canvas_connect` and the client helpers still need KRN-03 |
-| PRO-02 | `cwpgen`: generate dispatch tables, server stubs and client stubs from `proto/*.cwp` | P1 | ◐ TODO in `src/tools/cwpgen.asm` |
+| PRO-02 | `cwpgen`: generate dispatch tables, server stubs and client stubs from `proto/*.cwp` | P1 | ◐ `tools/cwpgen.py` (development machine) generates every request and event number in `inc/cwp_ops.inc` from the core, input and shell protocols; `make cwp-check` (part of `all`) fails when the header is behind. Dispatch tables and stubs are still written by hand; `src/tools/cwpgen.asm` is an in-OS stub |
 | PRO-03 | Capability negotiation: interfaces invisible without grant | P2 | ◐ stub in `proto/negotiate` |
 | PRO-04 | Error objects and protocol error reporting | P1 | ✓ `proto/errors`: a refused request becomes an error event and the client stays connected |
 | PRO-05 | Per-interface versioning with downgrade negotiation | P2 | ◐ `proto/versioning` |
