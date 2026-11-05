@@ -456,7 +456,8 @@ CLIENT_SRCS := \
     $(SRCDIR)/client/clipboard_helpers.asm \
     $(SRCDIR)/client/present_helpers.asm
 
-# Protocol numbers: inc/cwp_ops.inc is generated from these
+# Protocol numbers and dispatch: inc/cwp_ops.inc, inc/cwp_dispatch.inc are
+# generated from these
 CWP_OPS_PROTOS := proto/canvas-core.cwp proto/canvas-input.cwp proto/canvas-shell.cwp
 
 # Desktop components inside canvasd
@@ -480,12 +481,14 @@ all: cwp-check layout-check server ubf client tools clients
 release:
 	$(MAKE) MODE=release all
 
-# inc/cwp_ops.inc from the protocol files; cwp-check fails if it is behind
+# inc/cwp_ops.inc and inc/cwp_dispatch.inc from the protocol files;
+# cwp-check fails if either is behind
 cwp-ops:
-	python3 tools/cwpgen.py -o inc/cwp_ops.inc $(CWP_OPS_PROTOS)
+	python3 tools/cwpgen.py -o inc/cwp_ops.inc -d inc/cwp_dispatch.inc $(CWP_OPS_PROTOS)
 
 cwp-check:
-	@python3 tools/cwpgen.py --check -o inc/cwp_ops.inc $(CWP_OPS_PROTOS)
+	@python3 tools/cwpgen.py --check -o inc/cwp_ops.inc -d inc/cwp_dispatch.inc \
+	    --handlers src/server/server_core.asm $(CWP_OPS_PROTOS)
 
 # ---------------------------------------------------------------------------
 # Layout check: every object's fields live in its one struc. Fails on a
