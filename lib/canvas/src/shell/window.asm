@@ -386,9 +386,20 @@ window_set_name:
     mov byte [rdi], 0
     cmp dword [rax + Window.kind], ROLE_TOPLEVEL
     jne .named
-    mov rsi, rax                        ; the window list sees the new name
-    mov rdi, [rax + Window.server]
-    jmp window_list_changed
+    push rbx
+    mov rbx, rax
+    mov rdi, [rbx + Window.server]      ; its bar shows the title
+    mov rsi, [rbx + Window.surface]
+    cmp dword [rbx + Window.decorated], 0
+    je .listed
+    call compositor_damage_surface
+.listed:
+    mov rdi, [rbx + Window.server]      ; the window list sees the new name
+    mov rsi, rbx
+    call window_list_changed
+    pop rbx
+    xor eax, eax
+    ret
 .named:
     xor eax, eax
     ret
