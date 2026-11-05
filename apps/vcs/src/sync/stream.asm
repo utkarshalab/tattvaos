@@ -30,6 +30,7 @@ vcs_stream_send_begin:
  mov ebx,edi
  mov r12d,edx
  mov r13,rcx
+ call clear_stream
  test r13,r13
  jz .send_usage
  mov rdi,rsi
@@ -70,6 +71,11 @@ vcs_stream_send_begin:
 vcs_stream_receive_begin:
  push rbx
  mov ebx,edi
+ call clear_stream
+ cmp esi,VCS_WIRE_FETCH
+ jb .receive_usage
+ cmp esi,VCS_WIRE_PATCH
+ ja .receive_usage
  mov [stream_expected],rsi
  mov [stream_seed],rdx
  lea rdi,[stream_transfer]
@@ -85,6 +91,9 @@ vcs_stream_receive_begin:
 .receive_done:
  pop rbx
  ret
+.receive_usage:
+ mov eax,VCS_ERR_USAGE
+ jmp .receive_done
 
 ; Advance one frame. Receive success returns imported local ID in RDX.
 vcs_stream_step:
@@ -93,25 +102,39 @@ vcs_stream_step:
  cmp eax,VCS_XFER_AGAIN
  je .step_done
  test eax,eax
- jnz .step_done
+ jnz .step_clear
  cmp qword [stream_mode],STREAM_SEND
- je .step_done
+ je .step_clear
  cmp qword [stream_mode],STREAM_RECEIVE
  jne .step_corrupt
  lea rdi,[stream_transfer]
  call vcs_sync_result
+ cmp eax,VCS_XFER_AGAIN
+ je .step_done
  test eax,eax
- jnz .step_done
+ jnz .step_clear
  cmp r8,[stream_expected]
  jne .step_corrupt
+ mov r9,[stream_seed]
+ call clear_stream
  mov rdi,rdx
  mov rsi,rcx
- mov rdx,[stream_seed]
+ mov rdx,r9
  call vcs_bundle_publish
  jmp .step_done
 .step_corrupt:
  mov eax,VCS_ERR_CORRUPT
+.step_clear:
+ push rax
+ call clear_stream
+ pop rax
 .step_done:
+ ret
+
+clear_stream:
+ mov qword [stream_mode],0
+ mov qword [stream_expected],0
+ mov qword [stream_seed],0
  ret
 
 section .note.GNU-stack noalloc noexec nowrite progbits
