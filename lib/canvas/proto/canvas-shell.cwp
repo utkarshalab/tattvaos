@@ -13,8 +13,11 @@ protocol canvas-shell 1 {
     ; ========================================================================
 
     ; A window: placed at the pointer the first time it shows a buffer, kept
-    ; on the output. Super+Up maximizes it or puts it back, Super+Down
-    ; minimizes it, Alt+F4 asks it to close. Needs the shell capability.
+    ; on the output, on the workspace shown when it was made. Super+Up
+    ; maximizes it or puts it back, Super+Down minimizes it, Alt+F4 asks it
+    ; to close, Super+Shift+1 to 4 moves it to that workspace. Super+1 to 4
+    ; shows a workspace: only its windows are on the screen. Needs the shell
+    ; capability.
     interface cw_toplevel 1 {
         ; Make the surface a window. A configure event follows at once.
         request create(surface: handle)
@@ -105,10 +108,12 @@ protocol canvas-shell 1 {
         ; me told
         request subscribe()
 
-        request activate(id: uint)              ; back if minimized, raised, the keyboard
+        request activate(id: uint)              ; its workspace shown, back if minimized, raised, the keyboard
         request close(id: uint)                 ; its client is asked
         request minimize(id: uint)
         request set_maximized(id: uint, maximized: bool)
+        request set_workspace(index: uint)      ; show workspace 0 to count - 1
+        request move_to_workspace(id: uint, index: uint)
 
         enum state {
             maximized = 1,
@@ -118,10 +123,13 @@ protocol canvas-shell 1 {
 
         ; A window there is, or one that changed. title and app_id are
         ; UTF-8, NUL-terminated in 64 bytes.
-        event window(id: uint, states: uint, title: bytes[64], app_id: bytes[64])
+        event window(id: uint, states: uint, workspace: uint, title: bytes[64], app_id: bytes[64])
         event removed(id: uint)
 
         ; The window with the keyboard; 0: none
         event activated(id: uint)
+
+        ; The workspace shown, of count; after subscribing and on each change
+        event workspace(current: uint, count: uint)
     }
 }
