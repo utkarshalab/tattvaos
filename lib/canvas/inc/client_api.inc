@@ -35,6 +35,8 @@ extern canvas_window_activate
 extern canvas_window_close
 extern canvas_window_minimize
 extern canvas_window_set_maximized
+extern canvas_window_list_set_workspace
+extern canvas_window_move_to_workspace
 extern canvas_toplevel_set_app_id
 extern canvas_toplevel_set_min_size
 extern canvas_toplevel_set_max_size
