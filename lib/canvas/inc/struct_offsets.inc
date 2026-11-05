@@ -1520,6 +1520,7 @@ struc Server
     .greeter:                 resq 1    ; the login screen, stepped each turn
     .taskbar:                 resq 1    ; the built-in taskbar, likewise
     .locked:                  resq 1    ; 1 while the login screen is up
+    .focus_seq:               resq 1    ; the last Window.focus_seq given
     .windows:                 resq 1    ; every Window, newest first
     .window_seq:              resq 1    ; the last Window.number given
     .window_active:           resq 1    ; the number the window list last said
@@ -1717,7 +1718,7 @@ struc Window
     .workspace:               resd 1    ; a toplevel's, 0 to WORKSPACES - 1
     .decorated:               resd 1    ; 1: the server draws its title bar
     .bar_w:                   resd 1    ; the width its bar was drawn at
-    .bar_pad:                 resd 1
+    .focus_seq:               resd 1    ; when it last got the keyboard
     .serial:                  resd 1    ; of the last configure sent
     .acked:                   resd 1    ; the last the client applied
     .title_len:               resd 1
