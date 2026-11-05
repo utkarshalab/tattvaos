@@ -401,7 +401,8 @@ SESSION_SRCS := \
     $(SRCDIR)/session/idle.asm \
     $(SRCDIR)/session/kiosk.asm \
     $(SRCDIR)/session/power.asm \
-    $(SRCDIR)/session/greeter.asm
+    $(SRCDIR)/session/greeter.asm \
+    $(SRCDIR)/session/login.asm
 
 # Governance (C19)
 GOVERNANCE_SRCS := \
