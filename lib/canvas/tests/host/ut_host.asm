@@ -324,6 +324,23 @@ global %1
 %endmacro
 
 HOST_NONE ut_wait_wake_task
+
+; ut_auth_verify for host tests: one account, the machine's user (no name),
+; whose password is "secret"
+global ut_auth_verify
+ut_auth_verify:
+    mov rax, -(EACCES)
+    test esi, esi
+    jnz .out                            ; a named user: none here
+    cmp ecx, 6
+    jne .out
+    cmp dword [rdx], 'secr'
+    jne .out
+    cmp word [rdx + 4], 'et'
+    jne .out
+    xor eax, eax
+.out:
+    ret
 HOST_NONE ut_input_register_callback
 HOST_NONE ut_input_unregister_callback
 HOST_NONE ut_power_register_callback
