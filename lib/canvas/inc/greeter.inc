@@ -26,6 +26,7 @@
 %define GREETER_CARET_H     24
 
 %define GREETER_MAX         64          ; characters kept
+%define GREETER_IDLE_NS     300000000000    ; five minutes without input locks
 
 ; "Password" above the field, when the screen has room for it
 %define GREETER_LABEL_H     22
@@ -58,7 +59,10 @@ struc Greeter
     alignb 8
     .event:         resb 148    ; a ClientEvent (inc/canvas_client.inc)
     .text:          resb 64     ; GREETER_MAX: sizes are literal for
-endstruc                        ; make field-width-check
+                                ; make field-width-check
+    .unlocked_at:   resq 1      ; monotonic ns of the last unlock
+    .idle_ns:       resq 1      ; no input this long locks; 0: never
+endstruc
 
 %if GREETER_MAX != 64
     %error "Greeter: the text buffer above must follow GREETER_MAX"
