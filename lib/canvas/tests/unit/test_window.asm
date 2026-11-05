@@ -47,6 +47,7 @@ extern window_activate
 %define TL_SET_FULL     7
 %define TL_UNSET_FULL   8
 %define TL_SET_MIN      9
+%define TL_SET_DECO     10
 %define TL_CONFIGURE    0
 %define TL_CLOSE        1
 %define PU_CREATE       0
@@ -99,6 +100,8 @@ test_window_suite:
     CASE tw_list_needs_cap, CAP_SHELL
     CASE tw_workspaces, CAP_SHELL
     CASE tw_list_workspace, CAP_SHELL | CAP_WINDOWS
+    CASE tw_titlebar, CAP_SHELL
+    CASE tw_titlebar_drag, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -1192,6 +1195,94 @@ tw_list_workspace:
     cmp dword [rel ans], 2
     jne .fail
     SHOWN surface_a, 0
+    PASS
+
+; a press and release at x, y, then a turn
+%macro CLICK_AT 2
+    POINTER %1, %2
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+%endmacro
+
+; edi = x, esi = y -> eax = the output's pixel there, as composited
+screen_pixel:
+    mov rax, [rel server + Server.outputs]
+    mov rcx, [rax + Output.stride]
+    imul rsi, rcx
+    mov rax, [rax + Output.framebuffer]
+    add rax, rsi
+    mov eax, [rax + rdi * 4]
+    ret
+
+; a 64x20 window with a title bar, at the top-left corner -> surface_a
+decorated_window:
+    sub rsp, 8
+    POINTER 0, 0
+    mov edi, 64
+    mov esi, 20
+    call new_surface
+    mov [rel surface_a], eax
+    TOPLEVEL TL_CREATE, surface_a, 0
+    TOPLEVEL TL_SET_DECO, surface_a, 1
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    call drain
+    add rsp, 8
+    ret
+
+; The bar goes above the window, inside the output; its buttons maximize
+; and put back (the bar's room kept), close, minimize; the client sees none
+; of the clicks
+tw_titlebar:
+    sub rsp, 8
+    call decorated_window
+    AT 0, TITLEBAR_H
+    mov edi, 2                          ; drawn: the bar, the close button
+    mov esi, 2
+    call screen_pixel
+    cmp eax, 0xFF2C3248
+    jne .fail
+    mov edi, 64 - 12
+    mov esi, 10
+    call screen_pixel
+    cmp eax, 0xFFC04848
+    jne .fail
+    CLICK_AT 30, 10                     ; maximize: 24 to 40 across
+    CONFIGURED 64, 48 - TITLEBAR_H, 1
+    AT 0, TITLEBAR_H
+    CLICK_AT 30, 10
+    CONFIGURED 64, 20, 0
+    CLICK_AT 50, 10                     ; close: 44 to 60
+    FIND CWP_OBJ_TOPLEVEL, TL_CLOSE
+    mov edi, CWP_OBJ_POINTER
+    call any_event
+    test eax, eax
+    jnz .fail
+    CLICK_AT 10, 10                     ; minimize: 4 to 20
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp qword [rax + Surface.output], 0
+    jne .fail
+    PASS
+
+; Dragging the bar moves the window
+tw_titlebar_drag:
+    sub rsp, 8
+    call decorated_window
+    POINTER 62, 5                       ; on the bar, past the buttons
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_POSITION, 62, 15
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    AT 0, TITLEBAR_H + 10
+    mov edi, CWP_OBJ_POINTER
+    call any_event
+    test eax, eax
+    jnz .fail
     PASS
 
 section .bss
