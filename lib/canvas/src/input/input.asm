@@ -18,7 +18,8 @@
 ;   Alt+F4   asks the focused window's client to close it; Super+Up
 ;            maximizes it or puts it back, Super+Down minimizes it;
 ;            Super+1 to 4 shows a workspace, Super+Shift+1 to 4 moves the
-;            focused window there
+;            focused window there; Super+L locks. While the login screen is
+;            up (Server.locked) none of these does anything
 ;   Alt+drag moves the window under the pointer, Alt+right-drag resizes it
 ;            (configure with the new size); its client sees none of the drag
 ;   a press  on anything but a popup ends every popup (an Alt+drag does not)
@@ -56,6 +57,7 @@ extern window_close
 extern window_configure
 extern window_dismiss_popups
 extern window_list_activated
+extern greeter_lock
 extern window_set_decorated
 extern window_maximize
 extern window_minimize
@@ -96,6 +98,7 @@ extern window_move
 %define KEY_F4          62
 %define KEY_UP          103
 %define KEY_1           2               ; 1 to 4 are 2 to 5
+%define KEY_L           38
 %define KEY_DOWN        108
 
 %define EVENT_SHORT     12              ; time, surface
@@ -882,9 +885,20 @@ button_event:
 shortcut:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov rax, [rbx + InputSeat.server]
+    cmp qword [rax + Server.locked], 0
+    jne .no                             ; the login screen's keys are its own
     mov edx, [rbx + InputSeat.mods]
     test edx, MOD_SUPER
     jz .window_keys
+    cmp esi, KEY_L
+    jne .workspace_keys
+    mov rdi, [rax + Server.greeter]
+    test rdi, rdi
+    jz .no
+    call greeter_lock
+    jmp .yes
+.workspace_keys:
     lea eax, [rsi - KEY_1]
     cmp eax, WORKSPACES
     jae .window_keys
