@@ -33,6 +33,7 @@ extern sw_render_surface
 extern sw_render_end_frame
 extern titlebar_rect
 extern titlebar_render
+extern switcher_render
 
 %define COMPOSITOR_BG_COLOR 0xFF202030  ; opaque BGRA
 
@@ -458,7 +459,7 @@ compositor_composite_output:
     mov r15, [r12 + Output.surfaces]
 .surface:
     test r15, r15
-    jz .next_rect
+    jz .overlays
     mov rdi, rsp                        ; its title bar under it, if any
     mov rsi, r15
     lea rdx, [rsp + L_CLIP]
@@ -469,6 +470,10 @@ compositor_composite_output:
     call sw_render_surface
     mov r15, [r15 + Surface.z_order_next]
     jmp .surface
+.overlays:
+    mov rdi, rsp                        ; an Alt+Tab over everything
+    lea rsi, [rsp + L_CLIP]
+    call switcher_render
 .next_rect:
     inc r14
     jmp .rect
