@@ -9,9 +9,10 @@
 ;
 ; ut_fb_info reports a small poisoned framebuffer with a pitch wider than its
 ; rows. After a few turns of the program's loop, ut_yield checks the login
-; screen is up: every visible pixel outside the password field holds the
-; greeter's background, every one inside it the field's colours, the caret is
-; drawn, and the bytes past each row are still poison.
+; screen is up: every visible pixel outside the password field and its label
+; holds the greeter's background, every one inside the field the field's
+; colours, the caret is drawn, the label has ink, and the bytes past each row
+; are still poison.
 ;
 ; usage: ubf_run <file.ubf>   exit 0 when the frame is right
 ; ============================================================================
@@ -78,7 +79,7 @@ extern ut_task_exit
 
 ; The fake framebuffer
 %define FB_WIDTH            400         ; room for the greeter's field
-%define FB_HEIGHT           80
+%define FB_HEIGHT           120         ; and the label above the field
 %define FB_PITCH            (416 * 4)
 %define FB_POISON           0xDEADBEEF
 %define TURNS_BEFORE_CHECK  6           ; the greeter is up after the first
@@ -88,6 +89,7 @@ extern ut_task_exit
 %define FIELD_Y             ((FB_HEIGHT - GREETER_FIELD_H) / 2)
 %define CARET_X             (FIELD_X + GREETER_PAD)
 %define CARET_Y             (FIELD_Y + (GREETER_FIELD_H - GREETER_CARET_H) / 2)
+%define LABEL_Y             (FIELD_Y - GREETER_LABEL_GAP - GREETER_LABEL_H)
 
 section .text
 
@@ -333,6 +335,12 @@ run_yield:
     jb .outside
     cmp ecx, FIELD_X + GREETER_FIELD_W
     jae .outside
+    cmp edx, LABEL_Y
+    jb .outside
+    cmp edx, FIELD_Y
+    jb .pixel_ok                        ; the label: text, any colour
+    cmp ecx, FIELD_X + GREETER_FIELD_W
+    jae .outside
     cmp edx, FIELD_Y
     jb .outside
     cmp edx, FIELD_Y + GREETER_FIELD_H
@@ -362,6 +370,24 @@ run_yield:
     lea rax, [framebuffer]
     cmp dword [rax + CARET_Y * FB_PITCH + CARET_X * 4], GREETER_INK
     jne .wrong_pixel                    ; drawn, not just cleared
+
+    ; The label has ink: not all of its box is the background
+    lea rsi, [framebuffer + LABEL_Y * FB_PITCH + FIELD_X * 4]
+    mov edx, GREETER_LABEL_H
+.label_row:
+    xor ecx, ecx
+.label_pixel:
+    cmp dword [rsi + rcx * 4], GREETER_BG
+    jne .labelled
+    inc ecx
+    cmp ecx, GREETER_FIELD_W
+    jb .label_pixel
+    add rsi, FB_PITCH
+    dec edx
+    jnz .label_row
+    lea rdi, [msg_label]
+    jmp fail_message
+.labelled:
 
     ; How much of the stack the server has touched
     mov rcx, [stack_low]
@@ -432,6 +458,7 @@ msg_file:       db "ubf_run: cannot read the file", 10, 0
 msg_map:        db "ubf_run: cannot map the image", 10, 0
 msg_import:     db "ubf_run: nothing exports %s", 10, 0
 msg_returned:   db "ubf_run: the server returned", 10, 0
+msg_label:      db "ubf_run: the label above the field has no ink", 10, 0
 msg_pixel:      db "ubf_run: a visible pixel is not the login screen's", 10, 0
 msg_edge:       db "ubf_run: a write went past the end of a row", 10, 0
 msg_ok:         db "ubf_run: first frame right, %d of %d stack bytes used", 10, 0
