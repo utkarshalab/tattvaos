@@ -122,7 +122,8 @@ window_list_removed:
 
 ; ---------------------------------------------------------------------------
 ; window_list_activated
-;   The keyboard moved; subscribers hear if the window that has it changed
+;   The keyboard moved; subscribers hear if the window that has it changed,
+;   and a window that has it is stamped (Window.focus_seq) for Alt+Tab
 ;   IN:  rdi = server*, rsi = surface* with the keyboard, 0 for none
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -136,6 +137,10 @@ window_list_activated:
     jz .have
     cmp dword [rcx + Window.kind], ROLE_TOPLEVEL
     jne .have
+    mov eax, [rdi + Server.focus_seq]   ; when it had it, for Alt+Tab
+    inc eax
+    mov [rdi + Server.focus_seq], rax
+    mov [rcx + Window.focus_seq], eax
     mov eax, [rcx + Window.number]
 .have:
     cmp eax, [rdi + Server.window_active]
