@@ -16,6 +16,7 @@ default rel
 
 extern arena_init
 extern greeter_start
+extern ui_text_init
 extern greeter_step
 extern taskbar_start
 extern taskbar_step
@@ -95,6 +96,11 @@ canvasd_init:
     call server_init
     test rax, rax
     js .no_server
+
+    ; Text in the embedded font, for what canvasd draws itself; without it
+    ; there are no labels, nothing else changes
+    lea rdi, [server_arena]
+    call ui_text_init
 
     ; The login screen; a screen too small for it starts without one. Its
     ; calls turn the server while they wait.
