@@ -16,7 +16,9 @@
 ;   a press  on a surface raises it and, unless it is a background, bottom
 ;            or top layer, gives it the keyboard focus
 ;   Alt+F4   asks the focused window's client to close it; Super+Up
-;            maximizes it or puts it back, Super+Down minimizes it
+;            maximizes it or puts it back, Super+Down minimizes it;
+;            Super+1 to 4 shows a workspace, Super+Shift+1 to 4 moves the
+;            focused window there
 ;   Alt+drag moves the window under the pointer, Alt+right-drag resizes it
 ;            (configure with the new size); its client sees none of the drag
 ;   a press  on anything but a popup ends every popup (an Alt+drag does not)
@@ -52,6 +54,8 @@ extern window_dismiss_popups
 extern window_list_activated
 extern window_maximize
 extern window_minimize
+extern window_move_to_workspace
+extern window_switch_workspace
 extern window_move
 
 ; cw_keyboard and cw_pointer events: interface << 16 | event index
@@ -86,6 +90,7 @@ extern window_move
 %define KEY_RIGHTMETA   126
 %define KEY_F4          62
 %define KEY_UP          103
+%define KEY_1           2               ; 1 to 4 are 2 to 5
 %define KEY_DOWN        108
 
 %define EVENT_SHORT     12              ; time, surface
@@ -854,12 +859,33 @@ button_event:
 .out:
     EPILOGUE_RESTORE rbx, r12
 
-; The server's keys, for the window with the keyboard: Alt+F4, Super+Up,
-; Super+Down.
+; The server's keys: Super+1 to 4 and, for the window with the keyboard,
+; Super+Shift+1 to 4, Alt+F4, Super+Up, Super+Down.
 ; rdi = seat, esi = the keycode pressed -> eax = 1 if it was one
 shortcut:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov edx, [rbx + InputSeat.mods]
+    test edx, MOD_SUPER
+    jz .window_keys
+    lea eax, [rsi - KEY_1]
+    cmp eax, WORKSPACES
+    jae .window_keys
+    test edx, MOD_SHIFT
+    jnz .move_to
+    mov rdi, [rbx + InputSeat.server]
+    mov esi, eax
+    call window_switch_workspace
+    jmp .yes
+.move_to:
+    mov rdi, [rbx + InputSeat.server]
+    mov rsi, [rbx + InputSeat.keyboard_focus]
+    test rsi, rsi
+    jz .yes
+    mov edx, eax
+    call window_move_to_workspace       ; -EINVAL for no window: still a key
+    jmp .yes
+.window_keys:
     mov r12, [rbx + InputSeat.keyboard_focus]
     test r12, r12
     jz .no
