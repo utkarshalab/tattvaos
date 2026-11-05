@@ -10,8 +10,9 @@
 ;             until moved (window_move, Alt+drag). Maximized or fullscreen
 ;             it fills the output (fullscreen above top layers; maximized
 ;             the part layers' exclusive strips leave) and goes back to its
-;             place and size after; minimized it leaves the output until
-;             window_activate brings it back. The window list
+;             place and size after. It is on the output only while it is
+;             not minimized and its workspace is the one shown; activating
+;             it brings it back, showing its workspace. The window list
 ;             (shell/window_list) is told of every toplevel and change.
 ;   popup     at its offset on its parent, kept on the output, and moved
 ;             with it; when the parent goes, or a press lands on anything
@@ -42,15 +43,21 @@ extern handle_resolve
 extern input_focus_surface
 extern input_forget_surface
 extern msgbuf_write
+extern stacking_focus_any
 extern stacking_unmapped
 extern window_list_changed
 extern window_list_removed
+extern window_list_workspace
 
 ; Events: interface << 16 | event
 %define EV_CONFIGURE    (CWP_OBJ_TOPLEVEL << 16 | TOPLEVEL_EV_CONFIGURE)
 %define EV_CLOSE        (CWP_OBJ_TOPLEVEL << 16 | TOPLEVEL_EV_CLOSE)
 %define EV_POPUP_DONE   (CWP_OBJ_POPUP << 16 | POPUP_EV_DONE)
 %define EV_LAYER_CONFIGURE (CWP_OBJ_LAYER << 16 | LAYER_EV_CONFIGURE)
+
+; refresh_visible: what it may do
+%define SHOW    1
+%define HIDE    2
 
 section .text
 
@@ -77,6 +84,8 @@ window_create:
     inc eax
     mov [rbx + Server.window_seq], rax
     mov [r13 + Window.number], eax
+    mov eax, [rbx + Server.workspace]   ; on the workspace shown
+    mov [r13 + Window.workspace], eax
 
     mov rdi, r12                        ; any size it likes, for now
     xor esi, esi
@@ -557,23 +566,11 @@ window_minimize:
     mov r13, rax
     test dword [r13 + Window.state], WINDOW_MINIMIZED
     jnz .done
-    mov rax, [r12 + Surface.output]
-    test rax, rax
-    jz .done                            ; not on an output to leave
-    mov [r13 + Window.min_output], rax
     or dword [r13 + Window.state], WINDOW_MINIMIZED
-    mov rdi, rbx                        ; its popups end
-    mov rsi, r12
-    call window_parent_gone
-    mov rdi, rbx                        ; the keyboard on, while it is still
-    mov rsi, r12                        ; among the others
-    call stacking_unmapped
     mov rdi, rbx
-    mov rsi, r12
-    call input_forget_surface
-    mov rdi, rbx
-    mov rsi, r12
-    call compositor_remove_surface
+    mov rsi, r13
+    mov edx, SHOW | HIDE
+    call refresh_visible
     mov rdi, rbx
     mov rsi, r13
     call window_list_changed
@@ -585,7 +582,8 @@ window_minimize:
 
 ; ---------------------------------------------------------------------------
 ; window_activate
-;   Back on the screen if minimized, raised, given the keyboard
+;   Its workspace shown, back on the screen if minimized, raised, given the
+;   keyboard
 ;   IN:  rdi = server*, rsi = surface*
 ;   OUT: rax = 0, -EINVAL if it is not a window
 ; ---------------------------------------------------------------------------
@@ -599,15 +597,19 @@ window_activate:
     test rax, rax
     js .out
     mov r13, rax
+    mov esi, [r13 + Window.workspace]
+    cmp esi, [rbx + Server.workspace]
+    je .here
+    mov rdi, rbx
+    call window_switch_workspace
+.here:
     test dword [r13 + Window.state], WINDOW_MINIMIZED
     jz .raise
     and dword [r13 + Window.state], ~WINDOW_MINIMIZED
-    mov rdi, [r13 + Window.min_output]
-    mov rsi, r12
-    call compositor_add_surface
     mov rdi, rbx
-    mov rsi, r12
-    call compositor_damage_surface
+    mov rsi, r13
+    mov edx, SHOW | HIDE
+    call refresh_visible
     mov rdi, rbx
     mov rsi, r13
     call window_list_changed
@@ -622,6 +624,93 @@ window_activate:
 .out:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; window_switch_workspace
+;   Show another workspace: its windows come on the screen, the others go;
+;   with nothing left holding the keyboard, the topmost window takes it
+;   IN:  rdi = server*, esi = index, 0 to WORKSPACES - 1
+;   OUT: rax = 0, -EINVAL for no such workspace
+; ---------------------------------------------------------------------------
+global window_switch_workspace
+window_switch_workspace:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov rax, -(EINVAL)
+    cmp esi, WORKSPACES
+    jae .out
+    cmp esi, [rbx + Server.workspace]
+    je .same
+    mov esi, esi
+    mov [rbx + Server.workspace], rsi
+    ; Those coming first, so the keyboard has somewhere to go
+    mov r12, [rbx + Server.windows]
+.show:
+    test r12, r12
+    jz .hide_all
+    mov rdi, rbx
+    mov rsi, r12
+    mov edx, SHOW
+    call refresh_visible
+    mov r12, [r12 + Window.next]
+    jmp .show
+.hide_all:
+    mov r12, [rbx + Server.windows]
+.hide:
+    test r12, r12
+    jz .shown
+    mov rdi, rbx
+    mov rsi, r12
+    mov edx, HIDE
+    call refresh_visible
+    mov r12, [r12 + Window.next]
+    jmp .hide
+.shown:
+    mov rdi, rbx
+    call stacking_focus_any
+    mov rdi, rbx
+    call window_list_workspace
+.same:
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12
+
+; ---------------------------------------------------------------------------
+; window_move_to_workspace
+;   IN:  rdi = server*, rsi = surface*, edx = index
+;   OUT: rax = 0, -EINVAL if it is not a window or no such workspace
+; ---------------------------------------------------------------------------
+global window_move_to_workspace
+window_move_to_workspace:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    cmp edx, WORKSPACES
+    jae .invalid
+    push rdx
+    push rdx                            ; 16-byte aligned
+    call toplevel_of
+    pop rdx
+    pop rdx
+    test rax, rax
+    js .out
+    mov r13, rax
+    mov [r13 + Window.workspace], edx
+    mov rdi, rbx
+    mov rsi, r13
+    mov edx, SHOW | HIDE
+    call refresh_visible
+    mov rdi, rbx
+    mov rsi, r13
+    call window_list_changed
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+.invalid:
+    mov rax, -(EINVAL)
+    jmp .out
 
 ; ---------------------------------------------------------------------------
 ; window_commit
@@ -683,6 +772,66 @@ window_commit:
 ; ---------------------------------------------------------------------------
 ; Local
 ; ---------------------------------------------------------------------------
+
+; A toplevel is on its output while it is not minimized and its workspace
+; is shown. Bring it on or take it off to match, as edx allows: SHOW, HIDE.
+; Taken off, its popups end, the keyboard goes on if it had it, and the
+; output it left is kept to come back to.
+; rdi = server, rsi = Window*, edx = SHOW | HIDE -> rax = 0
+refresh_visible:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, [r12 + Window.surface]
+    mov r14d, edx
+    cmp dword [r12 + Window.kind], ROLE_TOPLEVEL
+    jne .done
+    xor eax, eax                        ; wanted on the screen
+    test dword [r12 + Window.state], WINDOW_MINIMIZED
+    jnz .wanted
+    mov ecx, [r12 + Window.workspace]
+    cmp ecx, [rbx + Server.workspace]
+    jne .wanted
+    mov eax, 1
+.wanted:
+    xor ecx, ecx                        ; on it now
+    cmp qword [r13 + Surface.output], 0
+    setne cl
+    cmp eax, ecx
+    je .done
+    test eax, eax
+    jz .hide
+    test r14d, SHOW
+    jz .done
+    mov rdi, [r12 + Window.min_output]
+    test rdi, rdi
+    jz .done
+    mov rsi, r13
+    call compositor_add_surface
+    mov rdi, rbx
+    mov rsi, r13
+    call compositor_damage_surface
+    jmp .done
+.hide:
+    test r14d, HIDE
+    jz .done
+    mov rax, [r13 + Surface.output]
+    mov [r12 + Window.min_output], rax
+    mov rdi, rbx                        ; its popups end
+    mov rsi, r13
+    call window_parent_gone
+    mov rdi, rbx                        ; the keyboard on, while it is still
+    mov rsi, r13                        ; among the others
+    call stacking_unmapped
+    mov rdi, rbx
+    mov rsi, r13
+    call input_forget_surface
+    mov rdi, rbx
+    mov rsi, r13
+    call compositor_remove_surface
+.done:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; rsi = surface -> rax = its Window if it is a toplevel, else -EINVAL
 toplevel_of:
