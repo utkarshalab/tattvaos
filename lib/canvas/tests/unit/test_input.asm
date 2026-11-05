@@ -35,6 +35,9 @@ extern virtual_input_inject
 %define OP_ATTACH   2
 %define OP_DAMAGE   3
 %define OP_COMMIT   12
+%define OP_SET_INPUT 6
+%define RG_CREATE   0
+%define RG_ADD      2
 
 ; cw_pointer and cw_keyboard events (proto/canvas-input.cwp)
 %define P_ENTER     0
@@ -67,6 +70,7 @@ test_input_suite:
     CASE ti_release_on_switch
     CASE ti_forget_surface
     CASE ti_unmap
+    CASE ti_input_region
     CASE ti_queue_full
     CASE ti_clamp
     mov eax, ebx
@@ -582,6 +586,52 @@ ti_clamp:
     jne .fail
     PASS
 
+; An input region takes B's input to its top-left 8x8: elsewhere on B the
+; pointer is over A beneath; a region not the client's is refused
+ti_input_region:
+    sub rsp, 8
+    SEND CWP_OBJ_REGION, RG_CREATE, 0
+    call poll
+    call next_reply
+    mov eax, [rel ans]
+    mov [rel region], eax
+    mov [rel req], eax
+    mov dword [rel req + 4], 0
+    mov dword [rel req + 8], 0
+    mov dword [rel req + 12], 8
+    mov dword [rel req + 16], 8
+    SEND CWP_OBJ_REGION, RG_ADD, 20
+    mov eax, [rel surface_b]
+    mov [rel req], eax
+    mov eax, [rel region]
+    mov [rel req + 4], eax
+    SEND CWP_OBJ_SURFACE, OP_SET_INPUT, 8
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_SURFACE, OP_COMMIT, 8
+    call poll
+    call drain
+    INJECT INPUT_POSITION, 30, 20       ; on B, outside its region: A's
+    call poll
+    EXPECT CWP_OBJ_POINTER, P_ENTER, surface_a, 30, 20
+    INJECT INPUT_POSITION, 18, 9        ; inside it: B's
+    call poll
+    EXPECT_SHORT CWP_OBJ_POINTER, P_LEAVE, surface_a
+    EXPECT CWP_OBJ_POINTER, P_ENTER, surface_b, 2, 1
+    NOTHING
+    mov eax, [rel surface_b]            ; a handle that is no region of its
+    mov [rel req], eax
+    mov dword [rel req + 4], 999
+    SEND CWP_OBJ_SURFACE, OP_SET_INPUT, 8
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_SURFACE, OP_COMMIT, 8
+    call poll
+    call drain
+    INJECT INPUT_POSITION, 30, 20       ; the region still holds
+    call poll
+    EXPECT_SHORT CWP_OBJ_POINTER, P_LEAVE, surface_b
+    EXPECT CWP_OBJ_POINTER, P_ENTER, surface_a, 30, 20
+    PASS
+
 section .bss
 alignb 16
 server:         resb Server_size
@@ -590,6 +640,7 @@ pair:           resb ChannelPair_size
 hdr:            resb MsgHdr_size
 surface_a:      resd 1
 surface_b:      resd 1
+region:         resd 1
 shown:          resd 1
 show_x:         resd 1
 show_y:         resd 1
