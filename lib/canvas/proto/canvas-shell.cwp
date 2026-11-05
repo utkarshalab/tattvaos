@@ -16,8 +16,9 @@ protocol canvas-shell 1 {
     ; on the output, on the workspace shown when it was made. Super+Up
     ; maximizes it or puts it back, Super+Down minimizes it, Alt+F4 asks it
     ; to close, Super+Shift+1 to 4 moves it to that workspace. Super+1 to 4
-    ; shows a workspace: only its windows are on the screen. Needs the shell
-    ; capability.
+    ; shows a workspace: only its windows are on the screen. Alt+Tab goes
+    ; through the workspace's windows, the latest to have the keyboard first.
+    ; Needs the shell capability.
     interface cw_toplevel 1 {
         ; Make the surface a window. A configure event follows at once.
         request create(surface: handle)
