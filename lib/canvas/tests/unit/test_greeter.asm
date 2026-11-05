@@ -21,14 +21,15 @@ extern arena_init
 extern greeter_done
 extern greeter_set_verify
 extern greeter_start
+extern ui_text_init
 extern greeter_step
 extern server_init
 extern server_poll
 extern virtual_input_inject
 
-%define HEAP_SIZE (4 * 1024 * 1024)
+%define HEAP_SIZE (8 * 1024 * 1024)
 %define WIDTH     400
-%define HEIGHT    80
+%define HEIGHT    120                 ; room for the label
 
 ; The field on this screen
 %define FX        ((WIDTH - GREETER_FIELD_W) / 2)
@@ -55,6 +56,7 @@ test_greeter_suite:
     add ebx, eax
 %endmacro
     CASE tg_shown
+    CASE tg_label
     CASE tg_typing
     CASE tg_wrong
     CASE tg_right
@@ -102,6 +104,8 @@ fresh:
     mov ecx, HEIGHT
     xor r8d, r8d
     call server_init
+    lea rdi, [rel arena]
+    call ui_text_init
     lea rdi, [rel server]
     lea rsi, [rel arena]
     call greeter_start
@@ -190,6 +194,40 @@ tg_shown:
     PIXEL FX + 4, FY + 4, GREETER_FIELD
     PIXEL DOT_X(0), CARET_Y, GREETER_INK
     PIXEL DOT_X(0) + GREETER_CARET_W, CARET_Y, GREETER_FIELD
+    PASS
+
+; "Password" above the field: ink in the label's box, the background left
+; and right of the field
+%define LABEL_Y   (FY - GREETER_LABEL_GAP - GREETER_LABEL_H)
+tg_label:
+    sub rsp, 8
+    xor ecx, ecx                        ; ink found
+    mov esi, LABEL_Y
+.row:
+    mov edi, FX
+.col:
+    push rcx
+    push rsi
+    push rdi
+    sub rsp, 8
+    call pixel
+    add rsp, 8
+    pop rdi
+    pop rsi
+    pop rcx
+    cmp eax, GREETER_BG
+    je .bg
+    inc ecx
+.bg:
+    inc edi
+    cmp edi, FX + GREETER_FIELD_W
+    jb .col
+    inc esi
+    cmp esi, FY - GREETER_LABEL_GAP
+    jb .row
+    cmp ecx, 20
+    jb .fail
+    PIXEL FX - 1, LABEL_Y + 10, GREETER_BG
     PASS
 
 ; A dot a character, the caret after them; Backspace takes one back, Esc all
