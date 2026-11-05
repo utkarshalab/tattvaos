@@ -19,6 +19,8 @@
 
 extern arena_init
 extern greeter_done
+extern greeter_set_idle
+extern handle_resolve
 extern greeter_set_verify
 extern greeter_start
 extern login_reset
@@ -64,6 +66,9 @@ test_greeter_suite:
     CASE tg_right
     CASE tg_login
     CASE tg_lockout
+    CASE tg_lock_key
+    CASE tg_idle_lock
+    CASE tg_locked_keys
     call tg_too_small
     add ebx, eax
     mov eax, ebx
@@ -78,6 +83,16 @@ test_greeter_suite:
     mov eax, 1
     add rsp, 8
     ret
+%endmacro
+
+; inject a key: keycode, state
+%macro INJECT_KEY 2
+    lea rdi, [rel server]
+    mov esi, INPUT_KEY
+    mov edx, %1
+    mov ecx, %2
+    xor r8d, r8d
+    call virtual_input_inject
 %endmacro
 
 ; a key pressed and let go, then a turn
@@ -305,8 +320,10 @@ tg_right:
     cmp word [rax + Greeter.text], 0
     jne .fail
     call poll
-    mov rcx, [rel server + Server.outputs]
-    cmp qword [rcx + Output.surfaces], 0
+    call greeter_surface                ; on, but showing nothing
+    cmp qword [rax + Surface.current + SurfaceState.buffer], 0
+    jne .fail
+    cmp qword [rel server + Server.locked], 0
     jne .fail
     PASS
 
@@ -367,6 +384,98 @@ tg_lockout:
     cmp dword [rax + Greeter.failed], 1
     jne .fail
     call login_reset
+    PASS
+
+; -> rax = the greeter's Surface*
+greeter_surface:
+    sub rsp, 8
+    mov rax, [rel greeter]
+    mov esi, [rax + Greeter.surface]
+    mov rdi, [rel server + Server.surface_table]
+    call handle_resolve
+    add rsp, 8
+    ret
+
+; logged in with "ab" through verify_ab, the idle lock off
+unlocked:
+    sub rsp, 8
+    mov rdi, [rel greeter]
+    xor esi, esi
+    call greeter_set_idle
+    mov rdi, [rel greeter]
+    lea rsi, [rel verify_ab]
+    call greeter_set_verify
+    TYPE KEY_A
+    TYPE KEY_B
+    TYPE KEY_ENTER
+    call poll
+    add rsp, 8
+    ret
+
+; the login screen is up again: a buffer shown, the keyboard, locked, an
+; empty field; .fail if not
+%macro LOCKED 0
+    call greeter_surface
+    cmp qword [rax + Surface.current + SurfaceState.buffer], 0
+    je .fail
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail
+    cmp qword [rel server + Server.locked], 1
+    jne .fail
+    mov rax, [rel greeter]
+    cmp dword [rax + Greeter.len], 0
+    jne .fail
+    mov rdi, [rel greeter]
+    call greeter_done
+    test eax, eax
+    jnz .fail
+%endmacro
+
+; Super+L brings it back; the right password again puts the desktop back
+tg_lock_key:
+    sub rsp, 8
+    call unlocked
+    cmp qword [rel server + Server.locked], 0
+    jne .fail
+    INJECT_KEY 125, 1                   ; Super
+    INJECT_KEY 38, 1                    ; L
+    INJECT_KEY 38, 0
+    INJECT_KEY 125, 0
+    call poll
+    call poll
+    LOCKED
+    TYPE KEY_A
+    TYPE KEY_B
+    TYPE KEY_ENTER
+    call poll
+    cmp qword [rel server + Server.locked], 0
+    jne .fail
+    PASS
+
+; Without input for the idle time it locks by itself
+tg_idle_lock:
+    sub rsp, 8
+    call unlocked
+    mov rdi, [rel greeter]
+    mov esi, 1                          ; a nanosecond: due at once
+    call greeter_set_idle
+    call poll
+    call poll
+    LOCKED
+    PASS
+
+; While it is up the server's shortcuts do nothing: Super+2 shows no other
+; workspace
+tg_locked_keys:
+    sub rsp, 8
+    INJECT_KEY 125, 1
+    INJECT_KEY 3, 1
+    INJECT_KEY 3, 0
+    INJECT_KEY 125, 0
+    call poll
+    cmp qword [rel server + Server.workspace], 0
+    jne .fail
     PASS
 
 ; A screen narrower than the field gets no greeter
