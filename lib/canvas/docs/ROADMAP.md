@@ -464,7 +464,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | WIN-02 | Floating policy | P2 | ◐ `shell/stacking`: a surface shown for the first time goes on top and takes the keyboard, a click raises it, the keyboard passes to the topmost one left when it goes; `test_input`. `policy/policy_floating` is not yet reachable: no toplevel requests |
 | WIN-03 | Tiling and kiosk policies | P3 | an unreachable draft is in `attic/src/policy` |
 | WIN-04 | External policy process interface | P3 | an unreachable draft is in `attic/src/policy` |
-| WIN-05 | Server-side decorations | P2 | ◐ `shell/decoration*` |
+| WIN-05 | Server-side decorations | P2 | ◐ `shell/titlebar`: `cw_toplevel.set_decorated`; a bar above the window, drawn with it, with minimize, maximize and close; dragging the bar moves the window; placement and maximize leave room for it; none while fullscreen; `test_window`. No title text until fonts load, no focus colours; `shell/decoration*` are older and unreachable |
 | WIN-06 | Popup positioning with constraint solving | P2 | ◐ `shell/window`: an offset on the parent, moved back onto the output, moved with the parent; a press on anything but a popup ends them; no flipping or sliding rules |
 | WIN-07 | Interactive move and resize with frame-synced configure | P2 | ◐ Alt+drag moves a window (`input/input`, `window_move`), Alt+right-drag sends it configure with its size plus the travel; its client sees none of the drag; `test_window`. Not frame-synced |
 | WIN-08 | Min/max size and aspect constraints | P2 | |
