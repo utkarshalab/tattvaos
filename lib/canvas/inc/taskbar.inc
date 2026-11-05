@@ -22,6 +22,9 @@
 %define TASKBAR_MAX         32          ; windows it keeps track of
 %define TASKBAR_WS_W        20          ; a workspace square, at the right end
 %define TASKBAR_WS_COUNT    4           ; squares drawn (the server's WORKSPACES)
+%define TASKBAR_TEXT        0xFFFFFF    ; a block's title
+%define TASKBAR_TEXT_SIZE   12
+%define TASKBAR_TEXT_PAD    6           ; the title from the block's edges
 
 ; One window it shows
 struc TaskbarEntry
@@ -29,6 +32,7 @@ struc TaskbarEntry
     .states:        resd 1      ; maximized 1, fullscreen 2, minimized 4
     .color:         resd 1      ; from its app id
     .workspace:     resd 1
+    .title:         resb 64     ; NUL-terminated, from the window list
 endstruc
 
 ; The taskbar itself; channel.inc must come first
@@ -49,10 +53,10 @@ struc Taskbar
     .pair:          resb ChannelPair_size
     alignb 8
     .event:         resb 148    ; a ClientEvent (inc/canvas_client.inc)
-    .entries:       resb 512    ; TASKBAR_MAX TaskbarEntry records
+    .entries:       resb 2560   ; TASKBAR_MAX TaskbarEntry records of 80
 endstruc
 
-%if TASKBAR_MAX * 16 != 512
+%if TASKBAR_MAX * 80 != 2560
     %error "Taskbar: the entries buffer above must follow TASKBAR_MAX"
 %endif
 
