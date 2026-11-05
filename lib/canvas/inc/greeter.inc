@@ -27,6 +27,11 @@
 
 %define GREETER_MAX         64          ; characters kept
 
+; "Password" above the field, when the screen has room for it
+%define GREETER_LABEL_H     22
+%define GREETER_LABEL_GAP   4           ; from the label's box to the field
+%define GREETER_LABEL_SIZE  14
+
 ; Its states
 %define GREETER_SHOWN           3
 %define GREETER_DONE            4
