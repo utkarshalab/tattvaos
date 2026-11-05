@@ -52,6 +52,7 @@ test_taskbar_suite:
     CASE tb_click
     CASE tb_removed
     CASE tb_exclusive
+    CASE tb_workspaces
     mov eax, ebx
     pop rbx
     ret
@@ -377,6 +378,38 @@ tb_exclusive:
     cmp dword [rel ans + 8], WIDTH
     jne .fail
     cmp dword [rel ans + 12], BAR_Y
+    jne .fail
+    PASS
+
+; A square for each workspace; a click on one shows it, and only its
+; windows have blocks
+%define SQUARE_X(n) (WIDTH - TASKBAR_WS_COUNT * (TASKBAR_WS_W + TASKBAR_GAP) + (n) * (TASKBAR_WS_W + TASKBAR_GAP))
+tb_workspaces:
+    sub rsp, 8
+    PIXEL SQUARE_X(0) + 5, TASKBAR_PAD + 5, TASKBAR_INK
+    PIXEL SQUARE_X(1) + 5, TASKBAR_PAD + 5, TASKBAR_DIM
+    call new_window
+    mov [rel surface_a], eax
+    CLICK SQUARE_X(1) + 5, BAR_Y + 16
+    cmp qword [rel server + Server.workspace], 1
+    jne .fail
+    mov rax, [rel bar]
+    cmp dword [rax + Taskbar.workspace], 1
+    jne .fail
+    PIXEL SQUARE_X(1) + 5, TASKBAR_PAD + 5, TASKBAR_INK
+    PIXEL BLOCK_X(0) + 5, TASKBAR_PAD + 10, TASKBAR_BG
+    call new_window
+    mov [rel surface_b], eax
+    mov rax, [rel bar]
+    cmp dword [rax + Taskbar.count], 2
+    jne .fail
+    mov ecx, [rax + Taskbar.entries + 1 * TaskbarEntry_size + TaskbarEntry.color]
+    mov [rel color], ecx
+    PIXEL BLOCK_X(0) + 5, TASKBAR_PAD + 10, [rel color]
+    CLICK BLOCK_X(0) + 10, BAR_Y + 16   ; it is the one active: minimized
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp qword [rax + Surface.output], 0
     jne .fail
     PASS
 
