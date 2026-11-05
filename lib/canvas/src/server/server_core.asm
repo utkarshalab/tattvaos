@@ -5,8 +5,10 @@
 ; each client's waiting requests, up to a fair share, then a frame.
 ;
 ; On the wire hdr.obj is the interface (CWP_OBJ_*), hdr.opcode the request's
-; index in that interface in proto/canvas-core.cwp, and handles are in the
-; payload. Handlers run as handler(client*, hdr*, payload, handles) and return
+; index in that interface in its proto/*.cwp file, and handles are in the
+; payload. A request's handler is h_<interface>_<request>; the generated
+; inc/cwp_dispatch.inc registers each one this file defines, and a request
+; without one is refused as an unknown opcode. Handlers run as handler(client*, hdr*, payload, handles) and return
 ; 0 or a negative error, which becomes an error event; the client stays
 ; connected. Every handle is checked to belong to the client asking.
 
@@ -17,6 +19,7 @@
 %include "inc/color.inc"
 %include "inc/cwp.inc"
 %include "inc/cwp_ops.inc"
+%include "inc/cwp_dispatch.inc"
 %include "inc/channel.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
@@ -178,48 +181,10 @@ server_init:
     mov rdi, rax
     mov rsi, r12
     call dispatch_init
-%macro REQUEST 3                        ; interface, opcode, handler
-    mov rdi, [rbx + Server.dispatch]
-    mov esi, %1
-    mov edx, %2
-    lea rcx, [rel %3]
-    call dispatch_register
+    mov rdi, rbx                        ; every request it has a handler for
+    call server_register_requests
     test rax, rax
     js .out
-%endmacro
-    REQUEST CWP_OBJ_DISPLAY, DISPLAY_SYNC, h_display_sync
-    REQUEST CWP_OBJ_DISPLAY, DISPLAY_GET_VERSION, h_display_get_version
-    REQUEST CWP_OBJ_BUFFER, BUFFER_CREATE, h_buffer_create
-    REQUEST CWP_OBJ_BUFFER, BUFFER_DESTROY, h_buffer_destroy
-    REQUEST CWP_OBJ_SURFACE, SURFACE_CREATE, h_surface_create
-    REQUEST CWP_OBJ_SURFACE, SURFACE_DESTROY, h_surface_destroy
-    REQUEST CWP_OBJ_SURFACE, SURFACE_ATTACH, h_surface_attach
-    REQUEST CWP_OBJ_SURFACE, SURFACE_DAMAGE, h_surface_damage
-    REQUEST CWP_OBJ_SURFACE, SURFACE_FRAME_CALLBACK, h_surface_frame_callback
-    REQUEST CWP_OBJ_SURFACE, SURFACE_COMMIT, h_surface_commit
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_CREATE, h_toplevel_create
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_DESTROY, h_toplevel_destroy
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_TITLE, h_toplevel_set_title
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_APP_ID, h_toplevel_set_app_id
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_ACK_CONFIGURE, h_toplevel_ack_configure
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_MAXIMIZED, h_toplevel_set_maximized
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_UNSET_MAXIMIZED, h_toplevel_unset_maximized
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_FULLSCREEN, h_toplevel_set_fullscreen
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_UNSET_FULLSCREEN, h_toplevel_unset_fullscreen
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_MINIMIZED, h_toplevel_set_minimized
-    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_DECORATED, h_toplevel_set_decorated
-    REQUEST CWP_OBJ_POPUP, POPUP_CREATE, h_popup_create
-    REQUEST CWP_OBJ_POPUP, POPUP_DESTROY, h_role_destroy_shell
-    REQUEST CWP_OBJ_LAYER, LAYER_CREATE, h_layer_create
-    REQUEST CWP_OBJ_LAYER, LAYER_DESTROY, h_role_destroy_layer
-    REQUEST CWP_OBJ_LAYER, LAYER_SET_EXCLUSIVE, h_layer_set_exclusive
-    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_SUBSCRIBE, h_window_list_subscribe
-    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_ACTIVATE, h_window_list_activate
-    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_CLOSE, h_window_list_close
-    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_MINIMIZE, h_window_list_minimize
-    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_SET_MAXIMIZED, h_window_list_set_maximized
-    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_SET_WORKSPACE, h_window_list_set_workspace
-    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_MOVE_TO_WORKSPACE, h_window_list_move_to_workspace
 
     xor eax, eax
 .out:
@@ -325,6 +290,7 @@ server_report_error:
 ; Handlers: rbx = client, r12 = hdr, r13 = payload, r14 = server
 ; ---------------------------------------------------------------------------
 %macro HANDLER 2                        ; name, least payload bytes
+%define HAVE_%1                         ; for CWP_REGISTER_ALL
 %1:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
@@ -745,8 +711,8 @@ HANDLER h_layer_create, 16
     call window_layer_create
 HANDLER_END
 
-; cw_popup.destroy(surface), cw_layer.destroy(surface)
-HANDLER h_role_destroy_shell, 4
+; cw_popup.destroy(surface) and cw_layer.destroy(surface)
+HANDLER h_popup_destroy, 4
     NEEDS_CAP CAP_SHELL
     mov esi, [r13]
     call own_surface
@@ -757,7 +723,7 @@ HANDLER h_role_destroy_shell, 4
     call window_destroy
 HANDLER_END
 
-HANDLER h_role_destroy_layer, 4
+HANDLER h_layer_destroy, 4
     NEEDS_CAP CAP_LAYER
     mov esi, [r13]
     call own_surface
@@ -826,6 +792,33 @@ server_frame_done:
     add rsp, 32 + 16
     EPILOGUE_RESTORE rbx, r12
     ret
+
+; ---------------------------------------------------------------------------
+; server_register_requests
+;   Every request this file has a handler for, from inc/cwp_dispatch.inc;
+;   here at the end, where each handler's HAVE_ name is defined
+;   IN:  rdi = server*
+;   OUT: rax = 0, negative error from the dispatcher
+; ---------------------------------------------------------------------------
+server_register_requests:
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+%macro CWP_REQUEST 3                    ; interface, request, handler
+    mov rdi, [rbx + Server.dispatch]
+    mov esi, %1
+    mov edx, %2
+    lea rcx, [rel %3]
+    call dispatch_register
+    test rax, rax
+    js .out
+%endmacro
+    CWP_REGISTER_ALL
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
+
 
 section .rodata
 s_refused:      db "request refused"
