@@ -53,6 +53,7 @@ extern msgbuf_write
 extern region_contains_point
 extern stacking_level
 extern titlebar_part
+extern titlebar_focus_changed
 extern window_close
 extern window_configure
 extern window_dismiss_popups
@@ -1095,16 +1096,18 @@ set_pointer_focus:
 
 ; rdi = seat, rsi = surface or 0
 set_keyboard_focus:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
-    cmp r12, [rbx + InputSeat.keyboard_focus]
+    mov r13, [rbx + InputSeat.keyboard_focus]
+    cmp r12, r13
     je .out
     mov dword [rbx + InputSeat.repeat_key], 0   ; a new surface, no repeat
-    mov rsi, [rbx + InputSeat.keyboard_focus]
-    test rsi, rsi
+    test r13, r13
     jz .enter
     mov rdi, rbx
+    mov rsi, r13
     mov edx, KEYBOARD_LEAVE
     mov ecx, EVENT_SHORT
     call send_input
@@ -1113,6 +1116,10 @@ set_keyboard_focus:
     mov rdi, [rbx + InputSeat.server]   ; the window list hears of it
     mov rsi, r12
     call window_list_activated
+    mov rdi, [rbx + InputSeat.server]   ; both title bars change colour
+    mov rsi, r13
+    mov rdx, r12
+    call titlebar_focus_changed
     test r12, r12
     jz .out
     mov rdi, rbx
@@ -1124,7 +1131,8 @@ set_keyboard_focus:
     mov rsi, r12
     call send_modifiers
 .out:
-    EPILOGUE_RESTORE rbx, r12
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; rdi = seat -> rax = the topmost surface under the pointer, 0 if none.
 ; Output.surfaces runs bottom to top, so the last hit wins. A surface is hit
