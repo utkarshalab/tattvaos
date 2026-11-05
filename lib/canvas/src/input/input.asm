@@ -22,6 +22,9 @@
 ;   Alt+drag moves the window under the pointer, Alt+right-drag resizes it
 ;            (configure with the new size); its client sees none of the drag
 ;   a press  on anything but a popup ends every popup (an Alt+drag does not)
+;   a bar    a server-drawn title bar (shell/titlebar) is not its window's
+;            for the client: a press on a button acts, elsewhere on the bar
+;            starts a move
 ;
 ; Server.input_seat is the one place input is routed from. input_set_seat
 ; switches it, first releasing every key and button the old seat holds, so
@@ -48,10 +51,12 @@ extern keymap_key
 extern msgbuf_write
 extern region_contains_point
 extern stacking_level
+extern titlebar_part
 extern window_close
 extern window_configure
 extern window_dismiss_popups
 extern window_list_activated
+extern window_set_decorated
 extern window_maximize
 extern window_minimize
 extern window_move_to_workspace
@@ -820,6 +825,18 @@ button_event:
     mov rsi, [rbx + InputSeat.pointer_focus]    ; the popups
     call window_dismiss_popups
     mov eax, [rbx + InputSeat.buttons]
+    cmp qword [rbx + InputSeat.pointer_focus], 0
+    jne .held
+    cmp qword [rbx + InputSeat.bar], 0
+    je .held
+    test eax, eax                       ; a title bar: the left button alone
+    jnz .out
+    test r12d, r12d
+    jnz .out
+    mov rdi, rbx
+    call bar_press
+    jmp .out
+.held:
     bts eax, r12d
     mov [rbx + InputSeat.buttons], eax
     cmp qword [rbx + InputSeat.pointer_focus], 0
@@ -951,6 +968,56 @@ click_focus:
     add rsp, 8
     EPILOGUE_RESTORE rbx
 
+; A press on a title bar: the window is raised and focused, then the
+; button acts, or a move starts.
+; rdi = seat
+bar_press:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, [rbx + InputSeat.bar]
+    mov rdi, [rbx + InputSeat.server]
+    mov rsi, r12
+    call compositor_raise_surface
+    mov rdi, rbx
+    mov rsi, r12
+    call set_keyboard_focus
+    mov eax, [rbx + InputSeat.bar_part]
+    cmp eax, TITLEBAR_CLOSE
+    je .close
+    cmp eax, TITLEBAR_MAXIMIZE
+    je .maximize
+    cmp eax, TITLEBAR_MINIMIZE
+    je .minimize
+    mov rcx, [r12 + Surface.window]     ; the bar itself: a move
+    mov [rbx + InputSeat.moving], r12
+    mov dword [rbx + InputSeat.move_mode], MOVE_MOVE
+    mov edx, [rbx + InputSeat.x]
+    sub edx, [rcx + Window.x]
+    mov [rbx + InputSeat.move_dx], edx
+    mov edx, [rbx + InputSeat.y]
+    sub edx, [rcx + Window.y]
+    mov [rbx + InputSeat.move_dy], edx
+    jmp .out
+.close:
+    mov rdi, r12
+    call window_close
+    jmp .out
+.maximize:
+    mov rcx, [r12 + Surface.window]
+    xor edx, edx
+    test dword [rcx + Window.state], WINDOW_MAXIMIZED
+    setz dl
+    mov rdi, [rbx + InputSeat.server]
+    mov rsi, r12
+    call window_maximize
+    jmp .out
+.minimize:
+    mov rdi, [rbx + InputSeat.server]
+    mov rsi, r12
+    call window_minimize
+.out:
+    EPILOGUE_RESTORE rbx, r12
+
 ; Scrolling goes to the surface under the pointer
 axis_event:
     mov eax, [rsi + RawInput.code]
@@ -1053,6 +1120,7 @@ surface_at:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     xor r13d, r13d
+    mov qword [rbx + InputSeat.bar], 0
     mov rax, [rbx + InputSeat.server]
     mov rax, [rax + Server.outputs]
     test rax, rax
@@ -1061,6 +1129,17 @@ surface_at:
 .surface:
     test r12, r12
     jz .done
+    mov rdi, r12                        ; its title bar, if it has one
+    mov esi, [rbx + InputSeat.x]
+    mov edx, [rbx + InputSeat.y]
+    call titlebar_part
+    test eax, eax
+    jz .content
+    mov r13, r12
+    mov [rbx + InputSeat.bar], r12
+    mov [rbx + InputSeat.bar_part], eax
+    jmp .next
+.content:
     mov rsi, [r12 + Surface.current + SurfaceState.buffer]
     test rsi, rsi
     jz .next
@@ -1090,10 +1169,15 @@ surface_at:
     jz .next
 .hit:
     mov r13, r12
+    mov qword [rbx + InputSeat.bar], 0
 .next:
     mov r12, [r12 + Surface.z_order_next]
     jmp .surface
 .done:
+    cmp qword [rbx + InputSeat.bar], 0
+    je .found
+    xor r13d, r13d                      ; a bar: no surface for the client
+.found:
     mov rax, r13
     EPILOGUE_RESTORE rbx, r12, r13, r14
 
