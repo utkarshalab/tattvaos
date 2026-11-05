@@ -2,9 +2,10 @@
 ; Window List — Every Window, for Taskbars (proto/canvas-shell.cwp)
 ; ============================================================================
 ; A client with the windows capability subscribes and is sent a window event
-; for every toplevel there is, then which one has the keyboard; from then on
-; it is told of each window that appears or changes (title, app id, states),
-; each that goes, and each change of the keyboard. Windows are named by
+; for every toplevel there is, then which one has the keyboard and which
+; workspace is shown; from then on it is told of each window that appears or
+; changes (title, app id, states, workspace), each that goes, each change of
+; the keyboard and of the workspace. Windows are named by
 ; Window.number, the same for every client. Up to WINDOW_LIST_MAX clients
 ; subscribe at once; one that disconnects is forgotten.
 
@@ -19,7 +20,7 @@
 
 extern msgbuf_write
 
-%define WINDOW_EVENT_BYTES  136         ; id, states, title[64], app_id[64]
+%define WINDOW_EVENT_BYTES  140         ; id, states, workspace, title[64], app_id[64]
 
 section .text
 
@@ -68,6 +69,9 @@ window_list_subscribe:
     mov edi, [rbx + Server.window_active]
     mov rsi, r12
     call send_number_activated
+    mov rdi, rbx
+    mov rsi, r12
+    call send_workspace
     xor eax, eax
 .out:
     add rsp, 8
@@ -145,6 +149,17 @@ window_list_activated:
     ret
 
 ; ---------------------------------------------------------------------------
+; window_list_workspace
+;   Another workspace is shown
+;   IN:  rdi = server*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global window_list_workspace
+window_list_workspace:
+    xor esi, esi
+    jmp send_workspace
+
+; ---------------------------------------------------------------------------
 ; window_list_find
 ;   IN:  rdi = server*, esi = a window's number
 ;   OUT: rax = its surface*, 0 if there is none
@@ -174,18 +189,20 @@ window_list_find:
 ; rdi = Window*, rsi = client*, 0 for every subscriber -> rax = 0
 send_window:
     PROLOGUE_SAVE rbx, r12
-    sub rsp, 16 + WINDOW_EVENT_BYTES + 8    ; header, payload; 16-byte aligned
+    sub rsp, 160                        ; header, payload; 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
     mov eax, [rbx + Window.number]
     mov [rsp + 16], eax
     mov eax, [rbx + Window.state]
     mov [rsp + 20], eax
-    lea rdi, [rsp + 24]
+    mov eax, [rbx + Window.workspace]
+    mov [rsp + 24], eax
+    lea rdi, [rsp + 28]
     lea rsi, [rbx + Window.title]
     mov ecx, 64
     rep movsb
-    lea rdi, [rsp + 88]
+    lea rdi, [rsp + 92]
     lea rsi, [rbx + Window.app_id]
     mov ecx, 64
     rep movsb
@@ -198,8 +215,26 @@ send_window:
     lea rdx, [rsp + 16]
     mov rcx, r12
     call deliver
-    add rsp, 16 + WINDOW_EVENT_BYTES + 8
+    add rsp, 160
     EPILOGUE_RESTORE rbx, r12
+
+; workspace(current, count) to one client, or every subscriber.
+; rdi = server, rsi = client*, 0 for every subscriber -> rax = 0
+send_workspace:
+    sub rsp, 40                         ; header at 0, payload at 16
+    mov eax, [rdi + Server.workspace]
+    mov [rsp + 16], eax
+    mov dword [rsp + 20], WORKSPACES
+    mov dword [rsp + MsgHdr.obj], CWP_OBJ_WINDOW_LIST
+    mov word [rsp + MsgHdr.opcode], WINDOW_LIST_EV_WORKSPACE
+    mov word [rsp + MsgHdr.flags], CWP_MSG_FLAG_IS_EVENT
+    mov dword [rsp + MsgHdr.len], 8
+    mov rcx, rsi
+    mov rsi, rsp
+    lea rdx, [rsp + 16]
+    call deliver
+    add rsp, 40
+    ret
 
 ; activated(id) to one client.
 ; edi = id, rsi = client* -> rax = 0
