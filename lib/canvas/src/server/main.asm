@@ -20,6 +20,7 @@ extern greeter_set_verify
 extern login_verify
 extern ui_text_init
 extern greeter_step
+extern greeter_deadline
 extern taskbar_start
 extern taskbar_step
 extern input_repeat_deadline
@@ -131,8 +132,22 @@ canvasd_init:
     js .no_wait
     lea rdi, [server]                   ; awake again for a held key's repeat
     call input_repeat_deadline
+    mov r12, rax
+    mov rdi, [server + Server.greeter]  ; and for the idle lock
+    test rdi, rdi
+    jz .wait
+    call greeter_deadline
+    test rax, rax
+    jz .wait
+    test r12, r12
+    jz .take
+    cmp rax, r12
+    jae .wait
+.take:
+    mov r12, rax                        ; the earlier of the two
+.wait:
     mov rdi, rbx
-    mov rsi, rax                        ; 0: no deadline
+    mov rsi, r12                        ; 0: no deadline
     call ut_wait_wait
     jmp .serve
 .no_wait:
