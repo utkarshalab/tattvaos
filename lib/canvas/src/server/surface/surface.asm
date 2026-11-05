@@ -390,7 +390,9 @@ surface_damage:
 
 ; ---------------------------------------------------------------------------
 ; surface_set_opaque_region
-;   Set opaque region
+;   The opaque region for the next commit: a copy of a region, or none
+;   IN:  rdi = server*, rsi = surface*, rdx = Region* (0: none)
+;   OUT: rax = 0, negative error
 ; ---------------------------------------------------------------------------
 global surface_set_opaque_region
 surface_set_opaque_region:
@@ -399,12 +401,7 @@ surface_set_opaque_region:
     mov r12, rsi
     test rdx, rdx
     jz .clear
-    mov rdi, [rbx + Server.region_table]
     mov rsi, rdx
-    call handle_resolve
-    test rax, rax
-    jz .not_found
-    mov rsi, rax
     lea rax, [r12 + Surface.pending]
     mov rdi, [rax + SurfaceState.opaque]
     call region_copy
@@ -421,13 +418,13 @@ surface_set_opaque_region:
 .out:
     EPILOGUE_RESTORE rbx, r12
     ret
-.not_found:
-    mov rax, -(ENOENT)
-    jmp .out
 
 ; ---------------------------------------------------------------------------
 ; surface_set_input_region
-;   Set input region
+;   The input region for the next commit: a copy of a region, or none (the
+;   whole surface takes input)
+;   IN:  rdi = server*, rsi = surface*, rdx = Region* (0: none)
+;   OUT: rax = 0, negative error
 ; ---------------------------------------------------------------------------
 global surface_set_input_region
 surface_set_input_region:
@@ -436,12 +433,7 @@ surface_set_input_region:
     mov r12, rsi
     test rdx, rdx
     jz .clear
-    mov rdi, [rbx + Server.region_table]
     mov rsi, rdx
-    call handle_resolve
-    test rax, rax
-    jz .not_found
-    mov rsi, rax
     mov rdi, [r12 + Surface.pending + SurfaceState.input]
     call region_copy
     test rax, rax
@@ -456,9 +448,6 @@ surface_set_input_region:
 .out:
     EPILOGUE_RESTORE rbx, r12
     ret
-.not_found:
-    mov rax, -(ENOENT)
-    jmp .out
 
 ; ---------------------------------------------------------------------------
 ; surface_set_transform
