@@ -39,6 +39,9 @@ extern switcher_selected
 
 ; cw_toplevel
 %define TL_CREATE       0
+%define RG_CREATE       0
+%define RG_ADD          2
+%define SF_SET_OPAQUE   5
 %define TL_DESTROY      1
 %define TL_SET_TITLE    2
 %define TL_SET_APP_ID   3
@@ -105,6 +108,7 @@ test_window_suite:
     CASE tw_titlebar_drag, CAP_SHELL
     CASE tw_titlebar_focus, CAP_SHELL
     CASE tw_alt_tab, CAP_SHELL
+    CASE tw_occlusion, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -1379,6 +1383,85 @@ tw_alt_tab:
     FOCUSED surface_c
     PASS
 
+; -> rax = surfaces the compositor has drawn so far
+drawn:
+    mov rax, [rel server + Server.compositor]
+    mov rax, [rax + Compositor.drawn]
+    ret
+
+; edi = surface handle, esi = region handle (0: none): its opaque region,
+; then a commit
+set_opaque:
+    sub rsp, 8
+    mov [rel req], edi
+    mov [rel req + 4], esi
+    SEND CWP_OBJ_SURFACE, SF_SET_OPAQUE, 8
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_SURFACE, OP_COMMIT, 8
+    call poll
+    add rsp, 8
+    ret
+
+; A redraw under a window opaque over all of it draws only that window;
+; without its opaque region, what is under it is drawn too
+tw_occlusion:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    mov eax, [rel buffer]
+    mov [rel buffer_a], eax
+    POINTER 0, 0                        ; B over all of A
+    mov edi, 32
+    mov esi, 24
+    call new_window
+    mov [rel surface_b], eax
+    SEND CWP_OBJ_REGION, RG_CREATE, 0
+    call poll
+    call next_reply
+    mov eax, [rel ans]
+    mov [rel req], eax
+    mov dword [rel req + 4], 0
+    mov dword [rel req + 8], 0
+    mov dword [rel req + 12], 32
+    mov dword [rel req + 16], 24
+    mov [rel region_h], eax
+    SEND CWP_OBJ_REGION, RG_ADD, 20
+    mov edi, [rel surface_b]
+    mov esi, [rel region_h]
+    call set_opaque
+    call drain
+
+    call drawn
+    mov [rel picked], rax
+    mov edi, [rel surface_a]            ; A damaged under B
+    mov esi, [rel buffer_a]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    call drawn
+    sub rax, [rel picked]
+    cmp rax, 1
+    jne .fail                           ; B only
+
+    mov edi, [rel surface_b]
+    xor esi, esi                        ; no opaque region any more
+    call set_opaque
+    call drawn
+    mov [rel picked], rax
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer_a]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    call drawn
+    sub rax, [rel picked]
+    cmp rax, 2
+    jne .fail                           ; A, and B over it
+    PASS
+
 section .bss
 alignb 16
 server:         resb Server_size
@@ -1388,6 +1471,8 @@ hdr:            resb MsgHdr_size
 surface_a:      resd 1
 surface_b:      resd 1
 surface_c:      resd 1
+buffer_a:       resd 1
+region_h:       resd 1
 alignb 8
 picked:         resq 1
 buffer:         resd 1
