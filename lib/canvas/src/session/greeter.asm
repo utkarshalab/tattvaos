@@ -10,6 +10,12 @@
 ; wrong. What is typed is wiped once it has been checked. "Password" is
 ; written above the field in the embedded font when there is room.
 ;
+; The right password takes the buffer off the surface, so the desktop shows
+; and the keyboard goes back to the windows; greeter_lock puts it back, an
+; empty field over everything again. Super+L locks, and so do GREETER_IDLE_NS
+; without input. Server.locked says the login screen is up: the server's
+; shortcuts do nothing then.
+;
 ; greeter_start makes the buffer and the surface with library calls, which
 ; turn server_poll while they wait, so it is called outside the loop's turn;
 ; canvasd's loop calls greeter_step after each server_poll, and what it
@@ -35,9 +41,9 @@ extern canvas_surface_attach
 extern canvas_surface_commit
 extern canvas_surface_create
 extern canvas_surface_damage
-extern canvas_surface_destroy
 extern client_accept
 extern server_poll
+extern ut_time_now_ns
 extern ui_text_draw
 
 ; Keys acted on
@@ -170,6 +176,9 @@ greeter_start:
     mov r8d, [rbx + Greeter.height]
     call damage_commit
     mov dword [rbx + Greeter.state], GREETER_SHOWN
+    mov qword [r12 + Server.locked], 1
+    mov rax, GREETER_IDLE_NS
+    mov [rbx + Greeter.idle_ns], rax
     mov [r12 + Server.greeter], rbx
     mov rax, rbx
 .out:
@@ -220,7 +229,18 @@ greeter_step:
     mov rbx, rdi
     ASSERT_PTR rbx
     cmp dword [rbx + Greeter.state], GREETER_SHOWN
-    jne .done
+    je .next
+    mov rdi, rbx                        ; unlocked: idle long enough locks
+    call greeter_deadline
+    test rax, rax
+    jz .done
+    mov r12, rax
+    call ut_time_now_ns
+    cmp rax, r12
+    jb .done
+    mov rdi, rbx
+    call greeter_lock
+    jmp .done
 .next:
     mov rdi, [rbx + Greeter.conn]
     lea rsi, [rbx + Greeter.event]
@@ -272,10 +292,8 @@ greeter_step:
     call wipe
     test r12, r12
     jnz .wrong_wiped
-    mov dword [rbx + Greeter.state], GREETER_DONE
-    mov rdi, [rbx + Greeter.conn]       ; the session takes the screen
-    mov esi, [rbx + Greeter.surface]
-    call canvas_surface_destroy
+    mov rdi, rbx                        ; the desktop takes the screen
+    call unlock
     jmp .next
 .wrong:
     mov rdi, rbx
@@ -322,8 +340,107 @@ greeter_step:
     EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
+; greeter_lock
+;   The login screen over everything again, its field empty; nothing if it
+;   is up already
+;   IN:  rdi = greeter*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global greeter_lock
+greeter_lock:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    cmp dword [rbx + Greeter.state], GREETER_DONE
+    jne .out
+    mov rdi, rbx
+    call wipe
+    mov dword [rbx + Greeter.failed], 0
+    mov dword [rbx + Greeter.dirty], 0
+    mov rdi, rbx
+    call draw_field
+    mov rdi, [rbx + Greeter.conn]
+    mov esi, [rbx + Greeter.surface]
+    mov edx, [rbx + Greeter.buffer]
+    xor ecx, ecx
+    xor r8d, r8d
+    call canvas_surface_attach
+    mov rdi, rbx
+    xor esi, esi
+    xor edx, edx
+    mov ecx, [rbx + Greeter.width]
+    mov r8d, [rbx + Greeter.height]
+    call damage_commit
+    mov dword [rbx + Greeter.state], GREETER_SHOWN
+    mov rax, [rbx + Greeter.server]
+    mov qword [rax + Server.locked], 1
+.out:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12
+
+; ---------------------------------------------------------------------------
+; greeter_set_idle
+;   How long without input locks
+;   IN:  rdi = greeter*, rsi = ns (0: never)
+; ---------------------------------------------------------------------------
+global greeter_set_idle
+greeter_set_idle:
+    mov [rdi + Greeter.idle_ns], rsi
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; greeter_deadline
+;   When the idle lock falls due, for the loop to wake by
+;   IN:  rdi = greeter*
+;   OUT: rax = monotonic ns, 0 if none is due (locked, or no idle lock)
+; ---------------------------------------------------------------------------
+global greeter_deadline
+greeter_deadline:
+    xor eax, eax
+    cmp dword [rdi + Greeter.state], GREETER_DONE
+    jne .out
+    mov rcx, [rdi + Greeter.idle_ns]
+    test rcx, rcx
+    jz .out
+    mov rax, [rdi + Greeter.unlocked_at]    ; the last input, or the unlock
+    mov rdx, [rdi + Greeter.server]
+    mov rdx, [rdx + Server.input_seat]
+    test rdx, rdx
+    jz .since
+    mov r8, [rdx + InputSeat.time]
+    cmp r8, rax
+    cmova rax, r8
+.since:
+    add rax, rcx
+.out:
+    ret
+
+; ---------------------------------------------------------------------------
 ; Local
 ; ---------------------------------------------------------------------------
+
+; The right password: the buffer off the surface, the desktop shown.
+; rdi = greeter
+unlock:
+    push rbx
+    mov rbx, rdi
+    mov dword [rbx + Greeter.state], GREETER_DONE
+    mov rax, [rbx + Greeter.server]
+    mov qword [rax + Server.locked], 0
+    call ut_time_now_ns
+    mov [rbx + Greeter.unlocked_at], rax
+    mov rdi, [rbx + Greeter.conn]
+    mov esi, [rbx + Greeter.surface]
+    xor edx, edx                        ; no buffer: unmapped
+    xor ecx, ecx
+    xor r8d, r8d
+    call canvas_surface_attach
+    mov rdi, [rbx + Greeter.conn]
+    mov esi, [rbx + Greeter.surface]
+    xor edx, edx
+    call canvas_surface_commit
+    pop rbx
+    ret
 
 ; The field as it stands: edge, inside, a dot per character up to
 ; GREETER_DOTS, and the caret after the last while there is room.
