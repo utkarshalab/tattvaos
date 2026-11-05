@@ -505,7 +505,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | DSK-02 | Panel / taskbar with grouping, pinning, badges | P2 | ◐ `desktop/taskbar`: started by canvasd, a top layer along the bottom keeping its strip, a block per window from the window list coloured by app id, grey when minimized, a stripe on the active one; a click activates, on the active one minimizes; `test_taskbar`; titles in the embedded font. No grouping, pinning or badges; `clients/panel` is the separate-program sample |
 | DSK-03 | Clock and calendar popup | P2 | |
 | DSK-04 | Lock screen | P2 | ◐ `clients/lockscreen`, `session/lock` |
-| DSK-05 | Login greeter with user list and accessibility menu | P2 | ◐ `session/greeter`: started by canvasd, a client-library overlay layer with a password field (dots, Backspace, Esc, Enter to a verify hook, red edge when wrong, text wiped after each check); `test_greeter`, `ubf-check`; a "Password" label in the embedded font. No user list, no real verification yet |
+| DSK-05 | Login greeter with user list and accessibility menu | P2 | ◐ `session/greeter`: started by canvasd, a client-library overlay layer with a password field (dots, Backspace, Esc, Enter to a verify hook, red edge when wrong, text wiped after each check); `test_greeter`, `ubf-check`; a "Password" label in the embedded font. the password checked by the kernel (`session/login`, `ut_auth_verify`), refused for five seconds after three wrong. No user list; nothing is let in until the kernel exports the check |
 | DSK-06 | Power menu: sleep, restart, shutdown, lock, switch user | P2 | |
 | DSK-07 | App launcher with search | P2 | |
 | DSK-08 | Volume and brightness on-screen displays | P2 | |
