@@ -31,6 +31,8 @@ extern sw_render_begin_frame
 extern sw_render_rect
 extern sw_render_surface
 extern sw_render_end_frame
+extern titlebar_rect
+extern titlebar_render
 
 %define COMPOSITOR_BG_COLOR 0xFF202030  ; opaque BGRA
 
@@ -169,6 +171,14 @@ compositor_damage_surface:
     mov [rsp + 8], ecx
     mov rcx, [rax + Buffer.height]
     mov [rsp + 12], ecx
+    mov rdi, [r13 + Output.damage]
+    mov rsi, rsp
+    call region_add_rect
+    mov rdi, r12                        ; and its title bar, if it has one
+    mov rsi, rsp
+    call titlebar_rect
+    test eax, eax
+    jz .done
     mov rdi, [r13 + Output.damage]
     mov rsi, rsp
     call region_add_rect
@@ -449,6 +459,10 @@ compositor_composite_output:
 .surface:
     test r15, r15
     jz .next_rect
+    mov rdi, rsp                        ; its title bar under it, if any
+    mov rsi, r15
+    lea rdx, [rsp + L_CLIP]
+    call titlebar_render
     mov rdi, rsp
     mov rsi, r15
     lea rdx, [rsp + L_CLIP]
