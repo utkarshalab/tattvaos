@@ -205,7 +205,7 @@
 | SUR-02 | Shared-memory buffers with ownership transfer and release | P1 | ◐ `server/buffer`: pixels in their own region, released on replace; sharing with a client still needs KRN-03 |
 | SUR-03 | Fences and timelines on every buffer (explicit sync) | P1 | ◐ `server/fence`, `server/timeline` |
 | SUR-04 | Subsurfaces with sync/desync modes | P2 | ◐ `server/subsurface` |
-| SUR-05 | Opaque, input and damage regions | P1 | ◐ `server/regions` |
+| SUR-05 | Opaque, input and damage regions | P1 | ◐ `cw_region` (create, destroy, add, subtract, clear) and `set_opaque_region`, `set_input_region` registered; regions are their client's (its arena, owner-checked handles, gone on disconnect); input regions steer the hit test; `test_input`. The opaque region is kept, not used yet (CMP-06); `server/regions` |
 | SUR-06 | Buffer transforms and scale | P2 | ◐ `server/surface_transform` |
 | SUR-07 | Frame callbacks | P1 | ✓ fired when the frame is done; callback nodes and presentation records are reused |
 | SUR-08 | Surface opacity and transforms applied by the server without client re-render | P3 | |
