@@ -43,6 +43,11 @@ protocol canvas-shell 1 {
         ; Off the screen until the user brings it back; it loses the keyboard
         request set_minimized(surface: handle)
 
+        ; A title bar drawn by the server above the window, with close,
+        ; maximize and minimize buttons; dragging it moves the window. Off
+        ; by default, for clients that draw their own. None while fullscreen.
+        request set_decorated(surface: handle, decorated: bool)
+
         enum state {
             maximized = 1,
             fullscreen = 2
