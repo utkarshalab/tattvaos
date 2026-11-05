@@ -127,14 +127,37 @@ stacking_destroyed:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
 
-; The keyboard to the topmost surface on rsi's output that shows a buffer,
-; other than rsi; to none if there is none.
+; ---------------------------------------------------------------------------
+; stacking_focus_any
+;   With nothing holding the keyboard, the topmost surface that would take
+;   it on show takes it
+;   IN:  rdi = server*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global stacking_focus_any
+stacking_focus_any:
+    mov rax, [rdi + Server.input_seat]
+    test rax, rax
+    jz .out
+    cmp qword [rax + InputSeat.keyboard_focus], 0
+    jne .out
+    mov rdx, [rdi + Server.outputs]
+    xor esi, esi
+    jmp focus_topmost_on
+.out:
+    xor eax, eax
+    ret
+
+; The keyboard to the topmost surface on rsi's output that shows a buffer
+; and would take it, other than rsi; to none if there is none.
 ; rdi = server*, rsi = surface* -> rax = 0
 focus_topmost:
-    mov rax, [rsi + Surface.output]
-    test rax, rax
+    mov rdx, [rsi + Surface.output]
+; The same on output rdx (0: none), skipping rsi (0: nothing)
+focus_topmost_on:
+    test rdx, rdx
     jz .none
-    mov rax, [rax + Output.surfaces]
+    mov rax, [rdx + Output.surfaces]
     xor ecx, ecx
 .walk:
     test rax, rax
