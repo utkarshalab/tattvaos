@@ -47,6 +47,7 @@ extern window_destroy
 extern window_fullscreen
 extern window_maximize
 extern window_minimize
+extern window_set_decorated
 extern window_activate
 extern window_close
 extern window_layer_exclusive
@@ -206,6 +207,7 @@ server_init:
     REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_FULLSCREEN, h_toplevel_set_fullscreen
     REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_UNSET_FULLSCREEN, h_toplevel_unset_fullscreen
     REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_MINIMIZED, h_toplevel_set_minimized
+    REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_DECORATED, h_toplevel_set_decorated
     REQUEST CWP_OBJ_POPUP, POPUP_CREATE, h_popup_create
     REQUEST CWP_OBJ_POPUP, POPUP_DESTROY, h_role_destroy_shell
     REQUEST CWP_OBJ_LAYER, LAYER_CREATE, h_layer_create
@@ -691,6 +693,19 @@ WINDOW_LIST_HANDLER h_window_list_move_to_workspace, 8
     mov rsi, rax
     mov edx, [r13 + 4]
     call window_move_to_workspace
+HANDLER_END
+
+; set_decorated(surface, decorated)
+HANDLER h_toplevel_set_decorated, 8
+    NEEDS_CAP CAP_SHELL
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    mov edx, [r13 + 4]
+    call window_set_decorated
 HANDLER_END
 
 ; cw_popup.create(surface, parent, x, y)
