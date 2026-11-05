@@ -626,6 +626,35 @@ window_activate:
     EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
+; window_set_decorated
+;   The server draws its title bar, or stops
+;   IN:  rdi = server*, rsi = surface*, edx = 1 on, 0 off
+;   OUT: rax = 0, -EINVAL if it is not a window
+; ---------------------------------------------------------------------------
+global window_set_decorated
+window_set_decorated:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    xor r14d, r14d
+    test edx, edx
+    setnz r14b
+    call toplevel_of
+    test rax, rax
+    js .out
+    mov r13, rax
+    mov rdi, rbx                        ; where the bar was, if it was
+    mov rsi, r12
+    call compositor_damage_surface
+    mov [r13 + Window.decorated], r14d
+    mov rdi, rbx                        ; where it is, if it is
+    mov rsi, r12
+    call compositor_damage_surface
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+
+; ---------------------------------------------------------------------------
 ; window_switch_workspace
 ;   Show another workspace: its windows come on the screen, the others go;
 ;   with nothing left holding the keyboard, the topmost window takes it
@@ -749,7 +778,12 @@ window_commit:
     cmp eax, ROLE_LAYER
     je .layer
     call place_at_pointer
-    jmp .placed
+    mov dword [r13 + Window.placed], 1
+    call put
+    mov rdi, rbx                        ; all of it new, its bar too: the
+    mov rsi, r12                        ; client damaged only its own pixels
+    call compositor_damage_surface
+    jmp .out
 .popup:
     call place_on_parent
     jmp .placed
@@ -760,10 +794,23 @@ window_commit:
 .put:
     cmp dword [r13 + Window.placed], 0
     je .out
-    mov eax, [r13 + Window.x]
-    mov [r12 + Surface.current + SurfaceState.buf_x], eax
-    mov eax, [r13 + Window.y]
-    mov [r12 + Surface.current + SurfaceState.buf_y], eax
+    call put
+    cmp dword [r13 + Window.decorated], 0
+    je .out
+    mov rsi, [r12 + Surface.current + SurfaceState.buffer]
+    test rsi, rsi
+    jz .out
+    mov rdi, [rbx + Server.buffer_table]
+    call handle_resolve
+    test rax, rax
+    jz .out
+    mov eax, [rax + Buffer.width]
+    cmp eax, [r13 + Window.bar_w]
+    je .out
+    mov [r13 + Window.bar_w], eax       ; a new width: the bar again
+    mov rdi, rbx
+    mov rsi, r12
+    call compositor_damage_surface
 .out:
     xor eax, eax
     add rsp, 8
@@ -950,6 +997,10 @@ apply_state:
     mov r8d, ecx
     mov ecx, edx
     mov edx, eax
+    cmp dword [r13 + Window.decorated], 0
+    je .go
+    add ecx, TITLEBAR_H                 ; its bar inside the area too
+    sub r9d, TITLEBAR_H
     jmp .go
 .whole:
     mov edx, [rax + Output.x]
@@ -1066,6 +1117,14 @@ usable_area:
     sub r8d, edx
     ret
 
+; The surface where its Window says. r12 = surface, r13 = Window
+put:
+    mov eax, [r13 + Window.x]
+    mov [r12 + Surface.current + SurfaceState.buf_x], eax
+    mov eax, [r13 + Window.y]
+    mov [r12 + Surface.current + SurfaceState.buf_y], eax
+    ret
+
 ; A Window for the surface, at the normal level, as a toplevel until told.
 ; rdi = server, rsi = surface -> rax = Window*, -EEXIST, -ENOMEM
 new_role:
@@ -1130,7 +1189,8 @@ keep_on_output:
     mov [rsi + Window.y], r10d
     ret
 
-; Top-left at the pointer (the output's centre with no seat).
+; Top-left at the pointer (the output's centre with no seat); a window with
+; a title bar is placed with it, the bar on top.
 ; rdi = server, rsi = window, edx = width, ecx = height
 place_at_pointer:
     OUTPUT_OF
@@ -1141,7 +1201,7 @@ place_at_pointer:
     jz .centre
     mov eax, [r9 + InputSeat.x]
     mov r10d, [r9 + InputSeat.y]
-    jmp keep_on_output
+    jmp .placed
 .centre:
     mov eax, [r8 + Output.width]
     shr eax, 1
@@ -1149,7 +1209,12 @@ place_at_pointer:
     mov r10d, [r8 + Output.height]
     shr r10d, 1
     add r10d, [r8 + Output.y]
-    jmp keep_on_output
+.placed:
+    cmp dword [rsi + Window.decorated], 0
+    je keep_on_output
+    add ecx, TITLEBAR_H
+    call keep_on_output
+    add dword [rsi + Window.y], TITLEBAR_H
 .done:
     ret
 
