@@ -546,7 +546,8 @@ struc Client
     .buffers:                 resq 1    ; its Buffers, through client_next
     .server:                  resq 1
     .next_client:             resq 1    ; Server.client_list
-    resb 80
+    .regions:                 resq 1    ; its ClientRegions (server/regions)
+    resb 72
 endstruc
 
 struc ClientConn
