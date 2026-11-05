@@ -1522,6 +1522,7 @@ struc Server
     .window_seq:              resq 1    ; the last Window.number given
     .window_active:           resq 1    ; the number the window list last said
     .window_lists:            resq 8    ; WINDOW_LIST_MAX subscribed Client*s
+    .workspace:               resq 1    ; the one shown, 0 to WORKSPACES - 1
 endstruc
 
 ; One raw input event, as a source hands it to input_submit
@@ -1669,6 +1670,7 @@ endstruc
 %define MOVE_RESIZE     2
 %define RESIZE_MIN      16              ; the smallest a resize asks for
 %define WINDOW_LIST_MAX 8               ; clients watching the window list
+%define WORKSPACES      4               ; Super+1 to Super+4
 
 ; Layer anchors (proto/canvas-shell.cwp)
 %define ANCHOR_TOP      1
@@ -1697,7 +1699,9 @@ struc Window
     .saved_h:                 resd 1
     .number:                  resd 1    ; a toplevel's id in the window list
     .exclusive:               resd 1    ; a layer's strip kept from windows
-    .min_output:              resq 1    ; the Output* it was minimized from
+    .min_output:              resq 1    ; the Output* it is off, while hidden
+    .workspace:               resd 1    ; a toplevel's, 0 to WORKSPACES - 1
+    .ws_pad:                  resd 1
     .serial:                  resd 1    ; of the last configure sent
     .acked:                   resd 1    ; the last the client applied
     .title_len:               resd 1
