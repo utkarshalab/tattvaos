@@ -27,6 +27,7 @@ extern server_init
 extern server_poll
 extern virtual_input_inject
 extern window_activate
+extern switcher_selected
 
 %define HEAP_SIZE (2 * 1024 * 1024)
 
@@ -103,6 +104,7 @@ test_window_suite:
     CASE tw_titlebar, CAP_SHELL
     CASE tw_titlebar_drag, CAP_SHELL
     CASE tw_titlebar_focus, CAP_SHELL
+    CASE tw_alt_tab, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -1309,6 +1311,74 @@ tw_titlebar_focus:
     jne .fail
     PASS
 
+; the keyboard is on the surface in variable %1
+%macro FOCUSED 1
+    mov edi, [rel %1]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail
+%endmacro
+
+; Alt+Tab: the one before the current, then the one before that; letting
+; go of Alt activates it; the order is the latest to have the keyboard
+; first; Esc gives up. The switch is drawn over everything.
+tw_alt_tab:
+    sub rsp, 8
+    POINTER 0, 0
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    POINTER 20, 0
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    POINTER 40, 0
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_c], eax            ; C, B, A from the latest
+    INJECT INPUT_KEY, 56, 1             ; Alt
+    INJECT INPUT_KEY, 15, 1             ; Tab
+    INJECT INPUT_KEY, 15, 0
+    call poll
+    call switcher_selected
+    mov [rel picked], rax
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp [rel picked], rax
+    jne .fail
+    mov edi, 32                         ; the selected tile, over the windows
+    mov esi, 24
+    call screen_pixel
+    cmp eax, 0xFF3E4C78
+    jne .fail
+    INJECT INPUT_KEY, 15, 1
+    INJECT INPUT_KEY, 15, 0
+    INJECT INPUT_KEY, 56, 0             ; Alt let go: A
+    call poll
+    FOCUSED surface_a
+    call switcher_selected
+    test rax, rax
+    jnz .fail                           ; the switch is over
+    INJECT INPUT_KEY, 56, 1             ; A, C, B now: one Tab is C
+    INJECT INPUT_KEY, 15, 1
+    INJECT INPUT_KEY, 15, 0
+    INJECT INPUT_KEY, 56, 0
+    call poll
+    FOCUSED surface_c
+    INJECT INPUT_KEY, 56, 1             ; Esc: nothing changes
+    INJECT INPUT_KEY, 15, 1
+    INJECT INPUT_KEY, 15, 0
+    INJECT INPUT_KEY, 1, 1
+    INJECT INPUT_KEY, 1, 0
+    INJECT INPUT_KEY, 56, 0
+    call poll
+    FOCUSED surface_c
+    PASS
+
 section .bss
 alignb 16
 server:         resb Server_size
@@ -1317,6 +1387,9 @@ pair:           resb ChannelPair_size
 hdr:            resb MsgHdr_size
 surface_a:      resd 1
 surface_b:      resd 1
+surface_c:      resd 1
+alignb 8
+picked:         resq 1
 buffer:         resd 1
 alignb 16
 req:            resb 128
