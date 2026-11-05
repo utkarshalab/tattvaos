@@ -18,8 +18,10 @@
 ;   Alt+F4   asks the focused window's client to close it; Super+Up
 ;            maximizes it or puts it back, Super+Down minimizes it;
 ;            Super+1 to 4 shows a workspace, Super+Shift+1 to 4 moves the
-;            focused window there; Super+L locks. While the login screen is
-;            up (Server.locked) none of these does anything
+;            focused window there; Super+L locks; Alt+Tab switches windows
+;            (shell/switcher), Esc giving up and letting go of Alt choosing.
+;            While the login screen is up (Server.locked) none of these does
+;            anything
 ;   Alt+drag moves the window under the pointer, Alt+right-drag resizes it
 ;            (configure with the new size); its client sees none of the drag
 ;   a press  on anything but a popup ends every popup (an Alt+drag does not)
@@ -59,6 +61,10 @@ extern window_configure
 extern window_dismiss_popups
 extern window_list_activated
 extern greeter_lock
+extern switcher_cancel
+extern switcher_finish
+extern switcher_next
+extern switcher_selected
 extern window_set_decorated
 extern window_maximize
 extern window_minimize
@@ -100,6 +106,8 @@ extern window_move
 %define KEY_UP          103
 %define KEY_1           2               ; 1 to 4 are 2 to 5
 %define KEY_L           38
+%define KEY_TAB         15
+%define KEY_ESC         1
 %define KEY_DOWN        108
 
 %define EVENT_SHORT     12              ; time, surface
@@ -560,6 +568,17 @@ key_event:
     mov dword [rbx + InputSeat.repeat_key], 0
     jmp .out
 .route:
+    cmp dword [r12 + RawInput.value], 0  ; Alt let go: an Alt+Tab chooses
+    jne .routed
+    mov eax, [r12 + RawInput.code]
+    cmp eax, KEY_LEFTALT
+    je .alt_up
+    cmp eax, KEY_RIGHTALT
+    jne .routed
+.alt_up:
+    mov rdi, [rbx + InputSeat.server]
+    call switcher_finish
+.routed:
     mov rsi, [rbx + InputSeat.keyboard_focus]
     test rsi, rsi
     jz .out
@@ -890,6 +909,24 @@ shortcut:
     cmp qword [rax + Server.locked], 0
     jne .no                             ; the login screen's keys are its own
     mov edx, [rbx + InputSeat.mods]
+    test edx, MOD_ALT
+    jz .super_keys
+    cmp esi, KEY_TAB
+    jne .alt_esc
+    mov rdi, rax
+    call switcher_next
+    jmp .yes
+.alt_esc:
+    cmp esi, KEY_ESC
+    jne .super_keys
+    call switcher_selected_any
+    test eax, eax
+    jz .super_keys                      ; no switch running: Esc is the client's
+    call switcher_cancel
+    jmp .yes
+.super_keys:
+    mov rax, [rbx + InputSeat.server]
+    mov edx, [rbx + InputSeat.mods]
     test edx, MOD_SUPER
     jz .window_keys
     cmp esi, KEY_L
@@ -959,6 +996,16 @@ shortcut:
     xor eax, eax
 .out:
     EPILOGUE_RESTORE rbx, r12
+
+; -> eax = 1 while an Alt+Tab runs
+switcher_selected_any:
+    sub rsp, 8
+    call switcher_selected
+    add rsp, 8
+    test rax, rax
+    setnz al
+    movzx eax, al
+    ret
 
 ; A press on the surface under the pointer raises it, and gives it the
 ; keyboard unless it is a layer below the windows or a top layer.
