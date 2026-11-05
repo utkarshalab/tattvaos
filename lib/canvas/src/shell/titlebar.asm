@@ -5,7 +5,8 @@
 ; above it and as wide as its buffer, with three square buttons at its right
 ; end: minimize, maximize, close. None while it is fullscreen. The compositor
 ; draws the bar just before the window, so it stacks with it; input asks
-; titlebar_part what a point is on. Titles wait for fonts.
+; titlebar_part what a point is on. The window's title is written on the bar
+; in the embedded font, left of the buttons.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -13,15 +14,20 @@
 %include "inc/render.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/ui_text.inc"
 
 extern handle_resolve
 extern rect_intersect
 extern sw_render_rect
+extern ui_text_draw
 
 %define BAR_COLOR       0xFF2C3248
 %define CLOSE_COLOR     0xFFC04848
 %define MAXIMIZE_COLOR  0xFF54A24B
 %define MINIMIZE_COLOR  0xFFC0A040
+%define TITLE_COLOR     0xD0D4E0
+%define TITLE_SIZE      13
+%define TITLE_PAD       8               ; the title from the bar's left edge
 
 ; A button's left edge from the bar's right edge: the nth from the right
 %define BUTTON_FROM_RIGHT(n) ((n) * (TITLEBAR_BUTTON + TITLEBAR_MARGIN) + TITLEBAR_BUTTON + TITLEBAR_MARGIN)
@@ -136,7 +142,7 @@ titlebar_part:
 global titlebar_render
 titlebar_render:
     PROLOGUE_SAVE rbx, r12, r13
-    sub rsp, 56                         ; bar, a button, clipped; aligned
+    sub rsp, 56 + UiText_size           ; bar, a button, clipped, the title
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -148,6 +154,7 @@ titlebar_render:
     mov rdi, rsp
     mov esi, BAR_COLOR
     call paint
+    call draw_title
 %macro DRAW_BUTTON 2                    ; nth from the right, colour
     mov eax, [rsp + 8]
     sub eax, BUTTON_FROM_RIGHT(%1)
@@ -169,8 +176,52 @@ titlebar_render:
     DRAW_BUTTON 2, MINIMIZE_COLOR
 .out:
     xor eax, eax
-    add rsp, 56
+    add rsp, 56 + UiText_size
     EPILOGUE_RESTORE rbx, r12, r13
+
+; The window's title on the bar, left of the buttons, inside the clip.
+; rbx = frame context, r12 = surface, r13 = clip; titlebar_render's rsp holds
+; the bar, its rsp + 56 the UiText
+%define TITLE_AT    (8 + 56)            ; past the return address
+draw_title:
+    mov rax, [r12 + Surface.window]
+    mov ecx, [rax + Window.title_len]
+    test ecx, ecx
+    jz .done
+    lea rdx, [rsp + TITLE_AT]
+    mov [rdx + UiText.length], ecx
+    lea rcx, [rax + Window.title]
+    mov [rdx + UiText.text], rcx
+    mov rax, [rbx + FrameCtx.framebuffer]
+    mov [rdx + UiText.pixels], rax
+    mov rax, [rbx + FrameCtx.stride]
+    mov [rdx + UiText.stride], rax
+    mov eax, [rsp + 8]                  ; the bar
+    add eax, TITLE_PAD
+    mov [rdx + UiText.x], eax
+    mov eax, [rsp + 8 + 4]
+    mov [rdx + UiText.y], eax
+    mov eax, [rsp + 8 + 8]
+    sub eax, TITLE_PAD + BUTTON_FROM_RIGHT(2) + TITLEBAR_MARGIN
+    jle .done                           ; no room left of the buttons
+    mov [rdx + UiText.width], eax
+    mov dword [rdx + UiText.height], TITLEBAR_H
+    mov eax, [r13]                      ; the clip
+    mov [rdx + UiText.clip_x], eax
+    mov eax, [r13 + 4]
+    mov [rdx + UiText.clip_y], eax
+    mov eax, [r13 + 8]
+    mov [rdx + UiText.clip_w], eax
+    mov eax, [r13 + 12]
+    mov [rdx + UiText.clip_h], eax
+    mov dword [rdx + UiText.size], TITLE_SIZE
+    mov dword [rdx + UiText.colour], TITLE_COLOR
+    mov rdi, rdx
+    sub rsp, 8                          ; 16-byte aligned
+    call ui_text_draw
+    add rsp, 8
+.done:
+    ret
 
 ; A rectangle of one colour, the part inside the clip.
 ; rdi = rect, esi = colour; rbx = frame context, r13 = clip, called from
