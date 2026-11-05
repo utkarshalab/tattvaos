@@ -25,6 +25,12 @@ vcs_sync_server_begin:
  mov r12d,edx
  test rbx,rbx
  jz .begin_usage
+ mov dword [rbx+vcs_server.phase],VS_FAILED
+ mov dword [rbx+vcs_server.listener],-1
+ mov dword [rbx+vcs_server.client],-1
+ mov qword [rbx+vcs_server.incoming_count],0
+ mov qword [rbx+vcs_server.outgoing_count],0
+ mov qword [rbx+vcs_server.status],0
  test rcx,rcx
  jz .begin_usage
  test r8,r8
