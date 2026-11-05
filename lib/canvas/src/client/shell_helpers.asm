@@ -224,6 +224,23 @@ canvas_window_set_maximized:
     mov r9d, WINDOW_LIST_SET_MAXIMIZED
     jmp id_request
 
+; ---------------------------------------------------------------------------
+; canvas_window_list_set_workspace
+;   IN:  rdi = conn, esi = the workspace to show
+; canvas_window_move_to_workspace
+;   IN:  rdi = conn, esi = a window's id, edx = the workspace
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_window_list_set_workspace
+canvas_window_list_set_workspace:
+    mov r9d, WINDOW_LIST_SET_WORKSPACE
+    jmp id_request
+
+global canvas_window_move_to_workspace
+canvas_window_move_to_workspace:
+    mov r9d, WINDOW_LIST_MOVE_TO_WORKSPACE
+    jmp id_request
+
 ; Not in the protocol yet
 global canvas_toplevel_set_min_size
 global canvas_toplevel_set_max_size
@@ -269,10 +286,12 @@ id_request:
     mov esi, CWP_OBJ_WINDOW_LIST
     mov edx, r9d
     mov rcx, rsp
-    mov r8d, 4
+    mov r8d, 8                          ; (id, value)
     cmp edx, WINDOW_LIST_SET_MAXIMIZED
-    jne .send
-    mov r8d, 8
+    je .send
+    cmp edx, WINDOW_LIST_MOVE_TO_WORKSPACE
+    je .send
+    mov r8d, 4                          ; (id) or (index)
 .send:
     call canvas_send
     add rsp, 24
