@@ -478,7 +478,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | WIN-16 | Workspaces: named, dynamic, per-monitor or global | P2 | ◐ `shell/window`: four global workspaces; a window is on the screen only while its workspace is shown; Super+1–4 shows one, Super+Shift+1–4 moves the focused window; the window list carries each window's workspace and the one shown, with set_workspace and move_to_workspace; the taskbar shows the current workspace's windows and a square per workspace; `test_window`, `test_taskbar`. Not named, dynamic or per monitor |
 | WIN-17 | Workspace follows its monitor on replug | P3 | |
 | WIN-18 | Snapping, edge tiling, quarter tiling | P3 | |
-| WIN-19 | Alt-tab switcher with live thumbnails | P3 | |
+| WIN-19 | Alt-tab switcher with live thumbnails | P3 | ◐ `shell/switcher`: Alt+Tab through the workspace's windows, the latest to have the keyboard first, a tile with its title for each drawn over everything, Esc to give up, letting go of Alt activates; `test_window`. Tiles, not live thumbnails |
 | WIN-20 | Overview mode: all windows and workspace grid, drag between workspaces | P3 | |
 | WIN-21 | Touchpad 1:1 workspace switching | P3 | |
 | WIN-22 | Always-on-top, sticky, pinned windows | P3 | |
