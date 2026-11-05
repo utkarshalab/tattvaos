@@ -122,13 +122,16 @@
 %define LAYER_EV_CONFIGURE  0
 
 ; cw_window_list (canvas-shell.cwp)
-%define WINDOW_LIST_SUBSCRIBE     0
-%define WINDOW_LIST_ACTIVATE      1
-%define WINDOW_LIST_CLOSE         2
-%define WINDOW_LIST_MINIMIZE      3
-%define WINDOW_LIST_SET_MAXIMIZED 4
-%define WINDOW_LIST_EV_WINDOW     0
-%define WINDOW_LIST_EV_REMOVED    1
-%define WINDOW_LIST_EV_ACTIVATED  2
+%define WINDOW_LIST_SUBSCRIBE         0
+%define WINDOW_LIST_ACTIVATE          1
+%define WINDOW_LIST_CLOSE             2
+%define WINDOW_LIST_MINIMIZE          3
+%define WINDOW_LIST_SET_MAXIMIZED     4
+%define WINDOW_LIST_SET_WORKSPACE     5
+%define WINDOW_LIST_MOVE_TO_WORKSPACE 6
+%define WINDOW_LIST_EV_WINDOW         0
+%define WINDOW_LIST_EV_REMOVED        1
+%define WINDOW_LIST_EV_ACTIVATED      2
+%define WINDOW_LIST_EV_WORKSPACE      3
 
 %endif
