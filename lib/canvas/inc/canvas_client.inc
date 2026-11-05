@@ -64,6 +64,7 @@
 %define CANVAS_EV_WINDOW        (CWP_OBJ_WINDOW_LIST << 16 | WINDOW_LIST_EV_WINDOW)
 %define CANVAS_EV_WINDOW_REMOVED (CWP_OBJ_WINDOW_LIST << 16 | WINDOW_LIST_EV_REMOVED)
 %define CANVAS_EV_WINDOW_ACTIVATED (CWP_OBJ_WINDOW_LIST << 16 | WINDOW_LIST_EV_ACTIVATED)
+%define CANVAS_EV_WORKSPACE     (CWP_OBJ_WINDOW_LIST << 16 | WINDOW_LIST_EV_WORKSPACE)
 %define CANVAS_STATE_MINIMIZED  4       ; in window list events only
 
 ; cw_toplevel's states, as configure gives them
@@ -85,11 +86,11 @@
 ; CLIENT_EVENT_DATA bytes (a window list's window event is the longest).
 ; Input events start (time: ulong, surface: handle), so canvas_event_time
 ; reads data[0].
-%define CLIENT_EVENT_DATA      136
+%define CLIENT_EVENT_DATA      140
 struc ClientEvent
     .type:      resd 1
     .length:    resd 1
-    .data:      resb 136        ; CLIENT_EVENT_DATA
+    .data:      resb 140        ; CLIENT_EVENT_DATA
 endstruc
 
 ; A buffer the server made for this connection
@@ -117,7 +118,7 @@ struc ClientWire
     .reply:     resb 256        ; the last call's answer
     .arena:     resb Arena_size
     alignb 8
-    .events:    resb 9216       ; CLIENT_EVENTS ClientEvents of 144 bytes
+    .events:    resb 9472       ; CLIENT_EVENTS ClientEvents of 148 bytes
 endstruc
 
 ; Present info (mirrors render.inc)
