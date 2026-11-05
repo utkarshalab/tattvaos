@@ -1551,6 +1551,9 @@ struc InputSeat
     .move_dx:                 resd 1    ; moving: the pointer's place on it;
     .move_dy:                 resd 1    ; resizing: where the pointer started
     .move_mode:               resd 1    ; MOVE_MOVE or MOVE_RESIZE
+    .bar:                     resq 1    ; Surface* whose title bar the pointer is on
+    .bar_part:                resd 1    ; which part: TITLEBAR_*
+    .bar_pad:                 resd 1
     .resize_w:                resd 1    ; its size when the resize started
     .resize_h:                resd 1
     .move_pad:                resd 1
@@ -1672,6 +1675,15 @@ endstruc
 %define WINDOW_LIST_MAX 8               ; clients watching the window list
 %define WORKSPACES      4               ; Super+1 to Super+4
 
+; Server-drawn title bars (src/shell/titlebar.asm)
+%define TITLEBAR_H      24              ; above the window, its width
+%define TITLEBAR_BUTTON 16              ; a square button
+%define TITLEBAR_MARGIN 4               ; buttons from the edges and each other
+%define TITLEBAR_BAR    1               ; the parts of a bar
+%define TITLEBAR_CLOSE  2
+%define TITLEBAR_MAXIMIZE 3
+%define TITLEBAR_MINIMIZE 4
+
 ; Layer anchors (proto/canvas-shell.cwp)
 %define ANCHOR_TOP      1
 %define ANCHOR_BOTTOM   2
@@ -1701,7 +1713,9 @@ struc Window
     .exclusive:               resd 1    ; a layer's strip kept from windows
     .min_output:              resq 1    ; the Output* it is off, while hidden
     .workspace:               resd 1    ; a toplevel's, 0 to WORKSPACES - 1
-    .ws_pad:                  resd 1
+    .decorated:               resd 1    ; 1: the server draws its title bar
+    .bar_w:                   resd 1    ; the width its bar was drawn at
+    .bar_pad:                 resd 1
     .serial:                  resd 1    ; of the last configure sent
     .acked:                   resd 1    ; the last the client applied
     .title_len:               resd 1
