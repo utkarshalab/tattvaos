@@ -475,7 +475,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | WIN-13 | Startup feedback and app activation | P2 | → PRO-18 |
 | WIN-14 | Urgency / attention hints | P2 | |
 | WIN-15 | Window icons per instance | P2 | |
-| WIN-16 | Workspaces: named, dynamic, per-monitor or global | P2 | an unreachable draft is in `attic/src/shell` |
+| WIN-16 | Workspaces: named, dynamic, per-monitor or global | P2 | ◐ `shell/window`: four global workspaces; a window is on the screen only while its workspace is shown; Super+1–4 shows one, Super+Shift+1–4 moves the focused window; the window list carries each window's workspace and the one shown, with set_workspace and move_to_workspace; the taskbar shows the current workspace's windows and a square per workspace; `test_window`, `test_taskbar`. Not named, dynamic or per monitor |
 | WIN-17 | Workspace follows its monitor on replug | P3 | |
 | WIN-18 | Snapping, edge tiling, quarter tiling | P3 | |
 | WIN-19 | Alt-tab switcher with live thumbnails | P3 | |
