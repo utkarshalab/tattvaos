@@ -162,6 +162,25 @@ canvas_toplevel_set_minimized:
     jmp surface_request
 
 ; ---------------------------------------------------------------------------
+; canvas_toplevel_set_decorated
+;   A title bar drawn by the server, or none
+;   IN:  rdi = conn, esi = surface, edx = 1 on, 0 off
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_toplevel_set_decorated
+canvas_toplevel_set_decorated:
+    sub rsp, 24
+    mov [rsp], esi
+    mov [rsp + 4], edx
+    mov esi, CWP_OBJ_TOPLEVEL
+    mov edx, TOPLEVEL_SET_DECORATED
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 24
+    ret
+
+; ---------------------------------------------------------------------------
 ; canvas_layer_set_exclusive
 ;   Keep a strip along the layer's edge from maximized windows
 ;   IN:  rdi = conn, esi = surface, edx = its width (0: none)
