@@ -4,10 +4,12 @@
 ; A trusted client inside canvasd, through the client library, as the
 ; greeter is. It is a top layer along the bottom edge that keeps its height
 ; from maximized windows, and it watches the window list: a block for each
-; window in the order they came, coloured from its app id, grey while
-; minimized, with a stripe over the one that has the keyboard. Text waits for
-; fonts. A click on a block activates that window; on the active window's
-; block it minimizes it.
+; window of the workspace shown, in the order they came, coloured from its
+; app id, grey while minimized, with a stripe over the one that has the
+; keyboard; at the right end a square for each workspace, the one shown
+; bright. Text waits for fonts. A click on a block activates that window, on
+; the active window's block minimizes it; a click on a square shows that
+; workspace.
 ;
 ; taskbar_start makes everything with library calls that turn server_poll,
 ; so it runs outside a turn; canvasd's loop calls taskbar_step after each
@@ -33,6 +35,7 @@ extern canvas_surface_commit
 extern canvas_surface_create
 extern canvas_surface_damage
 extern canvas_window_activate
+extern canvas_window_list_set_workspace
 extern canvas_window_list_subscribe
 extern canvas_window_minimize
 extern client_accept_trusted
@@ -40,6 +43,9 @@ extern server_poll
 
 %define EV_DATA     (Taskbar.event + ClientEvent.data)
 %define STATE_MINIMIZED 4
+
+; How much of the right end the workspace squares take
+%define SWITCHER_W  (TASKBAR_WS_COUNT * (TASKBAR_WS_W + TASKBAR_GAP))
 
 section .text
 
@@ -175,6 +181,8 @@ taskbar_step:
     je .removed
     cmp eax, CANVAS_EV_WINDOW_ACTIVATED
     je .activated
+    cmp eax, CANVAS_EV_WORKSPACE
+    je .workspace
     cmp eax, CANVAS_EV_POINTER_ENTER
     je .pointer
     cmp eax, CANVAS_EV_MOTION
@@ -204,7 +212,9 @@ taskbar_step:
     mov r12, rax
     mov ecx, [rbx + EV_DATA + 4]
     mov [r12 + TaskbarEntry.states], ecx
-    lea rdi, [rbx + EV_DATA + 72]       ; its app id
+    mov ecx, [rbx + EV_DATA + 8]
+    mov [r12 + TaskbarEntry.workspace], ecx
+    lea rdi, [rbx + EV_DATA + 76]       ; its app id
     call app_color
     mov [r12 + TaskbarEntry.color], eax
     jmp .changed
@@ -232,6 +242,12 @@ taskbar_step:
     mov [rbx + Taskbar.active], eax
     jmp .changed
 
+    ; workspace(current, count)
+.workspace:
+    mov eax, [rbx + EV_DATA]
+    mov [rbx + Taskbar.workspace], eax
+    jmp .changed
+
     ; enter or motion (time, surface, x, y): where a click would land
 .pointer:
     mov eax, [rbx + EV_DATA + 12]
@@ -247,6 +263,15 @@ taskbar_step:
     jne .next
     cmp dword [rbx + EV_DATA + 16], 1
     jne .next
+    mov rdi, rbx
+    call square_at_pointer
+    test eax, eax
+    js .block
+    mov rdi, [rbx + Taskbar.conn]
+    mov esi, eax
+    call canvas_window_list_set_workspace
+    jmp .next
+.block:
     mov rdi, rbx
     call entry_at_pointer
     test rax, rax
@@ -282,11 +307,10 @@ taskbar_step:
 ; Local
 ; ---------------------------------------------------------------------------
 
-; The bar and its blocks into the buffer.
+; The bar, the blocks of the workspace shown, the workspace squares.
 ; rdi = taskbar
 draw:
-    PROLOGUE_SAVE rbx, r12, r13
-    sub rsp, 8                          ; 16-byte aligned
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     xor esi, esi
     xor edx, edx
@@ -294,15 +318,48 @@ draw:
     mov r8d, TASKBAR_H
     mov r9d, TASKBAR_BG
     call fill
-    xor r12d, r12d                      ; the block
+
+    ; The squares, the shown one bright
+    xor r12d, r12d
+.square:
+    cmp r12d, TASKBAR_WS_COUNT
+    jae .blocks
+    mov esi, [rbx + Taskbar.width]
+    sub esi, SWITCHER_W
+    imul eax, r12d, TASKBAR_WS_W + TASKBAR_GAP
+    add esi, eax
+    mov r9d, TASKBAR_DIM
+    cmp r12d, [rbx + Taskbar.workspace]
+    jne .square_color
+    mov r9d, TASKBAR_INK
+.square_color:
+    mov rdi, rbx
+    mov edx, TASKBAR_PAD
+    mov ecx, TASKBAR_WS_W
+    mov r8d, TASKBAR_H - 2 * TASKBAR_PAD
+    call fill
+    inc r12d
+    jmp .square
+
+.blocks:
+    xor r12d, r12d                      ; the entry
+    xor r14d, r14d                      ; the slot on the bar
 .block:
     cmp r12d, [rbx + Taskbar.count]
     jae .out
-    imul r13d, r12d, TASKBAR_ENTRY_W + TASKBAR_GAP
+    mov eax, r12d
+    shl eax, 4
+    mov eax, [rbx + Taskbar.entries + rax + TaskbarEntry.workspace]
+    cmp eax, [rbx + Taskbar.workspace]
+    jne .next                           ; another workspace's
+    imul r13d, r14d, TASKBAR_ENTRY_W + TASKBAR_GAP
     add r13d, TASKBAR_PAD               ; its x
+    inc r14d
     mov eax, r13d
     add eax, TASKBAR_ENTRY_W
-    cmp eax, [rbx + Taskbar.width]
+    mov ecx, [rbx + Taskbar.width]
+    sub ecx, SWITCHER_W
+    cmp eax, ecx
     ja .out                             ; no room for more
     mov eax, r12d
     shl eax, 4
@@ -334,8 +391,7 @@ draw:
     inc r12d
     jmp .block
 .out:
-    add rsp, 8
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; The whole bar damaged and committed.
 ; rdi = taskbar
@@ -373,7 +429,8 @@ find_entry:
 .done:
     ret
 
-; rdi = taskbar -> rax = the TaskbarEntry under the pointer, 0 if none
+; rdi = taskbar -> rax = the TaskbarEntry whose block is under the pointer,
+; 0 if none: the slot, then that slot's entry among the workspace shown's
 entry_at_pointer:
     mov eax, [rdi + Taskbar.pointer_x]
     sub eax, TASKBAR_PAD
@@ -383,13 +440,46 @@ entry_at_pointer:
     div ecx
     cmp edx, TASKBAR_ENTRY_W
     jae .none                           ; in a gap
-    cmp eax, [rdi + Taskbar.count]
-    jae .none
-    shl eax, 4
-    lea rax, [rdi + Taskbar.entries + rax]
+    mov r8d, eax                        ; the slot
+    lea rax, [rdi + Taskbar.entries]
+    mov ecx, [rdi + Taskbar.count]
+    mov edx, [rdi + Taskbar.workspace]
+.find:
+    test ecx, ecx
+    jz .none
+    cmp [rax + TaskbarEntry.workspace], edx
+    jne .skip
+    test r8d, r8d
+    jz .found
+    dec r8d
+.skip:
+    add rax, TaskbarEntry_size
+    dec ecx
+    jmp .find
+.found:
     ret
 .none:
     xor eax, eax
+    ret
+
+; rdi = taskbar -> eax = the workspace square under the pointer, -1 if none
+square_at_pointer:
+    mov eax, [rdi + Taskbar.pointer_x]
+    test eax, eax
+    js .none
+    sub eax, [rdi + Taskbar.width]
+    add eax, SWITCHER_W
+    js .none
+    xor edx, edx
+    mov ecx, TASKBAR_WS_W + TASKBAR_GAP
+    div ecx
+    cmp edx, TASKBAR_WS_W
+    jae .none
+    cmp eax, TASKBAR_WS_COUNT
+    jae .none
+    ret
+.none:
+    mov eax, -1
     ret
 
 ; A colour for an app id, the same every time: FNV-1a over its bytes picks
