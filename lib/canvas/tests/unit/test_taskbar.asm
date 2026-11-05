@@ -529,7 +529,7 @@ tb_titlebar_title:
     call screen_pixel
     pop rdi
     pop rdi
-    cmp eax, 0xFF2C3248
+    cmp eax, 0xFF3E4C78                 ; the bar: it has the keyboard
     je .plain
     inc ebx
 .plain:
