@@ -38,6 +38,7 @@ extern test_input_suite
 extern test_greeter_suite
 extern test_window_suite
 extern test_taskbar_suite
+extern test_ui_text_suite
 extern test_clientlib_suite
 extern test_fields_suite
 
@@ -167,6 +168,10 @@ test_runner_init:
 
     ; Test the built-in taskbar
     call test_taskbar_suite
+    add rbx, rax
+
+    ; Test text in the embedded font
+    call test_ui_text_suite
     add rbx, rax
 
     ; Test the client library against the server
