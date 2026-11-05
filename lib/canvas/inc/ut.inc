@@ -379,6 +379,7 @@ extern ut_tls_read
 extern ut_tls_write
 extern ut_tls_close
 extern ut_tls_peer_cert
+extern ut_auth_verify
 
 %endif ; !UT_BINDING_IMPL
 
