@@ -231,8 +231,8 @@
 | CMP-03 | Composition order: background → scanout → planes → surfaces → decorations → overlays → cursor | P2 | |
 | CMP-04 | Complete SIMD blend paths (SSE2, AVX2, AVX-512) with runtime dispatch | P2 | ◐ AVX2/512 "simplified" |
 | CMP-05 | Direct scanout for eligible fullscreen surfaces | P2 | ◐ `server/direct_scanout` |
-| CMP-06 | Opaque-region exploitation: no blending under opaque areas | P2 | |
-| CMP-07 | Occlusion culling: skip fully hidden surfaces | P2 | |
+| CMP-06 | Opaque-region exploitation: no blending under opaque areas | P2 | ◐ `render/compositor`: each damaged rectangle is drawn from the topmost surface opaque over all of it (a buffer without alpha, or one rectangle of its opaque region holding it); nothing under it is drawn, the background neither; `test_window`. Partial cover still blends |
+| CMP-07 | Occlusion culling: skip fully hidden surfaces | P2 | ◐ per damaged rectangle, by CMP-06's cover: surfaces under it are skipped |
 | CMP-08 | Front-to-back rendering with early reject | P3 | |
 | CMP-09 | Render caching: unchanged surfaces kept as composed layers | P3 | |
 | CMP-10 | Layer tree with explicit compositing layers per window | P3 | |
