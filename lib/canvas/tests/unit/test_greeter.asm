@@ -21,6 +21,8 @@ extern arena_init
 extern greeter_done
 extern greeter_set_verify
 extern greeter_start
+extern login_reset
+extern login_verify
 extern ui_text_init
 extern greeter_step
 extern server_init
@@ -60,6 +62,8 @@ test_greeter_suite:
     CASE tg_typing
     CASE tg_wrong
     CASE tg_right
+    CASE tg_login
+    CASE tg_lockout
     call tg_too_small
     add ebx, eax
     mov eax, ebx
@@ -304,6 +308,65 @@ tg_right:
     mov rcx, [rel server + Server.outputs]
     cmp qword [rcx + Output.surfaces], 0
     jne .fail
+    PASS
+
+; "secret", the host's password, letter by letter
+type_secret:
+    sub rsp, 8
+    TYPE 31                             ; s
+    TYPE 18                             ; e
+    TYPE 46                             ; c
+    TYPE 19                             ; r
+    TYPE 18                             ; e
+    TYPE 20                             ; t
+    add rsp, 8
+    ret
+
+; Through login_verify the kernel's check decides: a wrong password is
+; refused, the right one lets the user in
+tg_login:
+    sub rsp, 8
+    call login_reset
+    mov rdi, [rel greeter]
+    lea rsi, [rel login_verify]
+    call greeter_set_verify
+    TYPE KEY_A
+    TYPE KEY_ENTER
+    mov rdi, [rel greeter]
+    call greeter_done
+    test eax, eax
+    jnz .fail
+    call type_secret
+    TYPE KEY_ENTER
+    mov rdi, [rel greeter]
+    call greeter_done
+    test eax, eax
+    jz .fail
+    PASS
+
+; Three wrong in a row: then even the right one is refused for a while
+tg_lockout:
+    sub rsp, 8
+    call login_reset
+    mov rdi, [rel greeter]
+    lea rsi, [rel login_verify]
+    call greeter_set_verify
+    TYPE KEY_A
+    TYPE KEY_ENTER
+    TYPE KEY_A
+    TYPE KEY_ENTER
+    TYPE KEY_A
+    TYPE KEY_ENTER
+    call type_secret
+    TYPE KEY_ENTER
+    mov rdi, [rel greeter]
+    call greeter_done
+    test eax, eax
+    jnz .fail                           ; locked out
+    mov rax, [rel greeter]
+    cmp dword [rax + Greeter.failed], 1
+    jne .fail
+    call login_reset
     PASS
 
 ; A screen narrower than the field gets no greeter
