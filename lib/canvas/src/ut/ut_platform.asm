@@ -22,6 +22,13 @@ ut_fb_info:
     mov rax, -(ENOSYS)
     ret
 
+; Another: the kernel checks a password against its accounts. Anywhere else
+; there are none, and nothing is let in.
+global ut_auth_verify
+ut_auth_verify:
+    mov rax, -(ENOSYS)
+    ret
+
 UT_SYSCALL ut_task_spawn, SYS_TASK_SPAWN
 UT_SYSCALL ut_task_wait, SYS_TASK_WAIT
 UT_SYSCALL ut_task_self, SYS_TASK_SELF
