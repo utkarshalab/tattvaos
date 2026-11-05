@@ -22,6 +22,7 @@ extern channel_init
 extern auth_handshake
 extern surface_destroy_client
 extern window_list_forget
+extern regions_destroy_client
 extern buffer_destroy_client
 
 %define CLIENT_CONNECTING   1
@@ -257,6 +258,9 @@ client_disconnect:
     mov rdi, rbx
     mov rsi, r13
     call window_list_forget
+    mov rdi, rbx
+    mov rsi, r13
+    call regions_destroy_client
     mov rdi, rbx
     mov rsi, r13
     call surface_destroy_client
