@@ -5,7 +5,13 @@
 ; Each output keeps its surfaces bottom to top in Output.surfaces, linked by
 ; z_order_next / z_order_prev, in stacking levels (LEVEL_* in
 ; inc/struct_offsets.inc; a surface's is its shell role's, LEVEL_NORMAL with
-; none). A surface goes in, or is raised, to the top of its own level. A frame moves each surface's committed damage
+; none). A surface goes in, or is raised, to the top of its own level.
+;
+; Each damaged rectangle is drawn from the topmost surface that is opaque
+; over all of it, up: what is under it, the background too, cannot show and
+; is not drawn. A buffer without alpha is opaque everywhere; otherwise the
+; surface's opaque region says, one of its rectangles holding the whole
+; damaged one (a looser test could draw too little). A frame moves each surface's committed damage
 ; to the output, redraws every damaged rectangle from the background up, then
 ; tells the surfaces their frame is done. Nothing damaged means no frame.
 
@@ -14,6 +20,7 @@
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 %include "inc/render.inc"
+%include "inc/color.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
 
@@ -452,6 +459,13 @@ compositor_composite_output:
     call rect_intersect
     test rax, rax
     jnz .next_rect
+    mov rdi, [rbx + Compositor.server]  ; what covers it, from the top
+    mov rsi, r12
+    lea rdx, [rsp + L_CLIP]
+    call topmost_cover
+    mov r15, rax
+    test r15, r15
+    jnz .surface                        ; nothing under it shows
     mov rdi, rsp
     lea rsi, [rsp + L_CLIP]
     mov edx, [rbx + Compositor.bg_color]
@@ -468,6 +482,7 @@ compositor_composite_output:
     mov rsi, r15
     lea rdx, [rsp + L_CLIP]
     call sw_render_surface
+    inc qword [rbx + Compositor.drawn]
     mov r15, [r15 + Surface.z_order_next]
     jmp .surface
 .overlays:
@@ -523,6 +538,78 @@ compositor_composite_output:
     add rsp, FrameCtx_size + 64 + 8
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
+
+; The topmost surface on an output that is opaque over the whole of a
+; rectangle (output coordinates), 0 if none is.
+; rdi = server, rsi = Output*, rdx = rect* -> rax = Surface* or 0
+topmost_cover:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r13, rdx
+    xor r14d, r14d                      ; the latest found
+    mov r12, [rsi + Output.surfaces]
+.next:
+    test r12, r12
+    jz .done
+    mov rsi, [r12 + Surface.current + SurfaceState.buffer]
+    test rsi, rsi
+    jz .skip
+    mov rdi, [rbx + Server.buffer_table]
+    call handle_resolve
+    test rax, rax
+    jz .skip
+    mov r15, rax                        ; the buffer
+    ; the rectangle in the surface's coordinates, inside the buffer
+    mov eax, [r13]
+    sub eax, [r12 + Surface.current + SurfaceState.buf_x]
+    js .skip
+    mov ecx, [r13 + 4]
+    sub ecx, [r12 + Surface.current + SurfaceState.buf_y]
+    js .skip
+    mov edx, eax
+    add edx, [r13 + 8]                  ; x1
+    cmp edx, [r15 + Buffer.width]
+    ja .skip
+    mov r8d, ecx
+    add r8d, [r13 + 12]                 ; y1
+    cmp r8d, [r15 + Buffer.height]
+    ja .skip
+    cmp dword [r15 + Buffer.format], DRM_FORMAT_BGR8888
+    je .covers                          ; no alpha: opaque everywhere
+    mov r9, [r12 + Surface.current + SurfaceState.opaque]
+    test r9, r9
+    jz .skip
+    mov r10, [r9 + Region.rects]
+    mov r11, [r9 + Region.count]
+.rect:
+    test r11, r11
+    jz .skip
+    cmp [r10], eax                      ; its left at or before ours
+    jg .next_rect
+    cmp [r10 + 4], ecx
+    jg .next_rect
+    mov edi, [r10]
+    add edi, [r10 + 8]
+    cmp edi, edx                        ; its right at or after ours
+    jl .next_rect
+    mov edi, [r10 + 4]
+    add edi, [r10 + 12]
+    cmp edi, r8d
+    jge .covers
+.next_rect:
+    add r10, 16
+    dec r11
+    jmp .rect
+.covers:
+    mov r14, r12
+.skip:
+    mov r12, [r12 + Surface.z_order_next]
+    jmp .next
+.done:
+    mov rax, r14
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 ; ---------------------------------------------------------------------------
 ; compositor_schedule_frame
