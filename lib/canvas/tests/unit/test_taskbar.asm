@@ -27,10 +27,11 @@ extern msgbuf_write
 extern server_init
 extern server_poll
 extern taskbar_start
+extern ui_text_init
 extern taskbar_step
 extern virtual_input_inject
 
-%define HEAP_SIZE   (4 * 1024 * 1024)
+%define HEAP_SIZE   (8 * 1024 * 1024)
 %define WIDTH       400
 %define HEIGHT      80
 %define BAR_Y       (HEIGHT - TASKBAR_H)
@@ -53,6 +54,8 @@ test_taskbar_suite:
     CASE tb_removed
     CASE tb_exclusive
     CASE tb_workspaces
+    CASE tb_titles
+    CASE tb_titlebar_title
     mov eax, ebx
     pop rbx
     ret
@@ -103,6 +106,8 @@ fresh:
     mov ecx, HEIGHT
     xor r8d, r8d
     call server_init
+    lea rdi, [rel arena]
+    call ui_text_init
     lea rdi, [rel server]
     lea rsi, [rel arena]
     call taskbar_start
@@ -412,6 +417,137 @@ tb_workspaces:
     cmp qword [rax + Surface.output], 0
     jne .fail
     PASS
+
+; A window's title is written in its block
+tb_titles:
+    push rbx
+    push r12
+    sub rsp, 8
+    call new_window
+    mov [rel surface_a], eax
+    mov [rel req], eax
+    mov dword [rel req + 4], 5
+    mov dword [rel req + 8], 'File'
+    mov byte [rel req + 12], 's'
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_TITLE, 13
+    call poll
+    call poll
+    mov rax, [rel bar]
+    mov r12d, [rax + Taskbar.entries + TaskbarEntry.color]
+    xor ebx, ebx                        ; pixels not the block's colour
+    mov esi, TASKBAR_PAD
+.row:
+    mov edi, BLOCK_X(0) + TASKBAR_TEXT_PAD
+.col:
+    push rsi
+    push rdi
+    call bar_pixel
+    pop rdi
+    pop rsi
+    cmp eax, r12d
+    je .plain
+    inc ebx
+.plain:
+    inc edi
+    cmp edi, BLOCK_X(0) + TASKBAR_ENTRY_W - TASKBAR_TEXT_PAD
+    jb .col
+    inc esi
+    cmp esi, TASKBAR_H - TASKBAR_PAD
+    jb .row
+    xor eax, eax
+    cmp ebx, 20
+    jae .out
+    mov eax, 1
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; edi = x, esi = y -> eax = the output's pixel there, as composited
+screen_pixel:
+    mov rax, [rel server + Server.outputs]
+    mov rcx, [rax + Output.stride]
+    imul rsi, rcx
+    mov rax, [rax + Output.framebuffer]
+    add rax, rsi
+    mov eax, [rax + rdi * 4]
+    ret
+
+; A title set while a decorated window shows is written on its bar
+tb_titlebar_title:
+    push rbx
+    push r12
+    sub rsp, 8
+    lea rdi, [rel server]               ; the pointer to the corner first
+    mov esi, INPUT_POSITION
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    call virtual_input_inject
+    mov dword [rel req], 160            ; a 160x12 window, decorated
+    mov dword [rel req + 4], 12
+    mov dword [rel req + 8], DRM_FORMAT_BGRA8888
+    mov dword [rel req + 12], 0
+    mov qword [rel req + 16], 0
+    SEND CWP_OBJ_BUFFER, BUFFER_CREATE, 24
+    call poll
+    call next_reply
+    mov eax, [rel ans]
+    mov [rel buffer], eax
+    SEND CWP_OBJ_SURFACE, SURFACE_CREATE, 0
+    call poll
+    call next_reply
+    mov ebx, [rel ans]
+    mov [rel req], ebx
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_CREATE, 4
+    mov [rel req], ebx
+    mov dword [rel req + 4], 1
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_DECORATED, 8
+    mov [rel req], ebx
+    mov eax, [rel buffer]
+    mov [rel req + 4], eax
+    mov qword [rel req + 8], 0
+    mov qword [rel req + 16], 0
+    SEND CWP_OBJ_SURFACE, SURFACE_ATTACH, 24
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_SURFACE, SURFACE_COMMIT, 8
+    call poll
+    mov [rel req], ebx                  ; then its title
+    mov dword [rel req + 4], 4
+    mov dword [rel req + 8], 'Edit'
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_TITLE, 12
+    call poll
+    xor ebx, ebx                        ; pixels not the bar's colour
+    xor r12d, r12d                      ; y, on the bar at the top
+.row:
+    mov edi, 8                          ; left of the buttons
+.col:
+    push rdi
+    push rdi
+    mov esi, r12d
+    call screen_pixel
+    pop rdi
+    pop rdi
+    cmp eax, 0xFF2C3248
+    je .plain
+    inc ebx
+.plain:
+    inc edi
+    cmp edi, 160 - 64
+    jb .col
+    inc r12d
+    cmp r12d, TITLEBAR_H
+    jb .row
+    xor eax, eax
+    cmp ebx, 20
+    jae .out
+    mov eax, 1
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
 
 section .bss
 alignb 16
