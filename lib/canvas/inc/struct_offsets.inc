@@ -624,6 +624,7 @@ struc Compositor
     .frame_clock:             resq 1
     .outputs:                 resq 1
     .render_list:             resq 1
+    .drawn:                   resq 1    ; surfaces drawn, ever (for tests)
 endstruc
 
 struc Configure
