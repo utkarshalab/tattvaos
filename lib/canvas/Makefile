@@ -366,7 +366,8 @@ SHELL_SRCS := \
     $(SRCDIR)/shell/stacking.asm \
     $(SRCDIR)/shell/window.asm \
     $(SRCDIR)/shell/window_list.asm \
-    $(SRCDIR)/shell/titlebar.asm
+    $(SRCDIR)/shell/titlebar.asm \
+    $(SRCDIR)/shell/switcher.asm
 
 # Policy (C13)
 POLICY_SRCS := \
