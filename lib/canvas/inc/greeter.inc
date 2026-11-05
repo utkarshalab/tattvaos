@@ -51,7 +51,7 @@ struc Greeter
     .pad:           resd 1
     .pair:          resb ChannelPair_size
     alignb 8
-    .event:         resb 144    ; a ClientEvent (inc/canvas_client.inc)
+    .event:         resb 148    ; a ClientEvent (inc/canvas_client.inc)
     .text:          resb 64     ; GREETER_MAX: sizes are literal for
 endstruc                        ; make field-width-check
 
