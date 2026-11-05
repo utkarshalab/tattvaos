@@ -7,7 +7,8 @@
 ; character typed, Backspace takes one back (and repeats), Esc clears the
 ; field, Enter hands what was typed to the verify hook. A wrong password
 ; clears the field and turns its edge red; with no hook every password is
-; wrong. What is typed is wiped once it has been checked.
+; wrong. What is typed is wiped once it has been checked. "Password" is
+; written above the field in the embedded font when there is room.
 ;
 ; greeter_start makes the buffer and the surface with library calls, which
 ; turn server_poll while they wait, so it is called outside the loop's turn;
@@ -22,6 +23,7 @@
 %include "inc/backend.inc"
 %include "inc/canvas_client.inc"
 %include "inc/greeter.inc"
+%include "inc/ui_text.inc"
 
 extern arena_alloc
 extern canvas_buffer_create
@@ -36,6 +38,7 @@ extern canvas_surface_damage
 extern canvas_surface_destroy
 extern client_accept
 extern server_poll
+extern ui_text_draw
 
 ; Keys acted on
 %define KEY_ESC             1
@@ -150,6 +153,8 @@ greeter_start:
     mov r8d, [rbx + Greeter.height]
     mov r9d, GREETER_BG
     call fill
+    mov rdi, rbx
+    call draw_label
     mov rdi, rbx
     call draw_field
     mov rdi, [rbx + Greeter.conn]
@@ -385,6 +390,40 @@ draw_field:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
 
+; "Password" above the field, if it fits.
+; rdi = greeter
+draw_label:
+    push rbx
+    sub rsp, UiText_size
+    mov rbx, rdi
+    mov eax, [rbx + Greeter.field_y]
+    sub eax, GREETER_LABEL_H + GREETER_LABEL_GAP
+    js .out                             ; no room above the field
+    mov [rsp + UiText.y], eax
+    mov [rsp + UiText.clip_y], eax
+    mov rax, [rbx + Greeter.pixels]
+    mov [rsp + UiText.pixels], rax
+    mov eax, [rbx + Greeter.stride]
+    mov [rsp + UiText.stride], rax
+    mov eax, [rbx + Greeter.field_x]
+    mov [rsp + UiText.x], eax
+    mov [rsp + UiText.clip_x], eax
+    mov dword [rsp + UiText.width], GREETER_FIELD_W
+    mov dword [rsp + UiText.clip_w], GREETER_FIELD_W
+    mov dword [rsp + UiText.height], GREETER_LABEL_H
+    mov dword [rsp + UiText.clip_h], GREETER_LABEL_H
+    mov dword [rsp + UiText.size], GREETER_LABEL_SIZE
+    mov dword [rsp + UiText.colour], GREETER_INK & 0xFFFFFF
+    lea rax, [rel s_password]
+    mov [rsp + UiText.text], rax
+    mov dword [rsp + UiText.length], s_password_len
+    mov rdi, rsp
+    call ui_text_draw                   ; no font: no label
+.out:
+    add rsp, UiText_size
+    pop rbx
+    ret
+
 ; A rectangle of one colour, inside the buffer.
 ; rdi = greeter, esi = x, edx = y, ecx = width, r8d = height, r9d = colour
 fill:
@@ -435,6 +474,10 @@ wipe:
     mov ecx, GREETER_MAX
     rep stosb
     ret
+
+section .rodata
+s_password:     db "Password"
+s_password_len: equ $ - s_password
 
 section .data
 global greeter_version
