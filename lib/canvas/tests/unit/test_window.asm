@@ -102,6 +102,7 @@ test_window_suite:
     CASE tw_list_workspace, CAP_SHELL | CAP_WINDOWS
     CASE tw_titlebar, CAP_SHELL
     CASE tw_titlebar_drag, CAP_SHELL
+    CASE tw_titlebar_focus, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -1241,10 +1242,10 @@ tw_titlebar:
     sub rsp, 8
     call decorated_window
     AT 0, TITLEBAR_H
-    mov edi, 2                          ; drawn: the bar, the close button
-    mov esi, 2
+    mov edi, 2                          ; drawn: the bar, bright with the
+    mov esi, 2                          ; keyboard; the close button
     call screen_pixel
-    cmp eax, 0xFF2C3248
+    cmp eax, 0xFF3E4C78
     jne .fail
     mov edi, 64 - 12
     mov esi, 10
@@ -1283,6 +1284,29 @@ tw_titlebar_drag:
     call any_event
     test eax, eax
     jnz .fail
+    PASS
+
+; The bar goes dim when another window takes the keyboard, bright again
+; when it comes back
+tw_titlebar_focus:
+    sub rsp, 8
+    call decorated_window
+    POINTER 40, 40                      ; another window, clear of the bar
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    mov edi, 2
+    mov esi, 2
+    call screen_pixel
+    cmp eax, 0xFF2C3248
+    jne .fail
+    CLICK_AT 30, 30                     ; on A's own pixels
+    mov edi, 2
+    mov esi, 2
+    call screen_pixel
+    cmp eax, 0xFF3E4C78
+    jne .fail
     PASS
 
 section .bss
