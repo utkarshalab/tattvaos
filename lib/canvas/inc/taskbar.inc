@@ -20,13 +20,15 @@
 %define TASKBAR_GAP         4
 %define TASKBAR_STRIPE      3           ; the active block's top stripe
 %define TASKBAR_MAX         32          ; windows it keeps track of
+%define TASKBAR_WS_W        20          ; a workspace square, at the right end
+%define TASKBAR_WS_COUNT    4           ; squares drawn (the server's WORKSPACES)
 
 ; One window it shows
 struc TaskbarEntry
     .id:            resd 1      ; the window list's id
     .states:        resd 1      ; maximized 1, fullscreen 2, minimized 4
     .color:         resd 1      ; from its app id
-    .pad:           resd 1
+    .workspace:     resd 1
 endstruc
 
 ; The taskbar itself; channel.inc must come first
@@ -42,9 +44,11 @@ struc Taskbar
     .count:         resd 1
     .pointer_x:     resd 1      ; on the bar, from enter and motion
     .dirty:         resd 1
+    .workspace:     resd 1      ; the one shown
+    .ws_pad:        resd 1
     .pair:          resb ChannelPair_size
     alignb 8
-    .event:         resb 144    ; a ClientEvent (inc/canvas_client.inc)
+    .event:         resb 148    ; a ClientEvent (inc/canvas_client.inc)
     .entries:       resb 512    ; TASKBAR_MAX TaskbarEntry records
 endstruc
 
