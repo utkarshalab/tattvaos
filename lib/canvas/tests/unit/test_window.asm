@@ -63,6 +63,8 @@ extern window_activate
 %define WL_WINDOW       0
 %define WL_REMOVED      1
 %define WL_ACTIVATED    2
+%define WL_WORKSPACE    3
+%define WL_SET_WS       5
 
 section .text
 
@@ -95,6 +97,8 @@ test_window_suite:
     CASE tw_exclusive, CAP_SHELL | CAP_LAYER
     CASE tw_window_list, CAP_SHELL | CAP_WINDOWS
     CASE tw_list_needs_cap, CAP_SHELL
+    CASE tw_workspaces, CAP_SHELL
+    CASE tw_list_workspace, CAP_SHELL | CAP_WINDOWS
     mov eax, ebx
     pop rbx
     ret
@@ -1057,7 +1061,7 @@ tw_window_list:
     SEND CWP_OBJ_TOPLEVEL, TL_SET_TITLE, 10
     call poll
     FIND CWP_OBJ_WINDOW_LIST, WL_WINDOW
-    cmp dword [rel ans + 8], 'Ed'       ; and the NUL after
+    cmp dword [rel ans + 12], 'Ed'      ; and the NUL after
     jne .fail
 
     LIST WL_MINIMIZE, 0
@@ -1112,6 +1116,82 @@ tw_list_needs_cap:
     jnz .fail
     cmp qword [rel server + Server.window_lists], 0
     jne .fail
+    PASS
+
+; Super+key %1, pressed and let go, with Super held already
+%macro SUPER_KEY 1
+    INJECT INPUT_KEY, %1, 1
+    INJECT INPUT_KEY, %1, 0
+    call poll
+%endmacro
+
+; surface in %1 is on the output (%2 = 1) or off it (0)
+%macro SHOWN 2
+    mov edi, [rel %1]
+    call surface_of
+    xor ecx, ecx
+    cmp qword [rax + Surface.output], 0
+    setne cl
+    cmp ecx, %2
+    jne .fail
+%endmacro
+
+; Super+2 shows workspace 1, without A; a window made there stays there;
+; Super+1 brings A back with the keyboard; Super+Shift+2 sends A to 1
+tw_workspaces:
+    sub rsp, 8
+    call window_at_10
+    INJECT INPUT_KEY, 125, 1            ; Super
+    SUPER_KEY 3                         ; 2
+    cmp qword [rel server + Server.workspace], 1
+    jne .fail
+    SHOWN surface_a, 0
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    SUPER_KEY 2                         ; 1
+    SHOWN surface_a, 1
+    SHOWN surface_b, 0
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail
+    INJECT INPUT_KEY, 42, 1             ; Shift
+    SUPER_KEY 3
+    INJECT INPUT_KEY, 42, 0
+    SHOWN surface_a, 0                  ; gone to 1, 0 still shown
+    cmp qword [rel server + Server.workspace], 0
+    jne .fail
+    SUPER_KEY 3
+    SHOWN surface_a, 1
+    SHOWN surface_b, 1
+    INJECT INPUT_KEY, 125, 0
+    PASS
+
+; The window list says which workspace is shown and each window's, and
+; shows another on request
+tw_list_workspace:
+    sub rsp, 8
+    call window_at_10
+    SEND CWP_OBJ_WINDOW_LIST, WL_SUBSCRIBE, 0
+    call poll
+    FIND CWP_OBJ_WINDOW_LIST, WL_WINDOW
+    cmp dword [rel ans + 8], 0          ; its workspace
+    jne .fail
+    FIND CWP_OBJ_WINDOW_LIST, WL_WORKSPACE
+    cmp dword [rel ans], 0
+    jne .fail
+    cmp dword [rel ans + 4], 4
+    jne .fail
+    mov dword [rel req], 2
+    SEND CWP_OBJ_WINDOW_LIST, WL_SET_WS, 4
+    call poll
+    FIND CWP_OBJ_WINDOW_LIST, WL_WORKSPACE
+    cmp dword [rel ans], 2
+    jne .fail
+    SHOWN surface_a, 0
     PASS
 
 section .bss
