@@ -27,6 +27,7 @@ extern canvas_toplevel_set_title
 extern canvas_toplevel_destroy
 extern canvas_toplevel_ack_configure
 extern canvas_toplevel_set_minimized
+extern canvas_toplevel_set_decorated
 extern canvas_popup_destroy
 extern canvas_layer_destroy
 extern canvas_layer_set_exclusive
