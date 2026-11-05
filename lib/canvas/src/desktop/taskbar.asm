@@ -5,8 +5,8 @@
 ; greeter is. It is a top layer along the bottom edge that keeps its height
 ; from maximized windows, and it watches the window list: a block for each
 ; window of the workspace shown, in the order they came, coloured from its
-; app id, grey while minimized, with a stripe over the one that has the
-; keyboard; at the right end a square for each workspace, the one shown
+; app id, grey while minimized, with its title in the embedded font and a
+; stripe over the one that has the keyboard; at the right end a square for each workspace, the one shown
 ; bright. Text waits for fonts. A click on a block activates that window, on
 ; the active window's block minimizes it; a click on a square shows that
 ; workspace.
@@ -22,6 +22,7 @@
 %include "inc/backend.inc"
 %include "inc/canvas_client.inc"
 %include "inc/taskbar.inc"
+%include "inc/ui_text.inc"
 
 extern arena_alloc
 extern canvas_buffer_create
@@ -40,6 +41,7 @@ extern canvas_window_list_subscribe
 extern canvas_window_minimize
 extern client_accept_trusted
 extern server_poll
+extern ui_text_draw
 
 %define EV_DATA     (Taskbar.event + ClientEvent.data)
 %define STATE_MINIMIZED 4
@@ -204,7 +206,7 @@ taskbar_step:
     cmp ecx, TASKBAR_MAX
     jae .next                           ; full: not shown
     inc dword [rbx + Taskbar.count]
-    shl ecx, 4
+    imul ecx, ecx, TaskbarEntry_size
     lea rax, [rbx + Taskbar.entries + rcx]
     mov ecx, [rbx + EV_DATA]
     mov [rax + TaskbarEntry.id], ecx
@@ -214,6 +216,11 @@ taskbar_step:
     mov [r12 + TaskbarEntry.states], ecx
     mov ecx, [rbx + EV_DATA + 8]
     mov [r12 + TaskbarEntry.workspace], ecx
+    lea rdi, [r12 + TaskbarEntry.title] ; its title
+    lea rsi, [rbx + EV_DATA + 12]
+    mov ecx, 64
+    rep movsb
+    mov byte [r12 + TaskbarEntry.title + 63], 0
     lea rdi, [rbx + EV_DATA + 76]       ; its app id
     call app_color
     mov [r12 + TaskbarEntry.color], eax
@@ -230,7 +237,7 @@ taskbar_step:
     lea rsi, [rax + TaskbarEntry_size]
     lea rcx, [rbx + Taskbar.entries]
     mov edx, [rbx + Taskbar.count]
-    shl edx, 4
+    imul edx, edx, TaskbarEntry_size
     add rcx, rdx                        ; the end
     sub rcx, rsi
     rep movsb
@@ -348,7 +355,7 @@ draw:
     cmp r12d, [rbx + Taskbar.count]
     jae .out
     mov eax, r12d
-    shl eax, 4
+    imul eax, eax, TaskbarEntry_size
     mov eax, [rbx + Taskbar.entries + rax + TaskbarEntry.workspace]
     cmp eax, [rbx + Taskbar.workspace]
     jne .next                           ; another workspace's
@@ -362,7 +369,7 @@ draw:
     cmp eax, ecx
     ja .out                             ; no room for more
     mov eax, r12d
-    shl eax, 4
+    imul eax, eax, TaskbarEntry_size
     lea rax, [rbx + Taskbar.entries + rax]
     mov r9d, [rax + TaskbarEntry.color]
     test dword [rax + TaskbarEntry.states], STATE_MINIMIZED
@@ -375,8 +382,12 @@ draw:
     mov ecx, TASKBAR_ENTRY_W
     mov r8d, TASKBAR_H - 2 * TASKBAR_PAD
     call fill
+    mov rdi, rbx
+    mov esi, r13d
+    mov edx, r12d
+    call draw_title
     mov eax, r12d
-    shl eax, 4
+    imul eax, eax, TaskbarEntry_size
     mov eax, [rbx + Taskbar.entries + rax + TaskbarEntry.id]
     cmp eax, [rbx + Taskbar.active]
     jne .next
@@ -392,6 +403,45 @@ draw:
     jmp .block
 .out:
     EPILOGUE_RESTORE rbx, r12, r13, r14
+
+; An entry's title inside its block.
+; rdi = taskbar, esi = the block's x, edx = the entry
+draw_title:
+    push rbx
+    sub rsp, UiText_size
+    mov rbx, rdi
+    imul edx, edx, TaskbarEntry_size
+    lea rax, [rbx + Taskbar.entries + rdx + TaskbarEntry.title]
+    mov [rsp + UiText.text], rax
+    xor ecx, ecx                        ; its length
+.length:
+    cmp byte [rax + rcx], 0
+    je .counted
+    inc ecx
+    cmp ecx, 63
+    jb .length
+.counted:
+    mov [rsp + UiText.length], ecx
+    mov rax, [rbx + Taskbar.pixels]
+    mov [rsp + UiText.pixels], rax
+    mov eax, [rbx + Taskbar.stride]
+    mov [rsp + UiText.stride], rax
+    add esi, TASKBAR_TEXT_PAD
+    mov [rsp + UiText.x], esi
+    mov [rsp + UiText.clip_x], esi
+    mov dword [rsp + UiText.y], TASKBAR_PAD
+    mov dword [rsp + UiText.clip_y], TASKBAR_PAD
+    mov dword [rsp + UiText.width], TASKBAR_ENTRY_W - 2 * TASKBAR_TEXT_PAD
+    mov dword [rsp + UiText.clip_w], TASKBAR_ENTRY_W - 2 * TASKBAR_TEXT_PAD
+    mov dword [rsp + UiText.height], TASKBAR_H - 2 * TASKBAR_PAD
+    mov dword [rsp + UiText.clip_h], TASKBAR_H - 2 * TASKBAR_PAD
+    mov dword [rsp + UiText.size], TASKBAR_TEXT_SIZE
+    mov dword [rsp + UiText.colour], TASKBAR_TEXT
+    mov rdi, rsp
+    call ui_text_draw                   ; no font: a plain block
+    add rsp, UiText_size
+    pop rbx
+    ret
 
 ; The whole bar damaged and committed.
 ; rdi = taskbar
