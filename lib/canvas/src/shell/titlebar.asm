@@ -6,7 +6,9 @@
 ; end: minimize, maximize, close. None while it is fullscreen. The compositor
 ; draws the bar just before the window, so it stacks with it; input asks
 ; titlebar_part what a point is on. The window's title is written on the bar
-; in the embedded font, left of the buttons.
+; in the embedded font, left of the buttons. The bar of the window with the
+; keyboard is brighter; titlebar_focus_changed redraws the two bars a focus
+; change touches.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -17,11 +19,13 @@
 %include "inc/ui_text.inc"
 
 extern handle_resolve
+extern region_add_rect
 extern rect_intersect
 extern sw_render_rect
 extern ui_text_draw
 
-%define BAR_COLOR       0xFF2C3248
+%define BAR_COLOR       0xFF2C3248      ; a window without the keyboard
+%define BAR_ACTIVE      0xFF3E4C78      ; the one with it
 %define CLOSE_COLOR     0xFFC04848
 %define MAXIMIZE_COLOR  0xFF54A24B
 %define MINIMIZE_COLOR  0xFFC0A040
@@ -134,6 +138,49 @@ titlebar_part:
     EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
+; titlebar_focus_changed
+;   The keyboard moved: the bars of the window it left and the one it went
+;   to need redrawing, their colours changing
+;   IN:  rdi = server*, rsi = surface* it left (0: none), rdx = surface* it
+;        went to (0: none)
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global titlebar_focus_changed
+titlebar_focus_changed:
+    PROLOGUE_SAVE rbx
+    sub rsp, 24                         ; a bar; 16-byte aligned
+    mov rbx, rdx
+    mov rdi, rsi
+    call damage_bar
+    mov rdi, rbx
+    call damage_bar
+    xor eax, eax
+    add rsp, 24
+    EPILOGUE_RESTORE rbx
+
+; A surface's bar, if it has one, into its output's damage. Called from
+; titlebar_focus_changed's frame: the rect goes at its rsp.
+; rdi = surface or 0
+damage_bar:
+    test rdi, rdi
+    jz .out
+    mov rax, [rdi + Surface.output]
+    test rax, rax
+    jz .out                             ; not on an output: nothing shown
+    push rax                            ; 16-byte aligned
+    lea rsi, [rsp + 16]                 ; titlebar_focus_changed's rsp
+    call titlebar_rect
+    pop rcx
+    test eax, eax
+    jz .out
+    mov rdi, [rcx + Output.damage]
+    lea rsi, [rsp + 8]
+    jmp region_add_rect
+.out:
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
 ; titlebar_render
 ;   A surface's bar and buttons, inside a clip rectangle
 ;   IN:  rdi = frame context, rsi = surface*, rdx = clip rect*
@@ -151,8 +198,17 @@ titlebar_render:
     call titlebar_rect
     test eax, eax
     jz .out
-    mov rdi, rsp
     mov esi, BAR_COLOR
+    mov rax, [r12 + Surface.window]
+    mov rax, [rax + Window.server]
+    mov rax, [rax + Server.input_seat]
+    test rax, rax
+    jz .colour
+    cmp [rax + InputSeat.keyboard_focus], r12
+    jne .colour
+    mov esi, BAR_ACTIVE
+.colour:
+    mov rdi, rsp
     call paint
     call draw_title
 %macro DRAW_BUTTON 2                    ; nth from the right, colour
