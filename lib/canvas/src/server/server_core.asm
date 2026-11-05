@@ -52,6 +52,8 @@ extern window_close
 extern window_layer_exclusive
 extern window_list_find
 extern window_list_subscribe
+extern window_move_to_workspace
+extern window_switch_workspace
 extern window_layer_create
 extern window_popup_create
 extern window_set_name
@@ -214,6 +216,8 @@ server_init:
     REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_CLOSE, h_window_list_close
     REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_MINIMIZE, h_window_list_minimize
     REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_SET_MAXIMIZED, h_window_list_set_maximized
+    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_SET_WORKSPACE, h_window_list_set_workspace
+    REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_MOVE_TO_WORKSPACE, h_window_list_move_to_workspace
 
     xor eax, eax
 .out:
@@ -671,6 +675,22 @@ WINDOW_LIST_HANDLER h_window_list_set_maximized, 8
     cmp dword [r13 + 4], 0
     setne dl
     call window_maximize
+HANDLER_END
+
+; set_workspace(index)
+HANDLER h_window_list_set_workspace, 4
+    NEEDS_CAP CAP_WINDOWS
+    mov rdi, r14
+    mov esi, [r13]
+    call window_switch_workspace
+HANDLER_END
+
+; move_to_workspace(id, index)
+WINDOW_LIST_HANDLER h_window_list_move_to_workspace, 8
+    mov rdi, r14
+    mov rsi, rax
+    mov edx, [r13 + 4]
+    call window_move_to_workspace
 HANDLER_END
 
 ; cw_popup.create(surface, parent, x, y)
