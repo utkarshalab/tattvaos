@@ -429,7 +429,8 @@ OBS_SRCS := \
 TEXT_SRCS := \
     $(SRCDIR)/text/text_input.asm \
     $(SRCDIR)/text/preedit.asm \
-    $(SRCDIR)/text/ime_bridge.asm
+    $(SRCDIR)/text/ime_bridge.asm \
+    $(SRCDIR)/text/ui_text.asm
 
 A11Y_SRCS := \
     $(SRCDIR)/a11y/a11y_tree.asm \
@@ -634,6 +635,7 @@ UNIT_SRCS := \
     tests/unit/test_greeter.asm \
     tests/unit/test_window.asm \
     tests/unit/test_taskbar.asm \
+    tests/unit/test_ui_text.asm \
     tests/unit/test_clientlib.asm \
     tests/unit/test_fields.asm
 UNIT_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(UNIT_SRCS))
@@ -760,7 +762,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 # ---------------------------------------------------------------------------
 
 HOSTDIR       := $(BUILDDIR)/host
-HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input greeter window taskbar clientlib fields region quota tile_diff \
+HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input greeter window taskbar ui_text clientlib fields region quota tile_diff \
                  inflate icc record_replay rfb webp png jpeg
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
