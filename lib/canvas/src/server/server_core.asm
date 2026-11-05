@@ -66,6 +66,14 @@ extern msgbuf_read
 extern msgbuf_write
 extern presentation_init
 extern regions_init
+extern regions_add
+extern regions_clear
+extern regions_create
+extern regions_destroy
+extern regions_own
+extern regions_subtract
+extern surface_set_input_region
+extern surface_set_opaque_region
 extern str_len
 extern surface_attach
 extern surface_create
@@ -673,6 +681,89 @@ HANDLER h_toplevel_set_decorated, 8
     mov edx, [r13 + 4]
     call window_set_decorated
 HANDLER_END
+
+; cw_region: create() -> (region)
+HANDLER h_region_create, 0
+    mov rdi, r14
+    mov rsi, rbx
+    call regions_create
+    test rax, rax
+    js .return
+    mov [r13], rax
+    mov rdi, r13
+    mov esi, 4
+    call reply
+HANDLER_END
+
+; destroy(region)
+HANDLER h_region_destroy, 4
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call regions_destroy
+    test rax, rax
+    jnz .bad_object
+HANDLER_END
+
+; add(region, x, y, width, height), subtract(...), clear(region): the
+; client's own region, then rax = it; .bad_object if it is not
+%macro OWN_REGION 0
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call regions_own
+    test rax, rax
+    jz .bad_object
+%endmacro
+
+HANDLER h_region_add, 20
+    OWN_REGION
+    mov rdi, rax
+    lea rsi, [r13 + 4]                  ; x, y, width, height as they came
+    call regions_add
+HANDLER_END
+
+HANDLER h_region_subtract, 20
+    OWN_REGION
+    mov rdi, rax
+    lea rsi, [r13 + 4]
+    call regions_subtract
+HANDLER_END
+
+HANDLER h_region_clear, 4
+    OWN_REGION
+    mov rdi, rax
+    call regions_clear
+    xor eax, eax
+HANDLER_END
+
+; cw_surface: set_opaque_region(surface, region), set_input_region(...);
+; region 0 is none. (handler, the setter)
+%macro REGION_SETTER 2
+HANDLER %1, 8
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov r12, rax                        ; the surface; the header is not
+    xor edx, edx                        ; needed again
+    cmp dword [r13 + 4], 0
+    je .set
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13 + 4]
+    call regions_own
+    test rax, rax
+    jz .bad_object
+    mov rdx, rax
+.set:
+    mov rdi, r14
+    mov rsi, r12
+    call %2
+HANDLER_END
+%endmacro
+REGION_SETTER h_surface_set_opaque_region, surface_set_opaque_region
+REGION_SETTER h_surface_set_input_region, surface_set_input_region
 
 ; cw_popup.create(surface, parent, x, y)
 HANDLER h_popup_create, 16
