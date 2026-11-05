@@ -48,6 +48,7 @@ extern stacking_unmapped
 extern window_list_changed
 extern window_list_removed
 extern window_list_workspace
+extern switcher_forget
 
 ; Events: interface << 16 | event
 %define EV_CONFIGURE    (CWP_OBJ_TOPLEVEL << 16 | TOPLEVEL_EV_CONFIGURE)
@@ -249,6 +250,8 @@ window_destroy:
     mov rdi, rbx                        ; gone from the window list
     mov rsi, r13
     call window_list_removed
+    mov rdi, r12                        ; and from an Alt+Tab
+    call switcher_forget
     lea rcx, [rbx + Server.windows]
 .find:
     mov rdx, [rcx]
