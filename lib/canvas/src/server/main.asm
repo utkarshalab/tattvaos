@@ -16,6 +16,8 @@ default rel
 
 extern arena_init
 extern greeter_start
+extern greeter_set_verify
+extern login_verify
 extern ui_text_init
 extern greeter_step
 extern taskbar_start
@@ -107,6 +109,12 @@ canvasd_init:
     lea rdi, [server]
     lea rsi, [server_arena]
     call greeter_start
+    test rax, rax
+    jle .no_greeter
+    mov rdi, rax                        ; its password checked by the kernel
+    lea rsi, [login_verify]
+    call greeter_set_verify
+.no_greeter:
 
     ; The taskbar, under the login screen until it goes
     lea rdi, [server]
