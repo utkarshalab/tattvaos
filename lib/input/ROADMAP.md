@@ -1,7 +1,8 @@
 # input — Roadmap
 
 **Part of:** Utkarsha OS, `lib/input` — input devices and the shared HID core
-**Status:** plan only; `lib/input` does not exist as of 2026-11-06
+**Status:** Phases 0 and 1 written and host-tested (2026-11-06); not yet run on
+QEMU or real hardware
 **Decided 2026-11-06:** built-in keyboards and touchpads (PS/2, I²C) are
 driven here, not in `lib/usb` and not in canvas.
 
@@ -110,9 +111,10 @@ touchpad work: PS/2 for the keyboard, and I²C plus GPIO for the touchpad.
 The **AML interpreter** is the largest hidden dependency. Most platform
 devices (touchpads, lid, buttons, hotkeys) are described in ACPI bytecode,
 not in static tables. Decision I1 puts it in `lib/io/acpi`, finished before
-input Phase 3. Phase 1 uses hard-coded resources for this machine (i8042 at
-ports 0x60 and 0x64, IRQ 1 and 12; power button and lid through the fixed
-ACPI events) so typing does not wait for it.
+input Phase 3. Phase 1 uses the fixed legacy resources (i8042 at ports
+0x60 and 0x64, IRQ 1) so typing does not wait for it. The power button
+(`PNP0C0C`) and lid (`PNP0C0D`) on this machine are control-method devices:
+they report through AML, so they wait for ACPI Phase 3 too.
 
 #### AML interpreter scope (full plan: `lib/io/acpi/ROADMAP.md`)
 
@@ -343,18 +345,25 @@ User settings (layouts, acceleration, gestures) stay with canvas.
 
 ### Phase 0 — Event core and canvas link
 
-- ☐ `input.inc`, device list, rings, the four `ut_input_*` exports
-- ☐ `sim/`: a simulated i8042 and simulated HID devices for host tests
-- ☐ Canvas receives simulated key and pointer events through the real
-  callback
+- ◐ `input.inc`, device list, event ring, the four `ut_input_*` functions,
+  exported to UBF programs (`kernel/exec/exports.asm`); input fiber
+  (`kernel.asm`)
+- ◐ Simulated i8042 and keyboard for host tests (`tests/sim_ps2.py`);
+  simulated HID devices come with Phase 2
+- ☐ Canvas receives events through the real callback (needs a boot)
 
 Estimate: ~3 000 lines.
 
-### Phase 1 — PS/2 keyboard, power button and lid
+### Phase 1 — PS/2 keyboard
 
-- ☐ i8042 controller and keyboard on this machine
-- ☐ Power button and lid (hard-coded resources until the AML interpreter
-  exists)
+- ◐ i8042 controller: detection, self-test, translation, IRQ 1
+  (`ps2/i8042.asm`)
+- ◐ Keyboard: reset, set 2, scan code set 1 decoding including 0xE0 keys,
+  Print Screen and Pause, repeat suppression, lock-key LEDs with ACK,
+  resend and timeout handling (`ps2/kbd.asm`)
+- ☐ Run on QEMU and on this machine
+- Moved: power button and lid need AML on this machine, so they are in
+  ACPI Phase 3
 
 Demo: type on the built-in keyboard at the canvas login screen.
 Estimate: ~3 000 lines.
