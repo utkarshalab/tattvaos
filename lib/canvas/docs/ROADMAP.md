@@ -653,7 +653,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | SEC-01 | Generation-checked handles on every dispatch | P1 | ◐ `server_core` checks handle and owner on every buffer and surface request; region and other requests still to come |
-| SEC-02 | Trust profiles loaded and enforced | P2 | ◐ `security/trust`; every client is accepted standard (no privileged capability) except canvasd's own through `client_accept_trusted`; profiles are not loaded from the trust store yet |
+| SEC-02 | Trust profiles loaded and enforced | P2 | ◐ `security/trust`; every client is accepted standard (no privileged capability) except canvasd's own through `client_accept_trusted`; overlay layers, which show and take input over the lock screen, need the privileged `CAP_OVERLAY` (`test_window`), so only the greeter has them; profiles are not loaded from the trust store yet |
 | SEC-03 | Capability gate with audit entries for privileged interfaces | P2 | ◐ `security/gate`, `audit` |
 | SEC-04 | Server-drawn permission prompts that clients cannot spoof | P2 | ◐ `security/prompts` |
 | SEC-05 | Capability tokens: entropy-seeded, keyed-hash authenticated, constant-time checks | P2 | ◐ `security/token` |
