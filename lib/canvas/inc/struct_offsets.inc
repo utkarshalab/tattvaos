@@ -1525,6 +1525,7 @@ struc Server
     .taskbar:                 resq 1    ; the built-in taskbar, likewise
     .locked:                  resq 1    ; 1 while the login screen is up
     .focus_seq:               resq 1    ; the last Window.focus_seq given
+    .stack:                   resq 1    ; every surface shown, bottom to top
     .windows:                 resq 1    ; every Window, newest first
     .window_seq:              resq 1    ; the last Window.number given
     .window_active:           resq 1    ; the number the window list last said
