@@ -45,7 +45,7 @@ extern canvas_surface_attach
 extern canvas_surface_commit
 extern canvas_surface_create
 extern canvas_surface_damage
-extern client_accept
+extern client_accept_trusted
 extern server_poll
 extern ut_time_now_ns
 extern ut_auth_users
@@ -122,8 +122,8 @@ greeter_start:
     ; Connected, with the server turning while a call waits
     mov rdi, r12
     lea rsi, [rbx + Greeter.pair]
-    mov edx, CLIENT_CAP_LAYER
-    call client_accept
+    mov edx, CLIENT_CAP_LAYER | CLIENT_CAP_OVERLAY
+    call client_accept_trusted          ; an overlay needs trust
     test rax, rax
     js .out
     lea rdi, [rbx + Greeter.pair]
