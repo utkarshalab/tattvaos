@@ -33,6 +33,13 @@
 %define GREETER_LABEL_GAP   4           ; from the label's box to the field
 %define GREETER_LABEL_SIZE  14
 
+; The users the kernel lists, a row of names above the label when there is
+; room; Left and Right choose
+%define GREETER_USERS       4           ; names shown and chosen from
+%define GREETER_NAME_W      86          ; a name's box
+%define GREETER_NAME_GAP    4
+%define GREETER_DIM         0xFF8A90A8  ; a name not chosen
+
 ; Its states
 %define GREETER_SHOWN           3
 %define GREETER_DONE            4
@@ -62,6 +69,11 @@ struc Greeter
                                 ; make field-width-check
     .unlocked_at:   resq 1      ; monotonic ns of the last unlock
     .idle_ns:       resq 1      ; no input this long locks; 0: never
+    .user_count:    resd 1      ; names listed, at most GREETER_USERS
+    .chosen:        resd 1      ; the one chosen
+    .user_at:       resd 4      ; each name's offset in .users (GREETER_USERS)
+    .user_len:      resd 4
+    .users:         resb 256    ; the names as the kernel gave them
 endstruc
 
 %if GREETER_MAX != 64
