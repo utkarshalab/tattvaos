@@ -42,6 +42,9 @@ extern switcher_selected
 %define RG_CREATE       0
 %define RG_ADD          2
 %define SF_SET_OPAQUE   5
+%define FN_CREATE       0
+%define FN_SIGNAL       2
+%define FN_STATUS       5
 %define TL_DESTROY      1
 %define TL_SET_TITLE    2
 %define TL_SET_APP_ID   3
@@ -109,6 +112,7 @@ test_window_suite:
     CASE tw_titlebar_focus, CAP_SHELL
     CASE tw_alt_tab, CAP_SHELL
     CASE tw_occlusion, CAP_SHELL
+    CASE tw_fences, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -1462,6 +1466,105 @@ tw_occlusion:
     jne .fail                           ; A, and B over it
     PASS
 
+; -> eax = a new fence's handle
+new_fence:
+    sub rsp, 8
+    mov dword [rel req], 0
+    SEND CWP_OBJ_FENCE, FN_CREATE, 4
+    call poll
+    call next_reply
+    mov eax, [rel ans]
+    add rsp, 8
+    ret
+
+; edi = surface, esi = buffer, edx = acquire fence, ecx = release fence:
+; attached at 0, 0, damaged, committed, a turn
+attach_fenced:
+    sub rsp, 8
+    mov [rel req], edi
+    mov [rel req + 4], esi
+    mov qword [rel req + 8], 0
+    mov [rel req + 16], edx
+    mov [rel req + 20], ecx
+    SEND CWP_OBJ_SURFACE, OP_ATTACH, 24
+    mov dword [rel req + 4], 0
+    mov dword [rel req + 8], 0
+    mov dword [rel req + 12], 8
+    mov dword [rel req + 16], 8
+    SEND CWP_OBJ_SURFACE, OP_DAMAGE, 20
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_SURFACE, OP_COMMIT, 8
+    call poll
+    add rsp, 8
+    ret
+
+; surface_a shows buffer variable %1 (0: none)
+%macro SHOWS 1
+    mov edi, [rel surface_a]
+    call surface_of
+    mov ecx, [rel %1]
+    cmp [rax + Surface.current + SurfaceState.buffer], rcx
+    jne .fail
+%endmacro
+
+; A buffer is shown only once its acquire fence is signaled; its release
+; fence is signaled when another replaces it; a fence not the client's is
+; refused
+tw_fences:
+    sub rsp, 8
+    mov dword [rel zero], 0
+    call new_fence
+    mov [rel fence_a], eax
+    call new_fence
+    mov [rel fence_r], eax
+    mov edi, 8
+    mov esi, 8
+    call new_surface
+    mov [rel surface_a], eax
+    mov eax, [rel buffer]
+    mov [rel buffer_a], eax
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer_a]
+    mov edx, [rel fence_a]
+    mov ecx, [rel fence_r]
+    call attach_fenced
+    SHOWS zero                          ; its pixels not done: not shown
+    call poll
+    SHOWS zero
+    mov eax, [rel fence_a]
+    mov [rel req], eax
+    SEND CWP_OBJ_FENCE, FN_SIGNAL, 4
+    call poll
+    SHOWS buffer_a                      ; signaled: shown
+
+    mov edi, 8                          ; another buffer: the first let go
+    mov esi, 8
+    call new_surface                    ; (a surface too; only its buffer used)
+    mov eax, [rel buffer]
+    mov [rel buffer_b], eax
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer_b]
+    xor edx, edx
+    xor ecx, ecx
+    call attach_fenced
+    SHOWS buffer_b
+    call drain
+    mov eax, [rel fence_r]
+    mov [rel req], eax
+    SEND CWP_OBJ_FENCE, FN_STATUS, 4
+    call poll
+    call next_reply
+    cmp dword [rel ans], 1
+    jne .fail                           ; the release fence signaled
+
+    mov edi, [rel surface_a]            ; a fence that is no fence of its
+    mov esi, [rel buffer_a]
+    mov edx, 999
+    xor ecx, ecx
+    call attach_fenced
+    SHOWS buffer_b                      ; refused: nothing changed
+    PASS
+
 section .bss
 alignb 16
 server:         resb Server_size
@@ -1473,6 +1576,10 @@ surface_b:      resd 1
 surface_c:      resd 1
 buffer_a:       resd 1
 region_h:       resd 1
+fence_a:        resd 1
+fence_r:        resd 1
+buffer_b:       resd 1
+zero:           resd 1
 alignb 8
 picked:         resq 1
 buffer:         resd 1
