@@ -23,12 +23,12 @@
 ; Shell/Data
 %define CAP_SHELL       (1 << 11)
 %define CAP_LAYER       (1 << 12)
-%define CAP_DECORATION  (1 << 12)
 %define CAP_DATA        (1 << 13)
 %define CAP_CLIPBOARD   (1 << 14)
+%define CAP_DECORATION  (1 << 24)
 
 ; Text/A11y
-%define CAP_TEXT        (1 << 14)
+%define CAP_TEXT        (1 << 25)
 %define CAP_A11Y        (1 << 15)
 
 ; Privileged (require trust profile + explicit grant)
@@ -41,6 +41,13 @@
 %define CAP_WINDOWS     (1 << 22)       ; list and control every window
 %define CAP_OVERLAY     (1 << 23)       ; overlay layers: over everything, the
                                         ; lock screen too
+
+; Every capability its own bit: granting one never grants another
+%assign CAPS_OR  CAP_DISPLAY|CAP_BUFFER|CAP_SURFACE|CAP_PRESENT|CAP_OUTPUT|CAP_SEAT|CAP_POINTER|CAP_KEYBOARD|CAP_TOUCH|CAP_TABLET|CAP_INPUT|CAP_SHELL|CAP_LAYER|CAP_DATA|CAP_CLIPBOARD|CAP_DECORATION|CAP_TEXT|CAP_A11Y|CAP_CAPTURE|CAP_INJECT|CAP_POLICY|CAP_DEBUG|CAP_SESSION|CAP_REMOTE|CAP_WINDOWS|CAP_OVERLAY
+%assign CAPS_SUM CAP_DISPLAY+CAP_BUFFER+CAP_SURFACE+CAP_PRESENT+CAP_OUTPUT+CAP_SEAT+CAP_POINTER+CAP_KEYBOARD+CAP_TOUCH+CAP_TABLET+CAP_INPUT+CAP_SHELL+CAP_LAYER+CAP_DATA+CAP_CLIPBOARD+CAP_DECORATION+CAP_TEXT+CAP_A11Y+CAP_CAPTURE+CAP_INJECT+CAP_POLICY+CAP_DEBUG+CAP_SESSION+CAP_REMOTE+CAP_WINDOWS+CAP_OVERLAY
+%if CAPS_OR != CAPS_SUM
+%error "two CAP_* capabilities share a bit"
+%endif
 
 ; Surface roles
 %define SURFACE_ROLE_TOPLEVEL   0
