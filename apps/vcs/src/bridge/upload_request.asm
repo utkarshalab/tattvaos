@@ -268,7 +268,7 @@ git_protocol_v2_parse_request:
  call packet_equal
  test eax,eax
  jz .fetch_want_ref_head
- cmp rcx,69
+ cmp rcx,70
  jne .fetch_done_check
  cmp dword [rdx],0x746e6177      ; "want"
  jne .fetch_have_check
@@ -310,7 +310,8 @@ git_protocol_v2_parse_request:
  lea rsi,[rdx+5]
  movzx eax,byte [request_have_count]
  shl rax,5
- lea rdi,[request_have+rax]
+ lea rdi,[request_have]
+ add rdi,rax
  mov ecx,32
 .have_hex_byte:
  call hex_nibble
@@ -497,7 +498,8 @@ git_protocol_v2_parse_request:
  lea rsi,[rdx+info_oid_prefix_len]
  movzx eax,byte [request_info_count]
  shl rax,5
- lea rdi,[request_info_oids+rax]
+ lea rdi,[request_info_oids]
+ add rdi,rax
  mov ecx,32
 .info_hex_byte:
  call hex_nibble
@@ -663,14 +665,16 @@ build_have_view:
  jae .have_view_ok
  mov rax,r14
  shl rax,5
- lea r15,[request_have+rax]
+ lea r15,[request_have]
+ add r15,rax
  xor ebx,ebx
 .have_view_existing:
  cmp rbx,r12
  jae .have_view_append
  mov rax,rbx
  shl rax,5
- lea rdi,[request_have_view+rax]
+ lea rdi,[request_have_view]
+ add rdi,rax
  mov rsi,r15
  mov ecx,32
  repe cmpsb
@@ -682,7 +686,8 @@ build_have_view:
  jae .have_view_bad
  mov rax,r12
  shl rax,5
- lea rdi,[request_have_view+rax]
+ lea rdi,[request_have_view]
+ add rdi,rax
  mov rsi,r15
  mov ecx,32
  rep movsb
@@ -851,11 +856,13 @@ validate_server_option_header:
 .option_duplicate:
  cmp r9,r8
  jae .option_store
- cmp byte [request_server_option_lengths+r9],r11b
+ lea rax,[request_server_option_lengths]
+ cmp byte [rax+r9],r11b
  jne .option_next
  mov rax,r9
  shl rax,7
- lea rdi,[request_server_option_values+rax]
+ lea rdi,[request_server_option_values]
+ add rdi,rax
  mov rsi,r10
  mov rcx,r11
  repe cmpsb
@@ -864,10 +871,12 @@ validate_server_option_header:
  inc r9
  jmp .option_duplicate
 .option_store:
- mov byte [request_server_option_lengths+r8],r11b
+ lea rax,[request_server_option_lengths]
+ mov byte [rax+r8],r11b
  mov rax,r8
  shl rax,7
- lea rdi,[request_server_option_values+rax]
+ lea rdi,[request_server_option_values]
+ add rdi,rax
  mov rsi,r10
  mov rcx,r11
  rep movsb
