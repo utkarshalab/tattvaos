@@ -172,11 +172,11 @@
 %define EV_PWR          0x16
 %define EV_FF_STATUS    0x17
 
-; Input Capabilities
-%define CAP_KEYBOARD    0x01
-%define CAP_POINTER     0x02
-%define CAP_TOUCH       0x04
-%define CAP_TABLET      0x08
+; Input device capabilities (not the client CAP_* of inc/caps.inc)
+%define INPUT_CAP_KEYBOARD  0x01
+%define INPUT_CAP_POINTER   0x02
+%define INPUT_CAP_TOUCH     0x04
+%define INPUT_CAP_TABLET    0x08
 
 ; Input Bus Types
 %define BUS_PCI         0x01
