@@ -117,7 +117,7 @@ fresh:
     mov [rel bar], rax
     lea rdi, [rel server]
     lea rsi, [rel pair]
-    mov edx, CAP_SHELL
+    mov edx, CAP_SHELL | CAP_POINTER | CAP_KEYBOARD
     call client_accept
     call poll
     call drain
