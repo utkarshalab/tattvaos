@@ -81,6 +81,7 @@ struc Output
     .hpd_register:            resd 1
     resb 4
     .i2c_bus:                 resq 1
+    .mirror_of:               resq 1    ; the Output* it shows, 0: its own part
     .toplevels:               resq 1
     .vrr_caps:                resq 1
     .vrr_flags:               resd 1
