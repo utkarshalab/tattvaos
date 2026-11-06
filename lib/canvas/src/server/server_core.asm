@@ -56,6 +56,7 @@ extern window_set_decorated
 extern window_activate
 extern window_close
 extern window_layer_exclusive
+extern window_layer_set_output
 extern window_list_find
 extern window_list_subscribe
 extern window_move_to_workspace
@@ -681,6 +682,19 @@ HANDLER h_layer_set_exclusive, 8
     mov rsi, rax
     mov edx, [r13 + 4]
     call window_layer_exclusive
+HANDLER_END
+
+; cw_layer.set_output(surface, output: the nth, 0 the first)
+HANDLER h_layer_set_output, 8
+    NEEDS_CAP CAP_LAYER
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rax
+    mov edx, [r13 + 4]
+    call window_layer_set_output
 HANDLER_END
 
 ; cw_window_list.subscribe()
