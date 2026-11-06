@@ -19,7 +19,7 @@
 %include "inc/ui_text.inc"
 
 extern handle_resolve
-extern region_add_rect
+extern compositor_damage_rect
 extern rect_intersect
 extern sw_render_rect
 extern ui_text_draw
@@ -158,7 +158,8 @@ titlebar_focus_changed:
     add rsp, 24
     EPILOGUE_RESTORE rbx
 
-; A surface's bar, if it has one, into its output's damage. Called from
+; A surface's bar, if it has one, into the damage of every output it is over.
+; Called from
 ; titlebar_focus_changed's frame: the rect goes at its rsp.
 ; rdi = surface or 0
 damage_bar:
@@ -173,9 +174,10 @@ damage_bar:
     pop rcx
     test eax, eax
     jz .out
-    mov rdi, [rcx + Output.damage]
+    mov rdi, [rcx + Output.backend]
+    mov rdi, [rdi + Backend.server]
     lea rsi, [rsp + 8]
-    jmp region_add_rect
+    jmp compositor_damage_rect
 .out:
     xor eax, eax
     ret
