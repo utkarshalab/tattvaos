@@ -11,6 +11,7 @@
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/color.inc"
+%include "inc/caps.inc"
 %include "inc/cwp.inc"
 %include "inc/channel.inc"
 %include "inc/event.inc"
@@ -159,7 +160,7 @@ fresh:
     call server_init
     lea rdi, [rel server]
     lea rsi, [rel pair]
-    xor edx, edx
+    mov edx, CAP_POINTER | CAP_KEYBOARD | CAP_TOUCH
     call client_accept
     call drain
     mov edi, 0
