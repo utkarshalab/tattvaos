@@ -122,7 +122,7 @@ greeter_start:
     ; Connected, with the server turning while a call waits
     mov rdi, r12
     lea rsi, [rbx + Greeter.pair]
-    mov edx, CLIENT_CAP_LAYER | CLIENT_CAP_OVERLAY
+    mov edx, CLIENT_CAP_LAYER | CLIENT_CAP_OVERLAY | CLIENT_CAP_KEYBOARD
     call client_accept_trusted          ; an overlay needs trust
     test rax, rax
     js .out
