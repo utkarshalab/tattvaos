@@ -459,6 +459,41 @@ input_focus_surface:
     EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
+; input_keep_pointer
+;   The pointer back inside what the outputs span, after one went
+;   IN:  rdi = server*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global input_keep_pointer
+input_keep_pointer:
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, [rdi + Server.input_seat]
+    test rbx, rbx
+    jz .done
+    cmp qword [rdi + Server.outputs], 0
+    je .done
+    call compositor_layout_bounds
+    dec ecx                             ; the last column and row
+    dec r8d
+    mov r9d, [rbx + InputSeat.x]
+    cmp r9d, eax
+    cmovl r9d, eax
+    cmp r9d, ecx
+    cmovg r9d, ecx
+    mov [rbx + InputSeat.x], r9d
+    mov r9d, [rbx + InputSeat.y]
+    cmp r9d, edx
+    cmovl r9d, edx
+    cmp r9d, r8d
+    cmovg r9d, r8d
+    mov [rbx + InputSeat.y], r9d
+.done:
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
+
+; ---------------------------------------------------------------------------
 ; input_forget_surface
 ;   A surface is going: it stops holding any focus. It gets no events; its
 ;   client destroyed it.
