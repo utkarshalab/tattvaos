@@ -17,7 +17,7 @@ connection, or the positive number of bytes transferred.
 
 ## Specification
 
-Every transfer starts with a fixed 160-byte little-endian `UVBNDLE1` header:
+Every transfer starts with a fixed 168-byte little-endian `UVBNDLE1` header:
 
 | Offset | Size | Field |
 |---:|---:|---|
