@@ -124,6 +124,7 @@ test_window_suite:
     CASE tw_timelines, CAP_SHELL
     CASE tw_two_outputs, CAP_SHELL
     CASE tw_locked, CAP_SHELL
+    CASE tw_alt_tab_output, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -1849,6 +1850,56 @@ tw_overlay:
     jz .fail
     cmp dword [rax + Window.level], LEVEL_OVERLAY
     jne .fail
+    PASS
+
+; Alt+Tab with the pointer on the second output: the box is drawn there,
+; centred, and not on the first; Esc takes it away
+tw_alt_tab_output:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    POINTER 0, 0
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    POINTER 20, 0
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    POINTER 40, 0
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    POINTER 90, 10                      ; onto the second
+    call poll
+    INJECT INPUT_KEY, 56, 1             ; Alt
+    INJECT INPUT_KEY, 15, 1             ; Tab
+    INJECT INPUT_KEY, 15, 0
+    call poll
+    mov edi, 32                         ; the selected tile, at its centre
+    mov esi, 24
+    call second_pixel
+    cmp eax, 0xFF3E4C78
+    jne .fail
+    mov edi, 32                         ; nothing at the first's
+    mov esi, 24
+    call screen_pixel
+    cmp eax, 0xFF3E4C78
+    je .fail
+    INJECT INPUT_KEY, 1, 1              ; Esc: given up, gone
+    INJECT INPUT_KEY, 1, 0
+    INJECT INPUT_KEY, 56, 0
+    call poll
+    mov edi, 32
+    mov esi, 24
+    call second_pixel
+    cmp eax, 0xFF3E4C78
+    je .fail
     PASS
 
 ; Server.locked to edi, every output redrawn, a turn
