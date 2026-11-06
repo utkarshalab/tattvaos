@@ -39,6 +39,8 @@
 %define CAP_SESSION     (1 << 20)
 %define CAP_REMOTE      (1 << 21)
 %define CAP_WINDOWS     (1 << 22)       ; list and control every window
+%define CAP_OVERLAY     (1 << 23)       ; overlay layers: over everything, the
+                                        ; lock screen too
 
 ; Surface roles
 %define SURFACE_ROLE_TOPLEVEL   0
