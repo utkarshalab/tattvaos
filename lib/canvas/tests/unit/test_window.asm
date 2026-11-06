@@ -124,6 +124,8 @@ test_window_suite:
     CASE tw_timelines, CAP_SHELL
     CASE tw_two_outputs, CAP_SHELL
     CASE tw_locked, CAP_SHELL
+    CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
+    CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
     pop rbx
     ret
@@ -1810,6 +1812,43 @@ tw_two_outputs:
     call second_pixel
     cmp eax, 0xFF3E4C78
     je .fail
+    PASS
+
+; surface_a asks to be an overlay layer, a turn -> rax = its Window, 0: none
+overlay_a:
+    sub rsp, 8
+    mov edi, 16
+    mov esi, 16
+    call new_surface
+    mov [rel surface_a], eax
+    mov [rel req], eax
+    mov dword [rel req + 4], 3          ; overlay
+    mov dword [rel req + 8], 15         ; every edge
+    mov dword [rel req + 12], 0
+    SEND CWP_OBJ_LAYER, LY_CREATE, 16
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rax, [rax + Surface.window]
+    add rsp, 8
+    ret
+
+; An overlay layer without CAP_OVERLAY is refused: the surface has no role
+tw_overlay_refused:
+    sub rsp, 8
+    call overlay_a
+    test rax, rax
+    jnz .fail
+    PASS
+
+; With CAP_OVERLAY it is one, over everything
+tw_overlay:
+    sub rsp, 8
+    call overlay_a
+    test rax, rax
+    jz .fail
+    cmp dword [rax + Window.level], LEVEL_OVERLAY
+    jne .fail
     PASS
 
 ; Server.locked to edi, every output redrawn, a turn
