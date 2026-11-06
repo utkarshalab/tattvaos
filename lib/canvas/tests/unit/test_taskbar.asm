@@ -28,7 +28,8 @@ extern server_init
 extern server_poll
 extern taskbar_start
 extern ui_text_init
-extern taskbar_step
+extern taskbar_step_all
+extern server_add_output
 extern virtual_input_inject
 
 %define HEAP_SIZE   (8 * 1024 * 1024)
@@ -56,6 +57,7 @@ test_taskbar_suite:
     CASE tb_workspaces
     CASE tb_titles
     CASE tb_titlebar_title
+    CASE tb_second_output
     mov eax, ebx
     pop rbx
     ret
@@ -110,6 +112,7 @@ fresh:
     call ui_text_init
     lea rdi, [rel server]
     lea rsi, [rel arena]
+    xor edx, edx
     call taskbar_start
     mov [rel bar], rax
     lea rdi, [rel server]
@@ -125,11 +128,8 @@ poll:
     sub rsp, 8
     lea rdi, [rel server]
     call server_poll
-    mov rdi, [rel server + Server.taskbar]
-    test rdi, rdi
-    jz .out
-    call taskbar_step
-.out:
+    lea rdi, [rel server]
+    call taskbar_step_all
     add rsp, 8
     ret
 
@@ -268,6 +268,51 @@ bar_pixel:
 ; ---------------------------------------------------------------------------
 ; Cases
 ; ---------------------------------------------------------------------------
+
+; A second output gets its own: along its bottom, as wide as it, ahead of
+; the first on Server.taskbar, a block there for a new window too
+%define OUT2_W  200
+%define OUT2_H  60
+tb_second_output:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov esi, OUT2_W
+    mov edx, OUT2_H
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output2], rax
+    lea rdi, [rel server]
+    lea rsi, [rel arena]
+    mov edx, 1
+    call taskbar_start
+    test rax, rax
+    jle .fail
+    mov [rel bar2], rax
+    call poll
+    call drain
+    mov rax, [rel bar2]
+    cmp [rel server + Server.taskbar], rax
+    jne .fail
+    mov rcx, [rel bar]
+    cmp [rax + Taskbar.next], rcx
+    jne .fail
+    cmp dword [rax + Taskbar.width], OUT2_W
+    jne .fail
+    mov edi, [rax + Taskbar.surface]
+    call surface_of
+    mov rcx, [rel output2]
+    cmp [rax + Surface.output], rcx
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], WIDTH
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_y], OUT2_H - TASKBAR_H
+    jne .fail
+    call new_window
+    mov rax, [rel bar2]
+    cmp dword [rax + Taskbar.count], 1
+    jne .fail
+    PASS
 
 ; Along the bottom, empty
 tb_shown:
@@ -556,6 +601,8 @@ arena:          resb Arena_size
 pair:           resb ChannelPair_size
 hdr:            resb MsgHdr_size
 bar:            resq 1
+bar2:           resq 1
+output2:        resq 1
 surface_a:      resd 1
 surface_b:      resd 1
 buffer:         resd 1
