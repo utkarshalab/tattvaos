@@ -31,6 +31,8 @@ extern window_activate
 extern switcher_selected
 extern server_add_output
 extern window_move
+extern server_mirror_output
+extern compositor_output_at
 extern compositor_damage_all
 
 %define HEAP_SIZE (2 * 1024 * 1024)
@@ -128,6 +130,7 @@ test_window_suite:
     CASE tw_locked, CAP_SHELL
     CASE tw_alt_tab_output, CAP_SHELL
     CASE tw_no_input, CAP_SHELL | NO_INPUT
+    CASE tw_mirror, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -1957,6 +1960,88 @@ tw_no_input:
     call find_event
     test eax, eax
     jnz .fail
+    PASS
+
+; A second output, wider, mirroring the first: where the first is, the same pixels
+; (a title bar in both), no part of the layout (the pointer kept on the
+; first, a point found on the first); itself or a mirror it cannot show;
+; mirroring no more, it is to the right again, its own part
+tw_mirror:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov esi, 96                         ; wider than the first
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    call decorated_window               ; a bar along the first's top
+    POINTER 100, 10                     ; on the second
+    call poll
+    lea rdi, [rel server]
+    mov rsi, [rel output_b]
+    mov rdx, [rel server + Server.outputs]
+    call server_mirror_output
+    test rax, rax
+    jnz .fail
+    call poll
+    mov rax, [rel output_b]
+    cmp dword [rax + Output.x], 0
+    jne .fail
+    mov edi, 4                          ; the bar in both
+    mov esi, 2
+    call screen_pixel
+    mov [rel region_h], eax
+    cmp eax, 0xFF3E4C78
+    jne .fail
+    mov edi, 4
+    mov esi, 2
+    call second_pixel
+    cmp eax, [rel region_h]
+    jne .fail
+    mov rax, [rel server + Server.input_seat]
+    cmp dword [rax + InputSeat.x], 64
+    jge .fail                           ; kept on the first
+    lea rdi, [rel server]
+    mov esi, 10
+    mov edx, 10
+    call compositor_output_at
+    cmp rax, [rel server + Server.outputs]
+    jne .fail
+    lea rdi, [rel server]               ; past the first, under the mirror
+    mov esi, 80
+    mov edx, 10
+    call compositor_output_at
+    cmp rax, [rel server + Server.outputs]
+    jne .fail
+    lea rdi, [rel server]               ; not itself, not a mirror
+    mov rsi, [rel output_b]
+    mov rdx, rsi
+    call server_mirror_output
+    cmp rax, -(EINVAL)
+    jne .fail
+    lea rdi, [rel server]
+    mov rsi, [rel server + Server.outputs]
+    mov rdx, [rel output_b]
+    call server_mirror_output
+    cmp rax, -(EINVAL)
+    jne .fail
+
+    lea rdi, [rel server]               ; its own part again
+    mov rsi, [rel output_b]
+    xor edx, edx
+    call server_mirror_output
+    test rax, rax
+    jnz .fail
+    call poll
+    mov rax, [rel output_b]
+    cmp dword [rax + Output.x], 64
+    jne .fail
+    mov edi, 4
+    mov esi, 2
+    call second_pixel
+    cmp eax, 0xFF3E4C78
+    je .fail
     PASS
 
 ; Server.locked to edi, every output redrawn, a turn
