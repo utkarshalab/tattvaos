@@ -40,7 +40,7 @@ mapping, asking the kernel for the result is simpler than mapping it again.
 Pixels are 32-bit BGRX; Canvas does not read the format field yet, so a
 framebuffer in another format would show wrong colours.
 
-These six are the UBF's only required imports. It imports 34 more names, all
+These six are the UBF's only required imports. It imports 35 more names, all
 weak: the load succeeds without them, the slot stays 0, and Canvas's stub for
 that name returns `-ENOSYS`. Canvas starts without any of them and yields in
 its loop when `ut_waitset_create` is not there. An export for one of those
@@ -104,6 +104,10 @@ refused.
 | Export | In | Out |
 |---|---|---|
 | `ut_auth_verify` | `rdi` user name (UTF-8), `rsi` its length (0: the machine's one user), `rdx` password (UTF-8), `rcx` its length | `rax` 0 if the password is that user's, negative otherwise (`-EACCES` wrong, `-ENOENT` no such user) |
+| `ut_auth_users` | `rdi` buffer, `rsi` its size | `rax` the number of user names written, each UTF-8 followed by a NUL; negative if they do not fit or there is no list |
+
+Without `ut_auth_users` the greeter shows no names and checks the machine's
+one user. With it, it shows the first four as a row the user chooses from.
 
 Canvas wipes the password from its own memory after each check and expects
 the kernel to keep no copy. It slows guessing itself (after three wrong
