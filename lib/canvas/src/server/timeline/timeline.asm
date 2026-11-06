@@ -9,14 +9,18 @@
 ; lives in the client's arena, its handle resolves for that client only
 ; (timeline_own), and a client going takes its timelines with it. A timeline
 ; that is gone counts as having reached every point, so nothing waits on it
-; for ever.
+; for ever. Each time a timeline moves on, its client is sent
+; timeline_signaled with the new point.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/cwp.inc"
+%include "inc/cwp_ops.inc"
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
+extern sync_event
 extern handle_create
 extern handle_destroy
 extern handle_resolve
@@ -198,25 +202,38 @@ timeline_destroy_client:
 
 ; ---------------------------------------------------------------------------
 ; timeline_signal
-;   The timeline reaches a point; one it is past already changes nothing
+;   The timeline reaches a point, and its client is sent
+;   timeline_signaled(timeline, point); one it is past already changes
+;   nothing and sends nothing
 ;   IN:  rdi = server*, esi = timeline handle, rdx = point
 ;   OUT: rax = 0, -ENOENT
 ; ---------------------------------------------------------------------------
 global timeline_signal
 timeline_signal:
-    push rdx
+    sub rsp, 24                         ; the event's payload; 16-byte aligned
+    mov [rsp], esi
+    mov dword [rsp + 4], 0
+    mov [rsp + 8], rdx
     call resolve
-    pop rdx
     test rax, rax
     jz .missing
+    mov rdx, [rsp + 8]
     cmp rdx, [rax + Timeline.point]
     jbe .done
     mov [rax + Timeline.point], rdx
+    mov rdi, [rax + Timeline.client]
+    mov esi, CWP_OBJ_TIMELINE
+    mov edx, TIMELINE_EV_TIMELINE_SIGNALED
+    mov rcx, rsp
+    mov r8d, 16
+    call sync_event
 .done:
     xor eax, eax
+    add rsp, 24
     ret
 .missing:
     mov rax, -(ENOENT)
+    add rsp, 24
     ret
 
 ; ---------------------------------------------------------------------------
