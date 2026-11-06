@@ -7,15 +7,21 @@
 ; when it lets the buffer go. Each fence is its client's: it lives in the
 ; client's arena, its handle resolves for that client only (fence_own), and
 ; a client going takes its fences with it. A fence that is gone counts as
-; signaled, so nothing waits on it for ever.
+; signaled, so nothing waits on it for ever. When a fence becomes signaled
+; its client is sent fence_signaled, so it need not ask (sync_event, which
+; timelines use too).
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/ut.inc"
+%include "inc/cwp.inc"
+%include "inc/cwp_ops.inc"
+%include "inc/channel.inc"
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
+extern msgbuf_write
 extern handle_create
 extern handle_destroy
 extern handle_resolve
@@ -191,13 +197,60 @@ fence_destroy_client:
 
 ; ---------------------------------------------------------------------------
 ; fence_signal
-;   IN:  rdi = server*, rsi = fence handle
+;   Signaled; the first time since it was made or reset, its client is
+;   sent fence_signaled(fence)
+;   IN:  rdi = server*, esi = fence handle
 ;   OUT: rax = 0, -ENOENT
 ; ---------------------------------------------------------------------------
 global fence_signal
 fence_signal:
-    mov edx, 1
-    jmp set_state
+    sub rsp, 24                         ; the event's payload; 16-byte aligned
+    mov [rsp], esi
+    call resolve
+    test rax, rax
+    jz .missing
+    cmp dword [rax + Fence.signaled], 0
+    jne .done
+    mov dword [rax + Fence.signaled], 1
+    mov rdi, [rax + Fence.client]
+    mov esi, CWP_OBJ_FENCE
+    mov edx, FENCE_EV_FENCE_SIGNALED
+    mov rcx, rsp
+    mov r8d, 4
+    call sync_event
+.done:
+    xor eax, eax
+    add rsp, 24
+    ret
+.missing:
+    mov rax, -(ENOENT)
+    add rsp, 24
+    ret
+
+; ---------------------------------------------------------------------------
+; sync_event
+;   An event about a fence or timeline to its client
+;   IN:  rdi = client* (0: none, nothing sent), esi = CWP_OBJ_*, edx = the
+;        event's opcode, rcx = its payload, r8d = the payload's length
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global sync_event
+sync_event:
+    test rdi, rdi
+    jz .none
+    sub rsp, 24                         ; the header; 16-byte aligned
+    mov [rsp + MsgHdr.obj], esi
+    mov [rsp + MsgHdr.opcode], dx
+    mov word [rsp + MsgHdr.flags], CWP_MSG_FLAG_IS_EVENT
+    mov [rsp + MsgHdr.len], r8d
+    mov rdx, rcx
+    mov rdi, [rdi + Client.rx_ring]
+    mov rsi, rsp
+    call msgbuf_write                   ; a full ring drops it
+    add rsp, 24
+.none:
+    xor eax, eax
+    ret
 
 ; ---------------------------------------------------------------------------
 ; fence_reset
