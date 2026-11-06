@@ -249,7 +249,6 @@ extern png_unfilter
 %define DRM_FORMAT_BGRA8888 0x41524742
 
 ; Security
-%define CAP_DEBUG     1
 extern gate_check
 
 ; Layer
