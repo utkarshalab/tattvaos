@@ -7,6 +7,10 @@
 ; inc/struct_offsets.inc; a surface's is its shell role's, LEVEL_NORMAL with
 ; none). A surface goes in, or is raised, to the top of its own level.
 ;
+; Positions are in the layout's coordinates, every output a part of it at
+; Output.x, Output.y; each output's damage too. A surface is on one output's
+; list and drawn only there.
+;
 ; Each damaged rectangle is drawn from the topmost surface that is opaque
 ; over all of it, up: what is under it, the background too, cannot show and
 ; is not drawn. A buffer without alpha is opaque everywhere; otherwise the
@@ -243,6 +247,120 @@ compositor_raise_surface:
     ret
 
 ; ---------------------------------------------------------------------------
+; compositor_move_to_output
+;   A surface goes to another output's list, at the top of its level there;
+;   both outputs redraw where it is
+;   IN:  rdi = server*, rsi = surface*, rdx = Output*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global compositor_move_to_output
+compositor_move_to_output:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    test r13, r13
+    jz .done
+    mov rax, [r12 + Surface.output]
+    test rax, rax
+    jz .done                            ; off the screen: stays off
+    cmp rax, r13
+    je .done
+    mov rdi, rbx
+    mov rsi, r12
+    call compositor_remove_surface
+    mov rdi, r13
+    mov rsi, r12
+    call compositor_add_surface
+    mov rdi, rbx
+    mov rsi, r12
+    call compositor_damage_surface
+.done:
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; compositor_output_at
+;   The output a point of the layout is on, else the nearest one along the
+;   row of outputs (the first, if there is just one)
+;   IN:  rdi = server*, esi = x, edx = y
+;   OUT: rax = Output*, 0 with none
+; ---------------------------------------------------------------------------
+global compositor_output_at
+compositor_output_at:
+    mov rax, [rdi + Server.outputs]
+    mov r8, rax                         ; the fallback: the first
+.next:
+    test rax, rax
+    jz .fallback
+    mov ecx, [rax + Output.x]
+    cmp esi, ecx
+    jl .skip
+    add ecx, [rax + Output.width]
+    cmp esi, ecx
+    jge .right_of
+    mov ecx, [rax + Output.y]
+    cmp edx, ecx
+    jl .skip
+    add ecx, [rax + Output.height]
+    cmp edx, ecx
+    jl .found
+    jmp .skip
+.right_of:
+    mov r8, rax                         ; past its right edge: nearer than before
+.skip:
+    mov rax, [rax + Output.next]
+    jmp .next
+.fallback:
+    mov rax, r8
+.found:
+    ret
+
+; ---------------------------------------------------------------------------
+; compositor_layout_bounds
+;   The rectangle all outputs span
+;   IN:  rdi = server*
+;   OUT: eax = left, edx = top, ecx = right (exclusive), r8d = bottom
+;        (exclusive); all 0 with no output
+; ---------------------------------------------------------------------------
+global compositor_layout_bounds
+compositor_layout_bounds:
+    mov r9, [rdi + Server.outputs]
+    xor eax, eax
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    test r9, r9
+    jz .done
+    mov eax, [r9 + Output.x]
+    mov edx, [r9 + Output.y]
+    mov ecx, eax
+    add ecx, [r9 + Output.width]
+    mov r8d, edx
+    add r8d, [r9 + Output.height]
+.next:
+    mov r9, [r9 + Output.next]
+    test r9, r9
+    jz .done
+    mov r10d, [r9 + Output.x]
+    cmp r10d, eax
+    cmovl eax, r10d
+    add r10d, [r9 + Output.width]
+    cmp r10d, ecx
+    cmovg ecx, r10d
+    mov r10d, [r9 + Output.y]
+    cmp r10d, edx
+    cmovl edx, r10d
+    add r10d, [r9 + Output.height]
+    cmp r10d, r8d
+    cmovg r8d, r10d
+    jmp .next
+.done:
+    ret
+
+; ---------------------------------------------------------------------------
 ; compositor_restack_surface
 ;   Its level changed: to the top of its new level, redrawn
 ;   IN:  rdi = server*, rsi = surface*
@@ -439,8 +557,10 @@ compositor_composite_output:
     mov rcx, rsp
     call sw_render_begin_frame
 
-    mov dword [rsp + L_BOUNDS], 0
-    mov dword [rsp + L_BOUNDS + 4], 0
+    mov eax, [r12 + Output.x]           ; the output, in the layout
+    mov [rsp + L_BOUNDS], eax
+    mov eax, [r12 + Output.y]
+    mov [rsp + L_BOUNDS + 4], eax
     mov eax, [r12 + Output.width]
     mov [rsp + L_BOUNDS + 8], eax
     mov eax, [r12 + Output.height]
