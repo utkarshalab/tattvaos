@@ -14,13 +14,14 @@
 ; and the keyboard goes back to the windows; greeter_lock puts it back, an
 ; empty field over everything again. Super+L locks, and so do GREETER_IDLE_NS
 ; without input. Server.locked says the login screen is up: the server's
-; shortcuts do nothing then.
+; shortcuts do nothing then. When the kernel lists users (ut_auth_users)
+; their names are a row above the label, Left and Right choosing whose
+; password Enter checks; without a list it is the machine's one user's.
 ;
 ; greeter_start makes the buffer and the surface with library calls, which
 ; turn server_poll while they wait, so it is called outside the loop's turn;
 ; canvasd's loop calls greeter_step after each server_poll, and what it
-; sends is served in the next turn. Text labels wait for fonts to load (ufont
-; needs the file system).
+; sends is served in the next turn.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -44,6 +45,7 @@ extern canvas_surface_damage
 extern client_accept
 extern server_poll
 extern ut_time_now_ns
+extern ut_auth_users
 extern ui_text_draw
 
 ; Keys acted on
@@ -51,6 +53,11 @@ extern ui_text_draw
 %define KEY_BACKSPACE       14
 %define KEY_ENTER           28
 %define KEY_KP_ENTER        96
+%define KEY_LEFT            105
+%define KEY_RIGHT           106
+
+; Where the names go: their row's top, from the field's
+%define USERS_UP    (2 * (GREETER_LABEL_H + GREETER_LABEL_GAP))
 
 ; An input event's (time, surface, a, b): a and b
 %define EV_A                (Greeter.event + ClientEvent.data + 12)
@@ -160,6 +167,10 @@ greeter_start:
     mov r9d, GREETER_BG
     call fill
     mov rdi, rbx
+    call list_users
+    mov rdi, rbx
+    call draw_users
+    mov rdi, rbx
     call draw_label
     mov rdi, rbx
     call draw_field
@@ -197,8 +208,9 @@ greeter_start:
 ; ---------------------------------------------------------------------------
 ; greeter_set_verify
 ;   The function Enter hands the typed text to
-;   IN:  rdi = greeter*, rsi = function(rdi = text, esi = length) -> rax 0
-;        if right, or 0 for none
+;   IN:  rdi = greeter*, rsi = function(rdi = text, esi = length, rdx = the
+;        chosen user's name, ecx = its length, 0 with no list) -> rax 0 if
+;        right; or 0 for none
 ; ---------------------------------------------------------------------------
 global greeter_set_verify
 greeter_set_verify:
@@ -267,6 +279,36 @@ greeter_step:
     je .submit
     cmp eax, KEY_KP_ENTER
     je .submit
+    cmp eax, KEY_LEFT
+    je .previous
+    cmp eax, KEY_RIGHT
+    je .following
+    jmp .next
+.previous:
+    mov eax, [rbx + Greeter.chosen]
+    test eax, eax
+    jz .last
+    dec eax
+    jmp .choose
+.last:
+    mov eax, [rbx + Greeter.user_count]
+    dec eax
+    js .next                            ; no list
+    jmp .choose
+.following:
+    cmp dword [rbx + Greeter.user_count], 0
+    je .next
+    mov eax, [rbx + Greeter.chosen]
+    inc eax
+    cmp eax, [rbx + Greeter.user_count]
+    jb .choose
+    xor eax, eax
+.choose:
+    mov [rbx + Greeter.chosen], eax
+    mov rdi, rbx
+    call draw_users
+    mov rdi, rbx
+    call damage_users
     jmp .next
 .backspace:
     mov eax, [rbx + Greeter.len]
@@ -286,6 +328,15 @@ greeter_step:
     jz .wrong
     lea rdi, [rbx + Greeter.text]
     mov esi, [rbx + Greeter.len]
+    xor ecx, ecx                        ; whose: the chosen one's, or no name
+    xor edx, edx
+    cmp dword [rbx + Greeter.user_count], 0
+    je .who
+    mov r8d, [rbx + Greeter.chosen]
+    mov edx, [rbx + Greeter.user_at + r8 * 4]
+    lea rdx, [rbx + Greeter.users + rdx]
+    mov ecx, [rbx + Greeter.user_len + r8 * 4]
+.who:
     call rax
     mov r12, rax
     mov rdi, rbx
@@ -506,6 +557,130 @@ draw_field:
 .out:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
+
+; The kernel's users, up to GREETER_USERS of them, into the greeter.
+; rdi = greeter
+list_users:
+    push rbx
+    mov rbx, rdi
+    mov dword [rbx + Greeter.user_count], 0
+    mov dword [rbx + Greeter.chosen], 0
+    lea rdi, [rbx + Greeter.users]
+    mov esi, 255
+    call ut_auth_users
+    test rax, rax
+    jle .out                            ; none, or no such call
+    mov byte [rbx + Greeter.users + 255], 0
+    mov r8d, eax                        ; names the kernel says it gave
+    xor ecx, ecx                        ; offset
+    xor edx, edx                        ; names taken
+.name:
+    cmp edx, r8d
+    jae .done
+    cmp edx, GREETER_USERS
+    jae .done
+    cmp ecx, 255
+    jae .done
+    mov [rbx + Greeter.user_at + rdx * 4], ecx
+    mov eax, ecx
+.end:
+    cmp byte [rbx + Greeter.users + rax], 0
+    je .ended
+    inc eax
+    jmp .end
+.ended:
+    mov r9d, eax
+    sub r9d, ecx
+    jz .done                            ; an empty name: the list is over
+    mov [rbx + Greeter.user_len + rdx * 4], r9d
+    inc edx
+    lea ecx, [rax + 1]
+    jmp .name
+.done:
+    mov [rbx + Greeter.user_count], edx
+.out:
+    pop rbx
+    ret
+
+; The row of names, the chosen one on the field's colour, if it fits.
+; rdi = greeter
+draw_users:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, UiText_size + 8            ; 16-byte aligned
+    mov rbx, rdi
+    cmp dword [rbx + Greeter.user_count], 0
+    je .out
+    mov eax, [rbx + Greeter.field_y]
+    sub eax, USERS_UP
+    js .out                             ; no room
+    mov r13d, eax                       ; the row's top
+    mov rdi, rbx                        ; cleared, then each name
+    mov esi, [rbx + Greeter.field_x]
+    mov edx, r13d
+    mov ecx, GREETER_FIELD_W
+    mov r8d, GREETER_LABEL_H
+    mov r9d, GREETER_BG
+    call fill
+    xor r12d, r12d
+.name:
+    cmp r12d, [rbx + Greeter.user_count]
+    jae .out
+    imul esi, r12d, GREETER_NAME_W + GREETER_NAME_GAP
+    add esi, [rbx + Greeter.field_x]
+    mov [rsp + UiText.x], esi
+    mov [rsp + UiText.clip_x], esi
+    mov ecx, GREETER_INK & 0xFFFFFF
+    cmp r12d, [rbx + Greeter.chosen]
+    je .chosen
+    mov ecx, GREETER_DIM & 0xFFFFFF
+    jmp .text
+.chosen:
+    mov rdi, rbx
+    mov edx, r13d
+    mov ecx, GREETER_NAME_W
+    mov r8d, GREETER_LABEL_H
+    mov r9d, GREETER_FIELD
+    call fill
+    mov ecx, GREETER_INK & 0xFFFFFF
+.text:
+    mov [rsp + UiText.colour], ecx
+    mov [rsp + UiText.y], r13d
+    mov [rsp + UiText.clip_y], r13d
+    mov dword [rsp + UiText.width], GREETER_NAME_W
+    mov dword [rsp + UiText.clip_w], GREETER_NAME_W
+    mov dword [rsp + UiText.height], GREETER_LABEL_H
+    mov dword [rsp + UiText.clip_h], GREETER_LABEL_H
+    mov dword [rsp + UiText.size], GREETER_LABEL_SIZE
+    mov rax, [rbx + Greeter.pixels]
+    mov [rsp + UiText.pixels], rax
+    mov eax, [rbx + Greeter.stride]
+    mov [rsp + UiText.stride], rax
+    mov eax, [rbx + Greeter.user_at + r12 * 4]
+    lea rax, [rbx + Greeter.users + rax]
+    mov [rsp + UiText.text], rax
+    mov eax, [rbx + Greeter.user_len + r12 * 4]
+    mov [rsp + UiText.length], eax
+    mov rdi, rsp
+    call ui_text_draw
+    inc r12d
+    jmp .name
+.out:
+    add rsp, UiText_size + 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; The row of names damaged and committed, if it is drawn.
+; rdi = greeter
+damage_users:
+    mov eax, [rdi + Greeter.field_y]
+    sub eax, USERS_UP
+    js .out
+    mov esi, [rdi + Greeter.field_x]
+    mov edx, eax
+    mov ecx, GREETER_FIELD_W
+    mov r8d, GREETER_LABEL_H
+    jmp damage_commit
+.out:
+    ret
 
 ; "Password" above the field, if it fits.
 ; rdi = greeter
