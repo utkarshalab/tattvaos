@@ -269,8 +269,9 @@ bar_pixel:
 ; Cases
 ; ---------------------------------------------------------------------------
 
-; A second output gets its own: along its bottom, as wide as it, ahead of
-; the first on Server.taskbar, a block there for a new window too
+; A second output added gets its own at the next step: along its bottom, as
+; wide as it, ahead of the first on Server.taskbar, a block there for a new
+; window too
 %define OUT2_W  200
 %define OUT2_H  60
 tb_second_output:
@@ -282,18 +283,13 @@ tb_second_output:
     test rax, rax
     jz .fail
     mov [rel output2], rax
-    lea rdi, [rel server]
-    lea rsi, [rel arena]
-    mov edx, 1
-    call taskbar_start
-    test rax, rax
-    jle .fail
-    mov [rel bar2], rax
+    call poll                           ; started there
     call poll
     call drain
-    mov rax, [rel bar2]
-    cmp [rel server + Server.taskbar], rax
+    mov rax, [rel server + Server.taskbar]
+    cmp dword [rax + Taskbar.output], 1
     jne .fail
+    mov [rel bar2], rax
     mov rcx, [rel bar]
     cmp [rax + Taskbar.next], rcx
     jne .fail
@@ -311,6 +307,10 @@ tb_second_output:
     call new_window
     mov rax, [rel bar2]
     cmp dword [rax + Taskbar.count], 1
+    jne .fail
+    call poll                           ; and only one there
+    mov rax, [rel server + Server.taskbar]
+    cmp rax, [rel bar2]
     jne .fail
     PASS
 
