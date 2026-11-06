@@ -1,11 +1,19 @@
 ; ============================================================================
-; Timeline — Monotonic Sync Points (64-bit)
+; Timeline — Monotonic Sync Points (cw_timeline)
 ; ============================================================================
+; A timeline is a 64-bit point that only goes up. A client makes timelines
+; and gives a buffer one with two points (cw_buffer.set_timeline): the server
+; shows the buffer only once the timeline has reached its acquire point
+; (commit_surface waits), and moves the timeline to its release point when
+; it lets the buffer go. Like a fence, each timeline is its client's: it
+; lives in the client's arena, its handle resolves for that client only
+; (timeline_own), and a client going takes its timelines with it. A timeline
+; that is gone counts as having reached every point, so nothing waits on it
+; for ever.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/ut.inc"
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
@@ -14,254 +22,260 @@ extern handle_destroy
 extern handle_resolve
 extern handle_table_init
 
+%define TIMELINE_HANDLES    1024
+
 struc Timeline
     .handle:                  resd 1
-    .generation:              resd 1
-    .current_point:           resq 1
-    .waiters:                 resq 1
-    .client_id:               resq 1
+    resb 4
+    .point:                   resq 1    ; the latest point reached
+    .client:                  resq 1    ; whose it is
+    .next:                    resq 1    ; Client.timelines
 endstruc
 
 section .text
 
 ; ---------------------------------------------------------------------------
 ; timeline_init
-;   Initialize timeline subsystem
 ;   IN:  rdi = server*, rsi = arena
-;   OUT: rax = 0 OK
+;   OUT: rax = 0, -ENOMEM
 ; ---------------------------------------------------------------------------
 global timeline_init
 timeline_init:
     PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    mov qword [rbx + Server.arena], r12
     mov rdi, r12
-    mov rsi, 48
-    call arena_alloc
-    test rax, rax
-    jz .init_oom
-    mov r13, rax
-    mov rdi, r13
-    mov rsi, r12
-    mov rdx, 1024
-    call handle_table_init
-    test rax, rax
-    js .init_done
-    mov [rbx + Server.timeline_table], r13
-.init_done:
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-.init_oom:
-    mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-; ---------------------------------------------------------------------------
-; timeline_create
-;   Create timeline
-;   IN:  rdi = server*, rsi = client*
-;   OUT: rax = timeline_handle, negative error
-; ---------------------------------------------------------------------------
-global timeline_create
-timeline_create:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Allocate timeline object
-    ; struct Timeline { handle, generation, current_point, waiters }
-    mov rdi, [rbx + Server.arena]
-    mov rsi, 40
+    mov esi, 48
     call arena_alloc
     test rax, rax
     jz .oom
     mov r13, rax
+    mov rdi, r13
+    mov rsi, r12
+    mov edx, TIMELINE_HANDLES
+    call handle_table_init
+    test rax, rax
+    js .out
+    mov [rbx + Server.timeline_table], r13
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+.oom:
+    mov rax, -(ENOMEM)
+    jmp .out
 
-    mov dword [r13 + Timeline.handle], 0
-    mov dword [r13 + Timeline.generation], 0
-    mov qword [r13 + Timeline.current_point], 0
-    mov qword [r13 + Timeline.waiters], 0
-    mov rax, [r12 + Client.id]
-    mov qword [r13 + Timeline.client_id], rax
-
-    ; Create handle
+; ---------------------------------------------------------------------------
+; timeline_create
+;   A new timeline at point 0 for a client
+;   IN:  rdi = server*, rsi = client*
+;   OUT: rax = its handle, -ENOMEM
+; ---------------------------------------------------------------------------
+global timeline_create
+timeline_create:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov rdi, [r12 + Client.arena]
+    mov esi, Timeline_size
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    mov r13, rax
+    mov rdi, rax
+    xor eax, eax
+    mov ecx, Timeline_size
+    rep stosb
+    mov [r13 + Timeline.client], r12
     mov rdi, [rbx + Server.timeline_table]
     mov rsi, r13
     call handle_create
     test rax, rax
     jz .oom
     mov [r13 + Timeline.handle], eax
-
-    mov eax, [r13 + Timeline.handle]
+    mov rcx, [r12 + Client.timelines]
+    mov [r13 + Timeline.next], rcx
+    mov [r12 + Client.timelines], r13
+.out:
+    add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
+    jmp .out
+
+; ---------------------------------------------------------------------------
+; timeline_own
+;   A client's own timeline from its handle
+;   IN:  rdi = server*, rsi = client*, edx = handle
+;   OUT: rax = Timeline*, 0 if there is no such timeline of that client's
+; ---------------------------------------------------------------------------
+global timeline_own
+timeline_own:
+    push rbx
+    mov rbx, rsi
+    mov rdi, [rdi + Server.timeline_table]
+    test rdi, rdi
+    jz .none
+    mov esi, edx
+    call handle_resolve
+    test rax, rax
+    jz .out
+    cmp [rax + Timeline.client], rbx
+    je .out
+.none:
+    xor eax, eax
+.out:
+    pop rbx
     ret
 
 ; ---------------------------------------------------------------------------
 ; timeline_destroy
-;   Destroy timeline
+;   A client's timeline goes; what waited on it goes on
+;   IN:  rdi = server*, rsi = client*, edx = handle
+;   OUT: rax = 0, -ENOENT if it is not that client's
 ; ---------------------------------------------------------------------------
 global timeline_destroy
 timeline_destroy:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
-    ASSERT_PTR rbx
-
-    mov rdi, [rbx + Server.timeline_table]
-    mov rsi, r12
-    call handle_resolve
+    mov r13d, edx
+    call timeline_own
     test rax, rax
-    jz .not_found
-
-    mov qword [rax + Timeline.current_point], -1
-
+    jz .missing
+    mov qword [rax + Timeline.point], -1
+    lea rcx, [r12 + Client.timelines]   ; off the client's list
+.find:
+    mov rdx, [rcx]
+    test rdx, rdx
+    jz .unlinked
+    cmp rdx, rax
+    je .unlink
+    lea rcx, [rdx + Timeline.next]
+    jmp .find
+.unlink:
+    mov rdx, [rax + Timeline.next]
+    mov [rcx], rdx
+.unlinked:
     mov rdi, [rbx + Server.timeline_table]
-    mov rsi, r12
+    mov esi, r13d
     call handle_destroy
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12
-    ret
-
-.not_found:
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+.missing:
     mov rax, -(ENOENT)
+    jmp .out
+
+; ---------------------------------------------------------------------------
+; timeline_destroy_client
+;   A client going: every handle of its timelines goes (their memory goes
+;   with its arena)
+;   IN:  rdi = server*, rsi = client*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global timeline_destroy_client
+timeline_destroy_client:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, [rsi + Client.timelines]
+    mov qword [rsi + Client.timelines], 0
+.next:
+    test r12, r12
+    jz .done
+    mov rdi, [rbx + Server.timeline_table]
+    mov esi, [r12 + Timeline.handle]
+    call handle_destroy
+    mov r12, [r12 + Timeline.next]
+    jmp .next
+.done:
+    xor eax, eax
     EPILOGUE_RESTORE rbx, r12
-    ret
 
 ; ---------------------------------------------------------------------------
 ; timeline_signal
-;   Signal timeline point
-;   IN:  rdi = server*, rsi = timeline_handle, rdx = point
-;   OUT: rax = 0 OK
+;   The timeline reaches a point; one it is past already changes nothing
+;   IN:  rdi = server*, esi = timeline handle, rdx = point
+;   OUT: rax = 0, -ENOENT
 ; ---------------------------------------------------------------------------
 global timeline_signal
 timeline_signal:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    ASSERT_PTR rbx
-
-    mov rdi, [rbx + Server.timeline_table]
-    mov rsi, r12
-    call handle_resolve
+    push rdx
+    call resolve
+    pop rdx
     test rax, rax
-    jz .not_found
-    mov rbx, rax
-
-    ; Update current point
-    cmp r13, [rbx + Timeline.current_point]
+    jz .missing
+    cmp rdx, [rax + Timeline.point]
     jbe .done
-    mov [rbx + Timeline.current_point], r13
-
+    mov [rax + Timeline.point], rdx
 .done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    xor eax, eax
     ret
-
-.not_found:
+.missing:
     mov rax, -(ENOENT)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-; ---------------------------------------------------------------------------
-; timeline_wait
-;   Wait for timeline point
-;   IN:  rdi = server*, rsi = timeline_handle, rdx = point, rcx = timeout_ns
-;   OUT: rax = 0 OK, ETIMEDOUT, EINTR
-; ---------------------------------------------------------------------------
-global timeline_wait
-timeline_wait:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    sub rsp, 16
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    mov r14, rcx
-    ASSERT_PTR rbx
-
-    mov rdi, [rbx + Server.timeline_table]
-    mov rsi, r12
-    call handle_resolve
-    test rax, rax
-    jz .not_found
-    mov [rsp], rax
-
-    ; Check if already reached
-    cmp r13, [rax + Timeline.current_point]
-    jbe .reached
-
-    cmp r14, -1
-    je .wait
-    call ut_time_now_ns
-    add rax, r14
-    jc .timed_out
-    mov [rsp + 8], rax
-.wait:
-    call ut_yield
-    mov rax, [rsp]
-    cmp r13, [rax + Timeline.current_point]
-    jbe .reached
-    cmp r14, -1
-    je .wait
-    call ut_time_now_ns
-    cmp rax, [rsp + 8]
-    jb .wait
-.timed_out:
-    mov rax, -(ETIMEDOUT)
-    add rsp, 16
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-.reached:
-    xor rax, rax
-    add rsp, 16
-    EPILOGUE_RESTORE rbx, r12, r13, r14
-    ret
-
-.not_found:
-    mov rax, -(ENOENT)
-    add rsp, 16
-    EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
 ; ---------------------------------------------------------------------------
 ; timeline_get_point
-;   Get current timeline point
-;   IN:  rdi = server*, rsi = timeline_handle
-;   OUT: rax = current_point, negative error
+;   IN:  rdi = server*, esi = timeline handle
+;   OUT: rax = its point; rdx = 0, -ENOENT with no such timeline
 ; ---------------------------------------------------------------------------
 global timeline_get_point
 timeline_get_point:
-    PROLOGUE
-    ASSERT_PTR rdi
-
-    mov rdi, [rdi + Server.timeline_table]
-    call handle_resolve
+    sub rsp, 8
+    call resolve
+    add rsp, 8
     test rax, rax
-    jz .not_found
-
-    mov rax, [rax + Timeline.current_point]
-    leave
+    jz .missing
+    mov rax, [rax + Timeline.point]
+    xor edx, edx
+    ret
+.missing:
+    mov rdx, -(ENOENT)
     ret
 
-.not_found:
-    mov rax, -(ENOENT)
-    leave
+; ---------------------------------------------------------------------------
+; timeline_reached
+;   Whether what waits for a point may go on: the timeline is there or past
+;   it, or there is no such timeline
+;   IN:  rdi = server*, esi = timeline handle (0: none), rdx = point
+;   OUT: rax = 1 reached, 0 still waiting
+; ---------------------------------------------------------------------------
+global timeline_reached
+timeline_reached:
+    test esi, esi
+    jz .yes
+    push rdx
+    call resolve
+    pop rdx
+    test rax, rax
+    jz .yes                             ; gone
+    cmp [rax + Timeline.point], rdx
+    jae .yes
+    xor eax, eax
+    ret
+.yes:
+    mov eax, 1
+    ret
+
+; ---------------------------------------------------------------------------
+; Local
+; ---------------------------------------------------------------------------
+
+; rdi = server, esi = handle -> rax = Timeline*, 0 if none
+resolve:
+    mov rdi, [rdi + Server.timeline_table]
+    test rdi, rdi
+    jz .none
+    jmp handle_resolve
+.none:
+    xor eax, eax
     ret
 
 section .data
-
 global timeline_version
-timeline_version: dq 0x010000
+timeline_version: dq 0x020000
