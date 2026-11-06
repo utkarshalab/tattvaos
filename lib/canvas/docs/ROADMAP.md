@@ -308,7 +308,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | OUT-04 | Hardware cursor and overlay planes | P2 | ◐ `native_planes.asm` (unlisted) |
 | OUT-05 | Hotplug detect and re-layout | P2 | ◐ orphan `native_hotplug` |
 | OUT-06 | Full EDID parsing including monitor descriptors; real mode lists | P2 | ◐ modes hard-coded |
-| OUT-07 | Multi-monitor layout, extend and mirror | P2 | ◐ groundwork: one layout, outputs side by side (`server_add_output` for headless ones), each drawing its part through a shifted framebuffer; the pointer spans them, the hit test uses the output it is on; a window goes on the output under the pointer and follows its middle when moved, popups their parent's; `test_window`. A window over an edge shows on one output only; the desktop parts stay on the first; no mirror; `output/*` |
+| OUT-07 | Multi-monitor layout, extend and mirror | P2 | ◐ groundwork: one layout, outputs side by side (`server_add_output` for headless ones), each drawing its part through a shifted framebuffer; the pointer spans them; one stack for every output (`Server.stack`), each output drawing every window over its part, so a window over an edge shows on both, and damage going to every output it touches; a window goes on the output under the pointer and follows its middle when moved, popups their parent's; `test_window`. The desktop parts stay on the first; no mirror; `output/*` |
 | OUT-08 | Integer and fractional scale, rotation, gamma, DPMS | P2 | ◐ `output/*` |
 | OUT-09 | Display configuration persistence per monitor set | P2 | |
 | OUT-10 | Seamless hotplug with no flicker or layout disruption | P3 | |
