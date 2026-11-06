@@ -16,7 +16,8 @@
 ; server_poll, so it runs outside a turn (taskbar_start_all one for each
 ; output); canvasd's loop calls taskbar_step_all after each server_poll,
 ; which also starts one on an output added since, once it is tall enough,
-; and stops the one of an output taken away.
+; and stops the one of an output taken away or made a mirror; a mirror has
+; none.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -115,7 +116,11 @@ taskbar_step_all:
     test rax, rax
     jz .gone
     cmp rax, [rbx + Taskbar.output_ptr]
-    je .here
+    jne .further
+    cmp qword [rax + Output.mirror_of], 0
+    jne .gone                           ; a mirror now
+    jmp .here
+.further:
     inc ecx
     mov rax, [rax + Output.next]
     jmp .place
@@ -156,6 +161,8 @@ taskbar_step_all:
     mov rax, [rax + Taskbar.next]
     jmp .has
 .start:
+    cmp qword [r13 + Output.mirror_of], 0
+    jne .next                           ; a mirror shows another's
     cmp dword [r13 + Output.height], TASKBAR_H
     jbe .next                           ; too small for one
     mov rdi, r12
