@@ -85,7 +85,15 @@ sw_render_begin_frame:
     mov [rcx + FrameCtx.output], rsi
     mov [rcx + FrameCtx.damage], rdx
     mov qword [rcx + FrameCtx.render_list], 0
-    mov rax, [rsi + Output.framebuffer]
+    ; The framebuffer as if it began at the layout's origin: everything is
+    ; drawn in the layout's coordinates, the output's part of it landing
+    ; in its own pixels
+    movsxd rax, dword [rsi + Output.y]
+    imul rax, [rsi + Output.stride]
+    movsxd r8, dword [rsi + Output.x]
+    lea rax, [rax + r8 * 4]
+    neg rax
+    add rax, [rsi + Output.framebuffer]
     mov [rcx + FrameCtx.framebuffer], rax
     mov rax, [rsi + Output.stride]
     mov [rcx + FrameCtx.stride], rax
