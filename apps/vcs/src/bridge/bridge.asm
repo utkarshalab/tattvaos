@@ -163,6 +163,7 @@ bridge_pkt_decode:
  mov r8,rax
  lea rdx,[rdi+4]
  lea rcx,[rax-4]
+ xor r9d,r9d
  xor eax,eax
  ret
 .flush:
