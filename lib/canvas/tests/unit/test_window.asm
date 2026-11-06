@@ -13,6 +13,7 @@
 %include "inc/caps.inc"
 %include "inc/color.inc"
 %include "inc/cwp.inc"
+%include "inc/cwp_ops.inc"
 %include "inc/channel.inc"
 %include "inc/event.inc"
 %include "inc/backend.inc"
@@ -1589,13 +1590,24 @@ tw_timelines:
     mov esi, 3
     call timeline_to
     SHOWS zero                          ; at 3: still not
+    FIND CWP_OBJ_TIMELINE, TIMELINE_EV_TIMELINE_SIGNALED
+    cmp qword [rel ans + 8], 3          ; said so, with the point
+    jne .fail
     mov edi, [rel timeline]
     mov esi, 5
     call timeline_to
     SHOWS buffer_a                      ; at 5: shown
-    mov edi, [rel timeline]             ; never back
+    FIND CWP_OBJ_TIMELINE, TIMELINE_EV_TIMELINE_SIGNALED
+    cmp qword [rel ans + 8], 5
+    jne .fail
+    mov edi, [rel timeline]             ; never back, and nothing said
     mov esi, 4
     call timeline_to
+    mov edi, CWP_OBJ_TIMELINE
+    mov esi, TIMELINE_EV_TIMELINE_SIGNALED
+    call find_event
+    test eax, eax
+    jnz .fail
     call timeline_point
     cmp rax, 5
     jne .fail
@@ -1611,6 +1623,9 @@ tw_timelines:
     xor ecx, ecx
     call attach_fenced
     SHOWS buffer_b
+    FIND CWP_OBJ_TIMELINE, TIMELINE_EV_TIMELINE_SIGNALED
+    cmp qword [rel ans + 8], 7
+    jne .fail
     call timeline_point
     cmp rax, 7                          ; its release point
     jne .fail
@@ -1676,6 +1691,10 @@ tw_fences:
     SEND CWP_OBJ_FENCE, FN_SIGNAL, 4
     call poll
     SHOWS buffer_a                      ; signaled: shown
+    FIND CWP_OBJ_FENCE, FENCE_EV_FENCE_SIGNALED
+    mov eax, [rel fence_a]
+    cmp [rel ans], eax
+    jne .fail                           ; and said so
 
     mov edi, 8                          ; another buffer: the first let go
     mov esi, 8
@@ -1688,6 +1707,10 @@ tw_fences:
     xor ecx, ecx
     call attach_fenced
     SHOWS buffer_b
+    FIND CWP_OBJ_FENCE, FENCE_EV_FENCE_SIGNALED
+    mov eax, [rel fence_r]
+    cmp [rel ans], eax
+    jne .fail                           ; the release fence: said so
     call drain
     mov eax, [rel fence_r]
     mov [rel req], eax
