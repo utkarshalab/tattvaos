@@ -431,8 +431,7 @@ tg_client_leaves:
     jnz .fail
     PIXEL_IS 10, 10, BG
     PIXEL_IS 30, 20, BG
-    mov rax, [rel output]
-    cmp qword [rax + Output.surfaces], 0
+    cmp qword [rel server + Server.stack], 0
     jne .fail
     PASS
 
