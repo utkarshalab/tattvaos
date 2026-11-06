@@ -30,6 +30,7 @@ extern taskbar_start
 extern ui_text_init
 extern taskbar_step_all
 extern server_add_output
+extern server_remove_output
 extern virtual_input_inject
 
 %define HEAP_SIZE   (8 * 1024 * 1024)
@@ -58,6 +59,7 @@ test_taskbar_suite:
     CASE tb_titles
     CASE tb_titlebar_title
     CASE tb_second_output
+    CASE tb_remove_output
     mov eax, ebx
     pop rbx
     ret
@@ -269,11 +271,91 @@ bar_pixel:
 ; Cases
 ; ---------------------------------------------------------------------------
 
+; A second output, for the cases with two
+%define OUT2_W  200
+%define OUT2_H  60
+
+; A second output taken away: the window on it comes to the first, the
+; pointer too, its taskbar stops (one layer left), the first still lists the
+; window; the last output cannot go
+tb_remove_output:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov esi, OUT2_W
+    mov edx, OUT2_H
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output2], rax
+    call poll                           ; its taskbar
+    call poll
+    lea rdi, [rel server]               ; the pointer onto it
+    mov esi, INPUT_POSITION
+    mov edx, WIDTH + 50
+    mov ecx, 10
+    xor r8d, r8d
+    call virtual_input_inject
+    call poll
+    call new_window
+    mov [rel surface_a], eax
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel output2]
+    cmp [rax + Surface.output], rcx
+    jne .fail                           ; placed there
+
+    lea rdi, [rel server]
+    mov rsi, [rel output2]
+    call server_remove_output
+    test rax, rax
+    jnz .fail
+    call poll
+    call poll
+    call drain
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.outputs]
+    cmp [rax + Surface.output], rcx
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], WIDTH - 16
+    jg .fail                            ; on the first, in sight
+    mov rax, [rel server + Server.input_seat]
+    cmp dword [rax + InputSeat.x], WIDTH
+    jge .fail
+    mov rax, [rel server + Server.taskbar]
+    cmp rax, [rel bar]
+    jne .fail
+    cmp qword [rax + Taskbar.next], 0
+    jne .fail
+    cmp dword [rax + Taskbar.count], 1
+    jne .fail
+    xor ecx, ecx                        ; layers on the stack
+    mov rax, [rel server + Server.stack]
+.layer:
+    test rax, rax
+    jz .counted
+    mov rdx, [rax + Surface.window]
+    test rdx, rdx
+    jz .not_layer
+    cmp dword [rdx + Window.kind], ROLE_LAYER
+    jne .not_layer
+    inc ecx
+.not_layer:
+    mov rax, [rax + Surface.z_order_next]
+    jmp .layer
+.counted:
+    cmp ecx, 1
+    jne .fail
+    lea rdi, [rel server]               ; the last stays
+    mov rsi, [rel server + Server.outputs]
+    call server_remove_output
+    cmp rax, -(EBUSY)
+    jne .fail
+    PASS
+
 ; A second output added gets its own at the next step: along its bottom, as
 ; wide as it, ahead of the first on Server.taskbar, a block there for a new
 ; window too
-%define OUT2_W  200
-%define OUT2_H  60
 tb_second_output:
     sub rsp, 8
     lea rdi, [rel server]
