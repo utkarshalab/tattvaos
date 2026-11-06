@@ -47,6 +47,11 @@ extern window_move
 %define FN_CREATE       0
 %define FN_SIGNAL       2
 %define FN_STATUS       5
+%define TL_NEW          0               ; cw_timeline
+%define TL_DESTROY      1
+%define TL_SIGNAL       2
+%define TL_POINT        4
+%define BUF_TIMELINE    4               ; cw_buffer.set_timeline
 %define TL_DESTROY      1
 %define TL_SET_TITLE    2
 %define TL_SET_APP_ID   3
@@ -115,6 +120,7 @@ test_window_suite:
     CASE tw_alt_tab, CAP_SHELL
     CASE tw_occlusion, CAP_SHELL
     CASE tw_fences, CAP_SHELL
+    CASE tw_timelines, CAP_SHELL
     CASE tw_two_outputs, CAP_SHELL
     mov eax, ebx
     pop rbx
@@ -1507,6 +1513,135 @@ attach_fenced:
     jne .fail
 %endmacro
 
+; edi = timeline, rsi = point: it reaches the point, a turn
+timeline_to:
+    sub rsp, 8
+    mov [rel req], edi
+    mov dword [rel req + 4], 0
+    mov [rel req + 8], rsi
+    SEND CWP_OBJ_TIMELINE, TL_SIGNAL, 16
+    call poll
+    add rsp, 8
+    ret
+
+; -> rax = the timeline's point
+timeline_point:
+    sub rsp, 8
+    call drain
+    mov eax, [rel timeline]
+    mov [rel req], eax
+    SEND CWP_OBJ_TIMELINE, TL_POINT, 4
+    call poll
+    call next_reply
+    mov rax, [rel ans]
+    add rsp, 8
+    ret
+
+; edi = buffer, esi = timeline, rdx = acquire point, rcx = release point
+set_timeline:
+    sub rsp, 8
+    mov [rel req], edi
+    mov [rel req + 4], esi
+    mov [rel req + 8], rdx
+    mov [rel req + 16], rcx
+    SEND CWP_OBJ_BUFFER, BUF_TIMELINE, 24
+    call poll
+    add rsp, 8
+    ret
+
+; A buffer with a timeline is shown once the timeline reaches its acquire
+; point; the timeline never goes back; it reaches the release point when
+; another buffer replaces it; a timeline not the client's is refused; one
+; destroyed lets what waited on it go on
+tw_timelines:
+    sub rsp, 8
+    mov dword [rel zero], 0
+    SEND CWP_OBJ_TIMELINE, TL_NEW, 0
+    call poll
+    call next_reply
+    mov eax, [rel ans]
+    test eax, eax
+    jz .fail
+    mov [rel timeline], eax
+    mov edi, 8
+    mov esi, 8
+    call new_surface
+    mov [rel surface_a], eax
+    mov eax, [rel buffer]
+    mov [rel buffer_a], eax
+    mov edi, [rel buffer_a]
+    mov esi, [rel timeline]
+    mov edx, 5
+    mov ecx, 7
+    call set_timeline
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer_a]
+    xor edx, edx
+    xor ecx, ecx
+    call attach_fenced
+    SHOWS zero                          ; at 0: not shown
+    mov edi, [rel timeline]
+    mov esi, 3
+    call timeline_to
+    SHOWS zero                          ; at 3: still not
+    mov edi, [rel timeline]
+    mov esi, 5
+    call timeline_to
+    SHOWS buffer_a                      ; at 5: shown
+    mov edi, [rel timeline]             ; never back
+    mov esi, 4
+    call timeline_to
+    call timeline_point
+    cmp rax, 5
+    jne .fail
+
+    mov edi, 8                          ; another buffer: the first let go
+    mov esi, 8
+    call new_surface
+    mov eax, [rel buffer]
+    mov [rel buffer_b], eax
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer_b]
+    xor edx, edx
+    xor ecx, ecx
+    call attach_fenced
+    SHOWS buffer_b
+    call timeline_point
+    cmp rax, 7                          ; its release point
+    jne .fail
+
+    mov edi, [rel buffer_a]             ; no timeline of its: refused
+    mov esi, 999
+    mov edx, 100
+    xor ecx, ecx
+    call set_timeline
+    mov rdi, [rel server + Server.buffer_table]
+    mov esi, [rel buffer_a]
+    call handle_resolve
+    mov ecx, [rel timeline]
+    cmp [rax + Buffer.timeline], rcx
+    jne .fail
+    cmp qword [rax + Buffer.acquire_point], 5
+    jne .fail
+
+    mov edi, [rel buffer_a]             ; waits for 100: destroyed, it goes on
+    mov esi, [rel timeline]
+    mov edx, 100
+    xor ecx, ecx
+    call set_timeline
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer_a]
+    xor edx, edx
+    xor ecx, ecx
+    call attach_fenced
+    SHOWS buffer_b
+    mov eax, [rel timeline]
+    mov [rel req], eax
+    SEND CWP_OBJ_TIMELINE, TL_DESTROY, 4
+    call poll
+    SHOWS buffer_a
+    PASS
+
 ; A buffer is shown only once its acquire fence is signaled; its release
 ; fence is signaled when another replaces it; a fence not the client's is
 ; refused
@@ -1687,6 +1822,7 @@ surface_c:      resd 1
 buffer_a:       resd 1
 region_h:       resd 1
 fence_a:        resd 1
+timeline:       resd 1
 fence_r:        resd 1
 buffer_b:       resd 1
 zero:           resd 1
