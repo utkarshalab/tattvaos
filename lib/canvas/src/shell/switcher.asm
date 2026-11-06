@@ -6,7 +6,8 @@
 ; one before the current; each further Tab moves on, Esc gives up, letting go
 ; of Alt activates the one selected. While it runs the compositor draws it
 ; over everything (switcher_render): a tile per window, its title on it, the
-; selected one bright. One seat, one switch at a time.
+; selected one bright, centred on the output the pointer was on when it
+; began. One seat, one switch at a time.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -16,6 +17,7 @@
 %include "inc/struct_offsets.inc"
 %include "inc/ui_text.inc"
 
+extern compositor_output_at
 extern rect_intersect
 extern region_add_rect
 extern sw_render_rect
@@ -96,6 +98,8 @@ switcher_next:
 .one:
     mov dword [rel active], 1
     mov [rel server_p], rbx
+    mov rdi, rbx                        ; on the output the pointer is on
+    call pick_output
     call place_box
 .shown:
     call damage_box
@@ -263,11 +267,27 @@ switcher_render:
 ; Local
 ; ---------------------------------------------------------------------------
 
-; The box: centred on the first output, a tile per window.
-place_box:
-    mov rax, [rel server_p]
-    mov rax, [rax + Server.outputs]
+; The output the pointer is on (the first with no seat) into output.
+; rdi = server
+pick_output:
+    mov rax, [rdi + Server.input_seat]
+    test rax, rax
+    jz .first
+    mov esi, [rax + InputSeat.x]
+    mov edx, [rax + InputSeat.y]
+    sub rsp, 8
+    call compositor_output_at
+    add rsp, 8
     mov [rel output], rax
+    ret
+.first:
+    mov rax, [rdi + Server.outputs]
+    mov [rel output], rax
+    ret
+
+; The box: centred on its output, in the layout, a tile per window.
+place_box:
+    mov rax, [rel output]
     test rax, rax
     jz .out
     imul ecx, dword [rel count], TILE_W + TILE_GAP
@@ -277,10 +297,12 @@ place_box:
     mov edx, [rax + Output.width]
     sub edx, ecx
     sar edx, 1
+    add edx, [rax + Output.x]
     mov [rel box], edx
     mov edx, [rax + Output.height]
     sub edx, TILE_H + 2 * TILE_GAP
     sar edx, 1
+    add edx, [rax + Output.y]
     mov [rel box + 4], edx
 .out:
     ret
