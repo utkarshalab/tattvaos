@@ -92,7 +92,7 @@
 | FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | ✓ 36 files in `attic/` (see its README); `native_planes`, `invariants` wired in; every `.asm` under `src/` and `tests/` is now built |
 | FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | ✓ `lib/canvas/.gitattributes`: LF everywhere, `*.uic` binary |
 | FND-09 | Host test shim: `ut_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | ✓ `tests/host/ut_host.asm`, `make host` |
-| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ◐ `make check`: layout, debug and release images, W^X, 24 unit suites, SVG, icon and image conformance. Golden frames run; the fuzz suites are still stubs |
+| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ◐ `make check`: layout, debug and release images, W^X, 31 host unit suites, the UBF loaded and run to its first frame (`ubf-check`), SVG, icon and image conformance. Golden frames run; the fuzz suites are still stubs |
 | FND-11 | Separate text/rodata/data segments in the linker script (W^X images) | P0 | ✓ R-X, R--, RW- segments on their own pages; all 23 images checked |
 | FND-12 | Dual-assembler CI: NASM and utasm both green, outputs compared byte for byte | P1 | 12 files currently utasm-only failures |
 | FND-13 | Static lint: register-use and ABI conventions, missing `ret`, stack alignment | P2 | ◐ `make field-width-check` (part of `check`): no access wider than a struc field. Stack locals are not covered |
@@ -841,7 +841,7 @@ All items run on-device, opt-in, behind capability gates.
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| QA-01 | Unit suites green on the host shim | P0 | → FND-09 |
+| QA-01 | Unit suites green on the host shim | P0 | ✓ all 31 `HOST_SUITES` pass (`make host-check`) |
 | QA-02 | Golden-image tests with a real corpus | P1 | ◐ `tests/unit/test_golden.asm`: frames checked against checksums computed outside the code; more scenes to add |
 | QA-03 | Continuous fuzzing of every parser: wire, images, fonts, ICC, EDID, keymaps, config | P2 | ◐ `tests/fuzz` |
 | QA-04 | Structure-aware wire-protocol fuzzer | P3 | |
