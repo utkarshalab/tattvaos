@@ -1002,6 +1002,10 @@ HANDLER_END
 ; cw_layer.create(surface, layer, anchor, margin)
 HANDLER h_layer_create, 16
     NEEDS_CAP CAP_LAYER
+    cmp dword [r13 + 4], 3              ; an overlay: shown, and taking input,
+    jne .not_overlay                    ; while the screen is locked
+    NEEDS_CAP CAP_OVERLAY
+.not_overlay:
     mov esi, [r13]
     call own_surface
     test rax, rax
