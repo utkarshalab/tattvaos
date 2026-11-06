@@ -29,6 +29,7 @@ extern virtual_input_inject
 extern window_activate
 extern switcher_selected
 extern server_add_output
+extern window_move
 
 %define HEAP_SIZE (2 * 1024 * 1024)
 
@@ -660,8 +661,7 @@ tw_layers:
     mov [rel surface_b], eax
     mov edi, [rel surface_a]
     call surface_of
-    mov rcx, [rel server + Server.outputs]
-    cmp [rcx + Output.surfaces], rax
+    cmp [rel server + Server.stack], rax
     jne .fail                           ; the background stays the bottom
     POINTER 40, 40                      ; on the background only
     INJECT INPUT_BUTTON, 0, 1
@@ -968,8 +968,7 @@ tw_minimize:
     mov rcx, [rel server + Server.input_seat]
     cmp qword [rcx + InputSeat.keyboard_focus], 0
     jne .fail
-    mov rcx, [rel server + Server.outputs]
-    cmp qword [rcx + Output.surfaces], 0
+    cmp qword [rel server + Server.stack], 0
     jne .fail
     mov edi, [rel surface_a]
     call surface_of
@@ -978,8 +977,7 @@ tw_minimize:
     call window_activate
     mov edi, [rel surface_a]
     call surface_of
-    mov rcx, [rel server + Server.outputs]
-    cmp [rcx + Output.surfaces], rax
+    cmp [rel server + Server.stack], rax
     jne .fail
     mov rcx, [rel server + Server.input_seat]
     cmp [rcx + InputSeat.keyboard_focus], rax
@@ -1652,6 +1650,29 @@ tw_two_outputs:
     cmp eax, 0xFF3E4C78
     je .fail
 
+    mov edi, [rel surface_b]            ; over the edge at 64: drawn on both
+    call surface_of
+    lea rdi, [rel server]
+    mov rsi, rax
+    mov edx, 50
+    mov ecx, TITLEBAR_H
+    call window_move
+    call poll
+    mov edi, 56                         ; its bar's left part, on the first
+    mov esi, 2
+    call screen_pixel
+    cmp eax, 0xFF3E4C78
+    jne .fail
+    mov edi, 74 - 64                    ; its right part, on the second
+    mov esi, 2
+    call second_pixel
+    cmp eax, 0xFF3E4C78
+    jne .fail
+    mov edi, 94 - 64                    ; where it was, there: redrawn
+    mov esi, 2
+    call second_pixel
+    cmp eax, 0xFF3E4C78
+    je .fail
     PASS
 
 section .bss
