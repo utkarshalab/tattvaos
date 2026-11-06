@@ -46,6 +46,7 @@ extern compositor_damage_all
 %define RG_CREATE       0
 %define RG_ADD          2
 %define SF_SET_OPAQUE   5
+%define NO_INPUT        (1 << 31)       ; fresh: a client asking for no input
 %define FN_CREATE       0
 %define FN_SIGNAL       2
 %define FN_STATUS       5
@@ -126,6 +127,7 @@ test_window_suite:
     CASE tw_two_outputs, CAP_SHELL
     CASE tw_locked, CAP_SHELL
     CASE tw_alt_tab_output, CAP_SHELL
+    CASE tw_no_input, CAP_SHELL | NO_INPUT
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -188,10 +190,15 @@ test_window_suite:
     call virtual_input_inject
 %endmacro
 
-; edi = capabilities: a started server and a trusted client asking for them
+; edi = capabilities: a started server and a trusted client asking for them,
+; and for pointer, keyboard and touch input unless NO_INPUT is among them
 fresh:
     push rbx
     mov ebx, edi
+    btr ebx, 31
+    jc .asked
+    or ebx, CAP_POINTER | CAP_KEYBOARD | CAP_TOUCH
+.asked:
     lea rdi, [rel arena]
     lea rsi, [rel heap]
     mov edx, HEAP_SIZE
@@ -1923,6 +1930,33 @@ tw_alt_tab_output:
     call second_pixel
     cmp eax, 0xFF3E4C78
     je .fail
+    PASS
+
+; A client that did not ask for input: its window does not take the
+; keyboard, and the pointer over it sends it nothing
+tw_no_input:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    mov rax, [rel server + Server.input_seat]
+    cmp qword [rax + InputSeat.keyboard_focus], 0
+    jne .fail
+    call drain
+    POINTER 15, 15
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    mov rax, [rel server + Server.input_seat]
+    cmp qword [rax + InputSeat.keyboard_focus], 0
+    jne .fail                           ; not by a click either
+    mov edi, CWP_OBJ_POINTER
+    mov esi, POINTER_EV_ENTER
+    call find_event
+    test eax, eax
+    jnz .fail
     PASS
 
 ; Server.locked to edi, every output redrawn, a turn
