@@ -2,8 +2,9 @@
 
 **Part of:** Utkarsha OS, `lib/io/acpi` — ACPI tables, the AML interpreter,
 platform events and power
-**Status:** static tables only (RSDP, XSDT, MADT, MCFG, FADT; 573 lines) as
-of 2026-11-06; no AML interpreter
+**Status:** static tables (RSDP, XSDT, MADT, MCFG, FADT); AML interpreter
+core written and host-tested in `aml/` (2026-11-06), not yet wired into the
+kernel
 **Covers:** ACPI 1.0b to 6.6
 
 ACPI is how the firmware describes the machine to the OS. Fixed tables
@@ -296,19 +297,35 @@ lib/io/acpi/
 ### Phase 0 — Test base
 
 - ☐ Table dumper (runs on bare metal, writes to `/keep/dump/acpi/`)
-- ☐ AML corpus: tables from this machine, plus hand-written cases for every
-  opcode and conversion, run as host test suites
-- ☐ Fuzzer for the parser and interpreter
+- ◐ AML test tables built by an encoder (`aml/tests/aml_gen.py`), 118
+  checks in `aml/tests/test_aml.py`; tables from this machine still to come
+- ◐ Mutation fuzzing: 3 000 mutated tables per run, plus every truncation
+  of a table; a longer fuzzer still to come
 
 Estimate: ~1 500 lines.
 
 ### Phase 1 — Interpreter core
 
-- ☐ FACS, DSDT and SSDT loading with checksums
-- ☐ Parser and namespace build
-- ☐ Interpreter: all of 4.2 except operation regions served by other
-  drivers
-- ☐ Memory, I/O and PCI config regions, with the sandbox
+- ☐ FACS, DSDT and SSDT loading with checksums (the interpreter takes a
+  table pointer today)
+- ◐ Parser and namespace build: every named-object operator, search rules,
+  parent prefixes, aliases, External placeholders replaced by later
+  tables, method-local names removed when the method returns
+- ◐ Interpreter: data objects, LocalX/ArgX, method calls with arguments
+  and results, If/Else/While/Break/Continue/Return, Store with type
+  conversion, references (RefOf, DerefOf, Index, CondRefOf), arithmetic,
+  logic, comparisons, Concatenate, ToInteger, ToBuffer, ToString, Mid,
+  CopyObject, ObjectType, SizeOf, buffer fields, region fields (plain,
+  index, bank; access widths; update rules), Notify, Sleep/Stall hooks,
+  32-bit integers for revision 1 tables, \_OSI, \_REV, \_OS
+- ☐ Still missing: Match, ToHexString, ToDecimalString, ToBCD, FromBCD,
+  ConcatenateResTemplate, Load, LoadTable, region fields wider than 64
+  bits, connection fields (GPIO, serial bus), continuing a table load
+  past an error
+- ◐ Limits: call depth, While iterations, machine stack budget, heap; all
+  fail cleanly
+- ☐ Memory, I/O and PCI config region handlers with the sandbox (the
+  interpreter calls one hook, `aml_region_fn`)
 - ☐ `_STA`, `_INI`, `_REG` initialisation
 
 Demo: this machine's whole namespace loads and every `_STA` and `_INI`
