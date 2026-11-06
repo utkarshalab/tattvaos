@@ -204,8 +204,7 @@ tg_shown:
     mov rcx, [rel server + Server.input_seat]
     cmp qword [rcx + InputSeat.keyboard_focus], 0
     je .fail
-    mov rcx, [rel server + Server.outputs]
-    mov rcx, [rcx + Output.surfaces]
+    mov rcx, [rel server + Server.stack]
     test rcx, rcx
     jz .fail
     PIXEL 0, 0, GREETER_BG
