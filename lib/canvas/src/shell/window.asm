@@ -7,7 +7,8 @@
 ;
 ;   toplevel  placed the first time it shows a buffer, its top-left at the
 ;             pointer and moved back to fit on the output; it stays there
-;             until moved (window_move, Alt+drag). Maximized or fullscreen
+;             until moved (window_move, Alt+drag); it is on the output its
+;             middle is on, the one under the pointer when it is placed. Maximized or fullscreen
 ;             it fills the output (fullscreen above top layers; maximized
 ;             the part layers' exclusive strips leave) and goes back to its
 ;             place and size after. It is on the output only while it is
@@ -36,6 +37,8 @@
 extern arena_alloc
 extern compositor_add_surface
 extern compositor_damage_surface
+extern compositor_move_to_output
+extern compositor_output_at
 extern compositor_raise_surface
 extern compositor_remove_surface
 extern compositor_restack_surface
@@ -499,6 +502,9 @@ window_move:
     mov rdi, rbx                        ; where it is
     mov rsi, r12
     call compositor_damage_surface
+    mov rdi, rbx                        ; on the output it is now on
+    mov rsi, r12
+    call follow_output
     mov rdi, rbx                        ; its popups come along
     mov rsi, r12
     call follow_parent
@@ -794,11 +800,25 @@ window_commit:
     call place_at_pointer
     mov dword [r13 + Window.placed], 1
     call put
+    mov rdi, rbx                        ; on the output it is on
+    mov rsi, r12
+    call follow_output
     mov rdi, rbx                        ; all of it new, its bar too: the
     mov rsi, r12                        ; client damaged only its own pixels
     call compositor_damage_surface
     jmp .out
 .popup:
+    push rdx
+    push rcx
+    mov rax, [r13 + Window.parent]      ; on its parent's output
+    mov rdx, [rax + Surface.output]
+    mov rdi, rbx
+    mov rsi, r12
+    call compositor_move_to_output
+    pop rcx
+    pop rdx
+    mov rdi, rbx
+    mov rsi, r13
     call place_on_parent
     jmp .placed
 .layer:
@@ -1131,6 +1151,35 @@ usable_area:
     sub r8d, edx
     ret
 
+; A toplevel to the output its middle is on, if that is another.
+; rdi = server, rsi = surface
+follow_output:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    mov rsi, [r12 + Surface.current + SurfaceState.buffer]
+    test rsi, rsi
+    jz .out
+    mov rdi, [rbx + Server.buffer_table]
+    call handle_resolve
+    test rax, rax
+    jz .out
+    mov esi, [rax + Buffer.width]
+    shr esi, 1
+    add esi, [r12 + Surface.current + SurfaceState.buf_x]
+    mov edx, [rax + Buffer.height]
+    shr edx, 1
+    add edx, [r12 + Surface.current + SurfaceState.buf_y]
+    mov rdi, rbx
+    call compositor_output_at
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, rax
+    call compositor_move_to_output
+.out:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12
+
 ; The surface where its Window says. r12 = surface, r13 = Window
 put:
     mov eax, [r13 + Window.x]
@@ -1203,19 +1252,36 @@ keep_on_output:
     mov [rsi + Window.y], r10d
     ret
 
-; Top-left at the pointer (the output's centre with no seat); a window with
-; a title bar is placed with it, the bar on top.
+; Top-left at the pointer, kept on the output the pointer is on (with no
+; seat, the middle of the window's output); a window with a title bar is
+; placed with it, the bar on top.
 ; rdi = server, rsi = window, edx = width, ecx = height
 place_at_pointer:
-    OUTPUT_OF
+    mov r9, [rdi + Server.input_seat]
+    test r9, r9
+    jz .no_seat
+    push rsi
+    push rdx
+    push rcx
+    push rdi
+    mov esi, [r9 + InputSeat.x]
+    mov edx, [r9 + InputSeat.y]
+    call compositor_output_at
+    mov r8, rax
+    pop rdi
+    pop rcx
+    pop rdx
+    pop rsi
     test r8, r8
     jz .done
     mov r9, [rdi + Server.input_seat]
-    test r9, r9
-    jz .centre
     mov eax, [r9 + InputSeat.x]
     mov r10d, [r9 + InputSeat.y]
     jmp .placed
+.no_seat:
+    OUTPUT_OF
+    test r8, r8
+    jz .done
 .centre:
     mov eax, [r8 + Output.width]
     shr eax, 1
