@@ -547,7 +547,8 @@ struc Client
     .server:                  resq 1
     .next_client:             resq 1    ; Server.client_list
     .regions:                 resq 1    ; its ClientRegions (server/regions)
-    resb 72
+    .fences:                  resq 1    ; its Fences (server/fence)
+    resb 64
 endstruc
 
 struc ClientConn
@@ -793,6 +794,8 @@ struc Fence
     .arena:                   resq 1
     resb 4
     .lock:                    resq 1
+    .client:                  resq 1    ; whose it is
+    .next:                    resq 1    ; Client.fences
     .state:                   resd 1
     resb 4
     .timeline:                resq 1
@@ -1649,6 +1652,7 @@ struc Surface
     .current:                 resb SurfaceState_size
     .pending:                 resb SurfaceState_size
     .window:                  resq 1    ; Window* when it is a toplevel, else 0
+    .fence_wait:              resq 1    ; 1: a commit waits for an acquire fence
 endstruc
 
 ; A surface with a shell role (src/shell/window.asm): a toplevel window,
