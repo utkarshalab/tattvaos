@@ -1156,6 +1156,17 @@ set_keyboard_focus:
     mov r13, [rbx + InputSeat.keyboard_focus]
     cmp r12, r13
     je .out
+    mov rax, [rbx + InputSeat.server]   ; locked: it stays on the login screen
+    cmp qword [rax + Server.locked], 0  ; unless it goes to another overlay
+    je .allowed
+    test r12, r12
+    jz .out
+    mov rax, [r12 + Surface.window]
+    test rax, rax
+    jz .out
+    cmp dword [rax + Window.level], LEVEL_OVERLAY
+    jl .out
+.allowed:
     mov dword [rbx + InputSeat.repeat_key], 0   ; a new surface, no repeat
     test r13, r13
     jz .enter
@@ -1201,6 +1212,15 @@ surface_at:
 .surface:
     test r12, r12
     jz .done
+    mov rax, [rbx + InputSeat.server]   ; locked: only the overlays are there
+    cmp qword [rax + Server.locked], 0
+    je .unlocked
+    mov rax, [r12 + Surface.window]
+    test rax, rax
+    jz .next
+    cmp dword [rax + Window.level], LEVEL_OVERLAY
+    jl .next
+.unlocked:
     mov rdi, r12                        ; its title bar, if it has one
     mov esi, [rbx + InputSeat.x]
     mov edx, [rbx + InputSeat.y]
