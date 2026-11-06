@@ -156,6 +156,8 @@ kernel_text_start:
 %include "lib/storage/uwal/uwal.asm"    ; After uxfs: uses its NVMe driver
 %include "security/usrauth/usrauth.asm"   ; Reference monitor; needs crypto + time
 %include "lib/unet/unet.asm"
+%include "lib/input/input.asm"      ; Input devices: event core, PS/2
+%include "lib/input/kernel.asm"     ; ... its fiber, IRQ 1 and start-up
 
 ; Static Ush bundle: object-linked independently, embedded with ULF ownership.
 %include "kernel/entry/ush.asm"
