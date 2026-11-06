@@ -120,6 +120,7 @@
 %define LAYER_CREATE        0
 %define LAYER_DESTROY       1
 %define LAYER_SET_EXCLUSIVE 2
+%define LAYER_SET_OUTPUT    3
 %define LAYER_EV_CONFIGURE  0
 
 ; cw_window_list (canvas-shell.cwp)
