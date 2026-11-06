@@ -209,10 +209,117 @@ window_layer_set_output:
     mov r13, [r13 + Output.next]
     jmp .find
 .found:
-    mov rdi, rbx                        ; redrawn where it was
+    mov rdi, rbx
     mov rsi, r12
     mov rdx, r13
+    call layer_to_output
+    mov rdi, rbx
+    call relayout_maximized
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; window_output_gone
+;   An output was taken out of the layout: everything on it goes to another.
+;   A window keeps its place on the output, kept on the new one (and its
+;   place before it was maximized), maximized or fullscreen fills the new
+;   one; a hidden or minimized one comes back there; a layer is sized and
+;   anchored there; popups follow their parents; maximized windows are laid
+;   out again.
+;   IN:  rdi = server*, rsi = the Output* gone, rdx = the Output* they go to
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global window_output_gone
+window_output_gone:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r13, rsi
+    mov r14, rdx
+    mov r12, [rbx + Server.windows]
+.window:
+    test r12, r12
+    jz .others
+    mov r15, [r12 + Window.surface]
+    mov dword [rsp], 0                  ; 1: it was the gone one's
+    cmp [r12 + Window.min_output], r13
+    jne .kept
+    mov [r12 + Window.min_output], r14  ; hidden: it comes back there
+    mov dword [rsp], 1
+.kept:
+    mov rax, [r15 + Surface.output]
+    test rax, rax
+    jz .hidden
+    cmp rax, r13
+    jne .next                           ; shown elsewhere
+    mov rdi, r12
+    call shift_window
+    jmp .move_window
+.hidden:
+    cmp dword [rsp], 0
+    je .next
+    mov rdi, r12
+    call shift_window
+    jmp .next
+.move_window:
+    mov rdi, rbx
+    mov rsi, r15
+    mov rdx, r14
     call compositor_move_to_output
+    test dword [r12 + Window.state], WINDOW_MAXIMIZED | WINDOW_FULLSCREEN
+    jz .plain
+    mov rdi, rbx                        ; filling the new one
+    mov rsi, r15
+    mov rdx, r12
+    call apply_state
+    jmp .next
+.plain:
+    mov rdi, rbx                        ; its popups come along
+    mov rsi, r15
+    mov edx, [r12 + Window.x]
+    mov ecx, [r12 + Window.y]
+    call window_move
+.next:
+    mov r12, [r12 + Window.next]
+    jmp .window
+.others:
+    mov r12, [rbx + Server.stack]       ; layers, and anything left
+.surface:
+    test r12, r12
+    jz .done
+    cmp [r12 + Surface.output], r13
+    jne .next_surface
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r14
+    mov rax, [r12 + Surface.window]
+    test rax, rax
+    jz .move
+    cmp dword [rax + Window.kind], ROLE_LAYER
+    jne .move
+    call layer_to_output
+    jmp .next_surface
+.move:
+    call compositor_move_to_output
+.next_surface:
+    mov r12, [r12 + Surface.z_order_next]
+    jmp .surface
+.done:
+    mov rdi, rbx
+    call relayout_maximized
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+; A layer to an output: sized and anchored for it there, redrawn.
+; rdi = server, rsi = surface, rdx = Output*
+layer_to_output:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    call compositor_move_to_output      ; redrawn where it was
     mov rdi, r12
     call layer_configure
     mov rdi, rbx                        ; where its anchors say there
@@ -221,12 +328,41 @@ window_layer_set_output:
     mov rdi, rbx
     mov rsi, r12
     call compositor_damage_surface
-    mov rdi, rbx
-    call relayout_maximized
     xor eax, eax
-.out:
-    add rsp, 8
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12
+
+; window_output_gone's: a window's place, and its place before it was
+; maximized, from output r13 to r14, the same distance from its corner and
+; kept at least SHIFT_KEEP on it. rdi = Window*
+%define SHIFT_KEEP  32
+shift_window:
+    mov ecx, [r14 + Output.x]
+    sub ecx, [r13 + Output.x]
+    mov edx, [r14 + Output.y]
+    sub edx, [r13 + Output.y]
+    add [rdi + Window.x], ecx
+    add [rdi + Window.y], edx
+    add [rdi + Window.saved_x], ecx
+    add [rdi + Window.saved_y], edx
+    mov r8d, [r14 + Output.x]           ; how far right and down it may be
+    add r8d, [r14 + Output.width]
+    sub r8d, SHIFT_KEEP
+    mov r9d, [r14 + Output.y]
+    add r9d, [r14 + Output.height]
+    sub r9d, SHIFT_KEEP
+%macro KEEP_ON 3                        ; field, the far limit, the near one
+    mov eax, [rdi + Window.%1]
+    cmp eax, %2
+    cmovg eax, %2
+    cmp eax, [r14 + Output.%3]
+    cmovl eax, [r14 + Output.%3]
+    mov [rdi + Window.%1], eax
+%endmacro
+    KEEP_ON x, r8d, x
+    KEEP_ON saved_x, r8d, x
+    KEEP_ON y, r9d, y
+    KEEP_ON saved_y, r9d, y
+    ret
 
 ; A layer's size in a configure: its output's, less the margins, along each
 ; pair of edges it is anchored to (0 along the others: its own choice).
