@@ -76,6 +76,12 @@ extern fence_init
 extern fence_own
 extern fence_reset
 extern fence_signal
+extern timeline_create
+extern timeline_destroy
+extern timeline_get_point
+extern timeline_init
+extern timeline_own
+extern timeline_signal
 extern regions_add
 extern regions_clear
 extern regions_create
@@ -135,6 +141,7 @@ server_init:
     START buffer_init
     START regions_init
     START fence_init
+    START timeline_init
 
     ; Backend and its output
     mov rdi, r12
@@ -886,6 +893,88 @@ FENCE_HANDLER h_fence_get_status, fence_get_status
     mov rdi, r13
     mov esi, 4
     call reply
+HANDLER_END
+
+; cw_timeline: create() -> (timeline)
+HANDLER h_timeline_create, 0
+    mov rdi, r14
+    mov rsi, rbx
+    call timeline_create
+    test rax, rax
+    js .return
+    mov [r13], eax
+    mov rdi, r13
+    mov esi, 4
+    call reply
+HANDLER_END
+
+; destroy(timeline)
+HANDLER h_timeline_destroy, 4
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call timeline_destroy
+    test rax, rax
+    jnz .bad_object
+HANDLER_END
+
+; signal(timeline, pad, point: ulong): it reaches the point, if it is not
+; past it already
+HANDLER h_timeline_signal, 16
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call timeline_own
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov esi, [r13]
+    mov rdx, [r13 + 8]
+    call timeline_signal
+HANDLER_END
+
+; get_point(timeline) -> (point: ulong)
+HANDLER h_timeline_get_point, 4
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call timeline_own
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov esi, [r13]
+    call timeline_get_point
+    mov [r13], rax
+    mov rdi, r13
+    mov esi, 8
+    call reply
+HANDLER_END
+
+; cw_buffer.set_timeline(buffer, timeline: handle, acquire_point,
+; release_point: ulong): shown once the timeline reaches the acquire point,
+; the timeline moved to the release point when it is let go; timeline 0
+; takes it off. Both the client's own.
+HANDLER h_buffer_set_timeline, 24
+    mov esi, [r13]
+    call own_buffer
+    test rax, rax
+    jz .bad_object
+    mov r12, rax                        ; the header is not needed again
+    mov edx, [r13 + 4]
+    test edx, edx
+    jz .set
+    mov rdi, r14
+    mov rsi, rbx
+    call timeline_own
+    test rax, rax
+    jz .bad_object
+.set:
+    mov ecx, [r13 + 4]
+    mov [r12 + Buffer.timeline], rcx
+    mov rcx, [r13 + 8]
+    mov [r12 + Buffer.acquire_point], rcx
+    mov rcx, [r13 + 16]
+    mov [r12 + Buffer.release_point], rcx
 HANDLER_END
 
 ; cw_popup.create(surface, parent, x, y)
