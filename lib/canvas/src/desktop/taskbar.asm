@@ -11,9 +11,10 @@
 ; the active window's block minimizes it; a click on a square shows that
 ; workspace.
 ;
-; taskbar_start makes everything with library calls that turn server_poll,
-; so it runs outside a turn; canvasd's loop calls taskbar_step after each
-; server_poll.
+; There is one for each output, on Server.taskbar through Taskbar.next, each
+; listing every window. taskbar_start makes one with library calls that turn
+; server_poll, so it runs outside a turn (taskbar_start_all one for each
+; output); canvasd's loop calls taskbar_step_all after each server_poll.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -31,6 +32,7 @@ extern canvas_connect_pair
 extern canvas_event_poll
 extern canvas_layer_create
 extern canvas_layer_set_exclusive
+extern canvas_layer_set_output
 extern canvas_surface_attach
 extern canvas_surface_commit
 extern canvas_surface_create
@@ -52,36 +54,105 @@ extern ui_text_draw
 section .text
 
 ; ---------------------------------------------------------------------------
-; taskbar_start
-;   Connect a taskbar and show it
+; taskbar_start_all
+;   A taskbar on every output; one that is too small goes without
 ;   IN:  rdi = server*, rsi = arena*
-;   OUT: rax = taskbar*, -ENODEV with no output, -EINVAL if the output is
-;        not taller than the bar, -ENOMEM, other negative errors
+;   OUT: rax = how many started, negative error
+; ---------------------------------------------------------------------------
+global taskbar_start_all
+taskbar_start_all:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov r12, rdi
+    mov r13, rsi
+    xor ebx, ebx                        ; the output's number
+    xor r14d, r14d                      ; how many
+.next:
+    mov rdi, r12
+    mov rsi, r13
+    mov edx, ebx
+    call taskbar_start
+    cmp rax, -(ENODEV)
+    je .done                            ; past the last output
+    cmp rax, -(EINVAL)
+    je .skip
+    test rax, rax
+    js .out
+    inc r14d
+.skip:
+    inc ebx
+    jmp .next
+.done:
+    mov eax, r14d
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
+
+; ---------------------------------------------------------------------------
+; taskbar_step_all
+;   taskbar_step for each taskbar
+;   IN:  rdi = server*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global taskbar_step_all
+taskbar_step_all:
+    push rbx
+    mov rbx, [rdi + Server.taskbar]
+.next:
+    test rbx, rbx
+    jz .done
+    mov rdi, rbx
+    call taskbar_step
+    mov rbx, [rbx + Taskbar.next]
+    jmp .next
+.done:
+    xor eax, eax
+    pop rbx
+    ret
+
+; ---------------------------------------------------------------------------
+; taskbar_start
+;   Connect a taskbar on an output and show it
+;   IN:  rdi = server*, rsi = arena*, edx = the output's number, 0 the first
+;   OUT: rax = taskbar*, -ENODEV with no such output, -EINVAL if the output
+;        is not taller than the bar, -ENOMEM, other negative errors
 ; ---------------------------------------------------------------------------
 global taskbar_start
 taskbar_start:
-    PROLOGUE_SAVE rbx, r12, r13
-    sub rsp, 8                          ; 16-byte aligned
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov r12, rdi
     mov r13, rsi
+    mov r14d, edx
     mov rax, [r12 + Server.outputs]
+    mov ecx, edx
+.find:
     test rax, rax
     jz .no_output
+    test ecx, ecx
+    jz .found
+    dec ecx
+    mov rax, [rax + Output.next]
+    jmp .find
+.found:
     cmp dword [rax + Output.height], TASKBAR_H
     jbe .too_small
+    push rax
+    push rax                            ; 16-byte aligned
 
     mov rdi, r13
     mov esi, Taskbar_size
     call arena_alloc
+    pop rcx
+    pop rcx                             ; the output
     test rax, rax
     jz .oom
     mov rbx, rax
     mov rdi, rax
     xor eax, eax
+    mov r8, rcx
     mov ecx, Taskbar_size
     rep stosb
     mov [rbx + Taskbar.server], r12
-    mov rax, [r12 + Server.outputs]
+    mov [rbx + Taskbar.output], r14d
+    mov rax, r8
     mov ecx, [rax + Output.width]
     mov [rbx + Taskbar.width], ecx
     shl ecx, 2
@@ -127,6 +198,13 @@ taskbar_start:
     call canvas_layer_create
     test rax, rax
     js .out
+    test r14d, r14d
+    jz .first                           ; new surfaces start on the first
+    mov rdi, [rbx + Taskbar.conn]
+    mov esi, [rbx + Taskbar.surface]
+    mov edx, r14d
+    call canvas_layer_set_output
+.first:
     mov rdi, [rbx + Taskbar.conn]
     mov esi, [rbx + Taskbar.surface]
     mov edx, TASKBAR_H
@@ -144,11 +222,12 @@ taskbar_start:
     call canvas_surface_attach
     mov rdi, rbx
     call show
+    mov rax, [r12 + Server.taskbar]
+    mov [rbx + Taskbar.next], rax
     mov [r12 + Server.taskbar], rbx
     mov rax, rbx
 .out:
-    add rsp, 8
-    EPILOGUE_RESTORE rbx, r12, r13
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 .no_output:
     mov rax, -(ENODEV)
     jmp .out
