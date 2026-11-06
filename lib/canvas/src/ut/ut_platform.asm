@@ -29,6 +29,12 @@ ut_auth_verify:
     mov rax, -(ENOSYS)
     ret
 
+; And the accounts' names: none here.
+global ut_auth_users
+ut_auth_users:
+    mov rax, -(ENOSYS)
+    ret
+
 UT_SYSCALL ut_task_spawn, SYS_TASK_SPAWN
 UT_SYSCALL ut_task_wait, SYS_TASK_WAIT
 UT_SYSCALL ut_task_self, SYS_TASK_SELF
