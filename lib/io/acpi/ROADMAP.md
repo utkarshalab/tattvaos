@@ -92,7 +92,7 @@ the classic S3 path. Both are planned; S0 idle comes first here.
 | 4 | One fiber runs AML; other fibers queue requests | AML has global state (mutexes, the global lock, operation regions); one runner keeps it simple and ordered |
 | 5 | Mechanism here, policy in `kernel/power` | Same split as canvas decision 0009 |
 | 6 | `_OSI` and `_REV` answers come from one table, chosen so firmware takes its current, best-tested paths; admin-overridable | Firmware changes behaviour on these answers; one place to fix a machine |
-| 7 | Platform Runtime Mechanism (PRM) handlers are **not run** by default | They are native firmware code; only signed native code runs in Utkarsha OS (decision A1) |
+| 7 | Platform Runtime Mechanism (PRM) handlers are **never run** | They are native firmware code; only signed native code runs in Utkarsha OS (decision A1) |
 | 8 | S0 low-power idle before S3 | This machine has no S3 |
 
 ---
@@ -402,9 +402,9 @@ lines, roughly 4 to 6 sessions.
 
 ---
 
-## 8. Open decisions for the user
+## 8. Decisions
 
 | # | Question | Options |
 |---|---|---|
-| A1 | PRM handlers are native code from the firmware. Run them? | Never (proposed; refuse the call and log it) / only on machines an admin allows |
-| A2 | Hibernate (S4) needs storage | Later, with storage (proposed) / now |
+| A1 | PRM handlers (native code from the firmware) | **Decided 2026-11-06:** never run; the call is refused and logged |
+| A2 | Hibernate (S4) | **Decided 2026-11-06:** later, with storage |
