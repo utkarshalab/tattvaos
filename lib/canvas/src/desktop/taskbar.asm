@@ -15,7 +15,8 @@
 ; listing every window. taskbar_start makes one with library calls that turn
 ; server_poll, so it runs outside a turn (taskbar_start_all one for each
 ; output); canvasd's loop calls taskbar_step_all after each server_poll,
-; which also starts one on an output added since, once it is tall enough.
+; which also starts one on an output added since, once it is tall enough,
+; and stops the one of an output taken away.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -42,7 +43,9 @@ extern canvas_window_activate
 extern canvas_window_list_set_workspace
 extern canvas_window_list_subscribe
 extern canvas_window_minimize
+extern canvas_disconnect
 extern client_accept_trusted
+extern client_disconnect
 extern server_poll
 extern ui_text_draw
 
@@ -89,9 +92,10 @@ taskbar_start_all:
 
 ; ---------------------------------------------------------------------------
 ; taskbar_step_all
-;   taskbar_step for each taskbar, then a taskbar for each output without
-;   one (added since), from the server's arena; outside a turn, as
-;   taskbar_start must be
+;   A taskbar whose output was taken away stops, the others take their
+;   output's place in the list as their number; taskbar_step for each; then
+;   a taskbar for each output without one (added since), from the server's
+;   arena. Outside a turn, as taskbar_start must be
 ;   IN:  rdi = server*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -100,6 +104,35 @@ taskbar_step_all:
     PROLOGUE_SAVE rbx, r12, r13
     sub rsp, 8                          ; 16-byte aligned
     mov r12, rdi
+    lea r13, [r12 + Server.taskbar]     ; the link to the one looked at
+.check:
+    mov rbx, [r13]
+    test rbx, rbx
+    jz .checked
+    mov rax, [r12 + Server.outputs]
+    xor ecx, ecx
+.place:
+    test rax, rax
+    jz .gone
+    cmp rax, [rbx + Taskbar.output_ptr]
+    je .here
+    inc ecx
+    mov rax, [rax + Output.next]
+    jmp .place
+.here:
+    mov [rbx + Taskbar.output], ecx
+    lea r13, [rbx + Taskbar.next]
+    jmp .check
+.gone:
+    mov rax, [rbx + Taskbar.next]       ; off the list, its client gone
+    mov [r13], rax
+    mov rdi, r12
+    mov rsi, [rbx + Taskbar.client_id]
+    call client_disconnect
+    mov rdi, [rbx + Taskbar.conn]
+    call canvas_disconnect
+    jmp .check
+.checked:
     mov rbx, [r12 + Server.taskbar]
 .step:
     test rbx, rbx
@@ -182,6 +215,7 @@ taskbar_start:
     rep stosb
     mov [rbx + Taskbar.server], r12
     mov [rbx + Taskbar.output], r14d
+    mov [rbx + Taskbar.output_ptr], r8
     mov rax, r8
     mov ecx, [rax + Output.width]
     mov [rbx + Taskbar.width], ecx
@@ -195,6 +229,7 @@ taskbar_start:
     call client_accept_trusted
     test rax, rax
     js .out
+    mov [rbx + Taskbar.client_id], rax
     lea rdi, [rbx + Taskbar.pair]
     lea rsi, [rel server_poll]
     mov rdx, r12
