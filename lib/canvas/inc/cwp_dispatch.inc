@@ -187,6 +187,9 @@
 %ifdef HAVE_h_layer_set_exclusive
     CWP_REQUEST CWP_OBJ_LAYER, LAYER_SET_EXCLUSIVE, h_layer_set_exclusive
 %endif
+%ifdef HAVE_h_layer_set_output
+    CWP_REQUEST CWP_OBJ_LAYER, LAYER_SET_OUTPUT, h_layer_set_output
+%endif
 %ifdef HAVE_h_window_list_subscribe
     CWP_REQUEST CWP_OBJ_WINDOW_LIST, WINDOW_LIST_SUBSCRIBE, h_window_list_subscribe
 %endif
