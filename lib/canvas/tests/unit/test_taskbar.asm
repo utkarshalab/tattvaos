@@ -31,6 +31,7 @@ extern ui_text_init
 extern taskbar_step_all
 extern server_add_output
 extern server_remove_output
+extern server_mirror_output
 extern virtual_input_inject
 
 %define HEAP_SIZE   (8 * 1024 * 1024)
@@ -60,6 +61,7 @@ test_taskbar_suite:
     CASE tb_titlebar_title
     CASE tb_second_output
     CASE tb_remove_output
+    CASE tb_mirror
     mov eax, ebx
     pop rbx
     ret
@@ -274,6 +276,38 @@ bar_pixel:
 ; A second output, for the cases with two
 %define OUT2_W  200
 %define OUT2_H  60
+
+; A second output made a mirror of the first: its taskbar stops and none
+; starts again there
+tb_mirror:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov esi, OUT2_W
+    mov edx, OUT2_H
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output2], rax
+    call poll
+    call poll
+    mov rax, [rel server + Server.taskbar]
+    cmp qword [rax + Taskbar.next], 0
+    je .fail                            ; two at first
+    lea rdi, [rel server]
+    mov rsi, [rel output2]
+    mov rdx, [rel server + Server.outputs]
+    call server_mirror_output
+    test rax, rax
+    jnz .fail
+    call poll
+    call poll
+    call poll
+    mov rax, [rel server + Server.taskbar]
+    cmp rax, [rel bar]
+    jne .fail
+    cmp qword [rax + Taskbar.next], 0
+    jne .fail
+    PASS
 
 ; A second output taken away: the window on it comes to the first, the
 ; pointer too, its taskbar stops (one layer left), the first still lists the
