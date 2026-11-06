@@ -3,10 +3,10 @@
 ; ============================================================================
 ; login_verify is the greeter's verify hook. It asks the kernel, which keeps
 ; the accounts (ut_auth_verify, docs/KERNEL_NEEDS.md), whether the password
-; is the machine's user's; canvasd reads no account itself. A kernel without
-; the export refuses everything, so nobody is let in by accident. After
-; LOGIN_TRIES wrong passwords in a row every password is refused for
-; LOGIN_LOCK_NS, so guessing is slow. The greeter wipes the text after each
+; is the chosen user's (no name: the machine's one user); canvasd reads no
+; account itself. A kernel without the export refuses everything, so nobody
+; is let in by accident. After LOGIN_TRIES wrong passwords in a row every
+; password is refused for LOGIN_LOCK_NS, so guessing is slow. The greeter wipes the text after each
 ; check; nothing here keeps it.
 
 %include "inc/abi.inc"
@@ -23,20 +23,23 @@ section .text
 
 ; ---------------------------------------------------------------------------
 ; login_verify
-;   IN:  rdi = password (UTF-8), esi = its length
+;   IN:  rdi = password (UTF-8), esi = its length, rdx = the user's name,
+;        ecx = its length (0: the machine's one user)
 ;   OUT: rax = 0 if it is right, 1 if not (wrong, locked out, or no kernel
 ;        check)
 ; ---------------------------------------------------------------------------
 global login_verify
 login_verify:
-    PROLOGUE_SAVE rbx, r12
+    PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12d, esi
+    mov r13, rdx
+    mov r14d, ecx
     call ut_time_now_ns
     cmp rax, [rel locked_until]
     jb .refused                         ; still locked out
-    xor edi, edi                        ; the machine's user: no name yet
-    xor esi, esi
+    mov rdi, r13
+    mov esi, r14d
     mov rdx, rbx
     mov ecx, r12d
     call ut_auth_verify
@@ -57,7 +60,7 @@ login_verify:
     mov dword [rel failures], 0
     xor eax, eax
 .out:
-    EPILOGUE_RESTORE rbx, r12
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
 ; login_reset
