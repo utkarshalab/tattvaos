@@ -200,6 +200,25 @@ canvas_layer_set_exclusive:
     ret
 
 ; ---------------------------------------------------------------------------
+; canvas_layer_set_output
+;   Put the layer on another output: the nth, 0 the first
+;   IN:  rdi = conn, esi = surface, edx = the output's number
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_layer_set_output
+canvas_layer_set_output:
+    sub rsp, 24
+    mov [rsp], esi
+    mov [rsp + 4], edx
+    mov esi, CWP_OBJ_LAYER
+    mov edx, LAYER_SET_OUTPUT
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 24
+    ret
+
+; ---------------------------------------------------------------------------
 ; canvas_window_list_subscribe
 ;   window events for every window, then activated, then every change
 ;   IN:  rdi = conn
