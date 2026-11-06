@@ -161,7 +161,7 @@ taskbar_start:
 
     mov rdi, r12
     lea rsi, [rbx + Taskbar.pair]
-    mov edx, CLIENT_CAP_LAYER | CLIENT_CAP_WINDOWS
+    mov edx, CLIENT_CAP_LAYER | CLIENT_CAP_WINDOWS | CLIENT_CAP_POINTER
     call client_accept_trusted
     test rax, rax
     js .out
