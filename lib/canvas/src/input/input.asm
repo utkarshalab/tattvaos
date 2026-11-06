@@ -49,6 +49,8 @@
 
 extern arena_alloc
 extern compositor_raise_surface
+extern compositor_layout_bounds
+extern compositor_output_at
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -701,21 +703,26 @@ pointer_event:
     add eax, [rbx + InputSeat.x]
     add ecx, [rbx + InputSeat.y]
 .clamp:
-    mov rdx, [rbx + InputSeat.server]
-    mov rdx, [rdx + Server.outputs]
-    test rdx, rdx
-    jz .placed
-    xor r8d, r8d
-    test eax, eax
-    cmovs eax, r8d
-    test ecx, ecx
-    cmovs ecx, r8d
-    mov r8d, [rdx + Output.width]
-    dec r8d
-    cmp eax, r8d
-    cmovg eax, r8d
-    mov r8d, [rdx + Output.height]
-    dec r8d
+    mov rdx, [rbx + InputSeat.server]   ; inside what the outputs span
+    cmp qword [rdx + Server.outputs], 0
+    je .placed
+    push rax
+    push rcx
+    mov rdi, rdx
+    call compositor_layout_bounds
+    mov r9d, eax                        ; left
+    mov r10d, edx                       ; top
+    mov r11d, ecx                       ; right
+    dec r11d
+    dec r8d                             ; bottom
+    pop rcx
+    pop rax
+    cmp eax, r9d
+    cmovl eax, r9d
+    cmp eax, r11d
+    cmovg eax, r11d
+    cmp ecx, r10d
+    cmovl ecx, r10d
     cmp ecx, r8d
     cmovg ecx, r8d
 .placed:
@@ -1181,8 +1188,9 @@ set_keyboard_focus:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
 
-; rdi = seat -> rax = the topmost surface under the pointer, 0 if none.
-; Output.surfaces runs bottom to top, so the last hit wins. A surface is hit
+; rdi = seat -> rax = the topmost surface under the pointer, 0 if none, of
+; the output the pointer is on. Output.surfaces runs bottom to top, so the
+; last hit wins. A surface is hit
 ; inside its attached buffer, the size it is drawn at (sw_render), and inside
 ; its input region when that is not empty. Nothing attached: nothing to hit.
 surface_at:
@@ -1190,8 +1198,10 @@ surface_at:
     mov rbx, rdi
     xor r13d, r13d
     mov qword [rbx + InputSeat.bar], 0
-    mov rax, [rbx + InputSeat.server]
-    mov rax, [rax + Server.outputs]
+    mov rdi, [rbx + InputSeat.server]   ; the output the pointer is on
+    mov esi, [rbx + InputSeat.x]
+    mov edx, [rbx + InputSeat.y]
+    call compositor_output_at
     test rax, rax
     jz .done
     mov r12, [rax + Output.surfaces]
