@@ -303,9 +303,28 @@ server_remove_output:
     mov rax, [rbx + Server.outputs]
     mov [rdx + Backend.outputs], rax
     dec qword [rdx + Backend.output_count]
+    mov rcx, [rbx + Server.outputs]     ; its mirrors show their own part
+.mirrors:
+    test rcx, rcx
+    jz .unmirrored
+    cmp [rcx + Output.mirror_of], r12
+    jne .next_mirror
+    push rcx
+    push rcx                            ; 16-byte aligned
     mov rdi, rbx
+    mov rsi, rcx
+    xor edx, edx
+    call server_mirror_output
+    pop rcx
+    pop rcx
+.next_mirror:
+    mov rcx, [rcx + Output.next]
+    jmp .mirrors
+.unmirrored:
+    mov rdi, rbx                        ; what was on it, to the first left
     mov rsi, r12
-    mov rdx, [rbx + Server.outputs]
+    call first_own_output
+    mov rdx, rax
     call window_output_gone
     mov rdi, rbx
     call input_keep_pointer
@@ -320,6 +339,85 @@ server_remove_output:
 .last:
     mov rax, -(EBUSY)
     jmp .out
+
+; rdi = server -> rax = the first output that is no mirror (else the first);
+; rdi and rsi kept
+first_own_output:
+    mov rax, [rdi + Server.outputs]
+.next:
+    test rax, rax
+    jz .any
+    cmp qword [rax + Output.mirror_of], 0
+    je .done
+    mov rax, [rax + Output.next]
+    jmp .next
+.any:
+    mov rax, [rdi + Server.outputs]
+.done:
+    ret
+
+; ---------------------------------------------------------------------------
+; server_mirror_output
+;   An output shows another's part of the layout, from its top-left corner
+;   and at the same size (no scaling): it goes where that one is, what was
+;   on it goes there, and it is no part of the layout of its own. With no
+;   source it shows its own part again, to the right of the layout.
+;   IN:  rdi = server*, rsi = Output*, rdx = the Output* it shows, 0: none
+;   OUT: rax = 0, -EINVAL for itself, or a source that is a mirror itself
+; ---------------------------------------------------------------------------
+global server_mirror_output
+server_mirror_output:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    test r13, r13
+    jz .own
+    mov rax, -(EINVAL)
+    cmp r13, r12
+    je .out
+    cmp qword [r13 + Output.mirror_of], 0
+    jne .out
+    mov rcx, [rbx + Server.outputs]     ; nothing may show it
+.mirrored:
+    test rcx, rcx
+    jz .free
+    cmp [rcx + Output.mirror_of], r12
+    je .out
+    mov rcx, [rcx + Output.next]
+    jmp .mirrored
+.free:
+    mov rdi, rbx                        ; what is on it goes where it will show
+    mov rsi, r12
+    mov rdx, r13
+    call window_output_gone
+    mov [r12 + Output.mirror_of], r13
+    mov rax, [r13 + Output.x]
+    mov [r12 + Output.x], rax
+    mov rax, [r13 + Output.y]
+    mov [r12 + Output.y], rax
+    jmp .redraw
+.own:
+    cmp qword [r12 + Output.mirror_of], 0
+    je .done
+    mov rdi, rbx                        ; to the right, mirrors aside
+    call compositor_layout_bounds
+    movsxd rcx, ecx
+    mov [r12 + Output.x], rcx
+    movsxd rdx, edx
+    mov [r12 + Output.y], rdx
+    mov qword [r12 + Output.mirror_of], 0
+.redraw:
+    mov rdi, rbx
+    call input_keep_pointer
+    mov rdi, rbx
+    call compositor_damage_all
+.done:
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; server_poll
