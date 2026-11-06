@@ -66,6 +66,14 @@ extern msgbuf_read
 extern msgbuf_write
 extern presentation_init
 extern regions_init
+extern commit_retry
+extern fence_create
+extern fence_destroy
+extern fence_get_status
+extern fence_init
+extern fence_own
+extern fence_reset
+extern fence_signal
 extern regions_add
 extern regions_clear
 extern regions_create
@@ -124,6 +132,7 @@ server_init:
     START surface_init
     START buffer_init
     START regions_init
+    START fence_init
 
     ; Backend and its output
     mov rdi, r12
@@ -256,6 +265,8 @@ server_poll:
     mov r12, [r12 + Client.next_client]
     jmp .client
 .frame:
+    mov rdi, rbx                        ; commits whose fences are now signaled
+    call commit_retry
     mov rdi, [rbx + Server.compositor]
     call compositor_composite
     test rax, rax
@@ -350,6 +361,22 @@ own_buffer:
     je .done
     xor eax, eax
 .done:
+    ret
+
+; edx = fence handle -> ZF clear if it is 0 or the client's own fence, set if
+; it is neither; in a handler
+own_fence_or_none:
+    test edx, edx
+    jz .fine
+    sub rsp, 8
+    mov rdi, r14
+    mov rsi, rbx
+    call fence_own
+    add rsp, 8
+    test rax, rax
+    ret
+.fine:
+    or edx, 1                           ; clears ZF
     ret
 
 ; Answer a request: rdi = payload, esi = bytes -> rax = 0, or the ring's error
@@ -453,6 +480,12 @@ HANDLER h_surface_attach, 24
     test rax, rax
     jz .bad_object
     mov r12, rax                        ; surface*; no reply here
+    mov edx, [r13 + 16]                 ; its fences are the client's own
+    call own_fence_or_none
+    jz .bad_object
+    mov edx, [r13 + 20]
+    call own_fence_or_none
+    jz .bad_object
     mov esi, [r13 + 4]
     test esi, esi
     jz .attach                          ; 0: detach
@@ -764,6 +797,55 @@ HANDLER_END
 %endmacro
 REGION_SETTER h_surface_set_opaque_region, surface_set_opaque_region
 REGION_SETTER h_surface_set_input_region, surface_set_input_region
+
+; cw_fence: create(type) -> (fence)
+HANDLER h_fence_create, 4
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call fence_create
+    test rax, rax
+    js .return
+    mov [r13], eax
+    mov rdi, r13
+    mov esi, 4
+    call reply
+HANDLER_END
+
+; destroy(fence)
+HANDLER h_fence_destroy, 4
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call fence_destroy
+    test rax, rax
+    jnz .bad_object
+HANDLER_END
+
+; signal(fence), reset(fence), get_status(fence) -> (signaled): the client's
+; own fence, then (handler, what is done)
+%macro FENCE_HANDLER 2
+HANDLER %1, 4
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call fence_own
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov esi, [r13]
+    call %2
+%endmacro
+FENCE_HANDLER h_fence_signal, fence_signal
+HANDLER_END
+FENCE_HANDLER h_fence_reset, fence_reset
+HANDLER_END
+FENCE_HANDLER h_fence_get_status, fence_get_status
+    mov [r13], eax
+    mov rdi, r13
+    mov esi, 4
+    call reply
+HANDLER_END
 
 ; cw_popup.create(surface, parent, x, y)
 HANDLER h_popup_create, 16
