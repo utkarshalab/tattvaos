@@ -58,6 +58,7 @@ global git_upload_server_close
 ; EDI=local IPv4 (zero selects the stack default), ESI=host-order port,
 ; RDX=VCS commit ID. EAX=VCS_OK or an error.
 git_upload_server_begin:
+ mov dword [server_state],0
  test rdx,rdx
  jz .begin_usage
  mov [server_commit],rdx
