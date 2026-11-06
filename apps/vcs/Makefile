@@ -124,7 +124,11 @@ $(BUILD)/bundle_frame.so: $(BUILD)/bundle.o $(BUILD)/bundle_frame_probe.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/bundle_frame_probe.o: tests/unit/bundle_frame_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
-test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/repository.so
+$(BUILD)/plan.so: $(BUILD)/plan.o $(BUILD)/plan_probe.o
+	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
+$(BUILD)/plan_probe.o: tests/unit/plan_probe.asm | $(BUILD)
+	$(NASM) -w+error -f elf64 $< -o $@
+test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/repository.so
 	sh scripts/test-cli.sh
 	python3 tests/unit/test_diff.py $(BUILD)/diff.so
 	python3 tests/unit/test_protocol.py $(BUILD)/protocol.so
@@ -134,5 +138,6 @@ test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/c
 	python3 tests/unit/test_stream.py $(BUILD)/stream.so
 	python3 tests/unit/test_sync.py $(BUILD)/sync.so
 	python3 tests/unit/test_bundle_frame.py $(BUILD)/bundle_frame.so
+	python3 tests/unit/test_plan.py $(BUILD)/plan.so
 	python3 tests/unit/test_repository.py $(BUILD)/repository.so
 	python3 tests/unit/test_history.py $(BUILD)/repository.so
