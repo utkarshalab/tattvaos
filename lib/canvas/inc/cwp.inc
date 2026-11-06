@@ -52,6 +52,7 @@
 %define CWP_OBJ_POPUP             27
 %define CWP_OBJ_LAYER             28
 %define CWP_OBJ_WINDOW_LIST       29
+%define CWP_OBJ_FENCE             30    ; proto/canvas-core.cwp
 
 ; Opcode ranges (per object type)
 %define CWP_OP_DISPLAY_BASE        0x0000
