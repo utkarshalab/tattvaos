@@ -548,6 +548,7 @@ struc Client
     .next_client:             resq 1    ; Server.client_list
     .regions:                 resq 1    ; its ClientRegions (server/regions)
     .fences:                  resq 1    ; its Fences (server/fence)
+    .timelines:               resq 1    ; its Timelines (server/timeline)
     resb 64
 endstruc
 
