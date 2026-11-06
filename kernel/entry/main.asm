@@ -115,6 +115,10 @@ kernel_main:
     call kpci_e1000e_prepare
     jc .interrupt_failed
 
+    ; Input: empty state and the input fiber, while fibers are still
+    ; created on the BSP alone. The keyboard and its IRQ come later.
+    call input_kernel_prepare
+
     ; All shared initialization and initial fiber creation are complete.
     ; Only now copy/seal the trampoline and start APs: while an AP waits with
     ; interrupts disabled it cannot receive a TLB shootdown, so starting it
@@ -138,6 +142,10 @@ kernel_main:
     jc .interrupt_failed
     call smp_sched_lifecycle_selftest
     jc .timer_failed
+
+    ; Input: the PS/2 keyboard and IRQ 1, now that routes can be unmasked.
+    ; A machine without one boots the same.
+    call input_kernel_start
 
     ; Enter the scheduler's own core loop. Never returns: sched_core_loop
     ; is what used to be this file's manual `cli; hlt` idle loop, except it
