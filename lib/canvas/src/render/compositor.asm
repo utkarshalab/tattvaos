@@ -13,6 +13,11 @@
 ; to every output it touches. Surface.output is a surface's own output, for
 ; placing it, and 0 while it is off the screen.
 ;
+; An output that mirrors another (Output.mirror_of) sits where that one is,
+; so it draws the same part and its damage comes with it; it is no part of
+; the layout of its own: compositor_output_at and compositor_layout_bounds
+; pass it by, so nothing is placed on it and the pointer is not kept on it.
+;
 ; While the screen is locked (Server.locked) only overlays are drawn, the
 ; login screen among them: on every output, everything else is background.
 ;
@@ -306,17 +311,23 @@ compositor_move_to_output:
 ; ---------------------------------------------------------------------------
 ; compositor_output_at
 ;   The output a point of the layout is on, else the nearest one along the
-;   row of outputs (the first, if there is just one)
+;   row of outputs (the first, if there is just one); never a mirror
 ;   IN:  rdi = server*, esi = x, edx = y
 ;   OUT: rax = Output*, 0 with none
 ; ---------------------------------------------------------------------------
 global compositor_output_at
 compositor_output_at:
     mov rax, [rdi + Server.outputs]
-    mov r8, rax                         ; the fallback: the first
+    xor r8d, r8d                        ; the fallback: the first
 .next:
     test rax, rax
     jz .fallback
+    cmp qword [rax + Output.mirror_of], 0
+    jne .skip
+    test r8, r8
+    jnz .have_first
+    mov r8, rax
+.have_first:
     mov ecx, [rax + Output.x]
     cmp esi, ecx
     jl .skip
@@ -342,7 +353,7 @@ compositor_output_at:
 
 ; ---------------------------------------------------------------------------
 ; compositor_layout_bounds
-;   The rectangle all outputs span
+;   The rectangle all outputs span, mirrors aside
 ;   IN:  rdi = server*
 ;   OUT: eax = left, edx = top, ecx = right (exclusive), r8d = bottom
 ;        (exclusive); all 0 with no output
@@ -354,8 +365,14 @@ compositor_layout_bounds:
     xor edx, edx
     xor ecx, ecx
     xor r8d, r8d
+.first:
     test r9, r9
     jz .done
+    cmp qword [r9 + Output.mirror_of], 0
+    je .start
+    mov r9, [r9 + Output.next]
+    jmp .first
+.start:
     mov eax, [r9 + Output.x]
     mov edx, [r9 + Output.y]
     mov ecx, eax
@@ -366,6 +383,8 @@ compositor_layout_bounds:
     mov r9, [r9 + Output.next]
     test r9, r9
     jz .done
+    cmp qword [r9 + Output.mirror_of], 0
+    jne .next
     mov r10d, [r9 + Output.x]
     cmp r10d, eax
     cmovl eax, r10d
