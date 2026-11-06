@@ -898,7 +898,8 @@ bridge_git_import:
  jne .import_corrupt
  mov rax,r12
  imul rax,VR_PATH
- lea rdi,[import_paths+rax]
+ lea rdi,[import_paths]
+ add rdi,rax
  call parse_quoted_path
  test eax,eax
  jnz .import_corrupt
@@ -1270,7 +1271,8 @@ materialize:
  jae .delete_old
  mov rax,r12
  imul rax,VR_PATH
- lea r13,[import_paths+rax]
+ lea r13,[import_paths]
+ add r13,rax
  call build_absolute
  test eax,eax
  jnz .fail
@@ -1287,7 +1289,8 @@ materialize:
  test rax,rax
  jz .capacity
  mov r14,rax
- mov byte [import_new+r12],1
+ lea rax,[import_new]
+ mov byte [rax+r12],1
  mov rdi,r14
  xor eax,eax
  mov ecx,UV_NODE/8
@@ -1337,7 +1340,8 @@ materialize:
  rep stosq
  mov rax,r12
  imul rax,VR_PATH
- lea r13,[import_paths+rax]
+ lea r13,[import_paths]
+ add r13,rax
  call build_absolute
  lea rdi,[import_absolute]
  lea rsi,[import_canonical]
@@ -1410,7 +1414,8 @@ clear_import_nodes:
  mov rdi,[rdx+rcx*8]
  test rdi,rdi
  jz .next
- cmp byte [import_new+rcx],0
+ lea rax,[import_new]
+ cmp byte [rax+rcx],0
  je .forget
  push rcx
  push rdx
@@ -1473,7 +1478,8 @@ node_is_target:
  jae .no
  mov rax,r12
  imul rax,VR_PATH
- lea r13,[import_paths+rax]
+ lea r13,[import_paths]
+ add r13,rax
  call build_absolute
  lea rdi,[import_absolute]
  lea rsi,[import_canonical]
@@ -1698,7 +1704,8 @@ bridge_git_serve:
 .serve_info_found:
  cmp rbx,r13
  jae .serve_info_encode
- cmp byte [serve_info_found+rbx],1
+ lea rax,[serve_info_found]
+ cmp byte [rax+rbx],1
  jne .serve_missing
  inc rbx
  jmp .serve_info_found
