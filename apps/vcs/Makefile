@@ -86,7 +86,7 @@ $(BUILD)/ed25519.o: ../../lib/crypto/usign/ed25519/ed25519.asm ../../lib/crypto/
 	$(NASM) -w+error -dED25519_NO_KEYGEN -dED25519_EXTERNAL_SHA512 -f elf64 -I ../../ $< -o $@
 $(BUILD)/volume.o: ../../lib/storage/uxfs/volume.asm ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ../../ $< -o $@
-$(BUILD)/repository.so: $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/stash.o $(BUILD)/bisect.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/diff.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/protocol.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o $(BUILD)/volume.o
+$(BUILD)/repository.so: $(BUILD)/repository.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/stash.o $(BUILD)/bisect.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/diff.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/protocol.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o $(BUILD)/volume.o $(BUILD)/remote_probe.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/vcs-native.o: $(OBJECTS)
 	$(LD) -r -z noexecstack -o $@ $^
@@ -128,6 +128,8 @@ $(BUILD)/plan.so: $(BUILD)/plan.o $(BUILD)/plan_probe.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/plan_probe.o: tests/unit/plan_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
+$(BUILD)/remote_probe.o: tests/unit/remote_probe.asm | $(BUILD)
+	$(NASM) -w+error -f elf64 $< -o $@
 test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/repository.so
 	sh scripts/test-cli.sh
 	python3 tests/unit/test_diff.py $(BUILD)/diff.so
@@ -139,5 +141,6 @@ test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/c
 	python3 tests/unit/test_sync.py $(BUILD)/sync.so
 	python3 tests/unit/test_bundle_frame.py $(BUILD)/bundle_frame.so
 	python3 tests/unit/test_plan.py $(BUILD)/plan.so
+	python3 tests/unit/test_remote.py $(BUILD)/repository.so
 	python3 tests/unit/test_repository.py $(BUILD)/repository.so
 	python3 tests/unit/test_history.py $(BUILD)/repository.so
