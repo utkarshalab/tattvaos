@@ -33,7 +33,7 @@ extern virtual_input_inject
 
 %define HEAP_SIZE (8 * 1024 * 1024)
 %define WIDTH     400
-%define HEIGHT    120                 ; room for the label
+%define HEIGHT    160                 ; room for the label and the names
 
 ; The field on this screen
 %define FX        ((WIDTH - GREETER_FIELD_W) / 2)
@@ -69,6 +69,7 @@ test_greeter_suite:
     CASE tg_lock_key
     CASE tg_idle_lock
     CASE tg_locked_keys
+    CASE tg_users
     call tg_too_small
     add ebx, eax
     mov eax, ebx
@@ -340,13 +341,14 @@ type_secret:
     ret
 
 ; Through login_verify the kernel's check decides: a wrong password is
-; refused, the right one lets the user in
+; refused, the right one lets the user in (ravi, the host's second user)
 tg_login:
     sub rsp, 8
     call login_reset
     mov rdi, [rel greeter]
     lea rsi, [rel login_verify]
     call greeter_set_verify
+    TYPE 106                            ; Right: ravi
     TYPE KEY_A
     TYPE KEY_ENTER
     mov rdi, [rel greeter]
@@ -476,6 +478,42 @@ tg_locked_keys:
     call poll
     cmp qword [rel server + Server.workspace], 0
     jne .fail
+    PASS
+
+; The kernel's users as a row of names, the chosen one on the field's
+; colour; Left and Right choose; the password is checked as the chosen
+; user's: mira has none, ravi's is "secret"
+%define NAMES_Y   (FY - 2 * (GREETER_LABEL_H + GREETER_LABEL_GAP))
+%define NAME_X(n) (FX + (n) * (GREETER_NAME_W + GREETER_NAME_GAP))
+tg_users:
+    sub rsp, 8
+    mov rax, [rel greeter]
+    cmp dword [rax + Greeter.user_count], 2
+    jne .fail
+    PIXEL NAME_X(0) + 1, NAMES_Y + 1, GREETER_FIELD
+    PIXEL NAME_X(1) + 1, NAMES_Y + 1, GREETER_BG
+    call login_reset
+    mov rdi, [rel greeter]
+    lea rsi, [rel login_verify]
+    call greeter_set_verify
+    call type_secret                    ; as mira: refused
+    TYPE KEY_ENTER
+    mov rdi, [rel greeter]
+    call greeter_done
+    test eax, eax
+    jnz .fail
+    TYPE 106                            ; Right: ravi
+    PIXEL NAME_X(0) + 1, NAMES_Y + 1, GREETER_BG
+    PIXEL NAME_X(1) + 1, NAMES_Y + 1, GREETER_FIELD
+    TYPE 105                            ; Left and Right again: ravi
+    TYPE 106
+    call type_secret
+    TYPE KEY_ENTER
+    mov rdi, [rel greeter]
+    call greeter_done
+    test eax, eax
+    jz .fail
+    call login_reset
     PASS
 
 ; A screen narrower than the field gets no greeter
