@@ -169,6 +169,11 @@ endstruc
 ```
 
 ### 3.4 Capability Bitmask (64-bit)
+
+`inc/caps.inc` is the one definition; every capability has its own bit, and
+the build fails if two share one. A client asks for bits at connect and gets
+those its trust profile allows.
+
 ```nasm
 ; Core (always granted)
 CAP_DISPLAY     equ 1 << 0
@@ -183,24 +188,28 @@ CAP_POINTER     equ 1 << 6
 CAP_KEYBOARD    equ 1 << 7
 CAP_TOUCH       equ 1 << 8
 CAP_TABLET      equ 1 << 9
+CAP_INPUT       equ 1 << 10
 
 ; Shell/Data
-CAP_SHELL       equ 1 << 10
-CAP_LAYER       equ 1 << 11
-CAP_DECORATION  equ 1 << 12
+CAP_SHELL       equ 1 << 11
+CAP_LAYER       equ 1 << 12
 CAP_DATA        equ 1 << 13
+CAP_CLIPBOARD   equ 1 << 14
+CAP_DECORATION  equ 1 << 24
 
 ; Text/A11y
-CAP_TEXT        equ 1 << 14
+CAP_TEXT        equ 1 << 25
 CAP_A11Y        equ 1 << 15
 
 ; Privileged (require trust profile + explicit grant)
-CAP_CAPTURE     equ 1 << 32
-CAP_INJECT      equ 1 << 33
-CAP_POLICY      equ 1 << 34
-CAP_DEBUG       equ 1 << 35
-CAP_SESSION     equ 1 << 36
-CAP_REMOTE      equ 1 << 37
+CAP_CAPTURE     equ 1 << 16
+CAP_INJECT      equ 1 << 17
+CAP_POLICY      equ 1 << 18
+CAP_DEBUG       equ 1 << 19
+CAP_SESSION     equ 1 << 20
+CAP_REMOTE      equ 1 << 21
+CAP_WINDOWS     equ 1 << 22     ; list and control every window
+CAP_OVERLAY     equ 1 << 23     ; overlay layers, over the lock screen too
 ```
 
 ---
