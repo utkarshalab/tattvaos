@@ -2,7 +2,7 @@
 %define VCS_WIRE_INC
 %define VCS_WIRE_MAGIC       0x31454c444e425655
 %define VCS_WIRE_VERSION     1
-%define VCS_WIRE_HEADER      160
+%define VCS_WIRE_HEADER      168
 %define VCS_WIRE_MAX_PAYLOAD (256*1024)
 %define VW_MAGIC 0
 %define VW_VERSION 8
