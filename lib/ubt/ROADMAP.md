@@ -758,11 +758,11 @@ open or for a set time.
 | # | Question | Options |
 |---|---|---|
 | D1 | AAC for A2DP (AirPods sound best with it)? | Build AAC in `uaud` / SBC only |
-| D2 | Proprietary codecs (aptX, LDAC)? | Leave out (proposed; licensing) / add later |
-| D3 | Legacy PIN pairing for pre-2.1 devices? | Allow only after a warning (proposed) / never |
-| D4 | Controller firmware files are third-party binaries that run on the radio chip, not on the CPU. Ship them? | Ship signed in `/app/lib/ubt/fw/` (proposed) / user installs them |
+| D2 | Proprietary codecs (aptX, LDAC) | **Decided 2026-11-06:** left out (licensing); revisit only if a licence is obtained |
+| D3 | Legacy PIN pairing for pre-2.1 devices | **Decided 2026-11-06:** allowed only after a warning naming the weaker security; admin policy can forbid it |
+| D4 | Controller firmware files (third-party binaries that run on the radio chip, not the CPU) | **Decided 2026-11-06:** shipped in `/app/lib/ubt/fw/`, signed by the build, checked before download |
 | D5 | Bluetooth SIG qualification and listing (needed to call a product "Bluetooth"; costs money) | Later, before any public release / never (internal use only) |
-| D6 | Where USB lives | `lib/usb` (proposed; `lib/usb/ROADMAP.md` uses it) / under `lib/io` |
+| D6 | Where USB lives | **Decided 2026-11-06:** `lib/usb` (`lib/usb/ROADMAP.md`) |
 | D7 | Hardware to buy for 5.3 to 6.3 testing | Section 3 list / none for now (`sim/` only) |
-| D8 | Quick-pairing pop-ups, which rely on vendor-specific advertising formats | Build later / leave out |
-| D9 | Who owns combo-chip reset (RZ608 Wi-Fi + Bluetooth) | Wi-Fi driver owns the chip and `ubt` asks it (proposed) / shared |
+| D8 | Quick-pairing pop-ups (vendor-specific advertising formats) | **Decided 2026-11-06:** later, in Phase 12, after the core profiles |
+| D9 | Who owns combo-chip reset (RZ608 Wi-Fi + Bluetooth) | **Decided 2026-11-06:** the Wi-Fi driver owns the chip; `ubt` asks it for a reset and is told when one happens |
