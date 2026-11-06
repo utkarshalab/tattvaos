@@ -26,6 +26,9 @@
 %define CLIENT_CAP_BUFFER      (1 << 1)
 %define CLIENT_CAP_SURFACE     (1 << 2)
 %define CLIENT_CAP_PRESENT     (1 << 3)
+%define CLIENT_CAP_POINTER     (1 << 6)     ; pointer events
+%define CLIENT_CAP_KEYBOARD    (1 << 7)     ; keyboard events and focus
+%define CLIENT_CAP_TOUCH       (1 << 8)
 %define CLIENT_CAP_SHELL       (1 << 11)
 %define CLIENT_CAP_LAYER       (1 << 12)
 %define CLIENT_CAP_WINDOWS     (1 << 22)
