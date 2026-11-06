@@ -203,7 +203,7 @@
 |---|---|---|---|
 | SUR-01 | Surface create, attach, damage, commit with double-buffered state | P1 | ✓ `server/surface`, `server/commit`; host-tested (`test_surface`) |
 | SUR-02 | Shared-memory buffers with ownership transfer and release | P1 | ◐ `server/buffer`: pixels in their own region, released on replace; sharing with a client still needs KRN-03 |
-| SUR-03 | Fences and timelines on every buffer (explicit sync) | P1 | ◐ `server/fence`, `server/timeline` |
+| SUR-03 | Fences and timelines on every buffer (explicit sync) | P1 | ◐ `cw_fence` (create, destroy, signal, reset, get_status) registered; fences are their client's (its arena, owner-checked, gone on disconnect) and attach refuses another's; a commit waits until its buffer's acquire fence is signaled or gone, retried each turn; the release fence is signaled when the buffer is let go; `test_window`. Timelines not yet; `server/fence`, `server/timeline` |
 | SUR-04 | Subsurfaces with sync/desync modes | P2 | ◐ `server/subsurface` |
 | SUR-05 | Opaque, input and damage regions | P1 | ◐ `cw_region` (create, destroy, add, subtract, clear) and `set_opaque_region`, `set_input_region` registered; regions are their client's (its arena, owner-checked handles, gone on disconnect); input regions steer the hit test; `test_input`. The opaque region is kept, not used yet (CMP-06); `server/regions` |
 | SUR-06 | Buffer transforms and scale | P2 | ◐ `server/surface_transform` |
