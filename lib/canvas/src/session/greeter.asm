@@ -14,7 +14,9 @@
 ; and the keyboard goes back to the windows; greeter_lock puts it back, an
 ; empty field over everything again. Super+L locks, and so do GREETER_IDLE_NS
 ; without input. Server.locked says the login screen is up: the server's
-; shortcuts do nothing then. When the kernel lists users (ut_auth_users)
+; shortcuts do nothing then, and on every output only overlays are drawn,
+; hit and given the keyboard, so nothing on another output shows or is
+; reached. When the kernel lists users (ut_auth_users)
 ; their names are a row above the label, Left and Right choosing whose
 ; password Enter checks; without a list it is the machine's one user's.
 ;
@@ -38,6 +40,7 @@ extern canvas_buffer_mmap
 extern canvas_connect_pair
 extern canvas_event_poll
 extern canvas_layer_create
+extern compositor_damage_all
 extern canvas_surface_attach
 extern canvas_surface_commit
 extern canvas_surface_create
@@ -187,7 +190,9 @@ greeter_start:
     mov r8d, [rbx + Greeter.height]
     call damage_commit
     mov dword [rbx + Greeter.state], GREETER_SHOWN
-    mov qword [r12 + Server.locked], 1
+    mov rdi, r12
+    mov esi, 1
+    call set_locked
     mov rax, GREETER_IDLE_NS
     mov [rbx + Greeter.idle_ns], rax
     mov [r12 + Server.greeter], rbx
@@ -422,8 +427,9 @@ greeter_lock:
     mov r8d, [rbx + Greeter.height]
     call damage_commit
     mov dword [rbx + Greeter.state], GREETER_SHOWN
-    mov rax, [rbx + Greeter.server]
-    mov qword [rax + Server.locked], 1
+    mov rdi, [rbx + Greeter.server]
+    mov esi, 1
+    call set_locked
 .out:
     xor eax, eax
     EPILOGUE_RESTORE rbx, r12
@@ -470,14 +476,21 @@ greeter_deadline:
 ; Local
 ; ---------------------------------------------------------------------------
 
+; Server.locked to esi, every output redrawn: locked, only the overlays show.
+; rdi = server
+set_locked:
+    mov [rdi + Server.locked], rsi
+    jmp compositor_damage_all
+
 ; The right password: the buffer off the surface, the desktop shown.
 ; rdi = greeter
 unlock:
     push rbx
     mov rbx, rdi
     mov dword [rbx + Greeter.state], GREETER_DONE
-    mov rax, [rbx + Greeter.server]
-    mov qword [rax + Server.locked], 0
+    mov rdi, [rbx + Greeter.server]
+    xor esi, esi
+    call set_locked
     call ut_time_now_ns
     mov [rbx + Greeter.unlocked_at], rax
     mov rdi, [rbx + Greeter.conn]
