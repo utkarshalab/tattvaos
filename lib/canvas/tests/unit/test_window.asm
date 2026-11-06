@@ -30,6 +30,7 @@ extern window_activate
 extern switcher_selected
 extern server_add_output
 extern window_move
+extern compositor_damage_all
 
 %define HEAP_SIZE (2 * 1024 * 1024)
 
@@ -122,6 +123,7 @@ test_window_suite:
     CASE tw_fences, CAP_SHELL
     CASE tw_timelines, CAP_SHELL
     CASE tw_two_outputs, CAP_SHELL
+    CASE tw_locked, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -1808,6 +1810,88 @@ tw_two_outputs:
     call second_pixel
     cmp eax, 0xFF3E4C78
     je .fail
+    PASS
+
+; Server.locked to edi, every output redrawn, a turn
+lock_to:
+    sub rsp, 8
+    mov [rel server + Server.locked], rdi
+    lea rdi, [rel server]
+    call compositor_damage_all
+    call poll
+    add rsp, 8
+    ret
+
+; Locked, a window on the second output is not drawn, the pointer does not
+; find it and one shown meanwhile does not take the keyboard; unlocked, it
+; is back
+tw_locked:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    call poll                           ; drawn a first time
+    mov edi, 60                         ; the second's background, for later
+    mov esi, 40
+    call second_pixel
+    mov [rel region_h], eax
+    POINTER 80, 0                       ; A with a bar: pixels to see
+    mov edi, 16
+    mov esi, 12
+    call new_surface
+    mov [rel surface_a], eax
+    TOPLEVEL TL_CREATE, surface_a, 0
+    TOPLEVEL TL_SET_DECO, surface_a, 1
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    mov edi, 80 - 64 + 2
+    mov esi, 2
+    call second_pixel
+    cmp eax, [rel region_h]
+    je .fail                            ; drawn
+
+    mov edi, 1
+    call lock_to
+    mov edi, 80 - 64 + 2
+    mov esi, 2
+    call second_pixel
+    cmp eax, [rel region_h]
+    jne .fail                           ; locked: background
+    POINTER 85, 30                      ; over its content
+    call poll
+    mov rax, [rel server + Server.input_seat]
+    cmp qword [rax + InputSeat.pointer_focus], 0
+    jne .fail                           ; nothing under the pointer
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail                           ; A keeps what it had
+    POINTER 10, 10
+    mov edi, 16                         ; B shown while locked: no keyboard
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail
+
+    xor edi, edi
+    call lock_to
+    mov edi, 80 - 64 + 2
+    mov esi, 2
+    call second_pixel
+    cmp eax, [rel region_h]
+    je .fail                            ; back
     PASS
 
 section .bss
