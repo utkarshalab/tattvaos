@@ -91,7 +91,7 @@ fresh:
     call server_init
     lea rdi, [rel server]
     lea rsi, [rel pair]
-    mov edx, CLIENT_CAP_SHELL
+    mov edx, CLIENT_CAP_SHELL | CLIENT_CAP_POINTER | CLIENT_CAP_KEYBOARD
     call client_accept
     lea rdi, [rel pair]
     lea rsi, [rel server_poll]
