@@ -9,6 +9,8 @@ extern fence_ready
 extern fence_signal
 extern handle_resolve
 extern list_pop_front
+extern timeline_reached
+extern timeline_signal
 extern list_push_back
 extern presentation_queue
 extern region_clear
@@ -29,8 +31,9 @@ commit_init:
 
 ; ---------------------------------------------------------------------------
 ; commit_retry
-;   Each turn: every commit waiting for an acquire fence whose fence is now
-;   signaled, or gone, is applied
+;   Each turn: every commit waiting for an acquire fence or timeline point
+;   whose fence is now signaled, or point reached, or which is gone, is
+;   applied
 ;   IN:  rdi = server*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -65,9 +68,10 @@ commit_retry:
     EPILOGUE_RESTORE rbx, r12, r13
 
 ; IN server*, surface*, flags. A one-surface transaction is intrinsically atomic.
-; A buffer whose acquire fence is not signaled yet is not shown: the commit
-; waits (Surface.fence_wait) and commit_retry applies it once the fence is
-; signaled or gone.
+; A buffer whose acquire fence is not signaled yet, or whose timeline has not
+; reached its acquire point, is not shown: the commit waits
+; (Surface.fence_wait) and commit_retry applies it once both are done or
+; gone.
 global commit_surface
 commit_surface:
     PROLOGUE_SAVE rbx, r12, r13, r14
@@ -87,11 +91,19 @@ commit_surface:
     call handle_resolve
     test rax, rax
     jz .ready
-    mov esi, [rax + Buffer.acquire_fence]
+    mov r13, rax
+    mov esi, [r13 + Buffer.acquire_fence]
     mov rdi, rbx
     call fence_ready
     test eax, eax
+    jz .wait
+    mov rdi, rbx
+    mov esi, [r13 + Buffer.timeline]
+    mov rdx, [r13 + Buffer.acquire_point]
+    call timeline_reached
+    test eax, eax
     jnz .ready
+.wait:
     mov qword [r12 + Surface.fence_wait], 1   ; its pixels are not done yet
     jmp .done
 .ready:
@@ -221,7 +233,8 @@ surface_fire_frame_callbacks:
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
-; Release a replaced buffer and signal its optional release fence.
+; Release a replaced buffer: signal its optional release fence, and move its
+; optional timeline to its release point.
 ; IN server*, surface*, old buffer handle.
 surface_release_old_buffer:
     PROLOGUE_SAVE rbx, r12, r13
@@ -237,13 +250,21 @@ surface_release_old_buffer:
     call handle_resolve
     test rax, rax
     jz .done
-    mov qword [rax + Buffer.state], BUFFER_ALLOCATED
-    mov rdx, [rax + Buffer.release_fence]
+    mov r13, rax
+    mov qword [r13 + Buffer.state], BUFFER_ALLOCATED
+    mov rdx, [r13 + Buffer.release_fence]
     test edx, edx
-    jz .done
+    jz .timeline
     mov rdi, rbx
     mov esi, edx
     call fence_signal
+.timeline:
+    mov esi, [r13 + Buffer.timeline]
+    test esi, esi
+    jz .done
+    mov rdi, rbx
+    mov rdx, [r13 + Buffer.release_point]
+    call timeline_signal
 .done:
     xor eax, eax
     EPILOGUE_RESTORE rbx, r12, r13
