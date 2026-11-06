@@ -49,7 +49,8 @@ struc Taskbar
     .pointer_x:     resd 1      ; on the bar, from enter and motion
     .dirty:         resd 1
     .workspace:     resd 1      ; the one shown
-    .ws_pad:        resd 1
+    .output:        resd 1      ; the number of the output it is on, 0 first
+    .next:          resq 1      ; Server.taskbar: one for each output
     .pair:          resb ChannelPair_size
     alignb 8
     .event:         resb 148    ; a ClientEvent (inc/canvas_client.inc)
