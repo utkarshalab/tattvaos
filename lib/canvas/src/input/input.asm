@@ -9,7 +9,7 @@
 ;   keys     go to the surface with keyboard focus; a held key that is not a
 ;            modifier or a lock repeats, checked at the end of each turn
 ;            (input_repeat_deadline says when the loop must wake for it)
-;   pointer  moves within the first output; the topmost surface under it gets
+;   pointer  moves across every output; the topmost surface under it gets
 ;            enter, leave, motion, button and axis events in its own
 ;            coordinates. While a button is held that surface keeps the
 ;            pointer, so a drag stays with its window.
@@ -35,12 +35,15 @@
 ;
 ; Events reach clients as cw_keyboard and cw_pointer events
 ; (proto/canvas-input.cwp), each payload (time: ulong, surface: handle) and,
-; for most, two more 32-bit values.
+; for most, two more 32-bit values; only to a client that asked for that
+; kind (CAP_POINTER, CAP_KEYBOARD, CAP_TOUCH), and the keyboard focus never
+; goes to one without CAP_KEYBOARD, so it cannot read what is typed.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/ut.inc"
+%include "inc/caps.inc"
 %include "inc/cwp.inc"
 %include "inc/channel.inc"
 %include "inc/event.inc"
@@ -1156,6 +1159,14 @@ set_keyboard_focus:
     mov r13, [rbx + InputSeat.keyboard_focus]
     cmp r12, r13
     je .out
+    test r12, r12                       ; never to a client without the
+    jz .lock                            ; keyboard capability
+    mov rax, [r12 + Surface.client]
+    test rax, rax
+    jz .out
+    test qword [rax + Client.caps], CAP_KEYBOARD
+    jz .out
+.lock:
     mov rax, [rbx + InputSeat.server]   ; locked: it stays on the login screen
     cmp qword [rax + Server.locked], 0  ; unless it goes to another overlay
     je .allowed
@@ -1305,6 +1316,21 @@ send_input:
     mov rax, [rsi + Surface.client]
     test rax, rax
     jz .out
+    mov r10d, edx                       ; only to a client that asked for
+    shr r10d, 16                        ; that kind of input
+    mov r11d, CAP_POINTER
+    cmp r10d, CWP_OBJ_POINTER
+    je .gate
+    mov r11d, CAP_KEYBOARD
+    cmp r10d, CWP_OBJ_KEYBOARD
+    je .gate
+    mov r11d, CAP_TOUCH
+    cmp r10d, CWP_OBJ_TOUCH
+    jne .allowed
+.gate:
+    test [rax + Client.caps], r11
+    jz .out
+.allowed:
     mov r10, [rdi + InputSeat.time]
     mov [rsp + 16], r10
     mov r10d, [rsi + Surface.id]
