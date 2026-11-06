@@ -5,6 +5,7 @@
 %include "inc/errors.inc"
 %include "inc/struct_offsets.inc"
 
+extern fence_ready
 extern fence_signal
 extern handle_resolve
 extern list_pop_front
@@ -26,7 +27,47 @@ commit_init:
     xor eax, eax
     ret
 
+; ---------------------------------------------------------------------------
+; commit_retry
+;   Each turn: every commit waiting for an acquire fence whose fence is now
+;   signaled, or gone, is applied
+;   IN:  rdi = server*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global commit_retry
+commit_retry:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, [rbx + Server.client_list]
+.client:
+    test r12, r12
+    jz .done
+    mov r13, [r12 + Client.surfaces]
+.surface:
+    test r13, r13
+    jz .next_client
+    cmp qword [r13 + Surface.fence_wait], 0
+    je .next_surface
+    mov rdi, rbx
+    mov rsi, r13
+    xor edx, edx
+    call commit_surface                 ; waits again if it must
+.next_surface:
+    mov r13, [r13 + Surface.client_next]
+    jmp .surface
+.next_client:
+    mov r12, [r12 + Client.next_client]
+    jmp .client
+.done:
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
 ; IN server*, surface*, flags. A one-surface transaction is intrinsically atomic.
+; A buffer whose acquire fence is not signaled yet is not shown: the commit
+; waits (Surface.fence_wait) and commit_retry applies it once the fence is
+; signaled or gone.
 global commit_surface
 commit_surface:
     PROLOGUE_SAVE rbx, r12, r13, r14
@@ -38,6 +79,22 @@ commit_surface:
     jz .invalid
     cmp dword [r12 + Surface.pending + SurfaceState.pending], 1
     jne .done
+    mov qword [r12 + Surface.fence_wait], 0
+    mov rsi, [r12 + Surface.pending + SurfaceState.buffer]
+    test rsi, rsi
+    jz .ready
+    mov rdi, [rbx + Server.buffer_table]
+    call handle_resolve
+    test rax, rax
+    jz .ready
+    mov esi, [rax + Buffer.acquire_fence]
+    mov rdi, rbx
+    call fence_ready
+    test eax, eax
+    jnz .ready
+    mov qword [r12 + Surface.fence_wait], 1   ; its pixels are not done yet
+    jmp .done
+.ready:
     mov r14, [r12 + Surface.current + SurfaceState.buffer]
     mov rdi, r12
     call surface_apply_state
