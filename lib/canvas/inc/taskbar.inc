@@ -51,6 +51,8 @@ struc Taskbar
     .workspace:     resd 1      ; the one shown
     .output:        resd 1      ; the number of the output it is on, 0 first
     .next:          resq 1      ; Server.taskbar: one for each output
+    .output_ptr:    resq 1      ; that output; .output follows its place
+    .client_id:     resq 1      ; its client's, for client_disconnect
     .pair:          resb ChannelPair_size
     alignb 8
     .event:         resb 148    ; a ClientEvent (inc/canvas_client.inc)
