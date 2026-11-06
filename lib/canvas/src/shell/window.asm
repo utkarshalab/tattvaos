@@ -174,43 +174,96 @@ window_layer_create:
     mov rdi, rbx
     mov rsi, r12
     call compositor_restack_surface
+    mov rdi, r12
+    call layer_configure
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
-    ; Its size: the output's, less the margins, along each pair it spans
+; ---------------------------------------------------------------------------
+; window_layer_set_output
+;   A layer to another output, sized and anchored for it there; the
+;   maximized windows of both are laid out again
+;   IN:  rdi = server*, rsi = surface*, edx = the output's number, 0 the first
+;   OUT: rax = 0, -EINVAL if it is not a layer or there is no such output
+; ---------------------------------------------------------------------------
+global window_layer_set_output
+window_layer_set_output:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov rax, -(EINVAL)
+    mov rcx, [r12 + Surface.window]
+    test rcx, rcx
+    jz .out
+    cmp dword [rcx + Window.kind], ROLE_LAYER
+    jne .out
+    mov r13, [rbx + Server.outputs]
+.find:
+    test r13, r13
+    jz .out
+    test edx, edx
+    jz .found
+    dec edx
+    mov r13, [r13 + Output.next]
+    jmp .find
+.found:
+    mov rdi, rbx                        ; redrawn where it was
+    mov rsi, r12
+    mov rdx, r13
+    call compositor_move_to_output
+    mov rdi, r12
+    call layer_configure
+    mov rdi, rbx                        ; where its anchors say there
+    mov rsi, r12
+    call window_commit
+    mov rdi, rbx
+    mov rsi, r12
+    call compositor_damage_surface
+    mov rdi, rbx
+    call relayout_maximized
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; A layer's size in a configure: its output's, less the margins, along each
+; pair of edges it is anchored to (0 along the others: its own choice).
+; rdi = surface
+layer_configure:
     xor esi, esi
     xor edx, edx
-    mov rax, [r12 + Surface.output]
+    mov rax, [rdi + Surface.output]
     test rax, rax
     jz .sized
-    mov rcx, [r12 + Surface.window]
+    mov rcx, [rdi + Surface.window]
     mov r8d, [rcx + Window.margin]
     add r8d, r8d
-    mov ecx, r14d
+    mov r9d, [rcx + Window.anchor]
+    mov ecx, r9d
     and ecx, ANCHOR_LEFT | ANCHOR_RIGHT
     cmp ecx, ANCHOR_LEFT | ANCHOR_RIGHT
     jne .height
     mov esi, [rax + Output.width]
     sub esi, r8d
 .height:
-    mov ecx, r14d
+    mov ecx, r9d
     and ecx, ANCHOR_TOP | ANCHOR_BOTTOM
     cmp ecx, ANCHOR_TOP | ANCHOR_BOTTOM
     jne .sized
     mov edx, [rax + Output.height]
     sub edx, r8d
 .sized:
-    mov rdi, r12
     mov r8d, esi
     mov r9d, edx
-    mov rax, [r12 + Surface.window]
+    mov rax, [rdi + Surface.window]
     mov ecx, [rax + Window.serial]
     inc ecx
     mov [rax + Window.serial], ecx
     mov esi, EV_LAYER_CONFIGURE
     mov edx, 16
-    call send_event
-    xor eax, eax
-.out:
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    jmp send_event
 
 ; ---------------------------------------------------------------------------
 ; window_layer_exclusive
