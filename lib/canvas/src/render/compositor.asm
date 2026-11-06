@@ -13,6 +13,9 @@
 ; to every output it touches. Surface.output is a surface's own output, for
 ; placing it, and 0 while it is off the screen.
 ;
+; While the screen is locked (Server.locked) only overlays are drawn, the
+; login screen among them: on every output, everything else is background.
+;
 ; Each damaged rectangle is drawn from the topmost surface that is opaque
 ; over all of it, up: what is under it, the background too, cannot show and
 ; is not drawn. A buffer without alpha is opaque everywhere; otherwise the
@@ -65,6 +68,19 @@ extern switcher_render
     jz %%done
     mov %2, [r10 + Window.level]
 %%done:
+%endmacro
+
+; %1 = Server* register, %2 = Surface* register: to %3 if the lock hides
+; the surface (locked, and it is below the overlays); uses r10
+%macro LOCK_HIDES 3
+    cmp qword [%1 + Server.locked], 0
+    je %%shown
+    mov r10, [%2 + Surface.window]
+    test r10, r10
+    jz %3
+    cmp dword [r10 + Window.level], LEVEL_OVERLAY
+    jl %3
+%%shown:
 %endmacro
 
 section .text
@@ -528,6 +544,41 @@ compositor_damage_rect:
     EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
+; compositor_damage_all
+;   Every output needs redrawing, all of it (the screen locked or unlocked)
+;   IN:  rdi = server*
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global compositor_damage_all
+compositor_damage_all:
+    PROLOGUE_SAVE rbx
+    sub rsp, 24                         ; a rect; 16-byte aligned
+    mov rbx, [rdi + Server.outputs]
+.output:
+    test rbx, rbx
+    jz .done
+    mov eax, [rbx + Output.x]
+    mov [rsp], eax
+    mov eax, [rbx + Output.y]
+    mov [rsp + 4], eax
+    mov eax, [rbx + Output.width]
+    mov [rsp + 8], eax
+    mov eax, [rbx + Output.height]
+    mov [rsp + 12], eax
+    mov rdi, [rbx + Output.damage]
+    mov rsi, rsp
+    call region_add_rect
+    test rax, rax
+    js .out
+    mov rbx, [rbx + Output.next]
+    jmp .output
+.done:
+    xor eax, eax
+.out:
+    add rsp, 24
+    EPILOGUE_RESTORE rbx
+
+; ---------------------------------------------------------------------------
 ; compositor_collect_damage
 ;   Every surface's committed damage to the outputs it touches, in the
 ;   layout's coordinates; once a frame, before any output is drawn
@@ -646,6 +697,8 @@ compositor_composite_output:
 .surface:
     test r15, r15
     jz .overlays
+    mov rax, [rbx + Compositor.server]
+    LOCK_HIDES rax, r15, .hidden
     mov rdi, rsp                        ; its title bar under it, if any
     mov rsi, r15
     lea rdx, [rsp + L_CLIP]
@@ -655,6 +708,7 @@ compositor_composite_output:
     lea rdx, [rsp + L_CLIP]
     call sw_render_surface
     inc qword [rbx + Compositor.drawn]
+.hidden:
     mov r15, [r15 + Surface.z_order_next]
     jmp .surface
 .overlays:
@@ -728,6 +782,7 @@ topmost_cover:
 .next:
     test r12, r12
     jz .done
+    LOCK_HIDES rbx, r12, .skip
     mov rsi, [r12 + Surface.current + SurfaceState.buffer]
     test rsi, rsi
     jz .skip
