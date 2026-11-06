@@ -43,6 +43,9 @@ extern fb_linear_init
 extern handle_resolve
 extern headless_create_virtual_output
 extern compositor_layout_bounds
+extern compositor_damage_all
+extern input_keep_pointer
+extern window_output_gone
 extern region_add_rect
 extern headless_init
 extern input_dispatch
@@ -263,6 +266,60 @@ server_add_output:
 .out:
     add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; server_remove_output
+;   An output taken out of the layout (unplugged, a virtual screen closed):
+;   what was on it goes to the first one left (window_output_gone), the
+;   pointer is kept on what is left, and every output is redrawn. Its memory
+;   stays, with the server's arena. The last output cannot go.
+;   IN:  rdi = server*, rsi = Output*
+;   OUT: rax = 0, -ENOENT if it is not in the layout, -EBUSY if it is the
+;        last
+; ---------------------------------------------------------------------------
+global server_remove_output
+server_remove_output:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    lea rcx, [rbx + Server.outputs]
+.find:
+    mov rax, [rcx]
+    test rax, rax
+    jz .missing
+    cmp rax, r12
+    je .found
+    lea rcx, [rax + Output.next]
+    jmp .find
+.found:
+    cmp qword [rbx + Server.outputs], r12
+    jne .unlink
+    cmp qword [r12 + Output.next], 0
+    je .last
+.unlink:
+    mov rax, [r12 + Output.next]
+    mov [rcx], rax
+    mov rdx, [rbx + Server.backend]     ; the backend's list is the same one
+    mov rax, [rbx + Server.outputs]
+    mov [rdx + Backend.outputs], rax
+    dec qword [rdx + Backend.output_count]
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, [rbx + Server.outputs]
+    call window_output_gone
+    mov rdi, rbx
+    call input_keep_pointer
+    mov rdi, rbx
+    call compositor_damage_all
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12
+.missing:
+    mov rax, -(ENOENT)
+    jmp .out
+.last:
+    mov rax, -(EBUSY)
+    jmp .out
 
 ; ---------------------------------------------------------------------------
 ; server_poll
