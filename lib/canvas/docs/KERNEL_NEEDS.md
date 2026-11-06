@@ -50,9 +50,9 @@ The first test program needs a way to be started: a UBF in the boot self-test
 path, as `kernel/tests/ubf/hello.ubf` is, is enough.
 
 `ubf_start` starts every program on a `FIBER_STACK_SIZE` (16 KiB) stack and does
-not read the header's `stack_size`. The first frame uses about 520 bytes of it.
-Nothing deeper has been measured; text, images and many clients will need more,
-so honouring `stack_size` will matter before the login screen.
+not read the header's `stack_size`. `make ubf-check` measures the first frame,
+text included, at about 5.5 KiB of it. Images, the login screen and many
+clients will need more, so honouring `stack_size` will matter soon.
 
 ## Step 2: clients in other programs
 
@@ -113,9 +113,15 @@ Canvas wipes the password from its own memory after each check and expects
 the kernel to keep no copy. It slows guessing itself (after three wrong
 passwords in a row, five seconds when every password is refused); the
 kernel may add its own limits. Starting the user's session after a right
-password, and a user list, come later.
+password comes later.
 
 ## Later
+
+- **More than one screen.** `ut_fb_info` describes one framebuffer. Canvas
+  already lays several outputs side by side and draws each one's part; a
+  second display needs a way to ask for each (an index in `rsi` would do),
+  and plugging one in later needs a notice Canvas can wait for.
+
 
 Only the native display backend, remote sharing and configuration need these:
 `ut_mmio_map`, `ut_dma_alloc`, `ut_dma_free`, `ut_dma_sync`, `ut_irq_register`,
