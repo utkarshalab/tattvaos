@@ -21,8 +21,8 @@ extern login_verify
 extern ui_text_init
 extern greeter_step
 extern greeter_deadline
-extern taskbar_start
-extern taskbar_step
+extern taskbar_start_all
+extern taskbar_step_all
 extern input_repeat_deadline
 extern server_init
 extern server_poll
@@ -117,10 +117,10 @@ canvasd_init:
     call greeter_set_verify
 .no_greeter:
 
-    ; The taskbar, under the login screen until it goes
+    ; A taskbar on each output, under the login screen until it goes
     lea rdi, [server]
     lea rsi, [server_arena]
-    call taskbar_start
+    call taskbar_start_all
 
     ; Without waitsets the loop yields instead of sleeping
     call ut_waitset_create
@@ -160,10 +160,8 @@ canvasd_init:
     jz .taskbar
     call greeter_step
 .taskbar:
-    mov rdi, [server + Server.taskbar]
-    test rdi, rdi
-    jz .loop
-    call taskbar_step
+    lea rdi, [server]
+    call taskbar_step_all
     jmp .loop
 
 .no_arena:
