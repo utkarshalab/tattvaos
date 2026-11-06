@@ -14,7 +14,8 @@
 ; There is one for each output, on Server.taskbar through Taskbar.next, each
 ; listing every window. taskbar_start makes one with library calls that turn
 ; server_poll, so it runs outside a turn (taskbar_start_all one for each
-; output); canvasd's loop calls taskbar_step_all after each server_poll.
+; output); canvasd's loop calls taskbar_step_all after each server_poll,
+; which also starts one on an output added since, once it is tall enough.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -88,25 +89,54 @@ taskbar_start_all:
 
 ; ---------------------------------------------------------------------------
 ; taskbar_step_all
-;   taskbar_step for each taskbar
+;   taskbar_step for each taskbar, then a taskbar for each output without
+;   one (added since), from the server's arena; outside a turn, as
+;   taskbar_start must be
 ;   IN:  rdi = server*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global taskbar_step_all
 taskbar_step_all:
-    push rbx
-    mov rbx, [rdi + Server.taskbar]
-.next:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov r12, rdi
+    mov rbx, [r12 + Server.taskbar]
+.step:
     test rbx, rbx
-    jz .done
+    jz .stepped
     mov rdi, rbx
     call taskbar_step
     mov rbx, [rbx + Taskbar.next]
-    jmp .next
+    jmp .step
+.stepped:
+    mov r13, [r12 + Server.outputs]
+    xor ebx, ebx                        ; its number
+.output:
+    test r13, r13
+    jz .done
+    mov rax, [r12 + Server.taskbar]
+.has:
+    test rax, rax
+    jz .start
+    cmp [rax + Taskbar.output], ebx
+    je .next
+    mov rax, [rax + Taskbar.next]
+    jmp .has
+.start:
+    cmp dword [r13 + Output.height], TASKBAR_H
+    jbe .next                           ; too small for one
+    mov rdi, r12
+    mov rsi, [r12 + Server.arena]
+    mov edx, ebx
+    call taskbar_start
+.next:
+    inc ebx
+    mov r13, [r13 + Output.next]
+    jmp .output
 .done:
     xor eax, eax
-    pop rbx
-    ret
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; taskbar_start
