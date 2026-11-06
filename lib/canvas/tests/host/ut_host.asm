@@ -325,13 +325,19 @@ global %1
 
 HOST_NONE ut_wait_wake_task
 
-; ut_auth_verify for host tests: one account, the machine's user (no name),
-; whose password is "secret"
+; ut_auth_verify and ut_auth_users for host tests: the machine's user (no
+; name) and "ravi" have the password "secret"; "mira" is listed but no
+; password is hers
 global ut_auth_verify
 ut_auth_verify:
     mov rax, -(EACCES)
     test esi, esi
-    jnz .out                            ; a named user: none here
+    jz .password                        ; the machine's user
+    cmp esi, 4
+    jne .out
+    cmp dword [rdi], 'ravi'
+    jne .out
+.password:
     cmp ecx, 6
     jne .out
     cmp dword [rdx], 'secr'
@@ -339,6 +345,19 @@ ut_auth_verify:
     cmp word [rdx + 4], 'et'
     jne .out
     xor eax, eax
+.out:
+    ret
+
+; rdi = buffer, rsi = its size -> rax = names, NUL after each
+global ut_auth_users
+ut_auth_users:
+    mov rax, -(ENOSPC)
+    cmp rsi, host_users_len
+    jb .out
+    lea rsi, [rel host_users]
+    mov ecx, host_users_len
+    rep movsb
+    mov eax, 2
 .out:
     ret
 HOST_NONE ut_input_register_callback
@@ -425,6 +444,8 @@ HOST_PANIC panic_oom, panic_msg_oom
 HOST_PANIC panic_unreachable, panic_msg_unreachable
 
 section .rodata
+host_users:     db "mira", 0, "ravi", 0
+host_users_len: equ $ - host_users
 
 hex_digits:             db "0123456789abcdef"
 null_str:               db "(null)", 0
