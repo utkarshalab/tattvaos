@@ -102,6 +102,11 @@ protocol canvas-shell 1 {
         ; anchored any other way, none does.
         request set_exclusive(surface: handle, size: uint)
 
+        ; Put the layer on another output: the nth, 0 the first, in the order
+        ; the server lists them. It is sized for that output again (a
+        ; configure) and anchored to its edges; its strip is kept there.
+        request set_output(surface: handle, output: uint)
+
         ; The size it should be; 0: its own choice that way
         event configure(surface: handle, serial: uint, width: uint, height: uint)
     }
