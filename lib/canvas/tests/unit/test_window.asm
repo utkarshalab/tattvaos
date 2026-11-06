@@ -28,6 +28,7 @@ extern server_poll
 extern virtual_input_inject
 extern window_activate
 extern switcher_selected
+extern server_add_output
 
 %define HEAP_SIZE (2 * 1024 * 1024)
 
@@ -113,6 +114,7 @@ test_window_suite:
     CASE tw_alt_tab, CAP_SHELL
     CASE tw_occlusion, CAP_SHELL
     CASE tw_fences, CAP_SHELL
+    CASE tw_two_outputs, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -1565,6 +1567,93 @@ tw_fences:
     SHOWS buffer_b                      ; refused: nothing changed
     PASS
 
+; edi = x, esi = y in the second output -> eax = its pixel there
+second_pixel:
+    mov rax, [rel output_b]
+    mov rcx, [rax + Output.stride]
+    imul rsi, rcx
+    mov rax, [rax + Output.framebuffer]
+    add rax, rsi
+    mov eax, [rax + rdi * 4]
+    ret
+
+; A second output to the right: the pointer goes onto it, a window placed
+; there is on it and gets the pointer there, Alt+drag takes the window back
+; to the first, and a title bar placed there is drawn in its pixels
+tw_two_outputs:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    cmp dword [rax + Output.x], 64
+    jne .fail
+    POINTER 500, 10                     ; past both: the layout's right edge
+    call poll
+    mov rax, [rel server + Server.input_seat]
+    cmp dword [rax + InputSeat.x], 127
+    jne .fail
+
+    POINTER 80, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel output_b]
+    cmp [rax + Surface.output], rcx
+    jne .fail
+    AT 80, 10
+    call drain
+    POINTER 85, 15                      ; the pointer finds it there
+    call poll
+    FIND CWP_OBJ_POINTER, 0
+    mov eax, [rel surface_a]
+    cmp [rel ans + 8], eax
+    jne .fail
+
+    INJECT INPUT_KEY, 56, 1             ; Alt+drag A onto the first output
+    POINTER 85, 15
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_POSITION, 15, 15
+    INJECT INPUT_BUTTON, 0, 0
+    INJECT INPUT_KEY, 56, 0
+    call poll
+    AT 10, 10
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.outputs]
+    cmp [rax + Surface.output], rcx
+    jne .fail
+    POINTER 70, 0                       ; a decorated one: its bar in the
+    mov edi, 32                         ; second output's own pixels
+    mov esi, 12
+    call new_surface
+    mov [rel surface_b], eax
+    TOPLEVEL TL_CREATE, surface_b, 0
+    TOPLEVEL TL_SET_DECO, surface_b, 1
+    mov edi, [rel surface_b]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    mov edi, 70 - 64 + 2
+    mov esi, 2
+    call second_pixel
+    cmp eax, 0xFF3E4C78
+    jne .fail
+    mov edi, 70 - 64 + 2                ; and not in the first's
+    mov esi, 2
+    call screen_pixel
+    cmp eax, 0xFF3E4C78
+    je .fail
+
+    PASS
+
 section .bss
 alignb 16
 server:         resb Server_size
@@ -1580,6 +1669,8 @@ fence_a:        resd 1
 fence_r:        resd 1
 buffer_b:       resd 1
 zero:           resd 1
+alignb 8
+output_b:       resq 1
 alignb 8
 picked:         resq 1
 buffer:         resd 1
