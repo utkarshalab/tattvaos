@@ -40,6 +40,11 @@ global ubf_kernel_exports
 ubf_kernel_exports:
     UBF_EXPORT "ut_console_print", ut_console_print
     UBF_EXPORT "ut_yield", ut_yield
+    ; lib/input (lib/canvas/docs/utkarsha-contract.md §3.8)
+    UBF_EXPORT "ut_input_register_callback", ut_input_register_callback
+    UBF_EXPORT "ut_input_unregister_callback", ut_input_unregister_callback
+    UBF_EXPORT "ut_input_device_info", ut_input_device_info
+    UBF_EXPORT "ut_input_grab", ut_input_grab
 ubf_kernel_exports_end:
 
 section .text
