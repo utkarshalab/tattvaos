@@ -29,6 +29,7 @@
 %define CLIENT_CAP_SHELL       (1 << 11)
 %define CLIENT_CAP_LAYER       (1 << 12)
 %define CLIENT_CAP_WINDOWS     (1 << 22)
+%define CLIENT_CAP_OVERLAY     (1 << 23)    ; trusted clients only
 %define CLIENT_CAP_DATA        (1 << 13)
 
 ; Commit flags
