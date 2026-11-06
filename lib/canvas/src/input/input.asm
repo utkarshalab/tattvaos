@@ -50,7 +50,6 @@
 extern arena_alloc
 extern compositor_raise_surface
 extern compositor_layout_bounds
-extern compositor_output_at
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -1188,9 +1187,8 @@ set_keyboard_focus:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
 
-; rdi = seat -> rax = the topmost surface under the pointer, 0 if none, of
-; the output the pointer is on. Output.surfaces runs bottom to top, so the
-; last hit wins. A surface is hit
+; rdi = seat -> rax = the topmost surface under the pointer, 0 if none, on
+; whichever output. Server.stack runs bottom to top, so the last hit wins. A surface is hit
 ; inside its attached buffer, the size it is drawn at (sw_render), and inside
 ; its input region when that is not empty. Nothing attached: nothing to hit.
 surface_at:
@@ -1198,13 +1196,8 @@ surface_at:
     mov rbx, rdi
     xor r13d, r13d
     mov qword [rbx + InputSeat.bar], 0
-    mov rdi, [rbx + InputSeat.server]   ; the output the pointer is on
-    mov esi, [rbx + InputSeat.x]
-    mov edx, [rbx + InputSeat.y]
-    call compositor_output_at
-    test rax, rax
-    jz .done
-    mov r12, [rax + Output.surfaces]
+    mov rax, [rbx + InputSeat.server]
+    mov r12, [rax + Server.stack]
 .surface:
     test r12, r12
     jz .done
