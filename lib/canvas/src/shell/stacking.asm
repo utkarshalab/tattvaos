@@ -148,16 +148,17 @@ stacking_focus_any:
     xor eax, eax
     ret
 
-; The keyboard to the topmost surface on rsi's output that shows a buffer
-; and would take it, other than rsi; to none if there is none.
+; The keyboard to the topmost surface on the screen, on any output, that
+; shows a buffer and would take it, other than rsi; to none if there is none
+; or rsi is off the screen.
 ; rdi = server*, rsi = surface* -> rax = 0
 focus_topmost:
     mov rdx, [rsi + Surface.output]
-; The same on output rdx (0: none), skipping rsi (0: nothing)
+; The same with rdx an output (0: no screen, none), skipping rsi (0: nothing)
 focus_topmost_on:
     test rdx, rdx
     jz .none
-    mov rax, [rdx + Output.surfaces]
+    mov rax, [rdi + Server.stack]
     xor ecx, ecx
 .walk:
     test rax, rax
