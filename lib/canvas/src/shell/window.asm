@@ -327,14 +327,14 @@ window_dismiss_popups:
     xor eax, eax
     ret
 
-; Popups on output rdx get done and lose their role: those on parent rsi, or
-; every one when rsi is 0.
+; Popups get done and lose their role, on any output: those on parent rsi,
+; or every one when rsi is 0; rdx is an output, there being a screen.
 ; rdi = server, rsi = parent or 0, rdx = Output* -> rax = 0
 end_popups:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
-    mov r13, [rdx + Output.surfaces]
+    mov r13, [rbx + Server.stack]
 .next:
     test r13, r13
     jz .done
@@ -518,10 +518,9 @@ follow_parent:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
     mov r12, rsi
-    mov rax, [r12 + Surface.output]
-    test rax, rax
-    jz .done
-    mov r13, [rax + Output.surfaces]
+    cmp qword [r12 + Surface.output], 0
+    je .done
+    mov r13, [rbx + Server.stack]
 .next:
     test r13, r13
     jz .done
@@ -1094,10 +1093,12 @@ usable_area:
     add ecx, [rsi + Output.width]       ; the right edge, for now
     mov r8d, edx
     add r8d, [rsi + Output.height]      ; the bottom edge
-    mov r9, [rsi + Output.surfaces]
+    mov r9, [rdi + Server.stack]        ; the layers on this output
 .next:
     test r9, r9
     jz .done
+    cmp [r9 + Surface.output], rsi
+    jne .skip
     mov r10, [r9 + Surface.window]
     test r10, r10
     jz .skip
