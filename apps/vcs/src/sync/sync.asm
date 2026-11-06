@@ -180,6 +180,7 @@ vcs_sync_send_begin:
  mov r12,rdx
  test rbx,rbx
  jz .usage
+ mov dword [rbx+vcs_xfer.state],VCS_XFER_FAILED
  test r12,r12
  jz .usage
  test rcx,rcx
@@ -257,6 +258,7 @@ vcs_sync_send_begin:
 vcs_sync_receive_begin:
  test rdi,rdi
  jz .bad
+ mov dword [rdi+vcs_xfer.state],VCS_XFER_FAILED
  test rsi,rsi
  jz .bad
  test rdx,rdx
