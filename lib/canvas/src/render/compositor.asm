@@ -2,14 +2,16 @@
 ; Compositor — Damage-Driven Composition Driver
 ; Coordinates renderer, damage tracking, frame scheduling
 ; ============================================================================
-; Each output keeps its surfaces bottom to top in Output.surfaces, linked by
+; Every surface shown is on one stack, Server.stack, bottom to top, linked by
 ; z_order_next / z_order_prev, in stacking levels (LEVEL_* in
 ; inc/struct_offsets.inc; a surface's is its shell role's, LEVEL_NORMAL with
 ; none). A surface goes in, or is raised, to the top of its own level.
 ;
 ; Positions are in the layout's coordinates, every output a part of it at
-; Output.x, Output.y; each output's damage too. A surface is on one output's
-; list and drawn only there.
+; Output.x, Output.y; each output's damage too. Each output draws every
+; surface over its part, so a window over an edge shows on both; damage goes
+; to every output it touches. Surface.output is a surface's own output, for
+; placing it, and 0 while it is off the screen.
 ;
 ; Each damaged rectangle is drawn from the topmost surface that is opaque
 ; over all of it, up: what is under it, the background too, cannot show and
@@ -47,6 +49,13 @@ extern titlebar_render
 extern switcher_render
 
 %define COMPOSITOR_BG_COLOR 0xFF202030  ; opaque BGRA
+
+; %1 = Output* register -> %2 = the address of the server's stack head
+%macro STACK_OF 2
+    mov %2, [%1 + Output.backend]
+    mov %2, [%2 + Backend.server]
+    lea %2, [%2 + Server.stack]
+%endmacro
 
 ; %1 = Surface* register -> %2 = its stacking level (32-bit register); uses r10
 %macro LEVEL_OF 2
@@ -112,7 +121,8 @@ compositor_deinit:
 
 ; ---------------------------------------------------------------------------
 ; compositor_add_surface
-;   Put a surface on an output, above everything at its level or below
+;   Show a surface, its own output that one: on the stack above everything
+;   at its level or below
 ;   IN:  rdi = output*, rsi = surface*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -121,9 +131,10 @@ compositor_add_surface:
     ASSERT_PTR rdi
     ASSERT_PTR rsi
     mov [rsi + Surface.output], rdi
+    STACK_OF rdi, r11
     LEVEL_OF rsi, r8d
     xor ecx, ecx                        ; the one it goes above; 0: the bottom
-    mov rax, [rdi + Output.surfaces]
+    mov rax, [r11]
 .walk:
     test rax, rax
     jz .insert
@@ -145,14 +156,14 @@ compositor_add_surface:
     mov [rcx + Surface.z_order_next], rsi
     jmp .done
 .bottom:
-    mov [rdi + Output.surfaces], rsi
+    mov [r11], rsi
 .done:
     xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
 ; compositor_damage_surface
-;   What a surface shows needs redrawing on its output
+;   What a surface shows needs redrawing, on every output it is over
 ;   IN:  rdi = server*, rsi = surface*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -183,17 +194,17 @@ compositor_damage_surface:
     mov [rsp + 8], ecx
     mov rcx, [rax + Buffer.height]
     mov [rsp + 12], ecx
-    mov rdi, [r13 + Output.damage]
+    mov rdi, rbx
     mov rsi, rsp
-    call region_add_rect
+    call compositor_damage_rect
     mov rdi, r12                        ; and its title bar, if it has one
     mov rsi, rsp
     call titlebar_rect
     test eax, eax
     jz .done
-    mov rdi, [r13 + Output.damage]
+    mov rdi, rbx
     mov rsi, rsp
-    call region_add_rect
+    call compositor_damage_rect
 .done:
     xor eax, eax
     add rsp, 24
@@ -202,7 +213,7 @@ compositor_damage_surface:
 
 ; ---------------------------------------------------------------------------
 ; compositor_raise_surface
-;   Put a surface above everything else at its level on its output
+;   Put a surface above everything else at its level
 ;   IN:  rdi = server*, rsi = surface*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -232,7 +243,7 @@ compositor_raise_surface:
     mov [rax + Surface.z_order_next], rcx
     jmp .relink
 .was_bottom:
-    mov [r13 + Output.surfaces], rcx
+    mov [rbx + Server.stack], rcx
 .relink:
     mov rdi, r13
     mov rsi, r12
@@ -248,8 +259,8 @@ compositor_raise_surface:
 
 ; ---------------------------------------------------------------------------
 ; compositor_move_to_output
-;   A surface goes to another output's list, at the top of its level there;
-;   both outputs redraw where it is
+;   A surface's own output is another now (the one its middle is on); it is
+;   redrawn where it is
 ;   IN:  rdi = server*, rsi = surface*, rdx = Output*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -267,12 +278,7 @@ compositor_move_to_output:
     jz .done                            ; off the screen: stays off
     cmp rax, r13
     je .done
-    mov rdi, rbx
-    mov rsi, r12
-    call compositor_remove_surface
-    mov rdi, r13
-    mov rsi, r12
-    call compositor_add_surface
+    mov [r12 + Surface.output], r13     ; its place on the stack is the same
     mov rdi, rbx
     mov rsi, r12
     call compositor_damage_surface
@@ -391,7 +397,7 @@ compositor_restack_surface:
     mov [rax + Surface.z_order_next], rcx
     jmp .relink
 .was_bottom:
-    mov [r13 + Output.surfaces], rcx
+    mov [rbx + Server.stack], rcx
 .relink:
     mov rdi, r13
     mov rsi, r12
@@ -403,7 +409,7 @@ compositor_restack_surface:
 
 ; ---------------------------------------------------------------------------
 ; compositor_remove_surface
-;   Take a surface off its output; what it covered needs redrawing
+;   Take a surface off the screen; what it covered needs redrawing
 ;   IN:  rdi = server*, rsi = surface*
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
@@ -429,7 +435,7 @@ compositor_remove_surface:
     mov [rax + Surface.z_order_next], rcx
     jmp .after
 .was_bottom:
-    mov [r13 + Output.surfaces], rcx
+    mov [rbx + Server.stack], rcx
 .after:
     test rcx, rcx
     jz .cleared
@@ -454,6 +460,10 @@ compositor_composite:
     mov rbx, rdi
     ASSERT_PTR rbx
 
+    mov rdi, [rbx + Compositor.server]  ; every surface's new damage first
+    call compositor_collect_damage
+    test rax, rax
+    js .out
     mov rax, [rbx + Compositor.server]
     mov r12, [rax + Server.outputs]
 .output_loop:
@@ -473,16 +483,62 @@ compositor_composite:
     ret
 
 ; ---------------------------------------------------------------------------
+; compositor_damage_rect
+;   A rectangle of the layout needs redrawing on every output it touches
+;   IN:  rdi = server*, rsi = rect*
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global compositor_damage_rect
+compositor_damage_rect:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov r12, rsi
+    mov r13, [rdi + Server.outputs]
+.output:
+    test r13, r13
+    jz .done
+    mov eax, [r12]                      ; does it touch this one?
+    mov ecx, [r13 + Output.x]
+    add ecx, [r13 + Output.width]
+    cmp eax, ecx
+    jge .next
+    add eax, [r12 + 8]
+    cmp eax, [r13 + Output.x]
+    jle .next
+    mov eax, [r12 + 4]
+    mov ecx, [r13 + Output.y]
+    add ecx, [r13 + Output.height]
+    cmp eax, ecx
+    jge .next
+    add eax, [r12 + 12]
+    cmp eax, [r13 + Output.y]
+    jle .next
+    mov rdi, [r13 + Output.damage]
+    mov rsi, r12
+    call region_add_rect
+    test rax, rax
+    js .out
+.next:
+    mov r13, [r13 + Output.next]
+    jmp .output
+.done:
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
 ; compositor_collect_damage
-;   Move committed surface damage to the output, in output coordinates
-;   IN:  rdi = output*
+;   Every surface's committed damage to the outputs it touches, in the
+;   layout's coordinates; once a frame, before any output is drawn
+;   IN:  rdi = server*
 ;   OUT: rax = 0, negative error
 ; ---------------------------------------------------------------------------
 compositor_collect_damage:
     PROLOGUE_SAVE rbx, r12, r13, r14
     sub rsp, 32                         ; a rect; 16-byte aligned
     mov rbx, rdi
-    mov r12, [rbx + Output.surfaces]
+    mov r12, [rbx + Server.stack]
 .surface:
     test r12, r12
     jz .done
@@ -502,9 +558,9 @@ compositor_collect_damage:
     mov [rsp + 4], ecx
     mov rcx, [rax + 8]                  ; width, height
     mov [rsp + 8], rcx
-    mov rdi, [rbx + Output.damage]
+    mov rdi, rbx
     mov rsi, rsp
-    call region_add_rect
+    call compositor_damage_rect
     test rax, rax
     js .out
     inc r14
@@ -541,11 +597,6 @@ compositor_composite_output:
     mov r13, [r12 + Output.damage]
     test r13, r13
     jz .idle
-
-    mov rdi, r12
-    call compositor_collect_damage
-    test rax, rax
-    js .out
     mov rdi, r13
     call region_is_empty
     test rax, rax
@@ -590,7 +641,8 @@ compositor_composite_output:
     lea rsi, [rsp + L_CLIP]
     mov edx, [rbx + Compositor.bg_color]
     call sw_render_rect
-    mov r15, [r12 + Output.surfaces]
+    mov rax, [rbx + Compositor.server]
+    mov r15, [rax + Server.stack]
 .surface:
     test r15, r15
     jz .overlays
@@ -632,14 +684,17 @@ compositor_composite_output:
     call region_clear
     inc qword [rbx + Compositor.frame_seq]
 
-    ; The frame is done: callbacks, then presentation feedback
+    ; The frame is done: callbacks, then presentation feedback, for the
+    ; surfaces this is the own output of (once each, with many outputs)
     call ut_time_now_ns
     mov r14, rax
     mov r13, [rbx + Compositor.server]
-    mov r15, [r12 + Output.surfaces]
+    mov r15, [r13 + Server.stack]
 .finish:
     test r15, r15
     jz .idle
+    cmp [r15 + Surface.output], r12
+    jne .finished
     mov rdi, r15
     call surface_fire_frame_callbacks
 .feedback:
@@ -649,6 +704,7 @@ compositor_composite_output:
     call presentation_complete
     test rax, rax
     jz .feedback                        ; until none is outstanding
+.finished:
     mov r15, [r15 + Surface.z_order_next]
     jmp .finish
 
@@ -659,8 +715,8 @@ compositor_composite_output:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
-; The topmost surface on an output that is opaque over the whole of a
-; rectangle (output coordinates), 0 if none is.
+; The topmost surface that is opaque over the whole of a rectangle (the
+; layout's coordinates), 0 if none is; any output's.
 ; rdi = server, rsi = Output*, rdx = rect* -> rax = Surface* or 0
 topmost_cover:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
@@ -668,7 +724,7 @@ topmost_cover:
     mov rbx, rdi
     mov r13, rdx
     xor r14d, r14d                      ; the latest found
-    mov r12, [rsi + Output.surfaces]
+    mov r12, [rbx + Server.stack]
 .next:
     test r12, r12
     jz .done
