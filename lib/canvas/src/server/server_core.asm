@@ -42,6 +42,8 @@ extern fb_linear_create_output
 extern fb_linear_init
 extern handle_resolve
 extern headless_create_virtual_output
+extern compositor_layout_bounds
+extern region_add_rect
 extern headless_init
 extern input_dispatch
 extern window_ack_configure
@@ -214,6 +216,45 @@ server_init:
 
 
 
+
+; ---------------------------------------------------------------------------
+; server_add_output
+;   Another headless output, of width x height, to the right of the layout
+;   (virtual screens, tests); all of it is damaged where it now is
+;   IN:  rdi = server*, esi = width, edx = height
+;   OUT: rax = Output*, 0 on error
+; ---------------------------------------------------------------------------
+global server_add_output
+server_add_output:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 24                         ; a rect; 16-byte aligned
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13d, edx
+    call compositor_layout_bounds
+    mov [rsp], ecx                      ; the layout's right edge, its top
+    mov [rsp + 4], edx
+    mov rdi, [rbx + Server.backend]
+    mov esi, r12d
+    mov edx, r13d
+    mov ecx, DRM_FORMAT_BGRA8888
+    call headless_create_virtual_output
+    test rax, rax
+    jz .out
+    movsxd rcx, dword [rsp]
+    mov [rax + Output.x], rcx
+    movsxd rcx, dword [rsp + 4]
+    mov [rax + Output.y], rcx
+    mov [rsp + 8], r12d
+    mov [rsp + 12], r13d
+    mov r12, rax
+    mov rdi, [rax + Output.damage]
+    mov rsi, rsp
+    call region_add_rect
+    mov rax, r12
+.out:
+    add rsp, 24
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; server_poll
