@@ -81,7 +81,6 @@ struc Output
     .hpd_register:            resd 1
     resb 4
     .i2c_bus:                 resq 1
-    .surfaces:                resq 1
     .toplevels:               resq 1
     .vrr_caps:                resq 1
     .vrr_flags:               resd 1
