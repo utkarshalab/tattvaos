@@ -50,6 +50,8 @@ extern region_add_rect
 extern scale_bilinear_rect
 extern sw_cursor_render
 extern surface_logical_size
+extern magnify_frame
+extern magnify_output
 extern region_clear
 extern region_is_empty
 extern surface_fire_frame_callbacks
@@ -62,7 +64,7 @@ extern titlebar_rect
 extern titlebar_render
 extern switcher_render
 
-%define COMPOSITOR_BG_COLOR 0xFF202030  ; opaque BGRA
+%define COMPOSITOR_BG_COLOR COMPOSITOR_BG  ; inc/struct_offsets.inc
 
 ; %1 = Output* register -> %2 = the address of the server's stack head
 %macro STACK_OF 2
@@ -704,6 +706,10 @@ compositor_composite_output:
     mov [rsp + L_BOUNDS + 8], eax
     mov eax, [r12 + Output.height]
     mov [rsp + L_BOUNDS + 12], eax
+    mov rdi, [rbx + Compositor.server]  ; zoomed: all of it, every frame
+    mov rsi, r13
+    lea rdx, [rsp + L_BOUNDS]
+    call magnify_frame
 
     ; Every damaged rectangle, background first and each surface over it
     xor r14d, r14d
@@ -764,6 +770,9 @@ compositor_composite_output:
     mov rdi, [rbx + Compositor.renderer]
     mov rsi, rsp
     call sw_render_end_frame
+    mov rdi, [rbx + Compositor.server]  ; zoomed: round the pointer
+    mov rsi, r12
+    call magnify_output
 
     ; A backend with real display memory takes the damage now
     mov rdi, [r12 + Output.backend]
