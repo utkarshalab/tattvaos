@@ -49,6 +49,7 @@ extern rect_intersect
 extern region_add_rect
 extern scale_bilinear_rect
 extern sw_cursor_render
+extern surface_logical_size
 extern region_clear
 extern region_is_empty
 extern surface_fire_frame_callbacks
@@ -216,10 +217,11 @@ compositor_damage_surface:
     mov [rsp], ecx
     mov ecx, [r12 + Surface.current + SurfaceState.buf_y]
     mov [rsp + 4], ecx
-    mov rcx, [rax + Buffer.width]
-    mov [rsp + 8], ecx
-    mov rcx, [rax + Buffer.height]
-    mov [rsp + 12], ecx
+    mov rdi, r12                        ; its size on the screen
+    mov rsi, rax
+    call surface_logical_size
+    mov [rsp + 8], eax
+    mov [rsp + 12], edx
     mov rdi, rbx
     mov rsi, rsp
     call compositor_damage_rect
@@ -633,14 +635,17 @@ compositor_collect_damage:
     mov rax, r14
     shl rax, 4
     add rax, [r13 + Region.rects]
-    mov ecx, [rax]
-    add ecx, [r12 + Surface.current + SurfaceState.buf_x]
-    mov [rsp], ecx
-    mov ecx, [rax + 4]
-    add ecx, [r12 + Surface.current + SurfaceState.buf_y]
-    mov [rsp + 4], ecx
-    mov rcx, [rax + 8]                  ; width, height
+    mov rcx, [rax]                      ; in the buffer's pixels
+    mov [rsp], rcx
+    mov rcx, [rax + 8]
     mov [rsp + 8], rcx
+    mov rdi, rsp                        ; in the surface's, on the screen
+    mov esi, [r12 + Surface.buffer_scale]
+    call rect_to_surface
+    mov ecx, [r12 + Surface.current + SurfaceState.buf_x]
+    add [rsp], ecx
+    mov ecx, [r12 + Surface.current + SurfaceState.buf_y]
+    add [rsp + 4], ecx
     mov rdi, rbx
     mov rsi, rsp
     call compositor_damage_rect
@@ -807,6 +812,35 @@ compositor_composite_output:
 .out:
     add rsp, FrameCtx_size + 64 + 8
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+
+; rdi = a rect in a buffer's pixels, esi = the buffer's scale in 120ths (0
+; or 120: as it is): in the surface's units, rounded outwards
+rect_to_surface:
+    test esi, esi
+    jz .same
+    cmp esi, 120
+    je .same
+%macro TO_SURFACE 2                     ; the start's slot, the size's
+    mov eax, [rdi + %1]                 ; the end, rounded up
+    add eax, [rdi + %2]
+    imul eax, eax, 120
+    add eax, esi
+    dec eax
+    xor edx, edx
+    div esi
+    mov r9d, eax
+    mov eax, [rdi + %1]                 ; the start, rounded down
+    imul eax, eax, 120
+    xor edx, edx
+    div esi
+    mov [rdi + %1], eax
+    sub r9d, eax
+    mov [rdi + %2], r9d
+%endmacro
+    TO_SURFACE 0, 8
+    TO_SURFACE 4, 12
+.same:
     ret
 
 ; Every output mirroring one just drawn: each damaged rectangle, mapped
@@ -978,6 +1012,12 @@ topmost_cover:
     test rax, rax
     jz .skip
     mov r15, rax                        ; the buffer
+    mov ecx, [r12 + Surface.buffer_scale]   ; scaled: it may not cover
+    test ecx, ecx                           ; every pixel it is over
+    jz .unscaled
+    cmp ecx, 120
+    jne .skip
+.unscaled:
     ; the rectangle in the surface's coordinates, inside the buffer
     mov eax, [r13]
     sub eax, [r12 + Surface.current + SurfaceState.buf_x]
