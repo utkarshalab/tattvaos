@@ -25,6 +25,7 @@
 %include "lib/usb/core/enum.asm"
 
 ; class drivers
+%include "lib/usb/class/hub/hub.asm"
 %include "lib/usb/class/hid/hid.asm"
 
 %endif ; LIB_USB_USB_ASM
