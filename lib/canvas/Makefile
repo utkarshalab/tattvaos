@@ -273,6 +273,7 @@ RENDER_SRCS := \
     $(SRCDIR)/render/compositor.asm \
     $(SRCDIR)/render/damage_ring.asm \
     $(SRCDIR)/render/sw_scale.asm \
+    $(SRCDIR)/render/sw_cursor.asm \
     $(SRCDIR)/render/sw_transform.asm \
     $(SRCDIR)/render/gpu_render.asm \
     $(SRCDIR)/render/gpu_blit.asm \
