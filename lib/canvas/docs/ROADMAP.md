@@ -185,7 +185,7 @@
 | PRO-13 | Client capability fingerprinting for compatibility shims | P4 | |
 | PRO-14 | Protocol compression for remote channels | P4 | |
 | PRO-15 | Viewport: crop and scale a buffer to a destination size | P2 | |
-| PRO-16 | Fractional-scale protocol for clients | P2 | ◐ decision 0012 accepted; `cw_output` (`output/output_watch`): list gives each output's id, place, size and scale in 120ths, then done, and the client hears of outputs added, rescaled, mirrored and removed; `test_window`. No `cw_surface.set_buffer_scale` yet; the layout is still in pixels |
+| PRO-16 | Fractional-scale protocol for clients | P2 | ◐ decision 0012 accepted; `cw_output` (`output/output_watch`): list gives each output's id, place, size and scale in 120ths, then done, and the client hears of outputs added, rescaled, mirrored and removed; `cw_surface.set_buffer_scale` (120ths) shows a buffer at its surface's size, scaled (bilinear, blended) when drawn, and that size counts for placing, hit tests, title bars and damage; `test_window`. The layout is still in pixels |
 | PRO-17 | Content-type hints (video, game, photo) for scheduling and VRR | P3 | |
 | PRO-18 | Activation tokens and focus-request protocol | P2 | |
 | PRO-19 | Foreign-toplevel management: taskbars can list and control other windows (privileged) | P2 | ◐ `shell/window_list`: `cw_window_list` behind `CAP_WINDOWS`: every window with id, states, title and app id on subscribing, then each change, removal and keyboard move; activate, close, minimize, maximize by id; `test_window`. No icons yet |
