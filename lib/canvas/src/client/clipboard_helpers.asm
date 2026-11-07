@@ -1,126 +1,154 @@
 ; ============================================================================
-; Client Clipboard Helpers — set/get Clipboard + Selection
+; Client Clipboard Helpers — cw_clipboard requests
 ; ============================================================================
+; Every function takes rdi = conn and leaves it unchanged for the next call.
+; A selection is 0 (the clipboard) or 1 (the primary selection); a type is a
+; NUL-terminated name of fewer than 32 bytes. What comes back arrives as
+; events (CANVAS_EV_CLIPBOARD_*): offered when the client gets the keyboard
+; or the offer changes, send when a paste wants this client's data, data
+; and cancelled for a paste of its own. Only the client with the keyboard
+; may offer or paste.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
-extern memcopy
+extern canvas_call
+extern canvas_send
+
+%define TYPE_LEN    32
+%define TYPES       4
+%define CHUNK       120
 
 section .text
 
-%define CLIENT_CLIP_LEN       88
-%define CLIENT_CLIP_MIME_LEN  96
-%define CLIENT_CLIP_MIME      8192
-%define CLIENT_CLIP_DATA      8448
-%define CLIENT_CLIP_MAX       16384
-%define CLIENT_SEL_LEN        24832
-%define CLIENT_SEL_MIME_LEN   24840
-%define CLIENT_SEL_MIME       24848
-%define CLIENT_SEL_DATA       25104
-
-global canvas_clipboard_set
-canvas_clipboard_set:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    mov r12, rcx
-    mov r13, r8
-    ASSERT_PTR rbx
-    test rsi, rsi
-    jz .set_invalid
-    test rcx, rcx
-    jz .set_invalid
-    cmp rdx, 255
-    ja .set_invalid
-    cmp r8, CLIENT_CLIP_MAX
-    ja .set_large
-    mov [rbx + CLIENT_CLIP_MIME_LEN], rdx
-    mov [rbx + CLIENT_CLIP_LEN], r13
-    lea rdi, [rbx + CLIENT_CLIP_MIME]
-    call memcopy
-    lea rdi, [rbx + CLIENT_CLIP_DATA]
-    mov rsi, r12
-    mov rdx, r13
-    call memcopy
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-.set_invalid:
+; ---------------------------------------------------------------------------
+; canvas_clipboard_offer
+;   This client has the selection's data in these types, and owns it
+;   IN:  rdi = conn, esi = selection, edx = how many types (up to 4),
+;        rcx = the types, 32 bytes each
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_clipboard_offer
+canvas_clipboard_offer:
+    sub rsp, 8 + TYPES * TYPE_LEN + 16  ; the request; 16-byte aligned
     mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-.set_large:
-    mov rax, -(E2BIG)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-global canvas_clipboard_get
-canvas_clipboard_get:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-    mov rdx, [rbx + CLIENT_CLIP_LEN]
-    test rdx, rdx
-    jz .get_none
-    lea rax, [rbx + CLIENT_CLIP_DATA]
-    EPILOGUE_RESTORE rbx
-    ret
-.get_none:
+    cmp edx, TYPES
+    ja .out
+    push rdi
+    mov [rsp + 8], esi
+    mov [rsp + 12], edx
+    lea rdi, [rsp + 16]                 ; the types, then nothing after them
+    mov rsi, rcx
+    mov ecx, edx
+    shl ecx, 5
+    rep movsb
+    mov ecx, TYPES
+    sub ecx, edx
+    shl ecx, 5
     xor eax, eax
-    EPILOGUE_RESTORE rbx
+    rep stosb
+    pop rdi
+    mov esi, CWP_OBJ_CLIPBOARD
+    mov edx, CLIPBOARD_OFFER
+    mov rcx, rsp
+    mov r8d, 8 + TYPES * TYPE_LEN
+    call canvas_send
+.out:
+    add rsp, 8 + TYPES * TYPE_LEN + 16
     ret
 
-global canvas_clipboard_clear
-canvas_clipboard_clear:
-    PROLOGUE
-    mov qword [rdi + CLIENT_CLIP_LEN], 0
-    mov qword [rdi + CLIENT_CLIP_MIME_LEN], 0
-    xor rax, rax
-    leave
-    ret
-
-global canvas_selection_set
-canvas_selection_set:
-    PROLOGUE_SAVE rbx, r12, r13
+; ---------------------------------------------------------------------------
+; canvas_clipboard_receive
+;   A paste: the selection's data in one of the types offered, to come as
+;   data events with the serial this returns
+;   IN:  rdi = conn, esi = selection, rdx = the type (NUL-terminated)
+;   OUT: rax = the paste's serial, negative error
+; ---------------------------------------------------------------------------
+global canvas_clipboard_receive
+canvas_clipboard_receive:
+    push rbx
+    sub rsp, 48                         ; the request; 16-byte aligned
     mov rbx, rdi
-    mov r12, rcx
-    mov r13, r8
-    cmp rdx, 255
-    ja .selection_bad
-    cmp r8, CLIENT_CLIP_MAX
-    ja .selection_bad
-    mov [rbx + CLIENT_SEL_MIME_LEN], rdx
-    mov [rbx + CLIENT_SEL_LEN], r13
-    lea rdi, [rbx + CLIENT_SEL_MIME]
-    call memcopy
-    lea rdi, [rbx + CLIENT_SEL_DATA]
-    mov rsi, r12
-    mov rdx, r13
-    call memcopy
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-.selection_bad:
-    mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12, r13
+    mov [rsp], esi
+    lea rdi, [rsp + 4]
+    xor eax, eax
+    mov ecx, TYPE_LEN
+    rep stosb
+    xor ecx, ecx                        ; the type, up to its NUL
+.copy:
+    mov al, [rdx + rcx]
+    test al, al
+    jz .copied
+    mov [rsp + 4 + rcx], al
+    inc ecx
+    cmp ecx, TYPE_LEN - 1
+    jb .copy
+.copied:
+    mov rdi, rbx
+    mov esi, CWP_OBJ_CLIPBOARD
+    mov edx, CLIPBOARD_RECEIVE
+    mov rcx, rsp
+    mov r8d, 4 + TYPE_LEN
+    call canvas_call
+    test rax, rax
+    js .out
+    mov eax, [rbx + CLIENT_WIRE + ClientWire.reply]
+.out:
+    add rsp, 48
+    pop rbx
     ret
 
-global canvas_selection_get
-canvas_selection_get:
-    PROLOGUE
-    mov rdx, [rdi + CLIENT_SEL_LEN]
-    test rdx, rdx
-    jz .selection_none
-    lea rax, [rdi + CLIENT_SEL_DATA]
-    leave
-    ret
-.selection_none:
+; ---------------------------------------------------------------------------
+; canvas_clipboard_send
+;   This client's data for a paste it was asked for (a send event), in as
+;   many data requests as it takes, the last done
+;   IN:  rdi = conn, esi = the paste's serial, rdx = data, rcx = its length
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_clipboard_send
+canvas_clipboard_send:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    sub rsp, 12 + CHUNK + 12            ; a request; 16-byte aligned
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13, rdx
+    mov r14, rcx
+.chunk:
+    mov [rsp], r12d
+    mov ecx, r14d
     xor eax, eax
-    leave
-    ret
+    cmp r14, CHUNK
+    jbe .last
+    mov ecx, CHUNK
+    jmp .sized
+.last:
+    mov eax, 1
+.sized:
+    mov [rsp + 4], eax
+    mov [rsp + 8], ecx
+    sub r14, rcx
+    lea rdi, [rsp + 12]
+    mov rsi, r13
+    add r13, rcx
+    mov r8d, ecx
+    rep movsb
+    mov rdi, rbx
+    mov esi, CWP_OBJ_CLIPBOARD
+    mov edx, CLIPBOARD_DATA
+    mov rcx, rsp
+    add r8d, 12
+    call canvas_send
+    test rax, rax
+    js .out
+    cmp dword [rsp + 4], 0
+    je .chunk
+    xor eax, eax
+.out:
+    add rsp, 12 + CHUNK + 12
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 section .data
 global canvas_clipboard_helpers_version
-canvas_clipboard_helpers_version: dq 0x010000
+canvas_clipboard_helpers_version: dq 0x020000
