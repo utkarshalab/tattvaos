@@ -46,6 +46,7 @@ extern client_accept
 extern client_disconnect
 extern clipboard_set
 extern input_set_sticky
+extern server_remove_output
 extern compositor_output_at
 extern compositor_damage_all
 
@@ -154,6 +155,7 @@ test_window_suite:
     CASE tw_clipboard, CAP_SHELL | CAP_CLIPBOARD
     CASE tw_dnd, CAP_SHELL | CAP_CLIPBOARD | CAP_DATA
     CASE tw_sticky, CAP_SHELL
+    CASE tw_outputs, CAP_SHELL | CAP_OUTPUT
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2672,6 +2674,83 @@ tw_sticky:
     TYPES 34, 'G'
     PASS
 
+; the next output event says id %1 (a variable), x %2, scale %3
+%macro OUTPUT_IS 3
+    FIND CWP_OBJ_OUTPUT, OUTPUT_EV_OUTPUT
+    mov eax, [rel %1]
+    cmp [rel ans], eax
+    jne .fail
+    cmp dword [rel ans + 4], %2
+    jne .fail
+    cmp dword [rel ans + 20], %3
+    jne .fail
+%endmacro
+; the next removed event says id %1
+%macro REMOVED_IS 1
+    FIND CWP_OBJ_OUTPUT, OUTPUT_EV_REMOVED
+    mov eax, [rel %1]
+    cmp [rel ans], eax
+    jne .fail
+%endmacro
+
+; cw_output: list gives the first output (0, 0, 64x48, scale 120), then
+; done; then a client hears of one added (at 64, its own id), of its scale
+; at 3/2 (180), of it made a mirror (removed) and back (again), and of it
+; taken away (removed)
+tw_outputs:
+    sub rsp, 8
+    SEND CWP_OBJ_OUTPUT, OUTPUT_LIST, 0
+    call poll
+    FIND CWP_OBJ_OUTPUT, OUTPUT_EV_OUTPUT
+    mov eax, [rel ans]
+    test eax, eax
+    jz .fail
+    mov [rel output_id_a], eax
+    cmp dword [rel ans + 4], 0
+    jne .fail
+    cmp dword [rel ans + 12], 64
+    jne .fail
+    cmp dword [rel ans + 16], 48
+    jne .fail
+    cmp dword [rel ans + 20], 120
+    jne .fail
+    FIND CWP_OBJ_OUTPUT, OUTPUT_EV_DONE
+
+    lea rdi, [rel server]               ; one added
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    FIND CWP_OBJ_OUTPUT, OUTPUT_EV_OUTPUT
+    mov eax, [rel ans]
+    cmp eax, [rel output_id_a]
+    je .fail                            ; an id of its own
+    mov [rel output_id_b], eax
+    cmp dword [rel ans + 4], 64
+    jne .fail
+    mov rdi, [rel output_b]             ; its scale
+    mov esi, 3
+    mov edx, 2
+    call scale_fractional_compute
+    OUTPUT_IS output_id_b, 64, 180
+    lea rdi, [rel server]               ; a mirror: removed
+    mov rsi, [rel output_b]
+    mov rdx, [rel server + Server.outputs]
+    call server_mirror_output
+    REMOVED_IS output_id_b
+    lea rdi, [rel server]               ; back
+    mov rsi, [rel output_b]
+    xor edx, edx
+    call server_mirror_output
+    OUTPUT_IS output_id_b, 64, 180
+    lea rdi, [rel server]               ; taken away
+    mov rsi, [rel output_b]
+    call server_remove_output
+    REMOVED_IS output_id_b
+    PASS
+
 ; -> eax = how many outputs the server has
 output_count:
     xor eax, eax
@@ -2879,6 +2958,8 @@ pair_b:         resb ChannelPair_size   ; a second client, when a case wants one
 cur_pair:       resq 1                  ; the one the helpers talk through
 client_a:       resq 1                  ; pair's client id
 clip_serial:    resd 1
+output_id_a:    resd 1
+output_id_b:    resd 1
 hdr:            resb MsgHdr_size
 surface_a:      resd 1
 surface_b:      resd 1
