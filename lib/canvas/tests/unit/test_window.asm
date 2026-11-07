@@ -146,6 +146,7 @@ test_window_suite:
     CASE tw_scale_bilinear, CAP_SHELL
     CASE tw_displays, CAP_SHELL
     CASE tw_scale_fractional, CAP_SHELL
+    CASE tw_cursor, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2231,6 +2232,45 @@ tw_scale_fractional:
     OUT_PIXEL 0, 0, 0xFF000011
     OUT_PIXEL 63, 47, 0xFF000044
     OUT_PIXEL 32, 0, 0xFF000019         ; between the top two, 132/256 on
+    PASS
+
+; The software cursor, on: its tip and fill at the pointer; moved, it is
+; gone from where it was and drawn where it is; over the edge of a second
+; output, part on each
+%macro SEES 3                           ; x, y on the first output, pixel
+    mov edi, %1
+    mov esi, %2
+    call screen_pixel
+    cmp eax, %3
+    jne .fail
+%endmacro
+tw_cursor:
+    sub rsp, 8
+    mov rax, [rel server + Server.compositor]
+    mov qword [rax + Compositor.cursor_on], 1
+    POINTER 20, 20
+    call poll
+    SEES 20, 20, 0xFF000000             ; the tip
+    SEES 21, 22, 0xFFFFFFFF             ; the fill
+    POINTER 40, 30
+    call poll
+    SEES 21, 22, 0xFF202030             ; the background again
+    SEES 41, 32, 0xFFFFFFFF
+    lea rdi, [rel server]               ; over the edge at 64
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    POINTER 60, 10
+    call poll
+    SEES 60, 20, 0xFF000000             ; its tenth row: the outline here,
+    mov edi, 65 - 64                    ; the fill on the second
+    mov esi, 20
+    call second_pixel
+    cmp eax, 0xFFFFFFFF
+    jne .fail
     PASS
 
 ; -> eax = how many outputs the server has
