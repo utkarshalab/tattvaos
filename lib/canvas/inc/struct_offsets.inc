@@ -633,6 +633,8 @@ endstruc
     %error "ClipboardState: its sizes must follow ClipOffer, ClipTransfer, CLIP_*"
 %endif
 
+%define COMPOSITOR_BG       0xFF202030  ; the background, opaque BGRA
+%define HC_BACKGROUND       0xFF000000  ; in high contrast
 struc Compositor
     .server:                  resq 1
     .renderer:                resq 1
@@ -1557,6 +1559,9 @@ struc Server
     .window_lists:            resq 8    ; WINDOW_LIST_MAX subscribed Client*s
     .output_watchers:         resq 8    ; OUTPUT_WATCHERS Client*s told of outputs
     .output_seq:              resq 1    ; the last Output.id given
+    .magnify:                 resq 1    ; the magnifier's zoom, 0: off (A11Y-06)
+    .high_contrast:           resq 1    ; 1: what the server draws, in black,
+                                        ; white and yellow (A11Y-07)
     .workspace:               resq 1    ; the one shown, 0 to WORKSPACES - 1
 endstruc
 
