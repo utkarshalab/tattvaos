@@ -42,6 +42,9 @@ extern scale_fractional_calculate_dest
 extern scale_fractional_render
 extern displays_step
 extern displays_event
+extern client_accept
+extern client_disconnect
+extern clipboard_set
 extern compositor_output_at
 extern compositor_damage_all
 
@@ -147,6 +150,7 @@ test_window_suite:
     CASE tw_scale_fractional, CAP_SHELL
     CASE tw_cursor, CAP_SHELL
     CASE tw_cursor_shapes, CAP_SHELL
+    CASE tw_clipboard, CAP_SHELL | CAP_CLIPBOARD
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -232,6 +236,9 @@ fresh:
     lea rsi, [rel pair]
     mov edx, ebx
     call client_accept_trusted          ; it gets only what it asks for
+    mov [rel client_a], rax
+    lea rax, [rel pair]                 ; the one the helpers talk through
+    mov [rel cur_pair], rax
     call drain
     pop rbx
     ret
@@ -287,7 +294,8 @@ surface_of:
 
 send:
     sub rsp, 8
-    mov rdi, [rel pair + ChannelPair.client_to_server]
+    mov rdi, [rel cur_pair]             ; the client talking
+    mov rdi, [rdi + ChannelPair.client_to_server]
     lea rsi, [rel hdr]
     lea rdx, [rel req]
     call msgbuf_write
@@ -304,7 +312,8 @@ poll:
 ; the next message for the client into hdr / ans -> rax = payload length
 next_event:
     sub rsp, 8
-    mov rdi, [rel pair + ChannelPair.server_to_client]
+    mov rdi, [rel cur_pair]
+    mov rdi, [rdi + ChannelPair.server_to_client]
     lea rsi, [rel hdr]
     lea rdx, [rel ans]
     mov ecx, 256
@@ -2325,6 +2334,160 @@ tw_cursor_shapes:
     jne .fail
     PASS
 
+; The helpers talk as client A (pair) or B (pair_b)
+%macro AS 1
+    lea rax, [rel %1]
+    mov [rel cur_pair], rax
+%endmacro
+
+; B pastes the clipboard's text/plain, a turn
+%macro PASTE 0
+    mov dword [rel req], 0
+    lea rdi, [rel req + 4]
+    lea rsi, [rel clip_type]
+    mov ecx, CLIP_TYPE_LEN
+    rep movsb
+    SEND CWP_OBJ_CLIPBOARD, CLIPBOARD_RECEIVE, 4 + CLIP_TYPE_LEN
+    call poll
+%endmacro
+
+; data(serial in clip_serial, %1 done, %2 = a 4-byte string, its length %3)
+%macro ANSWER 3
+    mov eax, [rel clip_serial]
+    mov [rel req], eax
+    mov dword [rel req + 4], %1
+    mov dword [rel req + 8], %3
+    mov dword [rel req + 12], %2
+    SEND CWP_OBJ_CLIPBOARD, CLIPBOARD_DATA, 12 + %3
+    call poll
+%endmacro
+
+; A copies, B (standard, in the background) cannot paste; B's window takes
+; the keyboard and B hears what is offered; B pastes, A is asked and answers
+; in two pieces, passed on; A goes during another paste: cancelled, nothing
+; offered; the server's own text is pasted at once
+tw_clipboard:
+    sub rsp, 8
+    POINTER 2, 2                        ; A: a window with the keyboard
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    mov dword [rel req], 0              ; A offers text/plain
+    mov dword [rel req + 4], 1
+    lea rdi, [rel req + 8]
+    xor eax, eax
+    mov ecx, CLIP_TYPES * CLIP_TYPE_LEN
+    rep stosb
+    lea rdi, [rel req + 8]
+    lea rsi, [rel clip_type]
+    mov ecx, CLIP_TYPE_LEN
+    rep movsb
+    SEND CWP_OBJ_CLIPBOARD, CLIPBOARD_OFFER, 8 + CLIP_TYPES * CLIP_TYPE_LEN
+    call poll
+    call drain
+
+    lea rdi, [rel server]               ; B, a standard client
+    lea rsi, [rel pair_b]
+    mov edx, CAP_SHELL | CAP_POINTER | CAP_KEYBOARD | CAP_CLIPBOARD
+    call client_accept
+    test rax, rax
+    js .fail
+    AS pair_b
+    call drain
+    PASTE                               ; without the keyboard: refused
+    AS pair
+    mov edi, CWP_OBJ_CLIPBOARD
+    mov esi, CLIPBOARD_EV_SEND
+    call find_event
+    test eax, eax
+    jnz .fail                           ; A was asked nothing
+
+    AS pair_b                           ; B's window: the keyboard, the offer
+    POINTER 40, 2
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_OFFERED
+    cmp dword [rel ans + 4], 1
+    jne .fail
+    cmp dword [rel ans + 8], 'text'
+    jne .fail
+    PASTE                               ; B pastes: A is asked
+    call next_reply
+    mov eax, [rel ans]
+    test eax, eax
+    jz .fail
+    mov [rel clip_serial], eax
+    AS pair
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_SEND
+    mov eax, [rel clip_serial]
+    cmp [rel ans], eax
+    jne .fail
+    ANSWER 0, 'hell', 4                 ; in two pieces
+    ANSWER 1, 'o wo', 4
+    AS pair_b
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_DATA
+    mov eax, [rel clip_serial]
+    cmp [rel ans], eax
+    jne .fail
+    cmp dword [rel ans + 4], 0
+    jne .fail
+    cmp dword [rel ans + 12], 'hell'
+    jne .fail
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_DATA
+    cmp dword [rel ans + 4], 1          ; done
+    jne .fail
+    cmp dword [rel ans + 8], 4
+    jne .fail
+    cmp dword [rel ans + 12], 'o wo'
+    jne .fail
+
+    PASTE                               ; again; A goes before answering
+    call next_reply
+    mov eax, [rel ans]
+    mov [rel clip_serial], eax
+    lea rdi, [rel server]
+    mov rsi, [rel client_a]
+    call client_disconnect
+    call poll
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_OFFERED
+    cmp dword [rel ans + 4], 0          ; nothing offered now
+    jne .fail
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_CANCELLED
+    mov eax, [rel clip_serial]
+    cmp [rel ans], eax
+    jne .fail
+
+    lea rdi, [rel server]               ; the server's own text
+    xor esi, esi
+    lea rdx, [rel clip_type]
+    mov ecx, 10
+    lea r8, [rel clip_remote]
+    mov r9d, 6
+    call clipboard_set
+    test rax, rax
+    jnz .fail
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_OFFERED
+    cmp dword [rel ans + 4], 1
+    jne .fail
+    PASTE
+    call next_reply
+    mov eax, [rel ans]
+    mov [rel clip_serial], eax
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_DATA
+    mov eax, [rel clip_serial]
+    cmp [rel ans], eax
+    jne .fail
+    cmp dword [rel ans + 4], 1
+    jne .fail
+    cmp dword [rel ans + 8], 6
+    jne .fail
+    cmp dword [rel ans + 12], 'remo'
+    jne .fail
+    PASS
+
 ; -> eax = how many outputs the server has
 output_count:
     xor eax, eax
@@ -2509,6 +2672,9 @@ section .data
 align 8
 scale_src:      dd 1, 2, 3, 4           ; 2 x 2
 blend_src:      dd 0xFF000000, 0xFFFFFFFF   ; 2 x 1
+clip_type:      db "text/plain"
+                times CLIP_TYPE_LEN - 10 db 0
+clip_remote:    db "remote"
 corner_src:     dd 0xFF000000, 0xFF000000   ; 2 x 2, the bottom left white
                 dd 0xFFFFFFFF, 0xFF000000
 
@@ -2525,6 +2691,10 @@ scaled_size:    resd 2
 scale_job:      resb UgfxScale_SIZE
 arena:          resb Arena_size
 pair:           resb ChannelPair_size
+pair_b:         resb ChannelPair_size   ; a second client, when a case wants one
+cur_pair:       resq 1                  ; the one the helpers talk through
+client_a:       resq 1                  ; pair's client id
+clip_serial:    resd 1
 hdr:            resb MsgHdr_size
 surface_a:      resd 1
 surface_b:      resd 1
