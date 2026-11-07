@@ -598,19 +598,36 @@ struc ClientStats
     .proto_errors:            resq 1
 endstruc
 
-struc Clipboard
-    .seat:                    resq 1
-    .data:                    resq 1
-    .data_len:                resq 1
-    .mime_type:               resq 1
-    .mime_type_len:           resq 1
-    .source_client:           resq 1
-    .serial:                  resq 1
-    .selection_type:          resq 1
-    .offered_mimes:           resq 1
-    .offered_count:           resd 1
+; The clipboard and the primary selection (src/data/clipboard.asm), at
+; Server.clipboard: what each offers, and the pastes under way
+%define CLIP_SELECTIONS     2
+%define CLIP_TYPES          4
+%define CLIP_TYPE_LEN       32
+%define CLIP_TRANSFERS      8
+%define CLIP_CHUNK          120         ; bytes in one data request or event
+%define CLIP_MAX            16384       ; bytes in one paste, and held
+struc ClipOffer
+    .owner:                   resq 1    ; Client*, 0: none, or the server's own
+    .count:                   resd 1    ; types offered, 0: nothing
+    .held_len:                resd 1    ; the server's own data's length
+    .held:                    resq 1    ; the server's own data, CLIP_MAX
+    .types:                   resb 128  ; CLIP_TYPES x CLIP_TYPE_LEN
+endstruc
+struc ClipTransfer
+    .serial:                  resd 1    ; 0: a free slot
+    .sent:                    resd 1    ; bytes so far
+    .receiver:                resq 1    ; Client* pasting
+    .owner:                   resq 1    ; Client* asked for the data
+endstruc
+struc ClipboardState
+    .offers:                  resb 304  ; CLIP_SELECTIONS ClipOffer
+    .transfers:               resb 192  ; CLIP_TRANSFERS ClipTransfer
+    .next_serial:             resd 1
     resb 4
 endstruc
+%if ClipOffer_size * CLIP_SELECTIONS != 304 || ClipTransfer_size * CLIP_TRANSFERS != 192 || CLIP_TYPES * CLIP_TYPE_LEN != 128
+    %error "ClipboardState: its sizes must follow ClipOffer, ClipTransfer, CLIP_*"
+%endif
 
 struc Compositor
     .server:                  resq 1
@@ -1421,8 +1438,8 @@ endstruc
 struc Server
     .arena:                   resq 1
     .backend:                 resq 1
-    .clipboard:               resq 1
-    .primary_selection:       resq 1
+    .clipboard:               resq 1    ; ClipboardState (data/clipboard)
+    .primary_selection:       resq 1    ; unused: a selection is an index
     .dnd:                     resq 1
     .seat:                    resq 1
     .outputs:                 resq 1
