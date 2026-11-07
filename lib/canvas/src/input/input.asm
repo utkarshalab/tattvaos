@@ -57,6 +57,7 @@ extern compositor_raise_surface
 extern compositor_layout_bounds
 extern sw_cursor_moved
 extern sw_cursor_hide
+extern clipboard_focus_changed
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -1263,6 +1264,9 @@ set_keyboard_focus:
     mov rdi, rbx                        ; and where the modifiers stand
     mov rsi, r12
     call send_modifiers
+    mov rdi, [rbx + InputSeat.server]   ; and what it could paste
+    mov rsi, [r12 + Surface.client]
+    call clipboard_focus_changed
 .out:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
