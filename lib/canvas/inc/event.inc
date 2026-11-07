@@ -80,8 +80,8 @@ endstruc
                                 ; value = 1 down, 0 up
 %define INPUT_AXIS          5   ; code = 0 vertical, 1 horizontal; value =
                                 ; signed steps, positive down or right
-; Agreed with lib/input (KERNEL_NEEDS.md step 3 has the bits); dropped until
-; touch (TCH-01) and pen (TCH-10) routing reads them
+; Agreed with lib/input (KERNEL_NEEDS.md step 3 has the bits); input routes
+; touch and pen, and drops switch and device records for now
 %define INPUT_TOUCH         6   ; a contact: slot, phase, confidence,
                                 ; pressure, size; value = x | y << 16
 %define INPUT_PEN           7   ; in range, tip, buttons, tool; x | y << 16
