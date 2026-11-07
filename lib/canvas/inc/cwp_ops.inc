@@ -99,6 +99,14 @@
 %define POINTER_EV_BUTTON 3
 %define POINTER_EV_AXIS   4
 
+; cw_dnd (canvas-input.cwp)
+%define DND_START       0
+%define DND_EV_ENTER    0
+%define DND_EV_MOTION   1
+%define DND_EV_LEAVE    2
+%define DND_EV_DROP     3
+%define DND_EV_FINISHED 4
+
 ; cw_keyboard (canvas-input.cwp)
 %define KEYBOARD_EV_ENTER     0
 %define KEYBOARD_EV_LEAVE     1
