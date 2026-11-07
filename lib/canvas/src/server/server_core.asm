@@ -90,6 +90,9 @@ extern clipboard_offer
 extern clipboard_receive
 extern clipboard_send_held
 extern dnd_start
+extern dnd_accept
+extern dnd_set_actions
+extern dnd_set_icon
 extern output_announce
 extern output_list
 extern output_withdraw
@@ -1005,6 +1008,37 @@ HANDLER h_dnd_start, 8 + CLIP_TYPES * CLIP_TYPE_LEN
     mov rdx, rax
     mov rcx, r13
     call dnd_start
+HANDLER_END
+
+; cw_dnd.set_actions(actions), accept(action): the one dragging, the one
+; under the pointer
+HANDLER h_dnd_set_actions, 4
+    NEEDS_CAP CAP_DATA
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call dnd_set_actions
+HANDLER_END
+
+HANDLER h_dnd_accept, 4
+    NEEDS_CAP CAP_DATA
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13]
+    call dnd_accept
+HANDLER_END
+
+; set_icon(surface): one of the dragging client's own
+HANDLER h_dnd_set_icon, 4
+    NEEDS_CAP CAP_DATA
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rbx
+    mov rdx, rax
+    call dnd_set_icon
 HANDLER_END
 
 ; cw_pointer.set_shape(surface, shape): the pointer's shape over it, redrawn
