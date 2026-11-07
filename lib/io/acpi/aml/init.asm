@@ -36,7 +36,8 @@ global aml_init_errors
 aml_init_errors:    resd 1          ; _STA, _INI or _REG that failed
 aml_find_left:      resd 1          ; aml_find_device: matches still to skip
 alignb 8
-aml_find_id:        resq 1          ; aml_find_device: the ID
+aml_find_id:        resq 1          ; aml_find_device: the ID (0: by type)
+aml_find_kind:      resq 1          ; aml_find_type: the node type
 aml_reg_space:      resq 1          ; aml_run_reg: the space
 aml_reg_done:       resq 1          ; aml_run_reg: devices already called
 aml_reg_count:      resd 1
@@ -475,6 +476,23 @@ aml_find_device:
     add rsp, 8
     ret
 
+; -----------------------------------------------------------------------------
+; aml_find_type — the Nth present node of a type that _STA applies to
+;                 (AML_T_THERMAL, AML_T_PROCESSOR): those have no _HID
+; Input:  EDI = type, ESI = N (0 for the first)
+; Output: RAX = node, or 0
+; -----------------------------------------------------------------------------
+global aml_find_type
+aml_find_type:
+    sub rsp, 8
+    mov qword [rel aml_find_id], 0
+    mov [rel aml_find_kind], rdi
+    mov [rel aml_find_left], esi
+    mov rdi, [rel aml_root]
+    call aml_find_walk
+    add rsp, 8
+    ret
+
 aml_find_walk:
     push rbx
     push r12
@@ -492,9 +510,17 @@ aml_find_walk:
     jz .skip_children                   ; absent: so are its children,
     mov rdi, rbx                        ; unless functional
     mov rsi, [rel aml_find_id]
+    test rsi, rsi
+    jz .by_type
     call aml_match_id
     test eax, eax
     jz .scope
+    jmp .match
+.by_type:
+    movzx eax, byte [rbx + aml_node.value + aml_value.type]
+    cmp rax, [rel aml_find_kind]
+    jne .scope
+.match:
     cmp dword [rel aml_find_left], 0
     je .found
     dec dword [rel aml_find_left]
