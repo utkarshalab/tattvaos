@@ -3,8 +3,8 @@
 **Part of:** Utkarsha OS, `lib/io/acpi` — ACPI tables, the AML interpreter,
 platform events and power
 **Status:** static tables (RSDP, XSDT, MADT, MCFG, FADT); AML interpreter
-core written and host-tested in `aml/` (2026-11-06), not yet wired into the
-kernel
+in `aml/`, host-tested, and wired into the kernel at boot (2026-11-07): it
+assembles into the kernel but has not yet run on QEMU or real hardware
 **Covers:** ACPI 1.0b to 6.6
 
 ACPI is how the firmware describes the machine to the OS. Fixed tables
@@ -312,8 +312,10 @@ Estimate: ~1 500 lines.
 
 ### Phase 1 — Interpreter core
 
-- ☐ FACS, DSDT and SSDT loading with checksums (the interpreter takes a
-  table pointer today)
+- ◐ DSDT and SSDT loading (`aml/kernel.asm`): RSDP, then XSDT or RSDT,
+  then FADT (X_DSDT, else DSDT); headers checked against reachable memory;
+  a bad checksum is reported and the table still used
+- ☐ FACS (global lock, waking vector)
 - ◐ Parser and namespace build: every named-object operator, search rules,
   parent prefixes, aliases, External placeholders replaced by later
   tables, method-local names removed when the method returns
@@ -330,8 +332,12 @@ Estimate: ~1 500 lines.
   past an error
 - ◐ Limits: call depth, While iterations, machine stack budget, heap; all
   fail cleanly
-- ☐ Memory, I/O and PCI config region handlers with the sandbox (the
-  interpreter calls one hook, `aml_region_fn`)
+- ◐ Region handlers with the sandbox (`aml/kernel.asm`): SystemMemory only
+  below the identity-mapped limit and never in usable RAM or the kernel
+  image; SystemIO except the PCI configuration ports; refusals counted and
+  the first one printed
+- ☐ PCI configuration space regions (need the device's bus, device and
+  function from `_ADR`, `_BBN`, `_SEG`)
 - ◐ `_STA`, `_INI`, `_REG` initialisation: absent devices' children skipped,
   functional ones walked, failures counted and skipped
 
