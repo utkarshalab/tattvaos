@@ -95,6 +95,43 @@ aml_eval_child:
     ret
 
 ; -----------------------------------------------------------------------------
+; aml_eval_child_of — aml_eval_child from outside the interpreter: fresh
+;                     temporary memory and a frame of its own
+; Input:  RDI = node, ESI = child name, RDX = destination value*
+; Output: EAX = 0; AML_NO_CHILD (positive) when there is no such child; or
+;         a negative error
+; -----------------------------------------------------------------------------
+global aml_eval_child_of
+aml_eval_child_of:
+    push rbx
+    push r12
+    push r13
+    push r15
+    sub rsp, 8
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13, rdx
+    AML_BEGIN
+    call aml_top_frame
+    test rax, rax
+    jz .oom
+    mov r15, rax
+    mov rdi, rbx
+    mov esi, r12d
+    mov rdx, r13
+    call aml_eval_child
+    jmp .out
+.oom:
+    mov eax, -AML_ENOMEM
+.out:
+    add rsp, 8
+    pop r15
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
 ; aml_is_device — whether a node is something _STA and _INI apply to
 ; Input:  RDI = node
 ; Output: ZF = 1 (je) for a device, processor or thermal zone
