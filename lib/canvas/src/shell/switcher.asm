@@ -32,6 +32,11 @@ extern window_activate
 %define TILE_COLOR      0xFF2C3248
 %define SELECTED_COLOR  0xFF3E4C78
 %define TITLE_COLOR     0xD0D4E0
+%define HC_BOX          0xFFFFFFFF      ; high contrast: a white box, black
+%define HC_TILE         0xFF000000      ; tiles with white titles, the one
+%define HC_SELECTED     0xFFFFFF00      ; selected yellow with a black one
+%define HC_TEXT         0xFFFFFF
+%define HC_TEXT_SELECTED 0x000000
 %define TITLE_SIZE      13
 
 section .text
@@ -232,6 +237,11 @@ switcher_render:
     jne .out                            ; another output's frame
     lea rdi, [rel box]
     mov esi, BOX_COLOR
+    mov rax, [rel server_p]
+    cmp qword [rax + Server.high_contrast], 0
+    je .box
+    mov esi, HC_BOX
+.box:
     call paint
     xor r13d, r13d
 .tile:
@@ -247,9 +257,20 @@ switcher_render:
     mov dword [rsp + 8], TILE_W
     mov dword [rsp + 12], TILE_H
     mov esi, TILE_COLOR
+    mov dword [rel text_colour], TITLE_COLOR
+    cmp r13d, [rel selected]
+    jne .contrast
+    mov esi, SELECTED_COLOR
+.contrast:
+    mov rax, [rel server_p]
+    cmp qword [rax + Server.high_contrast], 0
+    je .colour
+    mov dword [rel text_colour], HC_TEXT
+    mov esi, HC_TILE
     cmp r13d, [rel selected]
     jne .colour
-    mov esi, SELECTED_COLOR
+    mov esi, HC_SELECTED
+    mov dword [rel text_colour], HC_TEXT_SELECTED
 .colour:
     mov rdi, rsp
     call paint
@@ -372,7 +393,8 @@ title:
     mov eax, [r12 + 12]
     mov [rdx + UiText.clip_h], eax
     mov dword [rdx + UiText.size], TITLE_SIZE
-    mov dword [rdx + UiText.colour], TITLE_COLOR
+    mov eax, [rel text_colour]
+    mov [rdx + UiText.colour], eax
     mov rdi, rdx
     sub rsp, 8                          ; 16-byte aligned
     call ui_text_draw
@@ -389,3 +411,4 @@ box:            resd 4                  ; x, y, width, height
 active:         resd 1
 selected:       resd 1
 count:          resd 1
+text_colour:    resd 1                  ; a tile's title, picked with it
