@@ -49,6 +49,7 @@ The outside world comes in through hooks, all optional:
 | `api.asm` | `aml_init`, `aml_load`, `aml_find`, `aml_eval_path`, `\_OSI` |
 | `init.asm` | `_REG`, the `_STA`/`_INI` walk, device IDs and lookup |
 | `res.asm` | `_CRS` and resource descriptors, decoded into a 56-byte record |
+| `kernel.asm` | In the kernel: finds the DSDT and SSDTs, gives the interpreter 2 MB, the sandboxed region handler, Notify, Sleep and the clock; `acpi_kernel_init` runs at boot |
 
 ## Safety
 
@@ -63,10 +64,11 @@ cleanly. Names a method creates disappear when it returns.
 sh lib/io/acpi/aml/tests/run_tests.sh
 ```
 
-`aml_gen.py` builds test tables term by term. The three suites:
+`aml_gen.py` builds test tables term by term. The four suites:
 
 | Suite | Checks | Covers |
 |---|---|---|
 | `test_aml.py` | 119 | The interpreter, every truncation of a table, 3 000 mutated tables |
 | `test_init.py` | 30 | The start-up walk, device IDs, `_REG` |
 | `test_res.py` | 48 | Every resource descriptor, malformed ones, 5 000 random templates, `_CRS` |
+| `test_kernel.py` | 24 | `kernel.asm` with stubbed kernel symbols (`kstub.asm`): table discovery, start-up, the sandbox, firmware faults |
