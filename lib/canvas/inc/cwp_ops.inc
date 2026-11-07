@@ -107,6 +107,9 @@
 
 ; cw_dnd (canvas-input.cwp)
 %define DND_START       0
+%define DND_SET_ACTIONS 1
+%define DND_SET_ICON    2
+%define DND_ACCEPT      3
 %define DND_EV_ENTER    0
 %define DND_EV_MOTION   1
 %define DND_EV_LEAVE    2
