@@ -576,4 +576,22 @@ extern panic_null_ptr
 %define UgfxStop_color          8       ; u32 straight (not premultiplied) BGRA, 0xAARRGGBB
 %define UgfxStop_SIZE           16
 
+; A nearest-neighbour scale of part of an image (scale_nearest_rect): the
+; destination rectangle is filled from the whole source stretched over the
+; whole destination. 32-bit pixels; strides in bytes; sizes and the
+; rectangle in pixels, the rectangle kept inside the destination.
+%define UgfxScale_dst           0       ; u64 the destination's first pixel
+%define UgfxScale_dst_stride    8       ; u64
+%define UgfxScale_dst_w         16      ; u32
+%define UgfxScale_dst_h         20      ; u32
+%define UgfxScale_src           24      ; u64 the source's first pixel
+%define UgfxScale_src_stride    32      ; u64
+%define UgfxScale_src_w         40      ; u32
+%define UgfxScale_src_h         44      ; u32
+%define UgfxScale_x             48      ; i32 the rectangle, in the destination
+%define UgfxScale_y             52      ; i32
+%define UgfxScale_w             56      ; i32
+%define UgfxScale_h             60      ; i32
+%define UgfxScale_SIZE          64
+
 %endif ; __UGFX_INC__
