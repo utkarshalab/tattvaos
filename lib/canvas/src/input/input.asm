@@ -6,6 +6,10 @@
 ; them on the active seat. server_poll calls input_dispatch once a turn, which
 ; drains the queue:
 ;
+;   touch    (TCH-01) a finger goes to the surface it went down on, which a
+;            tap focuses; each scan ends with frame to the surfaces in it
+;   pen      (TCH-10) with the surface under it, the one it touched while its
+;            tip is down; proximity, motion, axes, tip and barrel buttons
 ;   sticky   (A11Y-04) a modifier tapped alone latches for the next key, twice
 ;            locks, a third time is off; five Shift taps turn them on or off
 ;   keys     go to the surface with keyboard focus, and one that is not a
@@ -53,6 +57,7 @@
 %include "inc/ut.inc"
 %include "inc/caps.inc"
 %include "inc/cwp.inc"
+%include "inc/cwp_ops.inc"
 %include "inc/channel.inc"
 %include "inc/event.inc"
 %include "inc/backend.inc"
@@ -294,7 +299,22 @@ input_dispatch:
     je .button
     cmp eax, INPUT_AXIS
     je .axis
+    cmp eax, INPUT_TOUCH
+    je .touch
+    cmp eax, INPUT_PEN
+    je .pen
+    cmp eax, INPUT_PEN_AXES
+    je .pen_axes
     jmp .handled                        ; an unknown type is dropped
+.touch:
+    call touch_event
+    jmp .handled
+.pen:
+    call pen_event
+    jmp .handled
+.pen_axes:
+    call pen_axes_event
+    jmp .handled
 .key:
     call key_event
     jmp .handled
@@ -537,8 +557,26 @@ input_forget_surface:
     mov qword [rax + InputSeat.keyboard_focus], 0
 .move:
     cmp [rax + InputSeat.moving], rsi
-    jne .done
+    jne .touch
     mov qword [rax + InputSeat.moving], 0
+.touch:
+    xor ecx, ecx                        ; no finger on it, no pen with it
+.contact:
+    imul edx, ecx, TouchContact_size
+    cmp [rax + InputSeat.touches + rdx + TouchContact.surface], rsi
+    jne .next_contact
+    mov qword [rax + InputSeat.touches + rdx + TouchContact.surface], 0
+.next_contact:
+    cmp [rax + InputSeat.scan + rcx * 8], rsi
+    jne .scanned
+    mov qword [rax + InputSeat.scan + rcx * 8], 0
+.scanned:
+    inc ecx
+    cmp ecx, TOUCH_SLOTS
+    jb .contact
+    cmp [rax + InputSeat.pen_surface], rsi
+    jne .done
+    mov qword [rax + InputSeat.pen_surface], 0
 .done:
     jmp dnd_forget_surface              ; and no drag holds it
 
@@ -737,6 +775,431 @@ key_repeat:
 .stop:
     mov dword [rbx + InputSeat.repeat_key], 0
     jmp .out
+
+; ---------------------------------------------------------------------------
+; Touch and pen (TCH-01, TCH-10): records 6, 7 and 8 (KERNEL_NEEDS.md step 3)
+; ---------------------------------------------------------------------------
+
+%define TOUCH_DOWN      (CWP_OBJ_TOUCH << 16 | TOUCH_EV_DOWN)
+%define TOUCH_MOTION    (CWP_OBJ_TOUCH << 16 | TOUCH_EV_MOTION)
+%define TOUCH_UP        (CWP_OBJ_TOUCH << 16 | TOUCH_EV_UP)
+%define TOUCH_CANCEL    (CWP_OBJ_TOUCH << 16 | TOUCH_EV_CANCEL)
+%define TOUCH_FRAME     (CWP_OBJ_TOUCH << 16 | TOUCH_EV_FRAME)
+%define PEN_IN          (CWP_OBJ_TABLET_TOOL << 16 | TABLET_TOOL_EV_PROXIMITY_IN)
+%define PEN_OUT         (CWP_OBJ_TABLET_TOOL << 16 | TABLET_TOOL_EV_PROXIMITY_OUT)
+%define PEN_MOTION      (CWP_OBJ_TABLET_TOOL << 16 | TABLET_TOOL_EV_MOTION)
+%define PEN_AXES        (CWP_OBJ_TABLET_TOOL << 16 | TABLET_TOOL_EV_AXES)
+%define PEN_TIP         (CWP_OBJ_TABLET_TOOL << 16 | TABLET_TOOL_EV_TIP)
+%define PEN_BUTTON      (CWP_OBJ_TABLET_TOOL << 16 | TABLET_TOOL_EV_BUTTON)
+%define PHASE_DOWN      0
+%define PHASE_MOVE      1
+%define PHASE_UP        2
+%define PHASE_FRAME     3
+%define PHASE_CANCEL    4
+%define PEN_IN_RANGE    1
+%define PEN_TIP_DOWN    2
+%define PEN_BUTTON_1    8
+%define PEN_BUTTON_2    16
+
+; rdi = seat, esi = device, edx = value (x | y << 16, device units) ->
+; eax = x, edx = y in the layout: on the first output, scaled by the
+; device's range when ut_input_device_info gives it, else taken as pixels
+device_point:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    movzx r12d, dx                      ; x
+    shr edx, 16
+    mov r13d, edx                       ; y
+    mov edi, esi
+    call ut_input_device_info
+    mov rcx, [rbx + InputSeat.server]
+    mov rcx, [rcx + Server.outputs]
+    test rcx, rcx
+    jz .raw
+    test rax, rax
+    jle .on_output                      ; no range: pixels
+    mov r8d, [rax + 40]                 ; InputDevInfo.max_x, max_y
+    mov r9d, [rax + 44]
+    test r8d, r8d
+    jz .on_output
+    test r9d, r9d
+    jz .on_output
+    mov eax, r12d                       ; x * width / (max_x + 1)
+    mul dword [rcx + Output.width]
+    inc r8d
+    div r8d
+    mov r12d, eax
+    mov eax, r13d
+    mul dword [rcx + Output.height]
+    inc r9d
+    div r9d
+    mov r13d, eax
+.on_output:
+    add r12d, [rcx + Output.x]
+    add r13d, [rcx + Output.y]
+.raw:
+    mov eax, r12d
+    mov edx, r13d
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; rdi = seat, esi = x, edx = y in the layout -> rax = the topmost surface
+; there for a finger or a pen, 0 for none (as the pointer would find it; the
+; pointer's own place and title bar are kept)
+surface_at_point:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12d, [rbx + InputSeat.x]
+    mov r13d, [rbx + InputSeat.y]
+    mov rax, [rbx + InputSeat.bar]
+    mov [rsp], rax
+    mov [rbx + InputSeat.x], esi
+    mov [rbx + InputSeat.y], edx
+    call surface_at
+    mov [rbx + InputSeat.x], r12d
+    mov [rbx + InputSeat.y], r13d
+    mov rcx, [rsp]
+    mov [rbx + InputSeat.bar], rcx
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; rdi = surface, esi = x, edx = y in the layout -> eax = x | y << 16 in the
+; surface's own pixels, each 16 bits
+local_xy:
+    sub esi, [rdi + Surface.current + SurfaceState.buf_x]
+    sub edx, [rdi + Surface.current + SurfaceState.buf_y]
+    movzx eax, si
+    shl edx, 16
+    or eax, edx
+    ret
+
+; rdi = seat, rsi = surface: a tap on it, as a click: raised, and the
+; keyboard unless it is a panel
+tap_focus:
+    push rbx
+    sub rsp, 16                         ; the pointer's own; 16-byte aligned
+    mov rbx, rdi
+    mov rax, [rbx + InputSeat.pointer_focus]
+    mov [rsp], rax
+    mov [rbx + InputSeat.pointer_focus], rsi
+    call click_focus
+    mov rax, [rsp]
+    mov [rbx + InputSeat.pointer_focus], rax
+    add rsp, 16
+    pop rbx
+    ret
+
+; rdi = seat, rsi = surface: on the scan's list, once
+scan_add:
+    xor ecx, ecx
+    mov r8d, -1
+.look:
+    cmp ecx, [rdi + InputSeat.scan_count]
+    jae .add
+    cmp [rdi + InputSeat.scan + rcx * 8], rsi
+    je .out
+    inc ecx
+    jmp .look
+.add:
+    cmp ecx, TOUCH_SLOTS
+    jae .out
+    mov [rdi + InputSeat.scan + rcx * 8], rsi
+    inc dword [rdi + InputSeat.scan_count]
+.out:
+    ret
+
+; Type 6: a finger down goes to the surface under it, which then has it,
+; moves and up or cancel too, until it is lifted; a frame end tells each
+; surface that heard of the scan. rdi = seat, rsi = RawInput*
+touch_event:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov eax, [r12 + RawInput.code]
+    shr eax, 8
+    and eax, 0xF
+    mov r15d, eax                       ; the phase
+    cmp r15d, PHASE_FRAME
+    je .frame
+    mov r14d, [r12 + RawInput.device]   ; its key: device, slot
+    shl r14d, 8
+    movzx eax, byte [r12 + RawInput.code]
+    or r14d, eax
+    xor r13d, r13d                      ; its entry, if it has one
+.find:
+    imul eax, r13d, TouchContact_size
+    lea rcx, [rbx + InputSeat.touches + rax]
+    cmp qword [rcx + TouchContact.surface], 0
+    je .other
+    cmp [rcx + TouchContact.key], r14d
+    je .found
+.other:
+    inc r13d
+    cmp r13d, TOUCH_SLOTS
+    jb .find
+    xor ecx, ecx                        ; none
+.found:
+    mov r13, rcx
+    cmp r15d, PHASE_DOWN
+    je .down
+    test r13, r13
+    jz .out                             ; nothing of it down
+    cmp r15d, PHASE_MOVE
+    je .move
+    cmp r15d, PHASE_UP
+    je .up
+    cmp r15d, PHASE_CANCEL
+    jne .out
+    mov edx, TOUCH_CANCEL
+    jmp .lifted
+.up:
+    mov edx, TOUCH_UP
+.lifted:
+    mov rsi, [r13 + TouchContact.surface]
+    mov qword [r13 + TouchContact.surface], 0   ; the slot is free
+    push rsi
+    push rdx
+    mov rdi, rbx
+    call scan_add
+    pop rdx
+    pop rsi
+    mov rdi, rbx
+    mov ecx, EVENT_LONG
+    movzx r8d, byte [r12 + RawInput.code]
+    xor r9d, r9d
+    call send_input
+    jmp .out
+.move:
+    mov rdi, rbx
+    mov esi, [r12 + RawInput.device]
+    mov edx, [r12 + RawInput.value]
+    call device_point
+    mov rdi, [r13 + TouchContact.surface]
+    mov esi, eax
+    call local_xy
+    mov r9d, eax
+    mov rsi, [r13 + TouchContact.surface]
+    mov rdi, rbx
+    push r9
+    push rsi
+    call scan_add
+    pop rsi
+    pop r9
+    mov rdi, rbx
+    mov edx, TOUCH_MOTION
+    mov ecx, EVENT_LONG
+    movzx r8d, byte [r12 + RawInput.code]
+    call send_input
+    jmp .out
+.down:
+    test r13, r13
+    jnz .move                           ; down again: as a move
+    mov rdi, rbx                        ; the surface under it
+    mov esi, [r12 + RawInput.device]
+    mov edx, [r12 + RawInput.value]
+    call device_point
+    mov r15d, eax                       ; (the phase is not needed again)
+    mov [rsp], edx
+    mov rdi, rbx
+    mov esi, eax
+    call surface_at_point
+    test rax, rax
+    jz .out                             ; on nothing
+    mov r13, rax
+    xor ecx, ecx                        ; a free entry
+.free:
+    imul eax, ecx, TouchContact_size
+    lea rdx, [rbx + InputSeat.touches + rax]
+    cmp qword [rdx + TouchContact.surface], 0
+    je .take
+    inc ecx
+    cmp ecx, TOUCH_SLOTS
+    jb .free
+    jmp .out                            ; too many fingers: this one ignored
+.take:
+    mov [rdx + TouchContact.surface], r13
+    mov [rdx + TouchContact.key], r14d
+    mov rdi, rbx
+    mov rsi, r13
+    call tap_focus
+    mov rdi, rbx
+    mov rsi, r13
+    call scan_add
+    mov rdi, r13
+    mov esi, r15d
+    mov edx, [rsp]
+    call local_xy
+    mov r9d, eax
+    mov rdi, rbx
+    mov rsi, r13
+    mov edx, TOUCH_DOWN
+    mov ecx, EVENT_LONG
+    movzx r8d, byte [r12 + RawInput.code]
+    call send_input
+    jmp .out
+.frame:
+    xor r13d, r13d                      ; each surface told: frame
+.tell:
+    cmp r13d, [rbx + InputSeat.scan_count]
+    jae .told
+    mov rsi, [rbx + InputSeat.scan + r13 * 8]
+    test rsi, rsi
+    jz .next_told                       ; gone meanwhile
+    mov rdi, rbx
+    mov edx, TOUCH_FRAME
+    mov ecx, EVENT_SHORT
+    call send_input
+.next_told:
+    inc r13d
+    jmp .tell
+.told:
+    mov dword [rbx + InputSeat.scan_count], 0
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+; Type 7: the pen in range goes to the surface under it (proximity in, then
+; out when it leaves it or the range), the one it touched while the tip is
+; down; motion, tip and the barrel buttons as they change.
+; rdi = seat, rsi = RawInput*
+pen_event:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r15d, [r12 + RawInput.code]     ; the bits now
+    test r15d, PEN_IN_RANGE
+    jnz .in_range
+    mov rsi, [rbx + InputSeat.pen_surface]  ; out of range: gone
+    test rsi, rsi
+    jz .gone
+    mov rdi, rbx
+    mov edx, PEN_OUT
+    mov ecx, EVENT_SHORT
+    call send_input
+.gone:
+    mov qword [rbx + InputSeat.pen_surface], 0
+    mov dword [rbx + InputSeat.pen_flags], 0
+    jmp .out
+.in_range:
+    mov rdi, rbx
+    mov esi, [r12 + RawInput.device]
+    mov edx, [r12 + RawInput.value]
+    call device_point
+    mov r13d, eax                       ; x, y in the layout
+    mov r14d, edx
+    mov rax, [rbx + InputSeat.pen_surface]
+    test rax, rax
+    jz .target
+    test dword [rbx + InputSeat.pen_flags], PEN_TIP_DOWN
+    jnz .kept                           ; the tip down: it keeps the pen
+.target:
+    mov rdi, rbx
+    mov esi, r13d
+    mov edx, r14d
+    call surface_at_point
+.kept:
+    cmp rax, [rbx + InputSeat.pen_surface]
+    je .same
+    push rax
+    push rax                            ; 16-byte aligned
+    mov rsi, [rbx + InputSeat.pen_surface]
+    test rsi, rsi
+    jz .entered
+    mov rdi, rbx                        ; the last one: out
+    mov edx, PEN_OUT
+    mov ecx, EVENT_SHORT
+    call send_input
+.entered:
+    pop rax
+    pop rax
+    mov [rbx + InputSeat.pen_surface], rax
+    mov dword [rbx + InputSeat.pen_flags], PEN_IN_RANGE ; it hears it all anew
+    test rax, rax
+    jz .none
+    mov rdi, rbx                        ; this one: in, with the tool
+    mov rsi, rax
+    mov edx, PEN_IN
+    mov ecx, EVENT_LONG
+    mov r8d, r15d
+    shr r8d, 16
+    and r8d, 0xFF
+    xor r9d, r9d
+    call send_input
+.same:
+    mov rsi, [rbx + InputSeat.pen_surface]
+    test rsi, rsi
+    jz .none
+    mov rdi, rbx                        ; where it is
+    mov edx, PEN_MOTION
+    mov ecx, EVENT_LONG
+    mov r8d, r13d
+    sub r8d, [rsi + Surface.current + SurfaceState.buf_x]
+    mov r9d, r14d
+    sub r9d, [rsi + Surface.current + SurfaceState.buf_y]
+    call send_input
+    mov eax, r15d                       ; the tip, if it changed
+    xor eax, [rbx + InputSeat.pen_flags]
+    test eax, PEN_TIP_DOWN
+    jz .buttons
+    xor r8d, r8d
+    test r15d, PEN_TIP_DOWN
+    jz .tip
+    mov r8d, 1
+    mov rdi, rbx                        ; a tip down is a tap
+    mov rsi, [rbx + InputSeat.pen_surface]
+    call tap_focus
+    mov r8d, 1
+.tip:
+    mov rdi, rbx
+    mov rsi, [rbx + InputSeat.pen_surface]
+    mov edx, PEN_TIP
+    mov ecx, EVENT_LONG
+    xor r9d, r9d
+    call send_input
+.buttons:
+%macro PEN_BUTTON_CHANGE 2              ; bit, number
+    mov eax, r15d
+    xor eax, [rbx + InputSeat.pen_flags]
+    test eax, %1
+    jz %%same
+    mov rdi, rbx
+    mov rsi, [rbx + InputSeat.pen_surface]
+    mov edx, PEN_BUTTON
+    mov ecx, EVENT_LONG
+    mov r8d, %2
+    xor r9d, r9d
+    test r15d, %1
+    setnz r9b
+    call send_input
+%%same:
+%endmacro
+    PEN_BUTTON_CHANGE PEN_BUTTON_1, 0
+    PEN_BUTTON_CHANGE PEN_BUTTON_2, 1
+.none:
+    mov [rbx + InputSeat.pen_flags], r15d
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+; Type 8: the pen's pressure, distance, tilt and rotation, to the surface it
+; is with, as they came. rdi = seat, rsi = RawInput*
+pen_axes_event:
+    mov rax, rsi
+    mov rsi, [rdi + InputSeat.pen_surface]
+    test rsi, rsi
+    jz .none
+    mov edx, PEN_AXES
+    mov ecx, EVENT_LONG
+    mov r8d, [rax + RawInput.code]
+    mov r9d, [rax + RawInput.value]
+    jmp send_input
+.none:
+    xor eax, eax
+    ret
 
 ; ---------------------------------------------------------------------------
 ; input_set_sticky
@@ -1592,6 +2055,9 @@ send_input:
     je .gate
     mov r11d, CAP_TOUCH
     cmp r10d, CWP_OBJ_TOUCH
+    je .gate
+    mov r11d, CAP_TABLET
+    cmp r10d, CWP_OBJ_TABLET_TOOL
     jne .allowed
 .gate:
     test [rax + Client.caps], r11
