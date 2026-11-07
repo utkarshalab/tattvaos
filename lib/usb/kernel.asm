@@ -7,12 +7,13 @@
 ;                       memory from a page pool; each controller attached,
 ;                       its devices enumerated, keyboards and mice claimed.
 ;                       Never stops the boot.
-;   usb_kernel_poll     from the input fiber: events, keyboard LEDs and
-;                       recovery, and devices plugged in later
+;   usb_kernel_poll     from the input fiber: events, hubs' ports,
+;                       keyboard LEDs and recovery, devices plugged in and
+;                       pulled out (with everything behind them)
 ;
-; Events are polled (no MSI-X yet), at the fiber's pace. A device pulled
-; out is noticed by its driver's failing transfers; its slot is not given
-; back yet (Disable Slot comes with full hot plug).
+; Events are polled (no MSI-X yet), at the fiber's pace. Keyboards that
+; arrive after start-up are held back until their code is typed on them
+; (usb_new_keyboard_check, decision U3); the code goes to the console.
 ; =============================================================================
 
 %ifndef LIB_USB_KERNEL_ASM
@@ -27,8 +28,11 @@
 
 section .bss
 alignb 8
+global usb_pool_next
 usb_pool_next:      resq 1
 usb_pool_end:       resq 1
+global usb_pool_free
+usb_pool_free:      resq 7                  ; free blocks of 64 B ... 4 KB
 global usb_k_bdf
 usb_k_bdf:          resd XHCI_MAX_HC        ; each controller's PCI address
 global usb_k_ports
@@ -52,7 +56,13 @@ msg_usb_colon:      db ": ", 0
 msg_usb_space:      db " ", 0
 msg_usb_comma:      db ", ", 0
 msg_usb_claimed:    db " (input)", 0
+msg_usb_hub:        db " (hub)", 0
 msg_usb_crlf:       db 0x0D, 0x0A, 0
+msg_usb_auth_show:  db "USB: a new keyboard. To use it, type this code on it, then Enter: ", 0
+msg_usb_auth_ok:    db "USB: keyboard accepted", 0x0D, 0x0A, 0
+msg_usb_auth_wrong: db "USB: wrong code for the new keyboard; tries left: ", 0
+msg_usb_auth_no:    db "USB: keyboard refused; unplug it to try again", 0x0D, 0x0A, 0
+msg_usb_gone:       db "USB:   gone from port ", 0
 msg_usb_speed:      db "?", 0, 0, 0, 0, 0, 0, 0
                     db "full", 0, 0, 0, 0
                     db "low", 0, 0, 0, 0, 0
@@ -64,10 +74,55 @@ msg_usb_speed:      db "?", 0, 0, 0, 0, 0, 0, 0
 section .text
 
 ; -----------------------------------------------------------------------------
+; usb_kpool_class — the block class of a request
+; Input:  RDI = size, RSI = alignment
+; Output: ECX = class (0 for 64 bytes ... 6 for 4096), or -1 for a larger
+;         block (taken from the pool for good); RAX = the class's block size
+; -----------------------------------------------------------------------------
+usb_kpool_class:
+    mov rax, rdi
+    cmp rax, rsi
+    jae .big
+    mov rax, rsi
+.big:
+    cmp rax, 64
+    jae .small
+    mov eax, 64
+.small:
+    mov ecx, -1
+    cmp rax, 4096
+    ja .out
+    dec rax
+    bsr rcx, rax
+    inc ecx                             ; log2 of the power of two at or above
+    mov eax, 1
+    shl eax, cl
+    sub ecx, 6
+.out:
+    ret
+
+; -----------------------------------------------------------------------------
 ; usb_kpool_alloc — usb_alloc_fn: RDI = size, RSI = alignment → RAX, or 0
+; Blocks up to 4 KB come in power-of-two classes, aligned to their size,
+; and go back on their class's free list; larger ones are never freed.
 ; -----------------------------------------------------------------------------
 global usb_kpool_alloc
 usb_kpool_alloc:
+    call usb_kpool_class
+    test ecx, ecx
+    js .bump                            ; RDI, RSI as asked
+    lea rdx, [rel usb_pool_free]
+    mov r8, [rdx + rcx * 8]
+    test r8, r8
+    jz .fresh
+    mov r9, [r8]                        ; the next free block
+    mov [rdx + rcx * 8], r9
+    mov rax, r8
+    ret
+.fresh:
+    mov rdi, rax                        ; a new block of the class's size,
+    mov rsi, rax                        ; aligned to it
+.bump:
     mov rax, [rel usb_pool_next]
     test rax, rax
     jz .none
@@ -82,6 +137,25 @@ usb_kpool_alloc:
     ret
 .none:
     xor eax, eax
+    ret
+
+; -----------------------------------------------------------------------------
+; usb_kpool_free — usb_free_fn: RDI = block, RSI = size, RDX = alignment
+; -----------------------------------------------------------------------------
+global usb_kpool_free
+usb_kpool_free:
+    push rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    call usb_kpool_class
+    pop rdi
+    test ecx, ecx
+    js .out                             ; a large block stays taken
+    lea rdx, [rel usb_pool_free]
+    mov rax, [rdx + rcx * 8]
+    mov [rdi], rax
+    mov [rdx + rcx * 8], rdi
+.out:
     ret
 
 ; usb_kdelay — usb_delay_fn: RDI = microseconds
@@ -174,10 +248,21 @@ usb_kernel_init:
     mov [rel usb_pool_next], rax
     add rax, USB_POOL_PAGES * 4096
     mov [rel usb_pool_end], rax
+    xor eax, eax
+    lea rdi, [rel usb_pool_free]
+    mov ecx, 7
+    rep stosq
     lea rax, [rel usb_kpool_alloc]
     mov [rel usb_alloc_fn], rax
+    lea rax, [rel usb_kpool_free]
+    mov [rel usb_free_fn], rax
     lea rax, [rel usb_kdelay]
     mov [rel usb_delay_fn], rax
+    lea rax, [rel usb_kernel_device]
+    mov [rel usb_found_fn], rax
+    lea rax, [rel usb_kernel_auth]
+    mov [rel usb_keyboard_auth_fn], rax
+    mov dword [rel usb_hid_trusting], 1     ; what is plugged in at boot
 
     ; every function on every bus
     xor ebx, ebx                        ; BDF
@@ -216,6 +301,7 @@ usb_kernel_init:
     inc ebx
     jmp .function
 .scanned:
+    mov dword [rel usb_hid_trusting], 0     ; from now on, new keyboards ask
     cmp dword [rel xhci_hc_count], 0
     jne .out
     cmp dword [rel usb_k_failed], 0
@@ -418,11 +504,14 @@ usb_kernel_xhci:
     lea rsi, [rel msg_usb_ok]
     call uart_print_str
     ; its devices
+    ; (the root ports' devices only: what hubs bring is handled as they
+    ; are, and joins the list behind them)
     mov r13d, [rel usb_device_total]
     mov rdi, r12
     call usb_scan
+    mov r14d, [rel usb_device_total]
 .device:
-    cmp r13d, [rel usb_device_total]
+    cmp r13d, r14d
     jae .out
     mov edi, r13d
     call usb_device_get
@@ -497,6 +586,22 @@ usb_kernel_device:
     call uart_print_str
     movzx eax, byte [rbx + usb_device.root_port]
     call uart_print_dec
+    ; behind hubs: each hub's port, as 1.2.3
+    xor r12d, r12d
+.tier:
+    cmp r12b, [rbx + usb_device.depth]
+    jae .path_done
+    lea rsi, [rel usb_k_text]
+    mov word [rsi], '.'
+    call uart_print_str
+    mov eax, [rbx + usb_device.route]
+    lea ecx, [r12d * 4]
+    shr eax, cl
+    and eax, 15
+    call uart_print_dec
+    inc r12d
+    jmp .tier
+.path_done:
     lea rsi, [rel msg_usb_colon]
     call uart_print_str
     movzx eax, word [rbx + usb_device.desc + usb_device_desc.idVendor]
@@ -533,14 +638,23 @@ usb_kernel_device:
     call uart_print_str
 .drivers:
     mov rdi, rbx
-    call usb_hid_attach
+    call usb_attach_drivers
     test eax, eax
     jle .end
     lea rsi, [rel msg_usb_claimed]
+    test word [rbx + usb_device.flags], USB_DEVF_HUB
+    jz .claimed
+    lea rsi, [rel msg_usb_hub]
+.claimed:
     call uart_print_str
 .end:
     lea rsi, [rel msg_usb_crlf]
     call uart_print_str
+    ; a hub: what is on its ports now, each on a line of its own
+    test word [rbx + usb_device.flags], USB_DEVF_HUB
+    jz .done
+    call usb_hub_service
+.done:
     add rsp, 72
     pop r12
     pop rbx
@@ -585,6 +699,10 @@ usb_kernel_poll:
     test r14d, PORT_CCS
     jnz .connected
     btr [r15], r13d                     ; gone: the port is free again
+    jnc .next_port
+    mov rdi, rbx
+    mov esi, r13d
+    call usb_kernel_gone
     jmp .next_port
 .connected:
     bt [r15], r13d
@@ -603,11 +721,87 @@ usb_kernel_poll:
     inc r12d
     jmp .hc
 .drivers:
+    call usb_hub_service
     call usb_hid_service
     pop r15
     pop r14
     pop r13
     pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; usb_kernel_gone — root port ESI of controller RDI lost its device: it, and
+;                   whatever was behind it, removed
+; -----------------------------------------------------------------------------
+usb_kernel_gone:
+    push rbx
+    push r12
+    push r13
+    mov rbx, rdi
+    mov r12d, esi
+.find:
+    xor ecx, ecx
+.next:
+    cmp ecx, [rel usb_device_total]
+    jae .out
+    lea rax, [rel usb_devices]
+    mov r13, [rax + rcx * 8]
+    inc ecx
+    cmp [r13 + usb_device.hc], rbx
+    jne .next
+    cmp qword [r13 + usb_device.parent], 0
+    jne .next
+    movzx eax, byte [r13 + usb_device.root_port]
+    cmp eax, r12d
+    jne .next
+    lea rsi, [rel msg_usb_gone]
+    call uart_print_str
+    mov eax, r12d
+    call uart_print_dec
+    lea rsi, [rel msg_usb_crlf]
+    call uart_print_str
+    mov rdi, r13
+    call usb_device_remove
+    jmp .find
+.out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; usb_kernel_auth — usb_keyboard_auth_fn: EDI = USB_AUTH_*, ESI = code or
+;                   tries left
+; -----------------------------------------------------------------------------
+usb_kernel_auth:
+    push rbx
+    mov ebx, esi
+    cmp edi, USB_AUTH_SHOW
+    je .show
+    cmp edi, USB_AUTH_ACCEPTED
+    je .ok
+    cmp edi, USB_AUTH_WRONG
+    je .wrong
+    lea rsi, [rel msg_usb_auth_no]
+    call uart_print_str
+    jmp .out
+.show:
+    lea rsi, [rel msg_usb_auth_show]
+    jmp .number
+.wrong:
+    lea rsi, [rel msg_usb_auth_wrong]
+.number:
+    call uart_print_str
+    mov eax, ebx
+    call uart_print_dec
+    lea rsi, [rel msg_usb_crlf]
+    call uart_print_str
+    jmp .out
+.ok:
+    lea rsi, [rel msg_usb_auth_ok]
+    call uart_print_str
+.out:
     pop rbx
     ret
 
