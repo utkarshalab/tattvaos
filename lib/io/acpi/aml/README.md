@@ -14,6 +14,7 @@ aml_find("\_SB.PCI0")               ; the node, or 0
 aml_run_reg(space)                  ; a handler for a space exists: _REG
 aml_initialize()                    ; \_SB._INI, then _STA and _INI
 aml_find_device("PNP0C50", n)       ; the nth present device with that ID
+aml_find_type(AML_T_THERMAL, n)     ; the nth present node of a type
 aml_match_id(node, "PNP0C50")       ; its _HID or _CID
 aml_device_status(node)             ; the _STA bits found
 aml_get_crs(node, &buffer)          ; its _CRS resource template
@@ -54,6 +55,7 @@ The outside world comes in through hooks, all optional:
 | `dsm.asm` | `_DSM` calls and the function-0 support check |
 | `events.asm` | ACPI events: the FADT's event blocks, ACPI mode, GPEs, fixed buttons, the SCI handler, the fiber-side service, Notify to the lid and button hooks |
 | `ec.asm` | The embedded controller: EmbeddedControl regions and queries |
+| `power.asm` | Batteries (`_BIX`/`_BIF`, `_BST`), the AC adapter (`_PSR`) and thermal zones (`_TMP` and trip points), refreshed on Notify |
 | `kernel.asm` | In the kernel: finds the DSDT and SSDTs, gives the interpreter 2 MB, the sandboxed region handler, Notify, Sleep and the clock; `acpi_kernel_init` runs at boot |
 
 ## Safety
@@ -77,5 +79,6 @@ sh lib/io/acpi/aml/tests/run_tests.sh
 | `test_init.py` | 30 | The start-up walk, device IDs, `_REG` |
 | `test_res.py` | 48 | Every resource descriptor, malformed ones, 5 000 random templates, `_CRS` |
 | `test_dsm.py` | 10 | `_DSM` calls, supported functions (buffer or integer answers), no `_DSM` |
+| `test_power.py` | 18 | Batteries with `_BIX` and with `_BIF`, `_BST` built by `Index` and with names, the adapter, thermal zones, Notify refreshing each, critical and below-zero temperatures, a machine with none (`kstub.asm`) |
 | `test_events.py` | 34 | ACPI mode, GPE enabling and dispatch, fixed buttons, the EC protocol and queries, Notify to the hooks, storms, machines without these (`kstub.asm`) |
 | `test_kernel.py` | 24 | `kernel.asm` with stubbed kernel symbols (`kstub.asm`): table discovery, start-up, the sandbox, firmware faults |
