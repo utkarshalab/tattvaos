@@ -145,9 +145,27 @@ def take():
         s.pump()
     poll()
     pump()
-    out = events[:]
+    out = [e for e in events if e[0] != 10]
     events.clear()
     return out
+
+
+def code_shown():
+    text = console()
+    mark = "type this code on it, then Enter: "
+    return text[text.rindex(mark) + len(mark):].split()[0]
+
+
+DIGIT = {str(n): 0x1D + n for n in range(1, 10)} | {"0": 0x27}
+
+
+def type_code(dev, code):
+    for ch in code:
+        dev.queue(0x81, kreport(0, DIGIT[ch]))
+        dev.queue(0x81, kreport(0))
+    dev.queue(0x81, kreport(0, 0x28))
+    dev.queue(0x81, kreport(0))
+    take()
 
 
 passed = failed = 0
@@ -214,17 +232,57 @@ out = console()
 check("new devices found by the poll", ("port 3: 0781:5583 5G, Ultra Fit" in out,
                                         "port 1: 046d:c31c full, USB Keyboard (input)" in out,
                                         u32("usb_device_total").value), (True, True, 4))
+check("a keyboard after start-up: its code on the console", len(code_shown()), 6)
+k2.queue(0x81, kreport(0, 0x04))
+check("not a key from it before the code", take(), [])
+type_code(k2, code_shown())
+check("accepted", "USB: keyboard accepted" in console(), True)
 k2.queue(0x81, kreport(0, 0x04))
 check("the new keyboard types", take(), [(KEY, 30, 1, 3)])
 check("a quiet poll changes nothing", (take(), u32("usb_device_total").value), ([], 4))
 sims[1].detach(1)
 take()
-check("unplugged: its port free", C.c_uint8.from_address(C.addressof(C.c_uint8.in_dll(lib, "usb_k_ports")) + 32).value & 2, 0)
+check("unplugged: its port free, said on the console",
+      (C.c_uint8.from_address(C.addressof(C.c_uint8.in_dll(lib, "usb_k_ports")) + 32).value & 2,
+       "USB:   gone from port 1" in console(), u32("usb_device_total").value), (0, True, 3))
 k3 = D.keyboard()
 sims[1].attach(1, k3)
 take()
+type_code(k3, code_shown())
 k3.queue(0x81, kreport(0, 0x05))
-check("plugged back in: enumerated again", (u32("usb_device_total").value, take()), (5, [(KEY, 48, 1, 4)]))
+check("plugged back in: enumerated again, a new code, typing",
+      (u32("usb_device_total").value, take()), (4, [(KEY, 48, 1, 3)]))
+
+# a hub at boot: what is on it counts as there at start-up
+# (function 0 of the device first, or nothing behind it is looked at)
+pci.clear()
+pci[bdf(3, 0, 0)] = Function(0x1002, 0x164C, 0x030000, multi=True)
+pci[A] = Function(0x1022, 0x1639, 0x0C0330, bar0=0xFD300004, bar1=0, size=1 << 20)
+sims[:] = [X.XhciSim(usb2_ports=2, usb3_ports=2)]
+hub = D.Hub(ports=4)
+hk = D.keyboard()
+hub.attach(2, hk)
+sims[0].attach(1, hub)
+boot()
+out = console()
+check("a hub at boot and the keyboard on it, each on its own line",
+      ("USB:   port 1: 05e3:0610 high, USB2.0 Hub (hub)" in out, "USB:   port 1.2: 046d:c31c full, USB Keyboard (input)" in out,
+       "code" in out), (True, True, False))
+hk.queue(0x81, kreport(0, 0x04))
+check("it types without a code", take(), [(KEY, 30, 1, 1)])
+pool = lambda: C.c_uint64.in_dll(lib, "usb_pool_next").value  # noqa: E731
+marks = []
+for _ in range(10):
+    hub.attach(3, D.mouse())
+    take()
+    hub.detach(3)
+    take()
+    marks.append(pool())
+check("ten mice in and out: the pool's freed blocks used again", (len(set(marks[1:])), marks[0] == marks[-1]),
+      (1, True))
+sims[0].detach(1)
+take()
+check("the hub pulled out: both gone", (u32("usb_device_total").value, u32("usb_hub_count").value), (0, 0))
 
 # ---- what can go wrong ------------------------------------------------------------
 pci.clear()
