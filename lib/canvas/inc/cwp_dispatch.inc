@@ -58,6 +58,9 @@
 %ifdef HAVE_h_fence_get_status
     CWP_REQUEST CWP_OBJ_FENCE, FENCE_GET_STATUS, h_fence_get_status
 %endif
+%ifdef HAVE_h_output_list
+    CWP_REQUEST CWP_OBJ_OUTPUT, OUTPUT_LIST, h_output_list
+%endif
 %ifdef HAVE_h_clipboard_offer
     CWP_REQUEST CWP_OBJ_CLIPBOARD, CLIPBOARD_OFFER, h_clipboard_offer
 %endif
