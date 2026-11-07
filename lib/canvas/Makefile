@@ -330,6 +330,7 @@ DCN_SRCS := \
 # Output Management (C11)
 OUTPUT_SRCS := \
     $(SRCDIR)/output/output.asm \
+    $(SRCDIR)/output/displays.asm \
     $(SRCDIR)/output/modes.asm \
     $(SRCDIR)/output/scale_fractional.asm \
     $(SRCDIR)/output/rotation.asm \
