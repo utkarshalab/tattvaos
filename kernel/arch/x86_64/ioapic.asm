@@ -239,6 +239,87 @@ ioapic_route_legacy_irq:
     pop rbx
     ret
 
+; Program one GSI route with the trigger and polarity its device declares
+; (an ACPI Interrupt descriptor), not the ISA defaults. Same write order as
+; ioapic_route_legacy_irq: mask, destination, then configuration.
+; EDI=GSI, ESI=vector, EDX=destination APIC ID,
+; ECX=flags: bit 0 leave masked, bit 1 level-triggered, bit 2 active low.
+IOAPIC_GSI_MASKED          equ 1 << 0
+IOAPIC_GSI_LEVEL           equ 1 << 1
+IOAPIC_GSI_LOW             equ 1 << 2
+global ioapic_route_gsi
+ioapic_route_gsi:
+    push rbx
+    push rbp
+    push r12
+    push r13
+    push r14
+    push r15
+    cmp byte [rel ioapic_ready], 1
+    jne .invalid
+    cmp esi, IOAPIC_VECTOR_FIRST
+    jb .invalid
+    cmp esi, IOAPIC_VECTOR_LAST
+    ja .invalid
+    cmp edx, 255
+    ja .invalid
+    mov r13d, esi
+    mov r14d, edx
+    mov r15d, ecx
+    xor ebx, ebx                    ; polarity/trigger configuration
+    test r15d, IOAPIC_GSI_LEVEL
+    jz .polarity
+    or ebx, IOAPIC_REDIR_TRIGGER_LEVEL
+.polarity:
+    test r15d, IOAPIC_GSI_LOW
+    jz .find
+    or ebx, IOAPIC_REDIR_POLARITY_LOW
+.find:
+    call ioapic_find_gsi            ; EDI = GSI
+    jc .invalid
+    mov r12, rax                    ; controller MMIO base
+    mov ebp, edx                    ; redirection pin
+    shl ebp, 1
+    add ebp, IOAPIC_REDIR_BASE
+
+    mov rdi, r12
+    mov esi, ebp
+    call ioapic_read_reg
+    or eax, IOAPIC_REDIR_MASKED
+    mov rdi, r12
+    mov esi, ebp
+    mov edx, eax
+    call ioapic_write_reg
+
+    mov rdi, r12
+    lea esi, [rbp + 1]
+    mov edx, r14d
+    shl edx, 24
+    call ioapic_write_reg
+
+    mov eax, r13d
+    or eax, ebx
+    test r15d, IOAPIC_GSI_MASKED
+    jz .write_low
+    or eax, IOAPIC_REDIR_MASKED
+.write_low:
+    mov rdi, r12
+    mov esi, ebp
+    mov edx, eax
+    call ioapic_write_reg
+    clc
+    jmp .done
+.invalid:
+    stc
+.done:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+    ret
+
 ; EDI=legacy ISA IRQ. Preserve the route but force its mask bit high.
 global ioapic_mask_legacy_irq
 ioapic_mask_legacy_irq:
