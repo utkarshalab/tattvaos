@@ -53,16 +53,31 @@ protocol canvas-input 1 {
     ; pointer hears enter (with what is offered, as cw_clipboard.offered),
     ; motion and leave; letting go over one drops there, and its client may
     ; then paste selection 2. Positions are in the surface's own pixels.
+    ;
+    ; Actions: copy 1, move 2. The one dragging offers some (copy if it says
+    ; nothing); the one under the pointer hears them in enter and accepts
+    ; one; a drop happens only where one was accepted.
     interface cw_dnd 1 {
         request start(surface: handle, count: uint, types: array<string>)
 
-        event enter(surface: handle, x: int, y: int)
+        ; The one dragging: the actions it allows
+        request set_actions(actions: uint)
+
+        ; The one dragging: one of its surfaces drawn at the pointer, off the
+        ; screen otherwise, while the drag lasts
+        request set_icon(surface: handle)
+
+        ; The one under the pointer: the action it would take, 0 none
+        request accept(action: uint)
+
+        event enter(surface: handle, x: int, y: int, actions: uint)
         event motion(surface: handle, x: int, y: int)
         event leave(surface: handle)
-        event drop(surface: handle, x: int, y: int)
+        event drop(surface: handle, x: int, y: int, action: uint)
 
-        ; To the one dragging: dropped 1 on a surface, 0 over none
-        event finished(dropped: uint)
+        ; To the one dragging: dropped 1 on a surface, 0 not; the action
+        ; taken (a move: the data goes from it)
+        event finished(dropped: uint, action: uint)
     }
 
     ; ------------------------------------------------------------------------
