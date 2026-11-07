@@ -11,11 +11,16 @@ aml_init(memory, size)              ; memory for nodes and values
 aml_load(dsdt)                      ; then each SSDT
 aml_eval_path("\_SB.PCI0._STA", args, count, &result)
 aml_find("\_SB.PCI0")               ; the node, or 0
+aml_run_reg(space)                  ; a handler for a space exists: _REG
+aml_initialize()                    ; \_SB._INI, then _STA and _INI
+aml_find_device("PNP0C50", n)       ; the nth present device with that ID
+aml_match_id(node, "PNP0C50")       ; its _HID or _CID
+aml_device_status(node)             ; the _STA bits found
 ```
 
 All entry points return 0 or a negative `AML_E*` error (`aml.inc`). One
-caller at a time. A result lives in temporary memory until the next
-`aml_load` or `aml_eval_path`.
+caller at a time. A result lives in temporary memory until the next call
+into the interpreter; copy what must be kept.
 
 The outside world comes in through hooks, all optional:
 
@@ -40,6 +45,7 @@ The outside world comes in through hooks, all optional:
 | `ops.asm` | Expressions |
 | `field.asm` | Region fields (plain, index, bank) and buffer fields |
 | `api.asm` | `aml_init`, `aml_load`, `aml_find`, `aml_eval_path`, `\_OSI` |
+| `init.asm` | `_REG`, the `_STA`/`_INI` walk, device IDs and lookup |
 
 ## Safety
 
@@ -54,6 +60,7 @@ cleanly. Names a method creates disappear when it returns.
 sh lib/io/acpi/aml/tests/run_tests.sh
 ```
 
-`aml_gen.py` builds test tables term by term, and `test_aml.py` runs 118
+`aml_gen.py` builds test tables term by term. `test_init.py` checks the
+start-up walk, IDs and `_REG` (30 checks), and `test_aml.py` runs 119
 checks against them. The checks cover every truncation of a table and
 3 000 randomly mutated tables.
