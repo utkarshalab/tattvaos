@@ -24,6 +24,22 @@ class Device:
             self.speed = speed
         self.configuration = 0
         self.requests = []
+        self.queues = {}            # endpoint address → reports waiting
+        self.written = []
+        self.protocol = 1           # HID: 1 report, 0 boot
+        self.idle = None
+        self.leds = []
+        self.class_stalls = set()   # HID requests it refuses
+
+    def queue(self, address, data):
+        self.queues.setdefault(address, []).append(bytes(data) if data != "stall" else data)
+
+    def read(self, address):
+        q = self.queues.get(address)
+        return q.pop(0) if q else None
+
+    def write(self, address, data):
+        self.written.append((address, bytes(data)))
 
     def descriptor(self, kind, index, lang):
         if kind == 1:
@@ -52,6 +68,17 @@ class Device:
             return bytes([self.configuration])
         if rt == 0x80 and req == 0:
             return b"\x00\x00"
+        if rt == 0x21 and req in self.class_stalls:
+            return None
+        if rt == 0x21 and req == 0x0B:          # SET_PROTOCOL
+            self.protocol = value
+            return b""
+        if rt == 0x21 and req == 0x0A:          # SET_IDLE
+            self.idle = value >> 8
+            return b""
+        if rt == 0x21 and req == 0x09 and out:  # SET_REPORT
+            self.leds.append(out[0])
+            return b""
         return None
 
 
