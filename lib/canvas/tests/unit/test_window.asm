@@ -46,6 +46,7 @@ extern client_accept
 extern client_disconnect
 extern clipboard_set
 extern input_set_sticky
+extern server_set_magnifier
 extern server_remove_output
 extern compositor_output_at
 extern compositor_damage_all
@@ -157,6 +158,8 @@ test_window_suite:
     CASE tw_sticky, CAP_SHELL
     CASE tw_outputs, CAP_SHELL | CAP_OUTPUT
     CASE tw_buffer_scale, CAP_SHELL
+    CASE tw_contrast, CAP_SHELL
+    CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2798,6 +2801,68 @@ tw_buffer_scale:
     call surface_of
     mov rcx, [rel server + Server.input_seat]
     cmp [rcx + InputSeat.pointer_focus], rax
+    jne .fail
+    PASS
+
+; Super+Shift+H: the focused window's bar white and the background black;
+; again, both as they were
+tw_contrast:
+    sub rsp, 8
+    call decorated_window
+    SEES 4, 2, 0xFF3E4C78
+    SEES 60, 40, 0xFF202030
+    INJECT INPUT_KEY, 125, 1            ; Super+Shift+H
+    INJECT INPUT_KEY, 42, 1
+    INJECT INPUT_KEY, 35, 1
+    INJECT INPUT_KEY, 35, 0
+    INJECT INPUT_KEY, 42, 0
+    INJECT INPUT_KEY, 125, 0
+    call poll
+    SEES 4, 2, 0xFFFFFFFF
+    SEES 60, 40, 0xFF000000
+    INJECT INPUT_KEY, 125, 1
+    INJECT INPUT_KEY, 42, 1
+    INJECT INPUT_KEY, 35, 1
+    INJECT INPUT_KEY, 35, 0
+    INJECT INPUT_KEY, 42, 0
+    INJECT INPUT_KEY, 125, 0
+    call poll
+    SEES 4, 2, 0xFF3E4C78
+    SEES 60, 40, 0xFF202030
+    PASS
+
+; The magnifier at 2x round the pointer at the top left: the bar there fills
+; the screen; the pointer at the far corner: background there; off, as it
+; was; Super+Shift+M turns it on
+tw_magnifier:
+    sub rsp, 8
+    call decorated_window               ; a bar along the top, the pointer at 0, 0
+    SEES 60, 40, 0xFF202030
+    lea rdi, [rel server]
+    mov esi, 2
+    call server_set_magnifier
+    test rax, rax
+    jnz .fail
+    call poll
+    SEES 60, 40, 0xFF3E4C78             ; the bar, twice the size
+    SEES 0, 0, 0xFF3E4C78
+    POINTER 63, 47                      ; the far corner
+    call poll
+    SEES 0, 0, 0xFF202030
+    lea rdi, [rel server]               ; off
+    xor esi, esi
+    call server_set_magnifier
+    call poll
+    SEES 4, 2, 0xFF3E4C78
+    SEES 60, 40, 0xFF202030
+    INJECT INPUT_KEY, 125, 1            ; Super+Shift+M: 2x
+    INJECT INPUT_KEY, 42, 1
+    INJECT INPUT_KEY, 50, 1
+    INJECT INPUT_KEY, 50, 0
+    INJECT INPUT_KEY, 42, 0
+    INJECT INPUT_KEY, 125, 0
+    call poll
+    cmp qword [rel server + Server.magnify], 2
     jne .fail
     PASS
 
