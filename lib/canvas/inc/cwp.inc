@@ -54,6 +54,7 @@
 %define CWP_OBJ_WINDOW_LIST       29
 %define CWP_OBJ_FENCE             30    ; proto/canvas-core.cwp
 %define CWP_OBJ_TIMELINE          31
+%define CWP_OBJ_CLIPBOARD         32
 
 ; Opcode ranges (per object type)
 %define CWP_OP_DISPLAY_BASE        0x0000
