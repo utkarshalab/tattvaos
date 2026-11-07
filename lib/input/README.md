@@ -14,6 +14,7 @@ Turns input hardware into events and hands them to canvas through
 | `core/event.asm` | Event ring (256 events), `input_pump`, and `ut_input_register_callback`, `ut_input_unregister_callback`, `ut_input_device_info`, `ut_input_grab` |
 | `ps2/i8042.asm` | PS/2 controller: detection, self-test, translation, IRQ 1 work |
 | `ps2/kbd.asm` | PS/2 keyboard: reset, scan code set 1 decoding, repeat suppression, lock-key LEDs |
+| `hid/hid.inc`, `hid/parse.asm` | The shared HID core: `hid_parse` turns a report descriptor into fields; `hid_get` reads an element's value from a report; `hid_find_usage` finds the element with a usage; `hid_report_bits` gives a report's length |
 | `kernel.asm` | Kernel glue: input fiber, IRQ 1 handler, start-up (`input_kernel_prepare`, `input_kernel_start`) |
 
 ## How events flow
