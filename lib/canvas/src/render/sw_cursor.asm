@@ -5,7 +5,8 @@
 ; each output, over everything (CMP-03): on whichever outputs it is over,
 ; across an edge too. Moving the pointer damages where the arrow was and
 ; where it is (sw_cursor_moved). It is drawn only while Compositor.cursor_on
-; is set: canvasd sets it; tests and a hardware cursor leave it off.
+; is set: canvasd sets it; tests and a hardware cursor leave it off. Typing
+; hides it (sw_cursor_hide, PTR-14) until the pointer next moves.
 ;
 ;   X
 ;   XX
@@ -61,6 +62,8 @@ sw_cursor_render:
     jz .done
     cmp qword [rax + Compositor.cursor_on], 0
     je .done
+    cmp qword [rax + Compositor.cursor_hidden], 0
+    jne .done
     mov rax, [rdx + Server.input_seat]
     test rax, rax
     jz .done
@@ -137,6 +140,7 @@ sw_cursor_moved:
     jz .done
     cmp qword [rax + Compositor.cursor_on], 0
     je .done
+    mov qword [rax + Compositor.cursor_hidden], 0   ; a move shows it
     mov [rsp], esi
     mov [rsp + 4], edx
     mov dword [rsp + 8], ARROW_W
@@ -153,6 +157,39 @@ sw_cursor_moved:
     xor eax, eax
     add rsp, 24
     EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; sw_cursor_hide
+;   Typing: the arrow goes, where it was redrawn, until the pointer moves
+;   IN:  rdi = server*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global sw_cursor_hide
+sw_cursor_hide:
+    sub rsp, 24                         ; a rect; 16-byte aligned
+    mov rax, [rdi + Server.compositor]
+    test rax, rax
+    jz .done
+    cmp qword [rax + Compositor.cursor_on], 0
+    je .done
+    cmp qword [rax + Compositor.cursor_hidden], 0
+    jne .done                           ; gone already
+    mov qword [rax + Compositor.cursor_hidden], 1
+    mov rax, [rdi + Server.input_seat]
+    test rax, rax
+    jz .done
+    mov ecx, [rax + InputSeat.x]
+    mov [rsp], ecx
+    mov ecx, [rax + InputSeat.y]
+    mov [rsp + 4], ecx
+    mov dword [rsp + 8], ARROW_W
+    mov dword [rsp + 12], ARROW_H
+    mov rsi, rsp
+    call compositor_damage_rect
+.done:
+    xor eax, eax
+    add rsp, 24
+    ret
 
 section .rodata
 align 2
