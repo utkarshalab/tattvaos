@@ -37,6 +37,7 @@
 extern arena_alloc
 extern compositor_add_surface
 extern compositor_damage_surface
+extern surface_logical_size
 extern compositor_move_to_output
 extern compositor_output_at
 extern compositor_raise_surface
@@ -976,10 +977,13 @@ window_commit:
     call handle_resolve
     test rax, rax
     jz .put
+    mov rdi, r12                        ; its size on the screen
+    mov rsi, rax
+    call surface_logical_size
+    mov ecx, edx
+    mov edx, eax
     mov rdi, rbx
     mov rsi, r13
-    mov edx, [rax + Buffer.width]
-    mov ecx, [rax + Buffer.height]
     mov eax, [r13 + Window.kind]
     cmp eax, ROLE_POPUP
     je .popup
@@ -1026,7 +1030,9 @@ window_commit:
     call handle_resolve
     test rax, rax
     jz .out
-    mov eax, [rax + Buffer.width]
+    mov rdi, r12
+    mov rsi, rax
+    call surface_logical_size
     cmp eax, [r13 + Window.bar_w]
     je .out
     mov [r13 + Window.bar_w], eax       ; a new width: the bar again
@@ -1151,10 +1157,11 @@ set_state:
     call handle_resolve
     test rax, rax
     jz .set
-    mov ecx, [rax + Buffer.width]
-    mov [r13 + Window.saved_w], ecx
-    mov ecx, [rax + Buffer.height]
-    mov [r13 + Window.saved_h], ecx
+    mov rdi, r12
+    mov rsi, rax
+    call surface_logical_size
+    mov [r13 + Window.saved_w], eax
+    mov [r13 + Window.saved_h], edx
 .set:
     or [r13 + Window.state], r14d
     jmp .apply
@@ -1354,10 +1361,12 @@ follow_output:
     call handle_resolve
     test rax, rax
     jz .out
-    mov esi, [rax + Buffer.width]
+    mov rdi, r12                        ; its middle, on the screen
+    mov rsi, rax
+    call surface_logical_size
+    mov esi, eax
     shr esi, 1
     add esi, [r12 + Surface.current + SurfaceState.buf_x]
-    mov edx, [rax + Buffer.height]
     shr edx, 1
     add edx, [r12 + Surface.current + SurfaceState.buf_y]
     mov rdi, rbx
