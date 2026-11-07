@@ -115,13 +115,26 @@ passwords in a row, five seconds when every password is refused); the
 kernel may add its own limits. Starting the user's session after a right
 password comes later.
 
+## Step 5: more than one screen
+
+Canvas already handles several outputs: side by side in one layout, added
+and taken away while it runs (windows, panels and the pointer moving to what
+is left), and one output mirroring another, scaled to its size. All of it is
+tested on virtual outputs. What it lacks is a way to learn about real ones.
+
+| Export | In | Out |
+|---|---|---|
+| `ut_fb_info` | as in Step 1, plus `rsi` which framebuffer, 0 the first | `rax` 0, or `-ENOENT` past the last |
+| `ut_display_register_callback` | `rdi` function, `rsi` cookie | `rax` 0 or negative error |
+
+For a display plugged in or taken out the kernel calls the function with
+`rdi` a pointer to an 8-byte record and `rsi` the cookie: a `u32` type (1
+added, 2 removed), then a `u32` framebuffer index as `ut_fb_info` counts
+them. Canvas copies the record and acts on it in its next turn, so one call
+at a time from any fiber is enough. Until then Canvas asks only for the
+first framebuffer; a kernel with one display needs neither change.
+
 ## Later
-
-- **More than one screen.** `ut_fb_info` describes one framebuffer. Canvas
-  already lays several outputs side by side and draws each one's part; a
-  second display needs a way to ask for each (an index in `rsi` would do),
-  and plugging one in later needs a notice Canvas can wait for.
-
 
 Only the native display backend, remote sharing and configuration need these:
 `ut_mmio_map`, `ut_dma_alloc`, `ut_dma_free`, `ut_dma_sync`, `ut_irq_register`,
