@@ -1,6 +1,11 @@
 ; ============================================================================
 ; Fractional Scale — Non-Integer Scale Factors (1.25x, 1.5x, 1.75x, 2.25x, etc.)
 ; ============================================================================
+; Helpers, not yet part of drawing (OUT-08, PRO-16 decide how an output's
+; scale applies): an output's scale as 16.16, a size times it, and one
+; surface's buffer stretched over its output's whole frame (a fullscreen
+; app drawn smaller than the screen), nearest neighbour at a whole scale and
+; bilinear otherwise. The stretch copies: it is for opaque buffers.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -68,8 +73,11 @@ scale_fractional_compute:
 
 ; ---------------------------------------------------------------------------
 ; scale_fractional_render
-;   Render with fractional scale
+;   A surface's buffer stretched over the frame's output, nearest neighbour
+;   (method 0) or bilinear (1); bilinear whatever is asked when the output's
+;   scale is not a whole number
 ;   IN:  rdi = frame_ctx*, rsi = surface*, rdx = scale_method
+;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global scale_fractional_render
 scale_fractional_render:
@@ -94,32 +102,30 @@ scale_fractional_render:
     mov r13, SCALE_BILINEAR
 
 .integer_scale:
-    ; Get surface buffer
-    mov r14, [r12 + Surface.current + SurfaceState.buffer]
-    test r14, r14
+    ; The surface's buffer, through its client's server
+    mov rsi, [r12 + Surface.current + SurfaceState.buffer]
+    test rsi, rsi
     jz .done
-
-    ; Get buffer
-    mov r15, [r12 + Server.buffer_table]
-    mov rdi, r15
-    mov rsi, r14
+    mov rax, [r12 + Surface.client]
+    test rax, rax
+    jz .done
+    mov rax, [rax + Client.server]
+    mov rdi, [rax + Server.buffer_table]
     call handle_resolve
     test rax, rax
     jz .done
     mov r14, rax
 
-    ; Get scale factor
-    mov rax, [rbx + FrameCtx.output]
-    mov rax, [rax + Output.scale]
-
-    mov rdi, [rbx + FrameCtx.framebuffer]
+    ; Over the output's own pixels, all of them
+    mov r15, [rbx + FrameCtx.output]
+    mov rdi, [r15 + Output.framebuffer]
     mov rsi, [r14 + Buffer.base]
     mov rdx, [r14 + Buffer.width]
     mov rcx, [r14 + Buffer.height]
     mov r8, [r14 + Buffer.stride]
-    mov r9d, [rbx + FrameCtx.width]
-    mov r10d, [rbx + FrameCtx.height]
-    mov r11, [rbx + FrameCtx.stride]
+    mov r9d, [r15 + Output.width]
+    mov r10d, [r15 + Output.height]
+    mov r11, [r15 + Output.stride]
     cmp r13, SCALE_NEAREST
     je .nearest
     call sw_scale_bilinear
@@ -134,33 +140,23 @@ scale_fractional_render:
 
 ; ---------------------------------------------------------------------------
 ; scale_fractional_calculate_dest
-;   Calculate destination rect for fractional scale
+;   A size times a scale, rounded down
+;   IN:  rdi = width, rsi = height, rdx = scale (16.16), rcx = where the
+;        two scaled dwords go
+;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global scale_fractional_calculate_dest
 scale_fractional_calculate_dest:
-    PROLOGUE_SAVE rbx, r12, r13, r14
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    mov r14, rcx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    ASSERT_PTR r13
-    ASSERT_PTR r14
-
-    ; src_w * scale = dst_w
-    mov rax, r12
-    imul rax, r13
+    ASSERT_PTR rcx
+    mov rax, rdi
+    imul rax, rdx
     shr rax, 16
-    mov [r14 + 0], eax
-
-    mov rax, r12
-    imul rax, r13
+    mov [rcx], eax
+    mov rax, rsi
+    imul rax, rdx
     shr rax, 16
-    mov [r14 + 4], eax
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14
+    mov [rcx + 4], eax
+    xor eax, eax
     ret
 
 section .data
