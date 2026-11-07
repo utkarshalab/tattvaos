@@ -40,7 +40,7 @@ mapping, asking the kernel for the result is simpler than mapping it again.
 Pixels are 32-bit BGRX; Canvas does not read the format field yet, so a
 framebuffer in another format would show wrong colours.
 
-These six are the UBF's only required imports. It imports 35 more names, all
+These six are the UBF's only required imports. It imports 36 more names, all
 weak: the load succeeds without them, the slot stays 0, and Canvas's stub for
 that name returns `-ENOSYS`. Canvas starts without any of them and yields in
 its loop when `ut_waitset_create` is not there. An export for one of those
@@ -131,8 +131,11 @@ For a display plugged in or taken out the kernel calls the function with
 `rdi` a pointer to an 8-byte record and `rsi` the cookie: a `u32` type (1
 added, 2 removed), then a `u32` framebuffer index as `ut_fb_info` counts
 them. Canvas copies the record and acts on it in its next turn, so one call
-at a time from any fiber is enough. Until then Canvas asks only for the
-first framebuffer; a kernel with one display needs neither change.
+at a time from any fiber is enough. Canvas already registers the function
+(a weak import, `src/output/displays.asm`): an added framebuffer becomes an
+output to the right of the layout, shown in that framebuffer's memory, and
+a removed one's output goes. It passes `rsi` = 0 to `ut_fb_info` at start.
+A kernel with one display needs neither change.
 
 ## Later
 
