@@ -25,6 +25,7 @@ extern window_list_forget
 extern regions_destroy_client
 extern fence_destroy_client
 extern timeline_destroy_client
+extern clipboard_client_gone
 extern buffer_destroy_client
 
 %define CLIENT_CONNECTING   1
@@ -269,6 +270,9 @@ client_disconnect:
     mov rdi, rbx
     mov rsi, r13
     call timeline_destroy_client
+    mov rdi, rbx
+    mov rsi, r13
+    call clipboard_client_gone
     mov rdi, rbx
     mov rsi, r13
     call surface_destroy_client
