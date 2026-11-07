@@ -53,6 +53,7 @@
 extern arena_alloc
 extern compositor_raise_surface
 extern compositor_layout_bounds
+extern sw_cursor_moved
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -729,7 +730,7 @@ key_repeats:
     ret
 
 ; Motion moves the pointer by (code, value), position puts it at (code,
-; value); either way it stays on the first output.
+; value); either way it stays inside what the outputs span.
 pointer_event:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
@@ -763,6 +764,16 @@ pointer_event:
     cmp ecx, r8d
     cmovg ecx, r8d
 .placed:
+    push rax                            ; the arrow redrawn, where it was
+    push rcx                            ; and where it goes
+    mov rdi, [rbx + InputSeat.server]
+    mov esi, [rbx + InputSeat.x]
+    mov edx, [rbx + InputSeat.y]
+    mov r8d, ecx
+    mov ecx, eax
+    call sw_cursor_moved
+    pop rcx
+    pop rax
     mov [rbx + InputSeat.x], eax
     mov [rbx + InputSeat.y], ecx
 
