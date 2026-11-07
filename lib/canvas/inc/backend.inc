@@ -95,6 +95,8 @@ struc Output
     .scanout_pitch:           resq 1    ; bytes a row there
     .fb_index:                resd 1    ; which ut_fb_info framebuffer it is
     resb 4
+    .magnify_buf:             resq 1    ; the magnifier's scratch frame, 0: none
+    .magnify_region:          resq 1    ; its memory, for ut_mem_free
 endstruc
 
 ; Mode Structure
