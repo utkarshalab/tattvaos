@@ -114,3 +114,124 @@ def superspeed_disk():
     return Device(G.device(vid=0x0781, pid=0x5583, bcd_usb=0x0320, mps0=9, manufacturer=1, product=2, serial=3),
                   cfg, {1: "SanDisk", 2: "Ultra Fit", 3: "4C530001"}, speed=SPEED_SUPER,
                   bos=G.bos(G.cap_usb2(0x06), G.cap_ss()))
+
+
+class HubPort:
+    def __init__(self):
+        self.dev = None
+        self.powered = self.connected = self.enabled = False
+        self.change = 0             # wPortChange bits
+        self.resets = 0
+        self.warm = 0
+
+
+class Hub(Device):
+    """A USB 2 hub (high speed, one TT or one per port) or a USB 3 hub
+    (SuperSpeed). Port status and features as chapter 11 and 10 say; the
+    status endpoint reports a bit per port that changed."""
+
+    def __init__(self, ports=4, superspeed=False, multi_tt=False, power_good=50, untrained=()):
+        self.ss = superspeed
+        speed = SPEED_SUPER if superspeed else SPEED_HIGH
+        ep = G.endpoint(0x81, 3, 2, 12 if not superspeed else 8)
+        if superspeed:
+            ep += G.ss_companion(0, 0, 2)
+        cfg = G.config(G.interface(0, num_ep=1, cls=9, proto=1 if multi_tt else 0), ep, attributes=0xE0)
+        Device.__init__(self, G.device(vid=0x05E3, pid=0x0626 if superspeed else 0x0610, cls=9,
+                                       proto=3 if superspeed else (2 if multi_tt else 1),
+                                       bcd_usb=0x0320 if superspeed else 0x0200, mps0=9 if superspeed else 64,
+                                       manufacturer=0, product=1, serial=0),
+                        cfg, {1: "USB3.0 Hub" if superspeed else "USB2.0 Hub"}, speed=speed)
+        self.hub_ports = [HubPort() for _ in range(ports)]
+        self.power_good = power_good
+        self.depth = None
+        self.untrained = set(untrained)
+        self.over_current_port = None
+
+    def hub_descriptor(self):
+        n = len(self.hub_ports)
+        if self.ss:
+            return struct.pack("<BBBHBBBHH", 12, 0x2A, n, 0x0000, self.power_good // 2, 0, 0, 0, 0)
+        return struct.pack("<BBBHBBBB", 9, 0x29, n, (1 << 5), self.power_good // 2, 100, 0, 0xFF)
+
+    def _changed(self, n):
+        bitmap = 1 << n
+        self.queue(0x81, bitmap.to_bytes(1 + len(self.hub_ports) // 8, "little"))
+
+    def attach(self, n, dev):
+        p = self.hub_ports[n - 1]
+        p.dev = dev
+        if p.powered:
+            p.connected = True
+            p.change |= 1
+            if self.ss and dev.speed >= SPEED_SUPER and n not in self.untrained:
+                p.enabled = True        # the USB 3 link trains by itself
+            self._changed(n)
+
+    def detach(self, n):
+        p = self.hub_ports[n - 1]
+        p.dev, p.connected, p.enabled = None, False, False
+        p.change |= 1 | 2
+        self._changed(n)
+
+    def over_current(self, n):
+        self.hub_ports[n - 1].change |= 8
+        self.over_current_port = n
+        self._changed(n)
+
+    def port_status(self, n):
+        p = self.hub_ports[n - 1]
+        s = (1 if p.connected else 0) | (2 if p.enabled else 0)
+        if self.over_current_port == n:
+            s |= 8
+        if self.ss:
+            s |= (1 << 9) if p.powered else 0
+        else:
+            s |= (1 << 8) if p.powered else 0
+            if p.enabled and p.dev:
+                s |= (1 << 9) if p.dev.speed == SPEED_LOW else 0
+                s |= (1 << 10) if p.dev.speed == SPEED_HIGH else 0
+        return struct.pack("<HH", s, p.change)
+
+    def control(self, setup, out):
+        rt, req, value, index, length = struct.unpack("<BBHHH", setup)
+        if rt == 0xA0 and req == 6 and (value >> 8) == (0x2A if self.ss else 0x29):
+            self.requests.append((rt, req, value, index, length))
+            return self.hub_descriptor()[:length]
+        if rt == 0x20 and req == 12:
+            self.requests.append((rt, req, value, index, length))
+            self.depth = value
+            return b""
+        if rt in (0xA3, 0x23) and 1 <= index <= len(self.hub_ports):
+            self.requests.append((rt, req, value, index, length))
+            p = self.hub_ports[index - 1]
+            if rt == 0xA3 and req == 0:
+                return self.port_status(index)[:length]
+            if req == 3 and value == 8:                 # PORT_POWER
+                p.powered = True
+                if p.dev and not p.connected:
+                    self.attach(index, p.dev)
+                return b""
+            if req == 3 and value in (4, 28):           # PORT_RESET, BH_PORT_RESET
+                if p.connected:
+                    p.enabled = True
+                    if value == 28:
+                        p.warm += 1
+                        p.change |= 1 << 5
+                    else:
+                        p.resets += 1
+                        p.change |= 1 << 4
+                    self._changed(index)
+                return b""
+            if req == 1:                                # CLEAR_FEATURE
+                bit = {16: 0, 17: 1, 18: 2, 19: 3, 20: 4, 29: 5, 25: 6, 26: 7}.get(value)
+                if bit is not None:
+                    p.change &= ~(1 << bit)
+                    if bit == 3:
+                        self.over_current_port = None
+                    return b""
+                if value == 1:
+                    p.enabled = False
+                    return b""
+            return None
+        return Device.control(self, setup, out)
