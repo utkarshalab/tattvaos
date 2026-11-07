@@ -311,7 +311,8 @@ tb_mirror:
 
 ; A second output taken away: the window on it comes to the first, the
 ; pointer too, its taskbar stops (one layer left), the first still lists the
-; window; the last output cannot go
+; window, its pixels' memory is freed; the last output cannot go; another
+; output added gets a taskbar in the stopped one's record
 tb_remove_output:
     sub rsp, 8
     lea rdi, [rel server]
@@ -323,6 +324,8 @@ tb_remove_output:
     mov [rel output2], rax
     call poll                           ; its taskbar
     call poll
+    mov rax, [rel server + Server.taskbar]
+    mov [rel bar2], rax
     lea rdi, [rel server]               ; the pointer onto it
     mov esi, INPUT_POSITION
     mov edx, WIDTH + 50
@@ -380,10 +383,28 @@ tb_remove_output:
 .counted:
     cmp ecx, 1
     jne .fail
+    mov rax, [rel output2]              ; its pixels freed
+    cmp qword [rax + Output.fb_region], 0
+    jne .fail
+    cmp qword [rax + Output.framebuffer], 0
+    jne .fail
     lea rdi, [rel server]               ; the last stays
     mov rsi, [rel server + Server.outputs]
     call server_remove_output
     cmp rax, -(EBUSY)
+    jne .fail
+    lea rdi, [rel server]               ; another, its taskbar in the old
+    mov esi, OUT2_W                     ; one's record
+    mov edx, OUT2_H
+    call server_add_output
+    test rax, rax
+    jz .fail
+    call poll
+    call poll
+    mov rax, [rel server + Server.taskbar]
+    cmp rax, [rel bar2]
+    jne .fail
+    cmp dword [rax + Taskbar.output], 1
     jne .fail
     PASS
 
