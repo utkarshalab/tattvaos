@@ -1582,6 +1582,17 @@ endstruc
 
 %define INPUT_QUEUE_LEN       256       ; a power of two
 
+; A finger down on a surface (InputSeat.touches); surface 0: a free entry
+%define TOUCH_SLOTS         10          ; contacts at once, over all devices
+struc TouchContact
+    .surface:                 resq 1
+    .key:                     resd 1    ; device << 8 | slot
+    resb 4
+endstruc
+%if TouchContact_size * TOUCH_SLOTS != 160
+    %error "InputSeat.touches must follow TouchContact and TOUCH_SLOTS"
+%endif
+
 ; A seat: one pointer and one keyboard, their focus, and the queue of raw
 ; events waiting for the next turn (src/input/input.asm)
 struc InputSeat
@@ -1617,6 +1628,11 @@ struc InputSeat
     .sticky_lone:             resd 1    ; a modifier pressed with no key yet
     .sticky_clear:            resd 1    ; 1: the latch goes after this key
     .shift_taps:              resd 1    ; lone Shift taps in a row
+    .touches:                 resb 160  ; TOUCH_SLOTS TouchContact
+    .scan:                    resb 80   ; TOUCH_SLOTS Surface*s told this scan
+    .scan_count:              resd 1
+    .pen_flags:               resd 1    ; the pen's last INPUT_PEN bits
+    .pen_surface:             resq 1    ; the surface the pen is with, 0: none
     .keys:                    resb 32   ; held keycodes 0-255, a bit each
     .queue:                   resb INPUT_QUEUE_LEN * RawInput_size
 endstruc
