@@ -2235,7 +2235,8 @@ tw_scale_fractional:
     PASS
 
 ; The software cursor, on: its tip and fill at the pointer; moved, it is
-; gone from where it was and drawn where it is; over the edge of a second
+; gone from where it was and drawn where it is; a modifier leaves it, a
+; letter typed hides it, a move shows it again; over the edge of a second
 ; output, part on each
 %macro SEES 3                           ; x, y on the first output, pixel
     mov edi, %1
@@ -2256,6 +2257,17 @@ tw_cursor:
     call poll
     SEES 21, 22, 0xFF202030             ; the background again
     SEES 41, 32, 0xFFFFFFFF
+    INJECT INPUT_KEY, 42, 1             ; Shift, a modifier: still there
+    INJECT INPUT_KEY, 42, 0
+    call poll
+    SEES 41, 32, 0xFFFFFFFF
+    INJECT INPUT_KEY, 30, 1             ; a letter, typed: gone
+    INJECT INPUT_KEY, 30, 0
+    call poll
+    SEES 41, 32, 0xFF202030
+    POINTER 41, 31                      ; moved: back
+    call poll
+    SEES 42, 33, 0xFFFFFFFF
     lea rdi, [rel server]               ; over the edge at 64
     mov esi, 64
     mov edx, 48
