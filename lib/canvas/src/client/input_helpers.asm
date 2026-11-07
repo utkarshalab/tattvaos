@@ -10,10 +10,31 @@
 %include "inc/errors.inc"
 %include "inc/canvas_client.inc"
 
+extern canvas_send
+
 %define EV_A    (ClientEvent.data + 12)
 %define EV_B    (ClientEvent.data + 16)
 
 section .text
+
+; ---------------------------------------------------------------------------
+; canvas_pointer_set_shape
+;   The pointer's shape while it is over one of the client's surfaces
+;   IN:  rdi = conn, esi = surface, edx = CANVAS_CURSOR_*
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_pointer_set_shape
+canvas_pointer_set_shape:
+    sub rsp, 24
+    mov [rsp], esi
+    mov [rsp + 4], edx
+    mov esi, CWP_OBJ_POINTER
+    mov edx, POINTER_SET_SHAPE
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 24
+    ret
 
 ; ---------------------------------------------------------------------------
 ; canvas_input_key_is_press
