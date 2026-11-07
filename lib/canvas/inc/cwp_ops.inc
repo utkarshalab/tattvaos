@@ -41,6 +41,12 @@
 %define FENCE_GET_STATUS        5
 %define FENCE_EV_FENCE_SIGNALED 0
 
+; cw_output (canvas-core.cwp)
+%define OUTPUT_LIST       0
+%define OUTPUT_EV_OUTPUT  0
+%define OUTPUT_EV_REMOVED 1
+%define OUTPUT_EV_DONE    2
+
 ; cw_clipboard (canvas-core.cwp)
 %define CLIPBOARD_OFFER        0
 %define CLIPBOARD_RECEIVE      1
