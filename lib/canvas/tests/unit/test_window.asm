@@ -18,6 +18,7 @@
 %include "inc/event.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
+%include "ugfx.inc"
 
 extern arena_init
 extern client_accept_trusted
@@ -32,6 +33,7 @@ extern switcher_selected
 extern server_add_output
 extern window_move
 extern server_mirror_output
+extern scale_nearest_rect
 extern compositor_output_at
 extern compositor_damage_all
 
@@ -131,6 +133,7 @@ test_window_suite:
     CASE tw_alt_tab_output, CAP_SHELL
     CASE tw_no_input, CAP_SHELL | NO_INPUT
     CASE tw_mirror, CAP_SHELL
+    CASE tw_scale_rect, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -1999,6 +2002,11 @@ tw_mirror:
     call second_pixel
     cmp eax, [rel region_h]
     jne .fail
+    mov edi, 90                         ; scaled: the bar's right end, from
+    mov esi, 2                          ; 60 of the first's 64
+    call second_pixel
+    cmp eax, [rel region_h]
+    jne .fail
     mov rax, [rel server + Server.input_seat]
     cmp dword [rax + InputSeat.x], 64
     jge .fail                           ; kept on the first
@@ -2042,6 +2050,54 @@ tw_mirror:
     call second_pixel
     cmp eax, 0xFF3E4C78
     je .fail
+    PASS
+
+; scale_nearest_rect: a 2x2 image over 4x4, all of it, then one rectangle
+; only
+%macro SCALED 3                         ; x, y, the pixel expected there
+    mov eax, [rel scale_dst + ((%2) * 4 + (%1)) * 4]
+    cmp eax, %3
+    jne .fail
+%endmacro
+tw_scale_rect:
+    sub rsp, 8
+    lea rax, [rel scale_dst]
+    mov [rel scale_job + UgfxScale_dst], rax
+    mov qword [rel scale_job + UgfxScale_dst_stride], 16
+    mov dword [rel scale_job + UgfxScale_dst_w], 4
+    mov dword [rel scale_job + UgfxScale_dst_h], 4
+    lea rax, [rel scale_src]
+    mov [rel scale_job + UgfxScale_src], rax
+    mov qword [rel scale_job + UgfxScale_src_stride], 8
+    mov dword [rel scale_job + UgfxScale_src_w], 2
+    mov dword [rel scale_job + UgfxScale_src_h], 2
+    mov dword [rel scale_job + UgfxScale_x], 0
+    mov dword [rel scale_job + UgfxScale_y], 0
+    mov dword [rel scale_job + UgfxScale_w], 4
+    mov dword [rel scale_job + UgfxScale_h], 4
+    lea rdi, [rel scale_job]
+    call scale_nearest_rect
+    SCALED 0, 0, 1
+    SCALED 1, 0, 1
+    SCALED 2, 0, 2
+    SCALED 3, 1, 2
+    SCALED 0, 2, 3
+    SCALED 3, 3, 4
+    lea rdi, [rel scale_dst]            ; again, a rectangle only
+    xor eax, eax
+    mov ecx, 16
+    rep stosd
+    mov dword [rel scale_job + UgfxScale_x], 2
+    mov dword [rel scale_job + UgfxScale_y], 1
+    mov dword [rel scale_job + UgfxScale_w], 2
+    mov dword [rel scale_job + UgfxScale_h], 2
+    lea rdi, [rel scale_job]
+    call scale_nearest_rect
+    SCALED 2, 1, 2
+    SCALED 3, 2, 4
+    SCALED 0, 0, 0                      ; outside it: untouched
+    SCALED 1, 1, 0
+    SCALED 2, 3, 0
     PASS
 
 ; Server.locked to edi, every output redrawn, a turn
@@ -2126,9 +2182,15 @@ tw_locked:
     je .fail                            ; back
     PASS
 
+section .data
+align 8
+scale_src:      dd 1, 2, 3, 4           ; 2 x 2
+
 section .bss
 alignb 16
 server:         resb Server_size
+scale_dst:      resd 16                 ; 4 x 4
+scale_job:      resb UgfxScale_SIZE
 arena:          resb Arena_size
 pair:           resb ChannelPair_size
 hdr:            resb MsgHdr_size
