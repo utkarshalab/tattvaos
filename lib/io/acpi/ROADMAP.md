@@ -214,11 +214,14 @@ the classic S3 path. Both are planned; S0 idle comes first here.
 
 ### 4.6 Platform devices
 
-- ☐ Battery: `_BIF`, `_BIX`, `_BST`, `_BTP`, `_BTM`, `_BMC`, charge limits;
-  smart battery over SMBus
-- ☐ AC adapter: `_PSR`, power source and power meter devices
-- ☐ Thermal zones: `_TMP`, `_PSV`, `_CRT`, `_HOT`, `_ACx`, `_ALx`, `_TC1`,
-  `_TC2`, `_TSP`, `_TZP`; trip point events; data to `kernel/power`
+- ◐ Battery: `_BIX` (or `_BIF`), `_BST`, the battery-present bit of `_STA`,
+  Notify 0x80/0x81 (`aml/power.asm`); host-tested, not yet booted
+- ☐ Battery: `_BTP`, `_BTM`, `_BMC`, charge limits; smart battery over SMBus
+- ◐ AC adapter: `_PSR` and its Notify (`aml/power.asm`)
+- ☐ Power source and power meter devices
+- ◐ Thermal zones: `_TMP`, `_CRT`, `_HOT`, `_PSV` in tenths of °C, Notify,
+  a zone at or over its critical point always reported (`aml/power.asm`)
+- ☐ Thermal zones: `_ACx`, `_ALx`, `_TC1`, `_TC2`, `_TSP`, `_TZP` (polling)
 - ☐ Fans: `_FIF`, `_FPS`, `_FSL`, `_FST`
 - ☐ Lid `_LID`, buttons, sleep button
 - ☐ Ambient light `_ALI`, backlight `_BCL`, `_BCM`, `_BQC` (handed to
@@ -384,8 +387,11 @@ Estimate: ~1 500 lines.
 
 ### Phase 5 — Battery, AC, thermal, fans
 
-- ☐ Everything in 4.6 except WMI and UCSI
-- ☐ Data to `/sys/power/` and `kernel/power`
+- ◐ Everything in 4.6 except WMI and UCSI: battery, adapter and thermal
+  zones read and refreshed on Notify; fans, the rest of 4.6 still to do
+- ◐ Data to `kernel/power`: `acpi_battery_info`, `acpi_ac_state`,
+  `acpi_thermal_info` and the `acpi_power_fn` hook; `/sys/power/` still
+  to do
 
 Estimate: ~3 000 lines.
 
