@@ -8,6 +8,7 @@
 %ifndef LIB_USB_USB_ASM
 %define LIB_USB_USB_ASM
 
+%include "lib/input/input.asm"       ; HID reports become input events there
 %include "lib/usb/usb.inc"
 %include "lib/usb/core/hooks.asm"
 %include "lib/usb/core/desc.asm"
@@ -22,5 +23,8 @@
 
 ; the core over them
 %include "lib/usb/core/enum.asm"
+
+; class drivers
+%include "lib/usb/class/hid/hid.asm"
 
 %endif ; LIB_USB_USB_ASM
