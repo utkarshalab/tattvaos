@@ -385,7 +385,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | PTR-08 | Relative pointer motion | P2 | |
 | PTR-09 | Pointer warping only with a grant | P2 | |
 | PTR-10 | Pointer barriers and edge pressure between monitors | P3 | |
-| PTR-11 | Cursor themes at multiple sizes, auto-scaled per DPI | P2 | ◐ `input/cursor_theme` |
+| PTR-11 | Cursor themes at multiple sizes, auto-scaled per DPI | P2 | ◐ `render/sw_cursor`: built-in shapes (arrow, I-beam, crosshair) a client picks per surface with `cw_pointer.set_shape`, each output drawing them at its scale rounded to 1x or 2x; `test_window`. No theme files (`input/cursor_theme` is a stub) |
 | PTR-12 | Hardware cursor always; never lags under load | P3 | → OUT-04. Until then `render/sw_cursor`: an arrow the compositor draws last, on whichever outputs it is over, redrawn as the pointer moves; on in canvasd (`Compositor.cursor_on`); `test_window` |
 | PTR-13 | Animated cursors and smooth shape transitions | P3 | |
 | PTR-14 | Hide cursor while typing; show on move | P3 | ✓ `render/sw_cursor`: a key press that is not a modifier, a lock or the server's hides the arrow until the pointer moves; `test_window` |
