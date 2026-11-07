@@ -52,6 +52,13 @@ global acpi_ready
 acpi_ready:         resd 1              ; 1 once the namespace is loaded
 
 section .data
+align 8
+; EDI = port, ESI = width in bits (8, 16, 32) → EAX
+global acpi_port_in_fn
+acpi_port_in_fn:    dq acpi_native_in
+; EDI = port, ESI = width in bits, EDX = value
+global acpi_port_out_fn
+acpi_port_out_fn:   dq acpi_native_out
 msg_acpi_no_rsdp:   db "ACPI: no valid RSDP; no ACPI devices", 0x0D, 0x0A, 0
 msg_acpi_no_root:   db "ACPI: no valid XSDT or RSDT; no ACPI devices", 0x0D, 0x0A, 0
 msg_acpi_no_dsdt:   db "ACPI: no valid DSDT; no ACPI devices", 0x0D, 0x0A, 0
@@ -70,8 +77,7 @@ msg_acpi_heap:      db ", interpreter memory ", 0
 msg_acpi_crlf:      db 0x0D, 0x0A, 0
 msg_acpi_denied:    db "ACPI: sandbox refused space ", 0
 msg_acpi_address:   db " address ", 0
-msg_acpi_notify:    db "ACPI: Notify ", 0
-msg_acpi_value:     db " value ", 0
+msg_acpi_sci_failed: db "ACPI: the SCI could not be routed; no ACPI events", 0x0D, 0x0A, 0
 msg_acpi_found:     db "ACPI: present: ", 0
 acpi_id_touchpad:   db "PNP0C50", 0
 acpi_id_lid:        db "PNP0C0D", 0
@@ -248,6 +254,7 @@ acpi_find_tables:
     jmp .entry
 .entries_done:
     ; the DSDT: X_DSDT when the FADT is long enough and sets it
+    mov [rel acpi_fadt], r15            ; events.asm reads its event blocks
     test r15, r15
     jz .no_dsdt
     xor edi, edi
@@ -348,10 +355,14 @@ acpi_kernel_init:
     call aml_init
     test eax, eax
     jnz .no_heap
+    ; a new namespace: nothing queued for the old one survives
+    mov dword [rel acpi_notify_head], 0
+    mov dword [rel acpi_notify_tail], 0
+    mov dword [rel acpi_events_ready], 0
 
     lea rax, [rel acpi_kernel_region]
     mov [rel aml_region_fn], rax
-    lea rax, [rel acpi_kernel_notify]
+    lea rax, [rel acpi_events_notify]   ; queued; handled after the method
     mov [rel aml_notify_fn], rax
     lea rax, [rel acpi_kernel_sleep]
     mov [rel aml_sleep_fn], rax
@@ -372,11 +383,18 @@ acpi_kernel_init:
     inc ebx
     jmp .ssdt
 .loaded:
-    ; memory and I/O have their handler now; the rest come with drivers
+    ; memory and I/O have their handler now, and the embedded controller
+    ; once found; the rest come with their drivers
+    call acpi_ec_init
     xor edi, edi
     call aml_run_reg
     mov edi, 1
     call aml_run_reg
+    cmp dword [rel acpi_ec_ready], 0
+    je .initialize
+    mov edi, 3
+    call aml_run_reg
+.initialize:
     call aml_initialize
     mov dword [rel acpi_ready], 1
 
@@ -423,6 +441,11 @@ acpi_kernel_init:
 .found_done:
     lea rsi, [rel msg_acpi_crlf]
     call uart_print_str
+    ; events: GPEs and buttons, then the SCI
+    call acpi_events_init
+    test eax, eax
+    jnz .out
+    call acpi_events_start
     jmp .out
 .no_heap:
     lea rsi, [rel msg_acpi_no_heap]
@@ -502,6 +525,16 @@ acpi_kernel_region:
     je .memory
     cmp ebx, 1
     je .io
+    cmp ebx, 3
+    jne .other_space
+    mov edi, ebx
+    mov rsi, r12
+    mov edx, r13d
+    mov ecx, r14d
+    mov r8, r15
+    call acpi_ec_region
+    jmp .out
+.other_space:
     mov eax, -AML_EUNSUPPORTED
     jmp .out
 
@@ -570,37 +603,16 @@ acpi_kernel_region:
     cmp r12, 0xCFF
     jbe .denied
 .io_ok:
-    mov edx, r12d
+    mov edi, r12d
+    mov esi, r13d
     test r14d, r14d
     jnz .io_write
-    xor eax, eax
-    cmp r13d, 8
-    je .ir8
-    cmp r13d, 16
-    je .ir16
-    in eax, dx
-    jmp .ir
-.ir8:
-    in al, dx
-    jmp .ir
-.ir16:
-    in ax, dx
-.ir:
+    call acpi_in
     mov [r15], rax
     jmp .ok
 .io_write:
-    mov rax, [r15]
-    cmp r13d, 8
-    je .iw8
-    cmp r13d, 16
-    je .iw16
-    out dx, eax
-    jmp .ok
-.iw8:
-    out dx, al
-    jmp .ok
-.iw16:
-    out dx, ax
+    mov edx, [r15]
+    call acpi_out
     jmp .ok
 
 .denied:
@@ -634,31 +646,96 @@ acpi_kernel_region:
     ret
 
 ; -----------------------------------------------------------------------------
-; acpi_kernel_notify — aml_notify_fn: print it until drivers take Notify
-; Input:  RDI = node, RSI = value
+; acpi_native_in, acpi_native_out — the real port instructions (8, 16, 32)
 ; -----------------------------------------------------------------------------
-acpi_kernel_notify:
+acpi_native_in:
+    mov edx, edi
+    xor eax, eax
+    cmp esi, 8
+    je .b
+    cmp esi, 16
+    je .w
+    in eax, dx
+    ret
+.b:
+    in al, dx
+    ret
+.w:
+    in ax, dx
+    ret
+
+acpi_native_out:
+    mov eax, edx
+    mov edx, edi
+    cmp esi, 8
+    je .b
+    cmp esi, 16
+    je .w
+    out dx, eax
+    ret
+.b:
+    out dx, al
+    ret
+.w:
+    out dx, ax
+    ret
+
+; -----------------------------------------------------------------------------
+; acpi_events_start — route the SCI to its handler (after acpi_events_init)
+; The SCI is level-triggered and active low unless the MADT overrides it;
+; ioapic_route_sci applies that rule.
+; -----------------------------------------------------------------------------
+acpi_events_start:
     push rbx
-    push r12
-    sub rsp, 8
-    mov rbx, rdi
-    mov r12, rsi
-    lea rsi, [rel msg_acpi_notify]
+    call vector_alloc
+    cmp eax, IOAPIC_VECTOR_FIRST
+    jb .fail
+    cmp eax, IOAPIC_VECTOR_LAST
+    ja .fail
+    mov ebx, eax
+    mov edi, eax
+    lea rsi, [rel acpi_ev_sci_isr]
+    xor edx, edx
+    call register_idt_handler
+    mov edi, [rel acpi_sci_int]
+    mov esi, ebx
+    mov edx, [rel smp_bsp_apic_id]
+    xor ecx, ecx
+    call ioapic_route_sci
+    jnc .out
+.fail:
+    lea rsi, [rel msg_acpi_sci_failed]
     call uart_print_str
-    mov eax, [rbx + aml_node.name]
-    mov [rel acpi_name_buf], eax
-    lea rsi, [rel acpi_name_buf]
-    call uart_print_str
-    lea rsi, [rel msg_acpi_value]
-    call uart_print_str
-    mov rax, r12
-    call uart_print_hex64
-    lea rsi, [rel msg_acpi_crlf]
-    call uart_print_str
-    add rsp, 8
-    pop r12
+.out:
     pop rbx
     ret
+
+; -----------------------------------------------------------------------------
+; acpi_ev_sci_isr — the SCI: mask and mark what fired; the fiber does the rest
+; -----------------------------------------------------------------------------
+acpi_ev_sci_isr:
+    push rax
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push r8
+    push r9
+    push r10
+    push r11
+    cld
+    call acpi_ev_sci_irq
+    call smp_lapic_eoi
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rax
+    iretq
 
 ; -----------------------------------------------------------------------------
 ; acpi_kernel_sleep — aml_sleep_fn: wait RDI nanoseconds (Sleep, Stall)
@@ -674,5 +751,8 @@ acpi_kernel_sleep:
     call udelay
     add rsp, 8
     ret
+
+%include "lib/io/acpi/aml/events.asm"
+%include "lib/io/acpi/aml/ec.asm"
 
 %endif ; LIB_IO_ACPI_AML_KERNEL_ASM
