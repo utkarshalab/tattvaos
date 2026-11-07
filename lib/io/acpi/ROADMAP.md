@@ -165,11 +165,14 @@ the classic S3 path. Both are planned; S0 idle comes first here.
   `_REG` per address space when its handler arrives (`aml/init.asm`)
 - ☐ Identification: `_HID`, `_CID`, `_UID`, `_ADR`, `_CLS`, `_SUB`, `_HRV`,
   `_STR`, `_DDN`
-- ☐ Resources: `_CRS`, `_PRS`, `_SRS`, `_DIS` with every resource
-  descriptor: memory (24-bit, 32-bit, fixed, address space 16/32/64,
+- ◐ Resources: `_CRS` read and every resource descriptor decoded
+  (`aml/res.asm`): memory (24-bit, 32-bit, fixed, address space 16/32/64,
   extended), I/O and fixed I/O, IRQ and extended IRQ, DMA and fixed DMA,
   GPIO interrupt and GPIO I/O, I²C, SPI, UART and CSI-2 serial bus
-  connections, pin function and pin configuration, clock input
+  connections, generic register, vendor, dependent-function markers; pin
+  function, pin configuration and clock input recognised but not yet
+  decoded field by field
+- ☐ `_PRS`, `_SRS`, `_DIS` (choosing and setting resources)
 - ☐ `_DSD` device properties (with known UUIDs) and `_DSM` methods
 - ☐ `_PRT` PCI interrupt routing, link devices
 - ☐ `_OSC` for PCIe (native hot plug, AER, PME, LTR, DPC), USB4, CXL and
@@ -338,7 +341,9 @@ Estimate: ~12 000 lines.
 
 ### Phase 2 — Device discovery
 
-- ☐ Resource descriptors, device matching, `_DSD`, `_DSM`
+- ◐ Resource descriptors and device matching (host-tested, not yet used by
+  a driver)
+- ☐ `_DSD`, `_DSM`
 - ☐ `_PRT` routing for `lib/io/pci`, `_OSC`
 - ☐ IVRS and DMAR for `lib/io/dma`
 - ☐ Region handlers hooked up for `lib/io/gpio` (GPIO) and `lib/io/i2c`
