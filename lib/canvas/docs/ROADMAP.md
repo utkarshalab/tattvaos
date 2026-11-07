@@ -398,7 +398,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| TCH-01 | Multi-touch slots and surface delivery | P2 | ◐ `input/touch` (reworked) |
+| TCH-01 | Multi-touch slots and surface delivery | P2 | ◐ `input/input` (records type 6): each finger goes to the surface it went down on until lifted or cancelled, a tap focusing it; `cw_touch` down, motion, up, cancel in the surface's pixels, and frame after each scan to the surfaces in it; device units scaled by `ut_input_device_info`; behind `CAP_TOUCH`; `test_window`. No gestures yet (`input/touch` is the older module) |
 | TCH-02 | Touchpad gestures: pinch, swipe, hold, multi-finger tap; configurable | P2 | ◐ `input/gestures` |
 | TCH-03 | Touchpad palm rejection and disable-while-typing | P3 | |
 | TCH-04 | Touch-to-pointer emulation for clients without touch | P2 | |
@@ -407,7 +407,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | TCH-07 | System edge swipes with app opt-out policy | P3 | |
 | TCH-08 | Touch latency compensation per panel | P4 | |
 | TCH-09 | Touchscreen calibration | P3 | |
-| TCH-10 | Pen: pressure curves, tilt, eraser, pad buttons and rings | P2 | ◐ `input/tablet` |
+| TCH-10 | Pen: pressure curves, tilt, eraser, pad buttons and rings | P2 | ◐ `input/input` (records 7 and 8): `cw_tablet_tool` proximity in and out with the tool, motion, axes (pressure, distance, tilt, rotation as sent), tip (a tap) and the two barrel buttons; the surface under it, the one it touched while the tip is down; behind `CAP_TABLET`; `test_window`. No pressure curves, pad buttons or rings |
 | TCH-11 | Pen low-latency front-buffer inking with prediction | P4 | |
 | TCH-12 | Gamepads: buttons, axes, rumble | P4 | |
 | TCH-13 | Haptics / force feedback | P4 | |
