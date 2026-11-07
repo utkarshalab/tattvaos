@@ -44,6 +44,7 @@ extern handle_resolve
 extern headless_create_virtual_output
 extern compositor_layout_bounds
 extern compositor_damage_all
+extern compositor_damage_surface
 extern input_keep_pointer
 extern window_output_gone
 extern sw_cursor_redraw
@@ -940,6 +941,27 @@ HANDLER h_clipboard_data, 12
     mov rdx, r13
     mov ecx, [r12 + MsgHdr.len]
     call clipboard_data
+HANDLER_END
+
+; cw_surface.set_buffer_scale(surface, scale: 120ths; 0 is 120): redrawn
+; where it was and where it is at the new size
+HANDLER h_surface_set_buffer_scale, 8
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov r12, rax                        ; the header is not needed again
+    mov ecx, [r13 + 4]
+    cmp ecx, 120 * 8
+    ja .bad_object                      ; past 8x: no such buffer
+    mov rdi, r14
+    mov rsi, r12
+    call compositor_damage_surface
+    mov ecx, [r13 + 4]
+    mov [r12 + Surface.buffer_scale], ecx
+    mov rdi, r14
+    mov rsi, r12
+    call compositor_damage_surface
 HANDLER_END
 
 ; cw_output.list(): every output, then done; told of changes from now
