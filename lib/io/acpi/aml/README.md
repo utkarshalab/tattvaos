@@ -52,6 +52,8 @@ The outside world comes in through hooks, all optional:
 | `init.asm` | `_REG`, the `_STA`/`_INI` walk, device IDs and lookup |
 | `res.asm` | `_CRS` and resource descriptors, decoded into a 56-byte record |
 | `dsm.asm` | `_DSM` calls and the function-0 support check |
+| `events.asm` | ACPI events: the FADT's event blocks, ACPI mode, GPEs, fixed buttons, the SCI handler, the fiber-side service, Notify to the lid and button hooks |
+| `ec.asm` | The embedded controller: EmbeddedControl regions and queries |
 | `kernel.asm` | In the kernel: finds the DSDT and SSDTs, gives the interpreter 2 MB, the sandboxed region handler, Notify, Sleep and the clock; `acpi_kernel_init` runs at boot |
 
 ## Safety
@@ -75,4 +77,5 @@ sh lib/io/acpi/aml/tests/run_tests.sh
 | `test_init.py` | 30 | The start-up walk, device IDs, `_REG` |
 | `test_res.py` | 48 | Every resource descriptor, malformed ones, 5 000 random templates, `_CRS` |
 | `test_dsm.py` | 10 | `_DSM` calls, supported functions (buffer or integer answers), no `_DSM` |
+| `test_events.py` | 34 | ACPI mode, GPE enabling and dispatch, fixed buttons, the EC protocol and queries, Notify to the hooks, storms, machines without these (`kstub.asm`) |
 | `test_kernel.py` | 24 | `kernel.asm` with stubbed kernel symbols (`kstub.asm`): table discovery, start-up, the sandbox, firmware faults |
