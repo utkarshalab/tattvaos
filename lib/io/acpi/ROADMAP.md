@@ -363,14 +363,22 @@ Estimate: ~5 000 lines.
 
 ### Phase 3 — Events and buttons
 
-- ☐ SCI, fixed events, GPEs, GPIO events, `Notify`
-- ☐ Power button, sleep button and lid for `lib/input`
+- ◐ SCI (`ioapic_route_sci`: level, active low unless the MADT overrides),
+  ACPI mode through SMI_CMD, fixed power and sleep buttons, GPEs with
+  `_Lxx`/`_Exx` methods (level cleared after the method, edge in the
+  interrupt), a storm limit per GPE, `Notify` queued and handled after the
+  method (`aml/events.asm`); host-tested, not yet booted
+- ☐ GPIO-signalled events (`_AEI`, `_EVT`)
+- ◐ Power button, sleep button and lid for `lib/input`
+  (`lib/input/kernel_acpi.asm`)
 
 Estimate: ~3 000 lines.
 
 ### Phase 4 — Embedded controller
 
-- ☐ EC driver, ECDT, query events, burst mode, recovery
+- ◐ EC driver (`aml/ec.asm`): `_CRS` ports, `_GPE`, read and write,
+  EmbeddedControl regions, `_REG (3)`, queries running `_Qxx`, bounded waits
+- ☐ ECDT, burst mode, recovery of a wedged controller
 
 Estimate: ~1 500 lines.
 
