@@ -1555,6 +1555,8 @@ struc Server
     .window_seq:              resq 1    ; the last Window.number given
     .window_active:           resq 1    ; the number the window list last said
     .window_lists:            resq 8    ; WINDOW_LIST_MAX subscribed Client*s
+    .output_watchers:         resq 8    ; OUTPUT_WATCHERS Client*s told of outputs
+    .output_seq:              resq 1    ; the last Output.id given
     .workspace:               resq 1    ; the one shown, 0 to WORKSPACES - 1
 endstruc
 
@@ -1714,6 +1716,7 @@ endstruc
 %define MOVE_RESIZE     2
 %define RESIZE_MIN      16              ; the smallest a resize asks for
 %define WINDOW_LIST_MAX 8               ; clients watching the window list
+%define OUTPUT_WATCHERS 8               ; clients told of the outputs
 %define WORKSPACES      4               ; Super+1 to Super+4
 
 ; Server-drawn title bars (src/shell/titlebar.asm)
