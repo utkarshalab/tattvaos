@@ -156,6 +156,7 @@ test_window_suite:
     CASE tw_dnd, CAP_SHELL | CAP_CLIPBOARD | CAP_DATA
     CASE tw_sticky, CAP_SHELL
     CASE tw_outputs, CAP_SHELL | CAP_OUTPUT
+    CASE tw_buffer_scale, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2749,6 +2750,55 @@ tw_outputs:
     mov rsi, [rel output_b]
     call server_remove_output
     REMOVED_IS output_id_b
+    PASS
+
+; A 16x12 buffer at buffer scale 240 (twice the size each way) is an 8x6
+; window: drawn 8x6 where it was placed, the pointer past its 8 columns not
+; on it
+tw_buffer_scale:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_surface
+    mov [rel surface_a], eax
+    mov rdi, [rel server + Server.buffer_table]  ; all of it green
+    mov esi, [rel buffer]
+    call handle_resolve
+    mov rdi, [rax + Buffer.base]
+    mov ecx, [rax + Buffer.stride]
+    imul ecx, ecx, 12
+    shr ecx, 2
+    mov eax, 0xFF00FF00
+    rep stosd
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], 240
+    SEND CWP_OBJ_SURFACE, SURFACE_SET_BUFFER_SCALE, 8
+    TOPLEVEL TL_CREATE, surface_a, 0
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    SEES 10, 10, 0xFF00FF00             ; its corners
+    SEES 17, 15, 0xFF00FF00
+    SEES 18, 10, 0xFF202030             ; past them: the background
+    SEES 10, 16, 0xFF202030
+    POINTER 19, 11                      ; past its 8 columns: not on it
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.pointer_focus], rax
+    je .fail
+    POINTER 15, 11                      ; on it
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.pointer_focus], rax
+    jne .fail
     PASS
 
 ; -> eax = how many outputs the server has
