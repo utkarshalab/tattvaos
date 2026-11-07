@@ -13,10 +13,12 @@
 ; to every output it touches. Surface.output is a surface's own output, for
 ; placing it, and 0 while it is off the screen.
 ;
-; An output that mirrors another (Output.mirror_of) sits where that one is,
-; so it draws the same part and its damage comes with it; it is no part of
-; the layout of its own: compositor_output_at and compositor_layout_bounds
-; pass it by, so nothing is placed on it and the pointer is not kept on it.
+; An output that mirrors another (Output.mirror_of) is not drawn itself: once
+; its source is, the source's damaged pixels are scaled into it
+; (mirror_copy, nearest neighbour, the whole source over the whole mirror).
+; It gets no damage of its own, and is no part of the layout:
+; compositor_output_at and compositor_layout_bounds pass it by, so nothing
+; is placed on it and the pointer is not kept on it.
 ;
 ; While the screen is locked (Server.locked) only overlays are drawn, the
 ; login screen among them: on every output, everything else is background.
@@ -37,6 +39,7 @@
 %include "inc/color.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
+%include "ugfx.inc"
 
 extern arena_alloc
 extern frame_clock_schedule
@@ -44,6 +47,7 @@ extern handle_resolve
 extern presentation_complete
 extern rect_intersect
 extern region_add_rect
+extern scale_nearest_rect
 extern region_clear
 extern region_is_empty
 extern surface_fire_frame_callbacks
@@ -504,11 +508,14 @@ compositor_composite:
 .output_loop:
     test r12, r12
     jz .done
+    cmp qword [r12 + Output.mirror_of], 0
+    jne .next_output                    ; copied when its source is drawn
     mov rdi, rbx
     mov rsi, r12
     call compositor_composite_output
     test rax, rax
     js .out
+.next_output:
     mov r12, [r12 + Output.next]
     jmp .output_loop
 .done:
@@ -532,6 +539,8 @@ compositor_damage_rect:
 .output:
     test r13, r13
     jz .done
+    cmp qword [r13 + Output.mirror_of], 0
+    jne .next                           ; a mirror copies its source's
     mov eax, [r12]                      ; does it touch this one?
     mov ecx, [r13 + Output.x]
     add ecx, [r13 + Output.width]
@@ -576,6 +585,8 @@ compositor_damage_all:
 .output:
     test rbx, rbx
     jz .done
+    cmp qword [rbx + Output.mirror_of], 0
+    jne .next                           ; its source's copy will do
     mov eax, [rbx + Output.x]
     mov [rsp], eax
     mov eax, [rbx + Output.y]
@@ -589,6 +600,7 @@ compositor_damage_all:
     call region_add_rect
     test rax, rax
     js .out
+.next:
     mov rbx, [rbx + Output.next]
     jmp .output
 .done:
@@ -753,6 +765,10 @@ compositor_composite_output:
     xor ecx, ecx
     call rax
 .presented:
+    mov rdi, rbx                        ; its mirrors, from what was drawn
+    mov rsi, r12
+    mov rdx, r13
+    call mirror_copy
     mov rdi, r13
     call region_clear
     inc qword [rbx + Compositor.frame_seq]
@@ -787,6 +803,133 @@ compositor_composite_output:
     add rsp, FrameCtx_size + 64 + 8
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
+
+; Every output mirroring one just drawn: each damaged rectangle, mapped
+; into the mirror (rounded outwards), scaled from the source's pixels,
+; then shown as that mirror's damage.
+; rdi = compositor, rsi = the source, rdx = its damage (the layout's)
+%define MC_JOB      0
+%define MC_RECT     UgfxScale_SIZE      ; x0, y0, x1, y1 in the source, then
+mirror_copy:                            ; x, y, w, h in the mirror
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, UgfxScale_SIZE + 16 + 8    ; the job, a rect; 16-byte aligned
+    mov rbx, [rdi + Compositor.server]
+    mov r12, rsi
+    mov r13, rdx
+    mov r14, [rbx + Server.outputs]
+.output:
+    test r14, r14
+    jz .done
+    cmp [r14 + Output.mirror_of], r12
+    jne .next_output
+    mov rax, [r14 + Output.framebuffer]
+    mov [rsp + MC_JOB + UgfxScale_dst], rax
+    mov rax, [r14 + Output.stride]
+    mov [rsp + MC_JOB + UgfxScale_dst_stride], rax
+    mov eax, [r14 + Output.width]
+    mov [rsp + MC_JOB + UgfxScale_dst_w], eax
+    mov eax, [r14 + Output.height]
+    mov [rsp + MC_JOB + UgfxScale_dst_h], eax
+    mov rax, [r12 + Output.framebuffer]
+    mov [rsp + MC_JOB + UgfxScale_src], rax
+    mov rax, [r12 + Output.stride]
+    mov [rsp + MC_JOB + UgfxScale_src_stride], rax
+    mov eax, [r12 + Output.width]
+    mov [rsp + MC_JOB + UgfxScale_src_w], eax
+    mov eax, [r12 + Output.height]
+    mov [rsp + MC_JOB + UgfxScale_src_h], eax
+    xor r15d, r15d
+.rect:
+    cmp r15, [r13 + Region.count]
+    jae .show
+    mov rax, r15
+    shl rax, 4
+    add rax, [r13 + Region.rects]
+    mov ecx, [rax]                      ; in the source's own pixels, inside it
+    sub ecx, [r12 + Output.x]
+    mov edx, [rax + 4]
+    sub edx, [r12 + Output.y]
+    mov r8d, ecx
+    add r8d, [rax + 8]
+    mov r9d, edx
+    add r9d, [rax + 12]
+    xor eax, eax
+    cmp ecx, eax
+    cmovl ecx, eax
+    cmp edx, eax
+    cmovl edx, eax
+    cmp r8d, [r12 + Output.width]
+    cmovg r8d, [r12 + Output.width]
+    cmp r9d, [r12 + Output.height]
+    cmovg r9d, [r12 + Output.height]
+    cmp r8d, ecx
+    jle .next_rect
+    cmp r9d, edx
+    jle .next_rect
+    mov [rsp + MC_RECT], ecx
+    mov [rsp + MC_RECT + 4], edx
+    mov [rsp + MC_RECT + 8], r8d
+    mov [rsp + MC_RECT + 12], r9d
+%macro MC_MAP 4                         ; slot, mirror's size, source's, 1: up
+    mov eax, [rsp + MC_RECT + %1]
+    mul dword [r14 + Output.%2]
+  %if %4
+    mov ecx, [r12 + Output.%3]
+    dec ecx
+    add eax, ecx
+    adc edx, 0
+  %endif
+    div dword [r12 + Output.%3]
+    mov [rsp + MC_RECT + %1], eax
+%endmacro
+    MC_MAP 0, width, width, 0
+    MC_MAP 4, height, height, 0
+    MC_MAP 8, width, width, 1
+    MC_MAP 12, height, height, 1
+    mov eax, [rsp + MC_RECT]
+    mov [rsp + MC_JOB + UgfxScale_x], eax
+    mov ecx, [rsp + MC_RECT + 8]
+    sub ecx, eax
+    jle .next_rect
+    mov [rsp + MC_JOB + UgfxScale_w], ecx
+    mov [rsp + MC_RECT + 8], ecx
+    mov eax, [rsp + MC_RECT + 4]
+    mov [rsp + MC_JOB + UgfxScale_y], eax
+    mov ecx, [rsp + MC_RECT + 12]
+    sub ecx, eax
+    jle .next_rect
+    mov [rsp + MC_JOB + UgfxScale_h], ecx
+    mov [rsp + MC_RECT + 12], ecx
+    lea rdi, [rsp + MC_JOB]
+    call scale_nearest_rect
+    mov eax, [r14 + Output.x]           ; the mirror's damage, in the layout
+    add [rsp + MC_RECT], eax
+    mov eax, [r14 + Output.y]
+    add [rsp + MC_RECT + 4], eax
+    mov rdi, [r14 + Output.damage]
+    lea rsi, [rsp + MC_RECT]
+    call region_add_rect
+.next_rect:
+    inc r15
+    jmp .rect
+.show:
+    mov rdi, [r14 + Output.backend]     ; a backend with display memory
+    mov rax, [rdi + Backend.flip]       ; takes it
+    test rax, rax
+    jz .shown
+    mov rsi, r14
+    mov rdx, [r14 + Output.damage]
+    xor ecx, ecx
+    call rax
+.shown:
+    mov rdi, [r14 + Output.damage]
+    call region_clear
+.next_output:
+    mov r14, [r14 + Output.next]
+    jmp .output
+.done:
+    add rsp, UgfxScale_SIZE + 16 + 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 ; The topmost surface that is opaque over the whole of a rectangle (the
 ; layout's coordinates), 0 if none is; any output's.
