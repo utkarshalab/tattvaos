@@ -62,6 +62,7 @@ class Slot:
     def __init__(self, sid):
         self.sid = sid
         self.port = 0
+        self.dev = None
         self.address = 0
         self.eps = {}
 
@@ -355,6 +356,7 @@ class XhciSim:
             d1 = u32(ep0 + 4)
             tr = u64(ep0 + 8)
             slot.port = port_no
+            slot.dev = p.dev                         # what answers at its address
             slot.address = sid
             slot.route = u32(sc) & 0xFFFFF
             slot.speed = (u32(sc) >> 20) & 15
@@ -452,7 +454,7 @@ class XhciSim:
                 ep.state = EP_HALTED
                 return
             length = status & 0x1FFFF
-            if port.dev is None or not port.ped:
+            if port.dev is None or not port.ped or port.dev is not slot.dev:
                 ep.deq, ep.ccs = t[4], t[5]
                 self._xfer_event(trb, CC_TRANSACTION, length, slot.sid, dci)
                 ep.state = EP_HALTED
@@ -510,7 +512,7 @@ class XhciSim:
             out = None
             if data is not None and not (data[3] & (1 << 16)):
                 out = rd(data[1], data[2] & 0x1FFFF)
-            if port.dev is None or not port.ped:
+            if port.dev is None or not port.ped or port.dev is not slot.dev:
                 self._xfer_event((data or status_trb)[0], CC_TRANSACTION, 0, slot.sid, 1)
                 ep.state = EP_HALTED
                 return
