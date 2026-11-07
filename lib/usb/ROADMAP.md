@@ -174,15 +174,19 @@ lib/usb/
 
 ### 6.1 xHCI host controller
 
-- ☐ Ownership hand-off from firmware, reset, scratchpad buffers, device
-  context array, 64-bit addressing
-- ☐ Command ring, event rings, several interrupters with MSI-X
+- ◐ Ownership hand-off from firmware (overruled after a second, SMIs
+  off), reset, scratchpad buffers, device context array, 64-bit
+  addressing (`hcd/xhci/init.asm`); host-tested against `sim/`
+- ◐ Command ring and one event ring on interrupter 0, polled
+  (`ring.asm`, `cmd.asm`)
+- ☐ Several interrupters with MSI-X
 - ☐ Transfer rings for control, bulk, interrupt and **isochronous**
   endpoints; bulk streams (needed later for fast storage)
-- ☐ Port detection, reset, speed (low, full, high, SuperSpeed 5, 10 and 20
-  Gbit/s), over-current, warm reset
-- ☐ Slot and endpoint contexts, address device, configure endpoint,
-  evaluate context, stop and reset endpoint
+- ◐ Port detection, reset, speed, warm reset for USB 3 links that did not
+  train, change bits (`port.asm`); over-current still to do
+- ◐ Slot and endpoint contexts, Address Device, Evaluate Context, Reset
+  Endpoint with Set TR Dequeue after a stall (`cmd.asm`); Configure
+  Endpoint and Stop Endpoint still to do
 - ☐ Bandwidth checks and isochronous scheduling
 - ☐ Error handling: stalls, babble, transaction errors, missed service,
   ring underrun and overrun, host controller error and full restart
@@ -291,17 +295,21 @@ Phone and camera file transfer (MTP/PTP) is deferred with storage
 
 ### Phase 0 — Foundations
 
-- ☐ `usb.inc`: bus, device, interface, endpoint and transfer structures
-- ☐ Descriptor parsers with fuzzing from day one
-- ☐ `sim/`: a software xHCI controller and device models for host test
-  suites (QEMU later, in software mode only, when allowed)
+- ☑ `usb.inc`: device, interface, endpoint, association, BOS and transfer
+  structures
+- ☑ Descriptor parsers (`core/desc.asm`) with fuzzing from day one: 20 000
+  rounds per run against a reference parser
+- ◐ `sim/`: a software xHCI controller and device models (keyboard, mouse,
+  Bluetooth radio, SuperSpeed disk); grows with each phase
 
 Estimate: ~2 000 lines.
 
 ### Phase 1 — xHCI bring-up (`sim/`)
 
-- ☐ Controller init, rings, interrupters, port detection, one device
-  enumerated over control transfers
+- ◐ Controller init, rings, port detection, devices at full, high and
+  SuperSpeed enumerated over control transfers (`core/enum.asm`); 48
+  host checks. Interrupters with MSI-X, PCI attach and the `usb` command
+  still to do
 
 Demo: `usb` lists the simulated keyboard with its descriptors.
 Estimate: ~6 000 lines.
