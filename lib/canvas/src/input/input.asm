@@ -27,6 +27,8 @@
 ;   Alt+drag moves the window under the pointer, Alt+right-drag resizes it
 ;            (configure with the new size); its client sees none of the drag
 ;   a press  on anything but a popup ends every popup (an Alt+drag does not)
+;   a drag   (data/dnd) while it lasts has the motion, and the last button let
+;            go drops it
 ;   a bar    a server-drawn title bar (shell/titlebar) is not its window's
 ;            for the client: a press on a button acts, elsewhere on the bar
 ;            starts a move
@@ -58,6 +60,10 @@ extern compositor_layout_bounds
 extern sw_cursor_moved
 extern sw_cursor_hide
 extern clipboard_focus_changed
+extern dnd_active
+extern dnd_over
+extern dnd_release
+extern dnd_forget_surface
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -522,8 +528,7 @@ input_forget_surface:
     jne .done
     mov qword [rax + InputSeat.moving], 0
 .done:
-    xor eax, eax
-    ret
+    jmp dnd_forget_surface              ; and no drag holds it
 
 ; ---------------------------------------------------------------------------
 ; Delivery: rdi = seat, rsi = RawInput*
@@ -820,6 +825,19 @@ pointer_event:
     jmp .out
 .route:
 
+    ; A drag has the motion: the surface under the pointer hears of it
+    mov rdi, [rbx + InputSeat.server]
+    call dnd_active
+    test eax, eax
+    jz .no_drag
+    mov rdi, rbx
+    call surface_at
+    mov rdi, [rbx + InputSeat.server]
+    mov rsi, rax
+    call dnd_over
+    jmp .out
+.no_drag:
+
     ; A held button keeps the surface; otherwise the one under the pointer
     ; takes it, and its enter carries the position
     cmp dword [rbx + InputSeat.buttons], 0
@@ -949,6 +967,11 @@ button_event:
     btr eax, r12d
     jnc .out
     mov [rbx + InputSeat.buttons], eax
+    test eax, eax                       ; the last up: a drag drops
+    jnz .still_held
+    mov rdi, [rbx + InputSeat.server]
+    call dnd_release
+.still_held:
     xor r9d, r9d
 .send:
     mov rsi, [rbx + InputSeat.pointer_focus]
