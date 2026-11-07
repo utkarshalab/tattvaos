@@ -21,8 +21,28 @@ input_port_in8_fn:  dq input_native_in8
 ; DI = port, SIL = byte
 global input_port_out8_fn
 input_port_out8_fn: dq input_native_out8
+; RAX = the interrupt state, then interrupts off (input_post_safe)
+global input_irq_off_fn
+input_irq_off_fn:   dq input_native_irq_off
+; RDI = the state input_irq_off_fn returned
+global input_irq_restore_fn
+input_irq_restore_fn: dq input_native_irq_restore
 
 section .text
+
+; -----------------------------------------------------------------------------
+; input_native_irq_off, input_native_irq_restore — the real flags
+; -----------------------------------------------------------------------------
+input_native_irq_off:
+    pushfq
+    pop rax
+    cli
+    ret
+
+input_native_irq_restore:
+    push rdi
+    popfq
+    ret
 
 ; -----------------------------------------------------------------------------
 ; input_native_in8, input_native_out8 — the real port instructions
