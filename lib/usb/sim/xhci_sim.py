@@ -384,6 +384,8 @@ class XhciSim:
                     tr = u64(ec + 8)
                     slot.eps[dci] = Endpoint(tr & ~0xF, tr & 1, d1 >> 16, (d1 >> 3) & 7)
                     slot.eps[dci].interval = (u32(ec) >> 16) & 0xFF
+                    slot.eps[dci].ctx = (u32(ec), d1, u32(ec + 16))
+            slot.entries = u32(self._ctx(inp, 1)) >> 27
             self.log.append(("configure", sid, add, drop))
             return CC_SUCCESS, sid
         dci = (control >> 16) & 31
@@ -425,6 +427,61 @@ class XhciSim:
         ep.state = EP_RUNNING
         if dci == 1:
             self._control(slot, ep)
+        else:
+            self._stream(slot, ep, dci)
+
+    def pump(self):
+        """Serve every endpoint waiting with a transfer: queued reports go
+        out now (as they would at the next service interval)."""
+        for slot in list(self.slots.values()):
+            for dci, ep in list(slot.eps.items()):
+                if dci != 1 and ep.state == EP_RUNNING:
+                    self._stream(slot, ep, dci)
+
+    def _stream(self, slot, ep, dci):
+        """Interrupt and bulk: each Normal TRB the device has data for."""
+        port = self.ports[slot.port - 1]
+        address = (dci // 2) | (0x80 if dci & 1 else 0)
+        while True:
+            t = self._next(ep.deq, ep.ccs)
+            if t is None:
+                return
+            trb, buf, status, control = t[:4]
+            if (control >> 10) & 63 != 1:
+                self._xfer_event(trb, CC_TRB, 0, slot.sid, dci)
+                ep.state = EP_HALTED
+                return
+            length = status & 0x1FFFF
+            if port.dev is None or not port.ped:
+                ep.deq, ep.ccs = t[4], t[5]
+                self._xfer_event(trb, CC_TRANSACTION, length, slot.sid, dci)
+                ep.state = EP_HALTED
+                return
+            if address & 0x80:
+                data = port.dev.read(address)
+                if data is None:
+                    return                           # NAK: the TRB waits
+                if data == "stall":
+                    ep.deq, ep.ccs = t[4], t[5]
+                    self._xfer_event(trb, CC_STALL, length, slot.sid, dci)
+                    ep.state = EP_HALTED
+                    return
+                if len(data) > length:
+                    ep.deq, ep.ccs = t[4], t[5]
+                    self._xfer_event(trb, 3, 0, slot.sid, dci)   # babble
+                    ep.state = EP_HALTED
+                    return
+                wr(buf, data)
+                n = len(data)
+            else:
+                port.dev.write(address, rd(buf, length))
+                n = length
+            ep.deq, ep.ccs = t[4], t[5]
+            self.log.append(("stream", slot.sid, dci, n))
+            if n < length and control & (1 << 2):
+                self._xfer_event(trb, CC_SHORT, length - n, slot.sid, dci)
+            elif control & (1 << 5):
+                self._xfer_event(trb, CC_SUCCESS, 0, slot.sid, dci)
 
     def _control(self, slot, ep):
         port = self.ports[slot.port - 1]
