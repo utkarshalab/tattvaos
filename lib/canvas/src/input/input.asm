@@ -6,7 +6,9 @@
 ; them on the active seat. server_poll calls input_dispatch once a turn, which
 ; drains the queue:
 ;
-;   keys     go to the surface with keyboard focus; a held key that is not a
+;   keys     go to the surface with keyboard focus, and one that is not a
+;            modifier or a lock hides the pointer until it moves; a held key
+;            that is not a
 ;            modifier or a lock repeats, checked at the end of each turn
 ;            (input_repeat_deadline says when the loop must wake for it)
 ;   pointer  moves across every output; the topmost surface under it gets
@@ -54,6 +56,7 @@ extern arena_alloc
 extern compositor_raise_surface
 extern compositor_layout_bounds
 extern sw_cursor_moved
+extern sw_cursor_hide
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -619,6 +622,15 @@ key_event:
     mov rdi, [rbx + InputSeat.server]
     call switcher_finish
 .routed:
+    cmp dword [r12 + RawInput.value], 0 ; typing hides the pointer: a press,
+    je .shown                           ; not the server's, not a modifier
+    mov edi, [r12 + RawInput.code]
+    call key_repeats
+    test eax, eax
+    jz .shown
+    mov rdi, [rbx + InputSeat.server]
+    call sw_cursor_hide
+.shown:
     mov rsi, [rbx + InputSeat.keyboard_focus]
     test rsi, rsi
     jz .out
