@@ -205,7 +205,11 @@ lib/usb/
 - ☐ Transfer API, timeouts, cancellation, retry rules
 - ☐ Error recovery: clear halt, endpoint reset, port reset, re-enumeration
   when the device changes identity
-- ☐ Hot plug and removal during transfers
+- ◐ Hot plug and removal during transfers: a device that goes takes
+  everything behind it; transfers on its slot are forgotten, Disable Slot,
+  rings, contexts and records freed, its input devices removed with a
+  device record posted (`core/enum.asm` `usb_device_remove`); the kernel
+  pool reuses freed blocks
 - ☐ Power budget per port and hub
 - ☐ Selective suspend, remote wakeup, wake from system sleep (keyboard,
   mouse)
@@ -214,10 +218,13 @@ lib/usb/
 
 ### 6.3 Hubs
 
-- ☐ USB 2 hubs, including transaction translators for low- and full-speed
-  devices behind high-speed hubs
-- ☐ USB 3 hubs, route strings, hub depth up to 5
-- ☐ Port power, over-current, indicators, hub suspend
+- ◐ USB 2 hubs with transaction translators for low- and full-speed
+  devices behind high-speed hubs, single and multi-TT, TT think time
+  (`class/hub/hub.asm`); host-tested
+- ◐ USB 3 hubs: route strings, hub depth, warm reset of links that did not
+  train; five tiers at most
+- ◐ Port power with the hub's power-good time, over-current counted and
+  cleared; indicators and hub suspend still to do
 - ☐ Hubs built into docks and monitors
 
 ### 6.4 Type-C and USB4
@@ -272,9 +279,14 @@ Phone and camera file transfer (MTP/PTP) is deferred with storage
   allows them; known devices remembered by vendor, product, serial and port
 - ☐ Policy in `/conf/usb/`: allowed and blocked classes, vendors and
   devices; rules for a locked screen (no new devices while locked)
-- ☐ New-keyboard check, **on by default** (decision U3): a keyboard plugged
-  in after boot types a shown code before its input counts; an admin can
-  turn it off in `/conf/usb/`
+- ◐ New-keyboard check, **on by default** (decision U3): a keyboard
+  claimed after start-up gets no input device until the six-digit code
+  shown on the console is typed on it and Enter pressed (top row or
+  keypad; Backspace starts again; three wrong codes refuse it until it is
+  replugged; it is let in once its keys are all up). Keyboards there at
+  boot, and behind hubs there at boot, need no code.
+  `usb_new_keyboard_check` turns it off; reading that from `/conf/usb/` is
+  still to do
 - ☐ Interfaces of one device authorised separately, so a "storage stick"
   cannot quietly add a keyboard interface
 - ☐ IOMMU mapping per device; USB4 PCIe tunnels only after authorisation
@@ -323,8 +335,10 @@ Estimate: ~6 000 lines.
   intervals by speed, bursts, payloads) and interrupt and bulk transfers
   with completions (`hcd/xhci/cmd.asm`, `xfer.asm`); devices plugged in
   after boot enumerated from the port change events (`kernel.asm`);
-  driver matching, Disable Slot on removal and full hot plug still to do
-- ☐ Hubs (USB 2 and 3)
+  removal with Disable Slot and everything freed; drivers offered each
+  device in turn (hub, then HID) until a matching table exists
+- ◐ Hubs (USB 2 and 3), nested to five tiers (`class/hub/hub.asm`); 35
+  host checks with removal and the new-keyboard check
 - ◐ HID boot keyboards and mice (`class/hid/hid.asm`) into `lib/input`:
   configuration, boot protocol, idle off, reports, Caps/Num/Scroll LEDs,
   recovery from stalls and babble, giving up on a device that went away;
