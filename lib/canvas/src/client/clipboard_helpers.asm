@@ -98,6 +98,33 @@ canvas_dnd_start:
     add rsp, 8 + TYPES * TYPE_LEN + 16
     ret
 
+; rdi = conn, esi = a value: the cw_dnd request %2 with it, as %1
+%macro DND_ONE 2
+global %1
+%1:
+    sub rsp, 24
+    mov [rsp], esi
+    mov esi, CWP_OBJ_DND
+    mov edx, %2
+    mov rcx, rsp
+    mov r8d, 4
+    call canvas_send
+    add rsp, 24
+    ret
+%endmacro
+
+; ---------------------------------------------------------------------------
+; canvas_dnd_set_actions, canvas_dnd_set_icon, canvas_dnd_accept
+;   The one dragging: the actions it allows (CANVAS_DND_COPY, _MOVE), a
+;   surface of its own drawn at the pointer; the one under the pointer: the
+;   action it would take, 0 none
+;   IN:  rdi = conn, esi = actions, the surface, the action
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+DND_ONE canvas_dnd_set_actions, DND_SET_ACTIONS
+DND_ONE canvas_dnd_set_icon, DND_SET_ICON
+DND_ONE canvas_dnd_accept, DND_ACCEPT
+
 ; ---------------------------------------------------------------------------
 ; canvas_clipboard_receive
 ;   A paste: the selection's data in one of the types offered, to come as
