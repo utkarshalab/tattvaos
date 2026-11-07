@@ -35,6 +35,10 @@ extern window_move
 extern server_mirror_output
 extern scale_nearest_rect
 extern scale_bilinear_rect
+extern displays_start
+extern displays_step
+extern host_display_report
+extern host_fb1
 extern compositor_output_at
 extern compositor_damage_all
 
@@ -136,6 +140,7 @@ test_window_suite:
     CASE tw_mirror, CAP_SHELL
     CASE tw_scale_rect, CAP_SHELL
     CASE tw_scale_bilinear, CAP_SHELL
+    CASE tw_displays, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2152,6 +2157,96 @@ tw_scale_bilinear:
     SCALED 3, 0, 0xFF000000
     PASS
 
+; -> eax = how many outputs the server has
+output_count:
+    xor eax, eax
+    mov rcx, [rel server + Server.outputs]
+.next:
+    test rcx, rcx
+    jz .out
+    inc eax
+    mov rcx, [rcx + Output.next]
+    jmp .next
+.out:
+    ret
+
+; edi = type, esi = framebuffer index: reported, then acted on
+%macro DISPLAY 2
+    mov edi, %1
+    mov esi, %2
+    call host_display_report
+    lea rdi, [rel server]
+    call displays_step
+%endmacro
+
+; A server on a framebuffer is told of a second display (the host's
+; framebuffer 1): an output to the right shows in its own display memory,
+; its rows' padding untouched; told again, or of one ut_fb_info does not
+; know, nothing more; removed, it goes; the last does not
+tw_displays:
+    sub rsp, 8
+    lea rdi, [rel arena]                ; a server on a framebuffer this time
+    lea rsi, [rel heap]
+    mov edx, HEAP_SIZE
+    call arena_init
+    lea rax, [rel fb0]
+    mov [rel fb0_conf + Config.fb_base], rax
+    mov dword [rel fb0_conf + Config.fb_width], 64
+    mov dword [rel fb0_conf + Config.fb_height], 48
+    mov dword [rel fb0_conf + Config.fb_stride], 64 * 4
+    mov qword [rel fb0_conf + Config.fb_size], 64 * 4 * 48
+    lea rdi, [rel server]
+    lea rsi, [rel arena]
+    mov edx, 64
+    mov ecx, 48
+    lea r8, [rel fb0_conf]
+    call server_init
+    test rax, rax
+    js .fail
+    lea rdi, [rel server]
+    call displays_start
+    test rax, rax
+    jnz .fail
+
+    DISPLAY 1, 1
+    call output_count
+    cmp eax, 2
+    jne .fail
+    mov rax, [rel server + Server.outputs]
+    mov rax, [rax + Output.next]
+    cmp dword [rax + Output.x], 64
+    jne .fail
+    cmp dword [rax + Output.fb_index], 1
+    jne .fail
+    lea rcx, [rel host_fb1]
+    cmp [rax + Output.scanout], rcx
+    jne .fail
+    call poll                           ; drawn, and shown there
+    mov eax, [rel fb0]                  ; the background, as on the first
+    test eax, eax
+    jz .fail
+    cmp [rel host_fb1], eax
+    jne .fail
+    cmp [rel host_fb1 + (23 * 40 + 31) * 4], eax
+    jne .fail
+    cmp dword [rel host_fb1 + 32 * 4], 0
+    jne .fail                           ; past its row: untouched
+
+    DISPLAY 1, 1                        ; again: shown already
+    DISPLAY 1, 5                        ; no such framebuffer
+    call output_count
+    cmp eax, 2
+    jne .fail
+    DISPLAY 2, 1                        ; taken out
+    call output_count
+    cmp eax, 1
+    jne .fail
+    DISPLAY 2, 0                        ; the last stays
+    call output_count
+    cmp eax, 1
+    jne .fail
+    PASS
+
 ; Server.locked to edi, every output redrawn, a turn
 lock_to:
     sub rsp, 8
@@ -2245,6 +2340,8 @@ section .bss
 alignb 16
 server:         resb Server_size
 scale_dst:      resd 16                 ; 4 x 4
+fb0:            resd 64 * 48            ; tw_displays' boot framebuffer
+fb0_conf:       resb Config_size
 scale_job:      resb UgfxScale_SIZE
 arena:          resb Arena_size
 pair:           resb ChannelPair_size
