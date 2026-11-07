@@ -35,6 +35,12 @@ ut_auth_users:
     mov rax, -(ENOSYS)
     ret
 
+; And displays coming and going: never told of here.
+global ut_display_register_callback
+ut_display_register_callback:
+    mov rax, -(ENOSYS)
+    ret
+
 UT_SYSCALL ut_task_spawn, SYS_TASK_SPAWN
 UT_SYSCALL ut_task_wait, SYS_TASK_WAIT
 UT_SYSCALL ut_task_self, SYS_TASK_SELF
