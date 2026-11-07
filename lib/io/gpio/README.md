@@ -38,11 +38,10 @@ storm clock through `gpio_clock_fn`.
 - Checked against real hardware: the register layout is the AMD one as
   documented for this controller family, but nothing has run on the
   laptop yet.
-- Kernel glue: finding `AMDI0030` through ACPI (`_CRS` gives the register
-  base and the interrupt), mapping, and routing its interrupt. The
-  interrupt is level-triggered and active low, so the kernel needs a way
-  to route a GSI with its own trigger and polarity (today it routes
-  legacy IRQs with the MADT's settings only).
+- Kernel glue for the touchpad's controller lives in
+  `lib/input/kernel_touchpad.asm` (with `ioapic_route_gsi` for its
+  level, active-low interrupt); general discovery of every controller is
+  still to come.
 - Intel controllers, pin muxing, the AML GPIO operation region, `_AEI`
   events.
 
