@@ -383,8 +383,12 @@ Estimate: ~3 000 lines.
   local item, push and pop, collections and application usages, report
   IDs, padding, an unsigned maximum written short; values out of reports
   with sign extension; lookup of a usage's element across fields
-- ☐ Turning keyboard, mouse and consumer usages into events
-- ☐ USB keyboards and mice through `lib/usb` (USB Phase 2)
+- ◐ Turning keyboard, mouse and consumer usages into events: boot
+  keyboard and mouse reports (`hid/boot.asm`) with the usage → keycode
+  table every transport shares, ErrorRollOver ignored, lock keys tracked
+  for the LEDs; report-protocol mapping and consumer usages still to do
+- ◐ USB keyboards and mice through `lib/usb` (`lib/usb/class/hid`):
+  host-tested against the simulated controller
 
 Estimate: ~5 000 lines.
 
