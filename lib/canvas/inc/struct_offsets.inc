@@ -628,6 +628,7 @@ struc Compositor
     .render_list:             resq 1
     .drawn:                   resq 1    ; surfaces drawn, ever (for tests)
     .cursor_on:               resq 1    ; 1: the software cursor is drawn
+    .cursor_hidden:           resq 1    ; 1: hidden while typing, until a move
 endstruc
 
 struc Configure
