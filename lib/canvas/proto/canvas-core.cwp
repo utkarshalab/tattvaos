@@ -192,7 +192,9 @@ protocol canvas-core 1 {
 
         ; Transform and scale
         request set_transform(surface: handle, transform: uint)
-        request set_scale(surface: handle, scale: fixed)
+        ; The scale the buffer was drawn at, in 120ths (decision 0012): 240 is
+        ; a buffer twice the surface's size each way; 0 or 120, the same size
+        request set_buffer_scale(surface: handle, scale: uint)
 
         ; Subsurface tree
         request set_parent(surface: handle, parent: handle, x: int, y: int)
