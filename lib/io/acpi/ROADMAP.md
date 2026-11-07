@@ -161,7 +161,8 @@ the classic S3 path. Both are planned; S0 idle comes first here.
 
 ### 4.3 Namespace and device objects
 
-- ☐ Initialisation order: `_STA`, `_INI`, `_REG` for every operation region
+- ◐ Initialisation order: `\_SB._INI`, then `_STA` and `_INI` depth first;
+  `_REG` per address space when its handler arrives (`aml/init.asm`)
 - ☐ Identification: `_HID`, `_CID`, `_UID`, `_ADR`, `_CLS`, `_SUB`, `_HRV`,
   `_STR`, `_DDN`
 - ☐ Resources: `_CRS`, `_PRS`, `_SRS`, `_DIS` with every resource
@@ -174,7 +175,9 @@ the classic S3 path. Both are planned; S0 idle comes first here.
 - ☐ `_OSC` for PCIe (native hot plug, AER, PME, LTR, DPC), USB4, CXL and
   processors
 - ☐ `_DEP` dependencies, `_EJD`/`_EJx` eject, `_LCK`, `_BBN`, `_SEG`, `_CCA`
-- ☐ Device driver matching: each bus driver registers the IDs it handles
+- ◐ Device driver matching: `aml_match_id` (`_HID` and `_CID`, text or EISA
+  integers, `_CID` packages) and `aml_find_device`; registration by bus
+  drivers still to come
 
 ### 4.4 Events
 
@@ -326,7 +329,8 @@ Estimate: ~1 500 lines.
   fail cleanly
 - ☐ Memory, I/O and PCI config region handlers with the sandbox (the
   interpreter calls one hook, `aml_region_fn`)
-- ☐ `_STA`, `_INI`, `_REG` initialisation
+- ◐ `_STA`, `_INI`, `_REG` initialisation: absent devices' children skipped,
+  functional ones walked, failures counted and skipped
 
 Demo: this machine's whole namespace loads and every `_STA` and `_INI`
 runs with no errors.
