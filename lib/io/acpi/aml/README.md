@@ -16,6 +16,8 @@ aml_initialize()                    ; \_SB._INI, then _STA and _INI
 aml_find_device("PNP0C50", n)       ; the nth present device with that ID
 aml_match_id(node, "PNP0C50")       ; its _HID or _CID
 aml_device_status(node)             ; the _STA bits found
+aml_get_crs(node, &buffer)          ; its _CRS resource template
+aml_res_next(buf, len, &off, &res)  ; the next descriptor, decoded
 ```
 
 All entry points return 0 or a negative `AML_E*` error (`aml.inc`). One
@@ -46,6 +48,7 @@ The outside world comes in through hooks, all optional:
 | `field.asm` | Region fields (plain, index, bank) and buffer fields |
 | `api.asm` | `aml_init`, `aml_load`, `aml_find`, `aml_eval_path`, `\_OSI` |
 | `init.asm` | `_REG`, the `_STA`/`_INI` walk, device IDs and lookup |
+| `res.asm` | `_CRS` and resource descriptors, decoded into a 56-byte record |
 
 ## Safety
 
@@ -60,7 +63,10 @@ cleanly. Names a method creates disappear when it returns.
 sh lib/io/acpi/aml/tests/run_tests.sh
 ```
 
-`aml_gen.py` builds test tables term by term. `test_init.py` checks the
-start-up walk, IDs and `_REG` (30 checks), and `test_aml.py` runs 119
-checks against them. The checks cover every truncation of a table and
-3 000 randomly mutated tables.
+`aml_gen.py` builds test tables term by term. The three suites:
+
+| Suite | Checks | Covers |
+|---|---|---|
+| `test_aml.py` | 119 | The interpreter, every truncation of a table, 3 000 mutated tables |
+| `test_init.py` | 30 | The start-up walk, device IDs, `_REG` |
+| `test_res.py` | 48 | Every resource descriptor, malformed ones, 5 000 random templates, `_CRS` |
