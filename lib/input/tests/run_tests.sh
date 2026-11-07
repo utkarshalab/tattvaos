@@ -43,7 +43,7 @@ echo "== running tests"
 failed=0
 for t in "$TESTS_DIR"/test_*.py; do
     so="$WORK/input.so"
-    [ "$(basename "$t")" = test_touchpad_kernel.py ] && so="$WORK/tp.so"
+    case "$(basename "$t")" in test_touchpad_kernel.py|test_acpi_input.py) so="$WORK/tp.so" ;; esac
     if ! python3 "$t" "$so"; then
         failed=1
     fi
