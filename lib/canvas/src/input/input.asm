@@ -21,6 +21,8 @@
 ;            or top layer, gives it the keyboard focus
 ;   Alt+F4   asks the focused window's client to close it; Super+Up
 ;            maximizes it or puts it back, Super+Down minimizes it;
+;            Super+Shift+H turns high contrast on or off and Super+Shift+M
+;            the magnifier through 2x, 4x and off, on the login screen too;
 ;            Super+1 to 4 shows a workspace, Super+Shift+1 to 4 moves the
 ;            focused window there; Super+L locks; Alt+Tab switches windows
 ;            (shell/switcher), Esc giving up and letting go of Alt choosing.
@@ -69,6 +71,9 @@ extern dnd_forget_surface
 extern keymap_mods
 extern keymap_modifier
 extern surface_logical_size
+extern server_set_high_contrast
+extern server_set_magnifier
+extern magnify_moved
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -126,6 +131,8 @@ extern window_move
 %define KEY_UP          103
 %define KEY_1           2               ; 1 to 4 are 2 to 5
 %define KEY_L           38
+%define KEY_H           35
+%define KEY_M           50
 %define KEY_TAB         15
 %define KEY_ESC         1
 %define KEY_DOWN        108
@@ -923,6 +930,8 @@ pointer_event:
     mov r8d, ecx
     mov ecx, eax
     call sw_cursor_moved
+    mov rdi, [rbx + InputSeat.server]   ; and a zoomed view goes with it
+    call magnify_moved
     pop rcx
     pop rax
     mov [rbx + InputSeat.x], eax
@@ -1130,6 +1139,37 @@ button_event:
 shortcut:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov rax, [rbx + InputSeat.server]
+    mov edx, [rbx + InputSeat.mods]     ; Super+Shift+H: high contrast, on
+    and edx, MOD_SUPER | MOD_SHIFT | MOD_CTRL | MOD_ALT  ; the login screen
+    cmp edx, MOD_SUPER | MOD_SHIFT      ; too; Super+Shift+M: the magnifier
+    jne .not_contrast
+    cmp esi, KEY_M
+    je .magnifier
+    cmp esi, KEY_H
+    jne .not_contrast
+    mov rdi, rax
+    mov esi, [rax + Server.high_contrast]
+    xor esi, 1
+    call server_set_high_contrast
+    jmp .yes
+.magnifier:                             ; off, 2x, 4x, off
+    mov rdi, rax
+    mov rsi, [rax + Server.magnify]
+    add esi, esi
+    cmp esi, 4
+    jbe .zoom
+    xor esi, esi
+.zoom:
+    test esi, esi
+    jnz .zoomed
+    cmp qword [rax + Server.magnify], 0
+    jne .zoomed
+    mov esi, 2
+.zoomed:
+    call server_set_magnifier
+    jmp .yes
+.not_contrast:
     mov rax, [rbx + InputSeat.server]
     cmp qword [rax + Server.locked], 0
     jne .no                             ; the login screen's keys are its own
