@@ -45,6 +45,7 @@ extern displays_event
 extern client_accept
 extern client_disconnect
 extern clipboard_set
+extern input_set_sticky
 extern compositor_output_at
 extern compositor_damage_all
 
@@ -152,6 +153,7 @@ test_window_suite:
     CASE tw_cursor_shapes, CAP_SHELL
     CASE tw_clipboard, CAP_SHELL | CAP_CLIPBOARD
     CASE tw_dnd, CAP_SHELL | CAP_CLIPBOARD | CAP_DATA
+    CASE tw_sticky, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2615,6 +2617,59 @@ tw_dnd:
     FIND CWP_OBJ_DND, DND_EV_FINISHED
     cmp dword [rel ans], 0
     jne .fail
+    PASS
+
+; a key %1 pressed and let go, a turn
+%macro TAP 1
+    INJECT INPUT_KEY, %1, 1
+    INJECT INPUT_KEY, %1, 0
+    call poll
+%endmacro
+; key %1 tapped types character %2
+%macro TYPES 2
+    TAP %1
+    FIND CWP_OBJ_KEYBOARD, KEYBOARD_EV_TEXT
+    cmp dword [rel ans + 12], %2
+    jne .fail
+%endmacro
+
+; Sticky keys: Shift tapped latches it for one key (A, then b); twice locks
+; it (C, D) and a third time it is off (e); five Shift taps turn sticky keys
+; off (a tap then latches nothing: f) and on again (G)
+tw_sticky:
+    sub rsp, 8
+    mov edi, 16                         ; a window with the keyboard
+    mov esi, 12
+    call new_window
+    lea rdi, [rel server]
+    mov esi, 1
+    call input_set_sticky
+    test rax, rax
+    jnz .fail
+    call drain
+    TAP 42                              ; Shift, alone: latched
+    TYPES 30, 'A'
+    TYPES 48, 'b'
+    TAP 42                              ; twice: locked
+    TAP 42
+    TYPES 46, 'C'
+    TYPES 32, 'D'
+    TAP 42                              ; again: off
+    TYPES 18, 'e'
+    TAP 42                              ; five in a row: sticky keys off
+    TAP 42
+    TAP 42
+    TAP 42
+    TAP 42
+    TAP 42
+    TYPES 33, 'f'
+    TAP 42                              ; and five more: on
+    TAP 42
+    TAP 42
+    TAP 42
+    TAP 42
+    TAP 42
+    TYPES 34, 'G'
     PASS
 
 ; -> eax = how many outputs the server has
