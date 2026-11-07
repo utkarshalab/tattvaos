@@ -179,6 +179,8 @@ struc xhci_slot
     .dev:           resq 1          ; usb_device*
     .port:          resd 1
     .speed:         resd 1
+    .hub:           resd 1          ; bit 3 a hub, 2 multi-TT, 0-1 TT think time
+    .hub_ports:     resd 1
     .eps:           resb 32 * xhci_ep_size  ; by device context index
 endstruc
 
