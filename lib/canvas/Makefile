@@ -439,7 +439,6 @@ A11Y_SRCS := \
     $(SRCDIR)/a11y/a11y_tree.asm \
     $(SRCDIR)/a11y/a11y_events.asm \
     $(SRCDIR)/a11y/a11y_reader_hooks.asm \
-    $(SRCDIR)/a11y/sticky_keys.asm \
     $(SRCDIR)/a11y/magnifier.asm \
     $(SRCDIR)/a11y/high_contrast.asm
 
