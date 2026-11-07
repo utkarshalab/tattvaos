@@ -248,10 +248,12 @@ struc usb_device
     .max_packet0:   resw 1          ; endpoint 0's packet size
     .flags:         resw 1          ; USB_DEVF_*
     .desc:          resb usb_device_desc_size
-    .pad:           resb 6
+    .config_len:    resw 1          ; bytes at config_raw
+    .tt:            resd 1          ; its transaction translator: hub slot
+                                    ; 0-7, hub port 8-15, multi-TT 16
     .config:        resq 1          ; usb_config* (parsed)
     .config_raw:    resq 1          ; the bytes it was parsed from
-    .driver:        resq 1
+    .driver:        resq 1          ; called as driver(dev) when it goes
     .driver_data:   resq 1
 endstruc
 
