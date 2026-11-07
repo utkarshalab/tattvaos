@@ -83,6 +83,11 @@ extern fence_init
 extern fence_own
 extern fence_reset
 extern fence_signal
+extern clipboard_data
+extern clipboard_init
+extern clipboard_offer
+extern clipboard_receive
+extern clipboard_send_held
 extern timeline_create
 extern timeline_destroy
 extern timeline_get_point
@@ -149,6 +154,7 @@ server_init:
     START regions_init
     START fence_init
     START timeline_init
+    START clipboard_init
 
     ; Backend and its output
     mov rdi, r12
@@ -873,6 +879,51 @@ HANDLER h_layer_set_exclusive, 8
     mov rsi, rax
     mov edx, [r13 + 4]
     call window_layer_exclusive
+HANDLER_END
+
+; cw_clipboard.offer(selection, count, types: 4 x 32 bytes)
+HANDLER h_clipboard_offer, 8 + CLIP_TYPES * CLIP_TYPE_LEN
+    NEEDS_CAP CAP_CLIPBOARD
+    mov rdi, r14
+    mov rsi, rbx
+    mov rdx, r13
+    call clipboard_offer
+HANDLER_END
+
+; receive(selection, type: 32 bytes) -> (serial); the server's own data
+; follows the answer
+HANDLER h_clipboard_receive, 4 + CLIP_TYPE_LEN
+    NEEDS_CAP CAP_CLIPBOARD
+    mov rdi, r14
+    mov rsi, rbx
+    mov rdx, r13
+    call clipboard_receive
+    test rax, rax
+    js .return
+    mov [r13 + 8], edx                  ; 1: the server's own (reply needs r12)
+    mov ecx, [r13]                      ; the selection, before the answer
+    mov [r13 + 4], ecx
+    mov [r13], eax
+    mov rdi, r13
+    mov esi, 4
+    call reply
+    cmp dword [r13 + 8], 0
+    je .return
+    mov rdi, r14
+    mov rsi, rbx
+    mov edx, [r13 + 4]
+    mov ecx, [r13]
+    call clipboard_send_held
+HANDLER_END
+
+; data(serial, done, length, bytes): the owner's, passed on
+HANDLER h_clipboard_data, 12
+    NEEDS_CAP CAP_CLIPBOARD
+    mov rdi, r14
+    mov rsi, rbx
+    mov rdx, r13
+    mov ecx, [r12 + MsgHdr.len]
+    call clipboard_data
 HANDLER_END
 
 ; cw_pointer.set_shape(surface, shape): the pointer's shape over it, redrawn
