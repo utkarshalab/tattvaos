@@ -46,6 +46,26 @@ protocol canvas-input 1 {
     }
 
     ; ------------------------------------------------------------------------
+    ; cw_dnd — drag and drop
+    ; ------------------------------------------------------------------------
+    ; A drag offers its data as cw_clipboard selection 2. It starts while a
+    ; button is held on one of the client's surfaces; the surface under the
+    ; pointer hears enter (with what is offered, as cw_clipboard.offered),
+    ; motion and leave; letting go over one drops there, and its client may
+    ; then paste selection 2. Positions are in the surface's own pixels.
+    interface cw_dnd 1 {
+        request start(surface: handle, count: uint, types: array<string>)
+
+        event enter(surface: handle, x: int, y: int)
+        event motion(surface: handle, x: int, y: int)
+        event leave(surface: handle)
+        event drop(surface: handle, x: int, y: int)
+
+        ; To the one dragging: dropped 1 on a surface, 0 over none
+        event finished(dropped: uint)
+    }
+
+    ; ------------------------------------------------------------------------
     ; cw_keyboard — keys for the surface with keyboard focus
     ; ------------------------------------------------------------------------
     interface cw_keyboard 1 {
