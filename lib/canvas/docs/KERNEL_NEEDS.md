@@ -90,6 +90,50 @@ clients will need more, so honouring `stack_size` will matter soon.
 
   Absolute positions are in framebuffer pixels. Keycodes are passed to clients
   as they are, so the drivers should agree on one numbering.
+
+  Types 6 to 10 (agreed with `lib/input`, its `ROADMAP.md` §5.2, decision I3)
+  use the same 24 bytes. Canvas takes this format; until it routes them
+  (TCH-01 multi-touch, TCH-10 pen) it drops them, as it drops any type it
+  does not know, so a source may send them already.
+
+  | `type` | `code` | `value` |
+  |---|---|---|
+  | 6 touch contact | 0–7 slot (0–254); 8–11 phase: 0 down, 1 move, 2 up, 3 frame end, 4 cancel; 12 confidence (a finger, not a palm); 16–23 pressure, 24–31 contact size (each 0–255, 0 not reported) | 0–15 x, 16–31 y |
+  | 7 pen position | 0 in range, 1 tip down, 2 eraser, 3 barrel button 1, 4 barrel button 2, 5 inverted; 16–23 tool: 0 pen, 1 eraser end, 2 brush, 3 airbrush | 0–15 x, 16–31 y |
+  | 8 pen axes | 0–15 pressure (0–65535); 16–31 hover distance (0–65535, 0 touching or not reported) | 0–7 tilt x, 8–15 tilt y (signed degrees, −90 to 90); 16–24 rotation (0–359 degrees) |
+  | 9 switch | 0 lid, 1 tablet mode, 2 dock, 3 headphone jack, 4 camera shutter, 5 microphone mute, 6 keypad slide | 1 on or closed, 0 off or open |
+  | 10 device | 0 added, 1 removed, 2 changed (capabilities, mode or battery) | the capability bits of `InputDevInfo.caps` |
+
+  - A touch scan is a run of type 6 records from one device, ended by one with
+    phase 3, whose other fields are 0; canvas applies a scan whole. Up and
+    cancel free the slot. Scans from two devices may interleave: canvas keeps
+    one per device.
+  - A pen sample is a type 7 record followed by a type 8 one with the same
+    time.
+  - Touch and pen coordinates are in device units, 0 to `max_x` and `max_y`.
+    Canvas maps a touch screen or pen tablet onto its output (the first, until
+    a per-device setting exists).
+  - Bits not given a meaning above are 0.
+
+  `ut_input_device_info`, `rdi` the device, returns in `rax` a pointer to a
+  read-only 64-byte record, or a negative error:
+
+  | Offset | Size | Field | Meaning |
+  |---|---|---|---|
+  | 0 | 4 | `id` | as in the records' `device` |
+  | 8 | 8 | `name` | NUL-terminated UTF-8 |
+  | 16 | 4 | `bus` | 3 USB, 4 PS/2, 5 I²C, 6 platform, 7 Bluetooth |
+  | 20 | 2 | `vendor` | |
+  | 22 | 2 | `product` | |
+  | 24 | 2 | `version` | |
+  | 32 | 8 | `caps` | 1 keyboard, 2 pointer, 4 touch, 8 pen tablet, 16 switches |
+  | 40 | 4 | `max_x` | the largest x a touch or pen record carries |
+  | 44 | 4 | `max_y` | |
+  | 48 | 4 | `res_x` | device units per millimetre, 0 not known |
+  | 52 | 4 | `res_y` | |
+  | 56 | 4 | `slots` | touch contacts it reports at once |
+
+  Bytes not listed are 0.
 - Key repeat needs `ut_wait_wait` to honour its deadline (absolute monotonic
   nanoseconds): while a key is held the loop passes the time of the next
   repeat. Without waitsets the loop yields and repeats still come.
