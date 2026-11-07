@@ -173,7 +173,8 @@ the classic S3 path. Both are planned; S0 idle comes first here.
   function, pin configuration and clock input recognised but not yet
   decoded field by field
 - ☐ `_PRS`, `_SRS`, `_DIS` (choosing and setting resources)
-- ☐ `_DSD` device properties (with known UUIDs) and `_DSM` methods
+- ◐ `_DSM` methods: calls and the function-0 support check (`aml/dsm.asm`)
+- ☐ `_DSD` device properties (with known UUIDs)
 - ☐ `_PRT` PCI interrupt routing, link devices
 - ☐ `_OSC` for PCIe (native hot plug, AER, PME, LTR, DPC), USB4, CXL and
   processors
@@ -349,7 +350,8 @@ Estimate: ~12 000 lines.
 
 - ◐ Resource descriptors and device matching (host-tested, not yet used by
   a driver)
-- ☐ `_DSD`, `_DSM`
+- ◐ `_DSM` (host-tested)
+- ☐ `_DSD`
 - ☐ `_PRT` routing for `lib/io/pci`, `_OSC`
 - ☐ IVRS and DMAR for `lib/io/dma`
 - ☐ Region handlers hooked up for `lib/io/gpio` (GPIO) and `lib/io/i2c`
