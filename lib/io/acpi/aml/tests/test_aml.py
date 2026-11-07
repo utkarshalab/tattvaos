@@ -281,6 +281,8 @@ check("load store", load(
     Mutex("MX01"),
     Method("DBG1", 0, Store(Str("to debug"), Debug), Return(One)),
     Method("IDX9", 0, Return(Index(N("NPKG"), Int(9)))),
+    Name("EBUF", Buf([])),
+    Method("GROW", 0, Store(Buf([1, 2, 3]), N("EBUF")), Store(Buf([9]), N("EBUF")), Return(N("EBUF"))),
 ), 0)
 check("store converts to the integer's type", val("ST1"), 0x1F)
 check("store converts to the buffer's type, keeps its size", val("ST2"), b"\x01\x02\x00\x00")
@@ -302,6 +304,7 @@ check("a local is a copy, not the named buffer", val("LCP"), b"\x01\x02\x00\xAB"
 check("mutex acquire and release", val("MTX"), 1)
 check("store to Debug", val("DBG1"), 1)
 check("index past the end", val("IDX9"), ("error", EINDEX))
+check("an empty buffer takes the length stored first, then keeps it", val("GROW"), b"\x09\x00\x00")
 
 # --- buffer fields -------------------------------------------------------------------------------
 fresh()
