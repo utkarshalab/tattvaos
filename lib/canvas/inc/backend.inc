@@ -91,6 +91,10 @@ struc Output
     .x:                       resq 1
     .y:                       resq 1
     .fb_region:               resq 1
+    .scanout:                 resq 1    ; its display memory, 0: none
+    .scanout_pitch:           resq 1    ; bytes a row there
+    .fb_index:                resd 1    ; which ut_fb_info framebuffer it is
+    resb 4
 endstruc
 
 ; Mode Structure
@@ -145,6 +149,15 @@ struc Point
 endstruc
 
 ; Config Structure (for backend init)
+; What ut_fb_info fills (KERNEL_NEEDS.md, steps 1 and 5)
+%define FB_INFO_BASE        0
+%define FB_INFO_WIDTH       8
+%define FB_INFO_HEIGHT      12
+%define FB_INFO_PITCH       16
+%define FB_INFO_FORMAT      20
+%define FB_INFO_SIZE        24
+%define FB_INFO_BYTES       32
+
 struc Config
     .fb_base:       resq 1
     .fb_width:      resd 1
