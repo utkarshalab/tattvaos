@@ -95,6 +95,20 @@ protocol canvas-core 1 {
     }
 
     ; ========================================================================
+    ; cw_output — The outputs: place, logical size, scale (decision 0012)
+    ; ========================================================================
+    interface cw_output 1 {
+        ; Every output as an output event, then done; from then on the
+        ; client is told of outputs added, changed and removed
+        request list()
+
+        ; scale: 120ths (120 is 1, 150 is 1.25, 180 is 1.5, 240 is 2)
+        event output(id: uint, x: int, y: int, width: uint, height: uint, scale: uint)
+        event removed(id: uint)
+        event done()
+    }
+
+    ; ========================================================================
     ; cw_clipboard — Copy and paste, the clipboard and the primary selection
     ; ========================================================================
     ; selection: 0 the clipboard, 1 the primary selection. A type is a
