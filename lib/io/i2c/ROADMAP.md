@@ -1,7 +1,9 @@
 # i2c — Roadmap
 
 **Part of:** Utkarsha OS, `lib/io/i2c` — I²C, SMBus and I3C host controllers
-**Status:** plan only; `lib/io/i2c` does not exist as of 2026-11-06
+**Status:** Phase 1 core written and host-tested (2026-11-07): DesignWare
+controller, timing, polled transfers (`i2c.asm`). Not yet run on hardware;
+kernel glue and ACPI discovery still to come
 **Decided 2026-11-06:** I²C lives here (input decision I2)
 
 I²C is the slow two-wire bus that connects touchpads, touchscreens,
@@ -73,7 +75,7 @@ Legend: ✅ done · ◐ exists but unproven · ☐ planned. Line counts ±50%.
 
 | Phase | Work | Lines |
 |---|---|---|
-| 1 | AMD DesignWare controller, transfer interface, ACPI discovery (for the touchpad) | ~2 000 |
+| 1 | ◐ AMD DesignWare controller, transfer interface (for the touchpad); ACPI discovery still to come | ~2 000 |
 | 2 | Intel LPSS with DMA; bus recovery; generic serial bus region for AML | ~1 500 |
 | 3 | SMBus controllers, SPD, protection list, tools | ~1 500 |
 | 4 | I3C | ~2 500 |
