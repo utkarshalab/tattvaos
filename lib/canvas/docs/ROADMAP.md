@@ -635,7 +635,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | A11Y-01 | Accessibility tree protocol for clients | P2 | ◐ `a11y/a11y_tree` |
 | A11Y-02 | Screen reader bridge and server-event announcements | P2 | ◐ `a11y/a11y_reader_hooks` |
 | A11Y-03 | Keyboard-only operation of all server-drawn UI | P2 | |
-| A11Y-04 | Sticky keys | P2 | ◐ `a11y/sticky_keys` |
+| A11Y-04 | Sticky keys | P2 | ✓ `input/input` with `keymap`: a modifier tapped alone latches for the next key (characters, shortcuts and what clients hear), twice locks, a third time is off; a latched Alt going ends an Alt+Tab; five Shift taps turn it on or off, `input_set_sticky` too; `test_window`. (`a11y/sticky_keys` retired) |
 | A11Y-05 | Slow, bounce and mouse keys | P3 | |
 | A11Y-06 | Magnifier following focus and caret | P2 | ◐ `a11y/magnifier`: follows the pointer or the keyboard focus; nothing creates it yet |
 | A11Y-07 | High-contrast mode | P2 | ◐ `a11y/high_contrast` |
