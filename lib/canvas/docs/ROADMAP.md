@@ -565,13 +565,13 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | DAT-01 | Clipboard and primary selection | P2 | ◐ `cw_clipboard` (`data/clipboard`): an owner offers a selection in up to 4 types; a paste gets a serial, the owner is asked and its data passed on in 120-byte pieces up to 16 KiB; only the client with the keyboard, or a trusted one, offers or pastes; the one with the keyboard hears what is offered; an owner going cancels its pastes; the server can hold text itself (a remote viewer's); client library `canvas_clipboard_offer`, `_receive`, `_send`; `test_window`. No rich formats yet |
-| DAT-02 | Drag and drop with MIME negotiation | P2 | ◐ `cw_dnd` (`data/dnd`): a drag starts while a button is held on the client's surface, offering up to 4 types as `cw_clipboard` selection 2; the surface under the pointer hears the types, enter, motion, leave; letting go drops there and its client may paste the drag's data, the one dragging hearing finished; `canvas_dnd_start`; `test_window`. No drag icon, no actions (copy/move) |
+| DAT-02 | Drag and drop with MIME negotiation | P2 | ◐ `cw_dnd` (`data/dnd`): a drag starts while a button is held on the client's surface, offering up to 4 types as `cw_clipboard` selection 2; the surface under the pointer hears the types, enter, motion, leave; letting go drops there and its client may paste the drag's data, the one dragging hearing finished; actions: copy and move offered by the one dragging, told in enter, one accepted by the one under the pointer, and only an accepted drop drops, drop and finished carrying the action; an icon, a surface of the dragging client's, drawn at the pointer while the drag lasts; `canvas_dnd_start`, `_set_actions`, `_set_icon`, `_accept`; `test_window` |
 | DAT-03 | Transfer size limits | P2 | ◐ `data/limits` |
 | DAT-04 | Rich formats: HTML, rich text, images, file lists, custom types | P2 | |
 | DAT-05 | Lazy rendering: data produced only when pasted | P2 | ✓ `cw_clipboard`: nothing is copied until a paste asks the owner |
 | DAT-06 | Streaming of very large transfers without stalls | P3 | ◐ `data/transfer` |
 | DAT-07 | Clipboard history with sensitivity flags | P3 | |
-| DAT-08 | Drag thumbnails and feedback icons | P3 | |
+| DAT-08 | Drag thumbnails and feedback icons | P3 | ◐ a drag icon (`cw_dnd.set_icon`); no feedback for the action |
 | DAT-09 | Drag and drop between remote and local sessions | P4 | |
 | DAT-10 | Opt-in encrypted clipboard sync across devices | P5 | |
 
