@@ -34,6 +34,7 @@ extern server_add_output
 extern window_move
 extern server_mirror_output
 extern scale_nearest_rect
+extern scale_bilinear_rect
 extern compositor_output_at
 extern compositor_damage_all
 
@@ -134,6 +135,7 @@ test_window_suite:
     CASE tw_no_input, CAP_SHELL | NO_INPUT
     CASE tw_mirror, CAP_SHELL
     CASE tw_scale_rect, CAP_SHELL
+    CASE tw_scale_bilinear, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2100,6 +2102,56 @@ tw_scale_rect:
     SCALED 2, 3, 0
     PASS
 
+; scale_bilinear_rect: black and white, 2x1 over 4x1, centres matched:
+; black, a quarter white, three quarters, white; the same size, a copy;
+; 2x2 with only the bottom left white, over 4x4: (1, 1) blends both rows
+tw_scale_bilinear:
+    sub rsp, 8
+    lea rax, [rel scale_dst]
+    mov [rel scale_job + UgfxScale_dst], rax
+    mov qword [rel scale_job + UgfxScale_dst_stride], 16
+    mov dword [rel scale_job + UgfxScale_dst_w], 4
+    mov dword [rel scale_job + UgfxScale_dst_h], 1
+    lea rax, [rel blend_src]
+    mov [rel scale_job + UgfxScale_src], rax
+    mov qword [rel scale_job + UgfxScale_src_stride], 8
+    mov dword [rel scale_job + UgfxScale_src_w], 2
+    mov dword [rel scale_job + UgfxScale_src_h], 1
+    mov dword [rel scale_job + UgfxScale_x], 0
+    mov dword [rel scale_job + UgfxScale_y], 0
+    mov dword [rel scale_job + UgfxScale_w], 4
+    mov dword [rel scale_job + UgfxScale_h], 1
+    lea rdi, [rel scale_job]
+    call scale_bilinear_rect
+    SCALED 0, 0, 0xFF000000
+    SCALED 1, 0, 0xFF3F3F3F
+    SCALED 2, 0, 0xFFBFBFBF
+    SCALED 3, 0, 0xFFFFFFFF
+    mov dword [rel scale_job + UgfxScale_dst_w], 2  ; the same size
+    mov dword [rel scale_job + UgfxScale_w], 2
+    lea rdi, [rel scale_dst]
+    xor eax, eax
+    mov ecx, 16
+    rep stosd
+    lea rdi, [rel scale_job]
+    call scale_bilinear_rect
+    SCALED 0, 0, 0xFF000000
+    SCALED 1, 0, 0xFFFFFFFF
+    SCALED 2, 0, 0                      ; past it: untouched
+    mov dword [rel scale_job + UgfxScale_dst_w], 4
+    mov dword [rel scale_job + UgfxScale_dst_h], 4
+    mov dword [rel scale_job + UgfxScale_w], 4
+    mov dword [rel scale_job + UgfxScale_h], 4
+    lea rax, [rel corner_src]
+    mov [rel scale_job + UgfxScale_src], rax
+    mov dword [rel scale_job + UgfxScale_src_h], 2
+    lea rdi, [rel scale_job]
+    call scale_bilinear_rect
+    SCALED 1, 1, 0xFF2F2F2F             ; a quarter of three quarters white
+    SCALED 0, 3, 0xFFFFFFFF
+    SCALED 3, 0, 0xFF000000
+    PASS
+
 ; Server.locked to edi, every output redrawn, a turn
 lock_to:
     sub rsp, 8
@@ -2185,6 +2237,9 @@ tw_locked:
 section .data
 align 8
 scale_src:      dd 1, 2, 3, 4           ; 2 x 2
+blend_src:      dd 0xFF000000, 0xFFFFFFFF   ; 2 x 1
+corner_src:     dd 0xFF000000, 0xFF000000   ; 2 x 2, the bottom left white
+                dd 0xFFFFFFFF, 0xFF000000
 
 section .bss
 alignb 16
