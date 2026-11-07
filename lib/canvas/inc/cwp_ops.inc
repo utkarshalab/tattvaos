@@ -105,6 +105,21 @@
 %define POINTER_EV_BUTTON 3
 %define POINTER_EV_AXIS   4
 
+; cw_touch (canvas-input.cwp)
+%define TOUCH_EV_DOWN   0
+%define TOUCH_EV_MOTION 1
+%define TOUCH_EV_UP     2
+%define TOUCH_EV_CANCEL 3
+%define TOUCH_EV_FRAME  4
+
+; cw_tablet_tool (canvas-input.cwp)
+%define TABLET_TOOL_EV_PROXIMITY_IN  0
+%define TABLET_TOOL_EV_PROXIMITY_OUT 1
+%define TABLET_TOOL_EV_MOTION        2
+%define TABLET_TOOL_EV_AXES          3
+%define TABLET_TOOL_EV_TIP           4
+%define TABLET_TOOL_EV_BUTTON        5
+
 ; cw_dnd (canvas-input.cwp)
 %define DND_START       0
 %define DND_SET_ACTIONS 1
