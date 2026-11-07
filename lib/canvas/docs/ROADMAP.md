@@ -637,8 +637,8 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | A11Y-03 | Keyboard-only operation of all server-drawn UI | P2 | |
 | A11Y-04 | Sticky keys | P2 | ✓ `input/input` with `keymap`: a modifier tapped alone latches for the next key (characters, shortcuts and what clients hear), twice locks, a third time is off; a latched Alt going ends an Alt+Tab; five Shift taps turn it on or off, `input_set_sticky` too; `test_window`. (`a11y/sticky_keys` retired) |
 | A11Y-05 | Slow, bounce and mouse keys | P3 | |
-| A11Y-06 | Magnifier following focus and caret | P2 | ◐ `a11y/magnifier`: follows the pointer or the keyboard focus; nothing creates it yet |
-| A11Y-07 | High-contrast mode | P2 | ◐ `a11y/high_contrast` |
+| A11Y-06 | Magnifier following focus and caret | P2 | ◐ `a11y/magnifier`: 2x or 4x round the pointer, each output's whole frame drawn then scaled over itself, the view going with the pointer; Super+Shift+M cycles it, on the login screen too; `test_window`. Follows the pointer, not yet the keyboard focus or caret |
+| A11Y-07 | High-contrast mode | P2 | ◐ `server_set_high_contrast`, Super+Shift+H (the login screen too): the background black, title bars black with white text and the focused one white with black, Alt+Tab white, black and yellow; the cursor is black and white already; `test_window`. The taskbar and login screen keep their colours |
 | A11Y-08 | Color filters: color-blind modes, grayscale, inversion | P3 | |
 | A11Y-09 | Reduced motion | P3 | → IXD-01 |
 | A11Y-10 | Large cursor, cursor highlight, shake-to-find, trails | P3 | |
