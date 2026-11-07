@@ -34,6 +34,15 @@ protocol canvas-input 1 {
 
         ; value: signed steps
         event axis(time: ulong, surface: handle, axis: uint, value: int)
+
+        enum shape {
+            default = 0,        ; the arrow
+            text = 1,           ; an I-beam, for places to type
+            crosshair = 2
+        }
+
+        ; The pointer's shape while it is over this surface of the client's
+        request set_shape(surface: handle, shape: uint)
     }
 
     ; ------------------------------------------------------------------------
