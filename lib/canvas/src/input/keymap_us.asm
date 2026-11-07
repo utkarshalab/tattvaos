@@ -5,7 +5,8 @@
 ; keymap_key keeps a seat's modifiers and locks up to date and says which
 ; character a press types, if any:
 ;
-;   Shift, Ctrl, Alt and Super are held while either of their keys is down;
+;   Shift, Ctrl, Alt and Super are held while either of their keys is down,
+;   or while sticky keys latched or locked them (InputSeat.sticky_*);
 ;   Caps Lock and Num Lock toggle on each press.
 ;   With Ctrl, Alt or Super held a press types nothing: it is a shortcut.
 ;   Caps Lock shifts letters only; the keypad types digits only with Num Lock.
@@ -78,6 +79,8 @@ keymap_key:
     HELD KEY_RIGHTALT, MOD_ALT
     HELD KEY_LEFTMETA, MOD_SUPER
     HELD KEY_RIGHTMETA, MOD_SUPER
+    or r9d, [rdi + InputSeat.sticky_latched]
+    or r9d, [rdi + InputSeat.sticky_locked]
     cmp r9d, [rdi + InputSeat.mods]
     je .text
     mov [rdi + InputSeat.mods], r9d
@@ -124,6 +127,56 @@ keymap_key:
 .none:
     xor eax, eax
     mov ecx, r8d
+    ret
+
+; ---------------------------------------------------------------------------
+; keymap_mods
+;   InputSeat.mods again from the held keys and the sticky ones
+;   IN:  rdi = InputSeat*
+;   OUT: ecx = 1 if it changed
+; ---------------------------------------------------------------------------
+global keymap_mods
+keymap_mods:
+    xor r9d, r9d
+    HELD KEY_LEFTSHIFT, MOD_SHIFT
+    HELD KEY_RIGHTSHIFT, MOD_SHIFT
+    HELD KEY_LEFTCTRL, MOD_CTRL
+    HELD KEY_RIGHTCTRL, MOD_CTRL
+    HELD KEY_LEFTALT, MOD_ALT
+    HELD KEY_RIGHTALT, MOD_ALT
+    HELD KEY_LEFTMETA, MOD_SUPER
+    HELD KEY_RIGHTMETA, MOD_SUPER
+    or r9d, [rdi + InputSeat.sticky_latched]
+    or r9d, [rdi + InputSeat.sticky_locked]
+    xor ecx, ecx
+    cmp r9d, [rdi + InputSeat.mods]
+    je .same
+    mov [rdi + InputSeat.mods], r9d
+    mov ecx, 1
+.same:
+    ret
+
+; ---------------------------------------------------------------------------
+; keymap_modifier
+;   IN:  edi = keycode  OUT: eax = the MOD_* it holds, 0 for no modifier
+; ---------------------------------------------------------------------------
+global keymap_modifier
+keymap_modifier:
+%macro IS_MOD 2
+    mov eax, %2
+    cmp edi, %1
+    je .out
+%endmacro
+    IS_MOD KEY_LEFTSHIFT, MOD_SHIFT
+    IS_MOD KEY_RIGHTSHIFT, MOD_SHIFT
+    IS_MOD KEY_LEFTCTRL, MOD_CTRL
+    IS_MOD KEY_RIGHTCTRL, MOD_CTRL
+    IS_MOD KEY_LEFTALT, MOD_ALT
+    IS_MOD KEY_RIGHTALT, MOD_ALT
+    IS_MOD KEY_LEFTMETA, MOD_SUPER
+    IS_MOD KEY_RIGHTMETA, MOD_SUPER
+    xor eax, eax
+.out:
     ret
 
 section .rodata
