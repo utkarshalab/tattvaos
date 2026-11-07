@@ -46,6 +46,40 @@ protocol canvas-input 1 {
     }
 
     ; ------------------------------------------------------------------------
+    ; cw_touch — fingers on a touch screen (TCH-01)
+    ; ------------------------------------------------------------------------
+    ; Each contact (slot) belongs to the surface it went down on until it is
+    ; up or cancelled. xy is the place in the surface's own pixels, x in the
+    ; low 16 bits and y in the high 16, each signed. After each scan, every
+    ; surface that heard of a contact in it gets frame.
+    interface cw_touch 1 {
+        event down(time: ulong, surface: handle, slot: uint, xy: uint)
+        event motion(time: ulong, surface: handle, slot: uint, xy: uint)
+        event up(time: ulong, surface: handle, slot: uint, unused: uint)
+        event cancel(time: ulong, surface: handle, slot: uint, unused: uint)
+        event frame(time: ulong, surface: handle)
+    }
+
+    ; ------------------------------------------------------------------------
+    ; cw_tablet_tool — a pen (TCH-10)
+    ; ------------------------------------------------------------------------
+    ; The pen is with the surface under it, and while its tip is down with
+    ; the one it touched. Positions are in the surface's own pixels.
+    interface cw_tablet_tool 1 {
+        ; tool: 0 pen, 1 eraser end, 2 brush, 3 airbrush
+        event proximity_in(time: ulong, surface: handle, tool: uint, unused: uint)
+        event proximity_out(time: ulong, surface: handle)
+        event motion(time: ulong, surface: handle, x: int, y: int)
+        ; pressure in the low 16 bits and hover distance in the high, each
+        ; 0-65535; tilt x, tilt y (signed degrees) and rotation (0-359) as
+        ; bits 0-7, 8-15 and 16-24
+        event axes(time: ulong, surface: handle, pressure_distance: uint, tilt_rotation: uint)
+        event tip(time: ulong, surface: handle, down: uint, unused: uint)
+        ; button: 0 the first barrel button, 1 the second
+        event button(time: ulong, surface: handle, button: uint, state: uint)
+    }
+
+    ; ------------------------------------------------------------------------
     ; cw_dnd — drag and drop
     ; ------------------------------------------------------------------------
     ; A drag offers its data as cw_clipboard selection 2. It starts while a
