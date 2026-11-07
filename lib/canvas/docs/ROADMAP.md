@@ -388,7 +388,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | PTR-11 | Cursor themes at multiple sizes, auto-scaled per DPI | P2 | ◐ `input/cursor_theme` |
 | PTR-12 | Hardware cursor always; never lags under load | P3 | → OUT-04. Until then `render/sw_cursor`: an arrow the compositor draws last, on whichever outputs it is over, redrawn as the pointer moves; on in canvasd (`Compositor.cursor_on`); `test_window` |
 | PTR-13 | Animated cursors and smooth shape transitions | P3 | |
-| PTR-14 | Hide cursor while typing; show on move | P3 | |
+| PTR-14 | Hide cursor while typing; show on move | P3 | ✓ `render/sw_cursor`: a key press that is not a modifier, a lock or the server's hides the arrow until the pointer moves; `test_window` |
 | PTR-15 | Correct cursor brightness in HDR (linear-light) | P3 | |
 | PTR-16 | Per-app custom cursors with size and frame limits | P2 | |
 | PTR-17 | Predictive pointer and touch extrapolation | P3 | |
