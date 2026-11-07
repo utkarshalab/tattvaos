@@ -22,6 +22,8 @@ extern ui_text_init
 extern greeter_step
 extern greeter_deadline
 extern taskbar_start_all
+extern displays_start
+extern displays_step
 extern taskbar_step_all
 extern input_repeat_deadline
 extern server_init
@@ -31,14 +33,7 @@ extern server_poll
 %define DEFAULT_WIDTH       1280
 %define DEFAULT_HEIGHT      800
 
-; What ut_fb_info fills
-%define FB_INFO_BASE        0
-%define FB_INFO_WIDTH       8
-%define FB_INFO_HEIGHT      12
-%define FB_INFO_PITCH       16
-%define FB_INFO_FORMAT      20
-%define FB_INFO_SIZE        24
-%define FB_INFO_BYTES       32
+; What ut_fb_info fills: FB_INFO_* in inc/backend.inc
 
 section .text
 
@@ -74,6 +69,7 @@ canvasd_init:
     ; The kernel's framebuffer if it has one, else headless
     xor r13d, r13d
     mov rdi, rsp
+    xor esi, esi                        ; the first
     call ut_fb_info
     test rax, rax
     js .start
@@ -122,6 +118,10 @@ canvasd_init:
     lea rsi, [server_arena]
     call taskbar_start_all
 
+    ; Displays plugged in or taken out, when the kernel tells of them
+    lea rdi, [server]
+    call displays_start
+
     ; Without waitsets the loop yields instead of sleeping
     call ut_waitset_create
     mov rbx, rax
@@ -160,6 +160,8 @@ canvasd_init:
     jz .taskbar
     call greeter_step
 .taskbar:
+    lea rdi, [server]                   ; displays come and go between turns
+    call displays_step
     lea rdi, [server]
     call taskbar_step_all
     jmp .loop
