@@ -198,11 +198,11 @@ Canvas's 24-byte record (`KERNEL_NEEDS.md` step 3) stays the base:
 | 3 | Absolute position | In canvas today |
 | 4 | Button | In canvas today |
 | 5 | Scroll (with high-resolution steps added in the `value` scale) | In canvas today |
-| 6 | Touch contact | Proposed below |
-| 7 | Pen position and state | Proposed below |
-| 8 | Pen axes | Proposed below |
-| 9 | Switch | Proposed below |
-| 10 | Device added, removed, changed | Proposed below |
+| 6 | Touch contact | Accepted by canvas 2026-11-07 |
+| 7 | Pen position and state | Accepted by canvas 2026-11-07 |
+| 8 | Pen axes | Accepted by canvas 2026-11-07, with hover distance added |
+| 9 | Switch | Accepted by canvas 2026-11-07 |
+| 10 | Device added, removed, changed | Accepted by canvas 2026-11-07 |
 
 Key codes are one table shared by every transport: PS/2 scan code sets 1
 and 2, HID keyboard usages and consumer usages all map to the same codes.
@@ -217,7 +217,7 @@ gives `max_x`, `max_y` and the resolution, so canvas can scale them.
 |---|---|---|
 | 6 touch | 0–7 slot (0–254); 8–11 phase: 0 down, 1 move, 2 up, 3 **frame end** (all contacts of one scan sent), 4 cancel (palm or lost contact); 12 confidence (the device thinks it is a finger); 16–23 pressure (0–255); 24–31 contact size (0–255) | 0–15 x, 16–31 y |
 | 7 pen position | 0 in range, 1 tip down, 2 eraser, 3 barrel button 1, 4 barrel button 2, 5 inverted; 16–23 tool kind: 0 pen, 1 eraser end, 2 brush, 3 airbrush | 0–15 x, 16–31 y |
-| 8 pen axes | 0–15 pressure (0–65535) | 0–7 tilt x (signed degrees), 8–15 tilt y (signed degrees), 16–24 rotation (0–359 degrees) |
+| 8 pen axes | 0–15 pressure (0–65535); 16–31 hover distance (0–65535, 0 touching or not reported) | 0–7 tilt x (signed degrees, −90 to 90), 8–15 tilt y (signed degrees), 16–24 rotation (0–359 degrees) |
 | 9 switch | Switch: 0 lid, 1 tablet mode, 2 dock, 3 headphone jack, 4 camera shutter, 5 microphone mute, 6 keypad slide | 1 on or closed, 0 off or open |
 | 10 device | 0 added, 1 removed, 2 changed (capabilities, mode or battery) | Capability bits from `InputDevInfo.caps` |
 
@@ -228,9 +228,18 @@ Rules:
   same time.
 - Canvas ignores any `type` it does not know, so new types can be added
   without breaking it.
-- Canvas owns `input/`, so the canvas session has to accept these layouts
-  before `lib/input` Phase 3 sends them. Until then, touchpads send types
-  2, 4 and 5 (mouse-like) only.
+- Canvas accepted these layouts on 2026-11-07, with these changes, now in
+  `lib/canvas/docs/KERNEL_NEEDS.md` step 3 (which is the reference):
+  - type 8 gains hover distance in `code` bits 16–31;
+  - a frame-end record (phase 3) has its other fields 0; pressure and size
+    are 0–255 with 0 meaning not reported; scans from two devices may
+    interleave, canvas keeping one per device;
+  - bits given no meaning are 0;
+  - `ut_input_device_info` returns a fixed 64-byte record (offsets in
+    `KERNEL_NEEDS.md`) that adds `slots`, the touch contacts a device
+    reports at once, and Bluetooth as bus 7 and switches as capability 16.
+- Canvas drops types 6–10 until its touch (TCH-01) and pen (TCH-10) routing
+  reads them, so Phase 3 may send them as soon as it is ready.
 
 ### 5.3 Where data lives
 
@@ -465,4 +474,4 @@ on this machine) are about 17 000 lines, roughly 3 to 5 sessions.
 |---|---|---|
 | I1 | AML interpreter | **Decided 2026-11-06:** in `lib/io/acpi`, finished before input Phase 3; Phase 1 uses hard-coded resources |
 | I2 | I²C, SPI and GPIO host drivers | **Decided 2026-11-06:** `lib/io/i2c`, `lib/io/spi`, `lib/io/gpio` |
-| I3 | New event record types | **Decided 2026-11-06:** layouts proposed in 5.2; the canvas session must accept them before Phase 3 |
+| I3 | New event record types | **Decided 2026-11-06:** layouts proposed in 5.2. **Accepted by canvas 2026-11-07** with the changes listed in 5.2 |
