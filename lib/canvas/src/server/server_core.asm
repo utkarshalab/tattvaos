@@ -48,6 +48,7 @@ extern input_keep_pointer
 extern window_output_gone
 extern region_add_rect
 extern region_clear
+extern ut_mem_free
 extern headless_init
 extern input_dispatch
 extern window_ack_configure
@@ -297,8 +298,9 @@ server_place_output:
 ; server_remove_output
 ;   An output taken out of the layout (unplugged, a virtual screen closed):
 ;   what was on it goes to the first one left (window_output_gone), the
-;   pointer is kept on what is left, and every output is redrawn. Its memory
-;   stays, with the server's arena. The last output cannot go.
+;   pointer is kept on what is left, and every output is redrawn. Its pixels'
+;   memory is freed; its record stays, with the server's arena. The last
+;   output cannot go.
 ;   IN:  rdi = server*, rsi = Output*
 ;   OUT: rax = 0, -ENOENT if it is not in the layout, -EBUSY if it is the
 ;        last
@@ -356,6 +358,13 @@ server_remove_output:
     call input_keep_pointer
     mov rdi, rbx
     call compositor_damage_all
+    mov rdi, [r12 + Output.fb_region]   ; its pixels, megabytes of them
+    test rdi, rdi
+    jz .freed
+    call ut_mem_free
+    mov qword [r12 + Output.fb_region], 0
+    mov qword [r12 + Output.framebuffer], 0
+.freed:
     xor eax, eax
 .out:
     EPILOGUE_RESTORE rbx, r12
