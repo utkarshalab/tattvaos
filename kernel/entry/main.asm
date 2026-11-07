@@ -147,6 +147,10 @@ kernel_main:
     ; A machine without one boots the same.
     call input_kernel_start
 
+    ; ACPI: load the DSDT and SSDTs into the AML interpreter and run
+    ; _REG, _STA and _INI. Also never stops the boot.
+    call acpi_kernel_init
+
     ; Enter the scheduler's own core loop. Never returns: sched_core_loop
     ; is what used to be this file's manual `cli; hlt` idle loop, except it
     ; actually polls, reaps, and runs fibers instead of just waiting for an
