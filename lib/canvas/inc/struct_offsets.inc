@@ -628,7 +628,13 @@ struc ClipboardState
     .drag_source:             resq 1    ; Surface* the drag started on
     .drag_over:               resq 1    ; Surface* under the pointer, 0: none
     .drop_target:             resq 1    ; Client* dropped on: it may paste
+    .drag_actions:            resd 1    ; offered: DND_COPY, DND_MOVE
+    .drag_accepted:           resd 1    ; what the one under the pointer took
+    .drag_icon:               resq 1    ; Surface* drawn at the pointer, 0: none
 endstruc
+%define DND_COPY            1
+%define DND_MOVE            2
+%define DND_ICON_OFFSET     8           ; the icon's corner from the pointer
 %if ClipOffer_size * CLIP_SELECTIONS != 456 || ClipTransfer_size * CLIP_TRANSFERS != 192 || CLIP_TYPES * CLIP_TYPE_LEN != 128
     %error "ClipboardState: its sizes must follow ClipOffer, ClipTransfer, CLIP_*"
 %endif
