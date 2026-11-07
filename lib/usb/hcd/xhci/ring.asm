@@ -104,6 +104,9 @@ xhci_ring_deq:
 ; xhci_poll — handle the events waiting on interrupter 0
 ; Input:  RDI = hc
 ; Output: EAX = events handled
+; Each event is copied and the ring advanced before it is handled, so a
+; handler may itself wait on the controller (and so poll again): a command
+; from a completion callback sees the events after its own.
 ; -----------------------------------------------------------------------------
 global xhci_poll
 xhci_poll:
@@ -112,6 +115,7 @@ xhci_poll:
     push r13
     push r14
     push r15
+    sub rsp, 16                         ; the event being handled
     mov rbx, rdi
     xor r15d, r15d
 .event:
@@ -125,6 +129,20 @@ xhci_poll:
     cmp eax, [rbx + xhci_hc.evt_cycle]
     jne .caught_up
     inc r15d
+    mov rax, [r12]
+    mov [rsp], rax
+    mov rax, [r12 + 8]
+    mov [rsp + 8], rax
+    ; past it, and the controller told, before anything else runs
+    mov eax, [rbx + xhci_hc.evt_deq]
+    inc eax
+    cmp eax, XHCI_EVT_TRBS
+    jb .store
+    xor eax, eax
+    xor dword [rbx + xhci_hc.evt_cycle], 1
+.store:
+    mov [rbx + xhci_hc.evt_deq], eax
+    call .erdp
     mov eax, r13d
     shr eax, TRB_TYPE_SHIFT
     and eax, 63
@@ -135,97 +153,93 @@ xhci_poll:
     cmp eax, TRB_EV_PORT
     je .port
     cmp eax, TRB_EV_HC
-    jne .advance
+    jne .event
     inc dword [rbx + xhci_hc.hc_events]
-    jmp .advance
+    jmp .event
 
 .command:
-    mov rax, [r12]
+    mov rax, [rsp]
     cmp rax, [rbx + xhci_hc.cmd_last]
-    jne .advance                        ; not the one waited for (aborted)
-    movzx eax, byte [r12 + 11]
+    jne .event                          ; not the one waited for (aborted)
+    movzx eax, byte [rsp + 11]
     mov [rbx + xhci_hc.cmd_code], eax
     mov eax, r13d
     shr eax, 24
     mov [rbx + xhci_hc.cmd_slot], eax
     mov dword [rbx + xhci_hc.cmd_done], 1
-    jmp .advance
+    jmp .event
 
 .port:
-    movzx eax, byte [r12 + 3]           ; port ID, bits 24-31
+    movzx eax, byte [rsp + 3]           ; port ID, bits 24-31
     bts [rbx + xhci_hc.port_change], eax
-    jmp .advance
+    jmp .event
 
 .transfer:
     mov eax, r13d
     shr eax, 24                         ; slot
     mov r14, [rbx + xhci_hc.slots + rax * 8]
     test r14, r14
-    jz .advance
+    jz .event
     mov eax, r13d
     shr eax, 16
     and eax, 31                         ; device context index
     imul eax, eax, xhci_ep_size
     lea r14, [r14 + xhci_slot.eps + rax]
-    movzx ecx, byte [r12 + 11]          ; completion code
-    mov edx, [r12 + 8]
+    movzx ecx, byte [rsp + 11]          ; completion code
+    mov edx, [rsp + 8]
     and edx, 0xFFFFFF                   ; bytes not moved
     cmp ecx, CC_SHORT_PACKET
     jne .not_short
     add [r14 + xhci_ep.residual], edx
-    mov rax, [r12]
+    mov rax, [rsp]
     cmp rax, [r14 + xhci_ep.last]
-    jne .advance                        ; more of the TD to come
+    jne .event                          ; more of the TD to come
     mov ecx, CC_SUCCESS
     jmp .td_done
 .not_short:
     cmp ecx, CC_SUCCESS
     jne .td_done                        ; an error ends the TD where it is
-    mov rax, [r12]
+    mov rax, [rsp]
     cmp rax, [r14 + xhci_ep.last]
-    jne .advance
+    jne .event
 .td_done:
     mov [r14 + xhci_ep.code], ecx
     mov dword [r14 + xhci_ep.done], 1
     mov rdi, [r14 + xhci_ep.xfer]
     test rdi, rdi
-    jz .advance
+    jz .event
     mov qword [r14 + xhci_ep.xfer], 0
     mov rsi, r14
     call xhci_xfer_complete
-    jmp .advance
-
-.advance:
-    mov eax, [rbx + xhci_hc.evt_deq]
-    inc eax
-    cmp eax, XHCI_EVT_TRBS
-    jb .store
-    xor eax, eax
-    xor dword [rbx + xhci_hc.evt_cycle], 1
-.store:
-    mov [rbx + xhci_hc.evt_deq], eax
     jmp .event
 
 .caught_up:
-    test r15d, r15d
-    jz .out
-    ; tell the controller how far: ERDP, clearing the handler-busy bit
-    mov rdi, [rbx + xhci_hc.rt]
-    add rdi, XHCI_IR0 + IR_ERDP
-    mov rsi, r12
-    or rsi, ERDP_EHB
-    call usb_wr64
-    mov rdi, [rbx + xhci_hc.rt]
-    add rdi, XHCI_IR0 + IR_IMAN
-    mov esi, IMAN_IP | IMAN_IE
-    call usb_wr32
-.out:
     mov eax, r15d
+    add rsp, 16
     pop r15
     pop r14
     pop r13
     pop r12
     pop rbx
+    ret
+
+; ERDP at the dequeue TRB, the handler-busy bit cleared; IMAN's pending bit
+; cleared (called with one more return address on the stack: aligned)
+.erdp:
+    mov eax, [rbx + xhci_hc.evt_deq]
+    shl eax, 4
+    mov rsi, [rbx + xhci_hc.evt]
+    add rsi, rax
+    or rsi, ERDP_EHB
+    mov rdi, [rbx + xhci_hc.rt]
+    add rdi, XHCI_IR0 + IR_ERDP
+    sub rsp, 8
+    call usb_wr64
+    mov rdi, [rbx + xhci_hc.rt]
+    add rdi, XHCI_IR0 + IR_IMAN
+    mov esi, IMAN_IP | IMAN_IE
+    call usb_wr32
+    add rsp, 8
     ret
 
 %endif ; LIB_USB_HCD_XHCI_RING_ASM
