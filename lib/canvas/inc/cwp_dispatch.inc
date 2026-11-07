@@ -157,6 +157,15 @@
 %ifdef HAVE_h_dnd_start
     CWP_REQUEST CWP_OBJ_DND, DND_START, h_dnd_start
 %endif
+%ifdef HAVE_h_dnd_set_actions
+    CWP_REQUEST CWP_OBJ_DND, DND_SET_ACTIONS, h_dnd_set_actions
+%endif
+%ifdef HAVE_h_dnd_set_icon
+    CWP_REQUEST CWP_OBJ_DND, DND_SET_ICON, h_dnd_set_icon
+%endif
+%ifdef HAVE_h_dnd_accept
+    CWP_REQUEST CWP_OBJ_DND, DND_ACCEPT, h_dnd_accept
+%endif
 %ifdef HAVE_h_toplevel_create
     CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_CREATE, h_toplevel_create
 %endif
