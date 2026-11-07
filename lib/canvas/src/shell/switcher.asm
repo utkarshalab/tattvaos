@@ -228,12 +228,8 @@ switcher_render:
     mov rbx, rdi
     mov r12, rsi
     mov rax, [rel output]
-    mov rcx, [rbx + FrameCtx.output]
-    cmp rcx, rax
-    je .ours
-    cmp [rcx + Output.mirror_of], rax
-    jne .out                            ; another output's frame, no mirror
-.ours:
+    cmp [rbx + FrameCtx.output], rax
+    jne .out                            ; another output's frame
     lea rdi, [rel box]
     mov esi, BOX_COLOR
     call paint
