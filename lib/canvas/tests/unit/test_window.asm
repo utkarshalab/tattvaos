@@ -2514,10 +2514,19 @@ tw_clipboard:
     call poll
 %endmacro
 
+; a cw_dnd request %1 with one value %2, a turn
+%macro DND 2
+    mov dword [rel req], %2
+    SEND CWP_OBJ_DND, %1, 4
+    call poll
+%endmacro
+
 ; Drag and drop between two clients: no button held, no drag; held on A's
-; window, A drags; over B's, B hears the types, enter and motion in its own
-; pixels; let go, B gets drop and A finished(1); B, though A has the
-; keyboard, pastes the drag's data; let go over nothing, finished(0)
+; window, A drags, an icon of its own at the pointer; over B's, B hears the
+; types, enter (copy offered) and motion in its own pixels; B accepts copy;
+; let go, B gets drop (copy) and A finished(1, copy); B, though A has the
+; keyboard, pastes the drag's data; over B again, not accepted: B left, A
+; finished(0); let go over nothing, finished(0)
 tw_dnd:
     sub rsp, 8
     POINTER 2, 2                        ; A's window
@@ -2574,6 +2583,9 @@ tw_dnd:
     jne .fail
     cmp dword [rel ans + 8], 6 - 2
     jne .fail
+    cmp dword [rel ans + 12], DND_COPY  ; copy offered
+    jne .fail
+    DND DND_ACCEPT, DND_COPY            ; B takes it
     POINTER 46, 7
     call poll
     FIND CWP_OBJ_DND, DND_EV_MOTION
@@ -2585,9 +2597,13 @@ tw_dnd:
     mov eax, [rel surface_b]
     cmp [rel ans], eax
     jne .fail
+    cmp dword [rel ans + 12], DND_COPY
+    jne .fail
     AS pair
     FIND CWP_OBJ_DND, DND_EV_FINISHED
     cmp dword [rel ans], 1
+    jne .fail
+    cmp dword [rel ans + 4], DND_COPY
     jne .fail
     call drain
 
@@ -2607,6 +2623,45 @@ tw_dnd:
     AS pair_b
     FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_DATA
     cmp dword [rel ans + 12], 'drag'
+    jne .fail
+
+    AS pair                             ; over B's, not accepted
+    call drain
+    POINTER 5, 5
+    call poll
+    INJECT INPUT_BUTTON, 0, 1
+    call poll
+    DRAG
+    mov edi, 4                          ; with an icon: a red 4x4 of A's
+    mov esi, 4
+    call new_surface
+    mov [rel surface_c], eax
+    mov rdi, [rel server + Server.buffer_table]
+    mov esi, [rel buffer]
+    call handle_resolve
+    mov rdi, [rax + Buffer.base]
+    mov ecx, 16
+    mov eax, 0xFFFF0000
+    rep stosd
+    mov edi, [rel surface_c]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    mov eax, [rel surface_c]
+    DND DND_SET_ICON, eax
+    POINTER 44, 5
+    call poll
+    SEES 44 + DND_ICON_OFFSET, 5 + DND_ICON_OFFSET, 0xFFFF0000
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    FIND CWP_OBJ_DND, DND_EV_FINISHED
+    cmp dword [rel ans], 0
+    jne .fail
+    AS pair_b
+    FIND CWP_OBJ_DND, DND_EV_LEAVE
+    mov eax, [rel surface_b]
+    cmp [rel ans], eax
     jne .fail
 
     AS pair                             ; let go over nothing
