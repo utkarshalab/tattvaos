@@ -7,7 +7,8 @@
 ; events (CANVAS_EV_CLIPBOARD_*): offered when the client gets the keyboard
 ; or the offer changes, send when a paste wants this client's data, data
 ; and cancelled for a paste of its own. Only the client with the keyboard
-; may offer or paste.
+; may offer or paste, and a client dropped on may paste selection 2, the
+; drag's.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -52,6 +53,44 @@ canvas_clipboard_offer:
     pop rdi
     mov esi, CWP_OBJ_CLIPBOARD
     mov edx, CLIPBOARD_OFFER
+    mov rcx, rsp
+    mov r8d, 8 + TYPES * TYPE_LEN
+    call canvas_send
+.out:
+    add rsp, 8 + TYPES * TYPE_LEN + 16
+    ret
+
+; ---------------------------------------------------------------------------
+; canvas_dnd_start
+;   A drag from one of this client's surfaces, while a button is held on
+;   it, offering these types as selection 2: the surface under the pointer
+;   hears CANVAS_EV_DND_*, and this client finished when it ends
+;   IN:  rdi = conn, esi = surface, edx = how many types (up to 4),
+;        rcx = the types, 32 bytes each
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_dnd_start
+canvas_dnd_start:
+    sub rsp, 8 + TYPES * TYPE_LEN + 16  ; the request; 16-byte aligned
+    mov rax, -(EINVAL)
+    cmp edx, TYPES
+    ja .out
+    push rdi
+    mov [rsp + 8], esi
+    mov [rsp + 12], edx
+    lea rdi, [rsp + 16]
+    mov rsi, rcx
+    mov ecx, edx
+    shl ecx, 5
+    rep movsb
+    mov ecx, TYPES
+    sub ecx, edx
+    shl ecx, 5
+    xor eax, eax
+    rep stosb
+    pop rdi
+    mov esi, CWP_OBJ_DND
+    mov edx, DND_START
     mov rcx, rsp
     mov r8d, 8 + TYPES * TYPE_LEN
     call canvas_send
