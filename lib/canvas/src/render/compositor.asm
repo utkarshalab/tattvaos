@@ -48,6 +48,7 @@ extern presentation_complete
 extern rect_intersect
 extern region_add_rect
 extern scale_bilinear_rect
+extern sw_cursor_render
 extern region_clear
 extern region_is_empty
 extern surface_fire_frame_callbacks
@@ -746,6 +747,10 @@ compositor_composite_output:
     mov rdi, rsp                        ; an Alt+Tab over everything
     lea rsi, [rsp + L_CLIP]
     call switcher_render
+    mov rdi, rsp                        ; and the pointer over that
+    lea rsi, [rsp + L_CLIP]
+    mov rdx, [rbx + Compositor.server]
+    call sw_cursor_render
 .next_rect:
     inc r14
     jmp .rect
