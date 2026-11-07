@@ -338,4 +338,274 @@ xhci_ep_recover:
     pop rbx
     ret
 
+; -----------------------------------------------------------------------------
+; xhci_ep_interval — the endpoint context's interval (2^n × 125 µs)
+; Input:  ECX = transfer type (USB_EP_*), EDX = speed, R8D = bInterval
+; Output: EAX
+; -----------------------------------------------------------------------------
+xhci_ep_interval:
+    xor eax, eax
+    cmp ecx, USB_EP_BULK
+    je .out
+    cmp edx, USB_SPEED_HIGH
+    jae .exponent
+    cmp edx, USB_SPEED_FULL
+    jne .frames                         ; low speed: interrupt only
+    cmp ecx, USB_EP_ISOC
+    je .fs_isoc
+.frames:
+    ; interrupt at full or low speed: bInterval in ms → microframes, log2
+    mov eax, r8d
+    test eax, eax
+    jnz .ms
+    mov eax, 1
+.ms:
+    shl eax, 3
+    bsr eax, eax
+    cmp eax, 3
+    jae .ms_max
+    mov eax, 3
+.ms_max:
+    cmp eax, 10
+    jbe .out
+    mov eax, 10
+    ret
+.fs_isoc:
+    ; 2^(bInterval - 1) frames
+    mov eax, r8d
+    cmp eax, 1
+    jae .fs_ok
+    mov eax, 1
+.fs_ok:
+    cmp eax, 16
+    jbe .fs_cap
+    mov eax, 16
+.fs_cap:
+    add eax, 2
+    ret
+.exponent:
+    ; high speed and SuperSpeed: 2^(bInterval - 1) microframes
+    mov eax, r8d
+    test eax, eax
+    jz .out
+    dec eax
+    cmp eax, 15
+    jbe .out
+    mov eax, 15
+.out:
+    ret
+
+; -----------------------------------------------------------------------------
+; xhci_configure_iface — endpoint contexts and rings for one interface's
+;                        endpoints (one alternate setting), Configure Endpoint
+; Input:  RDI = hc, ESI = slot, RDX = usb_config*, ECX = index in its ifaces
+; Output: EAX = 0 or a negative USB_E*
+; -----------------------------------------------------------------------------
+global xhci_configure_iface
+xhci_configure_iface:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    push rbp
+    sub rsp, 40         ; [rsp] add flags, [+4] largest DCI, [+8] config,
+                        ; [+16] next endpoint, [+20] endpoints left
+    mov rbx, rdi
+    mov r12d, esi
+    mov [rsp + 8], rdx
+    mov r13, [rbx + xhci_hc.slots + r12 * 8]
+    mov eax, -USB_EHC
+    test r13, r13
+    jz .out
+    mov eax, -USB_EINVAL
+    cmp cl, [rdx + usb_config.iface_count]
+    jae .out
+    movzx eax, cl
+    imul eax, eax, usb_iface_size
+    lea rax, [rdx + usb_config.ifaces + rax]
+    movzx ecx, byte [rax + usb_iface.first_ep]
+    mov [rsp + 16], ecx
+    movzx ecx, byte [rax + usb_iface.ep_count]
+    mov [rsp + 20], ecx
+    ; the input context: zero, then the slot context as it is now
+    mov rdi, [r13 + xhci_slot.in_ctx]
+    mov ecx, [rbx + xhci_hc.ctx_size]
+    imul ecx, ecx, 33
+    xor eax, eax
+    rep stosb
+    mov rdi, [r13 + xhci_slot.in_ctx]
+    mov ecx, [rbx + xhci_hc.ctx_size]
+    lea rdi, [rdi + rcx]
+    mov rsi, [r13 + xhci_slot.out_ctx]
+    rep movsb
+    mov dword [rsp], 1                  ; A0: the slot context
+    mov rax, [r13 + xhci_slot.out_ctx]
+    mov eax, [rax]
+    shr eax, 27
+    mov [rsp + 4], eax
+
+.endpoint:
+    cmp dword [rsp + 20], 0
+    je .command
+    dec dword [rsp + 20]
+    mov eax, [rsp + 16]
+    inc dword [rsp + 16]
+    shl eax, 4                          ; usb_ep_size
+    mov r14, [rsp + 8]
+    lea r14, [r14 + usb_config.eps + rax]
+    movzx eax, byte [r14 + usb_ep.address]
+    mov ebp, eax
+    and ebp, USB_EP_NUM_MASK
+    jz .endpoint                        ; endpoint 0 is not configured here
+    shl ebp, 1
+    test al, USB_EP_DIR_IN
+    jz .dci
+    inc ebp                             ; EBP = device context index
+.dci:
+    movzx r15d, byte [r14 + usb_ep.attributes]
+    and r15d, USB_EP_TYPE_MASK
+    jz .endpoint                        ; a second control endpoint: not used
+    ; its ring
+    mov edi, XHCI_RING_TRBS
+    call xhci_ring_new
+    test rax, rax
+    jz .nomem
+    mov ecx, ebp
+    imul ecx, ecx, xhci_ep_size
+    lea rdx, [r13 + xhci_slot.eps + rcx]
+    mov [rdx + xhci_ep.ring], rax
+    mov qword [rdx + xhci_ep.xfer], 0
+    mov eax, r15d
+    test byte [r14 + usb_ep.address], USB_EP_DIR_IN
+    jz .type
+    add eax, 4
+.type:
+    mov [rdx + xhci_ep.type], eax
+    ; the context
+    mov rdi, [r13 + xhci_slot.in_ctx]
+    mov ecx, ebp
+    inc ecx
+    imul ecx, [rbx + xhci_hc.ctx_size]
+    add rdi, rcx
+    ; dword 1: error count, type, burst, packet size
+    shl eax, 3
+    cmp r15d, USB_EP_ISOC
+    je .no_cerr
+    or eax, 3 << 1
+.no_cerr:
+    movzx r9d, word [r14 + usb_ep.max_packet]
+    mov r10d, r9d
+    and r9d, 0x7FF                      ; packet size
+    shr r10d, 11
+    and r10d, 3                         ; high-speed extra transactions
+    cmp dword [r13 + xhci_slot.speed], USB_SPEED_SUPER
+    jb .burst
+    movzx r10d, byte [r14 + usb_ep.ss_burst]
+.burst:
+    cmp r15d, USB_EP_BULK
+    jne .burst_set
+    cmp dword [r13 + xhci_slot.speed], USB_SPEED_SUPER
+    jae .burst_set
+    xor r10d, r10d                      ; bulk below SuperSpeed: no burst
+.burst_set:
+    mov ecx, r10d
+    shl ecx, 8
+    or eax, ecx
+    mov ecx, r9d
+    shl ecx, 16
+    or eax, ecx
+    mov [rdi + 4], eax
+    ; dword 0: interval, and Mult for SuperSpeed isochronous
+    push rdi
+    mov ecx, r15d
+    mov edx, [r13 + xhci_slot.speed]
+    movzx r8d, byte [r14 + usb_ep.interval]
+    call xhci_ep_interval
+    pop rdi
+    shl eax, 16
+    cmp r15d, USB_EP_ISOC
+    jne .dword0
+    cmp dword [r13 + xhci_slot.speed], USB_SPEED_SUPER
+    jb .dword0
+    movzx ecx, byte [r14 + usb_ep.ss_attr]
+    and ecx, 3
+    shl ecx, 8
+    or eax, ecx
+.dword0:
+    ; the payload per service interval, for periodic endpoints
+    xor ecx, ecx
+    cmp r15d, USB_EP_BULK
+    je .esit_done
+    mov ecx, [r14 + usb_ep.ss_bpi]
+    test ecx, ecx
+    jnz .esit_done
+    lea ecx, [r10d + 1]
+    imul ecx, r9d
+.esit_done:
+    mov edx, ecx
+    shr edx, 16
+    shl edx, 24
+    or eax, edx                         ; Max ESIT Payload high
+    mov [rdi], eax
+    ; dwords 2-3: the ring, cycle 1
+    mov edx, ebp
+    imul edx, edx, xhci_ep_size
+    mov rax, [r13 + xhci_slot.eps + rdx + xhci_ep.ring]
+    mov rax, [rax + xhci_ring.trbs]
+    or rax, 1
+    mov [rdi + 8], rax
+    ; dword 4: average TRB length, Max ESIT Payload low
+    mov eax, 1024
+    cmp r15d, USB_EP_INTERRUPT
+    je .avg
+    mov eax, 3072
+.avg:
+    and ecx, 0xFFFF
+    shl ecx, 16
+    or eax, ecx
+    mov [rdi + 16], eax
+    bts dword [rsp], ebp
+    cmp ebp, [rsp + 4]
+    jbe .endpoint
+    mov [rsp + 4], ebp
+    jmp .endpoint
+
+.command:
+    mov rdi, [r13 + xhci_slot.in_ctx]
+    mov eax, [rsp]
+    mov [rdi + 4], eax                  ; add flags
+    mov ecx, [rbx + xhci_hc.ctx_size]
+    mov eax, [rdi + rcx]
+    and eax, 0x07FFFFFF
+    mov edx, [rsp + 4]
+    shl edx, 27
+    or eax, edx                         ; context entries: the largest DCI
+    mov [rdi + rcx], eax
+    mov rdi, rbx
+    mov rsi, [r13 + xhci_slot.in_ctx]
+    xor edx, edx
+    mov ecx, r12d
+    shl ecx, 24
+    or ecx, TRB_CONFIGURE_EP << TRB_TYPE_SHIFT
+    call xhci_command
+    test eax, eax
+    js .out
+    cmp eax, CC_SUCCESS
+    mov eax, 0
+    je .out
+    mov eax, -USB_EHC
+    jmp .out
+.nomem:
+    mov eax, -USB_ENOMEM
+.out:
+    add rsp, 40
+    pop rbp
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 %endif ; LIB_USB_HCD_XHCI_CMD_ASM
