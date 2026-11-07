@@ -6,6 +6,8 @@
 ; them on the active seat. server_poll calls input_dispatch once a turn, which
 ; drains the queue:
 ;
+;   sticky   (A11Y-04) a modifier tapped alone latches for the next key, twice
+;            locks, a third time is off; five Shift taps turn them on or off
 ;   keys     go to the surface with keyboard focus, and one that is not a
 ;            modifier or a lock hides the pointer until it moves; a held key
 ;            that is not a
@@ -64,6 +66,8 @@ extern dnd_active
 extern dnd_over
 extern dnd_release
 extern dnd_forget_surface
+extern keymap_mods
+extern keymap_modifier
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -562,6 +566,9 @@ key_event:
     and eax, r8d
 .mark:
     mov [rbx + InputSeat.keys + rdx], al
+    mov rdi, rbx                        ; sticky keys keep their books
+    mov rsi, r12
+    call sticky_key
 
     ; A press of a key that repeats starts it repeating; letting go of the
     ; repeating key stops it. Modifiers and locks do not repeat.
@@ -665,6 +672,11 @@ key_event:
     or r9d, [rbx + InputSeat.locks]
     call send_input
 .out:
+    cmp dword [rbx + InputSeat.sticky_clear], 0
+    je .exit                            ; the key a latch was for: it goes
+    mov rdi, rbx
+    call sticky_unlatch
+.exit:
     EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; The held key again, if it is time: a key event with state 2 and the
@@ -717,6 +729,126 @@ key_repeat:
 .stop:
     mov dword [rbx + InputSeat.repeat_key], 0
     jmp .out
+
+; ---------------------------------------------------------------------------
+; input_set_sticky
+;   Sticky keys on (1) or off (0); off, nothing stays latched or locked
+;   IN:  rdi = server*, esi = 1 on, 0 off
+;   OUT: rax = 0, -ENODEV with no seat
+; ---------------------------------------------------------------------------
+global input_set_sticky
+input_set_sticky:
+    mov rax, -(ENODEV)
+    mov rdi, [rdi + Server.input_seat]
+    test rdi, rdi
+    jz .out
+    mov [rdi + InputSeat.sticky_on], esi
+    jmp sticky_reset
+.out:
+    ret
+
+; Sticky keys (A11Y-04): a modifier pressed and let go with no key between
+; latches it for the next key; tapped again it locks, and once more it is
+; off. Five lone Shift taps in a row turn sticky keys on or off.
+; rdi = seat, rsi = RawInput* (its key already marked held or not)
+sticky_key:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    mov edi, [r12 + RawInput.code]
+    call keymap_modifier
+    test eax, eax
+    jz .key
+    cmp dword [r12 + RawInput.value], 0
+    je .let_go
+    mov [rbx + InputSeat.sticky_lone], eax  ; pressed: lone so far
+    jmp .out
+.let_go:
+    cmp [rbx + InputSeat.sticky_lone], eax
+    jne .out                            ; a key came between: no tap
+    mov dword [rbx + InputSeat.sticky_lone], 0
+    cmp eax, MOD_SHIFT
+    jne .not_shift
+    inc dword [rbx + InputSeat.shift_taps]
+    cmp dword [rbx + InputSeat.shift_taps], 5
+    jb .tap
+    mov dword [rbx + InputSeat.shift_taps], 0   ; five: on or off
+    xor dword [rbx + InputSeat.sticky_on], 1
+    mov rdi, rbx
+    call sticky_reset
+    jmp .out
+.not_shift:
+    mov dword [rbx + InputSeat.shift_taps], 0
+.tap:
+    cmp dword [rbx + InputSeat.sticky_on], 0
+    je .out
+    test [rbx + InputSeat.sticky_locked], eax
+    jz .not_locked
+    not eax                             ; locked: off
+    and [rbx + InputSeat.sticky_locked], eax
+    and [rbx + InputSeat.sticky_latched], eax
+    jmp .out
+.not_locked:
+    test [rbx + InputSeat.sticky_latched], eax
+    jz .latch
+    or [rbx + InputSeat.sticky_locked], eax ; latched: locked
+    not eax
+    and [rbx + InputSeat.sticky_latched], eax
+    jmp .out
+.latch:
+    or [rbx + InputSeat.sticky_latched], eax
+    jmp .out
+.key:
+    cmp dword [r12 + RawInput.value], 0
+    je .out
+    mov dword [rbx + InputSeat.sticky_lone], 0  ; a key: no lone tap, no
+    mov dword [rbx + InputSeat.shift_taps], 0   ; run of Shift taps
+    cmp dword [rbx + InputSeat.sticky_latched], 0
+    je .out
+    mov dword [rbx + InputSeat.sticky_clear], 1 ; the latch is this key's
+.out:
+    EPILOGUE_RESTORE rbx, r12
+
+; rdi = seat: what was latched goes once its key is done; a latched Alt
+; going is Alt let go (an Alt+Tab chooses); the client hears the modifiers
+sticky_unlatch:
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov eax, [rbx + InputSeat.sticky_latched]
+    mov dword [rbx + InputSeat.sticky_latched], 0
+    mov dword [rbx + InputSeat.sticky_clear], 0
+    test eax, MOD_ALT
+    jz .mods
+    mov rdi, [rbx + InputSeat.server]
+    call switcher_finish
+.mods:
+    mov rdi, rbx
+    call sticky_tell
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
+
+; rdi = seat: nothing latched or locked; the client hears the modifiers
+sticky_reset:
+    mov dword [rdi + InputSeat.sticky_latched], 0
+    mov dword [rdi + InputSeat.sticky_locked], 0
+    mov dword [rdi + InputSeat.sticky_clear], 0
+; rdi = seat: the modifiers again, told to the keyboard's client if changed
+sticky_tell:
+    push rbx
+    mov rbx, rdi
+    call keymap_mods
+    test ecx, ecx
+    jz .same
+    mov rsi, [rbx + InputSeat.keyboard_focus]
+    test rsi, rsi
+    jz .same
+    mov rdi, rbx
+    call send_modifiers
+.same:
+    xor eax, eax
+    pop rbx
+    ret
 
 ; edi = keycode -> eax = 1 if holding it repeats: not a modifier or a lock
 key_repeats:
