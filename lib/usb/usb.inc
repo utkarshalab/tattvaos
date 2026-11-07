@@ -19,6 +19,8 @@
 %define USB_ENODEV          7       ; the device went away
 %define USB_ENOMEM          8
 %define USB_EHC             9       ; the host controller failed
+%define USB_EBUSY           10      ; a transfer is already on the endpoint
+%define USB_EINVAL          11
 
 ; ---- Descriptor types -------------------------------------------------------
 %define USB_DT_DEVICE           0x01
