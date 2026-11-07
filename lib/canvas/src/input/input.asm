@@ -68,6 +68,7 @@ extern dnd_release
 extern dnd_forget_surface
 extern keymap_mods
 extern keymap_modifier
+extern surface_logical_size
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -1047,10 +1048,11 @@ button_event:
     call handle_resolve
     test rax, rax
     jz .started
-    mov ecx, [rax + Buffer.width]
-    mov [rbx + InputSeat.resize_w], ecx
-    mov ecx, [rax + Buffer.height]
-    mov [rbx + InputSeat.resize_h], ecx
+    mov rdi, [rbx + InputSeat.moving]   ; its size on the screen
+    mov rsi, rax
+    call surface_logical_size
+    mov [rbx + InputSeat.resize_w], eax
+    mov [rbx + InputSeat.resize_h], edx
 .started:
     mov rdi, rbx
     call click_focus
@@ -1468,16 +1470,23 @@ surface_at:
     call handle_resolve
     test rax, rax
     jz .next
-    mov r14, rax                        ; the buffer
+    mov rdi, r12                        ; its size on the screen: r14d wide,
+    mov rsi, rax                        ; the high half high
+    call surface_logical_size
+    mov r14d, eax
+    shl rdx, 32
+    or r14, rdx
     mov esi, [rbx + InputSeat.x]
     sub esi, [r12 + Surface.current + SurfaceState.buf_x]
     js .next
-    cmp esi, [r14 + Buffer.width]
+    cmp esi, r14d
     jae .next
     mov edx, [rbx + InputSeat.y]
     sub edx, [r12 + Surface.current + SurfaceState.buf_y]
     js .next
-    cmp edx, [r14 + Buffer.height]
+    mov rcx, r14
+    shr rcx, 32
+    cmp edx, ecx
     jae .next
     mov rdi, [r12 + Surface.current + SurfaceState.input]
     test rdi, rdi
