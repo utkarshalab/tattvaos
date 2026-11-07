@@ -403,8 +403,12 @@ in 5.2 (I3).
   pointer emulation from the first finger while canvas drops touch
   records; mice and touchpads in mouse mode give motion, buttons and the
   wheel
-- ☐ Kernel glue: find the touchpad, its I²C controller and GPIO pin through
-  ACPI, route the GPIO interrupt, service reports on the input fiber
+- ◐ Kernel glue (`kernel_touchpad.asm`): the touchpad, its I²C controller
+  (FMCN or SSCN timing) and GPIO controller found through ACPI, the GPIO
+  controller's interrupt routed with its own trigger and polarity
+  (`ioapic_route_gsi`), the pin claimed as a level interrupt, reports read
+  on the input fiber; host-tested end to end against simulated hardware,
+  not yet booted
 
 Demo: pointer, tap and two-finger scroll on the built-in touchpad (gestures
 by canvas).
