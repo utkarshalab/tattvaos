@@ -160,6 +160,9 @@ kernel_text_start:
 %include "lib/input/kernel.asm"     ; ... its fiber, IRQ 1 and start-up
 %include "lib/io/acpi/aml/aml.asm"  ; ACPI: the AML interpreter
 %include "lib/io/acpi/aml/kernel.asm" ; ... tables, sandbox, start-up
+%include "lib/io/gpio/gpio.asm"     ; GPIO pins and pin interrupts
+%include "lib/io/i2c/i2c.asm"       ; I2C host controllers
+%include "lib/input/kernel_touchpad.asm" ; the I2C-HID touchpad, through ACPI
 
 ; Static Ush bundle: object-linked independently, embedded with ULF ownership.
 %include "kernel/entry/ush.asm"
