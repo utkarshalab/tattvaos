@@ -41,6 +41,15 @@
 %define FENCE_GET_STATUS        5
 %define FENCE_EV_FENCE_SIGNALED 0
 
+; cw_clipboard (canvas-core.cwp)
+%define CLIPBOARD_OFFER        0
+%define CLIPBOARD_RECEIVE      1
+%define CLIPBOARD_DATA         2
+%define CLIPBOARD_EV_OFFERED   0
+%define CLIPBOARD_EV_SEND      1
+%define CLIPBOARD_EV_DATA      2
+%define CLIPBOARD_EV_CANCELLED 3
+
 ; cw_timeline (canvas-core.cwp)
 %define TIMELINE_CREATE               0
 %define TIMELINE_DESTROY              1
