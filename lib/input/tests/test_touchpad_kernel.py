@@ -236,7 +236,7 @@ check("pin 9: level, active low, enabled, delivered",
       (bool(r & LEVEL_TRIG), (r >> 9) & 3, bool(r & INT_ENABLE), bool(r & INT_DELIVER)), (True, 1, True, True))
 check("GPIO interrupt routed masked, then unmasked, level and active low",
       routes(), [(7, 0x51, 1 | 2 | 4), (7, 0x51, 2 | 4)])
-check("the handler installed at the vector", u32("tp_idt_vector").value, 0x51)
+check("the handler installed at the vector", u32("kstub_idt_vector").value, 0x51)
 
 # a finger: the line asserts, the controller interrupts, the fiber reads
 rows = [(1, 1, 2, 1500, 900)] + [(0, 0, 0, 0, 0)] * 4
