@@ -118,6 +118,7 @@ input_kernel_start:
 input_fiber:
     sub rsp, 8                          ; align the SysV calls below
 .loop:
+    call i2c_hid_service                ; touchpad reports into events
     call input_pump
     call ps2_kbd_service
     call fiber_yield
