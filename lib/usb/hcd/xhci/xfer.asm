@@ -185,4 +185,74 @@ xhci_xfer_complete:
     pop rbx
     ret
 
+; -----------------------------------------------------------------------------
+; xhci_submit — an interrupt or bulk transfer, not waited for: its done
+;               function is called from xhci_poll when it finishes
+; Input:  RDI = hc, RSI = usb_xfer* (dev, endpoint, buffer, length, flags,
+;         done, context set)
+; Output: EAX = 0; -USB_EBUSY (one transfer at a time per endpoint),
+;         -USB_ENODEV, -USB_EINVAL (the endpoint is not configured)
+; -----------------------------------------------------------------------------
+global xhci_submit
+xhci_submit:
+    push rbx
+    push r12
+    push r13
+    mov rbx, rdi
+    mov r12, rsi
+    mov rax, [r12 + usb_xfer.dev]
+    movzx ecx, byte [rax + usb_device.slot]
+    mov r13, [rbx + xhci_hc.slots + rcx * 8]
+    mov eax, -USB_ENODEV
+    test r13, r13
+    jz .out
+    movzx edx, byte [r12 + usb_xfer.endpoint]
+    mov eax, edx
+    and eax, USB_EP_NUM_MASK
+    shl eax, 1
+    test dl, USB_EP_DIR_IN
+    jz .dci
+    inc eax
+.dci:
+    mov r8d, eax                        ; device context index
+    imul eax, eax, xhci_ep_size
+    lea r13, [r13 + xhci_slot.eps + rax]
+    mov eax, -USB_EINVAL
+    mov rdi, [r13 + xhci_ep.ring]
+    test rdi, rdi
+    jz .out
+    mov eax, -USB_EBUSY
+    cmp qword [r13 + xhci_ep.xfer], 0
+    jne .out
+    mov dword [r13 + xhci_ep.done], 0
+    mov dword [r13 + xhci_ep.residual], 0
+    mov dword [r13 + xhci_ep.code], 0
+    mov [r13 + xhci_ep.xfer], r12
+    mov dword [r12 + usb_xfer.status], 0
+    mov dword [r12 + usb_xfer.actual], 0
+    push r8
+    sub rsp, 8
+    mov rsi, [r12 + usb_xfer.buffer]
+    mov edx, [r12 + usb_xfer.length]
+    and edx, 0x1FFFF                    ; one TRB: up to 64 KB
+    mov ecx, (TRB_NORMAL << TRB_TYPE_SHIFT) | TRB_IOC | TRB_ISP
+    call xhci_ring_put
+    add rsp, 8
+    pop r8
+    mov [r13 + xhci_ep.last], rax
+    mov [r12 + usb_xfer.hc_data], rax
+    ; the doorbell: the slot's, target the endpoint
+    mov rax, [r12 + usb_xfer.dev]
+    movzx ecx, byte [rax + usb_device.slot]
+    mov rdi, [rbx + xhci_hc.db]
+    lea rdi, [rdi + rcx * 4]
+    mov esi, r8d
+    call usb_wr32
+    xor eax, eax
+.out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 %endif ; LIB_USB_HCD_XHCI_XFER_ASM
