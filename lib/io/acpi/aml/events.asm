@@ -828,6 +828,11 @@ acpi_events_service:
     call acpi_report_button
     jmp .notifies
 .other:
+    mov rdi, rbx                        ; a battery, the adapter, a zone
+    mov rsi, r12
+    call acpi_power_notify
+    test eax, eax
+    jnz .notifies
     inc dword [rel acpi_notifies]
     lea rsi, [rel msg_acpi_ev_notify]
     call uart_print_str
