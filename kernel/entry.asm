@@ -164,6 +164,8 @@ kernel_text_start:
 %include "lib/io/i2c/i2c.asm"       ; I2C host controllers
 %include "lib/input/kernel_touchpad.asm" ; the I2C-HID touchpad, through ACPI
 %include "lib/input/kernel_acpi.asm" ; the ACPI lid and buttons as input
+%include "lib/usb/usb.asm"          ; USB: xHCI, the core, keyboards and mice
+%include "lib/usb/kernel.asm"       ; ... found on PCI, polled from the input fiber
 
 ; Static Ush bundle: object-linked independently, embedded with ULF ownership.
 %include "kernel/entry/ush.asm"
