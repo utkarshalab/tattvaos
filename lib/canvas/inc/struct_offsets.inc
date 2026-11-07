@@ -1598,6 +1598,12 @@ struc InputSeat
     .dropped:                 resd 1    ; events lost to a full queue
     .mods:                    resd 1    ; held modifiers, MOD_* in inc/input.inc
     .locks:                   resd 1    ; MOD_CAPS, MOD_NUM
+    .sticky_on:               resd 1    ; 1: sticky keys (A11Y-04)
+    .sticky_latched:          resd 1    ; modifiers for the next key only
+    .sticky_locked:           resd 1    ; modifiers on until tapped again
+    .sticky_lone:             resd 1    ; a modifier pressed with no key yet
+    .sticky_clear:            resd 1    ; 1: the latch goes after this key
+    .shift_taps:              resd 1    ; lone Shift taps in a row
     .keys:                    resb 32   ; held keycodes 0-255, a bit each
     .queue:                   resb INPUT_QUEUE_LEN * RawInput_size
 endstruc
