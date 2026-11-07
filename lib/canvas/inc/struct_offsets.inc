@@ -1688,6 +1688,8 @@ struc Surface
     .window:                  resq 1    ; Window* when it is a toplevel, else 0
     .fence_wait:              resq 1    ; 1: a commit waits for an acquire fence
     .cursor_shape:            resq 1    ; cw_pointer.shape while the pointer is over it
+    .buffer_scale:            resd 1    ; its buffer's scale in 120ths, 0: 120
+    resb 4
 endstruc
 
 ; A surface with a shell role (src/shell/window.asm): a toplevel window,
