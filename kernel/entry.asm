@@ -163,6 +163,7 @@ kernel_text_start:
 %include "lib/io/gpio/gpio.asm"     ; GPIO pins and pin interrupts
 %include "lib/io/i2c/i2c.asm"       ; I2C host controllers
 %include "lib/input/kernel_touchpad.asm" ; the I2C-HID touchpad, through ACPI
+%include "lib/input/kernel_acpi.asm" ; the ACPI lid and buttons as input
 
 ; Static Ush bundle: object-linked independently, embedded with ULF ownership.
 %include "kernel/entry/ush.asm"
