@@ -151,6 +151,7 @@ test_window_suite:
     CASE tw_cursor, CAP_SHELL
     CASE tw_cursor_shapes, CAP_SHELL
     CASE tw_clipboard, CAP_SHELL | CAP_CLIPBOARD
+    CASE tw_dnd, CAP_SHELL | CAP_CLIPBOARD | CAP_DATA
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2340,9 +2341,9 @@ tw_cursor_shapes:
     mov [rel cur_pair], rax
 %endmacro
 
-; B pastes the clipboard's text/plain, a turn
-%macro PASTE 0
-    mov dword [rel req], 0
+; B pastes selection %1 (the clipboard if none given) as text/plain, a turn
+%macro PASTE 0-1 0
+    mov dword [rel req], %1
     lea rdi, [rel req + 4]
     lea rsi, [rel clip_type]
     mov ecx, CLIP_TYPE_LEN
@@ -2485,6 +2486,134 @@ tw_clipboard:
     cmp dword [rel ans + 8], 6
     jne .fail
     cmp dword [rel ans + 12], 'remo'
+    jne .fail
+    PASS
+
+; A starts a drag from surface_a offering text/plain, a turn
+%macro DRAG 0
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], 1
+    lea rdi, [rel req + 8]
+    xor eax, eax
+    mov ecx, CLIP_TYPES * CLIP_TYPE_LEN
+    rep stosb
+    lea rdi, [rel req + 8]
+    lea rsi, [rel clip_type]
+    mov ecx, CLIP_TYPE_LEN
+    rep movsb
+    SEND CWP_OBJ_DND, DND_START, 8 + CLIP_TYPES * CLIP_TYPE_LEN
+    call poll
+%endmacro
+
+; Drag and drop between two clients: no button held, no drag; held on A's
+; window, A drags; over B's, B hears the types, enter and motion in its own
+; pixels; let go, B gets drop and A finished(1); B, though A has the
+; keyboard, pastes the drag's data; let go over nothing, finished(0)
+tw_dnd:
+    sub rsp, 8
+    POINTER 2, 2                        ; A's window
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    lea rdi, [rel server]               ; B and its window
+    lea rsi, [rel pair_b]
+    mov edx, CAP_SHELL | CAP_POINTER | CAP_KEYBOARD | CAP_CLIPBOARD | CAP_DATA
+    call client_accept
+    test rax, rax
+    js .fail
+    AS pair_b
+    call drain
+    POINTER 40, 2
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    call drain
+    AS pair
+    call drain
+
+    DRAG                                ; no button held: no drag
+    POINTER 45, 5
+    call poll
+    AS pair_b
+    mov edi, CWP_OBJ_DND
+    mov esi, DND_EV_ENTER
+    call find_event
+    test eax, eax
+    jnz .fail
+
+    POINTER 5, 5                        ; held on A's window: a drag
+    call poll
+    INJECT INPUT_BUTTON, 0, 1
+    call poll
+    AS pair
+    DRAG
+    POINTER 45, 6                       ; over B's
+    call poll
+    AS pair_b
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_OFFERED
+    cmp dword [rel ans], CLIP_DRAG
+    jne .fail
+    cmp dword [rel ans + 4], 1
+    jne .fail
+    FIND CWP_OBJ_DND, DND_EV_ENTER
+    mov eax, [rel surface_b]
+    cmp [rel ans], eax
+    jne .fail
+    cmp dword [rel ans + 4], 45 - 40
+    jne .fail
+    cmp dword [rel ans + 8], 6 - 2
+    jne .fail
+    POINTER 46, 7
+    call poll
+    FIND CWP_OBJ_DND, DND_EV_MOTION
+    cmp dword [rel ans + 4], 46 - 40
+    jne .fail
+    INJECT INPUT_BUTTON, 0, 0           ; let go: dropped on B's
+    call poll
+    FIND CWP_OBJ_DND, DND_EV_DROP
+    mov eax, [rel surface_b]
+    cmp [rel ans], eax
+    jne .fail
+    AS pair
+    FIND CWP_OBJ_DND, DND_EV_FINISHED
+    cmp dword [rel ans], 1
+    jne .fail
+    call drain
+
+    AS pair_b                           ; B pastes it, as the drop target
+    PASTE CLIP_DRAG
+    call next_reply
+    mov eax, [rel ans]
+    test eax, eax
+    jz .fail
+    mov [rel clip_serial], eax
+    AS pair
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_SEND
+    mov eax, [rel clip_serial]
+    cmp [rel ans], eax
+    jne .fail
+    ANSWER 1, 'drag', 4
+    AS pair_b
+    FIND CWP_OBJ_CLIPBOARD, CLIPBOARD_EV_DATA
+    cmp dword [rel ans + 12], 'drag'
+    jne .fail
+
+    AS pair                             ; let go over nothing
+    call drain
+    POINTER 5, 5
+    call poll
+    INJECT INPUT_BUTTON, 0, 1
+    call poll
+    DRAG
+    POINTER 30, 40
+    call poll
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    FIND CWP_OBJ_DND, DND_EV_FINISHED
+    cmp dword [rel ans], 0
     jne .fail
     PASS
 
