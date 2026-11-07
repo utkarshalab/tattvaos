@@ -83,6 +83,7 @@
 %define REGION_GET_RECTS 5
 
 ; cw_pointer (canvas-input.cwp)
+%define POINTER_SET_SHAPE 0
 %define POINTER_EV_ENTER  0
 %define POINTER_EV_LEAVE  1
 %define POINTER_EV_MOTION 2
