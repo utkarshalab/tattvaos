@@ -18,6 +18,8 @@ aml_match_id(node, "PNP0C50")       ; its _HID or _CID
 aml_device_status(node)             ; the _STA bits found
 aml_get_crs(node, &buffer)          ; its _CRS resource template
 aml_res_next(buf, len, &off, &res)  ; the next descriptor, decoded
+aml_dsm(node, uuid, rev, fn, &v)    ; call _DSM
+aml_dsm_supported(node, uuid, rev, fn) ; whether _DSM has that function
 ```
 
 All entry points return 0 or a negative `AML_E*` error (`aml.inc`). One
@@ -49,6 +51,7 @@ The outside world comes in through hooks, all optional:
 | `api.asm` | `aml_init`, `aml_load`, `aml_find`, `aml_eval_path`, `\_OSI` |
 | `init.asm` | `_REG`, the `_STA`/`_INI` walk, device IDs and lookup |
 | `res.asm` | `_CRS` and resource descriptors, decoded into a 56-byte record |
+| `dsm.asm` | `_DSM` calls and the function-0 support check |
 | `kernel.asm` | In the kernel: finds the DSDT and SSDTs, gives the interpreter 2 MB, the sandboxed region handler, Notify, Sleep and the clock; `acpi_kernel_init` runs at boot |
 
 ## Safety
@@ -64,11 +67,12 @@ cleanly. Names a method creates disappear when it returns.
 sh lib/io/acpi/aml/tests/run_tests.sh
 ```
 
-`aml_gen.py` builds test tables term by term. The four suites:
+`aml_gen.py` builds test tables term by term. The suites:
 
 | Suite | Checks | Covers |
 |---|---|---|
 | `test_aml.py` | 119 | The interpreter, every truncation of a table, 3 000 mutated tables |
 | `test_init.py` | 30 | The start-up walk, device IDs, `_REG` |
 | `test_res.py` | 48 | Every resource descriptor, malformed ones, 5 000 random templates, `_CRS` |
+| `test_dsm.py` | 10 | `_DSM` calls, supported functions (buffer or integer answers), no `_DSM` |
 | `test_kernel.py` | 24 | `kernel.asm` with stubbed kernel symbols (`kstub.asm`): table discovery, start-up, the sandbox, firmware faults |
