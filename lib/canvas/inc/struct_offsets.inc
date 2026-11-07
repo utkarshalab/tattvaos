@@ -627,6 +627,7 @@ struc Compositor
     .outputs:                 resq 1
     .render_list:             resq 1
     .drawn:                   resq 1    ; surfaces drawn, ever (for tests)
+    .cursor_on:               resq 1    ; 1: the software cursor is drawn
 endstruc
 
 struc Configure
