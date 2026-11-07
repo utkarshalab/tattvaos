@@ -4,8 +4,11 @@
 ; ============================================================================
 ; The compositor draws into an output's framebuffer in ordinary memory, the
 ; same as headless. After a frame, fb_linear_flip copies each damaged rectangle
-; to the real framebuffer, whose rows may be longer than the output's: reading
-; display memory is slow, so it is only ever written. Pixels are 32-bit BGRX.
+; to that output's display memory (Output.scanout), whose rows may be longer
+; than the output's: reading display memory is slow, so it is only ever
+; written. Pixels are 32-bit BGRX. Each output has its own display memory:
+; the boot framebuffer's for the first, another's for one added later
+; (fb_linear_add_output, from what ut_fb_info says of it).
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -74,18 +77,70 @@ fb_linear_init:
 
 ; ---------------------------------------------------------------------------
 ; fb_linear_create_output
-;   The one output, the size of the framebuffer
+;   The first output, the size of the boot framebuffer, shown there
 ;   IN:  rdi = backend*
 ;   OUT: rax = output*, 0 on error
 ; ---------------------------------------------------------------------------
 global fb_linear_create_output
 fb_linear_create_output:
+    push rbx
+    mov rbx, rdi
     ASSERT_PTR rdi
     mov rax, [rdi + Backend.config]
     mov esi, [rax + Config.fb_width]
     mov edx, [rax + Config.fb_height]
     mov ecx, DRM_FORMAT_BGRA8888
-    jmp headless_create_virtual_output
+    call headless_create_virtual_output
+    test rax, rax
+    jz .out
+    mov rcx, [rbx + Backend.fb_base]
+    mov [rax + Output.scanout], rcx
+    mov rcx, [rbx + Backend.config]
+    mov ecx, [rcx + Config.fb_stride]
+    mov [rax + Output.scanout_pitch], rcx
+.out:
+    pop rbx
+    ret
+
+; ---------------------------------------------------------------------------
+; fb_linear_add_output
+;   Another output, for a framebuffer ut_fb_info describes, shown there
+;   IN:  rdi = backend*, rsi = what ut_fb_info filled (FB_INFO_*), edx = its
+;        framebuffer index
+;   OUT: rax = output*, 0 on error or a framebuffer it cannot use
+; ---------------------------------------------------------------------------
+global fb_linear_add_output
+fb_linear_add_output:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13d, edx
+    xor eax, eax
+    cmp qword [r12 + FB_INFO_BASE], 0
+    je .out
+    mov esi, [r12 + FB_INFO_WIDTH]
+    test esi, esi
+    jz .out
+    mov edx, [r12 + FB_INFO_HEIGHT]
+    test edx, edx
+    jz .out
+    lea ecx, [rsi * 4]
+    cmp [r12 + FB_INFO_PITCH], ecx
+    jb .out                             ; rows too short for 32-bit pixels
+    mov rdi, rbx
+    mov ecx, DRM_FORMAT_BGRA8888
+    call headless_create_virtual_output
+    test rax, rax
+    jz .out
+    mov rcx, [r12 + FB_INFO_BASE]
+    mov [rax + Output.scanout], rcx
+    mov ecx, [r12 + FB_INFO_PITCH]
+    mov [rax + Output.scanout_pitch], rcx
+    mov [rax + Output.fb_index], r13d
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; fb_linear_deinit
@@ -135,6 +190,8 @@ fb_linear_flip:
     ASSERT_PTR r12
     ASSERT_PTR r13
     mov qword [rsp], 0
+    cmp qword [r12 + Output.scanout], 0
+    je .done                            ; no display memory to show it in
 .rect:
     mov rax, [rsp]
     cmp rax, [r13 + Region.count]
@@ -143,9 +200,13 @@ fb_linear_flip:
     shl rax, 4
     add rax, [r13 + Region.rects]
 
-    ; Clip to the output
+    ; In the output's own pixels, clipped to it
     movsxd rcx, dword [rax]             ; left
     movsxd rdx, dword [rax + 4]         ; top
+    movsxd r8, dword [r12 + Output.x]
+    sub rcx, r8
+    movsxd r8, dword [r12 + Output.y]
+    sub rdx, r8
     movsxd r8, dword [rax + 8]
     add r8, rcx                         ; right
     movsxd r9, dword [rax + 12]
@@ -170,11 +231,10 @@ fb_linear_flip:
     mov [rsp + 8], r8                   ; bytes in a row
     mov r15, r9                         ; rows
 
-    mov rax, [rbx + Backend.config]
-    mov r14d, [rax + Config.fb_stride]
+    mov r14, [r12 + Output.scanout_pitch]
     imul r14, rdx
     lea r14, [r14 + rcx * 4]
-    add r14, [rbx + Backend.fb_base]    ; destination
+    add r14, [r12 + Output.scanout]     ; destination
     imul rdx, [r12 + Output.stride]
     lea rax, [rdx + rcx * 4]
     add rax, [r12 + Output.framebuffer]
@@ -184,9 +244,7 @@ fb_linear_flip:
     mov rsi, [rsp + 16]
     mov rdx, [rsp + 8]
     call memcopy
-    mov rax, [rbx + Backend.config]
-    mov eax, [rax + Config.fb_stride]
-    add r14, rax
+    add r14, [r12 + Output.scanout_pitch]
     mov rax, [r12 + Output.stride]
     add [rsp + 16], rax
     dec r15
