@@ -9,8 +9,11 @@ decisions are in [ROADMAP.md](ROADMAP.md). Storage is deferred.
   (`core/desc.asm`), fuzzed against a reference parser.
 - **Phase 1, host-tested:** xHCI bring-up, rings, commands, root ports
   and enumeration over control transfers, against the software
-  controller in `sim/`. Not yet run on hardware, and not yet in the kernel
-  (that needs PCI attach and DMA memory).
+  controller in `sim/`.
+- **In the kernel:** `kernel.asm` finds the xHCI controllers on PCI, maps
+  them, starts them, lists their devices on the console and claims
+  keyboards and mice; the input fiber polls it. Host-tested, not yet
+  booted on hardware.
 - **Phase 2, started:** endpoint configuration, interrupt and bulk
   transfers, and USB boot keyboards and mice into `lib/input`
   (`class/hid`), host-tested.
@@ -46,7 +49,8 @@ goes straight to memory; the host tests point them at the simulator.
 | File | What |
 |---|---|
 | `usb.inc` | Errors, descriptor types, requests, speeds, classes, parsed configuration and BOS records, device and transfer records |
-| `usb.asm` | The stack as one translation unit |
+| `usb.asm` | The stack as one translation unit (with `lib/input`) |
+| `kernel.asm` | The kernel glue: PCI scan by class, BAR sizing and uncached mapping, the page pool, start-up, the console listing, the fiber's poll with devices plugged in later |
 | `core/hooks.asm` | Memory, delays, register access |
 | `core/desc.asm` | Device, configuration, string (UTF-16 to UTF-8) and BOS descriptors |
 | `core/enum.asm` | Enumeration, descriptors and strings from a device, the device list |
@@ -68,4 +72,5 @@ goes straight to memory; the host tests point them at the simulator.
 |---|---|---|
 | `test_desc.py` | 61 | Record layouts; device, configuration (composite, alternate settings, associations, HID, SuperSpeed companions), string and BOS descriptors; malformed input; 20 000 fuzz rounds against a reference parser with guard bytes around every record |
 | `test_hid.py` | 29 | Keyboards and mice end to end: claiming (not the radio), configuration and boot requests, endpoint contexts, typing, the mouse, LEDs from the service, stall and babble recovery, removal, a keyboard refusing boot requests; endpoint contexts for SuperSpeed bulk and high-speed interrupt and isochronous endpoints |
+| `test_kernel.py` | 20 | `kernel.asm` with PCI, mapping and the console stubbed (`ukstub.asm`): two controllers on functions of one device, a single-function device's other functions skipped, BAR sizing and restore, the command register, uncached page mappings, the console lines, typing and clicking through the poll, devices plugged in, unplugged and plugged back; no controller, an I/O BAR, registers in RAM, a controller that will not start, a 32-bit BAR, no memory |
 | `test_xhci.py` | 48 | Bring-up (hand-off, stubborn firmware, a reset that never ends, 64-byte contexts, out of memory); command ring wrap; enumeration at full, high and SuperSpeed; EP0 packet size correction; strings; stalls and recovery; short transfers; ring and event ring wrap; warm reset; removal; timeouts; running out of slots |
