@@ -88,6 +88,7 @@ extern clipboard_init
 extern clipboard_offer
 extern clipboard_receive
 extern clipboard_send_held
+extern dnd_start
 extern timeline_create
 extern timeline_destroy
 extern timeline_get_point
@@ -924,6 +925,20 @@ HANDLER h_clipboard_data, 12
     mov rdx, r13
     mov ecx, [r12 + MsgHdr.len]
     call clipboard_data
+HANDLER_END
+
+; cw_dnd.start(surface, count, types: 4 x 32 bytes)
+HANDLER h_dnd_start, 8 + CLIP_TYPES * CLIP_TYPE_LEN
+    NEEDS_CAP CAP_DATA
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rdi, r14
+    mov rsi, rbx
+    mov rdx, rax
+    mov rcx, r13
+    call dnd_start
 HANDLER_END
 
 ; cw_pointer.set_shape(surface, shape): the pointer's shape over it, redrawn
