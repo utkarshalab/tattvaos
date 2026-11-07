@@ -339,6 +339,101 @@ xhci_ep_recover:
     ret
 
 ; -----------------------------------------------------------------------------
+; xhci_disable_slot — a device gone: its transfers forgotten, Disable Slot,
+;                     then its rings, contexts and record given back
+; Input:  RDI = hc, ESI = slot
+; Output: EAX = 0 (the slot is released even when the command fails)
+; -----------------------------------------------------------------------------
+global xhci_disable_slot
+xhci_disable_slot:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 8
+    mov rbx, rdi
+    mov r12d, esi
+    xor eax, eax
+    test r12d, r12d
+    jz .out
+    cmp r12d, 255
+    ja .out
+    mov r13, [rbx + xhci_hc.slots + r12 * 8]
+    test r13, r13
+    jz .out
+    ; nothing completes into a driver from here on
+    xor ecx, ecx
+.forget:
+    mov eax, ecx
+    imul eax, eax, xhci_ep_size
+    mov qword [r13 + xhci_slot.eps + rax + xhci_ep.xfer], 0
+    inc ecx
+    cmp ecx, 32
+    jb .forget
+    mov rdi, rbx
+    xor esi, esi
+    xor edx, edx
+    mov ecx, r12d
+    shl ecx, 24
+    or ecx, TRB_DISABLE_SLOT << TRB_TYPE_SHIFT
+    call xhci_command
+    ; released whatever the command said: the slot is unusable either way
+    mov rax, [rbx + xhci_hc.dcbaa]
+    mov qword [rax + r12 * 8], 0
+    mov qword [rbx + xhci_hc.slots + r12 * 8], 0
+    mov r14d, 1
+.ring:
+    mov eax, r14d
+    imul eax, eax, xhci_ep_size
+    mov rdi, [r13 + xhci_slot.eps + rax + xhci_ep.ring]
+    call xhci_ring_free
+    inc r14d
+    cmp r14d, 32
+    jb .ring
+    mov rdi, [r13 + xhci_slot.out_ctx]
+    mov esi, [rbx + xhci_hc.ctx_size]
+    shl esi, 5
+    mov edx, 64
+    call usb_free
+    mov rdi, [r13 + xhci_slot.in_ctx]
+    mov esi, [rbx + xhci_hc.ctx_size]
+    imul esi, esi, 33
+    mov edx, 64
+    call usb_free
+    mov rdi, r13
+    mov esi, xhci_slot_size
+    mov edx, 64
+    call usb_free
+    xor eax, eax
+.out:
+    add rsp, 8
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; xhci_set_hub — the slot is a hub: Configure Endpoint will say so
+; Input:  RDI = hc, ESI = slot, EDX = ports, ECX = TT think time (0-3),
+;         R8D = 1 for a multi-TT hub
+; -----------------------------------------------------------------------------
+global xhci_set_hub
+xhci_set_hub:
+    mov esi, esi
+    mov rax, [rdi + xhci_hc.slots + rsi * 8]
+    test rax, rax
+    jz .out
+    mov [rax + xhci_slot.hub_ports], edx
+    and ecx, 3
+    shl r8d, 2
+    or ecx, r8d
+    or ecx, 1 << 3                      ; a hub
+    mov [rax + xhci_slot.hub], ecx
+.out:
+    ret
+
+; -----------------------------------------------------------------------------
 ; xhci_ep_interval — the endpoint context's interval (2^n × 125 µs)
 ; Input:  ECX = transfer type (USB_EP_*), EDX = speed, R8D = bInterval
 ; Output: EAX
@@ -582,6 +677,29 @@ xhci_configure_iface:
     shl edx, 27
     or eax, edx                         ; context entries: the largest DCI
     mov [rdi + rcx], eax
+    ; a hub: the Hub and Multi-TT bits, its ports, the TT think time
+    mov edx, [r13 + xhci_slot.hub]
+    test edx, 1 << 3
+    jz .not_hub
+    or eax, 1 << 26
+    test edx, 1 << 2
+    jz .single_tt
+    or eax, 1 << 25
+.single_tt:
+    mov [rdi + rcx], eax
+    mov eax, [rdi + rcx + 4]
+    and eax, 0x00FFFFFF
+    mov r8d, [r13 + xhci_slot.hub_ports]
+    shl r8d, 24
+    or eax, r8d
+    mov [rdi + rcx + 4], eax
+    mov eax, [rdi + rcx + 8]
+    and eax, ~(3 << 16)
+    and edx, 3
+    shl edx, 16
+    or eax, edx
+    mov [rdi + rcx + 8], eax
+.not_hub:
     mov rdi, rbx
     mov rsi, [r13 + xhci_slot.in_ctx]
     xor edx, edx
