@@ -157,6 +157,10 @@ kernel_main:
     ; The ACPI lid and power and sleep buttons as input devices.
     call input_acpi_init
 
+    ; USB: every xHCI controller on PCI, its devices, keyboards and mice.
+    ; Never stops the boot.
+    call usb_kernel_init
+
     ; Enter the scheduler's own core loop. Never returns: sched_core_loop
     ; is what used to be this file's manual `cli; hlt` idle loop, except it
     ; actually polls, reaps, and runs fibers instead of just waiting for an
