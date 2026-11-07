@@ -8,74 +8,128 @@ section .text
 
 ; ---------------------------------------------------------------------------
 ; scale_nearest
-;   Nearest neighbor scaling
+;   Nearest neighbour scaling of a whole image
 ;   IN:  rdi = dst, rsi = src, rdx = src_w, rcx = src_h, r8 = src_stride
 ;        r9 = dst_w, r10 = dst_h, r11 = dst_stride
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global scale_nearest
 scale_nearest:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    mov r14, rcx
-    mov r15, r8
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-
-    ; Compute scale factors (fixed point 16.16)
-    mov rax, r13
-    shl rax, 16
-    div r9
-    mov r13, rax          ; x_scale
-
-    mov rax, r14
-    shl rax, 16
-    div r10
-    mov r14, rax          ; y_scale
-
-    test r9, r9
-    jz .done
-    test r10, r10
-    jz .done
-
-.row_loop:
-    push r10
-    push rbx
-    push r12
-    mov r10, r9
-
-    ; Compute src_y
-    mov rax, r15
-    mul r14
-    shr rax, 16
-    mov rsi, [rsp + 24]   ; src base
-    imul rax, [rsp + 32]  ; src_stride
-    add rsi, rax
-
-.pixel_loop:
-    ; Compute src_x
-    mov rax, r10
-    mul r13
-    shr rax, 16
-    mov ecx, [rsi + rax * 4]
-    mov [rbx], ecx
-    add rbx, 4
-    dec r10
-    jnz .pixel_loop
-
-    pop r12
-    pop rbx
-    pop r10
-    add rbx, r11
-    dec r15
-    jnz .row_loop
-
-.done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    sub rsp, UgfxScale_SIZE + 8         ; a job; 16-byte aligned
+    mov [rsp + UgfxScale_dst], rdi
+    mov [rsp + UgfxScale_dst_stride], r11
+    mov [rsp + UgfxScale_dst_w], r9d
+    mov [rsp + UgfxScale_dst_h], r10d
+    mov [rsp + UgfxScale_src], rsi
+    mov [rsp + UgfxScale_src_stride], r8
+    mov [rsp + UgfxScale_src_w], edx
+    mov [rsp + UgfxScale_src_h], ecx
+    mov dword [rsp + UgfxScale_x], 0
+    mov dword [rsp + UgfxScale_y], 0
+    mov [rsp + UgfxScale_w], r9d
+    mov [rsp + UgfxScale_h], r10d
+    mov rdi, rsp
+    call scale_nearest_rect
+    add rsp, UgfxScale_SIZE + 8
     ret
+
+; ---------------------------------------------------------------------------
+; scale_nearest_rect
+;   Part of a nearest neighbour scale: each destination pixel (x, y) of the
+;   rectangle takes the source pixel (x * src_w / dst_w, y * src_h / dst_h),
+;   in whole numbers, stepped by quotient and remainder so there is no
+;   division per pixel. Nothing for an empty source or destination.
+;   IN:  rdi = UgfxScale job
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global scale_nearest_rect
+scale_nearest_rect:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 40                         ; locals; 16-byte aligned
+%define L_QX    0                       ; src_w / dst_w, and the remainder
+%define L_RX    4
+%define L_X0    8                       ; the first column's source x, and
+%define L_EX0   12                      ; how far it is into the next
+%define L_ROWS  16
+    mov rbx, rdi
+    mov ecx, [rbx + UgfxScale_dst_w]
+    test ecx, ecx
+    jz .done
+    cmp dword [rbx + UgfxScale_dst_h], 0
+    je .done
+    cmp dword [rbx + UgfxScale_src_w], 0
+    je .done
+    cmp dword [rbx + UgfxScale_src_h], 0
+    je .done
+    mov eax, [rbx + UgfxScale_src_w]    ; along x
+    xor edx, edx
+    div ecx
+    mov [rsp + L_QX], eax
+    mov [rsp + L_RX], edx
+    mov eax, [rbx + UgfxScale_x]        ; where the first column starts
+    mul dword [rbx + UgfxScale_src_w]
+    div dword [rbx + UgfxScale_dst_w]
+    mov [rsp + L_X0], eax
+    mov [rsp + L_EX0], edx
+    mov eax, [rbx + UgfxScale_y]        ; and the first row: r12d = source y,
+    mul dword [rbx + UgfxScale_src_h]   ; r13d how far into the next
+    div dword [rbx + UgfxScale_dst_h]
+    mov r12d, eax
+    mov r13d, edx
+    mov eax, [rbx + UgfxScale_h]
+    mov [rsp + L_ROWS], eax
+    movsxd r14, dword [rbx + UgfxScale_y]   ; the destination row
+    imul r14, [rbx + UgfxScale_dst_stride]
+    add r14, [rbx + UgfxScale_dst]
+    movsxd rax, dword [rbx + UgfxScale_x]
+    lea r14, [r14 + rax * 4]
+.row:
+    cmp dword [rsp + L_ROWS], 0
+    jle .done
+    mov eax, r12d                       ; the source row
+    imul rax, [rbx + UgfxScale_src_stride]
+    mov r15, [rbx + UgfxScale_src]
+    add r15, rax
+    mov rdi, r14
+    mov ecx, [rbx + UgfxScale_w]
+    mov esi, [rsp + L_X0]               ; source x, and its remainder
+    mov edx, [rsp + L_EX0]
+    mov r8d, [rsp + L_QX]
+    mov r9d, [rsp + L_RX]
+    mov r10d, [rbx + UgfxScale_dst_w]
+.pixel:
+    test ecx, ecx
+    jle .row_done
+    mov eax, [r15 + rsi * 4]
+    mov [rdi], eax
+    add rdi, 4
+    add esi, r8d
+    add edx, r9d
+    cmp edx, r10d
+    jb .no_carry
+    sub edx, r10d
+    inc esi
+.no_carry:
+    dec ecx
+    jmp .pixel
+.row_done:
+    add r14, [rbx + UgfxScale_dst_stride]
+    mov eax, [rbx + UgfxScale_src_h]    ; the next row's source y
+    xor edx, edx
+    div dword [rbx + UgfxScale_dst_h]
+    add r12d, eax
+    add r13d, edx
+    cmp r13d, [rbx + UgfxScale_dst_h]
+    jb .row_kept
+    sub r13d, [rbx + UgfxScale_dst_h]
+    inc r12d
+.row_kept:
+    dec dword [rsp + L_ROWS]
+    jmp .row
+.done:
+    xor eax, eax
+    add rsp, 40
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 ; ---------------------------------------------------------------------------
 ; scale_bilinear
