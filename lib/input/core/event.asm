@@ -125,6 +125,40 @@ input_post:
     ret
 
 ; -----------------------------------------------------------------------------
+; input_post_safe — input_post from a fiber: interrupts off around it, so an
+;                   interrupt on this CPU cannot spin on the ring's lock
+; Input and output: as input_post
+; -----------------------------------------------------------------------------
+global input_post_safe
+input_post_safe:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    mov ebx, edi
+    mov r12d, esi
+    mov r13d, edx
+    mov r14d, ecx
+    call [rel input_irq_off_fn]
+    mov r15, rax
+    mov edi, ebx
+    mov esi, r12d
+    mov edx, r13d
+    mov ecx, r14d
+    call input_post
+    mov ebx, eax
+    mov rdi, r15
+    call [rel input_irq_restore_fn]
+    mov eax, ebx
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
 ; input_pump — deliver every queued event to the callback (one fiber only)
 ; Output: EAX = events taken off the ring
 ; Clobbers: the caller-saved registers
