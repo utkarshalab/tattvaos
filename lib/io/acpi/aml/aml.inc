@@ -21,6 +21,7 @@
 %define AML_EFATAL          9   ; the bytecode executed Fatal
 %define AML_EEXISTS         10  ; a name created twice
 %define AML_EARGS           11  ; wrong argument count
+%define AML_EDENIED         12  ; the sandbox refused an access
 
 ; ---- Value: 16 bytes, everywhere a value is kept -----------------------------
 ; Types are the ObjectType numbers from the specification (0-16), plus
