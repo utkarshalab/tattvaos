@@ -441,6 +441,8 @@ acpi_kernel_init:
 .found_done:
     lea rsi, [rel msg_acpi_crlf]
     call uart_print_str
+    ; batteries, the adapter, thermal zones: read once (Notify refreshes)
+    call acpi_power_init
     ; events: GPEs and buttons, then the SCI
     call acpi_events_init
     test eax, eax
@@ -754,5 +756,6 @@ acpi_kernel_sleep:
 
 %include "lib/io/acpi/aml/events.asm"
 %include "lib/io/acpi/aml/ec.asm"
+%include "lib/io/acpi/aml/power.asm"
 
 %endif ; LIB_IO_ACPI_AML_KERNEL_ASM
