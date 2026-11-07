@@ -378,7 +378,6 @@ POLICY_SRCS := \
 # Data (C15)
 DATA_SRCS := \
     $(SRCDIR)/data/clipboard.asm \
-    $(SRCDIR)/data/selection.asm \
     $(SRCDIR)/data/dnd.asm \
     $(SRCDIR)/data/mime.asm \
     $(SRCDIR)/data/limits.asm \
