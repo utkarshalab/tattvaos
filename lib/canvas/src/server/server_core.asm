@@ -479,6 +479,27 @@ server_mirror_output:
     EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
+; server_set_high_contrast
+;   What the server draws itself (the background, title bars, Alt+Tab) in
+;   high contrast (1) or its usual colours (0), every output redrawn
+;   IN:  rdi = server*, esi = 1 on, 0 off
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global server_set_high_contrast
+server_set_high_contrast:
+    and esi, 1
+    mov [rdi + Server.high_contrast], rsi
+    mov rax, [rdi + Server.compositor]
+    test rax, rax
+    jz .redraw
+    mov dword [rax + Compositor.bg_color], HC_BACKGROUND
+    test esi, esi
+    jnz .redraw
+    mov dword [rax + Compositor.bg_color], COMPOSITOR_BG
+.redraw:
+    jmp compositor_damage_all
+
+; ---------------------------------------------------------------------------
 ; server_poll
 ;   One turn: queued input, every client's requests up to its share, then a
 ;   frame
