@@ -15,7 +15,7 @@
 ;
 ; An output that mirrors another (Output.mirror_of) is not drawn itself: once
 ; its source is, the source's damaged pixels are scaled into it
-; (mirror_copy, nearest neighbour, the whole source over the whole mirror).
+; (mirror_copy, bilinear, the whole source over the whole mirror).
 ; It gets no damage of its own, and is no part of the layout:
 ; compositor_output_at and compositor_layout_bounds pass it by, so nothing
 ; is placed on it and the pointer is not kept on it.
@@ -47,7 +47,7 @@ extern handle_resolve
 extern presentation_complete
 extern rect_intersect
 extern region_add_rect
-extern scale_nearest_rect
+extern scale_bilinear_rect
 extern region_clear
 extern region_is_empty
 extern surface_fire_frame_callbacks
@@ -805,8 +805,9 @@ compositor_composite_output:
     ret
 
 ; Every output mirroring one just drawn: each damaged rectangle, mapped
-; into the mirror (rounded outwards), scaled from the source's pixels,
-; then shown as that mirror's damage.
+; into the mirror (rounded outwards, then wider by what one source pixel
+; spans there and two more, for the mirror pixels that blend it in), scaled
+; from the source's pixels, then shown as that mirror's damage.
 ; rdi = compositor, rsi = the source, rdx = its damage (the layout's)
 %define MC_JOB      0
 %define MC_RECT     UgfxScale_SIZE      ; x0, y0, x1, y1 in the source, then
@@ -886,6 +887,25 @@ mirror_copy:                            ; x, y, w, h in the mirror
     MC_MAP 4, height, height, 0
     MC_MAP 8, width, width, 1
     MC_MAP 12, height, height, 1
+%macro MC_WIDEN 3                       ; the start's slot, the end's, size
+    mov eax, [r14 + Output.%3]
+    xor edx, edx
+    div dword [r12 + Output.%3]
+    add eax, 2
+    mov ecx, [rsp + MC_RECT + %1]
+    sub ecx, eax
+    xor edx, edx
+    cmp ecx, edx
+    cmovl ecx, edx
+    mov [rsp + MC_RECT + %1], ecx
+    mov ecx, [rsp + MC_RECT + %2]
+    add ecx, eax
+    cmp ecx, [r14 + Output.%3]
+    cmovg ecx, [r14 + Output.%3]
+    mov [rsp + MC_RECT + %2], ecx
+%endmacro
+    MC_WIDEN 0, 8, width
+    MC_WIDEN 4, 12, height
     mov eax, [rsp + MC_RECT]
     mov [rsp + MC_JOB + UgfxScale_x], eax
     mov ecx, [rsp + MC_RECT + 8]
@@ -901,7 +921,7 @@ mirror_copy:                            ; x, y, w, h in the mirror
     mov [rsp + MC_JOB + UgfxScale_h], ecx
     mov [rsp + MC_RECT + 12], ecx
     lea rdi, [rsp + MC_JOB]
-    call scale_nearest_rect
+    call scale_bilinear_rect
     mov eax, [r14 + Output.x]           ; the mirror's damage, in the layout
     add [rsp + MC_RECT], eax
     mov eax, [r14 + Output.y]
