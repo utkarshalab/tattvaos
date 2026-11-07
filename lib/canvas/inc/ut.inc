@@ -381,6 +381,7 @@ extern ut_tls_close
 extern ut_tls_peer_cert
 extern ut_auth_verify
 extern ut_auth_users
+extern ut_display_register_callback
 
 %endif ; !UT_BINDING_IMPL
 
