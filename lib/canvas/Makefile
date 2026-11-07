@@ -814,11 +814,14 @@ ubf-check: $(UBF) $(HOSTDIR)/ubf_run
 	python3 tests/host/ubf_check.py $(UBF) $(UBF_REQUIRED)
 	$(HOSTDIR)/ubf_run $(UBF)
 
-# Every image must keep W^X: no segment both writable and executable.
+# Every image must keep W^X: no segment both writable and executable. It
+# waits for the test images too, so none is read half written, and an image
+# readelf cannot read fails the check rather than passing it.
 .PHONY: wx-check
-wx-check: all
+wx-check: all test
 	@for f in $(IMAGEDIR)/*.img; do \
-	    if readelf -lW $$f | awk '$$1 == "LOAD" && $$7 ~ /W/ && $$7 ~ /E/' | grep -q .; then \
+	    segs=$$(readelf -lW $$f) || { echo "wx-check: cannot read $$f"; exit 1; }; \
+	    if echo "$$segs" | awk '$$1 == "LOAD" && $$7 ~ /W/ && $$7 ~ /E/' | grep -q .; then \
 	        echo "wx-check: $$f has a writable and executable segment"; exit 1; \
 	    fi; \
 	done
