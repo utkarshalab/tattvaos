@@ -456,7 +456,8 @@ CLIENT_SRCS := \
     $(SRCDIR)/client/input_helpers.asm \
     $(SRCDIR)/client/shell_helpers.asm \
     $(SRCDIR)/client/clipboard_helpers.asm \
-    $(SRCDIR)/client/present_helpers.asm
+    $(SRCDIR)/client/present_helpers.asm \
+    $(SRCDIR)/client/sync_helpers.asm
 
 # Protocol numbers and dispatch: inc/cwp_ops.inc, inc/cwp_dispatch.inc are
 # generated from these
