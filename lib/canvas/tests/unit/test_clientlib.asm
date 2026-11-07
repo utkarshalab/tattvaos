@@ -31,6 +31,13 @@ extern canvas_surface_damage
 extern canvas_toplevel_ack_configure
 extern canvas_toplevel_create
 extern canvas_toplevel_set_title
+extern canvas_fence_create
+extern canvas_fence_wait
+extern canvas_timeline_create
+extern canvas_timeline_signal
+extern canvas_timeline_wait
+extern fence_signal
+extern timeline_signal
 extern client_accept
 extern handle_resolve
 extern server_init
@@ -54,6 +61,7 @@ test_clientlib_suite:
     CASE tc_window
     CASE tc_refused
     CASE tc_buffers
+    CASE tc_sync
     mov eax, ebx
     pop rbx
     ret
@@ -106,6 +114,31 @@ poll:
     lea rdi, [rel server]
     call server_poll
     add rsp, 8
+    ret
+
+; A pump that turns the server, then once signals what is pending, as if
+; another client did it meanwhile: pending_fence, or pending_timeline to
+; pending_point. rdi = server
+signal_pump:
+    push rbx
+    mov rbx, rdi
+    call server_poll
+    mov esi, [rel pending_fence]
+    test esi, esi
+    jz .timeline
+    mov dword [rel pending_fence], 0
+    mov rdi, rbx
+    call fence_signal
+.timeline:
+    mov esi, [rel pending_timeline]
+    test esi, esi
+    jz .out
+    mov dword [rel pending_timeline], 0
+    mov rdi, rbx
+    mov rdx, [rel pending_point]
+    call timeline_signal
+.out:
+    pop rbx
     ret
 
 ; esi = type -> eax = 1 with that event in [event], 0 if none came
@@ -315,7 +348,80 @@ tc_buffers:
 section .rodata
 s_title:        db "Hi"
 
+section .text
+
+; Waiting: no time given, a timeline short of the point times out; at the
+; point already, the server's answer is enough; a fence and a timeline
+; signaled while the wait turns the pump are seen by their events, and the
+; fence's event is still there for canvas_event_poll
+tc_sync:
+    sub rsp, 8
+    mov rdi, [rel conn]
+    call canvas_timeline_create
+    test eax, eax
+    jle .fail
+    mov [rel timeline], eax
+    mov rdi, [rel conn]
+    mov esi, [rel timeline]
+    mov edx, 1
+    xor ecx, ecx
+    call canvas_timeline_wait
+    cmp rax, -(ETIMEDOUT)
+    jne .fail
+    mov rdi, [rel conn]
+    mov esi, [rel timeline]
+    mov edx, 3
+    call canvas_timeline_signal
+    mov rdi, [rel conn]
+    mov esi, [rel timeline]
+    mov edx, 2
+    mov rcx, -1
+    call canvas_timeline_wait
+    test rax, rax
+    jnz .fail
+
+    mov rdi, [rel conn]                 ; by its event
+    xor esi, esi
+    call canvas_fence_create
+    test eax, eax
+    jle .fail
+    mov [rel fence], eax
+    mov rax, [rel conn]
+    lea rcx, [rel signal_pump]
+    mov [rax + CLIENT_WIRE + ClientWire.pump], rcx
+    mov ecx, [rel fence]
+    mov [rel pending_fence], ecx
+    mov rdi, [rel conn]
+    mov esi, [rel fence]
+    mov rdx, -1
+    call canvas_fence_wait
+    test rax, rax
+    jnz .fail
+    mov eax, [rel timeline]
+    mov [rel pending_timeline], eax
+    mov qword [rel pending_point], 9
+    mov rdi, [rel conn]
+    mov esi, [rel timeline]
+    mov edx, 8
+    mov rcx, -1
+    call canvas_timeline_wait
+    test rax, rax
+    jnz .fail
+    mov rax, [rel conn]
+    lea rcx, [rel server_poll]
+    mov [rax + CLIENT_WIRE + ClientWire.pump], rcx
+    mov esi, CWP_OBJ_FENCE << 16 | FENCE_EV_FENCE_SIGNALED
+    call find_event
+    test eax, eax
+    jz .fail                            ; still the program's
+    PASS
+
 section .bss
+timeline:           resd 1
+fence:              resd 1
+pending_fence:      resd 1
+pending_timeline:   resd 1
+pending_point:      resq 1
 alignb 16
 server:         resb Server_size
 arena:          resb Arena_size
