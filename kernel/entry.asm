@@ -158,6 +158,8 @@ kernel_text_start:
 %include "lib/unet/unet.asm"
 %include "lib/input/input.asm"      ; Input devices: event core, PS/2
 %include "lib/input/kernel.asm"     ; ... its fiber, IRQ 1 and start-up
+%include "lib/io/acpi/aml/aml.asm"  ; ACPI: the AML interpreter
+%include "lib/io/acpi/aml/kernel.asm" ; ... tables, sandbox, start-up
 
 ; Static Ush bundle: object-linked independently, embedded with ULF ownership.
 %include "kernel/entry/ush.asm"
