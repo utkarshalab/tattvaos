@@ -1,319 +1,225 @@
 ; ============================================================================
-; Magnifier — Screen Magnification for Accessibility
+; Magnifier — The Screen Zoomed Round the Pointer (A11Y-06)
 ; ============================================================================
+; Server.magnify is 0 (off), 2 or 4. While it is on, each output draws its
+; whole frame as ever, then magnify_output scales the part round the pointer
+; (1/zoom of it each way, kept inside the output; the output's middle when
+; the pointer is on another) over all of it, nearest neighbour, through a
+; scratch frame of its own (Output.magnify_buf). So the framebuffer holds the
+; zoomed picture, and every frame while zoomed is drawn whole again
+; (magnify_frame), and a move of the pointer is a frame (magnify_moved).
+; Super+Shift+M goes off, 2x, 4x, off (input), on the login screen too.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/ut.inc"
-%include "inc/fixed.inc"
-%include "inc/struct_offsets.inc"
-%include "inc/externs.inc"
 %include "inc/backend.inc"
+%include "inc/struct_offsets.inc"
+%include "ugfx.inc"
 
-%define MAGNIFIER_MIN_SCALE    0x10000      ; 1.0
-%define MAGNIFIER_MAX_SCALE    0x100000     ; 16.0
+extern compositor_damage_all
+extern memcopy
+extern region_add_rect
+extern scale_nearest_rect
 
 section .text
 
-struc Magnifier
-    .server:            resq 1
-    .enabled:           resb 1
-    .scale:             resq 1
-    .follow_mouse:      resb 1
-    .follow_focus:      resb 1
-    .fullscreen:        resb 1
-    .x:                 resd 1
-    .y:                 resd 1
-    .width:             resd 1
-    .height:            resd 1
-    .source_output:     resq 1
-    .target_output:     resq 1
-endstruc
-
 ; ---------------------------------------------------------------------------
-; magnifier_init
+; server_set_magnifier
+;   The zoom: 0 (or 1) off, 2, 4; off, the scratch frames go
+;   IN:  rdi = server*, esi = zoom
+;   OUT: rax = 0, -EINVAL for another
 ; ---------------------------------------------------------------------------
-global magnifier_init
-magnifier_init:
-    PROLOGUE_SAVE rbx, r12, r13
+global server_set_magnifier
+server_set_magnifier:
+    PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
-    mov r12, rsi
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
+    mov rax, -(EINVAL)
+    cmp esi, 1
+    jbe .off
+    cmp esi, 2
+    je .set
+    cmp esi, 4
+    jne .out
+    jmp .set
+.off:
+    mov qword [rbx + Server.magnify], 0
+    mov r12, [rbx + Server.outputs]     ; the scratch frames go
+.free:
+    test r12, r12
+    jz .redraw
+    mov rdi, [r12 + Output.magnify_region]
+    test rdi, rdi
+    jz .next
+    call ut_mem_free
+    mov qword [r12 + Output.magnify_region], 0
+    mov qword [r12 + Output.magnify_buf], 0
+.next:
+    mov r12, [r12 + Output.next]
+    jmp .free
+.set:
+    mov [rbx + Server.magnify], rsi
+.redraw:
+    mov rdi, rbx
+    call compositor_damage_all
+    xor eax, eax
+.out:
+    EPILOGUE_RESTORE rbx, r12
 
-    mov rdi, [rbx + Server.arena]
-    mov rsi, Magnifier_size
-    call arena_alloc
-    test rax, rax
-    jz .oom
-    mov r13, rax
-
-    mov qword [r13 + Magnifier.server], rbx
-    mov byte [r13 + Magnifier.enabled], 0
-    mov qword [r13 + Magnifier.scale], FIX_ONE * 2
-    mov byte [r13 + Magnifier.follow_mouse], 1
-    mov byte [r13 + Magnifier.follow_focus], 1
-    mov byte [r13 + Magnifier.fullscreen], 0
-    mov dword [r13 + Magnifier.x], 0
-    mov dword [r13 + Magnifier.y], 0
-    mov dword [r13 + Magnifier.width], 0
-    mov dword [r13 + Magnifier.height], 0
-    mov qword [r13 + Magnifier.source_output], 0
-    mov qword [r13 + Magnifier.target_output], 0
-
-    mov qword [rbx + Server.magnifier], r13
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+; ---------------------------------------------------------------------------
+; magnify_moved
+;   The pointer moved: while zoomed, the view goes with it
+;   IN:  rdi = server*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global magnify_moved
+magnify_moved:
+    cmp qword [rdi + Server.magnify], 0
+    je .done
+    jmp compositor_damage_all
+.done:
+    xor eax, eax
     ret
 
+; ---------------------------------------------------------------------------
+; magnify_frame
+;   A frame about to be drawn: while zoomed, all of the output
+;   IN:  rdi = server*, rsi = the output's damage, rdx = its bounds rect*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global magnify_frame
+magnify_frame:
+    cmp qword [rdi + Server.magnify], 0
+    je .done
+    mov rdi, rsi
+    mov rsi, rdx
+    jmp region_add_rect
+.done:
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; magnify_output
+;   An output just drawn: while zoomed, the part round the pointer over all
+;   of it
+;   IN:  rdi = server*, rsi = Output*
+;   OUT: rax = 0, -ENOMEM without room for the scratch frame (left unzoomed)
+; ---------------------------------------------------------------------------
+global magnify_output
+magnify_output:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    sub rsp, UgfxScale_SIZE             ; the job; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, [rbx + Server.magnify]
+    test r13, r13
+    jz .done
+    cmp qword [r12 + Output.magnify_buf], 0
+    jne .have
+    mov edi, [r12 + Output.width]       ; its scratch frame, once
+    imul edi, [r12 + Output.height]
+    shl rdi, 2
+    xor esi, esi
+    call ut_mem_alloc
+    test rax, rax
+    js .oom
+    mov [r12 + Output.magnify_buf], rax
+    mov [r12 + Output.magnify_region], r8
+.have:
+    mov eax, [r12 + Output.width]       ; the view: 1/zoom of it each way
+    xor edx, edx
+    div r13d
+    mov [rsp + UgfxScale_src_w], eax
+    mov eax, [r12 + Output.height]
+    xor edx, edx
+    div r13d
+    mov [rsp + UgfxScale_src_h], eax
+    mov rax, [rbx + Server.input_seat]  ; round the pointer, in its pixels
+    mov ecx, [r12 + Output.width]
+    shr ecx, 1
+    mov edx, [r12 + Output.height]
+    shr edx, 1
+    test rax, rax
+    jz .centred
+    mov r8d, [rax + InputSeat.x]
+    sub r8d, [r12 + Output.x]
+    js .centred
+    cmp r8d, [r12 + Output.width]
+    jge .centred
+    mov r9d, [rax + InputSeat.y]
+    sub r9d, [r12 + Output.y]
+    js .centred
+    cmp r9d, [r12 + Output.height]
+    jge .centred
+    mov ecx, r8d
+    mov edx, r9d
+.centred:
+    mov eax, [rsp + UgfxScale_src_w]    ; its corner, kept inside
+    shr eax, 1
+    sub ecx, eax
+    mov eax, [r12 + Output.width]
+    sub eax, [rsp + UgfxScale_src_w]
+    cmp ecx, eax
+    cmovg ecx, eax
+    xor eax, eax
+    cmp ecx, eax
+    cmovl ecx, eax
+    mov eax, [rsp + UgfxScale_src_h]
+    shr eax, 1
+    sub edx, eax
+    mov eax, [r12 + Output.height]
+    sub eax, [rsp + UgfxScale_src_h]
+    cmp edx, eax
+    cmovg edx, eax
+    xor eax, eax
+    cmp edx, eax
+    cmovl edx, eax
+    mov rax, [r12 + Output.stride]      ; the view's first pixel
+    mov [rsp + UgfxScale_src_stride], rax
+    imul rax, rdx
+    lea rax, [rax + rcx * 4]
+    add rax, [r12 + Output.framebuffer]
+    mov [rsp + UgfxScale_src], rax
+    mov rax, [r12 + Output.magnify_buf] ; over all of the scratch frame
+    mov [rsp + UgfxScale_dst], rax
+    mov eax, [r12 + Output.width]
+    mov [rsp + UgfxScale_dst_w], eax
+    mov [rsp + UgfxScale_w], eax
+    shl rax, 2
+    mov [rsp + UgfxScale_dst_stride], rax
+    mov eax, [r12 + Output.height]
+    mov [rsp + UgfxScale_dst_h], eax
+    mov [rsp + UgfxScale_h], eax
+    mov dword [rsp + UgfxScale_x], 0
+    mov dword [rsp + UgfxScale_y], 0
+    mov rdi, rsp
+    call scale_nearest_rect
+    mov r13, [r12 + Output.framebuffer] ; then back into the framebuffer
+    mov r14, [r12 + Output.magnify_buf]
+    mov ebx, [r12 + Output.height]
+.row:
+    test ebx, ebx
+    jz .done
+    mov rdi, r13
+    mov rsi, r14
+    mov edx, [r12 + Output.width]
+    shl rdx, 2
+    call memcopy
+    add r13, [r12 + Output.stride]
+    mov eax, [r12 + Output.width]
+    lea r14, [r14 + rax * 4]
+    dec ebx
+    jmp .row
+.done:
+    xor eax, eax
+.out:
+    add rsp, UgfxScale_SIZE
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 .oom:
     mov rax, -(ENOMEM)
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-; ---------------------------------------------------------------------------
-; magnifier_enable
-; ---------------------------------------------------------------------------
-global magnifier_enable
-magnifier_enable:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov byte [rbx + Magnifier.enabled], 1
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; magnifier_disable
-; ---------------------------------------------------------------------------
-global magnifier_disable
-magnifier_disable:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    mov byte [rbx + Magnifier.enabled], 0
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; magnifier_set_scale
-; ---------------------------------------------------------------------------
-global magnifier_set_scale
-magnifier_set_scale:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    cmp rsi, MAGNIFIER_MIN_SCALE
-    jb .too_small
-    cmp rsi, MAGNIFIER_MAX_SCALE
-    ja .too_large
-
-    mov qword [rbx + Magnifier.scale], rsi
-    xor rax, rax
-    EPILOGUE_RESTORE rbx
-    ret
-
-.too_small:
-    mov rax, -(ERANGE)
-    EPILOGUE_RESTORE rbx
-    ret
-.too_large:
-    mov rax, -(ERANGE)
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; magnifier_set_mode
-; ---------------------------------------------------------------------------
-global magnifier_set_mode
-magnifier_set_mode:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    cmp rsi, 0
-    je .set_fullscreen
-    cmp rsi, 1
-    je .set_windowed
-    cmp rsi, 2
-    je .set_follow_mouse
-    cmp rsi, 3
-    je .set_follow_focus
-    jmp .invalid
-
-.set_fullscreen:
-    mov byte [rbx + Magnifier.fullscreen], 1
-    EPILOGUE_RESTORE rbx
-    ret
-.set_windowed:
-    mov byte [rbx + Magnifier.fullscreen], 0
-    EPILOGUE_RESTORE rbx
-    ret
-.set_follow_mouse:
-    mov byte [rbx + Magnifier.follow_mouse], dl
-    EPILOGUE_RESTORE rbx
-    ret
-.set_follow_focus:
-    mov byte [rbx + Magnifier.follow_focus], dl
-    EPILOGUE_RESTORE rbx
-    ret
-
-.invalid:
-    mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; magnifier_update
-;   Update magnifier position
-; ---------------------------------------------------------------------------
-global magnifier_update
-magnifier_update:
-    PROLOGUE_SAVE rbx, r12, r13
-    mov rbx, rdi
-    ASSERT_PTR rbx
-
-    cmp byte [rbx + Magnifier.enabled], 0
-    je .done
-
-    ; Get mouse position if following
-    cmp byte [rbx + Magnifier.follow_mouse], 0
-    je .check_focus
-
-    mov r12, [rbx + Magnifier.server]
-    mov r12, [r12 + Server.input_seat]
-    test r12, r12
-    je .check_focus
-
-    mov eax, [r12 + InputSeat.x]
-    mov [rbx + Magnifier.x], eax
-    mov eax, [r12 + InputSeat.y]
-    mov [rbx + Magnifier.y], eax
-    jmp .update_window
-
-.check_focus:
-    cmp byte [rbx + Magnifier.follow_focus], 0
-    je .update_window
-
-    mov r12, [rbx + Magnifier.server]
-    mov r12, [r12 + Server.input_seat]
-    test r12, r12
-    je .update_window
-
-    mov rax, [r12 + InputSeat.keyboard_focus]
-    test rax, rax
-    je .update_window
-
-    mov r13d, [rax + Surface.current + SurfaceState.buf_x]
-    mov [rbx + Magnifier.x], r13d
-    mov r13d, [rax + Surface.current + SurfaceState.buf_y]
-    mov [rbx + Magnifier.y], r13d
-
-.update_window:
-    ; Keep the sampled point inside the source output; rendering consumes the
-    ; stored coordinates on the next compositor frame.
-    mov r12, [rbx + Magnifier.source_output]
-    test r12, r12
-    jz .done
-    mov eax, [rbx + Magnifier.x]
-    cmp eax, [r12 + Output.x]
-    jge .x_low_ok
-    mov eax, [r12 + Output.x]
-.x_low_ok:
-    mov ecx, [r12 + Output.x]
-    add ecx, [r12 + Output.width]
-    dec ecx
-    cmp eax, ecx
-    cmovg eax, ecx
-    mov [rbx + Magnifier.x], eax
-    mov eax, [rbx + Magnifier.y]
-    cmp eax, [r12 + Output.y]
-    jge .y_low_ok
-    mov eax, [r12 + Output.y]
-.y_low_ok:
-    mov ecx, [r12 + Output.y]
-    add ecx, [r12 + Output.height]
-    dec ecx
-    cmp eax, ecx
-    cmovg eax, ecx
-    mov [rbx + Magnifier.y], eax
-
-.done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
-    ret
-
-; ---------------------------------------------------------------------------
-; magnifier_render
-;   Render magnified view
-; ---------------------------------------------------------------------------
-global magnifier_render
-magnifier_render:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    ASSERT_PTR rbx
-    ASSERT_PTR r12
-    ASSERT_PTR r13
-    cmp byte [rbx + Magnifier.enabled], 0
-    je .render_done
-    mov r14, [r12 + PixBuf.data]
-    mov r15, [r13 + PixBuf.data]
-    test r14, r14
-    jz .render_bad
-    test r15, r15
-    jz .render_bad
-    xor r8d, r8d                  ; destination y
-.row:
-    cmp r8d, [r13 + PixBuf.height]
-    jae .render_done
-    mov eax, r8d
-    shl rax, 16
-    xor edx, edx
-    div qword [rbx + Magnifier.scale]
-    add eax, [rbx + Magnifier.y]
-    cmp eax, [r12 + PixBuf.height]
-    jae .render_done
-    imul rax, [r12 + PixBuf.stride]
-    lea r9, [r14 + rax]
-    mov eax, r8d
-    imul rax, [r13 + PixBuf.stride]
-    lea r10, [r15 + rax]
-    xor r11d, r11d
-.col:
-    cmp r11d, [r13 + PixBuf.width]
-    jae .next_row
-    mov eax, r11d
-    shl rax, 16
-    xor edx, edx
-    div qword [rbx + Magnifier.scale]
-    add eax, [rbx + Magnifier.x]
-    cmp eax, [r12 + PixBuf.width]
-    jae .next_row
-    mov eax, [r9 + rax * 4]
-    mov [r10 + r11 * 4], eax
-    inc r11d
-    jmp .col
-.next_row:
-    inc r8d
-    jmp .row
-.render_bad:
-    mov rax, -(EINVAL)
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-.render_done:
-
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
+    jmp .out
 
 section .data
 global magnifier_version
-magnifier_version: dq 0x010000
+magnifier_version: dq 0x020000
