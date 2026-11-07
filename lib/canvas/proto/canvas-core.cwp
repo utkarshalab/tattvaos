@@ -95,6 +95,39 @@ protocol canvas-core 1 {
     }
 
     ; ========================================================================
+    ; cw_clipboard — Copy and paste, the clipboard and the primary selection
+    ; ========================================================================
+    ; selection: 0 the clipboard, 1 the primary selection. A type is a
+    ; NUL-terminated name in 32 bytes ("text/plain"). Only the client with
+    ; the keyboard, or a trusted one, offers or asks. Nothing is copied
+    ; until a paste asks for it.
+    interface cw_clipboard 1 {
+        ; It has the selection's data in these types (up to 4, 32 bytes
+        ; each) and owns it until another offers or it goes
+        request offer(selection: uint, count: uint, types: array<string>)
+
+        ; A paste: the data in one of the types offered
+        request receive(selection: uint, type: string) -> (serial: uint)
+
+        ; The owner's answer to send: up to 120 bytes at a time, the last
+        ; with done = 1; past 16 KiB in all the paste is cancelled
+        request data(serial: uint, done: uint, length: uint, bytes: array<byte>)
+
+        ; To the client with the keyboard when it gets it, and when what is
+        ; offered changes (count 0: nothing)
+        event offered(selection: uint, count: uint, types: array<string>)
+
+        ; To the owner: a paste wants the data in this type
+        event send(serial: uint, type: string)
+
+        ; To the one pasting: the owner's data, as the owner sent it
+        event data(serial: uint, done: uint, length: uint, bytes: array<byte>)
+
+        ; To the one pasting: no data will come (the owner went, or too much)
+        event cancelled(serial: uint)
+    }
+
+    ; ========================================================================
     ; cw_timeline — Monotonic timeline with 64-bit points
     ; ========================================================================
     interface cw_timeline 1 {
