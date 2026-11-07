@@ -159,6 +159,8 @@ test_window_suite:
     CASE tw_outputs, CAP_SHELL | CAP_OUTPUT
     CASE tw_buffer_scale, CAP_SHELL
     CASE tw_contrast, CAP_SHELL
+    CASE tw_touch, CAP_SHELL
+    CASE tw_pen, CAP_SHELL
     CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
@@ -229,7 +231,7 @@ fresh:
     mov ebx, edi
     btr ebx, 31
     jc .asked
-    or ebx, CAP_POINTER | CAP_KEYBOARD | CAP_TOUCH
+    or ebx, CAP_POINTER | CAP_KEYBOARD | CAP_TOUCH | CAP_TABLET
 .asked:
     lea rdi, [rel arena]
     lea rsi, [rel heap]
@@ -2919,6 +2921,107 @@ tw_magnifier:
     call poll
     cmp qword [rel server + Server.magnify], 2
     jne .fail
+    PASS
+
+; a raw touch record from device %1: slot %2, phase %3, at x %4, y %5
+%macro TOUCH 5
+    lea rdi, [rel server]
+    mov esi, INPUT_TOUCH
+    mov edx, %2 | (%3 << 8) | (1 << 12)
+    mov ecx, %4 | (%5 << 16)
+    mov r8d, %1
+    call virtual_input_inject
+%endmacro
+; the next %1 event's surface is variable %2, a is %3 and b is %4
+%macro EVENT_IS 4
+    FIND %1
+    mov eax, [rel %2]
+    cmp [rel ans + 8], eax
+    jne .fail
+    cmp dword [rel ans + 12], %3
+    jne .fail
+    cmp dword [rel ans + 16], %4
+    jne .fail
+%endmacro
+
+; Fingers: down on each of two windows, each window hears its own, in its
+; own pixels, the second taking the keyboard; frame to both; a move, then
+; up; a device with a range (the host's device 7, 1000 units) scaled onto
+; the 64x48 output
+tw_touch:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    POINTER 40, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    call drain
+    TOUCH 0, 0, 0, 12, 12               ; slot 0 down on A
+    TOUCH 0, 1, 0, 45, 12               ; slot 1 on B
+    TOUCH 0, 0, 3, 0, 0                 ; the scan's end
+    call poll
+    EVENT_IS {CWP_OBJ_TOUCH, TOUCH_EV_DOWN}, surface_a, 0, 2 | (2 << 16)
+    EVENT_IS {CWP_OBJ_TOUCH, TOUCH_EV_DOWN}, surface_b, 1, 5 | (2 << 16)
+    FIND CWP_OBJ_TOUCH, TOUCH_EV_FRAME
+    FIND CWP_OBJ_TOUCH, TOUCH_EV_FRAME
+    mov edi, [rel surface_b]            ; the last tapped has the keyboard
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail
+    TOUCH 0, 0, 1, 14, 13               ; slot 0 moves: still A's
+    TOUCH 0, 0, 2, 14, 13               ; and is up
+    TOUCH 0, 0, 3, 0, 0
+    call poll
+    EVENT_IS {CWP_OBJ_TOUCH, TOUCH_EV_MOTION}, surface_a, 0, 4 | (3 << 16)
+    EVENT_IS {CWP_OBJ_TOUCH, TOUCH_EV_UP}, surface_a, 0, 0
+    TOUCH 7, 2, 0, 250, 250             ; device 7: 250 of 1000 is 16, 12
+    call poll
+    EVENT_IS {CWP_OBJ_TOUCH, TOUCH_EV_DOWN}, surface_a, 2, 6 | (2 << 16)
+    PASS
+
+; a raw pen record: type %1, code %2, value %3
+%macro PEN 3
+    lea rdi, [rel server]
+    mov esi, %1
+    mov edx, %2
+    mov ecx, %3
+    xor r8d, r8d
+    call virtual_input_inject
+%endmacro
+
+; The pen: in range over a window, it comes in and moves there; its axes
+; pass on; the tip down keeps it with the window outside it; up and away,
+; the tip lifts and it goes out
+tw_pen:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    PEN INPUT_PEN, 1, 12 | (12 << 16)   ; in range, over the window
+    PEN INPUT_PEN_AXES, 1000 | (5 << 16), 10 | (20 << 8) | (90 << 16)
+    call poll
+    EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_PROXIMITY_IN}, surface_a, 0, 0
+    EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_MOTION}, surface_a, 2, 2
+    EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_AXES}, surface_a, 1000 | (5 << 16), 10 | (20 << 8) | (90 << 16)
+    PEN INPUT_PEN, 3, 12 | (12 << 16)   ; the tip down
+    PEN INPUT_PEN, 3, 40 | (40 << 16)   ; dragged off the window: kept
+    call poll
+    EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_TIP}, surface_a, 1, 0
+    EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_MOTION}, surface_a, 30, 30
+    PEN INPUT_PEN, 1, 40 | (40 << 16)   ; lifted there: tip up
+    PEN INPUT_PEN, 1, 41 | (41 << 16)   ; moved on, over nothing: out
+    call poll
+    EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_TIP}, surface_a, 0, 0
+    FIND CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_PROXIMITY_OUT
     PASS
 
 ; -> eax = how many outputs the server has
