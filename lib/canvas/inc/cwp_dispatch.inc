@@ -58,6 +58,15 @@
 %ifdef HAVE_h_fence_get_status
     CWP_REQUEST CWP_OBJ_FENCE, FENCE_GET_STATUS, h_fence_get_status
 %endif
+%ifdef HAVE_h_clipboard_offer
+    CWP_REQUEST CWP_OBJ_CLIPBOARD, CLIPBOARD_OFFER, h_clipboard_offer
+%endif
+%ifdef HAVE_h_clipboard_receive
+    CWP_REQUEST CWP_OBJ_CLIPBOARD, CLIPBOARD_RECEIVE, h_clipboard_receive
+%endif
+%ifdef HAVE_h_clipboard_data
+    CWP_REQUEST CWP_OBJ_CLIPBOARD, CLIPBOARD_DATA, h_clipboard_data
+%endif
 %ifdef HAVE_h_timeline_create
     CWP_REQUEST CWP_OBJ_TIMELINE, TIMELINE_CREATE, h_timeline_create
 %endif
