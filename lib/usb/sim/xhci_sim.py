@@ -322,6 +322,27 @@ class XhciSim:
             cc, out_slot = self._command(kind, param, control, sid)
             self._complete(addr, cc, out_slot)
 
+    def _walk(self, dev, route):
+        """From a root port's device down the route string's tiers: the
+        device there, or None when a hub on the way has that port off."""
+        while route:
+            n = route & 15
+            route >>= 4
+            ports = getattr(dev, "hub_ports", None)
+            if not ports or not (1 <= n <= len(ports)):
+                return None
+            hp = ports[n - 1]
+            if not (hp.enabled and hp.dev):
+                return None
+            dev = hp.dev
+        return dev
+
+    def _reachable(self, slot):
+        port = self.ports[slot.port - 1]
+        if port.dev is None or not port.ped:
+            return False
+        return self._walk(port.dev, slot.route) is slot.dev
+
     def _ctx(self, base, i):
         return base + i * self.ctx
 
@@ -352,13 +373,19 @@ class XhciSim:
             p = self.ports[port_no - 1]
             if not (p.ccs and p.ped):
                 return CC_TRANSACTION, sid
+            route = u32(sc) & 0xFFFFF
+            dev = self._walk(p.dev, route)
+            if dev is None:
+                return CC_TRANSACTION, sid
             ep0 = self._ctx(inp, 2)
             d1 = u32(ep0 + 4)
             tr = u64(ep0 + 8)
             slot.port = port_no
-            slot.dev = p.dev                         # what answers at its address
+            slot.dev = dev                           # what answers at its address
             slot.address = sid
-            slot.route = u32(sc) & 0xFFFFF
+            slot.route = route
+            slot.tt = u32(sc + 8) & 0xFFFF
+            slot.mtt = (u32(sc) >> 25) & 1
             slot.speed = (u32(sc) >> 20) & 15
             slot.eps = {1: Endpoint(tr & ~0xF, tr & 1, d1 >> 16, (d1 >> 3) & 7)}
             out = u64(self.dcbaa() + sid * 8)
@@ -367,6 +394,7 @@ class XhciSim:
             wr(out + self.ctx, rd(ep0, self.ctx))
             wr(out + self.ctx, struct.pack("<I", EP_RUNNING))
             self.log.append(("address", sid, port_no, slot.speed, d1 >> 16, slot.route))
+            self.log.append(("tt", sid, slot.tt, slot.mtt))
             return CC_SUCCESS, sid
         if kind == 13:                               # evaluate context
             add = u32(inp + 4)
@@ -387,7 +415,9 @@ class XhciSim:
                     slot.eps[dci] = Endpoint(tr & ~0xF, tr & 1, d1 >> 16, (d1 >> 3) & 7)
                     slot.eps[dci].interval = (u32(ec) >> 16) & 0xFF
                     slot.eps[dci].ctx = (u32(ec), d1, u32(ec + 16))
-            slot.entries = u32(self._ctx(inp, 1)) >> 27
+            sc = self._ctx(inp, 1)
+            slot.entries = u32(sc) >> 27
+            slot.hub = ((u32(sc) >> 26) & 1, (u32(sc) >> 25) & 1, u32(sc + 4) >> 24, (u32(sc + 8) >> 16) & 3)
             self.log.append(("configure", sid, add, drop))
             return CC_SUCCESS, sid
         dci = (control >> 16) & 31
@@ -454,13 +484,13 @@ class XhciSim:
                 ep.state = EP_HALTED
                 return
             length = status & 0x1FFFF
-            if port.dev is None or not port.ped or port.dev is not slot.dev:
+            if not self._reachable(slot):
                 ep.deq, ep.ccs = t[4], t[5]
                 self._xfer_event(trb, CC_TRANSACTION, length, slot.sid, dci)
                 ep.state = EP_HALTED
                 return
             if address & 0x80:
-                data = port.dev.read(address)
+                data = slot.dev.read(address)
                 if data is None:
                     return                           # NAK: the TRB waits
                 if data == "stall":
@@ -476,7 +506,7 @@ class XhciSim:
                 wr(buf, data)
                 n = len(data)
             else:
-                port.dev.write(address, rd(buf, length))
+                slot.dev.write(address, rd(buf, length))
                 n = length
             ep.deq, ep.ccs = t[4], t[5]
             self.log.append(("stream", slot.sid, dci, n))
@@ -512,12 +542,12 @@ class XhciSim:
             out = None
             if data is not None and not (data[3] & (1 << 16)):
                 out = rd(data[1], data[2] & 0x1FFFF)
-            if port.dev is None or not port.ped or port.dev is not slot.dev:
+            if not self._reachable(slot):
                 self._xfer_event((data or status_trb)[0], CC_TRANSACTION, 0, slot.sid, 1)
                 ep.state = EP_HALTED
                 return
             self.log.append(("control", slot.sid, pkt.hex()))
-            answer = None if self.stall_next_doorbell else port.dev.control(pkt, out)
+            answer = None if self.stall_next_doorbell else slot.dev.control(pkt, out)
             self.stall_next_doorbell = False
             if answer is None:                       # stall
                 self._xfer_event((data or status_trb)[0], CC_STALL, 0, slot.sid, 1)
