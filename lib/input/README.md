@@ -15,6 +15,7 @@ Turns input hardware into events and hands them to canvas through
 | `ps2/i8042.asm` | PS/2 controller: detection, self-test, translation, IRQ 1 work |
 | `ps2/kbd.asm` | PS/2 keyboard: reset, scan code set 1 decoding, repeat suppression, lock-key LEDs |
 | `hid/hid.inc`, `hid/parse.asm` | The shared HID core: `hid_parse` turns a report descriptor into fields; `hid_get` reads an element's value from a report; `hid_find_usage` finds the element with a usage; `hid_report_bits` gives a report's length |
+| `i2c_hid/i2c_hid.asm` | I²C-HID devices: `i2c_hid_probe` brings one up (touchpads switched to multi-touch); `i2c_hid_attention` marks it from its interrupt; `i2c_hid_service` turns waiting reports into events on the fiber |
 | `kernel.asm` | Kernel glue: input fiber, IRQ 1 handler, start-up (`input_kernel_prepare`, `input_kernel_start`) |
 
 ## How events flow
@@ -36,12 +37,23 @@ sh lib/input/tests/run_tests.sh
 ```
 
 Assembles the library, links it into a shared object, and drives it from
-Python against a simulated PS/2 controller and keyboard
-(`tests/sim_ps2.py`). `kernel.asm` is checked by the kernel build.
+Python:
+
+| Suite | Checks | Against |
+|---|---|---|
+| `test_input.py` | 66 | The event core and a simulated PS/2 controller and keyboard (`sim_ps2.py`) |
+| `test_hid.py` | 50 | Report descriptors built by `hid_gen.py`, and mutated ones |
+| `test_i2c_hid.py` | 30 | A simulated I²C-HID touchpad and mouse |
+
+`kernel.asm` is checked by the kernel build.
+
+Events posted from a fiber go through `input_post_safe`, which turns
+interrupts off around the ring's lock (hooks `input_irq_off_fn` and
+`input_irq_restore_fn`; the tests replace them).
 
 ## Not yet
 
 - Not run on QEMU or on real hardware.
-- PS/2 mouse and touchpads (Phase 4), HID core and USB (Phase 2), the
+- PS/2 mouse and touchpads (Phase 4), USB HID (Phase 2), kernel glue for the
   built-in I²C touchpad (Phase 3).
 - Power button and lid: they need the ACPI interpreter on this machine.
