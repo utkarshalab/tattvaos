@@ -40,7 +40,7 @@ mapping, asking the kernel for the result is simpler than mapping it again.
 Pixels are 32-bit BGRX; Canvas does not read the format field yet, so a
 framebuffer in another format would show wrong colours.
 
-These six are the UBF's only required imports. It imports 36 more names, all
+These six are the UBF's only required imports. It imports 37 more names, all
 weak: the load succeeds without them, the slot stays 0, and Canvas's stub for
 that name returns `-ENOSYS`. Canvas starts without any of them and yields in
 its loop when `ut_waitset_create` is not there. An export for one of those
@@ -92,9 +92,9 @@ clients will need more, so honouring `stack_size` will matter soon.
   as they are, so the drivers should agree on one numbering.
 
   Types 6 to 10 (agreed with `lib/input`, its `ROADMAP.md` §5.2, decision I3)
-  use the same 24 bytes. Canvas takes this format; until it routes them
-  (TCH-01 multi-touch, TCH-10 pen) it drops them, as it drops any type it
-  does not know, so a source may send them already.
+  use the same 24 bytes. Canvas routes touch (6) and pen (7, 8) records to
+  clients; switch (9) and device (10) records it drops for now, as it drops
+  any type it does not know, so a source may send them already.
 
   | `type` | `code` | `value` |
   |---|---|---|
