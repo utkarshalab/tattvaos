@@ -316,10 +316,15 @@ Estimate: ~6 000 lines.
 
 ### Phase 2 — Core, hubs, keyboard and mouse
 
-- ☐ Full enumeration, driver matching, interrupt and bulk transfers, hot
-  plug
+- ◐ Configure Endpoint for any interface (interrupt, bulk, isochronous;
+  intervals by speed, bursts, payloads) and interrupt and bulk transfers
+  with completions (`hcd/xhci/cmd.asm`, `xfer.asm`); driver matching and
+  hot plug still to do
 - ☐ Hubs (USB 2 and 3)
-- ☐ HID keyboard and mouse to the canvas input queue
+- ◐ HID boot keyboards and mice (`class/hid/hid.asm`) into `lib/input`:
+  configuration, boot protocol, idle off, reports, Caps/Num/Scroll LEDs,
+  recovery from stalls and babble, giving up on a device that went away;
+  29 host checks. In the kernel once PCI attach exists
 
 Demo: simulated keyboard and mouse events reach the input queue; real
 devices follow in Phase 3.
