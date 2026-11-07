@@ -404,6 +404,17 @@ ut_fb_info:
 .out:
     ret
 
+; ut_input_device_info for host tests: device 7 is a touch screen 1000
+; units each way; no other has a record
+global ut_input_device_info
+ut_input_device_info:
+    mov rax, -(ENODEV)
+    cmp edi, 7
+    jne .out
+    lea rax, [rel host_touch_info]
+.out:
+    ret
+
 HOST_NONE ut_input_register_callback
 HOST_NONE ut_input_unregister_callback
 HOST_NONE ut_power_register_callback
@@ -486,6 +497,19 @@ HOST_PANIC panic_unaligned, panic_msg_unaligned
 HOST_PANIC panic_bounds, panic_msg_bounds
 HOST_PANIC panic_oom, panic_msg_oom
 HOST_PANIC panic_unreachable, panic_msg_unreachable
+
+section .data
+align 8
+host_touch_info:                        ; KERNEL_NEEDS.md step 3, 64 bytes
+    dd 7, 0                             ; 0 id
+    dq 0                                ; 8 name
+    dd 6                                ; 16 bus: platform
+    dw 0, 0, 0                          ; 20 vendor, product, version
+    times 6 db 0
+    dq 4                                ; 32 caps: touch
+    dd 999, 999                         ; 40 max_x, max_y
+    dd 0, 0                             ; 48 res_x, res_y
+    dd 10, 0                            ; 56 slots
 
 section .bss
 alignb 16
