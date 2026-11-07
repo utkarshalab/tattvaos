@@ -138,5 +138,53 @@ udelay:
     add [rel kstub_delays], rdi
     ret
 
+; interrupt set-up, recorded instead of done
+IOAPIC_VECTOR_FIRST         equ 0x40
+IOAPIC_VECTOR_LAST          equ 0xEF
+
+section .data
+align 8
+global smp_bsp_apic_id
+smp_bsp_apic_id:    dd 0
+global kstub_idt_vector
+kstub_idt_vector:   dd 0
+global kstub_idt_handler
+kstub_idt_handler:  dq 0
+global kstub_sci_route          ; IRQ, vector, masked flag; IRQ -1: none yet
+kstub_sci_route:    dd -1, 0, 0
+global kstub_sci_fail
+kstub_sci_fail:     dd 0
+
+section .text
+global vector_alloc
+vector_alloc:
+    mov eax, 0x51
+    ret
+
+; EDI = vector, RSI = handler
+global register_idt_handler
+register_idt_handler:
+    mov [rel kstub_idt_vector], edi
+    mov [rel kstub_idt_handler], rsi
+    ret
+
+; EDI = IRQ, ESI = vector, EDX = destination, ECX = masked; CF = 1 on failure
+global ioapic_route_sci
+ioapic_route_sci:
+    cmp dword [rel kstub_sci_fail], 0
+    jne .fail
+    mov [rel kstub_sci_route], edi
+    mov [rel kstub_sci_route + 4], esi
+    mov [rel kstub_sci_route + 8], ecx
+    clc
+    ret
+.fail:
+    stc
+    ret
+
+global smp_lapic_eoi
+smp_lapic_eoi:
+    ret
+
 %include "lib/io/acpi/aml/aml.asm"
 %include "lib/io/acpi/aml/kernel.asm"
