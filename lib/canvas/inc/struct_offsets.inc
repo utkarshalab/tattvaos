@@ -1525,6 +1525,7 @@ struc Server
     .input_seat:              resq 1    ; the active seat: all input goes to it
     .greeter:                 resq 1    ; the login screen, stepped each turn
     .taskbar:                 resq 1    ; the built-in taskbar, likewise
+    .spare_taskbars:          resq 1    ; stopped ones, for the next to use
     .locked:                  resq 1    ; 1 while the login screen is up
     .focus_seq:               resq 1    ; the last Window.focus_seq given
     .stack:                   resq 1    ; every surface shown, bottom to top
