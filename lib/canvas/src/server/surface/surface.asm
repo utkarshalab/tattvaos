@@ -547,6 +547,37 @@ surface_frame_callback:
     EPILOGUE_RESTORE rbx, r12, r13, r14
     ret
 
+; ---------------------------------------------------------------------------
+; surface_logical_size
+;   A surface's size on the screen: its buffer's, times 120 over its buffer
+;   scale (decision 0012)
+;   IN:  rdi = Surface*, rsi = its Buffer*
+;   OUT: eax = width, edx = height; rcx, r8 used
+; ---------------------------------------------------------------------------
+global surface_logical_size
+surface_logical_size:
+    mov ecx, [rdi + Surface.buffer_scale]
+    test ecx, ecx
+    jz .same
+    cmp ecx, 120
+    je .same
+    mov eax, [rsi + Buffer.width]
+    imul eax, eax, 120
+    xor edx, edx
+    div ecx
+    mov r8d, eax
+    mov eax, [rsi + Buffer.height]
+    imul eax, eax, 120
+    xor edx, edx
+    div ecx
+    mov edx, eax
+    mov eax, r8d
+    ret
+.same:
+    mov eax, [rsi + Buffer.width]
+    mov edx, [rsi + Buffer.height]
+    ret
+
 section .data
 
 global surface_version
