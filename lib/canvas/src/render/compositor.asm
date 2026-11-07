@@ -52,6 +52,7 @@ extern sw_cursor_render
 extern surface_logical_size
 extern magnify_frame
 extern magnify_output
+extern dnd_render_icon
 extern region_clear
 extern region_is_empty
 extern surface_fire_frame_callbacks
@@ -758,7 +759,11 @@ compositor_composite_output:
     mov rdi, rsp                        ; an Alt+Tab over everything
     lea rsi, [rsp + L_CLIP]
     call switcher_render
-    mov rdi, rsp                        ; and the pointer over that
+    mov rdi, rsp                        ; a drag's icon over that
+    lea rsi, [rsp + L_CLIP]
+    mov rdx, [rbx + Compositor.server]
+    call dnd_render_icon
+    mov rdi, rsp                        ; and the pointer over everything
     lea rsi, [rsp + L_CLIP]
     mov rdx, [rbx + Compositor.server]
     call sw_cursor_render
