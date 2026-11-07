@@ -120,6 +120,7 @@ input_fiber:
 .loop:
     call acpi_events_service            ; GPEs, EC queries, lid and buttons
     call i2c_hid_service                ; touchpad reports into events
+    call usb_kernel_poll                ; USB events, LEDs, new devices
     call input_pump
     call ps2_kbd_service
     call fiber_yield
