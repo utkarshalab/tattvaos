@@ -41,7 +41,7 @@ echo "== running tests"
 failed=0
 for t in "$TESTS_DIR"/test_*.py; do
     so="$WORK/aml.so"
-    [ "$(basename "$t")" = test_kernel.py ] && so="$WORK/kstub.so"
+    case "$(basename "$t")" in test_kernel.py|test_events.py) so="$WORK/kstub.so" ;; esac
     if ! python3 "$t" "$so"; then
         failed=1
     fi
