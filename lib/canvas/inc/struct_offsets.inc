@@ -600,7 +600,8 @@ endstruc
 
 ; The clipboard and the primary selection (src/data/clipboard.asm), at
 ; Server.clipboard: what each offers, and the pastes under way
-%define CLIP_SELECTIONS     2
+%define CLIP_SELECTIONS     3           ; the clipboard, primary, a drag
+%define CLIP_DRAG           2           ; the selection a drag offers
 %define CLIP_TYPES          4
 %define CLIP_TYPE_LEN       32
 %define CLIP_TRANSFERS      8
@@ -620,12 +621,15 @@ struc ClipTransfer
     .owner:                   resq 1    ; Client* asked for the data
 endstruc
 struc ClipboardState
-    .offers:                  resb 304  ; CLIP_SELECTIONS ClipOffer
+    .offers:                  resb 456  ; CLIP_SELECTIONS ClipOffer
     .transfers:               resb 192  ; CLIP_TRANSFERS ClipTransfer
     .next_serial:             resd 1
-    resb 4
+    .dragging:                resd 1    ; 1 while a drag is under way
+    .drag_source:             resq 1    ; Surface* the drag started on
+    .drag_over:               resq 1    ; Surface* under the pointer, 0: none
+    .drop_target:             resq 1    ; Client* dropped on: it may paste
 endstruc
-%if ClipOffer_size * CLIP_SELECTIONS != 304 || ClipTransfer_size * CLIP_TRANSFERS != 192 || CLIP_TYPES * CLIP_TYPE_LEN != 128
+%if ClipOffer_size * CLIP_SELECTIONS != 456 || ClipTransfer_size * CLIP_TRANSFERS != 192 || CLIP_TYPES * CLIP_TYPE_LEN != 128
     %error "ClipboardState: its sizes must follow ClipOffer, ClipTransfer, CLIP_*"
 %endif
 
