@@ -109,8 +109,8 @@
 %ifdef HAVE_h_surface_set_transform
     CWP_REQUEST CWP_OBJ_SURFACE, SURFACE_SET_TRANSFORM, h_surface_set_transform
 %endif
-%ifdef HAVE_h_surface_set_scale
-    CWP_REQUEST CWP_OBJ_SURFACE, SURFACE_SET_SCALE, h_surface_set_scale
+%ifdef HAVE_h_surface_set_buffer_scale
+    CWP_REQUEST CWP_OBJ_SURFACE, SURFACE_SET_BUFFER_SCALE, h_surface_set_buffer_scale
 %endif
 %ifdef HAVE_h_surface_set_parent
     CWP_REQUEST CWP_OBJ_SURFACE, SURFACE_SET_PARENT, h_surface_set_parent
