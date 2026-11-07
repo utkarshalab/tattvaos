@@ -1,0 +1,61 @@
+# lib/usb — the USB stack
+
+Host controllers, the USB core and class drivers. The plan, phases and
+decisions are in [ROADMAP.md](ROADMAP.md). Storage is deferred.
+
+## State
+
+- **Phase 0, done:** structures (`usb.inc`) and descriptor parsers
+  (`core/desc.asm`), fuzzed against a reference parser.
+- **Phase 1, host-tested:** xHCI bring-up, rings, commands, root ports
+  and enumeration over control transfers, against the software
+  controller in `sim/`. Not yet run on hardware, and not yet in the kernel
+  (that needs PCI attach and DMA memory).
+
+## Use
+
+```
+xhci_attach(bar)                    ; RAX = controller, or 0 (EDX = why)
+usb_scan(hc)                        ; enumerate every connected root port
+usb_device_count() / usb_device_get(i)
+usb_get_string(dev, index, out, size)       ; UTF-8
+usb_get_descriptor(dev, type, index, lang, buf, len)
+xhci_control(hc, slot, setup, buf, len)     ; any control transfer
+usb_config_parse(buf, len, &config) ; interfaces, endpoints, associations
+```
+
+Devices are left addressed but not configured: a configuration is chosen
+once policy authorises the device and a driver claims it (Phase 2).
+
+## Hooks
+
+`core/hooks.asm`: `usb_alloc_fn` (zeroed memory that devices can reach),
+`usb_delay_fn`, `usb_rd32_fn` and `usb_wr32_fn`. Unset, register access
+goes straight to memory; the host tests point them at the simulator.
+
+## Files
+
+| File | What |
+|---|---|
+| `usb.inc` | Errors, descriptor types, requests, speeds, classes, parsed configuration and BOS records, device and transfer records |
+| `usb.asm` | The stack as one translation unit |
+| `core/hooks.asm` | Memory, delays, register access |
+| `core/desc.asm` | Device, configuration, string (UTF-16 to UTF-8) and BOS descriptors |
+| `core/enum.asm` | Enumeration, descriptors and strings from a device, the device list |
+| `hcd/xhci/xhci.inc` | xHCI registers, TRBs, completion codes, driver records |
+| `hcd/xhci/init.asm` | Firmware hand-off, reset, slots, scratchpads, command and event rings, port protocols |
+| `hcd/xhci/ring.asm` | Producer rings with link TRBs, the event ring and its handler |
+| `hcd/xhci/cmd.asm` | Commands, Enable Slot, Address Device, Evaluate Context, endpoint recovery |
+| `hcd/xhci/port.asm` | Root ports: status, change bits, reset and warm reset |
+| `hcd/xhci/xfer.asm` | Control transfers; completion of transfers not waited for |
+| `sim/xhci_sim.py` | A software xHCI controller (tests only) |
+| `sim/devices.py` | Simulated keyboard, mouse, Bluetooth radio, SuperSpeed disk |
+
+## Tests
+
+`sh lib/usb/tests/run_tests.sh` — no QEMU.
+
+| Test | Checks | What |
+|---|---|---|
+| `test_desc.py` | 61 | Record layouts; device, configuration (composite, alternate settings, associations, HID, SuperSpeed companions), string and BOS descriptors; malformed input; 20 000 fuzz rounds against a reference parser with guard bytes around every record |
+| `test_xhci.py` | 48 | Bring-up (hand-off, stubborn firmware, a reset that never ends, 64-byte contexts, out of memory); command ring wrap; enumeration at full, high and SuperSpeed; EP0 packet size correction; strings; stalls and recovery; short transfers; ring and event ring wrap; warm reset; removal; timeouts; running out of slots |
