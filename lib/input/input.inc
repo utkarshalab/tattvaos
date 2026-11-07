@@ -4,15 +4,15 @@
 ; Event records, device information and constants shared by every part of
 ; lib/input. The event record is the 24-byte record canvas already reads
 ; (lib/canvas/docs/KERNEL_NEEDS.md, step 3); the device information is the
-; layout in lib/canvas/docs/utkarsha-contract.md §3.8.
+; 64-byte record in the same step.
 ; =============================================================================
 
 %ifndef LIB_INPUT_INPUT_INC
 %define LIB_INPUT_INPUT_INC
 
 ; ---- Event types (input_event.type) -----------------------------------------
-; 1-5 are what canvas reads today. 6-10 are proposed in ROADMAP.md §5.2 and
-; are not sent until canvas accepts them.
+; 1-5 are what canvas routes today. 6-10 were agreed with canvas (ROADMAP.md
+; §5.2, decision I3); canvas drops them until it routes touch and pen.
 %define INPUT_KEY           1   ; code = keycode 0-255; value = 1 down, 0 up
 %define INPUT_MOTION        2   ; code = dx; value = dy
 %define INPUT_POSITION      3   ; code = x; value = y
@@ -44,6 +44,7 @@ endstruc                        ; 24 bytes
 %define INPUT_CAP_POINTER   (1 << 1)
 %define INPUT_CAP_TOUCH     (1 << 2)
 %define INPUT_CAP_TABLET    (1 << 3)
+%define INPUT_CAP_SWITCH    (1 << 4)
 
 struc input_dev_info
     .id:        resd 1
@@ -59,7 +60,9 @@ struc input_dev_info
     .max_y:     resd 1
     .res_x:     resd 1          ; units per mm
     .res_y:     resd 1
-endstruc                        ; 56 bytes
+    .slots:     resd 1          ; touch contacts reported at once
+    .pad2:      resd 1
+endstruc                        ; 64 bytes; bytes not listed are 0
 
 ; ---- Internal device record ----------------------------------------------------
 %define INPUT_MAX_DEVICES   32
