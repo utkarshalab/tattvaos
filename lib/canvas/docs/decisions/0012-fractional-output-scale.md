@@ -1,6 +1,6 @@
 # Decision 0012: Fractional Output Scale
 
-**Status**: Proposed
+**Status**: Accepted (2026-11-07); first step, `cw_output`, built
 **Date**: 2026-11-07
 **Phase**: P2 (OUT-08, PRO-16; snapping rules CMP-22 in P3)
 
@@ -28,7 +28,7 @@ What exists today:
 | B. Physical pixels everywhere, clients draw bigger | A window across two outputs of different scales cannot be right on both; every size the shell picks changes with the screen |
 | C. Whole-number scales only | 1.25 and 1.5 panels get a choice of too small or too big |
 
-## Decision (proposed)
+## Decision
 **Option A.**
 
 - **Logical units.** The layout, window places and sizes, the pointer, hit
