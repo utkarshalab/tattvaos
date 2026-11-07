@@ -20,6 +20,7 @@
 
 extern handle_resolve
 extern compositor_damage_rect
+extern surface_logical_size
 extern rect_intersect
 extern sw_render_rect
 extern ui_text_draw
@@ -74,8 +75,10 @@ titlebar_rect:
     mov ecx, [rbx + Surface.current + SurfaceState.buf_y]
     sub ecx, TITLEBAR_H
     mov [r12 + 4], ecx
-    mov ecx, [rax + Buffer.width]
-    mov [r12 + 8], ecx
+    mov rdi, rbx                        ; as wide as it is on the screen
+    mov rsi, rax
+    call surface_logical_size
+    mov [r12 + 8], eax
     mov dword [r12 + 12], TITLEBAR_H
     mov eax, 1
     jmp .out
