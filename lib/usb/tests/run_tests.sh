@@ -7,7 +7,9 @@
 #   1. Assembles lib/usb/usb.asm as one translation unit, with
 #      number-overflow and "other" warnings promoted to errors.
 #   2. Links it into a shared object and drives it from Python (ctypes):
-#      every tests/test_*.py gets the library's path.
+#      every tests/test_*.py gets the library's path, except test_kernel.py,
+#      which gets tests/ukstub.asm: the kernel glue with PCI, mapping and
+#      the console stubbed.
 #
 # usage: sh lib/usb/tests/run_tests.sh   (from anywhere in the repo)
 # exit status: 0 if everything passed, 1 otherwise
@@ -32,11 +34,14 @@ build() {   # source, name
     ld -shared -Bsymbolic -z noexecstack -o "$WORK/$2.so" "$WORK/$2.o"
 }
 build lib/usb/usb.asm usb
+build lib/usb/tests/ukstub.asm ukstub
 
 echo "== running tests"
 failed=0
 for t in "$TESTS_DIR"/test_*.py; do
-    if ! python3 "$t" "$WORK/usb.so"; then
+    so="$WORK/usb.so"
+    case "$(basename "$t")" in test_kernel.py) so="$WORK/ukstub.so" ;; esac
+    if ! python3 "$t" "$so"; then
         failed=1
     fi
 done
