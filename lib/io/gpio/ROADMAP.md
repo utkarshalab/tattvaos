@@ -1,7 +1,9 @@
 # gpio — Roadmap
 
 **Part of:** Utkarsha OS, `lib/io/gpio` — GPIO and pin controllers
-**Status:** plan only; `lib/io/gpio` does not exist as of 2026-11-06
+**Status:** Phase 1 core written and host-tested (2026-11-07): AMD controller,
+pin interface, interrupts with storm detection, debounce (`gpio.asm`). Not
+yet run on hardware; kernel glue and ACPI discovery still to come
 **Decided 2026-11-06:** GPIO lives here (input decision I2)
 
 GPIO pins carry interrupts and control lines for devices that are not on
@@ -64,7 +66,7 @@ Legend: ✅ done · ◐ exists but unproven · ☐ planned. Line counts ±50%.
 
 | Phase | Work | Lines |
 |---|---|---|
-| 1 | AMD controller, pin interface, interrupts, debounce (for the touchpad) | ~2 000 |
+| 1 | ◐ AMD controller, pin interface, interrupts, debounce (for the touchpad); kernel glue still to come | ~2 000 |
 | 2 | ACPI glue: resources, operation regions, `_AEI` events; wake and sleep | ~1 000 |
 | 3 | Intel controllers, all supported generations | ~3 000 |
 | 4 | Pin control, quirks, tools, hardening (storms, fault injection) | ~1 000 |
