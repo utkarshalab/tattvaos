@@ -17,6 +17,7 @@
 %include "inc/channel.inc"
 %include "inc/event.inc"
 %include "inc/backend.inc"
+%include "inc/render.inc"
 %include "inc/struct_offsets.inc"
 %include "ugfx.inc"
 
@@ -36,6 +37,9 @@ extern server_mirror_output
 extern scale_nearest_rect
 extern scale_bilinear_rect
 extern displays_start
+extern scale_fractional_compute
+extern scale_fractional_calculate_dest
+extern scale_fractional_render
 extern displays_step
 extern host_display_report
 extern host_fb1
@@ -141,6 +145,7 @@ test_window_suite:
     CASE tw_scale_rect, CAP_SHELL
     CASE tw_scale_bilinear, CAP_SHELL
     CASE tw_displays, CAP_SHELL
+    CASE tw_scale_fractional, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2157,6 +2162,77 @@ tw_scale_bilinear:
     SCALED 3, 0, 0xFF000000
     PASS
 
+; The fractional scale helpers: 3/2 as 16.16, 64x48 times it, and a 2x2
+; buffer stretched over the 64x48 output, nearest at 2.0 (each quarter one
+; pixel) and bilinear at 1.5 (its corners held)
+%macro OUT_PIXEL 3                      ; x, y, the pixel there
+    mov rax, [rel server + Server.outputs]
+    mov rcx, [rax + Output.framebuffer]
+    mov eax, [rcx + ((%2) * 64 + (%1)) * 4]
+    cmp eax, %3
+    jne .fail
+%endmacro
+tw_scale_fractional:
+    sub rsp, 8
+    mov rdi, [rel server + Server.outputs]
+    mov esi, 3
+    mov edx, 2
+    call scale_fractional_compute
+    test rax, rax
+    jnz .fail
+    mov rax, [rel server + Server.outputs]
+    cmp qword [rax + Output.scale], 0x18000
+    jne .fail
+    mov edi, 64
+    mov esi, 48
+    mov edx, 0x18000
+    lea rcx, [rel scaled_size]
+    call scale_fractional_calculate_dest
+    cmp dword [rel scaled_size], 96
+    jne .fail
+    cmp dword [rel scaled_size + 4], 72
+    jne .fail
+
+    mov edi, 2                          ; a 2x2 buffer of four colours
+    mov esi, 2
+    call new_surface
+    mov [rel surface_a], eax
+    mov rdi, [rel server + Server.buffer_table]
+    mov esi, [rel buffer]
+    call handle_resolve
+    mov rcx, [rax + Buffer.base]
+    mov rdx, [rax + Buffer.stride]
+    mov dword [rcx], 0xFF000011
+    mov dword [rcx + 4], 0xFF000022
+    mov dword [rcx + rdx], 0xFF000033
+    mov dword [rcx + rdx + 4], 0xFF000044
+    mov edi, [rel surface_a]            ; its buffer as the current one
+    call surface_of
+    mov ecx, [rel buffer]
+    mov [rax + Surface.current + SurfaceState.buffer], rcx
+    mov [rel picked], rax
+    mov rax, [rel server + Server.outputs]
+    mov [rel fr_ctx + FrameCtx.output], rax
+    mov qword [rax + Output.scale], 0x20000
+    lea rdi, [rel fr_ctx]
+    mov rsi, [rel picked]
+    xor edx, edx
+    call scale_fractional_render
+    OUT_PIXEL 0, 0, 0xFF000011
+    OUT_PIXEL 40, 0, 0xFF000022
+    OUT_PIXEL 0, 30, 0xFF000033
+    OUT_PIXEL 63, 47, 0xFF000044
+    mov rax, [rel server + Server.outputs]
+    mov qword [rax + Output.scale], 0x18000
+    lea rdi, [rel fr_ctx]
+    mov rsi, [rel picked]
+    xor edx, edx                        ; nearest asked, bilinear given
+    call scale_fractional_render
+    OUT_PIXEL 0, 0, 0xFF000011
+    OUT_PIXEL 63, 47, 0xFF000044
+    OUT_PIXEL 32, 0, 0xFF000019         ; between the top two, 132/256 on
+    PASS
+
 ; -> eax = how many outputs the server has
 output_count:
     xor eax, eax
@@ -2342,6 +2418,8 @@ server:         resb Server_size
 scale_dst:      resd 16                 ; 4 x 4
 fb0:            resd 64 * 48            ; tw_displays' boot framebuffer
 fb0_conf:       resb Config_size
+fr_ctx:         resb FrameCtx_size
+scaled_size:    resd 2
 scale_job:      resb UgfxScale_SIZE
 arena:          resb Arena_size
 pair:           resb ChannelPair_size
