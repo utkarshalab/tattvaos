@@ -122,6 +122,10 @@ canvasd_init:
     lea rdi, [server]
     call displays_start
 
+    ; The pointer drawn, there being no hardware cursor yet
+    mov rax, [server + Server.compositor]
+    mov qword [rax + Compositor.cursor_on], 1
+
     ; Without waitsets the loop yields instead of sleeping
     call ut_waitset_create
     mov rbx, rax
