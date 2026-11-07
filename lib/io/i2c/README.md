@@ -29,8 +29,9 @@ Register access goes through `i2c_read32_fn` and `i2c_write32_fn`.
 ## Not yet
 
 - Checked against real hardware.
-- Kernel glue: finding the controllers through ACPI (`_CRS` for the
-  registers, `SSCN` and `FMCN` for timing), mapping them.
+- Kernel glue for the touchpad's controller lives in
+  `lib/input/kernel_touchpad.asm` (`_CRS` registers, `FMCN` or `SSCN`
+  timing); general discovery of every controller is still to come.
 - Interrupt-driven transfers, bus recovery through GPIO, Intel LPSS with
   DMA, SMBus, I3C, the generic serial bus region for AML.
 
