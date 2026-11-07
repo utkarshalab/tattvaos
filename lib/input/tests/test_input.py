@@ -26,10 +26,11 @@ class DevInfo(C.Structure):
                 ("bus", C.c_uint32), ("vendor", C.c_uint16), ("product", C.c_uint16),
                 ("version", C.c_uint16), ("pad1", C.c_uint16 * 3), ("caps", C.c_uint64),
                 ("max_x", C.c_int32), ("max_y", C.c_int32),
-                ("res_x", C.c_uint32), ("res_y", C.c_uint32)]
+                ("res_x", C.c_uint32), ("res_y", C.c_uint32),
+                ("slots", C.c_uint32), ("pad2", C.c_uint32)]
 
 
-assert C.sizeof(Event) == 24 and C.sizeof(DevInfo) == 56
+assert C.sizeof(Event) == 24 and C.sizeof(DevInfo) == 64
 
 INB = C.CFUNCTYPE(C.c_uint8, C.c_uint64)
 OUTB = C.CFUNCTYPE(None, C.c_uint64, C.c_uint64)
@@ -149,6 +150,10 @@ p = dev_info(d)
 info = DevInfo.from_address(p)
 check("device info", (info.id, info.name, info.bus, info.caps, info.vendor, info.product)
       == (1, b"test device", 8, 2, 0x1234, 0x5678), (info.id, info.name))
+check("device info: unlisted bytes are 0",
+      (info.pad0, info.version, list(info.pad1), info.slots, info.pad2) == (0, 0, [0, 0, 0], 0, 0))
+check("slots at offset 56",
+      DevInfo.slots.offset, 56)
 check("unknown device info", dev_info(7) == -ENODEV)
 check("device 0 is never valid", dev_info(0) == -ENODEV)
 check("grab", grab(d, 1) == 0)
