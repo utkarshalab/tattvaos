@@ -151,6 +151,9 @@ kernel_main:
     ; _REG, _STA and _INI. Also never stops the boot.
     call acpi_kernel_init
 
+    ; The built-in I2C-HID touchpad, found through ACPI. Never stops the boot.
+    call input_touchpad_init
+
     ; Enter the scheduler's own core loop. Never returns: sched_core_loop
     ; is what used to be this file's manual `cli; hlt` idle loop, except it
     ; actually polls, reaps, and runs fibers instead of just waiting for an
