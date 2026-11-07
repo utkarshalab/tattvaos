@@ -31,6 +31,10 @@ extern ui_text_draw
 %define MAXIMIZE_COLOR  0xFF54A24B
 %define MINIMIZE_COLOR  0xFFC0A040
 %define TITLE_COLOR     0xD0D4E0
+%define HC_BAR          0xFF000000      ; high contrast: a black bar, white
+%define HC_BAR_ACTIVE   0xFFFFFFFF      ; text; the focused one white, black
+%define HC_TEXT         0xFFFFFF        ; text
+%define HC_TEXT_ACTIVE  0x000000
 %define TITLE_SIZE      13
 %define TITLE_PAD       8               ; the title from the bar's left edge
 
@@ -213,6 +217,18 @@ titlebar_render:
     jne .colour
     mov esi, BAR_ACTIVE
 .colour:
+    mov dword [rel text_colour], TITLE_COLOR    ; high contrast?
+    mov rax, [r12 + Surface.window]
+    mov rax, [rax + Window.server]
+    cmp qword [rax + Server.high_contrast], 0
+    je .picked
+    mov dword [rel text_colour], HC_TEXT
+    cmp esi, BAR_ACTIVE
+    mov esi, HC_BAR
+    jne .picked
+    mov esi, HC_BAR_ACTIVE
+    mov dword [rel text_colour], HC_TEXT_ACTIVE
+.picked:
     mov rdi, rsp
     call paint
     call draw_title
@@ -276,7 +292,8 @@ draw_title:
     mov eax, [r13 + 12]
     mov [rdx + UiText.clip_h], eax
     mov dword [rdx + UiText.size], TITLE_SIZE
-    mov dword [rdx + UiText.colour], TITLE_COLOR
+    mov eax, [rel text_colour]
+    mov [rdx + UiText.colour], eax
     mov rdi, rdx
     sub rsp, 8                          ; 16-byte aligned
     call ui_text_draw
@@ -304,3 +321,6 @@ paint:
 .out:
     pop r14
     ret
+
+section .bss
+text_colour:    resd 1                  ; the title's, picked with the bar
