@@ -46,6 +46,7 @@ extern compositor_layout_bounds
 extern compositor_damage_all
 extern input_keep_pointer
 extern window_output_gone
+extern sw_cursor_redraw
 extern region_add_rect
 extern region_clear
 extern ut_mem_free
@@ -872,6 +873,21 @@ HANDLER h_layer_set_exclusive, 8
     mov rsi, rax
     mov edx, [r13 + 4]
     call window_layer_exclusive
+HANDLER_END
+
+; cw_pointer.set_shape(surface, shape): the pointer's shape over it, redrawn
+HANDLER h_pointer_set_shape, 8
+    NEEDS_CAP CAP_POINTER
+    cmp dword [r13 + 4], 2              ; default, text, crosshair
+    ja .bad_object
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov ecx, [r13 + 4]
+    mov [rax + Surface.cursor_shape], rcx
+    mov rdi, r14
+    call sw_cursor_redraw
 HANDLER_END
 
 ; cw_layer.set_output(surface, output: the nth, 0 the first)
