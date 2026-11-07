@@ -14,6 +14,10 @@
 ; The server itself can hold data (clipboard_set, for a remote viewer's
 ; text): its owner is 0, and a paste is answered at once from the copy in
 ; ClipOffer.held.
+;
+; Selection CLIP_DRAG is a drag's (data/dnd.asm): dnd_start offers it, not
+; offer; nobody is told of it when the keyboard moves; the client it was
+; dropped on may paste it, keyboard or not.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -51,7 +55,7 @@ clipboard_init:
     rep stosb
     mov dword [r13 + ClipboardState.next_serial], 1
 %assign s 0
-%rep CLIP_SELECTIONS                    ; room for the server's own copy
+%rep CLIP_DRAG                          ; room for the server's own copy
     mov rdi, r12
     mov esi, CLIP_MAX
     call arena_alloc
@@ -83,12 +87,13 @@ clipboard_offer:
     mov r12, rsi
     mov r13, rdx
     mov rax, -(EINVAL)
-    cmp dword [r13], CLIP_SELECTIONS
+    cmp dword [r13], CLIP_DRAG          ; a drag's is dnd_start's to offer
     jae .out
     cmp dword [r13 + 4], CLIP_TYPES
     ja .out
     mov rdi, rbx
     mov rsi, r12
+    mov edx, [r13]
     call may_use
     mov rcx, rax
     mov rax, -(EPERM)
@@ -192,6 +197,7 @@ clipboard_receive:
     jae .out
     mov rdi, rbx
     mov rsi, r12
+    mov edx, [r13]
     call may_use
     mov rcx, rax
     mov rax, -(EPERM)
@@ -399,7 +405,7 @@ clipboard_focus_changed:
     call tell
 .next:
     inc r13d
-    cmp r13d, CLIP_SELECTIONS
+    cmp r13d, CLIP_DRAG                 ; not a drag's
     jb .selection
 .done:
     xor eax, eax
@@ -428,6 +434,8 @@ clipboard_client_gone:
     jne .next_selection
     mov qword [rax + ClipOffer.owner], 0
     mov dword [rax + ClipOffer.count], 0
+    cmp r13d, CLIP_DRAG                 ; a drag's: nobody to tell
+    je .next_selection
     mov rdi, rbx
     mov esi, r13d
     call tell_focused
@@ -436,6 +444,10 @@ clipboard_client_gone:
     cmp r13d, CLIP_SELECTIONS
     jb .selection
     mov rax, [rbx + Server.clipboard]
+    cmp [rax + ClipboardState.drop_target], r12
+    jne .transfers
+    mov qword [rax + ClipboardState.drop_target], 0
+.transfers:
     lea r14, [rax + ClipboardState.transfers]
     mov r13d, CLIP_TRANSFERS
 .transfer:
@@ -462,6 +474,49 @@ clipboard_client_gone:
 ; Local
 ; ---------------------------------------------------------------------------
 
+; ---------------------------------------------------------------------------
+; clipboard_take
+;   A selection offered by a client, no questions asked (a drag's, from
+;   dnd_start): the types, 32 bytes each, ended within them
+;   IN:  rdi = server*, rsi = client*, edx = selection, ecx = how many,
+;        r8 = the types (CLIP_TYPES x CLIP_TYPE_LEN)
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global clipboard_take
+clipboard_take:
+    push rbx
+    mov rbx, rdi
+    mov eax, edx
+    call offer_of
+    mov [rax + ClipOffer.owner], rsi
+    mov [rax + ClipOffer.count], ecx
+    mov dword [rax + ClipOffer.held_len], 0
+    lea rdi, [rax + ClipOffer.types]
+    mov rsi, r8
+    mov ecx, CLIP_TYPES * CLIP_TYPE_LEN
+    rep movsb
+    call end_types
+    xor eax, eax
+    pop rbx
+    ret
+
+; ---------------------------------------------------------------------------
+; clipboard_tell
+;   What a selection offers, to one client (a drop target, on enter)
+;   IN:  rdi = server*, rsi = client*, edx = selection
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global clipboard_tell
+clipboard_tell:
+    push rbx
+    mov rbx, rdi
+    mov rdi, rsi
+    mov esi, edx
+    call tell
+    xor eax, eax
+    pop rbx
+    ret
+
 ; rbx = server, eax = selection -> rax = its ClipOffer; rdi, rsi kept
 offer_of:
     imul eax, eax, ClipOffer_size
@@ -478,12 +533,19 @@ end_types:
 %endrep
     ret
 
-; rdi = server, rsi = client -> eax = 1 if it may offer or paste: it has the
-; keyboard, or it is trusted
+; rdi = server, rsi = client, edx = selection -> eax = 1 if it may offer or
+; paste: it has the keyboard, or it is trusted, or (a drag's) it was dropped
+; on
 may_use:
     mov eax, 1
     cmp qword [rsi + Client.trust_profile], TRUST_TRUSTED
     je .out
+    cmp edx, CLIP_DRAG
+    jne .keyboard
+    mov rcx, [rdi + Server.clipboard]
+    cmp [rcx + ClipboardState.drop_target], rsi
+    je .out
+.keyboard:
     xor eax, eax
     mov rcx, [rdi + Server.input_seat]
     test rcx, rcx
