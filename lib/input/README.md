@@ -17,6 +17,7 @@ Turns input hardware into events and hands them to canvas through
 | `hid/hid.inc`, `hid/parse.asm` | The shared HID core: `hid_parse` turns a report descriptor into fields; `hid_get` reads an element's value from a report; `hid_find_usage` finds the element with a usage; `hid_report_bits` gives a report's length |
 | `i2c_hid/i2c_hid.asm` | I²C-HID devices: `i2c_hid_probe` brings one up (touchpads switched to multi-touch); `i2c_hid_attention` marks it from its interrupt; `i2c_hid_service` turns waiting reports into events on the fiber |
 | `kernel.asm` | Kernel glue: input fiber, IRQ 1 handler, start-up (`input_kernel_prepare`, `input_kernel_start`) |
+| `kernel_acpi.asm` | The ACPI lid (a switch device) and power and sleep buttons (keys) as input devices |
 | `kernel_touchpad.asm` | Kernel glue for the built-in touchpad: `input_touchpad_init` finds it through ACPI, attaches its I²C and GPIO controllers, routes the interrupt and probes it |
 
 ## How events flow
@@ -45,6 +46,7 @@ Python:
 | `test_input.py` | 66 | The event core and a simulated PS/2 controller and keyboard (`sim_ps2.py`) |
 | `test_hid.py` | 50 | Report descriptors built by `hid_gen.py`, and mutated ones |
 | `test_i2c_hid.py` | 30 | A simulated I²C-HID touchpad and mouse |
+| `test_acpi_input.py` | 7 | `kernel_acpi.asm`: the devices, the lid at start-up and when it opens, the buttons |
 | `test_touchpad_kernel.py` | 20 | `kernel_touchpad.asm` end to end (built by `tp_stub.asm`): firmware tables, simulated GPIO and I²C controllers and touchpad, and firmware that does not fit |
 
 `kernel.asm` is checked by the kernel build.
