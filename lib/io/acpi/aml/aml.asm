@@ -20,5 +20,6 @@
 %include "lib/io/acpi/aml/api.asm"
 %include "lib/io/acpi/aml/init.asm"
 %include "lib/io/acpi/aml/res.asm"
+%include "lib/io/acpi/aml/dsm.asm"
 
 %endif ; LIB_IO_ACPI_AML_ASM
