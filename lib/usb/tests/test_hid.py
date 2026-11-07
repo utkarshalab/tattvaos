@@ -91,9 +91,13 @@ def take(hc):
     sim.pump()
     poll(hc)
     pump()
-    out = events[:]
+    out = [e for e in events if e[0] != 10]
+    arrivals.extend(e for e in events if e[0] == 10)
     events.clear()
     return out
+
+
+arrivals = []
 
 
 passed = failed = 0
@@ -140,6 +144,7 @@ kbd.queue(0x81, kreport(0, 0x0B, 0x0C))                 # i
 kbd.queue(0x81, kreport(0))
 check("typing: h, i, both up", take(hc),
       [(KEY, 35, 1, 1), (KEY, 23, 1, 1), (KEY, 35, 0, 1), (KEY, 23, 0, 1)])
+check("their arrival posted: device records with their capabilities", arrivals, [(10, 0, 1, 1), (10, 0, 2, 2)])
 ms.queue(0x81, bytes([1, 10, 0xF6, 0]))
 ms.queue(0x81, bytes([0, 0, 0, 1]))
 check("the mouse: motion and a click, then the wheel", take(hc),
