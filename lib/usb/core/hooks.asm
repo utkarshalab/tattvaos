@@ -9,6 +9,8 @@
 ; them in the middle of their work.
 ;
 ;   usb_alloc(size, align)  zeroed memory, physical = virtual; 0 when none
+;   usb_free(ptr, size, align)  give it back, with what it was asked with
+;                           (nothing happens without a free hook)
 ;   usb_delay(µs)
 ;   usb_rd32(addr) usb_wr32(addr, v) usb_rd64(addr) usb_wr64(addr, v)
 ;     64-bit registers go as two 32-bit accesses, low half first (allowed
@@ -22,6 +24,8 @@ section .bss
 alignb 8
 global usb_alloc_fn
 usb_alloc_fn:   resq 1          ; RDI = size, RSI = alignment → RAX
+global usb_free_fn
+usb_free_fn:    resq 1          ; RDI = pointer, RSI = size, RDX = alignment
 global usb_delay_fn
 usb_delay_fn:   resq 1          ; RDI = microseconds
 global usb_rd32_fn
@@ -76,6 +80,22 @@ usb_alloc:
     pop rcx
     pop rdi
 .out:
+    ret
+
+; -----------------------------------------------------------------------------
+; usb_free — RDI = pointer (0: nothing), RSI = size, RDX = alignment
+; -----------------------------------------------------------------------------
+global usb_free
+usb_free:
+    push rax
+    test rdi, rdi
+    jz .out
+    mov rax, [rel usb_free_fn]
+    test rax, rax
+    jz .out
+    USB_HOOK_CALL 0
+.out:
+    pop rax
     ret
 
 ; -----------------------------------------------------------------------------
