@@ -47,6 +47,7 @@ extern compositor_damage_all
 extern input_keep_pointer
 extern window_output_gone
 extern region_add_rect
+extern region_clear
 extern headless_init
 extern input_dispatch
 extern window_ack_configure
@@ -231,41 +232,66 @@ server_init:
 ; ---------------------------------------------------------------------------
 ; server_add_output
 ;   Another headless output, of width x height, to the right of the layout
-;   (virtual screens, tests); all of it is damaged where it now is
+;   (virtual screens, tests), placed by server_place_output
 ;   IN:  rdi = server*, esi = width, edx = height
 ;   OUT: rax = Output*, 0 on error
 ; ---------------------------------------------------------------------------
 global server_add_output
 server_add_output:
-    PROLOGUE_SAVE rbx, r12, r13
-    sub rsp, 24                         ; a rect; 16-byte aligned
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned
     mov rbx, rdi
-    mov r12d, esi
-    mov r13d, edx
-    call compositor_layout_bounds
-    mov [rsp], ecx                      ; the layout's right edge, its top
-    mov [rsp + 4], edx
+    mov ecx, esi
+    mov r8d, edx
     mov rdi, [rbx + Server.backend]
-    mov esi, r12d
-    mov edx, r13d
+    mov esi, ecx
+    mov edx, r8d
     mov ecx, DRM_FORMAT_BGRA8888
     call headless_create_virtual_output
     test rax, rax
     jz .out
-    movsxd rcx, dword [rsp]
-    mov [rax + Output.x], rcx
-    movsxd rcx, dword [rsp + 4]
-    mov [rax + Output.y], rcx
-    mov [rsp + 8], r12d
-    mov [rsp + 12], r13d
-    mov r12, rax
-    mov rdi, [rax + Output.damage]
+    mov rdi, rbx
+    mov rsi, rax
+    call server_place_output
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
+
+; ---------------------------------------------------------------------------
+; server_place_output
+;   An output just made, already on the backend's list: to the right of the
+;   rest of the layout, at its top, all of it damaged where it now is (the
+;   damage it was made with, in its own pixels, goes)
+;   IN:  rdi = server*, rsi = Output*
+;   OUT: rax = the Output*
+; ---------------------------------------------------------------------------
+global server_place_output
+server_place_output:
+    PROLOGUE_SAVE rbx, r12
+    sub rsp, 16                         ; a rect; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov qword [r12 + Output.mirror_of], 1   ; out of the bounds while they
+    call compositor_layout_bounds           ; are worked out
+    mov qword [r12 + Output.mirror_of], 0
+    movsxd rcx, ecx
+    mov [r12 + Output.x], rcx
+    movsxd rdx, edx
+    mov [r12 + Output.y], rdx
+    mov [rsp], ecx
+    mov [rsp + 4], edx
+    mov eax, [r12 + Output.width]
+    mov [rsp + 8], eax
+    mov eax, [r12 + Output.height]
+    mov [rsp + 12], eax
+    mov rdi, [r12 + Output.damage]
+    call region_clear
+    mov rdi, [r12 + Output.damage]
     mov rsi, rsp
     call region_add_rect
     mov rax, r12
-.out:
-    add rsp, 24
-    EPILOGUE_RESTORE rbx, r12, r13
+    add rsp, 16
+    EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
 ; server_remove_output
