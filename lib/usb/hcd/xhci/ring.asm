@@ -90,6 +90,26 @@ xhci_ring_put:
     pop rbx
     ret
 
+; xhci_ring_free — RDI = ring (0: nothing): its TRBs and its record back
+global xhci_ring_free
+xhci_ring_free:
+    test rdi, rdi
+    jz .out
+    push rbx
+    mov rbx, rdi
+    mov rdi, [rbx + xhci_ring.trbs]
+    mov esi, [rbx + xhci_ring.size]
+    shl esi, 4
+    mov edx, 4096
+    call usb_free
+    mov rdi, rbx
+    mov esi, xhci_ring_size
+    mov edx, 64
+    call usb_free
+    pop rbx
+.out:
+    ret
+
 ; xhci_ring_deq — RDI = ring → RAX = the enqueue TRB's address | cycle
 global xhci_ring_deq
 xhci_ring_deq:
