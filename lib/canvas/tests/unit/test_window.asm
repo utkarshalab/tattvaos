@@ -147,6 +147,7 @@ test_window_suite:
     CASE tw_displays, CAP_SHELL
     CASE tw_scale_fractional, CAP_SHELL
     CASE tw_cursor, CAP_SHELL
+    CASE tw_cursor_shapes, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
     mov eax, ebx
@@ -2282,6 +2283,46 @@ tw_cursor:
     mov esi, 20
     call second_pixel
     cmp eax, 0xFFFFFFFF
+    jne .fail
+    PASS
+
+; surface_a's pointer shape to %1, a turn
+%macro SHAPE 1
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], %1
+    SEND CWP_OBJ_POINTER, POINTER_SET_SHAPE, 8
+    call poll
+%endmacro
+
+; A window asks for the text shape: over it, an I-beam, its tip at the
+; pointer; at an output scale of 2 the arrow is twice the size; a shape that
+; is none is refused
+tw_cursor_shapes:
+    sub rsp, 8
+    mov rax, [rel server + Server.compositor]
+    mov qword [rax + Compositor.cursor_on], 1
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    SHAPE 1
+    POINTER 16, 18
+    call poll
+    SEES 16, 18, 0xFFFFFFFF             ; the tip: the I-beam's stem
+    SEES 13, 11, 0xFF000000             ; its top left: the outline
+    SEES 14, 12, 0xFFFFFFFF             ; its serif
+    SHAPE 0                             ; the arrow, at 2x
+    mov rax, [rel server + Server.outputs]
+    mov qword [rax + Output.scale], 0x20000
+    POINTER 16, 17
+    call poll
+    SEES 17, 19, 0xFF000000             ; the outline's second row
+    SHAPE 9                             ; no such shape: refused
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp qword [rax + Surface.cursor_shape], 0
     jne .fail
     PASS
 
