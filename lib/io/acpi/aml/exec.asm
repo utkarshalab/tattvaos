@@ -1624,7 +1624,20 @@ aml_store:
     xor eax, eax
     jmp .out
 .to_buffer:
-    ; the buffer keeps its length: the source is cut or padded with zeros
+    ; the buffer keeps its length: the source is cut or padded with zeros.
+    ; An empty buffer takes the source's length instead.
+    cmp dword [r13 + aml_node.value + aml_value.len], 0
+    jne .keep_length
+    mov rdi, rsp
+    mov rsi, r12
+    call aml_to_buffer
+    test eax, eax
+    jnz .out
+    lea rdi, [r13 + aml_node.value]
+    mov rsi, rsp
+    call aml_copy
+    jmp .out
+.keep_length:
     mov rdi, rsp
     mov rsi, r12
     call aml_to_buffer
