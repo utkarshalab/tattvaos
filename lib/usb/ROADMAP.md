@@ -308,8 +308,11 @@ Estimate: ~2 000 lines.
 
 - ◐ Controller init, rings, port detection, devices at full, high and
   SuperSpeed enumerated over control transfers (`core/enum.asm`); 48
-  host checks. Interrupters with MSI-X, PCI attach and the `usb` command
-  still to do
+  host checks. Interrupters with MSI-X and the `usb` command still to do
+- ◐ In the kernel (`kernel.asm`): xHCI controllers found on PCI by class,
+  BARs sized and mapped uncached, memory decoding and bus mastering on,
+  a page pool for the stack, devices listed on the console; events
+  polled from the input fiber; 20 host checks, not yet booted
 
 Demo: `usb` lists the simulated keyboard with its descriptors.
 Estimate: ~6 000 lines.
@@ -318,13 +321,14 @@ Estimate: ~6 000 lines.
 
 - ◐ Configure Endpoint for any interface (interrupt, bulk, isochronous;
   intervals by speed, bursts, payloads) and interrupt and bulk transfers
-  with completions (`hcd/xhci/cmd.asm`, `xfer.asm`); driver matching and
-  hot plug still to do
+  with completions (`hcd/xhci/cmd.asm`, `xfer.asm`); devices plugged in
+  after boot enumerated from the port change events (`kernel.asm`);
+  driver matching, Disable Slot on removal and full hot plug still to do
 - ☐ Hubs (USB 2 and 3)
 - ◐ HID boot keyboards and mice (`class/hid/hid.asm`) into `lib/input`:
   configuration, boot protocol, idle off, reports, Caps/Num/Scroll LEDs,
   recovery from stalls and babble, giving up on a device that went away;
-  29 host checks. In the kernel once PCI attach exists
+  29 host checks. In the kernel, polled from the input fiber
 
 Demo: simulated keyboard and mouse events reach the input queue; real
 devices follow in Phase 3.
