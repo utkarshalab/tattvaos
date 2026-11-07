@@ -394,10 +394,17 @@ Prerequisite: the AML interpreter (I1); `lib/io/i2c` and `lib/io/gpio` (I2,
 built in this phase if no one else has); canvas accepting the record types
 in 5.2 (I3).
 
-- ☐ AMD I²C controller, AMD GPIO controller with interrupts
-- ☐ I²C-HID transport
-- ☐ Precision touchpad: multi-touch mode switch, contact frames (record
-  type 6 agreed with canvas)
+- ◐ AMD I²C controller (`lib/io/i2c`), AMD GPIO controller with
+  interrupts (`lib/io/gpio`): host-tested
+- ◐ I²C-HID transport (`i2c_hid/i2c_hid.asm`): descriptor, power, reset,
+  report descriptor, input reports, set-report; host-tested
+- ◐ Precision touchpad: multi-touch mode and the surface and button
+  switches set, contact records with frame ends, the click button, and
+  pointer emulation from the first finger while canvas drops touch
+  records; mice and touchpads in mouse mode give motion, buttons and the
+  wheel
+- ☐ Kernel glue: find the touchpad, its I²C controller and GPIO pin through
+  ACPI, route the GPIO interrupt, service reports on the input fiber
 
 Demo: pointer, tap and two-finger scroll on the built-in touchpad (gestures
 by canvas).
