@@ -564,11 +564,11 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| DAT-01 | Clipboard and primary selection | P2 | ◐ `data/clipboard`, `selection` |
+| DAT-01 | Clipboard and primary selection | P2 | ◐ `cw_clipboard` (`data/clipboard`): an owner offers a selection in up to 4 types; a paste gets a serial, the owner is asked and its data passed on in 120-byte pieces up to 16 KiB; only the client with the keyboard, or a trusted one, offers or pastes; the one with the keyboard hears what is offered; an owner going cancels its pastes; the server can hold text itself (a remote viewer's); client library `canvas_clipboard_offer`, `_receive`, `_send`; `test_window`. No rich formats yet |
 | DAT-02 | Drag and drop with MIME negotiation | P2 | ◐ `data/dnd`, `mime` |
 | DAT-03 | Transfer size limits | P2 | ◐ `data/limits` |
 | DAT-04 | Rich formats: HTML, rich text, images, file lists, custom types | P2 | |
-| DAT-05 | Lazy rendering: data produced only when pasted | P2 | |
+| DAT-05 | Lazy rendering: data produced only when pasted | P2 | ✓ `cw_clipboard`: nothing is copied until a paste asks the owner |
 | DAT-06 | Streaming of very large transfers without stalls | P3 | ◐ `data/transfer` |
 | DAT-07 | Clipboard history with sensitivity flags | P3 | |
 | DAT-08 | Drag thumbnails and feedback icons | P3 | |
