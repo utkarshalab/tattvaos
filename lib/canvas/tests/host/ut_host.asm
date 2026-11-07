@@ -360,6 +360,50 @@ ut_auth_users:
     mov eax, 2
 .out:
     ret
+; ut_display_register_callback for host tests: the function and cookie kept
+; for host_display_report, which plays the kernel telling of a display
+global ut_display_register_callback
+ut_display_register_callback:
+    mov [rel host_display_fn], rdi
+    mov [rel host_display_cookie], rsi
+    xor eax, eax
+    ret
+
+; edi = type (1 added, 2 removed), esi = framebuffer index: the kernel's call,
+; if a function was given
+global host_display_report
+host_display_report:
+    mov rax, [rel host_display_fn]
+    test rax, rax
+    jz .none
+    sub rsp, 24
+    mov [rsp], edi
+    mov [rsp + 4], esi
+    mov rdi, rsp
+    mov rsi, [rel host_display_cookie]
+    call rax
+    add rsp, 24
+.none:
+    ret
+
+; ut_fb_info for host tests: rdi = the 32-byte block, rsi = which. Only 1,
+; a 32x24 display in host_fb1, its rows 40 pixels apart; no other.
+global ut_fb_info
+ut_fb_info:
+    mov rax, -(ENOENT)
+    cmp rsi, 1
+    jne .out
+    lea rax, [rel host_fb1]
+    mov [rdi], rax
+    mov dword [rdi + 8], 32
+    mov dword [rdi + 12], 24
+    mov dword [rdi + 16], 40 * 4
+    mov dword [rdi + 20], 0
+    mov qword [rdi + 24], 40 * 4 * 24
+    xor eax, eax
+.out:
+    ret
+
 HOST_NONE ut_input_register_callback
 HOST_NONE ut_input_unregister_callback
 HOST_NONE ut_power_register_callback
@@ -442,6 +486,13 @@ HOST_PANIC panic_unaligned, panic_msg_unaligned
 HOST_PANIC panic_bounds, panic_msg_bounds
 HOST_PANIC panic_oom, panic_msg_oom
 HOST_PANIC panic_unreachable, panic_msg_unreachable
+
+section .bss
+alignb 16
+global host_fb1
+host_fb1:               resd 40 * 24
+host_display_fn:        resq 1
+host_display_cookie:    resq 1
 
 section .rodata
 host_users:     db "mira", 0, "ravi", 0
