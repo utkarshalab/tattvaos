@@ -75,6 +75,11 @@
 %define CANVAS_STATE_MAXIMIZED  1
 %define CANVAS_STATE_FULLSCREEN 2
 
+; cw_pointer.set_shape's shapes
+%define CANVAS_CURSOR_DEFAULT   0
+%define CANVAS_CURSOR_TEXT      1
+%define CANVAS_CURSOR_CROSSHAIR 2
+
 ; cw_layer.create's layer and anchors
 %define CANVAS_LAYER_BACKGROUND 0
 %define CANVAS_LAYER_BOTTOM     1
