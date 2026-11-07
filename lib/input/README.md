@@ -7,7 +7,7 @@ Turns input hardware into events and hands them to canvas through
 
 | File | What it does |
 |---|---|
-| `input.inc` | Event record (24 bytes), device information (56 bytes), constants |
+| `input.inc` | Event record (24 bytes), device information (64 bytes), constants |
 | `input.asm` | The whole library as one include; needs nothing from the kernel |
 | `core/hooks.asm` | Replaceable clock and port I/O (the kernel sets the clock; tests replace port I/O) |
 | `core/dev.asm` | Device list: up to 32 devices, IDs from 1 |
