@@ -320,6 +320,68 @@ ioapic_route_gsi:
     pop rbx
     ret
 
+; Route the ACPI SCI. Its FADT number is an ISA IRQ; a MADT override gives
+; the GSI and, for each of polarity and trigger, either a value or "bus
+; conforming". For the SCI, conforming means active low and level, and so
+; does having no override at all (ACPI: the SCI is a sharable, level,
+; active-low interrupt).
+; EDI=SCI IRQ, ESI=vector, EDX=destination APIC ID, ECX=nonzero to leave masked.
+global ioapic_route_sci
+ioapic_route_sci:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 8
+    mov r12d, esi
+    mov r13d, edx
+    mov r14d, ecx
+    mov eax, edi                        ; GSI unless overridden
+    mov ebx, IOAPIC_GSI_LEVEL | IOAPIC_GSI_LOW
+    xor ecx, ecx
+.iso:
+    cmp ecx, [rel ioapic_iso_count]
+    jae .route
+    mov r8d, ecx
+    imul r8, SMP_MADT_ISO_BYTES
+    lea r9, [rel ioapic_iso_routes]
+    add r9, r8
+    cmp edi, [r9 + SMP_MADT_ISO_SOURCE_OFF]
+    je .override
+    inc ecx
+    jmp .iso
+.override:
+    mov eax, [r9 + SMP_MADT_ISO_GSI_OFF]
+    mov r8d, [r9 + SMP_MADT_ISO_FLAGS_OFF]
+    mov ebx, IOAPIC_GSI_LEVEL | IOAPIC_GSI_LOW
+    mov r10d, r8d
+    and r10d, 3                         ; polarity: 1 high, 3 low, 0 conforming
+    cmp r10d, 1
+    jne .trigger
+    and ebx, ~IOAPIC_GSI_LOW
+.trigger:
+    shr r8d, 2
+    and r8d, 3                          ; trigger: 1 edge, 3 level, 0 conforming
+    cmp r8d, 1
+    jne .route
+    and ebx, ~IOAPIC_GSI_LEVEL
+.route:
+    mov edi, eax
+    mov esi, r12d
+    mov edx, r13d
+    mov ecx, ebx
+    test r14d, r14d
+    jz .go
+    or ecx, IOAPIC_GSI_MASKED
+.go:
+    call ioapic_route_gsi
+    add rsp, 8
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 ; EDI=legacy ISA IRQ. Preserve the route but force its mask bit high.
 global ioapic_mask_legacy_irq
 ioapic_mask_legacy_irq:
