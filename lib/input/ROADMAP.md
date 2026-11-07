@@ -379,8 +379,11 @@ Estimate: ~3 000 lines.
 
 ### Phase 2 — HID core and USB HID
 
-- ☐ Full report descriptor parser and the keyboard, mouse and consumer
-  usages
+- ◐ Report descriptor parser (`hid/parse.asm`): every main, global and
+  local item, push and pop, collections and application usages, report
+  IDs, padding, an unsigned maximum written short; values out of reports
+  with sign extension; lookup of a usage's element across fields
+- ☐ Turning keyboard, mouse and consumer usages into events
 - ☐ USB keyboards and mice through `lib/usb` (USB Phase 2)
 
 Estimate: ~5 000 lines.
