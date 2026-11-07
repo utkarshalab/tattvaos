@@ -14,10 +14,13 @@
 %include "inc/backend.inc"
 %include "inc/color.inc"
 %include "inc/struct_offsets.inc"
+%include "ugfx.inc"
 
 extern blend_over_premul
 extern handle_resolve
 extern memcopy
+extern scale_bilinear_rect
+extern surface_logical_size
 
 section .text
 
@@ -144,6 +147,21 @@ sw_render_surface:
     xor ecx, 1
     mov [rsp + 8], rcx                  ; 1: no alpha, rows are copied
 
+    ; A buffer drawn at another scale is scaled to the surface's size
+    mov eax, [r12 + Surface.buffer_scale]
+    test eax, eax
+    jz .unscaled
+    cmp eax, 120
+    je .unscaled
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, r13
+    mov r8, rcx
+    mov rcx, r14
+    call render_scaled
+    jmp .done
+.unscaled:
+
     ; The surface's rectangle, clipped
     movsxd rax, dword [r12 + Surface.current + SurfaceState.buf_x]    ; surface x
     movsxd rdx, dword [r12 + Surface.current + SurfaceState.buf_y]    ; surface y
@@ -210,6 +228,116 @@ sw_render_surface:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
+; A surface whose buffer has another scale: the part inside the clip, each
+; row scaled into scale_row (bilinear, premultiplied as the pixels are) and
+; then blended, or copied with no alpha. Columns past SCALE_ROW_PX in one row
+; are not drawn.
+; rdi = frame_ctx, rsi = surface, rdx = clip rect, rcx = its Buffer*,
+; r8 = 1 with no alpha
+%define SCALE_ROW_PX    4096
+%define R_JOB           0
+%define R_NO_ALPHA      (UgfxScale_SIZE + 0)
+%define R_LEFT          (UgfxScale_SIZE + 8)
+%define R_TOP           (UgfxScale_SIZE + 12)
+%define R_WIDTH         (UgfxScale_SIZE + 16)
+%define R_ROWS          (UgfxScale_SIZE + 20)
+%define R_SX            (UgfxScale_SIZE + 24)
+%define R_SY            (UgfxScale_SIZE + 28)
+render_scaled:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, UgfxScale_SIZE + 40        ; the job, locals; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, rdx
+    mov r14, rcx
+    mov [rsp + R_NO_ALPHA], r8
+    mov rdi, r12                        ; its size on the screen
+    mov rsi, r14
+    call surface_logical_size
+    mov [rsp + R_JOB + UgfxScale_dst_w], eax
+    mov [rsp + R_JOB + UgfxScale_dst_h], edx
+    mov r8d, [r12 + Surface.current + SurfaceState.buf_x]
+    mov r9d, [r12 + Surface.current + SurfaceState.buf_y]
+    mov [rsp + R_SX], r8d
+    mov [rsp + R_SY], r9d
+    lea r10d, [r8 + rax]                ; right, bottom
+    lea r11d, [r9 + rdx]
+    mov eax, [r13]                      ; inside the clip
+    cmp r8d, eax
+    cmovl r8d, eax
+    mov eax, [r13 + 4]
+    cmp r9d, eax
+    cmovl r9d, eax
+    mov eax, [r13]
+    add eax, [r13 + 8]
+    cmp r10d, eax
+    cmovg r10d, eax
+    mov eax, [r13 + 4]
+    add eax, [r13 + 12]
+    cmp r11d, eax
+    cmovg r11d, eax
+    sub r10d, r8d
+    jle .done
+    sub r11d, r9d
+    jle .done
+    mov eax, SCALE_ROW_PX
+    cmp r10d, eax
+    cmovg r10d, eax
+    mov [rsp + R_LEFT], r8d
+    mov [rsp + R_TOP], r9d
+    mov [rsp + R_WIDTH], r10d
+    mov [rsp + R_ROWS], r11d
+    mov eax, r8d                        ; the job: one row at a time into
+    sub eax, [rsp + R_SX]               ; scale_row, its first column there
+    mov [rsp + R_JOB + UgfxScale_x], eax
+    mov [rsp + R_JOB + UgfxScale_w], r10d
+    mov dword [rsp + R_JOB + UgfxScale_h], 1
+    lea rcx, [rel scale_row]
+    cdqe
+    shl rax, 2
+    sub rcx, rax
+    mov [rsp + R_JOB + UgfxScale_dst], rcx
+    mov qword [rsp + R_JOB + UgfxScale_dst_stride], 0
+    mov rax, [r14 + Buffer.base]
+    mov [rsp + R_JOB + UgfxScale_src], rax
+    mov rax, [r14 + Buffer.stride]
+    mov [rsp + R_JOB + UgfxScale_src_stride], rax
+    mov eax, [r14 + Buffer.width]
+    mov [rsp + R_JOB + UgfxScale_src_w], eax
+    mov eax, [r14 + Buffer.height]
+    mov [rsp + R_JOB + UgfxScale_src_h], eax
+    mov r15d, [rsp + R_TOP]             ; the row
+.row:
+    mov eax, r15d
+    sub eax, [rsp + R_TOP]
+    cmp eax, [rsp + R_ROWS]
+    jge .done
+    mov eax, r15d
+    sub eax, [rsp + R_SY]
+    mov [rsp + R_JOB + UgfxScale_y], eax
+    lea rdi, [rsp + R_JOB]
+    call scale_bilinear_rect
+    movsxd rdi, r15d                    ; into the frame
+    imul rdi, [rbx + FrameCtx.stride]
+    movsxd rax, dword [rsp + R_LEFT]
+    lea rdi, [rdi + rax * 4]
+    add rdi, [rbx + FrameCtx.framebuffer]
+    lea rsi, [rel scale_row]
+    mov edx, [rsp + R_WIDTH]
+    cmp qword [rsp + R_NO_ALPHA], 0
+    jne .copy
+    call blend_over_premul
+    jmp .next
+.copy:
+    shl rdx, 2
+    call memcopy
+.next:
+    inc r15d
+    jmp .row
+.done:
+    add rsp, UgfxScale_SIZE + 40
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
 ; ---------------------------------------------------------------------------
 ; sw_render_rect
 ;   Fill a rectangle with a colour
@@ -260,6 +388,10 @@ global sw_render_flush
 sw_render_flush:
     xor eax, eax
     ret
+
+section .bss
+alignb 16
+scale_row:      resd SCALE_ROW_PX        ; render_scaled's one row
 
 section .data
 global sw_render_version
