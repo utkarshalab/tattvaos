@@ -89,6 +89,9 @@ extern clipboard_offer
 extern clipboard_receive
 extern clipboard_send_held
 extern dnd_start
+extern output_announce
+extern output_list
+extern output_withdraw
 extern timeline_create
 extern timeline_destroy
 extern timeline_get_point
@@ -298,6 +301,9 @@ server_place_output:
     mov rdi, [r12 + Output.damage]
     mov rsi, rsp
     call region_add_rect
+    mov rdi, rbx                        ; clients watching hear of it
+    mov rsi, r12
+    call output_announce
     mov rax, r12
     add rsp, 16
     EPILOGUE_RESTORE rbx, r12
@@ -362,6 +368,9 @@ server_remove_output:
     call first_own_output
     mov rdx, rax
     call window_output_gone
+    mov rdi, rbx                        ; clients watching hear it went
+    mov rsi, r12
+    call output_withdraw
     mov rdi, rbx
     call input_keep_pointer
     mov rdi, rbx
@@ -435,6 +444,9 @@ server_mirror_output:
     mov rsi, r12
     mov rdx, r13
     call window_output_gone
+    mov rdi, rbx                        ; no part of the layout now
+    mov rsi, r12
+    call output_withdraw
     mov [r12 + Output.mirror_of], r13
     mov rax, [r13 + Output.x]
     mov [r12 + Output.x], rax
@@ -451,6 +463,9 @@ server_mirror_output:
     movsxd rdx, edx
     mov [r12 + Output.y], rdx
     mov qword [r12 + Output.mirror_of], 0
+    mov rdi, rbx                        ; part of the layout again
+    mov rsi, r12
+    call output_announce
 .redraw:
     mov rdi, rbx
     call input_keep_pointer
@@ -925,6 +940,14 @@ HANDLER h_clipboard_data, 12
     mov rdx, r13
     mov ecx, [r12 + MsgHdr.len]
     call clipboard_data
+HANDLER_END
+
+; cw_output.list(): every output, then done; told of changes from now
+HANDLER h_output_list, 0
+    NEEDS_CAP CAP_OUTPUT
+    mov rdi, r14
+    mov rsi, rbx
+    call output_list
 HANDLER_END
 
 ; cw_dnd.start(surface, count, types: 4 x 32 bytes)
