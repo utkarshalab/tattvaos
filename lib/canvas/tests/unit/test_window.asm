@@ -41,8 +41,7 @@ extern scale_fractional_compute
 extern scale_fractional_calculate_dest
 extern scale_fractional_render
 extern displays_step
-extern host_display_report
-extern host_fb1
+extern displays_event
 extern compositor_output_at
 extern compositor_damage_all
 
@@ -2339,11 +2338,15 @@ output_count:
 .out:
     ret
 
-; edi = type, esi = framebuffer index: reported, then acted on
+; type, framebuffer index: reported as the kernel would, then acted on.
+; Through displays_event itself, so the test names nothing only the host
+; stand-ins have and links into the test image too.
 %macro DISPLAY 2
-    mov edi, %1
-    mov esi, %2
-    call host_display_report
+    mov dword [rel display_record], %1
+    mov dword [rel display_record + 4], %2
+    lea rdi, [rel display_record]
+    lea rsi, [rel server]
+    call displays_event
     lea rdi, [rel server]
     call displays_step
 %endmacro
@@ -2387,18 +2390,22 @@ tw_displays:
     jne .fail
     cmp dword [rax + Output.fb_index], 1
     jne .fail
-    lea rcx, [rel host_fb1]
-    cmp [rax + Output.scanout], rcx
-    jne .fail
+    cmp qword [rax + Output.scanout_pitch], 40 * 4
+    jne .fail                           ; the host's framebuffer 1
+    mov rcx, [rax + Output.scanout]
+    test rcx, rcx
+    jz .fail
+    mov [rel fb1], rcx
     call poll                           ; drawn, and shown there
     mov eax, [rel fb0]                  ; the background, as on the first
     test eax, eax
     jz .fail
-    cmp [rel host_fb1], eax
+    mov rcx, [rel fb1]
+    cmp [rcx], eax
     jne .fail
-    cmp [rel host_fb1 + (23 * 40 + 31) * 4], eax
+    cmp [rcx + (23 * 40 + 31) * 4], eax
     jne .fail
-    cmp dword [rel host_fb1 + 32 * 4], 0
+    cmp dword [rcx + 32 * 4], 0
     jne .fail                           ; past its row: untouched
 
     DISPLAY 1, 1                        ; again: shown already
@@ -2511,6 +2518,8 @@ server:         resb Server_size
 scale_dst:      resd 16                 ; 4 x 4
 fb0:            resd 64 * 48            ; tw_displays' boot framebuffer
 fb0_conf:       resb Config_size
+fb1:            resq 1                  ; framebuffer 1's display memory
+display_record: resd 2                  ; type, index
 fr_ctx:         resb FrameCtx_size
 scaled_size:    resd 2
 scale_job:      resb UgfxScale_SIZE
