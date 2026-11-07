@@ -17,6 +17,7 @@
 %include "inc/backend.inc"
 
 extern handle_resolve
+extern output_announce
 extern sw_scale_bilinear
 extern sw_scale_nearest
 
@@ -61,7 +62,18 @@ scale_fractional_compute:
     xor rdx, rdx
     div r13
 
-    mov [rdi + Output.scale], rax
+    mov [rbx + Output.scale], rax
+    mov rdi, [rbx + Output.backend]     ; clients watching hear the scale
+    test rdi, rdi
+    jz .told
+    mov rdi, [rdi + Backend.server]
+    test rdi, rdi
+    jz .told
+    mov rsi, rbx
+    sub rsp, 8                          ; 16-byte aligned for the call
+    call output_announce
+    add rsp, 8
+.told:
     xor rax, rax
     EPILOGUE_RESTORE rbx, r12, r13
     ret
