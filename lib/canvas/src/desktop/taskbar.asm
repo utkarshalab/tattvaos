@@ -17,7 +17,8 @@
 ; output); canvasd's loop calls taskbar_step_all after each server_poll,
 ; which also starts one on an output added since, once it is tall enough,
 ; and stops the one of an output taken away or made a mirror; a mirror has
-; none.
+; none. A stopped taskbar's record waits on Server.spare_taskbars for the
+; next one started, so outputs coming and going do not use up the arena.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -136,6 +137,9 @@ taskbar_step_all:
     call client_disconnect
     mov rdi, [rbx + Taskbar.conn]
     call canvas_disconnect
+    mov rax, [r12 + Server.spare_taskbars]  ; its record kept for the next
+    mov [rbx + Taskbar.next], rax
+    mov [r12 + Server.spare_taskbars], rbx
     jmp .check
 .checked:
     mov rbx, [r12 + Server.taskbar]
@@ -207,9 +211,17 @@ taskbar_start:
     push rax
     push rax                            ; 16-byte aligned
 
+    mov rax, [r12 + Server.spare_taskbars]  ; a stopped one's record, else
+    test rax, rax                           ; a new one
+    jz .new
+    mov rcx, [rax + Taskbar.next]
+    mov [r12 + Server.spare_taskbars], rcx
+    jmp .have
+.new:
     mov rdi, r13
     mov esi, Taskbar_size
     call arena_alloc
+.have:
     pop rcx
     pop rcx                             ; the output
     test rax, rax
