@@ -30,6 +30,7 @@ def fn(n, res, *args):
 
 
 acpi_kernel_init = fn("acpi_kernel_init", None)
+events_service = fn("acpi_events_service", C.c_int32)
 aml_eval_path = fn("aml_eval_path", C.c_int32, C.c_char_p, C.c_void_p, C.c_uint32, C.POINTER(Value))
 u32 = lambda n: C.c_uint32.in_dll(lib, n)  # noqa: E731
 u64 = lambda n: C.c_uint64.in_dll(lib, n)  # noqa: E731
@@ -126,7 +127,7 @@ dsdt = header("DSDT", b"".join([
     Scope(SB,
           Device("TPD0", Name("_HID", Int(EISA_PNP0C50))),
           Device("LID0", Name("_HID", Int(EISA_PNP0C0D)),
-                 Method("_INI", 0, Notify(N(SB + ".LID0"), Int(0x80)), Sleep(Int(5))))),
+                 Method("_INI", 0, Notify(N(SB + ".TPD0"), Int(0x80)), Sleep(Int(5))))),
     OpRegion("MMIO", 0, MMIO, 16), Field("MMIO", DWORD, F("REG0", 32), F("REG1", 32)),
     OpRegion("RAM0", 0, RAM, 16), Field("RAM0", DWORD, F("RAMF", 32)),
     OpRegion("KERN", 0, kernel_image, 16), Field("KERN", BYTE, F("KRNF", 8)),
@@ -146,7 +147,8 @@ check("SSDT loaded", ("ACPI: SSDT %d bytes loaded" % len(ssdt)) in log, True)
 check("SSDT method", ev("FROM"), 77)
 check("summary", "ACPI: devices 2, _INI run 1, failures 0" in log, True)
 check("present devices", "ACPI: present: PNP0C50 PNP0C0D \r\n" in log, True)
-check("Notify printed", "ACPI: Notify LID0 value 0000000000000080" in log, True)
+events_service()
+check("Notify queued, then printed by the service", "ACPI: Notify TPD0 value 0000000000000080" in output(), True)
 check("Sleep reaches udelay", delays.value, 5001)
 check("memory region read", ev("REG0"), 0x12345678)
 check("memory region write", (ev("WR1"), struct.unpack_from("<I", mmio.raw, 4)[0]), (0xCAFE, 0xCAFE))
