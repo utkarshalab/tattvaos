@@ -8,6 +8,10 @@
 ;   ubt_hci_event(adapter, event, length)
 ;       an event from the transport: credits, the command waited for,
 ;       hardware errors; anything else to adapter.event_fn
+;   ubt_hci_async(adapter, opcode, params, length)
+;       a command sent without waiting (queued while the controller has no
+;       credit, a command is waited for, or an event is being handled);
+;       its answer comes as an event. ubt_hci_drain sends what is queued
 ;   ubt_hci_init(adapter)
 ;       reset, version, supported commands, features, buffer sizes,
 ;       address, event masks, then LE's buffer size and event mask when the
@@ -61,7 +65,7 @@ ubt_hci_cmd:
     mov rdi, rbx
     mov rsi, rsp
     lea edx, [r12d + 3]
-    call ubt_tr_send_cmd
+    call [rbx + ubt_adapter.tr_cmd]
     test eax, eax
     js .failed
     mov r13d, UBT_CMD_TIMEOUT_US / 50
@@ -69,7 +73,7 @@ ubt_hci_cmd:
     cmp dword [rbx + ubt_adapter.wait_done], 0
     jne .done
     mov rdi, rbx
-    call ubt_tr_poll
+    call [rbx + ubt_adapter.tr_poll]
     cmp dword [rbx + ubt_adapter.wait_done], 0
     jne .done
     dec r13d
@@ -87,6 +91,12 @@ ubt_hci_cmd:
     mov eax, -UBT_EIO
 .out:
     mov dword [rbx + ubt_adapter.wait_op], 0
+    push rax
+    sub rsp, 8
+    mov rdi, rbx
+    call ubt_hci_drain                  ; what queued up behind it
+    add rsp, 8
+    pop rax
     add rsp, 272
     pop r13
     pop r12
@@ -175,6 +185,13 @@ ubt_hci_event:
     jmp .out
 
 .upward:
+    ; the links' events, then whoever else wants them
+    inc dword [rbx + ubt_adapter.in_event]
+    mov rdi, rbx
+    mov rsi, r12
+    mov edx, r13d
+    call ubt_conn_event
+    dec dword [rbx + ubt_adapter.in_event]
     mov rax, [rbx + ubt_adapter.event_fn]
     test rax, rax
     jz .out
@@ -295,12 +312,90 @@ ubt_hci_init:
 .up:
     mov dword [rbx + ubt_adapter.state], UBT_UP
     mov dword [rbx + ubt_adapter.failed_op], 0
+    ; the controller's buffers, all free
+    movzx eax, word [rbx + ubt_adapter.acl_count]
+    mov [rbx + ubt_adapter.acl_free], eax
+    movzx eax, byte [rbx + ubt_adapter.le_count]
+    mov [rbx + ubt_adapter.le_free], eax
+    cmp dword [rbx + ubt_adapter.rtx_ms], 0
+    jne .rtx
+    mov dword [rbx + ubt_adapter.rtx_ms], 10000     ; within the spec's 1-60 s
+.rtx:
     xor eax, eax
     pop rbx
     ret
 .failed:
     mov dword [rbx + ubt_adapter.state], UBT_FAILED
     mov eax, 1
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; ubt_hci_async — RDI = adapter, ESI = opcode, RDX = parameters, ECX = length
+; Output: EAX = 0 (sent or queued), -UBT_EBUSY (queue full), -UBT_EIO (too
+;         long)
+; -----------------------------------------------------------------------------
+global ubt_hci_async
+ubt_hci_async:
+    push rbx
+    mov rbx, rdi
+    mov eax, -UBT_EIO
+    cmp ecx, UBT_CMDQ_SIZE - 3
+    ja .out
+    mov eax, [rbx + ubt_adapter.cmdq_tail]
+    mov r8d, eax
+    sub r8d, [rbx + ubt_adapter.cmdq_head]
+    cmp r8d, UBT_CMDQ
+    jb .room
+    mov eax, -UBT_EBUSY
+    jmp .out
+.room:
+    and eax, UBT_CMDQ - 1
+    imul eax, eax, UBT_CMDQ_SIZE
+    lea rdi, [rbx + ubt_adapter.cmdq + rax]
+    mov [rdi], si
+    mov [rdi + 2], cl
+    add rdi, 3
+    mov rsi, rdx
+    rep movsb
+    inc dword [rbx + ubt_adapter.cmdq_tail]
+    mov rdi, rbx
+    call ubt_hci_drain
+    xor eax, eax
+.out:
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; ubt_hci_drain — RDI = adapter: queued commands out while the controller
+;                 takes them (not while one is waited for or an event is
+;                 being handled: the transport may wait on the controller)
+; -----------------------------------------------------------------------------
+global ubt_hci_drain
+ubt_hci_drain:
+    push rbx
+    mov rbx, rdi
+.next:
+    cmp dword [rbx + ubt_adapter.in_event], 0
+    jne .out
+    cmp dword [rbx + ubt_adapter.wait_op], 0
+    jne .out
+    cmp dword [rbx + ubt_adapter.credits], 0
+    jle .out
+    mov eax, [rbx + ubt_adapter.cmdq_head]
+    cmp eax, [rbx + ubt_adapter.cmdq_tail]
+    je .out
+    and eax, UBT_CMDQ - 1
+    imul eax, eax, UBT_CMDQ_SIZE
+    lea rsi, [rbx + ubt_adapter.cmdq + rax]
+    movzx edx, byte [rsi + 2]
+    add edx, 3
+    inc dword [rbx + ubt_adapter.cmdq_head]
+    dec dword [rbx + ubt_adapter.credits]
+    mov rdi, rbx
+    call [rbx + ubt_adapter.tr_cmd]
+    jmp .next
+.out:
     pop rbx
     ret
 
