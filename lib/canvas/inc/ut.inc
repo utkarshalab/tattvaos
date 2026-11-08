@@ -107,6 +107,7 @@
 %define SYS_POWER_INHIBIT   0xB2    ; inhibit suspend
 %define SYS_POWER_UNINHIBIT 0xB3    ; release inhibit
 %define SYS_POWER_BATTERY   0xB4    ; get battery status
+%define SYS_POWER_SUSPEND   0xB5    ; suspend now, returns after resume
 
 ; Network / TLS
 %define SYS_TLS_LISTEN      0xC0    ; listen TLS
@@ -370,6 +371,7 @@ extern ut_power_unregister_callback
 extern ut_power_inhibit_suspend
 extern ut_power_uninhibit_suspend
 extern ut_power_battery_status
+extern ut_power_suspend
 
 ; Network/TLS
 extern ut_tls_listen
