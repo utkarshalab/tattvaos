@@ -23,6 +23,7 @@
 %include "lib/input/hid/parse.asm"
 %include "lib/input/hid/boot.asm"
 %include "lib/input/hid/media.asm"
+%include "lib/input/hid/report.asm"
 %include "lib/input/i2c_hid/i2c_hid.asm"
 
 %endif ; LIB_INPUT_INPUT_ASM
