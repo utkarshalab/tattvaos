@@ -477,16 +477,26 @@ taskbar_step:
 ; Local
 ; ---------------------------------------------------------------------------
 
-; The bar, the blocks of the workspace shown, the workspace squares.
+; The bar, the blocks of the workspace shown, the workspace squares. In
+; high contrast (A11Y-07) the bar is black, a block white with a black
+; title, the active one yellow, a minimized one a white outline with a white
+; title; the shown square yellow, the others outlines.
 ; rdi = taskbar
 draw:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
+    mov rax, [rbx + Taskbar.server]
+    mov rax, [rax + Server.high_contrast]
+    mov [rel hc], eax
     xor esi, esi
     xor edx, edx
     mov ecx, [rbx + Taskbar.width]
     mov r8d, TASKBAR_H
     mov r9d, TASKBAR_BG
+    test eax, eax
+    jz .bar
+    mov r9d, HC_BLACK
+.bar:
     call fill
 
     ; The squares, the shown one bright
@@ -498,6 +508,8 @@ draw:
     sub esi, SWITCHER_W
     imul eax, r12d, TASKBAR_WS_W + TASKBAR_GAP
     add esi, eax
+    cmp dword [rel hc], 0
+    jne .hc_square
     mov r9d, TASKBAR_DIM
     cmp r12d, [rbx + Taskbar.workspace]
     jne .square_color
@@ -508,6 +520,17 @@ draw:
     mov ecx, TASKBAR_WS_W
     mov r8d, TASKBAR_H - 2 * TASKBAR_PAD
     call fill
+    jmp .square_next
+.hc_square:
+    mov r9d, HC_YELLOW
+    cmp r12d, [rbx + Taskbar.workspace]
+    je .square_color
+    mov rdi, rbx
+    mov edx, TASKBAR_PAD
+    mov ecx, TASKBAR_WS_W
+    mov r8d, TASKBAR_H - 2 * TASKBAR_PAD
+    call outline
+.square_next:
     inc r12d
     jmp .square
 
@@ -534,10 +557,33 @@ draw:
     mov eax, r12d
     imul eax, eax, TaskbarEntry_size
     lea rax, [rbx + Taskbar.entries + rax]
+    cmp dword [rel hc], 0
+    jne .hc_block
+    mov dword [rel text_colour], TASKBAR_TEXT
     mov r9d, [rax + TaskbarEntry.color]
     test dword [rax + TaskbarEntry.states], STATE_MINIMIZED
     jz .colored
     mov r9d, TASKBAR_DIM
+    jmp .colored
+.hc_block:
+    test dword [rax + TaskbarEntry.states], STATE_MINIMIZED
+    jnz .hc_minimized
+    mov dword [rel text_colour], HC_TEXT_DARK
+    mov r9d, HC_WHITE
+    mov ecx, [rax + TaskbarEntry.id]
+    cmp ecx, [rbx + Taskbar.active]
+    jne .colored
+    mov r9d, HC_YELLOW
+    jmp .colored
+.hc_minimized:
+    mov dword [rel text_colour], HC_TEXT_LIGHT
+    mov rdi, rbx
+    mov esi, r13d
+    mov edx, TASKBAR_PAD
+    mov ecx, TASKBAR_ENTRY_W
+    mov r8d, TASKBAR_H - 2 * TASKBAR_PAD
+    call outline
+    jmp .titled
 .colored:
     mov rdi, rbx
     mov esi, r13d
@@ -545,10 +591,13 @@ draw:
     mov ecx, TASKBAR_ENTRY_W
     mov r8d, TASKBAR_H - 2 * TASKBAR_PAD
     call fill
+.titled:
     mov rdi, rbx
     mov esi, r13d
     mov edx, r12d
     call draw_title
+    cmp dword [rel hc], 0
+    jne .next                           ; the active one is yellow: no stripe
     mov eax, r12d
     imul eax, eax, TaskbarEntry_size
     mov eax, [rbx + Taskbar.entries + rax + TaskbarEntry.id]
@@ -599,7 +648,8 @@ draw_title:
     mov dword [rsp + UiText.height], TASKBAR_H - 2 * TASKBAR_PAD
     mov dword [rsp + UiText.clip_h], TASKBAR_H - 2 * TASKBAR_PAD
     mov dword [rsp + UiText.size], TASKBAR_TEXT_SIZE
-    mov dword [rsp + UiText.colour], TASKBAR_TEXT
+    mov eax, [rel text_colour]
+    mov [rsp + UiText.colour], eax
     mov rdi, rsp
     call ui_text_draw                   ; no font: a plain block
     add rsp, UiText_size
@@ -716,6 +766,35 @@ app_color:
     mov eax, [rdx + rax * 4]
     ret
 
+; A white edge round black, two pixels wide (high contrast).
+; rdi = taskbar, esi = x, edx = y, ecx = width, r8d = height
+outline:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15                            ; 16-byte aligned
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13d, edx
+    mov r14d, ecx
+    mov r15d, r8d
+    mov r9d, HC_WHITE
+    call fill
+    mov rdi, rbx
+    lea esi, [r12 + HC_EDGE]
+    lea edx, [r13 + HC_EDGE]
+    lea ecx, [r14 - 2 * HC_EDGE]
+    lea r8d, [r15 - 2 * HC_EDGE]
+    mov r9d, HC_BLACK
+    call fill
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 ; rdi = taskbar, esi = x, edx = y, ecx = width, r8d = height, r9d = colour
 fill:
     mov eax, r9d
@@ -735,6 +814,10 @@ fill:
     dec r8d
     jnz .row
     ret
+
+section .bss
+hc:             resd 1                  ; 1: drawing in high contrast
+text_colour:    resd 1                  ; a block's title, as drawn now
 
 section .rodata
 palette:        dd 0xFF4C78A8, 0xFFF58518, 0xFF54A24B, 0xFFE45756
