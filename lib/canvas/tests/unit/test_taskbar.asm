@@ -33,6 +33,7 @@ extern server_add_output
 extern server_remove_output
 extern server_mirror_output
 extern virtual_input_inject
+extern server_set_high_contrast
 
 %define HEAP_SIZE   (8 * 1024 * 1024)
 %define WIDTH       400
@@ -62,6 +63,7 @@ test_taskbar_suite:
     CASE tb_second_output
     CASE tb_remove_output
     CASE tb_mirror
+    CASE tb_contrast
     mov eax, ebx
     pop rbx
     ret
@@ -730,6 +732,36 @@ tb_titlebar_title:
     pop r12
     pop rbx
     ret
+
+; High contrast: the bar black, the active block yellow, another white, a
+; minimized one a white outline; the shown square yellow, another an
+; outline; off, as it was
+tb_contrast:
+    sub rsp, 8
+    call new_window
+    mov [rel surface_a], eax
+    call new_window
+    mov [rel surface_b], eax
+    lea rdi, [rel server]
+    mov esi, 1
+    call server_set_high_contrast
+    call poll
+    PIXEL BLOCK_X(2) + 5, TASKBAR_PAD + 10, HC_BLACK
+    PIXEL BLOCK_X(1) + 5, TASKBAR_PAD + 10, HC_YELLOW
+    PIXEL BLOCK_X(0) + 5, TASKBAR_PAD + 10, HC_WHITE
+    PIXEL SQUARE_X(0) + 5, TASKBAR_PAD + 10, HC_YELLOW
+    PIXEL SQUARE_X(1), TASKBAR_PAD, HC_WHITE
+    PIXEL SQUARE_X(1) + 5, TASKBAR_PAD + 10, HC_BLACK
+    CLICK BLOCK_X(1) + 10, BAR_Y + 16   ; the active one minimized
+    PIXEL BLOCK_X(1), TASKBAR_PAD, HC_WHITE
+    PIXEL BLOCK_X(1) + 5, TASKBAR_PAD + 10, HC_BLACK
+    lea rdi, [rel server]
+    xor esi, esi
+    call server_set_high_contrast
+    call poll
+    PIXEL BLOCK_X(2) + 5, TASKBAR_PAD + 10, TASKBAR_BG
+    PIXEL BLOCK_X(1) + 5, TASKBAR_PAD + 10, TASKBAR_DIM
+    PASS
 
 section .bss
 alignb 16
