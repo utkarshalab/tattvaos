@@ -122,9 +122,15 @@ ubt_sec_tick:
     call ubt_now
     test rax, rax
     jz .out
+    push rax
+    sub rsp, 8
     mov rdi, rbx
     mov rsi, rax
     call ubt_smp_tick
+    mov rsi, [rsp + 8]
+    mov rdi, rbx
+    call ubt_att_tick
+    add rsp, 16
 .out:
     pop rbx
     ret
@@ -137,6 +143,8 @@ ubt_layers_free:
     call ubt_smp_free
     mov rdi, rbx
     call ubt_br_free
+    mov rdi, rbx
+    call ubt_att_free
     pop rbx
     ret
 
