@@ -81,7 +81,7 @@ displays_event:
 global displays_step
 displays_step:
     PROLOGUE_SAVE rbx, r12, r13
-    sub rsp, FB_INFO_BYTES + 8          ; what ut_fb_info fills; aligned
+    sub rsp, FB_INFO_BYTES              ; what ut_fb_info fills; aligned
     mov rbx, rdi
 .next:
     mov eax, [rel ring_head]
@@ -128,6 +128,7 @@ displays_step:
     mov rsi, [rsi + Output.next]
     jmp .shown
 .ask:
+    mov dword [rsp + FB_INFO_FLAGS], 0  ; for a kernel that does not say
     mov rdi, rsp
     mov esi, r13d
     call ut_fb_info
@@ -145,7 +146,7 @@ displays_step:
     jmp .next
 .done:
     xor eax, eax
-    add rsp, FB_INFO_BYTES + 8
+    add rsp, FB_INFO_BYTES
     EPILOGUE_RESTORE rbx, r12, r13
 
 section .bss
