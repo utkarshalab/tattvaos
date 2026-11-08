@@ -23,6 +23,7 @@
 %include "inc/channel.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/taskbar.inc"
 
 extern arena_alloc
 extern buffer_create
@@ -98,6 +99,7 @@ extern output_list
 extern seat_watch
 extern clamshell_update
 extern greeter_lock
+extern greeter_restyle
 extern output_withdraw
 extern timeline_create
 extern timeline_destroy
@@ -506,24 +508,45 @@ server_mirror_output:
 
 ; ---------------------------------------------------------------------------
 ; server_set_high_contrast
-;   What the server draws itself (the background, title bars, Alt+Tab) in
-;   high contrast (1) or its usual colours (0), every output redrawn
+;   What the server draws itself (the background, title bars, Alt+Tab, the
+;   taskbars, the login screen) in high contrast (1) or its usual colours
+;   (0), every output redrawn
 ;   IN:  rdi = server*, esi = 1 on, 0 off
 ;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global server_set_high_contrast
 server_set_high_contrast:
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
     and esi, 1
-    mov [rdi + Server.high_contrast], rsi
-    mov rax, [rdi + Server.compositor]
+    mov [rbx + Server.high_contrast], rsi
+    mov rax, [rbx + Server.compositor]
     test rax, rax
-    jz .redraw
+    jz .clients
     mov dword [rax + Compositor.bg_color], HC_BACKGROUND
     test esi, esi
-    jnz .redraw
+    jnz .clients
     mov dword [rax + Compositor.bg_color], COMPOSITOR_BG
+.clients:
+    mov rax, [rbx + Server.taskbar]     ; each taskbar drawn again next step
+.taskbar:
+    test rax, rax
+    jz .greeter
+    mov dword [rax + Taskbar.dirty], 1
+    mov rax, [rax + Taskbar.next]
+    jmp .taskbar
+.greeter:
+    mov rdi, [rbx + Server.greeter]     ; the login screen now, if it is up
+    test rdi, rdi
+    jz .redraw
+    call greeter_restyle
 .redraw:
-    jmp compositor_damage_all
+    mov rdi, rbx
+    call compositor_damage_all
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
 
 ; ---------------------------------------------------------------------------
 ; server_poll
