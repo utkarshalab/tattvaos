@@ -23,6 +23,8 @@
 
 ; the core over them
 %include "lib/usb/core/enum.asm"
+%include "lib/usb/core/match.asm"
+%include "lib/usb/core/conf.asm"
 
 ; class drivers
 %include "lib/usb/class/hub/hub.asm"
