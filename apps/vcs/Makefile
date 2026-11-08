@@ -162,7 +162,11 @@ $(BUILD)/tree.so: $(BUILD)/tree.o $(BUILD)/pack.o $(BUILD)/sha256.o $(BUILD)/tre
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/tree_probe.o: tests/unit/tree_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
-test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/upload_request.so $(BUILD)/upload_protocol.so $(BUILD)/upload_server.so $(BUILD)/bridge_codec.so $(BUILD)/upload_pack.so $(BUILD)/pack.so $(BUILD)/commit.so $(BUILD)/tree.so $(BUILD)/repository.so
+$(BUILD)/history_plan.so: $(BUILD)/history_plan.o $(BUILD)/history_plan_probe.o
+	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
+$(BUILD)/history_plan_probe.o: tests/unit/history_plan_probe.asm | $(BUILD)
+	$(NASM) -w+error -f elf64 $< -o $@
+test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/upload_request.so $(BUILD)/upload_protocol.so $(BUILD)/upload_server.so $(BUILD)/bridge_codec.so $(BUILD)/upload_pack.so $(BUILD)/pack.so $(BUILD)/commit.so $(BUILD)/tree.so $(BUILD)/history_plan.so $(BUILD)/repository.so
 	sh scripts/test-cli.sh
 	python3 tests/unit/test_diff.py $(BUILD)/diff.so
 	python3 tests/unit/test_protocol.py $(BUILD)/protocol.so
@@ -182,5 +186,6 @@ test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/c
 	python3 tests/unit/test_pack.py $(BUILD)/pack.so
 	python3 tests/unit/test_commit.py $(BUILD)/commit.so
 	python3 tests/unit/test_tree.py $(BUILD)/tree.so
+	python3 tests/unit/test_history_plan.py $(BUILD)/history_plan.so
 	python3 tests/unit/test_repository.py $(BUILD)/repository.so
 	python3 tests/unit/test_history.py $(BUILD)/repository.so
