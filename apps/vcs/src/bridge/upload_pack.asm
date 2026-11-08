@@ -87,7 +87,8 @@ git_snapshot_pack:
 .initialize_indices:
  cmp rbx,r15
  jae .hash_blobs
- mov byte [up_indices+rbx],bl
+ lea rax,[up_indices]
+ mov byte [rax+rbx],bl
  inc rbx
  jmp .initialize_indices
 .hash_blobs:
@@ -120,7 +121,8 @@ git_snapshot_pack:
  jne .corrupt
  mov rax,rbx
  imul rax,GIT_HASH_SIZE
- lea r8,[up_blob_hashes+rax]
+ lea r8,[up_blob_hashes]
+ add r8,rax
  lea rdi,[blob_type]
  mov esi,4
  lea rcx,[rax+UV_DATA]
@@ -211,24 +213,28 @@ git_snapshot_pack:
 .sort_outer:
  cmp rbx,r15
  jae .build_tree
- mov al,[up_indices+rbx]
+ lea rdx,[up_indices]
+ mov al,[rdx+rbx]
  mov [up_sort_key],al
  mov r13,rbx
 .sort_inner:
  test r13,r13
  jz .sort_place
- movzx edi,byte [up_indices+r13-1]
+ lea rdx,[up_indices]
+ movzx edi,byte [rdx+r13-1]
  movzx esi,byte [up_sort_key]
  call compare_paths
  cmp eax,0
  jle .sort_place
- mov al,[up_indices+r13-1]
- mov [up_indices+r13],al
+ lea rdx,[up_indices]
+ mov al,[rdx+r13-1]
+ mov [rdx+r13],al
  dec r13
  jmp .sort_inner
 .sort_place:
  mov al,[up_sort_key]
- mov [up_indices+r13],al
+ lea rdx,[up_indices]
+ mov [rdx+r13],al
  inc rbx
  jmp .sort_outer
 .build_tree:
@@ -240,7 +246,8 @@ git_snapshot_pack:
  lea rsi,[mode]
  mov ecx,mode_len
  rep movsb
- movzx eax,byte [up_indices+rbx]
+ lea rdx,[up_indices]
+ movzx eax,byte [rdx+rbx]
  mov rdx,rax
  shl rax,8
  add rax,rbp
@@ -252,7 +259,8 @@ git_snapshot_pack:
  test al,al
  jnz .tree_path
  imul rdx,GIT_HASH_SIZE
- lea rsi,[up_blob_hashes+rdx]
+ lea rsi,[up_blob_hashes]
+ add rsi,rdx
  mov ecx,GIT_HASH_SIZE
  rep movsb
  inc rbx
