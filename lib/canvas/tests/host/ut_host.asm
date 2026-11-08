@@ -435,6 +435,12 @@ HOST_NONE ut_timer_register
 HOST_NONE ut_timer_cancel
 HOST_NONE ut_time_sleep_ns
 
+; ut_power_suspend for host tests: back at once
+global ut_power_suspend
+ut_power_suspend:
+    xor eax, eax
+    ret
+
 ; ---------------------------------------------------------------------------
 ; ut_time_now_ns
 ;   OUT: rax = monotonic nanoseconds
