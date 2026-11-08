@@ -48,6 +48,7 @@
 %define CWP_OBJ_INPUT_METHOD      22
 %define CWP_OBJ_TEXT_INPUT        23
 %define CWP_OBJ_ACCESSIBILITY     24
+%define CWP_OBJ_GESTURE           25    ; proto/canvas-input.cwp
 %define CWP_OBJ_TOPLEVEL          26    ; proto/canvas-shell.cwp
 %define CWP_OBJ_POPUP             27
 %define CWP_OBJ_LAYER             28
