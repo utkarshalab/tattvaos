@@ -27,6 +27,7 @@ extern fence_destroy_client
 extern timeline_destroy_client
 extern clipboard_client_gone
 extern output_client_gone
+extern seat_client_gone
 extern buffer_destroy_client
 
 %define CLIENT_CONNECTING   1
@@ -277,6 +278,9 @@ client_disconnect:
     mov rdi, rbx
     mov rsi, r13
     call output_client_gone
+    mov rdi, rbx
+    mov rsi, r13
+    call seat_client_gone
     mov rdi, rbx
     mov rsi, r13
     call surface_destroy_client
