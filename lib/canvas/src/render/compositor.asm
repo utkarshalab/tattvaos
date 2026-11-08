@@ -41,6 +41,7 @@
 %include "inc/struct_offsets.inc"
 %include "ugfx.inc"
 
+extern output_present
 extern arena_alloc
 extern frame_clock_schedule
 extern handle_resolve
@@ -779,16 +780,10 @@ compositor_composite_output:
     mov rsi, r12
     call magnify_output
 
-    ; A backend with real display memory takes the damage now
-    mov rdi, [r12 + Output.backend]
-    mov rax, [rdi + Backend.flip]
-    test rax, rax
-    jz .presented
-    mov rsi, r12
-    mov rdx, r13
-    xor ecx, ecx
-    call rax
-.presented:
+    ; To its pixels (scaled, at a scale) and the backend's display memory
+    mov rdi, r12
+    mov rsi, r13
+    call output_present
     mov rdi, rbx                        ; its mirrors, from what was drawn
     mov rsi, r12
     mov rdx, r13
@@ -986,15 +981,9 @@ mirror_copy:                            ; x, y, w, h in the mirror
     inc r15
     jmp .rect
 .show:
-    mov rdi, [r14 + Output.backend]     ; a backend with display memory
-    mov rax, [rdi + Backend.flip]       ; takes it
-    test rax, rax
-    jz .shown
-    mov rsi, r14
-    mov rdx, [r14 + Output.damage]
-    xor ecx, ecx
-    call rax
-.shown:
+    mov rdi, r14                        ; to its pixels and display memory
+    mov rsi, [r14 + Output.damage]
+    call output_present
     mov rdi, [r14 + Output.damage]
     call region_clear
 .next_output:
