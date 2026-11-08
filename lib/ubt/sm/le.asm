@@ -73,6 +73,8 @@
 %define SMP_NC              1           ; numeric comparison
 %define SMP_PK_SHOW         2           ; passkey: we show it
 %define SMP_PK_ENTER        3           ; passkey: the user types it here
+%define SMP_OOB             5           ; out of band (never a table value)
+%define SMP_OOB_PEERS       4
 
 ; where pairing is: what comes next from the peer
 %define ST_RSP              1
@@ -120,6 +122,9 @@ struc ubt_smp
     .priv:          resb 32         ; our private key, big-endian
     .lpub:          resb 64         ; public keys, on-air order
     .rpub:          resb 64
+    .ra:            resb 16         ; OOB: the initiator's r as the responder
+    .rb:            resb 16         ; knows it, the responder's (most
+                                    ; significant first; 0 when not had)
     .key:           resb ubt_key_size   ; what pairing gathers, saved at the end
 endstruc
 
@@ -143,7 +148,19 @@ global ubt_local_csrk
 ubt_local_csrk:     resb 16
 ubt_local_keys:     resd 1          ; 1: they are made
 global ubt_smp_debug
-ubt_smp_debug:      resd 1          ; tests: the last DHKey and LTK seen (no use else)
+ubt_smp_debug:      resd 1          ; (unused)
+; out-of-band data: ours (a key pair kept for it, r), and peers' (r and
+; commitment for SC, or a legacy TK)
+alignb 8
+global ubt_oob_valid
+ubt_oob_valid:      resd 1
+ubt_oob_pad:        resd 1
+ubt_oob_priv:       resb 32
+ubt_oob_pub:        resb 64         ; on-air order
+ubt_oob_r:          resb 16         ; on-air order
+; each: used, address type, kind (1 SC, 2 legacy TK), address, then r (or
+; TK) and the commitment
+ubt_oob_peers:      resb SMP_OOB_PEERS * 48
 
 section .rodata
 global ubt_smp_layout
@@ -420,7 +437,9 @@ smp_agree:
 .initiator:
     mov [r12 + ubt_smp.dist_local], cl
     mov [r12 + ubt_smp.dist_peer], dl
-    ; the model
+    ; the model: out of band when the data is there, else from IO
+    call smp_oob_model
+    jnc .done
     call smp_choose
     mov [r12 + ubt_smp.model], al
     mov byte [r12 + ubt_smp.user_ok], 1
@@ -482,6 +501,116 @@ smp_agree:
     lea rsp, [rsp + 8]
     pop r14
     pop r13
+    ret
+
+; smp_oob_model — RBX = conn, R12 = state, after the Request and Response
+; → CF = 0 when out-of-band data decides it (model, keys, r values set),
+; CF = 1 to choose from the IO capabilities. SC: either side's flag;
+; legacy: both, with a TK held
+smp_oob_model:
+    push r13
+    sub rsp, 16
+    call smp_oob_entry
+    mov r13, rax                        ; the peer's data, or 0
+    movzx eax, byte [r12 + ubt_smp.preq + 2]
+    movzx ecx, byte [r12 + ubt_smp.pres + 2]
+    cmp byte [r12 + ubt_smp.sc], 0
+    je .legacy
+    or eax, ecx
+    jz .no
+    mov byte [r12 + ubt_smp.model], SMP_OOB
+    mov byte [r12 + ubt_smp.have_key], 1
+    mov byte [r12 + ubt_smp.user_ok], 1
+    ; ra (the initiator's r) when the responder has it, rb likewise
+    pxor xmm0, xmm0
+    movdqu [r12 + ubt_smp.ra], xmm0
+    movdqu [r12 + ubt_smp.rb], xmm0
+    cmp byte [r12 + ubt_smp.pres + 2], 0
+    je .rb
+    lea rdi, [r12 + ubt_smp.ra]
+    xor esi, esi                        ; the initiator's
+    call .r_of
+.rb:
+    cmp byte [r12 + ubt_smp.preq + 2], 0
+    je .yes
+    lea rdi, [r12 + ubt_smp.rb]
+    mov esi, 1                          ; the responder's
+    call .r_of
+    jmp .yes
+.legacy:
+    and eax, ecx
+    jz .no
+    test r13, r13
+    jz .no
+    cmp byte [r13 + 2], 2
+    jne .no
+    mov byte [r12 + ubt_smp.model], SMP_OOB
+    mov byte [r12 + ubt_smp.have_key], 1
+    mov byte [r12 + ubt_smp.user_ok], 1
+    lea rdi, [r12 + ubt_smp.tk]
+    lea rsi, [r13 + 16]
+    mov ecx, 16
+    call ubt_rev
+.yes:
+    add rsp, 16
+    pop r13
+    clc
+    ret
+.no:
+    add rsp, 16
+    pop r13
+    stc
+    ret
+; .r_of — RDI = out (most significant first), ESI = 0 the initiator's r, 1
+; the responder's: ours, or the peer's from its data (one call deep)
+.r_of:
+    movzx eax, byte [r12 + ubt_smp.role]
+    cmp eax, esi
+    jne .theirs
+    lea rsi, [rel ubt_oob_r]
+    mov ecx, 16
+    jmp ubt_rev
+.theirs:
+    test r13, r13
+    jz .zero
+    lea rsi, [r13 + 16]
+    mov ecx, 16
+    jmp ubt_rev
+.zero:
+    ret
+
+; smp_oob_commit — after the public keys: the peer's commitment checked
+; when we hold its data → CF = 1 when it does not match
+smp_oob_commit:
+    push r13
+    sub rsp, 16
+    call smp_oob_entry
+    test rax, rax
+    jz .ok
+    cmp byte [rax + 2], 1
+    jne .ok
+    mov r13, rax
+    lea rdi, [r12 + ubt_smp.rpub]
+    lea rsi, [r12 + ubt_smp.rpub]
+    lea rdx, [r13 + 16]
+    xor ecx, ecx
+    mov r8, rsp
+    call smp_f4
+    movdqu xmm0, [rsp]
+    movdqu xmm1, [r13 + 32]
+    pcmpeqb xmm0, xmm1
+    pmovmskb eax, xmm0
+    cmp eax, 0xFFFF
+    jne .bad
+.ok:
+    add rsp, 16
+    pop r13
+    clc
+    ret
+.bad:
+    add rsp, 16
+    pop r13
+    stc
     ret
 
 ; smp_set_tk — the passkey as the TK (most significant first) → have_key
@@ -851,6 +980,17 @@ smp_check_value:
     ; r: the passkey for passkey entry, else 0
     pxor xmm0, xmm0
     movdqu [rsp + 32], xmm0
+    cmp byte [r12 + ubt_smp.model], SMP_OOB
+    jne .passkey_r
+    ; out of band: Ea uses rb, Eb uses ra
+    movdqu xmm0, [r12 + ubt_smp.rb]
+    test r13d, r13d
+    jz .oob_r
+    movdqu xmm0, [r12 + ubt_smp.ra]
+.oob_r:
+    movdqu [rsp + 32], xmm0
+    jmp .io
+.passkey_r:
     cmp byte [r12 + ubt_smp.model], SMP_PK_SHOW
     jb .io
     mov eax, [r12 + ubt_smp.passkey]
@@ -908,6 +1048,30 @@ smp_check_value:
 smp_keypair:
     push r13
     sub rsp, 64
+    cmp byte [r12 + ubt_smp.model], SMP_OOB
+    jne .fresh
+    cmp dword [rel ubt_oob_valid], 0
+    je .fresh
+    ; only when the peer holds our commitment (its flag is set)
+    movzx eax, byte [r12 + ubt_smp.pres + 2]
+    cmp byte [r12 + ubt_smp.role], 0
+    je .peer_flag
+    movzx eax, byte [r12 + ubt_smp.preq + 2]
+.peer_flag:
+    test eax, eax
+    jz .fresh
+    ; out of band: the pair our commitment was made with
+    lea rdi, [r12 + ubt_smp.priv]
+    lea rsi, [rel ubt_oob_priv]
+    mov ecx, 32
+    rep movsb
+    lea rdi, [r12 + ubt_smp.lpub]
+    lea rsi, [rel ubt_oob_pub]
+    mov ecx, 64
+    rep movsb
+    clc
+    jmp .out
+.fresh:
     mov r13d, 8                         ; tries for a key in range
 .try:
     lea rdi, [r12 + ubt_smp.priv]
@@ -1493,7 +1657,8 @@ ubt_smp_recv:
     mov rax, [rbx + ubt_conn.adapter]
     mov al, [rax + ubt_adapter.io_cap]
     mov [r12 + ubt_smp.pres + 1], al
-    mov byte [r12 + ubt_smp.pres + 2], 0
+    call smp_oob_flag
+    mov [r12 + ubt_smp.pres + 2], al
     call smp_our_auth
     mov [r12 + ubt_smp.pres + 3], al
     mov byte [r12 + ubt_smp.pres + 4], 16
@@ -1588,6 +1753,19 @@ ubt_smp_recv:
 .pub_dh:
     call smp_dhkey
     jc .dhkey_fail
+    cmp byte [r12 + ubt_smp.model], SMP_OOB
+    jne .pub_confirm
+    ; out of band: their commitment, then the nonces (no confirms)
+    call smp_oob_commit
+    jc .confirm_fail
+    call smp_nonce
+    jc .random_fail
+    mov byte [r12 + ubt_smp.state], ST_RANDOM
+    cmp byte [r12 + ubt_smp.role], 0
+    jne .out
+    call smp_send_random
+    jmp .out
+.pub_confirm:
     mov byte [r12 + ubt_smp.state], ST_CONFIRM
     cmp byte [r12 + ubt_smp.model], SMP_PK_SHOW
     jae .go                             ; passkey rounds
@@ -1655,6 +1833,12 @@ ubt_smp_recv:
     mov edi, SMP_E_CONFIRM
     jmp .fail
 .random_sc:
+    cmp byte [r12 + ubt_smp.model], SMP_OOB
+    jne .random_models
+    cmp byte [r12 + ubt_smp.role], 0
+    je .random_check                    ; the initiator: Nb in, on to checks
+    jmp .random_resp                    ; the responder: Nb back
+.random_models:
     cmp byte [r12 + ubt_smp.model], SMP_PK_SHOW
     jae .random_pk
     cmp byte [r12 + ubt_smp.role], 0
@@ -1807,6 +1991,168 @@ smp_handlers:
 section .text
 
 ; -----------------------------------------------------------------------------
+; ubt_smp_oob_local — RDI = out (32: r, then the commitment, on-air order)
+;   → EAX = 0, or -1 without randomness. A key pair is made and kept for
+;   pairings that use it: the commitment is f4(PKx, PKx, r, 0).
+; ubt_smp_oob_peer — RDI = address, ESI = type, RDX = their r, RCX = their
+;   commitment (on-air order) → EAX = 0, or -1 (no room)
+; ubt_smp_oob_tk — RDI = address, ESI = type, RDX = a legacy TK (16) → EAX
+; ubt_smp_oob_clear — every peer's data and ours forgotten
+; -----------------------------------------------------------------------------
+global ubt_smp_oob_local
+ubt_smp_oob_local:
+    push rbx
+    push r12
+    push r13
+    sub rsp, 80
+    mov rbx, rdi
+    mov r13d, 8
+.try:
+    lea rdi, [rel ubt_oob_priv]
+    mov esi, 32
+    call ubt_random
+    jc .fail
+    lea rdi, [rel ubt_oob_priv]
+    mov rsi, rsp
+    call ubt_p256_public
+    test eax, eax
+    jz .made
+    dec r13d
+    jnz .try
+    jmp .fail
+.made:
+    lea rdi, [rel ubt_oob_pub]
+    mov rsi, rsp
+    mov ecx, 32
+    call ubt_rev
+    lea rdi, [rel ubt_oob_pub + 32]
+    lea rsi, [rsp + 32]
+    mov ecx, 32
+    call ubt_rev
+    lea rdi, [rel ubt_oob_r]
+    mov esi, 16
+    call ubt_random
+    jc .fail
+    lea rdi, [rel ubt_oob_pub]
+    lea rsi, [rel ubt_oob_pub]
+    lea rdx, [rel ubt_oob_r]
+    xor ecx, ecx
+    lea r8, [rbx + 16]
+    call smp_f4
+    movdqu xmm0, [rel ubt_oob_r]
+    movdqu [rbx], xmm0
+    mov dword [rel ubt_oob_valid], 1
+    xor eax, eax
+    jmp .out
+.fail:
+    mov eax, -1
+.out:
+    add rsp, 80
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+global ubt_smp_oob_peer
+ubt_smp_oob_peer:
+    mov r8d, 1
+    jmp oob_store
+global ubt_smp_oob_tk
+ubt_smp_oob_tk:
+    mov r8d, 2
+    xor ecx, ecx
+oob_store:
+    ; the address's entry, or a free one
+    push rdx
+    push rcx
+    call oob_find
+    pop rcx
+    pop rdx
+    test rax, rax
+    jnz .fill
+    lea rax, [rel ubt_oob_peers]
+    xor r9d, r9d
+.free:
+    cmp r9d, SMP_OOB_PEERS
+    jae .full
+    cmp byte [rax], 0
+    je .fill
+    add rax, 48
+    inc r9d
+    jmp .free
+.fill:
+    mov byte [rax], 1
+    mov [rax + 1], sil
+    mov [rax + 2], r8b
+    mov r9d, [rdi]
+    mov [rax + 3], r9d
+    mov r9w, [rdi + 4]
+    mov [rax + 7], r9w
+    movdqu xmm0, [rdx]
+    movdqu [rax + 16], xmm0
+    pxor xmm0, xmm0
+    test rcx, rcx
+    jz .c
+    movdqu xmm0, [rcx]
+.c:
+    movdqu [rax + 32], xmm0
+    xor eax, eax
+    ret
+.full:
+    mov eax, -1
+    ret
+
+global ubt_smp_oob_clear
+ubt_smp_oob_clear:
+    lea rdi, [rel ubt_oob_valid]
+    mov ecx, 8 + 32 + 64 + 16 + SMP_OOB_PEERS * 48
+    xor eax, eax
+    rep stosb
+    ret
+
+; oob_find — RDI = address, ESI = type → RAX = its entry, or 0
+oob_find:
+    lea rax, [rel ubt_oob_peers]
+    xor ecx, ecx
+.next:
+    cmp ecx, SMP_OOB_PEERS
+    jae .none
+    cmp byte [rax], 0
+    je .skip
+    cmp [rax + 1], sil
+    jne .skip
+    mov edx, [rdi]
+    cmp edx, [rax + 3]
+    jne .skip
+    mov dx, [rdi + 4]
+    cmp dx, [rax + 7]
+    jne .skip
+    ret
+.skip:
+    add rax, 48
+    inc ecx
+    jmp .next
+.none:
+    xor eax, eax
+    ret
+
+; smp_oob_entry — RBX = conn → RAX = the peer's OOB entry, or 0
+smp_oob_entry:
+    lea rdi, [rbx + ubt_conn.peer]
+    movzx esi, byte [rbx + ubt_conn.peer_type]
+    jmp oob_find
+
+; smp_oob_flag → AL = 1 when we hold the peer's out-of-band data
+smp_oob_flag:
+    sub rsp, 8
+    call smp_oob_entry
+    add rsp, 8
+    test rax, rax
+    setnz al
+    movzx eax, al
+    ret
+
+; -----------------------------------------------------------------------------
 ; ubt_smp_pair — RDI = an LE conn → EAX = 0, or negative
 ;   central: a bond's LTK encrypts the link; without one, a Pairing Request
 ;   peripheral: a Security Request asks the central
@@ -1865,7 +2211,8 @@ ubt_smp_pair:
     mov rax, [rbx + ubt_conn.adapter]
     mov al, [rax + ubt_adapter.io_cap]
     mov [r12 + ubt_smp.preq + 1], al
-    mov byte [r12 + ubt_smp.preq + 2], 0
+    call smp_oob_flag
+    mov [r12 + ubt_smp.preq + 2], al
     call smp_our_auth
     mov [r12 + ubt_smp.preq + 3], al
     mov byte [r12 + ubt_smp.preq + 4], 16
