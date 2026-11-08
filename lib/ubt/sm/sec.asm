@@ -5,6 +5,7 @@
 ;   ubt_pair_confirm(conn, yes)     the user's answer to UBT_GAP_CONFIRM or
 ;                                   UBT_GAP_JUST_WORKS
 ;   ubt_pair_passkey(conn, value)   ... to UBT_GAP_PASSKEY
+;   ubt_pair_pin(conn, pin, len)    ... to UBT_GAP_PIN (BR/EDR legacy)
 ;   ubt_sec_event(adapter, ev, len) from GAP: encryption, key requests,
 ;                                   pairing events
 ;   ubt_sec_tick(adapter)           timeouts (from ubt_service)
@@ -30,6 +31,11 @@ ubt_pair_confirm:
     cmp byte [rdi + ubt_conn.type], UBT_LINK_LE
     je ubt_smp_confirm
     jmp ubt_br_confirm
+
+; ubt_pair_pin — RDI = a BR/EDR conn, RSI = PIN, EDX = length (0: refused)
+global ubt_pair_pin
+ubt_pair_pin:
+    jmp ubt_br_pin
 
 global ubt_pair_passkey
 ubt_pair_passkey:
