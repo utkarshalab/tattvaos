@@ -1,8 +1,8 @@
 # Decision 0012: Fractional Output Scale
 
-**Status**: Accepted (2026-11-07); `cw_output`, `cw_surface.set_buffer_scale`
-and the logical layout built (2026-11-08); composing at each output's pixels
-to come
+**Status**: Accepted (2026-11-07); built: `cw_output`,
+`cw_surface.set_buffer_scale`, the logical layout (2026-11-08) and composing
+at each output's pixels with edges on whole pixels (2026-11-09)
 **Date**: 2026-11-07
 **Phase**: P2 (OUT-08, PRO-16; snapping rules CMP-22 in P3)
 
@@ -90,9 +90,19 @@ What exists today:
    revisit criteria's way round, taken first: everything already draws in
    logical units, and nothing else had to change. Edges are soft on a dense
    panel.
-4. To come: composing straight at each output's pixels, where surfaces,
-   title bars and the cursor are sized in logical units and drawn at the
-   output's scale; then snapping (CMP-22).
+4. Composing at each output's pixels (`render/sw_render`): a frame of a
+   scaled output is its pixels (`FrameCtx.px_scale`), and the drawing calls
+   map what they are given from logical units there (`frame_map_rect`),
+   each edge rounded to the nearest pixel, so what meets in the layout meets
+   on the screen with no gap or overlap. A buffer the size its surface comes
+   out, within a pixel, is copied pixel for pixel; another is scaled to it.
+   Title bars, Alt+Tab and text are drawn at the output's scale, the pointer
+   at it rounded to 1x or 2x. While an output is mirrored or the magnifier
+   is on it keeps step 3's way, its logical frame scaled after; a change of
+   way draws it whole.
+5. Still open: window places and sizes chosen by the shell are not moved to
+   land on whole pixels (edges are rounded where they fall), and buffers of
+   another scale blend at the edges of a partial redraw.
 
 ## Revisit Criteria
 If composing at full scale costs too much on the software renderer, compose
