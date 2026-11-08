@@ -2,7 +2,8 @@
 ; Utkarsha OS — lib/ubt/ubt.asm — Bluetooth as one translation unit
 ; =============================================================================
 ; Needs lib/usb (and so lib/input) first. ROADMAP.md has the plan; this is
-; Phase 1's USB transport and HCI core, ACL links, and L2CAP.
+; Phase 1's USB transport and HCI core, ACL links, L2CAP, discovery and
+; advertising, and the Security Manager (with usign's P-256).
 ; =============================================================================
 
 %ifndef LIB_UBT_UBT_ASM
@@ -17,6 +18,12 @@
 %include "lib/ubt/l2cap/sig.asm"
 %include "lib/ubt/l2cap/ertm.asm"
 %include "lib/ubt/l2cap/credit.asm"
+%include "lib/ubt/gap/gap.asm"
+%include "lib/ubt/sm/crypto.asm"
+%include "lib/ubt/sm/keys.asm"
+%include "lib/ubt/sm/le.asm"
+%include "lib/ubt/sm/br.asm"
+%include "lib/ubt/sm/sec.asm"
 %include "lib/ubt/tr/usb.asm"
 %include "lib/ubt/tr/mem.asm"
 
