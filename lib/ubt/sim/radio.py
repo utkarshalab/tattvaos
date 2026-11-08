@@ -22,7 +22,7 @@ class Controller:
     def __init__(self, radio, adapter, address, acl_mtu, acl_count, le_mtu, le_count, le=True):
         self.radio, self.adapter, self.address = radio, adapter, bytes(address)
         self.acl_mtu, self.acl_count, self.le_mtu, self.le_count, self.le = acl_mtu, acl_count, le_mtu, le_count, le
-        self.commands = []
+        self.commands, self.cmd_log = [], []
         self.next_handle = 0x0040
         self.links = {}             # our handle → (peer controller, its handle, kind)
         self.sent = []              # ACL packets this side sent (handle-stripped)
@@ -36,6 +36,8 @@ class Controller:
         self.scanning, self.active, self.no_dups, self.seen = False, False, False, set()
         self.scan_enable, self.inquiry_mode, self.cls, self.name, self.eir = 0, 0, 0, b"", bytes(240)
         self.rssi = -50
+        # LE encryption: keys asked for, links encrypted, keys that worked
+        self.ltk_asked, self.encrypted, self.keys_used = {}, set(), []
 
     def event(self, code, params):
         self.radio.queue.append(("event", self, bytes([code, len(params)]) + bytes(params)))
@@ -55,6 +57,7 @@ class Controller:
         opcode, plen = struct.unpack_from("<HB", cmd)
         p = cmd[3:3 + plen]
         self.commands.append(opcode)
+        self.cmd_log.append((opcode, bytes(p)))
         features = bytearray(8)
         features[0] = 0xFF
         if self.le:
@@ -117,6 +120,43 @@ class Controller:
             peer.links.pop(ph, None)
             self.event(EV_DISCONNECT, bytes([0]) + struct.pack("<HB", h, 0x16))
             peer.event(EV_DISCONNECT, bytes([0]) + struct.pack("<HB", ph, reason))
+            return
+        if opcode == 0x2019:                            # LE Start Encryption
+            self.status(opcode)
+            h, = struct.unpack_from("<H", p)
+            link = self.links.get(h)
+            if link is None:
+                return
+            peer, ph, _ = link
+            self.ltk_asked[h] = bytes(p[12:28])
+            peer.event(EV_LE_META, bytes([0x05]) + struct.pack("<H", ph) + bytes(p[2:12]))
+            return
+        if opcode in (0x201A, 0x201B):                  # LE LTK Request Reply, Negative Reply
+            h, = struct.unpack_from("<H", p)
+            self.complete(opcode, b"\x00" + struct.pack("<H", h))
+            link = self.links.get(h)
+            if link is None:
+                return
+            peer, ph, _ = link
+            want = peer.ltk_asked.pop(ph, None)
+            if want is None:
+                return
+            if opcode == 0x201B:
+                peer.event(0x08, struct.pack("<BHB", 0x06, ph, 0))
+                return
+            if bytes(p[2:18]) != want:                  # the two ends' keys differ: the link breaks
+                peer.event(0x08, struct.pack("<BHB", 0x3D, ph, 0))
+                self.event(0x08, struct.pack("<BHB", 0x3D, h, 0))
+                return
+            refresh = h in self.encrypted
+            self.encrypted.add(h)
+            peer.encrypted.add(ph)
+            self.keys_used.append(bytes(p[2:18]))
+            for c, hh in ((peer, ph), (self, h)):
+                if refresh:
+                    c.event(0x30, struct.pack("<BH", 0, hh))
+                else:
+                    c.event(0x08, struct.pack("<BHB", 0, hh, 1))
             return
         if opcode == 0x2013:                            # LE Connection Update
             self.status(opcode)
