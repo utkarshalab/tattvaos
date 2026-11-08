@@ -4,7 +4,14 @@
 ; A frame is a FrameCtx the caller provides, so frames allocate nothing. Each
 ; call draws inside one clip rectangle (x, y, w, h as i32) already within the
 ; output. Surfaces blend premultiplied BGRA row by row; a surface's position
-; is its attach offset. Scale and transform are not applied yet (CMP work).
+; is its attach offset. Transforms are not applied yet.
+;
+; Callers give rectangles in the layout's logical units. A frame of an
+; output at a scale (FrameCtx.px_scale) is that output's pixels: each edge
+; is mapped there and rounded to a whole pixel (frame_map_rect), so what
+; meets in the layout meets on the screen (decision 0012, CMP-22). A buffer
+; the size it comes out (within a pixel) is copied pixel for pixel, sharp;
+; another is scaled to it.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -15,12 +22,14 @@
 %include "inc/color.inc"
 %include "inc/struct_offsets.inc"
 %include "ugfx.inc"
+%include "inc/ui_text.inc"
 
 extern blend_over_premul
 extern handle_resolve
 extern memcopy
 extern scale_bilinear_rect
 extern surface_logical_size
+extern ui_text_draw
 
 section .text
 
@@ -106,7 +115,191 @@ sw_render_begin_frame:
     mov [rcx + FrameCtx.height], eax
     mov rax, [rsi + Output.icc_profile]
     mov [rcx + FrameCtx.color_transform], rax
+    mov dword [rcx + FrameCtx.px_scale], 0  ; the layout's units, until the
+    mov dword [rcx + FrameCtx.px_ox], 0     ; compositor says pixels
+    mov dword [rcx + FrameCtx.px_oy], 0
     xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; frame_map_rect
+;   A rectangle of the layout in the frame: as it is in the layout's units;
+;   in pixels, each edge (x - origin) * scale rounded to the nearest pixel
+;   IN:  rdi = frame_ctx*, rsi = rect* in, rdx = rect* out (may be the same)
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global frame_map_rect
+frame_map_rect:
+    mov r8d, [rdi + FrameCtx.px_scale]
+    test r8d, r8d
+    jnz .map
+    mov rax, [rsi]
+    mov rcx, [rsi + 8]
+    mov [rdx], rax
+    mov [rdx + 8], rcx
+    xor eax, eax
+    ret
+.map:
+    push rbx
+    push r12
+    mov r12, rdx                        ; (idiv takes edx)
+    mov r9d, [rsi]                      ; x0, x1
+    mov r10d, r9d
+    add r10d, [rsi + 8]
+    mov r11d, [rsi + 4]                 ; y0, y1
+    mov ebx, r11d
+    add ebx, [rsi + 12]
+    sub r9d, [rdi + FrameCtx.px_ox]
+    sub r10d, [rdi + FrameCtx.px_ox]
+    sub r11d, [rdi + FrameCtx.px_oy]
+    sub ebx, [rdi + FrameCtx.px_oy]
+%macro TO_PIXEL 1                       ; %1 = round(%1 * scale / 120)
+    imul %1, r8d
+    add %1, 60
+    mov eax, %1
+    cdq
+    mov ecx, 120
+    idiv ecx
+    test edx, edx                       ; idiv truncates: floor it
+    jns %%floored
+    dec eax
+%%floored:
+    mov %1, eax
+%endmacro
+    TO_PIXEL r9d
+    TO_PIXEL r10d
+    TO_PIXEL r11d
+    TO_PIXEL ebx
+    mov [r12], r9d
+    mov [r12 + 4], r11d
+    sub r10d, r9d
+    mov [r12 + 8], r10d
+    sub ebx, r11d
+    mov [r12 + 12], ebx
+    pop r12
+    pop rbx
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; frame_clip_rect
+;   A clip rectangle in the frame: mapped (frame_map_rect) and, in pixels,
+;   kept inside them
+;   IN:  rdi = frame_ctx*, rsi = rect* in, rdx = rect* out
+;   OUT: rax = 0, 1 if nothing is left
+; ---------------------------------------------------------------------------
+global frame_clip_rect
+frame_clip_rect:
+    push rbx
+    mov rbx, rdx
+    call frame_map_rect
+    cmp dword [rdi + FrameCtx.px_scale], 0
+    je .sized
+    xor eax, eax                        ; inside 0..width, 0..height
+    mov ecx, [rbx]
+    mov edx, ecx
+    add edx, [rbx + 8]
+    cmp ecx, eax
+    cmovl ecx, eax
+    cmp edx, [rdi + FrameCtx.width]
+    cmovg edx, [rdi + FrameCtx.width]
+    mov [rbx], ecx
+    sub edx, ecx
+    mov [rbx + 8], edx
+    mov ecx, [rbx + 4]
+    mov edx, ecx
+    add edx, [rbx + 12]
+    cmp ecx, eax
+    cmovl ecx, eax
+    cmp edx, [rdi + FrameCtx.height]
+    cmovg edx, [rdi + FrameCtx.height]
+    mov [rbx + 4], ecx
+    sub edx, ecx
+    mov [rbx + 12], edx
+.sized:
+    mov eax, 1
+    cmp dword [rbx + 8], 0
+    jle .out
+    cmp dword [rbx + 12], 0
+    jle .out
+    xor eax, eax
+.out:
+    pop rbx
+    ret
+
+; ---------------------------------------------------------------------------
+; frame_text
+;   ui_text_draw into the frame: its box and clip mapped, its size scaled
+;   IN:  rdi = frame_ctx*, rsi = UiText* (in the layout's units; changed)
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global frame_text
+frame_text:
+    push rbx
+    push r12
+    sub rsp, 24                         ; a rect; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r8d, [rbx + FrameCtx.px_scale]
+    test r8d, r8d
+    jz .draw
+    mov eax, [r12 + UiText.x]           ; its box
+    mov [rsp], eax
+    mov eax, [r12 + UiText.y]
+    mov [rsp + 4], eax
+    mov eax, [r12 + UiText.width]
+    mov [rsp + 8], eax
+    mov eax, [r12 + UiText.height]
+    mov [rsp + 12], eax
+    mov rdi, rbx
+    mov rsi, rsp
+    mov rdx, rsp
+    call frame_map_rect
+    mov eax, [rsp]
+    mov [r12 + UiText.x], eax
+    mov eax, [rsp + 4]
+    mov [r12 + UiText.y], eax
+    mov eax, [rsp + 8]
+    mov [r12 + UiText.width], eax
+    mov eax, [rsp + 12]
+    mov [r12 + UiText.height], eax
+    mov eax, [r12 + UiText.clip_x]      ; its clip
+    mov [rsp], eax
+    mov eax, [r12 + UiText.clip_y]
+    mov [rsp + 4], eax
+    mov eax, [r12 + UiText.clip_w]
+    mov [rsp + 8], eax
+    mov eax, [r12 + UiText.clip_h]
+    mov [rsp + 12], eax
+    mov rdi, rbx
+    mov rsi, rsp
+    mov rdx, rsp
+    call frame_clip_rect
+    test eax, eax
+    jnz .out
+    mov eax, [rsp]
+    mov [r12 + UiText.clip_x], eax
+    mov eax, [rsp + 4]
+    mov [r12 + UiText.clip_y], eax
+    mov eax, [rsp + 8]
+    mov [r12 + UiText.clip_w], eax
+    mov eax, [rsp + 12]
+    mov [r12 + UiText.clip_h], eax
+    mov eax, [r12 + UiText.size]        ; its size, rounded
+    imul eax, [rbx + FrameCtx.px_scale]
+    add eax, 60
+    xor edx, edx
+    mov ecx, 120
+    div ecx
+    mov [r12 + UiText.size], eax
+.draw:
+    mov rdi, r12
+    call ui_text_draw
+.out:
+    xor eax, eax
+    add rsp, 24
+    pop r12
+    pop rbx
     ret
 
 ; ---------------------------------------------------------------------------
@@ -115,10 +308,14 @@ sw_render_begin_frame:
 ;   IN:  rdi = frame_ctx*, rsi = surface*, rdx = clip_rect*
 ;   OUT: rax = 0 (nothing attached or an unknown format draws nothing)
 ; ---------------------------------------------------------------------------
+%define S_WIDTH     0                   ; a row's pixels
+%define S_NO_ALPHA  8                   ; 1: rows are copied
+%define S_DEST      16                  ; where it goes, in the frame
+%define S_CLIP      32                  ; the clip, in the frame
 global sw_render_surface
 sw_render_surface:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    sub rsp, 24                         ; row width, opaque flag, pad
+    sub rsp, 56                         ; locals; 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -145,43 +342,76 @@ sw_render_surface:
 .format_ok:
     movzx ecx, cl
     xor ecx, 1
-    mov [rsp + 8], rcx                  ; 1: no alpha, rows are copied
+    mov [rsp + S_NO_ALPHA], rcx
 
-    ; A buffer drawn at another scale is scaled to the surface's size
-    mov eax, [r12 + Surface.buffer_scale]
-    test eax, eax
-    jz .unscaled
-    cmp eax, 120
-    je .unscaled
+    ; Where it goes: its place and size in the layout, in the frame
+    mov rdi, r12
+    mov rsi, r14
+    call surface_logical_size
+    mov ecx, [r12 + Surface.current + SurfaceState.buf_x]
+    mov [rsp + S_DEST], ecx
+    mov ecx, [r12 + Surface.current + SurfaceState.buf_y]
+    mov [rsp + S_DEST + 4], ecx
+    mov [rsp + S_DEST + 8], eax
+    mov [rsp + S_DEST + 12], edx
     mov rdi, rbx
-    mov rsi, r12
-    mov rdx, r13
-    mov r8, rcx
+    lea rsi, [rsp + S_DEST]
+    mov rdx, rsi
+    call frame_map_rect
+    mov rdi, rbx
+    mov rsi, r13
+    lea rdx, [rsp + S_CLIP]
+    call frame_clip_rect
+    test eax, eax
+    jnz .done
+
+    ; A buffer that size, within a pixel, is copied as it is; another is
+    ; scaled to it
+    mov eax, [rsp + S_DEST + 8]
+    sub eax, [r14 + Buffer.width]
+    add eax, 1
+    cmp eax, 2
+    ja .scaled
+    mov eax, [rsp + S_DEST + 12]
+    sub eax, [r14 + Buffer.height]
+    add eax, 1
+    cmp eax, 2
+    jbe .unscaled
+.scaled:
+    mov rdi, rbx
+    lea rsi, [rsp + S_DEST]
+    lea rdx, [rsp + S_CLIP]
     mov rcx, r14
+    mov r8, [rsp + S_NO_ALPHA]
     call render_scaled
     jmp .done
 .unscaled:
 
-    ; The surface's rectangle, clipped
-    movsxd rax, dword [r12 + Surface.current + SurfaceState.buf_x]    ; surface x
-    movsxd rdx, dword [r12 + Surface.current + SurfaceState.buf_y]    ; surface y
-    mov r8, [r14 + Buffer.width]
-    add r8, rax                         ; surface right
-    mov r9, [r14 + Buffer.height]
-    add r9, rdx                         ; surface bottom
-    movsxd r10, dword [r13 + 0]         ; left = max(surface, clip)
+    ; Its rectangle (the buffer from the destination's corner, no further
+    ; than the destination), clipped
+    movsxd rax, dword [rsp + S_DEST]
+    movsxd rdx, dword [rsp + S_DEST + 4]
+    mov r8d, [r14 + Buffer.width]
+    cmp r8d, [rsp + S_DEST + 8]
+    cmova r8d, [rsp + S_DEST + 8]
+    add r8, rax                         ; right
+    mov r9d, [r14 + Buffer.height]
+    cmp r9d, [rsp + S_DEST + 12]
+    cmova r9d, [rsp + S_DEST + 12]
+    add r9, rdx                         ; bottom
+    movsxd r10, dword [rsp + S_CLIP]    ; left = max(it, clip)
     cmp r10, rax
     cmovl r10, rax
-    movsxd r11, dword [r13 + 4]         ; top
+    movsxd r11, dword [rsp + S_CLIP + 4]    ; top
     cmp r11, rdx
     cmovl r11, rdx
-    movsxd rcx, dword [r13 + 8]
-    movsxd rdi, dword [r13 + 0]
+    movsxd rcx, dword [rsp + S_CLIP + 8]
+    movsxd rdi, dword [rsp + S_CLIP]
     add rcx, rdi                        ; clip right
     cmp r8, rcx
     cmovg r8, rcx
-    movsxd rcx, dword [r13 + 12]
-    movsxd rdi, dword [r13 + 4]
+    movsxd rcx, dword [rsp + S_CLIP + 12]
+    movsxd rdi, dword [rsp + S_CLIP + 4]
     add rcx, rdi                        ; clip bottom
     cmp r9, rcx
     cmovg r9, rcx
@@ -189,7 +419,7 @@ sw_render_surface:
     jle .done
     sub r9, r11                         ; rows
     jle .done
-    mov [rsp], r8
+    mov [rsp + S_WIDTH], r8
 
     ; Row starts
     sub rax, r10
@@ -208,8 +438,8 @@ sw_render_surface:
 .row:
     mov rdi, r13
     mov rsi, r12
-    mov rdx, [rsp]
-    cmp qword [rsp + 8], 0
+    mov rdx, [rsp + S_WIDTH]
+    cmp qword [rsp + S_NO_ALPHA], 0
     jne .copy
     call blend_over_premul
     jmp .next
@@ -224,16 +454,16 @@ sw_render_surface:
 
 .done:
     xor eax, eax
-    add rsp, 24
+    add rsp, 56
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
-; A surface whose buffer has another scale: the part inside the clip, each
-; row scaled into scale_row (bilinear, premultiplied as the pixels are) and
-; then blended, or copied with no alpha. Columns past SCALE_ROW_PX in one row
-; are not drawn.
-; rdi = frame_ctx, rsi = surface, rdx = clip rect, rcx = its Buffer*,
-; r8 = 1 with no alpha
+; A buffer scaled to its destination: the part inside the clip, each row
+; scaled into scale_row (bilinear, premultiplied as the pixels are) and then
+; blended, or copied with no alpha. Columns past SCALE_ROW_PX in one row are
+; not drawn.
+; rdi = frame_ctx, rsi = the destination rect, rdx = clip rect (both in the
+; frame), rcx = the Buffer*, r8 = 1 with no alpha
 %define SCALE_ROW_PX    4096
 %define R_JOB           0
 %define R_NO_ALPHA      (UgfxScale_SIZE + 0)
@@ -251,13 +481,12 @@ render_scaled:
     mov r13, rdx
     mov r14, rcx
     mov [rsp + R_NO_ALPHA], r8
-    mov rdi, r12                        ; its size on the screen
-    mov rsi, r14
-    call surface_logical_size
+    mov eax, [r12 + 8]                  ; the size it comes out
+    mov edx, [r12 + 12]
     mov [rsp + R_JOB + UgfxScale_dst_w], eax
     mov [rsp + R_JOB + UgfxScale_dst_h], edx
-    mov r8d, [r12 + Surface.current + SurfaceState.buf_x]
-    mov r9d, [r12 + Surface.current + SurfaceState.buf_y]
+    mov r8d, [r12]
+    mov r9d, [r12 + 4]
     mov [rsp + R_SX], r8d
     mov [rsp + R_SY], r9d
     lea r10d, [r8 + rax]                ; right, bottom
@@ -348,6 +577,24 @@ global sw_render_rect
 sw_render_rect:
     ASSERT_PTR rdi
     ASSERT_PTR rsi
+    cmp dword [rdi + FrameCtx.px_scale], 0
+    je .filled_here
+    push rbx                            ; in pixels: mapped first
+    sub rsp, 16
+    mov ebx, edx
+    mov rdx, rsp
+    call frame_clip_rect
+    test eax, eax
+    jnz .mapped_out
+    mov rsi, rsp
+    mov edx, ebx
+    call .filled_here
+.mapped_out:
+    add rsp, 16
+    pop rbx
+    xor eax, eax
+    ret
+.filled_here:
     mov r8, rdi
     mov eax, edx                        ; the colour stosd writes
     movsxd rdx, dword [rsi + 4]
