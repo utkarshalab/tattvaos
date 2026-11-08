@@ -10,6 +10,14 @@
 ;   ubt_br_pin(conn, pin, len)      a legacy PIN (len 0: refused)
 ;   ubt_br_event(adapter, ev, len)  the controller's pairing events
 ;   ubt_br_encrypted(conn, status, on), ubt_br_free(conn)
+;   ubt_br_oob_local(adapter, out) → HCI status: the controller's C and R
+;                                   (P-192 then P-256, 64 bytes) to hand over
+;   ubt_br_oob_peer(addr, c, r)     a peer's P-256 C and R, received out of
+;                                   band (Secure Simple Pairing uses them)
+;
+; Secure Connections Only (adapter.sc_only): link keys that are not P-256
+; are neither used nor kept, and a pairing that would make one ends the
+; link.
 ;
 ; The controller does the pairing over the air; the host answers it: link
 ; keys from the bond store (or "none"), our IO capability and bonding
@@ -26,6 +34,13 @@
 ; IO Capability Request Reply's authentication requirements
 %define BR_AUTH_MITM        0x01
 %define BR_AUTH_GENERAL     0x04        ; general bonding
+
+; out of band
+%define HCI_REMOTE_OOB_NEG      0x0433
+%define HCI_REMOTE_OOB_EXT      0x045D
+%define HCI_READ_LOCAL_OOB_EXT  0x047D
+%define HCI_EV_REMOTE_OOB       0x35
+%define OOB_BR                  3       ; an ubt_oob_peers kind: C and R (P-256)
 
 ; link key types
 %define BR_KEY_UNAUTH_192   4
@@ -89,7 +104,7 @@ br_state:
 ; br_cmd_addr — RBX = adapter, ESI = opcode, RDX = the address, then ECX
 ; more bytes from R8: sent without waiting
 br_cmd_addr:
-    sub rsp, 40
+    sub rsp, 88
     mov eax, [rdx]
     mov [rsp], eax
     mov ax, [rdx + 4]
@@ -108,7 +123,9 @@ br_cmd_addr:
     pxor xmm0, xmm0
     movdqu [rsp + 6], xmm0
     movdqu [rsp + 22], xmm0
-    add rsp, 40
+    movdqu [rsp + 38], xmm0
+    movdqu [rsp + 54], xmm0
+    add rsp, 88
     ret
 
 ; br_tell — R12 = conn, ESI = UBT_GAP_*, EDX = value, ECX = status
@@ -300,7 +317,7 @@ ubt_br_event:
     push r13
     push r14
     push r15
-    sub rsp, 32
+    sub rsp, 80
     mov rbx, rdi
     mov r13, rsi
     mov r14d, edx
@@ -338,6 +355,38 @@ ubt_br_event:
     je .show
     cmp r15d, HCI_EV_PIN_REQUEST
     je .pin
+    cmp r15d, HCI_EV_REMOTE_OOB
+    je .oob
+    jmp .out
+
+.oob:
+    ; the peer's C and R as received out of band, or none
+    lea rdi, [r13 + 2]
+    xor esi, esi
+    call oob_find
+    test rax, rax
+    jz .oob_none
+    cmp byte [rax + 2], OOB_BR
+    jne .oob_none
+    ; C192, R192 (none), C256, R256
+    pxor xmm0, xmm0
+    movdqu [rsp], xmm0
+    movdqu [rsp + 16], xmm0
+    movdqu xmm0, [rax + 32]
+    movdqu [rsp + 32], xmm0            ; (C is kept second: see ubt_br_oob_peer)
+    movdqu xmm0, [rax + 16]
+    movdqu [rsp + 48], xmm0
+    mov r8, rsp
+    mov ecx, 64
+    mov esi, HCI_REMOTE_OOB_EXT
+    lea rdx, [r13 + 2]
+    call br_cmd_addr
+    jmp .out
+.oob_none:
+    mov esi, HCI_REMOTE_OOB_NEG
+    lea rdx, [r13 + 2]
+    xor ecx, ecx
+    call br_cmd_addr
     jmp .out
 
 .key_request:
@@ -349,6 +398,11 @@ ubt_br_event:
     jz .no_key
     test byte [rax + ubt_key.flags], KEY_LINK
     jz .no_key
+    cmp byte [rbx + ubt_adapter.sc_only], 0
+    je .key_ok
+    cmp byte [rax + ubt_key.link_type], BR_KEY_UNAUTH_256
+    jb .no_key                          ; SC only: P-256 keys only
+.key_ok:
     lea r8, [rax + ubt_key.link_key]
     mov ecx, 16
     mov esi, HCI_LINK_KEY_REPLY
@@ -377,7 +431,16 @@ ubt_br_event:
     mov cl, 3
 .io_ok:
     mov [rsp], cl
-    mov byte [rsp + 1], 0
+    push rcx
+    push rax
+    lea rdi, [r13 + 2]
+    xor esi, esi
+    call oob_find
+    test rax, rax
+    setnz dl
+    pop rax
+    pop rcx
+    mov [rsp + 1], dl
     xor edx, edx
     cmp byte [rax + ubt_adapter.bondable], 0
     je .io_mitm
@@ -516,6 +579,24 @@ ubt_br_event:
     cmp r14d, 2 + 23
     jb .out
     mov rax, [r12 + ubt_conn.adapter]
+    cmp byte [rax + ubt_adapter.sc_only], 0
+    je .key_any
+    cmp byte [r13 + 24], BR_KEY_UNAUTH_256
+    jae .key_any
+    ; SC only and an older key: not kept, the link ended
+    mov ax, [r12 + ubt_conn.handle]
+    mov [rsp], ax
+    mov byte [rsp + 2], 0x05            ; authentication failure
+    mov rdi, rbx
+    mov esi, HCI_DISCONNECT
+    mov rdx, rsp
+    mov ecx, 3
+    call ubt_hci_async
+    mov edi, 0x05
+    call br_finish
+    jmp .out
+.key_any:
+    mov rax, [r12 + ubt_conn.adapter]
     cmp byte [rax + ubt_adapter.bondable], 0
     je .out
     mov rax, [r12 + ubt_conn.pair]
@@ -601,7 +682,7 @@ ubt_br_event:
 .auth_failed:
     call br_finish
 .out:
-    add rsp, 32
+    add rsp, 80
     pop r15
     pop r14
     pop r13
@@ -681,6 +762,44 @@ ubt_br_enable:
     add rsp, 16
     pop rbx
     ret
+
+; -----------------------------------------------------------------------------
+; ubt_br_oob_local — RDI = adapter, RSI = out (64: C192, R192, C256, R256)
+;   → EAX = HCI status, or negative
+; ubt_br_oob_peer — RDI = address, RSI = its C (P-256), RDX = its R
+;   → EAX = 0, or -1 (no room)
+; -----------------------------------------------------------------------------
+global ubt_br_oob_local
+ubt_br_oob_local:
+    push rbx
+    push r12
+    sub rsp, 8
+    mov rbx, rdi
+    mov r12, rsi
+    mov esi, HCI_READ_LOCAL_OOB_EXT
+    xor edx, edx
+    xor ecx, ecx
+    call ubt_hci_cmd
+    test eax, eax
+    jnz .out
+    mov rdi, r12
+    lea rsi, [rbx + ubt_adapter.wait_buf]
+    mov ecx, 64
+    rep movsb
+    xor eax, eax
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+global ubt_br_oob_peer
+ubt_br_oob_peer:
+    ; kept as (R, C) like LE's (r, commitment)
+    mov rcx, rsi
+    xor esi, esi
+    mov r8d, OOB_BR
+    jmp oob_store
 
 ; ubt_br_free — RDI = conn: its pairing state given back
 global ubt_br_free
