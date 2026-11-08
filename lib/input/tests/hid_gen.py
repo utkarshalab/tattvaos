@@ -90,3 +90,23 @@ touchpad = b"".join([
     UsagePage(0x0D), Usage(0x0E), Collection_(APPLICATION), ReportID(3),
     Usage(0x22), Collection_(LOGICAL), Usage(0x52), LogMax(10), Size(8), Count(1), Feature(VAR), End,
     End])
+
+
+# Media keys, as keyboards send them outside the boot report: report 2 an
+# array of two consumer usages, report 3 a bit each for volume up, volume
+# down, mute and play/pause, report 4 the system control keys (1-based).
+consumer_array = b"".join([
+    UsagePage(0x0C), Usage(1), Collection_(APPLICATION), ReportID(2),
+    LogMin(0), LogMax(0x3FF, size=2), UsageMin(0), UsageMax(0x3FF, size=2), Size(16), Count(2), Input(0),
+    End])
+consumer_bits = b"".join([
+    UsagePage(0x0C), Usage(1), Collection_(APPLICATION), ReportID(3),
+    Usage(0xE9), Usage(0xEA), Usage(0xE2), Usage(0xCD), LogMin(0), LogMax(1), Size(1), Count(4), Input(VAR),
+    Count(4), Input(CONST),
+    End])
+system_control = b"".join([
+    UsagePage(1), Usage(0x80), Collection_(APPLICATION), ReportID(4),
+    UsageMin(0x81), UsageMax(0x83), LogMin(1), LogMax(3), Size(2), Count(1), Input(0),
+    Count(1), Size(6), Input(CONST),
+    End])
+media = consumer_array + consumer_bits + system_control
