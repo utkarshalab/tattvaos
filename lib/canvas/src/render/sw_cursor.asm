@@ -73,6 +73,8 @@
 
 extern compositor_damage_rect
 extern rect_intersect
+extern frame_map_rect
+extern frame_clip_rect
 
 %define SHAPE_COUNT 3
 %define SHAPE_SIZE  24                  ; w, h, tip x, tip y, the two masks
@@ -94,10 +96,11 @@ section .text
 %define L_SHIFT     32                  ; 0 at 1x, 1 at 2x
 %define L_INK       40                  ; the shape's masks
 %define L_FILL      48
+%define L_CLIP      56                  ; the clip, in a frame of pixels
 global sw_cursor_render
 sw_cursor_render:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    sub rsp, 56                         ; locals; 16-byte aligned
+    sub rsp, 72                         ; locals; 16-byte aligned
     mov rbx, rdi
     mov rax, [rdx + Server.compositor]
     test rax, rax
@@ -109,6 +112,30 @@ sw_cursor_render:
     mov r8, [rdx + Server.input_seat]
     test r8, r8
     jz .done
+    mov r15, rsi                        ; the clip
+    mov r12d, [r8 + InputSeat.x]        ; the tip
+    mov r13d, [r8 + InputSeat.y]
+    cmp dword [rbx + FrameCtx.px_scale], 0
+    je .mapped
+    mov [rsp + L_RECT], r12d            ; a frame of pixels: the tip and the
+    mov [rsp + L_RECT + 4], r13d        ; clip there
+    mov qword [rsp + L_RECT + 8], 0
+    mov [rsp + L_INK], r8               ; (kept over the calls)
+    mov rdi, rbx
+    lea rsi, [rsp + L_RECT]
+    mov rdx, rsi
+    call frame_map_rect
+    mov r12d, [rsp + L_RECT]
+    mov r13d, [rsp + L_RECT + 4]
+    mov rdi, rbx
+    mov rsi, r15
+    lea rdx, [rsp + L_CLIP]
+    call frame_clip_rect
+    test eax, eax
+    jnz .done
+    lea r15, [rsp + L_CLIP]
+    mov r8, [rsp + L_INK]
+.mapped:
     xor eax, eax                        ; the shape: the surface under it asks
     mov rcx, [r8 + InputSeat.pointer_focus]
     test rcx, rcx
@@ -132,8 +159,11 @@ sw_cursor_render:
     mov rax, [rbx + FrameCtx.output]    ; rounded, 1x or 2x
     test rax, rax
     jz .sized
+    cmp dword [rbx + FrameCtx.px_scale], 0
+    jne .scale                          ; in its pixels: at its scale
     cmp qword [rax + Output.pixel_fb], 0
     jne .sized                          ; drawn logical, scaled after
+.scale:
     mov rax, [rax + Output.scale]
     add rax, 0x8000
     shr rax, 16
@@ -142,11 +172,9 @@ sw_cursor_render:
     mov ecx, 1
 .sized:
     mov [rsp + L_SHIFT], ecx
-    mov r12d, [r8 + InputSeat.x]        ; its top left, from the tip
-    mov eax, [r9 + 8]
+    mov eax, [r9 + 8]                   ; its top left, from the tip
     shl eax, cl
     sub r12d, eax
-    mov r13d, [r8 + InputSeat.y]
     mov eax, [r9 + 12]
     shl eax, cl
     sub r13d, eax
@@ -159,7 +187,7 @@ sw_cursor_render:
     shl eax, cl
     mov [rsp + L_RECT + 12], eax
     lea rdi, [rsp + L_SHOWN]
-    mov rdx, rsi
+    mov rdx, r15
     lea rsi, [rsp + L_RECT]
     call rect_intersect
     test rax, rax
@@ -208,7 +236,7 @@ sw_cursor_render:
     jmp .row
 .done:
     xor eax, eax
-    add rsp, 56
+    add rsp, 72
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 ; rdi = server, esi = x, edx = y: the box round a pointer there redrawn
