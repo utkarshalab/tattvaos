@@ -40,6 +40,13 @@
 %define GREETER_NAME_GAP    4
 %define GREETER_DIM         0xFF8A90A8  ; a name not chosen
 
+; High contrast (A11Y-07): the screen and the field black, the edge, dots,
+; caret and text white; the edge after a wrong password and the chosen
+; name's box yellow, that name black
+%define GREETER_HC_BG       0xFF000000
+%define GREETER_HC_INK      0xFFFFFFFF
+%define GREETER_HC_MARK     0xFFFFFF00
+
 ; Its states
 %define GREETER_SHOWN           3
 %define GREETER_DONE            4
