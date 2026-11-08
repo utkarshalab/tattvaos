@@ -183,6 +183,13 @@ output to the right of the layout, shown in that framebuffer's memory, and
 a removed one's output goes. It passes `rsi` = 0 to `ut_fb_info` at start.
 A kernel with one display needs neither change.
 
+Canvas passes a 40-byte block: after the 32 of Step 1, a `u32` of flags
+that it sets to 0 first, so a kernel that fills only 32 bytes still works.
+Bit 0 says the framebuffer is the built-in panel, the one under a laptop's
+lid. With the lid closed (a switch record, Step 3) Canvas turns that panel
+off; if another screen is on it also takes the panel out of the layout and
+does not lock.
+
 ## Later
 
 Only the native display backend, remote sharing and configuration need these:
