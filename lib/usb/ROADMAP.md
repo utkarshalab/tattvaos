@@ -293,10 +293,10 @@ Phone and camera file transfer (MTP/PTP) is deferred with storage
   replugged; it is let in once its keys are all up). Keyboards there at
   boot, and behind hubs there at boot, need no code.
   `usb_new_keyboard_check` turns it off. `usb_conf_apply`
-  (`core/conf.asm`) reads `new_keyboard_check = on|off` from the text of
-  `/conf/usb/usb.conf`, refusing anything it does not understand; the
-  kernel mounts no filesystem at boot yet (nothing calls `uxfs_init`), so
-  calling it waits for storage to be brought up
+  (`core/conf.asm`) reads `new_keyboard_check = on|off`, refusing anything
+  it does not understand; at start-up the kernel reads `conf/usb/usb.conf`
+  from the boot files (`initrd.img`, `kernel/exec/bootfiles.asm`) and says
+  what it set. Reading it from a mounted `/conf` comes with storage
 - ☐ Interfaces of one device authorised separately, so a "storage stick"
   cannot quietly add a keyboard interface
 - ☐ IOMMU mapping per device; USB4 PCIe tunnels only after authorisation
