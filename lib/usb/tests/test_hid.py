@@ -226,5 +226,38 @@ check("voice, alternate setting 1: isochronous, no error count",
       (0, [(5, 0), (1, 0)]))
 check("an interface that is not there", configure(hc, slot_hs, cfg, 9), -11)
 
+# ---- media keys on a keyboard's second interface ---------------------------------
+H = D.H
+hc = fresh()
+mk = D.keyboard_with_media()
+sim.attach(1, mk)
+scan(hc)
+check("the keyboard and its media keys: two interfaces", hid_attach(device_get(0)), 2)
+check("interface 1's report descriptor read", [r for r in mk.requests if r[0] == 0x81],
+      [(0x81, 6, 0x2200, 1, len(H.media))])
+check("boot protocol asked of interface 0 only", [r[3] for r in mk.requests if r[1] == 0x0B], [0])
+check("input devices", [(C.c_char_p.from_address(dev_info(i) + 8).value, C.c_uint64.from_address(dev_info(i) + 32).value)
+                        for i in (1, 2)], [(b"USB keyboard", 1), (b"USB media keys", 1)])
+mk.queue(0x82, b"\x02" + struct.pack("<HH", 0xE9, 0))
+mk.queue(0x82, b"\x02" + struct.pack("<HH", 0, 0))
+mk.queue(0x82, b"\x04\x01")
+mk.queue(0x81, kreport(0, 0x04))
+ev = take(hc)
+check("volume up and down again, power; and a key from interface 0 (each device in order)",
+      ([e for e in ev if e[3] == 2], [e for e in ev if e[3] == 1]),
+      ([(KEY, 115, 1, 2), (KEY, 115, 0, 2), (KEY, 116, 1, 2)], [(KEY, 30, 1, 1)]))
+vendor = b"".join([H.UsagePage(0xFF00, size=2), H.Usage(1), H.Collection_(H.APPLICATION),
+                   H.LogMin(0), H.LogMax(255, size=2), H.Size(8), H.Count(8), H.Input(H.VAR), H.End])
+hc = fresh()
+vk = D.keyboard_with_media(media=vendor)
+sim.attach(1, vk)
+scan(hc)
+check("an interface with only a vendor collection: left alone", hid_attach(device_get(0)), 1)
+hc = fresh()
+bk = D.keyboard_with_media(media=b"\x05\x0C\x09")
+sim.attach(1, bk)
+scan(hc)
+check("a report descriptor that does not parse: left alone", hid_attach(device_get(0)), 1)
+
 print(f"test_hid: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
