@@ -132,6 +132,8 @@ sw_cursor_render:
     mov rax, [rbx + FrameCtx.output]    ; rounded, 1x or 2x
     test rax, rax
     jz .sized
+    cmp qword [rax + Output.pixel_fb], 0
+    jne .sized                          ; drawn logical, scaled after
     mov rax, [rax + Output.scale]
     add rax, 0x8000
     shr rax, 16
