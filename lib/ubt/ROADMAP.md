@@ -477,10 +477,12 @@ Estimate: ~11 000 lines.
   Parameter Update (the central checks and applies it); LE credit-based
   channels (`l2cap/credit.asm`: K-frames, credits, every rule a peer
   must keep)
-- ☐ ATT (all PDUs, MTU exchange, prepared writes, signed writes)
-- ☐ GATT server (database, permissions, notifications, indications,
-  service changed) and client (discovery, read, write, long values,
-  subscribe)
+- ✓ ATT (`att/server.asm`, `att/client.asm`): every PDU, MTU exchange,
+  prepared writes, signed writes, the 30 s transaction timeout
+- ✓ GATT server (`gatt/db.asm`: database, permissions, per-link CCCDs,
+  notifications, indications; the Service Changed characteristic is
+  there, sent when a database changes still to do) and client
+  (discovery, read, write, long values, subscribe)
 - ✓ SMP (`sm/le.asm`, `sm/crypto.asm`, `sm/keys.asm`): legacy and Secure
   Connections pairing, Just Works, numeric comparison and passkey entry
   (OOB not offered), bonding, key distribution (LTK, EDIV and Rand, IRK
@@ -491,7 +493,8 @@ Estimate: ~11 000 lines.
 - ◐ Privacy: peers' resolvable private addresses resolved with their IRKs;
   our own rotating address and the controller's resolving list still to
   do
-- ☐ Built-in services: GAP, GATT, Device Information, Battery
+- ◐ Built-in services: GAP and GATT (the kernel serves its name);
+  Device Information and Battery still to do
 
 Demo: connect to a BLE peripheral, read its battery level, pair with
 Secure Connections.
