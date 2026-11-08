@@ -457,10 +457,10 @@ Estimate: ~5 500 lines.
   stacks over a virtual radio (`sim/radio.py`)
 - ✓ SDP server and client (`sdp/sdp.asm`): data elements, service
   search, attribute search, continuation states
-- ◐ Pairing (`sm/br.asm`): SSP numeric comparison, Just Works and
-  passkey, Secure Connections host support, legacy PIN pairing for
-  pre-2.1 peers (decision D3); out-of-band data and Secure Connections
-  Only mode still to do
+- ✓ Pairing (`sm/br.asm`): SSP numeric comparison, Just Works, passkey
+  and out of band, Secure Connections host support and Secure
+  Connections Only mode, legacy PIN pairing for pre-2.1 peers (decision
+  D3)
 - ☐ Bond store in `/sec/keys/bt/`, authentication and encryption, key
   refresh, minimum key size checks
 - ☐ `ush`: `bt scan`, `bt pair`, `bt devices`, `bt forget`
@@ -482,21 +482,22 @@ Estimate: ~11 000 lines.
 - ✓ ATT (`att/server.asm`, `att/client.asm`): every PDU, MTU exchange,
   prepared writes, signed writes, the 30 s transaction timeout
 - ✓ GATT server (`gatt/db.asm`: database, permissions, per-link CCCDs,
-  notifications, indications; the Service Changed characteristic is
-  there, sent when a database changes still to do) and client
+  notifications, indications; Service Changed indicated with
+  `ubt_gatt_changed`) and client
   (discovery, read, write, long values, subscribe)
 - ✓ SMP (`sm/le.asm`, `sm/crypto.asm`, `sm/keys.asm`): legacy and Secure
   Connections pairing, Just Works, numeric comparison and passkey entry
-  (OOB not offered), bonding, key distribution (LTK, EDIV and Rand, IRK
+  and out of band (SC commitments, legacy TKs), bonding, key
+  distribution (LTK, EDIV and Rand, IRK
   and identity address, CSRK), encryption from bonds, the peers' random
   addresses resolved, Security Request, the 30 s timeout; every value
   checked against the specification's functions
 - ☐ Cross-transport key derivation with the rules from the BLURtooth fixes
-- ◐ Privacy: peers' resolvable private addresses resolved with their IRKs;
-  our own rotating address and the controller's resolving list still to
-  do
-- ◐ Built-in services: GAP and GATT (the kernel serves its name);
-  Device Information and Battery still to do
+- ✓ Privacy (`gap/privacy.asm`): peers' resolvable private addresses
+  resolved with their IRKs, our own rotating address, the controller's
+  resolving list
+- ✓ Built-in services: GAP and GATT (the kernel serves its name), Device
+  Information and Battery (`gatt/services.asm`)
 
 Demo: connect to a BLE peripheral, read its battery level, pair with
 Secure Connections.
