@@ -343,7 +343,7 @@ OUTPUT_SRCS := \
 
 # Input Management (C12)
 INPUT_SRCS := \
-    $(SRCDIR)/input/input.asm \
+    $(SRCDIR)/input/input.asm     $(SRCDIR)/input/seat_watch.asm \
     $(SRCDIR)/input/source_iface.asm \
     $(SRCDIR)/input/source_virtual.asm \
     $(SRCDIR)/input/keymap_us.asm \
