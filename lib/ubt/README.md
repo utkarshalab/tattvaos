@@ -21,8 +21,13 @@ services, characteristics and descriptors (permissions checked against
 the link's security; notifications and indications as each link
 subscribes; signed writes), and a client for every procedure: MTU,
 discovery, plain, long and multiple reads, plain, long, unacknowledged
-and signed writes, subscriptions. BR/EDR pairing, SDP and RFCOMM are
-next.
+and signed writes, subscriptions.
+
+**BR/EDR pairing and SDP**: Secure Simple Pairing (numeric comparison,
+Just Works, passkey) and legacy PINs answered for the controller, link
+keys kept as bonds and used again, authentication then encryption; an
+SDP server with continuation and a client that gathers whole answers.
+RFCOMM is next.
 
 Phase 1 has started: **HCI over USB and the HCI core**, host-tested against
 a simulated USB controller on `lib/usb`'s simulated xHCI controller, and in
@@ -66,7 +71,8 @@ adapter.gap_fn(adapter, kind, record)       ; devices found, names, the end of
                                     ; an inquiry, pairing questions and results
 adapter.io_cap / .bondable / .sc_only       ; how this side pairs
 ubt_pair(conn)                      ; encrypt from a bond, or pair
-ubt_pair_confirm(conn, yes) / ubt_pair_passkey(conn, value)
+ubt_pair_confirm(conn, yes) / ubt_pair_passkey(conn, value) / ubt_pair_pin(conn, pin, len)
+ubt_br_enable(adapter)              ; Secure Simple Pairing on (the kernel does it)
 ubt_random_fn(buffer, len) / ubt_key_fn(entry)  ; randomness; keeping bonds
 ubt_key_find / ubt_key_add / ubt_key_forget / ubt_key_resolve
 ubt_gatt_db_init(db) / ubt_gatt_service / ubt_gatt_char / ubt_gatt_desc
@@ -76,6 +82,11 @@ ubt_gatt_notify(conn, handle, data, len) / ubt_gatt_indicate(...)
 ubt_gatt_mtu / ubt_gatt_services / ubt_gatt_chars / ubt_gatt_descs
 ubt_gatt_read / ubt_gatt_read_multiple / ubt_gatt_write / ubt_gatt_write_cmd
 ubt_gatt_write_signed / ubt_gatt_subscribe
+ubt_sdp_init() / ubt_sdp_add(record, len) / ubt_sdp_remove(handle)
+ubt_sdp_rfcomm_record(class, channel, name, len, out)
+ubt_sdp_query(conn, uuids, n, first, last) / ubt_sdp_close(conn)
+ubt_sdp_fn(conn, status, data, len) ; a query's whole answer
+ubt_sdp_attr(list, len, id) / ubt_sdp_rfcomm_channel(data, len)
 ubt_gatt_fn(conn, kind, record)     ; what the client finds, reads, is
                                     ; notified of, and each procedure's end
 ubt_service()                       ; queued commands, L2CAP timeouts, waiting
@@ -99,7 +110,8 @@ ubt_service()                       ; queued commands, L2CAP timeouts, waiting
 | `sm/keys.asm` | The bond store: one entry per peer, found by address or identity, random addresses resolved by IRK, a hook to keep it |
 | `sm/le.asm` | The LE Security Manager: pairing in both roles, every association model, encryption, key distribution, LTK requests, the timeout |
 | `sm/sec.asm` | Security whichever the link: pairing calls, encryption events, timeouts, freeing with the link |
-| `sm/br.asm` | BR/EDR pairing (not yet: refused) |
+| `sm/br.asm` | BR/EDR pairing for the controller: link keys from bonds, IO capabilities, the user's confirmation, passkey or PIN, new link keys kept with their type, authentication then encryption |
+| `sdp/sdp.asm` | SDP: data elements, the record store, the server (Service Search, Service Attribute, Service Search Attribute, continuation, errors) and the client (queries, continuation, whole answers), helpers for attributes and RFCOMM channels |
 | `gatt/db.asm` | The GATT database: services, characteristics with their declarations and CCCDs, descriptors, stored values or read and write functions, the GAP and GATT services |
 | `att/server.asm` | The ATT bearer (fixed CID 4) and the server: every request, permissions, per-link CCCDs, prepared writes, signed writes, notifications, indications, the timeout |
 | `att/client.asm` | The GATT client: MTU, discovery of services (all, by UUID), characteristics and descriptors, reads (long, multiple), writes (long, commands, signed), subscriptions, notifications and indications |
@@ -108,7 +120,7 @@ ubt_service()                       ; queued commands, L2CAP timeouts, waiting
 | `tr/usb.asm` | HCI over USB: the USB driver (class E0/01/01), commands as class requests, events and ACL put back together from their length fields, ACL out, recovery, removal |
 | `kernel.asm` | The kernel glue: registered before USB starts, each adapter's line after its device's, the service from the USB poll |
 | `sim/hci_usb.py` | A simulated USB Bluetooth controller (tests only) |
-| `sim/radio.py` | A virtual radio: controllers for in-memory adapters, linking them to each other, advertising and scanning, inquiry and names, LE encryption (tests only) |
+| `sim/radio.py` | A virtual radio: controllers for in-memory adapters, linking them to each other, advertising and scanning, inquiry and names, LE encryption, BR/EDR authentication, Secure Simple Pairing, PIN pairing and encryption (tests only) |
 | `tests/host.asm`, `tests/crstub.asm` | The library as the tests load it, with what usign's P-256 file calls in the kernel stubbed |
 | `tests/smp_ref.py` | AES, AES-CMAC, the SMP functions and P-256 in Python, from the standards, to check the stack against |
 
@@ -123,6 +135,8 @@ ubt_service()                       ; queued commands, L2CAP timeouts, waiting
 | `test_crypto.py` | 17 | AES-128 (FIPS-197), AES-CMAC (RFC 4493, four lengths), ah, c1, s1, f4 and g2 against the specification's samples; AES, CMAC and every SMP function against the Python reference over random inputs; the debug key's public key; Diffie-Hellman both ways; a point off the curve and a zero key refused |
 | `test_smp.py` | 55 | Pairing between two stacks with every value on the air recomputed in Python: SC Just Works (confirm, DHKey checks, the LTK that encrypts, both bonds and their keys, the hook), the bond's key next time, numeric comparison (g2's digits on both sides, authenticated; one side saying no), SC passkey entry (twenty rounds each carrying its bit, a wrong passkey, cancelled), legacy Just Works and passkey (c1, s1, the LTKs, EDIVs and Rands both ways, encryption from them), SC only refusing legacy, the peripheral's Security Request, a side that does not bond; by hand: unknown and short PDUs, key size 6, PDUs out of turn, an LTK asked for without a key; the 30 s timeout; resolvable private addresses; every block given back |
 | `test_gatt.py` | 68 | Our client against our server over LE: the database laid out; every service, by 16- and 128-bit UUID, none; characteristics and descriptors (both UUID formats); reads short, long (13 blobs at MTU 23), multiple, through a read function, a missing handle, a CCCD; MTU 517 both ways; writes, long ones by 23 prepared writes, commands, through a write function (and refused by it), to read-only values, past the maximum; encryption and authentication required (no bond, bonded but not encrypted, encrypted, not authenticated); signed writes against the MAC computed here, replayed and tampered ones refused; notifications and indications as subscribed, confirmed, one at a time, the 30 s timeout; by hand: unknown requests and commands, bad group types, ranges, lengths, offsets, a 128-bit Read By Type, the prepare queue full, cancel, CCCD values; the client's timeout; every block given back |
+| `test_brpair.py` | 26 | BR/EDR pairing through the virtual controllers: numeric comparison (the commands in order, our IO capability, encrypted and authenticated, both bonds and their key type), the bond's key next time, a peer that lost its key, one side saying no, Just Works, passkey right, wrong and cancelled, a side not bonding, legacy PINs equal and different, nobody to ask for a PIN, an IO capability request for nobody |
+| `test_sdp.py` | 32 | Records made and added (attribute 0 put first), not one sequence refused; queries by 16-bit UUID, matching a 128-bit one, every record with continuation, an attribute range, nothing found; the RFCOMM channel and attributes found in answers; by hand: Service Search with its limit, Service Attribute, unknown handles, missing lists, bad patterns, lengths and continuations, unknown requests, the transaction ID, an answer seven bytes at a time; removal; every block given back |
 | `test_ertm.py` | 41 | ERTM and streaming between two stacks: the RFC option both ways byte for byte, I-frames with good FCS, Receiver Ready, an SDU in a start and an end, the peer's MTU; a deaf peer: the window fills, the poll after 2 s, everything again in order; a lost frame answered with one Reject; by hand: a wrong FCS dropped, duplicates, polls answered with F, Receiver Not Ready and Ready, Selective Reject (one frame, not an acknowledgement), Reject, an acknowledgement of frames never sent closing the channel; MaxTransmit polls then the channel given up; streaming losing one SDU, no acknowledgements; a mode the peer lacks refused unasked; a configuration without RFC answered unacceptable; every block given back |
 | `test_credit.py` | 64 | Credit-based channels: basic mode refused on LE; the LE request and answer byte for byte, K-frames with the SDU length, credits used on both sides, 1017 bytes in five K-frames, credits given back at half, the MTU; 25 SDUs waiting for credits, all in order; by hand: an SDU in pieces, an empty SDU, Flow Control Credit, credits for no channel; a peer breaking each rule (beyond MPS, beyond MTU, no length, more than the SDU, no credit, 65535 credits) losing the channel; no SPSM, the other mode, a CID out of range, in use, MTU or MPS under 23; three enhanced channels in one request and answer, data on each; partly refused, six CIDs, MTU under 64, no SPSM; reconfiguration asked and answered, a larger SDU after it, not smaller, not on LE credit based; every refusal result (1-4) and a smaller MPS for one channel; enhanced over BR/EDR, refused to a peer without it, the LE request not understood there; closing; every block given back |
 | `test_usb_hci.py` | 34 | Bring-up in order, what is read (version, maker, address, LE, features, commands, buffer sizes), event masks, commands as class requests, events in 16-byte pieces, credits, endpoints; unknown commands, Command Status, a command never answered; other events handed up whole, hardware errors, an unexpected Command Complete, an event ending on a packet boundary; ACL out and back in pieces, one at a time, three packets in one transfer, a length no packet has; a stalled event endpoint recovered; bring-up failing with a status and with no answer; BR/EDR only; two adapters; the MediaTek radio left for its firmware; removal with its memory back |
