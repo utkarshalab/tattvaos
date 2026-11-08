@@ -32,6 +32,13 @@ SDP server with continuation and a client that gathers whole answers.
 negotiation, credit-based flow control and modem status, the
 multiplexer's other commands answered, served channels and refusals.
 
+**Out of band, privacy, built-in services**: out-of-band pairing on LE
+(Secure Connections commitments, legacy TKs) and BR/EDR (the
+controller's C and R), Secure Connections Only on BR/EDR, our own
+resolvable private address rotated and used for advertising and
+scanning, the controller's resolving list from the bonds, Device
+Information and Battery services, Service Changed indicated.
+
 Phase 1 has started: **HCI over USB and the HCI core**, host-tested against
 a simulated USB controller on `lib/usb`'s simulated xHCI controller, and in
 the kernel. A standard controller is brought up at boot and said on the
@@ -78,6 +85,11 @@ ubt_pair_confirm(conn, yes) / ubt_pair_passkey(conn, value) / ubt_pair_pin(conn,
 ubt_br_enable(adapter)              ; Secure Simple Pairing on (the kernel does it)
 ubt_random_fn(buffer, len) / ubt_key_fn(entry)  ; randomness; keeping bonds
 ubt_key_find / ubt_key_add / ubt_key_forget / ubt_key_resolve
+ubt_smp_oob_local(out) / ubt_smp_oob_peer(addr, type, r, c) / ubt_smp_oob_tk / ubt_smp_oob_clear
+ubt_br_oob_local(adapter, out) / ubt_br_oob_peer(addr, c, r)
+ubt_le_privacy(adapter, on, seconds) / ubt_le_resolving_sync(adapter)
+ubt_gatt_dis(db, maker, model, software) / ubt_gatt_battery(db, level)
+ubt_gatt_battery_set(db, handle, level) / ubt_gatt_changed(db, sc, start, end)
 ubt_gatt_db_init(db) / ubt_gatt_service / ubt_gatt_char / ubt_gatt_desc
 ubt_gatt_set(db, handle, data, len) / ubt_gatt_gap_gatt(db, name, len, appearance)
 adapter.gatt                        ; its database (0: ubt_gatt_default)
@@ -112,6 +124,8 @@ ubt_service()                       ; queued commands, L2CAP timeouts, waiting
 | `l2cap/sig.asm` | Signalling: every BR/EDR command, configuration negotiation (with the retransmission and flow control option), LE Command Reject, Disconnection and Connection Parameter Update; the credit-based commands handed to `credit.asm` |
 | `l2cap/ertm.asm` | Enhanced Retransmission and Streaming modes: the control field, CRC-16 FCS, segmentation and reassembly, the window, acknowledgements, retransmission and monitor timers, Reject, Selective Reject, Receiver Not Ready, polls |
 | `gap/gap.asm` | Advertising, scanning, inquiry, names, scan modes, class, EIR; reports of every kind to `gap_fn`; AD fields |
+| `gap/privacy.asm` | Our resolvable private address (from our IRK), its rotation, the address type advertising and scanning use, the controller's resolving list |
+| `gatt/services.asm` | Device Information, Battery (with notifications), Service Changed indications |
 | `sm/crypto.asm` | AES-128 (AES-NI), AES-CMAC, the SMP functions (ah, c1, s1, f4, f5, f6, g2, h6, h7), P-256 key pairs and Diffie-Hellman (usign's curve) |
 | `sm/keys.asm` | The bond store: one entry per peer, found by address or identity, random addresses resolved by IRK, a hook to keep it |
 | `sm/le.asm` | The LE Security Manager: pairing in both roles, every association model, encryption, key distribution, LTK requests, the timeout |
@@ -145,6 +159,7 @@ ubt_service()                       ; queued commands, L2CAP timeouts, waiting
 | `test_brpair.py` | 26 | BR/EDR pairing through the virtual controllers: numeric comparison (the commands in order, our IO capability, encrypted and authenticated, both bonds and their key type), the bond's key next time, a peer that lost its key, one side saying no, Just Works, passkey right, wrong and cancelled, a side not bonding, legacy PINs equal and different, nobody to ask for a PIN, an IO capability request for nobody |
 | `test_sdp.py` | 32 | Records made and added (attribute 0 put first), not one sequence refused; queries by 16-bit UUID, matching a 128-bit one, every record with continuation, an attribute range, nothing found; the RFCOMM channel and attributes found in answers; by hand: Service Search with its limit, Service Attribute, unknown handles, missing lists, bad patterns, lengths and continuations, unknown requests, the transaction ID, an answer seven bytes at a time; removal; every block given back |
 | `test_rfcomm.py` | 30 | Two stacks over BR/EDR: a channel opened (every frame's FCS, the order on both sides, PN with credit flow, C/R bits, credits), data short, cut to 1000-byte frames, 20 frames through running out of credits, both ways; by hand: Test echoed, RPN answered, an unknown command (NSC), flow control off and on, a bad FCS dropped, SABM for a channel nobody serves (DM); connecting to nothing, channel numbers out of range, closing, opening again on the same session, the link going; every block given back |
+| `test_extras.py` | 32 | LE SC out of band (the flags, no confirms or questions, the commitment checked, a bad one failing), legacy with a shared TK (and falling back when one side lacks it), BR/EDR out of band (the controller's data read, the reply, a wrong R), Secure Connections Only refusing a PIN pairing's key, privacy (the address resolvable with our IRK, heard by a scanner, rotated, off), the resolving list, Device Information and Battery read, a battery level notified, Service Changed indicated |
 | `test_ertm.py` | 41 | ERTM and streaming between two stacks: the RFC option both ways byte for byte, I-frames with good FCS, Receiver Ready, an SDU in a start and an end, the peer's MTU; a deaf peer: the window fills, the poll after 2 s, everything again in order; a lost frame answered with one Reject; by hand: a wrong FCS dropped, duplicates, polls answered with F, Receiver Not Ready and Ready, Selective Reject (one frame, not an acknowledgement), Reject, an acknowledgement of frames never sent closing the channel; MaxTransmit polls then the channel given up; streaming losing one SDU, no acknowledgements; a mode the peer lacks refused unasked; a configuration without RFC answered unacceptable; every block given back |
 | `test_credit.py` | 64 | Credit-based channels: basic mode refused on LE; the LE request and answer byte for byte, K-frames with the SDU length, credits used on both sides, 1017 bytes in five K-frames, credits given back at half, the MTU; 25 SDUs waiting for credits, all in order; by hand: an SDU in pieces, an empty SDU, Flow Control Credit, credits for no channel; a peer breaking each rule (beyond MPS, beyond MTU, no length, more than the SDU, no credit, 65535 credits) losing the channel; no SPSM, the other mode, a CID out of range, in use, MTU or MPS under 23; three enhanced channels in one request and answer, data on each; partly refused, six CIDs, MTU under 64, no SPSM; reconfiguration asked and answered, a larger SDU after it, not smaller, not on LE credit based; every refusal result (1-4) and a smaller MPS for one channel; enhanced over BR/EDR, refused to a peer without it, the LE request not understood there; closing; every block given back |
 | `test_usb_hci.py` | 34 | Bring-up in order, what is read (version, maker, address, LE, features, commands, buffer sizes), event masks, commands as class requests, events in 16-byte pieces, credits, endpoints; unknown commands, Command Status, a command never answered; other events handed up whole, hardware errors, an unexpected Command Complete, an event ending on a packet boundary; ACL out and back in pieces, one at a time, three packets in one transfer, a length no packet has; a stalled event endpoint recovered; bring-up failing with a status and with no answer; BR/EDR only; two adapters; the MediaTek radio left for its firmware; removal with its memory back |
