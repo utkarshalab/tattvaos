@@ -67,6 +67,7 @@ test_greeter_suite:
     CASE tg_login
     CASE tg_lockout
     CASE tg_lock_key
+    CASE tg_lid_lock
     CASE tg_idle_lock
     CASE tg_locked_keys
     CASE tg_users
@@ -446,6 +447,36 @@ tg_lock_key:
     call poll
     call poll
     LOCKED
+    TYPE KEY_A
+    TYPE KEY_B
+    TYPE KEY_ENTER
+    call poll
+    cmp qword [rel server + Server.locked], 0
+    jne .fail
+    PASS
+
+; Closing the lid locks, as Super+L does; opening it does not unlock
+tg_lid_lock:
+    sub rsp, 8
+    call unlocked
+    lea rdi, [rel server]
+    mov esi, INPUT_SWITCH
+    mov edx, INPUT_SWITCH_LID
+    mov ecx, 1                          ; closed
+    xor r8d, r8d
+    call virtual_input_inject
+    call poll
+    call poll
+    LOCKED
+    lea rdi, [rel server]
+    mov esi, INPUT_SWITCH
+    mov edx, INPUT_SWITCH_LID
+    xor ecx, ecx                        ; open again
+    xor r8d, r8d
+    call virtual_input_inject
+    call poll
+    cmp qword [rel server + Server.locked], 1
+    jne .fail
     TYPE KEY_A
     TYPE KEY_B
     TYPE KEY_ENTER
