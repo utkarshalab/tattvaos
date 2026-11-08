@@ -399,7 +399,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | TCH-01 | Multi-touch slots and surface delivery | P2 | ◐ `input/input` (records type 6): each finger goes to the surface it went down on until lifted or cancelled, a tap focusing it; `cw_touch` down, motion, up, cancel in the surface's pixels, and frame after each scan to the surfaces in it; device units scaled by `ut_input_device_info`; behind `CAP_TOUCH`; `test_window`. No gestures yet (`input/touch` is the older module) |
-| TCH-02 | Touchpad gestures: pinch, swipe, hold, multi-finger tap; configurable | P2 | ◐ `input/gestures` |
+| TCH-02 | Touchpad gestures: pinch, swipe, hold, multi-finger tap; configurable | P2 | ◐ `input/gestures`: a touchpad (device caps pointer and touch) has its contacts made into gestures for the surface under the pointer, as `cw_gesture`: a hold as fingers go down, a swipe when three or more move together 8 pixels, a pinch when two spread or close 8 (the hold ended, cancelled), updates with the move and the pinch's scale (16.16), an end when the fingers change; behind `CAP_POINTER`; `test_window`. No multi-finger tap, rotation or settings; nothing the server does with them itself (WIN-21) |
 | TCH-03 | Touchpad palm rejection and disable-while-typing | P3 | |
 | TCH-04 | Touch-to-pointer emulation for clients without touch | P2 | |
 | TCH-05 | Long-press → context menu translation | P3 | |
