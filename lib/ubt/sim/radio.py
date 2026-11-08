@@ -39,6 +39,12 @@ class Controller:
         self.ssp = False            # BR/EDR: Secure Simple Pairing on (else PINs)
         self.pair_number = 123456   # what numeric comparison shows, a passkey
         self.pair_key = bytes(range(0x30, 0x40))
+        # LE privacy: our random address, the address type we advertise and
+        # scan with, the resolving list; BR/EDR out-of-band data
+        self.random_addr, self.adv_own, self.scan_own = None, 0, 0
+        self.resolving, self.resolution = [], False
+        self.oob_c = bytes([0xC0 ^ address[0]]) * 16
+        self.oob_r = bytes([0x50 ^ address[0]]) * 16
         # LE encryption: keys asked for, links encrypted, keys that worked
         self.ltk_asked, self.encrypted, self.keys_used = {}, set(), []
 
@@ -173,7 +179,18 @@ class Controller:
         """Advertising, scanning, inquiry and names → True when handled."""
         ok = lambda: self.complete(opcode, b"\x00")
         if opcode == 0x2006:                            # LE Set Advertising Parameters
-            self.adv_type = p[4]
+            self.adv_type, self.adv_own = p[4], p[5]
+        elif opcode == 0x2005:                          # LE Set Random Address
+            self.random_addr = bytes(p[:6])
+        elif opcode == 0x2029:                          # LE Clear Resolving List
+            self.resolving = []
+        elif opcode == 0x2027:                          # LE Add Device To Resolving List
+            self.resolving.append(bytes(p[:39]))
+        elif opcode == 0x202D:                          # LE Set Address Resolution Enable
+            self.resolution = bool(p[0])
+        elif opcode == 0x047D:                          # Read Local OOB Extended Data
+            self.complete(opcode, b"\x00" + bytes(32) + self.oob_c + self.oob_r)
+            return True
         elif opcode == 0x2008:                          # LE Set Advertising Data
             self.adv_data = bytes(p[1:1 + p[0]])
         elif opcode == 0x2009:                          # LE Set Scan Response Data
@@ -187,7 +204,7 @@ class Controller:
                         c.hear(self)
             return True
         elif opcode == 0x200B:                          # LE Set Scan Parameters
-            self.active = bool(p[0])
+            self.active, self.scan_own = bool(p[0]), p[5]
         elif opcode == 0x200C:                          # LE Set Scan Enable
             self.scanning, self.no_dups, self.seen = bool(p[0]), bool(p[1]), set()
             ok()
@@ -265,6 +282,13 @@ class Controller:
 
     def _ssp_model(self, st):
         ii, ir = st["io_ini"], st["io_rsp"]
+        if ii[1] or ir[1]:                              # out of band data on either side
+            st["model"], st["oob_wait"] = "oob", []
+            for c, io, other in ((st["ini"], ii, st["rsp"]), (st["rsp"], ir, st["ini"])):
+                if io[1]:
+                    st["oob_wait"].append(c)
+                    c.event(0x35, other.address)
+            return
         mitm = (st["auth_ini"] | st["auth_rsp"]) & 1
         ini, rsp = st["ini"], st["rsp"]
         if mitm and 3 not in (ii[0], ir[0]) and 2 in (ii[0], ir[0]):
@@ -296,7 +320,8 @@ class Controller:
                                                  "ssp": self.ssp and peer.ssp}
             self.event(0x17, peer.address)
             return True
-        if opcode in (0x040B, 0x040C, 0x042B, 0x0434, 0x042C, 0x042D, 0x042E, 0x042F, 0x040D, 0x040E):
+        if opcode in (0x040B, 0x040C, 0x042B, 0x0434, 0x042C, 0x042D, 0x042E, 0x042F, 0x040D, 0x040E,
+                      0x045D, 0x0433):
             self.complete(opcode, b"\x00" + bytes(p[:6]))
             peer, st = self._pairing(p[:6])
             if st is None:
@@ -351,6 +376,15 @@ class Controller:
                     ok = all(v == st["ini"].pair_number for v in st["entered"].values())
                     self._pair_end(st, 0 if ok else 0x05, 8)
                 return True
+            if opcode in (0x045D, 0x0433):              # Remote OOB Extended Data (Negative) Reply
+                ok = opcode == 0x045D and bytes(p[38:54]) == peer.oob_c and bytes(p[54:70]) == peer.oob_r
+                if not ok:
+                    self._pair_end(st, 0x05)
+                    return True
+                st["oob_wait"].remove(self)
+                if not st["oob_wait"]:
+                    self._pair_end(st, 0, 8)
+                return True
             if opcode in (0x040D, 0x040E):              # PIN Code (Negative) Reply
                 if opcode == 0x040E:
                     self._pair_end(st, 0x05)
@@ -381,7 +415,9 @@ class Controller:
             if self.no_dups and (adv.address, t) in self.seen:
                 continue
             self.seen.add((adv.address, t))
-            self.event(EV_LE_META, bytes([0x02, 1, t, 0]) + adv.address + bytes([len(data)]) + data
+            random = adv.adv_own == 1 and adv.random_addr is not None
+            addr, typ = (adv.random_addr, 1) if random else (adv.address, 0)
+            self.event(EV_LE_META, bytes([0x02, 1, t, typ]) + addr + bytes([len(data)]) + data
                        + struct.pack("<b", adv.rssi))
 
     def acl(self, pkt):
