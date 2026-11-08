@@ -3,7 +3,8 @@
 ; =============================================================================
 ;   ubt_kernel_init     before usb_kernel_init: the USB driver registered,
 ;                       adapters said on the console, ubt_service run from
-;                       the USB poll
+;                       the USB poll, the monotonic clock for L2CAP's
+;                       timeouts
 ;
 ; An adapter's line comes after its device's USB line (the USB glue calls
 ; usb_k_after_device_fn once that line is out).
@@ -49,8 +50,20 @@ ubt_kernel_init:
     mov [rel usb_k_after_device_fn], rax
     lea rax, [rel ubt_service]
     mov [rel usb_k_service_fn], rax
+    lea rax, [rel ubt_kernel_clock]
+    mov [rel ubt_clock_fn], rax         ; L2CAP's timeouts
     call ubt_init
     add rsp, 8
+    ret
+
+; ubt_kernel_clock — ubt_clock_fn: RAX = milliseconds of the monotonic clock
+ubt_kernel_clock:
+    sub rsp, 8
+    call mono_get_nanos
+    add rsp, 8
+    xor edx, edx
+    mov ecx, 1000000
+    div rcx
     ret
 
 ; ubt_kernel_say — ubt_adapter_fn: RDI = adapter. A gone one is said now;
