@@ -85,7 +85,7 @@ git_commit_encode:
  mov rdx,[rbx+git_commit_request.output]
  mov rcx,r15
  mov r8,[rbx+git_commit_request.hash]
- call git_object_hash
+ call git_object_hash wrt ..plt
  mov rdx,r15
  jmp .done
 .usage:
