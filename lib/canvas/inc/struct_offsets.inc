@@ -1572,6 +1572,9 @@ struc Server
     .seat_watchers:           resq 8    ; SEAT_WATCHERS Client*s told of
                                         ; switches and devices
     .lid_closed:              resq 1    ; 1 while the lid is closed (SES-08)
+    .lid_awake:               resq 1    ; 1: closing it only locks; 0 (at
+                                        ; start): it suspends as well
+    .suspends:                resq 1    ; times the lid asked to suspend
     .magnify_follow:          resq 1    ; 1: the view on magnify_rect, the
                                         ; keyboard's; 0: round the pointer
     .magnify_rect:            resd 4    ; x, y, w, h of what has the keyboard
