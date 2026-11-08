@@ -14,6 +14,7 @@ Turns input hardware into events and hands them to canvas through
 | `core/event.asm` | Event ring (256 events), `input_pump`, and `ut_input_register_callback`, `ut_input_unregister_callback`, `ut_input_device_info`, `ut_input_grab` |
 | `ps2/i8042.asm` | PS/2 controller: detection, self-test, translation, IRQ 1 work |
 | `ps2/kbd.asm` | PS/2 keyboard: reset, scan code set 1 decoding, repeat suppression, lock-key LEDs |
+| `hid/report.asm` | Keyboards and mice in report protocol: what is kept of a parsed report descriptor, keyboard reports as boot reports, pointer reports into events |
 | `hid/media.asm` | Media, volume and system keys from Consumer and System Control collections: what is kept of a parsed report descriptor, reports into key events, the usage → keycode table |
 | `hid/boot.asm` | Boot keyboard and mouse reports into events, and `hid_usage_key`, the keyboard usage → keycode table every HID transport uses |
 | `hid/hid.inc`, `hid/parse.asm` | The shared HID core: `hid_parse` turns a report descriptor into fields; `hid_get` reads an element's value from a report; `hid_find_usage` finds the element with a usage; `hid_report_bits` gives a report's length |
@@ -46,6 +47,7 @@ Python:
 | Suite | Checks | Against |
 |---|---|---|
 | `test_input.py` | 66 | The event core and a simulated PS/2 controller and keyboard (`sim_ps2.py`) |
+| `test_report.py` | 22 | What is found in boot-layout, n-key, mouse, big-mouse, tablet, media and combined descriptors; keyboard reports as boot reports (six keys, seven as rollover, other report IDs, reports cut short); 16-bit motion, back and forward buttons, both wheels, a plain mouse in report protocol |
 | `test_media.py` | 20 | The consumer and system usage → keycode table; what is kept of descriptors with and without media collections; array and bitmap reports, several report IDs, system control, unknown usages and report IDs, reports cut short, empty ones |
 | `test_boot.py` | 28 | The usage → keycode table; boot keyboard reports (presses and releases in any order, modifiers, ErrorRollOver, lock keys, six keys, unknown usages, short reports); boot mouse reports |
 | `test_hid.py` | 50 | Report descriptors built by `hid_gen.py`, and mutated ones |
