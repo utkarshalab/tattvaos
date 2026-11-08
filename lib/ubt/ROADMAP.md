@@ -142,8 +142,8 @@ matter first.
 | SDIO host controller driver | `lib/io` | **Not found** | Phase 11 |
 | System sleep and resume, wake sources | `kernel/power` | ◐ | Phase 12 |
 | UART driver with hardware flow control | `lib/io/char/serial.asm` | ◐ basic serial only | Phase 11 (H4/H5) |
-| AES-128, AES-CMAC, AES-CCM | `lib/crypto/ucrypt` | ◐ | Phase 3 (SMP), Phase 7 (encrypted advertising), Phase 9 (Mesh) |
-| P-256 ECDH | `lib/crypto/ucrypt/asymmetric/ecdh_p256.asm` | ◐ | Phase 3 (LE Secure Connections), Phase 9 |
+| AES-128, AES-CMAC, AES-CCM | `lib/crypto/ucrypt` | ◐ `aes_cmac` there is an empty stub; SMP has its own AES-128 (AES-NI) and AES-CMAC in `sm/crypto.asm` | Phase 3 (SMP), Phase 7 (encrypted advertising), Phase 9 (Mesh) |
+| P-256 ECDH | `lib/crypto/ucrypt/asymmetric/ecdh_p256.asm` | ◐ that file is a placeholder (it XORs the keys); SMP uses usign's P-256 point arithmetic (`lib/crypto/usign/ecdsa/ecdsa_p256.asm`) | Phase 3 (LE Secure Connections), Phase 9 |
 | HMAC-SHA-256 | `lib/crypto/ucrypt/mac/hmac.asm` | ◐ | Phase 9 (Mesh 1.1 provisioning) |
 | Random numbers | `lib/urand` | ◐ | Addresses, keys, nonces |
 | Audio codecs: SBC, mSBC, CVSD, LC3, AAC | `lib/uaud` | **Empty** | Phase 5, Phase 8 |
@@ -442,9 +442,10 @@ Estimate: ~5 500 lines.
 
 ### Phase 2 — Classic core (1.0b to 2.1, 4.1 Secure Connections)
 
-- ☐ Inquiry (standard, with RSSI, extended), remote name, EIR parse and
-  build, page and page scan, connectable and discoverable modes, class of
-  device
+- ◐ Inquiry (standard, with RSSI, extended), remote name, EIR parse,
+  connectable and discoverable modes, class of device, local name
+  (`gap/gap.asm`); building EIR from fields still to do (it is set as
+  bytes)
 - ◐ ACL connection handling (`hci/conn.asm`): create, accept, disconnect,
   BR/EDR and LE links, ACL fragmentation to the controller's buffer size,
   flow control by Number of Completed Packets, reassembly; role switch,
@@ -467,8 +468,9 @@ Estimate: ~11 000 lines.
 
 ### Phase 3 — LE core (4.0 to 4.2)
 
-- ☐ Legacy advertising and scanning, active and passive, filter accept
-  list
+- ◐ Legacy advertising and scanning, active and passive, legacy and
+  extended reports, AD fields (`gap/gap.asm`); the filter accept list
+  still to do
 - ☐ LE connections, connection parameter update (both ways), data length
   extension
 - ✓ L2CAP LE signaling: Command Reject, Disconnection, Connection
@@ -479,11 +481,16 @@ Estimate: ~11 000 lines.
 - ☐ GATT server (database, permissions, notifications, indications,
   service changed) and client (discovery, read, write, long values,
   subscribe)
-- ☐ SMP: legacy and Secure Connections pairing, all association models,
-  bonding, key distribution, IRK and address resolution, signing keys
+- ✓ SMP (`sm/le.asm`, `sm/crypto.asm`, `sm/keys.asm`): legacy and Secure
+  Connections pairing, Just Works, numeric comparison and passkey entry
+  (OOB not offered), bonding, key distribution (LTK, EDIV and Rand, IRK
+  and identity address, CSRK), encryption from bonds, the peers' random
+  addresses resolved, Security Request, the 30 s timeout; every value
+  checked against the specification's functions
 - ☐ Cross-transport key derivation with the rules from the BLURtooth fixes
-- ☐ Privacy: resolvable private addresses, rotation, controller resolving
-  list
+- ◐ Privacy: peers' resolvable private addresses resolved with their IRKs;
+  our own rotating address and the controller's resolving list still to
+  do
 - ☐ Built-in services: GAP, GATT, Device Information, Battery
 
 Demo: connect to a BLE peripheral, read its battery level, pair with
