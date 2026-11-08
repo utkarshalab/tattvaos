@@ -293,8 +293,8 @@ lib/ubt/
 │   ├── br/               inquiry.asm page.asm name.asm eir.asm mode.asm
 │   └── le/               adv.asm scan.asm conn.asm privacy.asm periodic.asm
 │                         past.asm pawr.asm ead.asm phy.asm subrate.asm
-├── l2cap/                core.asm sig.asm basic.asm ertm.asm stream.asm
-│                         le_coc.asm ecred.asm fixed.asm
+├── l2cap/                core.asm (basic, fixed) sig.asm ertm.asm (and
+│                         streaming) credit.asm (LE and enhanced)
 ├── sm/
 │   ├── br/               ssp.asm legacy.asm sc.asm
 │   ├── le/               smp.asm legacy.asm sc.asm crypto.asm
@@ -445,10 +445,15 @@ Estimate: ~5 500 lines.
 - ☐ Inquiry (standard, with RSSI, extended), remote name, EIR parse and
   build, page and page scan, connectable and discoverable modes, class of
   device
-- ☐ ACL connection handling, role switch, sniff mode and subrating policy,
-  link supervision
-- ☐ L2CAP basic mode: signaling, configuration, MTU, fixed and dynamic
-  channels, echo, information requests
+- ◐ ACL connection handling (`hci/conn.asm`): create, accept, disconnect,
+  BR/EDR and LE links, ACL fragmentation to the controller's buffer size,
+  flow control by Number of Completed Packets, reassembly; role switch,
+  sniff mode and subrating policy, link supervision still to do
+- ✓ L2CAP basic mode (`l2cap/core.asm`, `l2cap/sig.asm`): signalling,
+  configuration (MTU, flush timeout, QoS, RFC, FCS, EFS; unknown options
+  named back; continuation; renegotiation), fixed and dynamic channels,
+  echo, information requests, signalling timeouts; host-tested with two
+  stacks over a virtual radio (`sim/radio.py`)
 - ☐ SDP server and client: data elements, service search, attribute
   search, continuation states
 - ☐ Pairing: SSP (all four models), Secure Connections and Secure
@@ -466,7 +471,10 @@ Estimate: ~11 000 lines.
   list
 - ☐ LE connections, connection parameter update (both ways), data length
   extension
-- ☐ L2CAP LE signaling, LE credit-based channels
+- ✓ L2CAP LE signaling: Command Reject, Disconnection, Connection
+  Parameter Update (the central checks and applies it); LE credit-based
+  channels (`l2cap/credit.asm`: K-frames, credits, every rule a peer
+  must keep)
 - ☐ ATT (all PDUs, MTU exchange, prepared writes, signed writes)
 - ☐ GATT server (database, permissions, notifications, indications,
   service changed) and client (discovery, read, write, long values,
@@ -524,7 +532,9 @@ Estimate: ~13 000 lines (not counting codecs).
 
 ### Phase 6 — Classic data and phone profiles
 
-- ☐ L2CAP Enhanced Retransmission Mode and Streaming Mode (3.0)
+- ✓ L2CAP Enhanced Retransmission Mode and Streaming Mode (3.0)
+  (`l2cap/ertm.asm`; extended window size and extended control field not
+  used: we never ask for them and peers must not use them unasked)
 - ☐ RFCOMM (multiplexer, credit flow control, remote port negotiation)
 - ☐ SPP
 - ☐ OBEX over RFCOMM and over L2CAP, GOEP 2.x, SRM
@@ -543,7 +553,9 @@ Estimate: ~12 000 lines.
 - ☐ Extended advertising: multiple sets, chaining, scan responses,
   periodic advertising source and sync, PAST
 - ☐ PHY policy: 1M, 2M, Coded S=2 and S=8
-- ☐ EATT and L2CAP enhanced credit-based channels
+- ✓ L2CAP enhanced credit-based channels (`l2cap/credit.asm`: up to
+  five per request, reconfiguration, on LE and BR/EDR)
+- ☐ EATT
 - ☐ GATT caching and robust caching
 - ☐ LE power control, connection subrating, channel classification
 - ☐ PAwR, encrypted advertising data, GATT security levels characteristic
