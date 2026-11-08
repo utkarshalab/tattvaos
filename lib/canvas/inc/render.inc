@@ -40,6 +40,12 @@ struc FrameCtx
     .rotation:                resq 1
     .scale:                   resq 1
     .server:                  resq 1
+    .px_scale:                resd 1    ; 0: the frame is in the layout's
+                                        ; units; else the output's scale in
+                                        ; 120ths, the frame its pixels
+    .px_ox:                   resd 1    ; then the output's place in the
+    .px_oy:                   resd 1    ; layout, its pixel 0, 0
+    .px_pad:                  resd 1
 endstruc
 
 ; Present Info (returned by end_frame)
