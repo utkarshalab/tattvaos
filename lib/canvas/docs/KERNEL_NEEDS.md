@@ -106,6 +106,7 @@ clients will need more, so honouring `stack_size` will matter soon.
   | 8 pen axes | 0–15 pressure (0–65535); 16–31 hover distance (0–65535, 0 touching or not reported) | 0–7 tilt x, 8–15 tilt y (signed degrees, −90 to 90); 16–24 rotation (0–359 degrees) |
   | 9 switch | 0 lid, 1 tablet mode, 2 dock, 3 headphone jack, 4 camera shutter, 5 microphone mute, 6 keypad slide | 1 on or closed, 0 off or open |
   | 10 device | 0 added, 1 removed, 2 changed (capabilities, mode or battery) | the capability bits of `InputDevInfo.caps` |
+  | 11 pad (proposed) | 0–7 what: 0 button, 1 ring, 2 strip; 8–15 which (0–255) | button: 1 down, 0 up; ring: the angle 0–359; strip: the place 0–65535; −1 when the finger leaves a ring or strip |
 
   - A touch scan is a run of type 6 records from one device, ended by one with
     phase 3, whose other fields are 0; canvas applies a scan whole. Up and
@@ -117,6 +118,10 @@ clients will need more, so honouring `stack_size` will matter soon.
     Canvas maps a touch screen or pen tablet onto its output (the first, until
     a per-device setting exists).
   - Bits not given a meaning above are 0.
+  - Type 11 is Canvas's proposal for a pen tablet's pad, not yet agreed with
+    `lib/input`. Canvas routes it already (to the surface with the keyboard,
+    as `cw_tablet_pad`), so a source may send it; until it is agreed the
+    layout may change.
 
   `ut_input_device_info`, `rdi` the device, returns in `rax` a pointer to a
   read-only 64-byte record, or a negative error:
