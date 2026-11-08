@@ -511,9 +511,14 @@ ut_power_uninhibit_suspend
 ; Get battery status
 ;   out: rax = percent (0-100), rdx = charging (1=yes), r8 = time_remaining_sec
 ut_power_battery_status
+
+; Suspend now (the lid closed with no other screen on); the session is
+; locked first. Returns after resume, or at once with an error.
+;   out: rax = 0 OK, -EBUSY if suspend is inhibited, negative error
+ut_power_suspend
 ```
 
-**Canvas usage**: Session lock on suspend, buffer preservation, display re-init on resume
+**Canvas usage**: Session lock on suspend, suspend on lid close, buffer preservation, display re-init on resume
 
 ---
 
