@@ -120,6 +120,16 @@
 %define TABLET_TOOL_EV_TIP           4
 %define TABLET_TOOL_EV_BUTTON        5
 
+; cw_gesture (canvas-input.cwp)
+%define GESTURE_EV_HOLD_BEGIN   0
+%define GESTURE_EV_HOLD_END     1
+%define GESTURE_EV_SWIPE_BEGIN  2
+%define GESTURE_EV_SWIPE_UPDATE 3
+%define GESTURE_EV_SWIPE_END    4
+%define GESTURE_EV_PINCH_BEGIN  5
+%define GESTURE_EV_PINCH_UPDATE 6
+%define GESTURE_EV_PINCH_END    7
+
 ; cw_tablet_pad (canvas-input.cwp)
 %define TABLET_PAD_EV_BUTTON 0
 %define TABLET_PAD_EV_RING   1
