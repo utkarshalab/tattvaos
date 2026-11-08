@@ -110,3 +110,27 @@ system_control = b"".join([
     Count(1), Size(6), Input(CONST),
     End])
 media = consumer_array + consumer_bits + system_control
+
+
+# Report protocol: an n-key keyboard (a bit per key) with its LEDs in
+# report 1, and a mouse with five buttons, 16-bit X and Y, a wheel and a
+# horizontal wheel (AC Pan) in report 2.
+nkro_keyboard = b"".join([
+    UsagePage(1), Usage(6), Collection_(APPLICATION), ReportID(1),
+    UsagePage(7), UsageMin(0xE0), UsageMax(0xE7), LogMin(0), LogMax(1), Size(1), Count(8), Input(VAR),
+    UsageMin(0), UsageMax(0x77), Count(0x78), Input(VAR),
+    UsagePage(8), UsageMin(1), UsageMax(3), Count(3), Output(VAR), Count(5), Output(CONST),
+    End])
+big_mouse = b"".join([
+    UsagePage(1), Usage(2), Collection_(APPLICATION), ReportID(2), Usage(1), Collection_(PHYSICAL),
+    UsagePage(9), UsageMin(1), UsageMax(5), LogMin(0), LogMax(1), Count(5), Size(1), Input(VAR),
+    Count(3), Input(CONST),
+    UsagePage(1), Usage(0x30), Usage(0x31), LogMin(-32767, size=2), LogMax(32767, size=2), Size(16), Count(2),
+    Input(VAR | REL),
+    Usage(0x38), LogMin(-127), LogMax(127), Size(8), Count(1), Input(VAR | REL),
+    UsagePage(0x0C), Usage(0x238, size=2), Count(1), Input(VAR | REL),
+    End, End])
+tablet = b"".join([
+    UsagePage(1), Usage(2), Collection_(APPLICATION),
+    UsagePage(1), Usage(0x30), Usage(0x31), LogMin(0), LogMax(4095, size=2), Size(16), Count(2), Input(VAR),
+    End])
