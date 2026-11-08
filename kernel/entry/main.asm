@@ -157,6 +157,10 @@ kernel_main:
     ; The ACPI lid and power and sleep buttons as input devices.
     call input_acpi_init
 
+    ; Bluetooth first registers its USB driver, so the radios USB finds
+    ; are brought up as they are.
+    call ubt_kernel_init
+
     ; USB: every xHCI controller on PCI, its devices, keyboards and mice.
     ; Never stops the boot.
     call usb_kernel_init
