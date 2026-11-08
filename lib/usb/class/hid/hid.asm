@@ -27,6 +27,8 @@
 %define USB_HID_MAX_ERRORS  8       ; failed reports before giving up
 %define USB_HID_KEYBOARD    1
 %define USB_HID_MOUSE       2
+%define USB_HID_MEDIA       3       ; Consumer and System Control keys
+%define USB_HID_RDESC_MAX   4096
 %define USB_HID_REPORT_MAX  64
 
 %define USB_HID_RECOVER     (1 << 0)
@@ -62,6 +64,7 @@ struc usb_hid
     .auth_typed:    resd 1          ; what was typed so far
     .auth_digits:   resd 1
     .auth_fails:    resd 1
+    .media:         resb hid_media_size
 endstruc
 
 section .bss
@@ -70,6 +73,9 @@ global usb_hids
 usb_hids:           resq USB_HID_MAX
 global usb_hid_count
 usb_hid_count:      resd 1
+usb_hid_rdesc:      resb USB_HID_RDESC_MAX  ; a report descriptor being read
+alignb 8
+usb_hid_parsed:     resb hid_desc_size  ; ... and parsed: only for attach
 
 section .data
 align 8
@@ -87,6 +93,7 @@ usb_auth_seed:      dq 0x9E3779B97F4A7C15
 section .rodata
 usb_hid_name_kbd:   db "USB keyboard", 0
 usb_hid_name_mouse: db "USB mouse", 0
+usb_hid_name_media: db "USB media keys", 0
 
 section .text
 
@@ -126,14 +133,16 @@ usb_hid_attach:
     push r14
     push r15
     push rbp
-    sub rsp, 8
+    sub rsp, 24                         ; [rsp] endpoint, [+8] pass, [+12] kind
     mov r12, rdi
     mov r13, [r12 + usb_device.config]
     mov eax, -USB_EINVAL
     test r13, r13
     jz .out
-    xor r14d, r14d                      ; interface index
     xor r15d, r15d                      ; claimed
+    mov dword [rsp + 8], 0              ; boot keyboards and mice first, so
+.pass:                                  ; media keys know if one is held back
+    xor r14d, r14d                      ; interface index
 .iface:
     cmp r14b, [r13 + usb_config.iface_count]
     jae .done
@@ -144,14 +153,26 @@ usb_hid_attach:
     jne .next
     cmp byte [rbp + usb_iface.class], USB_CLASS_HID
     jne .next
-    cmp byte [rbp + usb_iface.subclass], 1     ; boot interface
-    jne .next
     movzx eax, byte [rbp + usb_iface.protocol]
+    cmp byte [rbp + usb_iface.subclass], 1     ; boot interface
+    jne .not_boot
     cmp eax, USB_HID_KEYBOARD
-    je .kind_ok
+    je .boot
     cmp eax, USB_HID_MOUSE
+    je .boot
+.not_boot:
+    ; the second pass: any other HID interface may carry media keys
+    cmp dword [rsp + 8], 1
+    jne .next
+    cmp word [rbp + usb_iface.hid_report_len], 0
+    je .next
+    mov eax, USB_HID_MEDIA
+    jmp .kind_ok
+.boot:
+    cmp dword [rsp + 8], 0
     jne .next
 .kind_ok:
+    mov [rsp + 12], eax
     ; its interrupt IN endpoint
     movzx ecx, byte [rbp + usb_iface.first_ep]
     movzx edx, byte [rbp + usb_iface.ep_count]
@@ -200,16 +221,30 @@ usb_hid_attach:
     jz .nomem
     mov rbx, rax
     mov [rbx + usb_hid.dev], r12
-    movzx eax, byte [rbp + usb_iface.protocol]
+    mov eax, [rsp + 12]
     mov [rbx + usb_hid.kind], eax
     movzx eax, byte [rbp + usb_iface.number]
     mov [rbx + usb_hid.iface], eax
+    cmp dword [rbx + usb_hid.kind], USB_HID_MEDIA
+    jne .boot_protocol
+    ; media keys: its report descriptor says where they are
+    movzx esi, word [rbp + usb_iface.hid_report_len]
+    call usb_hid_media_setup
+    test eax, eax
+    jg .idle
+    mov rdi, rbx                        ; nothing for this driver in it
+    mov esi, usb_hid_size
+    mov edx, 8
+    call usb_free
+    jmp .next
+.boot_protocol:
     ; boot protocol; no repeats while nothing changes (both may stall:
     ; a boot interface works without them)
     mov edi, 0x21 | (HID_REQ_SET_PROTOCOL << 8)
     xor esi, esi
     xor ecx, ecx
     call usb_hid_ctl
+.idle:
     mov edi, 0x21 | (HID_REQ_SET_IDLE << 8)
     xor esi, esi
     xor ecx, ecx
@@ -225,6 +260,14 @@ usb_hid_attach:
     lea rax, [rel usb_hid_detach]
     mov [r12 + usb_device.driver], rax
     ; the input device, unless the new-keyboard check holds it back
+    cmp dword [rbx + usb_hid.kind], USB_HID_MEDIA
+    jne .keyboard
+    call usb_hid_device_pending         ; a keyboard of this device waits:
+    test eax, eax                       ; so do its media keys
+    jz .add_now
+    or dword [rbx + usb_hid.flags], USB_HID_PENDING
+    jmp .added
+.keyboard:
     cmp dword [rbx + usb_hid.kind], USB_HID_KEYBOARD
     jne .add_now
     cmp dword [rel usb_new_keyboard_check], 0
@@ -278,6 +321,11 @@ usb_hid_attach:
     inc r14d
     jmp .iface
 .done:
+    cmp dword [rsp + 8], 0
+    jne .claimed
+    mov dword [rsp + 8], 1
+    jmp .pass
+.claimed:
     mov eax, r15d
     jmp .out
 .drop:
@@ -291,7 +339,7 @@ usb_hid_attach:
 .nomem:
     mov eax, -USB_ENOMEM
 .out:
-    add rsp, 8
+    add rsp, 24
     pop rbp
     pop r15
     pop r14
@@ -310,10 +358,10 @@ usb_hid_post_device:
     xor edx, edx
     test esi, esi
     jnz .post
-    mov edx, INPUT_CAP_KEYBOARD
-    cmp dword [rbx + usb_hid.kind], USB_HID_KEYBOARD
-    je .post
     mov edx, INPUT_CAP_POINTER
+    cmp dword [rbx + usb_hid.kind], USB_HID_MOUSE
+    je .post
+    mov edx, INPUT_CAP_KEYBOARD
 .post:
     mov edi, INPUT_DEVICE
     mov ecx, [rbx + usb_hid.boot + hid_boot.dev]
@@ -333,6 +381,9 @@ usb_hid_input_add:
     mov edx, INPUT_CAP_KEYBOARD
     cmp dword [rbx + usb_hid.kind], USB_HID_KEYBOARD
     je .add
+    lea rdi, [rel usb_hid_name_media]
+    cmp dword [rbx + usb_hid.kind], USB_HID_MEDIA
+    je .add
     lea rdi, [rel usb_hid_name_mouse]
     mov edx, INPUT_CAP_POINTER
 .add:
@@ -344,6 +395,7 @@ usb_hid_input_add:
     test eax, eax
     js .out
     mov [rbx + usb_hid.boot + hid_boot.dev], eax
+    mov [rbx + usb_hid.media + hid_media.dev], eax
     xor edi, edi
     call usb_hid_post_device
     mov eax, [rbx + usb_hid.boot + hid_boot.dev]
@@ -432,6 +484,7 @@ usb_hid_auth_report:
     xor esi, esi
     call usb_hid_auth_say
     call usb_hid_input_add
+    call usb_hid_release_media
     jmp .keep
 .typing:
     mov r12d, 2
@@ -526,6 +579,92 @@ usb_hid_auth_report:
     ret
 
 ; -----------------------------------------------------------------------------
+; usb_hid_media_setup — read and parse the report descriptor of RBX's
+;                       interface; keep its media key fields
+; Input:  RBX = usb_hid*, ESI = the descriptor's length (from the HID one)
+; Output: EAX = fields kept (0: none), or a negative error
+; -----------------------------------------------------------------------------
+usb_hid_media_setup:
+    push r12
+    mov r12d, esi
+    cmp r12d, USB_HID_RDESC_MAX
+    jbe .len
+    mov r12d, USB_HID_RDESC_MAX
+.len:
+    mov edi, 0x81 | (USB_REQ_GET_DESCRIPTOR << 8) | (USB_DT_HID_REPORT << 24)
+    mov esi, r12d
+    lea rcx, [rel usb_hid_rdesc]
+    call usb_hid_ctl
+    test eax, eax
+    jle .out
+    lea rdi, [rel usb_hid_rdesc]
+    mov esi, eax
+    lea rdx, [rel usb_hid_parsed]
+    call hid_parse
+    test eax, eax
+    jnz .bad
+    lea rdi, [rel usb_hid_parsed]
+    lea rsi, [rbx + usb_hid.media]
+    call hid_media_prepare
+    jmp .out
+.bad:
+    xor eax, eax                        ; a descriptor that does not parse
+.out:
+    pop r12
+    ret
+
+; usb_hid_device_pending — EAX = 1 when a keyboard of RBX's device is held
+; back by the new-keyboard check
+usb_hid_device_pending:
+    mov rdx, [rbx + usb_hid.dev]
+    xor ecx, ecx
+.next:
+    cmp ecx, [rel usb_hid_count]
+    jae .no
+    lea rax, [rel usb_hids]
+    mov rax, [rax + rcx * 8]
+    inc ecx
+    cmp [rax + usb_hid.dev], rdx
+    jne .next
+    cmp dword [rax + usb_hid.kind], USB_HID_KEYBOARD
+    jne .next
+    test dword [rax + usb_hid.flags], USB_HID_PENDING
+    jz .next
+    mov eax, 1
+    ret
+.no:
+    xor eax, eax
+    ret
+
+; usb_hid_release_media — RBX's keyboard was accepted: the media keys of
+; the same device come in with it
+usb_hid_release_media:
+    push rbx
+    push r12
+    push r13
+    mov r13, [rbx + usb_hid.dev]
+    xor r12d, r12d
+.next:
+    cmp r12d, [rel usb_hid_count]
+    jae .out
+    lea rax, [rel usb_hids]
+    mov rbx, [rax + r12 * 8]
+    inc r12d
+    cmp [rbx + usb_hid.dev], r13
+    jne .next
+    cmp dword [rbx + usb_hid.kind], USB_HID_MEDIA
+    jne .next
+    btr dword [rbx + usb_hid.flags], 3  ; USB_HID_PENDING
+    jnc .next
+    call usb_hid_input_add
+    jmp .next
+.out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
 ; usb_hid_detach — usb_device.driver: the device went; its keyboards and
 ;                  mice leave lib/input and their records go
 ; Input:  RDI = usb_device*
@@ -593,11 +732,19 @@ usb_hid_done:
     mov edx, [r12 + usb_xfer.actual]
     test dword [rbx + usb_hid.flags], USB_HID_PENDING
     jz .accepted
+    cmp dword [rbx + usb_hid.kind], USB_HID_MEDIA
+    je .again                           ; held back with its keyboard
     call usb_hid_auth_report
     test dword [rbx + usb_hid.flags], USB_HID_DEAD
     jnz .out                            ; refused: no more reads
     jmp .again
 .accepted:
+    cmp dword [rbx + usb_hid.kind], USB_HID_MEDIA
+    jne .boot_report
+    lea rdi, [rbx + usb_hid.media]
+    call hid_media_report
+    jmp .again
+.boot_report:
     cmp dword [rbx + usb_hid.kind], USB_HID_KEYBOARD
     jne .mouse
     call hid_boot_keyboard
