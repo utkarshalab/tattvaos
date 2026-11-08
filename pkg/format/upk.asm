@@ -71,7 +71,6 @@ upk_open:
     mov r14, rdx                    ; R14 = trusted keys
     mov r15, rcx                    ; R15 = their count
     mov r13, r8                     ; R13 = the record
-    mov [rsp + UO_ALLOW], r9
 
     mov rdi, r13
     xor eax, eax
@@ -80,6 +79,9 @@ upk_open:
     lea rdi, [rsp + UO_ZERO]
     mov ecx, 64 + 8 + 8 + 160
     rep stosb
+    ; after the clearing above, which covers this slot too (stored before
+    ; it, the flag was always lost and unsigned packages always refused)
+    mov [rsp + UO_ALLOW], r9
 
     ; ---- 1. the header and the tables' places ----
     cmp r12, UPK_HEADER_SIZE
