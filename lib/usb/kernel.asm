@@ -1,7 +1,9 @@
 ; =============================================================================
 ; Utkarsha OS — lib/usb/kernel.asm — the USB stack in the kernel
 ; =============================================================================
-;   usb_kernel_init     at start-up: every xHCI controller on PCI (class
+;   usb_kernel_init     at start-up: the policy in conf/usb/usb.conf from
+;                       the boot files (kernel/exec/bootfiles.asm), then
+;                       every xHCI controller on PCI (class
 ;                       0C/03, interface 30) sized, mapped uncached and
 ;                       given memory decoding and bus mastering; the stack's
 ;                       memory from a page pool; each controller attached,
@@ -69,6 +71,13 @@ msg_usb_auth_ok:    db "USB: keyboard accepted", 0x0D, 0x0A, 0
 msg_usb_auth_wrong: db "USB: wrong code for the new keyboard; tries left: ", 0
 msg_usb_auth_no:    db "USB: keyboard refused; unplug it to try again", 0x0D, 0x0A, 0
 msg_usb_gone:       db "USB:   gone from port ", 0
+usb_conf_path:      db "conf/usb/usb.conf", 0
+msg_usb_conf:       db "USB: conf/usb/usb.conf: ", 0
+msg_usb_conf_set:   db " settings", 0
+msg_usb_conf_bad:   db ", lines refused: ", 0
+msg_usb_conf_kbd:   db "; new-keyboard check ", 0
+msg_usb_on:         db "on", 0x0D, 0x0A, 0
+msg_usb_off:        db "off", 0x0D, 0x0A, 0
 msg_usb_speed:      db "?", 0, 0, 0, 0, 0, 0, 0
                     db "full", 0, 0, 0, 0
                     db "low", 0, 0, 0, 0, 0
@@ -269,6 +278,7 @@ usb_kernel_init:
     lea rax, [rel usb_kernel_auth]
     mov [rel usb_keyboard_auth_fn], rax
     mov dword [rel usb_hid_trusting], 1     ; what is plugged in at boot
+    call usb_kernel_conf
 
     ; every function on every bus
     xor ebx, ebx                        ; BDF
@@ -745,6 +755,51 @@ usb_kernel_poll:
     pop r15
     pop r14
     pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -----------------------------------------------------------------------------
+; usb_kernel_conf — the USB policy from the boot files, when they have it
+; -----------------------------------------------------------------------------
+usb_kernel_conf:
+    push rbx
+    push r12
+    sub rsp, 8
+    lea rdi, [rel usb_conf_path]
+    call boot_file
+    test rax, rax
+    jz .out                             ; none: the defaults stand
+    mov r12d, [rel usb_conf_rejected]
+    mov rdi, rax
+    mov esi, edx
+    call usb_conf_apply
+    mov ebx, eax
+    lea rsi, [rel msg_usb_conf]
+    call uart_print_str
+    mov eax, ebx
+    call uart_print_dec
+    lea rsi, [rel msg_usb_conf_set]
+    call uart_print_str
+    mov eax, [rel usb_conf_rejected]
+    sub eax, r12d
+    jz .check
+    mov ebx, eax
+    lea rsi, [rel msg_usb_conf_bad]
+    call uart_print_str
+    mov eax, ebx
+    call uart_print_dec
+.check:
+    lea rsi, [rel msg_usb_conf_kbd]
+    call uart_print_str
+    lea rsi, [rel msg_usb_on]
+    cmp dword [rel usb_new_keyboard_check], 0
+    jne .say
+    lea rsi, [rel msg_usb_off]
+.say:
+    call uart_print_str
+.out:
+    add rsp, 8
     pop r12
     pop rbx
     ret
