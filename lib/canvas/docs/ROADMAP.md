@@ -407,7 +407,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | TCH-07 | System edge swipes with app opt-out policy | P3 | |
 | TCH-08 | Touch latency compensation per panel | P4 | |
 | TCH-09 | Touchscreen calibration | P3 | |
-| TCH-10 | Pen: pressure curves, tilt, eraser, pad buttons and rings | P2 | ◐ `input/input` (records 7 and 8): `cw_tablet_tool` proximity in and out with the tool, motion, axes (pressure, distance, tilt, rotation as sent), tip (a tap) and the two barrel buttons; the surface under it, the one it touched while the tip is down; behind `CAP_TABLET`; `test_window`. No pressure curves, pad buttons or rings |
+| TCH-10 | Pen: pressure curves, tilt, eraser, pad buttons and rings | P2 | ◐ `input/input` (records 7 and 8): `cw_tablet_tool` proximity in and out with the tool, motion, axes (pressure, distance, tilt, rotation as sent), tip (a tap) and the two barrel buttons; the surface under it, the one it touched while the tip is down; behind `CAP_TABLET`; a pressure curve (`server_set_pen_curve`: a cubic through two heights, by `umath_bezier_cubic_eval`); the pad (records 11, proposed to `lib/input`): buttons, rings and strips to the surface with the keyboard as `cw_tablet_pad`, behind `CAP_TABLET`; `test_window`. No per-tool curves or pad modes |
 | TCH-11 | Pen low-latency front-buffer inking with prediction | P4 | |
 | TCH-12 | Gamepads: buttons, axes, rumble | P4 | |
 | TCH-13 | Haptics / force feedback | P4 | |
