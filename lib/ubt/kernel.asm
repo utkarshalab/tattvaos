@@ -38,6 +38,10 @@ msg_bt_versions:    db "1.0b", 0, "1.1", 0, 0, "1.2", 0, 0, "2.0", 0, 0, "2.1", 
                     db "6.1", 0, 0, "?", 0, 0, 0, 0
 %define UBT_K_VERSIONS 17
 
+section .rodata
+ubt_k_name:         db "Utkarsha OS"
+ubt_k_name_len      equ $ - ubt_k_name
+
 section .text
 
 global ubt_kernel_init
@@ -54,6 +58,14 @@ ubt_kernel_init:
     mov [rel ubt_clock_fn], rax         ; L2CAP's and SMP's timeouts
     lea rax, [rel ubt_kernel_random]
     mov [rel ubt_random_fn], rax        ; SMP's keys and nonces
+    ; what this machine serves over GATT: its name, a computer
+    lea rdi, [rel ubt_gatt_default]
+    call ubt_gatt_db_init
+    lea rdi, [rel ubt_gatt_default]
+    lea rsi, [rel ubt_k_name]
+    mov edx, ubt_k_name_len
+    mov ecx, 0x0080
+    call ubt_gatt_gap_gatt
     call ubt_init
     add rsp, 8
     ret
