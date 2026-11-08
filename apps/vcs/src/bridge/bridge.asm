@@ -983,6 +983,8 @@ bridge_git_import:
 
 ; Exact byte prefix at the cursor, without/with consumption.
 peek:
+ push rdi
+ push rsi
  mov rax,[import_end]
  sub rax,[import_cursor]
  cmp rax,rsi
@@ -994,8 +996,13 @@ peek:
  repe cmpsb
  jne .no
  xor eax,eax
+ pop rsi
+ pop rdi
  ret
-.no: mov eax,1
+.no:
+ mov eax,1
+ pop rsi
+ pop rdi
  ret
 
 expect:
