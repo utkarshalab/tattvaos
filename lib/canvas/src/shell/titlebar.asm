@@ -23,7 +23,7 @@ extern compositor_damage_rect
 extern surface_logical_size
 extern rect_intersect
 extern sw_render_rect
-extern ui_text_draw
+extern frame_text
 
 %define BAR_COLOR       0xFF2C3248      ; a window without the keyboard
 %define BAR_ACTIVE      0xFF3E4C78      ; the one with it
@@ -294,9 +294,10 @@ draw_title:
     mov dword [rdx + UiText.size], TITLE_SIZE
     mov eax, [rel text_colour]
     mov [rdx + UiText.colour], eax
-    mov rdi, rdx
+    mov rsi, rdx                        ; mapped into the frame
+    mov rdi, rbx
     sub rsp, 8                          ; 16-byte aligned
-    call ui_text_draw
+    call frame_text
     add rsp, 8
 .done:
     ret
