@@ -264,7 +264,7 @@ lib/usb/
 
 | Class | Library | Needs from `lib/usb` | Phase |
 |---|---|---|---|
-| Bluetooth (class E0) | `lib/ubt` | Bulk, interrupt, isochronous with alternate settings | 5 |
+| Bluetooth (class E0) | `lib/ubt` | Bulk, interrupt (◐ done: `lib/ubt/tr/usb.asm` claims radios through the driver table), isochronous with alternate settings | 5 |
 | Audio (UAC 1, 2 and 3; MIDI) | `lib/uaud` | Isochronous with feedback endpoints | 5 |
 | Video (UVC) | `lib/uvid` | Isochronous and bulk, high bandwidth | 5 |
 | Network: CDC-ECM, CDC-NCM, phone tethering, vendor Ethernet (Realtek, ASIX) | `lib/unet/drivers` | Bulk, interrupt | 5 |
