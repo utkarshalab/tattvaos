@@ -42,6 +42,7 @@
 %include "ugfx.inc"
 
 extern output_present
+extern frame_clip_rect
 extern arena_alloc
 extern frame_clock_schedule
 extern handle_resolve
@@ -685,10 +686,29 @@ compositor_composite_output:
 
 %define L_BOUNDS    (FrameCtx_size)
 %define L_CLIP      (FrameCtx_size + 16)
+%define L_PIXELS    (FrameCtx_size + 32)    ; a clip in the pixels
 
     mov r13, [r12 + Output.damage]
     test r13, r13
     jz .idle
+    mov eax, [r12 + Output.x]           ; the output, in the layout
+    mov [rsp + L_BOUNDS], eax
+    mov eax, [r12 + Output.y]
+    mov [rsp + L_BOUNDS + 4], eax
+    mov eax, [r12 + Output.width]
+    mov [rsp + L_BOUNDS + 8], eax
+    mov eax, [r12 + Output.height]
+    mov [rsp + L_BOUNDS + 12], eax
+    mov rdi, rbx                        ; in its pixels or logical: a change
+    mov rsi, r12                        ; of way draws all of it
+    call compose_in_pixels
+    cmp eax, [r12 + Output.compose_px]
+    je .same_way
+    mov [r12 + Output.compose_px], eax
+    mov rdi, r13
+    lea rsi, [rsp + L_BOUNDS]
+    call region_add_rect
+.same_way:
     mov rdi, r13
     call region_is_empty
     test rax, rax
@@ -699,15 +719,28 @@ compositor_composite_output:
     mov rdx, r13
     mov rcx, rsp
     call sw_render_begin_frame
-
-    mov eax, [r12 + Output.x]           ; the output, in the layout
-    mov [rsp + L_BOUNDS], eax
+    cmp dword [r12 + Output.compose_px], 0
+    je .logical
+    mov rax, [r12 + Output.pixel_fb]    ; its pixels, from their corner
+    mov [rsp + FrameCtx.framebuffer], rax
+    mov rax, [r12 + Output.pixel_stride]
+    mov [rsp + FrameCtx.stride], rax
+    mov eax, [r12 + Output.pixel_width]
+    mov [rsp + FrameCtx.width], eax
+    mov eax, [r12 + Output.pixel_height]
+    mov [rsp + FrameCtx.height], eax
+    mov rax, [r12 + Output.scale]       ; 16.16 to 120ths, rounded
+    imul rax, rax, 120
+    add rax, 0x8000
+    shr rax, 16
+    mov [rsp + FrameCtx.px_scale], eax
+    mov eax, [r12 + Output.x]
+    mov [rsp + FrameCtx.px_ox], eax
     mov eax, [r12 + Output.y]
-    mov [rsp + L_BOUNDS + 4], eax
-    mov eax, [r12 + Output.width]
-    mov [rsp + L_BOUNDS + 8], eax
-    mov eax, [r12 + Output.height]
-    mov [rsp + L_BOUNDS + 12], eax
+    mov [rsp + FrameCtx.px_oy], eax
+    mov rdi, [r12 + Output.pixel_damage]
+    call region_clear
+.logical:
     mov rdi, [rbx + Compositor.server]  ; zoomed: all of it, every frame
     mov rsi, r13
     lea rdx, [rsp + L_BOUNDS]
@@ -726,6 +759,19 @@ compositor_composite_output:
     call rect_intersect
     test rax, rax
     jnz .next_rect
+    cmp dword [r12 + Output.compose_px], 0
+    je .cover
+    mov rdi, rsp                        ; in pixels: what it covers there,
+    lea rsi, [rsp + L_CLIP]             ; for the screen
+    lea rdx, [rsp + L_PIXELS]
+    call frame_clip_rect
+    test eax, eax
+    jnz .next_rect
+    mov rdi, [r12 + Output.pixel_damage]
+    lea rsi, [rsp + L_PIXELS]
+    call region_add_rect
+    jmp .background                     ; (rounded edges: all of it drawn)
+.cover:
     mov rdi, [rbx + Compositor.server]  ; what covers it, from the top
     mov rsi, r12
     lea rdx, [rsp + L_CLIP]
@@ -733,6 +779,7 @@ compositor_composite_output:
     mov r15, rax
     test r15, r15
     jnz .surface                        ; nothing under it shows
+.background:
     mov rdi, rsp
     lea rsi, [rsp + L_CLIP]
     mov edx, [rbx + Compositor.bg_color]
@@ -821,6 +868,29 @@ compositor_composite_output:
 .out:
     add rsp, FrameCtx_size + 64 + 8
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    ret
+
+; Whether an output composes in its own pixels: it has a scale, nothing
+; mirrors it and the magnifier is off (those work on its logical frame).
+; rdi = compositor, rsi = Output* -> eax = 1 or 0
+compose_in_pixels:
+    xor eax, eax
+    cmp qword [rsi + Output.pixel_fb], 0
+    je .out
+    mov rdx, [rdi + Compositor.server]
+    cmp qword [rdx + Server.magnify], 0
+    jne .out
+    mov rcx, [rdx + Server.outputs]
+.mirror:
+    test rcx, rcx
+    jz .yes
+    cmp [rcx + Output.mirror_of], rsi
+    je .out
+    mov rcx, [rcx + Output.next]
+    jmp .mirror
+.yes:
+    mov eax, 1
+.out:
     ret
 
 ; rdi = a rect in a buffer's pixels, esi = the buffer's scale in 120ths (0
