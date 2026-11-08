@@ -57,7 +57,7 @@ goes straight to memory; the host tests point them at the simulator.
 |---|---|
 | `usb.inc` | Errors, descriptor types, requests, speeds, classes, parsed configuration and BOS records, device and transfer records |
 | `usb.asm` | The stack as one translation unit (with `lib/input`) |
-| `kernel.asm` | The kernel glue: PCI scan by class, BAR sizing and uncached mapping, the page pool, start-up, the console listing, the fiber's poll with devices plugged in later |
+| `kernel.asm` | The kernel glue (each device's line names the driver that took it, and hooks let libraries over USB add their own line and fiber work): PCI scan by class, BAR sizing and uncached mapping, the page pool, start-up, the console listing, the fiber's poll with devices plugged in later |
 | `core/hooks.asm` | Memory, delays, register access |
 | `core/desc.asm` | Device, configuration, string (UTF-16 to UTF-8) and BOS descriptors |
 | `core/enum.asm` | Enumeration, descriptors and strings from a device, the device list, removal |
