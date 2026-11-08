@@ -31,7 +31,7 @@ git_first_parent_plan:
  mov [r13+rbx*8],r12
  inc rbx
  mov rdi,r12
- call vcs_load_manifest
+ call vcs_load_manifest wrt ..plt
  test rax,rax
  jz .corrupt
  mov r12,[rax+16]
