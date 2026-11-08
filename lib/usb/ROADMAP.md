@@ -205,7 +205,10 @@ lib/usb/
   endpoint, SuperSpeed companion, BOS, interface association and string
   descriptors (UTF-16 to UTF-8)
 - ☐ Configuration choice for composite devices; alternate settings
-- ☐ Driver matching from the table in decision 7
+- ◐ Driver matching (`core/match.asm`): vendor, product, device class and
+  interface class, subclass and protocol; drivers registered at run time
+  tried before the built-in hub and HID entries; one that declines passes
+  the device on. The class drivers of decision 7 join it as they come
 - ☐ Transfer API, timeouts, cancellation, retry rules
 - ☐ Error recovery: clear halt, endpoint reset, port reset, re-enumeration
   when the device changes identity
@@ -243,7 +246,7 @@ lib/usb/
 
 | Class | Devices | Phase |
 |---|---|---|
-| HID transport: boot and report protocol, interrupt endpoints, SET_REPORT/GET_REPORT; parsing in `lib/input/hid` | Keyboards (with LEDs, all key rollover), mice, trackballs | 2 |
+| HID transport: boot and report protocol (◐: boot keyboards; mice in report protocol when their descriptor reads; keyboards with no boot interface, n-key bitmaps, LEDs in numbered reports), interrupt endpoints, SET_REPORT/GET_REPORT; parsing in `lib/input/hid` | Keyboards (with LEDs, all key rollover), mice, trackballs | 2 |
 | HID: digitisers and touch | Touchpads (precision touchpad usages), touch screens, pens and tablets | 6 |
 | HID: game devices | Gamepads, joysticks, wheels; rumble and LEDs | 6 |
 | HID: other usages | Media and system keys (◐ done early: `lib/input/hid/media.asm`, claimed by `class/hid`), sensor hubs, battery and UPS devices | 6 |
@@ -289,8 +292,11 @@ Phone and camera file transfer (MTP/PTP) is deferred with storage
   keypad; Backspace starts again; three wrong codes refuse it until it is
   replugged; it is let in once its keys are all up). Keyboards there at
   boot, and behind hubs there at boot, need no code.
-  `usb_new_keyboard_check` turns it off; reading that from `/conf/usb/` is
-  still to do
+  `usb_new_keyboard_check` turns it off. `usb_conf_apply`
+  (`core/conf.asm`) reads `new_keyboard_check = on|off` from the text of
+  `/conf/usb/usb.conf`, refusing anything it does not understand; the
+  kernel mounts no filesystem at boot yet (nothing calls `uxfs_init`), so
+  calling it waits for storage to be brought up
 - ☐ Interfaces of one device authorised separately, so a "storage stick"
   cannot quietly add a keyboard interface
 - ☐ IOMMU mapping per device; USB4 PCIe tunnels only after authorisation
