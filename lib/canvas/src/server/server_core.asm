@@ -95,6 +95,7 @@ extern dnd_set_actions
 extern dnd_set_icon
 extern output_announce
 extern output_list
+extern seat_watch
 extern output_withdraw
 extern timeline_create
 extern timeline_destroy
@@ -994,6 +995,15 @@ HANDLER h_output_list, 0
     mov rdi, r14
     mov rsi, rbx
     call output_list
+HANDLER_END
+
+; cw_seat.watch(): the switches on, then done; told of switches and
+; devices from now
+HANDLER h_seat_watch, 0
+    NEEDS_CAP CAP_SEAT
+    mov rdi, r14
+    mov rsi, rbx
+    call seat_watch
 HANDLER_END
 
 ; cw_dnd.start(surface, count, types: 4 x 32 bytes)
