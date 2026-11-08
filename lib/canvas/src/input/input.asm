@@ -80,6 +80,7 @@ extern server_set_high_contrast
 extern server_set_magnifier
 extern magnify_moved
 extern magnify_focus
+extern umath_bezier_cubic_eval
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -314,12 +315,17 @@ input_dispatch:
     je .switch
     cmp eax, INPUT_DEVICE
     je .device
+    cmp eax, INPUT_PAD
+    je .pad
     jmp .handled                        ; an unknown type is dropped
 .switch:
     call switch_event
     jmp .handled
 .device:
     call device_event
+    jmp .handled
+.pad:
+    call pad_event
     jmp .handled
 .touch:
     call touch_event
@@ -806,6 +812,9 @@ key_repeat:
 %define PEN_AXES        (CWP_OBJ_TABLET_TOOL << 16 | TABLET_TOOL_EV_AXES)
 %define PEN_TIP         (CWP_OBJ_TABLET_TOOL << 16 | TABLET_TOOL_EV_TIP)
 %define PEN_BUTTON      (CWP_OBJ_TABLET_TOOL << 16 | TABLET_TOOL_EV_BUTTON)
+%define PAD_BUTTON      (CWP_OBJ_TABLET_PAD << 16 | TABLET_PAD_EV_BUTTON)
+%define PAD_RING        (CWP_OBJ_TABLET_PAD << 16 | TABLET_PAD_EV_RING)
+%define PAD_STRIP       (CWP_OBJ_TABLET_PAD << 16 | TABLET_PAD_EV_STRIP)
 %define PHASE_DOWN      0
 %define PHASE_MOVE      1
 %define PHASE_UP        2
@@ -1209,15 +1218,110 @@ pen_event:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 ; Type 8: the pen's pressure, distance, tilt and rotation, to the surface it
-; is with, as they came. rdi = seat, rsi = RawInput*
+; is with; the pressure through the pen curve when one is set, the rest as
+; they came. rdi = seat, rsi = RawInput*
 pen_axes_event:
-    mov rax, rsi
-    mov rsi, [rdi + InputSeat.pen_surface]
-    test rsi, rsi
-    jz .none
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    cmp qword [rbx + InputSeat.pen_surface], 0
+    je .none
+    mov r8d, [r12 + RawInput.code]
+    mov rax, [rbx + InputSeat.server]
+    cmp qword [rax + Server.pen_curve_on], 0
+    je .send
+    lea rdi, [rax + Server.pen_curve]   ; y at x = the pressure (the curve's
+    movzx ecx, r8w                      ; x is its t: inner points at x 1/3
+    cvtsi2sd xmm0, ecx                  ; and 2/3)
+    divsd xmm0, [rel pressure_max]
+    call umath_bezier_cubic_eval
+    mulsd xmm1, [rel pressure_max]
+    addsd xmm1, [rel pressure_half]
+    cvttsd2si eax, xmm1
+    xor ecx, ecx
+    cmp eax, ecx
+    cmovl eax, ecx
+    mov ecx, 0xFFFF
+    cmp eax, ecx
+    cmovg eax, ecx
+    mov r8d, [r12 + RawInput.code]
+    and r8d, 0xFFFF0000
+    or r8d, eax
+.send:
+    mov rdi, rbx
+    mov rsi, [rbx + InputSeat.pen_surface]
     mov edx, PEN_AXES
     mov ecx, EVENT_LONG
-    mov r8d, [rax + RawInput.code]
+    mov r9d, [r12 + RawInput.value]
+    call send_input
+.none:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12
+
+; ---------------------------------------------------------------------------
+; server_set_pen_curve
+;   Pen pressure through a curve: a cubic from (0, 0) to (1, 1) with inner
+;   points at x 1/3 and 2/3, heights y1 and y2 (0-65535 for 0 to 1); 21845
+;   and 43690 change nothing, higher ones make a light touch count more,
+;   lower ones less. Both 0: no curve.
+;   IN:  rdi = server*, esi = y1, edx = y2
+;   OUT: rax = 0, -EINVAL past 65535
+; ---------------------------------------------------------------------------
+global server_set_pen_curve
+server_set_pen_curve:
+    mov rax, -(EINVAL)
+    cmp esi, 0xFFFF
+    ja .out
+    cmp edx, 0xFFFF
+    ja .out
+    xor eax, eax
+    mov ecx, esi
+    or ecx, edx
+    setnz al
+    mov [rdi + Server.pen_curve_on], rax
+    pxor xmm0, xmm0                     ; (0, 0)
+    movsd [rdi + Server.pen_curve], xmm0
+    movsd [rdi + Server.pen_curve + 8], xmm0
+    movsd xmm0, [rel pressure_third]    ; (1/3, y1)
+    movsd [rdi + Server.pen_curve + 16], xmm0
+    cvtsi2sd xmm0, esi
+    divsd xmm0, [rel pressure_max]
+    movsd [rdi + Server.pen_curve + 24], xmm0
+    movsd xmm0, [rel pressure_two_thirds]   ; (2/3, y2)
+    movsd [rdi + Server.pen_curve + 32], xmm0
+    cvtsi2sd xmm0, edx
+    divsd xmm0, [rel pressure_max]
+    movsd [rdi + Server.pen_curve + 40], xmm0
+    movsd xmm0, [rel pressure_one]      ; (1, 1)
+    movsd [rdi + Server.pen_curve + 48], xmm0
+    movsd [rdi + Server.pen_curve + 56], xmm0
+    xor eax, eax
+.out:
+    ret
+
+; Type 11: a pad's button, ring or strip, to the surface with the keyboard.
+; rdi = seat, rsi = RawInput*
+pad_event:
+    mov rax, rsi
+    mov rsi, [rdi + InputSeat.keyboard_focus]
+    test rsi, rsi
+    jz .none
+    mov ecx, [rax + RawInput.code]
+    mov r8d, ecx                        ; which
+    shr r8d, 8
+    and r8d, 0xFF
+    movzx ecx, cl                       ; what
+    mov edx, PAD_BUTTON
+    cmp ecx, INPUT_PAD_BUTTON
+    je .send
+    mov edx, PAD_RING
+    cmp ecx, INPUT_PAD_RING
+    je .send
+    mov edx, PAD_STRIP
+    cmp ecx, INPUT_PAD_STRIP
+    jne .none
+.send:
+    mov ecx, EVENT_LONG
     mov r9d, [rax + RawInput.value]
     jmp send_input
 .none:
@@ -2182,6 +2286,8 @@ send_input:
     je .gate
     mov r11d, CAP_TABLET
     cmp r10d, CWP_OBJ_TABLET_TOOL
+    je .gate
+    cmp r10d, CWP_OBJ_TABLET_PAD
     jne .allowed
 .gate:
     test [rax + Client.caps], r11
@@ -2205,6 +2311,14 @@ send_input:
     call msgbuf_write
 .out:
     EPILOGUE
+
+section .rodata
+align 8
+pressure_max:       dq 65535.0
+pressure_half:      dq 0.5
+pressure_third:     dq 0.3333333333333333
+pressure_two_thirds: dq 0.6666666666666666
+pressure_one:       dq 1.0
 
 section .data
 global input_version
