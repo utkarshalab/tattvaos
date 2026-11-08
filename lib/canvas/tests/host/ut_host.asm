@@ -404,14 +404,17 @@ ut_fb_info:
 .out:
     ret
 
-; ut_input_device_info for host tests: device 7 is a touch screen 1000
-; units each way; no other has a record
+; ut_input_device_info for host tests: device 7 is a touch screen and
+; device 8 a touchpad, each 1000 units each way; no other has a record
 global ut_input_device_info
 ut_input_device_info:
-    mov rax, -(ENODEV)
-    cmp edi, 7
-    jne .out
     lea rax, [rel host_touch_info]
+    cmp edi, 7
+    je .out
+    lea rax, [rel host_touchpad_info]
+    cmp edi, 8
+    je .out
+    mov rax, -(ENODEV)
 .out:
     ret
 
@@ -516,6 +519,16 @@ host_touch_info:                        ; KERNEL_NEEDS.md step 3, 64 bytes
     dd 999, 999                         ; 40 max_x, max_y
     dd 0, 0                             ; 48 res_x, res_y
     dd 10, 0                            ; 56 slots
+host_touchpad_info:
+    dd 8, 0                             ; 0 id
+    dq 0                                ; 8 name
+    dd 5                                ; 16 bus: I2C
+    dw 0, 0, 0                          ; 20 vendor, product, version
+    times 6 db 0
+    dq 6                                ; 32 caps: pointer and touch
+    dd 999, 999                         ; 40 max_x, max_y
+    dd 0, 0                             ; 48 res_x, res_y
+    dd 5, 0                             ; 56 slots
 
 section .bss
 alignb 16
