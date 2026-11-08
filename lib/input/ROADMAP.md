@@ -386,7 +386,10 @@ Estimate: ~3 000 lines.
 - ◐ Turning keyboard, mouse and consumer usages into events: boot
   keyboard and mouse reports (`hid/boot.asm`) with the usage → keycode
   table every transport shares, ErrorRollOver ignored, lock keys tracked
-  for the LEDs; report-protocol mapping and consumer usages still to do
+  for the LEDs; media, volume and system keys from Consumer and System
+  Control collections in report protocol (`hid/media.asm`: arrays and
+  bitmaps, per report ID); report-protocol keyboards and mice (beyond
+  the boot report) still to do
 - ◐ USB keyboards and mice through `lib/usb` (`lib/usb/class/hid`):
   host-tested against the simulated controller
 
