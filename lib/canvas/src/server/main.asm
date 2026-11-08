@@ -46,7 +46,7 @@ section .text
 global canvasd_init
 canvasd_init:
     PROLOGUE_SAVE rbx, r12, r13
-    sub rsp, FB_INFO_BYTES + 8
+    sub rsp, FB_INFO_BYTES              ; 16-byte aligned
 
     ; Logging first, for early debug output
     mov rdi, LOG_DEBUG
@@ -68,6 +68,7 @@ canvasd_init:
 
     ; The kernel's framebuffer if it has one, else headless
     xor r13d, r13d
+    mov dword [rsp + FB_INFO_FLAGS], 0  ; for a kernel that does not say
     mov rdi, rsp
     xor esi, esi                        ; the first
     call ut_fb_info
@@ -85,6 +86,8 @@ canvasd_init:
     mov [fb_config + Config.fb_height], eax
     mov eax, [rsp + FB_INFO_PITCH]
     mov [fb_config + Config.fb_stride], eax
+    mov eax, [rsp + FB_INFO_FLAGS]
+    mov [fb_config + Config.flags], rax
     lea r13, [fb_config]
 .start:
     lea rdi, [server]
