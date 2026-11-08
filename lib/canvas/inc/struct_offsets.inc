@@ -1572,6 +1572,9 @@ struc Server
     .seat_watchers:           resq 8    ; SEAT_WATCHERS Client*s told of
                                         ; switches and devices
     .lid_closed:              resq 1    ; 1 while the lid is closed (SES-08)
+    .magnify_follow:          resq 1    ; 1: the view on magnify_rect, the
+                                        ; keyboard's; 0: round the pointer
+    .magnify_rect:            resd 4    ; x, y, w, h of what has the keyboard
 endstruc
 
 ; One raw input event, as a source hands it to input_submit
