@@ -162,6 +162,7 @@ test_window_suite:
     CASE tw_touch, CAP_SHELL
     CASE tw_pen, CAP_SHELL
     CASE tw_seat, CAP_SHELL | CAP_SEAT
+    CASE tw_clamshell, CAP_SHELL
     CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
@@ -3084,6 +3085,79 @@ tw_seat:
     inc edx
     cmp edx, TOUCH_SLOTS
     jb .contacts
+    PASS
+
+; the lid closed (1) or open (0), then a turn
+%macro LID 1
+    INJECT INPUT_SWITCH, INPUT_SWITCH_LID, %1
+    call poll
+%endmacro
+; the first output (the built-in panel): dpms state %1, mirror of %2 (0 or
+; a variable holding an Output*)
+%macro PANEL 2
+    mov rax, [rel server + Server.outputs]
+    cmp byte [rax + Output.dpms_state], %1
+    jne .fail
+%ifidn %2, 0
+    cmp qword [rax + Output.mirror_of], 0
+%else
+    mov rcx, [rel %2]
+    cmp [rax + Output.mirror_of], rcx
+%endif
+    jne .fail
+%endmacro
+
+; The first output marked the built-in panel. Alone, the lid closed turns
+; it off and open on. With a second output the lid closed also makes it a
+; mirror of that one, its window moving there; open, it is its own again.
+; Closed, the second unplugged leaves it its own part, still off; another
+; plugged in takes its place
+tw_clamshell:
+    sub rsp, 8
+    mov rax, [rel server + Server.outputs]
+    mov byte [rax + Output.builtin], 1
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    LID 1
+    PANEL 3, 0
+    LID 0
+    PANEL 0, 0
+    lea rdi, [rel server]
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    LID 1
+    PANEL 3, output_b
+    mov edi, [rel surface_a]            ; the window went to the second
+    call surface_of
+    mov rcx, [rel output_b]
+    cmp [rax + Surface.output], rcx
+    jne .fail
+    LID 0
+    PANEL 0, 0
+    LID 1
+    lea rdi, [rel server]               ; the second unplugged
+    mov rsi, [rel output_b]
+    call server_remove_output
+    test rax, rax
+    jnz .fail
+    PANEL 3, 0
+    lea rdi, [rel server]               ; another plugged in
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    PANEL 3, output_b
+    LID 0
+    PANEL 0, 0
     PASS
 
 ; -> eax = how many outputs the server has
