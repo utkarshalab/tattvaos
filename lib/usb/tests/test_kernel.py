@@ -314,5 +314,32 @@ check("a 32-bit BAR of 64 KB", (u32("xhci_hc_count").value, ranges, maps[0][1]),
 boot(pages=False)
 check("no memory for the stack", ("USB: no memory for the stack" in console(), u32("xhci_hc_count").value), (True, 0))
 
+# ---- the USB policy from the boot files -------------------------------------------
+pci.clear()
+pci[bdf(3, 0, 0)] = Function(0x1002, 0x164C, 0x030000, multi=True)
+pci[A] = Function(0x1022, 0x1639, 0x0C0330, bar0=0xFD300004, bar1=0, size=1 << 20)
+sims[:] = [X.XhciSim(usb2_ports=2, usb3_ports=2)]
+conf = C.create_string_buffer(b"# test\nnew_keyboard_check = off\nbogus line\n")
+C.c_uint64.in_dll(lib, "ukstub_boot_ptr").value = C.addressof(conf)
+C.c_uint64.in_dll(lib, "ukstub_boot_len").value = len(conf.value)
+u32("usb_new_keyboard_check").value = 1
+boot()
+check("conf/usb/usb.conf read at start-up, what it set and refused said",
+      ("USB: conf/usb/usb.conf: 1 settings, lines refused: 1; new-keyboard check off" in console(),
+       u32("usb_new_keyboard_check").value), (True, 0))
+k4 = D.keyboard()
+sims[0].attach(2, k4)
+take()
+k4.queue(0x81, kreport(0, 0x04))
+check("so a keyboard after start-up types at once", (take(), "type this code" in console()),
+      ([(KEY, 30, 1, 1)], False))
+C.c_uint64.in_dll(lib, "ukstub_boot_ptr").value = 0
+C.c_uint64.in_dll(lib, "ukstub_boot_len").value = 0
+u32("usb_new_keyboard_check").value = 1
+sims[:] = [X.XhciSim(usb2_ports=2, usb3_ports=2)]
+boot()
+check("no boot files: no line, the default kept", ("conf/usb" in console(), u32("usb_new_keyboard_check").value),
+      (False, 1))
+
 print(f"test_kernel: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
