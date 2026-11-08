@@ -79,6 +79,7 @@ extern surface_logical_size
 extern server_set_high_contrast
 extern server_set_magnifier
 extern magnify_moved
+extern magnify_focus
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -2038,6 +2039,9 @@ set_keyboard_focus:
     call titlebar_focus_changed
     test r12, r12
     jz .out
+    mov rdi, [rbx + InputSeat.server]   ; the magnifier goes to it
+    mov rsi, r12
+    call magnify_focus
     mov rdi, rbx
     mov rsi, r12
     mov edx, KEYBOARD_ENTER
