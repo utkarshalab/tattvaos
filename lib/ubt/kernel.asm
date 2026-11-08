@@ -51,7 +51,9 @@ ubt_kernel_init:
     lea rax, [rel ubt_service]
     mov [rel usb_k_service_fn], rax
     lea rax, [rel ubt_kernel_clock]
-    mov [rel ubt_clock_fn], rax         ; L2CAP's timeouts
+    mov [rel ubt_clock_fn], rax         ; L2CAP's and SMP's timeouts
+    lea rax, [rel ubt_kernel_random]
+    mov [rel ubt_random_fn], rax        ; SMP's keys and nonces
     call ubt_init
     add rsp, 8
     ret
@@ -66,9 +68,27 @@ ubt_kernel_clock:
     div rcx
     ret
 
+; ubt_kernel_random — ubt_random_fn: RDI = buffer, ESI = length → EAX = 0
+; when urand filled all of it
+ubt_kernel_random:
+    push rsi
+    mov esi, esi
+    call urand_get_bytes
+    pop rsi
+    cmp rax, rsi
+    jne .failed
+    xor eax, eax
+    ret
+.failed:
+    mov eax, -1
+    ret
+
 ; ubt_kernel_say — ubt_adapter_fn: RDI = adapter. A gone one is said now;
 ; the others after their device's line
 ubt_kernel_say:
+    ; this machine has a screen and a keyboard, and keeps its bonds
+    mov byte [rdi + ubt_adapter.io_cap], 4
+    mov byte [rdi + ubt_adapter.bondable], 1
     cmp dword [rdi + ubt_adapter.state], UBT_GONE
     je ubt_kernel_line
     mov eax, [rel ubt_k_pending_n]
