@@ -168,6 +168,8 @@ test_window_suite:
     CASE tw_seat, CAP_SHELL | CAP_SEAT
     CASE tw_clamshell, CAP_SHELL
     CASE tw_logical, CAP_SHELL | CAP_OUTPUT
+    CASE tw_pixels, CAP_SHELL
+    CASE tw_pixel_parts, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -3450,6 +3452,117 @@ tw_logical:
     call poll
     SEES 10, 10, 0xFF00FF00             ; drawn 1:1 again
     SEES 18, 10, 0xFF202030
+    PASS
+
+; Composed in the pixels: the first output at 1.5 (43x32 in the layout).
+; A 25x18 buffer drawn at 1.5 is about a 16x12 window; at 10, 10 its edges
+; come to pixels 15 across and 15 and 33 down, within a pixel of its size,
+; so it is copied pixel for pixel: red and blue columns stay apart (scaled,
+; they would blend). With the magnifier on it composes logical, then
+; scales; off, in the pixels again
+tw_pixels:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov rsi, [rel server + Server.outputs]
+    mov edx, 180
+    call output_set_scale
+    test rax, rax
+    jnz .fail
+    POINTER 10, 10
+    mov edi, 25
+    mov esi, 18
+    call new_surface
+    mov [rel surface_a], eax
+    mov rdi, [rel server + Server.buffer_table]
+    mov esi, [rel buffer]
+    call handle_resolve
+    mov rdi, [rax + Buffer.base]        ; even columns red, odd ones blue
+    mov r8d, [rax + Buffer.stride]
+    xor edx, edx
+.fill_row:
+    xor ecx, ecx
+.fill_column:
+    mov eax, 0xFFFF0000
+    test ecx, 1
+    jz .even
+    mov eax, 0xFF0000FF
+.even:
+    mov [rdi + rcx * 4], eax
+    inc ecx
+    cmp ecx, 25
+    jb .fill_column
+    add rdi, r8
+    inc edx
+    cmp edx, 18
+    jb .fill_row
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], 180
+    SEND CWP_OBJ_SURFACE, SURFACE_SET_BUFFER_SCALE, 8
+    TOPLEVEL TL_CREATE, surface_a, 0
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    call poll
+    mov rax, [rel server + Server.outputs]
+    cmp dword [rax + Output.compose_px], 1
+    jne .fail
+    PIXEL_IS 15, 15, 0xFFFF0000         ; its first column
+    PIXEL_IS 16, 15, 0xFF0000FF
+    PIXEL_IS 17, 20, 0xFFFF0000
+    PIXEL_IS 35, 15, 0xFFFF0000         ; column 20, not a blend
+    PIXEL_IS 38, 32, 0xFF0000FF         ; column 23, the last row
+    PIXEL_IS 14, 15, 0xFF202030         ; round it, the background
+    PIXEL_IS 20, 33, 0xFF202030
+    lea rdi, [rel server]               ; the magnifier: logical, scaled
+    mov esi, 2
+    call server_set_magnifier
+    call poll
+    mov rax, [rel server + Server.outputs]
+    cmp dword [rax + Output.compose_px], 0
+    jne .fail
+    lea rdi, [rel server]
+    xor esi, esi
+    call server_set_magnifier
+    call poll
+    mov rax, [rel server + Server.outputs]
+    cmp dword [rax + Output.compose_px], 1
+    jne .fail
+    PIXEL_IS 15, 15, 0xFFFF0000
+    PIXEL_IS 16, 15, 0xFF0000FF
+    PASS
+
+; What the server draws, in the pixels at 1.5: a focused window's title bar
+; along the top (its colour at pixel 3, 3); the pointer at 30, 26 has its
+; tip at pixel 45, 39 and is drawn at 2x (its fill at 47, 43); at 31, 27
+; (46.5, 40.5) the tip is rounded to 47, 41; at 30, 4 its edge reaches 20
+; pixels down, as only a 2x arrow does
+tw_pixel_parts:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov rsi, [rel server + Server.outputs]
+    mov edx, 180
+    call output_set_scale
+    call decorated_window
+    call poll
+    PIXEL_IS 3, 3, 0xFF3E4C78
+    mov rax, [rel server + Server.compositor]
+    mov qword [rax + Compositor.cursor_on], 1
+    POINTER 30, 26
+    call poll
+    PIXEL_IS 45, 39, 0xFF000000         ; the tip
+    PIXEL_IS 47, 43, 0xFFFFFFFF         ; the fill, at 2x
+    POINTER 31, 27                      ; 46.5, 40.5: rounded to 47, 41
+    call poll
+    PIXEL_IS 47, 41, 0xFF000000
+    PIXEL_IS 46, 41, 0xFF202030
+    POINTER 30, 4                       ; 2x: its edge 20 rows down (past
+    call poll                           ; a 1x arrow's 17)
+    PIXEL_IS 45, 26, 0xFF000000
+    mov rax, [rel server + Server.compositor]
+    mov qword [rax + Compositor.cursor_on], 0
     PASS
 
 ; the lid closed (1) or open (0), then a turn
