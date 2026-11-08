@@ -154,6 +154,9 @@
 %ifdef HAVE_h_pointer_set_shape
     CWP_REQUEST CWP_OBJ_POINTER, POINTER_SET_SHAPE, h_pointer_set_shape
 %endif
+%ifdef HAVE_h_seat_watch
+    CWP_REQUEST CWP_OBJ_SEAT, SEAT_WATCH, h_seat_watch
+%endif
 %ifdef HAVE_h_dnd_start
     CWP_REQUEST CWP_OBJ_DND, DND_START, h_dnd_start
 %endif
