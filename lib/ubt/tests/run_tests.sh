@@ -4,8 +4,10 @@
 # =============================================================================
 # Runs on the development machine with nasm, ld and python3 (no QEMU):
 #
-#   1. Assembles lib/ubt/ubt.asm (with lib/usb and lib/input) as one unit, with
-#      number-overflow and "other" warnings promoted to errors.
+#   1. Assembles lib/ubt/ubt.asm (with lib/usb and lib/input; tests/host.asm
+#      adds crstub.asm, what usign needs from the kernel) as one unit, with
+#      number-overflow and "other" warnings promoted to errors (usign's
+#      rfc6979.asm still uses an implicit DEFAULT ABS: that warning is off).
 #   2. Links it into a shared object and drives it from Python (ctypes):
 #      every tests/test_*.py gets the library's path, except
 #      test_bt_kernel.py: tests/bkstub.asm, the Bluetooth and USB kernel
@@ -25,7 +27,7 @@ trap 'rm -rf "$WORK"' EXIT HUP INT TERM
 cd "$ROOT"
 build() {   # source, name
     echo "== assembling $1"
-    if ! out=$(nasm -f elf64 -I"$ROOT/" -Werror=number-overflow -Werror=other \
+    if ! out=$(nasm -f elf64 -I"$ROOT/" -Werror=number-overflow -Werror=other -w-implicit-abs-deprecated \
                    -o "$WORK/$2.o" "$1" 2>&1) || [ -n "$out" ]; then
         echo "FAIL assembly"
         echo "$out" | sed 's/^/    /'
@@ -33,7 +35,7 @@ build() {   # source, name
     fi
     ld -shared -Bsymbolic -z noexecstack -o "$WORK/$2.so" "$WORK/$2.o"
 }
-build lib/ubt/ubt.asm ubt
+build lib/ubt/tests/host.asm ubt
 build lib/ubt/tests/bkstub.asm bkstub
 
 echo "== running tests"
