@@ -38,6 +38,8 @@ extern scale_nearest_rect
 extern scale_bilinear_rect
 extern displays_start
 extern scale_fractional_compute
+extern output_set_scale
+extern compositor_output_at
 extern scale_fractional_calculate_dest
 extern scale_fractional_render
 extern displays_step
@@ -163,6 +165,7 @@ test_window_suite:
     CASE tw_pen, CAP_SHELL
     CASE tw_seat, CAP_SHELL | CAP_SEAT
     CASE tw_clamshell, CAP_SHELL
+    CASE tw_logical, CAP_SHELL | CAP_OUTPUT
     CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
@@ -2206,6 +2209,19 @@ tw_scale_fractional:
     mov rax, [rel server + Server.outputs]
     cmp qword [rax + Output.scale], 0x18000
     jne .fail
+    cmp dword [rax + Output.width], 43  ; applied: 64 / 1.5, rounded
+    jne .fail
+    lea rdi, [rel server]               ; 1 again, for the stretch: its
+    mov rsi, [rel server + Server.outputs]  ; frame the pixels
+    mov edx, 120
+    call output_set_scale
+    test rax, rax
+    jnz .fail
+    mov rax, [rel server + Server.outputs]
+    cmp dword [rax + Output.width], 64
+    jne .fail
+    cmp qword [rax + Output.pixel_fb], 0
+    jne .fail
     mov edi, 64
     mov esi, 48
     mov edx, 0x18000
@@ -3085,6 +3101,119 @@ tw_seat:
     inc edx
     cmp edx, TOUCH_SLOTS
     jb .contacts
+    PASS
+
+; pixel x, y of the first output's pixels (at a scale: Output.pixel_fb) is
+; %3
+%macro PIXEL_IS 3
+    mov rax, [rel server + Server.outputs]
+    mov rcx, [rax + Output.pixel_stride]
+    mov rax, [rax + Output.pixel_fb]
+    test rax, rax
+    jz .fail
+    imul rcx, rcx, %2
+    add rax, rcx
+    cmp dword [rax + (%1) * 4], %3
+    jne .fail
+%endmacro
+
+; The logical layout: a second output to the right, then the first at 2x.
+; It is 32x24 in the layout, the second moves from 64 to 32 and the pointer
+; at 40 is on the second; clients hear both. An 8x6 green window at 10, 10
+; on the first covers pixels 20-35 by 20-31 there (scaled up, its edges
+; blended), the background around it. Back at 1, all is as it was
+tw_logical:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    SEND CWP_OBJ_OUTPUT, OUTPUT_LIST, 0
+    call poll
+    call drain
+    lea rdi, [rel server]
+    mov rsi, [rel server + Server.outputs]
+    mov edx, 240
+    call output_set_scale
+    test rax, rax
+    jnz .fail
+    mov rax, [rel server + Server.outputs]
+    cmp dword [rax + Output.width], 32
+    jne .fail
+    cmp dword [rax + Output.height], 24
+    jne .fail
+    cmp dword [rax + Output.pixel_width], 64
+    jne .fail
+    mov rax, [rel output_b]
+    cmp qword [rax + Output.x], 32
+    jne .fail
+    lea rdi, [rel server]
+    mov esi, 40
+    mov edx, 10
+    call compositor_output_at
+    cmp rax, [rel output_b]
+    jne .fail
+    FIND CWP_OBJ_OUTPUT, OUTPUT_EV_OUTPUT   ; the first: 32 wide, 2x
+    cmp dword [rel ans + 12], 32
+    jne .fail
+    cmp dword [rel ans + 20], 240
+    jne .fail
+    FIND CWP_OBJ_OUTPUT, OUTPUT_EV_OUTPUT   ; the second, at 32
+    cmp dword [rel ans + 4], 32
+    jne .fail
+
+    POINTER 10, 10
+    mov edi, 8
+    mov esi, 6
+    call new_surface
+    mov [rel surface_a], eax
+    mov rdi, [rel server + Server.buffer_table]  ; all of it green
+    mov esi, [rel buffer]
+    call handle_resolve
+    mov rdi, [rax + Buffer.base]
+    mov ecx, [rax + Buffer.stride]
+    imul ecx, ecx, 6
+    shr ecx, 2
+    mov eax, 0xFF00FF00
+    rep stosd
+    TOPLEVEL TL_CREATE, surface_a, 0
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    call poll
+    PIXEL_IS 22, 22, 0xFF00FF00         ; inside its corners, in pixels
+    PIXEL_IS 33, 29, 0xFF00FF00         ; (the edge ones blend, bilinear)
+    PIXEL_IS 40, 22, 0xFF202030         ; past them: the background
+    PIXEL_IS 22, 36, 0xFF202030
+    PIXEL_IS 16, 22, 0xFF202030
+    POINTER 17, 15                      ; its last logical pixel: on it
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.pointer_focus], rax
+    jne .fail
+
+    lea rdi, [rel server]               ; 1 again
+    mov rsi, [rel server + Server.outputs]
+    mov edx, 120
+    call output_set_scale
+    mov rax, [rel server + Server.outputs]
+    cmp dword [rax + Output.width], 64
+    jne .fail
+    cmp qword [rax + Output.pixel_fb], 0
+    jne .fail
+    mov rax, [rel output_b]
+    cmp qword [rax + Output.x], 64
+    jne .fail
+    call poll
+    SEES 10, 10, 0xFF00FF00             ; drawn 1:1 again
+    SEES 18, 10, 0xFF202030
     PASS
 
 ; the lid closed (1) or open (0), then a turn
