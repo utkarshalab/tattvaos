@@ -251,7 +251,7 @@ git_history_object_sizes:
 history_encode:
  lea rsi,[hp_ids]
  mov edx,UV_NODES
- call git_first_parent_plan
+ call git_first_parent_plan wrt ..plt
  test eax,eax
  jnz history_done
  mov [hp_count],rdx
@@ -264,7 +264,8 @@ history_encode:
  jae history_usage
  mov [hp_limit],rax
  imul rax,GIT_HASH_SIZE
- lea rsi,[hp_commit_hashes+rax]
+ lea rsi,[hp_commit_hashes]
+ add rsi,rax
  lea rdi,[hp_parent_hash]
  mov ecx,GIT_HASH_SIZE
  rep movsb
@@ -280,7 +281,8 @@ history_encode:
  jbe .depth_ready
  mov [hp_limit],rax
  imul rax,GIT_HASH_SIZE
- lea rsi,[hp_commit_hashes+rax]
+ lea rsi,[hp_commit_hashes]
+ add rsi,rax
  lea rdi,[hp_parent_hash]
  mov ecx,GIT_HASH_SIZE
  rep movsb
@@ -288,7 +290,8 @@ history_encode:
  mov rax,[hp_limit]
  dec rax
  imul rax,GIT_HASH_SIZE
- lea rsi,[hp_commit_hashes+rax]
+ lea rsi,[hp_commit_hashes]
+ add rsi,rax
  lea rdi,[hp_shallow_hash]
  mov ecx,GIT_HASH_SIZE
  rep movsb
@@ -303,14 +306,14 @@ history_encode:
  jae .begin_pack
  lea rax,[hp_ids]
  mov rdi,[rax+rbx*8]
- call vcs_load_manifest
+ call vcs_load_manifest wrt ..plt
  test rax,rax
  jz history_corrupt
  mov rbp,rax
  mov rdi,rbp
  lea rsi,[hp_plan]
  mov edx,GIT_TREE_MAX
- call git_tree_plan
+ call git_tree_plan wrt ..plt
  test eax,eax
  jnz history_done
  mov rax,[rbp+24]
@@ -327,7 +330,7 @@ history_encode:
  mov rdi,r12
  mov rsi,r13
  mov rdx,[hp_objects]
- call git_pack_begin_unique
+ call git_pack_begin_unique wrt ..plt
  test eax,eax
  jnz history_done
 .begin_history:
@@ -345,7 +348,7 @@ history_encode:
  dec r14
  lea rax,[hp_ids]
  mov rdi,[rax+r14*8]
- call vcs_load_manifest
+ call vcs_load_manifest wrt ..plt
  test rax,rax
  jz history_corrupt
  mov rbp,rax
@@ -353,7 +356,7 @@ history_encode:
  mov rdi,rbp
  lea rsi,[hp_plan]
  mov edx,GIT_TREE_MAX
- call git_tree_plan
+ call git_tree_plan wrt ..plt
  test eax,eax
  jnz history_done
  mov [hp_plan_count],rdx
@@ -367,11 +370,11 @@ history_encode:
  add rax,VR_HEADER
  mov rdi,[rax+VR_BLOB]
  mov sil,'b'
- call vcs_object_name
+ call vcs_object_name wrt ..plt
  test eax,eax
  jnz history_corrupt
  lea rdi,[vcs_object_path]
- call uxv_find
+ call uxv_find wrt ..plt
  test rax,rax
  jz history_corrupt
  cmp qword [rax+UV_TYPE],1
@@ -392,14 +395,15 @@ history_encode:
  mov esi,4
  mov rax,[hp_node]
  lea rdx,[rax+UV_DATA]
- call git_object_hash
+ call git_object_hash wrt ..plt
  test eax,eax
  jnz history_done
  cmp byte [hp_query_mode],0
  je .blob_query_done
  mov rax,rbx
  imul rax,GIT_HASH_SIZE
- lea rdi,[hp_blob_hashes+rax]
+ lea rdi,[hp_blob_hashes]
+ add rdi,rax
  mov rax,rbx
  shl rax,8
  add rax,rbp
@@ -414,7 +418,7 @@ history_encode:
  lea rsi,[hp_plan]
  mov rdx,[hp_plan_count]
  lea rcx,[hp_file_parents]
- call git_tree_file_parents
+ call git_tree_file_parents wrt ..plt
  test eax,eax
  jnz history_done
  xor ebx,ebx
@@ -428,11 +432,11 @@ history_encode:
  mov r15,rax
  mov rdi,[rax+VR_BLOB]
  mov sil,'b'
- call vcs_object_name
+ call vcs_object_name wrt ..plt
  test eax,eax
  jnz history_corrupt
  lea rdi,[vcs_object_path]
- call uxv_find
+ call uxv_find wrt ..plt
  test rax,rax
  jz history_corrupt
  cmp byte [hp_pack_mode],0
@@ -446,9 +450,11 @@ history_encode:
 .blob_tree_filter:
  cmp byte [hp_filter_trees],0
  je .blob_limit_check
- movzx edx,byte [hp_file_parents+rbx]
+ lea rdx,[hp_file_parents]
+ movzx edx,byte [rdx+rbx]
  shl rdx,8
- lea rdx,[hp_plan+rdx]
+ lea rax,[hp_plan]
+ add rdx,rax
  mov rdx,[rdx+GT_DEPTH]
  inc rdx
  cmp rdx,[hp_tree_depth]
@@ -463,7 +469,7 @@ history_encode:
  mov edi,GIT_PACK_BLOB
  lea rsi,[rax+UV_DATA]
  mov rdx,[r15+VR_SIZE]
- call git_pack_add
+ call git_pack_add wrt ..plt
  test eax,eax
  jnz history_done
 .next_blob:
@@ -510,7 +516,7 @@ history_encode:
  mov qword [hp_emit_request+GTEP_HASH_ONLY],1
 .tree_type_ready:
  lea rdi,[hp_emit_request]
- call git_tree_emit_plan
+ call git_tree_emit_plan wrt ..plt
  test eax,eax
  jnz history_done
  cmp byte [hp_query_mode],0
@@ -521,8 +527,10 @@ history_encode:
  jae .tree_query_done
  mov rax,rbx
  imul rax,GIT_HASH_SIZE
- lea rdi,[hp_tree_hashes+rax]
- mov rsi,[hp_tree_sizes+rbx*8]
+ lea rdi,[hp_tree_hashes]
+ add rdi,rax
+ lea rax,[hp_tree_sizes]
+ mov rsi,[rax+rbx*8]
  call query_match
  inc rbx
  jmp .tree_query
@@ -549,7 +557,7 @@ history_encode:
  lea rax,[hp_commit_hash]
  mov [hp_commit_request+git_commit_request.hash],rax
  lea rdi,[hp_commit_request]
- call git_commit_encode
+ call git_commit_encode wrt ..plt
  test eax,eax
  jnz history_done
  mov [hp_commit_size],rdx
@@ -571,13 +579,14 @@ history_encode:
  mov edi,GIT_PACK_COMMIT
  lea rsi,[hp_commit]
  mov rdx,[hp_commit_size]
- call git_pack_add
+ call git_pack_add wrt ..plt
  test eax,eax
  jnz history_done
 .commit_hashed:
  mov rax,r14
  imul rax,GIT_HASH_SIZE
- lea rdi,[hp_commit_hashes+rax]
+ lea rdi,[hp_commit_hashes]
+ add rdi,rax
  lea rsi,[hp_commit_hash]
  mov ecx,GIT_HASH_SIZE
  rep movsb
@@ -607,7 +616,7 @@ history_encode:
  mov byte [hp_shallow_valid],0
  mov byte [hp_unshallow_valid],0
 .finish_pack_write:
- call git_pack_finish
+ call git_pack_finish wrt ..plt
  jmp history_done
 .finish_oid:
  cmp byte [hp_query_mode],0
@@ -706,7 +715,8 @@ git_history_find_common:
  jae .common_next_history
  mov rax,rbx
  imul rax,GIT_HASH_SIZE
- lea rdi,[hp_commit_hashes+rax]
+ lea rdi,[hp_commit_hashes]
+ add rdi,rax
  mov rax,r14
  imul rax,GIT_HASH_SIZE
  lea rsi,[r12+rax]
@@ -730,7 +740,8 @@ git_history_find_common:
  jae .collect_next_have
  mov rax,rbx
  imul rax,GIT_HASH_SIZE
- lea rdi,[hp_commit_hashes+rax]
+ lea rdi,[hp_commit_hashes]
+ add rdi,rax
  mov rax,r14
  imul rax,GIT_HASH_SIZE
  lea rsi,[r12+rax]
@@ -742,7 +753,8 @@ git_history_find_common:
 .collect_store:
  mov rax,[hp_common_count]
  imul rax,GIT_HASH_SIZE
- lea rdi,[hp_common_hashes+rax]
+ lea rdi,[hp_common_hashes]
+ add rdi,rax
  mov rax,r14
  imul rax,GIT_HASH_SIZE
  lea rsi,[r12+rax]
