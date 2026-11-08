@@ -24,7 +24,9 @@ class Conn(C.Structure):
                 ("tx_head", C.c_uint64), ("tx_tail", C.c_uint64), ("in_flight", C.c_uint32),
                 ("rx_len", C.c_uint32), ("rx_need", C.c_uint32), ("ident", C.c_uint8), ("info_state", C.c_uint8),
                 ("info_ident", C.c_uint8), ("pad", C.c_uint8), ("ext_features", C.c_uint32), ("pad2", C.c_uint32),
-                ("fixed_chans", C.c_uint64), ("rx_buf", C.c_uint64), ("user", C.c_uint64)]
+                ("fixed_chans", C.c_uint64), ("rx_buf", C.c_uint64), ("user", C.c_uint64),
+                ("att", C.c_uint64), ("smp", C.c_uint64), ("pair", C.c_uint64), ("rfcomm", C.c_uint64),
+                ("sec", C.c_uint8), ("key_size", C.c_uint8), ("pad3", C.c_uint8 * 6)]
 
 
 class Chan(C.Structure):
