@@ -1569,6 +1569,8 @@ struc Server
     .high_contrast:           resq 1    ; 1: what the server draws, in black,
                                         ; white and yellow (A11Y-07)
     .workspace:               resq 1    ; the one shown, 0 to WORKSPACES - 1
+    .seat_watchers:           resq 8    ; SEAT_WATCHERS Client*s told of
+                                        ; switches and devices
 endstruc
 
 ; One raw input event, as a source hands it to input_submit
@@ -1633,6 +1635,8 @@ struc InputSeat
     .scan_count:              resd 1
     .pen_flags:               resd 1    ; the pen's last INPUT_PEN bits
     .pen_surface:             resq 1    ; the surface the pen is with, 0: none
+    .switches:                resd 1    ; bit n: switch n on (INPUT_SWITCH)
+    .switch_pad:              resd 1
     .keys:                    resb 32   ; held keycodes 0-255, a bit each
     .queue:                   resb INPUT_QUEUE_LEN * RawInput_size
 endstruc
@@ -1746,6 +1750,7 @@ endstruc
 %define RESIZE_MIN      16              ; the smallest a resize asks for
 %define WINDOW_LIST_MAX 8               ; clients watching the window list
 %define OUTPUT_WATCHERS 8               ; clients told of the outputs
+%define SEAT_WATCHERS 8                 ; clients told of switches and devices
 %define WORKSPACES      4               ; Super+1 to Super+4
 
 ; Server-drawn title bars (src/shell/titlebar.asm)
