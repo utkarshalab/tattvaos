@@ -107,6 +107,9 @@ struc Output
     .pixel_damage:            resq 1    ; Region*: a frame's, in the pixels
     .pixel_width:             resd 1
     .pixel_height:            resd 1
+    .compose_px:              resd 1    ; 1: its last frame was composed in
+                                        ; its pixels; 0: logical, then scaled
+    .compose_pad:             resd 1
 endstruc
 
 ; Mode Structure
