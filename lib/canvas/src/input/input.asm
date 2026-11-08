@@ -93,6 +93,7 @@ extern window_list_activated
 extern greeter_lock
 extern seat_tell_switch
 extern seat_tell_device
+extern clamshell_lid
 extern switcher_cancel
 extern switcher_finish
 extern switcher_next
@@ -1252,6 +1253,13 @@ switch_event:
     call seat_tell_switch
     cmp dword [r12 + RawInput.code], INPUT_SWITCH_LID
     jne .out
+    mov rdi, [rbx + InputSeat.server]   ; the built-in panel off or on
+    xor esi, esi
+    cmp dword [r12 + RawInput.value], 0
+    setne sil
+    call clamshell_lid
+    test eax, eax
+    jnz .out                            ; another screen on: no lock
     cmp dword [r12 + RawInput.value], 0
     je .out
     mov rax, [rbx + InputSeat.server]   ; the lid closed: locked
