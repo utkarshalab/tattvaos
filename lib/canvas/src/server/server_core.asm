@@ -98,7 +98,7 @@ extern output_announce
 extern output_list
 extern seat_watch
 extern clamshell_update
-extern greeter_lock
+extern clamshell_sleep
 extern greeter_restyle
 extern output_withdraw
 extern timeline_create
@@ -401,15 +401,13 @@ server_remove_output:
     mov qword [r12 + Output.pixel_fb], 0
 .no_pixels:
     mov rdi, rbx                        ; the lid closed and no screen left
-    call clamshell_update               ; on: locked
+    call clamshell_update               ; on: locked, asleep
     test eax, eax
     jnz .done
     cmp qword [rbx + Server.lid_closed], 0
     je .done
-    mov rdi, [rbx + Server.greeter]
-    test rdi, rdi
-    jz .done
-    call greeter_lock
+    mov rdi, rbx
+    call clamshell_sleep
 .done:
     xor eax, eax
 .out:
