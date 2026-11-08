@@ -37,6 +37,24 @@ canvas_pointer_set_shape:
     ret
 
 ; ---------------------------------------------------------------------------
+; canvas_seat_watch
+;   Hear of the seat's switches and devices: switched for each switch on,
+;   then done, then each change (CANVAS_EV_SEAT_*); needs CAP_SEAT
+;   IN:  rdi = conn
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global canvas_seat_watch
+canvas_seat_watch:
+    sub rsp, 8
+    mov esi, CWP_OBJ_SEAT
+    mov edx, SEAT_WATCH
+    xor ecx, ecx
+    xor r8d, r8d
+    call canvas_send
+    add rsp, 8
+    ret
+
+; ---------------------------------------------------------------------------
 ; canvas_input_key_is_press
 ;   OUT: rax = 1 for a key event that presses or repeats, else 0
 ; ---------------------------------------------------------------------------
