@@ -66,7 +66,9 @@ struc Output
     .next:            resq 1
     resb 3
     .connected:               resb 1
-    resb 7
+    .builtin:                 resb 1    ; 1: the built-in panel, under the lid
+    .lid_off:                 resb 1    ; LID_* the closed lid did to it
+    resb 5
     .controller:              resq 1
     .controller_ptr:          resq 1
     .crtc_index:              resq 1
@@ -158,7 +160,10 @@ endstruc
 %define FB_INFO_PITCH       16
 %define FB_INFO_FORMAT      20
 %define FB_INFO_SIZE        24
-%define FB_INFO_BYTES       32
+%define FB_INFO_FLAGS       32          ; u32, FB_*; a kernel without it
+                                        ; leaves the 0 canvas put there
+%define FB_INFO_BYTES       40
+%define FB_BUILTIN          1           ; the built-in panel, under the lid
 
 struc Config
     .fb_base:       resq 1
@@ -167,7 +172,7 @@ struc Config
     .fb_stride:     resd 1
     .fb_format:     resd 1
     .fb_size:                 resq 1
-    .flags:                   resq 1
+    .flags:                   resq 1    ; FB_* of the boot framebuffer
     .mode:                    resq 1
 endstruc
 
