@@ -29,6 +29,7 @@ extern ui_text_init
 extern greeter_step
 extern server_init
 extern server_add_output
+extern server_set_high_contrast
 extern server_remove_output
 extern server_poll
 extern virtual_input_inject
@@ -40,6 +41,9 @@ extern virtual_input_inject
 ; The field on this screen
 %define FX        ((WIDTH - GREETER_FIELD_W) / 2)
 %define FY        ((HEIGHT - GREETER_FIELD_H) / 2)
+; the row of names: its top, a name's left
+%define NAMES_Y   (FY - 2 * (GREETER_LABEL_H + GREETER_LABEL_GAP))
+%define NAME_X(n) (FX + (n) * (GREETER_NAME_W + GREETER_NAME_GAP))
 %define DOT_Y     (FY + (GREETER_FIELD_H - GREETER_DOT) / 2 + 2)
 %define CARET_Y   (FY + (GREETER_FIELD_H - GREETER_CARET_H) / 2 + 2)
 %define DOT_X(n)  (FX + GREETER_PAD + (n) * GREETER_DOT_STEP)
@@ -71,6 +75,7 @@ test_greeter_suite:
     CASE tg_lock_key
     CASE tg_lid_lock
     CASE tg_lid_docked
+    CASE tg_contrast
     CASE tg_idle_lock
     CASE tg_locked_keys
     CASE tg_users
@@ -536,6 +541,48 @@ tg_lid_docked:
     jne .fail
     PASS
 
+; High contrast while it is up: black, the field's edge white, the chosen
+; name on yellow; off, as it was. Turned on while unlocked, Super+L shows it
+; in high contrast
+tg_contrast:
+    sub rsp, 8
+    call unlocked
+    lea rdi, [rel server]
+    mov esi, 1
+    call server_set_high_contrast
+    INJECT_KEY 125, 1                   ; Super+L
+    INJECT_KEY 38, 1
+    INJECT_KEY 38, 0
+    INJECT_KEY 125, 0
+    call poll
+    call poll
+    LOCKED
+    PIXEL 0, 0, GREETER_HC_BG
+    PIXEL FX, FY, GREETER_HC_INK
+    PIXEL FX + GREETER_FIELD_W - 4, FY + 4, GREETER_HC_BG
+    PIXEL NAME_X(0) + 1, NAMES_Y + 1, GREETER_HC_MARK
+    lea rdi, [rel server]
+    xor esi, esi
+    call server_set_high_contrast
+    PIXEL 0, 0, GREETER_BG
+    PIXEL FX, FY, GREETER_BORDER
+    PIXEL FX + GREETER_FIELD_W - 4, FY + 4, GREETER_FIELD
+    PIXEL NAME_X(0) + 1, NAMES_Y + 1, GREETER_FIELD
+    lea rdi, [rel server]               ; on again while it is up
+    mov esi, 1
+    call server_set_high_contrast
+    PIXEL 0, 0, GREETER_HC_BG
+    lea rdi, [rel server]
+    xor esi, esi
+    call server_set_high_contrast
+    TYPE KEY_A
+    TYPE KEY_B
+    TYPE KEY_ENTER
+    call poll
+    cmp qword [rel server + Server.locked], 0
+    jne .fail
+    PASS
+
 ; Without input for the idle time it locks by itself
 tg_idle_lock:
     sub rsp, 8
@@ -564,8 +611,6 @@ tg_locked_keys:
 ; The kernel's users as a row of names, the chosen one on the field's
 ; colour; Left and Right choose; the password is checked as the chosen
 ; user's: mira has none, ravi's is "secret"
-%define NAMES_Y   (FY - 2 * (GREETER_LABEL_H + GREETER_LABEL_GAP))
-%define NAME_X(n) (FX + (n) * (GREETER_NAME_W + GREETER_NAME_GAP))
 tg_users:
     sub rsp, 8
     mov rax, [rel greeter]
