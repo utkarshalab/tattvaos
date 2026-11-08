@@ -21,7 +21,7 @@ extern compositor_output_at
 extern rect_intersect
 extern region_add_rect
 extern sw_render_rect
-extern ui_text_draw
+extern frame_text
 extern window_activate
 
 %define SWITCHER_MAX    16
@@ -395,9 +395,10 @@ title:
     mov dword [rdx + UiText.size], TITLE_SIZE
     mov eax, [rel text_colour]
     mov [rdx + UiText.colour], eax
-    mov rdi, rdx
+    mov rsi, rdx                        ; mapped into the frame
+    mov rdi, rbx
     sub rsp, 8                          ; 16-byte aligned
-    call ui_text_draw
+    call frame_text
     add rsp, 8
 .done:
     ret
