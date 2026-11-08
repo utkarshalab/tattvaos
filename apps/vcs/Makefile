@@ -146,7 +146,11 @@ $(BUILD)/bridge_codec.so: $(BUILD)/bridge.o $(BUILD)/bridge_codec_probe.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/bridge_codec_probe.o: tests/unit/bridge_codec_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
-test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/upload_request.so $(BUILD)/upload_protocol.so $(BUILD)/upload_server.so $(BUILD)/bridge_codec.so $(BUILD)/repository.so
+$(BUILD)/upload_pack.so: $(BUILD)/upload_pack.o $(BUILD)/upload_pack_probe.o
+	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
+$(BUILD)/upload_pack_probe.o: tests/unit/upload_pack_probe.asm | $(BUILD)
+	$(NASM) -w+error -f elf64 $< -o $@
+test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/upload_request.so $(BUILD)/upload_protocol.so $(BUILD)/upload_server.so $(BUILD)/bridge_codec.so $(BUILD)/upload_pack.so $(BUILD)/repository.so
 	sh scripts/test-cli.sh
 	python3 tests/unit/test_diff.py $(BUILD)/diff.so
 	python3 tests/unit/test_protocol.py $(BUILD)/protocol.so
@@ -162,5 +166,6 @@ test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/c
 	python3 tests/unit/test_upload_protocol.py $(BUILD)/upload_protocol.so
 	python3 tests/unit/test_upload_server.py $(BUILD)/upload_server.so
 	python3 tests/unit/test_bridge_codec.py $(BUILD)/bridge_codec.so
+	python3 tests/unit/test_upload_pack.py $(BUILD)/upload_pack.so
 	python3 tests/unit/test_repository.py $(BUILD)/repository.so
 	python3 tests/unit/test_history.py $(BUILD)/repository.so
