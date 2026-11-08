@@ -322,9 +322,21 @@ ovmf-strictnx-test: kernel.bin $(UEFI_EFI)
 	@OVMF_CODE="$(OVMF_STRICT_CODE)" OVMF_VARS="$(OVMF_STRICT_VARS)" \
 	    sh $(KERNEL_DIR)/tests/test_ovmf_qemu.sh
 
+# -----------------------------------------------------------------------------
+# Boot files: initrd.img, a UPK package the kernel opens at start-up
+# (kernel/exec/bootfiles.asm); goes beside kernel.ulf on the boot media
+# -----------------------------------------------------------------------------
+BOOT_FILES := files/conf/usb/usb.conf
+
+initrd: initrd.img
+
+initrd.img: mkbootpkg.py $(BOOT_FILES)
+	rm -f $@
+	python3 mkbootpkg.py $@ conf/usb/usb.conf=files/conf/usb/usb.conf
+
 clean:
-	rm -f $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
+	rm -f initrd.img $(KERNEL_DIR)/kernel.bin $(KERNEL_DIR)/kernel.o \
 	      $(KERNEL_DIR)/stage1.bin $(KERNEL_DIR)/stage2.bin $(IMG) $(UEFI_EFI)
 
-.PHONY: all elf img run debug test test-negative ush-test ush-storage-test ush-vcs-test ush-power-test ush-uedit-test ush-bundle-check smp-check smp-test vtd-test pci-check pci-msi-test pci-msix-test uefi \
+.PHONY: all elf img initrd run debug test test-negative ush-test ush-storage-test ush-vcs-test ush-power-test ush-uedit-test ush-bundle-check smp-check smp-test vtd-test pci-check pci-msi-test pci-msix-test uefi \
         uefi-check ovmf-test ovmf-strictnx-test clean
