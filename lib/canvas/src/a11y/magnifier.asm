@@ -9,6 +9,11 @@
 ; zoomed picture, and every frame while zoomed is drawn whole again
 ; (magnify_frame), and a move of the pointer is a frame (magnify_moved).
 ; Super+Shift+M goes off, 2x, 4x, off (input), on the login screen too.
+;
+; The view follows the keyboard too (magnify_focus): a surface given the
+; keyboard other than by a click on it is shown from its top-left corner
+; (its middle, if it is smaller than the view) until the pointer moves; one
+; given it by a click (the pointer on it or its title bar) is not.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -19,6 +24,9 @@
 %include "ugfx.inc"
 
 extern compositor_damage_all
+extern handle_resolve
+extern titlebar_part
+extern surface_logical_size
 extern memcopy
 extern region_add_rect
 extern scale_nearest_rect
@@ -75,12 +83,83 @@ server_set_magnifier:
 ; ---------------------------------------------------------------------------
 global magnify_moved
 magnify_moved:
+    mov qword [rdi + Server.magnify_follow], 0  ; the pointer leads again
     cmp qword [rdi + Server.magnify], 0
     je .done
     jmp compositor_damage_all
 .done:
     xor eax, eax
     ret
+
+; ---------------------------------------------------------------------------
+; magnify_focus
+;   The keyboard went to a surface: the view goes to it (and is redrawn,
+;   while zoomed), unless the pointer is on it, as after a click
+;   IN:  rdi = server*, rsi = Surface*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global magnify_focus
+magnify_focus:
+    PROLOGUE_SAVE rbx, r12
+    sub rsp, 16                         ; its rect; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    test r12, r12
+    jz .done
+    mov rsi, [r12 + Surface.current + SurfaceState.buffer]
+    test rsi, rsi
+    jz .done                            ; nothing drawn: nowhere to go
+    mov rdi, [rbx + Server.buffer_table]
+    call handle_resolve
+    test rax, rax
+    jz .done
+    mov rdi, r12                        ; its size on the screen
+    mov rsi, rax
+    call surface_logical_size
+    mov ecx, [r12 + Surface.current + SurfaceState.buf_x]
+    mov r8d, [r12 + Surface.current + SurfaceState.buf_y]
+    mov [rsp], ecx
+    mov [rsp + 4], r8d
+    mov [rsp + 8], eax
+    mov [rsp + 12], edx
+    mov r9, [rbx + Server.input_seat]   ; the pointer on it or its title
+    test r9, r9                         ; bar: it leads
+    jz .take
+    mov r10d, [r9 + InputSeat.x]
+    sub r10d, ecx
+    js .bar
+    cmp r10d, eax
+    jge .bar
+    mov r10d, [r9 + InputSeat.y]
+    sub r10d, r8d
+    js .bar
+    cmp r10d, edx
+    jl .done
+.bar:
+    mov rdi, r12
+    mov esi, [r9 + InputSeat.x]
+    mov edx, [r9 + InputSeat.y]
+    call titlebar_part
+    test rax, rax
+    jnz .done
+.take:
+    mov eax, [rsp]
+    mov [rbx + Server.magnify_rect], eax
+    mov eax, [rsp + 4]
+    mov [rbx + Server.magnify_rect + 4], eax
+    mov eax, [rsp + 8]
+    mov [rbx + Server.magnify_rect + 8], eax
+    mov eax, [rsp + 12]
+    mov [rbx + Server.magnify_rect + 12], eax
+    mov qword [rbx + Server.magnify_follow], 1
+    cmp qword [rbx + Server.magnify], 0
+    je .done
+    mov rdi, rbx
+    call compositor_damage_all
+.done:
+    xor eax, eax
+    add rsp, 16
+    EPILOGUE_RESTORE rbx, r12
 
 ; ---------------------------------------------------------------------------
 ; magnify_frame
@@ -135,19 +214,34 @@ magnify_output:
     xor edx, edx
     div r13d
     mov [rsp + UgfxScale_src_h], eax
-    mov rax, [rbx + Server.input_seat]  ; round the pointer, in its pixels
-    mov ecx, [r12 + Output.width]
-    shr ecx, 1
+    mov ecx, [r12 + Output.width]       ; round the pointer or the focus,
+    shr ecx, 1                          ; in its pixels
     mov edx, [r12 + Output.height]
     shr edx, 1
+    cmp qword [rbx + Server.magnify_follow], 0
+    je .pointer
+    mov r8d, [rbx + Server.magnify_rect + 8]    ; the focus: its corner
+    cmp r8d, [rsp + UgfxScale_src_w]            ; and a view's width on,
+    cmovg r8d, [rsp + UgfxScale_src_w]          ; or its middle
+    shr r8d, 1
+    add r8d, [rbx + Server.magnify_rect]
+    mov r9d, [rbx + Server.magnify_rect + 12]
+    cmp r9d, [rsp + UgfxScale_src_h]
+    cmovg r9d, [rsp + UgfxScale_src_h]
+    shr r9d, 1
+    add r9d, [rbx + Server.magnify_rect + 4]
+    jmp .point
+.pointer:
+    mov rax, [rbx + Server.input_seat]
     test rax, rax
     jz .centred
     mov r8d, [rax + InputSeat.x]
+    mov r9d, [rax + InputSeat.y]
+.point:
     sub r8d, [r12 + Output.x]
     js .centred
     cmp r8d, [r12 + Output.width]
     jge .centred
-    mov r9d, [rax + InputSeat.y]
     sub r9d, [r12 + Output.y]
     js .centred
     cmp r9d, [r12 + Output.height]
