@@ -391,6 +391,13 @@ server_remove_output:
     mov qword [r12 + Output.fb_region], 0
     mov qword [r12 + Output.framebuffer], 0
 .freed:
+    mov rdi, [r12 + Output.pixel_region]    ; at a scale, its pixels too
+    test rdi, rdi
+    jz .no_pixels
+    call ut_mem_free
+    mov qword [r12 + Output.pixel_region], 0
+    mov qword [r12 + Output.pixel_fb], 0
+.no_pixels:
     mov rdi, rbx                        ; the lid closed and no screen left
     call clamshell_update               ; on: locked
     test eax, eax
