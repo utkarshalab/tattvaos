@@ -244,6 +244,8 @@ ubt_conn_free:
 .br_credit:
     add [rbx + ubt_adapter.acl_free], eax
 .release:
+    mov rdi, r12                        ; what the upper layers kept
+    call ubt_layers_free
     mov rdi, r12
     mov esi, ubt_conn_size
     mov edx, 8
