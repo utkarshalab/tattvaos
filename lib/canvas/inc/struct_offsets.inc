@@ -1571,6 +1571,7 @@ struc Server
     .workspace:               resq 1    ; the one shown, 0 to WORKSPACES - 1
     .seat_watchers:           resq 8    ; SEAT_WATCHERS Client*s told of
                                         ; switches and devices
+    .lid_closed:              resq 1    ; 1 while the lid is closed (SES-08)
 endstruc
 
 ; One raw input event, as a source hands it to input_submit
@@ -1751,6 +1752,8 @@ endstruc
 %define WINDOW_LIST_MAX 8               ; clients watching the window list
 %define OUTPUT_WATCHERS 8               ; clients told of the outputs
 %define SEAT_WATCHERS 8                 ; clients told of switches and devices
+%define LID_DARK        1               ; Output.lid_off: turned off
+%define LID_MIRRORED    2               ; and made a mirror of another
 %define WORKSPACES      4               ; Super+1 to Super+4
 
 ; Server-drawn title bars (src/shell/titlebar.asm)
