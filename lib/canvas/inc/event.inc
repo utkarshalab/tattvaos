@@ -81,7 +81,7 @@ endstruc
 %define INPUT_AXIS          5   ; code = 0 vertical, 1 horizontal; value =
                                 ; signed steps, positive down or right
 ; Agreed with lib/input (KERNEL_NEEDS.md step 3 has the bits); input routes
-; touch and pen, and drops switch and device records for now
+; touch, pen, switch, device and pad records
 %define INPUT_TOUCH         6   ; a contact: slot, phase, confidence,
                                 ; pressure, size; value = x | y << 16
 %define INPUT_PEN           7   ; in range, tip, buttons, tool; x | y << 16
@@ -89,6 +89,11 @@ endstruc
 %define INPUT_SWITCH        9   ; code = which switch; value = 1 on, 0 off
 %define INPUT_DEVICE        10  ; code = added 0, removed 1, changed 2;
                                 ; value = its capability bits
+%define INPUT_PAD           11  ; a pen tablet's pad: code = what (bits
+                                ; 0-7) and which (8-15); value = its state
+%define INPUT_PAD_BUTTON        0   ; value 1 down, 0 up
+%define INPUT_PAD_RING          1   ; value the angle, 0-359; -1 let go
+%define INPUT_PAD_STRIP         2   ; value the place, 0-65535; -1 let go
 %define INPUT_SWITCH_LID        0
 %define INPUT_DEVICE_ADDED      0
 %define INPUT_DEVICE_REMOVED    1
