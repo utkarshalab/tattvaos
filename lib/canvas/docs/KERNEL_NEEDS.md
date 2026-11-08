@@ -40,7 +40,7 @@ mapping, asking the kernel for the result is simpler than mapping it again.
 Pixels are 32-bit BGRX; Canvas does not read the format field yet, so a
 framebuffer in another format would show wrong colours.
 
-These six are the UBF's only required imports. It imports 37 more names, all
+These six are the UBF's only required imports. It imports 38 more names, all
 weak: the load succeeds without them, the slot stays 0, and Canvas's stub for
 that name returns `-ENOSYS`. Canvas starts without any of them and yields in
 its loop when `ut_waitset_create` is not there. An export for one of those
@@ -141,6 +141,12 @@ clients will need more, so honouring `stack_size` will matter soon.
   nanoseconds): while a key is held the loop passes the time of the next
   repeat. Without waitsets the loop yields and repeats still come.
 - `ut_timer_register` and `ut_timer_cancel`, for idle timeouts.
+- `ut_power_suspend`, no arguments, for a lid closed with no other screen on
+  (or the last other screen unplugged while it is closed): Canvas puts the
+  login screen up, then calls it. It returns after resume with `rax` 0, or at
+  once with a negative error (`-EBUSY` while suspend is inhibited). Without
+  it the lid only locks. `server_set_lid_sleep(server, 0)` makes it only
+  lock anyway.
 
 ## Step 4: logging in
 
