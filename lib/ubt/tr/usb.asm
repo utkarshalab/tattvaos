@@ -546,6 +546,8 @@ ubt_service:
     mov rdi, rbx
     call l2cap_tick
     mov rdi, rbx
+    call ubt_sec_tick
+    mov rdi, rbx
     call ubt_conn_pump
     test byte [rbx + ubt_adapter.flags], 1          ; the event endpoint
     jz .acl
