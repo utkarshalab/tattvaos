@@ -96,8 +96,11 @@ fb_linear_create_output:
     mov rcx, [rbx + Backend.fb_base]
     mov [rax + Output.scanout], rcx
     mov rcx, [rbx + Backend.config]
-    mov ecx, [rcx + Config.fb_stride]
-    mov [rax + Output.scanout_pitch], rcx
+    mov edx, [rcx + Config.fb_stride]
+    mov [rax + Output.scanout_pitch], rdx
+    mov rdx, [rcx + Config.flags]
+    and edx, FB_BUILTIN
+    mov [rax + Output.builtin], dl
 .out:
     pop rbx
     ret
@@ -138,6 +141,9 @@ fb_linear_add_output:
     mov ecx, [r12 + FB_INFO_PITCH]
     mov [rax + Output.scanout_pitch], rcx
     mov [rax + Output.fb_index], r13d
+    mov ecx, [r12 + FB_INFO_FLAGS]
+    and ecx, FB_BUILTIN
+    mov [rax + Output.builtin], cl
 .out:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
