@@ -96,6 +96,8 @@ extern dnd_set_icon
 extern output_announce
 extern output_list
 extern seat_watch
+extern clamshell_update
+extern greeter_lock
 extern output_withdraw
 extern timeline_create
 extern timeline_destroy
@@ -309,6 +311,8 @@ server_place_output:
     mov rdi, rbx                        ; clients watching hear of it
     mov rsi, r12
     call output_announce
+    mov rdi, rbx                        ; the lid closed: it takes the
+    call clamshell_update               ; built-in panel's place
     mov rax, r12
     add rsp, 16
     EPILOGUE_RESTORE rbx, r12
@@ -387,6 +391,17 @@ server_remove_output:
     mov qword [r12 + Output.fb_region], 0
     mov qword [r12 + Output.framebuffer], 0
 .freed:
+    mov rdi, rbx                        ; the lid closed and no screen left
+    call clamshell_update               ; on: locked
+    test eax, eax
+    jnz .done
+    cmp qword [rbx + Server.lid_closed], 0
+    je .done
+    mov rdi, [rbx + Server.greeter]
+    test rdi, rdi
+    jz .done
+    call greeter_lock
+.done:
     xor eax, eax
 .out:
     EPILOGUE_RESTORE rbx, r12
