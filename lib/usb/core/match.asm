@@ -62,10 +62,13 @@ global usb_drivers
 usb_drivers:        resq USB_DRIVERS_MAX
 global usb_driver_count
 usb_driver_count:   resd 1
+global usb_attached_name
+usb_attached_name:  resq 1          ; the name of the driver that took the
+                                    ; last device (0: none did)
 
 section .rodata
 usb_drv_name_hub:   db "hub", 0
-usb_drv_name_hid:   db "hid", 0
+usb_drv_name_hid:   db "input", 0
 
 section .text
 
@@ -164,6 +167,7 @@ usb_attach_drivers:
     push r12
     push r13
     mov rbx, rdi
+    mov qword [rel usb_attached_name], 0
     xor r12d, r12d
 .registered:
     cmp r12d, [rel usb_driver_count]
@@ -208,6 +212,8 @@ usb_attach_drivers:
     add rsp, 8
     test eax, eax
     jle .not_taken
+    mov rax, [r13 + usb_driver.name]
+    mov [rel usb_attached_name], rax
     stc
     ret
 .not:
