@@ -5,13 +5,13 @@
 ; divided by s there (Output.width and height), so screens of different
 ; densities line up and a window is the same size on each.
 ;
-; An output at a scale other than 1 composes its part at that logical size,
-; into a frame of its own (Output.framebuffer), and output_present scales
-; what was drawn into its pixels (Output.pixel_fb, bilinear, the damage
-; mapped outwards) before the backend shows it. At scale 1 the frame is the
-; pixels and nothing is scaled. Composing straight at the output's pixels,
-; sharper on a dense panel, is a later step (the decision's revisit
-; criteria).
+; An output at a scale other than 1 composes straight into its pixels
+; (Output.pixel_fb; the compositor's frame maps the layout there, edges on
+; whole pixels). While something mirrors it or the magnifier is on, it
+; composes its part at its logical size instead, into a frame of its own
+; (Output.framebuffer), and output_present scales that into its pixels
+; (bilinear, the damage mapped outwards). At scale 1 the frame is the pixels
+; and nothing is scaled.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -272,6 +272,8 @@ output_present:
     jmp .done
 
 .scaled:
+    cmp dword [rbx + Output.compose_px], 0
+    jne .flip                           ; drawn in the pixels: shown as is
     mov rdi, [rbx + Output.pixel_damage]
     call region_clear
     mov rax, [rbx + Output.pixel_fb]
