@@ -39,6 +39,12 @@ global usb_k_ports
 usb_k_ports:        resb XHCI_MAX_HC * 32   ; root ports with a device on them
 global usb_k_failed
 usb_k_failed:       resd 1                  ; controllers that would not start
+alignb 8
+global usb_k_after_device_fn
+usb_k_after_device_fn: resq 1               ; after a device's line (Bluetooth
+                                            ; says its adapter there)
+global usb_k_service_fn
+usb_k_service_fn:   resq 1                  ; fiber work of libraries over USB
 usb_k_text:         resb 16
 
 section .rodata
@@ -55,8 +61,8 @@ msg_usb_port:       db "USB:   port ", 0
 msg_usb_colon:      db ": ", 0
 msg_usb_space:      db " ", 0
 msg_usb_comma:      db ", ", 0
-msg_usb_claimed:    db " (input)", 0
-msg_usb_hub:        db " (hub)", 0
+msg_usb_open:       db " (", 0
+msg_usb_close:      db ")", 0
 msg_usb_crlf:       db 0x0D, 0x0A, 0
 msg_usb_auth_show:  db "USB: a new keyboard. To use it, type this code on it, then Enter: ", 0
 msg_usb_auth_ok:    db "USB: keyboard accepted", 0x0D, 0x0A, 0
@@ -641,15 +647,23 @@ usb_kernel_device:
     call usb_attach_drivers
     test eax, eax
     jle .end
-    lea rsi, [rel msg_usb_claimed]
-    test word [rbx + usb_device.flags], USB_DEVF_HUB
-    jz .claimed
-    lea rsi, [rel msg_usb_hub]
-.claimed:
+    mov r12, [rel usb_attached_name]    ; (input), (hub), (bluetooth)
+    test r12, r12
+    jz .end
+    lea rsi, [rel msg_usb_open]
+    call uart_print_str
+    mov rsi, r12
+    call uart_print_str
+    lea rsi, [rel msg_usb_close]
     call uart_print_str
 .end:
     lea rsi, [rel msg_usb_crlf]
     call uart_print_str
+    mov rax, [rel usb_k_after_device_fn]
+    test rax, rax
+    jz .after
+    call rax
+.after:
     ; a hub: what is on its ports now, each on a line of its own
     test word [rbx + usb_device.flags], USB_DEVF_HUB
     jz .done
@@ -723,6 +737,11 @@ usb_kernel_poll:
 .drivers:
     call usb_hub_service
     call usb_hid_service
+    mov rax, [rel usb_k_service_fn]
+    test rax, rax
+    jz .done
+    call rax
+.done:
     pop r15
     pop r14
     pop r13
