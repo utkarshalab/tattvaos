@@ -95,6 +95,7 @@ extern greeter_lock
 extern seat_tell_switch
 extern seat_tell_device
 extern clamshell_lid
+extern clamshell_sleep
 extern switcher_cancel
 extern switcher_finish
 extern switcher_next
@@ -1263,11 +1264,8 @@ switch_event:
     jnz .out                            ; another screen on: no lock
     cmp dword [r12 + RawInput.value], 0
     je .out
-    mov rax, [rbx + InputSeat.server]   ; the lid closed: locked
-    mov rdi, [rax + Server.greeter]
-    test rdi, rdi
-    jz .out
-    call greeter_lock
+    mov rdi, [rbx + InputSeat.server]   ; the lid closed: locked, asleep
+    call clamshell_sleep
 .out:
     xor eax, eax
     EPILOGUE_RESTORE rbx, r12
