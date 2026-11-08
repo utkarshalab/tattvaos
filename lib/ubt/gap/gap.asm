@@ -60,10 +60,14 @@ ubt_le_advertise:
     mov r14d, ecx
     mov r15, r8
     mov [rsp + 40], r9d
-    ; parameters: 100 ms, the type, our public address, all channels
+    ; parameters: 100 ms, the type, our address (random with privacy on),
+    ; all channels
     xor eax, eax
     mov [rsp], rax
     mov [rsp + 8], rax
+    mov rdi, rbx
+    call ubt_own_addr_type
+    mov [rsp + 5], al
     mov word [rsp], 0x00A0
     mov word [rsp + 2], 0x00A0
     mov [rsp + 4], r12b
@@ -167,8 +171,10 @@ ubt_le_scan:
     mov [rsp], sil                      ; type
     mov word [rsp + 1], 0x0060          ; interval 60 ms
     mov word [rsp + 3], 0x0030          ; window 30 ms
-    mov byte [rsp + 5], 0               ; our public address
     mov byte [rsp + 6], 0               ; everyone
+    call ubt_own_addr_type              ; our address (RDI: the adapter)
+    mov [rsp + 5], al
+    mov rdi, rbx
     mov esi, HCI_LE_SET_SCAN_PARAMS
     mov rdx, rsp
     mov ecx, 7
