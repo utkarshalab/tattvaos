@@ -89,7 +89,8 @@ protocol canvas-input 1 {
     ; which: 0 lid, 1 tablet mode, 2 dock, 3 headphone jack, 4 camera
     ; shutter, 5 microphone mute, 6 keypad slide; state 1 on or closed.
     ; change: 0 added, 1 removed, 2 changed; caps: 1 keyboard, 2 pointer,
-    ; 4 touch, 8 pen tablet, 16 switches. Closing the lid locks the session.
+    ; 4 touch, 8 pen tablet, 16 switches. Closing the lid turns the built-in
+    ; panel off, and locks the session unless another screen is on.
     interface cw_seat 1 {
         request watch()
 
