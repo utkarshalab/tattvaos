@@ -388,8 +388,12 @@ Estimate: ~3 000 lines.
   table every transport shares, ErrorRollOver ignored, lock keys tracked
   for the LEDs; media, volume and system keys from Consumer and System
   Control collections in report protocol (`hid/media.asm`: arrays and
-  bitmaps, per report ID); report-protocol keyboards and mice (beyond
-  the boot report) still to do
+  bitmaps, per report ID); keyboards and mice in report protocol
+  (`hid/report.asm`): modifier bits, key arrays and n-key bitmaps turned
+  into a boot report (so boot handling, LEDs and the new-keyboard check
+  stay one path), the LED output report found, pointers with X and Y of
+  any size, the wheel, horizontal scroll and 8 buttons; absolute
+  pointers (tablets) left for touch and pens
 - ◐ USB keyboards and mice through `lib/usb` (`lib/usb/class/hid`):
   host-tested against the simulated controller
 
