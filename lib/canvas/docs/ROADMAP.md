@@ -686,7 +686,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | SES-05 | Fast user switching | P3 | |
 | SES-06 | Guest sessions with ephemeral state | P4 | |
 | SES-07 | Per-user display, theme and accessibility settings applied at login | P3 | |
-| SES-08 | Lid switch and clamshell mode | P2 | ◐ `input/input` (records 9 and 10): each switch's state kept; closing the lid locks (the login screen, as Super+L); `cw_seat.watch` (`input/seat_watch`, behind `CAP_SEAT`) tells each switch on, then done, then every switch change and every device added, removed or changed; a device removed has its touch contacts cancelled; `test_window`, `test_greeter`. No clamshell mode: no output is known to be the built-in panel, so none is turned off |
+| SES-08 | Lid switch and clamshell mode | P2 | ◐ `input/input` (records 9 and 10): each switch's state kept; `cw_seat.watch` (`input/seat_watch`, behind `CAP_SEAT`) tells each switch on, then done, then every switch change and every device added, removed or changed; a device removed has its touch contacts cancelled. Clamshell (`output/clamshell`): the built-in panel (`ut_fb_info` flag bit 0) is turned off while the lid is closed, and with another screen on is made a mirror of it, out of the layout, its windows moving there; a screen plugged in meanwhile takes its place; opening the lid undoes it. Closing the lid locks unless another screen is on, and unplugging the last other screen with the lid closed locks; `test_window`, `test_greeter`. No suspend on lid close |
 | SES-09 | Ambient light → brightness and contrast | P3 | |
 | SES-10 | Orientation sensor auto-rotate and lock | P3 | |
 | SES-11 | Proximity sensor screen-off | P4 | |
