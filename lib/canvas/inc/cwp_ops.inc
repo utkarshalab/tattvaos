@@ -120,6 +120,11 @@
 %define TABLET_TOOL_EV_TIP           4
 %define TABLET_TOOL_EV_BUTTON        5
 
+; cw_tablet_pad (canvas-input.cwp)
+%define TABLET_PAD_EV_BUTTON 0
+%define TABLET_PAD_EV_RING   1
+%define TABLET_PAD_EV_STRIP  2
+
 ; cw_seat (canvas-input.cwp)
 %define SEAT_WATCH       0
 %define SEAT_EV_SWITCHED 0
