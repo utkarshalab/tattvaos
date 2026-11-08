@@ -80,6 +80,18 @@ protocol canvas-input 1 {
     }
 
     ; ------------------------------------------------------------------------
+    ; cw_tablet_pad — a pen tablet's buttons, rings and strips (TCH-10)
+    ; ------------------------------------------------------------------------
+    ; They go to the surface with the keyboard. ring: the angle 0-359, or
+    ; 0xFFFFFFFF when the finger leaves it; strip: the place 0-65535, or
+    ; 0xFFFFFFFF likewise.
+    interface cw_tablet_pad 1 {
+        event button(time: ulong, surface: handle, button: uint, state: uint)
+        event ring(time: ulong, surface: handle, ring: uint, angle: uint)
+        event strip(time: ulong, surface: handle, strip: uint, position: uint)
+    }
+
+    ; ------------------------------------------------------------------------
     ; cw_seat — the seat's switches and input devices (SES-08)
     ; ------------------------------------------------------------------------
     ; watch answers with switched(which, 1) for each switch that is on, then
