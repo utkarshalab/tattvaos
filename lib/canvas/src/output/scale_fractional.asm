@@ -1,8 +1,8 @@
 ; ============================================================================
 ; Fractional Scale — Non-Integer Scale Factors (1.25x, 1.5x, 1.75x, 2.25x, etc.)
 ; ============================================================================
-; Helpers, not yet part of drawing (OUT-08, PRO-16 decide how an output's
-; scale applies): an output's scale as 16.16, a size times it, and one
+; Helpers: an output's scale as 16.16 (applied to the layout by
+; output/output_scale), a size times it, and one
 ; surface's buffer stretched over its output's whole frame (a fullscreen
 ; app drawn smaller than the screen), nearest neighbour at a whole scale and
 ; bilinear otherwise. The stretch copies: it is for opaque buffers.
@@ -17,7 +17,7 @@
 %include "inc/backend.inc"
 
 extern handle_resolve
-extern output_announce
+extern output_set_scale
 extern sw_scale_bilinear
 extern sw_scale_nearest
 
@@ -39,9 +39,10 @@ scale_fractional_init:
 
 ; ---------------------------------------------------------------------------
 ; scale_fractional_compute
-;   Compute scale factors for fractional scaling
+;   An output's scale as numerator / denominator, applied (output_set_scale)
+;   when the output has a server: its logical size and the layout follow
 ;   IN:  rdi = output*, rsi = scale_numerator, rdx = scale_denominator
-;   OUT: rax = 0 OK, output.scale updated
+;   OUT: rax = 0 OK, output.scale updated; output_set_scale's error
 ; ---------------------------------------------------------------------------
 global scale_fractional_compute
 scale_fractional_compute:
@@ -63,18 +64,24 @@ scale_fractional_compute:
     div r13
 
     mov [rbx + Output.scale], rax
-    mov rdi, [rbx + Output.backend]     ; clients watching hear the scale
+    mov rdi, [rbx + Output.backend]     ; applied: the layout logical
     test rdi, rdi
     jz .told
     mov rdi, [rdi + Backend.server]
     test rdi, rdi
     jz .told
+    imul rax, rax, 120                  ; in 120ths, rounded
+    add rax, 0x8000
+    shr rax, 16
+    mov edx, eax
     mov rsi, rbx
     sub rsp, 8                          ; 16-byte aligned for the call
-    call output_announce
+    call output_set_scale
     add rsp, 8
+    jmp .out
 .told:
     xor rax, rax
+.out:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
