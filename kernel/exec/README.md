@@ -9,7 +9,30 @@
 | [`ubf_load.asm`](ubf_load.asm) | `ubf_load`, `ubf_start`, `ubf_cpu_features` |
 | [`exports.asm`](exports.asm) | what the kernel exports to programs (`UBF_EXPORT`), `ubf_export_find` |
 | [`selftest.asm`](selftest.asm) | the boot self-test: loads, runs and checks [`kernel/tests/ubf/hello.ubf`](../tests/ubf/) and refuses a tampered copy; opens the signed `hello.upk`, runs its main binary, and refuses a tampered or untrusted package |
+| [`bootfiles.asm`](bootfiles.asm) | the boot files: `initrd.img` opened as a UPK package at start-up (`boot_files_init`), its files by path (`boot_file`) |
 | [`exec.asm`](exec.asm) | the one include `kernel/entry.asm` needs (it also brings in the package verifier, [`pkg/format/upk.asm`](../../pkg/format/upk.asm)) |
+
+## Boot files
+
+The boot loaders load `initrd.img` from beside `kernel.ulf` and say where it
+is in the boot information. The kernel opens it as a UPK package of the
+files it needs before any disk is mounted, each under its path in the
+system: `conf/usb/usb.conf` now, device firmware next. `boot/mkbootpkg.py`
+builds it (`make -C boot initrd` from `boot/files/`).
+
+It is checked as any package is (every file's SHA-256, the manifest). A
+signed one must be signed by a key built into the kernel
+(`boot_trusted_keys`, empty so far); an unsigned one is accepted, since
+nothing checks the kernel image beside it either. Nothing in it runs. One
+console line says what was found:
+
+```
+BOOT: boot files boot 1.0.0, 1 files, unsigned
+```
+
+Tests: `sh kernel/tests/bootfiles/run_tests.sh` (18 checks, on the host:
+packages built by `mkbootpkg.py`, the kernel's own verifier, a changed
+byte, cut short, out of the direct map, signed by an untrusted key).
 
 ## Loading
 
