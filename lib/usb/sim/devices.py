@@ -6,7 +6,9 @@ import struct
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "input", "tests"))
 import usb_gen as G  # noqa: E402
+import hid_gen as H  # noqa: E402
 
 SPEED_FULL, SPEED_LOW, SPEED_HIGH, SPEED_SUPER = 1, 2, 3, 4
 
@@ -30,6 +32,7 @@ class Device:
         self.idle = None
         self.leds = []
         self.class_stalls = set()   # HID requests it refuses
+        self.report_descs = {}      # interface → HID report descriptor
 
     def queue(self, address, data):
         self.queues.setdefault(address, []).append(bytes(data) if data != "stall" else data)
@@ -61,6 +64,9 @@ class Device:
         if rt == 0x80 and req == 6:
             d = self.descriptor(value >> 8, value & 0xFF, index)
             return None if d is None else d[:length]
+        if rt == 0x81 and req == 6 and value >> 8 == 0x22:
+            d = self.report_descs.get(index)
+            return None if d is None else d[:length]
         if rt == 0x00 and req == 9:
             self.configuration = value
             return b""
@@ -85,6 +91,20 @@ class Device:
 def keyboard(speed=SPEED_FULL, mps0=8):
     return Device(G.device(vid=0x046D, pid=0xC31C, mps0=mps0, manufacturer=1, product=2, serial=0),
                   G.KEYBOARD_CONFIG, {1: "Logitech", 2: "USB Keyboard"}, speed=speed)
+
+
+def keyboard_with_media(media=None):
+    """A keyboard as most are: the boot keyboard on interface 0, media and
+    system keys on interface 1 (report protocol, report IDs 2-4)."""
+    media = H.media if media is None else media
+    cfg = G.config(G.interface(0, num_ep=1, cls=3, sub=1, proto=1), G.hid(len(H.boot_keyboard)),
+                   G.endpoint(0x81, 3, 8, 10),
+                   G.interface(1, num_ep=1, cls=3, sub=0, proto=0), G.hid(len(media)),
+                   G.endpoint(0x82, 3, 8, 10))
+    d = Device(G.device(vid=0x046D, pid=0xC52B, mps0=8, manufacturer=1, product=2, serial=0),
+               cfg, {1: "Logitech", 2: "Media Keyboard"})
+    d.report_descs = {0: H.boot_keyboard, 1: media}
+    return d
 
 
 def mouse(mps0=64):
