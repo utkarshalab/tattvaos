@@ -28,6 +28,8 @@ extern login_verify
 extern ui_text_init
 extern greeter_step
 extern server_init
+extern server_add_output
+extern server_remove_output
 extern server_poll
 extern virtual_input_inject
 
@@ -68,6 +70,7 @@ test_greeter_suite:
     CASE tg_lockout
     CASE tg_lock_key
     CASE tg_lid_lock
+    CASE tg_lid_docked
     CASE tg_idle_lock
     CASE tg_locked_keys
     CASE tg_users
@@ -477,6 +480,54 @@ tg_lid_lock:
     call poll
     cmp qword [rel server + Server.locked], 1
     jne .fail
+    TYPE KEY_A
+    TYPE KEY_B
+    TYPE KEY_ENTER
+    call poll
+    cmp qword [rel server + Server.locked], 0
+    jne .fail
+    PASS
+
+; Docked: the first output the built-in panel and a second one on, closing
+; the lid does not lock; the second unplugged then, it does
+tg_lid_docked:
+    sub rsp, 8
+    call unlocked
+    mov rax, [rel server + Server.outputs]
+    mov byte [rax + Output.builtin], 1
+    lea rdi, [rel server]
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rsp], rax
+    lea rdi, [rel server]
+    mov esi, INPUT_SWITCH
+    mov edx, INPUT_SWITCH_LID
+    mov ecx, 1
+    xor r8d, r8d
+    call virtual_input_inject
+    call poll
+    call poll
+    cmp qword [rel server + Server.locked], 0
+    jne .fail
+    lea rdi, [rel server]
+    mov rsi, [rsp]
+    call server_remove_output
+    test rax, rax
+    jnz .fail
+    call poll
+    LOCKED
+    lea rdi, [rel server]               ; as it was: the lid open, no
+    mov esi, INPUT_SWITCH               ; panel, unlocked
+    mov edx, INPUT_SWITCH_LID
+    xor ecx, ecx
+    xor r8d, r8d
+    call virtual_input_inject
+    call poll
+    mov rax, [rel server + Server.outputs]
+    mov byte [rax + Output.builtin], 0
     TYPE KEY_A
     TYPE KEY_B
     TYPE KEY_ENTER
