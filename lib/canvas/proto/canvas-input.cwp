@@ -80,6 +80,25 @@ protocol canvas-input 1 {
     }
 
     ; ------------------------------------------------------------------------
+    ; cw_seat — the seat's switches and input devices (SES-08)
+    ; ------------------------------------------------------------------------
+    ; watch answers with switched(which, 1) for each switch that is on, then
+    ; done; from then on the client hears each switch that changes and each
+    ; input device added, removed or changed. Needs CAP_SEAT.
+    ;
+    ; which: 0 lid, 1 tablet mode, 2 dock, 3 headphone jack, 4 camera
+    ; shutter, 5 microphone mute, 6 keypad slide; state 1 on or closed.
+    ; change: 0 added, 1 removed, 2 changed; caps: 1 keyboard, 2 pointer,
+    ; 4 touch, 8 pen tablet, 16 switches. Closing the lid locks the session.
+    interface cw_seat 1 {
+        request watch()
+
+        event switched(which: uint, state: uint)
+        event device(change: uint, id: uint, caps: uint)
+        event done()
+    }
+
+    ; ------------------------------------------------------------------------
     ; cw_dnd — drag and drop
     ; ------------------------------------------------------------------------
     ; A drag offers its data as cw_clipboard selection 2. It starts while a
