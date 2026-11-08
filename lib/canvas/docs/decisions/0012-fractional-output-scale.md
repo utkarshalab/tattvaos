@@ -1,6 +1,8 @@
 # Decision 0012: Fractional Output Scale
 
-**Status**: Accepted (2026-11-07); first step, `cw_output`, built
+**Status**: Accepted (2026-11-07); `cw_output`, `cw_surface.set_buffer_scale`
+and the logical layout built (2026-11-08); composing at each output's pixels
+to come
 **Date**: 2026-11-07
 **Phase**: P2 (OUT-08, PRO-16; snapping rules CMP-22 in P3)
 
@@ -74,6 +76,23 @@ What exists today:
 - Decision 0002 (pixel format)
 - `src/output/scale_fractional.asm`, `src/render/sw_cursor.asm`,
   `lib/ugfx/core/scale.asm`
+
+## Progress
+1. `cw_output` (`output/output_watch`): each output's id, place, logical
+   size and scale.
+2. `cw_surface.set_buffer_scale`: a buffer drawn at another scale is
+   scaled to its surface's size, blended, when drawn.
+3. The logical layout (`output/output_scale`): `output_set_scale` makes an
+   output's size in the layout its pixel size divided by its scale and
+   moves the outputs to its right. An output at a scale other than 1
+   composes its part at that logical size and `output_present` scales the
+   frame into its pixels, bilinear, the damage mapped outwards. That is the
+   revisit criteria's way round, taken first: everything already draws in
+   logical units, and nothing else had to change. Edges are soft on a dense
+   panel.
+4. To come: composing straight at each output's pixels, where surfaces,
+   title bars and the cursor are sized in logical units and drawn at the
+   output's scale; then snapping (CMP-22).
 
 ## Revisit Criteria
 If composing at full scale costs too much on the software renderer, compose
