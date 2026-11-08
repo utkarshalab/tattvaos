@@ -22,6 +22,11 @@ global ukstub_vmas
 ukstub_vmas:            resd 1
 global ukstub_ram
 ukstub_ram:             resd 1      ; what phys_range_is_online_usable says
+alignb 8
+global ukstub_boot_ptr
+ukstub_boot_ptr:        resq 1      ; what boot_file gives for any path
+global ukstub_boot_len
+ukstub_boot_len:        resq 1
 
 section .text
 
@@ -68,6 +73,13 @@ virt_map:
 global phys_range_is_online_usable
 phys_range_is_online_usable:
     mov eax, [rel ukstub_ram]
+    ret
+
+; RDI = path → RAX = bytes, RDX = size (0 when the test set none)
+global boot_file
+boot_file:
+    mov rax, [rel ukstub_boot_ptr]
+    mov rdx, [rel ukstub_boot_len]
     ret
 
 %include "lib/usb/usb.asm"
