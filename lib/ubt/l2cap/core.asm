@@ -416,12 +416,17 @@ l2cap_recv:
     call l2cap_sig_le_recv
     jmp .out
 .fixed:
-    cmp r14d, L2CAP_CID_LE_SMP
-    jne .fixed_hook
     cmp byte [rbx + ubt_conn.type], UBT_LINK_LE
     jne .fixed_hook
-    mov rdi, rbx                        ; SMP: the Security Manager
-    call ubt_smp_recv
+    mov rdi, rbx
+    cmp r14d, L2CAP_CID_LE_SMP
+    jne .att
+    call ubt_smp_recv                   ; SMP: the Security Manager
+    jmp .out
+.att:
+    cmp r14d, L2CAP_CID_ATT
+    jne .fixed_hook
+    call ubt_att_recv                   ; ATT: the GATT server and client
     jmp .out
 .fixed_hook:
     mov rax, [rbx + ubt_conn.adapter]
