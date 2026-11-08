@@ -171,6 +171,7 @@ test_window_suite:
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
+    CASE tw_gestures, CAP_SHELL
     CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
@@ -3160,6 +3161,85 @@ tw_pad:
     EVENT_IS {CWP_OBJ_TABLET_PAD, TABLET_PAD_EV_RING}, surface_a, 0, 90
     EVENT_IS {CWP_OBJ_TABLET_PAD, TABLET_PAD_EV_RING}, surface_a, 0, -1
     EVENT_IS {CWP_OBJ_TABLET_PAD, TABLET_PAD_EV_STRIP}, surface_a, 1, 1000
+    PASS
+
+; a touchpad (host device 8) contact: slot %1, phase %2, at x %3, y %4
+%macro PADTOUCH 4
+    TOUCH 8, %1, %2, %3, %4
+%endmacro
+; the next cw_gesture event %1 has a = %2, b = %3, to window A
+%macro GESTURE_IS 3
+    EVENT_IS {CWP_OBJ_GESTURE, %1}, surface_a, %2, %3
+%endmacro
+
+; Touchpad gestures over window A, device 8's 1000 units on the 64x48
+; output: three fingers down hold; moved together 13 pixels they swipe (the
+; hold cancelled), then 10 more is an update; lifted, the swipe ends. Two
+; fingers spreading from 12 to 25 pinch, 28 more is a scale of 28/12; lifted,
+; it ends. Their contacts are not cw_touch
+tw_gestures:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    PADTOUCH 0, 0, 100, 100
+    PADTOUCH 1, 0, 200, 100
+    PADTOUCH 2, 0, 300, 100
+    PADTOUCH 0, 3, 0, 0
+    call poll
+    GESTURE_IS GESTURE_EV_HOLD_BEGIN, 3, 0
+    PADTOUCH 0, 1, 300, 100             ; x 6, 12, 19 to 19, 25, 32
+    PADTOUCH 1, 1, 400, 100
+    PADTOUCH 2, 1, 500, 100
+    PADTOUCH 0, 3, 0, 0
+    call poll
+    GESTURE_IS GESTURE_EV_HOLD_END, 1, 0
+    GESTURE_IS GESTURE_EV_SWIPE_BEGIN, 3, 0
+    PADTOUCH 0, 1, 460, 100             ; the middle 25 to 35
+    PADTOUCH 1, 1, 560, 100
+    PADTOUCH 2, 1, 660, 100
+    PADTOUCH 0, 3, 0, 0
+    call poll
+    GESTURE_IS GESTURE_EV_SWIPE_UPDATE, 10, 3
+    PADTOUCH 0, 2, 0, 0
+    PADTOUCH 1, 2, 0, 0
+    PADTOUCH 2, 2, 0, 0
+    PADTOUCH 0, 3, 0, 0
+    call poll
+    GESTURE_IS GESTURE_EV_SWIPE_END, 0, 0
+
+    PADTOUCH 0, 0, 300, 500             ; x 19 and 44: spread 12
+    PADTOUCH 1, 0, 700, 500
+    PADTOUCH 0, 3, 0, 0
+    call poll
+    GESTURE_IS GESTURE_EV_HOLD_BEGIN, 2, 0
+    PADTOUCH 0, 1, 100, 500             ; 6 and 57: 25
+    PADTOUCH 1, 1, 900, 500
+    PADTOUCH 0, 3, 0, 0
+    call poll
+    GESTURE_IS GESTURE_EV_HOLD_END, 1, 0
+    GESTURE_IS GESTURE_EV_PINCH_BEGIN, 2, 0
+    PADTOUCH 0, 1, 50, 500              ; 3 and 60: 28
+    PADTOUCH 1, 1, 950, 500
+    PADTOUCH 0, 3, 0, 0
+    call poll
+    GESTURE_IS GESTURE_EV_PINCH_UPDATE, (28 << 16) / 12, 0
+    PADTOUCH 0, 2, 0, 0
+    PADTOUCH 1, 2, 0, 0
+    PADTOUCH 0, 3, 0, 0
+    call poll
+    GESTURE_IS GESTURE_EV_PINCH_END, 0, 0
+
+    PADTOUCH 0, 0, 300, 300             ; one more: a hold, no cw_touch
+    PADTOUCH 0, 3, 0, 0
+    call poll
+    mov edi, CWP_OBJ_TOUCH
+    call any_event
+    test eax, eax
+    jnz .fail
     PASS
 
 ; The pen curve: with both inner heights at 65535, a quarter press (16384)
