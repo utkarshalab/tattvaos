@@ -416,6 +416,14 @@ l2cap_recv:
     call l2cap_sig_le_recv
     jmp .out
 .fixed:
+    cmp r14d, L2CAP_CID_LE_SMP
+    jne .fixed_hook
+    cmp byte [rbx + ubt_conn.type], UBT_LINK_LE
+    jne .fixed_hook
+    mov rdi, rbx                        ; SMP: the Security Manager
+    call ubt_smp_recv
+    jmp .out
+.fixed_hook:
     mov rax, [rbx + ubt_conn.adapter]
     mov rax, [rax + ubt_adapter.fixed_fn]
     test rax, rax
