@@ -1646,6 +1646,19 @@ struc InputSeat
     .pen_surface:             resq 1    ; the surface the pen is with, 0: none
     .switches:                resd 1    ; bit n: switch n on (INPUT_SWITCH)
     .switch_pad:              resd 1
+    .tp_slot:                 resd 5    ; TOUCHPAD_FINGERS: a touchpad's
+    .tp_x:                    resd 5    ; slots + 1 (0 free) and places, in
+    .tp_y:                    resd 5    ; the layout (input/gestures)
+    .tp_count:                resd 1    ; fingers down now
+    .tp_fingers:              resd 1    ; at the last frame
+    .tp_kind:                 resd 1    ; the gesture running, 0 none
+    .tp_cx:                   resd 1    ; the fingers' middle, last frame
+    .tp_cy:                   resd 1
+    .tp_cx0:                  resd 1    ; and when the count last changed
+    .tp_cy0:                  resd 1
+    .tp_spread0:              resd 1    ; their spread then
+    .tp_pad:                  resd 1
+    .tp_surface:              resq 1    ; the gesture's surface, 0: none
     .keys:                    resb 32   ; held keycodes 0-255, a bit each
     .queue:                   resb INPUT_QUEUE_LEN * RawInput_size
 endstruc
@@ -1760,6 +1773,7 @@ endstruc
 %define WINDOW_LIST_MAX 8               ; clients watching the window list
 %define OUTPUT_WATCHERS 8               ; clients told of the outputs
 %define SEAT_WATCHERS 8                 ; clients told of switches and devices
+%define TOUCHPAD_FINGERS 5              ; a touchpad's fingers followed
 %define LID_DARK        1               ; Output.lid_off: turned off
 %define LID_MIRRORED    2               ; and made a mirror of another
 %define WORKSPACES      4               ; Super+1 to Super+4
