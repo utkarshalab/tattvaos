@@ -136,6 +136,9 @@ ubt_sec_tick:
     mov rsi, [rsp + 8]
     mov rdi, rbx
     call ubt_att_tick
+    mov rsi, [rsp + 8]
+    mov rdi, rbx
+    call ubt_privacy_tick
     add rsp, 16
 .out:
     pop rbx
