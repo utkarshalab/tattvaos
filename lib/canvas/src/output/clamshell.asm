@@ -7,15 +7,22 @@
 ; made a mirror of it, so it is no part of the layout and what was on it goes
 ; there. Opening the lid undoes what closing it did (Output.lid_off). An
 ; output plugged in while the lid is closed takes the panel's place too.
+;
+; With the lid closed and no other screen on, clamshell_sleep locks and
+; asks the kernel to suspend (ut_power_suspend, a weak import), unless
+; server_set_lid_sleep turned that off: then it only locks.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/ut.inc"
 
 extern dpms_set
+extern greeter_lock
 extern server_mirror_output
+extern ut_power_suspend
 
 %define DPMS_ON     0
 %define DPMS_OFF    3
@@ -119,6 +126,48 @@ clamshell_update:
 .out:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; clamshell_sleep
+;   The lid closed with no other screen on: locked, then suspended (unless
+;   Server.lid_awake); the kernel returns from ut_power_suspend after resume
+;   IN:  rdi = server*
+;   OUT: rax = 0, or ut_power_suspend's error (-ENOSYS without it)
+; ---------------------------------------------------------------------------
+global clamshell_sleep
+clamshell_sleep:
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov rdi, [rbx + Server.greeter]     ; the login screen up first, so it is
+    test rdi, rdi                       ; what shows on waking
+    jz .locked
+    call greeter_lock
+.locked:
+    xor eax, eax
+    cmp qword [rbx + Server.lid_awake], 0
+    jne .out
+    inc qword [rbx + Server.suspends]
+    call ut_power_suspend
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
+
+; ---------------------------------------------------------------------------
+; server_set_lid_sleep
+;   Whether closing the lid with no other screen on suspends (1, as at
+;   start) or only locks (0)
+;   IN:  rdi = server*, esi = 1 or 0
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global server_set_lid_sleep
+server_set_lid_sleep:
+    xor eax, eax
+    test esi, esi
+    sete al
+    mov [rdi + Server.lid_awake], rax
+    xor eax, eax
+    ret
 
 section .data
 global clamshell_version
