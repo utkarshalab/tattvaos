@@ -383,7 +383,11 @@ mark = len(ca.sent)
 radio.inject(ca, LA.handle, 0, struct.pack("<HH", 3, 4) + b"\x02\x17\x00")             # ATT
 radio.inject(ca, LA.handle, 0, struct.pack("<HH", 2, 6) + b"\x01\x02")                 # SMP
 settle()
-check("ATT to the fixed channel hook", fixed, [(4, b"\x02\x17\x00")])
+check("ATT to the GATT server (an MTU request answered), nothing to the fixed channel hook",
+      ([f[4:] for f in frames(ca, mark) if struct.unpack_from("<H", f, 2)[0] == 4], fixed), ([b"\x03\x05\x02"], []))
+radio.inject(ca, LA.handle, 0, struct.pack("<HH", 2, 0x0003) + b"\x01\x02")             # another fixed CID
+settle()
+check("other fixed channels to the hook", fixed, [(3, b"\x01\x02")])
 check("SMP to the Security Manager: a broken Pairing Request answered Pairing Failed",
       [f[4:] for f in frames(ca, mark) if struct.unpack_from("<H", f, 2)[0] == 6], [b"\x05\x0a"])
 dropped = C.c_uint32.in_dll(lib, "l2cap_dropped").value
