@@ -99,6 +99,14 @@ struc Output
     resb 4
     .magnify_buf:             resq 1    ; the magnifier's scratch frame, 0: none
     .magnify_region:          resq 1    ; its memory, for ut_mem_free
+    .pixel_fb:                resq 1    ; at a scale: its pixels, 0 at 1
+                                        ; (framebuffer is then the logical
+                                        ; frame, output/output_scale)
+    .pixel_stride:            resq 1
+    .pixel_region:            resq 1    ; their memory, for ut_mem_free
+    .pixel_damage:            resq 1    ; Region*: a frame's, in the pixels
+    .pixel_width:             resd 1
+    .pixel_height:            resd 1
 endstruc
 
 ; Mode Structure
