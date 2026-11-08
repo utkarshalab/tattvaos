@@ -408,22 +408,32 @@ Estimate: ~9 000 lines (most of it in `sim/`).
 
 Prerequisite: `lib/usb` with xHCI control, bulk and interrupt transfers.
 
-- ☐ `tr/usb.asm`: match by the Bluetooth USB class (E0/01/01) and by a
-  vendor ID table; interrupt endpoint for events, bulk for ACL, control for
-  commands, isochronous interface for SCO (Phase 5)
+- ◐ `tr/usb.asm`: matched by the Bluetooth USB class (E0/01/01) through
+  `lib/usb`'s driver table; interrupt endpoint for events, bulk for ACL,
+  control for commands, events and ACL put back together from their length
+  fields, recovery of failed endpoints, removal; host-tested and in the
+  kernel. A vendor ID table for controllers that do not say E0/01/01, and
+  the isochronous interface for SCO (Phase 5), still to do
 - ☐ `vendor/mtk.asm`: MediaTek firmware download through vendor HCI
   commands, patch semaphore, power on and off, reset recovery. Firmware file
-  from MediaTek's redistributable package, stored in `/app/lib/ubt/fw/mtk/`
-- ☐ HCI core: command queue with the controller's credit count, command
-  timeouts, event dispatch, ACL fragmentation and reassembly, host flow
-  control, buffer size reads (BR and LE)
-- ☐ Init sequence: reset → read local version → supported commands →
-  features (all pages) → buffer sizes → BD_ADDR → set event masks → LE
-  init when LE is supported
-- ☐ Hot unplug and replug, controller hardware error event, automatic
-  re-initialisation
+  from MediaTek's redistributable package, stored in `/app/lib/ubt/fw/mtk/`.
+  **Waits for a filesystem at boot**: nothing mounts one yet (nothing calls
+  `uxfs_init`), so the RZ608 is claimed and marked as needing its patch
+- ◐ HCI core (`hci/core.asm`): one command at a time with the
+  controller's credit count kept, a one-second timeout, Command Complete
+  and Command Status matched to it, hardware errors counted, other events
+  to the layer above, buffer size reads (BR and LE), ACL reassembly. A
+  queue of several commands, outgoing ACL fragmentation and host flow
+  control still to do
+- ◐ Init sequence: reset → read local version → supported commands →
+  features (page 0) → buffer sizes → BD_ADDR → set event masks → LE buffer
+  size and event mask when LE is supported; what failed, and how, kept and
+  said. Extended feature pages still to do
+- ◐ Hot unplug and replug (adapters removed and added, each with its own
+  hciN); re-initialisation after a hardware error event still to do
 - ☐ `/sys/dev/bt0/`: version, manufacturer, features, counters
-- ☐ `ush`: `bt show`, `bt power on|off`
+- ◐ The console says each adapter at boot and when plugged in or out
+  (`kernel.asm`); `ush`: `bt show`, `bt power on|off` still to do
 
 Demo: `bt show` prints "MediaTek, HCI 5.2" and the address of the RZ608.
 Estimate: ~5 500 lines.
