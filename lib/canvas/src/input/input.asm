@@ -81,6 +81,8 @@ extern server_set_magnifier
 extern magnify_moved
 extern magnify_focus
 extern umath_bezier_cubic_eval
+extern gesture_touch
+extern gesture_forget
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -596,8 +598,12 @@ input_forget_surface:
     cmp ecx, TOUCH_SLOTS
     jb .contact
     cmp [rax + InputSeat.pen_surface], rsi
-    jne .done
+    jne .gesture
     mov qword [rax + InputSeat.pen_surface], 0
+.gesture:
+    cmp [rax + InputSeat.tp_surface], rsi   ; no touchpad gesture to it
+    jne .done
+    mov qword [rax + InputSeat.tp_surface], 0
 .done:
     jmp dnd_forget_surface              ; and no drag holds it
 
@@ -815,6 +821,8 @@ key_repeat:
 %define PAD_BUTTON      (CWP_OBJ_TABLET_PAD << 16 | TABLET_PAD_EV_BUTTON)
 %define PAD_RING        (CWP_OBJ_TABLET_PAD << 16 | TABLET_PAD_EV_RING)
 %define PAD_STRIP       (CWP_OBJ_TABLET_PAD << 16 | TABLET_PAD_EV_STRIP)
+%define DEV_POINTER     2               ; InputDevInfo.caps
+%define DEV_TOUCH       4
 %define PHASE_DOWN      0
 %define PHASE_MOVE      1
 %define PHASE_UP        2
@@ -825,9 +833,12 @@ key_repeat:
 %define PEN_BUTTON_1    8
 %define PEN_BUTTON_2    16
 
+; (input_device_point for input/gestures)
 ; rdi = seat, esi = device, edx = value (x | y << 16, device units) ->
 ; eax = x, edx = y in the layout: on the first output, scaled by the
 ; device's range when ut_input_device_info gives it, else taken as pixels
+global input_device_point
+input_device_point:
 device_point:
     PROLOGUE_SAVE rbx, r12, r13
     sub rsp, 8                          ; 16-byte aligned
@@ -942,6 +953,19 @@ touch_event:
     sub rsp, 8                          ; 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
+    mov edi, [r12 + RawInput.device]    ; a touchpad's: gestures, not the
+    call ut_input_device_info           ; screen
+    test rax, rax
+    jle .screen
+    mov rax, [rax + 32]                 ; InputDevInfo.caps
+    and eax, DEV_POINTER | DEV_TOUCH
+    cmp eax, DEV_POINTER | DEV_TOUCH
+    jne .screen
+    mov rdi, rbx
+    mov rsi, r12
+    call gesture_touch
+    jmp .out
+.screen:
     mov eax, [r12 + RawInput.code]
     shr eax, 8
     and eax, 0xF
@@ -2159,10 +2183,13 @@ set_keyboard_focus:
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
 
+; (input_surface_at for input/gestures)
 ; rdi = seat -> rax = the topmost surface under the pointer, 0 if none, on
 ; whichever output. Server.stack runs bottom to top, so the last hit wins. A surface is hit
 ; inside its attached buffer, the size it is drawn at (sw_render), and inside
 ; its input region when that is not empty. Nothing attached: nothing to hit.
+global input_surface_at
+input_surface_at:
 surface_at:
     PROLOGUE_SAVE rbx, r12, r13, r14
     mov rbx, rdi
@@ -2267,6 +2294,8 @@ send_at:
 ; rdi = seat, rsi = surface, edx = event (interface << 16 | index),
 ; ecx = payload bytes (EVENT_SHORT or EVENT_LONG), r8d = a, r9d = b.
 ; The payload is (time, surface, a, b); a client whose ring is full misses it.
+global input_send
+input_send:
 send_input:
     PROLOGUE
     sub rsp, 48                         ; header at 0, payload at 16
@@ -2277,6 +2306,8 @@ send_input:
     shr r10d, 16                        ; that kind of input
     mov r11d, CAP_POINTER
     cmp r10d, CWP_OBJ_POINTER
+    je .gate
+    cmp r10d, CWP_OBJ_GESTURE
     je .gate
     mov r11d, CAP_KEYBOARD
     cmp r10d, CWP_OBJ_KEYBOARD
