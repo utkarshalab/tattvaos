@@ -10,7 +10,8 @@
 ;   ubt_usb_attach(dev)     the driver's attach: endpoints, transfers, then
 ;                           the HCI bring-up (MediaTek parts are marked
 ;                           as needing their firmware patch instead)
-;   ubt_acl_send(adapter, packet, length)   one ACL packet out
+;   ubt_usb_acl_send(adapter, packet, length)   the transport's ACL out:
+;                           one packet at a time
 ;   ubt_service()           from the fiber: endpoints that failed recovered
 ;   ubt_adapter_count(), ubt_adapter_get(i)
 ;
@@ -258,6 +259,13 @@ ubt_usb_attach:
     inc dword [rel ubt_adapter_total]
     lea rax, [rel ubt_usb_detach]
     mov [r12 + usb_device.driver], rax
+    ; the transport's functions
+    lea rax, [rel ubt_tr_send_cmd]
+    mov [rbx + ubt_adapter.tr_cmd], rax
+    lea rax, [rel ubt_usb_acl_send]
+    mov [rbx + ubt_adapter.tr_acl], rax
+    lea rax, [rel ubt_tr_poll]
+    mov [rbx + ubt_adapter.tr_poll], rax
     ; reading events and ACL data from now on
     call ubt_ev_submit
     call ubt_acl_submit
@@ -432,14 +440,10 @@ ubt_acl_done:
 .size_ok:
     cmp eax, r13d
     jb .again
-    inc dword [rbx + ubt_adapter.acl_rx]
-    mov rax, [rbx + ubt_adapter.acl_fn]
-    test rax, rax
-    jz .consumed
     mov rdi, rbx
     lea rsi, [rbx + ubt_adapter.acl_buf]
     mov edx, r13d
-    call rax
+    call ubt_acl_input                  ; links and L2CAP (counts it too)
 .consumed:
     mov ecx, [rbx + ubt_adapter.acl_len]
     sub ecx, r13d
@@ -461,17 +465,13 @@ ubt_acl_done:
     ret
 
 ; -----------------------------------------------------------------------------
-; ubt_acl_send — RDI = adapter, RSI = ACL packet (header and data),
-;                EDX = length
-; Output: EAX = 0, -UBT_EDOWN, -UBT_EBUSY (one at a time), -UBT_EIO
+; ubt_usb_acl_send — the transport's tr_acl: RDI = adapter, RSI = ACL
+;                    packet (header and data), EDX = length
+; Output: EAX = 0, -UBT_EBUSY (one at a time), -UBT_EIO
 ; -----------------------------------------------------------------------------
-global ubt_acl_send
-ubt_acl_send:
+ubt_usb_acl_send:
     push rbx
     mov rbx, rdi
-    mov eax, -UBT_EDOWN
-    cmp dword [rbx + ubt_adapter.state], UBT_UP
-    jne .out
     mov eax, -UBT_EBUSY
     cmp dword [rbx + ubt_adapter.out_busy], 0
     jne .out
@@ -512,16 +512,21 @@ ubt_acl_send:
     ret
 
 ubt_out_done:
+    sub rsp, 8
     mov rax, [rdi + usb_xfer.context]
     mov dword [rax + ubt_adapter.out_busy], 0
     cmp dword [rdi + usb_xfer.status], 0
-    je .out
+    je .next
     inc dword [rax + ubt_adapter.errors]
-.out:
+.next:
+    mov rdi, rax                        ; the next fragment, if one waits
+    call ubt_conn_pump
+    add rsp, 8
     ret
 
 ; -----------------------------------------------------------------------------
-; ubt_service — endpoints that failed: recovered and read again
+; ubt_service — every adapter's queued commands, L2CAP timeouts and waiting
+;               ACL; USB endpoints that failed recovered and read again
 ; -----------------------------------------------------------------------------
 global ubt_service
 ubt_service:
@@ -535,6 +540,13 @@ ubt_service:
     lea rax, [rel ubt_adapters]
     mov rbx, [rax + r12 * 8]
     inc r12d
+    ; commands queued while events were handled, L2CAP's timeouts
+    mov rdi, rbx
+    call ubt_hci_drain
+    mov rdi, rbx
+    call l2cap_tick
+    mov rdi, rbx
+    call ubt_conn_pump
     test byte [rbx + ubt_adapter.flags], 1          ; the event endpoint
     jz .acl
     and byte [rbx + ubt_adapter.flags], ~1
@@ -598,6 +610,7 @@ ubt_usb_detach:
     jmp .shift
 .free:
     mov dword [rbx + ubt_adapter.state], UBT_GONE
+    call ubt_conns_drop                 ; its links: channels closed, freed
     mov rax, [rel ubt_adapter_fn]
     test rax, rax
     jz .release
