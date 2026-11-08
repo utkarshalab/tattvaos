@@ -93,8 +93,10 @@ clients will need more, so honouring `stack_size` will matter soon.
 
   Types 6 to 10 (agreed with `lib/input`, its `ROADMAP.md` §5.2, decision I3)
   use the same 24 bytes. Canvas routes touch (6) and pen (7, 8) records to
-  clients; switch (9) and device (10) records it drops for now, as it drops
-  any type it does not know, so a source may send them already.
+  clients. It keeps each switch's state (9): closing the lid locks, and
+  clients that watch the seat hear of every change, as they do of devices
+  added, removed or changed (10); a device removed has its touch contacts
+  cancelled.
 
   | `type` | `code` | `value` |
   |---|---|---|
