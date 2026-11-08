@@ -118,6 +118,10 @@ clients will need more, so honouring `stack_size` will matter soon.
     Canvas maps a touch screen or pen tablet onto its output (the first, until
     a per-device setting exists).
   - Bits not given a meaning above are 0.
+  - A touchpad is a device whose `caps` has both pointer (2) and touch (4).
+    Its type 6 records are not mapped onto the screen: Canvas makes
+    gestures of them (hold, swipe, pinch). Its driver still sends the
+    pointer's motion and taps as types 2 and 4.
   - Type 11 is Canvas's proposal for a pen tablet's pad, not yet agreed with
     `lib/input`. Canvas routes it already (to the surface with the keyboard,
     as `cw_tablet_pad`), so a source may send it; until it is agreed the
