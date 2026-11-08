@@ -40,6 +40,7 @@ extern displays_start
 extern scale_fractional_compute
 extern output_set_scale
 extern magnify_focus
+extern server_set_pen_curve
 extern compositor_output_at
 extern scale_fractional_calculate_dest
 extern scale_fractional_render
@@ -168,6 +169,8 @@ test_window_suite:
     CASE tw_clamshell, CAP_SHELL
     CASE tw_logical, CAP_SHELL | CAP_OUTPUT
     CASE tw_magnify_focus, CAP_SHELL
+    CASE tw_pad, CAP_SHELL
+    CASE tw_pen_curve, CAP_SHELL
     CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
@@ -3123,6 +3126,76 @@ tw_pen:
     call poll
     EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_TIP}, surface_a, 0, 0
     FIND CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_PROXIMITY_OUT
+    PASS
+
+; a pad record: what %1, which %2, value %3
+%macro PAD 3
+    lea rdi, [rel server]
+    mov esi, INPUT_PAD
+    mov edx, %1 | (%2 << 8)
+    mov ecx, %3
+    xor r8d, r8d
+    call virtual_input_inject
+%endmacro
+
+; The pad: button 2 down and up, ring 0 at 90 and let go, strip 1 at 1000,
+; each to the window with the keyboard; one of another kind is dropped
+tw_pad:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    PAD INPUT_PAD_BUTTON, 2, 1
+    PAD INPUT_PAD_BUTTON, 2, 0
+    PAD INPUT_PAD_RING, 0, 90
+    PAD INPUT_PAD_RING, 0, -1
+    PAD 7, 0, 5                         ; no such kind
+    PAD INPUT_PAD_STRIP, 1, 1000
+    call poll
+    EVENT_IS {CWP_OBJ_TABLET_PAD, TABLET_PAD_EV_BUTTON}, surface_a, 2, 1
+    EVENT_IS {CWP_OBJ_TABLET_PAD, TABLET_PAD_EV_BUTTON}, surface_a, 2, 0
+    EVENT_IS {CWP_OBJ_TABLET_PAD, TABLET_PAD_EV_RING}, surface_a, 0, 90
+    EVENT_IS {CWP_OBJ_TABLET_PAD, TABLET_PAD_EV_RING}, surface_a, 0, -1
+    EVENT_IS {CWP_OBJ_TABLET_PAD, TABLET_PAD_EV_STRIP}, surface_a, 1, 1000
+    PASS
+
+; The pen curve: with both inner heights at 65535, a quarter press (16384)
+; comes out at 1 - (3/4)^3 of full (37888), the hover distance kept; no
+; curve, it passes as it came
+tw_pen_curve:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    lea rdi, [rel server]
+    mov esi, 65535
+    mov edx, 65535
+    call server_set_pen_curve
+    test rax, rax
+    jnz .fail
+    PEN INPUT_PEN, 1, 12 | (12 << 16)
+    PEN INPUT_PEN_AXES, 16384 | (5 << 16), 0
+    call poll
+    EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_AXES}, surface_a, 37888 | (5 << 16), 0
+    lea rdi, [rel server]
+    xor esi, esi
+    xor edx, edx
+    call server_set_pen_curve
+    PEN INPUT_PEN_AXES, 16384 | (5 << 16), 0
+    call poll
+    EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_AXES}, surface_a, 16384 | (5 << 16), 0
+    lea rdi, [rel server]               ; out of range
+    mov esi, 70000
+    xor edx, edx
+    call server_set_pen_curve
+    cmp rax, -(EINVAL)
+    jne .fail
     PASS
 
 ; the next cw_seat event %1 says %2, then %3
