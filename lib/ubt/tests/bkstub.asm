@@ -9,3 +9,4 @@
 %include "lib/usb/tests/ukstub.asm"
 %include "lib/ubt/ubt.asm"
 %include "lib/ubt/kernel.asm"
+%include "lib/ubt/tests/crstub.asm"
