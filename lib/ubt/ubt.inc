@@ -136,7 +136,7 @@
 %define UBT_CMD_TIMEOUT_US  1000000
 %define UBT_MAX_CONNS       8       ; ACL links per adapter
 %define UBT_CMDQ            8       ; commands sent without waiting, queued
-%define UBT_CMDQ_SIZE       64      ; bytes each (opcode, length, parameters)
+%define UBT_CMDQ_SIZE       80      ; bytes each (opcode, length, parameters)
 %define UBT_L2CAP_RX_MAX    4096    ; the largest L2CAP frame put back together
 %define UBT_MAX_CHANS       32      ; L2CAP channels per adapter
 
