@@ -39,6 +39,7 @@ extern scale_bilinear_rect
 extern displays_start
 extern scale_fractional_compute
 extern output_set_scale
+extern magnify_focus
 extern compositor_output_at
 extern scale_fractional_calculate_dest
 extern scale_fractional_render
@@ -166,6 +167,7 @@ test_window_suite:
     CASE tw_seat, CAP_SHELL | CAP_SEAT
     CASE tw_clamshell, CAP_SHELL
     CASE tw_logical, CAP_SHELL | CAP_OUTPUT
+    CASE tw_magnify_focus, CAP_SHELL
     CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
@@ -2939,6 +2941,87 @@ tw_magnifier:
     call poll
     cmp qword [rel server + Server.magnify], 2
     jne .fail
+    PASS
+
+; The magnifier follows the keyboard: an 8x6 green window A at 50, 36, the
+; pointer at 0, 0 and 2x on, the view at the top left. A given the keyboard
+; while the pointer is elsewhere: the view goes round it (kept inside, so
+; from 32, 24), A at 36, 24 on the screen. The pointer moving leads again;
+; on A, giving it the keyboard leaves the pointer leading. Alt+Tab from a
+; window B under the pointer back to A: the view follows A
+tw_magnify_focus:
+    sub rsp, 8
+    POINTER 50, 36
+    mov edi, 8
+    mov esi, 6
+    call new_surface
+    mov [rel surface_a], eax
+    mov rdi, [rel server + Server.buffer_table]  ; all of it green
+    mov esi, [rel buffer]
+    call handle_resolve
+    mov rdi, [rax + Buffer.base]
+    mov ecx, [rax + Buffer.stride]
+    imul ecx, ecx, 6
+    shr ecx, 2
+    mov eax, 0xFF00FF00
+    rep stosd
+    TOPLEVEL TL_CREATE, surface_a, 0
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    SEES 52, 38, 0xFF00FF00             ; there
+    POINTER 0, 0
+    lea rdi, [rel server]
+    mov esi, 2
+    call server_set_magnifier
+    call poll
+    SEES 60, 44, 0xFF202030             ; the top left, zoomed: not A
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rsi, rax
+    lea rdi, [rel server]
+    call magnify_focus
+    call poll
+    cmp qword [rel server + Server.magnify_follow], 1
+    jne .fail
+    SEES 40, 28, 0xFF00FF00             ; A, zoomed, from 36, 24
+    SEES 2, 2, 0xFF202030
+    POINTER 52, 38                      ; on A: the pointer leads
+    call poll
+    cmp qword [rel server + Server.magnify_follow], 0
+    jne .fail
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rsi, rax
+    lea rdi, [rel server]
+    call magnify_focus
+    cmp qword [rel server + Server.magnify_follow], 0
+    jne .fail
+    POINTER 0, 0                        ; B under the pointer, then
+    mov edi, 8                          ; Alt+Tab back to A
+    mov esi, 6
+    call new_window
+    mov [rel surface_b], eax
+    call poll
+    cmp qword [rel server + Server.magnify_follow], 0
+    jne .fail
+    INJECT INPUT_KEY, 56, 1
+    INJECT INPUT_KEY, 15, 1
+    INJECT INPUT_KEY, 15, 0
+    INJECT INPUT_KEY, 56, 0
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail
+    cmp qword [rel server + Server.magnify_follow], 1
+    jne .fail
+    lea rdi, [rel server]               ; off
+    xor esi, esi
+    call server_set_magnifier
     PASS
 
 ; a raw touch record from device %1: slot %2, phase %3, at x %4, y %5
