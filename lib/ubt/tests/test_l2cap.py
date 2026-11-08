@@ -25,7 +25,9 @@ class Conn(C.Structure):
                 ("tx_head", C.c_uint64), ("tx_tail", C.c_uint64), ("in_flight", C.c_uint32),
                 ("rx_len", C.c_uint32), ("rx_need", C.c_uint32), ("ident", C.c_uint8), ("info_state", C.c_uint8),
                 ("info_ident", C.c_uint8), ("pad", C.c_uint8), ("ext_features", C.c_uint32), ("pad2", C.c_uint32),
-                ("fixed_chans", C.c_uint64), ("rx_buf", C.c_uint64), ("user", C.c_uint64)]
+                ("fixed_chans", C.c_uint64), ("rx_buf", C.c_uint64), ("user", C.c_uint64),
+                ("att", C.c_uint64), ("smp", C.c_uint64), ("pair", C.c_uint64), ("rfcomm", C.c_uint64),
+                ("sec", C.c_uint8), ("key_size", C.c_uint8), ("pad3", C.c_uint8 * 6)]
 
 
 class Chan(C.Structure):
@@ -377,10 +379,13 @@ FIXED = C.CFUNCTYPE(None, C.c_void_p, C.c_uint32, C.c_void_p, C.c_uint32)(
     lambda c, cid, p, n: fixed.append((cid, C.string_at(p, n))))
 L = list((C.c_uint32 * 30).in_dll(lib, "ubt_layout"))
 C.c_void_p.from_address(a + L[26] + 16).value = C.cast(FIXED, C.c_void_p).value      # fixed_fn
+mark = len(ca.sent)
 radio.inject(ca, LA.handle, 0, struct.pack("<HH", 3, 4) + b"\x02\x17\x00")             # ATT
 radio.inject(ca, LA.handle, 0, struct.pack("<HH", 2, 6) + b"\x01\x02")                 # SMP
 settle()
-check("ATT and SMP to the fixed channel hook", fixed, [(4, b"\x02\x17\x00"), (6, b"\x01\x02")])
+check("ATT to the fixed channel hook", fixed, [(4, b"\x02\x17\x00")])
+check("SMP to the Security Manager: a broken Pairing Request answered Pairing Failed",
+      [f[4:] for f in frames(ca, mark) if struct.unpack_from("<H", f, 2)[0] == 6], [b"\x05\x0a"])
 dropped = C.c_uint32.in_dll(lib, "l2cap_dropped").value
 radio.inject(ca, LA.handle, 0, struct.pack("<HH", 9, 4) + b"\x02")                      # says 9, has 1
 settle()
