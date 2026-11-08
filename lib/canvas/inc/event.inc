@@ -89,5 +89,9 @@ endstruc
 %define INPUT_SWITCH        9   ; code = which switch; value = 1 on, 0 off
 %define INPUT_DEVICE        10  ; code = added 0, removed 1, changed 2;
                                 ; value = its capability bits
+%define INPUT_SWITCH_LID        0
+%define INPUT_DEVICE_ADDED      0
+%define INPUT_DEVICE_REMOVED    1
+%define INPUT_DEVICE_CHANGED    2
 
 %endif ; __EVENT_INC__
