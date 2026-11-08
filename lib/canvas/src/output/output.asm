@@ -254,21 +254,8 @@ output_set_mode:
     EPILOGUE_RESTORE rbx, r12, r13
     ret
 
-; ---------------------------------------------------------------------------
-; output_set_scale
-;   Set output scale factor
-;   IN:  rdi = server*, rsi = output*, rdx = scale (fixed 16.16)
-; ---------------------------------------------------------------------------
-global output_set_scale
-output_set_scale:
-    PROLOGUE
-    ASSERT_PTR rdi
-    ASSERT_PTR rsi
-
-    mov qword [rsi + Output.scale], rdx
-    xor rax, rax
-    leave
-    ret
+; output_set_scale is in output/output_scale.asm: a scale applies to the
+; layout there
 
 ; ---------------------------------------------------------------------------
 ; output_set_rotation
