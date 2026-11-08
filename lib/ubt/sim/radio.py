@@ -36,6 +36,9 @@ class Controller:
         self.scanning, self.active, self.no_dups, self.seen = False, False, False, set()
         self.scan_enable, self.inquiry_mode, self.cls, self.name, self.eir = 0, 0, 0, b"", bytes(240)
         self.rssi = -50
+        self.ssp = False            # BR/EDR: Secure Simple Pairing on (else PINs)
+        self.pair_number = 123456   # what numeric comparison shows, a passkey
+        self.pair_key = bytes(range(0x30, 0x40))
         # LE encryption: keys asked for, links encrypted, keys that worked
         self.ltk_asked, self.encrypted, self.keys_used = {}, set(), []
 
@@ -77,6 +80,8 @@ class Controller:
             self.complete(opcode, bytes([0]) + simple[opcode])
             return
         if self.gap_command(opcode, p):
+            return
+        if self.pair_command(opcode, p):
             return
         if opcode == 0x0405:                            # Create Connection
             self.status(opcode)
@@ -201,7 +206,9 @@ class Controller:
             self.inquiry_mode = p[0]
         elif opcode == 0x0C52:                          # Write Extended Inquiry Response
             self.eir = bytes(p[1:241])
-        elif opcode in (0x0C56, 0x0C7A, 0x0402):        # SSP mode, SC support, Inquiry Cancel
+        elif opcode == 0x0C56:                          # Write Simple Pairing Mode
+            self.ssp = bool(p[0])
+        elif opcode in (0x0C7A, 0x0402):                # SC host support, Inquiry Cancel
             pass
         elif opcode == 0x0401:                          # Inquiry
             self.status(opcode)
@@ -232,6 +239,138 @@ class Controller:
             return False
         ok()
         return True
+
+    # ---- BR/EDR pairing, as the two controllers would do it over LMP ----------
+    def _pairing(self, addr):
+        peer = self.radio.by_address(addr)
+        st = self.radio.pairings.get((self, peer)) or self.radio.pairings.get((peer, self))
+        return peer, st
+
+    def _handle_to(self, peer):
+        for h, (c, ph, kind) in self.links.items():
+            if c is peer and kind == "br":
+                return h
+        return None
+
+    def _pair_end(self, st, status, key_type=None):
+        ini, rsp = st["ini"], st["rsp"]
+        self.radio.pairings.pop((ini, rsp), None)
+        if st.get("ssp"):
+            for c, other in ((ini, rsp), (rsp, ini)):
+                c.event(0x36, bytes([status]) + other.address)
+        if status == 0 and key_type is not None:
+            for c, other in ((ini, rsp), (rsp, ini)):
+                c.event(0x18, other.address + ini.pair_key + bytes([key_type]))
+        ini.event(0x06, struct.pack("<BH", status, st["handle"]))
+
+    def _ssp_model(self, st):
+        ii, ir = st["io_ini"], st["io_rsp"]
+        mitm = (st["auth_ini"] | st["auth_rsp"]) & 1
+        ini, rsp = st["ini"], st["rsp"]
+        if mitm and 3 not in (ii[0], ir[0]) and 2 in (ii[0], ir[0]):
+            st["model"] = "passkey"
+            st["entered"] = {}
+            for c, io, other in ((ini, ii[0], rsp), (rsp, ir[0], ini)):
+                if io == 2:
+                    c.event(0x34, other.address)
+                else:
+                    c.event(0x3B, other.address + struct.pack("<I", ini.pair_number))
+            st["typists"] = [c for c, io in ((ini, ii[0]), (rsp, ir[0])) if io == 2]
+            return
+        st["model"] = "confirm"
+        st["auth"] = bool(mitm and ii[0] in (1, 4) and ir[0] in (1, 4))
+        st["answers"] = {}
+        for c, other in ((ini, rsp), (rsp, ini)):
+            c.event(0x33, other.address + struct.pack("<I", ini.pair_number))
+
+    def pair_command(self, opcode, p):
+        """Authentication, link keys, SSP and PINs, encryption → True when handled."""
+        if opcode == 0x0411:                            # Authentication Requested
+            self.status(opcode)
+            h, = struct.unpack_from("<H", p)
+            link = self.links.get(h)
+            if link is None:
+                return True
+            peer = link[0]
+            self.radio.pairings[(self, peer)] = {"ini": self, "rsp": peer, "handle": h, "stage": "key_ini",
+                                                 "ssp": self.ssp and peer.ssp}
+            self.event(0x17, peer.address)
+            return True
+        if opcode in (0x040B, 0x040C, 0x042B, 0x0434, 0x042C, 0x042D, 0x042E, 0x042F, 0x040D, 0x040E):
+            self.complete(opcode, b"\x00" + bytes(p[:6]))
+            peer, st = self._pairing(p[:6])
+            if st is None:
+                return True
+            me_ini = st["ini"] is self
+            if opcode in (0x040B, 0x040C):              # Link Key Request (Negative) Reply
+                if st["stage"] == "key_ini" and me_ini:
+                    if opcode == 0x040B:
+                        st["key"], st["stage"] = bytes(p[6:22]), "key_rsp"
+                        peer.event(0x17, self.address)
+                    elif st["ssp"]:
+                        st["stage"] = "io_ini"
+                        self.event(0x31, peer.address)
+                    else:
+                        st["stage"], st["pins"] = "pin", {}
+                        for c, other in ((self, peer), (peer, self)):
+                            c.event(0x16, other.address)
+                elif st["stage"] == "key_rsp" and not me_ini:
+                    if opcode == 0x040C:
+                        self._pair_end(st, 0x06)
+                    else:
+                        self._pair_end(st, 0 if bytes(p[6:22]) == st["key"] else 0x05)
+                return True
+            if opcode == 0x0434:                        # IO Capability Negative Reply
+                self._pair_end(st, 0x18)
+                return True
+            if opcode == 0x042B:                        # IO Capability Reply
+                io = bytes(p[6:9])
+                if me_ini and st["stage"] == "io_ini":
+                    st["io_ini"], st["auth_ini"], st["stage"] = io, io[2], "io_rsp"
+                    peer.event(0x31, self.address)
+                elif not me_ini and st["stage"] == "io_rsp":
+                    st["io_rsp"], st["auth_rsp"], st["stage"] = io, io[2], "user"
+                    st["ini"].event(0x32, self.address + st["io_rsp"])
+                    self.event(0x32, st["ini"].address + st["io_ini"])
+                    self._ssp_model(st)
+                return True
+            if opcode in (0x042C, 0x042D):              # User Confirmation (Negative) Reply
+                st["answers"][self] = opcode == 0x042C
+                if len(st["answers"]) == 2:
+                    if all(st["answers"].values()):
+                        self._pair_end(st, 0, 8 if st["auth"] else 7)
+                    else:
+                        self._pair_end(st, 0x05)
+                return True
+            if opcode in (0x042E, 0x042F):              # User Passkey (Negative) Reply
+                if opcode == 0x042F:
+                    self._pair_end(st, 0x05)
+                    return True
+                st["entered"][self] = struct.unpack_from("<I", p, 6)[0]
+                if len(st["entered"]) == len(st["typists"]):
+                    ok = all(v == st["ini"].pair_number for v in st["entered"].values())
+                    self._pair_end(st, 0 if ok else 0x05, 8)
+                return True
+            if opcode in (0x040D, 0x040E):              # PIN Code (Negative) Reply
+                if opcode == 0x040E:
+                    self._pair_end(st, 0x05)
+                    return True
+                st["pins"][self] = bytes(p[7:7 + p[6]])
+                if len(st["pins"]) == 2:
+                    ok = len(set(st["pins"].values())) == 1
+                    self._pair_end(st, 0 if ok else 0x05, 0)
+                return True
+        if opcode == 0x0413:                            # Set Connection Encryption
+            self.status(opcode)
+            h, on = struct.unpack_from("<HB", p)
+            link = self.links.get(h)
+            if link is None:
+                return True
+            peer, ph, _ = link
+            self.event(0x08, struct.pack("<BHB", 0, h, on))
+            peer.event(0x08, struct.pack("<BHB", 0, ph, on))
+            return True
+        return False
 
     def hear(self, adv):
         """This scanning controller hears an advertiser: its reports."""
@@ -274,6 +413,7 @@ class Radio:
         self.controllers = {}       # adapter address → Controller
         self.queue = []
         self.paging = {}
+        self.pairings = {}          # (initiator, responder) → BR/EDR pairing state
         self.cmd_cb = C.CFUNCTYPE(None, C.c_void_p, C.c_void_p, C.c_uint32)(
             lambda a, p, n: self.controllers[a].command(C.string_at(p, n)))
         self.acl_cb = C.CFUNCTYPE(C.c_int32, C.c_void_p, C.c_void_p, C.c_uint32)(self._acl)
