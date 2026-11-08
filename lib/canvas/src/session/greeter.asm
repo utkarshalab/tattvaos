@@ -59,6 +59,17 @@ extern ui_text_draw
 %define KEY_LEFT            105
 %define KEY_RIGHT           106
 
+; The colours by P_*, in pal: the usual ones or high contrast's
+%define P_BG            0
+%define P_FIELD         4
+%define P_BORDER        8
+%define P_FAILED        12
+%define P_INK           16
+%define P_DIM           20
+%define P_CHOSEN        24              ; the chosen name's box
+%define P_CHOSEN_INK    28              ; and its name
+%define P_COUNT         8
+
 ; Where the names go: their row's top, from the field's
 %define USERS_UP    (2 * (GREETER_LABEL_H + GREETER_LABEL_GAP))
 
@@ -163,20 +174,9 @@ greeter_start:
 
     ; Drawn and shown
     mov rdi, rbx
-    xor esi, esi
-    xor edx, edx
-    mov ecx, [rbx + Greeter.width]
-    mov r8d, [rbx + Greeter.height]
-    mov r9d, GREETER_BG
-    call fill
-    mov rdi, rbx
     call list_users
     mov rdi, rbx
-    call draw_users
-    mov rdi, rbx
-    call draw_label
-    mov rdi, rbx
-    call draw_field
+    call draw_all
     mov rdi, [rbx + Greeter.conn]
     mov esi, [rbx + Greeter.surface]
     mov edx, [rbx + Greeter.buffer]
@@ -412,8 +412,8 @@ greeter_lock:
     call wipe
     mov dword [rbx + Greeter.failed], 0
     mov dword [rbx + Greeter.dirty], 0
-    mov rdi, rbx
-    call draw_field
+    mov rdi, rbx                        ; all of it: the style may have
+    call draw_all                       ; changed since
     mov rdi, [rbx + Greeter.conn]
     mov esi, [rbx + Greeter.surface]
     mov edx, [rbx + Greeter.buffer]
@@ -433,6 +433,33 @@ greeter_lock:
 .out:
     xor eax, eax
     EPILOGUE_RESTORE rbx, r12
+
+; ---------------------------------------------------------------------------
+; greeter_restyle
+;   High contrast turned on or off: drawn again whole if it is up (if not,
+;   greeter_lock draws it whole)
+;   IN:  rdi = greeter*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global greeter_restyle
+greeter_restyle:
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    cmp dword [rbx + Greeter.state], GREETER_SHOWN
+    jne .out
+    mov rdi, rbx
+    call draw_all
+    mov rdi, rbx
+    xor esi, esi
+    xor edx, edx
+    mov ecx, [rbx + Greeter.width]
+    mov r8d, [rbx + Greeter.height]
+    call damage_commit
+.out:
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
 
 ; ---------------------------------------------------------------------------
 ; greeter_set_idle
@@ -506,6 +533,43 @@ unlock:
     pop rbx
     ret
 
+; The whole screen: the background, the names, the label, the field.
+; rdi = greeter
+draw_all:
+    PROLOGUE_SAVE rbx
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    call pick_palette
+    mov rdi, rbx
+    xor esi, esi
+    xor edx, edx
+    mov ecx, [rbx + Greeter.width]
+    mov r8d, [rbx + Greeter.height]
+    mov r9d, [rel pal + P_BG]
+    call fill
+    mov rdi, rbx
+    call draw_users
+    mov rdi, rbx
+    call draw_label
+    mov rdi, rbx
+    call draw_field
+    add rsp, 8
+    EPILOGUE_RESTORE rbx
+
+; The colours, the usual ones or high contrast's (A11Y-07), into pal.
+; rdi = greeter
+pick_palette:
+    lea rsi, [rel normal_palette]
+    mov rax, [rdi + Greeter.server]
+    cmp qword [rax + Server.high_contrast], 0
+    je .copy
+    lea rsi, [rel hc_palette]
+.copy:
+    lea rdi, [rel pal]
+    mov ecx, P_COUNT
+    rep movsd
+    ret
+
 ; The field as it stands: edge, inside, a dot per character up to
 ; GREETER_DOTS, and the caret after the last while there is room.
 ; rdi = greeter
@@ -513,14 +577,16 @@ draw_field:
     PROLOGUE_SAVE rbx, r12, r13
     sub rsp, 8                          ; 16-byte aligned
     mov rbx, rdi
+    call pick_palette
+    mov rdi, rbx
     mov esi, [rbx + Greeter.field_x]
     mov edx, [rbx + Greeter.field_y]
     mov ecx, GREETER_FIELD_W
     mov r8d, GREETER_FIELD_H
-    mov r9d, GREETER_BORDER
+    mov r9d, [rel pal + P_BORDER]
     cmp dword [rbx + Greeter.failed], 0
     je .edge
-    mov r9d, GREETER_FAILED
+    mov r9d, [rel pal + P_FAILED]
 .edge:
     call fill
     mov rdi, rbx
@@ -530,7 +596,7 @@ draw_field:
     add edx, GREETER_EDGE
     mov ecx, GREETER_FIELD_W - 2 * GREETER_EDGE
     mov r8d, GREETER_FIELD_H - 2 * GREETER_EDGE
-    mov r9d, GREETER_FIELD
+    mov r9d, [rel pal + P_FIELD]
     call fill
 
     mov r12d, [rbx + Greeter.len]
@@ -550,7 +616,7 @@ draw_field:
     add edx, (GREETER_FIELD_H - GREETER_DOT) / 2
     mov ecx, GREETER_DOT
     mov r8d, GREETER_DOT
-    mov r9d, GREETER_INK
+    mov r9d, [rel pal + P_INK]
     call fill
     inc r13d
     jmp .dot
@@ -565,7 +631,7 @@ draw_field:
     add edx, (GREETER_FIELD_H - GREETER_CARET_H) / 2
     mov ecx, GREETER_CARET_W
     mov r8d, GREETER_CARET_H
-    mov r9d, GREETER_INK
+    mov r9d, [rel pal + P_INK]
     call fill
 .out:
     add rsp, 8
@@ -621,6 +687,7 @@ draw_users:
     PROLOGUE_SAVE rbx, r12, r13
     sub rsp, UiText_size + 8            ; 16-byte aligned
     mov rbx, rdi
+    call pick_palette
     cmp dword [rbx + Greeter.user_count], 0
     je .out
     mov eax, [rbx + Greeter.field_y]
@@ -632,7 +699,7 @@ draw_users:
     mov edx, r13d
     mov ecx, GREETER_FIELD_W
     mov r8d, GREETER_LABEL_H
-    mov r9d, GREETER_BG
+    mov r9d, [rel pal + P_BG]
     call fill
     xor r12d, r12d
 .name:
@@ -642,20 +709,20 @@ draw_users:
     add esi, [rbx + Greeter.field_x]
     mov [rsp + UiText.x], esi
     mov [rsp + UiText.clip_x], esi
-    mov ecx, GREETER_INK & 0xFFFFFF
     cmp r12d, [rbx + Greeter.chosen]
     je .chosen
-    mov ecx, GREETER_DIM & 0xFFFFFF
+    mov ecx, [rel pal + P_DIM]
     jmp .text
 .chosen:
     mov rdi, rbx
     mov edx, r13d
     mov ecx, GREETER_NAME_W
     mov r8d, GREETER_LABEL_H
-    mov r9d, GREETER_FIELD
+    mov r9d, [rel pal + P_CHOSEN]
     call fill
-    mov ecx, GREETER_INK & 0xFFFFFF
+    mov ecx, [rel pal + P_CHOSEN_INK]
 .text:
+    and ecx, 0xFFFFFF
     mov [rsp + UiText.colour], ecx
     mov [rsp + UiText.y], r13d
     mov [rsp + UiText.clip_y], r13d
@@ -718,7 +785,11 @@ draw_label:
     mov dword [rsp + UiText.height], GREETER_LABEL_H
     mov dword [rsp + UiText.clip_h], GREETER_LABEL_H
     mov dword [rsp + UiText.size], GREETER_LABEL_SIZE
-    mov dword [rsp + UiText.colour], GREETER_INK & 0xFFFFFF
+    mov rdi, rbx
+    call pick_palette
+    mov eax, [rel pal + P_INK]
+    and eax, 0xFFFFFF
+    mov [rsp + UiText.colour], eax
     lea rax, [rel s_password]
     mov [rsp + UiText.text], rax
     mov dword [rsp + UiText.length], s_password_len
@@ -783,6 +854,15 @@ wipe:
 section .rodata
 s_password:     db "Password"
 s_password_len: equ $ - s_password
+
+; The colours by P_* (at the top)
+normal_palette: dd GREETER_BG, GREETER_FIELD, GREETER_BORDER, GREETER_FAILED
+                dd GREETER_INK, GREETER_DIM, GREETER_FIELD, GREETER_INK
+hc_palette:     dd GREETER_HC_BG, GREETER_HC_BG, GREETER_HC_INK, GREETER_HC_MARK
+                dd GREETER_HC_INK, GREETER_HC_INK, GREETER_HC_MARK, GREETER_HC_BG
+
+section .bss
+pal:            resd P_COUNT            ; the colours drawn with now
 
 section .data
 global greeter_version
