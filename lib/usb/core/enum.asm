@@ -8,15 +8,14 @@
 ;                               string, depth, transaction translator)
 ;   usb_device_remove(dev)      it went away: what is behind it, its driver,
 ;                               its slot and memory
-;   usb_attach_drivers(dev)     offer it to the hub and HID drivers
 ;   usb_get_descriptor(dev, type, index, lang, buffer, length)
 ;   usb_get_string(dev, index, out, size)       UTF-8, the first language
 ;   usb_scan(hc)                every connected root port; EAX = devices
 ;   usb_device_count, usb_device_get(i)
 ;
 ; Enumeration leaves a device addressed, not configured: the driver that
-; takes it sets its configuration and its usb_device.driver, called when it
-; goes. Only xHCI exists yet, so the controller is called directly.
+; takes it (core/match.asm) sets its configuration and its
+; usb_device.driver, called when it goes. Only xHCI exists yet, so the controller is called directly.
 ; =============================================================================
 
 %ifndef LIB_USB_CORE_ENUM_ASM
@@ -484,30 +483,6 @@ usb_device_remove:
     call usb_device_release
     add rsp, 8
     pop r12
-    pop rbx
-    ret
-
-; -----------------------------------------------------------------------------
-; usb_attach_drivers — offer a new device to the class drivers
-; Input:  RDI = usb_device*
-; Output: EAX = 1 when one took it
-; -----------------------------------------------------------------------------
-global usb_attach_drivers
-usb_attach_drivers:
-    push rbx
-    mov rbx, rdi
-    call usb_hub_attach
-    test eax, eax
-    jg .taken
-    mov rdi, rbx
-    call usb_hid_attach
-    test eax, eax
-    jg .taken
-    xor eax, eax
-    pop rbx
-    ret
-.taken:
-    mov eax, 1
     pop rbx
     ret
 
