@@ -88,7 +88,8 @@ clients will need more, so honouring `stack_size` will matter soon.
   | 12 | 4 | `device` | which device, for later per-device settings |
   | 16 | 8 | `time` | monotonic nanoseconds; 0 lets Canvas stamp it |
 
-  Absolute positions are in framebuffer pixels. Keycodes are passed to clients
+  Absolute positions are in the layout's units, which are framebuffer
+  pixels while the screen's scale is 1. Keycodes are passed to clients
   as they are, so the drivers should agree on one numbering.
 
   Types 6 to 10 (agreed with `lib/input`, its `ROADMAP.md` §5.2, decision I3)
