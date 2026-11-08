@@ -68,6 +68,7 @@ ubt_kernel_init:
     call ubt_gatt_gap_gatt
     call ubt_init
     call ubt_sdp_init                   ; the SDP server on PSM 1
+    call ubt_rfcomm_init                ; RFCOMM sessions on PSM 3
     add rsp, 8
     ret
 
