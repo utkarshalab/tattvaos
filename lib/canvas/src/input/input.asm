@@ -91,6 +91,8 @@ extern window_configure
 extern window_dismiss_popups
 extern window_list_activated
 extern greeter_lock
+extern seat_tell_switch
+extern seat_tell_device
 extern switcher_cancel
 extern switcher_finish
 extern switcher_next
@@ -305,7 +307,17 @@ input_dispatch:
     je .pen
     cmp eax, INPUT_PEN_AXES
     je .pen_axes
+    cmp eax, INPUT_SWITCH
+    je .switch
+    cmp eax, INPUT_DEVICE
+    je .device
     jmp .handled                        ; an unknown type is dropped
+.switch:
+    call switch_event
+    jmp .handled
+.device:
+    call device_event
+    jmp .handled
 .touch:
     call touch_event
     jmp .handled
@@ -1041,25 +1053,33 @@ touch_event:
     call send_input
     jmp .out
 .frame:
-    xor r13d, r13d                      ; each surface told: frame
+    mov rdi, rbx
+    call scan_end
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+; The scan over: frame to each surface that heard of it. rdi = seat
+scan_end:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    xor r12d, r12d
 .tell:
-    cmp r13d, [rbx + InputSeat.scan_count]
+    cmp r12d, [rbx + InputSeat.scan_count]
     jae .told
-    mov rsi, [rbx + InputSeat.scan + r13 * 8]
+    mov rsi, [rbx + InputSeat.scan + r12 * 8]
     test rsi, rsi
-    jz .next_told                       ; gone meanwhile
+    jz .next                            ; gone meanwhile
     mov rdi, rbx
     mov edx, TOUCH_FRAME
     mov ecx, EVENT_SHORT
     call send_input
-.next_told:
-    inc r13d
+.next:
+    inc r12d
     jmp .tell
 .told:
     mov dword [rbx + InputSeat.scan_count], 0
-.out:
-    add rsp, 8
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+    EPILOGUE_RESTORE rbx, r12
 
 ; Type 7: the pen in range goes to the surface under it (proximity in, then
 ; out when it leaves it or the range), the one it touched while the tip is
@@ -1200,6 +1220,100 @@ pen_axes_event:
 .none:
     xor eax, eax
     ret
+
+; ---------------------------------------------------------------------------
+; Switches and devices (SES-08): records 9 and 10 (KERNEL_NEEDS.md step 3)
+; ---------------------------------------------------------------------------
+
+; Type 9: a switch on or off; a change goes to the cw_seat watchers, and the
+; lid closing locks. rdi = seat, rsi = RawInput*
+switch_event:
+    PROLOGUE_SAVE rbx, r12
+    mov rbx, rdi
+    mov r12, rsi
+    mov ecx, [r12 + RawInput.code]
+    cmp ecx, 32
+    jae .out                            ; no such switch
+    mov eax, [rbx + InputSeat.switches]
+    mov edx, eax
+    btr edx, ecx
+    cmp dword [r12 + RawInput.value], 0
+    je .set
+    bts edx, ecx
+.set:
+    cmp edx, eax
+    je .out                             ; as it was: nothing to tell
+    mov [rbx + InputSeat.switches], edx
+    mov rdi, [rbx + InputSeat.server]
+    mov esi, ecx
+    bt edx, ecx
+    setc dl
+    movzx edx, dl
+    call seat_tell_switch
+    cmp dword [r12 + RawInput.code], INPUT_SWITCH_LID
+    jne .out
+    cmp dword [r12 + RawInput.value], 0
+    je .out
+    mov rax, [rbx + InputSeat.server]   ; the lid closed: locked
+    mov rdi, [rax + Server.greeter]
+    test rdi, rdi
+    jz .out
+    call greeter_lock
+.out:
+    xor eax, eax
+    EPILOGUE_RESTORE rbx, r12
+
+; Type 10: a device added, removed or changed goes to the cw_seat watchers;
+; one removed has its touch contacts cancelled first.
+; rdi = seat, rsi = RawInput*
+device_event:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    cmp dword [r12 + RawInput.code], INPUT_DEVICE_CHANGED
+    ja .out                             ; no such change
+    cmp dword [r12 + RawInput.code], INPUT_DEVICE_REMOVED
+    jne .tell
+    xor r13d, r13d                      ; its contacts: cancelled
+.contact:
+    imul eax, r13d, TouchContact_size
+    lea rcx, [rbx + InputSeat.touches + rax]
+    mov rsi, [rcx + TouchContact.surface]
+    test rsi, rsi
+    jz .next
+    mov eax, [rcx + TouchContact.key]
+    shr eax, 8
+    cmp eax, [r12 + RawInput.device]
+    jne .next
+    mov qword [rcx + TouchContact.surface], 0
+    mov [rsp], rsi
+    mov rdi, rbx
+    call scan_add
+    imul eax, r13d, TouchContact_size
+    movzx r8d, byte [rbx + InputSeat.touches + rax + TouchContact.key]
+    mov rsi, [rsp]
+    mov rdi, rbx
+    mov edx, TOUCH_CANCEL
+    mov ecx, EVENT_LONG
+    xor r9d, r9d
+    call send_input
+.next:
+    inc r13d
+    cmp r13d, TOUCH_SLOTS
+    jb .contact
+    mov rdi, rbx                        ; and a frame to those that had them
+    call scan_end
+.tell:
+    mov rdi, [rbx + InputSeat.server]
+    mov esi, [r12 + RawInput.code]
+    mov edx, [r12 + RawInput.device]
+    mov ecx, [r12 + RawInput.value]
+    call seat_tell_device
+.out:
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
 ; input_set_sticky
