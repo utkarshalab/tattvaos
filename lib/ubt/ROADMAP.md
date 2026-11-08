@@ -547,7 +547,8 @@ Estimate: ~13 000 lines (not counting codecs).
 - ✓ L2CAP Enhanced Retransmission Mode and Streaming Mode (3.0)
   (`l2cap/ertm.asm`; extended window size and extended control field not
   used: we never ask for them and peers must not use them unasked)
-- ☐ RFCOMM (multiplexer, credit flow control, remote port negotiation)
+- ✓ RFCOMM (`rfcomm/rfcomm.asm`: multiplexer, credit flow control,
+  remote port negotiation answered)
 - ☐ SPP
 - ☐ OBEX over RFCOMM and over L2CAP, GOEP 2.x, SRM
 - ☐ OPP (send and receive files), FTP, PBAP client, MAP client, BIP for
