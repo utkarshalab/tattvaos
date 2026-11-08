@@ -179,7 +179,11 @@ lib/usb/
   addressing (`hcd/xhci/init.asm`); host-tested against `sim/`
 - ◐ Command ring and one event ring on interrupter 0, polled
   (`ring.asm`, `cmd.asm`)
-- ☐ Several interrupters with MSI-X
+- ☐ Several interrupters with MSI-X. The kernel's MSI-X support is ready
+  (`kernel/arch/x86_64/pci_msix.asm`), but nothing can sleep on an
+  interrupt yet: the input fiber runs every turn and an idle `xhci_poll`
+  is one memory read. So this waits for a fiber that blocks until woken,
+  rather than adding a way to fail at boot for no gain
 - ☐ Transfer rings for control, bulk, interrupt and **isochronous**
   endpoints; bulk streams (needed later for fast storage)
 - ◐ Port detection, reset, speed, warm reset for USB 3 links that did not
@@ -242,7 +246,7 @@ lib/usb/
 | HID transport: boot and report protocol, interrupt endpoints, SET_REPORT/GET_REPORT; parsing in `lib/input/hid` | Keyboards (with LEDs, all key rollover), mice, trackballs | 2 |
 | HID: digitisers and touch | Touchpads (precision touchpad usages), touch screens, pens and tablets | 6 |
 | HID: game devices | Gamepads, joysticks, wheels; rumble and LEDs | 6 |
-| HID: other usages | Media and system keys, sensor hubs, battery and UPS devices | 6 |
+| HID: other usages | Media and system keys (◐ done early: `lib/input/hid/media.asm`, claimed by `class/hid`), sensor hubs, battery and UPS devices | 6 |
 | Hub | All hubs | 2 |
 | CDC-ACM | Modems, development boards, serial consoles | 6 |
 | USB-serial chips | FTDI, Silicon Labs CP210x, WCH CH34x, Prolific PL2303 | 6 |
