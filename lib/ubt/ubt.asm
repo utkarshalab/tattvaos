@@ -27,6 +27,7 @@
 %include "lib/ubt/gatt/db.asm"
 %include "lib/ubt/att/server.asm"
 %include "lib/ubt/att/client.asm"
+%include "lib/ubt/sdp/sdp.asm"
 %include "lib/ubt/tr/usb.asm"
 %include "lib/ubt/tr/mem.asm"
 
