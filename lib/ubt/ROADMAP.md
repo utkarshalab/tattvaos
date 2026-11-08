@@ -455,10 +455,12 @@ Estimate: ~5 500 lines.
   named back; continuation; renegotiation), fixed and dynamic channels,
   echo, information requests, signalling timeouts; host-tested with two
   stacks over a virtual radio (`sim/radio.py`)
-- ☐ SDP server and client: data elements, service search, attribute
-  search, continuation states
-- ☐ Pairing: SSP (all four models), Secure Connections and Secure
-  Connections Only mode, legacy PIN pairing for pre-2.1 peers (decision D3)
+- ✓ SDP server and client (`sdp/sdp.asm`): data elements, service
+  search, attribute search, continuation states
+- ◐ Pairing (`sm/br.asm`): SSP numeric comparison, Just Works and
+  passkey, Secure Connections host support, legacy PIN pairing for
+  pre-2.1 peers (decision D3); out-of-band data and Secure Connections
+  Only mode still to do
 - ☐ Bond store in `/sec/keys/bt/`, authentication and encryption, key
   refresh, minimum key size checks
 - ☐ `ush`: `bt scan`, `bt pair`, `bt devices`, `bt forget`
