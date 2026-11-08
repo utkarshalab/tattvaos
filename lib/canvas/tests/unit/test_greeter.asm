@@ -30,6 +30,7 @@ extern greeter_step
 extern server_init
 extern server_add_output
 extern server_set_high_contrast
+extern server_set_lid_sleep
 extern server_remove_output
 extern server_poll
 extern virtual_input_inject
@@ -75,6 +76,7 @@ test_greeter_suite:
     CASE tg_lock_key
     CASE tg_lid_lock
     CASE tg_lid_docked
+    CASE tg_lid_awake
     CASE tg_contrast
     CASE tg_idle_lock
     CASE tg_locked_keys
@@ -463,10 +465,13 @@ tg_lock_key:
     jne .fail
     PASS
 
-; Closing the lid locks, as Super+L does; opening it does not unlock
+; Closing the lid locks, as Super+L does, and suspends once; opening it
+; does not unlock
 tg_lid_lock:
     sub rsp, 8
     call unlocked
+    mov rax, [rel server + Server.suspends]
+    mov [rsp], rax
     lea rdi, [rel server]
     mov esi, INPUT_SWITCH
     mov edx, INPUT_SWITCH_LID
@@ -476,6 +481,10 @@ tg_lid_lock:
     call poll
     call poll
     LOCKED
+    mov rax, [rel server + Server.suspends]
+    sub rax, [rsp]
+    cmp rax, 1
+    jne .fail
     lea rdi, [rel server]
     mov esi, INPUT_SWITCH
     mov edx, INPUT_SWITCH_LID
@@ -494,10 +503,12 @@ tg_lid_lock:
     PASS
 
 ; Docked: the first output the built-in panel and a second one on, closing
-; the lid does not lock; the second unplugged then, it does
+; the lid does not lock or suspend; the second unplugged then, it does both
 tg_lid_docked:
     sub rsp, 8
     call unlocked
+    mov rax, [rel server + Server.suspends]
+    mov [rel suspends_before], rax
     mov rax, [rel server + Server.outputs]
     mov byte [rax + Output.builtin], 1
     lea rdi, [rel server]
@@ -517,6 +528,9 @@ tg_lid_docked:
     call poll
     cmp qword [rel server + Server.locked], 0
     jne .fail
+    mov rax, [rel server + Server.suspends]
+    cmp rax, [rel suspends_before]
+    jne .fail                           ; docked: awake
     lea rdi, [rel server]
     mov rsi, [rsp]
     call server_remove_output
@@ -524,6 +538,10 @@ tg_lid_docked:
     jnz .fail
     call poll
     LOCKED
+    mov rax, [rel server + Server.suspends]
+    sub rax, [rel suspends_before]
+    cmp rax, 1
+    jne .fail
     lea rdi, [rel server]               ; as it was: the lid open, no
     mov esi, INPUT_SWITCH               ; panel, unlocked
     mov edx, INPUT_SWITCH_LID
@@ -533,6 +551,45 @@ tg_lid_docked:
     call poll
     mov rax, [rel server + Server.outputs]
     mov byte [rax + Output.builtin], 0
+    TYPE KEY_A
+    TYPE KEY_B
+    TYPE KEY_ENTER
+    call poll
+    cmp qword [rel server + Server.locked], 0
+    jne .fail
+    PASS
+
+; With lid sleep off, closing the lid only locks
+tg_lid_awake:
+    sub rsp, 8
+    call unlocked
+    lea rdi, [rel server]
+    xor esi, esi
+    call server_set_lid_sleep
+    mov rax, [rel server + Server.suspends]
+    mov [rsp], rax
+    lea rdi, [rel server]
+    mov esi, INPUT_SWITCH
+    mov edx, INPUT_SWITCH_LID
+    mov ecx, 1
+    xor r8d, r8d
+    call virtual_input_inject
+    call poll
+    call poll
+    LOCKED
+    mov rax, [rel server + Server.suspends]
+    cmp rax, [rsp]
+    jne .fail
+    lea rdi, [rel server]               ; as it was: sleep on, the lid open,
+    mov esi, 1                          ; unlocked
+    call server_set_lid_sleep
+    lea rdi, [rel server]
+    mov esi, INPUT_SWITCH
+    mov edx, INPUT_SWITCH_LID
+    xor ecx, ecx
+    xor r8d, r8d
+    call virtual_input_inject
+    call poll
     TYPE KEY_A
     TYPE KEY_B
     TYPE KEY_ENTER
@@ -665,6 +722,7 @@ tg_too_small:
     PASS
 
 section .bss
+suspends_before: resq 1                 ; Server.suspends when a case began
 alignb 16
 server:         resb Server_size
 arena:          resb Arena_size
