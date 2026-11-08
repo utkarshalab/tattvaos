@@ -417,8 +417,10 @@ Prerequisite: `lib/usb` with xHCI control, bulk and interrupt transfers.
 - ☐ `vendor/mtk.asm`: MediaTek firmware download through vendor HCI
   commands, patch semaphore, power on and off, reset recovery. Firmware file
   from MediaTek's redistributable package, stored in `/app/lib/ubt/fw/mtk/`.
-  **Waits for a filesystem at boot**: nothing mounts one yet (nothing calls
-  `uxfs_init`), so the RZ608 is claimed and marked as needing its patch
+  The patch can now come with the kernel in the boot files (`initrd.img`,
+  `kernel/exec/bootfiles.asm`, `boot_file("app/lib/ubt/fw/mtk/...")`); the
+  download itself (MediaTek's vendor commands) is still to do, so the RZ608
+  is claimed and marked as needing its patch
 - ◐ HCI core (`hci/core.asm`): one command at a time with the
   controller's credit count kept, a one-second timeout, Command Complete
   and Command Status matched to it, hardware errors counted, other events
