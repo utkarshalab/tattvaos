@@ -332,7 +332,7 @@ DCN_SRCS := \
 OUTPUT_SRCS := \
     $(SRCDIR)/output/output.asm \
     $(SRCDIR)/output/displays.asm \
-    $(SRCDIR)/output/output_watch.asm     $(SRCDIR)/output/clamshell.asm \
+    $(SRCDIR)/output/output_watch.asm     $(SRCDIR)/output/clamshell.asm     $(SRCDIR)/output/output_scale.asm \
     $(SRCDIR)/output/modes.asm \
     $(SRCDIR)/output/scale_fractional.asm \
     $(SRCDIR)/output/rotation.asm \
