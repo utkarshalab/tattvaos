@@ -67,6 +67,7 @@ ubt_kernel_init:
     mov ecx, 0x0080
     call ubt_gatt_gap_gatt
     call ubt_init
+    call ubt_sdp_init                   ; the SDP server on PSM 1
     add rsp, 8
     ret
 
@@ -101,6 +102,12 @@ ubt_kernel_say:
     ; this machine has a screen and a keyboard, and keeps its bonds
     mov byte [rdi + ubt_adapter.io_cap], 4
     mov byte [rdi + ubt_adapter.bondable], 1
+    cmp dword [rdi + ubt_adapter.state], UBT_UP
+    jne .said
+    push rdi
+    call ubt_br_enable                  ; Secure Simple Pairing on
+    pop rdi
+.said:
     cmp dword [rdi + ubt_adapter.state], UBT_GONE
     je ubt_kernel_line
     mov eax, [rel ubt_k_pending_n]
