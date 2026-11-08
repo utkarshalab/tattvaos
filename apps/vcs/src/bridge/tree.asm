@@ -111,7 +111,8 @@ git_tree_plan:
  lea rdi,[prefix]
  mov rcx,rdx
  rep movsb
- mov byte [prefix+rdx],0
+ lea rax,[prefix]
+ mov byte [rax+rdx],0
  mov r14,rdx
  mov rdi,rbx
  call add_directory
@@ -178,7 +179,8 @@ git_tree_plan:
  push rcx
  rep movsb
  pop rcx
- mov byte [prefix+rcx],0
+ lea rax,[prefix]
+ mov byte [rax+rcx],0
  lea rdi,[prefix]
  call find_directory
  test rax,rax
@@ -270,7 +272,8 @@ git_tree_file_parents:
  lea rdi,[prefix]
  mov rcx,rdx
  rep movsb
- mov byte [prefix+rdx],0
+ lea rax,[prefix]
+ mov byte [rax+rdx],0
  mov r8d,1
 .map_find:
  cmp r8,r13
@@ -280,7 +283,8 @@ git_tree_file_parents:
  add r9,r12
  xor ecx,ecx
 .map_compare:
- mov al,[prefix+rcx]
+ lea rax,[prefix]
+ mov al,[rax+rcx]
  cmp al,[r9+GT_PATH+rcx]
  jne .map_find_next
  test al,al
@@ -390,7 +394,8 @@ git_tree_collect_entries:
  mov r14,rax
  mov rdi,r13
  imul rdi,VR_PATH
- lea rdi,[entry_names+rdi]
+ lea rax,[entry_names]
+ add rdi,rax
  call copy_dir_basename
  test eax,eax
  jnz .collect_corrupt
@@ -682,7 +687,7 @@ git_tree_encode_entries:
  mov rdx,r13
  mov rcx,r10
  mov r8,r15
- call git_object_hash
+ call git_object_hash wrt ..plt
  test eax,eax
  jnz .emit_done
  cmp qword [rsp],0
@@ -690,7 +695,7 @@ git_tree_encode_entries:
  mov edi,GIT_PACK_TREE
  mov rsi,r13
  mov rdx,r10
- call git_pack_add
+ call git_pack_add wrt ..plt
  test eax,eax
  jnz .emit_done
 .emit_hashed:
@@ -840,6 +845,7 @@ tree_directory_mode: db '40000 '
 tree_directory_mode_len equ $-tree_directory_mode
 tree_object_type: db 'tree'
 
+section .text
 ; RDI=depth, prefix global. RDX remains next source offset on return.
 add_directory:
  push rbx
