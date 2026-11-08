@@ -191,6 +191,10 @@ ubt_hci_event:
     mov rsi, r12
     mov edx, r13d
     call ubt_conn_event
+    mov rdi, rbx                        ; then discovery, names, security
+    mov rsi, r12
+    mov edx, r13d
+    call ubt_gap_event
     dec dword [rbx + ubt_adapter.in_event]
     mov rax, [rbx + ubt_adapter.event_fn]
     test rax, rax
