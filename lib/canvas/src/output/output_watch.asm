@@ -6,8 +6,9 @@
 ; each output and then done, and keeps the client told: output again for one
 ; added, back from mirroring or with a new scale, removed for one taken away
 ; or made a mirror. A mirror is no part of the layout and is not listed.
-; Scales go out in 120ths (120 is 1, 180 is 1.5). The layout is still in
-; pixels, so an output's logical size is its pixel size for now.
+; Scales go out in 120ths (120 is 1, 180 is 1.5). Places and sizes are in
+; the layout's logical units: an output's size is its pixel size divided by
+; its scale (output/output_scale).
 ;
 ; Each output gets an id the first time it is told of (Output.id, from
 ; Server.output_seq); up to OUTPUT_WATCHERS clients watch.
