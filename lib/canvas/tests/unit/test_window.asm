@@ -161,6 +161,7 @@ test_window_suite:
     CASE tw_contrast, CAP_SHELL
     CASE tw_touch, CAP_SHELL
     CASE tw_pen, CAP_SHELL
+    CASE tw_seat, CAP_SHELL | CAP_SEAT
     CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
@@ -3022,6 +3023,67 @@ tw_pen:
     call poll
     EVENT_IS {CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_TIP}, surface_a, 0, 0
     FIND CWP_OBJ_TABLET_TOOL, TABLET_TOOL_EV_PROXIMITY_OUT
+    PASS
+
+; the next cw_seat event %1 says %2, then %3
+%macro SEAT_IS 3
+    FIND CWP_OBJ_SEAT, %1
+    cmp dword [rel ans], %2
+    jne .fail
+    cmp dword [rel ans + 4], %3
+    jne .fail
+%endmacro
+
+; cw_seat: a switch on before watching is told at watch, then done; the
+; same again tells nothing, off tells off; device 7 removed with a finger
+; down cancels it, frames, then tells device(removed, 7, its caps)
+tw_seat:
+    sub rsp, 8
+    INJECT INPUT_SWITCH, 1, 1           ; tablet mode on
+    call poll
+    SEND CWP_OBJ_SEAT, SEAT_WATCH, 0
+    call poll
+    SEAT_IS SEAT_EV_SWITCHED, 1, 1
+    FIND CWP_OBJ_SEAT, SEAT_EV_DONE
+    INJECT INPUT_SWITCH, 1, 1           ; as it was: nothing
+    INJECT INPUT_SWITCH, 1, 0
+    call poll
+    SEAT_IS SEAT_EV_SWITCHED, 1, 0      ; (1, 1) here if the same was told
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    TOUCH 7, 3, 0, 250, 250             ; slot 3 down on A
+    call poll
+    EVENT_IS {CWP_OBJ_TOUCH, TOUCH_EV_DOWN}, surface_a, 3, 6 | (2 << 16)
+    lea rdi, [rel server]               ; device 7 gone
+    mov esi, INPUT_DEVICE
+    mov edx, INPUT_DEVICE_REMOVED
+    mov ecx, 4
+    mov r8d, 7
+    call virtual_input_inject
+    call poll
+    EVENT_IS {CWP_OBJ_TOUCH, TOUCH_EV_CANCEL}, surface_a, 3, 0
+    FIND CWP_OBJ_TOUCH, TOUCH_EV_FRAME
+    FIND CWP_OBJ_SEAT, SEAT_EV_DEVICE
+    cmp dword [rel ans], INPUT_DEVICE_REMOVED
+    jne .fail
+    cmp dword [rel ans + 4], 7
+    jne .fail
+    cmp dword [rel ans + 8], 4
+    jne .fail
+    mov rax, [rel server + Server.input_seat]
+    lea rcx, [rax + InputSeat.touches]  ; no contact left
+    xor edx, edx
+.contacts:
+    cmp qword [rcx + TouchContact.surface], 0
+    jne .fail
+    add rcx, TouchContact_size
+    inc edx
+    cmp edx, TOUCH_SLOTS
+    jb .contacts
     PASS
 
 ; -> eax = how many outputs the server has
