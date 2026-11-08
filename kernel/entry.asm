@@ -166,6 +166,8 @@ kernel_text_start:
 %include "lib/input/kernel_acpi.asm" ; the ACPI lid and buttons as input
 %include "lib/usb/usb.asm"          ; USB: xHCI, the core, keyboards and mice
 %include "lib/usb/kernel.asm"       ; ... found on PCI, polled from the input fiber
+%include "lib/ubt/ubt.asm"          ; Bluetooth: HCI over USB
+%include "lib/ubt/kernel.asm"       ; ... its adapters on the console
 
 ; Static Ush bundle: object-linked independently, embedded with ULF ownership.
 %include "kernel/entry/ush.asm"
