@@ -158,7 +158,7 @@
 %define IRQ_PER_CPU     0x08    ; Per-CPU IRQ
 
 ; ---------------------------------------------------------------------------
-; Input Event Types (matches Linux EV_*)
+; Input Event Types (the drivers' EV_* numbering)
 ; ---------------------------------------------------------------------------
 %define EV_SYN          0x00
 %define EV_KEY          0x01
