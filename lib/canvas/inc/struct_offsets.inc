@@ -1650,6 +1650,7 @@ struc InputSeat
     .pen_surface:             resq 1    ; the surface the pen is with, 0: none
     .switches:                resd 1    ; bit n: switch n on (INPUT_SWITCH)
     .switch_pad:              resd 1
+    .last_input:              resq 1    ; when a key or button was last pressed
     .tp_slot:                 resd 5    ; TOUCHPAD_FINGERS: a touchpad's
     .tp_x:                    resd 5    ; slots + 1 (0 free) and places, in
     .tp_y:                    resd 5    ; the layout (input/gestures)
@@ -1769,6 +1770,7 @@ endstruc
 %define WINDOW_MAXIMIZED    1
 %define WINDOW_FULLSCREEN   2
 %define WINDOW_MINIMIZED    4           ; not told to the client
+%define WINDOW_URGENT       8           ; wants the user (the window list's)
 
 ; What an Alt+drag does (InputSeat.move_mode)
 %define MOVE_MOVE       1
@@ -1839,6 +1841,13 @@ struc Window
     .title_len:               resd 1
     .app_id_len:              resd 1
     .pad:                     resd 1
+    .min_w:                   resd 1    ; the size limits it asked for, 0:
+    .min_h:                   resd 1    ; none (WIN-08)
+    .max_w:                   resd 1
+    .max_h:                   resd 1
+    .modal:                   resd 1    ; 1: its parent cannot have the keyboard
+    .modal_pad:               resd 1
+    .transient:               resq 1    ; the toplevel Surface* it belongs to
     .title:                   resb 64   ; WINDOW_NAME_MAX + 1
     .app_id:                  resb 64
 endstruc
