@@ -66,7 +66,7 @@ transform_apply:
         mov r14, r13
 
         .rot90_pixel_loop:
-            mov eax, [r12 + (r14 - 1) * 4]
+            mov eax, [r12 + r14 * 4 - 4]
             mov [rbx], eax
             add rbx, 4
             add r12, r15
