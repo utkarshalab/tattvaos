@@ -2,8 +2,7 @@
 
 Every directory and file of the **Canvas display server** for Utkarsha OS, tagged with
 the phase (`C0` to `C33`) from `PLAN.md` that creates it. One `.asm` file per
-responsibility. Canvas runs only on Utkarsha: there is no Linux, hosted mode, or other
-OS code.
+responsibility. Canvas runs only on Utkarsha OS: there is no hosted mode.
 
 ```
 canvas/
@@ -623,6 +622,7 @@ canvas/
     ├── performance.md                 # C32
     ├── benchmark-method.md            # C32
     ├── design-notes-x11-wayland.md    # C0   what Canvas borrows and avoids (design rationale only)
+    ├── definition-of-done.md          #      when a ROADMAP item is done
     └── decisions/                     # one short record per design decision
         ├── 0001-no-libc.md
         ├── 0002-pixel-format.md
@@ -633,5 +633,10 @@ canvas/
         ├── 0007-trust-profiles.md
         ├── 0008-software-isolation-on-utkarsha.md
         ├── 0009-driver-boundary-with-utkarsha.md
-        └── 0010-first-display-and-gpu-family.md
+        ├── 0010-first-display-and-gpu-family.md
+        ├── 0011-defer-heavy-modern-image-codecs.md
+        ├── 0012-fractional-output-scale.md
+        ├── 0013-input-devices-and-records.md
+        ├── 0014-lid-and-power-policy.md
+        └── 0015-how-canvas-is-tested.md
 ```
