@@ -92,7 +92,7 @@
 | FND-07 | Move the 31 non-assembling orphan files to an attic; decide wire-in or attic for the other unlisted files | P0 | ✓ 36 files in `attic/` (see its README); `native_planes`, `invariants` wired in; every `.asm` under `src/` and `tests/` is now built |
 | FND-08 | Line-ending policy in `.gitattributes` for `.asm`, `.inc` and `.md` | P0 | ✓ `lib/canvas/.gitattributes`: LF everywhere, `*.uic` binary |
 | FND-09 | Host test shim: `ut_*` implemented over the dev machine so tests run off-target (test builds only) | P0 | ✓ `tests/host/ut_host.asm`, `make host` |
-| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ◐ `make check`: layout, debug and release images, W^X, 31 host unit suites, the UBF loaded and run to its first frame (`ubf-check`), SVG, icon and image conformance. Golden frames run; the fuzz suites are still stubs |
+| FND-10 | `make check` that builds and runs unit, golden and fuzz suites | P0 | ✓ `make check`: layout, debug and release images, W^X, 32 host suites (golden frames among them), the UBF loaded and run to its first frame (`ubf-check`), SVG, icon and image conformance, and two fuzzers: `test_fuzz` (random messages with live and stale handles, random input records; the server must not crash and another client must still be answered) and `fuzz_media.py` (mutated images of every format through `host_decode`; no crash, no hang). `make fuzz` runs them longer |
 | FND-11 | Separate text/rodata/data segments in the linker script (W^X images) | P0 | ✓ R-X, R--, RW- segments on their own pages; all 23 images checked |
 | FND-12 | Dual-assembler CI: NASM and utasm both green, outputs compared byte for byte | P1 | 12 files currently utasm-only failures |
 | FND-13 | Static lint: register-use and ABI conventions, missing `ret`, stack alignment | P2 | ◐ `make field-width-check` (part of `check`): no access wider than a struc field. Stack locals are not covered |
@@ -843,7 +843,7 @@ All items run on-device, opt-in, behind capability gates.
 |---|---|---|---|
 | QA-01 | Unit suites green on the host shim | P0 | ✓ all 31 `HOST_SUITES` pass (`make host-check`) |
 | QA-02 | Golden-image tests with a real corpus | P1 | ◐ `tests/unit/test_golden.asm`: frames checked against checksums computed outside the code; more scenes to add |
-| QA-03 | Continuous fuzzing of every parser: wire, images, fonts, ICC, EDID, keymaps, config | P2 | ◐ `tests/fuzz` |
+| QA-03 | Continuous fuzzing of every parser: wire, images, fonts, ICC, EDID, keymaps, config | P2 | ◐ wire and input (`tests/unit/test_fuzz`), images and SVG (`tests/host/fuzz_media.py`), both in `make check`; not fonts on their own, ICC, EDID, keymaps or config, and not run continuously |
 | QA-04 | Structure-aware wire-protocol fuzzer | P3 | |
 | QA-05 | Conformance suite that connects real clients | P2 | ◐ `tests/cts` (TODO) |
 | QA-06 | Hostile-client conformance cases | P2 | |
