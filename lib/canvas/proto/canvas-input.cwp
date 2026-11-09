@@ -88,7 +88,8 @@ protocol canvas-input 1 {
     ; spreading or closing). A gesture ends when the fingers change, not
     ; cancelled only when all are lifted. dxy: the fingers' middle moved,
     ; x in the low 16 bits and y in the high, each signed, in pixels; scale:
-    ; 16.16, since the pinch began.
+    ; 16.16, since the pinch began. Four or more fingers moving together are
+    ; the server's (they switch workspaces): no swipe for them.
     interface cw_gesture 1 {
         event hold_begin(time: ulong, surface: handle, fingers: uint, unused: uint)
         event hold_end(time: ulong, surface: handle, cancelled: uint, unused: uint)
