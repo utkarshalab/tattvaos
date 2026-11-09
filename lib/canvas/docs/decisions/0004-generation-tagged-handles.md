@@ -47,7 +47,7 @@ bits 19..0:  index (20 bits = 1,048,576 objects per table)
 - `src/core/handle.asm` — Implementation
 - Every dispatch: `handle_resolve` before object access
 - Handle channel carries raw `u32` handles — validated on receive
-- Fuzzing: `tests/fuzz/fuzz_objects.asm` tests generation wrap, stale access
+- Fuzzing: `tests/unit/test_fuzz.asm` feeds handles from replies, live and stale, back into random requests
 
 ## Implementation
 ```nasm
