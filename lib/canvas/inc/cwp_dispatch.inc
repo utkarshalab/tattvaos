@@ -202,6 +202,21 @@
 %ifdef HAVE_h_toplevel_set_decorated
     CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_DECORATED, h_toplevel_set_decorated
 %endif
+%ifdef HAVE_h_toplevel_set_min_size
+    CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_MIN_SIZE, h_toplevel_set_min_size
+%endif
+%ifdef HAVE_h_toplevel_set_max_size
+    CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_MAX_SIZE, h_toplevel_set_max_size
+%endif
+%ifdef HAVE_h_toplevel_set_parent
+    CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_PARENT, h_toplevel_set_parent
+%endif
+%ifdef HAVE_h_toplevel_set_modal
+    CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_MODAL, h_toplevel_set_modal
+%endif
+%ifdef HAVE_h_toplevel_request_attention
+    CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_REQUEST_ATTENTION, h_toplevel_request_attention
+%endif
 %ifdef HAVE_h_popup_create
     CWP_REQUEST CWP_OBJ_POPUP, POPUP_CREATE, h_popup_create
 %endif
