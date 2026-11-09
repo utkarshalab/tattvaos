@@ -172,6 +172,7 @@ test_window_suite:
     CASE tw_pixel_parts, CAP_SHELL
     CASE tw_snap, CAP_SHELL
     CASE tw_wake, CAP_SHELL
+    CASE tw_foreign_objects, CAP_SHELL | CAP_SURFACE | CAP_BUFFER
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -3675,6 +3676,71 @@ tw_snap:
     jne .fail
     PASS
 
+; %1 (a table field of Server) still resolves handle variable %2
+%macro STILL_THERE 2
+    mov rdi, [rel server + Server.%1]
+    mov esi, [rel %2]
+    call handle_resolve
+    test rax, rax
+    jz .fail
+%endmacro
+; a request as the current client: interface, opcode, handle variable %3
+%macro ON_HANDLE 3
+    mov eax, [rel %3]
+    mov [rel req], eax
+    mov dword [rel req + 4], 0
+    mov qword [rel req + 8], 0
+    mov qword [rel req + 16], 0
+    SEND %1, %2, 24
+%endmacro
+
+; SEC-01: another client cannot touch A's region, fence or timeline. A makes
+; one of each; B, a standard client, destroys each and signals the fence and
+; timeline; every one is still there and still A's
+tw_foreign_objects:
+    sub rsp, 8
+    SEND CWP_OBJ_REGION, REGION_CREATE, 0
+    call poll
+    call next_reply
+    mov eax, [rel ans]
+    mov [rel foreign_region], eax
+    mov dword [rel req], 0
+    SEND CWP_OBJ_FENCE, FENCE_CREATE, 4
+    call poll
+    call next_reply
+    mov eax, [rel ans]
+    mov [rel foreign_fence], eax
+    SEND CWP_OBJ_TIMELINE, TIMELINE_CREATE, 0
+    call poll
+    call next_reply
+    mov eax, [rel ans]
+    mov [rel foreign_timeline], eax
+    STILL_THERE region_table, foreign_region
+    STILL_THERE fence_table, foreign_fence
+    STILL_THERE timeline_table, foreign_timeline
+
+    lea rdi, [rel server]               ; B, a standard client
+    lea rsi, [rel pair_b]
+    mov edx, CAP_SURFACE | CAP_BUFFER
+    call client_accept
+    test rax, rax
+    js .fail
+    AS pair_b
+    call drain
+    ON_HANDLE CWP_OBJ_REGION, REGION_DESTROY, foreign_region
+    ON_HANDLE CWP_OBJ_REGION, REGION_CLEAR, foreign_region
+    ON_HANDLE CWP_OBJ_FENCE, FENCE_SIGNAL, foreign_fence
+    ON_HANDLE CWP_OBJ_FENCE, FENCE_DESTROY, foreign_fence
+    ON_HANDLE CWP_OBJ_TIMELINE, TIMELINE_SIGNAL, foreign_timeline
+    ON_HANDLE CWP_OBJ_TIMELINE, TIMELINE_DESTROY, foreign_timeline
+    call poll
+    call drain
+    AS pair
+    STILL_THERE region_table, foreign_region
+    STILL_THERE fence_table, foreign_fence
+    STILL_THERE timeline_table, foreign_timeline
+    PASS
+
 ; Input wakes the event loop: each record queued is a wake of its task
 ; (here a made-up one, 7)
 tw_wake:
@@ -3984,6 +4050,10 @@ timeline:       resd 1
 fence_r:        resd 1
 buffer_b:       resd 1
 zero:           resd 1
+alignb 8
+foreign_region: resd 1
+foreign_fence:  resd 1
+foreign_timeline: resd 1
 alignb 8
 output_b:       resq 1
 alignb 8
