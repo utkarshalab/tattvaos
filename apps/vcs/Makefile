@@ -162,6 +162,10 @@ $(BUILD)/smart_bridge.so: $(BUILD)/bridge.o $(BUILD)/upload_request.o $(BUILD)/u
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/smart_bridge_probe.o: tests/unit/smart_bridge_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
+$(BUILD)/smart_server.so: $(BUILD)/upload_server.o $(BUILD)/bridge.o $(BUILD)/upload_request.o $(BUILD)/upload_protocol.o $(BUILD)/history_pack.o $(BUILD)/history_plan.o $(BUILD)/tree.o $(BUILD)/commit.o $(BUILD)/pack.o $(BUILD)/sha256.o $(BUILD)/smart_bridge_probe.o $(BUILD)/smart_server_transport_probe.o
+	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
+$(BUILD)/smart_server_transport_probe.o: tests/unit/smart_server_transport_probe.asm | $(BUILD)
+	$(NASM) -w+error -f elf64 $< -o $@
 $(BUILD)/upload_pack.so: $(BUILD)/upload_pack.o $(BUILD)/upload_pack_probe.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/upload_pack_probe.o: tests/unit/upload_pack_probe.asm | $(BUILD)
@@ -186,7 +190,7 @@ $(BUILD)/history_pack.so: $(BUILD)/history_pack.o $(BUILD)/history_plan.o $(BUIL
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/history_pack_probe.o: tests/unit/history_pack_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
-test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/upload_request.so $(BUILD)/upload_protocol.so $(BUILD)/upload_server.so $(BUILD)/bridge_codec.so $(BUILD)/bridge_export.so $(BUILD)/bridge_import.so $(BUILD)/bridge_serve.so $(BUILD)/smart_bridge.so $(BUILD)/upload_pack.so $(BUILD)/pack.so $(BUILD)/commit.so $(BUILD)/tree.so $(BUILD)/history_plan.so $(BUILD)/history_pack.so $(BUILD)/repository.so
+test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/upload_request.so $(BUILD)/upload_protocol.so $(BUILD)/upload_server.so $(BUILD)/bridge_codec.so $(BUILD)/bridge_export.so $(BUILD)/bridge_import.so $(BUILD)/bridge_serve.so $(BUILD)/smart_bridge.so $(BUILD)/smart_server.so $(BUILD)/upload_pack.so $(BUILD)/pack.so $(BUILD)/commit.so $(BUILD)/tree.so $(BUILD)/history_plan.so $(BUILD)/history_pack.so $(BUILD)/repository.so
 	sh scripts/test-cli.sh
 	python3 tests/unit/test_diff.py $(BUILD)/diff.so
 	python3 tests/unit/test_protocol.py $(BUILD)/protocol.so
@@ -206,6 +210,7 @@ test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/c
 	python3 tests/unit/test_bridge_import.py $(BUILD)/bridge_import.so
 	python3 tests/unit/test_bridge_serve.py $(BUILD)/bridge_serve.so
 	python3 tests/unit/test_smart_bridge.py $(BUILD)/smart_bridge.so
+	python3 tests/unit/test_smart_server.py $(BUILD)/smart_server.so
 	python3 tests/unit/test_upload_pack.py $(BUILD)/upload_pack.so
 	python3 tests/unit/test_pack.py $(BUILD)/pack.so
 	python3 tests/unit/test_commit.py $(BUILD)/commit.so
