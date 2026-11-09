@@ -438,6 +438,76 @@ HOST_NONE ut_timer_register
 HOST_NONE ut_timer_cancel
 HOST_NONE ut_time_sleep_ns
 
+; ut_service_publish / ut_service_lookup for host tests: one process, so a
+; table of HOST_SERVICES names, compared byte by byte
+%define HOST_SERVICES 4
+global ut_service_publish
+ut_service_publish:                     ; rdi = name, rsi = entry, rdx = cookie
+    lea r8, [rel host_services]
+    xor ecx, ecx
+.slot:
+    cmp qword [r8], 0
+    je .take
+    push rdi
+    push rsi
+    mov rsi, [r8]
+    call host_same_name
+    pop rsi
+    pop rdi
+    test eax, eax
+    jnz .take                           ; published again: replaced
+    add r8, 24
+    inc ecx
+    cmp ecx, HOST_SERVICES
+    jb .slot
+    mov rax, -(ENOSPC)
+    ret
+.take:
+    mov [r8], rdi
+    mov [r8 + 8], rsi
+    mov [r8 + 16], rdx
+    xor eax, eax
+    ret
+
+global ut_service_lookup
+ut_service_lookup:                      ; rdi = name -> rax = entry, rdx = cookie
+    lea r8, [rel host_services]
+    xor ecx, ecx
+.slot:
+    cmp qword [r8], 0
+    je .next
+    mov rsi, [r8]
+    call host_same_name
+    test eax, eax
+    jz .next
+    mov rax, [r8 + 8]
+    mov rdx, [r8 + 16]
+    ret
+.next:
+    add r8, 24
+    inc ecx
+    cmp ecx, HOST_SERVICES
+    jb .slot
+    mov rax, -(ENOENT)
+    ret
+
+; rdi, rsi = NUL-terminated names -> eax = 1 if the same; rdi, rsi, r8, rcx
+; kept
+host_same_name:
+    xor edx, edx
+.byte:
+    mov al, [rdi + rdx]
+    cmp al, [rsi + rdx]
+    jne .differ
+    inc rdx
+    test al, al
+    jnz .byte
+    mov eax, 1
+    ret
+.differ:
+    xor eax, eax
+    ret
+
 ; ut_power_suspend for host tests: back at once
 global ut_power_suspend
 ut_power_suspend:
@@ -531,6 +601,7 @@ host_touchpad_info:
     dd 5, 0                             ; 56 slots
 
 section .bss
+host_services:  resq 3 * HOST_SERVICES  ; name, entry, cookie each
 alignb 16
 global host_fb1
 host_fb1:               resd 40 * 24
