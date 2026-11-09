@@ -32,6 +32,13 @@ struc ChannelPair
     .server_to_client_handles:   resq 1
     .client_to_server_handles:   resq 1
     .arena:                      resq 1
+    .wake_task:                  resq 1    ; the server's loop, woken by a
+                                           ; client's send (0: none known)
+    .wakes:                      resq 1    ; wakes the client asked for
+    .state:                      resq 1    ; a connect: 0 waiting, 1 ready,
+                                           ; negative: refused (the error)
+    .region:                     resq 1    ; its memory when canvas_connect
+                                           ; made it, for ut_mem_free
 endstruc
 
 %endif
