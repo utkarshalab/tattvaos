@@ -12,7 +12,6 @@
 
 extern arena_alloc
 extern pixbuf_create
-extern fill_solid
 extern jpeg_huff_build
 extern jpeg_bits_init
 extern jpeg_decode_block
