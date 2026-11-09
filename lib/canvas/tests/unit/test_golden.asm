@@ -5,7 +5,11 @@
 ; A client with two surfaces on a 64x48 headless output: A, 32x24 opaque at
 ; (8, 8), and over it B, 16x16 half-transparent at (24, 16). Frames are checked
 ; by Adler-32 of the framebuffer against values computed outside this code
-; from the same scene, and by chosen pixels. Also: no damage means no frame,
+; from the same scene (tests/golden/make_golden.py, a model of the
+; compositor written apart from it, into tests/golden/expected/golden.inc),
+; and by chosen pixels. More scenes: translucent surfaces stacked, an
+; opaque BGRX buffer copied under a translucent one, surfaces over every
+; edge and corner. Also: no damage means no frame,
 ; only damaged pixels change, frame callbacks wait for the frame, surfaces
 ; hanging over the output's edge clip, and leaving uncovers the background.
 
@@ -46,7 +50,7 @@ extern compositor_add_surface
 %define BG 0xFF202030
 %define B_PIXEL 0x80004000
 
-%define GOLDEN_FIRST   0x5720AE00
+%include "tests/golden/expected/golden.inc"
 %define GOLDEN_PARTIAL 0x60A7DBB0
 
 section .text
@@ -70,6 +74,9 @@ test_golden_main:
     CASE tg_surface_removed
     CASE tg_edge
     CASE tg_client_leaves
+    CASE tg_stack
+    CASE tg_opaque
+    CASE tg_edges
     mov eax, ebx
     pop rbx
     ret
@@ -148,7 +155,12 @@ add_surface:
     mov r15d, ecx
     mov [rel params], edi
     mov [rel params + 4], esi
-    mov dword [rel params + 8], DRM_FORMAT_BGRA8888
+    mov eax, [rel surface_format]       ; BGRA unless a scene says
+    test eax, eax
+    jnz .format
+    mov eax, DRM_FORMAT_BGRA8888
+.format:
+    mov [rel params + 8], eax
     lea rdi, [rel server]
     mov rsi, [rel client]
     lea rdx, [rel params]
@@ -417,6 +429,116 @@ tg_edge:
     PIXEL_IS W - 5, H - 4, BG
     PASS
 
+; A solid w x h surface at x, y, committed.
+; edi = w, esi = h, edx = x, ecx = y, r8d = colour
+solid:
+    push rbx
+    push r12
+    push r13
+    mov ebx, edi
+    imul ebx, esi                       ; its pixels
+    mov r12d, r8d
+    call add_surface
+    mov r13, rax
+    mov rdi, rdx
+    mov eax, r12d
+    mov ecx, ebx
+    rep stosd
+    COMMIT r13
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; edi = w, esi = h, edx = x, ecx = y: a surface of scene A's gradient
+; (0xFF, x * 4, y * 8, 0x10) in surface_format, committed
+gradient_surface:
+    push rbx
+    push r12
+    push r13
+    mov ebx, edi
+    mov r12d, esi
+    call add_surface
+    mov r13, rax
+    mov rdi, rdx
+    xor ecx, ecx                        ; y
+.row:
+    xor edx, edx                        ; x
+.pixel:
+    lea eax, [rcx * 8]
+    and eax, 255
+    shl eax, 8
+    or eax, 0xFF000010
+    lea r8d, [rdx * 4]
+    and r8d, 255
+    shl r8d, 16
+    or eax, r8d
+    mov [rdi], eax
+    add rdi, 4
+    inc edx
+    cmp edx, ebx
+    jb .pixel
+    inc ecx
+    cmp ecx, r12d
+    jb .row
+    COMMIT r13
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+%macro SOLID 5                          ; w, h, x, y, colour
+    mov edi, %1
+    mov esi, %2
+    mov edx, %3
+    mov ecx, %4
+    mov r8d, %5
+    call solid
+%endmacro
+
+; Three translucent rectangles stacked, each over the last
+tg_stack:
+    sub rsp, 8
+    SOLID 20, 20, 4, 4, 0x80800000
+    SOLID 24, 18, 12, 10, 0x40004040
+    SOLID 30, 14, 20, 6, 0xC0101060
+    COMPOSITE
+    call checksum
+    cmp eax, GOLDEN_STACK
+    jne .fail
+    PASS
+
+; An opaque BGRX buffer, copied rather than blended, a translucent one over
+; it
+tg_opaque:
+    sub rsp, 8
+    mov dword [rel surface_format], DRM_FORMAT_BGR8888
+    mov edi, 30
+    mov esi, 20
+    mov edx, 10
+    mov ecx, 10
+    call gradient_surface
+    mov dword [rel surface_format], 0
+    SOLID 20, 20, 30, 20, 0x60202020
+    COMPOSITE
+    call checksum
+    cmp eax, GOLDEN_OPAQUE
+    jne .fail
+    PASS
+
+; One surface over each edge and corner, clipped
+tg_edges:
+    sub rsp, 8
+    SOLID 16, 12, -6, -4, 0xFF0000FF
+    SOLID 14, 14, 56, -5, 0x80008000
+    SOLID 20, 12, -8, 40, 0xA0500000
+    SOLID 10, 10, 58, 42, 0x40404040
+    COMPOSITE
+    call checksum
+    cmp eax, GOLDEN_EDGES
+    jne .fail
+    PASS
+
 tg_client_leaves:
     sub rsp, 8
     call scene
@@ -444,6 +566,7 @@ compositor:     resb Compositor_size
 arena:          resb Arena_size
 pair:           resb ChannelPair_size
 params:         resb 24
+surface_format: resd 1                  ; 0: BGRA
 client_id:      resq 1
 client:         resq 1
 output:         resq 1
