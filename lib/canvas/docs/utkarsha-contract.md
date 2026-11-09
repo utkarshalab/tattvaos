@@ -523,6 +523,25 @@ ut_power_suspend
 
 ---
 
+### 3.12a Services (`ut_service.asm`)
+
+```asm
+; Publish an entry point under a name, for other programs to find
+;   in:  rdi = NUL-terminated name, rsi = entry, rdx = cookie
+;   out: rax = 0 OK, negative error (EEXIST if another program has the name)
+ut_service_publish
+
+; Find a published entry point
+;   in:  rdi = NUL-terminated name
+;   out: rax = entry, rdx = cookie; or rax = ENOENT (negative)
+ut_service_lookup
+```
+
+**Canvas usage**: canvasd publishes `"canvas"`; `canvas_connect` looks it up
+and calls the entry with a channel pair the client made (KERNEL_NEEDS step 2).
+
+---
+
 ### 3.13 Network + TLS (`ut_net.asm`)
 
 ```asm
