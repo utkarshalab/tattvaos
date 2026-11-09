@@ -82,7 +82,6 @@ extern magnify_moved
 extern magnify_focus
 extern umath_bezier_cubic_eval
 extern gesture_touch
-extern gesture_forget
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -103,7 +102,6 @@ extern switcher_cancel
 extern switcher_finish
 extern switcher_next
 extern switcher_selected
-extern window_set_decorated
 extern window_maximize
 extern window_minimize
 extern window_move_to_workspace
