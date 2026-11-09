@@ -377,12 +377,12 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 |---|---|---|---|
 | PTR-01 | Pointer routing via hit test, enter/leave, buttons, axis | P1 | ✓ `input/input`: the topmost surface under the pointer (input regions, title bars, scaled buffers), enter and leave, an implicit grab while a button is held, buttons and axis as `cw_pointer` events behind `CAP_POINTER`; `test_input`, `test_window` |
 | PTR-02 | Acceleration profiles (flat, adaptive, custom curve) per device | P2 | ◐ `input/accel` |
-| PTR-03 | Scroll speed and natural scroll per device | P2 | |
-| PTR-04 | High-resolution scroll events | P2 | |
-| PTR-05 | Button remapping, left-handed mode, middle-click emulation | P2 | |
+| PTR-03 | Scroll speed and natural scroll per device | P2 | ✓ `input/pointer_settings`: per device (eight with their own, the rest the default) a scroll speed in 120ths and natural scrolling, set by `server_set_pointer` or `cw_seat.set_pointer` behind `CAP_SESSION`; `test_window` |
+| PTR-04 | High-resolution scroll events | P2 | ✓ `input/input`: scroll records in 120ths (code bit 8) or whole steps; every scroll as `cw_pointer.axis_value120`, then `axis` with whole steps as the 120ths add up, per axis; `test_window` |
+| PTR-05 | Button remapping, left-handed mode, middle-click emulation | P2 | ◐ `input/pointer_settings`: a 32-button map per device (`server_set_button_map`), left-handed swapping left and right over it; `test_window`. no middle-click emulation yet |
 | PTR-06 | Grabs for popups and drag operations | P2 | ◐ `input/grab` |
 | PTR-07 | Pointer lock and confinement | P2 | ◐ `input/constraints` |
-| PTR-08 | Relative pointer motion | P2 | |
+| PTR-08 | Relative pointer motion | P2 | ✓ `cw_pointer.set_relative`: while the pointer is over the surface, each motion record's raw dx, dy as `relative_motion`, before the pointer moves or stops at an edge; `test_window` |
 | PTR-09 | Pointer warping only with a grant | P2 | |
 | PTR-10 | Pointer barriers and edge pressure between monitors | P3 | |
 | PTR-11 | Cursor themes at multiple sizes, auto-scaled per DPI | P2 | ◐ `render/sw_cursor`: built-in shapes (arrow, I-beam, crosshair) a client picks per surface with `cw_pointer.set_shape`, each output drawing them at its scale rounded to 1x or 2x; `test_window`. No theme files (`input/cursor_theme` is a stub) |
