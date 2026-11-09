@@ -37,8 +37,8 @@
 
 ; out of band
 %define HCI_REMOTE_OOB_NEG      0x0433
-%define HCI_REMOTE_OOB_EXT      0x045D
-%define HCI_READ_LOCAL_OOB_EXT  0x047D
+%define HCI_REMOTE_OOB_EXT_REPLY      0x0445
+%define HCI_READ_LOCAL_OOB_EXT  0x0C7D
 %define HCI_EV_REMOTE_OOB       0x35
 %define OOB_BR                  3       ; an ubt_oob_peers kind: C and R (P-256)
 
@@ -378,7 +378,7 @@ ubt_br_event:
     movdqu [rsp + 48], xmm0
     mov r8, rsp
     mov ecx, 64
-    mov esi, HCI_REMOTE_OOB_EXT
+    mov esi, HCI_REMOTE_OOB_EXT_REPLY
     lea rdx, [r13 + 2]
     call br_cmd_addr
     jmp .out
