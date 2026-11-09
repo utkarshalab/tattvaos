@@ -30,16 +30,20 @@ $(BUILDDIR)/%.o: %.asm include/ugfx.inc
 $(BUILDDIR)/host_raster: $(BUILDDIR)/tests/host/host_raster.o $(CORE_OBJS)
 	$(LD) -nostdlib -static -e _start -o $@ $^
 
+$(BUILDDIR)/host_prims: $(BUILDDIR)/tests/host/host_prims.o $(BUILDDIR)/2d/line.o $(BUILDDIR)/2d/circle.o $(CORE_OBJS)
+	$(LD) -nostdlib -static -e _start -o $@ $^
+
 $(BUILDDIR)/host_path: $(BUILDDIR)/tests/host/host_path.o $(CORE_OBJS) $(PATH_OBJS)
 	$(LD) -nostdlib -static -e _start -o $@ $^
 
 $(BUILDDIR)/host_ctx: $(BUILDDIR)/tests/host/host_ctx.o $(CORE_OBJS) $(PATH_OBJS)
 	$(LD) -nostdlib -static -e _start -o $@ $^
 
-host: $(BUILDDIR)/host_raster $(BUILDDIR)/host_path $(BUILDDIR)/host_ctx
+host: $(BUILDDIR)/host_raster $(BUILDDIR)/host_prims $(BUILDDIR)/host_path $(BUILDDIR)/host_ctx
 
 host-check: host
 	python3 tests/host/raster_check.py $(BUILDDIR)/host_raster
+	python3 tests/host/prims_check.py $(BUILDDIR)/host_prims
 	python3 tests/host/path_check.py $(BUILDDIR)/host_path
 	python3 tests/host/stroke_check.py $(BUILDDIR)/host_path
 	python3 tests/host/dash_check.py $(BUILDDIR)/host_path
