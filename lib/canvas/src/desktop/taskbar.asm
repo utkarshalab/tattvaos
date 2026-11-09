@@ -53,6 +53,7 @@ extern ui_text_draw
 
 %define EV_DATA     (Taskbar.event + ClientEvent.data)
 %define STATE_MINIMIZED 4
+%define STATE_URGENT    8               ; wants the user (WIN-14)
 
 ; How much of the right end the workspace squares take
 %define SWITCHER_W  (TASKBAR_WS_COUNT * (TASKBAR_WS_W + TASKBAR_GAP))
@@ -561,6 +562,11 @@ draw:
     jne .hc_block
     mov dword [rel text_colour], TASKBAR_TEXT
     mov r9d, [rax + TaskbarEntry.color]
+    test dword [rax + TaskbarEntry.states], STATE_URGENT
+    jz .not_urgent
+    mov r9d, TASKBAR_URGENT             ; wants the user: amber
+    jmp .colored
+.not_urgent:
     test dword [rax + TaskbarEntry.states], STATE_MINIMIZED
     jz .colored
     mov r9d, TASKBAR_DIM
