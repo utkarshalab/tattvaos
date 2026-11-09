@@ -45,11 +45,11 @@ ULF_MEMORY_SIZE_OFF equ 32
 ULF_EXEC_ALIGN     equ 4096             ; W^X boundary is one hardware page
 ULF_MAX_EXEC_BYTES equ 1024 * 1024      ; 1MB..2MB uses 4KB bootstrap PTEs
 ULF_MAX_IMAGE_BYTES equ 32 * 1024 * 1024
-ULF_MAX_MEMORY_BYTES equ 64 * 1024 * 1024
+ULF_MAX_MEMORY_BYTES equ 256 * 1024 * 1024
 ULF_MAX_INITRD_BYTES equ 256 * 1024 * 1024
 
 ; The legacy BIOS initrd is fixed-size and must sit beyond every valid kernel
-; image+BSS footprint. KERNEL_LOAD is 1 MiB, so this is 65 MiB physical.
+; image+BSS footprint. KERNEL_LOAD is 1 MiB, so this is 257 MiB physical.
 INITRD_LOAD       equ KERNEL_LOAD + ULF_MAX_MEMORY_BYTES
 
 ; There is deliberately no KERNEL_SECTORS. The image length lives in the ULF
