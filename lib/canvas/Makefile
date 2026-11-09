@@ -448,6 +448,7 @@ A11Y_SRCS := \
 # Client library: linked into canvasd (the greeter) and client images
 CLIENT_SRCS := \
     $(SRCDIR)/client/conn.asm \
+    $(SRCDIR)/client/cwp_stubs.asm \
     $(SRCDIR)/client/wire.asm \
     $(SRCDIR)/client/client.asm \
     $(SRCDIR)/client/objects.asm \
@@ -490,11 +491,12 @@ release:
 # inc/cwp_ops.inc and inc/cwp_dispatch.inc from the protocol files;
 # cwp-check fails if either is behind
 cwp-ops:
-	python3 tools/cwpgen.py -o inc/cwp_ops.inc -d inc/cwp_dispatch.inc $(CWP_OPS_PROTOS)
+	python3 tools/cwpgen.py -o inc/cwp_ops.inc -d inc/cwp_dispatch.inc \
+	    -c src/client/cwp_stubs.asm $(CWP_OPS_PROTOS)
 
 cwp-check:
 	@python3 tools/cwpgen.py --check -o inc/cwp_ops.inc -d inc/cwp_dispatch.inc \
-	    --handlers src/server/server_core.asm $(CWP_OPS_PROTOS)
+	    -c src/client/cwp_stubs.asm --handlers src/server/server_core.asm $(CWP_OPS_PROTOS)
 
 # ---------------------------------------------------------------------------
 # Layout check: every object's fields live in its one struc. Fails on a
