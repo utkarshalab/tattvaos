@@ -41,6 +41,9 @@ extern timeline_signal
 extern client_accept
 extern service_start
 extern canvas_connect_with
+extern cw_timeline_create
+extern cw_timeline_signal
+extern cw_timeline_get_point
 extern canvas_disconnect
 extern handle_resolve
 extern server_init
@@ -63,6 +66,7 @@ test_clientlib_suite:
     CASE tc_connect
     CASE tc_wake
     CASE tc_service
+    CASE tc_stubs
     CASE tc_window
     CASE tc_refused
     CASE tc_buffers
@@ -238,6 +242,35 @@ tc_service:
     jle .fail
     mov rdi, [rel conn_service]
     call canvas_disconnect
+    PASS
+
+; The generated stubs (PRO-02): a timeline made, signalled to 5 and read
+; back, all through cw_* calls: a reply, a ulong at its 8-byte place, a send
+tc_stubs:
+    sub rsp, 8
+    mov rdi, [rel conn]
+    call cw_timeline_create
+    cmp rax, 4
+    jl .fail
+    mov rax, [rel conn]
+    mov eax, [rax + CLIENT_WIRE + ClientWire.reply]
+    test eax, eax
+    jz .fail
+    mov [rel stub_timeline], eax
+    mov rdi, [rel conn]
+    mov esi, eax
+    mov edx, 5
+    call cw_timeline_signal
+    test rax, rax
+    js .fail
+    mov rdi, [rel conn]
+    mov esi, [rel stub_timeline]
+    call cw_timeline_get_point
+    cmp rax, 8
+    jl .fail
+    mov rax, [rel conn]
+    cmp qword [rax + CLIENT_WIRE + ClientWire.reply], 5
+    jne .fail
     PASS
 
 tc_connect:
@@ -496,6 +529,7 @@ arena:          resb Arena_size
 pair:           resb ChannelPair_size
 pair_woken:     resb ChannelPair_size
 conn_service:   resq 1
+stub_timeline:  resd 1
 conn:           resq 1
 surface_a:      resd 1
 buffer_a:       resd 1
