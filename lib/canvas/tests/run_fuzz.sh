@@ -1,6 +1,6 @@
 #!/bin/bash
-# Fuzz tests: build fuzz_runner.img, run corpus in tests/fuzz/corpus/ on Utkarsha
+# Fuzz tests on the development machine: the wire and input suite
+# (test_fuzz) and the decoders (fuzz_media.py), FUZZ_ROUNDS mutants a seed
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-make fuzz
-echo "Boot build/img/fuzz_runner.img on Utkarsha with corpus mounted."
+make fuzz FUZZ_ROUNDS="${FUZZ_ROUNDS:-2000}"
