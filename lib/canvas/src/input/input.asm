@@ -99,6 +99,8 @@ extern seat_tell_device
 extern clamshell_lid
 extern window_modal_target
 extern window_raise
+extern pointer_settings
+extern pointer_button
 extern clamshell_sleep
 extern switcher_cancel
 extern switcher_finish
@@ -121,6 +123,9 @@ extern window_move
 %define POINTER_MOTION  (CWP_OBJ_POINTER << 16 | 2)
 %define POINTER_BUTTON  (CWP_OBJ_POINTER << 16 | 3)
 %define POINTER_AXIS    (CWP_OBJ_POINTER << 16 | 4)
+%define POINTER_AXIS120 (CWP_OBJ_POINTER << 16 | POINTER_EV_AXIS_VALUE120)
+%define POINTER_RELATIVE (CWP_OBJ_POINTER << 16 | POINTER_EV_RELATIVE_MOTION)
+%define AXIS_HIGH_RES   0x100           ; INPUT_AXIS code: value in 120ths
 
 %define KEY_REPEATED    2               ; cw_keyboard.key state of a repeat
 
@@ -1618,6 +1623,25 @@ key_repeats:
 pointer_event:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    cmp dword [rsi + RawInput.type], INPUT_MOTION   ; raw, for a surface
+    jne .moved_raw                                  ; that asked (PTR-08)
+    mov rax, [rbx + InputSeat.pointer_focus]
+    test rax, rax
+    jz .moved_raw
+    cmp dword [rax + Surface.pointer_relative], 0
+    je .moved_raw
+    push rsi
+    push rsi                            ; 16-byte aligned
+    mov r8d, [rsi + RawInput.code]
+    mov r9d, [rsi + RawInput.value]
+    mov rdi, rbx
+    mov rsi, rax
+    mov edx, POINTER_RELATIVE
+    mov ecx, EVENT_LONG
+    call send_input
+    pop rsi
+    pop rsi
+.moved_raw:
     mov eax, [rsi + RawInput.code]
     mov ecx, [rsi + RawInput.value]
     cmp dword [rsi + RawInput.type], INPUT_POSITION
@@ -1733,6 +1757,15 @@ button_event:
     mov r12d, [rsi + RawInput.code]
     cmp r12d, 31
     ja .out
+    push rsi                            ; as the device's map says (PTR-05)
+    push rsi
+    mov rdi, [rbx + InputSeat.server]
+    mov edx, [rsi + RawInput.device]
+    mov esi, r12d
+    call pointer_button
+    mov r12d, eax
+    pop rsi
+    pop rsi
     cmp qword [rbx + InputSeat.moving], 0
     jne .moving
     cmp dword [rsi + RawInput.value], 0
@@ -2073,20 +2106,64 @@ bar_press:
 
 ; Scrolling goes to the surface under the pointer
 axis_event:
-    mov eax, [rsi + RawInput.code]
-    cmp eax, 1
-    ja .drop
-    mov r8d, eax
-    mov r9d, [rsi + RawInput.value]
-    mov rsi, [rdi + InputSeat.pointer_focus]
-    test rsi, rsi
-    jz .drop
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    mov r14d, [r12 + RawInput.code]     ; the axis, 0 or 1
+    and r14d, 0xFF
+    cmp r14d, 1
+    ja .out
+    cmp qword [rbx + InputSeat.pointer_focus], 0
+    je .out
+    mov rdi, [rbx + InputSeat.server]   ; the device's speed and direction
+    mov esi, [r12 + RawInput.device]
+    call pointer_settings
+    mov r8, rax
+    mov eax, [r12 + RawInput.value]     ; in 120ths (code bit 8: as it came;
+    test dword [r12 + RawInput.code], AXIS_HIGH_RES ; else whole steps)
+    jnz .fine
+    imul eax, eax, 120
+.fine:
+    mov ecx, [r8 + PointerDevice.scroll]
+    test ecx, ecx
+    jnz .speed
+    mov ecx, 120
+.speed:
+    imul eax, ecx
+    cdq
+    mov ecx, 120
+    idiv ecx
+    test dword [r8 + PointerDevice.flags], POINTER_NATURAL
+    jz .direction
+    neg eax
+.direction:
+    mov r13d, eax
+    mov rdi, rbx                        ; in 120ths
+    mov rsi, [rbx + InputSeat.pointer_focus]
+    mov edx, POINTER_AXIS120
+    mov ecx, EVENT_LONG
+    mov r8d, r14d
+    mov r9d, r13d
+    call send_input
+    lea rcx, [rbx + InputSeat.scroll_rest + r14 * 4]   ; whole steps as they
+    mov eax, [rcx]                                      ; add up
+    add eax, r13d
+    cdq
+    mov r8d, 120
+    idiv r8d
+    mov [rcx], edx
+    test eax, eax
+    jz .out
+    mov rdi, rbx
+    mov rsi, [rbx + InputSeat.pointer_focus]
     mov edx, POINTER_AXIS
     mov ecx, EVENT_LONG
-    jmp send_input
-.drop:
+    mov r8d, r14d
+    mov r9d, eax
+    call send_input
+.out:
     xor eax, eax
-    ret
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
 ; Focus
