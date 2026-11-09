@@ -205,7 +205,7 @@
 | SUR-02 | Shared-memory buffers with ownership transfer and release | P1 | ✓ `server/buffer`: pixels in a region of their own, mapped for the client (`canvas_buffer_mmap`, one address space), released on replace; reached from other programs through `canvas_connect` |
 | SUR-03 | Fences and timelines on every buffer (explicit sync) | P1 | ✓ `cw_fence` (create, destroy, signal, reset, get_status) registered; fences are their client's (its arena, owner-checked, gone on disconnect) and attach refuses another's; a commit waits until its buffer's acquire fence is signaled or gone, retried each turn; the release fence is signaled when the buffer is let go; `cw_timeline` (create, destroy, signal, get_point) likewise: a 64-bit point that only goes up, the client's own; `cw_buffer.set_timeline` gives a buffer an acquire point its commit waits for and a release point the timeline reaches when it is let go; a timeline that is gone has reached every point; `test_window`. A fence becoming signaled sends its client `fence_signaled`, a timeline moving on `timeline_signaled` with the point, so nothing need poll; the client library makes, signals and waits on them (`client/sync_helpers`: `canvas_fence_wait`, `canvas_timeline_wait` with a deadline, every event read kept for `canvas_event_poll`; `test_clientlib`). No server-side wait requests; `server/fence`, `server/timeline` |
 | SUR-04 | Subsurfaces with sync/desync modes | P2 | ◐ `server/subsurface` |
-| SUR-05 | Opaque, input and damage regions | P1 | ◐ `cw_region` (create, destroy, add, subtract, clear) and `set_opaque_region`, `set_input_region` registered; regions are their client's (its arena, owner-checked handles, gone on disconnect); input regions steer the hit test; `test_input`. The opaque region is kept, not used yet (CMP-06); `server/regions` |
+| SUR-05 | Opaque, input and damage regions | P1 | ✓ `cw_region` (create, destroy, add, subtract, clear) and `set_opaque_region`, `set_input_region`; regions are their client's (owner-checked handles, gone on disconnect); input regions steer the hit test (`test_input`); opaque regions let the compositor skip what is beneath (`topmost_cover`, `tw_occlusion`); another client cannot touch them (`tw_foreign_objects`) |
 | SUR-06 | Buffer transforms and scale | P2 | ◐ `server/surface_transform` |
 | SUR-07 | Frame callbacks | P1 | ✓ fired when the frame is done; callback nodes and presentation records are reused |
 | SUR-08 | Surface opacity and transforms applied by the server without client re-render | P3 | |
@@ -263,7 +263,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| G2D-01 | Primitives: fill, blit, line, circle, rect clip | P1 | ◐ `ugfx/core`, `ugfx/2d` (line/circle simplified) |
+| G2D-01 | Primitives: fill, blit, line, circle, rect clip | P1 | ✓ `ugfx/core`: fill, blit, rectangle and region clip, the coverage rasterizer (`raster_check`, `clip_check`); `ugfx/2d/line` the all-octant Bresenham line, `ugfx/2d/circle` filled circles and ellipses by an exact rule, both clipped without changing their pixels; `prims_check.py` (in ugfx's `host-check`) compares every pixel with a reference |
 | G2D-02 | Region math with SIMD band operations | P3 | ◐ `ugfx/core/region` |
 | G2D-03 | Vector paths: moves, lines, quadratic and cubic Béziers, arcs, fill rules | P2 | ✓ `ugfx/2d/path`, `shapes`, `flatten`; built into Canvas |
 | G2D-04 | Strokes: width, joins, caps, dashes | P2 | ✓ `ugfx/2d/stroke`, `dash` |
