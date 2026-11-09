@@ -766,6 +766,9 @@ $(HOSTDIR)/runner_%.o: tests/host/host_runner.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -D HOST_SUITE=test_$*_suite -o $@ $<
 
+# the golden scenes' checksums come from tests/golden/make_golden.py
+$(OBJDIR)/tests/unit/test_golden.o: tests/golden/expected/golden.inc
+
 $(HOSTDIR)/test_%: $(HOSTDIR)/runner_%.o $(OBJDIR)/tests/unit/test_%.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
 	$(LD) $(HOST_LDFLAGS) -o $@ $^
 
@@ -789,6 +792,7 @@ host-check: host
 	python3 tests/host/ui_icons_check.py $(HOSTDIR)/host_ui ../ugfx/$(BUILDDIR)/host_ctx
 	python3 tests/host/compare_images.py $(HOSTDIR)/host_decode
 	python3 tests/host/fuzz_media.py $(HOSTDIR)/host_decode
+	python3 tests/golden/make_golden.py --check
 
 # The UBF passes the loader's checks, then runs to its first frame on what the
 # kernel exports.
