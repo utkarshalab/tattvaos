@@ -24,6 +24,7 @@
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/taskbar.inc"
+%include "inc/log.inc"
 
 extern arena_alloc
 extern buffer_create
@@ -316,6 +317,10 @@ server_place_output:
     call output_announce
     mov rdi, rbx                        ; the lid closed: it takes the
     call clamshell_update               ; built-in panel's place
+    mov edi, LOG_CAT_OUTPUT
+    lea rsi, [rel log_out_added]
+    mov edx, log_out_added_len
+    call log_info
     mov rax, r12
     add rsp, 16
     EPILOGUE_RESTORE rbx, r12
@@ -394,6 +399,10 @@ server_remove_output:
     mov qword [r12 + Output.fb_region], 0
     mov qword [r12 + Output.framebuffer], 0
 .freed:
+    mov edi, LOG_CAT_OUTPUT
+    lea rsi, [rel log_out_gone]
+    mov edx, log_out_gone_len
+    call log_info
     mov rdi, [r12 + Output.pixel_region]    ; at a scale, its pixels too
     test rdi, rdi
     jz .no_pixels
@@ -640,6 +649,14 @@ server_report_error:
     PROLOGUE_SAVE rbx
     sub rsp, 24 + 16                    ; { code, message, length }
     mov rbx, rdi
+    push rsi
+    push rsi                            ; 16-byte aligned
+    mov edi, LOG_CAT_CLIENT             ; logged, the rate limit keeping a
+    lea rsi, [rel log_refused]          ; flood to a few lines
+    mov edx, log_refused_len
+    call log_warn
+    pop rsi
+    pop rsi
     mov rdi, rsi
     neg rdi
     mov rax, rdi
@@ -1599,6 +1616,14 @@ section .bss
 alignb 16
 request_payload:    resb MAX_PAYLOAD_SIZE
 server_config:      resq 8
+
+section .rodata
+log_refused:    db "a request was refused"
+log_refused_len: equ $ - log_refused
+log_out_added:  db "an output was added"
+log_out_added_len: equ $ - log_out_added
+log_out_gone:   db "an output was removed"
+log_out_gone_len: equ $ - log_out_gone
 
 section .data
 global server_core_version
