@@ -686,6 +686,21 @@ cw_pointer_set_shape:
     ret
 %endif
 
+%ifdef CWP_OBJ_POINTER                 ; (an interface with no object id: none)
+global cw_pointer_set_relative
+cw_pointer_set_relative:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 4], edx  ; on
+    mov esi, CWP_OBJ_POINTER
+    mov edx, POINTER_SET_RELATIVE
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
 %ifdef CWP_OBJ_SEAT                 ; (an interface with no object id: none)
 global cw_seat_watch
 cw_seat_watch:
@@ -694,6 +709,22 @@ cw_seat_watch:
     mov edx, SEAT_WATCH
     mov rcx, rsp
     mov r8d, 0
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
+%ifdef CWP_OBJ_SEAT                 ; (an interface with no object id: none)
+global cw_seat_set_pointer
+cw_seat_set_pointer:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; device
+    mov [rsp + 4], edx  ; flags
+    mov [rsp + 8], ecx  ; scroll
+    mov esi, CWP_OBJ_SEAT
+    mov edx, SEAT_SET_POINTER
+    mov rcx, rsp
+    mov r8d, 12
     call canvas_send
     add rsp, 40
     ret
