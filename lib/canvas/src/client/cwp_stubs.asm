@@ -899,6 +899,82 @@ cw_toplevel_set_decorated:
     ret
 %endif
 
+%ifdef CWP_OBJ_TOPLEVEL                 ; (an interface with no object id: none)
+global cw_toplevel_set_min_size
+cw_toplevel_set_min_size:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 4], edx  ; width
+    mov [rsp + 8], ecx  ; height
+    mov esi, CWP_OBJ_TOPLEVEL
+    mov edx, TOPLEVEL_SET_MIN_SIZE
+    mov rcx, rsp
+    mov r8d, 12
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
+%ifdef CWP_OBJ_TOPLEVEL                 ; (an interface with no object id: none)
+global cw_toplevel_set_max_size
+cw_toplevel_set_max_size:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 4], edx  ; width
+    mov [rsp + 8], ecx  ; height
+    mov esi, CWP_OBJ_TOPLEVEL
+    mov edx, TOPLEVEL_SET_MAX_SIZE
+    mov rcx, rsp
+    mov r8d, 12
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
+%ifdef CWP_OBJ_TOPLEVEL                 ; (an interface with no object id: none)
+global cw_toplevel_set_parent
+cw_toplevel_set_parent:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 4], edx  ; parent
+    mov esi, CWP_OBJ_TOPLEVEL
+    mov edx, TOPLEVEL_SET_PARENT
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
+%ifdef CWP_OBJ_TOPLEVEL                 ; (an interface with no object id: none)
+global cw_toplevel_set_modal
+cw_toplevel_set_modal:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 4], edx  ; modal
+    mov esi, CWP_OBJ_TOPLEVEL
+    mov edx, TOPLEVEL_SET_MODAL
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
+%ifdef CWP_OBJ_TOPLEVEL                 ; (an interface with no object id: none)
+global cw_toplevel_request_attention
+cw_toplevel_request_attention:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov esi, CWP_OBJ_TOPLEVEL
+    mov edx, TOPLEVEL_REQUEST_ATTENTION
+    mov rcx, rsp
+    mov r8d, 4
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
 %ifdef CWP_OBJ_POPUP                 ; (an interface with no object id: none)
 global cw_popup_create
 cw_popup_create:
