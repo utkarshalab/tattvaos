@@ -187,12 +187,16 @@ tc_wake:
     cmp qword [rel pair + ChannelPair.wakes], 0
     jne .fail
     mov qword [rel server + Server.loop_task], 7
+    mov qword [rel pair_woken + ChannelPair.region], 0x5A5A
     lea rdi, [rel server]
     lea rsi, [rel pair_woken]
     mov edx, CLIENT_CAP_SHELL
     call client_accept
     cmp qword [rel pair_woken + ChannelPair.wake_task], 7
     jne .fail
+    cmp qword [rel pair_woken + ChannelPair.region], 0x5A5A
+    jne .fail                           ; the caller's own, kept (regression)
+    mov qword [rel pair_woken + ChannelPair.region], 0
     lea rdi, [rel pair_woken]
     lea rsi, [rel server_poll]
     lea rdx, [rel server]
@@ -223,6 +227,11 @@ tc_service:
     test rax, rax
     jz .fail
     mov [rel conn_service], rax
+    mov rcx, [rax + ClientConn.server_chan] ; the accept kept the pair's own
+    cmp qword [rcx + ChannelPair.region], 0 ; memory (regression: it once
+    je .fail                                ; overwrote it)
+    cmp qword [rcx + ChannelPair.state], 1
+    jne .fail
     mov rdi, rax
     call canvas_timeline_create
     test eax, eax
