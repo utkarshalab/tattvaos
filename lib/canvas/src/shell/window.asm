@@ -53,6 +53,7 @@ extern window_list_changed
 extern window_list_removed
 extern window_list_workspace
 extern switcher_forget
+extern ut_time_now_ns
 
 ; Events: interface << 16 | event
 %define EV_CONFIGURE    (CWP_OBJ_TOPLEVEL << 16 | TOPLEVEL_EV_CONFIGURE)
@@ -445,6 +446,17 @@ window_destroy:
     call window_list_removed
     mov rdi, r12                        ; and from an Alt+Tab
     call switcher_forget
+    mov rcx, [rbx + Server.windows]     ; its children belong to none now
+.orphan:
+    test rcx, rcx
+    jz .orphaned
+    cmp [rcx + Window.transient], r12
+    jne .next_orphan
+    mov qword [rcx + Window.transient], 0
+.next_orphan:
+    mov rcx, [rcx + Window.next]
+    jmp .orphan
+.orphaned:
     lea rcx, [rbx + Server.windows]
 .find:
     mov rdx, [rcx]
@@ -637,6 +649,24 @@ window_configure:
     sub rsp, 8                          ; 16-byte aligned
     mov rbx, [rdi + Surface.window]
     ASSERT_PTR rbx
+%macro LIMIT 3                          ; the size, its min, its max field
+    test %1, %1                         ; 0: the client picks; left so
+    jz %%done
+    mov eax, [rbx + Window.%2]
+    test eax, eax
+    jz %%no_min
+    cmp %1, eax
+    cmovb %1, eax
+%%no_min:
+    mov eax, [rbx + Window.%3]
+    test eax, eax
+    jz %%done
+    cmp %1, eax
+    cmova %1, eax
+%%done:
+%endmacro
+    LIMIT esi, min_w, max_w             ; inside its limits (WIN-08)
+    LIMIT edx, min_h, max_h
     mov r8d, esi
     mov r9d, edx
     mov r11d, [rbx + Window.state]
@@ -665,13 +695,15 @@ window_close:
 
 ; ---------------------------------------------------------------------------
 ; window_move
-;   Put a surface with a role somewhere else; both places are redrawn
+;   Put a surface with a role somewhere else; both places are redrawn. Its
+;   popups and the windows that belong to it (set_parent) move with it.
 ;   IN:  rdi = server*, rsi = surface*, edx = x, ecx = y
 ;   OUT: rax = 0, -EINVAL if it has no role
 ; ---------------------------------------------------------------------------
 global window_move
 window_move:
     PROLOGUE_SAVE rbx, r12, r13, r14
+    sub rsp, 16                         ; how far it moves; 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
     mov r13d, edx
@@ -680,6 +712,12 @@ window_move:
     mov rcx, [r12 + Surface.window]
     test rcx, rcx
     jz .out
+    mov eax, r13d
+    sub eax, [rcx + Window.x]
+    mov [rsp], eax
+    mov eax, r14d
+    sub eax, [rcx + Window.y]
+    mov [rsp + 4], eax
     mov rdi, rbx                        ; where it was
     mov rsi, r12
     call compositor_damage_surface
@@ -698,8 +736,28 @@ window_move:
     mov rdi, rbx                        ; its popups come along
     mov rsi, r12
     call follow_parent
+    mov r13, [rbx + Server.windows]     ; and its children (WIN-10, WIN-11)
+.child:
+    test r13, r13
+    jz .moved
+    cmp [r13 + Window.transient], r12
+    jne .next_child
+    cmp dword [r13 + Window.placed], 0
+    je .next_child
+    mov rdi, rbx
+    mov rsi, [r13 + Window.surface]
+    mov edx, [r13 + Window.x]
+    add edx, [rsp]
+    mov ecx, [r13 + Window.y]
+    add ecx, [rsp + 4]
+    call window_move
+.next_child:
+    mov r13, [r13 + Window.next]
+    jmp .child
+.moved:
     xor eax, eax
 .out:
+    add rsp, 16
     EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; Every popup on a surface that moved goes to its offset again, and theirs.
@@ -835,6 +893,186 @@ window_activate:
     EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
+; window_raise
+;   A surface to the top of its level, and a window's children (set_parent)
+;   above it, theirs above them
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global window_raise
+window_raise:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    test r12, r12
+    jz .out
+    call compositor_raise_surface
+    mov r13, [rbx + Server.windows]     ; each child, raised with its own
+.child:
+    test r13, r13
+    jz .out
+    cmp [r13 + Window.transient], r12
+    jne .next
+    mov rdi, rbx
+    mov rsi, [r13 + Window.surface]
+    call window_raise
+.next:
+    mov r13, [r13 + Window.next]
+    jmp .child
+.out:
+    xor eax, eax
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; window_modal_target
+;   Where the keyboard goes when it would go to a surface: to a modal child
+;   of it on the screen (and that one's, in turn), else the surface itself
+;   IN:  rdi = surface*, or 0
+;   OUT: rax = the surface to have it (0 for 0)
+; ---------------------------------------------------------------------------
+global window_modal_target
+window_modal_target:
+    mov rax, rdi
+.again:
+    test rax, rax
+    jz .done
+    mov rcx, [rax + Surface.window]
+    test rcx, rcx
+    jz .done
+    mov rcx, [rcx + Window.server]
+    mov rcx, [rcx + Server.windows]
+.child:
+    test rcx, rcx
+    jz .done
+    cmp [rcx + Window.transient], rax
+    jne .next
+    cmp dword [rcx + Window.modal], 0
+    je .next
+    mov rdx, [rcx + Window.surface]
+    cmp qword [rdx + Surface.output], 0
+    je .next                            ; not on the screen
+    mov rax, rdx
+    jmp .again
+.next:
+    mov rcx, [rcx + Window.next]
+    jmp .child
+.done:
+    ret
+
+; ---------------------------------------------------------------------------
+; window_may_take_keyboard
+;   May a window just shown take the keyboard (WIN-12)? Not when it belongs
+;   to another client than the one with the keyboard and the user pressed a
+;   key or button within FOCUS_GUARD_NS: they are busy there. Surfaces with
+;   no window role, popups and layers may.
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 1 may, 0 may not
+; ---------------------------------------------------------------------------
+%define FOCUS_GUARD_NS  1000000000
+global window_may_take_keyboard
+window_may_take_keyboard:
+    push rbx
+    mov eax, 1
+    mov rcx, [rsi + Surface.window]
+    test rcx, rcx
+    jz .out
+    cmp dword [rcx + Window.kind], ROLE_TOPLEVEL
+    jne .out
+    mov rbx, [rdi + Server.input_seat]
+    test rbx, rbx
+    jz .out
+    mov rdx, [rbx + InputSeat.keyboard_focus]
+    test rdx, rdx
+    jz .out                             ; nothing has it
+    mov r8, [rdx + Surface.client]
+    cmp r8, [rsi + Surface.client]
+    je .out                             ; the same client's
+    mov r8, [rbx + InputSeat.last_input]
+    test r8, r8
+    jz .out                             ; nothing pressed yet
+    call ut_time_now_ns
+    sub rax, [rbx + InputSeat.last_input]
+    cmp rax, FOCUS_GUARD_NS
+    setae al
+    movzx eax, al
+.out:
+    pop rbx
+    ret
+
+; ---------------------------------------------------------------------------
+; window_attention
+;   A window wants the user (WIN-14): marked urgent for the window list,
+;   unless it has the keyboard already
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global window_attention
+window_attention:
+    mov rcx, [rsi + Surface.window]
+    test rcx, rcx
+    jz .out
+    cmp dword [rcx + Window.kind], ROLE_TOPLEVEL
+    jne .out
+    mov rax, [rdi + Server.input_seat]
+    test rax, rax
+    jz .mark
+    cmp [rax + InputSeat.keyboard_focus], rsi
+    je .out
+.mark:
+    test dword [rcx + Window.state], WINDOW_URGENT
+    jnz .out
+    or dword [rcx + Window.state], WINDOW_URGENT
+    mov rsi, rcx
+    jmp window_list_changed
+.out:
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; window_set_parent
+;   A toplevel belongs to another (WIN-11): on its workspace from now on,
+;   placed on it when it first shows. 0: belongs to none.
+;   IN:  rdi = server*, rsi = surface* (a toplevel), rdx = the parent
+;        surface* (a toplevel), or 0
+;   OUT: rax = 0, -EINVAL if that would make a loop
+; ---------------------------------------------------------------------------
+global window_set_parent
+window_set_parent:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13, [r12 + Surface.window]
+    mov rax, rdx                        ; no loop: the parent's own parents
+.up:                                    ; never reach this one
+    test rax, rax
+    jz .fine
+    cmp rax, r12
+    je .loop
+    mov rax, [rax + Surface.window]
+    mov rax, [rax + Window.transient]
+    jmp .up
+.fine:
+    mov [r13 + Window.transient], rdx
+    test rdx, rdx
+    jz .done
+    mov rax, [rdx + Surface.window]     ; on its parent's workspace
+    mov edx, [rax + Window.workspace]
+    mov rdi, rbx
+    mov rsi, r12
+    call window_move_to_workspace
+.done:
+    xor eax, eax
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+.loop:
+    mov rax, -(EINVAL)
+    jmp .out
+
+; ---------------------------------------------------------------------------
 ; window_set_decorated
 ;   The server draws its title bar, or stops
 ;   IN:  rdi = server*, rsi = surface*, edx = 1 on, 0 off
@@ -935,6 +1173,7 @@ window_move_to_workspace:
     js .out
     mov r13, rax
     mov [r13 + Window.workspace], edx
+    mov [rsp], edx
     mov rdi, rbx
     mov rsi, r13
     mov edx, SHOW | HIDE
@@ -942,6 +1181,20 @@ window_move_to_workspace:
     mov rdi, rbx
     mov rsi, r13
     call window_list_changed
+    mov r13, [rbx + Server.windows]     ; its children go with it (WIN-11)
+.child:
+    test r13, r13
+    jz .moved
+    cmp [r13 + Window.transient], r12
+    jne .next_child
+    mov rdi, rbx
+    mov rsi, [r13 + Window.surface]
+    mov edx, [rsp]
+    call window_move_to_workspace
+.next_child:
+    mov r13, [r13 + Window.next]
+    jmp .child
+.moved:
     xor eax, eax
 .out:
     add rsp, 8
@@ -989,7 +1242,16 @@ window_commit:
     je .popup
     cmp eax, ROLE_LAYER
     je .layer
+    mov rax, [r13 + Window.transient]   ; a child: centred on its parent
+    test rax, rax
+    jz .at_pointer
+    cmp qword [rax + Surface.output], 0
+    je .at_pointer                      ; parent off the screen
+    call place_on_transient
+    jmp .window_placed
+.at_pointer:
     call place_at_pointer
+.window_placed:
     mov dword [r13 + Window.placed], 1
     call put
     mov rdi, rbx                        ; on the output it is on
@@ -1548,6 +1810,53 @@ place_at_pointer:
     add dword [rsi + Window.y], TITLEBAR_H
 .done:
     ret
+
+; Centred on the toplevel it belongs to, kept on that one's output; a
+; window with a title bar placed with it, the bar on top.
+; rdi = server, rsi = window, edx = width, ecx = height
+place_on_transient:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13d, edx
+    mov r14d, ecx
+    cmp dword [r12 + Window.decorated], 0
+    je .sized
+    add r14d, TITLEBAR_H
+.sized:
+    mov r15, [r12 + Window.transient]
+    mov rsi, [r15 + Surface.current + SurfaceState.buffer]
+    mov rdi, [rbx + Server.buffer_table]
+    call handle_resolve
+    xor ecx, ecx                        ; the parent's size (0 without one)
+    xor edx, edx
+    test rax, rax
+    jz .size
+    mov rdi, r15
+    mov rsi, rax
+    call surface_logical_size
+    mov ecx, eax
+.size:
+    mov eax, ecx                        ; x = its x + (its w - w) / 2
+    sub eax, r13d
+    sar eax, 1
+    add eax, [r15 + Surface.current + SurfaceState.buf_x]
+    mov r10d, edx                       ; y likewise
+    sub r10d, r14d
+    sar r10d, 1
+    add r10d, [r15 + Surface.current + SurfaceState.buf_y]
+    mov r8, [r15 + Surface.output]
+    mov rsi, r12
+    mov edx, r13d
+    mov ecx, r14d
+    call keep_on_output
+    cmp dword [r12 + Window.decorated], 0
+    je .out
+    add dword [r12 + Window.y], TITLEBAR_H
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 ; At its offset on its parent.
 ; rdi = server, rsi = window, edx = width, ecx = height
