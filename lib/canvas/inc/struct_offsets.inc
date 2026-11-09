@@ -1447,6 +1447,20 @@ struc SeatSession
     .power_inhibit:           resq 1
 endstruc
 
+; A pointing device's settings (input/pointer_settings)
+struc PointerDevice
+    .device:                  resd 1    ; the records' device
+    .used:                    resd 1    ; 1: an entry in use
+    .flags:                   resd 1    ; POINTER_*
+    .scroll:                  resd 1    ; scroll speed in 120ths, 0: 120
+    .ready:                   resb 1    ; 1: filled (the map set)
+    resb 7
+    .map:                     resb 32   ; button n acts as map[n], 0xFF: n
+endstruc
+%define POINTER_DEVICES     8           ; devices with settings of their own
+%define POINTER_NATURAL     1           ; scrolling reversed
+%define POINTER_LEFT_HANDED 2           ; left and right buttons swapped
+
 struc Server
     .arena:                   resq 1
     .backend:                 resq 1
@@ -1581,6 +1595,8 @@ struc Server
     .connects:                resb 192  ; CONNECT_SLOTS ConnectSlot: other
                                         ; programs waiting (server/service)
     .wakes:                   resq 1    ; times it was woken for work
+    .pointer_default:         resb PointerDevice_size   ; any device's
+    .pointer_devices:         resb PointerDevice_size * POINTER_DEVICES
     .magnify_follow:          resq 1    ; 1: the view on magnify_rect, the
                                         ; keyboard's; 0: round the pointer
     .magnify_rect:            resd 4    ; x, y, w, h of what has the keyboard
@@ -1651,6 +1667,7 @@ struc InputSeat
     .switches:                resd 1    ; bit n: switch n on (INPUT_SWITCH)
     .switch_pad:              resd 1
     .last_input:              resq 1    ; when a key or button was last pressed
+    .scroll_rest:             resd 2    ; 120ths of a step not yet sent, per axis
     .tp_slot:                 resd 5    ; TOUCHPAD_FINGERS: a touchpad's
     .tp_x:                    resd 5    ; slots + 1 (0 free) and places, in
     .tp_y:                    resd 5    ; the layout (input/gestures)
@@ -1747,7 +1764,7 @@ struc Surface
     .fence_wait:              resq 1    ; 1: a commit waits for an acquire fence
     .cursor_shape:            resq 1    ; cw_pointer.shape while the pointer is over it
     .buffer_scale:            resd 1    ; its buffer's scale in 120ths, 0: 120
-    resb 4
+    .pointer_relative:        resd 1    ; 1: raw motion while the pointer is over it
 endstruc
 
 ; A surface with a shell role (src/shell/window.asm): a toplevel window,
