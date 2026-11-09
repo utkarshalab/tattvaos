@@ -662,13 +662,6 @@ $(IMAGEDIR)/golden_test.img: $(OBJDIR)/tests/golden/golden_test.o $(OBJDIR)/test
 	$(LD) $(LDFLAGS) -e golden_test_main -o $@ $(filter-out linker.ld,$^)
 	@echo "  IMG    $@"
 
-# Fuzz targets (C31)
-FUZZ_SRCS := \
-    tests/fuzz/fuzz_wire.asm \
-    tests/fuzz/fuzz_objects.asm \
-    tests/fuzz/fuzz_keymap_config.asm \
-    tests/fuzz/fuzz_media.asm
-
 # Soak tests (C31)
 SOAK_SRCS := \
     tests/soak/soak_churn.asm \
@@ -698,13 +691,6 @@ CTS_SRCS := \
 CTS_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(CTS_SRCS))
 SOAK_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(SOAK_SRCS))
 BENCH_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(BENCH_SRCS))
-FUZZ_EXTRA_OBJS := $(patsubst tests/%.asm,$(OBJDIR)/tests/%.o,$(FUZZ_SRCS))
-
-# Fuzz runner image
-$(IMAGEDIR)/fuzz_runner.img: $(OBJDIR)/tests/fuzz/fuzz_driver.o $(FUZZ_EXTRA_OBJS) $(UT_OBJS) $(TEST_LIB_OBJS) linker.ld
-	@mkdir -p $(IMAGEDIR)
-	$(LD) $(LDFLAGS) -e fuzz_driver_main -o $@ $(filter-out linker.ld,$^)
-	@echo "  IMG    $@"
 
 # Replay test image
 $(IMAGEDIR)/replay_test.img: $(OBJDIR)/tests/replay/replay_test.o $(UT_OBJS) $(TEST_LIB_OBJS) linker.ld
@@ -714,7 +700,7 @@ $(IMAGEDIR)/replay_test.img: $(OBJDIR)/tests/replay/replay_test.o $(UT_OBJS) $(T
 
 # Test target
 .PHONY: test
-test: $(IMAGEDIR)/test_runner.img $(IMAGEDIR)/golden_test.img $(IMAGEDIR)/fuzz_runner.img $(IMAGEDIR)/replay_test.img
+test: $(IMAGEDIR)/test_runner.img $(IMAGEDIR)/golden_test.img $(IMAGEDIR)/replay_test.img
 	@echo "All test images built"
 	@echo "Run on Utkarsha to execute tests"
 
@@ -728,11 +714,6 @@ $(OBJDIR)/tests/%.o: tests/%.asm $(HEADERS)
 	@echo "  ASM    $<"
 
 $(OBJDIR)/tests/golden/%.o: tests/golden/%.asm $(HEADERS)
-	@mkdir -p $(dir $@)
-	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
-	@echo "  ASM    $<"
-
-$(OBJDIR)/tests/fuzz/%.o: tests/fuzz/%.asm $(HEADERS)
 	@mkdir -p $(dir $@)
 	$(NASM) $(NASMFLAGS) -I inc/ -o $@ $<
 	@echo "  ASM    $<"
@@ -770,7 +751,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 
 HOSTDIR       := $(BUILDDIR)/host
 HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input greeter window taskbar ui_text clientlib fields region quota tile_diff \
-                 inflate icc record_replay rfb webp png jpeg
+                 inflate icc record_replay rfb webp png jpeg fuzz
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
 HOST_TESTS    := $(addprefix $(HOSTDIR)/test_,$(HOST_SUITES))
@@ -805,6 +786,7 @@ host-check: host
 	python3 tests/host/svg_text_check.py $(HOSTDIR)/host_decode ../ugfx/$(BUILDDIR)/host_ctx ../ufont/fonts
 	python3 tests/host/ui_icons_check.py $(HOSTDIR)/host_ui ../ugfx/$(BUILDDIR)/host_ctx
 	python3 tests/host/compare_images.py $(HOSTDIR)/host_decode
+	python3 tests/host/fuzz_media.py $(HOSTDIR)/host_decode
 
 # The UBF passes the loader's checks, then runs to its first frame on what the
 # kernel exports.
@@ -844,16 +826,20 @@ pic-check: all
 
 # Everything a change must pass: the layout and field checks, all images and
 # test images in debug and release, W^X and position independence, the host
-# suites and conformance checks, and the UBF in both modes. The fuzz images are
-# built here; their suites are still to be written.
+# suites (test_fuzz among them) and conformance checks, the decoders fuzzed
+# (fuzz_media.py), and the UBF in both modes.
 .PHONY: check
 check: field-width-check all test wx-check pic-check host-check ubf-check release
 	$(MAKE) MODE=release ubf-check
 	@echo "check: passed"
 
+# Longer fuzzing than make check's: the wire and input suite, and the
+# decoders with FUZZ_ROUNDS mutants per seed.
+FUZZ_ROUNDS ?= 2000
 .PHONY: fuzz
-fuzz: $(IMAGEDIR)/fuzz_runner.img
-	@echo "Running fuzz tests..."
+fuzz: $(HOSTDIR)/test_fuzz $(HOSTDIR)/host_decode
+	$(HOSTDIR)/test_fuzz
+	python3 tests/host/fuzz_media.py $(HOSTDIR)/host_decode $(FUZZ_ROUNDS)
 
 # Soak test image (C31)
 $(IMAGEDIR)/soak_test.img: $(OBJDIR)/tests/soak_runner.o $(SOAK_OBJS) $(UT_OBJS) $(CORE_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(SERVER_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) $(OUTPUT_SRCS:$(SRCDIR)/%.asm=$(OBJDIR)/%.o) linker.ld
@@ -938,7 +924,7 @@ help:
 	@echo "  tools        Build development tools"
 	@echo "  clients      Build reference client images"
 	@echo "  test         Run all tests (unit, golden, replay)"
-	@echo "  fuzz         Run fuzz tests"
+	@echo "  fuzz         Fuzz the wire, input and decoders, longer than check"
 	@echo "  soak         Run 24h soak test"
 	@echo "  bench        Run benchmarks"
 	@echo "  cts          Run conformance suite"
