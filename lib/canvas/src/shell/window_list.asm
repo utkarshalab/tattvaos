@@ -137,6 +137,19 @@ window_list_activated:
     jz .have
     cmp dword [rcx + Window.kind], ROLE_TOPLEVEL
     jne .have
+    test dword [rcx + Window.state], WINDOW_URGENT
+    jz .heard                           ; it has the user now: urgent no more
+    and dword [rcx + Window.state], ~WINDOW_URGENT
+    push rdi
+    push rcx
+    sub rsp, 8                          ; 16-byte aligned
+    mov rdi, rcx
+    xor esi, esi
+    call send_window
+    add rsp, 8
+    pop rcx
+    pop rdi
+.heard:
     mov eax, [rdi + Server.focus_seq]   ; when it had it, for Alt+Tab
     inc eax
     mov [rdi + Server.focus_seq], rax
