@@ -1203,7 +1203,7 @@ fe_transfer:
     inc ecx
     cmp ecx, 3
     jb .t_channel
-    movzx eax, byte [rbx + FR_LUT + 3 * 256 + r8]
+    movzx eax, byte [r8 + rbx + FR_LUT + 3 * 256]
     mov [rbx + FR_T + 44], eax
     call fe_premul_out
     pop r12
@@ -2654,7 +2654,7 @@ fe_turb_sum:
     imul eax, 514
     lea r10, [rax + rcx]
     shl r10, 4
-    lea r11, [r15 + TB_GRAD + r10]
+    lea r11, [r10 + r15 + TB_GRAD]
     movsd xmm0, xmm8
     mulsd xmm0, [r11]
     movsd xmm1, xmm10
@@ -2662,7 +2662,7 @@ fe_turb_sum:
     addsd xmm0, xmm1                    ; u
     lea r10, [rax + rdx]
     shl r10, 4
-    lea r11, [r15 + TB_GRAD + r10]
+    lea r11, [r10 + r15 + TB_GRAD]
     movsd xmm1, xmm9
     mulsd xmm1, [r11]
     movsd xmm2, xmm10
@@ -2674,7 +2674,7 @@ fe_turb_sum:
     movsd xmm14, xmm1                   ; a = u + sx (v - u)
     lea r10, [rax + r8]
     shl r10, 4
-    lea r11, [r15 + TB_GRAD + r10]
+    lea r11, [r10 + r15 + TB_GRAD]
     movsd xmm0, xmm8
     mulsd xmm0, [r11]
     movsd xmm1, xmm11
@@ -2682,7 +2682,7 @@ fe_turb_sum:
     addsd xmm0, xmm1                    ; u
     lea r10, [rax + r9]
     shl r10, 4
-    lea r11, [r15 + TB_GRAD + r10]
+    lea r11, [r10 + r15 + TB_GRAD]
     movsd xmm1, xmm9
     mulsd xmm1, [r11]
     movsd xmm2, xmm11
