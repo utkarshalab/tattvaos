@@ -80,7 +80,7 @@ if [ "$ENTRY" -lt $((0x100000 + 40)) ] || [ "$ENTRY" -ge $((0x100000 + EXEC_SIZE
     echo "ulf: entry point $ENTRY is outside the executable extent" >&2
     exit 1
 fi
-if [ "$MEM_SIZE" -lt "$SZ" ] || [ "$MEM_SIZE" -gt $((64 * 1024 * 1024)) ] || [ $((MEM_SIZE % 8)) -ne 0 ]; then
+if [ "$MEM_SIZE" -lt "$SZ" ] || [ "$MEM_SIZE" -gt $((256 * 1024 * 1024)) ] || [ $((MEM_SIZE % 8)) -ne 0 ]; then
     echo "ulf: invalid memory extent $MEM_SIZE for $SZ-byte image" >&2
     exit 1
 fi
