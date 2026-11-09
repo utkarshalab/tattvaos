@@ -98,12 +98,15 @@
 %define REGION_GET_RECTS 5
 
 ; cw_pointer (canvas-input.cwp)
-%define POINTER_SET_SHAPE 0
-%define POINTER_EV_ENTER  0
-%define POINTER_EV_LEAVE  1
-%define POINTER_EV_MOTION 2
-%define POINTER_EV_BUTTON 3
-%define POINTER_EV_AXIS   4
+%define POINTER_SET_SHAPE          0
+%define POINTER_SET_RELATIVE       1
+%define POINTER_EV_ENTER           0
+%define POINTER_EV_LEAVE           1
+%define POINTER_EV_MOTION          2
+%define POINTER_EV_BUTTON          3
+%define POINTER_EV_AXIS            4
+%define POINTER_EV_AXIS_VALUE120   5
+%define POINTER_EV_RELATIVE_MOTION 6
 
 ; cw_touch (canvas-input.cwp)
 %define TOUCH_EV_DOWN   0
@@ -137,6 +140,7 @@
 
 ; cw_seat (canvas-input.cwp)
 %define SEAT_WATCH       0
+%define SEAT_SET_POINTER 1
 %define SEAT_EV_SWITCHED 0
 %define SEAT_EV_DEVICE   1
 %define SEAT_EV_DONE     2
