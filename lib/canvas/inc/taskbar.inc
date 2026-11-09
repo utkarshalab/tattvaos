@@ -10,6 +10,7 @@
 %define TASKBAR_BG          0xFF181C28  ; the bar
 %define TASKBAR_DIM         0xFF3A3F50  ; a minimized window's block
 %define TASKBAR_INK         0xFFD0D4E0  ; the stripe over the active window
+%define TASKBAR_URGENT      0xFFE0A000  ; a window that wants the user
 
 ; Along the bottom edge, the output's width; it keeps its height from
 ; maximized windows
