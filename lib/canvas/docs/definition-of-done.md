@@ -27,6 +27,8 @@ when testing is enough.
    - A decision record covers any choice between real alternatives.
 6. **Committed** one file per commit with a message saying what changed and
    why, and pushed.
+7. **A bug fixed** comes with the test that fails without the fix, and a row
+   in `regressions.md` (QA-19).
 
 ## By subsystem
 
