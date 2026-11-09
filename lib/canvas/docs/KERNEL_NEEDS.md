@@ -40,7 +40,7 @@ mapping, asking the kernel for the result is simpler than mapping it again.
 Pixels are 32-bit BGRX; Canvas does not read the format field yet, so a
 framebuffer in another format would show wrong colours.
 
-These six are the UBF's only required imports. It imports 38 more names, all
+These six are the UBF's only required imports. It imports 41 more names, all
 weak: the load succeeds without them, the slot stays 0, and Canvas's stub for
 that name returns `-ENOSYS`. Canvas starts without any of them and yields in
 its loop when `ut_waitset_create` is not there. An export for one of those
@@ -56,13 +56,37 @@ clients will need more, so honouring `stack_size` will matter soon.
 
 ## Step 2: clients in other programs
 
-- **KRN-03:** a channel a client can find. In one address space this can be as
-  small as a published entry point that hands a program its `ChannelPair`
-  (`client_accept` in `src/server/client/client.asm` already fills one).
-- **KRN-04:** with one address space, buffer pixels are shared already; passing
-  handles becomes passing checked numbers.
-- `ut_waitset_create` and `ut_wait_wait`, or a way to sleep until a client has
-  written, so that the event loop does not spin on `ut_yield`.
+Canvas has its side of this built and tested; two small exports let other
+programs use it.
+
+| Export | In | Out |
+|---|---|---|
+| `ut_service_publish` | `rdi` a NUL-terminated name, `rsi` an entry point, `rdx` a cookie | `rax` 0 or negative error |
+| `ut_service_lookup` | `rdi` a NUL-terminated name | `rax` the entry point, `rdx` its cookie; or `rax` negative (`-ENOENT`) |
+
+- **KRN-03.** canvasd publishes `"canvas"` at start. A client's
+  `canvas_connect` looks it up and calls the entry on its own task with a
+  `ChannelPair` it allocated. The entry only queues the pair (a
+  compare-and-swap on one of eight slots) and wakes the server. The server
+  accepts it on its own loop and marks the pair ready, and the client then
+  talks over the rings in it (`src/server/client/service.asm`). Calls from
+  many clients at once are safe. Nothing more is needed while all programs
+  share one address space.
+- **KRN-04.** With one address space, buffer pixels are shared already, and
+  passing handles is passing numbers the server checks (generation and
+  owner). Nothing is needed from the kernel.
+- **Waking the loop.** canvasd's loop sleeps in `ut_wait_wait` (with
+  `ut_waitset_create`) and takes `ut_task_self` at start. Work wakes it with
+  `ut_wait_wake_task(that task)`:
+  - a raw input record queued, from the input callback;
+  - a display reported;
+  - a client's send, through the task in its `ChannelPair`.
+
+  So `ut_wait_wake_task` must end that task's `ut_wait_wait`, and a wake that
+  comes while it is not waiting must make its next `ut_wait_wait` return at
+  once, so that no wake is lost. It may be called from the input callback's
+  context. Without these exports the loop yields instead (`ut_yield`) and
+  still serves everything, only busier.
 
 ## Step 3: input
 
