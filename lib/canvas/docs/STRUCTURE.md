@@ -558,17 +558,8 @@ canvas/
 │   │   ├── cts_security.asm           # C33
 │   │   └── cts_governance.asm         # C33
 │   ├── fuzz/
-│   │   ├── fuzz_wire.asm              # C31
-│   │   ├── fuzz_objects.asm           # C31
-│   │   ├── fuzz_keymap.asm            # C31
-│   │   ├── fuzz_config.asm            # C31
-│   │   ├── fuzz_png.asm               # C31
-│   │   ├── fuzz_jpeg.asm              # C31
-│   │   ├── fuzz_gif.asm               # C31
-│   │   ├── fuzz_ttf.asm               # C31
-│   │   ├── fuzz_icc.asm               # C31
-│   │   ├── fuzz_rfb.asm               # C31
-│   │   └── corpus/                    # seed inputs per target
+│   │   └── corpus/                    # how the fuzzers make their inputs
+│   │                                  # (unit/test_fuzz, host/fuzz_media.py)
 │   ├── soak/
 │   │   ├── soak_churn.asm             # C31  clients connecting, committing, faulting
 │   │   ├── soak_hotplug.asm           # C31
