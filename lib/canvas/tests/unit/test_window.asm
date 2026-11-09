@@ -41,6 +41,8 @@ extern scale_fractional_compute
 extern output_set_scale
 extern magnify_focus
 extern window_move_to_workspace
+extern server_set_pointer
+extern server_set_button_map
 extern server_set_pen_curve
 extern compositor_output_at
 extern scale_fractional_calculate_dest
@@ -179,6 +181,9 @@ test_window_suite:
     CASE tw_modal, CAP_SHELL
     CASE tw_attention, CAP_SHELL
     CASE tw_focus_steal, CAP_SHELL
+    CASE tw_scroll, CAP_SHELL | CAP_SESSION
+    CASE tw_buttons, CAP_SHELL
+    CASE tw_relative, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -3102,6 +3107,145 @@ tw_touch:
     EVENT_IS {CWP_OBJ_TOUCH, TOUCH_EV_DOWN}, surface_a, 2, 6 | (2 << 16)
     PASS
 
+; a record of type %1, code %2, value %3 from device %4
+%macro INJECT_FROM 4
+    lea rdi, [rel server]
+    mov esi, %1
+    mov edx, %2
+    mov ecx, %3
+    mov r8d, %4
+    call virtual_input_inject
+%endmacro
+; the next axis_value120 and axis events for window A
+%macro SCROLLED 2                       ; 120ths, whole steps (none: skip)
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_AXIS_VALUE120}, surface_a, 0, %1
+  %if %2 != 0
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_AXIS}, surface_a, 0, %2
+  %endif
+%endmacro
+
+; PTR-03, PTR-04: two steps are 240 and 2; a fine wheel's 60 and 60 make
+; one step only at the second; natural scrolling reverses; device 3 at
+; double speed; cw_seat.set_pointer sets the default
+tw_scroll:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    POINTER 15, 15
+    call poll
+    call drain
+    INJECT INPUT_AXIS, 0, 2
+    call poll
+    SCROLLED 240, 2
+    INJECT INPUT_AXIS, 0x100, 60
+    call poll
+    SCROLLED 60, 0
+    mov edi, CWP_OBJ_POINTER            ; no whole step yet
+    mov esi, POINTER_EV_AXIS
+    call find_event
+    test eax, eax
+    jnz .fail
+    INJECT INPUT_AXIS, 0x100, 60
+    call poll
+    SCROLLED 60, 1
+    lea rdi, [rel server]
+    mov esi, -1
+    mov edx, POINTER_NATURAL
+    xor ecx, ecx
+    call server_set_pointer
+    INJECT INPUT_AXIS, 0, 1
+    call poll
+    SCROLLED -120, -1
+    lea rdi, [rel server]
+    mov esi, 3
+    xor edx, edx
+    mov ecx, 240
+    call server_set_pointer
+    INJECT_FROM INPUT_AXIS, 0, 1, 3
+    call poll
+    SCROLLED 240, 2
+    mov dword [rel req], -1             ; the protocol: default natural off
+    mov dword [rel req + 4], 0
+    mov dword [rel req + 8], 0
+    SEND CWP_OBJ_SEAT, SEAT_SET_POINTER, 12
+    call poll
+    INJECT INPUT_AXIS, 0, 1
+    call poll
+    SCROLLED 120, 1
+    PASS
+
+; PTR-05: left-handed, a left press is the right button and a right the
+; left; device 4 maps
+; its button 2 to 7
+tw_buttons:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    POINTER 15, 15
+    call poll
+    call drain
+    lea rdi, [rel server]
+    mov esi, -1
+    mov edx, POINTER_LEFT_HANDED
+    xor ecx, ecx
+    call server_set_pointer
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 1, 1
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 1, 0
+    INJECT INPUT_BUTTON, 1, 1           ; and a right press the left
+    INJECT INPUT_BUTTON, 1, 0
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 0, 1
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 0, 0
+    lea rdi, [rel button_map]           ; every button itself, 2 as 7
+    mov al, 0xFF
+    mov ecx, 32
+    rep stosb
+    mov byte [rel button_map + 2], 7
+    lea rdi, [rel server]
+    mov esi, 4
+    lea rdx, [rel button_map]
+    call server_set_button_map
+    test rax, rax
+    jnz .fail
+    INJECT_FROM INPUT_BUTTON, 2, 1, 4
+    INJECT_FROM INPUT_BUTTON, 2, 0, 4
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 7, 1
+    PASS
+
+; PTR-08: a window that asks hears the raw motion over it, 5, -3
+tw_relative:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    POINTER 15, 15
+    call poll
+    call drain
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], 1
+    SEND CWP_OBJ_POINTER, POINTER_SET_RELATIVE, 8
+    call poll
+    INJECT INPUT_MOTION, 5, -3
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_RELATIVE_MOTION}, surface_a, 5, -3
+    PASS
+
 ; a raw pen record: type %1, code %2, value %3
 %macro PEN 3
     lea rdi, [rel server]
@@ -4289,6 +4433,7 @@ foreign_region: resd 1
 foreign_fence:  resd 1
 foreign_timeline: resd 1
 alignb 8
+button_map:     resb 32
 output_b:       resq 1
 alignb 8
 picked:         resq 1
