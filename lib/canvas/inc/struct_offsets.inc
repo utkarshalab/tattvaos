@@ -1657,7 +1657,7 @@ struc InputSeat
     .tp_cx0:                  resd 1    ; and when the count last changed
     .tp_cy0:                  resd 1
     .tp_spread0:              resd 1    ; their spread then
-    .tp_pad:                  resd 1
+    .tp_total:                resd 1    ; a server swipe's move across
     .tp_surface:              resq 1    ; the gesture's surface, 0: none
     .keys:                    resb 32   ; held keycodes 0-255, a bit each
     .queue:                   resb INPUT_QUEUE_LEN * RawInput_size
