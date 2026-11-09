@@ -100,6 +100,7 @@ extern output_list
 extern seat_watch
 extern clamshell_update
 extern window_set_parent
+extern server_set_pointer
 extern input_focus_surface
 extern window_attention
 extern ut_wait_wake_task
@@ -1150,6 +1151,30 @@ HANDLER h_pointer_set_shape, 8
     mov [rax + Surface.cursor_shape], rcx
     mov rdi, r14
     call sw_cursor_redraw
+HANDLER_END
+
+; cw_pointer.set_relative(surface, on): raw motion while over it (PTR-08)
+HANDLER h_pointer_set_relative, 8
+    NEEDS_CAP CAP_POINTER
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    xor ecx, ecx
+    cmp dword [r13 + 4], 0
+    setne cl
+    mov [rax + Surface.pointer_relative], ecx
+HANDLER_END
+
+; cw_seat.set_pointer(device, flags, scroll): a device's settings, or the
+; default's (PTR-03, PTR-05)
+HANDLER h_seat_set_pointer, 12
+    NEEDS_CAP CAP_SESSION
+    mov rdi, r14
+    mov esi, [r13]
+    mov edx, [r13 + 4]
+    mov ecx, [r13 + 8]
+    call server_set_pointer
 HANDLER_END
 
 ; cw_layer.set_output(surface, output: the nth, 0 the first)
