@@ -41,8 +41,8 @@ Written for: connect/disconnect, cap grant/deny, privileged call, policy change.
 |-------|----------|------------|
 | **X11: None** | Any client keylogs, screenshots, injects | Default deny, explicit grant |
 | **Wayland: Ad-hoc** | Each compositor invents own (xdg-desktop-portal, etc.) | Unified profiles + protocol |
-| **SELinux/AppArmor** | Complex, process-based, not protocol-aware | Protocol-level, per-interface |
-| **Flatpak portals** | DBus, separate daemon, async | In-process, synchronous, audited |
+| **Process-based access control** | Complex, not protocol-aware | Protocol-level, per-interface |
+| **A separate permission daemon** | Asynchronous, another moving part | In-process, synchronous, audited |
 
 **Server-drawn prompts** (not client-drawn) because:
 - Cannot be spoofed/overlaid
