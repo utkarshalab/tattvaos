@@ -190,7 +190,7 @@ pair(ka)
 run(((a, ka), (b, kb)))
 io = [c[1] for c in ca.cmd_log[mark:] if c[0] == 0x042B][0]
 check("A's IO capability says it has out-of-band data", io[7], 1)
-check("A answered the controller with B's C and R", [c[1][38:] for c in ca.cmd_log[mark:] if c[0] == 0x045D],
+check("A answered the controller with B's C and R", [c[1][38:] for c in ca.cmd_log[mark:] if c[0] == 0x0445],
       [cb.oob_c + cb.oob_r])
 check("paired without a question, authenticated", ([k for k, _ in asked[a]], KA.sec), ([PAIRED], 3))
 forget()
