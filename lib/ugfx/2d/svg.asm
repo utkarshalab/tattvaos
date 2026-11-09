@@ -984,6 +984,7 @@ svg_cm_hue_a:       dq 0.213, 0.715, 0.072, 0.0, 0.0, 0.213, 0.715, 0.072, 0.0, 
 svg_cm_hue_b:       dq 0.787, -0.715, -0.072, 0.0, 0.0, -0.213, 0.285, -0.072, 0.0, 0.0, -0.213, -0.715, 0.928, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 svg_cm_hue_c:       dq -0.213, -0.715, 0.928, 0.0, 0.0, 0.143, 0.14, -0.283, 0.0, 0.0, -0.787, 0.715, 0.072, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 svg_word_preserve:  db "preserve"
+svg_word_preserve_len equ $ - svg_word_preserve
 svg_marker_words:
     NAME "markerUnits", 1
     NAME "refX", 2
@@ -1005,6 +1006,7 @@ svg_overflow_words:
     db 0
 svg_three_text:     db "3"
 svg_word_user:      db "userSpaceOnUse"
+svg_word_user_len equ $ - svg_word_user
 align 8
 svg_deg:            dq 0x3F91DF46A2529D39   ; pi / 180
 svg_two_pi:         dq 6.283185307179586
@@ -1038,9 +1040,11 @@ svg_zero_text:      db "0"
 align 8
 svg_1_5:            dq 1.5
 svg_word_alpha:     db "alpha"
+svg_word_alpha_len equ $ - svg_word_alpha
 svg_m10:            db "-10%"
 svg_120:            db "120%"
 svg_word_obb:       db "objectBoundingBox"
+svg_word_obb_len equ $ - svg_word_obb
 svg_cond_words:
     NAME "requiredExtensions", 1
     NAME "systemLanguage", 2
@@ -1063,21 +1067,37 @@ svg_par_words:
 align 8
 svg_align_f:        dq 0.0, 0.5, 1.0
 svg_word_inherit:   db "inherit"
+svg_word_inherit_len equ $ - svg_word_inherit
 svg_word_visible:   db "visible"
+svg_word_visible_len equ $ - svg_word_visible
 svg_word_hidden:    db "hidden"
+svg_word_hidden_len equ $ - svg_word_hidden
 svg_word_collapse:  db "collapse"
+svg_word_collapse_len equ $ - svg_word_collapse
 svg_word_normal:    db "normal"
+svg_word_normal_len equ $ - svg_word_normal
 svg_word_fill:      db "fill"
+svg_word_fill_len equ $ - svg_word_fill
 svg_word_stroke:    db "stroke"
+svg_word_stroke_len equ $ - svg_word_stroke
 svg_word_markers:   db "markers"
+svg_word_markers_len equ $ - svg_word_markers
 svg_word_none:      db "none"
+svg_word_none_len equ $ - svg_word_none
 svg_word_butt:      db "butt"
+svg_word_butt_len equ $ - svg_word_butt
 svg_word_round:     db "round"
+svg_word_round_len equ $ - svg_word_round
 svg_word_square:    db "square"
+svg_word_square_len equ $ - svg_word_square
 svg_word_miter:     db "miter"
+svg_word_miter_len equ $ - svg_word_miter
 svg_word_bevel:     db "bevel"
+svg_word_bevel_len equ $ - svg_word_bevel
 svg_word_evenodd:   db "evenodd"
+svg_word_evenodd_len equ $ - svg_word_evenodd
 svg_word_nonzero:   db "nonzero"
+svg_word_nonzero_len equ $ - svg_word_nonzero
 
 section .text
 
@@ -1091,8 +1111,8 @@ svg_word:
 .byte:
     cmp r8d, ecx
     jae .done                           ; ZF from cmp below / xor: equal
-    movzx eax, byte [rdi + r8]
-    cmp al, [rdx + r8]
+    movzx eax, byte [r8 + rdi]
+    cmp al, [r8 + rdx]
     jne .done
     inc r8d
     jmp .byte
@@ -1101,7 +1121,7 @@ svg_word:
 
 %macro IS_WORD 1
     lea rdx, [rel svg_word_%1]
-    mov ecx, %strlen(%1)
+    mov ecx, svg_word_%1_len
     call svg_word_trimmed
 %endmacro
 
@@ -3604,8 +3624,8 @@ svg_pattern_attrs:
     ja .other
     lea eax, [r14 - 3]
     shl eax, 4
-    mov [rsp + PA_RAW + rax], rdi
-    mov [rsp + PA_RAW + rax + 8], rsi
+    mov [rax + rsp + PA_RAW], rdi
+    mov [rax + rsp + PA_RAW + 8], rsi
     jmp .attr
 .units:
     call ugfx_svg_trim
@@ -3684,8 +3704,8 @@ svg_pattern_attrs:
     movsd [r13 + UgfxSvgPattern_rect + r14 * 8], xmm0
     mov eax, r14d
     shl eax, 4
-    mov rdi, [rsp + PA_RAW + rax]
-    mov rsi, [rsp + PA_RAW + rax + 8]
+    mov rdi, [rax + rsp + PA_RAW]
+    mov rsi, [rax + rsp + PA_RAW + 8]
     cmp dword [r13 + UgfxSvgPattern_units], 0
     je .rect_user
     push rsi
@@ -4210,7 +4230,7 @@ svg_vertices:
 .verb:
     cmp r13d, [r12 + UgfxSvgItem_path + UgfxPath_verb_count]
     jae .out
-    movzx eax, byte [rbx + r13]
+    movzx eax, byte [r13 + rbx]
     inc r13d
     cmp eax, PATH_VERB_MOVE
     je .move
@@ -5087,11 +5107,11 @@ svg_text_flush:
 .fill:
     cmp ecx, [rsp + TF_N]
     jae .runs
-    cmp byte [rdi + rcx], 255
+    cmp byte [rcx + rdi], 255
     jne .fill_have
-    mov [rdi + rcx], al
+    mov [rcx + rdi], al
 .fill_have:
-    movzx eax, byte [rdi + rcx]
+    movzx eax, byte [rcx + rdi]
     inc ecx
     jmp .fill
 .runs:
@@ -5382,7 +5402,7 @@ svg_text_flush:
     mov rax, [rsp + 8 + TF_RUNS]
     mov eax, [rax + rdx * 8]
     mov rdx, [rsp + 8 + TF_LV]
-    movzx eax, byte [rdx + rax]
+    movzx eax, byte [rax + rdx]
     ret
 
 ; -----------------------------------------------------------------------------
@@ -6232,7 +6252,7 @@ svg_textpath_points:
     jae .done
     inc dword [rsp + TQ_I]
     mov rcx, [rsp + TQ_PATH + UgfxPath_verbs]
-    movzx r13d, byte [rcx + rax]
+    movzx r13d, byte [rax + rcx]
     mov ecx, [rsp + TQ_I + 4]
     shl rcx, 4
     add rcx, [rsp + TQ_PATH + UgfxPath_points]   ; its first point
@@ -6557,8 +6577,8 @@ svg_filter_compile:
     ja .f_other
     sub eax, FA_X
     shl eax, 4
-    mov [rbp + FC_RAW + rax], rdi
-    mov [rbp + FC_RAW + rax + 8], rsi
+    mov [rax + rbp + FC_RAW], rdi
+    mov [rax + rbp + FC_RAW + 8], rsi
     jmp .f_attr
 .f_other:
     cmp eax, FA_CIF
@@ -6589,8 +6609,8 @@ svg_filter_compile:
     jae .children
     mov eax, r14d
     shl eax, 4
-    mov rdi, [rbp + FC_RAW + rax]
-    mov rsi, [rbp + FC_RAW + rax + 8]
+    mov rdi, [rax + rbp + FC_RAW]
+    mov rsi, [rax + rbp + FC_RAW + 8]
     mov edx, r14d
     and edx, 1
     mov ecx, [r13 + UgfxSvgFilter_units]
@@ -6788,16 +6808,16 @@ svg_fe_begin:
 .func:
     imul eax, ecx, 56
     xorpd xmm1, xmm1
-    movsd [rbp + FC_FUNCS + rax], xmm1
-    movsd [rbp + FC_FUNCS + rax + 8], xmm0
-    movsd [rbp + FC_FUNCS + rax + 16], xmm1
-    movsd [rbp + FC_FUNCS + rax + 24], xmm0
-    movsd [rbp + FC_FUNCS + rax + 32], xmm0
-    movsd [rbp + FC_FUNCS + rax + 40], xmm1
-    movsd [rbp + FC_FUNCS + rax + 48], xmm1
+    movsd [rax + rbp + FC_FUNCS], xmm1
+    movsd [rax + rbp + FC_FUNCS + 8], xmm0
+    movsd [rax + rbp + FC_FUNCS + 16], xmm1
+    movsd [rax + rbp + FC_FUNCS + 24], xmm0
+    movsd [rax + rbp + FC_FUNCS + 32], xmm0
+    movsd [rax + rbp + FC_FUNCS + 40], xmm1
+    movsd [rax + rbp + FC_FUNCS + 48], xmm1
     mov eax, ecx
     shl eax, 4
-    mov qword [rbp + FC_TABLES + rax], 0
+    mov qword [rax + rbp + FC_TABLES], 0
     inc ecx
     cmp ecx, 4
     jb .func
@@ -7241,7 +7261,7 @@ svg_fe_child:
     jz .f_attr
     imul eax, r14d, 56
     lea eax, [rax + rbx * 8]
-    movsd [rbp + FC_FUNCS + rax], xmm0
+    movsd [rax + rbp + FC_FUNCS], xmm0
     jmp .f_attr
 .f_type:
     call ugfx_svg_trim
@@ -7252,13 +7272,13 @@ svg_fe_child:
     dec eax
     cvtsi2sd xmm0, eax
     imul eax, r14d, 56
-    movsd [rbp + FC_FUNCS + rax], xmm0
+    movsd [rax + rbp + FC_FUNCS], xmm0
     jmp .f_attr
 .f_table:
     mov eax, r14d
     shl eax, 4
-    mov [rbp + FC_TABLES + rax], rdi
-    mov [rbp + FC_TABLES + rax + 8], rsi
+    mov [rax + rbp + FC_TABLES], rdi
+    mov [rax + rbp + FC_TABLES + 8], rsi
     jmp .f_attr
 .light:
     ; a lighting primitive's first light: its numbers into light[]
@@ -7381,7 +7401,7 @@ svg_fe_finish:
     cmp eax, FW_SPECULAR
     ja .nothing
     lea rcx, [rel svg_fe_newer_types]
-    movzx eax, byte [rcx + rax - FW_TURBULENCE]
+    movzx eax, byte [rax + rcx - FW_TURBULENCE]
     mov [r12 + UgfxSvgFe_type], eax
     cmp eax, FE_CONVOLVE
     je .convolve
@@ -7572,8 +7592,8 @@ svg_fe_transfer_list:
     jae .alloc
     mov eax, ebx
     shl eax, 4
-    mov rdi, [rbp + FC_TABLES + rax]
-    mov rsi, [rbp + FC_TABLES + rax + 8]
+    mov rdi, [rax + rbp + FC_TABLES]
+    mov rsi, [rax + rbp + FC_TABLES + 8]
     xor edx, edx
     call svg_fe_numbers
     add r14d, eax
@@ -7606,8 +7626,8 @@ svg_fe_transfer_list:
     mov r14, rdi
     mov eax, ebx
     shl eax, 4
-    mov rdi, [rbp + FC_TABLES + rax]
-    mov rsi, [rbp + FC_TABLES + rax + 8]
+    mov rdi, [rax + rbp + FC_TABLES]
+    mov rsi, [rax + rbp + FC_TABLES + 8]
     mov rdx, r14
     call svg_fe_numbers
     lea r14, [r14 + rax * 8]
@@ -8462,11 +8482,11 @@ svg_filter_device:
     mov eax, r8d
     and eax, 1
     shl eax, 4
-    movsd xmm0, [rsp + rax]             ; x or x + w
+    movsd xmm0, [rax + rsp]             ; x or x + w
     mov eax, r8d
     shr eax, 1
     shl eax, 4
-    movsd xmm1, [rsp + 8 + rax]         ; y or y + h
+    movsd xmm1, [rax + rsp + 8]         ; y or y + h
     movsd xmm2, [rsp + 80 + FD_M]
     mulsd xmm2, xmm0
     movsd xmm3, [rsp + 80 + FD_M + 16]
@@ -8565,8 +8585,8 @@ svg_markers:
     mov qword [rsp + MK_REC + r12 * 8], 0
     mov eax, r12d
     shl eax, 4
-    mov rdi, [rbx + S_MARKERS + rax]
-    mov rsi, [rbx + S_MARKERS + rax + 8]
+    mov rdi, [rax + rbx + S_MARKERS]
+    mov rsi, [rax + rbx + S_MARKERS + 8]
     test rdi, rdi
     jz .next_rec
     call svg_url_ref
@@ -8791,8 +8811,8 @@ svg_marker_attrs:
     ja .other
     lea eax, [r14 - 2]
     shl eax, 4
-    mov [rsp + MA_RAW + rax], rdi
-    mov [rsp + MA_RAW + rax + 8], rsi
+    mov [rax + rsp + MA_RAW], rdi
+    mov [rax + rsp + MA_RAW + 8], rsi
     jmp .attr
 .units:
     call ugfx_svg_trim
@@ -8885,8 +8905,8 @@ svg_marker_attrs:
     jae .fit
     mov eax, r14d
     shl eax, 4
-    mov rdi, [rsp + MA_RAW + rax]
-    mov rsi, [rsp + MA_RAW + rax + 8]
+    mov rdi, [rax + rsp + MA_RAW]
+    mov rsi, [rax + rsp + MA_RAW + 8]
     mov edx, r14d
     and edx, 1
     call svg_length
@@ -9575,8 +9595,8 @@ svg_compile:
     ja .mask_word
     lea eax, [r14 - 3]
     shl eax, 4
-    mov [rsp + CC_RAW + rax], rdi
-    mov [rsp + CC_RAW + rax + 8], rsi
+    mov [rax + rsp + CC_RAW], rdi
+    mov [rax + rsp + CC_RAW + 8], rsi
     jmp .mask_attr
 .mask_word:
     call ugfx_svg_trim
@@ -9618,8 +9638,8 @@ svg_compile:
     jae .unit_square
     mov eax, r14d
     shl eax, 4
-    mov rdi, [rsp + CC_RAW + rax]
-    mov rsi, [rsp + CC_RAW + rax + 8]
+    mov rdi, [rax + rsp + CC_RAW]
+    mov rsi, [rax + rsp + CC_RAW + 8]
     cmp dword [r13 + UgfxSvgMask_units], 0
     je .region_user
     push rsi
@@ -9819,7 +9839,7 @@ svg_lengths:
     mov rdi, [r15 + P_GV + rax]
     mov rsi, [r15 + P_GV + rax + 8]
     lea rax, [rel svg_slot_axis]
-    movzx edx, byte [rax + r12]
+    movzx edx, byte [r12 + rax]
     call svg_length
     test rax, rax
     jz .next
@@ -10830,7 +10850,7 @@ svg_rounded_rect:
 %define V_M2        168                 ; f64[6]
 %define V_SIZE      232
 ; the shared fields, from svg_draw_list (rbp is ugfx_svg_draw's frame pointer)
-%define DRAW(f)     (rbp - 40 - V_SIZE + (f))
+%define DRAW(f)     rbp - 40 - V_SIZE + (f)   ; inside brackets only
 
 global ugfx_svg_draw
 ugfx_svg_draw:
