@@ -115,7 +115,6 @@ extern regions_own
 extern regions_subtract
 extern surface_set_input_region
 extern surface_set_opaque_region
-extern str_len
 extern surface_attach
 extern surface_create
 extern surface_damage
