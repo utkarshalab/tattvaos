@@ -107,8 +107,8 @@ programs use it.
   | Offset | Size | Field | Meaning |
   |---|---|---|---|
   | 0 | 4 | `type` | 1 key, 2 relative motion, 3 absolute position, 4 button, 5 scroll |
-  | 4 | 4 | `code` | key: keycode 0–255; motion: dx; position: x; button: 0 left, 1 right, 2 middle; scroll: 0 vertical, 1 horizontal |
-  | 8 | 4 | `value` | key, button: 1 down, 0 up; motion: dy; position: y; scroll: signed steps |
+  | 4 | 4 | `code` | key: keycode 0–255; motion: dx; position: x; button: 0 left, 1 right, 2 middle; scroll: 0 vertical, 1 horizontal, plus 0x100 when `value` is in 120ths of a step (a fine wheel or touchpad) |
+  | 8 | 4 | `value` | key, button: 1 down, 0 up; motion: dy; position: y; scroll: signed steps, or signed 120ths with code bit 8 |
   | 12 | 4 | `device` | which device, for later per-device settings |
   | 16 | 8 | `time` | monotonic nanoseconds; 0 lets Canvas stamp it |
 
