@@ -31,8 +31,8 @@ Who programs the display controller? Who manages GPU? Utkarsha kernel or Canvas?
 ## Rationale
 | Alternative | Problems | Canvas Fix |
 |-------------|----------|------------|
-| **Kernel modeset (Linux DRM/KMS)** | Kernel grows display logic, policy in kernel | Canvas owns modeset → atomic commit in userspace |
-| **Userspace GPU driver (Mesa)** | Complex, duplicated per GPU | One GPU family at a time (C24), direct HW control |
+| **Kernel modeset (the kernel drives the display)** | Kernel grows display logic, policy in kernel | Canvas owns modeset → atomic commit in userspace |
+| **A general userspace GPU driver library** | Complex, duplicated per GPU | One GPU family at a time (C24), direct HW control |
 | **Firmware/UEFI GOP only** | No mode switching, no planes, no VRR | Boot FB (C9) → Native modeset (C10) |
 | **Utkarsha owns everything** | Kernel bloat, slow iteration | Thin `ut_*` bindings, Canvas = display server |
 
