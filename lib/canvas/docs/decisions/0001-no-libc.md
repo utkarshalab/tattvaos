@@ -5,7 +5,7 @@
 **Phase**: C0
 
 ## Context
-Canvas runs on Utkarsha OS, a bare-metal x86-64 unikernel. There is no POSIX layer, no C runtime, no dynamic linker.
+Canvas runs on Utkarsha OS, a bare-metal x86-64 unikernel. It has no C runtime and no dynamic linker; its programs are assembly.
 
 ## Decision
 Canvas is written entirely in **x86-64 NASM assembly** with:
@@ -41,4 +41,4 @@ Canvas is written entirely in **x86-64 NASM assembly** with:
 - Decision 0002 (pixel format), 0004 (handles)
 
 ## Revisit Criteria
-If Utkarsha adds a POSIX compatibility layer with acceptable overhead, re-evaluate. Unlikely.
+If Utkarsha OS adds a C runtime with acceptable overhead, re-evaluate. Unlikely.
