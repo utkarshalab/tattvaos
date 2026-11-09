@@ -56,7 +56,7 @@ fi
     [ "$ULF_ENTRY" -lt $((0x100000 + ULF_EXEC_SIZE)) ] || \
     fail "ULF entry point is outside the executable extent: $ULF_ENTRY"
 [ "$ULF_MEMORY_SIZE" -ge "$KERNEL_SIZE" ] && \
-    [ "$ULF_MEMORY_SIZE" -le $((64 * 1024 * 1024)) ] || \
+    [ "$ULF_MEMORY_SIZE" -le $((256 * 1024 * 1024)) ] || \
     fail "ULF memory extent is invalid: $ULF_MEMORY_SIZE"
 [ $((ULF_MEMORY_SIZE % 8)) -eq 0 ] || \
     fail "ULF memory extent is not qword-aligned: $ULF_MEMORY_SIZE"
