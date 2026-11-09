@@ -626,6 +626,13 @@ ubt_conn_pump:
     lea rsi, [r14 + ubt_txb.data]
     mov edx, [r14 + ubt_txb.len]
     call [rbx + ubt_adapter.tr_acl]
+    test eax, eax
+    jnz .not_sent                       ; (busy: it goes again later)
+    mov rdi, rbx
+    lea rsi, [r14 + ubt_txb.data]
+    mov edx, [r14 + ubt_txb.len]
+    call ubt_snoop_acl_out              ; (every register kept)
+.not_sent:
     add rsp, 8
     pop rcx
     test eax, eax
@@ -660,6 +667,7 @@ ubt_conn_pump:
 ; -----------------------------------------------------------------------------
 global ubt_acl_input
 ubt_acl_input:
+    call ubt_snoop_acl_in               ; (every register kept)
     push rbx
     push r12
     push r13
@@ -772,6 +780,7 @@ ubt_acl_send:
     mov eax, -UBT_EDOWN
     cmp dword [rdi + ubt_adapter.state], UBT_UP
     jne .out
+    call ubt_snoop_acl_out
     jmp [rdi + ubt_adapter.tr_acl]
 .out:
     ret
