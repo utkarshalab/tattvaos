@@ -842,7 +842,7 @@ All items run on-device, opt-in, behind capability gates.
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | QA-01 | Unit suites green on the host shim | P0 | ✓ all 31 `HOST_SUITES` pass (`make host-check`) |
-| QA-02 | Golden-image tests with a real corpus | P1 | ◐ `tests/unit/test_golden.asm`: frames checked against checksums computed outside the code; more scenes to add |
+| QA-02 | Golden-image tests with a real corpus | P1 | ✓ `test_golden`: frames by Adler-32 against `tests/golden/make_golden.py`, a model of the compositor written apart from it (it reproduces the first checksum, computed before it); scenes: two surfaces, translucent ones stacked three deep, an opaque BGRX buffer copied under a translucent one, surfaces over every edge and corner; partial damage, frame callbacks, leaving; `make_golden.py --check` in `make check` keeps the expected values current |
 | QA-03 | Continuous fuzzing of every parser: wire, images, fonts, ICC, EDID, keymaps, config | P2 | ◐ wire and input (`tests/unit/test_fuzz`), images and SVG (`tests/host/fuzz_media.py`), both in `make check`; not fonts on their own, ICC, EDID, keymaps or config, and not run continuously |
 | QA-04 | Structure-aware wire-protocol fuzzer | P3 | |
 | QA-05 | Conformance suite that connects real clients | P2 | ◐ `tests/cts` (TODO) |
@@ -859,7 +859,7 @@ All items run on-device, opt-in, behind capability gates.
 | QA-16 | Accessibility regression with automated screen reader runs | P4 | |
 | QA-17 | Code coverage for assembly (instrumentation or replay) | P3 | |
 | QA-18 | Per-commit CI booting the real kernel in an emulator | P2 | → KRN-01 |
-| QA-19 | Regression test for every fixed bug | P1 | |
+| QA-19 | Regression test for every fixed bug | P1 | ✓ `docs/regressions.md`: every bug fixed so far and the test guarding it, all in `make check`; the definition of done makes a test and a row part of every fix. Stack alignment is reviewed, not tested |
 | QA-20 | Hardware compatibility matrix and vendor test kit | P4 | |
 | QA-21 | Third-party client certification program | P5 | |
 
