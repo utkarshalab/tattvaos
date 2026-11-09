@@ -65,6 +65,7 @@ ubt_hci_cmd:
     mov rdi, rbx
     mov rsi, rsp
     lea edx, [r12d + 3]
+    call ubt_snoop_cmd                  ; (every register kept)
     call [rbx + ubt_adapter.tr_cmd]
     test eax, eax
     js .failed
@@ -110,6 +111,7 @@ ubt_hci_cmd:
 ; -----------------------------------------------------------------------------
 global ubt_hci_event
 ubt_hci_event:
+    call ubt_snoop_event                ; (every register kept)
     push rbx
     push r12
     push r13
@@ -397,6 +399,7 @@ ubt_hci_drain:
     inc dword [rbx + ubt_adapter.cmdq_head]
     dec dword [rbx + ubt_adapter.credits]
     mov rdi, rbx
+    call ubt_snoop_cmd
     call [rbx + ubt_adapter.tr_cmd]
     jmp .next
 .out:
