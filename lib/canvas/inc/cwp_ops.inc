@@ -160,19 +160,24 @@
 %define KEYBOARD_EV_TEXT      4
 
 ; cw_toplevel (canvas-shell.cwp)
-%define TOPLEVEL_CREATE           0
-%define TOPLEVEL_DESTROY          1
-%define TOPLEVEL_SET_TITLE        2
-%define TOPLEVEL_SET_APP_ID       3
-%define TOPLEVEL_ACK_CONFIGURE    4
-%define TOPLEVEL_SET_MAXIMIZED    5
-%define TOPLEVEL_UNSET_MAXIMIZED  6
-%define TOPLEVEL_SET_FULLSCREEN   7
-%define TOPLEVEL_UNSET_FULLSCREEN 8
-%define TOPLEVEL_SET_MINIMIZED    9
-%define TOPLEVEL_SET_DECORATED    10
-%define TOPLEVEL_EV_CONFIGURE     0
-%define TOPLEVEL_EV_CLOSE         1
+%define TOPLEVEL_CREATE            0
+%define TOPLEVEL_DESTROY           1
+%define TOPLEVEL_SET_TITLE         2
+%define TOPLEVEL_SET_APP_ID        3
+%define TOPLEVEL_ACK_CONFIGURE     4
+%define TOPLEVEL_SET_MAXIMIZED     5
+%define TOPLEVEL_UNSET_MAXIMIZED   6
+%define TOPLEVEL_SET_FULLSCREEN    7
+%define TOPLEVEL_UNSET_FULLSCREEN  8
+%define TOPLEVEL_SET_MINIMIZED     9
+%define TOPLEVEL_SET_DECORATED     10
+%define TOPLEVEL_SET_MIN_SIZE      11
+%define TOPLEVEL_SET_MAX_SIZE      12
+%define TOPLEVEL_SET_PARENT        13
+%define TOPLEVEL_SET_MODAL         14
+%define TOPLEVEL_REQUEST_ATTENTION 15
+%define TOPLEVEL_EV_CONFIGURE      0
+%define TOPLEVEL_EV_CLOSE          1
 
 ; cw_popup (canvas-shell.cwp)
 %define POPUP_CREATE  0
