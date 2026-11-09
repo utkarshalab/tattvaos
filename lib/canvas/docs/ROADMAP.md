@@ -107,7 +107,7 @@
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | KRN-01 | Agree the syscall ABI with the kernel (numbers, registers, return conventions) | P1 | ◐ the kernel's model is named UBF imports in one address space, not numbered syscalls: what Canvas needs is listed in `docs/KERNEL_NEEDS.md`, and `make ubf-check` proves those exports are enough for a first frame |
-| KRN-02 | Move every config and asset path to the root layout: config in `/conf`, trust in `/sec/trust`, assets under `/app` | P1 | Contract still uses old paths |
+| KRN-02 | Move every config and asset path to the root layout: config in `/conf`, trust in `/sec/trust`, assets under `/app` | P1 | ✓ `docs/utkarsha-contract.md`: config in `/conf/apps/canvas` (a user's in `/user/<name>/conf/canvas`), trust profiles in `/sec/trust/canvas`, assets in `/app/canvas` and `/app/lib/ufont`, Canvas's own state in `/data/canvas`. No code reads a path yet |
 | KRN-03 | Channel and shared-memory primitives for client↔server rings | P1 | → KRN-01 |
 | KRN-04 | Handle passing between tasks (buffers, fences) | P1 | |
 | KRN-05 | IRQ, MMIO, PCI and DMA services for the native backend | P2 | ◐ `ut_platform.asm` wrappers |
@@ -579,7 +579,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| MED-01 | Decoder test coverage for every supported format | P0 | ◐ corpus compared against a reference decoder; everything passes but progressive JPEG (MED-20) |
+| MED-01 | Decoder test coverage for every supported format | P0 | ✓ `compare_images.py` in `make check`: 72 files of every supported format against a reference decoder, exact for lossless, a PSNR floor for lossy; progressive JPEG, not supported (MED-20), must be refused, and is; `fuzz_media.py` fuzzes every format |
 | MED-02 | Generic `image_decode` with format sniffing | P1 | ◐ `img/sniff` |
 | MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | |
 | MED-04 | Decode-to-scale for JPEG and WebP | P3 | |
@@ -896,11 +896,11 @@ All items run on-device, opt-in, behind capability gates.
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| ECO-01 | Keep `PLAN.md` status column current | P0 | All ☐ today |
-| ECO-02 | Docs describe Utkarsha OS on its own terms; old path names removed | P0 | |
+| ECO-01 | Keep `PLAN.md` status column current | P0 | ✓ the phase table set from what is built and tested (2026-11-09); kept with the ROADMAP from now on |
+| ECO-02 | Docs describe Utkarsha OS on its own terms; old path names removed | P0 | ✓ no other operating system named in the docs (X11 and Wayland, display systems, only in design rationale); the contract's paths on the root layout (KRN-02) |
 | ECO-03 | Admin guide, client guide, protocol reference complete | P3 | ◐ stubs |
-| ECO-04 | Decision record for every significant choice | P0 | Ongoing |
-| ECO-05 | Definition of done per subsystem: tests, fuzz, docs, benchmark, invariants | P0 | |
+| ECO-04 | Decision record for every significant choice | P0 | ✓ 0001 to 0015 cover the choices made so far (0013 input records, 0014 the lid, 0015 testing added 2026-11-09); `definition-of-done.md` makes one a condition of done |
+| ECO-05 | Definition of done per subsystem: tests, fuzz, docs, benchmark, invariants | P0 | ✓ `docs/definition-of-done.md`: what every item needs, what each subsystem adds, the invariants checked everywhere |
 | ECO-06 | Owner and review checklist per area | P2 | |
 | ECO-07 | Font and asset licensing audit | P3 | |
 | ECO-08 | Bug triage and severity policy | P2 | |
