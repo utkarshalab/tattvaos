@@ -16,6 +16,8 @@
 %include "inc/struct_offsets.inc"
 
 extern compositor_raise_surface
+extern window_may_take_keyboard
+extern window_attention
 extern input_focus_surface
 extern input_forget_surface
 
@@ -39,9 +41,19 @@ stacking_mapped:
     call takes_keyboard_on_show
     test eax, eax
     jz .out
+    mov rdi, rbx                        ; not from someone typing elsewhere
+    mov rsi, r12                        ; (WIN-12): it asks for attention
+    call window_may_take_keyboard
+    test eax, eax
+    jz .attention
     mov rdi, rbx
     mov rsi, r12
     call input_focus_surface
+    jmp .out
+.attention:
+    mov rdi, rbx
+    mov rsi, r12
+    call window_attention
 .out:
     xor eax, eax
     EPILOGUE_RESTORE rbx, r12
