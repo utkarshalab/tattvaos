@@ -18,6 +18,7 @@
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
 %include "inc/ut.inc"
+%include "inc/log.inc"
 
 extern dpms_set
 extern greeter_lock
@@ -40,6 +41,18 @@ global clamshell_lid
 clamshell_lid:
     and esi, 1
     mov [rdi + Server.lid_closed], rsi
+    push rdi
+    lea rax, [rel log_lid_open]
+    lea rcx, [rel log_lid_closed]
+    test esi, esi
+    cmovnz rax, rcx
+    mov edx, log_lid_open_len
+    mov ecx, log_lid_closed_len
+    cmovnz edx, ecx
+    mov edi, LOG_CAT_SESSION
+    mov rsi, rax
+    call log_info
+    pop rdi
     jmp clamshell_update
 
 ; ---------------------------------------------------------------------------
@@ -168,6 +181,12 @@ server_set_lid_sleep:
     mov [rdi + Server.lid_awake], rax
     xor eax, eax
     ret
+
+section .rodata
+log_lid_closed: db "the lid was closed"
+log_lid_closed_len: equ $ - log_lid_closed
+log_lid_open:   db "the lid was opened"
+log_lid_open_len: equ $ - log_lid_open
 
 section .data
 global clamshell_version
