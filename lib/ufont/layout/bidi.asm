@@ -679,11 +679,13 @@ bd_append_run:
 ; ----------------------------------------------------------------------------
 ; the class of sequence item %2 into %1 (BD_SEQ in r12, BD_T in r13)
 %macro TY 2
-    mov r10d, [r12 + (%2) * 4]
+    lea r10, [%2]                       ; the index, maybe rbp +- 1
+    mov r10d, [r12 + r10 * 4]
     movzx %1, byte [r13 + r10]
 %endmacro
 %macro SETTY 2
-    mov r10d, [r12 + (%1) * 4]
+    lea r10, [%1]
+    mov r10d, [r12 + r10 * 4]
     mov byte [r13 + r10], %2
 %endmacro
 
