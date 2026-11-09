@@ -140,8 +140,12 @@ upass_fold_ctx:     resb sha256_ctx_t_size
 upass_fold_pre:     resb 32
 
 ; uxpw arena — 96 MiB of BSS, deliberately (see the policy block above).
+section .bss
+align 64
 upass_uxpw_arena:   resb UPASS_UXPW_ARENA_KIB * 1024
 
+section .data
+align 8
 upass_hashes:       dq 0
 upass_verifies:     dq 0
 upass_rejects:      dq 0
