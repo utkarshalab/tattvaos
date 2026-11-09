@@ -39,6 +39,9 @@ extern canvas_timeline_wait
 extern fence_signal
 extern timeline_signal
 extern client_accept
+extern service_start
+extern canvas_connect_with
+extern canvas_disconnect
 extern handle_resolve
 extern server_init
 extern server_poll
@@ -58,6 +61,8 @@ test_clientlib_suite:
     add ebx, eax
 %endmacro
     CASE tc_connect
+    CASE tc_wake
+    CASE tc_service
     CASE tc_window
     CASE tc_refused
     CASE tc_buffers
@@ -172,6 +177,60 @@ surface_of:
 ; ---------------------------------------------------------------------------
 
 ; Connected, and the grant noted once its event is read
+; A client's send wakes the server's loop: a client accepted while the loop's
+; task is known (7, made up) has it in its pair, and each send wakes it; one
+; accepted while it is not wakes nothing
+tc_wake:
+    sub rsp, 8
+    mov rdi, [rel conn]                 ; no task known: nothing woken
+    call canvas_timeline_create
+    cmp qword [rel pair + ChannelPair.wakes], 0
+    jne .fail
+    mov qword [rel server + Server.loop_task], 7
+    lea rdi, [rel server]
+    lea rsi, [rel pair_woken]
+    mov edx, CLIENT_CAP_SHELL
+    call client_accept
+    cmp qword [rel pair_woken + ChannelPair.wake_task], 7
+    jne .fail
+    lea rdi, [rel pair_woken]
+    lea rsi, [rel server_poll]
+    lea rdx, [rel server]
+    call canvas_connect_pair
+    test rax, rax
+    jz .fail
+    mov rdi, rax
+    call canvas_timeline_create
+    cmp qword [rel pair_woken + ChannelPair.wakes], 1
+    jb .fail
+    mov qword [rel server + Server.loop_task], 0
+    PASS
+
+; Another program's way in: the server published (service_start), a client
+; finds it by name and connects (canvas_connect_with, the server's turns as
+; its pump), then a request goes round over the pair it made; it
+; disconnects
+tc_service:
+    sub rsp, 8
+    lea rdi, [rel server]
+    call service_start
+    test rax, rax
+    jnz .fail
+    mov edi, CLIENT_CAP_SHELL
+    lea rsi, [rel server_poll]
+    lea rdx, [rel server]
+    call canvas_connect_with
+    test rax, rax
+    jz .fail
+    mov [rel conn_service], rax
+    mov rdi, rax
+    call canvas_timeline_create
+    test eax, eax
+    jle .fail
+    mov rdi, [rel conn_service]
+    call canvas_disconnect
+    PASS
+
 tc_connect:
     sub rsp, 8
     cmp qword [rel conn], 0
@@ -426,6 +485,8 @@ alignb 16
 server:         resb Server_size
 arena:          resb Arena_size
 pair:           resb ChannelPair_size
+pair_woken:     resb ChannelPair_size
+conn_service:   resq 1
 conn:           resq 1
 surface_a:      resd 1
 buffer_a:       resd 1
