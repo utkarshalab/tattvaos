@@ -46,7 +46,7 @@ Ush implements the local and native synchronization workflows documented below.
 The expanded history, staging, refs, merge, rebase, blame, repository-aware
 diff, and signed patch paths pass the VCS and Ush host/native gates. Bounded Git
 snapshot/history import and export and protocol-v2 smart serving are available;
-production QEMU execution of the dedicated VCS persistence gate remains pending.
+the dedicated VCS persistence gate passes under BIOS and OVMF/SMP4 QEMU.
 The obsolete generic `diff_trees` and
 `diff_emit` ABI entries still return unsupported; `vcs_repo_diff` is the bounded
 UXFS-aware implementation used by Ush. No UFS format is invented
@@ -111,7 +111,8 @@ so it is not mistaken for imported content. A seed is required when signed
 commit policy is enabled. Sequential streams from `export-history` are imported
 commit-by-commit, replacing each worktree snapshot and reconstructing the same
 linear first-parent ancestry. A failed later commit restores the preceding
-imported snapshot. Smart serving remains pending.
+imported snapshot. Protocol-v2 smart serving is connected through the native
+upload server and real history/PACK bridge, with bounded partial-I/O coverage.
 
 `git export-history ID|BRANCH FILE` walks the selected commit's complete
 first-parent history oldest-first. It emits globally unique blob and commit
@@ -313,8 +314,8 @@ bytes, plus history, merge, rebase, cherry-pick, revert, and repository-aware
 diff coverage. The adapter is part of `ush-native.o`. `make -C apps/vcs test`
 and `make -C apps/ush test` pass. The static production-kernel bundle resolves
 native VCS networking against kernel-owned `unet` entry points and passes its
-relocation/bounds test. `make -C boot ush-vcs-test` is the remaining production
-QEMU execution gate.
+relocation/bounds test. `make -C boot ush-vcs-test` passes its two-boot commit,
+integrity, checkout, and persistence scenarios under BIOS and OVMF/SMP4 QEMU.
 
 ## Initialize a repository
 
@@ -555,4 +556,5 @@ The isolated `make -C apps/vcs test` gate and complete `make -C apps/ush test`
 gate pass, including native-object linkage and persistent UXFS recovery tests.
 The kernel bundle relocation test also passes with executable-range validation
 for every imported `unet` function. The dedicated two-boot production gate is
-`make -C boot ush-vcs-test`; its QEMU execution is still pending.
+`make -C boot ush-vcs-test`; it passes under BIOS and OVMF/SMP4 QEMU. Physical
+hardware qualification remains separate.
