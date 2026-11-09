@@ -250,6 +250,7 @@ SERVER_SRCS := \
     $(SRCDIR)/server/main.asm \
     $(SRCDIR)/server/server_core.asm \
     $(SRCDIR)/server/client/client.asm \
+    $(SRCDIR)/server/client/service.asm \
     $(SRCDIR)/server/client/client_registry.asm \
     $(SRCDIR)/server/client/auth.asm \
     $(SRCDIR)/server/buffer/buffer.asm \
