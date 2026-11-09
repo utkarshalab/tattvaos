@@ -26,6 +26,10 @@ section .text
 ; ---------------------------------------------------------------------------
 global canvas_send
 canvas_send:
+    push rbx
+    push r12
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
     lea rax, [rdi + CLIENT_WIRE + ClientWire.out_hdr]
     mov [rax + MsgHdr.obj], esi
     mov [rax + MsgHdr.opcode], dx
@@ -34,7 +38,24 @@ canvas_send:
     mov rdx, rcx
     mov rsi, rax
     mov rdi, [rdi + ClientConn.tx_ring]
-    jmp msgbuf_write
+    call msgbuf_write
+    mov r12, rax
+    test rax, rax
+    js .out
+    mov rcx, [rbx + ClientConn.server_chan] ; the server's loop woken
+    test rcx, rcx                           ; to read it (SRV-02)
+    jz .out
+    mov rdi, [rcx + ChannelPair.wake_task]
+    test rdi, rdi
+    jle .out
+    inc qword [rcx + ChannelPair.wakes]
+    call ut_wait_wake_task
+.out:
+    mov rax, r12
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
 
 ; ---------------------------------------------------------------------------
 ; canvas_call
