@@ -99,6 +99,9 @@ extern output_announce
 extern output_list
 extern seat_watch
 extern clamshell_update
+extern window_set_parent
+extern input_focus_surface
+extern window_attention
 extern ut_wait_wake_task
 extern service_step
 extern clamshell_sleep
@@ -1240,6 +1243,96 @@ HANDLER h_toplevel_set_decorated, 8
     mov rsi, rax
     mov edx, [r13 + 4]
     call window_set_decorated
+HANDLER_END
+
+; the toplevel of the client named by [r13]: rax = its surface*, else to
+; .bad_object (a handler's)
+%macro OWN_TOPLEVEL 0
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rcx, [rax + Surface.window]
+    test rcx, rcx
+    jz .bad_object
+    cmp dword [rcx + Window.kind], ROLE_TOPLEVEL
+    jne .bad_object
+%endmacro
+
+; cw_toplevel.set_min_size / set_max_size(surface, width, height): its
+; limits; configures keep inside them from now on (WIN-08)
+%macro SIZE_LIMIT 2                     ; handler, Window field (then its _h)
+HANDLER %1, 12
+    NEEDS_CAP CAP_SHELL
+    OWN_TOPLEVEL
+    mov edx, [r13 + 4]
+    mov [rcx + Window.%2], edx
+    mov edx, [r13 + 8]
+    mov [rcx + Window.%2 + 4], edx
+HANDLER_END
+%endmacro
+SIZE_LIMIT h_toplevel_set_min_size, min_w
+SIZE_LIMIT h_toplevel_set_max_size, max_w
+
+; cw_toplevel.set_parent(surface, parent): it belongs to the parent, one of
+; the client's own windows; 0: to none (WIN-11)
+HANDLER h_toplevel_set_parent, 8
+    NEEDS_CAP CAP_SHELL
+    OWN_TOPLEVEL
+    mov r12, rax                        ; the header is not needed again
+    xor edx, edx
+    mov esi, [r13 + 4]
+    test esi, esi
+    jz .parent
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov rcx, [rax + Surface.window]
+    test rcx, rcx
+    jz .bad_object
+    cmp dword [rcx + Window.kind], ROLE_TOPLEVEL
+    jne .bad_object
+    mov rdx, rax
+.parent:
+    mov rdi, r14
+    mov rsi, r12
+    call window_set_parent
+HANDLER_END
+
+; cw_toplevel.set_modal(surface, modal): while on the screen its parent
+; cannot have the keyboard; if the parent has it now, this window takes it
+HANDLER h_toplevel_set_modal, 8
+    NEEDS_CAP CAP_SHELL
+    OWN_TOPLEVEL
+    xor edx, edx
+    cmp dword [r13 + 4], 0
+    setne dl
+    mov [rcx + Window.modal], edx
+    test edx, edx
+    jz .done
+    mov rdx, [rcx + Window.transient]
+    test rdx, rdx
+    jz .done
+    mov r8, [r14 + Server.input_seat]
+    test r8, r8
+    jz .done
+    cmp [r8 + InputSeat.keyboard_focus], rdx
+    jne .done
+    cmp qword [rax + Surface.output], 0
+    je .done
+    mov rdi, r14
+    mov rsi, rax
+    call input_focus_surface
+.done:
+HANDLER_END
+
+; cw_toplevel.request_attention(surface): urgent until it has the keyboard
+HANDLER h_toplevel_request_attention, 4
+    NEEDS_CAP CAP_SHELL
+    OWN_TOPLEVEL
+    mov rdi, r14
+    mov rsi, rax
+    call window_attention
 HANDLER_END
 
 ; cw_region: create() -> (region)
