@@ -98,6 +98,8 @@ extern output_announce
 extern output_list
 extern seat_watch
 extern clamshell_update
+extern ut_wait_wake_task
+extern service_step
 extern clamshell_sleep
 extern greeter_restyle
 extern output_withdraw
@@ -504,6 +506,26 @@ server_mirror_output:
     EPILOGUE_RESTORE rbx, r12, r13
 
 ; ---------------------------------------------------------------------------
+; server_wake
+;   Work has come for the event loop (input, a display, a client): its task
+;   woken out of ut_wait_wait, if it is known (SRV-02)
+;   IN:  rdi = server*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global server_wake
+server_wake:
+    inc qword [rdi + Server.wakes]
+    mov rdi, [rdi + Server.loop_task]
+    test rdi, rdi
+    jle .none
+    sub rsp, 8                          ; 16-byte aligned
+    call ut_wait_wake_task
+    add rsp, 8
+.none:
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
 ; server_set_high_contrast
 ;   What the server draws itself (the background, title bars, Alt+Tab, the
 ;   taskbars, the login screen) in high contrast (1) or its usual colours
@@ -558,6 +580,8 @@ server_poll:
     sub rsp, MsgHdr_size + 12            ; the header; 16-byte aligned
     mov rbx, rdi
     ASSERT_PTR rbx
+    mov rdi, rbx                        ; other programs connecting
+    call service_step
     mov rdi, rbx
     call input_dispatch
     xor r13d, r13d                      ; handled
