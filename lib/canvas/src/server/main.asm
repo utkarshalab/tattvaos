@@ -14,6 +14,7 @@
 
 default rel
 
+extern service_start
 extern arena_init
 extern greeter_start
 extern greeter_set_verify
@@ -98,6 +99,13 @@ canvasd_init:
     call server_init
     test rax, rax
     js .no_server
+    call ut_task_self                   ; this task runs the loop: input and
+    test rax, rax                       ; clients wake it
+    jle .no_task
+    mov [server + Server.loop_task], rax
+.no_task:
+    lea rdi, [server]                   ; other programs may connect
+    call service_start                  ; (-ENOSYS without the kernel's)
 
     ; Text in the embedded font, for what canvasd draws itself; without it
     ; there are no labels, nothing else changes
