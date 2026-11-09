@@ -100,8 +100,11 @@ What exists today:
    at it rounded to 1x or 2x. While an output is mirrored or the magnifier
    is on it keeps step 3's way, its logical frame scaled after; a change of
    way draws it whole.
-5. Still open: window places and sizes chosen by the shell are not moved to
-   land on whole pixels (edges are rounded where they fall), and buffers of
+5. Snapped places (`shell/window`): a toplevel or popup is placed a whole
+   number of its output's pixels from the output's corner, moved back to
+   the nearest multiple of 120 / gcd(scale, 120) units.
+6. Still open: sizes (a maximized window at 1.5 cannot fill 64 pixels in
+   whole units), layers and Alt+drag moves are not snapped, and buffers of
    another scale blend at the edges of a partial redraw.
 
 ## Revisit Criteria
