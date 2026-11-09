@@ -1427,7 +1427,7 @@ device_event:
     mov rdi, rbx
     call scan_add
     imul eax, r13d, TouchContact_size
-    movzx r8d, byte [rbx + InputSeat.touches + rax + TouchContact.key]
+    movzx r8d, byte [rax + rbx + InputSeat.touches + TouchContact.key]
     mov rsi, [rsp]
     mov rdi, rbx
     mov edx, TOUCH_CANCEL
