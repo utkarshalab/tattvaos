@@ -381,7 +381,7 @@ inf_dynamic:
     jne .dyn_zeros
     test r15d, r15d
     jz .dyn_bad                       ; nothing to repeat
-    movzx r8d, byte [rbx + S_LENGTHS + r15 - 1]
+    movzx r8d, byte [r15 + rbx + S_LENGTHS - 1]
     push r8
     mov ecx, 2
     call inf_bits
