@@ -40,6 +40,7 @@ extern displays_start
 extern scale_fractional_compute
 extern output_set_scale
 extern magnify_focus
+extern window_move_to_workspace
 extern server_set_pen_curve
 extern compositor_output_at
 extern scale_fractional_calculate_dest
@@ -173,6 +174,11 @@ test_window_suite:
     CASE tw_snap, CAP_SHELL
     CASE tw_wake, CAP_SHELL
     CASE tw_foreign_objects, CAP_SHELL | CAP_SURFACE | CAP_BUFFER
+    CASE tw_size_limits, CAP_SHELL
+    CASE tw_transient, CAP_SHELL
+    CASE tw_modal, CAP_SHELL
+    CASE tw_attention, CAP_SHELL
+    CASE tw_focus_steal, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -3674,6 +3680,234 @@ tw_snap:
     jz .fail
     cmp dword [rax + Surface.current + SurfaceState.buf_x], 11
     jne .fail
+    PASS
+
+; a cw_toplevel request %1 on surface variable %2 with dwords %3, %4
+%macro TL_REQ 4
+    mov eax, [rel %2]
+    mov [rel req], eax
+    mov dword [rel req + 4], %3
+    mov dword [rel req + 8], %4
+    SEND CWP_OBJ_TOPLEVEL, %1, 12
+%endmacro
+; surface variable %1 is the keyboard's
+%macro KEYBOARD_ON 1
+    mov edi, [rel %1]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.keyboard_focus], rax
+    jne .fail
+%endmacro
+; a click at %1, %2, then a turn
+%macro CLICK_AT_XY 2
+    POINTER %1, %2
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+%endmacro
+; window variable %1's Window.state has WINDOW_URGENT (%2 = 1) or not (0)
+%macro URGENT_IS 2
+    mov edi, [rel %1]
+    call surface_of
+    mov rax, [rax + Surface.window]
+    mov eax, [rax + Window.state]
+    and eax, WINDOW_URGENT
+  %if %2
+    jz .fail
+  %else
+    jnz .fail
+  %endif
+%endmacro
+
+; edi = width, esi = height: a window that belongs to surface_a, made with
+; set_parent before its first buffer -> eax = its handle
+child_window:
+    push rbx
+    call new_surface
+    mov ebx, eax
+    mov [rel req], eax
+    SEND CWP_OBJ_TOPLEVEL, TL_CREATE, 4
+    mov [rel req], ebx
+    mov eax, [rel surface_a]
+    mov [rel req + 4], eax
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_PARENT, 8
+    mov edi, ebx
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    mov eax, ebx
+    pop rbx
+    ret
+
+; WIN-08: limits 20x15 to 40x30; maximized on the 64x48 output it is asked
+; to be 40x30
+tw_size_limits:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    TL_REQ TOPLEVEL_SET_MIN_SIZE, surface_a, 20, 15
+    TL_REQ TOPLEVEL_SET_MAX_SIZE, surface_a, 40, 30
+    TOPLEVEL TL_SET_MAX, surface_a, 0
+    call poll
+    CONFIGURED 40, 30, 1
+    PASS
+
+; WIN-11: B, A's child, opens centred on A (22, 19), not at the pointer;
+; a click on A raises B with it; A moved takes B along; A to workspace 2
+; takes B; A's role gone, B belongs to none
+tw_transient:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 32
+    mov esi, 24
+    call new_window
+    mov [rel surface_a], eax
+    POINTER 50, 40
+    mov edi, 8
+    mov esi, 6
+    call child_window
+    mov [rel surface_b], eax
+    call poll
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 22
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_y], 19
+    jne .fail
+    CLICK_AT_XY 12, 12                  ; A raised: B still above it
+    mov edi, [rel surface_b]
+    call surface_of
+    mov rcx, [rax + Surface.z_order_next]
+    test rcx, rcx
+    jnz .fail                           ; B is the top
+    lea rdi, [rel server]
+    mov edi, [rel surface_a]            ; A moved 5 right, 3 down: B too
+    call surface_of
+    lea rdi, [rel server]
+    mov rsi, rax
+    mov edx, 15
+    mov ecx, 13
+    call window_move
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 27
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_y], 22
+    jne .fail
+    mov edi, [rel surface_a]
+    call surface_of
+    lea rdi, [rel server]
+    mov rsi, rax
+    mov edx, 2
+    call window_move_to_workspace
+    mov edi, [rel surface_b]
+    call surface_of
+    mov rax, [rax + Surface.window]
+    cmp dword [rax + Window.workspace], 2
+    jne .fail
+    mov eax, [rel surface_a]            ; A's role ends
+    mov [rel req], eax
+    SEND CWP_OBJ_TOPLEVEL, TL_DESTROY, 4
+    call poll
+    mov edi, [rel surface_b]
+    call surface_of
+    mov rax, [rax + Surface.window]
+    cmp qword [rax + Window.transient], 0
+    jne .fail
+    PASS
+
+; WIN-10: B, A's modal child, has the keyboard; a click on A leaves it with
+; B; not modal, a click on A gives it to A
+tw_modal:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 32
+    mov esi, 24
+    call new_window
+    mov [rel surface_a], eax
+    mov edi, 8
+    mov esi, 6
+    call child_window
+    mov [rel surface_b], eax
+    TL_REQ TOPLEVEL_SET_MODAL, surface_b, 1, 0
+    call poll
+    KEYBOARD_ON surface_b
+    CLICK_AT_XY 12, 12
+    KEYBOARD_ON surface_b
+    TL_REQ TOPLEVEL_SET_MODAL, surface_b, 0, 0
+    call poll
+    CLICK_AT_XY 12, 12
+    KEYBOARD_ON surface_a
+    PASS
+
+; WIN-14: B has the keyboard; A asks for attention: urgent; clicked, not;
+; B asking while it has the keyboard is not marked
+tw_attention:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    POINTER 40, 30
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    TL_REQ TOPLEVEL_REQUEST_ATTENTION, surface_a, 0, 0
+    TL_REQ TOPLEVEL_REQUEST_ATTENTION, surface_b, 0, 0
+    call poll
+    URGENT_IS surface_a, 1
+    URGENT_IS surface_b, 0
+    CLICK_AT_XY 12, 12
+    KEYBOARD_ON surface_a
+    URGENT_IS surface_a, 0
+    PASS
+
+; WIN-12: A has the keyboard and a key was just pressed; B, another client,
+; shows a window: A keeps the keyboard, B's is urgent. With no press lately
+; B's next window takes it
+tw_focus_steal:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    INJECT INPUT_KEY, 30, 1
+    INJECT INPUT_KEY, 30, 0
+    call poll
+    lea rdi, [rel server]               ; B, another client
+    lea rsi, [rel pair_b]
+    mov edx, CAP_SHELL | CAP_POINTER | CAP_KEYBOARD
+    call client_accept
+    test rax, rax
+    js .fail
+    AS pair_b
+    call drain
+    POINTER 40, 30
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    AS pair
+    KEYBOARD_ON surface_a
+    URGENT_IS surface_b, 1
+    mov rax, [rel server + Server.input_seat]
+    mov qword [rax + InputSeat.last_input], 0
+    AS pair_b
+    POINTER 40, 10
+    mov edi, 8
+    mov esi, 6
+    call new_window
+    mov [rel surface_c], eax
+    AS pair
+    KEYBOARD_ON surface_c
     PASS
 
 ; %1 (a table field of Server) still resolves handle variable %2
