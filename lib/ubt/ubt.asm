@@ -12,6 +12,8 @@
 %include "lib/usb/usb.asm"
 %include "lib/ubt/ubt.inc"
 %include "lib/ubt/l2cap/l2cap.inc"
+%include "lib/ubt/snoop/snoop.asm"
+%include "lib/ubt/hci/names.asm"
 %include "lib/ubt/hci/core.asm"
 %include "lib/ubt/hci/conn.asm"
 %include "lib/ubt/l2cap/core.asm"
