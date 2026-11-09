@@ -77,6 +77,8 @@ UT_SYSCALL ut_fs_pwrite, SYS_FS_PWRITE
 
 UT_SYSCALL ut_power_register_callback, SYS_POWER_REG_CB
 UT_SYSCALL ut_power_suspend, SYS_POWER_SUSPEND
+UT_SYSCALL ut_service_publish, SYS_SERVICE_PUBLISH
+UT_SYSCALL ut_service_lookup, SYS_SERVICE_LOOKUP
 
 UT_SYSCALL ut_pci_for_each, SYS_PCI_FOR_EACH
 UT_SYSCALL ut_pci_find_class, SYS_PCI_FIND_CLASS
