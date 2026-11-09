@@ -171,6 +171,7 @@ test_window_suite:
     CASE tw_pixels, CAP_SHELL
     CASE tw_pixel_parts, CAP_SHELL
     CASE tw_snap, CAP_SHELL
+    CASE tw_wake, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -3672,6 +3673,22 @@ tw_snap:
     jz .fail
     cmp dword [rax + Surface.current + SurfaceState.buf_x], 11
     jne .fail
+    PASS
+
+; Input wakes the event loop: each record queued is a wake of its task
+; (here a made-up one, 7)
+tw_wake:
+    sub rsp, 8
+    mov qword [rel server + Server.loop_task], 7
+    mov rax, [rel server + Server.wakes]
+    mov [rsp], rax
+    INJECT INPUT_KEY, 30, 1
+    INJECT INPUT_KEY, 30, 0
+    mov rax, [rel server + Server.wakes]
+    sub rax, [rsp]
+    cmp rax, 2
+    jne .fail
+    mov qword [rel server + Server.loop_task], 0
     PASS
 
 ; the lid closed (1) or open (0), then a turn
