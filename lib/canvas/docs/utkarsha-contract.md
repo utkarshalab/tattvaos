@@ -385,14 +385,15 @@ ut_fs_pread
 ut_fs_close
 ```
 
-**Paths Canvas reads**:
-- `/etc/canvas/canvas.conf`, `outputs.conf`, `seats.conf`, `policy.conf`, `rules.conf`
-- `/usr/share/canvas/profiles/*.profile`
-- `/usr/share/canvas/keymaps/*.km`, `compose.tbl`
-- `/usr/share/canvas/fonts/*.ttf`
-- `/usr/share/canvas/cursors/*.png`
-- `/usr/share/canvas/wallpapers/*.png`
-- `/usr/share/canvas/icc/*.icc`
+**Paths Canvas reads** (the root layout; a setting is looked up in the user's
+`conf/`, then `/conf/apps/canvas/`, then the default Canvas ships):
+- `/conf/apps/canvas/canvas.conf`, `outputs.conf`, `seats.conf`, `policy.conf`,
+  `rules.conf`; a user's own in `/user/<name>/conf/canvas/`
+- `/sec/trust/canvas/*.profile` (trust profiles, admin-only)
+- `/app/canvas/keymaps/*.km`, `/app/canvas/keymaps/compose.tbl`
+- `/app/lib/ufont/fonts/` (the fonts `lib/ufont` ships)
+- `/app/canvas/cursors/*.png`, `/app/canvas/wallpapers/*.png`, `/app/canvas/icc/*.icc`
+- `/data/canvas/` for what Canvas keeps itself, such as display arrangements
 
 ---
 
