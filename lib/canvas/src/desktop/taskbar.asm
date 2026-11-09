@@ -542,7 +542,7 @@ draw:
     jae .out
     mov eax, r12d
     imul eax, eax, TaskbarEntry_size
-    mov eax, [rbx + Taskbar.entries + rax + TaskbarEntry.workspace]
+    mov eax, [rax + rbx + Taskbar.entries + TaskbarEntry.workspace]
     cmp eax, [rbx + Taskbar.workspace]
     jne .next                           ; another workspace's
     imul r13d, r14d, TASKBAR_ENTRY_W + TASKBAR_GAP
@@ -600,7 +600,7 @@ draw:
     jne .next                           ; the active one is yellow: no stripe
     mov eax, r12d
     imul eax, eax, TaskbarEntry_size
-    mov eax, [rbx + Taskbar.entries + rax + TaskbarEntry.id]
+    mov eax, [rax + rbx + Taskbar.entries + TaskbarEntry.id]
     cmp eax, [rbx + Taskbar.active]
     jne .next
     mov rdi, rbx                        ; the one with the keyboard
