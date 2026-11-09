@@ -816,6 +816,15 @@ wx-check: all test
 	done
 	@echo "wx-check: every image is W^X"
 
+# Every source canvasd builds, assembled by NASM and by utasm (UTASM, the
+# utasm binary) and the objects compared: sections, relocations, symbols
+# (FND-12). Not in check until utasm sizes a +127-byte jump short.
+UTASM ?= utasm
+.PHONY: dual-asm
+dual-asm:
+	@python3 tests/host/dual_asm.py $(UTASM) $(NASMFLAGS) -- \
+	    $(sort $(filter %.asm,$(ALL_SRCS) $(GFX_SRCS) $(FONT_SRCS)))
+
 # One definition for every global, a definition for every symbol used, and
 # no extern or global in a source that names nothing there (FND-03).
 .PHONY: symbol-check
