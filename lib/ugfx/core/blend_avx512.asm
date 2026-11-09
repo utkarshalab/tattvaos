@@ -120,10 +120,10 @@ blend_avx2_core:
     vpmullw ymm7, ymm7, ymm14
     vpmullw ymm3, ymm3, ymm15
 
-    vpsrlw ymm5, 8
-    vpsrlw ymm2, 8
-    vpsrlw ymm7, 8
-    vpsrlw ymm3, 8
+    vpsrlw ymm5, ymm5, 8
+    vpsrlw ymm2, ymm2, 8
+    vpsrlw ymm7, ymm7, 8
+    vpsrlw ymm3, ymm3, 8
 
     vpaddusw ymm4, ymm4, ymm5
     vpaddusw ymm0, ymm0, ymm2
