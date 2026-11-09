@@ -64,7 +64,6 @@
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
-extern compositor_raise_surface
 extern compositor_layout_bounds
 extern sw_cursor_moved
 extern sw_cursor_hide
