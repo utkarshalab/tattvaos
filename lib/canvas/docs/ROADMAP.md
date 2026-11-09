@@ -108,8 +108,8 @@
 |---|---|---|---|
 | KRN-01 | Agree the syscall ABI with the kernel (numbers, registers, return conventions) | P1 | ◐ the kernel's model is named UBF imports in one address space, not numbered syscalls: what Canvas needs is listed in `docs/KERNEL_NEEDS.md`, and `make ubf-check` proves those exports are enough for a first frame |
 | KRN-02 | Move every config and asset path to the root layout: config in `/conf`, trust in `/sec/trust`, assets under `/app` | P1 | ✓ `docs/utkarsha-contract.md`: config in `/conf/apps/canvas` (a user's in `/user/<name>/conf/canvas`), trust profiles in `/sec/trust/canvas`, assets in `/app/canvas` and `/app/lib/ufont`, Canvas's own state in `/data/canvas`. No code reads a path yet |
-| KRN-03 | Channel and shared-memory primitives for client↔server rings | P1 | → KRN-01 |
-| KRN-04 | Handle passing between tasks (buffers, fences) | P1 | |
+| KRN-03 | Channel and shared-memory primitives for client↔server rings | P1 | ◐ Canvas's side built and tested (`server/client/service`): canvasd publishes `"canvas"`, a client's entry queues its own `ChannelPair` in a lock-free slot and wakes the server, which accepts it on its loop; `test_clientlib`. Needs `ut_service_publish` and `ut_service_lookup` from the kernel (KERNEL_NEEDS step 2) |
+| KRN-04 | Handle passing between tasks (buffers, fences) | P1 | ✓ one address space: buffers and fences cross as handles the server checks (generation and owner on every request), their memory already shared; nothing needed from the kernel until programs have address spaces of their own |
 | KRN-05 | IRQ, MMIO, PCI and DMA services for the native backend | P2 | ◐ `ut_platform.asm` wrappers |
 | KRN-06 | Input device event delivery from kernel drivers | P2 | ◐ `source_ut.asm` |
 | KRN-07 | Early boot splash owned by Canvas, handed off from the firmware framebuffer | P3 | |
@@ -125,8 +125,8 @@
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| SRV-01 | Wire `canvasd_init`: arena → handle tables → backend → outputs → input → shell | P1 | ◐ `server/server_core`: arena to compositor on a headless output, host-tested; input and shell still to wire; `main.asm` builds but has not run on Utkarsha |
-| SRV-02 | Event loop dispatch for IRQ, channel, timer and input | P1 | ◐ `server_poll`: client requests with a fair share per turn, then a frame; IRQ, timer and input still to come |
+| SRV-01 | Wire `canvasd_init`: arena → handle tables → backend → outputs → input → shell | P1 | ✓ `server/main` `canvasd_init`: arena, `server_init` (handle tables, backend on the boot framebuffer or headless, outputs, compositor, input), the loop's task, the service published, the login screen, taskbars, displays; `ubf_run` runs the UBF to its first frame on the host shim |
+| SRV-02 | Event loop dispatch for IRQ, channel, timer and input | P1 | ✓ `server/main` loop: sleeps in `ut_wait_wait` until the next key repeat or idle lock, woken by `server_wake` for input records, displays and every client send (the task in its `ChannelPair`); each turn connects new clients, delivers input, serves requests with a fair share, draws a frame, then steps the login screen, displays and taskbars; yields without waitsets; `test_window`, `test_clientlib`. Interrupts come with the native backend (C10), through `ut_irq_register` |
 | SRV-03 | Server arena via `core/arena` instead of ad-hoc globals | P1 | ✓ |
 | SRV-04 | Client accept, registry and teardown | P1 | ✓ `server/client`: one memory region per client, freed whole; host-tested (`test_client`) |
 | SRV-05 | Fair round-robin client dispatch per loop iteration | P2 | ◐ `governance/scheduler` |
@@ -170,7 +170,7 @@
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| PRO-01 | Real `canvas_connect`: channel pair, handshake, capability grant | P1 | ◐ the server's end works (`client_accept`, `test_server`); `canvas_connect` and the client helpers still need KRN-03 |
+| PRO-01 | Real `canvas_connect`: channel pair, handshake, capability grant | P1 | ✓ `client/conn` `canvas_connect`: finds the server by name, hands it a pair, waits for the accept (yielding, or a pump), then the capability grant; `canvas_disconnect` frees the pair; `test_clientlib` end to end on the host shim. Reaching canvasd on Utkarsha OS waits for KRN-03's two exports |
 | PRO-02 | `cwpgen`: generate dispatch tables, server stubs and client stubs from `proto/*.cwp` | P1 | ◐ `tools/cwpgen.py` (development machine) generates every request and event number in `inc/cwp_ops.inc` from the core, input and shell protocols; and the server's dispatch table in `inc/cwp_dispatch.inc`: every handler named `h_<interface>_<request>` is registered, a request without one is an unknown opcode; `make cwp-check` (part of `all`) fails when either is behind. Client stubs are still written by hand; `src/tools/cwpgen.asm` is an in-OS stub |
 | PRO-03 | Capability negotiation: interfaces invisible without grant | P2 | ◐ stub in `proto/negotiate` |
 | PRO-04 | Error objects and protocol error reporting | P1 | ✓ `proto/errors`: a refused request becomes an error event and the client stays connected |
@@ -202,7 +202,7 @@
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | SUR-01 | Surface create, attach, damage, commit with double-buffered state | P1 | ✓ `server/surface`, `server/commit`; host-tested (`test_surface`) |
-| SUR-02 | Shared-memory buffers with ownership transfer and release | P1 | ◐ `server/buffer`: pixels in their own region, released on replace; sharing with a client still needs KRN-03 |
+| SUR-02 | Shared-memory buffers with ownership transfer and release | P1 | ✓ `server/buffer`: pixels in a region of their own, mapped for the client (`canvas_buffer_mmap`, one address space), released on replace; reached from other programs through `canvas_connect` |
 | SUR-03 | Fences and timelines on every buffer (explicit sync) | P1 | ✓ `cw_fence` (create, destroy, signal, reset, get_status) registered; fences are their client's (its arena, owner-checked, gone on disconnect) and attach refuses another's; a commit waits until its buffer's acquire fence is signaled or gone, retried each turn; the release fence is signaled when the buffer is let go; `cw_timeline` (create, destroy, signal, get_point) likewise: a 64-bit point that only goes up, the client's own; `cw_buffer.set_timeline` gives a buffer an acquire point its commit waits for and a release point the timeline reaches when it is let go; a timeline that is gone has reached every point; `test_window`. A fence becoming signaled sends its client `fence_signaled`, a timeline moving on `timeline_signaled` with the point, so nothing need poll; the client library makes, signals and waits on them (`client/sync_helpers`: `canvas_fence_wait`, `canvas_timeline_wait` with a deadline, every event read kept for `canvas_event_poll`; `test_clientlib`). No server-side wait requests; `server/fence`, `server/timeline` |
 | SUR-04 | Subsurfaces with sync/desync modes | P2 | ◐ `server/subsurface` |
 | SUR-05 | Opaque, input and damage regions | P1 | ◐ `cw_region` (create, destroy, add, subtract, clear) and `set_opaque_region`, `set_input_region` registered; regions are their client's (its arena, owner-checked handles, gone on disconnect); input regions steer the hit test; `test_input`. The opaque region is kept, not used yet (CMP-06); `server/regions` |
