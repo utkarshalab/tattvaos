@@ -109,6 +109,10 @@
 %define SYS_POWER_BATTERY   0xB4    ; get battery status
 %define SYS_POWER_SUSPEND   0xB5    ; suspend now, returns after resume
 
+; Services: a program publishes an entry by name, another finds it
+%define SYS_SERVICE_PUBLISH 0xB8    ; name, entry, cookie
+%define SYS_SERVICE_LOOKUP  0xB9    ; name -> entry, cookie
+
 ; Network / TLS
 %define SYS_TLS_LISTEN      0xC0    ; listen TLS
 %define SYS_TLS_ACCEPT      0xC1    ; accept TLS
@@ -372,6 +376,10 @@ extern ut_power_inhibit_suspend
 extern ut_power_uninhibit_suspend
 extern ut_power_battery_status
 extern ut_power_suspend
+
+; Services
+extern ut_service_publish
+extern ut_service_lookup
 
 ; Network/TLS
 extern ut_tls_listen
