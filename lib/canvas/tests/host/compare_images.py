@@ -29,9 +29,10 @@ from PIL import Image
 
 LOSSY_PSNR_FLOOR = 30.0
 
-# Corpus files Canvas cannot decode yet, with the reason. They are reported
-# on every run and do not fail it; one that starts passing does, so that its
-# entry is removed. Tracked in docs/ROADMAP.md (MED-20, MED-21).
+# Corpus files Canvas cannot decode yet, with the reason. Canvas must refuse
+# each one: that is reported on every run and does not fail it. One decoded
+# wrongly, or one that starts passing (so that its entry is removed), fails.
+# Tracked in docs/ROADMAP.md (MED-20).
 KNOWN_GAPS = {
     "progressive.jpg": "progressive JPEG is not implemented",
 }
@@ -324,10 +325,10 @@ def main():
             if name in gaps:
                 if ok:
                     print(f"FAIL  {name:28} passes: remove it from KNOWN_GAPS")
-                    failed += 1
                 else:
-                    print(f"gap   {name:28} {gaps[name]} ({p:.2f} dB)")
-                    known += 1
+                    print(f"FAIL  {name:28} decoded wrongly ({p:.2f} dB) "
+                          f"instead of refused: {gaps[name]}")
+                failed += 1
                 continue
             failed += not ok
             shown = "exact" if p == math.inf else f"{p:6.2f} dB"
