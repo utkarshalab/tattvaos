@@ -85,7 +85,7 @@
 |---|---|---|---|
 | FND-01 | Single source of truth for struct layouts: one `struc` per object; delete all local offset `%define`s | P0 | ✓ 202 objects, one `struc` each: shared ones in `inc/struct_offsets.inc`, subsystem ones in their header, private ones in their module; `server_offsets.inc` and `DEFINE_STRUCT_OFFSET` retired |
 | FND-02 | Build check that fails on duplicate or conflicting struct offsets | P0 | ✓ `make layout-check` (part of `all`) |
-| FND-03 | Extern/global consistency: each module header declares its exports; nothing redefines a global | P0 | |
+| FND-03 | Extern/global consistency: each module header declares its exports; nothing redefines a global | P0 | ✓ `make symbol-check` (in `make check`, `tests/host/symbol_check.py`): every global defined by one object, every symbol used defined by one, and in every source each `extern` used and each `global` defined there. The weak copies `inc/fixed.inc` and `inc/color.inc` put in every object that included them are now defined once (`core/fixed`, `color/formats`) |
 | FND-04 | Fix test and mock symbol collisions so all test images link | P0 | ✓ `make test` links all 4 images; 19 real unit suites |
 | FND-05 | Makefile: `all` without `test`; no duplicate `linker.ld`; add `GFX_SRCS` to the replay image; one owner for `linker.ld` | P0 | ✓ the tracked `linker.ld` is the only copy |
 | FND-06 | Release build mode (`DEBUG_BUILD=0`), warnings as errors | P0 | ✓ `make release` (`MODE=release`, `build/release/`); `-Werror` in both modes; the 24 warnings fixed |
