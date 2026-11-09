@@ -26,6 +26,7 @@ extern fb_linear_add_output
 extern fb_linear_flip
 extern server_place_output
 extern server_remove_output
+extern server_wake
 
 %define DISPLAY_ADDED       1
 %define DISPLAY_REMOVED     2
@@ -66,7 +67,8 @@ displays_event:
     mov rdx, [rdi]
     mov [rcx + rax * 8], rdx
     inc dword [rel ring_tail]
-    ret
+    mov rdi, rsi                        ; the loop woken to act on it
+    jmp server_wake
 .full:
     inc dword [rel dropped]
     ret
