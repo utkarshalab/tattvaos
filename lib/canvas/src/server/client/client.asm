@@ -174,6 +174,9 @@ accept_as:
     mov [r14 + Client.handle_rx], rax
     mov rax, [rsp + ChannelPair.client_to_server_handles]
     mov [r14 + Client.handle_tx], rax
+    mov rax, [rbx + Server.loop_task]   ; whom its sends wake
+    mov [rsp + ChannelPair.wake_task], rax
+    mov qword [rsp + ChannelPair.wakes], 0
     mov rdi, r12
     mov rsi, rsp
     mov ecx, ChannelPair_size
