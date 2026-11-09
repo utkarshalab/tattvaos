@@ -49,6 +49,30 @@ protocol canvas-shell 1 {
         ; by default, for clients that draw their own. None while fullscreen.
         request set_decorated(surface: handle, decorated: bool)
 
+        ; The smallest and the largest size it can take, 0 for no limit; the
+        ; sizes configure asks for keep inside them (WIN-08)
+        request set_min_size(surface: handle, width: uint, height: uint)
+        request set_max_size(surface: handle, width: uint, height: uint)
+
+        ; A window that belongs to another, a dialog (WIN-11): it opens
+        ; centred on its parent, on the parent's workspace and output, stays
+        ; above it and moves to another workspace with it. 0: none. The
+        ; parent must be one of the client's own windows, not one of its
+        ; children.
+        request set_parent(surface: handle, parent: handle)
+
+        ; With a parent (WIN-10): while it is on the screen its parent cannot
+        ; have the keyboard: what would give it to the parent gives it here
+        request set_modal(surface: handle, modal: bool)
+
+        ; The window wants the user (WIN-14): marked urgent in the window
+        ; list's states until it gets the keyboard
+        request request_attention(surface: handle)
+
+        ; A window shown by a client while the user is typing or clicking in
+        ; another client's window (within the last second) does not take the
+        ; keyboard; it is marked urgent instead (WIN-12)
+
         enum state {
             maximized = 1,
             fullscreen = 2
