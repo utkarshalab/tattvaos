@@ -11,10 +11,11 @@
 ;   page 0      PML4
 ;   page 1      PDPT
 ;   pages 2..5  PD0..PD3
-;   pages 6..72 deterministic pool of 67 leaf page tables
+;   pages 6..N deterministic pool of leaf page tables
 ;
-; 67 is the exact worst case for a 64 MiB kernel:
-;   33 virtual regions + 33 disjoint physical regions + 1 stub region.
+; The pool covers the exact worst case permitted by the ULF contract: every
+; 2 MiB region touched by the linked virtual window, every region touched by a
+; disjoint page-aligned physical backing, and one transition-stub region.
 ; =============================================================================
 
 %ifndef UEFI_TRANSITION_TABLES_ASM
@@ -24,8 +25,11 @@
 
 [BITS 64]
 
+UEFI_2M_BYTES                 equ 0x200000
 UEFI_TRANSITION_ROOT_PAGES    equ 6
-UEFI_TRANSITION_PT_PAGES      equ 67
+UEFI_TRANSITION_VIRTUAL_PTS   equ (((KERNEL_LOAD & (UEFI_2M_BYTES - 1)) + ULF_MAX_MEMORY_BYTES + UEFI_2M_BYTES - 1) / UEFI_2M_BYTES)
+UEFI_TRANSITION_PHYSICAL_PTS  equ ((ULF_MAX_MEMORY_BYTES + UEFI_2M_BYTES - 4096 + UEFI_2M_BYTES - 1) / UEFI_2M_BYTES)
+UEFI_TRANSITION_PT_PAGES      equ UEFI_TRANSITION_VIRTUAL_PTS + UEFI_TRANSITION_PHYSICAL_PTS + 1
 UEFI_TRANSITION_TABLE_PAGES   equ UEFI_TRANSITION_ROOT_PAGES + UEFI_TRANSITION_PT_PAGES
 UEFI_TRANSITION_TABLE_BYTES   equ UEFI_TRANSITION_TABLE_PAGES * 4096
 UEFI_TRANSITION_PML4_OFF      equ 0x0000
@@ -41,7 +45,6 @@ UEFI_PTE_HUGE                 equ 1 << 7
 UEFI_PTE_NX                   equ 1 << 63
 
 UEFI_LOW_4G_LIMIT             equ 0x0000000100000000
-UEFI_2M_BYTES                 equ 0x200000
 
 section .text
 
