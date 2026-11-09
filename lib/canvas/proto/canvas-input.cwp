@@ -43,6 +43,18 @@ protocol canvas-input 1 {
 
         ; The pointer's shape while it is over this surface of the client's
         request set_shape(surface: handle, shape: uint)
+
+        ; Every scroll in 120ths of a step, as the device gives it (a fine
+        ; wheel or a touchpad less than a step), after the device's scroll
+        ; speed and direction (PTR-03, PTR-04); axis follows with whole
+        ; steps as they add up
+        event axis_value120(time: ulong, surface: handle, axis: uint, value120: int)
+
+        ; Raw motion for a surface that asks (PTR-08): while the pointer is
+        ; over it, each relative movement as the device reported it, before
+        ; it moves the pointer or stops at the screen's edge
+        request set_relative(surface: handle, on: bool)
+        event relative_motion(time: ulong, surface: handle, dx: int, dy: int)
     }
 
     ; ------------------------------------------------------------------------
@@ -127,6 +139,12 @@ protocol canvas-input 1 {
     ; panel off, and locks the session unless another screen is on.
     interface cw_seat 1 {
         request watch()
+
+        ; A pointing device's settings (PTR-03, PTR-05): device, or
+        ; 0xFFFFFFFF for every device without its own; flags 1 natural
+        ; scrolling, 2 left-handed; scroll speed in 120ths (0: 120). Needs
+        ; the session capability.
+        request set_pointer(device: uint, flags: uint, scroll: uint)
 
         event switched(which: uint, state: uint)
         event device(change: uint, id: uint, caps: uint)
