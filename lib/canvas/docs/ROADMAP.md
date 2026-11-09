@@ -247,7 +247,7 @@
 | CMP-19 | Hardware plane assignment optimizer | P3 | → OUT-01 |
 | CMP-20 | Zero-copy path client buffer → plane scanout | P3 | → CMP-19 |
 | CMP-21 | Sampling quality: bilinear, bicubic, Lanczos; mipmaps for downscaling | P3 | ◐ `render/sw_scale` |
-| CMP-22 | Pixel-perfect fractional scaling (snapping rules for 125/150%) | P3 | ◐ `render/sw_render`: every edge mapped to the nearest whole pixel, so neighbours tile with no gap or overlap; a buffer within a pixel of the size it comes out is copied 1:1, not scaled; `test_window`. The shell does not yet pick places and sizes that land on whole pixels |
+| CMP-22 | Pixel-perfect fractional scaling (snapping rules for 125/150%) | P3 | ◐ `render/sw_render`: every edge mapped to the nearest whole pixel, so neighbours tile with no gap or overlap; a buffer within a pixel of the size it comes out is copied 1:1, not scaled; `shell/window` places toplevels and popups a whole number of pixels from their output's corner (every 4 units at 1.25, 2 at 1.5); `test_window`. Sizes, layers and Alt+drag moves are not snapped |
 | CMP-23 | Perceptual blending in linear or OKLab space for gradients and shadows | P3 | |
 | CMP-24 | Dithering for 10→8-bit and gradient banding | P3 | |
 | CMP-25 | Backdrop sampling cache for blur-behind | P3 | → G2D-07 |
