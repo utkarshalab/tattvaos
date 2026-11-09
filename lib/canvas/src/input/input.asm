@@ -98,6 +98,8 @@ extern greeter_lock
 extern seat_tell_switch
 extern seat_tell_device
 extern clamshell_lid
+extern window_modal_target
+extern window_raise
 extern clamshell_sleep
 extern switcher_cancel
 extern switcher_finish
@@ -340,12 +342,14 @@ input_dispatch:
     call pen_axes_event
     jmp .handled
 .key:
+    call stamp_press
     call key_event
     jmp .handled
 .pointer:
     call pointer_event
     jmp .handled
 .button:
+    call stamp_press
     call button_event
     jmp .handled
 .axis:
@@ -1353,6 +1357,16 @@ pad_event:
     xor eax, eax
     ret
 
+; A key or button pressed (value not 0): when, for focus-stealing
+; prevention. rdi = seat, rsi = RawInput* (both kept)
+stamp_press:
+    cmp dword [rsi + RawInput.value], 0
+    je .out
+    mov rax, [rdi + InputSeat.time]
+    mov [rdi + InputSeat.last_input], rax
+.out:
+    ret
+
 ; ---------------------------------------------------------------------------
 ; Switches and devices (SES-08): records 9 and 10 (KERNEL_NEEDS.md step 3)
 ; ---------------------------------------------------------------------------
@@ -1994,7 +2008,7 @@ click_focus:
     mov rbx, rdi
     mov rdi, [rbx + InputSeat.server]
     mov rsi, [rbx + InputSeat.pointer_focus]
-    call compositor_raise_surface
+    call window_raise                   ; its children with it
     mov rdi, [rbx + InputSeat.pointer_focus]
     call stacking_level
     test eax, eax
@@ -2017,7 +2031,7 @@ bar_press:
     mov r12, [rbx + InputSeat.bar]
     mov rdi, [rbx + InputSeat.server]
     mov rsi, r12
-    call compositor_raise_surface
+    call window_raise
     mov rdi, rbx
     mov rsi, r12
     call set_keyboard_focus
@@ -2124,7 +2138,9 @@ set_keyboard_focus:
     PROLOGUE_SAVE rbx, r12, r13
     sub rsp, 8                          ; 16-byte aligned
     mov rbx, rdi
-    mov r12, rsi
+    mov rdi, rsi                        ; a window with a modal child on show:
+    call window_modal_target            ; the child has it instead (WIN-10)
+    mov r12, rax
     mov r13, [rbx + InputSeat.keyboard_focus]
     cmp r12, r13
     je .out
