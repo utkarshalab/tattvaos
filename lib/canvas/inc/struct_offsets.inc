@@ -1577,6 +1577,10 @@ struc Server
     .suspends:                resq 1    ; times the lid asked to suspend
     .pen_curve_on:            resq 1    ; 1: pen pressure through pen_curve
     .pen_curve:               resq 8    ; its cubic, f64 (x, y) x 4 (TCH-10)
+    .loop_task:               resq 1    ; the event loop's task, 0: unknown
+    .connects:                resb 192  ; CONNECT_SLOTS ConnectSlot: other
+                                        ; programs waiting (server/service)
+    .wakes:                   resq 1    ; times it was woken for work
     .magnify_follow:          resq 1    ; 1: the view on magnify_rect, the
                                         ; keyboard's; 0: round the pointer
     .magnify_rect:            resd 4    ; x, y, w, h of what has the keyboard
@@ -1774,6 +1778,17 @@ endstruc
 %define OUTPUT_WATCHERS 8               ; clients told of the outputs
 %define SEAT_WATCHERS 8                 ; clients told of switches and devices
 %define TOUCHPAD_FINGERS 5              ; a touchpad's fingers followed
+%define CONNECT_SLOTS   8               ; connects waiting at once
+
+; A connect from another program, waiting for the server's loop
+struc ConnectSlot
+    .pair:                    resq 1    ; the client's ChannelPair*, 0: free
+    .caps:                    resq 1    ; capabilities it wants
+    .ready:                   resq 1    ; 1 once caps is written
+endstruc
+%if CONNECT_SLOTS * ConnectSlot_size != 192
+    %error "Server.connects must hold CONNECT_SLOTS ConnectSlots"
+%endif
 %define LID_DARK        1               ; Output.lid_off: turned off
 %define LID_MIRRORED    2               ; and made a mirror of another
 %define WORKSPACES      4               ; Super+1 to Super+4
