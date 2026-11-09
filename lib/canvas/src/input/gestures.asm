@@ -16,6 +16,10 @@
 ;     tells how far the fingers' middle moved, a pinch the scale since it
 ;     began (16.16) and that move. Two fingers moving together are scrolling,
 ;     the driver's to report.
+;   - Four or more fingers moving together are the server's (WIN-21): no
+;     swipe goes to the client; when they lift or change, a move of
+;     WORKSPACE_SWIPE pixels left shows the next workspace, right the one
+;     before (not while the screen is locked).
 ; Places are the device's mapped onto the first output (input_device_point),
 ; so the moves are in layout pixels.
 
@@ -31,12 +35,15 @@
 extern input_device_point
 extern input_send
 extern input_surface_at
+extern window_switch_workspace
 
 %define GESTURE_START   8               ; layout pixels before a hold turns
 %define KIND_NONE       0
 %define KIND_HOLD       1
 %define KIND_SWIPE      2
 %define KIND_PINCH      3
+%define KIND_WORKSPACE  4               ; four fingers or more: the server's
+%define WORKSPACE_SWIPE 48              ; pixels across that switch
 %define PHASE_DOWN      0
 %define PHASE_MOVE      1
 %define PHASE_UP        2
@@ -194,6 +201,8 @@ frame:
     je .swipe
     cmp eax, KIND_PINCH
     je .pinch
+    cmp eax, KIND_WORKSPACE
+    je .workspace
     cmp eax, KIND_HOLD
     jne .out
     cmp r15d, 2                         ; two: a pinch when they spread
@@ -234,12 +243,24 @@ frame:
     mov rdi, rbx
     mov esi, 1
     call finish
+    cmp r15d, 4
+    jb .client_swipe
+    mov dword [rbx + InputSeat.tp_kind], KIND_WORKSPACE
+    mov eax, r12d                       ; counted from where they began
+    sub eax, [rbx + InputSeat.tp_cx0]
+    mov [rbx + InputSeat.tp_total], eax
+    jmp .out
+.client_swipe:
     mov dword [rbx + InputSeat.tp_kind], KIND_SWIPE
     mov rdi, rbx
     mov edx, EV(SWIPE_BEGIN)
     mov r8d, r15d
     xor r9d, r9d
     call tell
+    jmp .out
+.workspace:
+    movsx eax, word [rsp]               ; the move across
+    add [rbx + InputSeat.tp_total], eax
     jmp .out
 .swipe:
     mov rdi, rbx
@@ -283,6 +304,34 @@ finish:
     mov edx, EV(PINCH_END)
     cmp eax, KIND_PINCH
     je tell
+    cmp eax, KIND_WORKSPACE
+    je workspace_swiped
+    xor eax, eax
+    ret
+
+; Four fingers lifted or changed: far enough left, the next workspace;
+; right, the one before (window_switch_workspace refuses past the ends);
+; none while locked.
+; rdi = seat
+workspace_swiped:
+    mov eax, [rdi + InputSeat.tp_total]
+    mov rdx, [rdi + InputSeat.server]
+    cmp qword [rdx + Server.locked], 0
+    jne .none
+    mov ecx, [rdx + Server.workspace]
+    cmp eax, -WORKSPACE_SWIPE
+    jle .next
+    cmp eax, WORKSPACE_SWIPE
+    jl .none
+    dec ecx                             ; right: the one before
+    jmp .show
+.next:
+    inc ecx
+.show:
+    mov rdi, rdx
+    mov esi, ecx
+    jmp window_switch_workspace
+.none:
     xor eax, eax
     ret
 
