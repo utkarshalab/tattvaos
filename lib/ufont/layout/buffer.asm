@@ -241,7 +241,7 @@ ufl_buf_delete_glyph:
     lea r9d, [rax + 1]
     cmp r9d, [r15 + S_LEN]
     jae .no_next
-    cmp r8d, [rdx + rcx + 32 + GI_CLUSTER]
+    cmp r8d, [rcx + rdx + 32 + GI_CLUSTER]
     je .done                            ; the cluster lives on
 .no_next:
     mov r10d, [r15 + S_OUTLEN]
