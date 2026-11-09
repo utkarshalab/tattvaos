@@ -82,6 +82,7 @@ extern magnify_moved
 extern magnify_focus
 extern umath_bezier_cubic_eval
 extern gesture_touch
+extern server_wake
 extern handle_resolve
 extern keymap_key
 extern msgbuf_write
@@ -260,6 +261,8 @@ input_submit:
     mov eax, [r12 + RawInput.device]
     mov [rdi + RawInput.device], eax
     inc dword [rbx + InputSeat.tail]
+    mov rdi, [rbx + InputSeat.server]   ; the loop woken to deliver it
+    call server_wake
     xor eax, eax
 .out:
     EPILOGUE_RESTORE rbx, r12
