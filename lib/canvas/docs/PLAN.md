@@ -5,8 +5,8 @@ assembly: no libc, no imports, no third-party code. It owns the screen, turns in
 events into focus-routed events, composes windows, and defines the protocol clients
 use to draw.
 
-- **Utkarsha only.** There is no Linux, hosted mode, or other-OS support, and no X11 or
-  Wayland compatibility layer. Every design choice assumes bare metal.
+- **Utkarsha OS only.** There is no hosted mode and no X11 or Wayland compatibility
+  layer. Every design choice assumes bare metal.
 - **Display server only.** No browser, toolkit or desktop apps are in this plan. The
   browser gets its own plan later and will be one client of Canvas.
 
@@ -17,7 +17,7 @@ It targets four deployments with one codebase:
 - **Kiosk / embedded** (one locked-down app, minimal footprint)
 - **Enterprise** (multi-seat, audit, quotas, policy, observability)
 
-Status: **phase C0 of C33 (nothing written yet)**
+Status: **C0, C1, C4, C9 and C21 built; most other phases in progress, C27, C32 and C33 not begun (2026-11-09). `docs/ROADMAP.md` tracks every item; the column below is a summary of it.**
 
 ---
 
@@ -57,7 +57,7 @@ about design and about absolute measured numbers.
 | Hot-path round trips | none for commit, damage or frame callbacks |
 | Scale | 256 clients and 1,000 surfaces without dropped frames (soak test) |
 
-A head-to-head against X11 or Wayland would need Linux on the same machine, so it is
+A head-to-head against X11 or Wayland cannot run on Utkarsha OS, so it is
 **not part of this plan**. "Surpassing" is claimed only for the dimensions above that
 the benchmarks measure.
 
@@ -296,80 +296,80 @@ canvas_disconnect(conn)
 
 ## 11. Phase table
 
-Legend: `☐` planned, `◐` in progress, `✓` shipped. Sizes are **rough estimates** of
+Legend: `☐` planned, `◐` in progress, `✓` built and tested on the host (not yet run on Utkarsha OS hardware). Sizes are **rough estimates** of
 assembly lines and will be replaced by real counts.
 
 ### Track A: Foundation
 
 | # | Phase | Deliverable | Est. lines | Status |
 |---|---|---|---|---|
-| C0 | Build + Utkarsha binding | build files; `inc/ut.inc` contract; `ut_mem`, `ut_time`, `ut_log`, `ut_entropy`, `ut_wait`; stubs for the rest | 1k | ☐ |
-| C1 | Core library | arena, str, utf8, hash, siphash, map, vec, ring, handle table, list, rbtree, bitset, fixed, fmt, config parser, logger, cpuid | 3k | ☐ |
-| C2 | Graphics primitives | pixbuf, rect, **region**, fill, blit, blend (scalar + SSE2/AVX2/AVX-512), scale, transform, clip, color, PPM/PNG writers, bitmap font | 3.5k | ☐ |
-| C3 | Test harness on Utkarsha | test macros, serial result reporting, headless harness, golden compare by checksum with dump-on-fail, fuzz driver skeleton | 0.8k | ☐ |
+| C0 | Build + Utkarsha binding | build files; `inc/ut.inc` contract; `ut_mem`, `ut_time`, `ut_log`, `ut_entropy`, `ut_wait`; stubs for the rest | 1k | ✓ |
+| C1 | Core library | arena, str, utf8, hash, siphash, map, vec, ring, handle table, list, rbtree, bitset, fixed, fmt, config parser, logger, cpuid | 3k | ✓ |
+| C2 | Graphics primitives | pixbuf, rect, **region**, fill, blit, blend (scalar + SSE2/AVX2/AVX-512), scale, transform, clip, color, PPM/PNG writers, bitmap font | 3.5k | ◐ |
+| C3 | Test harness on Utkarsha | test macros, serial result reporting, headless harness, golden compare by checksum with dump-on-fail, fuzz driver skeleton | 0.8k | ◐ |
 
 ### Track B: Protocol
 
 | # | Phase | Deliverable | Est. lines | Status |
 |---|---|---|---|---|
-| C4 | CWP codec + `cwpgen` | wire framing, object table, versioning, capability negotiation, error object, IDL compiler for `proto/*.cwp` | 3k | ☐ |
-| C5 | Connections | channels (message rings), accept, handshake, client registry, per-client arenas and queues, teardown | 2.5k | ☐ |
-| C6 | Buffers + sync | buffers with ownership transfer, formats, release semantics, fences, timelines | 2.5k | ☐ |
+| C4 | CWP codec + `cwpgen` | wire framing, object table, versioning, capability negotiation, error object, IDL compiler for `proto/*.cwp` | 3k | ✓ |
+| C5 | Connections | channels (message rings), accept, handshake, client registry, per-client arenas and queues, teardown | 2.5k | ◐ |
+| C6 | Buffers + sync | buffers with ownership transfer, formats, release semantics, fences, timelines | 2.5k | ◐ |
 
 ### Track C: Server core
 
 | # | Phase | Deliverable | Est. lines | Status |
 |---|---|---|---|---|
-| C7 | Scene graph | surfaces, subsurfaces, atomic commit, damage, opaque/input regions, z-order, transforms, scale | 5k | ☐ |
-| C8 | Software compositor | damage-driven composition, SIMD blend, buffer age, frame callbacks, presentation feedback, direct scanout | 4.5k | ☐ |
-| C9 | Backends I | `headless` and `fb_linear` (boot framebuffer) | 1.5k | ☐ |
-| C10 | Backends II: native modeset | PCI discovery, display engine programming for the first chosen family, vblank interrupts, flip, planes, EDID/DDC, hotplug | 8k | ☐ |
-| C11 | Output management | multi-monitor layout, mirror/extend, integer and fractional scale, rotation, gamma, DPMS, VRR flag | 4k | ☐ |
-| C12 | Input | input sources from Utkarsha, seats, keymap compiler, compose and dead keys, repeat, pointer accel, constraints, touch, gestures, tablet, focus, grabs, hit-test, cursor | 7k | ☐ |
-| C13 | Shell + policy | roles, configure/ack, states, move/resize, workspaces, built-in floating and tiling, external policy interface | 7k | ☐ |
-| C14 | Decorations + cursors | server-side decorations, theme engine, cursor themes (needs C21, C22) | 3k | ☐ |
-| C15 | Data | clipboard, primary selection, drag and drop, MIME negotiation, limits | 3k | ☐ |
-| C16 | Text, a11y, shortcuts | input method protocol, accessibility tree, sticky keys, magnifier, high contrast, global shortcuts, idle inhibit | 4k | ☐ |
+| C7 | Scene graph | surfaces, subsurfaces, atomic commit, damage, opaque/input regions, z-order, transforms, scale | 5k | ◐ |
+| C8 | Software compositor | damage-driven composition, SIMD blend, buffer age, frame callbacks, presentation feedback, direct scanout | 4.5k | ◐ |
+| C9 | Backends I | `headless` and `fb_linear` (boot framebuffer) | 1.5k | ✓ |
+| C10 | Backends II: native modeset | PCI discovery, display engine programming for the first chosen family, vblank interrupts, flip, planes, EDID/DDC, hotplug | 8k | ◐ |
+| C11 | Output management | multi-monitor layout, mirror/extend, integer and fractional scale, rotation, gamma, DPMS, VRR flag | 4k | ◐ |
+| C12 | Input | input sources from Utkarsha, seats, keymap compiler, compose and dead keys, repeat, pointer accel, constraints, touch, gestures, tablet, focus, grabs, hit-test, cursor | 7k | ◐ |
+| C13 | Shell + policy | roles, configure/ack, states, move/resize, workspaces, built-in floating and tiling, external policy interface | 7k | ◐ |
+| C14 | Decorations + cursors | server-side decorations, theme engine, cursor themes (needs C21, C22) | 3k | ◐ |
+| C15 | Data | clipboard, primary selection, drag and drop, MIME negotiation, limits | 3k | ◐ |
+| C16 | Text, a11y, shortcuts | input method protocol, accessibility tree, sticky keys, magnifier, high contrast, global shortcuts, idle inhibit | 4k | ◐ |
 
 ### Track D: Security and enterprise
 
 | # | Phase | Deliverable | Est. lines | Status |
 |---|---|---|---|---|
-| C17 | Security | trust profiles, capability gate, isolation checks, verifier hooks, tokens, audit log, permission prompts | 4k | ☐ |
-| C18 | Sessions + seats | multi-seat, user sessions, lock screen, idle, kiosk, power events | 3k | ☐ |
-| C19 | Governance | quotas, rate limits, watchdog, fault containment, fair scheduling, memory accounting | 3k | ☐ |
-| C20 | Observability | trace, frame timeline, protocol log, **record and replay**, metrics, debug interface, fault dump | 5k | ☐ |
+| C17 | Security | trust profiles, capability gate, isolation checks, verifier hooks, tokens, audit log, permission prompts | 4k | ◐ |
+| C18 | Sessions + seats | multi-seat, user sessions, lock screen, idle, kiosk, power events | 3k | ◐ |
+| C19 | Governance | quotas, rate limits, watchdog, fault containment, fair scheduling, memory accounting | 3k | ◐ |
+| C20 | Observability | trace, frame timeline, protocol log, **record and replay**, metrics, debug interface, fault dump | 5k | ◐ |
 
 ### Track E: Media and rendering
 
 | # | Phase | Deliverable | Est. lines | Status |
 |---|---|---|---|---|
-| C21 | PNG | inflate, zlib, CRC, PNG decode, scaling (cursors, wallpaper, icons) | 1.5k | ☐ |
-| C22 | TrueType | cmap, glyf, composites, Bezier flatten, supersampled AA, glyph cache, kerning | 4k | ☐ |
-| C23 | JPEG, GIF, BMP, SVG subset | baseline and progressive JPEG, GIF first frame, BMP, simple SVG | 4k | ☐ |
-| C24 | GPU acceleration | one GPU family: command ring, blit/fill, memory manager, fences, scanout planes | 15k | ☐ |
-| C25 | Color management | sRGB baseline, ICC matrix/TRC, per-output transforms, HDR metadata, linear-light blending | 3k | ☐ |
+| C21 | PNG | inflate, zlib, CRC, PNG decode, scaling (cursors, wallpaper, icons) | 1.5k | ✓ |
+| C22 | TrueType | cmap, glyf, composites, Bezier flatten, supersampled AA, glyph cache, kerning | 4k | ◐ |
+| C23 | JPEG, GIF, BMP, SVG subset | baseline and progressive JPEG, GIF first frame, BMP, simple SVG | 4k | ◐ |
+| C24 | GPU acceleration | one GPU family: command ring, blit/fill, memory manager, fences, scanout planes | 15k | ◐ |
+| C25 | Color management | sRGB baseline, ICC matrix/TRC, per-output transforms, HDR metadata, linear-light blending | 3k | ◐ |
 
 ### Track F: Remote display
 
 | # | Phase | Deliverable | Est. lines | Status |
 |---|---|---|---|---|
-| C26 | Remote display I | virtual outputs, TLS-wrapped RFB server, tile diff, compressed encodings, input and clipboard forwarding | 6k | ☐ |
+| C26 | Remote display I | virtual outputs, TLS-wrapped RFB server, tile diff, compressed encodings, input and clipboard forwarding | 6k | ◐ |
 | C27 | Remote display II | native remote protocol, adaptive compression, multi-viewer sharing | 6k | ☐ |
 
 ### Track G: Client SDK and tools
 
 | # | Phase | Deliverable | Est. lines | Status |
 |---|---|---|---|---|
-| C28 | Client library | connect, objects, buffer pools, double buffering, event loop, helpers | 4k | ☐ |
-| C29 | Reference clients | demo windows, alpha and subsurface demos, input/clipboard/DnD/IME tests, panel, wallpaper, lock screen, benchmarks, stress | 3k | ☐ |
-| C30 | Tools | `canvasctl`, `canvas-info`, `canvas-record`, `canvas-replay`, `canvas-bench`, `canvas-inspect`, `cwplint` | 4k | ☐ |
+| C28 | Client library | connect, objects, buffer pools, double buffering, event loop, helpers | 4k | ◐ |
+| C29 | Reference clients | demo windows, alpha and subsurface demos, input/clipboard/DnD/IME tests, panel, wallpaper, lock screen, benchmarks, stress | 3k | ◐ |
+| C30 | Tools | `canvasctl`, `canvas-info`, `canvas-record`, `canvas-replay`, `canvas-bench`, `canvas-inspect`, `cwplint` | 4k | ◐ |
 
 ### Track H: Hardening and release
 
 | # | Phase | Deliverable | Est. lines | Status |
 |---|---|---|---|---|
-| C31 | Hardening | fuzz every parser, scene-graph invariants, 24-hour soak, fault injection | n/a | ☐ |
+| C31 | Hardening | fuzz every parser, scene-graph invariants, 24-hour soak, fault injection | n/a | ◐ |
 | C32 | Benchmarks | measure every target in section 1 on your hardware, tune, record results | n/a | ☐ |
 | C33 | v1.0 release | protocol freeze, conformance suite, documentation, admin and client guides | 5k | ☐ |
 
@@ -439,7 +439,7 @@ backend for anything visual.
 
 ## 16. Out of scope
 
-Linux or any other OS, hosted mode, X11 and Wayland compatibility, a C ABI,
+Hosted mode, X11 and Wayland compatibility, a C ABI,
 the browser, 3D APIs (OpenGL, Vulkan), video decode, audio, a GUI toolkit, window
 animations and effects, printing, Bluetooth and network management, full IME engines
 (only the protocol), screen readers themselves (only the hooks).
