@@ -47,7 +47,7 @@ Handles: SEPARATE channel (SPSC ring of u32[16] messages)
 ## Consequences
 - `cwpgen` (C4) generates: opcode enums, struct definitions, encode/decode, dispatch tables
 - Client library (`canvas_client.o`) uses same generated code
-- `tests/fuzz/fuzz_wire.asm` fuzzes both channels independently
+- `tests/unit/test_fuzz.asm` fuzzes the client-to-server channel with random messages and input records
 - Protocol version in `proto/VERSION` — bump on any wire change
 
 ## Implementation
