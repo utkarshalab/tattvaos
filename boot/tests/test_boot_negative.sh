@@ -204,7 +204,7 @@ expect_line "undersized ULF memory extent rejected" "FAIL (unsupported ULF heade
 
 ULF_MEMORY_LARGE_BAD="$TMP_DIR/ulf-memory-large.img"
 cp "$GOOD_IMAGE" "$ULF_MEMORY_LARGE_BAD"
-write_le32 "$ULF_MEMORY_LARGE_BAD" $((KERNEL_OFFSET + 32)) $((64 * 1024 * 1024 + 8))
+write_le32 "$ULF_MEMORY_LARGE_BAD" $((KERNEL_OFFSET + 32)) $((256 * 1024 * 1024 + 8))
 write_le32 "$ULF_MEMORY_LARGE_BAD" $((KERNEL_OFFSET + 36)) 0
 ULF_MEMORY_LARGE_LOG="$TMP_DIR/ulf-memory-large.log"
 run_guest "$ULF_MEMORY_LARGE_BAD" max "$ULF_MEMORY_LARGE_LOG"
