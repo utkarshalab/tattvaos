@@ -1,17 +1,16 @@
-# Fuzz Corpus — Seed Inputs Per Target
+# Fuzz Corpus
 
-Add minimal valid seeds per target directory:
+The fuzzers make their own inputs, from fixed seeds, so a failure repeats:
 
-- `wire/` — one valid message per opcode class
-- `objects/` — handle create/resolve/destroy sequences
-- `keymap/` — one valid `.km` file
-- `config/` — one valid config per file type
-- `png/` — 1x1 valid PNG (see `tests/golden/data/sample.png` when added)
-- `jpeg/` — minimal JFIF baseline
-- `gif/` — minimal GIF89a
-- `ttf/` — minimal TrueType with `cmap`+`glyf`
-- `icc/` — minimal ICC with rXYZ + rTRC
-- `rfb/` — version + ServerInit byte prefix
+- `tests/unit/test_fuzz.asm` (a host suite, run by `make check`): random
+  messages from a client holding every capability, real handles from the
+  server's replies put back into them, and random raw input records of every
+  type. The server must not crash, and a second client must still be
+  answered.
+- `tests/host/fuzz_media.py` (run by `make check`, longer by `make fuzz`):
+  small valid images of every format `image_decode` reads, made with Pillow,
+  mutated and decoded by `host_decode`. A crash or a hang fails; the mutant is
+  kept as `fuzz_media_fail_*` in the working directory.
 
-Every new parser lands with at least one seed. Fuzzers never commit
-crashing inputs — they file them as regression tests instead.
+A failing input found by either becomes a regression test in the suite of
+the code it broke; crashing inputs are not committed here.
