@@ -70,8 +70,8 @@ blend_avx2:
     ; Multiply and shift
     vpmullw ymm3, ymm3, ymm6
     vpmullw ymm1, ymm1, ymm7
-    vpsrlw ymm3, 8
-    vpsrlw ymm1, 8
+    vpsrlw ymm3, ymm3, 8
+    vpsrlw ymm1, ymm1, 8
 
     ; Add
     vpaddusw ymm2, ymm2, ymm3
