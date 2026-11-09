@@ -353,7 +353,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| KEY-01 | Keyboard routed to the focused surface only | P1 | ◐ `input/input`: keys go to the surface last clicked or last shown (`shell/stacking`), as `cw_keyboard` events; held keys released on seat switch; `test_input` |
+| KEY-01 | Keyboard routed to the focused surface only | P1 | ✓ `input/input`: keys go only to the surface with the keyboard (the last clicked, shown, tapped or chosen with Alt+Tab), never to a client without `CAP_KEYBOARD`, never past the login screen while locked; held keys released when it changes; `test_input`, `test_window` |
 | KEY-02 | Keymap compiler from readable source to binary | P2 | ◐ `input/keymap_us`: one built-in US table; Shift, Caps Lock, Num Lock; `cw_keyboard` text and modifiers events |
 | KEY-03 | Multiple layout groups and layout switching | P2 | ◐ group 0 only |
 | KEY-04 | Compose and dead keys | P2 | ◐ `input/compose` |
@@ -375,7 +375,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| PTR-01 | Pointer routing via hit test, enter/leave, buttons, axis | P1 | ◐ `input/input`: topmost surface under the pointer, input regions, implicit grab while a button is held, `cw_pointer` events; `test_input` |
+| PTR-01 | Pointer routing via hit test, enter/leave, buttons, axis | P1 | ✓ `input/input`: the topmost surface under the pointer (input regions, title bars, scaled buffers), enter and leave, an implicit grab while a button is held, buttons and axis as `cw_pointer` events behind `CAP_POINTER`; `test_input`, `test_window` |
 | PTR-02 | Acceleration profiles (flat, adaptive, custom curve) per device | P2 | ◐ `input/accel` |
 | PTR-03 | Scroll speed and natural scroll per device | P2 | |
 | PTR-04 | High-resolution scroll events | P2 | |
@@ -580,7 +580,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | ID | Item | Phase | Notes |
 |---|---|---|---|
 | MED-01 | Decoder test coverage for every supported format | P0 | ✓ `compare_images.py` in `make check`: 72 files of every supported format against a reference decoder, exact for lossless, a PSNR floor for lossy; progressive JPEG, not supported (MED-20), must be refused, and is; `fuzz_media.py` fuzzes every format |
-| MED-02 | Generic `image_decode` with format sniffing | P1 | ◐ `img/sniff` |
+| MED-02 | Generic `image_decode` with format sniffing | P1 | ✓ `img/sniff` `image_decode`: the format from its bytes (PNG, JPEG, GIF, BMP, TGA, PPM, QOI, WebP, TIFF, SVG and more), then its decoder; `compare_images.py` against a reference decoder and `fuzz_media.py` in `make check` |
 | MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | |
 | MED-04 | Decode-to-scale for JPEG and WebP | P3 | |
 | MED-05 | Progressive / streaming decode display | P3 | |
@@ -652,7 +652,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| SEC-01 | Generation-checked handles on every dispatch | P1 | ◐ `server_core` checks handle and owner on every buffer and surface request; region and other requests still to come |
+| SEC-01 | Generation-checked handles on every dispatch | P1 | ✓ every request naming an object resolves it through a generation-checked table and checks its owner: surfaces and buffers (`own_surface`, `own_buffer`), regions, fences and timelines (`regions_own`, `fence_own`, `timeline_own` and their destroys); `test_server` and `test_window` (`tw_foreign_objects`: another client cannot destroy, clear or signal them), `test_fuzz` with live and stale handles |
 | SEC-02 | Trust profiles loaded and enforced | P2 | ◐ `security/trust`; every client is accepted standard (no privileged capability) except canvasd's own through `client_accept_trusted`; overlay layers, which show and take input over the lock screen, need the privileged `CAP_OVERLAY` (`test_window`), so only the greeter has them; pointer, keyboard and touch events reach only clients that asked for `CAP_POINTER`, `CAP_KEYBOARD`, `CAP_TOUCH`, and the keyboard focus never goes to one without `CAP_KEYBOARD`; profiles are not loaded from the trust store yet |
 | SEC-03 | Capability gate with audit entries for privileged interfaces | P2 | ◐ `security/gate`, `audit` |
 | SEC-04 | Server-drawn permission prompts that clients cannot spoof | P2 | ◐ `security/prompts` |
@@ -665,7 +665,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | SEC-11 | Private window flag: excluded from capture, thumbnails and remote views | P3 | |
 | SEC-12 | Overlay / clickjacking protection on prompts | P3 | |
 | SEC-13 | Auto-hide notifications while screen sharing | P3 | |
-| SEC-14 | Rate-limited error logging | P2 | |
+| SEC-14 | Rate-limited error logging | P2 | ◐ `core/log` limits every category's rate and counts what it drops; refused requests are logged through it. Not yet per client |
 | SEC-15 | Guard pages and canaries around arenas in debug builds | P2 | |
 | SEC-16 | Signed image verification at load | P3 | |
 | SEC-17 | Side-channel review: hit-test, prompt and clipboard timing | P4 | |
@@ -808,7 +808,7 @@ All items run on-device, opt-in, behind capability gates.
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| OBS-01 | Structured logging: levels, categories, rate limits | P1 | ◐ `core/log` |
+| OBS-01 | Structured logging: levels, categories, rate limits | P1 | ✓ `core/log`: one line a message, `[level] category: message`; ten categories (`inc/log.inc`), a level each; a rate limit each (20 at once, 20 a second), the next line let through saying how many were dropped; the sink and clock swappable for tests; used for clients connecting and refused, outputs added and removed, the session locked and unlocked, the lid; `test_log` |
 | OBS-02 | Trace ring with per-event IDs | P2 | ◐ `obs/trace` |
 | OBS-03 | Frame timeline markers | P2 | ◐ `obs/timeline` |
 | OBS-04 | Protocol log and record/replay | P2 | ◐ `obs/protolog`, `record`, `replay` |
