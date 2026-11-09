@@ -390,17 +390,24 @@ have been fuzzed for 24 hours with no findings, and its counters show in
 
 ### Phase 0 — Foundations (no hardware)
 
-- ☐ `ubt.inc`: adapter, connection, channel, buffer and event structures
-- ☐ `tr/mem.asm`: in-memory H4 transport
-- ☐ `sim/` step 1: a BR/EDR + LE controller model that answers the HCI
-  commands of 1.0b to 4.2, with a virtual radio connecting any number of
-  simulated controllers, adjustable loss, delay and noise
-- ☐ `snoop/`: capture every HCI packet with time stamps, in a standard
-  capture file format that common protocol analysers can open
-- ☐ HCI tables generated from one source file: every opcode, event code,
-  parameter layout and minimum version from 1.0b to 6.3
-- ☐ Test harness: scripted scenarios (two or more hosts on `sim/`), and a
-  fuzzer that feeds every parser
+- ✓ `ubt.inc`: adapter, connection, channel, buffer and event structures
+- ✓ `tr/mem.asm`: an in-memory transport (commands, ACL and polling as
+  hooks)
+- ✓ `sim/` step 1 (`sim/radio.py`): BR/EDR and LE controllers answering
+  what the stack uses of 1.0b to 4.2 (bring-up, links, advertising,
+  scanning, inquiry, names, LE encryption, BR/EDR pairing and encryption,
+  privacy, out of band), any number of them on one virtual radio, with
+  loss, delay and noise per sender from seeded random numbers
+- ✓ `snoop/`: every HCI packet with time stamps in btsnoop (protocol
+  analysers open it), captured into a buffer, one adapter or all
+- ✓ HCI tables generated from one source file (`hci/hci.def` →
+  `hci/tables.asm` by `hci/gen_tables.py`): 383 opcodes, event codes and
+  LE subevents from 1.0b to 6.0 with names and versions, layouts for
+  most; the stack's own constants checked against it. Layouts marked "?"
+  are still to be filled in
+- ✓ Test harness: scripted scenarios with two or more hosts on the
+  virtual radio (`tests/`), and a fuzzer (`tests/test_fuzz.py`) feeding
+  damaged traffic to every parser
 
 Estimate: ~9 000 lines (most of it in `sim/`).
 
