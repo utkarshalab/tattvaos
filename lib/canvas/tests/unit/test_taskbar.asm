@@ -64,6 +64,7 @@ test_taskbar_suite:
     CASE tb_remove_output
     CASE tb_mirror
     CASE tb_contrast
+    CASE tb_urgent
     mov eax, ebx
     pop rbx
     ret
@@ -732,6 +733,27 @@ tb_titlebar_title:
     pop r12
     pop rbx
     ret
+
+; A window that asks for attention while another has the keyboard: its block
+; amber; clicked, its own colour again
+tb_urgent:
+    sub rsp, 8
+    call new_window
+    mov [rel surface_a], eax
+    call new_window
+    mov [rel surface_b], eax
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_REQUEST_ATTENTION, 4
+    call poll
+    call poll
+    PIXEL BLOCK_X(0) + 5, TASKBAR_PAD + 10, TASKBAR_URGENT
+    CLICK BLOCK_X(0) + 10, BAR_Y + 16
+    mov rax, [rel bar]
+    mov ecx, [rax + Taskbar.entries + TaskbarEntry.color]
+    mov [rel color], ecx
+    PIXEL BLOCK_X(0) + 5, TASKBAR_PAD + 10, [rel color]
+    PASS
 
 ; High contrast: the bar black, the active block yellow, another white, a
 ; minimized one a white outline; the shown square yellow, another an
