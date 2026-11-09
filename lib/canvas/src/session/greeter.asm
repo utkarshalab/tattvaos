@@ -33,6 +33,7 @@
 %include "inc/canvas_client.inc"
 %include "inc/greeter.inc"
 %include "inc/ui_text.inc"
+%include "inc/log.inc"
 
 extern arena_alloc
 extern canvas_buffer_create
@@ -506,7 +507,23 @@ greeter_deadline:
 ; Server.locked to esi, every output redrawn: locked, only the overlays show.
 ; rdi = server
 set_locked:
+    push rdi
+    push rsi
+    sub rsp, 8                          ; 16-byte aligned
     mov [rdi + Server.locked], rsi
+    lea rax, [rel log_locked]
+    lea rcx, [rel log_unlocked]
+    test rsi, rsi
+    cmovz rax, rcx
+    mov edx, log_locked_len
+    mov ecx, log_unlocked_len
+    cmovz edx, ecx
+    mov edi, LOG_CAT_SESSION
+    mov rsi, rax
+    call log_info
+    add rsp, 8
+    pop rsi
+    pop rdi
     jmp compositor_damage_all
 
 ; The right password: the buffer off the surface, the desktop shown.
@@ -863,6 +880,12 @@ hc_palette:     dd GREETER_HC_BG, GREETER_HC_BG, GREETER_HC_INK, GREETER_HC_MARK
 
 section .bss
 pal:            resd P_COUNT            ; the colours drawn with now
+
+section .rodata
+log_locked:     db "the session was locked"
+log_locked_len: equ $ - log_locked
+log_unlocked:   db "the session was unlocked"
+log_unlocked_len: equ $ - log_unlocked
 
 section .data
 global greeter_version
