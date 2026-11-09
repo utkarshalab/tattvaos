@@ -174,6 +174,7 @@ test_window_suite:
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
     CASE tw_gestures, CAP_SHELL
+    CASE tw_workspace_swipe, CAP_SHELL
     CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
@@ -3242,6 +3243,65 @@ tw_gestures:
     call any_event
     test eax, eax
     jnz .fail
+    PASS
+
+; four touchpad fingers at x %1 (phase %2: 0 down, 1 moved), a frame
+%macro FOUR_AT 2
+    PADTOUCH 0, %2, %1, 100
+    PADTOUCH 1, %2, %1 + 20, 300
+    PADTOUCH 2, %2, %1 + 40, 500
+    PADTOUCH 3, %2, %1 + 60, 700
+    PADTOUCH 0, 3, 0, 0
+%endmacro
+; four fingers lifted, a frame
+%macro FOUR_UP 0
+    PADTOUCH 0, 2, 0, 0
+    PADTOUCH 1, 2, 0, 0
+    PADTOUCH 2, 2, 0, 0
+    PADTOUCH 3, 2, 0, 0
+    PADTOUCH 0, 3, 0, 0
+%endmacro
+
+; Four fingers swiped 51 pixels left show workspace 1, no swipe to the
+; client; right, back to 0; right again, nothing before 0; a short swipe
+; does nothing
+tw_workspace_swipe:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    FOUR_AT 800, 0
+    FOUR_AT 0, 1
+    FOUR_UP
+    call poll
+    cmp qword [rel server + Server.workspace], 1
+    jne .fail
+    mov edi, CWP_OBJ_GESTURE            ; a hold, but no swipe for it
+    mov esi, GESTURE_EV_SWIPE_BEGIN
+    call find_event
+    test eax, eax
+    jnz .fail
+    FOUR_AT 0, 0                        ; right: back
+    FOUR_AT 800, 1
+    FOUR_UP
+    call poll
+    cmp qword [rel server + Server.workspace], 0
+    jne .fail
+    FOUR_AT 0, 0                        ; right again: none before 0
+    FOUR_AT 800, 1
+    FOUR_UP
+    call poll
+    cmp qword [rel server + Server.workspace], 0
+    jne .fail
+    FOUR_AT 400, 0                      ; short: 19 pixels, nothing
+    FOUR_AT 100, 1
+    FOUR_UP
+    call poll
+    cmp qword [rel server + Server.workspace], 0
+    jne .fail
     PASS
 
 ; The pen curve: with both inner heights at 65535, a quarter press (16384)
