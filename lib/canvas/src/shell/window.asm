@@ -1431,7 +1431,9 @@ new_role:
 %endmacro
 
 ; eax = x, r10d = y of a w x h rectangle (edx, ecx) -> both moved back onto
-; output r8 as far as it goes, into Window.x / y of rsi
+; output r8 as far as it goes, into Window.x / y of rsi; then each moved back
+; towards the output's corner to a whole pixel of it (CMP-22: at 1.25 every
+; 4 units, at 1.5 every 2), so the window's edges fall on pixels there
 keep_on_output:
     mov r11d, [r8 + Output.x]           ; x: no further right than fits
     add r11d, [r8 + Output.width]
@@ -1449,6 +1451,56 @@ keep_on_output:
     cmp r10d, [r8 + Output.y]
     cmovl r10d, [r8 + Output.y]
     mov [rsi + Window.y], r10d
+    call pixel_step
+    cmp ecx, 1
+    je .snapped
+    mov eax, [rsi + Window.x]
+    sub eax, [r8 + Output.x]
+    xor edx, edx
+    div ecx
+    imul eax, ecx
+    add eax, [r8 + Output.x]
+    mov [rsi + Window.x], eax
+    mov eax, [rsi + Window.y]
+    sub eax, [r8 + Output.y]
+    xor edx, edx
+    div ecx
+    imul eax, ecx
+    add eax, [r8 + Output.y]
+    mov [rsi + Window.y], eax
+.snapped:
+    ret
+
+; Output r8 -> ecx = the fewest layout units that are a whole number of its
+; pixels: 120 / gcd(scale in 120ths, 120); 1 at scale 1 or 2. eax, edx, r9
+; are used.
+pixel_step:
+    mov ecx, 1
+    mov rax, [r8 + Output.scale]
+    test rax, rax
+    jz .out
+    imul rax, rax, 120                  ; 16.16 to 120ths, rounded
+    add rax, 0x8000
+    shr rax, 16
+    test eax, eax
+    jz .out
+    mov ecx, eax                        ; gcd(it, 120)
+    mov r9d, 120
+.gcd:
+    test r9d, r9d
+    jz .have
+    mov eax, ecx
+    xor edx, edx
+    div r9d
+    mov ecx, r9d
+    mov r9d, edx
+    jmp .gcd
+.have:
+    mov eax, 120
+    xor edx, edx
+    div ecx
+    mov ecx, eax
+.out:
     ret
 
 ; Top-left at the pointer, kept on the output the pointer is on (with no
