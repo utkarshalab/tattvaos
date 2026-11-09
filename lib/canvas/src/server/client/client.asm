@@ -10,6 +10,7 @@
 %include "inc/channel.inc"
 %include "inc/handle.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/log.inc"
 
 extern arena_alloc
 extern arena_init
@@ -101,9 +102,11 @@ client_accept_trusted:
     mov ecx, TRUST_TRUSTED
 
 ; As client_accept; rcx = the trust profile
+%define ACCEPT_FRAME ((((ChannelPair_size + 24 + 56) + 15) & ~15) - 56)
 accept_as:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    sub rsp, ChannelPair_size + 8 + 16  ; the pair, caps wanted, trust
+    sub rsp, ACCEPT_FRAME               ; the pair, caps wanted, trust;
+                                        ; 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
     mov [rsp + ChannelPair_size], rdx
@@ -177,9 +180,9 @@ accept_as:
     mov rax, [rbx + Server.loop_task]   ; whom its sends wake
     mov [rsp + ChannelPair.wake_task], rax
     mov qword [rsp + ChannelPair.wakes], 0
-    mov rdi, r12
-    mov rsi, rsp
-    mov ecx, ChannelPair_size
+    mov rdi, r12                        ; up to state: state and region are
+    mov rsi, rsp                        ; the caller's (canvas_connect's)
+    mov ecx, ChannelPair.state
     rep movsb
 
     mov rdi, [rbx + Server.client_registry]
@@ -202,9 +205,13 @@ accept_as:
     mov rax, [rbx + Server.client_list]
     mov [r14 + Client.next_client], rax
     mov [rbx + Server.client_list], r14
+    mov edi, LOG_CAT_CLIENT
+    lea rsi, [rel log_connected]
+    mov edx, log_connected_len
+    call log_info
     mov rax, [r14 + Client.id]
 .out:
-    add rsp, ChannelPair_size + 8 + 16
+    add rsp, ACCEPT_FRAME
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 .unlink:
@@ -322,6 +329,10 @@ client_get:
     jnz client_registry_find
     xor eax, eax
     ret
+
+section .rodata
+log_connected:  db "a client connected"
+log_connected_len: equ $ - log_connected
 
 section .data
 global client_version
