@@ -237,6 +237,7 @@ FONT_OBJS := $(patsubst $(UFONT_DIR)/%.asm,$(OBJDIR)/ufont/%.o,$(FONT_SRCS))
 
 # Color management (C25)
 COLOR_SRCS := \
+    $(SRCDIR)/color/formats.asm \
     $(SRCDIR)/color/srgb.asm \
     $(SRCDIR)/color/icc_parse.asm \
     $(SRCDIR)/color/matrix.asm \
@@ -808,6 +809,12 @@ wx-check: all test
 	done
 	@echo "wx-check: every image is W^X"
 
+# One definition for every global, a definition for every symbol used, and
+# no extern or global in a source that names nothing there (FND-03).
+.PHONY: symbol-check
+symbol-check: all
+	@python3 tests/host/symbol_check.py $(ALL_OBJS)
+
 # No access may be wider than the struc field it names.
 .PHONY: field-width-check
 field-width-check:
@@ -825,11 +832,12 @@ pic-check: all
 	@echo "pic-check: every object is position independent"
 
 # Everything a change must pass: the layout and field checks, all images and
-# test images in debug and release, W^X and position independence, the host
+# test images in debug and release, W^X, position independence and the
+# symbols' consistency, the host
 # suites (test_fuzz among them) and conformance checks, the decoders fuzzed
 # (fuzz_media.py), and the UBF in both modes.
 .PHONY: check
-check: field-width-check all test wx-check pic-check host-check ubf-check release
+check: field-width-check all test wx-check pic-check symbol-check host-check ubf-check release
 	$(MAKE) MODE=release ubf-check
 	@echo "check: passed"
 
