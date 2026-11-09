@@ -438,6 +438,10 @@ make cts          # conformance suite
 | 0009 | Utkarsha owns buses, Canvas owns display engines | Clean driver boundary |
 | 0010 | One GPU/display family at a time | Scope control, direct scanout recovers 80% benefit |
 | 0011 | Defer AVIF, HEIF, and JPEG XL decoding | Prioritize required display-server features; retain accurate format detection |
+| 0012 | Fractional output scale | A logical layout, each output drawn at its own pixels, edges on whole pixels |
+| 0013 | Input devices and their records | One record per event kind; the device's capabilities say what it means |
+| 0014 | What closing the lid does | Decided by whether another screen is on: dock, or lock and sleep |
+| 0015 | How Canvas is tested | The host shim, `make check` as the gate, mutation checks, fixed-seed fuzzing |
 
 ---
 
