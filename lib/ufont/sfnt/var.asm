@@ -1483,7 +1483,7 @@ vr_simple:
     inc rsi
 .flag_put:
     lea r10d, [rcx + rdx]
-    mov [r14 + VX_ON + r10], al
+    mov [r10 + r14 + VX_ON], al
     inc edx
     test r9d, r9d
     jz .flag
@@ -1499,7 +1499,7 @@ vr_simple:
     cmp edx, ebx
     jae .ys
     lea r10d, [rcx + rdx]
-    movzx eax, byte [r14 + VX_ON + r10]
+    movzx eax, byte [r10 + r14 + VX_ON]
     test eax, 2
     jz .x_long
     cmp rsi, r8
@@ -1534,7 +1534,7 @@ vr_simple:
     cmp edx, ebx
     jae .on
     lea r10d, [rcx + rdx]
-    movzx eax, byte [r14 + VX_ON + r10]
+    movzx eax, byte [r10 + r14 + VX_ON]
     test eax, 4
     jz .y_long
     cmp rsi, r8
@@ -1569,7 +1569,7 @@ vr_simple:
     cmp edx, ebx
     jae .done
     lea r10d, [rcx + rdx]
-    and byte [r14 + VX_ON + r10], 1
+    and byte [r10 + r14 + VX_ON], 1
     inc edx
     jmp .on1
 .done:
@@ -2435,7 +2435,7 @@ vr_draw:
     movsd xmm1, [r14 + VX_PY + r12 * 8]
     movsd [rsp + DR_P], xmm0
     movsd [rsp + DR_P + 8], xmm1
-    cmp byte [r14 + VX_ON + r12], 0
+    cmp byte [r12 + r14 + VX_ON], 0
     je .off
     cmp dword [rsp + DR_HAS], 0
     je .line
