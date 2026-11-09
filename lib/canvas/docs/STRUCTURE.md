@@ -623,6 +623,7 @@ canvas/
     ├── benchmark-method.md            # C32
     ├── design-notes-x11-wayland.md    # C0   what Canvas borrows and avoids (design rationale only)
     ├── definition-of-done.md          #      when a ROADMAP item is done
+    ├── regressions.md                 #      every bug fixed and its test
     └── decisions/                     # one short record per design decision
         ├── 0001-no-libc.md
         ├── 0002-pixel-format.md
