@@ -21,7 +21,7 @@ nasm -f elf64 -Wall -Werror -w-reloc-rel-dword \
     -I "$ROOT_DIR/" -I "$ROOT_DIR/boot/" -I "$ROOT_DIR/boot/uefi/" \
     "$TEST_DIR/uefi_transition_tables_unit.asm" \
     -o "$TMP_DIR/uefi_transition_tables_unit.o"
-ld -Ttext=0x10000000 -o "$TMP_DIR/uefi_transition_tables_unit" \
+ld -Ttext=0x40000000 -o "$TMP_DIR/uefi_transition_tables_unit" \
     "$TMP_DIR/uefi_transition_tables_unit.o"
 
 set +e
