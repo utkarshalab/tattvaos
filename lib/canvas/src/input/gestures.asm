@@ -129,19 +129,6 @@ gesture_touch:
     EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
-; gesture_forget
-;   A surface going: no more gestures to it
-;   IN:  rdi = seat*, rsi = Surface*
-; ---------------------------------------------------------------------------
-global gesture_forget
-gesture_forget:
-    cmp [rdi + InputSeat.tp_surface], rsi
-    jne .out
-    mov qword [rdi + InputSeat.tp_surface], 0
-.out:
-    ret
-
-; ---------------------------------------------------------------------------
 ; Local
 ; ---------------------------------------------------------------------------
 
