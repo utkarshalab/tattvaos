@@ -170,6 +170,7 @@ test_window_suite:
     CASE tw_logical, CAP_SHELL | CAP_OUTPUT
     CASE tw_pixels, CAP_SHELL
     CASE tw_pixel_parts, CAP_SHELL
+    CASE tw_snap, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -3623,6 +3624,54 @@ tw_pixel_parts:
     PIXEL_IS 45, 26, 0xFF000000
     mov rax, [rel server + Server.compositor]
     mov qword [rax + Compositor.cursor_on], 0
+    PASS
+
+; Snapped: at 1.25 a window placed at the pointer, 10, 10, goes to 8, 8, a
+; whole 10 pixels; at 1.5, to 10, 10 itself (15 pixels); at 1 it stays at 11
+tw_snap:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov rsi, [rel server + Server.outputs]
+    mov edx, 150
+    call output_set_scale
+    POINTER 10, 10
+    mov edi, 8
+    mov esi, 6
+    call new_window
+    mov [rel surface_a], eax
+    mov edi, [rel surface_a]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 8
+    jne .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_y], 8
+    jne .fail
+    lea rdi, [rel server]
+    mov rsi, [rel server + Server.outputs]
+    mov edx, 180
+    call output_set_scale
+    POINTER 11, 10
+    mov edi, 8
+    mov esi, 6
+    call new_window
+    mov [rel surface_b], eax
+    mov edi, [rel surface_b]
+    call surface_of
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 10
+    jne .fail
+    lea rdi, [rel server]
+    mov rsi, [rel server + Server.outputs]
+    mov edx, 120
+    call output_set_scale
+    POINTER 11, 10
+    mov edi, 8
+    mov esi, 6
+    call new_window
+    mov edi, eax
+    call surface_of
+    test rax, rax
+    jz .fail
+    cmp dword [rax + Surface.current + SurfaceState.buf_x], 11
+    jne .fail
     PASS
 
 ; the lid closed (1) or open (0), then a turn
