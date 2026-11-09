@@ -10,8 +10,14 @@ ends of a link, giving the sender its Number of Completed Packets back.
 Nothing is delivered from inside a call into the stack: every event and
 packet goes on a queue that run() empties, so the two stacks never call
 into each other half-way through something.
+
+The air between controllers can be made worse, per sending controller:
+loss (the chance an ACL packet never arrives), noise (the chance one of
+its bits is flipped) and delay (how many run() calls it is held back).
+They draw on the radio's seeded random numbers, so a run repeats exactly.
 """
 import ctypes as C
+import random
 import struct
 
 EV_CONN_COMPLETE, EV_CONN_REQUEST, EV_DISCONNECT = 0x03, 0x04, 0x05
@@ -29,6 +35,9 @@ class Controller:
         self.hold_completed = False
         self.held = 0
         self.deaf = False           # drop what comes to us over the air
+        self.loss = 0.0             # what we send: the chance it is lost
+        self.noise = 0.0            # ... that a bit of it is flipped
+        self.delay = 0              # ... how many run() calls it waits
         self.accept = True          # accept incoming BR/EDR links
         self.updates = []
         # GAP: what this controller advertises, scans for, answers inquiries with
@@ -188,7 +197,7 @@ class Controller:
             self.resolving.append(bytes(p[:39]))
         elif opcode == 0x202D:                          # LE Set Address Resolution Enable
             self.resolution = bool(p[0])
-        elif opcode == 0x047D:                          # Read Local OOB Extended Data
+        elif opcode == 0x0C7D:                          # Read Local OOB Extended Data
             self.complete(opcode, b"\x00" + bytes(32) + self.oob_c + self.oob_r)
             return True
         elif opcode == 0x2008:                          # LE Set Advertising Data
@@ -321,7 +330,7 @@ class Controller:
             self.event(0x17, peer.address)
             return True
         if opcode in (0x040B, 0x040C, 0x042B, 0x0434, 0x042C, 0x042D, 0x042E, 0x042F, 0x040D, 0x040E,
-                      0x045D, 0x0433):
+                      0x0445, 0x0433):
             self.complete(opcode, b"\x00" + bytes(p[:6]))
             peer, st = self._pairing(p[:6])
             if st is None:
@@ -376,8 +385,8 @@ class Controller:
                     ok = all(v == st["ini"].pair_number for v in st["entered"].values())
                     self._pair_end(st, 0 if ok else 0x05, 8)
                 return True
-            if opcode in (0x045D, 0x0433):              # Remote OOB Extended Data (Negative) Reply
-                ok = opcode == 0x045D and bytes(p[38:54]) == peer.oob_c and bytes(p[54:70]) == peer.oob_r
+            if opcode in (0x0445, 0x0433):              # Remote OOB Extended Data (Negative) Reply
+                ok = opcode == 0x0445 and bytes(p[38:54]) == peer.oob_c and bytes(p[54:70]) == peer.oob_r
                 if not ok:
                     self._pair_end(st, 0x05)
                     return True
@@ -428,7 +437,7 @@ class Controller:
         if link is not None:
             peer, ph, _ = link
             if not peer.deaf:
-                self.radio.queue.append(("acl", peer, struct.pack("<HH", ph | flags, length) + bytes(pkt[4:4 + length])))
+                self.radio.air(self, peer, struct.pack("<HH", ph | flags, length), bytes(pkt[4:4 + length]))
         if self.hold_completed:
             self.held += 1
         else:
@@ -450,6 +459,9 @@ class Radio:
         self.queue = []
         self.paging = {}
         self.pairings = {}          # (initiator, responder) → BR/EDR pairing state
+        self.rng = random.Random(0)
+        self.later = []             # [run() calls left, packet] held back
+        self.lost = self.damaged = 0
         self.cmd_cb = C.CFUNCTYPE(None, C.c_void_p, C.c_void_p, C.c_uint32)(
             lambda a, p, n: self.controllers[a].command(C.string_at(p, n)))
         self.acl_cb = C.CFUNCTYPE(C.c_int32, C.c_void_p, C.c_void_p, C.c_uint32)(self._acl)
@@ -497,9 +509,36 @@ class Radio:
         """An ACL packet to a controller's host as if from the air."""
         self.queue.append(("acl", ctrl, struct.pack("<HH", handle | (flags << 12), len(data)) + bytes(data)))
 
+    def seed(self, n):
+        self.rng = random.Random(n)
+
+    def air(self, sender, peer, header, payload):
+        """An ACL packet over the air: lost, damaged or held back as the
+        sender's settings say, else on the queue."""
+        if sender.loss and self.rng.random() < sender.loss:
+            self.lost += 1
+            return
+        if sender.noise and payload and self.rng.random() < sender.noise:
+            b = bytearray(payload)
+            i = self.rng.randrange(len(b))
+            b[i] ^= 1 << self.rng.randrange(8)
+            payload = bytes(b)
+            self.damaged += 1
+        item = ("acl", peer, header + payload)
+        if sender.delay:
+            self.later.append([sender.delay, item])
+        else:
+            self.queue.append(item)
+
     def run(self, limit=100000):
         if self.running:
             return                  # already emptying the queue further up
+        # what was held back comes nearer, and arrives when its time is up
+        for held in self.later:
+            held[0] -= 1
+        for held in [h for h in self.later if h[0] <= 0]:
+            self.later.remove(held)
+            self.queue.append(held[1])
         self.running = True
         try:
             n = 0
