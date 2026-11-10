@@ -1,8 +1,8 @@
 # Storage Layout
 
-- Status: Draft
-- Version: 0.0
-- Owner: TBD
+- Status: Bounded v2 implemented; scalable v3 layout frozen
+- Version: 1.0
+- Owner: Utkarsha Lab
 
 ## Scope
 
@@ -11,7 +11,222 @@ deterministic reclamation. A tracing garbage collector is prohibited.
 
 ## Definitions
 
+- **Object ID:** complete 32-byte cryptographic identity of canonical immutable
+  object bytes.
+- **Locator:** UXFS-private physical block/allocation identifier. It is never a
+  portable identity and never enters an object hash.
+- **Root hash:** authenticated identity of one canonical mutable-catalog
+  generation.
+- **Generation:** strictly increasing durable publication number. Values are
+  never reused or wrapped.
+- **Ownership edge:** exact durable relationship preventing reclamation of a
+  referenced immutable object.
+
 ## Specification
+
+### Scalable repository, format version 3
+
+Format version 3 is a new storage namespace. It does not enlarge or reinterpret
+version-2 UXFS records in place. Migration validates the complete version-2
+repository and builds version-3 state separately before one atomic root switch.
+
+#### Repository superblock
+
+The scalable repository superblock is exactly 512 bytes:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 8 | ASCII `UVCSREP3` |
+| 8 | 4 | repository format version, 3 |
+| 12 | 4 | header bytes, 512 |
+| 16 | 8 | required feature bits |
+| 24 | 8 | repository generation, starting at 1 |
+| 32 | 16 | nonzero random repository UUID |
+| 48 | 4 | object hash algorithm, 1 SHA-256 |
+| 52 | 4 | storage block size, 4,096 |
+| 56 | 32 | HEAD commit ID; zero for unborn repository |
+| 88 | 32 | ref-catalog root hash |
+| 120 | 32 | ownership-catalog root hash |
+| 152 | 32 | operation-head object ID or zero |
+| 184 | 32 | object-index root hash |
+| 216 | 32 | migration-state root hash or zero |
+| 248 | 8 | last committed operation sequence |
+| 256 | 8 | next transaction sequence; never zero |
+| 264 | 8 | signed creation timestamp nanoseconds or zero |
+| 272 | 208 | reserved zero |
+| 480 | 32 | SHA-256 of bytes 0..479 |
+
+Unknown required feature bits reject mount. Generation and transaction sequence
+never wrap. Every root referenced by one superblock must belong to the same
+published transaction. The superblock is selected through the scalable UXFS
+atomic-generation contract defined by `00-ufs-contract.md`; it is not updated in
+place without durable root publication.
+
+Initial feature bits are:
+
+| Bit | Meaning |
+| ---: | --- |
+| 0 | paged content objects required |
+| 1 | explicit ownership catalog required |
+| 2 | signed identity records may exist |
+| 3 | operation log may exist |
+
+Bits 4 through 63 are reserved and must be zero in a version-3 writer.
+
+#### Object envelope
+
+Every immutable object begins with a 128-byte physical envelope. This envelope
+is not part of the content-ID preimage.
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 8 | ASCII `UVCSOBJ3` |
+| 8 | 2 | envelope version, 1 |
+| 10 | 2 | header bytes, 128 |
+| 12 | 2 | object type |
+| 14 | 2 | hash algorithm, 1 |
+| 16 | 4 | flags, currently zero |
+| 20 | 4 | reserved zero |
+| 24 | 8 | canonical payload length |
+| 32 | 8 | extent count |
+| 40 | 32 | complete object ID |
+| 72 | 8 | first extent locator; zero only for zero-byte payload |
+| 80 | 8 | transaction sequence that created this envelope |
+| 88 | 32 | SHA-256 of bytes 0..87 |
+| 120 | 8 | reserved zero |
+
+Payload length must match the object type's canonical formula. Extent count is
+zero only when payload length is zero; otherwise it equals
+`ceil(payload_length / 4032)` without overflow. The object ID is recomputed over
+the canonical payload before publication and after untrusted reads.
+
+#### Object extents
+
+Each object extent is one 4,096-byte block with a 64-byte header and up to 4,032
+payload bytes:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 8 | ASCII `UVCSEXT1` |
+| 8 | 2 | extent version, 1 |
+| 10 | 2 | flags; bit 0 final, others zero |
+| 12 | 4 | payload bytes in this extent, 1..4,032 |
+| 16 | 32 | owning object ID |
+| 48 | 8 | zero-based extent index |
+| 56 | 8 | next extent locator; zero only on final extent |
+| 64 | variable | canonical payload bytes |
+
+Unused bytes after the payload are zero. Extent indexes are contiguous, object
+IDs match the envelope, and the final extent ends exactly at canonical payload
+length. Cycles, repeated locators, premature zero, extra extents and cross-object
+links are corruption. Locators are UXFS-private allocation identifiers and are
+never copied into hashes, Git objects, bundles or signatures.
+
+#### Object index
+
+The object index maps complete 32-byte IDs to envelope locators, types and
+payload lengths. Its canonical fixed record is 64 bytes:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 32 | complete object ID |
+| 32 | 8 | envelope locator |
+| 40 | 8 | canonical payload length |
+| 48 | 4 | object type |
+| 52 | 4 | flags, currently zero |
+| 56 | 8 | creation transaction sequence |
+
+Records are strictly sorted by all 32 ID bytes. Duplicate IDs must resolve to
+the same type, length and exact payload; otherwise publication fails as a hash
+collision. The physical index is a UXFS transactional B-tree. Its root hash uses
+root kind 4 from `02-hashing-and-ids.md`.
+
+#### Ref catalog
+
+The ref catalog contains sorted variable records of
+`48 + align8(name_length)` bytes:
+
+| Relative offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 1 | kind: 1 branch, 2 tag, 3 remote, 4 workspace |
+| 1 | 1 | name length, 1..240 |
+| 2 | 2 | flags: bit 0 protected, bit 1 symbolic |
+| 4 | 4 | reserved zero |
+| 8 | 8 | ref generation, starting at 1 |
+| 16 | 32 | target commit ID, or target-ref key hash when symbolic |
+| 48 | variable | ASCII ref name plus zero alignment padding |
+
+Names use letters, digits, period, underscore, hyphen and slash. Components are
+nonempty, not dot/dot-dot, do not start with period and cannot contain `.vcs`.
+Records are strictly sorted by kind then unsigned name bytes. Ref generation
+increments on every target change and never wraps.
+
+HEAD is the superblock commit ID. An attached branch is represented by a
+reserved `workspace` ref named `HEAD` whose target identifies the branch record;
+detached HEAD has no such record. Tags are immutable unless an explicit policy
+operation authorizes replacement.
+
+#### Ownership catalog
+
+Ownership is stored as exact immutable-object edges, not tracing state. Each
+catalog record is 80 bytes:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 4 | owner kind |
+| 4 | 4 | child object type |
+| 8 | 32 | owner key |
+| 40 | 32 | child object ID |
+| 72 | 8 | flags, currently zero |
+
+Owner kinds are 1 immutable object, 2 ref, 3 snapshot, 4 operation root, 5
+transaction pin and 6 migration pin. Immutable-object owner keys are full object
+IDs. Mutable owner keys are domain-separated hashes of their complete canonical
+identity, never truncated display names.
+
+Records are strictly sorted by child ID, owner kind and owner key. Duplicate
+edges are invalid. An object's inbound owner count is derived from exact edges;
+no unaudited counter is authoritative. Publication adds all new edges and root
+changes in the same transaction as new objects. Explicit reclamation may remove
+an object only after the transaction proves it has no inbound edge, no active
+reader pin and no pending transaction/migration pin. There is no GC.
+
+#### Mutable catalog paging
+
+Object-index, ref and ownership records are stored in UXFS transactional B-tree
+pages. Page size is 4,096 bytes; headers are 128 bytes; records never cross a
+page. Each page records kind, level, record count, generation, lower/upper key,
+sibling locators and a 32-byte checksum. Exact UXFS page and transaction layouts
+remain blocked on the scalable ABI, but the canonical record bytes and root-hash
+inputs above are frozen and must not depend on physical page pointers.
+
+#### Publication order
+
+One scalable commit transaction performs this logical order:
+
+1. reserve the maximum blocks, catalog records and ownership edges;
+2. write and verify new extents and envelopes without publishing index entries;
+3. write copy-on-write object-index and ownership pages;
+4. write copy-on-write refs and operation pages;
+5. flush every referenced block;
+6. write the new checksummed superblock generation;
+7. issue the durability barrier and publish that generation;
+8. release superseded blocks only through a later explicit ownership transaction.
+
+Failure before step seven leaves the previous generation authoritative. Failure
+during or after the final barrier poisons the mount until remount determines the
+winning complete generation. No caller guesses whether publication occurred.
+
+#### Arithmetic and capacity rules
+
+Before allocation, readers and writers check every addition, multiplication,
+alignment, ceiling division and count-to-byte conversion in u64. Counts also
+fit the implementation's bounded arena/index limits. A capacity or overflow
+failure leaves output buffers, catalogs and durable roots unchanged.
+
+The scalable format imposes no 15-file, 64-record or 4,096-byte-file limit.
+Policy may impose smaller repository/file/path limits, but those are explicit
+configuration and not encoded through fixed arrays.
 
 ### UXFS bootstrap repository, version 2
 
@@ -248,8 +463,6 @@ real command parser, current directory and persistence across host processes.
 The new `test_history.py` and `test_vcs_history.py` add snapshot/reuse, deletion,
 ancestor discovery, log order, same-size blob tampering, SHA-256 verification,
 malformed metadata and transaction-failure cases.
-**These additions and the history implementation have not been built or tested:
-validation is deferred at the user's explicit request.** Prior init-only results
-do not qualify the history changes or the updated initializer.
+These suites are part of the active `make -C apps/vcs test` gate.
 
 ## Open Questions
