@@ -40,8 +40,36 @@ scalar_blake3:
 global vcs_chunk, vcs_chunk_count, scalar_chunk
 vcs_chunk:
 scalar_chunk:
+    test    rsi, rsi
+    jz      .empty_direct
+    test    rdi, rdi
+    jz      .invalid_direct
+    test    rdx, rdx
+    jz      .invalid_direct
+    test    rcx, rcx
+    jz      .capacity_direct
+    push    rdi
+    push    rsi
+    push    rdx
+    push    rcx
+    call    vcs_chunk_count
+    pop     rcx
+    pop     rdx
+    pop     rsi
+    pop     rdi
+    cmp     rax, rcx
+    ja      .capacity_direct
     mov     r9d, 1                    ; emit exclusive-end boundaries
     jmp     chunk_enter
+.empty_direct:
+    xor     eax, eax
+    ret
+.invalid_direct:
+    mov     rax, VCS_CHUNK_ERR_INVALID
+    ret
+.capacity_direct:
+    mov     rax, VCS_CHUNK_ERR_CAPACITY
+    ret
 
 ; Count boundaries without requiring or modifying an output array.
 ; Input: rdi = data, rsi = len. Output follows scalar_chunk's count/error ABI.
