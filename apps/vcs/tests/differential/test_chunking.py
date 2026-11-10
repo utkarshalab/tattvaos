@@ -8,6 +8,8 @@ P = ctypes.POINTER(ctypes.c_ubyte)
 Q = ctypes.POINTER(ctypes.c_uint64)
 lib.scalar_chunk.argtypes = [P, ctypes.c_uint64, Q, ctypes.c_uint64]
 lib.scalar_chunk.restype = ctypes.c_uint64
+lib.vcs_chunk.argtypes = [P, ctypes.c_uint64, Q, ctypes.c_uint64]
+lib.vcs_chunk.restype = ctypes.c_uint64
 lib.scalar_blake3.argtypes = [P, ctypes.c_uint64, P]
 lib.scalar_blake3.restype = ctypes.c_uint64
 
@@ -27,7 +29,7 @@ def reference(data):
             start = offset
     return bounds
 
-def assembly(data, capacity=None):
+def assembly(data, capacity=None, entry=None):
     expected_max = (len(data) + 2047) // 2048
     if capacity is None:
         capacity = max(1, expected_max)
@@ -36,7 +38,7 @@ def assembly(data, capacity=None):
     guarded[0] = 0x1122334455667788
     guarded[capacity + 1] = 0x8877665544332211
     output = ctypes.cast(ctypes.byref(guarded, 8), Q)
-    count = lib.scalar_chunk(source, len(data), output, capacity)
+    count = (entry or lib.vcs_chunk)(source, len(data), output, capacity)
     assert guarded[0] == 0x1122334455667788
     assert guarded[capacity + 1] == 0x8877665544332211
     return count, list(guarded[1:1 + min(count, capacity)]) if count <= capacity else []
@@ -61,14 +63,17 @@ for data in vectors:
             assert 0 < boundary - previous <= 32768
             previous = boundary
 
+for data in vectors:
+    assert assembly(data) == assembly(data, entry=lib.scalar_chunk)
+
 data = rng.randbytes(65536)
 needed = len(reference(data))
 count, _ = assembly(data, needed - 1)
 assert count == (1 << 64) - 2
-assert lib.scalar_chunk(None, 1, None, 0) == (1 << 64) - 1
-assert lib.scalar_chunk(None, 0, None, 0) == 0
+assert lib.vcs_chunk(None, 1, None, 0) == (1 << 64) - 1
+assert lib.vcs_chunk(None, 0, None, 0) == 0
 digest = (ctypes.c_ubyte * 32)(*([0xA5] * 32))
 assert lib.scalar_blake3(None, 0, digest) == 9
 assert bytes(digest) == b'\xA5' * 32
 
-print('VCS chunking differential: PASS (vectors, random, bounds, capacity, canaries, fail-closed hash)')
+print('VCS chunking differential: PASS (public/scalar parity, vectors, random, bounds, capacity, canaries, fail-closed hash)')
