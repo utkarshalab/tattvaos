@@ -49,6 +49,12 @@ The constants and ABI are published by `include/chunk.inc`. `scalar_chunk` is a
 compatibility alias for the current backend; callers use `vcs_chunk` so a future
 validated SIMD backend does not require an ABI change.
 
+`vcs_chunk_count` receives only the data pointer and length in `rdi` and `rsi`.
+It runs the identical boundary state machine without writing an array and
+returns the exact required capacity. Callers can therefore preflight allocation,
+then call `vcs_chunk` without relying on a worst-case estimate. Its empty-input
+and invalid-pointer behavior is identical to `vcs_chunk`.
+
 ## Validation
 
 The executable differential suite compares assembly boundaries with an
