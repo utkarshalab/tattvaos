@@ -78,7 +78,7 @@ $(BUILD)/identity.o: src/store/identity.asm include/vcs.inc include/repository.i
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/signing.o: src/policy/signing.asm include/vcs.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/scalar.o: src/kernels/scalar/scalar.asm include/vcs.inc | $(BUILD)
+$(BUILD)/scalar.o: src/kernels/scalar/scalar.asm include/vcs.inc include/chunk.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ $< -o $@
 $(BUILD)/sha256.o: ../../lib/crypto/uhash/sha256/sha256.asm ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ../../ $< -o $@
