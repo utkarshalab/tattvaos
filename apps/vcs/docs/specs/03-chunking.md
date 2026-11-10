@@ -40,11 +40,14 @@ boundaries.
 
 ## Assembly ABI
 
-`scalar_chunk` receives the data pointer in `rdi`, byte length in `rsi`, output
+`vcs_chunk` receives the data pointer in `rdi`, byte length in `rsi`, output
 qword array in `rdx`, and array capacity in `rcx`. It returns the number of
 boundaries in `rax`. Empty input returns zero without dereferencing pointers.
 Nonempty input returns `UINT64_MAX` for a null pointer and `UINT64_MAX-1` when
 the output capacity is exhausted. It never writes beyond the supplied capacity.
+The constants and ABI are published by `include/chunk.inc`. `scalar_chunk` is a
+compatibility alias for the current backend; callers use `vcs_chunk` so a future
+validated SIMD backend does not require an ABI change.
 
 ## Validation
 
