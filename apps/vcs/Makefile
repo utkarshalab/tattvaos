@@ -209,6 +209,7 @@ test: native $(BUILD)/diff.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/c
 	python3 tests/unit/test_bridge_export.py $(BUILD)/bridge_export.so
 	python3 tests/differential/test_git_bridge.py $(BUILD)/bridge_export.so
 	python3 tests/unit/test_bridge_import.py $(BUILD)/bridge_import.so
+	python3 tests/differential/test_git_import.py $(BUILD)/bridge_import.so
 	python3 tests/unit/test_bridge_serve.py $(BUILD)/bridge_serve.so
 	python3 tests/unit/test_smart_bridge.py $(BUILD)/smart_bridge.so
 	python3 tests/differential/test_git_pack.py $(BUILD)/smart_bridge.so
