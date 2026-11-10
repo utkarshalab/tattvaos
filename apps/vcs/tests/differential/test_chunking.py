@@ -31,7 +31,7 @@ def reference(data):
             start = offset
     return bounds
 
-def assembly(data, capacity=None, entry=None):
+def assembly(data, capacity=None, entry=None, fill=0):
     expected_max = (len(data) + 2047) // 2048
     if capacity is None:
         capacity = max(1, expected_max)
@@ -39,6 +39,8 @@ def assembly(data, capacity=None, entry=None):
     guarded = (ctypes.c_uint64 * (capacity + 2))()
     guarded[0] = 0x1122334455667788
     guarded[capacity + 1] = 0x8877665544332211
+    for index in range(1, capacity + 1):
+        guarded[index] = fill
     output = ctypes.cast(ctypes.byref(guarded, 8), Q)
     count = (entry or lib.vcs_chunk)(source, len(data), output, capacity)
     assert guarded[0] == 0x1122334455667788
@@ -75,8 +77,13 @@ for data in vectors:
 
 data = rng.randbytes(65536)
 needed = len(reference(data))
-count, _ = assembly(data, needed - 1)
+count, _ = assembly(data, needed - 1, fill=0xA5A5A5A5A5A5A5A5)
 assert count == (1 << 64) - 2
+capacity = needed - 1
+source = (ctypes.c_ubyte * len(data)).from_buffer_copy(data)
+unchanged = (ctypes.c_uint64 * capacity)(*([0xA5A5A5A5A5A5A5A5] * capacity))
+assert lib.vcs_chunk(source, len(data), unchanged, capacity) == (1 << 64) - 2
+assert list(unchanged) == [0xA5A5A5A5A5A5A5A5] * capacity
 assert lib.vcs_chunk(None, 1, None, 0) == (1 << 64) - 1
 assert lib.vcs_chunk(None, 0, None, 0) == 0
 assert lib.vcs_chunk_count(None, 1) == (1 << 64) - 1
@@ -85,4 +92,4 @@ digest = (ctypes.c_ubyte * 32)(*([0xA5] * 32))
 assert lib.scalar_blake3(None, 0, digest) == 9
 assert bytes(digest) == b'\xA5' * 32
 
-print('VCS chunking differential: PASS (preflight, public/scalar parity, vectors, random, bounds, capacity, canaries, fail-closed hash)')
+print('VCS chunking differential: PASS (preflight, atomic capacity, public/scalar parity, vectors, random, bounds, canaries, fail-closed hash)')
