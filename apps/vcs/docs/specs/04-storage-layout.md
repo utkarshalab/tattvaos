@@ -1,7 +1,7 @@
 # Storage Layout
 
 - Status: Bounded v2 implemented; scalable v3 layout frozen
-- Version: 1.0
+- Version: 1.1
 - Owner: Utkarsha Lab
 
 ## Scope
@@ -227,6 +227,134 @@ failure leaves output buffers, catalogs and durable roots unchanged.
 The scalable format imposes no 15-file, 64-record or 4,096-byte-file limit.
 Policy may impose smaller repository/file/path limits, but those are explicit
 configuration and not encoded through fixed arrays.
+
+#### Version-2 to version-3 migration
+
+Migration is an offline, restartable transaction. It never rewrites a
+version-2 object in place and never exposes a mixed-format repository. The
+caller must hold exclusive repository and UXFS-volume ownership from initial
+validation through publication or abort. Commands other than migration status,
+continue and abort reject a repository carrying an unfinished migration.
+
+The migration source is the complete reachable version-2 repository, including
+the format record, HEAD chain, manifests, blobs, integrity records, signatures,
+identity history, revocations, policy, refs and every durable workflow record.
+Before allocating version-3 storage, the migrator performs the same full-chain,
+path, object-size, digest, signature-structure and ref validation required by
+normal version-2 readers. Corrupt, unsupported or concurrently changed source
+state fails without creating a migration record.
+
+The canonical migration-state payload is exactly 280 bytes. Before selector
+publication, `.vcs/migrate3` stores this payload as an ordinary version-2 record;
+after publication, the version-3 migration-state root names the same canonical
+bytes:
+
+| Offset | Size | Field |
+| ---: | ---: | --- |
+| 0 | 8 | ASCII `UVCSMIG3` |
+| 8 | 2 | migration-state version, 1 |
+| 10 | 2 | header bytes, 280 |
+| 12 | 4 | phase |
+| 16 | 8 | flags, currently zero |
+| 24 | 16 | target version-3 repository UUID |
+| 40 | 32 | source fingerprint |
+| 72 | 8 | source HEAD sequence |
+| 80 | 8 | next source commit sequence |
+| 88 | 8 | converted commit count |
+| 96 | 8 | converted object count |
+| 104 | 32 | staged object-index root hash or zero |
+| 136 | 32 | staged ref-catalog root hash or zero |
+| 168 | 32 | staged ownership-catalog root hash or zero |
+| 200 | 32 | staged operation-head object ID or zero |
+| 232 | 8 | migration transaction sequence |
+| 240 | 8 | reserved zero |
+| 248 | 32 | SHA-256 of bytes 0..247 |
+
+Phase values are 1 `PREPARED`, 2 `COPYING`, 3 `VERIFIED`, 4 `PUBLISHING` and
+5 `COMMITTED`. Phase zero and unknown phases are corruption. The source
+fingerprint uses the mutable-root formula from `02-hashing-and-ids.md` with root
+kind 4, generation 1 and these canonical record bytes: each reachable
+version-2 record in unsigned full-name order contributes
+`le16(name_length) || name || le64(content_length) || exact_content`. The format
+record and mutable workflow records are included; `.vcs/migrate3` itself is
+excluded. A continuation recomputes the fingerprint and rejects any source
+change. Counts and the next sequence are progress hints only; continuation
+validates all staged roots and objects before trusting them.
+
+Migration uses a dedicated unpublished version-3 namespace identified by the
+target UUID. Every staged object has both a transaction-pin ownership edge and
+a migration-pin edge whose owner key is the source fingerprint. These pins are
+created in the same transaction as the object/index entry. No staged object is
+eligible for reclamation while either pin exists. Allocation locators and
+progress positions never enter content IDs.
+
+The migration transaction proceeds as follows:
+
+1. validate the complete source and reject active merge, rebase, pick, bisect or
+   other mutable workflow state unless that record has a defined version-3
+   encoding;
+2. compute the source fingerprint, target UUID, exact upper bounds for source
+   reads, destination blocks, index records and ownership edges, then reserve
+   the migration-state record and all space needed for the next bounded batch;
+3. publish `PREPARED` in the still-authoritative version-2 namespace;
+4. create the unpublished version-3 superblock and publish `COPYING`;
+5. convert commits oldest first, preserving exact parent topology, file bytes,
+   messages, identities and signature evidence; after each bounded batch,
+   flush its objects and catalogs before advancing durable progress;
+6. build refs and mutable catalogs from the source snapshot, remove transaction
+   pins only after their replacement ownership edges are durable, and publish
+   `VERIFIED` only after rereading and hashing every staged object and root;
+7. write and flush the complete generation-1 version-3 superblock, then publish
+   `PUBLISHING` in the old namespace;
+8. use one UXFS atomic-generation transaction to switch the repository selector
+   from the version-2 root to the checksummed version-3 superblock;
+9. after remount confirms version 3 as authoritative, record `COMMITTED` in the
+   version-3 migration root and replace migration pins with normal ref,
+   operation, snapshot or immutable-object ownership edges;
+10. retain the version-2 namespace as rollback data until an explicit later
+    finalize transaction proves there are no version-2 readers or rollback
+    pins. Finalization is never implicit reclamation.
+
+Every source commit receives a version-3 commit object and a deterministic
+mapping entry keyed by the source fingerprint plus its full u64 sequence. The
+mapping stores the complete 32-byte target object ID. Files are rechunked
+from their exact bytes; v2 blob IDs, record order and physical allocation do not
+enter v3 hashes. Existing valid Ed25519 signatures remain historical sidecars
+over their original `UVCSCHK1` digest and are not relabelled as signatures of
+the new commit ID. A new v3 signature requires the signer to authorize that
+new ID explicitly.
+
+Abort is permitted only in `PREPARED`, `COPYING` or `VERIFIED`. It atomically
+removes the version-2 migration-state record and releases the unpublished
+namespace through explicit ownership transactions after proving that no
+non-migration owner references it. Disk-full during cleanup may leave a valid
+abort-pending migration record; continuation retries cleanup. Abort never
+modifies source objects, HEAD, refs or workflow records.
+
+`PUBLISHING` is the point of no unilateral rollback. An interruption at or
+after that phase requires remount and selector validation:
+
+- if the version-2 selector is authoritative, the migrator returns to
+  `VERIFIED` and may retry publication or abort;
+- if the version-3 selector is authoritative, migration continues forward from
+  `COMMITTED` and ordinary commands use only version 3;
+- if neither selector and superblock pair validates, mount fails as corrupt;
+- if both validate with the same selector generation, mount fails as ambiguous
+  rather than choosing by timestamp or physical position.
+
+Rollback after successful publication is a separate explicit transaction. It
+is allowed only while the retained source fingerprint still matches, no v3
+write transaction has committed after migration generation 1, and rollback
+pins cover the complete v2 source. It atomically switches the selector back to
+v2. Once a v3 write commits or v2 is finalized, downgrade is rejected; forward
+migration to another version is required.
+
+Unknown required features, arithmetic overflow, capacity exhaustion, checksum
+failure, collision mismatch, source mutation or I/O failure never advance the
+phase. A failure before selector publication leaves v2 authoritative. A failure
+during the final barrier poisons the mount until remount establishes the
+selector outcome. Recovery never guesses success from a progress counter and
+never deletes either namespace merely because the other appears readable.
 
 ### UXFS bootstrap repository, version 2
 
