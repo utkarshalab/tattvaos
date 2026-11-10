@@ -63,7 +63,7 @@ per file and 64 UXFS records. Removing these limits is the next critical path.
   result codes.
 - [x] Define versioned chunk, file, tree, commit, ref, signature and ownership
   records with overflow-safe size calculations.
-- [ ] Define upgrade, rollback and interrupted-migration behavior from the
+- [x] Define upgrade, rollback and interrupted-migration behavior from the
   current repository format.
 
 ### 1.2 Store large files as owned chunk lists
