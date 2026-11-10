@@ -56,7 +56,7 @@ per file and 64 UXFS records. Removing these limits is the next critical path.
 
 ### 1.1 Freeze the scalable object contract
 
-- [ ] Confirm the UXFS calls available for transactions, durable flush,
+- [x] Confirm the UXFS calls available for transactions, durable flush,
   allocation, snapshots, journal cursors and subtree hashes.
 - [ ] Replace draft assumptions in `00-ufs-contract.md`, `01-object-model.md`,
   `02-hashing-and-ids.md` and `04-storage-layout.md` with exact layouts and
