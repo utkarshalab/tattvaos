@@ -1,5 +1,9 @@
 # Monorepo VCS on UFS: Enterprise Product Plan (v3, Utkarsha OS)
 
+> This document defines product direction. Follow the dependency-ordered
+> [VCS Enterprise Execution Roadmap](VCS_ENTERPRISE_ROADMAP.md) for current
+> implementation status, the immediate queue and acceptance gates.
+
 *Working title. A native, git-interoperable version control system written entirely in assembly, built directly on the Utkarsha File System (UFS).*
 
 ---
