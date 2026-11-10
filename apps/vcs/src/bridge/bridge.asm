@@ -73,6 +73,12 @@ author_prefix: db 'author '
 author_prefix_len equ $-author_prefix
 committer_prefix: db 'committer '
 committer_prefix_len equ $-committer_prefix
+feature_done_line: db 'feature done',10
+feature_done_line_len equ $-feature_done_line
+reset_line: db 'reset refs/heads/main',10
+reset_line_len equ $-reset_line
+from_prefix: db 'from :'
+from_prefix_len equ $-from_prefix
 
 section .text
 global bridge_pkt_encode,bridge_pkt_decode
@@ -768,6 +774,20 @@ bridge_git_import:
  call require_empty_worktree
  test eax,eax
  jnz .import_conflict
+ call skip_separators
+ test eax,eax
+ jnz .import_corrupt
+ lea rdi,[feature_done_line]
+ mov esi,feature_done_line_len
+ call peek
+ test eax,eax
+ jnz .import_blobs
+ call expect
+ test eax,eax
+ jnz .import_corrupt
+ call skip_separators
+ test eax,eax
+ jnz .import_corrupt
 .import_blobs:
  lea rdi,[blob_line]
  mov esi,blob_line_len
@@ -814,6 +834,18 @@ bridge_git_import:
  inc qword [import_count]
  jmp .import_blobs
 .import_commit:
+ lea rdi,[reset_line]
+ mov esi,reset_line_len
+ call peek
+ test eax,eax
+ jnz .import_commit_line
+ call expect
+ test eax,eax
+ jnz .import_corrupt
+ call skip_separators
+ test eax,eax
+ jnz .import_corrupt
+.import_commit_line:
  lea rdi,[commit_line]
  mov esi,commit_line_len
  call expect
@@ -874,6 +906,20 @@ bridge_git_import:
  stosb
  loop .message_copy
  mov byte [rdi],0
+ lea rdi,[from_prefix]
+ mov esi,from_prefix_len
+ call peek
+ test eax,eax
+ jnz .import_snapshot
+ cmp qword [import_mark_base],0
+ je .import_corrupt
+ call expect
+ call parse_decimal_line
+ test eax,eax
+ jnz .import_corrupt
+ cmp rdx,[import_mark_base]
+ jne .import_corrupt
+.import_snapshot:
  lea rdi,[deleteall_line]
  mov esi,deleteall_line_len
  call expect
@@ -900,7 +946,7 @@ bridge_git_import:
  imul rax,VR_PATH
  lea rdi,[import_paths]
  add rdi,rax
- call parse_quoted_path
+ call parse_path
  test eax,eax
  jnz .import_corrupt
  inc r12
@@ -931,6 +977,9 @@ bridge_git_import:
  mov rax,[import_count]
  inc rax
  add [import_mark_base],rax
+ call skip_separators
+ test eax,eax
+ jnz .import_corrupt
  lea rdi,[done_line]
  mov esi,done_line_len
  call peek
@@ -1059,7 +1108,8 @@ parse_decimal:
  xor eax,eax
  ret
 
-; RDX=size. Returns data pointer in RDX and consumes its required LF.
+; RDX=size. Returns the data pointer in RDX. Git reuses a payload's trailing
+; LF as the command separator; otherwise consume the required separator LF.
 take_data:
  mov rax,[import_cursor]
  mov rcx,[import_end]
@@ -1067,9 +1117,16 @@ take_data:
  cmp rcx,rdx
  jbe .bad
  lea rcx,[rax+rdx]
+ test rdx,rdx
+ jz .separator
+ cmp byte [rcx-1],10
+ je .terminated
+.separator:
  cmp byte [rcx],10
  jne .bad
- lea rsi,[rcx+1]
+ inc rcx
+.terminated:
+ mov rsi,rcx
  mov [import_cursor],rsi
  mov rdx,rax
  xor eax,eax
@@ -1095,8 +1152,24 @@ skip_line:
 .bad: mov eax,VCS_ERR_CORRUPT
  ret
 
-; Decode the exporter's quoted path and consume its LF.
-parse_quoted_path:
+; Consume optional blank command separators without accepting trailing garbage.
+skip_separators:
+ mov rax,[import_cursor]
+ mov rdx,[import_end]
+.next:
+ cmp rax,rdx
+ jae .ok
+ cmp byte [rax],10
+ jne .ok
+ inc rax
+ jmp .next
+.ok:
+ mov [import_cursor],rax
+ xor eax,eax
+ ret
+
+; Decode a plain or Git C-quoted path and consume its LF.
+parse_path:
  push rbx
  mov rbx,rdi
  mov rsi,[import_cursor]
@@ -1104,7 +1177,7 @@ parse_quoted_path:
  cmp rsi,rdx
  jae .bad
  cmp byte [rsi],'"'
- jne .bad
+ jne .plain
  inc rsi
  xor ecx,ecx
 .path:
@@ -1116,6 +1189,13 @@ parse_quoted_path:
  je .close
  cmp al,92
  jne .store
+ cmp rsi,rdx
+ jae .bad
+ mov al,[rsi]
+ cmp al,'"'
+ je .escaped
+ cmp al,92
+ je .escaped
  lea rax,[rsi+3]
  cmp rax,rdx
  ja .bad
@@ -1133,6 +1213,9 @@ parse_quoted_path:
  inc rsi
  dec r8d
  jnz .octal
+ jmp .store
+.escaped:
+ inc rsi
 .store:
  test al,al
  jz .bad
@@ -1149,6 +1232,32 @@ parse_quoted_path:
  cmp byte [rsi],10
  jne .bad
  inc rsi
+ mov byte [rbx+rcx],0
+ mov [import_cursor],rsi
+ mov rdi,rbx
+ call validate_relative
+ jmp .done
+.plain:
+ xor ecx,ecx
+.plain_byte:
+ cmp rsi,rdx
+ jae .bad
+ mov al,[rsi]
+ inc rsi
+ cmp al,10
+ je .plain_done
+ cmp al,32
+ jbe .bad
+ cmp al,127
+ je .bad
+ cmp ecx,VR_PATH-1
+ jae .bad
+ mov [rbx+rcx],al
+ inc ecx
+ jmp .plain_byte
+.plain_done:
+ test ecx,ecx
+ jz .bad
  mov byte [rbx+rcx],0
  mov [import_cursor],rsi
  mov rdi,rbx
