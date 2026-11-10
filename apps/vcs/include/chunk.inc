@@ -14,6 +14,7 @@ VCS_CHUNK_ERR_CAPACITY equ -2
 ; rcx=bound capacity. rax=count or VCS_CHUNK_ERR_*.
 %ifndef VCS_CHUNK_IMPLEMENTATION
 extern vcs_chunk
+extern vcs_chunk_count
 %endif
 
 %endif
