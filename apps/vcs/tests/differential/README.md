@@ -16,5 +16,9 @@ multiline messages, and binary blob bytes.
 loads it with Git's `index-pack`, and verifies every blob, tree, commit, and
 first-parent edge through Git's object database.
 
+`test_chunking.py` compares the scalar assembly content-defined chunker with an
+independent implementation across fixed, seeded-random, and repetitive inputs.
+It also verifies size limits, capacity errors, and output canaries.
+
 The older assembly sketch is retained for now but is not part of the executable
-gate. Chunking differential coverage remains pending.
+gate.
