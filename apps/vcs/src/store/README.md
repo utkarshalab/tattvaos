@@ -3,14 +3,20 @@
 Object store on UXFS: repository metadata, snapshots, refs and atomic ownership
 transfers. There is no tracing garbage collector.
 
-Implemented in `repository.asm`, `history.asm`, `stage.asm`, `refs.asm`,
+Implemented in `repository.asm`, `object_store.asm`, `history.asm`, `stage.asm`, `refs.asm`,
 `worktree.asm`, and `identity.asm`: UXFS initialization, repository
 discovery, full-file snapshot manifests, unchanged blob reuse, status comparison,
 selective persistent staging, branches/tags, forced checkout, transactional
 commit, SHA-256 integrity records/checking, immutable repository identities,
 Ed25519 signature sidecars, and newest-first log. Private seeds are supplied as
 explicit 32-byte files and are never stored inside `.vcs`. See `include/repository.inc` and the
-storage specification. The history addition is awaiting build/test validation.
+storage specification.
+
+`object_store.asm` implements the scalable v3 chunk primitive independently of
+the pending allocator ABI: domain-separated SHA-256 IDs, checksummed envelopes,
+explicit-locator extent images, complete read verification and atomic bounded
+copy-out. The caller owns allocation and durable publication; the codec never
+guesses physical locators or publishes a partial object.
 
 The older chunk/segment/WAL modules remain scaffolding and are excluded from the
 native build. The old GC scaffold was removed. UXFS provides the atomic volume
