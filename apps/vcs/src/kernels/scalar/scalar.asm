@@ -37,9 +37,18 @@ scalar_blake3:
 ;         rcx = bounds capacity
 ; Output: rax = chunk count, -1 for invalid input, -2 for insufficient output
 ; -----------------------------------------------------------------------------
-global vcs_chunk, scalar_chunk
+global vcs_chunk, vcs_chunk_count, scalar_chunk
 vcs_chunk:
 scalar_chunk:
+    mov     r9d, 1                    ; emit exclusive-end boundaries
+    jmp     chunk_enter
+
+; Count boundaries without requiring or modifying an output array.
+; Input: rdi = data, rsi = len. Output follows scalar_chunk's count/error ABI.
+vcs_chunk_count:
+    xor     r9d, r9d
+
+chunk_enter:
     push    rbx
     push    r12
     push    r13
@@ -49,16 +58,23 @@ scalar_chunk:
     jz      .empty
     test    rdi, rdi
     jz      .invalid
+    test    r9d, r9d
+    jz      .count_only
     test    rdx, rdx
     jz      .invalid
     test    rcx, rcx
     jz      .capacity
+    mov     r14, rdx
+    mov     r15, rcx
+    jmp     .start
+.count_only:
+    xor     r14d, r14d
+    xor     r15d, r15d
 
+.start:
     xor     ebx, ebx                  ; rolling hash, reset at each boundary
     xor     r12d, r12d                ; current absolute offset
     xor     r13d, r13d                ; current chunk start
-    mov     r14, rdx
-    mov     r15, rcx
     mov     r10, VCS_CHUNK_MIX
     xor     eax, eax
 .scan:
@@ -79,9 +95,12 @@ scalar_chunk:
     test    rbx, VCS_CHUNK_MASK
     jnz     .scan
 .cut:
+    test    r14, r14
+    jz      .recorded
     cmp     rax, r15
     jae     .capacity
     mov     [r14+rax*8], r12
+.recorded:
     inc     rax
     mov     r13, r12
     xor     ebx, ebx
