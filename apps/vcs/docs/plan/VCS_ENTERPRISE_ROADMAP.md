@@ -69,7 +69,7 @@ per file and 64 UXFS records. Removing these limits is the next critical path.
 ### 1.2 Store large files as owned chunk lists
 
 - [ ] Feed `vcs_chunk_count` and `vcs_chunk` into the production object writer.
-- [ ] Hash chunks through the existing crypto library with domain separation.
+- [x] Hash chunks through the existing crypto library with domain separation.
 - [ ] Deduplicate identical chunks without trusting hashes alone; verify length
   and bytes before reuse.
 - [ ] Store ordered chunk IDs and exact file length in a file descriptor object.
