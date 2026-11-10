@@ -10,6 +10,8 @@
 %define VCS_KERNELS_SCALAR_ASM
 
 %include "include/vcs.inc"
+%define VCS_CHUNK_IMPLEMENTATION
+%include "include/chunk.inc"
 
 bits 64
 
@@ -35,7 +37,8 @@ scalar_blake3:
 ;         rcx = bounds capacity
 ; Output: rax = chunk count, -1 for invalid input, -2 for insufficient output
 ; -----------------------------------------------------------------------------
-global scalar_chunk
+global vcs_chunk, scalar_chunk
+vcs_chunk:
 scalar_chunk:
     push    rbx
     push    r12
@@ -56,7 +59,7 @@ scalar_chunk:
     xor     r13d, r13d                ; current chunk start
     mov     r14, rdx
     mov     r15, rcx
-    mov     r10, 0x9e3779b185ebca87
+    mov     r10, VCS_CHUNK_MIX
     xor     eax, eax
 .scan:
     movzx   r8d, byte [rdi+r12]
@@ -69,11 +72,11 @@ scalar_chunk:
     je      .cut
     mov     r11, r12
     sub     r11, r13
-    cmp     r11, 2048
+    cmp     r11, VCS_CHUNK_MIN
     jb      .scan
-    cmp     r11, 32768
+    cmp     r11, VCS_CHUNK_MAX
     jae     .cut
-    test    rbx, 8191
+    test    rbx, VCS_CHUNK_MASK
     jnz     .scan
 .cut:
     cmp     rax, r15
@@ -89,10 +92,10 @@ scalar_chunk:
     xor     eax, eax
     jmp     .done
 .invalid:
-    mov     rax, -1
+    mov     rax, VCS_CHUNK_ERR_INVALID
     jmp     .done
 .capacity:
-    mov     rax, -2
+    mov     rax, VCS_CHUNK_ERR_CAPACITY
 .done:
     pop     r15
     pop     r14
