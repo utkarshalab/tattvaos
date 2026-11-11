@@ -72,8 +72,8 @@ per file and 64 UXFS records. Removing these limits is the next critical path.
 - [x] Hash chunks through the existing crypto library with domain separation.
 - [x] Deduplicate identical chunks without trusting hashes alone; verify length
   and bytes before reuse.
-- [ ] Store ordered chunk IDs and exact file length in a file descriptor object.
-- [ ] Reassemble files with bounds, missing-chunk and corruption checks.
+- [x] Store ordered chunk IDs and exact file length in a file descriptor object.
+- [x] Reassemble files with bounds, missing-chunk and corruption checks.
 - [ ] Publish chunks, descriptors, manifests and HEAD in one recoverable UXFS
   transaction.
 - [ ] Reclaim only through explicit ownership accounting; never add GC.
