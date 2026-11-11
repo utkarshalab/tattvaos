@@ -29,6 +29,7 @@ endstruc
 ; and result_length. Verify never writes output or result_length.
 
 %ifndef VCS_OBJECT_STORE_IMPLEMENTATION
+extern vcs_object_id
 extern vcs_chunk_object_id
 extern vcs_chunk_object_write
 extern vcs_chunk_object_read
