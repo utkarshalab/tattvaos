@@ -85,7 +85,7 @@ The payload is exactly 128 bytes.
 | Offset | Size | Field |
 | ---: | ---: | --- |
 | 0 | 8 | ASCII `UVCSFIL1` |
-| 8 | 4 | mode bits; only the frozen portable mask is allowed |
+| 8 | 4 | portable permission bits, mask `0x1ff` (`0777`) |
 | 12 | 4 | flags; bit 0 executable, bit 1 generated, others zero |
 | 16 | 8 | exact logical byte length |
 | 24 | 8 | total chunk count |
@@ -98,7 +98,8 @@ The payload is exactly 128 bytes.
 An empty file has zero length/count/pages and zero first-page ID. A nonempty
 file has all three counts nonzero. Walking its page chain must consume exactly
 the declared pages, chunks and bytes, end in a zero next ID and reproduce the
-stored byte hash. File roots do not contain a path.
+stored byte hash. Flag bit 0 records executable intent and bit 1 marks generated
+content; bits 2 through 31 are zero. File roots do not contain a path.
 
 ## Tree page object: type 10
 
