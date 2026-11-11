@@ -17,7 +17,8 @@ file_root_magic: db 'UVCSFIL1'
 file_hash_magic: db 'UVCSBYT1'
 
 section .text
-global vcs_file_bytes_hash,vcs_file_object_build,vcs_file_object_read
+global vcs_file_bytes_hash,vcs_file_object_build
+global vcs_file_object_read,vcs_file_object_verify
 
 ; RDI=file bytes, RSI=length, RDX=32-byte output.
 vcs_file_bytes_hash:
@@ -352,6 +353,14 @@ vcs_file_object_build:
 
 ; RDI=vcs_file_read. Validates the complete resolved chain before copy-out.
 vcs_file_object_read:
+ mov esi,1
+ jmp file_object_read_common
+
+; RDI=vcs_file_read. Validates without requiring or writing an output buffer.
+vcs_file_object_verify:
+ xor esi,esi
+
+file_object_read_common:
  push rbp
  push rbx
  push r12
@@ -359,6 +368,7 @@ vcs_file_object_read:
  push r14
  push r15
  sub rsp,296
+ mov [rsp+288],rsi
  test rdi,rdi
  jz .read_usage
  mov rbx,rdi
@@ -404,15 +414,20 @@ vcs_file_object_read:
  mov rax,[rbp+24]
  cmp [rbx+vcs_file_read.chunk_count],rax
  jne .read_not_found
+ cmp qword [rsp+288],0
+ je .read_output_ok
  mov rax,[rbp+16]
  cmp [rbx+vcs_file_read.output_capacity],rax
  jb .read_space
+.read_output_ok:
  test rax,rax
  jz .read_empty
  test r12,r12
  jz .read_usage
  test r13,r13
  jz .read_usage
+ cmp qword [rsp+288],0
+ je .read_hash_begin
  test r14,r14
  jz .read_usage
  cmp qword [rbp+24],0
@@ -611,6 +626,8 @@ vcs_file_object_read:
  call ids_equal
  test eax,eax
  jz .read_corrupt
+ cmp qword [rsp+288],0
+ je .read_verified
  xor r8d,r8d
  mov rdi,r14
 .read_copy_loop:
@@ -627,6 +644,7 @@ vcs_file_object_read:
 .read_success:
  mov rax,[rbp+16]
  mov [rbx+vcs_file_read.result_length],rax
+.read_verified:
  xor eax,eax
  jmp .read_done
 .read_not_found:
