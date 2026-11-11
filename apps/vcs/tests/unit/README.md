@@ -7,4 +7,7 @@ chunking, new-object writes, exact deduplication, collision rejection and
 capacity failure. `test_file_object.py` covers multi-page canonical descriptors,
 empty and multi-chunk reconstruction, missing or reordered resolved objects,
 content corruption, reconstructed hashes and atomic output. The standard
-`make test` target runs these with the remaining module and differential suites.
+`test_ownership.py` suite covers exact file dependency edges, repeated-reference
+collapse, canonical catalog ordering, duplicate rejection and explicit
+reader-aware reclamation proof. The standard `make test` target runs these with
+the remaining module and differential suites.
