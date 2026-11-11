@@ -3,7 +3,7 @@
 Object store on UXFS: repository metadata, snapshots, refs and atomic ownership
 transfers. There is no tracing garbage collector.
 
-Implemented in `repository.asm`, `object_store.asm`, `chunk_pipeline.asm`, `file_object.asm`, `ownership.asm`,
+Implemented in `repository.asm`, `object_store.asm`, `chunk_pipeline.asm`, `file_object.asm`, `ownership.asm`, `publication.asm`,
 `history.asm`, `stage.asm`, `refs.asm`, `worktree.asm`, and `identity.asm`: UXFS initialization, repository
 discovery, full-file snapshot manifests, unchanged blob reuse, status comparison,
 selective persistent staging, branches/tags, forced checkout, transactional
@@ -36,6 +36,13 @@ verification, validates strict catalog ordering and duplicate exclusion, and
 provides the explicit reclamation proof. An object is reclaimable only when its
 validated catalog has no inbound edge and the caller reports no active reader
 pin; transaction and migration pins remain ordinary durable owner edges.
+
+`publication.asm` preflights complete object IDs and ownership records before
+driving a durable backend through begin, object staging, ownership staging, root
+staging, flush and atomic publish. Failures before the publish barrier abort;
+an abort failure or ambiguous publish poisons the backend until remount. The
+coordinator is active, while the scalable UXFS callback adapter remains blocked
+on the durable allocator and atomic-generation ABI.
 
 The older segment/WAL modules remain scaffolding and are excluded from the
 native build. The old GC scaffold was removed. UXFS provides the atomic volume
