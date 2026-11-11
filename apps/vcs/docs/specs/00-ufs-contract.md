@@ -197,6 +197,13 @@ capacity and recovery. The scalable ABI must add:
 
 ## Decisions unblocked by this inventory
 
+The VCS-side publication coordinator is implemented in `publication.asm`. It
+authenticates staged objects and ownership records, orders backend operations,
+aborts every pre-publication failure and poisons an ambiguous publication
+barrier. This does not satisfy the missing scalable UXFS backend: the callback
+adapter may be connected only after allocation, flush, atomic-generation and
+remount behavior meet the contract and failure matrix above.
+
 - VCS may continue using `uxv_*` for the bounded repository while the scalable
   backend is developed.
 - The current dual-bank algorithm is a valid recovery oracle for migration tests
