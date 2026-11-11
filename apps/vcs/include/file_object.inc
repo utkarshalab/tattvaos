@@ -42,6 +42,7 @@ endstruc
 extern vcs_file_bytes_hash
 extern vcs_file_object_build
 extern vcs_file_object_read
+extern vcs_file_object_verify
 %endif
 
 %endif
