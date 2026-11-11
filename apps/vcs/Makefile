@@ -2,7 +2,7 @@ NASM ?= nasm
 LD ?= ld
 AR ?= ar
 BUILD ?= build
-OBJECTS := $(BUILD)/cli.o $(BUILD)/diff.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/sync.o $(BUILD)/protocol.o $(BUILD)/client.o $(BUILD)/server.o $(BUILD)/stream.o $(BUILD)/plan.o $(BUILD)/policy.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/bridge.o $(BUILD)/pack.o $(BUILD)/tree.o $(BUILD)/commit.o $(BUILD)/history_plan.o $(BUILD)/history_pack.o $(BUILD)/upload_pack.o $(BUILD)/upload_protocol.o $(BUILD)/upload_request.o $(BUILD)/upload_server.o $(BUILD)/repository.o $(BUILD)/object_store.o $(BUILD)/chunk_pipeline.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/stash.o $(BUILD)/bisect.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/scalar.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o
+OBJECTS := $(BUILD)/cli.o $(BUILD)/diff.o $(BUILD)/repo_diff.o $(BUILD)/blame.o $(BUILD)/integrate.o $(BUILD)/rebase.o $(BUILD)/pick.o $(BUILD)/sync.o $(BUILD)/protocol.o $(BUILD)/client.o $(BUILD)/server.o $(BUILD)/stream.o $(BUILD)/plan.o $(BUILD)/policy.o $(BUILD)/bundle.o $(BUILD)/remote.o $(BUILD)/bridge.o $(BUILD)/pack.o $(BUILD)/tree.o $(BUILD)/commit.o $(BUILD)/history_plan.o $(BUILD)/history_pack.o $(BUILD)/upload_pack.o $(BUILD)/upload_protocol.o $(BUILD)/upload_request.o $(BUILD)/upload_server.o $(BUILD)/repository.o $(BUILD)/object_store.o $(BUILD)/chunk_pipeline.o $(BUILD)/file_object.o $(BUILD)/history.o $(BUILD)/refs.o $(BUILD)/worktree.o $(BUILD)/stage.o $(BUILD)/stash.o $(BUILD)/bisect.o $(BUILD)/identity.o $(BUILD)/signing.o $(BUILD)/scalar.o $(BUILD)/sha256.o $(BUILD)/sha512.o $(BUILD)/ed25519.o
 .PHONY: all native test
 all: native
 native: $(BUILD)/vcs-native.o $(BUILD)/libvcs.a
@@ -66,6 +66,8 @@ $(BUILD)/object_store.o: src/store/object_store.asm include/vcs.inc include/obje
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/chunk_pipeline.o: src/store/chunk_pipeline.asm include/vcs.inc include/chunk.inc include/object_store.inc include/chunk_pipeline.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
+$(BUILD)/file_object.o: src/store/file_object.asm include/vcs.inc include/object_store.inc include/chunk_pipeline.inc include/file_object.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
+	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/history.o: src/store/history.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/refs.o: src/store/refs.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
@@ -105,6 +107,8 @@ $(BUILD)/chunk.so: $(BUILD)/scalar.o
 $(BUILD)/object_store.so: $(BUILD)/object_store.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/chunk_pipeline.so: $(BUILD)/chunk_pipeline.o $(BUILD)/object_store.o $(BUILD)/scalar.o $(BUILD)/sha256.o
+	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
+$(BUILD)/file_object.so: $(BUILD)/file_object.o $(BUILD)/object_store.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/diff_probe.o: tests/unit/diff_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
@@ -202,12 +206,13 @@ $(BUILD)/history_pack.so: $(BUILD)/history_pack.o $(BUILD)/history_plan.o $(BUIL
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/history_pack_probe.o: tests/unit/history_pack_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
-test: native $(BUILD)/diff.so $(BUILD)/chunk.so $(BUILD)/object_store.so $(BUILD)/chunk_pipeline.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/upload_request.so $(BUILD)/upload_protocol.so $(BUILD)/upload_server.so $(BUILD)/bridge_codec.so $(BUILD)/bridge_export.so $(BUILD)/bridge_import.so $(BUILD)/bridge_serve.so $(BUILD)/smart_bridge.so $(BUILD)/smart_server.so $(BUILD)/upload_pack.so $(BUILD)/pack.so $(BUILD)/commit.so $(BUILD)/tree.so $(BUILD)/history_plan.so $(BUILD)/history_pack.so $(BUILD)/repository.so
+test: native $(BUILD)/diff.so $(BUILD)/chunk.so $(BUILD)/object_store.so $(BUILD)/chunk_pipeline.so $(BUILD)/file_object.so $(BUILD)/protocol.so $(BUILD)/policy.so $(BUILD)/client.so $(BUILD)/server.so $(BUILD)/stream.so $(BUILD)/sync.so $(BUILD)/bundle_frame.so $(BUILD)/plan.so $(BUILD)/upload_request.so $(BUILD)/upload_protocol.so $(BUILD)/upload_server.so $(BUILD)/bridge_codec.so $(BUILD)/bridge_export.so $(BUILD)/bridge_import.so $(BUILD)/bridge_serve.so $(BUILD)/smart_bridge.so $(BUILD)/smart_server.so $(BUILD)/upload_pack.so $(BUILD)/pack.so $(BUILD)/commit.so $(BUILD)/tree.so $(BUILD)/history_plan.so $(BUILD)/history_pack.so $(BUILD)/repository.so
 	sh scripts/test-cli.sh
 	python3 tests/unit/test_diff.py $(BUILD)/diff.so
 	python3 tests/differential/test_chunking.py $(BUILD)/chunk.so
 	python3 tests/unit/test_object_store.py $(BUILD)/object_store.so
 	python3 tests/unit/test_chunk_pipeline.py $(BUILD)/chunk_pipeline.so
+	python3 tests/unit/test_file_object.py $(BUILD)/file_object.so
 	python3 tests/unit/test_protocol.py $(BUILD)/protocol.so
 	python3 tests/unit/test_policy.py $(BUILD)/policy.so
 	python3 tests/unit/test_client.py $(BUILD)/client.so
