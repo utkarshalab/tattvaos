@@ -14,33 +14,39 @@ extent_magic: db 'UVCSEXT1'
 hash_magic:   db 'UVCSHSH1'
 
 section .text
-global vcs_chunk_object_id,vcs_chunk_object_write
+global vcs_object_id,vcs_chunk_object_id,vcs_chunk_object_write
 global vcs_chunk_object_read,vcs_chunk_object_verify
 
-; RDI=chunk bytes, RSI=length, RDX=32-byte output. RAX=VCS status.
-vcs_chunk_object_id:
+; EDI=object type, RSI=canonical payload, RDX=length, RCX=32-byte output.
+; This hashes already-validated canonical bytes; type-specific codecs own
+; canonical validation before accepting the resulting ID.
+vcs_object_id:
  push rbx
  push r12
  push r13
  push r14
  sub rsp,136
- test rdi,rdi
+ test edi,edi
  jz .usage
+ cmp edi,10
+ ja .usage
  test rdx,rdx
- jz .usage
+ jz .payload_ok
  test rsi,rsi
- jz .corrupt
- cmp rsi,VCS_CHUNK_OBJECT_MAX
- ja .corrupt
- mov r12,rdi
- mov r13,rsi
- mov r14,rdx
+ jz .usage
+.payload_ok:
+ test rcx,rcx
+ jz .usage
+ mov ebx,edi
+ mov r12,rsi
+ mov r13,rdx
+ mov r14,rcx
  lea rdi,[rsp+112]
  lea rsi,[hash_magic]
  mov ecx,8
  rep movsb
  mov word [rsp+120],1
- mov word [rsp+122],VCS_OBJ_CHUNK
+ mov [rsp+122],bx
  mov dword [rsp+124],0
  mov [rsp+128],r13
  lea rdi,[rsp]
@@ -52,7 +58,10 @@ vcs_chunk_object_id:
  lea rdi,[rsp]
  mov rsi,r12
  mov rdx,r13
+ test rdx,rdx
+ jz .final
  call sha256_update
+.final:
  lea rdi,[rsp]
  mov rsi,r14
  call sha256_final
@@ -61,14 +70,34 @@ vcs_chunk_object_id:
 .usage:
  mov eax,VCS_ERR_USAGE
  jmp .done
-.corrupt:
- mov eax,VCS_ERR_CORRUPT
 .done:
  add rsp,136
  pop r14
  pop r13
  pop r12
  pop rbx
+ ret
+
+; RDI=chunk bytes, RSI=length, RDX=32-byte output. RAX=VCS status.
+vcs_chunk_object_id:
+ test rdi,rdi
+ jz .chunk_usage
+ test rdx,rdx
+ jz .chunk_usage
+ test rsi,rsi
+ jz .chunk_corrupt
+ cmp rsi,VCS_CHUNK_OBJECT_MAX
+ ja .chunk_corrupt
+ mov rcx,rdx
+ mov rdx,rsi
+ mov rsi,rdi
+ mov edi,VCS_OBJ_CHUNK
+ jmp vcs_object_id
+.chunk_usage:
+ mov eax,VCS_ERR_USAGE
+ ret
+.chunk_corrupt:
+ mov eax,VCS_ERR_CORRUPT
  ret
 
 ; RDI=vcs_chunk_io. Builds the envelope and contiguous extent images only
