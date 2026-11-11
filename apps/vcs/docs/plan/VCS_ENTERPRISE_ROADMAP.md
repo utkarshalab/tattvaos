@@ -76,7 +76,7 @@ per file and 64 UXFS records. Removing these limits is the next critical path.
 - [x] Reassemble files with bounds, missing-chunk and corruption checks.
 - [ ] Publish chunks, descriptors, manifests and HEAD in one recoverable UXFS
   transaction.
-- [ ] Reclaim only through explicit ownership accounting; never add GC.
+- [x] Reclaim only through explicit ownership accounting; never add GC.
 
 ### 1.3 Remove fixed repository limits
 
