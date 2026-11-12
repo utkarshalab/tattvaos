@@ -32,6 +32,8 @@ VCS_OBJ_CHANGE    equ 5
 VCS_OBJ_CONFLICT  equ 6
 VCS_OBJ_OPERATION equ 7
 VCS_OBJ_SIGNATURE equ 8
+VCS_OBJ_FILE_PAGE equ 9
+VCS_OBJ_TREE_PAGE equ 10
 
 ; -----------------------------------------------------------------------------
 ; Content-type classifier categories
