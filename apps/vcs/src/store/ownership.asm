@@ -2,16 +2,18 @@
 %include "include/vcs.inc"
 %include "include/chunk_pipeline.inc"
 %include "include/file_object.inc"
+%include "include/tree_object.inc"
 %define VCS_OWNERSHIP_IMPLEMENTATION
 %include "include/ownership.inc"
 bits 64
 default rel
 
 extern vcs_file_object_verify
+extern vcs_tree_object_verify
 
 section .text
 global vcs_ownership_edge_validate,vcs_ownership_catalog_validate
-global vcs_file_ownership_edges,vcs_ownership_reclaimable
+global vcs_file_ownership_edges,vcs_tree_ownership_edges,vcs_ownership_reclaimable
 
 ; RDI=one 80-byte edge. RAX=VCS status.
 vcs_ownership_edge_validate:
@@ -259,6 +261,181 @@ vcs_file_ownership_edges:
 .file_corrupt:
  mov eax,VCS_ERR_CORRUPT
 .file_done:
+ add rsp,40
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+; RDI=vcs_tree_ownership. Emits the root/page chain and page/target edges after
+; complete tree verification. Repeated targets within one page collapse to one
+; edge because an ownership catalog forbids duplicate owner/child records.
+vcs_tree_ownership_edges:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,40
+ test rdi,rdi
+ jz .tree_usage
+ mov rbx,rdi
+ mov rbp,[rbx+vcs_tree_ownership.tree]
+ test rbp,rbp
+ jz .tree_usage
+ mov rdi,rbp
+ call vcs_tree_object_verify
+ test eax,eax
+ jnz .tree_done
+ mov r12,[rbp+vcs_tree_read.pages]
+ mov r13,[rbp+vcs_tree_read.page_count]
+ mov r14,[rbp+vcs_tree_read.root]
+ mov r15,[rbx+vcs_tree_ownership.edges]
+ mov qword [rsp],0                  ; output edge count
+ mov rax,[r14+8]
+ add rax,r13                        ; safe upper bound: pages + entries
+ jc .tree_space
+ cmp [rbx+vcs_tree_ownership.edge_capacity],rax
+ jb .tree_space
+ test rax,rax
+ jz .tree_success
+ test r15,r15
+ jz .tree_usage
+ mov rdx,rax
+ mov ecx,vcs_ownership_edge_size
+ mov rax,rdx
+ mul rcx
+ test rdx,rdx
+ jnz .tree_space
+ add rax,r15
+ jc .tree_space
+ mov qword [rsp+8],0                ; page index
+.tree_page_loop:
+ mov r8,[rsp+8]
+ cmp r8,r13
+ jae .tree_edges_done
+ mov rax,r8
+ imul rax,vcs_chunk_record_size
+ lea r9,[r12+rax]
+ mov [rsp+32],r9
+ mov rax,[rsp]
+ imul rax,vcs_ownership_edge_size
+ lea r10,[r15+rax]
+ mov rdi,r10
+ xor eax,eax
+ mov ecx,vcs_ownership_edge_size
+ rep stosb
+ mov dword [r10+vcs_ownership_edge.owner_kind],VCS_OWNER_IMMUTABLE
+ mov dword [r10+vcs_ownership_edge.child_type],VCS_OBJ_TREE_PAGE
+ mov r8,[rsp+8]
+ test r8,r8
+ jnz .tree_page_previous
+ mov rsi,[rbp+vcs_tree_read.root_id]
+ jmp .tree_page_owner
+.tree_page_previous:
+ dec r8
+ imul r8,vcs_chunk_record_size
+ lea rsi,[r12+r8+vcs_chunk_record.id]
+.tree_page_owner:
+ lea rdi,[r10+vcs_ownership_edge.owner_key]
+ mov ecx,32
+ rep movsb
+ mov r9,[rsp+32]
+ lea rsi,[r9+vcs_chunk_record.id]
+ lea rdi,[r10+vcs_ownership_edge.child_id]
+ mov ecx,32
+ rep movsb
+ inc qword [rsp]
+ mov r9,[rsp+32]
+ mov r11,[r9+vcs_chunk_record.data]
+ mov [rsp+24],r11                  ; page data
+ mov eax,[r11+12]
+ mov [rsp+16],rax                  ; page entry count
+ mov qword [rsp+32],0              ; page entry index
+ mov r14,VCS_TREE_PAGE_HEADER
+.tree_entry_loop:
+ mov r8,[rsp+32]
+ cmp r8,[rsp+16]
+ jae .tree_page_done
+ mov r11,[rsp+24]
+ lea rdx,[r11+r14]                 ; encoded entry
+ xor ecx,ecx
+.tree_target_duplicate:
+ cmp rcx,r8
+ jae .tree_target_emit
+ mov r11,[rsp+24]
+ mov rax,VCS_TREE_PAGE_HEADER
+ xor r10d,r10d
+.tree_target_prior_walk:
+ cmp r10,rcx
+ jae .tree_target_prior_ready
+ movzx edi,byte [r11+rax+1]
+ add rdi,7
+ and rdi,-8
+ add rdi,VCS_TREE_ENTRY_BASE
+ add rax,rdi
+ inc r10
+ jmp .tree_target_prior_walk
+.tree_target_prior_ready:
+ lea rsi,[r11+rax+16]
+ lea rdi,[rdx+16]
+ mov r10,rcx
+ call ids_equal_owner
+ mov rcx,r10
+ test eax,eax
+ jnz .tree_target_skip
+ inc rcx
+ jmp .tree_target_duplicate
+.tree_target_emit:
+ mov rax,[rsp]
+ imul rax,vcs_ownership_edge_size
+ lea r10,[r15+rax]
+ mov rdi,r10
+ xor eax,eax
+ mov ecx,vcs_ownership_edge_size
+ rep stosb
+ mov dword [r10+vcs_ownership_edge.owner_kind],VCS_OWNER_IMMUTABLE
+ movzx eax,byte [rdx]
+ mov [r10+vcs_ownership_edge.child_type],eax
+ mov r8,[rsp+8]
+ imul r8,vcs_chunk_record_size
+ lea rsi,[r12+r8+vcs_chunk_record.id]
+ lea rdi,[r10+vcs_ownership_edge.owner_key]
+ mov ecx,32
+ rep movsb
+ lea rsi,[rdx+16]
+ lea rdi,[r10+vcs_ownership_edge.child_id]
+ mov ecx,32
+ rep movsb
+ inc qword [rsp]
+.tree_target_skip:
+ mov r11,[rsp+24]
+ movzx eax,byte [r11+r14+1]
+ add rax,7
+ and rax,-8
+ add rax,VCS_TREE_ENTRY_BASE
+ add r14,rax
+ inc qword [rsp+32]
+ jmp .tree_entry_loop
+.tree_page_done:
+ inc qword [rsp+8]
+ jmp .tree_page_loop
+.tree_edges_done:
+.tree_success:
+ mov rax,[rsp]
+ mov [rbx+vcs_tree_ownership.result_edges],rax
+ xor eax,eax
+ jmp .tree_done
+.tree_space:
+ mov eax,VCS_ERR_NO_MEM
+ jmp .tree_done
+.tree_usage:
+ mov eax,VCS_ERR_USAGE
+.tree_done:
  add rsp,40
  pop r15
  pop r14
