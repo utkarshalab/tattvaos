@@ -24,6 +24,13 @@ struc vcs_file_ownership
     .result_edges  resq 1
 endstruc
 
+struc vcs_tree_ownership
+    .tree          resq 1 ; validated through vcs_tree_object_verify
+    .edges         resq 1
+    .edge_capacity resq 1
+    .result_edges  resq 1
+endstruc
+
 struc vcs_reclaim_check
     .object_id      resq 1
     .catalog        resq 1
@@ -35,6 +42,7 @@ endstruc
 extern vcs_ownership_edge_validate
 extern vcs_ownership_catalog_validate
 extern vcs_file_ownership_edges
+extern vcs_tree_ownership_edges
 extern vcs_ownership_reclaimable
 %endif
 
