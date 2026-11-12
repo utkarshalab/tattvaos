@@ -70,7 +70,7 @@ $(BUILD)/file_object.o: src/store/file_object.asm include/vcs.inc include/object
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/tree_object.o: src/store/tree_object.asm include/vcs.inc include/object_store.inc include/chunk_pipeline.inc include/file_object.inc include/tree_object.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/ownership.o: src/store/ownership.asm include/vcs.inc include/chunk_pipeline.inc include/file_object.inc include/ownership.inc | $(BUILD)
+$(BUILD)/ownership.o: src/store/ownership.asm include/vcs.inc include/chunk_pipeline.inc include/file_object.inc include/tree_object.inc include/ownership.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/publication.o: src/store/publication.asm include/vcs.inc include/object_store.inc include/ownership.inc include/publication.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -118,9 +118,9 @@ $(BUILD)/file_object.so: $(BUILD)/file_object.o $(BUILD)/object_store.o $(BUILD)
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/tree_object.so: $(BUILD)/tree_object.o $(BUILD)/object_store.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
-$(BUILD)/ownership.so: $(BUILD)/ownership.o $(BUILD)/file_object.o $(BUILD)/object_store.o $(BUILD)/sha256.o
+$(BUILD)/ownership.so: $(BUILD)/ownership.o $(BUILD)/file_object.o $(BUILD)/tree_object.o $(BUILD)/object_store.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
-$(BUILD)/publication.so: $(BUILD)/publication.o $(BUILD)/ownership.o $(BUILD)/file_object.o $(BUILD)/object_store.o $(BUILD)/sha256.o
+$(BUILD)/publication.so: $(BUILD)/publication.o $(BUILD)/ownership.o $(BUILD)/file_object.o $(BUILD)/tree_object.o $(BUILD)/object_store.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/diff_probe.o: tests/unit/diff_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
@@ -227,6 +227,7 @@ test: native $(BUILD)/diff.so $(BUILD)/chunk.so $(BUILD)/object_store.so $(BUILD
 	python3 tests/unit/test_file_object.py $(BUILD)/file_object.so
 	python3 tests/unit/test_tree_object.py $(BUILD)/tree_object.so
 	python3 tests/unit/test_ownership.py $(BUILD)/ownership.so
+	python3 tests/unit/test_tree_ownership.py $(BUILD)/ownership.so
 	python3 tests/unit/test_publication.py $(BUILD)/publication.so
 	python3 tests/unit/test_protocol.py $(BUILD)/protocol.so
 	python3 tests/unit/test_policy.py $(BUILD)/policy.so
