@@ -109,7 +109,8 @@ SHA-256(
 )
 ```
 
-Root kinds are 1 refs, 2 ownership, 3 operation head and 4 migration state.
+Root kinds are 1 refs, 2 ownership, 3 operation head, 4 migration state and 5
+object index.
 The hash authenticates a specific generation but does not make mutable records
 content objects. The repository superblock stores each root and generation that
 must be published together.
