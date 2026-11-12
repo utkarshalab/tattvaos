@@ -1,6 +1,7 @@
 """Scalable canonical object-index validation, lookup and merge tests."""
 import ctypes
 import hashlib
+import struct
 import sys
 
 lib = ctypes.CDLL(sys.argv[1])
@@ -34,12 +35,27 @@ class Merge(ctypes.Structure):
                 ("result_count", ctypes.c_uint64)]
 
 
+class Root(ctypes.Structure):
+    _fields_ = [("records", ctypes.POINTER(Record)), ("record_count", ctypes.c_uint64),
+                ("generation", ctypes.c_uint64), ("root_hash", P)]
+
+
+class VerifiedLookup(ctypes.Structure):
+    _fields_ = [("root", ctypes.POINTER(Root)), ("lookup", ctypes.POINTER(Lookup))]
+
+
 lib.vcs_object_index_validate.argtypes = [ctypes.POINTER(Record), ctypes.c_uint64]
 lib.vcs_object_index_validate.restype = ctypes.c_uint64
 lib.vcs_object_index_find.argtypes = [ctypes.POINTER(Lookup)]
 lib.vcs_object_index_find.restype = ctypes.c_uint64
 lib.vcs_object_index_merge_plan.argtypes = [ctypes.POINTER(Merge)]
 lib.vcs_object_index_merge_plan.restype = ctypes.c_uint64
+lib.vcs_object_index_root_hash.argtypes = [ctypes.POINTER(Root)]
+lib.vcs_object_index_root_hash.restype = ctypes.c_uint64
+lib.vcs_object_index_root_verify.argtypes = [ctypes.POINTER(Root)]
+lib.vcs_object_index_root_verify.restype = ctypes.c_uint64
+lib.vcs_object_index_verified_find.argtypes = [ctypes.POINTER(VerifiedLookup)]
+lib.vcs_object_index_verified_find.restype = ctypes.c_uint64
 
 
 def object_id(index):
@@ -99,6 +115,31 @@ for index in range(0, 400, 10):
     assert by_id[object_id(index)].envelope == 10000 + index
     assert by_id[object_id(index)].transaction == 7
 
+# Root kind 5 authenticates generation and exact canonical record bytes while
+# remaining independent of object-index page placement.
+root_hash = (ctypes.c_ubyte * 32)()
+root = Root(output, merge.result_count, 19, root_hash)
+assert lib.vcs_object_index_root_hash(ctypes.byref(root)) == OK
+frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 5, 0, 19, ctypes.sizeof(output))
+assert bytes(root_hash) == hashlib.sha256(frame + bytes(output)).digest()
+assert lib.vcs_object_index_root_verify(ctypes.byref(root)) == OK
+
+identity = (ctypes.c_ubyte * 32)(*object_id(211))
+verified_result_sentinel = ctypes.cast(ctypes.pointer(output[3]), ctypes.POINTER(Record))
+verified_lookup = Lookup(output, merge.result_count, identity, verified_result_sentinel)
+verified = VerifiedLookup(ctypes.pointer(root), ctypes.pointer(verified_lookup))
+assert lib.vcs_object_index_verified_find(ctypes.byref(verified)) == OK
+assert bytes(verified_lookup.result.contents.object_id) == object_id(211)
+
+root_hash[0] ^= 1
+verified_lookup.result = verified_result_sentinel
+assert lib.vcs_object_index_verified_find(ctypes.byref(verified)) == CORRUPT
+assert ctypes.addressof(verified_lookup.result.contents) == ctypes.addressof(output[3])
+root_hash[0] ^= 1
+root.generation += 1
+assert lib.vcs_object_index_root_verify(ctypes.byref(root)) == CORRUPT
+root.generation -= 1
+
 # Capacity and collision failures occur before any output/result publication.
 small_output = (Record * 399)()
 ctypes.memset(ctypes.addressof(small_output), 0xA5, ctypes.sizeof(small_output))
@@ -135,4 +176,4 @@ empty_merge = Merge(None, 0, None, 0, None, 0, VERIFY(), None, 0xBAD)
 assert lib.vcs_object_index_merge_plan(ctypes.byref(empty_merge)) == OK
 assert empty_merge.result_count == 0
 
-print("VCS object index: PASS (400 records, binary lookup, COW merge, dedup/collision, atomic failures)")
+print("VCS object index: PASS (400 records, COW merge, authenticated generations, verified lookup, atomic failures)")
