@@ -2,11 +2,30 @@
 %include "include/vcs.inc"
 %define VCS_OBJECT_INDEX_IMPLEMENTATION
 %include "include/object_index.inc"
+%include "lib/crypto/uhash/sha256/sha256.inc"
 bits 64
 default rel
 
 section .text
 global vcs_object_index_validate,vcs_object_index_find,vcs_object_index_merge_plan
+global vcs_object_index_root_hash,vcs_object_index_root_verify
+global vcs_object_index_verified_find
+
+extern sha256_init,sha256_update,sha256_final
+
+section .rodata
+index_root_frame:
+ db 'UVCSROT1'
+ dw 1,5
+ dd 0
+index_root_frame_size equ $-index_root_frame
+
+section .bss
+alignb 16
+index_hash_context: resb sha256_ctx_t_size
+index_hash_digest: resb SHA256_DIGEST_SIZE
+
+section .text
 
 ; RDI=records, RSI=count. RAX=VCS status.
 vcs_object_index_validate:
@@ -307,6 +326,133 @@ vcs_object_index_merge_plan:
  pop rbp
  ret
 
+; RDI=vcs_object_index_root. Hashes kind-5 generation and canonical records.
+vcs_object_index_root_hash:
+ push rbx
+ push r12
+ push r13
+ push r14
+ test rdi,rdi
+ jz .root_usage
+ mov rbx,rdi
+ mov r12,[rbx+vcs_object_index_root.records]
+ mov r13,[rbx+vcs_object_index_root.record_count]
+ mov r14,[rbx+vcs_object_index_root.root_hash]
+ test r14,r14
+ jz .root_usage
+ cmp qword [rbx+vcs_object_index_root.generation],0
+ je .root_corrupt
+ mov rdi,r12
+ mov rsi,r13
+ call vcs_object_index_validate
+ test eax,eax
+ jnz .root_done
+ mov rax,r13
+ shl rax,6
+ jc .root_corrupt
+ push rax
+ lea rdi,[index_hash_context]
+ call sha256_init
+ lea rdi,[index_hash_context]
+ lea rsi,[index_root_frame]
+ mov edx,index_root_frame_size
+ call sha256_update
+ lea rdi,[index_hash_context]
+ lea rsi,[rbx+vcs_object_index_root.generation]
+ mov edx,8
+ call sha256_update
+ lea rdi,[index_hash_context]
+ mov rsi,rsp
+ mov edx,8
+ call sha256_update
+ mov rdx,[rsp]
+ test rdx,rdx
+ jz .root_records_done
+ lea rdi,[index_hash_context]
+ mov rsi,r12
+ call sha256_update
+.root_records_done:
+ lea rdi,[index_hash_context]
+ mov rsi,r14
+ call sha256_final
+ add rsp,8
+ xor eax,eax
+ jmp .root_done
+.root_usage:
+ mov eax,VCS_ERR_USAGE
+ jmp .root_done
+.root_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+.root_done:
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ ret
+
+; RDI=vcs_object_index_root. Recomputes and constant-time compares root_hash.
+vcs_object_index_root_verify:
+ push rbx
+ test rdi,rdi
+ jz .root_verify_usage
+ mov rbx,rdi
+ cmp qword [rbx+vcs_object_index_root.root_hash],0
+ je .root_verify_usage
+ sub rsp,vcs_object_index_root_size
+ mov rax,[rbx+vcs_object_index_root.records]
+ mov [rsp+vcs_object_index_root.records],rax
+ mov rax,[rbx+vcs_object_index_root.record_count]
+ mov [rsp+vcs_object_index_root.record_count],rax
+ mov rax,[rbx+vcs_object_index_root.generation]
+ mov [rsp+vcs_object_index_root.generation],rax
+ lea rax,[index_hash_digest]
+ mov [rsp+vcs_object_index_root.root_hash],rax
+ mov rdi,rsp
+ call vcs_object_index_root_hash
+ test eax,eax
+ jnz .root_verify_pop
+ lea rdi,[index_hash_digest]
+ mov rsi,[rbx+vcs_object_index_root.root_hash]
+ call index_ids_equal
+ test eax,eax
+ jnz .root_verify_ok
+ mov eax,VCS_ERR_CORRUPT
+ jmp .root_verify_pop
+.root_verify_ok:
+ xor eax,eax
+.root_verify_pop:
+ add rsp,vcs_object_index_root_size
+ pop rbx
+ ret
+.root_verify_usage:
+ mov eax,VCS_ERR_USAGE
+ pop rbx
+ ret
+
+; RDI=vcs_object_index_verified_lookup. Authenticates the complete generation
+; before binary lookup; lookup.result remains untouched on root failure.
+vcs_object_index_verified_find:
+ push rbx
+ test rdi,rdi
+ jz .verified_usage
+ mov rbx,rdi
+ mov rdi,[rbx+vcs_object_index_verified_lookup.root]
+ test rdi,rdi
+ jz .verified_usage
+ call vcs_object_index_root_verify
+ test eax,eax
+ jnz .verified_done
+ mov rdi,[rbx+vcs_object_index_verified_lookup.lookup]
+ test rdi,rdi
+ jz .verified_usage
+ call vcs_object_index_find
+ jmp .verified_done
+.verified_usage:
+ mov eax,VCS_ERR_USAGE
+.verified_done:
+ pop rbx
+ ret
+
 index_record_validate:
  mov rax,[rdi+vcs_object_index_record.object_id]
  or rax,[rdi+vcs_object_index_record.object_id+8]
@@ -350,6 +496,22 @@ index_id_compare:
  ret
 .id_greater:
  mov eax,1
+ ret
+
+index_ids_equal:
+ mov rax,[rdi]
+ xor rax,[rsi]
+ mov rcx,[rdi+8]
+ xor rcx,[rsi+8]
+ or rax,rcx
+ mov rcx,[rdi+16]
+ xor rcx,[rsi+16]
+ or rax,rcx
+ mov rcx,[rdi+24]
+ xor rcx,[rsi+24]
+ or rax,rcx
+ setz al
+ movzx eax,al
  ret
 
 section .note.GNU-stack noalloc noexec nowrite progbits
