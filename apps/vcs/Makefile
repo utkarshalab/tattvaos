@@ -64,7 +64,7 @@ $(BUILD)/repository.o: src/store/repository.asm include/vcs.inc include/reposito
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/object_store.o: src/store/object_store.asm include/vcs.inc include/object_store.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/object_index.o: src/store/object_index.asm include/vcs.inc include/object_index.inc | $(BUILD)
+$(BUILD)/object_index.o: src/store/object_index.asm include/vcs.inc include/object_index.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/chunk_pipeline.o: src/store/chunk_pipeline.asm include/vcs.inc include/chunk.inc include/object_store.inc include/chunk_pipeline.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -114,7 +114,7 @@ $(BUILD)/chunk.so: $(BUILD)/scalar.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/object_store.so: $(BUILD)/object_store.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
-$(BUILD)/object_index.so: $(BUILD)/object_index.o
+$(BUILD)/object_index.so: $(BUILD)/object_index.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/chunk_pipeline.so: $(BUILD)/chunk_pipeline.o $(BUILD)/object_store.o $(BUILD)/scalar.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
