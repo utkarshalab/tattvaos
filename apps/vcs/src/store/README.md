@@ -3,7 +3,7 @@
 Object store on UXFS: repository metadata, snapshots, refs and atomic ownership
 transfers. There is no tracing garbage collector.
 
-Implemented in `repository.asm`, `object_store.asm`, `chunk_pipeline.asm`, `file_object.asm`, `ownership.asm`, `publication.asm`,
+Implemented in `repository.asm`, `object_store.asm`, `chunk_pipeline.asm`, `file_object.asm`, `tree_object.asm`, `ownership.asm`, `publication.asm`,
 `history.asm`, `stage.asm`, `refs.asm`, `worktree.asm`, and `identity.asm`: UXFS initialization, repository
 discovery, full-file snapshot manifests, unchanged blob reuse, status comparison,
 selective persistent staging, branches/tags, forced checkout, transactional
@@ -30,6 +30,12 @@ pages and a file root, including the domain-separated reconstructed-byte hash.
 Its reader validates resolved page and chunk records, every complete object ID,
 chain index, link, length and byte total before atomically copying reconstructed
 data to the caller.
+
+`tree_object.asm` converts a strictly sorted directory view into deterministic
+greedy pages and a tree root. It validates canonical UTF-8 component names,
+portable modes, complete target IDs, zero padding, reverse-hashed links and
+cross-page ordering before publishing a decoded view. This removes the object
+codec's 15-entry ceiling; command migration to these objects is a later step.
 
 `ownership.asm` derives exact immutable dependency edges only after full file
 verification, validates strict catalog ordering and duplicate exclusion, and
