@@ -30,10 +30,25 @@ struc vcs_object_index_merge
     .result_count   resq 1 ; published only on success
 endstruc
 
+struc vcs_object_index_root
+    .records      resq 1
+    .record_count resq 1
+    .generation   resq 1
+    .root_hash    resq 1 ; output for hash, expected value for verify
+endstruc
+
+struc vcs_object_index_verified_lookup
+    .root   resq 1 ; vcs_object_index_root
+    .lookup resq 1 ; vcs_object_index_lookup
+endstruc
+
 %ifndef VCS_OBJECT_INDEX_IMPLEMENTATION
 extern vcs_object_index_validate
 extern vcs_object_index_find
 extern vcs_object_index_merge_plan
+extern vcs_object_index_root_hash
+extern vcs_object_index_root_verify
+extern vcs_object_index_verified_find
 %endif
 
 %endif
