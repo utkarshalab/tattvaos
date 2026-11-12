@@ -80,7 +80,7 @@ per file and 64 UXFS records. Removing these limits is the next critical path.
 
 ### 1.3 Remove fixed repository limits
 
-- [ ] Replace fixed 15-file manifests with bounded paged tree objects.
+- [x] Replace fixed 15-file manifests with bounded paged tree objects.
 - [ ] Replace the 64-record assumption with allocator-backed object tables.
 - [ ] Support empty, tiny, multi-chunk and maximum-policy-sized files.
 - [ ] Make status, commit, checkout, restore and diff operate on the new objects.
