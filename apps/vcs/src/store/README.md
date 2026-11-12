@@ -21,8 +21,10 @@ guesses physical locators or publishes a partial object.
 `object_index.asm` implements the VCS half of the scalable object index using
 the frozen 64-byte records. It validates strictly sorted catalogs, performs
 binary lookup, and preflights collision-safe copy-on-write merges before
-publishing any output. New records carry allocator-provided envelope locators;
-the durable UXFS B-tree page adapter remains pending its frozen transaction ABI.
+publishing any output. Kind-5 mutable-root hashes authenticate the complete
+canonical catalog and generation before verified lookup. New records carry
+allocator-provided envelope locators; the durable UXFS B-tree page adapter
+remains pending its frozen transaction ABI.
 
 `chunk_pipeline.asm` feeds the content-defined chunker into that codec for a
 complete caller-bounded file. It emits ordered source ranges, reuses existing or
