@@ -129,7 +129,10 @@ Each entry is `48 + align8(name_length)` bytes:
 
 Names contain no NUL, slash, control byte, DEL, empty/dot/dot-dot component or
 `.vcs` component. Entries across the complete page chain are strictly sorted by
-unsigned name bytes; duplicates and alternate encodings are invalid.
+unsigned name bytes; duplicates and alternate encodings are invalid. Writers
+greedily fill each page up to the entry-count or byte bound. Readers reject a
+non-final page when the first entry of the next page could have fit, making page
+boundaries and therefore tree IDs canonical.
 
 ## Tree root object: type 3
 
