@@ -2,7 +2,9 @@
 
 Executable unit tests cover CLI-independent assembly modules, storage and
 protocol orchestration. `test_object_store.py` validates canonical v3 chunk
-envelopes and extents; `test_chunk_pipeline.py` validates whole-file content
+envelopes and extents; `test_object_index.py` validates catalogs larger than the
+legacy 64-record volume, binary lookup, collision-safe copy-on-write merging and
+atomic failures; `test_chunk_pipeline.py` validates whole-file content
 chunking, new-object writes, exact deduplication, collision rejection and
 capacity failure. `test_file_object.py` covers multi-page canonical descriptors,
 empty and multi-chunk reconstruction, missing or reordered resolved objects,
