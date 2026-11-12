@@ -18,6 +18,12 @@ explicit-locator extent images, complete read verification and atomic bounded
 copy-out. The caller owns allocation and durable publication; the codec never
 guesses physical locators or publishes a partial object.
 
+`object_index.asm` implements the VCS half of the scalable object index using
+the frozen 64-byte records. It validates strictly sorted catalogs, performs
+binary lookup, and preflights collision-safe copy-on-write merges before
+publishing any output. New records carry allocator-provided envelope locators;
+the durable UXFS B-tree page adapter remains pending its frozen transaction ABI.
+
 `chunk_pipeline.asm` feeds the content-defined chunker into that codec for a
 complete caller-bounded file. It emits ordered source ranges, reuses existing or
 earlier chunks only after full ID, length and byte comparison, rejects collision
