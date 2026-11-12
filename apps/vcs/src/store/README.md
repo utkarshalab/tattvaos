@@ -37,9 +37,11 @@ portable modes, complete target IDs, zero padding, reverse-hashed links and
 cross-page ordering before publishing a decoded view. This removes the object
 codec's 15-entry ceiling; command migration to these objects is a later step.
 
-`ownership.asm` derives exact immutable dependency edges only after full file
-verification, validates strict catalog ordering and duplicate exclusion, and
-provides the explicit reclamation proof. An object is reclaimable only when its
+`ownership.asm` derives exact immutable dependency edges only after full file or
+tree verification. File roots own their page chains and chunks; tree roots own
+their page chains and each page owns its referenced file/tree targets. Repeated
+targets under one page collapse before insertion. Catalog validation enforces
+strict ordering and duplicate exclusion, and reclamation succeeds only when the
 validated catalog has no inbound edge and the caller reports no active reader
 pin; transaction and migration pins remain ordinary durable owner edges.
 
