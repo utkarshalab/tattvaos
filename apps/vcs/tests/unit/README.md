@@ -12,7 +12,9 @@ deterministic greedy page boundaries, canonical UTF-8 names, complete IDs,
 corrupt/missing chains and atomic decoded views. The standard
 `test_ownership.py` suite covers exact file dependency edges, repeated-reference
 collapse, canonical catalog ordering, duplicate rejection and explicit
-reader-aware reclamation proof. The standard `make test` target runs these with
+reader-aware reclamation proof. `test_tree_ownership.py` covers root/page and
+page/target edges across multiple tree pages, per-owner duplicate collapse and
+atomic capacity/corruption failure. The standard `make test` target runs these with
 `test_publication.py`, which injects failure at every transaction phase and
 checks abort, poison, callback order and preflight atomicity, plus the remaining
 module and differential suites.
