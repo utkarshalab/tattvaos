@@ -5,7 +5,9 @@ protocol orchestration. `test_object_store.py` validates canonical v3 chunk
 envelopes and extents; `test_object_index.py` validates catalogs larger than the
 legacy 64-record volume, binary lookup, collision-safe copy-on-write merging and
 atomic failures. It independently verifies kind-5 generation hashes and rejects
-tampered catalogs before lookup; `test_chunk_pipeline.py` validates whole-file content
+tampered catalogs before lookup. `test_superblock.py` covers the exact format-v3
+layout, required features and roots, checksum sealing and tamper rejection;
+`test_chunk_pipeline.py` validates whole-file content
 chunking, new-object writes, exact deduplication, collision rejection and
 capacity failure. `test_file_object.py` covers multi-page canonical descriptors,
 empty and multi-chunk reconstruction, missing or reordered resolved objects,
