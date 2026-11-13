@@ -17,7 +17,7 @@ superblock_hash_context: resb sha256_ctx_t_size
 superblock_hash_digest: resb SHA256_DIGEST_SIZE
 
 section .text
-global vcs_superblock_seal,vcs_superblock_verify
+global vcs_superblock_seal,vcs_superblock_verify,vcs_superblock_select_latest
 
 ; RDI=512-byte superblock. Validates all semantic fields before publishing the
 ; checksum, so invalid input remains untouched.
@@ -78,6 +78,123 @@ vcs_superblock_verify:
  mov eax,VCS_ERR_CORRUPT
 .verify_done:
  pop rbx
+ ret
+
+; RDI=vcs_superblock_select. Selects the newest compatible valid generation.
+; One invalid slot is treated as a torn candidate. Equal-generation divergent
+; slots are ambiguous and fail rather than choosing by position.
+vcs_superblock_select_latest:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ test rdi,rdi
+ jz .select_usage
+ mov rbx,rdi
+ mov r12,[rbx+vcs_superblock_select.first]
+ mov r13,[rbx+vcs_superblock_select.second]
+ xor r14d,r14d
+ xor r15d,r15d
+ test r12,r12
+ jz .select_second
+ mov rdi,r12
+ call vcs_superblock_verify
+ test eax,eax
+ setz r14b
+.select_second:
+ test r13,r13
+ jz .select_validity
+ mov rdi,r13
+ call vcs_superblock_verify
+ test eax,eax
+ setz r15b
+.select_validity:
+ test r14b,r14b
+ jz .select_only_second
+ test r15b,r15b
+ jz .select_first
+ ; Both candidates belong to the same repository and immutable format policy.
+ lea rdi,[r12+vcs_superblock.uuid]
+ lea rsi,[r13+vcs_superblock.uuid]
+ mov ecx,16
+ call superblock_bytes_equal
+ test eax,eax
+ jz .select_corrupt
+ mov eax,[r12+vcs_superblock.hash_algorithm]
+ cmp eax,[r13+vcs_superblock.hash_algorithm]
+ jne .select_corrupt
+ mov eax,[r12+vcs_superblock.block_size]
+ cmp eax,[r13+vcs_superblock.block_size]
+ jne .select_corrupt
+ mov rax,[r12+vcs_superblock.created_ns]
+ cmp rax,[r13+vcs_superblock.created_ns]
+ jne .select_corrupt
+ mov rax,[r12+vcs_superblock.generation]
+ cmp rax,[r13+vcs_superblock.generation]
+ jb .select_second_newer
+ ja .select_first_newer
+ mov rdi,r12
+ mov rsi,r13
+ mov ecx,VCS_SUPERBLOCK_BYTES
+ call superblock_bytes_equal
+ test eax,eax
+ jz .select_ambiguous
+ jmp .select_first
+.select_first_newer:
+ mov rbp,r12
+ mov rdx,r13
+ jmp .select_monotonic
+.select_second_newer:
+ mov rbp,r13
+ mov rdx,r12
+.select_monotonic:
+ ; A newer generation may enable a known optional feature, but it may not
+ ; discard a feature required by the older published generation.
+ mov rax,[rdx+vcs_superblock.features]
+ mov rcx,[rbp+vcs_superblock.features]
+ and rcx,rax
+ cmp rcx,rax
+ jne .select_corrupt
+ mov rax,[rbp+vcs_superblock.next_transaction]
+ cmp rax,[rdx+vcs_superblock.next_transaction]
+ jbe .select_corrupt
+ mov rax,[rbp+vcs_superblock.operation_sequence]
+ cmp rax,[rdx+vcs_superblock.operation_sequence]
+ jb .select_corrupt
+ mov r12,rbp
+ jmp .select_first
+.select_only_second:
+ test r15b,r15b
+ jnz .select_second_result
+ mov eax,VCS_ERR_CORRUPT
+ jmp .select_done
+.select_second_result:
+ mov r12,r13
+.select_first:
+ mov [rbx+vcs_superblock_select.result],r12
+ mov rax,[r12+vcs_superblock.generation]
+ mov [rbx+vcs_superblock_select.result_generation],rax
+ xor eax,eax
+ jmp .select_done
+.select_ambiguous:
+ mov eax,VCS_ERR_CONFLICT
+ jmp .select_done
+.select_usage:
+ mov eax,VCS_ERR_USAGE
+ jmp .select_done
+.select_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+.select_done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
  ret
 
 superblock_validate_fields:
@@ -175,6 +292,23 @@ superblock_ids_equal:
  mov rcx,[rdi+24]
  xor rcx,[rsi+24]
  or rax,rcx
+ setz al
+ movzx eax,al
+ ret
+
+superblock_bytes_equal:
+ xor eax,eax
+ xor edx,edx
+.bytes_loop:
+ cmp rdx,rcx
+ jae .bytes_equal
+ mov r8b,[rdi+rdx]
+ xor r8b,[rsi+rdx]
+ or al,r8b
+ inc rdx
+ jmp .bytes_loop
+.bytes_equal:
+ test al,al
  setz al
  movzx eax,al
  ret
