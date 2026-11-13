@@ -11,7 +11,7 @@ default rel
 
 extern vcs_object_id,vcs_object_index_root_verify,vcs_object_index_find
 extern vcs_ownership_edge_validate
-extern vcs_superblock_verify
+extern vcs_superblock_verify,vcs_superblock_select_latest
 
 section .text
 global vcs_publication_commit
@@ -24,7 +24,7 @@ vcs_publication_commit:
  push r13
  push r14
  push r15
- sub rsp,104
+ sub rsp,136
  test rdi,rdi
  jz .usage
  mov rbx,rdi
@@ -51,6 +51,51 @@ vcs_publication_commit:
  mov rdx,[rbx+vcs_publication.generation]
  cmp [rax+vcs_superblock.generation],rdx
  jne .corrupt
+ mov rax,[rbx+vcs_publication.tx_sequence]
+ cmp rax,-1
+ je .corrupt
+ inc rax
+ mov rdx,[rbx+vcs_publication.root]
+ cmp [rdx+vcs_superblock.next_transaction],rax
+ jne .corrupt
+ ; Genesis has no predecessor. Every later publication must advance exactly
+ ; one validated repository generation and consume its next transaction.
+ mov rax,[rbx+vcs_publication.generation]
+ cmp rax,1
+ jne .transition_required
+ cmp qword [rbx+vcs_publication.previous_root],0
+ jne .corrupt
+ cmp qword [rbx+vcs_publication.tx_sequence],1
+ jne .corrupt
+ jmp .transition_valid
+.transition_required:
+ mov r12,[rbx+vcs_publication.previous_root]
+ test r12,r12
+ jz .usage
+ mov rdi,r12
+ call vcs_superblock_verify
+ test eax,eax
+ jnz .done
+ mov rax,[rbx+vcs_publication.generation]
+ dec rax
+ cmp [r12+vcs_superblock.generation],rax
+ jne .corrupt
+ mov rax,[rbx+vcs_publication.tx_sequence]
+ cmp [r12+vcs_superblock.next_transaction],rax
+ jne .corrupt
+ mov [rsp+104+vcs_superblock_select.first],r12
+ mov rax,[rbx+vcs_publication.root]
+ mov [rsp+104+vcs_superblock_select.second],rax
+ mov qword [rsp+104+vcs_superblock_select.result],0
+ mov qword [rsp+104+vcs_superblock_select.result_generation],0
+ lea rdi,[rsp+104]
+ call vcs_superblock_select_latest
+ test eax,eax
+ jnz .done
+ mov rax,[rbx+vcs_publication.root]
+ cmp [rsp+104+vcs_superblock_select.result],rax
+ jne .corrupt
+.transition_valid:
  mov rax,[rbx+vcs_publication.index_root]
  test rax,rax
  jz .usage
@@ -289,7 +334,7 @@ vcs_publication_commit:
 .corrupt:
  mov eax,VCS_ERR_CORRUPT
 .done:
- add rsp,104
+ add rsp,136
  pop r15
  pop r14
  pop r13
