@@ -19,5 +19,5 @@ reader-aware reclamation proof. `test_tree_ownership.py` covers root/page and
 page/target edges across multiple tree pages, per-owner duplicate collapse and
 atomic capacity/corruption failure. The standard `make test` target runs these with
 `test_publication.py`, which injects failure at every transaction phase and
-checks abort, poison, callback order and preflight atomicity, plus the remaining
-module and differential suites.
+checks authenticated index membership, root tampering, abort, poison, callback
+order and preflight atomicity, plus the remaining module and differential suites.
