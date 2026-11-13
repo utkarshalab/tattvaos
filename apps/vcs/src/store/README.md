@@ -54,11 +54,13 @@ validated catalog has no inbound edge and the caller reports no active reader
 pin; transaction and migration pins remain ordinary durable owner edges.
 
 `publication.asm` preflights complete object IDs and ownership records before
-driving a durable backend through begin, object staging, ownership staging, root
-staging, flush and atomic publish. Failures before the publish barrier abort;
-an abort failure or ambiguous publish poisons the backend until remount. The
-coordinator is active, while the scalable UXFS callback adapter remains blocked
-on the durable allocator and atomic-generation ABI.
+authenticating the complete object-index generation. Every staged object's ID,
+type and length must match that index before the backend begins. The coordinator
+then drives object staging, ownership staging, the repository root plus verified
+index-root hash, flush and atomic publish. Failures before the publish barrier
+abort; an abort failure or ambiguous publish poisons the backend until remount.
+The coordinator is active, while the scalable UXFS callback adapter remains
+blocked on the durable allocator and atomic-generation ABI.
 
 The older segment/WAL modules remain scaffolding and are excluded from the
 native build. The old GC scaffold was removed. UXFS provides the atomic volume
