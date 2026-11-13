@@ -29,9 +29,12 @@ remains pending its frozen transaction ABI.
 `superblock.asm` seals and verifies the exact 512-byte format-v3 repository
 root. It rejects unknown or missing required features, zero identity/catalog
 roots, invalid generation/transaction fields, inconsistent operation features,
-nonzero reserved bytes and checksum mismatches. Publication additionally binds
-the superblock generation and embedded object-index root to its authenticated
-inputs before opening a backend transaction.
+nonzero reserved bytes and checksum mismatches. Its redundant-slot recovery
+selector independently validates candidates, tolerates one torn slot, enforces
+monotonic generations and transactions, and rejects divergent equal-generation
+split brain. Publication additionally binds the superblock generation and
+embedded object-index root to its authenticated inputs before opening a backend
+transaction. The durable UXFS slot-reader adapter remains pending.
 
 `chunk_pipeline.asm` feeds the content-defined chunker into that codec for a
 complete caller-bounded file. It emits ordered source ranges, reuses existing or
