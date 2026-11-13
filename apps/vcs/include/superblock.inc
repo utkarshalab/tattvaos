@@ -29,9 +29,17 @@ struc vcs_superblock
     .checksum         resb 32
 endstruc
 
+struc vcs_superblock_select
+    .first             resq 1
+    .second            resq 1
+    .result            resq 1 ; selected validated superblock, success only
+    .result_generation resq 1
+endstruc
+
 %ifndef VCS_SUPERBLOCK_IMPLEMENTATION
 extern vcs_superblock_seal
 extern vcs_superblock_verify
+extern vcs_superblock_select_latest
 %endif
 
 %endif
