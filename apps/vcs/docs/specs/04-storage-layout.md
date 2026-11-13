@@ -222,6 +222,13 @@ One scalable commit transaction performs this logical order:
 7. issue the durability barrier and publish that generation;
 8. release superseded blocks only through a later explicit ownership transaction.
 
+Before step one, publication verifies the currently recovered superblock and
+the candidate as one transition. Non-genesis publication advances exactly one
+repository generation, consumes the predecessor's `next transaction sequence`,
+and records the following sequence in the candidate. Repository identity and
+immutable format fields must match. Genesis has no predecessor, uses generation
+and transaction sequence one, and records next transaction sequence two.
+
 Failure before step seven leaves the previous generation authoritative. Failure
 during or after the final barrier poisons the mount until remount determines the
 winning complete generation. No caller guesses whether publication occurred.
