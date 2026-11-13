@@ -6,7 +6,7 @@ import sys
 
 lib = ctypes.CDLL(sys.argv[1])
 P = ctypes.POINTER(ctypes.c_ubyte)
-OK, IO, CORRUPT = 0, 4, 5
+OK, IO, CORRUPT, USAGE = 0, 4, 5, 8
 NONE, BEGUN, OBJECTS, OWNERSHIP, ROOT, FLUSHED, COMMITTED, POISONED, ABORTED = range(9)
 
 
@@ -43,6 +43,7 @@ class Backend(ctypes.Structure):
 
 class Publication(ctypes.Structure):
     _fields_ = [("backend", ctypes.POINTER(Backend)),
+                ("previous_root", P),
                 ("objects", ctypes.POINTER(PublishObject)),
                 ("object_count", ctypes.c_uint64),
                 ("edges", ctypes.POINTER(Edge)), ("edge_count", ctypes.c_uint64),
@@ -110,6 +111,11 @@ struct.pack_into("<Q", root_image, 256, 12)
 root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
 root_bytes = bytes(root_image)
 root = array(root_bytes)
+previous_image = bytearray(root_image)
+struct.pack_into("<Q", previous_image, 24, 8)
+struct.pack_into("<Q", previous_image, 256, 11)
+previous_image[480:512] = hashlib.sha256(previous_image[:480]).digest()
+previous_root = array(previous_image)
 
 
 def backend_for(fail=None, abort_fail=False):
@@ -154,7 +160,7 @@ def backend_for(fail=None, abort_fail=False):
 
 
 def request(backend):
-    return Publication(ctypes.pointer(backend), objects, 2, edges, 1, root,
+    return Publication(ctypes.pointer(backend), previous_root, objects, 2, edges, 1, root,
                        len(root_bytes), 11, 9, ctypes.pointer(index_root), 0xBAD)
 
 
@@ -203,4 +209,49 @@ assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 index_hash[0] ^= 1
 
-print("VCS publication: PASS (authenticated index, ordered phases, abort/poison, preflight atomicity)")
+# Publication must be the exact successor of the recovered repository root and
+# consume that root's advertised transaction sequence before begin.
+for field, replacement in (
+    ("previous_root", None),
+    ("tx_sequence", 10),
+    ("generation", 10),
+):
+    backend, state = backend_for()
+    publication = request(backend)
+    setattr(publication, field, replacement)
+    transition_status = lib.vcs_publication_commit(ctypes.byref(publication))
+    assert transition_status in (CORRUPT, USAGE), (field, transition_status)
+    assert publication.result_phase == 0xBAD and state["events"] == []
+
+wrong_repository = bytearray(previous_image)
+wrong_repository[32] ^= 1
+wrong_repository[480:512] = hashlib.sha256(wrong_repository[:480]).digest()
+wrong_repository_buffer = array(wrong_repository)
+backend, state = backend_for()
+publication = request(backend)
+publication.previous_root = wrong_repository_buffer
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+
+for offset, value in ((24, 7), (256, 10)):
+    bad_previous = bytearray(previous_image)
+    struct.pack_into("<Q", bad_previous, offset, value)
+    bad_previous[480:512] = hashlib.sha256(bad_previous[:480]).digest()
+    bad_previous_buffer = array(bad_previous)
+    backend, state = backend_for()
+    publication = request(backend)
+    publication.previous_root = bad_previous_buffer
+    assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+    assert publication.result_phase == 0xBAD and state["events"] == []
+
+bad_candidate = bytearray(root_image)
+struct.pack_into("<Q", bad_candidate, 256, 13)
+bad_candidate[480:512] = hashlib.sha256(bad_candidate[:480]).digest()
+bad_candidate_buffer = array(bad_candidate)
+backend, state = backend_for()
+publication = request(backend)
+publication.root = bad_candidate_buffer
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+
+print("VCS publication: PASS (authenticated transition/index, ordered phases, abort/poison, atomic preflight)")
