@@ -62,6 +62,15 @@ published transaction. The superblock is selected through the scalable UXFS
 atomic-generation contract defined by `00-ufs-contract.md`; it is not updated in
 place without durable root publication.
 
+Recovery validates redundant candidate slots independently. One invalid or torn
+slot is ignored when the other validates. When both validate, the candidate with
+the greater generation wins only if its transaction sequence increases, its
+operation sequence does not decrease, and it retains every feature required by
+the older generation. Repository UUID, hash algorithm, block size and creation
+timestamp are immutable. Byte-identical equal generations are harmless;
+divergent equal generations are split-brain corruption and recovery fails
+without selecting either slot.
+
 Initial feature bits are:
 
 | Bit | Meaning |
