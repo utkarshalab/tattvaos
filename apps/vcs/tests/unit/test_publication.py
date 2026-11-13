@@ -22,6 +22,17 @@ class Edge(ctypes.Structure):
                 ("child_id", ctypes.c_ubyte * 32), ("flags", ctypes.c_uint64)]
 
 
+class IndexRecord(ctypes.Structure):
+    _fields_ = [("object_id", ctypes.c_ubyte * 32), ("envelope", ctypes.c_uint64),
+                ("payload_length", ctypes.c_uint64), ("object_type", ctypes.c_uint32),
+                ("flags", ctypes.c_uint32), ("transaction", ctypes.c_uint64)]
+
+
+class IndexRoot(ctypes.Structure):
+    _fields_ = [("records", ctypes.POINTER(IndexRecord)), ("record_count", ctypes.c_uint64),
+                ("generation", ctypes.c_uint64), ("root_hash", P)]
+
+
 class Backend(ctypes.Structure):
     _fields_ = [("context", ctypes.c_void_p), ("begin", ctypes.c_void_p),
                 ("put_object", ctypes.c_void_p), ("put_edge", ctypes.c_void_p),
@@ -37,6 +48,7 @@ class Publication(ctypes.Structure):
                 ("edges", ctypes.POINTER(Edge)), ("edge_count", ctypes.c_uint64),
                 ("root", P), ("root_length", ctypes.c_uint64),
                 ("tx_sequence", ctypes.c_uint64), ("generation", ctypes.c_uint64),
+                ("index_root", ctypes.POINTER(IndexRoot)),
                 ("result_phase", ctypes.c_uint64)]
 
 
@@ -47,7 +59,7 @@ BEGIN_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p, ctypes.c_uint64,
                            ctypes.c_uint64, ctypes.c_uint64)
 PAIR_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p, ctypes.c_void_p)
 ROOT_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p, ctypes.c_void_p,
-                          ctypes.c_uint64, ctypes.c_uint64)
+                          ctypes.c_uint64, ctypes.c_uint64, ctypes.c_void_p)
 SIMPLE_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p)
 
 
@@ -77,6 +89,17 @@ edges[0].child_id[:] = objects[0].object_id
 root_bytes = b"checksummed generation root"
 root = array(root_bytes)
 
+index_records = (IndexRecord * 2)()
+for slot, index in enumerate(sorted(range(2), key=lambda value: bytes(objects[value].object_id))):
+    index_records[slot].object_id[:] = objects[index].object_id
+    index_records[slot].envelope = 100 + index
+    index_records[slot].payload_length = objects[index].length
+    index_records[slot].object_type = objects[index].object_type
+    index_records[slot].transaction = 11
+index_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 5, 0, 9, ctypes.sizeof(index_records))
+index_hash = array(hashlib.sha256(index_frame + bytes(index_records)).digest())
+index_root = IndexRoot(index_records, 2, 9, index_hash)
+
 
 def backend_for(fail=None, abort_fail=False):
     state = {"events": [], "callbacks": []}
@@ -96,8 +119,9 @@ def backend_for(fail=None, abort_fail=False):
     def put_edge(ctx, value):
         return status("edge")
     @ROOT_CB
-    def stage_root(ctx, value, length, generation):
+    def stage_root(ctx, value, length, generation, object_index_hash):
         assert length == len(root_bytes) and generation == 9
+        assert ctypes.string_at(object_index_hash, 32) == bytes(index_hash)
         return status("root")
     @SIMPLE_CB
     def flush(ctx):
@@ -120,7 +144,7 @@ def backend_for(fail=None, abort_fail=False):
 
 def request(backend):
     return Publication(ctypes.pointer(backend), objects, 2, edges, 1, root,
-                       len(root_bytes), 11, 9, 0xBAD)
+                       len(root_bytes), 11, 9, ctypes.pointer(index_root), 0xBAD)
 
 
 backend, state = backend_for()
@@ -161,4 +185,11 @@ assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 objects[0].object_id[0] ^= 1
 
-print("VCS publication: PASS (ordered phases, abort paths, poisoned barrier, preflight atomicity)")
+# An unauthenticated index generation fails before begin and leaves phase intact.
+publication = request(backend)
+index_hash[0] ^= 1
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+index_hash[0] ^= 1
+
+print("VCS publication: PASS (authenticated index, ordered phases, abort/poison, preflight atomicity)")
