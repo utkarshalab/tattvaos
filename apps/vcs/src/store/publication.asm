@@ -2,6 +2,7 @@
 %include "include/vcs.inc"
 %include "include/object_store.inc"
 %include "include/object_index.inc"
+%include "include/superblock.inc"
 %include "include/ownership.inc"
 %define VCS_PUBLICATION_IMPLEMENTATION
 %include "include/publication.inc"
@@ -10,6 +11,7 @@ default rel
 
 extern vcs_object_id,vcs_object_index_root_verify,vcs_object_index_find
 extern vcs_ownership_edge_validate
+extern vcs_superblock_verify
 
 section .text
 global vcs_publication_commit
@@ -32,8 +34,8 @@ vcs_publication_commit:
  mov rax,[rbx+vcs_publication.root]
  test rax,rax
  jz .usage
- cmp qword [rbx+vcs_publication.root_length],0
- je .corrupt
+ cmp qword [rbx+vcs_publication.root_length],VCS_SUPERBLOCK_BYTES
+ jne .corrupt
  mov rdx,[rbx+vcs_publication.root_length]
  add rax,rdx
  jc .space
@@ -41,6 +43,14 @@ vcs_publication_commit:
  je .corrupt
  cmp qword [rbx+vcs_publication.generation],0
  je .corrupt
+ mov rdi,[rbx+vcs_publication.root]
+ call vcs_superblock_verify
+ test eax,eax
+ jnz .done
+ mov rax,[rbx+vcs_publication.root]
+ mov rdx,[rbx+vcs_publication.generation]
+ cmp [rax+vcs_superblock.generation],rdx
+ jne .corrupt
  mov rax,[rbx+vcs_publication.index_root]
  test rax,rax
  jz .usage
@@ -51,6 +61,13 @@ vcs_publication_commit:
  call vcs_object_index_root_verify
  test eax,eax
  jnz .done
+ mov rax,[rbx+vcs_publication.root]
+ lea rdi,[rax+vcs_superblock.object_index_root]
+ mov rax,[rbx+vcs_publication.index_root]
+ mov rsi,[rax+vcs_object_index_root.root_hash]
+ call ids_equal_publication
+ test eax,eax
+ jz .corrupt
  cmp qword [rbp+vcs_publish_backend.begin],0
  je .usage
  cmp qword [rbp+vcs_publish_backend.put_object],0
