@@ -26,6 +26,13 @@ canonical catalog and generation before verified lookup. New records carry
 allocator-provided envelope locators; the durable UXFS B-tree page adapter
 remains pending its frozen transaction ABI.
 
+`superblock.asm` seals and verifies the exact 512-byte format-v3 repository
+root. It rejects unknown or missing required features, zero identity/catalog
+roots, invalid generation/transaction fields, inconsistent operation features,
+nonzero reserved bytes and checksum mismatches. Publication additionally binds
+the superblock generation and embedded object-index root to its authenticated
+inputs before opening a backend transaction.
+
 `chunk_pipeline.asm` feeds the content-defined chunker into that codec for a
 complete caller-bounded file. It emits ordered source ranges, reuses existing or
 earlier chunks only after full ID, length and byte comparison, rejects collision
