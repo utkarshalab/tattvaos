@@ -1,13 +1,15 @@
 ; Recoverable object/ownership/root publication state machine.
 %include "include/vcs.inc"
 %include "include/object_store.inc"
+%include "include/object_index.inc"
 %include "include/ownership.inc"
 %define VCS_PUBLICATION_IMPLEMENTATION
 %include "include/publication.inc"
 bits 64
 default rel
 
-extern vcs_object_id,vcs_ownership_edge_validate
+extern vcs_object_id,vcs_object_index_root_verify,vcs_object_index_find
+extern vcs_ownership_edge_validate
 
 section .text
 global vcs_publication_commit
@@ -20,7 +22,7 @@ vcs_publication_commit:
  push r13
  push r14
  push r15
- sub rsp,72
+ sub rsp,104
  test rdi,rdi
  jz .usage
  mov rbx,rdi
@@ -39,6 +41,16 @@ vcs_publication_commit:
  je .corrupt
  cmp qword [rbx+vcs_publication.generation],0
  je .corrupt
+ mov rax,[rbx+vcs_publication.index_root]
+ test rax,rax
+ jz .usage
+ mov rdx,[rbx+vcs_publication.generation]
+ cmp [rax+vcs_object_index_root.generation],rdx
+ jne .corrupt
+ mov rdi,rax
+ call vcs_object_index_root_verify
+ test eax,eax
+ jnz .done
  cmp qword [rbp+vcs_publish_backend.begin],0
  je .usage
  cmp qword [rbp+vcs_publish_backend.put_object],0
@@ -119,6 +131,29 @@ vcs_publication_commit:
  call ids_equal_publication
  test eax,eax
  jz .corrupt
+ ; Every staged immutable object must already exist in the authenticated index
+ ; generation with the same canonical type and length.
+ mov rax,[rbx+vcs_publication.index_root]
+ mov rdx,[rax+vcs_object_index_root.records]
+ mov [rsp+56+vcs_object_index_lookup.records],rdx
+ mov rdx,[rax+vcs_object_index_root.record_count]
+ mov [rsp+56+vcs_object_index_lookup.record_count],rdx
+ mov rax,[rsp+40]
+ lea rdx,[rax+vcs_publish_object.id]
+ mov [rsp+56+vcs_object_index_lookup.object_id],rdx
+ mov qword [rsp+56+vcs_object_index_lookup.result],0
+ lea rdi,[rsp+56]
+ call vcs_object_index_find
+ test eax,eax
+ jnz .corrupt
+ mov rdx,[rsp+56+vcs_object_index_lookup.result]
+ mov rax,[rsp+40]
+ mov ecx,[rax+vcs_publish_object.type]
+ cmp ecx,[rdx+vcs_object_index_record.object_type]
+ jne .corrupt
+ mov rcx,[rax+vcs_publish_object.length]
+ cmp rcx,[rdx+vcs_object_index_record.payload_length]
+ jne .corrupt
  inc qword [rsp+32]
  jmp .validate_objects
 .validate_edges_begin:
@@ -184,6 +219,8 @@ vcs_publication_commit:
  mov rsi,[rbx+vcs_publication.root]
  mov rdx,[rbx+vcs_publication.root_length]
  mov rcx,[rbx+vcs_publication.generation]
+ mov rax,[rbx+vcs_publication.index_root]
+ mov r8,[rax+vcs_object_index_root.root_hash]
  call [rbp+vcs_publish_backend.stage_root]
  test eax,eax
  jnz .abort_with_status
@@ -235,7 +272,7 @@ vcs_publication_commit:
 .corrupt:
  mov eax,VCS_ERR_CORRUPT
 .done:
- add rsp,72
+ add rsp,104
  pop r15
  pop r14
  pop r13
