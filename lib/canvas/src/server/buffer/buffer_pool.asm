@@ -87,7 +87,7 @@ buffer_pool_acquire:
 
 ; ---------------------------------------------------------------------------
 ; buffer_pool_release
-;   Return buffer to pool
+;   Return buffer to pool, its pixels zeroed
 ;   IN:  rdi = pool*, rsi = buffer*
 ;   OUT: rax = 0 OK
 ; ---------------------------------------------------------------------------
@@ -145,6 +145,13 @@ buffer_pool_release:
     mov [rbx + BufferPool.buffers], r14
     mov [rbx + BufferPool.capacity], r13
 .insert:
+    mov rdi, [r12 + Buffer.base]        ; wiped: the next to take it may be
+    test rdi, rdi                       ; another client (SEC-07)
+    jz .wiped
+    xor esi, esi
+    mov rdx, [r12 + Buffer.size]
+    call memset
+.wiped:
     mov rdi, [rbx + BufferPool.buffers]
     mov rcx, [rbx + BufferPool.count]
     mov [rdi + rcx * 8], r12
