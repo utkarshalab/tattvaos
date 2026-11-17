@@ -15,6 +15,7 @@
 
 extern msgbuf_read
 extern msgbuf_write
+extern cw_display_pong
 
 section .text
 
@@ -148,12 +149,23 @@ canvas_wire_read:
     lea rcx, [rbx + CLIENT_WIRE + ClientWire.in_hdr]
     cmp dword [rcx + MsgHdr.obj], CWP_OBJ_DISPLAY
     jne .out
-    cmp word [rcx + MsgHdr.opcode], DISPLAY_EV_CAPABILITIES
-    jne .out
     test word [rcx + MsgHdr.flags], CWP_MSG_FLAG_REPLY
     jnz .out
+    cmp word [rcx + MsgHdr.opcode], DISPLAY_EV_PING
+    je .ping
+    cmp word [rcx + MsgHdr.opcode], DISPLAY_EV_CAPABILITIES
+    jne .out
     mov rcx, [rbx + CLIENT_WIRE + ClientWire.in_msg]
     mov [rbx + ClientConn.caps_granted], rcx
+    jmp .out
+.ping:
+    push rax                            ; answered at once (REL-14)
+    push rax                            ; 16-byte aligned
+    mov rdi, rbx
+    mov rsi, [rbx + CLIENT_WIRE + ClientWire.in_msg]
+    call cw_display_pong
+    pop rax
+    pop rax
 .out:
     pop rbx
     ret
