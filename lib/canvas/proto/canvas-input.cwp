@@ -55,6 +55,13 @@ protocol canvas-input 1 {
         ; it moves the pointer or stops at the screen's edge
         request set_relative(surface: handle, on: bool)
         event relative_motion(time: ulong, surface: handle, dx: int, dy: int)
+
+        ; Move the pointer to x, y in this surface's own pixels, kept inside
+        ; it (PTR-09). Only while the pointer is over the surface (otherwise
+        ; nothing happens), and only with a grant: the surface asked for raw
+        ; motion (set_relative), or the client may inject input. No client
+        ; can move the pointer onto anything not its own.
+        request warp(surface: handle, x: int, y: int)
     }
 
     ; ------------------------------------------------------------------------
@@ -142,8 +149,9 @@ protocol canvas-input 1 {
 
         ; A pointing device's settings (PTR-03, PTR-05): device, or
         ; 0xFFFFFFFF for every device without its own; flags 1 natural
-        ; scrolling, 2 left-handed; scroll speed in 120ths (0: 120). Needs
-        ; the session capability.
+        ; scrolling, 2 left-handed, 4 middle-click emulation (left and right
+        ; pressed within 50 ms are the middle button); scroll speed in 120ths
+        ; (0: 120). Needs the session capability.
         request set_pointer(device: uint, flags: uint, scroll: uint)
 
         event switched(which: uint, state: uint)
