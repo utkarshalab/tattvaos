@@ -124,6 +124,9 @@
 %ifdef HAVE_h_surface_commit
     CWP_REQUEST CWP_OBJ_SURFACE, SURFACE_COMMIT, h_surface_commit
 %endif
+%ifdef HAVE_h_surface_set_idle_inhibit
+    CWP_REQUEST CWP_OBJ_SURFACE, SURFACE_SET_IDLE_INHIBIT, h_surface_set_idle_inhibit
+%endif
 %ifdef HAVE_h_subsurface_get_parent
     CWP_REQUEST CWP_OBJ_SUBSURFACE, SUBSURFACE_GET_PARENT, h_subsurface_get_parent
 %endif
@@ -156,6 +159,9 @@
 %endif
 %ifdef HAVE_h_pointer_set_relative
     CWP_REQUEST CWP_OBJ_POINTER, POINTER_SET_RELATIVE, h_pointer_set_relative
+%endif
+%ifdef HAVE_h_pointer_warp
+    CWP_REQUEST CWP_OBJ_POINTER, POINTER_WARP, h_pointer_warp
 %endif
 %ifdef HAVE_h_seat_watch
     CWP_REQUEST CWP_OBJ_SEAT, SEAT_WATCH, h_seat_watch
