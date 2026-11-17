@@ -162,7 +162,7 @@
 | REL-11 | Server crash-restart with client survival: clients reconnect and resubmit state | P4 | |
 | REL-12 | Deterministic replay bug reports: one file reproduces any rendering bug | P3 | ◐ `obs/record`, `obs/replay` |
 | REL-13 | Long-uptime stability: 30-day soak, no leaks, generation wraparound tested | P3 | |
-| REL-14 | "Not responding" detection with force-quit dialog | P2 | ◐ watchdog ping |
+| REL-14 | "Not responding" detection with force-quit dialog | P2 | ✓ `governance/hang`: a key or button pressed in a window pings its client (`cw_display.ping`); the client library answers with `cw_display.pong` by itself; five seconds unanswered and a dialog the server draws says it is not responding: Wait gives it five more, Force quit closes its connection and its windows; an answer or the client going takes the dialog away; `test_window`, `test_greeter`. the kernel is not asked to end the program yet |
 | REL-15 | Frozen-window snapshot: last frame shown greyed while an app hangs | P3 | |
 | REL-16 | Off-screen window recovery when a monitor disappears | P2 | ✓ `shell/window`: an output taken away (unplugged, made a mirror, the lid closed with another on) sends everything on it to one left: a window keeps its place on the output, kept at least 32 pixels on the new one; maximized or fullscreen ones fill it; hidden ones come back there; layers are anchored there; `test_window` (a window in a far corner, a maximized one) |
 
@@ -181,13 +181,13 @@
 | PRO-09 | Request pipelining with deferred errors | P3 | |
 | PRO-10 | Message priority lanes: input and frame callbacks ahead of bulk data | P3 | |
 | PRO-11 | Shared-memory state blocks for no-message updates (cursor, position) | P4 | |
-| PRO-12 | Synchronous barrier / round trip, for debugging only | P2 | |
+| PRO-12 | Synchronous barrier / round trip, for debugging only | P2 | ✓ `cw_display.sync` -> serial: answered after everything the client sent before it, its requests handled in order; `test_server`, `test_fuzz` (a well-behaved client still answered after random traffic) |
 | PRO-13 | Client capability fingerprinting for compatibility shims | P4 | |
 | PRO-14 | Protocol compression for remote channels | P4 | |
 | PRO-15 | Viewport: crop and scale a buffer to a destination size | P2 | |
 | PRO-16 | Fractional-scale protocol for clients | P2 | ◐ decision 0012 accepted; `cw_output` (`output/output_watch`): list gives each output's id, place, size and scale in 120ths, then done, and the client hears of outputs added, rescaled, mirrored and removed; `cw_surface.set_buffer_scale` (120ths) shows a buffer at its surface's size, scaled (bilinear, blended) when drawn, and that size counts for placing, hit tests, title bars and damage; `test_window`. The layout is in logical units (OUT-08) |
 | PRO-17 | Content-type hints (video, game, photo) for scheduling and VRR | P3 | |
-| PRO-18 | Activation tokens and focus-request protocol | P2 | |
+| PRO-18 | Activation tokens and focus-request protocol | P2 | ✓ `shell/activation`: `cw_toplevel.get_activation_token` only while the surface has the keyboard (64 bits, SipHash under a kernel-entropy key, good once for ten seconds, eight kept); `cw_toplevel.activate` with one raises and gives the keyboard past the focus guard, without one marks it urgent; `test_window`. the launcher does not pass one to what it starts yet |
 | PRO-19 | Foreign-toplevel management: taskbars can list and control other windows (privileged) | P2 | ◐ `shell/window_list`: `cw_window_list` behind `CAP_WINDOWS`: every window with id, states, title and app id on subscribing, then each change, removal and keyboard move; activate, close, minimize, maximize by id; `test_window`. No icons yet |
 | PRO-20 | Presentation timing feedback with precise timestamps | P2 | ◐ `server/presentation` |
 | PRO-21 | Tearing-control protocol | P3 | |
@@ -213,7 +213,7 @@
 | SUR-10 | Single-pixel buffers: solid colors with no memory | P3 | |
 | SUR-11 | Occlusion feedback: clients told how much of them is visible | P3 | |
 | SUR-12 | Surface suspension: hidden apps told to stop rendering | P3 | |
-| SUR-13 | Preferred buffer scale and transform hints per output | P2 | |
+| SUR-13 | Preferred buffer scale and transform hints per output | P2 | ✓ `cw_surface.preferred(surface, output, scale, transform)`: when the surface is made, moves to another output, or its output's scale changes, only when one of them is new (`output/output_watch`); `test_window` |
 | SUR-14 | FIFO presentation queue for video | P3 | |
 | SUR-15 | Commit timing: "present at time T" | P3 | |
 | SUR-16 | Surface groups: atomic commit across surfaces of different clients | P4 | |
@@ -474,7 +474,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | WIN-12 | Focus-stealing prevention | P2 | ✓ `shell/stacking`, `window_may_take_keyboard`: a window shown by another client than the one with the keyboard does not take it if a key or button was pressed within the last second; it is marked urgent instead; `test_window` |
 | WIN-13 | Startup feedback and app activation | P2 | → PRO-18 |
 | WIN-14 | Urgency / attention hints | P2 | ✓ `cw_toplevel.request_attention`: urgent (state 8 in the window list) until it gets the keyboard; the taskbar shows an urgent block amber; `test_window`, `test_taskbar` |
-| WIN-15 | Window icons per instance | P2 | |
+| WIN-15 | Window icons per instance | P2 | ◐ `cw_toplevel.set_icon(surface, buffer)`: kept as 16x16, each pixel the nearest of the buffer's, drawn at the left of its taskbar block, the title after it; `test_taskbar`. the taskbar, inside canvasd, reads it from the server; a taskbar of its own would need it in `cw_window_list` |
 | WIN-16 | Workspaces: named, dynamic, per-monitor or global | P2 | ◐ `shell/window`: four global workspaces; a window is on the screen only while its workspace is shown; Super+1–4 shows one, Super+Shift+1–4 moves the focused window; the window list carries each window's workspace and the one shown, with set_workspace and move_to_workspace; the taskbar shows the current workspace's windows and a square per workspace; `test_window`, `test_taskbar`. Not named, dynamic or per monitor |
 | WIN-17 | Workspace follows its monitor on replug | P3 | |
 | WIN-18 | Snapping, edge tiling, quarter tiling | P3 | |
