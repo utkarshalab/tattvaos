@@ -96,6 +96,9 @@ output_announce:
     mov r12, rsi
     cmp qword [r12 + Output.mirror_of], 0
     jne .done
+    mov rdi, rbx                        ; its surfaces: a new scale?
+    mov rsi, r12
+    call tell_surfaces
     xor r13d, r13d
 .watcher:
     mov rsi, [rbx + Server.output_watchers + r13 * 8]
@@ -169,6 +172,95 @@ output_client_gone:
 ; Local
 ; ---------------------------------------------------------------------------
 
+; ---------------------------------------------------------------------------
+; surface_tell_preferred
+;   cw_surface.preferred to a surface's client: its output, that output's
+;   scale and rotation, if any of them is new since the last (SUR-13)
+;   IN:  rdi = server*, rsi = surface*
+;   OUT: rax = 0
+; ---------------------------------------------------------------------------
+global surface_tell_preferred
+surface_tell_preferred:
+    push rbx
+    sub rsp, 16                         ; the event; 16-byte aligned
+    mov rbx, rsi
+    mov rdx, [rbx + Surface.output]
+    test rdx, rdx
+    jz .out                             ; off the screen
+    cmp qword [rbx + Surface.client], 0
+    je .out
+    mov rdi, rdx
+    call scale_120ths
+    mov r8d, eax
+    mov rdx, [rbx + Surface.output]
+    mov r9d, [rdx + Output.rotation]
+    and r9d, 3
+    cmp [rbx + Surface.pref_output], rdx
+    jne .new
+    cmp [rbx + Surface.pref_scale], r8d
+    jne .new
+    cmp [rbx + Surface.pref_transform], r9d
+    je .out                             ; nothing new
+.new:
+    mov [rbx + Surface.pref_output], rdx
+    mov [rbx + Surface.pref_scale], r8d
+    mov [rbx + Surface.pref_transform], r9d
+    mov eax, [rbx + Surface.id]
+    mov [rsp], eax
+    mov [rsp + 8], r8d
+    mov [rsp + 12], r9d
+    mov rdi, rdx
+    call id_of
+    mov [rsp + 4], eax
+    mov rdi, [rbx + Surface.client]
+    mov esi, CWP_OBJ_SURFACE
+    mov edx, SURFACE_EV_PREFERRED
+    mov rcx, rsp
+    mov r8d, 16
+    call sync_event
+.out:
+    xor eax, eax
+    add rsp, 16
+    pop rbx
+    ret
+
+; rdi = server, rsi = Output*: every surface on it told what to draw at
+tell_surfaces:
+    push rbx
+    push r12
+    push r13
+    mov r12, rdi
+    mov r13, rsi
+    mov rbx, [r12 + Server.stack]
+.surface:
+    test rbx, rbx
+    jz .out
+    cmp [rbx + Surface.output], r13
+    jne .next
+    mov rdi, r12
+    mov rsi, rbx
+    call surface_tell_preferred
+.next:
+    mov rbx, [rbx + Surface.z_order_next]
+    jmp .surface
+.out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; rdi = Output* -> eax = its scale in 120ths, rounded (0 is 1)
+scale_120ths:
+    mov rax, [rdi + Output.scale]       ; 16.16
+    test rax, rax
+    jnz .scaled
+    mov eax, 0x10000
+.scaled:
+    imul rax, rax, 120
+    add rax, 0x8000
+    shr rax, 16
+    ret
+
 ; rdi = server, rsi = client, rdx = Output*: output(id, x, y, width, height,
 ; scale in 120ths) to it
 tell_output:
@@ -186,14 +278,8 @@ tell_output:
     mov [rsp + 12], eax
     mov eax, [rdx + Output.height]
     mov [rsp + 16], eax
-    mov rax, [rdx + Output.scale]       ; 16.16 to 120ths, rounded; 0 is 1
-    test rax, rax
-    jnz .scaled
-    mov eax, 0x10000
-.scaled:
-    imul rax, rax, 120
-    add rax, 0x8000
-    shr rax, 16
+    mov rdi, rdx
+    call scale_120ths
     mov [rsp + 20], eax
     mov rdi, rbx
     mov esi, CWP_OBJ_OUTPUT
