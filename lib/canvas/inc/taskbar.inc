@@ -26,6 +26,8 @@
 %define TASKBAR_TEXT        0xFFFFFF    ; a block's title
 %define TASKBAR_TEXT_SIZE   12
 %define TASKBAR_TEXT_PAD    6           ; the title from the block's edges
+%define ICON_INSET          4           ; a window icon from the block's left
+%define ICON_Y              ((TASKBAR_H - WINDOW_ICON) / 2)   ; and top
 
 ; High contrast (A11Y-07): black, white and yellow
 %define HC_BLACK            0xFF000000  ; the bar, inside an outline
