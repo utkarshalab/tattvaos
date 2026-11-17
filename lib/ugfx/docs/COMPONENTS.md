@@ -115,7 +115,7 @@ dependencies. IDs are `C2D-NNN`; use them in commits and issues.
 | C2D-061 | Draw image with an affine transform | P2 | | 012, 062 |
 | C2D-062 | Filters: nearest, bilinear, bicubic, Lanczos, mipmaps | P2 | ◐ `core/scale` | |
 | C2D-063 | 90/180/270 rotations and flips | P2 | ◐ `core/transform` | |
-| C2D-064 | Nine-patch | P2 | | 061 |
+| C2D-064 | Nine-patch | P2 | ✓ `core/ninepatch` (tested in canvas `test_window`) | 061 |
 | C2D-065 | Atlases and sprite sheets | P3 | | 061 |
 | C2D-066 | Colour conversion on draw (YUV, profiles) | P3 | | 061 |
 
