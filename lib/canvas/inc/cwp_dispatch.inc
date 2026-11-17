@@ -175,6 +175,9 @@
 %ifdef HAVE_h_dnd_accept
     CWP_REQUEST CWP_OBJ_DND, DND_ACCEPT, h_dnd_accept
 %endif
+%ifdef HAVE_h_keyboard_set_secure
+    CWP_REQUEST CWP_OBJ_KEYBOARD, KEYBOARD_SET_SECURE, h_keyboard_set_secure
+%endif
 %ifdef HAVE_h_toplevel_create
     CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_CREATE, h_toplevel_create
 %endif
