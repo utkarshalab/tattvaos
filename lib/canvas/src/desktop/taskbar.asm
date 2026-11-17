@@ -50,6 +50,7 @@ extern client_accept_trusted
 extern client_disconnect
 extern server_poll
 extern ui_text_draw
+extern window_icon
 
 %define EV_DATA     (Taskbar.event + ClientEvent.data)
 %define STATE_MINIMIZED 4
@@ -598,6 +599,11 @@ draw:
     mov r8d, TASKBAR_H - 2 * TASKBAR_PAD
     call fill
 .titled:
+    mov rdi, rbx                        ; its icon, if it has one
+    mov esi, r13d
+    mov edx, r12d
+    call draw_icon
+    mov ecx, eax                        ; the title after it
     mov rdi, rbx
     mov esi, r13d
     mov edx, r12d
@@ -622,8 +628,60 @@ draw:
 .out:
     EPILOGUE_RESTORE rbx, r12, r13, r14
 
-; An entry's title inside its block.
-; rdi = taskbar, esi = the block's x, edx = the entry
+; An entry's window's icon at the left of its block, centred up and down;
+; pixels half transparent or more left as they are (WIN-15).
+; rdi = taskbar, esi = the block's x, edx = the entry -> eax = how far the
+; title moves right for it (0: no icon)
+draw_icon:
+    push rbx
+    push r12
+    push r13
+    mov rbx, rdi
+    mov r12d, esi
+    imul edx, edx, TaskbarEntry_size
+    mov esi, [rbx + Taskbar.entries + rdx + TaskbarEntry.id]
+    mov rdi, [rbx + Taskbar.server]
+    call window_icon
+    test rax, rax
+    jz .none
+    mov r13, rax
+    xor r8d, r8d                        ; y
+.row:
+    lea eax, [r8 + ICON_Y]
+    imul eax, [rbx + Taskbar.stride]
+    mov r9, [rbx + Taskbar.pixels]
+    add r9, rax
+    lea eax, [r12 + ICON_INSET]
+    lea r9, [r9 + rax * 4]
+    xor r10d, r10d                      ; x
+.pixel:
+    mov eax, r8d
+    shl eax, 4
+    add eax, r10d
+    mov ecx, [r13 + rax * 4]
+    cmp ecx, 0x80000000
+    jb .clear                           ; mostly see-through
+    or ecx, 0xFF000000
+    mov [r9 + r10 * 4], ecx
+.clear:
+    inc r10d
+    cmp r10d, WINDOW_ICON
+    jb .pixel
+    inc r8d
+    cmp r8d, WINDOW_ICON
+    jb .row
+    mov eax, WINDOW_ICON + ICON_INSET
+    jmp .out
+.none:
+    xor eax, eax
+.out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; An entry's title inside its block, ecx further right for an icon.
+; rdi = taskbar, esi = the block's x, edx = the entry, ecx = the shift
 draw_title:
     push rbx
     sub rsp, UiText_size
@@ -645,12 +703,15 @@ draw_title:
     mov eax, [rbx + Taskbar.stride]
     mov [rsp + UiText.stride], rax
     add esi, TASKBAR_TEXT_PAD
+    add esi, ecx
     mov [rsp + UiText.x], esi
     mov [rsp + UiText.clip_x], esi
     mov dword [rsp + UiText.y], TASKBAR_PAD
     mov dword [rsp + UiText.clip_y], TASKBAR_PAD
-    mov dword [rsp + UiText.width], TASKBAR_ENTRY_W - 2 * TASKBAR_TEXT_PAD
-    mov dword [rsp + UiText.clip_w], TASKBAR_ENTRY_W - 2 * TASKBAR_TEXT_PAD
+    mov eax, TASKBAR_ENTRY_W - 2 * TASKBAR_TEXT_PAD
+    sub eax, ecx
+    mov [rsp + UiText.width], eax
+    mov [rsp + UiText.clip_w], eax
     mov dword [rsp + UiText.height], TASKBAR_H - 2 * TASKBAR_PAD
     mov dword [rsp + UiText.clip_h], TASKBAR_H - 2 * TASKBAR_PAD
     mov dword [rsp + UiText.size], TASKBAR_TEXT_SIZE
