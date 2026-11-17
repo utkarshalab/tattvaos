@@ -5,14 +5,24 @@
 %include "include/tree_object.inc"
 %define VCS_OWNERSHIP_IMPLEMENTATION
 %include "include/ownership.inc"
+%include "lib/crypto/uhash/sha256/sha256.inc"
 bits 64
 default rel
 
 extern vcs_file_object_verify
 extern vcs_tree_object_verify
+extern sha256_init,sha256_update,sha256_final
+
+section .rodata
+ownership_root_frame:
+ db 'UVCSROT1'
+ dw 1,2
+ dd 0
+ownership_root_frame_size equ $-ownership_root_frame
 
 section .text
 global vcs_ownership_edge_validate,vcs_ownership_catalog_validate
+global vcs_ownership_root_hash,vcs_ownership_root_verify
 global vcs_file_ownership_edges,vcs_tree_ownership_edges,vcs_ownership_reclaimable
 
 ; RDI=one 80-byte edge. RAX=VCS status.
@@ -111,6 +121,115 @@ vcs_ownership_catalog_validate:
  ret
 .catalog_corrupt:
  mov eax,VCS_ERR_CORRUPT
+ ret
+
+; RDI=vcs_ownership_root. Hashes one validated canonical generation.
+vcs_ownership_root_hash:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,120
+ test rdi,rdi
+ jz .root_usage
+ mov rbx,rdi
+ mov r12,[rbx+vcs_ownership_root.records]
+ mov r13,[rbx+vcs_ownership_root.record_count]
+ mov r14,[rbx+vcs_ownership_root.root_hash]
+ test r14,r14
+ jz .root_usage
+ cmp qword [rbx+vcs_ownership_root.generation],0
+ je .root_corrupt
+ mov rdi,r12
+ mov rsi,r13
+ call vcs_ownership_catalog_validate
+ test eax,eax
+ jnz .root_done
+ mov rax,r13
+ mov ecx,vcs_ownership_edge_size
+ mul rcx
+ test rdx,rdx
+ jnz .root_corrupt
+ mov [rsp+112],rax
+ mov rdi,rsp
+ call sha256_init
+ mov rdi,rsp
+ lea rsi,[ownership_root_frame]
+ mov edx,ownership_root_frame_size
+ call sha256_update
+ mov rdi,rsp
+ lea rsi,[rbx+vcs_ownership_root.generation]
+ mov edx,8
+ call sha256_update
+ mov rdi,rsp
+ lea rsi,[rsp+112]
+ mov edx,8
+ call sha256_update
+ mov rdx,[rsp+112]
+ test rdx,rdx
+ jz .root_records_done
+ mov rdi,rsp
+ mov rsi,r12
+ call sha256_update
+.root_records_done:
+ mov rdi,rsp
+ mov rsi,r14
+ call sha256_final
+ xor eax,eax
+ jmp .root_done
+.root_usage:
+ mov eax,VCS_ERR_USAGE
+ jmp .root_done
+.root_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+.root_done:
+ add rsp,120
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+; RDI=vcs_ownership_root. Recomputes and constant-time compares root_hash.
+vcs_ownership_root_verify:
+ push rbx
+ sub rsp,64
+ test rdi,rdi
+ jz .root_verify_usage
+ mov rbx,rdi
+ cmp qword [rbx+vcs_ownership_root.root_hash],0
+ je .root_verify_usage
+ mov rax,[rbx+vcs_ownership_root.records]
+ mov [rsp+vcs_ownership_root.records],rax
+ mov rax,[rbx+vcs_ownership_root.record_count]
+ mov [rsp+vcs_ownership_root.record_count],rax
+ mov rax,[rbx+vcs_ownership_root.generation]
+ mov [rsp+vcs_ownership_root.generation],rax
+ lea rax,[rsp+32]
+ mov [rsp+vcs_ownership_root.root_hash],rax
+ mov rdi,rsp
+ call vcs_ownership_root_hash
+ test eax,eax
+ jnz .root_verify_done
+ lea rdi,[rsp+32]
+ mov rsi,[rbx+vcs_ownership_root.root_hash]
+ call ids_equal_owner
+ test eax,eax
+ jz .root_verify_corrupt
+ xor eax,eax
+ jmp .root_verify_done
+.root_verify_usage:
+ mov eax,VCS_ERR_USAGE
+ jmp .root_verify_done
+.root_verify_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+.root_verify_done:
+ add rsp,64
+ pop rbx
  ret
 
 ; RDI=vcs_file_ownership. Emits an unsorted insertion batch; the catalog B-tree
