@@ -41,7 +41,7 @@ endstruc
 struc vcs_publication
     .backend       resq 1
     .previous_root resq 1 ; prior validated 512-byte superblock, null for genesis
-    .objects       resq 1
+    .objects       resq 1 ; strictly ID-sorted unique staged objects
     .object_count  resq 1
     .edges         resq 1
     .edge_count    resq 1
