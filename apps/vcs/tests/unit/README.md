@@ -26,5 +26,5 @@ atomic capacity/corruption failure. The standard `make test` target runs these w
 checks authenticated predecessor transitions and index membership, replay and
 rollback rejection, HEAD commit membership, ownership endpoint closure, root
 tampering, canonical unique staged sets, transaction binding, abort, poison,
-callback order and preflight atomicity, plus the remaining module and
-differential suites.
+canonical ownership batches, complete transaction-pin coverage, callback order
+and preflight atomicity, plus the remaining module and differential suites.
