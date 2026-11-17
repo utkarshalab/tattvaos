@@ -104,6 +104,7 @@ extern pointer_button
 extern clamshell_sleep
 extern switcher_cancel
 extern menu_key
+extern virtual_input_inject
 extern power_menu_open
 extern launcher_open
 extern switcher_finish
@@ -356,11 +357,14 @@ input_dispatch:
     call key_event
     jmp .handled
 .pointer:
+    call middle_flush                   ; a held-back press first
+    mov rdi, rbx
+    mov rsi, r12
     call pointer_event
     jmp .handled
 .button:
     call stamp_press
-    call button_event
+    call middle_button
     jmp .handled
 .axis:
     call axis_event
@@ -369,6 +373,8 @@ input_dispatch:
     inc r13
     jmp .next
 .queued:
+    mov rdi, rbx                        ; a press held back long enough goes
+    call middle_timeout
     mov rdi, rbx
     call key_repeat
 .done:
@@ -443,6 +449,62 @@ input_set_seat:
     mov rax, r13
     add rsp, 8
     EPILOGUE_RESTORE rbx, r12, r13
+
+; ---------------------------------------------------------------------------
+; input_warp
+;   The pointer to x, y in a surface's own pixels, kept inside it, as a
+;   position record would move it (PTR-09); only while it is over that
+;   surface
+;   IN:  rdi = server*, rsi = surface*, edx = x, ecx = y
+;   OUT: rax = 0, -EPERM if the pointer is not over it or it shows nothing
+; ---------------------------------------------------------------------------
+global input_warp
+input_warp:
+    PROLOGUE_SAVE rbx, r12, r13, r14
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13d, edx
+    mov r14d, ecx
+    mov rax, [rbx + Server.input_seat]
+    test rax, rax
+    jz .refused
+    cmp [rax + InputSeat.pointer_focus], r12
+    jne .refused
+    mov rsi, [r12 + Surface.current + SurfaceState.buffer]
+    test rsi, rsi
+    jz .refused
+    mov rdi, [rbx + Server.buffer_table]
+    call handle_resolve
+    test rax, rax
+    jz .refused
+    mov rdi, r12                        ; its size on the screen
+    mov rsi, rax
+    call surface_logical_size
+    dec eax
+    dec edx
+    xor ecx, ecx
+    cmp r13d, ecx                       ; inside it
+    cmovl r13d, ecx
+    cmp r13d, eax
+    cmovg r13d, eax
+    cmp r14d, ecx
+    cmovl r14d, ecx
+    cmp r14d, edx
+    cmovg r14d, edx
+    add r13d, [r12 + Surface.current + SurfaceState.buf_x]
+    add r14d, [r12 + Surface.current + SurfaceState.buf_y]
+    mov rdi, rbx
+    mov esi, INPUT_POSITION
+    mov edx, r13d
+    mov ecx, r14d
+    xor r8d, r8d
+    call virtual_input_inject
+    xor eax, eax
+    jmp .out
+.refused:
+    mov rax, -(EPERM)
+.out:
+    EPILOGUE_RESTORE rbx, r12, r13, r14
 
 ; ---------------------------------------------------------------------------
 ; input_release_all
@@ -926,6 +988,47 @@ local_xy:
     or eax, edx
     ret
 
+; A finger just down, contact rsi at x edx, y ecx in the layout: on a
+; surface whose client takes no touch, with no other finger the pointer, it
+; becomes the pointer there with the left button down. rdi = seat
+touch_as_pointer:
+    mov rax, [rsi + TouchContact.surface]
+    mov rax, [rax + Surface.client]
+    test rax, rax
+    jz .out
+    test qword [rax + Client.caps], CAP_TOUCH
+    jnz .out
+    xor eax, eax                        ; another finger has it already?
+.other:
+    imul r8d, eax, TouchContact_size
+    lea r8, [rdi + InputSeat.touches + r8]
+    cmp qword [r8 + TouchContact.surface], 0
+    je .next
+    cmp dword [r8 + TouchContact.emulated], 0
+    jne .out
+.next:
+    inc eax
+    cmp eax, TOUCH_SLOTS
+    jb .other
+    mov dword [rsi + TouchContact.emulated], 1
+    push rdi
+    push rdi                            ; 16-byte aligned
+    mov rdi, [rdi + InputSeat.server]   ; there
+    mov esi, INPUT_POSITION
+    xor r8d, r8d
+    call virtual_input_inject
+    mov rdi, [rsp]
+    mov rdi, [rdi + InputSeat.server]   ; pressed
+    mov esi, INPUT_BUTTON
+    xor edx, edx
+    mov ecx, 1
+    xor r8d, r8d
+    call virtual_input_inject
+    pop rdi
+    pop rdi
+.out:
+    ret
+
 ; rdi = seat, rsi = surface: a tap on it, as a click: raised, and the
 ; keyboard unless it is a panel
 tap_focus:
@@ -963,7 +1066,10 @@ scan_add:
 
 ; Type 6: a finger down goes to the surface under it, which then has it,
 ; moves and up or cancel too, until it is lifted; a frame end tells each
-; surface that heard of the scan. rdi = seat, rsi = RawInput*
+; surface that heard of the scan. On a surface whose client takes no touch,
+; one finger at a time is the pointer (TCH-04): down moves it there and
+; presses the left button, a move moves it, up or cancel lets go; as
+; records of their own, after this one. rdi = seat, rsi = RawInput*
 touch_event:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     sub rsp, 8                          ; 16-byte aligned
@@ -1022,6 +1128,20 @@ touch_event:
 .up:
     mov edx, TOUCH_UP
 .lifted:
+    cmp dword [r13 + TouchContact.emulated], 0
+    je .free_slot
+    mov dword [r13 + TouchContact.emulated], 0
+    push rdx
+    push rdx
+    mov rdi, [rbx + InputSeat.server]   ; the pointer's button up
+    mov esi, INPUT_BUTTON
+    xor edx, edx
+    xor ecx, ecx
+    xor r8d, r8d
+    call virtual_input_inject
+    pop rdx
+    pop rdx
+.free_slot:
     mov rsi, [r13 + TouchContact.surface]
     mov qword [r13 + TouchContact.surface], 0   ; the slot is free
     push rsi
@@ -1041,6 +1161,19 @@ touch_event:
     mov esi, [r12 + RawInput.device]
     mov edx, [r12 + RawInput.value]
     call device_point
+    cmp dword [r13 + TouchContact.emulated], 0
+    je .touch_move
+    push rax                            ; the pointer there
+    push rdx
+    mov rdi, [rbx + InputSeat.server]
+    mov esi, INPUT_POSITION
+    mov ecx, edx
+    mov edx, eax
+    xor r8d, r8d
+    call virtual_input_inject
+    pop rdx
+    pop rax
+.touch_move:
     mov rdi, [r13 + TouchContact.surface]
     mov esi, eax
     call local_xy
@@ -1086,9 +1219,16 @@ touch_event:
 .take:
     mov [rdx + TouchContact.surface], r13
     mov [rdx + TouchContact.key], r14d
+    mov dword [rdx + TouchContact.emulated], 0
+    mov r14, rdx
     mov rdi, rbx
     mov rsi, r13
     call tap_focus
+    mov rdi, rbx                        ; a client with no touch: the pointer
+    mov rsi, r14
+    mov edx, r15d
+    mov ecx, [rsp]
+    call touch_as_pointer
     mov rdi, rbx
     mov rsi, r13
     call scan_add
@@ -1754,6 +1894,132 @@ pointer_event:
     call send_at
 .out:
     EPILOGUE_RESTORE rbx, r12
+
+; Middle-click emulation (PTR-05), for a device with POINTER_MIDDLE_EMU:
+; a left or right press with no button down is held back; the other one
+; pressed within MIDDLE_WINDOW_NS makes it a middle press, the first of the
+; two releases its release and the second dropped. Anything else (a
+; release, another button, motion, the window passing) sends the held press
+; first, as it came. rdi = seat, rsi = RawInput*
+%define MIDDLE_WINDOW_NS    50000000
+middle_button:
+    PROLOGUE_SAVE rbx, r12, r13
+    sub rsp, 8                          ; 16-byte aligned
+    mov rbx, rdi
+    mov r12, rsi
+    mov r13d, [r12 + RawInput.code]
+    cmp dword [rbx + InputSeat.middle_active], 0
+    je .not_active
+    cmp r13d, 1                         ; middle down: left and right are it
+    ja .plain
+    cmp dword [r12 + RawInput.value], 0
+    jne .out                            ; pressed again: dropped
+    cmp dword [rbx + InputSeat.middle_active], 1
+    jne .second
+    mov dword [rbx + InputSeat.middle_active], 2
+    mov rdi, rbx                        ; the first release: middle's
+    mov esi, 2
+    xor edx, edx
+    mov ecx, [r12 + RawInput.device]
+    call replay
+    jmp .out
+.second:
+    mov dword [rbx + InputSeat.middle_active], 0
+    jmp .out
+.not_active:
+    cmp dword [rbx + InputSeat.middle_pending], 0
+    je .none_held
+    cmp dword [r12 + RawInput.value], 0 ; the other one pressed in time?
+    je .flush
+    cmp r13d, 1
+    ja .flush
+    mov eax, [rbx + InputSeat.middle_pending]
+    dec eax
+    cmp eax, r13d
+    je .flush
+    mov rax, [r12 + RawInput.time]
+    sub rax, [rbx + InputSeat.middle_since]
+    cmp rax, MIDDLE_WINDOW_NS
+    jae .flush
+    mov dword [rbx + InputSeat.middle_pending], 0
+    mov dword [rbx + InputSeat.middle_active], 1
+    mov rdi, rbx                        ; middle pressed
+    mov esi, 2
+    mov edx, 1
+    mov ecx, [r12 + RawInput.device]
+    call replay
+    jmp .out
+.flush:
+    mov rdi, rbx
+    call middle_flush
+    jmp .plain
+.none_held:
+    cmp dword [r12 + RawInput.value], 0
+    je .plain
+    cmp r13d, 1
+    ja .plain
+    cmp dword [rbx + InputSeat.buttons], 0
+    jne .plain
+    mov rdi, [rbx + InputSeat.server]
+    mov esi, [r12 + RawInput.device]
+    call pointer_settings
+    test dword [rax + PointerDevice.flags], POINTER_MIDDLE_EMU
+    jz .plain
+    lea eax, [r13 + 1]                  ; held back
+    mov [rbx + InputSeat.middle_pending], eax
+    mov eax, [r12 + RawInput.device]
+    mov [rbx + InputSeat.middle_device], eax
+    mov rax, [r12 + RawInput.time]
+    mov [rbx + InputSeat.middle_since], rax
+    jmp .out
+.plain:
+    mov rdi, rbx
+    mov rsi, r12
+    call button_event
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13
+
+; The press held back, if any, sent as it came. rdi = seat
+middle_flush:
+    cmp dword [rdi + InputSeat.middle_pending], 0
+    je .none
+    mov esi, [rdi + InputSeat.middle_pending]
+    dec esi
+    mov dword [rdi + InputSeat.middle_pending], 0
+    mov edx, 1
+    mov ecx, [rdi + InputSeat.middle_device]
+    jmp replay
+.none:
+    ret
+
+; The press held back, if MIDDLE_WINDOW_NS has passed. rdi = seat
+middle_timeout:
+    cmp dword [rdi + InputSeat.middle_pending], 0
+    je .none
+    push rdi                            ; 16-byte aligned
+    call ut_time_now_ns
+    pop rdi
+    sub rax, [rdi + InputSeat.middle_since]
+    cmp rax, MIDDLE_WINDOW_NS
+    jae middle_flush
+.none:
+    ret
+
+; A button record made here: rdi = seat, esi = button, edx = 1 pressed or 0,
+; ecx = device; at the seat's time
+replay:
+    sub rsp, 40                         ; the record; 16-byte aligned
+    mov dword [rsp + RawInput.type], INPUT_BUTTON
+    mov [rsp + RawInput.code], esi
+    mov [rsp + RawInput.value], edx
+    mov [rsp + RawInput.device], ecx
+    mov rax, [rdi + InputSeat.time]
+    mov [rsp + RawInput.time], rax
+    mov rsi, rsp
+    call button_event
+    add rsp, 40
+    ret
 
 ; A press on a surface focuses it, then the surface gets the button. Repeats
 ; (a press of a button that is down, a release of one that is up) are dropped.
