@@ -657,9 +657,9 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | SEC-03 | Capability gate with audit entries for privileged interfaces | P2 | ◐ `security/gate`, `audit` |
 | SEC-04 | Server-drawn permission prompts that clients cannot spoof | P2 | ◐ `security/prompts` |
 | SEC-05 | Capability tokens: entropy-seeded, keyed-hash authenticated, constant-time checks | P2 | ◐ `security/token` |
-| SEC-06 | Input validation at every trust boundary (lengths, counts, overflow) | P2 | |
-| SEC-07 | Zeroed pages before buffers are reused by another client | P2 | |
-| SEC-08 | Secure input mode: password fields hidden from other clients and the IME | P2 | |
+| SEC-06 | Input validation at every trust boundary (lengths, counts, overflow) | P2 | ✓ requests: `payload-check` (in `make check`) proves every handler reads only the payload bytes its `HANDLER` minimum promises, and every payload passed on carries a `; payload N` note within it; the ring: `msgbuf_read` refuses (-EPROTO, the message kept) a position outside the ring or a header or payload the ring does not hold; raw input: keys, buttons, axes and record types bounded, touch contacts found, not indexed; `test_proto`, `test_fuzz` (random messages and records), the decoders' fuzzing |
+| SEC-07 | Zeroed pages before buffers are reused by another client | P2 | ✓ a buffer's pixels and a client's whole region (arena, channels) zeroed before `ut_mem_free`; a buffer given back to a buffer pool zeroed; the kernel's `ut_mem_alloc` to give zeroed pages (KERNEL_NEEDS); `test_arena` |
+| SEC-08 | Secure input mode: password fields hidden from other clients and the IME | P2 | ◐ `cw_keyboard.set_secure`: while that surface has the keyboard no other client's window may take it (only the user moves it); keys only ever go to the keyboard's surface; the login screen's field is secure; `test_window`. the IME and the accessibility events are not wired yet: each must skip a secure surface when it is |
 | SEC-09 | Privacy indicators for screen, camera and microphone capture | P3 | |
 | SEC-10 | Per-app permission management and revocation UI | P3 | |
 | SEC-11 | Private window flag: excluded from capture, thumbnails and remote views | P3 | |
