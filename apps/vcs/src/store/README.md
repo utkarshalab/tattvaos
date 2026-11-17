@@ -73,12 +73,14 @@ to an indexed commit, ownership children must resolve with their declared type,
 and immutable owners must resolve in that same authenticated index generation.
 Newly staged objects form a strictly ID-sorted unique set and their index records
 must carry the current transaction sequence; older deduplicated objects are not
-restaged. The coordinator then drives object staging, ownership staging, the
-repository root plus verified index-root hash, flush and atomic publish. Failures
-before the publish barrier abort; an abort failure or ambiguous publish poisons
-the backend until remount. The coordinator is active, while the scalable UXFS
-callback adapter remains blocked on the durable allocator and atomic-generation
-ABI.
+restaged. Ownership edges are canonical and unique, and an allocation-free
+sorted merge proves that every new object has a correctly typed pin owned by the
+current transaction. The coordinator then drives object staging, ownership
+staging, the repository root plus verified index-root hash, flush and atomic
+publish. Failures before the publish barrier abort; an abort failure or ambiguous
+publish poisons the backend until remount. The coordinator is active, while the
+scalable UXFS callback adapter remains blocked on the durable allocator and
+atomic-generation ABI.
 
 The older segment/WAL modules remain scaffolding and are excluded from the
 native build. The old GC scaffold was removed. UXFS provides the atomic volume
