@@ -28,8 +28,8 @@ Canvas already calls these names, so each export only needs to appear in
 
 | Export | In | Out | Used for |
 |---|---|---|---|
-| `ut_mem_alloc` | `rdi` bytes, `rsi` flags | `rax` address or negative error, `r8` region handle | server arena, client regions, framebuffers, pixels |
-| `ut_mem_free` | `rdi` region handle | `rax` 0 or negative error | client disconnect, buffers |
+| `ut_mem_alloc` | `rdi` bytes, `rsi` flags | `rax` address or negative error, `r8` region handle, the pages zeroed | server arena, client regions, framebuffers, pixels |
+| `ut_mem_free` | `rdi` region handle | `rax` 0 or negative error | client disconnect, buffers; Canvas zeroes a client's region and pixels before giving them back (SEC-07), but another program's pages still reach Canvas only through `ut_mem_alloc`, so they must come zeroed |
 | `ut_time_now_ns` | | `rax` monotonic nanoseconds | frame timing, presentation |
 | `ut_log_write` | `rdi` text, `rsi` length | `rax` 0 | startup and errors; `ut_console_print` takes a NUL-terminated string, so this could be a thin wrapper |
 | `ut_fb_info` | `rdi` pointer to a 32-byte block | `rax` 0, or negative if there is no framebuffer | the block holds a `u64` virtual address, then `u32` width, height, pitch, format, then a `u64` size, from what `kernel/drivers/gpu/fb.asm` already keeps |
