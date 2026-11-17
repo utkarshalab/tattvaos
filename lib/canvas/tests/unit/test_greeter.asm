@@ -85,6 +85,7 @@ test_greeter_suite:
     CASE tg_contrast
     CASE tg_idle_lock
     CASE tg_idle_inhibit
+    CASE tg_pong
     CASE tg_locked_keys
     CASE tg_users
     call tg_too_small
@@ -724,6 +725,23 @@ tg_idle_inhibit:
     pop r12
     pop rbx
     ret
+
+; REL-14: typing on the login screen pings its client, which (the client
+; library) answers by itself
+tg_pong:
+    sub rsp, 8
+    INJECT_KEY KEY_A, 1
+    INJECT_KEY KEY_A, 0
+    call poll
+    call poll
+    call poll
+    call greeter_surface
+    mov rax, [rax + Surface.client]
+    cmp qword [rax + Client.hang_serial], 0
+    je .fail                            ; pinged
+    cmp qword [rax + Client.hang_since], 0
+    jne .fail                           ; and answered
+    PASS
 
 ; While it is up the server's shortcuts do nothing: Super+2 shows no other
 ; workspace
