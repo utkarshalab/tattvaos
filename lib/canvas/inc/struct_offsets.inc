@@ -1461,6 +1461,9 @@ endstruc
 %define POINTER_NATURAL     1           ; scrolling reversed
 %define POINTER_LEFT_HANDED 2           ; left and right buttons swapped
 
+%define APPS_MAX            32          ; apps the launcher lists
+%define APP_NAME_MAX        31          ; bytes of an app's name
+%define APP_BUF_SIZE        1024        ; the kernel's list of them
 struc Server
     .arena:                   resq 1
     .backend:                 resq 1
@@ -1600,6 +1603,13 @@ struc Server
     .magnify_follow:          resq 1    ; 1: the view on magnify_rect, the
                                         ; keyboard's; 0: round the pointer
     .magnify_rect:            resd 4    ; x, y, w, h of what has the keyboard
+    .power_last:              resq 1    ; the power menu's last choice, 1 lock
+                                        ; to 5 shut down; 0 none (DSK-06)
+    .launches:                resq 1    ; apps the launcher started (DSK-07)
+    .launch_last:             resq 1    ; the last one's place in apps, plus 1
+    .app_count:               resq 1    ; apps listed
+    .apps_loaded:             resq 1    ; 1: the kernel's list asked for
+    .apps:                    resb APPS_MAX * 32  ; a length byte, the name
 endstruc
 
 ; One raw input event, as a source hands it to input_submit
