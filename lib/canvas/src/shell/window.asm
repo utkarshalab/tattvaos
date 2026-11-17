@@ -32,6 +32,7 @@
 %include "inc/cwp_ops.inc"
 %include "inc/channel.inc"
 %include "inc/backend.inc"
+%include "inc/color.inc"
 %include "inc/struct_offsets.inc"
 
 extern arena_alloc
@@ -1004,6 +1005,88 @@ window_may_take_keyboard:
     movzx eax, al
 .out:
     pop rbx
+    ret
+
+; ---------------------------------------------------------------------------
+; window_set_icon
+;   A window's icon from a buffer: 16x16, each pixel the nearest of the
+;   buffer's; a buffer without alpha (BGRX) opaque (WIN-15)
+;   IN:  rdi = Window*, rsi = Buffer* (0: no icon)
+;   OUT: rax = 0, -EINVAL for a buffer not of 32-bit pixels
+; ---------------------------------------------------------------------------
+global window_set_icon
+window_set_icon:
+    push rbx
+    push r12
+    push r13
+    mov dword [rdi + Window.has_icon], 0
+    xor eax, eax
+    test rsi, rsi
+    jz .out
+    mov rax, -(EINVAL)
+    cmp qword [rsi + Buffer.format], DRM_FORMAT_RGB565
+    je .out
+    xor r8d, r8d                        ; alpha forced on: none of its own
+    cmp qword [rsi + Buffer.format], DRM_FORMAT_BGR8888
+    jne .rows
+    mov r8d, 0xFF000000
+.rows:
+    xor r9d, r9d                        ; y
+.row:
+    mov eax, r9d                        ; its row in the buffer
+    imul rax, [rsi + Buffer.height]
+    shr rax, 4                          ; / WINDOW_ICON
+    imul rax, [rsi + Buffer.stride]
+    mov r12, [rsi + Buffer.base]
+    add r12, rax
+    xor r10d, r10d                      ; x
+.pixel:
+    mov eax, r10d
+    imul rax, [rsi + Buffer.width]
+    shr rax, 4
+    mov ecx, [r12 + rax * 4]
+    or ecx, r8d
+    mov eax, r9d
+    shl eax, 4
+    add eax, r10d
+    mov [rdi + Window.icon + rax * 4], ecx
+    inc r10d
+    cmp r10d, WINDOW_ICON
+    jb .pixel
+    inc r9d
+    cmp r9d, WINDOW_ICON
+    jb .row
+    mov dword [rdi + Window.has_icon], 1
+    xor eax, eax
+.out:
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; ---------------------------------------------------------------------------
+; window_icon
+;   A window's icon, by its number in the window list
+;   IN:  rdi = server*, esi = the number
+;   OUT: rax = its WINDOW_ICON x WINDOW_ICON BGRA pixels, 0 if it has none
+; ---------------------------------------------------------------------------
+global window_icon
+window_icon:
+    mov rax, [rdi + Server.windows]
+.next:
+    test rax, rax
+    jz .none
+    cmp [rax + Window.number], esi
+    je .found
+    mov rax, [rax + Window.next]
+    jmp .next
+.found:
+    cmp dword [rax + Window.has_icon], 0
+    je .none
+    lea rax, [rax + Window.icon]
+    ret
+.none:
+    xor eax, eax
     ret
 
 ; ---------------------------------------------------------------------------
