@@ -34,6 +34,11 @@ extern server_set_lid_sleep
 extern server_remove_output
 extern server_poll
 extern virtual_input_inject
+extern canvas_surface_create
+extern canvas_buffer_create
+extern canvas_surface_attach
+extern canvas_surface_commit
+extern cw_surface_set_idle_inhibit
 
 %define HEAP_SIZE (8 * 1024 * 1024)
 %define WIDTH     400
@@ -79,6 +84,7 @@ test_greeter_suite:
     CASE tg_lid_awake
     CASE tg_contrast
     CASE tg_idle_lock
+    CASE tg_idle_inhibit
     CASE tg_locked_keys
     CASE tg_users
     call tg_too_small
@@ -651,6 +657,73 @@ tg_idle_lock:
     call poll
     LOCKED
     PASS
+
+; PRO-23: a surface shown that asked not to be idle keeps the idle lock
+; off; asked no more, it locks
+%define BGRX 0x34325242                 ; DRM_FORMAT_BGR8888
+tg_idle_inhibit:
+    push rbx
+    push r12
+    sub rsp, 8
+    call unlocked
+    mov rax, [rel greeter]              ; a surface of the login screen's
+    mov rdi, [rax + Greeter.conn]       ; connection, shown
+    call canvas_surface_create
+    test rax, rax
+    js .fail
+    mov ebx, eax
+    mov rax, [rel greeter]
+    mov rdi, [rax + Greeter.conn]
+    mov esi, 4
+    mov edx, 4
+    mov ecx, BGRX
+    call canvas_buffer_create
+    test rax, rax
+    js .fail
+    mov rcx, [rel greeter]
+    mov rdi, [rcx + Greeter.conn]
+    mov esi, ebx
+    mov edx, eax
+    xor ecx, ecx
+    xor r8d, r8d
+    call canvas_surface_attach
+    mov rax, [rel greeter]
+    mov rdi, [rax + Greeter.conn]
+    mov esi, ebx
+    mov edx, 1
+    call cw_surface_set_idle_inhibit
+    mov rax, [rel greeter]
+    mov rdi, [rax + Greeter.conn]
+    mov esi, ebx
+    xor edx, edx
+    call canvas_surface_commit
+    call poll
+    mov rdi, [rel greeter]
+    mov esi, 1                          ; due at once, but for the surface
+    call greeter_set_idle
+    call poll
+    call poll
+    cmp qword [rel server + Server.locked], 0
+    jne .fail
+    mov rax, [rel greeter]
+    mov rdi, [rax + Greeter.conn]
+    mov esi, ebx
+    xor edx, edx
+    call cw_surface_set_idle_inhibit
+    call poll
+    call poll
+    call poll
+    cmp qword [rel server + Server.locked], 1
+    jne .fail
+    xor eax, eax
+    jmp .out
+.fail:
+    mov eax, 1
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
 
 ; While it is up the server's shortcuts do nothing: Super+2 shows no other
 ; workspace
