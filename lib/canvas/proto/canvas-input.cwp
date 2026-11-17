@@ -225,5 +225,11 @@ protocol canvas-input 1 {
         ; for now); none while ctrl, alt or super is held. modifiers: held
         ; and locked together.
         event text(time: ulong, surface: handle, codepoint: uint, modifiers: uint)
+
+        ; A password field (SEC-08): while this surface of the client's has
+        ; the keyboard, no other client's window may take it from it; only
+        ; the user, by clicking elsewhere or switching, moves it. Typing
+        ; there is for this client alone.
+        request set_secure(surface: handle, on: bool)
     }
 }
