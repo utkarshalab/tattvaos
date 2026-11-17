@@ -782,6 +782,21 @@ cw_dnd_accept:
     ret
 %endif
 
+%ifdef CWP_OBJ_KEYBOARD                 ; (an interface with no object id: none)
+global cw_keyboard_set_secure
+cw_keyboard_set_secure:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 4], edx  ; on
+    mov esi, CWP_OBJ_KEYBOARD
+    mov edx, KEYBOARD_SET_SECURE
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
 %ifdef CWP_OBJ_TOPLEVEL                 ; (an interface with no object id: none)
 global cw_toplevel_create
 cw_toplevel_create:
