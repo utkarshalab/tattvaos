@@ -104,6 +104,7 @@ extern pointer_button
 extern clamshell_sleep
 extern switcher_cancel
 extern menu_key
+extern osd_key
 extern virtual_input_inject
 extern power_menu_open
 extern launcher_open
@@ -2175,6 +2176,11 @@ shortcut:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
     mov r12d, esi
+    mov rdi, [rbx + InputSeat.server]   ; volume and brightness, always
+    call osd_key
+    test eax, eax
+    jnz .yes
+    mov esi, r12d
     mov rdi, [rbx + InputSeat.server]   ; a menu open takes every key
     call menu_key
     test eax, eax
