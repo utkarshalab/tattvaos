@@ -35,8 +35,8 @@ ut_auth_users:
     mov rax, -(ENOSYS)
     ret
 
-; The power menu's restart and shut down, and the launcher's apps: none of
-; them here.
+; The power menu's restart and shut down, the launcher's apps, the volume
+; and the backlight: none of them here.
 global ut_power_restart
 ut_power_restart:
     mov rax, -(ENOSYS)
@@ -51,6 +51,14 @@ ut_app_list:
     ret
 global ut_app_launch
 ut_app_launch:
+    mov rax, -(ENOSYS)
+    ret
+global ut_audio_set_volume
+ut_audio_set_volume:
+    mov rax, -(ENOSYS)
+    ret
+global ut_backlight_set
+ut_backlight_set:
     mov rax, -(ENOSYS)
     ret
 
