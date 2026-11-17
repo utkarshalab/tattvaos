@@ -508,7 +508,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | DSK-05 | Login greeter with user list and accessibility menu | P2 | ◐ `session/greeter`: started by canvasd, a client-library overlay layer with a password field (dots, Backspace, Esc, Enter to a verify hook, red edge when wrong, text wiped after each check); `test_greeter`, `ubf-check`; a "Password" label in the embedded font. the password checked by the kernel (`session/login`, `ut_auth_verify`), refused for five seconds after three wrong; the kernel's users (`ut_auth_users`, the first four) a row of names chosen with Left and Right; nothing is let in until the kernel exports the check |
 | DSK-06 | Power menu: sleep, restart, shutdown, lock, switch user | P2 | ◐ `desktop/menu`: Ctrl+Alt+Delete or the power key; Lock, Switch user, Sleep, Restart, Shut down, drawn by the server over everything, taken from the keyboard (Up, Down, Enter, Esc) while open; Lock and Switch user put the login screen up, Sleep too and then `ut_power_suspend`, Restart `ut_power_restart`, Shut down `ut_power_off` (weak imports, KERNEL_NEEDS); `test_window`. clients are not asked to save first, no pointer clicks on it yet, and a session per user comes later |
 | DSK-07 | App launcher with search | P2 | ✓ `desktop/menu`: Super+Space; a search line and up to eight apps whose names hold it, any case; typing and Backspace change it, Enter starts the one selected (`ut_app_launch`); the apps from `ut_app_list` the first time and `launcher_add_app`; `test_window` |
-| DSK-08 | Volume and brightness on-screen displays | P2 | |
+| DSK-08 | Volume and brightness on-screen displays | P2 | ✓ `desktop/osd`: the volume (up, down, mute) and brightness keys are the server's, the login screen too; levels 0 to 100 in steps of 5 to the kernel (`ut_audio_set_volume`, `ut_backlight_set`, weak imports); a box near the bottom of the pointer's output, the name and a bar, for a second and a half; `test_window` |
 | DSK-09 | Quick settings: brightness, do-not-disturb, scale, night light | P3 | |
 | DSK-10 | Battery, network and status indicators | P3 | |
 | DSK-11 | Status-item (tray) protocol | P3 | |
@@ -589,7 +589,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | MED-08 | Animated playback scheduler tied to the frame clock (GIF, WebP, APNG) | P3 | ◐ `gif_animation`, `webp_animation` |
 | MED-09 | Animated frame cache with memory caps | P3 | |
 | MED-10 | APNG decoding | P3 | |
-| MED-11 | Image encoders: PNG, QOI, JPEG (screenshots, export) | P2 | |
+| MED-11 | Image encoders: PNG, QOI, JPEG (screenshots, export) | P2 | ◐ `img/encode`: `png_encode` (8-bit RGBA, stored deflate in zlib, every CRC) and `qoi_encode` (all of QOI 1.0) from a premultiplied PixBuf, alpha straightened; `test_png` (each round-trips a 200x100 image through its decoder; PNG's CRC convention). no JPEG yet |
 | MED-12 | Thumbnail service with cache | P3 | |
 | MED-13 | Tiled giant-image streaming into surfaces | P4 | |
 | MED-14 | AVIF, HEIF, JPEG XL decoding | P5 | Deferred by decision 0011 |
@@ -848,7 +848,7 @@ All items run on-device, opt-in, behind capability gates.
 | QA-05 | Conformance suite that connects real clients | P2 | ◐ `tests/cts` (TODO) |
 | QA-06 | Hostile-client conformance cases | P2 | |
 | QA-07 | Soak: churn, hotplug, quota; 24-hour then 30-day | P3 | ◐ `tests/soak` |
-| QA-08 | Property-based tests for region math and handle tables | P2 | |
+| QA-08 | Property-based tests for region math and handle tables | P2 | ✓ `test_region` (four seeds, 60 random adds, subtracts and intersects each on a 16x16 grid against a bitmap, every point checked after each) and `test_handle` (four seeds, 400 random creates, destroys and resolves each against a model: live handles resolve, dead ones never, though their slots be used again; full refuses; the count) |
 | QA-09 | Differential decoder tests against reference outputs | P2 | |
 | QA-10 | Deterministic multi-client race tests | P3 | |
 | QA-11 | Simulated vblank clocks for timing tests | P2 | |
