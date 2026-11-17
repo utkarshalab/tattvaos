@@ -38,9 +38,18 @@ struc vcs_reclaim_check
     .active_readers resq 1 ; target-specific reader-pin count
 endstruc
 
+struc vcs_ownership_root
+    .records      resq 1
+    .record_count resq 1
+    .generation   resq 1
+    .root_hash    resq 1 ; output for hash, expected value for verify
+endstruc
+
 %ifndef VCS_OWNERSHIP_IMPLEMENTATION
 extern vcs_ownership_edge_validate
 extern vcs_ownership_catalog_validate
+extern vcs_ownership_root_hash
+extern vcs_ownership_root_verify
 extern vcs_file_ownership_edges
 extern vcs_tree_ownership_edges
 extern vcs_ownership_reclaimable
