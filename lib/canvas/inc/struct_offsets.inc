@@ -1767,6 +1767,9 @@ struc SurfaceState
     resd 1
 endstruc
 
+%define CURSOR_MAX          24          ; a client's pointer image, at most
+%define CURSOR_HOT_MAX      16          ; its tip from its corner, at most
+%define CURSOR_CUSTOM       3           ; Surface.cursor_shape: its own image
 struc Surface
     .id:                      resq 1
     .role:                    resq 1
@@ -1798,6 +1801,17 @@ struc Surface
     .pref_output:             resq 1    ; the preferred event last sent:
     .pref_scale:              resd 1    ; its output, scale and transform
     .pref_transform:          resd 1    ; (SUR-13)
+    .vp_x:                    resd 1    ; the viewport (PRO-15): the part of
+    .vp_y:                    resd 1    ; the buffer shown, width 0 all of it;
+    .vp_w:                    resd 1    ; its size on the screen, 0 the
+    .vp_h:                    resd 1    ; part's at the buffer scale
+    .vp_dst_w:                resd 1
+    .vp_dst_h:                resd 1
+    .cursor_image:            resq 1    ; its own pointer image (PTR-16):
+    .cursor_w:                resd 1    ; CURSOR_MAX x CURSOR_MAX BGRA, from
+    .cursor_h:                resd 1    ; the client's arena; 0: none
+    .cursor_hot_x:            resd 1
+    .cursor_hot_y:            resd 1
 endstruc
 
 ; A surface with a shell role (src/shell/window.asm): a toplevel window,
@@ -1904,6 +1918,8 @@ struc Window
     .transient:               resq 1    ; the toplevel Surface* it belongs to
     .title:                   resb 64   ; WINDOW_NAME_MAX + 1
     .app_id:                  resb 64
+    .aspect_w:                resd 1    ; the shape it keeps, 0: any (WIN-08)
+    .aspect_h:                resd 1
     .has_icon:                resd 1    ; 1: icon holds its icon (WIN-15)
     .icon_pad:                resd 1
     .icon:                    resd 256  ; WINDOW_ICON x WINDOW_ICON BGRA rows
