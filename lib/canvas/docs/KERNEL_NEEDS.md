@@ -180,6 +180,21 @@ programs use it.
   once with a negative error (`-EBUSY` while suspend is inhibited). Without
   it the lid only locks. `server_set_lid_sleep(server, 0)` makes it only
   lock anyway.
+- The power menu (Ctrl+Alt+Delete or the power key) asks for these, each a
+  weak import with no arguments: `ut_power_restart` and `ut_power_off`,
+  which return only with a negative error (`-EBUSY` while inhibited); Sleep
+  uses `ut_power_suspend` above. Without them Restart and Shut down do
+  nothing.
+- The app launcher (Super+Space) asks for the apps the user may start, and
+  starts one:
+
+  | Export | In | Out |
+  |---|---|---|
+  | `ut_app_list` | `rdi` buffer, `rsi` its size | `rax` the number of app names written, each UTF-8 followed by a NUL; negative if there is no list |
+  | `ut_app_launch` | `rdi` an app's name as `ut_app_list` gave it, `rsi` its length | `rax` 0 once started, negative otherwise |
+
+  Canvas asks for the list once, the first time the launcher opens, and
+  keeps the first 32 names of at most 31 bytes; the buffer is 1024 bytes.
 
 ## Step 4: logging in
 
