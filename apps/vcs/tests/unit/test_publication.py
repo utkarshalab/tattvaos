@@ -13,7 +13,8 @@ NONE, BEGUN, OBJECTS, OWNERSHIP, ROOT, FLUSHED, COMMITTED, POISONED, ABORTED = r
 class PublishObject(ctypes.Structure):
     _fields_ = [("object_id", ctypes.c_ubyte * 32),
                 ("object_type", ctypes.c_uint32), ("flags", ctypes.c_uint32),
-                ("payload", P), ("length", ctypes.c_uint64)]
+                ("payload", P), ("length", ctypes.c_uint64),
+                ("envelope", ctypes.c_uint64)]
 
 
 class Edge(ctypes.Structure):
@@ -83,6 +84,7 @@ for index, (kind, payload) in enumerate(object_specs):
     objects[index].object_type = kind
     objects[index].payload = payload_buffers[index]
     objects[index].length = len(payload)
+    objects[index].envelope = 100 + index
 
 chunk_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 1)
 file_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 2)
@@ -344,6 +346,15 @@ root_image[184:216] = bytes(index_hash)
 root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
 root[:] = root_image
 
+for envelope in (0, 999):
+    saved_envelope = objects[0].envelope
+    objects[0].envelope = envelope
+    backend, state = backend_for()
+    publication = request(backend)
+    assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+    assert publication.result_phase == 0xBAD and state["events"] == []
+    objects[0].envelope = saved_envelope
+
 # Ownership inputs are canonical and every staged object is pinned by the
 # current transaction key before durable staging begins.
 saved_edges = bytes(edges)
@@ -371,4 +382,4 @@ publication.transaction_owner = wrong_transaction_owner
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (authenticated closure, canonical staging, transaction pins, atomic failures)")
+print("VCS publication: PASS (authenticated closure/locators, canonical staging, transaction pins, atomic failures)")
