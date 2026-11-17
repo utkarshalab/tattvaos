@@ -45,6 +45,7 @@ struc vcs_publication
     .object_count  resq 1
     .edges         resq 1
     .edge_count    resq 1
+    .transaction_owner resq 1 ; 32-byte canonical current-transaction owner key
     .root          resq 1
     .root_length   resq 1
     .tx_sequence   resq 1
