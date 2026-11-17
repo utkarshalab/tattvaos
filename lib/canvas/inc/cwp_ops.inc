@@ -157,6 +157,7 @@
 %define DND_EV_FINISHED 4
 
 ; cw_keyboard (canvas-input.cwp)
+%define KEYBOARD_SET_SECURE   0
 %define KEYBOARD_EV_ENTER     0
 %define KEYBOARD_EV_LEAVE     1
 %define KEYBOARD_EV_KEY       2
