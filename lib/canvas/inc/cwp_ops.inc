@@ -13,6 +13,7 @@
 %define DISPLAY_GET_CAPS        0
 %define DISPLAY_SYNC            1
 %define DISPLAY_GET_VERSION     2
+%define DISPLAY_PONG            3
 %define DISPLAY_EV_CAPABILITIES 0
 %define DISPLAY_EV_ERROR        1
 %define DISPLAY_EV_PING         2
@@ -82,6 +83,7 @@
 %define SURFACE_EV_FRAME_DONE     0
 %define SURFACE_EV_ENTER          1
 %define SURFACE_EV_LEAVE          2
+%define SURFACE_EV_PREFERRED      3
 
 ; cw_subsurface (canvas-core.cwp)
 %define SUBSURFACE_GET_PARENT          0
@@ -167,24 +169,27 @@
 %define KEYBOARD_EV_TEXT      4
 
 ; cw_toplevel (canvas-shell.cwp)
-%define TOPLEVEL_CREATE            0
-%define TOPLEVEL_DESTROY           1
-%define TOPLEVEL_SET_TITLE         2
-%define TOPLEVEL_SET_APP_ID        3
-%define TOPLEVEL_ACK_CONFIGURE     4
-%define TOPLEVEL_SET_MAXIMIZED     5
-%define TOPLEVEL_UNSET_MAXIMIZED   6
-%define TOPLEVEL_SET_FULLSCREEN    7
-%define TOPLEVEL_UNSET_FULLSCREEN  8
-%define TOPLEVEL_SET_MINIMIZED     9
-%define TOPLEVEL_SET_DECORATED     10
-%define TOPLEVEL_SET_MIN_SIZE      11
-%define TOPLEVEL_SET_MAX_SIZE      12
-%define TOPLEVEL_SET_PARENT        13
-%define TOPLEVEL_SET_MODAL         14
-%define TOPLEVEL_REQUEST_ATTENTION 15
-%define TOPLEVEL_EV_CONFIGURE      0
-%define TOPLEVEL_EV_CLOSE          1
+%define TOPLEVEL_CREATE               0
+%define TOPLEVEL_DESTROY              1
+%define TOPLEVEL_SET_TITLE            2
+%define TOPLEVEL_SET_APP_ID           3
+%define TOPLEVEL_ACK_CONFIGURE        4
+%define TOPLEVEL_SET_MAXIMIZED        5
+%define TOPLEVEL_UNSET_MAXIMIZED      6
+%define TOPLEVEL_SET_FULLSCREEN       7
+%define TOPLEVEL_UNSET_FULLSCREEN     8
+%define TOPLEVEL_SET_MINIMIZED        9
+%define TOPLEVEL_SET_DECORATED        10
+%define TOPLEVEL_SET_MIN_SIZE         11
+%define TOPLEVEL_SET_MAX_SIZE         12
+%define TOPLEVEL_SET_PARENT           13
+%define TOPLEVEL_SET_MODAL            14
+%define TOPLEVEL_REQUEST_ATTENTION    15
+%define TOPLEVEL_GET_ACTIVATION_TOKEN 16
+%define TOPLEVEL_ACTIVATE             17
+%define TOPLEVEL_SET_ICON             18
+%define TOPLEVEL_EV_CONFIGURE         0
+%define TOPLEVEL_EV_CLOSE             1
 
 ; cw_popup (canvas-shell.cwp)
 %define POPUP_CREATE  0
