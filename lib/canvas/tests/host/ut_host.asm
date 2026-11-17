@@ -508,7 +508,8 @@ host_same_name:
     xor eax, eax
     ret
 
-; The power menu's and the launcher's calls for host tests: done at once;
+; The power menu's, the launcher's and the volume and backlight calls for
+; host tests: done at once;
 ; no list of apps
 global ut_power_restart
 ut_power_restart:
@@ -516,6 +517,10 @@ global ut_power_off
 ut_power_off:
 global ut_app_launch
 ut_app_launch:
+global ut_audio_set_volume
+ut_audio_set_volume:
+global ut_backlight_set
+ut_backlight_set:
     xor eax, eax
     ret
 global ut_app_list
