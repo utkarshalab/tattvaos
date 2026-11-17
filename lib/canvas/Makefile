@@ -837,6 +837,11 @@ symbol-check: all
 field-width-check:
 	@python3 tests/host/field_width_check.py .
 
+# Every request handler reads only the payload bytes it was promised (SEC-06).
+.PHONY: payload-check
+payload-check:
+	@python3 tests/host/payload_check.py .
+
 # UBF programs load above 4 GiB: no object may hold a 32-bit absolute address.
 .PHONY: pic-check
 pic-check: all
@@ -854,7 +859,7 @@ pic-check: all
 # suites (test_fuzz among them) and conformance checks, the decoders fuzzed
 # (fuzz_media.py), and the UBF in both modes.
 .PHONY: check
-check: field-width-check all test wx-check pic-check symbol-check host-check ubf-check release
+check: field-width-check payload-check all test wx-check pic-check symbol-check host-check ubf-check release
 	$(MAKE) MODE=release ubf-check
 	@echo "check: passed"
 
