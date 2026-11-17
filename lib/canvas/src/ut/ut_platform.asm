@@ -35,6 +35,25 @@ ut_auth_users:
     mov rax, -(ENOSYS)
     ret
 
+; The power menu's restart and shut down, and the launcher's apps: none of
+; them here.
+global ut_power_restart
+ut_power_restart:
+    mov rax, -(ENOSYS)
+    ret
+global ut_power_off
+ut_power_off:
+    mov rax, -(ENOSYS)
+    ret
+global ut_app_list
+ut_app_list:
+    mov rax, -(ENOSYS)
+    ret
+global ut_app_launch
+ut_app_launch:
+    mov rax, -(ENOSYS)
+    ret
+
 ; And displays coming and going: never told of here.
 global ut_display_register_callback
 ut_display_register_callback:
