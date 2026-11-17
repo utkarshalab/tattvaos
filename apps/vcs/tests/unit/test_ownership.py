@@ -54,6 +54,11 @@ class Reclaim(ctypes.Structure):
                 ("catalog_count", ctypes.c_uint64), ("active_readers", ctypes.c_uint64)]
 
 
+class OwnershipRoot(ctypes.Structure):
+    _fields_ = [("records", ctypes.POINTER(Edge)), ("record_count", ctypes.c_uint64),
+                ("generation", ctypes.c_uint64), ("root_hash", P)]
+
+
 for name, arg in (("vcs_file_object_build", Build),
                   ("vcs_file_object_verify", Read),
                   ("vcs_file_ownership_edges", FileOwnership),
@@ -62,6 +67,10 @@ for name, arg in (("vcs_file_object_build", Build),
     getattr(lib, name).restype = ctypes.c_uint64
 lib.vcs_ownership_catalog_validate.argtypes = [ctypes.POINTER(Edge), ctypes.c_uint64]
 lib.vcs_ownership_catalog_validate.restype = ctypes.c_uint64
+lib.vcs_ownership_root_hash.argtypes = [ctypes.POINTER(OwnershipRoot)]
+lib.vcs_ownership_root_hash.restype = ctypes.c_uint64
+lib.vcs_ownership_root_verify.argtypes = [ctypes.POINTER(OwnershipRoot)]
+lib.vcs_ownership_root_verify.restype = ctypes.c_uint64
 lib.vcs_ownership_edge_validate.argtypes = [ctypes.POINTER(Edge)]
 lib.vcs_ownership_edge_validate.restype = ctypes.c_uint64
 
@@ -135,6 +144,20 @@ for index, raw in enumerate(ordered_raw):
     ctypes.memmove(ctypes.byref(ordered[index]), raw, len(raw))
 assert lib.vcs_ownership_catalog_validate(ordered, len(ordered)) == OK
 
+ownership_hash = (ctypes.c_ubyte * 32)()
+ownership_root = OwnershipRoot(ordered, len(ordered), 23, ownership_hash)
+assert lib.vcs_ownership_root_hash(ctypes.byref(ownership_root)) == OK
+root_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 2, 0, 23,
+                                       ctypes.sizeof(ordered))
+assert bytes(ownership_hash) == hashlib.sha256(root_frame + bytes(ordered)).digest()
+assert lib.vcs_ownership_root_verify(ctypes.byref(ownership_root)) == OK
+ownership_hash[0] ^= 1
+assert lib.vcs_ownership_root_verify(ctypes.byref(ownership_root)) == CORRUPT
+ownership_hash[0] ^= 1
+ownership_root.generation = 0
+assert lib.vcs_ownership_root_hash(ctypes.byref(ownership_root)) == CORRUPT
+ownership_root.generation = 23
+
 duplicate_raw = sorted(raw_edges + [raw_edges[0]], key=edge_key)
 duplicate = (Edge * len(duplicate_raw))()
 for index, raw in enumerate(duplicate_raw):
@@ -159,4 +182,4 @@ small = FileOwnership(ctypes.pointer(read), small_edges, 1, 0xBAD)
 assert lib.vcs_file_ownership_edges(ctypes.byref(small)) == NO_MEM
 assert small.result_edges == 0xBAD
 
-print("VCS ownership: PASS (file edges, duplicate collapse, catalog order, explicit reclaim proof)")
+print("VCS ownership: PASS (file edges, canonical root hashes, catalog order, explicit reclaim proof)")
