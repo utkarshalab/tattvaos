@@ -312,10 +312,12 @@ frame_text:
 %define S_NO_ALPHA  8                   ; 1: rows are copied
 %define S_DEST      16                  ; where it goes, in the frame
 %define S_CLIP      32                  ; the clip, in the frame
+%define S_VIEW      48                  ; a viewport's part, as a Buffer
+%define S_FRAME     (S_VIEW + ((Buffer_size + 15) & ~15) + 8)
 global sw_render_surface
 sw_render_surface:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    sub rsp, 56                         ; locals; 16-byte aligned
+    sub rsp, S_FRAME                    ; locals; 16-byte aligned
     mov rbx, rdi
     mov r12, rsi
     mov r13, rdx
@@ -343,6 +345,38 @@ sw_render_surface:
     movzx ecx, cl
     xor ecx, 1
     mov [rsp + S_NO_ALPHA], rcx
+
+    ; A viewport's part of the buffer (PRO-15): drawn as a buffer of its
+    ; own, starting there; a part not inside the buffer draws nothing
+    cmp dword [r12 + Surface.vp_w], 0
+    je .whole
+    mov eax, [r12 + Surface.vp_x]
+    add eax, [r12 + Surface.vp_w]
+    jc .done
+    cmp rax, [r14 + Buffer.width]
+    ja .done
+    mov eax, [r12 + Surface.vp_y]
+    add eax, [r12 + Surface.vp_h]
+    jc .done
+    cmp rax, [r14 + Buffer.height]
+    ja .done
+    lea rdi, [rsp + S_VIEW]
+    mov rax, [r14 + Buffer.stride]
+    mov [rdi + Buffer.stride], rax
+    mov rax, [r14 + Buffer.format]
+    mov [rdi + Buffer.format], rax
+    mov eax, [r12 + Surface.vp_w]
+    mov [rdi + Buffer.width], rax
+    mov eax, [r12 + Surface.vp_h]
+    mov [rdi + Buffer.height], rax
+    mov eax, [r12 + Surface.vp_y]
+    imul rax, [r14 + Buffer.stride]
+    mov ecx, [r12 + Surface.vp_x]
+    lea rax, [rax + rcx * 4]
+    add rax, [r14 + Buffer.base]
+    mov [rdi + Buffer.base], rax
+    mov r14, rdi
+.whole:
 
     ; Where it goes: its place and size in the layout, in the frame
     mov rdi, r12
@@ -454,7 +488,7 @@ sw_render_surface:
 
 .done:
     xor eax, eax
-    add rsp, 56
+    add rsp, S_FRAME
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
