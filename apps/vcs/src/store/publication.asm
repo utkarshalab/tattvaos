@@ -217,6 +217,16 @@ vcs_publication_commit:
  call ids_equal_publication
  test eax,eax
  jz .corrupt
+ ; The staged set is canonical, scalable, and duplicate-free without an
+ ; auxiliary allocation: callers provide strict unsigned ID order.
+ test r14,r14
+ jz .object_order_valid
+ mov rsi,[rsp+40]
+ lea rdi,[rsi-vcs_publish_object_size]
+ call ids_compare_publication
+ cmp eax,-1
+ jne .corrupt
+.object_order_valid:
  ; Every staged immutable object must already exist in the authenticated index
  ; generation with the same canonical type and length.
  mov rax,[rbx+vcs_publication.index_root]
@@ -239,6 +249,9 @@ vcs_publication_commit:
  jne .corrupt
  mov rcx,[rax+vcs_publish_object.length]
  cmp rcx,[rdx+vcs_object_index_record.payload_length]
+ jne .corrupt
+ mov rcx,[rbx+vcs_publication.tx_sequence]
+ cmp rcx,[rdx+vcs_object_index_record.transaction]
  jne .corrupt
  inc qword [rsp+32]
  jmp .validate_objects
@@ -414,6 +427,27 @@ ids_equal_publication:
  or rax,rcx
  setz al
  movzx eax,al
+ ret
+
+; RDI/RSI=32-byte IDs. EAX=-1,0,1 for unsigned lexicographic ordering.
+ids_compare_publication:
+ xor ecx,ecx
+.compare_loop:
+ movzx eax,byte [rdi+rcx]
+ movzx edx,byte [rsi+rcx]
+ cmp eax,edx
+ jb .compare_less
+ ja .compare_greater
+ inc ecx
+ cmp ecx,32
+ jb .compare_loop
+ xor eax,eax
+ ret
+.compare_less:
+ mov eax,-1
+ ret
+.compare_greater:
+ mov eax,1
  ret
 
 section .note.GNU-stack noalloc noexec nowrite progbits
