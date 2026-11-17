@@ -102,6 +102,12 @@ extern clamshell_update
 extern window_set_parent
 extern server_set_pointer
 extern input_warp
+extern window_set_icon
+extern hang_step
+extern hang_pong
+extern activation_issue
+extern activation_redeem
+extern surface_tell_preferred
 extern input_focus_surface
 extern window_attention
 extern ut_wait_wake_task
@@ -633,6 +639,8 @@ server_poll:
     mov r12, [r12 + Client.next_client]
     jmp .client
 .frame:
+    mov rdi, rbx                        ; pings, and who is not responding
+    call hang_step
     mov rdi, rbx                        ; commits whose fences are now signaled
     call commit_retry
     mov rdi, [rbx + Server.compositor]
@@ -779,6 +787,14 @@ HANDLER h_display_sync, 0
     call reply
 HANDLER_END
 
+; pong(serial: ulong): an answer to a ping (REL-14)
+HANDLER h_display_pong, 8
+    mov rdi, r14
+    mov rsi, rbx
+    mov rdx, [r13]
+    call hang_pong
+HANDLER_END
+
 ; get_version() -> (major, minor, patch: uint)
 HANDLER h_display_get_version, 0
     lea rdi, [rel s_version]
@@ -830,12 +846,18 @@ HANDLER h_surface_create, 0
     mov [r13], rax
     mov rsi, rax
     call own_surface
+    push rax
+    push rax                            ; 16-byte aligned
     mov rdi, [r14 + Server.outputs]
     mov rsi, rax
     call compositor_add_surface
     mov rdi, r13
     mov esi, 4
     call reply
+    pop rsi                             ; then what to draw it at (SUR-13)
+    pop rsi
+    mov rdi, r14
+    call surface_tell_preferred
 HANDLER_END
 
 ; destroy(surface: handle)
@@ -1407,6 +1429,71 @@ HANDLER h_toplevel_request_attention, 4
     mov rdi, r14
     mov rsi, rax
     call window_attention
+HANDLER_END
+
+; cw_toplevel.get_activation_token(surface) -> (token: ulong): only while it
+; has the keyboard, 0 otherwise (PRO-18)
+HANDLER h_toplevel_get_activation_token, 4
+    NEEDS_CAP CAP_SHELL
+    OWN_TOPLEVEL
+    mov rdi, r14
+    mov rsi, rax
+    call activation_issue
+    mov [r13], rax
+    mov rdi, r13
+    mov esi, 8
+    call reply
+HANDLER_END
+
+; cw_toplevel.activate(surface, token: ulong): up with a good token, marked
+; urgent without
+HANDLER h_toplevel_activate, 12
+    NEEDS_CAP CAP_SHELL
+    OWN_TOPLEVEL
+    push rax
+    push rax                            ; 16-byte aligned
+    mov rdi, r14
+    mov rsi, [r13 + 4]
+    call activation_redeem
+    pop rsi
+    pop rsi
+    mov rdi, r14
+    test eax, eax
+    jz .no_token
+    call window_activate
+    xor eax, eax
+    jmp .return
+.no_token:
+    call window_attention
+    xor eax, eax
+HANDLER_END
+
+; cw_toplevel.set_icon(surface, buffer): its icon, 0 none (WIN-15); every
+; taskbar redrawn
+HANDLER h_toplevel_set_icon, 8
+    NEEDS_CAP CAP_SHELL
+    OWN_TOPLEVEL
+    mov r12, [rax + Surface.window]     ; (the header is not needed again)
+    xor eax, eax
+    mov esi, [r13 + 4]
+    test esi, esi
+    jz .icon
+    call own_buffer
+    test rax, rax
+    jz .bad_object
+.icon:
+    mov rdi, r12
+    mov rsi, rax
+    call window_set_icon
+    test rax, rax
+    js .return
+    mov rcx, [r14 + Server.taskbar]
+.taskbar:
+    test rcx, rcx
+    jz .return
+    mov dword [rcx + Taskbar.dirty], 1
+    mov rcx, [rcx + Taskbar.next]
+    jmp .taskbar
 HANDLER_END
 
 ; cw_region: create() -> (region)
