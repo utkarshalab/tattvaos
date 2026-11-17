@@ -104,6 +104,7 @@ extern server_set_pointer
 extern input_warp
 extern window_set_icon
 extern hang_step
+extern osd_step
 extern hang_pong
 extern activation_issue
 extern activation_redeem
@@ -641,6 +642,8 @@ server_poll:
 .frame:
     mov rdi, rbx                        ; pings, and who is not responding
     call hang_step
+    mov rdi, rbx                        ; volume or brightness shown long enough
+    call osd_step
     mov rdi, rbx                        ; commits whose fences are now signaled
     call commit_retry
     mov rdi, [rbx + Server.compositor]
