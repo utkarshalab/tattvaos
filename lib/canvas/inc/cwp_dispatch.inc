@@ -19,6 +19,9 @@
 %ifdef HAVE_h_display_get_version
     CWP_REQUEST CWP_OBJ_DISPLAY, DISPLAY_GET_VERSION, h_display_get_version
 %endif
+%ifdef HAVE_h_display_pong
+    CWP_REQUEST CWP_OBJ_DISPLAY, DISPLAY_PONG, h_display_pong
+%endif
 %ifdef HAVE_h_caps_get_interface_caps
     CWP_REQUEST CWP_OBJ_CAPS, CAPS_GET_INTERFACE_CAPS, h_caps_get_interface_caps
 %endif
@@ -231,6 +234,15 @@
 %endif
 %ifdef HAVE_h_toplevel_request_attention
     CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_REQUEST_ATTENTION, h_toplevel_request_attention
+%endif
+%ifdef HAVE_h_toplevel_get_activation_token
+    CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_GET_ACTIVATION_TOKEN, h_toplevel_get_activation_token
+%endif
+%ifdef HAVE_h_toplevel_activate
+    CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_ACTIVATE, h_toplevel_activate
+%endif
+%ifdef HAVE_h_toplevel_set_icon
+    CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_ICON, h_toplevel_set_icon
 %endif
 %ifdef HAVE_h_popup_create
     CWP_REQUEST CWP_OBJ_POPUP, POPUP_CREATE, h_popup_create
